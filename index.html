@@ -50,6 +50,14 @@
   .tab{padding:10px 16px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent}
   .tab.on{color:var(--txt);border-bottom-color:var(--accent)}
 
+  /* Mode switch (협곡 / 칼바람) */
+  .modebar{display:flex;gap:8px;margin:16px 0 0}
+  .modebtn{background:var(--card2);border:1px solid var(--line);color:var(--sub);padding:9px 18px;border-radius:10px;font-weight:700;font-size:14px;transition:.15s}
+  .modebtn:hover{color:var(--txt)}
+  .modebtn.on{color:#fff}
+  #mode-classic.on{background:var(--accent);border-color:var(--accent)}
+  #mode-aram.on{background:#2a8fc8;border-color:#2a8fc8}
+
   /* Cards / grid */
   .grid{display:grid;gap:14px}
   .cols{grid-template-columns:320px 1fr}
@@ -118,6 +126,7 @@
   .match .me{display:flex;align-items:center;gap:10px}
   .match .me .info b{display:block}
   .lineups{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
+  .lucol{display:flex;flex-direction:column;gap:4px;min-width:0}
   .lu{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden}
   .lu.self{color:var(--txt);font-weight:700}
   .lu .champ{width:18px;height:18px;border-radius:4px}
@@ -155,6 +164,10 @@
 </header>
 
 <div class="wrap">
+  <div class="modebar" id="modebar">
+    <button class="modebtn on" id="mode-classic" onclick="setMode('classic')">🗺️ 협곡</button>
+    <button class="modebtn" id="mode-aram" onclick="setMode('aram')">❄️ 칼바람 (ARAM)</button>
+  </div>
   <div class="panel hidden" id="panel">
     <h3>데이터 소스 (구글시트)</h3>
     <div class="row">
@@ -180,9 +193,14 @@
 const DEFAULT_SHEET = "https://docs.google.com/spreadsheets/d/10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU/edit?gid=1926038351";
 const POS_ORDER = {"탑":0,"탑솔":0,"top":0,"정글":1,"정굴":1,"jungle":1,"미드":2,"mid":2,"원딜":3,"바텀":3,"adc":3,"서폿":4,"서포터":4,"support":4};
 const POS_LIST = ["탑","정글","미드","원딜","서폿"];
+// 모드별 구글시트 탭 이름 (협곡 = CLASSIC_NORMAL, 칼바람 = KIWI_KIWI)
+const SHEET_TAB = {classic:"CLASSIC_NORMAL", aram:"KIWI_KIWI"};
+const MODE_LABEL = {classic:"협곡", aram:"칼바람 (ARAM)"};
 
 /* ============== 상태 ============== */
-let RAW = [];            // 행 배열 (객체)
+let MODE = "classic";              // 현재 보기 모드
+const RAW_BY_MODE = {classic:[], aram:[]}; // 모드별 원본 행 캐시
+let RAW = [];            // 행 배열 (객체) — 현재 모드의 RAW_BY_MODE[MODE]
 let GAMES = new Map();   // gameId -> game
 let PLAYERS = new Map(); // name -> participations[]
 let CHAMPMAP = {};       // 한글챔프명 -> {img}
@@ -256,6 +274,20 @@ function loadSheetJsonp(id,gid){
     setTimeout(()=>{if(!done){cleanup();reject(new Error("시간 초과 — 시트 공유(뷰어) 또는 링크를 확인하세요."));}},15000);
   });
 }
+/* ---- 탭 '이름'으로 로드 (협곡/칼바람 탭을 gid 없이 직접 지정) ---- */
+function loadSheetJsonpByName(id,name){
+  return new Promise((resolve,reject)=>{
+    const cb="__sheetCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{done=true;cleanup();resolve(resp);};
+    s.onerror=()=>{if(!done){cleanup();reject(new Error("스크립트 로드 실패"));}};
+    s.src=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?sheet=${encodeURIComponent(name)}&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{if(!done){cleanup();reject(new Error("시간 초과 — 시트 공유(뷰어) 또는 링크를 확인하세요."));}},15000);
+  });
+}
 function gvizToObjects(resp){
   if(!resp||!resp.table)throw new Error("시트 응답 형식 오류");
   if(resp.status==="error")throw new Error((resp.errors&&resp.errors[0]&&resp.errors[0].detailed_message)||"시트 접근 거부 — 뷰어 공유 확인");
@@ -274,42 +306,66 @@ function gvizToObjects(resp){
 }
 
 /* ============== 데이터 적재 ============== */
-async function loadFromUrl(url){
+// 협곡(CLASSIC_NORMAL) + 칼바람(KIWI_KIWI) 두 탭을 모두 불러와 모드별로 캐시한다.
+async function loadAllModes(url){
   url = url || $("#srcUrl").value || DEFAULT_SHEET;
-  if(!url){setStatus("링크를 입력하세요.","err");return;}
-  setStatus("불러오는 중…");loadbar(30);
+  setStatus("불러오는 중…");loadbar(25);
   try{
     const sheet=parseSheet(url);
     if(sheet){
-      const resp=await loadSheetJsonp(sheet.id,sheet.gid);
-      loadbar(70);
-      RAW=gvizToObjects(resp);
-      build();
+      let ok=0,lastErr=null;
+      for(const m of ["classic","aram"]){
+        try{
+          const resp=await loadSheetJsonpByName(sheet.id, SHEET_TAB[m]);
+          RAW_BY_MODE[m]=gvizToObjects(resp);
+          ok++;
+        }catch(e){ if(!RAW_BY_MODE[m]) RAW_BY_MODE[m]=[]; lastErr=e; }
+      }
+      if(!ok) throw lastErr||new Error("불러오기 실패");
+      localStorage.setItem("squadgg_url",url);
+      $("#srcUrl").value=url;
     }else{
+      // 구글시트가 아닌 CSV 직링크 → 현재 모드에만 적재
       const res=await fetch(url);
       if(!res.ok)throw new Error("HTTP "+res.status);
       const text=await res.text();
-      loadbar(70);
       if(text.trim().startsWith("<")) throw new Error("CSV가 아닙니다.");
-      ingest(text);
+      RAW_BY_MODE[MODE]=rowsToObjects(parseCSV(text));
     }
-    if(!GAMES.size)throw new Error("데이터가 비어 있습니다 — 탭(gid)이 맞는지 확인하세요.");
-    localStorage.setItem("squadgg_url",url);
-    $("#srcUrl").value=url;
-    setStatus(`불러오기 완료 — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`+(DUPLICATES?` · 중복 ${DUPLICATES}행 자동 제거`:""),"ok");
+    loadbar(70);
+    setMode(MODE);
     loadbar(100);
-    go('home');
   }catch(e){
     setStatus("실패: "+e.message+" — '링크가 있는 모든 사용자 뷰어'로 공유했는지 확인하거나 CSV 업로드를 쓰세요.","err");
     loadbar(100);
     renderEmpty();
   }
 }
+// 패널 '불러오기' / '다시 불러오기' 버튼 진입점
+function loadFromUrl(url){ return loadAllModes(url || $("#srcUrl").value || DEFAULT_SHEET); }
 function loadFromFile(ev){
   const f=ev.target.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{ingest(r.result);setStatus(`업로드 완료 — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`,"ok");go('home');};
+  r.onload=()=>{ RAW_BY_MODE[MODE]=rowsToObjects(parseCSV(r.result)); setMode(MODE); };
   r.readAsText(f,"utf-8");
+}
+// 모드 전환 (협곡 ↔ 칼바람): 해당 모드의 RAW로 재집계 후 홈 렌더
+function setMode(m){
+  if(!(m in RAW_BY_MODE)) m="classic";
+  MODE=m;
+  RAW=RAW_BY_MODE[m]||[];
+  build();
+  const c=$("#mode-classic"), a=$("#mode-aram");
+  if(c)c.classList.toggle("on",m==="classic");
+  if(a)a.classList.toggle("on",m==="aram");
+  setStatus(`${MODE_LABEL[m]} — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`+(DUPLICATES?` · 중복 ${DUPLICATES}행 자동 제거`:""),"ok");
+  // 이 모드만 비어있고 다른 모드엔 데이터가 있으면 '전체 로드 실패'가 아니라 모드별 안내 표시
+  if(!GAMES.size && (RAW_BY_MODE.classic.length||RAW_BY_MODE.aram.length)){
+    view().innerHTML=`<div class="empty">${MODE_LABEL[m]} 기록이 아직 없습니다.<br>`+
+      `<span class="muted" style="font-size:13px">다른 모드 탭을 눌러 보세요.</span></div>`;
+  }else{
+    go('home');
+  }
 }
 function setStatus(msg,cls){const s=$("#status");s.textContent=msg;s.className="status "+(cls||"");}
 
@@ -351,6 +407,18 @@ function build(){
       g.teams[side].sort((a,b)=>(POS_ORDER[a["포지션"]]??9)-(POS_ORDER[b["포지션"]]??9));
     }
   }
+}
+// 팀 표시 순서: 항상 블루팀이 먼저(왼쪽), 레드팀이 다음(오른쪽), 기타는 맨 뒤
+function teamOrder(g){
+  const sides=Object.keys((g&&g.teams)||{});
+  const blue=sides.filter(s=>s.includes("블루"));
+  const red=sides.filter(s=>s.includes("레드"));
+  const other=sides.filter(s=>!s.includes("블루")&&!s.includes("레드"));
+  return [...blue,...red,...other];
+}
+// 한 팀을 탑→정글→미드→원딜→서폿 순으로 정렬
+function sortByPos(arr){
+  return [...(arr||[])].sort((a,b)=>(POS_ORDER[a["포지션"]]??9)-(POS_ORDER[b["포지션"]]??9));
 }
 
 /* ============== Data Dragon (챔피언 아이콘) ============== */
@@ -534,7 +602,7 @@ function renderHome(){
       <div class="stat"><div class="n">${champs.filter(c=>c.picks).length}</div><div class="l">사용된 챔피언</div></div>
       <div class="stat"><div class="n" style="font-size:15px;padding-top:6px">${period}</div><div class="l">기록 기간</div></div>
     </div>
-    <div class="tabs"><div class="tab on">대시보드</div></div>
+    <div class="tabs"><div class="tab on">${MODE==='aram'?'❄️ 칼바람 대시보드':'🗺️ 협곡 대시보드'}</div></div>
     <div class="grid cols">
       <div class="card">
         <h2>🏆 플레이어 랭킹</h2>
@@ -636,13 +704,13 @@ function matchCard(r,selfName){
   const side=r["진영"];
   let lineups="";
   if(g){
-    const sides=Object.keys(g.teams);
-    const order=[side,...sides.filter(s=>s!==side)];
-    lineups=`<div class="lineups">`+order.slice(0,2).map(s=>
-      g.teams[s].map(p=>{
+    // 블루팀 = 왼쪽 컬럼, 레드팀 = 오른쪽 컬럼. 각 팀은 탑→정글→미드→원딜→서폿 순.
+    const order=teamOrder(g).slice(0,2);
+    lineups=`<div class="lineups">`+order.map(s=>
+      `<div class="lucol">`+sortByPos(g.teams[s]).map(p=>{
         const me=p["소환사명"]===selfName;
         return `<div class="lu ${me?'self':''}">${champImg(p["챔피언"],"")}<span>${esc(shortName(p["소환사명"]))}</span></div>`;
-      }).join("")
+      }).join("")+`</div>`
     ).join("")+`</div>`;
   }
   const evalBadge=r["매치평가"]==="MVP"?`<span class="badge b-mvp">MVP</span>`
@@ -667,9 +735,9 @@ function matchCard(r,selfName){
 function renderGame(gid){
   const g=GAMES.get(gid);
   if(!g){view().innerHTML=`<div class="empty">게임 ${esc(gid)} 없음</div>`;return;}
-  const sides=Object.keys(g.teams);
+  const sides=teamOrder(g);
   const teamsHtml=sides.map(side=>{
-    const players=g.teams[side];
+    const players=sortByPos(g.teams[side]);
     const tres=players.some(p=>p["결과"]==="승리")?"승리":players.some(p=>p["결과"]==="패배")?"패배":"대기";
     const cls=side.includes("블루")?"blue":side.includes("레드")?"red":"blue";
     const bans=(g.bans[side]||[]);
