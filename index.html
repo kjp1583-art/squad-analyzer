@@ -136,6 +136,19 @@
   .adrail .storead{display:block;margin-top:12px}
   .adrail .store{width:100%}
   .adrail .store .scta,.adrail .store .sinq{white-space:normal;text-overflow:clip}
+  /* 댓글 */
+  .cmt-form{margin-bottom:14px}
+  .cmt-ta{width:100%;min-height:56px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box}
+  .cmt-row{display:flex;gap:8px;margin-top:8px}
+  .cmt-in{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:13px;box-sizing:border-box}
+  .cmt-btn{flex:0 0 auto;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:0 22px;font-weight:700;cursor:pointer}
+  .cmt-btn:disabled{opacity:.6;cursor:default}
+  .cmt-ta:focus,.cmt-in:focus{outline:none;border-color:var(--accent)}
+  .cmt-item{padding:10px 2px;border-top:1px solid var(--line)}
+  .cmt-item .cmt-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
+  .cmt-item .cmt-author{font-weight:700;font-size:13px;color:var(--txt)}
+  .cmt-item .cmt-time{color:var(--mut);font-size:11px;flex:none}
+  .cmt-item .cmt-body{font-size:13px;color:var(--sub);white-space:pre-wrap;word-break:break-word;line-height:1.5}
   .ftr{margin:18px 0 28px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:12px;text-align:center}
 
   /* Settings panel */
@@ -965,6 +978,45 @@ function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
 function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 
 /* ============== 화면: 플레이어 상세 ============== */
+/* ============== 댓글 (Google Apps Script 백엔드 + COMMENTS 시트) ============== */
+const COMMENT_API = "https://script.google.com/macros/s/AKfycbxruHLb1dwhVIvAVsIfwBDXtIThYZFXWVkC08azchn88r52FzYZrz4b_zKcWOOYqrI/exec";
+function fmtCmtTime(t){
+  if(!t)return"";
+  try{const d=new Date(t);if(isNaN(d))return String(t).slice(0,16);
+    const p=n=>String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }catch(e){return String(t).slice(0,16);}
+}
+function renderCommentList(list){
+  const box=document.getElementById("cmtList"); if(!box)return;
+  if(!list||!list.length){box.innerHTML='<div class="muted" style="padding:10px 0;font-size:13px">아직 댓글이 없습니다. 첫 댓글을 남겨보세요!</div>';return;}
+  box.innerHTML=[...list].reverse().map(c=>
+    `<div class="cmt-item"><div class="cmt-head"><span class="cmt-author">${esc(c.a||"익명")}</span><span class="cmt-time">${esc(fmtCmtTime(c.t))}</span></div><div class="cmt-body">${esc(c.c||"")}</div></div>`
+  ).join("");
+}
+function loadComments(target){
+  const box=document.getElementById("cmtList"); if(!box)return;
+  const cb="__cmtCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+  const s=document.createElement("script");
+  const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+  window[cb]=(resp)=>{cleanup();renderCommentList(resp&&resp.comments||[]);};
+  s.onerror=()=>{cleanup(); box.innerHTML='<div class="muted" style="padding:10px 0;font-size:13px">댓글을 불러오지 못했습니다.</div>';};
+  s.src=COMMENT_API+"?target="+encodeURIComponent(target)+"&callback="+cb+"&_="+Date.now();
+  document.body.appendChild(s);
+}
+function submitComment(target){
+  const cEl=document.getElementById("cmtContent"), aEl=document.getElementById("cmtAuthor"), btn=document.getElementById("cmtSubmit");
+  const content=(cEl&&cEl.value||"").trim();
+  const author=((aEl&&aEl.value||"").trim())||"익명";
+  if(!content){if(cEl)cEl.focus();return;}
+  if(btn){btn.disabled=true;btn.textContent="등록 중…";}
+  fetch(COMMENT_API,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},body:new URLSearchParams({target,author,content})})
+    .catch(()=>{}).finally(()=>{
+      if(cEl)cEl.value="";
+      if(btn){btn.disabled=false;btn.textContent="등록";}
+      setTimeout(()=>loadComments(target),900);
+    });
+}
 function renderPlayer(name){
   name=canonOfName(name);                 // 옛 닉으로 들어와도 최신 닉 프로필로 통합
   const parts=PLAYERS.get(name);
@@ -1032,7 +1084,19 @@ function renderPlayer(name){
         <h2>전적 (${list.length})</h2>
         ${matchHtml}
       </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>💬 댓글 <span class="muted" style="font-size:12px">· ${esc(shortName(name))} 한마디 (서로 예의를 지켜주세요)</span></h2>
+      <div class="cmt-form">
+        <textarea id="cmtContent" class="cmt-ta" placeholder="이 클랜원에 대한 한마디를 남겨보세요" maxlength="300"></textarea>
+        <div class="cmt-row">
+          <input id="cmtAuthor" class="cmt-in" placeholder="닉네임 (선택)" maxlength="20">
+          <button id="cmtSubmit" class="cmt-btn" onclick="submitComment('${escAttr(name)}')">등록</button>
+        </div>
+      </div>
+      <div id="cmtList"><div class="muted" style="padding:8px 0;font-size:13px">댓글 불러오는 중…</div></div>
     </div>`;
+  loadComments(name);
 }
 
 function matchCard(r,selfName){
