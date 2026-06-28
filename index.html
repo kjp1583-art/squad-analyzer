@@ -344,7 +344,13 @@ const TIER_NICK = {
   "레알티슈도둑":"2中","듀우쿠우":"2中","새벽문앞":"1上","맨헤라공원팬티도둑":"2中","뵤뵤":"1下"
 };
 for(const nm in TIER_NICK)TIER_OF[tnorm(nm)]=TIER_NICK[nm];
-function tierOf(name){return TIER_OF[tnorm(name)]||null;}
+function tierOf(name){
+  const d=TIER_OF[tnorm(name)]; if(d)return d;
+  // 닉네임이 바뀐 경우: 같은 사람(PUUID)의 과거 닉 중 티어표에 있는 것을 사용
+  const al=CANON_TO_ALIASES.get(canonOfName(name));
+  if(al)for(const a of al){const t=TIER_OF[tnorm(a)];if(t)return t;}
+  return null;
+}
 function tierGroupCls(t){return !t?"":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
 function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:"";}
 
@@ -420,7 +426,11 @@ function assessPlayer(name){
 /* ============== 상태 ============== */
 let RAW = [];            // 행 배열 (객체)
 let GAMES = new Map();   // gameId -> game
-let PLAYERS = new Map(); // name -> participations[]
+let PLAYERS = new Map(); // name -> participations[] (닉변 병합: 최신 닉 기준)
+// ── 닉네임 변경 병합용 (PUUID = 고정 식별자) ──
+let CANON_BY_PUUID = new Map();   // PUUID -> 최신 소환사명
+let NAME_TO_CANON  = new Map();   // norm(과거/현재 닉) -> 최신 소환사명
+let CANON_TO_ALIASES = new Map(); // 최신 닉 -> [그 사람의 모든 닉...]
 let CHAMPMAP = {};       // 한글챔프명 -> {img}
 let DDVER = "";
 
@@ -557,6 +567,48 @@ let DUPLICATES=0;
 let LATEST_PATCH="";            // 데이터에서 감지한 최신 패치
 let PATCH_MODE="new";           // 'new'=최신패치만, 'old'=그 외(구버전)
 function patchNum(p){const a=String(p||"").split(".");return (parseInt(a[0],10)||0)*1000+(parseInt(a[1],10)||0);}
+
+/* ====== 닉네임 변경 감지 → 최신 닉으로 전적 통합 ======
+   PUUID(소환사 고유 식별자)가 같으면 동일인 → 가장 최근 날짜의 닉네임을 대표로 삼아
+   과거 닉으로 흩어진 전적을 모두 합친다. PUUID가 없는(레거시) 행은 닉네임 그대로 사용. */
+function puuidLatestFromRows(rows){
+  const latest=new Map(); // PUUID -> {name,date,i}
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i], pu=r["PUUID"], nm=r["소환사명"];
+    if(!pu||!nm)continue;
+    const d=r["날짜"]||"";
+    const cur=latest.get(pu);
+    // 날짜가 더 최신이거나, 같으면 시트상 더 뒤(최근 기록)인 닉을 대표로
+    if(!cur || d>cur.date || (d===cur.date && i>=cur.i)) latest.set(pu,{name:nm,date:d,i});
+  }
+  const m=new Map(); for(const [pu,v] of latest) m.set(pu,v.name); return m;
+}
+function buildIdentity(){
+  CANON_BY_PUUID = puuidLatestFromRows(RAW);
+  NAME_TO_CANON = new Map();
+  CANON_TO_ALIASES = new Map();
+  for(const r of RAW){
+    const pu=r["PUUID"], nm=r["소환사명"]; if(!nm)continue;
+    const canon=(pu && CANON_BY_PUUID.has(pu)) ? CANON_BY_PUUID.get(pu) : nm;
+    const k=norm(nm);
+    if(pu && CANON_BY_PUUID.has(pu)) NAME_TO_CANON.set(k,canon);   // 옛 닉/현재 닉 → 최신 닉
+    else if(!NAME_TO_CANON.has(k)) NAME_TO_CANON.set(k,nm);        // PUUID 없으면 자기 자신
+    let al=CANON_TO_ALIASES.get(canon); if(!al){al=new Set();CANON_TO_ALIASES.set(canon,al);} al.add(nm);
+  }
+  for(const [c,s] of CANON_TO_ALIASES) CANON_TO_ALIASES.set(c,[...s]);
+}
+// 행 → 대표(최신) 닉네임
+function canonOfRow(r){
+  const pu=r&&r["PUUID"];
+  if(pu && CANON_BY_PUUID.has(pu)) return CANON_BY_PUUID.get(pu);
+  return (r&&r["소환사명"])||"";
+}
+// 임의의 닉(과거/현재) → 대표(최신) 닉네임
+function canonOfName(name){
+  if(name==null) return name;
+  return NAME_TO_CANON.get(norm(name)) || name;
+}
+
 function build(){
   GAMES=new Map();PLAYERS=new Map();DUPLICATES=0;
   // 패치 미감지 시절(빈칸)에 쌓인 데이터는 16.13으로 간주
@@ -584,10 +636,6 @@ function build(){
     g.rows.push(r);
     if(r["날짜"])g.date=r["날짜"];
     if(r["패치버전"])g.patch=r["패치버전"];
-
-    const name=r["소환사명"]; if(!name)continue;
-    if(!PLAYERS.has(name))PLAYERS.set(name,[]);
-    PLAYERS.get(name).push(r);
   }
   // 팀별 결과/밴 정리
   for(const g of GAMES.values()){
@@ -599,6 +647,16 @@ function build(){
     }
     for(const side in g.teams){
       g.teams[side].sort((a,b)=>(POS_ORDER[a["포지션"]]??9)-(POS_ORDER[b["포지션"]]??9));
+    }
+  }
+  // ── 닉네임 변경 감지: PUUID별 최신 닉 산출 후, 전적을 최신 닉으로 통합 ──
+  buildIdentity();
+  for(const g of GAMES.values()){
+    for(const r of g.rows){
+      const nm=r["소환사명"]; if(!nm)continue;
+      const canon=canonOfRow(r);   // PUUID가 같으면 옛 닉이어도 최신 닉으로 합쳐짐
+      if(!PLAYERS.has(canon))PLAYERS.set(canon,[]);
+      PLAYERS.get(canon).push(r);
     }
   }
   TIER_AVG=computeTierAvg();   // 내부티어 평가용 동티어 평균(승률·MVP율·역적율)
@@ -669,11 +727,19 @@ function go(route,arg){
 function norm(s){return (s||"").toLowerCase().replace(/\s+/g,"");}
 function findPlayers(q,limit){
   const nq=norm(q); if(!nq)return [];
-  const starts=[],contains=[];
+  const starts=[],contains=[],seen=new Set();
+  const add=(canon,bucket)=>{ if(!PLAYERS.has(canon)||seen.has(canon))return; seen.add(canon); bucket.push(canon); };
+  // 1) 최신 닉(대표 키) 직접 매칭
   for(const n of PLAYERS.keys()){
     const nn=norm(n);
-    if(nn.startsWith(nq))starts.push(n);
-    else if(nn.includes(nq))contains.push(n);
+    if(nn.startsWith(nq))add(n,starts);
+    else if(nn.includes(nq))add(n,contains);
+  }
+  // 2) 옛 닉으로 검색 → 같은 사람의 최신 닉으로 매핑
+  for(const [oldNorm,canon] of NAME_TO_CANON){
+    if(seen.has(canon))continue;
+    if(oldNorm.startsWith(nq))add(canon,starts);
+    else if(oldNorm.includes(nq))add(canon,contains);
   }
   starts.sort((a,b)=>PLAYERS.get(b).length-PLAYERS.get(a).length);
   contains.sort((a,b)=>PLAYERS.get(b).length-PLAYERS.get(a).length);
@@ -834,7 +900,7 @@ function recentGameCard(g){
     const cls=side.includes("블루")?"blue":side.includes("레드")?"red":"blue";
     const rows=players.map(p=>{
       const ev=p["매치평가"]==="MVP"?'<span class="badge b-mvp">MVP</span>':p["매치평가"]==="역적"?'<span class="badge b-bad">역적</span>':'';
-      return `<div class="rg-row">${champImg(p["챔피언"],"sm")}<span class="rg-name">${esc(shortName(p["소환사명"]))}</span>${ev}</div>`;
+      return `<div class="rg-row">${champImg(p["챔피언"],"sm")}<span class="rg-name">${esc(shortName(canonOfRow(p)))}</span>${ev}</div>`;
     }).join("");
     return `<div class="rg-team ${cls}"><div class="rg-head"><span>${esc(side)}</span><span>${tres}</span></div>${rows}</div>`;
   }).join("");
@@ -863,6 +929,7 @@ function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 
 /* ============== 화면: 플레이어 상세 ============== */
 function renderPlayer(name){
+  name=canonOfName(name);                 // 옛 닉으로 들어와도 최신 닉 프로필로 통합
   const parts=PLAYERS.get(name);
   if(!parts){view().innerHTML=`<div class="empty">‘${esc(name)}’ 기록 없음</div>`;return;}
   // 최신순 (게임 등장 순서 역순)
@@ -944,10 +1011,10 @@ function matchCard(r,selfName){
     const order=teamOrder(g).slice(0,2);
     lineups=`<div class="lineups">`+order.map(s=>
       `<div class="lucol">`+sortByPos(g.teams[s]).map(p=>{
-        const me=p["소환사명"]===selfName;
+        const me=canonOfRow(p)===selfName;
         const ev=p["매치평가"]==="MVP"?`<span class="ev" title="MVP">👑</span>`
                 :p["매치평가"]==="역적"?`<span class="ev" title="역적">💀</span>`:"";
-        return `<div class="lu ${me?'self':''}">${champImg(p["챔피언"],"")}<span class="nm">${esc(shortName(p["소환사명"]))}</span>${ev}</div>`;
+        return `<div class="lu ${me?'self':''}">${champImg(p["챔피언"],"")}<span class="nm">${esc(shortName(canonOfRow(p)))}</span>${ev}</div>`;
       }).join("")+`</div>`
     ).join("")+`</div>`;
   }
@@ -985,7 +1052,7 @@ function renderGame(gid){
       return `<div class="prow">
         ${champImg(p["챔피언"])}
         <span class="pos">${esc(posLabel(p["포지션"]))}</span>
-        <span class="clickname" onclick="go('player','${escAttr(p["소환사명"])}')">${esc(shortName(p["소환사명"]))}</span>
+        <span class="clickname" onclick="go('player','${escAttr(canonOfRow(p))}')">${esc(shortName(canonOfRow(p)))}</span>
         <span style="flex:1"></span>${badge}
       </div>`;
     }).join("");
@@ -1095,6 +1162,9 @@ async function getCatRaw(catKey){
 function computeHOF(rows){
   const evalGids=new Set();
   for(const r of rows){const e=r["매치평가"];if(e==="MVP"||e==="역적"){const g=r["게임ID"];if(g)evalGids.add(g);}}
+  // 닉네임 변경 통합: 이 데이터셋(rows) 안에서 PUUID별 최신 닉을 대표로
+  const canonMap=puuidLatestFromRows(rows);
+  const canonName=r=>{const pu=r["PUUID"];return (pu&&canonMap.has(pu))?canonMap.get(pu):r["소환사명"];};
   const data={},patches=new Set(),seen=new Set();
   const mk=()=>({total:0,wins:0,mvp:0,troll:0,evalTotal:0});
   function ensure(pv,name){
@@ -1103,10 +1173,10 @@ function computeHOF(rows){
     return data[pv][name];
   }
   for(const r of rows){
-    const name=r["소환사명"],res=r["결과"];
+    const name=canonName(r),res=r["결과"];
     if(!name||(res!=="승리"&&res!=="패배"))continue;
     const g=r["게임ID"]||"";
-    const key=g+"∥"+name;if(seen.has(key))continue;seen.add(key);
+    const key=g+"∥"+(r["PUUID"]||name);if(seen.has(key))continue;seen.add(key);
     const posKey=POS_TO_KEY[(r["포지션"]||"").trim()]||"NONE";
     const evl=r["매치평가"]||"";
     const patch=((r["패치버전"]||"").trim())||"16.13";
