@@ -1079,22 +1079,22 @@ function renderPlayer(name){
       <div>
         <div class="card"><h2>모스트 챔피언</h2>${mostHtml}</div>
         <div class="card" style="margin-top:14px"><h2>포지션</h2>${posHtml}</div>
+        <div class="card" style="margin-top:14px">
+          <h2>💬 댓글 <span class="muted" style="font-size:12px">· 한마디 (예의를 지켜주세요)</span></h2>
+          <div class="cmt-form">
+            <textarea id="cmtContent" class="cmt-ta" placeholder="이 클랜원에 대한 한마디를 남겨보세요" maxlength="300"></textarea>
+            <div class="cmt-row">
+              <input id="cmtAuthor" class="cmt-in" placeholder="닉네임 (선택)" maxlength="20">
+              <button id="cmtSubmit" class="cmt-btn" onclick="submitComment('${escAttr(name)}')">등록</button>
+            </div>
+          </div>
+          <div id="cmtList"><div class="muted" style="padding:8px 0;font-size:13px">댓글 불러오는 중…</div></div>
+        </div>
       </div>
       <div class="card">
         <h2>전적 (${list.length})</h2>
         ${matchHtml}
       </div>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <h2>💬 댓글 <span class="muted" style="font-size:12px">· ${esc(shortName(name))} 한마디 (서로 예의를 지켜주세요)</span></h2>
-      <div class="cmt-form">
-        <textarea id="cmtContent" class="cmt-ta" placeholder="이 클랜원에 대한 한마디를 남겨보세요" maxlength="300"></textarea>
-        <div class="cmt-row">
-          <input id="cmtAuthor" class="cmt-in" placeholder="닉네임 (선택)" maxlength="20">
-          <button id="cmtSubmit" class="cmt-btn" onclick="submitComment('${escAttr(name)}')">등록</button>
-        </div>
-      </div>
-      <div id="cmtList"><div class="muted" style="padding:8px 0;font-size:13px">댓글 불러오는 중…</div></div>
     </div>`;
   loadComments(name);
 }
