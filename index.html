@@ -119,6 +119,22 @@
   .adfooter{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;margin:28px 0 6px}
   .adfooter img{max-width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line)}
   .addisc{flex-basis:100%;text-align:center;color:var(--mut);font-size:11px;margin-top:6px}
+  /* 클랜원 가게 홍보 배너 (이모지+CSS 자체 제작, 외부 이미지 의존 없음) */
+  .storead{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;flex-basis:100%;margin:16px 0 4px}
+  .storead .slabel{flex-basis:100%;text-align:center;color:var(--mut);font-size:11px;letter-spacing:.4px;margin-bottom:4px}
+  .store{display:flex;align-items:center;gap:12px;width:320px;max-width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.14);text-decoration:none;color:#fff;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.3);transition:transform .12s ease,box-shadow .12s ease}
+  .store:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.5)}
+  .store .emo{font-size:34px;line-height:1;flex:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
+  .store .stxt{display:flex;flex-direction:column;min-width:0;flex:1}
+  .store .stag{font-size:11px;font-weight:700;opacity:.85}
+  .store .snm{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .store .scta{font-size:11px;opacity:.92;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .store .sgo{flex:none;font-size:20px;font-weight:700;opacity:.75}
+  .store.bhc{background:linear-gradient(135deg,#d6342b 0%,#f08a24 100%)}
+  .store.aka{background:linear-gradient(135deg,#16213e 0%,#3c2a52 100%)}
+  .adrail .storead{display:block;margin-top:10px}
+  .adrail .store{width:100%;margin-bottom:8px}
+  .adrail .store .snm{white-space:normal}
   .ftr{margin:18px 0 28px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:12px;text-align:center}
 
   /* Settings panel */
@@ -314,6 +330,20 @@ const COUPANG = {
   ]
 };
 function bannerHtml(b){return `<a href="${b.href}" target="_blank" rel="noopener" referrerpolicy="unsafe-url"><img src="${b.img}" alt="쿠팡 광고" loading="lazy"></a>`;}
+/* 클랜원이 운영하는 가게 홍보 배너 (누르면 외부 링크로 이동) */
+const STORES = [
+  {cls:"bhc", emo:"🍗", tag:"치킨은?", name:"BHC 합정점", cta:"📍 네이버 지도에서 보기", href:"https://naver.me/5uIrKS5j"},
+  {cls:"aka", emo:"🍣", tag:"스시는?", name:"성수동 아카보시", cta:"🗓️ 캐치테이블 예약", href:"https://app.catchtable.co.kr/ct/shop/sungsu_akaboshi?from=share&type=DINING"},
+];
+function storeHtml(s){
+  return `<a class="store ${s.cls}" href="${s.href}" target="_blank" rel="noopener">`
+    +`<span class="emo">${s.emo}</span>`
+    +`<span class="stxt"><span class="stag">${esc(s.tag)}</span><span class="snm">${esc(s.name)}</span><span class="scta">${esc(s.cta)} →</span></span>`
+    +`<span class="sgo">›</span></a>`;
+}
+function storeAdHtml(){
+  return `<div class="storead"><div class="slabel">🍴 스쿼드 클랜원이 운영하는 맛집</div>${STORES.map(storeHtml).join("")}</div>`;
+}
 const POS_ORDER = {"탑":0,"탑솔":0,"top":0,"정글":1,"정굴":1,"jungle":1,"미드":2,"mid":2,"원딜":3,"바텀":3,"adc":3,"서폿":4,"서포터":4,"support":4};
 const POS_LIST = ["탑","정글","미드","원딜","서폿"];
 // 칼바람은 포지션이 "선택안함" → 표시에서 숨김
@@ -1083,11 +1113,12 @@ function renderAds(){
   const inner = COUPANG.verticalEmbed
     ? `<div class="advert">${COUPANG.verticalEmbed}</div>`
     : COUPANG.banners.map(bannerHtml).join("");
-  const rail = `<div class="adlabel">AD · 쿠팡파트너스</div>`+inner;
+  const rail = `<div class="adlabel">AD · 쿠팡파트너스</div>`+inner+storeAdHtml();
   for(const id of ["adL","adR"]){ const el=$("#"+id); if(el)el.innerHTML=rail; }
   const f=$("#adFooter");
   if(f)f.innerHTML=COUPANG.banners.map(bannerHtml).join("")
-    +`<div class="addisc">${COUPANG.disclosure}</div>`;
+    +`<div class="addisc">${COUPANG.disclosure}</div>`
+    +storeAdHtml();
 }
 
 /* ============== 카테고리 (협곡 / 칼바람) ============== */
