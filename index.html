@@ -564,9 +564,12 @@ function ingest(text){
   build();
 }
 let DUPLICATES=0;
-let LATEST_PATCH="";            // 데이터에서 감지한 최신 패치
-let PATCH_MODE="new";           // 'new'=최신패치만, 'old'=그 외(구버전)
-function patchNum(p){const a=String(p||"").split(".");return (parseInt(a[0],10)||0)*1000+(parseInt(a[1],10)||0);}
+let LATEST_PATCH="";            // 데이터에서 감지한 최신 패치 (정규화 후, 예: "16.13")
+let ALL_PATCHES=[];             // 감지된 모든 패치 (최신순)
+let PATCH_SEL=null;             // 선택 패치: null=자동(최신) / "ALL"=전체 / 특정버전("16.13")
+// 패치 정규화: 데스크톱이 'v16.13'으로 기록(구글시트 날짜변환 방지)하므로 앞의 v를 떼어 '16.13'과 동일 취급
+function normPatch(p){ let s=String(p||"").trim().replace(/^[vV]/,"").trim(); return s||"16.13"; }
+function patchNum(p){const a=normPatch(p).split(".");return (parseInt(a[0],10)||0)*1000+(parseInt(a[1],10)||0);}
 
 /* ====== 닉네임 변경 감지 → 최신 닉으로 전적 통합 ======
    PUUID(소환사 고유 식별자)가 같으면 동일인 → 가장 최근 날짜의 닉네임을 대표로 삼아
@@ -611,20 +614,20 @@ function canonOfName(name){
 
 function build(){
   GAMES=new Map();PLAYERS=new Map();DUPLICATES=0;
-  // 패치 미감지 시절(빈칸)에 쌓인 데이터는 16.13으로 간주
-  for(const r of RAW){ if(!r["패치버전"]) r["패치버전"]="16.13"; }
-  // 최신 패치 자동 감지 (전체 데이터 기준 — 필터 전에 계산)
-  LATEST_PATCH="";let bestN=-1;
-  for(const r of RAW){const p=r["패치버전"];if(!p)continue;const n=patchNum(p);if(n>bestN){bestN=n;LATEST_PATCH=p;}}
+  // 패치 정규화 (v16.13 → 16.13, 빈칸 → 16.13). 'v' 표기/무표기를 같은 버전으로 통합
+  for(const r of RAW){ r["패치버전"]=normPatch(r["패치버전"]); }
+  // 감지된 모든 패치(최신순) + 최신 패치
+  const pset=new Set();
+  for(const r of RAW){ if(r["게임ID"]&&r["패치버전"]) pset.add(r["패치버전"]); }
+  ALL_PATCHES=[...pset].sort((a,b)=>patchNum(b)-patchNum(a));
+  LATEST_PATCH=ALL_PATCHES[0]||"";
+  // 선택값: null(자동)이거나 더 이상 없는 버전이면 최신 패치로 (새 버전 감지 시 자동 선택)
+  if(PATCH_SEL!=="ALL" && !pset.has(PATCH_SEL)) PATCH_SEL=LATEST_PATCH;
   const seen=new Set(); // 게임 내 동일 참가자 중복 기록 제거용
   for(const r of RAW){
     const gid=r["게임ID"]; if(!gid)continue;
-    // 패치 필터: 신버전=최신패치만 / 구버전=그 외(빈 패치 포함)
-    if(LATEST_PATCH){
-      const rp=r["패치버전"]||"";
-      if(PATCH_MODE==="new" && rp!==LATEST_PATCH) continue;
-      if(PATCH_MODE==="old" && rp===LATEST_PATCH) continue;
-    }
+    // 패치 필터: '전체'면 모두, 아니면 선택한 버전만
+    if(PATCH_SEL!=="ALL" && LATEST_PATCH && (r["패치버전"]||"")!==PATCH_SEL) continue;
     // 같은 게임 안에서 (참가자·챔피언·포지션·진영)이 동일하면 중복 기록 → 1번만 인정
     const ident=(r["PUUID"]||r["소환사명"]||"")+"∥"+(r["챔피언"]||"")+"∥"+(r["포지션"]||"")+"∥"+(r["진영"]||"");
     const key=gid+"∥"+ident;
@@ -1103,7 +1106,7 @@ function switchCat(key){
 }
 async function loadCategory(key){
   const cat=CATEGORIES.find(c=>c.key===key); if(!cat)return;
-  CURRENT_CAT=key; PATCH_MODE="new"; renderCatbar();
+  CURRENT_CAT=key; PATCH_SEL=null; renderCatbar();
   SORT={key:null,dir:-1};
   $("#q").value=""; hideSuggest();
   renderLoading(); setStatus("불러오는 중…"); loadbar(30);
@@ -1124,19 +1127,22 @@ async function loadCategory(key){
     setStatus(`${cat.label} 불러오기 실패: ${e.message}`,"err"); loadbar(100); renderEmpty();
   }
 }
-/* 패치 버전 필터 (신버전 / 구버전) */
+/* 패치 버전 필터 (버전별 버튼 + 전체). 새 버전이 감지되면 버튼 자동 신설 */
 function renderPatchbar(){
   const bar=$("#patchbar"); if(!bar)return;
-  const hasOld = LATEST_PATCH && RAW.some(r=>r["게임ID"] && (r["패치버전"]||"")!==LATEST_PATCH);
-  if(!LATEST_PATCH || !hasOld){ bar.innerHTML=""; bar.classList.add("hidden"); return; }
+  if(!ALL_PATCHES.length){ bar.innerHTML=""; bar.classList.add("hidden"); return; }
   bar.classList.remove("hidden");
-  bar.innerHTML=`<span class="pb-label">패치</span>`
-    +`<button class="pchip ${PATCH_MODE==="new"?"on":""}" onclick="switchPatch('new')">🆕 신버전 ${esc(LATEST_PATCH)}</button>`
-    +`<button class="pchip ${PATCH_MODE==="old"?"on":""}" onclick="switchPatch('old')">📦 구버전</button>`;
+  let html=`<span class="pb-label">패치</span>`;
+  ALL_PATCHES.forEach((pv,i)=>{
+    const on = PATCH_SEL!=="ALL" && PATCH_SEL===pv;
+    html += `<button class="pchip ${on?"on":""}" onclick="switchPatch('${escAttr(pv)}')">${i===0?"🆕 ":""}${esc(pv)}</button>`;
+  });
+  html += `<button class="pchip ${PATCH_SEL==="ALL"?"on":""}" onclick="switchPatch('ALL')">📊 전체</button>`;
+  bar.innerHTML=html;
 }
-function switchPatch(mode){
-  if(mode===PATCH_MODE)return;
-  PATCH_MODE=mode;
+function switchPatch(sel){
+  if(sel===PATCH_SEL)return;
+  PATCH_SEL=sel;
   build(); renderPatchbar();
   SORT={key:null,dir:-1};
   go('home');
@@ -1179,7 +1185,7 @@ function computeHOF(rows){
     const key=g+"∥"+(r["PUUID"]||name);if(seen.has(key))continue;seen.add(key);
     const posKey=POS_TO_KEY[(r["포지션"]||"").trim()]||"NONE";
     const evl=r["매치평가"]||"";
-    const patch=((r["패치버전"]||"").trim())||"16.13";
+    const patch=normPatch(r["패치버전"]);
     patches.add(patch);
     const inEval=evalGids.has(g);
     for(const pv of ["전체 (ALL)",patch]){
