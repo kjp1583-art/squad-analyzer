@@ -4,6 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>squad.gg — 스쿼드 전적검색</title>
+<link rel="icon" type="image/png" href="logo.png" />
+<link rel="apple-touch-icon" href="logo.png" />
+<meta property="og:title" content="squad.gg — 스쿼드 전적검색" />
+<meta property="og:description" content="스쿼드 내전 전적 검색 · 협곡/칼바람 지표" />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="https://squad-gg.pages.dev/logo.png" />
 <style>
   :root{
     --bg:#11131a; --bg2:#171a23; --card:#1b1f2b; --card2:#212636;
@@ -22,8 +28,9 @@
   /* Header */
   header{background:linear-gradient(180deg,#1a1f2e,#11131a);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
   .hd{display:flex;align-items:center;gap:18px;padding:14px 16px;max-width:1080px;margin:0 auto;flex-wrap:wrap}
-  .logo{font-weight:800;font-size:22px;letter-spacing:-.5px;cursor:pointer}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:22px;letter-spacing:-.5px;cursor:pointer}
   .logo b{color:var(--accent)}
+  .logomark{width:34px;height:34px;flex:none;filter:drop-shadow(0 0 6px rgba(124,58,237,.45))}
   .searchwrap{flex:1;min-width:240px;position:relative}
   .search{display:flex;width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .search input{flex:1;background:transparent;border:0;color:var(--txt);padding:11px 14px;font-size:15px;outline:none}
@@ -33,6 +40,86 @@
   .suggest .it:hover,.suggest .it.active{background:var(--card)}
   .suggest .it .sub{margin-left:auto;color:var(--mut);font-size:12px;white-space:nowrap}
   .gear{background:var(--card2);border:1px solid var(--line);color:var(--sub);border-radius:10px;padding:10px 12px}
+  .dl{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:700;white-space:nowrap}
+  .dl:hover{filter:brightness(1.08)}
+  @media(max-width:680px){.dl span.t{display:none}}
+  /* 카테고리(협곡/칼바람) 전환바 */
+  .catbar{display:flex;gap:8px;margin:16px 0 0;flex-wrap:wrap}
+  .catbar .cat{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:10px;background:var(--card);border:1px solid var(--line);color:var(--sub);font-weight:700;font-size:14px;cursor:pointer}
+  .catbar .cat:hover{color:var(--txt)}
+  .catbar .cat.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .catbar .cat-sep{width:1px;align-self:stretch;background:var(--line);margin:0 3px}
+  .catbar .cat.hof{background:var(--card2)}
+  .catbar .cat.hof:hover{border-color:var(--gold);color:var(--gold)}
+  /* 명예의 전당 / 증내의 전당 */
+  .hof-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:18px 0 4px}
+  .hof-title{font-size:20px;margin:0;color:var(--gold)}
+  .hof-filter{display:flex;align-items:center;gap:8px}
+  .hof-select{background:var(--card2);border:1px solid var(--line);color:var(--txt);padding:7px 10px;border-radius:8px;font-family:inherit}
+  .hof-postabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+  .hof-postab{background:var(--card2);border:1px solid var(--line);color:var(--sub);padding:7px 16px;border-radius:8px;font-weight:600}
+  .hof-postab:hover{color:var(--txt)}
+  .hof-postab.on{background:var(--gold);color:#1a1a1a;border-color:var(--gold)}
+  .hof-grid{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-top:10px}
+  @media(max-width:760px){.hof-grid{grid-template-columns:1fr}}
+  .hof-row{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line)}
+  .hof-row:last-child{border-bottom:none}
+  .hof-medal{width:26px;text-align:center;flex:none;font-size:15px}
+  .hof-rank{display:inline-block;width:22px;text-align:center;color:var(--mut);font-size:12px}
+  .hof-pos{color:var(--sub);font-size:12px}
+  .hof-metric{margin-left:auto;text-align:right;white-space:nowrap;font-weight:700}
+  /* 패치 버전 필터 (신버전/구버전) */
+  .patchbar{display:flex;align-items:center;gap:8px;margin:12px 0 0;flex-wrap:wrap}
+  .pb-label{color:var(--mut);font-size:13px;font-weight:700}
+  .pchip{padding:7px 14px;border-radius:9px;background:var(--card);border:1px solid var(--line);color:var(--sub);font-weight:700;font-size:13px;cursor:pointer}
+  .pchip:hover{color:var(--txt)}
+  .pchip.on{background:var(--card2);color:var(--txt);border-color:var(--accent)}
+  /* 대시보드 3단 레이아웃 (랭킹 · 챔피언통계 · 최근게임) */
+  .home3{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);align-items:start}
+  @media(max-width:960px){.home3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+  @media(max-width:620px){.home3{grid-template-columns:1fr}}
+  .ranktbl th,.ranktbl td,.champtbl th,.champtbl td{padding:7px 4px;font-size:12.5px}
+  /* 좁은 칸에서 표가 넘치지 않도록 승률 막대를 짧은 고정폭으로 */
+  .ranktbl .wr,.champtbl .wr{min-width:0;gap:5px}
+  .ranktbl .wrbar,.champtbl .wrbar{flex:none;width:30px}
+  .home3 .card{overflow:hidden}
+  .home3 table{width:100%;table-layout:auto}
+  /* 최근 게임 카드 */
+  .rg{cursor:pointer}
+  .rg-meta{color:var(--mut);font-size:12px;margin-bottom:8px}
+  .rg-team{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:8px}
+  .rg-head{display:flex;justify-content:space-between;padding:6px 10px;font-weight:700;font-size:12px}
+  .rg-team.blue .rg-head{background:var(--blue-bg);color:#9cc0ff}
+  .rg-team.red .rg-head{background:var(--red-bg);color:#ff9aa8}
+  .rg-row{display:flex;align-items:center;gap:7px;padding:5px 10px;border-top:1px solid var(--line);font-size:12px}
+  .rg-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub)}
+  .rg-more{color:var(--accent);font-size:12px;text-align:right}
+  .rg-sep{height:1px;background:var(--line);margin:14px 0}
+  /* 내부티어 배지 & 평가 */
+  .tier{display:inline-block;padding:1px 5px;border-radius:5px;font-size:10px;font-weight:800;margin-left:5px;vertical-align:middle;color:#fff;line-height:1.5}
+  .tier.t1{background:#e84057}
+  .tier.t2{background:#3a73e8}
+  .tier.t3{background:#d8a838;color:#2a2100}
+  .assess{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:800}
+  .assess.a-over{background:#3a1c25;color:#e84057}
+  .assess.a-ok{background:#16331f;color:#2bb177}
+  .assess.a-under{background:#16243f;color:#5b8cff}
+  .assess.a-na{background:var(--card2);color:var(--mut)}
+  /* 양옆 광고 레일 (op.gg 스타일) — 넓은 화면에서만 표시 */
+  .adrail{display:none;position:fixed;top:84px;width:160px;z-index:5}
+  .adrail.left{left:calc(50% - 716px)}
+  .adrail.right{left:calc(50% + 556px)}
+  @media(min-width:1460px){.adrail{display:block}}
+  .adrail .adlabel{font-size:9px;color:var(--mut);letter-spacing:.5px;margin-bottom:5px}
+  .adrail a{display:block}
+  .adrail img{width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line);margin-bottom:8px}
+  .adrail .advert{width:100%}
+  .adrail .advert iframe,.adrail .advert img{max-width:100%;border:0;border-radius:8px;display:block}
+  /* 하단 배너 줄 (모든 화면 — 모바일 포함) */
+  .adfooter{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;margin:28px 0 6px}
+  .adfooter img{max-width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line)}
+  .addisc{flex-basis:100%;text-align:center;color:var(--mut);font-size:11px;margin-top:6px}
+  .ftr{margin:18px 0 28px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:12px;text-align:center}
 
   /* Settings panel */
   .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0}
@@ -49,14 +136,6 @@
   .tabs{display:flex;gap:4px;margin:18px 0 8px;border-bottom:1px solid var(--line)}
   .tab{padding:10px 16px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent}
   .tab.on{color:var(--txt);border-bottom-color:var(--accent)}
-
-  /* Mode switch (협곡 / 칼바람) */
-  .modebar{display:flex;gap:8px;margin:16px 0 0}
-  .modebtn{background:var(--card2);border:1px solid var(--line);color:var(--sub);padding:9px 18px;border-radius:10px;font-weight:700;font-size:14px;transition:.15s}
-  .modebtn:hover{color:var(--txt)}
-  .modebtn.on{color:#fff}
-  #mode-classic.on{background:var(--accent);border-color:var(--accent)}
-  #mode-aram.on{background:#2a8fc8;border-color:#2a8fc8}
 
   /* Cards / grid */
   .grid{display:grid;gap:14px}
@@ -128,6 +207,8 @@
   .lineups{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
   .lucol{display:flex;flex-direction:column;gap:4px;min-width:0}
   .lu{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden}
+  .lu .nm{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .lu .ev{flex:none;font-size:11px;line-height:1}
   .lu.self{color:var(--txt);font-weight:700}
   .lu .champ{width:18px;height:18px;border-radius:4px}
   @media(max-width:680px){.match{grid-template-columns:70px 1fr}.lineups{display:none}}
@@ -148,26 +229,24 @@
 </head>
 <body>
 <div class="loadbar" id="loadbar"></div>
+<aside class="adrail left" id="adL"></aside>
+<aside class="adrail right" id="adR"></aside>
 <header>
   <div class="hd">
-    <div class="logo" onclick="go('home')">squad<b>.gg</b></div>
+    <div class="logo" onclick="go('home')"><img class="logomark" src="logo.png" alt="squad.gg 로고"/>squad<b>.gg</b></div>
     <div class="searchwrap">
       <form class="search" onsubmit="onSearch(event)">
-        <input id="q" placeholder="소환사명 또는 게임ID 검색 (예: king, 태웅, #8272164714)" autocomplete="off"
+        <input id="q" placeholder="소환사명 또는 게임ID 검색 (예: 맛동산장인 유미, #8272164714)" autocomplete="off"
                oninput="onType()" onkeydown="onKey(event)" onblur="setTimeout(hideSuggest,150)"/>
         <button type="submit">검색</button>
       </form>
       <div class="suggest hidden" id="suggest"></div>
     </div>
-    <button class="gear" onclick="togglePanel()">⚙ 데이터</button>
+    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 버전)">⬇ <span class="t">스쿼드해체분석기 다운로드</span></a>
   </div>
 </header>
 
 <div class="wrap">
-  <div class="modebar" id="modebar">
-    <button class="modebtn on" id="mode-classic" onclick="setMode('classic')">🗺️ 협곡</button>
-    <button class="modebtn" id="mode-aram" onclick="setMode('aram')">❄️ 칼바람 (ARAM)</button>
-  </div>
   <div class="panel hidden" id="panel">
     <h3>데이터 소스 (구글시트)</h3>
     <div class="row">
@@ -184,23 +263,162 @@
     </div>
   </div>
 
+  <div class="catbar" id="catbar"></div>
+  <div class="patchbar hidden" id="patchbar"></div>
   <div id="view"></div>
+
+  <div class="adfooter" id="adFooter"></div>
+
+  <footer class="ftr">
+    <div>© 2026 squad.gg · 스쿼드 내전 비공식 전적 사이트 · 데이터: 구글시트</div>
+    <div class="muted" style="margin-top:4px;font-size:11px">
+      이 사이트는 쿠팡 파트너스 제휴 배너를 게재하며, 구매 발생 시 일정액의 수수료를 받을 수 있습니다.
+      <a href="#" onclick="togglePrivacy();return false;" style="color:var(--accent)">개인정보처리방침</a>
+    </div>
+  </footer>
+  <div class="panel hidden" id="privacy" style="margin-bottom:24px">
+    <h3>개인정보처리방침 / 광고 안내</h3>
+    <div class="hint" style="font-size:12px;line-height:1.7">
+      • 본 사이트는 스쿼드 내전 전적을 보여주는 비공식 팬 사이트입니다.<br>
+      • 전적 데이터는 공개된 구글시트에서 읽어오며, 별도의 개인정보를 수집·저장하지 않습니다.<br>
+      • 본 사이트는 쿠팡 파트너스 제휴 배너를 게재하며, 사용자가 배너를 통해 상품을 구매할 경우
+        운영자가 쿠팡으로부터 일정액의 수수료를 받을 수 있습니다. (구매자에게 추가 비용은 없습니다)<br>
+      • 배너 클릭 시 쿠팡 및 제휴 파트너가 쿠키를 사용할 수 있습니다.
+    </div>
+  </div>
 </div>
 
 <script>
 /* ============== 설정 ============== */
-// 기본 시트 (사용자 제공). 링크 공유가 켜져 있으면 자동 로드됩니다.
-const DEFAULT_SHEET = "https://docs.google.com/spreadsheets/d/10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU/edit?gid=1926038351";
+const SHEET_ID = "10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU";
+// 카테고리: 협곡(CLASSIC_NORMAL) / 칼바람(KIWI_KIWI). 각 탭의 gid.
+const CATEGORIES = [
+  {key:"rift", label:"협곡",  icon:"🗺️", gid:"1926038351"},
+  {key:"aram", label:"칼바람", icon:"❄️", gid:"1282932443"},
+];
+let CURRENT_CAT = "rift";
+const CAT_CACHE = {};          // key -> RAW (재방문 시 즉시 표시)
+const DEFAULT_SHEET = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${CATEGORIES[0].gid}`;
+const catLabel = k => (CATEGORIES.find(c=>c.key===k)||{}).label || "";
+
+/* ============== 광고 (쿠팡 파트너스) ==============
+   ad_config.txt의 배너(320×100). 배너 교체 시 아래 banners 배열만 바꾸면 됨. */
+const COUPANG = {
+  disclosure:"이 사이트는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.",
+  // 세로 배너(쿠팡 다이나믹 배너 160x600 카로셀, id 1000781). 스크립트 코드를 iframe으로 변환해 사용.
+  verticalEmbed:`<iframe src="https://ads-partners.coupang.com/widgets.html?id=1000781&template=carousel&trackingCode=AF3373698&subId=&width=160&height=600&tsource=" width="160" height="600" frameborder="0" scrolling="no" referrerpolicy="unsafe-url"></iframe>`,
+  banners:[
+    {href:"https://link.coupang.com/a/eEIW7E3NV6", img:"https://ads-partners.coupang.com/banners/997892?subId=&traceId=V0-301-879dd1202e5c73b2-I997892&w=320&h=100"},
+    {href:"https://link.coupang.com/a/eEIYmjBIKi", img:"https://ads-partners.coupang.com/banners/997895?subId=&traceId=V0-301-371ae01f4226dec2-I997895&w=320&h=100"},
+    {href:"https://link.coupang.com/a/eEIZB87kZ2", img:"https://ads-partners.coupang.com/banners/997897?subId=&traceId=V0-301-8be2627c04ed5569-I997897&w=320&h=100"},
+  ]
+};
+function bannerHtml(b){return `<a href="${b.href}" target="_blank" rel="noopener" referrerpolicy="unsafe-url"><img src="${b.img}" alt="쿠팡 광고" loading="lazy"></a>`;}
 const POS_ORDER = {"탑":0,"탑솔":0,"top":0,"정글":1,"정굴":1,"jungle":1,"미드":2,"mid":2,"원딜":3,"바텀":3,"adc":3,"서폿":4,"서포터":4,"support":4};
 const POS_LIST = ["탑","정글","미드","원딜","서폿"];
-// 모드별 구글시트 탭 이름 (협곡 = CLASSIC_NORMAL, 칼바람 = KIWI_KIWI)
-const SHEET_TAB = {classic:"CLASSIC_NORMAL", aram:"KIWI_KIWI"};
-const MODE_LABEL = {classic:"협곡", aram:"칼바람 (ARAM)"};
+// 칼바람은 포지션이 "선택안함" → 표시에서 숨김
+function posLabel(p){return (!p||p==="선택안함")?"":p;}
+
+/* ============== 내부티어 (클랜 자체 평가표, tier.png 26.04.09) ============== */
+const TIER_DATA = {
+  "1上":["새벽문앙","여니","나는빌레","승수","KBJ0628"],
+  "1中":["Daype","나눙강운","태웅","난오눅만살아","삼겹살맛있더라","야릇한언니돌","빨디즈장군이","은화","베볼배볼","용죤전사","默言","vaundy","두우쿠우","수직낙하하는중","최강У도깨비","꿩79","무새","앵섭","겨울"],
+  "1下":["지르","별구름비","뭉탱이","조금늙음","SiahK","예니야","앙꼬없","파랑","순애","지옥의왕","프싱","반가","뎁뚜처럼","태희","수화은연","새우깡","Gyuse0k","apmidplzz","불전마사지소환사","맛동산장인유미","그냥해","weiha","가보자","시원"],
+  "2上":["하오","아기설탕이","격품","덕현하콩만돌","오리고기(꼬눈)","Planb","Widersehen","piacerdamor","촛파","영유아기달달핀","오뎅이","아기빠급이","아이스아메리카노","가리비","쭌생","신정수","꽃을피우니","BeakYerin","나야","지율게없다구","고구마","SOOP거북00","재첩국","팀원과쌔우지말자","아기언지니","쌉처바"],
+  "2中":["민병이","한입","타나","즐거워하부하루","maru","맨헤라공원펜티도둑","사랑두리공이","loaa","dacapo","새찡","김쪼랭","섬광","한별","러버덕","무빙","derek","힝구리","누누","개구리","간절한영에소환사","별빛하민","정글위치생각해요"],
+  "2下":["집중겜","피파하고싶다으아","아라","브론즈장인신지드","풋뼛풍커리","4단강등고승현","건백","건빡","모근이","아기선도부","옴팡이","지노","hee츠","배고배고","태양","텍스","밍구","아기레명이","오함마","아리"],
+  "3上":["윤가","JESTER","pontior","나르아빠","chihuahua","봇치","조선제일하리보","칼든인간백정","que사디아","모득희","체소초보다","용수없어도이겨","나쁜마음고처먹기","흐접부어","먹찌","젠이즈","9DYeok","태민교육","감자피덕","니퍼펜치골라"],
+  "3中":["튀긴사이다","hehehi","과자테두리","鐵뱅꽂皇","上대탑노물갱즙","용감한앰스터","TheCarterIII","춘식이","치아요청","요트","천고래인저"],
+  "3下":["탱크보이","탱크보이 이우경","주옥망겜","발목에모기물림","뇌룡오공","へいちょうねこ","단무지싫어","선생짓못해먹겠네"],
+};
+function tnorm(s){return (s||"").split("#")[0].toLowerCase().replace(/\s+/g,"");}
+const TIER_OF = {};
+for(const t in TIER_DATA)for(const nm of TIER_DATA[t])TIER_OF[tnorm(nm)]=t;
+// 닉네임 변경 목록 반영 (구닉이 표에 있던 사람의 현재 닉 → 같은 티어)
+const TIER_NICK = {
+  "언진":"2上","RayB":"2上","현타온덕현하콩":"2上","설탕":"2上","十代":"2上","사슬":"2上",
+  "레멍이":"2下","앙앵모르딱":"1中","망무새":"1中","뽀뽀":"1下",
+  "윤슬":"3中","윤카":"3上","주옥갓겜":"3下","병장고양이":"3下","김야웅":"2中",
+  // 사용자 직접 지정/보강 (2026-06-26)
+  "우거":"1下","카페":"3中","나만":"3中","ascass":"2上","커리크랩칠리크림":"2上",
+  "레알티슈도둑":"2中","듀우쿠우":"2中","새벽문앞":"1上","맨헤라공원팬티도둑":"2中","뵤뵤":"1下"
+};
+for(const nm in TIER_NICK)TIER_OF[tnorm(nm)]=TIER_NICK[nm];
+function tierOf(name){return TIER_OF[tnorm(name)]||null;}
+function tierGroupCls(t){return !t?"":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
+function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:"";}
+
+/* 내부티어 평가: 동(同)티어 평균 승률과 비교해 고평가/적절/저평가 */
+let TIER_AVG={}, TIER_EVAL_GIDS=new Set();
+const TIER_MIN_GAMES=10, TIER_MIN_EVAL=5, TIER_ASSESS_TH=7;  // 10판↑, 평가 5판↑, ±7 기준
+// MVP/역적이 한 명이라도 매겨진 '평가된 게임' 집합 (현재 카테고리·패치 기준)
+function evalGameSet(){
+  const s=new Set();
+  for(const [gid,g] of GAMES){
+    for(const r of g.rows){ const e=r["매치평가"]; if(e==="MVP"||e==="역적"){ s.add(gid); break; } }
+  }
+  return s;
+}
+// 한 플레이어의 승률 / MVP율 / 역적율 (MVP·역적율 분모 = 본인이 뛴 '평가된 게임' 수)
+function tierMetricsOf(name, evalGids){
+  const parts=PLAYERS.get(name)||[];
+  let w=0,l=0,mvp=0,troll=0; const eg=new Set();
+  for(const r of parts){
+    if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
+    const e=r["매치평가"]; if(e==="MVP")mvp++;else if(e==="역적")troll++;
+    const gid=r["게임ID"]; if(gid&&evalGids.has(gid))eg.add(gid);
+  }
+  const g=w+l, evalG=eg.size;
+  return {g,evalG,w,l,mvp,troll,
+    wr:g?w/g*100:null,
+    mvpRate:evalG?mvp/evalG*100:null,
+    trollRate:evalG?troll/evalG*100:null};
+}
+// 동(同)티어 평균: 승률 · MVP율 · 역적율 (각 지표는 자격 충족 인원만 평균)
+function computeTierAvg(){
+  TIER_EVAL_GIDS=evalGameSet();
+  const acc={};
+  for(const [name] of PLAYERS){
+    const t=tierOf(name); if(!t)continue;
+    const m=tierMetricsOf(name,TIER_EVAL_GIDS);
+    if(m.g<TIER_MIN_GAMES)continue;
+    const a=acc[t]||(acc[t]={wrSum:0,wrN:0,mvpSum:0,mvpN:0,trSum:0,trN:0});
+    if(m.wr!=null){a.wrSum+=m.wr;a.wrN++;}
+    if(m.evalG>=TIER_MIN_EVAL){a.mvpSum+=m.mvpRate;a.mvpN++;a.trSum+=m.trollRate;a.trN++;}
+  }
+  const out={};
+  for(const t in acc){const a=acc[t];out[t]={
+    wr:a.wrN?a.wrSum/a.wrN:null,
+    mvp:a.mvpN?a.mvpSum/a.mvpN:null,
+    troll:a.trN?a.trSum/a.trN:null,
+    n:a.wrN};}
+  return out;
+}
+// 종합 평가: 동티어 평균 대비 (승률×1 + MVP율×0.5 − 역적율×0.5) 으로 고/저평가 판정
+function assessPlayer(name){
+  const t=tierOf(name); if(!t)return null;
+  const m=tierMetricsOf(name,TIER_EVAL_GIDS);
+  if(m.g<TIER_MIN_GAMES)return {tier:t,label:"표본부족",cls:"a-na",games:m.g,detail:null};
+  const avg=TIER_AVG[t];
+  if(!avg||avg.wr==null)return {tier:t,label:"적절",cls:"a-ok",games:m.g,detail:null};
+  const hasMvp=m.mvpRate!=null&&avg.mvp!=null;
+  const hasTr =m.trollRate!=null&&avg.troll!=null;
+  const wrDiff =m.wr-avg.wr;
+  const mvpDiff=hasMvp?m.mvpRate-avg.mvp:0;
+  const trDiff =hasTr ?m.trollRate-avg.troll:0;
+  const score=wrDiff+0.5*mvpDiff-0.5*trDiff;   // 역적율은 높을수록 나쁨 → 차감
+  let label="적절",cls="a-ok";
+  if(score>=TIER_ASSESS_TH){label="저평가";cls="a-under";}
+  else if(score<=-TIER_ASSESS_TH){label="고평가";cls="a-over";}
+  return {tier:t,label,cls,games:m.g,detail:{
+    wr:Math.round(m.wr),wrAvg:Math.round(avg.wr),
+    mvp:hasMvp?Math.round(m.mvpRate):null,mvpAvg:hasMvp?Math.round(avg.mvp):null,
+    troll:hasTr?Math.round(m.trollRate):null,trollAvg:hasTr?Math.round(avg.troll):null,
+    score:Math.round(score)}};
+}
 
 /* ============== 상태 ============== */
-let MODE = "classic";              // 현재 보기 모드
-const RAW_BY_MODE = {classic:[], aram:[]}; // 모드별 원본 행 캐시
-let RAW = [];            // 행 배열 (객체) — 현재 모드의 RAW_BY_MODE[MODE]
+let RAW = [];            // 행 배열 (객체)
 let GAMES = new Map();   // gameId -> game
 let PLAYERS = new Map(); // name -> participations[]
 let CHAMPMAP = {};       // 한글챔프명 -> {img}
@@ -274,20 +492,6 @@ function loadSheetJsonp(id,gid){
     setTimeout(()=>{if(!done){cleanup();reject(new Error("시간 초과 — 시트 공유(뷰어) 또는 링크를 확인하세요."));}},15000);
   });
 }
-/* ---- 탭 '이름'으로 로드 (협곡/칼바람 탭을 gid 없이 직접 지정) ---- */
-function loadSheetJsonpByName(id,name){
-  return new Promise((resolve,reject)=>{
-    const cb="__sheetCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
-    let done=false;
-    const s=document.createElement("script");
-    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
-    window[cb]=(resp)=>{done=true;cleanup();resolve(resp);};
-    s.onerror=()=>{if(!done){cleanup();reject(new Error("스크립트 로드 실패"));}};
-    s.src=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?sheet=${encodeURIComponent(name)}&headers=1&tqx=out:json;responseHandler:${cb}`;
-    document.body.appendChild(s);
-    setTimeout(()=>{if(!done){cleanup();reject(new Error("시간 초과 — 시트 공유(뷰어) 또는 링크를 확인하세요."));}},15000);
-  });
-}
 function gvizToObjects(resp){
   if(!resp||!resp.table)throw new Error("시트 응답 형식 오류");
   if(resp.status==="error")throw new Error((resp.errors&&resp.errors[0]&&resp.errors[0].detailed_message)||"시트 접근 거부 — 뷰어 공유 확인");
@@ -306,66 +510,42 @@ function gvizToObjects(resp){
 }
 
 /* ============== 데이터 적재 ============== */
-// 협곡(CLASSIC_NORMAL) + 칼바람(KIWI_KIWI) 두 탭을 모두 불러와 모드별로 캐시한다.
-async function loadAllModes(url){
+async function loadFromUrl(url){
   url = url || $("#srcUrl").value || DEFAULT_SHEET;
-  setStatus("불러오는 중…");loadbar(25);
+  if(!url){setStatus("링크를 입력하세요.","err");return;}
+  setStatus("불러오는 중…");loadbar(30);
   try{
     const sheet=parseSheet(url);
     if(sheet){
-      let ok=0,lastErr=null;
-      for(const m of ["classic","aram"]){
-        try{
-          const resp=await loadSheetJsonpByName(sheet.id, SHEET_TAB[m]);
-          RAW_BY_MODE[m]=gvizToObjects(resp);
-          ok++;
-        }catch(e){ if(!RAW_BY_MODE[m]) RAW_BY_MODE[m]=[]; lastErr=e; }
-      }
-      if(!ok) throw lastErr||new Error("불러오기 실패");
-      localStorage.setItem("squadgg_url",url);
-      $("#srcUrl").value=url;
+      const resp=await loadSheetJsonp(sheet.id,sheet.gid);
+      loadbar(70);
+      RAW=gvizToObjects(resp);
+      build();
     }else{
-      // 구글시트가 아닌 CSV 직링크 → 현재 모드에만 적재
       const res=await fetch(url);
       if(!res.ok)throw new Error("HTTP "+res.status);
       const text=await res.text();
+      loadbar(70);
       if(text.trim().startsWith("<")) throw new Error("CSV가 아닙니다.");
-      RAW_BY_MODE[MODE]=rowsToObjects(parseCSV(text));
+      ingest(text);
     }
-    loadbar(70);
-    setMode(MODE);
+    if(!GAMES.size)throw new Error("데이터가 비어 있습니다 — 탭(gid)이 맞는지 확인하세요.");
+    localStorage.setItem("squadgg_url",url);
+    $("#srcUrl").value=url;
+    setStatus(`불러오기 완료 — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`+(DUPLICATES?` · 중복 ${DUPLICATES}행 자동 제거`:""),"ok");
     loadbar(100);
+    go('home');
   }catch(e){
     setStatus("실패: "+e.message+" — '링크가 있는 모든 사용자 뷰어'로 공유했는지 확인하거나 CSV 업로드를 쓰세요.","err");
     loadbar(100);
     renderEmpty();
   }
 }
-// 패널 '불러오기' / '다시 불러오기' 버튼 진입점
-function loadFromUrl(url){ return loadAllModes(url || $("#srcUrl").value || DEFAULT_SHEET); }
 function loadFromFile(ev){
   const f=ev.target.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{ RAW_BY_MODE[MODE]=rowsToObjects(parseCSV(r.result)); setMode(MODE); };
+  r.onload=()=>{ingest(r.result);setStatus(`업로드 완료 — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`,"ok");go('home');};
   r.readAsText(f,"utf-8");
-}
-// 모드 전환 (협곡 ↔ 칼바람): 해당 모드의 RAW로 재집계 후 홈 렌더
-function setMode(m){
-  if(!(m in RAW_BY_MODE)) m="classic";
-  MODE=m;
-  RAW=RAW_BY_MODE[m]||[];
-  build();
-  const c=$("#mode-classic"), a=$("#mode-aram");
-  if(c)c.classList.toggle("on",m==="classic");
-  if(a)a.classList.toggle("on",m==="aram");
-  setStatus(`${MODE_LABEL[m]} — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`+(DUPLICATES?` · 중복 ${DUPLICATES}행 자동 제거`:""),"ok");
-  // 이 모드만 비어있고 다른 모드엔 데이터가 있으면 '전체 로드 실패'가 아니라 모드별 안내 표시
-  if(!GAMES.size && (RAW_BY_MODE.classic.length||RAW_BY_MODE.aram.length)){
-    view().innerHTML=`<div class="empty">${MODE_LABEL[m]} 기록이 아직 없습니다.<br>`+
-      `<span class="muted" style="font-size:13px">다른 모드 탭을 눌러 보세요.</span></div>`;
-  }else{
-    go('home');
-  }
 }
 function setStatus(msg,cls){const s=$("#status");s.textContent=msg;s.className="status "+(cls||"");}
 
@@ -374,11 +554,25 @@ function ingest(text){
   build();
 }
 let DUPLICATES=0;
+let LATEST_PATCH="";            // 데이터에서 감지한 최신 패치
+let PATCH_MODE="new";           // 'new'=최신패치만, 'old'=그 외(구버전)
+function patchNum(p){const a=String(p||"").split(".");return (parseInt(a[0],10)||0)*1000+(parseInt(a[1],10)||0);}
 function build(){
   GAMES=new Map();PLAYERS=new Map();DUPLICATES=0;
+  // 패치 미감지 시절(빈칸)에 쌓인 데이터는 16.13으로 간주
+  for(const r of RAW){ if(!r["패치버전"]) r["패치버전"]="16.13"; }
+  // 최신 패치 자동 감지 (전체 데이터 기준 — 필터 전에 계산)
+  LATEST_PATCH="";let bestN=-1;
+  for(const r of RAW){const p=r["패치버전"];if(!p)continue;const n=patchNum(p);if(n>bestN){bestN=n;LATEST_PATCH=p;}}
   const seen=new Set(); // 게임 내 동일 참가자 중복 기록 제거용
   for(const r of RAW){
     const gid=r["게임ID"]; if(!gid)continue;
+    // 패치 필터: 신버전=최신패치만 / 구버전=그 외(빈 패치 포함)
+    if(LATEST_PATCH){
+      const rp=r["패치버전"]||"";
+      if(PATCH_MODE==="new" && rp!==LATEST_PATCH) continue;
+      if(PATCH_MODE==="old" && rp===LATEST_PATCH) continue;
+    }
     // 같은 게임 안에서 (참가자·챔피언·포지션·진영)이 동일하면 중복 기록 → 1번만 인정
     const ident=(r["PUUID"]||r["소환사명"]||"")+"∥"+(r["챔피언"]||"")+"∥"+(r["포지션"]||"")+"∥"+(r["진영"]||"");
     const key=gid+"∥"+ident;
@@ -407,18 +601,7 @@ function build(){
       g.teams[side].sort((a,b)=>(POS_ORDER[a["포지션"]]??9)-(POS_ORDER[b["포지션"]]??9));
     }
   }
-}
-// 팀 표시 순서: 항상 블루팀이 먼저(왼쪽), 레드팀이 다음(오른쪽), 기타는 맨 뒤
-function teamOrder(g){
-  const sides=Object.keys((g&&g.teams)||{});
-  const blue=sides.filter(s=>s.includes("블루"));
-  const red=sides.filter(s=>s.includes("레드"));
-  const other=sides.filter(s=>!s.includes("블루")&&!s.includes("레드"));
-  return [...blue,...red,...other];
-}
-// 한 팀을 탑→정글→미드→원딜→서폿 순으로 정렬
-function sortByPos(arr){
-  return [...(arr||[])].sort((a,b)=>(POS_ORDER[a["포지션"]]??9)-(POS_ORDER[b["포지션"]]??9));
+  TIER_AVG=computeTierAvg();   // 내부티어 평가용 동티어 평균(승률·MVP율·역적율)
 }
 
 /* ============== Data Dragon (챔피언 아이콘) ============== */
@@ -475,6 +658,7 @@ function playerStats(){
 /* ============== 라우팅 ============== */
 let SORT={key:null,dir:-1};
 function go(route,arg){
+  if(route==='hof'){renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(!GAMES.size){renderEmpty();return;}
   if(route==='home')renderHome();
   else if(route==='player')renderPlayer(arg);
@@ -526,7 +710,7 @@ function renderSuggest(){
     const parts=PLAYERS.get(n);let w=0,l=0;
     parts.forEach(r=>{if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;});
     return `<div class="it ${i===SUGGI?'active':''}" onmousedown="event.preventDefault();pickSuggest(${i})">
-      <span>${esc(shortName(n))} <span class="muted" style="font-size:12px">${esc(tagOf(n))}</span></span>
+      <span>${esc(shortName(n))} <span class="muted" style="font-size:12px">${esc(tagOf(n))}</span>${tierBadge(n)}</span>
       <span class="sub">${parts.length}게임 · ${pct(w,w+l)}%</span>
     </div>`;}).join("");
   box.classList.remove("hidden");
@@ -552,7 +736,7 @@ function renderEmpty(){
   view().innerHTML=`<div class="empty">
     데이터를 불러오지 못했습니다.<br>
     <span class="muted" style="font-size:13px">시트 공유(뷰어)가 켜져 있는지 확인하세요.</span><br><br>
-    <button class="go" style="background:var(--accent);color:#fff;border:0;padding:10px 16px;border-radius:8px;font-weight:700;margin:0 4px" onclick="loadFromUrl()">다시 불러오기</button>
+    <button class="go" style="background:var(--accent);color:#fff;border:0;padding:10px 16px;border-radius:8px;font-weight:700;margin:0 4px" onclick="loadCategory(CURRENT_CAT)">다시 불러오기</button>
     <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:10px 14px;border-radius:8px;margin:0 4px" onclick="togglePanel()">⚙ 데이터 설정</button>
   </div>`;
 }
@@ -565,28 +749,24 @@ function renderHome(){
   const dates=[...GAMES.values()].map(g=>g.date).filter(Boolean).sort();
   const period=dates.length?`${dates[0]} ~ ${dates[dates.length-1]}`:"-";
 
-  // 정렬 적용 (챔피언)
+  // 정렬 적용 (챔피언). pr=밴픽률(픽+밴 기준)
   const ck=SORT.key||"picks";
-  champs.sort((a,b)=>{
-    const av=ck==="champ"?a.champ:ck==="wr"?pct(a.wins,a.wins+a.losses):a[ck];
-    const bv=ck==="champ"?b.champ:ck==="wr"?pct(b.wins,b.wins+b.losses):b[ck];
-    return (av>bv?1:av<bv?-1:0)*(SORT.dir);
-  });
+  const cval=x=>ck==="champ"?x.champ:ck==="wr"?pct(x.wins,x.wins+x.losses):ck==="pr"?(x.picks+x.bans):x[ck];
+  champs.sort((a,b)=>{const av=cval(a),bv=cval(b);return (av>bv?1:av<bv?-1:0)*(SORT.dir);});
   players.sort((a,b)=>b.games-a.games||b.wr-a.wr);
 
   const champRows=champs.map(c=>{
     const t=c.wins+c.losses,wr=pct(c.wins,t);
+    const pr=totalGames?Math.round((c.picks+c.bans)/totalGames*100):0;
     return `<tr>
       <td><div class="champcell">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div></td>
       <td class="num">${c.picks}</td>
-      <td class="num">${c.wins}</td>
-      <td class="num">${c.losses}</td>
       <td>${t?wrBar(wr):'<span class="muted">-</span>'}</td>
-      <td class="num">${c.bans}</td>
+      <td class="num" title="픽 ${c.picks} + 밴 ${c.bans} / ${totalGames}게임">${pr}%</td>
     </tr>`;}).join("");
 
   const playerRows=players.map(p=>`<tr>
-      <td><span class="clickname" onclick="go('player','${escAttr(p.name)}')">${esc(shortName(p.name))}</span></td>
+      <td><span class="clickname" onclick="go('player','${escAttr(p.name)}')">${esc(shortName(p.name))}</span>${tierBadge(p.name)}</td>
       <td class="num">${p.games}</td>
       <td class="num" style="color:var(--win)">${p.wins}</td>
       <td class="num" style="color:var(--lose)">${p.losses}</td>
@@ -602,21 +782,67 @@ function renderHome(){
       <div class="stat"><div class="n">${champs.filter(c=>c.picks).length}</div><div class="l">사용된 챔피언</div></div>
       <div class="stat"><div class="n" style="font-size:15px;padding-top:6px">${period}</div><div class="l">기록 기간</div></div>
     </div>
-    <div class="tabs"><div class="tab on">${MODE==='aram'?'❄️ 칼바람 대시보드':'🗺️ 협곡 대시보드'}</div></div>
-    <div class="grid cols">
+    <div class="tabs"><div class="tab on">${esc(catLabel(CURRENT_CAT))} 대시보드</div></div>
+    <div class="home3">
       <div class="card">
         <h2>🏆 플레이어 랭킹</h2>
-        <table><thead><tr>
+        <table class="ranktbl"><thead><tr>
           <th>소환사</th><th class="num">판</th><th class="num">승</th><th class="num">패</th><th>승률</th><th class="num">MVP</th><th class="num">역적</th>
         </tr></thead><tbody>${playerRows}</tbody></table>
       </div>
       <div class="card">
-        <h2>📊 챔피언 통계 <span class="muted" style="font-size:12px">(헤더 클릭 정렬)</span></h2>
-        <table><thead><tr>
-          ${th("챔피언","champ")}${th("픽","picks")}${th("승","wins")}${th("패","losses")}<th>승률</th>${th("밴","bans")}
+        <h2>📊 챔피언 통계 <span class="muted" style="font-size:12px">(클릭 정렬)</span></h2>
+        <table class="champtbl"><thead><tr>
+          ${th("챔피언","champ")}${th("픽","picks")}<th>승률</th>${th("밴픽률","pr")}
         </tr></thead><tbody>${champRows}</tbody></table>
       </div>
+      <div class="card">
+        <h2>🕒 최근 게임</h2>
+        ${recentGamesHtml(5)}
+      </div>
     </div>`;
+}
+function recentFinishedGames(n){
+  const arr=[...GAMES.values()], out=[];
+  for(let i=arr.length-1;i>=0 && out.length<n;i--){
+    if(arr[i].rows.some(r=>r["결과"]==="승리"||r["결과"]==="패배")) out.push(arr[i]);
+  }
+  return out;
+}
+// 팀 표시 순서: 항상 블루팀 먼저(왼쪽/위), 레드팀 다음(오른쪽/아래), 기타는 맨 뒤
+function teamOrder(g){
+  const sides=Object.keys((g&&g.teams)||{});
+  const blue=sides.filter(s=>s.includes("블루"));
+  const red=sides.filter(s=>s.includes("레드"));
+  const other=sides.filter(s=>!s.includes("블루")&&!s.includes("레드"));
+  return [...blue,...red,...other];
+}
+// 한 팀을 탑→정글→미드→원딜→서폿 순으로 정렬
+function sortByPos(arr){
+  return [...(arr||[])].sort((a,b)=>(POS_ORDER[a["포지션"]]??9)-(POS_ORDER[b["포지션"]]??9));
+}
+function recentGamesHtml(n){
+  const games=recentFinishedGames(n);
+  if(!games.length)return '<div class="muted" style="padding:8px 0">게임 기록이 없습니다.</div>';
+  return games.map(recentGameCard).join('<div class="rg-sep"></div>');
+}
+function recentGameCard(g){
+  const sides=teamOrder(g);
+  const teams=sides.map(side=>{
+    const players=sortByPos(g.teams[side]);
+    const tres=players.some(p=>p["결과"]==="승리")?"승리":players.some(p=>p["결과"]==="패배")?"패배":"대기";
+    const cls=side.includes("블루")?"blue":side.includes("레드")?"red":"blue";
+    const rows=players.map(p=>{
+      const ev=p["매치평가"]==="MVP"?'<span class="badge b-mvp">MVP</span>':p["매치평가"]==="역적"?'<span class="badge b-bad">역적</span>':'';
+      return `<div class="rg-row">${champImg(p["챔피언"],"sm")}<span class="rg-name">${esc(shortName(p["소환사명"]))}</span>${ev}</div>`;
+    }).join("");
+    return `<div class="rg-team ${cls}"><div class="rg-head"><span>${esc(side)}</span><span>${tres}</span></div>${rows}</div>`;
+  }).join("");
+  return `<div class="rg" onclick="go('game','${escAttr(g.id)}')">
+    <div class="rg-meta">${esc(g.date||'')}${g.patch?' · 패치 '+esc(g.patch):''}</div>
+    ${teams}
+    <div class="rg-more">상세 보기 →</div>
+  </div>`;
 }
 function th(label,key){
   const arrow=SORT.key===key?(SORT.dir>0?" ▲":" ▼"):"";
@@ -672,13 +898,23 @@ function renderPlayer(name){
 
   const matchHtml=list.map(r=>matchCard(r,name)).join("");
 
+  const asmt=assessPlayer(name);
+  const asmtHtml = asmt ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="color:var(--sub);font-size:13px">내부티어</span>
+      <span class="tier ${tierGroupCls(asmt.tier)}" style="margin:0">${asmt.tier}</span>
+      <span class="assess ${asmt.cls}">${asmt.label}</span>
+      ${asmt.detail?`<span class="muted" style="font-size:12px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}</span>`
+                   :`<span class="muted" style="font-size:12px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
+    </div>` : '';
+
   view().innerHTML=`
     <div class="card" style="margin-top:16px">
       <div class="prof">
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
-          <div class="pname">${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span></div>
+          <div class="pname">${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}</div>
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · 역적 ${bad}</div>
+          ${asmtHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
         </div>
       </div>
@@ -704,12 +940,14 @@ function matchCard(r,selfName){
   const side=r["진영"];
   let lineups="";
   if(g){
-    // 블루팀 = 왼쪽 컬럼, 레드팀 = 오른쪽 컬럼. 각 팀은 탑→정글→미드→원딜→서폿 순.
+    // 블루팀=왼쪽 컬럼, 레드팀=오른쪽 컬럼. 각 팀 탑→정글→미드→원딜→서폿 순.
     const order=teamOrder(g).slice(0,2);
     lineups=`<div class="lineups">`+order.map(s=>
       `<div class="lucol">`+sortByPos(g.teams[s]).map(p=>{
         const me=p["소환사명"]===selfName;
-        return `<div class="lu ${me?'self':''}">${champImg(p["챔피언"],"")}<span>${esc(shortName(p["소환사명"]))}</span></div>`;
+        const ev=p["매치평가"]==="MVP"?`<span class="ev" title="MVP">👑</span>`
+                :p["매치평가"]==="역적"?`<span class="ev" title="역적">💀</span>`:"";
+        return `<div class="lu ${me?'self':''}">${champImg(p["챔피언"],"")}<span class="nm">${esc(shortName(p["소환사명"]))}</span>${ev}</div>`;
       }).join("")+`</div>`
     ).join("")+`</div>`;
   }
@@ -724,7 +962,7 @@ function matchCard(r,selfName){
       ${champImg(r["챔피언"],"lg")}
       <div class="info">
         <b>${esc(r["챔피언"]||'?')}</b>
-        <span class="muted">${esc(r["포지션"]||'')} · ${esc(side||'')}</span> ${evalBadge}
+        <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span> ${evalBadge}
       </div>
     </div>
     ${lineups}
@@ -746,7 +984,7 @@ function renderGame(gid){
       const badge=me==="MVP"?`<span class="badge b-mvp">MVP</span>`:me==="역적"?`<span class="badge b-bad">역적</span>`:"";
       return `<div class="prow">
         ${champImg(p["챔피언"])}
-        <span class="pos">${esc(p["포지션"]||'')}</span>
+        <span class="pos">${esc(posLabel(p["포지션"]))}</span>
         <span class="clickname" onclick="go('player','${escAttr(p["소환사명"])}')">${esc(shortName(p["소환사명"]))}</span>
         <span style="flex:1"></span>${badge}
       </div>`;
@@ -768,14 +1006,205 @@ function renderGame(gid){
 
 /* ============== 패널 ============== */
 function togglePanel(){$("#panel").classList.toggle("hidden");}
+function togglePrivacy(){$("#privacy").classList.toggle("hidden");}
+
+/* ============== 광고 (쿠팡 파트너스) ============== */
+function renderAds(){
+  const inner = COUPANG.verticalEmbed
+    ? `<div class="advert">${COUPANG.verticalEmbed}</div>`
+    : COUPANG.banners.map(bannerHtml).join("");
+  const rail = `<div class="adlabel">AD · 쿠팡파트너스</div>`+inner;
+  for(const id of ["adL","adR"]){ const el=$("#"+id); if(el)el.innerHTML=rail; }
+  const f=$("#adFooter");
+  if(f)f.innerHTML=COUPANG.banners.map(bannerHtml).join("")
+    +`<div class="addisc">${COUPANG.disclosure}</div>`;
+}
+
+/* ============== 카테고리 (협곡 / 칼바람) ============== */
+function renderCatbar(){
+  const bar=$("#catbar"); if(!bar)return;
+  bar.innerHTML=CATEGORIES.map(c=>
+    `<button class="cat ${c.key===CURRENT_CAT?'on':''}" onclick="switchCat('${c.key}')">${c.icon||''} ${esc(c.label)}${c.key==='aram'?' (ARAM)':''}</button>`
+  ).join("")
+  +`<span class="cat-sep"></span>`
+  +`<button class="cat hof" onclick="go('hof','rift')">🏆 명예의 전당</button>`
+  +`<button class="cat hof" onclick="go('hof','aram')">❄️ 증내의 전당</button>`;
+}
+function switchCat(key){
+  if(key===CURRENT_CAT && GAMES.size){go('home');return;}
+  loadCategory(key);
+}
+async function loadCategory(key){
+  const cat=CATEGORIES.find(c=>c.key===key); if(!cat)return;
+  CURRENT_CAT=key; PATCH_MODE="new"; renderCatbar();
+  SORT={key:null,dir:-1};
+  $("#q").value=""; hideSuggest();
+  renderLoading(); setStatus("불러오는 중…"); loadbar(30);
+  try{
+    if(CAT_CACHE[key]){ RAW=CAT_CACHE[key]; build(); }
+    else{
+      const resp=await loadSheetJsonp(SHEET_ID, cat.gid);
+      loadbar(70);
+      RAW=gvizToObjects(resp);
+      CAT_CACHE[key]=RAW;
+      build();
+    }
+    if(!GAMES.size)throw new Error("데이터가 비어 있습니다.");
+    renderPatchbar();
+    setStatus(`${cat.label} — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`+(DUPLICATES?` · 중복 ${DUPLICATES}행 제거`:""),"ok");
+    loadbar(100); go('home');
+  }catch(e){
+    setStatus(`${cat.label} 불러오기 실패: ${e.message}`,"err"); loadbar(100); renderEmpty();
+  }
+}
+/* 패치 버전 필터 (신버전 / 구버전) */
+function renderPatchbar(){
+  const bar=$("#patchbar"); if(!bar)return;
+  const hasOld = LATEST_PATCH && RAW.some(r=>r["게임ID"] && (r["패치버전"]||"")!==LATEST_PATCH);
+  if(!LATEST_PATCH || !hasOld){ bar.innerHTML=""; bar.classList.add("hidden"); return; }
+  bar.classList.remove("hidden");
+  bar.innerHTML=`<span class="pb-label">패치</span>`
+    +`<button class="pchip ${PATCH_MODE==="new"?"on":""}" onclick="switchPatch('new')">🆕 신버전 ${esc(LATEST_PATCH)}</button>`
+    +`<button class="pchip ${PATCH_MODE==="old"?"on":""}" onclick="switchPatch('old')">📦 구버전</button>`;
+}
+function switchPatch(mode){
+  if(mode===PATCH_MODE)return;
+  PATCH_MODE=mode;
+  build(); renderPatchbar();
+  SORT={key:null,dir:-1};
+  go('home');
+}
+
+/* ============== 명예의 전당(협곡) / 증내의 전당(칼바람) ============== */
+const POS_TO_KEY={"탑":"TOP","탑솔":"TOP","정글":"JUNGLE","정굴":"JUNGLE","미드":"MIDDLE","원딜":"BOTTOM","바텀":"BOTTOM","서폿":"UTILITY","서포터":"UTILITY"};
+const POS_KEY_KOR={ALL:"통합",TOP:"탑",JUNGLE:"정글",MIDDLE:"미드",BOTTOM:"원딜",UTILITY:"서폿"};
+let HOF={cat:"rift",pos:"ALL",patch:"전체 (ALL)"};
+
+// 카테고리 RAW 확보 (현재 보기와 무관하게 전당 집계용으로 캐시/로드)
+async function getCatRaw(catKey){
+  if(CAT_CACHE[catKey]) return CAT_CACHE[catKey];
+  const cat=CATEGORIES.find(c=>c.key===catKey); if(!cat) return [];
+  const resp=await loadSheetJsonp(SHEET_ID, cat.gid);
+  CAT_CACHE[catKey]=gvizToObjects(resp);
+  return CAT_CACHE[catKey];
+}
+
+// 시트 원본 → 패치/포지션별 누적 통계 (데스크톱 앱 명예의전당 로직)
+//  · 평가율 분모(evalTotal) = MVP/역적이 매겨진 게임만 인정
+//  · 같은 게임 같은 사람은 1회만 집계
+function computeHOF(rows){
+  const evalGids=new Set();
+  for(const r of rows){const e=r["매치평가"];if(e==="MVP"||e==="역적"){const g=r["게임ID"];if(g)evalGids.add(g);}}
+  const data={},patches=new Set(),seen=new Set();
+  const mk=()=>({total:0,wins:0,mvp:0,troll:0,evalTotal:0});
+  function ensure(pv,name){
+    if(!data[pv])data[pv]={};
+    if(!data[pv][name])data[pv][name]={name,mainPos:{},ALL:mk(),TOP:mk(),JUNGLE:mk(),MIDDLE:mk(),BOTTOM:mk(),UTILITY:mk()};
+    return data[pv][name];
+  }
+  for(const r of rows){
+    const name=r["소환사명"],res=r["결과"];
+    if(!name||(res!=="승리"&&res!=="패배"))continue;
+    const g=r["게임ID"]||"";
+    const key=g+"∥"+name;if(seen.has(key))continue;seen.add(key);
+    const posKey=POS_TO_KEY[(r["포지션"]||"").trim()]||"NONE";
+    const evl=r["매치평가"]||"";
+    const patch=((r["패치버전"]||"").trim())||"16.13";
+    patches.add(patch);
+    const inEval=evalGids.has(g);
+    for(const pv of ["전체 (ALL)",patch]){
+      const s=ensure(pv,name);
+      s.ALL.total++;if(res==="승리")s.ALL.wins++;
+      if(posKey!=="NONE")s.mainPos[posKey]=(s.mainPos[posKey]||0)+1;
+      if(inEval){s.ALL.evalTotal++;if(evl==="MVP")s.ALL.mvp++;else if(evl==="역적")s.ALL.troll++;}
+      if(posKey!=="NONE"&&s[posKey]){
+        s[posKey].total++;if(res==="승리")s[posKey].wins++;
+        if(inEval){s[posKey].evalTotal++;if(evl==="MVP")s[posKey].mvp++;else if(evl==="역적")s[posKey].troll++;}
+      }
+    }
+  }
+  const patchList=["전체 (ALL)",...[...patches].sort((a,b)=>patchNum(b)-patchNum(a))];
+  return {data,patches:patchList};
+}
+
+async function renderHOF(catArg){
+  if(catArg==="rift"||catArg==="aram"){HOF.cat=catArg;HOF.pos="ALL";HOF.patch="전체 (ALL)";}
+  window.scrollTo(0,0);
+  const isRift=HOF.cat==="rift";
+  const headTitle=isRift?"🏆 명예의 전당":"❄️ 증내의 전당";
+  view().innerHTML=`<div class="empty">${headTitle} 데이터를 불러오는 중…</div>`;
+  let raw;
+  try{ raw=await getCatRaw(HOF.cat); }
+  catch(e){ view().innerHTML=`<div class="empty">데이터를 불러오지 못했습니다.<br><span class="muted">${esc(e.message||'')}</span></div>`; return; }
+  const {data,patches}=computeHOF(raw);
+  if(!patches.includes(HOF.patch))HOF.patch="전체 (ALL)";
+  const pos=isRift?HOF.pos:"ALL";
+  let minWr=pos==="ALL"?10:5, minEval=pos==="ALL"?5:3;
+  if(HOF.patch!=="전체 (ALL)"){minWr=Math.max(3,Math.floor(minWr/2));minEval=Math.max(2,Math.floor(minEval/2));}
+  const verData=data[HOF.patch]||{};
+  const list=[];
+  for(const name in verData){
+    const s=verData[name],st=pos==="ALL"?s.ALL:s[pos];
+    if(!st||!st.total)continue;
+    list.push({name,total:st.total,wins:st.wins,mvp:st.mvp,troll:st.troll,evalTotal:st.evalTotal,mainPos:s.mainPos});
+  }
+  const mostGames=[...list].sort((a,b)=>b.total-a.total).slice(0,10);
+  const highestWr=list.filter(x=>x.total>=minWr).sort((a,b)=>(b.wins/b.total)-(a.wins/a.total)||b.total-a.total).slice(0,10);
+  const highestMvp=list.filter(x=>x.evalTotal>=minEval&&x.mvp>0).sort((a,b)=>(b.mvp/b.evalTotal)-(a.mvp/a.evalTotal)||b.mvp-a.mvp).slice(0,10);
+  const highestTroll=list.filter(x=>x.evalTotal>=minEval&&x.troll>0).sort((a,b)=>(b.troll/b.evalTotal)-(a.troll/a.evalTotal)||b.troll-a.troll).slice(0,10);
+
+  const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
+  const posPrefix=s=>{
+    if(!isRift||pos!=="ALL")return "";
+    const mp=s.mainPos||{};let best="",bv=-1;
+    for(const k in mp){if(mp[k]>bv){bv=mp[k];best=k;}}
+    return best?`<span class="hof-pos">[${POS_KEY_KOR[best]}]</span> `:"";
+  };
+  const card=(t,lst,type)=>{
+    const body=lst.length?lst.map((s,i)=>{
+      let m="";
+      if(type==="total")m=`${s.total}판 <span class="muted" style="font-weight:400">(${s.wins}승)</span>`;
+      else if(type==="wr")m=`${(s.wins/s.total*100).toFixed(1)}% <span class="muted" style="font-weight:400">(${s.wins}승 ${s.total-s.wins}패)</span>`;
+      else if(type==="mvp")m=`${(s.mvp/s.evalTotal*100).toFixed(1)}% <span class="muted" style="font-weight:400">(${s.mvp}회/평가 ${s.evalTotal})</span>`;
+      else m=`${(s.troll/s.evalTotal*100).toFixed(1)}% <span class="muted" style="font-weight:400">(${s.troll}회/평가 ${s.evalTotal})</span>`;
+      return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span>${posPrefix(s)}<span class="clickname" onclick="go('player','${escAttr(s.name)}')">${esc(shortName(s.name))}</span>${tierBadge(s.name)}<span class="hof-metric">${m}</span></div>`;
+    }).join(""):`<div class="muted" style="padding:16px 4px">기준(${type==="wr"||type==="total"?minWr:minEval}판 이상)을 충족하는 데이터가 부족합니다.</div>`;
+    return `<div class="card"><h2>${t}</h2>${body}</div>`;
+  };
+
+  const posTabs=isRift?`<div class="hof-postabs">`+
+    [["ALL","통합"],["TOP","탑"],["JUNGLE","정글"],["MIDDLE","미드"],["BOTTOM","원딜"],["UTILITY","서폿"]]
+    .map(p=>`<button class="hof-postab ${HOF.pos===p[0]?"on":""}" onclick="hofPos('${p[0]}')">${p[1]}</button>`).join("")+`</div>`:"";
+  const patchOpts=patches.map(p=>`<option ${p===HOF.patch?"selected":""}>${esc(p)}</option>`).join("");
+
+  view().innerHTML=`
+    <div class="hof-head">
+      <h1 class="hof-title">${headTitle} <span class="muted" style="font-size:14px">(${isRift?"협곡":"칼바람"})</span></h1>
+      <div class="hof-filter">
+        <span class="muted">패치</span>
+        <select class="hof-select" onchange="hofPatch(this.value)">${patchOpts}</select>
+        <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="go('home')">← 대시보드</button>
+      </div>
+    </div>
+    ${posTabs}
+    <div class="hof-grid">
+      ${card("🎖️ 망령 TOP 10 <span class='muted' style='font-size:12px;font-weight:400'>판수</span>",mostGames,"total")}
+      ${card("📈 승률왕 TOP 10",highestWr,"wr")}
+      ${card("👑 MVP 획득률 TOP 10",highestMvp,"mvp")}
+      ${card("💀 역적 지목률 TOP 10",highestTroll,"troll")}
+    </div>`;
+}
+function hofPos(p){HOF.pos=p;renderHOF();}
+function hofPatch(p){HOF.patch=p;renderHOF();}
 
 /* ============== 부팅 ============== */
 (async function init(){
-  const saved=localStorage.getItem("squadgg_url")||DEFAULT_SHEET;
-  $("#srcUrl").value=saved;
+  $("#srcUrl").value=DEFAULT_SHEET;
+  renderAds();
+  renderCatbar();
   renderLoading();
   await loadDDragon();
-  await loadFromUrl(saved);   // 성공 시 대시보드 표시, 실패 시 안내 화면
+  await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
 })();
 </script>
 </body>
