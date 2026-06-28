@@ -162,6 +162,11 @@
   .posbar{display:flex;height:9px;border-radius:5px;overflow:hidden;margin-bottom:11px;background:var(--bg2)}
   .posbar>div{height:100%}
   .posdot{width:9px;height:9px;border-radius:2px;display:inline-block;flex:none}
+  .aisc{font-size:12px;font-weight:800;border:1px solid;border-radius:5px;padding:1px 6px;flex:none}
+  .dmg{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--mut);flex:none}
+  .dmgnum{min-width:30px;text-align:right;font-weight:600}
+  .dmgtrk{width:44px;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden}
+  .dmgfill{display:block;height:100%;background:linear-gradient(90deg,#c84057,#e0a437)}
   .ftr{margin:18px 0 28px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:12px;text-align:center}
 
   /* Settings panel */
@@ -1005,6 +1010,19 @@ function perfScore(r){
   const sc=parseFloat(r["점수"]); if(!isNaN(sc))return sc;
   const o=parseKDA(r["KDA"]); return o?kdaRatio(o):null;
 }
+// AI 종합점수 칩 (해체분석기 점수 컬럼이 있을 때만)
+function aiScoreChip(r){
+  const sc=parseFloat(r["점수"]); if(isNaN(sc))return "";
+  const col=sc>=25?'var(--gold)':sc>=15?'var(--win)':sc>=8?'var(--sub)':'var(--lose)';
+  return `<span class="aisc" style="color:${col};border-color:${col}" title="AI 종합점수">${sc.toFixed(1)}</span>`;
+}
+// 딜량 막대바 (게임 내 최대 딜량 대비)
+function dmgBar(r,maxDmg){
+  const dv=parseFloat(r["딜량"]); if(isNaN(dv)||!maxDmg)return "";
+  const w=Math.max(4,Math.round(dv/maxDmg*100));
+  const disp=dv>=1000?(dv/1000).toFixed(1)+'k':String(dv);
+  return `<span class="dmg" title="가한 피해량 ${dv.toLocaleString()}"><span class="dmgnum">${disp}</span><span class="dmgtrk"><span class="dmgfill" style="width:${w}%"></span></span></span>`;
+}
 function kdaChip(r){
   const o=parseKDA(r["KDA"]); if(!o)return "";
   const rt=kdaRatio(o);
@@ -1259,6 +1277,7 @@ function renderGame(gid){
   const scored=allP.map(p=>({p,sc:perfScore(p)})).filter(x=>x.sc!=null).sort((a,b)=>b.sc-a.sc);
   const rankMap=new Map(); scored.forEach((x,i)=>rankMap.set(x.p,i+1));
   const total=scored.length;
+  const maxDmg=allP.reduce((m,p)=>{const d=parseFloat(p["딜량"]);return !isNaN(d)&&d>m?d:m;},0);
   const teamsHtml=sides.map(side=>{
     const players=sortByPos(g.teams[side]);
     const tres=players.some(p=>p["결과"]==="승리")?"승리":players.some(p=>p["결과"]==="패배")?"패배":"대기";
@@ -1275,7 +1294,7 @@ function renderGame(gid){
         <span class="pos">${esc(posLabel(p["포지션"]))}</span>
         <span class="clickname" onclick="go('player','${escAttr(canonOfRow(p))}')">${esc(shortName(canonOfRow(p)))}</span>
         <span style="flex:1"></span>
-        ${kdaChip(p)}${badge}
+        ${dmgBar(p,maxDmg)}${kdaChip(p)}${aiScoreChip(p)}${badge}
       </div>`;
     }).join("");
     return `<div class="team ${cls}">
