@@ -154,6 +154,14 @@
   .cmt-discord:hover{background:#4752c4}
   .cmt-me{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
   .cmt-me-badge{font-weight:700;font-size:13px;color:var(--txt);background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
+  /* KDA / 인게임 등수 / 포지션 분포 (DEEPLOL 참고) */
+  .kda{font-size:12px;white-space:nowrap;color:var(--sub)}
+  .kda .kr{font-weight:800;margin-left:3px}
+  .rk{font-size:11px;font-weight:800;color:var(--sub);background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;flex:none;min-width:30px;text-align:center}
+  .rk.rk1{color:#15171c;background:var(--gold);border-color:var(--gold)}
+  .posbar{display:flex;height:9px;border-radius:5px;overflow:hidden;margin-bottom:11px;background:var(--bg2)}
+  .posbar>div{height:100%}
+  .posdot{width:9px;height:9px;border-radius:2px;display:inline-block;flex:none}
   .ftr{margin:18px 0 28px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:12px;text-align:center}
 
   /* Settings panel */
@@ -982,6 +990,27 @@ function shortName(n){return n.split("#")[0];}
 function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
 function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 
+/* ===== KDA / 인게임 평점 (DEEPLOL 참고) ===== */
+function parseKDA(s){
+  if(s==null)return null;
+  const p=String(s).trim().split(/[\/:]/).map(x=>parseInt(x,10));
+  if(p.length<3||p.slice(0,3).some(n=>isNaN(n)))return null;
+  return {k:p[0],d:p[1],a:p[2]};
+}
+function kdaRatio(o){ return o.d===0 ? (o.k+o.a) : (o.k+o.a)/o.d; }
+function kdaRatioStr(o){ return o.d===0 ? "★" : kdaRatio(o).toFixed(2); }
+function kdaColor(ratio){ return ratio>=4?'var(--gold)':ratio>=2.5?'var(--win)':ratio>=1.5?'var(--sub)':'var(--lose)'; }
+// 게임 내 평점: 시트에 '점수' 컬럼이 생기면(해체분석기 v81.4) 그걸 우선, 없으면 KDA 평점
+function perfScore(r){
+  const sc=parseFloat(r["점수"]); if(!isNaN(sc))return sc;
+  const o=parseKDA(r["KDA"]); return o?kdaRatio(o):null;
+}
+function kdaChip(r){
+  const o=parseKDA(r["KDA"]); if(!o)return "";
+  const rt=kdaRatio(o);
+  return `<span class="kda"><b>${o.k}</b>/<b style="color:var(--lose)">${o.d}</b>/<b>${o.a}</b> <span class="kr" style="color:${kdaColor(rt)}">${kdaRatioStr(o)}</span></span>`;
+}
+
 /* ============== 화면: 플레이어 상세 ============== */
 /* ============== 댓글 (Google Apps Script 백엔드 + COMMENTS 시트) ============== */
 const COMMENT_API = "https://script.google.com/macros/s/AKfycbxruHLb1dwhVIvAVsIfwBDXtIThYZFXWVkC08azchn88r52FzYZrz4b_zKcWOOYqrI/exec";
@@ -1086,16 +1115,22 @@ function renderPlayer(name){
   // 최신순 (게임 등장 순서 역순)
   const list=[...parts].reverse();
   let w=0,l=0,mvp=0,bad=0;
+  let tk=0,td=0,ta=0,kdaGames=0;   // 종합 평균 KDA용
   const champAgg=new Map(),posAgg=new Map();
   for(const r of parts){
     const win=r["결과"]==="승리";
     if(win)w++;else if(r["결과"]==="패배")l++;
     if(r["매치평가"]==="MVP")mvp++;else if(r["매치평가"]==="역적")bad++;
     const c=r["챔피언"]||"?";
-    if(!champAgg.has(c))champAgg.set(c,{champ:c,g:0,w:0});
+    if(!champAgg.has(c))champAgg.set(c,{champ:c,g:0,w:0,k:0,d:0,a:0,kg:0});
     const ca=champAgg.get(c);ca.g++;if(win)ca.w++;
+    const ko=parseKDA(r["KDA"]);
+    if(ko){ tk+=ko.k;td+=ko.d;ta+=ko.a;kdaGames++; ca.k+=ko.k;ca.d+=ko.d;ca.a+=ko.a;ca.kg++; }
     const p=r["포지션"]||"?";posAgg.set(p,(posAgg.get(p)||0)+1);
   }
+  // 종합 평균 KDA (KDA 기록이 있는 게임 기준)
+  const avgKda = kdaGames ? {k:tk/kdaGames, d:td/kdaGames, a:ta/kdaGames} : null;
+  const avgRatio = avgKda ? (avgKda.d===0?(avgKda.k+avgKda.a):(avgKda.k+avgKda.a)/avgKda.d) : null;
   const wr=pct(w,w+l);
   const most=[...champAgg.values()].sort((a,b)=>b.g-a.g).slice(0,6);
   const decided=list.filter(r=>r["결과"]==="승리"||r["결과"]==="패배");
@@ -1103,16 +1138,25 @@ function renderPlayer(name){
 
   const mostHtml=most.map(c=>{
     const cwr=pct(c.w,c.g);
+    const ck=c.kg?{k:c.k/c.kg,d:c.d/c.kg,a:c.a/c.kg}:null;
+    const crat=ck?(ck.d===0?(ck.k+ck.a):(ck.k+ck.a)/ck.d):null;
+    const kdaLine=ck?` · <span style="color:${kdaColor(crat)}">${crat.toFixed(2)}</span> <span style="opacity:.6">${ck.k.toFixed(1)}/${ck.d.toFixed(1)}/${ck.a.toFixed(1)}</span>`:'';
     return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       ${champImg(c.champ)}
-      <div style="flex:1"><b>${esc(c.champ)}</b><div class="muted" style="font-size:12px">${c.g}게임</div></div>
+      <div style="flex:1"><b>${esc(c.champ)}</b><div class="muted" style="font-size:12px">${c.g}게임${kdaLine}</div></div>
       <div style="text-align:right;color:${cwr>=50?'var(--win)':'var(--lose)'}"><b>${cwr}%</b></div>
     </div>`;}).join("")||'<span class="muted">기록 없음</span>';
 
-  const posHtml=POS_LIST.map(p=>{
+  const posTotal=[...posAgg.values()].reduce((a,b)=>a+b,0);
+  const POS_COLOR={"탑":"#c9482f","정글":"#2f9d57","미드":"#3a73e8","원딜":"#d9a13a","서폿":"#8a5cd6"};
+  const posBar=posTotal?`<div class="posbar">`+POS_LIST.map(p=>{
+    const n=posAgg.get(p)||0; if(!n)return"";
+    return `<div style="width:${(n/posTotal*100).toFixed(2)}%;background:${POS_COLOR[p]||'var(--line)'}" title="${p} ${n}판"></div>`;
+  }).join("")+`</div>`:'';
+  const posHtml=posBar+(POS_LIST.map(p=>{
     const n=posAgg.get(p)||0;if(!n)return"";
-    return `<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="muted">${p}</span><b>${n}</b></div>`;
-  }).join("")||'<span class="muted">-</span>';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="display:flex;align-items:center;gap:6px"><span class="posdot" style="background:${POS_COLOR[p]||'var(--line)'}"></span><span class="muted">${p}</span></span><b>${n}판 <span class="muted" style="font-weight:400">(${Math.round(n/posTotal*100)}%)</span></b></div>`;
+  }).join("")||'<span class="muted">-</span>');
 
   const matchHtml=list.map(r=>matchCard(r,name)).join("");
 
@@ -1131,7 +1175,7 @@ function renderPlayer(name){
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
           <div class="pname">${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}</div>
-          <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · 역적 ${bad}</div>
+          <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
         </div>
@@ -1198,6 +1242,7 @@ function matchCard(r,selfName){
       <div class="info">
         <b>${esc(r["챔피언"]||'?')}</b>
         <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span> ${evalBadge}
+        ${kdaChip(r)?`<div style="margin-top:2px">${kdaChip(r)}</div>`:''}
       </div>
     </div>
     ${lineups}
@@ -1209,6 +1254,11 @@ function renderGame(gid){
   const g=GAMES.get(gid);
   if(!g){view().innerHTML=`<div class="empty">게임 ${esc(gid)} 없음</div>`;return;}
   const sides=teamOrder(g);
+  // 인게임 평점 랭킹: 양 팀 통합 점수순 등수 (점수/ KDA 있는 사람만). 점수 컬럼 생기면 자동 반영.
+  const allP=sides.flatMap(s=>g.teams[s]||[]);
+  const scored=allP.map(p=>({p,sc:perfScore(p)})).filter(x=>x.sc!=null).sort((a,b)=>b.sc-a.sc);
+  const rankMap=new Map(); scored.forEach((x,i)=>rankMap.set(x.p,i+1));
+  const total=scored.length;
   const teamsHtml=sides.map(side=>{
     const players=sortByPos(g.teams[side]);
     const tres=players.some(p=>p["결과"]==="승리")?"승리":players.some(p=>p["결과"]==="패배")?"패배":"대기";
@@ -1217,11 +1267,15 @@ function renderGame(gid){
     const rows=players.map(p=>{
       const me=p["매치평가"];
       const badge=me==="MVP"?`<span class="badge b-mvp">MVP</span>`:me==="역적"?`<span class="badge b-bad">역적</span>`:"";
+      const rk=rankMap.get(p);
+      const rankBadge=rk?`<span class="rk ${rk===1?'rk1':''}" title="이 게임 ${total}명 중 ${rk}등">${rk===1?'👑 ':''}${rk}등</span>`:"";
       return `<div class="prow">
+        ${rankBadge}
         ${champImg(p["챔피언"])}
         <span class="pos">${esc(posLabel(p["포지션"]))}</span>
         <span class="clickname" onclick="go('player','${escAttr(canonOfRow(p))}')">${esc(shortName(canonOfRow(p)))}</span>
-        <span style="flex:1"></span>${badge}
+        <span style="flex:1"></span>
+        ${kdaChip(p)}${badge}
       </div>`;
     }).join("");
     return `<div class="team ${cls}">
