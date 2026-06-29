@@ -432,6 +432,32 @@ const TIER_NICK = {
   "레알티슈도둑":"2中","듀우쿠우":"1中","새벽문앞":"1上","맨헤라공원팬티도둑":"2中","뵤뵤":"1下"
 };
 for(const nm in TIER_NICK)TIER_OF[tnorm(nm)]=TIER_NICK[nm];
+// === 내부티어 SSOT: CLAN_TIERS 시트 탭에서 읽어 TIER_OF 재구성 (위 하드코딩은 폴백) ===
+const CLAN_TIERS_GID="354094721";
+function parseClanTiers(resp){
+  try{
+    const cols=resp.table.cols.map(c=>(c.label||"").trim());
+    const ni=cols.indexOf("닉네임"), ti=cols.indexOf("티어");
+    const out=[];
+    for(const row of resp.table.rows||[]){
+      const c=row.c||[];
+      const nm=(ni>=0&&c[ni])?String(c[ni].v==null?"":c[ni].v).trim():"";
+      const t=(ti>=0&&c[ti])?String(c[ti].v==null?"":c[ti].v).trim():"";
+      if(nm&&t)out.push([nm,t]);
+    }
+    return out;
+  }catch(e){return [];}
+}
+async function loadClanTiers(){
+  try{
+    const resp=await loadSheetJsonp(SHEET_ID,CLAN_TIERS_GID);
+    const rows=parseClanTiers(resp);
+    if(rows.length){
+      for(const k in TIER_OF)delete TIER_OF[k];   // 시트가 단일 소스
+      for(const r of rows)TIER_OF[tnorm(r[0])]=r[1];
+    }
+  }catch(e){/* 실패 시 하드코딩 폴백 유지 */}
+}
 function tierOf(name){
   const d=TIER_OF[tnorm(name)]; if(d)return d;
   // 닉네임이 바뀐 경우: 같은 사람(PUUID)의 과거 닉 중 티어표에 있는 것을 사용
@@ -1690,6 +1716,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderCatbar();
   renderLoading();
   await loadDDragon();
+  await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
   await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
 })();
