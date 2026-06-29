@@ -182,8 +182,21 @@
 
   /* Tabs */
   .tabs{display:flex;gap:4px;margin:18px 0 8px;border-bottom:1px solid var(--line)}
-  .tab{padding:10px 16px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent}
+  .tab{padding:10px 16px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent;cursor:pointer}
+  .tab:hover{color:var(--txt)}
   .tab.on{color:var(--txt);border-bottom-color:var(--accent)}
+  /* 내전 기록부 */
+  .logrow{display:flex;gap:12px;align-items:center;padding:9px 6px;border-top:1px solid var(--line);cursor:pointer;font-size:13px}
+  .logrow:first-child{border-top:0}
+  .logrow:hover{background:var(--bg2)}
+  .lr-date{color:var(--mut);font-size:12px;min-width:86px;flex:none}
+  .lr-teams{display:flex;gap:8px;align-items:center;flex:1;min-width:0}
+  .lr-side{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lr-side.blue{color:#9cc0ff}
+  .lr-side.red{color:#ff9aa8;text-align:right}
+  .lr-side.win{font-weight:800}
+  .lr-vs{color:var(--mut);font-size:11px;flex:none}
+  @media(max-width:620px){.lr-teams{flex-direction:column;gap:2px;align-items:stretch}.lr-side{white-space:normal}.lr-side.red{text-align:left}.lr-vs{display:none}}
 
   /* Cards / grid */
   .grid{display:grid;gap:14px}
@@ -790,6 +803,8 @@ function go(route,arg){
   if(route==='home')renderHome();
   else if(route==='player')renderPlayer(arg);
   else if(route==='game')renderGame(arg);
+  else if(route==='log')renderLog();
+  else if(route==='counts')renderCounts();
   window.scrollTo(0,0);
 }
 // 공백 무시 + 소문자 정규화 (이름 중간 띄어쓰기가 불규칙해서 필수)
@@ -917,7 +932,7 @@ function renderHome(){
       <div class="stat"><div class="n">${champs.filter(c=>c.picks).length}</div><div class="l">사용된 챔피언</div></div>
       <div class="stat"><div class="n" style="font-size:15px;padding-top:6px">${period}</div><div class="l">기록 기간</div></div>
     </div>
-    <div class="tabs"><div class="tab on">${esc(catLabel(CURRENT_CAT))} 대시보드</div></div>
+    ${navTabsHtml('home')}
     <div class="home3">
       <div class="card">
         <h2>🏆 플레이어 랭킹</h2>
@@ -995,6 +1010,91 @@ function wrBar(wr){
 function shortName(n){return n.split("#")[0];}
 function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
 function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
+
+/* ============== 화면: 내전 기록부 / 내전 횟수 ============== */
+function navTabsHtml(active){
+  const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
+  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${tab('counts','👥 내전 횟수')}</div>`;
+}
+
+let LOG_LIMIT=60;
+function moreLog(){LOG_LIMIT+=60;renderLog();}
+let COUNTS_CLANONLY=true;   // 기본=티어표 등재 클랜원만 (외부인 제외)
+function toggleCountsScope(v){COUNTS_CLANONLY=v;renderCounts();}
+function logRow(g){
+  const sides=Object.keys(g.teams);
+  const blue=sides.find(s=>s.includes("블루"))||sides[0];
+  const red=sides.find(s=>s.includes("레드"))||sides.find(s=>s!==blue)||sides[1]||blue;
+  let winSide="";for(const s of sides){if((g.teams[s]||[]).some(p=>p["결과"]==="승리")){winSide=s;break;}}
+  const names=s=>(g.teams[s]||[]).map(p=>esc(shortName(p["소환사명"]))).join(", ")||'-';
+  const bw=winSide===blue,rw=winSide===red;
+  return `<div class="logrow" onclick="go('game','${escAttr(g.id)}')">
+    <div class="lr-date">${esc(g.date||'')||'-'}</div>
+    <div class="lr-teams">
+      <span class="lr-side blue ${bw?'win':''}">${bw?'👑 ':''}${names(blue)}</span>
+      <span class="lr-vs">vs</span>
+      <span class="lr-side red ${rw?'win':''}">${rw?'👑 ':''}${names(red)}</span>
+    </div>
+  </div>`;
+}
+function renderLog(){
+  const all=[...GAMES.values()].filter(g=>g.rows.some(r=>r["결과"]==="승리"||r["결과"]==="패배"));
+  all.reverse(); // 최신순(기록 추가 순서의 역순)
+  const shown=all.slice(0,LOG_LIMIT);
+  const body=shown.length?shown.map(logRow).join(""):'<div class="muted" style="padding:12px 4px">기록된 게임이 없습니다.</div>';
+  const more=all.length>LOG_LIMIT?`<div style="text-align:center;margin-top:12px"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:9px 18px;border-radius:8px;cursor:pointer" onclick="moreLog()">더보기 (${all.length-LOG_LIMIT}게임 남음)</button></div>`:'';
+  view().innerHTML=`${navTabsHtml('log')}
+    <div class="card">
+      <h2>📜 ${esc(catLabel(CURRENT_CAT))} 내전 기록부 <span class="muted" style="font-size:12px">(${all.length}게임 · 최신순 · 클릭 시 상세)</span></h2>
+      <div class="loglist">${body}</div>
+      ${more}
+    </div>`;
+}
+
+async function renderCounts(){
+  view().innerHTML=`${navTabsHtml('counts')}<div class="card"><div class="muted" style="padding:12px 4px">협곡·칼바람 전체 내전 횟수 집계 중…</div></div>`;
+  // 두 카테고리 모두 로드 보장(합산용)
+  const data={};
+  for(const c of CATEGORIES){
+    let raw=CAT_CACHE[c.key];
+    if(!raw){try{const resp=await loadSheetJsonp(SHEET_ID,c.gid);raw=gvizToObjects(resp);CAT_CACHE[c.key]=raw;}catch(e){raw=[];}}
+    data[c.key]=raw||[];
+  }
+  // 플레이어별 카테고리별 고유 게임 수 (gid Set으로 중복행 자동 제거)
+  const tally=new Map(); // name -> {name, byCat:{}, total}
+  for(const c of CATEGORIES){
+    const perPlayer=new Map(); // name -> Set(gid)
+    for(const r of data[c.key]){
+      const gid=r["게임ID"],name=r["소환사명"];
+      if(!gid||!name)continue;
+      if(!perPlayer.has(name))perPlayer.set(name,new Set());
+      perPlayer.get(name).add(gid);
+    }
+    for(const [name,gset] of perPlayer){
+      if(!tally.has(name))tally.set(name,{name,byCat:{},total:0});
+      const t=tally.get(name);t.byCat[c.key]=gset.size;t.total+=gset.size;
+    }
+  }
+  let rows=[...tally.values()].sort((a,b)=>b.total-a.total||shortName(a.name).localeCompare(shortName(b.name)));
+  const totalAll=rows.length;
+  if(COUNTS_CLANONLY) rows=rows.filter(p=>tierOf(p.name));   // 티어표 등재 클랜원만
+  const scopeToggle=`<span style="display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle">`
+    +`<button class="pchip ${COUNTS_CLANONLY?'on':''}" onclick="toggleCountsScope(true)">🛡️ 클랜원만</button>`
+    +`<button class="pchip ${!COUNTS_CLANONLY?'on':''}" onclick="toggleCountsScope(false)">전체</button></span>`;
+  const head=`<th class="num">#</th><th>소환사</th>${CATEGORIES.map(c=>`<th class="num">${c.icon||''} ${esc(c.label)}</th>`).join("")}<th class="num">총 내전</th>`;
+  const trs=rows.length?rows.map((p,i)=>`<tr>
+    <td class="num">${i+1}</td>
+    <td><span class="clickname" onclick="go('player','${escAttr(p.name)}')">${esc(shortName(p.name))}</span>${tierBadge(p.name)}</td>
+    ${CATEGORIES.map(c=>`<td class="num">${p.byCat[c.key]||0}</td>`).join("")}
+    <td class="num"><b style="color:var(--accent)">${p.total}</b></td>
+  </tr>`).join(""):`<tr><td colspan="${CATEGORIES.length+3}" class="muted" style="padding:12px">집계할 기록이 없습니다.</td></tr>`;
+  view().innerHTML=`${navTabsHtml('counts')}
+    <div class="card">
+      <h2>👥 전 클랜원 내전 횟수 ${scopeToggle}</h2>
+      <div class="muted" style="font-size:12px;margin:-2px 0 10px">협곡+칼바람 합산 · ${rows.length}명${COUNTS_CLANONLY?` (티어 보유 클랜원 · 전체 ${totalAll}명 중)`:` (전체 기록자)`} · 클릭 시 전적</div>
+      <table class="ranktbl"><thead><tr>${head}</tr></thead><tbody>${trs}</tbody></table>
+    </div>`;
+}
 
 /* ===== KDA / 인게임 평점 (DEEPLOL 참고) ===== */
 function parseKDA(s){
