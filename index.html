@@ -468,10 +468,13 @@ function tierOf(name){
 function tierGroupCls(t){return !t?"":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
 function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:"";}
 
-/* 내부티어 평가: 동(同)티어 평균 승률과 비교해 고평가/적절/저평가 */
-let TIER_AVG={}, TIER_EVAL_GIDS=new Set();
-const TIER_MIN_GAMES=10, TIER_MIN_EVAL=5, TIER_ASSESS_TH=7;  // 10판↑, 평가 5판↑, ±7 기준
-// MVP/역적이 한 명이라도 매겨진 '평가된 게임' 집합 (현재 카테고리·패치 기준)
+/* 내부티어 평가 — 신뢰도 강화(데스크톱과 동일): 베이지안 shrinkage + leave-one-out + z표준화 + AI점수 평균 */
+let TIER_AVG={}, TIER_EVAL_GIDS=new Set(), ASSESSMENTS=new Map();
+const TIER_MIN_GAMES=10, TIER_MIN_EVAL=5;
+const SHRINK_WR=10, SHRINK_AI=10, SHRINK_EVAL=5, ASSESS_Z=0.85;
+const W_AI=0.50, W_WR=0.30, W_MVP=0.12, W_TROLL=0.08;   // AI점수=가장 조밀한 신호→최대 가중
+const _amean=xs=>{xs=xs.filter(x=>x!=null);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;};
+const _astd=(xs,mu)=>{xs=xs.filter(x=>x!=null);if(xs.length<2||mu==null)return null;return Math.sqrt(xs.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(xs.length-1));};
 function evalGameSet(){
   const s=new Set();
   for(const [gid,g] of GAMES){
@@ -479,63 +482,77 @@ function evalGameSet(){
   }
   return s;
 }
-// 한 플레이어의 승률 / MVP율 / 역적율 (MVP·역적율 분모 = 본인이 뛴 '평가된 게임' 수)
+// 한 플레이어의 승률 / MVP율 / 역적율 / 평균 AI점수
 function tierMetricsOf(name, evalGids){
   const parts=PLAYERS.get(name)||[];
-  let w=0,l=0,mvp=0,troll=0; const eg=new Set();
+  let w=0,l=0,mvp=0,troll=0,aiSum=0,aiN=0; const eg=new Set();
   for(const r of parts){
     if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
     const e=r["매치평가"]; if(e==="MVP")mvp++;else if(e==="역적")troll++;
     const gid=r["게임ID"]; if(gid&&evalGids.has(gid))eg.add(gid);
+    const sv=parseFloat(r["점수"]); if(!isNaN(sv)){aiSum+=sv;aiN++;}
   }
   const g=w+l, evalG=eg.size;
-  return {g,evalG,w,l,mvp,troll,
+  return {g,evalG,w,l,mvp,troll,aiSum,aiN,
     wr:g?w/g*100:null,
     mvpRate:evalG?mvp/evalG*100:null,
-    trollRate:evalG?troll/evalG*100:null};
+    trollRate:evalG?troll/evalG*100:null,
+    avgAI:aiN?aiSum/aiN:null};
 }
-// 동(同)티어 평균: 승률 · MVP율 · 역적율 (각 지표는 자격 충족 인원만 평균)
-function computeTierAvg(){
+// 전체 평가 1회 산출 → ASSESSMENTS(name→평가), TIER_AVG 채움
+function computeAssessments(){
   TIER_EVAL_GIDS=evalGameSet();
-  const acc={};
-  for(const [name] of PLAYERS){
-    const t=tierOf(name); if(!t)continue;
-    const m=tierMetricsOf(name,TIER_EVAL_GIDS);
-    if(m.g<TIER_MIN_GAMES)continue;
-    const a=acc[t]||(acc[t]={wrSum:0,wrN:0,mvpSum:0,mvpN:0,trSum:0,trN:0});
-    if(m.wr!=null){a.wrSum+=m.wr;a.wrN++;}
-    if(m.evalG>=TIER_MIN_EVAL){a.mvpSum+=m.mvpRate;a.mvpN++;a.trSum+=m.trollRate;a.trN++;}
+  const members=[];
+  for(const [name] of PLAYERS){ const t=tierOf(name); if(!t)continue; members.push({name,t,m:tierMetricsOf(name,TIER_EVAL_GIDS)}); }
+  const elig=members.filter(x=>x.m.g>=TIER_MIN_GAMES);
+  const g_wr=_amean(elig.map(x=>x.m.wr))??50;
+  const g_ai=_amean(elig.filter(x=>x.m.avgAI!=null).map(x=>x.m.avgAI))??0;
+  const g_mvp=_amean(elig.filter(x=>x.m.evalG>=TIER_MIN_EVAL).map(x=>x.m.mvpRate))??10;
+  const g_tr=_amean(elig.filter(x=>x.m.evalG>=TIER_MIN_EVAL).map(x=>x.m.trollRate))??10;
+  const shrunk=m=>{
+    const wr=(m.w+SHRINK_WR*(g_wr/100))/(m.g+SHRINK_WR)*100;
+    const ai=m.aiN>0?((m.aiSum+SHRINK_AI*g_ai)/(m.aiN+SHRINK_AI)):null;
+    let mvp=null,tr=null;
+    if(m.evalG>=TIER_MIN_EVAL){ mvp=(m.mvp+SHRINK_EVAL*(g_mvp/100))/(m.evalG+SHRINK_EVAL)*100; tr=(m.troll+SHRINK_EVAL*(g_tr/100))/(m.evalG+SHRINK_EVAL)*100; }
+    return {wr,ai,mvp,tr};
+  };
+  elig.forEach(x=>x.sh=shrunk(x.m));
+  const byTier={}; elig.forEach(x=>{(byTier[x.t]||(byTier[x.t]=[])).push(x);});
+  const col=k=>elig.map(x=>x.sh[k]);
+  const G_STD={}; for(const k of ["wr","ai","mvp","tr"]) G_STD[k]=_astd(col(k),_amean(col(k)))||1;
+  TIER_AVG={};
+  for(const t in byTier){const ms=byTier[t];TIER_AVG[t]={wr:_amean(ms.map(x=>x.sh.wr)),ai:_amean(ms.map(x=>x.sh.ai)),mvp:_amean(ms.map(x=>x.sh.mvp)),troll:_amean(ms.map(x=>x.sh.tr)),n:ms.length};}
+  ASSESSMENTS=new Map();
+  for(const x of members){
+    const {name,t,m}=x;
+    if(m.g<TIER_MIN_GAMES){ASSESSMENTS.set(name,{tier:t,label:"표본부족",cls:"a-na",games:m.g,detail:null});continue;}
+    const peers=(byTier[t]||[]).filter(p=>p!==x), sMe=x.sh;
+    const z=(metric,gkey)=>{
+      const me=sMe[metric]; if(me==null)return null;
+      const vals=peers.map(p=>p.sh[metric]).filter(v=>v!=null), mu=_amean(vals);
+      if(mu==null)return 0;
+      let sd=_astd(vals,mu)||0; sd=Math.max(sd,0.6*G_STD[gkey]);   // 소티어 z폭주 방지
+      return (me-mu)/sd;
+    };
+    const zwr=z("wr","wr"),zai=z("ai","ai"),zmvp=z("mvp","mvp"),ztr=z("tr","tr");
+    const terms=[];
+    if(zai!=null)terms.push([W_AI,zai]); if(zwr!=null)terms.push([W_WR,zwr]);
+    if(zmvp!=null)terms.push([W_MVP,zmvp]); if(ztr!=null)terms.push([W_TROLL,-ztr]);
+    const wsum=terms.reduce((a,b)=>a+b[0],0)||1;
+    const composite=terms.reduce((a,b)=>a+b[0]*b[1],0)/wsum;
+    let label="적절",cls="a-ok";
+    if(composite>=ASSESS_Z){label="저평가";cls="a-under";}
+    else if(composite<=-ASSESS_Z){label="고평가";cls="a-over";}
+    const avg=TIER_AVG[t]||{};
+    const r1=v=>v!=null?Math.round(v):null, r2=v=>v!=null?Math.round(v*10)/10:null;
+    ASSESSMENTS.set(name,{tier:t,label,cls,games:m.g,detail:{
+      wr:r1(m.wr),wrAvg:r1(avg.wr), ai:r2(m.avgAI),aiAvg:r2(avg.ai),
+      mvp:r1(m.mvpRate),mvpAvg:r1(avg.mvp), troll:r1(m.trollRate),trollAvg:r1(avg.troll),
+      score:Math.round(composite*100)/100}});
   }
-  const out={};
-  for(const t in acc){const a=acc[t];out[t]={
-    wr:a.wrN?a.wrSum/a.wrN:null,
-    mvp:a.mvpN?a.mvpSum/a.mvpN:null,
-    troll:a.trN?a.trSum/a.trN:null,
-    n:a.wrN};}
-  return out;
 }
-// 종합 평가: 동티어 평균 대비 (승률×1 + MVP율×0.5 − 역적율×0.5) 으로 고/저평가 판정
-function assessPlayer(name){
-  const t=tierOf(name); if(!t)return null;
-  const m=tierMetricsOf(name,TIER_EVAL_GIDS);
-  if(m.g<TIER_MIN_GAMES)return {tier:t,label:"표본부족",cls:"a-na",games:m.g,detail:null};
-  const avg=TIER_AVG[t];
-  if(!avg||avg.wr==null)return {tier:t,label:"적절",cls:"a-ok",games:m.g,detail:null};
-  const hasMvp=m.mvpRate!=null&&avg.mvp!=null;
-  const hasTr =m.trollRate!=null&&avg.troll!=null;
-  const wrDiff =m.wr-avg.wr;
-  const mvpDiff=hasMvp?m.mvpRate-avg.mvp:0;
-  const trDiff =hasTr ?m.trollRate-avg.troll:0;
-  const score=wrDiff+0.5*mvpDiff-0.5*trDiff;   // 역적율은 높을수록 나쁨 → 차감
-  let label="적절",cls="a-ok";
-  if(score>=TIER_ASSESS_TH){label="저평가";cls="a-under";}
-  else if(score<=-TIER_ASSESS_TH){label="고평가";cls="a-over";}
-  return {tier:t,label,cls,games:m.g,detail:{
-    wr:Math.round(m.wr),wrAvg:Math.round(avg.wr),
-    mvp:hasMvp?Math.round(m.mvpRate):null,mvpAvg:hasMvp?Math.round(avg.mvp):null,
-    troll:hasTr?Math.round(m.trollRate):null,trollAvg:hasTr?Math.round(avg.troll):null,
-    score:Math.round(score)}};
-}
+function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
+function assessPlayer(name){ return ASSESSMENTS.get(name)||null; }
 
 /* ============== 상태 ============== */
 let RAW = [];            // 행 배열 (객체)
@@ -1378,7 +1395,7 @@ function renderPlayer(name){
       <span style="color:var(--sub);font-size:14.5px">내부티어</span>
       <span class="tier ${tierGroupCls(asmt.tier)}" style="margin:0">${asmt.tier}</span>
       <span class="assess ${asmt.cls}">${asmt.label}</span>
-      ${asmt.detail?`<span class="muted" style="font-size:13.5px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}</span>`
+      ${asmt.detail?`<span class="muted" style="font-size:13.5px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(평균 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}</span>`
                    :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
     </div>` : '';
 
