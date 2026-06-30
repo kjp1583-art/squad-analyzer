@@ -948,6 +948,7 @@ function playerStats(){
 
 /* ============== 라우팅 ============== */
 let SORT={key:null,dir:-1};
+let PSORT={key:'games',dir:-1};   // 플레이어 랭킹 정렬 상태
 function go(route,arg){
   if(route==='hof'){renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(!GAMES.size){renderEmpty();return;}
@@ -1056,7 +1057,9 @@ function renderHome(){
   const ck=SORT.key||"picks";
   const cval=x=>ck==="champ"?x.champ:ck==="wr"?pct(x.wins,x.wins+x.losses):ck==="pr"?(x.picks+x.bans):x[ck];
   champs.sort((a,b)=>{const av=cval(a),bv=cval(b);return (av>bv?1:av<bv?-1:0)*(SORT.dir);});
-  players.sort((a,b)=>b.games-a.games||b.wr-a.wr);
+  const pk=PSORT.key||"games";
+  const pval=x=>pk==="name"?shortName(x.name):x[pk];
+  players.sort((a,b)=>{const av=pval(a),bv=pval(b);return ((av>bv?1:av<bv?-1:0)*PSORT.dir)||(b.games-a.games);});
 
   const champRows=champs.map(c=>{
     const t=c.wins+c.losses,wr=pct(c.wins,t);
@@ -1088,15 +1091,15 @@ function renderHome(){
     ${navTabsHtml('home')}
     <div class="home3">
       <div class="card">
-        <h2>🏆 플레이어 랭킹</h2>
+        <h2>🏆 플레이어 랭킹 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
         <table class="ranktbl"><thead><tr>
-          <th>소환사</th><th class="num">판</th><th class="num">승</th><th class="num">패</th><th>승률</th><th class="num">MVP</th><th class="num">역적</th>
+          ${pth("소환사","name")}${pth("판","games")}${pth("승","wins")}${pth("패","losses")}${pth("승률","wr")}${pth("MVP","mvp")}${pth("역적","bad")}
         </tr></thead><tbody>${playerRows}</tbody></table>
       </div>
       <div class="card">
         <h2>📊 챔피언 통계 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
         <table class="champtbl"><thead><tr>
-          ${th("챔피언","champ")}${th("픽","picks")}<th>승률</th>${th("밴픽률","pr")}
+          ${th("챔피언","champ")}${th("픽","picks")}${th("승률","wr")}${th("밴픽률","pr")}
         </tr></thead><tbody>${champRows}</tbody></table>
       </div>
       <div class="card">
@@ -1154,6 +1157,15 @@ function th(label,key){
 }
 function sortChamp(key){
   if(SORT.key===key)SORT.dir*=-1;else{SORT.key=key;SORT.dir=(key==="champ")?1:-1;}
+  renderHome();
+}
+function pth(label,key){
+  const arrow=PSORT.key===key?(PSORT.dir>0?" ▲":" ▼"):"";
+  const cls=(key==="name")?"":"num";
+  return `<th class="${cls}" onclick="sortPlayer('${key}')">${label}${arrow}</th>`;
+}
+function sortPlayer(key){
+  if(PSORT.key===key)PSORT.dir*=-1;else{PSORT.key=key;PSORT.dir=(key==="name")?1:-1;}
   renderHome();
 }
 function wrBar(wr){
