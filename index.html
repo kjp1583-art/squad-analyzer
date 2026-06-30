@@ -245,6 +245,7 @@
 
   .badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:12.5px;font-weight:700}
   .b-mvp{background:#3a2f12;color:var(--gold)}
+  .b-ace{background:#0e2b33;color:#39c7d6}
   .b-bad{background:#3a1c25;color:var(--lose)}
   .pos{display:inline-block;min-width:34px;color:var(--sub);font-size:13.5px}
 
@@ -479,17 +480,17 @@ const _astd=(xs,mu)=>{xs=xs.filter(x=>x!=null);if(xs.length<2||mu==null)return n
 function evalGameSet(){
   const s=new Set();
   for(const [gid,g] of GAMES){
-    for(const r of g.rows){ const e=r["매치평가"]; if(e==="MVP"||e==="역적"){ s.add(gid); break; } }
+    for(const r of g.rows){ const e=r["매치평가"]; if(e==="MVP"||e==="역적"||e==="ACE"){ s.add(gid); break; } }
   }
   return s;
 }
 // 한 플레이어의 승률 / MVP율 / 역적율 / 평균 AI점수
 function tierMetricsOf(name, evalGids){
   const parts=PLAYERS.get(name)||[];
-  let w=0,l=0,mvp=0,troll=0,aiSum=0,aiN=0; const eg=new Set();
+  let w=0,l=0,mvp=0,ace=0,troll=0,aiSum=0,aiN=0; const eg=new Set();
   for(const r of parts){
     if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
-    const e=r["매치평가"]; if(e==="MVP")mvp++;else if(e==="역적")troll++;
+    const e=r["매치평가"]; if(e==="MVP")mvp++;else if(e==="ACE")ace++;else if(e==="역적")troll++;
     const gid=r["게임ID"]; if(gid&&evalGids.has(gid))eg.add(gid);
     const sv=parseFloat(r["점수"]); if(!isNaN(sv)){aiSum+=sv;aiN++;}
   }
@@ -497,9 +498,9 @@ function tierMetricsOf(name, evalGids){
   let sr=SOLO_RANKS[tnorm(name)]||null;
   if(!sr){const al=CANON_TO_ALIASES.get(canonOfName(name)); if(al)for(const a of al){if(SOLO_RANKS[tnorm(a)]){sr=SOLO_RANKS[tnorm(a)];break;}}}
   const g=w+l, evalG=eg.size;
-  return {g,evalG,w,l,mvp,troll,aiSum,aiN,
+  return {g,evalG,w,l,mvp,ace,troll,aiSum,aiN,
     wr:g?w/g*100:null,
-    mvpRate:evalG?mvp/evalG*100:null,
+    mvpRate:evalG?(mvp+0.5*ace)/evalG*100:null,
     trollRate:evalG?troll/evalG*100:null,
     avgAI:aiN?aiSum/aiN:null,
     soloScore:sr?sr.score:null, soloWR:sr?sr.wr:null, soloW:sr?sr.wins:0, soloL:sr?sr.losses:0};
@@ -519,7 +520,7 @@ function computeAssessments(){
     const wr=(m.w+SHRINK_WR*(g_wr/100))/(m.g+SHRINK_WR)*100;
     const ai=m.aiN>0?((m.aiSum+SHRINK_AI*g_ai)/(m.aiN+SHRINK_AI)):null;
     let mvp=null,tr=null;
-    if(m.evalG>=TIER_MIN_EVAL){ mvp=(m.mvp+SHRINK_EVAL*(g_mvp/100))/(m.evalG+SHRINK_EVAL)*100; tr=(m.troll+SHRINK_EVAL*(g_tr/100))/(m.evalG+SHRINK_EVAL)*100; }
+    if(m.evalG>=TIER_MIN_EVAL){ mvp=((m.mvp+0.5*m.ace)+SHRINK_EVAL*(g_mvp/100))/(m.evalG+SHRINK_EVAL)*100; tr=(m.troll+SHRINK_EVAL*(g_tr/100))/(m.evalG+SHRINK_EVAL)*100; }
     const solo=m.soloScore;
     const solowr=m.soloWR!=null?((m.soloW+SHRINK_SOLOWR*(g_solowr/100))/(m.soloW+m.soloL+SHRINK_SOLOWR)*100):null;
     return {wr,ai,mvp,tr,solo,solowr};
@@ -1135,7 +1136,7 @@ function recentGameCard(g){
     const tres=players.some(p=>p["결과"]==="승리")?"승리":players.some(p=>p["결과"]==="패배")?"패배":"대기";
     const cls=side.includes("블루")?"blue":side.includes("레드")?"red":"blue";
     const rows=players.map(p=>{
-      const ev=p["매치평가"]==="MVP"?'<span class="badge b-mvp">MVP</span>':p["매치평가"]==="역적"?'<span class="badge b-bad">역적</span>':'';
+      const ev=p["매치평가"]==="MVP"?'<span class="badge b-mvp">MVP</span>':p["매치평가"]==="ACE"?'<span class="badge b-ace">ACE</span>':p["매치평가"]==="역적"?'<span class="badge b-bad">역적</span>':'';
       return `<div class="rg-row">${champImg(p["챔피언"],"sm")}<span class="rg-name">${esc(shortName(canonOfRow(p)))}</span>${ev}</div>`;
     }).join("");
     return `<div class="rg-team ${cls}"><div class="rg-head"><span>${esc(side)}</span><span>${tres}</span></div>${rows}</div>`;
@@ -1552,12 +1553,14 @@ function matchCard(r,selfName){
       `<div class="lucol">`+sortByPos(g.teams[s]).map(p=>{
         const me=canonOfRow(p)===selfName;
         const ev=p["매치평가"]==="MVP"?`<span class="ev" title="MVP">👑</span>`
+                :p["매치평가"]==="ACE"?`<span class="ev" title="ACE">⭐</span>`
                 :p["매치평가"]==="역적"?`<span class="ev" title="역적">💀</span>`:"";
         return `<div class="lu ${me?'self':''}">${champImg(p["챔피언"],"")}<span class="nm">${esc(shortName(canonOfRow(p)))}</span>${ev}</div>`;
       }).join("")+`</div>`
     ).join("")+`</div>`;
   }
   const evalBadge=r["매치평가"]==="MVP"?`<span class="badge b-mvp">MVP</span>`
+                 :r["매치평가"]==="ACE"?`<span class="badge b-ace">ACE</span>`
                  :r["매치평가"]==="역적"?`<span class="badge b-bad">역적</span>`:"";
   return `<div class="match ${cls}" onclick="go('game','${escAttr(r["게임ID"])}')" style="cursor:pointer">
     <div>
@@ -1594,7 +1597,7 @@ function renderGame(gid){
     const bans=(g.bans[side]||[]);
     const rows=players.map(p=>{
       const me=p["매치평가"];
-      const badge=me==="MVP"?`<span class="badge b-mvp">MVP</span>`:me==="역적"?`<span class="badge b-bad">역적</span>`:"";
+      const badge=me==="MVP"?`<span class="badge b-mvp">MVP</span>`:me==="ACE"?`<span class="badge b-ace">ACE</span>`:me==="역적"?`<span class="badge b-bad">역적</span>`:"";
       const rk=rankMap.get(p);
       const rankBadge=rk?`<span class="rk ${rk===1?'rk1':''}" title="이 게임 ${total}명 중 ${rk}등">${rk===1?'👑 ':''}${rk}등</span>`:"";
       return `<div class="prow">
@@ -1716,12 +1719,12 @@ async function getCatRaw(catKey){
 //  · 같은 게임 같은 사람은 1회만 집계
 function computeHOF(rows){
   const evalGids=new Set();
-  for(const r of rows){const e=r["매치평가"];if(e==="MVP"||e==="역적"){const g=r["게임ID"];if(g)evalGids.add(g);}}
+  for(const r of rows){const e=r["매치평가"];if(e==="MVP"||e==="역적"||e==="ACE"){const g=r["게임ID"];if(g)evalGids.add(g);}}
   // 닉네임 변경 통합: 이 데이터셋(rows) 안에서 PUUID별 최신 닉을 대표로
   const canonMap=puuidLatestFromRows(rows);
   const canonName=r=>{const pu=r["PUUID"];return (pu&&canonMap.has(pu))?canonMap.get(pu):r["소환사명"];};
   const data={},patches=new Set(),seen=new Set();
-  const mk=()=>({total:0,wins:0,mvp:0,troll:0,evalTotal:0});
+  const mk=()=>({total:0,wins:0,mvp:0,ace:0,troll:0,evalTotal:0});
   function ensure(pv,name){
     if(!data[pv])data[pv]={};
     if(!data[pv][name])data[pv][name]={name,mainPos:{},ALL:mk(),TOP:mk(),JUNGLE:mk(),MIDDLE:mk(),BOTTOM:mk(),UTILITY:mk()};
@@ -1741,10 +1744,10 @@ function computeHOF(rows){
       const s=ensure(pv,name);
       s.ALL.total++;if(res==="승리")s.ALL.wins++;
       if(posKey!=="NONE")s.mainPos[posKey]=(s.mainPos[posKey]||0)+1;
-      if(inEval){s.ALL.evalTotal++;if(evl==="MVP")s.ALL.mvp++;else if(evl==="역적")s.ALL.troll++;}
+      if(inEval){s.ALL.evalTotal++;if(evl==="MVP")s.ALL.mvp++;else if(evl==="ACE")s.ALL.ace++;else if(evl==="역적")s.ALL.troll++;}
       if(posKey!=="NONE"&&s[posKey]){
         s[posKey].total++;if(res==="승리")s[posKey].wins++;
-        if(inEval){s[posKey].evalTotal++;if(evl==="MVP")s[posKey].mvp++;else if(evl==="역적")s[posKey].troll++;}
+        if(inEval){s[posKey].evalTotal++;if(evl==="MVP")s[posKey].mvp++;else if(evl==="ACE")s[posKey].ace++;else if(evl==="역적")s[posKey].troll++;}
       }
     }
   }
@@ -1771,11 +1774,11 @@ async function renderHOF(catArg){
   for(const name in verData){
     const s=verData[name],st=pos==="ALL"?s.ALL:s[pos];
     if(!st||!st.total)continue;
-    list.push({name,total:st.total,wins:st.wins,mvp:st.mvp,troll:st.troll,evalTotal:st.evalTotal,mainPos:s.mainPos});
+    list.push({name,total:st.total,wins:st.wins,mvp:st.mvp,ace:st.ace,troll:st.troll,evalTotal:st.evalTotal,mainPos:s.mainPos});
   }
   const mostGames=[...list].sort((a,b)=>b.total-a.total).slice(0,10);
   const highestWr=list.filter(x=>x.total>=minWr).sort((a,b)=>(b.wins/b.total)-(a.wins/a.total)||b.total-a.total).slice(0,10);
-  const highestMvp=list.filter(x=>x.evalTotal>=minEval&&x.mvp>0).sort((a,b)=>(b.mvp/b.evalTotal)-(a.mvp/a.evalTotal)||b.mvp-a.mvp).slice(0,10);
+  const highestMvp=list.filter(x=>x.evalTotal>=minEval&&(x.mvp+0.5*x.ace)>0).sort((a,b)=>((b.mvp+0.5*b.ace)/b.evalTotal)-((a.mvp+0.5*a.ace)/a.evalTotal)||(b.mvp+0.5*b.ace)-(a.mvp+0.5*a.ace)).slice(0,10);
   const highestTroll=list.filter(x=>x.evalTotal>=minEval&&x.troll>0).sort((a,b)=>(b.troll/b.evalTotal)-(a.troll/a.evalTotal)||b.troll-a.troll).slice(0,10);
 
   const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
@@ -1790,7 +1793,7 @@ async function renderHOF(catArg){
       let m="";
       if(type==="total")m=`${s.total}판 <span class="muted" style="font-weight:400">(${s.wins}승)</span>`;
       else if(type==="wr")m=`${(s.wins/s.total*100).toFixed(1)}% <span class="muted" style="font-weight:400">(${s.wins}승 ${s.total-s.wins}패)</span>`;
-      else if(type==="mvp")m=`${(s.mvp/s.evalTotal*100).toFixed(1)}% <span class="muted" style="font-weight:400">(${s.mvp}회/평가 ${s.evalTotal})</span>`;
+      else if(type==="mvp")m=`${((s.mvp+0.5*s.ace)/s.evalTotal*100).toFixed(1)}% <span class="muted" style="font-weight:400">(MVP ${s.mvp}·ACE ${s.ace}/평가 ${s.evalTotal})</span>`;
       else m=`${(s.troll/s.evalTotal*100).toFixed(1)}% <span class="muted" style="font-weight:400">(${s.troll}회/평가 ${s.evalTotal})</span>`;
       return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span>${posPrefix(s)}<span class="clickname" onclick="go('player','${escAttr(s.name)}')">${esc(shortName(s.name))}</span>${tierBadge(s.name)}<span class="hof-metric">${m}</span></div>`;
     }).join(""):`<div class="muted" style="padding:16px 4px">기준(${type==="wr"||type==="total"?minWr:minEval}판 이상)을 충족하는 데이터가 부족합니다.</div>`;
