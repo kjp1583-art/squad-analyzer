@@ -474,7 +474,7 @@ let TIER_AVG={}, TIER_EVAL_GIDS=new Set(), ASSESSMENTS=new Map();
 const TIER_MIN_GAMES=10, TIER_MIN_EVAL=5;
 const SHRINK_WR=10, SHRINK_AI=10, SHRINK_EVAL=5, ASSESS_Z=0.85, SHRINK_SOLOWR=20;
 // 솔랭(객관 외부 실력) 최대, AI점수(내부 퍼포먼스) 다음. 솔랭 데이터 없으면 자동 재정규화.
-const W_SOLO=0.35, W_AI=0.25, W_WR=0.15, W_SOLOWR=0.10, W_MVP=0.10, W_TROLL=0.05;
+const W_SOLO=0.35, W_AI=0.20, W_WR=0.15, W_SOLOWR=0.10, W_MVP=0.10, W_TROLL=0.10;  // 역적 드물어진 만큼 역적율 가중 0.05→0.10(MVP 동급)
 const _amean=xs=>{xs=xs.filter(x=>x!=null);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;};
 const _astd=(xs,mu)=>{xs=xs.filter(x=>x!=null);if(xs.length<2||mu==null)return null;return Math.sqrt(xs.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(xs.length-1));};
 function evalGameSet(){
@@ -1233,7 +1233,8 @@ function renderTiers(){
       <div class="muted" style="font-size:12.5px;margin-bottom:2px">저평가 ${cU} · 적절 ${cOk} · 고평가 ${cOv} · 표본부족 ${cNa}</div>
       ${body}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
-        ※ 베이지안 보정 후 <b>같은 내부티어</b> 동료들과 비교(leave-one-out z점수 가중합 — 🏅솔랭·AI·승률·솔랭승률·MVP율·역적율). <b>[신뢰도점수]</b> +0.85↑ = <b style="color:#5b8cff">저평가(승격 후보)</b>, −0.85↓ = <b style="color:#e84057">고평가</b>. 평가엔 10판 이상 필요.
+        ※ 베이지안 보정 후 <b>같은 내부티어</b> 동료들과 비교(leave-one-out z점수 가중합 — 🏅솔랭·AI·승률·솔랭승률·MVP율·역적율). <b>[신뢰도점수]</b> +0.85↑ = <b style="color:#5b8cff">저평가(승격 후보)</b>, −0.85↓ = <b style="color:#e84057">고평가</b>. 평가엔 10판 이상 필요.<br>
+        <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.
       </div>
     </div>`;
 }
