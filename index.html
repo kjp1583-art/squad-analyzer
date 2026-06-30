@@ -486,15 +486,17 @@ function evalGameSet(){
 // 한 플레이어의 승률 / MVP율 / 역적율 / 평균 AI점수
 function tierMetricsOf(name, evalGids){
   const parts=PLAYERS.get(name)||[];
-  let w=0,l=0,mvp=0,troll=0,aiSum=0,aiN=0,puuid=""; const eg=new Set();
+  let w=0,l=0,mvp=0,troll=0,aiSum=0,aiN=0; const eg=new Set();
   for(const r of parts){
     if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
     const e=r["매치평가"]; if(e==="MVP")mvp++;else if(e==="역적")troll++;
     const gid=r["게임ID"]; if(gid&&evalGids.has(gid))eg.add(gid);
     const sv=parseFloat(r["점수"]); if(!isNaN(sv)){aiSum+=sv;aiN++;}
-    if(!puuid && r["PUUID"]) puuid=String(r["PUUID"]).trim().toLowerCase();
   }
-  const g=w+l, evalG=eg.size, sr=SOLO_RANKS[puuid]||null;
+  // 솔랭 매칭 = tnorm(닉네임). 닉변 시 과거 닉(별칭)으로도 시도
+  let sr=SOLO_RANKS[tnorm(name)]||null;
+  if(!sr){const al=CANON_TO_ALIASES.get(canonOfName(name)); if(al)for(const a of al){if(SOLO_RANKS[tnorm(a)]){sr=SOLO_RANKS[tnorm(a)];break;}}}
+  const g=w+l, evalG=eg.size;
   return {g,evalG,w,l,mvp,troll,aiSum,aiN,
     wr:g?w/g*100:null,
     mvpRate:evalG?mvp/evalG*100:null,
@@ -671,12 +673,12 @@ function loadSoloRanks(){
       try{
         const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
         const idx=n=>cols.indexOf(n);
-        const pi=idx("PUUID"), si=idx("점수"), wi=idx("솔랭승"), li=idx("솔랭패");
+        const ni=idx("닉네임"), si=idx("점수"), wi=idx("솔랭승"), li=idx("솔랭패");
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:c[i].v);
-          const pu=String(gv(pi)||"").trim().toLowerCase();
+          const nmk=tnorm(String(gv(ni)||""));   // 닉네임(tnorm) 키 — LCU PUUID 불안정 회피
           const sc=parseFloat(gv(si)); const w=parseInt(gv(wi))||0, l=parseInt(gv(li))||0;
-          if(pu && !isNaN(sc)) out[pu]={score:sc,wins:w,losses:l,wr:(w+l)?w/(w+l)*100:null};
+          if(nmk && !isNaN(sc)) out[nmk]={score:sc,wins:w,losses:l,wr:(w+l)?w/(w+l)*100:null};
         }
       }catch(e){}
       resolve(out);
