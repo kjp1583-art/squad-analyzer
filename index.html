@@ -471,8 +471,9 @@ function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tier
 /* 내부티어 평가 — 신뢰도 강화(데스크톱과 동일): 베이지안 shrinkage + leave-one-out + z표준화 + AI점수 평균 */
 let TIER_AVG={}, TIER_EVAL_GIDS=new Set(), ASSESSMENTS=new Map();
 const TIER_MIN_GAMES=10, TIER_MIN_EVAL=5;
-const SHRINK_WR=10, SHRINK_AI=10, SHRINK_EVAL=5, ASSESS_Z=0.85;
-const W_AI=0.50, W_WR=0.30, W_MVP=0.12, W_TROLL=0.08;   // AI점수=가장 조밀한 신호→최대 가중
+const SHRINK_WR=10, SHRINK_AI=10, SHRINK_EVAL=5, ASSESS_Z=0.85, SHRINK_SOLOWR=20;
+// 솔랭(객관 외부 실력) 최대, AI점수(내부 퍼포먼스) 다음. 솔랭 데이터 없으면 자동 재정규화.
+const W_SOLO=0.35, W_AI=0.25, W_WR=0.15, W_SOLOWR=0.10, W_MVP=0.10, W_TROLL=0.05;
 const _amean=xs=>{xs=xs.filter(x=>x!=null);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;};
 const _astd=(xs,mu)=>{xs=xs.filter(x=>x!=null);if(xs.length<2||mu==null)return null;return Math.sqrt(xs.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(xs.length-1));};
 function evalGameSet(){
@@ -485,19 +486,21 @@ function evalGameSet(){
 // 한 플레이어의 승률 / MVP율 / 역적율 / 평균 AI점수
 function tierMetricsOf(name, evalGids){
   const parts=PLAYERS.get(name)||[];
-  let w=0,l=0,mvp=0,troll=0,aiSum=0,aiN=0; const eg=new Set();
+  let w=0,l=0,mvp=0,troll=0,aiSum=0,aiN=0,puuid=""; const eg=new Set();
   for(const r of parts){
     if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
     const e=r["매치평가"]; if(e==="MVP")mvp++;else if(e==="역적")troll++;
     const gid=r["게임ID"]; if(gid&&evalGids.has(gid))eg.add(gid);
     const sv=parseFloat(r["점수"]); if(!isNaN(sv)){aiSum+=sv;aiN++;}
+    if(!puuid && r["PUUID"]) puuid=String(r["PUUID"]).trim().toLowerCase();
   }
-  const g=w+l, evalG=eg.size;
+  const g=w+l, evalG=eg.size, sr=SOLO_RANKS[puuid]||null;
   return {g,evalG,w,l,mvp,troll,aiSum,aiN,
     wr:g?w/g*100:null,
     mvpRate:evalG?mvp/evalG*100:null,
     trollRate:evalG?troll/evalG*100:null,
-    avgAI:aiN?aiSum/aiN:null};
+    avgAI:aiN?aiSum/aiN:null,
+    soloScore:sr?sr.score:null, soloWR:sr?sr.wr:null, soloW:sr?sr.wins:0, soloL:sr?sr.losses:0};
 }
 // 전체 평가 1회 산출 → ASSESSMENTS(name→평가), TIER_AVG 채움
 function computeAssessments(){
@@ -509,19 +512,22 @@ function computeAssessments(){
   const g_ai=_amean(elig.filter(x=>x.m.avgAI!=null).map(x=>x.m.avgAI))??0;
   const g_mvp=_amean(elig.filter(x=>x.m.evalG>=TIER_MIN_EVAL).map(x=>x.m.mvpRate))??10;
   const g_tr=_amean(elig.filter(x=>x.m.evalG>=TIER_MIN_EVAL).map(x=>x.m.trollRate))??10;
+  const g_solowr=_amean(elig.filter(x=>x.m.soloWR!=null).map(x=>x.m.soloWR))??50;
   const shrunk=m=>{
     const wr=(m.w+SHRINK_WR*(g_wr/100))/(m.g+SHRINK_WR)*100;
     const ai=m.aiN>0?((m.aiSum+SHRINK_AI*g_ai)/(m.aiN+SHRINK_AI)):null;
     let mvp=null,tr=null;
     if(m.evalG>=TIER_MIN_EVAL){ mvp=(m.mvp+SHRINK_EVAL*(g_mvp/100))/(m.evalG+SHRINK_EVAL)*100; tr=(m.troll+SHRINK_EVAL*(g_tr/100))/(m.evalG+SHRINK_EVAL)*100; }
-    return {wr,ai,mvp,tr};
+    const solo=m.soloScore;
+    const solowr=m.soloWR!=null?((m.soloW+SHRINK_SOLOWR*(g_solowr/100))/(m.soloW+m.soloL+SHRINK_SOLOWR)*100):null;
+    return {wr,ai,mvp,tr,solo,solowr};
   };
   elig.forEach(x=>x.sh=shrunk(x.m));
   const byTier={}; elig.forEach(x=>{(byTier[x.t]||(byTier[x.t]=[])).push(x);});
   const col=k=>elig.map(x=>x.sh[k]);
-  const G_STD={}; for(const k of ["wr","ai","mvp","tr"]) G_STD[k]=_astd(col(k),_amean(col(k)))||1;
+  const G_STD={}; for(const k of ["wr","ai","mvp","tr","solo","solowr"]) G_STD[k]=_astd(col(k),_amean(col(k)))||1;
   TIER_AVG={};
-  for(const t in byTier){const ms=byTier[t];TIER_AVG[t]={wr:_amean(ms.map(x=>x.sh.wr)),ai:_amean(ms.map(x=>x.sh.ai)),mvp:_amean(ms.map(x=>x.sh.mvp)),troll:_amean(ms.map(x=>x.sh.tr)),n:ms.length};}
+  for(const t in byTier){const ms=byTier[t];TIER_AVG[t]={wr:_amean(ms.map(x=>x.sh.wr)),ai:_amean(ms.map(x=>x.sh.ai)),mvp:_amean(ms.map(x=>x.sh.mvp)),troll:_amean(ms.map(x=>x.sh.tr)),solo:_amean(ms.map(x=>x.sh.solo)),solowr:_amean(ms.map(x=>x.sh.solowr)),n:ms.length};}
   ASSESSMENTS=new Map();
   for(const x of members){
     const {name,t,m}=x;
@@ -534,9 +540,11 @@ function computeAssessments(){
       let sd=_astd(vals,mu)||0; sd=Math.max(sd,0.6*G_STD[gkey]);   // 소티어 z폭주 방지
       return (me-mu)/sd;
     };
-    const zwr=z("wr","wr"),zai=z("ai","ai"),zmvp=z("mvp","mvp"),ztr=z("tr","tr");
+    const zwr=z("wr","wr"),zai=z("ai","ai"),zmvp=z("mvp","mvp"),ztr=z("tr","tr"),zsolo=z("solo","solo"),zsolowr=z("solowr","solowr");
     const terms=[];
+    if(zsolo!=null)terms.push([W_SOLO,zsolo]);    // 솔랭 점수(객관 외부 실력)=최대 가중
     if(zai!=null)terms.push([W_AI,zai]); if(zwr!=null)terms.push([W_WR,zwr]);
+    if(zsolowr!=null)terms.push([W_SOLOWR,zsolowr]);
     if(zmvp!=null)terms.push([W_MVP,zmvp]); if(ztr!=null)terms.push([W_TROLL,-ztr]);
     const wsum=terms.reduce((a,b)=>a+b[0],0)||1;
     const composite=terms.reduce((a,b)=>a+b[0]*b[1],0)/wsum;
@@ -548,6 +556,7 @@ function computeAssessments(){
     ASSESSMENTS.set(name,{tier:t,label,cls,games:m.g,detail:{
       wr:r1(m.wr),wrAvg:r1(avg.wr), ai:r2(m.avgAI),aiAvg:r2(avg.ai),
       mvp:r1(m.mvpRate),mvpAvg:r1(avg.mvp), troll:r1(m.trollRate),trollAvg:r1(avg.troll),
+      solo:r1(m.soloScore),soloAvg:r1(avg.solo),soloWR:r1(m.soloWR),
       score:Math.round(composite*100)/100}});
   }
 }
@@ -648,6 +657,35 @@ function gvizToObjects(resp){
     if(o["게임ID"]||o["소환사명"]) out.push(o);
   }
   return out;
+}
+// 솔로랭크 시트(SOLO_RANK 탭) 로드 → {puuid: {score,wins,losses,wr}} (없으면 {})
+let SOLO_RANKS = {};
+function loadSoloRanks(){
+  return new Promise((resolve)=>{
+    const cb="__soloCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out={};
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const idx=n=>cols.indexOf(n);
+        const pi=idx("PUUID"), si=idx("점수"), wi=idx("솔랭승"), li=idx("솔랭패");
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:c[i].v);
+          const pu=String(gv(pi)||"").trim().toLowerCase();
+          const sc=parseFloat(gv(si)); const w=parseInt(gv(wi))||0, l=parseInt(gv(li))||0;
+          if(pu && !isNaN(sc)) out[pu]={score:sc,wins:w,losses:l,wr:(w+l)?w/(w+l)*100:null};
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve({});} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=SOLO_RANK&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
+  });
 }
 
 /* ============== 데이터 적재 ============== */
@@ -1395,7 +1433,7 @@ function renderPlayer(name){
       <span style="color:var(--sub);font-size:14.5px">내부티어</span>
       <span class="tier ${tierGroupCls(asmt.tier)}" style="margin:0">${asmt.tier}</span>
       <span class="assess ${asmt.cls}">${asmt.label}</span>
-      ${asmt.detail?`<span class="muted" style="font-size:13.5px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(평균 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}</span>`
+      ${asmt.detail?`<span class="muted" style="font-size:13.5px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(평균 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(평균 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}</span>`
                    :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
     </div>` : '';
 
@@ -1734,6 +1772,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
+  SOLO_RANKS = await loadSoloRanks();// 솔로랭크(평가 객관 앵커) — 없으면 {}로 자동 폴백
   await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
 })();
