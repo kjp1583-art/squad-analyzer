@@ -956,6 +956,7 @@ function go(route,arg){
   else if(route==='log')renderLog();
   else if(route==='counts')renderCounts();
   else if(route==='champ')renderChampTier();
+  else if(route==='tiers')renderTiers();
   window.scrollTo(0,0);
 }
 // 공백 무시 + 소문자 정규화 (이름 중간 띄어쓰기가 불규칙해서 필수)
@@ -1165,7 +1166,63 @@ function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 /* ============== 화면: 내전 기록부 / 내전 횟수 ============== */
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
-  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${tab('counts','👥 내전 횟수')}${tab('champ','🏆 챔피언 티어')}</div>`;
+  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${tab('counts','👥 내전 횟수')}${tab('champ','🏆 챔피언 티어')}${tab('tiers','🎖 내부티어')}</div>`;
+}
+
+/* ============== 화면: 내부티어 평가 (데스크톱 '🎖 내부티어'와 동일) ============== */
+function renderTiers(){
+  const TIER_ORDER=['1上','1中','1下','2上','2中','2下','3上','3中','3下'];
+  const OL={'고평가':0,'저평가':1,'적절':2,'표본부족':3};
+  const r1=v=>v!=null?Math.round(v):'—';
+  const detailLine=d=>{
+    let s='승률 '+d.wr+'%<span style="opacity:.55">(평균 '+d.wrAvg+'%)</span>';
+    if(d.solo!=null) s+=' · 🏅솔랭 '+d.solo+(d.soloWR!=null?'('+d.soloWR+'%)':'')+'<span style="opacity:.55">(평균 '+d.soloAvg+')</span>';
+    if(d.ai!=null) s+=' · AI '+d.ai+'<span style="opacity:.55">(평균 '+d.aiAvg+')</span>';
+    if(d.mvp!=null) s+=' · MVP율 '+d.mvp+'%<span style="opacity:.55">(평균 '+d.mvpAvg+'%)</span>';
+    if(d.troll!=null) s+=' · 역적율 '+d.troll+'%<span style="opacity:.55">(평균 '+d.trollAvg+'%)</span>';
+    return s;
+  };
+  const byTier={};
+  for(const [name,a] of ASSESSMENTS){ (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
+  const order=[...TIER_ORDER.filter(t=>byTier[t]), ...Object.keys(byTier).filter(t=>!TIER_ORDER.includes(t))];
+  let cU=0,cOk=0,cOv=0,cNa=0;
+  for(const [,a] of ASSESSMENTS){ if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
+  const sections=order.map(t=>{
+    const arr=byTier[t].slice().sort((a,b)=>(OL[a.label]-OL[b.label])||((b.detail?b.detail.score:-999)-(a.detail?a.detail.score:-999)));
+    const av=TIER_AVG[t]||{};
+    let avgText;
+    if(av.wr==null){ avgText='동티어 표본 부족'; }
+    else{ avgText='동티어 평균 — 승률 '+r1(av.wr)+'%'+(av.mvp!=null?' · MVP율 '+r1(av.mvp)+'%':'')+(av.troll!=null?' · 역적율 '+r1(av.troll)+'%':'')+(av.solo!=null?' · 🏅솔랭 '+r1(av.solo):'')+'  ·  표본 '+(av.n||arr.length)+'명'; }
+    const rows=arr.map(a=>{
+      const d=a.detail;
+      const det = d
+        ? '<span class="muted" style="font-size:13px">'+detailLine(d)+' <b style="font-weight:800;opacity:.85">[신뢰도점수 '+(d.score>=0?'+':'')+d.score.toFixed(2)+']</b></span>'
+        : '<span class="muted" style="font-size:13px">'+a.games+'판 — 평가엔 10판 이상 필요</span>';
+      return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,.045)">
+        <span class="clickname" style="min-width:116px;font-weight:700;font-size:14px" onclick="go('player','${escAttr(a.name)}')">${esc(shortName(a.name))}</span>
+        <span class="assess ${a.cls}">${a.label}</span>
+        ${det}
+      </div>`;
+    }).join("");
+    return `<div style="margin-top:16px">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px;padding-bottom:6px;border-bottom:1px solid var(--line)">
+        <span class="tier ${tierGroupCls(t)}" style="margin:0;font-size:14.5px">${t}</span>
+        <span class="muted" style="font-size:12.5px">${avgText}</span>
+      </div>
+      ${rows}
+    </div>`;
+  }).join("");
+  const body = sections || '<div class="muted" style="padding:14px 4px">평가할 클랜원 데이터가 없습니다.</div>';
+  view().innerHTML=`${navTabsHtml('tiers')}
+    <div class="card">
+      <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 같은 내부티어 평균 대비)</span></h2>
+      <div class="muted" style="font-size:13px;margin:2px 0 4px">🔵저평가 = 동티어보다 잘함(<b>승격 후보</b>)　🟢적절　🔴고평가 = 동티어보다 못함</div>
+      <div class="muted" style="font-size:12.5px;margin-bottom:2px">저평가 ${cU} · 적절 ${cOk} · 고평가 ${cOv} · 표본부족 ${cNa}</div>
+      ${body}
+      <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
+        ※ 베이지안 보정 후 <b>같은 내부티어</b> 동료들과 비교(leave-one-out z점수 가중합 — 🏅솔랭·AI·승률·솔랭승률·MVP율·역적율). <b>[신뢰도점수]</b> +0.85↑ = <b style="color:#5b8cff">저평가(승격 후보)</b>, −0.85↓ = <b style="color:#e84057">고평가</b>. 평가엔 10판 이상 필요.
+      </div>
+    </div>`;
 }
 
 let LOG_LIMIT=60;
