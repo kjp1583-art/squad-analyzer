@@ -497,11 +497,9 @@ function tierMetricsOf(name, evalGids){
   // 솔랭 매칭 = tnorm(닉네임). 닉변 시 과거 닉(별칭)으로도 시도
   let sr=SOLO_RANKS[tnorm(name)]||null;
   if(!sr){const al=CANON_TO_ALIASES.get(canonOfName(name)); if(al)for(const a of al){if(SOLO_RANKS[tnorm(a)]){sr=SOLO_RANKS[tnorm(a)];break;}}}
-  // 🏅 직전시즌 점수(있으면 현재와 max로 보강) — 닉변 시 별칭으로도 매칭
-  let pv=PREV_SEASONS[tnorm(name)];
-  if(pv==null){const al=CANON_TO_ALIASES.get(canonOfName(name)); if(al)for(const a of al){if(PREV_SEASONS[tnorm(a)]!=null){pv=PREV_SEASONS[tnorm(a)];break;}}}
-  const _solVals=[(sr?sr.score:null), pv].filter(x=>x!=null);
-  const soloBlended=_solVals.length?Math.max(..._solVals):null;   // 솔랭 앵커 = max(현재시즌, 직전시즌)
+  // [v81.31 보류] 직전시즌 블렌드 중단 — 현재시즌 점수만 사용. 사유: desktop squad_analyzer.py의
+  // 같은 지점 주석 참고(previousSeasonEndTier는 "종료값"이라 원래 취지인 "최고점"과 다르고,
+  // 진짜 최고점 필드는 LP가 없고 솔로/자유랭크 큐 구분이 안 됨 — 2026-07-01 실측 확인).
   const g=w+l, evalG=eg.size;
   return {g,evalG,w,l,mvp,ace,troll,aiSum,aiN,
     wr:g?w/g*100:null,
@@ -509,7 +507,7 @@ function tierMetricsOf(name, evalGids){
     trollRate:evalG?troll/evalG*100:null,
     aceRate:l?ace/l*100:null,   // ACE획득률 = ACE ÷ 패배수(진 판에서만 %)
     avgAI:aiN?aiSum/aiN:null,
-    soloScore:soloBlended, soloWR:sr?sr.wr:null, soloW:sr?sr.wins:0, soloL:sr?sr.losses:0};
+    soloScore:sr?sr.score:null, soloWR:sr?sr.wr:null, soloW:sr?sr.wins:0, soloL:sr?sr.losses:0};
 }
 // 전체 평가 1회 산출 → ASSESSMENTS(name→평가), TIER_AVG 채움
 function computeAssessments(){
@@ -1884,7 +1882,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
   SOLO_RANKS = await loadSoloRanks();// 솔로랭크(평가 객관 앵커) — 없으면 {}로 자동 폴백
-  PREV_SEASONS = await loadPrevSeasons();// 🏅 직전시즌 점수(있으면 현재와 max) — 없으면 {} 폴백
+  // [v81.31 보류] PREV_SEASONS = await loadPrevSeasons(); — 직전시즌 블렌드 기능 잠정 중단(사유는 tierMetricsOf 주석 참고)
   await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
 })();
