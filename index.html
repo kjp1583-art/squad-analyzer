@@ -497,13 +497,19 @@ function tierMetricsOf(name, evalGids){
   // 솔랭 매칭 = tnorm(닉네임). 닉변 시 과거 닉(별칭)으로도 시도
   let sr=SOLO_RANKS[tnorm(name)]||null;
   if(!sr){const al=CANON_TO_ALIASES.get(canonOfName(name)); if(al)for(const a of al){if(SOLO_RANKS[tnorm(a)]){sr=SOLO_RANKS[tnorm(a)];break;}}}
+  // 🏅 직전시즌 점수(있으면 현재와 max로 보강) — 닉변 시 별칭으로도 매칭
+  let pv=PREV_SEASONS[tnorm(name)];
+  if(pv==null){const al=CANON_TO_ALIASES.get(canonOfName(name)); if(al)for(const a of al){if(PREV_SEASONS[tnorm(a)]!=null){pv=PREV_SEASONS[tnorm(a)];break;}}}
+  const _solVals=[(sr?sr.score:null), pv].filter(x=>x!=null);
+  const soloBlended=_solVals.length?Math.max(..._solVals):null;   // 솔랭 앵커 = max(현재시즌, 직전시즌)
   const g=w+l, evalG=eg.size;
   return {g,evalG,w,l,mvp,ace,troll,aiSum,aiN,
     wr:g?w/g*100:null,
     mvpRate:evalG?(mvp+0.5*ace)/evalG*100:null,
     trollRate:evalG?troll/evalG*100:null,
+    aceRate:l?ace/l*100:null,   // ACE획득률 = ACE ÷ 패배수(진 판에서만 %)
     avgAI:aiN?aiSum/aiN:null,
-    soloScore:sr?sr.score:null, soloWR:sr?sr.wr:null, soloW:sr?sr.wins:0, soloL:sr?sr.losses:0};
+    soloScore:soloBlended, soloWR:sr?sr.wr:null, soloW:sr?sr.wins:0, soloL:sr?sr.losses:0};
 }
 // 전체 평가 1회 산출 → ASSESSMENTS(name→평가), TIER_AVG 채움
 function computeAssessments(){
@@ -558,7 +564,7 @@ function computeAssessments(){
     const r1=v=>v!=null?Math.round(v):null, r2=v=>v!=null?Math.round(v*10)/10:null;
     ASSESSMENTS.set(name,{tier:t,label,cls,games:m.g,detail:{
       wr:r1(m.wr),wrAvg:r1(avg.wr), ai:r2(m.avgAI),aiAvg:r2(avg.ai),
-      mvp:r1(m.mvpRate),mvpAvg:r1(avg.mvp), troll:r1(m.trollRate),trollAvg:r1(avg.troll),
+      mvp:r1(m.mvpRate),mvpAvg:r1(avg.mvp), troll:r1(m.trollRate),trollAvg:r1(avg.troll), ace:r1(m.aceRate),
       solo:r1(m.soloScore),soloAvg:r1(avg.solo),soloWR:r1(m.soloWR),
       score:Math.round(composite*100)/100}});
   }
@@ -686,6 +692,35 @@ function loadSoloRanks(){
     };
     s.onerror=()=>{ if(!done){cleanup(); resolve({});} };
     s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=SOLO_RANK&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
+  });
+}
+
+// 직전시즌 시트(PREV_SEASON 탭) 로드 → {tnorm(닉네임): score} (없으면 {})
+let PREV_SEASONS = {};
+function loadPrevSeasons(){
+  return new Promise((resolve)=>{
+    const cb="__prevCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out={};
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const idx=n=>cols.indexOf(n);
+        const ni=idx("닉네임"), si=idx("점수");
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:c[i].v);
+          const nmk=tnorm(String(gv(ni)||"")); const sc=parseFloat(gv(si));
+          if(nmk && !isNaN(sc)) out[nmk]=sc;
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve({});} };   // PREV_SEASON 탭 없으면 {} 폴백
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=PREV_SEASON&headers=1&tqx=out:json;responseHandler:${cb}`;
     document.body.appendChild(s);
     setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
   });
@@ -1193,6 +1228,7 @@ function renderTiers(){
     if(d.ai!=null) s+=' · AI '+d.ai+'<span style="opacity:.55">(평균 '+d.aiAvg+')</span>';
     if(d.mvp!=null) s+=' · MVP율 '+d.mvp+'%<span style="opacity:.55">(평균 '+d.mvpAvg+'%)</span>';
     if(d.troll!=null) s+=' · 역적율 '+d.troll+'%<span style="opacity:.55">(평균 '+d.trollAvg+'%)</span>';
+    if(d.ace!=null) s+=' · ACE율 '+d.ace+'%<span style="opacity:.55">(패배중)</span>';
     return s;
   };
   const byTier={};
@@ -1455,13 +1491,13 @@ function renderPlayer(name){
   if(!parts){view().innerHTML=`<div class="empty">‘${esc(name)}’ 기록 없음</div>`;return;}
   // 최신순 (게임 등장 순서 역순)
   const list=[...parts].reverse();
-  let w=0,l=0,mvp=0,bad=0;
+  let w=0,l=0,mvp=0,bad=0,aceN=0;
   let tk=0,td=0,ta=0,kdaGames=0;   // 종합 평균 KDA용
   const champAgg=new Map(),posAgg=new Map();
   for(const r of parts){
     const win=r["결과"]==="승리";
     if(win)w++;else if(r["결과"]==="패배")l++;
-    if(r["매치평가"]==="MVP")mvp++;else if(r["매치평가"]==="역적")bad++;
+    if(r["매치평가"]==="MVP")mvp++;else if(r["매치평가"]==="역적")bad++;else if(r["매치평가"]==="ACE")aceN++;
     const c=r["챔피언"]||"?";
     if(!champAgg.has(c))champAgg.set(c,{champ:c,g:0,w:0,k:0,d:0,a:0,kg:0});
     const ca=champAgg.get(c);ca.g++;if(win)ca.w++;
@@ -1506,7 +1542,7 @@ function renderPlayer(name){
       <span style="color:var(--sub);font-size:14.5px">내부티어</span>
       <span class="tier ${tierGroupCls(asmt.tier)}" style="margin:0">${asmt.tier}</span>
       <span class="assess ${asmt.cls}">${asmt.label}</span>
-      ${asmt.detail?`<span class="muted" style="font-size:13.5px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(평균 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(평균 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}</span>`
+      ${asmt.detail?`<span class="muted" style="font-size:13.5px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(평균 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(평균 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}${asmt.detail.ace!=null?` · ACE율 ${asmt.detail.ace}%<span style="opacity:.55">(패배중)</span>`:''}</span>`
                    :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
     </div>` : '';
 
@@ -1516,7 +1552,7 @@ function renderPlayer(name){
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
           <div class="pname">${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}</div>
-          <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
+          <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
         </div>
@@ -1848,6 +1884,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
   SOLO_RANKS = await loadSoloRanks();// 솔로랭크(평가 객관 앵커) — 없으면 {}로 자동 폴백
+  PREV_SEASONS = await loadPrevSeasons();// 🏅 직전시즌 점수(있으면 현재와 max) — 없으면 {} 폴백
   await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
 })();
