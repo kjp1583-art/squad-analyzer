@@ -111,7 +111,22 @@
   .haha{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#1c2230,#39445c);color:#cfd8e8;border:1px solid #8a94a8;white-space:nowrap}
   /* 🎖 재미 업적 뱃지 (전원 수집형) */
   .ach-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  .ach{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:20px;background:#1b2230;color:#cdd6e6;border:1px solid #33405c;cursor:help;white-space:nowrap}
+  .ach{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:20px;background:#1b2230;color:#cdd6e6;border:1px solid #33405c;cursor:pointer;white-space:nowrap}
+  /* 업적 도감 쇼케이스 */
+  .ach-sec{padding:12px 2px;border-bottom:1px solid rgba(255,255,255,.05)}
+  .ach-sec.empty{opacity:.45}
+  .ach-sec-hd{display:flex;align-items:baseline;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+  .ach-big{font-size:18px}
+  .ach-holders{display:flex;flex-wrap:wrap;gap:6px}
+  .ach-name{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;padding:2px 9px;border-radius:14px;background:#181b21;border:1px solid #2b3444;color:#dfe4ee;cursor:pointer}
+  .ach-name:hover{border-color:var(--accent,#5b8cff)}
+  /* 🏆 이주의 인물 */
+  .weekcard{margin-bottom:14px}
+  .weekgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  @media(max-width:620px){.weekgrid{grid-template-columns:1fr}}
+  .wkstar{background:#171a21;border:1px solid #2b3444;border-radius:10px;padding:12px 14px;text-align:center}
+  .wk-t{font-size:13px;font-weight:700;color:#cdd6e6;margin-bottom:6px}
+  .wk-name{font-size:17px;font-weight:800;color:#F5D47A;cursor:pointer}
   /* 양옆 광고 레일 (op.gg 스타일) — 넓은 화면에서만 표시 */
   .adrail{display:none;position:fixed;top:84px;width:160px;z-index:5}
   .adrail.left{left:calc(50% - 716px)}
@@ -594,6 +609,65 @@ function computeAssessments(){
 function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
 function assessPlayer(name){ return ASSESSMENTS.get(name)||null; }
 function titleBadge(t){ if(!t) return ''; const up=t.startsWith('상현'); return `<span class="${up?'sanghyun':'haha'}">${up?'🗡':'🌙'} ${t}</span>`; }
+// 🎖 재미 업적 뱃지 — 한 플레이어의 획득 뱃지 목록 [{k(그룹키),i(아이콘),t(칭호),d(설명)}]. 하위·캐주얼도 획득 가능.
+function playerBadges(name){
+  const parts=PLAYERS.get(name); if(!parts||!parts.length) return [];
+  let w=0,l=0,mvp=0,bad=0,aceN=0,maxStreak=0,cs=0;
+  const champ=new Map(), pos=new Map();
+  for(const r of parts){
+    const rr=r["결과"];
+    if(rr==="승리"){w++;cs++; if(cs>maxStreak)maxStreak=cs;} else if(rr==="패배"){l++;cs=0;}
+    const e=r["매치평가"]; if(e==="MVP")mvp++;else if(e==="역적")bad++;else if(e==="ACE")aceN++;
+    const c=r["챔피언"]||""; if(c&&c!=="?") champ.set(c,(champ.get(c)||0)+1);
+    const p=r["포지션"]||""; if(POS_LIST.includes(p)) pos.set(p,(pos.get(p)||0)+1);
+  }
+  const G=w+l, wr=G?Math.round(w/G*100):0;
+  const champs=[...champ.entries()].sort((a,b)=>b[1]-a[1]); const top=champs[0];
+  const posTotal=[...pos.values()].reduce((a,b)=>a+b,0);
+  const topPos=[...pos.entries()].sort((a,b)=>b[1]-a[1])[0];
+  const allPos=POS_LIST.every(p=>(pos.get(p)||0)>=1);
+  const asmt=assessPlayer(name);
+  let solo=null; const sr=SOLO_RANKS[tnorm(name)]; if(sr&&sr.score!=null) solo=sr.score;
+  const b=[];
+  if(asmt&&asmt.title) b.push({k:'sib',i:asmt.title.startsWith('상현')?'🗡':'🌙',t:asmt.title,d:'십이귀월 — 순수 실력 파워랭킹 최상위 12인'});
+  if(asmt&&asmt.label==='저평가') b.push({k:'rise',i:'🌱',t:'떡상',d:'자기 내부티어보다 잘함 — 승격 후보, 상승세!'});
+  if(G>=100) b.push({k:'vet',i:'🎂',t:'고인물',d:`내전 ${G}판 — 클랜의 산증인`});
+  else if(G>=50) b.push({k:'iron',i:'🏃',t:'철인',d:`내전 ${G}판 — 압도적 개근`});
+  else if(G>=25) b.push({k:'diligent',i:'🎯',t:'성실',d:`내전 ${G}판 — 꾸준한 참여`});
+  else if(G>0&&G<10) b.push({k:'rookie',i:'🐣',t:'새내기',d:`아직 ${G}판 — 앞으로가 기대되는 신입`});
+  if(G>=15&&wr>=60) b.push({k:'winrate',i:'📈',t:'고승률',d:`${G}판 승률 ${wr}% — 이기는 습관`});
+  if(maxStreak>=4) b.push({k:'streak',i:'🔥',t:`${maxStreak}연승`,d:`최고 ${maxStreak}연승 달성`});
+  if((mvp+aceN)>=5) b.push({k:'carry',i:'⚡',t:'캐리형',d:`MVP·ACE 합 ${mvp+aceN}회 — 팀의 기둥`});
+  if(aceN>=3) b.push({k:'ace',i:'⭐',t:'ACE 수집가',d:`ACE ${aceN}회 — 진 팀에서도 빛남`});
+  if(G>=15&&bad===0) b.push({k:'immortal',i:'🛡',t:'불사신',d:`${G}판 동안 역적 0회 — 안 터지는 클래스`});
+  if(allPos) b.push({k:'allround',i:'🎲',t:'올라운더',d:'5개 포지션 전부 소화'});
+  else if(topPos&&posTotal>=10&&topPos[1]/posTotal>=0.5) b.push({k:'specialist',i:'🧭',t:`${topPos[0]} 스페셜리스트`,d:`${topPos[0]} ${Math.round(topPos[1]/posTotal*100)}% — 확고한 주 포지션`});
+  if(champ.size>=12) b.push({k:'champmaster',i:'🌈',t:'챔프 마스터',d:`${champ.size}종 챔피언 — 넓은 챔프폭`});
+  if(top&&top[1]>=8) b.push({k:'main',i:'🏅',t:`${top[0]} 장인`,d:`${top[0]} ${top[1]}판 — 원챔 장인`});
+  if(top&&G>=15&&top[1]/G>=0.5) b.push({k:'onetrick',i:'🔮',t:'원챔러',d:`${top[0]} 비중 ${Math.round(top[1]/G*100)}% — 한우물`});
+  if(solo!=null&&solo>=2400) b.push({k:'soloflex',i:'💎',t:'솔랭 다이아+',d:'솔로랭크 상위 — 래더 실력 인증'});
+  return b;
+}
+// 업적 도감 카탈로그(쇼케이스 표시 순서·이름)
+const BADGE_CATALOG=[
+  {k:'sib',i:'🗡🌙',name:'십이귀월',d:'순수 실력 파워랭킹 최상위 12인(상현6·하현6)'},
+  {k:'rise',i:'🌱',name:'떡상',d:'자기 내부티어보다 잘하는 승격 후보'},
+  {k:'winrate',i:'📈',name:'고승률',d:'15판+ 승률 60% 이상'},
+  {k:'streak',i:'🔥',name:'연승',d:'최고 4연승 이상 달성'},
+  {k:'carry',i:'⚡',name:'캐리형',d:'MVP·ACE 합 5회 이상'},
+  {k:'ace',i:'⭐',name:'ACE 수집가',d:'ACE 3회 이상 — 진 팀에서도 활약'},
+  {k:'immortal',i:'🛡',name:'불사신',d:'15판+ 역적 0회'},
+  {k:'allround',i:'🎲',name:'올라운더',d:'5개 포지션 전부 소화'},
+  {k:'specialist',i:'🧭',name:'포지션 스페셜리스트',d:'주 포지션 비중 50% 이상'},
+  {k:'champmaster',i:'🌈',name:'챔프 마스터',d:'12종 이상 챔피언 플레이'},
+  {k:'main',i:'🏅',name:'챔피언 장인',d:'한 챔피언 8판 이상'},
+  {k:'onetrick',i:'🔮',name:'원챔러',d:'주 챔피언 비중 50% 이상'},
+  {k:'soloflex',i:'💎',name:'솔랭 다이아+',d:'솔로랭크 다이아 이상'},
+  {k:'vet',i:'🎂',name:'고인물',d:'내전 100판 이상'},
+  {k:'iron',i:'🏃',name:'철인',d:'내전 50판 이상'},
+  {k:'diligent',i:'🎯',name:'성실',d:'내전 25판 이상'},
+  {k:'rookie',i:'🐣',name:'새내기',d:'내전 10판 미만 신입'},
+];
 
 /* ============== 상태 ============== */
 let RAW = [];            // 행 배열 (객체)
@@ -1017,6 +1091,7 @@ function go(route,arg){
   else if(route==='counts')renderCounts();
   else if(route==='champ')renderChampTier();
   else if(route==='tiers')renderTiers();
+  else if(route==='ach')renderAchievements();
   window.scrollTo(0,0);
 }
 // 공백 무시 + 소문자 정규화 (이름 중간 띄어쓰기가 불규칙해서 필수)
@@ -1104,6 +1179,33 @@ function renderEmpty(){
 }
 
 /* ============== 화면: 홈/대시보드 ============== */
+// 🏆 이주의 인물 — 데이터상 최신일 기준 최근 7일 창에서 개근/캐리/연승 스타 선정
+function weeklyStars(){
+  const pdate=r=>{ const m=/(\d{4})-(\d{1,2})-(\d{1,2})/.exec(r["날짜"]||""); return m?new Date(+m[1],+m[2]-1,+m[3]).getTime():null; };
+  let maxMs=0;
+  for(const [,parts] of PLAYERS) for(const r of parts){ const t=pdate(r); if(t&&t>maxMs)maxMs=t; }
+  if(!maxMs) return null;
+  const from=maxMs-7*86400000;
+  const arr=[];
+  for(const [nm,parts] of PLAYERS){
+    let g=0,ma=0,st=0,cs=0;
+    for(const r of parts){
+      const t=pdate(r); if(t==null||t<from) continue;
+      const rr=r["결과"]; if(rr!=="승리"&&rr!=="패배") continue;
+      g++; const e=r["매치평가"]; if(e==="MVP"||e==="ACE")ma++;
+      if(rr==="승리"){cs++; if(cs>st)st=cs;} else cs=0;
+    }
+    if(g>0) arr.push({nm,g,ma,st});
+  }
+  if(!arr.length) return null;
+  const pick=fn=>{ let best=null; for(const v of arr){ const s=fn(v); if(s>0&&(!best||s>best.s||(s===best.s&&v.g>best.v.g))) best={nm:v.nm,s,v}; } return best; };
+  return {from,to:maxMs, attend:pick(v=>v.g), carry:pick(v=>v.ma), streak:pick(v=>v.st>=3?v.st:0), players:arr.length};
+}
+function _wkMD(ms){ const d=new Date(ms); return `${d.getMonth()+1}/${d.getDate()}`; }
+function weekStar(title, best, descFn){
+  if(!best) return `<div class="wkstar"><div class="wk-t">${title}</div><div class="muted" style="font-size:12.5px;padding-top:6px">해당 없음</div></div>`;
+  return `<div class="wkstar"><div class="wk-t">${title}</div><div class="wk-name clickname" onclick="go('player','${escAttr(best.nm)}')">${esc(shortName(best.nm))}</div><div class="muted" style="font-size:12px">${esc(descFn(best.v))}</div></div>`;
+}
 function renderHome(){
   const champs=champTierData();
   const players=playerStats();
@@ -1147,6 +1249,17 @@ function renderHome(){
       <div class="stat"><div class="n" style="font-size:16px;padding-top:6px">${period}</div><div class="l">기록 기간</div></div>
     </div>
     ${navTabsHtml('home')}
+    ${(()=>{ const ws=weeklyStars(); return ws ? `<div class="card weekcard">
+      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px">
+        <h2 style="margin:0">🏆 이주의 인물</h2>
+        <span class="muted" style="font-size:12.5px">최근 7일 · ${_wkMD(ws.from)}~${_wkMD(ws.to)} 기준</span>
+      </div>
+      <div class="weekgrid">
+        ${weekStar('🏃 개근왕', ws.attend, v=>`${v.g}판 참여`)}
+        ${weekStar('⚡ 캐리왕', ws.carry, v=>`MVP·ACE ${v.ma}회`)}
+        ${weekStar('🔥 연승왕', ws.streak, v=>`${v.st}연승`)}
+      </div>
+    </div>` : ''; })()}
     <div class="home3">
       <div class="card">
         <h2>🏆 플레이어 랭킹 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
@@ -1235,9 +1348,33 @@ function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
 function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 
 /* ============== 화면: 내전 기록부 / 내전 횟수 ============== */
+function renderAchievements(){
+  const byKey=new Map();
+  for(const [nm] of PLAYERS){ for(const b of playerBadges(nm)){ (byKey.get(b.k)||byKey.set(b.k,[]).get(b.k)).push({name:nm,t:b.t}); } }
+  const holders1plus=[...PLAYERS.keys()].filter(nm=>playerBadges(nm).length>0).length;
+  const sections=BADGE_CATALOG.map(cat=>{
+    const hs=(byKey.get(cat.k)||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    let chips;
+    if(!hs.length){ chips='<span class="muted" style="font-size:12.5px">아직 획득자 없음</span>'; }
+    else chips=hs.map(h=>{
+      let suf=''; if(cat.k==='streak')suf=h.t; else if(cat.k==='main')suf=h.t.replace(' 장인',''); else if(cat.k==='specialist')suf=h.t.replace(' 스페셜리스트','');
+      return `<span class="ach-name" onclick="go('player','${escAttr(h.name)}')">${esc(shortName(h.name))}${suf?` <span style="opacity:.55;font-size:11px">${esc(suf)}</span>`:''}</span>`;
+    }).join("");
+    return `<div class="ach-sec${hs.length?'':' empty'}">
+      <div class="ach-sec-hd"><span class="ach-big">${cat.i}</span><b>${esc(cat.name)}</b> <span class="muted" style="font-size:12.5px">${hs.length}명 · ${esc(cat.d)}</span></div>
+      <div class="ach-holders">${chips}</div>
+    </div>`;
+  }).join("");
+  view().innerHTML=`${navTabsHtml('ach')}
+    <div class="card" style="margin-top:16px">
+      <h2>🏅 업적 도감 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 실력 무관, 누구나 수집)</span></h2>
+      <div class="muted" style="font-size:13px;margin:2px 0 10px">내전을 즐기다 보면 자연스럽게 모이는 재미 뱃지 모음이에요. 현재 <b>${holders1plus}명</b>이 하나 이상 보유 중 · 이름을 누르면 프로필로 이동합니다.</div>
+      ${sections}
+    </div>`;
+}
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
-  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${tab('counts','👥 내전 횟수')}${tab('champ','🏆 챔피언 티어')}${tab('tiers','🎖 내부티어')}</div>`;
+  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${tab('counts','👥 내전 횟수')}${tab('champ','🏆 챔피언 티어')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}</div>`;
 }
 
 /* ============== 화면: 내부티어 평가 (데스크톱 '🎖 내부티어'와 동일) ============== */
@@ -1572,25 +1709,10 @@ function renderPlayer(name){
                    :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
     </div>` : '';
 
-  // 🎖 재미 업적 뱃지 — 하위·캐주얼도 획득 가능(참여·성장·개성·꾸준함 중심)
-  const G=w+l;
-  let maxStreak=0,_cs=0;
-  for(const r of parts){ const rr=r["결과"]; if(rr==="승리"){_cs++; if(_cs>maxStreak)maxStreak=_cs;} else if(rr==="패배"){_cs=0;} }
-  const allPos=POS_LIST.every(p=>(posAgg.get(p)||0)>=1);
-  const topChamp=most[0];
-  const badges=[];
-  if(asmt&&asmt.title) badges.push({i:asmt.title.startsWith('상현')?'🗡':'🌙',t:asmt.title,d:'십이귀월 — 순수 실력 파워랭킹 최상위 12인'});
-  if(asmt&&asmt.label==='저평가') badges.push({i:'🌱',t:'떡상',d:'자기 내부티어보다 잘함 — 승격 후보, 상승세!'});
-  if(G>=50) badges.push({i:'🏃',t:'철인',d:`내전 ${G}판 — 압도적 개근`});
-  else if(G>=25) badges.push({i:'🎯',t:'성실',d:`내전 ${G}판 — 꾸준한 참여`});
-  if(allPos) badges.push({i:'🎲',t:'올라운더',d:'5개 포지션 전부 소화'});
-  if(topChamp&&topChamp.g>=8) badges.push({i:'🏅',t:`${topChamp.champ} 장인`,d:`${topChamp.champ} ${topChamp.g}판 — 원챔 장인`});
-  if(G>=15&&bad===0) badges.push({i:'🛡',t:'불사신',d:`${G}판 동안 역적 0회 — 안 터지는 클래스`});
-  if(maxStreak>=4) badges.push({i:'🔥',t:`${maxStreak}연승`,d:`최고 ${maxStreak}연승 달성`});
-  if((mvp+aceN)>=5) badges.push({i:'⚡',t:'캐리형',d:`MVP·ACE 합 ${mvp+aceN}회 — 팀의 기둥`});
-  if(G>0&&G<10) badges.push({i:'🐣',t:'새내기',d:`아직 ${G}판 — 앞으로가 기대되는 신입`});
+  // 🎖 재미 업적 뱃지 (playerBadges에서 산출 — 프로필·쇼케이스 공용)
+  const badges = playerBadges(name);
   const badgesHtml = badges.length
-    ? `<div class="ach-row">`+badges.map(b=>`<span class="ach" title="${escAttr(b.d)}">${b.i} ${esc(b.t)}</span>`).join("")+`</div>`
+    ? `<div class="ach-row">`+badges.map(b=>`<span class="ach" title="${escAttr(b.d)}" onclick="go('ach')">${b.i} ${esc(b.t)}</span>`).join("")+`</div>`
     : `<div class="ach-row"><span class="muted" style="font-size:13px">아직 획득한 뱃지가 없어요 — 내전을 더 즐겨보세요!</span></div>`;
 
   view().innerHTML=`
