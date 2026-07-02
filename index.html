@@ -1121,9 +1121,10 @@ function championStats(){
 }
 
 /* ============== 클랜 챔피언 티어 (lol.ps 스타일, 클랜 데이터 기반) ============== */
-const CHTIER_MIN_SHOW=3;      // 티어표 노출 최소 픽수
-const CHTIER_MIN_MARK=5;      // OP/꿀챔 마크 최소 픽수
-const CHTIER_K=6;             // 베이지안 prior (표본 적으면 50%로 수축)
+const CHTIER_MIN_SHOW=3;      // 참고(표본부족) 섹션 노출 최소 픽수
+const CHTIER_MIN_TIER=8;      // ★ 티어·클랜점수·OP/꿀챔 부여 최소 픽수 — 소표본 티어가 신뢰도를 깎아 상향(2026-07-03)
+const CHTIER_MIN_MARK=8;      // OP/꿀챔 마크 최소 픽수(티어 기준과 통일)
+const CHTIER_K=8;             // 베이지안 prior (표본 적으면 50%로 수축 — 6→8 강화)
 function champTierData(){
   const champs=championStats();
   // AI점수 평균/표준편차(정규화), 평균 데스 (픽된 챔프 기준)
@@ -1141,7 +1142,8 @@ function champTierData(){
     c.avgDeath=c.deathN?c.deathSum/c.deathN:null;
     const perfZ=(c.avgScore!=null&&stdS>0)?(c.avgScore-meanS)/stdS:0;
     c.clanScore=50+(c.swr-0.5)*70+Math.max(-1.5,Math.min(1.5,perfZ))*4;
-    c.tier=c.picks?(c.clanScore>=58?1:c.clanScore>=54?2:c.clanScore>=50?3:c.clanScore>=46?4:5):null;
+    // 티어는 표본 충분(8판+)일 때만 부여 — 소표본은 null(배지 미표시)로 신뢰도 보호
+    c.tier=(c.picks>=CHTIER_MIN_TIER)?(c.clanScore>=58?1:c.clanScore>=54?2:c.clanScore>=50?3:c.clanScore>=46?4:5):null;
     c.isOP=c.picks>=CHTIER_MIN_MARK && c.swr>=0.58 && c.tier===1;         // 표본충분+높은보정승률+최상위
     c.isHoney=c.picks>=CHTIER_MIN_MARK && c.swr>=0.55 && c.avgDeath!=null && c.avgDeath<=meanDeath*0.9; // 잘이기고 적게죽음
   }
@@ -1150,7 +1152,10 @@ function champTierData(){
 function tierBadgeNum(t){ return t?`<span class="ctier ct${t}">${t}</span>`:''; }
 function champMarks(c){ return (c.isOP?'<span class="op-badge">OP</span>':'')+(c.isHoney?'<span class="honeybee" title="꿀챔: 잘 이기고 적게 죽음"></span>':''); }
 function renderChampTier(){
-  const champs=champTierData().filter(c=>c.picks>=CHTIER_MIN_SHOW);
+  const all=champTierData();
+  const champs=all.filter(c=>c.picks>=CHTIER_MIN_TIER);                              // 정규 티어표(8판+)
+  const lowN=all.filter(c=>c.picks>=CHTIER_MIN_SHOW&&c.picks<CHTIER_MIN_TIER)         // 표본부족 참고 목록(3~7판)
+              .sort((a,b)=>b.picks-a.picks||b.wr-a.wr);
   const rows=champs.map((c,i)=>{
     const decided=c.wins+c.losses;
     return `<tr>
@@ -1161,16 +1166,35 @@ function renderChampTier(){
       <td>${decided?wrBar(c.wr):'<span class="muted">-</span>'}</td>
       <td class="num">${c.picks}</td>
       <td class="num">${c.avgScore!=null?c.avgScore.toFixed(1):'<span class="muted">-</span>'}</td>
-    </tr>`;}).join("")||`<tr><td colspan="7" class="muted" style="padding:14px">${CHTIER_MIN_SHOW}판 이상 사용된 챔피언이 없습니다.</td></tr>`;
+    </tr>`;}).join("")||`<tr><td colspan="7" class="muted" style="padding:14px">${CHTIER_MIN_TIER}판 이상 사용된 챔피언이 없습니다.</td></tr>`;
+  const lowRows=lowN.map(c=>{
+    const decided=c.wins+c.losses;
+    return `<tr style="opacity:.55">
+      <td class="num">-</td>
+      <td><span class="muted" style="font-size:11px">표본↓</span></td>
+      <td><div class="champcell">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div></td>
+      <td class="num"><span class="muted">-</span></td>
+      <td>${decided?wrBar(c.wr):'<span class="muted">-</span>'}</td>
+      <td class="num">${c.picks}</td>
+      <td class="num">${c.avgScore!=null?c.avgScore.toFixed(1):'<span class="muted">-</span>'}</td>
+    </tr>`;}).join("");
+  const lowSection=lowN.length?`
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;color:var(--sub);font-size:13.5px;font-weight:700">📉 표본 부족 챔피언 (${CHTIER_MIN_SHOW}~${CHTIER_MIN_TIER-1}판 · ${lowN.length}개 · 참고용 — 티어 미부여)</summary>
+        <table class="ranktbl champtier" style="margin-top:8px"><thead><tr>
+          <th class="num">#</th><th>티어</th><th>챔피언</th><th class="num">클랜점수</th><th>승률</th><th class="num">픽</th><th class="num">AI점수</th>
+        </tr></thead><tbody>${lowRows}</tbody></table>
+      </details>`:'';
   view().innerHTML=`${navTabsHtml('champ')}
     <div class="card">
-      <h2>🏆 클랜 챔피언 티어 <span class="muted" style="font-size:13.5px">(${CHTIER_MIN_SHOW}판 이상 · ${esc(catLabel(CURRENT_CAT))} · OP/🍯는 ${CHTIER_MIN_MARK}판+)</span></h2>
+      <h2>🏆 클랜 챔피언 티어 <span class="muted" style="font-size:13.5px">(${CHTIER_MIN_TIER}판 이상만 티어 부여 · ${esc(catLabel(CURRENT_CAT))})</span></h2>
       <table class="ranktbl champtier"><thead><tr>
         <th class="num">#</th><th>티어</th><th>챔피언</th><th class="num">클랜점수</th><th>승률</th><th class="num">픽</th><th class="num">AI점수</th>
       </tr></thead><tbody>${rows}</tbody></table>
+      ${lowSection}
       <div class="muted" style="font-size:12.5px;margin-top:10px;line-height:1.6">
         ※ <b>클랜 내전 표본</b> 기반(베이지안 보정 — 표본 적은 챔프는 승률을 50%로 수축). lol.ps의 글로벌 메타와 다릅니다.<br>
-        ※ <b>OP</b> = 5판+ & 보정승률 58%↑ & 최상위 티어 · <b><span class="honeybee"></span> 꿀챔</b> = 5판+ & 승률 양호 & 평균 데스 낮음(잘 이기고 적게 죽는 챔프).
+        ※ 티어·클랜점수·OP·🍯는 <b>${CHTIER_MIN_TIER}판 이상</b>만 부여(소표본 과대평가 방지) · <b>OP</b> = 보정승률 58%↑ & 최상위 티어 · <b><span class="honeybee"></span> 꿀챔</b> = 승률 양호 & 평균 데스 낮음.
       </div>
     </div>`;
 }
