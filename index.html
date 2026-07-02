@@ -338,7 +338,7 @@
       </form>
       <div class="suggest hidden" id="suggest"></div>
     </div>
-    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver">v81.38</span></a>
+    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver">v81.39</span></a>
   </div>
 </header>
 
@@ -459,6 +459,44 @@ const TIER_NICK = {
 for(const nm in TIER_NICK)TIER_OF[tnorm(nm)]=TIER_NICK[nm];
 // === 내부티어 SSOT: CLAN_TIERS 시트 탭에서 읽어 TIER_OF 재구성 (위 하드코딩은 폴백) ===
 const CLAN_TIERS_GID="354094721";
+/* ★ 마스터 내부티어표(사장님이 직접 편집하는 시각적 티어 차트) 직접 연동 — 표를 고치면 웹에 즉시 자동 반영(항상 연동 유지).
+   격자 구조: 그룹행(0티어/I 티어/II 티어/III 티어) + 등급행(上등급/中등급/下등급) + 닉네임행 + 이름들, 하단 legend에서 중단.
+   열 위치는 등급행을 기준으로 동적 탐색(열이 밀려도 안전). */
+const MASTER_TIER_SHEET_ID="1UFuAYsXZGMquChIZY-HGsEbE5fmzk4apgWEwthvpQ44";
+const MASTER_TIER_GID="0";
+function parseMasterTierChart(resp){
+  try{
+    const rows=(resp.table.rows||[]).map(r=>(r.c||[]).map(c=>c==null?"":String(c.f!=null?c.f:(c.v==null?"":c.v)).trim()));
+    // 등급 행 탐색: 上등급·下등급이 같이 있는 행
+    let gr=-1;
+    for(let i=0;i<rows.length;i++){ if(rows[i].some(v=>v==="上등급")&&rows[i].some(v=>v==="下등급")){gr=i;break;} }
+    if(gr<1)return null;
+    const grpRow=rows[gr-1];   // 바로 윗행 = 그룹(0티어/I/II/III)
+    const GRP={"0티어":"0","I티어":"1","II티어":"2","III티어":"3"};
+    const colTier={}; let cur=null;
+    const width=Math.max(grpRow.length,rows[gr].length);
+    for(let c=0;c<width;c++){
+      const g=GRP[(grpRow[c]||"").replace(/\s+/g,"")];
+      if(g!==undefined)cur=g;
+      if(cur==="0"&&(grpRow[c]||"").replace(/\s+/g,"")==="0티어"){colTier[c]="0";continue;}
+      const gd=(rows[gr][c]||"").trim();
+      if(cur&&cur!=="0"&&/^[上中下]/.test(gd))colTier[c]=cur+gd[0];
+    }
+    if(Object.keys(colTier).length<7)return null;   // 열 매핑이 절반도 안 잡히면 구조 변경으로 보고 중단
+    const out=[];
+    for(let i=gr+2;i<rows.length;i++){   // gr+1=닉네임 헤더행 → 그 다음부터
+      const r=rows[i];
+      if(/^\d?티어/.test((r[1]||"").trim()))break;   // 하단 legend('0티어'/'1티어 상'…) 도달 시 중단
+      for(const c in colTier){
+        const nm=(r[c]||"").trim();
+        if(!nm||nm==="-")continue;
+        if(/티어|등급|닉네임/.test(nm))continue;   // 구조 텍스트 오인 방지
+        out.push([nm,colTier[c]]);
+      }
+    }
+    return out.length?out:null;
+  }catch(e){return null;}
+}
 function parseClanTiers(resp){
   try{
     const cols=resp.table.cols.map(c=>(c.label||"").trim());
@@ -474,14 +512,29 @@ function parseClanTiers(resp){
   }catch(e){return [];}
 }
 async function loadClanTiers(){
+  // ① CLAN_TIERS(앱 공용 SSOT) + ② 마스터 티어표(사장님이 직접 편집하는 원본 차트)를 병렬 로드.
+  //    마스터 차트가 항상 우선(overlay) → 표를 고치는 즉시 웹에 자동 반영(항상 연동 유지, 2026-07-03 사장님 지시).
+  const [cRes,mRes]=await Promise.allSettled([
+    loadSheetJsonp(SHEET_ID,CLAN_TIERS_GID),
+    loadSheetJsonp(MASTER_TIER_SHEET_ID,MASTER_TIER_GID)
+  ]);
   try{
-    const resp=await loadSheetJsonp(SHEET_ID,CLAN_TIERS_GID);
-    const rows=parseClanTiers(resp);
-    if(rows.length){
-      for(const k in TIER_OF)delete TIER_OF[k];   // 시트가 단일 소스
-      for(const r of rows)TIER_OF[tnorm(r[0])]=r[1];
+    if(cRes.status==="fulfilled"){
+      const rows=parseClanTiers(cRes.value);
+      if(rows.length){
+        for(const k in TIER_OF)delete TIER_OF[k];   // 시트가 단일 소스
+        for(const r of rows)TIER_OF[tnorm(r[0])]=r[1];
+      }
     }
   }catch(e){/* 실패 시 하드코딩 폴백 유지 */}
+  try{
+    if(mRes.status==="fulfilled"){
+      const mrows=parseMasterTierChart(mRes.value);
+      if(mrows&&mrows.length>=80){   // 파싱이 정상 규모일 때만 overlay(표 편집 중·구조 깨짐 방지)
+        for(const [nm,t] of mrows)TIER_OF[tnorm(nm)]=t;
+      }
+    }
+  }catch(e){/* 마스터 로드 실패 시 CLAN_TIERS만 사용 */}
 }
 function tierOf(name){
   const d=TIER_OF[tnorm(name)]; if(d)return d;
