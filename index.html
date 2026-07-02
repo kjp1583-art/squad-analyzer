@@ -72,6 +72,7 @@
   /* 패치 버전 필터 (신버전/구버전) */
   .patchbar{display:flex;align-items:center;gap:8px;margin:12px 0 0;flex-wrap:wrap}
   .pb-label{color:var(--mut);font-size:14.5px;font-weight:700}
+  .pb-sep{display:inline-block;width:1px;height:16px;background:var(--line);margin:0 3px;vertical-align:middle}
   .pchip{padding:7px 14px;border-radius:9px;background:var(--card);border:1px solid var(--line);color:var(--sub);font-weight:700;font-size:14.5px;cursor:pointer}
   .pchip:hover{color:var(--txt)}
   .pchip.on{background:var(--card2);color:var(--txt);border-color:var(--accent)}
@@ -101,6 +102,7 @@
   .tier.t1{background:#e84057}
   .tier.t2{background:#3a73e8}
   .tier.t3{background:#d8a838;color:#2a2100}
+  .tier.t0{background:linear-gradient(135deg,#a55eea,#fd79a8);color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.15) inset}
   .assess{display:inline-block;padding:2px 9px;border-radius:6px;font-size:13.5px;font-weight:800}
   .assess.a-over{background:#3a1c25;color:#e84057}
   .assess.a-ok{background:#16331f;color:#2bb177}
@@ -336,7 +338,7 @@
       </form>
       <div class="suggest hidden" id="suggest"></div>
     </div>
-    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver">v81.37</span></a>
+    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver">v81.38</span></a>
   </div>
 </header>
 
@@ -488,7 +490,7 @@ function tierOf(name){
   if(al)for(const a of al){const t=TIER_OF[tnorm(a)];if(t)return t;}
   return null;
 }
-function tierGroupCls(t){return !t?"":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
+function tierGroupCls(t){return !t?"":t[0]==="0"?"t0":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
 function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:"";}
 
 /* 내부티어 평가 — 신뢰도 강화(데스크톱과 동일): 베이지안 shrinkage + leave-one-out + z표준화 + AI점수 평균 */
@@ -870,10 +872,15 @@ function ingest(text){
 let DUPLICATES=0;
 let LATEST_PATCH="";            // 데이터에서 감지한 최신 패치 (정규화 후, 예: "16.13")
 let ALL_PATCHES=[];             // 감지된 모든 패치 (최신순)
-let PATCH_SEL=null;             // 선택 패치: null=자동(최신) / "ALL"=전체 / 특정버전("16.13")
+let ALL_YEARS=[];               // 감지된 모든 년도 (최신순, 예: ["2026","2025"])
+let PATCH_SEL=null;             // 선택 필터: null=자동(최신패치) / "ALL"=전체 / 패치("16.13") / 년도("Y2025")
 // 패치 정규화: 데스크톱이 'v16.13'으로 기록(구글시트 날짜변환 방지)하므로 앞의 v를 떼어 '16.13'과 동일 취급
 function normPatch(p){ let s=String(p||"").trim().replace(/^[vV]/,"").trim(); return s||"16.13"; }
 function patchNum(p){const a=normPatch(p).split(".");return (parseInt(a[0],10)||0)*1000+(parseInt(a[1],10)||0);}
+// 날짜 문자열에서 연도(4자리, 20xx) 추출 — 년도별 필터용
+function yearOf(d){ const m=String(d||"").match(/(20\d{2})/); return m?m[1]:""; }
+// 선택값이 년도 필터("Y2025")면 연도 문자열 반환, 아니면 null
+function selYear(sel){ return (typeof sel==="string" && sel[0]==="Y") ? sel.slice(1) : null; }
 
 /* ====== 닉네임 변경 감지 → 최신 닉으로 전적 통합 ======
    PUUID(소환사 고유 식별자)가 같으면 동일인 → 가장 최근 날짜의 닉네임을 대표로 삼아
@@ -925,13 +932,21 @@ function build(){
   for(const r of RAW){ if(r["게임ID"]&&r["패치버전"]) pset.add(r["패치버전"]); }
   ALL_PATCHES=[...pset].sort((a,b)=>patchNum(b)-patchNum(a));
   LATEST_PATCH=ALL_PATCHES[0]||"";
-  // 선택값: null(자동)이거나 더 이상 없는 버전이면 최신 패치로 (새 버전 감지 시 자동 선택)
-  if(PATCH_SEL!=="ALL" && !pset.has(PATCH_SEL)) PATCH_SEL=LATEST_PATCH;
+  // 감지된 모든 년도(최신순) — 년도별 필터 버튼용
+  const yset=new Set();
+  for(const r of RAW){ if(r["게임ID"]){ const y=yearOf(r["날짜"]); if(y) yset.add(y); } }
+  ALL_YEARS=[...yset].sort((a,b)=>b.localeCompare(a));
+  // 선택값: null(자동)이거나 더 이상 없는 패치면 최신 패치로. (년도 필터 "Y…"·전체는 그대로 유지)
+  if(PATCH_SEL!=="ALL" && !selYear(PATCH_SEL) && !pset.has(PATCH_SEL)) PATCH_SEL=LATEST_PATCH;
   const seen=new Set(); // 게임 내 동일 참가자 중복 기록 제거용
   for(const r of RAW){
     const gid=r["게임ID"]; if(!gid)continue;
-    // 패치 필터: '전체'면 모두, 아니면 선택한 버전만
-    if(PATCH_SEL!=="ALL" && LATEST_PATCH && (r["패치버전"]||"")!==PATCH_SEL) continue;
+    // 필터: '전체'=모두 / 년도("Y2025")=그 해만 / 그 외=선택한 패치만
+    if(PATCH_SEL!=="ALL"){
+      const _ysel=selYear(PATCH_SEL);
+      if(_ysel){ if(yearOf(r["날짜"])!==_ysel) continue; }
+      else if(LATEST_PATCH && (r["패치버전"]||"")!==PATCH_SEL) continue;
+    }
     // 같은 게임 안에서 (참가자·챔피언·포지션·진영)이 동일하면 중복 기록 → 1번만 인정
     const ident=(r["PUUID"]||r["소환사명"]||"")+"∥"+(r["챔피언"]||"")+"∥"+(r["포지션"]||"")+"∥"+(r["진영"]||"");
     const key=gid+"∥"+ident;
@@ -1081,6 +1096,14 @@ function playerStats(){
 /* ============== 라우팅 ============== */
 let SORT={key:null,dir:-1};
 let PSORT={key:'games',dir:-1};   // 플레이어 랭킹 정렬 상태
+/* 관리자 표시 여부: 주소 뒤에 ?admin=1 붙이면 켜짐(브라우저에 저장), ?admin=0 이면 꺼짐.
+   '내전 횟수' 등 관리자 전용 메뉴 노출 제어용. (정적 사이트라 완전한 보안이 아니라 '일반 노출 숨김'이 목적) */
+let IS_ADMIN=false;
+(function(){ try{
+  const p=new URLSearchParams(location.search);
+  if(p.has('admin')){ if(p.get('admin')==='0') localStorage.removeItem('sqadmin'); else localStorage.setItem('sqadmin','1'); }
+  IS_ADMIN = localStorage.getItem('sqadmin')==='1';
+}catch(e){ IS_ADMIN=false; } })();
 function go(route,arg){
   if(route==='hof'){renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(!GAMES.size){renderEmpty();return;}
@@ -1088,7 +1111,7 @@ function go(route,arg){
   else if(route==='player')renderPlayer(arg);
   else if(route==='game')renderGame(arg);
   else if(route==='log')renderLog();
-  else if(route==='counts')renderCounts();
+  else if(route==='counts'){ if(IS_ADMIN)renderCounts(); else renderHome(); }
   else if(route==='champ')renderChampTier();
   else if(route==='tiers')renderTiers();
   else if(route==='ach')renderAchievements();
@@ -1374,12 +1397,12 @@ function renderAchievements(){
 }
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
-  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${tab('counts','👥 내전 횟수')}${tab('champ','🏆 챔피언 티어')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}</div>`;
+  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}</div>`;
 }
 
 /* ============== 화면: 내부티어 평가 (데스크톱 '🎖 내부티어'와 동일) ============== */
 function renderTiers(){
-  const TIER_ORDER=['1上','1中','1下','2上','2中','2下','3上','3中','3下'];
+  const TIER_ORDER=['0','1上','1中','1下','2上','2中','2下','3上','3中','3下'];
   const OL={'고평가':0,'저평가':1,'적절':2,'표본부족':3};
   const r1=v=>v!=null?Math.round(v):'—';
   const detailLine=d=>{
@@ -1511,7 +1534,7 @@ async function renderCounts(){
   view().innerHTML=`${navTabsHtml('counts')}
     <div class="card">
       <h2>👥 전 클랜원 내전 횟수 ${scopeToggle}</h2>
-      <div class="muted" style="font-size:13.5px;margin:-2px 0 10px">협곡+칼바람 합산 · ${rows.length}명${COUNTS_CLANONLY?` (티어 보유 클랜원 · 전체 ${totalAll}명 중)`:` (전체 기록자)`} · 클릭 시 전적</div>
+      <div class="muted" style="font-size:13.5px;margin:-2px 0 10px">협곡+칼바람 합산 · ${rows.length}명${COUNTS_CLANONLY?` (티어 보유 클랜원 · 전체 ${totalAll}명 중)`:` (전체 기록자)`} · 클릭 시 전적 · 🔒 관리자 전용(주소에 ?admin=0 붙이면 숨김)</div>
       <table class="ranktbl"><thead><tr>${head}</tr></thead><tbody>${trs}</tbody></table>
     </div>`;
 }
@@ -1901,14 +1924,22 @@ async function loadCategory(key){
 /* 패치 버전 필터 (버전별 버튼 + 전체). 새 버전이 감지되면 버튼 자동 신설 */
 function renderPatchbar(){
   const bar=$("#patchbar"); if(!bar)return;
-  if(!ALL_PATCHES.length){ bar.innerHTML=""; bar.classList.add("hidden"); return; }
+  if(!ALL_PATCHES.length && !ALL_YEARS.length){ bar.innerHTML=""; bar.classList.add("hidden"); return; }
   bar.classList.remove("hidden");
   let html=`<span class="pb-label">패치</span>`;
   ALL_PATCHES.forEach((pv,i)=>{
-    const on = PATCH_SEL!=="ALL" && PATCH_SEL===pv;
+    const on = PATCH_SEL!=="ALL" && !selYear(PATCH_SEL) && PATCH_SEL===pv;
     html += `<button class="pchip ${on?"on":""}" onclick="switchPatch('${escAttr(pv)}')">${i===0?"🆕 ":""}${esc(pv)}</button>`;
   });
   html += `<button class="pchip ${PATCH_SEL==="ALL"?"on":""}" onclick="switchPatch('ALL')">📊 전체</button>`;
+  // 년도별 필터 (버전과 별개 차원 — 하나만 활성)
+  if(ALL_YEARS.length){
+    html += `<span class="pb-sep"></span><span class="pb-label">년도</span>`;
+    ALL_YEARS.forEach(y=>{
+      const on = selYear(PATCH_SEL)===y;
+      html += `<button class="pchip ${on?"on":""}" onclick="switchPatch('Y${escAttr(y)}')">📅 ${esc(y)}</button>`;
+    });
+  }
   bar.innerHTML=html;
 }
 function switchPatch(sel){
