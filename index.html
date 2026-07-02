@@ -582,11 +582,11 @@ function computeAssessments(){
     const zm=_zG(sh,"mvp"); if(zm!=null)tm.push([W_MVP,zm]);
     const zt=_zG(sh,"tr"); if(zt!=null)tm.push([W_TROLL,-zt]);
     const ws=tm.reduce((a,b)=>a+b[0],0)||1;
-    return {name:x.name, power:tm.reduce((a,b)=>a+b[0]*b[1],0)/ws};
+    return {name:x.name, power:tm.reduce((a,b)=>a+b[0]*b[1],0)/ws, solo:(x.sh.solo??-1e9)};
   });
-  _powered.sort((a,b)=>b.power-a.power);
-  _powered.slice(0,3).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });   // 파워 1~3위
-  _powered.slice(3,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });   // 파워 4~6위(십이귀월 정예)
+  _powered.sort((a,b)=> (b.power-a.power) || (b.solo-a.solo) || (a.name<b.name?-1:a.name>b.name?1:0));   // 동점 시 솔랭↑, 그래도 같으면 이름순(웹·앱 일관)
+  _powered.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });    // 파워 1~6위
+  _powered.slice(6,12).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });   // 파워 7~12위 (십이귀월 = 상현6+하현6)
 }
 function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
 function assessPlayer(name){ return ASSESSMENTS.get(name)||null; }
