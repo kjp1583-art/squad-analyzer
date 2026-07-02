@@ -106,8 +106,9 @@
   .assess.a-ok{background:#16331f;color:#2bb177}
   .assess.a-under{background:#16243f;color:#5b8cff}
   .assess.a-na{background:var(--card2);color:var(--mut)}
-  /* 🗡 상현(순수 실력 파워랭킹 top3) 타이틀 배지 */
+  /* 🗡 상현(파워랭킹 1~3위) / 🌙 하현(4~6위) = 십이귀월 정예 타이틀 배지 */
   .sanghyun{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3a1020,#7a1f2e);color:#ffd24a;border:1px solid #c9a24a;white-space:nowrap}
+  .haha{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#1c2230,#39445c);color:#cfd8e8;border:1px solid #8a94a8;white-space:nowrap}
   /* 양옆 광고 레일 (op.gg 스타일) — 넓은 화면에서만 표시 */
   .adrail{display:none;position:fixed;top:84px;width:160px;z-index:5}
   .adrail.left{left:calc(50% - 716px)}
@@ -584,10 +585,12 @@ function computeAssessments(){
     return {name:x.name, power:tm.reduce((a,b)=>a+b[0]*b[1],0)/ws};
   });
   _powered.sort((a,b)=>b.power-a.power);
-  _powered.slice(0,3).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });
+  _powered.slice(0,3).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });   // 파워 1~3위
+  _powered.slice(3,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });   // 파워 4~6위(십이귀월 정예)
 }
 function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
 function assessPlayer(name){ return ASSESSMENTS.get(name)||null; }
+function titleBadge(t){ if(!t) return ''; const up=t.startsWith('상현'); return `<span class="${up?'sanghyun':'haha'}">${up?'🗡':'🌙'} ${t}</span>`; }
 
 /* ============== 상태 ============== */
 let RAW = [];            // 행 배열 (객체)
@@ -1266,7 +1269,7 @@ function renderTiers(){
         : '<span class="muted" style="font-size:13px">'+a.games+'판 — 평가엔 10판 이상 필요</span>';
       return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,.045)">
         <span class="clickname" style="min-width:116px;font-weight:700;font-size:14px" onclick="go('player','${escAttr(a.name)}')">${esc(shortName(a.name))}</span>
-        ${a.title?`<span class="sanghyun">🗡 ${a.title}</span>`:''}
+        ${titleBadge(a.title)}
         <span class="assess ${a.cls}">${a.label}</span>
         ${det}
       </div>`;
@@ -1559,7 +1562,7 @@ function renderPlayer(name){
   const asmtHtml = asmt ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="color:var(--sub);font-size:14.5px">내부티어</span>
       <span class="tier ${tierGroupCls(asmt.tier)}" style="margin:0">${asmt.tier}</span>
-      ${asmt.title?`<span class="sanghyun">🗡 ${asmt.title}</span>`:''}
+      ${titleBadge(asmt.title)}
       <span class="assess ${asmt.cls}">${asmt.label}</span>
       ${asmt.detail?`<span class="muted" style="font-size:13.5px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(평균 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(평균 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}${asmt.detail.ace!=null?` · ACE율 ${asmt.detail.ace}%<span style="opacity:.55">(패배중)</span>`:''}</span>`
                    :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
