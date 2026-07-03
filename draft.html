@@ -235,9 +235,6 @@ function renderSetup(){
       <label><input type="checkbox" id="sortTier" checked> 명단 티어순 정렬</label>
     </div>
     <div class="row">
-      <label style="flex:1;display:flex;gap:8px;align-items:center">🎵 밴픽 BGM <input type="text" id="bgm" placeholder="유튜브 링크 붙여넣기 (선택 — 예: 'LCK 밴픽 브금' 검색 후 링크 복사)" style="flex:1;min-width:220px"></label>
-    </div>
-    <div class="row">
       <button class="btn" id="mk">방 만들기 → 팀장 링크 생성</button>
       <span class="muted" style="font-size:13px">${DRAFT_API?"운영 모드(원격 실시간 동기화)":"⚠️ 데모 모드 — 같은 브라우저(다른 탭)끼리만 동기화됩니다"}</span>
     </div>
@@ -247,14 +244,13 @@ function renderSetup(){
     const names=[...new Set(document.getElementById("names").value.split(/\n/).map(s=>s.trim()).filter(Boolean))];
     const teams=Math.max(2,Math.min(12,parseInt(document.getElementById("teams").value)||8));
     const sec=Math.max(5,Math.min(120,parseInt(document.getElementById("sec").value)||10));
-    const bgm=ytId(document.getElementById("bgm").value);
     if(names.length<teams){alert("참가자가 팀 수보다 적습니다.");return;}
     let players=names;
     if(document.getElementById("sortTier").checked)
       players=names.slice().sort((a,b)=>tierRank(tierOf(a))-tierRank(tierOf(b))||a.localeCompare(b));
     const room=rand(6),admin=rand(8);
     const keys={};for(let t=1;t<=teams;t++)keys[t]=rand(8);
-    const ok=await BK.append(room,{t:"start",cfg:{players,teams,pickSec:sec,keys,admin,bgm}});
+    const ok=await BK.append(room,{t:"start",cfg:{players,teams,pickSec:sec,keys,admin}});
     if(!ok){alert("방 생성 실패 — 백엔드 연결을 확인하세요.");return;}
     const base=location.origin+location.pathname;
     let html=`<div class="notice">✅ 방 생성 완료! 아래 링크를 각 팀장에게 전달하세요. (방장은 방장 링크를 여세요)<br>⏳ 드래프트는 <b>팀장 전원이 ✅준비완료를 누르면 자동 시작</b>됩니다 (방장은 ⚡강제 시작 가능).</div>`;
@@ -338,25 +334,21 @@ function renderDraft(){
   startTimer();
 }
 
-/* 🎵 밴픽 BGM — 유튜브 임베드(저작권 안전: 유튜브 공식 플레이어로 재생).
+/* 🎵 밴픽 BGM — 사이트에 올린 bgm1.mp3 재생 (사장님 제공 음원).
    재렌더에 끊기지 않도록 #app 밖 고정 독에 1회만 생성. 브라우저 자동재생 정책상 첫 재생은 클릭 필요. */
-function ensureBgm(cfg){
-  if(!cfg||!cfg.bgm||document.getElementById("bgmDock"))return;
+function ensureBgm(){
+  if(document.getElementById("bgmDock"))return;
   const d=document.createElement("div");
   d.id="bgmDock";
   d.style.cssText="position:fixed;right:14px;bottom:14px;z-index:50;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.5)";
-  d.innerHTML=`<button class="btn" style="font-size:14px" onclick="playBgm('${escAttr(cfg.bgm)}')">🎵 밴픽 BGM 재생</button>`;
+  d.innerHTML=`<button class="btn" style="font-size:14px" onclick="playBgm()">🎵 밴픽 BGM 재생</button>`;
   document.body.appendChild(d);
 }
-function playBgm(id){
+function playBgm(){
   const d=document.getElementById("bgmDock");
   d.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px">
-    <iframe width="280" height="72" src="https://www.youtube.com/embed/${escAttr(id)}?autoplay=1&loop=1&playlist=${escAttr(id)}" frameborder="0" allow="autoplay; encrypted-media" style="border-radius:8px"></iframe>
+    <audio src="bgm1.mp3" autoplay loop controls style="width:260px;height:38px"></audio>
     <button class="copybtn" onclick="document.getElementById('bgmDock').remove()">✖ BGM 끄기</button></div>`;
-}
-function ytId(url){
-  const m=String(url||"").match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/)||String(url||"").match(/^([\w-]{11})$/);
-  return m?m[1]:"";
 }
 
 /* 준비완료 / 시작 */
