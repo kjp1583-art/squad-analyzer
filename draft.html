@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SQUAD.GG — 토너먼트 팀 드래프트</title>
+<meta property="og:title" content="SQUAD.GG — 토너먼트 팀 드래프트" />
+<meta property="og:description" content="팀장들이 실시간으로 참가자를 지명하는 스네이크 드래프트" />
+<style>
+  :root{
+    --bg:#11131a; --bg2:#171a23; --card:#1b1f2b; --card2:#212636;
+    --line:#2a3042; --txt:#e7eaf3; --sub:#9aa3b8; --mut:#717a91;
+    --blue:#3a73e8; --red:#e84057; --gold:#e0a437; --green:#2bb177;
+    --accent:#5b8cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Pretendard","Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+  header{background:linear-gradient(180deg,#1a1f2e,#11131a);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .hd{display:flex;align-items:center;gap:14px;padding:13px 16px;max-width:1180px;margin:0 auto;flex-wrap:wrap}
+  .logo{font-weight:800;font-size:20px;letter-spacing:-.5px;cursor:pointer}
+  .logo b{color:var(--accent)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:16px}
+  h2{margin:0 0 12px;font-size:18px}
+  .muted{color:var(--mut)} .sub{color:var(--sub)}
+  textarea{width:100%;min-height:180px;background:var(--card2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:12px;font-size:15px;font-family:inherit;resize:vertical;outline:none}
+  input[type=text],input[type=number],select{background:var(--card2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:8px 10px;font-size:15px;outline:none}
+  .btn{background:var(--accent);border:0;color:#fff;border-radius:9px;padding:10px 18px;font-weight:700;font-size:15px}
+  .btn.gray{background:var(--card2);border:1px solid var(--line);color:var(--sub)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .tier{display:inline-block;padding:1px 5px;border-radius:5px;font-size:11px;font-weight:800;margin-left:5px;vertical-align:middle;color:#fff;line-height:1.5}
+  .tier.t1{background:#e84057} .tier.t2{background:#3a73e8} .tier.t3{background:#d8a838;color:#2a2100}
+  .tier.t0{background:linear-gradient(135deg,#a55eea,#fd79a8);color:#fff}
+  .tier.tx{background:#3a4156;color:#cbd2e0}
+  /* 상태바 */
+  .statusbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-top:16px;position:sticky;top:62px;z-index:15}
+  .turnchip{font-size:17px;font-weight:800}
+  .timerwrap{flex:1;min-width:160px;height:14px;background:#0d0f15;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+  .timerbar{height:100%;background:linear-gradient(90deg,#2bb177,#5b8cff);transition:width .2s linear}
+  .timerbar.danger{background:linear-gradient(90deg,#e84057,#ff8a5c)}
+  .timertxt{font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
+  /* 레이아웃 */
+  .draftgrid{display:grid;grid-template-columns:minmax(300px,1.15fr) 2fr;gap:16px;margin-top:16px;align-items:start}
+  @media(max-width:900px){.draftgrid{grid-template-columns:1fr}}
+  .pool{display:flex;flex-direction:column;gap:6px;max-height:70vh;overflow-y:auto;padding-right:4px}
+  .pl{display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-weight:600;font-size:14.5px}
+  .pl.pickable{cursor:pointer;border-color:var(--accent)}
+  .pl.pickable:hover{background:#26304a;transform:translateX(3px)}
+  .pl .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+  .team{background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:10px 12px;min-height:120px}
+  .team.current{border-color:var(--accent);box-shadow:0 0 0 2px rgba(91,140,255,.35);animation:pulse 1.2s infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 5px rgba(91,140,255,.15)}}
+  .team h3{margin:0 0 8px;font-size:14.5px;display:flex;align-items:center;gap:6px}
+  .team .cap{color:var(--gold);font-size:12px;font-weight:700}
+  .team ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+  .team li{font-size:13.5px;background:var(--card);border-radius:6px;padding:4px 8px;display:flex;align-items:center}
+  .team li .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .linkbox{background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-top:6px;font-size:13px;display:flex;gap:8px;align-items:center}
+  .linkbox code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub)}
+  .copybtn{background:var(--card);border:1px solid var(--line);border-radius:6px;color:var(--sub);padding:4px 10px;font-size:12.5px}
+  .badge-round{background:var(--card);border:1px solid var(--line);border-radius:7px;padding:3px 10px;font-size:13px;color:var(--sub);font-weight:700}
+  .log{max-height:180px;overflow-y:auto;font-size:13px;color:var(--sub);display:flex;flex-direction:column-reverse;gap:3px}
+  .hidden{display:none!important}
+  .notice{background:#2a2334;border:1px solid #4a3a63;border-radius:10px;padding:10px 14px;font-size:13.5px;color:#cbb8e8;margin-top:10px}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0}
+</style>
+</head>
+<body>
+<header><div class="hd">
+  <div class="logo" onclick="location.href='index.html'">SQUAD<b>.GG</b> <span class="sub" style="font-size:14px;font-weight:600">토너먼트 팀 드래프트</span></div>
+</div></header>
+<div class="wrap" id="app"><div class="card"><div class="muted">불러오는 중…</div></div></div>
+
+<script>
+/* ================== 설정 ==================
+   DRAFT_API: Google Apps Script 웹앱 URL을 넣으면 '운영 모드'(원격 팀장 실시간 동기화).
+   비워두면 '데모 모드'(같은 브라우저의 탭끼리만 동기화 — localStorage). */
+const DRAFT_API = "";   // 예: "https://script.google.com/macros/s/XXXX/exec"
+
+const SHEET_ID="10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU";
+const CLAN_TIERS_GID="354094721";
+const MASTER_TIER_SHEET_ID="1UFuAYsXZGMquChIZY-HGsEbE5fmzk4apgWEwthvpQ44";
+const POLL_MS = DRAFT_API ? 1500 : 800;
+
+/* ================== 유틸/티어 (index.html과 동일 규칙) ================== */
+function tnorm(s){return (s||"").toLowerCase().replace(/\s+/g,"");}
+function shortName(n){return String(n||"").split("#")[0].trim();}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function escAttr(s){return esc(s).replace(/`/g,"&#96;");}
+function tierGroupCls(t){return !t?"tx":t[0]==="0"?"t0":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
+const TIER_RANK={"0":0,"1上":1,"1中":2,"1下":3,"2上":4,"2中":5,"2下":6,"3上":7,"3中":8,"3下":9};
+function tierRank(t){return t in TIER_RANK?TIER_RANK[t]:99;}
+let TIER_OF={};
+function tierOf(name){return TIER_OF[tnorm(name)]||TIER_OF[tnorm(shortName(name))]||null;}
+function tierBadge(name){const t=tierOf(name);return `<span class="tier ${tierGroupCls(t)}">${t||"무티어"}</span>`;}
+
+function loadSheetJsonp(id,gid){
+  return new Promise((resolve,reject)=>{
+    const cb="__cb"+Math.floor(Math.random()*1e9); let done=false;
+    const s=document.createElement("script");
+    const clean=()=>{try{delete window[cb];}catch(e){} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=r=>{done=true;clean();resolve(r);};
+    s.onerror=()=>{if(!done){clean();reject(new Error("load fail"));}};
+    s.src=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?gid=${gid}&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{if(!done){clean();reject(new Error("timeout"));}},15000);
+  });
+}
+function gvCell(c,i){const x=(c||[])[i];return x==null?"":String(x.f!=null?x.f:(x.v==null?"":x.v)).trim();}
+async function loadTiers(){
+  // ① CLAN_TIERS ② 마스터 차트 overlay (index.html과 동일 — 항상 최신 연동)
+  try{
+    const r=await loadSheetJsonp(SHEET_ID,CLAN_TIERS_GID);
+    const cols=(r.table.cols||[]).map(c=>(c.label||"").trim());
+    const ni=cols.indexOf("닉네임"),ti=cols.indexOf("티어");
+    for(const row of r.table.rows||[]){const nm=gvCell(row.c,ni),t=gvCell(row.c,ti);if(nm&&t)TIER_OF[tnorm(nm)]=t;}
+  }catch(e){}
+  try{
+    const r=await loadSheetJsonp(MASTER_TIER_SHEET_ID,"0");
+    const rows=(r.table.rows||[]).map(rr=>(rr.c||[]).map((c,i)=>gvCell(rr.c,i)));
+    let gr=-1;
+    for(let i=0;i<rows.length;i++){if(rows[i].some(v=>v==="上등급")&&rows[i].some(v=>v==="下등급")){gr=i;break;}}
+    if(gr>=1){
+      const grp=rows[gr-1],GRP={"0티어":"0","I티어":"1","II티어":"2","III티어":"3"};
+      const colTier={};let cur=null;
+      for(let c=0;c<Math.max(grp.length,rows[gr].length);c++){
+        const g=(grp[c]||"").replace(/\s+/g,"");
+        if(GRP[g]!==undefined)cur=GRP[g];
+        if(g==="0티어"){colTier[c]="0";continue;}
+        const gd=(rows[gr][c]||"").trim();
+        if(cur&&cur!=="0"&&/^[上中下]/.test(gd))colTier[c]=cur+gd[0];
+      }
+      const out=[];
+      for(let i=gr+2;i<rows.length;i++){
+        const r2=rows[i];
+        if(/^\d?티어/.test((r2[1]||"").trim()))break;
+        for(const c in colTier){const nm=(r2[c]||"").trim();if(nm&&nm!=="-"&&!/티어|등급|닉네임/.test(nm))out.push([nm,colTier[c]]);}
+      }
+      if(out.length>=80)for(const [nm,t] of out)TIER_OF[tnorm(nm)]=t;
+    }
+  }catch(e){}
+}
+
+/* ================== 백엔드 어댑터 ==================
+   이벤트 로그 append/read. 상태는 로그 리플레이로 결정(모든 클라이언트 동일 규칙 → 일관성). */
+const LocalBackend={
+  key:r=>"sqdraft_"+r,
+  async read(room){try{return JSON.parse(localStorage.getItem(this.key(room))||"[]");}catch(e){return [];}},
+  async append(room,ev){
+    const arr=await this.read(room);
+    ev.ts=Date.now();
+    arr.push(ev);
+    localStorage.setItem(this.key(room),JSON.stringify(arr));
+    return true;
+  }
+};
+const GasBackend={
+  async read(room){
+    const r=await fetch(`${DRAFT_API}?room=${encodeURIComponent(room)}&_=${Date.now()}`);
+    const j=await r.json();
+    return j.events||[];
+  },
+  async append(room,ev){
+    const r=await fetch(DRAFT_API,{method:"POST",headers:{"Content-Type":"text/plain"},
+      body:JSON.stringify({room,ev})});
+    const j=await r.json().catch(()=>({ok:false}));
+    return !!j.ok;
+  }
+};
+const BK = DRAFT_API ? GasBackend : LocalBackend;
+
+/* ================== 드래프트 엔진 ================== */
+/* 스네이크 순서: 픽 i(0-base) → 팀 번호(1-base). R1: 1→T, R2: T→1, ... (사장님 요구: 8팀이 연속 2픽) */
+function turnTeam(i,T){const r=Math.floor(i/T),p=i%T;return r%2===0?p+1:T-p;}
+
+function replay(events){
+  // 이벤트 로그 → 확정 상태. 모든 클라이언트가 같은 로그에서 같은 상태를 얻는다.
+  const st={started:false,cfg:null,pool:[],picked:{},teams:{},seq:0,lastTs:0,done:false,history:[]};
+  for(const ev of events){
+    if(ev.t==="start"&&!st.started){
+      st.started=true;st.cfg=ev.cfg;st.lastTs=ev.ts||0;
+      st.pool=ev.cfg.players.slice();
+      for(let t=1;t<=ev.cfg.teams;t++)st.teams[t]=[];
+    }else if(ev.t==="pick"&&st.started&&!st.done){
+      const T=st.cfg.teams;
+      const expect=turnTeam(st.seq,T);
+      if(ev.team!==expect)continue;                          // 차례 아닌 픽 무시
+      if(ev.seq!==undefined&&ev.seq!==st.seq)continue;       // 낡은/중복 픽 무시(첫 유효픽 승리)
+      const idx=st.pool.findIndex(p=>tnorm(p)===tnorm(ev.player));
+      if(idx<0)continue;                                     // 이미 뽑힌 선수 무시
+      const player=st.pool.splice(idx,1)[0];
+      st.teams[ev.team].push(player);
+      st.history.push({seq:st.seq,team:ev.team,player,auto:!!ev.auto,ts:ev.ts});
+      st.seq++;st.lastTs=ev.ts||st.lastTs;
+      if(!st.pool.length)st.done=true;
+    }
+  }
+  return st;
+}
+
+/* ================== URL/역할 ================== */
+const Q=new URLSearchParams(location.search);
+const ROOM=Q.get("room")||"";
+const MYTEAM=parseInt(Q.get("team")||"0",10)||0;
+const MYKEY=Q.get("key")||"";
+const ADMINKEY=Q.get("admin")||"";
+function rand(n){const a="abcdefghjkmnpqrstuvwxyz23456789";let s="";for(let i=0;i<n;i++)s+=a[Math.floor(Math.random()*a.length)];return s;}
+
+/* ================== 화면 ================== */
+const app=document.getElementById("app");
+let STATE=null,EVENTS=[],TIMER=null,POLLER=null,AUTOSUBMITTED=-1;
+
+function renderSetup(){
+  document.title="드래프트 방 만들기 — SQUAD.GG";
+  app.innerHTML=`
+  <div class="card">
+    <h2>🏟️ 토너먼트 팀 드래프트 — 방 만들기</h2>
+    <div class="sub" style="font-size:13.5px;margin-bottom:10px">참가자 명단을 한 줄에 한 명씩 붙여넣으세요. 내부티어는 자동으로 붙습니다.</div>
+    <textarea id="names" placeholder="참가자1&#10;참가자2&#10;..."></textarea>
+    <div class="row">
+      <label>팀 수 <input type="number" id="teams" value="8" min="2" max="8" style="width:64px"></label>
+      <label>픽 제한시간(초) <input type="number" id="sec" value="10" min="5" max="120" style="width:70px"></label>
+      <label><input type="checkbox" id="sortTier" checked> 명단 티어순 정렬</label>
+    </div>
+    <div class="row">
+      <button class="btn" id="mk">방 만들기 → 팀장 링크 생성</button>
+      <span class="muted" style="font-size:13px">${DRAFT_API?"운영 모드(원격 실시간 동기화)":"⚠️ 데모 모드 — 같은 브라우저(다른 탭)끼리만 동기화됩니다"}</span>
+    </div>
+    <div id="mkout"></div>
+  </div>`;
+  document.getElementById("mk").onclick=async()=>{
+    const names=[...new Set(document.getElementById("names").value.split(/\n/).map(s=>s.trim()).filter(Boolean))];
+    const teams=Math.max(2,Math.min(8,parseInt(document.getElementById("teams").value)||8));
+    const sec=Math.max(5,Math.min(120,parseInt(document.getElementById("sec").value)||10));
+    if(names.length<teams){alert("참가자가 팀 수보다 적습니다.");return;}
+    let players=names;
+    if(document.getElementById("sortTier").checked)
+      players=names.slice().sort((a,b)=>tierRank(tierOf(a))-tierRank(tierOf(b))||a.localeCompare(b));
+    const room=rand(6),admin=rand(8);
+    const keys={};for(let t=1;t<=teams;t++)keys[t]=rand(8);
+    const ok=await BK.append(room,{t:"start",cfg:{players,teams,pickSec:sec,keys,admin}});
+    if(!ok){alert("방 생성 실패 — 백엔드 연결을 확인하세요.");return;}
+    const base=location.origin+location.pathname;
+    let html=`<div class="notice">✅ 방 생성 완료! 아래 링크를 각 팀장에게 전달하세요. (방장은 방장 링크를 여세요)</div>`;
+    html+=`<div class="linkbox"><b style="color:var(--gold)">👑 방장</b><code>${base}?room=${room}&admin=${admin}</code><button class="copybtn" onclick="copyTxt('${base}?room=${room}&admin=${admin}')">복사</button></div>`;
+    for(let t=1;t<=teams;t++)
+      html+=`<div class="linkbox"><b>${t}팀 팀장</b><code>${base}?room=${room}&team=${t}&key=${keys[t]}</code><button class="copybtn" onclick="copyTxt('${base}?room=${room}&team=${t}&key=${keys[t]}')">복사</button></div>`;
+    html+=`<div class="linkbox"><b class="muted">관전</b><code>${base}?room=${room}</code><button class="copybtn" onclick="copyTxt('${base}?room=${room}')">복사</button></div>`;
+    document.getElementById("mkout").innerHTML=html;
+  };
+}
+function copyTxt(s){navigator.clipboard.writeText(s).then(()=>{},()=>{prompt("복사하세요:",s);});}
+
+function myRole(st){
+  if(!st.cfg)return "spec";
+  if(ADMINKEY&&ADMINKEY===st.cfg.admin)return "admin";
+  if(MYTEAM&&st.cfg.keys&&st.cfg.keys[MYTEAM]===MYKEY)return "captain";
+  return "spec";
+}
+
+function renderDraft(){
+  const st=STATE;if(!st||!st.started){app.innerHTML=`<div class="card"><div class="muted">방을 찾을 수 없습니다. (room=${esc(ROOM)})</div></div>`;return;}
+  const T=st.cfg.teams,role=myRole(st);
+  const curTeam=st.done?null:turnTeam(st.seq,T);
+  const round=Math.floor(st.seq/T)+1;
+  const myTurn=(role==="captain"&&curTeam===MYTEAM)||(role==="admin");
+  document.title=st.done?"드래프트 종료 — SQUAD.GG":`${curTeam}팀 픽 차례 — SQUAD.GG`;
+
+  const roleTxt=role==="admin"?"👑 방장":role==="captain"?`${MYTEAM}팀 팀장`:"관전";
+  const status=st.done
+    ?`<span class="turnchip" style="color:var(--green)">🏁 드래프트 종료!</span>`
+    :`<span class="turnchip">▶ <b style="color:var(--accent)">${curTeam}팀</b> 픽 차례</span>
+      <span class="badge-round">라운드 ${round}${Math.floor((st.seq)/T)%2===1?" (역순)":""}</span>
+      <span class="badge-round">${st.seq+1}번째 픽</span>
+      <div class="timerwrap"><div class="timerbar" id="tbar" style="width:100%"></div></div>
+      <span class="timertxt" id="ttxt">--</span>`;
+
+  const pool=st.pool.map(p=>{
+    const clickable=myTurn&&!st.done;
+    return `<div class="pl ${clickable?"pickable":""}" ${clickable?`onclick="doPick('${escAttr(p)}')"`:""}>
+      <span class="nm">${esc(shortName(p))}</span>${tierBadge(p)}</div>`;
+  }).join("")||`<div class="muted" style="padding:10px">남은 참가자가 없습니다.</div>`;
+
+  let teamsHtml="";
+  for(let t=1;t<=T;t++){
+    teamsHtml+=`<div class="team ${(!st.done&&curTeam===t)?"current":""}">
+      <h3>${t}팀 ${(!st.done&&curTeam===t)?'<span class="cap">← 픽 중</span>':""}${(role==="captain"&&t===MYTEAM)?'<span class="cap">(내 팀)</span>':""}</h3>
+      <ul>${st.teams[t].map(p=>`<li><span class="nm">${esc(shortName(p))}</span>${tierBadge(p)}</li>`).join("")||'<li class="muted" style="background:none">-</li>'}</ul>
+    </div>`;
+  }
+  const hist=st.history.slice(-30).map(h=>`<div>#${h.seq+1} — <b>${h.team}팀</b> ← ${esc(shortName(h.player))}${h.auto?' <span class="muted">(⏰자동)</span>':""}</div>`).join("");
+
+  app.innerHTML=`
+    <div class="statusbar">${status}<span class="badge-round">${roleTxt}</span></div>
+    <div class="draftgrid">
+      <div class="card" style="margin-top:0"><h2>📋 남은 참가자 <span class="muted" style="font-size:13px">(${st.pool.length}명 · 티어순)</span>${myTurn&&!st.done?' <span style="color:var(--accent);font-size:13px">— 클릭해서 지명!</span>':""}</h2>
+        <div class="pool">${pool}</div></div>
+      <div>
+        <div class="card" style="margin-top:0"><h2>⚔️ 팀 구성 <span class="muted" style="font-size:13px">(스네이크: 1→${T}, ${T}→1 반복)</span></h2>
+          <div class="teams">${teamsHtml}</div></div>
+        <div class="card"><h2 style="font-size:15px">📜 픽 로그</h2><div class="log">${hist||'<div class="muted">아직 픽이 없습니다.</div>'}</div></div>
+      </div>
+    </div>`;
+  startTimer();
+}
+
+async function doPick(player,auto){
+  const st=STATE;if(!st||st.done)return;
+  const T=st.cfg.teams,curTeam=turnTeam(st.seq,T);
+  const role=myRole(st);
+  if(!(role==="admin"||(role==="captain"&&curTeam===MYTEAM)))return;
+  await BK.append(ROOM,{t:"pick",seq:st.seq,team:curTeam,player,auto:!!auto});
+  await refresh();
+}
+
+/* 타이머: 마지막 이벤트 시각 + pickSec. 만료 시 현재 차례 팀장(부재 시 방장)이 최고티어 자동픽 제출 */
+function startTimer(){
+  if(TIMER)clearInterval(TIMER);
+  const st=STATE;if(!st||!st.started||st.done)return;
+  const deadline=st.lastTs+st.cfg.pickSec*1000;
+  TIMER=setInterval(()=>{
+    const left=Math.max(0,deadline-Date.now());
+    const bar=document.getElementById("tbar"),txt=document.getElementById("ttxt");
+    if(bar){const r=left/(st.cfg.pickSec*1000);bar.style.width=(r*100)+"%";bar.classList.toggle("danger",r<0.3);}
+    if(txt)txt.textContent=(left/1000).toFixed(1)+"s";
+    if(left<=0){
+      // ⚠️ 타이머를 먼저 끄지 말 것 — 방장 유예(2초) 대기 중 꺼지면 자동픽이 영영 안 나감(검증 중 발견한 결함)
+      const role=myRole(st),curTeam=turnTeam(st.seq,st.cfg.teams);
+      const iAmTurn=role==="captain"&&curTeam===MYTEAM;
+      const graceOver=Date.now()>deadline+2000;   // 팀장은 즉시, 방장은 2초 유예 후 대신 픽(팀장 접속 대비)
+      if(AUTOSUBMITTED!==st.seq&&st.pool.length&&(iAmTurn||(role==="admin"&&graceOver))){
+        AUTOSUBMITTED=st.seq;
+        clearInterval(TIMER);TIMER=null;
+        const best=st.pool.slice().sort((a,b)=>tierRank(tierOf(a))-tierRank(tierOf(b)))[0];
+        doPick(best,true);   // ⏰ 시간초과 → 최고티어 자동픽
+      }
+    }
+  },100);
+}
+
+async function refresh(){
+  try{
+    const evs=await BK.read(ROOM);
+    if(JSON.stringify(evs)!==JSON.stringify(EVENTS)){
+      EVENTS=evs;STATE=replay(evs);renderDraft();
+    }
+  }catch(e){}
+}
+
+/* ================== 시작 ================== */
+(async function init(){
+  await loadTiers();
+  if(!ROOM){renderSetup();return;}
+  await refresh();
+  if(!STATE||!STATE.started){app.innerHTML=`<div class="card"><div class="muted">방(${esc(ROOM)})이 없거나 아직 시작되지 않았습니다.</div></div>`;}
+  POLLER=setInterval(refresh,POLL_MS);
+  window.addEventListener("storage",e=>{if(e.key==="sqdraft_"+ROOM)refresh();});   // 데모 모드: 탭 간 즉시 동기화
+})();
+</script>
+</body>
+</html>
