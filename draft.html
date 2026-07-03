@@ -42,11 +42,12 @@
   .timerbar{height:100%;background:linear-gradient(90deg,#2bb177,#5b8cff);transition:width .2s linear}
   .timerbar.danger{background:linear-gradient(90deg,#e84057,#ff8a5c)}
   .timertxt{font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
-  /* 레이아웃 */
-  .draftgrid{display:grid;grid-template-columns:minmax(300px,1.15fr) 2fr;gap:16px;margin-top:16px;align-items:start}
-  @media(max-width:900px){.draftgrid{grid-template-columns:1fr}}
-  .pool{display:flex;flex-direction:column;gap:6px;max-height:70vh;overflow-y:auto;padding-right:4px}
-  .pl{display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-weight:600;font-size:14.5px}
+  /* 레이아웃 — 내부티어표(엑셀) 형식: 티어별 칸(세로 열)으로 나눠 전체가 한눈에 */
+  .tiergrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:start}
+  .tiercol{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:8px;display:flex;flex-direction:column;gap:6px}
+  .tierhead{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 6px;border-bottom:1px solid var(--line)}
+  .tierhead .tier{margin:0;font-size:13px}
+  .pl{display:flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-weight:600;font-size:14px}
   .pl.pickable{cursor:pointer;border-color:var(--accent)}
   .pl.pickable:hover{background:#26304a;transform:translateX(3px)}
   .pl .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -222,9 +223,12 @@ function renderSetup(){
     <div class="sub" style="font-size:13.5px;margin-bottom:10px">참가자 명단을 한 줄에 한 명씩 붙여넣으세요. 내부티어는 자동으로 붙습니다.</div>
     <textarea id="names" placeholder="참가자1&#10;참가자2&#10;..."></textarea>
     <div class="row">
-      <label>팀 수 <input type="number" id="teams" value="8" min="2" max="8" style="width:64px"></label>
+      <label>팀 수 <input type="number" id="teams" value="8" min="2" max="12" style="width:64px"> <span class="muted" style="font-size:12.5px">(2~12팀 자유)</span></label>
       <label>픽 제한시간(초) <input type="number" id="sec" value="10" min="5" max="120" style="width:70px"></label>
       <label><input type="checkbox" id="sortTier" checked> 명단 티어순 정렬</label>
+    </div>
+    <div class="row">
+      <label style="flex:1;display:flex;gap:8px;align-items:center">🎵 밴픽 BGM <input type="text" id="bgm" placeholder="유튜브 링크 붙여넣기 (선택 — 예: 'LCK 밴픽 브금' 검색 후 링크 복사)" style="flex:1;min-width:220px"></label>
     </div>
     <div class="row">
       <button class="btn" id="mk">방 만들기 → 팀장 링크 생성</button>
@@ -234,15 +238,16 @@ function renderSetup(){
   </div>`;
   document.getElementById("mk").onclick=async()=>{
     const names=[...new Set(document.getElementById("names").value.split(/\n/).map(s=>s.trim()).filter(Boolean))];
-    const teams=Math.max(2,Math.min(8,parseInt(document.getElementById("teams").value)||8));
+    const teams=Math.max(2,Math.min(12,parseInt(document.getElementById("teams").value)||8));
     const sec=Math.max(5,Math.min(120,parseInt(document.getElementById("sec").value)||10));
+    const bgm=ytId(document.getElementById("bgm").value);
     if(names.length<teams){alert("참가자가 팀 수보다 적습니다.");return;}
     let players=names;
     if(document.getElementById("sortTier").checked)
       players=names.slice().sort((a,b)=>tierRank(tierOf(a))-tierRank(tierOf(b))||a.localeCompare(b));
     const room=rand(6),admin=rand(8);
     const keys={};for(let t=1;t<=teams;t++)keys[t]=rand(8);
-    const ok=await BK.append(room,{t:"start",cfg:{players,teams,pickSec:sec,keys,admin}});
+    const ok=await BK.append(room,{t:"start",cfg:{players,teams,pickSec:sec,keys,admin,bgm}});
     if(!ok){alert("방 생성 실패 — 백엔드 연결을 확인하세요.");return;}
     const base=location.origin+location.pathname;
     let html=`<div class="notice">✅ 방 생성 완료! 아래 링크를 각 팀장에게 전달하세요. (방장은 방장 링크를 여세요)</div>`;
@@ -279,11 +284,17 @@ function renderDraft(){
       <div class="timerwrap"><div class="timerbar" id="tbar" style="width:100%"></div></div>
       <span class="timertxt" id="ttxt">--</span>`;
 
-  const pool=st.pool.map(p=>{
-    const clickable=myTurn&&!st.done;
-    return `<div class="pl ${clickable?"pickable":""}" ${clickable?`onclick="doPick('${escAttr(p)}')"`:""}>
-      <span class="nm">${esc(shortName(p))}</span>${tierBadge(p)}</div>`;
-  }).join("")||`<div class="muted" style="padding:10px">남은 참가자가 없습니다.</div>`;
+  // 내부티어표(엑셀) 형식: 티어별 칸으로 그룹핑 (0티어 → 1上 → … → 3下 → 무티어)
+  const clickable=myTurn&&!st.done;
+  const chip=p=>`<div class="pl ${clickable?"pickable":""}" ${clickable?`onclick="doPick('${escAttr(p)}')"`:""}>
+      <span class="nm">${esc(shortName(p))}</span></div>`;
+  const byTier=new Map();
+  for(const p of st.pool){const t=tierOf(p)||"무티어";if(!byTier.has(t))byTier.set(t,[]);byTier.get(t).push(p);}
+  const pool=[...byTier.keys()].sort((a,b)=>tierRank(a)-tierRank(b)).map(t=>
+    `<div class="tiercol">
+      <div class="tierhead"><span class="tier ${tierGroupCls(t==="무티어"?null:t)}">${esc(t)}</span><span class="muted" style="font-size:12px">${byTier.get(t).length}명</span></div>
+      ${byTier.get(t).map(chip).join("")}
+    </div>`).join("")||`<div class="muted" style="padding:10px">남은 참가자가 없습니다.</div>`;
 
   let teamsHtml="";
   for(let t=1;t<=T;t++){
@@ -296,16 +307,34 @@ function renderDraft(){
 
   app.innerHTML=`
     <div class="statusbar">${status}<span class="badge-round">${roleTxt}</span></div>
-    <div class="draftgrid">
-      <div class="card" style="margin-top:0"><h2>📋 남은 참가자 <span class="muted" style="font-size:13px">(${st.pool.length}명 · 티어순)</span>${myTurn&&!st.done?' <span style="color:var(--accent);font-size:13px">— 클릭해서 지명!</span>':""}</h2>
-        <div class="pool">${pool}</div></div>
-      <div>
-        <div class="card" style="margin-top:0"><h2>⚔️ 팀 구성 <span class="muted" style="font-size:13px">(스네이크: 1→${T}, ${T}→1 반복)</span></h2>
-          <div class="teams">${teamsHtml}</div></div>
-        <div class="card"><h2 style="font-size:15px">📜 픽 로그</h2><div class="log">${hist||'<div class="muted">아직 픽이 없습니다.</div>'}</div></div>
-      </div>
-    </div>`;
+    <div class="card"><h2>📋 남은 참가자 <span class="muted" style="font-size:13px">(${st.pool.length}명 · 내부티어표 형식 · 전체 한눈에)</span>${myTurn&&!st.done?' <span style="color:var(--accent);font-size:13px">— 클릭해서 지명!</span>':""}</h2>
+      <div class="tiergrid">${pool}</div></div>
+    <div class="card"><h2>⚔️ 팀 구성 <span class="muted" style="font-size:13px">(${T}팀 스네이크: 1→${T}, ${T}→1 반복)</span></h2>
+      <div class="teams">${teamsHtml}</div></div>
+    <div class="card"><h2 style="font-size:15px">📜 픽 로그</h2><div class="log">${hist||'<div class="muted">아직 픽이 없습니다.</div>'}</div></div>`;
+  ensureBgm(st.cfg);
   startTimer();
+}
+
+/* 🎵 밴픽 BGM — 유튜브 임베드(저작권 안전: 유튜브 공식 플레이어로 재생).
+   재렌더에 끊기지 않도록 #app 밖 고정 독에 1회만 생성. 브라우저 자동재생 정책상 첫 재생은 클릭 필요. */
+function ensureBgm(cfg){
+  if(!cfg||!cfg.bgm||document.getElementById("bgmDock"))return;
+  const d=document.createElement("div");
+  d.id="bgmDock";
+  d.style.cssText="position:fixed;right:14px;bottom:14px;z-index:50;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.5)";
+  d.innerHTML=`<button class="btn" style="font-size:14px" onclick="playBgm('${escAttr(cfg.bgm)}')">🎵 밴픽 BGM 재생</button>`;
+  document.body.appendChild(d);
+}
+function playBgm(id){
+  const d=document.getElementById("bgmDock");
+  d.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px">
+    <iframe width="280" height="72" src="https://www.youtube.com/embed/${escAttr(id)}?autoplay=1&loop=1&playlist=${escAttr(id)}" frameborder="0" allow="autoplay; encrypted-media" style="border-radius:8px"></iframe>
+    <button class="copybtn" onclick="document.getElementById('bgmDock').remove()">✖ BGM 끄기</button></div>`;
+}
+function ytId(url){
+  const m=String(url||"").match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/)||String(url||"").match(/^([\w-]{11})$/);
+  return m?m[1]:"";
 }
 
 async function doPick(player,auto){
