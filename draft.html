@@ -180,13 +180,20 @@ function turnTeam(i,T){const r=Math.floor(i/T),p=i%T;return r%2===0?p+1:T-p;}
 
 function replay(events){
   // 이벤트 로그 → 확정 상태. 모든 클라이언트가 같은 로그에서 같은 상태를 얻는다.
-  const st={started:false,cfg:null,pool:[],picked:{},teams:{},seq:0,lastTs:0,done:false,history:[]};
+  // phase: 'lobby'(팀장 준비 대기) → 'draft'(진행). begin 이벤트로 전환되며 타이머는 draft부터.
+  const st={started:false,phase:"lobby",ready:{},cfg:null,pool:[],picked:{},teams:{},seq:0,lastTs:0,done:false,history:[]};
   for(const ev of events){
     if(ev.t==="start"&&!st.started){
       st.started=true;st.cfg=ev.cfg;st.lastTs=ev.ts||0;
       st.pool=ev.cfg.players.slice();
       for(let t=1;t<=ev.cfg.teams;t++)st.teams[t]=[];
+    }else if(ev.t==="ready"&&st.started&&st.phase==="lobby"){
+      const tm=parseInt(ev.team,10);
+      if(tm>=1&&tm<=st.cfg.teams)st.ready[tm]=true;
+    }else if(ev.t==="begin"&&st.started&&st.phase==="lobby"){
+      st.phase="draft";st.lastTs=ev.ts||st.lastTs;   // 첫 픽 타이머는 시작 시점부터
     }else if(ev.t==="pick"&&st.started&&!st.done){
+      if(st.phase==="lobby"){st.phase="draft";}      // 구버전 방 호환: 픽이 오면 시작으로 간주
       const T=st.cfg.teams;
       const expect=turnTeam(st.seq,T);
       if(ev.team!==expect)continue;                          // 차례 아닌 픽 무시
@@ -250,7 +257,7 @@ function renderSetup(){
     const ok=await BK.append(room,{t:"start",cfg:{players,teams,pickSec:sec,keys,admin,bgm}});
     if(!ok){alert("방 생성 실패 — 백엔드 연결을 확인하세요.");return;}
     const base=location.origin+location.pathname;
-    let html=`<div class="notice">✅ 방 생성 완료! 아래 링크를 각 팀장에게 전달하세요. (방장은 방장 링크를 여세요)</div>`;
+    let html=`<div class="notice">✅ 방 생성 완료! 아래 링크를 각 팀장에게 전달하세요. (방장은 방장 링크를 여세요)<br>⏳ 드래프트는 <b>팀장 전원이 ✅준비완료를 누르면 자동 시작</b>됩니다 (방장은 ⚡강제 시작 가능).</div>`;
     html+=`<div class="linkbox"><b style="color:var(--gold)">👑 방장</b><code>${base}?room=${room}&admin=${admin}</code><button class="copybtn" onclick="copyTxt('${base}?room=${room}&admin=${admin}')">복사</button></div>`;
     for(let t=1;t<=teams;t++)
       html+=`<div class="linkbox"><b>${t}팀 팀장</b><code>${base}?room=${room}&team=${t}&key=${keys[t]}</code><button class="copybtn" onclick="copyTxt('${base}?room=${room}&team=${t}&key=${keys[t]}')">복사</button></div>`;
@@ -270,19 +277,33 @@ function myRole(st){
 function renderDraft(){
   const st=STATE;if(!st||!st.started){app.innerHTML=`<div class="card"><div class="muted">방을 찾을 수 없습니다. (room=${esc(ROOM)})</div></div>`;return;}
   const T=st.cfg.teams,role=myRole(st);
-  const curTeam=st.done?null:turnTeam(st.seq,T);
+  const lobby=st.phase==="lobby";
+  const curTeam=(st.done||lobby)?null:turnTeam(st.seq,T);
   const round=Math.floor(st.seq/T)+1;
-  const myTurn=(role==="captain"&&curTeam===MYTEAM)||(role==="admin");
-  document.title=st.done?"드래프트 종료 — SQUAD.GG":`${curTeam}팀 픽 차례 — SQUAD.GG`;
+  const myTurn=!lobby&&((role==="captain"&&curTeam===MYTEAM)||(role==="admin"));
+  const readyCnt=Object.keys(st.ready).length;
+  document.title=lobby?`준비 대기 (${readyCnt}/${T}) — SQUAD.GG`:st.done?"드래프트 종료 — SQUAD.GG":`${curTeam}팀 픽 차례 — SQUAD.GG`;
 
   const roleTxt=role==="admin"?"👑 방장":role==="captain"?`${MYTEAM}팀 팀장`:"관전";
-  const status=st.done
-    ?`<span class="turnchip" style="color:var(--green)">🏁 드래프트 종료!</span>`
-    :`<span class="turnchip">▶ <b style="color:var(--accent)">${curTeam}팀</b> 픽 차례</span>
+  let status;
+  if(lobby){
+    const meReady=!!st.ready[MYTEAM];
+    status=`<span class="turnchip" style="color:var(--gold)">⏳ 팀장 준비 대기 중 <b>(${readyCnt}/${T})</b></span>`;
+    if(role==="captain")
+      status+=meReady
+        ?`<span class="badge-round" style="color:var(--green)">✅ 내 준비 완료 — 전원 완료 시 자동 시작</span>`
+        :`<button class="btn" style="background:var(--green);font-size:16px;padding:11px 26px" onclick="sendReady()">✅ 준비완료</button>`;
+    if(role==="admin")
+      status+=`<button class="btn" style="background:#b8641f" onclick="beginDraft()">⚡ 지금 시작 (대기 무시)</button>`;
+  }else if(st.done){
+    status=`<span class="turnchip" style="color:var(--green)">🏁 드래프트 종료!</span>`;
+  }else{
+    status=`<span class="turnchip">▶ <b style="color:var(--accent)">${curTeam}팀</b> 픽 차례</span>
       <span class="badge-round">라운드 ${round}${Math.floor((st.seq)/T)%2===1?" (역순)":""}</span>
       <span class="badge-round">${st.seq+1}번째 픽</span>
       <div class="timerwrap"><div class="timerbar" id="tbar" style="width:100%"></div></div>
       <span class="timertxt" id="ttxt">--</span>`;
+  }
 
   // 내부티어표(엑셀) 형식: 티어별 칸으로 그룹핑 (0티어 → 1上 → … → 3下 → 무티어)
   const clickable=myTurn&&!st.done;
@@ -298,8 +319,9 @@ function renderDraft(){
 
   let teamsHtml="";
   for(let t=1;t<=T;t++){
-    teamsHtml+=`<div class="team ${(!st.done&&curTeam===t)?"current":""}">
-      <h3>${t}팀 ${(!st.done&&curTeam===t)?'<span class="cap">← 픽 중</span>':""}${(role==="captain"&&t===MYTEAM)?'<span class="cap">(내 팀)</span>':""}</h3>
+    const readyBadge=lobby?(st.ready[t]?' <span style="color:var(--green);font-size:12px;font-weight:700">✅ 준비완료</span>':' <span class="muted" style="font-size:12px">⌛ 대기중</span>'):"";
+    teamsHtml+=`<div class="team ${(!lobby&&!st.done&&curTeam===t)?"current":""}">
+      <h3>${t}팀${readyBadge} ${(!lobby&&!st.done&&curTeam===t)?'<span class="cap">← 픽 중</span>':""}${(role==="captain"&&t===MYTEAM)?'<span class="cap">(내 팀)</span>':""}</h3>
       <ul>${st.teams[t].map(p=>`<li><span class="nm">${esc(shortName(p))}</span>${tierBadge(p)}</li>`).join("")||'<li class="muted" style="background:none">-</li>'}</ul>
     </div>`;
   }
@@ -337,6 +359,32 @@ function ytId(url){
   return m?m[1]:"";
 }
 
+/* 준비완료 / 시작 */
+let BEGIN_SENT=false;
+async function sendReady(){
+  const st=STATE;if(!st||st.phase!=="lobby")return;
+  if(myRole(st)!=="captain"||st.ready[MYTEAM])return;
+  await BK.append(ROOM,{t:"ready",team:MYTEAM});
+  await refresh();
+}
+async function beginDraft(){
+  const st=STATE;if(!st||st.phase!=="lobby"||BEGIN_SENT)return;
+  const role=myRole(st);
+  if(role!=="admin"&&role!=="captain")return;
+  BEGIN_SENT=true;
+  await BK.append(ROOM,{t:"begin"});
+  await refresh();
+}
+function maybeAutoBegin(){
+  // 전원 준비완료 → 자동 시작 (중복 begin은 replay가 무시하므로 안전)
+  const st=STATE;if(!st||!st.started||st.phase!=="lobby"||BEGIN_SENT)return;
+  const role=myRole(st);
+  if(role!=="admin"&&role!=="captain")return;
+  let all=true;
+  for(let t=1;t<=st.cfg.teams;t++)if(!st.ready[t]){all=false;break;}
+  if(all)beginDraft();
+}
+
 async function doPick(player,auto){
   const st=STATE;if(!st||st.done)return;
   const T=st.cfg.teams,curTeam=turnTeam(st.seq,T);
@@ -349,7 +397,7 @@ async function doPick(player,auto){
 /* 타이머: 마지막 이벤트 시각 + pickSec. 만료 시 현재 차례 팀장(부재 시 방장)이 최고티어 자동픽 제출 */
 function startTimer(){
   if(TIMER)clearInterval(TIMER);
-  const st=STATE;if(!st||!st.started||st.done)return;
+  const st=STATE;if(!st||!st.started||st.done||st.phase!=="draft")return;   // 대기실에선 타이머 없음
   const deadline=st.lastTs+st.cfg.pickSec*1000;
   TIMER=setInterval(()=>{
     const left=Math.max(0,deadline-Date.now());
@@ -376,6 +424,7 @@ async function refresh(){
     const evs=await BK.read(ROOM);
     if(JSON.stringify(evs)!==JSON.stringify(EVENTS)){
       EVENTS=evs;STATE=replay(evs);renderDraft();
+      maybeAutoBegin();   // 전원 준비완료 감지 → 자동 시작
     }
   }catch(e){}
 }
