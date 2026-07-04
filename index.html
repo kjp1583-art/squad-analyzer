@@ -890,6 +890,42 @@ function blendSoloRanks(cur, peak){
   return cur;
 }
 
+// ★ 선언 포지션(CLAN_POSITIONS 탭 — 디스코드 역할 탑(주)/정글(부)…, sync_positions.py가 매일 갱신) 로드
+let POSITIONS = {};   // tnorm(닉네임) -> {main:"탑", sub:"정글/미드"}  (sub "ALL"=전라인)
+function loadPositions(){
+  return new Promise((resolve)=>{
+    const cb="__posCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out={};
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ni=cols.indexOf("닉네임"), mi=cols.indexOf("주포지션"), si=cols.indexOf("부포지션");
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const nmk=tnorm(String(gv(ni)||""));
+          if(nmk) out[nmk]={main:String(gv(mi)||"").trim(), sub:String(gv(si)||"").trim()};
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve({});} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=CLAN_POSITIONS&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
+  });
+}
+function posDecl(name){ return POSITIONS[tnorm(name)] || null; }
+function posDeclLabel(name){
+  const p=posDecl(name); if(!p||(!p.main&&!p.sub)) return "";
+  const parts=[];
+  if(p.main) parts.push(p.main+"(주)");
+  if(p.sub) parts.push((p.sub==="ALL"?"전라인":p.sub)+"(부)");
+  return parts.join("·");
+}
+
 // 직전시즌 시트(PREV_SEASON 탭) 로드 → {tnorm(닉네임): score} (없으면 {})
 let PREV_SEASONS = {};
 function loadPrevSeasons(){
@@ -1550,6 +1586,7 @@ function renderTiers(){
         : '<span class="muted" style="font-size:13px">'+a.games+'판 — 평가엔 10판 이상 필요</span>';
       return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,.045)">
         <span class="clickname" style="min-width:116px;font-weight:700;font-size:14px" onclick="go('player','${escAttr(a.name)}')">${esc(shortName(a.name))}</span>
+        ${posDeclLabel(a.name)?'<span style="background:#20304a;color:#8fd0ff;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap">'+esc(posDeclLabel(a.name))+'</span>':''}
         ${titleBadge(a.title)}
         <span class="assess ${a.cls}">${a.label}</span>
         ${det}
@@ -1862,7 +1899,7 @@ function renderPlayer(name){
       <div class="prof">
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
-          <div class="pname">${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}</div>
+          <div class="pname">${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
@@ -1873,7 +1910,7 @@ function renderPlayer(name){
     <div class="grid cols">
       <div>
         <div class="card"><h2>모스트 챔피언</h2>${mostHtml}</div>
-        <div class="card" style="margin-top:14px"><h2>포지션</h2>${posHtml}</div>
+        <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b> · 아래는 실제 플레이 분포</div>':''}${posHtml}</div>
         <div class="card" style="margin-top:14px">
           <h2>💬 댓글 <span class="muted" style="font-size:13.5px">· 한마디 (예의를 지켜주세요)</span></h2>
           ${ dcValid() ? `
@@ -2203,8 +2240,9 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak]=await Promise.all([loadSoloRanks(),loadPeakSeasons()]);   // 병렬 로드
-    SOLO_RANKS = blendSoloRanks(_cur,_peak); }   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
+  { const [_cur,_peak,_pos]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions()]);   // 병렬 로드
+    SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
+    POSITIONS = _pos; }   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
   // [v81.31 보류] PREV_SEASONS = await loadPrevSeasons(); — 직전시즌 블렌드 기능 잠정 중단(사유는 tierMetricsOf 주석 참고)
   await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
