@@ -740,6 +740,8 @@ let PLAYERS = new Map(); // name -> participations[] (닉변 병합: 최신 닉 
 // ── 닉네임 변경 병합용 (PUUID = 고정 식별자) ──
 let CANON_BY_PUUID = new Map();   // PUUID -> 최신 소환사명
 let NAME_TO_CANON  = new Map();   // norm(과거/현재 닉) -> 최신 소환사명
+let ALT_TO_MAIN    = new Map();   // 🎭 LINK_ACCOUNT 시트: norm(부계닉 #앞) -> 본계 이름 (부계 전적 통합, 2026-07-10)
+let TAGLESS_TO_CANON = new Map(); // norm(대표닉 #앞) -> 대표닉(태그 포함) — 본계 이름을 태그 없이 적어도 매칭되게
 let CANON_TO_ALIASES = new Map(); // 최신 닉 -> [그 사람의 모든 닉...]
 let CHAMPMAP = {};       // 한글챔프명 -> {img}
 let DDVER = "";
@@ -962,6 +964,32 @@ function loadPredictions(){
     setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
   });
 }
+// 🎭 LINK_ACCOUNT 탭(본계, 부계) 로드 → 부계 전적을 본계로 통합 (2026-07-10). 탭 없거나 실패 시 빈 맵(무해).
+function loadLinkAccount(){
+  return new Promise((resolve)=>{
+    const cb="__altCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const m=new Map();
+      try{
+        for(const row of ((resp.table&&resp.table.rows)||[])){
+          const c=row.c||[]; const gv=i=>(c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const main=String(gv(0)||"").trim(), alt=String(gv(1)||"").trim();   // A=본계 이름, B=부계 롤닉
+          if(!main||!alt) continue;
+          const k=norm(alt.split("#")[0]);
+          if(k) m.set(k, main);
+        }
+      }catch(e){}
+      resolve(m);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=LINK_ACCOUNT&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
+  });
+}
 function computePredTitles(){
   PRED_GOD=PRED_NOOB=null;
   const elig=Object.values(PREDICTIONS).filter(p=>p.total>=PRED_MIN);
@@ -1114,17 +1142,29 @@ function buildIdentity(){
     let al=CANON_TO_ALIASES.get(canon); if(!al){al=new Set();CANON_TO_ALIASES.set(canon,al);} al.add(nm);
   }
   for(const [c,s] of CANON_TO_ALIASES) CANON_TO_ALIASES.set(c,[...s]);
+  TAGLESS_TO_CANON=new Map();   // 대표닉의 태그 뗀 형태 → 대표닉 (LINK_ACCOUNT 본계명 정규화용)
+  for(const c of CANON_TO_ALIASES.keys()){
+    const k=norm(String(c).split("#")[0]);
+    if(k && !TAGLESS_TO_CANON.has(k)) TAGLESS_TO_CANON.set(k,c);
+  }
+}
+// 🎭 부계닉 → 본계 대표닉 (LINK_ACCOUNT). 미등록이면 그대로. 본계 이름은 태그 유무 무관 매칭.
+function resolveAlt(nm){
+  if(!ALT_TO_MAIN.size || nm==null) return nm;
+  const main=ALT_TO_MAIN.get(norm(String(nm).split("#")[0]));
+  if(!main) return nm;
+  return NAME_TO_CANON.get(norm(main)) || TAGLESS_TO_CANON.get(norm(String(main).split("#")[0])) || main;
 }
 // 행 → 대표(최신) 닉네임
 function canonOfRow(r){
   const pu=r&&r["PUUID"];
-  if(pu && CANON_BY_PUUID.has(pu)) return CANON_BY_PUUID.get(pu);
-  return (r&&r["소환사명"])||"";
+  if(pu && CANON_BY_PUUID.has(pu)) return resolveAlt(CANON_BY_PUUID.get(pu));
+  return resolveAlt((r&&r["소환사명"])||"");
 }
 // 임의의 닉(과거/현재) → 대표(최신) 닉네임
 function canonOfName(name){
   if(name==null) return name;
-  return NAME_TO_CANON.get(norm(name)) || name;
+  return resolveAlt(NAME_TO_CANON.get(norm(name)) || name);
 }
 
 function build(){
@@ -2229,9 +2269,9 @@ async function getCatRaw(catKey){
 function computeHOF(rows){
   const evalGids=new Set();
   for(const r of rows){const e=r["매치평가"];if(e==="MVP"||e==="역적"||e==="ACE"){const g=r["게임ID"];if(g)evalGids.add(g);}}
-  // 닉네임 변경 통합: 이 데이터셋(rows) 안에서 PUUID별 최신 닉을 대표로
+  // 닉네임 변경 통합: 이 데이터셋(rows) 안에서 PUUID별 최신 닉을 대표로 (+🎭 LINK_ACCOUNT 부계→본계)
   const canonMap=puuidLatestFromRows(rows);
-  const canonName=r=>{const pu=r["PUUID"];return (pu&&canonMap.has(pu))?canonMap.get(pu):r["소환사명"];};
+  const canonName=r=>{const pu=r["PUUID"];return resolveAlt((pu&&canonMap.has(pu))?canonMap.get(pu):r["소환사명"]);};
   const data={},patches=new Set(),seen=new Set();
   const mk=()=>({total:0,wins:0,mvp:0,ace:0,troll:0,evalTotal:0});
   function ensure(pv,name){
@@ -2343,10 +2383,11 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions()]);   // 병렬 로드
+  { const [_cur,_peak,_pos,_pred,_alt]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount()]);   // 병렬 로드
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
-    PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles(); }   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)
+    PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles();   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)
+    ALT_TO_MAIN = _alt; }   // 🎭 부계→본계 통합 맵(LINK_ACCOUNT 탭) — build()의 canonOfRow에서 사용
   // [v81.31 보류] PREV_SEASONS = await loadPrevSeasons(); — 직전시즌 블렌드 기능 잠정 중단(사유는 tierMetricsOf 주석 참고)
   await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
