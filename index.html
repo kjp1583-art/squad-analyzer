@@ -113,6 +113,10 @@
   .haha{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#1c2230,#39445c);color:#cfd8e8;border:1px solid #8a94a8;white-space:nowrap}
   /* 🎖 재미 업적 뱃지 (전원 수집형) */
   .ach-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  /* ← 뒤로가기 (2026-07-10) — 모바일 44px 터치 타깃 */
+  .backrow{margin-top:14px}
+  .backbtn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:10px 16px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);border-radius:10px;font-weight:700;font-size:14.5px;cursor:pointer}
+  .backbtn:active{transform:scale(.97)}
   .ach{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:20px;background:#1b2230;color:#cdd6e6;border:1px solid #33405c;cursor:pointer;white-space:nowrap}
   /* 업적 도감 쇼케이스 */
   .ach-sec{padding:12px 2px;border-bottom:1px solid rgba(255,255,255,.05)}
@@ -338,7 +342,7 @@
       </form>
       <div class="suggest hidden" id="suggest"></div>
     </div>
-    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver">v81.61</span></a>
+    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver">v81.62</span></a>
   </div>
 </header>
 
@@ -1328,9 +1332,37 @@ let IS_ADMIN=false;
   if(p.has('admin')){ if(p.get('admin')==='0') localStorage.removeItem('sqadmin'); else localStorage.setItem('sqadmin','1'); }
   IS_ADMIN = localStorage.getItem('sqadmin')==='1';
 }catch(e){ IS_ADMIN=false; } })();
+// ===== ← 뒤로가기 (2026-07-10) — 화면 전환을 history 스택에 쌓아 브라우저/안드로이드 뒤로가기 + ←버튼 지원 =====
+let NAV_SILENT=false;   // popstate 복원 중 navPush 재진입 방지
+function navPush(route,arg){
+  if(NAV_SILENT)return;
+  try{
+    const st={route,arg:arg==null?null:String(arg),cat:CURRENT_CAT,depth:((history.state&&history.state.depth)||0)+1};
+    const cur=history.state;
+    if(cur&&cur.route===route&&cur.arg===st.arg&&cur.cat===st.cat)return;   // 같은 화면 재렌더(패치필터 등) 중복 push 방지
+    if(cur&&cur.route){history.pushState(st,"");}
+    else{st.depth=0;history.replaceState(st,"");}                            // 첫 화면은 replace → 뒤로가면 사이트 이탈(기존 동작 유지)
+  }catch(e){}
+}
+window.addEventListener("popstate",e=>{
+  const st=e.state; if(!st||!st.route)return;
+  if(st.route!=='hof'&&!GAMES.size)return;   // 데이터 로딩 전(새로고침 직후) 뒤로가기는 무시 — '불러오지 못했습니다' 오도 방지
+  NAV_SILENT=true;
+  try{
+    if(st.cat&&st.cat!==CURRENT_CAT){
+      if(CAT_CACHE[st.cat]){                                                 // 카테고리까지 복원(캐시 있으면 동기 복원)
+        CURRENT_CAT=st.cat; RAW=CAT_CACHE[st.cat]; PATCH_SEL=null; build(); renderCatbar(); renderPatchbar();
+      }else{ switchCat(st.cat); return; }                                    // 캐시 미스 → 그 카테고리 로드(엉뚱한 데이터로 상세 렌더 방지)
+    }
+    go(st.route,st.arg);
+  }finally{NAV_SILENT=false;}
+});
+function goBack(){ if(history.state&&history.state.depth>0)history.back(); else go('home'); }
 function go(route,arg){
-  if(route==='hof'){renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
-  if(!GAMES.size){renderEmpty();return;}
+  if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
+  if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
+  if(!GAMES.size){renderEmpty();return;}         // 오류/로딩 화면은 스택에 안 쌓음
+  navPush(route,arg);
   if(route==='home')renderHome();
   else if(route==='player')renderPlayer(arg);
   else if(route==='game')renderGame(arg);
@@ -1842,8 +1874,8 @@ function dcHandleRedirect(){
   const expiresIn=parseInt(p.get("expires_in")||"604800",10);
   let savedState=null, ret=null;
   try{ savedState=sessionStorage.getItem("sgg_oauth_state"); ret=sessionStorage.getItem("sgg_oauth_return"); }catch(e){}
-  // 토큰 노출 방지: URL 프래그먼트는 무조건 제거
-  try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){ location.hash=""; }
+  // 토큰 노출 방지: URL 프래그먼트는 무조건 제거 ([2026-07-10] 뒤로가기 내비 state 보존 — null로 덮으면 스택 파괴)
+  try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){ location.hash=""; }
   if(!token || !state || state!==savedState) return;   // CSRF 방지
   try{ sessionStorage.removeItem("sgg_oauth_state"); }catch(e){}
   fetch("https://discord.com/api/users/@me",{headers:{Authorization:"Bearer "+token}})
@@ -1965,7 +1997,8 @@ function renderPlayer(name){
     : `<div class="ach-row"><span class="muted" style="font-size:13px">아직 획득한 뱃지가 없어요 — 내전을 더 즐겨보세요!</span></div>`;
 
   view().innerHTML=`
-    <div class="card" style="margin-top:16px">
+    <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
+    <div class="card" style="margin-top:10px">
       <div class="prof">
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
@@ -2087,7 +2120,7 @@ function renderGame(gid){
   view().innerHTML=`
     <div class="card" style="margin-top:16px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div><b style="font-size:16px">${esc(g.id)}</b> <span class="muted">· ${esc(g.date)} · 패치 ${esc(g.patch)}</span></div>
-      <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:6px 12px;border-radius:8px" onclick="go('home')">← 대시보드</button>
+      <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:6px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button>
     </div>
     ${teamsHtml}`;
 }
@@ -2287,7 +2320,7 @@ async function renderHOF(catArg){
       <div class="hof-filter">
         <span class="muted">패치</span>
         <select class="hof-select" onchange="hofPatch(this.value)">${patchOpts}</select>
-        <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="go('home')">← 대시보드</button>
+        <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button>
       </div>
     </div>
     ${posTabs}
