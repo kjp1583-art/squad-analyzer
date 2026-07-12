@@ -964,6 +964,79 @@ function loadPredictions(){
     setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
   });
 }
+// ★ 🏅 커리어(CAREER 탭 — 디스코드 '우승자' 역할을 봇이 스캔·누적, 분석기 호스트가 미러) → 명예의전당·프로필 우승 표시
+let CAREERS=[];   // [{title, name, riot, date, cur}] — 우승 1건당 인원별 1행
+function loadCareers(){
+  return new Promise((resolve)=>{
+    const cb="__carCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out=[];
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ti=cols.indexOf("대회명"), ni=cols.indexOf("이름"), ri=cols.indexOf("롤닉"), di=cols.indexOf("획득일"), ci=cols.indexOf("현재");
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const t=String(gv(ti)||"").trim(), nm=String(gv(ni)||"").trim();
+          if(!t||!nm) continue;
+          out.push({title:t, name:nm, riot:String(gv(ri)||"").trim(), date:String(gv(di)||"").trim(), cur:String(gv(ci)||"")==="1"});
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve([]);} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=CAREER&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve([]);} },12000);
+  });
+}
+function careerKeysOf(row){   // 커리어 행 → 매칭 키 후보(tnorm) — 롤닉 우선, 디코 표시명 폴백. 부계는 본계로 승격.
+  const ks=new Set();
+  for(const cand of [row.riot, row.name]){
+    if(!cand) continue;
+    const cn=canonOfName(cand);
+    if(cn) ks.add(tnorm(cn));
+    ks.add(tnorm(String(cand).split("#")[0]));
+  }
+  ks.delete(""); return ks;
+}
+function careersOfPlayer(name){   // 프로필용: 이 선수의 우승 기록 [{title,date,cur}]
+  if(!CAREERS.length) return [];
+  const me=tnorm(canonOfName(name)), meShort=tnorm(String(name).split("#")[0]);
+  return CAREERS.filter(r=>{const ks=careerKeysOf(r); return ks.has(me)||ks.has(meShort);});
+}
+function careerHofHtml(){   // 명예의전당 커리어 섹션(대회별 현재 우승팀 + 역대 기록)
+  if(!CAREERS.length) return "";
+  const byTitle=new Map();
+  for(const r of CAREERS){
+    if(!byTitle.has(r.title)) byTitle.set(r.title,new Map());
+    const g=byTitle.get(r.title); const k=r.date;
+    if(!g.has(k)) g.set(k,{date:r.date,cur:false,names:[]});
+    const e=g.get(k); e.names.push(r); e.cur=e.cur||r.cur;
+  }
+  const nameLink=r=>{const cn=canonOfName(r.riot||r.name);
+    return `<span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn)||r.name)}</span>`;};
+  let h='<div class="card" style="margin-bottom:14px"><h2>🏅 커리어 — 대회 우승 기록</h2>';
+  h+='<div class="muted" style="font-size:12.5px;margin:2px 0 10px">디스코드 우승자 역할 기준 자동 기록 · 새 대회 우승 시 자동 갱신 · 역대 기록은 영구 보존</div>';
+  for(const [title,g] of byTitle){
+    const evs=[...g.values()].sort((a,b)=>b.date.localeCompare(a.date));
+    const curEv=evs.find(e=>e.cur)||evs[0];
+    h+=`<div style="margin-bottom:12px;padding:10px 12px;background:rgba(255,215,80,.06);border:1px solid rgba(255,215,80,.25);border-radius:12px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">`;
+    h+=`<span style="font-weight:800">👑 ${esc(title)}</span><span class="muted" style="font-size:12px">${esc(curEv.date)} ~ 현재</span></div>`;
+    h+=`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">`+curEv.names.map(nameLink).join(" · ")+`</div>`;
+    const past=evs.filter(e=>e!==curEv);
+    if(past.length){
+      h+='<div style="margin-top:8px;font-size:12.5px;opacity:.75">'+past.map(e=>`<div style="padding:2px 0">${esc(e.date)} — ${e.names.map(x=>esc(shortName(canonOfName(x.riot||x.name))||x.name)).join(", ")}</div>`).join("")+'</div>';
+    }
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
 // 🎭 LINK_ACCOUNT 탭(본계, 부계) 로드 → 부계 전적을 본계로 통합 (2026-07-10). 탭 없거나 실패 시 빈 맵(무해).
 function loadLinkAccount(){
   return new Promise((resolve)=>{
@@ -2032,6 +2105,14 @@ function renderPlayer(name){
                    :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
     </div>` : '';
 
+  // 🏅 커리어(대회 우승) — CAREER 탭에서 이 선수 기록 추출 (현재 보유 타이틀은 강조)
+  const myCareers = careersOfPlayer(name);
+  const careerHtml = myCareers.length
+    ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">`+myCareers
+        .sort((a,b)=>b.date.localeCompare(a.date))
+        .map(c=>`<span title="${escAttr(c.date+" 획득")}" style="background:${c.cur?'rgba(255,215,80,.16)':'rgba(255,255,255,.06)'};border:1px solid ${c.cur?'rgba(255,215,80,.5)':'var(--line)'};color:${c.cur?'#ffd750':'var(--sub)'};font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">👑 ${esc(c.title)}${c.cur?'':' <span style="opacity:.6;font-weight:400">'+esc(c.date)+'</span>'}</span>`).join("")
+      +`</div>` : '';
+
   // 🎖 재미 업적 뱃지 (playerBadges에서 산출 — 프로필·쇼케이스 공용)
   const badges = playerBadges(name);
   const badgesHtml = badges.length
@@ -2047,6 +2128,7 @@ function renderPlayer(name){
           <div class="pname">${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
+          ${careerHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
           ${badgesHtml}
         </div>
@@ -2365,6 +2447,7 @@ async function renderHOF(catArg){
         <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button>
       </div>
     </div>
+    ${isRift?careerHofHtml():""}
     ${posTabs}
     <div class="hof-grid">
       ${card("🎖️ 망령 TOP 10 <span class='muted' style='font-size:13.5px;font-weight:400'>판수</span>",mostGames,"total")}
@@ -2385,11 +2468,11 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount()]);   // 병렬 로드
+  { const [_cur,_peak,_pos,_pred,_alt,_car]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers()]);   // 병렬 로드
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
     PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles();   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)
-    ALT_TO_MAIN = _alt; }   // 🎭 부계→본계 통합 맵(LINK_ACCOUNT 탭) — build()의 canonOfRow에서 사용
+    ALT_TO_MAIN = _alt; CAREERS = _car; }   // 🎭 부계→본계 통합 맵(LINK_ACCOUNT 탭) — build()의 canonOfRow에서 사용 · 🏅 커리어(CAREER 탭)
   // [v81.31 보류] PREV_SEASONS = await loadPrevSeasons(); — 직전시즌 블렌드 기능 잠정 중단(사유는 tierMetricsOf 주석 참고)
   await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
