@@ -342,7 +342,7 @@
       </form>
       <div class="suggest hidden" id="suggest"></div>
     </div>
-    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver">v81.63</span></a>
+    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver" id="dlver"></span></a>
   </div>
 </header>
 
@@ -2474,6 +2474,9 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
     PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles();   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)
     ALT_TO_MAIN = _alt; CAREERS = _car; }   // 🎭 부계→본계 통합 맵(LINK_ACCOUNT 탭) — build()의 canonOfRow에서 사용 · 🏅 커리어(CAREER 탭)
   // [v81.31 보류] PREV_SEASONS = await loadPrevSeasons(); — 직전시즌 블렌드 기능 잠정 중단(사유는 tierMetricsOf 주석 참고)
+  // ⬇ 다운로드 버튼 버전 자동 표시 — 분석기 자동업데이트와 동일 소스(version.txt). 실패 시 버전만 생략(버튼은 releases/latest라 항상 최신 zip)
+  fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt",{cache:"no-store"})
+    .then(r=>r.ok?r.text():"").then(v=>{v=String(v).trim();const el=document.getElementById("dlver");if(el&&/^\d+(\.\d+)+$/.test(v))el.textContent="v"+v;}).catch(()=>{});
   await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
 })();
