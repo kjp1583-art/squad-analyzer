@@ -97,6 +97,17 @@
   .rg-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub)}
   .rg-more{color:var(--accent);font-size:13.5px;text-align:right}
   .rg-sep{height:1px;background:var(--line);margin:14px 0}
+  /* 🛒 아이템 빌드·룬 (전적카드/게임상세) */
+  .bl{display:flex;align-items:center;gap:2px;margin-top:4px;flex-wrap:wrap}
+  .bl .itm{width:20px;height:20px;border-radius:4px;background:#0d1320;border:1px solid var(--line)}
+  .bl .rn{width:20px;height:20px}
+  .bl .rn.ks{width:22px;height:22px}
+  .bl-sep{width:6px}
+  .prow-build{padding:0 8px 6px 46px;margin-top:-4px}
+  /* 🎯 장인랭킹 그리드 */
+  .mst-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .mst-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:border-color .15s}
+  .mst-card:hover{border-color:var(--gold,#f5d47a)}
   /* 내부티어 배지 & 평가 */
   .tier{display:inline-block;padding:1px 5px;border-radius:5px;font-size:11.5px;font-weight:800;margin-left:5px;vertical-align:middle;color:#fff;line-height:1.5}
   .tier.t1{background:#e84057}
@@ -1315,6 +1326,36 @@ async function loadDDragon(){
       CHAMPMAP[c.name.replace(/\s/g,"")]=CHAMPMAP[c.name];
     }
   }catch(e){/* 아이콘 없이 진행 */}
+  // 🛒 룬 아이콘(주룬 키스톤·보조트리) + 아이템명 (전적카드 빌드 표시용 — 실패해도 무해)
+  try{
+    const rn=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/runesReforged.json`)).json();
+    for(const st of rn){ PERKMAP[st.id]={icon:st.icon,name:st.name};
+      for(const sl of st.slots||[])for(const p of sl.runes||[])PERKMAP[p.id]={icon:p.icon,name:p.name}; }
+  }catch(e){}
+  try{
+    const it=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/item.json`)).json();
+    for(const k in it.data)ITEMNAME[k]=it.data[k].name;
+  }catch(e){}
+}
+let PERKMAP={}, ITEMNAME={};
+function itemIcons(r){   // 시트 '아이템' 열("id|id|...") → 아이콘 나열
+  const raw=String(r["아이템"]||"").trim();
+  if(!raw||raw==="기록 대기")return "";
+  const ids=raw.split("|").map(x=>x.trim()).filter(x=>/^\d+$/.test(x));
+  if(!ids.length)return "";
+  return ids.map(id=>`<img class="itm" src="https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/item/${id}.png" title="${escAttr(ITEMNAME[id]||("아이템 "+id))}" loading="lazy" onerror="this.remove()">`).join("");
+}
+function runeIcons(r){   // '주룬'("키스톤id|트리id") + '보조룬'("트리id") → 키스톤·보조트리 아이콘
+  const ks=PERKMAP[String(r["주룬"]||"").split("|")[0]];
+  const st=PERKMAP[String(r["보조룬"]||"").trim()];
+  if(!ks&&!st)return "";
+  const img=(p,c)=>p?`<img class="rn ${c}" src="https://ddragon.leagueoflegends.com/cdn/img/${p.icon}" title="${escAttr(p.name)}" loading="lazy" onerror="this.remove()">`:"";
+  return img(ks,"ks")+img(st,"sub");
+}
+function buildLine(r){   // 룬+아이템 한 줄(있을 때만)
+  const rw=runeIcons(r), iw=itemIcons(r);
+  if(!rw&&!iw)return "";
+  return `<div class="bl">${rw}${rw&&iw?'<span class="bl-sep"></span>':''}${iw}</div>`;
 }
 function champImg(name,cls){
   cls=cls||"";
@@ -1484,6 +1525,7 @@ function go(route,arg){
   else if(route==='log')renderLog();
   else if(route==='counts'){ if(IS_ADMIN)renderCounts(); else renderHome(); }
   else if(route==='champ')renderChampTier();
+  else if(route==='mastery')renderMastery(arg);
   else if(route==='tiers')renderTiers();
   else if(route==='ach')renderAchievements();
   window.scrollTo(0,0);
@@ -1768,7 +1810,77 @@ function renderAchievements(){
 }
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
-  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}</div>`;
+  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}</div>`;
+}
+
+/* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
+function masteryAgg(){
+  const m=new Map();   // champ -> Map(canonName -> {g,w,k,d,a,kg,mvp})
+  for(const [name,rows] of PLAYERS){
+    for(const r of rows){
+      const c=r["챔피언"]; if(!c||c==="?")continue;
+      if(r["결과"]!=="승리"&&r["결과"]!=="패배")continue;
+      if(!m.has(c))m.set(c,new Map());
+      const pm=m.get(c);
+      if(!pm.has(name))pm.set(name,{g:0,w:0,k:0,d:0,a:0,kg:0,mvp:0});
+      const s=pm.get(name);
+      s.g++; if(r["결과"]==="승리")s.w++;
+      if(r["매치평가"]==="MVP")s.mvp++;
+      const ko=parseKDA(r["KDA"]); if(ko){s.k+=ko.k;s.d+=ko.d;s.a+=ko.a;s.kg++;}
+    }
+  }
+  return m;
+}
+const MASTER_MIN=3;   // '장인' 자격 최소 판수
+function renderMastery(champ){
+  const agg=masteryAgg();
+  if(champ&&agg.has(champ)){
+    const pm=agg.get(champ);
+    const list=[...pm.entries()].map(([n,s])=>{
+      const kr=s.kg?(s.d===0?(s.k+s.a):(s.k+s.a)/s.d):null;
+      return {n,g:s.g,w:s.w,wr:Math.round(s.w/s.g*100),kr,kda:s.kg?`${(s.k/s.kg).toFixed(1)}/${(s.d/s.kg).toFixed(1)}/${(s.a/s.kg).toFixed(1)}`:null,mvp:s.mvp};
+    }).sort((a,b)=>b.g-a.g||b.wr-a.wr);
+    const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
+    const rows=list.map((x,i)=>`<tr>
+      <td class="num">${medal(i)}</td>
+      <td><span class="clickname" onclick="go('player','${escAttr(x.n)}')">${esc(shortName(x.n))}</span>${tierBadge(x.n)}${i===0&&x.g>=MASTER_MIN?' <span class="badge b-mvp" title="이 챔피언 최다판 1위">🎯 장인</span>':''}</td>
+      <td class="num">${x.g}판</td>
+      <td>${wrBar(x.wr)}</td>
+      <td class="num">${x.kr!=null?`<span style="color:${kdaColor(x.kr)}">${x.kr.toFixed(2)}</span> <span class="muted" style="font-size:11.5px">${x.kda}</span>`:'<span class="muted">-</span>'}</td>
+      <td class="num">${x.mvp||'-'}</td>
+    </tr>`).join("");
+    view().innerHTML=`${navTabsHtml('mastery')}
+      <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
+      <div class="card" style="margin-top:10px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          ${champImg(champ,"lg")}
+          <div><h2 style="margin:0">${esc(champ)} 장인랭킹</h2>
+          <div class="muted" style="font-size:12.5px">${esc(catLabel(CURRENT_CAT))} 내전 표본 · 판수 → 승률순 · ${MASTER_MIN}판 이상 1위 = 🎯장인</div></div>
+        </div>
+        <table class="ranktbl"><thead><tr><th class="num">#</th><th>플레이어</th><th class="num">판수</th><th>승률</th><th class="num">평균 KDA</th><th class="num">MVP</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>`;
+    return;
+  }
+  // 챔피언 목록(총 판수순) — 카드 클릭 시 해당 챔피언 장인랭킹
+  const list=[...agg.entries()].map(([c,pm])=>{
+    const total=[...pm.values()].reduce((x,s)=>x+s.g,0);
+    const cand=[...pm.entries()].filter(([n,s])=>s.g>=MASTER_MIN).sort((A,B)=>B[1].g-A[1].g||(B[1].w/B[1].g)-(A[1].w/A[1].g))[0];
+    return {c,total,best:cand?{n:cand[0],g:cand[1].g,wr:Math.round(cand[1].w/cand[1].g*100)}:null};
+  }).sort((a,b)=>b.total-a.total);
+  const cards=list.map(x=>`<div class="mst-card" onclick="go('mastery','${escAttr(x.c)}')">
+      ${champImg(x.c,"lg")}
+      <div style="flex:1;min-width:0">
+        <b>${esc(x.c)}</b> <span class="muted" style="font-size:12px">${x.total}판</span><br>
+        ${x.best?`<span style="font-size:12.5px">🎯 <span class="clickname" onclick="event.stopPropagation();go('player','${escAttr(x.best.n)}')">${esc(shortName(x.best.n))}</span> <span class="muted">${x.best.g}판 ${x.best.wr}%</span></span>`
+                :`<span class="muted" style="font-size:12px">장인 후보 없음 (${MASTER_MIN}판↑)</span>`}
+      </div>
+    </div>`).join("");
+  view().innerHTML=`${navTabsHtml('mastery')}
+    <div class="card">
+      <h2>🎯 챔피언 장인랭킹 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 챔피언을 누르면 그 챔프의 클랜 장인 순위)</span></h2>
+      <div class="mst-grid">${cards||'<span class="muted">데이터 없음</span>'}</div>
+    </div>`;
 }
 
 /* ============== 화면: 내부티어 평가 (데스크톱 '🎖 내부티어'와 동일) ============== */
@@ -2198,6 +2310,7 @@ function matchCard(r,selfName){
         <b>${esc(r["챔피언"]||'?')}</b>
         <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span> ${evalBadge}
         ${kdaChip(r)?`<div style="margin-top:2px">${kdaChip(r)}</div>`:''}
+        ${buildLine(r)}
       </div>
     </div>
     ${lineups}
@@ -2225,6 +2338,7 @@ function renderGame(gid){
       const badge=me==="MVP"?`<span class="badge b-mvp">MVP</span>`:me==="ACE"?`<span class="badge b-ace">ACE</span>`:me==="역적"?`<span class="badge b-bad">역적</span>`:"";
       const rk=rankMap.get(p);
       const rankBadge=rk?`<span class="rk ${rk===1?'rk1':''}" title="이 게임 ${total}명 중 ${rk}등">${rk===1?'👑 ':''}${rk}등</span>`:"";
+      const bl=buildLine(p);
       return `<div class="prow">
         ${rankBadge}
         ${champImg(p["챔피언"])}
@@ -2232,7 +2346,7 @@ function renderGame(gid){
         <span class="clickname" onclick="go('player','${escAttr(canonOfRow(p))}')">${esc(shortName(canonOfRow(p)))}</span>
         <span style="flex:1"></span>
         ${dmgBar(p,maxDmg)}${kdaChip(p)}${aiScoreChip(p)}${badge}
-      </div>`;
+      </div>${bl?`<div class="prow-build">${bl}</div>`:''}`;
     }).join("");
     return `<div class="team ${cls}">
       <div class="thead"><span>${esc(side)}</span><span>${tres}</span></div>
