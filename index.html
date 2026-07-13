@@ -1048,6 +1048,37 @@ function careerHofHtml(){   // 명예의전당 커리어 섹션(대회별 현재
   return h;
 }
 
+// ★ 🤖 AI선생 주간평(AI_EVAL 탭 — Claude가 주 1회 전 클랜원 평가 생성) → 프로필 카드
+let AI_EVAL={};   // tnorm(닉) -> {name, text, date}
+function loadAiEval(){
+  return new Promise((resolve)=>{
+    const cb="__aieCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out={};
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ni=cols.indexOf("닉네임"), ti=cols.indexOf("평가"), di=cols.indexOf("갱신일");
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const nm=String(gv(ni)||"").trim(), tx=String(gv(ti)||"").trim();
+          if(nm&&tx) out[tnorm(nm)]={name:nm, text:tx, date:String(gv(di)||"").trim()};
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve({});} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=AI_EVAL&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
+  });
+}
+function aiEvalOf(name){
+  return AI_EVAL[tnorm(canonOfName(name))] || AI_EVAL[tnorm(String(name).split("#")[0])] || null;
+}
+
 // 🎭 LINK_ACCOUNT 탭(본계, 부계) 로드 → 부계 전적을 본계로 통합 (2026-07-10). 탭 없거나 실패 시 빈 맵(무해).
 function loadLinkAccount(){
   return new Promise((resolve)=>{
@@ -2225,6 +2256,14 @@ function renderPlayer(name){
         .map(c=>`<span title="${escAttr(c.date+" 획득")}" style="background:${c.cur?'rgba(255,215,80,.16)':'rgba(255,255,255,.06)'};border:1px solid ${c.cur?'rgba(255,215,80,.5)':'var(--line)'};color:${c.cur?'#ffd750':'var(--sub)'};font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">👑 ${esc(c.title)}${c.cur?'':' <span style="opacity:.6;font-weight:400">'+esc(c.date)+'</span>'}</span>`).join("")
       +`</div>` : '';
 
+  // 🤖 AI선생 주간평 (AI_EVAL 탭 — 주 1회 자동 생성)
+  const aie = aiEvalOf(name);
+  const aiEvalHtml = aie
+    ? `<div style="margin-top:10px;background:rgba(120,160,255,.07);border:1px solid rgba(120,160,255,.28);border-radius:12px;padding:11px 14px">
+        <div style="font-size:12.5px;font-weight:800;color:#9db8ff;margin-bottom:5px">🤖 AI선생 주간평 <span style="font-weight:400;opacity:.6">${esc(aie.date)}</span></div>
+        <div style="font-size:13.5px;line-height:1.65">${esc(aie.text)}</div>
+      </div>` : '';
+
   // 🎖 재미 업적 뱃지 (playerBadges에서 산출 — 프로필·쇼케이스 공용)
   const badges = playerBadges(name);
   const badgesHtml = badges.length
@@ -2242,6 +2281,7 @@ function renderPlayer(name){
           ${asmtHtml}
           ${careerHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
+          ${aiEvalHtml}
           ${badgesHtml}
         </div>
       </div>
@@ -2582,11 +2622,11 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers()]);   // 병렬 로드
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval()]);   // 병렬 로드
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
     PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles();   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)
-    ALT_TO_MAIN = _alt; CAREERS = _car; }   // 🎭 부계→본계 통합 맵(LINK_ACCOUNT 탭) — build()의 canonOfRow에서 사용 · 🏅 커리어(CAREER 탭)
+    ALT_TO_MAIN = _alt; CAREERS = _car; AI_EVAL = _aie; }   // 🎭 부계→본계 통합 맵 · 🏅 커리어 · 🤖 AI 주간평
   // [v81.31 보류] PREV_SEASONS = await loadPrevSeasons(); — 직전시즌 블렌드 기능 잠정 중단(사유는 tierMetricsOf 주석 참고)
   // ⬇ 다운로드 버튼 버전 자동 표시 — 분석기 자동업데이트와 동일 소스(version.txt). 실패 시 버전만 생략(버튼은 releases/latest라 항상 최신 zip)
   fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt",{cache:"no-store"})
