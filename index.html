@@ -39,6 +39,12 @@
   .suggest .it{display:flex;align-items:center;gap:10px;padding:9px 13px;cursor:pointer}
   .suggest .it:hover,.suggest .it.active{background:var(--card)}
   .suggest .it .sub{margin-left:auto;color:var(--mut);font-size:13.5px;white-space:nowrap}
+  /* ⭐ 즐겨찾기 */
+  .suggest .sughead{padding:7px 13px;font-size:12.5px;font-weight:800;color:var(--gold,#f5d47a);background:rgba(245,212,122,.07);border-bottom:1px solid var(--line)}
+  .suggest .it.fav .favstar{color:var(--gold,#f5d47a);font-size:14px}
+  .favbtn{background:none;border:0;cursor:pointer;font-size:22px;line-height:1;color:var(--mut);padding:0 4px;vertical-align:middle;transition:transform .12s,color .12s}
+  .favbtn:hover{transform:scale(1.15)}
+  .favbtn.on{color:var(--gold,#f5d47a);text-shadow:0 0 10px rgba(245,212,122,.5)}
   .gear{background:var(--card2);border:1px solid var(--line);color:var(--sub);border-radius:10px;padding:10px 12px}
   .dl{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:700;white-space:nowrap}
   .dlver{font-size:11px;font-weight:600;opacity:.85;background:rgba(255,255,255,.18);padding:1px 6px;border-radius:6px}
@@ -349,7 +355,7 @@
     <div class="searchwrap">
       <form class="search" onsubmit="onSearch(event)">
         <input id="q" placeholder="소환사명 또는 게임ID 검색 (예: 맛동산장인 유미, #8272164714)" autocomplete="off"
-               oninput="onType()" onkeydown="onKey(event)" onblur="setTimeout(hideSuggest,150)"/>
+               oninput="onType()" onkeydown="onKey(event)" onfocus="onType()" onblur="setTimeout(hideSuggest,150)"/>
         <button type="submit">검색</button>
       </form>
       <div class="suggest hidden" id="suggest"></div>
@@ -1614,10 +1620,45 @@ function onSearch(e){
 }
 /* 자동완성 */
 let SUGG=[],SUGGI=0;
+/* ⭐ 즐겨찾기 — 프로필에서 별표 → localStorage → 검색창 상단에 바로 표시(op.gg 방식) */
+function getFavs(){ try{ return JSON.parse(localStorage.getItem("sgg_favs")||"[]"); }catch(e){ return []; } }
+function isFav(n){ return getFavs().includes(canonOfName(n)); }
+function toggleFav(n){
+  n=canonOfName(n);
+  let f=getFavs();
+  f = f.includes(n) ? f.filter(x=>x!==n) : [n, ...f].slice(0,20);   // 최근 등록 순 · 최대 20명
+  try{ localStorage.setItem("sgg_favs",JSON.stringify(f)); }catch(e){}
+  const b=$("#favbtn"); if(b){ b.textContent = isFav(n)?"★":"☆"; b.title = isFav(n)?"즐겨찾기 해제":"즐겨찾기 추가"; b.classList.toggle("on", isFav(n)); }
+  renderFavRow();
+}
+function favLine(n,i){
+  const parts=PLAYERS.get(n);
+  if(!parts) return "";
+  let w=0,l=0; parts.forEach(r=>{if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;});
+  return `<div class="it fav" onmousedown="event.preventDefault();$('#q').value='';hideSuggest();go('player',${JSON.stringify(n).replace(/"/g,'&quot;')})">
+      <span class="favstar">★</span>
+      <span>${esc(shortName(n))} <span class="muted" style="font-size:13.5px">${esc(tagOf(n))}</span>${tierBadge(n)}</span>
+      <span class="sub">${parts.length}게임 · ${pct(w,w+l)}%</span>
+    </div>`;
+}
+function renderFavRow(){ /* 프로필에서 별을 누른 직후 열려있는 추천창을 갱신 */
+  const box=$("#suggest");
+  if(box && !box.classList.contains("hidden") && !$("#q").value.trim()) showFavSuggest();
+}
+function showFavSuggest(){
+  const favs=getFavs().filter(n=>PLAYERS.has(n));
+  const box=$("#suggest");
+  if(!box) return;
+  if(!favs.length){ hideSuggest(); return; }
+  box.innerHTML = `<div class="sughead">⭐ 즐겨찾기</div>` + favs.map(favLine).join("");
+  box.classList.remove("hidden");
+  SUGG=[]; SUGGI=0;   // 키보드 이동은 검색 결과에만 적용
+}
 function onType(){
   const q=$("#q").value.trim();
   const box=$("#suggest");
-  if(!q||!GAMES.size||/^#?\d{5,}$/.test(q)){hideSuggest();return;}
+  if(!q){ showFavSuggest(); return; }                       // 빈 칸 → 즐겨찾기 목록
+  if(!GAMES.size||/^#?\d{5,}$/.test(q)){hideSuggest();return;}
   SUGG=findPlayers(q,8);SUGGI=0;
   if(!SUGG.length){hideSuggest();return;}
   renderSuggest();
@@ -2290,7 +2331,7 @@ function renderPlayer(name){
       <div class="prof">
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
-          <div class="pname">${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           ${careerHtml}
