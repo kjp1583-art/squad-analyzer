@@ -102,6 +102,7 @@
   .bl .itm{width:20px;height:20px;border-radius:4px;background:#0d1320;border:1px solid var(--line)}
   .bl .rn{width:20px;height:20px}
   .bl .rn.ks{width:22px;height:22px}
+  .bl .sp{width:20px;height:20px;border-radius:4px;border:1px solid var(--line)}
   .bl-sep{width:6px}
   .prow-build{padding:0 8px 6px 46px;margin-top:-4px}
   /* 🎯 장인랭킹 그리드 */
@@ -1367,8 +1368,13 @@ async function loadDDragon(){
     const it=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/item.json`)).json();
     for(const k in it.data)ITEMNAME[k]=it.data[k].name;
   }catch(e){}
+  // 🔮 소환사 스펠 아이콘 — id(SummonerFlash)·key(숫자 4) 양쪽으로 인덱싱(라이브=키명, 백필=숫자ID 모두 조회)
+  try{
+    const sp=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/summoner.json`)).json();
+    for(const k in sp.data){const s=sp.data[k]; const o={img:s.image.full,name:s.name}; SPELLMAP[s.id]=o; SPELLMAP[String(s.key)]=o;}
+  }catch(e){}
 }
-let PERKMAP={}, ITEMNAME={};
+let PERKMAP={}, ITEMNAME={}, SPELLMAP={};
 function itemIcons(r){   // 시트 '아이템' 열("id|id|...") → 아이콘 나열
   const raw=String(r["아이템"]||"").trim();
   if(!raw||raw==="기록 대기")return "";
@@ -1383,10 +1389,18 @@ function runeIcons(r){   // '주룬'("키스톤id|트리id") + '보조룬'("트�
   const img=(p,c)=>p?`<img class="rn ${c}" src="https://ddragon.leagueoflegends.com/cdn/img/${p.icon}" title="${escAttr(p.name)}" loading="lazy" onerror="this.remove()">`:"";
   return img(ks,"ks")+img(st,"sub");
 }
-function buildLine(r){   // 룬+아이템 한 줄(있을 때만)
-  const rw=runeIcons(r), iw=itemIcons(r);
-  if(!rw&&!iw)return "";
-  return `<div class="bl">${rw}${rw&&iw?'<span class="bl-sep"></span>':''}${iw}</div>`;
+function spellIcons(r){   // 🔮 '스펠' 열("키|키" 또는 "4|14") → 소환사 스펠 아이콘 2개
+  const parts=String(r["스펠"]||"").split("|").map(x=>x.trim()).filter(Boolean);
+  if(!parts.length)return "";
+  const out=parts.map(k=>{const s=SPELLMAP[k]; return s?`<img class="sp" src="https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/spell/${s.img}" title="${escAttr(s.name)}" loading="lazy" onerror="this.remove()">`:"";}).join("");
+  return out;
+}
+function buildLine(r){   // 스펠+룬+아이템 한 줄(있을 때만)
+  const sw=spellIcons(r), rw=runeIcons(r), iw=itemIcons(r);
+  if(!sw&&!rw&&!iw)return "";
+  const sep='<span class="bl-sep"></span>';
+  const segs=[sw,rw,iw].filter(Boolean);
+  return `<div class="bl">${segs.join(sep)}</div>`;
 }
 function champImg(name,cls){
   cls=cls||"";
