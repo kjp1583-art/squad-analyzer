@@ -115,6 +115,18 @@
   .mst-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
   .mst-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:border-color .15s}
   .mst-card:hover{border-color:var(--gold,#f5d47a)}
+  /* 🎖 내부티어 기록 타임라인 */
+  .thist{display:flex;flex-direction:column;gap:2px}
+  .thist-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;position:relative}
+  .thist-row+.thist-row{border-top:1px solid var(--line)}
+  .thist-row.now{background:rgba(120,170,255,.08)}
+  .thist-date{min-width:78px;font-size:13px;color:var(--mut);font-weight:700;white-space:nowrap}
+  .thist-cur{display:inline-block;margin-left:5px;font-size:10.5px;padding:1px 5px;border-radius:6px;background:#2a4a7a;color:#bcd8ff;vertical-align:middle}
+  .thist-row.now .thist-date{color:var(--txt)}
+  .thist-note{margin-left:auto;font-size:12.5px;font-weight:700}
+  .thist .tup{color:#5ad48a}
+  .thist .tdn{color:#ff7b7b}
+  .thist .tsame{color:var(--mut);font-weight:600}
   /* 내부티어 배지 & 평가 */
   .tier{display:inline-block;padding:1px 5px;border-radius:5px;font-size:11.5px;font-weight:800;margin-left:5px;vertical-align:middle;color:#fff;line-height:1.5}
   .tier.t1{background:#e84057}
@@ -480,6 +492,72 @@ const TIER_NICK = {
   "레알티슈도둑":"2中","듀우쿠우":"1中","새벽문앞":"1上","맨헤라공원팬티도둑":"2中","뵤뵤":"1下"
 };
 for(const nm in TIER_NICK)TIER_OF[tnorm(nm)]=TIER_NICK[nm];
+/* 🎖 내부티어 기록(op.gg 과거티어 스타일)
+   위 TIER_DATA/TIER_NICK 은 tier.png(2026-04-09) 기준 스냅샷이다. loadClanTiers()가 TIER_OF를 시트로 덮어쓰기
+   전에 '그 시점의 티어'로 얼려둔다 → 과거 기록의 첫 데이터포인트. 이후 변동은 TIER_HISTORY 시트에 쌓인다. */
+const TIER_SEED_DATE="2026-04-09";
+const TIER_SEED_OF=Object.assign({},TIER_OF);
+function tierSeedOf(name){
+  const d=TIER_SEED_OF[tnorm(name)]; if(d)return d;
+  const al=CANON_TO_ALIASES.get(canonOfName(name));
+  if(al)for(const a of al){const t=TIER_SEED_OF[tnorm(a)];if(t)return t;}
+  return null;
+}
+/* TIER_HISTORY 시트(닉네임/이전티어/새티어/날짜) — 호스트 분석기가 티어 변동 시에만 append */
+const TIER_HISTORY_GID="631610741";
+let TIER_HIST=new Map();   // canon → [{prev,next,date}] (오래된 순)
+function parseTierHistory(resp){
+  try{
+    const cols=resp.table.cols.map(c=>(c.label||"").trim());
+    // gviz가 헤더행을 라벨로 인식하지 못하면(label 비어있음) 열 위치(A~D)로 폴백 + 헤더행은 건너뜀
+    let ni=cols.indexOf("닉네임"), pi=cols.indexOf("이전티어"), xi=cols.indexOf("새티어"), di=cols.indexOf("날짜");
+    if(ni<0||xi<0||di<0){ ni=0; pi=1; xi=2; di=3; }
+    const out=[];
+    for(const row of resp.table.rows||[]){
+      const c=row.c||[], g=i=>(i>=0&&c[i]&&c[i].v!=null)?String(c[i].f!=null?c[i].f:c[i].v).trim():"";
+      const nm=g(ni), nx=g(xi), dt=g(di);
+      if(nm==="닉네임"||nx==="새티어")continue;                    // 헤더행이 데이터로 넘어온 경우
+      if(nm&&nx&&/^\d{4}-\d{2}-\d{2}/.test(dt))out.push({name:nm,prev:g(pi),next:nx,date:dt.slice(0,10)});
+    }
+    return out;
+  }catch(e){return [];}
+}
+async function loadTierHistory(){
+  if(TIER_HISTORY_GID==="__TBD__")return;
+  try{
+    const rows=parseTierHistory(await loadSheetJsonp(SHEET_ID,TIER_HISTORY_GID));
+    const m=new Map();
+    for(const r of rows){
+      const k=canonOfName(r.name)||tnorm(r.name);
+      if(!m.has(k))m.set(k,[]);
+      m.get(k).push(r);
+    }
+    for(const [,v] of m)v.sort((a,b)=>a.date<b.date?-1:1);
+    TIER_HIST=m;
+  }catch(e){/* 이력 없으면 스냅샷+현재만 표시 */}
+}
+/* 한 사람의 내부티어 타임라인: 2026-04-09 스냅샷 → (변동 이력) → 현재 */
+function tierTimeline(name){
+  const cur=tierOf(name);
+  const hist=TIER_HIST.get(canonOfName(name))||[];
+  const pts=[];
+  const seed=tierSeedOf(name);
+  if(seed)pts.push({date:TIER_SEED_DATE,tier:seed,note:"최초 기록"});
+  for(const h of hist){
+    if(pts.length&&pts[pts.length-1].tier===h.next)continue;   // 중복 방지
+    pts.push({date:h.date,tier:h.next,note:h.prev?"":"최초 부여"});
+  }
+  if(cur&&(!pts.length||pts[pts.length-1].tier!==cur))pts.push({date:"현재",tier:cur,note:"",now:true});
+  else if(cur&&pts.length)pts[pts.length-1].now=true;   // 마지막 기록이 곧 현재 티어 — 날짜는 보존
+  return pts;
+}
+function tierDelta(a,b){   // 티어 변화 방향: 1上 > 1中 > ... > 3下 (숫자 작을수록 상위)
+  const RK={"上":0,"中":1,"下":2};
+  const v=t=>t?parseInt(t[0],10)*3+(RK[t[1]]??1):null;
+  const x=v(a),y=v(b);
+  if(x==null||y==null)return 0;
+  return x===y?0:(y<x?1:-1);   // 1=승격, -1=강등
+}
 // === 내부티어 SSOT: CLAN_TIERS 시트 탭에서 읽어 TIER_OF 재구성 (위 하드코딩은 폴백) ===
 const CLAN_TIERS_GID="354094721";
 /* ★ 마스터 내부티어표(사장님이 직접 편집하는 시각적 티어 차트) 직접 연동 — 표를 고치면 웹에 즉시 자동 반영(항상 연동 유지).
@@ -2325,6 +2403,29 @@ function renderPlayer(name){
     ? `<div class="ach-row">`+badges.map(b=>`<span class="ach" title="${escAttr(b.d)}" onclick="go('ach')">${b.i} ${esc(b.t)}</span>`).join("")+`</div>`
     : `<div class="ach-row"><span class="muted" style="font-size:13px">아직 획득한 뱃지가 없어요 — 내전을 더 즐겨보세요!</span></div>`;
 
+  // 🎖 내부티어 기록 (op.gg 과거티어 스타일) — 2026-04-09 스냅샷 → 변동 이력 → 현재
+  const tl = tierTimeline(name);
+  const tierHistHtml = tl.length ? `
+    <div class="card" style="margin-top:14px">
+      <h2>🎖 내부티어 기록</h2>
+      <div class="thist">
+        ${tl.map((p,i)=>{
+          const d = i>0 ? tierDelta(tl[i-1].tier, p.tier) : 0;
+          const arrow = d>0?`<span class="tup">▲ 승격</span>`:d<0?`<span class="tdn">▼ 강등</span>`:(i>0?`<span class="tsame">유지</span>`:`<span class="tsame">${esc(p.note||'')}</span>`);
+          return `<div class="thist-row${p.now?' now':''}">
+            <span class="thist-date">${esc(p.date)}${p.now&&p.date!=='현재'?' <span class="thist-cur">현재</span>':''}</span>
+            <span class="tier ${tierGroupCls(p.tier)}">${esc(p.tier)}</span>
+            <span class="thist-note">${arrow}</span>
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="muted" style="font-size:12px;margin-top:8px">※ ${TIER_SEED_DATE} 티어표를 기준점으로, 이후 변동만 기록됩니다.</div>
+    </div>` : `
+    <div class="card" style="margin-top:14px">
+      <h2>🎖 내부티어 기록</h2>
+      <div class="muted" style="font-size:13.5px">아직 내부티어가 부여되지 않았어요.</div>
+    </div>`;
+
   view().innerHTML=`
     <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
     <div class="card" style="margin-top:10px">
@@ -2344,6 +2445,7 @@ function renderPlayer(name){
     <div class="grid cols">
       <div>
         <div class="card"><h2>모스트 챔피언</h2>${mostHtml}</div>
+        ${tierHistHtml}
         <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b> · 아래는 실제 플레이 분포</div>':''}${posHtml}</div>
         <div class="card" style="margin-top:14px">
           <h2>💬 댓글 <span class="muted" style="font-size:13.5px">· 한마디 (예의를 지켜주세요)</span></h2>
@@ -2677,7 +2779,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval()]);   // 병렬 로드
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory()]);   // 병렬 로드 (loadTierHistory: 🎖 내부티어 변동 이력)
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
     PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles();   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)
