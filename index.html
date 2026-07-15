@@ -1414,6 +1414,33 @@ const _GPTI_DESC={
   DTLA:"무리하지 않고 팀의 뒤를 든든하게 받치는 유형",
   OS:"공격적으로 킬을 직접 챙기는 캐리형",OT:"공격적으로 움직이며 팀을 돕는 유형",
   DS:"기회를 노려 한 방을 챙기는 유형",DT:"안정적으로 팀을 받치는 유형"};
+/* ⚔️ 천적 — 상대팀으로 붙었을 때의 head-to-head 전적. 궁합(같은팀)과 별개 개념. */
+let HEADTOHEAD={};   // canon -> {oppCanon:{w,l}}  (내 관점 승/패)
+function computeHeadToHead(){
+  HEADTOHEAD={};
+  for(const [gid,g] of GAMES){
+    if(!g||!g.teams)continue;
+    const sides=Object.keys(g.teams); if(sides.length<2)continue;
+    const teams=sides.map(s=>(g.teams[s]||[]).map(p=>({c:canonOfRow(p),res:p["결과"]})));
+    for(let i=0;i<teams.length;i++)for(let j=0;j<teams.length;j++){
+      if(i===j)continue;
+      for(const a of teams[i]){
+        if(!a.c||(a.res!=="승리"&&a.res!=="패배"))continue;
+        for(const b of teams[j]){
+          if(!b.c||b.c===a.c)continue;
+          const m=HEADTOHEAD[a.c]||(HEADTOHEAD[a.c]={});
+          const e=m[b.c]||(m[b.c]={w:0,l:0});
+          if(a.res==="승리")e.w++;else e.l++;
+        }
+      }
+    }
+  }
+}
+function nemesisOf(name,min=4,top=3){   // 붙으면 자주 지는 상대(승률 낮은 순, 지는 쪽만)
+  const me=canonOfName(name); const m=HEADTOHEAD[me]; if(!m)return [];
+  return Object.entries(m).map(([opp,e])=>({opp,w:e.w,l:e.l,n:e.w+e.l,wr:e.w/(e.w+e.l)}))
+    .filter(x=>x.n>=min && x.wr<0.5).sort((a,b)=>a.wr-b.wr || b.n-a.n).slice(0,top);
+}
 function gptiCardHtml(name){
   const g=gptiOf(name); if(!g) return "";
   const bar=ax=>{
@@ -1438,13 +1465,17 @@ function gptiCardHtml(name){
     ${mm.worst?mmRow('⚡','상극',mm.worst.type,mm.worst.members,'worst'):""}
     ${(!mm.same.length&&!mm.best&&!mm.worst)?'<div class="muted" style="font-size:12px">아직 비교할 클랜원 데이터가 부족해요.</div>':''}
   </div>`:"";
+  const nem=nemesisOf(name);
+  const nemHtml=nem.length?`<div class="gpti-mm"><div class="gpti-sub">⚔️ 천적 <span class="muted" style="font-weight:400;font-size:11.5px">· 상대팀으로 붙으면 자주 지는 상대</span></div>
+    <div class="gpti-mmrow worst"><div class="gpti-mmnames">${nem.map(x=>`<span class="clickname gpti-chip" onclick="go('player','${escAttr(x.opp)}')">${esc(shortName(x.opp))} <span style="opacity:.7;font-size:11px">${x.l}패 ${x.w}승</span></span>`).join("")}</div></div></div>`:"";
   return `<div class="card gpti-card" style="margin-top:14px">
     <h2>🧬 GPTI 성향유형 <span class="muted" style="font-size:12.5px;font-weight:400">· 내전 ${g.n}판 기준 (베타)</span></h2>
     <div class="gpti-top"><div class="gpti-type">${g.type}</div><div><div class="gpti-nick">${esc(_GPTI_TYPE_NICK[g.type]||"")}</div><div class="gpti-desc">${esc(_GPTI_DESC[g.type]||"")}</div></div></div>
     ${g.axes.map(bar).join("")}
     ${champHtml}
     ${mmHtml}
-    <div class="muted" style="font-size:11.5px;margin-top:10px">※ 포지션별 상대값 기준 · ${g.rich?"내전 실경기 스탯(킬관여·시야·딜·골드) 분석":"팀플/전략 축은 데이터 보강 후 추가됩니다"}</div>
+    ${nemHtml}
+    <div class="muted" style="font-size:11.5px;margin-top:10px">※ 포지션별 상대값 기준 · ${g.rich?"내전 실경기 스탯(킬관여·시야·딜·골드) 분석":"팀플/전략 축은 데이터 보강 후 추가됩니다"} · 천적=상대팀 head-to-head</div>
   </div>`;
 }
 /* 🧬 성향유형 도감 페이지 — 16유형별 명단 (명예의 전당 스타일) */
@@ -1711,6 +1742,7 @@ function build(){
   }
   TIER_AVG=computeTierAvg();   // 내부티어 평가용 동티어 평균(승률·MVP율·역적율)
   computeGPTI();               // 🧬 GPTI 성향유형(포지션 정규화) — 2026-07-16
+  computeHeadToHead();         // ⚔️ 천적(상대팀 head-to-head 전적)
 }
 
 /* ============== Data Dragon (챔피언 아이콘) ============== */
