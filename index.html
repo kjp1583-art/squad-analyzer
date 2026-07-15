@@ -122,6 +122,13 @@
   .thist-row.now{background:rgba(120,170,255,.08)}
   .thist-date{min-width:78px;font-size:13px;color:var(--mut);font-weight:700;white-space:nowrap}
   .thist-cur{display:inline-block;margin-left:5px;font-size:10.5px;padding:1px 5px;border-radius:6px;background:#2a4a7a;color:#bcd8ff;vertical-align:middle}
+  /* 🛒 챔피언 코어 아이템 */
+  .ci-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+  .ci-item{width:70px;text-align:center;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:8px 4px}
+  .ci-item img{width:42px;height:42px;border-radius:8px}
+  .ci-pr{font-size:13px;font-weight:800;margin-top:4px}
+  .ci-nm{font-size:10.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:1px 0}
+  .ci-wr{font-size:11.5px;font-weight:700}
   /* 🩸 십이귀월 홀더 엠블럼 (프로필 우상단) */
   .kizuki-emblem{position:absolute;top:14px;right:16px;text-align:center;pointer-events:none;z-index:2}
   .kizuki-emblem svg{filter:drop-shadow(0 0 10px rgba(224,65,63,.55))}
@@ -2339,6 +2346,42 @@ function masteryAgg(){
   return m;
 }
 const MASTER_MIN=3;   // '장인' 자격 최소 판수
+// 🛒 챔피언별 코어 아이템(픽률 기반 — 우리 데이터 표본 적어 승률은 8판+만) — 트링킷·소모품 제외
+const _ITEM_SKIP=new Set(["3340","3363","3364","2055","2003","2031","2033","2138","2139","2140","3400","2419","2052","3600","1054","1055","1056","1082","1083","2010","2138","3200"]);
+function champItemStats(champ){
+  const items={}; let champItemGames=0;
+  for(const [gid,g] of GAMES){
+    for(const r of (g.rows||[])){
+      if(r["챔피언"]!==champ)continue;
+      const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
+      const raw=String(r["아이템"]||"").trim(); if(!raw)continue;
+      champItemGames++;
+      const ids=[...new Set(raw.split("|").map(x=>x.trim()).filter(x=>/^\d+$/.test(x)&&!_ITEM_SKIP.has(x)))];
+      for(const id of ids){ if(!ITEMNAME[id])continue; const e=items[id]||(items[id]={n:0,w:0}); e.n++; if(res==="승리")e.w++; }
+    }
+  }
+  const arr=Object.entries(items).map(([id,e])=>({id,n:e.n,w:e.w,pr:champItemGames?e.n/champItemGames:0,wr:e.n?e.w/e.n:0}))
+    .sort((a,b)=>b.n-a.n);
+  return {champItemGames, items:arr};
+}
+function champItemsHtml(champ){
+  const st=champItemStats(champ);
+  if(st.champItemGames<3) return `<div class="card" style="margin-top:14px"><h2>🛒 코어 아이템</h2><div class="muted" style="font-size:13px">아직 아이템 기록이 부족해요 (기록된 판 ${st.champItemGames}판). 최근 게임부터 아이템이 쌓입니다.</div></div>`;
+  const top=st.items.slice(0,10);
+  const cell=x=>{
+    const wr=x.n>=8?`<span class="ci-wr" style="color:${x.wr>=0.5?'var(--win)':'var(--lose)'}">${Math.round(x.wr*100)}%</span>`:`<span class="muted" style="font-size:11px">표본↓</span>`;
+    return `<div class="ci-item" title="${escAttr(ITEMNAME[x.id]||x.id)} · ${x.n}판 픽${x.n>=8?' · 승률 '+Math.round(x.wr*100)+'%':''}">
+      <img src="https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/item/${x.id}.png" loading="lazy" onerror="this.closest('.ci-item').remove()">
+      <div class="ci-pr">${Math.round(x.pr*100)}%<span class="muted" style="font-weight:400"> 픽</span></div>
+      <div class="ci-nm">${esc((ITEMNAME[x.id]||'').slice(0,10))}</div>
+      ${wr}</div>`;
+  };
+  return `<div class="card" style="margin-top:14px">
+    <h2>🛒 클랜 코어 아이템 <span class="muted" style="font-size:12.5px;font-weight:400">· 아이템 기록 ${st.champItemGames}판 기준 · 자주 가는 순</span></h2>
+    <div class="ci-grid">${top.map(cell).join("")}</div>
+    <div class="muted" style="font-size:11px;margin-top:8px">※ 픽률=이 챔프가 그 아이템을 든 비율 · 승률은 <b>8판 이상</b> 든 아이템만(표본 부족은 '표본↓'). lol.ps처럼 정밀하려면 표본이 더 필요해요.</div>
+  </div>`;
+}
 function renderMastery(champ){
   const agg=masteryAgg();
   if(champ&&agg.has(champ)){
@@ -2366,7 +2409,8 @@ function renderMastery(champ){
         </div>
         <table class="ranktbl"><thead><tr><th class="num">#</th><th>플레이어</th><th class="num">판수</th><th>승률</th><th class="num">평균 KDA</th><th class="num">MVP</th></tr></thead>
         <tbody>${rows}</tbody></table>
-      </div>`;
+      </div>
+      ${champItemsHtml(champ)}`;
     return;
   }
   // 챔피언 목록(총 판수순) — 카드 클릭 시 해당 챔피언 장인랭킹
