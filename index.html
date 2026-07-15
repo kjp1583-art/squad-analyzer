@@ -122,6 +122,17 @@
   .thist-row.now{background:rgba(120,170,255,.08)}
   .thist-date{min-width:78px;font-size:13px;color:var(--mut);font-weight:700;white-space:nowrap}
   .thist-cur{display:inline-block;margin-left:5px;font-size:10.5px;padding:1px 5px;border-radius:6px;background:#2a4a7a;color:#bcd8ff;vertical-align:middle}
+  /* 🧬 GPTI 성향유형 카드 */
+  .gpti-top{display:flex;align-items:baseline;gap:12px;margin:2px 0 12px}
+  .gpti-type{font-size:30px;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#7cc0ff,#b78cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .gpti-nick{font-size:15px;font-weight:700;color:var(--txt)}
+  .gpti-ax{margin:10px 0}
+  .gpti-axhead{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:4px}
+  .gpti-axname{color:var(--txt);font-weight:700}
+  .gpti-track{position:relative;height:8px;background:var(--bg2);border-radius:6px;overflow:hidden}
+  .gpti-fill{position:absolute;top:0;height:100%;background:linear-gradient(90deg,#5a9cff,#a06bff);border-radius:6px}
+  .gpti-mid{position:absolute;left:50%;top:-2px;width:2px;height:12px;background:var(--line)}
+  .gpti-conf{font-size:11px;color:var(--mut);text-align:center;margin-top:3px}
   /* 🏆 3시즌 최고(솔로) 배지 — 티어별 색 */
   .peakbadge{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;border:1px solid transparent;background:#242c3a;color:#cfe0f5}
   .peakbadge b{font-weight:800}
@@ -1221,6 +1232,62 @@ function loadLinkAccount(){
     setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
   });
 }
+/* ============== 🧬 GPTI 성향유형 (내전 데이터·포지션 정규화) ==============
+   현재 KDA·딜량 기반 2축(라인 O/D·이득 S/T). 팀플·전략 축은 킬관여·시야 데이터 보강 후 추가 예정.
+   포지션별 백분위로 정규화 → '서폿이라 무조건 팀지향' 편향 제거. */
+let GPTI={};   // canon -> {pos,n,type,axes:[{ax,side,conf,v}]}
+const _GPTI_POS=['탑','정글','미드','원딜','서폿'];
+function _gptiAgg(rows){
+  const byPos={};
+  for(const r of rows){
+    const p=r["포지션"]; if(!_GPTI_POS.includes(p))continue;
+    const o=parseKDA(r["KDA"]); if(!o)continue;
+    const dmg=parseFloat(r["딜량"]);
+    (byPos[p]=byPos[p]||[]).push({k:o.k,d:o.d,a:o.a,dmg:isNaN(dmg)?null:dmg});
+  }
+  let mp=null,mn=0; for(const p in byPos)if(byPos[p].length>mn){mn=byPos[p].length;mp=p;}
+  if(!mp||mn<8)return null;                        // 최소 8판(주포지션)
+  const g=byPos[mp], ka=x=>x.k+x.a;
+  const avg=f=>{const v=g.map(f).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
+  return {pos:mp,n:g.length,kills:avg(x=>x.k),dmg:avg(x=>x.dmg),
+          killShare:avg(x=>ka(x)?x.k/ka(x):0)};
+}
+function computeGPTI(){
+  GPTI={};
+  const aggs={};
+  for(const [canon,rows] of PLAYERS){ const a=_gptiAgg(rows); if(a)aggs[canon]=a; }
+  const pool={};                                   // pos -> {metric:[vals]} (플레이어 단위)
+  for(const c in aggs){const a=aggs[c];pool[a.pos]=pool[a.pos]||{};for(const m of ['kills','dmg','killShare']){(pool[a.pos][m]=pool[a.pos][m]||[]).push(a[m]);}}
+  const pct=(pos,m,v)=>{const arr=(pool[pos]||{})[m]||[];if(v==null||arr.length<3)return .5;const b=arr.filter(x=>x<v).length,e=arr.filter(x=>x===v).length;return (b+e*.5)/arr.length;};
+  const sgn=p=>(p-.5)*2, pick=(v,hi,lo)=>v>=0?hi:lo, conf=v=>Math.abs(v)>=.5?'뚜렷':(Math.abs(v)>=.2?'약간':'중립');
+  for(const c in aggs){
+    const a=aggs[c];
+    const kP=pct(a.pos,'kills',a.kills), dmgP=pct(a.pos,'dmg',a.dmg), ksP=pct(a.pos,'killShare',a.killShare);
+    const od=sgn(a.dmg!=null?(kP+dmgP)/2:kP);      // 라인: 공격 O / 수비 D
+    const st=sgn(ksP);                              // 이득: 개인 S / 팀 T
+    GPTI[c]={pos:a.pos,n:a.n,type:pick(od,'O','D')+pick(st,'S','T'),
+      axes:[{ax:'라인',v:od,side:pick(od,'공격 O','수비 D'),conf:conf(od),hi:'공격',lo:'수비'},
+            {ax:'이득',v:st,side:pick(st,'개인 S','팀 T'),conf:conf(st),hi:'개인',lo:'팀'}]};
+  }
+}
+function gptiOf(name){ return GPTI[canonOfName(name)]||GPTI[tnorm(name)]||null; }
+const _GPTI_TYPE_NICK={OS:"공격형 캐리",OT:"공격형 조력",DS:"한방 노리는 암살자",DT:"든든한 버팀목"};
+function gptiCardHtml(name){
+  const g=gptiOf(name); if(!g) return "";
+  const bar=ax=>{
+    const pctPos=Math.round((ax.v+1)/2*100);       // -1~1 → 0~100 (오른쪽=hi)
+    return `<div class="gpti-ax">
+      <div class="gpti-axhead"><span>${ax.lo}</span><b class="gpti-axname">${ax.ax} · ${esc(ax.side)}</b><span>${ax.hi}</span></div>
+      <div class="gpti-track"><div class="gpti-fill" style="left:${Math.min(pctPos,50)}%;width:${Math.abs(pctPos-50)}%"></div><div class="gpti-mid"></div></div>
+      <div class="gpti-conf">${ax.conf}</div></div>`;
+  };
+  return `<div class="card gpti-card" style="margin-top:14px">
+    <h2>🧬 GPTI 성향유형 <span class="muted" style="font-size:12.5px;font-weight:400">· 내전 ${g.n}판 기준 (베타)</span></h2>
+    <div class="gpti-top"><div class="gpti-type">${g.type}</div><div class="gpti-nick">${esc(_GPTI_TYPE_NICK[g.type]||"")}</div></div>
+    ${g.axes.map(bar).join("")}
+    <div class="muted" style="font-size:11.5px;margin-top:8px">※ 포지션별 상대값 기준 · 팀플/전략 축은 킬관여·시야 데이터 보강 후 추가됩니다.</div>
+  </div>`;
+}
 function computePredTitles(){
   PRED_GOD=PRED_NOOB=null;
   const elig=Object.values(PREDICTIONS).filter(p=>p.total>=PRED_MIN);
@@ -1459,6 +1526,7 @@ function build(){
     }
   }
   TIER_AVG=computeTierAvg();   // 내부티어 평가용 동티어 평균(승률·MVP율·역적율)
+  computeGPTI();               // 🧬 GPTI 성향유형(포지션 정규화) — 2026-07-16
 }
 
 /* ============== Data Dragon (챔피언 아이콘) ============== */
@@ -2477,6 +2545,7 @@ function renderPlayer(name){
     <div class="grid cols">
       <div>
         <div class="card"><h2>모스트 챔피언</h2>${mostHtml}</div>
+        ${gptiCardHtml(name)}
         ${tierHistHtml}
         <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b> · 아래는 실제 플레이 분포</div>':''}${posHtml}</div>
         <div class="card" style="margin-top:14px">
