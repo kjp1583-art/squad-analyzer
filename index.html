@@ -122,6 +122,13 @@
   .thist-row.now{background:rgba(120,170,255,.08)}
   .thist-date{min-width:78px;font-size:13px;color:var(--mut);font-weight:700;white-space:nowrap}
   .thist-cur{display:inline-block;margin-left:5px;font-size:10.5px;padding:1px 5px;border-radius:6px;background:#2a4a7a;color:#bcd8ff;vertical-align:middle}
+  /* 🩸 십이귀월 홀더 엠블럼 (프로필 우상단) */
+  .kizuki-emblem{position:absolute;top:14px;right:16px;text-align:center;pointer-events:none;z-index:2}
+  .kizuki-emblem svg{filter:drop-shadow(0 0 10px rgba(224,65,63,.55))}
+  .kizuki-emblem.low svg{filter:drop-shadow(0 0 10px rgba(154,107,255,.55))}
+  .kz-cap{font-size:11px;font-weight:800;margin-top:2px;letter-spacing:.3px;color:#ffb3b0}
+  .kizuki-emblem.low .kz-cap{color:#d3bcff}
+  @media(max-width:620px){.kizuki-emblem{position:static;margin:0 0 10px;display:inline-block}}
   /* 🧬 GPTI 성향유형 카드 */
   .gpti-top{display:flex;align-items:baseline;gap:12px;margin:2px 0 12px}
   .gpti-type{font-size:30px;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#7cc0ff,#b78cff);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -816,6 +823,26 @@ function computeAssessments(){
 function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
 function assessPlayer(name){ return ASSESSMENTS.get(name)||null; }
 function titleBadge(t){ if(!t) return ''; const up=t.startsWith('상현'); return `<span class="${up?'sanghyun':'haha'}">${up?'🗡':'🌙'} ${t}</span>`; }
+// 🩸 십이귀월 홀더 엠블럼 — '악귀의 눈 각인' 모티프(생성형 SVG, 上弦/下弦+숫자 한자). 저작권 캐릭터 이미지 대신 테마 오마주.
+const KIZUKI_NUM={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
+function kizukiEmblem(name){
+  const a=ASSESSMENTS.get(name); if(!a||!a.title)return "";
+  const up=a.title.startsWith("상현"); const n=parseInt(String(a.title).replace(/[^0-9]/g,""))||1;
+  const rankk=up?"上弦":"下弦", numk=KIZUKI_NUM[n]||n;
+  const c1=up?"#ff5a46":"#b779ff", c2=up?"#7a0d10":"#361062", stroke=up?"#e0413f":"#9a6bff";
+  const uid="kz"+(up?"u":"l")+n+"_"+Math.floor(Math.random()*1e5);
+  return `<div class="kizuki-emblem ${up?'up':'low'}" title="십이귀월 · ${rankk}の${numk} (${esc(a.title)})">
+    <svg viewBox="0 0 120 96" width="118" height="94" aria-hidden="true">
+      <defs><radialGradient id="${uid}" cx="50%" cy="44%" r="62%"><stop offset="0" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></radialGradient></defs>
+      <path d="M5 48 Q60 3 115 48 Q60 93 5 48 Z" fill="#110305" stroke="${stroke}" stroke-width="2.5"/>
+      <circle cx="60" cy="48" r="31.5" fill="url(#${uid})"/>
+      <circle cx="60" cy="48" r="31.5" fill="none" stroke="#180406" stroke-width="1.4" opacity=".55"/>
+      <text x="60" y="37" text-anchor="middle" font-size="15" fill="#fff" font-weight="800">${rankk}</text>
+      <text x="60" y="72" text-anchor="middle" font-size="30" fill="#fff" font-weight="900" style="font-family:serif">${numk}</text>
+    </svg>
+    <div class="kz-cap">🩸 십이귀월 · ${esc(a.title)}</div>
+  </div>`;
+}
 // 🎖 재미 업적 뱃지 — 한 플레이어의 획득 뱃지 목록 [{k(그룹키),i(아이콘),t(칭호),d(설명)}]. 하위·캐주얼도 획득 가능.
 function playerBadges(name){
   const parts=PLAYERS.get(name); if(!parts||!parts.length) return [];
@@ -2744,7 +2771,8 @@ function renderPlayer(name){
 
   view().innerHTML=`
     <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
-    <div class="card" style="margin-top:10px">
+    <div class="card" style="margin-top:10px;position:relative">
+      ${kizukiEmblem(name)}
       <div class="prof">
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
