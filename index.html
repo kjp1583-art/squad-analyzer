@@ -122,6 +122,19 @@
   .thist-row.now{background:rgba(120,170,255,.08)}
   .thist-date{min-width:78px;font-size:13px;color:var(--mut);font-weight:700;white-space:nowrap}
   .thist-cur{display:inline-block;margin-left:5px;font-size:10.5px;padding:1px 5px;border-radius:6px;background:#2a4a7a;color:#bcd8ff;vertical-align:middle}
+  /* 🏆 3시즌 최고(솔로) 배지 — 티어별 색 */
+  .peakbadge{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;border:1px solid transparent;background:#242c3a;color:#cfe0f5}
+  .peakbadge b{font-weight:800}
+  .peakbadge.pk-challenger{background:linear-gradient(90deg,#3a2a0c,#4a3410);border-color:#e8b53a;color:#ffdf8a}
+  .peakbadge.pk-grandmaster{background:#3a1516;border-color:#e0504f;color:#ffb3b2}
+  .peakbadge.pk-master{background:#2e1740;border-color:#a463e0;color:#e6c6ff}
+  .peakbadge.pk-diamond{background:#12314a;border-color:#4aa3e0;color:#bfe3ff}
+  .peakbadge.pk-emerald{background:#123528;border-color:#3fb488;color:#b6f0d6}
+  .peakbadge.pk-platinum{background:#123833;border-color:#3fb0b4;color:#bfeceb}
+  .peakbadge.pk-gold{background:#332612;border-color:#d4af37;color:#ffe9a8}
+  .peakbadge.pk-silver{background:#26292e;border-color:#9aa4ad;color:#dbe2e8}
+  .peakbadge.pk-bronze{background:#2b1f16;border-color:#a56b3c;color:#e6c2a0}
+  .peakbadge.pk-iron{background:#22242a;border-color:#6b7078;color:#c2c8d0}
   .thist-row.now .thist-date{color:var(--txt)}
   .thist-note{margin-left:auto;font-size:12.5px;font-weight:700}
   .thist .tup{color:#5ad48a}
@@ -956,7 +969,23 @@ function loadSoloRanks(){
   });
 }
 
-// ★ 과거 3시즌 최고티어(PEAK_SEASONS 탭, op.gg 측정) 로드 → 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 블렌드 (2026-07-03 사장님 지시)
+// ★ 과거 3시즌 최고티어(PEAK_SEASONS 탭) 로드 → 솔랭점수 블렌드 + 프로필 '3시즌 최고' 표시
+let PEAK_INFO = {};   // tnorm -> {tier:"master 1", score, season:"S15"}
+const _TIER_KO = {iron:"아이언",bronze:"브론즈",silver:"실버",gold:"골드",platinum:"플래티넘",emerald:"에메랄드",diamond:"다이아",master:"마스터",grandmaster:"그마",challenger:"챌린저"};
+const _DIV_RO = {"1":"I","2":"II","3":"III","4":"IV"};
+// PEAK_SEASONS의 '최고티어'(예:"master 1")+점수 → "마스터 375" / "다이아 II" 라벨. 마스터+는 LP(점수-2800), 그 외는 디비전.
+function peakLabel(name){
+  let p=PEAK_INFO[tnorm(name)];
+  if(!p){ const al=CANON_TO_ALIASES.get(canonOfName(name)); if(al)for(const a of al){ if(PEAK_INFO[tnorm(a)]){p=PEAK_INFO[tnorm(a)];break;} } }
+  if(!p||!p.tier) return null;
+  const parts=p.tier.toLowerCase().split(/\s+/); const tk=parts[0]; const ko=_TIER_KO[tk];
+  if(!ko) return null;
+  if(tk==="master"||tk==="grandmaster"||tk==="challenger"){
+    const lp=Math.max(0,Math.round((p.score||0)-2800));
+    return {ko, cls:tk, txt:`${ko} ${lp}`, season:p.season};   // 마스터+ : LP 표기
+  }
+  return {ko, cls:tk, txt:`${ko} ${_DIV_RO[parts[1]]||""}`.trim(), season:p.season};
+}
 function loadPeakSeasons(){
   return new Promise((resolve)=>{
     const cb="__peakCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
@@ -967,11 +996,14 @@ function loadPeakSeasons(){
       const out={};
       try{
         const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
-        const ni=cols.indexOf("닉네임"), si=cols.indexOf("점수");
+        const ni=cols.indexOf("닉네임"), si=cols.indexOf("점수"), ti=cols.indexOf("최고티어"), sei=cols.indexOf("최고시즌");
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:c[i].v);
           const nmk=tnorm(String(gv(ni)||"")); const sc=parseFloat(gv(si));
-          if(nmk && !isNaN(sc)) out[nmk]=sc;
+          if(nmk && !isNaN(sc)){
+            out[nmk]=sc;
+            PEAK_INFO[nmk]={tier:String(gv(ti)||"").trim(), score:sc, season:String(gv(sei)||"").trim()};   // 🏆 표시용
+          }
         }
       }catch(e){}
       resolve(out);
@@ -2433,6 +2465,7 @@ function renderPlayer(name){
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           ${careerHtml}
