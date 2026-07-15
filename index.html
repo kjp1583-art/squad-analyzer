@@ -847,22 +847,17 @@ function computeAssessments(){
   const _tIdx=t=>{ const i=_TORD.indexOf(t); return i<0?99:i; };
   const _N=_powerAll.length||1;
   _powerAll.forEach((p,i)=>{
-    const a=ASSESSMENTS.get(p.name); if(!a)return;
+    const a=ASSESSMENTS.get(p.name); if(!a||!a.detail)return;   // 표본부족(10판↓)은 그대로 '표본부족'
     const impl=_slots[i]||p.t;
     a.implTier=impl;
     a.implPct=Math.max(1,Math.round((i+1)/_N*100));   // 상위 X%
-    const di=_tIdx(a.tier)-_tIdx(impl);   // >0 = 추정이 더 높은 티어(실력이 티어보다 위), <0 = 과대배치
+    const di=_tIdx(a.tier)-_tIdx(impl);   // >0 = 추정이 더 높은 티어(실력이 티어보다 위=저평가), <0 = 과대배치(고평가)
     a.implRel=di>0?"up":di<0?"down":"eq";
     a.implGap=Math.abs(di);
+    // ★ 평가 로직 = 클랜 전체 기준 재배치로 재정의(등락판정 단일 라벨). 표기는 기존 고평가/저평가/적절 그대로.
+    a.label=di>0?"저평가":di<0?"고평가":"적절";
+    a.cls  =di>0?"a-under":di<0?"a-over":"a-ok";
   });
-}
-// 🎯 추정 티어 표시 조각 (내부티어표·프로필 공용)
-function impliedTierHtml(a){
-  if(!a||!a.implTier)return '';
-  const rel=a.implRel==="up"?'<b style="color:#5b8cff">↑ 실력이 티어보다 위</b>'
-           :a.implRel==="down"?'<b style="color:#e84057">↓ 티어보다 아래</b>'
-           :'<span style="color:#2bb177">≈ 티어와 일치</span>';
-  return '<span class="muted" style="font-size:12.5px">🎯 전체기준 추정 <span class="tier '+tierGroupCls(a.implTier)+'" style="margin:0;font-size:11px;padding:1px 6px;vertical-align:middle">'+a.implTier+'</span> (상위 '+a.implPct+'%) · '+rel+'</span>';
 }
 function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
 function assessPlayer(name){ return ASSESSMENTS.get(name)||null; }
@@ -2495,7 +2490,7 @@ function renderTiers(){
   let cU=0,cOk=0,cOv=0,cNa=0;
   for(const [,a] of ASSESSMENTS){ if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
   const sections=order.map(t=>{
-    const arr=byTier[t].slice().sort((a,b)=>(OL[a.label]-OL[b.label])||((b.detail?b.detail.score:-999)-(a.detail?a.detail.score:-999)));
+    const arr=byTier[t].slice().sort((a,b)=>(OL[a.label]-OL[b.label])||((a.implPct||999)-(b.implPct||999)));
     const av=TIER_AVG[t]||{};
     let avgText;
     if(av.wr==null){ avgText='동티어 표본 부족'; }
@@ -2503,14 +2498,13 @@ function renderTiers(){
     const rows=arr.map(a=>{
       const d=a.detail;
       const det = d
-        ? '<span class="muted" style="font-size:13px">'+detailLine(d)+' <b style="font-weight:800;opacity:.85">[신뢰도점수 '+(d.score>=0?'+':'')+d.score.toFixed(2)+']</b></span>'
+        ? '<span class="muted" style="font-size:13px">'+(a.implPct!=null?'<b style="font-weight:800;color:#ffd24a">🎯 전체 상위 '+a.implPct+'%</b> · ':'')+detailLine(d)+'</span>'
         : '<span class="muted" style="font-size:13px">'+a.games+'판 — 평가엔 10판 이상 필요</span>';
       return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,.045)">
         <span class="clickname" style="min-width:116px;font-weight:700;font-size:14px" onclick="go('player','${escAttr(a.name)}')">${esc(shortName(a.name))}</span>
         ${posDeclLabel(a.name)?'<span style="background:#20304a;color:#8fd0ff;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap">'+esc(posDeclLabel(a.name))+'</span>':''}
         ${titleBadge(a.title)}
         <span class="assess ${a.cls}">${a.label}</span>
-        ${a.implTier?impliedTierHtml(a):''}
         ${det}
       </div>`;
     }).join("");
@@ -2525,16 +2519,16 @@ function renderTiers(){
   const body = sections || '<div class="muted" style="padding:14px 4px">평가할 클랜원 데이터가 없습니다.</div>';
   view().innerHTML=`${navTabsHtml('tiers')}
     <div class="card">
-      <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 같은 내부티어 평균 대비)</span></h2>
-      <div class="muted" style="font-size:13px;margin:2px 0 4px">🔵저평가 = 동티어보다 잘함(<b>승격 후보</b>)　🟢적절　🔴고평가 = 동티어보다 못함</div>
+      <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 클랜 전체 성적 기준)</span></h2>
+      <div class="muted" style="font-size:13px;margin:2px 0 4px">🔵저평가 = 클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보)　🟢적절 = 티어와 일치　🔴고평가 = 티어보다 아래</div>
       <div style="font-size:13px;margin:6px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 <b style="color:#ffd24a">순수 실력 파워랭킹 최강 12인</b> (십이귀월 — 상현 1~6위 · 하현 7~12위, 솔랭 보유+10판↑ 대상)</span></div>
       <div class="muted" style="font-size:12px;margin:0 0 6px">🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌 기록은 op.gg 기준(시즌 종료 시점 티어), 현시즌만 있으면 현시즌 값, 과거만 있으면 과거 값 사용</div>
       <div class="muted" style="font-size:12.5px;margin-bottom:2px">저평가 ${cU} · 적절 ${cOk} · 고평가 ${cOv} · 표본부족 ${cNa}</div>
       ${body}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
-        ※ 베이지안 보정 후 <b>같은 내부티어</b> 동료들과 비교(leave-one-out z점수 가중합 — 🏅솔랭·AI·승률·솔랭승률·MVP율·역적율). <b>[신뢰도점수]</b> +0.85↑ = <b style="color:#5b8cff">저평가(승격 후보)</b>, −0.85↓ = <b style="color:#e84057">고평가</b>. 평가엔 10판 이상 필요.<br>
-        <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.<br>
-        <span style="color:#ffd24a">🎯 전체기준 추정 티어</span> = 위 등락판정(같은-티어)과 <b>별개</b>로, <b>클랜원 전체</b>를 성적순으로 세워 실제 티어 분포와 같은 칸 수에 재배치한 <b>절대 위치</b>입니다. <b style="color:#5b8cff">↑</b>=실력이 현 티어보다 위(승격 후보), <b style="color:#e84057">↓</b>=아래. (등락판정은 사다리 내 상대비교, 이건 클랜 전체 기준 — 둘을 함께 보세요.)
+        ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">위면 저평가(승격 후보)</b>, <b style="color:#e84057">아래면 고평가</b>, 같으면 적절. <b style="color:#ffd24a">🎯 전체 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
+        <span style="opacity:.75">· 각 지표 뒤 <b>(평균)</b>은 <b>같은 내부티어</b> 동료들의 평균(참고용) — 판정 자체는 위의 클랜 전체 기준입니다.</span><br>
+        <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.
       </div>
     </div>`;
 }
@@ -2807,9 +2801,8 @@ function renderPlayer(name){
       <span class="tier ${tierGroupCls(asmt.tier)}" style="margin:0">${asmt.tier}</span>
       ${titleBadge(asmt.title)}
       <span class="assess ${asmt.cls}">${asmt.label}</span>
-      ${asmt.detail?`<span class="muted" style="font-size:13.5px">동티어 대비 · 승률 ${asmt.detail.wr}%<span style="opacity:.55">(평균 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(평균 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(평균 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(평균 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(평균 ${asmt.detail.trollAvg}%)</span>`:''}${asmt.detail.ace!=null?` · ACE율 ${asmt.detail.ace}%<span style="opacity:.55">(패배중)</span>`:''}</span>`
+      ${asmt.detail?`<span class="muted" style="font-size:13.5px">${asmt.implPct!=null?`<b style="color:#ffd24a">🎯 전체 상위 ${asmt.implPct}%</b> · `:''}승률 ${asmt.detail.wr}%<span style="opacity:.55">(동티어 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(동티어 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(동티어 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(동티어 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(동티어 ${asmt.detail.trollAvg}%)</span>`:''}${asmt.detail.ace!=null?` · ACE율 ${asmt.detail.ace}%<span style="opacity:.55">(패배중)</span>`:''}</span>`
                    :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
-      ${asmt.implTier?'<span style="flex-basis:100%;height:0"></span>'+impliedTierHtml(asmt):''}
     </div>` : '';
 
   // 🏅 커리어(대회 우승) — CAREER 탭에서 이 선수 기록 추출 (현재 보유 타이틀은 강조)
