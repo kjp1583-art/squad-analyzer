@@ -1799,7 +1799,12 @@ async function loadDDragon(){
   }catch(e){}
   try{
     const it=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/item.json`)).json();
-    for(const k in it.data)ITEMNAME[k]=it.data[k].name;
+    for(const k in it.data){const d=it.data[k]; ITEMNAME[k]=d.name;
+      // 완성템 판별: 구매가능 + 상위 조합처(into) 없음(=하위템 아님) + 총골드 900+ (물약·와드·도란템 컷)
+      const g=d.gold||{}; const terminal=!d.into||d.into.length===0;
+      const boots=(d.tags||[]).includes("Boots"); // 부츠는 강화경로(into) 있어도 완성템 취급(단 기본장화 1001 등 <900 제외)
+      if(g.purchasable&&(terminal||boots)&&(g.total||0)>=900)ITEMFINAL.add(k);
+    }
   }catch(e){}
   // 🔮 소환사 스펠 아이콘 — id(SummonerFlash)·key(숫자 4) 양쪽으로 인덱싱(라이브=키명, 백필=숫자ID 모두 조회)
   try{
@@ -1807,7 +1812,7 @@ async function loadDDragon(){
     for(const k in sp.data){const s=sp.data[k]; const o={img:s.image.full,name:s.name}; SPELLMAP[s.id]=o; SPELLMAP[String(s.key)]=o;}
   }catch(e){}
 }
-let PERKMAP={}, ITEMNAME={}, SPELLMAP={};
+let PERKMAP={}, ITEMNAME={}, SPELLMAP={}, ITEMFINAL=new Set();
 function itemIcons(r){   // 시트 '아이템' 열("id|id|...") → 아이콘 나열
   const raw=String(r["아이템"]||"").trim();
   if(!raw||raw==="기록 대기")return "";
@@ -2346,18 +2351,17 @@ function masteryAgg(){
   return m;
 }
 const MASTER_MIN=3;   // '장인' 자격 최소 판수
-// 🛒 챔피언별 코어 아이템(픽률 기반 — 우리 데이터 표본 적어 승률은 8판+만) — 트링킷·소모품 제외
-const _ITEM_SKIP=new Set(["3340","3363","3364","2055","2003","2031","2033","2138","2139","2140","3400","2419","2052","3600","1054","1055","1056","1082","1083","2010","2138","3200"]);
+// 🛒 챔피언별 코어 아이템(픽률 기반 — 우리 데이터 표본 적어 승률은 8판+만) — 완성템만(하위템·소모품·와드 제외)
 function champItemStats(champ){
   const items={}; let champItemGames=0;
   for(const [gid,g] of GAMES){
     for(const r of (g.rows||[])){
       if(r["챔피언"]!==champ)continue;
       const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
-      const raw=String(r["아이템"]||"").trim(); if(!raw)continue;
+      const raw=String(r["아이템"]||"").trim(); if(!raw||raw==="기록 대기")continue;
       champItemGames++;
-      const ids=[...new Set(raw.split("|").map(x=>x.trim()).filter(x=>/^\d+$/.test(x)&&!_ITEM_SKIP.has(x)))];
-      for(const id of ids){ if(!ITEMNAME[id])continue; const e=items[id]||(items[id]={n:0,w:0}); e.n++; if(res==="승리")e.w++; }
+      const ids=[...new Set(raw.split("|").map(x=>x.trim()).filter(x=>/^\d+$/.test(x)&&ITEMFINAL.has(x)))];
+      for(const id of ids){ const e=items[id]||(items[id]={n:0,w:0}); e.n++; if(res==="승리")e.w++; }
     }
   }
   const arr=Object.entries(items).map(([id,e])=>({id,n:e.n,w:e.w,pr:champItemGames?e.n/champItemGames:0,wr:e.n?e.w/e.n:0}))
