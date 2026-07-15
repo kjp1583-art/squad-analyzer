@@ -133,6 +133,18 @@
   .gpti-fill{position:absolute;top:0;height:100%;background:linear-gradient(90deg,#5a9cff,#a06bff);border-radius:6px}
   .gpti-mid{position:absolute;left:50%;top:-2px;width:2px;height:12px;background:var(--line)}
   .gpti-conf{font-size:11px;color:var(--mut);text-align:center;margin-top:3px}
+  .gpti-desc{font-size:12.5px;color:var(--sub);margin-top:2px;line-height:1.4}
+  .gpti-sub{font-size:12.5px;font-weight:700;color:var(--txt);margin:14px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
+  .gpti-champrow{display:flex;gap:14px;flex-wrap:wrap}
+  .gpti-champ{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:11.5px;color:var(--sub);width:52px;text-align:center}
+  .gpti-champ:hover{color:var(--txt)}
+  .gpti-champ img{width:40px;height:40px;border-radius:9px}
+  .gpti-mmrow{margin:8px 0}
+  .gpti-mmhead{font-size:12.5px;margin-bottom:5px}
+  .gpti-mmnames{display:flex;flex-wrap:wrap;gap:6px}
+  .gpti-chip{background:var(--card2);border:1px solid var(--line);padding:3px 10px;border-radius:9px;font-size:12.5px}
+  .gpti-mmrow.best .gpti-chip{border-color:rgba(90,212,138,.5);background:rgba(90,212,138,.08)}
+  .gpti-mmrow.worst .gpti-chip{border-color:rgba(255,123,123,.5);background:rgba(255,123,123,.08)}
   /* 🏆 3시즌 최고(솔로) 배지 — 티어별 색 */
   .peakbadge{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;border:1px solid transparent;background:#242c3a;color:#cfe0f5}
   .peakbadge b{font-weight:800}
@@ -1326,14 +1338,69 @@ function computeGPTI(){
     }
     GPTI[c]={pos:a.pos,n:a.n,rich,type,axes};
   }
+  _gptiAux();
 }
 function gptiOf(name){ return GPTI[tnorm(name)]||GPTI[canonOfName(name)]||null; }
+/* 유형별 클랜원 목록 + 유형별 대표 챔피언(같은 유형이 즐겨하는 챔프) */
+let GPTI_BYTYPE={}, GPTI_CHAMPS={};
+function _gptiAux(){
+  GPTI_BYTYPE={}; GPTI_CHAMPS={}; const cAgg={};
+  for(const [canon,rows] of PLAYERS){
+    const g=gptiOf(canon); if(!g)continue;
+    (GPTI_BYTYPE[g.type]=GPTI_BYTYPE[g.type]||[]).push(canon);
+    cAgg[g.type]=cAgg[g.type]||{};
+    for(const r of rows){ const ch=r["챔피언"]; if(!ch)continue;
+      const e=cAgg[g.type][ch]=cAgg[g.type][ch]||{n:0,w:0}; e.n++; if(r["결과"]==="승리")e.w++; }
+  }
+  for(const t in cAgg) GPTI_CHAMPS[t]=Object.entries(cAgg[t]).map(([champ,v])=>({champ,n:v.n,w:v.w})).sort((a,b)=>b.n-a.n).slice(0,3);
+}
+/* 궁합: 4글자 타입 간 점수(이득 상호보완·팀플 협동·라인 공수균형·전략 템포일치) */
+function _gptiCompat(a,b){
+  if(!a||!b||a.length<4||b.length<4)return 0;
+  let s=0;
+  s+=(a[1]!==b[1])?3:(a[1]==='S'?-2:0);                           // 이득: 캐리+조력 보완 / 둘다 개인=자원경쟁
+  s+=(a[2]==='C'&&b[2]==='C')?2:((a[2]==='L'&&b[2]==='L')?-2:1);  // 팀플: 둘다 조직 최상 / 둘다 독립 최악
+  s+=(a[0]!==b[0])?1:0;                                            // 라인: 공수 균형
+  s+=(a[3]===b[3])?1:-1;                                          // 전략: 템포 일치
+  return s;
+}
+function gptiMatchmaking(name){
+  const g=gptiOf(name); if(!g||g.type.length<4)return null;
+  const me=canonOfName(name);
+  const mem=t=>(GPTI_BYTYPE[t]||[]).filter(c=>canonOfName(c)!==me);
+  const same=mem(g.type);
+  const types=Object.keys(_GPTI_TYPE_NICK).filter(t=>t.length===4);
+  const scored=types.filter(t=>t!==g.type).map(t=>({t,s:_gptiCompat(g.type,t)})).sort((a,b)=>b.s-a.s);
+  let best=null,worst=null;
+  for(const x of scored){ if(mem(x.t).length){best={type:x.t,members:mem(x.t)};break;} }
+  for(let i=scored.length-1;i>=0;i--){ if(mem(scored[i].t).length){worst={type:scored[i].t,members:mem(scored[i].t)};break;} }
+  return {same,best,worst};
+}
 const _GPTI_TYPE_NICK={
   OS:"공격형 캐리",OT:"공격형 조력",DS:"한방 암살자",DT:"든든한 버팀목",   // 2축 폴백
   OSCI:"돌격대장",OSCA:"지휘하는 에이스",OSLI:"폭주 하이퍼캐리",OSLA:"고독한 캐리",
   OTCI:"돌진 이니시에이터",OTCA:"전략적 개시자",OTLI:"저돌적 로머",OTLA:"계산적 스플릿",
   DSCI:"받아치는 암살자",DSCA:"냉정한 저격수",DSLI:"기회주의 캐리",DSLA:"인내의 하이퍼캐리",
   DTCI:"돌진하는 방패",DTCA:"판 읽는 사령탑",DTLI:"묵묵한 조력자",DTLA:"안정적 버팀목"};
+const _GPTI_DESC={
+  OSCI:"앞장서 싸움을 열고 킬을 직접 챙기며 팀을 몰아붙이는 저돌적 캐리",
+  OSCA:"적극적으로 교전하되 한타 각을 계산해 팀 스노우볼을 주도하는 유형",
+  OSLI:"혼자서도 과감히 파고들어 킬을 만들어내는 고위험 고수익 캐리",
+  OSLA:"독자적으로 성장해 후반 캐리력을 노리는 계산적 딜러",
+  OTCI:"각이 보이면 망설임 없이 들어가 팀 유리 구도를 만드는 유형",
+  OTCA:"최전선에서 적극적으로 움직이며 기회를 엿보는 전략적 선봉장",
+  OTLI:"사이드에서 공격적으로 압박하며 변수를 만들어내는 유형",
+  OTLA:"라인 압박과 사이드 운영으로 판을 흔드는 계산형 유형",
+  DSCI:"안전하게 버티다 기회가 오면 파고들어 킬을 취하는 유형",
+  DSCA:"리스크를 줄이며 확실한 순간에만 딜을 넣는 냉정한 유형",
+  DSLI:"몸을 사리다 빈틈이 보이면 순식간에 캐리하는 기회주의 유형",
+  DSLA:"안정적으로 성장해 후반을 도모하는 인내형 딜러",
+  DTCI:"몸을 던져 팀을 지키고 이니시를 받아주는 유형",
+  DTCA:"시야와 오브젝트를 챙기며 팀의 판단을 이끄는 사령탑",
+  DTLI:"튀지 않게 팀을 보조하며 궂은 일을 도맡는 유형",
+  DTLA:"무리하지 않고 팀의 뒤를 든든하게 받치는 유형",
+  OS:"공격적으로 킬을 직접 챙기는 캐리형",OT:"공격적으로 움직이며 팀을 돕는 유형",
+  DS:"기회를 노려 한 방을 챙기는 유형",DT:"안정적으로 팀을 받치는 유형"};
 function gptiCardHtml(name){
   const g=gptiOf(name); if(!g) return "";
   const bar=ax=>{
@@ -1343,11 +1410,28 @@ function gptiCardHtml(name){
       <div class="gpti-track"><div class="gpti-fill" style="left:${Math.min(pctPos,50)}%;width:${Math.abs(pctPos-50)}%"></div><div class="gpti-mid"></div></div>
       <div class="gpti-conf">${ax.conf}</div></div>`;
   };
+  const champs=(GPTI_CHAMPS[g.type]||[]);
+  const champHtml=champs.length?`<div class="gpti-champs"><div class="gpti-sub">🏆 이 유형이 즐겨하는 챔피언</div><div class="gpti-champrow">${
+    champs.map(c=>`<div class="gpti-champ" onclick="go('mastery','${escAttr(c.champ)}')" title="${esc(c.champ)} · ${c.n}판 ${Math.round(c.w/c.n*100)}%">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div>`).join("")
+  }</div></div>`:"";
+  const mm=gptiMatchmaking(name);
+  const chip=c=>`<span class="clickname gpti-chip" onclick="go('player','${escAttr(c)}')">${esc(shortName(c))}</span>`;
+  const mmRow=(icon,label,tt,members,cls)=> members&&members.length
+    ? `<div class="gpti-mmrow ${cls}"><div class="gpti-mmhead">${icon} <b>${label}</b>${tt?` <span class="muted" style="font-size:11.5px">${tt} · ${_GPTI_TYPE_NICK[tt]||""}</span>`:""}</div><div class="gpti-mmnames">${members.slice(0,6).map(chip).join("")}${members.length>6?`<span class="muted" style="font-size:11.5px">외 ${members.length-6}명</span>`:""}</div></div>`
+    : "";
+  const mmHtml=(g.rich&&mm)?`<div class="gpti-mm"><div class="gpti-sub">🤝 클랜원 궁합</div>
+    ${mmRow('👥','같은 유형',null,mm.same,'same')}
+    ${mm.best?mmRow('💞','찰떡궁합',mm.best.type,mm.best.members,'best'):""}
+    ${mm.worst?mmRow('⚡','상극',mm.worst.type,mm.worst.members,'worst'):""}
+    ${(!mm.same.length&&!mm.best&&!mm.worst)?'<div class="muted" style="font-size:12px">아직 비교할 클랜원 데이터가 부족해요.</div>':''}
+  </div>`:"";
   return `<div class="card gpti-card" style="margin-top:14px">
     <h2>🧬 GPTI 성향유형 <span class="muted" style="font-size:12.5px;font-weight:400">· 내전 ${g.n}판 기준 (베타)</span></h2>
-    <div class="gpti-top"><div class="gpti-type">${g.type}</div><div class="gpti-nick">${esc(_GPTI_TYPE_NICK[g.type]||"")}</div></div>
+    <div class="gpti-top"><div class="gpti-type">${g.type}</div><div><div class="gpti-nick">${esc(_GPTI_TYPE_NICK[g.type]||"")}</div><div class="gpti-desc">${esc(_GPTI_DESC[g.type]||"")}</div></div></div>
     ${g.axes.map(bar).join("")}
-    <div class="muted" style="font-size:11.5px;margin-top:8px">※ 포지션별 상대값 기준 · ${g.rich?"내전 실경기 스탯(킬관여·시야·딜·골드) 분석":"팀플/전략 축은 데이터 보강 후 추가됩니다"}</div>
+    ${champHtml}
+    ${mmHtml}
+    <div class="muted" style="font-size:11.5px;margin-top:10px">※ 포지션별 상대값 기준 · ${g.rich?"내전 실경기 스탯(킬관여·시야·딜·골드) 분석":"팀플/전략 축은 데이터 보강 후 추가됩니다"}</div>
   </div>`;
 }
 function computePredTitles(){
