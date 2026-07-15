@@ -854,9 +854,9 @@ function computeAssessments(){
     const di=_tIdx(a.tier)-_tIdx(impl);   // >0 = 추정이 더 높은 티어(실력이 티어보다 위=저평가), <0 = 과대배치(고평가)
     a.implRel=di>0?"up":di<0?"down":"eq";
     a.implGap=Math.abs(di);
-    // ★ 평가 로직 = 클랜 전체 기준 재배치로 재정의(등락판정 단일 라벨). 표기는 기존 고평가/저평가/적절 그대로.
-    a.label=di>0?"저평가":di<0?"고평가":"적절";
-    a.cls  =di>0?"a-under":di<0?"a-over":"a-ok";
+    // ★ 평가 로직 = 클랜 전체 기준 재배치로 재정의(단일 라벨). ±1등급(≈0.5티어) 이내는 적절, 2등급↑ 벌어질 때만 저/고평가.
+    a.label=di>=2?"저평가":di<=-2?"고평가":"적절";
+    a.cls  =di>=2?"a-under":di<=-2?"a-over":"a-ok";
   });
 }
 function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
@@ -2520,13 +2520,13 @@ function renderTiers(){
   view().innerHTML=`${navTabsHtml('tiers')}
     <div class="card">
       <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 클랜 전체 성적 기준)</span></h2>
-      <div class="muted" style="font-size:13px;margin:2px 0 4px">🔵저평가 = 클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보)　🟢적절 = 티어와 일치　🔴고평가 = 티어보다 아래</div>
+      <div class="muted" style="font-size:13px;margin:2px 0 4px">🔵저평가 = 클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보)　🟢적절 = 티어와 비슷(±0.5티어)　🔴고평가 = 티어보다 아래</div>
       <div style="font-size:13px;margin:6px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 <b style="color:#ffd24a">순수 실력 파워랭킹 최강 12인</b> (십이귀월 — 상현 1~6위 · 하현 7~12위, 솔랭 보유+10판↑ 대상)</span></div>
       <div class="muted" style="font-size:12px;margin:0 0 6px">🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌 기록은 op.gg 기준(시즌 종료 시점 티어), 현시즌만 있으면 현시즌 값, 과거만 있으면 과거 값 사용</div>
       <div class="muted" style="font-size:12.5px;margin-bottom:2px">저평가 ${cU} · 적절 ${cOk} · 고평가 ${cOv} · 표본부족 ${cNa}</div>
       ${body}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
-        ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">위면 저평가(승격 후보)</b>, <b style="color:#e84057">아래면 고평가</b>, 같으면 적절. <b style="color:#ffd24a">🎯 전체 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
+        ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 전체 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
         <span style="opacity:.75">· 각 지표 뒤 <b>(평균)</b>은 <b>같은 내부티어</b> 동료들의 평균(참고용) — 판정 자체는 위의 클랜 전체 기준입니다.</span><br>
         <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.
       </div>
