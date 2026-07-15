@@ -145,6 +145,13 @@
   .gpti-chip{background:var(--card2);border:1px solid var(--line);padding:3px 10px;border-radius:9px;font-size:12.5px}
   .gpti-mmrow.best .gpti-chip{border-color:rgba(90,212,138,.5);background:rgba(90,212,138,.08)}
   .gpti-mmrow.worst .gpti-chip{border-color:rgba(255,123,123,.5);background:rgba(255,123,123,.08)}
+  /* 성향유형 도감 */
+  .gpti-dexgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+  @media(max-width:760px){.gpti-dexgrid{grid-template-columns:1fr}}
+  .gpti-dexcard{padding:14px 16px}
+  .gpti-dexhead{display:flex;gap:12px;align-items:flex-start;margin-bottom:4px}
+  .gpti-dextype{font-size:22px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,#7cc0ff,#b78cff);-webkit-background-clip:text;background-clip:text;color:transparent;flex:none;min-width:56px}
+  .gpti-dexnick{font-size:15px}
   /* 🏆 3시즌 최고(솔로) 배지 — 티어별 색 */
   .peakbadge{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;border:1px solid transparent;background:#242c3a;color:#cfe0f5}
   .peakbadge b{font-weight:800}
@@ -1434,6 +1441,31 @@ function gptiCardHtml(name){
     <div class="muted" style="font-size:11.5px;margin-top:10px">※ 포지션별 상대값 기준 · ${g.rich?"내전 실경기 스탯(킬관여·시야·딜·골드) 분석":"팀플/전략 축은 데이터 보강 후 추가됩니다"}</div>
   </div>`;
 }
+/* 🧬 성향유형 도감 페이지 — 16유형별 명단 (명예의 전당 스타일) */
+const _GPTI_ALL16=['OSCI','OSCA','OSLI','OSLA','OTCI','OTCA','OTLI','OTLA','DSCI','DSCA','DSLI','DSLA','DTCI','DTCA','DTLI','DTLA'];
+function renderGPTI(){
+  window.scrollTo(0,0);
+  const rich=!!GPTI_ROWS;
+  const types=_GPTI_ALL16.map(t=>({t,members:(GPTI_BYTYPE[t]||[]).slice(),champs:GPTI_CHAMPS[t]||[]}));
+  const total=types.reduce((s,x)=>s+x.members.length,0);
+  types.sort((a,b)=>b.members.length-a.members.length || _GPTI_ALL16.indexOf(a.t)-_GPTI_ALL16.indexOf(b.t));
+  const chip=c=>`<span class="clickname gpti-chip" onclick="go('player','${escAttr(c)}')">${esc(shortName(c))}${tierBadge(c)}</span>`;
+  const card=x=>{
+    const nick=_GPTI_TYPE_NICK[x.t]||"", desc=_GPTI_DESC[x.t]||"";
+    const champ=x.champs.length?`<div class="gpti-champrow" style="margin:8px 0 4px">${x.champs.map(c=>`<div class="gpti-champ" onclick="go('mastery','${escAttr(c.champ)}')" title="${esc(c.champ)}">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div>`).join("")}</div>`:"";
+    const names=x.members.length?`<div class="gpti-mmnames">${x.members.map(chip).join("")}</div>`:`<div class="muted" style="font-size:12.5px;padding:4px 0">아직 해당 유형의 클랜원이 없어요</div>`;
+    return `<div class="card gpti-dexcard">
+      <div class="gpti-dexhead"><span class="gpti-dextype">${x.t}</span><div><b class="gpti-dexnick">${esc(nick)}</b> <span class="muted" style="font-size:12.5px">${x.members.length}명</span><div class="gpti-desc">${esc(desc)}</div></div></div>
+      ${champ}${names}</div>`;
+  };
+  view().innerHTML=`
+    <div class="hof-head">
+      <h1 class="hof-title">🧬 성향유형 도감 <span class="muted" style="font-size:15px">(GPTI · 협곡)</span></h1>
+      <div class="hof-filter"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button></div>
+    </div>
+    <div class="muted" style="font-size:13px;margin:2px 0 8px">${rich?`분석된 클랜원 <b>${total}명</b>을 16가지 성향유형으로 분류했어요 · 내전 실경기 스탯(킬관여·시야·딜·골드) 기반, 포지션별 상대값`:"현재 KDA 2축 기준(리치스탯 보강 시 4축 16유형으로 확장)"}</div>
+    <div class="gpti-dexgrid">${types.map(card).join("")}</div>`;
+}
 function computePredTitles(){
   PRED_GOD=PRED_NOOB=null;
   const elig=Object.values(PREDICTIONS).filter(p=>p.total>=PRED_MIN);
@@ -1891,6 +1923,7 @@ function goBack(){ if(history.state&&history.state.depth>0)history.back(); else 
 function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
+  if(route==='gpti'){ if(!GAMES.size){renderEmpty();return;} navPush(route);renderGPTI();return;}   // 🧬 성향유형 도감
   if(!GAMES.size){renderEmpty();return;}         // 오류/로딩 화면은 스택에 안 쌓음
   navPush(route,arg);
   if(route==='home')renderHome();
@@ -2833,7 +2866,8 @@ function renderCatbar(){
   ).join("")
   +`<span class="cat-sep"></span>`
   +`<button class="cat hof" onclick="go('hof','rift')">🏆 명예의 전당</button>`
-  +`<button class="cat hof" onclick="go('hof','aram')">❄️ 증내의 전당</button>`;
+  +`<button class="cat hof" onclick="go('hof','aram')">❄️ 증내의 전당</button>`
+  +`<button class="cat hof" onclick="go('gpti')">🧬 성향유형 도감</button>`;
 }
 function switchCat(key){
   if(key===CURRENT_CAT && GAMES.size){go('home');return;}
