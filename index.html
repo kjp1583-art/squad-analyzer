@@ -1252,26 +1252,88 @@ function _gptiAgg(rows){
   return {pos:mp,n:g.length,kills:avg(x=>x.k),dmg:avg(x=>x.dmg),
           killShare:avg(x=>ka(x)?x.k/ka(x):0)};
 }
+/* GPTI_STATS 탭(Match-V5 리치스탯: 킬관여·시야·받은딜·골드·CS) 로드 → 있으면 4축, 없으면 KDA 2축 */
+let GPTI_ROWS=null;   // tnorm(닉) -> [게임 리치스탯]
+function loadGptiStats(){
+  return new Promise((resolve)=>{
+    const cb="__gptiCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false; const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const m={};
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ix=n=>cols.indexOf(n);
+        const NI=ix("소환사명"),PI=ix("포지션"),WI=ix("승패"),KI=ix("킬"),DI=ix("데스"),AI=ix("어시"),
+          KP=ix("킬관여"),DM=ix("딜"),TK=ix("받은딜"),VS=ix("시야"),GD=ix("골드"),CS=ix("CS"),DU=ix("게임시간");
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const g=i=>(i<0||c[i]==null)?null:(c[i].v!=null?c[i].v:c[i].f);
+          const nm=g(NI); if(!nm)continue; const k=tnorm(String(nm));
+          (m[k]=m[k]||[]).push({pos:String(g(PI)||""),win:String(g(WI)||"")==="승",
+            k:+g(KI)||0,d:+g(DI)||0,a:+g(AI)||0,kp:+g(KP)||0,dmg:+g(DM)||0,taken:+g(TK)||0,
+            vs:+g(VS)||0,gold:+g(GD)||0,cs:+g(CS)||0,dur:+g(DU)||0});
+        }
+      }catch(e){}
+      resolve(Object.keys(m).length?m:null);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(null);} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=GPTI_STATS&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(null);} },12000);
+  });
+}
+function _gptiAgg4(rows){    // Match-V5 리치스탯 집계(주포지션·분당 정규화)
+  const byPos={};
+  for(const r of rows){ if(_GPTI_POS.includes(r.pos))(byPos[r.pos]=byPos[r.pos]||[]).push(r); }
+  let mp=null,mn=0; for(const p in byPos)if(byPos[p].length>mn){mn=byPos[p].length;mp=p;}
+  if(!mp||mn<8)return null;
+  const g=byPos[mp], ka=x=>x.k+x.a, avg=f=>g.reduce((s,x)=>s+f(x),0)/g.length, pm=(v,d)=>d>0?v/(d/60):0;
+  return {pos:mp,n:g.length,rich:true,
+    kills:avg(x=>x.k),deaths:avg(x=>x.d),kp:avg(x=>x.kp),killShare:avg(x=>ka(x)?x.k/ka(x):0),
+    dmg:avg(x=>pm(x.dmg,x.dur)),taken:avg(x=>pm(x.taken,x.dur)),vs:avg(x=>pm(x.vs,x.dur)),
+    gold:avg(x=>pm(x.gold,x.dur)),cs:avg(x=>pm(x.cs,x.dur))};
+}
 function computeGPTI(){
   GPTI={};
-  const aggs={};
-  for(const [canon,rows] of PLAYERS){ const a=_gptiAgg(rows); if(a)aggs[canon]=a; }
-  const pool={};                                   // pos -> {metric:[vals]} (플레이어 단위)
-  for(const c in aggs){const a=aggs[c];pool[a.pos]=pool[a.pos]||{};for(const m of ['kills','dmg','killShare']){(pool[a.pos][m]=pool[a.pos][m]||[]).push(a[m]);}}
+  const rich=!!GPTI_ROWS;
+  const aggs={};   // key -> agg (rich면 tnorm 키, 아니면 canon 키)
+  if(rich){ for(const k in GPTI_ROWS){ const a=_gptiAgg4(GPTI_ROWS[k]); if(a)aggs[k]=a; } }
+  else { for(const [canon,rows] of PLAYERS){ const a=_gptiAgg(rows); if(a)aggs[canon]=a; } }
+  const metrics=rich?['kills','deaths','kp','killShare','dmg','taken','vs','gold','cs']:['kills','dmg','killShare'];
+  const pool={};
+  for(const c in aggs){const a=aggs[c];pool[a.pos]=pool[a.pos]||{};for(const m of metrics){(pool[a.pos][m]=pool[a.pos][m]||[]).push(a[m]);}}
   const pct=(pos,m,v)=>{const arr=(pool[pos]||{})[m]||[];if(v==null||arr.length<3)return .5;const b=arr.filter(x=>x<v).length,e=arr.filter(x=>x===v).length;return (b+e*.5)/arr.length;};
   const sgn=p=>(p-.5)*2, pick=(v,hi,lo)=>v>=0?hi:lo, conf=v=>Math.abs(v)>=.5?'뚜렷':(Math.abs(v)>=.2?'약간':'중립');
   for(const c in aggs){
-    const a=aggs[c];
-    const kP=pct(a.pos,'kills',a.kills), dmgP=pct(a.pos,'dmg',a.dmg), ksP=pct(a.pos,'killShare',a.killShare);
-    const od=sgn(a.dmg!=null?(kP+dmgP)/2:kP);      // 라인: 공격 O / 수비 D
-    const st=sgn(ksP);                              // 이득: 개인 S / 팀 T
-    GPTI[c]={pos:a.pos,n:a.n,type:pick(od,'O','D')+pick(st,'S','T'),
-      axes:[{ax:'라인',v:od,side:pick(od,'공격 O','수비 D'),conf:conf(od),hi:'공격',lo:'수비'},
-            {ax:'이득',v:st,side:pick(st,'개인 S','팀 T'),conf:conf(st),hi:'개인',lo:'팀'}]};
+    const a=aggs[c], P=m=>pct(a.pos,m,a[m]);
+    let axes,type;
+    if(rich){
+      // 각 축은 0~1 값(가중평균·합=1, 역방향은 1-P)으로 만든 뒤 sgn — 중심 0.5 유지(쏠림 방지)
+      const od=sgn(0.5*P('dmg')+0.5*P('kills'));                     // 라인: 딜·킬 상위 = 공격
+      const st=sgn(0.4*P('killShare')+0.3*P('gold')+0.3*(1-P('vs'))); // 이득: 킬지분·골드↑·시야↓ = 개인
+      const cl=sgn(P('kp'));                                          // 팀플: 킬관여 상위 = 조직
+      const ia=sgn(0.5*P('deaths')+0.5*(1-P('vs')));                 // 전략: 고사망·저시야 = 본능
+      type=pick(od,'O','D')+pick(st,'S','T')+pick(cl,'C','L')+pick(ia,'I','A');
+      axes=[{ax:'라인',v:od,side:pick(od,'공격 O','수비 D'),conf:conf(od),hi:'공격',lo:'수비'},
+            {ax:'이득',v:st,side:pick(st,'개인 S','팀 T'),conf:conf(st),hi:'개인',lo:'팀'},
+            {ax:'팀플',v:cl,side:pick(cl,'조직 C','독립 L'),conf:conf(cl),hi:'조직',lo:'독립'},
+            {ax:'전략',v:ia,side:pick(ia,'본능 I','계산 A'),conf:conf(ia),hi:'본능',lo:'계산'}];
+    } else {
+      const od=sgn(a.dmg!=null?(P('kills')+P('dmg'))/2:P('kills')), st=sgn(P('killShare'));
+      type=pick(od,'O','D')+pick(st,'S','T');
+      axes=[{ax:'라인',v:od,side:pick(od,'공격 O','수비 D'),conf:conf(od),hi:'공격',lo:'수비'},
+            {ax:'이득',v:st,side:pick(st,'개인 S','팀 T'),conf:conf(st),hi:'개인',lo:'팀'}];
+    }
+    GPTI[c]={pos:a.pos,n:a.n,rich,type,axes};
   }
 }
-function gptiOf(name){ return GPTI[canonOfName(name)]||GPTI[tnorm(name)]||null; }
-const _GPTI_TYPE_NICK={OS:"공격형 캐리",OT:"공격형 조력",DS:"한방 노리는 암살자",DT:"든든한 버팀목"};
+function gptiOf(name){ return GPTI[tnorm(name)]||GPTI[canonOfName(name)]||null; }
+const _GPTI_TYPE_NICK={
+  OS:"공격형 캐리",OT:"공격형 조력",DS:"한방 암살자",DT:"든든한 버팀목",   // 2축 폴백
+  OSCI:"돌격대장",OSCA:"지휘하는 에이스",OSLI:"폭주 하이퍼캐리",OSLA:"고독한 캐리",
+  OTCI:"돌진 이니시에이터",OTCA:"전략적 개시자",OTLI:"저돌적 로머",OTLA:"계산적 스플릿",
+  DSCI:"받아치는 암살자",DSCA:"냉정한 저격수",DSLI:"기회주의 캐리",DSLA:"인내의 하이퍼캐리",
+  DTCI:"돌진하는 방패",DTCA:"판 읽는 사령탑",DTLI:"묵묵한 조력자",DTLA:"안정적 버팀목"};
 function gptiCardHtml(name){
   const g=gptiOf(name); if(!g) return "";
   const bar=ax=>{
@@ -1285,7 +1347,7 @@ function gptiCardHtml(name){
     <h2>🧬 GPTI 성향유형 <span class="muted" style="font-size:12.5px;font-weight:400">· 내전 ${g.n}판 기준 (베타)</span></h2>
     <div class="gpti-top"><div class="gpti-type">${g.type}</div><div class="gpti-nick">${esc(_GPTI_TYPE_NICK[g.type]||"")}</div></div>
     ${g.axes.map(bar).join("")}
-    <div class="muted" style="font-size:11.5px;margin-top:8px">※ 포지션별 상대값 기준 · 팀플/전략 축은 킬관여·시야 데이터 보강 후 추가됩니다.</div>
+    <div class="muted" style="font-size:11.5px;margin-top:8px">※ 포지션별 상대값 기준 · ${g.rich?"내전 실경기 스탯(킬관여·시야·딜·골드) 분석":"팀플/전략 축은 데이터 보강 후 추가됩니다"}</div>
   </div>`;
 }
 function computePredTitles(){
@@ -2882,7 +2944,8 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory()]);   // 병렬 로드 (loadTierHistory: 🎖 내부티어 변동 이력)
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats()]);   // 병렬 로드
+    GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
     PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles();   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)
