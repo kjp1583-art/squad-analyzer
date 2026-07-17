@@ -711,6 +711,7 @@ function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tier
 
 /* 내부티어 평가 — 신뢰도 강화(데스크톱과 동일): 베이지안 shrinkage + leave-one-out + z표준화 + AI점수 평균 */
 let TIER_AVG={}, TIER_EVAL_GIDS=new Set(), ASSESSMENTS=new Map();
+let GAMES_ALL=new Map(), PLAYERS_ALL=new Map();   // 내부티어 전용: 패치 필터 무관 전체 데이터(2026-07-17 — 버전별로 나누지 않음)
 const TIER_MIN_GAMES=10, TIER_MIN_EVAL=5;
 const SHRINK_WR=10, SHRINK_AI=10, SHRINK_EVAL=5, ASSESS_Z=0.85, SHRINK_SOLOWR=20;
 // 솔랭(객관 외부 실력) 최대, AI점수(내부 퍼포먼스) 다음. 솔랭 데이터 없으면 자동 재정규화.
@@ -719,14 +720,14 @@ const _amean=xs=>{xs=xs.filter(x=>x!=null);return xs.length?xs.reduce((a,b)=>a+b
 const _astd=(xs,mu)=>{xs=xs.filter(x=>x!=null);if(xs.length<2||mu==null)return null;return Math.sqrt(xs.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(xs.length-1));};
 function evalGameSet(){
   const s=new Set();
-  for(const [gid,g] of GAMES){
+  for(const [gid,g] of GAMES_ALL){   // 내부티어는 항상 전체 데이터(패치 필터 무관)
     for(const r of g.rows){ const e=r["매치평가"]; if(e==="MVP"||e==="역적"||e==="ACE"){ s.add(gid); break; } }
   }
   return s;
 }
 // 한 플레이어의 승률 / MVP율 / 역적율 / 평균 AI점수
 function tierMetricsOf(name, evalGids){
-  const parts=PLAYERS.get(name)||[];
+  const parts=PLAYERS_ALL.get(name)||[];   // 내부티어는 항상 전체 데이터(패치 필터 무관)
   let w=0,l=0,mvp=0,ace=0,troll=0,aiSum=0,aiN=0; const eg=new Set();
   for(const r of parts){
     if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
@@ -756,7 +757,7 @@ function tierMetricsOf(name, evalGids){
 function computeAssessments(){
   TIER_EVAL_GIDS=evalGameSet();
   const members=[];
-  for(const [name] of PLAYERS){ const t=tierOf(name); if(!t)continue; members.push({name,t,m:tierMetricsOf(name,TIER_EVAL_GIDS)}); }
+  for(const [name] of PLAYERS_ALL){ const t=tierOf(name); if(!t)continue; members.push({name,t,m:tierMetricsOf(name,TIER_EVAL_GIDS)}); }   // 전체 데이터 기준
   const elig=members.filter(x=>x.m.g>=TIER_MIN_GAMES);
   const g_wr=_amean(elig.map(x=>x.m.wr))??50;
   const g_ai=_amean(elig.filter(x=>x.m.avgAI!=null).map(x=>x.m.avgAI))??0;
@@ -1806,6 +1807,29 @@ function build(){
       PLAYERS.get(canon).push(r);
     }
   }
+  // ── 내부티어 전용 전체 데이터 맵(패치 필터 무관 — 버전별로 평가가 흔들리지 않게, 2026-07-17) ──
+  if(PATCH_SEL==="ALL"){ GAMES_ALL=GAMES; PLAYERS_ALL=PLAYERS; }
+  else{
+    GAMES_ALL=new Map(); PLAYERS_ALL=new Map();
+    const seenA=new Set();
+    for(const r of RAW){
+      const gid=r["게임ID"]; if(!gid)continue;
+      const ident=(r["PUUID"]||r["소환사명"]||"")+"∥"+(r["챔피언"]||"")+"∥"+(r["포지션"]||"")+"∥"+(r["진영"]||"");
+      const key=gid+"∥"+ident;
+      if(seenA.has(key))continue;
+      seenA.add(key);
+      if(!GAMES_ALL.has(gid))GAMES_ALL.set(gid,{id:gid,rows:[]});
+      GAMES_ALL.get(gid).rows.push(r);
+    }
+    for(const g of GAMES_ALL.values()){
+      for(const r of g.rows){
+        const nm=r["소환사명"]; if(!nm)continue;
+        const canon=canonOfRow(r);
+        if(!PLAYERS_ALL.has(canon))PLAYERS_ALL.set(canon,[]);
+        PLAYERS_ALL.get(canon).push(r);
+      }
+    }
+  }
   TIER_AVG=computeTierAvg();   // 내부티어 평가용 동티어 평균(승률·MVP율·역적율)
   computeGPTI();               // 🧬 GPTI 성향유형(포지션 정규화) — 2026-07-16
   computeHeadToHead();         // ⚔️ 천적(상대팀 head-to-head 전적)
@@ -2519,7 +2543,7 @@ function renderTiers(){
   const body = sections || '<div class="muted" style="padding:14px 4px">평가할 클랜원 데이터가 없습니다.</div>';
   view().innerHTML=`${navTabsHtml('tiers')}
     <div class="card">
-      <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 클랜 전체 성적 기준)</span></h2>
+      <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
       <div class="muted" style="font-size:13px;margin:2px 0 4px">🔵저평가 = 클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보)　🟢적절 = 티어와 비슷(±0.5티어)　🔴고평가 = 티어보다 아래</div>
       <div style="font-size:13px;margin:6px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 <b style="color:#ffd24a">순수 실력 파워랭킹 최강 12인</b> (십이귀월 — 상현 1~6위 · 하현 7~12위, 솔랭 보유+10판↑ 대상)</span></div>
       <div class="muted" style="font-size:12px;margin:0 0 6px">🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌 기록은 op.gg 기준(시즌 종료 시점 티어), 현시즌만 있으면 현시즌 값, 과거만 있으면 과거 값 사용</div>
