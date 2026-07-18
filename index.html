@@ -3151,6 +3151,58 @@ function computeHOF(rows){
   return {data,patches:patchList};
 }
 
+// 🏅 [2026-07-19] 기록실 — 킬/데스/어시/딜량/AI점수 단일게임·누적 랭킹(데스크톱 v82.22와 동일 로직, 전체 기간)
+function computeHofRecords(rows){
+  const canonMap=puuidLatestFromRows(rows);
+  const canonName=r=>{const pu=r["PUUID"];return resolveAlt((pu&&canonMap.has(pu))?canonMap.get(pu):r["소환사명"]);};
+  const rec={},seen=new Set();
+  for(const r of rows){
+    const name=canonName(r),res=r["결과"];
+    if(!name||(res!=="승리"&&res!=="패배"))continue;
+    const g=r["게임ID"]||"";
+    const key=g+"∥"+(r["PUUID"]||name);if(seen.has(key))continue;seen.add(key);
+    const rc=rec[name]||(rec[name]={name,g:0,tk:0,td:0,ta:0,dmgSum:0,dmgN:0,mxK:[-1,"",""],mxD:[-1,"",""],mxA:[-1,"",""],mxDmg:[-1,"",""],mxSc:[-1,"",""]});
+    rc.g++;
+    const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10);
+    const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
+    if(m){
+      const k=+m[1],d=+m[2],a=+m[3];
+      rc.tk+=k;rc.td+=d;rc.ta+=a;
+      if(k>rc.mxK[0])rc.mxK=[k,ch,dt];
+      if(d>rc.mxD[0])rc.mxD=[d,ch,dt];
+      if(a>rc.mxA[0])rc.mxA=[a,ch,dt];
+    }
+    const dv=String(r["딜량"]||"").replace(/,/g,"").trim();
+    if(/^\d+$/.test(dv)){const dvi=+dv;rc.dmgSum+=dvi;rc.dmgN++;if(dvi>rc.mxDmg[0])rc.mxDmg=[dvi,ch,dt];}
+    const sv=parseFloat(r["점수"]);
+    if(!isNaN(sv)&&sv>rc.mxSc[0])rc.mxSc=[sv,ch,dt];
+  }
+  return Object.values(rec);
+}
+function hofRecordsHtml(rl){
+  const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
+  const fmt=v=>Math.round(v).toLocaleString();
+  const sub=t=>`<span class="muted" style="font-weight:400">${t}</span>`;
+  const ctx=x=>sub(`(${esc(x[1]||'-')} · ${esc(x[2]||'-')})`);
+  const card=(t,entries)=>{
+    const top=entries.sort((a,b)=>b[0]-a[0]).slice(0,10);
+    const body=top.length?top.map((e,i)=>`<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(e[2])}')">${esc(shortName(e[2]))}</span>${tierBadge(e[2])}<span class="hof-metric">${e[1]}</span></div>`).join(""):`<div class="muted" style="padding:16px 4px">기록 데이터가 부족합니다.</div>`;
+    return `<div class="card"><h2>${t}</h2>${body}</div>`;
+  };
+  return `<h2 style="margin:26px 0 10px">🏅 기록실 <span class="muted" style="font-size:13.5px;font-weight:400">전체 기간 · 패치 필터 무관</span></h2><div class="hof-grid">`
+    + card("⚔ 한 판 최다킬 TOP 10", rl.filter(x=>x.mxK[0]>0).map(x=>[x.mxK[0],`${x.mxK[0]}킬 ${ctx(x.mxK)}`,x.name]))
+    + card("💀 한 판 최다데스 TOP 10", rl.filter(x=>x.mxD[0]>0).map(x=>[x.mxD[0],`${x.mxD[0]}데스 ${ctx(x.mxD)}`,x.name]))
+    + card("🤝 한 판 최다어시 TOP 10", rl.filter(x=>x.mxA[0]>0).map(x=>[x.mxA[0],`${x.mxA[0]}어시 ${ctx(x.mxA)}`,x.name]))
+    + card("💥 한 판 최대 딜량 TOP 10", rl.filter(x=>x.mxDmg[0]>0).map(x=>[x.mxDmg[0],`${fmt(x.mxDmg[0])} ${ctx(x.mxDmg)}`,x.name]))
+    + card("🧠 한 판 최고 AI점수 TOP 10", rl.filter(x=>x.mxSc[0]>0).map(x=>[x.mxSc[0],`${x.mxSc[0].toFixed(1)}점 ${ctx(x.mxSc)}`,x.name]))
+    + card("⚔ 누적 킬왕 TOP 10", rl.filter(x=>x.tk>0).map(x=>[x.tk,`총 ${fmt(x.tk)}킬 ${sub(`(${x.g}판)`)}`,x.name]))
+    + card("💀 누적 데스왕 TOP 10", rl.filter(x=>x.td>0).map(x=>[x.td,`총 ${fmt(x.td)}데스 ${sub(`(${x.g}판)`)}`,x.name]))
+    + card("🤝 누적 어시왕 TOP 10", rl.filter(x=>x.ta>0).map(x=>[x.ta,`총 ${fmt(x.ta)}어시 ${sub(`(${x.g}판)`)}`,x.name]))
+    + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10판↑</span>", rl.filter(x=>x.dmgN>=10).map(x=>[x.dmgSum/x.dmgN,`평균 ${fmt(x.dmgSum/x.dmgN)} ${sub(`(${x.dmgN}판)`)}`,x.name]))
+    + card("📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10판↑</span>", rl.filter(x=>x.g>=10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
+    + `</div>`;
+}
+
 async function renderHOF(catArg){
   if(catArg==="rift"||catArg==="aram"){HOF.cat=catArg;HOF.pos="ALL";HOF.patch="전체 (ALL)";}
   window.scrollTo(0,0);
@@ -3218,6 +3270,7 @@ async function renderHOF(catArg){
       ${card("👑 MVP 획득률 TOP 10",highestMvp,"mvp")}
       ${card("💀 역적 지목률 TOP 10",highestTroll,"troll")}
     </div>
+    ${hofRecordsHtml(computeHofRecords(raw))}
     <div id="predTitleCard"></div>`;
   renderPredictionTitles();   // 🎲 승부예측 명예의전당 — 메인에서 이곳(전당)으로 이동(2026-07-16 사장님 지시)
 }
