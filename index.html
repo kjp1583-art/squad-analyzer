@@ -3093,7 +3093,12 @@ function switchPatch(sel){
   PATCH_SEL=sel;
   build(); renderPatchbar();
   SORT={key:null,dir:-1};
-  go('home');
+  // [2026-07-19 사장님 지시] 패치를 바꿔도 홈으로 튕기지 않고 '현재 페이지'를 새 버전 데이터로 즉시 재렌더.
+  //   (개별 선수/게임 상세는 해당 버전에 없을 수 있어 기존대로 홈 복귀)
+  const _cur=(history.state&&history.state.route)||'home';
+  const _arg=history.state?history.state.arg:null;
+  const _KEEP=new Set(['home','log','counts','champ','mastery','tiers','ach','gpti']);
+  go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
 /* ============== 명예의 전당(협곡) / 증내의 전당(칼바람) ============== */
