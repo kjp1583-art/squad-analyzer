@@ -1241,7 +1241,7 @@ function loadMbti(){
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
           const nm=String(gv(ni)||"").trim(), mb=String(gv(mi)||"").trim().toUpperCase();
-          if(nm&&/^[EI][NS][TF][JP]$/.test(mb)) out.set(tnorm(nm),mb);
+          if(nm&&/^[EI][NS][TF][JP]$/.test(mb)) out.set(tnorm(nm),{mb,name:nm});
         }
       }catch(e){}
       resolve(out);
@@ -1253,7 +1253,8 @@ function loadMbti(){
   });
 }
 function mbtiOf(name){
-  return MBTI_MAP.get(tnorm(canonOfName(name)))||MBTI_MAP.get(tnorm(String(name).split("#")[0]))||null;
+  const e=MBTI_MAP.get(tnorm(canonOfName(name)))||MBTI_MAP.get(tnorm(String(name).split("#")[0]));
+  return e?e.mb:null;
 }
 
 // ★ 🏟️ 미토(미니토너먼트) 우승횟수 — MITO 탭(디스코드 미토의전당 채널 스크랩, 현재 클랜원 매칭분만)
@@ -1288,19 +1289,34 @@ function mitoStatOf(name){   // {wins, parts} — 없으면 null
 }
 function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
 function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
-function mitoHofHtml(){   // 명예의전당 미토 다승 랭킹
+let MITO_POS='ALL';   // 미토 랭킹 포지션 필터 (선언 주포지션, 없으면 실플레이 최다 포지션)
+function mainPosOf(name){
+  const d=posDecl(name); if(d&&d.main) return d.main;
+  const key=[...PLAYERS_ALL.keys()].find(k=>tnorm(k)===tnorm(canonOfName(name)||name));
+  const parts=key?PLAYERS_ALL.get(key):null; if(!parts) return null;
+  const cnt=new Map();
+  for(const r of parts){const p=r["포지션"];if(p&&p!=="선택안함")cnt.set(p,(cnt.get(p)||0)+1);}
+  const top=[...cnt.entries()].sort((a,b)=>b[1]-a[1])[0];
+  return top?top[0]:null;
+}
+function setMitoPos(p){ MITO_POS=p; const el=document.getElementById('mitoHofBox'); if(el) el.outerHTML=mitoHofHtml(); }
+function mitoHofHtml(){   // 명예의전당 미토 다승 랭킹 (포지션 필터)
   if(!MITO_WINS.size) return "";
   const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
-  const arr=[...MITO_WINS.values()].sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
+  let arr=[...MITO_WINS.values()].sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
+  if(MITO_POS!=='ALL') arr=arr.filter(e=>mainPosOf(e.name)===MITO_POS);
+  const posBtns=['ALL','탑','정글','미드','원딜','서폿'].map(p=>
+    `<button class="pchip ${MITO_POS===p?'on':''}" onclick="setMitoPos('${p}')">${p==='ALL'?'전체':p}</button>`).join("");
   const keyOf=nm=>{const t=tnorm(canonOfName(nm)||nm);   // 태그 없는 닉 → PLAYERS 실제 키(태그 포함)로 해석해야 프로필 이동됨
     for(const k of PLAYERS.keys()) if(tnorm(k)===t) return k;
     for(const k of PLAYERS_ALL.keys()) if(tnorm(k)===t) return k;
     return nm;};
   const rows=arr.slice(0,15).map((e,i)=>{const cn=keyOf(e.name);
     return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>${tierBadge(cn)}<span class="hof-metric">${e.wins}회 우승${e.parts?` <span class="muted" style="font-weight:400">/ ${e.parts}회 참가${mitoRateTxt(e)}</span>`:''}</span></div>`;}).join("");
-  return `<div class="card" style="margin-bottom:14px"><h2>🏟️ 미토 다승 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">미니토너먼트 우승 TOP 15</span></h2>
-    <div class="muted" style="font-size:12.5px;margin:2px 0 10px">주말 정규 미니토너먼트(미토의전당 채널) 역대 우승 집계 · 현재 클랜원 매칭분만 표시</div>
-    ${rows}</div>`;
+  return `<div class="card" id="mitoHofBox" style="margin-bottom:14px"><h2>🏟️ 미토 다승 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">미니토너먼트 우승 TOP 15</span></h2>
+    <div class="muted" style="font-size:12.5px;margin:2px 0 8px">주말 정규 미니토너먼트(미토의전당 채널) 역대 우승 집계 · 현재 클랜원 매칭분만 표시</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">${posBtns}<span class="muted" style="font-size:11.5px;align-self:center;margin-left:4px">포지션 = 선언 주포지션(없으면 실플레이 최다)</span></div>
+    ${rows||'<div class="muted" style="padding:10px 4px">해당 포지션의 기록이 없습니다.</div>'}</div>`;
 }
 function careerKeysOf(row){   // 커리어 행 → 매칭 키 후보(tnorm) — 롤닉 우선, 디코 표시명 폴백. 부계는 본계로 승격.
   const ks=new Set();
@@ -1648,6 +1664,38 @@ function renderGPTI(){
       <div class="hof-filter"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button></div>
     </div>
     <div class="muted" style="font-size:13px;margin:2px 0 8px">${rich?`분석된 클랜원 <b>${total}명</b>을 16가지 성향유형으로 분류했어요 · 내전 실경기 스탯(킬관여·시야·딜·골드) 기반, 포지션별 상대값`:"현재 KDA 2축 기준(리치스탯 보강 시 4축 16유형으로 확장)"}</div>
+    <div class="gpti-dexgrid">${types.map(card).join("")}</div>
+    ${mbtiDexHtml()}`;
+}
+// 🧠 MBTI 도감 — 디코 MBTI 역할 매칭 유저 분포 (성향유형 도감 하단)
+const _MBTI_ALL16=["INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP","ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"];
+function mbtiDexHtml(){
+  if(!MBTI_MAP.size) return "";
+  const byType=new Map();
+  for(const e of MBTI_MAP.values()){
+    if(!byType.has(e.mb)) byType.set(e.mb,[]);
+    byType.get(e.mb).push(e.name);
+  }
+  const total=[...byType.values()].reduce((s,a)=>s+a.length,0);
+  const keyOf=nm=>{const t=tnorm(canonOfName(nm)||nm);
+    for(const k of PLAYERS.keys()) if(tnorm(k)===t) return k;
+    for(const k of PLAYERS_ALL.keys()) if(tnorm(k)===t) return k;
+    return null;};
+  const types=_MBTI_ALL16.map(t=>({t,members:(byType.get(t)||[]).sort()}))
+    .sort((a,b)=>b.members.length-a.members.length||_MBTI_ALL16.indexOf(a.t)-_MBTI_ALL16.indexOf(b.t));
+  const chip=nm=>{const k=keyOf(nm);
+    return k?`<span class="clickname gpti-chip" onclick="go('player','${escAttr(k)}')">${esc(shortName(k))}${tierBadge(k)}</span>`
+            :`<span class="gpti-chip" style="opacity:.7">${esc(nm)}</span>`;};
+  const card=x=>{
+    const pctv=total?Math.round(x.members.length/total*100):0;
+    const names=x.members.length?`<div class="gpti-mmnames">${x.members.map(chip).join("")}</div>`
+      :`<div class="muted" style="font-size:12.5px;padding:4px 0">아직 이 유형의 클랜원이 없어요</div>`;
+    return `<div class="card gpti-dexcard">
+      <div class="gpti-dexhead"><span class="gpti-dextype" style="background:rgba(190,140,255,.12);color:#cdaaff">${x.t}</span><div><b class="gpti-dexnick">${x.members.length}명</b> <span class="muted" style="font-size:12.5px">(${pctv}%)</span></div></div>
+      ${names}</div>`;
+  };
+  return `<h2 style="margin:26px 0 4px">🧠 MBTI 도감 <span class="muted" style="font-size:13.5px;font-weight:400">디스코드 MBTI 역할 기준 · ${total}명</span></h2>
+    <div class="muted" style="font-size:12.5px;margin:0 0 10px">MBTI 역할을 단 클랜원만 표시돼요 — 역할을 달면 최대 12시간 내 자동 반영</div>
     <div class="gpti-dexgrid">${types.map(card).join("")}</div>`;
 }
 function computePredTitles(){
@@ -3030,8 +3078,13 @@ function renderPlayer(name){
       +`</div>` : '';
   // 🏟️ 미토(미니토너먼트) 우승 — MITO 탭
   const mitoE = mitoStatOf(name);
-  const mitoHtml = (mitoE&&(mitoE.wins>0||mitoE.parts>0))
-    ? `<div style="margin-top:8px"><span title="주말 정규 미니토너먼트 역대 우승/참가 기록" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoE.wins}회 / 참가 ${mitoE.parts}회${mitoRateTxt(mitoE)}</span></div>` : '';
+  const _mbti = mbtiOf(name);   // 🧠 디코 MBTI 역할 매칭
+  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti)
+    ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${
+        (mitoE&&(mitoE.wins>0||mitoE.parts>0))?`<span title="주말 정규 미니토너먼트 역대 우승/참가 기록" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoE.wins}회 / 참가 ${mitoE.parts}회${mitoRateTxt(mitoE)}</span>`:''
+      }${
+        _mbti?`<span title="디스코드 MBTI 역할" style="background:rgba(190,140,255,.10);border:1px solid rgba(190,140,255,.45);color:#cdaaff;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">🧠 ${esc(_mbti)}</span>`:''
+      }</div>` : '';
 
   // 🤖 AI선생 주간평 (AI_EVAL 탭 — 주 1회 자동 생성)
   const aie = aiEvalOf(name);
