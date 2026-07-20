@@ -921,11 +921,14 @@ function playerBadges(name){
   if(top&&top[1]>=50) b.push({k:'main',i:'🏅',t:`${top[0]} 장인`,d:`${top[0]} ${top[1]}판 — 진정한 원챔 장인`});
   if(top&&G>=15&&top[1]/G>=0.5) b.push({k:'onetrick',i:'🔮',t:'원챔러',d:`${top[0]} 비중 ${Math.round(top[1]/G*100)}% — 한우물`});
   if(solo!=null&&solo>=2400) b.push({k:'soloflex',i:'💎',t:'솔랭 다이아+',d:'솔로랭크 상위 — 래더 실력 인증'});
+  {const mw=mitoWinsOf(name); if(mw>=10) b.push({k:'mito',i:'🏟️',t:`미토의 지배자`,d:`미니토너먼트 우승 ${mw}회 — 주말의 왕`});
+   else if(mw>=3) b.push({k:'mito',i:'🏟️',t:`미토 ${mw}회 우승`,d:`미니토너먼트 우승 ${mw}회`});}
   return b;
 }
 // 업적 도감 카탈로그(쇼케이스 표시 순서·이름)
 const BADGE_CATALOG=[
   {k:'sib',i:'🗡🌙',name:'십이귀월',d:'순수 실력 파워랭킹 최상위 12인(상현6·하현6)'},
+  {k:'mito',i:'🏟️',name:'미토 우승',d:'주말 미니토너먼트 우승 3회 이상 (10회+ = 미토의 지배자)'},
   {k:'rise',i:'🌱',name:'떡상',d:'자기 내부티어보다 잘하는 승격 후보'},
   {k:'winrate',i:'📈',name:'고승률',d:'15판+ 승률 60% 이상'},
   {k:'streak',i:'🔥',name:'연승',d:'최고 4연승 이상 달성'},
@@ -1221,6 +1224,51 @@ function loadCareers(){
     document.body.appendChild(s);
     setTimeout(()=>{ if(!done){cleanup(); resolve([]);} },12000);
   });
+}
+// ★ 🏟️ 미토(미니토너먼트) 우승횟수 — MITO 탭(디스코드 미토의전당 채널 스크랩, 현재 클랜원 매칭분만)
+let MITO_WINS=new Map();   // tnorm(닉) -> {name, wins}
+function loadMitoWins(){
+  return new Promise((resolve)=>{
+    const cb="__mitoCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out=new Map();
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ni=cols.indexOf("닉네임"), wi=cols.indexOf("우승횟수");
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const nm=String(gv(ni)||"").trim(), w=parseInt(gv(wi))||0;
+          if(nm&&w>0) out.set(tnorm(nm),{name:nm,wins:w});
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=MITO&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
+  });
+}
+function mitoWinsOf(name){
+  const e=MITO_WINS.get(tnorm(canonOfName(name)))||MITO_WINS.get(tnorm(String(name).split("#")[0]));
+  return e?e.wins:0;
+}
+function mitoHofHtml(){   // 명예의전당 미토 다승 랭킹
+  if(!MITO_WINS.size) return "";
+  const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
+  const arr=[...MITO_WINS.values()].sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
+  const keyOf=nm=>{const t=tnorm(canonOfName(nm)||nm);   // 태그 없는 닉 → PLAYERS 실제 키(태그 포함)로 해석해야 프로필 이동됨
+    for(const k of PLAYERS.keys()) if(tnorm(k)===t) return k;
+    for(const k of PLAYERS_ALL.keys()) if(tnorm(k)===t) return k;
+    return nm;};
+  const rows=arr.slice(0,15).map((e,i)=>{const cn=keyOf(e.name);
+    return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>${tierBadge(cn)}<span class="hof-metric">${e.wins}회 우승</span></div>`;}).join("");
+  return `<div class="card" style="margin-bottom:14px"><h2>🏟️ 미토 다승 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">미니토너먼트 우승 TOP 15</span></h2>
+    <div class="muted" style="font-size:12.5px;margin:2px 0 10px">주말 정규 미니토너먼트(미토의전당 채널) 역대 우승 집계 · 현재 클랜원 매칭분만 표시</div>
+    ${rows}</div>`;
 }
 function careerKeysOf(row){   // 커리어 행 → 매칭 키 후보(tnorm) — 롤닉 우선, 디코 표시명 폴백. 부계는 본계로 승격.
   const ks=new Set();
@@ -2850,6 +2898,10 @@ function renderPlayer(name){
         .sort((a,b)=>b.date.localeCompare(a.date))
         .map(c=>`<span title="${escAttr(c.date+" 획득")}" style="background:${c.cur?'rgba(255,215,80,.16)':'rgba(255,255,255,.06)'};border:1px solid ${c.cur?'rgba(255,215,80,.5)':'var(--line)'};color:${c.cur?'#ffd750':'var(--sub)'};font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">👑 ${esc(c.title)}${c.cur?'':' <span style="opacity:.6;font-weight:400">'+esc(c.date)+'</span>'}</span>`).join("")
       +`</div>` : '';
+  // 🏟️ 미토(미니토너먼트) 우승 — MITO 탭
+  const mitoW = mitoWinsOf(name);
+  const mitoHtml = mitoW>0
+    ? `<div style="margin-top:8px"><span title="주말 정규 미니토너먼트 역대 우승 횟수" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoW}회</span></div>` : '';
 
   // 🤖 AI선생 주간평 (AI_EVAL 탭 — 주 1회 자동 생성)
   const aie = aiEvalOf(name);
@@ -2900,6 +2952,7 @@ function renderPlayer(name){
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           ${careerHtml}
+          ${mitoHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
           ${aiEvalHtml}
           ${badgesHtml}
@@ -3282,6 +3335,7 @@ async function renderHOF(catArg){
       </div>
     </div>
     ${isRift?careerHofHtml():""}
+    ${isRift?mitoHofHtml():""}
     ${posTabs}
     <div class="hof-grid">
       ${card("🎖️ 망령 TOP 10 <span class='muted' style='font-size:13.5px;font-weight:400'>판수</span>",mostGames,"total")}
@@ -3305,7 +3359,8 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats()]);   // 병렬 로드
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins()]);   // 병렬 로드
+    MITO_WINS=_mito;
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
