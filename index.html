@@ -1225,6 +1225,37 @@ function loadCareers(){
     setTimeout(()=>{ if(!done){cleanup(); resolve([]);} },12000);
   });
 }
+// ★ 🧠 MBTI — MBTI 탭(디스코드 MBTI 역할 → 봇 12h 스캔)
+let MBTI_MAP=new Map();   // tnorm(닉) -> 'ENTP'
+function loadMbti(){
+  return new Promise((resolve)=>{
+    const cb="__mbtiCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out=new Map();
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ni=cols.indexOf("닉네임"), mi=cols.indexOf("MBTI");
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const nm=String(gv(ni)||"").trim(), mb=String(gv(mi)||"").trim().toUpperCase();
+          if(nm&&/^[EI][NS][TF][JP]$/.test(mb)) out.set(tnorm(nm),mb);
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=MBTI&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
+  });
+}
+function mbtiOf(name){
+  return MBTI_MAP.get(tnorm(canonOfName(name)))||MBTI_MAP.get(tnorm(String(name).split("#")[0]))||null;
+}
+
 // ★ 🏟️ 미토(미니토너먼트) 우승횟수 — MITO 탭(디스코드 미토의전당 채널 스크랩, 현재 클랜원 매칭분만)
 let MITO_WINS=new Map();   // tnorm(닉) -> {name, wins}
 function loadMitoWins(){
@@ -2260,7 +2291,28 @@ function weeklyStars(){
   }
   if(!arr.length) return null;
   const pick=fn=>{ let best=null; for(const v of arr){ const s=fn(v); if(s>0&&(!best||s>best.s||(s===best.s&&v.g>best.v.g))) best={nm:v.nm,s,v}; } return best; };
-  return {from,to:maxMs, attend:pick(v=>v.g), carry:pick(v=>v.ma), streak:pick(v=>v.st>=3?v.st:0), players:arr.length};
+  // 🧠 이주의 MBTI — 최근 7일 창에서 MBTI별 승/판 집계(디코 MBTI 역할 매칭자만), 5판↑ 중 최고 승률
+  let mbti=null;
+  if(MBTI_MAP.size){
+    const agg=new Map();   // MBTI -> {g,w,who:Set}
+    for(const [nm,parts] of PLAYERS){
+      const mb=mbtiOf(nm); if(!mb) continue;
+      for(const r of parts){
+        const t=pdate(r); if(t==null||t<from) continue;
+        const rr=r["결과"]; if(rr!=="승리"&&rr!=="패배") continue;
+        if(!agg.has(mb)) agg.set(mb,{g:0,w:0,who:new Set()});
+        const a=agg.get(mb); a.g++; if(rr==="승리")a.w++; a.who.add(nm);
+      }
+    }
+    let best=null;
+    for(const [mb,a] of agg){
+      if(a.g<5) continue;   // 표본 최소 5판
+      const wr=a.w/a.g;
+      if(!best||wr>best.wr||(wr===best.wr&&a.g>best.g)) best={mb,wr,g:a.g,w:a.w,n:a.who.size};
+    }
+    if(best) mbti=best;
+  }
+  return {from,to:maxMs, attend:pick(v=>v.g), carry:pick(v=>v.ma), streak:pick(v=>v.st>=3?v.st:0), mbti, players:arr.length};
 }
 function _wkMD(ms){ const d=new Date(ms); return `${d.getMonth()+1}/${d.getDate()}`; }
 function weekStar(title, best, descFn){
@@ -2321,6 +2373,7 @@ function renderHome(){
         ${weekStar('🏃 개근왕', ws.attend, v=>`${v.g}판 참여`)}
         ${weekStar('⚡ 캐리왕', ws.carry, v=>`MVP·ACE ${v.ma}회`)}
         ${weekStar('🔥 연승왕', ws.streak, v=>`${v.st}연승`)}
+        ${ws.mbti?`<div class="wkstar"><div class="wk-t">🧠 이주의 MBTI</div><div class="wk-name">${esc(ws.mbti.mb)}</div><div class="muted" style="font-size:12px">승률 ${Math.round(ws.mbti.wr*100)}% (${ws.mbti.g}판 · ${ws.mbti.n}명)</div></div>`:''}
         ${(()=>{ // 🤖 AI 평가 극단값 — 내부티어 평가(동티어 대비 z합성)에서 저평가/고평가 최상위 1명씩
           try{
             if(!ASSESSMENTS.size) computeAssessments();
@@ -3436,8 +3489,8 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins()]);   // 병렬 로드
-    MITO_WINS=_mito;
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti()]);   // 병렬 로드
+    MITO_WINS=_mito; MBTI_MAP=_mbti;
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
