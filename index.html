@@ -3534,6 +3534,29 @@ function hofPos(p){HOF.pos=p;renderHOF();}
 function hofPatch(p){HOF.patch=p;renderHOF();}
 
 /* ============== 부팅 ============== */
+// 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
+//    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
+const BUILD_ID="1784590453";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+let _newBuildNotified=false;
+async function checkNewBuild(){
+  if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
+  try{
+    const r=await fetch(location.pathname+"?cb="+Date.now(),{cache:"no-store"});
+    if(!r.ok) return;
+    const m=(await r.text()).match(/BUILD_ID="(\d+)"/);
+    if(m&&m[1]!==BUILD_ID){
+      _newBuildNotified=true;
+      const b=document.createElement("div");
+      b.innerHTML='🔄 <b>새 버전이 배포되었습니다</b> — 여기를 클릭하면 최신으로 새로고침돼요';
+      b.style.cssText="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1b2a4a;border:1px solid #4a7dff;color:#dfe8ff;padding:11px 18px;border-radius:12px;cursor:pointer;z-index:9999;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.45)";
+      b.onclick=()=>location.reload();
+      document.body.appendChild(b);
+    }
+  }catch(e){}
+}
+setInterval(checkNewBuild, 10*60*1000);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNewBuild(); });
+
 (async function init(){
   dcLoad();                          // 저장된 디스코드 세션 복원
   $("#srcUrl").value=DEFAULT_SHEET;
