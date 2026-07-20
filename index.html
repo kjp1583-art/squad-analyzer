@@ -2269,6 +2269,20 @@ function renderHome(){
         ${weekStar('🏃 개근왕', ws.attend, v=>`${v.g}판 참여`)}
         ${weekStar('⚡ 캐리왕', ws.carry, v=>`MVP·ACE ${v.ma}회`)}
         ${weekStar('🔥 연승왕', ws.streak, v=>`${v.st}연승`)}
+        ${(()=>{ // 🤖 AI 평가 극단값 — 내부티어 평가(동티어 대비 z합성)에서 저평가/고평가 최상위 1명씩
+          try{
+            if(!ASSESSMENTS.size) computeAssessments();
+            let up=null,ov=null;
+            for(const [nm,a] of ASSESSMENTS){
+              if(!a.detail||a.detail.score==null) continue;
+              const s=a.detail.score;
+              if(a.label==="저평가"&&(!up||s>up.s)) up={nm,s,tier:a.tier};
+              if(a.label==="고평가"&&(!ov||s<ov.s)) ov={nm,s,tier:a.tier};
+            }
+            return weekStar('💎 AI 선정 저평가', up?{nm:up.nm,v:up}:null, v=>`${v.tier}티어 대비 성적 z +${v.s} — 실력이 티어를 앞선다`)
+                 + weekStar('🫧 AI 선정 고평가', ov?{nm:ov.nm,v:ov}:null, v=>`${v.tier}티어 대비 성적 z ${v.s} — 티어가 실력을 앞선다`);
+          }catch(e){ return ''; }
+        })()}
       </div>
     </div>` : ''; })()}
     <div class="home3">
