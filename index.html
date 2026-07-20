@@ -1237,11 +1237,11 @@ function loadMitoWins(){
       const out=new Map();
       try{
         const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
-        const ni=cols.indexOf("닉네임"), wi=cols.indexOf("우승횟수");
+        const ni=cols.indexOf("닉네임"), wi=cols.indexOf("우승횟수"), pi=cols.indexOf("참가횟수");
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
-          const nm=String(gv(ni)||"").trim(), w=parseInt(gv(wi))||0;
-          if(nm&&w>0) out.set(tnorm(nm),{name:nm,wins:w});
+          const nm=String(gv(ni)||"").trim(), w=parseInt(gv(wi))||0, p=parseInt(gv(pi))||0;
+          if(nm&&(w>0||p>0)) out.set(tnorm(nm),{name:nm,wins:w,parts:p});
         }
       }catch(e){}
       resolve(out);
@@ -1252,10 +1252,11 @@ function loadMitoWins(){
     setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
   });
 }
-function mitoWinsOf(name){
-  const e=MITO_WINS.get(tnorm(canonOfName(name)))||MITO_WINS.get(tnorm(String(name).split("#")[0]));
-  return e?e.wins:0;
+function mitoStatOf(name){   // {wins, parts} — 없으면 null
+  return MITO_WINS.get(tnorm(canonOfName(name)))||MITO_WINS.get(tnorm(String(name).split("#")[0]))||null;
 }
+function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
+function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
 function mitoHofHtml(){   // 명예의전당 미토 다승 랭킹
   if(!MITO_WINS.size) return "";
   const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
@@ -1265,7 +1266,7 @@ function mitoHofHtml(){   // 명예의전당 미토 다승 랭킹
     for(const k of PLAYERS_ALL.keys()) if(tnorm(k)===t) return k;
     return nm;};
   const rows=arr.slice(0,15).map((e,i)=>{const cn=keyOf(e.name);
-    return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>${tierBadge(cn)}<span class="hof-metric">${e.wins}회 우승</span></div>`;}).join("");
+    return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>${tierBadge(cn)}<span class="hof-metric">${e.wins}회 우승${e.parts?` <span class="muted" style="font-weight:400">/ ${e.parts}회 참가${mitoRateTxt(e)}</span>`:''}</span></div>`;}).join("");
   return `<div class="card" style="margin-bottom:14px"><h2>🏟️ 미토 다승 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">미니토너먼트 우승 TOP 15</span></h2>
     <div class="muted" style="font-size:12.5px;margin:2px 0 10px">주말 정규 미니토너먼트(미토의전당 채널) 역대 우승 집계 · 현재 클랜원 매칭분만 표시</div>
     ${rows}</div>`;
@@ -2975,9 +2976,9 @@ function renderPlayer(name){
         .map(c=>`<span title="${escAttr(c.date+" 획득")}" style="background:${c.cur?'rgba(255,215,80,.16)':'rgba(255,255,255,.06)'};border:1px solid ${c.cur?'rgba(255,215,80,.5)':'var(--line)'};color:${c.cur?'#ffd750':'var(--sub)'};font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">👑 ${esc(c.title)}${c.cur?'':' <span style="opacity:.6;font-weight:400">'+esc(c.date)+'</span>'}</span>`).join("")
       +`</div>` : '';
   // 🏟️ 미토(미니토너먼트) 우승 — MITO 탭
-  const mitoW = mitoWinsOf(name);
-  const mitoHtml = mitoW>0
-    ? `<div style="margin-top:8px"><span title="주말 정규 미니토너먼트 역대 우승 횟수" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoW}회</span></div>` : '';
+  const mitoE = mitoStatOf(name);
+  const mitoHtml = (mitoE&&(mitoE.wins>0||mitoE.parts>0))
+    ? `<div style="margin-top:8px"><span title="주말 정규 미니토너먼트 역대 우승/참가 기록" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoE.wins}회 / 참가 ${mitoE.parts}회${mitoRateTxt(mitoE)}</span></div>` : '';
 
   // 🤖 AI선생 주간평 (AI_EVAL 탭 — 주 1회 자동 생성)
   const aie = aiEvalOf(name);
