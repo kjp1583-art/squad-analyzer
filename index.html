@@ -2113,6 +2113,7 @@ function go(route,arg){
   else if(route==='log')renderLog();
   else if(route==='counts'){ if(IS_ADMIN)renderCounts(); else renderHome(); }
   else if(route==='champ')renderChampTier();
+  else if(route==='champlog')renderChampLog(arg);
   else if(route==='mastery')renderMastery(arg);
   else if(route==='tiers')renderTiers();
   else if(route==='ach')renderAchievements();
@@ -2284,7 +2285,7 @@ function renderHome(){
     const t=c.wins+c.losses,wr=pct(c.wins,t);
     const pr=totalGames?Math.round((c.picks+c.bans)/totalGames*100):0;
     return `<tr>
-      <td><div class="champcell">${tierBadgeNum(c.tier)}${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
+      <td><div class="champcell" style="cursor:pointer" onclick="go('champlog','${escAttr(c.champ)}')" title="클릭 시 이 챔피언 전적 보기">${tierBadgeNum(c.tier)}${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
       <td class="num">${c.picks}</td>
       <td>${t?wrBar(wr):'<span class="muted">-</span>'}</td>
       <td class="num" title="픽 ${c.picks} + 밴 ${c.bans} / ${totalGames}게임">${pr}%</td>
@@ -2650,6 +2651,59 @@ function renderLog(){
       <h2>📜 ${esc(catLabel(CURRENT_CAT))} 내전 기록부 <span class="muted" style="font-size:13.5px">(${all.length}게임 · 최신순 · 클릭 시 상세)</span></h2>
       <div class="loglist">${body}</div>
       ${more}
+    </div>`;
+}
+
+// 🏆 챔피언 전적 상세 — 홈 챔피언 통계에서 챔피언 클릭 시 해당 챔피언이 사용된 게임만 나열
+function renderChampLog(champ){
+  const entries=[];   // {g, r} — 이 챔피언이 픽된 게임의 해당 행
+  for(const g of GAMES.values()){
+    for(const r of g.rows){
+      if(r["챔피언"]===champ&&(r["결과"]==="승리"||r["결과"]==="패배")) entries.push({g,r});
+    }
+  }
+  entries.reverse();   // 최신순
+  const wins=entries.filter(e=>e.r["결과"]==="승리").length, total=entries.length;
+  const wr=pct(wins,total);
+  const c=champTierData().find(x=>x.champ===champ);
+  const bans=c?c.bans:0;
+  // 많이 쓴 플레이어 TOP 5
+  const byP=new Map();
+  for(const e of entries){const n=e.r["소환사명"];if(n)byP.set(n,(byP.get(n)||0)+1);}
+  const topP=[...byP.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5)
+    .map(([n,cnt])=>`<span class="clickname" onclick="go('player','${escAttr(n)}')">${esc(shortName(n))}</span> <span class="muted">${cnt}판</span>`).join(" · ");
+  const rows=entries.map(e=>{
+    const win=e.r["결과"]==="승리";
+    const kda=e.r["KDA"]||"-";
+    const o=parseKDA(kda);
+    return `<div class="logrow" onclick="go('game','${escAttr(e.g.id)}')" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="lr-date">${esc(e.g.date||'')||'-'}</div>
+      <span style="font-weight:800;color:${win?'var(--win)':'var(--lose)'};min-width:30px">${win?'승':'패'}</span>
+      <span class="clickname" onclick="event.stopPropagation();go('player','${escAttr(e.r["소환사명"]||'')}')">${esc(shortName(e.r["소환사명"]||'-'))}</span>${tierBadge(e.r["소환사명"]||'')}
+      <span class="muted" style="font-size:12.5px">${esc(e.r["포지션"]&&e.r["포지션"]!=="선택안함"?e.r["포지션"]:'')}</span>
+      <span style="font-size:13px;color:${o?kdaColor(kdaRatio(o)):'var(--sub)'}">${esc(kda)}${o?` <span class="muted">(${kdaRatioStr(o)})</span>`:''}</span>
+      ${aiScoreChip(e.r)}
+      ${e.r["매치평가"]==="MVP"?'<span style="color:var(--gold);font-weight:800;font-size:12px">MVP</span>':e.r["매치평가"]==="ACE"?'<span style="color:#9db8ff;font-weight:800;font-size:12px">ACE</span>':e.r["매치평가"]==="역적"?'<span style="color:var(--lose);font-weight:800;font-size:12px">역적</span>':''}
+    </div>`;}).join("");
+  view().innerHTML=`${navTabsHtml('home')}
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        ${champImg(champ,"lg")}
+        <div>
+          <h2 style="margin:0">${esc(champ)} <span class="muted" style="font-size:14px;font-weight:400">챔피언 전적</span></h2>
+          <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px">
+            <span><b>${total}</b>픽 <b style="color:var(--win)">${wins}승</b> <b style="color:var(--lose)">${total-wins}패</b></span>
+            ${total?wrBar(wr):''}
+            <span class="muted">밴 ${bans}회</span>
+          </div>
+          ${topP?`<div class="muted" style="margin-top:5px;font-size:12.5px">🎯 주 사용: ${topP}</div>`:''}
+        </div>
+        <button class="ghost" style="margin-left:auto;background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 14px;border-radius:8px;cursor:pointer" onclick="goBack()">← 뒤로</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📜 사용된 게임 <span class="muted" style="font-size:13.5px">(${total}판 · 최신순 · 클릭 시 게임 상세)</span></h2>
+      <div class="loglist">${rows||'<div class="muted" style="padding:12px 4px">이 버전에는 사용 기록이 없습니다.</div>'}</div>
     </div>`;
 }
 
@@ -3164,7 +3218,7 @@ function switchPatch(sel){
   //   (개별 선수/게임 상세는 해당 버전에 없을 수 있어 기존대로 홈 복귀)
   const _cur=(history.state&&history.state.route)||'home';
   const _arg=history.state?history.state.arg:null;
-  const _KEEP=new Set(['home','log','counts','champ','mastery','tiers','ach','gpti','hof']);
+  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','gpti','hof']);
   go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
