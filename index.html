@@ -813,7 +813,18 @@ function computeAssessments(){
   // 🗡 상현 파워랭킹: 솔로랭크 보유 + 내전 10판↑(elig) 중 종합 파워점수(전체평균 z, 기존 가중치) top3
   const _GM={}; for(const k of ["wr","ai","mvp","tr","solo","solowr"]) _GM[k]=_amean(col(k));
   const _zG=(sh,k)=> sh[k]==null?null:(sh[k]-_GM[k])/(G_STD[k]||1);
-  const _powered=elig.filter(x=>x.sh.solo!=null).map(x=>{
+  // [2026-07-21 사장님 지시] 십이귀월 활동 조건 — 최근 30일 내 5판 이상만 편성(유령·소표본 스파이크 방지)
+  const _cut=Date.now()-30*86400000, _recent=new Map();
+  for(const [nm,parts] of PLAYERS_ALL){
+    let c=0;
+    for(const r of parts){
+      if(r["결과"]!=="승리"&&r["결과"]!=="패배")continue;
+      const m=/(\d{4})-(\d{1,2})-(\d{1,2})/.exec(r["날짜"]||"");
+      if(m&&new Date(+m[1],+m[2]-1,+m[3]).getTime()>=_cut)c++;
+    }
+    _recent.set(nm,c);
+  }
+  const _powered=elig.filter(x=>x.sh.solo!=null&&(_recent.get(x.name)||0)>=5).map(x=>{
     const sh=x.sh, tm=[];
     const zs=_zG(sh,"solo"); if(zs!=null)tm.push([W_SOLO,zs]);
     const za=_zG(sh,"ai"); if(za!=null)tm.push([W_AI,za]);
@@ -2745,7 +2756,7 @@ function renderTiers(){
     <div class="card">
       <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
       <div class="muted" style="font-size:13px;margin:2px 0 4px">🔵저평가 = 클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보)　🟢적절 = 티어와 비슷(±0.5티어)　🔴고평가 = 티어보다 아래</div>
-      <div style="font-size:13px;margin:6px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑ 대상)</span></div>
+      <div style="font-size:13px;margin:6px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑+최근 30일 5판↑ 대상)</span></div>
       <div class="muted" style="font-size:12px;margin:0 0 6px">🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌 기록은 op.gg 기준(시즌 종료 시점 티어), 현시즌만 있으면 현시즌 값, 과거만 있으면 과거 값 사용</div>
       <div class="muted" style="font-size:12.5px;margin-bottom:2px">저평가 ${cU} · 적절 ${cOk} · 고평가 ${cOv} · 표본부족 ${cNa}</div>
       ${body}
@@ -3608,7 +3619,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784605276";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784606802";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
