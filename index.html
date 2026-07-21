@@ -1303,6 +1303,21 @@ function loadMitoWins(){
 function mitoStatOf(name){ return aliasLookup(MITO_WINS, name); }   // 🔁 닉변·부계 추적
 function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
 function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
+function banPressureHofHtml(){   // 🎯 명예의전당 — 견제 압력 랭킹(협곡 전용)
+  const arr=[...banPressure().entries()].filter(([_,v])=>v.top).sort((a,b)=>b[1].top.targeted-a[1].top.targeted);
+  if(!arr.length) return "";
+  const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
+  const keyOf=nm=>{const t=tnorm(nm);
+    for(const k of PLAYERS.keys()) if(tnorm(k)===t) return k;
+    for(const k of PLAYERS_ALL.keys()) if(tnorm(k)===t) return k;
+    return nm;};
+  const rows=arr.slice(0,10).map(([k,v],i)=>{const b=v.top, cn=keyOf(v.name);
+    return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>${tierBadge(cn)}<span class="hof-metric">+${b.targeted}%p <span class="muted" style="font-weight:400">(${esc(b.champ)} · 낀 판 ${b.banPresent}% vs 없는 판 ${b.banAbsent}%)</span></span></div>`;}).join("");
+  return `<div class="card" style="margin-bottom:14px"><h2>🎯 견제 압력 TOP 10 <span class="muted" style="font-size:13.5px;font-weight:400">상대가 이 선수 때문에 밴하는 정도</span></h2>
+    <div class="muted" style="font-size:12.5px;margin:2px 0 10px">'내가 낀 판 밴율 − 내가 없는 판 밴율'이라 원래 인기 밴인 챔프의 영향은 제거됨 · 밴은 '상대하기 짜증남'에도 걸리니 실력 지표는 아님</div>
+    ${rows}</div>`;
+}
+
 let MITO_POS='ALL';   // 미토 랭킹 포지션 필터 (선언 주포지션, 없으면 실플레이 최다 포지션)
 function mainPosOf(name){
   const d=posDecl(name); if(d&&d.main) return d.main;
@@ -3123,6 +3138,31 @@ function renderPlayer(name){
         <div style="font-size:13.5px;line-height:1.65">${esc(aie.text)}</div>
       </div>` : '';
 
+  // 🎯 견제 압력 — 상대가 이 사람 때문에 특정 챔프를 밴하는 정도(협곡 전용)
+  const _bp = banPressureOf(name);
+  let bpHtml = '';
+  if(_bp && _bp.top){
+    const b = _bp.top, rk = bpRankOf(tnorm(canonOfName(name)));
+    const others = _bp.champs.filter(x=>x!==b && x.z>1.5).slice(0,2);
+    bpHtml = `<div style="margin-top:10px;background:rgba(255,140,90,.07);border:1px solid rgba(255,140,90,.3);border-radius:12px;padding:11px 14px">
+        <div style="font-size:12.5px;font-weight:800;color:#ffa87a;margin-bottom:5px">🎯 견제 지수
+          <span style="font-weight:400;opacity:.7" title="상대가 이 선수를 의식해 밴하는 정도입니다. '내가 낀 판 밴율 − 내가 없는 판 밴율'로 계산해, 원래 인기 밴인 챔프의 영향을 제거했습니다. 밴은 '무섭다'뿐 아니라 '상대하기 짜증난다'에도 걸리므로 실력 지표로만 보긴 어렵습니다.">${rk?`클랜 ${rk.rank}위 / ${rk.total}명`:''} ⓘ</span></div>
+        <div style="font-size:13.5px;line-height:1.65">
+          상대는 이 선수의 <b style="color:var(--txt)">${esc(b.champ)}</b>${josa(b.champ,"을","를")}
+          <b style="color:#ffa87a">${b.banPresent}%</b> 밴합니다
+          <span class="muted">(이 선수가 없는 판엔 ${b.banAbsent}%)</span>
+          → <b style="color:#ffa87a">+${b.targeted}%p</b>
+          <div class="muted" style="font-size:12.5px;margin-top:3px">${esc(b.champ)} ${b.games}판 승률 ${b.wr}% · 이 챔프 클랜 픽률 ${b.steal}%${
+            others.length?` · 그 외 견제: ${others.map(x=>`${esc(x.champ)} +${x.targeted}%p`).join(" · ")}`:''}</div>
+        </div>
+      </div>`;
+  }else if(_bp){
+    bpHtml = `<div style="margin-top:10px;background:rgba(255,140,90,.05);border:1px solid rgba(255,140,90,.2);border-radius:12px;padding:9px 14px">
+        <div style="font-size:12.5px;font-weight:800;color:#ffa87a;margin-bottom:3px">🎯 견제 지수</div>
+        <div class="muted" style="font-size:13px">아직 뚜렷하게 견제받는 챔프가 없어요 — 상대가 특별히 의식하지 않는 상태입니다.</div>
+      </div>`;
+  }
+
   // 🎖 재미 업적 뱃지 (playerBadges에서 산출 — 프로필·쇼케이스 공용)
   const badges = playerBadges(name);
   const badgesHtml = badges.length
@@ -3167,6 +3207,7 @@ function renderPlayer(name){
           ${mitoHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
           ${aiEvalHtml}
+          ${bpHtml}
           ${badgesHtml}
         </div>
       </div>
@@ -3453,6 +3494,111 @@ function computeHOF(rows){
 }
 
 // 🏅 [2026-07-19] 기록실 — 킬/데스/어시/딜량/AI점수 단일게임·누적 랭킹(데스크톱 v82.22와 동일 로직, 전체 기간)
+// 🎯 [2026-07-21] 견제 압력(Ban Pressure) — "상대가 나 때문에 내 주력 챔프를 밴하는 정도".
+//   내가 낀 판의 상대팀 밴율 − 내가 없는 판의 밴율(양팀→한팀 스케일 보정 ×0.5).
+//   ★절대 밴율만 쓰면 '원래 인기 밴'과 구분이 안 되므로 반드시 present−absent 차이를 쓴다.
+//   반분 재현성 r=0.650으로 검증된 안정 지표(핸드오프 문서 기준). 협곡 전용.
+const _BP_MIN_CHAMP = 4, _BP_MIN_PRESENT = 8, _BP_MIN_ABSENT = 20;
+let _BP_CACHE = {key: "", map: new Map()};
+function computeBanPressure(rows){
+  const out = new Map();
+  try{
+    // ① (게임ID, 소환사명) 중복 제거 — 시트에 중복행이 실재(안 하면 밴율 왜곡)
+    const seen = new Set(), byGame = new Map();
+    for(const r of rows){
+      const gid = r["게임ID"], nm = r["소환사명"];
+      if(!gid || !nm) continue;
+      const k = gid + "∥" + nm; if(seen.has(k)) continue; seen.add(k);
+      if(!byGame.has(gid)) byGame.set(gid, []);
+      byGame.get(gid).push(r);
+    }
+    // ② 6인 미만 불완전 기록 제외(핸드오프: 8인 기준)
+    const games = [...byGame.values()].filter(v => v.length >= 8);
+    const TOTG = games.length || 1;
+    // ③ 챔프별 클랜 픽률(탈취 위험) + 밴이 실제로 있는 게임만 추림
+    const pick = new Map(), ginfo = [];
+    const realBan = v => validBan(v) && v !== "밴 없음" && v !== "밴 안함";
+    for(const v of games){
+      for(const c of new Set(v.map(x => x["챔피언"]).filter(Boolean))) pick.set(c, (pick.get(c)||0)+1);
+      const bySide = new Map(), all = new Set(), side = new Map();
+      let ok = false;
+      for(const x of v){
+        const s = x["진영"], b = x["밴"];
+        side.set(tnorm(canonOfRow(x)), s);
+        if(realBan(b)){
+          if(!bySide.has(s)) bySide.set(s, new Set());
+          bySide.get(s).add(b); all.add(b); ok = true;
+        }
+      }
+      if(ok) ginfo.push({bySide, all, side});
+    }
+    // ④ 플레이어×챔프 판수·승 (대표닉 기준 = 닉변·부계 자동 통합)
+    const pc = new Map(), names = new Map();
+    for(const v of games) for(const r of v){
+      const cn = canonOfRow(r), k = tnorm(cn), ch = r["챔피언"];
+      if(!k || !ch) continue;
+      names.set(k, cn);
+      const kk = k + "∥" + ch, e = pc.get(kk) || [0,0];
+      e[0]++; if(r["결과"]==="승리") e[1]++;
+      pc.set(kk, e);
+    }
+    // ⑤ 선수별 계산
+    const mainsOf = new Map();
+    for(const [kk,[n,w]] of pc){
+      if(n < _BP_MIN_CHAMP) continue;
+      const i = kk.indexOf("∥"), k = kk.slice(0,i), ch = kk.slice(i+1);
+      if(!mainsOf.has(k)) mainsOf.set(k, []);
+      mainsOf.get(k).push([ch, n, w]);
+    }
+    for(const [k, mains] of mainsOf){
+      mains.sort((a,b)=>b[1]-a[1]);
+      const present = [], absent = [];
+      for(const gi of ginfo){ (gi.side.has(k) ? present : absent).push(gi); }
+      if(present.length < _BP_MIN_PRESENT || absent.length < _BP_MIN_ABSENT) continue;
+      const res = [];
+      for(const [ch, n, w] of mains.slice(0,6)){
+        let ino = 0, outo = 0;
+        for(const gi of present){
+          const opp = gi.side.get(k)==="블루팀" ? "레드팀" : "블루팀";
+          if((gi.bySide.get(opp)||new Set()).has(ch)) ino++;
+        }
+        for(const gi of absent){ if(gi.all.has(ch)) outo += 0.5; }   // 양팀→한팀 스케일 보정
+        const a = ino/present.length, b = outo/absent.length;
+        const se = Math.sqrt(Math.max(a*(1-a),1e-6)/present.length + Math.max(b*(1-b),1e-6)/absent.length);
+        res.push({champ:ch, games:n, wr:Math.round(100*w/n),
+                  banPresent:Math.round(100*a), banAbsent:Math.round(100*b),
+                  targeted:Math.round(100*(a-b)), z:Math.round((a-b)/se*10)/10,
+                  steal:Math.round(100*(pick.get(ch)||0)/TOTG)});
+      }
+      if(!res.length) continue;
+      res.sort((x,y)=>y.targeted-x.targeted);
+      const cand = res.filter(x=>x.z>1.5);
+      const best = cand.length ? cand.slice().sort((x,y)=>
+        (y.targeted*(y.wr/50) - y.steal*0.5) - (x.targeted*(x.wr/50) - x.steal*0.5))[0] : null;
+      // top = 가장 견제받는 챔프(표시용). best = 노밴 추천용(승률·탈취위험 가중) — 목적이 달라 분리.
+      out.set(k, {name:names.get(k)||k, top:(cand[0]||null), best, champs:res});
+    }
+  }catch(e){}
+  return out;
+}
+function banPressure(){
+  const key = CURRENT_CAT + "∥" + ((RAW && RAW.length) || 0);
+  if(_BP_CACHE.key === key) return _BP_CACHE.map;
+  _BP_CACHE = {key, map: (CURRENT_CAT === "rift" ? computeBanPressure(RAW||[]) : new Map())};
+  return _BP_CACHE.map;
+}
+function banPressureOf(name){ return aliasLookup(banPressure(), name); }   // 🔁 닉변·부계 추적
+function josa(w, withJong, noJong){   // 한글 받침 판정 → 을/를·이/가 자동 선택("사이온를" 방지)
+  const s=String(w||"").trim(); if(!s) return noJong;
+  const c=s.charCodeAt(s.length-1);
+  return (c>=0xAC00 && c<=0xD7A3 && ((c-0xAC00)%28)!==0) ? withJong : noJong;
+}
+function bpRankOf(k){   // 견제 압력 클랜 순위(z>1.5 유효 대상 중)
+  const arr = [...banPressure().entries()].filter(([_,v])=>v.top).sort((a,b)=>b[1].top.targeted-a[1].top.targeted);
+  const i = arr.findIndex(([kk])=>kk===k);
+  return i<0 ? null : {rank:i+1, total:arr.length};
+}
+
 // 📊 '지표' 팩 파서 — "g11542|cs213|m32.5|kp64|vs45|cw7|...|pk3" → {g,cs,m,kp,vs,cw,wp,wk,od,tk,dt,hs,dr,br,sk,pk}
 function parseMetrics(r){
   const s=r&&r["지표"]; if(!s||s==="기록 대기")return null;
@@ -3601,6 +3747,7 @@ async function renderHOF(catArg){
       </div>
     </div>
     ${isRift?careerHofHtml():""}
+    ${isRift?banPressureHofHtml():""}
     ${isRift?mitoHofHtml():""}
     ${posTabs}
     <div class="hof-grid">
@@ -3619,7 +3766,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784611199";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784628104";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
