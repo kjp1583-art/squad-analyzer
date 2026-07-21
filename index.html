@@ -825,8 +825,16 @@ function computeAssessments(){
     return {name:x.name, power:tm.reduce((a,b)=>a+b[0]*b[1],0)/ws, solo:(x.sh.solo??-1e9)};
   });
   _powered.sort((a,b)=> (b.power-a.power) || (b.solo-a.solo) || (a.name<b.name?-1:a.name>b.name?1:0));   // 동점 시 솔랭↑, 그래도 같으면 이름순(웹·앱 일관)
-  _powered.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });    // 파워 1~6위
-  _powered.slice(6,12).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });   // 파워 7~12위 (십이귀월 = 상현6+하현6)
+  // [2026-07-21 사장님 지시] 서부/동부 리그 분할 — 내부티어 0·1티어=서부 십이귀월, 2·3티어=동부 십이귀월 (각 상현6+하현6 = 총 24인)
+  const _leagueOf=t=>{const c=String(t||"")[0]; return (c==="0"||c==="1")?"서부":"동부";};
+  if(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT==="aram"){
+    _powered.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });
+    _powered.slice(6,12).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });
+  } else for(const lg of ["서부","동부"]){
+    const pool=_powered.filter(p=>{const a=ASSESSMENTS.get(p.name); return a&&_leagueOf(a.tier)===lg;});
+    pool.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title=`${lg} 상현 ${i+1}`; });
+    pool.slice(6,12).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title=`${lg} 하현 ${i+1}`; });
+  }
   // 🎯 [C안 하이브리드] 클랜 전체 실력 백분위 → 추정 티어 — 같은-티어 등락판정(위)과 별개의 '절대 위치' 지표.
   // elig 전원(솔랭 없으면 그 항 빼고 재정규화)을 전체평균 z로 절대 파워랭킹 → 실제 티어 분포와 동일한 칸 수에 성적순 재배치.
   // (전체를 한 통에 넣되 '슬롯 수'를 실제 분포에 맞춰, 상위티어=전원저평가 식 붕괴를 방지 = 사장님 '전체 한 그룹' 관점을 안전하게 구현)
@@ -862,12 +870,12 @@ function computeAssessments(){
 }
 function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
 function assessPlayer(name){ return ASSESSMENTS.get(name)||null; }
-function titleBadge(t){ if(!t) return ''; const up=t.startsWith('상현'); return `<span class="${up?'sanghyun':'haha'}">${up?'🗡':'🌙'} ${t}</span>`; }
+function titleBadge(t){ if(!t) return ''; const up=t.includes('상현'); return `<span class="${up?'sanghyun':'haha'}">${up?'🗡':'🌙'} ${t}</span>`; }
 // 🩸 십이귀월 홀더 엠블럼 — '악귀의 눈 각인' 모티프(생성형 SVG, 上弦/下弦+숫자 한자). 저작권 캐릭터 이미지 대신 테마 오마주.
 const KIZUKI_NUM={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
 function kizukiEmblem(name){
   const a=ASSESSMENTS.get(name); if(!a||!a.title)return "";
-  const up=a.title.startsWith("상현"); const n=parseInt(String(a.title).replace(/[^0-9]/g,""))||1;
+  const up=a.title.includes("상현"); const n=parseInt(String(a.title).replace(/[^0-9]/g,""))||1;
   const rankk=up?"上弦":"下弦", numk=KIZUKI_NUM[n]||n;
   const c1=up?"#ff5a46":"#b779ff", c2=up?"#7a0d10":"#361062", stroke=up?"#e0413f":"#9a6bff";
   const uid="kz"+(up?"u":"l")+n+"_"+Math.floor(Math.random()*1e5);
@@ -904,7 +912,7 @@ function playerBadges(name){
   // 뱃지는 '현시즌' 원값(cur)으로 판정 — 블렌드 점수로 다이아 뱃지가 생기거나 사라지는 왜곡 방지
   let solo=null; const sr=aliasLookup(SOLO_RANKS, name); if(sr&&sr.cur!=null) solo=sr.cur; else if(sr&&sr.cur===undefined&&sr.score!=null) solo=sr.score;
   const b=[];
-  if(asmt&&asmt.title) b.push({k:'sib',i:asmt.title.startsWith('상현')?'🗡':'🌙',t:asmt.title,d:'십이귀월 — 순수 실력 파워랭킹 최상위 12인'});
+  if(asmt&&asmt.title) b.push({k:'sib',i:asmt.title.includes('상현')?'🗡':'🌙',t:asmt.title,d:'십이귀월 — 순수 실력 파워랭킹 최상위 12인'});
   if(asmt&&asmt.label==='저평가') b.push({k:'rise',i:'🌱',t:'떡상',d:'자기 내부티어보다 잘함 — 승격 후보, 상승세!'});
   if(G>=100) b.push({k:'vet',i:'🎂',t:'고인물',d:`내전 ${G}판 — 클랜의 산증인`});
   else if(G>=50) b.push({k:'iron',i:'🏃',t:'철인',d:`내전 ${G}판 — 압도적 개근`});
@@ -2737,7 +2745,7 @@ function renderTiers(){
     <div class="card">
       <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
       <div class="muted" style="font-size:13px;margin:2px 0 4px">🔵저평가 = 클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보)　🟢적절 = 티어와 비슷(±0.5티어)　🔴고평가 = 티어보다 아래</div>
-      <div style="font-size:13px;margin:6px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 <b style="color:#ffd24a">순수 실력 파워랭킹 최강 12인</b> (십이귀월 — 상현 1~6위 · 하현 7~12위, 솔랭 보유+10판↑ 대상)</span></div>
+      <div style="font-size:13px;margin:6px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑ 대상)</span></div>
       <div class="muted" style="font-size:12px;margin:0 0 6px">🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌 기록은 op.gg 기준(시즌 종료 시점 티어), 현시즌만 있으면 현시즌 값, 과거만 있으면 과거 값 사용</div>
       <div class="muted" style="font-size:12.5px;margin-bottom:2px">저평가 ${cU} · 적절 ${cOk} · 고평가 ${cOv} · 표본부족 ${cNa}</div>
       ${body}
@@ -3483,7 +3491,10 @@ function computeHofRecords(rows){
   }
   return Object.values(rec);
 }
-function hofRecordsHtml(rl){
+function hofRecordsHtml(rl, patchSel){
+  // [2026-07-21 사장님 지시] 기록실도 패치버전 필터 적용 — 특정 버전 선택 시 표본이 적어 판수 기준 완화
+  const isAll=!patchSel||patchSel==="전체 (ALL)";
+  const G10=isAll?10:5, G5=isAll?5:3;   // 누적/평균 카드 최소 판수
   const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
   const fmt=v=>Math.round(v).toLocaleString();
   const sub=t=>`<span class="muted" style="font-weight:400">${t}</span>`;
@@ -3493,7 +3504,7 @@ function hofRecordsHtml(rl){
     const body=top.length?top.map((e,i)=>`<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(e[2])}')">${esc(shortName(e[2]))}</span>${tierBadge(e[2])}<span class="hof-metric">${e[1]}</span></div>`).join(""):`<div class="muted" style="padding:16px 4px">기록 데이터가 부족합니다.</div>`;
     return `<div class="card"><h2>${t}</h2>${body}</div>`;
   };
-  return `<h2 style="margin:26px 0 10px">🏅 기록실 <span class="muted" style="font-size:13.5px;font-weight:400">전체 기간 · 패치 필터 무관</span></h2><div class="hof-grid">`
+  return `<h2 style="margin:26px 0 10px">🏅 기록실 <span class="muted" style="font-size:13.5px;font-weight:400">${isAll?"전체 기간":"패치 "+esc(patchSel)+" 한정"}</span></h2><div class="hof-grid">`
     + card("⚔ 한 판 최다킬 TOP 10", rl.filter(x=>x.mxK[0]>0).map(x=>[x.mxK[0],`${x.mxK[0]}킬 ${ctx(x.mxK)}`,x.name]))
     + card("💀 한 판 최다데스 TOP 10", rl.filter(x=>x.mxD[0]>0).map(x=>[x.mxD[0],`${x.mxD[0]}데스 ${ctx(x.mxD)}`,x.name]))
     + card("🤝 한 판 최다어시 TOP 10", rl.filter(x=>x.mxA[0]>0).map(x=>[x.mxA[0],`${x.mxA[0]}어시 ${ctx(x.mxA)}`,x.name]))
@@ -3502,19 +3513,19 @@ function hofRecordsHtml(rl){
     + card("⚔ 누적 킬왕 TOP 10", rl.filter(x=>x.tk>0).map(x=>[x.tk,`총 ${fmt(x.tk)}킬 ${sub(`(${x.g}판)`)}`,x.name]))
     + card("💀 누적 데스왕 TOP 10", rl.filter(x=>x.td>0).map(x=>[x.td,`총 ${fmt(x.td)}데스 ${sub(`(${x.g}판)`)}`,x.name]))
     + card("🤝 누적 어시왕 TOP 10", rl.filter(x=>x.ta>0).map(x=>[x.ta,`총 ${fmt(x.ta)}어시 ${sub(`(${x.g}판)`)}`,x.name]))
-    + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10판↑</span>", rl.filter(x=>x.dmgN>=10).map(x=>[x.dmgSum/x.dmgN,`평균 ${fmt(x.dmgSum/x.dmgN)} ${sub(`(${x.dmgN}판)`)}`,x.name]))
-    + card("📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10판↑</span>", rl.filter(x=>x.g>=10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
+    + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", rl.filter(x=>x.dmgN>=G10).map(x=>[x.dmgSum/x.dmgN,`평균 ${fmt(x.dmgSum/x.dmgN)} ${sub(`(${x.dmgN}판)`)}`,x.name]))
+    + card("📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", rl.filter(x=>x.g>=G10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
     + (rl.some(x=>x.metN>0) ? (
-      `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · 5판↑</span></h2><div class="hof-grid">`
-      + card("⚡ 분당 데미지(DPM) TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.dpmSum/x.metN,`분당 ${fmt(x.dpmSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("💰 분당 골드(GPM) TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.gpmSum/x.metN,`분당 ${fmt(x.gpmSum/x.metN)}G ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("🌾 분당 CS TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.cspmSum/x.metN,`분당 ${(x.cspmSum/x.metN).toFixed(1)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.kpSum/x.metN,`${Math.round(x.kpSum/x.metN)}% ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.vsSum/x.metN,`${(x.vsSum/x.metN).toFixed(1)}점 ${sub(`(${x.metN}판)`)}`,x.name]))
+      `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑</span></h2><div class="hof-grid">`
+      + card("⚡ 분당 데미지(DPM) TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.dpmSum/x.metN,`분당 ${fmt(x.dpmSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("💰 분당 골드(GPM) TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.gpmSum/x.metN,`분당 ${fmt(x.gpmSum/x.metN)}G ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🌾 분당 CS TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.cspmSum/x.metN,`분당 ${(x.cspmSum/x.metN).toFixed(1)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.kpSum/x.metN,`${Math.round(x.kpSum/x.metN)}% ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.vsSum/x.metN,`${(x.vsSum/x.metN).toFixed(1)}점 ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🏰 한 판 오브젝트 딜 TOP 10", rl.filter(x=>x.mxOd[0]>0).map(x=>[x.mxOd[0],`${fmt(x.mxOd[0])} ${ctx(x.mxOd)}`,x.name]))
-      + card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.metN>=5&&x.gpmSum>0).map(x=>[x.dpmSum/x.gpmSum,`골드당 ${(x.dpmSum/x.gpmSum).toFixed(2)}딜 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.metN>=G5&&x.gpmSum>0).map(x=>[x.dpmSum/x.gpmSum,`골드당 ${(x.dpmSum/x.gpmSum).toFixed(2)}딜 ${sub(`(${x.metN}판)`)}`,x.name]))
     ) : "")
     + `</div>`;
 }
@@ -3587,7 +3598,7 @@ async function renderHOF(catArg){
       ${card("👑 MVP 획득률 TOP 10",highestMvp,"mvp")}
       ${card("💀 역적 지목률 TOP 10",highestTroll,"troll")}
     </div>
-    ${hofRecordsHtml(computeHofRecords(raw))}
+    ${hofRecordsHtml(computeHofRecords(HOF.patch==="전체 (ALL)"?raw:raw.filter(r=>normPatch(r["패치버전"])===HOF.patch)), HOF.patch)}
     <div id="predTitleCard"></div>`;
   renderPredictionTitles();   // 🎲 승부예측 명예의전당 — 메인에서 이곳(전당)으로 이동(2026-07-16 사장님 지시)
 }
@@ -3597,7 +3608,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784604934";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784605276";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
