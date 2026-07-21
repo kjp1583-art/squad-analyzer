@@ -902,7 +902,7 @@ function playerBadges(name){
   const allPos=POS_LIST.every(p=>(pos.get(p)||0)>=1);
   const asmt=assessPlayer(name);
   // 뱃지는 '현시즌' 원값(cur)으로 판정 — 블렌드 점수로 다이아 뱃지가 생기거나 사라지는 왜곡 방지
-  let solo=null; const sr=SOLO_RANKS[tnorm(name)]; if(sr&&sr.cur!=null) solo=sr.cur; else if(sr&&sr.cur===undefined&&sr.score!=null) solo=sr.score;
+  let solo=null; const sr=aliasLookup(SOLO_RANKS, name); if(sr&&sr.cur!=null) solo=sr.cur; else if(sr&&sr.cur===undefined&&sr.score!=null) solo=sr.score;
   const b=[];
   if(asmt&&asmt.title) b.push({k:'sib',i:asmt.title.startsWith('상현')?'🗡':'🌙',t:asmt.title,d:'십이귀월 — 순수 실력 파워랭킹 최상위 12인'});
   if(asmt&&asmt.label==='저평가') b.push({k:'rise',i:'🌱',t:'떡상',d:'자기 내부티어보다 잘함 — 승격 후보, 상승세!'});
@@ -1023,7 +1023,7 @@ function loadSheetJsonp(id,gid){
     const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
     window[cb]=(resp)=>{done=true;cleanup();resolve(resp);};
     s.onerror=()=>{if(!done){cleanup();reject(new Error("스크립트 로드 실패"));}};
-    s.src=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?gid=${gid}&headers=1&tqx=out:json;responseHandler:${cb}`;
+    s.src=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?gid=${gid}&headers=1&cb=${Date.now()}&tqx=out:json;responseHandler:${cb}`;   // cb=캐시버스터(구글 gviz 수분 캐시 무력화)
     document.body.appendChild(s);
     setTimeout(()=>{if(!done){cleanup();reject(new Error("시간 초과 — 시트 공유(뷰어) 또는 링크를 확인하세요."));}},15000);
   });
@@ -1157,7 +1157,7 @@ function loadPositions(){
     setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
   });
 }
-function posDecl(name){ return POSITIONS[tnorm(name)] || null; }
+function posDecl(name){ return aliasLookup(POSITIONS, name); }   // 🔁 닉변 추적
 function posDeclLabel(name){
   const p=posDecl(name); if(!p||(!p.main&&!p.sub)) return "";
   const parts=[];
@@ -1252,10 +1252,7 @@ function loadMbti(){
     setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
   });
 }
-function mbtiOf(name){
-  const e=MBTI_MAP.get(tnorm(canonOfName(name)))||MBTI_MAP.get(tnorm(String(name).split("#")[0]));
-  return e?e.mb:null;
-}
+function mbtiOf(name){ const e=aliasLookup(MBTI_MAP, name); return e?e.mb:null; }   // 🔁 닉변 추적
 
 // ★ 🏟️ 미토(미니토너먼트) 우승횟수 — MITO 탭(디스코드 미토의전당 채널 스크랩, 현재 클랜원 매칭분만)
 let MITO_WINS=new Map();   // tnorm(닉) -> {name, wins}
@@ -1284,9 +1281,7 @@ function loadMitoWins(){
     setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
   });
 }
-function mitoStatOf(name){   // {wins, parts} — 없으면 null
-  return MITO_WINS.get(tnorm(canonOfName(name)))||MITO_WINS.get(tnorm(String(name).split("#")[0]))||null;
-}
+function mitoStatOf(name){ return aliasLookup(MITO_WINS, name); }   // 🔁 닉변·부계 추적
 function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
 function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
 let MITO_POS='ALL';   // 미토 랭킹 포지션 필터 (선언 주포지션, 없으면 실플레이 최다 포지션)
@@ -1390,9 +1385,7 @@ function loadAiEval(){
     setTimeout(()=>{ if(!done){cleanup(); resolve({});} },12000);
   });
 }
-function aiEvalOf(name){
-  return AI_EVAL[tnorm(canonOfName(name))] || AI_EVAL[tnorm(String(name).split("#")[0])] || null;
-}
+function aiEvalOf(name){ return aliasLookup(AI_EVAL, name); }   // 🔁 닉변·부계 추적
 
 // 🎭 LINK_ACCOUNT 탭(본계, 부계) 로드 → 부계 전적을 본계로 통합 (2026-07-10). 탭 없거나 실패 시 빈 맵(무해).
 function loadLinkAccount(){
@@ -1516,7 +1509,7 @@ function computeGPTI(){
   }
   _gptiAux();
 }
-function gptiOf(name){ return GPTI[tnorm(name)]||GPTI[canonOfName(name)]||null; }
+function gptiOf(name){ return aliasLookup(GPTI, name); }   // 🔁 닉변·부계 추적
 /* 유형별 클랜원 목록 + 유형별 대표 챔피언(같은 유형이 즐겨하는 챔프) */
 let GPTI_BYTYPE={}, GPTI_CHAMPS={};
 function _gptiAux(){
@@ -1875,6 +1868,23 @@ function canonOfRow(r){
 function canonOfName(name){
   if(name==null) return name;
   return resolveAlt(NAME_TO_CANON.get(norm(name)) || name);
+}
+// 🔁 [2026-07-21] 닉변 추적 공용 헬퍼 — 시트가 닉네임 키인 부가데이터(GPTI·AI평가·MBTI·미토 등)를
+//   현재닉/과거닉/부계닉 어느 쪽으로 저장돼 있어도 찾아준다. ★새 닉네임 키 데이터는 반드시 이걸로 조회할 것.
+function aliasKeysOf(name){
+  const out=new Set();
+  const add=n=>{ if(n==null)return; out.add(tnorm(n)); out.add(tnorm(String(n).split("#")[0])); };
+  add(name);
+  const cn=canonOfName(name); add(cn);
+  const al=CANON_TO_ALIASES.get(cn); if(al) for(const a of al) add(a);
+  out.delete(""); return [...out];
+}
+function aliasLookup(m, name){
+  for(const k of aliasKeysOf(name)){
+    const v=(m instanceof Map)?m.get(k):m[k];
+    if(v!=null) return v;
+  }
+  return null;
 }
 
 function build(){
@@ -3216,6 +3226,23 @@ function matchCard(r,selfName){
 }
 
 /* ============== 화면: 게임 상세 ============== */
+// 📊 게임 상세 — 지표 팩 한 줄 표시 (지표 없는 과거 게임은 빈 문자열)
+function metricsLine(p){
+  const mt=parseMetrics(p); if(!mt)return "";
+  const dv=parseFloat(String(p["딜량"]||"").replace(/,/g,""));
+  const bits=[];
+  if(mt.pk)bits.push(`<b style="color:#ffd24a">${mt.pk}픽</b>`);
+  if(mt.kp!=null)bits.push(`킬관여 ${mt.kp}%`);
+  if(!isNaN(dv))bits.push(`DPM ${Math.round(dv/mt.m).toLocaleString()}`);
+  if(mt.g!=null)bits.push(`GPM ${Math.round(mt.g/mt.m)}`);
+  if(mt.cs!=null)bits.push(`CS ${mt.cs} (분당 ${(mt.cs/mt.m).toFixed(1)})`);
+  if(mt.vs!=null)bits.push(`시야 ${mt.vs}`);
+  if(mt.cw!=null)bits.push(`제어와드 ${mt.cw}`);
+  if(mt.sk)bits.push(`솔로킬 ${mt.sk}`);
+  if(mt.od!=null)bits.push(`오브젝트딜 ${Math.round(mt.od).toLocaleString()}`);
+  if(!bits.length)return "";
+  return `<div class="muted" style="font-size:11.5px;padding:1px 8px 5px 44px;opacity:.85">${bits.join(" · ")}</div>`;
+}
 function renderGame(gid){
   const g=GAMES.get(gid);
   if(!g){view().innerHTML=`<div class="empty">게임 ${esc(gid)} 없음</div>`;return;}
@@ -3244,7 +3271,7 @@ function renderGame(gid){
         <span class="clickname" onclick="go('player','${escAttr(canonOfRow(p))}')">${esc(shortName(canonOfRow(p)))}</span>
         <span style="flex:1"></span>
         ${dmgBar(p,maxDmg)}${kdaChip(p)}${aiScoreChip(p)}${badge}
-      </div>${bl?`<div class="prow-build">${bl}</div>`:''}`;
+      </div>${bl?`<div class="prow-build">${bl}</div>`:''}${metricsLine(p)}`;
     }).join("");
     return `<div class="team ${cls}">
       <div class="thead"><span>${esc(side)}</span><span>${tres}</span></div>
@@ -3407,6 +3434,13 @@ function computeHOF(rows){
 }
 
 // 🏅 [2026-07-19] 기록실 — 킬/데스/어시/딜량/AI점수 단일게임·누적 랭킹(데스크톱 v82.22와 동일 로직, 전체 기간)
+// 📊 '지표' 팩 파서 — "g11542|cs213|m32.5|kp64|vs45|cw7|...|pk3" → {g,cs,m,kp,vs,cw,wp,wk,od,tk,dt,hs,dr,br,sk,pk}
+function parseMetrics(r){
+  const s=r&&r["지표"]; if(!s||s==="기록 대기")return null;
+  const o={};
+  for(const t of String(s).split("|")){ const m=/^([a-z]+)(-?\d+(?:\.\d+)?)$/.exec(t.trim()); if(m)o[m[1]]=parseFloat(m[2]); }
+  return (o.m&&o.m>0)?o:null;
+}
 function computeHofRecords(rows){
   const canonMap=puuidLatestFromRows(rows);
   const canonName=r=>{const pu=r["PUUID"];return resolveAlt((pu&&canonMap.has(pu))?canonMap.get(pu):r["소환사명"]);};
@@ -3416,7 +3450,8 @@ function computeHofRecords(rows){
     if(!name||(res!=="승리"&&res!=="패배"))continue;
     const g=r["게임ID"]||"";
     const key=g+"∥"+(r["PUUID"]||name);if(seen.has(key))continue;seen.add(key);
-    const rc=rec[name]||(rec[name]={name,g:0,tk:0,td:0,ta:0,dmgSum:0,dmgN:0,mxK:[-1,"",""],mxD:[-1,"",""],mxA:[-1,"",""],mxDmg:[-1,"",""],mxSc:[-1,"",""]});
+    const rc=rec[name]||(rec[name]={name,g:0,tk:0,td:0,ta:0,dmgSum:0,dmgN:0,mxK:[-1,"",""],mxD:[-1,"",""],mxA:[-1,"",""],mxDmg:[-1,"",""],mxSc:[-1,"",""],
+      metN:0,dpmSum:0,gpmSum:0,cspmSum:0,kpSum:0,vsSum:0,cwSum:0,skSum:0,geSum:0,mxOd:[-1,"",""]});
     rc.g++;
     const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10);
     const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
@@ -3431,6 +3466,20 @@ function computeHofRecords(rows){
     if(/^\d+$/.test(dv)){const dvi=+dv;rc.dmgSum+=dvi;rc.dmgN++;if(dvi>rc.mxDmg[0])rc.mxDmg=[dvi,ch,dt];}
     const sv=parseFloat(r["점수"]);
     if(!isNaN(sv)&&sv>rc.mxSc[0])rc.mxSc=[sv,ch,dt];
+    // 📊 [2026-07-21] 상세지표 집계 — 지표 팩 있는 게임만(metN)
+    const mt=parseMetrics(r);
+    if(mt){
+      rc.metN++;
+      const dvi2=/^\d+$/.test(dv)?+dv:0;
+      rc.dpmSum+=dvi2/mt.m;
+      if(mt.g!=null){rc.gpmSum+=mt.g/mt.m;rc.geSum+=mt.g;}
+      if(mt.cs!=null)rc.cspmSum+=mt.cs/mt.m;
+      if(mt.kp!=null)rc.kpSum+=mt.kp;
+      if(mt.vs!=null)rc.vsSum+=mt.vs;
+      if(mt.cw!=null)rc.cwSum+=mt.cw;
+      if(mt.sk!=null)rc.skSum+=mt.sk;
+      if(mt.od!=null&&mt.od>rc.mxOd[0])rc.mxOd=[mt.od,ch,dt];
+    }
   }
   return Object.values(rec);
 }
@@ -3455,6 +3504,18 @@ function hofRecordsHtml(rl){
     + card("🤝 누적 어시왕 TOP 10", rl.filter(x=>x.ta>0).map(x=>[x.ta,`총 ${fmt(x.ta)}어시 ${sub(`(${x.g}판)`)}`,x.name]))
     + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10판↑</span>", rl.filter(x=>x.dmgN>=10).map(x=>[x.dmgSum/x.dmgN,`평균 ${fmt(x.dmgSum/x.dmgN)} ${sub(`(${x.dmgN}판)`)}`,x.name]))
     + card("📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10판↑</span>", rl.filter(x=>x.g>=10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
+    + (rl.some(x=>x.metN>0) ? (
+      `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · 5판↑</span></h2><div class="hof-grid">`
+      + card("⚡ 분당 데미지(DPM) TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.dpmSum/x.metN,`분당 ${fmt(x.dpmSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("💰 분당 골드(GPM) TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.gpmSum/x.metN,`분당 ${fmt(x.gpmSum/x.metN)}G ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🌾 분당 CS TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.cspmSum/x.metN,`분당 ${(x.cspmSum/x.metN).toFixed(1)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.kpSum/x.metN,`${Math.round(x.kpSum/x.metN)}% ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.metN>=5).map(x=>[x.vsSum/x.metN,`${(x.vsSum/x.metN).toFixed(1)}점 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🏰 한 판 오브젝트 딜 TOP 10", rl.filter(x=>x.mxOd[0]>0).map(x=>[x.mxOd[0],`${fmt(x.mxOd[0])} ${ctx(x.mxOd)}`,x.name]))
+      + card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.metN>=5&&x.gpmSum>0).map(x=>[x.dpmSum/x.gpmSum,`골드당 ${(x.dpmSum/x.gpmSum).toFixed(2)}딜 ${sub(`(${x.metN}판)`)}`,x.name]))
+    ) : "")
     + `</div>`;
 }
 
@@ -3536,7 +3597,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784590453";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784604934";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
