@@ -1304,8 +1304,9 @@ function mitoStatOf(name){ return aliasLookup(MITO_WINS, name); }   // 🔁 닉�
 function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
 function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
 function banPressureHofHtml(){   // 🎯 명예의전당 — 견제 압력 랭킹(협곡 전용)
-  const arr=[...banPressure().entries()].filter(([_,v])=>v.top).sort((a,b)=>b[1].top.targeted-a[1].top.targeted);
-  if(!arr.length) return "";
+  let arr=[...banPressure().entries()].filter(([_,v])=>v.top).sort((a,b)=>b[1].top.targeted-a[1].top.targeted);
+  if(BP_POS!=="ALL") arr=arr.filter(([_,v])=>mainPosOf(v.name)===BP_POS);   // 주포지션 기준(미토 랭킹과 동일 규칙)
+  if(!arr.length&&BP_POS==="ALL") return "";
   const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
   const keyOf=nm=>{const t=tnorm(nm);
     for(const k of PLAYERS.keys()) if(tnorm(k)===t) return k;
@@ -1313,9 +1314,10 @@ function banPressureHofHtml(){   // 🎯 명예의전당 — 견제 압력 랭�
     return nm;};
   const rows=arr.slice(0,10).map(([k,v],i)=>{const b=v.top, cn=keyOf(v.name);
     return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>${tierBadge(cn)}<span class="hof-metric">+${b.targeted}%p <span class="muted" style="font-weight:400">(${esc(b.champ)} · 낀 판 ${b.banPresent}% vs 없는 판 ${b.banAbsent}%)</span></span></div>`;}).join("");
-  return `<div class="card" style="margin-bottom:14px"><h2>🎯 견제 압력 TOP 10 <span class="muted" style="font-size:13.5px;font-weight:400">상대가 이 선수 때문에 밴하는 정도</span></h2>
-    <div class="muted" style="font-size:12.5px;margin:2px 0 10px">'내가 낀 판 밴율 − 내가 없는 판 밴율'이라 원래 인기 밴인 챔프의 영향은 제거됨 · 밴은 '상대하기 짜증남'에도 걸리니 실력 지표는 아님</div>
-    ${rows}</div>`;
+  return `<div class="card" id="bpHofBox" style="margin-bottom:14px"><h2>🎯 견제 압력 TOP 10 <span class="muted" style="font-size:13.5px;font-weight:400">상대가 이 선수 때문에 밴하는 정도</span></h2>
+    <div class="muted" style="font-size:12.5px;margin:2px 0 8px">'내가 낀 판 밴율 − 내가 없는 판 밴율'이라 원래 인기 밴인 챔프의 영향은 제거됨 · 밴은 '상대하기 짜증남'에도 걸리니 실력 지표는 아님</div>
+    ${hofPosBar(BP_POS,"setBpPos","포지션 = 선언 주포지션(없으면 실플레이 최다)")}
+    ${rows||'<div class="muted" style="padding:10px 4px">해당 포지션의 데이터가 없습니다.</div>'}</div>`;
 }
 
 let MITO_POS='ALL';   // 미토 랭킹 포지션 필터 (선언 주포지션, 없으면 실플레이 최다 포지션)
@@ -1334,8 +1336,7 @@ function mitoHofHtml(){   // 명예의전당 미토 다승 랭킹 (포지션 필
   const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
   let arr=[...MITO_WINS.values()].sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
   if(MITO_POS!=='ALL') arr=arr.filter(e=>mainPosOf(e.name)===MITO_POS);
-  const posBtns=['ALL','탑','정글','미드','원딜','서폿'].map(p=>
-    `<button class="pchip ${MITO_POS===p?'on':''}" onclick="setMitoPos('${p}')">${p==='ALL'?'전체':p}</button>`).join("");
+  const posBtns=hofPosBar(MITO_POS,"setMitoPos","포지션 = 선언 주포지션(없으면 실플레이 최다)");
   const keyOf=nm=>{const t=tnorm(canonOfName(nm)||nm);   // 태그 없는 닉 → PLAYERS 실제 키(태그 포함)로 해석해야 프로필 이동됨
     for(const k of PLAYERS.keys()) if(tnorm(k)===t) return k;
     for(const k of PLAYERS_ALL.keys()) if(tnorm(k)===t) return k;
@@ -1344,7 +1345,7 @@ function mitoHofHtml(){   // 명예의전당 미토 다승 랭킹 (포지션 필
     return `<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>${tierBadge(cn)}<span class="hof-metric">${e.wins}회 우승${e.parts?` <span class="muted" style="font-weight:400">/ ${e.parts}회 참가${mitoRateTxt(e)}</span>`:''}</span></div>`;}).join("");
   return `<div class="card" id="mitoHofBox" style="margin-bottom:14px"><h2>🏟️ 미토 다승 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">미니토너먼트 우승 TOP 15</span></h2>
     <div class="muted" style="font-size:12.5px;margin:2px 0 8px">주말 정규 미니토너먼트(미토의전당 채널) 역대 우승 집계 · 현재 클랜원 매칭분만 표시</div>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">${posBtns}<span class="muted" style="font-size:11.5px;align-self:center;margin-left:4px">포지션 = 선언 주포지션(없으면 실플레이 최다)</span></div>
+    ${posBtns}
     ${rows||'<div class="muted" style="padding:10px 4px">해당 포지션의 기록이 없습니다.</div>'}</div>`;
 }
 function careerKeysOf(row){   // 커리어 행 → 매칭 키 후보(tnorm) — 롤닉 우선, 디코 표시명 폴백. 부계는 본계로 승격.
@@ -3661,7 +3662,8 @@ function hofRecordsHtml(rl, patchSel){
     const body=top.length?top.map((e,i)=>`<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(e[2])}')">${esc(shortName(e[2]))}</span>${tierBadge(e[2])}<span class="hof-metric">${e[1]}</span></div>`).join(""):`<div class="muted" style="padding:16px 4px">기록 데이터가 부족합니다.</div>`;
     return `<div class="card"><h2>${t}</h2>${body}</div>`;
   };
-  return `<h2 style="margin:26px 0 10px">🏅 기록실 <span class="muted" style="font-size:13.5px;font-weight:400">${isAll?"전체 기간":"패치 "+esc(patchSel)+" 한정"}</span></h2><div class="hof-grid">`
+  return `<h2 style="margin:26px 0 10px">🏅 기록실 <span class="muted" style="font-size:13.5px;font-weight:400">${isAll?"전체 기간":"패치 "+esc(patchSel)+" 한정"}${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
+    + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준") + `<div class="hof-grid">`
     + card("⚔ 한 판 최다킬 TOP 10", rl.filter(x=>x.mxK[0]>0).map(x=>[x.mxK[0],`${x.mxK[0]}킬 ${ctx(x.mxK)}`,x.name]))
     + card("💀 한 판 최다데스 TOP 10", rl.filter(x=>x.mxD[0]>0).map(x=>[x.mxD[0],`${x.mxD[0]}데스 ${ctx(x.mxD)}`,x.name]))
     + card("🤝 한 판 최다어시 TOP 10", rl.filter(x=>x.mxA[0]>0).map(x=>[x.mxA[0],`${x.mxA[0]}어시 ${ctx(x.mxA)}`,x.name]))
@@ -3687,17 +3689,29 @@ function hofRecordsHtml(rl, patchSel){
     + `</div>`;
 }
 
-async function renderHOF(catArg){
-  if(catArg==="rift"||catArg==="aram"){HOF.cat=catArg;HOF.pos="ALL";HOF.patch="전체 (ALL)";}
-  window.scrollTo(0,0);
-  const isRift=HOF.cat==="rift";
-  const headTitle=isRift?"🏆 명예의 전당":"❄️ 증내의 전당";
-  view().innerHTML=`<div class="empty">${headTitle} 데이터를 불러오는 중…</div>`;
-  let raw;
-  try{ raw=await getCatRaw(HOF.cat); }
-  catch(e){ view().innerHTML=`<div class="empty">데이터를 불러오지 못했습니다.<br><span class="muted">${esc(e.message||'')}</span></div>`; return; }
-  const {data,patches}=computeHOF(raw);
-  if(!patches.includes(HOF.patch))HOF.patch="전체 (ALL)";
+// 🎯 [2026-07-21] 명예의전당 공용 포지션 필터 — 각 대시보드가 제자리에서 갱신(스크롤 유지)
+const HOF_POS_BTNS=[["ALL","전체"],["탑","탑"],["정글","정글"],["미드","미드"],["원딜","원딜"],["서폿","서폿"]];
+let HOF_REC_POS="ALL", BP_POS="ALL";
+function hofPosBar(cur, fn, hint){
+  return `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:10px">`
+    + HOF_POS_BTNS.map(p=>`<button class="pchip ${cur===p[0]?'on':''}" onclick="${fn}('${p[0]}')">${p[1]}</button>`).join("")
+    + (hint?`<span class="muted" style="font-size:11.5px;margin-left:4px">${hint}</span>`:"")
+    + `</div>`;
+}
+function setHofRecPos(p){ HOF_REC_POS=p; const el=document.getElementById("hofRecBox");
+  if(el) el.outerHTML=hofRecordsBoxHtml(); }
+function setBpPos(p){ BP_POS=p; const el=document.getElementById("bpHofBox");
+  if(el) el.outerHTML=banPressureHofHtml(); }
+function hofRecordsBoxHtml(){   // 기록실+상세지표 (포지션 필터 반영, 제자리 갱신 단위)
+  const raw=_HOF_CACHE.raw||[];
+  let rows = HOF.patch==="전체 (ALL)" ? raw : raw.filter(r=>normPatch(r["패치버전"])===HOF.patch);
+  if(HOF_REC_POS!=="ALL") rows = rows.filter(r=>r["포지션"]===HOF_REC_POS);
+  return `<div id="hofRecBox">` + hofRecordsHtml(computeHofRecords(rows), HOF.patch) + `</div>`;
+}
+
+let _HOF_CACHE={raw:null,data:null,patches:null,isRift:true};
+function hofMainBoxHtml(){   // 🎖️ 망령/승률왕/MVP/역적 4카드 + 포지션 탭 (제자리 갱신 단위)
+  const {data, isRift} = _HOF_CACHE;
   const pos=isRift?HOF.pos:"ALL";
   let minWr=pos==="ALL"?10:5, minEval=pos==="ALL"?5:3;
   if(HOF.patch!=="전체 (ALL)"){minWr=Math.max(3,Math.floor(minWr/2));minEval=Math.max(2,Math.floor(minEval/2));}
@@ -3735,6 +3749,26 @@ async function renderHOF(catArg){
   const posTabs=isRift?`<div class="hof-postabs">`+
     [["ALL","통합"],["TOP","탑"],["JUNGLE","정글"],["MIDDLE","미드"],["BOTTOM","원딜"],["UTILITY","서폿"]]
     .map(p=>`<button class="hof-postab ${HOF.pos===p[0]?"on":""}" onclick="hofPos('${p[0]}')">${p[1]}</button>`).join("")+`</div>`:"";
+  return `<div id="hofMainBox">${posTabs}<div class="hof-grid">`
+    + card("🎖️ 망령 TOP 10 <span class='muted' style='font-size:13.5px;font-weight:400'>판수</span>",mostGames,"total")
+    + card("📈 승률왕 TOP 10",highestWr,"wr")
+    + card("👑 MVP 획득률 TOP 10",highestMvp,"mvp")
+    + card("💀 역적 지목률 TOP 10",highestTroll,"troll")
+    + `</div></div>`;
+}
+
+async function renderHOF(catArg){
+  if(catArg==="rift"||catArg==="aram"){HOF.cat=catArg;HOF.pos="ALL";HOF.patch="전체 (ALL)";}
+  window.scrollTo(0,0);
+  const isRift=HOF.cat==="rift";
+  const headTitle=isRift?"🏆 명예의 전당":"❄️ 증내의 전당";
+  view().innerHTML=`<div class="empty">${headTitle} 데이터를 불러오는 중…</div>`;
+  let raw;
+  try{ raw=await getCatRaw(HOF.cat); }
+  catch(e){ view().innerHTML=`<div class="empty">데이터를 불러오지 못했습니다.<br><span class="muted">${esc(e.message||'')}</span></div>`; return; }
+  const {data,patches}=computeHOF(raw);
+  if(!patches.includes(HOF.patch))HOF.patch="전체 (ALL)";
+  _HOF_CACHE={raw, data, patches, isRift};   // 🔁 포지션 버튼 제자리 갱신용(전체 재렌더 없이 해당 박스만 교체)
   const patchOpts=patches.map(p=>`<option ${p===HOF.patch?"selected":""}>${esc(p)}</option>`).join("");
 
   view().innerHTML=`
@@ -3749,24 +3783,21 @@ async function renderHOF(catArg){
     ${isRift?careerHofHtml():""}
     ${isRift?banPressureHofHtml():""}
     ${isRift?mitoHofHtml():""}
-    ${posTabs}
-    <div class="hof-grid">
-      ${card("🎖️ 망령 TOP 10 <span class='muted' style='font-size:13.5px;font-weight:400'>판수</span>",mostGames,"total")}
-      ${card("📈 승률왕 TOP 10",highestWr,"wr")}
-      ${card("👑 MVP 획득률 TOP 10",highestMvp,"mvp")}
-      ${card("💀 역적 지목률 TOP 10",highestTroll,"troll")}
-    </div>
-    ${hofRecordsHtml(computeHofRecords(HOF.patch==="전체 (ALL)"?raw:raw.filter(r=>normPatch(r["패치버전"])===HOF.patch)), HOF.patch)}
+    ${hofMainBoxHtml()}
+    ${hofRecordsBoxHtml()}
     <div id="predTitleCard"></div>`;
   renderPredictionTitles();   // 🎲 승부예측 명예의전당 — 메인에서 이곳(전당)으로 이동(2026-07-16 사장님 지시)
 }
-function hofPos(p){HOF.pos=p;renderHOF();}
+function hofPos(p){   // [2026-07-21] 전체 재렌더 금지 — 해당 박스만 교체해 스크롤 위치 유지
+  HOF.pos=p; const el=document.getElementById("hofMainBox");
+  if(el) el.outerHTML=hofMainBoxHtml(); else renderHOF();
+}
 function hofPatch(p){HOF.patch=p;renderHOF();}
 
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784628104";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784644476";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
