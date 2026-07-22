@@ -2078,19 +2078,21 @@ function champImg(name,cls){
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
 /* ============== 집계 ============== */
-function championStats(){
+function championStats(posFilter){
   const m=new Map();
   const blank=c=>({champ:c,picks:0,wins:0,losses:0,bans:0,scoreSum:0,scoreN:0,deathSum:0,deathN:0});
+  const _pf=posFilter&&posFilter!=="ALL"?posFilter:null;   // 🏆 [2026-07-22] 라인별 챔피언 티어
   for(const g of GAMES.values()){
     for(const r of g.rows){
       const c=r["챔피언"];if(!c)continue;
+      if(_pf&&r["포지션"]!==_pf)continue;
       if(!m.has(c))m.set(c,blank(c));
       const s=m.get(c);s.picks++;
       if(r["결과"]==="승리")s.wins++;else if(r["결과"]==="패배")s.losses++;
       const sc=parseFloat(r["점수"]); if(!isNaN(sc)){s.scoreSum+=sc;s.scoreN++;}
       const o=parseKDA(r["KDA"]); if(o){s.deathSum+=o.d;s.deathN++;}
     }
-    for(const side in g.bans)for(const b of g.bans[side]){
+    if(!_pf) for(const side in g.bans)for(const b of g.bans[side]){   // 밴은 라인 구분이 없어 필터 시 집계 제외
       if(!m.has(b))m.set(b,blank(b));
       m.get(b).bans++;
     }
@@ -2103,8 +2105,8 @@ const CHTIER_MIN_SHOW=3;      // 참고(표본부족) 섹션 노출 최소 픽�
 const CHTIER_MIN_TIER=8;      // ★ 티어·클랜점수·OP/꿀챔 부여 최소 픽수 — 소표본 티어가 신뢰도를 깎아 상향(2026-07-03)
 const CHTIER_MIN_MARK=8;      // OP/꿀챔 마크 최소 픽수(티어 기준과 통일)
 const CHTIER_K=8;             // 베이지안 prior (표본 적으면 50%로 수축 — 6→8 강화)
-function champTierData(){
-  const champs=championStats();
+function champTierData(posFilter){
+  const champs=championStats(posFilter);
   // AI점수 평균/표준편차(정규화), 평균 데스 (픽된 챔프 기준)
   const played=champs.filter(c=>c.picks>0);
   const avgScores=played.filter(c=>c.scoreN>0).map(c=>c.scoreSum/c.scoreN);
@@ -2129,8 +2131,10 @@ function champTierData(){
 }
 function tierBadgeNum(t){ return t?`<span class="ctier ct${t}">${t}</span>`:''; }
 function champMarks(c){ return (c.isOP?'<span class="op-badge">OP</span>':'')+(c.isHoney?'<span class="honeybee" title="꿀챔: 잘 이기고 적게 죽음"></span>':''); }
+let CHTIER_POS='ALL';   // 🏆 [2026-07-22] 챔피언 티어 라인 필터
+function setChTierPos(p){ CHTIER_POS=p; const y=window.scrollY; renderChampTier(); window.scrollTo(0,y); }
 function renderChampTier(){
-  const all=champTierData();
+  const all=champTierData(CHTIER_POS);
   const champs=all.filter(c=>c.picks>=CHTIER_MIN_TIER);                              // 정규 티어표(8판+)
   const lowN=all.filter(c=>c.picks>=CHTIER_MIN_SHOW&&c.picks<CHTIER_MIN_TIER)         // 표본부족 참고 목록(3~7판)
               .sort((a,b)=>b.picks-a.picks||b.wr-a.wr);
@@ -2165,7 +2169,8 @@ function renderChampTier(){
       </details>`:'';
   view().innerHTML=`${navTabsHtml('champ')}
     <div class="card">
-      <h2>🏆 클랜 챔피언 티어 <span class="muted" style="font-size:13.5px">(${CHTIER_MIN_TIER}판 이상만 티어 부여 · ${esc(catLabel(CURRENT_CAT))})</span></h2>
+      <h2>🏆 클랜 챔피언 티어 <span class="muted" style="font-size:13.5px">(${CHTIER_MIN_TIER}판 이상만 티어 부여 · ${esc(catLabel(CURRENT_CAT))}${CHTIER_POS!=='ALL'?' · <b style="color:#ffd24a">'+esc(CHTIER_POS)+' 한정</b>':''})</span></h2>
+      ${hofPosBar(CHTIER_POS,"setChTierPos", CHTIER_POS==='ALL'?"":"라인별 = 그 라인에서 사용된 판만 집계(밴 제외)")}
       <table class="ranktbl champtier"><thead><tr>
         <th class="num">#</th><th>티어</th><th>챔피언</th><th class="num">클랜점수</th><th>승률</th><th class="num">픽</th><th class="num">AI점수</th>
       </tr></thead><tbody>${rows}</tbody></table>
@@ -3883,7 +3888,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784689011";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784689231";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
