@@ -3757,7 +3757,9 @@ function hofRecordsHtml(rl, patchSel){
     + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", rl.filter(x=>x.dmgN>=G10).map(x=>[x.dmgSum/x.dmgN,`평균 ${fmt(x.dmgSum/x.dmgN)} ${sub(`(${x.dmgN}판)`)}`,x.name]))
     + card("📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", rl.filter(x=>x.g>=G10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
     + (rl.some(x=>x.metN>0) ? (
-      `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑</span></h2><div class="hof-grid">`
+      `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
+      + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준")
+      + `<div class="hof-grid">`
       + card("⚡ 분당 데미지(DPM) TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.dpmSum/x.metN,`분당 ${fmt(x.dpmSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("💰 분당 골드(GPM) TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.gpmSum/x.metN,`분당 ${fmt(x.gpmSum/x.metN)}G ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🌾 분당 CS TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.cspmSum/x.metN,`분당 ${(x.cspmSum/x.metN).toFixed(1)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
@@ -3881,7 +3883,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784688605";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784689011";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
