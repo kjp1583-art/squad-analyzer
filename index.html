@@ -3698,7 +3698,7 @@ function computeHofRecords(rows){
     const g=r["게임ID"]||"";
     const key=g+"∥"+(r["PUUID"]||name);if(seen.has(key))continue;seen.add(key);
     const rc=rec[name]||(rec[name]={name,g:0,tk:0,td:0,ta:0,dmgSum:0,dmgN:0,mxK:[-1,"",""],mxD:[-1,"",""],mxA:[-1,"",""],mxDmg:[-1,"",""],mxSc:[-1,"",""],
-      metN:0,dpmSum:0,gpmSum:0,cspmSum:0,kpSum:0,vsSum:0,cwSum:0,skSum:0,geSum:0,epSum:0});
+      metN:0,dpmSum:0,gpmSum:0,cspmSum:0,kpSum:0,vsSum:0,cwSum:0,skSum:0,geSum:0,epSum:0,dtpmSum:0,mxDt:[-1,"",""]});
     rc.g++;
     const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10);
     const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
@@ -3726,6 +3726,7 @@ function computeHofRecords(rows){
       if(mt.cw!=null)rc.cwSum+=mt.cw;
       if(mt.sk!=null)rc.skSum+=mt.sk;
       rc.epSum+=(mt.dr||0)+(mt.br||0);   // 에픽 오브젝트(용+바론) 처치 관여 개수
+      if(mt.dt!=null){ rc.dtpmSum+=mt.dt/mt.m; if(mt.dt>rc.mxDt[0])rc.mxDt=[mt.dt,ch,dt]; }   // 🛡 받은 피해
     }
   }
   return Object.values(rec);
@@ -3764,6 +3765,8 @@ function hofRecordsHtml(rl, patchSel){
       + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.vsSum/x.metN,`${(x.vsSum/x.metN).toFixed(1)}점 ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🛡 분당 받은 피해 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>탱킹</span>", rl.filter(x=>x.metN>=G5).map(x=>[x.dtpmSum/x.metN,`분당 ${fmt(x.dtpmSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🛡 한 판 최다 받은 피해 TOP 10", rl.filter(x=>x.mxDt[0]>0).map(x=>[x.mxDt[0],`${fmt(x.mxDt[0])} ${ctx(x.mxDt)}`,x.name]))
       + card("🏰 평균 오브젝트 처치 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>용+바론 관여/판</span>", rl.filter(x=>x.metN>=G5).map(x=>[x.epSum/x.metN,`판당 ${(x.epSum/x.metN).toFixed(2)}개 ${sub(`(총 ${x.epSum}·${x.metN}판)`)}`,x.name]))
       + card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.metN>=G5&&x.gpmSum>0).map(x=>[x.dpmSum/x.gpmSum,`골드당 ${(x.dpmSum/x.gpmSum).toFixed(2)}딜 ${sub(`(${x.metN}판)`)}`,x.name]))
     ) : "")
@@ -3878,7 +3881,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784688225";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784688605";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
