@@ -2451,11 +2451,20 @@ function renderHome(){
 
   // 📊 [2026-07-22] 클랜 전체 라인 분포 + 진영 승률 (집계 대상 = 결과 확정 판)
   const _POSC={"탑":"#c9482f","정글":"#2f9d57","미드":"#3a73e8","원딜":"#d9a13a","서폿":"#8a5cd6"};
-  const posCnt=new Map(); let sideB={w:0,n:0}, sideR={w:0,n:0};
+  // 🧭 클랜원 '주포지션' 분포 — 게임 내 라인은 당연히 20%씩이므로 의미 없음. 사람 단위로 센다.
+  //    기준: 선언 주포지션(디스코드 역할) → 없으면 실제 가장 많이 플레이한 라인(mainPosOf)
+  const posCnt=new Map(); const posWho=new Map();
+  for(const nm of PLAYERS_ALL.keys()){
+    if(!tierOf(nm)) continue;                       // 내부티어 보유자 = 클랜원
+    const mp=mainPosOf(nm); if(!mp||!POS_LIST.includes(mp)) continue;
+    posCnt.set(mp,(posCnt.get(mp)||0)+1);
+    if(!posWho.has(mp)) posWho.set(mp,[]);
+    posWho.get(mp).push(shortName(nm));
+  }
+  let sideB={w:0,n:0}, sideR={w:0,n:0};
   for(const g of GAMES.values()){
     for(const r of g.rows){
       const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
-      const ps=r["포지션"]; if(ps&&ps!=="선택안함") posCnt.set(ps,(posCnt.get(ps)||0)+1);
       const sd=r["진영"]||"";
       if(sd.includes("블루")){ sideB.n++; if(res==="승리")sideB.w++; }
       else if(sd.includes("레드")){ sideR.n++; if(res==="승리")sideR.w++; }
@@ -2463,13 +2472,13 @@ function renderHome(){
   }
   const posSum=[...posCnt.values()].reduce((a,b)=>a+b,0);
   const posDist=posSum?`<div class="card" style="margin-bottom:14px">
-      <h2 style="margin-bottom:2px">📊 라인 분포 <span class="muted" style="font-size:13px;font-weight:400">집계된 ${posSum.toLocaleString()}개 기록 기준</span></h2>
+      <h2 style="margin-bottom:2px">🧭 클랜원 주포지션 분포 <span class="muted" style="font-size:13px;font-weight:400">클랜원 ${posSum}명 · 선언 주포지션(미선언자는 최다 플레이 라인)</span></h2>
       <div class="posbar" style="margin:8px 0 8px">${POS_LIST.map(pp=>{
         const n=posCnt.get(pp)||0; if(!n)return"";
-        return `<div style="width:${(n/posSum*100).toFixed(2)}%;background:${_POSC[pp]||'var(--line)'}" title="${pp} ${n}판"></div>`;}).join("")}</div>
+        return `<div style="width:${(n/posSum*100).toFixed(2)}%;background:${_POSC[pp]||'var(--line)'}" title="${pp} ${n}명"></div>`;}).join("")}</div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px">${POS_LIST.map(pp=>{
         const n=posCnt.get(pp)||0;
-        return `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:${_POSC[pp]||'var(--line)'};display:inline-block"></span><b>${pp}</b> ${(n/posSum*100).toFixed(1)}% <span class="muted">(${n})</span></span>`;}).join("")}</div>
+        return `<span style="display:inline-flex;align-items:center;gap:5px" title="${esc((posWho.get(pp)||[]).slice(0,25).join(', '))}"><span style="width:10px;height:10px;border-radius:3px;background:${_POSC[pp]||'var(--line)'};display:inline-block"></span><b>${pp}</b> ${(n/posSum*100).toFixed(1)}% <span class="muted">(${n}명)</span></span>`;}).join("")}</div>
       ${(sideB.n||sideR.n)?`<div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--line)">
         <div style="font-size:13.5px;font-weight:800;margin-bottom:7px">⚔️ 진영별 승률 <span class="muted" style="font-weight:400;font-size:12.5px">${(sideB.n+sideR.n).toLocaleString()}개 기록</span></div>
         <div style="display:flex;height:26px;border-radius:8px;overflow:hidden;font-size:12.5px;font-weight:800">
@@ -3844,7 +3853,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784687436";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784687638";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
