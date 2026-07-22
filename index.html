@@ -3771,7 +3771,8 @@ function hofRecordsHtml(rl, patchSel){
       + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.kpSum/x.metN,`${Math.round(x.kpSum/x.metN)}% ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.vsSum/x.metN,`${(x.vsSum/x.metN).toFixed(1)}점 ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.metN}판 · 솔킬률 ${Math.round(x.skSum/Math.max(1,x.metN)*100)}%)`)}`,x.name]))
+      + card("🗡 솔킬률 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>판당 솔로킬</span>", rl.filter(x=>x.metN>=G5&&x.skSum>0).map(x=>[x.skSum/x.metN,`${Math.round(x.skSum/x.metN*100)}% ${sub(`(${x.skSum}회 / ${x.metN}판)`)}`,x.name]))
       + card("🛡 분당 받은 피해 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>탱킹</span>", rl.filter(x=>x.metN>=G5).map(x=>[x.dtpmSum/x.metN,`분당 ${fmt(x.dtpmSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🛡 한 판 최다 받은 피해 TOP 10", rl.filter(x=>x.mxDt[0]>0).map(x=>[x.mxDt[0],`${fmt(x.mxDt[0])} ${ctx(x.mxDt)}`,x.name]))
       + card("🏰 평균 오브젝트 처치 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>용+바론 관여/판</span>", rl.filter(x=>x.metN>=G5).map(x=>[x.epSum/x.metN,`판당 ${(x.epSum/x.metN).toFixed(2)}개 ${sub(`(총 ${x.epSum}·${x.metN}판)`)}`,x.name]))
@@ -3888,7 +3889,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784689231";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784689838";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
