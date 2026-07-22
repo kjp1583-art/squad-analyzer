@@ -2657,16 +2657,19 @@ function navTabsHtml(active){
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
-function masteryAgg(){
-  const m=new Map();   // champ -> Map(canonName -> {g,w,k,d,a,kg,mvp})
+function masteryAgg(posFilter){
+  const m=new Map();   // champ -> Map(canonName -> {g,w,k,d,a,kg,mvp,pos})
   for(const [name,rows] of PLAYERS){
     for(const r of rows){
       const c=r["챔피언"]; if(!c||c==="?")continue;
       if(r["결과"]!=="승리"&&r["결과"]!=="패배")continue;
+      const _ps=r["포지션"]||"";
+      if(posFilter&&posFilter!=="ALL"&&_ps!==posFilter)continue;   // 🎯 [2026-07-22] 라인별 보기
       if(!m.has(c))m.set(c,new Map());
       const pm=m.get(c);
-      if(!pm.has(name))pm.set(name,{g:0,w:0,k:0,d:0,a:0,kg:0,mvp:0});
+      if(!pm.has(name))pm.set(name,{g:0,w:0,k:0,d:0,a:0,kg:0,mvp:0,pos:new Map()});
       const s=pm.get(name);
+      if(_ps&&_ps!=="선택안함") s.pos.set(_ps,(s.pos.get(_ps)||0)+1);
       s.g++; if(r["결과"]==="승리")s.w++;
       if(r["매치평가"]==="MVP")s.mvp++;
       const ko=parseKDA(r["KDA"]); if(ko){s.k+=ko.k;s.d+=ko.d;s.a+=ko.a;s.kg++;}
@@ -2710,19 +2713,39 @@ function champItemsHtml(champ){
     <div class="muted" style="font-size:11px;margin-top:8px">※ 픽률=이 챔프가 그 아이템을 든 비율 · 승률은 <b>8판 이상</b> 든 아이템만(표본 부족은 '표본↓'). lol.ps처럼 정밀하려면 표본이 더 필요해요.</div>
   </div>`;
 }
+let MASTERY_POS='ALL', CUR_MASTERY=null;   // 🎯 [2026-07-22] 장인랭킹 라인 필터
+function setMasteryPos(p){ MASTERY_POS=p; const y=window.scrollY; renderMastery(CUR_MASTERY); window.scrollTo(0,y); }
+function posChips(posMap){   // 이 선수가 그 챔프를 어느 라인에서 썼는지
+  const a=[...posMap.entries()].sort((x,y)=>y[1]-x[1]);
+  if(!a.length) return '<span class="muted">-</span>';
+  const C={"탑":"#c9482f","정글":"#2f9d57","미드":"#3a73e8","원딜":"#d9a13a","서폿":"#8a5cd6"};
+  return a.map(([p,n])=>`<span style="display:inline-block;background:${C[p]||'var(--bg2)'};color:#fff;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;margin-right:3px">${esc(p)} ${n}</span>`).join("");
+}
 function renderMastery(champ){
-  const agg=masteryAgg();
-  if(champ&&agg.has(champ)){
-    const pm=agg.get(champ);
+  CUR_MASTERY=champ||null;
+  if(!champ) MASTERY_POS='ALL';           // 목록으로 나가면 필터 초기화
+  const agg=masteryAgg(champ?MASTERY_POS:'ALL');
+  const aggAll=champ?masteryAgg('ALL'):agg;
+  if(champ&&(agg.has(champ)||aggAll.has(champ))){
+    const pm=agg.get(champ)||new Map();
+    // 라인 버튼(전체 표본 기준 — 필터 걸어도 버튼이 사라지지 않게)
+    const posTot=new Map();
+    for(const s of (aggAll.get(champ)||new Map()).values())
+      for(const [p,n] of s.pos) posTot.set(p,(posTot.get(p)||0)+n);
+    const posBar=`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:10px 0 12px">`
+      + `<button class="pchip ${MASTERY_POS==='ALL'?'on':''}" onclick="setMasteryPos('ALL')">전체 ${[...posTot.values()].reduce((a,b)=>a+b,0)||''}</button>`
+      + POS_LIST.filter(p=>posTot.get(p)).map(p=>`<button class="pchip ${MASTERY_POS===p?'on':''}" onclick="setMasteryPos('${p}')">${p} ${posTot.get(p)}</button>`).join("")
+      + `</div>`;
     const list=[...pm.entries()].map(([n,s])=>{
       const kr=s.kg?(s.d===0?(s.k+s.a):(s.k+s.a)/s.d):null;
-      return {n,g:s.g,w:s.w,wr:Math.round(s.w/s.g*100),kr,kda:s.kg?`${(s.k/s.kg).toFixed(1)}/${(s.d/s.kg).toFixed(1)}/${(s.a/s.kg).toFixed(1)}`:null,mvp:s.mvp};
+      return {n,g:s.g,w:s.w,wr:Math.round(s.w/s.g*100),kr,kda:s.kg?`${(s.k/s.kg).toFixed(1)}/${(s.d/s.kg).toFixed(1)}/${(s.a/s.kg).toFixed(1)}`:null,mvp:s.mvp,pos:s.pos};
     }).sort((a,b)=>b.g-a.g||b.wr-a.wr);
     const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
     const rows=list.map((x,i)=>`<tr>
       <td class="num">${medal(i)}</td>
       <td><span class="clickname" onclick="go('player','${escAttr(x.n)}')">${esc(shortName(x.n))}</span>${tierBadge(x.n)}${i===0&&x.g>=MASTER_MIN?' <span class="badge b-mvp" title="이 챔피언 최다판 1위">🎯 장인</span>':''}</td>
       <td class="num">${x.g}판</td>
+      <td>${posChips(x.pos)}</td>
       <td>${wrBar(x.wr)}</td>
       <td class="num">${x.kr!=null?`<span style="color:${kdaColor(x.kr)}">${x.kr.toFixed(2)}</span> <span class="muted" style="font-size:11.5px">${x.kda}</span>`:'<span class="muted">-</span>'}</td>
       <td class="num">${x.mvp||'-'}</td>
@@ -2733,9 +2756,11 @@ function renderMastery(champ){
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
           ${champImg(champ,"lg")}
           <div><h2 style="margin:0">${esc(champ)} 장인랭킹</h2>
-          <div class="muted" style="font-size:12.5px">${esc(catLabel(CURRENT_CAT))} 내전 표본 · 판수 → 승률순 · ${MASTER_MIN}판 이상 1위 = 🎯장인</div></div>
+          <div class="muted" style="font-size:12.5px">${esc(catLabel(CURRENT_CAT))} 내전 표본 · 판수 → 승률순 · ${MASTER_MIN}판 이상 1위 = 🎯장인${MASTERY_POS!=='ALL'?` · <b style="color:#ffd24a">${esc(MASTERY_POS)} 한정</b>`:''}</div></div>
         </div>
-        <table class="ranktbl"><thead><tr><th class="num">#</th><th>플레이어</th><th class="num">판수</th><th>승률</th><th class="num">평균 KDA</th><th class="num">MVP</th></tr></thead>
+        ${posBar}
+        ${list.length?'':'<div class="muted" style="padding:14px 4px">해당 라인에서 사용된 기록이 없습니다.</div>'}
+        <table class="ranktbl" ${list.length?'':'style="display:none"'}><thead><tr><th class="num">#</th><th>플레이어</th><th class="num">판수</th><th>사용 라인</th><th>승률</th><th class="num">평균 KDA</th><th class="num">MVP</th></tr></thead>
         <tbody>${rows}</tbody></table>
       </div>
       ${champItemsHtml(champ)}`;
@@ -3853,7 +3878,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784687638";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784688225";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
