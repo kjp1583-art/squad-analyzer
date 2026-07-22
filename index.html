@@ -2449,6 +2449,37 @@ function renderHome(){
       <td class="num" style="color:var(--lose)">${p.bad||""}</td>
     </tr>`).join("");
 
+  // 📊 [2026-07-22] 클랜 전체 라인 분포 + 진영 승률 (집계 대상 = 결과 확정 판)
+  const _POSC={"탑":"#c9482f","정글":"#2f9d57","미드":"#3a73e8","원딜":"#d9a13a","서폿":"#8a5cd6"};
+  const posCnt=new Map(); let sideB={w:0,n:0}, sideR={w:0,n:0};
+  for(const g of GAMES.values()){
+    for(const r of g.rows){
+      const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+      const ps=r["포지션"]; if(ps&&ps!=="선택안함") posCnt.set(ps,(posCnt.get(ps)||0)+1);
+      const sd=r["진영"]||"";
+      if(sd.includes("블루")){ sideB.n++; if(res==="승리")sideB.w++; }
+      else if(sd.includes("레드")){ sideR.n++; if(res==="승리")sideR.w++; }
+    }
+  }
+  const posSum=[...posCnt.values()].reduce((a,b)=>a+b,0);
+  const posDist=posSum?`<div class="card" style="margin-bottom:14px">
+      <h2 style="margin-bottom:2px">📊 라인 분포 <span class="muted" style="font-size:13px;font-weight:400">집계된 ${posSum.toLocaleString()}개 기록 기준</span></h2>
+      <div class="posbar" style="margin:8px 0 8px">${POS_LIST.map(pp=>{
+        const n=posCnt.get(pp)||0; if(!n)return"";
+        return `<div style="width:${(n/posSum*100).toFixed(2)}%;background:${_POSC[pp]||'var(--line)'}" title="${pp} ${n}판"></div>`;}).join("")}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px">${POS_LIST.map(pp=>{
+        const n=posCnt.get(pp)||0;
+        return `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:${_POSC[pp]||'var(--line)'};display:inline-block"></span><b>${pp}</b> ${(n/posSum*100).toFixed(1)}% <span class="muted">(${n})</span></span>`;}).join("")}</div>
+      ${(sideB.n||sideR.n)?`<div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--line)">
+        <div style="font-size:13.5px;font-weight:800;margin-bottom:7px">⚔️ 진영별 승률 <span class="muted" style="font-weight:400;font-size:12.5px">${(sideB.n+sideR.n).toLocaleString()}개 기록</span></div>
+        <div style="display:flex;height:26px;border-radius:8px;overflow:hidden;font-size:12.5px;font-weight:800">
+          <div style="flex:${Math.max(1,sideB.n?sideB.w/sideB.n*100:50)};background:#2f5fd0;color:#fff;display:flex;align-items:center;justify-content:center">블루 ${sideB.n?(sideB.w/sideB.n*100).toFixed(1):'-'}%</div>
+          <div style="flex:${Math.max(1,sideR.n?sideR.w/sideR.n*100:50)};background:#c0392b;color:#fff;display:flex;align-items:center;justify-content:center">레드 ${sideR.n?(sideR.w/sideR.n*100).toFixed(1):'-'}%</div>
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:5px">블루 ${sideB.w}승 ${sideB.n-sideB.w}패 · 레드 ${sideR.w}승 ${sideR.n-sideR.w}패</div>
+      </div>`:''}
+    </div>`:'';
+
   view().innerHTML=`
     <div class="stats">
       <div class="stat"><div class="n">${totalGames}</div><div class="l">총 게임</div></div>
@@ -2456,6 +2487,7 @@ function renderHome(){
       <div class="stat"><div class="n">${champs.filter(c=>c.picks).length}</div><div class="l">사용된 챔피언</div></div>
       <div class="stat"><div class="n" style="font-size:16px;padding-top:6px">${period}</div><div class="l">기록 기간</div></div>
     </div>
+    ${posDist}
     ${navTabsHtml('home')}
     ${ws ? `<div class="card weekcard">
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px">
@@ -2722,6 +2754,8 @@ function renderMastery(champ){
 }
 
 /* ============== 화면: 내부티어 평가 (데스크톱 '🎖 내부티어'와 동일) ============== */
+let TIER_SEL='ALL';   // 🎖 [2026-07-22] 내부티어 페이지 티어 필터(전체 인원이 한 화면이라 찾기 어려운 문제)
+function setTierSel(t){ TIER_SEL=t; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
 function renderTiers(){
   const TIER_ORDER=['0','1上','1中','1下','2上','2中','2下','3上','3中','3下'];
   const OL={'고평가':0,'저평가':1,'적절':2,'표본부족':3};
@@ -2737,7 +2771,13 @@ function renderTiers(){
   };
   const byTier={};
   for(const [name,a] of ASSESSMENTS){ (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
-  const order=[...TIER_ORDER.filter(t=>byTier[t]), ...Object.keys(byTier).filter(t=>!TIER_ORDER.includes(t))];
+  let order=[...TIER_ORDER.filter(t=>byTier[t]), ...Object.keys(byTier).filter(t=>!TIER_ORDER.includes(t))];
+  if(!order.includes(TIER_SEL)) TIER_SEL='ALL';   // 데이터에 없는 티어 선택 상태 방어
+  const tierBar=`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:10px 0 4px">`
+    + `<button class="pchip ${TIER_SEL==='ALL'?'on':''}" onclick="setTierSel('ALL')">전체 ${ASSESSMENTS.size}명</button>`
+    + order.map(t=>`<button class="pchip ${TIER_SEL===t?'on':''}" onclick="setTierSel('${t}')">${esc(t)} ${byTier[t].length}</button>`).join("")
+    + `</div>`;
+  if(TIER_SEL!=='ALL') order=order.filter(t=>t===TIER_SEL);
   let cU=0,cOk=0,cOv=0,cNa=0;
   for(const [,a] of ASSESSMENTS){ if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
   const sections=order.map(t=>{
@@ -2775,6 +2815,7 @@ function renderTiers(){
       <div style="font-size:13px;margin:6px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑+최근 30일 5판↑ 대상)</span></div>
       <div class="muted" style="font-size:12px;margin:0 0 6px">🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌 기록은 op.gg 기준(시즌 종료 시점 티어), 현시즌만 있으면 현시즌 값, 과거만 있으면 과거 값 사용</div>
       <div class="muted" style="font-size:12.5px;margin-bottom:2px">저평가 ${cU} · 적절 ${cOk} · 고평가 ${cOv} · 표본부족 ${cNa}</div>
+      ${tierBar}
       ${body}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
         ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 전체 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
@@ -3051,8 +3092,11 @@ function submitComment(target){
       setTimeout(()=>loadComments(target),900);
     });
 }
+let MOST_EXPANDED=false;   // 🏅 모스트 챔피언 전체 펼침 여부(프로필 이동 시 초기화)
+function toggleMost(){ MOST_EXPANDED=!MOST_EXPANDED; const y=window.scrollY; renderPlayer(CUR_PLAYER); window.scrollTo(0,y); }
 function renderPlayer(name){
   name=canonOfName(name);                 // 옛 닉으로 들어와도 최신 닉 프로필로 통합
+  if(CUR_PLAYER!==name) MOST_EXPANDED=false;   // 다른 선수로 이동 시 펼침 초기화
   CUR_PLAYER=name;                        // 로그인 후 이 페이지로 복귀
   const parts=PLAYERS.get(name);
   if(!parts){view().innerHTML=`<div class="empty">‘${esc(name)}’ 기록 없음</div>`;return;}
@@ -3076,7 +3120,9 @@ function renderPlayer(name){
   const avgKda = kdaGames ? {k:tk/kdaGames, d:td/kdaGames, a:ta/kdaGames} : null;
   const avgRatio = avgKda ? (avgKda.d===0?(avgKda.k+avgKda.a):(avgKda.k+avgKda.a)/avgKda.d) : null;
   const wr=pct(w,w+l);
-  const most=[...champAgg.values()].sort((a,b)=>b.g-a.g).slice(0,6);
+  // 🏅 [2026-07-22] 모스트 챔피언 전체 보기 — 기본 6개, '더보기'로 사용한 챔피언 전부 펼침(op.gg 방식)
+  const champAll=[...champAgg.values()].sort((a,b)=>b.g-a.g||b.w-a.w);
+  const most=MOST_EXPANDED?champAll:champAll.slice(0,6);
   const decided=list.filter(r=>r["결과"]==="승리"||r["결과"]==="패배");
   const form=decided.slice(0,10).map(r=>{const win=r["결과"]==="승리";return `<span class="dot ${win?'w':'l'}">${win?'승':'패'}</span>`;}).join("");
 
@@ -3215,7 +3261,8 @@ function renderPlayer(name){
     </div>
     <div class="grid cols">
       <div>
-        <div class="card"><h2>모스트 챔피언</h2>${mostHtml}</div>
+        <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
+          champAll.length>6?`<div style="text-align:center;margin-top:10px"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 16px;border-radius:8px;cursor:pointer" onclick="toggleMost()">${MOST_EXPANDED?'접기 ▲':`전체 보기 (${champAll.length}종) ▼`}</button></div>`:''}</div>
         ${gptiCardHtml(name)}
         ${tierHistHtml}
         <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b> · 아래는 실제 플레이 분포</div>':''}${posHtml}</div>
@@ -3797,7 +3844,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784644476";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784687436";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
