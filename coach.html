@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AI 밴픽 코치 — SQUAD.GG</title>
+<meta name="description" content="내 밴·픽 차례에 Claude AI가 상대 저격밴·라인 상성·조합·클랜 견제압력까지 읽고 실시간으로 추천해주는 스쿼드 내전 전용 밴픽 코치."/>
+<style>
+  :root{
+    --bg:#11131a; --bg2:#171a23; --card:#1b1f2b; --card2:#212636;
+    --line:#2a3042; --txt:#e7eaf3; --sub:#9aa3b8; --mut:#717a91;
+    --blue:#3a73e8; --blue-bg:#16243f; --red:#e84057; --red-bg:#3a1c25;
+    --gold:#e0a437; --green:#2bb177; --accent:#5b8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);
+    font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  header{background:linear-gradient(180deg,#1a1f2e,#11131a);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:20}
+  .hd{max-width:1000px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
+  .logo{font-size:20px;font-weight:800;letter-spacing:.5px;cursor:pointer;color:var(--txt)}
+  .logo b{color:var(--gold)}
+  .hd .spacer{flex:1}
+  .hd .home{font-size:14px;color:var(--sub);border:1px solid var(--line);padding:7px 14px;border-radius:8px}
+  .hd .home:hover{border-color:var(--accent);color:var(--txt)}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px 80px}
+
+  .hero{text-align:center;padding:64px 16px 40px}
+  .hero .badge{display:inline-block;font-size:13px;font-weight:700;color:var(--gold);
+    border:1px solid #4a3c1a;background:#221b0d;padding:6px 14px;border-radius:20px;margin-bottom:22px}
+  .hero h1{font-size:40px;line-height:1.2;margin:0 0 16px;font-weight:800}
+  .hero h1 .ai{background:linear-gradient(90deg,var(--accent),var(--gold));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero p{font-size:17px;color:var(--sub);max-width:600px;margin:0 auto}
+  @media(max-width:600px){.hero h1{font-size:30px}.hero{padding:44px 8px 30px}}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin:8px 0 44px}
+  .feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .feat .ic{font-size:26px;margin-bottom:10px}
+  .feat h3{margin:0 0 8px;font-size:17px;font-weight:700}
+  .feat p{margin:0;font-size:14px;color:var(--sub)}
+  .feat.hot{border-color:#4a3c1a;background:linear-gradient(180deg,#211a0d,var(--card))}
+  .feat.hot .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--gold);margin-left:6px;
+    border:1px solid #4a3c1a;padding:1px 7px;border-radius:10px;vertical-align:middle}
+
+  .sec-title{font-size:24px;font-weight:800;margin:48px 0 8px;text-align:center}
+  .sec-sub{text-align:center;color:var(--sub);font-size:15px;margin:0 0 28px}
+
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px 20px;position:relative}
+  .step .n{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:14px}
+  .step h3{margin:0 0 8px;font-size:16px;font-weight:700}
+  .step p{margin:0;font-size:14px;color:var(--sub)}
+  .step code{background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;
+    font-size:13px;color:var(--gold)}
+
+  .price{max-width:440px;margin:8px auto 0;background:linear-gradient(180deg,var(--card2),var(--card));
+    border:1px solid #3a4260;border-radius:18px;padding:34px 28px;text-align:center}
+  .price .amt{font-size:44px;font-weight:800;color:var(--txt)}
+  .price .amt small{font-size:18px;color:var(--sub);font-weight:600}
+  .price .acct{margin-top:18px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;font-size:15px}
+  .price .acct .lab{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
+  .price .acct b{font-size:17px;letter-spacing:.3px}
+  .price .note{margin-top:16px;font-size:13px;color:var(--sub)}
+
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:40px}
+  .cta a{padding:14px 26px;border-radius:10px;font-weight:700;font-size:15px}
+  .cta .dl{background:var(--gold);color:#241a04}
+  .cta .dl:hover{filter:brightness(1.08)}
+  .cta .gh{border:1px solid var(--line);color:var(--txt)}
+  .cta .gh:hover{border-color:var(--accent)}
+
+  .faq{max-width:720px;margin:0 auto}
+  .faq details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 18px;margin-bottom:10px}
+  .faq summary{cursor:pointer;font-weight:700;font-size:15px;padding:14px 0;list-style:none}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::before{content:"＋";color:var(--accent);font-weight:800;margin-right:10px}
+  .faq details[open] summary::before{content:"－"}
+  .faq p{margin:0 0 16px;font-size:14px;color:var(--sub)}
+
+  footer{text-align:center;color:var(--mut);font-size:13px;margin-top:56px;padding-top:24px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd">
+    <div class="logo" onclick="location.href='/'">SQUAD<b>.GG</b></div>
+    <div class="spacer"></div>
+    <a class="home" href="/">← 전적검색으로</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div class="badge">🧠 스쿼드 내전 전용 · AI 밴픽 코치</div>
+    <h1><span class="ai">AI</span>가 내 밴·픽 차례에<br>이길 수를 골라줍니다</h1>
+    <p>롤 밴픽 창이 뜨면, Claude AI가 상대 저격밴·라인 상성·조합·<b>우리 클랜의 실전 데이터</b>까지 읽고
+       내 차례에 딱 맞는 추천을 실시간으로 띄워줍니다.</p>
+  </section>
+
+  <div class="grid">
+    <div class="feat hot">
+      <div class="ic">🎯</div>
+      <h3>견제 압력 분석<span class="tag">핵심</span></h3>
+      <p>“그 사람이 있을 때만 유독 밴되는 챔프” — 클랜이 수십 판 몸으로 겪고 위험하다고 판단한 픽을
+         집어냅니다. 단순 승률로는 안 잡히는 진짜 위협.</p>
+    </div>
+    <div class="feat">
+      <div class="ic">🚫</div>
+      <h3>상대 저격 밴</h3>
+      <p>상대 팀원별 장인 챔프를 클랜 내전 전적에서 읽어, 밥줄 챔프를 잘라 숙련 없는 2번째 카드를
+         꺼내게 만듭니다.</p>
+    </div>
+    <div class="feat">
+      <div class="ic">⚔️</div>
+      <h3>라인 상성·조합</h3>
+      <p>내 라인 상대와의 상성, 우리 팀 확정 조합을 무너뜨리는 카운터, 상대 조합의 빈 퍼즐까지
+         페이즈에 맞춰 판단합니다.</p>
+    </div>
+    <div class="feat">
+      <div class="ic">⚡</div>
+      <h3>실시간 · 무설정</h3>
+      <p>내 밴/픽 차례가 오면 자동으로 추천 오버레이가 뜹니다. 토큰 한 번 붙여넣으면 끝, 이후엔
+         신경 쓸 게 없습니다.</p>
+    </div>
+  </div>
+
+  <h2 class="sec-title">구독하는 법</h2>
+  <p class="sec-sub">입금 → 승인 → 토큰 붙여넣기. 3분이면 끝납니다.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="n">1</div>
+      <h3>입금하기</h3>
+      <p>아래 계좌로 <b>월 5,000원</b>을 입금합니다. 입금자명은 디스코드 닉네임과 같게 해주세요.</p>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <h3>운영자에게 알리기</h3>
+      <p>클랜 디스코드에서 <b>박상준(맛동산장인 유미)</b>에게 입금자명과 함께 알려주면 구독을 승인해 드립니다.</p>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <h3>토큰 붙여넣기</h3>
+      <p>승인되면 봇이 <b>구독 토큰</b>을 DM으로 보내줍니다. 분석기 <code>설정 → AI 밴픽 코치 구독 토큰</code>에
+         붙여넣고 저장하면 끝!</p>
+    </div>
+  </div>
+
+  <h2 class="sec-title">가격</h2>
+  <p class="sec-sub">부담 없는 월정액. 언제든 그만둘 수 있습니다.</p>
+  <div class="price">
+    <div class="amt">5,000<small>원 / 월</small></div>
+    <div class="acct">
+      <span class="lab">입금 계좌</span>
+      <b>토스뱅크 1000-2535-5662 박상준</b>
+    </div>
+    <div class="note">입금 후 디스코드에서 박상준(맛동산장인 유미)에게 알려주시면 승인해 드립니다.</div>
+  </div>
+
+  <div class="cta">
+    <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip">⬇ 스쿼드해체분석기 다운로드</a>
+    <a class="gh" href="/">전적검색 홈</a>
+  </div>
+
+  <h2 class="sec-title">자주 묻는 질문</h2>
+  <div class="faq">
+    <details>
+      <summary>어떤 AI를 쓰나요?</summary>
+      <p>Anthropic의 Claude 모델을 사용합니다. 우리 클랜 내전 데이터(챔프폭·맞대결·견제압력 등)를 함께 넣어,
+         일반 롤 지식이 아니라 “이 클랜에서만 참인 사실”을 근거로 추천합니다.</p>
+    </details>
+    <details>
+      <summary>추천은 언제 뜨나요?</summary>
+      <p>롤 챔피언 선택 창에서 <b>내 밴 차례 / 내 픽 차례</b>가 되면 자동으로 추천 오버레이가 뜹니다.
+         평소엔 아무것도 뜨지 않아 방해되지 않습니다.</p>
+    </details>
+    <details>
+      <summary>구독하면 내 컴퓨터에 API 키를 넣어야 하나요?</summary>
+      <p>아니요. 토큰만 붙여넣으면 됩니다. AI 호출은 서버에서 대신 처리하므로 키가 개인 PC에 저장되지 않습니다.</p>
+    </details>
+    <details>
+      <summary>구독 상태나 토큰은 어디서 확인하나요?</summary>
+      <p>클랜 디스코드에서 <code>/구독</code> 을 입력하면 내 구독 만료일과 토큰을 다시 확인할 수 있습니다.</p>
+    </details>
+    <details>
+      <summary>기본 저격밴 분석은 구독이 필요한가요?</summary>
+      <p>아니요. 시트 기반 저격밴 기록·명예의전당 등 전적 기능은 누구나 무료입니다.
+         구독은 <b>밴픽 창에서 실시간으로 뜨는 AI 추천</b>에만 해당합니다.</p>
+    </details>
+  </div>
+
+  <footer>
+    SQUAD.GG · 스쿼드 내전 전적검색 &amp; AI 밴픽 코치
+  </footer>
+
+</div>
+</body>
+</html>
