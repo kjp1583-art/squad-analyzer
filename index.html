@@ -1424,6 +1424,19 @@ function loadAiEval(){
   });
 }
 function aiEvalOf(name){ return aliasLookup(AI_EVAL, name); }   // 🔁 닉변·부계 추적
+// 🤖 주간평 본문 렌더 — 【…】 항목마다 줄바꿈 + 라벨 이름 정규화.
+//    시트 원문은 【전체】/【지난주】/【이번주】로 저장돼 있어(84명분) 재생성 없이 표시 단계에서 바꾼다.
+const AIEVAL_LABEL = {"전체":"전체기간", "지난주":"지난주 평가", "이번주":"개선안"};
+function aiEvalBodyHtml(text){
+  const secs = String(text||"").split(/(?=【)/).map(s=>s.trim()).filter(Boolean);
+  if(secs.length < 2) return esc(text||"");
+  return secs.map(s=>{
+    const m = /^【([^】]+)】\s*([\s\S]*)$/.exec(s);
+    if(!m) return `<div style="margin-bottom:10px">${esc(s)}</div>`;
+    const lab = AIEVAL_LABEL[m[1]] || m[1];
+    return `<div style="margin-bottom:10px"><b style="color:#bcd0ff">【${esc(lab)}】</b> ${esc(m[2])}</div>`;
+  }).join("");
+}
 
 // 🎭 LINK_ACCOUNT 탭(본계, 부계) 로드 → 부계 전적을 본계로 통합 (2026-07-10). 탭 없거나 실패 시 빈 맵(무해).
 function loadLinkAccount(){
@@ -3224,7 +3237,7 @@ function renderPlayer(name){
   const aiEvalHtml = aie
     ? `<div style="margin-top:10px;background:rgba(120,160,255,.07);border:1px solid rgba(120,160,255,.28);border-radius:12px;padding:11px 14px">
         <div style="font-size:12.5px;font-weight:800;color:#9db8ff;margin-bottom:5px">🤖 AI선생 주간평 <span style="font-weight:400;opacity:.6">${esc(aie.date)}</span></div>
-        <div style="font-size:13.5px;line-height:1.65">${esc(aie.text)}</div>
+        <div style="font-size:13.5px;line-height:1.65">${aiEvalBodyHtml(aie.text)}</div>
       </div>` : '';
 
   // 🎯 견제 압력 — 상대가 이 사람 때문에 특정 챔프를 밴하는 정도(협곡 전용)
@@ -3892,7 +3905,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784768858";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784773560";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
