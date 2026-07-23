@@ -3758,13 +3758,16 @@ function computeHofRecords(rows){
     const g=r["게임ID"]||"";
     const key=g+"∥"+(r["PUUID"]||name);if(seen.has(key))continue;seen.add(key);
     const rc=rec[name]||(rec[name]={name,g:0,tk:0,td:0,ta:0,dmgSum:0,dmgN:0,mxK:[-1,"",""],mxD:[-1,"",""],mxA:[-1,"",""],mxDmg:[-1,"",""],mxSc:[-1,"",""],
-      metN:0,dpmSum:0,gpmSum:0,cspmSum:0,kpSum:0,vsSum:0,cwSum:0,skSum:0,geSum:0,epSum:0,dtpmSum:0,mxDt:[-1,"",""]});
+      metN:0,dpmSum:0,gpmSum:0,cspmSum:0,kpSum:0,vsSum:0,cwSum:0,skSum:0,geSum:0,epSum:0,dtpmSum:0,mxDt:[-1,"",""],
+      // 📊 [2026-07-24] 평균 지표 랭킹 추가분 — kdaN=KDA 파싱된 판수(평균 분모), ndN=무데스 판, dkN=두자릿수 킬 판
+      kdaN:0,ndN:0,dkN:0,hsSum:0,wpSum:0,wkSum:0,drSum:0,brSum:0,turSum:0});
     rc.g++;
     const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10);
     const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
     if(m){
       const k=+m[1],d=+m[2],a=+m[3];
       rc.tk+=k;rc.td+=d;rc.ta+=a;
+      rc.kdaN++; if(d===0)rc.ndN++; if(k>=10)rc.dkN++;   // 📊 평균/비율 랭킹용
       if(k>rc.mxK[0])rc.mxK=[k,ch,dt];
       if(d>rc.mxD[0])rc.mxD=[d,ch,dt];
       if(a>rc.mxA[0])rc.mxA=[a,ch,dt];
@@ -3786,6 +3789,11 @@ function computeHofRecords(rows){
       if(mt.cw!=null)rc.cwSum+=mt.cw;
       if(mt.sk!=null)rc.skSum+=mt.sk;
       rc.epSum+=(mt.dr||0)+(mt.br||0);   // 에픽 오브젝트(용+바론) 처치 관여 개수
+      // 📊 [2026-07-24] 오브젝트 3분할 + 서포팅 지표 (mt.tk=포탑킬 — rc.tk는 '누적 킬'이라 이름 충돌 주의)
+      rc.drSum+=(mt.dr||0); rc.brSum+=(mt.br||0); rc.turSum+=(mt.tk||0);
+      if(mt.hs!=null)rc.hsSum+=mt.hs;
+      if(mt.wp!=null)rc.wpSum+=mt.wp;
+      if(mt.wk!=null)rc.wkSum+=mt.wk;
       if(mt.dt!=null){ rc.dtpmSum+=mt.dt/mt.m; if(mt.dt>rc.mxDt[0])rc.mxDt=[mt.dt,ch,dt]; }   // 🛡 받은 피해
     }
   }
@@ -3830,7 +3838,17 @@ function hofRecordsHtml(rl, patchSel){
       + card("🗡 솔킬률 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>판당 솔로킬</span>", rl.filter(x=>x.metN>=G5&&x.skSum>0).map(x=>[x.skSum/x.metN,`${Math.round(x.skSum/x.metN*100)}% ${sub(`(${x.skSum}회 / ${x.metN}판)`)}`,x.name]))
       + card("🛡 분당 받은 피해 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>탱킹</span>", rl.filter(x=>x.metN>=G5).map(x=>[x.dtpmSum/x.metN,`분당 ${fmt(x.dtpmSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🛡 한 판 최다 받은 피해 TOP 10", rl.filter(x=>x.mxDt[0]>0).map(x=>[x.mxDt[0],`${fmt(x.mxDt[0])} ${ctx(x.mxDt)}`,x.name]))
-      + card("🏰 평균 오브젝트 처치 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>용+바론 관여/판</span>", rl.filter(x=>x.metN>=G5).map(x=>[x.epSum/x.metN,`판당 ${(x.epSum/x.metN).toFixed(2)}개 ${sub(`(총 ${x.epSum}·${x.metN}판)`)}`,x.name]))
+      // 🐉 [2026-07-24 사장님 지시] 뭉뚱그린 '오브젝트'를 용/바론/포탑으로 3분할 — 성격이 서로 다름
+      + card("🐉 평균 드래곤 관여 TOP 10", rl.filter(x=>x.metN>=G5&&x.drSum>0).map(x=>[x.drSum/x.metN,`판당 ${(x.drSum/x.metN).toFixed(2)}마리 ${sub(`(총 ${x.drSum}·${x.metN}판)`)}`,x.name]))
+      + card("🟣 평균 바론 관여 TOP 10", rl.filter(x=>x.metN>=G5&&x.brSum>0).map(x=>[x.brSum/x.metN,`판당 ${(x.brSum/x.metN).toFixed(2)}마리 ${sub(`(총 ${x.brSum}·${x.metN}판)`)}`,x.name]))
+      + card("🏰 평균 포탑 철거 TOP 10", rl.filter(x=>x.metN>=G5&&x.turSum>0).map(x=>[x.turSum/x.metN,`판당 ${(x.turSum/x.metN).toFixed(2)}개 ${sub(`(총 ${x.turSum}·${x.metN}판)`)}`,x.name]))
+      // 💚 서포팅·시야 평균 + 🔥 캐리·생존 비율
+      + card("💚 평균 힐+실드 TOP 10", rl.filter(x=>x.metN>=G5&&x.hsSum>0).map(x=>[x.hsSum/x.metN,`판당 ${fmt(x.hsSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("👁 평균 와드 설치 TOP 10", rl.filter(x=>x.metN>=G5&&x.wpSum>0).map(x=>[x.wpSum/x.metN,`판당 ${(x.wpSum/x.metN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wpSum)}·${x.metN}판)`)}`,x.name]))
+      + card("🧹 평균 와드 제거 TOP 10", rl.filter(x=>x.metN>=G5&&x.wkSum>0).map(x=>[x.wkSum/x.metN,`판당 ${(x.wkSum/x.metN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wkSum)}·${x.metN}판)`)}`,x.name]))
+      + card("🤝 평균 어시스트 TOP 10", rl.filter(x=>x.kdaN>=G5).map(x=>[x.ta/x.kdaN,`판당 ${(x.ta/x.kdaN).toFixed(1)}개 ${sub(`(총 ${fmt(x.ta)}·${x.kdaN}판)`)}`,x.name]))
+      + card("🛡 무데스 경기 비율 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>한 번도 안 죽은 판</span>", rl.filter(x=>x.kdaN>=G10&&x.ndN>0).map(x=>[x.ndN/x.kdaN,`${(x.ndN/x.kdaN*100).toFixed(1)}% ${sub(`(${x.ndN}판 / ${x.kdaN}판)`)}`,x.name]))
+      + card("🔥 두 자릿수 킬 비율 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10킬 이상 판</span>", rl.filter(x=>x.kdaN>=G10&&x.dkN>0).map(x=>[x.dkN/x.kdaN,`${(x.dkN/x.kdaN*100).toFixed(1)}% ${sub(`(${x.dkN}판 / ${x.kdaN}판)`)}`,x.name]))
       + card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.metN>=G5&&x.gpmSum>0).map(x=>[x.dpmSum/x.gpmSum,`골드당 ${(x.dpmSum/x.gpmSum).toFixed(2)}딜 ${sub(`(${x.metN}판)`)}`,x.name]))
     ) : "")
     + `</div>`;
@@ -3944,7 +3962,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784777373";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784825690";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
