@@ -1304,6 +1304,42 @@ function loadMitoWins(){
   });
 }
 function mitoStatOf(name){ return aliasLookup(MITO_WINS, name); }   // 🔁 닉변·부계 추적
+
+// 👻 고스트밴픽왕 구독자(GHOST 탭 — 봇이 승인/해지·주기마다 갱신) → 전적페이지 이름 옆 표시
+let GHOSTS=new Map();
+function loadGhosts(){
+  return new Promise((resolve)=>{
+    const cb="__ghCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out=new Map();
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ni=cols.indexOf("닉네임");
+        // ⚠️ GHOST 탭이 없으면 gviz가 '첫 번째 시트'로 폴백한다 → 헤더가 다르면 즉시 포기(엉뚱한 사람에게 고스트 표시 방지)
+        if(ni<0){ resolve(out); return; }
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const v=(ni<0||c[ni]==null)?"":(c[ni].f!=null?c[ni].f:String(c[ni].v));
+          const nm=String(v||"").trim();
+          if(nm) out.set(tnorm(nm),nm);
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=GHOST&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
+  });
+}
+function isGhost(name){ return !!aliasLookup(GHOSTS, name); }   // 🔁 닉변·부계 추적
+function ghostBadge(name){
+  return isGhost(name)
+    ? `<span title="고스트밴픽왕 구독자 — 밴픽 때 AI 추천을 받고 있습니다" style="background:rgba(150,170,255,.12);border:1px solid rgba(150,170,255,.45);color:#c3cdff;font-size:12.5px;font-weight:800;padding:2px 9px;border-radius:9px;white-space:nowrap;margin-left:6px">👻 고스트</span>`
+    : '';
+}
 function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
 function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
 function banPressureHofHtml(){   // 🎯 명예의전당 — 견제 압력 랭킹(협곡 전용)
@@ -3225,8 +3261,11 @@ function renderPlayer(name){
   // 🏟️ 미토(미니토너먼트) 우승 — MITO 탭
   const mitoE = mitoStatOf(name);
   const _mbti = mbtiOf(name);   // 🧠 디코 MBTI 역할 매칭
-  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti)
+  const _ghost = isGhost(name);   // 👻 고스트밴픽왕 구독자
+  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost)
     ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${
+        _ghost?`<span title="고스트밴픽왕 구독자 — 밴픽 때 AI 추천을 받고 있습니다" style="background:rgba(150,170,255,.12);border:1px solid rgba(150,170,255,.45);color:#c3cdff;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">👻 고스트밴픽왕</span>`:''
+      }${
         (mitoE&&(mitoE.wins>0||mitoE.parts>0))?`<span title="주말 정규 미니토너먼트 역대 우승/참가 기록" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoE.wins}회 / 참가 ${mitoE.parts}회${mitoRateTxt(mitoE)}</span>`:''
       }${
         _mbti?`<span title="디스코드 MBTI 역할" style="background:rgba(190,140,255,.10);border:1px solid rgba(190,140,255,.45);color:#cdaaff;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">🧠 ${esc(_mbti)}</span>`:''
@@ -3905,7 +3944,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784776281";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784776988";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -3934,8 +3973,8 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti()]);   // 병렬 로드
-    MITO_WINS=_mito; MBTI_MAP=_mbti;
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts()]);   // 병렬 로드
+    MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh;
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
