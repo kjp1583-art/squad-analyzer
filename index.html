@@ -3764,7 +3764,7 @@ function computeHofRecords(rows){
       kdaN:0,ndN:0,dkN:0,hsSum:0,wpSum:0,wkSum:0,drSum:0,brSum:0,turSum:0,
       // 🧭 [2026-07-24] 라인 종속 지표(CS·딜·골드)는 '전체' 뷰에서 주 포지션 판만으로 계산 — 다역 플레이어 희석 방지
       mpPos:null,mpMetN:0,mpCspm:0,mpDpm:0,mpGpm:0,mpDmgSum:0,mpDmgN:0,
-      scSum:0,scN:0});   // 🧠 [2026-07-24] 평균 AI점수 랭킹용
+      scSum:0,scN:0,mpScSum:0,mpScN:0});   // 🧠 [2026-07-24] 평균 AI점수 — 포지션 편향(정글29.8↔미드24.0) 있어 주 포지션 기준
     rc.g++;
     const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10);
     const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
@@ -3783,7 +3783,8 @@ function computeHofRecords(rows){
     if(/^\d+$/.test(dv)){const dvi=+dv;rc.dmgSum+=dvi;rc.dmgN++;if(dvi>rc.mxDmg[0])rc.mxDmg=[dvi,ch,dt];
       if(_isMain){rc.mpDmgSum+=dvi;rc.mpDmgN++;}}
     const sv=parseFloat(r["점수"]);
-    if(!isNaN(sv)){rc.scSum+=sv;rc.scN++;if(sv>rc.mxSc[0])rc.mxSc=[sv,ch,dt];}
+    if(!isNaN(sv)){rc.scSum+=sv;rc.scN++;if(sv>rc.mxSc[0])rc.mxSc=[sv,ch,dt];
+      if(_isMain){rc.mpScSum+=sv;rc.mpScN++;}}
     // 📊 [2026-07-21] 상세지표 집계 — 지표 팩 있는 게임만(metN)
     const mt=parseMetrics(r);
     if(mt){
@@ -3844,7 +3845,7 @@ function hofRecordsHtml(rl, patchSel){
     + card("🤝 누적 어시왕 TOP 10", rl.filter(x=>x.ta>0).map(x=>[x.ta,`총 ${fmt(x.ta)}어시 ${sub(`(${x.g}판)`)}`,x.name]))
     + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", lineRank(G10,"mpDmgSum","mpDmgN","dmgSum","dmgN",v=>`평균 ${fmt(v)}`))
     + card("📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", rl.filter(x=>x.g>=G10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
-    + card("🧠 평균 AI점수 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 역할 보정</span>", rl.filter(x=>x.scN>=G10).map(x=>[x.scSum/x.scN,`${(x.scSum/x.scN).toFixed(1)}점 ${sub(`(${x.scN}판)`)}`,x.name]))
+    + card("🧠 평균 AI점수 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 주 포지션</span>", lineRank(G10,"mpScSum","mpScN","scSum","scN",v=>`${v.toFixed(1)}점`))
     + (rl.some(x=>x.metN>0) ? (
       `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
       + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준")
@@ -3983,7 +3984,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784827907";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784828592";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
