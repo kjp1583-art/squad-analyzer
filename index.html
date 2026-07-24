@@ -1487,7 +1487,9 @@ function careerHofHtml(){   // 명예의전당 커리어 섹션(대회별 현재
     if(!g.has(k)) g.set(k,{date:r.date,cur:false,names:[]});
     const e=g.get(k); e.names.push(r); e.cur=e.cur||r.cur;
   }
-  const nameLink=r=>{const cn=canonOfName(r.riot||r.name);
+  const nameLink=r=>{const rr=(r.riot||"").trim();   // 롤닉(연동) 있는 현역만 전적 링크 활성화 — 탈퇴·미연동은 이름만
+    if(!rr) return `<span style="opacity:.7" title="현재 활동 정보 없음(당시 닉네임)">${esc(r.name)}</span>`;
+    const cn=canonOfName(rr);
     return `<span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn)||r.name)}</span>`;};
   let h='<div class="card" style="margin-bottom:14px"><h2>🏅 커리어 — 대회 우승 기록</h2>';
   h+='<div class="muted" style="font-size:12.5px;margin:2px 0 10px">디스코드 우승자 역할 기준 자동 기록 · 새 대회 우승 시 자동 갱신 · 역대 기록은 영구 보존</div>';
@@ -1500,7 +1502,7 @@ function careerHofHtml(){   // 명예의전당 커리어 섹션(대회별 현재
     h+=`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">`+curEv.names.map(nameLink).join(" · ")+`</div>`;
     const past=evs.filter(e=>e!==curEv);
     if(past.length){
-      h+='<div style="margin-top:8px;font-size:12.5px;opacity:.75">'+past.map(e=>`<div style="padding:2px 0">${esc(e.date)} — ${e.names.map(x=>esc(shortName(canonOfName(x.riot||x.name))||x.name)).join(", ")}</div>`).join("")+'</div>';
+      h+='<div style="margin-top:8px;font-size:12.5px;opacity:.85">'+past.map(e=>`<div style="padding:2px 0">${esc(e.date)} — ${e.names.map(nameLink).join(", ")}</div>`).join("")+'</div>';
     }
     h+='</div>';
   }
@@ -4062,7 +4064,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784885896";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784889848";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
