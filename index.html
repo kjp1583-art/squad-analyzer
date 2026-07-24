@@ -1383,6 +1383,39 @@ function titleChip(name){
   const tip=t.tier==="유니크"?"세상에 단 하나뿐인 칭호 — 경매·거래소에서만 구할 수 있습니다":`포인트 상점에서 구매한 칭호 (${escAttr(t.tier||'일반')})`;
   return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}${t.tier==="유니크"?' <span style="opacity:.75;font-weight:400">1/1</span>':''}</span>`;
 }
+// ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
+let MYEOL=new Map();
+function loadMyeol(){
+  return new Promise((resolve)=>{
+    const cb="__myCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out=new Map();
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ni=cols.indexOf("닉네임"), wi=cols.indexOf("우승횟수");
+        if(ni<0||wi<0){ resolve(out); return; }   // 탭 부재 폴백 오독 방지
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const nm=String(g(ni)||"").trim(), w=parseInt(g(wi),10)||0;
+          if(nm&&w>0) out.set(tnorm(nm),{name:nm,wins:w});
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=MYEOL&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
+  });
+}
+function myeolOf(name){ return aliasLookup(MYEOL, name)||null; }   // 🔁 닉변·부계 추적
+function myeolChip(name){
+  const e=myeolOf(name); if(!e) return '';
+  return `<span title="스쿼드 멸망전(대규모 팀 대항전) 역대 우승 기록 — 디코 명예의전당 채널 집계" style="background:rgba(255,90,90,.10);border:1px solid rgba(255,90,90,.45);color:#ff9d9d;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">⚔️ 멸망전 우승 ${e.wins}회</span>`;
+}
 function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
 function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
 function banPressureHofHtml(){   // 🎯 명예의전당 — 견제 압력 랭킹(협곡 전용)
@@ -3306,8 +3339,9 @@ function renderPlayer(name){
   const _mbti = mbtiOf(name);   // 🧠 디코 MBTI 역할 매칭
   const _ghost = isGhost(name);   // 👻 고스트밴픽왕 구독자
   const _titleChip = titleChip(name);   // 🏷️ 상점 구매 칭호
-  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_titleChip)
-    ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${_titleChip}${
+  const _myeolChip = myeolChip(name);   // ⚔️ 멸망전 우승
+  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_titleChip||_myeolChip)
+    ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${_titleChip}${_myeolChip}${
         _ghost?`<span title="고스트밴픽왕 구독자 — 밴픽 때 AI 추천을 받고 있습니다" style="background:rgba(150,170,255,.12);border:1px solid rgba(150,170,255,.45);color:#c3cdff;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">👻 고스트밴픽왕</span>`:''
       }${
         (mitoE&&(mitoE.wins>0||mitoE.parts>0))?`<span title="주말 정규 미니토너먼트 역대 우승/참가 기록" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoE.wins}회 / 참가 ${mitoE.parts}회${mitoRateTxt(mitoE)}</span>`:''
@@ -4028,7 +4062,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784883814";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784885896";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -4057,8 +4091,8 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles()]);   // 병렬 로드
-    MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt;
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol()]);   // 병렬 로드
+    MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my;
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
