@@ -1340,6 +1340,49 @@ function ghostBadge(name){
     ? `<span title="고스트밴픽왕 구독자 — 밴픽 때 AI 추천을 받고 있습니다" style="background:rgba(150,170,255,.12);border:1px solid rgba(150,170,255,.45);color:#c3cdff;font-size:12.5px;font-weight:800;padding:2px 9px;border-radius:9px;white-space:nowrap;margin-left:6px">👻 고스트</span>`
     : '';
 }
+// 🏷️ 웹 프로필 칭호(TITLES 탭 — 봇 /상점 구매·장착 시 갱신) → 프로필 뱃지줄 표시
+let TITLES=new Map();
+function loadTitles(){
+  return new Promise((resolve)=>{
+    const cb="__ttCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out=new Map();
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ni=cols.indexOf("닉네임"), ti=cols.indexOf("칭호"), ei=cols.indexOf("이모지"), gi=cols.indexOf("등급");
+        // ⚠️ TITLES 탭 없으면 gviz가 첫 시트로 폴백 → 헤더 불일치 시 즉시 포기(오표시 방지)
+        if(ni<0||ti<0){ resolve(out); return; }
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const nm=String(g(ni)||"").trim();
+          if(nm) out.set(tnorm(nm),{name:nm,title:String(g(ti)||"").trim(),emoji:String(g(ei)||"").trim(),tier:String(g(gi)||"").trim()});
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=TITLES&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
+  });
+}
+function titleOf(name){ return aliasLookup(TITLES, name)||null; }   // 🔁 닉변·부계 추적
+const _TITLE_TIER_CSS={
+  "유니크":{bg:"linear-gradient(90deg,rgba(255,200,60,.20),rgba(255,110,199,.16))",bd:"rgba(255,180,90,.75)",fg:"#ffe08a"},
+  "전설":{bg:"rgba(255,200,60,.13)",bd:"rgba(255,200,60,.55)",fg:"#ffd75e"},
+  "에픽":{bg:"rgba(200,120,255,.12)",bd:"rgba(200,120,255,.5)",fg:"#d9a8ff"},
+  "레어":{bg:"rgba(90,170,255,.12)",bd:"rgba(90,170,255,.5)",fg:"#8ec6ff"},
+  "일반":{bg:"rgba(255,255,255,.07)",bd:"var(--line)",fg:"var(--sub)"}
+};
+function titleChip(name){
+  const t=titleOf(name); if(!t||!t.title) return '';
+  const cs=_TITLE_TIER_CSS[t.tier]||_TITLE_TIER_CSS["일반"];
+  const tip=t.tier==="유니크"?"세상에 단 하나뿐인 칭호 — 경매·거래소에서만 구할 수 있습니다":`포인트 상점에서 구매한 칭호 (${escAttr(t.tier||'일반')})`;
+  return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}${t.tier==="유니크"?' <span style="opacity:.75;font-weight:400">1/1</span>':''}</span>`;
+}
 function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
 function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
 function banPressureHofHtml(){   // 🎯 명예의전당 — 견제 압력 랭킹(협곡 전용)
@@ -3262,8 +3305,9 @@ function renderPlayer(name){
   const mitoE = mitoStatOf(name);
   const _mbti = mbtiOf(name);   // 🧠 디코 MBTI 역할 매칭
   const _ghost = isGhost(name);   // 👻 고스트밴픽왕 구독자
-  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost)
-    ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${
+  const _titleChip = titleChip(name);   // 🏷️ 상점 구매 칭호
+  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_titleChip)
+    ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${_titleChip}${
         _ghost?`<span title="고스트밴픽왕 구독자 — 밴픽 때 AI 추천을 받고 있습니다" style="background:rgba(150,170,255,.12);border:1px solid rgba(150,170,255,.45);color:#c3cdff;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">👻 고스트밴픽왕</span>`:''
       }${
         (mitoE&&(mitoE.wins>0||mitoE.parts>0))?`<span title="주말 정규 미니토너먼트 역대 우승/참가 기록" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoE.wins}회 / 참가 ${mitoE.parts}회${mitoRateTxt(mitoE)}</span>`:''
@@ -3984,7 +4028,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784828592";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784883814";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -4013,8 +4057,8 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts()]);   // 병렬 로드
-    MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh;
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles()]);   // 병렬 로드
+    MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt;
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
