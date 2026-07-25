@@ -3895,7 +3895,8 @@ function computeHofRecords(rows){
       kdaN:0,ndN:0,dkN:0,hsSum:0,wpSum:0,wkSum:0,drSum:0,brSum:0,turSum:0,
       // 🧭 [2026-07-24] 라인 종속 지표(CS·딜·골드)는 '전체' 뷰에서 주 포지션 판만으로 계산 — 다역 플레이어 희석 방지
       mpPos:null,mpMetN:0,mpCspm:0,mpDpm:0,mpGpm:0,mpDmgSum:0,mpDmgN:0,
-      scSum:0,scN:0,mpScSum:0,mpScN:0});   // 🧠 [2026-07-24] 평균 AI점수 — 포지션 편향(정글29.8↔미드24.0) 있어 주 포지션 기준
+      pp:{},   // 🧭 [2026-07-25 사장님 지시] 포지션별 분리 집계 — 전체뷰 라인지표는 (선수×포지션) 엔트리로 랭킹(한 사람이 포지션별 복수 랭크 가능)
+      scSum:0,scN:0,mpScSum:0,mpScN:0});   // 🧠 [2026-07-24] 평균 AI점수 — 포지션 편향(정글29.8↔미드24.0) 있음
     rc.g++;
     const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10);
     const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
@@ -3910,12 +3911,17 @@ function computeHofRecords(rows){
     // 🧭 이 판이 그 사람 주 포지션 판인지 (라인 종속 지표를 '전체' 뷰에서 이 값만으로 계산)
     if(rc.mpPos===null)rc.mpPos=mpOf(name);
     const _isMain=rc.mpPos && r["포지션"]===rc.mpPos;
+    // 🧭 [2026-07-25] 포지션별 분리 버킷 — 이 판의 실제 포지션 기준
+    const _pos=r["포지션"];
+    const pp=(POS_ORDER[_pos]!=null)?(rc.pp[_pos]||(rc.pp[_pos]={metN:0,dpm:0,gpm:0,cspm:0,dmgSum:0,dmgN:0,scSum:0,scN:0})):null;
     const dv=String(r["딜량"]||"").replace(/,/g,"").trim();
     if(/^\d+$/.test(dv)){const dvi=+dv;rc.dmgSum+=dvi;rc.dmgN++;if(dvi>rc.mxDmg[0])rc.mxDmg=[dvi,ch,dt];
-      if(_isMain){rc.mpDmgSum+=dvi;rc.mpDmgN++;}}
+      if(_isMain){rc.mpDmgSum+=dvi;rc.mpDmgN++;}
+      if(pp){pp.dmgSum+=dvi;pp.dmgN++;}}
     const sv=parseFloat(r["점수"]);
     if(!isNaN(sv)){rc.scSum+=sv;rc.scN++;if(sv>rc.mxSc[0])rc.mxSc=[sv,ch,dt];
-      if(_isMain){rc.mpScSum+=sv;rc.mpScN++;}}
+      if(_isMain){rc.mpScSum+=sv;rc.mpScN++;}
+      if(pp){pp.scSum+=sv;pp.scN++;}}
     // 📊 [2026-07-21] 상세지표 집계 — 지표 팩 있는 게임만(metN)
     const mt=parseMetrics(r);
     if(mt){
@@ -3924,10 +3930,15 @@ function computeHofRecords(rows){
       rc.dpmSum+=dvi2/mt.m;
       if(mt.g!=null){rc.gpmSum+=mt.g/mt.m;rc.geSum+=mt.g;}
       if(mt.cs!=null)rc.cspmSum+=mt.cs/mt.m;
-      if(_isMain){   // 🧭 주 포지션 판만의 라인 종속 지표(전체 뷰용)
+      if(_isMain){   // 🧭 주 포지션 판만의 라인 종속 지표(레거시 — 현재 미사용)
         rc.mpMetN++; rc.mpDpm+=dvi2/mt.m;
         if(mt.g!=null)rc.mpGpm+=mt.g/mt.m;
         if(mt.cs!=null)rc.mpCspm+=mt.cs/mt.m;
+      }
+      if(pp){   // 🧭 포지션별 분리 버킷(전체 뷰 = 선수×포지션 랭킹용)
+        pp.metN++; pp.dpm+=dvi2/mt.m;
+        if(mt.g!=null)pp.gpm+=mt.g/mt.m;
+        if(mt.cs!=null)pp.cspm+=mt.cs/mt.m;
       }
       if(mt.kp!=null)rc.kpSum+=mt.kp;
       if(mt.vs!=null)rc.vsSum+=mt.vs;
@@ -3957,12 +3968,13 @@ function hofRecordsHtml(rl, patchSel){
     const body=top.length?top.map((e,i)=>`<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(e[2])}')">${esc(shortName(e[2]))}</span>${tierBadge(e[2])}<span class="hof-metric">${e[1]}</span></div>`).join(""):`<div class="muted" style="padding:16px 4px">기록 데이터가 부족합니다.</div>`;
     return `<div class="card"><h2>${t}</h2>${body}</div>`;
   };
-  // 🧭 [2026-07-24] 라인 종속 지표(CS·딜·골드) — '전체' 뷰에서는 각자 주 포지션 판만으로 계산.
-  //   (다역 플레이어가 서폿 판 등에 희석돼 원딜 값보다 낮게 나오던 문제 해결. 값·판수가 포지션 뷰와 일치)
+  // 🧭 [2026-07-25 사장님 지시] 라인 종속 지표(CS·딜·골드·AI점수) — '전체' 뷰는 (선수×포지션) 엔트리로 랭킹.
+  //   주 포지션 합산이 아니라 포지션별 분리라, 한 사람이 탑·미드 각각으로 동시 랭크 가능(1~5위 독식도 가능).
   //   포지션 필터가 걸리면 rows가 이미 그 포지션으로 걸러졌으니 그냥 통산(=그 포지션) 값을 쓴다.
   const AV = HOF_REC_POS==="ALL";
-  const lineRank=(minN,aS,aN,fS,fN,fv)=> AV
-    ? rl.filter(x=>x[aN]>=minN).map(x=>[x[aS]/x[aN], fv(x[aS]/x[aN])+" "+sub(`(${x[aN]}판·${esc(x.mpPos||'-')})`), x.name])
+  const lineRank=(minN,pS,pN,fS,fN,fv)=> AV
+    ? rl.flatMap(x=>Object.entries(x.pp||{}).filter(([_,v])=>v[pN]>=minN)
+        .map(([pos,v])=>[v[pS]/v[pN], fv(v[pS]/v[pN])+" "+sub(`(${v[pN]}판·${esc(pos)})`), x.name]))
     : rl.filter(x=>x[fN]>=minN).map(x=>[x[fS]/x[fN], fv(x[fS]/x[fN])+" "+sub(`(${x[fN]}판)`), x.name]);
   return `<h2 style="margin:26px 0 10px">🏅 기록실 <span class="muted" style="font-size:13.5px;font-weight:400">${isAll?"전체 기간":"패치 "+esc(patchSel)+" 한정"}${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
     + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준") + `<div class="hof-grid">`
@@ -3974,16 +3986,16 @@ function hofRecordsHtml(rl, patchSel){
     + card("⚔ 누적 킬왕 TOP 10", rl.filter(x=>x.tk>0).map(x=>[x.tk,`총 ${fmt(x.tk)}킬 ${sub(`(${x.g}판)`)}`,x.name]))
     + card("💀 누적 데스왕 TOP 10", rl.filter(x=>x.td>0).map(x=>[x.td,`총 ${fmt(x.td)}데스 ${sub(`(${x.g}판)`)}`,x.name]))
     + card("🤝 누적 어시왕 TOP 10", rl.filter(x=>x.ta>0).map(x=>[x.ta,`총 ${fmt(x.ta)}어시 ${sub(`(${x.g}판)`)}`,x.name]))
-    + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", lineRank(G10,"mpDmgSum","mpDmgN","dmgSum","dmgN",v=>`평균 ${fmt(v)}`))
+    + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>", lineRank(G10,"dmgSum","dmgN","dmgSum","dmgN",v=>`평균 ${fmt(v)}`))
     + card("📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", rl.filter(x=>x.g>=G10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
-    + card("🧠 평균 AI점수 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 주 포지션</span>", lineRank(G10,"mpScSum","mpScN","scSum","scN",v=>`${v.toFixed(1)}점`))
+    + card("🧠 평균 AI점수 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>", lineRank(G10,"scSum","scN","scSum","scN",v=>`${v.toFixed(1)}점`))
     + (rl.some(x=>x.metN>0) ? (
       `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
       + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준")
       + `<div class="hof-grid">`
-      + card("⚡ 분당 데미지(DPM) TOP 10", lineRank(G5,"mpDpm","mpMetN","dpmSum","metN",v=>`분당 ${fmt(v)}`))
-      + card("💰 분당 골드(GPM) TOP 10", lineRank(G5,"mpGpm","mpMetN","gpmSum","metN",v=>`분당 ${fmt(v)}G`))
-      + card("🌾 분당 CS TOP 10", lineRank(G5,"mpCspm","mpMetN","cspmSum","metN",v=>`분당 ${v.toFixed(1)}개`))
+      + card("⚡ 분당 데미지(DPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"dpm","metN","dpmSum","metN",v=>`분당 ${fmt(v)}`))
+      + card("💰 분당 골드(GPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"gpm","metN","gpmSum","metN",v=>`분당 ${fmt(v)}G`))
+      + card("🌾 분당 CS TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"cspm","metN","cspmSum","metN",v=>`분당 ${v.toFixed(1)}개`))
       + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.kpSum/x.metN,`${Math.round(x.kpSum/x.metN)}% ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.vsSum/x.metN,`${(x.vsSum/x.metN).toFixed(1)}점 ${sub(`(${x.metN}판)`)}`,x.name]))
       + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
@@ -4115,7 +4127,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784946932";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784948730";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
