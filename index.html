@@ -1429,7 +1429,9 @@ function loadNoban(){
       try{
         const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
         const gi=cols.indexOf("게임ID"), ci=cols.indexOf("챔피언");
-        if(gi<0||ci<0){ resolve({byGame,cnt}); return; }   // 탭 부재 폴백 오독 방지
+        // ⚠️ NOBAN 탭 부재 시 gviz가 첫 시트(CLASSIC_NORMAL)로 폴백하는데 거기도 게임ID·챔피언 헤더가 있음
+        //    → 경기기록 고유 컬럼(소환사명/결과)이 보이면 폴백으로 판정하고 즉시 포기(전 픽이 노밴으로 오인되는 사고 방지)
+        if(gi<0||ci<0||cols.indexOf("소환사명")>=0||cols.indexOf("결과")>=0){ resolve({byGame,cnt}); return; }
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
           const gid=String(g(gi)||"").replace(/\D/g,""), ch=String(g(ci)||"").trim();
@@ -4112,7 +4114,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784946223";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784946549";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
