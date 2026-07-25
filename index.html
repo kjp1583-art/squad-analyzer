@@ -3603,15 +3603,13 @@ function renderGame(gid){
   };
   const _banB=_sideBans("블루"), _banR=_sideBans("레드");
   const _banStrip=_banB||_banR;
+  // [2026-07-25 사장님 지시] 노밴은 챔피언만 표시 — 선언해도 실제 플레이 의무는 없음(2페이즈 밴도 허용 규칙)
   const _nbGame=NOBAN_BY_GAME.get(String(g.id).replace(/\D/g,""))||[];
-  const _nbStrip=_nbGame.map(cch=>{
-    const u=allP.find(p=>p["챔피언"]===cch);   // 선언 챔피언의 실사용자
-    return `<span style="display:inline-flex;align-items:center;gap:4px">${champImg(cch,"sm")}${esc(cch)}${u?`<span class="clickname" style="font-size:12px" onclick="go('player','${escAttr(canonOfRow(u))}')">(${esc(shortName(canonOfRow(u)))})</span>`:'<span class="muted" style="font-size:12px">(미픽)</span>'}</span>`;
-  }).join(" · ");
+  const _nbStrip=_nbGame.map(cch=>`<span style="display:inline-flex;align-items:center;gap:4px">${champImg(cch,"sm")}${esc(cch)}</span>`).join(" · ");
   const _bnHeader=(_banStrip||_nbStrip)?`
     <div class="card" style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px">
       ${_banStrip?`<b>⛔ 밴</b>`:''}${_banB||''}
-      ${_nbStrip?`<span style="display:inline-flex;align-items:center;gap:8px" title="로비에서 '밴 금지 약속'으로 선언된 챔피언 — (이름)은 실제 사용자"><b style="color:#8fe3b0">🚫 노밴</b>${_nbStrip}</span>`:''}
+      ${_nbStrip?`<span style="display:inline-flex;align-items:center;gap:8px" title="로비에서 노밴으로 선언된 챔피언 (1페이즈 밴 금지 약속 — 플레이 의무는 없음)"><b style="color:#8fe3b0">🚫 노밴</b>${_nbStrip}</span>`:''}
       ${_banR?`<span style="margin-left:auto">${_banR}</span>`:''}
     </div>`:'';
   view().innerHTML=`
@@ -4117,7 +4115,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1784946780";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1784946932";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
