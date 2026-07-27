@@ -1,0 +1,34 @@
+name: Snapshot squad sheet for weekly AI eval
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-cloud-migration-0qtorl]
+    paths: ['.github/workflows/sheet-snapshot.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/project-cloud-migration-0qtorl
+
+      - name: Download full spreadsheet as xlsx
+        run: |
+          set -e
+          mkdir -p _data
+          curl -sSL -o _data/squad_sheet.xlsx "https://docs.google.com/spreadsheets/d/10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU/export?format=xlsx"
+          file _data/squad_sheet.xlsx
+          ls -la _data
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add _data
+          git commit -m "data: snapshot squad sheet for weekly AI eval"
+          git push origin claude/project-cloud-migration-0qtorl
