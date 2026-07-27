@@ -2478,6 +2478,7 @@ function go(route,arg){
   else if(route==='mastery')renderMastery(arg);
   else if(route==='tiers')renderTiers();
   else if(route==='ach')renderAchievements();
+  else if(route==='army')renderArmy();
   window.scrollTo(0,0);
 }
 // 공백 무시 + 소문자 정규화 (이름 중간 띄어쓰기가 불규칙해서 필수)
@@ -2864,6 +2865,46 @@ function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
 function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 
 /* ============== 화면: 내전 기록부 / 내전 횟수 ============== */
+/* ============== 화면: 🪖 군 전역일 계산기 (2026-07-27 사장님 지시) ============== */
+// 입대자 명단 — 여기에 한 줄씩 추가하면 됩니다. branch: 육군/해병대(18개월)·해군(20)·공군(21)·사회복무(21)
+const MIL_SERVICE=[
+  {name:"겨 울", branch:"육군", start:"2026-07-27"},
+];
+const MIL_MONTHS={"육군":18,"해병대":18,"해군":20,"공군":21,"사회복무":21};
+function renderArmy(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const cards=MIL_SERVICE.map(p=>{
+    const s=new Date(p.start+"T00:00:00");
+    const e=new Date(s); e.setMonth(e.getMonth()+(MIL_MONTHS[p.branch]||18)); e.setDate(e.getDate()-1);   // 전역일 = 입대일+복무개월-1일
+    const total=Math.round((e-s)/86400000)+1;
+    const served=Math.min(total,Math.max(0,Math.round((today-s)/86400000)+1));
+    const left=Math.max(0,Math.round((e-today)/86400000));
+    const pct=Math.max(0,Math.min(100,served/total*100));
+    const done=left<=0;
+    const dday=done?"🎉 전역 완료!":(served<=0?`입대 D-${Math.round((s-today)/86400000)}`:`전역까지 D-${left}`);
+    return `<div class="card" style="margin-top:14px">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <b style="font-size:17px;cursor:pointer" onclick="go('player','${escAttr(p.name)}')">${esc(p.name)}</b>
+        <span class="muted">🪖 ${esc(p.branch)}</span>
+        <span style="margin-left:auto;font-weight:800;color:${done?'var(--win)':'#f5d47a'}">${dday}</span>
+      </div>
+      <div style="margin-top:10px;background:rgba(255,255,255,.07);border-radius:9px;height:16px;overflow:hidden">
+        <div style="height:100%;width:${pct.toFixed(1)}%;background:linear-gradient(90deg,#4a7a3a,#7ab648);border-radius:9px"></div>
+      </div>
+      <div class="muted" style="display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;margin-top:7px">
+        <span>입대 ${esc(p.start)}</span><span>전역예정 ${fmt(e)}</span>
+        <span>복무 ${served}/${total}일 (${pct.toFixed(1)}%)</span>
+      </div>
+    </div>`;
+  }).join("");
+  view().innerHTML=`${navTabsHtml('army')}
+    <div class="card" style="margin-top:16px">
+      <h2>🪖 군 전역일 계산기 <span class="muted" style="font-size:13.5px">(국방의 의무 수행 중인 클랜원 — 무사 전역을 기원합니다)</span></h2>
+      <div class="muted" style="font-size:13px;margin-top:2px">전역하고 돌아오면 시트가 자리를 지키고 있을 거예요. 휴가 나오면 내전 한 판!</div>
+    </div>
+    ${cards||'<div class="card" style="margin-top:14px"><div class="muted">현재 복무 중인 클랜원이 없어요.</div></div>'}`;
+}
 function renderAchievements(){
   const byKey=new Map();
   for(const [nm] of PLAYERS){ for(const b of playerBadges(nm)){ (byKey.get(b.k)||byKey.set(b.k,[]).get(b.k)).push({name:nm,t:b.t}); } }
@@ -2890,7 +2931,7 @@ function renderAchievements(){
 }
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
-  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}</div>`;
+  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -3776,7 +3817,7 @@ function switchPatch(sel){
   //   (개별 선수/게임 상세는 해당 버전에 없을 수 있어 기존대로 홈 복귀)
   const _cur=(history.state&&history.state.route)||'home';
   const _arg=history.state?history.state.arg:null;
-  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','gpti','hof']);
+  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof']);
   go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
@@ -4196,7 +4237,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607271553";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607272331";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
