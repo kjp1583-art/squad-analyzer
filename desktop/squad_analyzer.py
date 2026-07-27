@@ -399,17 +399,23 @@ def broadcast_to_discord_webhook(content_text):
             msg_lines.append(str(content_text))
             msg_lines.append("```")
             try:   # 🚫🔚 [v82.41] 노밴·막판 선언 감지분을 결과 리포트에 부착 [2026-07-25 사장님 지시: 시작기록→결과리포트로 이동]
-                # [2026-07-27 사장님 지시] 노밴 없으면 '없음' 표기 + 챔피언별 진영(실제 픽한 팀) 병기
+                # [2026-07-27 사장님 지시] 노밴 없으면 '없음' 표기 + 챔피언별 '어느 팀의 누가 픽했는지' 병기.
+                #   [v82.47 버그수정] 로스터 dict엔 championId가 없어 항상 '미픽'으로 나오던 문제 —
+                #   챔프선택 확정픽 기록(global_lock_champ_map: puuid→championId)으로 실제 픽을 판정한다.
                 def _nb_side(cname):
+                    hits = []
                     try:
                         for _side_lbl, _pls in (("블루", _NB_TEAMS.get("blue")), ("레드", _NB_TEAMS.get("red"))):
                             for _pl in (_pls or []):
-                                try: _cid = int(_pl.get("championId") or 0)
+                                _pu9 = str(_pl.get("puuid") or "").strip().lower()
+                                try: _cid = int(_pl.get("championId") or 0) or int(global_lock_champ_map.get(_pu9) or 0)
                                 except Exception: _cid = 0
-                                if _cid and (global_champ_map.get(_cid) or {}).get("kor") == cname:
-                                    return _side_lbl
+                                _kor9 = (global_champ_map.get(_cid) or {}).get("kor") or GLOBAL_NUMERIC_CHAMP_MAP.get(_cid, "")
+                                if _cid and _kor9 == cname:
+                                    _nm9 = str(_pl.get("name") or "").split("#")[0].strip()
+                                    hits.append(f"{_side_lbl}·{_nm9}" if _nm9 else _side_lbl)
                     except Exception: pass
-                    return "미픽"
+                    return " / ".join(hits) if hits else "❌미픽"
                 if _NOBAN.get("decls"):
                     msg_lines.append("🚫 노밴: " + ", ".join(f"{c}({_nb_side(c)})" for c in _NOBAN["decls"]))
                 else:
