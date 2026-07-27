@@ -2,7 +2,7 @@ name: Analyzer build & release
 
 # desktop/ 소스를 Windows에서 PyInstaller로 빌드 → GitHub Release 게시 → version.txt 갱신.
 # 기존 PC 빌드와 동일하게 무서명. 비밀값은 GitHub Secrets에서 빌드 시점에만 생성.
-# 필요 Secrets: CREDENTIALS_JSON_B64, DISCORD_WEBHOOK_URL, PATCH_WEBHOOK_URL, DISCORD_IPC_CLIENT_ID
+# 필요 Secrets(2개): APP_SECRETS_B64 (app_secrets.py 전체 base64), CREDENTIALS_JSON_B64
 on:
   workflow_dispatch:
     inputs:
@@ -33,26 +33,16 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller==6.21.0
 
-      - name: Write credentials.json.json
+      - name: Write secret files
         shell: pwsh
         env:
           CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+          APP_SECRETS_B64: ${{ secrets.APP_SECRETS_B64 }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CREDENTIALS_JSON_B64)) { throw "CREDENTIALS_JSON_B64 secret missing" }
+          if ([string]::IsNullOrWhiteSpace($env:APP_SECRETS_B64)) { throw "APP_SECRETS_B64 secret missing" }
           [IO.File]::WriteAllBytes("$PWD/credentials.json.json", [Convert]::FromBase64String($env:CREDENTIALS_JSON_B64))
-
-      - name: Write app_secrets.py
-        shell: pwsh
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          PATCH_WEBHOOK_URL: ${{ secrets.PATCH_WEBHOOK_URL }}
-          DISCORD_IPC_CLIENT_ID: ${{ secrets.DISCORD_IPC_CLIENT_ID }}
-        run: |
-          @"
-          DISCORD_WEBHOOK_URL = "$env:DISCORD_WEBHOOK_URL"
-          PATCH_WEBHOOK_URL = "$env:PATCH_WEBHOOK_URL"
-          DISCORD_IPC_CLIENT_ID = "$env:DISCORD_IPC_CLIENT_ID"
-          "@ | Out-File -FilePath app_secrets.py -Encoding utf8
+          [IO.File]::WriteAllBytes("$PWD/app_secrets.py", [Convert]::FromBase64String($env:APP_SECRETS_B64))
 
       - name: Sync CURRENT_VERSION in source
         shell: pwsh
