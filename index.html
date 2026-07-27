@@ -978,6 +978,7 @@ let CANON_BY_PUUID = new Map();   // PUUID -> 최신 소환사명
 let NAME_TO_CANON  = new Map();   // norm(과거/현재 닉) -> 최신 소환사명
 let ALT_TO_MAIN    = new Map();   // 🎭 LINK_ACCOUNT 시트: norm(부계닉 #앞) -> 본계 이름 (부계 전적 통합, 2026-07-10)
 let TAGLESS_TO_CANON = new Map(); // norm(대표닉 #앞) -> 대표닉(태그 포함) — 본계 이름을 태그 없이 적어도 매칭되게
+let AMBIG_BASE = new Set();       // 🎭 동명이인(태그·PUUID 다른 동일 베이스닉) — 태그리스 매칭 금지 목록
 let CANON_TO_ALIASES = new Map(); // 최신 닉 -> [그 사람의 모든 닉...]
 let CHAMPMAP = {};       // 한글챔프명 -> {img}
 let DDVER = "";
@@ -1303,7 +1304,14 @@ function loadMitoWins(){
     setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
   });
 }
-function mitoStatOf(name){ return aliasLookup(MITO_WINS, name); }   // 🔁 닉변·부계 추적
+function mitoStatOf(name){   // 🔁 닉변·부계 추적 + [2026-07-28] 옛닉/부계로 나뉜 행 합산(예: 건빡, 언진)
+  let hit=null, wins=0, parts=0; const seen=new Set();
+  for(const k of aliasKeysOf(name)){
+    const v=MITO_WINS.get(k);
+    if(v&&!seen.has(v)){ seen.add(v); wins+=v.wins||0; parts+=v.parts||0; if(!hit)hit=v; }
+  }
+  return hit ? {name:hit.name, wins, parts} : null;
+}
 
 // 👻 고스트밴픽왕 구독자(GHOST 탭 — 봇이 승인/해지·주기마다 갱신) → 전적페이지 이름 옆 표시
 let GHOSTS=new Map();
@@ -1411,7 +1419,14 @@ function loadMyeol(){
     setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
   });
 }
-function myeolOf(name){ return aliasLookup(MYEOL, name)||null; }   // 🔁 닉변·부계 추적
+function myeolOf(name){   // 🔁 닉변·부계 추적 + [2026-07-28] 옛닉/부계로 나뉜 행 합산
+  let hit=null, wins=0; const seen=new Set();
+  for(const k of aliasKeysOf(name)){
+    const v=MYEOL.get(k);
+    if(v&&!seen.has(v)){ seen.add(v); wins+=v.wins||0; if(!hit)hit=v; }
+  }
+  return hit ? {name:hit.name, wins} : null;
+}
 function myeolChip(name){
   const e=myeolOf(name); if(!e) return '';
   return `<span title="스쿼드 멸망전(대규모 팀 대항전) 역대 우승 기록 — 디코 명예의전당 채널 집계" style="background:rgba(255,90,90,.10);border:1px solid rgba(255,90,90,.45);color:#ff9d9d;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">⚔️ 멸망전 우승 ${e.wins}회</span>`;
@@ -2065,6 +2080,19 @@ function buildIdentity(){
     const k=norm(String(c).split("#")[0]);
     if(k && !TAGLESS_TO_CANON.has(k)) TAGLESS_TO_CANON.set(k,c);
   }
+  // 🎭 [2026-07-28 사장님 지시] 동명이인 보호 — 베이스닉이 같고 태그·PUUID가 다른 두 사람
+  //   (예: 파 랑#66666[→하리도리#허거덩 닉변]과 파랑#갓파랑)의 부가데이터가 태그 뗀 키로 섞이던 문제.
+  //   서로 다른 대표닉 2명 이상이 공유하는 베이스닉은 태그리스 매칭에서 제외한다.
+  AMBIG_BASE=new Set();
+  {
+    const _owners=new Map();
+    for(const [c,als] of CANON_TO_ALIASES){
+      const bases=new Set([norm(String(c).split("#")[0])]);
+      for(const a of als) bases.add(norm(String(a).split("#")[0]));
+      for(const b of bases){ if(!b)continue; if(!_owners.has(b))_owners.set(b,new Set()); _owners.get(b).add(c); }
+    }
+    for(const [b,s] of _owners) if(s.size>1){ AMBIG_BASE.add(b); TAGLESS_TO_CANON.delete(b); }
+  }
 }
 // 🎭 부계닉 → 본계 대표닉 (LINK_ACCOUNT). 미등록이면 그대로. 본계 이름은 태그 유무 무관 매칭.
 function resolveAlt(nm){
@@ -2088,7 +2116,9 @@ function canonOfName(name){
 //   현재닉/과거닉/부계닉 어느 쪽으로 저장돼 있어도 찾아준다. ★새 닉네임 키 데이터는 반드시 이걸로 조회할 것.
 function aliasKeysOf(name){
   const out=new Set();
-  const add=n=>{ if(n==null)return; out.add(tnorm(n)); out.add(tnorm(String(n).split("#")[0])); };
+  const add=n=>{ if(n==null)return; out.add(tnorm(n));
+    const b=tnorm(String(n).split("#")[0]);
+    if(!AMBIG_BASE.has(b)) out.add(b); };   // 🎭 동명이인 베이스닉은 태그리스 매칭 제외
   add(name);
   const cn=canonOfName(name); add(cn);
   const al=CANON_TO_ALIASES.get(cn); if(al) for(const a of al) add(a);
@@ -2137,6 +2167,27 @@ function build(){
     g.rows.push(r);
     if(r["날짜"])g.date=r["날짜"];
     if(r["패치버전"])g.patch=r["패치버전"];
+  }
+  // 🎯 [2026-07-28 사장님 지시] 챔피언 표기 통일 — '자르반4세'/'자르반 4세' 같은 띄어쓰기 변형이
+  //   장인랭킹·챔피언티어에 딴 챔프처럼 두 줄로 나오던 문제. 공백 제거 키로 묶어 최다 표기를 대표로 치환.
+  {
+    const _cCnt=new Map();
+    for(const g of GAMES.values()) for(const r of g.rows){
+      for(const f of ["챔피언","밴"]){
+        const v=r[f]; if(!v||v==="?")continue; if(f==="밴"&&!validBan(v))continue;
+        const k=String(v).replace(/\s+/g,"");
+        let e=_cCnt.get(k); if(!e){e=new Map();_cCnt.set(k,e);}
+        e.set(v,(e.get(v)||0)+1);
+      }
+    }
+    const _cCanon=new Map();
+    for(const [k,e] of _cCnt){ let best="",n=-1; for(const [v,c] of e) if(c>n){best=v;n=c;} _cCanon.set(k,best); }
+    for(const g of GAMES.values()) for(const r of g.rows){
+      for(const f of ["챔피언","밴"]){
+        const v=r[f]; if(!v)continue;
+        const b=_cCanon.get(String(v).replace(/\s+/g,"")); if(b&&b!==v)r[f]=b;
+      }
+    }
   }
   // 팀별 결과/밴 정리
   for(const g of GAMES.values()){
@@ -4145,7 +4196,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607271049";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607271553";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
