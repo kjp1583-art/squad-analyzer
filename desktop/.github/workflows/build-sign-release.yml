@@ -1,0 +1,150 @@
+name: Build, Sign & Release
+
+# PyInstaller onefile exe 를 Windows에서 빌드 → SignPath Foundation(무료 OSS 서명)으로
+# Authenticode 서명 → 자동 업데이터가 받는 GitHub Release 에 서명된 exe 를 게시한다.
+#
+# 트리거: vNN.NN 형식 태그 푸시(예: v81.23) 또는 수동(workflow_dispatch).
+# 사전 준비(1회): 아래 GitHub Secrets 등록 + SignPath 포털에서 프로젝트/정책 생성.
+#   Secrets: CREDENTIALS_JSON_B64, DISCORD_WEBHOOK_URL, PATCH_WEBHOOK_URL,
+#            DISCORD_IPC_CLIENT_ID, SIGNPATH_API_TOKEN, SIGNPATH_ORGANIZATION_ID
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '버전 (예: 81.23). 비우면 태그명에서 추출.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # Release 생성/업데이트 + version.txt 커밋
+
+jobs:
+  build-sign-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller==6.21.0
+
+      # ---- 비밀값을 GitHub Secrets에서 빌드시 생성 (git에는 없음) ----
+      - name: Write credentials.json.json (service account)
+        shell: pwsh
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+        run: |
+          [IO.File]::WriteAllBytes("credentials.json.json", [Convert]::FromBase64String($env:CREDENTIALS_JSON_B64))
+
+      - name: Write app_secrets.py (webhooks / ipc id)
+        shell: pwsh
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PATCH_WEBHOOK_URL: ${{ secrets.PATCH_WEBHOOK_URL }}
+          DISCORD_IPC_CLIENT_ID: ${{ secrets.DISCORD_IPC_CLIENT_ID }}
+        run: |
+          @"
+          DISCORD_WEBHOOK_URL = "$env:DISCORD_WEBHOOK_URL"
+          PATCH_WEBHOOK_URL = "$env:PATCH_WEBHOOK_URL"
+          DISCORD_IPC_CLIENT_ID = "$env:DISCORD_IPC_CLIENT_ID"
+          "@ | Out-File -FilePath app_secrets.py -Encoding utf8
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = "${{ github.event.inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($v)) { $v = "${{ github.ref_name }}" -replace '^v','' }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Building version $v"
+
+      # CURRENT_VERSION(소스)을 태그값과 동기화 → exe 버전과 version.txt 불일치(자동업데이트 루프) 방지
+      - name: Sync CURRENT_VERSION in source
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          (Get-Content squad_analyzer.py -Raw) -replace 'CURRENT_VERSION = "[^"]*"', "CURRENT_VERSION = `"$v`"" |
+            Set-Content squad_analyzer.py -Encoding utf8
+
+      - name: Build with PyInstaller
+        run: pyinstaller --clean --noconfirm squad_analyzer.spec
+
+      - name: Verify build output
+        shell: pwsh
+        run: if (-not (Test-Path "dist/squad_analyzer.exe")) { throw "dist/squad_analyzer.exe not found" }
+
+      # ---- SignPath 서명: 먼저 워크플로 아티팩트로 업로드(필수) ----
+      - name: Upload unsigned artifact
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: squad_analyzer-unsigned
+          path: dist/squad_analyzer.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: 'squad-analyzer'
+          signing-policy-slug: 'release-signing'
+          # artifact-configuration-slug: 'initial'   # 포털에서 별도 이름 만들었으면 주석 해제
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: 'signed'
+
+      - name: Verify signature
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "signed/squad_analyzer.exe")) { throw "signed exe missing" }
+          Get-AuthenticodeSignature "signed/squad_analyzer.exe" | Format-List Status, SignerCertificate
+
+      # ---- 서명된 exe 를 자동업데이터가 받는 Release 자산으로 게시 ----
+      - name: Stage release assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item "signed/squad_analyzer.exe" "release/squad_analyzer.exe"
+          Compress-Archive -Path "signed/squad_analyzer.exe" -DestinationPath "release/squad_analyzer.zip" -Force
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', steps.ver.outputs.version) }}
+          name: v${{ steps.ver.outputs.version }}
+          body: |
+            서명된 빌드 (SignPath Foundation, 무료 OSS 코드서명).
+          files: |
+            release/squad_analyzer.exe
+            release/squad_analyzer.zip
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---- version.txt(자동업데이터 VERSION_URL)를 main에 갱신 ----
+      - name: Bump version.txt on main
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          "${{ steps.ver.outputs.version }}" | Out-File -FilePath version.txt -Encoding ascii -NoNewline
+          git add version.txt
+          $changed = -not (git diff --cached --quiet; $?)
+          if (git status --porcelain version.txt) {
+            git commit -m "ci: bump version.txt to ${{ steps.ver.outputs.version }}"
+            git push origin main
+          } else { Write-Host "version.txt unchanged" }
