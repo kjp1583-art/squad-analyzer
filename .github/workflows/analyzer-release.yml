@@ -60,12 +60,13 @@ jobs:
       - name: Stage release assets
         shell: pwsh
         run: |
-          if (-not (Test-Path "dist/squad_analyzer.exe")) { throw "dist/squad_analyzer.exe not found" }
+          # onedir 빌드(spec 기준): dist/squad_analyzer/ 에 exe + _internal — 자동업데이터가 기대하는 구조 그대로 zip
+          if (-not (Test-Path "dist/squad_analyzer/squad_analyzer.exe")) { throw "dist/squad_analyzer/squad_analyzer.exe not found" }
+          if (-not (Test-Path "dist/squad_analyzer/_internal")) { throw "_internal folder not found" }
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Copy-Item "dist/squad_analyzer.exe" "release/squad_analyzer.exe"
-          Compress-Archive -Path "dist/squad_analyzer.exe" -DestinationPath "release/squad_analyzer.zip" -Force
-          $h = (Get-FileHash "release/squad_analyzer.exe" -Algorithm SHA256).Hash
-          "SHA256: $h" | Out-File -FilePath release/notes.txt -Encoding utf8
+          Compress-Archive -Path "dist/squad_analyzer" -DestinationPath "release/squad_analyzer.zip" -Force
+          $h = (Get-FileHash "release/squad_analyzer.zip" -Algorithm SHA256).Hash
+          "SHA256(zip): $h" | Out-File -FilePath release/notes.txt -Encoding utf8
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -74,7 +75,6 @@ jobs:
           name: v${{ github.event.inputs.version }}
           body_path: desktop/release/notes.txt
           files: |
-            desktop/release/squad_analyzer.exe
             desktop/release/squad_analyzer.zip
           fail_on_unmatched_files: true
         env:
