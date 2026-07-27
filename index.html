@@ -1855,7 +1855,23 @@ function renderGPTI(){
     </div>
     <div class="muted" style="font-size:13px;margin:2px 0 8px">${rich?`분석된 클랜원 <b>${total}명</b>을 16가지 성향유형으로 분류했어요 · 내전 실경기 스탯(킬관여·시야·딜·골드) 기반, 포지션별 상대값`:"현재 KDA 2축 기준(리치스탯 보강 시 4축 16유형으로 확장)"}</div>
     <div class="gpti-dexgrid">${types.map(card).join("")}</div>
+    ${gptiHypothesisHtml()}
     ${mbtiDexHtml()}`;
+}
+// 🔬 MBTI × GPTI 상관 가설 카드 (2026-07-27 실측 — 표본 33명, 재검정 전까지 '가설' 딱지)
+function gptiHypothesisHtml(){
+  return `<div class="card" style="margin-top:14px;background:rgba(255,200,60,.05);border:1px solid rgba(255,200,60,.3)">
+    <h2 style="display:flex;align-items:center;gap:8px">🔬 가설 실험실 <span style="background:rgba(255,200,60,.18);border:1px solid rgba(255,200,60,.5);color:#ffd75e;font-size:11.5px;font-weight:800;padding:2px 9px;border-radius:8px">가설 단계</span></h2>
+    <div style="font-size:13.5px;line-height:1.7;margin-top:6px">
+      클랜원의 <b>MBTI(디코 역할)</b>와 <b>GPTI(게임 성향)</b>를 교차 분석해봤어요 (교집합 33명 · 2026-07 실측):<br>
+      <div style="margin:8px 0;padding:9px 12px;background:rgba(255,255,255,.04);border-radius:10px">
+        📌 <b>계획형(J)일수록 게임에서도 '계산(A)' 성향</b> — 데스를 아끼고 시야를 챙기는 플레이 (상관 −0.36)<br>
+        <span class="muted" style="font-size:12px">즉흥형(P)은 '본능(I)' 쪽 — 성격의 계획성이 협곡에서도 이어진다는 가설</span>
+      </div>
+      <span class="muted" style="font-size:12px">참고: 외향/내향(E/I)은 게임 스타일과 거의 무관했어요. 표본이 작아 확정이 아닌 <b>가설</b>입니다 —
+      MBTI 역할을 다는 클랜원이 늘면 재검정해서 승격/기각할게요. 🧪</span>
+    </div>
+  </div>`;
 }
 // 🧠 MBTI 도감 — 디코 MBTI 역할 매칭 유저 분포 (성향유형 도감 하단)
 const _MBTI_ALL16=["INTJ","INTP","ENTJ","ENTP","INFJ","INFP","ENFJ","ENFP","ISTJ","ISFJ","ESTJ","ESFJ","ISTP","ISFP","ESTP","ESFP"];
@@ -4129,7 +4145,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="1785114366";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="1785114946";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
