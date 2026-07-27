@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.46"
+CURRENT_VERSION = "82.47"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1911,6 +1911,11 @@ _DRAFT_BAN_RULES = (
     "- [상대 팀원들의 내전 챔프폭]이 주어지면 그것이 1페이즈 밴의 최우선 근거다. 판수 많고 승률 높은\n"
     "  '그 사람의 밥줄 챔프'를 자르면 상대는 숙련 없는 2번째 카드를 꺼내야 한다.\n"
     "- 단, 판수가 적은 고승률(3판 100% 등)은 우연이니 밴 근거로 쓰지 마라. 판수 5판 이상을 우선하라.\n"
+    "- ★선픽 위험군: 챔프폭에서 **판수 비중이 크고 승률도 높은** 챔프는 매치업을 안 가리고 꺼내는 '선픽 카드'다.\n"
+    "  1페이즈 밴에서 같은 값이면 이쪽을 우선하라(어차피 나올 확률이 가장 높은 픽이 가장 값진 밴이다).\n"
+    "- ★[이번 판 포지션]이 표기된 상대는 **그 포지션 전적이 붙은 챔프만** 1순위 후보로 보라. 다른 포지션\n"
+    "  전용 챔프(예: 이번 판 정글인 사람의 서폿 장인픽)는 이번 판에 나올 수 없으니 밴 후보에서 제외하거나\n"
+    "  맨 뒤로 미뤄라.\n"
     "- 우리 팀원이 잘 쓰는 챔프를 밴하지 마라(자책 밴).\n"
     "- ⚔️[우리 팀이 실제로 약했던 상대 픽]이 주어지면, 그 픽은 '우리 팀원을 직접 무너뜨린 전적'이 있는 밴 후보다.\n"
     "  단 표본이 4~10판으로 작으니 단독 근거로 1순위에 올리지 말고, 상대가 실제로 뽑을 챔프일 때만 쓰라.\n"
@@ -2430,6 +2435,44 @@ def _draft_coach_tick(s_json, headers, base_url):
                             if ep: _hdr3 += f" [이번 판 포지션: {ep}]"
                             enemy_pools.append((_hdr3, _parts))
                 except Exception: pass
+        # 🛟 [v82.47 사장님 지시] 토너먼트 드래프트: 챔프선택 세션 theirTeam이 익명(퍼uid 없음)이라
+        #    상대 명단이 통째로 비어 "상대 전적 없음" 티어리스트 밴만 나가던 문제 — UI가 동결해 둔
+        #    로비 로스터(gui_data blue/red: 퍼uid + 이번 판 포지션)로 폴백. RayB 정글인데 서폿 밴 추천
+        #    같은 포지션 무시 추천도 같은 뿌리(포지션 미전달)라 여기서 함께 해결된다.
+        if not enemy_pus and my_pu:
+            try:
+                with gui_lock:
+                    _fb_b = [dict(p) for p, _s in (gui_data.get("blue") or [])]
+                    _fb_r = [dict(p) for p, _s in (gui_data.get("red") or [])]
+                _pus_b = [str(p.get("puuid") or "").strip().lower() for p in _fb_b]
+                _pus_r = [str(p.get("puuid") or "").strip().lower() for p in _fb_r]
+                _en_fb = _fb_r if my_pu in _pus_b else _fb_b if my_pu in _pus_r else []
+                for _p5 in _en_fb:
+                    _pu = str(_p5.get("puuid") or "").strip().lower()
+                    if not _pu or _pu.startswith(("bot_", "temp")): continue
+                    _ep5 = POSITION_TRANSLATE_KOR.get(str(_p5.get("chosen_pos_icon") or "").upper(), "")
+                    enemy_pus.append(_pu)
+                    if _ep5 and my_pos != "선택안함" and _ep5 == my_pos and not lane_enemy_pu:
+                        lane_enemy_pu = _pu
+                    if mode == "ban":
+                        try:
+                            _cl = _pool_by_puuid(_pu)
+                            if _cl:
+                                _cp3 = (((_cidx or {}).get("by_pu") or {}).get(_pu) or {}).get("chpos") or {}
+                                _parts = []
+                                for _t4 in _cl:
+                                    c3, g3, w3 = _t4[0], _t4[1], _t4[2]
+                                    _d3 = _cp3.get(c3) or {}
+                                    _mp3 = max(_d3.items(), key=lambda x: x[1])[0] if _d3 else ""
+                                    _parts.append(f"{c3}({g3}판 {round(w3 / g3 * 100) if g3 else 0}%"
+                                                  + (f"·{_mp3}전적" if _mp3 else "") + ")")
+                                _hdr3 = (_cl[0][3] if len(_cl[0]) > 3 else "") or "상대"
+                                if _ep5: _hdr3 += f" [이번 판 포지션: {_ep5}]"
+                                enemy_pools.append((_hdr3, _parts))
+                        except Exception: pass
+                if enemy_pus:
+                    print(f"[ghost] 세션 상대정보 없음 → 동결 로비 로스터 폴백({len(enemy_pus)}명)", flush=True)
+            except Exception: pass
         # 🧠 [v82.29] 내전 특화 컨텍스트 — 양팀 전원의 클랜 챔프폭 + 나와의 맞대결/합 전적
         clan_ally, clan_enemy, h2h_txt, syn_lines = [], [], "", []
         bp_lines = []   # [v82.32] 견제 압력 — 클랜이 실제로 밴해온 '진짜 무서운 픽'
