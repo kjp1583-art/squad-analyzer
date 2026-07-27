@@ -41,8 +41,11 @@ jobs:
         run: |
           if ([string]::IsNullOrWhiteSpace($env:CREDENTIALS_JSON_B64)) { throw "CREDENTIALS_JSON_B64 secret missing" }
           if ([string]::IsNullOrWhiteSpace($env:APP_SECRETS_B64)) { throw "APP_SECRETS_B64 secret missing" }
-          [IO.File]::WriteAllBytes("$PWD/credentials.json.json", [Convert]::FromBase64String($env:CREDENTIALS_JSON_B64))
-          [IO.File]::WriteAllBytes("$PWD/app_secrets.py", [Convert]::FromBase64String($env:APP_SECRETS_B64))
+          # 붙여넣기 중 섞인 공백·줄바꿈 제거 후 디코드 (등록 실수 방어)
+          $cred = ($env:CREDENTIALS_JSON_B64 -replace '\s','')
+          $apps = ($env:APP_SECRETS_B64 -replace '\s','')
+          [IO.File]::WriteAllBytes("$PWD/credentials.json.json", [Convert]::FromBase64String($cred))
+          [IO.File]::WriteAllBytes("$PWD/app_secrets.py", [Convert]::FromBase64String($apps))
 
       - name: Sync CURRENT_VERSION in source
         shell: pwsh
