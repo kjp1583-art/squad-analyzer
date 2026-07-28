@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.49"
+CURRENT_VERSION = "82.50"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1221,7 +1221,15 @@ for _t, _names in TIER_DATA.items():
     for _nm in _names: TIER_OF[tnorm(_nm)] = _t
 for _nm, _t in TIER_NICK.items(): TIER_OF[tnorm(_nm)] = _t
 def tier_of(name):
-    return TIER_OF.get(tnorm(name))
+    t = TIER_OF.get(tnorm(name))
+    if t: return t
+    # 🔗 [v82.50] 부계정 이름으로 조회된 경우 본계정 티어로 폴백(웹 tierOf와 동일 규칙).
+    #    CLAN_TIERS에서 부계정 행을 지워도 과거 기록(부계정 닉으로 남은 행)이 티어 미보유로 떨어지지 않게 한다.
+    try:
+        mn = get_main_name(name)
+        if mn and tnorm(mn) != tnorm(name): return TIER_OF.get(tnorm(mn))
+    except Exception: pass
+    return None
 
 # ===== 내부티어 SSOT (CLAN_TIERS 시트) =====
 def load_clan_tiers():
@@ -3262,6 +3270,23 @@ def _load_solo_ranks():
                 out[k]["cur"] = cur                       # 현시즌 원값 보존(뱃지 등 현시즌 판단용)
             else:
                 out[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}   # 과거만 보유(솔랭 쉬는 클랜원)
+    except Exception: pass
+    # 🔗 [v82.50 사장님 제보 — 귤갓 십이귀월 누락] 부계정 통합(LINK_ACCOUNT) 반영.
+    #    웹(index.html)은 SOLO_RANK 조회 시 LINK_ACCOUNT 별칭 후보까지 훑어 본계·부계 중 데이터가 있는 쪽을 쓰는데,
+    #    분석기는 PUUID 닉변 별칭만 봐서 '계정 이전 통합' 케이스(예: 귤 갓 ← 귤갓입니다)의 솔랭·PEAK를 못 찾았다.
+    #    → 웹과 같은 판단이 되도록, 통합 그룹 안에서 현시즌 데이터가 있는 엔트리를 그룹 전원에게 공유한다.
+    try:
+        groups = {}
+        for _sub, _main in (global_alt_map or {}).items():
+            g = groups.setdefault(tnorm(_main), {tnorm(_main)})
+            g.add(tnorm(_sub))
+        for _mk, keys in groups.items():
+            cands = [out[k] for k in keys if k in out]
+            if not cands: continue
+            # 현시즌 전적(승+패)이 있는 엔트리 우선 → 없으면 점수 최고값
+            best = max(cands, key=lambda d: ((d.get("wins", 0) + d.get("losses", 0)) > 0, d.get("score") or -1e9))
+            for k in keys:
+                if out.get(k) is not best: out[k] = dict(best)
     except Exception: pass
     return out
 
