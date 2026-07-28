@@ -3263,6 +3263,23 @@ def _load_solo_ranks():
             else:
                 out[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}   # 과거만 보유(솔랭 쉬는 클랜원)
     except Exception: pass
+    # 🔗 [v82.50 사장님 제보 — 귤갓 십이귀월 누락] 부계정 통합(LINK_ACCOUNT) 반영.
+    #    웹(index.html)은 SOLO_RANK 조회 시 LINK_ACCOUNT 별칭 후보까지 훑어 본계·부계 중 데이터가 있는 쪽을 쓰는데,
+    #    분석기는 PUUID 닉변 별칭만 봐서 '계정 이전 통합' 케이스(예: 귤 갓 ← 귤갓입니다)의 솔랭·PEAK를 못 찾았다.
+    #    → 웹과 같은 판단이 되도록, 통합 그룹 안에서 현시즌 데이터가 있는 엔트리를 그룹 전원에게 공유한다.
+    try:
+        groups = {}
+        for _sub, _main in (global_alt_map or {}).items():
+            g = groups.setdefault(tnorm(_main), {tnorm(_main)})
+            g.add(tnorm(_sub))
+        for _mk, keys in groups.items():
+            cands = [out[k] for k in keys if k in out]
+            if not cands: continue
+            # 현시즌 전적(승+패)이 있는 엔트리 우선 → 없으면 점수 최고값
+            best = max(cands, key=lambda d: ((d.get("wins", 0) + d.get("losses", 0)) > 0, d.get("score") or -1e9))
+            for k in keys:
+                if out.get(k) is not best: out[k] = dict(best)
+    except Exception: pass
     return out
 
 def save_prev_seasons():
