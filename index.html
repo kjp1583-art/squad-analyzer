@@ -2896,7 +2896,7 @@ function renderArmy(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <b style="font-size:17px;cursor:pointer" onclick="go('player','${escAttr(p.name)}')">${esc(p.name)}</b>
         <span style="display:inline-flex;align-items:center;background:rgba(245,212,122,.10);border:1px solid rgba(245,212,122,.4);color:#f5d47a;font-weight:800;font-size:12.5px;padding:3px 9px;border-radius:9px">${bars}${rank.n}</span>
-        <span class="muted">🪖 ${esc(p.branch||"군 복무")}</span>
+
         <span style="margin-left:auto;font-weight:800;color:${done?'var(--win)':'#f5d47a'}">${dday}</span>
       </div>
       <div style="margin-top:10px;background:rgba(255,255,255,.07);border-radius:9px;height:16px;overflow:hidden">
@@ -2906,6 +2906,7 @@ function renderArmy(){
         <span>입대 ${esc(p.start)}</span><span>전역예정 ${fmt(e)}</span>
         <span>복무 ${served}/${total}일 (${pct.toFixed(1)}%)</span>
       </div>
+      ${done?'':`<div style="font-size:12.5px;margin-top:6px;color:#9db8ff">⚔️ 전역까지 롤 패치 약 <b>${Math.ceil(left/14)}번</b> 남음 — 돌아올 땐 완전히 다른 게임일지도?</div>`}
     </div>`;
   }).join("");
   view().innerHTML=`${navTabsHtml('army')}
@@ -4247,7 +4248,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280008";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
