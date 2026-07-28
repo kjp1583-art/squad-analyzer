@@ -1221,7 +1221,15 @@ for _t, _names in TIER_DATA.items():
     for _nm in _names: TIER_OF[tnorm(_nm)] = _t
 for _nm, _t in TIER_NICK.items(): TIER_OF[tnorm(_nm)] = _t
 def tier_of(name):
-    return TIER_OF.get(tnorm(name))
+    t = TIER_OF.get(tnorm(name))
+    if t: return t
+    # 🔗 [v82.50] 부계정 이름으로 조회된 경우 본계정 티어로 폴백(웹 tierOf와 동일 규칙).
+    #    CLAN_TIERS에서 부계정 행을 지워도 과거 기록(부계정 닉으로 남은 행)이 티어 미보유로 떨어지지 않게 한다.
+    try:
+        mn = get_main_name(name)
+        if mn and tnorm(mn) != tnorm(name): return TIER_OF.get(tnorm(mn))
+    except Exception: pass
+    return None
 
 # ===== 내부티어 SSOT (CLAN_TIERS 시트) =====
 def load_clan_tiers():
