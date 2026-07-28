@@ -327,7 +327,18 @@ def push_grudge(path):
     open("creds.json", "wb").write(base64.b64decode(raw))
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
-    ss = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)).open_by_key(SHEET_ID)
+    # 시트 API는 분당 읽기 쿼터가 있어 429가 흔하다 — 지수 백오프로 재시도(실패 시 탭은 그대로 보존).
+    import time as _t
+    ss = None
+    for _try in range(4):
+        try:
+            ss = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)).open_by_key(SHEET_ID)
+            break
+        except Exception as e:
+            if _try == 3: raise
+            wait = 20 * (2 ** _try)
+            print(f"[grudge] 시트 연결 실패({type(e).__name__}) — {wait}s 후 재시도", flush=True)
+            _t.sleep(wait)
 
     rows = [["닉네임", "티어", "억울지수", "상위승률", "상위판수", "하위승률", "하위판수", "갱신"]]
     stamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M")
