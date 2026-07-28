@@ -2776,11 +2776,28 @@ def update_solo_ranks():
                         rk.get("wins",0), rk.get("losses",0), rk["score"],
                         time.strftime("%Y-%m-%d %H:%M")])
         time.sleep(1.3)   # rate limit
+    # 🛡️ [v82.48 사장님 제보 — 시트 전멸 사고 방지] 예전엔 조회 결과와 무관하게 clear+덮어쓰기라,
+    #    Riot API 키 만료·네트워크 실패로 전건 조회가 실패하면 SOLO_RANK가 헤더만 남고 통째로 비워졌다.
+    #    ① 수집 0건이면 아예 쓰지 않음 ② 기존 대비 절반 미만으로 급감해도 보류(부분 실패 보호).
     try:
         try: ws = global_spreadsheet.worksheet("SOLO_RANK")
         except Exception: ws = global_spreadsheet.add_worksheet(title="SOLO_RANK", rows="400", cols="7")
+        _new_n = len(out) - 1
+        if _new_n <= 0:
+            print("[solo] 수집 0건 — 기존 SOLO_RANK 보존(덮어쓰기 취소). Riot API 키 만료 여부 확인 필요", flush=True)
+            return
+        try:
+            _prev_n = max(0, len([r for r in (get_sheet_data_cached(ws, force=True) or [])[1:] if r and str(r[0]).strip()]))
+        except Exception:
+            _prev_n = 0
+        if _prev_n >= 10 and _new_n < _prev_n * 0.5:
+            print(f"[solo] 수집 급감({_prev_n}→{_new_n}) — 부분 실패로 보고 덮어쓰기 보류", flush=True)
+            return
         ws.clear(); ws.update(out)
-    except Exception: pass
+        invalidate_sheet_cache("SOLO_RANK")
+        print(f"[solo] SOLO_RANK 갱신 {_new_n}명", flush=True)
+    except Exception as _se:
+        print(f"[solo] SOLO_RANK 기록 실패: {type(_se).__name__}", flush=True)
 
 def solo_rank_engine():
     """시작 90초 후 + 12시간마다 솔랭 갱신(키 없으면 no-op)."""
