@@ -2898,7 +2898,12 @@ function renderArmy(){
     const rank=done?{n:"예비역",b:0}:served<=0?{n:"입영 대기",b:0}
       :p.nco?(mo<48?{n:"하사",b:1}:mo<132?{n:"중사",b:2}:mo<228?{n:"상사",b:3}:{n:"원사",b:4})   // 부사관 연차 근사
       :mo<2?{n:"이병",b:1}:mo<8?{n:"일병",b:2}:mo<14?{n:"상병",b:3}:{n:"병장",b:4};
-    const bars=rank.b?`<span title="${rank.n}" style="display:inline-flex;flex-direction:column-reverse;gap:2px;vertical-align:middle;margin-right:4px">${'<span style="display:block;width:22px;height:4px;background:#f5d47a;border-radius:1px"></span>'.repeat(rank.b)}</span>`:"";
+    // 부사관은 갈매기(∨) 계급장, 병사는 작대기 — 원사는 갈매기 3개+별
+    const _chev='<svg width="20" height="7" viewBox="0 0 20 7" style="display:block"><path d="M2 1 L10 6 L18 1" fill="none" stroke="#f5d47a" stroke-width="2.6" stroke-linecap="round"/></svg>';
+    const _bar='<span style="display:block;width:22px;height:4px;background:#f5d47a;border-radius:1px"></span>';
+    const bars=rank.b?`<span title="${rank.n}" style="display:inline-flex;flex-direction:column-reverse;gap:2px;vertical-align:middle;margin-right:4px;align-items:center">${
+      p.nco?(_chev.repeat(Math.min(rank.b,3))+(rank.b>=4?'<span style="font-size:10px;color:#f5d47a;line-height:1">★</span>':'')):_bar.repeat(rank.b)
+    }</span>`:"";
     return `<div class="card" style="margin-top:14px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <b style="font-size:17px;cursor:pointer" onclick="go('player','${escAttr(p.name)}')">${esc(p.name)}</b>
@@ -4271,7 +4276,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280053";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280212";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
