@@ -1,0 +1,89 @@
+name: Patch note
+
+# 분석기·웹·봇 전반의 변경을 하나의 패치노트로 묶어 디스코드 패치노트 채널에 발송한다.
+# (기존엔 분석기 릴리스 노트만 나갔음 — 2026-07-28 사장님 지시로 3개 시스템 통합)
+#
+# 📝 작성 원칙: 클랜원 누구나 읽고 바로 이해할 수 있게.
+#   · 무엇이 달라졌는지 + 그래서 뭐가 좋아지는지, 한 줄에 하나씩
+#   · 파일명·함수명·API 이름 금지. "SOLO_RANK 폴백 로직 수정" ❌ → "솔랭 기록이 안 잡히던 문제 해결" ⭕
+#   · 버전 번호는 헤더에만. 본문에 숫자 나열 금지
+#   · 바뀐 게 없는 항목은 비워두면 그 칸이 아예 안 나감
+on:
+  workflow_dispatch:
+    inputs:
+      analyzer_version:
+        description: '분석기 버전 (예: 82.51 — 분석기 변경 없으면 비움)'
+        required: false
+        default: ''
+      analyzer:
+        description: '분석기 변경 (줄바꿈으로 여러 줄)'
+        required: false
+        default: ''
+      web:
+        description: '웹(squad.gg) 변경'
+        required: false
+        default: ''
+      bot:
+        description: '봇(내전봇) 변경'
+        required: false
+        default: ''
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post patch note
+        env:
+          APP_SECRETS_B64: ${{ secrets.APP_SECRETS_B64 }}
+          IN_VER: ${{ inputs.analyzer_version }}
+          IN_ANALYZER: ${{ inputs.analyzer }}
+          IN_WEB: ${{ inputs.web }}
+          IN_BOT: ${{ inputs.bot }}
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, re, urllib.request, datetime
+
+          raw = os.environ.get("APP_SECRETS_B64", "")
+          if not raw:
+              raise SystemExit("APP_SECRETS_B64 secret missing")
+          src = base64.b64decode(re.sub(r"\s", "", raw)).decode("utf-8", "replace")
+          m = re.search(r'^\s*PATCH_WEBHOOK_URL\s*=\s*["\']([^"\']+)["\']', src, re.M)
+          if not m:
+              raise SystemExit("app_secrets.py에 PATCH_WEBHOOK_URL 없음")
+          url = m.group(1)
+
+          def clean(s):
+              # 줄머리 불릿을 통일하고 빈 줄 제거
+              out = []
+              for line in (s or "").splitlines():
+                  t = line.strip().lstrip("-·*").strip()
+                  if t: out.append("· " + t)
+              return "\n".join(out)
+
+          ver = (os.environ.get("IN_VER") or "").strip().lstrip("vV")
+          fields = []
+          a = clean(os.environ.get("IN_ANALYZER"))
+          if a: fields.append({"name": f"🖥️ 분석기{f' (v{ver})' if ver else ''}", "value": a[:1024], "inline": False})
+          w = clean(os.environ.get("IN_WEB"))
+          if w: fields.append({"name": "🌐 웹 (squad.gg)", "value": w[:1024], "inline": False})
+          b = clean(os.environ.get("IN_BOT"))
+          if b: fields.append({"name": "🤖 내전봇", "value": b[:1024], "inline": False})
+          if not fields:
+              raise SystemExit("보낼 내용이 없습니다 — 최소 한 칸은 채워주세요")
+
+          today = (datetime.datetime.utcnow() + datetime.timedelta(hours=9)).strftime("%Y-%m-%d")
+          foot = []
+          if a: foot.append("분석기는 껐다 켜면 자동 업데이트돼요")
+          if w: foot.append("웹은 새로고침하면 바로 적용")
+          if b: foot.append("봇은 따로 하실 것 없어요")
+
+          payload = {"content": "🔔 　**스쿼드 업데이트 안내**",
+                     "embeds": [{"title": f"📋 {today} 패치노트", "color": 0x5A9BD5,
+                                 "fields": fields, "footer": {"text": " · ".join(foot)}}]}
+          req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
+                                       headers={"Content-Type": "application/json", "User-Agent": "squad-ci"})
+          with urllib.request.urlopen(req, timeout=20) as r:
+              print("발송 완료:", r.status)
+          PY
