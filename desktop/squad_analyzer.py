@@ -2800,8 +2800,18 @@ def update_solo_ranks():
         print(f"[solo] SOLO_RANK 기록 실패: {type(_se).__name__}", flush=True)
 
 def solo_rank_engine():
-    """시작 90초 후 + 12시간마다 솔랭 갱신(키 없으면 no-op)."""
+    """시작 90초 후 + 12시간마다 솔랭 갱신(키 없으면 no-op).
+       🛡️ [v82.48] 갱신 대상은 gui_data['hof_classic'] 집계에서 뽑는데, 시작 직후엔 아직 비어 있을 수 있다.
+          예전엔 그 상태로 돌면 대상 0명 → 시트를 헤더만 남기고 비우는 사고가 났다(위 가드로 이중 방어).
+          여기서는 집계가 준비될 때까지 최대 10분 대기 후 시작한다."""
     time.sleep(90)
+    for _ in range(60):
+        try:
+            with gui_lock:
+                _ready = bool(gui_data.get("hof_classic", {}).get("global_stats", {}).get("전체 (ALL)"))
+            if _ready: break
+        except Exception: pass
+        time.sleep(10)
     while True:
         try:
             if load_riot_key() and global_spreadsheet: update_solo_ranks()
