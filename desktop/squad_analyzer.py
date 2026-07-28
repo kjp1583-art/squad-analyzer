@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.48"
+CURRENT_VERSION = "82.49"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -3228,7 +3228,12 @@ def _load_solo_ranks():
             try: w, l = int(r[wi]), int(r[li])
             except Exception: w = l = 0
             if nmk: out[nmk] = {"score": sc, "wins": w, "losses": l, "wr": (w/(w+l)*100) if (w+l) else None}
-        ok = True
+        # 🛡️ [v82.49 사장님 제보] '헤더 + 빈 행만 남은 시트'는 len(rows)>=2라 예전엔 정상 읽기로 통과했다.
+        #    그 결과 solo 점수가 PEAK_SEASONS 있는 사람에게만 생겨, 십이귀월이 반쪽 명단으로 재편되고
+        #    (PEAK 없는 신규 클랜원이 통째로 누락) 웹과 결과가 어긋났다. 유효 행 0건 = 실패로 간주.
+        ok = bool(out)
+        if not out:
+            print("[solo] SOLO_RANK 유효 데이터 0건 — 십이귀월/티어평가 계산 보류(시트 복구 대기)", flush=True)
     except Exception: pass
     # ★ (v81.40) 과거 3시즌 최고티어 블렌드 — 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 (2026-07-03 사장님 지시)
     #    ⚠️ SOLO_RANK 읽기 성공 시에만 블렌드 — 429 등 일시 실패 사이클에 peak-only로 점수가 널뛰어
