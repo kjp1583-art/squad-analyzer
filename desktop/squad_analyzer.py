@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.50"
+CURRENT_VERSION = "82.51"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1164,7 +1164,18 @@ def _version_heartbeat_loop():
 
 def announce_patch_if_updated():
     """신버전으로 업데이트된 뒤 첫 실행 시, 릴리스 노트를 웹훅으로 1회 알림.
-       호스트(token.txt 보유)만 발송 → 배포본 다수가 중복 도배하는 것 방지."""
+       호스트(token.txt 보유)만 발송 → 배포본 다수가 중복 도배하는 것 방지.
+
+       [v82.51 사장님 지시] 패치노트는 분석기·웹·봇을 묶어 CI(patch-note 워크플로)에서 발송한다.
+       분석기가 따로 또 보내면 같은 내용이 두 번 올라가므로 기본 비활성 —
+       CI를 못 쓰는 상황에서만 환경변수 PATCH_NOTE_SELF=1 로 되살린다."""
+    if os.environ.get("PATCH_NOTE_SELF") != "1":
+        try:                                            # 버전 기록만 갱신(다음에 켜도 과거분 도배 방지)
+            cfg = load_config()
+            if cfg.get("last_patch_version") != CURRENT_VERSION:
+                cfg["last_patch_version"] = CURRENT_VERSION; save_config(cfg)
+        except Exception: pass
+        return
     try:
         if not load_bot_token(): return                 # 호스트 1대만
         cfg = load_config()
