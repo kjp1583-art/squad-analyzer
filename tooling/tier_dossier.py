@@ -3,9 +3,9 @@
 
 "내 내부티어 어때?" 질문에 승률·AI점수만으로 답하면 사람만 바뀌고 문장이 똑같아진다.
 이 스크립트는 같은 질문에 서로 다른 이야기가 나오도록 7개 축을 계산해 내놓는다.
-클랜 문화(자기 티어가 높다고 억울해하기)를 정면으로 검증하는 ①이 핵심 축.
+클랜 문화("내 티어가 너무 높게 잡혔다, 나 그 정도 아니다")를 정면으로 검증하는 ①이 핵심 축.
 
-  ① 맞라이너 티어 대비 성적  — 위 티어 상대로 버티는가 (억울함의 진위)
+  ① 맞라이너 티어 대비 성적  — 위 티어 상대로 밀리는가 (억울함의 진위)
   ② 시너지·천적            — 누구와 함께면 강하고 누구를 만나면 지는가
   ③ 시간 추세              — 최근 3개월 vs 그 이전, 월별 궤적
   ④ 피밴율                 — 상대가 얼마나 경계하는가
@@ -111,15 +111,16 @@ class Dossier:
         return stat
 
     def grudge(self):
-        """억울지수 = 상위티어 맞라인 승률 − 하위티어 맞라인 승률.
-           높을수록 '위에는 강하고 아래에는 무른' 사람 = 티어가 낮게 잡혔을 가능성."""
+        """억울지수 = 하위티어 맞라인 승률 − 상위티어 맞라인 승률.
+           클랜에서 '억울하다'는 말은 "내 티어가 실제보다 높게 잡혔다"는 뜻이므로,
+           아래 티어는 잡는데 위 티어에서 밀리는 사람이 억울한 쪽 = 지수가 높다."""
         out = []
         for k, d in self.lane_vs_tier().items():
             if d["up_n"] < MIN_LANE_GAMES or d["dn_n"] < MIN_LANE_GAMES: continue
             up = d["up_w"] / d["up_n"] * 100
             dn = d["dn_w"] / d["dn_n"] * 100
             out.append({"name": k, "tier": self.tier_of(k), "up": up, "dn": dn,
-                        "up_n": d["up_n"], "dn_n": d["dn_n"], "score": up - dn})
+                        "up_n": d["up_n"], "dn_n": d["dn_n"], "score": dn - up})
         out.sort(key=lambda x: -x["score"])
         return out
 
@@ -238,9 +239,9 @@ def report(d, path, name):
         ev = st["ev_w"] / st["ev_n"] * 100 if st["ev_n"] else None
         print(f"   상위 티어 상대 {_pct(up)} ({st['up_n']}판) · 동급 {_pct(ev)} ({st['ev_n']}판) · 하위 {_pct(dn)} ({st['dn_n']}판)")
         if up is not None and dn is not None:
-            print(f"   억울지수 {up-dn:+.1f}%p  " +
-                  ("← 위에 강하고 아래에 무름(저평가 근거)" if up - dn > 5 else
-                   "← 아래를 확실히 잡고 위에서 밀림(티어 적정)" if up - dn < -5 else "← 상대 티어를 크게 타지 않음"))
+            print(f"   억울지수 {dn-up:+.1f}%p  " +
+                  ("← 아래는 잡는데 위에서 밀림(티어가 높게 잡혔다는 근거)" if dn - up > 5 else
+                   "← 위 티어 상대로도 버팀(지금 티어가 오히려 낮을 수도)" if dn - up < -5 else "← 상대 티어를 크게 타지 않음"))
         for who, t, pos, dt in st["beat_up"][-3:]:
             print(f"     · {str(dt)[:10]} {pos} — {who}({t}) 상대 승")
     else:
@@ -298,10 +299,11 @@ def main():
     if a.grudge:
         g = d.grudge()
         if a.json: print(json.dumps(g, ensure_ascii=False, indent=1)); return
-        print(f"\n  억울지수 랭킹 — 상위티어 맞라인 승률 − 하위티어 맞라인 승률 (각 {MIN_LANE_GAMES}판 이상)\n")
+        print(f"\n  억울지수 랭킹 — 하위티어 맞라인 승률 − 상위티어 맞라인 승률 (각 {MIN_LANE_GAMES}판 이상)")
+        print(f"  높을수록 '아래는 잡는데 위에서 밀린다' = 내 티어가 높게 잡혔다는 근거\n")
         for i, x in enumerate(g[:20], 1):
             print(f"  {i:>2}. {x['name'].split('#')[0]:<18} {x['tier']:<3} {x['score']:+6.1f}%p"
-                  f"   (위 {x['up']:.0f}%/{x['up_n']}판 · 아래 {x['dn']:.0f}%/{x['dn_n']}판)")
+                  f"   (아래 {x['dn']:.0f}%/{x['dn_n']}판 · 위 {x['up']:.0f}%/{x['up_n']}판)")
         print(f"\n  분석 대상 {len(g)}명\n")
         return
     if not a.name: sys.exit("닉네임을 입력하거나 --grudge 를 쓰세요")

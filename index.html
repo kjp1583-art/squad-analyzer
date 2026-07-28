@@ -1438,8 +1438,8 @@ function myeolChip(name){
 }
 // 🚫 노밴 기록(NOBAN 탭 — 분석기가 로비 채팅의 노밴 선언을 감지해 게임별 적재)
 let NOBAN_BY_GAME=new Map(), NOBAN_CNT=new Map();   // 게임ID(숫자만)→[챔피언...] / 챔피언→노밴 선언 판수
-// 😤 억울지수(GRUDGE 탭) — 상위티어 맞라인 승률 − 하위티어 맞라인 승률.
-//    "내 내부티어가 너무 높다"는 주장을 데이터로 판정하는 지표. tooling/tier_dossier.py가 주간 갱신.
+// 😤 억울지수(GRUDGE 탭) — 하위티어 맞라인 승률 − 상위티어 맞라인 승률.
+//    "내 내부티어가 너무 높게 잡혔다"는 주장을 데이터로 판정하는 지표. tooling/tier_dossier.py가 주간 갱신.
 let GRUDGE = [];
 function loadGrudge(){
   return new Promise((resolve)=>{
@@ -3181,32 +3181,32 @@ function renderMastery(champ){
 /* ============== 화면: 내부티어 평가 (데스크톱 '🎖 내부티어'와 동일) ============== */
 let TIER_SEL='ALL';   // 🎖 [2026-07-22] 내부티어 페이지 티어 필터(전체 인원이 한 화면이라 찾기 어려운 문제)
 // 😤 억울지수 랭킹 — "내 티어 너무 높다" 주장의 진위를 맞라인 상대 티어로 판정.
-//    위 티어 맞라이너를 상대로 이기면서 아래 티어에는 무르면 = 티어가 낮게 잡혔을 가능성(양수).
-//    반대로 아래는 확실히 잡고 위에서 밀리면 = 지금 티어가 제자리(음수).
+//    아래 티어는 확실히 잡는데 위 티어 맞라이너에게 밀리면 = 티어가 높게 잡혔을 가능성(양수, 진짜 억울).
+//    반대로 위 티어 상대로도 버티면 = 지금 티어가 오히려 낮을 수도(음수).
 let GRUDGE_OPEN = false;
 function toggleGrudge(){ GRUDGE_OPEN=!GRUDGE_OPEN; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
 function grudgeHtml(){
   if(!GRUDGE.length) return '';
   const N = GRUDGE_OPEN ? GRUDGE.length : 5;
   const rows = GRUDGE.slice(0,N).map((g,i)=>{
-    const pos = g.score>=0;
+    const pos = g.score>=0;   // 양수 = 억울함이 사실(빨강), 음수 = 오히려 저평가(파랑)
     const w = Math.min(100, Math.abs(g.score)*3);
     return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
       <span class="muted" style="width:22px;text-align:right;flex:none">${i+1}</span>
       <span class="clickname" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(g.name)}')">${esc(shortName(g.name)||g.name)}</span>
       <span class="tier ${tierGroupCls(g.tier)}" style="flex:none">${esc(g.tier)}</span>
-      <span style="flex:none;width:62px;text-align:right;font-weight:700;color:${pos?'#5b8cff':'#e84057'}">${g.score>0?'+':''}${g.score.toFixed(1)}%p</span>
+      <span style="flex:none;width:62px;text-align:right;font-weight:700;color:${pos?'#e84057':'#5b8cff'}">${g.score>0?'+':''}${g.score.toFixed(1)}%p</span>
       <span style="flex:1;min-width:40px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden">
-        <span style="display:block;height:100%;width:${w}%;background:${pos?'#5b8cff':'#e84057'};opacity:.75"></span></span>
-      <span class="muted" style="flex:none;font-size:11.5px">위 ${g.up.toFixed(0)}%·${g.upN}판 / 아래 ${g.dn.toFixed(0)}%·${g.dnN}판</span>
+        <span style="display:block;height:100%;width:${w}%;background:${pos?'#e84057':'#5b8cff'};opacity:.75"></span></span>
+      <span class="muted" style="flex:none;font-size:11.5px">아래 ${g.dn.toFixed(0)}%·${g.dnN}판 / 위 ${g.up.toFixed(0)}%·${g.upN}판</span>
     </div>`;
   }).join('');
   return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
-    <h3 style="margin:0 0 2px;font-size:15px">😤 억울지수 <span class="muted" style="font-size:12.5px">— 티어가 억울한 순서</span></h3>
+    <h3 style="margin:0 0 2px;font-size:15px">😤 억울지수 <span class="muted" style="font-size:12.5px">— "내 티어 너무 높다"가 진짜인 순서</span></h3>
     <div class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.6">
-      나보다 <b>높은 티어</b> 맞라이너를 상대한 승률에서 <b>낮은 티어</b> 상대 승률을 뺀 값.
-      <b style="color:#5b8cff">양수</b>면 위에는 강한데 아래에 무르다는 뜻 — 티어가 낮게 잡혔을 가능성.
-      <b style="color:#e84057">음수</b>면 아래는 확실히 잡고 위에서 밀린다는 뜻 — 지금 티어가 제자리.
+      나보다 <b>낮은 티어</b> 맞라이너를 상대한 승률에서 <b>높은 티어</b> 상대 승률을 뺀 값.
+      <b style="color:#e84057">양수</b>면 아래는 확실히 잡는데 위에서 밀린다는 뜻 — 티어가 높게 잡혔을 가능성. <b>억울함이 사실</b>.
+      <b style="color:#5b8cff">음수</b>면 위 티어 상대로도 버틴다는 뜻 — 지금 티어가 오히려 낮을 수도.
       <span style="opacity:.75">같은 포지션 맞상대 기준, 위·아래 각 10판 이상인 사람만.</span>
     </div>
     ${rows}
