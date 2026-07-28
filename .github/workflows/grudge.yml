@@ -1,0 +1,33 @@
+name: Grudge index
+
+# 억울지수(상위티어 맞라인 승률 − 하위티어 맞라인 승률)를 계산해 GRUDGE 탭에 기록.
+# 웹의 억울지수 랭킹이 이 탭을 읽는다. 클랜 문화("내 티어 너무 높다")를 데이터로 판정하는 지표.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '10 20 * * 1'   # 매주 화요일 05:10 KST
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install --quiet openpyxl gspread oauth2client
+
+      - name: Fetch fresh sheet snapshot
+        run: |
+          set -e
+          curl -sSL -o sheet.xlsx "https://docs.google.com/spreadsheets/d/10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU/export?format=xlsx"
+          file sheet.xlsx | grep -qi 'Excel\|Zip'
+
+      - name: Compute and push
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+        run: |
+          python tooling/tier_dossier.py sheet.xlsx --push
+          rm -f creds.json
