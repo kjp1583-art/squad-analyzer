@@ -1,5 +1,5 @@
 /**
- * 스쿼드 시트 자동 동기화 v3 (기존 스크립트를 이걸로 교체 — 1회)
+ * 스쿼드 시트 자동 동기화 v4 (기존 스크립트를 이걸로 교체 — 1회)
  *
  * [업그레이드 방법 — 2분]
  * 1. https://script.google.com 접속 → 전에 만든 동기화 프로젝트 열기
@@ -89,6 +89,11 @@ function applySheetUpdates() {
   for (var i = 0; i < data.ops.length; i++) {
     var op = data.ops[i];
     var sh = ss.getSheetByName(op.tab);
+    if (!sh && op.create) {                      // v4: 탭 자동 생성(+헤더)
+      sh = ss.insertSheet(op.tab);
+      if (op.header) sh.appendRow(op.header);
+      Logger.log('시트수정: 탭 생성 — ' + op.tab);
+    }
     if (!sh) { Logger.log('시트수정: 탭 없음 — ' + op.tab); continue; }
     var existing = sh.getDataRange().getValues().map(function(r) { return r.join(''); });
     (op.append || []).forEach(function(row) {
