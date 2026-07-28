@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.47"
+CURRENT_VERSION = "82.48"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -386,6 +386,80 @@ def _rotation_label(seq):
     return ("형탐", "동탐", "조율")[(int(seq) - 1) % 3]
 
 _NB_TEAMS = {"blue": [], "red": []}   # 🚫 [v82.46] 노밴 진영 판정용 — 리포트 발송 직전 루프가 팀 로스터를 복사해 둠
+
+# 🏅 [v82.48 사장님 지시] 시트 전체 기록 기반 '게임 간' 타이틀 자동판정 —
+#   한 게임 데이터만으로는 못 잡던 것들(하루 판수·연승·당일 전 라인 승리·연속 맞라이너 전승)을
+#   결과 리포트 직전에 시트에서 계산해 덧붙인다. 판정 실패는 무해(빈 리스트 반환).
+#   ※ '복수자'는 미토 3판2선승 구조상 매 시리즈 자연발생이라 자동판정 제외(2026-07-28 사장님 판단).
+def cross_game_titles(sheet_rows, this_gid):
+    out = []
+    try:
+        if not sheet_rows or len(sheet_rows) < 2: return out
+        H = sheet_rows[0]
+        ci = lambda n: H.index(n) if n in H else -1
+        c_gid, c_date, c_name, c_pu = ci("게임ID"), ci("날짜"), ci("소환사명"), ci("PUUID")
+        c_pos, c_res, c_side = ci("포지션"), ci("결과"), ci("진영")
+        if min(c_gid, c_date, c_name, c_res) < 0: return out
+        rows = [r for r in sheet_rows[1:] if len(r) > max(c_gid, c_date, c_name, c_res, c_pos, c_side)]
+        key = lambda r: (str(r[c_pu]).strip().lower() if c_pu >= 0 and str(r[c_pu]).strip() else str(r[c_name]).strip())
+        disp = lambda r: str(r[c_name]).split("#")[0].strip()
+
+        # 이 게임 참가자 · 게임 순서(시트 기록 순 = 시간순)
+        gids = []
+        for r in rows:
+            g = str(r[c_gid]).strip()
+            if g and (not gids or gids[-1] != g): gids.append(g)
+        try: gi_now = gids.index(str(this_gid).strip())
+        except ValueError: gi_now = len(gids) - 1
+        cur = [r for r in rows if str(r[c_gid]).strip() == str(this_gid).strip()]
+        if not cur: return out
+        today = str(cur[0][c_date])[:10]
+
+        by_player_today = {}
+        for r in rows:
+            if str(r[c_date])[:10] != today: continue
+            by_player_today.setdefault(key(r), []).append(r)
+
+        for r in cur:
+            k, nm = key(r), disp(r)
+            mine = by_player_today.get(k, [])
+            played = [x for x in mine if str(x[c_res]) in ("승리", "패배")]
+            # ① 하루 종일 할 수 있어 — 당일 내전 20판 달성(달성 판에서 1회)
+            if len(played) == 20 and str(r[c_res]) in ("승리", "패배"):
+                out.append(f"🕛 [하루 종일 할 수 있어] 하루 내전 20판 달성 ({nm})")
+            # ② 다재다능 — 당일 5개 라인 각각 1승 이상
+            if c_pos >= 0 and str(r[c_res]) == "승리":
+                wins_pos = {str(x[c_pos]).strip() for x in played if str(x[c_res]) == "승리"}
+                if {"탑", "정글", "미드", "원딜", "서폿"} <= wins_pos:
+                    out.append(f"🎭 [다재다능] 하루 안에 모든 라인에서 1승씩 달성 ({nm})")
+            # ③ 모두가 내 발아래 — 10연승(이번 판 포함, 시트 전체 기준)
+            if str(r[c_res]) == "승리":
+                streak = 0
+                for g in reversed(gids[:gi_now + 1]):
+                    row = next((x for x in rows if str(x[c_gid]).strip() == g and key(x) == k
+                                and str(x[c_res]) in ("승리", "패배")), None)
+                    if row is None: continue
+                    if str(row[c_res]) == "승리": streak += 1
+                    else: break
+                if streak == 10:
+                    out.append(f"👑 [모두가 내 발아래] 내전 10연승 달성 ({nm})")
+            # ④ 스토커 — 최근 3게임 연속 같은 맞라이너와 붙어 전승
+            if c_pos >= 0 and c_side >= 0 and str(r[c_res]) == "승리" and gi_now >= 2:
+                opps, ok = [], True
+                for g in gids[gi_now - 2: gi_now + 1]:
+                    me = next((x for x in rows if str(x[c_gid]).strip() == g and key(x) == k), None)
+                    if me is None or str(me[c_res]) != "승리": ok = False; break
+                    o = next((x for x in rows if str(x[c_gid]).strip() == g
+                              and str(x[c_pos]).strip() == str(me[c_pos]).strip()
+                              and str(x[c_side]).strip() != str(me[c_side]).strip()), None)
+                    if o is None: ok = False; break
+                    opps.append(key(o))
+                if ok and len(opps) == 3 and len(set(opps)) == 1:
+                    o_nm = next((disp(x) for x in rows if key(x) == opps[0]), "상대")
+                    out.append(f"🕵 [스토커] 3판 연속 같은 맞라이너({o_nm})와 만나 전부 승리 ({nm})")
+    except Exception as _e:
+        print(f"[titles] 게임간 타이틀 판정 생략: {type(_e).__name__}", flush=True)
+    return out
 
 def broadcast_to_discord_webhook(content_text):
     if not RESULT_WEBHOOK_URL or RESULT_WEBHOOK_URL.startswith("여기에"): return
@@ -6090,6 +6164,10 @@ def lcu_core_backend_loop():
                             #   리포트는 finalize(게임종료) 시점 발송인데, 시작 append 승자가 늦게켠/eog포기 인스턴스면 finalize를 실제 완료한 '다른'(비주체) 인스턴스가
                             #   시트는 마감하지만 _is_appender=False라 리포트를 못 쏴 매 게임 유실됐음. 이제 finalize 지점 도달(=행 가시+마감 수행) 인스턴스가 발송.
                             #   단일발송 유지: 비주체는 rank 스태거(L3012) 후 '이미 마감?' 확인되면 continue(L3017)로 여기 도달 안 함 → 실제 마감 수행한 ~1인스턴스만 도달. posted_game_ids로 인스턴스내 1회.
+                            try:   # 🏅 [v82.48] 게임 간 타이틀(하루 판수·연승·다재다능·스토커) 합류
+                                _xt = cross_game_titles(sheet_data_check, _finalize_gid)
+                                if _xt: achieves_list = list(achieves_list) + _xt
+                            except Exception: pass
                             if achieves_list and _game_visible(sheet_data_check) and (active_recording_id not in posted_game_ids):
                                 posted_game_ids.add(active_recording_id)
                                 try:   # 🚫 [v82.46] 노밴 진영 판정용 팀 로스터 미러 — global_cached_blue/red는 이 루프의
