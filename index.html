@@ -1861,11 +1861,12 @@ function gptiCardHtml(name){
   const mmRow=(icon,label,tt,members,cls)=> members&&members.length
     ? `<div class="gpti-mmrow ${cls}"><div class="gpti-mmhead">${icon} <b>${label}</b>${tt?` <span class="muted" style="font-size:11.5px">${tt} · ${_GPTI_TYPE_NICK[tt]||""}</span>`:""}</div><div class="gpti-mmnames">${members.slice(0,6).map(chip).join("")}${members.length>6?`<span class="muted" style="font-size:11.5px">외 ${members.length-6}명</span>`:""}</div></div>`
     : "";
-  const mmHtml=(g.rich&&mm)?`<div class="gpti-mm"><div class="gpti-sub">🤝 클랜원 궁합</div>
+  const mmHtml=(g.rich&&mm)?`<div class="gpti-mm"><div class="gpti-sub">🤝 클랜원 궁합 <span class="muted" style="font-weight:400;font-size:11.5px">· 유형 이론 기반 재미 요소</span></div>
     ${mmRow('👥','같은 유형',null,mm.same,'same')}
     ${mm.best?mmRow('💞','찰떡궁합',mm.best.type,mm.best.members,'best'):""}
     ${mm.worst?mmRow('⚡','상극',mm.worst.type,mm.worst.members,'worst'):""}
     ${(!mm.same.length&&!mm.best&&!mm.worst)?'<div class="muted" style="font-size:12px">아직 비교할 클랜원 데이터가 부족해요.</div>':''}
+    <div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">※ 유형 조합 이론으로 계산한 재미 요소예요 — 실제 같은 팀 승률과의 연관은 <b>확인되지 않았습니다</b>(1만 쌍 실측, 상관 ≈0). 실제 함께한 성적은 프로필의 <b>시너지</b>를, 상대 전적은 <b>천적</b>을 봐주세요.</div>
   </div>`:"";
   const nem=nemesisOf(name);
   const nemHtml=nem.length?`<div class="gpti-mm"><div class="gpti-sub">⚔️ 천적 <span class="muted" style="font-weight:400;font-size:11.5px">· 상대팀으로 붙으면 자주 지는 상대</span></div>
@@ -4314,7 +4315,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280306";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280326";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
