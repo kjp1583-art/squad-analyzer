@@ -1,0 +1,39 @@
+name: Weekly sheet snapshot for AI eval
+
+# 매주 월요일 08:30 KST(일 23:30 UTC)에 스쿼드 시트를 xlsx로 받아
+# ai-eval-data 브랜치에 커밋한다. 클로드 주간평 루틴(월 09:05 KST)이 이걸 읽는다.
+# ai-eval-data 브랜치에 snapshot_request.txt 푸시로도 즉시 실행 가능(MCP 없는 루틴 세션용).
+# ⚠️ push 이벤트는 '푸시된 브랜치'의 워크플로 파일을 읽는다 — 그래서 이 파일은 main뿐 아니라
+#    ai-eval-data 브랜치에도 있어야 트리거가 걸린다. 두 브랜치의 사본을 같이 고칠 것.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 23 * * 0'
+  push:
+    branches: [ai-eval-data]
+    paths: ['snapshot_request.txt']
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai-eval-data
+
+      - name: Download spreadsheet
+        run: |
+          set -e
+          curl -sSL -o squad_sheet.xlsx "https://docs.google.com/spreadsheets/d/10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU/export?format=xlsx"
+          file squad_sheet.xlsx | grep -qi 'Excel\|Zip' 
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add squad_sheet.xlsx
+          git diff --cached --quiet || git commit -m "data: sheet snapshot $(date -u +%FT%H:%M)"
+          git push origin ai-eval-data
