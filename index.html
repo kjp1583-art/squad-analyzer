@@ -1691,6 +1691,32 @@ function _gptiAgg4(rows){    // Match-V5 리치스탯 집계(주포지션·분�
     dmg:avg(x=>pm(x.dmg,x.dur)),taken:avg(x=>pm(x.taken,x.dur)),vs:avg(x=>pm(x.vs,x.dur)),
     gold:avg(x=>pm(x.gold,x.dur)),cs:avg(x=>pm(x.cs,x.dur))};
 }
+// 🧬 [2026-07-28 사장님 지시] GPTI 데이터 이원화 대응 — GPTI_STATS 탭(회사PC 파이프라인, 7/20 중단)의
+//    리치스탯을 7/21+ 메인 경기록의 인라인 지표(킬관여·시야·받은딜·골드·CS·게임시간)로 이어붙인다.
+//    같은 게임이 양쪽에 있을 수 있으므로 게임ID 기준으로 중복 제거(탭 우선).
+function supplementGptiFromMainLog(){
+  try{
+    const seen=new Set();   // GPTI_STATS에 이미 있는 게임ID(중복 방지용) — 탭엔 게임ID가 행에 없으므로 근사: 탭 마지막 수집 이후(7/21+)만 합류
+    const CUTOFF="2026-07-21";
+    const add={};
+    for(const g of GAMES.values()){
+      if(!g.date||String(g.date)<CUTOFF)continue;
+      for(const r of (g.rows||[])){
+        if(r["결과"]!=="승리"&&r["결과"]!=="패배")continue;
+        const mt=(typeof parseMetrics==="function")?parseMetrics(r):null; if(!mt)continue;
+        const ko=parseKDA(r["KDA"]); if(!ko)continue;
+        const dl=parseFloat(String(r["딜량"]||"").replace(/,/g,""))||0;
+        const k=tnorm(String(r["소환사명"]||"")); if(!k)continue;
+        (add[k]=add[k]||[]).push({pos:String(r["포지션"]||""),win:r["결과"]==="승리",
+          k:ko.k,d:ko.d,a:ko.a,kp:mt.kp||0,dmg:dl,taken:mt.dt||0,
+          vs:mt.vs||0,gold:mt.g||0,cs:mt.cs||0,dur:(mt.m||0)*60});
+      }
+    }
+    if(!Object.keys(add).length)return;
+    if(!GPTI_ROWS)GPTI_ROWS={};
+    for(const k in add)(GPTI_ROWS[k]=GPTI_ROWS[k]||[]).push(...add[k]);
+  }catch(e){}
+}
 function computeGPTI(){
   GPTI={};
   const rich=!!GPTI_ROWS;
@@ -2240,6 +2266,7 @@ function build(){
     }
   }
   TIER_AVG=computeTierAvg();   // 내부티어 평가용 동티어 평균(승률·MVP율·역적율)
+  supplementGptiFromMainLog();   // 🧬 [2026-07-28] GPTI_STATS 탭 중단(구 PC 파이프라인) 보완 — 7/21+ 메인 경기록 인라인 지표 합류
   computeGPTI();               // 🧬 GPTI 성향유형(포지션 정규화) — 2026-07-16
   computeHeadToHead();         // ⚔️ 천적(상대팀 head-to-head 전적)
 }
@@ -4276,7 +4303,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280212";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280232";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
