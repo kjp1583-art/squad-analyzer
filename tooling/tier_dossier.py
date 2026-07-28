@@ -310,8 +310,6 @@ def main():
     report(d, a.xlsx, nm)
 
 
-if __name__ == "__main__":
-    main()
 
 
 # ===== 억울지수 시트 기록 (Actions에서 호출) =====
@@ -340,3 +338,7 @@ def push_grudge(path):
     except Exception: ws = ss.add_worksheet(title="GRUDGE", rows="300", cols="8")
     ws.clear(); ws.update(values=rows, range_name="A1")
     print(f"[grudge] GRUDGE 탭 갱신 — {len(rows)-1}명")
+
+
+if __name__ == "__main__":
+    main()
