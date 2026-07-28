@@ -1737,7 +1737,7 @@ function computeGPTI(){
     if(rich){
       // 각 축은 0~1 값(가중평균·합=1, 역방향은 1-P)으로 만든 뒤 sgn — 중심 0.5 유지(쏠림 방지)
       const od=sgn(0.5*P('dmg')+0.5*P('kills'));                     // 라인: 딜·킬 상위 = 공격
-      const st=sgn(0.4*P('killShare')+0.3*P('gold')+0.3*(1-P('vs'))); // 이득: 킬지분·골드↑·시야↓ = 개인
+      const st=sgn(0.35*P('gold')+0.15*P('killShare')+0.5*(1-P('vs'))); // 이득: [2026-07-28] 골드·킬지분 vs 시야 '대비'로 재정의 — 라인 축과의 중복(상관 0.76→0.59) 완화, 같은 포지션 내 성향 대비가 더 또렷
       const cl=sgn(P('kp'));                                          // 팀플: 킬관여 상위 = 조직
       const ia=sgn(0.5*P('deaths')+0.5*(1-P('vs')));                 // 전략: 고사망·저시야 = 본능
       type=pick(od,'O','D')+pick(st,'S','T')+pick(cl,'C','L')+pick(ia,'I','A');
@@ -4310,7 +4310,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280247";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280259";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
