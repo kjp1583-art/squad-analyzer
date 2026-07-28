@@ -29,7 +29,13 @@ from sibguiwol import (TIER_MIN_GAMES, build_identity, compute, load, mean, norm
 TIER_ORDER = ["0", "1上", "1中", "1下", "2上", "2中", "2下", "3上", "3中", "3下"]
 TIER_RANK = {t: i for i, t in enumerate(TIER_ORDER)}
 MIN_LANE_GAMES = 10      # 맞라인 표본 최소치
+MIN_DUELS = 25           # 억울지수 최소 맞라인 대결수
 RECENT_DAYS = 90
+
+
+def _num(v):
+    try: return float(str(v).replace(",", ""))
+    except (TypeError, ValueError): return None
 
 
 def _date(s):
@@ -110,17 +116,57 @@ class Dossier:
                         d["ev_w"] += w; d["ev_n"] += 1
         return stat
 
+    # ---------- 맞라인 개인지표 우위 (억울지수의 기반) ----------
+    def lane_duels(self):
+        """맞라인 1:1 대결 목록. (대표닉, 티어차, 내가 이겼나) 튜플.
+
+        승패(결과)를 쓰지 않는 이유: 결과는 5:5 팀 결과라 한 라인 매치업의 몫이 1/5로 희석된다.
+        실제로 클랜 전체 티어차별 게임 승률은 1칸 49.7% … 8칸 44.8%로 거의 동전던지기라
+        승률로 만든 억울지수는 대부분 표본 잡음이었다. 대신 맞라이너보다 그 판에서
+        개인 지표(AI점수, 없으면 KDA)가 높았는지를 센다 — 이건 티어차에 뚜렷하게 반응한다."""
+        duels = defaultdict(list)
+        for rows in self.games.values():
+            by_pos = defaultdict(list)
+            for r in rows:
+                p, s = str(r.get("포지션") or ""), str(r.get("진영") or "")
+                if p and s: by_pos[p].append(r)
+            for ps in by_pos.values():
+                if len(ps) != 2: continue
+                a, b = ps
+                if str(a.get("진영")) == str(b.get("진영")): continue
+                for me, opp in ((a, b), (b, a)):
+                    mt, ot = self.tier_of(me["_canon"]), self.tier_of(opp["_canon"])
+                    if mt not in TIER_RANK or ot not in TIER_RANK: continue
+                    v = _num(me.get("점수")), _num(opp.get("점수"))
+                    if v[0] is None or v[1] is None:
+                        v = _num(me.get("KDA")), _num(opp.get("KDA"))
+                    if v[0] is None or v[1] is None or v[0] == v[1]: continue
+                    gap = TIER_RANK[mt] - TIER_RANK[ot]   # +면 내가 아래 티어
+                    duels[me["_canon"]].append((gap, 1 if v[0] > v[1] else 0))
+        return duels
+
     def grudge(self):
-        """억울지수 = 하위티어 맞라인 승률 − 상위티어 맞라인 승률.
-           클랜에서 '억울하다'는 말은 "내 티어가 실제보다 높게 잡혔다"는 뜻이므로,
-           아래 티어는 잡는데 위 티어에서 밀리는 사람이 억울한 쪽 = 지수가 높다."""
+        """억울지수 = 기대 우위율 − 실제 우위율 (맞라인 개인지표 기준).
+
+        클랜에서 '억울하다'는 말은 "내 티어가 실제보다 높게 잡혔다"는 뜻이다.
+        티어차 g에서 클랜 전체가 맞라이너를 개인지표로 이기는 비율을 기준선으로 삼고,
+        내 매치업 구성으로 계산한 기대치보다 실제가 낮으면(양수) 티어가 과대평가된 것."""
+        duels = self.lane_duels()
+        base_w, base_n = defaultdict(int), defaultdict(int)
+        for lst in duels.values():
+            for g, w in lst:
+                base_w[g] += w; base_n[g] += 1
+        overall = sum(base_w.values()) / max(1, sum(base_n.values()))
+        def base(g):
+            return base_w[g] / base_n[g] if base_n[g] >= 30 else overall
+
         out = []
-        for k, d in self.lane_vs_tier().items():
-            if d["up_n"] < MIN_LANE_GAMES or d["dn_n"] < MIN_LANE_GAMES: continue
-            up = d["up_w"] / d["up_n"] * 100
-            dn = d["dn_w"] / d["dn_n"] * 100
-            out.append({"name": k, "tier": self.tier_of(k), "up": up, "dn": dn,
-                        "up_n": d["up_n"], "dn_n": d["dn_n"], "score": dn - up})
+        for k, lst in duels.items():
+            if len(lst) < MIN_DUELS: continue
+            exp = sum(base(g) for g, _ in lst) / len(lst) * 100
+            act = sum(w for _, w in lst) / len(lst) * 100
+            out.append({"name": k, "tier": self.tier_of(k), "exp": exp, "act": act,
+                        "n": len(lst), "score": exp - act})
         out.sort(key=lambda x: -x["score"])
         return out
 
@@ -238,10 +284,12 @@ def report(d, path, name):
         dn = st["dn_w"] / st["dn_n"] * 100 if st["dn_n"] else None
         ev = st["ev_w"] / st["ev_n"] * 100 if st["ev_n"] else None
         print(f"   상위 티어 상대 {_pct(up)} ({st['up_n']}판) · 동급 {_pct(ev)} ({st['ev_n']}판) · 하위 {_pct(dn)} ({st['dn_n']}판)")
-        if up is not None and dn is not None:
-            print(f"   억울지수 {dn-up:+.1f}%p  " +
-                  ("← 아래는 잡는데 위에서 밀림(티어가 높게 잡혔다는 근거)" if dn - up > 5 else
-                   "← 위 티어 상대로도 버팀(지금 티어가 오히려 낮을 수도)" if dn - up < -5 else "← 상대 티어를 크게 타지 않음"))
+        g = next((x for x in d.grudge() if x["name"] == name), None)
+        if g:
+            print(f"   억울지수 {g['score']:+.1f}%p — 맞라인 개인지표 우위 실제 {g['act']:.1f}% / 기대 {g['exp']:.1f}% ({g['n']}대결)")
+            print("   " + ("← 티어에 기대되는 만큼 맞라이너를 못 이김(높게 잡혔다는 근거)" if g["score"] > 5 else
+                           "← 기대보다 맞라이너를 잘 이김(지금 티어가 오히려 낮을 수도)" if g["score"] < -5 else
+                           "← 기대치와 거의 같음 — 티어가 제자리"))
         for who, t, pos, dt in st["beat_up"][-3:]:
             print(f"     · {str(dt)[:10]} {pos} — {who}({t}) 상대 승")
     else:
@@ -299,11 +347,11 @@ def main():
     if a.grudge:
         g = d.grudge()
         if a.json: print(json.dumps(g, ensure_ascii=False, indent=1)); return
-        print(f"\n  억울지수 랭킹 — 하위티어 맞라인 승률 − 상위티어 맞라인 승률 (각 {MIN_LANE_GAMES}판 이상)")
-        print(f"  높을수록 '아래는 잡는데 위에서 밀린다' = 내 티어가 높게 잡혔다는 근거\n")
+        print(f"\n  억울지수 랭킹 — 맞라인 개인지표 기대 우위율 − 실제 우위율 ({MIN_DUELS}대결 이상)")
+        print(f"  높을수록 '내 티어에 기대되는 만큼 맞라이너를 못 이긴다' = 티어가 높게 잡혔다는 근거\n")
         for i, x in enumerate(g[:20], 1):
             print(f"  {i:>2}. {x['name'].split('#')[0]:<18} {x['tier']:<3} {x['score']:+6.1f}%p"
-                  f"   (아래 {x['dn']:.0f}%/{x['dn_n']}판 · 위 {x['up']:.0f}%/{x['up_n']}판)")
+                  f"   (실제 {x['act']:.1f}% / 기대 {x['exp']:.1f}% · {x['n']}대결)")
         print(f"\n  분석 대상 {len(g)}명\n")
         return
     if not a.name: sys.exit("닉네임을 입력하거나 --grudge 를 쓰세요")
@@ -344,11 +392,11 @@ def push_grudge(path):
     creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)
     ss = retry("시트 연결", lambda: gspread.authorize(creds).open_by_key(SHEET_ID))
 
-    rows = [["닉네임", "티어", "억울지수", "상위승률", "상위판수", "하위승률", "하위판수", "갱신"]]
+    rows = [["닉네임", "티어", "억울지수", "실제우위율", "기대우위율", "대결수", "갱신"]]
     stamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M")
     for x in Dossier(path).grudge():
-        rows.append([x["name"], x["tier"], round(x["score"], 1), round(x["up"], 1), x["up_n"],
-                     round(x["dn"], 1), x["dn_n"], stamp])
+        rows.append([x["name"], x["tier"], round(x["score"], 1), round(x["act"], 1),
+                     round(x["exp"], 1), x["n"], stamp])
     if len(rows) < 2:
         print("[grudge] 산출 0건 — 기존 탭 보존"); return
 

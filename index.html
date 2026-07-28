@@ -1438,7 +1438,7 @@ function myeolChip(name){
 }
 // 🚫 노밴 기록(NOBAN 탭 — 분석기가 로비 채팅의 노밴 선언을 감지해 게임별 적재)
 let NOBAN_BY_GAME=new Map(), NOBAN_CNT=new Map();   // 게임ID(숫자만)→[챔피언...] / 챔피언→노밴 선언 판수
-// 😤 억울지수(GRUDGE 탭) — 하위티어 맞라인 승률 − 상위티어 맞라인 승률.
+// 😤 억울지수(GRUDGE 탭) — 맞라인 개인지표 기대 우위율 − 실제 우위율.
 //    "내 내부티어가 너무 높게 잡혔다"는 주장을 데이터로 판정하는 지표. tooling/tier_dossier.py가 주간 갱신.
 let GRUDGE = [];
 function loadGrudge(){
@@ -1454,15 +1454,14 @@ function loadGrudge(){
         const ni=cols.indexOf("닉네임"), si=cols.indexOf("억울지수");
         // 탭 부재 시 gviz가 첫 시트로 폴백 → 고유 헤더가 없으면 포기(오표시 방지)
         if(ni<0||si<0){ resolve(out); return; }
-        const ti=cols.indexOf("티어"), ui=cols.indexOf("상위승률"), un=cols.indexOf("상위판수"),
-              di=cols.indexOf("하위승률"), dn=cols.indexOf("하위판수");
+        const ti=cols.indexOf("티어"), ai=cols.indexOf("실제우위율"), ei=cols.indexOf("기대우위율"),
+              cn=cols.indexOf("대결수");
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:c[i].v);
           const nm=String(g(ni)||"").trim(); const sc=parseFloat(g(si));
           if(!nm||isNaN(sc)) continue;
           out.push({name:nm, tier:String(g(ti)||""), score:sc,
-                    up:parseFloat(g(ui)), upN:parseInt(g(un))||0,
-                    dn:parseFloat(g(di)), dnN:parseInt(g(dn))||0});
+                    act:parseFloat(g(ai)), exp:parseFloat(g(ei)), n:parseInt(g(cn))||0});
         }
       }catch(e){}
       out.sort((a,b)=> b.score-a.score);
@@ -3181,8 +3180,8 @@ function renderMastery(champ){
 /* ============== 화면: 내부티어 평가 (데스크톱 '🎖 내부티어'와 동일) ============== */
 let TIER_SEL='ALL';   // 🎖 [2026-07-22] 내부티어 페이지 티어 필터(전체 인원이 한 화면이라 찾기 어려운 문제)
 // 😤 억울지수 랭킹 — "내 티어 너무 높다" 주장의 진위를 맞라인 상대 티어로 판정.
-//    아래 티어는 확실히 잡는데 위 티어 맞라이너에게 밀리면 = 티어가 높게 잡혔을 가능성(양수, 진짜 억울).
-//    반대로 위 티어 상대로도 버티면 = 지금 티어가 오히려 낮을 수도(음수).
+//    승패가 아니라 맞라이너와의 개인지표(AI점수) 우위로 잰다 — 5:5 결과는 한 라인 몫이 1/5로 희석돼
+//    티어차가 승률에 거의 안 드러나기 때문. 내 티어에 기대되는 우위율보다 실제가 낮으면 양수(진짜 억울).
 let GRUDGE_OPEN = false;
 function toggleGrudge(){ GRUDGE_OPEN=!GRUDGE_OPEN; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
 function grudgeHtml(){
@@ -3198,16 +3197,17 @@ function grudgeHtml(){
       <span style="flex:none;width:62px;text-align:right;font-weight:700;color:${pos?'#e84057':'#5b8cff'}">${g.score>0?'+':''}${g.score.toFixed(1)}%p</span>
       <span style="flex:1;min-width:40px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden">
         <span style="display:block;height:100%;width:${w}%;background:${pos?'#e84057':'#5b8cff'};opacity:.75"></span></span>
-      <span class="muted" style="flex:none;font-size:11.5px">아래 ${g.dn.toFixed(0)}%·${g.dnN}판 / 위 ${g.up.toFixed(0)}%·${g.upN}판</span>
+      <span class="muted" style="flex:none;font-size:11.5px">실제 ${g.act.toFixed(0)}% / 기대 ${g.exp.toFixed(0)}% · ${g.n}대결</span>
     </div>`;
   }).join('');
   return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
     <h3 style="margin:0 0 2px;font-size:15px">😤 억울지수 <span class="muted" style="font-size:12.5px">— "내 티어 너무 높다"가 진짜인 순서</span></h3>
     <div class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.6">
-      나보다 <b>낮은 티어</b> 맞라이너를 상대한 승률에서 <b>높은 티어</b> 상대 승률을 뺀 값.
-      <b style="color:#e84057">양수</b>면 아래는 확실히 잡는데 위에서 밀린다는 뜻 — 티어가 높게 잡혔을 가능성. <b>억울함이 사실</b>.
-      <b style="color:#5b8cff">음수</b>면 위 티어 상대로도 버틴다는 뜻 — 지금 티어가 오히려 낮을 수도.
-      <span style="opacity:.75">같은 포지션 맞상대 기준, 위·아래 각 10판 이상인 사람만.</span>
+      같은 포지션 맞라이너와 그 판 <b>개인지표(AI점수)</b>를 견줘 내가 앞선 비율을 센 뒤,
+      <b>티어차가 같은 클랜 전체 평균</b>으로 계산한 기대치에서 뺀 값.
+      <b style="color:#e84057">양수</b>면 내 티어에 기대되는 만큼 맞라이너를 못 이긴다는 뜻 — <b>억울함이 사실</b>.
+      <b style="color:#5b8cff">음수</b>면 기대보다 잘 이긴다는 뜻 — 지금 티어가 오히려 낮을 수도.
+      <span style="opacity:.75">승패(팀 결과)를 안 쓰는 이유는 5:5라 한 라인 몫이 1/5로 희석돼서. 맞라인 25대결 이상인 사람만.</span>
     </div>
     ${rows}
     ${GRUDGE.length>5?`<div style="text-align:center;margin-top:8px"><button class="btn" style="font-size:12px;padding:3px 12px" onclick="toggleGrudge()">${GRUDGE_OPEN?'접기':`전체 ${GRUDGE.length}명 보기`}</button></div>`:''}
