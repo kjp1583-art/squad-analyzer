@@ -316,8 +316,12 @@ def main():
 
 # ===== 억울지수 시트 기록 (Actions에서 호출) =====
 def push_grudge(path):
-    """GRUDGE 탭 재작성 — 웹 억울지수 랭킹의 데이터 소스."""
-    import base64, os
+    """GRUDGE 탭 재작성 — 웹 억울지수 랭킹의 데이터 소스.
+
+    시트 API는 분당 읽기/쓰기 쿼터가 따로 있고 둘 다 429가 흔하다.
+    연결·조회·쓰기를 각각 지수 백오프로 재시도하고, 끝까지 실패하면 탭을 건드리지 않고 종료한다
+    (반쯤 지워진 탭이 남는 것이 제일 나쁘므로 clear+update는 한 재시도 단위로 묶는다)."""
+    import base64, os, time as _t
     import gspread
     from oauth2client.service_account import ServiceAccountCredentials
 
@@ -327,18 +331,18 @@ def push_grudge(path):
     open("creds.json", "wb").write(base64.b64decode(raw))
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
-    # 시트 API는 분당 읽기 쿼터가 있어 429가 흔하다 — 지수 백오프로 재시도(실패 시 탭은 그대로 보존).
-    import time as _t
-    ss = None
-    for _try in range(4):
-        try:
-            ss = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)).open_by_key(SHEET_ID)
-            break
-        except Exception as e:
-            if _try == 3: raise
-            wait = 20 * (2 ** _try)
-            print(f"[grudge] 시트 연결 실패({type(e).__name__}) — {wait}s 후 재시도", flush=True)
-            _t.sleep(wait)
+
+    def retry(label, fn, tries=5):
+        for i in range(tries):
+            try: return fn()
+            except Exception as e:
+                if i == tries - 1: raise
+                wait = 30 * (2 ** i)          # 30 / 60 / 120 / 240초 — 분당 쿼터가 풀릴 만큼
+                print(f"[grudge] {label} 실패({type(e).__name__}) — {wait}s 후 재시도", flush=True)
+                _t.sleep(wait)
+
+    creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)
+    ss = retry("시트 연결", lambda: gspread.authorize(creds).open_by_key(SHEET_ID))
 
     rows = [["닉네임", "티어", "억울지수", "상위승률", "상위판수", "하위승률", "하위판수", "갱신"]]
     stamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M")
@@ -347,10 +351,15 @@ def push_grudge(path):
                      round(x["dn"], 1), x["dn_n"], stamp])
     if len(rows) < 2:
         print("[grudge] 산출 0건 — 기존 탭 보존"); return
-    try: ws = ss.worksheet("GRUDGE")
-    except Exception: ws = ss.add_worksheet(title="GRUDGE", rows="300", cols="8")
-    ws.clear(); ws.update(values=rows, range_name="A1")
-    print(f"[grudge] GRUDGE 탭 갱신 — {len(rows)-1}명")
+
+    def write():
+        try: ws = ss.worksheet("GRUDGE")
+        except Exception: ws = ss.add_worksheet(title="GRUDGE", rows="300", cols="8")
+        ws.clear()
+        ws.update(values=rows, range_name="A1")
+        return ws
+    retry("GRUDGE 쓰기", write)
+    print(f"[grudge] GRUDGE 탭 갱신 — {len(rows)-1}명 (1위 {rows[1][0]} {rows[1][2]}%p)")
 
 
 if __name__ == "__main__":
