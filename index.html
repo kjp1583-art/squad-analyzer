@@ -2651,7 +2651,9 @@ function weekStar(title, best, descFn){
 }
 function renderHome(){
   const ws=weeklyStars();   // 🏆 이주의 인물 (+주간 댓글 스레드 — 주 단위로 새 스레드)
-  const wkTarget=ws?('이주의인물:'+new Date(ws.to).toISOString().slice(0,10)):null;
+  // 💬 [2026-07-28 사장님 지시] 스레드 키를 '그 주 월요일'로 고정 — 기존엔 최신 게임일 기준이라
+  //    내전 있는 날마다 새 스레드가 열려 한마디가 매일 초기화되던 문제. 이제 월~일 한 주 동안 유지된다.
+  const wkTarget=ws?(()=>{const d=new Date(ws.to);d.setDate(d.getDate()-((d.getDay()+6)%7));return '이주의인물:'+d.toISOString().slice(0,10);})():null;
   const champs=champTierData();
   const players=playerStats();
   const totalGames=GAMES.size;
@@ -4237,7 +4239,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607272359";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
