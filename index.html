@@ -2871,6 +2871,7 @@ function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 // 입대자 명단 — 여기에 한 줄씩 추가하면 됩니다. branch: 육군/해병대(18개월)·해군(20)·공군(21)·사회복무(21)
 const MIL_SERVICE=[
   {name:"겨 울", branch:"육군", start:"2026-07-28"},
+  {name:"민병이#우는중중", start:"2025-12-01", end:"2027-07-01"},   // 전역일 직접 지정(end)
 ];
 const MIL_MONTHS={"육군":18,"해병대":18,"해군":20,"공군":21,"사회복무":21};
 function renderArmy(){
@@ -2878,7 +2879,9 @@ function renderArmy(){
   const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   const cards=MIL_SERVICE.map(p=>{
     const s=new Date(p.start+"T00:00:00");
-    const e=new Date(s); e.setMonth(e.getMonth()+(MIL_MONTHS[p.branch]||18)); e.setDate(e.getDate()-1);   // 전역일 = 입대일+복무개월-1일
+    let e;
+    if(p.end){ e=new Date(p.end+"T00:00:00"); }   // end 지정 시 그 날짜를 전역일로 사용
+    else { e=new Date(s); e.setMonth(e.getMonth()+(MIL_MONTHS[p.branch]||18)); e.setDate(e.getDate()-1); }   // 전역일 = 입대일+복무개월-1일
     const total=Math.round((e-s)/86400000)+1;
     const served=Math.min(total,Math.max(0,Math.round((today-s)/86400000)+1));
     const left=Math.max(0,Math.round((e-today)/86400000));
@@ -2893,7 +2896,7 @@ function renderArmy(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <b style="font-size:17px;cursor:pointer" onclick="go('player','${escAttr(p.name)}')">${esc(p.name)}</b>
         <span style="display:inline-flex;align-items:center;background:rgba(245,212,122,.10);border:1px solid rgba(245,212,122,.4);color:#f5d47a;font-weight:800;font-size:12.5px;padding:3px 9px;border-radius:9px">${bars}${rank.n}</span>
-        <span class="muted">🪖 ${esc(p.branch)}</span>
+        <span class="muted">🪖 ${esc(p.branch||"군 복무")}</span>
         <span style="margin-left:auto;font-weight:800;color:${done?'var(--win)':'#f5d47a'}">${dday}</span>
       </div>
       <div style="margin-top:10px;background:rgba(255,255,255,.07);border-radius:9px;height:16px;overflow:hidden">
@@ -4244,7 +4247,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280002";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280005";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
