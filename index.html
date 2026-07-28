@@ -92,7 +92,11 @@
   /* 좁은 칸에서 표가 넘치지 않도록 승률 막대를 짧은 고정폭으로 */
   .ranktbl .wr,.champtbl .wr{min-width:0;gap:5px}
   .ranktbl .wrbar,.champtbl .wrbar{flex:none;width:30px}
-  .home3 .card{overflow:hidden}
+  /* [2026-07-28 사장님 지시] ①챔피언명 세로 줄바꿈 방지(마오카이 사례) ②노밴 열 잘림 방지(가로 스크롤 허용) */
+  .champtbl .champcell{min-width:0;white-space:nowrap}
+  .champtbl .champcell span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:96px}
+  .champtbl th:last-child,.champtbl td:last-child{padding-right:8px}
+  .home3 .card{overflow-x:auto;overflow-y:hidden}
   .home3 table{width:100%;table-layout:auto}
   /* 최근 게임 카드 */
   .rg{cursor:pointer}
@@ -4248,7 +4252,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280018";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
