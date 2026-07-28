@@ -2885,9 +2885,14 @@ function renderArmy(){
     const pct=Math.max(0,Math.min(100,served/total*100));
     const done=left<=0;
     const dday=done?"🎉 전역 완료!":(served<=0?`입대 D-${Math.round((s-today)/86400000)}`:`전역까지 D-${left}`);
+    // 🎖 [2026-07-28 사장님 지시] 계급장 — 복무 개월 기준 자동 진급(이병 2·일병 6·상병 6·병장 잔여, 육군 기준)
+    const mo=served/30.44;
+    const rank=done?{n:"예비역",b:0}:served<=0?{n:"입영 대기",b:0}:mo<2?{n:"이병",b:1}:mo<8?{n:"일병",b:2}:mo<14?{n:"상병",b:3}:{n:"병장",b:4};
+    const bars=rank.b?`<span title="${rank.n}" style="display:inline-flex;flex-direction:column-reverse;gap:2px;vertical-align:middle;margin-right:4px">${'<span style="display:block;width:22px;height:4px;background:#f5d47a;border-radius:1px"></span>'.repeat(rank.b)}</span>`:"";
     return `<div class="card" style="margin-top:14px">
-      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <b style="font-size:17px;cursor:pointer" onclick="go('player','${escAttr(p.name)}')">${esc(p.name)}</b>
+        <span style="display:inline-flex;align-items:center;background:rgba(245,212,122,.10);border:1px solid rgba(245,212,122,.4);color:#f5d47a;font-weight:800;font-size:12.5px;padding:3px 9px;border-radius:9px">${bars}${rank.n}</span>
         <span class="muted">🪖 ${esc(p.branch)}</span>
         <span style="margin-left:auto;font-weight:800;color:${done?'var(--win)':'#f5d47a'}">${dday}</span>
       </div>
@@ -4239,7 +4244,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280002";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
