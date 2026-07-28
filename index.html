@@ -1539,10 +1539,13 @@ function careerHofHtml(){   // 명예의전당 커리어 섹션(대회별 현재
     if(!g.has(k)) g.set(k,{date:r.date,cur:false,names:[]});
     const e=g.get(k); e.names.push(r); e.cur=e.cur||r.cur;
   }
-  const nameLink=r=>{const rr=(r.riot||"").trim();   // 롤닉(연동) 있는 현역만 전적 링크 활성화 — 탈퇴·미연동은 이름만
-    if(!rr) return `<span style="opacity:.7" title="현재 활동 정보 없음(당시 닉네임)">${esc(r.name)}</span>`;
-    const cn=canonOfName(rr);
-    return `<span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn)||r.name)}</span>`;};
+  const nameLink=r=>{const rr=(r.riot||"").trim();
+    // [2026-07-28 사장님 지시] 롤닉이 비어도 '이름'을 별칭맵(LINK_ACCOUNT·닉변)으로 해석해 현역이면 링크
+    //   (제1회 점수전처럼 옛 기록에 롤닉이 없던 행이 회색 텍스트로만 남던 문제 — 건들지마라빡돈다→건빡 사례)
+    const cand=rr||String(r.name||"").trim();
+    const cn=cand?canonOfName(cand):null;
+    if(cn&&PLAYERS.has(cn)) return `<span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn)||r.name)}</span>`;
+    return `<span style="opacity:.7" title="현재 활동 정보 없음(당시 닉네임)">${esc(r.name)}</span>`;};
   let h='<div class="card" style="margin-bottom:14px"><h2>🏅 커리어 — 대회 우승 기록</h2>';
   h+='<div class="muted" style="font-size:12.5px;margin:2px 0 10px">디스코드 우승자 역할 기준 자동 기록 · 새 대회 우승 시 자동 갱신 · 역대 기록은 영구 보존</div>';
   for(const [title,g] of byTitle){
@@ -4303,7 +4306,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280232";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607280245";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
