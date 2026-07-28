@@ -1,0 +1,40 @@
+name: Sibguiwol roster
+
+# 십이귀월 명단을 시트에서 계산해 결과 채널로 발송한다.
+# 분석기 호스트(사장님 PC)가 꺼져 있어도 클라우드에서 최신화할 수 있게 하는 수동 경로.
+# 평상시 자동 재편 공지는 분석기가 담당 — 이건 "지금 명단 한 번 쏴줘" 용도.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '발송하지 않고 명단만 로그로 확인'
+        type: boolean
+        default: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install --quiet openpyxl
+
+      - name: Fetch fresh sheet snapshot
+        run: |
+          set -e
+          curl -sSL -o sheet.xlsx "https://docs.google.com/spreadsheets/d/10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU/export?format=xlsx"
+          file sheet.xlsx | grep -qi 'Excel\|Zip'
+
+      - name: Compute and post
+        env:
+          APP_SECRETS_B64: ${{ secrets.APP_SECRETS_B64 }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python tooling/sibguiwol.py sheet.xlsx
+          else
+            python tooling/sibguiwol.py sheet.xlsx --post
+          fi
