@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.47"
+CURRENT_VERSION = "82.48"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -386,6 +386,80 @@ def _rotation_label(seq):
     return ("형탐", "동탐", "조율")[(int(seq) - 1) % 3]
 
 _NB_TEAMS = {"blue": [], "red": []}   # 🚫 [v82.46] 노밴 진영 판정용 — 리포트 발송 직전 루프가 팀 로스터를 복사해 둠
+
+# 🏅 [v82.48 사장님 지시] 시트 전체 기록 기반 '게임 간' 타이틀 자동판정 —
+#   한 게임 데이터만으로는 못 잡던 것들(하루 판수·연승·당일 전 라인 승리·연속 맞라이너 전승)을
+#   결과 리포트 직전에 시트에서 계산해 덧붙인다. 판정 실패는 무해(빈 리스트 반환).
+#   ※ '복수자'는 미토 3판2선승 구조상 매 시리즈 자연발생이라 자동판정 제외(2026-07-28 사장님 판단).
+def cross_game_titles(sheet_rows, this_gid):
+    out = []
+    try:
+        if not sheet_rows or len(sheet_rows) < 2: return out
+        H = sheet_rows[0]
+        ci = lambda n: H.index(n) if n in H else -1
+        c_gid, c_date, c_name, c_pu = ci("게임ID"), ci("날짜"), ci("소환사명"), ci("PUUID")
+        c_pos, c_res, c_side = ci("포지션"), ci("결과"), ci("진영")
+        if min(c_gid, c_date, c_name, c_res) < 0: return out
+        rows = [r for r in sheet_rows[1:] if len(r) > max(c_gid, c_date, c_name, c_res, c_pos, c_side)]
+        key = lambda r: (str(r[c_pu]).strip().lower() if c_pu >= 0 and str(r[c_pu]).strip() else str(r[c_name]).strip())
+        disp = lambda r: str(r[c_name]).split("#")[0].strip()
+
+        # 이 게임 참가자 · 게임 순서(시트 기록 순 = 시간순)
+        gids = []
+        for r in rows:
+            g = str(r[c_gid]).strip()
+            if g and (not gids or gids[-1] != g): gids.append(g)
+        try: gi_now = gids.index(str(this_gid).strip())
+        except ValueError: gi_now = len(gids) - 1
+        cur = [r for r in rows if str(r[c_gid]).strip() == str(this_gid).strip()]
+        if not cur: return out
+        today = str(cur[0][c_date])[:10]
+
+        by_player_today = {}
+        for r in rows:
+            if str(r[c_date])[:10] != today: continue
+            by_player_today.setdefault(key(r), []).append(r)
+
+        for r in cur:
+            k, nm = key(r), disp(r)
+            mine = by_player_today.get(k, [])
+            played = [x for x in mine if str(x[c_res]) in ("승리", "패배")]
+            # ① 하루 종일 할 수 있어 — 당일 내전 20판 달성(달성 판에서 1회)
+            if len(played) == 20 and str(r[c_res]) in ("승리", "패배"):
+                out.append(f"🕛 [하루 종일 할 수 있어] 하루 내전 20판 달성 ({nm})")
+            # ② 다재다능 — 당일 5개 라인 각각 1승 이상
+            if c_pos >= 0 and str(r[c_res]) == "승리":
+                wins_pos = {str(x[c_pos]).strip() for x in played if str(x[c_res]) == "승리"}
+                if {"탑", "정글", "미드", "원딜", "서폿"} <= wins_pos:
+                    out.append(f"🎭 [다재다능] 하루 안에 모든 라인에서 1승씩 달성 ({nm})")
+            # ③ 모두가 내 발아래 — 10연승(이번 판 포함, 시트 전체 기준)
+            if str(r[c_res]) == "승리":
+                streak = 0
+                for g in reversed(gids[:gi_now + 1]):
+                    row = next((x for x in rows if str(x[c_gid]).strip() == g and key(x) == k
+                                and str(x[c_res]) in ("승리", "패배")), None)
+                    if row is None: continue
+                    if str(row[c_res]) == "승리": streak += 1
+                    else: break
+                if streak == 10:
+                    out.append(f"👑 [모두가 내 발아래] 내전 10연승 달성 ({nm})")
+            # ④ 스토커 — 최근 3게임 연속 같은 맞라이너와 붙어 전승
+            if c_pos >= 0 and c_side >= 0 and str(r[c_res]) == "승리" and gi_now >= 2:
+                opps, ok = [], True
+                for g in gids[gi_now - 2: gi_now + 1]:
+                    me = next((x for x in rows if str(x[c_gid]).strip() == g and key(x) == k), None)
+                    if me is None or str(me[c_res]) != "승리": ok = False; break
+                    o = next((x for x in rows if str(x[c_gid]).strip() == g
+                              and str(x[c_pos]).strip() == str(me[c_pos]).strip()
+                              and str(x[c_side]).strip() != str(me[c_side]).strip()), None)
+                    if o is None: ok = False; break
+                    opps.append(key(o))
+                if ok and len(opps) == 3 and len(set(opps)) == 1:
+                    o_nm = next((disp(x) for x in rows if key(x) == opps[0]), "상대")
+                    out.append(f"🕵 [스토커] 3판 연속 같은 맞라이너({o_nm})와 만나 전부 승리 ({nm})")
+    except Exception as _e:
+        print(f"[titles] 게임간 타이틀 판정 생략: {type(_e).__name__}", flush=True)
+    return out
 
 def broadcast_to_discord_webhook(content_text):
     if not RESULT_WEBHOOK_URL or RESULT_WEBHOOK_URL.startswith("여기에"): return
@@ -2702,15 +2776,42 @@ def update_solo_ranks():
                         rk.get("wins",0), rk.get("losses",0), rk["score"],
                         time.strftime("%Y-%m-%d %H:%M")])
         time.sleep(1.3)   # rate limit
+    # 🛡️ [v82.48 사장님 제보 — 시트 전멸 사고 방지] 예전엔 조회 결과와 무관하게 clear+덮어쓰기라,
+    #    Riot API 키 만료·네트워크 실패로 전건 조회가 실패하면 SOLO_RANK가 헤더만 남고 통째로 비워졌다.
+    #    ① 수집 0건이면 아예 쓰지 않음 ② 기존 대비 절반 미만으로 급감해도 보류(부분 실패 보호).
     try:
         try: ws = global_spreadsheet.worksheet("SOLO_RANK")
         except Exception: ws = global_spreadsheet.add_worksheet(title="SOLO_RANK", rows="400", cols="7")
+        _new_n = len(out) - 1
+        if _new_n <= 0:
+            print("[solo] 수집 0건 — 기존 SOLO_RANK 보존(덮어쓰기 취소). Riot API 키 만료 여부 확인 필요", flush=True)
+            return
+        try:
+            _prev_n = max(0, len([r for r in (get_sheet_data_cached(ws, force=True) or [])[1:] if r and str(r[0]).strip()]))
+        except Exception:
+            _prev_n = 0
+        if _prev_n >= 10 and _new_n < _prev_n * 0.5:
+            print(f"[solo] 수집 급감({_prev_n}→{_new_n}) — 부분 실패로 보고 덮어쓰기 보류", flush=True)
+            return
         ws.clear(); ws.update(out)
-    except Exception: pass
+        invalidate_sheet_cache("SOLO_RANK")
+        print(f"[solo] SOLO_RANK 갱신 {_new_n}명", flush=True)
+    except Exception as _se:
+        print(f"[solo] SOLO_RANK 기록 실패: {type(_se).__name__}", flush=True)
 
 def solo_rank_engine():
-    """시작 90초 후 + 12시간마다 솔랭 갱신(키 없으면 no-op)."""
+    """시작 90초 후 + 12시간마다 솔랭 갱신(키 없으면 no-op).
+       🛡️ [v82.48] 갱신 대상은 gui_data['hof_classic'] 집계에서 뽑는데, 시작 직후엔 아직 비어 있을 수 있다.
+          예전엔 그 상태로 돌면 대상 0명 → 시트를 헤더만 남기고 비우는 사고가 났다(위 가드로 이중 방어).
+          여기서는 집계가 준비될 때까지 최대 10분 대기 후 시작한다."""
     time.sleep(90)
+    for _ in range(60):
+        try:
+            with gui_lock:
+                _ready = bool(gui_data.get("hof_classic", {}).get("global_stats", {}).get("전체 (ALL)"))
+            if _ready: break
+        except Exception: pass
+        time.sleep(10)
     while True:
         try:
             if load_riot_key() and global_spreadsheet: update_solo_ranks()
@@ -2910,12 +3011,29 @@ def backfill_pending_results():
         c_item, c_rune1, c_rune2 = _ci("아이템"), _ci("주룬"), _ci("보조룬")   # 🛒 [v81.70] 백필에도 소급
         c_spell = _ci("스펠")   # 🔮 [v81.73] 스펠 소급
         if c_gid < 0 or c_res < 0 or c_side < 0: continue
-        # ① '결과 대기' + '#숫자' 게임ID만 수집(CUSTOM_ 폴백ID는 리엇 역추적 불가 → 제외)
+        # ① '결과 대기' + '#숫자' 게임ID 수집(CUSTOM_ 폴백ID는 리엇 역추적 불가 → 제외)
+        #   🏅 [v82.48 사장님 지시] 여기에 '결과는 있는데 매치평가가 「평가 없음」인 게임'도 포함 —
+        #      과거 백필로 마감돼 평가가 비어 있던 게임들을 Match-V5로 소급 계산해 채운다.
+        #      (조회 가능한 범위만 자연 처리되고, 다 채워지면 대상이 사라져 스스로 멈춘다)
+        # 게임당 평가는 MVP·ACE·역적 3명뿐 → 나머지 7명의 '평가 없음'은 정상값이다.
+        # 게임ID 단위로 '평가가 하나라도 기록된 게임'을 소급 완료로 보고 재조회 대상에서 제외(무한 재조회 방지).
+        _eval_done_gids = set()
+        if c_eval >= 0:
+            for r in rows[1:]:
+                try:
+                    if len(r) <= max(c_gid, c_eval): continue
+                    if str(r[c_eval]).strip() in ("MVP", "ACE", "역적"):
+                        _eval_done_gids.add(str(r[c_gid]).strip())
+                except Exception: continue
         pend = []
         for r in rows[1:]:
             try:
                 if len(r) <= max(c_gid, c_res): continue
-                if str(r[c_res]).strip() != "결과 대기": continue
+                _res_v = str(r[c_res]).strip()
+                _eval_v = str(r[c_eval]).strip() if (c_eval >= 0 and len(r) > c_eval) else ""
+                _need_eval = ((_res_v in ("승리", "패배")) and (_eval_v == "평가 없음")
+                              and str(r[c_gid]).strip() not in _eval_done_gids)
+                if _res_v != "결과 대기" and not _need_eval: continue
                 gid = str(r[c_gid]).strip()
                 if not re.fullmatch(r"#\d+", gid) or gid in _bf_skip_gids: continue
                 # 진행중/방금 끝난 게임의 라이브 finalize와 경합 방지: 시작 30분 경과 행만(날짜 파싱 불가 시 안전하게 보류)
@@ -2968,24 +3086,37 @@ def backfill_pending_results():
                     if _ps:
                         kda_by_pos[(_sd, _ps)] = _k
                         ext_by_pos[(_sd, _ps)] = _ext
+                # 🏅 [v82.48] 매치평가(MVP/ACE/역적) 소급 계산 — 실패해도 무해(빈 dict)
+                _bf_evals = _bf_compute_evals(info, is_aram=(tab == "KIWI_KIWI"))
                 # ② 쓰기 직전 서비스계정 재독(행번호 정확성 — gviz 스캔 뒤 행 추가/수동편집 대비)
                 live = ws.get_all_values()
                 cells = []
                 for r_i, lr in enumerate(live[1:], start=2):
                     if len(lr) <= max(c_gid, c_res, c_side): continue
-                    if str(lr[c_gid]).strip() != gid or str(lr[c_res]).strip() != "결과 대기": continue
+                    if str(lr[c_gid]).strip() != gid: continue
+                    _lres = str(lr[c_res]).strip()
+                    _leval = str(lr[c_eval]).strip() if (c_eval >= 0 and len(lr) > c_eval) else ""
+                    _eval_only = (_lres in ("승리", "패배")) and (_leval == "평가 없음")   # 🏅 평가만 소급하는 행
+                    if _lres != "결과 대기" and not _eval_only: continue
                     side = str(lr[c_side]).strip()
                     tid = 100 if side == "블루팀" else (200 if side == "레드팀" else None)
                     if tid is None: continue
-                    cells.append(gspread.Cell(row=r_i, col=c_res + 1, value="승리" if win_by_team.get(tid) else "패배"))
+                    if not _eval_only:
+                        cells.append(gspread.Cell(row=r_i, col=c_res + 1, value="승리" if win_by_team.get(tid) else "패배"))
                     if c_kda >= 0 and len(lr) > c_kda and str(lr[c_kda]).strip() == "기록 대기":
                         _k = kda_by_name.get(tnorm(str(lr[c_name]).strip())) if (c_name >= 0 and len(lr) > c_name) else None
                         if not _k and c_pos >= 0 and len(lr) > c_pos:
                             _k = kda_by_pos.get((side, str(lr[c_pos]).strip()))
                         if _k: cells.append(gspread.Cell(row=r_i, col=c_kda + 1, value=_k))
-                    if c_eval >= 0 and len(lr) > c_eval and str(lr[c_eval]).strip() == "평가 대기":
-                        # 정밀 평가(MVP/ACE/역적)는 LCU eog 전제 데이터라 소급 불가 → '평가 없음'으로 마감(행 완결)
-                        cells.append(gspread.Cell(row=r_i, col=c_eval + 1, value="평가 없음"))
+                    if c_eval >= 0 and len(lr) > c_eval and str(lr[c_eval]).strip() in ("평가 대기", "평가 없음"):
+                        # 🏅 [v82.48 사장님 지시] 매치평가 소급 — Match-V5 participants는 EOG와 필드 호환이라
+                        #    (kills/deaths/assists·딜·받은딜·힐·시야·CS·포탑·오브젝트딜·teamPosition 전부 존재)
+                        #    동일한 parse_endgame_achievements 산식으로 MVP/ACE/역적을 그대로 계산할 수 있다.
+                        #    (예전 '소급 불가' 주석은 사실과 달랐음.) 계산 실패 시에만 기존대로 '평가 없음'.
+                        _ev = _bf_eval_for_row(_bf_evals, side, str(lr[c_pos]).strip() if (c_pos >= 0 and len(lr) > c_pos) else "",
+                                               str(lr[c_name]).strip() if (c_name >= 0 and len(lr) > c_name) else "")
+                        if _ev or not _eval_only:   # 평가만 소급하는 행은 계산 성공했을 때만 기록(불필요한 재기록 방지)
+                            cells.append(gspread.Cell(row=r_i, col=c_eval + 1, value=_ev or "평가 없음"))
                     # 🛒 [v81.70] 아이템·룬 소급(열이 있고 미기록일 때만)
                     _ex = (ext_by_name.get(tnorm(str(lr[c_name]).strip())) if (c_name >= 0 and len(lr) > c_name) else None) \
                           or (ext_by_pos.get((side, str(lr[c_pos]).strip())) if (c_pos >= 0 and len(lr) > c_pos) else None)
@@ -3025,6 +3156,43 @@ def backfill_pending_results():
             except Exception as _be:
                 print(f"[backfill] {gid} 실패(다음 주기 재시도): {type(_be).__name__} {str(_be)[:100]}", flush=True)
             time.sleep(1.3)   # rate limit(개인키 여유)
+
+
+def _bf_compute_evals(info, is_aram=False):
+    """[v82.48] Match-V5 info → {"puuid": "MVP"/"ACE"/"역적", ("진영","포지션"): ...} 평가 맵.
+       종료신호 유실 게임(백필)도 라이브와 동일한 산식으로 매치평가를 채우기 위해
+       parse_endgame_achievements를 그대로 재사용한다(EOG와 필드 호환)."""
+    out = {}
+    try:
+        md = {"gameDuration": info.get("gameDuration", 0),
+              "teams": [{"teamId": t.get("teamId"), "win": bool(t.get("win"))} for t in (info.get("teams") or [])],
+              "participants": list(info.get("participants") or [])}
+        if not md["participants"]: return out
+        _, mvp_pu, mvp_cid, mvp_tid, ace_pu, ace_cid, ace_tid, tr_pu, tr_cid, tr_tid, *_rest = \
+            parse_endgame_achievements(md, {}, {}, [], [], is_aram=is_aram)
+        _sd = lambda t: "블루팀" if t == 100 else ("레드팀" if t == 200 else "")
+        for pu, cid, tid, label in ((mvp_pu, mvp_cid, mvp_tid, "MVP"),
+                                    (ace_pu, ace_cid, ace_tid, "ACE"),
+                                    (tr_pu, tr_cid, tr_tid, "역적")):
+            if not label: continue
+            _p = str(pu or "").strip().lower()
+            if _p and not _p.startswith(("bot_", "temp")): out[_p] = label
+            _pos = None
+            for q in md["participants"]:
+                if str(q.get("puuid", "")).strip().lower() == _p:
+                    _pos = _BF_POS_KOR.get(str(q.get("teamPosition") or "").upper()); break
+            if _pos and _sd(tid): out[(_sd(tid), _pos)] = label
+    except Exception as _e:
+        print(f"[backfill] 매치평가 소급 생략: {type(_e).__name__}", flush=True)
+    return out
+
+def _bf_eval_for_row(evals, side, pos, name):
+    """행(진영·포지션·소환사명) → 평가 라벨. 매칭 실패 시 None(호출부가 '평가 없음' 폴백)."""
+    if not evals: return None
+    try:
+        if side and pos and (side, pos) in evals: return evals[(side, pos)]
+    except Exception: pass
+    return None
 
 def backfill_result_engine():
     """시작 3분 후 + 15분마다 '결과 대기' 백필(키/시트 없으면 no-op) — 실질 호스트 1대만 가동, 쓰기 멱등이라 중복 무해."""
@@ -6090,6 +6258,10 @@ def lcu_core_backend_loop():
                             #   리포트는 finalize(게임종료) 시점 발송인데, 시작 append 승자가 늦게켠/eog포기 인스턴스면 finalize를 실제 완료한 '다른'(비주체) 인스턴스가
                             #   시트는 마감하지만 _is_appender=False라 리포트를 못 쏴 매 게임 유실됐음. 이제 finalize 지점 도달(=행 가시+마감 수행) 인스턴스가 발송.
                             #   단일발송 유지: 비주체는 rank 스태거(L3012) 후 '이미 마감?' 확인되면 continue(L3017)로 여기 도달 안 함 → 실제 마감 수행한 ~1인스턴스만 도달. posted_game_ids로 인스턴스내 1회.
+                            try:   # 🏅 [v82.48] 게임 간 타이틀(하루 판수·연승·다재다능·스토커) 합류
+                                _xt = cross_game_titles(sheet_data_check, _finalize_gid)
+                                if _xt: achieves_list = list(achieves_list) + _xt
+                            except Exception: pass
                             if achieves_list and _game_visible(sheet_data_check) and (active_recording_id not in posted_game_ids):
                                 posted_game_ids.add(active_recording_id)
                                 try:   # 🚫 [v82.46] 노밴 진영 판정용 팀 로스터 미러 — global_cached_blue/red는 이 루프의
