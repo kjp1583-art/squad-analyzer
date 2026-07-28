@@ -9,6 +9,10 @@ on:
       version:
         description: '버전 (예: 82.47)'
         required: true
+      notes:
+        description: '패치노트 (디스코드 패치노트 채널에 그대로 발송됨. 줄바꿈은 \n)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -66,7 +70,12 @@ jobs:
           New-Item -ItemType Directory -Force -Path release | Out-Null
           Compress-Archive -Path "dist/squad_analyzer" -DestinationPath "release/squad_analyzer.zip" -Force
           $h = (Get-FileHash "release/squad_analyzer.zip" -Algorithm SHA256).Hash
-          "SHA256(zip): $h" | Out-File -FilePath release/notes.txt -Encoding utf8
+          # 패치노트(입력) → 릴리스 본문 상단. 분석기가 이 본문을 그대로 디스코드 패치노트로 발송한다.
+          # '---' 아래(SHA256 등 기술 푸터)는 분석기가 잘라내므로 노출되지 않음.
+          $n = "${{ github.event.inputs.notes }}"
+          $body = if ([string]::IsNullOrWhiteSpace($n)) { "" } else { $n.Replace('\n', [Environment]::NewLine) }
+          $body + [Environment]::NewLine + "---" + [Environment]::NewLine + "SHA256(zip): $h" |
+            Out-File -FilePath release/notes.txt -Encoding utf8
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

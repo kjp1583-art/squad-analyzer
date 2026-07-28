@@ -1,0 +1,42 @@
+name: Update release notes
+
+# 이미 만들어진 릴리스의 본문(패치노트)만 갱신 — 재빌드 없이 즉시 반영.
+# 분석기는 릴리스 본문을 디스코드 패치노트 채널로 발송하므로, 발송 전 본문을 채워두면 그대로 나간다.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '릴리스 태그 (예: v82.48)'
+        required: true
+      notes:
+        description: '패치노트 본문 (줄바꿈은 \n)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag }}
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          set -e
+          body=$(printf '%b' "$NOTES")
+          id=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" \
+                 "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+          python3 - "$id" <<'PY'
+          import json, os, sys, urllib.request
+          rid = sys.argv[1]
+          body = os.environ['NOTES'].replace('\\n', '\n')
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/releases/{rid}",
+              data=json.dumps({"body": body}).encode(), method='PATCH',
+              headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                       "Accept": "application/vnd.github+json"})
+          print(urllib.request.urlopen(req).status)
+          PY
