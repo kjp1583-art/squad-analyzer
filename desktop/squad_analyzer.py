@@ -3011,12 +3011,29 @@ def backfill_pending_results():
         c_item, c_rune1, c_rune2 = _ci("아이템"), _ci("주룬"), _ci("보조룬")   # 🛒 [v81.70] 백필에도 소급
         c_spell = _ci("스펠")   # 🔮 [v81.73] 스펠 소급
         if c_gid < 0 or c_res < 0 or c_side < 0: continue
-        # ① '결과 대기' + '#숫자' 게임ID만 수집(CUSTOM_ 폴백ID는 리엇 역추적 불가 → 제외)
+        # ① '결과 대기' + '#숫자' 게임ID 수집(CUSTOM_ 폴백ID는 리엇 역추적 불가 → 제외)
+        #   🏅 [v82.48 사장님 지시] 여기에 '결과는 있는데 매치평가가 「평가 없음」인 게임'도 포함 —
+        #      과거 백필로 마감돼 평가가 비어 있던 게임들을 Match-V5로 소급 계산해 채운다.
+        #      (조회 가능한 범위만 자연 처리되고, 다 채워지면 대상이 사라져 스스로 멈춘다)
+        # 게임당 평가는 MVP·ACE·역적 3명뿐 → 나머지 7명의 '평가 없음'은 정상값이다.
+        # 게임ID 단위로 '평가가 하나라도 기록된 게임'을 소급 완료로 보고 재조회 대상에서 제외(무한 재조회 방지).
+        _eval_done_gids = set()
+        if c_eval >= 0:
+            for r in rows[1:]:
+                try:
+                    if len(r) <= max(c_gid, c_eval): continue
+                    if str(r[c_eval]).strip() in ("MVP", "ACE", "역적"):
+                        _eval_done_gids.add(str(r[c_gid]).strip())
+                except Exception: continue
         pend = []
         for r in rows[1:]:
             try:
                 if len(r) <= max(c_gid, c_res): continue
-                if str(r[c_res]).strip() != "결과 대기": continue
+                _res_v = str(r[c_res]).strip()
+                _eval_v = str(r[c_eval]).strip() if (c_eval >= 0 and len(r) > c_eval) else ""
+                _need_eval = ((_res_v in ("승리", "패배")) and (_eval_v == "평가 없음")
+                              and str(r[c_gid]).strip() not in _eval_done_gids)
+                if _res_v != "결과 대기" and not _need_eval: continue
                 gid = str(r[c_gid]).strip()
                 if not re.fullmatch(r"#\d+", gid) or gid in _bf_skip_gids: continue
                 # 진행중/방금 끝난 게임의 라이브 finalize와 경합 방지: 시작 30분 경과 행만(날짜 파싱 불가 시 안전하게 보류)
@@ -3069,24 +3086,37 @@ def backfill_pending_results():
                     if _ps:
                         kda_by_pos[(_sd, _ps)] = _k
                         ext_by_pos[(_sd, _ps)] = _ext
+                # 🏅 [v82.48] 매치평가(MVP/ACE/역적) 소급 계산 — 실패해도 무해(빈 dict)
+                _bf_evals = _bf_compute_evals(info, is_aram=(tab == "KIWI_KIWI"))
                 # ② 쓰기 직전 서비스계정 재독(행번호 정확성 — gviz 스캔 뒤 행 추가/수동편집 대비)
                 live = ws.get_all_values()
                 cells = []
                 for r_i, lr in enumerate(live[1:], start=2):
                     if len(lr) <= max(c_gid, c_res, c_side): continue
-                    if str(lr[c_gid]).strip() != gid or str(lr[c_res]).strip() != "결과 대기": continue
+                    if str(lr[c_gid]).strip() != gid: continue
+                    _lres = str(lr[c_res]).strip()
+                    _leval = str(lr[c_eval]).strip() if (c_eval >= 0 and len(lr) > c_eval) else ""
+                    _eval_only = (_lres in ("승리", "패배")) and (_leval == "평가 없음")   # 🏅 평가만 소급하는 행
+                    if _lres != "결과 대기" and not _eval_only: continue
                     side = str(lr[c_side]).strip()
                     tid = 100 if side == "블루팀" else (200 if side == "레드팀" else None)
                     if tid is None: continue
-                    cells.append(gspread.Cell(row=r_i, col=c_res + 1, value="승리" if win_by_team.get(tid) else "패배"))
+                    if not _eval_only:
+                        cells.append(gspread.Cell(row=r_i, col=c_res + 1, value="승리" if win_by_team.get(tid) else "패배"))
                     if c_kda >= 0 and len(lr) > c_kda and str(lr[c_kda]).strip() == "기록 대기":
                         _k = kda_by_name.get(tnorm(str(lr[c_name]).strip())) if (c_name >= 0 and len(lr) > c_name) else None
                         if not _k and c_pos >= 0 and len(lr) > c_pos:
                             _k = kda_by_pos.get((side, str(lr[c_pos]).strip()))
                         if _k: cells.append(gspread.Cell(row=r_i, col=c_kda + 1, value=_k))
-                    if c_eval >= 0 and len(lr) > c_eval and str(lr[c_eval]).strip() == "평가 대기":
-                        # 정밀 평가(MVP/ACE/역적)는 LCU eog 전제 데이터라 소급 불가 → '평가 없음'으로 마감(행 완결)
-                        cells.append(gspread.Cell(row=r_i, col=c_eval + 1, value="평가 없음"))
+                    if c_eval >= 0 and len(lr) > c_eval and str(lr[c_eval]).strip() in ("평가 대기", "평가 없음"):
+                        # 🏅 [v82.48 사장님 지시] 매치평가 소급 — Match-V5 participants는 EOG와 필드 호환이라
+                        #    (kills/deaths/assists·딜·받은딜·힐·시야·CS·포탑·오브젝트딜·teamPosition 전부 존재)
+                        #    동일한 parse_endgame_achievements 산식으로 MVP/ACE/역적을 그대로 계산할 수 있다.
+                        #    (예전 '소급 불가' 주석은 사실과 달랐음.) 계산 실패 시에만 기존대로 '평가 없음'.
+                        _ev = _bf_eval_for_row(_bf_evals, side, str(lr[c_pos]).strip() if (c_pos >= 0 and len(lr) > c_pos) else "",
+                                               str(lr[c_name]).strip() if (c_name >= 0 and len(lr) > c_name) else "")
+                        if _ev or not _eval_only:   # 평가만 소급하는 행은 계산 성공했을 때만 기록(불필요한 재기록 방지)
+                            cells.append(gspread.Cell(row=r_i, col=c_eval + 1, value=_ev or "평가 없음"))
                     # 🛒 [v81.70] 아이템·룬 소급(열이 있고 미기록일 때만)
                     _ex = (ext_by_name.get(tnorm(str(lr[c_name]).strip())) if (c_name >= 0 and len(lr) > c_name) else None) \
                           or (ext_by_pos.get((side, str(lr[c_pos]).strip())) if (c_pos >= 0 and len(lr) > c_pos) else None)
@@ -3126,6 +3156,43 @@ def backfill_pending_results():
             except Exception as _be:
                 print(f"[backfill] {gid} 실패(다음 주기 재시도): {type(_be).__name__} {str(_be)[:100]}", flush=True)
             time.sleep(1.3)   # rate limit(개인키 여유)
+
+
+def _bf_compute_evals(info, is_aram=False):
+    """[v82.48] Match-V5 info → {"puuid": "MVP"/"ACE"/"역적", ("진영","포지션"): ...} 평가 맵.
+       종료신호 유실 게임(백필)도 라이브와 동일한 산식으로 매치평가를 채우기 위해
+       parse_endgame_achievements를 그대로 재사용한다(EOG와 필드 호환)."""
+    out = {}
+    try:
+        md = {"gameDuration": info.get("gameDuration", 0),
+              "teams": [{"teamId": t.get("teamId"), "win": bool(t.get("win"))} for t in (info.get("teams") or [])],
+              "participants": list(info.get("participants") or [])}
+        if not md["participants"]: return out
+        _, mvp_pu, mvp_cid, mvp_tid, ace_pu, ace_cid, ace_tid, tr_pu, tr_cid, tr_tid, *_rest = \
+            parse_endgame_achievements(md, {}, {}, [], [], is_aram=is_aram)
+        _sd = lambda t: "블루팀" if t == 100 else ("레드팀" if t == 200 else "")
+        for pu, cid, tid, label in ((mvp_pu, mvp_cid, mvp_tid, "MVP"),
+                                    (ace_pu, ace_cid, ace_tid, "ACE"),
+                                    (tr_pu, tr_cid, tr_tid, "역적")):
+            if not label: continue
+            _p = str(pu or "").strip().lower()
+            if _p and not _p.startswith(("bot_", "temp")): out[_p] = label
+            _pos = None
+            for q in md["participants"]:
+                if str(q.get("puuid", "")).strip().lower() == _p:
+                    _pos = _BF_POS_KOR.get(str(q.get("teamPosition") or "").upper()); break
+            if _pos and _sd(tid): out[(_sd(tid), _pos)] = label
+    except Exception as _e:
+        print(f"[backfill] 매치평가 소급 생략: {type(_e).__name__}", flush=True)
+    return out
+
+def _bf_eval_for_row(evals, side, pos, name):
+    """행(진영·포지션·소환사명) → 평가 라벨. 매칭 실패 시 None(호출부가 '평가 없음' 폴백)."""
+    if not evals: return None
+    try:
+        if side and pos and (side, pos) in evals: return evals[(side, pos)]
+    except Exception: pass
+    return None
 
 def backfill_result_engine():
     """시작 3분 후 + 15분마다 '결과 대기' 백필(키/시트 없으면 no-op) — 실질 호스트 1대만 가동, 쓰기 멱등이라 중복 무해."""
