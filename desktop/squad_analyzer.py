@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.60"
+CURRENT_VERSION = "82.61"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -5943,14 +5943,16 @@ def lcu_core_backend_loop():
                                             time.sleep(1.5)
                                             try: col_a_now = sheet_target.col_values(gid_idx + 1)
                                             except Exception: pass
-                                        if _dedup_ok and col_a_now.count(game_id_str) < 5:
+                                        # [2026-07-29 사장님 제보 — 한 판 20명] '5줄 미만'에서 '한 줄도 없을 때'로 좁힌다.
+                                        #   완전성 게이트 도입 후로는 항상 10줄을 통째로 넣으므로, 한 줄이라도 있으면 남이 이미 쓴 것이다.
+                                        if _dedup_ok and col_a_now.count(game_id_str) == 0:
                                             for _atry in range(2):   # [V81.45] 429 등 일시 오류 1회 재시도
                                                 try:
                                                     if _atry > 0:
                                                         # [리뷰반영] 재시도 전 중복 재확인 — 백오프(2.5~4.5s)가 랭크시차(3s)보다 길어
                                                         #   그 사이 다른 인스턴스가 기록했을 수 있음. 재확인 불가면 보류(중복 위험 차단).
                                                         try:
-                                                            if sheet_target.col_values(gid_idx + 1).count(game_id_str) >= 5: break
+                                                            if sheet_target.col_values(gid_idx + 1).count(game_id_str) > 0: break
                                                         except Exception: break
                                                     sheet_target.append_rows(rows_to_append); _appended_ok = True; break
                                                 except Exception:
