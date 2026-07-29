@@ -6,8 +6,9 @@
 남아 있어 지운다.
 
 어느 벌을 남기나 — 같은 (게임ID, PUUID) 가 여러 행이면:
-  ① 팀별 포지션이 탑·정글·미드·원딜·서폿 하나씩으로 온전한 벌을 우선 남긴다.
-  ② 둘 다 온전하거나 둘 다 아니면 먼저 기록된 행(위쪽)을 남긴다.
+  ① 같은 사람이 n번째로 나오면 n번째 사본 — 이렇게 벌을 정확히 가른다(3벌 이상도 처리).
+  ② 팀별 포지션이 탑·정글·미드·원딜·서폿 하나씩으로 온전한 벌을 우선 남긴다.
+  ③ 동률이면 인원이 많은 벌, 그래도 같으면 먼저 기록된 벌을 남긴다.
 지우는 건 그 외의 행뿐이고, 게임ID가 하나뿐인 행은 건드리지 않는다.
 
 기본은 미리보기(dry-run). 실제 삭제는 APPLY=1 일 때만.
@@ -58,27 +59,27 @@ def main():
 
     doomed = []
     for gid, rownums in by_game.items():
-        seen_people = defaultdict(list)
+        # 사본 가르기 — 같은 사람이 n번째로 나오면 n번째 사본에 속한다(3벌 이상도 정확히 갈린다).
+        copies, seen_cnt = defaultdict(list), defaultdict(int)
         for rn in rownums:
             r = vals[rn - 1]
-            pu = (r[idx["PUUID"]] if idx["PUUID"] < len(r) else "") or ""
-            seen_people[pu.strip().lower()].append(rn)
-        if not any(len(v) > 1 for v in seen_people.values()):
+            pu = ((r[idx["PUUID"]] if idx["PUUID"] < len(r) else "") or "").strip().lower()
+            key = pu or f"row{rn}"
+            copies[seen_cnt[key]].append(rn)
+            seen_cnt[key] += 1
+        if len(copies) < 2:
             continue                                    # 중복 없음
 
-        # 벌 나누기 — 앞의 10행 / 뒤의 10행(append 단위)
-        half = len(rownums) // 2
-        first, second = rownums[:half], rownums[half:]
-        rows1 = [vals[r - 1] for r in first]
-        rows2 = [vals[r - 1] for r in second]
-        keep_first = True
-        if _complete(rows2, idx) and not _complete(rows1, idx):
-            keep_first = False
-        drop = second if keep_first else first
+        def _score(ci):
+            rows = [vals[r - 1] for r in copies[ci]]
+            return (1 if _complete(rows, idx) else 0, len(rows), -ci)   # 온전 > 인원 많음 > 먼저 기록
+
+        best = max(copies, key=_score)
+        drop = [rn for ci in copies if ci != best for rn in copies[ci]]
         doomed.extend(drop)
-        print(f"  · {gid}: {len(rownums)}행 → {len(drop)}행 삭제 "
-              f"({'앞' if keep_first else '뒤'} 벌 유지"
-              f"{', 포지션 온전' if _complete(rows1 if keep_first else rows2, idx) else ''})")
+        print(f"  · {gid}: {len(rownums)}행 / 사본 {len(copies)}벌 → {len(drop)}행 삭제 "
+              f"({best + 1}번째 벌 유지"
+              f"{', 포지션 온전' if _score(best)[0] else ', 온전한 벌 없음'})")
 
     if not doomed:
         print("중복 없음 — 변경할 것 없습니다."); return 0
