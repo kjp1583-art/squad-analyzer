@@ -13,7 +13,7 @@
 
 기본은 미리보기(dry-run). 실제 삭제는 APPLY=1 일 때만.
 """
-import base64, os, sys
+import base64, os, sys, time
 from collections import defaultdict
 
 import gspread
@@ -35,16 +35,26 @@ def _complete(rows, idx):
     return all(set(v) == ROLES and len(v) == 5 for v in by_side.values())
 
 
+def _retry(label, fn, tries=5):
+    """시트 API는 분당 읽기/쓰기 쿼터가 따로 있고 둘 다 429를 던진다 — 지수 백오프."""
+    for i in range(tries):
+        try: return fn()
+        except Exception as e:
+            if i == tries - 1: raise
+            wait = 30 * (2 ** i)
+            print(f"  ! {label} 실패({type(e).__name__}) — {wait}s 후 재시도", flush=True)
+            time.sleep(wait)
+
+
 def main():
     raw = os.environ.get("CREDENTIALS_JSON_B64", "")
     if not raw:
         print("CREDENTIALS_JSON_B64 없음", file=sys.stderr); return 1
     open("creds.json", "wb").write(base64.b64decode(raw))
-    ws = gspread.authorize(
-        ServiceAccountCredentials.from_json_keyfile_name("creds.json", SCOPE)
-    ).open_by_key(SHEET_ID).worksheet(TAB)
+    creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", SCOPE)
+    ws = _retry("시트 연결", lambda: gspread.authorize(creds).open_by_key(SHEET_ID).worksheet(TAB))
 
-    vals = ws.get_all_values()
+    vals = _retry("행 읽기", ws.get_all_values)
     head = vals[0]
     idx = {c: i for i, c in enumerate(head)}
     for need in ("게임ID", "PUUID", "진영", "포지션"):
@@ -87,9 +97,19 @@ def main():
     if os.environ.get("APPLY") != "1":
         print("미리보기만 했습니다(APPLY=1 이어야 실제 삭제)."); return 0
 
-    for rn in sorted(doomed, reverse=True):             # 아래에서부터 — 인덱스 밀림 방지
-        ws.delete_rows(rn)
-    print(f"삭제 완료 — {len(doomed)}행")
+    # 연속 구간을 묶어서 삭제 — 한 줄씩 지우면 쓰기 요청이 행 수만큼 나가 쿼터에 걸린다.
+    runs, cur = [], []
+    for rn in sorted(doomed):
+        if cur and rn == cur[-1] + 1: cur.append(rn)
+        else:
+            if cur: runs.append((cur[0], cur[-1]))
+            cur = [rn]
+    if cur: runs.append((cur[0], cur[-1]))
+
+    for a, b in sorted(runs, reverse=True):             # 아래에서부터 — 인덱스 밀림 방지
+        _retry(f"{a}~{b}행 삭제", lambda a=a, b=b: ws.delete_rows(a, b))
+        time.sleep(1.2)                                 # 분당 쓰기 쿼터 여유
+    print(f"삭제 완료 — {len(doomed)}행 ({len(runs)}구간)")
     return 0
 
 
