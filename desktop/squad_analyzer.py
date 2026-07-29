@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.61"
+CURRENT_VERSION = "82.62"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -256,6 +256,7 @@ WIN_PRESET_CHOICES = [("auto", "자동 (화면 맞춤)"), ("compact", "컴팩트
                       ("wide", "와이드 1560×1150"), ("max", "최대화 (전체 화면)")]
 
 # 🔥 [V80.9] 패치 버전 동기화 최적화
+CS_REFRESH_SEC = 8      # 🧭 밴픽 진입 후 이 시간 동안은 로비를 더 읽어 포지션을 정정(관전→플레이어 이동 대응)
 DDRAGON_VERSION = "14.23.1"
 PATCH_VERSION_SHORT = "14.23"
 
@@ -5032,6 +5033,7 @@ def lcu_core_backend_loop():
     was_in_prog = False                  #    이전 루프가 InProgress였나 (전환 감지용)
     last_known_phase = "None"            # [V81.48] gameflow-phase 폴링 실패 시 직전 phase 유지(헛플립→game_seq 드리프트 방지)
     _roster_wait_since = {}              # [V81.48] 게임ID별 '완전 로스터 대기 시작 시각'(파편 append 방지 게이트용)
+    _cs_since = [0.0]                    # 🧭 [2026-07-29] 밴픽 진입 시각 — 진입 직후 몇 초는 로비를 더 읽어 포지션 정정
     active_recording_id = None
     active_recording_sheet_name = None   # 🔥 기록 시작 시점의 시트(KIWI/CLASSIC) 고정 — finalize가 엉뚱한 시트에 쓰는 것 방지
     eog_retry_count = 0
@@ -5222,6 +5224,14 @@ def lcu_core_backend_loop():
             except Exception:
                 current_phase = last_known_phase
             last_known_phase = current_phase
+            # 🧭 [2026-07-29 사장님 제보] 관전→플레이어로 자리를 옮기자마자 밴픽이 시작되면, 얼기 직전
+            #    로비 폴링이 그 사람을 아직 관전자·포지션 미정으로 보고 그대로 굳어 포지션이 꼬였다.
+            #    밴픽 진입 후 CS_REFRESH_SEC 동안은 로비를 계속 읽어 캐시를 정정한다(화면은 즉시 뜬다).
+            if current_phase == "ChampSelect":
+                if _cs_since[0] == 0.0: _cs_since[0] = time.time()
+            else:
+                _cs_since[0] = 0.0
+            _cs_fresh = _cs_since[0] > 0 and (time.time() - _cs_since[0]) < CS_REFRESH_SEC
             try: noban_tick(headers, base_url, current_phase)   # 🚫 노밴 선언 감지(로비 채팅, 2초 간격)
             except Exception: pass
 
@@ -5374,7 +5384,7 @@ def lcu_core_backend_loop():
                     if kor_name and kor_name not in global_captured_bans:
                         global_captured_bans.append(kor_name)
 
-            if current_phase in ["Lobby", "Matchmaking", "ReadyCheck", "None"] or (not c100 and not c200):
+            if current_phase in ["Lobby", "Matchmaking", "ReadyCheck", "None"] or (not c100 and not c200) or _cs_fresh:
                 try:
                     lobby_res = requests.get(str(base_url) + "/lol-lobby/v2/lobby", headers=headers, verify=False, timeout=3)
                     if lobby_res.status_code == 200:
@@ -5550,6 +5560,19 @@ def lcu_core_backend_loop():
                 #   (재시작·타이밍에 따라 초기 폴링이 일부만 잡은 채 얼어붙어 유저 인식이 비어 보이던 것)
                 if global_cached_blue or global_cached_red:
                     temp_blue, temp_red = global_cached_blue, global_cached_red
+                    # 🧭 [2026-07-29] 밴픽 진입 직후 창: 인원이 같아도 포지션 배치가 달라졌으면 교체.
+                    #    (관전→플레이어 이동은 인원이 그대로인 경우가 있어 아래 '인원 증가' 조건을 통과 못 했다)
+                    if _cs_fresh and (c100 or c200):
+                        _nb2, _nr2 = parse_team(c100), parse_team(c200)
+                        def _sig(_lst):
+                            return sorted((str(_p.get("puuid") or "").lower(), str(_p.get("chosen_pos_icon") or ""))
+                                          for _p in (_lst or []))
+                        if (_nb2 or _nr2) and (_sig(_nb2) + _sig(_nr2)) != (_sig(temp_blue) + _sig(temp_red)) \
+                                and len(_nb2) + len(_nr2) >= len(temp_blue) + len(temp_red):
+                            temp_blue, temp_red = _nb2, _nr2
+                            global_cached_blue, global_cached_red = _nb2, _nr2
+                            need_stat_crunch = True
+                            print(f"[포지션정정] 밴픽 직후 로비 재확인 — {len(_nb2)}v{len(_nr2)} 갱신", flush=True)
                     if len(c100) + len(c200) > len(global_cached_blue) + len(global_cached_red):
                         _nb, _nr = parse_team(c100), parse_team(c200)
                         if len(_nb) + len(_nr) > len(temp_blue) + len(temp_red):
