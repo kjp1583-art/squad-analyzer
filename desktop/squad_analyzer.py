@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.55"
+CURRENT_VERSION = "82.56"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -4080,6 +4080,21 @@ def get_champ_eng_name(kor_name):
         if data.get('kor') == clean_name: return data.get('eng')
     return None
 
+def _dedupe_champ_entries(entries):
+    """[2026-07-29 사장님 제보] 같은 챔피언 초상화가 두 번 나오던 문제.
+       시트에 한글명 표기가 갈린 기록(리메이크·표기 변경 등)이 서로 다른 키로 집계돼
+       모스트/고승률픽에 같은 챔프가 중복으로 실렸다. 영문 키로 합쳐서 하나로 만든다."""
+    out, seen = [], {}
+    for e in entries or []:
+        k = get_champ_eng_name(e.get("name")) or str(e.get("name") or "")
+        if not k: continue
+        if k in seen:
+            seen[k]["count"] = int(seen[k].get("count", 0)) + int(e.get("count", 0))
+            continue
+        seen[k] = dict(e); out.append(seen[k])
+    return out
+
+
 def load_champion_image(champ_kor_name, size=32):
     if not PILLOW_INSTALLED or not champ_kor_name: return None
     champ_eng_name = get_champ_eng_name(champ_kor_name)
@@ -4118,7 +4133,7 @@ def _compute_pos_champ_lists(p_matches):
             if _c: _pc[_c] = _pc.get(_c, 0) + 1
         if not _pc: continue
         _sc = sorted(_pc.items(), key=lambda x: (-x[1], x[0]))   # [v82.5] 동률은 이름순(결정적) — 집계 경로와 동일 규칙
-        most_by_pos[_pk] = [{"name": c, "count": v} for c, v in _sc[:5]]   # [2026-07-22] 전체라인(모스트5)과 개수 통일 — 3개만 나오던 문제
+        most_by_pos[_pk] = _dedupe_champ_entries([{"name": c, "count": v} for c, v in _sc[:8]])[:5]
         _ops = []
         for c, v in _sc[:8]:
             _cw = sum(1 for _m in _pm if _m.get('champ') == c and _m.get('result') == '승리')
@@ -4126,7 +4141,7 @@ def _compute_pos_champ_lists(p_matches):
             if v >= 5 and _wr >= 60.0:   # [v82.36] 전체라인과 동일 기준
                 _ops.append({"name": c, "wr": _wr, "count": v})
         _ops.sort(key=lambda x: (-x["wr"], -x["count"]))
-        op_by_pos[_pk] = _ops
+        op_by_pos[_pk] = _dedupe_champ_entries(_ops)
     return most_by_pos, op_by_pos
 
 # 🎯 [v82.37] 대기실 모스트 표시 기본값 — 설정(config.json `pos_view_default`)에서 사용자가 지정.
@@ -4260,7 +4275,7 @@ def _crunch_from_aggregate(blue_players, red_players):
             _pc = {c: e["pos"][_pk] for c, e in champs.items() if _pk in e["pos"]}
             if not _pc: continue
             _sc2 = sorted(_pc.items(), key=lambda x: (-x[1][0], x[0]))   # 동률 이름순(원본과 동일)
-            most_by_pos[_pk] = [{"name": c, "count": nv[0]} for c, nv in _sc2[:5]]   # [2026-07-22] 전체라인(모스트5)과 개수 통일 — 집계 경로도 동일하게
+            most_by_pos[_pk] = _dedupe_champ_entries([{"name": c, "count": nv[0]} for c, nv in _sc2[:8]])[:5]
             _ops = []
             for c, (n_, w_) in _sc2[:8]:
                 _wr = (w_ / n_) * 100 if n_ else 0
@@ -4519,7 +4534,8 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
         user_ban_score = {}
         if champ_counts:
             sorted_champs = sorted(champ_counts.items(), key=lambda x: (-x[1], x[0]))   # [v82.5] 동률 이름순(집계 경로와 동일)
-            for c, v in sorted_champs[:5]: most_list.append({"name": c, "count": v})   # [시인성] 모스트5까지(초상화 표시)
+            for c, v in sorted_champs[:8]: most_list.append({"name": c, "count": v})
+            most_list = _dedupe_champ_entries(most_list)[:5]   # [시인성] 모스트5까지(초상화 표시)
             for c, v in sorted_champs[:5]:
                 c_wins = sum(1 for m in p_matches if m.get('champ') == c and m.get('result') == '승리')
                 c_wr = (c_wins / v) * 100
@@ -4527,6 +4543,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
                     op_list.append({"name": c, "wr": c_wr, "count": v})
                     user_ban_score[c] = user_ban_score.get(c, 0) + c_wr + (min(v, 10) * 2)
             
+            op_list = _dedupe_champ_entries(op_list)
             top_5_champs = [c for c, _ in sorted_champs[:5]]
             for c in top_5_champs:
                 b_games, b_wins = 0, 0
