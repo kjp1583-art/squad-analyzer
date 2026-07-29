@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.51"
+CURRENT_VERSION = "82.52"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -3666,6 +3666,14 @@ def _post_sibguiwol_webhook(prev, cur, aram=False, league=""):
     if dropouts:  ch.append("💀 **이탈** — " + ", ".join(_nm(x) for x in dropouts))
     if promoted:  ch.append("⬆️ **상현 승격** — " + ", ".join(_nm(x) for x in promoted))
     if demoted:   ch.append("⬇️ **하현 강등** — " + ", ".join(_nm(x) for x in demoted))
+    # [2026-07-29 사장님 지시] 조 내 순위만 바뀐 경우에도 공지 — 웹 화면과 웹훅 명단을 완전히 일치시킨다.
+    if not ch:
+        _pi = {x: i for i, x in enumerate(prev) if x}
+        _mv = [(x, _pi[x] - i) for i, x in enumerate(cur) if x and x in _pi and _pi[x] != i]
+        _mv.sort(key=lambda t: -abs(t[1]))
+        if _mv:
+            ch.append("🔄 **순위 변동** — " + ", ".join(
+                f"{_nm(x)} {'▲' if d > 0 else '▼'}{abs(d)}" for x, d in _mv[:6]))
     if aram:
         desc = "　**칼바람 파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·칼바람 내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
         title, color, content = "❄️　칼바람 십이귀월 ( 十二鬼月 ) 　재편성　❄️", 0x2B6E9B, "❄️❄️　**칼바람 십이귀월이 재편성되었다!**　❄️❄️"
@@ -3710,9 +3718,8 @@ def announce_sibguiwol_if_changed():
                 if prev is None:                   # 최초 = baseline만 저장, 공지 안 함(스팸 방지)
                     cfg[cfg_key] = cur; save_config(cfg); continue
                 prev = (list(prev) + [""] * 12)[:12]
-                top_changed = set(x for x in cur[:6] if x) != set(x for x in prev[:6] if x)
-                bot_changed = set(x for x in cur[6:] if x) != set(x for x in prev[6:] if x)
-                if top_changed or bot_changed:     # 세트 변동(진입/이탈/상현↔하현)만 공지 — 조내 순서변경은 무시
+                # [2026-07-29 사장님 지시] 순서만 바뀐 경우도 공지 대상 — 세트만 보면 웹과 명단이 어긋나 보인다.
+                if list(cur) != list(prev):
                     _post_sibguiwol_webhook(prev, cur, aram=is_aram, league=_lg)
                     cfg[cfg_key] = cur; save_config(cfg)
             except Exception: pass
