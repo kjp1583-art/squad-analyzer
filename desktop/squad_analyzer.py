@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.53"
+CURRENT_VERSION = "82.54"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -472,28 +472,8 @@ def broadcast_to_discord_webhook(content_text):
             msg_lines.append("```md")
             msg_lines.append(str(content_text))
             msg_lines.append("```")
-            try:   # 🚫🔚 [v82.41] 노밴·막판 선언 감지분을 결과 리포트에 부착 [2026-07-25 사장님 지시: 시작기록→결과리포트로 이동]
-                # [2026-07-27 사장님 지시] 노밴 없으면 '없음' 표기 + 챔피언별 '어느 팀의 누가 픽했는지' 병기.
-                #   [v82.47 버그수정] 로스터 dict엔 championId가 없어 항상 '미픽'으로 나오던 문제 —
-                #   챔프선택 확정픽 기록(global_lock_champ_map: puuid→championId)으로 실제 픽을 판정한다.
-                def _nb_side(cname):
-                    hits = []
-                    try:
-                        for _side_lbl, _pls in (("블루", _NB_TEAMS.get("blue")), ("레드", _NB_TEAMS.get("red"))):
-                            for _pl in (_pls or []):
-                                _pu9 = str(_pl.get("puuid") or "").strip().lower()
-                                try: _cid = int(_pl.get("championId") or 0) or int(global_lock_champ_map.get(_pu9) or 0)
-                                except Exception: _cid = 0
-                                _kor9 = (global_champ_map.get(_cid) or {}).get("kor") or GLOBAL_NUMERIC_CHAMP_MAP.get(_cid, "")
-                                if _cid and _kor9 == cname:
-                                    _nm9 = str(_pl.get("name") or "").split("#")[0].strip()
-                                    hits.append(f"{_side_lbl}·{_nm9}" if _nm9 else _side_lbl)
-                    except Exception: pass
-                    return " / ".join(hits) if hits else "❌미픽"
-                if _NOBAN.get("decls"):
-                    msg_lines.append("🚫 노밴: " + ", ".join(f"{c}({_nb_side(c)})" for c in _NOBAN["decls"]))
-                else:
-                    msg_lines.append("🚫 노밴: 없음")
+            try:   # 🔚 [v82.41] 막판 선언 감지분을 결과 리포트에 부착
+                # [2026-07-29 사장님 지시] 노밴은 경기 종료 로스터에 팀별로 표기 — 여기 줄은 중복이라 뺐다.
                 if _MAKPAN.get("decls"):
                     msg_lines.append(f"🔚 막판 선언: {', '.join(_MAKPAN['decls'])} ({len(_MAKPAN['decls'])}명)")
             except Exception: pass
