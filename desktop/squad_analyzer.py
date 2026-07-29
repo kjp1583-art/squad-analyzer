@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.57"
+CURRENT_VERSION = "82.58"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -4099,24 +4099,41 @@ def _dedupe_champ_entries(entries):
     return out
 
 
+def _champ_id_of(kor_name):
+    """한글 챔피언명 → 숫자 ID(초상화 주소용). 공백 유무 차이는 무시."""
+    _k = str(kor_name or "").replace(" ", "")
+    for _cid, _d in global_champ_map.items():
+        if str(_d.get("kor") or "").replace(" ", "") == _k: return _cid
+    return 0
+
+
 def load_champion_image(champ_kor_name, size=32):
+    """[2026-07-29 사장님 제보] 초상화가 옛날 그림으로 바뀐 문제.
+       Data Dragon 최신 버전이 구 아트를 주는 구간이 있어, 실제 클라이언트와 같은 아트를 쓰는
+       Community Dragon(라이브 클라이언트 에셋 미러)을 먼저 받고, 실패할 때만 종전 경로로 떨어진다."""
     if not PILLOW_INSTALLED or not champ_kor_name: return None
     champ_eng_name = get_champ_eng_name(champ_kor_name)
-    if not champ_eng_name: return None 
-    
+    if not champ_eng_name: return None
+
     cache_key = f"{champ_eng_name}_{size}"
     if cache_key in champion_image_cache: return champion_image_cache[cache_key]
-        
-    try:
-        url = f"http://ddragon.leagueoflegends.com/cdn/{DDRAGON_VERSION}/img/champion/{champ_eng_name}.png"
-        res = requests.get(url, timeout=2)
-        if res.status_code == 200:
-            img_data = Image.open(BytesIO(res.content))
-            img_resized = img_data.resize((size, size), Image.Resampling.LANCZOS)
-            photo_img = ImageTk.PhotoImage(img_resized)
-            champion_image_cache[cache_key] = photo_img
-            return photo_img
-    except Exception: pass
+
+    urls = []
+    _cid = _champ_id_of(champ_kor_name)
+    if _cid:
+        urls.append("https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/"
+                    f"default/v1/champion-icons/{_cid}.png")
+    urls.append(f"https://ddragon.leagueoflegends.com/cdn/{DDRAGON_VERSION}/img/champion/{champ_eng_name}.png")
+    for url in urls:
+        try:
+            res = requests.get(url, timeout=3)
+            if res.status_code == 200:
+                img_data = Image.open(BytesIO(res.content)).convert("RGBA")
+                img_resized = img_data.resize((size, size), Image.Resampling.LANCZOS)
+                photo_img = ImageTk.PhotoImage(img_resized)
+                champion_image_cache[cache_key] = photo_img
+                return photo_img
+        except Exception: pass
     return None
 
 def _compute_pos_champ_lists(p_matches):
