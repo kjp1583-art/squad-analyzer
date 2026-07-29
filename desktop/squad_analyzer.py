@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.56"
+CURRENT_VERSION = "82.57"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2144,6 +2144,8 @@ def _draft_advise(ctx, my_pool):
         # 밴 모드 [v82.39 설계B]: '내 밴'이 아니라 '우리 팀이 밴할 것'을 페이즈별로 통째 추천(5명이 상의해 밴).
         _bphase = int(ctx.get("ban_phase") or 1)
         _opp = ctx.get("enemy_pools") or []
+        if not any(champs for _n, champs in _opp):     # [2026-07-29] 왜 '상대 전적 없음'이 됐는지 로그로 구분
+            print(f"[ghost] 상대 전적 없음으로 추천 — 상대 {len(_opp)}명 인식, 내전 기록 붙은 인원 0", flush=True)
         opp_txt = "\n".join(
             f"- {nm or '상대'}: " + ", ".join(champs)   # [v82.45] champs = 포지션 병기된 문자열 목록
             for nm, champs in _opp if champs) or ("(상대 전적 정보 없음 — ★이 경우 상대 저격 밴은 불가능하다.\n"
@@ -2568,6 +2570,8 @@ def _draft_coach_tick(s_json, headers, base_url):
                         except Exception: pass
                 if enemy_pus:
                     print(f"[ghost] 세션 상대정보 없음 → 동결 로비 로스터 폴백({len(enemy_pus)}명)", flush=True)
+                else:
+                    print(f"[ghost] 상대 판별 실패 — 로비 로스터도 비었음(blue {len(_fb_b)} / red {len(_fb_r)}, 내 puuid 매칭 실패)", flush=True)
             except Exception: pass
         # 🧠 [v82.29] 내전 특화 컨텍스트 — 양팀 전원의 클랜 챔프폭 + 나와의 맞대결/합 전적
         clan_ally, clan_enemy, h2h_txt, syn_lines = [], [], "", []
