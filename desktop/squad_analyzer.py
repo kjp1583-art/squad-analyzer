@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.52"
+CURRENT_VERSION = "82.53"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -532,6 +532,23 @@ def broadcast_game_start_webhook(content_text, data_text=None):
                 except Exception: pass
                 time.sleep(3 + random.uniform(0, 4))
     threading.Thread(target=txt_thread, daemon=True).start()
+
+def _noban_of_side(players):
+    """[2026-07-29 사장님 지시] 이 진영이 실제로 픽한 노밴 챔피언 목록.
+       경기 종료 로스터에 팀별로 붙인다 — 선언이 없으면 'X'."""
+    picked = []
+    try:
+        for c in (_NOBAN.get("decls") or []):
+            for _pl in (players or []):
+                _pu = str(_pl.get("puuid") or "").strip().lower() if isinstance(_pl, dict) else ""
+                try: _cid = int(_pl.get("championId") or 0) or int(global_lock_champ_map.get(_pu) or 0)
+                except Exception: _cid = 0
+                _kor = (global_champ_map.get(_cid) or {}).get("kor") or GLOBAL_NUMERIC_CHAMP_MAP.get(_cid, "")
+                if _cid and _kor == c and c not in picked:
+                    picked.append(c)
+    except Exception: pass
+    return ", ".join(picked) if picked else "X"
+
 
 def broadcast_game_end_webhook(roster_text):
     # 🏁 [2026-07-07] 종료 감지(eog) 즉시 발송 — finalize 성공/_is_appender와 독립.
@@ -6075,7 +6092,10 @@ def lcu_core_backend_loop():
                                             _pl = _pi.get('player') or {}
                                             _mdn.append(_cn_e(_pl.get('gameName') or _pl.get('summonerName') or ''))
                                     _be = [x for x in _mdn if x]; _re = []
-                                _end_roster = ("🟦 블루: " + ", ".join(_be) + chr(10) + "🟥 레드: " + ", ".join(_re))
+                                _nb_b = _noban_of_side(global_cached_blue)
+                                _nb_r = _noban_of_side(global_cached_red)
+                                _end_roster = ("🟦 블루: " + ", ".join(_be) + f"        (노밴 : {_nb_b})" + chr(10)
+                                               + "🟥 레드: " + ", ".join(_re) + f"        (노밴 : {_nb_r})")
                                 _ws = "블루" if win_id == 100 else ("레드" if win_id == 200 else None)   # 🎲 [2026-07-08] 승부예측 채점용 승리진영 부착(봇 _pred_winner가 파싱)
                                 if _ws: _end_roster += chr(10) + "🏆 " + _ws + " 승"
                                 broadcast_game_end_webhook(_end_roster)
@@ -6735,7 +6755,7 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
             if ace:
                 report_lines.append(f"🔥 **[ACE]** {ace['name'].split('#')[0]}" + (f" ({_champ_kr(ace)})" if _champ_kr(ace) else "") + f" (진팀 최고 · AI {ace['score']:.1f}점)")
             if troll:
-                report_lines.append(f"💀 **[오늘의 역적]** {troll['name'].split('#')[0]}" + (f" ({_champ_kr(troll)})" if _champ_kr(troll) else "") + f" (AI {troll['score']:.1f}점)")
+                report_lines.append(f"💀 **[역적]** {troll['name'].split('#')[0]}" + (f" ({_champ_kr(troll)})" if _champ_kr(troll) else "") + f" (AI {troll['score']:.1f}점)")
             else:
                 report_lines.append("✨ 오늘 경기는 역적 없이 다들 제 몫을 했어요!")
 
