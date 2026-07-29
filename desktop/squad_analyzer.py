@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.59"
+CURRENT_VERSION = "82.60"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -823,6 +823,43 @@ def ping_called_at_gamestart(game_id):
             except Exception: pass
         threading.Thread(target=_t, daemon=True).start()
     except Exception: pass
+
+# 🗒️ [2026-07-29] 콘솔 없는 창 모드로 빌드돼 print 기록이 통째로 버려지고 있었다.
+#    문제 추적이 불가능해서(사장님이 로그를 볼 방법이 없었음) 실행 폴더의 파일로 남긴다.
+LOG_PATH = os.path.join(
+    os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__)),
+    "analyzer_log.txt")
+
+
+class _TeeLog:
+    """화면(있으면)과 파일에 동시에 쓴다. 파일 쓰기가 실패해도 프로그램은 계속 돈다."""
+    def __init__(self, stream, fh): self._s, self._f = stream, fh
+    def write(self, msg):
+        try:
+            if self._s: self._s.write(msg)
+        except Exception: pass
+        try:
+            self._f.write(msg); self._f.flush()
+        except Exception: pass
+        return len(msg or "")
+    def flush(self):
+        for _t in (self._s, self._f):
+            try:
+                if _t: _t.flush()
+            except Exception: pass
+
+
+def _start_file_log():
+    try:
+        if os.path.exists(LOG_PATH) and os.path.getsize(LOG_PATH) > 5 * 1024 * 1024:
+            os.replace(LOG_PATH, LOG_PATH + ".old")     # 5MB 넘으면 한 세대만 보관
+        fh = open(LOG_PATH, "a", encoding="utf-8", errors="replace")
+        fh.write(f"\n===== 시작 {time.strftime('%Y-%m-%d %H:%M:%S')} v{CURRENT_VERSION} =====\n")
+        fh.flush()
+        sys.stdout = _TeeLog(sys.stdout, fh)
+        sys.stderr = _TeeLog(sys.stderr, fh)
+    except Exception: pass
+
 
 def toggle_windows_startup(enabled):
     key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -7193,6 +7230,19 @@ def create_graphic_ui():
     btn_set.config(command=lambda: ClanSettingsWindow(root))
     btn_set.pack(side="left", padx=3)
 
+    # 🗒️ [2026-07-29] 로그 보기 — 창 모드라 콘솔이 없어 문제가 생겨도 확인할 방법이 없었다.
+    btn_log = tk.Button(btn_row2, text="로그", font=("Malgun Gothic", 10, "bold"), bg=theme.BG_RAISED,
+                        fg=theme.TEXT, bd=0, padx=10, pady=2, cursor="hand2")
+    def _open_log():
+        try:
+            if not os.path.exists(LOG_PATH):
+                messagebox.showinfo("로그", "아직 기록이 없습니다."); return
+            os.startfile(LOG_PATH)
+        except Exception as e:
+            messagebox.showerror("로그", f"열지 못했습니다: {e}\n\n경로: {LOG_PATH}")
+    btn_log.config(command=_open_log)
+    btn_log.pack(side="left", padx=3)
+
     # 🏟 토너먼트 버튼 삭제(2026-07-16 사장님 지시)
 
     # 🅣 [v82.8] '내 꾸미기' 로컬 버튼 폐지 — 구매 검증이 불가능해 아무나 쓰던 문제.
@@ -8524,6 +8574,7 @@ class OnlineUsersWindow(tk.Toplevel):
         self.list_box.configure(state="disabled")
 
 if __name__ == "__main__":
+    _start_file_log()          # 🗒️ 실행 폴더 analyzer_log.txt 에 기록 남기기(창 모드라 콘솔이 없음)
     # 🔥 단일 인스턴스 잠금 — 중복 실행 차단(실행횟수가 인스턴스마다 중복 누적되던 문제 해결)
     try:
         import ctypes
