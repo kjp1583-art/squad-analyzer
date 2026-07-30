@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.65"
+CURRENT_VERSION = "82.66"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1806,6 +1806,37 @@ def _pair_txt(my_pu, other_pu, idx, kind, min_g):
     my_w = d[1] if k[0] == a else d[0] - d[1]
     return f"{d[0]}판 {my_w}승 {d[0]-my_w}패 ({round(my_w/d[0]*100)}%)"
 
+_QUIZ_PREF_CACHE = {"at": 0.0, "map": {}}
+
+
+def _quiz_pref(force=False):
+    """🗳️ [2026-07-30 사장님 지시] 밴픽 퀴즈에서 클랜원들이 직접 적어낸 '이 사람 상대면 이걸 자른다'.
+       {상대닉: [(챔프, 표, 적중), ...]} — 코치 추천 순위의 근거로 쓴다. 실패하면 빈 값(무해)."""
+    if not force and _QUIZ_PREF_CACHE["map"] and time.time() - _QUIZ_PREF_CACHE["at"] < 1800:
+        return _QUIZ_PREF_CACHE["map"]
+    out = {}
+    try:
+        import urllib.request as _u, csv as _csv, io as _io
+        url = (f"https://docs.google.com/spreadsheets/d/{DOCUMENT_ID}/gviz/tq?tqx=out:csv"
+               f"&sheet=QUIZ_PREF&headers=1")
+        rows = list(_csv.reader(_io.StringIO(
+            _u.urlopen(_u.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=8)
+            .read().decode("utf-8"))))
+        if rows and len(rows) > 1:
+            h = rows[0]
+            ci = {c: i for i, c in enumerate(h)}
+            for r in rows[1:]:
+                try:
+                    nm = r[ci["상대"]].strip(); ch = r[ci["챔피언"]].strip()
+                    v = int(float(r[ci["표"]] or 0)); hit = int(float(r[ci["적중"]] or 0))
+                except Exception: continue
+                if nm and ch and v > 0: out.setdefault(nm, []).append((ch, v, hit))
+            for nm in out: out[nm].sort(key=lambda x: -x[1])
+    except Exception: pass
+    _QUIZ_PREF_CACHE.update({"at": time.time(), "map": out})
+    return out
+
+
 def _pool_by_puuid(puuid, limit=6):
     """[v81.77] PUUID로 그 사람의 챔피언별 (판수, 승) 상위 N — 밴 추천의 '상대 장인' 판단용."""
     key = str(puuid or "").strip().lower()
@@ -2199,6 +2230,20 @@ def _draft_advise(ctx, my_pool):
                                                   " 이 경우 [클랜 내전 챔피언 메타]와 우리 팀 데이터만으로 추천하고,\n"
                                                   " 맨 앞줄에 '상대 데이터 없음 — 클랜 내전 통계만으로 판단'이라고 반드시 밝혀라.\n"
                                                   " 솔랭 메타·티어리스트를 근거로 지어내지 마라)")
+        # 🗳️ 클랜 집단 판단 — 밴픽 퀴즈에서 실제로 적어낸 표(상대 선수별 상위 3)
+        _qp = _quiz_pref()
+        _qp_lines = []
+        if _qp:
+            for _nm in (ctx.get("enemy_names") or []):
+                _hit = _qp.get(_nm) or _qp.get(str(_nm).split("#")[0])
+                if not _hit: continue
+                _qp_lines.append(f"- {_nm}: " + ", ".join(f"{c} {v}표(적중 {h})" for c, v, h in _hit[:3]))
+        if _qp_lines:
+            opp_txt += ("\n\n[🗳️ 클랜 집단 판단 — 밴픽 퀴즈 표(클랜원이 직접 적어낸 밴 후보)]\n"
+                        + "\n".join(_qp_lines)
+                        + "\n★이건 클랜원 여러 명이 같은 상대를 두고 '무엇을 자를까'를 직접 적어낸 결과다.\n"
+                          "  동급 후보면 표가 많은 쪽을 우선하고, 이유에 '클랜 다수 의견(N표)'임을 밝혀라.\n"
+                          "  단 표가 3표 미만이면 참고만 하라. 적중 수는 그 답이 실제로 상대가 꺼낸 픽이었던 횟수다.")
         _ef = ctx.get("enemy_filled_pos") or []
         _eo = ctx.get("enemy_open_pos") or []
         if _ef:
@@ -2718,6 +2763,7 @@ def _draft_coach_tick(s_json, headers, base_url):
         _e_open = [r for r in _ROLES5 if r not in _e_filled]
         ctx = {"mode": mode, "pos": my_pos, "ally": ally, "enemy": enemy, "bans": bans,
                "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
+               "enemy_names": [_n for _n, _cs in (enemy_pools or [])],   # 🗳️ 퀴즈 표 조회용
                "lane_enemy": lane_enemy, "enemy_pools": enemy_pools,
                "clan_ally": clan_ally, "clan_enemy": clan_enemy, "h2h": h2h_txt, "syn": syn_lines,
                "me": (my_pu or MY_RIOT_NAME[0] or ""),   # 🔐 [v82.34] 토큰-계정 결속용 식별자(공유 차단)
