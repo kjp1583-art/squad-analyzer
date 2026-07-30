@@ -461,6 +461,22 @@
   .cmp-k{display:block;font-size:11.5px;color:var(--mut)}
   .cmp-v{display:block;font-size:15.5px;font-variant-numeric:tabular-nums;line-height:1.3}
   .cmp-r{display:block;font-size:11.5px;color:var(--mut)}
+  /* 🎭 [2026-07-30] op.gg 스타일 포지션 비중 타일 + 선호 역할군 바 */
+  .pstyle{margin-top:4px}
+  .pst-h{font-size:13px;font-weight:800;color:var(--sub);margin-bottom:7px}
+  .ptiles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .ptile{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:8px 2px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;transition:border-color .15s,background .15s}
+  .ptile:hover{border-color:#3b4763}
+  .ptile.on{border-color:#5b8cff;background:rgba(91,140,255,.12)}
+  .pt-n{font-size:11.5px;color:var(--mut)}
+  .pt-p{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+  .ptile.on .pt-p{color:#7ba6ff}
+  .rrow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .rr-n{flex:0 0 92px;font-size:12.5px;color:var(--sub)}
+  .rr-bar{flex:1;height:8px;background:var(--bg2);border-radius:5px;overflow:hidden}
+  .rr-bar i{display:block;height:100%;background:linear-gradient(90deg,#4a7ef0,#7ba6ff);border-radius:5px;transition:width .5s ease}
+  .rr-p{flex:0 0 38px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}
   .sidecol{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;align-self:flex-start}
   .prof.hasemb .sidecol{margin-top:58px}
   .radarbox{width:184px;text-align:center}
@@ -1065,6 +1081,7 @@ let CANON_TO_ALIASES = new Map(); // 최신 닉 -> [그 사람의 모든 닉...]
 let CHAMPMAP = {};       // 한글챔프명 -> 초상화 주소(Community Dragon = 라이브 클라이언트 아트)
 let CHAMPFB = {};        // 같은 키의 Data Dragon 폴백 주소(CD 실패 시 사용)
 let SPLASHMAP = {};      // 한글챔프명 -> 스플래시 이미지(프로필 배너 배경)
+let CHAMPTAG = {};       // 한글챔프명 -> 라이엇 역할 태그(Tank/Fighter/Mage/Marksman/Assassin/Support)
 let DDVER = "";
 
 /* ============== 유틸 ============== */
@@ -2412,6 +2429,8 @@ async function loadDDragon(){
       // 🖼 [2026-07-30] 프로필 배너용 스플래시 — 카드 상단 배경으로 쓴다.
       const _sp=`https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${c.id}_0.jpg`;
       SPLASHMAP[c.name]=_sp; SPLASHMAP[c.name.replace(/\s/g,"")]=_sp;
+      // 🎭 [2026-07-30] 역할군(선호 역할군 그래프용) — 라이엇 공식 태그를 그대로 쓴다.
+      CHAMPTAG[c.name]=c.tags||[]; CHAMPTAG[c.name.replace(/\s/g,"")]=c.tags||[];
     }
   }catch(e){/* 아이콘 없이 진행 */}
   // 🛒 룬 아이콘(주룬 키스톤·보조트리) + 아이템명 (전적카드 빌드 표시용 — 실패해도 무해)
@@ -3079,6 +3098,43 @@ function posPercentiles(pos){
   return _PCT_CACHE[pos];
 }
 
+/* 🎭 [2026-07-30] 선호 역할군 — op.gg 스타일. 라이엇 챔피언 태그를 우리 말로 묶는다.
+   같은 챔프도 서폿에서 뛰면 '서포터'로 본다(럭스·세나처럼 역할이 자리에 따라 갈리는 경우). */
+const ROLE_KO={Tank:"탱커",Fighter:"AD 브루저",Mage:"AP 딜러",Marksman:"AD 딜러",Assassin:"암살자",Support:"서포터"};
+const ROLE_ICON={"탱커":"🛡","AD 브루저":"⚔","AP 딜러":"🔮","AD 딜러":"🏹","암살자":"🗡","서포터":"✚"};
+function roleOfChamp(champ,pos){
+  const t=CHAMPTAG[champ]||CHAMPTAG[String(champ||"").replace(/\s/g,"")];
+  if(!t||!t.length) return null;
+  if(pos==="서폿"&&t.includes("Support")) return "서포터";
+  return ROLE_KO[t[0]]||null;
+}
+let PROF_POS=null;                  // 프로필에서 선택한 포지션 타일(null=주 포지션)
+function selProfPos(p){ PROF_POS=(PROF_POS===p?null:p); const y=window.scrollY; renderPlayer(CUR_PLAYER); window.scrollTo(0,y); }
+/* 포지션 타일 + 그 포지션에서의 선호 역할군 (op.gg 'S2026 플레이 스타일' 형태) */
+function posStyleHtml(parts,posAgg,posTotal,mainPos){
+  if(!posTotal) return '';
+  if(!POS_LIST.some(p=>posAgg.get(p))) return '';        // 클래식처럼 포지션이 없는 모드
+  const sel=(PROF_POS&&posAgg.get(PROF_POS))?PROF_POS:mainPos;
+  const tiles=POS_LIST.map(p=>{
+    const n=posAgg.get(p)||0, r=Math.round(n/posTotal*100);
+    return `<button class="ptile${p===sel?' on':''}" onclick="selProfPos('${p}')" title="${p} ${n}판">
+      <span class="pt-n">${p}</span><span class="pt-p"${r?'':' style="color:var(--mut)"'}>${r}%</span></button>`;
+  }).join("");
+  const rows=parts.filter(r=>(r["포지션"]||"")===sel);
+  const cnt=new Map();
+  for(const r of rows){ const ro=roleOfChamp(r["챔피언"],sel); if(ro) cnt.set(ro,(cnt.get(ro)||0)+1); }
+  const tot=[...cnt.values()].reduce((a,b)=>a+b,0);
+  const bars=tot?[...cnt.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([ro,n])=>{
+    const r=Math.round(n/tot*100);
+    return `<div class="rrow"><span class="rr-n">${ROLE_ICON[ro]||"·"} ${ro}</span>
+      <span class="rr-bar"><i style="width:${r}%"></i></span><b class="rr-p">${r}%</b></div>`;
+  }).join(""):'<div class="muted" style="font-size:13px">이 포지션 기록이 부족해요</div>';
+  return `<div class="pstyle">
+    <div class="pst-h">포지션 비중 <span class="muted" style="font-weight:400;font-size:12px">· 눌러서 다른 자리 보기</span></div>
+    <div class="ptiles">${tiles}</div>
+    <div class="pst-h" style="margin-top:12px">선호 역할군 <span class="muted" style="font-weight:400;font-size:12px">· ${esc(sel)} ${rows.length}판 기준</span></div>
+    <div class="rlist">${bars}</div></div>`;
+}
 function pth(label,key){
   const arrow=PSORT.key===key?(PSORT.dir>0?" ▲":" ▼"):"";
   const cls=(key==="name")?"":"num";
@@ -3713,7 +3769,7 @@ let MOST_EXPANDED=false;   // 🏅 모스트 챔피언 전체 펼침 여부(프�
 function toggleMost(){ MOST_EXPANDED=!MOST_EXPANDED; const y=window.scrollY; renderPlayer(CUR_PLAYER); window.scrollTo(0,y); }
 function renderPlayer(name){
   name=canonOfName(name);                 // 옛 닉으로 들어와도 최신 닉 프로필로 통합
-  if(CUR_PLAYER!==name) MOST_EXPANDED=false;   // 다른 선수로 이동 시 펼침 초기화
+  if(CUR_PLAYER!==name){ MOST_EXPANDED=false; PROF_POS=null; }   // 다른 선수로 이동 시 펼침·포지션 선택 초기화
   CUR_PLAYER=name;                        // 로그인 후 이 페이지로 복귀
   const parts=PLAYERS.get(name);
   if(!parts){view().innerHTML=`<div class="empty">‘${esc(name)}’ 기록 없음</div>`;return;}
@@ -3953,7 +4009,8 @@ function renderPlayer(name){
           champAll.length>6?`<div style="text-align:center;margin-top:10px"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 16px;border-radius:8px;cursor:pointer" onclick="toggleMost()">${MOST_EXPANDED?'접기 ▲':`전체 보기 (${champAll.length}종) ▼`}</button></div>`:''}</div>
         ${gptiCardHtml(name)}
         ${tierHistHtml}
-        <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b> · 아래는 실제 플레이 분포</div>':''}${posHtml}</div>
+        <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b></div>':''}${posStyleHtml(parts,posAgg,posTotal,(()=>{const c=[...posAgg.entries()].filter(([p])=>p&&p!=="?"&&p!=="선택안함").sort((a,b)=>b[1]-a[1])[0];return c?c[0]:POS_LIST[0];})())}
+          <div class="muted" style="font-size:12.5px;margin:14px 0 6px;font-weight:800">실제 플레이 분포</div>${posHtml}</div>
         <div class="card" style="margin-top:14px">
           <h2>💬 댓글 <span class="muted" style="font-size:13.5px">· 한마디 (예의를 지켜주세요)</span></h2>
           ${ dcValid() ? `
@@ -4608,7 +4665,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607302040";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607302115";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
