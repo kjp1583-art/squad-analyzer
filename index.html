@@ -452,11 +452,11 @@
     font-size:14px;font-weight:900;line-height:1;padding:5px 8px;border-radius:8px;
     color:var(--gc);border:1px solid var(--gc);background:color-mix(in srgb,var(--gc) 14%,transparent)}
   /* 🕸 레이더 */
-  .radarwrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .radarbox{flex:0 0 auto;width:184px;text-align:center;align-self:flex-start}
+  .prof.hasemb .radarbox{margin-top:58px}
   .radar polygon{transition:all .5s ease}
-  .rxlist{flex:1;min-width:130px}
-  .rx{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:3px 0}
-  .rx b{font-variant-numeric:tabular-nums}
+  .radarcap{font-size:11.5px;margin-top:-4px}
+  @media(max-width:760px){.radarbox{width:100%;order:9}.prof.hasemb .radarbox{margin-top:0}}
 
   /* ✨ 화면 전환·카드 등장 — 정적 사이트라도 '움직이는 느낌'은 낼 수 있다.
      접근성: 사용자가 애니메이션 최소화를 켜두면 전부 끈다(아래 prefers-reduced-motion). */
@@ -2572,15 +2572,21 @@ function playerStats(){
     // 📊 [2026-07-30] CS/분·시야 — 시트 '지표' 열에 이미 있는데 화면에서 안 쓰고 있었다.
     //    기록이 있는 판만 평균한다(지표는 최근 기록부터 채워지므로 표본이 다를 수 있음).
     let csSum=0,csN=0,vsSum=0,vsN=0;
+    // 🕸 [2026-07-30] 레이더 축용 — 데스(생존)·킬+어시(교전)·챔프 종류(챔프폭)
+    let dSum=0,kaSum=0,kdaN=0; const champSet=new Set();
     for(const r of parts){
       if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
       if(r["매치평가"]==="MVP")mvp++;else if(r["매치평가"]==="역적")bad++;
       const mt=parseMetrics(r);
       if(mt){ if(mt.cs&&mt.m){ csSum+=mt.cs/mt.m; csN++; } if(mt.vs!=null){ vsSum+=mt.vs; vsN++; } }
+      const ko=parseKDA(r["KDA"]);
+      if(ko){ dSum+=ko.d; kaSum+=ko.k+ko.a; kdaN++; }
+      if(r["챔피언"]) champSet.add(r["챔피언"]);
     }
     const a=ASSESSMENTS.get(name);
     out.push({name,games:parts.length,wins:w,losses:l,mvp,bad,wr:pct(w,w+l),
               cspm:csN?(csSum/csN):null, vision:vsN?(vsSum/vsN):null,
+              surv:kdaN?-(dSum/kdaN):null, fight:kdaN?(kaSum/kdaN):null, pool:champSet.size,
               score:(a&&a.score100)||null});
   }
   return out;
@@ -3035,10 +3041,9 @@ let _PCT_CACHE=null;
 function clanPercentiles(){
   if(_PCT_CACHE) return _PCT_CACHE;
   const all=playerStats().filter(p=>p.games>=5).map(p=>({...p,
-    mvpr:p.games?p.mvp/p.games*100:null,
-    safe:p.games?100-p.bad/p.games*100:null}));
+    mvpr:p.games?p.mvp/p.games*100:null}));
   const cols={};
-  for(const k of ["wr","mvpr","cspm","vision","games","safe"]) cols[k]=all.map(p=>p[k]).filter(v=>v!=null);
+  for(const k of ["mvpr","cspm","vision","surv","fight","pool"]) cols[k]=all.map(p=>p[k]).filter(v=>v!=null);
   const of=(k,v)=>{ const a=cols[k]; if(v==null||!a||!a.length) return null;
     return Math.round(a.filter(x=>x<v).length/a.length*100); };
   _PCT_CACHE={all,of};
@@ -3745,8 +3750,7 @@ function renderPlayer(name){
     ${_sc!=null?`<div class="ss-main" title="클랜 전체 파워 순위를 100점으로 환산 (1등 100점)">
         <span class="ss-star">⭐</span><b class="ss-num">${_sc}</b><span class="ss-den">/100</span>
         <span class="ss-lab">종합</span></div>`:''}
-    <div class="ss-cell"><span class="ss-k">승률</span><b style="color:${wr>=50?'var(--win)':'var(--lose)'}">${wr}%</b></div>
-    ${avgRatio!=null?`<div class="ss-cell"><span class="ss-k">KDA</span><b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b></div>`:''}
+    ${avgRatio!=null?`<div class="ss-cell" title="평균 ${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}"><span class="ss-k">KDA</span><b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b></div>`:''}
     ${_csN?`<div class="ss-cell" title="${_csN}판 평균"><span class="ss-k">CS/분</span><b>${(_csS/_csN).toFixed(1)}</b></div>`:''}
     ${_vsN?`<div class="ss-cell" title="${_vsN}판 평균"><span class="ss-k">시야</span><b>${Math.round(_vsS/_vsN)}</b></div>`:''}
   </div>`;
@@ -3761,31 +3765,31 @@ function renderPlayer(name){
   const _gr=_sc!=null?gradeOf(_sc):null;
   const gradeHtml=_gr?`<span class="grade" style="--gc:${_gr[2]}" title="종합 ${_sc}점 → ${_gr[1]}등급">${_gr[1]}</span>`:'';
 
-  // 🕸 스타일 레이더 — 값은 모두 '클랜 내 백분위'(10판 이상 표본). 절대값 감각 없는 지표도 비교된다.
+  // 🕸 스타일 레이더 — 값은 모두 '클랜 내 백분위'(5판 이상 표본). 절대값 감각 없는 지표도 비교된다.
+  //    [2026-07-30] 프로필 카드 우측 상단 빈 공간에 얹는다(별도 카드 X).
   const radarHtml=(()=>{
     const P=clanPercentiles();
     const g=parts.length;
-    const mine={wr, mvpr:g?mvp/g*100:null, cspm:_csN?_csS/_csN:null,
-                vision:_vsN?_vsS/_vsN:null, safe:g?100-bad/g*100:null, games:g};
-    const AX=[["승률","wr"],["캐리","mvpr"],["파밍","cspm"],["시야","vision"],["생존","safe"],["꾸준함","games"]];
-    const axes=AX.map(([label,k])=>({label,v:P.of(k,mine[k]),raw:mine[k]}));
+    const mine={mvpr:g?mvp/g*100:null, cspm:_csN?_csS/_csN:null, vision:_vsN?_vsS/_vsN:null,
+                surv:avgKda?-avgKda.d:null, fight:avgKda?avgKda.k+avgKda.a:null,
+                pool:champAgg.size||null};
+    const AX=[["캐리","mvpr"],["성장","cspm"],["시야","vision"],["생존","surv"],["교전","fight"],["챔프폭","pool"]];
+    const axes=AX.map(([label,k])=>({label,v:P.of(k,mine[k])}));
     if(axes.filter(a=>a.v!=null).length<3) return '';
-    const rows=axes.map(a=>`<div class="rx"><span class="muted">${a.label}</span>${
-      a.v==null?'<b class="muted">-</b>':`<b>상위 ${Math.max(1,100-a.v)}%</b>`}</div>`).join("");
-    return `<div class="card" style="margin-top:14px"><h2>🕸 플레이 스타일</h2>
-      <div class="radarwrap">${radarSvg(axes.map(a=>({label:a.label,v:a.v||0})))}<div class="rxlist">${rows}</div></div>
-      <div class="muted" style="font-size:12px;margin-top:6px">※ 클랜원(5판 이상) 중 상대 위치입니다. 넓을수록 상위권.</div></div>`;
+    const tip=axes.map(a=>`${a.label} ${a.v==null?'-':'상위 '+Math.max(1,100-a.v)+'%'}`).join(" · ");
+    return `<div class="radarbox" title="클랜원(5판 이상) 중 상대 위치 — ${escAttr(tip)}">
+      ${radarSvg(axes.map(a=>({label:a.label,v:a.v||0})),172)}
+      <div class="radarcap muted">플레이 스타일 · 클랜 내 백분위</div></div>`;
   })();
 
   const matchHtml=list.map(r=>matchCard(r,name)).join("");
 
   const asmt=assessPlayer(name);
+  // [2026-07-30] 티어 배지는 이름 옆에 이미 있으므로 여기선 뺀다(중복). 동티어 비교는 아래 줄로 내려 정리.
   const asmtHtml = asmt ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="color:var(--sub);font-size:14.5px">내부티어</span>
-      <span class="tier ${tierGroupCls(asmt.tier)}" style="margin:0">${asmt.tier}</span>
       ${titleBadge(asmt.title)}
       <span class="assess ${asmt.cls}">${asmt.label}</span>
-      ${asmt.detail?`<span class="muted" style="font-size:13.5px">${asmt.implPct!=null?`<b style="color:#ffd24a">🎯 전체 상위 ${asmt.implPct}%</b> · `:''}승률 ${asmt.detail.wr}%<span style="opacity:.55">(동티어 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(동티어 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(동티어 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(동티어 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(동티어 ${asmt.detail.trollAvg}%)</span>`:''}${asmt.detail.ace!=null?` · ACE율 ${asmt.detail.ace}%<span style="opacity:.55">(패배중)</span>`:''}</span>`
+      ${asmt.detail?`<span class="muted" style="font-size:13.5px;flex-basis:100%" title="전체기간 기준, 같은 내부티어 평균과 비교">${asmt.implPct!=null?`<b style="color:#ffd24a">🎯 전체 상위 ${asmt.implPct}%</b> · `:''}승률 ${asmt.detail.wr}%<span style="opacity:.55">(동티어 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(동티어 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(동티어 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(동티어 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(동티어 ${asmt.detail.trollAvg}%)</span>`:''}${asmt.detail.ace!=null?` · ACE율 ${asmt.detail.ace}%<span style="opacity:.55">(패배중)</span>`:''}</span>`
                    :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
     </div>` : '';
 
@@ -3813,9 +3817,10 @@ function renderPlayer(name){
 
   // 🤖 AI선생 주간평 (AI_EVAL 탭 — 주 1회 자동 생성)
   const aie = aiEvalOf(name);
+  // [2026-07-30] 프로필 카드 안에 겹겹이 박스를 쌓지 않고, 독립 카드로 분리했다.
   const aiEvalHtml = aie
-    ? `<div style="margin-top:10px;background:rgba(120,160,255,.07);border:1px solid rgba(120,160,255,.28);border-radius:12px;padding:11px 14px">
-        <div style="font-size:12.5px;font-weight:800;color:#9db8ff;margin-bottom:5px">🤖 AI선생 주간평 <span style="font-weight:400;opacity:.6">${esc(aie.date)}</span></div>
+    ? `<div class="card sect" style="margin-top:14px">
+        <h2>🤖 AI선생 주간평 <span class="muted" style="font-size:13px;font-weight:400">${esc(aie.date)}</span></h2>
         <div style="font-size:13.5px;line-height:1.65">${aiEvalBodyHtml(aie.text)}</div>
       </div>` : '';
 
@@ -3825,9 +3830,9 @@ function renderPlayer(name){
   if(_bp && _bp.top){
     const b = _bp.top, rk = bpRankOf(tnorm(canonOfName(name)));
     const others = _bp.champs.filter(x=>x!==b && x.z>1.5).slice(0,2);
-    bpHtml = `<div style="margin-top:10px;background:rgba(255,140,90,.07);border:1px solid rgba(255,140,90,.3);border-radius:12px;padding:11px 14px">
-        <div style="font-size:12.5px;font-weight:800;color:#ffa87a;margin-bottom:5px">🎯 견제 지수
-          <span style="font-weight:400;opacity:.7" title="상대가 이 선수를 의식해 밴하는 정도입니다. '내가 낀 판 밴율 − 내가 없는 판 밴율'로 계산해, 원래 인기 밴인 챔프의 영향을 제거했습니다. 밴은 '무섭다'뿐 아니라 '상대하기 짜증난다'에도 걸리므로 실력 지표로만 보긴 어렵습니다.">${rk?`클랜 ${rk.rank}위 / ${rk.total}명`:''} ⓘ</span></div>
+    bpHtml = `<div class="card sect" style="margin-top:14px">
+        <h2>🎯 견제 지수
+          <span class="muted" style="font-size:13px;font-weight:400" title="상대가 이 선수를 의식해 밴하는 정도입니다. '내가 낀 판 밴율 − 내가 없는 판 밴율'로 계산해, 원래 인기 밴인 챔프의 영향을 제거했습니다. 밴은 '무섭다'뿐 아니라 '상대하기 짜증난다'에도 걸리므로 실력 지표로만 보긴 어렵습니다.">${rk?`클랜 ${rk.rank}위 / ${rk.total}명`:''} ⓘ</span></h2>
         <div style="font-size:13.5px;line-height:1.65">
           상대는 이 선수의 <b style="color:var(--txt)">${esc(b.champ)}</b>${josa(b.champ,"을","를")}
           <b style="color:#ffa87a">${b.banPresent}%</b> 밴합니다
@@ -3838,8 +3843,8 @@ function renderPlayer(name){
         </div>
       </div>`;
   }else if(_bp){
-    bpHtml = `<div style="margin-top:10px;background:rgba(255,140,90,.05);border:1px solid rgba(255,140,90,.2);border-radius:12px;padding:9px 14px">
-        <div style="font-size:12.5px;font-weight:800;color:#ffa87a;margin-bottom:3px">🎯 견제 지수</div>
+    bpHtml = `<div class="card sect" style="margin-top:14px">
+        <h2>🎯 견제 지수</h2>
         <div class="muted" style="font-size:13px">아직 뚜렷하게 견제받는 챔프가 없어요 — 상대가 특별히 의식하지 않는 상태입니다.</div>
       </div>`;
   }
@@ -3873,33 +3878,34 @@ function renderPlayer(name){
       <div class="muted" style="font-size:13.5px">아직 내부티어가 부여되지 않았어요.</div>
     </div>`;
 
+  const _emb=kizukiEmblem(name);
   view().innerHTML=`
     <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
     <div class="card${_splash?' hasbanner':''}" style="margin-top:10px;position:relative">
       ${bannerHtml}
-      ${kizukiEmblem(name)}
-      <div class="prof">
+      ${_emb}
+      <div class="prof${_emb?' hasemb':''}">
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${gradeHtml}${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${scoreStrip}
-          <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
+          <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · <span style="opacity:.8">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           ${careerHtml}
           ${mitoHtml}
           <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
-          ${aiEvalHtml}
-          ${bpHtml}
-          ${badgesHtml}
         </div>
+        ${radarHtml}
       </div>
     </div>
+    ${aiEvalHtml}
+    ${bpHtml}
+    <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지</h2>${badgesHtml}</div>
     <div class="grid cols">
       <div>
         <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
           champAll.length>6?`<div style="text-align:center;margin-top:10px"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 16px;border-radius:8px;cursor:pointer" onclick="toggleMost()">${MOST_EXPANDED?'접기 ▲':`전체 보기 (${champAll.length}종) ▼`}</button></div>`:''}</div>
-        ${radarHtml}
         ${gptiCardHtml(name)}
         ${tierHistHtml}
         <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b> · 아래는 실제 플레이 분포</div>':''}${posHtml}</div>
@@ -4557,7 +4563,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607301820";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607301905";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
