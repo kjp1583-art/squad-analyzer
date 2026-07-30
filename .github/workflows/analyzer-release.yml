@@ -104,3 +104,15 @@ jobs:
             git commit -m "ci: bump version.txt to ${{ github.event.inputs.version }}"
             git push origin main
           } else { Write-Host "version.txt unchanged" }
+
+      # 🔔 [2026-07-30 사장님 지시] 릴리스했으면 패치노트도 반드시 나가야 한다.
+      #    notes 입력은 GitHub 릴리스 본문에만 들어가 디스코드로는 안 나갔고, 그걸 착각해
+      #    수동 발송을 여러 번 빠뜨렸다. 빌드가 성공하면 여기서 자동으로 보낸다.
+      - name: Post patch note to Discord
+        if: ${{ inputs.notes != '' }}
+        working-directory: .
+        env:
+          APP_SECRETS_B64: ${{ secrets.APP_SECRETS_B64 }}
+          IN_VER: ${{ inputs.version }}
+          IN_ANALYZER: ${{ inputs.notes }}
+        run: python3 tooling/post_patch_note.py
