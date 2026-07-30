@@ -1,0 +1,56 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>십이귀월 엠블럼 12종 (현재 웹 표시본)</title>
+<style>
+  body{margin:0;background:#0d1018;color:#e7ebf3;font-family:system-ui,"Malgun Gothic",sans-serif;padding:28px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:#8e97ab;font-size:13.5px;margin-bottom:22px;line-height:1.6}
+  .grp-h{font-size:15px;font-weight:800;margin:26px 0 10px;letter-spacing:.5px}
+  .grp-h.up{color:#ff6b58} .grp-h.low{color:#b779ff}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+  .item{background:#141a26;border:1px solid #232a3c;border-radius:14px;padding:16px 10px 12px;text-align:center}
+  .item .cap{font-size:12.5px;font-weight:800;margin-top:6px}
+  .item.up .cap{color:#ffb3b0} .item.low .cap{color:#d3bcff}
+  .item .jp{font-size:12px;color:#8e97ab;margin-top:2px}
+  .kizuki-emblem svg{filter:drop-shadow(0 0 10px rgba(224,65,63,.55))}
+  .kizuki-emblem.low svg{filter:drop-shadow(0 0 10px rgba(154,107,255,.55))}
+  .note{margin-top:26px;padding:14px 16px;background:#141a26;border:1px solid #232a3c;border-radius:12px;font-size:13px;color:#a9b2c4;line-height:1.7}
+  code{background:#0d1018;padding:1px 6px;border-radius:5px;color:#ffd24a}
+</style></head><body>
+<h1>🩸 십이귀월 엠블럼 12종 — 현재 웹 표시본</h1>
+<div class="sub">squad.gg 선수 프로필 상단에 뜨는 십이귀월(순수 실력 파워랭킹 최상위 12인) 엠블럼입니다.<br>
+상현(上弦)=빨강 계열 상위 6인 · 하현(下弦)=보라 계열 하위 6인. 아래 12개를 멋있게 리디자인해 주세요.</div>
+<div id="root"></div>
+<div class="note">
+  <b>현재 구현 방식</b> — 라이브러리·이미지 없이 인라인 SVG(120×96) 한 덩어리로 그립니다. 배경 카드 위 우상단에 얹혀요.<br>
+  · 눈알 형태 외곽(<code>M5 48 Q60 3 115 48 Q60 93 5 48 Z</code>) + 가운데 원 + 방사형 그라데이션 + 한자 2줄(계급/숫자).<br>
+  · <b>요청</b>: 12개 각각 더 귀문(鬼紋)스럽게 — 문양·질감·발광을 살려주세요. 결과물은 <b>SVG(권장)</b> 또는 투명 PNG(약 240×192, 2x)로 주시면 그대로 교체합니다. 계급색(상현 #e0413f / 하현 #9a6bff)과 한자(壱弐参肆伍陸·上弦下弦)는 유지해 주세요.
+</div>
+<script>
+const KIZUKI_NUM={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
+const ORD={1:"1",2:"2",3:"3",4:"4",5:"5",6:"6"};
+function emblem(up,n){
+  const rankk=up?"上弦":"下弦", numk=KIZUKI_NUM[n];
+  const c1=up?"#ff5a46":"#b779ff", c2=up?"#7a0d10":"#361062", stroke=up?"#e0413f":"#9a6bff";
+  const uid="kz"+(up?"u":"l")+n;
+  const title=(up?"상현":"하현")+" "+n;
+  return `<div class="item ${up?'up':'low'}">
+    <div class="kizuki-emblem ${up?'up':'low'}">
+    <svg viewBox="0 0 120 96" width="150" height="120" aria-hidden="true">
+      <defs><radialGradient id="${uid}" cx="50%" cy="44%" r="62%"><stop offset="0" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></radialGradient></defs>
+      <path d="M5 48 Q60 3 115 48 Q60 93 5 48 Z" fill="#110305" stroke="${stroke}" stroke-width="2.5"/>
+      <circle cx="60" cy="48" r="31.5" fill="url(#${uid})"/>
+      <circle cx="60" cy="48" r="31.5" fill="none" stroke="#180406" stroke-width="1.4" opacity=".55"/>
+      <text x="60" y="37" text-anchor="middle" font-size="15" fill="#fff" font-weight="800">${rankk}</text>
+      <text x="60" y="72" text-anchor="middle" font-size="30" fill="#fff" font-weight="900" style="font-family:serif">${numk}</text>
+    </svg></div>
+    <div class="cap">${title}</div><div class="jp">${rankk}の${numk}</div>
+  </div>`;
+}
+let html='<div class="grp-h up">상현 (上弦) · 상위 6인 — 빨강</div><div class="grid">';
+for(let n=1;n<=6;n++) html+=emblem(true,n);
+html+='</div><div class="grp-h low">하현 (下弦) · 하위 6인 — 보라</div><div class="grid">';
+for(let n=1;n<=6;n++) html+=emblem(false,n);
+html+='</div>';
+document.getElementById('root').innerHTML=html;
+</script></body></html>
