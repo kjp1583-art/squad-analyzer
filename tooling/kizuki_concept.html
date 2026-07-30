@@ -1,0 +1,106 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>십이귀월 엠블럼 리디자인 시안</title>
+<style>
+  body{margin:0;background:#0b0e15;color:#e7ebf3;font-family:system-ui,"Malgun Gothic",sans-serif;padding:26px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:#8e97ab;font-size:13.5px;margin-bottom:20px;line-height:1.6}
+  .grp-h{font-size:15px;font-weight:800;margin:24px 0 12px;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+  .grp-h.up{color:#ff6b58} .grp-h.low{color:#b779ff}
+  .grp-h:after{content:"";flex:1;height:1px;background:#232a3c}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+  .item{background:#121722;border:1px solid #222a3a;border-radius:14px;padding:14px 8px 10px;text-align:center}
+  .item .cap{font-size:12.5px;font-weight:800;margin-top:4px}
+  .item.up .cap{color:#ffb3b0} .item.low .cap{color:#d3bcff}
+  .item .jp{font-size:11.5px;color:#8e97ab;margin-top:1px}
+  .note{margin-top:24px;padding:14px 16px;background:#121722;border:1px solid #222a3a;border-radius:12px;font-size:13px;color:#a9b2c4;line-height:1.7}
+  b.g{color:#ffd24a}
+</style></head><body>
+<h1>🩸 십이귀월 엠블럼 리디자인 시안 (SVG · 벡터)</h1>
+<div class="sub">현재 플랫한 눈알형을 → 금색 귀문(鬼紋) 프레임 + 뿔/왕관 장식 + 발광 오브로 다시 그렸습니다.<br>
+계급이 높을수록(壱에 가까울수록) 장식이 화려해집니다. 상현=빨강 / 하현=보라. 전부 투명 배경 벡터라 그대로 웹에 박힙니다.</div>
+<div id="root"></div>
+<div class="note">
+  이대로 괜찮으면 12종 전부 이 스타일로 확정해서 <b class="g">kizukiEmblem()</b> 에 반영합니다.
+  · 특정 칸만 “뿔 더 크게 / 색 더 진하게” 같은 수정도 가능 · 글로우 강도·크기도 조절돼요.
+</div>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="glowU" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="3.2" flood-color="#ff3b34" flood-opacity="0.85"/></filter>
+  <filter id="glowL" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="3.2" flood-color="#9a6bff" flood-opacity="0.85"/></filter>
+</svg>
+<script>
+const NUM={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
+// 금색 그라데이션(테두리 공용)
+function defs(uid,c1,c2){return `
+  <radialGradient id="orb${uid}" cx="50%" cy="42%" r="62%">
+    <stop offset="0" stop-color="${c1}"/><stop offset="62%" stop-color="${c2}"/><stop offset="100%" stop-color="#1a0206"/></radialGradient>
+  <linearGradient id="gold${uid}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffe9a8"/><stop offset="45%" stop-color="#e6b654"/><stop offset="100%" stop-color="#8a5e1c"/></linearGradient>
+  <linearGradient id="ink${uid}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff4cf"/><stop offset="40%" stop-color="#f0c15e"/><stop offset="72%" stop-color="#c9922e"/><stop offset="100%" stop-color="#7c520f"/></linearGradient>`;
+}
+// 계급 장식: n이 작을수록(1=최강) 화려. tier 3=왕관, 2=큰뿔, 1=작은뿔
+function crownTop(gold,tier){
+  if(tier>=3){ // 왕관 (壱·弐)
+    return `<path d="M70 12 L58 30 L70 24 L82 30 Z" fill="url(#${gold})" stroke="#5c3d10" stroke-width="1"/>
+      <path d="M52 18 L47 33 L57 28 Z M88 18 L93 33 L83 28 Z" fill="url(#${gold})" stroke="#5c3d10" stroke-width="1"/>
+      <circle cx="70" cy="17" r="3.4" fill="#fff2c2" stroke="#8a5e1c" stroke-width="1"/>`;
+  }
+  if(tier>=2){ // 큰 뿔 (参·肆)
+    return `<path d="M56 30 Q48 12 40 16 Q50 20 54 34 Z" fill="url(#${gold})" stroke="#5c3d10" stroke-width="1"/>
+      <path d="M84 30 Q92 12 100 16 Q90 20 86 34 Z" fill="url(#${gold})" stroke="#5c3d10" stroke-width="1"/>
+      <path d="M70 14 L64 26 L70 22 L76 26 Z" fill="url(#${gold})" stroke="#5c3d10" stroke-width="1"/>`;
+  }
+  // 작은 뿔 (伍·陸)
+  return `<path d="M60 30 Q54 18 48 20 Q56 24 58 33 Z" fill="url(#${gold})" stroke="#5c3d10" stroke-width="1"/>
+    <path d="M80 30 Q86 18 92 20 Q84 24 82 33 Z" fill="url(#${gold})" stroke="#5c3d10" stroke-width="1"/>`;
+}
+// 금속 각인 한자 — 어두운 밑그림자 + 금색 본체 + 미세 상단 하이라이트를 겹쳐 '새겨진' 느낌
+const KF="font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+function kanji(txt,x,y,size,grad){
+  return `
+    <text x="${x}" y="${y+1.4}" text-anchor="middle" font-size="${size}" font-weight="900" fill="#2a0305"
+      style="${KF}">${txt}</text>
+    <text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="900" fill="url(#${grad})"
+      paint-order="stroke" stroke="#4a2f0c" stroke-width="1.4" stroke-linejoin="round" style="${KF}">${txt}</text>
+    <text x="${x-0.6}" y="${y-1}" text-anchor="middle" font-size="${size}" font-weight="900" fill="#fff6da"
+      opacity=".3" style="${KF}">${txt}</text>`;
+}
+function emblem(up,n){
+  const uid=(up?"u":"l")+n;
+  const c1=up?"#ff5a46":"#c07bff", c2=up?"#a01418":"#5a1ea0";
+  const glow=up?"glowU":"glowL";
+  const tier = n<=2?3 : n<=4?2 : 1;
+  const cx=70, cy=64;
+  return `<svg viewBox="0 0 140 128" width="150" height="137">
+    <defs>${defs(uid,c1,c2)}</defs>
+    <g filter="url(#${glow})">
+      ${crownTop("gold"+uid,tier)}
+      <!-- 눈알형 외곽(금테 이중선) -->
+      <path d="M14 64 Q70 16 126 64 Q70 112 14 64 Z" fill="#120306" stroke="url(#gold${uid})" stroke-width="4"/>
+      <path d="M14 64 Q70 16 126 64 Q70 112 14 64 Z" fill="none" stroke="#4a2f0c" stroke-width="1" opacity=".7"/>
+      <!-- 좌우 끝 보석 -->
+      <path d="M14 64 l7 -5 0 10 Z M126 64 l-7 -5 0 10 Z" fill="url(#gold${uid})" stroke="#5c3d10" stroke-width="1"/>
+      <!-- 상하 필리그리 컬 -->
+      <path d="M70 24 q-9 8 -3 16 q-3 -9 3 -12 q6 3 3 12 q6 -8 -3 -16Z" fill="url(#gold${uid})" opacity=".9"/>
+      <path d="M70 104 q-9 -8 -3 -16 q-3 9 3 12 q6 -3 3 -12 q6 8 -3 16Z" fill="url(#gold${uid})" opacity=".9"/>
+      <!-- 오브 -->
+      <circle cx="${cx}" cy="${cy}" r="30" fill="url(#orb${uid})"/>
+      <circle cx="${cx}" cy="${cy}" r="30" fill="none" stroke="url(#gold${uid})" stroke-width="2.4"/>
+      <circle cx="${cx}" cy="${cy}" r="30" fill="none" stroke="#1a0206" stroke-width="1" opacity=".5"/>
+      <!-- 오브 중앙 광원 + 문양 링 (글자가 빛 위에 앉게) -->
+      <circle cx="${cx}" cy="${cy-3}" r="20" fill="#ffffff" opacity=".10"/>
+      <circle cx="${cx}" cy="${cy}" r="22" fill="none" stroke="#ffe9a8" stroke-width="1" opacity=".14"/>
+      <!-- 한자 = 프레임과 같은 금색 재질(엠보스). 아래 어두운 그림자 → 위 금색 → 상단 하이라이트 순으로 새김 -->
+      ${kanji(up?"上弦":"下弦", cx, cy-4, 17, "ink"+uid)}
+      ${kanji(NUM[n], cx, cy+25, 34, "ink"+uid)}
+    </g>
+  </svg>`;
+}
+let h='<div class="grp-h up">🔥 상현 (上弦) · 상위 6인</div><div class="grid">';
+for(let n=1;n<=6;n++) h+=`<div class="item up">${emblem(true,n)}<div class="cap">상현 ${n}</div><div class="jp">上弦の${NUM[n]}</div></div>`;
+h+='</div><div class="grp-h low">🌙 하현 (下弦) · 하위 6인</div><div class="grid">';
+for(let n=1;n<=6;n++) h+=`<div class="item low">${emblem(false,n)}<div class="cap">하현 ${n}</div><div class="jp">下弦の${NUM[n]}</div></div>`;
+h+='</div>';
+document.getElementById('root').innerHTML=h;
+</script></body></html>
