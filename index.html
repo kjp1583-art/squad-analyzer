@@ -3832,7 +3832,19 @@ function renderPlayer(name){
   if(CUR_PLAYER!==name){ MOST_EXPANDED=false; PROF_POS=null; }   // 다른 선수로 이동 시 펼침·포지션 선택 초기화
   CUR_PLAYER=name;                        // 로그인 후 이 페이지로 복귀
   const parts=PLAYERS.get(name);
-  if(!parts){view().innerHTML=`<div class="empty">‘${esc(name)}’ 기록 없음</div>`;return;}
+  if(!parts){
+    // 패치 필터를 좁혀서 그 기간에 이 선수 기록이 없는 경우가 대부분 — 빠져나갈 길을 같이 준다.
+    const _lbl = (PATCH_SEL==="ALL"||PATCH_SEL==null) ? "" :
+      (selYear(PATCH_SEL) ? `${selYear(PATCH_SEL)}년` : `패치 ${PATCH_SEL}`);
+    view().innerHTML=`
+      <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
+      <div class="card" style="margin-top:10px;text-align:center;padding:30px 16px">
+        <div style="font-size:18px;font-weight:800">${esc(shortName(name))} <span class="muted" style="font-size:14px;font-weight:400">${esc(tagOf(name))}</span></div>
+        <div class="muted" style="margin-top:10px;font-size:14.5px">${_lbl?`<b style="color:var(--sub)">${esc(_lbl)}</b> 에는 기록이 없어요.`:"기록이 없어요."}</div>
+        ${_lbl?`<button class="pchip on" style="margin-top:14px;padding:7px 16px;font-size:13.5px;cursor:pointer" onclick="switchPatch('ALL')">📊 전체 기간으로 보기</button>`:""}
+      </div>`;
+    return;
+  }
   // 최신순 (게임 등장 순서 역순)
   const list=[...parts].reverse();
   let w=0,l=0,mvp=0,bad=0,aceN=0;
@@ -4314,7 +4326,9 @@ function switchPatch(sel){
   //   (개별 선수/게임 상세는 해당 버전에 없을 수 있어 기존대로 홈 복귀)
   const _cur=(history.state&&history.state.route)||'home';
   const _arg=history.state?history.state.arg:null;
-  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof']);
+  // [2026-07-31 사장님 지시] 선수 페이지도 유지 — 홈으로 튕기지 말고 그 선수의 해당 패치 전적을 바로 보여준다.
+  //   그 패치에 기록이 없으면 renderPlayer 가 '이 기간엔 기록 없음' 안내를 띄운다(전체 보기 버튼 포함).
+  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player']);
   go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
@@ -4734,7 +4748,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607310300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607310330";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
