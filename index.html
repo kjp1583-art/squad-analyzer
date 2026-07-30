@@ -372,7 +372,7 @@
   .pos{display:inline-block;min-width:34px;color:var(--sub);font-size:13.5px}
 
   /* Player profile */
-  .prof{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .prof{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
   .prof .pname{font-size:22px;font-weight:800}
   .prof .ptag{color:var(--mut);font-size:14.5px}
   .ring{--p:50;width:96px;height:96px;border-radius:50%;flex:none;
@@ -461,11 +461,14 @@
   .cmp-k{display:block;font-size:11.5px;color:var(--mut)}
   .cmp-v{display:block;font-size:15.5px;font-variant-numeric:tabular-nums;line-height:1.3}
   .cmp-r{display:block;font-size:11.5px;color:var(--mut)}
-  .radarbox{flex:0 0 auto;width:184px;text-align:center;align-self:flex-start}
-  .prof.hasemb .radarbox{margin-top:58px}
+  .sidecol{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;align-self:flex-start}
+  .prof.hasemb .sidecol{margin-top:58px}
+  .radarbox{width:184px;text-align:center}
+  .cmp.cmp-hi{background:linear-gradient(135deg,rgba(255,210,74,.16),rgba(255,210,74,.04));border-color:rgba(255,210,74,.4)}
+  .cmp.cmp-hi .cmp-v{color:#ffd24a;font-size:22px;font-weight:800}
   .radar polygon{transition:all .5s ease}
   .radarcap{font-size:11.5px;margin-top:-4px}
-  @media(max-width:760px){.radarbox{width:100%;order:9}.prof.hasemb .radarbox{margin-top:0}}
+  @media(max-width:760px){.sidecol{width:100%;order:9}.prof.hasemb .sidecol{margin-top:0}}
 
   /* ✨ 화면 전환·카드 등장 — 정적 사이트라도 '움직이는 느낌'은 낼 수 있다.
      접근성: 사용자가 애니메이션 최소화를 켜두면 전부 끈다(아래 prefers-reduced-motion). */
@@ -3772,14 +3775,20 @@ function renderPlayer(name){
     if(mt.vs!=null){ _vsS+=mt.vs; _vsN++; }
   }
   const _sc=(ASSESSMENTS.get(name)||{}).score100;
-  const scoreStrip=`<div class="scorestrip">
-    ${_sc!=null?`<div class="ss-main" title="클랜 전체 파워 순위를 100점으로 환산 (1등 100점)">
-        <span class="ss-star">⭐</span><b class="ss-num">${_sc}</b><span class="ss-den">/100</span>
-        <span class="ss-lab">종합</span></div>`:''}
-    ${avgRatio!=null?`<div class="ss-cell" title="평균 ${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}"><span class="ss-k">KDA</span><b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b></div>`:''}
-    ${_csN?`<div class="ss-cell" title="${_csN}판 평균"><span class="ss-k">CS/분</span><b>${(_csS/_csN).toFixed(1)}</b></div>`:''}
-    ${_vsN?`<div class="ss-cell" title="${_vsN}판 평균"><span class="ss-k">시야</span><b>${Math.round(_vsS/_vsN)}</b></div>`:''}
-  </div>`;
+  // [2026-07-30] 종합·전적 요약도 아래 비교 박스와 같은 칸 UI로 통일했다(줄글 → 칸).
+  const scoreStrip=(()=>{
+    const cell=(k,v,ref,cls)=>`<div class="cmp${cls?' '+cls:''}"><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+    const it=[];
+    if(_sc!=null) it.push(cell("⭐ 종합",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,"클랜 파워 환산","cmp-hi"));
+    if(avgRatio!=null) it.push(`<div class="cmp"><span class="cmp-k">KDA</span><b class="cmp-v" style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b><span class="cmp-r">${kdaGames}판 평균</span></div>`);
+    if(_csN) it.push(cell("CS/분",(_csS/_csN).toFixed(1),`${_csN}판 평균`));
+    if(_vsN) it.push(cell("시야",Math.round(_vsS/_vsN),`${_vsN}판 평균`));
+    it.push(cell("전적",`${w+l}전`,`${w}승 ${l}패`));
+    it.push(cell("MVP",mvp,"—"));
+    it.push(cell("ACE",aceN,l>0?`패배 중 ${Math.round(aceN/l*100)}%`:"—"));
+    it.push(cell("역적",bad,"—"));
+    return `<div class="cmpbox" style="margin-top:9px"><div class="cmpgrid">${it.join("")}</div></div>`;
+  })();
 
   // 🖼 [2026-07-30] 프로필 카드 배너 — 모스트 챔피언 스플래시를 카드 상단 배경으로 은은하게 깐다.
   //    (타 클랜 사이트에서 가장 인상적이었던 부분. 카드 내용은 그대로 두고 배경만 더한다.)
@@ -3923,16 +3932,16 @@ function renderPlayer(name){
       ${bannerHtml}
       ${_emb}
       <div class="prof${_emb?' hasemb':''}">
-        <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${scoreStrip}
-          <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · <span style="opacity:.8">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           ${careerHtml}
         </div>
-        ${radarHtml}
+        <div class="sidecol">${radarHtml}
+          <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
+        </div>
       </div>
     </div>
     ${aiEvalHtml}
@@ -4599,7 +4608,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607302010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607302040";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
