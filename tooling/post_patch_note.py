@@ -33,6 +33,24 @@ def main():
         print("app_secrets.py에 PATCH_WEBHOOK_URL 없음", file=sys.stderr); return 1
     url = m.group(1)
 
+    # [2026-07-30] 텍스트를 워크플로 입력으로 손으로 넘기다 한글이 깨진 일이 반복됐다
+    #   (인코딩을 직접 적다 '탭'→'틭' 같은 한 글자 오염이 생겨 검토로도 안 걸렸다).
+    #   저장소 파일에서 읽는 경로를 두어, 파일을 그대로 커밋해 확인한 뒤 보낼 수 있게 한다.
+    #   파일 형식: '## 분석기' / '## 웹' / '## 봇' 머리말 아래에 줄 단위로 적는다.
+    src_file = (os.environ.get("IN_FILE") or "").strip()
+    if src_file:
+        if not os.path.exists(src_file):
+            print(f"{src_file} 없음", file=sys.stderr); return 1
+        sec, buf = None, {"분석기": [], "웹": [], "봇": []}
+        for line in open(src_file, encoding="utf-8"):
+            t = line.strip()
+            m2 = re.match(r"^#{1,3}\s*(분석기|웹|봇)", t)
+            if m2: sec = m2.group(1); continue
+            if sec and t: buf[sec].append(t)
+        os.environ["IN_ANALYZER"] = "\n".join(buf["분석기"])
+        os.environ["IN_WEB"] = "\n".join(buf["웹"])
+        os.environ["IN_BOT"] = "\n".join(buf["봇"])
+
     ver = (os.environ.get("IN_VER") or "").strip().lstrip("vV")
     fields = []
     a = _clean(os.environ.get("IN_ANALYZER"))

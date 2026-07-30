@@ -27,6 +27,10 @@ on:
         description: '봇(내전봇) 변경'
         required: false
         default: ''
+      notes_file:
+        description: '위 칸 대신 저장소의 파일에서 읽기 (예: tooling/patch_note.md)'
+        required: false
+        default: ''
 
 jobs:
   post:
@@ -41,4 +45,5 @@ jobs:
           IN_ANALYZER: ${{ inputs.analyzer }}
           IN_WEB: ${{ inputs.web }}
           IN_BOT: ${{ inputs.bot }}
+          IN_FILE: ${{ inputs.notes_file }}
         run: python3 tooling/post_patch_note.py
