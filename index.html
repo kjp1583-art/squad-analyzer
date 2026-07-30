@@ -4029,7 +4029,6 @@ function renderPlayer(name){
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${statBox}
-          ${careerHtml}
         </div>
         <div class="sidecol">${radarHtml}
           <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
@@ -4039,7 +4038,7 @@ function renderPlayer(name){
     </div>
     ${aiEvalHtml}
     ${bpHtml}
-    <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지 · 기록</h2>${mitoHtml}${badgesHtml}</div>
+    <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지 · 기록</h2>${mitoHtml}${careerHtml}${badgesHtml}</div>
     <div class="grid cols">
       <div>
         <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
@@ -4702,7 +4701,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607302355";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607310010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
