@@ -480,7 +480,11 @@
   .rr-p{flex:0 0 38px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}
   .sidecol{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;align-self:flex-start}
   .prof .sidecol{margin-top:0}
-  .radarbox{width:184px;text-align:center}
+  .radarbox{width:212px;text-align:center}
+  .radar-lg{display:flex;justify-content:center;gap:12px;font-size:11px;margin-top:-2px}
+  .radar-lg .lg-me{color:#ff8a3d;font-weight:700}
+  .radar-lg .lg-avg{color:#9aa0b0}
+  .side-rec{font-size:13px;color:var(--sub);margin-top:2px}
   .cmp.cmp-good{background:linear-gradient(135deg,rgba(126,224,129,.15),rgba(126,224,129,.03));border-color:rgba(126,224,129,.38)}
   .cmp.cmp-good .cmp-v{color:#7ee081}
   .cmp.cmp-bad{background:linear-gradient(135deg,rgba(232,64,87,.14),rgba(232,64,87,.03));border-color:rgba(232,64,87,.36)}
@@ -1542,6 +1546,11 @@ let NOBAN_BY_GAME=new Map(), NOBAN_CNT=new Map();   // 게임ID(숫자만)→[�
 // 😤 억울지수(GRUDGE 탭) — 맞라인 개인지표 기대 우위율 − 실제 우위율.
 //    "내 내부티어가 너무 높게 잡혔다"는 주장을 데이터로 판정하는 지표. tooling/tier_dossier.py가 주간 갱신.
 let GRUDGE = [];
+function grudgeOf(name){
+  if(!GRUDGE.length) return null;
+  const cn=canonOfName(name);
+  return GRUDGE.find(g=>g.name===name||canonOfName(g.name)===cn)||null;
+}
 function loadGrudge(){
   return new Promise((resolve)=>{
     const cb="__grCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
@@ -3051,18 +3060,27 @@ function sortChamp(key){
 }
 /* 🕸 [2026-07-30] 레이더 차트 — 라이브러리 없이 SVG 다각형으로 직접 그린다.
    축은 '클랜 내 백분위'라 절대값 감각이 없는 지표(시야·CS)도 한 눈에 비교된다. */
-function radarSvg(axes,size){
+/* 🕸 등급 사다리 — 백분위(0~100)를 op.gg식 SSS~D 로 환산. */
+const RADAR_GRADE=[[95,"SSS","#ff5da2"],[86,"SS","#ff8a3d"],[76,"S","#ffd24a"],[64,"A","#7ee081"],
+  [52,"B+","#8fe0c0"],[42,"B","#5bd0ff"],[30,"C+","#8aa0d0"],[18,"C","#b6a5ff"],[0,"D","#8e97ab"]];
+function radarGrade(v){ return RADAR_GRADE.find(g=>v>=g[0])||RADAR_GRADE[RADAR_GRADE.length-1]; }
+function radarSvg(axes,size,opts){
+  opts=opts||{};
   size=size||188;
-  const cx=size/2, cy=size/2, R=size/2-24;
+  const cx=size/2, cy=size/2, R=size/2-38;      // 두 줄 라벨(등급+이름) 공간 확보
   const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/axes.length;return [cx+Math.cos(a)*r, cy+Math.sin(a)*r];};
   const ring=f=>axes.map((_,i)=>pt(i,R*f).join(",")).join(" ");
-  const poly=axes.map((a,i)=>pt(i,R*Math.max(.04,(a.v||0)/100)).join(",")).join(" ");
+  const polyOf=vf=>axes.map((a,i)=>pt(i,R*Math.max(.04,(vf(a))/100)).join(",")).join(" ");
   const grid=[1,.75,.5,.25].map(f=>`<polygon points="${ring(f)}" fill="none" stroke="#2a3145"/>`).join("");
   const spokes=axes.map((_,i)=>{const[x,y]=pt(i,R);return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#232a3c"/>`;}).join("");
-  const labels=axes.map((a,i)=>{const[x,y]=pt(i,R+13);
-    return `<text x="${x}" y="${y}" fill="#8e97ab" font-size="11" text-anchor="middle" dominant-baseline="middle">${esc(a.label)}</text>`;}).join("");
-  return `<svg class="radar" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${grid}${spokes}
-    <polygon points="${poly}" fill="rgba(160,120,255,.28)" stroke="#a878ff" stroke-width="2"/>${labels}</svg>`;
+  // 클랜 평균 = 모든 축 50 백분위(중앙값). 회색 점선 오각형.
+  const avg=opts.avg?`<polygon points="${polyOf(()=>50)}" fill="rgba(150,155,170,.16)" stroke="#9aa0b0" stroke-width="1.4" stroke-dasharray="3 3"/>`:'';
+  const mine=`<polygon points="${polyOf(a=>a.v||0)}" fill="rgba(255,138,61,.22)" stroke="#ff8a3d" stroke-width="2"/>`;
+  const labels=axes.map((a,i)=>{const[x,y]=pt(i,R+18);
+    const g=opts.grades?radarGrade(a.v||0):null;
+    const gl=g?`<text x="${x}" y="${y-4}" fill="${g[2]}" font-size="13" font-weight="800" text-anchor="middle">${g[1]}</text>`:'';
+    return `${gl}<text x="${x}" y="${y+(g?10:0)}" fill="#8e97ab" font-size="10.5" text-anchor="middle" dominant-baseline="middle">${esc(a.label)}</text>`;}).join("");
+  return `<svg class="radar" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${grid}${spokes}${avg}${mine}${labels}</svg>`;
 }
 const GRADE_TBL=[[90,"S","#ffd24a"],[75,"A","#7ee081"],[55,"B","#5b8cff"],[35,"C","#b6a5ff"],[0,"D","#8e97ab"]];
 function gradeOf(sc){ return GRADE_TBL.find(g=>sc>=g[0])||GRADE_TBL[GRADE_TBL.length-1]; }
@@ -3837,9 +3855,8 @@ function renderPlayer(name){
     if(mt.vs!=null){ _vsS+=mt.vs; _vsN++; }
   }
   const _sc=(ASSESSMENTS.get(name)||{}).score100;
-  // [2026-07-30] 종합·전적 요약도 아래 비교 박스와 같은 칸 UI로 통일했다(줄글 → 칸).
-  // 🎨 [2026-07-30] 칸마다 잘함/못함 색을 입힌다 — 기준은 '같은 주 포지션 클랜원 중 백분위'.
-  //    상위 30% 안이면 초록, 하위 30%면 붉게. 애매한 구간은 색을 안 쓴다(과장 금지).
+  // 🎨 [2026-07-30] 위쪽 종합칸(주 포지션 백분위)과 아래쪽 동티어 비교칸을 한 박스로 합쳤다.
+  //    색: 잘하면 초록, 못하면 붉게. 애매하면 색 없음(과장 금지).
   const _mp=[...posAgg.entries()].filter(([p])=>p&&p!=="?"&&p!=="선택안함").sort((a,b)=>b[1]-a[1])[0]||null;
   const _posP=(_mp&&_mp[1]>=5)?posPercentiles(_mp[0]):null;
   const _posMine=_mp?radarMetrics(parts.filter(r=>(r["포지션"]||"")===_mp[0])):null;
@@ -3847,7 +3864,9 @@ function renderPlayer(name){
   const _pctCls=p=>p==null?'':(p>=70?'cmp-good':(p<=30?'cmp-bad':''));
   const _pctTip=p=>p==null?'':`${_mp[0]} ${_mp[1]}판 · 같은 포지션 클랜원 중 상위 ${Math.max(1,100-p)}%`;
 
-  const scoreStrip=(()=>{
+  const _asmt=assessPlayer(name);
+  const asmtChip = _asmt ? `<span class="assess ${_asmt.cls}" style="vertical-align:middle;margin-left:5px">${_asmt.label}</span>` : '';
+  const statBox=(()=>{
     const cell=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
     const pc=k=>{const p=_pctOf(k);return {cls:_pctCls(p),tip:_pctTip(p)};};
     const it=[];
@@ -3855,12 +3874,33 @@ function renderPlayer(name){
     if(avgRatio!=null){ const q=pc("kda"); it.push(cell("KDA",avgRatio.toFixed(2),`${kdaGames}판 평균`,q.cls,q.tip)); }
     if(_csN){ const q=pc("cspm"); it.push(cell("CS/분",(_csS/_csN).toFixed(1),`${_csN}판 평균`,q.cls,q.tip)); }
     if(_vsN){ const q=pc("vision"); it.push(cell("시야",Math.round(_vsS/_vsN),`${_vsN}판 평균`,q.cls,q.tip)); }
-    it.push(cell("전적",`${w+l}전`,`${w}승 ${l}패`));
-    { const q=pc("mvpr"); it.push(cell("MVP",mvp,w+l?`${Math.round(mvp/(w+l)*100)}%`:"—",q.cls,q.tip)); }
-    it.push(cell("ACE",aceN,l>0?`패배 중 ${Math.round(aceN/l*100)}%`:"—"));
-    { const p=(w+l)?Math.round(bad/(w+l)*100):null;
-      it.push(cell("역적",bad,p!=null?`${p}%`:"—",p==null?'':(p<=2?'cmp-good':(p>=8?'cmp-bad':'')),"판당 역적 비율 — 낮을수록 좋아요")); }
-    return `<div class="cmpbox" style="margin-top:9px"><div class="cmpgrid">${it.join("")}</div></div>`;
+    // ▼ 동티어 비교(내부티어 평균 대비) — 5% 이상 벌어질 때만 색.
+    const d=_asmt&&_asmt.detail;
+    const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
+      const dd=(mine-ref)/Math.abs(ref); if(Math.abs(dd)<0.05) return '';
+      return (dd>0)===!!hiGood?'cmp-good':'cmp-bad'; };
+    if(d){
+      if(d.solo!=null) it.push(cell("🏅솔랭",`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-weight:600;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`,cmpCls(d.solo,d.soloAvg,1)));
+      if(d.ai!=null) it.push(cell("AI점수",d.ai,`동티어 ${d.aiAvg}`,cmpCls(d.ai,d.aiAvg,1)));
+      if(d.mvp!=null) it.push(cell("MVP율",`${d.mvp}%`,`동티어 ${d.mvpAvg}%`,cmpCls(d.mvp,d.mvpAvg,1)));
+      if(d.troll!=null) it.push(cell("역적율",`${d.troll}%`,`동티어 ${d.trollAvg}%`,cmpCls(d.troll,d.trollAvg,0)));
+      if(d.ace!=null) it.push(cell("ACE율",`${d.ace}%`,`패배 중`));
+    }
+    // 😤 억울지수 — GRUDGE 탭. 양수일수록 '내 티어 과대평가' 주장이 사실에 가깝다.
+    const gr=grudgeOf(name);
+    if(gr&&!isNaN(gr.score)){
+      const pos=gr.score>0;
+      it.push(cell("😤 억울지수",`${pos?'+':''}${gr.score.toFixed(1)}<span style="font-size:11px;color:var(--mut)">%p</span>`,
+        (!isNaN(gr.act)&&!isNaN(gr.exp))?`실제 ${Math.round(gr.act)}% / 기대 ${Math.round(gr.exp)}%`:`대결 ${gr.n}회`,
+        Math.abs(gr.score)<2?'':(pos?'cmp-bad':'cmp-good'),
+        "맞라인 상대 티어 대비 '기대 우위율 − 실제 우위율'. 양수일수록 내 티어에 기대되는 만큼 못 이긴다 = '티어 과대평가'가 사실에 가까움. 음수면 오히려 저평가."));
+    }
+    const head=(_asmt&&_asmt.implPct!=null)?`<b style="color:#ffd24a">🎯 클랜 상위 ${_asmt.implPct}%</b>`:'<b>스탯 요약</b>';
+    const sub=(d)?'전체기간 · 같은 내부티어 평균과 비교':'';
+    const note=(_asmt&&!d)?`<div class="muted" style="font-size:12.5px;margin-bottom:6px">${_asmt.games}판 — 티어 비교엔 10판 이상 필요</div>`:'';
+    return `<div class="cmpbox" style="margin-top:9px">
+      <div class="cmpbox-h">${head}${sub?`<span class="muted" style="font-size:12px;font-weight:400">${sub}</span>`:''}</div>
+      ${note}<div class="cmpgrid">${it.join("")}</div></div>`;
   })();
 
   // 🖼 [2026-07-30] 프로필 카드 배너 — 모스트 챔피언 스플래시를 카드 상단 배경으로 은은하게 깐다.
@@ -3881,37 +3921,14 @@ function renderPlayer(name){
     const AX=[["캐리","mvpr"],["성장","cspm"],["시야","vision"],["생존","surv"],["교전","fight"],["챔프폭","pool"]];
     const axes=AX.map(([label,k])=>({label,v:_posP.of(k,_posMine[k])}));
     if(axes.filter(a=>a.v!=null).length<3) return '';
-    const tip=axes.map(a=>`${a.label} ${a.v==null?'-':'상위 '+Math.max(1,100-a.v)+'%'}`).join(" · ");
+    const tip=axes.map(a=>`${a.label} ${a.v==null?'-':radarGrade(a.v)[1]+'(상위 '+Math.max(1,100-a.v)+'%)'}`).join(" · ");
     return `<div class="radarbox" title="${esc(mpos)} ${mn}판 기준 · 같은 포지션 클랜원 ${_posP.n}명 중 상대 위치 — ${escAttr(tip)}">
-      ${radarSvg(axes.map(a=>({label:a.label,v:a.v||0})),172)}
-      <div class="radarcap muted">플레이 스타일 · <b style="color:var(--sub)">${esc(mpos)}</b> 기준 백분위</div></div>`;
+      ${radarSvg(axes.map(a=>({label:a.label,v:a.v||0})),206,{grades:true,avg:true})}
+      <div class="radar-lg"><span class="lg-me">■ ${esc(shortName(name))}</span><span class="lg-avg">▨ 클랜 평균</span></div>
+      <div class="radarcap muted"><b style="color:var(--sub)">${esc(mpos)}</b> · 같은 포지션 클랜원 중 등급</div></div>`;
   })();
 
   const matchHtml=list.map(r=>matchCard(r,name)).join("");
-
-  const asmt=assessPlayer(name);
-  // [2026-07-30] 평가 딱지(적절/저평가)는 이름 옆 티어 배지 뒤에 붙이고, 동티어 비교는 별도 박스로 정리했다.
-  const asmtChip = asmt ? `<span class="assess ${asmt.cls}" style="vertical-align:middle;margin-left:5px">${asmt.label}</span>` : '';
-  const asmtHtml = (()=>{
-    if(!asmt) return '';
-    if(!asmt.detail) return `<div class="cmpbox"><div class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</div></div>`;
-    const d=asmt.detail, it=[];
-    // 동티어 평균과 비교 — 5% 이상 차이 날 때만 색을 준다(오차 범위에서 색이 튀는 걸 막는다).
-    const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
-      const d=(mine-ref)/Math.abs(ref); if(Math.abs(d)<0.05) return '';
-      return (d>0)===!!hiGood?'cmp-good':'cmp-bad'; };
-    const cell=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
-    it.push(cell("승률",`${d.wr}%`,`동티어 ${d.wrAvg}%`,cmpCls(d.wr,d.wrAvg,1)));
-    if(d.solo!=null) it.push(cell("🏅솔랭",`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-weight:600;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`,cmpCls(d.solo,d.soloAvg,1)));
-    if(d.ai!=null) it.push(cell("AI점수",d.ai,`동티어 ${d.aiAvg}`,cmpCls(d.ai,d.aiAvg,1)));
-    if(d.mvp!=null) it.push(cell("MVP율",`${d.mvp}%`,`동티어 ${d.mvpAvg}%`,cmpCls(d.mvp,d.mvpAvg,1)));
-    if(d.troll!=null) it.push(cell("역적율",`${d.troll}%`,`동티어 ${d.trollAvg}%`,cmpCls(d.troll,d.trollAvg,0)));
-    if(d.ace!=null) it.push(cell("ACE율",`${d.ace}%`,`패배 중`));
-    return `<div class="cmpbox">
-      <div class="cmpbox-h">${asmt.implPct!=null?`<b style="color:#ffd24a">🎯 클랜 상위 ${asmt.implPct}%</b>`:'<b>동티어 비교</b>'}
-        <span class="muted" style="font-size:12px;font-weight:400">전체기간 · 같은 내부티어 평균과 비교</span></div>
-      <div class="cmpgrid">${it.join("")}</div></div>`;
-  })();
 
   // 🏅 커리어(대회 우승) — CAREER 탭에서 이 선수 기록 추출 (현재 보유 타이틀은 강조)
   const myCareers = careersOfPlayer(name);
@@ -4008,12 +4025,12 @@ function renderPlayer(name){
         <div style="flex:1">
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
-          ${scoreStrip}
-          ${asmtHtml}
+          ${statBox}
           ${careerHtml}
         </div>
         <div class="sidecol">${radarHtml}
           <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
+          <div class="side-rec">${w+l}전 <b style="color:var(--win)">${w}승</b> <b style="color:var(--lose)">${l}패</b></div>
         </div>
       </div>
     </div>
@@ -4682,7 +4699,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607302215";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607302320";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
