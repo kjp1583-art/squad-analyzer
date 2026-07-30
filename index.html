@@ -985,7 +985,8 @@ let ALT_TO_MAIN    = new Map();   // 🎭 LINK_ACCOUNT 시트: norm(부계닉 #�
 let TAGLESS_TO_CANON = new Map(); // norm(대표닉 #앞) -> 대표닉(태그 포함) — 본계 이름을 태그 없이 적어도 매칭되게
 let AMBIG_BASE = new Set();       // 🎭 동명이인(태그·PUUID 다른 동일 베이스닉) — 태그리스 매칭 금지 목록
 let CANON_TO_ALIASES = new Map(); // 최신 닉 -> [그 사람의 모든 닉...]
-let CHAMPMAP = {};       // 한글챔프명 -> {img}
+let CHAMPMAP = {};       // 한글챔프명 -> 초상화 주소(Community Dragon = 라이브 클라이언트 아트)
+let CHAMPFB = {};        // 같은 키의 Data Dragon 폴백 주소(CD 실패 시 사용)
 let DDVER = "";
 
 /* ============== 유틸 ============== */
@@ -2323,8 +2324,12 @@ async function loadDDragon(){
     const data=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/champion.json`)).json();
     for(const k in data.data){
       const c=data.data[k];
-      CHAMPMAP[c.name]=`https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/champion/${c.image.full}`;
+      // [2026-07-30] Data Dragon 최신 버전이 구 아트를 주는 구간이 있어 초상화가 옛날 그림으로 바뀌었다.
+      //   실제 클라이언트 에셋을 미러하는 Community Dragon 을 먼저 쓰고, 실패하면 Data Dragon 으로 떨어진다.
+      CHAMPMAP[c.name]=`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${c.key}.png`;
+      CHAMPFB[c.name]=`https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/champion/${c.image.full}`;
       CHAMPMAP[c.name.replace(/\s/g,"")]=CHAMPMAP[c.name];
+      CHAMPFB[c.name.replace(/\s/g,"")]=CHAMPFB[c.name];
     }
   }catch(e){/* 아이콘 없이 진행 */}
   // 🛒 룬 아이콘(주룬 키스톤·보조트리) + 아이템명 (전적카드 빌드 표시용 — 실패해도 무해)
@@ -2378,8 +2383,10 @@ function buildLine(r){   // 스펠+룬+아이템 한 줄(있을 때만)
 }
 function champImg(name,cls){
   cls=cls||"";
-  const src=CHAMPMAP[name]||CHAMPMAP[(name||"").replace(/\s/g,"")];
-  if(src)return `<img class="champ ${cls}" src="${src}" alt="${esc(name)}" title="${esc(name)}" loading="lazy">`;
+  const key=CHAMPMAP[name]?name:(name||"").replace(/\s/g,"");
+  const src=CHAMPMAP[key], fb=CHAMPFB[key];
+  if(src)return `<img class="champ ${cls}" src="${src}" alt="${esc(name)}" title="${esc(name)}" loading="lazy"`
+    + (fb?` data-fb="${escAttr(fb)}" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}"`:``) + `>`;
   return `<span class="champ ${cls}" title="${esc(name)}">${esc((name||"?").slice(0,2))}</span>`;
 }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
@@ -4386,7 +4393,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607280326";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607301049";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
