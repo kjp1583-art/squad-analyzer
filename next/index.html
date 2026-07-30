@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SQUAD.GG next — 시험판</title>
+<!-- 🧪 [2026-07-30] React 시험판.
+     본 사이트(index.html)는 건드리지 않고 이 주소에서만 돌린다. 같은 구글 시트를 읽으므로 데이터는 동일.
+     빌드 도구 없이 CDN 모듈만 쓴다 — 저장소에 넣고 새로고침하면 끝(무료·무설치).
+     목적: '움직임이 있는 화면'이 우리 데이터로 어떻게 보이는지 눈으로 비교하기. -->
+<style>
+  :root{
+    --bg:#0f1116; --bg2:#151822; --card:#181c26; --line:#242a38;
+    --tx:#e8ecf4; --mut:#8e97ab; --accent:#5b8cff; --gold:#ffd24a;
+    --win:#4ea1ff; --lose:#ff6b81;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#1b2030 0%,var(--bg) 60%);
+    color:var(--tx);font-family:"Malgun Gothic",-apple-system,system-ui,sans-serif}
+  a{color:inherit}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
+
+  header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 0 18px}
+  .logo{font-size:22px;font-weight:900;letter-spacing:-.5px}
+  .logo span{color:var(--accent)}
+  .pill{font-size:12px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+  .search{margin-left:auto;position:relative}
+  .search input{background:var(--bg2);border:1px solid var(--line);color:var(--tx);border-radius:12px;
+    padding:10px 14px;width:260px;font-size:14px;outline:none;transition:border-color .18s,box-shadow .18s}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,140,255,.15)}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;
+    animation:up .4s cubic-bezier(.2,.9,.3,1) both}
+  .kpi .k{font-size:12.5px;color:var(--mut)}
+  .kpi .v{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15}
+
+  .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;
+    animation:up .45s cubic-bezier(.2,.9,.3,1) both;transition:transform .18s,box-shadow .18s,border-color .18s}
+  .card:hover{transform:translateY(-2px);border-color:#2f3850;box-shadow:0 10px 26px rgba(0,0,0,.32)}
+  .card h2{margin:2px 0 12px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card h2 small{color:var(--mut);font-weight:400;font-size:12.5px}
+
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:9px 8px;font-size:14px;text-align:left;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-size:12.5px;font-weight:600;cursor:pointer;user-select:none;white-space:nowrap}
+  th:hover{color:var(--tx)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:rgba(255,255,255,.045)}
+  .name{font-weight:600;cursor:pointer}
+  .name:hover{color:var(--accent)}
+
+  .bar{height:6px;background:#20263a;border-radius:99px;overflow:hidden;min-width:70px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#3c6fe0,#5b8cff);
+    transition:width .6s cubic-bezier(.3,1,.4,1)}
+  .score{display:inline-flex;align-items:baseline;gap:2px}
+  .score b{color:var(--gold);font-size:16px}
+  .score s{text-decoration:none;color:var(--mut);font-size:11px}
+
+  .rowin{animation:up .34s cubic-bezier(.2,.9,.3,1) both}
+  @keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .skel{height:14px;border-radius:6px;background:linear-gradient(90deg,#1c2130,#252c3f,#1c2130);
+    background-size:200% 100%;animation:sh 1.1s linear infinite}
+  @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+  .note{color:var(--mut);font-size:12.5px;line-height:1.7;margin-top:14px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="root"><div class="wrap"><div class="card"><div class="skel" style="width:40%"></div></div></div></div>
+
+<script type="module">
+import { h, render } from "https://esm.sh/preact@10.22.0";
+import { useState, useEffect, useMemo } from "https://esm.sh/preact@10.22.0/hooks";
+import htm from "https://esm.sh/htm@3.1.1";
+const html = htm.bind(h);
+
+const SHEET_ID = "10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU";
+const GID_RIFT = "1926038351";
+
+/* 구글 시트 gviz 는 CORS 를 안 열어줘서 본 사이트도 JSONP 로 읽는다 — 같은 방식을 쓴다. */
+function loadTab(gid) {
+  return new Promise((res) => {
+    const cb = "__nx" + Math.floor(Math.random() * 1e9);
+    const s = document.createElement("script");
+    const done = (rows) => { try { delete window[cb]; } catch (e) {} s.remove(); res(rows); };
+    window[cb] = (r) => {
+      const cols = (r.table.cols || []).map((c) => (c.label || "").trim());
+      const out = (r.table.rows || []).map((row) => {
+        const o = {};
+        (row.c || []).forEach((c, i) => { o[cols[i]] = c == null ? "" : (c.f != null ? c.f : c.v); });
+        return o;
+      });
+      done(out);
+    };
+    s.onerror = () => done([]);
+    s.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${gid}&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(() => done([]), 15000);
+  });
+}
+
+const short = (n) => String(n || "").split("#")[0];
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+function metrics(r) {
+  const s = r["지표"]; if (!s || s === "기록 대기") return null;
+  const o = {};
+  String(s).split("|").forEach((t) => { const m = /^([a-z]+)(-?\d+(?:\.\d+)?)$/.exec(t.trim()); if (m) o[m[1]] = parseFloat(m[2]); });
+  return o.m > 0 ? o : null;
+}
+function kda(v) {
+  const m = /^(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)$/.exec(String(v || "").trim());
+  return m ? { k: +m[1], d: +m[2], a: +m[3] } : null;
+}
+
+function aggregate(rows) {
+  const seen = new Set(), P = new Map(), games = new Set();
+  for (const r of rows) {
+    const gid = r["게임ID"], nm = r["소환사명"];
+    if (!gid || !nm) continue;
+    const key = gid + "|" + (r["PUUID"] || nm);
+    if (seen.has(key)) continue;
+    seen.add(key); games.add(gid);
+    const p = P.get(nm) || { name: nm, g: 0, w: 0, mvp: 0, bad: 0, k: 0, d: 0, a: 0, kn: 0, cs: 0, csn: 0, vs: 0, vsn: 0 };
+    const res = r["결과"];
+    if (res === "승리" || res === "패배") { p.g++; if (res === "승리") p.w++; }
+    if (r["매치평가"] === "MVP") p.mvp++; else if (r["매치평가"] === "역적") p.bad++;
+    const ko = kda(r["KDA"]); if (ko) { p.k += ko.k; p.d += ko.d; p.a += ko.a; p.kn++; }
+    const mt = metrics(r);
+    if (mt) { if (mt.cs) { p.cs += mt.cs / mt.m; p.csn++; } if (mt.vs != null) { p.vs += mt.vs; p.vsn++; } }
+    P.set(nm, p);
+  }
+  const list = [...P.values()].filter((p) => p.g > 0).map((p) => ({
+    ...p, wr: pct(p.w, p.g),
+    ratio: p.kn ? ((p.k + p.a) / Math.max(1, p.d)) : null,
+    cspm: p.csn ? p.cs / p.csn : null,
+    vision: p.vsn ? p.vs / p.vsn : null,
+  }));
+  return { list, games: games.size };
+}
+
+const COLS = [
+  { k: "name", label: "소환사", num: false },
+  { k: "g", label: "판", num: true },
+  { k: "wr", label: "승률", num: true },
+  { k: "ratio", label: "KDA", num: true },
+  { k: "cspm", label: "CS/분", num: true },
+  { k: "vision", label: "시야", num: true },
+  { k: "mvp", label: "MVP", num: true },
+];
+
+function App() {
+  const [rows, setRows] = useState(null);
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState({ k: "g", dir: -1 });
+
+  useEffect(() => { loadTab(GID_RIFT).then(setRows); }, []);
+  const agg = useMemo(() => (rows ? aggregate(rows) : null), [rows]);
+
+  const shown = useMemo(() => {
+    if (!agg) return [];
+    const nz = (v) => (v == null ? -Infinity : v);
+    const f = q.trim().toLowerCase();
+    return agg.list
+      .filter((p) => !f || p.name.toLowerCase().includes(f))
+      .sort((a, b) => {
+        const av = sort.k === "name" ? a.name : nz(a[sort.k]);
+        const bv = sort.k === "name" ? b.name : nz(b[sort.k]);
+        return ((av > bv ? 1 : av < bv ? -1 : 0) * sort.dir) || b.g - a.g;
+      })
+      .slice(0, 40);
+  }, [agg, q, sort]);
+
+  if (!agg) {
+    return html`<div class="wrap">
+      <header class="top"><div class="logo">SQUAD<span>.GG</span></div><div class="pill">시험판</div></header>
+      <div class="card">${[1, 2, 3, 4, 5].map((i) => html`<div class="skel" style="width:${90 - i * 8}%;margin:10px 0"></div>`)}</div>
+    </div>`;
+  }
+
+  const top = [...agg.list].filter((p) => p.g >= 10).sort((a, b) => b.wr - a.wr || b.g - a.g).slice(0, 5);
+  const kpi = (k, v, delay) => html`<div class="kpi" style="animation-delay:${delay}s"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+
+  const th = (c) => html`<th class=${c.num ? "num" : ""} onClick=${() =>
+    setSort((s) => (s.k === c.k ? { k: c.k, dir: -s.dir } : { k: c.k, dir: c.k === "name" ? 1 : -1 }))}>
+    ${c.label}${sort.k === c.k ? (sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`;
+
+  return html`<div class="wrap">
+    <header class="top">
+      <div class="logo">SQUAD<span>.GG</span></div>
+      <div class="pill">React 시험판 · 협곡</div>
+      <div class="search"><input placeholder="소환사 검색" value=${q} onInput=${(e) => setQ(e.target.value)} /></div>
+    </header>
+
+    <div class="kpis">
+      ${kpi("총 내전", agg.games.toLocaleString() + "판", 0)}
+      ${kpi("기록된 클랜원", agg.list.length + "명", 0.05)}
+      ${kpi("평균 KDA", (agg.list.reduce((s, p) => s + (p.ratio || 0), 0) / Math.max(1, agg.list.filter((p) => p.ratio).length)).toFixed(2), 0.1)}
+      ${kpi("표시 중", shown.length + "명", 0.15)}
+    </div>
+
+    <div class="grid">
+      <div class="card" style="animation-delay:.05s">
+        <h2>🏆 플레이어 랭킹 <small>열 제목을 눌러 정렬 · 상위 40명</small></h2>
+        <table>
+          <thead><tr>${COLS.map(th)}</tr></thead>
+          <tbody>
+            ${shown.map((p, i) => html`<tr class="rowin" style="animation-delay:${Math.min(i, 12) * 0.015}s">
+              <td><span class="name">${short(p.name)}</span></td>
+              <td class="num">${p.g}</td>
+              <td><div style="display:flex;align-items:center;gap:8px">
+                <div class="bar"><i style="width:${p.wr}%"></i></div>
+                <span style="color:${p.wr >= 50 ? "var(--win)" : "var(--lose)"};font-size:13px">${p.wr}%</span>
+              </div></td>
+              <td class="num">${p.ratio != null ? p.ratio.toFixed(2) : "-"}</td>
+              <td class="num">${p.cspm != null ? p.cspm.toFixed(1) : "-"}</td>
+              <td class="num">${p.vision != null ? Math.round(p.vision) : "-"}</td>
+              <td class="num" style="color:var(--gold)">${p.mvp || ""}</td>
+            </tr>`)}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card" style="animation-delay:.1s">
+        <h2>🔥 승률 상위 <small>10판 이상</small></h2>
+        ${top.map((p, i) => html`<div class="rowin" style="animation-delay:${i * 0.05}s;display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+          <div style="width:22px;color:var(--mut);font-size:13px">${i + 1}</div>
+          <div style="flex:1"><div class="name">${short(p.name)}</div>
+            <div style="color:var(--mut);font-size:12px">${p.g}판 · KDA ${p.ratio != null ? p.ratio.toFixed(2) : "-"}</div></div>
+          <div class="score"><b>${p.wr}</b><s>%</s></div>
+        </div>`)}
+        <div class="note">
+          이 화면은 <b>본 사이트와 같은 시트</b>를 읽습니다. 숫자가 다르면 계산 방식 차이가 아니라
+          이 시험판이 아직 별칭 통합·부계정 병합을 하지 않아서입니다 — 옮길 때 그대로 가져옵니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      🧪 시험판입니다. 본 사이트(<a href="../">/squad-analyzer</a>)는 그대로 돌아갑니다.
+      이 폴더만 지우면 흔적 없이 사라집니다. 비용은 들지 않습니다(라이브러리·호스팅 모두 무료).
+    </div>
+  </div>`;
+}
+
+render(html`<${App} />`, document.getElementById("root"));
+</script>
+</body>
+</html>
