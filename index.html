@@ -452,6 +452,15 @@
     font-size:14px;font-weight:900;line-height:1;padding:5px 8px;border-radius:8px;
     color:var(--gc);border:1px solid var(--gc);background:color-mix(in srgb,var(--gc) 14%,transparent)}
   /* 🕸 레이더 */
+  /* 📊 [2026-07-30] 동티어 비교 박스 — 한 줄로 길게 흐르던 평가 상세를 칸으로 끊었다. */
+  .cmpbox{margin-top:10px;background:rgba(120,160,255,.06);border:1px solid rgba(120,160,255,.24);
+    border-radius:12px;padding:10px 13px}
+  .cmpbox-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:8px}
+  .cmpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:7px}
+  .cmp{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+  .cmp-k{display:block;font-size:11.5px;color:var(--mut)}
+  .cmp-v{display:block;font-size:15.5px;font-variant-numeric:tabular-nums;line-height:1.3}
+  .cmp-r{display:block;font-size:11.5px;color:var(--mut)}
   .radarbox{flex:0 0 auto;width:184px;text-align:center;align-self:flex-start}
   .prof.hasemb .radarbox{margin-top:58px}
   .radar polygon{transition:all .5s ease}
@@ -3375,7 +3384,7 @@ function renderTiers(){
     const rows=arr.map(a=>{
       const d=a.detail;
       const det = d
-        ? '<span class="muted" style="font-size:13px">'+(a.implPct!=null?'<b style="font-weight:800;color:#ffd24a">🎯 전체 상위 '+a.implPct+'%</b> · ':'')+detailLine(d)+'</span>'
+        ? '<span class="muted" style="font-size:13px">'+(a.implPct!=null?'<b style="font-weight:800;color:#ffd24a">🎯 클랜 상위 '+a.implPct+'%</b> · ':'')+detailLine(d)+'</span>'
         : '<span class="muted" style="font-size:13px">'+a.games+'판 — 평가엔 10판 이상 필요</span>';
       return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,.045)">
         <span class="clickname" style="min-width:116px;font-weight:700;font-size:14px" onclick="go('player','${escAttr(a.name)}')">${esc(shortName(a.name))}</span>
@@ -3405,7 +3414,7 @@ function renderTiers(){
       ${tierBar}
       ${body}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
-        ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 전체 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
+        ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 클랜 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
         <span style="opacity:.75">· 각 지표 뒤 <b>(평균)</b>은 <b>같은 내부티어</b> 동료들의 평균(참고용) — 판정 자체는 위의 클랜 전체 기준입니다.</span><br>
         <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.
       </div>
@@ -3785,13 +3794,24 @@ function renderPlayer(name){
   const matchHtml=list.map(r=>matchCard(r,name)).join("");
 
   const asmt=assessPlayer(name);
-  // [2026-07-30] 티어 배지는 이름 옆에 이미 있으므로 여기선 뺀다(중복). 동티어 비교는 아래 줄로 내려 정리.
-  const asmtHtml = asmt ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      ${titleBadge(asmt.title)}
-      <span class="assess ${asmt.cls}">${asmt.label}</span>
-      ${asmt.detail?`<span class="muted" style="font-size:13.5px;flex-basis:100%" title="전체기간 기준, 같은 내부티어 평균과 비교">${asmt.implPct!=null?`<b style="color:#ffd24a">🎯 전체 상위 ${asmt.implPct}%</b> · `:''}승률 ${asmt.detail.wr}%<span style="opacity:.55">(동티어 ${asmt.detail.wrAvg}%)</span>${asmt.detail.solo!=null?` · 🏅솔랭 ${asmt.detail.solo}${asmt.detail.soloWR!=null?`(${asmt.detail.soloWR}%)`:''}<span style="opacity:.55">(동티어 ${asmt.detail.soloAvg})</span>`:''}${asmt.detail.ai!=null?` · AI ${asmt.detail.ai}<span style="opacity:.55">(동티어 ${asmt.detail.aiAvg})</span>`:''}${asmt.detail.mvp!=null?` · MVP율 ${asmt.detail.mvp}%<span style="opacity:.55">(동티어 ${asmt.detail.mvpAvg}%)</span>`:''}${asmt.detail.troll!=null?` · 역적율 ${asmt.detail.troll}%<span style="opacity:.55">(동티어 ${asmt.detail.trollAvg}%)</span>`:''}${asmt.detail.ace!=null?` · ACE율 ${asmt.detail.ace}%<span style="opacity:.55">(패배중)</span>`:''}</span>`
-                   :`<span class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</span>`}
-    </div>` : '';
+  // [2026-07-30] 평가 딱지(적절/저평가)는 이름 옆 티어 배지 뒤에 붙이고, 동티어 비교는 별도 박스로 정리했다.
+  const asmtChip = asmt ? `<span class="assess ${asmt.cls}" style="vertical-align:middle;margin-left:5px">${asmt.label}</span>` : '';
+  const asmtHtml = (()=>{
+    if(!asmt) return '';
+    if(!asmt.detail) return `<div class="cmpbox"><div class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</div></div>`;
+    const d=asmt.detail, it=[];
+    const cell=(k,v,ref)=>`<div class="cmp"><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+    it.push(cell("승률",`${d.wr}%`,`동티어 ${d.wrAvg}%`));
+    if(d.solo!=null) it.push(cell("🏅솔랭",`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-weight:600;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`));
+    if(d.ai!=null) it.push(cell("AI점수",d.ai,`동티어 ${d.aiAvg}`));
+    if(d.mvp!=null) it.push(cell("MVP율",`${d.mvp}%`,`동티어 ${d.mvpAvg}%`));
+    if(d.troll!=null) it.push(cell("역적율",`${d.troll}%`,`동티어 ${d.trollAvg}%`));
+    if(d.ace!=null) it.push(cell("ACE율",`${d.ace}%`,`패배 중`));
+    return `<div class="cmpbox">
+      <div class="cmpbox-h">${asmt.implPct!=null?`<b style="color:#ffd24a">🎯 클랜 상위 ${asmt.implPct}%</b>`:'<b>동티어 비교</b>'}
+        <span class="muted" style="font-size:12px;font-weight:400">전체기간 · 같은 내부티어 평균과 비교</span></div>
+      <div class="cmpgrid">${it.join("")}</div></div>`;
+  })();
 
   // 🏅 커리어(대회 우승) — CAREER 탭에서 이 선수 기록 추출 (현재 보유 타이틀은 강조)
   const myCareers = careersOfPlayer(name);
@@ -3887,21 +3907,19 @@ function renderPlayer(name){
       <div class="prof${_emb?' hasemb':''}">
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
-          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${gradeHtml}${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${scoreStrip}
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · <span style="opacity:.8">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           ${careerHtml}
-          ${mitoHtml}
-          <div class="form">${form||'<span class="muted">최근 기록 없음</span>'}</div>
         </div>
         ${radarHtml}
       </div>
     </div>
     ${aiEvalHtml}
     ${bpHtml}
-    <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지</h2>${badgesHtml}</div>
+    <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지 · 기록</h2>${mitoHtml}${badgesHtml}</div>
     <div class="grid cols">
       <div>
         <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
@@ -4563,7 +4581,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607301905";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607301945";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
