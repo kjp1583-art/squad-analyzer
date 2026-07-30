@@ -87,6 +87,34 @@
   .tag.mvp{background:rgba(255,210,74,.16);color:var(--gold)}
   .tag.ace{background:rgba(78,161,255,.16);color:var(--win)}
   .tag.bad{background:rgba(255,107,129,.16);color:var(--lose)}
+  /* 배너(주 챔피언 스플래시) */
+  .banner{position:relative;height:190px;border-radius:18px;overflow:hidden;border:1px solid var(--line);
+    background:#0c0f16;animation:up .45s cubic-bezier(.2,.9,.3,1) both}
+  .banner img{width:100%;height:100%;object-fit:cover;object-position:center 22%;
+    transform:scale(1.04);transition:transform 6s ease-out;opacity:.72}
+  .banner:hover img{transform:scale(1.10)}
+  .banner .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,12,18,.15),rgba(15,17,22,.92) 78%)}
+  .banner .in{position:absolute;left:16px;right:16px;bottom:12px;display:flex;align-items:flex-end;gap:12px}
+  .banner .nm{font-size:26px;font-weight:900;text-shadow:0 2px 14px rgba(0,0,0,.6)}
+  .grade{position:absolute;right:14px;top:14px;width:46px;height:46px;border-radius:14px;display:grid;
+    place-items:center;font-size:22px;font-weight:900;color:#0d1017;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);animation:pop .5s cubic-bezier(.2,1.5,.4,1) both}
+  @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+  .big{margin-left:auto;text-align:right;line-height:1}
+  .big b{font-size:32px;font-weight:900;font-variant-numeric:tabular-nums}
+  .big s{text-decoration:none;color:var(--mut);font-size:13px}
+  .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+  .trio>div{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:11px 12px;text-align:center}
+  .trio .k{font-size:12px;color:var(--mut)}
+  .trio .v{font-size:20px;font-weight:800;margin-top:2px}
+  .trio .s{font-size:11.5px;color:var(--mut)}
+  .tagchip{display:inline-block;font-size:12.5px;font-weight:700;border-radius:999px;padding:4px 11px;
+    background:rgba(160,120,255,.16);border:1px solid rgba(160,120,255,.45);color:#cbb2ff}
+  .itemrow{display:flex;gap:6px;flex-wrap:wrap}
+  .itm{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#20263a}
+  .resbadge{display:inline-block;font-size:11.5px;font-weight:800;border-radius:7px;padding:3px 8px;margin:0 5px 5px 0}
+  .resbadge.w{background:rgba(78,161,255,.18);color:var(--win)}
+  .resbadge.l{background:rgba(255,107,129,.18);color:var(--lose)}
   .note{color:var(--mut);font-size:12.5px;line-height:1.7;margin-top:14px}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -154,10 +182,39 @@ async function loadChampIcons() {
       const c = d.data[k];
       const url = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${c.key}.png`;
       m[c.name] = url; m[c.name.replace(/\s/g, "")] = url;
+      const sp = `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${c.id}_0.jpg`;
+      SPLASH[c.name] = sp; SPLASH[c.name.replace(/\s/g, "")] = sp;
     }
     return m;
   } catch (e) { return {}; }
 }
+
+/* 챔피언 스플래시(배너용) — 영문 키가 필요하다. loadChampIcons 에서 함께 만든다. */
+let SPLASH = {};
+
+/* 레이더 차트 — 라이브러리 없이 SVG 다각형. axes: [{k,label,v(0~100)}] */
+function Radar({ axes, size = 190 }) {
+  const cx = size / 2, cy = size / 2, R = size / 2 - 26;
+  const pt = (i, r) => {
+    const ang = -Math.PI / 2 + (i * 2 * Math.PI) / axes.length;
+    return [cx + Math.cos(ang) * r, cy + Math.sin(ang) * r];
+  };
+  const ring = (f) => axes.map((_, i) => pt(i, R * f).join(",")).join(" ");
+  const poly = axes.map((a, i) => pt(i, R * Math.max(0.04, (a.v || 0) / 100)).join(",")).join(" ");
+  return html`<svg width=${size} height=${size} viewBox=${`0 0 ${size} ${size}`}>
+    ${[1, 0.75, 0.5, 0.25].map((f) => html`<polygon points=${ring(f)} fill="none" stroke="#2a3145" stroke-width="1" />`)}
+    ${axes.map((_, i) => { const [x, y] = pt(i, R); return html`<line x1=${cx} y1=${cy} x2=${x} y2=${y} stroke="#232a3c" />`; })}
+    <polygon points=${poly} fill="rgba(160,120,255,.28)" stroke="#a878ff" stroke-width="2"
+      style="transition:all .6s cubic-bezier(.3,1,.4,1)" />
+    ${axes.map((a, i) => {
+      const [x, y] = pt(i, R + 14);
+      return html`<text x=${x} y=${y} fill="#8e97ab" font-size="11" text-anchor="middle" dominant-baseline="middle">${a.label}</text>`;
+    })}
+  </svg>`;
+}
+
+const GRADES = [[90, "S", "#ffd24a"], [75, "A", "#7ee081"], [55, "B", "#5b8cff"], [35, "C", "#b6a5ff"], [0, "D", "#8e97ab"]];
+const gradeOf = (sc) => GRADES.find(([m]) => sc >= m) || GRADES[GRADES.length - 1];
 
 const short = (n) => String(n || "").split("#")[0];
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
@@ -247,6 +304,34 @@ function Player({ name, rows, tiers, icons, back }) {
              pos: [...pos.entries()].sort((x, y) => y[1] - x[1]) };
   }, [mine]);
 
+  /* 레이더·종합점수용 백분위 — 클랜 전체에서 내가 어디쯤인지. 라이브러리 없이 순위/인원. */
+  const rank = useMemo(() => {
+    const all = aggregate(rows || []).list.filter((p) => p.g >= 5);
+    const me = all.find((p) => p.name === name);
+    const pctOf = (key, val, hiGood = true) => {
+      if (val == null || !all.length) return null;
+      const vs = all.map((p) => p[key]).filter((v) => v != null);
+      if (!vs.length) return null;
+      const below = vs.filter((v) => (hiGood ? v < val : v > val)).length;
+      return Math.round((below / vs.length) * 100);
+    };
+    if (!me) return null;
+    return {
+      me,
+      score: Math.max(1, Math.min(100, Math.round(
+        0.45 * (pctOf("wr", me.wr) ?? 50) + 0.30 * (pctOf("ratio", me.ratio) ?? 50) +
+        0.15 * (pctOf("cspm", me.cspm) ?? 50) + 0.10 * (pctOf("vision", me.vision) ?? 50)))),
+      axes: [
+        { label: "승률", v: pctOf("wr", me.wr) ?? 0 },
+        { label: "캐리", v: pctOf("mvp", me.mvp) ?? 0 },
+        { label: "파밍", v: pctOf("cspm", me.cspm) ?? 0 },
+        { label: "시야", v: pctOf("vision", me.vision) ?? 0 },
+        { label: "생존", v: 100 - (pctOf("bad", me.bad) ?? 50) },
+        { label: "꾸준함", v: pctOf("g", me.g) ?? 0 },
+      ],
+    };
+  }, [rows, name]);
+
   const icon = (c) => icons[c] || icons[String(c || "").replace(/\s/g, "")] || "";
   const tag = (ev) => ev === "MVP" ? html`<span class="tag mvp">MVP</span>`
     : ev === "ACE" ? html`<span class="tag ace">ACE</span>`
@@ -259,18 +344,70 @@ function Player({ name, rows, tiers, icons, back }) {
       <div class="card">기록을 찾지 못했습니다.</div></div>`;
   }
 
+  const mainChamp = st.most.length ? st.most[0].champ : "";
+  const splash = SPLASH[mainChamp] || SPLASH[String(mainChamp).replace(/\s/g, "")] || "";
+  const sc = rank ? rank.score : null;
+  const [g0, gLabel, gColor] = sc != null ? gradeOf(sc) : [0, "-", "#8e97ab"];
+  const recent = mine.filter((r) => r["결과"] === "승리" || r["결과"] === "패배").slice(0, 10);
+  const recWr = pct(recent.filter((r) => r["결과"] === "승리").length, recent.length);
+  const style = (() => {                       // 플레이 성향 — 레이더 최고 축으로 이름 붙인다
+    if (!rank) return "표본 부족";
+    const top = [...rank.axes].sort((a, b) => b.v - a.v)[0];
+    const spread = Math.max(...rank.axes.map((a) => a.v)) - Math.min(...rank.axes.map((a) => a.v));
+    if (spread < 25) return "밸런스형";
+    return { "승률": "승리 견인형", "캐리": "캐리형", "파밍": "성장형",
+             "시야": "시야 장악형", "생존": "안정형", "꾸준함": "출근형" }[top.label] || "밸런스형";
+  })();
+  const items = useMemo(() => {                // 선호 아이템 — 종료 시점 인벤토리 빈도순(7/13 이후 기록만 존재)
+    const m = new Map();
+    for (const r of mine) for (const id of String(r["아이템"] || "").split("|")) {
+      const t = id.trim(); if (/^\d{4}$/.test(t)) m.set(t, (m.get(t) || 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }, [mine]);
+
   return html`<div class="wrap">
     <header class="top">
       <button class="back" onClick=${back}>← 목록</button>
-      <div class="phead">
-        <div class="pname">${short(name)}</div>
-        ${tiers[short(name)] ? html`<span class="tierchip">${tiers[short(name)]}티어</span>` : null}
-        <span class="pill">${st.w + st.l}전 ${st.w}승 ${st.l}패</span>
-      </div>
+      <span class="pill">전적 카드 시험판</span>
     </header>
 
-    <div class="card" style="animation-delay:.03s">
-      <div class="strip">
+    <div class="banner">
+      ${splash ? html`<img src=${splash} alt=${mainChamp} loading="lazy" />` : null}
+      <div class="shade"></div>
+      ${sc != null ? html`<div class="grade" style=${`background:${gColor}`}>${gLabel}</div>` : null}
+      <div class="in">
+        <div>
+          <div class="nm">${short(name)}</div>
+          <div style="color:var(--mut);font-size:12.5px;margin-top:3px">
+            ${tiers[short(name)] ? `내부티어 ${tiers[short(name)]}` : "내부티어 미지정"}
+            · 주 라인 ${st.pos.length ? st.pos[0][0] : "-"} · ${st.w + st.l}전 ${st.w}승 ${st.l}패
+          </div>
+        </div>
+        ${sc != null ? html`<div class="big"><b style=${`color:${gColor}`}>${sc}</b><s>/100</s></div>` : null}
+      </div>
+    </div>
+
+    <div class="trio">
+      <div><div class="k">내전 승률</div>
+        <div class="v" style="color:${st.wr >= 50 ? "var(--win)" : "var(--lose)"}">${st.wr}%</div>
+        <div class="s">${st.w}승 ${st.l}패</div></div>
+      <div><div class="k">최근 승률</div>
+        <div class="v" style="color:${recWr >= 50 ? "var(--win)" : "var(--lose)"}">${recent.length ? recWr + "%" : "-"}</div>
+        <div class="s">최근 ${recent.length}판</div></div>
+      <div><div class="k">평점</div>
+        <div class="v" style=${`color:${gColor}`}>${sc != null ? sc : "-"}</div>
+        <div class="s">${gLabel}등급</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="card" style="animation-delay:.04s">
+        <h2>🕸 플레이 성향 <small>클랜 내 백분위</small></h2>
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+          ${rank ? html`<${Radar} axes=${rank.axes} />` : html`<div class="note">표본이 적어 계산하지 않았습니다.</div>`}
+          <div style="flex:1;min-width:170px">
+            <div style="margin-bottom:10px"><span class="tagchip">${style}</span></div>
+            <div class="strip" style="margin:0">
         <div class="cell"><div class="k">승률</div>
           <div class="v" style="color:${st.wr >= 50 ? "var(--win)" : "var(--lose)"}">${st.wr}%</div></div>
         ${st.ratio != null ? html`<div class="cell"><div class="k">KDA</div><div class="v">${st.ratio.toFixed(2)}</div>
@@ -280,14 +417,24 @@ function Player({ name, rows, tiers, icons, back }) {
         <div class="cell"><div class="k">MVP</div><div class="v" style="color:var(--gold)">${st.mvp}</div></div>
         <div class="cell"><div class="k">ACE</div><div class="v" style="color:var(--win)">${st.ace}</div></div>
         <div class="cell"><div class="k">역적</div><div class="v" style="color:var(--lose)">${st.bad}</div></div>
+            </div>
+            <div style="color:var(--mut);font-size:12px;margin-top:8px">
+              라인: ${st.pos.map(([p, n]) => `${p} ${n}판`).join(" · ")}
+            </div>
+            ${items.length ? html`<div style="margin-top:10px">
+              <div style="color:var(--mut);font-size:12px;margin-bottom:5px">선호 아이템 <span style="opacity:.7">(7/13 이후 기록)</span></div>
+              <div class="itemrow">${items.map(([id, n]) => html`<img class="itm" title=${`${n}회`}
+                src=${`https://ddragon.leagueoflegends.com/cdn/15.13.1/img/item/${id}.png`} loading="lazy" />`)}</div>
+            </div>` : null}
+            <div style="margin-top:10px">
+              <div style="color:var(--mut);font-size:12px;margin-bottom:5px">최근 내전</div>
+              ${recent.slice(0, 10).map((r) => html`<span class=${"resbadge " + (r["결과"] === "승리" ? "w" : "l")}>${r["결과"] === "승리" ? "W" : "L"}</span>`)}
+            </div>
+          </div>
+        </div>
       </div>
-      <div style="color:var(--mut);font-size:12.5px;margin-top:6px">
-        라인: ${st.pos.map(([p, n]) => `${p} ${n}판`).join(" · ")}
-      </div>
-    </div>
 
-    <div class="grid" style="margin-top:14px">
-      <div class="card" style="animation-delay:.06s">
+      <div class="card" style="animation-delay:.07s">
         <h2>📜 최근 전적 <small>최신 20판</small></h2>
         ${mine.slice(0, 20).map((r, i) => {
           const win = r["결과"] === "승리";
