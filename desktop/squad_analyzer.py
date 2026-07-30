@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.63"
+CURRENT_VERSION = "82.64"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2196,6 +2196,15 @@ def _draft_advise(ctx, my_pool):
                                                   " 이 경우 [클랜 내전 챔피언 메타]와 우리 팀 데이터만으로 추천하고,\n"
                                                   " 맨 앞줄에 '상대 데이터 없음 — 클랜 내전 통계만으로 판단'이라고 반드시 밝혀라.\n"
                                                   " 솔랭 메타·티어리스트를 근거로 지어내지 마라)")
+        _ef = ctx.get("enemy_filled_pos") or []
+        _eo = ctx.get("enemy_open_pos") or []
+        if _ef:
+            opp_txt += ("\n\n[상대 자리 현황] 이미 채워짐: " + ", ".join(_ef)
+                        + " / 아직 빈 자리: " + (", ".join(_eo) if _eo else "없음")
+                        + "\n★★밴 후보는 **빈 자리에 나올 픽**만 올려라. 이미 채워진 자리(예: 상대 서폿 확정)의\n"
+                          "  챔프를 밴하는 것은 아무것도 막지 못하는 낭비다 — 절대 추천하지 마라.\n"
+                          "★그 자리에 누가 갈지는 [상대 팀원들의 내전 챔프폭]의 '[이번 판 포지션]' 표기로 확정하라.\n"
+                          "  포지션이 남은 사람의, 그 포지션 전적이 있는 챔프만 저격 대상이다.")
         if _bphase == 1:
             _task = ("★**1페이즈 밴**. ① 우리 팀 밴 **3개** 우선순위로(챔피언 자체가 위험한 것: 현 패치 OP·상대\n"
                      "장인·견제압력). ② 픽 방향 **딱 한 줄**(단정 금지). 전체 출력 극도로 짧게 — 근거는 판수%·핵심 단어만.")
@@ -2699,7 +2708,13 @@ def _draft_coach_tick(s_json, headers, base_url):
                 if isinstance(act, dict) and act.get("type") == "ban" and act.get("completed"):
                     c = _kor(act.get("championId"))
                     if c and c not in bans: bans.append(c)
+        # 🎯 [2026-07-30 사장님 지적] 상대 서폿이 이미 확정인데 서폿 챔프를 밴 추천하던 오류.
+        #    이미 채워진 자리의 챔프는 나올 수 없으니 밴 후보에서 빠져야 한다.
+        _ROLES5 = ["탑", "정글", "미드", "원딜", "서폿"]
+        _e_filled = sorted({str(_p) for _c, _p in enemy if _p and _p in _ROLES5}, key=_ROLES5.index)
+        _e_open = [r for r in _ROLES5 if r not in _e_filled]
         ctx = {"mode": mode, "pos": my_pos, "ally": ally, "enemy": enemy, "bans": bans,
+               "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
                "lane_enemy": lane_enemy, "enemy_pools": enemy_pools,
                "clan_ally": clan_ally, "clan_enemy": clan_enemy, "h2h": h2h_txt, "syn": syn_lines,
                "me": (my_pu or MY_RIOT_NAME[0] or ""),   # 🔐 [v82.34] 토큰-계정 결속용 식별자(공유 차단)
@@ -2731,6 +2746,15 @@ def _draft_coach_tick(s_json, headers, base_url):
                     gui_data["draft_advice"] = "🚫 밴 분석 중…" if mode == "ban" else "🧠 픽 분석 중…"
                     gui_data["draft_advice_ts"] = time.time()
                 txt = _draft_advise(ctx, _my_champ_pool(MY_RIOT_NAME[0]))
+                # 🗒️ [2026-07-30] 코치가 실제로 뭐라고 답했는지 로그에 남긴다.
+                #    화면은 잠깐 뜨고 사라져 사후 검증이 불가능했다 — 규칙을 고치려면 실제 답을 봐야 한다.
+                try:
+                    _opp_n = sum(1 for _n, _cs in (ctx.get("enemy_pools") or []) if _cs)
+                    print(f"[coach] {mode}{ban_phase if mode == 'ban' else ''} "
+                          f"내포지션={ctx.get('pos')} 상대확정={ctx.get('enemy_filled_pos')} "
+                          f"빈자리={ctx.get('enemy_open_pos')} 상대전적붙은인원={_opp_n}\n"
+                          f"{str(txt or '(빈 응답)')}\n[coach] ----", flush=True)
+                except Exception: pass
                 # 📊 [v82.34] 추천 챔프 보관 — 내가 실제로 확정하는 순간 대조해 기록(경고문구는 제외)
                 try:
                     if txt and not str(txt).lstrip().startswith(("⚠️", "⏳", "🔐", "✅")):
