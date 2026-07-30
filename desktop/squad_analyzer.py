@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.62"
+CURRENT_VERSION = "82.63"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -5049,6 +5049,7 @@ def lcu_core_backend_loop():
     global_my_puuid = ""
     
     is_aram_session = False
+    _mode_logged = set()                 # 🧭 [2026-07-30] 모드 정보를 게임당 한 번만 로그로 남기기 위한 표시
     global_cached_blue = []
     global_cached_red = []
     global_pos_map = {}
@@ -5602,6 +5603,14 @@ def lcu_core_backend_loop():
 
             lobby_fingerprint = "".join([str(p['puuid']) for p in temp_blue + temp_red])
             target_sheet_name = "KIWI_KIWI" if is_aram_session else "CLASSIC_NORMAL"
+            # 🧭 [2026-07-30] 롤 클래식 같은 새 모드를 협곡과 구분하려면 그 모드의 식별값을 알아야 한다.
+            #    지금은 칼바람만 판정하고 나머지를 협곡으로 보내므로, 새 모드가 협곡 탭에 섞인다.
+            #    판별 근거를 잡기 위해 게임당 한 번 모드 정보를 로그로 남긴다.
+            if is_valid_game and active_recording_id and active_recording_id not in _mode_logged:
+                _mode_logged.add(active_recording_id)
+                if len(_mode_logged) > 200: _mode_logged.clear()
+                print(f"[mode] {active_recording_id} queueId={queue_id} mapId={map_id} "
+                      f"custom={is_custom_game_flag} aram={is_aram_session} → {target_sheet_name}", flush=True)
 
             if is_valid_game and global_spreadsheet:
                 try: sheet_target = global_spreadsheet.worksheet(target_sheet_name)
