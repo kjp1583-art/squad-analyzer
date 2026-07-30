@@ -485,6 +485,9 @@
   .radar-lg .lg-me{color:#ff8a3d;font-weight:700}
   .radar-lg .lg-avg{color:#9aa0b0}
   .side-rec{font-size:13px;color:var(--sub);margin-top:2px}
+  /* [2026-07-30] 왼쪽 정보 블록을 아래로 내려 오른쪽(레이더+승률) 끝라인에 맞춘다. */
+  .prof .profmain{align-self:flex-end}
+  @media(max-width:760px){.prof .profmain{align-self:auto}}
   .cmp.cmp-good{background:linear-gradient(135deg,rgba(126,224,129,.15),rgba(126,224,129,.03));border-color:rgba(126,224,129,.38)}
   .cmp.cmp-good .cmp-v{color:#7ee081}
   .cmp.cmp-bad{background:linear-gradient(135deg,rgba(232,64,87,.14),rgba(232,64,87,.03));border-color:rgba(232,64,87,.36)}
@@ -4022,7 +4025,7 @@ function renderPlayer(name){
       ${bannerHtml}
       ${_emb}
       <div class="prof">
-        <div style="flex:1">
+        <div class="profmain" style="flex:1">
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${statBox}
@@ -4699,7 +4702,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607302320";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607302355";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
