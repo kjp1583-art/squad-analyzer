@@ -480,6 +480,10 @@
   .sidecol{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;align-self:flex-start}
   .prof.hasemb .sidecol{margin-top:58px}
   .radarbox{width:184px;text-align:center}
+  .cmp.cmp-good{background:linear-gradient(135deg,rgba(126,224,129,.15),rgba(126,224,129,.03));border-color:rgba(126,224,129,.38)}
+  .cmp.cmp-good .cmp-v{color:#7ee081}
+  .cmp.cmp-bad{background:linear-gradient(135deg,rgba(232,64,87,.14),rgba(232,64,87,.03));border-color:rgba(232,64,87,.36)}
+  .cmp.cmp-bad .cmp-v{color:#ff6f83}
   .cmp.cmp-hi{background:linear-gradient(135deg,rgba(255,210,74,.16),rgba(255,210,74,.04));border-color:rgba(255,210,74,.4)}
   .cmp.cmp-hi .cmp-v{color:#ffd24a;font-size:22px;font-weight:800}
   .radar polygon{transition:all .5s ease}
@@ -3066,7 +3070,7 @@ function gradeOf(sc){ return GRADE_TBL.find(g=>sc>=g[0])||GRADE_TBL[GRADE_TBL.le
 /* [2026-07-30] 레이더는 '주 포지션 안에서' 비교한다.
    포지션을 섞으면 서폿의 CS/분·정글의 시야처럼 역할이 다른 값이 한 줄에 서서 왜곡된다.
    같은 포지션으로 5판 이상 뛴 클랜원만 비교군에 넣는다(비교군 5명 미만이면 레이더를 접는다). */
-const RADAR_KEYS=["mvpr","cspm","vision","surv","fight","pool"];
+const RADAR_KEYS=["mvpr","cspm","vision","surv","fight","pool","kda"];
 function radarMetrics(rows){
   let mvp=0,csS=0,csN=0,vsS=0,vsN=0,dS=0,kaS=0,kn=0; const champs=new Set();
   for(const r of rows){
@@ -3079,7 +3083,8 @@ function radarMetrics(rows){
   }
   const g=rows.length;
   return {games:g, mvpr:g?mvp/g*100:null, cspm:csN?csS/csN:null, vision:vsN?vsS/vsN:null,
-          surv:kn?-(dS/kn):null, fight:kn?kaS/kn:null, pool:champs.size||null};
+          surv:kn?-(dS/kn):null, fight:kn?kaS/kn:null, pool:champs.size||null,
+          kda:kn?(dS===0?kaS:kaS/dS):null};
 }
 let _PCT_CACHE={};
 function posPercentiles(pos){
@@ -3832,17 +3837,28 @@ function renderPlayer(name){
   }
   const _sc=(ASSESSMENTS.get(name)||{}).score100;
   // [2026-07-30] 종합·전적 요약도 아래 비교 박스와 같은 칸 UI로 통일했다(줄글 → 칸).
+  // 🎨 [2026-07-30] 칸마다 잘함/못함 색을 입힌다 — 기준은 '같은 주 포지션 클랜원 중 백분위'.
+  //    상위 30% 안이면 초록, 하위 30%면 붉게. 애매한 구간은 색을 안 쓴다(과장 금지).
+  const _mp=[...posAgg.entries()].filter(([p])=>p&&p!=="?"&&p!=="선택안함").sort((a,b)=>b[1]-a[1])[0]||null;
+  const _posP=(_mp&&_mp[1]>=5)?posPercentiles(_mp[0]):null;
+  const _posMine=_mp?radarMetrics(parts.filter(r=>(r["포지션"]||"")===_mp[0])):null;
+  const _pctOf=k=>(_posP&&_posMine)?_posP.of(k,_posMine[k]):null;
+  const _pctCls=p=>p==null?'':(p>=70?'cmp-good':(p<=30?'cmp-bad':''));
+  const _pctTip=p=>p==null?'':`${_mp[0]} ${_mp[1]}판 · 같은 포지션 클랜원 중 상위 ${Math.max(1,100-p)}%`;
+
   const scoreStrip=(()=>{
-    const cell=(k,v,ref,cls)=>`<div class="cmp${cls?' '+cls:''}"><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+    const cell=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+    const pc=k=>{const p=_pctOf(k);return {cls:_pctCls(p),tip:_pctTip(p)};};
     const it=[];
-    if(_sc!=null) it.push(cell("⭐ 종합",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,"클랜 파워 환산","cmp-hi"));
-    if(avgRatio!=null) it.push(`<div class="cmp"><span class="cmp-k">KDA</span><b class="cmp-v" style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b><span class="cmp-r">${kdaGames}판 평균</span></div>`);
-    if(_csN) it.push(cell("CS/분",(_csS/_csN).toFixed(1),`${_csN}판 평균`));
-    if(_vsN) it.push(cell("시야",Math.round(_vsS/_vsN),`${_vsN}판 평균`));
+    if(_sc!=null) it.push(cell("⭐ 종합",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,"클랜 파워 환산","cmp-hi","클랜 전체 파워 순위를 100점으로 환산 (1등 100점)"));
+    if(avgRatio!=null){ const q=pc("kda"); it.push(cell("KDA",avgRatio.toFixed(2),`${kdaGames}판 평균`,q.cls,q.tip)); }
+    if(_csN){ const q=pc("cspm"); it.push(cell("CS/분",(_csS/_csN).toFixed(1),`${_csN}판 평균`,q.cls,q.tip)); }
+    if(_vsN){ const q=pc("vision"); it.push(cell("시야",Math.round(_vsS/_vsN),`${_vsN}판 평균`,q.cls,q.tip)); }
     it.push(cell("전적",`${w+l}전`,`${w}승 ${l}패`));
-    it.push(cell("MVP",mvp,"—"));
+    { const q=pc("mvpr"); it.push(cell("MVP",mvp,w+l?`${Math.round(mvp/(w+l)*100)}%`:"—",q.cls,q.tip)); }
     it.push(cell("ACE",aceN,l>0?`패배 중 ${Math.round(aceN/l*100)}%`:"—"));
-    it.push(cell("역적",bad,"—"));
+    { const p=(w+l)?Math.round(bad/(w+l)*100):null;
+      it.push(cell("역적",bad,p!=null?`${p}%`:"—",p==null?'':(p<=2?'cmp-good':(p>=8?'cmp-bad':'')),"판당 역적 비율 — 낮을수록 좋아요")); }
     return `<div class="cmpbox" style="margin-top:9px"><div class="cmpgrid">${it.join("")}</div></div>`;
   })();
 
@@ -3859,17 +3875,13 @@ function renderPlayer(name){
   // 🕸 스타일 레이더 — 주 포지션 안에서의 백분위. 포지션을 섞으면 서폿 CS·정글 시야가 뒤엉켜 뜻이 없어진다.
   //    [2026-07-30] 프로필 카드 우측 상단 빈 공간에 얹는다(별도 카드 X).
   const radarHtml=(()=>{
-    const cand=[...posAgg.entries()].filter(([p])=>p&&p!=="?"&&p!=="선택안함").sort((a,b)=>b[1]-a[1])[0];
-    if(!cand||cand[1]<5) return '';                    // 주 포지션 5판 미만이면 비교 의미 없음
-    const [mpos,mn]=cand;
-    const P=posPercentiles(mpos);
-    if(P.n<5) return '';                               // 같은 포지션 비교군이 5명 미만
-    const mine=radarMetrics(parts.filter(r=>(r["포지션"]||"")===mpos));
+    if(!_mp||_mp[1]<5||!_posP||_posP.n<5||!_posMine) return '';   // 표본·비교군 부족하면 접는다
+    const [mpos,mn]=_mp;
     const AX=[["캐리","mvpr"],["성장","cspm"],["시야","vision"],["생존","surv"],["교전","fight"],["챔프폭","pool"]];
-    const axes=AX.map(([label,k])=>({label,v:P.of(k,mine[k])}));
+    const axes=AX.map(([label,k])=>({label,v:_posP.of(k,_posMine[k])}));
     if(axes.filter(a=>a.v!=null).length<3) return '';
     const tip=axes.map(a=>`${a.label} ${a.v==null?'-':'상위 '+Math.max(1,100-a.v)+'%'}`).join(" · ");
-    return `<div class="radarbox" title="${esc(mpos)} ${mn}판 기준 · 같은 포지션 클랜원 ${P.n}명 중 상대 위치 — ${escAttr(tip)}">
+    return `<div class="radarbox" title="${esc(mpos)} ${mn}판 기준 · 같은 포지션 클랜원 ${_posP.n}명 중 상대 위치 — ${escAttr(tip)}">
       ${radarSvg(axes.map(a=>({label:a.label,v:a.v||0})),172)}
       <div class="radarcap muted">플레이 스타일 · <b style="color:var(--sub)">${esc(mpos)}</b> 기준 백분위</div></div>`;
   })();
@@ -3883,12 +3895,16 @@ function renderPlayer(name){
     if(!asmt) return '';
     if(!asmt.detail) return `<div class="cmpbox"><div class="muted" style="font-size:13.5px">${asmt.games}판 — 평가엔 10판 이상 필요</div></div>`;
     const d=asmt.detail, it=[];
-    const cell=(k,v,ref)=>`<div class="cmp"><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
-    it.push(cell("승률",`${d.wr}%`,`동티어 ${d.wrAvg}%`));
-    if(d.solo!=null) it.push(cell("🏅솔랭",`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-weight:600;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`));
-    if(d.ai!=null) it.push(cell("AI점수",d.ai,`동티어 ${d.aiAvg}`));
-    if(d.mvp!=null) it.push(cell("MVP율",`${d.mvp}%`,`동티어 ${d.mvpAvg}%`));
-    if(d.troll!=null) it.push(cell("역적율",`${d.troll}%`,`동티어 ${d.trollAvg}%`));
+    // 동티어 평균과 비교 — 5% 이상 차이 날 때만 색을 준다(오차 범위에서 색이 튀는 걸 막는다).
+    const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
+      const d=(mine-ref)/Math.abs(ref); if(Math.abs(d)<0.05) return '';
+      return (d>0)===!!hiGood?'cmp-good':'cmp-bad'; };
+    const cell=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+    it.push(cell("승률",`${d.wr}%`,`동티어 ${d.wrAvg}%`,cmpCls(d.wr,d.wrAvg,1)));
+    if(d.solo!=null) it.push(cell("🏅솔랭",`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-weight:600;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`,cmpCls(d.solo,d.soloAvg,1)));
+    if(d.ai!=null) it.push(cell("AI점수",d.ai,`동티어 ${d.aiAvg}`,cmpCls(d.ai,d.aiAvg,1)));
+    if(d.mvp!=null) it.push(cell("MVP율",`${d.mvp}%`,`동티어 ${d.mvpAvg}%`,cmpCls(d.mvp,d.mvpAvg,1)));
+    if(d.troll!=null) it.push(cell("역적율",`${d.troll}%`,`동티어 ${d.trollAvg}%`,cmpCls(d.troll,d.trollAvg,0)));
     if(d.ace!=null) it.push(cell("ACE율",`${d.ace}%`,`패배 중`));
     return `<div class="cmpbox">
       <div class="cmpbox-h">${asmt.implPct!=null?`<b style="color:#ffd24a">🎯 클랜 상위 ${asmt.implPct}%</b>`:'<b>동티어 비교</b>'}
@@ -4665,7 +4681,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607302115";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607302145";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
