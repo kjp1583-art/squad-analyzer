@@ -13,6 +13,12 @@
 """
 import base64, datetime, json, os, re, sys, urllib.request
 
+# Windows 러너 콘솔은 cp1252 라 한글 print 가 UnicodeEncodeError 로 터진다(2026-07-30 실사고 —
+# 발송은 성공했는데 마지막 '발송 완료' 출력에서 죽어 잡 전체가 빨간불). 출력을 UTF-8 로 강제.
+for _s in (sys.stdout, sys.stderr):
+    try: _s.reconfigure(encoding="utf-8")
+    except Exception: pass
+
 
 def _clean(s):
     """줄머리 불릿을 통일하고 빈 줄을 없앤다."""
