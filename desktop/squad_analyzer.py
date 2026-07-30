@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.64"
+CURRENT_VERSION = "82.65"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1560,7 +1560,8 @@ def _clan_index(force=False):
     _bp_ban, _bp_side = {}, {}   # [v82.32] 견제압력용: {gid:{진영:set(밴)}}, {gid:{puuid:진영}} — 협곡만
     try:
         if not global_spreadsheet: return _CLAN_IDX
-        for _tab in ("CLASSIC_NORMAL", "KIWI_KIWI"):
+        # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람은 챔프 선택 성격이 달라 장인 판단을 왜곡한다.
+        for _tab in ("CLASSIC_NORMAL",):
             try: tab = global_spreadsheet.worksheet(_tab)
             except Exception: continue
             rows = get_sheet_data_cached(tab)
@@ -1811,7 +1812,8 @@ def _pool_by_puuid(puuid, limit=6):
     if not key or not global_spreadsheet: return []
     agg = {}
     try:
-        for _tab in ("CLASSIC_NORMAL", "KIWI_KIWI"):
+        # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람은 챔프 선택 성격이 달라 장인 판단을 왜곡한다.
+        for _tab in ("CLASSIC_NORMAL",):
             try: tab = global_spreadsheet.worksheet(_tab)
             except Exception: continue
             rows = get_sheet_data_cached(tab)
@@ -1840,7 +1842,8 @@ def _my_champ_pool(my_name, limit=12):
     agg = {}
     try:
         if not global_spreadsheet: return []
-        for _tab_name in ("CLASSIC_NORMAL", "KIWI_KIWI"):
+        # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람 숙련을 협곡 챔프폭으로 세면 안 된다.
+        for _tab_name in ("CLASSIC_NORMAL",):
             try: tab = global_spreadsheet.worksheet(_tab_name)
             except Exception: continue
             rows = get_sheet_data_cached(tab)   # gviz 캐시(읽기 할당량 0) — 라이브 중 서비스계정 미사용
