@@ -438,6 +438,26 @@
   .ss-cell b{font-size:16px;font-variant-numeric:tabular-nums}
   @keyframes ss-pop{from{opacity:0;transform:scale(.72) translateY(6px)}to{opacity:1;transform:none}}
 
+  /* 🖼 [2026-07-30] 프로필 배너 — 모스트 챔피언 스플래시. 글자가 묻히지 않게 위/아래로 어둡게 덮는다. */
+  .card.hasbanner{overflow:hidden}
+  .card.hasbanner>*:not(.pbanner){position:relative;z-index:1}
+  .pbanner{position:absolute;left:0;right:0;top:0;height:200px;z-index:0;
+    background-size:cover;background-position:center 22%;opacity:.5;
+    animation:pb-in .8s ease both}
+  .pbanner:after{content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(13,16,24,.55) 0%,rgba(13,16,24,.82) 55%,var(--bg2,#141a26) 100%)}
+  @keyframes pb-in{from{opacity:0;transform:scale(1.06)}to{opacity:.5;transform:none}}
+  /* 🏅 등급 배지 */
+  .grade{display:inline-block;margin-left:8px;vertical-align:middle;min-width:26px;text-align:center;
+    font-size:14px;font-weight:900;line-height:1;padding:5px 8px;border-radius:8px;
+    color:var(--gc);border:1px solid var(--gc);background:color-mix(in srgb,var(--gc) 14%,transparent)}
+  /* 🕸 레이더 */
+  .radarwrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .radar polygon{transition:all .5s ease}
+  .rxlist{flex:1;min-width:130px}
+  .rx{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:3px 0}
+  .rx b{font-variant-numeric:tabular-nums}
+
   /* ✨ 화면 전환·카드 등장 — 정적 사이트라도 '움직이는 느낌'은 낼 수 있다.
      접근성: 사용자가 애니메이션 최소화를 켜두면 전부 끈다(아래 prefers-reduced-motion). */
   @keyframes fade-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
@@ -1032,6 +1052,7 @@ let AMBIG_BASE = new Set();       // 🎭 동명이인(태그·PUUID 다른 동�
 let CANON_TO_ALIASES = new Map(); // 최신 닉 -> [그 사람의 모든 닉...]
 let CHAMPMAP = {};       // 한글챔프명 -> 초상화 주소(Community Dragon = 라이브 클라이언트 아트)
 let CHAMPFB = {};        // 같은 키의 Data Dragon 폴백 주소(CD 실패 시 사용)
+let SPLASHMAP = {};      // 한글챔프명 -> 스플래시 이미지(프로필 배너 배경)
 let DDVER = "";
 
 /* ============== 유틸 ============== */
@@ -2375,6 +2396,9 @@ async function loadDDragon(){
       CHAMPFB[c.name]=`https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/champion/${c.image.full}`;
       CHAMPMAP[c.name.replace(/\s/g,"")]=CHAMPMAP[c.name];
       CHAMPFB[c.name.replace(/\s/g,"")]=CHAMPFB[c.name];
+      // 🖼 [2026-07-30] 프로필 배너용 스플래시 — 카드 상단 배경으로 쓴다.
+      const _sp=`https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${c.id}_0.jpg`;
+      SPLASHMAP[c.name]=_sp; SPLASHMAP[c.name.replace(/\s/g,"")]=_sp;
     }
   }catch(e){/* 아이콘 없이 진행 */}
   // 🛒 룬 아이콘(주룬 키스톤·보조트리) + 아이템명 (전적카드 빌드 표시용 — 실패해도 무해)
@@ -2988,6 +3012,39 @@ function sortChamp(key){
   if(SORT.key===key)SORT.dir*=-1;else{SORT.key=key;SORT.dir=(key==="champ")?1:-1;}
   renderHome();
 }
+/* 🕸 [2026-07-30] 레이더 차트 — 라이브러리 없이 SVG 다각형으로 직접 그린다.
+   축은 '클랜 내 백분위'라 절대값 감각이 없는 지표(시야·CS)도 한 눈에 비교된다. */
+function radarSvg(axes,size){
+  size=size||188;
+  const cx=size/2, cy=size/2, R=size/2-24;
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/axes.length;return [cx+Math.cos(a)*r, cy+Math.sin(a)*r];};
+  const ring=f=>axes.map((_,i)=>pt(i,R*f).join(",")).join(" ");
+  const poly=axes.map((a,i)=>pt(i,R*Math.max(.04,(a.v||0)/100)).join(",")).join(" ");
+  const grid=[1,.75,.5,.25].map(f=>`<polygon points="${ring(f)}" fill="none" stroke="#2a3145"/>`).join("");
+  const spokes=axes.map((_,i)=>{const[x,y]=pt(i,R);return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#232a3c"/>`;}).join("");
+  const labels=axes.map((a,i)=>{const[x,y]=pt(i,R+13);
+    return `<text x="${x}" y="${y}" fill="#8e97ab" font-size="11" text-anchor="middle" dominant-baseline="middle">${esc(a.label)}</text>`;}).join("");
+  return `<svg class="radar" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${grid}${spokes}
+    <polygon points="${poly}" fill="rgba(160,120,255,.28)" stroke="#a878ff" stroke-width="2"/>${labels}</svg>`;
+}
+const GRADE_TBL=[[90,"S","#ffd24a"],[75,"A","#7ee081"],[55,"B","#5b8cff"],[35,"C","#b6a5ff"],[0,"D","#8e97ab"]];
+function gradeOf(sc){ return GRADE_TBL.find(g=>sc>=g[0])||GRADE_TBL[GRADE_TBL.length-1]; }
+
+/* 클랜 전체 백분위 — 레이더 축 계산용. 값이 없는 사람은 그 축에서 제외. */
+let _PCT_CACHE=null;
+function clanPercentiles(){
+  if(_PCT_CACHE) return _PCT_CACHE;
+  const all=playerStats().filter(p=>p.games>=5).map(p=>({...p,
+    mvpr:p.games?p.mvp/p.games*100:null,
+    safe:p.games?100-p.bad/p.games*100:null}));
+  const cols={};
+  for(const k of ["wr","mvpr","cspm","vision","games","safe"]) cols[k]=all.map(p=>p[k]).filter(v=>v!=null);
+  const of=(k,v)=>{ const a=cols[k]; if(v==null||!a||!a.length) return null;
+    return Math.round(a.filter(x=>x<v).length/a.length*100); };
+  _PCT_CACHE={all,of};
+  return _PCT_CACHE;
+}
+
 function pth(label,key){
   const arrow=PSORT.key===key?(PSORT.dir>0?" ▲":" ▼"):"";
   const cls=(key==="name")?"":"num";
@@ -3694,6 +3751,32 @@ function renderPlayer(name){
     ${_vsN?`<div class="ss-cell" title="${_vsN}판 평균"><span class="ss-k">시야</span><b>${Math.round(_vsS/_vsN)}</b></div>`:''}
   </div>`;
 
+  // 🖼 [2026-07-30] 프로필 카드 배너 — 모스트 챔피언 스플래시를 카드 상단 배경으로 은은하게 깐다.
+  //    (타 클랜 사이트에서 가장 인상적이었던 부분. 카드 내용은 그대로 두고 배경만 더한다.)
+  const _mainChamp=(most[0]||{}).champ||"";
+  const _splash=SPLASHMAP[_mainChamp]||SPLASHMAP[(_mainChamp||"").replace(/\s/g,"")]||"";
+  const bannerHtml=_splash?`<div class="pbanner" style="background-image:url('${_splash}')"></div>`:'';
+
+  // 🏅 등급 배지 — 종합점수를 S~D로 한 글자 요약.
+  const _gr=_sc!=null?gradeOf(_sc):null;
+  const gradeHtml=_gr?`<span class="grade" style="--gc:${_gr[2]}" title="종합 ${_sc}점 → ${_gr[1]}등급">${_gr[1]}</span>`:'';
+
+  // 🕸 스타일 레이더 — 값은 모두 '클랜 내 백분위'(10판 이상 표본). 절대값 감각 없는 지표도 비교된다.
+  const radarHtml=(()=>{
+    const P=clanPercentiles();
+    const g=parts.length;
+    const mine={wr, mvpr:g?mvp/g*100:null, cspm:_csN?_csS/_csN:null,
+                vision:_vsN?_vsS/_vsN:null, safe:g?100-bad/g*100:null, games:g};
+    const AX=[["승률","wr"],["캐리","mvpr"],["파밍","cspm"],["시야","vision"],["생존","safe"],["꾸준함","games"]];
+    const axes=AX.map(([label,k])=>({label,v:P.of(k,mine[k]),raw:mine[k]}));
+    if(axes.filter(a=>a.v!=null).length<3) return '';
+    const rows=axes.map(a=>`<div class="rx"><span class="muted">${a.label}</span>${
+      a.v==null?'<b class="muted">-</b>':`<b>상위 ${Math.max(1,100-a.v)}%</b>`}</div>`).join("");
+    return `<div class="card" style="margin-top:14px"><h2>🕸 플레이 스타일</h2>
+      <div class="radarwrap">${radarSvg(axes.map(a=>({label:a.label,v:a.v||0})))}<div class="rxlist">${rows}</div></div>
+      <div class="muted" style="font-size:12px;margin-top:6px">※ 클랜원(5판 이상) 중 상대 위치입니다. 넓을수록 상위권.</div></div>`;
+  })();
+
   const matchHtml=list.map(r=>matchCard(r,name)).join("");
 
   const asmt=assessPlayer(name);
@@ -3792,12 +3875,13 @@ function renderPlayer(name){
 
   view().innerHTML=`
     <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
-    <div class="card" style="margin-top:10px;position:relative">
+    <div class="card${_splash?' hasbanner':''}" style="margin-top:10px;position:relative">
+      ${bannerHtml}
       ${kizukiEmblem(name)}
       <div class="prof">
         <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
         <div style="flex:1">
-          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${gradeHtml}${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${scoreStrip}
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
@@ -3815,6 +3899,7 @@ function renderPlayer(name){
       <div>
         <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
           champAll.length>6?`<div style="text-align:center;margin-top:10px"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 16px;border-radius:8px;cursor:pointer" onclick="toggleMost()">${MOST_EXPANDED?'접기 ▲':`전체 보기 (${champAll.length}종) ▼`}</button></div>`:''}</div>
+        ${radarHtml}
         ${gptiCardHtml(name)}
         ${tierHistHtml}
         <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b> · 아래는 실제 플레이 분포</div>':''}${posHtml}</div>
@@ -4472,7 +4557,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607301317";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607301820";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
