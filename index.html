@@ -137,12 +137,13 @@
   .ci-nm{font-size:10.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:1px 0}
   .ci-wr{font-size:11.5px;font-weight:700}
   /* 🩸 십이귀월 홀더 엠블럼 (프로필 우상단) */
-  .kizuki-emblem{position:absolute;top:14px;right:16px;text-align:center;pointer-events:none;z-index:2}
+  /* [2026-07-30] 배너 위 가운데로 — 우상단은 레이더 자리와 겹쳐서, 보유자만 카드가 늘어나는 문제가 있었다 */
+  .kizuki-emblem{position:absolute;top:10px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:2}
   .kizuki-emblem svg{filter:drop-shadow(0 0 10px rgba(224,65,63,.55))}
   .kizuki-emblem.low svg{filter:drop-shadow(0 0 10px rgba(154,107,255,.55))}
   .kz-cap{font-size:11px;font-weight:800;margin-top:2px;letter-spacing:.3px;color:#ffb3b0}
   .kizuki-emblem.low .kz-cap{color:#d3bcff}
-  @media(max-width:620px){.kizuki-emblem{position:static;margin:0 0 10px;display:inline-block}}
+  @media(max-width:620px){.kizuki-emblem{position:static;transform:none;margin:0 0 10px;display:block}}
   /* 🧬 GPTI 성향유형 카드 */
   .gpti-top{display:flex;align-items:baseline;gap:12px;margin:2px 0 12px}
   .gpti-type{font-size:30px;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#7cc0ff,#b78cff);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -372,7 +373,7 @@
   .pos{display:inline-block;min-width:34px;color:var(--sub);font-size:13.5px}
 
   /* Player profile */
-  .prof{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  .prof{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;padding-top:112px}
   .prof .pname{font-size:22px;font-weight:800}
   .prof .ptag{color:var(--mut);font-size:14.5px}
   .ring{--p:50;width:96px;height:96px;border-radius:50%;flex:none;
@@ -440,7 +441,7 @@
 
   /* 🖼 [2026-07-30] 프로필 배너 — 모스트 챔피언 스플래시. 글자가 묻히지 않게 위/아래로 어둡게 덮는다. */
   .card.hasbanner{overflow:hidden}
-  .card.hasbanner>*:not(.pbanner){position:relative;z-index:1}
+  .card.hasbanner>*:not(.pbanner):not(.kizuki-emblem){position:relative;z-index:1}
   .pbanner{position:absolute;left:0;right:0;top:0;height:200px;z-index:0;
     background-size:cover;background-position:center 22%;opacity:.5;
     animation:pb-in .8s ease both}
@@ -478,7 +479,7 @@
   .rr-bar i{display:block;height:100%;background:linear-gradient(90deg,#4a7ef0,#7ba6ff);border-radius:5px;transition:width .5s ease}
   .rr-p{flex:0 0 38px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}
   .sidecol{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;align-self:flex-start}
-  .prof.hasemb .sidecol{margin-top:58px}
+  .prof .sidecol{margin-top:0}
   .radarbox{width:184px;text-align:center}
   .cmp.cmp-good{background:linear-gradient(135deg,rgba(126,224,129,.15),rgba(126,224,129,.03));border-color:rgba(126,224,129,.38)}
   .cmp.cmp-good .cmp-v{color:#7ee081}
@@ -488,7 +489,7 @@
   .cmp.cmp-hi .cmp-v{color:#ffd24a;font-size:22px;font-weight:800}
   .radar polygon{transition:all .5s ease}
   .radarcap{font-size:11.5px;margin-top:-4px}
-  @media(max-width:760px){.sidecol{width:100%;order:9}.prof.hasemb .sidecol{margin-top:0}}
+  @media(max-width:760px){.sidecol{width:100%;order:9}.prof{min-height:0;padding-top:0}}
 
   /* ✨ 화면 전환·카드 등장 — 정적 사이트라도 '움직이는 느낌'은 낼 수 있다.
      접근성: 사용자가 애니메이션 최소화를 켜두면 전부 끈다(아래 prefers-reduced-motion). */
@@ -4003,7 +4004,7 @@ function renderPlayer(name){
     <div class="card${_splash?' hasbanner':''}" style="margin-top:10px;position:relative">
       ${bannerHtml}
       ${_emb}
-      <div class="prof${_emb?' hasemb':''}">
+      <div class="prof">
         <div style="flex:1">
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
@@ -4681,7 +4682,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607302145";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607302215";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
