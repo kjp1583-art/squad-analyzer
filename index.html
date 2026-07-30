@@ -2284,6 +2284,7 @@ function aliasLookup(m, name){
 
 function build(){
   GAMES=new Map();PLAYERS=new Map();DUPLICATES=0;
+  _PCT_CACHE={};                 // 카테고리/패치가 바뀌면 레이더 비교군도 다시 계산해야 한다
   // 패치 정규화 (v16.13 → 16.13, 빈칸 → 16.13). 'v' 표기/무표기를 같은 버전으로 통합
   for(const r of RAW){ r["패치버전"]=normPatch(r["패치버전"]); }
   // 감지된 모든 패치(최신순) + 최신 패치
@@ -2581,21 +2582,15 @@ function playerStats(){
     // 📊 [2026-07-30] CS/분·시야 — 시트 '지표' 열에 이미 있는데 화면에서 안 쓰고 있었다.
     //    기록이 있는 판만 평균한다(지표는 최근 기록부터 채워지므로 표본이 다를 수 있음).
     let csSum=0,csN=0,vsSum=0,vsN=0;
-    // 🕸 [2026-07-30] 레이더 축용 — 데스(생존)·킬+어시(교전)·챔프 종류(챔프폭)
-    let dSum=0,kaSum=0,kdaN=0; const champSet=new Set();
     for(const r of parts){
       if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
       if(r["매치평가"]==="MVP")mvp++;else if(r["매치평가"]==="역적")bad++;
       const mt=parseMetrics(r);
       if(mt){ if(mt.cs&&mt.m){ csSum+=mt.cs/mt.m; csN++; } if(mt.vs!=null){ vsSum+=mt.vs; vsN++; } }
-      const ko=parseKDA(r["KDA"]);
-      if(ko){ dSum+=ko.d; kaSum+=ko.k+ko.a; kdaN++; }
-      if(r["챔피언"]) champSet.add(r["챔피언"]);
     }
     const a=ASSESSMENTS.get(name);
     out.push({name,games:parts.length,wins:w,losses:l,mvp,bad,wr:pct(w,w+l),
               cspm:csN?(csSum/csN):null, vision:vsN?(vsSum/vsN):null,
-              surv:kdaN?-(dSum/kdaN):null, fight:kdaN?(kaSum/kdaN):null, pool:champSet.size,
               score:(a&&a.score100)||null});
   }
   return out;
@@ -3046,17 +3041,39 @@ const GRADE_TBL=[[90,"S","#ffd24a"],[75,"A","#7ee081"],[55,"B","#5b8cff"],[35,"C
 function gradeOf(sc){ return GRADE_TBL.find(g=>sc>=g[0])||GRADE_TBL[GRADE_TBL.length-1]; }
 
 /* 클랜 전체 백분위 — 레이더 축 계산용. 값이 없는 사람은 그 축에서 제외. */
-let _PCT_CACHE=null;
-function clanPercentiles(){
-  if(_PCT_CACHE) return _PCT_CACHE;
-  const all=playerStats().filter(p=>p.games>=5).map(p=>({...p,
-    mvpr:p.games?p.mvp/p.games*100:null}));
+/* [2026-07-30] 레이더는 '주 포지션 안에서' 비교한다.
+   포지션을 섞으면 서폿의 CS/분·정글의 시야처럼 역할이 다른 값이 한 줄에 서서 왜곡된다.
+   같은 포지션으로 5판 이상 뛴 클랜원만 비교군에 넣는다(비교군 5명 미만이면 레이더를 접는다). */
+const RADAR_KEYS=["mvpr","cspm","vision","surv","fight","pool"];
+function radarMetrics(rows){
+  let mvp=0,csS=0,csN=0,vsS=0,vsN=0,dS=0,kaS=0,kn=0; const champs=new Set();
+  for(const r of rows){
+    if(r["매치평가"]==="MVP") mvp++;
+    const mt=parseMetrics(r);
+    if(mt){ if(mt.cs&&mt.m){ csS+=mt.cs/mt.m; csN++; } if(mt.vs!=null){ vsS+=mt.vs; vsN++; } }
+    const ko=parseKDA(r["KDA"]);
+    if(ko){ dS+=ko.d; kaS+=ko.k+ko.a; kn++; }
+    if(r["챔피언"]) champs.add(r["챔피언"]);
+  }
+  const g=rows.length;
+  return {games:g, mvpr:g?mvp/g*100:null, cspm:csN?csS/csN:null, vision:vsN?vsS/vsN:null,
+          surv:kn?-(dS/kn):null, fight:kn?kaS/kn:null, pool:champs.size||null};
+}
+let _PCT_CACHE={};
+function posPercentiles(pos){
+  if(_PCT_CACHE[pos]) return _PCT_CACHE[pos];
+  const all=[];
+  for(const [nm,parts] of PLAYERS){
+    const rows=parts.filter(r=>(r["포지션"]||"")===pos);
+    if(rows.length<5) continue;
+    all.push(radarMetrics(rows));
+  }
   const cols={};
-  for(const k of ["mvpr","cspm","vision","surv","fight","pool"]) cols[k]=all.map(p=>p[k]).filter(v=>v!=null);
-  const of=(k,v)=>{ const a=cols[k]; if(v==null||!a||!a.length) return null;
+  for(const k of RADAR_KEYS) cols[k]=all.map(p=>p[k]).filter(v=>v!=null);
+  const of=(k,v)=>{ const a=cols[k]; if(v==null||!a||a.length<5) return null;
     return Math.round(a.filter(x=>x<v).length/a.length*100); };
-  _PCT_CACHE={all,of};
-  return _PCT_CACHE;
+  _PCT_CACHE[pos]={n:all.length,of};
+  return _PCT_CACHE[pos];
 }
 
 function pth(label,key){
@@ -3774,21 +3791,22 @@ function renderPlayer(name){
   const _gr=_sc!=null?gradeOf(_sc):null;
   const gradeHtml=_gr?`<span class="grade" style="--gc:${_gr[2]}" title="종합 ${_sc}점 → ${_gr[1]}등급">${_gr[1]}</span>`:'';
 
-  // 🕸 스타일 레이더 — 값은 모두 '클랜 내 백분위'(5판 이상 표본). 절대값 감각 없는 지표도 비교된다.
+  // 🕸 스타일 레이더 — 주 포지션 안에서의 백분위. 포지션을 섞으면 서폿 CS·정글 시야가 뒤엉켜 뜻이 없어진다.
   //    [2026-07-30] 프로필 카드 우측 상단 빈 공간에 얹는다(별도 카드 X).
   const radarHtml=(()=>{
-    const P=clanPercentiles();
-    const g=parts.length;
-    const mine={mvpr:g?mvp/g*100:null, cspm:_csN?_csS/_csN:null, vision:_vsN?_vsS/_vsN:null,
-                surv:avgKda?-avgKda.d:null, fight:avgKda?avgKda.k+avgKda.a:null,
-                pool:champAgg.size||null};
+    const cand=[...posAgg.entries()].filter(([p])=>p&&p!=="?"&&p!=="선택안함").sort((a,b)=>b[1]-a[1])[0];
+    if(!cand||cand[1]<5) return '';                    // 주 포지션 5판 미만이면 비교 의미 없음
+    const [mpos,mn]=cand;
+    const P=posPercentiles(mpos);
+    if(P.n<5) return '';                               // 같은 포지션 비교군이 5명 미만
+    const mine=radarMetrics(parts.filter(r=>(r["포지션"]||"")===mpos));
     const AX=[["캐리","mvpr"],["성장","cspm"],["시야","vision"],["생존","surv"],["교전","fight"],["챔프폭","pool"]];
     const axes=AX.map(([label,k])=>({label,v:P.of(k,mine[k])}));
     if(axes.filter(a=>a.v!=null).length<3) return '';
     const tip=axes.map(a=>`${a.label} ${a.v==null?'-':'상위 '+Math.max(1,100-a.v)+'%'}`).join(" · ");
-    return `<div class="radarbox" title="클랜원(5판 이상) 중 상대 위치 — ${escAttr(tip)}">
+    return `<div class="radarbox" title="${esc(mpos)} ${mn}판 기준 · 같은 포지션 클랜원 ${P.n}명 중 상대 위치 — ${escAttr(tip)}">
       ${radarSvg(axes.map(a=>({label:a.label,v:a.v||0})),172)}
-      <div class="radarcap muted">플레이 스타일 · 클랜 내 백분위</div></div>`;
+      <div class="radarcap muted">플레이 스타일 · <b style="color:var(--sub)">${esc(mpos)}</b> 기준 백분위</div></div>`;
   })();
 
   const matchHtml=list.map(r=>matchCard(r,name)).join("");
@@ -4581,7 +4599,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607301945";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607302010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
