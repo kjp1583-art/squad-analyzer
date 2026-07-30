@@ -85,7 +85,7 @@ def main():
 
     # 목적지 탭 — 없으면 만들고 헤더를 원본과 똑같이 맞춘다.
     try:
-        dst = _retry(f"{DST_TAB} 열기", lambda: ss.worksheet(DST_TAB))
+        dst = ss.worksheet(DST_TAB)      # 탭 부재는 일시 오류가 아니다 — 재시도하면 백오프만 낭비한다
         created = False
     except Exception:
         dst = _retry(f"{DST_TAB} 생성", lambda: ss.add_worksheet(title=DST_TAB, rows="2000", cols=str(max(14, len(head)))))
