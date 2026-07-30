@@ -422,6 +422,41 @@
   .prow .rk{min-width:32px}
   .bans{padding:8px 14px;font-size:13.5px;color:var(--mut);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 
+  /* ⭐ [2026-07-30] 종합 점수 스트립 — 카드에서 첫눈에 들어오는 숫자 세 개 */
+  .scorestrip{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:8px 0 4px}
+  .ss-main{display:flex;align-items:baseline;gap:3px;padding:6px 12px;border-radius:12px;
+    background:linear-gradient(135deg,rgba(255,210,74,.16),rgba(255,210,74,.04));
+    border:1px solid rgba(255,210,74,.35)}
+  .ss-star{font-size:14px;transform:translateY(-1px)}
+  .ss-num{font-size:26px;font-weight:800;color:#ffd24a;line-height:1;
+    font-variant-numeric:tabular-nums;animation:ss-pop .45s cubic-bezier(.2,1.4,.4,1) both}
+  .ss-den{font-size:12.5px;color:var(--mut)}
+  .ss-lab{font-size:11.5px;color:var(--mut);margin-left:5px;align-self:center}
+  .ss-cell{display:flex;flex-direction:column;justify-content:center;gap:1px;padding:6px 12px;
+    border-radius:12px;background:var(--bg-raise,rgba(255,255,255,.04));border:1px solid var(--line)}
+  .ss-cell .ss-k{font-size:11.5px;color:var(--mut)}
+  .ss-cell b{font-size:16px;font-variant-numeric:tabular-nums}
+  @keyframes ss-pop{from{opacity:0;transform:scale(.72) translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ✨ 화면 전환·카드 등장 — 정적 사이트라도 '움직이는 느낌'은 낼 수 있다.
+     접근성: 사용자가 애니메이션 최소화를 켜두면 전부 끈다(아래 prefers-reduced-motion). */
+  @keyframes fade-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  #view>*{animation:fade-up .28s ease both}
+  #view>*:nth-child(2){animation-delay:.04s}
+  #view>*:nth-child(3){animation-delay:.08s}
+  .card{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .card:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.16);
+    box-shadow:0 8px 22px rgba(0,0,0,.28)}
+  .tab{transition:background .15s ease,color .15s ease,transform .12s ease}
+  .tab:active{transform:scale(.96)}
+  .clickname{transition:color .12s ease}
+  .ranktbl tbody tr,.champtbl tbody tr{transition:background .12s ease}
+  .ranktbl tbody tr:hover,.champtbl tbody tr:hover{background:rgba(255,255,255,.045)}
+  .wrbar>span,.posbar>div{transition:width .5s cubic-bezier(.3,1,.4,1)}
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+
   .empty{text-align:center;color:var(--mut);padding:60px 20px}
   .loadbar{height:3px;background:var(--accent);width:0;transition:width .3s;position:fixed;top:0;left:0;z-index:50}
   .hidden{display:none}
@@ -885,6 +920,10 @@ function computeAssessments(){
     const impl=_slots[i]||p.t;
     a.implTier=impl;
     a.implPct=Math.max(1,Math.round((i+1)/_N*100));   // 상위 X%
+    // ⭐ [2026-07-30] 종합 점수(100점 환산) — 클랜 전체 파워 순위의 백분위를 점수로 보여준다.
+    //    1등 100점, 꼴등 1점. 파워 원점수는 소수점이라 체감이 안 와서 카드용으로 환산한다.
+    a.power=p.power;
+    a.score100=Math.max(1,Math.min(100,Math.round(101-a.implPct)));
     const di=_tIdx(a.tier)-_tIdx(impl);   // >0 = 추정이 더 높은 티어(실력이 티어보다 위=저평가), <0 = 과대배치(고평가)
     a.implRel=di>0?"up":di<0?"down":"eq";
     a.implGap=Math.abs(di);
@@ -2506,11 +2545,19 @@ function playerStats(){
   const out=[];
   for(const [name,parts] of PLAYERS){
     let w=0,l=0,mvp=0,bad=0;
+    // 📊 [2026-07-30] CS/분·시야 — 시트 '지표' 열에 이미 있는데 화면에서 안 쓰고 있었다.
+    //    기록이 있는 판만 평균한다(지표는 최근 기록부터 채워지므로 표본이 다를 수 있음).
+    let csSum=0,csN=0,vsSum=0,vsN=0;
     for(const r of parts){
       if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
       if(r["매치평가"]==="MVP")mvp++;else if(r["매치평가"]==="역적")bad++;
+      const mt=parseMetrics(r);
+      if(mt){ if(mt.cs&&mt.m){ csSum+=mt.cs/mt.m; csN++; } if(mt.vs!=null){ vsSum+=mt.vs; vsN++; } }
     }
-    out.push({name,games:parts.length,wins:w,losses:l,mvp,bad,wr:pct(w,w+l)});
+    const a=ASSESSMENTS.get(name);
+    out.push({name,games:parts.length,wins:w,losses:l,mvp,bad,wr:pct(w,w+l),
+              cspm:csN?(csSum/csN):null, vision:vsN?(vsSum/vsN):null,
+              score:(a&&a.score100)||null});
   }
   return out;
 }
@@ -2756,7 +2803,8 @@ function renderHome(){
   champs.sort((a,b)=>{const av=cval(a),bv=cval(b);return (av>bv?1:av<bv?-1:0)*(SORT.dir);});
   const pk=PSORT.key||"games";
   const pval=x=>pk==="name"?shortName(x.name):x[pk];
-  players.sort((a,b)=>{const av=pval(a),bv=pval(b);return ((av>bv?1:av<bv?-1:0)*PSORT.dir)||(b.games-a.games);});
+  const _nz=v=>(v==null||v==="")?-Infinity:v;   // 값 없는 칸(⭐·CS·시야 미기록)은 항상 뒤로
+  players.sort((a,b)=>{const av=_nz(pval(a)),bv=_nz(pval(b));return ((av>bv?1:av<bv?-1:0)*PSORT.dir)||(b.games-a.games);});
 
   const champRows=champs.map(c=>{
     const t=c.wins+c.losses,wr=pct(c.wins,t);
@@ -2773,6 +2821,9 @@ function renderHome(){
       <td><span class="clickname" onclick="go('player','${escAttr(p.name)}')">${esc(shortName(p.name))}</span>${tierBadge(p.name)}</td>
       <td class="num">${p.games}</td>
       <td>${wrBar(p.wr)}</td>
+      <td class="num">${p.score!=null?`<b style="color:var(--gold)">${p.score}</b>`:'<span class="muted">-</span>'}</td>
+      <td class="num">${p.cspm!=null?p.cspm.toFixed(1):'<span class="muted">-</span>'}</td>
+      <td class="num">${p.vision!=null?Math.round(p.vision):'<span class="muted">-</span>'}</td>
       <td class="num" style="color:var(--gold)">${p.mvp||""}</td>
       <td class="num" style="color:var(--lose)">${p.bad||""}</td>
     </tr>`).join("");
@@ -2870,7 +2921,7 @@ function renderHome(){
       <div class="card">
         <h2>🏆 플레이어 랭킹 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
         <table class="ranktbl"><thead><tr>
-          ${pth("소환사","name")}${pth("판","games")}${pth("승률","wr")}${pth("MVP","mvp")}${pth("역적","bad")}
+          ${pth("소환사","name")}${pth("판","games")}${pth("승률","wr")}${pth("⭐종합","score")}${pth("CS/분","cspm")}${pth("시야","vision")}${pth("MVP","mvp")}${pth("역적","bad")}
         </tr></thead><tbody>${playerRows}</tbody></table>
       </div>
       <div class="card">
@@ -3623,6 +3674,26 @@ function renderPlayer(name){
     return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="display:flex;align-items:center;gap:6px"><span class="posdot" style="background:${POS_COLOR[p]||'var(--line)'}"></span><span class="muted">${p}</span></span><b>${n}판 <span class="muted" style="font-weight:400">(${Math.round(n/posTotal*100)}%)</span></b></div>`;
   }).join("")||'<span class="muted">-</span>');
 
+  // ⭐ [2026-07-30] 종합 점수(100점 환산) + CS/분 + 시야 — 카드 첫눈에 들어오는 숫자 세 개.
+  //    점수는 클랜 전체 파워 순위의 백분위 환산(1등 100), CS·시야는 '지표' 기록이 있는 판의 평균.
+  let _csS=0,_csN=0,_vsS=0,_vsN=0;
+  for(const r of parts){
+    const mt=parseMetrics(r);
+    if(!mt) continue;
+    if(mt.cs&&mt.m){ _csS+=mt.cs/mt.m; _csN++; }
+    if(mt.vs!=null){ _vsS+=mt.vs; _vsN++; }
+  }
+  const _sc=(ASSESSMENTS.get(name)||{}).score100;
+  const scoreStrip=`<div class="scorestrip">
+    ${_sc!=null?`<div class="ss-main" title="클랜 전체 파워 순위를 100점으로 환산 (1등 100점)">
+        <span class="ss-star">⭐</span><b class="ss-num">${_sc}</b><span class="ss-den">/100</span>
+        <span class="ss-lab">종합</span></div>`:''}
+    <div class="ss-cell"><span class="ss-k">승률</span><b style="color:${wr>=50?'var(--win)':'var(--lose)'}">${wr}%</b></div>
+    ${avgRatio!=null?`<div class="ss-cell"><span class="ss-k">KDA</span><b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b></div>`:''}
+    ${_csN?`<div class="ss-cell" title="${_csN}판 평균"><span class="ss-k">CS/분</span><b>${(_csS/_csN).toFixed(1)}</b></div>`:''}
+    ${_vsN?`<div class="ss-cell" title="${_vsN}판 평균"><span class="ss-k">시야</span><b>${Math.round(_vsS/_vsN)}</b></div>`:''}
+  </div>`;
+
   const matchHtml=list.map(r=>matchCard(r,name)).join("");
 
   const asmt=assessPlayer(name);
@@ -3728,6 +3799,7 @@ function renderPlayer(name){
         <div style="flex:1">
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
+          ${scoreStrip}
           <div class="muted" style="margin:4px 0 8px">${w+l}전 ${w}승 ${l}패 · MVP ${mvp} · ACE ${aceN}${l>0?`<span style="opacity:.6">(${Math.round(aceN/l*100)}%)</span>`:''} · 역적 ${bad}${avgRatio!=null?` · 평균 <b style="color:${kdaColor(avgRatio)}">${avgRatio.toFixed(2)}</b> <span style="opacity:.7">${avgKda.k.toFixed(1)}/${avgKda.d.toFixed(1)}/${avgKda.a.toFixed(1)}</span>`:''}</div>
           ${asmtHtml}
           ${careerHtml}
@@ -4400,7 +4472,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607301122";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607301317";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
