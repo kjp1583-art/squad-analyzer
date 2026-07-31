@@ -3466,6 +3466,9 @@ const MIL_SERVICE=[
   {name:"민병이#우는중중", start:"2026-01-02", end:"2027-07-01"},   // 입대일 불확실 → 전역일(확실) 기준 육군 18개월 역산
   {name:"RayB#별이된기억", start:"2020-06-15", end:"2045-08-30", nco:true},   // 부사관(직업군인) — 계급은 연차 기준 하사→중사→상사→원사
   {name:"귤갓", branch:"육군", start:"2025-04-15"},   // 병사
+  // [2026-08-01 사장님 지시] 전역일만 확정(2028-08-26) — 임관일은 단기복무 부사관 의무복무 4년으로 역산.
+  //   진행바·연차 계급이 어긋나면 start 만 실제 임관일로 고치면 된다.
+  {name:"언 진#응애응애", start:"2024-08-27", end:"2028-08-26", nco:true},
 ];
 const MIL_MONTHS={"육군":18,"해병대":18,"해군":20,"공군":21,"사회복무":21};
 function renderArmy(){
@@ -5161,7 +5164,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608012120";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608012135";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
