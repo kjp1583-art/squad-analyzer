@@ -242,7 +242,7 @@
   /* 🪟 [2026-07-31] 티어표에서 이름을 누르면 뜨는 '플레이어 카드' 팝업 */
   .tbm-back{position:fixed;inset:0;z-index:90;background:rgba(6,8,13,.72);backdrop-filter:blur(3px);
     display:flex;align-items:center;justify-content:center;padding:20px;animation:tbm-fade .16s ease both}
-  .tbm-card{position:relative;width:min(560px,100%);max-height:88vh;overflow-y:auto;
+  .tbm-card{position:relative;width:min(640px,100%);max-height:88vh;overflow-y:auto;
     background:var(--card);border:1px solid var(--line);border-radius:16px;
     box-shadow:0 24px 60px rgba(0,0,0,.6);animation:tbm-pop .2s cubic-bezier(.2,1.2,.4,1) both}
   .tbm-banner{position:absolute;left:0;right:0;top:0;height:150px;z-index:0;background-size:cover;
@@ -253,6 +253,10 @@
     border:1px solid var(--line);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:13px;line-height:1}
   .tbm-x:hover{color:var(--txt);background:rgba(0,0,0,.6)}
   .tbm-head{position:relative;z-index:1;padding:18px 18px 12px}
+  .tbm-head.has-radar{display:flex;align-items:flex-start;gap:12px}
+  .tbm-info{flex:1;min-width:0}
+  .tbm-radar{flex:0 0 auto;width:172px;text-align:center;margin-top:-4px}
+  @media(max-width:520px){.tbm-head.has-radar{display:block}.tbm-radar{width:100%;margin-top:8px}}
   .tbm-nm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:21px;font-weight:800}
   .tbm-sub{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px}
   .tbm-rec{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px}
@@ -3552,8 +3556,8 @@ function playerCardHtml(name){
       return (dd>0)===!!hiGood?'cmp-good':'cmp-bad'; };
     const box=(k,v,ref,cls)=>`<div class="cmp${cls?' '+cls:''}"><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
 
-    // 카드 상단 요약 — 전적·승률·최근 폼·모스트 챔프(배너용)
-    let w=0,l=0,mvpN=0,badN=0,form='',mainChamp='';
+    // 카드 상단 요약 — 전적·승률·최근 폼·모스트 챔프(배너용)·육각형(주 포지션 백분위)
+    let w=0,l=0,mvpN=0,badN=0,form='',mainChamp='',radar='';
     try{
       const parts=PLAYERS.get(a.name)||[];
       const cc=new Map();
@@ -3565,6 +3569,25 @@ function playerCardHtml(name){
       mainChamp=[...cc.entries()].sort((x,y)=>y[1]-x[1]).map(x=>x[0])[0]||'';
       form=[...parts].reverse().filter(r=>r["결과"]==="승리"||r["결과"]==="패배").slice(0,10)
             .map(r=>{const win=r["결과"]==="승리";return `<span class="dot ${win?'w':'l'}">${win?'승':'패'}</span>`;}).join("");
+      // 🕸 육각형 — 선수 페이지와 동일하게 '주 포지션 안에서의 백분위'로 그린다.
+      const pos=new Map();
+      for(const r of parts){ const p=r["포지션"]; if(p&&p!=="?"&&p!=="선택안함") pos.set(p,(pos.get(p)||0)+1); }
+      const mp=[...pos.entries()].sort((x,y)=>y[1]-x[1])[0];
+      if(mp&&mp[1]>=5){
+        const P=posPercentiles(mp[0]);
+        if(P&&P.n>=5){
+          const mine=radarMetrics(parts.filter(r=>(r["포지션"]||"")===mp[0]));
+          const AX=[["캐리","mvpr"],["성장","cspm"],["시야","vision"],["생존","surv"],["교전","fight"],["챔프폭","pool"]];
+          const axes=AX.map(([label,k])=>({label,v:P.of(k,mine[k])}));
+          if(axes.filter(x=>x.v!=null).length>=3){
+            const tip=axes.map(x=>`${x.label} ${x.v==null?'-':radarGrade(x.v)[1]+'(상위 '+Math.max(1,100-x.v)+'%)'}`).join(" · ");
+            radar=`<div class="tbm-radar" title="${escAttr(mp[0])} ${mp[1]}판 기준 · 같은 포지션 클랜원 ${P.n}명 중 — ${escAttr(tip)}">
+              ${radarSvg(axes.map(x=>({label:x.label,v:x.v||0})),168,{grades:true,avg:true})}
+              <div class="muted" style="font-size:10.5px;margin-top:-4px"><b style="color:var(--sub)">${esc(mp[0])}</b> 기준 백분위</div>
+            </div>`;
+          }
+        }
+      }
     }catch(e){}
     const wr=(w+l)?Math.round(w/(w+l)*100):0;
     const splash=(typeof SPLASHMAP!=='undefined')
@@ -3591,7 +3614,8 @@ function playerCardHtml(name){
       <div class="tbm-card" onclick="event.stopPropagation()">
         ${splash?`<div class="tbm-banner" style="background-image:url('${splash}')"></div>`:''}
         <button class="tbm-x" onclick="closePlayerCard()" title="닫기 (Esc)">✕</button>
-        <div class="tbm-head">
+        <div class="tbm-head${radar?' has-radar':''}">
+          <div class="tbm-info">
           <div class="tbm-nm">
             ${hasEval?`<span class="tier ${tierGroupCls(a.tier)}" style="margin:0">${esc(a.tier)}</span>`:''}
             <b>${esc(shortName(a.name))}</b><span class="muted" style="font-size:13px;font-weight:400">${esc(tagOf(a.name))}</span>
@@ -3608,6 +3632,8 @@ function playerCardHtml(name){
             <span class="muted">MVP ${mvpN} · 역적 ${badN}</span>
           </div>
           ${form?`<div class="form" style="margin-top:8px">${form}</div>`:''}
+          </div>
+          ${radar}
         </div>
         <div class="tbm-body">
           ${d?`<div class="cmpgrid">${cells}</div>
@@ -4886,7 +4912,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311920";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311950";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
