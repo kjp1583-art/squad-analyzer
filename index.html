@@ -2896,39 +2896,19 @@ function weeklyStars(){
   const from=maxMs-7*86400000;
   const arr=[];
   for(const [nm,parts] of PLAYERS){
-    let g=0,ma=0,st=0,cs=0;
+    let g=0,ma=0,st=0,cs=0,lt=0,ls=0;   // st/cs=연승, lt/ls=연패([2026-07-31] 이주의 연패왕용)
     for(const r of parts){
       const t=pdate(r); if(t==null||t<from) continue;
       const rr=r["결과"]; if(rr!=="승리"&&rr!=="패배") continue;
       g++; const e=r["매치평가"]; if(e==="MVP"||e==="ACE")ma++;
-      if(rr==="승리"){cs++; if(cs>st)st=cs;} else cs=0;
+      if(rr==="승리"){cs++; if(cs>st)st=cs; ls=0;} else {cs=0; ls++; if(ls>lt)lt=ls;}
     }
-    if(g>0) arr.push({nm,g,ma,st});
+    if(g>0) arr.push({nm,g,ma,st,lt});
   }
   if(!arr.length) return null;
   const pick=fn=>{ let best=null; for(const v of arr){ const s=fn(v); if(s>0&&(!best||s>best.s||(s===best.s&&v.g>best.v.g))) best={nm:v.nm,s,v}; } return best; };
-  // 🧠 이주의 MBTI — 최근 7일 창에서 MBTI별 승/판 집계(디코 MBTI 역할 매칭자만), 5판↑ 중 최고 승률
-  let mbti=null;
-  if(MBTI_MAP.size){
-    const agg=new Map();   // MBTI -> {g,w,who:Set}
-    for(const [nm,parts] of PLAYERS){
-      const mb=mbtiOf(nm); if(!mb) continue;
-      for(const r of parts){
-        const t=pdate(r); if(t==null||t<from) continue;
-        const rr=r["결과"]; if(rr!=="승리"&&rr!=="패배") continue;
-        if(!agg.has(mb)) agg.set(mb,{g:0,w:0,who:new Set()});
-        const a=agg.get(mb); a.g++; if(rr==="승리")a.w++; a.who.add(nm);
-      }
-    }
-    let best=null;
-    for(const [mb,a] of agg){
-      if(a.g<5) continue;   // 표본 최소 5판
-      const wr=a.w/a.g;
-      if(!best||wr>best.wr||(wr===best.wr&&a.g>best.g)) best={mb,wr,g:a.g,w:a.w,n:a.who.size};
-    }
-    if(best) mbti=best;
-  }
-  return {from,to:maxMs, attend:pick(v=>v.g), carry:pick(v=>v.ma), streak:pick(v=>v.st>=3?v.st:0), mbti, players:arr.length};
+  return {from,to:maxMs, attend:pick(v=>v.g), carry:pick(v=>v.ma), streak:pick(v=>v.st>=3?v.st:0),
+          lose:pick(v=>v.lt>=3?v.lt:0), players:arr.length};
 }
 function _wkMD(ms){ const d=new Date(ms); return `${d.getMonth()+1}/${d.getDate()}`; }
 function weekStar(title, best, descFn){
@@ -3024,7 +3004,7 @@ function renderHome(){
         ${weekStar('🏃 개근왕', ws.attend, v=>`${v.g}판 참여`)}
         ${weekStar('⚡ 캐리왕', ws.carry, v=>`MVP·ACE ${v.ma}회`)}
         ${weekStar('🔥 연승왕', ws.streak, v=>`${v.st}연승`)}
-        ${ws.mbti?`<div class="wkstar"><div class="wk-t">🧠 이주의 MBTI</div><div class="wk-name">${esc(ws.mbti.mb)}</div><div class="muted" style="font-size:12px">승률 ${Math.round(ws.mbti.wr*100)}% (${ws.mbti.g}판 · ${ws.mbti.n}명)</div></div>`:''}
+        ${weekStar('💀 연패왕', ws.lose, v=>`${v.lt}연패`)}
         ${(()=>{ // 🤖 AI 평가 극단값 — 내부티어 평가(동티어 대비 z합성)에서 저평가/고평가 최상위 1명씩
           try{
             if(!ASSESSMENTS.size) computeAssessments();
@@ -3035,8 +3015,8 @@ function renderHome(){
               if(a.label==="저평가"&&(!up||s>up.s)) up={nm,s,tier:a.tier};
               if(a.label==="고평가"&&(!ov||s<ov.s)) ov={nm,s,tier:a.tier};
             }
-            return weekStar('💎 AI 선정 저평가', up?{nm:up.nm,v:up}:null, v=>`${v.tier}티어 대비 성적 z +${v.s} — 실력이 티어를 앞선다`)
-                 + weekStar('🫧 AI 선정 고평가', ov?{nm:ov.nm,v:ov}:null, v=>`${v.tier}티어 대비 성적 z ${v.s} — 티어가 실력을 앞선다`);
+            return weekStar('📈 이주의 떡상인물', up?{nm:up.nm,v:up}:null, v=>`${v.tier}티어 대비 성적 z +${v.s} — 실력이 티어를 앞선다`)
+                 + weekStar('📉 이주의 떡락인물', ov?{nm:ov.nm,v:ov}:null, v=>`${v.tier}티어 대비 성적 z ${v.s} — 티어가 실력을 앞선다`);
           }catch(e){ return ''; }
         })()}
       </div>
@@ -4833,7 +4813,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311620";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311650";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
