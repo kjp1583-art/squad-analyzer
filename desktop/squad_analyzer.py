@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.66"
+CURRENT_VERSION = "82.67"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1706,6 +1706,16 @@ def _clan_index(force=False):
         loff_good_txt = " · ".join(f"{c} {n}판{w}%" for w, c, n in _good[:6])
         loff_bad_txt = " · ".join(f"{c} {n}판{w}%" for w, c, n in _bad[:5])
     except Exception: pass
+    # 🛟 [2026-07-31] 실패 결과를 캐시에 굳히지 않는다.
+    #   시트 읽기가 한 번 막히면(429 등) by_pu 가 빈 채로 ts 가 찍혀, 10분 동안 "클랜 데이터 없음"이
+    #   그 판과 다음 판까지 이어졌다. 빈 결과는 캐시하지 말고 다음 호출에서 곧바로 다시 시도한다.
+    #   (직전에 성공한 인덱스가 있으면 그걸 그대로 유지 — 빈 값으로 덮어쓰지 않는다.)
+    if not by_pu:
+        if _CLAN_IDX.get("by_pu"):
+            print("[draft] 클랜 인덱스 갱신 실패 — 직전 인덱스 유지(재시도 예정)", flush=True)
+        else:
+            print("[draft] 클랜 인덱스가 비었습니다 — 다음 호출에서 재시도", flush=True)
+        return _CLAN_IDX
     _CLAN_IDX.update({"ts": now, "by_pu": by_pu, "h2h": h2h, "syn": syn, "nm2pu": nm2pu, "bp": bp,
                       "mu1": mu1, "mu2": mu2, "mu3": mu3, "safe": safe,
                       "loff_good_txt": loff_good_txt, "loff_bad_txt": loff_bad_txt})
@@ -1896,18 +1906,32 @@ def _my_champ_pool(my_name, limit=12):
     return out
 
 def _clan_meta_lines(limit=25):
-    """클랜 챔피언 메타 요약(판수순 상위) — 시스템 프롬프트에 넣어 캐싱되는 '고정' 파트."""
+    """클랜 챔피언 메타 요약(판수순 상위) — 시스템 프롬프트에 넣어 캐싱되는 '고정' 파트.
+
+    [2026-07-31 수정] 예전엔 전당(HOF) 집계를 읽었는데, HOF 프리로드는 호스트 PC에서만 돌아
+    구독자 PC에서는 이 값이 **항상** 비었다. 그 결과 밴 추천이 "클랜 내전 챔피언 메타도 표본 없음
+    → 밴 근거 데이터 전무"로 나갔다(비호스트 전원 상시 발생). 코치가 이미 쓰는 _clan_index 로 바꿔
+    호스트/구독자 구분 없이 같은 자료를 보게 한다. HOF 가 이미 있으면 그걸 먼저 쓴다(집계 재사용)."""
+    rows = []
     try:
         gs = dict(gui_data.get("hof_classic", {}).get("global_stats", {}).get("전체 (ALL)", {}))
     except Exception:
         gs = {}
-    rows = []
-    for ch, st in gs.items():
+    for ch, st in (gs or {}).items():
         try:
             g = int(st.get("games", st.get("판수", 0)) or 0)
             w = int(st.get("wins", st.get("승", 0)) or 0)
             if g >= 4: rows.append((ch, g, round(w / g * 100)))
         except Exception: continue
+    if not rows:                      # 구독자 PC(=HOF 없음) → 시트 인덱스에서 직접 집계
+        try:
+            agg = {}
+            for _e in ((_clan_index() or {}).get("by_pu") or {}).values():
+                for _ch, _gw in (_e.get("champs") or {}).items():
+                    a = agg.setdefault(_ch, [0, 0]); a[0] += _gw[0]; a[1] += _gw[1]
+            for _ch, (g, w) in agg.items():
+                if g >= 4: rows.append((_ch, g, round(w / g * 100)))
+        except Exception: pass
     rows.sort(key=lambda x: -x[1])
     return "\n".join(f"- {c}: {g}판 {wr}%" for c, g, wr in rows[:limit]) or "(클랜 표본 없음)"
 
@@ -2356,6 +2380,8 @@ def _draft_advise_via_proxy(token, system_text, user_txt, who=""):
         j = r.json() if r.content else {}
         if j.get("text"): return str(j["text"]).strip() or None
         code = str(j.get("code") or "")
+        if code == "empty":   # [2026-07-31] 서버가 빈 응답을 받은 경우 — 재시도하면 대개 나온다
+            return "⚠️ 고스트밴픽왕: 잠시 후 다시 시도해 주세요"
         if code == "quota":   # [v82.34] 사용량 한도 — 서버가 보낸 안내를 그대로 표시
             return "⏳ 고스트밴픽왕\n" + str(j.get("error") or "사용량 한도에 도달했어요")
         if code == "shared":  # [v82.34] 토큰이 다른 계정에서 사용 중
@@ -2811,12 +2837,16 @@ def _draft_coach_tick(s_json, headers, base_url):
                         if _rc: _COACH_LAST[mode] = {"rec": _rc, "ts": time.time(),
                                                      "sent": False, "who": ctx.get("me") or ""}
                 except Exception: pass
+                # 🔁 [2026-07-31] '잠시 후 다시 시도' 문구도 정상 답변으로 취급해 서명을 안 지우던 탓에
+                #    그 판은 끝까지 재시도가 안 됐다(2페이즈 밴 무응답의 체감 증상).
+                #    만료·한도·토큰공유(⏳🔐/구독)는 재시도해도 소용없으니 제외한다.
+                _transient = (not txt) or str(txt).lstrip().startswith(
+                    ("⚠️ 고스트밴픽왕: 잠시 후", "⚠️ 고스트밴픽왕: 서버 연결", "⚠️ 고스트밴픽왕: 응답이 늦어"))
                 with gui_lock:
-                    if txt:
+                    if txt and not _transient:
                         _hdr = (f"🚫 {ban_phase}페이즈 밴 추천" if mode == "ban" else "🧠 AI 픽 추천")
                         gui_data["draft_advice"] = f"{_hdr}\n{txt}"
-                    else:
-                        # [2026-07-25] 무통보 실패 → 짧은 안내(코치 활성 PC만) — '안 떴다'는 미스터리 방지
+                    elif _transient:
                         gui_data["draft_advice"] = ("⚠️ 추천 생성 실패 — 잠시 후 자동 재시도합니다"
                                                      if (load_claude_key() or _coach_token()) else "")
                         _DRAFT_SEEN.discard(sig)   # 서명 철회 → 다음 폴링에서 실제로 재시도
