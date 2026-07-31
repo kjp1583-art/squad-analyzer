@@ -3719,6 +3719,10 @@ function playerCardHtml(name){
     if(a.score100!=null)
       cells+=box('🔥 내전 활약',`${a.score100}<span style="font-size:11px;color:var(--mut)">/100</span>`,'클랜 평균 50',
                  a.score100>=65?'cmp-good':(a.score100<=35?'cmp-bad':''));
+    // 🧊 멘탈 지수 — 연패 중에도 평소 성적을 유지하는가(자기 평소 대비)
+    { const mt=(typeof mentalOf==='function')?mentalOf(a.name):null;
+      if(mt) cells+=box('🧊 멘탈',`${mt.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
+        mentalLabel(mt.score), mt.score>=65?'cmp-good':(mt.score<=35?'cmp-bad':'')); }
     if(d){
       cells+=box('승률',`${d.wr}%`,`동티어 ${d.wrAvg}%`,cmpCls(d.wr,d.wrAvg,1));
       if(d.solo!=null) cells+=box('🏅솔랭',`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`,cmpCls(d.solo,d.soloAvg,1));
@@ -5065,7 +5069,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608010010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608010030";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
