@@ -2,7 +2,8 @@ name: Champion art probe
 
 # 🔍 [2026-08-01] 챔피언 초상화가 '롤 클래식' 옛날 그림으로 뜨는 문제 조사용 임시 워크플로.
 #   개발 컨테이너에서는 라이엇 CDN 이 프록시에 막혀 있어 직접 확인이 안 된다.
-#   버전별 아이콘을 한 장의 대조표로 합성해 art-probe 브랜치에 커밋 → 눈으로 확인한다.
+#   전 챔피언을 CDragon latest / DDragon 최신으로 받아 픽셀 차이를 재고,
+#   실제로 그림이 다른 챔프만 대조표로 합성해 art-probe 브랜치에 커밋한다.
 on:
   workflow_dispatch:
 
@@ -14,58 +15,83 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build contact sheet
+      - name: Diff all champion icons
         run: |
           pip install --quiet pillow
           python3 - <<'PY'
-          import urllib.request, io, os
-          from PIL import Image, ImageDraw
+          import urllib.request, io, os, json, concurrent.futures as cf
+          from PIL import Image, ImageDraw, ImageChops, ImageStat
           UA={'User-Agent':'Mozilla/5.0'}
           def get(u):
               try:
                   with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30) as r:
                       return r.read()
-              except Exception as e:
-                  print("ERR", u, e); return None
+              except Exception: return None
 
-          CH=[("리 신","LeeSin","64"),("애쉬","Ashe","22"),("애니","Annie","1"),
-              ("가렌","Garen","86"),("트페","TwistedFate","4"),("이즈리얼","Ezreal","81")]
+          vs=json.loads(get("https://ddragon.leagueoflegends.com/api/versions.json")); V=vs[0]
+          champ=json.loads(get(f"https://ddragon.leagueoflegends.com/cdn/{V}/data/ko_KR/champion.json"))["data"]
+          print("버전", V, "· 챔피언", len(champ))
+
           def cd(tag,cid): return f"https://raw.communitydragon.org/{tag}/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/{cid}.png"
-          def dd(v,eng):   return f"https://ddragon.leagueoflegends.com/cdn/{v}/img/champion/{eng}.png"
+          def dd(eng):     return f"https://ddragon.leagueoflegends.com/cdn/{V}/img/champion/{eng}.png"
 
+          def load(u,S=64):
+              b=get(u)
+              if not b: return None
+              try: return Image.open(io.BytesIO(b)).convert("RGB").resize((S,S))
+              except Exception: return None
+
+          def work(item):
+              eng,c=item
+              kor=c["name"]; cid=c["key"]
+              a=load(cd("latest",cid)); b=load(dd(eng)); d13=load(cd("16.13",cid))
+              def diff(x,y):
+                  if x is None or y is None: return -1
+                  return ImageStat.Stat(ImageChops.difference(x,y)).mean[0]
+              return (kor,eng,cid,diff(a,b),diff(a,d13))
+
+          items=list(champ.items())
+          out=[]
+          with cf.ThreadPoolExecutor(max_workers=16) as ex:
+              for r in ex.map(work,items): out.append(r)
+
+          out.sort(key=lambda r:-r[3])
+          print("\n=== CDragon latest vs DDragon 최신 — 평균 픽셀차 상위 25 ===")
+          for kor,eng,cid,d1,d2 in out[:25]:
+              print(f"  {kor:12s} {eng:16s} cd-vs-dd={d1:7.2f}  latest-vs-16.13={d2:7.2f}")
+          big=[r for r in out if r[3]>12]
+          print(f"\n뚜렷하게 다른 챔프(평균차>12): {len(big)}명 / {len(out)}명")
+          out2=sorted(out,key=lambda r:-r[4])
+          print("\n=== CDragon latest vs CDragon 16.13 — 상위 10 ===")
+          for kor,eng,cid,d1,d2 in out2[:10]:
+              print(f"  {kor:12s} {eng:16s} latest-vs-16.13={d2:7.2f}")
+
+          # 차이 큰 챔프들만 대조표로
+          sel=big[:12] or out[:12]
+          S=96; PAD=8; LAB=150; HDR=26
           ROWS=[("CDragon latest", lambda eng,cid: cd("latest",cid)),
-                ("CDragon 16.15",  lambda eng,cid: cd("16.15",cid)),
-                ("CDragon 16.14",  lambda eng,cid: cd("16.14",cid)),
                 ("CDragon 16.13",  lambda eng,cid: cd("16.13",cid)),
-                ("CDragon 15.24",  lambda eng,cid: cd("15.24",cid)),
-                ("DDragon 16.15.1",lambda eng,cid: dd("16.15.1",eng))]
-
-          S=96; PAD=8; LAB=170; HDR=28
-          W=LAB+len(CH)*(S+PAD)+PAD
-          H=HDR+len(ROWS)*(S+PAD)+PAD
-          sheet=Image.new("RGB",(W,H),(18,22,32)); d=ImageDraw.Draw(sheet)
-          for j,(kor,eng,cid) in enumerate(CH):
-              d.text((LAB+j*(S+PAD)+4, 8), f"{eng}", fill=(220,225,235))
+                ("DDragon "+V,     lambda eng,cid: dd(eng))]
+          W=LAB+len(sel)*(S+PAD)+PAD; H=HDR+len(ROWS)*(S+PAD)+PAD
+          sheet=Image.new("RGB",(W,H),(18,22,32)); dr=ImageDraw.Draw(sheet)
+          for j,(kor,eng,cid,d1,d2) in enumerate(sel):
+              dr.text((LAB+j*(S+PAD)+2,7), f"{eng[:13]} {d1:.0f}", fill=(220,225,235))
           for i,(label,fn) in enumerate(ROWS):
               y=HDR+i*(S+PAD)
-              d.text((6,y+S//2-6), label, fill=(245,212,122))
-              for j,(kor,eng,cid) in enumerate(CH):
-                  b=get(fn(eng,cid))
-                  if not b: continue
-                  try:
-                      im=Image.open(io.BytesIO(b)).convert("RGB").resize((S,S))
-                      sheet.paste(im,(LAB+j*(S+PAD),y))
-                  except Exception as e: print("IMG ERR",label,eng,e)
+              dr.text((6,y+S//2-6), label, fill=(245,212,122))
+              for j,(kor,eng,cid,d1,d2) in enumerate(sel):
+                  im=load(fn(eng,cid),S)
+                  if im: sheet.paste(im,(LAB+j*(S+PAD),y))
           os.makedirs("probe",exist_ok=True)
           sheet.save("probe/champ_art_compare.png")
-          print("saved", sheet.size)
+          print("\nsaved", sheet.size)
           PY
       - name: Commit to art-probe branch
         run: |
           git config user.name  "art-probe"
           git config user.email "noreply@anthropic.com"
-          git checkout --orphan art-probe
+          git checkout --orphan art-probe2
           git rm -rq --cached . || true
           git add -f probe/champ_art_compare.png
-          git commit -qm "probe: 챔피언 아트 버전별 대조표"
-          git push -qf origin art-probe
+          git commit -qm "probe: 그림이 다른 챔피언 대조표"
+          git push -qf origin art-probe2
