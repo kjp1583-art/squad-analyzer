@@ -2747,6 +2747,12 @@ async function loadDDragon(){
     const data=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/champion.json`)).json();
     for(const k in data.data){
       const c=data.data[k];
+      // 🚫 [2026-08-01 사장님 제보] '롤 클래식' 항목 제외 — 초상화가 2009년 그림으로 바뀌던 원인.
+      //   라이엇이 클래식 모드를 내면서 Data Dragon 에 Jade_* (key 60000번대) 항목을 추가했는데
+      //   한글명이 정규 챔피언과 **완전히 같다**. 이 맵은 한글명이 키라서 뒤에 오는 Jade 쪽이
+      //   정규 챔피언을 덮어써 버렸다(예: 블리츠크랭크 → Jade_Blitzcrank key 60053 = 2009년 아트).
+      //   협곡·칼바람 전적에 쓰는 그림은 언제나 정규 챔피언이어야 하므로 클래식 항목은 건너뛴다.
+      if(String(k).startsWith("Jade_") || Number(c.key)>=60000) continue;
       // [2026-07-30] Data Dragon 최신 버전이 구 아트를 주는 구간이 있어 초상화가 옛날 그림으로 바뀌었다.
       //   실제 클라이언트 에셋을 미러하는 Community Dragon 을 먼저 쓰고, 실패하면 Data Dragon 으로 떨어진다.
       CHAMPMAP[c.name]=`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${c.key}.png`;
@@ -5164,7 +5170,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608012135";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608012250";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

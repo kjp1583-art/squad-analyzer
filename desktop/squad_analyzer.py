@@ -283,6 +283,11 @@ try:
             for eng_name, c_info in c_data.items():
                 kor_name = c_info.get("name", "")
                 c_id = c_info.get("key", "")
+                # 🚫 [2026-08-01 사장님 제보] '롤 클래식' 항목 제외 — 초상화가 2009년 그림으로 뜨던 원인.
+                #   라이엇이 클래식 모드를 내며 Jade_* (key 60000번대) 항목을 추가했는데 한글명이
+                #   정규 챔피언과 같아서, 한글명이 키인 맵을 뒤에 오는 Jade 쪽이 덮어썼다.
+                if str(eng_name).startswith("Jade_") or (str(c_id).isdigit() and int(c_id) >= 60000):
+                    continue
                 if kor_name and eng_name:
                     CHAMP_KOR_TO_ENG[kor_name] = eng_name
                     CHAMP_KOR_TO_ENG[kor_name.replace(" ", "")] = eng_name
