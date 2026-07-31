@@ -1,7 +1,6 @@
 name: Champion art probe
 
-# 🔍 [2026-08-01] champion-tile 경로 커버리지 확인.
-#   champion-summary.json 의 alias 로 URL 을 만들어 전 챔피언이 200 인지 검사한다.
+# 🔍 [2026-08-01] 롤 클래식(Jade_*) 항목이 같은 한글명으로 정규 챔피언을 덮어쓰는지 확인.
 on:
   workflow_dispatch:
 
@@ -12,42 +11,67 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Coverage check
+      - uses: actions/checkout@v4
+      - name: Duplicate-name check
         run: |
+          pip install --quiet pillow
           python3 - <<'PY'
-          import urllib.request, json, concurrent.futures as cf
+          import urllib.request, json, io, os, collections
+          from PIL import Image, ImageDraw
           UA={'User-Agent':'Mozilla/5.0'}
-          CD="https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default"
           def get(u):
               try:
                   with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=25) as r:
                       return r.read()
-              except Exception: return None
+              except Exception as e:
+                  print("  ERR",type(e).__name__,u[-70:]); return None
+          CD="https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default"
+          vs=json.loads(get("https://ddragon.leagueoflegends.com/api/versions.json")); V=vs[0]
+          data=json.loads(get(f"https://ddragon.leagueoflegends.com/cdn/{V}/data/ko_KR/champion.json"))["data"]
+          print("ddragon champion.json 항목 수:", len(data))
 
-          summ=json.loads(get(f"{CD}/v1/champion-summary.json"))
-          champs=[c for c in summ if int(c.get("id",-1))>0]
-          print("champion-summary 챔피언 수:", len(champs))
-          print("샘플:", {k:champs[0][k] for k in ("id","name","alias","squarePortraitPath")})
+          by=collections.defaultdict(list)
+          for k,c in data.items(): by[c["name"]].append((k,c["key"]))
+          dup={n:v for n,v in by.items() if len(v)>1}
+          print(f"한글명이 겹치는 챔피언: {len(dup)}종")
+          for n,v in list(dup.items())[:15]: print("  ",n,v)
 
-          def urls(c):
-              a=str(c["alias"]).lower(); i=c["id"]
-              return {
-                "tile(alias)":  f"{CD}/assets/characters/{a}/skins/base/images/{a}_splash_tile_0.jpg",
-                "load(alias)":  f"{CD}/assets/characters/{a}/skins/base/images/{a}_splash_centered_0.jpg",
-                "square(json)": f"{CD}/{str(c['squarePortraitPath']).replace('/lol-game-data/assets','').lstrip('/').lower()}",
-              }
-          def check(c):
-              res={}
-              for k,u in urls(c).items():
-                  b=get(u); res[k]=bool(b and len(b)>800)
-              return (c["name"], c["alias"], c["id"], res)
+          # ddragon 이 등장 순서대로 넣으면 마지막 값이 이긴다 → 실제로 무엇이 이기는지
+          last={}
+          for k,c in data.items(): last[c["name"]]=(k,c["key"])
+          for n in list(dup)[:8]:
+              print(f"  덮어쓰기 결과 {n} -> {last[n]}")
 
-          bad={"tile(alias)":[], "load(alias)":[], "square(json)":[]}
-          with cf.ThreadPoolExecutor(max_workers=16) as ex:
-              for name,alias,cid,res in ex.map(check, champs):
-                  for k,ok in res.items():
-                      if not ok: bad[k].append((name,alias,cid))
-          for k,v in bad.items():
-              print(f"\n{k} — 실패 {len(v)}명 / {len(champs)}명")
-              for n,a,i in v[:25]: print(f"   {n} (alias={a}, id={i})")
+          # 블리츠크랭크 정규/클래식 아이콘을 나란히
+          tgt=[n for n in dup if "블리츠" in n] or list(dup)[:1]
+          rows=[]
+          for n in tgt[:1]:
+              for k,key in dup[n]:
+                  rows.append((f"{k} (key={key})", f"{CD}/v1/champion-icons/{key}.png"))
+                  rows.append((f"{k} tile", f"{CD}/assets/characters/{k.lower()}/skins/base/images/{k.lower()}_splash_tile_0.jpg"))
+          S=140; PAD=10; LAB=230
+          W=LAB+S+PAD*2; H=PAD+len(rows)*(S+PAD)
+          sheet=Image.new("RGB",(W,H),(18,22,32)); dr=ImageDraw.Draw(sheet)
+          for i,(label,u) in enumerate(rows):
+              dr.text((6, PAD+i*(S+PAD)+S//2-6), label[:30], fill=(245,212,122))
+              b=get(u)
+              if not b: print("  없음:",label); continue
+              try:
+                  im=Image.open(io.BytesIO(b)).convert("RGB")
+                  im=im.crop((0,0,min(im.width,im.height),min(im.width,im.height))).resize((S,S))
+                  sheet.paste(im,(LAB, PAD+i*(S+PAD)))
+                  print("  OK",label,len(b),"B")
+              except Exception as e: print("  IMG ERR",label,e)
+          os.makedirs("probe",exist_ok=True)
+          sheet.save("probe/jade_check.png")
+          print("saved",sheet.size)
           PY
+      - name: Commit
+        run: |
+          git config user.name  "art-probe"
+          git config user.email "noreply@anthropic.com"
+          git checkout --orphan art-probe5
+          git rm -rq --cached . || true
+          git add -f probe/jade_check.png
+          git commit -qm "probe: Jade 중복 확인"
+          git push -qf origin art-probe5
