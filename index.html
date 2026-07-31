@@ -268,8 +268,15 @@
   .ach-name{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;padding:2px 9px;border-radius:14px;background:#181b21;border:1px solid #2b3444;color:#dfe4ee;cursor:pointer}
   .ach-name:hover{border-color:var(--accent,#5b8cff)}
   /* 🏆 이주의 인물 */
+  /* [2026-07-31] 홈 상단 — 포지션 분포(좌) + 이주의 인물(우)을 한 박스에 반반으로 */
+  .homehead{margin-bottom:14px;display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+  .homehead.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .homehead.two .hh-pane:last-child{border-left:1px solid var(--line);padding-left:18px}
+  .homehead .hh-pane{min-width:0}
+  @media(max-width:900px){.homehead.two{grid-template-columns:minmax(0,1fr)}
+    .homehead.two .hh-pane:last-child{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:14px}}
   .weekcard{margin-bottom:14px}
-  .weekgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .weekgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   @media(max-width:620px){.weekgrid{grid-template-columns:1fr}}
   .wkstar{background:#171a21;border:1px solid #2b3444;border-radius:10px;padding:12px 14px;text-align:center}
   .wk-t{font-size:13px;font-weight:700;color:#cdd6e6;margin-bottom:6px}
@@ -2996,7 +3003,7 @@ function renderHome(){
     }
   }
   const posSum=[...posCnt.values()].reduce((a,b)=>a+b,0);
-  const posDist=posSum?`<div class="card" style="margin-bottom:14px">
+  const posDist=posSum?`<div class="hh-pane">
       <h2 style="margin-bottom:2px">🧭 클랜원 주포지션 분포 <span class="muted" style="font-size:13px;font-weight:400">클랜원 ${posSum}명 · 선언 주포지션(미선언자는 최다 플레이 라인)</span></h2>
       <div class="posbar" style="margin:8px 0 8px">${POS_LIST.map(pp=>{
         const n=posCnt.get(pp)||0; if(!n)return"";
@@ -3015,9 +3022,10 @@ function renderHome(){
     </div>`:'';
 
   view().innerHTML=`
-    ${posDist}
     ${navTabsHtml('home')}
-    ${ws ? `<div class="card weekcard">
+    ${(posDist||ws) ? `<div class="card homehead${(posDist&&ws)?' two':''}">
+    ${posDist}
+    ${ws ? `<div class="hh-pane">
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px">
         <h2 style="margin:0">🏆 이주의 인물</h2>
         <span class="muted" style="font-size:12.5px">최근 7일 · ${_wkMD(ws.from)}~${_wkMD(ws.to)} 기준</span>
@@ -3046,6 +3054,7 @@ function renderHome(){
         </div>` : '' }
         <div id="cmtList"><div class="muted" style="padding:8px 0;font-size:14px">댓글 불러오는 중…</div></div>
       </div>
+    </div>` : ''}
     </div>` : ''}
     <div class="home3">
       <div class="card">
@@ -4825,7 +4834,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311735";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
