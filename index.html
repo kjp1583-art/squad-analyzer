@@ -370,6 +370,9 @@
   .kda .kr{font-weight:800;margin-left:3px}
   .rk{font-size:12.5px;font-weight:800;color:var(--sub);background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;flex:none;min-width:30px;text-align:center}
   .rk.rk1{color:#15171c;background:var(--gold);border-color:var(--gold)}
+  /* [2026-07-31] 등수 자리를 대신하는 MVP·ACE 딱지 */
+  .rk.rk-mvp{color:#15171c;background:var(--gold);border-color:var(--gold)}
+  .rk.rk-ace{color:#062229;background:#39c7d6;border-color:#39c7d6}
   .posbar{display:flex;height:9px;border-radius:5px;overflow:hidden;margin-bottom:11px;background:var(--bg2)}
   .posbar>div{height:100%}
   .posdot{width:9px;height:9px;border-radius:2px;display:inline-block;flex:none}
@@ -1116,7 +1119,8 @@ function computeAssessments(){
      · 연패 중(직전까지 2연패 이상) KDA ÷ 평소 KDA        (가중 65%)
      · 연패 중 킬관여 ÷ 평소 킬관여                        (가중 35%) — 지고 있을 때 팀 싸움에 계속 붙는가
    두 비율을 클랜 전체 z점수로 환산해 50점 평균(±15점=1표준편차)으로 낸다.
-   실측(127명 스냅샷): 분포 20~88, 승률과의 상관 -0.12 → 실력과 거의 독립인 별개 축.
+   실측(스냅샷): 94명 대상, 분포 18~87, 승률과의 상관 -0.11 → 실력과 거의 독립인 별개 축.
+   측정 구간은 KDA 기록이 시작된 2026-06-25 이후 판(그 이전 판은 승패만 알 뿐 성적을 못 재서 제외).
    ⚠️ 한계: 채팅·핑 기록이 없어 '진짜 감정'이 아니라 '기록에 남은 플레이 변화'만 본다. */
 const MENTAL_MIN_GAMES=15, MENTAL_MIN_TILT=3;
 let MENTAL=new Map();
@@ -1128,22 +1132,32 @@ function computeMental(){
     const rs=parts.filter(r=>r["결과"]==="승리"||r["결과"]==="패배")
       .slice().sort((a,b)=>String(a["날짜"]||"").localeCompare(String(b["날짜"]||""))
                         || String(a["게임ID"]||"").localeCompare(String(b["게임ID"]||"")));
-    if(rs.length<MENTAL_MIN_GAMES) continue;
     const calmK=[],tiltK=[],calmP=[],tiltP=[];
-    let streak=0;
+    let streak=0, measured=0, firstDay="";
     for(const r of rs){
       const tilt = streak>=2;                       // 직전까지 2연패 이상 = 기울어진 상태
       const ko=parseKDA(r["KDA"]);
-      if(ko){ const v=(ko.d===0?(ko.k+ko.a):(ko.k+ko.a)/ko.d); (tilt?tiltK:calmK).push(v); }
-      const mt=parseMetrics(r);
-      if(mt&&mt.kp!=null) (tilt?tiltP:calmP).push(mt.kp);
+      // ⚠️ [2026-07-31 사장님 지적] 상세 기록이 없던 시절 판이 섞이면 두 축의 기간이 어긋난다.
+      //    KDA 는 2026-06-25 부터, 킬관여는 그 이전부터 남아 있어 그대로 두면
+      //    '연패 중 KDA'는 최근만, '연패 중 킬관여'는 옛날까지 보게 된다.
+      //    → KDA 가 기록된 판만 측정 대상으로 삼고, 킬관여도 **같은 판에서만** 센다.
+      //    (기록이 없는 판도 승패는 알므로 연패 카운트에는 그대로 반영한다)
+      if(ko){
+        const v=(ko.d===0?(ko.k+ko.a):(ko.k+ko.a)/ko.d);
+        (tilt?tiltK:calmK).push(v);
+        const mt=parseMetrics(r);
+        if(mt&&mt.kp!=null) (tilt?tiltP:calmP).push(mt.kp);
+        measured++;
+        if(!firstDay) firstDay=String(r["날짜"]||"").slice(0,10);
+      }
       streak = (r["결과"]==="패배") ? streak+1 : 0;
     }
+    if(measured<MENTAL_MIN_GAMES) continue;         // 판수 게이트도 '측정 가능한 판' 기준
     if(tiltK.length<MENTAL_MIN_TILT || calmK.length<5) continue;
     const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
     const rk=(mean(tiltK)+0.1)/(mean(calmK)+0.1);
     const rp=(tiltP.length>=MENTAL_MIN_TILT&&calmP.length>=5)?((mean(tiltP)+1)/(mean(calmP)+1)):null;
-    raw.push({nm,rk,rp,tiltN:tiltK.length,g:rs.length});
+    raw.push({nm,rk,rp,tiltN:tiltK.length,g:measured,from:firstDay});
   }
   if(raw.length<5) return MENTAL;
   const zf=vals=>{ const mu=vals.reduce((a,b)=>a+b,0)/vals.length;
@@ -1155,7 +1169,7 @@ function computeMental(){
   for(const x of raw){
     const z=0.65*zk(x.rk)+0.35*(x.rp!=null?zp(x.rp):0);
     MENTAL.set(x.nm,{score:Math.max(1,Math.min(100,Math.round(50+15*z))),
-                     rk:x.rk, rp:x.rp, tiltN:x.tiltN, g:x.g});
+                     rk:x.rk, rp:x.rp, tiltN:x.tiltN, g:x.g, from:x.from});
   }
   return MENTAL;
 }
@@ -3255,7 +3269,7 @@ function radarSvg(axes,size,opts){
   const labels=axes.map((a,i)=>{const[x,y]=pt(i,R+18);
     const g=opts.grades?radarGrade(a.v||0):null;
     const gl=g?`<text x="${x}" y="${y-4}" fill="${g[2]}" font-size="13" font-weight="800" text-anchor="middle">${g[1]}</text>`:'';
-    return `${gl}<text x="${x}" y="${y+(g?10:0)}" fill="#8e97ab" font-size="10.5" text-anchor="middle" dominant-baseline="middle">${esc(a.label)}</text>`;}).join("");
+    return `${gl}<text x="${x}" y="${y+(g?10:0)}" fill="#e7ebf3" font-size="10.5" font-weight="700" text-anchor="middle" dominant-baseline="middle">${esc(a.label)}</text>`;}).join("");
   return `<svg class="radar" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${grid}${spokes}${avg}${mine}${labels}</svg>`;
 }
 const GRADE_TBL=[[90,"S","#ffd24a"],[75,"A","#7ee081"],[55,"B","#5b8cff"],[35,"C","#b6a5ff"],[0,"D","#8e97ab"]];
@@ -4218,7 +4232,7 @@ function renderPlayer(name){
     { const _mt=(typeof mentalOf==='function')?mentalOf(name):null;
       if(_mt) it.push(cell("🧊 멘탈",`${_mt.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
         mentalLabel(_mt.score), _mt.score>=65?'cmp-good':(_mt.score<=35?'cmp-bad':''),
-        `연패 중(2연패 이상)에도 평소 실력을 유지하는 정도 — 연패 중 KDA·킬관여를 그 사람 평소 값과 비교합니다(연패 상황 ${_mt.tiltN}판 기준). 50점이 클랜 평균. 실력이 아니라 '무너지지 않는가'를 봅니다.`)); }
+        `연패 중(2연패 이상)에도 평소 실력을 유지하는 정도 — 연패 중 KDA·킬관여를 그 사람 평소 값과 비교합니다. 측정 ${_mt.g}판(연패 상황 ${_mt.tiltN}판)${_mt.from?` · ${_mt.from}부터`:''} — 상세 기록이 없던 시절 판은 제외했습니다. 50점이 클랜 평균. 실력이 아니라 '무너지지 않는가'를 봅니다.`)); }
     // ▼ 동티어 비교(내부티어 평균 대비) — 5% 이상 벌어질 때만 색.
     const d=_asmt&&_asmt.detail;
     const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
@@ -4493,9 +4507,13 @@ function renderGame(gid){
     const bans=(g.bans[side]||[]);
     const rows=players.map(p=>{
       const me=p["매치평가"];
-      const badge=me==="MVP"?`<span class="badge b-mvp">MVP</span>`:me==="ACE"?`<span class="badge b-ace">ACE</span>`:me==="역적"?`<span class="badge b-bad">역적</span>`:"";
       const rk=rankMap.get(p);
-      const rankBadge=rk?`<span class="rk ${rk===1?'rk1':''}" title="이 게임 ${total}명 중 ${rk}등">${rk===1?'👑 ':''}${rk}등</span>`:"";
+      // 🏅 [2026-07-31 사장님 지시] MVP·ACE는 등수 자리에 딱지로 대체(줄 끝 뱃지 제거).
+      //    등수는 어차피 순위 지표라, 그 판의 대표 칭호가 있으면 그걸 먼저 보여주는 게 읽기 쉽다.
+      const rankBadge = me==="MVP" ? `<span class="rk rk-mvp" title="이 게임 MVP${rk?` · ${total}명 중 ${rk}등`:''}">MVP</span>`
+                      : me==="ACE" ? `<span class="rk rk-ace" title="이 게임 ACE(진 팀 최고 활약)${rk?` · ${total}명 중 ${rk}등`:''}">ACE</span>`
+                      : rk ? `<span class="rk ${rk===1?'rk1':''}" title="이 게임 ${total}명 중 ${rk}등">${rk===1?'👑 ':''}${rk}등</span>` : "";
+      const badge = me==="역적" ? `<span class="badge b-bad">역적</span>` : "";
       const bl=buildLine(p);
       return `<div class="prow">
         ${rankBadge}
@@ -5047,7 +5065,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607312230";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608010010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
