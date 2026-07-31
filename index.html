@@ -239,11 +239,31 @@
   .tb-group.t1{border-color:rgba(255,138,149,.32)}
   .tb-group.t2{border-color:rgba(143,186,255,.32)}
   .tb-group.t3{border-color:rgba(255,215,122,.32)}
-  .tb-detail{margin-top:10px;animation:tb-open .22s ease both;
-    border-color:rgba(255,210,74,.45);box-shadow:0 0 0 1px rgba(255,210,74,.12)}
-  @keyframes tb-open{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
-  .tb-hint{margin-top:12px;font-size:12.5px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
-  @media(max-width:820px){.tb-group{min-width:calc(var(--n) * 84px)}.tb-name{font-size:12px}}
+  /* 🪟 [2026-07-31] 티어표에서 이름을 누르면 뜨는 '플레이어 카드' 팝업 */
+  .tbm-back{position:fixed;inset:0;z-index:90;background:rgba(6,8,13,.72);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;padding:20px;animation:tbm-fade .16s ease both}
+  .tbm-card{position:relative;width:min(560px,100%);max-height:88vh;overflow-y:auto;
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:0 24px 60px rgba(0,0,0,.6);animation:tbm-pop .2s cubic-bezier(.2,1.2,.4,1) both}
+  .tbm-banner{position:absolute;left:0;right:0;top:0;height:150px;z-index:0;background-size:cover;
+    background-position:center 22%;opacity:.42;border-radius:16px 16px 0 0;
+    -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 38%,transparent 100%);
+    mask-image:linear-gradient(180deg,#000 0%,#000 38%,transparent 100%)}
+  .tbm-x{position:absolute;top:10px;right:12px;z-index:3;background:rgba(0,0,0,.42);color:var(--sub);
+    border:1px solid var(--line);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:13px;line-height:1}
+  .tbm-x:hover{color:var(--txt);background:rgba(0,0,0,.6)}
+  .tbm-head{position:relative;z-index:1;padding:18px 18px 12px}
+  .tbm-nm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:21px;font-weight:800}
+  .tbm-sub{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px}
+  .tbm-rec{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+  .tbm-body{position:relative;z-index:1;padding:0 18px 18px}
+  .tbm-go{width:100%;margin-top:12px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);
+    border-radius:10px;padding:9px;font-size:13.5px;font-weight:700;cursor:pointer}
+  .tbm-go:hover{color:var(--txt);border-color:#3b4763}
+  @keyframes tbm-fade{from{opacity:0}to{opacity:1}}
+  @keyframes tbm-pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.tbm-back,.tbm-card{animation:none}}
+    @media(max-width:820px){.tb-group{min-width:calc(var(--n) * 84px)}.tb-name{font-size:12px}}
   .assess{display:inline-block;padding:2px 9px;border-radius:6px;font-size:13.5px;font-weight:800}
   .assess.a-over{background:#3a1c25;color:#e84057}
   .assess.a-ok{background:#16331f;color:#2bb177}
@@ -1102,8 +1122,11 @@ function kizukiEmblem(name){
   </div>`;
 }
 // 🎖 재미 업적 뱃지 — 한 플레이어의 획득 뱃지 목록 [{k(그룹키),i(아이콘),t(칭호),d(설명)}]. 하위·캐주얼도 획득 가능.
-function playerBadges(name){
-  const parts=PLAYERS.get(name); if(!parts||!parts.length) return [];
+function playerBadges(name, useAll){
+  // [2026-07-31 사장님 지시] 업적 도감은 항상 전체 패치 기준(useAll=true).
+  //   '고인물 100판'·'연승' 같은 통산 업적이 패치 필터에 따라 사라지면 안 된다.
+  const src=(useAll && PLAYERS_ALL.size) ? PLAYERS_ALL : PLAYERS;
+  const parts=src.get(name); if(!parts||!parts.length) return [];
   let w=0,l=0,mvp=0,bad=0,aceN=0,maxStreak=0,cs=0;
   const champ=new Map(), pos=new Map();
   for(const r of parts){
@@ -3307,8 +3330,9 @@ function renderArmy(){
 }
 function renderAchievements(){
   const byKey=new Map();
-  for(const [nm] of PLAYERS){ for(const b of playerBadges(nm)){ (byKey.get(b.k)||byKey.set(b.k,[]).get(b.k)).push({name:nm,t:b.t}); } }
-  const holders1plus=[...PLAYERS.keys()].filter(nm=>playerBadges(nm).length>0).length;
+  const SRC=PLAYERS_ALL.size?PLAYERS_ALL:PLAYERS;   // 업적은 통산 기준(패치 필터 무관)
+  for(const [nm] of SRC){ for(const b of playerBadges(nm,true)){ (byKey.get(b.k)||byKey.set(b.k,[]).get(b.k)).push({name:nm,t:b.t}); } }
+  const holders1plus=[...SRC.keys()].filter(nm=>playerBadges(nm,true).length>0).length;
   const sections=BADGE_CATALOG.map(cat=>{
     const hs=(byKey.get(cat.k)||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
     let chips;
@@ -3324,7 +3348,7 @@ function renderAchievements(){
   }).join("");
   view().innerHTML=`${navTabsHtml('ach')}
     <div class="card" style="margin-top:16px">
-      <h2>🏅 업적 도감 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 실력 무관, 누구나 수집)</span></h2>
+      <h2>🏅 업적 도감 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 통산 — 상단 패치 필터와 무관 · 실력 무관, 누구나 수집)</span></h2>
       <div class="muted" style="font-size:13px;margin:2px 0 10px">내전을 즐기다 보면 자연스럽게 모이는 재미 뱃지 모음이에요. 현재 <b>${holders1plus}명</b>이 하나 이상 보유 중 · 이름을 누르면 프로필로 이동합니다.</div>
       ${sections}
     </div>`;
@@ -3518,6 +3542,9 @@ function setTierPick(n){
   TIER_PICK = (TIER_PICK===n) ? null : n;
   const y=window.scrollY; renderTiers(); window.scrollTo(0,y);
 }
+function closeTierPick(e){ if(e&&e.stopPropagation) e.stopPropagation(); TIER_PICK=null;
+  const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&TIER_PICK){ closeTierPick(); } });
 function renderTiers(){
   const r1=v=>v!=null?Math.round(v):'—';
   const byTier={};
@@ -3543,14 +3570,11 @@ function renderTiers(){
     </div>`;
   };
 
-  // 선택된 선수가 어느 리그에 있는지 — 세부 패널을 그 보드 바로 밑에 붙이기 위해 미리 찾는다.
-  const pickTier = TIER_PICK ? (ASSESSMENTS.get(TIER_PICK)||{}).tier : null;
-  const pickLeague = pickTier
-    ? (LEAGUES.find(L=>L.groups.some(g=>g.cols.includes(pickTier)))||{}).key : null;
 
-  // 선택된 선수의 세부 지표 — 예전 목록에 줄글로 깔려 있던 내용을 여기로 모았다.
+  // 🪟 [2026-07-31 사장님 지시] 이름을 누르면 화면 정중앙에 '플레이어 카드' 팝업으로 띄운다.
+  //    (보드 아래 인라인은 시선이 멀어 안 뜬 줄 아는 문제가 있었다)
   const detail=(()=>{
-    if(!TIER_PICK) return `<div class="tb-hint muted">이름을 누르면 그 선수의 세부 지표가 여기에 펼쳐집니다.</div>`;
+    if(!TIER_PICK) return '';
     const _a0=ASSESSMENTS.get(TIER_PICK);
     if(!_a0) return '';
     const a=Object.assign({name:TIER_PICK}, _a0);   // ASSESSMENTS 값에는 이름이 없다(키가 이름)
@@ -3559,6 +3583,25 @@ function renderTiers(){
       const dd=(mine-ref)/Math.abs(ref); if(Math.abs(dd)<0.05) return '';
       return (dd>0)===!!hiGood?'cmp-good':'cmp-bad'; };
     const box=(k,v,ref,cls)=>`<div class="cmp${cls?' '+cls:''}"><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+
+    // 카드 상단 요약 — 전적·승률·최근 폼·모스트 챔프(배너용)
+    let w=0,l=0,mvpN=0,badN=0,form='',mainChamp='';
+    try{
+      const parts=PLAYERS.get(a.name)||[];
+      const cc=new Map();
+      for(const r of parts){
+        if(r["결과"]==="승리")w++; else if(r["결과"]==="패배")l++;
+        if(r["매치평가"]==="MVP")mvpN++; else if(r["매치평가"]==="역적")badN++;
+        const c=r["챔피언"]; if(c) cc.set(c,(cc.get(c)||0)+1);
+      }
+      mainChamp=[...cc.entries()].sort((x,y)=>y[1]-x[1]).map(x=>x[0])[0]||'';
+      form=[...parts].reverse().filter(r=>r["결과"]==="승리"||r["결과"]==="패배").slice(0,10)
+            .map(r=>{const win=r["결과"]==="승리";return `<span class="dot ${win?'w':'l'}">${win?'승':'패'}</span>`;}).join("");
+    }catch(e){}
+    const wr=(w+l)?Math.round(w/(w+l)*100):0;
+    const splash=(typeof SPLASHMAP!=='undefined')
+      ? (SPLASHMAP[mainChamp]||SPLASHMAP[String(mainChamp).replace(/\s/g,"")]||'') : '';
+
     let cells='';
     if(d){
       cells+=box('승률',`${d.wr}%`,`동티어 ${d.wrAvg}%`,cmpCls(d.wr,d.wrAvg,1));
@@ -3575,19 +3618,36 @@ function renderTiers(){
         (!isNaN(gr.act)&&!isNaN(gr.exp))?`실제 ${Math.round(gr.act)}% / 기대 ${Math.round(gr.exp)}%`:`대결 ${gr.n}회`,
         Math.abs(gr.score)<2?'':(pos?'cmp-bad':'cmp-good'));
     }
-    return `<div class="cmpbox tb-detail">
-      <div class="cmpbox-h">
-        <span class="tier ${tierGroupCls(a.tier)}" style="margin:0">${esc(a.tier)}</span>
-        <b style="font-size:15px">${esc(shortName(a.name))}</b>
-        <span class="muted" style="font-size:12.5px">${esc(tagOf(a.name))}</span>
-        ${titleBadge(a.title)}<span class="assess ${a.cls}">${a.label}</span>
-        ${posDeclLabel(a.name)?`<span style="background:#20304a;color:#8fd0ff;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:8px">${esc(posDeclLabel(a.name))}</span>`:''}
-        ${a.implPct!=null?`<b style="color:#ffd24a;font-size:13px">🎯 클랜 상위 ${a.implPct}%</b>`:''}
-        <button class="pchip" style="margin-left:auto;cursor:pointer" onclick="go('player',${JSON.stringify(a.name).replace(/"/g,'&quot;')})">전적 보기 →</button>
+    const nameJs=JSON.stringify(a.name).replace(/"/g,'&quot;');
+    return `<div class="tbm-back" onclick="closeTierPick(event)">
+      <div class="tbm-card" onclick="event.stopPropagation()">
+        ${splash?`<div class="tbm-banner" style="background-image:url('${splash}')"></div>`:''}
+        <button class="tbm-x" onclick="closeTierPick()" title="닫기 (Esc)">✕</button>
+        <div class="tbm-head">
+          <div class="tbm-nm">
+            <span class="tier ${tierGroupCls(a.tier)}" style="margin:0">${esc(a.tier)}</span>
+            <b>${esc(shortName(a.name))}</b><span class="muted" style="font-size:13px;font-weight:400">${esc(tagOf(a.name))}</span>
+            <span class="assess ${a.cls}">${a.label}</span>
+          </div>
+          <div class="tbm-sub">
+            ${titleBadge(a.title)}
+            ${posDeclLabel(a.name)?`<span style="background:#20304a;color:#8fd0ff;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:8px">${esc(posDeclLabel(a.name))}</span>`:''}
+            ${a.implPct!=null?`<b style="color:#ffd24a;font-size:13px">🎯 클랜 상위 ${a.implPct}%</b>`:''}
+          </div>
+          <div class="tbm-rec">
+            <span><b style="font-size:20px;color:${wr>=50?'var(--win)':'var(--lose)'}">${wr}%</b> <span class="muted">승률</span></span>
+            <span class="muted">${w+l}전 <b style="color:var(--win)">${w}승</b> <b style="color:var(--lose)">${l}패</b></span>
+            <span class="muted">MVP ${mvpN} · 역적 ${badN}</span>
+          </div>
+          ${form?`<div class="form" style="margin-top:8px">${form}</div>`:''}
+        </div>
+        <div class="tbm-body">
+          ${d?`<div class="cmpgrid">${cells}</div>
+            <div class="muted" style="font-size:12px;margin-top:8px">동티어 평균 — 승률 ${r1(av.wr)}%${av.mvp!=null?` · MVP율 ${r1(av.mvp)}%`:''}${av.troll!=null?` · 역적율 ${r1(av.troll)}%`:''}${av.solo!=null?` · 🏅솔랭 ${r1(av.solo)}`:''} · 표본 ${av.n||0}명</div>`
+            :`<div class="muted" style="font-size:13.5px">${a.games}판 — 평가엔 10판 이상 필요</div>`}
+          <button class="tbm-go" onclick="go('player',${nameJs})">전적 상세 보기 →</button>
+        </div>
       </div>
-      ${d?`<div class="cmpgrid">${cells}</div>
-        <div class="muted" style="font-size:12px;margin-top:7px">동티어 평균 — 승률 ${r1(av.wr)}%${av.mvp!=null?` · MVP율 ${r1(av.mvp)}%`:''}${av.troll!=null?` · 역적율 ${r1(av.troll)}%`:''}${av.solo!=null?` · 🏅솔랭 ${r1(av.solo)}`:''} · 표본 ${av.n||0}명</div>`
-        :`<div class="muted" style="font-size:13.5px">${a.games}판 — 평가엔 10판 이상 필요</div>`}
     </div>`;
   })();
 
@@ -3600,9 +3660,8 @@ function renderTiers(){
     return `<div class="tb-league">
       <div class="tb-lhead"><b>${esc(L.name)}</b><span class="muted">${esc(L.sub)} · ${total}명</span></div>
       <div class="tb-board">${cols}</div>
-      ${pickLeague===L.key ? detail : ''}
     </div>`;
-  }).join("") + (TIER_PICK ? '' : detail);
+  }).join("");
 
   view().innerHTML=`${navTabsHtml('tiers')}
     <div class="card">
@@ -3622,7 +3681,8 @@ function renderTiers(){
         <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.<br>
         <span style="opacity:.75">· 🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌은 op.gg 기준(시즌 종료 시점 티어).</span>
       </div>
-    </div>`;
+    </div>
+    ${detail}`;
 }
 
 let LOG_LIMIT=60;
@@ -4816,7 +4876,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311820";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311850";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
