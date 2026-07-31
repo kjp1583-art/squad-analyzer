@@ -312,7 +312,6 @@
     .homehead.two .hh-pane:last-child{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:14px}}
   .weekcard{margin-bottom:14px}
   .weekgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media(max-width:620px){.weekgrid{grid-template-columns:1fr}}
   .wkstar{background:#171a21;border:1px solid #2b3444;border-radius:10px;padding:12px 14px;text-align:center}
   .wk-t{font-size:13px;font-weight:700;color:#cdd6e6;margin-bottom:6px}
   .wk-name{font-size:17px;font-weight:800;color:#F5D47A;cursor:pointer}
@@ -399,6 +398,38 @@
   .tab{padding:10px 16px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent;cursor:pointer}
   .tab:hover{color:var(--txt)}
   .tab.on{color:var(--txt);border-bottom-color:var(--accent)}
+  /* 📱 [2026-08-01 사장님 지시] 모바일 시인성 개선.
+     증상: 탭·검색 버튼 글자가 한 글자씩 세로로 쪼개지고, 상단 필터가 화면을 다 먹어
+           본문까지 스크롤이 너무 길었다. 원인은 좁은 폭에서 flex 가 칸을 쥐어짜며 줄바꿈된 것.
+     처방: 글자는 줄바꿈 금지 + 줄들을 가로 스크롤로 바꾸고, 칩·여백을 한 단계씩 줄인다. */
+  @media(max-width:720px){
+    /* 탭 — 세로로 쪼개지던 문제. 가로 스크롤 한 줄로 */
+    .tabs{overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;gap:0;margin:12px 0 6px;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{white-space:nowrap;flex:0 0 auto;padding:9px 12px;font-size:14px}
+    /* 검색 — '검색' 글자가 세로로 깨지던 문제 */
+    .search button{white-space:nowrap;flex:0 0 auto;padding:0 14px;font-size:14.5px}
+    .search input{font-size:15px;padding:10px 12px;min-width:0}
+    .hd{gap:10px;padding:11px 12px}
+    .logo{font-size:19px}
+    .logomark{width:28px;height:28px}
+    /* 카테고리·패치 필터 — 한 줄 가로 스크롤로 접어 화면을 덜 먹게 */
+    .catbar,.patchbar{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;margin-top:10px}
+    .catbar::-webkit-scrollbar,.patchbar::-webkit-scrollbar{display:none}
+    .catbar .cat{flex:0 0 auto;white-space:nowrap;padding:7px 13px;font-size:14px}
+    .pchip{flex:0 0 auto;white-space:nowrap;padding:6px 11px;font-size:13.5px}
+    /* 이주의 인물 — 1열이라 한없이 길어지던 것을 2열로 */
+    .weekgrid{grid-template-columns:1fr 1fr;gap:8px}
+    .wkstar{padding:10px 8px}
+    .wk-name{font-size:15px}
+    .card{padding:13px}
+    .card h2{font-size:15px}
+  }
+  @media(max-width:400px){
+    .weekgrid{grid-template-columns:1fr}
+  }
   /* 내전 기록부 */
   .logrow{display:flex;gap:12px;align-items:center;padding:9px 6px;border-top:1px solid var(--line);cursor:pointer;font-size:14.5px}
   .logrow:first-child{border-top:0}
@@ -5073,7 +5104,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608010050";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608010130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
