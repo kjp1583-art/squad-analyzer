@@ -1,7 +1,7 @@
 name: Champion art probe
 
-# 🔍 [2026-08-01] champion-tiles 경로로 교체하기 전, 전 챔피언 커버리지 확인.
-#   (champion-icons 는 VGU/ASU 이전 구 아트가 그대로 남아 있는 세트였다)
+# 🔍 [2026-08-01] champion-tile 경로 커버리지 확인.
+#   champion-summary.json 의 alias 로 URL 을 만들어 전 챔피언이 200 인지 검사한다.
 on:
   workflow_dispatch:
 
@@ -17,26 +17,37 @@ jobs:
           python3 - <<'PY'
           import urllib.request, json, concurrent.futures as cf
           UA={'User-Agent':'Mozilla/5.0'}
-          def head_ok(u):
-              try:
-                  req=urllib.request.Request(u, headers=UA, method="GET")
-                  with urllib.request.urlopen(req, timeout=25) as r:
-                      return r.status==200 and int(r.headers.get("Content-Length") or 1)>500
-              except Exception: return False
           CD="https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default"
-          vs=json.loads(urllib.request.urlopen("https://ddragon.leagueoflegends.com/api/versions.json").read()); V=vs[0]
-          champ=json.loads(urllib.request.urlopen(f"https://ddragon.leagueoflegends.com/cdn/{V}/data/ko_KR/champion.json").read())["data"]
-          items=[(c["name"], eng, int(c["key"])) for eng,c in champ.items()]
-          print("챔피언", len(items))
+          def get(u):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=25) as r:
+                      return r.read()
+              except Exception: return None
 
-          def check(it):
-              kor,eng,cid=it
-              a=f"{CD}/v1/champion-tiles/{cid}/{cid}000.jpg"
-              return (kor,eng,cid, head_ok(a))
-          bad=[]
+          summ=json.loads(get(f"{CD}/v1/champion-summary.json"))
+          champs=[c for c in summ if int(c.get("id",-1))>0]
+          print("champion-summary 챔피언 수:", len(champs))
+          print("샘플:", {k:champs[0][k] for k in ("id","name","alias","squarePortraitPath")})
+
+          def urls(c):
+              a=str(c["alias"]).lower(); i=c["id"]
+              return {
+                "tile(alias)":  f"{CD}/assets/characters/{a}/skins/base/images/{a}_splash_tile_0.jpg",
+                "load(alias)":  f"{CD}/assets/characters/{a}/skins/base/images/{a}_splash_centered_0.jpg",
+                "square(json)": f"{CD}/{str(c['squarePortraitPath']).replace('/lol-game-data/assets','').lstrip('/').lower()}",
+              }
+          def check(c):
+              res={}
+              for k,u in urls(c).items():
+                  b=get(u); res[k]=bool(b and len(b)>800)
+              return (c["name"], c["alias"], c["id"], res)
+
+          bad={"tile(alias)":[], "load(alias)":[], "square(json)":[]}
           with cf.ThreadPoolExecutor(max_workers=16) as ex:
-              for kor,eng,cid,ok in ex.map(check, items):
-                  if not ok: bad.append((kor,eng,cid))
-          print(f"\nchampion-tiles/{{id}}/{{id}}000.jpg — 실패 {len(bad)}명 / {len(items)}명")
-          for kor,eng,cid in bad[:40]: print("  실패:",kor,eng,cid)
+              for name,alias,cid,res in ex.map(check, champs):
+                  for k,ok in res.items():
+                      if not ok: bad[k].append((name,alias,cid))
+          for k,v in bad.items():
+              print(f"\n{k} — 실패 {len(v)}명 / {len(champs)}명")
+              for n,a,i in v[:25]: print(f"   {n} (alias={a}, id={i})")
           PY
