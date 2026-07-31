@@ -2928,14 +2928,17 @@ function renderEmpty(){
 const WK_SWING_MIN=3;   // 떡상·떡락 판정 최소 표본(이번주·지난주 각각 이 판수 이상)
 // 🏆 이주의 인물 — 데이터상 최신일 기준 최근 7일 창에서 개근/캐리/연승 스타 선정
 function weeklyStars(){
+  // [2026-07-31 사장님 지시] '최근 7일' 집계는 패치 필터와 무관해야 한다 —
+  //   옛 패치를 선택하면 이주의 인물이 통째로 바뀌던 게 이상했다. 항상 전체 데이터로 본다.
+  const SRC=PLAYERS_ALL.size?PLAYERS_ALL:PLAYERS;
   const pdate=r=>{ const m=/(\d{4})-(\d{1,2})-(\d{1,2})/.exec(r["날짜"]||""); return m?new Date(+m[1],+m[2]-1,+m[3]).getTime():null; };
   let maxMs=0;
-  for(const [,parts] of PLAYERS) for(const r of parts){ const t=pdate(r); if(t&&t>maxMs)maxMs=t; }
+  for(const [,parts] of SRC) for(const r of parts){ const t=pdate(r); if(t&&t>maxMs)maxMs=t; }
   if(!maxMs) return null;
   const from=maxMs-7*86400000;
   const prevFrom=maxMs-14*86400000;      // 📈 [2026-07-31] 떡상·떡락 판정용 '지난주' 창
   const arr=[];
-  for(const [nm,parts] of PLAYERS){
+  for(const [nm,parts] of SRC){
     let g=0,ma=0,st=0,cs=0,lt=0,ls=0;   // st/cs=연승, lt/ls=연패([2026-07-31] 이주의 연패왕용)
     let pg=0,pw=0,w=0;                  // pg/pw=지난주 판·승, w=이번주 승
     for(const r of parts){
@@ -3053,7 +3056,7 @@ function renderHome(){
     ${ws ? `<div class="hh-pane">
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px">
         <h2 style="margin:0">🏆 이주의 인물</h2>
-        <span class="muted" style="font-size:12.5px">최근 7일 · ${_wkMD(ws.from)}~${_wkMD(ws.to)} 기준</span>
+        <span class="muted" style="font-size:12.5px">최근 7일 · ${_wkMD(ws.from)}~${_wkMD(ws.to)} 기준 · 패치 필터와 무관</span>
       </div>
       <div class="weekgrid">
         ${weekStar('🏃 개근왕', ws.attend, v=>`${v.g}판 참여`)}
@@ -4912,7 +4915,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311950";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607312010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
