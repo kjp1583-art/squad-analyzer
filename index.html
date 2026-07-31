@@ -87,10 +87,13 @@
   /* 대시보드 3단 레이아웃 (랭킹 · 챔피언통계 · 최근게임) */
   /* [2026-07-31] 랭킹(열 8개)은 넓게, 최근 게임은 좁게 — 3등분이 아니라 1.35 : 1 : 0.8 비율 */
   .home3{display:grid;gap:14px;align-items:start;
-    grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,0.8fr)}
+    grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,0.8fr)}
   @media(max-width:960px){.home3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
   @media(max-width:620px){.home3{grid-template-columns:1fr}}
   .ranktbl th,.ranktbl td,.champtbl th,.champtbl td{padding:7px 4px;font-size:14px}
+  /* [2026-07-31] 홈의 두 표는 숫자 열을 가운데로 — 헤더(가운데)와 값(오른쪽)이 어긋나 보였다.
+     다른 화면의 표는 기존 우측정렬 유지. */
+  .ranktbl th.num,.ranktbl td.num,.champtbl th.num,.champtbl td.num{text-align:center}
   /* 좁은 칸에서 표가 넘치지 않도록 승률 막대를 짧은 고정폭으로 */
   .ranktbl .wr,.champtbl .wr{min-width:0;gap:5px}
   .ranktbl .wrbar,.champtbl .wrbar{flex:none;width:30px}
@@ -2887,6 +2890,7 @@ function renderEmpty(){
 }
 
 /* ============== 화면: 홈/대시보드 ============== */
+const WK_SWING_MIN=3;   // 떡상·떡락 판정 최소 표본(이번주·지난주 각각 이 판수 이상)
 // 🏆 이주의 인물 — 데이터상 최신일 기준 최근 7일 창에서 개근/캐리/연승 스타 선정
 function weeklyStars(){
   const pdate=r=>{ const m=/(\d{4})-(\d{1,2})-(\d{1,2})/.exec(r["날짜"]||""); return m?new Date(+m[1],+m[2]-1,+m[3]).getTime():null; };
@@ -2894,21 +2898,39 @@ function weeklyStars(){
   for(const [,parts] of PLAYERS) for(const r of parts){ const t=pdate(r); if(t&&t>maxMs)maxMs=t; }
   if(!maxMs) return null;
   const from=maxMs-7*86400000;
+  const prevFrom=maxMs-14*86400000;      // 📈 [2026-07-31] 떡상·떡락 판정용 '지난주' 창
   const arr=[];
   for(const [nm,parts] of PLAYERS){
     let g=0,ma=0,st=0,cs=0,lt=0,ls=0;   // st/cs=연승, lt/ls=연패([2026-07-31] 이주의 연패왕용)
+    let pg=0,pw=0,w=0;                  // pg/pw=지난주 판·승, w=이번주 승
     for(const r of parts){
-      const t=pdate(r); if(t==null||t<from) continue;
+      const t=pdate(r); if(t==null) continue;
       const rr=r["결과"]; if(rr!=="승리"&&rr!=="패배") continue;
-      g++; const e=r["매치평가"]; if(e==="MVP"||e==="ACE")ma++;
+      if(t<from){                        // 지난주(7~14일 전) — 변동폭 비교용
+        if(t>=prevFrom){ pg++; if(rr==="승리")pw++; }
+        continue;
+      }
+      g++; if(rr==="승리")w++;
+      const e=r["매치평가"]; if(e==="MVP"||e==="ACE")ma++;
       if(rr==="승리"){cs++; if(cs>st)st=cs; ls=0;} else {cs=0; ls++; if(ls>lt)lt=ls;}
     }
-    if(g>0) arr.push({nm,g,ma,st,lt});
+    if(g>0){
+      // 승률 변동폭(%p) — 두 주 모두 표본이 있어야 의미가 있다(각 3판 이상).
+      const dw = (g>=WK_SWING_MIN && pg>=WK_SWING_MIN) ? Math.round((w/g-pw/pg)*100) : null;
+      arr.push({nm,g,ma,st,lt,w,pg,pw,dw,wr:Math.round(w/g*100),pwr:pg?Math.round(pw/pg*100):null});
+    }
   }
   if(!arr.length) return null;
   const pick=fn=>{ let best=null; for(const v of arr){ const s=fn(v); if(s>0&&(!best||s>best.s||(s===best.s&&v.g>best.v.g))) best={nm:v.nm,s,v}; } return best; };
+  // 떡상/떡락 — 지난주 대비 승률 변동폭이 가장 큰 사람(상승 1명·하락 1명)
+  let rise=null, fall=null;
+  for(const v of arr){
+    if(v.dw==null) continue;
+    if(v.dw>0 && (!rise||v.dw>rise.v.dw||(v.dw===rise.v.dw&&v.g>rise.v.g))) rise={nm:v.nm,v};
+    if(v.dw<0 && (!fall||v.dw<fall.v.dw||(v.dw===fall.v.dw&&v.g>fall.v.g))) fall={nm:v.nm,v};
+  }
   return {from,to:maxMs, attend:pick(v=>v.g), carry:pick(v=>v.ma), streak:pick(v=>v.st>=3?v.st:0),
-          lose:pick(v=>v.lt>=3?v.lt:0), players:arr.length};
+          lose:pick(v=>v.lt>=3?v.lt:0), rise, fall, players:arr.length};
 }
 function _wkMD(ms){ const d=new Date(ms); return `${d.getMonth()+1}/${d.getDate()}`; }
 function weekStar(title, best, descFn){
@@ -2939,7 +2961,7 @@ function renderHome(){
     return `<tr>
       <td><div class="champcell" style="cursor:pointer" onclick="go('champlog','${escAttr(c.champ)}')" title="클릭 시 이 챔피언 전적 보기">${tierBadgeNum(c.tier)}${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
       <td class="num">${c.picks}</td>
-      <td>${t?wrBar(wr):'<span class="muted">-</span>'}</td>
+      <td class="num" style="color:${t?(wr>=50?'var(--win)':'var(--lose)'):'var(--mut)'}">${t?wr+'%':'-'}</td>
       <td class="num" title="픽 ${c.picks} + 밴 ${c.bans} / ${totalGames}게임">${pr}%</td>
       <td class="num" title="노밴 선언 ${NOBAN_CNT.get(c.champ)||0}회 / ${totalGames}게임 — 로비에서 '밴 금지 약속'된 비율">${(NOBAN_CNT.get(c.champ)||0)?Math.round((NOBAN_CNT.get(c.champ)||0)/Math.max(1,totalGames)*100)+'%':'<span class="muted">-</span>'}</td>
     </tr>`;}).join("");
@@ -3005,20 +3027,10 @@ function renderHome(){
         ${weekStar('⚡ 캐리왕', ws.carry, v=>`MVP·ACE ${v.ma}회`)}
         ${weekStar('🔥 연승왕', ws.streak, v=>`${v.st}연승`)}
         ${weekStar('💀 연패왕', ws.lose, v=>`${v.lt}연패`)}
-        ${(()=>{ // 🤖 AI 평가 극단값 — 내부티어 평가(동티어 대비 z합성)에서 저평가/고평가 최상위 1명씩
-          try{
-            if(!ASSESSMENTS.size) computeAssessments();
-            let up=null,ov=null;
-            for(const [nm,a] of ASSESSMENTS){
-              if(!a.detail||a.detail.score==null) continue;
-              const s=a.detail.score;
-              if(a.label==="저평가"&&(!up||s>up.s)) up={nm,s,tier:a.tier};
-              if(a.label==="고평가"&&(!ov||s<ov.s)) ov={nm,s,tier:a.tier};
-            }
-            return weekStar('📈 이주의 떡상인물', up?{nm:up.nm,v:up}:null, v=>`${v.tier}티어 대비 성적 z +${v.s} — 실력이 티어를 앞선다`)
-                 + weekStar('📉 이주의 떡락인물', ov?{nm:ov.nm,v:ov}:null, v=>`${v.tier}티어 대비 성적 z ${v.s} — 티어가 실력을 앞선다`);
-          }catch(e){ return ''; }
-        })()}
+        ${weekStar('📈 이주의 떡상인물', ws.rise,
+            v=>`승률 ${v.pwr}% → ${v.wr}% (+${v.dw}%p · ${v.pg}판→${v.g}판)`)}
+        ${weekStar('📉 이주의 떡락인물', ws.fall,
+            v=>`승률 ${v.pwr}% → ${v.wr}% (${v.dw}%p · ${v.pg}판→${v.g}판)`)}
       </div>
       <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:11px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -4813,7 +4825,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311650";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311720";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
