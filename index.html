@@ -1137,12 +1137,20 @@ function computeAssessments(){
       return v=>(v==null||isNaN(v))?0:(v-mu)/sd; };
     const zWr=zf(col(x=>x.m.wr)), zMv=zf(col(x=>x.m.mvpRate)), zTr=zf(col(x=>x.m.trollRate)),
           zKd=zf(col(x=>x.m.avgKda)), zKp=zf(col(x=>x.m.avgKP));
+    // ⚠️ 가중합한 z는 표준편차가 1이 아니라 0.61로 쪼그라든다(축끼리 완전 상관이 아니라 상쇄됨).
+    //    그대로 15를 곱하면 실질 ±9점 — 실측으로 126명 중 80%가 40~60에 몰렸다.
+    //    → 합성값을 한 번 더 표준화해서 항상 평균 50·표준편차 15가 되게 맞춘다(멘탈 지수와 같은 처리).
+    const _comp=[];
     for(const x of cm){
       const a=ASSESSMENTS.get(x.name); if(!a||!a.detail) continue;
       const sc = 0.30*zWr(x.m.wr) + 0.25*zMv(x.m.mvpRate) - 0.20*zTr(x.m.trollRate)
                + 0.15*zKd(x.m.avgKda) + 0.10*zKp(x.m.avgKP);
-      a.clanZ=sc;
-      a.score100=Math.max(1,Math.min(100,Math.round(50+15*sc)));
+      _comp.push({a,sc});
+    }
+    const _zt=zf(_comp.map(e=>e.sc));
+    for(const e of _comp){
+      e.a.clanZ=_zt(e.sc);
+      e.a.score100=Math.max(1,Math.min(100,Math.round(50+15*_zt(e.sc))));
     }
   }
 }
@@ -5153,7 +5161,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608010540";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608010615";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
