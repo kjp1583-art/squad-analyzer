@@ -2945,10 +2945,7 @@ function weekStar(title, best, descFn){
   return `<div class="wkstar"><div class="wk-t">${title}</div><div class="wk-name clickname" onclick="go('player','${escAttr(best.nm)}')">${esc(shortName(best.nm))}</div><div class="muted" style="font-size:12px">${esc(descFn(best.v))}</div></div>`;
 }
 function renderHome(){
-  const ws=weeklyStars();   // 🏆 이주의 인물 (+주간 댓글 스레드 — 주 단위로 새 스레드)
-  // 💬 [2026-07-28 사장님 지시] 스레드 키를 '그 주 월요일'로 고정 — 기존엔 최신 게임일 기준이라
-  //    내전 있는 날마다 새 스레드가 열려 한마디가 매일 초기화되던 문제. 이제 월~일 한 주 동안 유지된다.
-  const wkTarget=ws?(()=>{const d=new Date(ws.to);d.setDate(d.getDate()-((d.getDay()+6)%7));return '이주의인물:'+d.toISOString().slice(0,10);})():null;
+  const ws=weeklyStars();   // 🏆 이주의 인물
   const champs=champTierData();
   const players=playerStats();
   const totalGames=GAMES.size;
@@ -3040,20 +3037,6 @@ function renderHome(){
         ${weekStar('📉 이주의 떡락인물', ws.fall,
             v=>`승률 ${v.pwr}% → ${v.wr}% (${v.dw}%p · ${v.pg}판→${v.g}판)`)}
       </div>
-      <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:11px">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-          <span style="font-size:13.5px;font-weight:800">💬 이주의 한마디</span>
-          <span class="muted" style="font-weight:400;font-size:12.5px">이번 주 인물들에게 한마디 (예의를 지켜주세요)</span>
-          ${ dcValid() ? '' : `<button onclick="dcLogin('@home')" style="margin-left:auto;background:#5865F2;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;padding:5px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex:none"><path d="M20.317 4.369A19.79 19.79 0 0 0 15.885 3a13.78 13.78 0 0 0-.617 1.27 18.27 18.27 0 0 0-5.539 0A13.6 13.6 0 0 0 9.11 3a19.74 19.74 0 0 0-4.432 1.37C1.845 8.593 1.082 12.71 1.463 16.77a19.93 19.93 0 0 0 6.073 3.087c.49-.67.925-1.38 1.3-2.125a12.9 12.9 0 0 1-2.048-.987c.172-.126.34-.257.502-.392a14.18 14.18 0 0 0 12.42 0c.164.135.332.266.503.392-.654.39-1.34.72-2.049.987.375.744.81 1.455 1.3 2.125a19.9 19.9 0 0 0 6.074-3.087c.447-4.708-.764-8.789-3.221-12.401ZM8.68 14.34c-1.183 0-2.157-1.09-2.157-2.43 0-1.34.955-2.43 2.157-2.43 1.21 0 2.176 1.1 2.156 2.43 0 1.34-.955 2.43-2.156 2.43Zm6.64 0c-1.183 0-2.157-1.09-2.157-2.43 0-1.34.955-2.43 2.157-2.43 1.21 0 2.176 1.1 2.156 2.43 0 1.34-.946 2.43-2.156 2.43Z"/></svg>로그인하고 한마디</button>` }
-        </div>
-        ${ dcValid() ? `
-        <div class="cmt-form">
-          <div class="cmt-me"><span class="cmt-me-badge">🟢 ${esc(DISCORD_USER.name)}</span><span class="muted" style="font-size:12.5px">님으로 작성 · <a href="#" onclick="dcLogout();return false;" style="color:var(--accent)">로그아웃</a></span></div>
-          <textarea id="cmtContent" class="cmt-ta" placeholder="이번 주 활약에 대한 한마디를 남겨보세요" maxlength="300"></textarea>
-          <div class="cmt-row"><button id="cmtSubmit" class="cmt-btn" style="flex:1" onclick="submitComment('${escAttr(wkTarget)}')">등록</button></div>
-        </div>` : '' }
-        <div id="cmtList"><div class="muted" style="padding:8px 0;font-size:14px">댓글 불러오는 중…</div></div>
-      </div>
     </div>` : ''}
     </div>` : ''}
     <div class="home3">
@@ -3074,7 +3057,6 @@ function renderHome(){
         ${recentGamesHtml(5)}
       </div>
     </div>`;
-  if(ws) loadComments(wkTarget);   // 💬 이주의 한마디 스레드 로드
 }
 function recentFinishedGames(n){
   const arr=[...GAMES.values()], out=[];
@@ -4834,7 +4816,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311820";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
