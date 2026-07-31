@@ -260,6 +260,12 @@
   .tbm-nm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:21px;font-weight:800}
   .tbm-sub{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px}
   .tbm-rec{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+  /* 🖼 모스트 챔피언 1~5 (승패 점 대체) */
+  .tbm-most{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .tbm-champ{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:40px}
+  .tbm-champ img{width:34px;height:34px;border-radius:8px;border:1px solid var(--line)}
+  .tbm-cg{font-size:10px;color:var(--mut);line-height:1.3}
+  .tbm-cw{font-size:11px;font-weight:800;line-height:1.2}
   .tbm-body{position:relative;z-index:1;padding:0 18px 18px}
   .tbm-go{width:100%;margin-top:12px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);
     border-radius:10px;padding:9px;font-size:13.5px;font-weight:700;cursor:pointer}
@@ -919,11 +925,16 @@ function evalGameSet(){
 function tierMetricsOf(name, evalGids){
   const parts=PLAYERS_ALL.get(name)||[];   // 내부티어는 항상 전체 데이터(패치 필터 무관)
   let w=0,l=0,mvp=0,ace=0,troll=0,aiSum=0,aiN=0; const eg=new Set();
+  // 🔥 [2026-07-31] 내전 활약 점수 재료 — KDA·킬관여(솔랭은 쓰지 않는다)
+  let kdaSum=0,kdaN=0,kpSum=0,kpN=0;
   for(const r of parts){
     if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
     const e=r["매치평가"]; if(e==="MVP")mvp++;else if(e==="ACE")ace++;else if(e==="역적")troll++;
     const gid=r["게임ID"]; if(gid&&evalGids.has(gid))eg.add(gid);
     const sv=parseFloat(r["점수"]); if(!isNaN(sv)){aiSum+=sv;aiN++;}
+    const ko=parseKDA(r["KDA"]);
+    if(ko){ kdaSum += (ko.d===0?(ko.k+ko.a):(ko.k+ko.a)/ko.d); kdaN++; }
+    const mt=parseMetrics(r); if(mt&&mt.kp!=null){ kpSum+=mt.kp; kpN++; }
   }
   // 솔랭 매칭 = tnorm(닉네임). 닉변 시 과거 닉(별칭)으로도 시도.
   // 후보 중 '현시즌 데이터 보유'(wr 있음) 엔트리 우선 — peak-only 엔트리가 실제 현시즌 기록을 가리는 것 방지
@@ -936,6 +947,7 @@ function tierMetricsOf(name, evalGids){
   // 진짜 최고점 필드는 LP가 없고 솔로/자유랭크 큐 구분이 안 됨 — 2026-07-01 실측 확인).
   const g=w+l, evalG=eg.size;
   return {g,evalG,w,l,mvp,ace,troll,aiSum,aiN,
+    avgKda:kdaN?kdaSum/kdaN:null, avgKP:kpN?kpSum/kpN:null, kdaN, kpN,
     wr:g?w/g*100:null,
     mvpRate:evalG?(mvp+0.5*ace)/evalG*100:null,
     trollRate:evalG?troll/evalG*100:null,
@@ -1061,10 +1073,7 @@ function computeAssessments(){
     const impl=_slots[i]||p.t;
     a.implTier=impl;
     a.implPct=Math.max(1,Math.round((i+1)/_N*100));   // 상위 X%
-    // ⭐ [2026-07-30] 종합 점수(100점 환산) — 클랜 전체 파워 순위의 백분위를 점수로 보여준다.
-    //    1등 100점, 꼴등 1점. 파워 원점수는 소수점이라 체감이 안 와서 카드용으로 환산한다.
     a.power=p.power;
-    a.score100=Math.max(1,Math.min(100,Math.round(101-a.implPct)));
     const di=_tIdx(a.tier)-_tIdx(impl);   // >0 = 추정이 더 높은 티어(실력이 티어보다 위=저평가), <0 = 과대배치(고평가)
     a.implRel=di>0?"up":di<0?"down":"eq";
     a.implGap=Math.abs(di);
@@ -1072,6 +1081,30 @@ function computeAssessments(){
     a.label=di>=2?"저평가":di<=-2?"고평가":"적절";
     a.cls  =di>=2?"a-under":di<=-2?"a-over":"a-ok";
   });
+
+  /* 🔥 [2026-07-31 사장님 지시] 내전 활약 점수 — '클랜 상위 %'와 축을 분리한다.
+     기존 ⭐종합은 (101 − 상위%)라 순위 지표와 완전히 같은 값이었다.
+     여기서는 **솔랭·AI 같은 외부 지표를 전부 빼고 내전 기록만으로** 계산한다.
+       승률 30% · MVP/ACE율 25% · 역적율 −20% · KDA 15% · 킬관여 10%
+     → "솔랭은 높은데 내전 활약은 낮다" 같은 대비를 읽을 수 있게 된다.
+     50점이 클랜 평균, 표준편차 1당 15점. 실력이 비슷하면 같은 점수가 나온다(순위와 다른 점). */
+  {
+    const cm=elig.map(x=>({name:x.name,m:x.m})).filter(x=>x.m.evalG>=TIER_MIN_EVAL);
+    const col=f=>cm.map(f).filter(v=>v!=null&&!isNaN(v));
+    const zf=vals=>{ if(vals.length<2) return ()=>0;
+      const mu=vals.reduce((a,b)=>a+b,0)/vals.length;
+      const sd=Math.sqrt(vals.reduce((a,b)=>a+(b-mu)*(b-mu),0)/vals.length)||1;
+      return v=>(v==null||isNaN(v))?0:(v-mu)/sd; };
+    const zWr=zf(col(x=>x.m.wr)), zMv=zf(col(x=>x.m.mvpRate)), zTr=zf(col(x=>x.m.trollRate)),
+          zKd=zf(col(x=>x.m.avgKda)), zKp=zf(col(x=>x.m.avgKP));
+    for(const x of cm){
+      const a=ASSESSMENTS.get(x.name); if(!a||!a.detail) continue;
+      const sc = 0.30*zWr(x.m.wr) + 0.25*zMv(x.m.mvpRate) - 0.20*zTr(x.m.trollRate)
+               + 0.15*zKd(x.m.avgKda) + 0.10*zKp(x.m.avgKP);
+      a.clanZ=sc;
+      a.score100=Math.max(1,Math.min(100,Math.round(50+15*sc)));
+    }
+  }
 }
 function computeTierAvg(){ computeAssessments(); return TIER_AVG; }   // 데이터 로드 시 1회 호출(호환)
 function assessPlayer(name){ return ASSESSMENTS.get(name)||null; }
@@ -2744,7 +2777,7 @@ function playerStats(){
     const a=ASSESSMENTS.get(name);
     out.push({name,games:parts.length,wins:w,losses:l,mvp,bad,wr:pct(w,w+l),
               cspm:csN?(csSum/csN):null, vision:vsN?(vsSum/vsN):null,
-              score:(a&&a.score100)||null});
+              score:(a&&a.score100)||null});   // 🔥 내전 활약 점수(솔랭 제외)
   }
   return out;
 }
@@ -3569,9 +3602,19 @@ function playerCardHtml(name){
         if(r["매치평가"]==="MVP")mvpN++; else if(r["매치평가"]==="역적")badN++;
         const c=r["챔피언"]; if(c) cc.set(c,(cc.get(c)||0)+1);
       }
-      mainChamp=[...cc.entries()].sort((x,y)=>y[1]-x[1]).map(x=>x[0])[0]||'';
-      form=[...parts].reverse().filter(r=>r["결과"]==="승리"||r["결과"]==="패배").slice(0,10)
-            .map(r=>{const win=r["결과"]==="승리";return `<span class="dot ${win?'w':'l'}">${win?'승':'패'}</span>`;}).join("");
+      const top5=[...cc.entries()].sort((x,y)=>y[1]-x[1]).slice(0,5);
+      mainChamp=(top5[0]||[])[0]||'';
+      // 🖼 [2026-07-31 사장님 지시] 승패 점 대신 모스트 챔피언 1~5 초상화
+      const cw=new Map();   // 챔프별 승/판 — 초상화 아래 승률 표시
+      for(const r of parts){ const c=r["챔피언"]; if(!c) continue;
+        const e=cw.get(c)||[0,0]; e[0]++; if(r["결과"]==="승리")e[1]++; cw.set(c,e); }
+      form=top5.map(([c,n])=>{
+        const [g,wn]=cw.get(c)||[n,0], pc=g?Math.round(wn/g*100):0;
+        return `<div class="tbm-champ" title="${escAttr(c)} ${g}판 ${wn}승 ${g-wn}패">
+          ${champImg(c,"sm")}
+          <span class="tbm-cg">${g}판</span>
+          <span class="tbm-cw" style="color:${pc>=50?'var(--win)':'var(--lose)'}">${pc}%</span>
+        </div>`;}).join("");
       // 🕸 육각형 — 선수 페이지와 동일하게 '주 포지션 안에서의 백분위'로 그린다.
       const pos=new Map();
       for(const r of parts){ const p=r["포지션"]; if(p&&p!=="?"&&p!=="선택안함") pos.set(p,(pos.get(p)||0)+1); }
@@ -3634,7 +3677,7 @@ function playerCardHtml(name){
             <span class="muted">${w+l}전 <b style="color:var(--win)">${w}승</b> <b style="color:var(--lose)">${l}패</b></span>
             <span class="muted">MVP ${mvpN} · 역적 ${badN}</span>
           </div>
-          ${form?`<div class="form" style="margin-top:8px">${form}</div>`:''}
+          ${form?`<div class="tbm-most">${form}</div>`:''}
           </div>
           ${radar}
         </div>
@@ -4085,7 +4128,8 @@ function renderPlayer(name){
     const cell=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
     const pc=k=>{const p=_pctOf(k);return {cls:_pctCls(p),tip:_pctTip(p)};};
     const it=[];
-    if(_sc!=null) it.push(cell("⭐ 종합",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,"클랜 파워 환산","cmp-hi","클랜 전체 파워 순위를 100점으로 환산 (1등 100점)"));
+    if(_sc!=null) it.push(cell("🔥 내전 활약",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,"클랜 평균 50","cmp-hi",
+      "내전 기록만으로 낸 활약 점수 — 승률 30% · MVP/ACE율 25% · 역적율 −20% · KDA 15% · 킬관여 10%. 솔랭·AI는 넣지 않습니다(그건 '클랜 상위 %'가 봅니다). 50점이 클랜 평균."));
     if(avgRatio!=null){ const q=pc("kda"); it.push(cell("KDA",avgRatio.toFixed(2),`${kdaGames}판 평균`,q.cls,q.tip)); }
     if(_csN){ const q=pc("cspm"); it.push(cell("CS/분",(_csS/_csN).toFixed(1),`${_csN}판 평균`,q.cls,q.tip)); }
     if(_vsN){ const q=pc("vision"); it.push(cell("시야",Math.round(_vsS/_vsN),`${_vsN}판 평균`,q.cls,q.tip)); }
@@ -4915,7 +4959,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607312010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607312100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
