@@ -2,58 +2,70 @@ name: Champion art probe
 
 # 🔍 [2026-08-01] 챔피언 초상화가 '롤 클래식' 옛날 그림으로 뜨는 문제 조사용 임시 워크플로.
 #   개발 컨테이너에서는 라이엇 CDN 이 프록시에 막혀 있어 직접 확인이 안 된다.
-#   Actions 러너에서 버전별 아이콘을 받아 해시를 찍어, 아트가 바뀐 패치 경계를 찾는다.
+#   버전별 아이콘을 한 장의 대조표로 합성해 art-probe 브랜치에 커밋 → 눈으로 확인한다.
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe Data Dragon / Community Dragon
+      - uses: actions/checkout@v4
+      - name: Build contact sheet
         run: |
+          pip install --quiet pillow
           python3 - <<'PY'
-          import json, hashlib, urllib.request, sys
+          import urllib.request, io, os
+          from PIL import Image, ImageDraw
           UA={'User-Agent':'Mozilla/5.0'}
-          def get(u, timeout=30):
+          def get(u):
               try:
-                  with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=timeout) as r:
+                  with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30) as r:
                       return r.read()
               except Exception as e:
-                  return ('ERR:'+type(e).__name__+' '+str(e)[:120]).encode()
-          def h(b):
-              if b.startswith(b'ERR:'): return b.decode()
-              return f"{hashlib.sha256(b).hexdigest()[:16]} {len(b):>7}B"
+                  print("ERR", u, e); return None
 
-          vs = json.loads(get("https://ddragon.leagueoflegends.com/api/versions.json"))
-          print("=== ddragon versions.json (앞 20개) ===")
-          print(vs[:20])
-          print()
+          CH=[("리 신","LeeSin","64"),("애쉬","Ashe","22"),("애니","Annie","1"),
+              ("가렌","Garen","86"),("트페","TwistedFate","4"),("이즈리얼","Ezreal","81")]
+          def cd(tag,cid): return f"https://raw.communitydragon.org/{tag}/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/{cid}.png"
+          def dd(v,eng):   return f"https://ddragon.leagueoflegends.com/cdn/{v}/img/champion/{eng}.png"
 
-          # 리신(64/LeeSin) · 애쉬(22/Ashe) · 가렌(86/Garen) — 아트 리메이크가 없던 챔프 위주
-          CH = [("LeeSin","64"),("Ashe","22"),("Garen","86"),("Annie","1")]
-          # 최신 몇 개 + 과거 기준점
-          cand = vs[:12] + [v for v in ("16.1.1","15.24.1","15.13.1","15.1.1","14.23.1") if v in vs]
-          seen=set(); cand=[v for v in cand if not (v in seen or seen.add(v))]
+          ROWS=[("CDragon latest", lambda eng,cid: cd("latest",cid)),
+                ("CDragon 16.15",  lambda eng,cid: cd("16.15",cid)),
+                ("CDragon 16.14",  lambda eng,cid: cd("16.14",cid)),
+                ("CDragon 16.13",  lambda eng,cid: cd("16.13",cid)),
+                ("CDragon 15.24",  lambda eng,cid: cd("15.24",cid)),
+                ("DDragon 16.15.1",lambda eng,cid: dd("16.15.1",eng))]
 
-          print("=== Data Dragon 버전별 아이콘 해시 ===")
-          for v in cand:
-              row=[]
-              for eng,cid in CH:
-                  row.append(f"{eng}={h(get(f'https://ddragon.leagueoflegends.com/cdn/{v}/img/champion/{eng}.png'))}")
-              print(f"[{v:>10}] " + " | ".join(row))
-          print()
-
-          print("=== Community Dragon (champion-icons) ===")
-          for tag in ("latest","pbe","16.15","16.14","16.13","16.1","15.24","15.13"):
-              row=[]
-              for eng,cid in CH:
-                  u=f"https://raw.communitydragon.org/{tag}/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/{cid}.png"
-                  row.append(f"{eng}={h(get(u))}")
-              print(f"[{tag:>7}] " + " | ".join(row))
-          print()
-
-          print("=== Community Dragon 사용 가능한 버전 목록 ===")
-          b=get("https://raw.communitydragon.org/json/")
-          print(b[:1200].decode('utf-8','replace'))
+          S=96; PAD=8; LAB=170; HDR=28
+          W=LAB+len(CH)*(S+PAD)+PAD
+          H=HDR+len(ROWS)*(S+PAD)+PAD
+          sheet=Image.new("RGB",(W,H),(18,22,32)); d=ImageDraw.Draw(sheet)
+          for j,(kor,eng,cid) in enumerate(CH):
+              d.text((LAB+j*(S+PAD)+4, 8), f"{eng}", fill=(220,225,235))
+          for i,(label,fn) in enumerate(ROWS):
+              y=HDR+i*(S+PAD)
+              d.text((6,y+S//2-6), label, fill=(245,212,122))
+              for j,(kor,eng,cid) in enumerate(CH):
+                  b=get(fn(eng,cid))
+                  if not b: continue
+                  try:
+                      im=Image.open(io.BytesIO(b)).convert("RGB").resize((S,S))
+                      sheet.paste(im,(LAB+j*(S+PAD),y))
+                  except Exception as e: print("IMG ERR",label,eng,e)
+          os.makedirs("probe",exist_ok=True)
+          sheet.save("probe/champ_art_compare.png")
+          print("saved", sheet.size)
           PY
+      - name: Commit to art-probe branch
+        run: |
+          git config user.name  "art-probe"
+          git config user.email "noreply@anthropic.com"
+          git checkout --orphan art-probe
+          git rm -rq --cached . || true
+          git add -f probe/champ_art_compare.png
+          git commit -qm "probe: 챔피언 아트 버전별 대조표"
+          git push -qf origin art-probe
