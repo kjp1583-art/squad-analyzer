@@ -1,8 +1,7 @@
 name: Champion art probe
 
-# 🔍 [2026-08-01] 블리츠크랭크가 구버전 아트로 뜨는 문제 — 라이브 클라이언트가 쓰는 에셋 경로 찾기.
-#   champion-icons 경로는 CDragon/DDragon 모두 같은 (구)그림을 준다. 다른 후보 경로들을 전부 받아
-#   한 장으로 합성해 art-probe3 브랜치에 올린다.
+# 🔍 [2026-08-01] 블리츠크랭크 구버전 아트 — 라이브 클라이언트가 실제로 쓰는 에셋 경로를
+#   CDragon 챔피언 JSON(squarePortraitPath 등)에서 읽어와 그대로 받아 비교한다.
 on:
   workflow_dispatch:
 
@@ -14,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Try every asset path
+      - name: Resolve real asset paths
         run: |
           pip install --quiet pillow
           python3 - <<'PY'
@@ -26,48 +25,64 @@ jobs:
                   with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30) as r:
                       return r.read()
               except Exception as e:
-                  print("  ERR", u.split('/default/')[-1][:70], type(e).__name__); return None
+                  print("  ERR", type(e).__name__, u[-90:]); return None
 
-          CD="https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default"
-          CDP="https://raw.communitydragon.org/pbe/plugins/rcp-be-lol-game-data/global/default"
+          BASE={"latest":"https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default",
+                "pbe":"https://raw.communitydragon.org/pbe/plugins/rcp-be-lol-game-data/global/default"}
           vs=json.loads(get("https://ddragon.leagueoflegends.com/api/versions.json")); V=vs[0]
+          CH=[("블리츠크랭크","Blitzcrank",53),("문도","DrMundo",36),("아리","Ahri",103)]
 
-          # (한글, 영문id, 숫자키, 소문자 alias)
-          CH=[("블리츠크랭크","Blitzcrank","53","blitzcrank"),
-              ("문도","DrMundo","36","drmundo"),
-              ("트런들","Trundle","48","trundle"),
-              ("스카너","Skarner","72","skarner"),
-              ("아리","Ahri","103","ahri")]
+          def resolve(branch,cid):
+              """CDragon 챔피언 JSON에서 실제 에셋 경로를 뽑는다."""
+              b=get(f"{BASE[branch]}/v1/champions/{cid}.json")
+              if not b: return {}
+              try: j=json.loads(b)
+              except Exception: return {}
+              out={}
+              sp=j.get("squarePortraitPath")
+              if sp: out[f"{branch} squarePortrait"]=sp
+              for sk in (j.get("skins") or [])[:1]:
+                  for k in ("tilePath","loadScreenPath","splashPath","uncenteredSplashPath"):
+                      if sk.get(k): out[f"{branch} skin0 {k}"]=sk[k]
+              return out
 
-          def paths(eng,cid,low):
-              return [
-                ("champion-icons",       f"{CD}/v1/champion-icons/{cid}.png"),
-                ("hud square",           f"{CD}/assets/characters/{low}/hud/{low}_square.png"),
-                ("hud circle",           f"{CD}/assets/characters/{low}/hud/{low}_circle.png"),
-                ("champion-tiles",       f"{CD}/v1/champion-tiles/{cid}/{cid}000.jpg"),
-                ("pbe champion-icons",   f"{CDP}/v1/champion-icons/{cid}.png"),
-                ("pbe hud square",       f"{CDP}/assets/characters/{low}/hud/{low}_square.png"),
-                ("ddragon "+V,           f"https://ddragon.leagueoflegends.com/cdn/{V}/img/champion/{eng}.png"),
-              ]
+          def to_url(branch,p):
+              # JSON 경로는 /lol-game-data/assets/... 형태 → CDragon 경로로 치환(소문자)
+              p=p.replace("/lol-game-data/assets","").lstrip("/").lower()
+              return f"{BASE[branch]}/{p}"
 
-          ROWS=[p[0] for p in paths(*CH[0][1:])]
-          S=110; PAD=8; LAB=185; HDR=26
-          W=LAB+len(CH)*(S+PAD)+PAD; H=HDR+len(ROWS)*(S+PAD)+PAD
+          rows=[]
+          for kor,eng,cid in CH:
+              print(f"=== {eng} ({cid})")
+              for branch in ("latest","pbe"):
+                  for label,p in resolve(branch,cid).items():
+                      print(f"  {label}: {p}")
+                      rows.append(label)
+          rows=list(dict.fromkeys(rows))+[f"ddragon {V}"]
+          print("\n행:",rows)
+
+          S=120; PAD=8; LAB=250; HDR=26
+          W=LAB+len(CH)*(S+PAD)+PAD; H=HDR+len(rows)*(S+PAD)+PAD
           sheet=Image.new("RGB",(W,H),(18,22,32)); dr=ImageDraw.Draw(sheet)
-          for j,(kor,eng,cid,low) in enumerate(CH):
+          for j,(kor,eng,cid) in enumerate(CH):
               dr.text((LAB+j*(S+PAD)+2,7), eng, fill=(220,225,235))
-          for j,(kor,eng,cid,low) in enumerate(CH):
-              print(f"--- {eng}")
-              for i,(label,u) in enumerate(paths(eng,cid,low)):
+          for i,label in enumerate(rows):
+              dr.text((6, HDR+i*(S+PAD)+S//2-6), label[:34], fill=(245,212,122))
+          for j,(kor,eng,cid) in enumerate(CH):
+              got={}
+              for branch in ("latest","pbe"):
+                  for label,p in resolve(branch,cid).items(): got[label]=to_url(branch,p)
+              got[f"ddragon {V}"]=f"https://ddragon.leagueoflegends.com/cdn/{V}/img/champion/{eng}.png"
+              for label,u in got.items():
+                  if label not in rows: continue
                   b=get(u)
                   if not b: continue
                   try:
-                      im=Image.open(io.BytesIO(b)).convert("RGB").resize((S,S))
-                      sheet.paste(im,(LAB+j*(S+PAD), HDR+i*(S+PAD)))
-                      print(f"  OK {label:20s} {len(b):>7}B")
+                      im=Image.open(io.BytesIO(b)).convert("RGB")
+                      im=im.crop((0,0,min(im.width,im.height),min(im.width,im.height))).resize((S,S))
+                      sheet.paste(im,(LAB+j*(S+PAD), HDR+rows.index(label)*(S+PAD)))
+                      print(f"  OK {eng:12s} {label:28s} {len(b):>8}B")
                   except Exception as e: print("  IMG ERR",label,e)
-          for i,label in enumerate(ROWS):
-              dr.text((6, HDR+i*(S+PAD)+S//2-6), label, fill=(245,212,122))
           os.makedirs("probe",exist_ok=True)
           sheet.save("probe/champ_art_paths.png")
           print("saved", sheet.size)
@@ -76,8 +91,8 @@ jobs:
         run: |
           git config user.name  "art-probe"
           git config user.email "noreply@anthropic.com"
-          git checkout --orphan art-probe3
+          git checkout --orphan art-probe4
           git rm -rq --cached . || true
           git add -f probe/champ_art_paths.png
-          git commit -qm "probe: 에셋 경로별 대조표"
-          git push -qf origin art-probe3
+          git commit -qm "probe: 실제 에셋 경로 대조표"
+          git push -qf origin art-probe4
