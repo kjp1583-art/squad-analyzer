@@ -236,7 +236,9 @@
   .tb-group.t1{border-color:rgba(255,138,149,.32)}
   .tb-group.t2{border-color:rgba(143,186,255,.32)}
   .tb-group.t3{border-color:rgba(255,215,122,.32)}
-  .tb-detail{margin-top:12px}
+  .tb-detail{margin-top:10px;animation:tb-open .22s ease both;
+    border-color:rgba(255,210,74,.45);box-shadow:0 0 0 1px rgba(255,210,74,.12)}
+  @keyframes tb-open{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
   .tb-hint{margin-top:12px;font-size:12.5px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
   @media(max-width:820px){.tb-group{min-width:calc(var(--n) * 84px)}.tb-name{font-size:12px}}
   .assess{display:inline-block;padding:2px 9px;border-radius:6px;font-size:13.5px;font-weight:800}
@@ -3550,7 +3552,7 @@ function renderTiers(){
     const names=arr.map(a=>{
       const on = TIER_PICK===a.name;
       const chip = a.label && a.label!=='표본부족'
-        ? `<span class="tb-tag tb-${a.cls}">${a.label}</span>` : '';
+        ? `<span class="tb-tag ${a.cls}">${a.label}</span>` : '';
       return `<button class="tb-name${on?' on':''}" onclick="setTierPick(${JSON.stringify(a.name).replace(/"/g,'&quot;')})"
         title="${escAttr(a.name)} — 눌러서 세부 지표 보기">
         <span class="tb-nm">${esc(shortName(a.name))}</span>${chip}</button>`;
@@ -3561,17 +3563,10 @@ function renderTiers(){
     </div>`;
   };
 
-  const boards = LEAGUES.map(L=>{
-    const total = L.groups.reduce((n,g)=>n+g.cols.reduce((m,c)=>m+((byTier[c]||[]).length),0),0);
-    const cols  = L.groups.map(g=>`<div class="tb-group ${g.cls}" style="--n:${g.cols.length}">
-        <div class="tb-ghead">${esc(g.label)}</div>
-        <div class="tb-cols">${g.cols.map(c=>cell(c,g.cls)).join("")}</div>
-      </div>`).join("");
-    return `<div class="tb-league">
-      <div class="tb-lhead"><b>${esc(L.name)}</b><span class="muted">${esc(L.sub)} · ${total}명</span></div>
-      <div class="tb-board">${cols}</div>
-    </div>`;
-  }).join("");
+  // 선택된 선수가 어느 리그에 있는지 — 세부 패널을 그 보드 바로 밑에 붙이기 위해 미리 찾는다.
+  const pickTier = TIER_PICK ? (ASSESSMENTS.get(TIER_PICK)||{}).tier : null;
+  const pickLeague = pickTier
+    ? (LEAGUES.find(L=>L.groups.some(g=>g.cols.includes(pickTier)))||{}).key : null;
 
   // 선택된 선수의 세부 지표 — 예전 목록에 줄글로 깔려 있던 내용을 여기로 모았다.
   const detail=(()=>{
@@ -3616,12 +3611,29 @@ function renderTiers(){
     </div>`;
   })();
 
+  const boards = LEAGUES.map(L=>{
+    const total = L.groups.reduce((n,g)=>n+g.cols.reduce((m,c)=>m+((byTier[c]||[]).length),0),0);
+    const cols  = L.groups.map(g=>`<div class="tb-group ${g.cls}" style="--n:${g.cols.length}">
+        <div class="tb-ghead">${esc(g.label)}</div>
+        <div class="tb-cols">${g.cols.map(c=>cell(c,g.cls)).join("")}</div>
+      </div>`).join("");
+    return `<div class="tb-league">
+      <div class="tb-lhead"><b>${esc(L.name)}</b><span class="muted">${esc(L.sub)} · ${total}명</span></div>
+      <div class="tb-board">${cols}</div>
+      ${pickLeague===L.key ? detail : ''}
+    </div>`;
+  }).join("") + (TIER_PICK ? '' : detail);
+
   view().innerHTML=`${navTabsHtml('tiers')}
     <div class="card">
       <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
-      <div class="muted" style="font-size:13px;margin:2px 0 8px">🔵저평가 = 클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보)　🟢적절 = 티어와 비슷(±0.5티어)　🔴고평가 = 티어보다 아래　·　저평가 ${cU} · 적절 ${cOk} · 고평가 ${cOv} · 표본부족 ${cNa}</div>
+      <div style="font-size:13px;margin:2px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span><span class="assess a-under">저평가</span> <span class="muted">클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보) · ${cU}명</span></span>
+        <span><span class="assess a-ok">적절</span> <span class="muted">티어와 비슷(±0.5티어) · ${cOk}명</span></span>
+        <span><span class="assess a-over">고평가</span> <span class="muted">티어보다 아래 · ${cOv}명</span></span>
+        <span class="muted">표본부족 ${cNa}명</span>
+      </div>
       ${boards}
-      ${detail}
       <div style="font-size:13px;margin:14px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑+최근 30일 5판↑ 대상)</span></div>
       ${grudgeHtml()}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
@@ -4824,7 +4836,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
