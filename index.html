@@ -1146,20 +1146,24 @@ function computeAssessments(){
     }
   }
 }
-/* 🧊 [2026-07-31~08-01 사장님 지시] 멘탈 지수 — "불리해졌을 때 무너지지 않는가"를 수치화.
-   기준은 남과의 비교가 아니라 **자기 평소 성적**이다. 세 축을 본다:
-     ① 버티기  — 연패 중(직전까지 2연패 이상) KDA ÷ 평소 KDA          (가중 45%)
-     ② 회복력  — '본인 최악 25% 판' **바로 다음 판** KDA ÷ 평소 KDA   (가중 30%)
-     ③ 합류    — 연패 중 킬관여 ÷ 평소 킬관여                          (가중 25%) — 지고 있어도 팀 싸움에 붙는가
-   세 비율을 클랜 전체 z점수로 환산해 50점 평균(±15점=1표준편차)으로 낸다.
-   표본이 없는 축은 가중치에서 빼고 남은 축으로 정규화한다(0점으로 끌려가지 않게).
-   ▸ 회복력의 '나쁜 판' 기준을 '역적 판정'으로 잡아봤더니 표본이 13명뿐이고 승률상관이 +0.72라
-     실력 지표로 오염됐다. **본인 KDA 하위 25%** 로 잡으면 97명·상관 -0.14 로 독립적이라 이쪽을 쓴다.
-   실측(스냅샷): 94명 대상, 분포 19~89, 승률과의 상관 -0.15 → 실력과 거의 독립인 별개 축.
-   측정 구간은 KDA 기록이 시작된 2026-06-25 이후 판(그 이전 판은 승패만 알 뿐 성적을 못 재서 제외).
+/* 🧊 [2026-07-31~08-01 사장님 지시] 멘탈 지수 — "불리해졌을 때 팀과 같이 싸우는가"를 수치화.
+   ⚠️ 1차안(버티기=연패 중 KDA비 / 회복력 / 합류)은 폐기했다. 실측해 보니 연패 중 킬관여와 +0.73,
+      역적률과는 -0.07, 참사판과는 -0.18 — 즉 '멘탈'이 아니라 '개인 성적'을 재고 있었다.
+      사장님이 지적한 전형(연패하면 사이드에서 혼자 파밍 → 팀 전멸 후 ACE만 챙김)이 오히려 상위권에 떴다.
+   → 재설계. 기준은 남과의 비교가 아니라 **자기 평소 기록**이고, 네 축 모두 '팀과 함께인가'를 본다:
+     ① 팀 합류      — 연패 중 킬관여 ÷ 평소 킬관여                    (가중 40%, 높을수록 +)
+     ② 파밍 편중    — 연패 중 CS/분 ÷ 평소 CS/분                      (가중 25%, 높을수록 −)
+     ③ 붕괴 사건    — 연패 중 참사판(2킬 이하·8데스 이상) 비율 − 평소  (가중 20%, 높을수록 −)
+     ④ 진 팀 ACE    — 패배한 판 중 ACE 비율                            (가중 15%, 높을수록 −)
+   ②는 "팀은 죽어가는데 CS만 늘어난다", ④는 "진 판에서 혼자 잘한 기록만 남는다"를 잡는다.
+   네 값을 클랜 z점수로 환산해 50점 평균(±15점=1표준편차)으로 낸다.
+   표본 문턱: 통산 15판 + **연패 상황 10판 이상**(사장님 지시 — 3~8판은 우연이 너무 많이 섞였다).
+   실측(2026-08-01 스냅샷): 39명 대상. 가중치를 40/25/20/15 로 하든 30/30/15/25 로 하든
+   하위 10인이 9명 겹쳐 순위가 안정적이라 앞쪽을 쓴다.
+   측정 구간은 킬관여·CS 가 기록된 판만(그 이전 판은 승패만 알아 성적을 못 잼) — 축 간 기간이 어긋나지 않게.
    ⚠️ 한계: 채팅·핑 기록이 없어 '진짜 감정'이 아니라 '기록에 남은 플레이 변화'만 본다. */
-const MENTAL_MIN_GAMES=15, MENTAL_MIN_TILT=3, MENTAL_MIN_REC=3;
-const MENTAL_W={tilt:0.45, rec:0.30, join:0.25};
+const MENTAL_MIN_GAMES=15, MENTAL_MIN_TILT=10;
+const MENTAL_W={join:0.40, farm:0.25, coll:0.20, ace:0.15};
 let MENTAL=new Map();
 function computeMental(){
   MENTAL=new Map();
@@ -1169,66 +1173,51 @@ function computeMental(){
     const rs=parts.filter(r=>r["결과"]==="승리"||r["결과"]==="패배")
       .slice().sort((a,b)=>String(a["날짜"]||"").localeCompare(String(b["날짜"]||""))
                         || String(a["게임ID"]||"").localeCompare(String(b["게임ID"]||"")));
-    const calmK=[],tiltK=[],calmP=[],tiltP=[];
-    const seqK=[];                                  // 측정 가능한 판의 KDA(시간순) — 회복력 계산용
-    let streak=0, measured=0, firstDay="";
+    // 측정 대상 = 킬관여·CS 가 기록된 판만. (기록 없는 옛날 판도 승패는 알므로 연패 카운트엔 반영)
+    const allP=[],tiltP=[],allC=[],tiltC=[];
+    let streak=0, measured=0, firstDay="", disA=0, disT=0, loss=0, aceLoss=0;
     for(const r of rs){
       const tilt = streak>=2;                       // 직전까지 2연패 이상 = 기울어진 상태
+      const mt=parseMetrics(r);
       const ko=parseKDA(r["KDA"]);
-      // ⚠️ [2026-07-31 사장님 지적] 상세 기록이 없던 시절 판이 섞이면 두 축의 기간이 어긋난다.
-      //    KDA 는 2026-06-25 부터, 킬관여는 그 이전부터 남아 있어 그대로 두면
-      //    '연패 중 KDA'는 최근만, '연패 중 킬관여'는 옛날까지 보게 된다.
-      //    → KDA 가 기록된 판만 측정 대상으로 삼고, 킬관여도 **같은 판에서만** 센다.
-      //    (기록이 없는 판도 승패는 알므로 연패 카운트에는 그대로 반영한다)
-      if(ko){
-        const v=(ko.d===0?(ko.k+ko.a):(ko.k+ko.a)/ko.d);
-        (tilt?tiltK:calmK).push(v);
-        seqK.push(v);
-        const mt=parseMetrics(r);
-        if(mt&&mt.kp!=null) (tilt?tiltP:calmP).push(mt.kp);
+      if(mt&&mt.kp!=null&&mt.cs!=null&&mt.m>0){
+        const cspm=mt.cs/mt.m;
+        allP.push(mt.kp); allC.push(cspm);
+        if(tilt){ tiltP.push(mt.kp); tiltC.push(cspm); }
+        if(ko&&ko.k<=2&&ko.d>=8){ disA++; if(tilt) disT++; }   // ③ 참사판
         measured++;
         if(!firstDay) firstDay=String(r["날짜"]||"").slice(0,10);
       }
+      if(r["결과"]==="패배"){ loss++; if(String(r["매치평가"]||"").trim()==="ACE") aceLoss++; }
       streak = (r["결과"]==="패배") ? streak+1 : 0;
     }
     if(measured<MENTAL_MIN_GAMES) continue;         // 판수 게이트도 '측정 가능한 판' 기준
-    if(tiltK.length<MENTAL_MIN_TILT || calmK.length<5) continue;
+    if(tiltP.length<MENTAL_MIN_TILT) continue;      // 연패 표본이 얕으면 우연이 섞인다
     const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
-    const rk=(mean(tiltK)+0.1)/(mean(calmK)+0.1);
-    const rp=(tiltP.length>=MENTAL_MIN_TILT&&calmP.length>=5)?((mean(tiltP)+1)/(mean(calmP)+1)):null;
-    // ② 회복력 — 본인 기준 '망한 판(하위 25%)' 바로 다음 판이 평소만큼 나오는가.
-    //    시간순으로 이어진 두 판을 보므로, 측정 가능한 판(KDA 있는 판)만 이어 붙여 계산한다.
-    const base=mean(seqK);
-    // 하위 25%를 '값 문턱(<=q1)'으로 잡으면 같은 값이 몰릴 때 과다 포착된다
-    //   (실제로 동점이 많은 표본에서 24판 중 19판이 '망한 판'으로 잡히는 걸 확인).
-    //   → 값이 아니라 **순위**로 하위 25%만 정확히 고른다.
-    const k=Math.max(1, Math.round(seqK.length*0.25));
-    const worst=new Set(seqK.map((v,i)=>[v,i]).sort((x,y)=>x[0]-y[0]||x[1]-y[1])
-                            .slice(0,k).map(p=>p[1]));
-    const after=[];
-    for(let i=0;i<seqK.length-1;i++) if(worst.has(i)) after.push(seqK[i+1]);
-    const rc=(after.length>=MENTAL_MIN_REC)?((mean(after)+0.1)/(base+0.1)):null;
-    raw.push({nm,rk,rp,rc,tiltN:tiltK.length,recN:after.length,g:measured,from:firstDay});
+    const bp=mean(allP), bc=mean(allC);
+    if(!(bp>0)||!(bc>0)) continue;
+    const rp=mean(tiltP)/bp;                                   // ① 팀 합류
+    const rf=mean(tiltC)/bc;                                   // ② 파밍 편중
+    const rc=disT/tiltP.length - disA/measured;                // ③ 붕괴 사건(연패 중 초과분)
+    const ra=loss?aceLoss/loss:0;                              // ④ 진 팀 ACE 편중
+    raw.push({nm,rp,rf,rc,ra,tiltN:tiltP.length,g:measured,from:firstDay});
   }
   if(raw.length<5) return MENTAL;
   const zf=vals=>{ const mu=vals.reduce((a,b)=>a+b,0)/vals.length;
     const sd=Math.sqrt(vals.reduce((a,b)=>a+(b-mu)*(b-mu),0)/vals.length)||1;
     return v=>(v-mu)/sd; };
-  const zk=zf(raw.map(x=>x.rk));
-  const ps=raw.filter(x=>x.rp!=null).map(x=>x.rp);
-  const zp=ps.length>3?zf(ps):null;
-  const cs=raw.filter(x=>x.rc!=null).map(x=>x.rc);
-  const zc=cs.length>3?zf(cs):null;
-  for(const x of raw){
-    // 표본이 없는 축은 빼고 남은 축의 가중치로 정규화한다(없다고 0점 취급하면 부당하게 깎인다).
-    const t=[[MENTAL_W.tilt, zk(x.rk)]];
-    if(zc&&x.rc!=null) t.push([MENTAL_W.rec,  zc(x.rc)]);
-    if(zp&&x.rp!=null) t.push([MENTAL_W.join, zp(x.rp)]);
-    const ws=t.reduce((a,b)=>a+b[0],0)||1;
-    const z=t.reduce((a,b)=>a+b[0]*b[1],0)/ws;
+  const zp=zf(raw.map(x=>x.rp)), zfa=zf(raw.map(x=>x.rf)),
+        zc=zf(raw.map(x=>x.rc)), za=zf(raw.map(x=>x.ra));
+  // 네 축을 가중합하면 축끼리 상쇄돼 분산이 줄어든다(실측 34~66). 그대로 쓰면 '강철/유리' 라벨이 안 나온다.
+  //   → 합성값을 한 번 더 표준화해서 항상 평균 50·표준편차 15 가 되게 맞춘다.
+  const comp=raw.map(x=>MENTAL_W.join*zp(x.rp) - MENTAL_W.farm*zfa(x.rf)
+                      - MENTAL_W.coll*zc(x.rc) - MENTAL_W.ace*za(x.ra));
+  const zt=zf(comp);
+  raw.forEach((x,i)=>{
+    const z=zt(comp[i]);
     MENTAL.set(x.nm,{score:Math.max(1,Math.min(100,Math.round(50+15*z))),
-                     rk:x.rk, rp:x.rp, rc:x.rc, tiltN:x.tiltN, recN:x.recN, g:x.g, from:x.from});
-  }
+                     rp:x.rp, rf:x.rf, rc:x.rc, ra:x.ra, tiltN:x.tiltN, g:x.g, from:x.from});
+  });
   return MENTAL;
 }
 function mentalOf(name){
@@ -3173,7 +3162,7 @@ function renderHome(){
       <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${esc(shortName(p.name))}</span>${tierBadge(p.name)}</td>
       <td class="num">${p.games}</td>
       <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%</td>
-      <td class="num"${p.mental!=null?` title="${escAttr('멘탈 지수 '+p.mental+' — '+mentalLabel(p.mental)+' · 연패 중에도 평소 실력을 유지하는 정도(50점=클랜 평균)')}"`:''}>${
+      <td class="num"${p.mental!=null?` title="${escAttr('멘탈 지수 '+p.mental+' — '+mentalLabel(p.mental)+' · 연패 중에도 팀과 같이 싸우는 정도(50점=클랜 평균)')}"`:''}>${
         p.mental!=null?`<b style="color:${p.mental>=65?'var(--win)':p.mental<=35?'var(--lose)':'var(--sub)'}">${p.mental}</b>`:'<span class="muted">-</span>'}</td>
       <td class="num" style="color:var(--gold)">${p.mvp||""}</td>
       <td class="num" style="color:var(--lose)">${p.bad||""}</td>
@@ -3781,7 +3770,7 @@ function playerCardHtml(name){
     if(a.score100!=null)
       cells+=box('🔥 내전 활약',`${a.score100}<span style="font-size:11px;color:var(--mut)">/100</span>`,'클랜 평균 50',
                  a.score100>=65?'cmp-good':(a.score100<=35?'cmp-bad':''));
-    // 🧊 멘탈 지수 — 연패 중에도 평소 성적을 유지하는가(자기 평소 대비)
+    // 🧊 멘탈 지수 — 연패 중에도 팀과 같이 싸우는가(자기 평소 대비)
     { const mt=(typeof mentalOf==='function')?mentalOf(a.name):null;
       if(mt) cells+=box('🧊 멘탈',`${mt.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
         mentalLabel(mt.score), mt.score>=65?'cmp-good':(mt.score<=35?'cmp-bad':'')); }
@@ -4294,11 +4283,11 @@ function renderPlayer(name){
     if(avgRatio!=null){ const q=pc("kda"); it.push(cell("KDA",avgRatio.toFixed(2),`${kdaGames}판 평균`,q.cls,q.tip)); }
     if(_csN){ const q=pc("cspm"); it.push(cell("CS/분",(_csS/_csN).toFixed(1),`${_csN}판 평균`,q.cls,q.tip)); }
     if(_vsN){ const q=pc("vision"); it.push(cell("시야",Math.round(_vsS/_vsN),`${_vsN}판 평균`,q.cls,q.tip)); }
-    // 🧊 멘탈 지수 — 연패 중에도 평소 성적을 유지하는가(자기 평소 대비)
+    // 🧊 멘탈 지수 — 연패 중에도 팀과 같이 싸우는가(자기 평소 대비)
     { const _mt=(typeof mentalOf==='function')?mentalOf(name):null;
       if(_mt) it.push(cell("🧊 멘탈",`${_mt.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
         mentalLabel(_mt.score), _mt.score>=65?'cmp-good':(_mt.score<=35?'cmp-bad':''),
-        `불리해졌을 때 무너지지 않는 정도 — ①연패 중 KDA ②망한 판 다음 판 회복 ③연패 중 킬관여를 그 사람 평소 값과 비교합니다. 측정 ${_mt.g}판(연패 ${_mt.tiltN}판${_mt.recN?` · 회복 ${_mt.recN}판`:''})${_mt.from?` · ${_mt.from}부터`:''} — 상세 기록이 없던 시절 판은 제외. 50점이 클랜 평균. 실력이 아니라 '무너지지 않는가'를 봅니다.`)); }
+        `연패 중에도 팀과 같이 싸우는가 — ①팀 합류(연패 중 킬관여÷평소) 40% ②파밍 편중(연패 중 CS/분÷평소) −25% ③붕괴 사건(연패 중 참사판 초과분) −20% ④진 팀에서 혼자 ACE −15%. 측정 ${_mt.g}판(연패 ${_mt.tiltN}판)${_mt.from?` · ${_mt.from}부터`:''} — 상세 기록이 없던 시절 판은 제외. 50점이 클랜 평균. 실력이 아니라 '팀을 놓지 않는가'를 봅니다.`)); }
     // ▼ 동티어 비교(내부티어 평균 대비) — 5% 이상 벌어질 때만 색.
     const d=_asmt&&_asmt.detail;
     const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
@@ -5131,7 +5120,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608010310";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608010455";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
