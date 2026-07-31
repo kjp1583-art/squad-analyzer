@@ -4251,7 +4251,7 @@ function renderPlayer(name){
   if(_bp && _bp.top){
     const b = _bp.top, rk = bpRankOf(tnorm(canonOfName(name)));
     const others = _bp.champs.filter(x=>x!==b && x.z>1.5).slice(0,2);
-    bpHtml = `<div class="card sect" style="margin-top:14px">
+    bpHtml = `<div class="card sect">
         <h2>🎯 견제 지수
           <span class="muted" style="font-size:13px;font-weight:400" title="상대가 이 선수를 의식해 밴하는 정도입니다. '내가 낀 판 밴율 − 내가 없는 판 밴율'로 계산해, 원래 인기 밴인 챔프의 영향을 제거했습니다. 밴은 '무섭다'뿐 아니라 '상대하기 짜증난다'에도 걸리므로 실력 지표로만 보긴 어렵습니다.">${rk?`클랜 ${rk.rank}위 / ${rk.total}명`:''} ⓘ</span></h2>
         <div style="font-size:13.5px;line-height:1.65">
@@ -4264,7 +4264,7 @@ function renderPlayer(name){
         </div>
       </div>`;
   }else if(_bp){
-    bpHtml = `<div class="card sect" style="margin-top:14px">
+    bpHtml = `<div class="card sect">
         <h2>🎯 견제 지수</h2>
         <div class="muted" style="font-size:13px">아직 뚜렷하게 견제받는 챔프가 없어요 — 상대가 특별히 의식하지 않는 상태입니다.</div>
       </div>`;
@@ -4319,7 +4319,6 @@ function renderPlayer(name){
     </div>
     <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지 · 기록</h2>${mitoHtml}${badgesHtml}</div>
     ${aiEvalHtml}
-    ${bpHtml}
     <div class="grid cols">
       <div>
         <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
@@ -4345,9 +4344,12 @@ function renderPlayer(name){
           <div id="cmtList"><div class="muted" style="padding:8px 0;font-size:14.5px">댓글 불러오는 중…</div></div>
         </div>
       </div>
-      <div class="card">
-        <h2>전적 (${list.length})</h2>
-        ${matchHtml}
+      <div>
+        ${bpHtml}
+        <div class="card"${bpHtml?' style="margin-top:14px"':''}>
+          <h2>전적 (${list.length})</h2>
+          ${matchHtml}
+        </div>
       </div>
     </div>`;
   loadComments(name);
@@ -4984,7 +4986,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607312140";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607312200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
