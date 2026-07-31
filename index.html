@@ -1152,6 +1152,7 @@ function computeAssessments(){
       사장님이 지적한 전형(연패하면 사이드에서 혼자 파밍 → 팀 전멸 후 ACE만 챙김)이 오히려 상위권에 떴다.
    → 재설계. 기준은 남과의 비교가 아니라 **자기 평소 기록**이고, 네 축 모두 '팀과 함께인가'를 본다:
      ① 팀 합류      — 연패 중 킬관여 ÷ 평소 킬관여                    (가중 40%, 높을수록 +)
+                       ※ 골드 점유가 늘면 킬관여도 저절로 오르므로(혼자 컸으면 그가 없는 교전엔 킬이 안 남) β보정 — 함수 안 주석 참고
      ② 파밍 편중    — 연패 중 CS/분 ÷ 평소 CS/분                      (가중 25%, 높을수록 −)
      ③ 붕괴 사건    — 연패 중 참사판(2킬 이하·8데스 이상) 비율 − 평소  (가중 20%, 높을수록 −)
      ④ 진 팀 ACE    — 패배한 판 중 ACE 비율                            (가중 15%, 높을수록 −)
@@ -1165,42 +1166,74 @@ function computeAssessments(){
 const MENTAL_MIN_GAMES=15, MENTAL_MIN_TILT=10;
 const MENTAL_W={join:0.40, farm:0.25, coll:0.20, ace:0.15};
 let MENTAL=new Map();
+/* 팀 골드 합계(게임·진영별) — '자원 점유율' 계산용. 골드가 기록된 판만 잡힌다. */
+function _mentalTeamGold(){
+  const src=GAMES_ALL.size?GAMES_ALL:GAMES, T=new Map();
+  for(const [gid,g] of src){
+    for(const r of (g.rows||[])){
+      const mt=parseMetrics(r); if(!mt||mt.g==null) continue;
+      const k=gid+"∥"+(r["진영"]||"");
+      T.set(k,(T.get(k)||0)+mt.g);
+    }
+  }
+  return T;
+}
 function computeMental(){
   MENTAL=new Map();
   const src=PLAYERS_ALL.size?PLAYERS_ALL:PLAYERS;   // 통산 기준(패치 필터 무관)
+  const TG=_mentalTeamGold();
   const raw=[];
   for(const [nm,parts] of src){
     const rs=parts.filter(r=>r["결과"]==="승리"||r["결과"]==="패배")
       .slice().sort((a,b)=>String(a["날짜"]||"").localeCompare(String(b["날짜"]||""))
                         || String(a["게임ID"]||"").localeCompare(String(b["게임ID"]||"")));
-    // 측정 대상 = 킬관여·CS 가 기록된 판만. (기록 없는 옛날 판도 승패는 알므로 연패 카운트엔 반영)
-    const allP=[],tiltP=[],allC=[],tiltC=[];
-    let streak=0, measured=0, firstDay="", disA=0, disT=0, loss=0, aceLoss=0;
+    // 측정 대상 = 킬관여·CS·골드가 기록된 판만. (기록 없는 옛날 판도 승패는 알므로 연패 카운트엔 반영)
+    const G=[];                                     // 측정 가능한 판(시간순)
+    let streak=0, firstDay="", loss=0, aceLoss=0;
     for(const r of rs){
       const tilt = streak>=2;                       // 직전까지 2연패 이상 = 기울어진 상태
       const mt=parseMetrics(r);
       const ko=parseKDA(r["KDA"]);
-      if(mt&&mt.kp!=null&&mt.cs!=null&&mt.m>0){
-        const cspm=mt.cs/mt.m;
-        allP.push(mt.kp); allC.push(cspm);
-        if(tilt){ tiltP.push(mt.kp); tiltC.push(cspm); }
-        if(ko&&ko.k<=2&&ko.d>=8){ disA++; if(tilt) disT++; }   // ③ 참사판
-        measured++;
-        if(!firstDay) firstDay=String(r["날짜"]||"").slice(0,10);
+      if(mt&&mt.kp!=null&&mt.cs!=null&&mt.g!=null&&mt.m>0){
+        const tg=TG.get((r["게임ID"]||"")+"∥"+(r["진영"]||""))||0;
+        if(tg>0){
+          G.push({tilt, kp:mt.kp, cspm:mt.cs/mt.m, gsh:mt.g/tg,
+                  dis:!!(ko&&ko.k<=2&&ko.d>=8)});
+          if(!firstDay) firstDay=String(r["날짜"]||"").slice(0,10);
+        }
       }
       if(r["결과"]==="패배"){ loss++; if(String(r["매치평가"]||"").trim()==="ACE") aceLoss++; }
       streak = (r["결과"]==="패배") ? streak+1 : 0;
     }
+    const measured=G.length, tiltG=G.filter(x=>x.tilt);
     if(measured<MENTAL_MIN_GAMES) continue;         // 판수 게이트도 '측정 가능한 판' 기준
-    if(tiltP.length<MENTAL_MIN_TILT) continue;      // 연패 표본이 얕으면 우연이 섞인다
+    if(tiltG.length<MENTAL_MIN_TILT) continue;      // 연패 표본이 얕으면 우연이 섞인다
     const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
-    const bp=mean(allP), bc=mean(allC);
-    if(!(bp>0)||!(bc>0)) continue;
-    const rp=mean(tiltP)/bp;                                   // ① 팀 합류
-    const rf=mean(tiltC)/bc;                                   // ② 파밍 편중
-    const rc=disT/tiltP.length - disA/measured;                // ③ 붕괴 사건(연패 중 초과분)
-    const ra=loss?aceLoss/loss:0;                              // ④ 진 팀 ACE 편중
-    raw.push({nm,rp,rf,rc,ra,tiltN:tiltP.length,g:measured,from:firstDay});
+    const bp=mean(G.map(x=>x.kp)), bc=mean(G.map(x=>x.cspm)), bg=mean(G.map(x=>x.gsh));
+    if(!(bp>0)||!(bc>0)||!(bg>0)) continue;
+    const disR=A=>A.filter(x=>x.dis).length/A.length;
+    raw.push({nm, G, tiltG, bp, bc, bg,
+      rf: mean(tiltG.map(x=>x.cspm))/bc,                 // ② 파밍 편중
+      rg: mean(tiltG.map(x=>x.gsh))/bg,                  // (참고) 자원 점유 변화
+      rc: disR(tiltG)-disR(G),                           // ③ 붕괴 사건(연패 중 초과분)
+      ra: loss?aceLoss/loss:0,                           // ④ 진 팀 ACE 편중
+      tiltN:tiltG.length, g:measured, from:firstDay});
+  }
+  /* ① 팀 합류 — 그냥 킬관여를 쓰면 안 된다.
+     [2026-08-01 사장님 지적] "혼자 과성장하면 그 사람 없는 교전엔 킬이 안 나오니 킬관여가 같이 오른다."
+     실측으로도 같은 사람 안에서 판별 킬관여와 팀 골드 점유율의 상관이 +0.29, 회귀 기울기 β≈130
+     (자원 점유 +5%p 면 킬관여가 저절로 +6.5p). → 자원 점유가 늘어난 만큼 킬관여 상승분을 깎고
+     '자원 대비 실제로 팀 싸움에 붙었는가'만 남긴다. β는 개인 평균을 뺀 뒤(=본인 안에서의 변동만)
+     클랜 전체 데이터로 매번 회귀해서 구한다. */
+  let sxy=0, sxx=0;
+  for(const p of raw){ if(p.G.length<20) continue;
+    for(const x of p.G){ const dg=x.gsh-p.bg; sxy+=dg*(x.kp-p.bp); sxx+=dg*dg; } }
+  const BETA = sxx>0 ? sxy/sxx : 0;
+  for(const p of raw){
+    const adj=x=>x.kp-BETA*(x.gsh-p.bg);
+    p.rp = (p.tiltG.reduce((a,x)=>a+adj(x),0)/p.tiltG.length)/p.bp;
+    p.rpRaw = (p.tiltG.reduce((a,x)=>a+x.kp,0)/p.tiltG.length)/p.bp;
+    delete p.G; delete p.tiltG;
   }
   if(raw.length<5) return MENTAL;
   const zf=vals=>{ const mu=vals.reduce((a,b)=>a+b,0)/vals.length;
@@ -1216,7 +1249,7 @@ function computeMental(){
   raw.forEach((x,i)=>{
     const z=zt(comp[i]);
     MENTAL.set(x.nm,{score:Math.max(1,Math.min(100,Math.round(50+15*z))),
-                     rp:x.rp, rf:x.rf, rc:x.rc, ra:x.ra, tiltN:x.tiltN, g:x.g, from:x.from});
+                     rp:x.rp, rpRaw:x.rpRaw, rf:x.rf, rg:x.rg, rc:x.rc, ra:x.ra, tiltN:x.tiltN, g:x.g, from:x.from});
   });
   return MENTAL;
 }
@@ -4287,7 +4320,7 @@ function renderPlayer(name){
     { const _mt=(typeof mentalOf==='function')?mentalOf(name):null;
       if(_mt) it.push(cell("🧊 멘탈",`${_mt.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
         mentalLabel(_mt.score), _mt.score>=65?'cmp-good':(_mt.score<=35?'cmp-bad':''),
-        `연패 중에도 팀과 같이 싸우는가 — ①팀 합류(연패 중 킬관여÷평소) 40% ②파밍 편중(연패 중 CS/분÷평소) −25% ③붕괴 사건(연패 중 참사판 초과분) −20% ④진 팀에서 혼자 ACE −15%. 측정 ${_mt.g}판(연패 ${_mt.tiltN}판)${_mt.from?` · ${_mt.from}부터`:''} — 상세 기록이 없던 시절 판은 제외. 50점이 클랜 평균. 실력이 아니라 '팀을 놓지 않는가'를 봅니다.`)); }
+        `연패 중에도 팀과 같이 싸우는가 — ①팀 합류(연패 중 킬관여÷평소, 골드를 더 먹어서 오른 만큼은 빼고 계산) 40% ②파밍 편중(연패 중 CS/분÷평소) −25% ③붕괴 사건(연패 중 참사판 초과분) −20% ④진 팀에서 혼자 ACE −15%. 측정 ${_mt.g}판(연패 ${_mt.tiltN}판)${_mt.from?` · ${_mt.from}부터`:''} — 상세 기록이 없던 시절 판은 제외. 50점이 클랜 평균. 실력이 아니라 '팀을 놓지 않는가'를 봅니다.`)); }
     // ▼ 동티어 비교(내부티어 평균 대비) — 5% 이상 벌어질 때만 색.
     const d=_asmt&&_asmt.detail;
     const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
@@ -5120,7 +5153,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608010455";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608010540";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
