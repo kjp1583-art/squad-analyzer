@@ -85,7 +85,9 @@
   .pchip:hover{color:var(--txt)}
   .pchip.on{background:var(--card2);color:var(--txt);border-color:var(--accent)}
   /* 대시보드 3단 레이아웃 (랭킹 · 챔피언통계 · 최근게임) */
-  .home3{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);align-items:start}
+  /* [2026-07-31] 랭킹(열 8개)은 넓게, 최근 게임은 좁게 — 3등분이 아니라 1.35 : 1 : 0.8 비율 */
+  .home3{display:grid;gap:14px;align-items:start;
+    grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,0.8fr)}
   @media(max-width:960px){.home3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
   @media(max-width:620px){.home3{grid-template-columns:1fr}}
   .ranktbl th,.ranktbl td,.champtbl th,.champtbl td{padding:7px 4px;font-size:14px}
@@ -2900,8 +2902,6 @@ function renderHome(){
   const champs=champTierData();
   const players=playerStats();
   const totalGames=GAMES.size;
-  const dates=[...GAMES.values()].map(g=>g.date).filter(Boolean).sort();
-  const period=dates.length?`${dates[0]} ~ ${dates[dates.length-1]}`:"-";
 
   // 정렬 적용 (챔피언). pr=밴픽률(픽+밴 기준)
   const ck=SORT.key||"picks";
@@ -2975,12 +2975,6 @@ function renderHome(){
     </div>`:'';
 
   view().innerHTML=`
-    <div class="stats">
-      <div class="stat"><div class="n">${totalGames}</div><div class="l">총 게임</div></div>
-      <div class="stat"><div class="n">${PLAYERS.size}</div><div class="l">플레이어</div></div>
-      <div class="stat"><div class="n">${champs.filter(c=>c.picks).length}</div><div class="l">사용된 챔피언</div></div>
-      <div class="stat"><div class="n" style="font-size:16px;padding-top:6px">${period}</div><div class="l">기록 기간</div></div>
-    </div>
     ${posDist}
     ${navTabsHtml('home')}
     ${ws ? `<div class="card weekcard">
@@ -4748,7 +4742,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607310330";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
