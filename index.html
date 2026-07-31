@@ -638,6 +638,7 @@
   <div class="catbar" id="catbar"></div>
   <div class="patchbar hidden" id="patchbar"></div>
   <div id="view"></div>
+  <div id="pcard"></div>   <!-- 🪟 플레이어 카드 팝업(화면 전환과 무관하게 이 자리에 그린다) -->
 
   <div class="adfooter" id="adFooter"></div>
 
@@ -2994,7 +2995,7 @@ function renderHome(){
     </tr>`;}).join("");
 
   const playerRows=players.map(p=>`<tr>
-      <td><span class="clickname" onclick="go('player','${escAttr(p.name)}')">${esc(shortName(p.name))}</span>${tierBadge(p.name)}</td>
+      <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${esc(shortName(p.name))}</span>${tierBadge(p.name)}</td>
       <td class="num">${p.games}</td>
       <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%</td>
       <td class="num" style="color:var(--gold)">${p.mvp||""}</td>
@@ -3537,47 +3538,14 @@ const LEAGUES=[
            {g:'3',  label:'III 티어',cls:'t3', cols:['3上','3中','3下']}]},
 ];
 const SUBLABEL={'上':'上등급','中':'中등급','下':'下등급'};
-let TIER_PICK=null;   // 티어표에서 펼쳐 볼 선수(이름). 다시 누르면 접힘.
-function setTierPick(n){
-  TIER_PICK = (TIER_PICK===n) ? null : n;
-  const y=window.scrollY; renderTiers(); window.scrollTo(0,y);
-}
-function closeTierPick(e){ if(e&&e.stopPropagation) e.stopPropagation(); TIER_PICK=null;
-  const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&TIER_PICK){ closeTierPick(); } });
-function renderTiers(){
+/* 🪟 [2026-07-31] 플레이어 카드 팝업 본문 — 내부티어 표·홈 플레이어 목록 공용.
+   1차로 요약 카드를 보여주고, 더 자세한 건 '전적 상세 보기'로 넘어간다. */
+function playerCardHtml(name){
   const r1=v=>v!=null?Math.round(v):'—';
-  const byTier={};
-  for(const [name,a] of ASSESSMENTS){ (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
-  let cU=0,cOk=0,cOv=0,cNa=0;
-  for(const [,a] of ASSESSMENTS){ if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
-
-  // 한 칸(등급 열) — 그 티어에 속한 사람들을 평가 순(고평가→저평가→적절)으로 세운다.
-  const OL={'고평가':0,'저평가':1,'적절':2,'표본부족':3};
-  const cell=(t,cls)=>{
-    const arr=(byTier[t]||[]).slice().sort((a,b)=>(OL[a.label]-OL[b.label])||((a.implPct||999)-(b.implPct||999)));
-    const names=arr.map(a=>{
-      const on = TIER_PICK===a.name;
-      const chip = a.label && a.label!=='표본부족'
-        ? `<span class="tb-tag ${a.cls}">${a.label}</span>` : '';
-      return `<button class="tb-name${on?' on':''}" onclick="setTierPick(${JSON.stringify(a.name).replace(/"/g,'&quot;')})"
-        title="${escAttr(a.name)} — 눌러서 세부 지표 보기">
-        <span class="tb-nm">${esc(shortName(a.name))}</span>${chip}</button>`;
-    }).join("");
-    return `<div class="tb-col ${cls}">
-      <div class="tb-sub">${SUBLABEL[t.slice(1)]||'&nbsp;'}<span class="tb-cnt">${arr.length}</span></div>
-      <div class="tb-list">${names||'<div class="tb-empty">-</div>'}</div>
-    </div>`;
-  };
-
-
-  // 🪟 [2026-07-31 사장님 지시] 이름을 누르면 화면 정중앙에 '플레이어 카드' 팝업으로 띄운다.
-  //    (보드 아래 인라인은 시선이 멀어 안 뜬 줄 아는 문제가 있었다)
-  const detail=(()=>{
-    if(!TIER_PICK) return '';
-    const _a0=ASSESSMENTS.get(TIER_PICK);
-    if(!_a0) return '';
-    const a=Object.assign({name:TIER_PICK}, _a0);   // ASSESSMENTS 값에는 이름이 없다(키가 이름)
+    if(!name) return '';
+    const _a0=ASSESSMENTS.get(name)||{};
+    const a=Object.assign({name}, _a0);   // ASSESSMENTS 값에는 이름이 없다(키가 이름)
+    const hasEval=!!_a0.tier;
     const d=a.detail, av=TIER_AVG[a.tier]||{};
     const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
       const dd=(mine-ref)/Math.abs(ref); if(Math.abs(dd)<0.05) return '';
@@ -3619,15 +3587,15 @@ function renderTiers(){
         Math.abs(gr.score)<2?'':(pos?'cmp-bad':'cmp-good'));
     }
     const nameJs=JSON.stringify(a.name).replace(/"/g,'&quot;');
-    return `<div class="tbm-back" onclick="closeTierPick(event)">
+    return `<div class="tbm-back" onclick="closePlayerCard(event)">
       <div class="tbm-card" onclick="event.stopPropagation()">
         ${splash?`<div class="tbm-banner" style="background-image:url('${splash}')"></div>`:''}
-        <button class="tbm-x" onclick="closeTierPick()" title="닫기 (Esc)">✕</button>
+        <button class="tbm-x" onclick="closePlayerCard()" title="닫기 (Esc)">✕</button>
         <div class="tbm-head">
           <div class="tbm-nm">
-            <span class="tier ${tierGroupCls(a.tier)}" style="margin:0">${esc(a.tier)}</span>
+            ${hasEval?`<span class="tier ${tierGroupCls(a.tier)}" style="margin:0">${esc(a.tier)}</span>`:''}
             <b>${esc(shortName(a.name))}</b><span class="muted" style="font-size:13px;font-weight:400">${esc(tagOf(a.name))}</span>
-            <span class="assess ${a.cls}">${a.label}</span>
+            ${hasEval?`<span class="assess ${a.cls}">${a.label}</span>`:''}
           </div>
           <div class="tbm-sub">
             ${titleBadge(a.title)}
@@ -3644,12 +3612,55 @@ function renderTiers(){
         <div class="tbm-body">
           ${d?`<div class="cmpgrid">${cells}</div>
             <div class="muted" style="font-size:12px;margin-top:8px">동티어 평균 — 승률 ${r1(av.wr)}%${av.mvp!=null?` · MVP율 ${r1(av.mvp)}%`:''}${av.troll!=null?` · 역적율 ${r1(av.troll)}%`:''}${av.solo!=null?` · 🏅솔랭 ${r1(av.solo)}`:''} · 표본 ${av.n||0}명</div>`
-            :`<div class="muted" style="font-size:13.5px">${a.games}판 — 평가엔 10판 이상 필요</div>`}
-          <button class="tbm-go" onclick="go('player',${nameJs})">전적 상세 보기 →</button>
+            :`<div class="muted" style="font-size:13.5px">${hasEval?`${a.games}판 — 평가엔 10판 이상 필요`:'내부티어가 아직 부여되지 않았어요'}</div>`}
+          <button class="tbm-go" onclick="pcardGo(${nameJs})">전적 상세 보기 →</button>
         </div>
       </div>
     </div>`;
-  })();
+}
+/* 🪟 [2026-07-31] 플레이어 카드 팝업 — 내부티어 표와 홈 플레이어 목록에서 공용으로 쓴다.
+   화면을 다시 그리지 않고 #pcard 에만 넣어, 어느 페이지에서 눌러도 같은 카드가 뜬다. */
+let PCARD=null;
+function openPlayerCard(n){
+  PCARD=n;
+  const el=document.getElementById("pcard"); if(!el) return;
+  el.innerHTML=playerCardHtml(n);
+  document.body.style.overflow="hidden";        // 뒤 배경 스크롤 잠금
+}
+function closePlayerCard(e){
+  if(e&&e.stopPropagation) e.stopPropagation();
+  PCARD=null;
+  const el=document.getElementById("pcard"); if(el) el.innerHTML="";
+  document.body.style.overflow="";
+}
+function pcardGo(n){ closePlayerCard(); go('player', n); }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&PCARD) closePlayerCard(); });
+function renderTiers(){
+  const r1=v=>v!=null?Math.round(v):'—';
+  const byTier={};
+  for(const [name,a] of ASSESSMENTS){ (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
+  let cU=0,cOk=0,cOv=0,cNa=0;
+  for(const [,a] of ASSESSMENTS){ if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
+
+  // 한 칸(등급 열) — 그 티어에 속한 사람들을 평가 순(고평가→저평가→적절)으로 세운다.
+  const OL={'고평가':0,'저평가':1,'적절':2,'표본부족':3};
+  const cell=(t,cls)=>{
+    const arr=(byTier[t]||[]).slice().sort((a,b)=>(OL[a.label]-OL[b.label])||((a.implPct||999)-(b.implPct||999)));
+    const names=arr.map(a=>{
+      const on = PCARD===a.name;
+      const chip = a.label && a.label!=='표본부족'
+        ? `<span class="tb-tag ${a.cls}">${a.label}</span>` : '';
+      return `<button class="tb-name${on?' on':''}" onclick="openPlayerCard(${JSON.stringify(a.name).replace(/"/g,'&quot;')})"
+        title="${escAttr(a.name)} — 눌러서 세부 지표 보기">
+        <span class="tb-nm">${esc(shortName(a.name))}</span>${chip}</button>`;
+    }).join("");
+    return `<div class="tb-col ${cls}">
+      <div class="tb-sub">${SUBLABEL[t.slice(1)]||'&nbsp;'}<span class="tb-cnt">${arr.length}</span></div>
+      <div class="tb-list">${names||'<div class="tb-empty">-</div>'}</div>
+    </div>`;
+  };
+
+
 
   const boards = LEAGUES.map(L=>{
     const total = L.groups.reduce((n,g)=>n+g.cols.reduce((m,c)=>m+((byTier[c]||[]).length),0),0);
@@ -3681,8 +3692,7 @@ function renderTiers(){
         <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.<br>
         <span style="opacity:.75">· 🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌은 op.gg 기준(시즌 종료 시점 티어).</span>
       </div>
-    </div>
-    ${detail}`;
+    </div>`;
 }
 
 let LOG_LIMIT=60;
@@ -4876,7 +4886,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202607311850";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202607311920";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
