@@ -4734,7 +4734,18 @@ function renderCatbar(){
   +`<span class="cat-sep"></span>`
   +`<button class="cat hof" onclick="go('hof','rift')">🏆 명예의 전당</button>`
   +`<button class="cat hof" onclick="go('hof','aram')">❄️ 증내의 전당</button>`
-  +`<button class="cat hof" onclick="go('gpti')">🧬 성향유형 도감</button>`;
+  +`<button class="cat hof" onclick="go('gpti')">🧬 성향유형 도감</button>`
+  +`<button class="cat hof" id="btnReload" onclick="reloadData()" title="시트를 다시 읽어 새 전적을 반영합니다 (페이지 새로고침 없이)">🔄 데이터 새로고침</button>`;
+}
+// 🔄 [2026-08-02] 시트 재조회 — 새 내전 기록이 올라왔을 때 F5 없이 즉시 반영.
+//   시트 응답은 구글이 no-store로 주므로 브라우저 캐시는 애초에 없다(2026-08-02 실측). 여기서 비우는 건
+//   앱이 들고 있는 메모리 캐시(CAT_CACHE)뿐이고, 그래야 같은 카테고리를 다시 눌러도 새로 받아온다.
+async function reloadData(){
+  const b=document.getElementById("btnReload"); const old=b?b.textContent:"";
+  if(b){ b.textContent="🔄 불러오는 중…"; b.disabled=true; }
+  for(const k of Object.keys(CAT_CACHE)) delete CAT_CACHE[k];
+  try{ await loadCategory(CURRENT_CAT); }
+  finally{ const nb=document.getElementById("btnReload"); if(nb){ nb.textContent=old||"🔄 데이터 새로고침"; nb.disabled=false; } }
 }
 function switchCat(key){
   if(key===CURRENT_CAT && GAMES.size){go('home');return;}
@@ -5215,7 +5226,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608020650";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608012018";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -5233,6 +5244,8 @@ async function checkNewBuild(){
     }
   }catch(e){}
 }
+checkNewBuild();                       // 🆕 부팅 즉시 1회 — F5는 Pages가 캐시한 index.html을 그대로 쓸 수 있어(최대 10분)
+                                       //    새로고침했는데도 옛 코드가 도는 경우가 생긴다. 켜자마자 확인해 배너로 알린다.
 setInterval(checkNewBuild, 10*60*1000);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNewBuild(); });
 
