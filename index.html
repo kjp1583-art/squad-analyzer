@@ -313,9 +313,21 @@
     .homehead.two .hh-pane:last-child{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:14px}}
   .weekcard{margin-bottom:14px}
   .weekgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .wkstar{background:#171a21;border:1px solid #2b3444;border-radius:10px;padding:12px 14px;text-align:center}
+  .wkstar{background:#171a21;border:1px solid #2b3444;border-radius:10px;padding:12px 14px;text-align:center;
+    position:relative;overflow:hidden;isolation:isolate}
+  /* 🖼 [2026-08-01 사장님 제안] 타일 배경에 그 사람 대표 챔피언 스플래시를 반투명으로.
+     플레이어 카드 배너와 같은 소스·같은 페이드 방식이라 톤이 통일된다.
+     글자 가독성이 최우선이라 카드 배너(.5)보다 훨씬 옅게(.22) 깔고, 우측에서 좌측으로 사라지게 한다. */
+  .wk-bg{position:absolute;inset:0;z-index:-1;background-size:cover;background-position:center 22%;
+    opacity:.22;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 45%,#000 100%);
+    mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 45%,#000 100%);
+    animation:wkbg-in .7s ease both}
+  @keyframes wkbg-in{from{opacity:0;transform:scale(1.07)}to{opacity:.22;transform:none}}
+  @media (prefers-reduced-motion:reduce){.wk-bg{animation:none}}
   .wk-t{font-size:13px;font-weight:700;color:#cdd6e6;margin-bottom:6px}
-  .wk-name{font-size:17px;font-weight:800;color:#F5D47A;cursor:pointer}
+  .wk-name{font-size:17px;font-weight:800;color:#F5D47A;cursor:pointer;
+    text-shadow:0 1px 3px rgba(0,0,0,.85)}   /* 배경 위에서도 또렷하게 */
   /* 양옆 광고 레일 (op.gg 스타일) — 넓은 화면에서만 표시 */
   .adrail{display:none;position:fixed;top:84px;width:160px;z-index:5}
   .adrail.left{left:calc(50% - 716px)}
@@ -3190,9 +3202,27 @@ function weeklyStars(){
           lose:pick(v=>v.lt>=3?v.lt:0), rise, fall, players:arr.length};
 }
 function _wkMD(ms){ const d=new Date(ms); return `${d.getMonth()+1}/${d.getDate()}`; }
+// 🖼 [2026-08-01] 그 사람의 대표 챔피언(최다 사용) 스플래시 주소. 없으면 "".
+//    이주의 인물 타일 배경용 — 플레이어 카드 배너와 같은 기준이라 둘이 항상 같은 그림이 된다.
+//    이주의 인물은 패치 필터와 무관하게 뽑으므로 챔피언도 통산(PLAYERS_ALL) 기준으로 센다.
+function mainSplashOf(name){
+  try{
+    const src=(typeof PLAYERS_ALL!=='undefined'&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
+    const parts=src.get(name)||src.get(canonOfName(name));
+    if(!parts||!parts.length) return "";
+    const cc=new Map();
+    for(const r of parts){ const c=r["챔피언"]; if(c) cc.set(c,(cc.get(c)||0)+1); }
+    let best=null,bn=0;
+    for(const [c,n] of cc) if(n>bn){best=c;bn=n;}
+    if(!best) return "";
+    return SPLASHMAP[best]||SPLASHMAP[String(best).replace(/\s/g,"")]||"";
+  }catch(e){ return ""; }
+}
 function weekStar(title, best, descFn){
   if(!best) return `<div class="wkstar"><div class="wk-t">${title}</div><div class="muted" style="font-size:12.5px;padding-top:6px">해당 없음</div></div>`;
-  return `<div class="wkstar"><div class="wk-t">${title}</div><div class="wk-name clickname" onclick="go('player','${escAttr(best.nm)}')">${esc(shortName(best.nm))}</div><div class="muted" style="font-size:12px">${esc(descFn(best.v))}</div></div>`;
+  const sp=(typeof mainSplashOf==='function')?mainSplashOf(best.nm):"";
+  const bg=sp?`<div class="wk-bg" style="background-image:url('${escAttr(sp)}')"></div>`:'';
+  return `<div class="wkstar">${bg}<div class="wk-t">${title}</div><div class="wk-name clickname" onclick="go('player','${escAttr(best.nm)}')">${esc(shortName(best.nm))}</div><div class="muted" style="font-size:12px">${esc(descFn(best.v))}</div></div>`;
 }
 function renderHome(){
   const ws=weeklyStars();   // 🏆 이주의 인물
@@ -5185,7 +5215,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608020520";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608020600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
