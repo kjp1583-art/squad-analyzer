@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.69"
+CURRENT_VERSION = "82.70"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -4424,7 +4424,8 @@ def _crunch_from_aggregate(blue_players, red_players):
         sg, sw = (pd["bg"], pd["bw"]) if is_blue else (pd["rg"], pd["rw"])
         side_wr_str = f"진영 승률: {round((sw/sg)*100)}% ({sw}승 {sg-sw}패)" if sg > 0 else "진영 승률: 기록없음"
         sv = pd["stk"]
-        streak_str = f" (🔥{sv}연승중)" if sv > 0 else (f" (🌧{-sv}연패중)" if sv < 0 else "")
+        # [2026-08-01] 이름 옆 '연승중/연패중' 표기 제거 — 5연승 이상은 닉네임 불타는 효과로 대신한다.
+        #   표시 문자열은 더 이상 쓰지 않고 값(streak_val)만 넘긴다.
         champs = C.get(p_key, {})
         most_list, op_list, fatal_bans, user_ban_score = [], [], [], {}
         sorted_champs = sorted(champs.items(), key=lambda x: (-x[1]["n"], x[0]))   # 동률 이름순(원본과 동일)
@@ -4461,7 +4462,7 @@ def _crunch_from_aggregate(blue_players, red_players):
             "summary": f"{total}전 {wins}승 {total-wins}패 ({round(overall_wr*100, 1)}%)",
             "most_list": most_list, "op_list": op_list, "fatal_bans": fatal_bans,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
-            "streak": streak_str, "streak_val": sv, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
+            "streak": "", "streak_val": sv, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
         }
 
     blue_advice_list = sorted(red_pool.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -4693,7 +4694,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
         side_wins = sum(1 for m in p_matches if m.get('team') == side_target and m.get('result') == '승리')
         side_wr_str = f"진영 승률: {round((side_wins/side_games)*100)}% ({side_wins}승 {side_games-side_wins}패)" if side_games > 0 else "진영 승률: 기록없음"
 
-        streak_str, streak_val = "", 0
+        streak_val = 0
         if p_matches:
             recent_matches = list(reversed(p_matches))
             current_res = recent_matches[0].get('result', '')
@@ -4701,8 +4702,8 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
             for m in recent_matches:
                 if m.get('result') == current_res: streak_count += 1
                 else: break
-            if current_res == '승리': streak_str, streak_val = f" (🔥{streak_count}연승중)", streak_count
-            elif current_res == '패배': streak_str, streak_val = f" (🌧{streak_count}연패중)", -streak_count
+            if current_res == '승리': streak_val = streak_count
+            elif current_res == '패배': streak_val = -streak_count
 
         champ_counts = player_champ_counts.get(p_key, {})
         most_list, op_list, fatal_bans = [], [], []
@@ -4758,7 +4759,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
             "summary": f"{total}전 {wins}승 {total-wins}패 ({round(overall_wr*100, 1)}%)",
             "most_list": most_list, "op_list": op_list, "fatal_bans": fatal_bans, "ban_pressure": bp_list,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
-            "streak": streak_str, "streak_val": streak_val, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
+            "streak": "", "streak_val": streak_val, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
         }
 
     # 🚫 [v81.76 사장님 지시] 추천 밴 5 → 10개(GUI는 5개씩 2줄)
@@ -7573,6 +7574,45 @@ def create_graphic_ui():
         rsub_3.pack(side="left")
         red_slots.append((rtn, rsub_1, rti, rpi, rcb, rc_frame_1, r_opgg, rc_frame_2, rsub_2, rc_frame_3, rsub_3, rtr, rf, rem))   # [12]=칸 프레임 · [13]=🎨꾸미기 엠블럼
 
+    # 🔥 [2026-08-01 사장님 지시] 연승/연패 텍스트는 이름 옆에서 빼고, **5연승 이상**만
+    #    닉네임이 불타는 효과로 대신한다. 텍스트가 아니라 색이 일렁이는 방식.
+    BURN_MIN_STREAK = 5
+    BURN_COLORS = ("#FFE08A", "#FFC44A", "#FF9E33", "#FF7A29", "#FF5A1F", "#FF7A29", "#FF9E33", "#FFC44A")
+    _BURN_LABELS = set()          # 지금 불타는 중인 이름 라벨들(티커가 여기만 다시 칠한다)
+
+    def _apply_burn(slot, sv):
+        """5연승 이상이면 닉네임을 불타게, 아니면 원래 색으로 되돌린다.
+           원래 색은 불이 붙는 순간에 기억해 둔다 — 상점 테마 색을 쓰는 사람도 정확히 복원된다."""
+        try:
+            lbl = slot[0]
+            if int(sv or 0) >= BURN_MIN_STREAK:
+                if not getattr(lbl, "_burning", False):
+                    lbl._burn_prev = lbl.cget("fg")
+                    lbl._burning = True
+                    _BURN_LABELS.add(lbl)
+                lbl.config(fg=BURN_COLORS[int(time.time() * 7) % len(BURN_COLORS)])
+            elif getattr(lbl, "_burning", False):
+                lbl.config(fg=getattr(lbl, "_burn_prev", None) or lbl.cget("fg"))
+                lbl._burning = False
+                _BURN_LABELS.discard(lbl)
+        except Exception:
+            pass
+
+    def _burn_tick():
+        """이름 라벨 갱신은 1초 주기라 불꽃이 뚝뚝 끊긴다 → 불타는 칸만 따로 자주 다시 칠한다."""
+        try:
+            c = BURN_COLORS[int(time.time() * 7) % len(BURN_COLORS)]
+            for lbl in list(_BURN_LABELS):
+                try:
+                    if getattr(lbl, "_burning", False) and lbl.winfo_exists(): lbl.config(fg=c)
+                    else: _BURN_LABELS.discard(lbl)
+                except Exception:
+                    _BURN_LABELS.discard(lbl)
+        except Exception:
+            pass
+        finally:
+            root.after(140, _burn_tick)
+
     def update_gui():
         try:
             with gui_lock:
@@ -7732,11 +7772,11 @@ def create_graphic_ui():
                     p, s = local_blue[i]
                     name_str = str(p.get('name', '')) # 유저 요청에 따라 무조건 현재 클라이언트의 최신 닉네임 우선 표시
                     lp_str = " | " + str(p.get('lp', 0)) + " LP" if p.get('tier_icon') != "UNRANKED" else ""
-                    stk_str = str(s.get("streak", ""))
                     _pre, _suf, _bdg = _apply_cosmetic(blue_slots[i], name_str, theme.TEAM_BLUE_SOFT, theme.TEAM_BLUE_FG)
                     _apply_my_cosmetic(blue_slots[i], p, theme.TEAM_BLUE_SOFT)
+                    _apply_burn(blue_slots[i], s.get("streak_val", 0))   # 🔥 5연승 이상이면 닉네임이 탄다
                     name_str = _pre + name_str + _suf + _bdg
-                    blue_slots[i][0].config(text=name_str + lp_str + stk_str)
+                    blue_slots[i][0].config(text=name_str + lp_str)
                     _most_disp, _op_disp, _pos_tag = _display_champ_lists(p, s, local_pos_view)
                     blue_slots[i][1].config(text=" 전적: " + str(s.get('summary', '')) + " | 모스트" + _pos_tag + ": ")
                     for widget in blue_slots[i][5].winfo_children():
@@ -7787,6 +7827,7 @@ def create_graphic_ui():
                     blue_slots[i][6].config(command=lambda n=name_str: open_opgg_profile(n), state="normal")
                 else:
                     _apply_my_cosmetic(blue_slots[i], {}, theme.TEAM_BLUE_SOFT)   # [v82.6] 빈 슬롯 꾸미기 잔상 정리(자리이동 시 프레임 남던 것)
+                    _apply_burn(blue_slots[i], 0)   # 빈 슬롯이 되면 불도 끈다(잔상 방지)
                     blue_slots[i][0].config(text="대기 중...", fg=theme.TEXT_MUT)
                     blue_slots[i][1].config(text="소환사를 정찰하고 있습니다.")
                     blue_slots[i][8].config(text="")
@@ -7807,12 +7848,12 @@ def create_graphic_ui():
                     p, s = local_red[i]
                     name_str = str(p.get('name', '')) # 유저 요청에 따라 무조건 현재 클라이언트의 최신 닉네임 우선 표시
                     lp_str = " | " + str(p.get('lp', 0)) + " LP" if p.get('tier_icon') != "UNRANKED" else ""
-                    stk_str = str(s.get("streak", ""))
                     
                     _pre, _suf, _bdg = _apply_cosmetic(red_slots[i], name_str, theme.TEAM_RED_SOFT, theme.TEAM_RED_FG)
                     _apply_my_cosmetic(red_slots[i], p, theme.TEAM_RED_SOFT)
+                    _apply_burn(red_slots[i], s.get("streak_val", 0))    # 🔥 5연승 이상이면 닉네임이 탄다
                     name_str = _pre + name_str + _suf + _bdg
-                    red_slots[i][0].config(text=name_str + lp_str + stk_str)
+                    red_slots[i][0].config(text=name_str + lp_str)
                     _most_disp, _op_disp, _pos_tag = _display_champ_lists(p, s, local_pos_view)
                     red_slots[i][1].config(text=" 전적: " + str(s.get('summary', '')) + " | 모스트" + _pos_tag + ": ")
                     for widget in red_slots[i][5].winfo_children():
@@ -7863,6 +7904,7 @@ def create_graphic_ui():
                     red_slots[i][6].config(command=lambda n=name_str: open_opgg_profile(n), state="normal")
                 else:
                     _apply_my_cosmetic(red_slots[i], {}, theme.TEAM_RED_SOFT)   # [v82.6] 빈 슬롯 꾸미기 잔상 정리
+                    _apply_burn(red_slots[i], 0)   # 빈 슬롯이 되면 불도 끈다(잔상 방지)
                     red_slots[i][0].config(text="대기 중...", fg=theme.TEXT_MUT)
                     red_slots[i][1].config(text="소환사를 정찰하고 있습니다.")
                     red_slots[i][8].config(text="")
@@ -7901,6 +7943,7 @@ def create_graphic_ui():
         finally: root.after(1000, update_gui)
 
     root.after(1000, update_gui)
+    root.after(200, _burn_tick)   # 🔥 불꽃 애니메이션(불타는 칸만 다시 칠함)
 
     # ===== 트레이 모드(설정에서 켤 때만): X(닫기)→트레이 최소화. 기본값 OFF = X 누르면 완전 종료. =====
     _tray = {"icon": None}
