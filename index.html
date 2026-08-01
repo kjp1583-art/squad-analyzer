@@ -664,8 +664,14 @@
   .bk-slot{flex:1;display:flex;justify-content:center;position:relative;padding-top:14px}
   .bk-slot::after{content:"";position:absolute;top:0;left:50%;height:14px;border-left:1px solid var(--line)}
   .bk-join{flex:0 0 16px;height:16px;position:relative}
-  .bk-join::before{content:"";position:absolute;bottom:0;left:25%;right:25%;border-top:1px solid var(--line)}
-  .bk-join::after{content:"";position:absolute;top:0;bottom:0;left:50%;border-left:1px solid var(--line)}
+  .bk-join i{position:absolute;display:block}
+  .bk-join .jl{bottom:0;left:25%;width:25%;border-top:1px solid var(--line)}
+  .bk-join .jr{bottom:0;left:50%;width:25%;border-top:1px solid var(--line)}
+  .bk-join .jstem{top:0;bottom:0;left:50%;border-left:1px solid var(--line)}
+  /* 승리 경로: 굵고 밝게 */
+  .bk-join .jl.won,.bk-join .jr.won{border-top-width:2px;border-top-color:var(--win)}
+  .bk-join .jstem.won{border-left-width:2px;border-left-color:var(--win)}
+  .bk-slot.won::after{border-left-width:2px;border-left-color:var(--win)}
   .bk-box{align-self:center;flex:0 0 auto;min-width:104px;max-width:180px;padding:6px 9px;border-radius:8px;
           border:1px solid var(--line);background:var(--bg2);font-size:11.5px;line-height:1.5;margin:0 6px}
   .bk-box.win{border-color:var(--win);background:rgba(70,190,120,.10)}
@@ -4251,7 +4257,10 @@ function mitoJump(i){
   setTimeout(()=>{el.style.boxShadow="";},1400);
 }
 function bkNode(m,isRoot){
-  const kids=m.slots.map(s=>`<div class="bk-slot">${s.child?bkNode(s.child,false):bkTeamBox(s.team,'','시드')}</div>`).join("");
+  // 🏅 승리 경로 강조 — 이 매치를 이긴 쪽에서 올라온 선(슬롯 세로선 + 가로선 반쪽 + 박스로 가는 줄기)만
+  //    굵고 밝게 그린다. 그러면 우승팀이 처음 붙은 판부터 꼭대기까지 한 줄로 이어져 보인다.
+  const won=m.slots.map(sl=>!!(m.winner&&sl.team.key===m.winner.key));
+  const kids=m.slots.map((s,k)=>`<div class="bk-slot${won[k]?' won':''}">${s.child?bkNode(s.child,false):bkTeamBox(s.team,'','시드')}</div>`).join("");
   // 스코어는 항상 '이긴 쪽 : 진 쪽' 순서로 — 팀 정렬 순서를 따르면 0:1 처럼 뒤집혀 보인다
   const score=(m.winner?[m.winner.wins,...m.teamList.filter(t=>t.key!==m.winner.key).map(t=>t.wins)]
                       :m.teamList.map(t=>t.wins)).join(":");
@@ -4260,7 +4269,10 @@ function bkNode(m,isRoot){
                     :`<div class="bk-box"><div class="bk-top">${esc(top)}</div>${
                         m.teamList.map(t=>t.members.map(n=>`<div class="bk-mem">${esc(shortName(n))}</div>`).join("")).join('<div class="bk-mem muted">vs</div>')}</div>`;
   // 위 → 아래 순서로 쌓는다: 승자 박스 / 연결선 / 하위 라운드
-  return `<div class="bk-n">${box}<div class="bk-join"></div><div class="bk-kids">${kids}</div></div>`;
+  const join=`<div class="bk-join">
+    <i class="jl${won[0]?' won':''}"></i><i class="jr${won[1]?' won':''}"></i><i class="jstem${m.winner?' won':''}"></i>
+  </div>`;
+  return `<div class="bk-n">${box}${join}<div class="bk-kids">${kids}</div></div>`;
 }
 function mitoTreeHtml(games){
   const {roots}=mitoTreeOf(games);
@@ -5589,7 +5601,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608012129";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608012136";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
