@@ -1,0 +1,24 @@
+name: gviz-probe
+on: { workflow_dispatch: {} }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe gviz caching
+        run: |
+          ID=10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU
+          GID=1926038351
+          B="https://docs.google.com/spreadsheets/d/$ID/gviz/tq"
+          probe(){
+            echo "===== $1"
+            curl -sSL -D /tmp/h -o /tmp/b $3 "$2"
+            grep -iE '^(HTTP|cache-control|expires|age|date|etag|x-goog|last-modified|pragma)' /tmp/h || true
+            echo "bytes=$(wc -c </tmp/b) sha=$(sha256sum /tmp/b | cut -c1-16)"
+          }
+          probe "A plain"           "$B?gid=$GID&headers=1&tqx=out:json;responseHandler:x"
+          probe "B cb=now"          "$B?gid=$GID&headers=1&cb=$(date +%s%3N)&tqx=out:json;responseHandler:x"
+          probe "C cb=now again"    "$B?gid=$GID&headers=1&cb=$(date +%s%3N)&tqx=out:json;responseHandler:x"
+          probe "D no-cache header" "$B?gid=$GID&headers=1&cb=$(date +%s%3N)&tqx=out:json;responseHandler:x" "-H Cache-Control:no-cache"
+          probe "E tq limit"        "$B?gid=$GID&headers=1&tq=select%20*%20limit%20999999&tqx=out:json;responseHandler:x"
+          echo "===== E body head (라벨 유지 확인)"
+          head -c 800 /tmp/b; echo
