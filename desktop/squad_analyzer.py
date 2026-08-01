@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.70"
+CURRENT_VERSION = "82.71"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -3368,6 +3368,80 @@ def _bf_eval_for_row(evals, side, pos, name):
     except Exception: pass
     return None
 
+# 🏟 [2026-08-02 사장님 지시] 미니토너먼트 전적 분리
+#   미토는 deeplol.gg 제휴 토너먼트코드로 방을 파서 진행한다. 그 코드는 Match-V5 응답의
+#   info.tournamentCode 에 담겨 오므로, 게임ID → 코드 매핑을 MITO_GAMES 탭에 적재해 두면
+#   웹이 "코드가 붙은 게임 = 미토"로 일반 내전과 분리할 수 있다.
+#   · 코드가 없는 일반 내전도 빈 코드로 기록한다 → 매 주기 재조회하는 무한루프 방지.
+#   · 한 주기 40게임으로 제한(레이트리밋 여유). 과거분은 몇 시간에 걸쳐 저절로 다 채워진다.
+_MITO_SCAN_PER_CYCLE = 40
+
+def sync_mito_games():
+    """CLASSIC_NORMAL·KIWI_KIWI 의 게임ID를 Match-V5로 조회해 토너먼트코드를 MITO_GAMES 탭에 적재."""
+    key = load_riot_key()
+    if not key or not global_spreadsheet: return
+    hdrs = {"X-Riot-Token": key}
+    try:
+        try:
+            ws = global_spreadsheet.worksheet("MITO_GAMES")
+        except Exception:
+            ws = global_spreadsheet.add_worksheet(title="MITO_GAMES", rows="4000", cols="3")
+            ws.append_row(["게임ID", "날짜", "토너먼트코드"])
+        known = set()
+        try:
+            for r in (get_sheet_data_cached(ws, force=True) or [])[1:]:
+                if r and str(r[0]).strip(): known.add(str(r[0]).strip())
+        except Exception: pass
+    except Exception as _e:
+        print(f"[mito] MITO_GAMES 준비 실패: {type(_e).__name__}", flush=True); return
+
+    # 아직 조회 안 한 게임ID를 최신순으로 수집(오늘 미토가 가장 먼저 채워지도록)
+    todo = {}
+    for tab in ("CLASSIC_NORMAL", "KIWI_KIWI"):
+        try:
+            rows = get_sheet_data_cached(global_spreadsheet.worksheet(tab), force=True)
+        except Exception: continue
+        if not rows or len(rows) < 2: continue
+        hd = rows[0]
+        if "게임ID" not in hd or "날짜" not in hd: continue
+        cg, cd = hd.index("게임ID"), hd.index("날짜")
+        for r in rows[1:]:
+            try:
+                gid = str(r[cg]).strip()
+                if not re.fullmatch(r"#\d+", gid) or gid in known or gid in _bf_skip_gids: continue
+                todo[gid] = str(r[cd]).strip()
+            except Exception: continue
+    if not todo: return
+    picks = sorted(todo.items(), key=lambda kv: kv[1], reverse=True)[:_MITO_SCAN_PER_CYCLE]
+
+    new_rows, found = [], 0
+    for gid, date_s in picks:
+        try:
+            resp = requests.get("https://asia.api.riotgames.com/lol/match/v5/matches/KR_" + gid.lstrip("#"),
+                                headers=hdrs, timeout=10)
+            if resp.status_code == 429:
+                try: time.sleep(min(int(resp.headers.get("Retry-After", "10") or 10), 120))
+                except Exception: time.sleep(10)
+                break                      # 이번 주기는 여기까지 — 다음 주기에 이어서
+            if resp.status_code == 404:
+                new_rows.append([gid, date_s, ""])   # 리엇 미보관 → 재조회 대상에서 영구 제외
+                continue
+            if resp.status_code != 200: continue
+            code = str(((resp.json() or {}).get("info") or {}).get("tournamentCode") or "").strip()
+            new_rows.append([gid, date_s, code])
+            if code:
+                found += 1
+                print(f"[mito] 토너먼트 게임 발견: {gid} {date_s} {code}", flush=True)
+        except Exception:
+            continue
+        time.sleep(0.15)                   # 레이트리밋 여유
+    if new_rows:
+        try:
+            ws.append_rows(new_rows)
+            print(f"[mito] {len(new_rows)}게임 기록(토너먼트 {found}건) · 남은 미조회 {len(todo)-len(new_rows)}", flush=True)
+        except Exception as _e:
+            print(f"[mito] 기록 실패: {type(_e).__name__}", flush=True)
+
 def backfill_result_engine():
     """시작 3분 후 + 15분마다 '결과 대기' 백필(키/시트 없으면 no-op) — 실질 호스트 1대만 가동, 쓰기 멱등이라 중복 무해."""
     time.sleep(180)
@@ -3376,6 +3450,10 @@ def backfill_result_engine():
             if load_riot_key() and global_spreadsheet: backfill_pending_results()
         except Exception as _e:
             print(f"[backfill] 주기 실패(무시): {type(_e).__name__} {str(_e)[:120]}", flush=True)
+        try:
+            sync_mito_games()
+        except Exception as _e:
+            print(f"[mito] 주기 실패(무시): {type(_e).__name__} {str(_e)[:120]}", flush=True)
         time.sleep(900)
 
 _PEAK_SEASONS_CACHE = None   # {tnorm(닉네임): peak점수} — 세션 1회 로드(시즌 중 불변)
