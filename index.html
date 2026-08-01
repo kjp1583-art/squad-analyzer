@@ -655,6 +655,25 @@
     *{animation:none!important;transition:none!important}
   }
 
+  /* 🏟 미토 토너먼트 대진표 — 왼쪽이 첫 판, 오른쪽으로 갈수록 상위 라운드(결승이 맨 오른쪽).
+     자식 슬롯을 flex:1 로 똑같이 늘려 두 자식의 중심이 정확히 25%·75% 에 오게 만든다.
+     그래야 세로 연결선(bk-join)을 25%~75% 로 그었을 때 엘보가 어긋나지 않는다. */
+  .bkwrap{overflow-x:auto;padding:4px 2px 8px}
+  .bk-n{display:flex;align-items:stretch}
+  .bk-kids{display:flex;flex-direction:column;flex:0 0 auto}
+  .bk-slot{flex:1;display:flex;align-items:center;position:relative;padding-right:14px}
+  .bk-slot::after{content:"";position:absolute;right:0;top:50%;width:14px;border-top:1px solid var(--line)}
+  .bk-join{flex:0 0 16px;position:relative}
+  .bk-join::before{content:"";position:absolute;left:0;top:25%;bottom:25%;border-left:1px solid var(--line)}
+  .bk-join::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--line)}
+  .bk-box{align-self:center;flex:0 0 auto;min-width:118px;max-width:170px;padding:6px 9px;border-radius:8px;
+          border:1px solid var(--line);background:var(--bg2);font-size:11.5px;line-height:1.5;margin:5px 0}
+  .bk-box.win{border-color:var(--win);background:rgba(70,190,120,.10)}
+  .bk-box.champ{border-color:var(--gold);background:rgba(220,180,80,.12)}
+  .bk-top{font-weight:800;font-size:11px;color:var(--sub);margin-bottom:2px;white-space:nowrap}
+  .bk-box.win .bk-top{color:var(--win)}
+  .bk-box.champ .bk-top{color:var(--gold)}
+  .bk-mem{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .empty{text-align:center;color:var(--mut);padding:60px 20px}
   .loadbar{height:3px;background:var(--accent);width:0;transition:width .3s;position:fixed;top:0;left:0;z-index:50}
   .hidden{display:none}
@@ -3693,7 +3712,7 @@ function renderAchievements(){
 }
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
-  return `<div class="tabs">${tab('home',esc(catLabel(CURRENT_CAT))+' 대시보드')}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','🏟 미토 전적'):''}</div>`;
+  return `<div class="tabs">${tab('home','⚔️ 내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','🏟 미토'):''}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -4138,6 +4157,14 @@ function mitoEntries(){
 /* 🏟 대진 복원 — 라벨 없이 로스터만으로 '한 매치(시리즈)'를 묶는다.
    같은 두 팀이 붙은 게임들 = 한 매치. 진영이 바뀌어도(블루↔레드) 같은 매치로 본다.
    ⚠️ 시리즈 도중 사람이 바뀌면(용병·교체) 다른 매치로 갈린다 — 그땐 각각 따로 표시된다. */
+const MITO_LANES=["탑","정글","미드","원딜","서폿"];
+let MITO_LANE_OF=new Map();   // 대표닉 -> 미토에서 본 포지션(대진표 표시 순서용)
+function mitoLaneSort(names){
+  return names.slice().sort((a,b)=>{
+    const ia=MITO_LANES.indexOf(MITO_LANE_OF.get(a)||""), ib=MITO_LANES.indexOf(MITO_LANE_OF.get(b)||"");
+    return (ia<0?9:ia)-(ib<0?9:ib) || (a<b?-1:a>b?1:0);
+  });
+}
 function mitoMatchesOf(games){
   const byKey=new Map();
   for(const g of games){
@@ -4152,13 +4179,14 @@ function mitoMatchesOf(games){
       if(res==="승리") win=s;
     }
     if(side.size!==2||!win) continue;   // 한쪽 진영만 잡힌 불완전 기록은 대진에서 제외
+    for(const r of g.rows){ const nm=canonOfName(r["소환사명"]||""), ps=r["포지션"]||""; if(nm&&ps&&ps!=="선택안함"&&!MITO_LANE_OF.has(nm)) MITO_LANE_OF.set(nm,ps); }
     const keyOf=s=>[...side.get(s)].sort().join(",");
     const mk=[...side.keys()].map(keyOf).sort().join("||");
     if(!byKey.has(mk)) byKey.set(mk,{teams:new Map(), games:[], date:g.date||""});
     const m=byKey.get(mk);
     for(const s of side.keys()){
       const k=keyOf(s);
-      if(!m.teams.has(k)) m.teams.set(k,{key:k, members:[...side.get(s)].sort(), wins:0});
+      if(!m.teams.has(k)) m.teams.set(k,{key:k, members:mitoLaneSort([...side.get(s)]), wins:0});
     }
     const wk=keyOf(win);
     m.teams.get(wk).wins++;
@@ -4190,6 +4218,44 @@ function mitoTeamHtml(t,isWin,tie){
     <div style="font-weight:800;margin-bottom:3px;color:${isWin&&!tie?'var(--win)':'var(--sub)'}">${mark} ${t.wins}승</div>
     <div style="font-size:13px;line-height:1.65">${names}</div>
   </div>`;
+}
+/* 🏟 대진 트리 복원 — 라벨 없이 '누가 어디서 올라왔는지'를 데이터로 잇는다.
+   어떤 매치에 나온 팀이, 그 전에 이긴 매치가 있으면 그 매치가 이 자리의 자식(하위 라운드)이다.
+   한 번도 안 붙어본 팀은 시드(잎). 아무의 자식도 아닌 매치가 결승(뿌리) — 조가 나뉘면 뿌리도 여러 개다. */
+function mitoTreeOf(games){
+  const ms=mitoMatchesOf(games);   // 시각순
+  const child=new Set();
+  ms.forEach((m,i)=>{
+    m.slots=m.teamList.map(t=>{
+      let c=null;
+      for(let j=i-1;j>=0;j--){ const p=ms[j]; if(p.winner&&p.winner.key===t.key){ c=p; break; } }
+      return {team:t, child:c};
+    });
+  });
+  for(const m of ms) for(const s of m.slots) if(s.child) child.add(s.child);
+  return {matches:ms, roots:ms.filter(m=>!child.has(m))};
+}
+function bkTeamBox(t,cls,top){
+  return `<div class="bk-box ${cls||''}">
+    ${top?`<div class="bk-top">${esc(top)}</div>`:''}
+    ${t.members.map(n=>`<div class="bk-mem"><span class="clickname" onclick="go('player','${escAttr(n)}')">${esc(shortName(n))}</span></div>`).join("")}
+  </div>`;
+}
+function bkNode(m,isRoot){
+  const kids=m.slots.map(s=>`<div class="bk-slot">${s.child?bkNode(s.child,false):bkTeamBox(s.team,'','시드')}</div>`).join("");
+  // 스코어는 항상 '이긴 쪽 : 진 쪽' 순서로 — 팀 정렬 순서를 따르면 0:1 처럼 뒤집혀 보인다
+  const score=(m.winner?[m.winner.wins,...m.teamList.filter(t=>t.key!==m.winner.key).map(t=>t.wins)]
+                      :m.teamList.map(t=>t.wins)).join(":");
+  const top=(m.label?m.label+" ":"")+score+(m.winner?"":" 무승부");
+  const box=m.winner?bkTeamBox(m.winner,isRoot?'champ':'win',(isRoot?"🏆 ":"")+top)
+                    :`<div class="bk-box"><div class="bk-top">${esc(top)}</div>${
+                        m.teamList.map(t=>t.members.map(n=>`<div class="bk-mem">${esc(shortName(n))}</div>`).join("")).join('<div class="bk-mem muted">vs</div>')}</div>`;
+  return `<div class="bk-n"><div class="bk-kids">${kids}</div><div class="bk-join"></div>${box}</div>`;
+}
+function mitoTreeHtml(games){
+  const {roots}=mitoTreeOf(games);
+  if(!roots.length) return "";
+  return `<div class="bkwrap">${roots.map(r=>`<div style="margin-bottom:14px">${bkNode(r,true)}</div>`).join("")}</div>`;
 }
 function mitoBracketHtml(games){
   const ms=mitoMatchesOf(games);
@@ -4264,9 +4330,11 @@ function renderMitoLog(){
     return `<div class="card">
       <h2>🏟 ${esc(d)} <span class="muted" style="font-size:13.5px">(${gs.length}게임 · ${mitoMatchesOf(gs).length}매치)</span></h2>
       ${champHtml}
+      ${mitoTreeHtml(gs)}
       ${mitoBracketHtml(gs)||`<div class="loglist">${gs.map(logRow).join("")}</div>`}
     </div>`;}).join("");
   view().innerHTML=`${navTabsHtml('mito')}
+    ${days}
     <div class="card">
       <h2>🏟 미토 전적 <span class="muted" style="font-size:13.5px">(${games.length}게임 · ${byDay.size}회차)</span></h2>
       <div class="muted" style="font-size:13px;margin:-2px 0 10px">미토 회차로 등록된 토너먼트코드로 판 게임만 골라낸 기록이야. 일반 내전 집계와는 별개로 본다.</div>
@@ -4274,8 +4342,7 @@ function renderMitoLog(){
         <thead><tr><th>소환사</th><th class="num">게임</th><th class="num">전적</th><th class="num">승률</th><th class="num">KDA</th><th class="num">MVP</th><th class="num">역적</th></tr></thead>
         <tbody>${tbl}</tbody>
       </table></div>
-    </div>
-    ${days}`;
+    </div>`;
 }
 
 // 🏆 챔피언 전적 상세 — 홈 챔피언 통계에서 챔피언 클릭 시 해당 챔피언이 사용된 게임만 나열
@@ -5458,7 +5525,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608012054";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608012107";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
