@@ -317,13 +317,13 @@
     position:relative;overflow:hidden;isolation:isolate}
   /* 🖼 [2026-08-01 사장님 제안] 타일 배경에 그 사람 대표 챔피언 스플래시를 반투명으로.
      플레이어 카드 배너와 같은 소스·같은 페이드 방식이라 톤이 통일된다.
-     글자 가독성이 최우선이라 카드 배너(.5)보다 훨씬 옅게(.22) 깔고, 우측에서 좌측으로 사라지게 한다. */
+     글자 가독성이 최우선이라 카드 배너(.5)보다 옅게(.32) 깔고, 우측에서 좌측으로 사라지게 한다. */
   .wk-bg{position:absolute;inset:0;z-index:-1;background-size:cover;background-position:center 22%;
-    opacity:.22;
+    opacity:.32;
     -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 45%,#000 100%);
     mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 45%,#000 100%);
     animation:wkbg-in .7s ease both}
-  @keyframes wkbg-in{from{opacity:0;transform:scale(1.07)}to{opacity:.22;transform:none}}
+  @keyframes wkbg-in{from{opacity:0;transform:scale(1.07)}to{opacity:.32;transform:none}}
   @media (prefers-reduced-motion:reduce){.wk-bg{animation:none}}
   .wk-t{font-size:13px;font-weight:700;color:#cdd6e6;margin-bottom:6px}
   .wk-name{font-size:17px;font-weight:800;color:#F5D47A;cursor:pointer;
@@ -5215,7 +5215,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608020600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608020650";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

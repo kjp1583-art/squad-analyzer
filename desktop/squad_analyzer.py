@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.68"
+CURRENT_VERSION = "82.69"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -5506,8 +5506,20 @@ def lcu_core_backend_loop():
                         map_id = gc.get('mapId', map_id)
                         
                         dict_text = str(gc).upper()
-                        if "ARAM" in dict_text or "HOWLING" in dict_text or "BUTCHER" in dict_text or map_id in [12, 14] or queue_id == 450:
+                        # 🧭 [2026-08-01 사장님 제보] 칼바람 매치게임 방에 있다가 커스텀 방으로 옮겨도
+                        #    계속 칼바람(KIWI_KIWI) 전적이 뜨던 문제.
+                        #    원인: is_aram_session 이 루프 밖 변수인데 **True 로만 켜지고**, 해제는
+                        #    새 게임ID(multi_id)가 잡힐 때뿐이었다. 방을 옮기는 것만으로는 안 풀린다.
+                        #    → 로비·대기 단계에서는 지금 방의 설정을 그대로 반영해 해제까지 되게 한다.
+                        #      (챔프선택·인게임 중에는 조회가 잠깐 흔들려도 모드가 뒤집히지 않게 래치 유지)
+                        _aram_now = ("ARAM" in dict_text or "HOWLING" in dict_text or "BUTCHER" in dict_text
+                                     or map_id in [12, 14] or queue_id == 450)
+                        if _aram_now:
                             is_aram_session = True
+                        elif current_phase in ["Lobby", "Matchmaking", "ReadyCheck", "None"]:
+                            if is_aram_session:
+                                print("[mode] 칼바람 신호가 사라짐(방 이동) — 협곡 기준으로 전환", flush=True)
+                            is_aram_session = False
                             
                         c100_temp, c200_temp = [], []
                         
