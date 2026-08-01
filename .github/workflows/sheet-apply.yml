@@ -1,0 +1,49 @@
+name: Apply sheet updates
+
+# ai-eval-data 브랜치의 sheet_updates.json을 서비스계정으로 시트에 직접 반영한다.
+# (Apps Script 수동 sync 대체 — 사장님 손이 안 가게)
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '이미 적용된 seq도 다시 반영 (append는 중복 무시, remove는 멱등)'
+        type: boolean
+        default: false
+  push:
+    branches: [ai-eval-data]
+    paths: ['sheet_updates.json']
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai-eval-data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install --quiet gspread oauth2client
+
+      - name: Apply
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+          FORCE: ${{ inputs.force && '1' || '0' }}
+        run: |
+          curl -sSL -o tooling/apply_sheet_updates.py \
+            "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/tooling/apply_sheet_updates.py"
+          python tooling/apply_sheet_updates.py
+          rm -f creds.json
+
+      - name: Record applied seq
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sheet_updates_applied.txt
+          git diff --cached --quiet || git commit -m "data: sheet updates applied (seq $(cat sheet_updates_applied.txt))"
+          git push origin ai-eval-data
