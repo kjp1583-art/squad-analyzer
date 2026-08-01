@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.71"
+CURRENT_VERSION = "82.72"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2281,7 +2281,9 @@ def _draft_advise(ctx, my_pool):
                         + "\n★★밴 후보는 **빈 자리에 나올 픽**만 올려라. 이미 채워진 자리(예: 상대 서폿 확정)의\n"
                           "  챔프를 밴하는 것은 아무것도 막지 못하는 낭비다 — 절대 추천하지 마라.\n"
                           "★그 자리에 누가 갈지는 [상대 팀원들의 내전 챔프폭]의 '[이번 판 포지션]' 표기로 확정하라.\n"
-                          "  포지션이 남은 사람의, 그 포지션 전적이 있는 챔프만 저격 대상이다.")
+                          "  포지션이 남은 사람의, 그 포지션 전적이 있는 챔프만 저격 대상이다.\n"
+                          "★이미 챔피언을 확정한 상대 선수는 [상대 팀원들의 내전 챔프폭]에서 아예 빠져 있다.\n"
+                          "  거기 없는 사람의 장인챔을 기억으로 되살려 밴 후보에 올리지 마라 — 그 사람은 이미 픽이 끝났다.")
         if _bphase == 1:
             _task = ("★**1페이즈 밴**. ① 우리 팀 밴 **3개** 우선순위로(챔피언 자체가 위험한 것: 현 패치 OP·상대\n"
                      "장인·견제압력). ② 픽 방향 **딱 한 줄**(단정 금지). 전체 출력 극도로 짧게 — 근거는 판수%·핵심 단어만.")
@@ -2648,6 +2650,11 @@ def _draft_coach_tick(s_json, headers, base_url):
             if ep and my_pos != "선택안함" and ep == my_pos:
                 if c: lane_enemy = f"{c} ({ep})"
                 if _pu: lane_enemy_pu = _pu
+            # 🎯 [2026-08-02 사장님 제보] 이미 픽을 확정한 상대는 다른 챔프를 꺼낼 수 없다.
+            #    (1페이즈에 쉬바나를 픽한 사람의 챔프폭에 있던 녹턴이 2페이즈 밴 후보로 올라오던 문제)
+            #    프롬프트 규칙만으로는 안 막힌다 — 데이터에서 아예 빼야 한다.
+            if mode == "ban" and c:
+                continue
             if mode == "ban":   # 밴 모드: 상대 선수별 '장인 챔프'(시트 전적, gviz 캐시라 할당량 0)
                 try:
                     if _pu:
@@ -2792,6 +2799,17 @@ def _draft_coach_tick(s_json, headers, base_url):
         _ROLES5 = ["탑", "정글", "미드", "원딜", "서폿"]
         _e_filled = sorted({str(_p) for _c, _p in enemy if _p and _p in _ROLES5}, key=_ROLES5.index)
         _e_open = [r for r in _ROLES5 if r not in _e_filled]
+        # 🎯 [2026-08-02] 토너먼트 드래프트(상대 익명 → 로비 로스터 폴백)에서는 '누가 픽했는지'를 못 맞춘다.
+        #    대신 이미 채워진 자리의 사람은 어차피 끝났으므로, 그 포지션표가 붙은 챔프폭을 통째로 뺀다.
+        if mode == "ban" and _e_filled:
+            _keep = []
+            for _nm6, _cs6 in enemy_pools:
+                _m6 = re.search(r"\[이번 판 포지션:\s*([^\]]+)\]", str(_nm6))
+                if _m6 and _m6.group(1).strip() in _e_filled: continue
+                _keep.append((_nm6, _cs6))
+            if len(_keep) != len(enemy_pools):
+                print(f"[draft] 이미 픽 끝난 자리 {len(enemy_pools)-len(_keep)}명 챔프폭 제외 (채워짐: {','.join(_e_filled)})", flush=True)
+            enemy_pools = _keep
         ctx = {"mode": mode, "pos": my_pos, "ally": ally, "enemy": enemy, "bans": bans,
                "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
                "enemy_names": [_n for _n, _cs in (enemy_pools or [])],   # 🗳️ 퀴즈 표 조회용
