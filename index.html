@@ -4205,6 +4205,7 @@ function mitoMatchesOf(games){
     for(const e of m.games){ const inf=mitoInfoOf(e.g.id); if(inf&&inf.stage){ m.label=inf.stage; break; } }
   }
   out.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  out.forEach((m,i)=>{ m.idx=i; });   // 트리 박스 → 매치업 카드(#mmatchN) 연결용
   return out;
 }
 // 🏆 우승팀 — '결승' 라벨이 붙은 매치의 승자. 조가 나뉘면 결승이 여러 개라 우승팀도 여러 팀이 된다.
@@ -4235,11 +4236,19 @@ function mitoTreeOf(games){
   for(const m of ms) for(const s of m.slots) if(s.child) child.add(s.child);
   return {matches:ms, roots:ms.filter(m=>!child.has(m))};
 }
-function bkTeamBox(t,cls,top){
-  return `<div class="bk-box ${cls||''}">
+function bkTeamBox(t,cls,top,jump){
+  // 매치 박스를 누르면 그 매치업 데이터(선수 기록)로 내려간다
+  const j=(jump==null)?"":` onclick="mitoJump(${jump})" style="cursor:pointer" title="이 매치업 기록 보기"`;
+  return `<div class="bk-box ${cls||''}"${j}>
     ${top?`<div class="bk-top">${esc(top)}</div>`:''}
     ${t.members.map(n=>`<div class="bk-mem"><span class="clickname" onclick="go('player','${escAttr(n)}')">${esc(shortName(n))}</span></div>`).join("")}
   </div>`;
+}
+function mitoJump(i){
+  const el=document.getElementById("mmatch"+i); if(!el) return;
+  el.scrollIntoView({behavior:"smooth",block:"center"});
+  el.style.transition="box-shadow .25s"; el.style.boxShadow="0 0 0 2px var(--accent)";
+  setTimeout(()=>{el.style.boxShadow="";},1400);
 }
 function bkNode(m,isRoot){
   const kids=m.slots.map(s=>`<div class="bk-slot">${s.child?bkNode(s.child,false):bkTeamBox(s.team,'','시드')}</div>`).join("");
@@ -4247,7 +4256,7 @@ function bkNode(m,isRoot){
   const score=(m.winner?[m.winner.wins,...m.teamList.filter(t=>t.key!==m.winner.key).map(t=>t.wins)]
                       :m.teamList.map(t=>t.wins)).join(":");
   const top=(m.label?m.label+" ":"")+score+(m.winner?"":" 무승부");
-  const box=m.winner?bkTeamBox(m.winner,isRoot?'champ':'win',(isRoot?"🏆 ":"")+top)
+  const box=m.winner?bkTeamBox(m.winner,isRoot?'champ':'win',(isRoot?"🏆 ":"")+top,m.idx)
                     :`<div class="bk-box"><div class="bk-top">${esc(top)}</div>${
                         m.teamList.map(t=>t.members.map(n=>`<div class="bk-mem">${esc(shortName(n))}</div>`).join("")).join('<div class="bk-mem muted">vs</div>')}</div>`;
   // 위 → 아래 순서로 쌓는다: 승자 박스 / 연결선 / 하위 라운드
@@ -4258,21 +4267,66 @@ function mitoTreeHtml(games){
   if(!roots.length) return "";
   return `<div class="bkwrap">${roots.map(r=>`<div style="margin-bottom:14px">${bkNode(r,true)}</div>`).join("")}</div>`;
 }
+/* 🏟 매치업 데이터 — '이 두 팀이 붙은 판'만으로 낸 선수 기록.
+   전체 미토 누적과 달리, 이 매치 안에서 누가 실제로 이겼는지를 본다. */
+function mitoMatchStats(m){
+  const per=new Map();   // 대표닉 -> {team, g,w,k,d,a,mvp,bad, champs:Map}
+  for(const e of m.games){
+    for(const r of e.g.rows){
+      const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+      const nm=canonOfName(r["소환사명"]||""); if(!nm) continue;
+      if(!per.has(nm)) per.set(nm,{g:0,w:0,k:0,d:0,a:0,mvp:0,bad:0,champs:new Map()});
+      const v=per.get(nm);
+      v.g++; if(res==="승리") v.w++;
+      const o=parseKDA(r["KDA"]||""); if(o){ v.k+=o.k; v.d+=o.d; v.a+=o.a; }
+      if(r["매치평가"]==="MVP") v.mvp++; else if(r["매치평가"]==="역적") v.bad++;
+      const c=r["챔피언"]; if(c&&c!=="?") v.champs.set(c,(v.champs.get(c)||0)+1);
+    }
+  }
+  return per;
+}
+function mitoMatchStatHtml(m){
+  const per=mitoMatchStats(m);
+  const cols=m.teamList.map(t=>{
+    const win=m.winner&&t.key===m.winner.key;
+    const body=t.members.map(nm=>{
+      const v=per.get(nm); if(!v) return "";
+      const ratio=v.d>0?((v.k+v.a)/v.d):(v.k+v.a);
+      const ch=[...v.champs.entries()].sort((x,y)=>y[1]-x[1]).map(([c,n])=>esc(c)+(n>1?`×${n}`:"")).join(", ");
+      return `<tr>
+        <td><span class="clickname" onclick="go('player','${escAttr(nm)}')">${esc(shortName(nm))}</span></td>
+        <td style="font-size:12px;color:var(--sub)">${ch||'-'}</td>
+        <td class="num">${v.k}/${v.d}/${v.a}</td>
+        <td class="num" style="color:${kdaColor(ratio)}">${ratio.toFixed(2)}</td>
+        <td class="num">${v.mvp?'⭐'+v.mvp:''}${v.bad?' 💀'+v.bad:''}</td>
+      </tr>`;
+    }).join("");
+    return `<div style="flex:1 1 300px;min-width:0">
+      <div style="font-weight:800;font-size:12.5px;margin:0 0 4px;color:${win?'var(--win)':'var(--sub)'}">${win?'🏆 ':''}${t.wins}승</div>
+      <div class="tblwrap"><table>
+        <thead><tr><th>선수</th><th>챔피언</th><th class="num">K/D/A</th><th class="num">KDA</th><th class="num">평가</th></tr></thead>
+        <tbody>${body}</tbody></table></div>
+    </div>`;
+  }).join("");
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">${cols}</div>`;
+}
 function mitoBracketHtml(games){
   const ms=mitoMatchesOf(games);
   if(!ms.length) return "";
   return `<div style="display:grid;gap:12px">`+ms.map((m,i)=>{
     const tie=!m.winner;
-    const score=m.teamList.map(t=>t.wins).join(" : ");
+    const score=(m.winner?[m.winner.wins,...m.teamList.filter(t=>t.key!==m.winner.key).map(t=>t.wins)]
+                        :m.teamList.map(t=>t.wins)).join(" : ");
     const cards=m.teamList.map(t=>mitoTeamHtml(t,m.winner&&t.key===m.winner.key,tie)).join(
       `<div style="align-self:center;font-weight:900;color:var(--sub);padding:0 4px">VS</div>`);
     const rows=m.games.map(e=>logRow(e.g)).join("");
-    return `<div style="border:1px solid var(--line);border-radius:11px;padding:11px;background:var(--bg)">
+    return `<div id="mmatch${i}" style="border:1px solid var(--line);border-radius:11px;padding:11px;background:var(--bg)">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <span style="font-weight:800">${esc(m.label||("매치 "+(i+1)))}</span>
         <span class="muted" style="font-size:12.5px">${esc(String(m.date||"").slice(0,16))} · ${m.games.length}게임 · ${score}${tie?' (무승부)':''}</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${cards}</div>
+      ${mitoMatchStatHtml(m)}
       <div class="loglist">${rows}</div>
     </div>`;
   }).join("")+`</div>`;
@@ -5526,7 +5580,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608012115";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608012124";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
