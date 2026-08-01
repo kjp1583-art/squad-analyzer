@@ -1399,6 +1399,7 @@ let NAME_TO_CANON  = new Map();   // norm(과거/현재 닉) -> 최신 소환사
 let ALT_TO_MAIN    = new Map();   // 🎭 LINK_ACCOUNT 시트: norm(부계닉 #앞) -> 본계 이름 (부계 전적 통합, 2026-07-10)
 let TAGLESS_TO_CANON = new Map(); // norm(대표닉 #앞) -> 대표닉(태그 포함) — 본계 이름을 태그 없이 적어도 매칭되게
 let AMBIG_BASE = new Set();       // 🎭 동명이인(태그·PUUID 다른 동일 베이스닉) — 태그리스 매칭 금지 목록
+let AMBIG_OWNER = new Map();      // 🎭 그 베이스닉의 '임자' — 현재 닉의 베이스가 그 이름인 사람(없으면 미등록)
 let CANON_TO_ALIASES = new Map(); // 최신 닉 -> [그 사람의 모든 닉...]
 let CHAMPMAP = {};       // 한글챔프명 -> 초상화 주소(Community Dragon = 라이브 클라이언트 아트)
 let CHAMPFB = {};        // 같은 키의 Data Dragon 폴백 주소(CD 실패 시 사용)
@@ -1985,8 +1986,10 @@ function careerKeysOf(row){   // 커리어 행 → 매칭 키 후보(tnorm) — 
 }
 function careersOfPlayer(name){   // 프로필용: 이 선수의 우승 기록 [{title,date,cur}]
   if(!CAREERS.length) return [];
-  const me=tnorm(canonOfName(name)), meShort=tnorm(String(name).split("#")[0]);
-  return CAREERS.filter(r=>{const ks=careerKeysOf(r); return ks.has(me)||ks.has(meShort);});
+  // [2026-08-01] 여기도 태그 뗀 이름으로 맞춰서 동명이인이 남의 우승을 가져갔다.
+  //   aliasKeysOf 로 통일 — 동명이인 베이스닉은 임자에게만 허용된다.
+  const mine=new Set(aliasKeysOf(name));
+  return CAREERS.filter(r=>{ for(const k of careerKeysOf(r)) if(mine.has(k)) return true; return false; });
 }
 function careerHofHtml(){   // 명예의전당 커리어 섹션(대회별 현재 우승팀 + 역대 기록)
   if(!CAREERS.length) return "";
@@ -2589,6 +2592,15 @@ function buildIdentity(){
       for(const b of bases){ if(!b)continue; if(!_owners.has(b))_owners.set(b,new Set()); _owners.get(b).add(c); }
     }
     for(const [b,s] of _owners) if(s.size>1){ AMBIG_BASE.add(b); TAGLESS_TO_CANON.delete(b); }
+    // 🎭 [2026-08-01 사장님 제보] 동명이인 베이스닉의 '임자'를 정한다.
+    //   기준: **현재 닉의 베이스가 그 이름인 사람**. 옛 닉에만 그 이름이 있는 사람은 임자가 아니다.
+    //   (예: '파랑' 의 임자는 파 랑#갓파랑. 하리도리#허거덩은 옛 닉이 파 랑#66666 일 뿐이므로 제외)
+    //   이게 없으면 신규 가입자가 같은 베이스닉을 썼다는 이유만으로 기존 사람의 미토·커리어 기록을 가져간다.
+    AMBIG_OWNER=new Map();
+    for(const b of AMBIG_BASE){
+      const cands=[...CANON_TO_ALIASES.keys()].filter(c=>norm(String(c).split("#")[0])===b);
+      if(cands.length===1) AMBIG_OWNER.set(b,cands[0]);   // 임자가 애매하면(0명·2명↑) 아무에게도 안 준다
+    }
   }
 }
 // 🎭 부계닉 → 본계 대표닉 (LINK_ACCOUNT). 미등록이면 그대로. 본계 이름은 태그 유무 무관 매칭.
@@ -2613,11 +2625,14 @@ function canonOfName(name){
 //   현재닉/과거닉/부계닉 어느 쪽으로 저장돼 있어도 찾아준다. ★새 닉네임 키 데이터는 반드시 이걸로 조회할 것.
 function aliasKeysOf(name){
   const out=new Set();
-  const add=n=>{ if(n==null)return; out.add(tnorm(n));
-    const b=tnorm(String(n).split("#")[0]);
-    if(!AMBIG_BASE.has(b)) out.add(b); };   // 🎭 동명이인 베이스닉은 태그리스 매칭 제외
-  add(name);
-  const cn=canonOfName(name); add(cn);
+  const cn=canonOfName(name);
+  // ⚠️ [2026-08-01] tnorm() 은 **태그를 떼는** 함수다. 예전엔 out.add(tnorm(n)) 으로 베이스닉을
+  //    무조건 넣은 뒤에야 AMBIG_BASE 를 검사해서, 동명이인 보호가 사실상 아무 일도 안 했다.
+  //    (실측: 하리도리#허거덩이 옛 닉 '파 랑#66666' 때문에 파 랑#갓파랑의 미토 우승 8회를 가져감)
+  //    → 키를 넣기 전에 검사하고, 동명이인 베이스닉은 **임자에게만** 허용한다.
+  const okBase=b=>!AMBIG_BASE.has(b) || AMBIG_OWNER.get(b)===cn;
+  const add=n=>{ if(n==null)return; const b=tnorm(n); if(b&&okBase(b)) out.add(b); };
+  add(name); add(cn);
   const al=CANON_TO_ALIASES.get(cn); if(al) for(const a of al) add(a);
   out.delete(""); return [...out];
 }
@@ -5170,7 +5185,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608012250";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608020520";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
