@@ -1,0 +1,15 @@
+name: lck-probe
+on: { workflow_dispatch: {} }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe LCK stat sources
+        run: |
+          t(){ printf "%-62s " "$1"; curl -sS -o /tmp/o -w "%{http_code} %{size_download}B\n" -m 25 -A "Mozilla/5.0" "$1" || echo FAIL; }
+          t "https://lol.fandom.com/api.php?action=cargoquery&format=json&tables=ScoreboardPlayers&fields=Link,Team,Role,Kills,Deaths,Assists,CS,DamageToChampions,VisionScore,Gold,Gamelength&where=ScoreboardPlayers.Team='T1'&limit=3"
+          echo "--- 위 응답 앞부분"
+          head -c 600 /tmp/o; echo
+          t "https://gol.gg/players/list/season-S16/split-Summer/tournament-ALL/"
+          t "https://oracleselixir-downloadable-match-data.s3.us-east-2.amazonaws.com/2026_LoL_esports_match_data_from_OraclesElixir.csv"
+          t "https://raw.communitydragon.org/latest/content-metadata.json"
