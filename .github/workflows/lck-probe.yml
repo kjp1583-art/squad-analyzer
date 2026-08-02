@@ -4,12 +4,36 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: probe LCK stat sources
+      - name: fetch LCK scoreboard sample
         run: |
-          t(){ printf "%-62s " "$1"; curl -sS -o /tmp/o -w "%{http_code} %{size_download}B\n" -m 25 -A "Mozilla/5.0" "$1" || echo FAIL; }
-          t "https://lol.fandom.com/api.php?action=cargoquery&format=json&tables=ScoreboardPlayers&fields=Link,Team,Role,Kills,Deaths,Assists,CS,DamageToChampions,VisionScore,Gold,Gamelength&where=ScoreboardPlayers.Team='T1'&limit=3"
-          echo "--- 위 응답 앞부분"
-          head -c 600 /tmp/o; echo
-          t "https://gol.gg/players/list/season-S16/split-Summer/tournament-ALL/"
-          t "https://oracleselixir-downloadable-match-data.s3.us-east-2.amazonaws.com/2026_LoL_esports_match_data_from_OraclesElixir.csv"
-          t "https://raw.communitydragon.org/latest/content-metadata.json"
+          python3 - <<'PY'
+          import json, time, urllib.parse, urllib.request
+          API="https://lol.fandom.com/api.php"
+          UA="squad-gg-clan-stats/1.0 (contact: kjp1583@gmail.com)"
+          def cargo(**kw):
+              q={"action":"cargoquery","format":"json","limit":"500"}; q.update(kw)
+              url=API+"?"+urllib.parse.urlencode(q)
+              for i in range(6):
+                  try:
+                      r=urllib.request.Request(url, headers={"User-Agent":UA})
+                      d=json.loads(urllib.request.urlopen(r,timeout=30).read().decode())
+                      if "error" in d:
+                          print("  err:",d["error"].get("code"),"→ 재시도",i+1); time.sleep(5*(i+1)); continue
+                      return d.get("cargoquery",[])
+                  except Exception as e:
+                      print("  예외:",type(e).__name__,"→ 재시도",i+1); time.sleep(5*(i+1))
+              return None
+          # 어떤 LCK 대회가 최근에 있는지
+          t=cargo(tables="Tournaments", fields="Name,OverviewPage,DateStart,League",
+                  where="Tournaments.League='LCK' AND Tournaments.DateStart > '2025-01-01'",
+                  order_by="Tournaments.DateStart DESC", limit="12")
+          print("=== 최근 LCK 대회");
+          for x in (t or []): print("  ", x["title"].get("DateStart"), x["title"].get("OverviewPage"))
+          if t:
+              page=t[0]["title"]["OverviewPage"]
+              rows=cargo(tables="ScoreboardPlayers=SP",
+                         fields="SP.Link,SP.Role,SP.Team,SP.Kills,SP.Deaths,SP.Assists,SP.CS,SP.DamageToChampions,SP.VisionScore,SP.Gold,SP.TeamKills,SP.Gamelength_Number",
+                         where=f"SP.OverviewPage='{page}'", limit="20")
+              print(f"=== {page} 샘플 {len(rows or [])}행")
+              for x in (rows or [])[:6]: print("  ", x["title"])
+          PY
