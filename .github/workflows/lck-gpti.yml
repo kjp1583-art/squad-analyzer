@@ -1,0 +1,48 @@
+name: LCK GPTI
+
+# LCK 선수 지표(gol.gg)를 받아 GPTI 성향유형을 산출 → ai-eval-data 브랜치 lck_gpti.json.
+# 웹은 이 파일을 읽어 GPTI 도감의 'LCK 프로' 칸과 '내 유형과 같은 프로'를 보여준다.
+on:
+  workflow_dispatch:
+    inputs:
+      splits:
+        description: '스플릿 우선순위 (쉼표)'
+        required: false
+        default: 'Summer,Spring'
+      season:
+        description: '시즌'
+        required: false
+        default: 'S16'
+  schedule:
+    - cron: '40 20 * * 1'      # 매주 화요일 05:40 KST
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet lxml
+
+      - name: Build lck_gpti.json
+        env:
+          LCK_SPLITS: ${{ inputs.splits || 'Summer,Spring' }}
+          LCK_SEASON: ${{ inputs.season || 'S16' }}
+        run: python tooling/lck_gpti.py
+
+      - name: Commit to ai-eval-data
+        run: |
+          test -s lck_gpti.json || { echo "결과 파일이 비었다 — 커밋하지 않음"; exit 1; }
+          cp lck_gpti.json /tmp/lck_gpti.json
+          git fetch origin ai-eval-data
+          git checkout -B ai-eval-data origin/ai-eval-data
+          cp /tmp/lck_gpti.json lck_gpti.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lck_gpti.json
+          git diff --cached --quiet || { git commit -m "data: LCK GPTI"; git push origin ai-eval-data; }
