@@ -174,6 +174,11 @@
   .gpti-mmrow.best .gpti-chip{border-color:rgba(90,212,138,.5);background:rgba(90,212,138,.08)}
   .gpti-mmrow.worst .gpti-chip{border-color:rgba(255,123,123,.5);background:rgba(255,123,123,.08)}
   /* 성향유형 도감 */
+  /* 🏆 LCK 프로 칩 — 클랜원 칩과 색을 달리해 '누르는 이름'이 아님을 드러낸다 */
+  .lck-chip{background:rgba(255,200,60,.10);border:1px solid rgba(255,200,60,.32);color:#ffd75e;cursor:default;display:inline-flex;align-items:center;gap:5px}
+  .lck-chip .lck-team{font-size:10.5px;font-weight:700;opacity:.62;color:var(--sub)}
+  .lck-row{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+  .lck-label{font-size:11.5px;font-weight:800;color:#ffd75e;opacity:.85;margin-right:2px}
   .gpti-dexgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
   @media(max-width:760px){.gpti-dexgrid{grid-template-columns:1fr}}
   .gpti-dexcard{padding:14px 16px}
@@ -2293,6 +2298,21 @@ function supplementGptiFromMainLog(){
     for(const k in add)(GPTI_ROWS[k]=GPTI_ROWS[k]||[]).push(...add[k]);
   }catch(e){}
 }
+/* 🏆 [2026-08-03 사장님 지시] LCK 프로 GPTI — gol.gg 공개 지표를 주 1회 모아둔 파일(ai-eval-data).
+   ★비교 기준은 LCK 선수끼리다(A안). 프로와 내전은 양상이 달라 같은 자로 재면 프로가 전원 한쪽으로
+   쏠린다. 그래서 백분위는 각각의 풀 안에서 매기고, 두 세계는 '유형 네 글자'로만 이어 붙인다. */
+let LCK_GPTI=null;   // {updated,split,players:[{name,team,pos,type,axes,games,kda,...}]}
+function loadLckGpti(){
+  return fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/ai-eval-data/lck_gpti.json",{cache:"no-cache"})
+    .then(r=>r.ok?r.json():null)
+    .then(d=>(d&&Array.isArray(d.players)&&d.players.length)?d:null)
+    .catch(()=>null);
+}
+function lckByType(type){ return LCK_GPTI?LCK_GPTI.players.filter(p=>p.type===type):[]; }
+function lckProChip(p){
+  const t=`${p.team} · ${p.pos} · ${p.games}판${p.kda!=null?` · KDA ${p.kda}`:""}`;
+  return `<span class="gpti-chip lck-chip" title="${escAttr(t)}">${esc(p.name)}<span class="lck-team">${esc(p.team)}</span></span>`;
+}
 function computeGPTI(){
   GPTI={};
   const rich=!!GPTI_ROWS;
@@ -2441,6 +2461,13 @@ function gptiCardHtml(name){
     ${(!mm.same.length&&!mm.best&&!mm.worst)?'<div class="muted" style="font-size:12px">아직 비교할 클랜원 데이터가 부족해요.</div>':''}
     <div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">※ 유형 조합 이론으로 계산한 재미 요소예요 — 실제 같은 팀 승률과의 연관은 <b>확인되지 않았습니다</b>(1만 쌍 실측, 상관 ≈0). 실제 함께한 성적은 프로필의 <b>시너지</b>를, 상대 전적은 <b>천적</b>을 봐주세요.</div>
   </div>`:"";
+  // 🏆 같은 유형의 LCK 프로 — 성적 비교가 아니라 '성향이 닮은 선수' 찾기다.
+  const pros=lckByType(g.type);
+  const proHtml=(g.rich&&LCK_GPTI)?`<div class="gpti-mm"><div class="gpti-sub">🏆 나와 같은 유형의 LCK 프로 <span class="muted" style="font-weight:400;font-size:11.5px">· ${esc(LCK_GPTI.split||"")} 스플릿</span></div>
+    ${pros.length?`<div class="gpti-mmrow same"><div class="gpti-mmnames">${pros.slice(0,10).map(lckProChip).join("")}${pros.length>10?`<span class="muted" style="font-size:11.5px">외 ${pros.length-10}명</span>`:""}</div></div>`
+      :`<div class="muted" style="font-size:12.5px;padding:2px 0">${esc(g.type)} 유형인 LCK 선수는 이번 스플릿에 없어요.</div>`}
+    <div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">※ 프로는 <b>LCK 선수끼리</b> 비교해 유형을 냈어요(클랜은 클랜끼리). 실력 비교가 아니라 <b>플레이 성향이 같은 칸</b>이라는 뜻이에요. 자료는 gol.gg 공개 기록.</div>
+  </div>`:"";
   const nem=nemesisOf(name);
   const nemHtml=nem.length?`<div class="gpti-mm"><div class="gpti-sub">⚔️ 천적 <span class="muted" style="font-weight:400;font-size:11.5px">· 상대팀으로 붙으면 자주 지는 상대</span></div>
     <div class="gpti-mmrow worst"><div class="gpti-mmnames">${nem.map(x=>`<span class="clickname gpti-chip" onclick="go('player','${escAttr(x.opp)}')">${esc(shortName(x.opp))} <span style="opacity:.7;font-size:11px">${x.l}패 ${x.w}승</span></span>`).join("")}</div></div></div>`:"";
@@ -2450,6 +2477,7 @@ function gptiCardHtml(name){
     ${g.axes.map(bar).join("")}
     ${champHtml}
     ${mmHtml}
+    ${proHtml}
     ${nemHtml}
     <div class="muted" style="font-size:11.5px;margin-top:10px">※ 포지션별 상대값 기준 · ${g.rich?"내전 실경기 스탯(킬관여·시야·딜·골드) 분석":"팀플/전략 축은 데이터 보강 후 추가됩니다"} · 천적=상대팀 head-to-head</div>
   </div>`;
@@ -2467,16 +2495,22 @@ function renderGPTI(){
     const nick=_GPTI_TYPE_NICK[x.t]||"", desc=_GPTI_DESC[x.t]||"";
     const champ=x.champs.length?`<div class="gpti-champrow" style="margin:8px 0 4px">${x.champs.map(c=>`<div class="gpti-champ" onclick="go('mastery','${escAttr(c.champ)}')" title="${esc(c.champ)}">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div>`).join("")}</div>`:"";
     const names=x.members.length?`<div class="gpti-mmnames">${x.members.map(chip).join("")}</div>`:`<div class="muted" style="font-size:12.5px;padding:4px 0">아직 해당 유형의 클랜원이 없어요</div>`;
+    // 🏆 같은 칸의 LCK 프로 — 유형별 카드 아래에 한 줄로 붙인다(같은 성향의 프로가 누구인지).
+    const pros=lckByType(x.t);
+    const proRow=LCK_GPTI?`<div class="lck-row"><span class="lck-label">🏆 LCK</span>${
+      pros.length?pros.slice(0,8).map(lckProChip).join("")+(pros.length>8?`<span class="muted" style="font-size:11px">외 ${pros.length-8}명</span>`:"")
+      :`<span class="muted" style="font-size:11.5px">해당 없음</span>`}</div>`:"";
     return `<div class="card gpti-dexcard">
       <div class="gpti-dexhead"><span class="gpti-dextype">${x.t}</span><div><b class="gpti-dexnick">${esc(nick)}</b> <span class="muted" style="font-size:12.5px">${x.members.length}명</span><div class="gpti-desc">${esc(desc)}</div></div></div>
-      ${champ}${names}</div>`;
+      ${champ}${names}${proRow}</div>`;
   };
   view().innerHTML=`
     <div class="hof-head">
       <h1 class="hof-title">🧬 성향유형 도감</h1>
       <div class="hof-filter"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button></div>
     </div>
-    <div class="muted" style="font-size:13px;margin:2px 0 8px">${rich?`분석된 클랜원 <b>${total}명</b>을 16가지 성향유형으로 분류했어요 · 내전 실경기 스탯(킬관여·시야·딜·골드) 기반, 포지션별 상대값`:"현재 KDA 2축 기준(리치스탯 보강 시 4축 16유형으로 확장)"}</div>
+    <div class="muted" style="font-size:13px;margin:2px 0 8px">${rich?`분석된 클랜원 <b>${total}명</b>을 16가지 성향유형으로 분류했어요 · 내전 실경기 스탯(킬관여·시야·딜·골드) 기반, 포지션별 상대값`:"현재 KDA 2축 기준(리치스탯 보강 시 4축 16유형으로 확장)"}${
+      LCK_GPTI?` · 🏆 <b>LCK ${LCK_GPTI.n}명</b>도 같은 축으로 분류해 함께 실었어요(<b>LCK끼리</b> 비교 · ${esc(LCK_GPTI.split||"")} 스플릿 · gol.gg)`:""}</div>
     <div class="gpti-dexgrid">${types.map(card).join("")}</div>
     ${gptiHypothesisHtml()}
     ${mbtiDexHtml()}`;
@@ -5610,7 +5644,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608030945";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608031255";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -5641,7 +5675,8 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes()]);   // 병렬 로드
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti()]);   // 병렬 로드
+    LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
     MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
