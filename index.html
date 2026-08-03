@@ -149,7 +149,10 @@
   .kizuki-emblem.low svg{filter:drop-shadow(0 0 10px rgba(154,107,255,.55))}
   .kz-cap{font-size:11px;font-weight:800;margin-top:2px;letter-spacing:.3px;color:#ffb3b0}
   .kizuki-emblem.low .kz-cap{color:#d3bcff}
-  @media(max-width:620px){.kizuki-emblem{position:static;transform:none;margin:0 0 10px;display:block}}
+  /* ⚠ 이 폭은 .prof 의 padding-top 을 0 으로 되돌리는 폭(760px)과 반드시 같아야 한다.
+     둘이 어긋나면 그 사이 폭에서 엠블럼이 이름·지표 위에 그대로 얹힌다(2026-08-03 사장님 제보). */
+  @media(max-width:760px){.kizuki-emblem{position:static;transform:none;margin:2px 0 10px;display:block}
+    .kizuki-emblem svg{width:104px;height:95px}}
   /* 🧬 GPTI 성향유형 카드 */
   .gpti-top{display:flex;align-items:baseline;gap:12px;margin:2px 0 12px}
   .gpti-type{font-size:30px;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#7cc0ff,#b78cff);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -566,7 +569,7 @@
   /* Player profile */
   .prof{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;padding-top:178px}
   .prof.profemb{padding-top:210px}   /* 십이귀월 엠블럼(세로로 큼) 있을 때만 여백 확대 */
-  .prof .pname{font-size:22px;font-weight:800}
+  .prof .pname{font-size:22px;font-weight:800;text-shadow:0 2px 6px rgba(0,0,0,.85)}
   .prof .ptag{color:var(--mut);font-size:14.5px}
   .ring{--p:50;width:96px;height:96px;border-radius:50%;flex:none;
     background:conic-gradient(var(--win) calc(var(--p)*1%),var(--lose) 0);
@@ -637,25 +640,27 @@
   /* [2026-07-31] 어둡게 덮는 그라데이션 대신 '페이드' — 이미지 자체의 투명도가 아래로 갈수록 빠진다.
      덮개가 없으니 위쪽 그림이 원래 색으로 보이고, 아래는 카드 배경으로 자연스럽게 녹아든다. */
   .pbanner{position:absolute;left:0;right:0;top:0;height:270px;z-index:0;
-    background-size:cover;background-position:center 30%;opacity:.5;
-    -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 38%,rgba(0,0,0,.45) 70%,transparent 100%);
-    mask-image:linear-gradient(180deg,#000 0%,#000 38%,rgba(0,0,0,.45) 70%,transparent 100%);
+    background-size:cover;background-position:center 30%;opacity:.4;
+    -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 26%,rgba(0,0,0,.34) 60%,transparent 92%);
+    mask-image:linear-gradient(180deg,#000 0%,#000 26%,rgba(0,0,0,.34) 60%,transparent 92%);
     animation:pb-in .8s ease both}
-  @keyframes pb-in{from{opacity:0;transform:scale(1.06)}to{opacity:.5;transform:none}}
+  @keyframes pb-in{from{opacity:0;transform:scale(1.06)}to{opacity:.4;transform:none}}
   /* 🏅 등급 배지 */
   .grade{display:inline-block;margin-left:8px;vertical-align:middle;min-width:26px;text-align:center;
     font-size:14px;font-weight:900;line-height:1;padding:5px 8px;border-radius:8px;
     color:var(--gc);border:1px solid var(--gc);background:color-mix(in srgb,var(--gc) 14%,transparent)}
   /* 🕸 레이더 */
   /* 📊 [2026-07-30] 동티어 비교 박스 — 한 줄로 길게 흐르던 평가 상세를 칸으로 끊었다. */
-  .cmpbox{margin-top:10px;background:rgba(120,160,255,.06);border:1px solid rgba(120,160,255,.24);
-    border-radius:12px;padding:10px 13px}
+  /* 🔎 [2026-08-03 사장님 지시] 배너 위에 얹히는 박스라 반투명이면 숫자가 묻힌다 —
+     어두운 바닥을 깔고 살짝 흐려 배경 그림과 글자를 떼어놓는다. */
+  .cmpbox{margin-top:10px;background:rgba(11,14,20,.72);border:1px solid rgba(120,160,255,.30);
+    border-radius:12px;padding:10px 13px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
   .cmpbox-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:8px}
   .cmpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:7px}
-  .cmp{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
-  .cmp-k{display:block;font-size:11.5px;color:var(--mut)}
-  .cmp-v{display:block;font-size:15.5px;font-variant-numeric:tabular-nums;line-height:1.3}
-  .cmp-r{display:block;font-size:11.5px;color:var(--mut)}
+  .cmp{background:rgba(16,20,28,.78);border:1px solid rgba(255,255,255,.13);border-radius:10px;padding:6px 10px}
+  .cmp-k{display:block;font-size:11.5px;color:#a7b1c4;font-weight:600}
+  .cmp-v{display:block;font-size:15.5px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.3}
+  .cmp-r{display:block;font-size:11.5px;color:#8b95a8}
   /* 🎭 [2026-07-30] op.gg 스타일 포지션 비중 타일 + 선호 역할군 바 */
   .pstyle{margin-top:4px}
   .pst-h{font-size:13px;font-weight:800;color:var(--sub);margin-bottom:7px}
@@ -685,11 +690,11 @@
   /* [2026-07-30] 왼쪽 정보 블록을 아래로 내려 오른쪽(레이더+승률) 끝라인에 맞춘다. */
   .prof .profmain{align-self:flex-end}
   @media(max-width:760px){.prof .profmain{align-self:auto}}
-  .cmp.cmp-good{background:linear-gradient(135deg,rgba(126,224,129,.15),rgba(126,224,129,.03));border-color:rgba(126,224,129,.38)}
+  .cmp.cmp-good{background:linear-gradient(135deg,rgba(126,224,129,.15),rgba(126,224,129,.03)),rgba(16,20,28,.78);border-color:rgba(126,224,129,.45)}
   .cmp.cmp-good .cmp-v{color:#7ee081}
-  .cmp.cmp-bad{background:linear-gradient(135deg,rgba(232,64,87,.14),rgba(232,64,87,.03));border-color:rgba(232,64,87,.36)}
+  .cmp.cmp-bad{background:linear-gradient(135deg,rgba(232,64,87,.14),rgba(232,64,87,.03)),rgba(16,20,28,.78);border-color:rgba(232,64,87,.45)}
   .cmp.cmp-bad .cmp-v{color:#ff6f83}
-  .cmp.cmp-hi{background:linear-gradient(135deg,rgba(255,210,74,.16),rgba(255,210,74,.04));border-color:rgba(255,210,74,.4)}
+  .cmp.cmp-hi{background:linear-gradient(135deg,rgba(255,210,74,.16),rgba(255,210,74,.04)),rgba(16,20,28,.78);border-color:rgba(255,210,74,.5)}
   .cmp.cmp-hi .cmp-v{color:#ffd24a;font-size:22px;font-weight:800}
   .radar polygon{transition:all .5s ease}
   .radarcap{font-size:11.5px;margin-top:-4px}
@@ -1961,7 +1966,10 @@ function loadTitles(){
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
           const nm=String(g(ni)||"").trim();
-          if(nm) out.set(tnorm(nm),{name:nm,title:String(g(ti)||"").trim(),emoji:String(g(ei)||"").trim(),tier:String(g(gi)||"").trim()});
+          // 🪙 [2026-08-03] 한 사람이 여러 줄일 수 있다(장착 칭호 + 보유 중인 유니크) — 덮어쓰지 말고 모은다
+          if(nm){ const key=tnorm(nm), arr=out.get(key)||[];
+            arr.push({name:nm,title:String(g(ti)||"").trim(),emoji:String(g(ei)||"").trim(),tier:String(g(gi)||"").trim()});
+            out.set(key,arr); }
         }
       }catch(e){}
       resolve(out);
@@ -1972,7 +1980,12 @@ function loadTitles(){
     setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
   });
 }
-function titleOf(name){ return aliasLookup(TITLES, name)||null; }   // 🔁 닉변·부계 추적
+// 🔁 닉변·부계 추적. 반환은 항상 배열(유니크 먼저 — 세상에 하나뿐인 게 앞에 와야 한다).
+function titlesOf(name){
+  const a=aliasLookup(TITLES, name); if(!a||!a.length) return [];
+  return a.filter(t=>t&&t.title).slice().sort((x,y)=>(y.tier==="유니크")-(x.tier==="유니크"));
+}
+function titleOf(name){ return titlesOf(name)[0]||null; }
 const _TITLE_TIER_CSS={
   "유니크":{bg:"linear-gradient(90deg,rgba(255,200,60,.20),rgba(255,110,199,.16))",bd:"rgba(255,180,90,.75)",fg:"#ffe08a"},
   "전설":{bg:"rgba(255,200,60,.13)",bd:"rgba(255,200,60,.55)",fg:"#ffd75e"},
@@ -1980,11 +1993,12 @@ const _TITLE_TIER_CSS={
   "레어":{bg:"rgba(90,170,255,.12)",bd:"rgba(90,170,255,.5)",fg:"#8ec6ff"},
   "일반":{bg:"rgba(255,255,255,.07)",bd:"var(--line)",fg:"var(--sub)"}
 };
-function titleChip(name){
-  const t=titleOf(name); if(!t||!t.title) return '';
-  const cs=_TITLE_TIER_CSS[t.tier]||_TITLE_TIER_CSS["일반"];
-  const tip=t.tier==="유니크"?"세상에 단 하나뿐인 칭호 — 경매·거래소에서만 구할 수 있습니다":`포인트 상점에서 구매한 칭호 (${escAttr(t.tier||'일반')})`;
-  return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}${t.tier==="유니크"?' <span style="opacity:.75;font-weight:400">1/1</span>':''}</span>`;
+function titleChip(name){   // 보유한 칭호 전부 (유니크 → 상점 칭호 순)
+  return titlesOf(name).map(t=>{
+    const cs=_TITLE_TIER_CSS[t.tier]||_TITLE_TIER_CSS["일반"];
+    const tip=t.tier==="유니크"?"세상에 단 하나뿐인 칭호 — 경매·거래소에서만 구할 수 있습니다":`포인트 상점에서 구매한 칭호 (${escAttr(t.tier||'일반')})`;
+    return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}${t.tier==="유니크"?' <span style="opacity:.75;font-weight:400">1/1</span>':''}</span>`;
+  }).join(" ");
 }
 // ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
 let MYEOL=new Map();
@@ -4861,8 +4875,10 @@ function renderPlayer(name){
   const _ghost = isGhost(name);   // 👻 고스트밴픽왕 구독자
   const _titleChip = titleChip(name);   // 🏷️ 상점 구매 칭호
   const _myeolChip = myeolChip(name);   // ⚔️ 멸망전 우승
-  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_titleChip||_myeolChip)
-    ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${_titleChip}${_myeolChip}${
+  // 🏷️ [2026-08-03 사장님 제보] 칭호는 이름 옆에 붙인다 — 뱃지 줄 맨 아래에 있으면
+  //    스크롤해야 보여서 '낙찰받았는데 안 보인다'가 된다. 여기 줄에서는 뺀다.
+  const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_myeolChip)
+    ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${_myeolChip}${
         _ghost?`<span title="고스트밴픽왕 구독자 — 밴픽 때 AI 추천을 받고 있습니다" style="background:rgba(150,170,255,.12);border:1px solid rgba(150,170,255,.45);color:#c3cdff;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">👻 고스트밴픽왕</span>`:''
       }${
         (mitoE&&(mitoE.wins>0||mitoE.parts>0))?`<span title="주말 정규 미니토너먼트 역대 우승/참가 기록" style="background:rgba(120,220,160,.10);border:1px solid rgba(120,220,160,.4);color:#8fe3b0;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:9px;white-space:nowrap">🏟️ 미토 우승 ${mitoE.wins}회 / 참가 ${mitoE.parts}회${mitoRateTxt(mitoE)}</span>`:''
@@ -4941,7 +4957,7 @@ function renderPlayer(name){
       ${_emb}
       <div class="prof${_emb?' profemb':''}">
         <div class="profmain" style="flex:1">
-          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${statBox}
         </div>
@@ -5639,7 +5655,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608031910";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608032015";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
