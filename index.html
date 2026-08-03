@@ -609,7 +609,10 @@
   .pstyle{margin-top:4px}
   .pst-h{font-size:13px;font-weight:800;color:var(--sub);margin-bottom:7px}
   .ptiles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  /* ★ color 를 반드시 지정한다 — button 은 지정이 없으면 브라우저 기본 검정 글씨라
+     어두운 타일 위에서 퍼센트가 안 보인다(2026-08-03 사장님 제보). */
   .ptile{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:8px 2px;cursor:pointer;
+    color:var(--txt);
     display:flex;flex-direction:column;align-items:center;gap:3px;transition:border-color .15s,background .15s}
   .ptile:hover{border-color:#3b4763}
   .ptile.on{border-color:#5b8cff;background:rgba(91,140,255,.12)}
@@ -5644,7 +5647,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608031255";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608031350";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
