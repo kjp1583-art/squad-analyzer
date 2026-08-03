@@ -49,6 +49,7 @@ jobs:
           F=lck_gpti.json; [ "${{ inputs.probe }}" = "yes" ] && F=lck_probe.txt
           test -s "$F" || { echo "결과 파일이 비었다 — 커밋하지 않음"; exit 1; }
           cp "$F" /tmp/out
+          rm -f "$F"                       # 브랜치 전환 시 추적 안 된 파일과 충돌하지 않게
           git fetch origin ai-eval-data
           git checkout -B ai-eval-data origin/ai-eval-data
           cp /tmp/out "$F"
