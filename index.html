@@ -2658,6 +2658,14 @@ function patchNum(p){const a=normPatch(p).split(".");return (parseInt(a[0],10)||
 function yearOf(d){ const m=String(d||"").match(/(20\d{2})/); return m?m[1]:""; }
 // 선택값이 년도 필터("Y2025")면 연도 문자열 반환, 아니면 null
 function selYear(sel){ return (typeof sel==="string" && sel[0]==="Y") ? sel.slice(1) : null; }
+// 🏷 [2026-08-03 사장님 지시] 지금 보고 있는 표본의 범위 — 프로필 카드에 같은 '승률'이 두 개(패치 기준 /
+//   통산) 나와 헷갈린다는 제보. 위쪽 전적이 어느 범위인지 작게 붙여준다.
+function patchScopeLabel(){
+  if(PATCH_SEL==="ALL") return "전체 기간";
+  const y=selYear(PATCH_SEL); if(y) return `${y}년`;
+  const p=PATCH_SEL||LATEST_PATCH;
+  return p?`${p} 버전`:"전체 기간";
+}
 
 /* ====== 닉네임 변경 감지 → 최신 닉으로 전적 통합 ======
    PUUID(소환사 고유 식별자)가 같으면 동일인 → 가장 최근 날짜의 닉네임을 대표로 삼아
@@ -3971,7 +3979,8 @@ function playerCardHtml(name){
       if(mt) cells+=box('🧊 멘탈',`${mt.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
         mentalLabel(mt.score), mt.score>=65?'cmp-good':(mt.score<=35?'cmp-bad':'')); }
     if(d){
-      cells+=box('승률',`${d.wr}%`,`동티어 ${d.wrAvg}%`,cmpCls(d.wr,d.wrAvg,1));
+      // 이 칸은 패치 필터와 무관한 전체 통산(내부티어 산출과 같은 기준) — 위쪽 전적과 값이 달라 헷갈린다는 제보.
+      cells+=box('승률 <span style="font-size:10px;opacity:.7">통산</span>',`${d.wr}%`,`동티어 ${d.wrAvg}%`,cmpCls(d.wr,d.wrAvg,1));
       if(d.solo!=null) cells+=box('🏅솔랭',`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`,cmpCls(d.solo,d.soloAvg,1));
       if(d.ai!=null) cells+=box('AI점수',d.ai,`동티어 ${d.aiAvg}`,cmpCls(d.ai,d.aiAvg,1));
       if(d.mvp!=null) cells+=box('MVP율',`${d.mvp}%`,`동티어 ${d.mvpAvg}%`,cmpCls(d.mvp,d.mvpAvg,1));
@@ -4003,7 +4012,7 @@ function playerCardHtml(name){
             ${a.implPct!=null?`<b style="color:#ffd24a;font-size:13px">🎯 클랜 상위 ${a.implPct}%</b>`:''}
           </div>
           <div class="tbm-rec">
-            <span><b style="font-size:20px;color:${wr>=50?'var(--win)':'var(--lose)'}">${wr}%</b> <span class="muted">승률</span></span>
+            <span><b style="font-size:20px;color:${wr>=50?'var(--win)':'var(--lose)'}">${wr}%</b> <span class="muted">승률</span> <span class="muted" style="font-size:11px;opacity:.75">${esc(patchScopeLabel())}</span></span>
             <span class="muted">${w+l}전 <b style="color:var(--win)">${w}승</b> <b style="color:var(--lose)">${l}패</b></span>
             <span class="muted">MVP ${mvpN} · 역적 ${badN}</span>
           </div>
@@ -5601,7 +5610,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608012136";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608030945";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
