@@ -310,13 +310,15 @@
   .kzsub{font-size:12px;color:#7b6a55;margin-bottom:11px}
   .kzrule{height:2px;margin:0 0 12px;border-radius:2px;
     background:linear-gradient(90deg,transparent,rgba(230,182,84,.75),transparent)}
-  .kzsec{font-size:11.5px;font-weight:900;letter-spacing:3px;margin:14px 0 7px;display:flex;align-items:center;gap:8px}
-  .kzsec::after{content:"";flex:1;height:1px;background:currentColor;opacity:.25}
-  .kzsec.up{color:#ff8a6b}
-  .kzsec.low{color:#9fb4e8}
-  .kzlist{display:grid;gap:6px}
-  .kzrow{position:relative;overflow:hidden;isolation:isolate;display:flex;align-items:center;gap:11px;
-    padding:8px 12px;border-radius:9px;border:1px solid transparent;cursor:pointer;
+  /* [2026-08-03 사장님 지시] 상현·하현을 한 덩어리 2열(좌 상현6 · 우 하현6)로 접어 세로 부피를 절반으로 */
+  .kzlegend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:900;letter-spacing:2px;margin-bottom:8px}
+  .kzlegend .up{color:#ff8a6b}
+  .kzlegend .low{color:#9fb4e8}
+  .kzlist{display:grid;gap:5px;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,auto);grid-auto-flow:column}
+  @media(max-width:1100px){.kzboard.two .kzlist{grid-template-columns:1fr;grid-template-rows:none;grid-auto-flow:row}}
+  @media(max-width:620px){.kzlist{grid-template-columns:1fr;grid-template-rows:none;grid-auto-flow:row}}
+  .kzrow{position:relative;overflow:hidden;isolation:isolate;display:flex;align-items:center;gap:9px;
+    padding:6px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;
     transition:transform .12s ease,border-color .12s ease}
   .kzrow:hover{transform:translateX(3px)}
   .kzrow.up{background:linear-gradient(90deg,#2a0c10,#180a0d 70%);border-color:rgba(201,162,74,.45);
@@ -329,7 +331,7 @@
   .kz-bg{position:absolute;inset:0;z-index:-1;background-size:cover;background-position:center 20%;opacity:.30;
     -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.35) 40%,#000 100%);
     mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.35) 40%,#000 100%)}
-  .kz-seal{flex:0 0 auto;width:42px;height:42px;border-radius:50%;display:flex;flex-direction:column;
+  .kz-seal{flex:0 0 auto;width:36px;height:36px;border-radius:50%;display:flex;flex-direction:column;
     align-items:center;justify-content:center;line-height:1;font-weight:900;
     border:2px solid;box-shadow:0 0 12px rgba(0,0,0,.55)}
   .kzrow.up .kz-seal{background:radial-gradient(circle at 50% 38%,#ff5a46,#a01418 62%,#2a0305);
@@ -337,9 +339,9 @@
   .kzrow.low .kz-seal{background:radial-gradient(circle at 50% 38%,#7f8db5,#2b3450 62%,#0b0e16);
     border-color:#aab6cc;color:#eaf0fb}
   .kz-seal .r{font-size:9.5px;letter-spacing:.5px;opacity:.9}
-  .kz-seal .n{font-size:17px;margin-top:1px}
+  .kz-seal .n{font-size:15px;margin-top:1px}
   .kz-body{min-width:0;flex:1}
-  .kz-name{font-size:15.5px;font-weight:800;color:#F5D47A;text-shadow:0 1px 3px rgba(0,0,0,.9);
+  .kz-name{font-size:14.5px;font-weight:800;color:#F5D47A;text-shadow:0 1px 3px rgba(0,0,0,.9);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .kzrow.low .kz-name{color:#dce6fb}
   .kz-sub{font-size:11.5px;color:#9c8f80;text-shadow:0 1px 2px rgba(0,0,0,.9);
@@ -3382,10 +3384,9 @@ function kizukiBoard(){
       <div class="kzhd"><h2>🩸 ${nm}</h2><span class="kanji">十二鬼月</span></div>
       <div class="kzsub">${scope} · 파워랭킹 상위 12인 — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · 최근 30일 5판 이상만 편성 · 실시간 변동</div>
       <div class="kzrule"></div>
-      <div class="kzsec up">🗡 상현 ( 上弦 )</div>
-      <div class="kzlist">${[1,2,3,4,5,6].map(i=>row(`${pre}상현 ${i}`,true,i)).join("")}</div>
-      <div class="kzsec low">🌙 하현 ( 下弦 )</div>
-      <div class="kzlist">${[1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>
+      <div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
+      <div class="kzlist">${[1,2,3,4,5,6].map(i=>row(`${pre}상현 ${i}`,true,i)).join("")}${
+        [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>
     </div>`;
   };
   return `<div class="card kzboard${leagues.length>1?' two':''}">${leagues.map(pane).join("")}</div>`;
@@ -5608,7 +5609,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608031755";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608031830";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
