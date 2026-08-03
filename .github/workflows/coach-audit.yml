@@ -1,0 +1,43 @@
+name: Coach audit
+
+# 밴픽 코치 추천을 사후 채점해 ai-eval-data 브랜치에 coach_audit.md 로 남긴다.
+# 봇의 주간 점검(audit_report)이 이 파일을 읽어 사장님에게 DM 한다.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '10 21 * * 1'      # 매주 화요일 06:10 KST (주간 스냅샷 이후)
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4                       # main — 스크립트
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet openpyxl
+
+      - name: Fetch snapshot
+        run: |
+          git fetch origin ai-eval-data
+          git show origin/ai-eval-data:squad_sheet.xlsx > snapshot.xlsx
+          ls -l snapshot.xlsx
+
+      - name: Run audit
+        run: |
+          python tooling/coach_audit.py snapshot.xlsx | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit report
+        run: |
+          test -s coach_audit.md || { echo "리포트가 비었다 — 커밋하지 않음"; exit 1; }
+          cp coach_audit.md /tmp/out
+          rm -f coach_audit.md snapshot.xlsx
+          git checkout -B ai-eval-data origin/ai-eval-data
+          cp /tmp/out coach_audit.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add coach_audit.md
+          git diff --cached --quiet || { git commit -m "data: coach audit"; git push origin ai-eval-data; }
