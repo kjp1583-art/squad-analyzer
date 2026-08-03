@@ -13,6 +13,10 @@ on:
         description: '시즌'
         required: false
         default: 'S16'
+      probe:
+        description: "구조 확인만 (yes 면 lck_probe.txt 만 생성)"
+        required: false
+        default: 'no'
   schedule:
     - cron: '40 20 * * 1'      # 매주 화요일 05:40 KST
 
@@ -29,7 +33,12 @@ jobs:
           python-version: '3.11'
       - run: pip install --quiet lxml
 
+      - name: Probe (structure dump)
+        if: ${{ inputs.probe == 'yes' }}
+        run: python tooling/lck_probe.py
+
       - name: Build lck_gpti.json
+        if: ${{ inputs.probe != 'yes' }}
         env:
           LCK_SPLITS: ${{ inputs.splits || 'Summer,Spring' }}
           LCK_SEASON: ${{ inputs.season || 'S16' }}
@@ -37,12 +46,13 @@ jobs:
 
       - name: Commit to ai-eval-data
         run: |
-          test -s lck_gpti.json || { echo "결과 파일이 비었다 — 커밋하지 않음"; exit 1; }
-          cp lck_gpti.json /tmp/lck_gpti.json
+          F=lck_gpti.json; [ "${{ inputs.probe }}" = "yes" ] && F=lck_probe.txt
+          test -s "$F" || { echo "결과 파일이 비었다 — 커밋하지 않음"; exit 1; }
+          cp "$F" /tmp/out
           git fetch origin ai-eval-data
           git checkout -B ai-eval-data origin/ai-eval-data
-          cp /tmp/lck_gpti.json lck_gpti.json
+          cp /tmp/out "$F"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add lck_gpti.json
-          git diff --cached --quiet || { git commit -m "data: LCK GPTI"; git push origin ai-eval-data; }
+          git add "$F"
+          git diff --cached --quiet || { git commit -m "data: $F"; git push origin ai-eval-data; }
