@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.72"
+CURRENT_VERSION = "82.73"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1852,10 +1852,17 @@ def _quiz_pref(force=False):
     return out
 
 
-def _pool_by_puuid(puuid, limit=6):
-    """[v81.77] PUUID로 그 사람의 챔피언별 (판수, 승) 상위 N — 밴 추천의 '상대 장인' 판단용."""
+def _pool_by_puuid(puuid, limit=6, pos=""):
+    """[v81.77] PUUID로 그 사람의 챔피언별 (판수, 승) 상위 N — 밴 추천의 '상대 장인' 판단용.
+
+    pos 를 주면 **그 포지션에서 실제로 쓴 전적만** 집계한다.
+    [2026-08-03 사장님 제보] 정글 브라이어 원챔장인이 탑에 갔는데 브라이어 밴을 추천하던 문제.
+      포지션 병기(v82.45)와 프롬프트 규칙(★장인 저격 밴은 포지션이 맞을 때만)만으로는 안 막혔다 —
+      후보 목록 자체에서 빼야 한다. 쉬바나/녹턴 건과 같은 처방(데이터 레이어에서 차단).
+    """
     key = str(puuid or "").strip().lower()
     if not key or not global_spreadsheet: return []
+    want = str(pos or "").strip()
     agg = {}
     try:
         # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람은 챔프 선택 성격이 달라 장인 판단을 왜곡한다.
@@ -1867,18 +1874,59 @@ def _pool_by_puuid(puuid, limit=6):
             h = rows[0]
             ci = lambda n: h.index(n) if n in h else -1
             c_pu, c_ch, c_rs, c_nm = ci("PUUID"), ci("챔피언"), ci("결과"), ci("소환사명")
+            c_ps = ci("포지션")
             if min(c_pu, c_ch) < 0: continue
+            if want and c_ps < 0: continue        # 포지션 열이 없으면 필터를 흉내내지 않는다
             for r in rows[1:]:
                 if len(r) <= max(c_pu, c_ch): continue
                 if str(r[c_pu]).strip().lower() != key: continue
                 ch = str(r[c_ch]).strip()
                 if not ch: continue
+                if want:
+                    _ps = str(r[c_ps]).strip() if len(r) > c_ps else ""
+                    if _ps != want: continue
                 g, w, nm = agg.get(ch, (0, 0, ""))
                 nm = nm or (str(r[c_nm]).strip() if c_nm >= 0 and len(r) > c_nm else "")
                 agg[ch] = (g + 1, w + (1 if (c_rs >= 0 and len(r) > c_rs and str(r[c_rs]).strip() == "승리") else 0), nm)
     except Exception: pass
     out = sorted(([c, g, w, nm] for c, (g, w, nm) in agg.items()), key=lambda x: -x[1])[:limit]
     return out
+
+
+def _enemy_ban_pool(pu, ep, cidx, limit=6):
+    """밴 모드에서 상대 1명의 '이번 판에 실제로 나올 수 있는' 챔프폭 블록 → (머리말, [챔프표기…]).
+
+    이번 판 포지션(ep)을 알면 그 자리 전적만 싣는다. 그 자리 전적이 아예 없으면 챔프를 싣지 않고
+    '저격 밴 가치 없음'을 명시한다 — 다른 자리 주력은 이번 판에 나올 수 없으므로 후보가 아니다.
+    """
+    pu = str(pu or "").strip().lower()
+    if not pu: return None
+    _e = ((cidx or {}).get("by_pu") or {}).get(pu) or {}
+    _cp = _e.get("chpos") or {}
+    full = _pool_by_puuid(pu, limit=limit) or []
+    nm = str(_e.get("name") or (full[0][3] if full and len(full[0]) > 3 else "") or "상대").split("#")[0].strip() or "상대"
+    hdr = nm + (f" [이번 판 포지션: {ep}]" if ep else "")
+
+    def _fmt(rows, with_pos):
+        out = []
+        for t in rows:
+            c3, g3, w3 = t[0], t[1], t[2]
+            s = f"{c3}({g3}판 {round(w3 / g3 * 100) if g3 else 0}%"
+            if with_pos:
+                _d = _cp.get(c3) or {}
+                _mp = max(_d.items(), key=lambda x: x[1])[0] if _d else ""
+                if _mp: s += f"·{_mp}전적"
+            out.append(s + ")")
+        return out
+
+    if not ep:
+        return (hdr, _fmt(full, True)) if full else None
+    lst = _pool_by_puuid(pu, limit=limit, pos=ep) or []
+    if lst:
+        return (hdr, _fmt(lst, False))          # 전부 그 포지션 전적이라 병기가 불필요
+    off = ", ".join(_fmt(full[:3], True))
+    return (hdr, [f"※ {ep} 전적 0판 — 이 사람 저격 밴은 값이 없다"
+                  + (f" (다른 자리 주력 {off} 은 이번 판에 못 씀)" if off else " (내전 전적 자체가 없음)")])
 
 def _my_champ_pool(my_name, limit=12):
     """시트 전적에서 '내' 챔피언별 (판수, 승) 상위 N개. 라이브 중 서비스계정 호출 없이 gviz 캐시만 사용."""
@@ -2112,9 +2160,9 @@ _DRAFT_BAN_RULES = (
     "- 단, 판수가 적은 고승률(3판 100% 등)은 우연이니 밴 근거로 쓰지 마라. 판수 5판 이상을 우선하라.\n"
     "- ★선픽 위험군: 챔프폭에서 **판수 비중이 크고 승률도 높은** 챔프는 매치업을 안 가리고 꺼내는 '선픽 카드'다.\n"
     "  1페이즈 밴에서 같은 값이면 이쪽을 우선하라(어차피 나올 확률이 가장 높은 픽이 가장 값진 밴이다).\n"
-    "- ★[이번 판 포지션]이 표기된 상대는 **그 포지션 전적이 붙은 챔프만** 1순위 후보로 보라. 다른 포지션\n"
-    "  전용 챔프(예: 이번 판 정글인 사람의 서폿 장인픽)는 이번 판에 나올 수 없으니 밴 후보에서 제외하거나\n"
-    "  맨 뒤로 미뤄라.\n"
+    "- ★[이번 판 포지션]이 표기된 상대의 챔프폭은 **이미 그 포지션 전적만 걸러서** 실려 있다. 목록에 없는\n"
+    "  챔프는 그 사람이 이번 판에 쓸 수 없다는 뜻이니, 기억이나 명성으로 다른 챔프를 끌어와 밴하지 마라.\n"
+    "  '※ ○○ 전적 0판'이라고 적힌 상대는 저격 밴 대상이 아니다 — 그 사람에게 밴을 쓰지 마라.\n"
     "- 우리 팀원이 잘 쓰는 챔프를 밴하지 마라(자책 밴).\n"
     "- ⚔️[우리 팀이 실제로 약했던 상대 픽]이 주어지면, 그 픽은 '우리 팀원을 직접 무너뜨린 전적'이 있는 밴 후보다.\n"
     "  단 표본이 4~10판으로 작으니 단독 근거로 1순위에 올리지 말고, 상대가 실제로 뽑을 챔프일 때만 쓰라.\n"
@@ -2133,9 +2181,10 @@ _DRAFT_BAN_RULES = (
     "  '현 패치 OP', '고밴률', '메타 챔프' 같은 표현 자체를 쓰지 마라 — 클랜원 누구나 아는 일반론이라 값이 없다.\n"
     "- 상대 데이터가 없으면 그 사실을 밝히고 클랜 내전 통계만으로 추천하라 — 근거 없는 저격 밴을 지어내지 마라.\n"
     "- ★★장인 챔프 저격 밴은 **그 챔프의 전적 포지션과 그 선수의 이번 판 포지션이 맞을 때만** 가치가 있다.\n"
-    "  챔프 옆 '·정글전적' 표기 = 그 선수가 그 챔프를 실제로 쓴 라인. [이번 판 포지션: 원딜]이 붙어 있거나\n"
-    "  조합상 그 선수가 다른 라인을 가는 게 명백하면, 다른 라인 전용 장인챔프(예: 정글 샤코)는 위협이 아니다 —\n"
-    "  그 밴은 낭비다. 포지션이 불일치하는 장인챔프는 밴 후보에서 제외하라.\n"
+    "  [이번 판 포지션]이 붙은 상대는 데이터가 이미 그 자리 전적만 남겨 뒀다. 포지션 표기가 없는 상대만\n"
+    "  챔프 옆 '·정글전적'(그 챔프를 실제로 쓴 라인) 표기를 보고 네가 직접 걸러라 — 조합상 다른 라인을\n"
+    "  가는 게 명백하면 그 라인 전용 장인챔프(예: 정글 샤코)는 위협이 아니고, 그 밴은 낭비다.\n"
+    "  ★유명한 원챔장인이라도 이번 판 자리가 다르면 그 챔프는 나오지 않는다. 이름값으로 밴하지 마라.\n"
     "- ★포지션을 지어내지 마라. 내전은 밴픽에 포지션 배정이 없어 '누가 어느 라인인지'는 대부분 미확정이다.\n"
     "  픽 옆에 '← 이름(주:라인)'이 있으면 그 사람이 고른 것이고, 그게 포지션 추정의 유일한 근거다.\n"
     "  '서폿 럭스', '탑 뽀삐' 같이 단정하지 말고, 필요하면 '미드 유저가 고른 럭스'처럼 근거를 밝혀 말하라.\n"
@@ -2657,22 +2706,9 @@ def _draft_coach_tick(s_json, headers, base_url):
                 continue
             if mode == "ban":   # 밴 모드: 상대 선수별 '장인 챔프'(시트 전적, gviz 캐시라 할당량 0)
                 try:
-                    if _pu:
-                        _cl = _pool_by_puuid(_pu)
-                        if _cl:
-                            # [v82.45 사장님 제보] 챔프별 '실제 플레이 포지션' 병기 — 정글 샤코 장인이 원딜 가면
-                            #   샤코는 위협이 아닌데 포지션 정보가 없어 밴 추천되던 문제(치쥬 사례) 수정 재료.
-                            _cp3 = (((_cidx or {}).get("by_pu") or {}).get(_pu) or {}).get("chpos") or {}
-                            _parts = []
-                            for _t4 in _cl:
-                                c3, g3, w3 = _t4[0], _t4[1], _t4[2]
-                                _d3 = _cp3.get(c3) or {}
-                                _mp3 = max(_d3.items(), key=lambda x: x[1])[0] if _d3 else ""
-                                _parts.append(f"{c3}({g3}판 {round(w3 / g3 * 100) if g3 else 0}%"
-                                              + (f"·{_mp3}전적" if _mp3 else "") + ")")
-                            _hdr3 = (_cl[0][3] if len(_cl[0]) > 3 else "") or "상대"
-                            if ep: _hdr3 += f" [이번 판 포지션: {ep}]"
-                            enemy_pools.append((_hdr3, _parts))
+                    # [v82.45] 챔프별 '실제 플레이 포지션' 병기 → [v82.73] 이번 판 포지션 전적만 싣기.
+                    _blk = _enemy_ban_pool(_pu, ep, _cidx) if _pu else None
+                    if _blk: enemy_pools.append(_blk)
                 except Exception: pass
         # 🛟 [v82.47 사장님 지시] 토너먼트 드래프트: 챔프선택 세션 theirTeam이 익명(퍼uid 없음)이라
         #    상대 명단이 통째로 비어 "상대 전적 없음" 티어리스트 밴만 나가던 문제 — UI가 동결해 둔
@@ -2695,19 +2731,8 @@ def _draft_coach_tick(s_json, headers, base_url):
                         lane_enemy_pu = _pu
                     if mode == "ban":
                         try:
-                            _cl = _pool_by_puuid(_pu)
-                            if _cl:
-                                _cp3 = (((_cidx or {}).get("by_pu") or {}).get(_pu) or {}).get("chpos") or {}
-                                _parts = []
-                                for _t4 in _cl:
-                                    c3, g3, w3 = _t4[0], _t4[1], _t4[2]
-                                    _d3 = _cp3.get(c3) or {}
-                                    _mp3 = max(_d3.items(), key=lambda x: x[1])[0] if _d3 else ""
-                                    _parts.append(f"{c3}({g3}판 {round(w3 / g3 * 100) if g3 else 0}%"
-                                                  + (f"·{_mp3}전적" if _mp3 else "") + ")")
-                                _hdr3 = (_cl[0][3] if len(_cl[0]) > 3 else "") or "상대"
-                                if _ep5: _hdr3 += f" [이번 판 포지션: {_ep5}]"
-                                enemy_pools.append((_hdr3, _parts))
+                            _blk = _enemy_ban_pool(_pu, _ep5, _cidx)
+                            if _blk: enemy_pools.append(_blk)
                         except Exception: pass
                 if enemy_pus:
                     print(f"[ghost] 세션 상대정보 없음 → 동결 로비 로스터 폴백({len(enemy_pus)}명)", flush=True)
