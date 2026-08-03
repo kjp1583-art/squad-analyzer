@@ -1,0 +1,52 @@
+name: LCK probe
+on: { workflow_dispatch: {} }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install --quiet lxml
+      - name: gol.gg 구조 확인
+        run: |
+          python3 - <<'PY'
+          import urllib.request
+          from lxml import html as LH
+          UA={"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36"}
+          def get(url):
+              try:
+                  return urllib.request.urlopen(urllib.request.Request(url,headers=UA),timeout=40).read()
+              except Exception as e:
+                  print("  실패", type(e).__name__, e); return None
+
+          BASE="https://gol.gg/players/list/season-S16/split-Summer/tournament-ALL/"
+          raw=get(BASE)
+          if raw:
+              doc=LH.fromstring(raw)
+              ths=[t.text_content().strip() for t in doc.xpath("//table//th")]
+              print("=== 전체 컬럼(%d):"%len(ths), ths)
+              trs=doc.xpath("//table//tr")
+              print("=== 행수:", len(trs))
+              for tr in trs[1:4]:
+                  tds=[c.text_content().strip() for c in tr.xpath("./td")]
+                  print("   행:", tds)
+                  print("   링크:", [a.get('href') for a in tr.xpath('.//a')])
+
+          print("\n=== 리그/포지션 필터 URL 시도")
+          for u in [
+            "https://gol.gg/players/list/season-S16/split-Summer/tournament-ALL/league-LCK/",
+            "https://gol.gg/players/list/season-S16/split-Summer/tournament-LCK%20Summer%202026/",
+            "https://gol.gg/players/list/season-S16/split-Summer/tournament-ALL/position-TOP/",
+            "https://gol.gg/players/list/season-S16/split-ALL/tournament-ALL/",
+          ]:
+              r=get(u)
+              if not r: print(" ", u, "→ 실패"); continue
+              d=LH.fromstring(r); n=len(d.xpath("//table//tr"))
+              first=[c.text_content().strip() for c in (d.xpath("//table//tr")[1:2] or [LH.fromstring("<tr/>")])[0].xpath("./td")][:6]
+              print(" ", u, "→ 행", n, first)
+
+          print("\n=== 대회 목록(LCK 이름 확인)")
+          r=get("https://gol.gg/tournament/list/")
+          if r:
+              d=LH.fromstring(r)
+              names=[a.text_content().strip() for a in d.xpath("//a") if "LCK" in a.text_content()]
+              print("  LCK 관련:", names[:25])
+          PY
