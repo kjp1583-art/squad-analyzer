@@ -1,0 +1,29 @@
+name: Fix swapped lane positions
+
+# 라인이 뒤바뀐 채로 기록된 협곡 내전 행을 되돌린다(2026-08-03 사장님 제보 — 레오나 장인랭킹).
+# 판정 근거는 그 판의 실제 기록(분당 CS·강타·클랜 라인 분포)이며, 애매하면 고치지 않고 목록만 남긴다.
+# 기본은 미리보기. apply=true 일 때만 실제로 시트를 고친다.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 수정 (체크 안 하면 미리보기만)'
+        type: boolean
+        default: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet gspread oauth2client
+      - name: Run
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+          APPLY: ${{ inputs.apply && '1' || '0' }}
+        run: |
+          python tooling/fix_positions.py
+          rm -f creds.json
