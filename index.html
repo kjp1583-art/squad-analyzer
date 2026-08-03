@@ -303,8 +303,8 @@
   .kzboard.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .kzleague{min-width:0;padding:16px 18px 18px;position:relative}
   .kzboard.two .kzleague+.kzleague{border-left:1px solid rgba(200,160,80,.22)}
-  @media(max-width:900px){.kzboard.two{grid-template-columns:minmax(0,1fr)}
-    .kzboard.two .kzleague+.kzleague{border-left:0;border-top:1px solid rgba(200,160,80,.22)}}
+  /* 서부는 왼쪽, 동부는 오른쪽 — 폭이 좁아져도 이 배치는 깨지 않는다.
+     대신 리그 안쪽(상현|하현 2열)을 한 줄로 펴서 위아래로 잇는다. */
   .kzhd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
   .kzhd h2{margin:0;font-size:19px;letter-spacing:.5px;
     background:linear-gradient(180deg,#fff4cf,#f0c15e 45%,#a8761f);-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -320,6 +320,10 @@
   /* 좌 상현6 · 우 하현6 — 좁은 화면에서도 1열로 풀지 않는다. 1열로 풀면 24행이 세로로 쌓여
      모바일에서 화면을 통째로 먹는다(2026-08-03 사장님 제보). 대신 칸 내용을 줄인다. */
   .kzlist{display:grid;gap:5px;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,auto);grid-auto-flow:column}
+  @media(max-width:900px){
+    .kzlist{grid-template-columns:1fr;grid-template-rows:none;grid-auto-flow:row}
+    .kzrow.up + .kzrow.low{margin-top:9px}   /* 상현 6명과 하현 6명 사이 숨 고르기 */
+  }
   .kzrow{position:relative;overflow:hidden;isolation:isolate;display:flex;align-items:center;gap:9px;
     padding:6px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;
     transition:transform .12s ease,border-color .12s ease}
@@ -358,6 +362,7 @@
     .kzhd{gap:7px;margin-bottom:1px}
     .kzhd h2{font-size:15.5px}
     .kzhd .kanji{font-size:10.5px;letter-spacing:2px}
+    .kzhd{flex-wrap:nowrap}
     .kzsub{font-size:10px;margin-bottom:5px}
     .kzsub .kzsub-x{display:none}
     .kzrule{display:none}                     /* 장식 구분선 — 좁은 화면에선 높이만 먹는다 */
@@ -371,6 +376,10 @@
     .kz-sub{font-size:9.5px;line-height:1.25}
     .kz-sub .kz-solo{display:none}
     .kz-tier{display:none}
+  }
+  @media(max-width:620px){
+    .kzhd .kanji{display:none}      /* 리그가 좌우로 나뉘어 칸이 좁다 — 한자 부제는 줄만 잡아먹는다 */
+    .kzsub .kzsub-m{display:none}   /* '내부티어'·'파워랭킹' 없이도 뜻이 통한다 */
   }
   @media(max-width:380px){
     .kz-seal{width:23px;height:23px}
@@ -3423,10 +3432,12 @@ function kizukiBoard(){
   const pane=lg=>{
     const pre=lg?lg+" ":"";
     const nm=lg?`${lg} 십이귀월`:"십이귀월";
-    const scope=lg==="서부"?"내부티어 0·1티어":lg==="동부"?"내부티어 2·3티어":"전체";
+    // 좁은 화면에서 두 줄로 넘어가지 않게, 없어도 뜻이 통하는 말은 접을 수 있게 감싼다
+    const scope=lg==="서부"?'<span class="kzsub-m">내부티어 </span>0·1티어'
+              :lg==="동부"?'<span class="kzsub-m">내부티어 </span>2·3티어':"전체";
     return `<div class="kzleague">
       <div class="kzhd"><h2>🩸 ${nm}</h2><span class="kanji">十二鬼月</span></div>
-      <div class="kzsub">${scope} · 파워랭킹 상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · 최근 30일 5판 이상만 편성 · 실시간 변동</span></div>
+      <div class="kzsub">${scope} · <span class="kzsub-m">파워랭킹 </span>상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · 최근 30일 5판 이상만 편성 · 실시간 변동</span></div>
       <div class="kzrule"></div>
       <div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
       <div class="kzlist">${[1,2,3,4,5,6].map(i=>row(`${pre}상현 ${i}`,true,i)).join("")}${
@@ -5655,7 +5666,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608032015";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608032120";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
