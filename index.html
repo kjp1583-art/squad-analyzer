@@ -3538,8 +3538,9 @@ function _scrimRender(){
   if(q.length){
     h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">`+q.map((x,i)=>{
       const mine=_scrimNk(x.name)===me; if(mine&&x.last) meLast=true;
+      const mark=(x.called?' <span title="호출자 — 직전 게임을 마치고 자동 재대기된 다음 판 확정 인원">📌</span>':'')+(x.prio&&!x.called?' <span title="우선권 — 디스코드 우선권 역할 보유자(호출자는 추월 불가)">⚡</span>':'');
       return `<span style="font-size:13px;padding:4px 11px;border-radius:14px;border:1px solid ${mine?'var(--gold)':'rgba(91,140,255,.45)'};background:${mine?'rgba(245,212,122,.14)':'rgba(91,140,255,.13)'}">`+
-        `<b style="color:${mine?'var(--gold)':'#7ba6ff'}">${i+1}</b> <span style="color:${mine?'var(--gold)':'var(--txt)'};font-weight:${mine?'800':'700'}">${esc(shortName(x.name))}</span> <span style="color:#9fb4d8">${esc(x.main)}${x.sub?'·'+esc(x.sub):''}</span>${x.last?' 🌙':''}</span>`;
+        `<b style="color:${mine?'var(--gold)':'#7ba6ff'}">${i+1}</b> <span style="color:${mine?'var(--gold)':'var(--txt)'};font-weight:${mine?'800':'700'}">${esc(shortName(x.name))}</span> <span style="color:#9fb4d8">${esc(x.main)}${x.sub?'·'+esc(x.sub):''}</span>${x.last?' 🌙':''}${mark}</span>`;
     }).join('')+`</div>`;
   }
   const lb=document.getElementById('scrim-last');
@@ -5833,7 +5834,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608060140";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608060250";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
