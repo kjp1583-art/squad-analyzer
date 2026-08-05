@@ -46,38 +46,35 @@ jobs:
                       return None, f"{type(e).__name__} {e}"
               return None, "재시도 소진"
 
-          print("## 1. LCK 대회 목록\n")
-          rows, err = cargo(tables="Tournaments",
-                            fields="Tournaments.OverviewPage,Tournaments.League,Tournaments.DateStart,Tournaments.Date",
-                            where="Tournaments.League='League of Legends Champions Korea'",
-                            order_by="Tournaments.DateStart DESC", limit="8")
-          if err:
-              print(f"- ❌ `{err}`")
-          else:
-              print(f"- ✅ {len(rows)}건")
-              for r in rows:
-                  t = r["title"]
-                  print(f"  - `{t.get('OverviewPage')}` · {t.get('DateStart')} ~ {t.get('Date')}")
+          def show(label, **kw):
+              rows, err = cargo(**kw)
+              if err:
+                  print(f"- **{label}** → ❌ `{err}`"); return []
+              print(f"- **{label}** → ✅ {len(rows)}건")
+              for r in rows[:5]:
+                  print(f"  - `{json.dumps(r['title'], ensure_ascii=False)[:200]}`")
+              time.sleep(4)
+              return rows
 
-          print("\n## 2. 최신 대회의 경기 일정·결과\n")
-          page = rows[0]["title"]["OverviewPage"] if rows else None
-          if page:
-              ms, err2 = cargo(tables="MatchSchedule",
-                               fields=("MatchSchedule.Team1,MatchSchedule.Team2,MatchSchedule.DateTime_UTC,"
-                                       "MatchSchedule.BestOf,MatchSchedule.Winner,MatchSchedule.Team1Score,"
-                                       "MatchSchedule.Team2Score,MatchSchedule.MatchId,MatchSchedule.Tab"),
-                               where=f'MatchSchedule.OverviewPage="{page}"',
-                               order_by="MatchSchedule.DateTime_UTC DESC", limit="10")
-              if err2:
-                  print(f"- ❌ `{err2}`")
-              else:
-                  print(f"- ✅ `{page}` 경기 {len(ms)}건\n")
-                  print("| 일시(UTC) | 대진 | BO | 결과 | MatchId |")
-                  print("|---|---|---|---|---|")
-                  for r in ms:
-                      t = r["title"]
-                      w = t.get("Winner") or ""
-                      sc = f"{t.get('Team1Score') or '-'}:{t.get('Team2Score') or '-'}"
-                      print(f"| {t.get('DateTime UTC') or ''} | {t.get('Team1')} vs {t.get('Team2')} | "
-                            f"{t.get('BestOf')} | {sc} {'(승 '+w+')' if w else '(예정)'} | `{t.get('MatchId')}` |")
+          print("## 1. LCK 라는 이름을 어떻게 쓰는지 역추적\n")
+          show("T1 최근 경기(여기서 대회 이름을 얻는다)",
+               tables="MatchSchedule",
+               fields="MatchSchedule.OverviewPage,MatchSchedule.Team1,MatchSchedule.Team2,MatchSchedule.DateTime_UTC,MatchSchedule.Winner,MatchSchedule.BestOf",
+               where='MatchSchedule.Team1="T1" OR MatchSchedule.Team2="T1"',
+               order_by="MatchSchedule.DateTime_UTC DESC", limit="5")
+
+          show("OverviewPage 가 LCK 로 시작하는 대회",
+               tables="Tournaments", fields="Tournaments.OverviewPage,Tournaments.League,Tournaments.DateStart",
+               where='Tournaments.OverviewPage LIKE "LCK/%"',
+               order_by="Tournaments.DateStart DESC", limit="5")
+
+          show("League 에 LCK 가 들어가는 대회",
+               tables="Tournaments", fields="Tournaments.OverviewPage,Tournaments.League,Tournaments.DateStart",
+               where='Tournaments.League LIKE "%LCK%"',
+               order_by="Tournaments.DateStart DESC", limit="5")
+
+          show("Region 이 Korea 인 대회",
+               tables="Tournaments", fields="Tournaments.OverviewPage,Tournaments.League,Tournaments.Region,Tournaments.DateStart",
+               where='Tournaments.Region="Korea"',
+               order_by="Tournaments.DateStart DESC", limit="5")
           PY
