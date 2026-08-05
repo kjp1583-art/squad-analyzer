@@ -3458,7 +3458,7 @@ function scrimDashHtml(){
   const nm=(localStorage.getItem('scrim_nm')||'').replace(/"/g,'&quot;');
   const sp1=localStorage.getItem('scrim_p1')||'미드', sp2=localStorage.getItem('scrim_p2')||'';
   const posOpts=(sel,none)=> (none?`<option value=""${sel===''?' selected':''}>없음</option>`:'')+SCRIM_POS5.map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('');
-  if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,_scrimApi()?5000:15000); setTimeout(_scrimPoll,50); }
+  if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,12000); setTimeout(_scrimPoll,50); }
   return `<div class="card" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="margin:0">🎪 내전 자동매칭</h2>
@@ -3495,13 +3495,16 @@ async function _scrimPost(path,body){
   if(!api){
     _scrimMsg('릴레이 미연결 — 맛장유에게 알려주세요',false); return null;
   }
-  try{
-    const r=await fetch(api,{method:'POST',body:JSON.stringify({path,body:Object.assign({name:nm,dtoken:DISCORD_USER.token},body)})});
-    const d=await r.json();
-    _scrimMsg(d.msg||'',!!d.ok);
-    if(d.state){ _scrimSt=d.state; _scrimRender(); }
-    return d;
-  }catch(e){ _scrimMsg('연결 실패 — 잠시 후 다시',false); return null; }
+  const payload=JSON.stringify({path,body:Object.assign({name:nm,dtoken:DISCORD_USER.token},body)});
+  for(let t=0;t<2;t++){ // 앱스 스크립트가 가끔 한 번 튕긴다 — 한 번은 조용히 재시도(신청·취소는 중복 안전)
+    try{
+      const r=await fetch(api,{method:'POST',body:payload});
+      const d=await r.json();
+      _scrimMsg(d.msg||'',!!d.ok);
+      if(d.state){ _scrimSt=d.state; _scrimRender(); }
+      return d;
+    }catch(e){ if(t===0) await new Promise(res=>setTimeout(res,1500)); else { _scrimMsg('연결 실패 — 잠시 후 다시',false); return null; } }
+  }
 }
 function scrimJoin(){
   try{ localStorage.setItem('scrim_p1',_sv('scrim-p1')); localStorage.setItem('scrim_p2',_sv('scrim-p2')); }catch(e){}
@@ -3516,18 +3519,27 @@ function scrimLast(){
 }
 function _scrimNk(s){ return (s||'').split('#')[0].toLowerCase().replace(/\s+/g,''); }
 async function _scrimFetchState(){
-  const api=_scrimApi();
-  if(api) return await(await fetch(api,{cache:'no-store'})).json();
-  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=SCRIM_LIVE&headers=1&tqx=out:json&cb=${Date.now()}`;
-  const txt=await(await fetch(url,{cache:'no-store'})).text();
-  const m=txt.match(/setResponse\(([\s\S]*)\)\s*;?\s*$/); if(!m) throw 0;
-  const cell=(((JSON.parse(m[1]).table||{}).rows||[])[0]||{c:[]}).c[0];
-  return JSON.parse((cell&&cell.v)||"{}");
+  // 📉 [2026-08-06 사장님 제보 — 연결실패·깜빡임] 릴레이(앱스 스크립트)는 하루 실행시간 쿼터가 있어
+  //    5초 폴링이 탭 하나만으로도 쿼터를 태워 간헐 실패를 냈다. 읽기는 쿼터 없는 구글 미러(gviz)가
+  //    기본, 릴레이는 쓰기(신청·막판·킥)와 gviz 실패 시 예비로만 쓴다.
+  try{
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=SCRIM_LIVE&headers=1&tqx=out:json&cb=${Date.now()}`;
+    const txt=await(await fetch(url,{cache:'no-store'})).text();
+    const m=txt.match(/setResponse\(([\s\S]*)\)\s*;?\s*$/); if(!m) throw 0;
+    const cell=(((JSON.parse(m[1]).table||{}).rows||[])[0]||{c:[]}).c[0];
+    return JSON.parse((cell&&cell.v)||"{}");
+  }catch(e){
+    const api=_scrimApi();
+    if(api) return await(await fetch(api,{cache:'no-store'})).json();
+    throw e;
+  }
 }
 async function _scrimPoll(){
   if(!document.getElementById('scrimdash')){ clearInterval(_scrimTimer); _scrimTimer=null; return; }
   try{ _scrimSt=await _scrimFetchState(); _scrimRender(); }
-  catch(e){ const el=document.getElementById('scrimdash'); if(el) el.textContent='현황 준비 중(봇이 첫 상태를 올리면 표시됩니다)'; }
+  catch(e){ // 이미 받은 상태가 있으면 유지 — 일시 실패 때 명단이 사라졌다 나타나는 깜빡임 방지
+    if(!_scrimSt){ const el=document.getElementById('scrimdash'); if(el) el.textContent='현황 준비 중(봇이 첫 상태를 올리면 표시됩니다)'; }
+  }
 }
 function _scrimRender(){
   const el=document.getElementById('scrimdash'); if(!el||!_scrimSt) return;
@@ -5834,7 +5846,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608060330";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608060500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
