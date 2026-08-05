@@ -3449,7 +3449,6 @@ function mainSplashOf(name){
    · 신청/취소/막판/미참여(쓰기): HTTPS 릴레이(tooling/scrim_relay.gs) 필요 — squad.gg 는 HTTPS 라
      http 봇을 직접 못 부른다(혼합 콘텐츠 차단). 릴레이 전에는 버튼이 로비(봇 서빙, 제약 없음)를 연다. */
 const SCRIM_RELAY="https://script.google.com/macros/s/AKfycbxdP-IkuxvdEym3nnwthZdgsGklg3JQDbG-vtFGAWNhAi80XRn1xXBr5SvH2g3ilvk/exec";   // 🎪 앱스 스크립트 릴레이(2026-08-05 사장님 배포) — 메인에서 신청·막판·킥 즉시 처리
-const SCRIM_LOBBY="http://fi15.bot-hosting.net:27116/lobby";
 const SCRIM_POS5=["탑","정글","미드","원딜","서폿"];
 function _scrimApi(){ try{ return localStorage.getItem('scrim_relay')||SCRIM_RELAY; }catch(e){ return SCRIM_RELAY; } }
 let _scrimTimer=null,_scrimSt=null;
@@ -3464,7 +3463,6 @@ function scrimDashHtml(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="margin:0">🎪 내전 자동매칭</h2>
       <span style="font-size:12.5px;color:var(--sub)">10명이 차면 자동 5:5 · 토너먼트 코드 발급 · 게임 끝나면 자동 재대기</span>
-      <button class="ghost" style="margin-left:auto;background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px;cursor:pointer" onclick="window.open('${SCRIM_LOBBY}','_blank')" title="봇이 직접 서빙하는 전용 페이지 — 메인과 기능 동일">전용 로비 ↗</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
       <div style="flex:2;min-width:180px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">롤아이디#태그 <span style="font-weight:400;opacity:.85">(신규·미연동자도 태그까지 적으면 OK)</span></div>
@@ -5835,7 +5833,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608060050";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608060140";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
