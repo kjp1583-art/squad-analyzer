@@ -2642,6 +2642,51 @@ function mbtiDexHtml(){
     <div class="muted" style="font-size:12.5px;margin:0 0 10px">MBTI 역할을 단 클랜원만 표시돼요 — 역할을 달면 최대 12시간 내 자동 반영</div>
     <div class="gpti-dexgrid">${types.map(card).join("")}</div>`;
 }
+// 🏆 [2026-08-05 사장님 지시] LCK 승부예측의 신 — LCK_PRED 탭(봇이 정산마다 갱신)
+let LCK_PRED=[];
+function loadLckPred(){
+  return new Promise((resolve)=>{
+    const cb="__lckpred_cb";
+    window[cb]=(d)=>{ try{
+      const cols=(d.table.cols||[]).map(c=>(c.label||"").trim());
+      const ni=cols.indexOf("닉네임"), wi=cols.indexOf("적중"), pi=cols.indexOf("참여"), gi=cols.indexOf("수익");
+      LCK_PRED=(d.table.rows||[]).map(r=>{
+        const g=k=>{const c=(r.c||[])[k];return c?c.v:null;};
+        const nm=String(g(ni)||"").trim();
+        return nm?{name:nm,w:+g(wi)||0,n:+g(pi)||0,profit:+g(gi)||0}:null;
+      }).filter(Boolean);
+    }catch(e){ LCK_PRED=[]; } resolve(); };
+    const s2=document.createElement("script");
+    s2.onerror=()=>resolve();
+    s2.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=LCK_PRED&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.head.appendChild(s2);
+  });
+}
+function renderLckPredHof(){
+  const el=document.getElementById("lckPredCard"); if(!el) return;
+  if(!LCK_PRED.length){ el.innerHTML=""; return; }
+  const esc2=s2=>String(s2).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+  const MIN=5;   // LCK 는 경기 수가 적어 타이틀 자격 5판부터
+  const all=LCK_PRED.map(p=>({...p,rate:p.n?p.w/p.n*100:0}));
+  const elig=all.filter(p=>p.n>=MIN).sort((a,b)=> b.rate-a.rate || b.profit-a.profit);
+  const god=elig[0]||null;
+  const board=all.filter(p=>p.n>=1).sort((a,b)=> b.rate-a.rate || b.profit-a.profit || b.n-a.n).slice(0,10);
+  let h='<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:14px 16px;margin:10px 0">';
+  h+='<div style="font-weight:800;font-size:15px;margin-bottom:10px">🏟️ LCK 승부예측 명예의 전당</div>';
+  h+= god
+    ? `<div style="background:rgba(245,212,122,.10);border:1px solid rgba(245,212,122,.45);border-radius:12px;padding:12px 14px;text-align:center;max-width:280px"><div style="font-size:13px;opacity:.85">👑 LCK 승부예측의 신</div><div style="font-size:19px;font-weight:800;margin:3px 0;color:var(--gold)">${esc2(god.name)}</div><div style="font-size:12.5px;opacity:.8">적중률 ${god.rate.toFixed(0)}% · ${god.w}/${god.n} · 순익 ${god.profit>=0?'+':''}${god.profit}P</div></div>`
+    : `<div class="muted" style="font-size:12.5px">${MIN}판 이상 예측자가 나오면 👑 승부예측의 신이 등극합니다</div>`;
+  if(board.length){
+    h+='<div style="margin-top:12px;font-size:13px">';
+    board.forEach((p,i)=>{ const md=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`;
+      const dim=p.n<MIN?';opacity:.55':'';
+      const tag=p.n<MIN?` <span style="font-size:11px;opacity:.7">(${MIN}판 미달)</span>`:'';
+      h+=`<div style="display:flex;justify-content:space-between;padding:3px 2px;border-top:1px solid rgba(255,255,255,.06)${dim}"><span>${md} ${esc2(p.name)}${(god&&god.name===p.name)?' 👑':''}${tag}</span><span style="opacity:.85">${p.rate.toFixed(0)}% (${p.w}/${p.n}) · ${p.profit>=0?'+':''}${p.profit}P</span></div>`; });
+    h+='</div>';
+  }
+  h+='<div style="margin-top:10px;font-size:11.5px;opacity:.6">디스코드 🎲승부예측 채널에서 LCK 경기 시작 전 베팅 · 파이 배당(최대 ×5) · 봇이 자동 정산</div></div>';
+  el.innerHTML=h;
+}
 function computePredTitles(){
   PRED_GOD=PRED_NOOB=null;
   const elig=Object.values(PREDICTIONS).filter(p=>p.total>=PRED_MIN);
@@ -5764,8 +5809,10 @@ async function renderHOF(catArg){
     ${isRift?mitoHofHtml():""}
     ${hofMainBoxHtml()}
     ${hofRecordsBoxHtml()}
-    <div id="predTitleCard"></div>`;
+    <div id="predTitleCard"></div>
+    <div id="lckPredCard"></div>`;
   renderPredictionTitles();   // 🎲 승부예측 명예의전당 — 메인에서 이곳(전당)으로 이동(2026-07-16 사장님 지시)
+  renderLckPredHof();         // 👑 LCK 승부예측의 신 — 그 아래(2026-08-05 사장님 지시)
 }
 function hofPos(p){   // [2026-07-21] 전체 재렌더 금지 — 해당 박스만 교체해 스크롤 위치 유지
   HOF.pos=p; const el=document.getElementById("hofMainBox");
@@ -5776,7 +5823,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608052010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608052110";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -5807,7 +5854,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti()]);   // 병렬 로드
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred()]);   // 병렬 로드
     LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
     MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
