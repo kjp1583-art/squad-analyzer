@@ -3455,8 +3455,10 @@ function _scrimApi(){ try{ return localStorage.getItem('scrim_relay')||SCRIM_REL
 let _scrimTimer=null,_scrimSt=null;
 function _sv(id){ const e=document.getElementById(id); return e?e.value:''; }
 function scrimDashHtml(){
+  // 💾 [2026-08-05 사장님 지시] 같은 사람이 매일 같은 값을 적는다 — 아이디·주·부포지션을 기억해 복원
   const nm=(localStorage.getItem('scrim_nm')||'').replace(/"/g,'&quot;');
-  const posOpts=(sel,none)=> (none?`<option value="">없음</option>`:'')+SCRIM_POS5.map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('');
+  const sp1=localStorage.getItem('scrim_p1')||'미드', sp2=localStorage.getItem('scrim_p2')||'';
+  const posOpts=(sel,none)=> (none?`<option value=""${sel===''?' selected':''}>없음</option>`:'')+SCRIM_POS5.map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('');
   if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,_scrimApi()?5000:15000); setTimeout(_scrimPoll,50); }
   return `<div class="card" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -3468,9 +3470,9 @@ function scrimDashHtml(){
       <div style="flex:2;min-width:180px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">롤아이디#태그 <span style="font-weight:400;opacity:.85">(신규·미연동자도 태그까지 적으면 OK)</span></div>
         <input id="scrim-nm" value="${nm}" placeholder="예: 맛동산장인 유미#Teana" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)"></div>
       <div style="flex:1;min-width:90px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">주포지션</div>
-        <select id="scrim-p1" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts('미드',false)}</select></div>
+        <select id="scrim-p1" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts(sp1,false)}</select></div>
       <div style="flex:1;min-width:90px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">부포지션</div>
-        <select id="scrim-p2" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts('',true)}</select></div>
+        <select id="scrim-p2" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts(sp2,true)}</select></div>
       <button onclick="scrimJoin()" style="padding:10px 18px;border:0;border-radius:8px;background:#4a7ef0;color:#fff;font-weight:800;cursor:pointer">🙋 참가 신청</button>
       <button onclick="scrimAct('/scrim-leave',{})" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">취소</button>
       <button id="scrim-last" onclick="scrimLast()" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">🌙 막판</button>
@@ -3498,7 +3500,10 @@ async function _scrimPost(path,body){
     return d;
   }catch(e){ _scrimMsg('연결 실패 — 잠시 후 다시',false); return null; }
 }
-function scrimJoin(){ _scrimPost('/scrim-join',{main:_sv('scrim-p1'),sub:_sv('scrim-p2')}); }
+function scrimJoin(){
+  try{ localStorage.setItem('scrim_p1',_sv('scrim-p1')); localStorage.setItem('scrim_p2',_sv('scrim-p2')); }catch(e){}
+  _scrimPost('/scrim-join',{main:_sv('scrim-p1'),sub:_sv('scrim-p2')});
+}
 function scrimAct(path,body){ _scrimPost(path,body); }
 function scrimKick(t){ if(confirm(t+' 님을 미참여로 제외하고 대기열 다음 순번을 넣을까요?')) _scrimPost('/scrim-kick',{target:t}); }
 function scrimLast(){
@@ -5824,7 +5829,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608052210";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608052250";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
