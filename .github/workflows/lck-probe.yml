@@ -2,6 +2,10 @@ name: LCK API probe
 
 # 봇이 [lck] 일정 조회 실패(403) 를 뱉을 때, 어떤 주소·헤더 조합이면 살아나는지 확인한다.
 # (개발 컨테이너에서는 이 호스트가 프록시에 막혀 직접 확인이 안 된다)
+#
+# 1차 프로브(2026-08-05): esports-api.lolesports.com 은 8개 조합 전부 403.
+#   키를 빼도 403이라 '키 만료'가 아니라 호스트 차원의 차단으로 보인다.
+#   2차에서는 403 본문·헤더를 찍어 차단 주체를 가리고, 대체 데이터원을 확인한다.
 on:
   workflow_dispatch:
 
@@ -15,43 +19,60 @@ jobs:
       - name: Probe
         run: |
           python - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
-          import urllib.request, json
-          KEY = "0TvQnueqKa5mxJntVWt0w4LpLfEkrV1Ta8rQBb9Z"
-          API = "https://esports-api.lolesports.com/persisted/gw"
-          LCK = "98767991310872058"
+          import urllib.request, urllib.error, json
+
           BROWSER = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                      "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
-          cases = [
-            ("① 현재 봇과 동일", f"{API}/getSchedule?hl=ko-KR&leagueId={LCK}",
-             {"x-api-key": KEY, "User-Agent": "squad-bot/1.0"}),
-            ("② 브라우저 UA", f"{API}/getSchedule?hl=ko-KR&leagueId={LCK}",
-             {"x-api-key": KEY, "User-Agent": BROWSER}),
-            ("③ 브라우저 UA + Origin/Referer", f"{API}/getSchedule?hl=ko-KR&leagueId={LCK}",
-             {"x-api-key": KEY, "User-Agent": BROWSER, "Origin": "https://lolesports.com",
-              "Referer": "https://lolesports.com/", "Accept": "application/json"}),
-            ("④ hl=en-US", f"{API}/getSchedule?hl=en-US&leagueId={LCK}",
-             {"x-api-key": KEY, "User-Agent": BROWSER}),
-            ("⑤ leagueId 없이 전체 일정", f"{API}/getSchedule?hl=en-US",
-             {"x-api-key": KEY, "User-Agent": BROWSER}),
-            ("⑥ getLeagues", f"{API}/getLeagues?hl=en-US",
-             {"x-api-key": KEY, "User-Agent": BROWSER}),
-            ("⑦ getLive", f"{API}/getLive?hl=en-US",
-             {"x-api-key": KEY, "User-Agent": BROWSER}),
-            ("⑧ 키 없이", f"{API}/getSchedule?hl=en-US&leagueId={LCK}",
-             {"User-Agent": BROWSER}),
-          ]
-          print("| 조합 | 결과 | 비고 |")
-          print("|---|---|---|")
-          for name, url, hd in cases:
+
+          def fetch(url, hd=None, timeout=25):
+              req = urllib.request.Request(url, headers=hd or {"User-Agent": BROWSER})
               try:
-                  req = urllib.request.Request(url, headers=hd)
-                  with urllib.request.urlopen(req, timeout=25) as r:
-                      body = r.read().decode("utf-8", "replace")
-                  d = json.loads(body)
-                  ev = (((d or {}).get("data") or {}).get("schedule") or {}).get("events") or []
-                  lg = (((d or {}).get("data") or {}).get("leagues") or [])
-                  note = f"경기 {len(ev)}건" if ev else (f"리그 {len(lg)}개" if lg else f"본문 {len(body)}B")
-                  print(f"| {name} | ✅ 200 | {note} |")
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      return r.status, dict(r.headers), r.read().decode("utf-8", "replace")
+              except urllib.error.HTTPError as e:
+                  return e.code, dict(e.headers), e.read().decode("utf-8", "replace")
               except Exception as e:
-                  print(f"| {name} | ❌ | `{type(e).__name__} {e}` |")
+                  return None, {}, f"{type(e).__name__} {e}"
+
+          print("## 1. 403 을 누가 주는가 (차단 주체 확인)\n")
+          KEY = "0TvQnueqKa5mxJntVWt0w4LpLfEkrV1Ta8rQBb9Z"
+          st, hd, body = fetch(
+              "https://esports-api.lolesports.com/persisted/gw/getLeagues?hl=en-US",
+              {"x-api-key": KEY, "User-Agent": BROWSER})
+          print(f"- 상태: `{st}`")
+          for k in ("server", "cf-ray", "cf-mitigated", "x-amzn-errortype", "via", "content-type"):
+              for hk, hv in hd.items():
+                  if hk.lower() == k:
+                      print(f"- `{hk}`: `{hv}`")
+          print("\n```\n" + (body or "")[:600].replace("`", "'") + "\n```\n")
+
+          print("## 2. 대체 데이터원\n")
+          print("| 후보 | 결과 | 비고 |")
+          print("|---|---|---|")
+
+          # ⓐ Leaguepedia(Fandom) Cargo — 키 불필요, 일정·결과·BO 전부 있음
+          import urllib.parse as up
+          cargo = ("https://lol.fandom.com/api.php?" + up.urlencode({
+              "action": "cargoquery", "format": "json", "limit": "20",
+              "tables": "MatchSchedule=MS,Tournaments=T",
+              "join_on": "MS.OverviewPage=T.OverviewPage",
+              "fields": "MS.Team1,MS.Team2,MS.DateTime_UTC,MS.BestOf,MS.Winner,MS.MatchId,T.League",
+              "where": "T.League='League of Legends Champions Korea'",
+              "order_by": "MS.DateTime_UTC DESC",
+          }))
+          st, _, body = fetch(cargo)
+          try:
+              rows = json.loads(body).get("cargoquery") or []
+              samp = rows[0]["title"] if rows else {}
+              print(f"| ⓐ Leaguepedia Cargo | {'✅ ' if st==200 and rows else '❌ '}{st} | 경기 {len(rows)}건 · 예: `{json.dumps(samp, ensure_ascii=False)[:170]}` |")
+          except Exception as e:
+              print(f"| ⓐ Leaguepedia Cargo | ❌ {st} | `{type(e).__name__}` {(body or '')[:120]} |")
+
+          # ⓑ 같은 호스트의 다른 경로(정적 콘텐츠) — 호스트 전체 차단인지 API만인지
+          st, _, body = fetch("https://lolesports.com/")
+          print(f"| ⓑ lolesports.com 첫 화면 | {'✅ ' if st==200 else '❌ '}{st} | 본문 {len(body)}B |")
+
+          # ⓒ 라이엇 공개 데이터드래곤(차단 여부 대조군)
+          st, _, body = fetch("https://ddragon.leagueoflegends.com/api/versions.json")
+          print(f"| ⓒ ddragon (대조군) | {'✅ ' if st==200 else '❌ '}{st} | {(body or '')[:60]} |")
           PY
