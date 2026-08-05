@@ -3399,28 +3399,72 @@ function mainSplashOf(name){
      · 점수 = 솔랭 .35 / AI .20 / 승률 .15 / 솔랭승률 .10 / MVP .10 / 역적 .10(감점) 의 전체평균 z 가중합
      · 리그 = 내부티어 0·1티어 → 서부, 2·3티어 → 동부. 각 리그 1~6위 상현 · 7~12위 하현
    데이터가 갱신될 때마다 다시 계산되므로 명단은 실시간으로 바뀐다(패치 필터와 무관 — 항상 통산 전체). */
-/* 🎪 [2026-08-05 사장님 지시] 내전 자동매칭 대시보드 — 메인화면.
-   squad.gg(HTTPS)는 봇(http)을 직접 못 부른다(혼합 콘텐츠 차단). HTTPS 릴레이
-   (tooling/scrim_relay.gs — 앱스 스크립트 1회 배포)가 설정되면 메인에서 현황까지 보이고,
-   아직 없으면 현황 없이 로비 입장 버튼만 보여준다. */
-const SCRIM_RELAY="";   // 배포 후 https://script.google.com/macros/s/…/exec 를 넣으면 대시보드 활성화
+/* 🎪 [2026-08-05 사장님 지시] 내전 자동매칭 — 메인화면에서 신청까지 전부.
+   · 현황(읽기): 릴레이가 있으면 5초 신선도, 없으면 봇이 시트에 미러한 SCRIM_LIVE(gviz, ~30초)
+   · 신청/취소/막판/미참여(쓰기): HTTPS 릴레이(tooling/scrim_relay.gs) 필요 — squad.gg 는 HTTPS 라
+     http 봇을 직접 못 부른다(혼합 콘텐츠 차단). 릴레이 전에는 버튼이 로비(봇 서빙, 제약 없음)를 연다. */
+const SCRIM_RELAY="";   // 앱스 스크립트 배포 후 https://script.google.com/macros/s/…/exec
 const SCRIM_LOBBY="http://fi15.bot-hosting.net:27116/lobby";
+const SCRIM_POS5=["탑","정글","미드","원딜","서폿"];
 function _scrimApi(){ try{ return localStorage.getItem('scrim_relay')||SCRIM_RELAY; }catch(e){ return SCRIM_RELAY; } }
-let _scrimTimer=null;
+let _scrimTimer=null,_scrimSt=null;
+function _sv(id){ const e=document.getElementById(id); return e?e.value:''; }
 function scrimDashHtml(){
-  const head=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <h2 style="margin:0">🎪 내전 자동매칭</h2>
-    <span class="muted" style="font-size:12.5px">10명이 차면 자동 5:5 — 게임 끝나면 자동 재대기</span>
-    <button class="ghost" style="margin-left:auto;background:var(--bg2);color:var(--gold);border:1px solid var(--line);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:800" onclick="window.open('${SCRIM_LOBBY}','_blank')">신청하러 가기 →</button>
+  const nm=(localStorage.getItem('scrim_nm')||'').replace(/"/g,'&quot;');
+  const posOpts=(sel,none)=> (none?`<option value="">없음</option>`:'')+SCRIM_POS5.map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('');
+  if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,_scrimApi()?5000:15000); setTimeout(_scrimPoll,50); }
+  return `<div class="card" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="margin:0">🎪 내전 자동매칭</h2>
+      <span class="muted" style="font-size:12.5px">10명이 차면 자동 5:5 · 토너먼트 코드 발급 · 게임 끝나면 자동 재대기</span>
+      <button class="ghost" style="margin-left:auto;background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px;cursor:pointer" onclick="window.open('${SCRIM_LOBBY}','_blank')" title="봇이 직접 서빙하는 전용 페이지 — 메인과 기능 동일">전용 로비 ↗</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
+      <div style="flex:2;min-width:180px"><div class="muted" style="font-size:12px;margin-bottom:3px">롤아이디#태그 <span style="opacity:.7">(신규·미연동자도 태그까지 적으면 OK)</span></div>
+        <input id="scrim-nm" value="${nm}" placeholder="예: 맛동산장인 유미#Teana" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)"></div>
+      <div style="flex:1;min-width:90px"><div class="muted" style="font-size:12px;margin-bottom:3px">주포지션</div>
+        <select id="scrim-p1" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts('미드',false)}</select></div>
+      <div style="flex:1;min-width:90px"><div class="muted" style="font-size:12px;margin-bottom:3px">부포지션</div>
+        <select id="scrim-p2" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts('',true)}</select></div>
+      <button onclick="scrimJoin()" style="padding:10px 18px;border:0;border-radius:8px;background:#4a7ef0;color:#fff;font-weight:800;cursor:pointer">🙋 참가 신청</button>
+      <button onclick="scrimAct('/scrim-leave',{})" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">취소</button>
+      <button id="scrim-last" onclick="scrimLast()" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">🌙 막판</button>
+    </div>
+    <div id="scrim-msg" style="font-size:12.5px;min-height:16px;margin-top:6px;color:#8fd0a0"></div>
+    <div id="scrimdash" class="muted" style="font-size:13px;margin-top:4px">대기열 불러오는 중…</div>
+    <div class="muted" style="font-size:11px;margin-top:6px">매칭은 주·부포지션 우선(권장 배치) — 실제 라인은 팀끼리 조율 · 매칭 후엔 자동 재대기, 쉬려면 막판</div>
   </div>`;
-  // 현황은 릴레이(설정 시, 5초 신선도) → 없으면 봇이 시트에 미러한 SCRIM_LIVE(gviz, ~30초 신선도)
-  if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,15000); setTimeout(_scrimPoll,50); }
-  return `<div class="card" style="margin-bottom:14px">${head}<div id="scrimdash" class="muted" style="font-size:13px;margin-top:8px">대기열 불러오는 중…</div></div>`;
 }
+function _scrimMsg(t,ok){ const e=document.getElementById('scrim-msg'); if(e){ e.textContent=t; e.style.color=ok?'#8fd0a0':'#ff8a9a'; } }
+async function _scrimPost(path,body){
+  const api=_scrimApi();
+  const nm=_sv('scrim-nm').trim();
+  if(!nm){ _scrimMsg('롤아이디를 먼저 적어주세요',false); return null; }
+  try{ localStorage.setItem('scrim_nm',nm); }catch(e){}
+  if(!api){  // 릴레이 미연결 — 같은 기능의 로비(봇 서빙)로 이어서 진행
+    _scrimMsg('신청 버튼은 전용 로비에서 이어집니다 (메인에서 바로 하려면 릴레이 연결 — 맛장유에게)',true);
+    window.open(SCRIM_LOBBY,'_blank'); return null;
+  }
+  try{
+    const r=await fetch(api,{method:'POST',body:JSON.stringify({path,body:Object.assign({name:nm},body)})});
+    const d=await r.json();
+    _scrimMsg(d.msg||'',!!d.ok);
+    if(d.state){ _scrimSt=d.state; _scrimRender(); }
+    return d;
+  }catch(e){ _scrimMsg('연결 실패 — 잠시 후 다시',false); return null; }
+}
+function scrimJoin(){ _scrimPost('/scrim-join',{main:_sv('scrim-p1'),sub:_sv('scrim-p2')}); }
+function scrimAct(path,body){ _scrimPost(path,body); }
+function scrimKick(t){ if(confirm(t+' 님을 미참여로 제외하고 대기열 다음 순번을 넣을까요?')) _scrimPost('/scrim-kick',{target:t}); }
+function scrimLast(){
+  const me=_scrimNk(_sv('scrim-nm')); let cur=false;
+  if(_scrimSt) for(const q of _scrimSt.queue||[]) if(_scrimNk(q.name)===me) cur=q.last;
+  _scrimPost('/scrim-last',{last:!cur});
+}
+function _scrimNk(s){ return (s||'').split('#')[0].toLowerCase().replace(/\s+/g,''); }
 async function _scrimFetchState(){
   const api=_scrimApi();
   if(api) return await(await fetch(api,{cache:'no-store'})).json();
-  // gviz 로 SCRIM_LIVE 탭 A2(JSON 한 칸)를 읽는다 — 봇의 _scrim_mirror_push 가 쓴다
   const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=SCRIM_LIVE&headers=1&tqx=out:json&cb=${Date.now()}`;
   const txt=await(await fetch(url,{cache:'no-store'})).text();
   const m=txt.match(/setResponse\(([\s\S]*)\)\s*;?\s*$/); if(!m) throw 0;
@@ -3428,20 +3472,40 @@ async function _scrimFetchState(){
   return JSON.parse((cell&&cell.v)||"{}");
 }
 async function _scrimPoll(){
-  const el=document.getElementById('scrimdash');
-  if(!el){ clearInterval(_scrimTimer); _scrimTimer=null; return; }
-  try{
-    const st=await _scrimFetchState();
-    const q=st.queue||[], games=st.games||[];
-    let h=`<div style="font-size:15px"><b style="color:var(--gold);font-size:20px">${q.length}</b><span class="muted">/${st.cap||10}명 대기</span>`+
-      (q.length?` — <span style="color:var(--sub)">${q.slice(0,8).map(x=>esc(shortName(x.name))).join(', ')}${q.length>8?` 외 ${q.length-8}명`:''}</span>`:'')+`</div>`;
-    for(const g of games){
-      const side=t=>t.map(p=>`${p.pos} ${esc(shortName(p.name)||'공석')}`).join(' · ');
-      h+=`<div style="margin-top:7px;font-size:12.5px"><b>⚔️ #${g.id} 진행 중</b><br>
-        <span style="color:#9cc0ff">🔵 ${side(g.blue)}</span><br><span style="color:#ff9aa8">🔴 ${side(g.red)}</span></div>`;
-    }
-    el.innerHTML=h;
-  }catch(e){ el.textContent='현황 준비 중(봇이 첫 상태를 올리면 표시됩니다) — 신청은 위 버튼으로'; }
+  if(!document.getElementById('scrimdash')){ clearInterval(_scrimTimer); _scrimTimer=null; return; }
+  try{ _scrimSt=await _scrimFetchState(); _scrimRender(); }
+  catch(e){ const el=document.getElementById('scrimdash'); if(el) el.textContent='현황 준비 중(봇이 첫 상태를 올리면 표시됩니다)'; }
+}
+function _scrimRender(){
+  const el=document.getElementById('scrimdash'); if(!el||!_scrimSt) return;
+  const st=_scrimSt, me=_scrimNk(_sv('scrim-nm')), live=!!_scrimApi();
+  const q=st.queue||[], games=st.games||[];
+  let meLast=false;
+  let h=`<div style="font-size:15px;margin-top:4px"><b style="color:var(--gold);font-size:20px">${q.length}</b><span class="muted">/${st.cap||10}명 대기</span></div>`;
+  if(q.length){
+    h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">`+q.map((x,i)=>{
+      const mine=_scrimNk(x.name)===me; if(mine&&x.last) meLast=true;
+      return `<span style="font-size:12.5px;padding:3px 9px;border-radius:14px;border:1px solid ${mine?'var(--gold)':'var(--line)'};background:var(--bg2);${mine?'color:var(--gold);font-weight:800':''}">${i+1} ${esc(shortName(x.name))} <span class="muted">${esc(x.main)}${x.sub?'·'+esc(x.sub):''}</span>${x.last?' 🌙':''}</span>`;
+    }).join('')+`</div>`;
+  }
+  const lb=document.getElementById('scrim-last');
+  if(lb){ lb.textContent=meLast?'🌙 막판 해제':'🌙 막판'; lb.style.color=meLast?'var(--gold)':'var(--sub)'; }
+  for(const g of games){
+    const inGame=[...(g.blue||[]),...(g.red||[])].some(p=>_scrimNk(p.name)===me);
+    const side=(t,c)=>`<div style="margin-top:4px;font-size:12.5px;color:${c}">`+t.map(p=>{
+      if(!p.name) return `${p.pos} <span class="muted">공석</span>`;
+      const kick=(live&&inGame&&_scrimNk(p.name)!==me)?` <span style="cursor:pointer;opacity:.6;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px" onclick="scrimKick('${p.name.replace(/'/g,"\\'")}')" title="미참여자 제외">🚫</span>`:'';
+      return `${p.pos} ${_scrimNk(p.name)===me?`<b style="color:var(--gold)">${esc(shortName(p.name))}</b>`:esc(shortName(p.name))}${kick}`;
+    }).join(' · ')+`</div>`;
+    h+=`<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg2);border:1px solid var(--line)">
+      <b style="font-size:13px">⚔️ #${g.id} 진행 중</b> <span class="muted" style="font-size:11px">게임이 기록되면 자동 종료·재대기</span>`+
+      (g.code?`<div style="margin-top:6px;padding:7px 9px;border-radius:8px;background:rgba(245,212,122,.10);border:1px solid rgba(245,212,122,.45)">
+        <div style="font-size:11px;color:var(--gold);font-weight:800">🔑 토너먼트 코드 — 한 명이 방 만들고, 나머지도 같은 코드로 자동 입장</div>
+        <div style="font-family:monospace;font-size:12px;word-break:break-all;cursor:pointer" onclick="navigator.clipboard&&navigator.clipboard.writeText('${g.code}');_scrimMsg('코드 복사됐어요!',true)">${g.code}</div>
+        <div class="muted" style="font-size:10px">코드 클릭=복사 · 롤 대전 → 토너먼트 코드 입력 · 내전 음성채널 집합</div></div>`:'')+
+      side(g.blue||[],'#9cc0ff')+side(g.red||[],'#ff9aa8')+`</div>`;
+  }
+  el.innerHTML=h;
 }
 function kizukiBoard(){
   const KN={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
@@ -5714,7 +5778,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608051710";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608051820";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
