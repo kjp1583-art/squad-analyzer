@@ -3889,10 +3889,8 @@ function renderAchievements(){
 }
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
-  // 🎪 내전 자동매칭 로비 — squad.gg(HTTPS)에서는 봇(http) API 를 부를 수 없어(혼합 콘텐츠 차단)
-  //    봇이 직접 서빙하는 로비 페이지를 새 탭으로 연다. 신청·대기열·로스터 전부 그 페이지에서.
-  const lobby=`<div class="tab" style="color:var(--gold)" onclick="window.open('http://fi15.bot-hosting.net:27116/lobby','_blank')" title="참가 신청·대기열·자동매칭 로스터 (봇 서버 페이지가 새 탭으로 열립니다)">🎪 내전모집</div>`;
-  return `<div class="tabs">${tab('home','⚔️ 내전')}${lobby}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','🏟 미토'):''}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}</div>`;
+  // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
+  return `<div class="tabs">${tab('home','⚔️ 내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','🏟 미토'):''}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -5778,7 +5776,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608051920";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608052010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
