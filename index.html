@@ -3477,7 +3477,9 @@ function scrimDashHtml(){
       <button onclick="scrimAct('/scrim-leave',{})" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">취소</button>
       <button id="scrim-last" onclick="scrimLast()" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">🌙 막판</button>
     </div>
-    <div id="scrim-msg" style="font-size:12.5px;min-height:16px;margin-top:6px;color:#8fd0a0"></div>
+    <div id="scrim-msg" style="font-size:12.5px;min-height:16px;margin-top:6px;color:#8fd0a0">${
+      (typeof dcValid==='function'&&dcValid())?`<span style="color:var(--sub)">🔐 ${esc((window.DISCORD_USER||{}).name||'디스코드')} 계정으로 본인 확인됨</span>`
+      :`<span style="color:#ffcf7a">🔐 신청하려면 디스코드 로그인이 필요해요 (대리출석 방지) — 버튼 누르면 로그인으로 이동</span>`}</div>
     <div id="scrimdash" class="muted" style="font-size:13px;margin-top:4px">대기열 불러오는 중…</div>
     <div style="font-size:11.5px;margin-top:6px;color:var(--sub);opacity:.9">매칭은 주·부포지션 우선(권장 배치) — 실제 라인은 팀끼리 조율 · 매칭 후엔 자동 재대기, 쉬려면 막판</div>
   </div>`;
@@ -3487,13 +3489,16 @@ async function _scrimPost(path,body){
   const api=_scrimApi();
   const nm=_sv('scrim-nm').trim();
   if(!nm){ _scrimMsg('롤아이디를 먼저 적어주세요',false); return null; }
+  // 🔐 [2026-08-05 사장님 제보 — 대리출석] 본인 확인: 디스코드 로그인 필수.
+  //    토큰을 함께 보내면 봇이 디스코드에 직접 확인하고, 그 계정이 그 롤아이디 주인인지 검사한다.
+  if(!dcValid()){ _scrimMsg('본인 확인을 위해 디스코드 로그인이 필요해요 — 로그인 화면으로 이동합니다',false);
+    setTimeout(()=>dcLogin('@home'),700); return null; }
   try{ localStorage.setItem('scrim_nm',nm); }catch(e){}
-  if(!api){  // 릴레이 미연결 — 같은 기능의 로비(봇 서빙)로 이어서 진행
-    _scrimMsg('신청 버튼은 전용 로비에서 이어집니다 (메인에서 바로 하려면 릴레이 연결 — 맛장유에게)',true);
-    window.open(SCRIM_LOBBY,'_blank'); return null;
+  if(!api){
+    _scrimMsg('릴레이 미연결 — 맛장유에게 알려주세요',false); return null;
   }
   try{
-    const r=await fetch(api,{method:'POST',body:JSON.stringify({path,body:Object.assign({name:nm},body)})});
+    const r=await fetch(api,{method:'POST',body:JSON.stringify({path,body:Object.assign({name:nm,dtoken:DISCORD_USER.token},body)})});
     const d=await r.json();
     _scrimMsg(d.msg||'',!!d.ok);
     if(d.state){ _scrimSt=d.state; _scrimRender(); }
@@ -5829,7 +5834,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608052250";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608060010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
