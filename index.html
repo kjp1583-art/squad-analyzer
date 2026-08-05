@@ -3461,15 +3461,15 @@ function scrimDashHtml(){
   return `<div class="card" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="margin:0">🎪 내전 자동매칭</h2>
-      <span class="muted" style="font-size:12.5px">10명이 차면 자동 5:5 · 토너먼트 코드 발급 · 게임 끝나면 자동 재대기</span>
+      <span style="font-size:12.5px;color:var(--sub)">10명이 차면 자동 5:5 · 토너먼트 코드 발급 · 게임 끝나면 자동 재대기</span>
       <button class="ghost" style="margin-left:auto;background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px;cursor:pointer" onclick="window.open('${SCRIM_LOBBY}','_blank')" title="봇이 직접 서빙하는 전용 페이지 — 메인과 기능 동일">전용 로비 ↗</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
-      <div style="flex:2;min-width:180px"><div class="muted" style="font-size:12px;margin-bottom:3px">롤아이디#태그 <span style="opacity:.7">(신규·미연동자도 태그까지 적으면 OK)</span></div>
+      <div style="flex:2;min-width:180px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">롤아이디#태그 <span style="font-weight:400;opacity:.85">(신규·미연동자도 태그까지 적으면 OK)</span></div>
         <input id="scrim-nm" value="${nm}" placeholder="예: 맛동산장인 유미#Teana" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)"></div>
-      <div style="flex:1;min-width:90px"><div class="muted" style="font-size:12px;margin-bottom:3px">주포지션</div>
+      <div style="flex:1;min-width:90px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">주포지션</div>
         <select id="scrim-p1" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts('미드',false)}</select></div>
-      <div style="flex:1;min-width:90px"><div class="muted" style="font-size:12px;margin-bottom:3px">부포지션</div>
+      <div style="flex:1;min-width:90px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">부포지션</div>
         <select id="scrim-p2" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts('',true)}</select></div>
       <button onclick="scrimJoin()" style="padding:10px 18px;border:0;border-radius:8px;background:#4a7ef0;color:#fff;font-weight:800;cursor:pointer">🙋 참가 신청</button>
       <button onclick="scrimAct('/scrim-leave',{})" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">취소</button>
@@ -3477,7 +3477,7 @@ function scrimDashHtml(){
     </div>
     <div id="scrim-msg" style="font-size:12.5px;min-height:16px;margin-top:6px;color:#8fd0a0"></div>
     <div id="scrimdash" class="muted" style="font-size:13px;margin-top:4px">대기열 불러오는 중…</div>
-    <div class="muted" style="font-size:11px;margin-top:6px">매칭은 주·부포지션 우선(권장 배치) — 실제 라인은 팀끼리 조율 · 매칭 후엔 자동 재대기, 쉬려면 막판</div>
+    <div style="font-size:11.5px;margin-top:6px;color:var(--sub);opacity:.9">매칭은 주·부포지션 우선(권장 배치) — 실제 라인은 팀끼리 조율 · 매칭 후엔 자동 재대기, 쉬려면 막판</div>
   </div>`;
 }
 function _scrimMsg(t,ok){ const e=document.getElementById('scrim-msg'); if(e){ e.textContent=t; e.style.color=ok?'#8fd0a0':'#ff8a9a'; } }
@@ -3526,11 +3526,12 @@ function _scrimRender(){
   const st=_scrimSt, me=_scrimNk(_sv('scrim-nm')), live=!!_scrimApi();
   const q=st.queue||[], games=st.games||[];
   let meLast=false;
-  let h=`<div style="font-size:15px;margin-top:4px"><b style="color:var(--gold);font-size:20px">${q.length}</b><span class="muted">/${st.cap||10}명 대기</span></div>`;
+  let h=`<div style="font-size:15px;margin-top:4px"><b style="color:var(--gold);font-size:22px">${q.length}</b><span style="color:var(--sub);font-weight:700">/${st.cap||10}명 대기</span></div>`;
   if(q.length){
     h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">`+q.map((x,i)=>{
       const mine=_scrimNk(x.name)===me; if(mine&&x.last) meLast=true;
-      return `<span style="font-size:12.5px;padding:3px 9px;border-radius:14px;border:1px solid ${mine?'var(--gold)':'var(--line)'};background:var(--bg2);${mine?'color:var(--gold);font-weight:800':''}">${i+1} ${esc(shortName(x.name))} <span class="muted">${esc(x.main)}${x.sub?'·'+esc(x.sub):''}</span>${x.last?' 🌙':''}</span>`;
+      return `<span style="font-size:13px;padding:4px 11px;border-radius:14px;border:1px solid ${mine?'var(--gold)':'rgba(91,140,255,.45)'};background:${mine?'rgba(245,212,122,.14)':'rgba(91,140,255,.13)'}">`+
+        `<b style="color:${mine?'var(--gold)':'#7ba6ff'}">${i+1}</b> <span style="color:${mine?'var(--gold)':'var(--txt)'};font-weight:${mine?'800':'700'}">${esc(shortName(x.name))}</span> <span style="color:#9fb4d8">${esc(x.main)}${x.sub?'·'+esc(x.sub):''}</span>${x.last?' 🌙':''}</span>`;
     }).join('')+`</div>`;
   }
   const lb=document.getElementById('scrim-last');
@@ -5823,7 +5824,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608052110";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608052210";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
