@@ -46,35 +46,26 @@ jobs:
                       return None, f"{type(e).__name__} {e}"
               return None, "재시도 소진"
 
-          def show(label, **kw):
-              rows, err = cargo(**kw)
-              if err:
-                  print(f"- **{label}** → ❌ `{err}`"); return []
-              print(f"- **{label}** → ✅ {len(rows)}건")
-              for r in rows[:5]:
-                  print(f"  - `{json.dumps(r['title'], ensure_ascii=False)[:200]}`")
-              time.sleep(4)
-              return rows
-
-          print("## 1. LCK 라는 이름을 어떻게 쓰는지 역추적\n")
-          show("T1 최근 경기(여기서 대회 이름을 얻는다)",
-               tables="MatchSchedule",
-               fields="MatchSchedule.OverviewPage,MatchSchedule.Team1,MatchSchedule.Team2,MatchSchedule.DateTime_UTC,MatchSchedule.Winner,MatchSchedule.BestOf",
-               where='MatchSchedule.Team1="T1" OR MatchSchedule.Team2="T1"',
-               order_by="MatchSchedule.DateTime_UTC DESC", limit="5")
-
-          show("OverviewPage 가 LCK 로 시작하는 대회",
-               tables="Tournaments", fields="Tournaments.OverviewPage,Tournaments.League,Tournaments.DateStart",
-               where='Tournaments.OverviewPage LIKE "LCK/%"',
-               order_by="Tournaments.DateStart DESC", limit="5")
-
-          show("League 에 LCK 가 들어가는 대회",
-               tables="Tournaments", fields="Tournaments.OverviewPage,Tournaments.League,Tournaments.DateStart",
-               where='Tournaments.League LIKE "%LCK%"',
-               order_by="Tournaments.DateStart DESC", limit="5")
-
-          show("Region 이 Korea 인 대회",
-               tables="Tournaments", fields="Tournaments.OverviewPage,Tournaments.League,Tournaments.Region,Tournaments.DateStart",
-               where='Tournaments.Region="Korea"',
-               order_by="Tournaments.DateStart DESC", limit="5")
+          print("## 봇에 넣은 질의를 그대로 실행\n")
+          import datetime
+          frm = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)
+          rows, err = cargo(
+              tables="MatchSchedule=MS,Tournaments=T",
+              join_on="MS.OverviewPage=T.OverviewPage",
+              fields=("MS.MatchId,MS.Team1,MS.Team2,MS.DateTime_UTC,MS.BestOf,"
+                      "MS.Winner,MS.Team1Score,MS.Team2Score,MS.Tab"),
+              where=f'T.League="LoL Champions Korea" AND MS.DateTime_UTC >= "{frm.strftime("%Y-%m-%d %H:%M:%S")}"',
+              order_by="MS.DateTime_UTC ASC", limit="30")
+          if err:
+              print(f"❌ `{err}`")
+          else:
+              print(f"✅ {len(rows)}건\n")
+              print("| 일시(UTC) | 대진 | BO | 주차 | 결과 | MatchId |")
+              print("|---|---|---|---|---|---|")
+              for r in rows:
+                  t = r["title"]
+                  w = str(t.get("Winner") or "")
+                  res = (f"{t.get('Team1Score')}:{t.get('Team2Score')} (승 {w}번팀)" if w else "예정")
+                  print(f"| {t.get('DateTime UTC')} | {t.get('Team1')} vs {t.get('Team2')} | "
+                        f"{t.get('BestOf')} | {t.get('Tab')} | {res} | `{t.get('MatchId')}` |")
           PY
