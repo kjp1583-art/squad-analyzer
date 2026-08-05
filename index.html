@@ -3408,22 +3408,30 @@ const SCRIM_LOBBY="http://fi15.bot-hosting.net:27116/lobby";
 function _scrimApi(){ try{ return localStorage.getItem('scrim_relay')||SCRIM_RELAY; }catch(e){ return SCRIM_RELAY; } }
 let _scrimTimer=null;
 function scrimDashHtml(){
-  const api=_scrimApi();
   const head=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <h2 style="margin:0">🎪 내전 자동매칭</h2>
     <span class="muted" style="font-size:12.5px">10명이 차면 자동 5:5 — 게임 끝나면 자동 재대기</span>
-    <button class="ghost" style="margin-left:auto;background:var(--bg2);color:var(--gold);border:1px solid var(--line);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:800" onclick="window.open('${SCRIM_LOBBY}','_blank')">로비 입장 →</button>
+    <button class="ghost" style="margin-left:auto;background:var(--bg2);color:var(--gold);border:1px solid var(--line);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:800" onclick="window.open('${SCRIM_LOBBY}','_blank')">신청하러 가기 →</button>
   </div>`;
-  if(!api) return `<div class="card" style="margin-bottom:14px">${head}
-    <div class="muted" style="font-size:12.5px;margin-top:7px">참가 신청·대기열·로스터는 로비에서 — 입장 버튼을 눌러주세요</div></div>`;
-  if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,5000); setTimeout(_scrimPoll,50); }
+  // 현황은 릴레이(설정 시, 5초 신선도) → 없으면 봇이 시트에 미러한 SCRIM_LIVE(gviz, ~30초 신선도)
+  if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,15000); setTimeout(_scrimPoll,50); }
   return `<div class="card" style="margin-bottom:14px">${head}<div id="scrimdash" class="muted" style="font-size:13px;margin-top:8px">대기열 불러오는 중…</div></div>`;
+}
+async function _scrimFetchState(){
+  const api=_scrimApi();
+  if(api) return await(await fetch(api,{cache:'no-store'})).json();
+  // gviz 로 SCRIM_LIVE 탭 A2(JSON 한 칸)를 읽는다 — 봇의 _scrim_mirror_push 가 쓴다
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=SCRIM_LIVE&headers=1&tqx=out:json&cb=${Date.now()}`;
+  const txt=await(await fetch(url,{cache:'no-store'})).text();
+  const m=txt.match(/setResponse\(([\s\S]*)\)\s*;?\s*$/); if(!m) throw 0;
+  const cell=(((JSON.parse(m[1]).table||{}).rows||[])[0]||{c:[]}).c[0];
+  return JSON.parse((cell&&cell.v)||"{}");
 }
 async function _scrimPoll(){
   const el=document.getElementById('scrimdash');
   if(!el){ clearInterval(_scrimTimer); _scrimTimer=null; return; }
   try{
-    const st=await(await fetch(_scrimApi(),{cache:'no-store'})).json();
+    const st=await _scrimFetchState();
     const q=st.queue||[], games=st.games||[];
     let h=`<div style="font-size:15px"><b style="color:var(--gold);font-size:20px">${q.length}</b><span class="muted">/${st.cap||10}명 대기</span>`+
       (q.length?` — <span style="color:var(--sub)">${q.slice(0,8).map(x=>esc(shortName(x.name))).join(', ')}${q.length>8?` 외 ${q.length-8}명`:''}</span>`:'')+`</div>`;
@@ -3433,7 +3441,7 @@ async function _scrimPoll(){
         <span style="color:#9cc0ff">🔵 ${side(g.blue)}</span><br><span style="color:#ff9aa8">🔴 ${side(g.red)}</span></div>`;
     }
     el.innerHTML=h;
-  }catch(e){ el.textContent='봇 연결 대기 중 — 신청은 로비에서 가능합니다'; }
+  }catch(e){ el.textContent='현황 준비 중(봇이 첫 상태를 올리면 표시됩니다) — 신청은 위 버튼으로'; }
 }
 function kizukiBoard(){
   const KN={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
@@ -5706,7 +5714,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608051530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608051610";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
