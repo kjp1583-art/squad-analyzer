@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.73"
+CURRENT_VERSION = "82.74"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2646,6 +2646,7 @@ def _draft_coach_tick(s_json, headers, base_url):
         def _pos(p):
             return POSITION_TRANSLATE_KOR.get(str(p.get("assignedPosition") or "").upper(), "")
         ally, enemy, my_pos, lane_enemy = [], [], "선택안함", ""
+        my_champ = ""   # 내 확정 픽(2페이즈 밴 때 존재) — 추천 금지 목록에 포함
         my_pu, ally_pus, enemy_pus, lane_enemy_pu = "", [], [], ""
         _cidx = None
         try: _cidx = _clan_index()
@@ -2682,6 +2683,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                 my_pos = _pos(p) or "선택안함"
                 my_pu = _pu
             c = _kor(p.get("championId"))
+            if p.get("cellId") == my_cell and c: my_champ = c
             if p.get("cellId") != my_cell:
                 if c:
                     ally.append((c, _pos(p)))
@@ -2835,6 +2837,12 @@ def _draft_coach_tick(s_json, headers, base_url):
             if len(_keep) != len(enemy_pools):
                 print(f"[draft] 이미 픽 끝난 자리 {len(enemy_pools)-len(_keep)}명 챔프폭 제외 (채워짐: {','.join(_e_filled)})", flush=True)
             enemy_pools = _keep
+        # 🚫 [2026-08-06 사장님 제보] 1페이즈에 밴한 챔프가 2페이즈 밴 추천에 또 나옴 — 픽과 같은 교훈:
+        #    프롬프트 금지 규칙만으로는 안 막힌다. 이미 밴된 챔프를 후보 데이터(상대 챔프폭)에서 아예 뺀다.
+        _dead_ch = set(bans) | {c for c, _ in ally} | {c for c, _ in enemy} | ({my_champ} if my_champ else set())
+        if mode == "ban" and _dead_ch:
+            enemy_pools = [(_h7, [_s7 for _s7 in _cs7 if _s7.split("(")[0].strip() not in _dead_ch])
+                           for _h7, _cs7 in enemy_pools]
         ctx = {"mode": mode, "pos": my_pos, "ally": ally, "enemy": enemy, "bans": bans,
                "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
                "enemy_names": [_n for _n, _cs in (enemy_pools or [])],   # 🗳️ 퀴즈 표 조회용
@@ -2869,6 +2877,25 @@ def _draft_coach_tick(s_json, headers, base_url):
                     gui_data["draft_advice"] = "🚫 밴 분석 중…" if mode == "ban" else "🧠 픽 분석 중…"
                     gui_data["draft_advice_ts"] = time.time()
                 txt = _draft_advise(ctx, _my_champ_pool(MY_RIOT_NAME[0]))
+                # 🚫 [2026-08-06 사장님 제보] 데이터에서 빼도 모델이 일반 지식으로 죽은 챔프(이미 밴·픽)를
+                #    추천할 수 있다 — 응답에서 해당 줄을 잘라내는 최종 방어. 요약부의 "N. 챔프 — 이유" 줄만 손댄다.
+                try:
+                    if mode == "ban" and txt and not str(txt).lstrip().startswith(("⚠️", "⏳", "🔐", "✅")):
+                        _sum8, _rea8 = _split_reason(txt)
+                        _keep8, _cut8, _n8 = [], [], 0
+                        for _ln8 in _sum8.split("\n"):
+                            _m8 = re.match(r"\s*\d+\s*[.)]\s*(.+)", _ln8.strip())
+                            if _m8:
+                                _nm8 = re.split(r"[—–\-:]", _m8.group(1), 1)[0].replace("*", "").replace("`", "").strip()
+                                if _nm8 in _dead_ch:
+                                    _cut8.append(_nm8); continue
+                                _n8 += 1
+                                _ln8 = re.sub(r"^(\s*)\d+(\s*[.)])", lambda m9: f"{m9.group(1)}{_n8}{m9.group(2)}", _ln8)
+                            _keep8.append(_ln8)
+                        if _cut8:
+                            print(f"[coach] 죽은 챔프 추천 {len(_cut8)}건 제거: {', '.join(_cut8)}", flush=True)
+                            txt = "\n".join(_keep8) + ((f"\n{_REASON_SEP}\n" + _rea8) if _rea8 else "")
+                except Exception: pass
                 # 🗒️ [2026-07-30] 코치가 실제로 뭐라고 답했는지 로그에 남긴다.
                 #    화면은 잠깐 뜨고 사라져 사후 검증이 불가능했다 — 규칙을 고치려면 실제 답을 봐야 한다.
                 try:
