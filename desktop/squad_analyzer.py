@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.76"
+CURRENT_VERSION = "82.77"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2191,6 +2191,7 @@ _DRAFT_BAN_RULES = (
     "  근거가 없으면 포지션을 아예 언급하지 마라. 한 답변 안에서 같은 픽의 포지션을 다르게 말하면 절대 안 된다.\n\n"
     "【출력 형식 — 한국어·★최대한 짧게(오버레이 작은 창이라 시인성이 생명)】\n"
     "- 밴 개수는 사용자 메시지가 지정(1페이즈 3 / 2페이즈 2). '1. 챔프 — 이유(★20자 이내)' 우선순위대로.\n"
+    "- [클랜 밴픽퀴즈 표]가 있으면 강한 참고 신호다 — 표가 많고 적중 이력이 있는 챔프는 우선순위를 올려라.\n"
     "  예: '1. 레넥톤 — 레멍이 43판·견제압력 1위' / '2. 세라핀 — 상대 포킹 완성 차단'. 이 밀도로.\n"
     "- 픽 방향/내 픽 설계를 요구받으면 밴 아래 '→'로 시작해 **픽당 한 줄**(챔프 — 20자 근거).\n"
     "- 서술형 문장·접속사·배경 설명 금지. 경고(⚠️)는 꼭 필요한 것 하나만 한 줄.\n"
@@ -2356,6 +2357,8 @@ def _draft_advise(ctx, my_pool):
             + _bp_blk
             + _wk_blk
             + clan_blk_ban   # [v82.44] 밴 모드엔 아군 챔프폭 미주입(아군 픽 밴 추천 사고 방지)
+            + ((chr(10) + chr(10) + "[클랜 밴픽퀴즈 표 — 클랜원들이 '이 상대에게 밴할 챔프'로 투표한 집단 학습]" + chr(10)
+                + chr(10).join(ctx.get("quiz") or [])) if ctx.get("quiz") else "")
         )
     else:
         _mt2 = ctx.get("my_tier")
@@ -2843,6 +2846,20 @@ def _draft_coach_tick(s_json, headers, base_url):
         if mode == "ban" and _dead_ch:
             enemy_pools = [(_h7, [_s7 for _s7 in _cs7 if _s7.split("(")[0].strip() not in _dead_ch])
                            for _h7, _cs7 in enemy_pools]
+        # 🔨 [2026-08-07 사장님 지시] 밴픽 퀴즈 표(클랜 집단 학습) — 이번 판 상대에게 찍힌 밴 표를 근거로 첨부
+        quiz_lines = []
+        if mode == "ban":
+            try:
+                _qm = _quiz_pref_map()
+                _enames = {str(_n9).split('[')[0].strip() for _n9, _cs9 in (enemy_pools or [])}
+                for _pu9 in enemy_pus:
+                    _e9 = ((_cidx or {}).get("by_pu") or {}).get(_pu9) or {}
+                    if _e9.get("name"): _enames.add(str(_e9["name"]).split('#')[0].strip())
+                for _nm9 in sorted(_enames):
+                    for _c9, _v9, _h9 in _qm.get(tnorm(_nm9), [])[:3]:
+                        if _c9 in _dead_ch or _v9 <= 0: continue
+                        quiz_lines.append(f"{_nm9} ← {_c9} {_v9}표" + (f"·적중{_h9}" if _h9 else ""))
+            except Exception: pass
         ctx = {"mode": mode, "pos": my_pos, "ally": ally, "enemy": enemy, "bans": bans,
                "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
                "enemy_names": [_n for _n, _cs in (enemy_pools or [])],   # 🗳️ 퀴즈 표 조회용
@@ -2856,6 +2873,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                "my_tier": tier_of(MY_RIOT_NAME[0]),   # P3·P4 — 내 내부티어에 맞는 밸류픽 배분
                "loff_good": ((_cidx or {}).get("loff_good_txt") or ""),   # 📊 저티어 오프롤 성과/함정픽(실측)
                "loff_bad": ((_cidx or {}).get("loff_bad_txt") or ""),
+               "quiz": quiz_lines,   # 🔨 밴픽퀴즈 표(클랜 집단 학습, 밴 모드만)
                "noban": list(_NOBAN.get("decls") or []),   # 🚫 이 판 노밴 선언(로비 채팅 감지)
                "pos_known": bool(my_pos and my_pos != "선택안함")}
         # 밴은 페이즈당 1회만(팀 밴 통째 추천) / 픽은 판 상태 바뀌면 갱신
@@ -4504,6 +4522,33 @@ def _gviz_tab_csv(tab_name):
            f"&sheet={_up.quote(tab_name)}&headers=1&cb={int(time.time())}")   # cb=캐시버스터(gviz 캐시가 스키마 변경 직후 구버전을 주는 것 방지)
     raw = _u.urlopen(_u.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=20).read().decode("utf-8")
     return list(_csv.reader(_io.StringIO(raw)))
+
+_QUIZ_PREF_CACHE = {"ts": 0.0, "map": {}}
+
+def _quiz_pref_map():
+    """🔨 [2026-08-07 사장님 지시] 밴픽 퀴즈의 '상대별 밴 표'(QUIZ_PREF 탭)를 밴 추천 근거로.
+    {tnorm(상대): [(챔프, 표, 적중), ...표순]} — 공개 gviz, 10분 캐시."""
+    now = time.time()
+    if _QUIZ_PREF_CACHE["ts"] and now - _QUIZ_PREF_CACHE["ts"] < 600: return _QUIZ_PREF_CACHE["map"]
+    _QUIZ_PREF_CACHE["ts"] = now
+    try:
+        rows = _gviz_tab_csv("QUIZ_PREF")
+        h = {c: i for i, c in enumerate(rows[0])} if rows else {}
+        ni, ci, vi, hi = h.get("상대"), h.get("챔피언"), h.get("표"), h.get("적중")
+        if None not in (ni, ci, vi, hi):
+            mp = {}
+            for r in rows[1:]:
+                if len(r) <= max(ni, ci, vi, hi): continue
+                k = tnorm(r[ni])
+                if not k or not str(r[ci]).strip(): continue
+                try: v, ht = int(float(r[vi] or 0)), int(float(r[hi] or 0))
+                except Exception: v, ht = 0, 0
+                mp.setdefault(k, []).append((str(r[ci]).strip(), v, ht))
+            for k in mp: mp[k].sort(key=lambda x: -x[1])
+            _QUIZ_PREF_CACHE["map"] = mp
+    except Exception as e:
+        print(f"[quiz] QUIZ_PREF 로드 실패(무시): {e}", flush=True)
+    return _QUIZ_PREF_CACHE["map"]
 
 def _crunch_from_aggregate(blue_players, red_players):
     """[v82.5 시트경량화 2b] crunch를 사전집계탭(STAT_*)에서 계산 — 원본 CLASSIC_NORMAL 전체읽기 제거.
