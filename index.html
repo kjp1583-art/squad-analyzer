@@ -294,6 +294,9 @@
     @media(max-width:820px){.tb-group{min-width:calc(var(--n) * 84px)}.tb-name{font-size:12px}}
   .assess{display:inline-block;padding:2px 9px;border-radius:6px;font-size:13.5px;font-weight:800}
   .assess.a-over{background:#3a1c25;color:#e84057}
+  .assess.a-urgent{background:linear-gradient(135deg,rgba(232,64,87,.3),rgba(255,122,92,.22));border:1px solid #ff5a6e;color:#ff8a9a;font-weight:900;animation:urgent-blink 1.4s ease-in-out infinite}
+  @keyframes urgent-blink{0%,100%{box-shadow:0 0 0 rgba(255,90,110,0)}50%{box-shadow:0 0 9px rgba(255,90,110,.55)}}
+  @media (prefers-reduced-motion: reduce){.assess.a-urgent{animation:none}}
   .assess.a-ok{background:#16331f;color:#2bb177}
   .assess.a-under{background:#16243f;color:#5b8cff}
   .assess.a-na{background:var(--card2);color:var(--mut)}
@@ -1263,10 +1266,13 @@ function computeAssessments(){
   if(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift"){   // 칼바람·클래식은 리그 분할 없이 단일 12인
     _powered.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });
     _powered.slice(6,12).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });
-  } else for(const lg of ["서부","동부"]){
-    const pool=_powered.filter(p=>{const a=ASSESSMENTS.get(p.name); return a&&_leagueOf(a.tier)===lg;});
-    pool.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title=`${lg} 상현 ${i+1}`; });
-    pool.slice(6,12).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title=`${lg} 하현 ${i+1}`; });
+  } else {
+    // [2026-08-07 사장님 지시] 동서 구분 삭제 — 상현 6 = 0·1티어 리그 상위 6(구 서부 상현),
+    // 하현 6 = 2·3티어 리그 상위 6(구 동부 상현 승격). 나머지 하현 자리는 폐지(총 12인).
+    const west=_powered.filter(p=>{const a=ASSESSMENTS.get(p.name); return a&&_leagueOf(a.tier)==="서부";});
+    const east=_powered.filter(p=>{const a=ASSESSMENTS.get(p.name); return a&&_leagueOf(a.tier)==="동부";});
+    west.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });
+    east.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });
   }
   // 🎯 [C안 하이브리드] 클랜 전체 실력 백분위 → 추정 티어 — 같은-티어 등락판정(위)과 별개의 '절대 위치' 지표.
   // elig 전원(솔랭 없으면 그 항 빼고 재정규화)을 전체평균 z로 절대 파워랭킹 → 실제 티어 분포와 동일한 칸 수에 성적순 재배치.
@@ -1298,8 +1304,10 @@ function computeAssessments(){
     a.implRel=di>0?"up":di<0?"down":"eq";
     a.implGap=Math.abs(di);
     // ★ 평가 로직 = 클랜 전체 기준 재배치로 재정의(단일 라벨). ±1등급(≈0.5티어) 이내는 적절, 2등급↑ 벌어질 때만 저/고평가.
-    a.label=di>=2?"저평가":di<=-2?"고평가":"적절";
-    a.cls  =di>=2?"a-under":di<=-2?"a-over":"a-ok";
+    // [2026-08-07 사장님 지시] 4등급(≈2티어) 이상 어긋나면 단순 저/고평가를 넘어 '긴급픽스요망'
+    a.urgent=Math.abs(di)>=4;
+    a.label=a.urgent?"긴급픽스요망":di>=2?"저평가":di<=-2?"고평가":"적절";
+    a.cls  =a.urgent?"a-urgent":di>=2?"a-under":di<=-2?"a-over":"a-ok";
   });
 
   /* 🔥 [2026-07-31 사장님 지시] 내전 활약 점수 — '클랜 상위 %'와 축을 분리한다.
@@ -1527,7 +1535,7 @@ function playerBadges(name, useAll){
   let solo=null; const sr=aliasLookup(SOLO_RANKS, name); if(sr&&sr.cur!=null) solo=sr.cur; else if(sr&&sr.cur===undefined&&sr.score!=null) solo=sr.score;
   const b=[];
   if(asmt&&asmt.title) b.push({k:'sib',i:asmt.title.includes('상현')?'🗡':'🌙',t:asmt.title,d:'십이귀월 — 순수 실력 파워랭킹 최상위 12인'});
-  if(asmt&&asmt.label==='저평가') b.push({k:'rise',i:'🌱',t:'떡상',d:'자기 내부티어보다 잘함 — 승격 후보, 상승세!'});
+  if(asmt&&(asmt.label==='저평가'||(asmt.urgent&&asmt.implRel==='up'))) b.push({k:'rise',i:'🌱',t:'떡상',d:'자기 내부티어보다 잘함 — 승격 후보, 상승세!'});
   if(G>=100) b.push({k:'vet',i:'🎂',t:'고인물',d:`내전 ${G}판 — 클랜의 산증인`});
   else if(G>=50) b.push({k:'iron',i:'🏃',t:'철인',d:`내전 ${G}판 — 압도적 개근`});
   else if(G>=25) b.push({k:'diligent',i:'🎯',t:'성실',d:`내전 ${G}판 — 꾸준한 참여`});
@@ -3528,8 +3536,6 @@ function _sv(id){ const e=document.getElementById(id); return e?e.value:''; }
 function scrimDashHtml(){
   // 💾 [2026-08-05 사장님 지시] 같은 사람이 매일 같은 값을 적는다 — 아이디·주·부포지션을 기억해 복원
   const nm=(localStorage.getItem('scrim_nm')||'').replace(/"/g,'&quot;');
-  const sp1=localStorage.getItem('scrim_p1')||'미드', sp2=localStorage.getItem('scrim_p2')||'';
-  const posOpts=(sel,none)=> (none?`<option value=""${sel===''?' selected':''}>없음</option>`:'')+SCRIM_POS5.map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('');
   if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,12000); setTimeout(_scrimPoll,50); }
   return `<div class="scrim-hero"><div class="scrim-in">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -3539,10 +3545,6 @@ function scrimDashHtml(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
       <div style="flex:2;min-width:180px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">롤아이디#태그 <span style="font-weight:400;opacity:.85">(신규·미연동자도 태그까지 적으면 OK)</span></div>
         <input id="scrim-nm" value="${nm}" placeholder="예: 맛동산장인 유미#Teana" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)"></div>
-      <div style="flex:1;min-width:90px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">주포지션</div>
-        <select id="scrim-p1" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts(sp1,false)}</select></div>
-      <div style="flex:1;min-width:90px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">부포지션</div>
-        <select id="scrim-p2" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts(sp2,true)}</select></div>
       <button onclick="scrimJoin()" class="scrim-join">🙋 참가 신청</button>
       <button onclick="scrimAct('/scrim-leave',{})" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">취소</button>
       <button id="scrim-last" onclick="scrimLast()" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">🌙 막판</button>
@@ -3551,7 +3553,7 @@ function scrimDashHtml(){
       (typeof dcValid==='function'&&dcValid())?`<span style="color:var(--sub)">🔐 ${esc((window.DISCORD_USER||{}).name||'디스코드')} 계정으로 본인 확인됨</span>`
       :`<span style="color:#ffcf7a">🔐 신청하려면 디스코드 로그인이 필요해요 (대리출석 방지) — 버튼 누르면 로그인으로 이동</span>`}</div>
     <div id="scrimdash" class="muted" style="font-size:13px;margin-top:4px">대기열 불러오는 중…</div>
-    <div style="font-size:11.5px;margin-top:6px;color:var(--sub);opacity:.9">매칭은 주·부포지션 우선(권장 배치) — 실제 라인은 팀끼리 조율 · 매칭 후엔 자동 재대기, 쉬려면 막판</div>
+    <div style="font-size:11.5px;margin-top:6px;color:var(--sub);opacity:.9">주·부포지션은 디스코드 역할에서 자동 반영(권장 배치) — 실제 라인은 팀끼리 조율 · 매칭 후엔 자동 재대기, 쉬려면 막판</div>
   </div></div>`;
 }
 function _scrimMsg(t,ok){ const e=document.getElementById('scrim-msg'); if(e){ e.textContent=t; e.style.color=ok?'#8fd0a0':'#ff8a9a'; } }
@@ -3579,8 +3581,8 @@ async function _scrimPost(path,body){
   }
 }
 function scrimJoin(){
-  try{ localStorage.setItem('scrim_p1',_sv('scrim-p1')); localStorage.setItem('scrim_p2',_sv('scrim-p2')); }catch(e){}
-  _scrimPost('/scrim-join',{main:_sv('scrim-p1'),sub:_sv('scrim-p2')});
+  // [2026-08-07 사장님 지시] 포지션 선택 삭제 — 디스코드 주·부포지션 역할(CLAN_POSITIONS)을 봇이 자동 반영
+  _scrimPost('/scrim-join',{});
 }
 function scrimAct(path,body){ _scrimPost(path,body); }
 function scrimKick(t){ if(confirm(t+' 님을 미참여로 제외하고 대기열 다음 순번을 넣을까요?')) _scrimPost('/scrim-kick',{target:t}); }
@@ -3682,7 +3684,9 @@ function kizukiBoard(){
     const nm=lg?`${lg} 십이귀월`:"십이귀월";
     // 좁은 화면에서 두 줄로 넘어가지 않게, 없어도 뜻이 통하는 말은 접을 수 있게 감싼다
     const scope=lg==="서부"?'<span class="kzsub-m">내부티어 </span>0·1티어'
-              :lg==="동부"?'<span class="kzsub-m">내부티어 </span>2·3티어':"전체";
+              :lg==="동부"?'<span class="kzsub-m">내부티어 </span>2·3티어'
+              :(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT==="rift")
+                ?'상현=<span class="kzsub-m">내부티어 </span>0·1티어 · 하현=2·3티어 <span class="kzsub-m">각 상위 6인</span>':"전체";
     return `<div class="kzleague">
       <div class="kzhd"><h2>🩸 ${nm}</h2><span class="kanji">十二鬼月</span></div>
       <div class="kzsub">${scope} · <span class="kzsub-m">파워랭킹 </span>상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · 최근 30일 5판 이상만 편성 · 실시간 변동</span></div>
@@ -3692,7 +3696,14 @@ function kizukiBoard(){
         [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>
     </div>`;
   };
-  return `<div class="card kzboard${leagues.length>1?' two':''}">${leagues.map(pane).join("")}</div>`;
+  // [2026-08-07 사장님 지시] 동부가 빠진 오른쪽 자리에 '다가오는 일정' 패널
+  const evPane=`<div class="kzleague" style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
+    <div class="kzhd"><h2>📅 다가오는 일정</h2><span class="kanji">日程</span></div>
+    <div class="kzsub">디스코드 이벤트 탭과 자동 동기화 · <span class="kzsub-m">클릭하면 </span>달력으로</div>
+    <div class="kzrule"></div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${eventsListHtml(6)||'<div class="muted" style="font-size:12.5px">예정된 일정이 없어요</div>'}</div>
+  </div>`;
+  return `<div class="card kzboard two">${leagues.map(pane).join("")}${evPane}</div>`;
 }
 function renderHome(){
   const champs=champTierData();
@@ -3758,7 +3769,6 @@ function renderHome(){
         <h2>🕒 최근 게임</h2>
         ${recentGamesHtml(5)}
       </div>
-      ${eventsCardHtml()}
     </div>`;
 }
 function recentFinishedGames(n){
@@ -3970,8 +3980,8 @@ async function loadPerks(){
 let WEB_HOLIDAYS={},PERKS_AT=0;
 let WEB_EVENTS=[];
 /* 📅 다가오는 일정 카드 — 디스코드 이벤트 탭을 봇이 미러(PERKS 탭). 홈 우측 열에 표시 */
-function eventsCardHtml(){
-  const evs=WEB_EVENTS.filter(e=>(+e.start||0)*1000>Date.now()-3*3600*1000).slice(0,6);
+function eventsCardHtml(limit){
+  const evs=WEB_EVENTS.filter(e=>(+e.start||0)*1000>Date.now()-3*3600*1000).slice(0,limit||6);
   if(!evs.length) return '';
   const today=new Date().toDateString();
   const rows=evs.map(e=>{
@@ -3987,11 +3997,9 @@ function eventsCardHtml(){
       <b style="font-size:13.5px">${esc(e.name||'')}</b>
       ${e.desc&&e.desc!==e.name?`<div class="muted" style="font-size:12px;white-space:pre-line">${esc(String(e.desc).slice(0,120))}</div>`:''}
     </div>`;}).join('');
-  return `<div class="card" style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
-    <h2>📅 다가오는 일정 <span class="muted" style="font-size:12px;font-weight:400">디스코드 이벤트 탭 · 클릭 시 달력</span></h2>
-    <div style="display:flex;flex-direction:column;gap:7px">${rows}</div>
-  </div>`;
+  return rows;   // [2026-08-07] 카드 → 목록 빌더로 축소: 십이귀월 옆 패널(kizukiBoard)이 사용
 }
+const eventsListHtml=n=>eventsCardHtml(n);
 
 /* 📅 클랜일정 탭 — 월 달력에 디스코드 이벤트를 날짜별로 표시 (2026-08-06 사장님 지시) */
 let CAL_YM=null;
@@ -4497,7 +4505,7 @@ function playerCardHtml(name){
           <div class="tbm-nm">
             ${hasEval?`<span class="tier ${tierGroupCls(a.tier)}" style="margin:0">${esc(a.tier)}</span>`:''}
             <b>${esc(shortName(a.name))}</b><span class="muted" style="font-size:13px;font-weight:400">${esc(tagOf(a.name))}</span>
-            ${hasEval?`<span class="assess ${a.cls}">${a.label}</span>`:''}
+            ${hasEval?`<span class="assess ${a.cls}">${a.urgent?"🚨 ":""}${a.label}</span>`:''}
           </div>
           <div class="tbm-sub">
             ${titleBadge(a.title)}
@@ -4560,10 +4568,11 @@ function renderTiers(){
   const byTier={};
   for(const [name,a] of ASSESSMENTS){ (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
   let cU=0,cOk=0,cOv=0,cNa=0;
-  for(const [,a] of ASSESSMENTS){ if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
+  let cUr=0;
+  for(const [,a] of ASSESSMENTS){ if(a.label==='긴급픽스요망')cUr++; else if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
 
   // 한 칸(등급 열) — 그 티어에 속한 사람들을 평가 순(고평가→저평가→적절)으로 세운다.
-  const OL={'고평가':0,'저평가':1,'적절':2,'표본부족':3};
+  const OL={'긴급픽스요망':-1,'고평가':0,'저평가':1,'적절':2,'표본부족':3};
   const cell=(t,cls)=>{
     const arr=(byTier[t]||[]).slice().sort((a,b)=>(OL[a.label]-OL[b.label])||((a.implPct||999)-(b.implPct||999)));
     const names=arr.map(a=>{
@@ -4598,6 +4607,7 @@ function renderTiers(){
     <div class="card">
       <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
       <div style="font-size:13px;margin:2px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span><span class="assess a-urgent">🚨 긴급픽스요망</span> <span class="muted">추정과 2티어 이상 차이 — 티어 재설정 시급 · ${cUr}명</span></span>
         <span><span class="assess a-under">저평가</span> <span class="muted">클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보) · ${cU}명</span></span>
         <span><span class="assess a-ok">적절</span> <span class="muted">티어와 비슷(±0.5티어) · ${cOk}명</span></span>
         <span><span class="assess a-over">고평가</span> <span class="muted">티어보다 아래 · ${cOv}명</span></span>
@@ -5318,7 +5328,7 @@ function renderPlayer(name){
   const _pctTip=p=>p==null?'':`${_mp[0]} ${_mp[1]}판 · 같은 포지션 클랜원 중 상위 ${Math.max(1,100-p)}%`;
 
   const _asmt=assessPlayer(name);
-  const asmtChip = _asmt ? `<span class="assess ${_asmt.cls}" style="vertical-align:middle;margin-left:5px">${_asmt.label}</span>` : '';
+  const asmtChip = _asmt ? `<span class="assess ${_asmt.cls}" style="vertical-align:middle;margin-left:5px">${_asmt.urgent?'🚨 ':''}${_asmt.label}</span>` : '';
   const statBox=(()=>{
     const cell=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
     const pc=k=>{const p=_pctOf(k);return {cls:_pctCls(p),tip:_pctTip(p)};};
@@ -6184,7 +6194,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
