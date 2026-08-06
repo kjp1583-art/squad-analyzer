@@ -4941,6 +4941,15 @@ async function _marketFetch(){
   const cell=(((tb.rows||[])[0])||{c:[]}).c[0];
   return JSON.parse((cell&&cell.v)||"{}");
 }
+function playerKeyOf(nm){
+  // [2026-08-07 사장님 제보] 거래소 소유자명은 태그가 없어 프로필이 '기록 없음'으로 떴다 —
+  // 태그 무관(tnorm) 매칭으로 실제 전적 키(태그 포함 풀네임)를 찾아 보낸다.
+  const k=tnorm(nm); if(!k) return nm;
+  for(const cand of [PLAYERS, PLAYERS_ALL]){
+    if(cand&&cand.size) for(const key of cand.keys()) if(tnorm(key)===k) return key;
+  }
+  return nm;
+}
 function _mkChart(hist){
   // 주가차트 — 거래 이력(낙찰·거래가)을 시간순 꺾은선으로. 상승 빨강·하락 파랑(주식 관례), 점 1개면 점만.
   const H=110,W=290,P=14;
@@ -4986,7 +4995,7 @@ async function renderMarket(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span style="font-size:26px">${esc(t.emoji||'🪙')}</span>
         <div style="flex:1;min-width:120px"><b style="font-size:15.5px">${esc(t.name)}</b>
-          <div style="font-size:12.5px;color:var(--sub)">소유자 <span class="clickname" onclick="go('player','${escAttr(t.owner||'')}')" style="font-weight:800;color:var(--txt)">${esc(t.owner||'—')}</span></div></div>
+          <div style="font-size:12.5px;color:var(--sub)">소유자 <span class="clickname" onclick="go('player','${escAttr(playerKeyOf(t.owner||''))}')" style="font-weight:800;color:var(--txt)">${esc(t.owner||'—')}</span></div></div>
         <div style="text-align:right"><div style="font-size:11px;color:var(--sub)">최근 거래가</div>
           <b style="font-size:19px;color:var(--gold);font-variant-numeric:tabular-nums">${+t.price||0}P</b></div>
       </div>
@@ -6194,7 +6203,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070330";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
