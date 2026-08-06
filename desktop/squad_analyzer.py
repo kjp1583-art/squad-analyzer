@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.74"
+CURRENT_VERSION = "82.76"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -7673,7 +7673,7 @@ def create_graphic_ui():
                           relief="flat", padx=10).pack(side="left", padx=4)
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
-    btn_captain = tk.Button(btn_row3, text="👑 팀장뽑기", font=("Malgun Gothic", 10, "bold"),
+    btn_captain = tk.Button(btn_row3, text="팀뽑선정", font=("Malgun Gothic", 10, "bold"),
                             bg=theme.GOLD, fg="#1b1b1b", bd=0, padx=8, pady=2, cursor="hand2")
     btn_captain.config(command=_do_pick_captains)
     btn_captain.pack(side="left", padx=3)

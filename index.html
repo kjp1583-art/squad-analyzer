@@ -52,7 +52,7 @@
   .dl:hover{filter:brightness(1.08)}
   .coachlink{display:inline-flex;align-items:center;gap:6px;color:var(--gold);border:1px solid #4a3c1a;background:#1e1809;border-radius:10px;padding:10px 14px;font-weight:700;white-space:nowrap;margin-right:10px}
   .coachlink:hover{filter:brightness(1.15)}
-  @media(max-width:680px){.dl span.t,.coachlink span.t{display:none}}
+  @media(max-width:680px){.dl span.t{display:none}}   /* 고스트밴픽왕은 아이콘 제거(2026-08-06) — 글자 유지 */
   /* 카테고리(협곡/칼바람) 전환바 */
   .catbar{display:flex;gap:8px;margin:16px 0 0;flex-wrap:wrap}
   .catbar .cat{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:10px;background:var(--card);border:1px solid var(--line);color:var(--sub);font-weight:700;font-size:15px;cursor:pointer}
@@ -569,6 +569,11 @@
   @media (prefers-reduced-motion: reduce){.namefx-royal{animation:none}}
   .namefx-badge{font-size:9.5px;font-weight:900;letter-spacing:.6px;padding:1px 5px;border-radius:5px;
     background:linear-gradient(135deg,#4a7ef0,#8a5cd6);color:#fff;vertical-align:1.5px}
+  /* 🎖 [2026-08-06 사장님 지시] 디스코드 역할 마크 — 운영진(노랑)·스태프(빨강). 닉네임 효과 없이 문구 칩만 */
+  .role-badge{font-size:9.5px;font-weight:900;letter-spacing:.4px;padding:1px 5px;border-radius:5px;
+    vertical-align:1.5px;margin-right:3px}
+  .role-adm{background:rgba(224,164,55,.16);border:1px solid rgba(224,164,55,.6);color:#f5d47a}
+  .role-stf{background:rgba(232,64,87,.14);border:1px solid rgba(232,64,87,.6);color:#ff8a9a}
   /* ✨ [2026-08-06 사장님 지시] 상점 판매용 닉네임 꾸미기 3종(+royal 재사용) */
   /* 📢 고성능확성기 보드 — 흐르는 그라데이션 테두리 + 슬라이드 페이드 */
   #megaboard{margin:10px 0 4px;border-radius:12px;padding:2px;
@@ -808,7 +813,7 @@
       </form>
       <div class="suggest hidden" id="suggest"></div>
     </div>
-    <a class="coachlink" href="coach.html" title="고스트밴픽왕 — 내 밴·픽 차례에 AI가 추천해주는 구독 서비스">🧠 <span class="t">고스트밴픽왕</span></a>
+    <a class="coachlink" href="coach.html" title="고스트밴픽왕 — 내 밴·픽 차례에 AI가 추천해주는 구독 서비스"><span class="t">고스트밴픽왕</span></a>
     <a class="dl" href="https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip" target="_blank" rel="noopener" title="스쿼드 해체 분석기 다운로드 (최신 zip — 압축을 풀고 폴더 안의 squad_analyzer.exe 를 실행하세요. exe와 _internal 폴더는 항상 같이 두세요)">⬇ <span class="t">스쿼드해체분석기 다운로드</span> <span class="dlver" id="dlver"></span></a>
   </div>
 </header>
@@ -3691,7 +3696,7 @@ function renderHome(){
   const pAll=HOME_ALL.p||playersOrdered.length<=15;
   const pShow=pAll?playersOrdered:playersOrdered.slice(0,15);
   const playerRows=pShow.map(p=>`<tr${isPinned(p.name)?' style="background:rgba(245,212,122,.06)"':''}>
-      <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${isPinned(p.name)?'📌 ':''}${nameFx(p.name)}</span>${tierBadge(p.name)}</td>
+      <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${isPinned(p.name)?'📌 ':''}${roleBadge(p.name)}${nameFx(p.name)}</span>${tierBadge(p.name)}</td>
       <td class="num">${p.games}</td>
       <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%</td>
       <td class="num"${p.mental!=null?` title="${escAttr('멘탈 지수 '+p.mental+' — '+mentalLabel(p.mental)+' · 연패 중에도 팀과 같이 싸우는 정도(50점=클랜 평균)')}"`:''}>${
@@ -3924,12 +3929,22 @@ async function loadPerks(){
     WEB_PINS=d.pins||[];
     WEB_FX=d.fx||[];   // ✨ 닉네임 꾸미기(기간제) — [{name,alt,cls,until}]
     WEB_MEGA=d.mega||[];   // 📢 확성기 — [{name,msg,until}]
+    WEB_ROLES=d.roles||[]; // 🎖 디스코드 역할 마크 — [{name,alt,tag:'admin'|'staff'}]
   }catch(e){}
   renderMega();
 }
+let WEB_ROLES=[];
+function roleBadge(name){
+  const nk=s=>String(s||'').split('#')[0].toLowerCase().replace(/\s+/g,'');
+  const k=nk(name);
+  const e=k&&WEB_ROLES.find(r=>nk(r.name)===k||(r.alt&&nk(r.alt)===k));
+  if(!e) return '';
+  return e.tag==='admin'?`<span class="role-badge role-adm">운영진</span>`
+       : e.tag==='staff'?`<span class="role-badge role-stf">스태프</span>`:'';
+}
 /* 📢 고성능확성기 — 공지 슬라이드 + 구매 메시지들을 6초 간격 페이드 회전 */
 let WEB_MEGA=[],_megaIdx=0,_megaTimer=null;
-const MEGA_NOTICE={notice:true,msg:"오늘 /상점이 새로워졌어요 — ✨ 닉네임 꾸미기 · 📌 상단고정권으로 플레이어 목록에서 내 이름을 빛내보세요!"};
+const MEGA_NOTICE={notice:true,msg:"디스코드 명령어 /상점에서 ✨닉네임 꾸미기·📌상단고정권을, /확성기(20P)로는 바로 이 자리에 하루 동안 내 문구를 띄울 수 있어요!"};
 function _megaSlides(){
   const act=WEB_MEGA.filter(m=>(+m.until||0)*1000>Date.now()&&String(m.msg||'').trim());
   return [MEGA_NOTICE,...act];
@@ -5547,8 +5562,8 @@ function renderCatbar(){
   +`<span class="cat-sep"></span>`
   +`<button class="cat hof" onclick="go('hof','rift')">🏆 명예의 전당</button>`
   +`<button class="cat hof" onclick="go('hof','aram')">❄️ 증내의 전당</button>`
-  +`<button class="cat hof" onclick="go('gpti')">🧬 성향유형 도감</button>`
-  +`<button class="cat hof" id="btnReload" onclick="reloadData()" title="시트를 다시 읽어 새 전적을 반영합니다 (페이지 새로고침 없이)">🔄 데이터 새로고침</button>`;
+  +`<button class="cat hof" onclick="go('gpti')">🧬 성향유형</button>`
+  +`<button class="cat hof" id="btnReload" onclick="reloadData()" title="시트를 다시 읽어 새 전적을 반영합니다 (페이지 새로고침 없이)">🔄 새로고침</button>`;
 }
 // 🔄 [2026-08-02] 시트 재조회 — 새 내전 기록이 올라왔을 때 F5 없이 즉시 반영.
 //   시트 응답은 구글이 no-store로 주므로 브라우저 캐시는 애초에 없다(2026-08-02 실측). 여기서 비우는 건
@@ -5558,7 +5573,7 @@ async function reloadData(){
   if(b){ b.textContent="🔄 불러오는 중…"; b.disabled=true; }
   for(const k of Object.keys(CAT_CACHE)) delete CAT_CACHE[k];
   try{ await loadCategory(CURRENT_CAT); }
-  finally{ const nb=document.getElementById("btnReload"); if(nb){ nb.textContent=old||"🔄 데이터 새로고침"; nb.disabled=false; } }
+  finally{ const nb=document.getElementById("btnReload"); if(nb){ nb.textContent=old||"🔄 새로고침"; nb.disabled=false; } }
 }
 function switchCat(key){
   if(key===CURRENT_CAT && GAMES.size){go('home');return;}
@@ -6041,7 +6056,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608062100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608062200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
