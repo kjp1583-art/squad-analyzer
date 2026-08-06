@@ -608,6 +608,7 @@
     border:1px solid rgba(90,190,160,.3);border-radius:7px;padding:3px 9px;cursor:pointer;white-space:nowrap}
   .kz-corps-chip:hover{border-color:rgba(143,227,192,.7)}
   .kz-corps-chip b{color:#8fe3c0;margin-right:2px}
+  .kz-corps-wr{color:#8fe3c0;font-weight:900;font-size:11.5px}
   .cal-hol{font-size:9.5px;font-weight:700;color:#ff8a9a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cal-ev{font-size:10.5px;font-weight:700;padding:1.5px 4px;border-radius:5px;margin-top:2px;
     background:linear-gradient(90deg,rgba(74,126,240,.28),rgba(138,92,214,.28));border:1px solid rgba(122,140,255,.4);
@@ -1306,9 +1307,31 @@ function computeAssessments(){
     const east=_powered.filter(p=>{const a=ASSESSMENTS.get(p.name); return a&&_leagueOf(a.tier)==="동부";});
     west.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });
     east.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });
-    // ⚔ [2026-08-07 사장님 지시] 귀살대 — 십이귀월에 못 든 파워랭킹 다음 상위 6인(귀월을 노리는 사냥꾼들)
-    const _titled=new Set([...west.slice(0,6),...east.slice(0,6)].map(p=>p.name));
-    KISATSU=_powered.filter(p=>!_titled.has(p.name)).slice(0,6).map(p=>p.name);
+    // ⚔ [2026-08-07 사장님 지시·정정] 귀살대 — 십이귀월(상현+하현 12인)이 낀 상대 팀을 만났을 때
+    //   승률이 가장 높은 비(非)귀월 인원 상위 6 (10판 이상) = 귀월을 실제로 사냥하는 사람들
+    KISATSU=(()=>{
+      const tk=new Set([...west.slice(0,6),...east.slice(0,6)].map(p=>tnorm(p.name)));
+      const vs=new Map();
+      for(const g of GAMES.values()){
+        const sides={};
+        for(const r of g.rows){
+          const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+          (sides[r["진영"]]=sides[r["진영"]]||[]).push([r["소환사명"],res]);
+        }
+        const keys=Object.keys(sides); if(keys.length!==2) continue;
+        const has=k=>sides[k].some(([n])=>tk.has(tnorm(n)));
+        for(const [a,b] of [[keys[0],keys[1]],[keys[1],keys[0]]]){
+          if(!has(b)) continue;
+          for(const [n,res] of sides[a]){
+            if(tk.has(tnorm(n))) continue;
+            const v=vs.get(n)||{g:0,w:0}; v.g++; if(res==="승리")v.w++; vs.set(n,v);
+          }
+        }
+      }
+      return [...vs.entries()].filter(([,v])=>v.g>=10)
+        .map(([n,v])=>({name:n,g:v.g,wr:v.w/v.g*100}))
+        .sort((a,b)=>(b.wr-a.wr)||(b.g-a.g)).slice(0,6);
+    })();
   }
   // 🎯 [C안 하이브리드] 클랜 전체 실력 백분위 → 추정 티어 — 같은-티어 등락판정(위)과 별개의 '절대 위치' 지표.
   // elig 전원(솔랭 없으면 그 항 빼고 재정규화)을 전체평균 z로 절대 파워랭킹 → 실제 티어 분포와 동일한 칸 수에 성적순 재배치.
@@ -3734,8 +3757,8 @@ function kizukiBoard(){
         [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>
       ${(!lg&&KISATSU.length)?`<div class="kz-corps">
         <div class="kz-corps-hd">⚔ 귀살대 <span class="kanji" style="font-size:12px">鬼殺隊</span>
-          <span class="kz-corps-sub">십이귀월을 노리는 다음 순번</span></div>
-        <div class="kz-corps-list">${KISATSU.map((n,i)=>`<span class="kz-corps-chip" onclick="event.stopPropagation();openPlayerCard(${JSON.stringify(n).replace(/"/g,'&quot;')})"><b>${i+1}</b> ${esc(shortName(n))}</span>`).join("")}</div>
+          <span class="kz-corps-sub">십이귀월이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들 (10판 이상)</span></div>
+        <div class="kz-corps-list">${KISATSU.map((e,i)=>`<span class="kz-corps-chip" title="귀월 상대 ${e.g}판 ${Math.round(e.wr)}%" onclick="event.stopPropagation();openPlayerCard(${JSON.stringify(e.name).replace(/"/g,'&quot;')})"><b>${i+1}</b> ${esc(shortName(e.name))} <span class="kz-corps-wr">${Math.round(e.wr)}%</span></span>`).join("")}</div>
       </div>`:''}
     </div>`;
   };
