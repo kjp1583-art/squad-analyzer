@@ -2085,7 +2085,7 @@ function titleChip(name){   // 보유한 칭호 전부 (유니크 → 상점 칭
   return titlesOf(name).map(t=>{
     const cs=_TITLE_TIER_CSS[t.tier]||_TITLE_TIER_CSS["일반"];
     const tip=t.tier==="유니크"?"세상에 단 하나뿐인 칭호 — 경매·거래소에서만 구할 수 있습니다":`포인트 상점에서 구매한 칭호 (${escAttr(t.tier||'일반')})`;
-    return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}${t.tier==="유니크"?' <span style="opacity:.75;font-weight:400">1/1</span>':''}</span>`;
+    return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}</span>`;
   }).join(" ");
 }
 // ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
@@ -6204,7 +6204,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070410";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
