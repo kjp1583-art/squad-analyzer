@@ -574,6 +574,20 @@
     vertical-align:1.5px;margin-right:3px}
   .role-adm{background:rgba(224,164,55,.16);border:1px solid rgba(224,164,55,.6);color:#f5d47a}
   .role-stf{background:rgba(232,64,87,.14);border:1px solid rgba(232,64,87,.6);color:#ff8a9a}
+  /* 📅 클랜일정 달력 */
+  .cal-head{display:grid;grid-template-columns:repeat(7,1fr);margin-top:12px;font-size:12px;color:var(--sub);
+    text-align:center;font-weight:700;padding-bottom:5px;border-bottom:1px solid var(--line)}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:5px}
+  .cal-cell{min-height:72px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);padding:4px 5px;min-width:0}
+  .cal-empty{background:transparent;border-color:transparent}
+  .cal-today{border-color:rgba(224,164,55,.65);box-shadow:0 0 8px rgba(224,164,55,.18) inset}
+  .cal-d{font-size:11.5px;font-weight:700;color:var(--sub);margin-bottom:2px}
+  .cal-today .cal-d{color:var(--gold)}
+  .cal-sun{color:#ff8a9a}.cal-sat{color:#7fa8ff}
+  .cal-ev{font-size:10.5px;font-weight:700;padding:1.5px 4px;border-radius:5px;margin-top:2px;
+    background:linear-gradient(90deg,rgba(74,126,240,.28),rgba(138,92,214,.28));border:1px solid rgba(122,140,255,.4);
+    color:#c9d6ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:620px){.cal-cell{min-height:52px;padding:3px}.cal-ev{font-size:9px;padding:1px 2px}}
   /* ✨ [2026-08-06 사장님 지시] 상점 판매용 닉네임 꾸미기 3종(+royal 재사용) */
   /* 📢 고성능확성기 보드 — 흐르는 그라데이션 테두리 + 슬라이드 페이드 */
   #megaboard{margin:10px 0 4px;border-radius:12px;padding:2px;
@@ -3326,6 +3340,7 @@ function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(route==='market'){navPush(route,arg);renderMarket();return;}   // 🪙 거래소 — 자체 데이터(UNIQ_MARKET) 로드
+  if(route==='cal'){navPush(route,arg);renderCal();return;}         // 📅 클랜일정 — 디스코드 이벤트 탭 미러
   if(route==='gpti'){ if(!GAMES.size){renderEmpty();return;} navPush(route);renderGPTI();return;}   // 🧬 성향유형 도감
   if(!GAMES.size){renderEmpty();return;}         // 오류/로딩 화면은 스택에 안 쌓음
   navPush(route,arg);
@@ -3728,6 +3743,7 @@ function renderHome(){
         <h2>🕒 최근 게임</h2>
         ${recentGamesHtml(5)}
       </div>
+      ${eventsCardHtml()}
     </div>`;
 }
 function recentFinishedGames(n){
@@ -3930,8 +3946,93 @@ async function loadPerks(){
     WEB_FX=d.fx||[];   // ✨ 닉네임 꾸미기(기간제) — [{name,alt,cls,until}]
     WEB_MEGA=d.mega||[];   // 📢 확성기 — [{name,msg,until}]
     WEB_ROLES=d.roles||[]; // 🎖 디스코드 역할 마크 — [{name,alt,tag:'admin'|'staff'}]
+    WEB_EVENTS=d.events||[]; // 📅 디스코드 이벤트 탭 미러 — [{name,desc,start,loc,n}]
   }catch(e){}
   renderMega();
+}
+let WEB_EVENTS=[];
+/* 📅 다가오는 일정 카드 — 디스코드 이벤트 탭을 봇이 미러(PERKS 탭). 홈 우측 열에 표시 */
+function eventsCardHtml(){
+  const evs=WEB_EVENTS.filter(e=>(+e.start||0)*1000>Date.now()-3*3600*1000).slice(0,6);
+  if(!evs.length) return '';
+  const today=new Date().toDateString();
+  const rows=evs.map(e=>{
+    const d=new Date((+e.start)*1000);
+    const isToday=d.toDateString()===today;
+    const when=d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'});
+    return `<div style="padding:8px 10px;border-radius:9px;background:var(--bg2);border:1px solid ${isToday?'rgba(224,164,55,.55)':'var(--line)'}">
+      <div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap">
+        ${isToday?`<b style="color:var(--gold);font-size:11px">오늘</b>`:''}
+        <span style="font-size:12px;color:var(--sub)">${esc(when)}</span>
+        ${e.n?`<span style="font-size:11px;color:var(--sub);margin-left:auto">🔔 ${+e.n}</span>`:''}
+      </div>
+      <b style="font-size:13.5px">${esc(e.name||'')}</b>
+      ${e.desc&&e.desc!==e.name?`<div class="muted" style="font-size:12px;white-space:pre-line">${esc(String(e.desc).slice(0,120))}</div>`:''}
+    </div>`;}).join('');
+  return `<div class="card" style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
+    <h2>📅 다가오는 일정 <span class="muted" style="font-size:12px;font-weight:400">디스코드 이벤트 탭 · 클릭 시 달력</span></h2>
+    <div style="display:flex;flex-direction:column;gap:7px">${rows}</div>
+  </div>`;
+}
+
+/* 📅 클랜일정 탭 — 월 달력에 디스코드 이벤트를 날짜별로 표시 (2026-08-06 사장님 지시) */
+let CAL_YM=null;
+function calMove(d){ CAL_YM.m+=d; if(CAL_YM.m<0){CAL_YM.m=11;CAL_YM.y--;} if(CAL_YM.m>11){CAL_YM.m=0;CAL_YM.y++;} renderCal(); }
+function renderCal(){
+  const now=new Date();
+  if(!CAL_YM) CAL_YM={y:now.getFullYear(),m:now.getMonth()};
+  const {y,m}=CAL_YM;
+  const first=new Date(y,m,1), off=first.getDay(), dim=new Date(y,m+1,0).getDate();
+  const byDay={};
+  WEB_EVENTS.forEach(e=>{
+    const d=new Date((+e.start||0)*1000);
+    if(d.getFullYear()===y&&d.getMonth()===m) (byDay[d.getDate()]=byDay[d.getDate()]||[]).push(e);
+  });
+  let cells='';
+  for(let i=0;i<off;i++) cells+=`<div class="cal-cell cal-empty"></div>`;
+  for(let d=1;d<=dim;d++){
+    const isToday=(y===now.getFullYear()&&m===now.getMonth()&&d===now.getDate());
+    const evs=(byDay[d]||[]).sort((a,b)=>a.start-b.start);
+    const chips=evs.map(e=>{
+      const t=new Date(e.start*1000).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      return `<div class="cal-ev" title="${escAttr((e.name||'')+' · '+t)}">${esc(e.name||'')}</div>`;
+    }).join('');
+    const dow=(off+d-1)%7;
+    cells+=`<div class="cal-cell${isToday?' cal-today':''}"><div class="cal-d${dow===0?' cal-sun':dow===6?' cal-sat':''}">${d}</div>${chips}</div>`;
+  }
+  const monthEvs=Object.keys(byDay).map(Number).sort((a,b)=>a-b)
+    .flatMap(d=>byDay[d].sort((a,b)=>a.start-b.start).map(e=>({d,e})));
+  const detail=monthEvs.length?monthEvs.map(({d,e})=>{
+    const dt=new Date(e.start*1000);
+    const when=dt.toLocaleString('ko-KR',{month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'});
+    const isToday=dt.toDateString()===now.toDateString();
+    return `<div style="padding:9px 12px;border-radius:9px;background:var(--bg2);border:1px solid ${isToday?'rgba(224,164,55,.55)':'var(--line)'}">
+      <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
+        ${isToday?`<b style="color:var(--gold);font-size:11.5px">오늘</b>`:''}
+        <b style="font-size:14px">${esc(e.name||'')}</b>
+        <span style="font-size:12.5px;color:var(--sub)">${esc(when)}</span>
+        ${e.loc?`<span style="font-size:12px;color:var(--sub)">📍 ${esc(e.loc)}</span>`:''}
+        ${e.n?`<span style="font-size:12px;color:var(--sub);margin-left:auto">🔔 관심 ${+e.n}</span>`:''}
+      </div>
+      ${e.desc&&e.desc!==e.name?`<div class="muted" style="font-size:12.5px;margin-top:3px;white-space:pre-line">${esc(String(e.desc))}</div>`:''}
+    </div>`;}).join('')
+    :`<div class="muted" style="font-size:13px">이 달에 등록된 일정이 없어요</div>`;
+  view().innerHTML=`${navTabsHtml('cal')}
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h2 style="margin:0">📅 클랜일정</h2>
+        <span class="muted" style="font-size:12.5px">디스코드 이벤트 탭과 자동 동기화</span>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+          <button class="showall" style="margin:0;padding:4px 11px" onclick="calMove(-1)">◀</button>
+          <b style="font-size:15px;min-width:96px;text-align:center">${y}년 ${m+1}월</b>
+          <button class="showall" style="margin:0;padding:4px 11px" onclick="calMove(1)">▶</button>
+        </div>
+      </div>
+      <div class="cal-head">${['일','월','화','수','목','금','토'].map((w,i)=>`<div class="${i===0?'cal-sun':i===6?'cal-sat':''}">${w}</div>`).join('')}</div>
+      <div class="cal-grid">${cells}</div>
+    </div>
+    <div class="card"><h2>🗓 이 달의 일정</h2><div style="display:flex;flex-direction:column;gap:8px">${detail}</div></div>`;
+  window.scrollTo(0,0);
 }
 let WEB_ROLES=[];
 function roleBadge(name){
@@ -4091,7 +4192,7 @@ function renderAchievements(){
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
-  return `<div class="tabs">${tab('home','⚔️ 내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','🏟 미토'):''}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}${tab('market','🪙 거래소')}</div>`;
+  return `<div class="tabs">${tab('home','⚔️ 내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','🏟 미토'):''}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}${tab('market','🪙 거래소')}${tab('cal','📅 클랜일정')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -5634,7 +5735,7 @@ function switchPatch(sel){
   const _arg=history.state?history.state.arg:null;
   // [2026-07-31 사장님 지시] 선수 페이지도 유지 — 홈으로 튕기지 말고 그 선수의 해당 패치 전적을 바로 보여준다.
   //   그 패치에 기록이 없으면 renderPlayer 가 '이 기간엔 기록 없음' 안내를 띄운다(전체 보기 버튼 포함).
-  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market']);
+  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal']);
   go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
@@ -6056,7 +6157,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608062200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608062300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
