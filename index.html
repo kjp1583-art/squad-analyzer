@@ -4665,7 +4665,10 @@ async function _marketFetch(){
   const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=UNIQ_MARKET&headers=1&tqx=out:json&cb=${Date.now()}`;
   const txt=await(await fetch(url,{cache:'no-store'})).text();
   const m=txt.match(/setResponse\(([\s\S]*)\)\s*;?\s*$/); if(!m) throw 0;
-  const cell=(((JSON.parse(m[1]).table||{}).rows||[])[0]||{c:[]}).c[0];
+  const tb=JSON.parse(m[1]).table||{};
+  // ⚠️ 탭이 없으면 gviz가 조용히 '첫 번째 탭'(전적)을 돌려준다 — 열 이름으로 진짜 UNIQ_MARKET인지 검증
+  if(String(((tb.cols||[])[0]||{}).label||'')!=='json') throw 0;
+  const cell=(((tb.rows||[])[0])||{c:[]}).c[0];
   return JSON.parse((cell&&cell.v)||"{}");
 }
 function _mkChart(hist){
@@ -4728,7 +4731,8 @@ async function renderMarket(){
     </div>
     ${aucHtml}
     ${ts.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">${cards}</div>`
-      :`<div class="card"><div class="muted">아직 발행된 유니크 칭호가 없어요 — 매월 1일 저녁 8시부터 경매로 발행됩니다</div></div>`}`;
+      :d?`<div class="card"><div class="muted">아직 발행된 유니크 칭호가 없어요 — 매월 1일 저녁 8시부터 경매로 발행됩니다</div></div>`
+       :`<div class="card"><div class="muted">⏳ 시세 준비 중 — 봇이 첫 시세 데이터를 올리면 여기 표시됩니다 (몇 분 내 자동)</div></div>`}`;
   window.scrollTo(0,0);
 }
 
@@ -5920,7 +5924,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608061530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608061620";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
