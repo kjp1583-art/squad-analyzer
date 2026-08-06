@@ -570,6 +570,22 @@
   .namefx-badge{font-size:9.5px;font-weight:900;letter-spacing:.6px;padding:1px 5px;border-radius:5px;
     background:linear-gradient(135deg,#4a7ef0,#8a5cd6);color:#fff;vertical-align:1.5px}
   /* ✨ [2026-08-06 사장님 지시] 상점 판매용 닉네임 꾸미기 3종(+royal 재사용) */
+  /* 📢 고성능확성기 보드 — 흐르는 그라데이션 테두리 + 슬라이드 페이드 */
+  #megaboard{margin:10px 0 4px;border-radius:12px;padding:2px;
+    background:linear-gradient(100deg,#e0a437,#ff5a6e,#8a5cd6,#4a7ef0,#e0a437);background-size:400% 100%;
+    animation:mega-border 7s linear infinite}
+  #megaboard.hidden{display:none}
+  .mega-in{display:flex;align-items:center;gap:10px;border-radius:10px;background:#14161f;padding:9px 14px;min-height:24px}
+  .mega-horn{font-size:19px;animation:mega-pulse 1.6s ease-in-out infinite}
+  .mega-msg{flex:1;font-size:14.5px;font-weight:700;color:var(--txt);opacity:1;transition:opacity .45s ease;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mega-msg.fade{opacity:0}
+  .mega-msg .mega-who{color:var(--gold);font-weight:800;margin-right:8px;font-size:12.5px}
+  .mega-msg .mega-notice{color:#7fd8ff;font-weight:800;margin-right:8px;font-size:12.5px}
+  @keyframes mega-border{to{background-position:400% 0}}
+  @keyframes mega-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+  @media (prefers-reduced-motion: reduce){#megaboard,.mega-horn{animation:none}}
+  @media (max-width:720px){.mega-msg{white-space:normal;font-size:13.5px}}
   .namefx-neon{color:#7fd8ff;font-weight:800;filter:drop-shadow(0 0 6px rgba(90,190,255,.65))}
   .namefx-blood{color:#ff5a6e;font-weight:800;filter:drop-shadow(0 0 6px rgba(255,60,90,.55))}
   .namefx-aurora{background:linear-gradient(90deg,#59e3c0,#7ba6ff,#b98cff,#59e3c0);background-size:300% 100%;
@@ -814,6 +830,7 @@
     </div>
   </div>
 
+  <div id="megaboard" class="hidden"></div>   <!-- 📢 고성능확성기 — 포인트로 1일간 메시지 게시(2026-08-06 사장님 지시) -->
   <div class="catbar" id="catbar"></div>
   <div class="patchbar hidden" id="patchbar"></div>
   <div id="view"></div>
@@ -3906,7 +3923,39 @@ async function loadPerks(){
     const d=JSON.parse((cell&&cell.v)||"{}");
     WEB_PINS=d.pins||[];
     WEB_FX=d.fx||[];   // ✨ 닉네임 꾸미기(기간제) — [{name,alt,cls,until}]
+    WEB_MEGA=d.mega||[];   // 📢 확성기 — [{name,msg,until}]
   }catch(e){}
+  renderMega();
+}
+/* 📢 고성능확성기 — 공지 슬라이드 + 구매 메시지들을 6초 간격 페이드 회전 */
+let WEB_MEGA=[],_megaIdx=0,_megaTimer=null;
+const MEGA_NOTICE={notice:true,msg:"오늘 /상점이 새로워졌어요 — ✨ 닉네임 꾸미기 · 📌 상단고정권으로 플레이어 목록에서 내 이름을 빛내보세요!"};
+function _megaSlides(){
+  const act=WEB_MEGA.filter(m=>(+m.until||0)*1000>Date.now()&&String(m.msg||'').trim());
+  return [MEGA_NOTICE,...act];
+}
+function renderMega(){
+  const el=document.getElementById('megaboard'); if(!el) return;
+  const ss=_megaSlides();
+  if(!ss.length){el.classList.add('hidden');if(_megaTimer){clearInterval(_megaTimer);_megaTimer=null;}return;}
+  el.classList.remove('hidden');
+  const draw=()=>{
+    const s=ss[_megaIdx%ss.length];
+    const tag=s.notice?`<span class="mega-notice">📣 공지</span>`:`<span class="mega-who">📢 ${esc(shortName(s.name||''))}</span>`;
+    el.innerHTML=`<div class="mega-in"><span class="mega-horn">📢</span><div class="mega-msg">${tag}${esc(String(s.msg||''))}</div></div>`;
+  };
+  draw();
+  if(_megaTimer){clearInterval(_megaTimer);_megaTimer=null;}
+  { // 슬라이드 1개여도 타이머 유지 — 만료·신규를 회전 시점마다 반영
+    _megaTimer=setInterval(()=>{
+      const cur=_megaSlides(); if(!cur.length){renderMega();return;}
+      const m=el.querySelector('.mega-msg');
+      if(m){m.classList.add('fade');setTimeout(()=>{_megaIdx=(_megaIdx+1)%cur.length;
+        const s=cur[_megaIdx];
+        const tag=s.notice?`<span class="mega-notice">📣 공지</span>`:`<span class="mega-who">📢 ${esc(shortName(s.name||''))}</span>`;
+        m.innerHTML=`${tag}${esc(String(s.msg||''))}`;m.classList.remove('fade');},450);}
+    },6000);
+  }
 }
 function isPinned(name){
   const nk=s=>String(s||'').split('#')[0].toLowerCase().replace(/\s+/g,'');   // 양쪽 동일 정규화(태그·공백 제거)
@@ -5992,7 +6041,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608062000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608062100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
