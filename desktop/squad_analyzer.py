@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.79"
+CURRENT_VERSION = "82.80"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2610,7 +2610,7 @@ def _loading_overlay_sync(root):
     with gui_lock:
         info = gui_data.get("load_info")
     w = _LOAD_OVL["win"]
-    if not info or time.time() - float(info.get("ts", 0)) > 180:   # 3분 안전망(신호 유실 대비)
+    if not info or time.time() - float(info.get("ts", 0)) > 150:   # 로딩 화면 길이만큼만(150초) 표시 후 자동 소멸
         if w is not None:
             try: w.withdraw()
             except Exception: pass
@@ -5490,7 +5490,7 @@ def lcu_core_backend_loop():
     game_seq = 0                         # 🔢 게임 진입 카운터 (커스텀게임 gameId=0일 때 판별 — 같은멤버 연속게임 중복기록 방지)
     was_in_prog = False                  #    이전 루프가 InProgress였나 (전환 감지용)
     last_known_phase = "None"            # [V81.48] gameflow-phase 폴링 실패 시 직전 phase 유지(헛플립→game_seq 드리프트 방지)
-    _load_built = [False]                # 🖥️ 로딩 오버레이 — GameStart 당 1회만 수집
+    _load_prev = ["None"]                # 🖥️ 로딩 오버레이 — ChampSelect→게임 전환 감지용 직전 phase
     _roster_wait_since = {}              # [V81.48] 게임ID별 '완전 로스터 대기 시작 시각'(파편 append 방지 게이트용)
     _cs_since = [0.0]                    # 🧭 [2026-07-29] 밴픽 진입 시각 — 진입 직후 몇 초는 로비를 더 읽어 포지션 정정
     active_recording_id = None
@@ -5694,16 +5694,17 @@ def lcu_core_backend_loop():
             _cs_fresh = _cs_since[0] > 0 and (time.time() - _cs_since[0]) < CS_REFRESH_SEC
             try: noban_tick(headers, base_url, current_phase)   # 🚫 노밴 선언 감지(로비 채팅, 2초 간격)
             except Exception: pass
-            # 🖥️ [2026-08-07 사장님 지시] 로딩 화면 정보 오버레이 — 로딩 진입 1회 수집, 게임 시작하면 내림
+            # 🖥️ [2026-08-07 사장님 지시 / 08-07 재수정] 로딩 화면 정보 오버레이.
+            #   ⚠️ 처음엔 phase=="GameStart"에 띄우고 "InProgress"에 내렸는데 실기기에서 전혀 안 떴다 —
+            #   GameStart는 몇 초짜리(폴링이 놓침)이고 실제 로딩 화면은 대부분 InProgress 구간이다.
+            #   → 트리거: ChampSelect에서 게임(GameStart/InProgress)으로 '전환'하는 순간 1회 수집.
+            #   → 내림: 시간(150초, _loading_overlay_sync TTL)으로 — phase로 내리지 않는다.
             try:
-                if current_phase == "GameStart":
-                    if not _load_built[0]:
-                        _load_built[0] = True
-                        threading.Thread(target=_build_loading_info, args=(headers, base_url), daemon=True).start()
-                else:
-                    _load_built[0] = False
-                    if current_phase == "InProgress":
-                        with gui_lock: gui_data["load_info"] = None
+                _pp = _load_prev[0]; _load_prev[0] = current_phase
+                if current_phase in ("GameStart", "InProgress") and _pp == "ChampSelect":
+                    threading.Thread(target=_build_loading_info, args=(headers, base_url), daemon=True).start()
+                elif current_phase not in ("GameStart", "InProgress") and _pp in ("GameStart", "InProgress"):
+                    with gui_lock: gui_data["load_info"] = None   # 게임 밖으로 나가면 정리
             except Exception: pass
 
             # 🔢 게임에 새로 '진입'할 때마다 카운터 증가 (새 게임 = 새 ID 보장)
