@@ -567,6 +567,8 @@
     animation:namefx-shine 3.2s linear infinite;filter:drop-shadow(0 0 7px rgba(245,212,122,.5))}
   @keyframes namefx-shine{to{background-position:300% 0}}
   @media (prefers-reduced-motion: reduce){.namefx-royal{animation:none}}
+  .namefx-badge{font-size:9.5px;font-weight:900;letter-spacing:.6px;padding:1px 5px;border-radius:5px;
+    background:linear-gradient(135deg,#4a7ef0,#8a5cd6);color:#fff;vertical-align:1.5px}
   .clickname:hover{text-decoration:underline}
 
   /* champ icon */
@@ -3868,11 +3870,13 @@ function shortName(n){return n.split("#")[0];}
 function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
 /* ✨ [2026-08-06 사장님 지시] 플레이어 목록 닉네임 장식 — 시험판은 사장님 1명 하드코딩.
    반응 좋으면 상점 '닉네임 장식'(판매중단 보존분) 부활 + 시트 미러로 구매·장착 연동. */
-const NAME_FX={"맛동산장인유미":{cls:"namefx-royal",pre:"👑"}};
+const NAME_FX={"맛동산장인유미":{cls:"namefx-royal",badge:"DEV"}};
 function nameFx(name){
   const k=String(name||'').split('#')[0].toLowerCase().replace(/\s+/g,'');
   const fx=NAME_FX[k], disp=esc(shortName(name));
-  return fx?`${fx.pre?fx.pre+' ':''}<span class="${fx.cls}">${disp}</span>`:disp;
+  if(!fx) return disp;
+  const badge=fx.badge?`<span class="namefx-badge">${fx.badge}</span> `:'';
+  return `${badge}${fx.pre?fx.pre+' ':''}<span class="${fx.cls}">${disp}</span>`;
 }
 /* 📌 [2026-08-06 사장님 지시] 상단고정권 — 봇 상점에서 기간제 구매(PERKS 탭 미러).
    어떤 정렬로 보더라도 구매자가 플레이어 목록 최상단에 뜬다. 만료는 클라이언트에서도 검사. */
@@ -5971,7 +5975,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608061800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608061830";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
