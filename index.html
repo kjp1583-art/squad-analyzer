@@ -569,6 +569,13 @@
   @media (prefers-reduced-motion: reduce){.namefx-royal{animation:none}}
   .namefx-badge{font-size:9.5px;font-weight:900;letter-spacing:.6px;padding:1px 5px;border-radius:5px;
     background:linear-gradient(135deg,#4a7ef0,#8a5cd6);color:#fff;vertical-align:1.5px}
+  /* ✨ [2026-08-06 사장님 지시] 상점 판매용 닉네임 꾸미기 3종(+royal 재사용) */
+  .namefx-neon{color:#7fd8ff;font-weight:800;filter:drop-shadow(0 0 6px rgba(90,190,255,.65))}
+  .namefx-blood{color:#ff5a6e;font-weight:800;filter:drop-shadow(0 0 6px rgba(255,60,90,.55))}
+  .namefx-aurora{background:linear-gradient(90deg,#59e3c0,#7ba6ff,#b98cff,#59e3c0);background-size:300% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;
+    animation:namefx-shine 4s linear infinite;filter:drop-shadow(0 0 6px rgba(120,160,255,.35))}
+  @media (prefers-reduced-motion: reduce){.namefx-aurora{animation:none}}
   .clickname:hover{text-decoration:underline}
 
   /* champ icon */
@@ -3872,15 +3879,22 @@ function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
    반응 좋으면 상점 '닉네임 장식'(판매중단 보존분) 부활 + 시트 미러로 구매·장착 연동. */
 const NAME_FX={"맛동산장인유미":{cls:"namefx-royal",badge:"DEV"}};
 function nameFx(name){
-  const k=String(name||'').split('#')[0].toLowerCase().replace(/\s+/g,'');
-  const fx=NAME_FX[k], disp=esc(shortName(name));
-  if(!fx) return disp;
-  const badge=fx.badge?`<span class="namefx-badge">${fx.badge}</span> `:'';
-  return `${badge}${fx.pre?fx.pre+' ':''}<span class="${fx.cls}">${disp}</span>`;
+  const nk=s=>String(s||'').split('#')[0].toLowerCase().replace(/\s+/g,'');
+  const k=nk(name), disp=esc(shortName(name));
+  const own=NAME_FX[k];
+  if(own){
+    const badge=own.badge?`<span class="namefx-badge">${own.badge}</span> `:'';
+    return `${badge}${own.pre?own.pre+' ':''}<span class="${own.cls}">${disp}</span>`;
+  }
+  // ✨ 상점에서 구매한 기간제 꾸미기(PERKS 탭) — 만료·비허용 클래스는 무시
+  const e=WEB_FX.find(f=>(+f.until||0)*1000>Date.now()&&FX_ALLOWED[f.cls]&&(nk(f.name)===k||(f.alt&&nk(f.alt)===k)));
+  return e?`<span class="namefx-${e.cls}">${disp}</span>`:disp;
 }
 /* 📌 [2026-08-06 사장님 지시] 상단고정권 — 봇 상점에서 기간제 구매(PERKS 탭 미러).
    어떤 정렬로 보더라도 구매자가 플레이어 목록 최상단에 뜬다. 만료는 클라이언트에서도 검사. */
 let WEB_PINS=[];   // [{name, until(epoch초)}]
+let WEB_FX=[];     // ✨ 구매한 닉네임 꾸미기 — cls는 아래 허용 목록만 적용(시트 오염 방어)
+const FX_ALLOWED={neon:1,blood:1,aurora:1,royal:1};
 async function loadPerks(){
   try{
     const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=PERKS&headers=1&tqx=out:json&cb=${Date.now()}`;
@@ -3889,7 +3903,9 @@ async function loadPerks(){
     const tb=JSON.parse(m[1]).table||{};
     if(String(((tb.cols||[])[0]||{}).label||'')!=='json') return;   // 탭 없으면 첫탭 폴백 — 무시
     const cell=(((tb.rows||[])[0])||{c:[]}).c[0];
-    WEB_PINS=(JSON.parse((cell&&cell.v)||"{}").pins)||[];
+    const d=JSON.parse((cell&&cell.v)||"{}");
+    WEB_PINS=d.pins||[];
+    WEB_FX=d.fx||[];   // ✨ 닉네임 꾸미기(기간제) — [{name,alt,cls,until}]
   }catch(e){}
 }
 function isPinned(name){
@@ -5976,7 +5992,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608061900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608062000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
