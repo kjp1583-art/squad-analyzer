@@ -5039,6 +5039,80 @@ def send_lcu_chat_announcement(message, headers, base_url):
                         break
     except Exception: pass
 
+# ===== 👑 팀장뽑기 (2026-08-06 사장님 지시) =====
+#   내전 방 인원 중 전력이 가장 비슷한 2명을 팀장으로 자동 선정해 팀원뽑기를 시킨다.
+#   · 직전 판 팀장은 후보에서 제외(두 판 연속 방지가 관건) — 후보가 모자라면 제외 대신 큰 감점으로 완화
+#   · 주포지션 고려: 두 팀장의 주포지션이 같으면 가산(같을 필요는 없음 — 같으면 남는 포지션 풀이 대칭)
+_CAPTAIN_STATE_FILE = os.path.join(CONFIG_DIR, 'captains_recent.json')
+
+def _captain_recent_load():
+    """직전 판 팀장 tnorm 목록. 6시간 지나면 다른 날 내전으로 보고 리셋."""
+    try:
+        with open(_CAPTAIN_STATE_FILE, encoding='utf-8') as f: d = json.load(f)
+        if time.time() - float(d.get('at', 0)) > 6 * 3600: return []
+        return [str(x) for x in (d.get('last') or [])]
+    except Exception: return []
+
+def _captain_recent_save(pair_tnorms):
+    try:
+        if not os.path.exists(CONFIG_DIR): os.makedirs(CONFIG_DIR)
+        with open(_CAPTAIN_STATE_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'last': list(pair_tnorms), 'at': time.time()}, f, ensure_ascii=False)
+    except Exception: pass
+
+def _captain_power(p, s):
+    """개인 전력 스칼라 — 예상 승률과 같은 공식(calculate_hybrid_power의 1인분)에 내부티어를 절반 섞는다."""
+    t_icon = (p or {}).get('tier_icon', 'UNRANKED')
+    t_score = TIERS.index(t_icon) if t_icon in TIERS else 4
+    s = s or {}
+    g = s.get('games', 0); raw_wr = s.get('overall_wr', 0.5)
+    K = 8
+    shrunk = (raw_wr * g + 0.5 * K) / (g + K)
+    pw = (t_score + shrunk * 10) / 2 + s.get('streak_val', 0) * 0.3 * min(1.0, g / 10.0)
+    tv = tier_of((p or {}).get('name') or '')
+    if tv in TIER_ORDER_LIST:            # 클랜 공식 사다리(내부티어)가 있으면 그쪽을 절반 가중
+        pw = pw * 0.5 + (9 - TIER_ORDER_LIST.index(tv)) * 0.5
+    return pw
+
+def _captain_main_pos(p, cidx):
+    """주포지션 — 클랜 시트 전적의 최다 포지션 우선, 없으면 로비에서 고른 포지션."""
+    try:
+        e = ((cidx or {}).get('by_pu') or {}).get(str((p or {}).get('puuid') or '').strip().lower())
+        if e and e.get('pos'): return max(e['pos'].items(), key=lambda x: x[1])[0]
+    except Exception: pass
+    return str((p or {}).get('chosen_pos_icon') or '')
+
+def _captain_pick(entries, exclude_tnorms, cidx):
+    """entries=[(player,stats)...] → (a, b, 사유) 또는 (None, None, 안내문). a/b={'nm','tn','pw','pos'}"""
+    cand = []
+    for p, s in entries:
+        nm = str((p or {}).get('name') or '').strip()
+        if not nm: continue
+        if str((p or {}).get('puuid') or '').startswith('BOT_'): continue   # 연습봇 제외
+        cand.append({'nm': nm, 'tn': tnorm(nm), 'pw': _captain_power(p, s),
+                     'pos': _captain_main_pos(p, cidx), 'tier': tier_of(nm) or ''})
+    if len(cand) < 4:
+        return None, None, f"방 인원이 부족해요({len(cand)}명) — 4명부터 뽑을 수 있어요"
+    hard = [c for c in cand if c['tn'] not in exclude_tnorms]
+    soft = len(hard) < 2      # 직전 팀장을 빼면 2명이 안 남는 극단 상황 — 감점으로 완화(되도록 회피)
+    pool = cand if soft else hard
+    best = None
+    for i in range(len(pool)):
+        for j in range(i + 1, len(pool)):
+            a, b = pool[i], pool[j]
+            sc = abs(a['pw'] - b['pw'])
+            if a['pos'] and a['pos'] == b['pos']: sc -= 0.6
+            if soft:
+                sc += 2.5 * ((a['tn'] in exclude_tnorms) + (b['tn'] in exclude_tnorms))
+            if best is None or sc < best[0]: best = (sc, a, b)
+    _, a, b = best
+    why = [f"전력차 {abs(a['pw'] - b['pw']):.1f}"]
+    if a['pos'] and a['pos'] == b['pos']: why.append(f"주포지션 동일({a['pos']})")
+    elif a['pos'] or b['pos']: why.append(f"주포지션 {a['pos'] or '?'}·{b['pos'] or '?'}")
+    if exclude_tnorms and not soft: why.append("직전 판 팀장 제외")
+    return a, b, " · ".join(why)
+
+
 # ===== 🚫 노밴 감지(v82.41 사장님 지시) — 커스텀 로비 채팅의 '노밴' 선언을 읽어 기록·코치 반영 =====
 #   선언 흐름: 진행자 "노밴" → (3333/2222 준비신호) → 각 팀 대표가 챔피언명 선언(초성 "ㅋㅇㄴ"=키아나,
 #   축약 "블츠"=블리츠크랭크 등) 또는 거절("없음"/"x"/"ㅌㅌㅌ"/무응답). 감지분은 게임시작 웹훅 기록 + 코치 밴 제외.
@@ -7550,6 +7624,59 @@ def create_graphic_ui():
 
     # 🅣 [v82.8] '내 꾸미기' 로컬 버튼 폐지 — 구매 검증이 불가능해 아무나 쓰던 문제.
     #    T1 프레임은 이제 봇 /상점에서 구매·장착(서버 검증) → /cosmetics로 내려와 모든 PC에 표시.
+
+    # 👑 [2026-08-06 사장님 지시] 팀장뽑기 — 방 인원 중 전력이 가장 비슷한 2인 자동 선정(직전 판 팀장 회피)
+    def _do_pick_captains(extra_exclude=None):
+        with gui_lock:
+            entries = list(gui_data.get("blue") or []) + list(gui_data.get("red") or [])
+        def worker():
+            try: cidx = _clan_index()
+            except Exception: cidx = None
+            recent = set(_captain_recent_load()) | set(extra_exclude or [])
+            a, b, why = _captain_pick(entries, recent, cidx)
+            def show():
+                if not a:
+                    messagebox.showinfo("팀장뽑기", why); return
+                _captain_recent_save([a['tn'], b['tn']])
+                w = tk.Toplevel(root); w.title("팀장뽑기")
+                w.attributes("-topmost", True); w.configure(bg="#12141a")
+                tk.Label(w, text="👑 이번 판 팀장", bg="#12141a", fg="#f5d47a",
+                         font=("Malgun Gothic", 13, "bold")).pack(padx=18, pady=(14, 4))
+                def _one(c):
+                    t = c['nm'].split('#')[0].strip() + (f"  [{c['tier']}티어]" if c['tier'] else "") \
+                        + (f"  주:{c['pos']}" if c['pos'] else "")
+                    tk.Label(w, text=t, bg="#12141a", fg="#e8eaf0",
+                             font=("Malgun Gothic", 12, "bold")).pack(padx=18, pady=2)
+                _one(a)
+                tk.Label(w, text="VS", bg="#12141a", fg="#8a93a6", font=("Malgun Gothic", 10)).pack()
+                _one(b)
+                tk.Label(w, text=why, bg="#12141a", fg="#8a93a6", font=("Malgun Gothic", 9)).pack(padx=18, pady=(6, 2))
+                bs = tk.Frame(w, bg="#12141a"); bs.pack(pady=(6, 12))
+                def _announce():
+                    def w2():
+                        try:
+                            port, pw2 = get_lcu_credentials()
+                            if not port: return
+                            hd = {"Authorization": "Basic " + base64.b64encode(("riot:" + str(pw2)).encode()).decode(),
+                                  "Accept": "application/json"}
+                            send_lcu_chat_announcement(
+                                f"👑 팀장 자동선정: {a['nm'].split('#')[0]} vs {b['nm'].split('#')[0]} ({why})",
+                                hd, "https://127.0.0.1:" + str(port))
+                        except Exception: pass
+                    threading.Thread(target=w2, daemon=True).start()
+                tk.Button(bs, text="📢 로비에 알리기", command=_announce, bg="#1e2436", fg="#9db8ff",
+                          relief="flat", padx=10).pack(side="left", padx=4)
+                tk.Button(bs, text="🔁 다시 뽑기", bg="#232838", fg="#cfd6e4", relief="flat", padx=10,
+                          command=lambda: (w.destroy(), _do_pick_captains(set(extra_exclude or []) | {a['tn'], b['tn']}))
+                          ).pack(side="left", padx=4)
+                tk.Button(bs, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
+                          relief="flat", padx=10).pack(side="left", padx=4)
+            root.after(0, show)
+        threading.Thread(target=worker, daemon=True).start()
+    btn_captain = tk.Button(btn_row3, text="👑 팀장뽑기", font=("Malgun Gothic", 10, "bold"),
+                            bg=theme.GOLD, fg="#1b1b1b", bd=0, padx=8, pady=2, cursor="hand2")
+    btn_captain.config(command=_do_pick_captains)
+    btn_captain.pack(side="left", padx=3)
 
     # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 노출 (내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지)
     if load_bot_token():

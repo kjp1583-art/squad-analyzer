@@ -3284,6 +3284,7 @@ function goBack(){ if(history.state&&history.state.depth>0)history.back(); else 
 function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
+  if(route==='market'){navPush(route,arg);renderMarket();return;}   // 🪙 거래소 — 자체 데이터(UNIQ_MARKET) 로드
   if(route==='gpti'){ if(!GAMES.size){renderEmpty();return;} navPush(route);renderGPTI();return;}   // 🧬 성향유형 도감
   if(!GAMES.size){renderEmpty();return;}         // 오류/로딩 화면은 스택에 안 쌓음
   navPush(route,arg);
@@ -3958,7 +3959,7 @@ function renderAchievements(){
 function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
-  return `<div class="tabs">${tab('home','⚔️ 내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','🏟 미토'):''}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}</div>`;
+  return `<div class="tabs">${tab('home','⚔️ 내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','🏟 미토'):''}${tab('log','📜 내전 기록부')}${IS_ADMIN?tab('counts','👥 내전 횟수 🔒'):''}${tab('champ','🏆 챔피언 티어')}${tab('mastery','🎯 장인랭킹')}${tab('tiers','🎖 내부티어')}${tab('ach','🏅 업적 도감')}${tab('army','🪖 전역일')}${tab('market','🪙 거래소')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -4656,6 +4657,79 @@ function renderMitoLog(){
         <tbody>${tbl}</tbody>
       </table></div>
     </div>`;
+}
+
+/* ===== 🪙 거래소 (2026-08-06 사장님 지시) — 유니크 칭호 전량·소유자·최근거래가·주가차트 =====
+   데이터: 봇이 unique_titles.json(낙찰·거래 원장)을 UNIQ_MARKET 탭에 JSON 한 칸으로 미러(칭호 변동 때마다 + 12h). */
+async function _marketFetch(){
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=UNIQ_MARKET&headers=1&tqx=out:json&cb=${Date.now()}`;
+  const txt=await(await fetch(url,{cache:'no-store'})).text();
+  const m=txt.match(/setResponse\(([\s\S]*)\)\s*;?\s*$/); if(!m) throw 0;
+  const cell=(((JSON.parse(m[1]).table||{}).rows||[])[0]||{c:[]}).c[0];
+  return JSON.parse((cell&&cell.v)||"{}");
+}
+function _mkChart(hist){
+  // 주가차트 — 거래 이력(낙찰·거래가)을 시간순 꺾은선으로. 상승 빨강·하락 파랑(주식 관례), 점 1개면 점만.
+  const H=110,W=290,P=14;
+  const ps=hist.map(h=>+h.p||0);
+  if(!ps.length) return `<div class="muted" style="font-size:12px;padding:14px 0;text-align:center">아직 거래 기록이 없어요</div>`;
+  const lo=Math.min(...ps),hi=Math.max(...ps),span=(hi-lo)||1;
+  const x=i=>ps.length<2?W/2:P+i*(W-2*P)/(ps.length-1);
+  const y=v=>H-P-((v-lo)/span)*(H-2*P-14)-7;
+  const up=ps.length<2||ps[ps.length-1]>=ps[ps.length-2];
+  const col=up?'#e84057':'#5b8cff';
+  const line=ps.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const area=`${line} L${x(ps.length-1).toFixed(1)},${H-P} L${x(0).toFixed(1)},${H-P} Z`;
+  const dots=ps.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i===ps.length-1?4:2.5}" fill="${col}"/>`).join('');
+  const first=hist[0],last=hist[hist.length-1];
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    <line x1="${P}" y1="${H-P}" x2="${W-P}" y2="${H-P}" stroke="var(--line)"/>
+    ${ps.length>1?`<path d="${area}" fill="${col}18"/><path d="${line}" fill="none" stroke="${col}" stroke-width="2"/>`:''}
+    ${dots}
+    <text x="${P}" y="${H-2}" font-size="9" fill="#717a91">${esc(String(first.at||''))}</text>
+    ${ps.length>1?`<text x="${W-P}" y="${H-2}" font-size="9" fill="#717a91" text-anchor="end">${esc(String(last.at||''))}</text>`:''}
+    <text x="${W-P}" y="${Math.max(10,y(ps[ps.length-1])-8).toFixed(1)}" font-size="11" font-weight="800" fill="${col}" text-anchor="end">${last.p}P</text>
+  </svg>`;
+}
+async function renderMarket(){
+  view().innerHTML=`${navTabsHtml('market')}<div class="card"><h2>🪙 거래소</h2><div class="muted">시세를 불러오는 중…</div></div>`;
+  let d=null;
+  try{ d=await _marketFetch(); }catch(e){}
+  if(document.querySelector('.tab.on')&&!document.querySelector('.tab.on').textContent.includes('거래소')) return;  // 로딩 중 다른 탭으로 떠났으면 덮어쓰지 않음
+  const ts=(d&&d.titles)||[];
+  const typeLbl={auction:'경매 낙찰',trade:'거래소 거래',seize:'압류 처분'};
+  const aucHtml=(d&&d.auction)?`
+    <div class="card" style="margin-bottom:14px;border-color:rgba(245,212,122,.5);background:linear-gradient(135deg,rgba(255,210,74,.10),rgba(255,210,74,.02))">
+      <h2>🔨 진행 중 경매 — ${esc(d.auction.emoji||'🪙')} ${esc(d.auction.name||'')}</h2>
+      <div style="font-size:14px">현재 입찰가 <b style="color:var(--gold);font-size:18px">${+d.auction.bid||0}P</b>
+      ${d.auction.bidder?` · 최고 입찰 <b>${esc(d.auction.bidder)}</b>`:' · 아직 입찰이 없어요'}
+      ${d.auction.end?` · <span class="muted">마감 ${new Date(d.auction.end*1000).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>`:''}</div>
+      <div class="muted" style="font-size:12.5px;margin-top:5px">디스코드 <b>/입찰</b>로 참여 — 마감 5분 전에 입찰이 들어오면 5분 연장돼요</div>
+    </div>`:'';
+  const cards=ts.map(t=>{
+    const hist=(t.history||[]);
+    const rows=hist.slice(-5).reverse().map(h=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--sub)"><span>${esc(String(h.at||''))} · ${typeLbl[h.type]||esc(String(h.type||''))}</span><b style="font-variant-numeric:tabular-nums">${+h.p||0}P</b></div>`).join('');
+    return `<div class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:26px">${esc(t.emoji||'🪙')}</span>
+        <div style="flex:1;min-width:120px"><b style="font-size:15.5px">${esc(t.name)}</b>
+          <div style="font-size:12.5px;color:var(--sub)">소유자 <span class="clickname" onclick="go('player','${escAttr(t.owner||'')}')" style="font-weight:800;color:var(--txt)">${esc(t.owner||'—')}</span></div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:var(--sub)">최근 거래가</div>
+          <b style="font-size:19px;color:var(--gold);font-variant-numeric:tabular-nums">${+t.price||0}P</b></div>
+      </div>
+      ${t.market!=null?`<div style="margin-top:8px;padding:6px 10px;border-radius:8px;border:1px solid rgba(43,177,119,.5);background:rgba(43,177,119,.1);font-size:12.5px"><b style="color:#5ad48a">🏷️ 판매 중 — ${+t.market||0}P</b> <span class="muted">디스코드 /거래소에서 구매</span></div>`:''}
+      <div style="margin-top:10px">${_mkChart(hist)}</div>
+      ${rows?`<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:7px;display:flex;flex-direction:column;gap:3px">${rows}</div>`:''}
+    </div>`;}).join('');
+  view().innerHTML=`${navTabsHtml('market')}
+    <div class="card" style="margin-bottom:14px">
+      <h2>🪙 거래소 <span class="muted" style="font-size:13px;font-weight:400">클랜의 모든 유니크 칭호 — 소유자·시세·거래 이력</span></h2>
+      <div class="muted" style="font-size:12.5px">유니크 칭호는 세상에 하나뿐이에요 — 매월 1일 경매(<b>/입찰</b>)로 발행되고, <b>/거래소등록</b>·<b>/거래소</b>로 사고팔 수 있어요 (판매 수수료 20%는 국고로)</div>
+    </div>
+    ${aucHtml}
+    ${ts.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">${cards}</div>`
+      :`<div class="card"><div class="muted">아직 발행된 유니크 칭호가 없어요 — 매월 1일 저녁 8시부터 경매로 발행됩니다</div></div>`}`;
+  window.scrollTo(0,0);
 }
 
 // 🏆 챔피언 전적 상세 — 홈 챔피언 통계에서 챔피언 클릭 시 해당 챔피언이 사용된 게임만 나열
@@ -5424,7 +5498,7 @@ function switchPatch(sel){
   const _arg=history.state?history.state.arg:null;
   // [2026-07-31 사장님 지시] 선수 페이지도 유지 — 홈으로 튕기지 말고 그 선수의 해당 패치 전적을 바로 보여준다.
   //   그 패치에 기록이 없으면 renderPlayer 가 '이 기간엔 기록 없음' 안내를 띄운다(전체 보기 버튼 포함).
-  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player']);
+  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market']);
   go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
@@ -5846,7 +5920,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608060500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608061530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
