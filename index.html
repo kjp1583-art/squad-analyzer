@@ -3893,8 +3893,9 @@ async function loadPerks(){
   }catch(e){}
 }
 function isPinned(name){
-  const k=String(name||'').split('#')[0].toLowerCase().replace(/\s+/g,'');
-  return WEB_PINS.some(p=>String(p.name||'').toLowerCase().replace(/\s+/g,'')===k && (+p.until||0)*1000>Date.now());
+  const nk=s=>String(s||'').split('#')[0].toLowerCase().replace(/\s+/g,'');   // 양쪽 동일 정규화(태그·공백 제거)
+  const k=nk(name);
+  return k&&WEB_PINS.some(p=>(+p.until||0)*1000>Date.now()&&(nk(p.name)===k||(p.alt&&nk(p.alt)===k)));
 }
 // [2026-08-06 사장님 지시] 홈 표 경량화 — 상위 15줄만, '전체 보기'로 그 자리에서 펼침(세션 동안 유지)
 const HOME_ALL={p:false,c:false};
@@ -5975,7 +5976,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608061830";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608061900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
