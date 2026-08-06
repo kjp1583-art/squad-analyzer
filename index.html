@@ -307,7 +307,8 @@
      상현은 붉은 금박, 하현은 푸른 은박으로 계급을 색으로 갈랐다. 타일 배경은 그 사람 대표 챔피언. */
   .kzboard{margin-bottom:14px;display:grid;gap:0;grid-template-columns:minmax(0,1fr);padding:0;overflow:hidden;
     background:linear-gradient(180deg,#0d0a0e,#120b10 55%,#0b0a0d);border-color:#3a2a1c}
-  .kzboard.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  /* [2026-08-07 사장님 지시] 십이귀월(좌)을 넓혀 일정(우)과 시각 균형 — 1.55 : 1 */
+  .kzboard.two{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
   .kzleague{min-width:0;padding:16px 18px 18px;position:relative}
   .kzboard.two .kzleague+.kzleague{border-left:1px solid rgba(200,160,80,.22)}
   /* 서부는 왼쪽, 동부는 오른쪽 — 폭이 좁아져도 이 배치는 깨지 않는다.
@@ -6203,7 +6204,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070330";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070345";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
