@@ -598,6 +598,16 @@
   .cal-d{font-size:13.5px;font-weight:700;color:var(--sub);margin-bottom:2px}
   .cal-today .cal-d{color:var(--gold)}
   .cal-sun{color:#ff8a9a}.cal-sat{color:#7fa8ff}
+  /* ⚔ 귀살대 — 십이귀월 보드 하단 여백(2026-08-07 사장님 지시) */
+  .kz-corps{margin-top:14px;padding:10px 12px;border-radius:10px;border:1px solid rgba(90,190,160,.35);
+    background:linear-gradient(160deg,rgba(30,60,52,.35),rgba(16,26,24,.3))}
+  .kz-corps-hd{font-size:13.5px;font-weight:900;color:#8fe3c0;margin-bottom:7px;display:flex;align-items:baseline;gap:7px}
+  .kz-corps-sub{font-size:11.5px;font-weight:400;color:var(--sub)}
+  .kz-corps-list{display:flex;gap:6px;flex-wrap:wrap}
+  .kz-corps-chip{font-size:12.5px;font-weight:700;color:#d9f2e8;background:rgba(90,190,160,.12);
+    border:1px solid rgba(90,190,160,.3);border-radius:7px;padding:3px 9px;cursor:pointer;white-space:nowrap}
+  .kz-corps-chip:hover{border-color:rgba(143,227,192,.7)}
+  .kz-corps-chip b{color:#8fe3c0;margin-right:2px}
   .cal-hol{font-size:9.5px;font-weight:700;color:#ff8a9a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cal-ev{font-size:10.5px;font-weight:700;padding:1.5px 4px;border-radius:5px;margin-top:2px;
     background:linear-gradient(90deg,rgba(74,126,240,.28),rgba(138,92,214,.28));border:1px solid rgba(122,140,255,.4);
@@ -984,6 +994,7 @@ const TIER_DATA = {
 };
 function tnorm(s){return (s||"").split("#")[0].toLowerCase().replace(/\s+/g,"");}
 const TIER_OF = {};
+let KISATSU=[];   // ⚔ 귀살대 — 십이귀월 다음 순번 상위 6인(협곡 전용, 파워랭킹 계산 때 갱신)
 for(const t in TIER_DATA)for(const nm of TIER_DATA[t])TIER_OF[tnorm(nm)]=t;
 // 닉네임 변경 목록 반영 (구닉이 표에 있던 사람의 현재 닉 → 같은 티어)
 const TIER_NICK = {
@@ -1295,6 +1306,9 @@ function computeAssessments(){
     const east=_powered.filter(p=>{const a=ASSESSMENTS.get(p.name); return a&&_leagueOf(a.tier)==="동부";});
     west.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });
     east.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });
+    // ⚔ [2026-08-07 사장님 지시] 귀살대 — 십이귀월에 못 든 파워랭킹 다음 상위 6인(귀월을 노리는 사냥꾼들)
+    const _titled=new Set([...west.slice(0,6),...east.slice(0,6)].map(p=>p.name));
+    KISATSU=_powered.filter(p=>!_titled.has(p.name)).slice(0,6).map(p=>p.name);
   }
   // 🎯 [C안 하이브리드] 클랜 전체 실력 백분위 → 추정 티어 — 같은-티어 등락판정(위)과 별개의 '절대 위치' 지표.
   // elig 전원(솔랭 없으면 그 항 빼고 재정규화)을 전체평균 z로 절대 파워랭킹 → 실제 티어 분포와 동일한 칸 수에 성적순 재배치.
@@ -3718,6 +3732,11 @@ function kizukiBoard(){
       <div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
       <div class="kzlist">${[1,2,3,4,5,6].map(i=>row(`${pre}상현 ${i}`,true,i)).join("")}${
         [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>
+      ${(!lg&&KISATSU.length)?`<div class="kz-corps">
+        <div class="kz-corps-hd">⚔ 귀살대 <span class="kanji" style="font-size:12px">鬼殺隊</span>
+          <span class="kz-corps-sub">십이귀월을 노리는 다음 순번</span></div>
+        <div class="kz-corps-list">${KISATSU.map((n,i)=>`<span class="kz-corps-chip" onclick="event.stopPropagation();openPlayerCard(${JSON.stringify(n).replace(/"/g,'&quot;')})"><b>${i+1}</b> ${esc(shortName(n))}</span>`).join("")}</div>
+      </div>`:''}
     </div>`;
   };
   // [2026-08-07 사장님 지시] 동부가 빠진 오른쪽 자리에 '다가오는 일정' 패널
