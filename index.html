@@ -557,6 +557,12 @@
   tbody tr:hover{background:var(--card2)}
   .champcell{display:flex;align-items:center;gap:8px}
   .clickname{color:var(--accent);cursor:pointer}
+  /* ✨ [2026-08-06 사장님 지시] 플레이어 목록 닉네임 장식 — 시험판(로얄 골드). 향후 상점 연동 대비 클래스 구조 */
+  .namefx-royal{background:linear-gradient(90deg,#f5d47a,#fff7d6,#e0a437,#ffe9a8,#f5d47a);background-size:300% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;
+    animation:namefx-shine 3.2s linear infinite;filter:drop-shadow(0 0 7px rgba(245,212,122,.5))}
+  @keyframes namefx-shine{to{background-position:300% 0}}
+  @media (prefers-reduced-motion: reduce){.namefx-royal{animation:none}}
   .clickname:hover{text-decoration:underline}
 
   /* champ icon */
@@ -3649,7 +3655,7 @@ function renderHome(){
     </tr>`;}).join("");
 
   const playerRows=players.map(p=>`<tr>
-      <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${esc(shortName(p.name))}</span>${tierBadge(p.name)}</td>
+      <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${nameFx(p.name)}</span>${tierBadge(p.name)}</td>
       <td class="num">${p.games}</td>
       <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%</td>
       <td class="num"${p.mental!=null?` title="${escAttr('멘탈 지수 '+p.mental+' — '+mentalLabel(p.mental)+' · 연패 중에도 팀과 같이 싸우는 정도(50점=클랜 평균)')}"`:''}>${
@@ -3848,6 +3854,14 @@ function wrBar(wr){
 }
 function shortName(n){return n.split("#")[0];}
 function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
+/* ✨ [2026-08-06 사장님 지시] 플레이어 목록 닉네임 장식 — 시험판은 사장님 1명 하드코딩.
+   반응 좋으면 상점 '닉네임 장식'(판매중단 보존분) 부활 + 시트 미러로 구매·장착 연동. */
+const NAME_FX={"맛동산장인유미":{cls:"namefx-royal",pre:"👑"}};
+function nameFx(name){
+  const k=String(name||'').split('#')[0].toLowerCase().replace(/\s+/g,'');
+  const fx=NAME_FX[k], disp=esc(shortName(name));
+  return fx?`${fx.pre?fx.pre+' ':''}<span class="${fx.cls}">${disp}</span>`:disp;
+}
 function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 
 /* ============== 화면: 내전 기록부 / 내전 횟수 ============== */
@@ -5924,7 +5938,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608061620";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608061710";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
