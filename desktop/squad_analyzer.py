@@ -2567,8 +2567,22 @@ _LOAD_OVL = {"win": None, "key": ""}
 def _build_loading_info(headers, base_url):
     """백그라운드 스레드 — 로딩 로스터 수집 → gui_data['load_info'] (GUI는 update_gui가 그림)."""
     try:
-        r = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=4)
-        gd = (r.json() or {}).get("gameData") or {}
+        gd = {}
+        for _try in range(6):   # 게임 클라 기동 스파이크 시점 — 3초 간격 재시도(검증에서 1회성 실패 지적)
+            try:
+                r = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=4)
+                if r.status_code == 200:
+                    gd = (r.json() or {}).get("gameData") or {}
+                    if gd.get("teamOne") or gd.get("teamTwo"): break
+            except Exception: pass
+            time.sleep(3)
+        if not (gd.get("teamOne") or gd.get("teamTwo")):
+            print("[loadovl] 로스터가 비어 수집 포기(재시도 6회)", flush=True); return
+        # 로딩이 이미 끝났으면(게임 렌더링 중 = 라이브 API 응답) 띄우지 않는다 — 전체화면 방해 방지
+        try:
+            requests.get("https://127.0.0.1:2999/liveclientdata/gamestats", verify=False, timeout=1.5)
+            print("[loadovl] 게임이 이미 진행 중 — 오버레이 생략", flush=True); return
+        except Exception: pass
         try: cidx = _clan_index()
         except Exception: cidx = None
         solo = {}
@@ -2620,7 +2634,9 @@ def _loading_overlay_sync(root):
     if w is None or not w.winfo_exists():
         w = tk.Toplevel(root); w.title("스쿼드 로딩 정보")
         w.attributes("-topmost", True); w.configure(bg="#101218")
+        w.protocol("WM_DELETE_WINDOW", w.withdraw)   # X = 숨김(destroy 되면 빈 창이 부활하는 결함 방지)
         _LOAD_OVL["win"] = w
+        _LOAD_OVL["key"] = ""   # 새 창은 반드시 내용부터 다시 그린다
     if _LOAD_OVL["key"] == key: return
     _LOAD_OVL["key"] = key
     for c in list(w.winfo_children()): c.destroy()
@@ -2638,7 +2654,9 @@ def _loading_overlay_sync(root):
               padx=10).pack(anchor="e", padx=13, pady=(4, 10))
     try: w.deiconify(); w.attributes("-topmost", True); w.lift()
     except Exception: pass
-    try: _dock_overlay(w)
+    try:   # 도킹 상태를 드래프트 오버레이와 공유하면(_dock_overlay) 위치가 안 잡힌다(검증 지적) — 화면 우측 고정
+        w.update_idletasks()
+        w.geometry(f"+{max(0, w.winfo_screenwidth() - w.winfo_reqwidth() - 24)}+120")
     except Exception: pass
 
 # ===== 📊 [v82.34] 추천 적중 기록 — '추천대로 했을 때 실제로 이겼는가'를 나중에 검증하기 위한 원자료 =====
@@ -5701,9 +5719,10 @@ def lcu_core_backend_loop():
             #   → 내림: 시간(150초, _loading_overlay_sync TTL)으로 — phase로 내리지 않는다.
             try:
                 _pp = _load_prev[0]; _load_prev[0] = current_phase
-                if current_phase in ("GameStart", "InProgress") and _pp == "ChampSelect":
+                _INGAME3 = ("GameStart", "InProgress", "Reconnect")   # Reconnect 도 게임 안(검증 지적)
+                if current_phase in _INGAME3 and _pp == "ChampSelect":
                     threading.Thread(target=_build_loading_info, args=(headers, base_url), daemon=True).start()
-                elif current_phase not in ("GameStart", "InProgress") and _pp in ("GameStart", "InProgress"):
+                elif current_phase not in _INGAME3 and _pp in _INGAME3:
                     with gui_lock: gui_data["load_info"] = None   # 게임 밖으로 나가면 정리
             except Exception: pass
 
