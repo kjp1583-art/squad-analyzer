@@ -814,21 +814,33 @@
   .bk-slot::after{content:"";position:absolute;top:0;left:50%;height:14px;border-left:1px solid var(--line)}
   .bk-join{flex:0 0 16px;height:16px;position:relative}
   .bk-join i{position:absolute;display:block}
-  .bk-join .jl{bottom:0;left:25%;width:25%;border-top:1px solid var(--line)}
-  .bk-join .jr{bottom:0;left:50%;width:25%;border-top:1px solid var(--line)}
-  .bk-join .jstem{top:0;bottom:0;left:50%;border-left:1px solid var(--line)}
-  /* 승리 경로: 굵고 밝게 */
-  .bk-join .jl.won,.bk-join .jr.won{border-top-width:2px;border-top-color:var(--win)}
-  .bk-join .jstem.won{border-left-width:2px;border-left-color:var(--win)}
-  .bk-slot.won::after{border-left-width:2px;border-left-color:var(--win)}
-  .bk-box{align-self:center;flex:0 0 auto;min-width:104px;max-width:180px;padding:6px 9px;border-radius:8px;
-          border:1px solid var(--line);background:var(--bg2);font-size:11.5px;line-height:1.5;margin:0 6px}
-  .bk-box.win{border-color:var(--win);background:rgba(70,190,120,.10)}
-  .bk-box.champ{border-color:var(--gold);background:rgba(220,180,80,.12)}
-  .bk-top{font-weight:800;font-size:11px;color:var(--sub);margin-bottom:2px;white-space:nowrap}
-  .bk-box.win .bk-top{color:var(--win)}
-  .bk-box.champ .bk-top{color:var(--gold)}
+  /* [2026-08-07 사장님 지시] 대진표 e스포츠 스타일 개편 — 그라데이션 카드·글로우 승리 경로·황금 우승 노드 */
+  .bk-join .jl{bottom:0;left:25%;width:25%;border-top:1px solid #333c52}
+  .bk-join .jr{bottom:0;left:50%;width:25%;border-top:1px solid #333c52}
+  .bk-join .jstem{top:0;bottom:0;left:50%;border-left:1px solid #333c52}
+  /* 승리 경로: 우승팀의 첫 판부터 꼭대기까지 금빛 광선으로 */
+  .bk-join .jl.won,.bk-join .jr.won{border-top-width:2px;border-top-color:#f5d47a;box-shadow:0 -1px 6px rgba(245,212,122,.35)}
+  .bk-join .jstem.won{border-left-width:2px;border-left-color:#f5d47a;box-shadow:-1px 0 6px rgba(245,212,122,.35)}
+  .bk-slot.won::after{border-left-width:2px;border-left-color:#f5d47a;box-shadow:-1px 0 6px rgba(245,212,122,.35)}
+  .bk-box{align-self:center;flex:0 0 auto;min-width:104px;max-width:180px;padding:7px 10px;border-radius:9px;
+          border:1px solid #2c3348;background:linear-gradient(160deg,#1c2233,#141826 70%);
+          font-size:11.5px;line-height:1.55;margin:0 6px;box-shadow:0 2px 8px rgba(0,0,0,.35);
+          transition:transform .12s ease,border-color .12s ease}
+  .bk-box:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.22)}
+  .bk-box.win{border-color:rgba(58,115,232,.65);background:linear-gradient(160deg,#1a2542,#131a2e 70%);
+          box-shadow:0 2px 10px rgba(58,115,232,.22)}
+  .bk-box.champ{border-color:var(--gold);background:linear-gradient(160deg,#2e2410,#1b1608 70%);
+          box-shadow:0 0 14px rgba(224,164,55,.35);position:relative;animation:champ-glow 2.6s ease-in-out infinite}
+  @keyframes champ-glow{0%,100%{box-shadow:0 0 10px rgba(224,164,55,.3)}50%{box-shadow:0 0 20px rgba(224,164,55,.55)}}
+  @media (prefers-reduced-motion: reduce){.bk-box.champ{animation:none}}
+  .bk-top{font-weight:900;font-size:10.5px;color:var(--sub);margin-bottom:3px;white-space:nowrap;
+          letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.07);padding-bottom:3px}
+  .bk-box.win .bk-top{color:#7fa8ff;border-bottom-color:rgba(58,115,232,.3)}
+  .bk-box.champ .bk-top{color:#ffd86e;font-size:11.5px;border-bottom-color:rgba(224,164,55,.35)}
+  .bk-box.champ .bk-mem{color:#ffe9b0;font-weight:700}
   .bk-mem{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* 시드(1라운드 명단) 박스는 은은하게 — 본 대진 카드와 위계 구분 */
+  .bk-slot .bk-box:not(.win):not(.champ){border-style:dashed;border-color:#262d40;opacity:.92}
   .empty{text-align:center;color:var(--mut);padding:60px 20px}
   .loadbar{height:3px;background:var(--accent);width:0;transition:width .3s;position:fixed;top:0;left:0;z-index:50}
   .hidden{display:none}
@@ -6208,7 +6220,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
