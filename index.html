@@ -1306,8 +1306,9 @@ function computeAssessments(){
     a.implGap=Math.abs(di);
     // ★ 평가 로직 = 클랜 전체 기준 재배치로 재정의(단일 라벨). ±1등급(≈0.5티어) 이내는 적절, 2등급↑ 벌어질 때만 저/고평가.
     // [2026-08-07 사장님 지시] 4등급(≈2티어) 이상 어긋나면 단순 저/고평가를 넘어 '긴급픽스요망'
+    //   — 방향(저평가=승격 시급 ↑ / 고평가=강등 시급 ↓)까지 라벨에 병기해 구분한다.
     a.urgent=Math.abs(di)>=4;
-    a.label=a.urgent?"긴급픽스요망":di>=2?"저평가":di<=-2?"고평가":"적절";
+    a.label=a.urgent?(di>0?"긴급픽스요망↑저평가":"긴급픽스요망↓고평가"):di>=2?"저평가":di<=-2?"고평가":"적절";
     a.cls  =a.urgent?"a-urgent":di>=2?"a-under":di<=-2?"a-over":"a-ok";
   });
 
@@ -4570,10 +4571,10 @@ function renderTiers(){
   for(const [name,a] of ASSESSMENTS){ (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
   let cU=0,cOk=0,cOv=0,cNa=0;
   let cUr=0;
-  for(const [,a] of ASSESSMENTS){ if(a.label==='긴급픽스요망')cUr++; else if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
+  for(const [,a] of ASSESSMENTS){ if(String(a.label||'').startsWith('긴급픽스요망'))cUr++; else if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
 
   // 한 칸(등급 열) — 그 티어에 속한 사람들을 평가 순(고평가→저평가→적절)으로 세운다.
-  const OL={'긴급픽스요망':-1,'고평가':0,'저평가':1,'적절':2,'표본부족':3};
+  const OL={'긴급픽스요망↑저평가':-1,'긴급픽스요망↓고평가':-1,'고평가':0,'저평가':1,'적절':2,'표본부족':3};
   const cell=(t,cls)=>{
     const arr=(byTier[t]||[]).slice().sort((a,b)=>(OL[a.label]-OL[b.label])||((a.implPct||999)-(b.implPct||999)));
     const names=arr.map(a=>{
@@ -4608,7 +4609,7 @@ function renderTiers(){
     <div class="card">
       <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
       <div style="font-size:13px;margin:2px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span><span class="assess a-urgent">🚨 긴급픽스요망</span> <span class="muted">추정과 2티어 이상 차이 — 티어 재설정 시급 · ${cUr}명</span></span>
+        <span><span class="assess a-urgent">🚨 긴급픽스요망</span> <span class="muted">추정과 2티어 이상 차이 — ↑저평가(승격 시급)·↓고평가(강등 시급) 방향 병기 · ${cUr}명</span></span>
         <span><span class="assess a-under">저평가</span> <span class="muted">클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보) · ${cU}명</span></span>
         <span><span class="assess a-ok">적절</span> <span class="muted">티어와 비슷(±0.5티어) · ${cOk}명</span></span>
         <span><span class="assess a-over">고평가</span> <span class="muted">티어보다 아래 · ${cOv}명</span></span>
@@ -6204,7 +6205,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070410";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070430";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
