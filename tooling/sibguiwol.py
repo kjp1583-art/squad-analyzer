@@ -225,26 +225,24 @@ def compute(path, today=None):
                         "solo": m["sh"]["solo"] if m["sh"]["solo"] is not None else -1e9})
     powered.sort(key=lambda p: (-p["power"], -p["solo"], p["name"]))
 
+    # [2026-08-07 사장님 지시 — 동서 구분 삭제] 상현 6 = 0·1티어 상위 6 · 하현 6 = 2·3티어 상위 6
     out = []
-    for league in ("서부", "동부"):
-        pool = [p for p in powered if ("서부" if str(p["tier"])[:1] in ("0", "1") else "동부") == league]
-        for i, p in enumerate(pool[:12]):
-            out.append({**p, "league": league,
-                        "title": f"{league} " + (f"상현 {i+1}" if i < 6 else f"하현 {i-5}")})
+    west = [p for p in powered if str(p["tier"])[:1] in ("0", "1")]
+    east = [p for p in powered if str(p["tier"])[:1] not in ("0", "1")]
+    for i, p in enumerate(west[:6]): out.append({**p, "rank": "상현", "title": f"상현 {i+1}"})
+    for i, p in enumerate(east[:6]): out.append({**p, "rank": "하현", "title": f"하현 {i+1}"})
     return out
 
 
 def post(roster, url):
-    embeds = []
-    for league in ("서부", "동부"):
-        mem = [r for r in roster if r["league"] == league]
-        if not mem: continue
-        sang = "\n".join(f"`{i+1}` **{m['name'].split('#')[0]}**" for i, m in enumerate(mem[:6])) or "—"
-        haha = "\n".join(f"`{i+1}` **{m['name'].split('#')[0]}**" for i, m in enumerate(mem[6:12])) or "—"
-        embeds.append({"title": f"⚔️　{league} 십이귀월 ( 十二鬼月 )　현황　⚔️", "color": 0x9B1B1B,
-                       "fields": [{"name": "🗡　상현 ( 上弦 )", "value": sang, "inline": True},
-                                  {"name": "🌙　하현 ( 下弦 )", "value": haha, "inline": True}],
-                       "footer": {"text": f"스쿼드해체분석기 · squad.gg 내부티어 {league} 리그 — 파워 1~6위 상현 · 7~12위 하현"}})
+    sangs = [r for r in roster if r["rank"] == "상현"]
+    hahas = [r for r in roster if r["rank"] == "하현"]
+    sang = "\n".join(f"`{i+1}` **{m['name'].split('#')[0]}**" for i, m in enumerate(sangs)) or "—"
+    haha = "\n".join(f"`{i+1}` **{m['name'].split('#')[0]}**" for i, m in enumerate(hahas)) or "—"
+    embeds = [{"title": "⚔️　십이귀월 ( 十二鬼月 )　현황　⚔️", "color": 0x9B1B1B,
+               "fields": [{"name": "🗡　상현 ( 上弦 )", "value": sang, "inline": True},
+                          {"name": "🌙　하현 ( 下弦 )", "value": haha, "inline": True}],
+               "footer": {"text": "스쿼드해체분석기 · squad.gg — 상현=0·1티어 상위 6 · 하현=2·3티어 상위 6"}}]
     payload = {"content": "🩸🩸　**십이귀월 현재 명단**　🩸🩸", "embeds": embeds}
     req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
                                  headers={"Content-Type": "application/json", "User-Agent": "squad-ci"})

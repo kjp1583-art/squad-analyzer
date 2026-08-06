@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.78"
+CURRENT_VERSION = "82.79"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -3918,13 +3918,14 @@ def compute_tier_assessment():
         _powered.append((sum(w * zz for w, zz in _tm) / _ws, (s_["solo"] if s_["solo"] is not None else -1e9), _nm, _t))
     # 파워 내림차순, 동점 시 솔랭↑, 그래도 같으면 이름순(웹과 동일 규칙 → 웹·앱 순위 일관)
     _powered.sort(key=lambda x: (-x[0], -x[1], x[2]))
-    # [v82.26 사장님 지시] 서부/동부 리그 분할 — 0·1티어=서부 십이귀월, 2·3티어=동부 십이귀월 (각 상현6+하현6 = 총 24인, 협곡 전용)
+    # [2026-08-07 사장님 지시 — 동서 구분 삭제] 상현 6 = 0·1티어 리그 상위 6(구 서부 상현),
+    # 하현 6 = 2·3티어 리그 상위 6(구 동부 상현 승격). 나머지 하현 폐지 — 웹 index.html과 동일 규칙.
     def _league_of(t): return "서부" if str(t)[:1] in ("0", "1") else "동부"
     _title_by_name = {}
-    for _league in ("서부", "동부"):
-        _pool = [x for x in _powered if _league_of(x[3]) == _league]
-        for _i, (_p, _s, _nm, _t4) in enumerate(_pool[:12]):
-            _title_by_name[_nm] = f"{_league} " + (("상현 " + str(_i + 1)) if _i < 6 else ("하현 " + str(_i - 5)))
+    _west = [x for x in _powered if _league_of(x[3]) == "서부"]
+    _east = [x for x in _powered if _league_of(x[3]) == "동부"]
+    for _i, (_p, _s, _nm, _t4) in enumerate(_west[:6]): _title_by_name[_nm] = "상현 " + str(_i + 1)
+    for _i, (_p, _s, _nm, _t4) in enumerate(_east[:6]): _title_by_name[_nm] = "하현 " + str(_i + 1)
     for o in out:
         _t = _title_by_name.get(o["name"])
         if _t: o["title"] = _t
@@ -4089,9 +4090,9 @@ def _post_sibguiwol_webhook(prev, cur, aram=False, league=""):
         content = f"🩸🩸　**{league} 십이귀월이 재편성되었다!**　🩸🩸"
         footer = f"스쿼드해체분석기 · squad.gg 내부티어 {league} 리그({_tier_txt}) — 파워 1~6위 상현 · 7~12위 하현"
     else:
-        desc = "　**순수 실력 파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·AI·내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
+        desc = "　**파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·AI·내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
         title, color, content = "⚔️　십이귀월 ( 十二鬼月 ) 　재편성　⚔️", 0x9B1B1B, "🩸🩸　**십이귀월이 재편성되었다!**　🩸🩸"
-        footer = "스쿼드해체분석기 · squad.gg 내부티어 (파워 1~6위 상현 · 7~12위 하현)"
+        footer = "스쿼드해체분석기 · squad.gg — 상현=0·1티어 상위 6 · 하현=2·3티어 상위 6"
     embed = {
         "title": title,
         "description": desc, "color": color,
@@ -4110,8 +4111,7 @@ def announce_sibguiwol_if_changed():
     try:
         if not load_bot_token(): return
         for cfg_key, roster_fn, is_aram, _lg in (
-                ("sibguiwol_west", lambda: _sibguiwol_roster("서부"), False, "서부"),   # [v82.26] 0·1티어 리그
-                ("sibguiwol_east", lambda: _sibguiwol_roster("동부"), False, "동부"),   # [v82.26] 2·3티어 리그
+                ("sibguiwol_unified", lambda: _sibguiwol_roster(), False, ""),   # [2026-08-07] 동서 통합 단일 12인
                 ("sibguiwol_roster_aram", _sibguiwol_aram_roster, True, "")):
             try:
                 cur = roster_fn()
