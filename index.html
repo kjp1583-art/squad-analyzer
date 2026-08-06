@@ -591,6 +591,19 @@
     color:#c9d6ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   @media(max-width:620px){.cal-cell{min-height:52px;padding:3px}.cal-ev{font-size:9px;padding:1px 2px}}
   /* ✨ [2026-08-06 사장님 지시] 상점 판매용 닉네임 꾸미기 3종(+royal 재사용) */
+  /* 🎪 [2026-08-07 사장님 지시] 내전 자동매칭 히어로 보드 — 앞으로 메인의 얼굴 */
+  .scrim-hero{border-radius:14px;padding:2px;margin-bottom:14px;
+    background:linear-gradient(120deg,#4a7ef0,#8a5cd6,#2bb1a7,#4a7ef0);background-size:320% 100%;
+    animation:scrim-border 9s linear infinite}
+  .scrim-in{border-radius:12px;background:radial-gradient(130% 150% at 0% 0%,#1c2238 0%,#141722 60%);padding:15px 17px}
+  .scrim-title{font-size:19px;font-weight:900;margin:0;
+    background:linear-gradient(90deg,#a8c0ff,#d9c8ff,#8fe3d0);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .scrim-join{padding:11px 22px;border:0;border-radius:9px;font-weight:900;font-size:14.5px;cursor:pointer;color:#fff;
+    background:linear-gradient(135deg,#4a7ef0,#8a5cd6);box-shadow:0 3px 16px rgba(100,120,255,.35);
+    transition:transform .12s ease,box-shadow .12s ease}
+  .scrim-join:hover{transform:translateY(-1px);box-shadow:0 5px 22px rgba(100,120,255,.5)}
+  @keyframes scrim-border{to{background-position:320% 0}}
+  @media (prefers-reduced-motion: reduce){.scrim-hero{animation:none}}
   /* 📢 고성능확성기 보드 — 흐르는 그라데이션 테두리 + 슬라이드 페이드 */
   #megaboard{margin:10px 0 4px;border-radius:12px;padding:2px;
     background:linear-gradient(100deg,#e0a437,#ff5a6e,#8a5cd6,#4a7ef0,#e0a437);background-size:400% 100%;
@@ -3518,9 +3531,9 @@ function scrimDashHtml(){
   const sp1=localStorage.getItem('scrim_p1')||'미드', sp2=localStorage.getItem('scrim_p2')||'';
   const posOpts=(sel,none)=> (none?`<option value=""${sel===''?' selected':''}>없음</option>`:'')+SCRIM_POS5.map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('');
   if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,12000); setTimeout(_scrimPoll,50); }
-  return `<div class="card" style="margin-bottom:14px">
+  return `<div class="scrim-hero"><div class="scrim-in">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <h2 style="margin:0">🎪 내전 자동매칭</h2>
+      <h2 class="scrim-title">🎪 내전 자동매칭</h2>
       <span style="font-size:12.5px;color:var(--sub)">10명이 차면 자동 5:5 · 토너먼트 코드 발급 · 게임 끝나면 자동 재대기</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
@@ -3530,7 +3543,7 @@ function scrimDashHtml(){
         <select id="scrim-p1" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts(sp1,false)}</select></div>
       <div style="flex:1;min-width:90px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">부포지션</div>
         <select id="scrim-p2" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)">${posOpts(sp2,true)}</select></div>
-      <button onclick="scrimJoin()" style="padding:10px 18px;border:0;border-radius:8px;background:#4a7ef0;color:#fff;font-weight:800;cursor:pointer">🙋 참가 신청</button>
+      <button onclick="scrimJoin()" class="scrim-join">🙋 참가 신청</button>
       <button onclick="scrimAct('/scrim-leave',{})" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">취소</button>
       <button id="scrim-last" onclick="scrimLast()" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">🌙 막판</button>
     </div>
@@ -3539,7 +3552,7 @@ function scrimDashHtml(){
       :`<span style="color:#ffcf7a">🔐 신청하려면 디스코드 로그인이 필요해요 (대리출석 방지) — 버튼 누르면 로그인으로 이동</span>`}</div>
     <div id="scrimdash" class="muted" style="font-size:13px;margin-top:4px">대기열 불러오는 중…</div>
     <div style="font-size:11.5px;margin-top:6px;color:var(--sub);opacity:.9">매칭은 주·부포지션 우선(권장 배치) — 실제 라인은 팀끼리 조율 · 매칭 후엔 자동 재대기, 쉬려면 막판</div>
-  </div>`;
+  </div></div>`;
 }
 function _scrimMsg(t,ok){ const e=document.getElementById('scrim-msg'); if(e){ e.textContent=t; e.style.color=ok?'#8fd0a0':'#ff8a9a'; } }
 async function _scrimPost(path,body){
@@ -6171,7 +6184,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
