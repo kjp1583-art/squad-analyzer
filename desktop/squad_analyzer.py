@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.77"
+CURRENT_VERSION = "82.78"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2557,6 +2557,88 @@ def _draft_overlay_sync(root):
             w.deiconify(); w.attributes("-topmost", True); w.lift()
         except Exception: pass
     try: _dock_overlay(w)   # 🧲 클라가 움직였으면 따라붙기(표시 중일 때만 호출됨)
+    except Exception: pass
+
+# ===== 🖥️ 로딩 화면 정보 오버레이 (2026-08-07 사장님 지시 — op.gg 데스크탑 스타일) =====
+#   로딩 화면(phase=GameStart)에 들어가면 양 팀 10명의 챔피언·내부티어·내전 전적·이 챔프 전적·솔랭을
+#   항상-위 창으로 띄운다. 게임 시작(InProgress)하면 자동으로 내려간다.
+_LOAD_OVL = {"win": None, "key": ""}
+
+def _build_loading_info(headers, base_url):
+    """백그라운드 스레드 — 로딩 로스터 수집 → gui_data['load_info'] (GUI는 update_gui가 그림)."""
+    try:
+        r = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=4)
+        gd = (r.json() or {}).get("gameData") or {}
+        try: cidx = _clan_index()
+        except Exception: cidx = None
+        solo = {}
+        with gui_lock:   # 로비·밴픽 때 캐시한 솔랭 티어 재활용(로딩 중 재조회 없이)
+            for side in ("blue", "red"):
+                for p, _s in (gui_data.get(side) or []):
+                    if p.get("puuid"): solo[str(p["puuid"]).lower()] = str(p.get("tier_icon") or "")
+        def _kor(cid):
+            try:
+                e = global_champ_map.get(int(cid or 0)) or {}
+                return e.get("kor") or GLOBAL_NUMERIC_CHAMP_MAP.get(int(cid or 0), "?")
+            except Exception: return "?"
+        def _rows(team):
+            out = []
+            for p in (team or []):
+                pu = str(p.get("puuid") or "").lower()
+                nm = str(p.get("summonerName") or p.get("gameName") or "").split("#")[0].strip() or "?"
+                ch = _kor(p.get("championId"))
+                e = ((cidx or {}).get("by_pu") or {}).get(pu) or {}
+                g, w = e.get("g", 0), e.get("w", 0)
+                cg, cw = ((e.get("champs") or {}).get(ch) or [0, 0])[:2]
+                tv = tier_of(e.get("name") or nm)
+                bits = [f"{ch} — {nm}" + (f" [{tv}]" if tv not in (None, "") else "")]
+                bits.append(f"내전 {g}판 {round(w / g * 100)}%" if g else "내전 기록 없음")
+                if cg: bits.append(f"이 챔프 {cg}판 {round(cw / cg * 100)}%")
+                sv = solo.get(pu, "")
+                if sv and sv != "UNRANKED": bits.append(sv)
+                out.append("  ·  ".join(bits))
+            return out
+        payload = {"ts": time.time(), "blue": _rows(gd.get("teamOne")), "red": _rows(gd.get("teamTwo"))}
+        if payload["blue"] or payload["red"]:
+            with gui_lock: gui_data["load_info"] = payload
+            print(f"[loadovl] 로딩 정보 준비 — 블루 {len(payload['blue'])} · 레드 {len(payload['red'])}", flush=True)
+    except Exception as e:
+        print(f"[loadovl] 로딩 정보 수집 실패(무시): {e}", flush=True)
+
+def _loading_overlay_sync(root):
+    """gui_data['load_info']를 항상-위 창으로. (GUI 스레드에서만 호출 — update_gui 1초 폴링)"""
+    with gui_lock:
+        info = gui_data.get("load_info")
+    w = _LOAD_OVL["win"]
+    if not info or time.time() - float(info.get("ts", 0)) > 180:   # 3분 안전망(신호 유실 대비)
+        if w is not None:
+            try: w.withdraw()
+            except Exception: pass
+        _LOAD_OVL["key"] = ""
+        return
+    key = str(info.get("ts"))
+    if w is None or not w.winfo_exists():
+        w = tk.Toplevel(root); w.title("스쿼드 로딩 정보")
+        w.attributes("-topmost", True); w.configure(bg="#101218")
+        _LOAD_OVL["win"] = w
+    if _LOAD_OVL["key"] == key: return
+    _LOAD_OVL["key"] = key
+    for c in list(w.winfo_children()): c.destroy()
+    tk.Label(w, text="🖥 인게임 로딩 정보 — 내부티어 · 내전 전적 · 이 챔프 전적", bg="#101218", fg="#f5d47a",
+             font=("Malgun Gothic", 11, "bold")).pack(anchor="w", padx=13, pady=(10, 4))
+    body = tk.Frame(w, bg="#101218"); body.pack(padx=13, pady=(0, 4), fill="both")
+    for col, (tt, fg, lines) in enumerate((("🟦 BLUE", "#7fa8ff", info.get("blue") or []),
+                                           ("🟥 RED", "#ff8a9a", info.get("red") or []))):
+        f = tk.Frame(body, bg="#101218")
+        f.grid(row=0, column=col, sticky="n", padx=(0, 16) if col == 0 else (0, 0))
+        tk.Label(f, text=tt, bg="#101218", fg=fg, font=("Malgun Gothic", 10, "bold")).pack(anchor="w", pady=(0, 2))
+        for ln in lines:
+            tk.Label(f, text=ln, bg="#101218", fg="#dfe3ee", font=("Malgun Gothic", 10)).pack(anchor="w")
+    tk.Button(w, text="닫기", command=w.withdraw, bg="#232838", fg="#cfd6e4", relief="flat",
+              padx=10).pack(anchor="e", padx=13, pady=(4, 10))
+    try: w.deiconify(); w.attributes("-topmost", True); w.lift()
+    except Exception: pass
+    try: _dock_overlay(w)
     except Exception: pass
 
 # ===== 📊 [v82.34] 추천 적중 기록 — '추천대로 했을 때 실제로 이겼는가'를 나중에 검증하기 위한 원자료 =====
@@ -5408,6 +5490,7 @@ def lcu_core_backend_loop():
     game_seq = 0                         # 🔢 게임 진입 카운터 (커스텀게임 gameId=0일 때 판별 — 같은멤버 연속게임 중복기록 방지)
     was_in_prog = False                  #    이전 루프가 InProgress였나 (전환 감지용)
     last_known_phase = "None"            # [V81.48] gameflow-phase 폴링 실패 시 직전 phase 유지(헛플립→game_seq 드리프트 방지)
+    _load_built = [False]                # 🖥️ 로딩 오버레이 — GameStart 당 1회만 수집
     _roster_wait_since = {}              # [V81.48] 게임ID별 '완전 로스터 대기 시작 시각'(파편 append 방지 게이트용)
     _cs_since = [0.0]                    # 🧭 [2026-07-29] 밴픽 진입 시각 — 진입 직후 몇 초는 로비를 더 읽어 포지션 정정
     active_recording_id = None
@@ -5610,6 +5693,17 @@ def lcu_core_backend_loop():
                 _cs_since[0] = 0.0
             _cs_fresh = _cs_since[0] > 0 and (time.time() - _cs_since[0]) < CS_REFRESH_SEC
             try: noban_tick(headers, base_url, current_phase)   # 🚫 노밴 선언 감지(로비 채팅, 2초 간격)
+            except Exception: pass
+            # 🖥️ [2026-08-07 사장님 지시] 로딩 화면 정보 오버레이 — 로딩 진입 1회 수집, 게임 시작하면 내림
+            try:
+                if current_phase == "GameStart":
+                    if not _load_built[0]:
+                        _load_built[0] = True
+                        threading.Thread(target=_build_loading_info, args=(headers, base_url), daemon=True).start()
+                else:
+                    _load_built[0] = False
+                    if current_phase == "InProgress":
+                        with gui_lock: gui_data["load_info"] = None
             except Exception: pass
 
             # 🔢 게임에 새로 '진입'할 때마다 카운터 증가 (새 게임 = 새 ID 보장)
@@ -8257,6 +8351,9 @@ def create_graphic_ui():
             
             # 🧠 [v81.74] 고스트밴픽왕 오버레이 — 추천이 생기면 항상-위 작은 창으로 띄움(롤 클라 위에 보이게)
             try: _draft_overlay_sync(root)
+            except Exception: pass
+            # 🖥️ [2026-08-07] 로딩 화면 정보 오버레이
+            try: _loading_overlay_sync(root)
             except Exception: pass
 
         except Exception: pass
