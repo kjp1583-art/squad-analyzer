@@ -100,7 +100,11 @@
   .ranktbl .wrbar,.champtbl .wrbar{flex:none;width:30px}
   /* [2026-07-28 사장님 지시] ①챔피언명 세로 줄바꿈 방지(마오카이 사례) ②노밴 열 잘림 방지(가로 스크롤 허용) */
   .champtbl .champcell{min-width:0;white-space:nowrap}
-  .ranktbl td:first-child{white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+  /* [2026-08-06 사장님 제보] 닉네임 장식(👑+굵은 글꼴)이 150px를 넘겨 아이디가 잘렸다 — 200px로 완화 */
+  .ranktbl td:first-child{white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+  .showall{margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);
+    color:var(--sub);font-size:12.5px;text-align:center;cursor:pointer}
+  .showall:hover{color:var(--txt);border-color:rgba(255,255,255,.2)}
   .champtbl .champcell span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:96px}
   .champtbl th:last-child,.champtbl td:last-child{padding-right:8px}
   .home3 .card{overflow-x:auto;overflow-y:hidden}
@@ -3642,8 +3646,11 @@ function renderHome(){
   const pval=x=>pk==="name"?shortName(x.name):x[pk];
   const _nz=v=>(v==null||v==="")?-Infinity:v;   // 값 없는 칸(⭐·CS·시야 미기록)은 항상 뒤로
   players.sort((a,b)=>{const av=_nz(pval(a)),bv=_nz(pval(b));return ((av>bv?1:av<bv?-1:0)*PSORT.dir)||(b.games-a.games);});
+  // 📌 상단고정권 — 어떤 정렬이든 구매자를 맨 위로(고정권끼리는 정렬 순서 유지)
+  const _pinned=players.filter(p=>isPinned(p.name)), _rest=players.filter(p=>!isPinned(p.name));
+  const playersOrdered=[..._pinned,..._rest];
 
-  const champRows=champs.map(c=>{
+  const champRows=((HOME_ALL.c||champs.length<=15)?champs:champs.slice(0,15)).map(c=>{
     const t=c.wins+c.losses,wr=pct(c.wins,t);
     const pr=totalGames?Math.round((c.picks+c.bans)/totalGames*100):0;
     return `<tr>
@@ -3654,8 +3661,11 @@ function renderHome(){
       <td class="num" title="노밴 선언 ${NOBAN_CNT.get(c.champ)||0}회 / ${totalGames}게임 — 로비에서 '밴 금지 약속'된 비율">${(NOBAN_CNT.get(c.champ)||0)?Math.round((NOBAN_CNT.get(c.champ)||0)/Math.max(1,totalGames)*100)+'%':'<span class="muted">-</span>'}</td>
     </tr>`;}).join("");
 
-  const playerRows=players.map(p=>`<tr>
-      <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${nameFx(p.name)}</span>${tierBadge(p.name)}</td>
+  // [2026-08-06 사장님 지시] 표는 상위 15줄 + '전체 보기' — 홈 스크롤·렌더 경량화(고정권자는 잘려도 항상 보임)
+  const pAll=HOME_ALL.p||playersOrdered.length<=15;
+  const pShow=pAll?playersOrdered:playersOrdered.slice(0,15);
+  const playerRows=pShow.map(p=>`<tr${isPinned(p.name)?' style="background:rgba(245,212,122,.06)"':''}>
+      <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${isPinned(p.name)?'📌 ':''}${nameFx(p.name)}</span>${tierBadge(p.name)}</td>
       <td class="num">${p.games}</td>
       <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%</td>
       <td class="num"${p.mental!=null?` title="${escAttr('멘탈 지수 '+p.mental+' — '+mentalLabel(p.mental)+' · 연패 중에도 팀과 같이 싸우는 정도(50점=클랜 평균)')}"`:''}>${
@@ -3674,12 +3684,14 @@ function renderHome(){
         <table class="ranktbl"><thead><tr>
           ${pth("소환사","name")}${pth("게임수","games")}${pth("승률","wr")}${pth("멘탈","mental")}${pth("MVP","mvp")}${pth("역적","bad")}
         </tr></thead><tbody>${playerRows}</tbody></table>
+        ${pAll?'':`<div class="showall" onclick="homeShowAll('p')">▼ 전체 보기 (${playersOrdered.length}명)</div>`}
       </div>
       <div class="card">
         <h2>📊 챔피언 통계 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
         <table class="champtbl"><thead><tr>
           ${th("챔피언","champ")}${th("픽","picks")}${th("승률","wr")}${th("밴픽률","pr")}${th("노밴률","nb")}
         </tr></thead><tbody>${champRows}</tbody></table>
+        ${(HOME_ALL.c||champs.length<=15)?'':`<div class="showall" onclick="homeShowAll('c')">▼ 전체 보기 (${champs.length}개)</div>`}
       </div>
       <div class="card">
         <h2>🕒 최근 게임</h2>
@@ -3862,6 +3874,27 @@ function nameFx(name){
   const fx=NAME_FX[k], disp=esc(shortName(name));
   return fx?`${fx.pre?fx.pre+' ':''}<span class="${fx.cls}">${disp}</span>`:disp;
 }
+/* 📌 [2026-08-06 사장님 지시] 상단고정권 — 봇 상점에서 기간제 구매(PERKS 탭 미러).
+   어떤 정렬로 보더라도 구매자가 플레이어 목록 최상단에 뜬다. 만료는 클라이언트에서도 검사. */
+let WEB_PINS=[];   // [{name, until(epoch초)}]
+async function loadPerks(){
+  try{
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=PERKS&headers=1&tqx=out:json&cb=${Date.now()}`;
+    const txt=await(await fetch(url,{cache:'no-store'})).text();
+    const m=txt.match(/setResponse\(([\s\S]*)\)\s*;?\s*$/); if(!m) return;
+    const tb=JSON.parse(m[1]).table||{};
+    if(String(((tb.cols||[])[0]||{}).label||'')!=='json') return;   // 탭 없으면 첫탭 폴백 — 무시
+    const cell=(((tb.rows||[])[0])||{c:[]}).c[0];
+    WEB_PINS=(JSON.parse((cell&&cell.v)||"{}").pins)||[];
+  }catch(e){}
+}
+function isPinned(name){
+  const k=String(name||'').split('#')[0].toLowerCase().replace(/\s+/g,'');
+  return WEB_PINS.some(p=>String(p.name||'').toLowerCase().replace(/\s+/g,'')===k && (+p.until||0)*1000>Date.now());
+}
+// [2026-08-06 사장님 지시] 홈 표 경량화 — 상위 15줄만, '전체 보기'로 그 자리에서 펼침(세션 동안 유지)
+const HOME_ALL={p:false,c:false};
+function homeShowAll(k){HOME_ALL[k]=true;renderHome();}
 function escAttr(s){return esc(s).replace(/'/g,"&#39;");}
 
 /* ============== 화면: 내전 기록부 / 내전 횟수 ============== */
@@ -5938,7 +5971,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608061710";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608061800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -5969,7 +6002,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred()]);   // 병렬 로드
+  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks()]);   // 병렬 로드
     LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
     MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
