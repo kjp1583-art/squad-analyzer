@@ -3562,19 +3562,19 @@ function scrimDashHtml(){
   if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,12000); setTimeout(_scrimPoll,50); }
   return `<div class="scrim-hero"><div class="scrim-in">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <h2 class="scrim-title">🎪 내전 자동매칭</h2>
+      <h2 class="scrim-title">내전 자동매칭</h2>
       <span style="font-size:12.5px;color:var(--sub)">10명이 차면 자동 5:5 · 토너먼트 코드 발급 · 게임 끝나면 자동 재대기</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
       <div style="flex:2;min-width:180px"><div style="font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:3px">롤아이디#태그 <span style="font-weight:400;opacity:.85">(신규·미연동자도 태그까지 적으면 OK)</span></div>
         <input id="scrim-nm" value="${nm}" placeholder="예: 맛동산장인 유미#Teana" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--txt)"></div>
-      <button onclick="scrimJoin()" class="scrim-join">🙋 참가 신청</button>
+      <button onclick="scrimJoin()" class="scrim-join">참가 신청</button>
       <button onclick="scrimAct('/scrim-leave',{})" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">취소</button>
-      <button id="scrim-last" onclick="scrimLast()" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">🌙 막판</button>
+      <button id="scrim-last" onclick="scrimLast()" class="ghost" style="padding:10px 12px;border-radius:8px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);cursor:pointer">막판</button>
     </div>
     <div id="scrim-msg" style="font-size:12.5px;min-height:16px;margin-top:6px;color:#8fd0a0">${
-      (typeof dcValid==='function'&&dcValid())?`<span style="color:var(--sub)">🔐 ${esc((window.DISCORD_USER||{}).name||'디스코드')} 계정으로 본인 확인됨</span>`
-      :`<span style="color:#ffcf7a">🔐 신청하려면 디스코드 로그인이 필요해요 (대리출석 방지) — 버튼 누르면 로그인으로 이동</span>`}</div>
+      (typeof dcValid==='function'&&dcValid())?`<span style="color:var(--sub)">${esc((window.DISCORD_USER||{}).name||'디스코드')} 계정으로 본인 확인됨</span>`
+      :`<span style="color:#ffcf7a">신청하려면 디스코드 로그인이 필요해요 (대리출석 방지) — 버튼 누르면 로그인으로 이동</span>`}</div>
     <div id="scrimdash" class="muted" style="font-size:13px;margin-top:4px">대기열 불러오는 중…</div>
     <div style="font-size:11.5px;margin-top:6px;color:var(--sub);opacity:.9">주·부포지션은 디스코드 역할에서 자동 반영(권장 배치) — 실제 라인은 팀끼리 조율 · 매칭 후엔 자동 재대기, 쉬려면 막판</div>
   </div></div>`;
@@ -5727,13 +5727,13 @@ function renderAds(){
 function renderCatbar(){
   const bar=$("#catbar"); if(!bar)return;
   bar.innerHTML=CATEGORIES.map(c=>
-    `<button class="cat ${c.key===CURRENT_CAT?'on':''}" onclick="switchCat('${c.key}')">${c.icon||''} ${esc(c.label)}</button>`
+    `<button class="cat ${c.key===CURRENT_CAT?'on':''}" onclick="switchCat('${c.key}')">${esc(c.label)}</button>`
   ).join("")
   +`<span class="cat-sep"></span>`
-  +`<button class="cat hof" onclick="go('hof','rift')">🏆 명예의 전당</button>`
-  +`<button class="cat hof" onclick="go('hof','aram')">❄️ 증내의 전당</button>`
-  +`<button class="cat hof" onclick="go('gpti')">🧬 성향유형</button>`
-  +`<button class="cat hof" id="btnReload" onclick="reloadData()" title="시트를 다시 읽어 새 전적을 반영합니다 (페이지 새로고침 없이)">🔄 새로고침</button>`;
+  +`<button class="cat hof" onclick="go('hof','rift')">명예의 전당</button>`
+  +`<button class="cat hof" onclick="go('hof','aram')">증내의 전당</button>`
+  +`<button class="cat hof" onclick="go('gpti')">성향유형</button>`
+  +`<button class="cat hof" id="btnReload" onclick="reloadData()" title="시트를 다시 읽어 새 전적을 반영합니다 (페이지 새로고침 없이)">새로고침</button>`;
 }
 // 🔄 [2026-08-02] 시트 재조회 — 새 내전 기록이 올라왔을 때 F5 없이 즉시 반영.
 //   시트 응답은 구글이 no-store로 주므로 브라우저 캐시는 애초에 없다(2026-08-02 실측). 여기서 비우는 건
@@ -5743,7 +5743,7 @@ async function reloadData(){
   if(b){ b.textContent="🔄 불러오는 중…"; b.disabled=true; }
   for(const k of Object.keys(CAT_CACHE)) delete CAT_CACHE[k];
   try{ await loadCategory(CURRENT_CAT); }
-  finally{ const nb=document.getElementById("btnReload"); if(nb){ nb.textContent=old||"🔄 새로고침"; nb.disabled=false; } }
+  finally{ const nb=document.getElementById("btnReload"); if(nb){ nb.textContent=old||"새로고침"; nb.disabled=false; } }
 }
 function switchCat(key){
   if(key===CURRENT_CAT && GAMES.size){go('home');return;}
@@ -5780,15 +5780,15 @@ function renderPatchbar(){
   let html=`<span class="pb-label">패치</span>`;
   ALL_PATCHES.forEach((pv,i)=>{
     const on = PATCH_SEL!=="ALL" && !selYear(PATCH_SEL) && PATCH_SEL===pv;
-    html += `<button class="pchip ${on?"on":""}" onclick="switchPatch('${escAttr(pv)}')">${i===0?"🆕 ":""}${esc(pv)}</button>`;
+    html += `<button class="pchip ${on?"on":""}" onclick="switchPatch('${escAttr(pv)}')">${esc(pv)}</button>`;
   });
-  html += `<button class="pchip ${PATCH_SEL==="ALL"?"on":""}" onclick="switchPatch('ALL')">📊 전체</button>`;
+  html += `<button class="pchip ${PATCH_SEL==="ALL"?"on":""}" onclick="switchPatch('ALL')">전체</button>`;
   // 년도별 필터 (버전과 별개 차원 — 하나만 활성)
   if(ALL_YEARS.length){
     html += `<span class="pb-sep"></span><span class="pb-label">년도</span>`;
     ALL_YEARS.forEach(y=>{
       const on = selYear(PATCH_SEL)===y;
-      html += `<button class="pchip ${on?"on":""}" onclick="switchPatch('Y${escAttr(y)}')">📅 ${esc(y)}</button>`;
+      html += `<button class="pchip ${on?"on":""}" onclick="switchPatch('Y${escAttr(y)}')">${esc(y)}</button>`;
     });
   }
   bar.innerHTML=html;
@@ -6226,7 +6226,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070630";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
