@@ -5039,6 +5039,72 @@ async function renderMarket(){
   window.scrollTo(0,0);
 }
 
+/* 💘 봇듀오 궁합 (2026-08-07 사장님 지시) — 같은 팀 원딜+서폿 조합의 시너지를 수치화해 랭킹.
+   시너지 = 듀오 승률 − 기대 승률(두 사람 개인 승률 평균). 함께 3판 이상만 랭킹, 미만은 표본부족 목록. */
+function renderDuo(){
+  const per=new Map();   // 개인 통산 {g,w} — 기대 승률용
+  const duo=new Map();   // "원딜|서폿" -> {adc,sup,g,w,k,d,a,last}
+  for(const g of GAMES.values()){
+    const side={};   // 진영 -> {원딜:row, 서폿:row}
+    for(const r of g.rows){
+      const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+      const nm=r["소환사명"]; if(!nm) continue;
+      if(!per.has(nm)) per.set(nm,{g:0,w:0});
+      const v=per.get(nm); v.g++; if(res==="승리")v.w++;
+      const pos=r["포지션"], sd=r["진영"];
+      if(pos==="원딜"||pos==="서폿"){ (side[sd]=side[sd]||{})[pos]=r; }
+    }
+    for(const sd in side){
+      const A=side[sd]["원딜"], S=side[sd]["서폿"];
+      if(!A||!S) continue;
+      const key=A["소환사명"]+"|"+S["소환사명"];
+      if(!duo.has(key)) duo.set(key,{adc:A["소환사명"],sup:S["소환사명"],g:0,w:0,k:0,d:0,a:0,last:""});
+      const e=duo.get(key);
+      e.g++; if(A["결과"]==="승리")e.w++;
+      for(const r2 of [A,S]){ const o=parseKDA(r2["KDA"]||""); if(o){e.k+=o.k;e.d+=o.d;e.a+=o.a;} }
+      const dt=String(g.date||"").slice(0,10); if(dt>e.last)e.last=dt;
+    }
+  }
+  const rows=[...duo.values()].map(e=>{
+    const wr=e.g?e.w/e.g*100:0;
+    const pa=per.get(e.adc)||{g:0,w:0}, ps=per.get(e.sup)||{g:0,w:0};
+    const exp=((pa.g?pa.w/pa.g:0.5)+(ps.g?ps.w/ps.g:0.5))/2*100;
+    const kda=e.d>0?(e.k+e.a)/e.d:(e.k+e.a);
+    return Object.assign(e,{wr,exp,syn:wr-exp,kda});
+  });
+  const MIN=3;
+  const ranked=rows.filter(e=>e.g>=MIN).sort((a,b)=>(b.syn-a.syn)||(b.g-a.g));
+  const small=rows.filter(e=>e.g<MIN).sort((a,b)=>b.g-a.g);
+  const nmBtn=n=>`<span class="clickname" onclick="openPlayerCard(${JSON.stringify(n).replace(/"/g,'&quot;')})">${esc(shortName(n))}</span>`;
+  const medal=i=>i===0?'💘':i===1?'💞':i===2?'💕':`${i+1}`;
+  const tr=(e,i)=>`<tr${i===0?' style="background:rgba(224,164,55,.06)"':''}>
+      <td class="num" style="font-weight:800">${medal(i)}</td>
+      <td>${nmBtn(e.adc)} <span class="muted" style="font-size:11px">원딜</span></td>
+      <td>${nmBtn(e.sup)} <span class="muted" style="font-size:11px">서폿</span></td>
+      <td class="num">${e.g}</td>
+      <td class="num" style="color:${e.wr>=50?'var(--win)':'var(--lose)'}">${Math.round(e.wr)}%</td>
+      <td class="num" style="color:var(--sub)">${Math.round(e.exp)}%</td>
+      <td class="num" style="font-weight:800;color:${e.syn>=0?'#5ad48a':'#ff8a9a'}">${e.syn>=0?'+':''}${e.syn.toFixed(1)}%p</td>
+      <td class="num" style="color:${kdaColor(e.kda)}">${e.kda.toFixed(2)}</td>
+    </tr>`;
+  const smallRows=small.map(e=>`<span style="font-size:12.5px;color:var(--sub);white-space:nowrap">${esc(shortName(e.adc))}+${esc(shortName(e.sup))} ${e.g}판</span>`).join(' · ');
+  view().innerHTML=`${navTabsHtml('duo')}
+    <div class="card" style="margin-bottom:14px">
+      <h2>💘 봇듀오 궁합 <span class="muted" style="font-size:13px;font-weight:400">같은 팀 원딜+서폿 — 함께일 때 얼마나 강해지는가</span></h2>
+      <div class="muted" style="font-size:12.5px">시너지 = 듀오 승률 − 기대 승률(두 사람 개인 승률의 평균) · +면 함께일 때 더 강한 환상의 듀오, −면 따로가 나은 듀오 · 함께 ${MIN}판 이상만 랭킹</div>
+    </div>
+    <div class="card">
+      ${ranked.length?`<div class="tblwrap"><table>
+        <thead><tr><th class="num">순위</th><th>원딜</th><th>서포터</th><th class="num">함께</th><th class="num">듀오 승률</th><th class="num">기대</th><th class="num">시너지</th><th class="num">듀오 KDA</th></tr></thead>
+        <tbody>${ranked.map(tr).join("")}</tbody></table></div>`
+      :`<div class="muted">함께 ${MIN}판 이상 뛴 봇듀오가 아직 없어요</div>`}
+      ${small.length?`<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:9px">
+        <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:4px">표본 부족 (함께 ${MIN}판 미만)</div>
+        <div style="line-height:1.9">${smallRows}</div></div>`:''}
+    </div>`;
+  window.scrollTo(0,0);
+}
+
 // 🏆 챔피언 전적 상세 — 홈 챔피언 통계에서 챔피언 클릭 시 해당 챔피언이 사용된 게임만 나열
 function renderChampLog(champ){
   const entries=[];   // {g, r} — 이 챔피언이 픽된 게임의 해당 행
