@@ -1312,7 +1312,9 @@ function computeAssessments(){
     KISATSU=(()=>{
       const tk=new Set([...west.slice(0,6),...east.slice(0,6)].map(p=>tnorm(p.name)));
       const vs=new Map();
-      for(const g of GAMES.values()){
+      // ⚠️ 십이귀월 명단과 같은 '통산 전체' 기준 — 패치 필터가 낀 GAMES를 쓰면 명단이 널뛴다(2026-08-07 사장님 제보)
+      const _src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
+      for(const g of _src.values()){
         const sides={};
         for(const r of g.rows){
           const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
