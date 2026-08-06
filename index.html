@@ -243,6 +243,9 @@
   .tb-tag.a-ok{background:#16331f;color:#2bb177}
   .tb-tag.a-under{background:#16243f;color:#5b8cff}
   .tb-tag.a-na{background:var(--card2);color:var(--mut)}
+  /* [2026-08-07 사장님 제보] 내부티어표 칸의 긴급픽스요망이 흰색(스타일 미정의)이라 긴급해 보이지 않았다 */
+  .tb-tag.a-urgent{background:linear-gradient(135deg,rgba(232,64,87,.35),rgba(255,122,92,.25));border:1px solid #ff5a6e;
+    color:#ff8a9a;font-weight:900;animation:urgent-blink 1.4s ease-in-out infinite}
   /* 티어 그룹별 색 — 실제 티어표(초록·빨강·파랑·노랑)를 어두운 배경에 맞춰 옮겼다 */
   .tb-group.t0 .tb-ghead{background:linear-gradient(180deg,#1f4d33,#173c28);color:#7ee081}
   .tb-group.t1 .tb-ghead{background:linear-gradient(180deg,#5c1f27,#45161d);color:#ff8a95}
@@ -6205,7 +6208,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070430";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
