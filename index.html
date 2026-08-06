@@ -3673,7 +3673,7 @@ function kizukiBoard(){
     if(d.solo!=null) bits.push(["kz-solo",`솔랭 ${d.solo}`]);
     const sub=bits.map(([c,t],i)=>{ const txt=(i?" · ":"")+t;
       return c?`<span class="${c}">${esc(txt)}</span>`:esc(txt); }).join("")||"기록 없음";
-    return `<div class="kzrow ${rankUp?'up':'low'}" onclick="go('player','${escAttr(nm)}')" title="${escAttr(nm+' — '+title)}">
+    return `<div class="kzrow ${rankUp?'up':'low'}" onclick="openPlayerCard(${JSON.stringify(nm).replace(/"/g,'&quot;')})" title="${escAttr(nm+' — '+title)}">
       ${bg}${seal}
       <div class="kz-body"><div class="kz-name">${esc(shortName(nm))}</div>
         <div class="kz-sub">${sub}</div></div>
@@ -6204,7 +6204,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608070345";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608070400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
