@@ -2681,7 +2681,11 @@ def _live2999_rendering():
        200 + gameTime 존재까지 요구한다(검증 지적)."""
     try:
         r = requests.get("https://127.0.0.1:2999/liveclientdata/gamestats", verify=False, timeout=1.5)
-        return r.status_code == 200 and (r.json() or {}).get("gameTime") is not None
+        if r.status_code != 200: return False
+        t = (r.json() or {}).get("gameTime")
+        # [2026-08-08 사장님 제보: 오버레이 즉시 소멸] 로딩 중에도 API가 미리 뜨며 gameTime=0을
+        # 응답하는 경우가 있다 — 게임 시계는 로딩이 끝나야 흐르므로 1초 이상 경과했을 때만 '렌더 시작'
+        return t is not None and float(t) >= 1.0
     except Exception:
         return False
 
