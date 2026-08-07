@@ -1310,7 +1310,8 @@ function computeAssessments(){
     // ⚔ [2026-08-07 사장님 지시·정정] 귀살대 — 십이귀월(상현+하현 12인)이 낀 상대 팀을 만났을 때
     //   승률이 가장 높은 비(非)귀월 인원 상위 6 (10판 이상) = 귀월을 실제로 사냥하는 사람들
     KISATSU=(()=>{
-      const tk=new Set([...west.slice(0,6),...east.slice(0,6)].map(p=>tnorm(p.name)));
+      // [2026-08-07 사장님 지시·재정정] 기준 = '상현'(0·1티어 상위 6)이 낀 상대만 — 하현 상대는 제외
+      const tk=new Set(west.slice(0,6).map(p=>tnorm(p.name)));
       const vs=new Map();
       // ⚠️ 십이귀월 명단과 같은 '통산 전체' 기준 — 패치 필터가 낀 GAMES를 쓰면 명단이 널뛴다(2026-08-07 사장님 제보)
       const _src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
@@ -3759,7 +3760,7 @@ function kizukiBoard(){
         [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>
       ${(!lg&&KISATSU.length)?`<div class="kz-corps">
         <div class="kz-corps-hd">⚔ 귀살대 <span class="kanji" style="font-size:12px">鬼殺隊</span>
-          <span class="kz-corps-sub">십이귀월이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들 (10판 이상)</span></div>
+          <span class="kz-corps-sub">상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들 (10판 이상)</span></div>
         <div class="kz-corps-list">${KISATSU.map((e,i)=>`<span class="kz-corps-chip" title="귀월 상대 ${e.g}판 ${Math.round(e.wr)}%" onclick="event.stopPropagation();openPlayerCard(${JSON.stringify(e.name).replace(/"/g,'&quot;')})"><b>${i+1}</b> ${esc(shortName(e.name))} <span class="kz-corps-wr">${Math.round(e.wr)}%</span></span>`).join("")}</div>
       </div>`:''}
     </div>`;
@@ -6337,7 +6338,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608071000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608071100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
