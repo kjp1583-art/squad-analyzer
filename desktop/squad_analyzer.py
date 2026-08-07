@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.84"
+CURRENT_VERSION = "82.85"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -217,7 +217,8 @@ def invalidate_sheet_cache(title):
 
 def load_config():
     default_cfg = {"windows_startup": False, "lol_auto_show": True, "minimize_to_tray": False,
-                   "pos_view_default": True}   # [v82.37] 대기실 모스트 표시 기본값(True=현재포지션)
+                   "pos_view_default": True,   # [v82.37] 대기실 모스트 표시 기본값(True=현재포지션)
+                   "load_overlay": True}       # [v82.85] 로딩 화면 정보 오버레이 온오프
     # [v82.30] lol_auto_show 기본값을 설정 UI(True)와 일치시킴
     try:
         if os.path.exists(CONFIG_FILE):
@@ -2694,6 +2695,8 @@ def _build_loading_info(headers, base_url, gen=None):
        [2026-08-07 사장님 재지시] 팝업창이 아니라 로딩 화면 '카드 배치에 맞춘' 오버레이용
        구조화 데이터(아군/적군 5칸씩)로 수집한다. 아군이 항상 왼쪽(로딩 화면과 동일)."""
     try:
+        if not APP_CONFIG.get("load_overlay", True):
+            return   # [v82.85] 설정에서 꺼짐 — 수집 자체를 생략
         gd = {}
         for _try in range(6):   # 게임 클라 기동 스파이크 시점 — 3초 간격 재시도(검증에서 1회성 실패 지적)
             try:
@@ -2810,6 +2813,8 @@ def _loading_overlay_sync(root):
        한계: 게임 '전체 화면(전용)' 모드에선 OS 오버레이가 보이지 않는다 — 테두리 없는 창 모드 권장."""
     with gui_lock:
         info = gui_data.get("load_info")
+    if not APP_CONFIG.get("load_overlay", True):   # [v82.85] 설정에서 끄면 즉시 숨김
+        info = None
     w = _LOAD_OVL["win"]
     def _hide():
         if w is not None:
@@ -9267,6 +9272,7 @@ class ClanSettingsWindow(tk.Toplevel):
         self.var_lol_auto = tk.BooleanVar(value=APP_CONFIG.get("lol_auto_show", True))
         self.var_tray = tk.BooleanVar(value=APP_CONFIG.get("minimize_to_tray", False))
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
+        self.var_loadovl = tk.BooleanVar(value=APP_CONFIG.get("load_overlay", True))   # [v82.85] 로딩 오버레이
         
         # 체크박스를 먼저(오른쪽) 배치해 공간을 확보 → 긴 설명이 밀어내지 않음. 설명은 wraplength로 줄바꿈.
         opt_f1 = tk.Frame(body_frame, bg=theme.BG); opt_f1.pack(fill="x", pady=10)
@@ -9293,6 +9299,14 @@ class ClanSettingsWindow(tk.Toplevel):
         txt_pv = tk.Frame(opt_pv, bg=theme.BG); txt_pv.pack(side="left", fill="both", expand=True)
         tk.Label(txt_pv, text="대기실 모스트를 '현재 포지션' 기준으로 표시", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
         tk.Label(txt_pv, text="켜면 각자 선택한 포지션의 모스트·고승률픽만, 끄면 전체 라인 기준으로 보여줍니다. (상단 버튼으로 언제든 전환 가능)",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
+        # 🖥 [v82.85] 로딩 화면 정보 오버레이 온오프
+        opt_lo = tk.Frame(body_frame, bg=theme.BG); opt_lo.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_lo, variable=self.var_loadovl, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_lo = tk.Frame(opt_lo, bg=theme.BG); txt_lo.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_lo, text="로딩 화면 정보 오버레이", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
+        tk.Label(txt_lo, text="게임 로딩 중 각 챔피언 초상화 위에 내부티어·내전 전적 칩을 표시합니다. 끄면 즉시 반영됩니다.",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
@@ -9335,6 +9349,7 @@ class ClanSettingsWindow(tk.Toplevel):
         # 🎯 [v82.37] 모스트 표시 기본값 — 저장 즉시 화면·버튼에 반영(재시작 기다릴 필요 없게)
         _pv = bool(self.var_posview.get())
         APP_CONFIG["pos_view_default"] = _pv
+        APP_CONFIG["load_overlay"] = bool(self.var_loadovl.get())   # [v82.85] 로딩 오버레이 온오프
         try:
             with gui_lock: gui_data["pos_view_mode"] = _pv
             _posview_btn_sync(_pv)
