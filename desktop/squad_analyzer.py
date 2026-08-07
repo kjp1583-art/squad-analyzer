@@ -1702,6 +1702,7 @@ def _clan_index(force=False):
                 e = by_pu.setdefault(pu, {"name": nm, "champs": {}, "pos": {}, "g": 0, "w": 0})
                 if nm: e["name"] = nm
                 e["g"] += 1; e["w"] += (res == "승리")
+                e.setdefault("seq", []).append(res == "승리")   # 🖥️ [v82.85] 로딩 오버레이 연승·연패용(행 순서=시간순)
                 if ch:
                     cw = e["champs"].setdefault(ch, [0, 0]); cw[0] += 1; cw[1] += (res == "승리")
                     if ps and ps != "선택안함":   # [v82.40] 챔프별 '어느 라인에서 쌓은 기록인지' — 교차라인 숙련 과신 방지
@@ -2734,8 +2735,16 @@ def _build_loading_info(headers, base_url, gen=None):
                 cg, cw = ((e.get("champs") or {}).get(ch) or [0, 0])[:2]
                 tv = tier_of(e.get("name") or nm) or ""
                 sv = solo.get(pu, "")
+                seq = e.get("seq") or []
+                st = 0   # 최근 연승(+)/연패(−) — 마지막 결과와 같은 값이 이어진 길이
+                if seq:
+                    cur = seq[-1]; c = 0
+                    for x in reversed(seq):
+                        if x == cur: c += 1
+                        else: break
+                    st = c if cur else -c
                 out.append({"ch": ch, "nm": nm, "tv": tv, "g": g, "w": w, "cg": cg, "cw": cw,
-                            "solo": (sv if sv and sv != "UNRANKED" else "")})
+                            "st": st, "solo": (sv if sv and sv != "UNRANKED" else "")})
             return out
         one, two = _cells(gd.get("teamOne")), _cells(gd.get("teamTwo"))
         # 내가 속한 팀이 로딩 화면 왼쪽(아군) — LCU current-summoner의 puuid로 판별, 실패 시 teamOne
@@ -2749,6 +2758,8 @@ def _build_loading_info(headers, base_url, gen=None):
             except Exception: mypu = ""
         if mypu and any(str(p.get("puuid") or "").lower() == mypu for p in (gd.get("teamTwo") or [])):
             ally, enemy = two, one
+        try: _chip_prefetch_icons([d["ch"] for d in one + two])
+        except Exception: pass
         payload = {"ts": time.time(), "ally": ally, "enemy": enemy}
         if ally or enemy:
             with gui_lock:   # 세대 토큰 검증 — 지연된 수집이 '정리된/다음 게임' 상태를 덮어쓰지 않게(검증 지적)
@@ -2770,6 +2781,44 @@ def _build_loading_info(headers, base_url, gen=None):
             threading.Thread(target=_watch_render, daemon=True).start()
     except Exception as e:
         print(f"[loadovl] 로딩 정보 수집 실패(무시): {e}", flush=True)
+
+_CHIP_IMG_RAW = {}   # 챔프명 -> png bytes (백그라운드 프리페치 — GUI에서 네트워크 금지)
+_CHIP_IMG_TK = {}    # (챔프명,크기) -> PhotoImage (GUI 스레드에서만 생성)
+def _chip_prefetch_icons(champs):
+    """로딩 오버레이용 챔프 초상화 바이트를 미리 받아둔다(수집 스레드에서 호출)."""
+    for ch in champs:
+        if not ch or ch == "?" or ch in _CHIP_IMG_RAW: continue
+        try:
+            urls = []
+            _cid = _champ_id_of(ch)
+            if _cid:
+                urls.append("https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/"
+                            f"default/v1/champion-icons/{_cid}.png")
+            eng = get_champ_eng_name(ch)
+            if eng:
+                urls.append(f"https://ddragon.leagueoflegends.com/cdn/{DDRAGON_VERSION}/img/champion/{eng}.png")
+            for u in urls:
+                try:
+                    r = requests.get(u, timeout=3)
+                    if r.status_code == 200:
+                        _CHIP_IMG_RAW[ch] = r.content; break
+                except Exception: pass
+        except Exception: pass
+
+def _chip_icon(ch, size):
+    """프리페치된 바이트 → PhotoImage (GUI 스레드 전용 · 캐시). 없으면 None."""
+    if not PILLOW_INSTALLED: return None
+    key = (ch, size)
+    if key in _CHIP_IMG_TK: return _CHIP_IMG_TK[key]
+    raw = _CHIP_IMG_RAW.get(ch)
+    if not raw: return None
+    try:
+        im = Image.open(BytesIO(raw)).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
+        ph = ImageTk.PhotoImage(im)
+        _CHIP_IMG_TK[key] = ph
+        return ph
+    except Exception:
+        return None
 
 def _lol_game_rect():
     """롤 '게임' 창(클라이언트 아님)의 화면 좌표 클라이언트 영역. 없거나 최소화면 None."""
@@ -2868,18 +2917,30 @@ def _loading_overlay_sync(root):
     y0 = min(gh - chh - 4, gh * 0.5 + card_h / 2 - chh - 6)   # 카드 하단부 안쪽 — 초상화 위에 겹침
     f_ch = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")
     f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
+    imgs = _LOAD_OVL.setdefault("imgs", [])
+    imgs.clear()   # 이전 프레임 PhotoImage 참조 해제(새로 그리는 프레임 것만 유지)
     def chip(x, d, accent):
         x1, x2 = x + 3, x + cw - 3
         cv.create_rectangle(x1, y0, x2, y0 + chh, fill="#0b101c", outline=accent, width=1)
         cv.create_rectangle(x1, y0, x2, y0 + 2, fill=accent, outline="")
-        cx = (x1 + x2) / 2
+        tx1 = x1   # 텍스트 영역 왼쪽(초상화가 있으면 그만큼 밀림)
+        isz = int(chh - 14)
+        ph = _chip_icon(d.get("ch"), isz)
+        if ph is not None:
+            cv.create_image(x1 + 5, y0 + chh / 2, image=ph, anchor="w")
+            imgs.append(ph)   # GC 방지 — canvas는 참조를 유지하지 않는다
+            tx1 = x1 + isz + 8
+        cx = (tx1 + x2) / 2; tw = max(30, x2 - tx1 - 6)
         tv = f" · {d['tv']}" if d.get("tv") else ""
-        cv.create_text(cx, y0 + chh * 0.20, text=f"{d['ch']}{tv}", fill=accent, font=f_ch, width=cw - 10)
+        cv.create_text(cx, y0 + chh * 0.20, text=f"{d['ch']}{tv}", fill=accent, font=f_ch, width=tw)
         l2 = f"내전 {d['g']}판 {round(d['w'] / d['g'] * 100)}%" if d.get("g") else "내전 기록 없음"
-        cv.create_text(cx, y0 + chh * 0.50, text=l2, fill="#dfe3ee", font=f_ln, width=cw - 10)
+        st = int(d.get("st") or 0)   # 최근 연승·연패 — 2연 이상만 표기(1은 정보가 없다)
+        if abs(st) >= 2: l2 += f"  {'🔥' + str(st) + '연승' if st > 0 else '❄' + str(-st) + '연패'}"
+        cv.create_text(cx, y0 + chh * 0.50, text=l2,
+                       fill=("#7dd87d" if st >= 2 else ("#ff8a9a" if st <= -2 else "#dfe3ee")), font=f_ln, width=tw)
         l3 = f"이 챔프 {d['cg']}판 {round(d['cw'] / d['cg'] * 100)}%" if d.get("cg") else (d.get("solo") or "")
         if d.get("cg") and d.get("solo"): l3 += f" · {d['solo']}"
-        if l3: cv.create_text(cx, y0 + chh * 0.79, text=l3, fill="#9aa3b5", font=f_ln, width=cw - 10)
+        if l3: cv.create_text(cx, y0 + chh * 0.79, text=l3, fill="#9aa3b5", font=f_ln, width=tw)
     for i, d in enumerate((info.get("ally") or [])[:5]):
         chip(left + i * cw, d, "#c8aa6e")            # 아군 = 롤 골드
     for j, d in enumerate((info.get("enemy") or [])[:5]):
