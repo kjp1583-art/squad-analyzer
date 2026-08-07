@@ -7376,11 +7376,11 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
             # [2026-07-16 사장님 지시] 시인성 향상 — MVP/ACE/역적 아래 K/D/A·딜량 상세 한 줄(_stat_line) 제거.
             #   (KDA·딜량은 시트·웹 전적에 그대로 기록됨. 리포트는 '누가 MVP/ACE/역적인가'만 간결히.)
             report_lines = []
-            report_lines.append(f"🏆 **[MVP]** {mvp['name'].split('#')[0]}" + (f" ({_champ_kr(mvp)})" if _champ_kr(mvp) else "") + f" (이긴팀 · AI {mvp['score']:.1f}점)")
+            report_lines.append(f"🏆 [MVP] {mvp['name'].split('#')[0]}" + (f" ({_champ_kr(mvp)})" if _champ_kr(mvp) else "") + f" (AI점수 {mvp['score']:.1f}점)")
             if ace:
-                report_lines.append(f"🔥 **[ACE]** {ace['name'].split('#')[0]}" + (f" ({_champ_kr(ace)})" if _champ_kr(ace) else "") + f" (진팀 최고 · AI {ace['score']:.1f}점)")
+                report_lines.append(f"🔥 [ACE] {ace['name'].split('#')[0]}" + (f" ({_champ_kr(ace)})" if _champ_kr(ace) else "") + f" (AI점수 {ace['score']:.1f}점)")
             if troll:
-                report_lines.append(f"💀 **[역적]** {troll['name'].split('#')[0]}" + (f" ({_champ_kr(troll)})" if _champ_kr(troll) else "") + f" (AI {troll['score']:.1f}점)")
+                report_lines.append(f"💀 [역적] {troll['name'].split('#')[0]}" + (f" ({_champ_kr(troll)})" if _champ_kr(troll) else "") + f" (AI점수 {troll['score']:.1f}점)")
             else:
                 report_lines.append("✨ 이번 경기는 역적 없이 다들 제 몫을 했어요!")
 
