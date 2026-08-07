@@ -20,16 +20,16 @@ jobs:
           assert m, "RESULT_WEBHOOK_URL 없음"
           kst = datetime.datetime.utcnow() + datetime.timedelta(hours=9)
           NL = chr(10)
-          msg = ("🏁 **[스쿼드 내전 경기 종료]** 🏁  ⏰ " + kst.strftime("%H:%M") + " · V82.81" + NL
+          msg = ("```md" + NL
+                 + "🏁 **[스쿼드 내전 경기 종료]** 🏁  ⏰ " + kst.strftime("%H:%M") + " · V82.81" + NL
                  + "🟦 블루: 테스트A, 테스트B, 테스트C, 테스트D, 테스트E        (노밴 : 우르곳)" + NL
                  + "🟥 레드: 테스트F, 테스트G, 테스트H, 테스트I, 테스트J        (노밴 : X)" + NL
                  + "🏆 레드 승" + NL
-                 + "```md" + NL
                  + "🏆 **[MVP]** 테스트F (베이가) (이긴팀 · AI 32.2점)" + NL
                  + "🥈 **[ACE]** 테스트A (이즈리얼) (진팀 최고 · AI 20.8점)" + NL
                  + "✨ 이번 경기는 역적 없이 다들 제 몫을 했어요!" + NL
-                 + "```" + NL
                  + "🔚 막판 선언: 테스트B (1명)" + NL
+                 + "```" + NL
                  + "-# 🧪 새 포맷 미리보기(테스트 발송) — 실제 판이 아닙니다")
           req = urllib.request.Request(m.group(1), data=json.dumps({"content": msg}).encode(),
                                        headers={"Content-Type": "application/json", "User-Agent": "squad-ci"})

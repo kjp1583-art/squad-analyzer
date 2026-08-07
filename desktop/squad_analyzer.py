@@ -477,7 +477,7 @@ def broadcast_to_discord_webhook(content_text):
                 if _MAKPAN.get("decls"):
                     makpan = chr(10) + f"🔚 막판 선언: {', '.join(_MAKPAN['decls'])} ({len(_MAKPAN['decls'])}명)"
             except Exception: pass
-            block = "```md" + chr(10) + str(content_text) + chr(10) + "```" + makpan
+            block = "```md" + chr(10) + str(content_text) + chr(10) + "```" + makpan   # 봇용 풀포맷(기존 구조 유지)
             # ① [2026-08-07 사장님 지시 — 메시지 2개→1개] 같은 인스턴스가 보낸 최근 '경기 종료' 메시지가 있으면
             #    그 메시지를 '편집'해 리포트를 이어붙인다 → 사람 채널은 한 박스. (편집은 봇 on_message 미발화라
             #    봇 신호는 아래 ②로 별도 보전. 다른 인스턴스가 마감한 판은 id가 없어 기존처럼 새 메시지 = 안전 강하)
@@ -485,8 +485,9 @@ def broadcast_to_discord_webhook(content_text):
             try:
                 if _END_MSG.get("id") and time.time() - float(_END_MSG.get("at", 0)) < 1800:
                     _base = RESULT_WEBHOOK_URL.split("?")[0]
-                    pr = requests.patch(f"{_base}/messages/{_END_MSG['id']}",
-                                        json={"content": _END_MSG.get("content", "") + chr(10) + block}, timeout=8)
+                    _one = ("```md" + chr(10) + _END_MSG.get("content", "") + chr(10)
+                            + str(content_text) + makpan + chr(10) + "```")
+                    pr = requests.patch(f"{_base}/messages/{_END_MSG['id']}", json={"content": _one}, timeout=8)
                     merged = pr.status_code < 400
             except Exception: pass
             # ② 봇 신호(종료 2차 트리거·타이틀 자동부여·버전서명 파싱)는 풀포맷 그대로 —
@@ -563,15 +564,17 @@ def broadcast_game_end_webhook(roster_text):
         # [2026-08-07 사장님 지시] 버전은 헤더 시간 옆에 V표기만(하단 '자동 인증' 줄 제거 — 봇 _VER_SIG_RE가
         #   이 헤더 형식도 인식하도록 봇과 동시 패치). ?wait=true 로 메시지 id를 받아 두면
         #   매치 결과 리포트가 이 메시지를 '편집'으로 이어붙여 사람 채널이 한 박스가 된다.
-        msg = ("🏁 **[스쿼드 내전 경기 종료]** 🏁  ⏰ " + time.strftime("%H:%M")
-               + f" · V{CURRENT_VERSION}" + chr(10) + str(roster_text))
+        # [2026-08-07 사장님 지시] 메시지 전체를 ```md 코드박스 하나로 — 편집 병합 때도 같은 박스 안에 이어붙인다
+        _body = ("🏁 **[스쿼드 내전 경기 종료]** 🏁  ⏰ " + time.strftime("%H:%M")
+                 + f" · V{CURRENT_VERSION}" + chr(10) + str(roster_text))
+        msg = "```md" + chr(10) + _body + chr(10) + "```"
         _wu = _url + ("&wait=true" if "?" in _url else "?wait=true")
         for _wtry in range(3):
             try:
                 r = requests.post(_wu, json={"content": msg}, timeout=8)
                 if r.status_code < 400:
                     try:
-                        _END_MSG.update({"id": str((r.json() or {}).get("id") or ""), "at": time.time(), "content": msg})
+                        _END_MSG.update({"id": str((r.json() or {}).get("id") or ""), "at": time.time(), "content": _body})
                     except Exception: pass
                     return
             except Exception: pass
