@@ -1206,6 +1206,7 @@ def _position_sync_loop():
         time.sleep(3600)
 
 MY_RIOT_NAME = [""]   # 🩺 LCU 로그인 계정 롤닉#태그(폴링 루프가 채움)
+_MY_PUUID = [""]      # 🖥️ 내 puuid(폴링 루프가 채움) — 로딩 오버레이 아군/적군 판별
 def _version_heartbeat_loop():
     """🩺 [2026-07-13 사장님 지시] 실행 인스턴스별 [롤닉, 버전, 마지막 실행]을 VERSIONS 탭에 기록 —
        누가 구버전/미갱신인지 시트에서 바로 확인(구버전 접속자 색출). 시작 90초 후 1회 + 이후 60분 주기.
@@ -2673,7 +2674,16 @@ _LOAD_OVL = {"win": None, "cv": None, "key": ""}
 # 로딩 화면 카드 열 배치 비율(화면 폭·높이 대비) — 실기기에서 어긋나면 여기만 조정
 _LOADCARD_GEOM = {"cw": 0.0952, "gap": 0.026, "y": 0.752, "h": 0.078}
 
-def _build_loading_info(headers, base_url):
+def _live2999_rendering():
+    """게임이 '실제 렌더링 중'인지 엄격 판정 — 포트만 열린 과도기(에러 응답)를 렌더 시작으로 오판하지 않게
+       200 + gameTime 존재까지 요구한다(검증 지적)."""
+    try:
+        r = requests.get("https://127.0.0.1:2999/liveclientdata/gamestats", verify=False, timeout=1.5)
+        return r.status_code == 200 and (r.json() or {}).get("gameTime") is not None
+    except Exception:
+        return False
+
+def _build_loading_info(headers, base_url, gen=None):
     """백그라운드 스레드 — 로딩 로스터 수집 → gui_data['load_info'] (GUI는 update_gui가 그림).
        [2026-08-07 사장님 재지시] 팝업창이 아니라 로딩 화면 '카드 배치에 맞춘' 오버레이용
        구조화 데이터(아군/적군 5칸씩)로 수집한다. 아군이 항상 왼쪽(로딩 화면과 동일)."""
@@ -2689,11 +2699,9 @@ def _build_loading_info(headers, base_url):
             time.sleep(3)
         if not (gd.get("teamOne") or gd.get("teamTwo")):
             print("[loadovl] 로스터가 비어 수집 포기(재시도 6회)", flush=True); return
-        # 로딩이 이미 끝났으면(게임 렌더링 중 = 라이브 API 응답) 띄우지 않는다
-        try:
-            requests.get("https://127.0.0.1:2999/liveclientdata/gamestats", verify=False, timeout=1.5)
+        # 로딩이 이미 끝났으면(게임 렌더링 중) 띄우지 않는다 — 200+gameTime 엄격 판정
+        if _live2999_rendering():
             print("[loadovl] 게임이 이미 진행 중 — 오버레이 생략", flush=True); return
-        except Exception: pass
         try: cidx = _clan_index()
         except Exception: cidx = None
         solo = {}
@@ -2723,30 +2731,33 @@ def _build_loading_info(headers, base_url):
         one, two = _cells(gd.get("teamOne")), _cells(gd.get("teamTwo"))
         # 내가 속한 팀이 로딩 화면 왼쪽(아군) — LCU current-summoner의 puuid로 판별, 실패 시 teamOne
         ally, enemy = one, two
-        try:
-            me = requests.get(str(base_url) + "/lol-summoner/v1/current-summoner",
-                              headers=headers, verify=False, timeout=3).json() or {}
-            mypu = str(me.get("puuid") or "").lower()
-            if mypu and any(str(p.get("puuid") or "").lower() == mypu for p in (gd.get("teamTwo") or [])):
-                ally, enemy = two, one
-        except Exception: pass
+        mypu = _MY_PUUID[0]
+        if not mypu:   # 캐시 미충전 시에만 HTTP 폴백(지연 최소화 — 검증 지적)
+            try:
+                me = requests.get(str(base_url) + "/lol-summoner/v1/current-summoner",
+                                  headers=headers, verify=False, timeout=3).json() or {}
+                mypu = str(me.get("puuid") or "").lower()
+            except Exception: mypu = ""
+        if mypu and any(str(p.get("puuid") or "").lower() == mypu for p in (gd.get("teamTwo") or [])):
+            ally, enemy = two, one
         payload = {"ts": time.time(), "ally": ally, "enemy": enemy}
         if ally or enemy:
-            with gui_lock: gui_data["load_info"] = payload
+            with gui_lock:   # 세대 토큰 검증 — 지연된 수집이 '정리된/다음 게임' 상태를 덮어쓰지 않게(검증 지적)
+                if gen is not None and gui_data.get("load_gen") != gen:
+                    print("[loadovl] 세대 불일치 — 발행 취소(게임 이탈/새 게임)", flush=True); return
+                gui_data["load_info"] = payload
             print(f"[loadovl] 로딩 정보 준비 — 아군 {len(ally)} · 적군 {len(enemy)}", flush=True)
             def _watch_render():
-                """게임이 실제 렌더링을 시작하면(=로딩 종료, 2999 응답) 오버레이 자동 종료."""
+                """게임이 실제 렌더링을 시작하면(=로딩 종료) 오버레이 자동 종료 — 200+gameTime 엄격 판정."""
                 for _ in range(50):
                     time.sleep(3)
                     with gui_lock: cur = gui_data.get("load_info")
                     if not cur or cur.get("ts") != payload["ts"]: return
-                    try:
-                        requests.get("https://127.0.0.1:2999/liveclientdata/gamestats", verify=False, timeout=1.5)
+                    if _live2999_rendering():
                         with gui_lock:
                             if (gui_data.get("load_info") or {}).get("ts") == payload["ts"]:
                                 gui_data["load_info"] = None
                         print("[loadovl] 게임 렌더 시작 — 오버레이 자동 종료", flush=True); return
-                    except Exception: pass
             threading.Thread(target=_watch_render, daemon=True).start()
     except Exception as e:
         print(f"[loadovl] 로딩 정보 수집 실패(무시): {e}", flush=True)
@@ -2765,6 +2776,26 @@ def _lol_game_rect():
         return (hwnd, pt.x, pt.y, rc.right, rc.bottom)
     except Exception:
         return None
+
+def _apply_ghost_exstyle(w):
+    """오버레이를 '유령 창'으로 — 클릭통과·포커스미탈취·작업표시줄 숨김.
+       Tk 최상위 래퍼 HWND는 첫 map 때 생성·재생성되므로(검증 지적: map 전 적용은 소실),
+       map을 강제한 뒤 실제 래퍼에만 적용하고, 매 틱 비트 누락 시 재적용한다.
+       WS_EX_LAYERED는 Tk의 -transparentcolor가 스스로 관리 — 여기서 건드리지 않는다."""
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        w.update_idletasks()                      # map 강제 → 실제 래퍼 HWND 확보
+        hw = u.GetParent(w.winfo_id())
+        if not hw: return                         # 자식 HWND 폴백 금지(고아 LAYERED → 빈 창)
+        GWL_EXSTYLE = -20
+        WANT = 0x20 | 0x8000000 | 0x80            # TRANSPARENT | NOACTIVATE | TOOLWINDOW
+        st = u.GetWindowLongW(hw, GWL_EXSTYLE)
+        if (st & WANT) != WANT:
+            u.SetWindowLongW(hw, GWL_EXSTYLE, st | WANT)
+            u.SetWindowPos(hw, 0, 0, 0, 0, 0, 0x37)   # FRAMECHANGED|NOMOVE|NOSIZE|NOZORDER|NOACTIVATE
+        _LOAD_OVL["hw"] = hw
+    except Exception: pass
 
 def _loading_overlay_sync(root):
     """gui_data['load_info']를 게임 창 위 '투명·클릭통과' 오버레이로 — 로딩 화면의
@@ -2789,7 +2820,7 @@ def _loading_overlay_sync(root):
         import ctypes
         fg = ctypes.windll.user32.GetForegroundWindow()
         ov_hw = _LOAD_OVL.get("hw") or 0
-        if fg not in (hwnd, ov_hw):
+        if fg and fg not in (hwnd, ov_hw):   # fg==0(전환 과도기·UAC)은 판단 보류(깜빡임 방지 — 검증 지적)
             _hide(); return
     except Exception: pass
     KEYCOL = "#010203"   # 투명 키 컬러(칩 색과 절대 겹치지 않는 값)
@@ -2802,17 +2833,10 @@ def _loading_overlay_sync(root):
         w.attributes("-topmost", True)
         cv = tk.Canvas(w, bg=KEYCOL, highlightthickness=0, bd=0)
         cv.pack(fill="both", expand=True)
-        _LOAD_OVL["win"] = w; _LOAD_OVL["cv"] = cv; _LOAD_OVL["key"] = ""
-        try:   # 클릭 통과 + 포커스 미탈취 — 게임 조작을 일절 방해하지 않는 유령 창
-            import ctypes
-            hw = ctypes.windll.user32.GetParent(w.winfo_id()) or w.winfo_id()
-            GWL_EXSTYLE = -20
-            st = ctypes.windll.user32.GetWindowLongW(hw, GWL_EXSTYLE)
-            ctypes.windll.user32.SetWindowLongW(hw, GWL_EXSTYLE,
-                st | 0x80000 | 0x20 | 0x8000000 | 0x80)   # LAYERED|TRANSPARENT|NOACTIVATE|TOOLWINDOW
-            _LOAD_OVL["hw"] = hw
-        except Exception: pass
+        _LOAD_OVL["win"] = w; _LOAD_OVL["cv"] = cv; _LOAD_OVL["key"] = ""; _LOAD_OVL["hw"] = 0   # 스테일 hw 제거
+        _apply_ghost_exstyle(w)
     cv = _LOAD_OVL["cv"]
+    _apply_ghost_exstyle(w)   # 래퍼 재생성 대비 — 비트 누락 시에만 재적용(무변경이면 no-op)
     key = f"{info.get('ts')}|{gx},{gy},{gw},{gh}"
     if _LOAD_OVL["key"] == key:
         try: w.deiconify(); w.attributes("-topmost", True)
@@ -2823,8 +2847,11 @@ def _loading_overlay_sync(root):
     except Exception: pass
     cv.delete("all")
     G = _LOADCARD_GEOM
-    cw = gw * G["cw"]; gap = gw * G["gap"]
-    left = (gw - (10 * cw + gap)) / 2.0
+    base = min(gw, gh * 16.0 / 9.0)   # 로딩 카드 UI는 16:9 기준 균일 스케일·중앙 정렬(울트라와이드 대응 — 검증 지적)
+    cw = base * G["cw"]; gap = base * G["gap"]
+    nA = len((info.get("ally") or [])[:5]); nE = len((info.get("enemy") or [])[:5])
+    row_w = (nA + nE) * cw + (gap if (nA and nE) else 0)   # 5인 미만 판(칼바람 리메이크 등)도 실제 인원으로 중앙 정렬
+    left = (gw - row_w) / 2.0
     y0 = gh * G["y"]; chh = max(48, gh * G["h"])
     f_ch = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")
     f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
@@ -2843,7 +2870,7 @@ def _loading_overlay_sync(root):
     for i, d in enumerate((info.get("ally") or [])[:5]):
         chip(left + i * cw, d, "#c8aa6e")            # 아군 = 롤 골드
     for j, d in enumerate((info.get("enemy") or [])[:5]):
-        chip(left + 5 * cw + gap + j * cw, d, "#e84057")   # 적군 = 레드
+        chip(left + nA * cw + gap + j * cw, d, "#e84057")   # 적군 = 레드
     try: w.deiconify(); w.attributes("-topmost", True)
     except Exception: pass
 
@@ -5776,6 +5803,7 @@ def lcu_core_backend_loop():
                         c_name = str(c_data.get('gameName', '')) + "#" + str(c_data.get('tagLine', ''))
                         global_my_puuid = c_data.get('puuid', '').strip().lower()
                         if c_data.get('gameName'): MY_RIOT_NAME[0] = c_name   # 🩺 버전 하트비트용 내 계정 식별자
+                        if c_data.get('puuid'): _MY_PUUID[0] = str(c_data['puuid']).lower()   # 🖥️ 로딩 오버레이 아군판별용
                         # 🏅 [v81.31 보류] 직전시즌 솔랭 앵커 반영 기능 잠정 중단.
                         # 사유: 애초 요청은 "직전시즌 최고점(맥시멈)"이었으나 LCU current-ranked-stats의
                         # previousSeasonEndTier는 "시즌 종료 시점" 값이라 개념이 달랐고(실측: 다이아3=2500점,
@@ -5909,9 +5937,13 @@ def lcu_core_backend_loop():
                 _pp = _load_prev[0]; _load_prev[0] = current_phase
                 _INGAME3 = ("GameStart", "InProgress", "Reconnect")   # Reconnect 도 게임 안(검증 지적)
                 if current_phase in _INGAME3 and _pp == "ChampSelect":
-                    threading.Thread(target=_build_loading_info, args=(headers, base_url), daemon=True).start()
+                    with gui_lock:   # 세대 토큰 — 지연 수집이 다음 게임/정리 상태를 덮어쓰지 못하게(검증 지적)
+                        gui_data["load_gen"] = gui_data.get("load_gen", 0) + 1; _lg = gui_data["load_gen"]
+                    threading.Thread(target=_build_loading_info, args=(headers, base_url, _lg), daemon=True).start()
                 elif current_phase not in _INGAME3 and _pp in _INGAME3:
-                    with gui_lock: gui_data["load_info"] = None   # 게임 밖으로 나가면 정리
+                    with gui_lock:   # 게임 밖으로 나가면 정리 + 세대 무효화(진행 중이던 수집 발행 차단)
+                        gui_data["load_info"] = None
+                        gui_data["load_gen"] = gui_data.get("load_gen", 0) + 1
             except Exception: pass
 
             # 🔢 게임에 새로 '진입'할 때마다 카운터 증가 (새 게임 = 새 ID 보장)
