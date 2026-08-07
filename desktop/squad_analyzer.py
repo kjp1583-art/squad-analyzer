@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.82"
+CURRENT_VERSION = "82.83"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2669,10 +2669,14 @@ def _draft_overlay_sync(root):
 # ===== 🖥️ 로딩 화면 정보 오버레이 (2026-08-07 사장님 지시 — op.gg 데스크탑 스타일) =====
 #   로딩 화면(phase=GameStart)에 들어가면 양 팀 10명의 챔피언·내부티어·내전 전적·이 챔프 전적·솔랭을
 #   항상-위 창으로 띄운다. 게임 시작(InProgress)하면 자동으로 내려간다.
-_LOAD_OVL = {"win": None, "key": ""}
+_LOAD_OVL = {"win": None, "cv": None, "key": ""}
+# 로딩 화면 카드 열 배치 비율(화면 폭·높이 대비) — 실기기에서 어긋나면 여기만 조정
+_LOADCARD_GEOM = {"cw": 0.0952, "gap": 0.026, "y": 0.752, "h": 0.078}
 
 def _build_loading_info(headers, base_url):
-    """백그라운드 스레드 — 로딩 로스터 수집 → gui_data['load_info'] (GUI는 update_gui가 그림)."""
+    """백그라운드 스레드 — 로딩 로스터 수집 → gui_data['load_info'] (GUI는 update_gui가 그림).
+       [2026-08-07 사장님 재지시] 팝업창이 아니라 로딩 화면 '카드 배치에 맞춘' 오버레이용
+       구조화 데이터(아군/적군 5칸씩)로 수집한다. 아군이 항상 왼쪽(로딩 화면과 동일)."""
     try:
         gd = {}
         for _try in range(6):   # 게임 클라 기동 스파이크 시점 — 3초 간격 재시도(검증에서 1회성 실패 지적)
@@ -2685,7 +2689,7 @@ def _build_loading_info(headers, base_url):
             time.sleep(3)
         if not (gd.get("teamOne") or gd.get("teamTwo")):
             print("[loadovl] 로스터가 비어 수집 포기(재시도 6회)", flush=True); return
-        # 로딩이 이미 끝났으면(게임 렌더링 중 = 라이브 API 응답) 띄우지 않는다 — 전체화면 방해 방지
+        # 로딩이 이미 끝났으면(게임 렌더링 중 = 라이브 API 응답) 띄우지 않는다
         try:
             requests.get("https://127.0.0.1:2999/liveclientdata/gamestats", verify=False, timeout=1.5)
             print("[loadovl] 게임이 이미 진행 중 — 오버레이 생략", flush=True); return
@@ -2702,68 +2706,145 @@ def _build_loading_info(headers, base_url):
                 e = global_champ_map.get(int(cid or 0)) or {}
                 return e.get("kor") or GLOBAL_NUMERIC_CHAMP_MAP.get(int(cid or 0), "?")
             except Exception: return "?"
-        def _rows(team):
+        def _cells(team):
             out = []
-            for p in (team or []):
+            for p in (team or [])[:5]:
                 pu = str(p.get("puuid") or "").lower()
                 nm = str(p.get("summonerName") or p.get("gameName") or "").split("#")[0].strip() or "?"
                 ch = _kor(p.get("championId"))
                 e = ((cidx or {}).get("by_pu") or {}).get(pu) or {}
                 g, w = e.get("g", 0), e.get("w", 0)
                 cg, cw = ((e.get("champs") or {}).get(ch) or [0, 0])[:2]
-                tv = tier_of(e.get("name") or nm)
-                bits = [f"{ch} — {nm}" + (f" [{tv}]" if tv not in (None, "") else "")]
-                bits.append(f"내전 {g}판 {round(w / g * 100)}%" if g else "내전 기록 없음")
-                if cg: bits.append(f"이 챔프 {cg}판 {round(cw / cg * 100)}%")
+                tv = tier_of(e.get("name") or nm) or ""
                 sv = solo.get(pu, "")
-                if sv and sv != "UNRANKED": bits.append(sv)
-                out.append("  ·  ".join(bits))
+                out.append({"ch": ch, "nm": nm, "tv": tv, "g": g, "w": w, "cg": cg, "cw": cw,
+                            "solo": (sv if sv and sv != "UNRANKED" else "")})
             return out
-        payload = {"ts": time.time(), "blue": _rows(gd.get("teamOne")), "red": _rows(gd.get("teamTwo"))}
-        if payload["blue"] or payload["red"]:
+        one, two = _cells(gd.get("teamOne")), _cells(gd.get("teamTwo"))
+        # 내가 속한 팀이 로딩 화면 왼쪽(아군) — LCU current-summoner의 puuid로 판별, 실패 시 teamOne
+        ally, enemy = one, two
+        try:
+            me = requests.get(str(base_url) + "/lol-summoner/v1/current-summoner",
+                              headers=headers, verify=False, timeout=3).json() or {}
+            mypu = str(me.get("puuid") or "").lower()
+            if mypu and any(str(p.get("puuid") or "").lower() == mypu for p in (gd.get("teamTwo") or [])):
+                ally, enemy = two, one
+        except Exception: pass
+        payload = {"ts": time.time(), "ally": ally, "enemy": enemy}
+        if ally or enemy:
             with gui_lock: gui_data["load_info"] = payload
-            print(f"[loadovl] 로딩 정보 준비 — 블루 {len(payload['blue'])} · 레드 {len(payload['red'])}", flush=True)
+            print(f"[loadovl] 로딩 정보 준비 — 아군 {len(ally)} · 적군 {len(enemy)}", flush=True)
+            def _watch_render():
+                """게임이 실제 렌더링을 시작하면(=로딩 종료, 2999 응답) 오버레이 자동 종료."""
+                for _ in range(50):
+                    time.sleep(3)
+                    with gui_lock: cur = gui_data.get("load_info")
+                    if not cur or cur.get("ts") != payload["ts"]: return
+                    try:
+                        requests.get("https://127.0.0.1:2999/liveclientdata/gamestats", verify=False, timeout=1.5)
+                        with gui_lock:
+                            if (gui_data.get("load_info") or {}).get("ts") == payload["ts"]:
+                                gui_data["load_info"] = None
+                        print("[loadovl] 게임 렌더 시작 — 오버레이 자동 종료", flush=True); return
+                    except Exception: pass
+            threading.Thread(target=_watch_render, daemon=True).start()
     except Exception as e:
         print(f"[loadovl] 로딩 정보 수집 실패(무시): {e}", flush=True)
 
+def _lol_game_rect():
+    """롤 '게임' 창(클라이언트 아님)의 화면 좌표 클라이언트 영역. 없거나 최소화면 None."""
+    try:
+        import ctypes
+        from ctypes import wintypes, byref
+        u = ctypes.windll.user32
+        hwnd = u.FindWindowW("RiotWindowClass", None) or u.FindWindowW(None, "League of Legends (TM) Client")
+        if not hwnd or u.IsIconic(hwnd): return None
+        rc = wintypes.RECT(); u.GetClientRect(hwnd, byref(rc))
+        if rc.right < 400 or rc.bottom < 300: return None
+        pt = wintypes.POINT(0, 0); u.ClientToScreen(hwnd, byref(pt))
+        return (hwnd, pt.x, pt.y, rc.right, rc.bottom)
+    except Exception:
+        return None
+
 def _loading_overlay_sync(root):
-    """gui_data['load_info']를 항상-위 창으로. (GUI 스레드에서만 호출 — update_gui 1초 폴링)"""
+    """gui_data['load_info']를 게임 창 위 '투명·클릭통과' 오버레이로 — 로딩 화면의
+       챔피언 카드 열(좌 아군5 / 우 적군5) 각 칸 바로 아래에 정보 칩을 얹는다.
+       (GUI 스레드 1초 폴링 · 팝업창 방식은 사장님 반려로 폐기, 2026-08-07)
+       한계: 게임 '전체 화면(전용)' 모드에선 OS 오버레이가 보이지 않는다 — 테두리 없는 창 모드 권장."""
     with gui_lock:
         info = gui_data.get("load_info")
     w = _LOAD_OVL["win"]
-    if not info or time.time() - float(info.get("ts", 0)) > 150:   # 로딩 화면 길이만큼만(150초) 표시 후 자동 소멸
+    def _hide():
         if w is not None:
             try: w.withdraw()
             except Exception: pass
         _LOAD_OVL["key"] = ""
-        return
-    key = str(info.get("ts"))
-    if w is None or not w.winfo_exists():
-        w = tk.Toplevel(root); w.title("스쿼드 로딩 정보")
-        w.attributes("-topmost", True); w.configure(bg="#101218")
-        w.protocol("WM_DELETE_WINDOW", w.withdraw)   # X = 숨김(destroy 되면 빈 창이 부활하는 결함 방지)
-        _LOAD_OVL["win"] = w
-        _LOAD_OVL["key"] = ""   # 새 창은 반드시 내용부터 다시 그린다
-    if _LOAD_OVL["key"] == key: return
-    _LOAD_OVL["key"] = key
-    for c in list(w.winfo_children()): c.destroy()
-    tk.Label(w, text="🖥 인게임 로딩 정보 — 내부티어 · 내전 전적 · 이 챔프 전적", bg="#101218", fg="#f5d47a",
-             font=("Malgun Gothic", 11, "bold")).pack(anchor="w", padx=13, pady=(10, 4))
-    body = tk.Frame(w, bg="#101218"); body.pack(padx=13, pady=(0, 4), fill="both")
-    for col, (tt, fg, lines) in enumerate((("🟦 BLUE", "#7fa8ff", info.get("blue") or []),
-                                           ("🟥 RED", "#ff8a9a", info.get("red") or []))):
-        f = tk.Frame(body, bg="#101218")
-        f.grid(row=0, column=col, sticky="n", padx=(0, 16) if col == 0 else (0, 0))
-        tk.Label(f, text=tt, bg="#101218", fg=fg, font=("Malgun Gothic", 10, "bold")).pack(anchor="w", pady=(0, 2))
-        for ln in lines:
-            tk.Label(f, text=ln, bg="#101218", fg="#dfe3ee", font=("Malgun Gothic", 10)).pack(anchor="w")
-    tk.Button(w, text="닫기", command=w.withdraw, bg="#232838", fg="#cfd6e4", relief="flat",
-              padx=10).pack(anchor="e", padx=13, pady=(4, 10))
-    try: w.deiconify(); w.attributes("-topmost", True); w.lift()
+    if not info or time.time() - float(info.get("ts", 0)) > 150:   # 최대 150초(안전 상한)
+        _hide(); return
+    geo = _lol_game_rect()
+    if not geo:
+        _hide(); return
+    hwnd, gx, gy, gw, gh = geo
+    try:   # 게임이 전면이 아닐 때(알탭) 칩이 바탕화면에 떠 있지 않게 숨김
+        import ctypes
+        fg = ctypes.windll.user32.GetForegroundWindow()
+        ov_hw = _LOAD_OVL.get("hw") or 0
+        if fg not in (hwnd, ov_hw):
+            _hide(); return
     except Exception: pass
-    try:   # 도킹 상태를 드래프트 오버레이와 공유하면(_dock_overlay) 위치가 안 잡힌다(검증 지적) — 화면 우측 고정
-        w.update_idletasks()
-        w.geometry(f"+{max(0, w.winfo_screenwidth() - w.winfo_reqwidth() - 24)}+120")
+    KEYCOL = "#010203"   # 투명 키 컬러(칩 색과 절대 겹치지 않는 값)
+    if w is None or not w.winfo_exists():
+        w = tk.Toplevel(root)
+        w.overrideredirect(True)
+        w.configure(bg=KEYCOL)
+        try: w.attributes("-transparentcolor", KEYCOL)
+        except Exception: pass
+        w.attributes("-topmost", True)
+        cv = tk.Canvas(w, bg=KEYCOL, highlightthickness=0, bd=0)
+        cv.pack(fill="both", expand=True)
+        _LOAD_OVL["win"] = w; _LOAD_OVL["cv"] = cv; _LOAD_OVL["key"] = ""
+        try:   # 클릭 통과 + 포커스 미탈취 — 게임 조작을 일절 방해하지 않는 유령 창
+            import ctypes
+            hw = ctypes.windll.user32.GetParent(w.winfo_id()) or w.winfo_id()
+            GWL_EXSTYLE = -20
+            st = ctypes.windll.user32.GetWindowLongW(hw, GWL_EXSTYLE)
+            ctypes.windll.user32.SetWindowLongW(hw, GWL_EXSTYLE,
+                st | 0x80000 | 0x20 | 0x8000000 | 0x80)   # LAYERED|TRANSPARENT|NOACTIVATE|TOOLWINDOW
+            _LOAD_OVL["hw"] = hw
+        except Exception: pass
+    cv = _LOAD_OVL["cv"]
+    key = f"{info.get('ts')}|{gx},{gy},{gw},{gh}"
+    if _LOAD_OVL["key"] == key:
+        try: w.deiconify(); w.attributes("-topmost", True)
+        except Exception: pass
+        return
+    _LOAD_OVL["key"] = key
+    try: w.geometry(f"{gw}x{gh}+{gx}+{gy}")
+    except Exception: pass
+    cv.delete("all")
+    G = _LOADCARD_GEOM
+    cw = gw * G["cw"]; gap = gw * G["gap"]
+    left = (gw - (10 * cw + gap)) / 2.0
+    y0 = gh * G["y"]; chh = max(48, gh * G["h"])
+    f_ch = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")
+    f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
+    def chip(x, d, accent):
+        x1, x2 = x + 3, x + cw - 3
+        cv.create_rectangle(x1, y0, x2, y0 + chh, fill="#0b101c", outline=accent, width=1)
+        cv.create_rectangle(x1, y0, x2, y0 + 2, fill=accent, outline="")
+        cx = (x1 + x2) / 2
+        tv = f" · {d['tv']}" if d.get("tv") else ""
+        cv.create_text(cx, y0 + chh * 0.20, text=f"{d['ch']}{tv}", fill=accent, font=f_ch, width=cw - 10)
+        l2 = f"내전 {d['g']}판 {round(d['w'] / d['g'] * 100)}%" if d.get("g") else "내전 기록 없음"
+        cv.create_text(cx, y0 + chh * 0.50, text=l2, fill="#dfe3ee", font=f_ln, width=cw - 10)
+        l3 = f"이 챔프 {d['cg']}판 {round(d['cw'] / d['cg'] * 100)}%" if d.get("cg") else (d.get("solo") or "")
+        if d.get("cg") and d.get("solo"): l3 += f" · {d['solo']}"
+        if l3: cv.create_text(cx, y0 + chh * 0.79, text=l3, fill="#9aa3b5", font=f_ln, width=cw - 10)
+    for i, d in enumerate((info.get("ally") or [])[:5]):
+        chip(left + i * cw, d, "#c8aa6e")            # 아군 = 롤 골드
+    for j, d in enumerate((info.get("enemy") or [])[:5]):
+        chip(left + 5 * cw + gap + j * cw, d, "#e84057")   # 적군 = 레드
+    try: w.deiconify(); w.attributes("-topmost", True)
     except Exception: pass
 
 # ===== 📊 [v82.34] 추천 적중 기록 — '추천대로 했을 때 실제로 이겼는가'를 나중에 검증하기 위한 원자료 =====
