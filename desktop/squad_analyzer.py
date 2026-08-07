@@ -2671,8 +2671,10 @@ def _draft_overlay_sync(root):
 #   로딩 화면(phase=GameStart)에 들어가면 양 팀 10명의 챔피언·내부티어·내전 전적·이 챔프 전적·솔랭을
 #   항상-위 창으로 띄운다. 게임 시작(InProgress)하면 자동으로 내려간다.
 _LOAD_OVL = {"win": None, "cv": None, "key": ""}
-# 로딩 화면 카드 열 배치 비율(화면 폭·높이 대비) — 실기기에서 어긋나면 여기만 조정
-_LOADCARD_GEOM = {"cw": 0.0952, "gap": 0.026, "y": 0.752, "h": 0.078}
+# 로딩 화면 카드 열 배치 비율(16:9 기준 스케일 대비) — 실기기에서 어긋나면 여기만 조정
+#   cw=카드 폭, gap=팀 사이 간격, card_h=카드 세로/가로 비, h=칩 높이(화면높이 대비)
+#   [2026-08-08 사장님 재지시] 칩을 카드 '아래 줄'이 아니라 각 초상화 카드 '위(하단부)'에 겹쳐 배치
+_LOADCARD_GEOM = {"cw": 0.0952, "gap": 0.026, "card_h": 2.30, "h": 0.078}
 
 def _live2999_rendering():
     """게임이 '실제 렌더링 중'인지 엄격 판정 — 포트만 열린 과도기(에러 응답)를 렌더 시작으로 오판하지 않게
@@ -2852,7 +2854,9 @@ def _loading_overlay_sync(root):
     nA = len((info.get("ally") or [])[:5]); nE = len((info.get("enemy") or [])[:5])
     row_w = (nA + nE) * cw + (gap if (nA and nE) else 0)   # 5인 미만 판(칼바람 리메이크 등)도 실제 인원으로 중앙 정렬
     left = (gw - row_w) / 2.0
-    y0 = gh * G["y"]; chh = max(48, gh * G["h"])
+    chh = max(48, gh * G["h"])
+    card_h = cw * G["card_h"]                       # 카드 실제 높이(가로 비율 기반)
+    y0 = min(gh - chh - 4, gh * 0.5 + card_h / 2 - chh - 6)   # 카드 하단부 안쪽 — 초상화 위에 겹침
     f_ch = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")
     f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
     def chip(x, d, accent):
