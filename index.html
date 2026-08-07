@@ -1691,6 +1691,13 @@ function teamLuckOf(name){
       const pct=elig.length>1?Math.round(i/(elig.length-1)*100):50;
       TEAMLUCK.set(nm,{score:pct,raw,adj,n});
     });
+    // ⚖️ [2026-08-07 사장님 통찰] 보정 전 원시 전력차는 뒤집으면 훌륭한 실력 지표다 —
+    //   밸런스 매칭이 나를 강하다고 볼수록 팀원은 약하게·상대는 강하게 깔리므로,
+    //   −전력차가 클수록 '주변 배치가 증언하는 실력'이 높다. 본인 지표를 전혀 쓰지 않는 독립 축.
+    { const by=[...elig].sort((a,b)=>b[1]-a[1]);   // raw 큰(팀 좋음)=무게 가벼움 → 뒤로 갈수록 무거움
+      by.forEach(([nm],i)=>{ const e=TEAMLUCK.get(nm);
+        if(e) e.burden=by.length>1?Math.round(i/(by.length-1)*100):50; });
+    }
   }
   return TEAMLUCK.get(name)||null;
 }
@@ -4621,6 +4628,9 @@ function playerCardHtml(name){
       if(lk) cells+=box('🍀 팀운',`${lk.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
         `실력보정 전력차 ${lk.adj>=0?'+':''}${lk.adj.toFixed(1)}점 · ${lk.n}판`,
         lk.score>=65?'cmp-good':(lk.score<=35?'cmp-bad':'')); }
+    { const lk=(typeof teamLuckOf==='function')?teamLuckOf(a.name):null;
+      if(lk&&lk.burden!=null) cells+=box('⚖️ 짊어진 무게',`${lk.burden}<span style="font-size:11px;color:var(--mut)">/100</span>`,
+        '매칭 배치로 추정한 실력', lk.burden>=65?'cmp-good':''); }
     const nameJs=JSON.stringify(a.name).replace(/"/g,'&quot;');
     return `<div class="tbm-back" onclick="closePlayerCard(event)">
       <div class="tbm-card" onclick="event.stopPropagation()">
@@ -5571,6 +5581,12 @@ function renderPlayer(name){
         `실력보정 전력차 ${lk.adj>=0?'+':''}${lk.adj.toFixed(1)}점 · ${lk.n}판`,
         lk.score>=65?'cmp-good':(lk.score<=35?'cmp-bad':''),
         "판마다 [내 팀원(본인 제외) 통산 AI점수 평균 − 상대팀 통산 AI점수 평균]을 잰 뒤, 밸런스 매칭이 만드는 '고티어일수록 낮게 나오는' 구조적 편향을 본인 실력 회귀로 걷어낸 잔차를 클랜 내 백분위로 환산(평균 50). 높을수록 같은 실력대 대비 팀을 잘 만난 편.")); }
+    // ⚖️ 짊어진 무게 — 팀운 원시 전력차의 역수 활용(본인 지표 무사용 독립 실력 축)
+    { const lk=teamLuckOf(name);
+      if(lk&&lk.burden!=null) it.push(cell("⚖️ 짊어진 무게",`${lk.burden}<span style="font-size:11px;color:var(--mut)">/100</span>`,
+        `순수 전력차 ${lk.raw>=0?'+':''}${lk.raw.toFixed(1)}점 · ${lk.n}판`,
+        lk.burden>=65?'cmp-good':'',
+        "밸런스 매칭은 강한 사람일수록 약한 팀원·강한 상대를 붙인다. 그 배치의 기울기(−전력차)를 백분위로 환산한, 본인 경기 지표를 전혀 쓰지 않는 독립 실력 추정치. 높을수록 매판 무거운 짐을 지고 있다는 뜻.")); }
     const head=(_asmt&&_asmt.implPct!=null)?`<b style="color:#ffd24a">🎯 클랜 상위 ${_asmt.implPct}%</b>`:'<b>스탯 요약</b>';
     const sub=(d)?'전체기간 · 같은 내부티어 평균과 비교':'';
     const note=(_asmt&&!d)?`<div class="muted" style="font-size:12.5px;margin-bottom:6px">${_asmt.games}판 — 티어 비교엔 10판 이상 필요</div>`:'';
@@ -6401,7 +6417,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608071610";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608071630";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
