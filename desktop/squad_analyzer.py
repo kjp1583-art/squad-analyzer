@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.80"
+CURRENT_VERSION = "82.81"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -472,19 +472,33 @@ def broadcast_to_discord_webhook(content_text):
     if _OUTDATED: return   # 🛑 킬스위치: 신버전 감지된 구버전은 발송 금지
     def txt_thread():
         try:
-            msg_lines = []
-            # [2026-07-25 사장님 지시] 버전은 헤더에 표기, 하단 '정찰 시스템 자동 인증' 줄 제거(봇 _VER_SIG_RE가 헤더 형식도 인식)
-            msg_lines.append(f"🏆 **[스쿼드 내전 매치 결과 리포트]** 🏆 v{CURRENT_VERSION}")
-            msg_lines.append("```md")
-            msg_lines.append(str(content_text))
-            msg_lines.append("```")
-            try:   # 🔚 [v82.41] 막판 선언 감지분을 결과 리포트에 부착
-                # [2026-07-29 사장님 지시] 노밴은 경기 종료 로스터에 팀별로 표기 — 여기 줄은 중복이라 뺐다.
+            makpan = ""
+            try:   # 🔚 [v82.41] 막판 선언 감지분을 결과에 부착
                 if _MAKPAN.get("decls"):
-                    msg_lines.append(f"🔚 막판 선언: {', '.join(_MAKPAN['decls'])} ({len(_MAKPAN['decls'])}명)")
+                    makpan = chr(10) + f"🔚 막판 선언: {', '.join(_MAKPAN['decls'])} ({len(_MAKPAN['decls'])}명)"
             except Exception: pass
-            r = requests.post(RESULT_WEBHOOK_URL, json={"content": chr(10).join(msg_lines)}, timeout=5)
-            if r.status_code >= 400: print(f"[웹훅 실패] 매치결과 {r.status_code}: {r.text[:150]}", flush=True)
+            block = "```md" + chr(10) + str(content_text) + chr(10) + "```" + makpan
+            # ① [2026-08-07 사장님 지시 — 메시지 2개→1개] 같은 인스턴스가 보낸 최근 '경기 종료' 메시지가 있으면
+            #    그 메시지를 '편집'해 리포트를 이어붙인다 → 사람 채널은 한 박스. (편집은 봇 on_message 미발화라
+            #    봇 신호는 아래 ②로 별도 보전. 다른 인스턴스가 마감한 판은 id가 없어 기존처럼 새 메시지 = 안전 강하)
+            merged = False
+            try:
+                if _END_MSG.get("id") and time.time() - float(_END_MSG.get("at", 0)) < 1800:
+                    _base = RESULT_WEBHOOK_URL.split("?")[0]
+                    pr = requests.patch(f"{_base}/messages/{_END_MSG['id']}",
+                                        json={"content": _END_MSG.get("content", "") + chr(10) + block}, timeout=8)
+                    merged = pr.status_code < 400
+            except Exception: pass
+            # ② 봇 신호(종료 2차 트리거·타이틀 자동부여·버전서명 파싱)는 풀포맷 그대로 —
+            #    병합 성공 시 DATA 채널로(봇은 채널 무관 마커 감지), 실패·DATA 미설정 시 기존처럼 결과 채널로.
+            full = (f"🏆 **[스쿼드 내전 매치 결과 리포트]** 🏆 v{CURRENT_VERSION}" + chr(10) + block)
+            _has_data = DATA_WEBHOOK_URL and not DATA_WEBHOOK_URL.startswith("여기에")
+            _bot_url = DATA_WEBHOOK_URL if (merged and _has_data) else (RESULT_WEBHOOK_URL if not merged else None)
+            if _bot_url:
+                r = requests.post(_bot_url, json={"content": full}, timeout=5)
+                if r.status_code >= 400: print(f"[웹훅 실패] 매치결과 {r.status_code}: {r.text[:150]}", flush=True)
+            elif merged:
+                print("[웹훅] 매치결과 — 종료 메시지에 병합(한 박스) · DATA 채널 미설정이라 봇 신호 생략 불가 상황 아님", flush=True)
         except Exception as e: print(f"[웹훅 예외] 매치결과: {e}", flush=True)
     threading.Thread(target=txt_thread, daemon=True).start()
 
@@ -546,16 +560,25 @@ def broadcast_game_end_webhook(roster_text):
     if _OUTDATED: return   # 🛑 킬스위치: 신버전 감지된 구버전은 발송 금지
     def txt_thread():
         # [v81.62] 발송 재시도 3회 — 종료신호도 발송자 1명(append 승자)이라 동일 보강.
-        msg = ("🏁 **[스쿼드 내전 경기 종료]** 🏁  ⏰ " + time.strftime("%H:%M") + chr(10)
-               + str(roster_text) + chr(10)
-               + f"*정찰 시스템 V{CURRENT_VERSION} 자동 인증*")
+        # [2026-08-07 사장님 지시] 버전은 헤더 시간 옆에 V표기만(하단 '자동 인증' 줄 제거 — 봇 _VER_SIG_RE가
+        #   이 헤더 형식도 인식하도록 봇과 동시 패치). ?wait=true 로 메시지 id를 받아 두면
+        #   매치 결과 리포트가 이 메시지를 '편집'으로 이어붙여 사람 채널이 한 박스가 된다.
+        msg = ("🏁 **[스쿼드 내전 경기 종료]** 🏁  ⏰ " + time.strftime("%H:%M")
+               + f" · V{CURRENT_VERSION}" + chr(10) + str(roster_text))
+        _wu = _url + ("&wait=true" if "?" in _url else "?wait=true")
         for _wtry in range(3):
             try:
-                r = requests.post(_url, json={"content": msg}, timeout=8)
-                if r.status_code < 400: return
+                r = requests.post(_wu, json={"content": msg}, timeout=8)
+                if r.status_code < 400:
+                    try:
+                        _END_MSG.update({"id": str((r.json() or {}).get("id") or ""), "at": time.time(), "content": msg})
+                    except Exception: pass
+                    return
             except Exception: pass
             time.sleep(3 + random.uniform(0, 4))
     threading.Thread(target=txt_thread, daemon=True).start()
+
+_END_MSG = {"id": "", "at": 0.0, "content": ""}   # 최근 '경기 종료' 웹훅 메시지(리포트 편집 병합용)
 
 def broadcast_plain_webhook(content_text):
     # 래퍼 없이 한 줄 그대로 발송 (간결한 종료 알림용)
@@ -7350,13 +7373,13 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
             # [2026-07-16 사장님 지시] 시인성 향상 — MVP/ACE/역적 아래 K/D/A·딜량 상세 한 줄(_stat_line) 제거.
             #   (KDA·딜량은 시트·웹 전적에 그대로 기록됨. 리포트는 '누가 MVP/ACE/역적인가'만 간결히.)
             report_lines = []
-            report_lines.append(f"🏆 **[Match MVP]** {mvp['name'].split('#')[0]}" + (f" ({_champ_kr(mvp)})" if _champ_kr(mvp) else "") + f" (이긴팀 · AI {mvp['score']:.1f}점)")
+            report_lines.append(f"🏆 **[MVP]** {mvp['name'].split('#')[0]}" + (f" ({_champ_kr(mvp)})" if _champ_kr(mvp) else "") + f" (이긴팀 · AI {mvp['score']:.1f}점)")
             if ace:
                 report_lines.append(f"🔥 **[ACE]** {ace['name'].split('#')[0]}" + (f" ({_champ_kr(ace)})" if _champ_kr(ace) else "") + f" (진팀 최고 · AI {ace['score']:.1f}점)")
             if troll:
                 report_lines.append(f"💀 **[역적]** {troll['name'].split('#')[0]}" + (f" ({_champ_kr(troll)})" if _champ_kr(troll) else "") + f" (AI {troll['score']:.1f}점)")
             else:
-                report_lines.append("✨ 오늘 경기는 역적 없이 다들 제 몫을 했어요!")
+                report_lines.append("✨ 이번 경기는 역적 없이 다들 제 몫을 했어요!")
 
             achievements.insert(0, "\n".join(report_lines) + "\n")
 
