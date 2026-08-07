@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.81"
+CURRENT_VERSION = "82.82"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1227,6 +1227,87 @@ def _version_heartbeat_loop():
                 else: ws.append_row([nm, CURRENT_VERSION, now_s])
         except Exception: pass
         time.sleep(3600)
+
+
+# ─────────────────────────────────────────────────────────────
+# 🕵️ [2026-08-07 사장님 전용 · 비공개 기능 — 패치노트에도 싣지 않는다] 스펠체크 헬퍼
+#   상대 점멸을 보고 Ctrl+F2~F6(탑/정글/미드/원딜/서폿)을 누르면 라이엇 공식 로컬 API(2999)에서
+#   인게임 시각을 읽어 [상대 챔피언명 +5:00]을 계산, '아직 안 지난' 타이머 전부를
+#   "가렌 17:00 리신 18:00" 형태로 클립보드에 갱신한다. Ctrl+F7=재복사, Shift 추가=우주적통찰(272초).
+#   채팅 입력은 사람이 직접(Ctrl+V) — 게임에 키 입력을 주입하지 않으므로 자동화 아님.
+#   사장님 계정(MY_RIOT_NAME)이 아닐 땐 스레드가 아무것도 하지 않는다.
+_SPELL_OWNERS = {"맛동산장인유미"}
+_SPELL_TIMERS = {}   # 표기명 -> 만료 인게임초
+def _spell_set_clipboard(text):
+    import ctypes
+    u = ctypes.windll.user32; k = ctypes.windll.kernel32
+    if not u.OpenClipboard(0): return
+    try:
+        u.EmptyClipboard()
+        data = text.encode("utf-16-le") + b"\x00\x00"
+        h = k.GlobalAlloc(0x2002, len(data))          # GMEM_MOVEABLE|GMEM_ZEROINIT
+        ptr = k.GlobalLock(h); ctypes.memmove(ptr, data, len(data)); k.GlobalUnlock(h)
+        u.SetClipboardData(13, h)                     # CF_UNICODETEXT
+    finally:
+        u.CloseClipboard()
+def _spell_live(path):
+    r = requests.get("https://127.0.0.1:2999/liveclientdata/" + path, verify=False, timeout=1.5)
+    return r.json() if r.status_code == 200 else None
+def _spell_enemy_champ(pos_key):
+    try:
+        me = str(_spell_live("activeplayername") or "").strip()
+        pl = _spell_live("playerlist") or []
+        my_team = next((p.get("team") for p in pl
+                        if str(p.get("riotId") or p.get("summonerName") or "") == me), None)
+        if not my_team: return None
+        for p in pl:
+            if p.get("team") != my_team and str(p.get("position") or "").upper() == pos_key:
+                return str(p.get("championName") or "").replace(" ", "") or None
+    except Exception: pass
+    return None
+def _spellcheck_hotkey_loop():
+    import ctypes, winsound
+    u = ctypes.windll.user32
+    KEYS = {0x71: ("TOP", "top"), 0x72: ("JUNGLE", "jg"), 0x73: ("MIDDLE", "mid"),
+            0x74: ("BOTTOM", "bot"), 0x75: ("UTILITY", "sup")}   # F2~F6
+    VK_F7, VK_SHIFT, VK_CTRL = 0x76, 0x10, 0x11
+    def owner_ok():
+        nm = (MY_RIOT_NAME[0] or "").split("#")[0].replace(" ", "").lower()
+        return nm in {o.lower() for o in _SPELL_OWNERS}
+    def game_time():
+        gs = _spell_live("gamestats") or {}
+        t = gs.get("gameTime")
+        return int(float(t)) if t is not None else None
+    def push_clip(now):
+        live = sorted(((n, x) for n, x in _SPELL_TIMERS.items() if x > now), key=lambda e: e[1])
+        for n in [n for n, x in _SPELL_TIMERS.items() if x <= now]: _SPELL_TIMERS.pop(n, None)
+        if not live: return
+        _spell_set_clipboard(" ".join(f"{n} {x//60}:{x%60:02d}" for n, x in live))
+        winsound.MessageBeep(0x40)
+    last_gt = [0]
+    while True:
+        time.sleep(0.05)
+        try:
+            hit = None; recopy = False
+            for vk in KEYS:
+                if u.GetAsyncKeyState(vk) & 1: hit = vk
+            if u.GetAsyncKeyState(VK_F7) & 1: recopy = True
+            if not (hit or recopy): continue
+            # 롤 기본키 F2~F5 = 아군 시점 전환과 충돌 — Ctrl을 누르고 있을 때만 반응
+            if not (u.GetAsyncKeyState(VK_CTRL) & 0x8000): continue
+            if not owner_ok(): continue
+            now = game_time()
+            if now is None: continue
+            if now < last_gt[0] - 60: _SPELL_TIMERS.clear()   # 새 게임(시각 역행) — 이전 판 타이머 파기
+            last_gt[0] = now
+            if hit:
+                pos_key, fallback = KEYS[hit]
+                cd = 272 if (u.GetAsyncKeyState(VK_SHIFT) & 0x8000) else 300
+                label = _spell_enemy_champ(pos_key) or fallback
+                _SPELL_TIMERS[label] = now + cd
+            push_clip(now)
+        except Exception:
+            time.sleep(1)
 
 def announce_patch_if_updated():
     """신버전으로 업데이트된 뒤 첫 실행 시, 릴리스 노트를 웹훅으로 1회 알림.
@@ -9278,6 +9359,7 @@ if __name__ == "__main__":
     threading.Thread(target=_tier_role_sync_loop, daemon=True).start()        # 🎖 디스코드 티어역할 → CLAN_TIERS 신규 추가(호스트만)
     threading.Thread(target=_position_sync_loop, daemon=True).start()         # 🎯 디스코드 포지션역할 → CLAN_POSITIONS 재작성(호스트만, 1h)
     threading.Thread(target=_cosmetics_loop, daemon=True).start()             # 🖼️ 상점 장식(모든 PC) → 밴픽 '내 칸' 꾸미기
+    threading.Thread(target=_spellcheck_hotkey_loop, daemon=True).start()    # 🕵️ 스펠체크 헬퍼(사장님 계정 전용·비공개)
     threading.Thread(target=ad_banner_engine, daemon=True).start()
     
     create_graphic_ui()
