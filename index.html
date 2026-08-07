@@ -1675,10 +1675,21 @@ function teamLuckOf(name){
       }
     }
     const elig=[...acc.entries()].filter(([,e])=>e.n>=10).map(([nm,e])=>[nm,e.s/e.n,e.n]);
-    elig.sort((a,b)=>a[1]-b[1]);
-    elig.forEach(([nm,raw,n],i)=>{
+    // [2026-08-07 사장님 제보] 밸런스 매칭에서는 '나를 뺀 팀원 평균'이 내 실력만큼 깎여 보여
+    //   (기대 전력차 ≈ (로비평균−내 실력)/4) 고티어일수록 팀운이 낮게 나오는 구조적 편향이 있다.
+    //   교정: 클랜 전체에서 [본인 통산점수 → 전력차] 회귀선을 구해 기대치를 빼고 남는 잔차로만 평가.
+    { let sx=0,sy=0,sxx=0,sxy=0,n=0;
+      for(const [nm,raw] of elig){ const c=career.get(nm); if(c==null) continue;
+        sx+=c; sy+=raw; sxx+=c*c; sxy+=c*raw; n++; }
+      const mb=n>=5?(sxy-sx*sy/n)/Math.max(1e-9,sxx-sx*sx/n):0;
+      const ma=n?sy/n-mb*(sx/n):0;
+      for(const e of elig){ const c=career.get(e[0]);
+        e.push(e[1]-(c!=null?ma+mb*c:ma)); }   // e[3] = 실력 보정 잔차
+    }
+    elig.sort((a,b)=>a[3]-b[3]);
+    elig.forEach(([nm,raw,n,adj],i)=>{
       const pct=elig.length>1?Math.round(i/(elig.length-1)*100):50;
-      TEAMLUCK.set(nm,{score:pct,raw,n});
+      TEAMLUCK.set(nm,{score:pct,raw,adj,n});
     });
   }
   return TEAMLUCK.get(name)||null;
@@ -4608,7 +4619,7 @@ function playerCardHtml(name){
     }
     { const lk=(typeof teamLuckOf==='function')?teamLuckOf(a.name):null;
       if(lk) cells+=box('🍀 팀운',`${lk.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
-        `전력차 ${lk.raw>=0?'+':''}${lk.raw.toFixed(1)}점 · ${lk.n}판`,
+        `실력보정 전력차 ${lk.adj>=0?'+':''}${lk.adj.toFixed(1)}점 · ${lk.n}판`,
         lk.score>=65?'cmp-good':(lk.score<=35?'cmp-bad':'')); }
     const nameJs=JSON.stringify(a.name).replace(/"/g,'&quot;');
     return `<div class="tbm-back" onclick="closePlayerCard(event)">
@@ -5557,9 +5568,9 @@ function renderPlayer(name){
     // 🍀 팀운 — 판마다 팀원·상대의 '통산' AI점수를 비교(그 판 점수가 아님 — 승패 편향 제거)
     { const lk=teamLuckOf(name);
       if(lk) it.push(cell("🍀 팀운",`${lk.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
-        `전력차 ${lk.raw>=0?'+':''}${lk.raw.toFixed(1)}점 · ${lk.n}판`,
+        `실력보정 전력차 ${lk.adj>=0?'+':''}${lk.adj.toFixed(1)}점 · ${lk.n}판`,
         lk.score>=65?'cmp-good':(lk.score<=35?'cmp-bad':''),
-        "판마다 [내 팀원(본인 제외) 통산 AI점수 평균 − 상대팀 통산 AI점수 평균]을 잰 뒤 클랜 내 백분위로 환산(평균 50). 높을수록 매칭 운이 좋았던 편.")); }
+        "판마다 [내 팀원(본인 제외) 통산 AI점수 평균 − 상대팀 통산 AI점수 평균]을 잰 뒤, 밸런스 매칭이 만드는 '고티어일수록 낮게 나오는' 구조적 편향을 본인 실력 회귀로 걷어낸 잔차를 클랜 내 백분위로 환산(평균 50). 높을수록 같은 실력대 대비 팀을 잘 만난 편.")); }
     const head=(_asmt&&_asmt.implPct!=null)?`<b style="color:#ffd24a">🎯 클랜 상위 ${_asmt.implPct}%</b>`:'<b>스탯 요약</b>';
     const sub=(d)?'전체기간 · 같은 내부티어 평균과 비교':'';
     const note=(_asmt&&!d)?`<div class="muted" style="font-size:12.5px;margin-bottom:6px">${_asmt.games}판 — 티어 비교엔 10판 이상 필요</div>`:'';
@@ -6390,7 +6401,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608071540";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608071610";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
