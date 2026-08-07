@@ -598,17 +598,20 @@
   .cal-d{font-size:13.5px;font-weight:700;color:var(--sub);margin-bottom:2px}
   .cal-today .cal-d{color:var(--gold)}
   .cal-sun{color:#ff8a9a}.cal-sat{color:#7fa8ff}
-  /* ⚔ 귀살대 — 십이귀월 보드 하단 여백(2026-08-07 사장님 지시) */
-  .kz-corps{margin-top:14px;padding:10px 12px;border-radius:10px;border:1px solid rgba(90,190,160,.35);
-    background:linear-gradient(160deg,rgba(30,60,52,.35),rgba(16,26,24,.3))}
-  .kz-corps-hd{font-size:13.5px;font-weight:900;color:#8fe3c0;margin-bottom:7px;display:flex;align-items:baseline;gap:7px}
-  .kz-corps-sub{font-size:11.5px;font-weight:400;color:var(--sub)}
+  /* ⚔ 귀살대 — 대원 제복(흑색 예복 + 백색 허리띠) 블랙앤화이트 [2026-08-07 사장님 지시] */
+  .kz-corps{margin-top:14px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.35);
+    background:linear-gradient(165deg,#131316,#0a0a0c 70%);
+    box-shadow:inset 0 0 0 3px #0a0a0c, inset 0 0 0 4px rgba(255,255,255,.14)}
+  .kz-corps-hd{font-size:13.5px;font-weight:900;color:#f4f4f2;margin-bottom:7px;display:flex;align-items:baseline;gap:7px;
+    letter-spacing:.5px;border-bottom:2px solid rgba(255,255,255,.85);padding-bottom:6px}
+  .kz-corps-hd .kanji{color:rgba(255,255,255,.55)}
+  .kz-corps-sub{font-size:11.5px;font-weight:400;color:rgba(255,255,255,.5);letter-spacing:0}
   .kz-corps-list{display:flex;gap:6px;flex-wrap:wrap}
-  .kz-corps-chip{font-size:12.5px;font-weight:700;color:#d9f2e8;background:rgba(90,190,160,.12);
-    border:1px solid rgba(90,190,160,.3);border-radius:7px;padding:3px 9px;cursor:pointer;white-space:nowrap}
-  .kz-corps-chip:hover{border-color:rgba(143,227,192,.7)}
-  .kz-corps-chip b{color:#8fe3c0;margin-right:2px}
-  .kz-corps-wr{color:#8fe3c0;font-weight:900;font-size:11.5px}
+  .kz-corps-chip{font-size:12.5px;font-weight:700;color:#f4f4f2;background:#101013;
+    border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:3px 9px;cursor:pointer;white-space:nowrap}
+  .kz-corps-chip:hover{border-color:#fff;background:#1a1a1f}
+  .kz-corps-chip b{color:#fff;margin-right:2px;background:rgba(255,255,255,.14);border-radius:4px;padding:0 4px}
+  .kz-corps-wr{color:#fff;font-weight:900;font-size:11.5px}
   .cal-hol{font-size:9.5px;font-weight:700;color:#ff8a9a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cal-ev{font-size:10.5px;font-weight:700;padding:1.5px 4px;border-radius:5px;margin-top:2px;
     background:linear-gradient(90deg,rgba(74,126,240,.28),rgba(138,92,214,.28));border:1px solid rgba(122,140,255,.4);
@@ -6338,7 +6341,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608071100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608071130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
