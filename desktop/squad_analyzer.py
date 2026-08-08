@@ -1685,6 +1685,7 @@ def _clan_index(force=False):
             c_g, c_pu, c_ch, c_rs = ci("게임ID"), ci("PUUID"), ci("챔피언"), ci("결과")
             c_nm, c_ps, c_tm = ci("소환사명"), ci("포지션"), ci("진영")
             c_bn = ci("밴")
+            c_mv, c_kd, c_gp = ci("매치평가"), ci("KDA"), ci("지표")   # 🕸 [v82.86] 육각형 축 원자료
             if min(c_g, c_pu, c_ch, c_rs) < 0: continue
             per_game = {}
             for r in rows[1:]:
@@ -1703,6 +1704,26 @@ def _clan_index(force=False):
                 if nm: e["name"] = nm
                 e["g"] += 1; e["w"] += (res == "승리")
                 e.setdefault("seq", []).append(res == "승리")   # 🖥️ [v82.85] 로딩 오버레이 연승·연패용(행 순서=시간순)
+                # 🕸 [v82.86] 웹 육각형과 동일한 6축 원자료(포지션별) — 캐리·성장·시야·생존·교전·챔프폭
+                if ps and ps != "선택안함":
+                    rd = e.setdefault("rad", {}).setdefault(ps, {"g": 0, "mvp": 0, "csS": 0.0, "csN": 0,
+                                                                 "vsS": 0.0, "vsN": 0, "dS": 0, "kaS": 0, "kn": 0, "ch": set()})
+                    rd["g"] += 1
+                    if 0 <= c_mv < len(r) and str(r[c_mv]).strip() == "MVP": rd["mvp"] += 1
+                    if ch: rd["ch"].add(ch)
+                    if 0 <= c_kd < len(r):
+                        try:
+                            _k, _d, _a = [int(x) for x in str(r[c_kd]).split("/")]
+                            rd["dS"] += _d; rd["kaS"] += _k + _a; rd["kn"] += 1
+                        except Exception: pass
+                    if 0 <= c_gp < len(r):
+                        _o = {}
+                        for _t in str(r[c_gp] or "").split("|"):
+                            _m = re.match(r"^([a-z]+)(-?\d+(?:\.\d+)?)$", _t.strip())
+                            if _m: _o[_m.group(1)] = float(_m.group(2))
+                        if _o.get("m"):
+                            if _o.get("cs") is not None: rd["csS"] += _o["cs"] / _o["m"]; rd["csN"] += 1
+                            if _o.get("vs") is not None: rd["vsS"] += _o["vs"]; rd["vsN"] += 1
                 if ch:
                     cw = e["champs"].setdefault(ch, [0, 0]); cw[0] += 1; cw[1] += (res == "승리")
                     if ps and ps != "선택안함":   # [v82.40] 챔프별 '어느 라인에서 쌓은 기록인지' — 교차라인 숙련 과신 방지
@@ -2678,6 +2699,42 @@ _LOAD_OVL = {"win": None, "cv": None, "key": ""}
 #   row_top/row_bot=각 줄 카드의 '하단' y비율, h=칩 높이(화면높이 대비)
 _LOADCARD_GEOM = {"cw": 0.131, "gap": 0.0247, "row_top": 0.490, "row_bot": 0.973, "h": 0.078}
 
+_RADAR_PCT = {"ts": 0.0, "pos": {}}   # 포지션별 백분위 비교군 캐시(클랜 인덱스 갱신 시 재계산)
+def _radar_metrics(rd):
+    """축 원자료 → 웹 radarMetrics와 동일한 6축 값. 표본 없으면 None."""
+    g = rd.get("g", 0)
+    if not g: return None
+    return {"mvpr": rd["mvp"] / g * 100.0,
+            "cspm": (rd["csS"] / rd["csN"]) if rd["csN"] else None,
+            "vision": (rd["vsS"] / rd["vsN"]) if rd["vsN"] else None,
+            "surv": (-(rd["dS"] / rd["kn"])) if rd["kn"] else None,
+            "fight": (rd["kaS"] / rd["kn"]) if rd["kn"] else None,
+            "pool": len(rd["ch"]) or None}
+def _radar_pct_of(cidx, pos, mine):
+    """웹 posPercentiles와 동일 — 같은 포지션 5판↑ 클랜원 비교군에서 각 축 백분위(0~100)."""
+    try:
+        if _RADAR_PCT["ts"] != cidx.get("ts"): _RADAR_PCT.update({"ts": cidx.get("ts"), "pos": {}})
+        cols = _RADAR_PCT["pos"].get(pos)
+        if cols is None:
+            allm = []
+            for e in (cidx.get("by_pu") or {}).values():
+                rd = (e.get("rad") or {}).get(pos)
+                if rd and rd.get("g", 0) >= 5: allm.append(_radar_metrics(rd))
+            cols = {}
+            for k in ("mvpr", "cspm", "vision", "surv", "fight", "pool"):
+                cols[k] = sorted(v[k] for v in allm if v and v[k] is not None)
+            _RADAR_PCT["pos"][pos] = cols
+        out = []
+        for k in ("mvpr", "cspm", "vision", "surv", "fight", "pool"):
+            a = cols.get(k) or []; v = mine.get(k)
+            if v is None or len(a) < 5: out.append(None)
+            else:
+                import bisect
+                out.append(int(round(bisect.bisect_left(a, v) / len(a) * 100)))
+        return out
+    except Exception:
+        return None
+
 def _live2999_rendering():
     """게임이 '실제 렌더링 중'인지 엄격 판정 — 포트만 열린 과도기(에러 응답)를 렌더 시작으로 오판하지 않게
        200 + gameTime 존재까지 요구한다(검증 지적)."""
@@ -2743,8 +2800,18 @@ def _build_loading_info(headers, base_url, gen=None):
                         if x == cur: c += 1
                         else: break
                     st = c if cur else -c
+                radar = None
+                try:   # 🕸 주 포지션 기준 6축 백분위(웹 육각형과 동일 축·비교군)
+                    rads = e.get("rad") or {}
+                    if rads:
+                        mp = max(rads, key=lambda k: rads[k]["g"])
+                        if rads[mp]["g"] >= 5:
+                            mine = _radar_metrics(rads[mp])
+                            px = _radar_pct_of(cidx or {}, mp, mine) if mine else None
+                            if px and sum(1 for x in px if x is not None) >= 3: radar = px
+                except Exception: pass
                 out.append({"ch": ch, "nm": nm, "tv": tv, "g": g, "w": w, "cg": cg, "cw": cw,
-                            "st": st, "solo": (sv if sv and sv != "UNRANKED" else "")})
+                            "st": st, "radar": radar, "solo": (sv if sv and sv != "UNRANKED" else "")})
             return out
         one, two = _cells(gd.get("teamOne")), _cells(gd.get("teamTwo"))
         # 내가 속한 팀이 로딩 화면 왼쪽(아군) — LCU current-summoner의 puuid로 판별, 실패 시 teamOne
@@ -2929,7 +2996,24 @@ def _loading_overlay_sync(root):
             cv.create_image(x1 + 5, y0 + chh / 2, image=ph, anchor="w")
             imgs.append(ph)   # GC 방지 — canvas는 참조를 유지하지 않는다
             tx1 = x1 + isz + 8
-        cx = (tx1 + x2) / 2; tw = max(30, x2 - tx1 - 6)
+        # 🕸 [v82.86] 웹 육각형 능력치 미니어처 — 값이 있으면 칩 오른쪽에 그린다
+        hex_pad = 0
+        vals = d.get("radar")
+        if vals:
+            hexR = chh / 2 - 5
+            hcx, hcy = x2 - hexR - 5, y0 + chh / 2
+            hex_pad = int(2 * hexR + 8)
+            def _hexpts(rr, vv=None):
+                pts = []
+                for _i in range(6):
+                    ang = -math.pi / 2 + _i * math.pi / 3
+                    r_ = rr if vv is None else rr * max(0.08, (vv[_i] or 0) / 100.0)
+                    pts += [hcx + r_ * math.cos(ang), hcy + r_ * math.sin(ang)]
+                return pts
+            cv.create_polygon(*_hexpts(hexR), fill="", outline="#2e3852", width=1)
+            cv.create_polygon(*_hexpts(hexR * 0.5), fill="", outline="#232c42", width=1)
+            cv.create_polygon(*_hexpts(hexR, vals), fill=accent, stipple="gray50", outline=accent, width=1)
+        cx = (tx1 + x2 - hex_pad) / 2; tw = max(30, x2 - tx1 - 6 - hex_pad)
         tv = f" · {d['tv']}" if d.get("tv") else ""
         cv.create_text(cx, y0 + chh * 0.20, text=f"{d['ch']}{tv}", fill=accent, font=f_ch, width=tw)
         l2 = f"내전 {d['g']}판 {round(d['w'] / d['g'] * 100)}%" if d.get("g") else "내전 기록 없음"
