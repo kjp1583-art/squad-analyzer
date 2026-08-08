@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.90"
+CURRENT_VERSION = "82.91"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -3016,8 +3016,8 @@ def _loading_overlay_sync(root):
     chh = max(48, gh * G["h"])
     def _row_x0(n):   # 실제 인원 수 기준 중앙 정렬(칼바람 리메이크 등 5인 미만 대응)
         return (gw - (n * cw + max(0, n - 1) * gap)) / 2.0
-    y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(블루팀) 카드 하단부 안쪽
-    y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(레드팀) 카드 하단부 안쪽
+    y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(레드팀) 카드 하단부 안쪽
+    y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(블루팀) 카드 하단부 안쪽
     f_ch = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")
     f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
     imgs = _LOAD_OVL.setdefault("imgs", [])
@@ -3071,10 +3071,11 @@ def _loading_overlay_sync(root):
         if l3: cv.create_text(cx, y0 + chh * 0.79, text=l3, fill="#9aa3b5", font=f_ln, width=tw)
     _bl = (info.get("blue") or [])[:5]; _rd = (info.get("red") or [])[:5]
     bx0 = _row_x0(len(_bl)); rx0 = _row_x0(len(_rd))
-    for i, d in enumerate(_bl):
-        chip(bx0 + i * (cw + gap), d, "#5b8cff", y_top)   # 위 줄 = 블루팀
+    # [2026-08-08 사장님 실측 정정] 로딩 화면은 레드팀이 위, 블루팀이 아래
     for j, d in enumerate(_rd):
-        chip(rx0 + j * (cw + gap), d, "#e84057", y_bot)   # 아래 줄 = 레드팀
+        chip(rx0 + j * (cw + gap), d, "#e84057", y_top)   # 위 줄 = 레드팀
+    for i, d in enumerate(_bl):
+        chip(bx0 + i * (cw + gap), d, "#5b8cff", y_bot)   # 아래 줄 = 블루팀
     try: w.deiconify(); w.attributes("-topmost", True)
     except Exception: pass
 
