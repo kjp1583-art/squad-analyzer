@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.87"
+CURRENT_VERSION = "82.88"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2809,11 +2809,14 @@ def _build_loading_info(headers, base_url, gen=None):
             print("[loadovl] 게임이 이미 진행 중 — 오버레이 생략", flush=True); return
         try: cidx = _clan_index()
         except Exception: cidx = None
-        solo = {}
-        with gui_lock:   # 로비·밴픽 때 캐시한 솔랭 티어 재활용(로딩 중 재조회 없이)
+        solo, posmap = {}, {}
+        with gui_lock:   # 로비·밴픽 때 캐시한 솔랭 티어·포지션 재활용(로딩 중 재조회 없이)
             for side in ("blue", "red"):
                 for p, _s in (gui_data.get(side) or []):
-                    if p.get("puuid"): solo[str(p["puuid"]).lower()] = str(p.get("tier_icon") or "")
+                    if p.get("puuid"):
+                        _pu = str(p["puuid"]).lower()
+                        solo[_pu] = str(p.get("tier_icon") or "")
+                        posmap[_pu] = POSITION_TRANSLATE_KOR.get(str(p.get("chosen_pos_icon") or "NONE").upper(), "")
         def _kor(cid):
             try:
                 e = global_champ_map.get(int(cid or 0)) or {}
@@ -2849,7 +2852,12 @@ def _build_loading_info(headers, base_url, gen=None):
                             if px and sum(1 for x in px if x is not None) >= 3: radar = px
                 except Exception: pass
                 out.append({"ch": ch, "nm": nm, "tv": tv, "g": g, "w": w, "cg": cg, "cw": cw,
-                            "st": st, "radar": radar, "solo": (sv if sv and sv != "UNRANKED" else "")})
+                            "st": st, "radar": radar, "pos": posmap.get(pu, ""),
+                            "solo": (sv if sv and sv != "UNRANKED" else "")})
+            # 🧭 [2026-08-08 사장님 제보] 로딩 화면 카드 순서 = 탑·정글·미드·원딜·서폿 —
+            #   로비 배열 순서로 깔면 칩이 남의 초상화 밑에 붙는다. 포지션순으로 정렬.
+            _po = {"탑": 0, "정글": 1, "미드": 2, "원딜": 3, "서폿": 4}
+            out.sort(key=lambda d: _po.get(d.get("pos", ""), 9))
             return out
         one, two = _cells(gd.get("teamOne")), _cells(gd.get("teamTwo"))
         # 내가 속한 팀이 로딩 화면 왼쪽(아군) — LCU current-summoner의 puuid로 판별, 실패 시 teamOne
