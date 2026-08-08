@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.88"
+CURRENT_VERSION = "82.89"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2860,26 +2860,17 @@ def _build_loading_info(headers, base_url, gen=None):
             out.sort(key=lambda d: _po.get(d.get("pos", ""), 9))
             return out
         one, two = _cells(gd.get("teamOne")), _cells(gd.get("teamTwo"))
-        # 내가 속한 팀이 로딩 화면 왼쪽(아군) — LCU current-summoner의 puuid로 판별, 실패 시 teamOne
-        ally, enemy = one, two
-        mypu = _MY_PUUID[0]
-        if not mypu:   # 캐시 미충전 시에만 HTTP 폴백(지연 최소화 — 검증 지적)
-            try:
-                me = requests.get(str(base_url) + "/lol-summoner/v1/current-summoner",
-                                  headers=headers, verify=False, timeout=3).json() or {}
-                mypu = str(me.get("puuid") or "").lower()
-            except Exception: mypu = ""
-        if mypu and any(str(p.get("puuid") or "").lower() == mypu for p in (gd.get("teamTwo") or [])):
-            ally, enemy = two, one
+        # 🧭 [2026-08-08 사장님 제보: 위아래 뒤바뀜] 로딩 화면 줄 배치는 '내 팀/상대팀'이 아니라
+        #   블루팀(teamOne)=위 / 레드팀(teamTwo)=아래 고정 — 아군 판별 로직을 버리고 진영 고정으로.
         try: _chip_prefetch_icons([d["ch"] for d in one + two])
         except Exception: pass
-        payload = {"ts": time.time(), "ally": ally, "enemy": enemy}
-        if ally or enemy:
+        payload = {"ts": time.time(), "blue": one, "red": two}
+        if one or two:
             with gui_lock:   # 세대 토큰 검증 — 지연된 수집이 '정리된/다음 게임' 상태를 덮어쓰지 않게(검증 지적)
                 if gen is not None and gui_data.get("load_gen") != gen:
                     print("[loadovl] 세대 불일치 — 발행 취소(게임 이탈/새 게임)", flush=True); return
                 gui_data["load_info"] = payload
-            print(f"[loadovl] 로딩 정보 준비 — 아군 {len(ally)} · 적군 {len(enemy)}", flush=True)
+            print(f"[loadovl] 로딩 정보 준비 — 블루 {len(one)} · 레드 {len(two)}", flush=True)
             def _watch_render():
                 """게임이 실제 렌더링을 시작하면(=로딩 종료) 오버레이 자동 종료 — 200+gameTime 엄격 판정."""
                 for _ in range(50):
@@ -3025,8 +3016,8 @@ def _loading_overlay_sync(root):
     chh = max(48, gh * G["h"])
     def _row_x0(n):   # 실제 인원 수 기준 중앙 정렬(칼바람 리메이크 등 5인 미만 대응)
         return (gw - (n * cw + max(0, n - 1) * gap)) / 2.0
-    y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(상대팀) 카드 하단부 안쪽
-    y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(내 팀) 카드 하단부 안쪽
+    y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(블루팀) 카드 하단부 안쪽
+    y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(레드팀) 카드 하단부 안쪽
     f_ch = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")
     f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
     imgs = _LOAD_OVL.setdefault("imgs", [])
@@ -3078,12 +3069,12 @@ def _loading_overlay_sync(root):
         l3 = f"이 챔프 {d['cg']}판 {round(d['cw'] / d['cg'] * 100)}%" if d.get("cg") else (d.get("solo") or "")
         if d.get("cg") and d.get("solo"): l3 += f" · {d['solo']}"
         if l3: cv.create_text(cx, y0 + chh * 0.79, text=l3, fill="#9aa3b5", font=f_ln, width=tw)
-    _en = (info.get("enemy") or [])[:5]; _al = (info.get("ally") or [])[:5]
-    ex0 = _row_x0(len(_en)); ax0 = _row_x0(len(_al))
-    for j, d in enumerate(_en):
-        chip(ex0 + j * (cw + gap), d, "#e84057", y_top)   # 위 줄 = 상대팀(레드)
-    for i, d in enumerate(_al):
-        chip(ax0 + i * (cw + gap), d, "#c8aa6e", y_bot)   # 아래 줄 = 내 팀(골드)
+    _bl = (info.get("blue") or [])[:5]; _rd = (info.get("red") or [])[:5]
+    bx0 = _row_x0(len(_bl)); rx0 = _row_x0(len(_rd))
+    for i, d in enumerate(_bl):
+        chip(bx0 + i * (cw + gap), d, "#5b8cff", y_top)   # 위 줄 = 블루팀
+    for j, d in enumerate(_rd):
+        chip(rx0 + j * (cw + gap), d, "#e84057", y_bot)   # 아래 줄 = 레드팀
     try: w.deiconify(); w.attributes("-topmost", True)
     except Exception: pass
 
