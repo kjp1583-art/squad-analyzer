@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.85"
+CURRENT_VERSION = "82.86"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2673,10 +2673,10 @@ def _draft_overlay_sync(root):
 #   로딩 화면(phase=GameStart)에 들어가면 양 팀 10명의 챔피언·내부티어·내전 전적·이 챔프 전적·솔랭을
 #   항상-위 창으로 띄운다. 게임 시작(InProgress)하면 자동으로 내려간다.
 _LOAD_OVL = {"win": None, "cv": None, "key": ""}
-# 로딩 화면 카드 열 배치 비율(16:9 기준 스케일 대비) — 실기기에서 어긋나면 여기만 조정
-#   cw=카드 폭, gap=팀 사이 간격, card_h=카드 세로/가로 비, h=칩 높이(화면높이 대비)
-#   [2026-08-08 사장님 재지시] 칩을 카드 '아래 줄'이 아니라 각 초상화 카드 '위(하단부)'에 겹쳐 배치
-_LOADCARD_GEOM = {"cw": 0.0952, "gap": 0.026, "card_h": 2.30, "h": 0.078}
+# 로딩 화면 카드 배치 비율 — 실기기 스크린샷(2026-08-08) 실측: 카드는 한 줄 10장이 아니라
+#   위 5장(상대팀)/아래 5장(내 팀) 2줄이다. cw=카드 폭, gap=카드 사이 간격(모든 카드 사이),
+#   row_top/row_bot=각 줄 카드의 '하단' y비율, h=칩 높이(화면높이 대비)
+_LOADCARD_GEOM = {"cw": 0.131, "gap": 0.0247, "row_top": 0.490, "row_bot": 0.973, "h": 0.078}
 
 def _live2999_rendering():
     """게임이 '실제 렌더링 중'인지 엄격 판정 — 포트만 열린 과도기(에러 응답)를 렌더 시작으로 오판하지 않게
@@ -2907,19 +2907,18 @@ def _loading_overlay_sync(root):
     except Exception: pass
     cv.delete("all")
     G = _LOADCARD_GEOM
-    base = min(gw, gh * 16.0 / 9.0)   # 로딩 카드 UI는 16:9 기준 균일 스케일·중앙 정렬(울트라와이드 대응 — 검증 지적)
+    base = min(gw, gh * 16.0 / 9.0)   # 로딩 카드 UI는 16:9 기준 균일 스케일·중앙 정렬(울트라와이드 대응)
     cw = base * G["cw"]; gap = base * G["gap"]
-    nA = len((info.get("ally") or [])[:5]); nE = len((info.get("enemy") or [])[:5])
-    row_w = (nA + nE) * cw + (gap if (nA and nE) else 0)   # 5인 미만 판(칼바람 리메이크 등)도 실제 인원으로 중앙 정렬
-    left = (gw - row_w) / 2.0
     chh = max(48, gh * G["h"])
-    card_h = cw * G["card_h"]                       # 카드 실제 높이(가로 비율 기반)
-    y0 = min(gh - chh - 4, gh * 0.5 + card_h / 2 - chh - 6)   # 카드 하단부 안쪽 — 초상화 위에 겹침
+    def _row_x0(n):   # 실제 인원 수 기준 중앙 정렬(칼바람 리메이크 등 5인 미만 대응)
+        return (gw - (n * cw + max(0, n - 1) * gap)) / 2.0
+    y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(상대팀) 카드 하단부 안쪽
+    y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(내 팀) 카드 하단부 안쪽
     f_ch = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")
     f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
     imgs = _LOAD_OVL.setdefault("imgs", [])
     imgs.clear()   # 이전 프레임 PhotoImage 참조 해제(새로 그리는 프레임 것만 유지)
-    def chip(x, d, accent):
+    def chip(x, d, accent, y0):
         x1, x2 = x + 3, x + cw - 3
         cv.create_rectangle(x1, y0, x2, y0 + chh, fill="#0b101c", outline=accent, width=1)
         cv.create_rectangle(x1, y0, x2, y0 + 2, fill=accent, outline="")
@@ -2941,10 +2940,12 @@ def _loading_overlay_sync(root):
         l3 = f"이 챔프 {d['cg']}판 {round(d['cw'] / d['cg'] * 100)}%" if d.get("cg") else (d.get("solo") or "")
         if d.get("cg") and d.get("solo"): l3 += f" · {d['solo']}"
         if l3: cv.create_text(cx, y0 + chh * 0.79, text=l3, fill="#9aa3b5", font=f_ln, width=tw)
-    for i, d in enumerate((info.get("ally") or [])[:5]):
-        chip(left + i * cw, d, "#c8aa6e")            # 아군 = 롤 골드
-    for j, d in enumerate((info.get("enemy") or [])[:5]):
-        chip(left + nA * cw + gap + j * cw, d, "#e84057")   # 적군 = 레드
+    _en = (info.get("enemy") or [])[:5]; _al = (info.get("ally") or [])[:5]
+    ex0 = _row_x0(len(_en)); ax0 = _row_x0(len(_al))
+    for j, d in enumerate(_en):
+        chip(ex0 + j * (cw + gap), d, "#e84057", y_top)   # 위 줄 = 상대팀(레드)
+    for i, d in enumerate(_al):
+        chip(ax0 + i * (cw + gap), d, "#c8aa6e", y_bot)   # 아래 줄 = 내 팀(골드)
     try: w.deiconify(); w.attributes("-topmost", True)
     except Exception: pass
 
@@ -7398,6 +7399,13 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
                     _gn71 = global_ingame_names.get(_eng71)
                     if _gn71: name = str(_gn71).split('#')[0]
                 except Exception: pass
+            # 🎭 [2026-08-08 사장님 제보: 푸비니정리→리 신] 폴백이 챔피언 이름을 소환사명으로
+            #   흘리면 웹 닉변 병합이 그걸 최신 닉으로 뽑는다 — 챔피언명과 같으면 무효 처리
+            try:
+                _kor71 = str((global_champ_map.get(c_id) or {}).get('kor', '')).replace(' ', '')
+                if name and _kor71 and str(name).replace(' ', '') == _kor71:
+                    name = f"유저{c_id}"
+            except Exception: pass
             
             # 🧭 [v82.31] EOG 실제 포지션 우선(위와 동일 이유) — AI 평가의 역할별 데스 페널티도 이 값을 씀
             _eogp = str(p.get('teamPosition') or p.get('individualPosition') or '').upper()
