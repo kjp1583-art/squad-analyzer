@@ -3476,19 +3476,19 @@ function renderChampTier(){
 function playerStats(){
   const out=[];
   for(const [name,parts] of PLAYERS){
-    let w=0,l=0,mvp=0,bad=0;
+    let w=0,l=0,mvp=0,bad=0,ace=0;
     // 📊 [2026-07-30] CS/분·시야 — 시트 '지표' 열에 이미 있는데 화면에서 안 쓰고 있었다.
     //    기록이 있는 판만 평균한다(지표는 최근 기록부터 채워지므로 표본이 다를 수 있음).
     let csSum=0,csN=0,vsSum=0,vsN=0;
     for(const r of parts){
       if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;
-      if(r["매치평가"]==="MVP")mvp++;else if(r["매치평가"]==="역적")bad++;
+      if(r["매치평가"]==="MVP")mvp++;else if(r["매치평가"]==="역적")bad++;else if(r["매치평가"]==="ACE")ace++;
       const mt=parseMetrics(r);
       if(mt){ if(mt.cs&&mt.m){ csSum+=mt.cs/mt.m; csN++; } if(mt.vs!=null){ vsSum+=mt.vs; vsN++; } }
     }
     const a=ASSESSMENTS.get(name);
     const _mt=(typeof mentalOf==='function')?mentalOf(name):null;
-    out.push({name,games:parts.length,wins:w,losses:l,mvp,bad,wr:pct(w,w+l),
+    out.push({name,games:parts.length,wins:w,losses:l,mvp,bad,ace,wr:pct(w,w+l),
               cspm:csN?(csSum/csN):null, vision:vsN?(vsSum/vsN):null,
               score:(a&&a.score100)||null,      // 🔥 내전 활약 점수(솔랭 제외)
               mental:_mt?_mt.score:null});      // 🧊 멘탈 지수(연패 중 성적 유지)
@@ -3920,9 +3920,8 @@ function renderHome(){
       <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${isPinned(p.name)?'📌 ':''}${roleBadge(p.name)}${nameFx(p.name)}</span>${tierBadge(p.name)}</td>
       <td class="num">${p.games}</td>
       <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%</td>
-      <td class="num"${p.mental!=null?` title="${escAttr('멘탈 지수 '+p.mental+' — '+mentalLabel(p.mental)+' · 연패 중에도 팀과 같이 싸우는 정도(50점=클랜 평균)')}"`:''}>${
-        p.mental!=null?`<b style="color:${p.mental>=65?'var(--win)':p.mental<=35?'var(--lose)':'var(--sub)'}">${p.mental}</b>`:'<span class="muted">-</span>'}</td>
       <td class="num" style="color:var(--gold)">${p.mvp||""}</td>
+      <td class="num" style="color:#ff9d5c">${p.ace||""}</td>
       <td class="num" style="color:var(--lose)">${p.bad||""}</td>
     </tr>`).join("");
 
@@ -3934,7 +3933,7 @@ function renderHome(){
       <div class="card">
         <h2>👥 플레이어 목록 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
         <table class="ranktbl"><thead><tr>
-          ${pth("소환사","name")}${pth("게임수","games")}${pth("승률","wr")}${pth("멘탈","mental")}${pth("MVP","mvp")}${pth("역적","bad")}
+          ${pth("소환사","name")}${pth("게임수","games")}${pth("승률","wr")}${pth("MVP","mvp")}${pth("ACE","ace")}${pth("역적","bad")}
         </tr></thead><tbody>${playerRows}</tbody></table>
         ${pAll?'':`<div class="showall" onclick="homeShowAll('p')">▼ 전체 보기 (${playersOrdered.length}명)</div>`}
       </div>
@@ -6477,7 +6476,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608081450";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608081720";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
