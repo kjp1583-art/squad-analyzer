@@ -3034,6 +3034,11 @@ function puuidLatestFromRows(rows){
   for(let i=0;i<rows.length;i++){
     const r=rows[i], pu=r["PUUID"], nm=r["소환사명"];
     if(!pu||!nm)continue;
+    // 🎭 [2026-08-08 사장님 제보: 푸비니정리→'리 신' 표기] 분석기 이름 폴백이 소환사명 칸에
+    //   챔피언 이름을 흘린 오염 행이 최신 닉으로 뽑히던 사고. 자기 행의 챔피언명과 같거나
+    //   태그(#) 없는 이름은 대표닉 후보에서 제외한다(정상 대표닉은 항상 '이름#태그').
+    if(String(nm).indexOf("#")<0) continue;
+    if(r["챔피언"] && norm(nm)===norm(r["챔피언"])) continue;
     const d=r["날짜"]||"";
     const cur=latest.get(pu);
     // 날짜가 더 최신이거나, 같으면 시트상 더 뒤(최근 기록)인 닉을 대표로
@@ -6419,7 +6424,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608071720";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608081150";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
