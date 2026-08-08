@@ -1648,6 +1648,50 @@ let RAW = [];            // 행 배열 (객체)
 
 /* 🍀 팀운 지수 — 판마다 '내 팀원(본인 제외) 통산 AI점수 평균 − 상대팀 통산 AI점수 평균'을 재서
    본인 기량과 무관하게 로스터를 얼마나 잘 만났는지 수치화. 클랜 내 백분위로 0~100(평균 50) 표기. */
+
+/* 🔀 부포지션 수행력 — 주포지션(최다 판수) 하나를 뺀 "나머지 4개 라인 전부"에서의
+   승률·AI점수를 '그 포지션을 5판↑ 뛰는 클랜원' 비교군 백분위로 환산해 판수 가중 평균(0~100).
+   선택해둔 부포지션과 무관 — 실제로 뛴 오프라인 기록 전체가 대상. 3판 미만 포지션은 표본 제외.
+   [2026-08-08 사장님 지시] */
+let OFFROLE=null;
+function offRoleOf(name){
+  if(!OFFROLE){
+    OFFROLE=new Map();
+    const POS=["탑","정글","미드","원딜","서폿"];
+    const coh={}, per=new Map();
+    for(const [nm,parts] of PLAYERS_ALL){
+      const m={};
+      for(const r of parts){
+        const p=r["포지션"]; if(!POS.includes(p))continue;
+        const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
+        const e=m[p]=m[p]||{g:0,w:0,aiS:0,aiN:0};
+        e.g++; if(res==="승리")e.w++;
+        const sc=parseFloat(r["점수"]); if(!isNaN(sc)){e.aiS+=sc;e.aiN++;}
+      }
+      per.set(nm,m);
+      for(const p in m){ if(m[p].g>=5){ const c=coh[p]=coh[p]||{wr:[],ai:[]};
+        c.wr.push(m[p].w/m[p].g); if(m[p].aiN)c.ai.push(m[p].aiS/m[p].aiN); } }
+    }
+    for(const p in coh){ coh[p].wr.sort((a,b)=>a-b); coh[p].ai.sort((a,b)=>a-b); }
+    const pct=(arr,v)=>{ if(!arr||arr.length<5||v==null)return null;
+      let i=0; while(i<arr.length&&arr[i]<v)i++; return Math.round(i/arr.length*100); };
+    for(const [nm,m] of per){
+      const posArr=Object.keys(m); if(posArr.length<2)continue;
+      const main=posArr.reduce((a,b)=>m[a].g>=m[b].g?a:b);
+      let ws=0,wn=0,det=[];
+      for(const p of posArr){
+        if(p===main)continue; const e=m[p]; if(e.g<3)continue;
+        const pw=pct((coh[p]||{}).wr,e.w/e.g), pa=e.aiN?pct((coh[p]||{}).ai,e.aiS/e.aiN):null;
+        const vals=[pw,pa].filter(v=>v!=null); if(!vals.length)continue;
+        ws+=(vals.reduce((a,b)=>a+b,0)/vals.length)*e.g; wn+=e.g;
+        det.push(p+" "+e.g+"판");
+      }
+      if(wn) OFFROLE.set(nm,{score:Math.round(ws/wn),n:wn,main,detail:det.join(" · ")});
+    }
+  }
+  return OFFROLE.get(name)||null;
+}
+
 let TEAMLUCK=null;
 function teamLuckOf(name){
   if(!TEAMLUCK){
@@ -3130,7 +3174,7 @@ function aliasLookup(m, name){
 
 function build(){
   GAMES=new Map();PLAYERS=new Map();DUPLICATES=0;
-  _PCT_CACHE={}; MENTAL=new Map(); TEAMLUCK=null;   // 🧊 멘탈 지수도 데이터가 바뀌면 다시 계산                 // 카테고리/패치가 바뀌면 레이더 비교군도 다시 계산해야 한다
+  _PCT_CACHE={}; MENTAL=new Map(); TEAMLUCK=null; OFFROLE=null;   // 🧊 멘탈 지수도 데이터가 바뀌면 다시 계산                 // 카테고리/패치가 바뀌면 레이더 비교군도 다시 계산해야 한다
   // 패치 정규화 (v16.13 → 16.13, 빈칸 → 16.13). 'v' 표기/무표기를 같은 버전으로 통합
   for(const r of RAW){ r["패치버전"]=normPatch(r["패치버전"]); }
   // 감지된 모든 패치(최신순) + 최신 패치
@@ -4638,6 +4682,9 @@ function playerCardHtml(name){
     { const lk=(typeof teamLuckOf==='function')?teamLuckOf(a.name):null;
       if(lk&&lk.burden!=null) cells+=box('⚖️ 짊어진 무게',`${lk.burden}<span style="font-size:11px;color:var(--mut)">/100</span>`,
         '매칭 배치로 추정한 실력', lk.burden>=65?'cmp-good':''); }
+    { const orr=(typeof offRoleOf==='function')?offRoleOf(a.name):null;
+      if(orr) cells+=box('🔀 부포지션',`${orr.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
+        orr.detail||`${orr.n}판`, orr.score>=65?'cmp-good':(orr.score<=35?'cmp-bad':'')); }
     const nameJs=JSON.stringify(a.name).replace(/"/g,'&quot;');
     return `<div class="tbm-back" onclick="closePlayerCard(event)">
       <div class="tbm-card" onclick="event.stopPropagation()">
@@ -5594,6 +5641,12 @@ function renderPlayer(name){
         `매칭 상정 실력 ${lk.imp.toFixed(1)}점 · ${lk.n}판`,
         lk.burden>=65?'cmp-good':'',
         "밸런스 가정에서 판마다 역산한 '매칭이 상정한 내 실력'(상대평균×5 − 팀원평균×4)의 통산 평균을 백분위로 환산. 본인 경기 지표를 전혀 쓰지 않는 독립 추정치로, 높을수록 매판 무거운 짐을 지고 있다는 뜻.")); }
+    // 🔀 부포지션 수행력 — 주포지션 외 4개 라인 전부(실제 뛴 기록 기준)
+    { const orr=offRoleOf(name);
+      if(orr) it.push(cell("🔀 부포지션",`${orr.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
+        `${orr.detail||''} · 주 ${orr.main}`,
+        orr.score>=65?'cmp-good':(orr.score<=35?'cmp-bad':''),
+        "주포지션(최다 판수) 하나를 뺀 나머지 4개 라인 전부에서의 승률·AI점수를 그 포지션 클랜원 비교군 백분위로 환산해 판수 가중 평균(0~100, 평균 50). 높을수록 어느 자리에 놔도 제 몫을 하는 멀티포지션형.")); }
     const head=(_asmt&&_asmt.implPct!=null)?`<b style="color:#ffd24a">🎯 클랜 상위 ${_asmt.implPct}%</b>`:'<b>스탯 요약</b>';
     const sub=(d)?'전체기간 · 같은 내부티어 평균과 비교':'';
     const note=(_asmt&&!d)?`<div class="muted" style="font-size:12.5px;margin-bottom:6px">${_asmt.games}판 — 티어 비교엔 10판 이상 필요</div>`:'';
@@ -6424,7 +6477,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608081310";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608081450";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
