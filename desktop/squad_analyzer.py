@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.86"
+CURRENT_VERSION = "82.87"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -3037,11 +3037,11 @@ def _loading_overlay_sync(root):
         # 🕸 [v82.86] 웹 육각형 능력치 미니어처 — 값이 있으면 칩 오른쪽에 그린다
         hex_pad = 0
         vals = d.get("radar")
-        if vals and (x2 - tx1 - 6 - int(chh - 2)) < 30: vals = None   # 좁은 칩에선 육각형 생략(텍스트 겹침 방지)
+        if vals and (x2 - tx1 - 6 - int(chh + 10)) < 30: vals = None   # 좁은 칩에선 육각형 생략(텍스트 겹침 방지)
         if vals:
             hexR = chh / 2 - 5
-            hcx, hcy = x2 - hexR - 5, y0 + chh / 2
-            hex_pad = int(2 * hexR + 8)
+            hcx, hcy = x2 - hexR - 12, y0 + chh / 2
+            hex_pad = int(2 * hexR + 20)   # 축 라벨 여백 포함
             def _hexpts(rr, vv=None):
                 pts = []
                 for _i in range(6):
@@ -3052,6 +3052,13 @@ def _loading_overlay_sync(root):
             cv.create_polygon(*_hexpts(hexR), fill="", outline="#2e3852", width=1)
             cv.create_polygon(*_hexpts(hexR * 0.5), fill="", outline="#232c42", width=1)
             cv.create_polygon(*_hexpts(hexR, vals), fill=accent, stipple="gray50", outline=accent, width=1)
+            # 축 라벨(웹 육각형과 같은 순서) — 캐리·성장·시야·생존·교전·챔프폭
+            _axl = ("캐", "성", "시", "생", "교", "폭")
+            _f_ax = ("Malgun Gothic", max(7, int(gh * 0.0068)))
+            for _i in range(6):
+                ang = -math.pi / 2 + _i * math.pi / 3
+                cv.create_text(hcx + (hexR + 6) * math.cos(ang), hcy + (hexR + 6) * math.sin(ang),
+                               text=_axl[_i], fill="#8b94a8", font=_f_ax)
         cx = (tx1 + x2 - hex_pad) / 2; tw = max(30, x2 - tx1 - 6 - hex_pad)
         tv = f" · {d['tv']}" if d.get("tv") else ""
         cv.create_text(cx, y0 + chh * 0.20, text=f"{d['ch']}{tv}", fill=accent, font=f_ch, width=tw)
