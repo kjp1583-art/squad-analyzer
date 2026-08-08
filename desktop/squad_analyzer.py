@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.89"
+CURRENT_VERSION = "82.90"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -3199,6 +3199,24 @@ def _draft_coach_tick(s_json, headers, base_url):
             if not _bits: return champ
             return f"{champ} ← " + " / ".join(_bits)
         ally_desc, enemy_desc = [], []   # [v82.34] 픽 귀속 문장(누가 골랐는지)
+        # 🧭 [2026-08-08 사장님 제보: "오함마가 서폿인 걸 알면서 왜 유력이라고 하나"]
+        #   내전 커스텀은 assignedPosition이 비지만, 자동매칭 배정 포지션은 UI가 로비 로스터
+        #   (gui_data blue/red: chosen_pos_icon)로 이미 알고 있다 — 세션 값이 비면 이걸로 폴백해
+        #   ep·my_pos·lane_enemy 판정에 실제 배정 포지션을 쓴다(AI가 서폿 후보를 추리할 필요 제거).
+        _gpos = {}
+        try:
+            with gui_lock:
+                for _sd0 in ("blue", "red"):
+                    for _p0, _s0 in (gui_data.get(_sd0) or []):
+                        _pu0 = str(_p0.get("puuid") or "").strip().lower()
+                        _k0 = POSITION_TRANSLATE_KOR.get(str(_p0.get("chosen_pos_icon") or "").upper(), "")
+                        if _pu0 and _k0 and _k0 != "선택안함": _gpos[_pu0] = _k0
+        except Exception: pass
+        _pos_raw = _pos
+        def _pos(p):
+            _v = _pos_raw(p)
+            if _v and _v != "선택안함": return _v
+            return _gpos.get(str(_rpu(p) or "").strip().lower(), _v)
         for p in s_json.get("myTeam", []) or []:
             _pu = _rpu(p)
             if p.get("cellId") == my_cell:
