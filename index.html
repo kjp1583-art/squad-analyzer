@@ -4010,7 +4010,7 @@ function posPercentiles(pos){
   if(_PCT_CACHE[pos]) return _PCT_CACHE[pos];
   const all=[];
   for(const [nm,parts] of PLAYERS){
-    const rows=parts.filter(r=>(r["포지션"]||"")===pos);
+    const rows=parts.filter(r=>(r["포지션"]||"")===pos&&(r["결과"]==="승리"||r["결과"]==="패배"));   // 확정 경기만(분석기 육각형과 기준 통일)
     if(rows.length<5) continue;
     all.push(radarMetrics(rows));
   }
@@ -4589,7 +4589,7 @@ function playerCardHtml(name){
       if(mp&&mp[1]>=5){
         const P=posPercentiles(mp[0]);
         if(P&&P.n>=5){
-          const mine=radarMetrics(parts.filter(r=>(r["포지션"]||"")===mp[0]));
+          const mine=radarMetrics(parts.filter(r=>(r["포지션"]||"")===mp[0]&&(r["결과"]==="승리"||r["결과"]==="패배")));
           const AX=[["캐리","mvpr"],["성장","cspm"],["시야","vision"],["생존","surv"],["교전","fight"],["챔프폭","pool"]];
           const axes=AX.map(([label,k])=>({label,v:P.of(k,mine[k])}));
           if(axes.filter(x=>x.v!=null).length>=3){
@@ -5540,7 +5540,7 @@ function renderPlayer(name){
   //    색: 잘하면 초록, 못하면 붉게. 애매하면 색 없음(과장 금지).
   const _mp=[...posAgg.entries()].filter(([p])=>p&&p!=="?"&&p!=="선택안함").sort((a,b)=>b[1]-a[1])[0]||null;
   const _posP=(_mp&&_mp[1]>=5)?posPercentiles(_mp[0]):null;
-  const _posMine=_mp?radarMetrics(parts.filter(r=>(r["포지션"]||"")===_mp[0])):null;
+  const _posMine=_mp?radarMetrics(parts.filter(r=>(r["포지션"]||"")===_mp[0]&&(r["결과"]==="승리"||r["결과"]==="패배"))):null;
   const _pctOf=k=>(_posP&&_posMine)?_posP.of(k,_posMine[k]):null;
   const _pctCls=p=>p==null?'':(p>=70?'cmp-good':(p<=30?'cmp-bad':''));
   const _pctTip=p=>p==null?'':`${_mp[0]} ${_mp[1]}판 · 같은 포지션 클랜원 중 상위 ${Math.max(1,100-p)}%`;
@@ -6424,7 +6424,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608081150";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608081310";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

@@ -1686,6 +1686,19 @@ def _clan_index(force=False):
             c_nm, c_ps, c_tm = ci("소환사명"), ci("포지션"), ci("진영")
             c_bn = ci("밴")
             c_mv, c_kd, c_gp = ci("매치평가"), ci("KDA"), ci("지표")   # 🕸 [v82.86] 육각형 축 원자료
+            c_pt = ci("패치버전")
+            # 🕸 [검증 지적] 웹 육각형 비교군은 '최신 패치' 화면 기준 — rad 집계도 최신 패치 행만
+            _pset = set()
+            for _r0 in rows[1:]:
+                if 0 <= c_pt < len(_r0):
+                    _pv0 = str(_r0[c_pt] or "").strip().lstrip("vV")
+                    if _pv0: _pset.add(_pv0)
+            def _pnum(pp):
+                try:
+                    aa = pp.split(".")
+                    return int(aa[0]) * 1000 + int(aa[1])
+                except Exception: return -1
+            _latest_patch = max(_pset, key=_pnum) if _pset else ""
             if min(c_g, c_pu, c_ch, c_rs) < 0: continue
             per_game = {}
             for r in rows[1:]:
@@ -1705,12 +1718,13 @@ def _clan_index(force=False):
                 e["g"] += 1; e["w"] += (res == "승리")
                 e.setdefault("seq", []).append(res == "승리")   # 🖥️ [v82.85] 로딩 오버레이 연승·연패용(행 순서=시간순)
                 # 🕸 [v82.86] 웹 육각형과 동일한 6축 원자료(포지션별) — 캐리·성장·시야·생존·교전·챔프폭
-                if ps and ps != "선택안함":
+                _pv = str(r[c_pt] or "").strip().lstrip("vV") if 0 <= c_pt < len(r) else ""
+                if ps and ps != "선택안함" and _latest_patch and _pv == _latest_patch:
                     rd = e.setdefault("rad", {}).setdefault(ps, {"g": 0, "mvp": 0, "csS": 0.0, "csN": 0,
                                                                  "vsS": 0.0, "vsN": 0, "dS": 0, "kaS": 0, "kn": 0, "ch": set()})
                     rd["g"] += 1
                     if 0 <= c_mv < len(r) and str(r[c_mv]).strip() == "MVP": rd["mvp"] += 1
-                    if ch: rd["ch"].add(ch)
+                    if ch: rd["ch"].add(re.sub(r"\s+", "", ch))   # 표기 변형('자르반 4세'/'자르반4세') 1챔프로
                     if 0 <= c_kd < len(r):
                         try:
                             _k, _d, _a = [int(x) for x in str(r[c_kd]).split("/")]
@@ -2699,7 +2713,8 @@ _LOAD_OVL = {"win": None, "cv": None, "key": ""}
 #   row_top/row_bot=각 줄 카드의 '하단' y비율, h=칩 높이(화면높이 대비)
 _LOADCARD_GEOM = {"cw": 0.131, "gap": 0.0247, "row_top": 0.490, "row_bot": 0.973, "h": 0.078}
 
-_RADAR_PCT = {"ts": 0.0, "pos": {}}   # 포지션별 백분위 비교군 캐시(클랜 인덱스 갱신 시 재계산)
+_RADAR_PCT = {"ts": 0.0, "pos": {}, "people": None}   # 포지션별 백분위·사람단위 병합 캐시(클랜 인덱스 갱신 시 재계산)
+_RADAR_PCT_LOCK = threading.Lock()   # [검증 지적] 세대 교차 경합 — 옛 비교군이 새 ts 밑에 캐시되는 것 방지
 def _radar_metrics(rd):
     """축 원자료 → 웹 radarMetrics와 동일한 6축 값. 표본 없으면 None."""
     g = rd.get("g", 0)
@@ -2710,27 +2725,50 @@ def _radar_metrics(rd):
             "surv": (-(rd["dS"] / rd["kn"])) if rd["kn"] else None,
             "fight": (rd["kaS"] / rd["kn"]) if rd["kn"] else None,
             "pool": len(rd["ch"]) or None}
-def _radar_pct_of(cidx, pos, mine):
-    """웹 posPercentiles와 동일 — 같은 포지션 5판↑ 클랜원 비교군에서 각 축 백분위(0~100)."""
-    try:
-        if _RADAR_PCT["ts"] != cidx.get("ts"): _RADAR_PCT.update({"ts": cidx.get("ts"), "pos": {}})
-        cols = _RADAR_PCT["pos"].get(pos)
-        if cols is None:
-            allm = []
+def _radar_person_key(name):
+    """부계→본계 병합 키(웹 resolveAlt와 같은 취지 — LINK_ACCOUNT 기준, 태그 뗀 소문자)."""
+    return str(get_main_name(name or "")).split("#")[0].strip().lower()
+def _radar_people(cidx):
+    """by_pu(계정 단위) → 사람 단위 rad 병합. [검증 지적] 부계 보유자가 비교군에 두 번 들어가거나
+       표본이 계정별로 쪼개져 5판 문턱·백분위가 웹과 어긋나던 문제."""
+    with _RADAR_PCT_LOCK:
+        ts = cidx.get("ts")
+        if _RADAR_PCT["ts"] != ts:
+            _RADAR_PCT.update({"ts": ts, "pos": {}, "people": None})
+        if _RADAR_PCT["people"] is None:
+            people = {}
             for e in (cidx.get("by_pu") or {}).values():
-                rd = (e.get("rad") or {}).get(pos)
-                if rd and rd.get("g", 0) >= 5: allm.append(_radar_metrics(rd))
-            cols = {}
-            for k in ("mvpr", "cspm", "vision", "surv", "fight", "pool"):
-                cols[k] = sorted(v[k] for v in allm if v and v[k] is not None)
-            _RADAR_PCT["pos"][pos] = cols
+                rads = e.get("rad") or {}
+                if not rads: continue
+                key = _radar_person_key(e.get("name"))
+                if not key: continue
+                P = people.setdefault(key, {})
+                for pos_, rd in rads.items():
+                    t = P.setdefault(pos_, {"g": 0, "mvp": 0, "csS": 0.0, "csN": 0,
+                                            "vsS": 0.0, "vsN": 0, "dS": 0, "kaS": 0, "kn": 0, "ch": set()})
+                    for kk in ("g", "mvp", "csS", "csN", "vsS", "vsN", "dS", "kaS", "kn"): t[kk] += rd[kk]
+                    t["ch"] |= rd["ch"]
+            _RADAR_PCT["people"] = people
+        return _RADAR_PCT["people"]
+def _radar_pct_of(cidx, pos, mine):
+    """웹 posPercentiles와 동일 — 같은 포지션 5판↑(사람 단위) 비교군에서 각 축 백분위(0~100)."""
+    try:
+        people = _radar_people(cidx)
+        with _RADAR_PCT_LOCK:
+            if _RADAR_PCT["ts"] != cidx.get("ts"): return None   # 인덱스 세대가 바뀜 — 다음 틱에 재계산
+            cols = _RADAR_PCT["pos"].get(pos)
+            if cols is None:
+                allm = [_radar_metrics(P[pos]) for P in people.values() if pos in P and P[pos].get("g", 0) >= 5]
+                cols = {}
+                for k in ("mvpr", "cspm", "vision", "surv", "fight", "pool"):
+                    cols[k] = sorted(v[k] for v in allm if v and v[k] is not None)
+                _RADAR_PCT["pos"][pos] = cols
+        import bisect
         out = []
         for k in ("mvpr", "cspm", "vision", "surv", "fight", "pool"):
             a = cols.get(k) or []; v = mine.get(k)
             if v is None or len(a) < 5: out.append(None)
-            else:
-                import bisect
-                out.append(int(round(bisect.bisect_left(a, v) / len(a) * 100)))
+            else: out.append(int(round(bisect.bisect_left(a, v) / len(a) * 100)))
         return out
     except Exception:
         return None
@@ -2801,11 +2839,11 @@ def _build_loading_info(headers, base_url, gen=None):
                         else: break
                     st = c if cur else -c
                 radar = None
-                try:   # 🕸 주 포지션 기준 6축 백분위(웹 육각형과 동일 축·비교군)
-                    rads = e.get("rad") or {}
+                try:   # 🕸 주 포지션 기준 6축 백분위 — 사람 단위(부계 병합) rad로 웹과 동일 기준
+                    rads = (_radar_people(cidx or {}) or {}).get(_radar_person_key(e.get("name") or nm)) or {}
                     if rads:
                         mp = max(rads, key=lambda k: rads[k]["g"])
-                        if rads[mp]["g"] >= 5:
+                        if rads[mp].get("g", 0) >= 5:
                             mine = _radar_metrics(rads[mp])
                             px = _radar_pct_of(cidx or {}, mp, mine) if mine else None
                             if px and sum(1 for x in px if x is not None) >= 3: radar = px
@@ -2999,6 +3037,7 @@ def _loading_overlay_sync(root):
         # 🕸 [v82.86] 웹 육각형 능력치 미니어처 — 값이 있으면 칩 오른쪽에 그린다
         hex_pad = 0
         vals = d.get("radar")
+        if vals and (x2 - tx1 - 6 - int(chh - 2)) < 30: vals = None   # 좁은 칩에선 육각형 생략(텍스트 겹침 방지)
         if vals:
             hexR = chh / 2 - 5
             hcx, hcy = x2 - hexR - 5, y0 + chh / 2
