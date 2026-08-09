@@ -2104,7 +2104,7 @@ function loadMitoGames(){
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
           const g=String(gv(gi)||"").trim(), code=String(gv(ci)||"").trim();
-          if(g&&code) out.set(g,code);
+          if(g&&code&&code!=="null") out.set(g,code);
         }
       }catch(e){}
       resolve(out);
@@ -2136,7 +2136,8 @@ function loadMitoCodes(){
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
           const code=String(gv(ci)||"").trim(); if(!code) continue;
-          const meta={round:String(gv(ri)||"").trim(), stage:String(gv(si)||"").trim()};
+          const _cl=v=>{v=String(v||"").trim(); return v==="null"?"":v;};   // gviz {"v":null} → "null" 문자열 방어
+          const meta={round:_cl(gv(ri)), stage:_cl(gv(si))};
           if(code.endsWith("*")) out.pre.push({p:code.slice(0,-1).toLowerCase(), ...meta});
           else out.exact.set(code.toLowerCase(), meta);
         }
@@ -4879,14 +4880,16 @@ function mitoMatchesOf(games){
     let win="";
     for(const r of g.rows){
       const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
-      const s=r["진영"]||"", nm=canonOfName(r["소환사명"]||"");
-      if(!s||!nm) continue;
+      // 🏟 [2026-08-10 사장님 제보] 익명화 백필 판은 소환사명 칸이 챔피언 이름 — 이름 문자열이 아니라
+      //    PUUID(canonOfRow)로 사람을 묶어야 유령 로스터·팀 뒤섞임이 안 생긴다.
+      const s=r["진영"]||"", nm=canonOfRow(r);
+      if(!s||!nm||nm===(r["챔피언"]||"")) continue;   // PUUID로도 못 푼 챔피언명 행은 제외
       if(!side.has(s)) side.set(s,new Set());
       side.get(s).add(nm);
       if(res==="승리") win=s;
     }
     if(side.size!==2||!win) continue;   // 한쪽 진영만 잡힌 불완전 기록은 대진에서 제외
-    for(const r of g.rows){ const nm=canonOfName(r["소환사명"]||""), ps=r["포지션"]||""; if(nm&&ps&&ps!=="선택안함"&&!MITO_LANE_OF.has(nm)) MITO_LANE_OF.set(nm,ps); }
+    for(const r of g.rows){ const nm=canonOfRow(r), ps=r["포지션"]||""; if(nm&&ps&&ps!=="선택안함"&&!MITO_LANE_OF.has(nm)) MITO_LANE_OF.set(nm,ps); }
     const keyOf=s=>[...side.get(s)].sort().join(",");
     const mk=[...side.keys()].map(keyOf).sort().join("||");
     if(!byKey.has(mk)) byKey.set(mk,{teams:new Map(), games:[], date:g.date||""});
@@ -4987,7 +4990,7 @@ function mitoMatchStats(m){
   for(const e of m.games){
     for(const r of e.g.rows){
       const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
-      const nm=canonOfName(r["소환사명"]||""); if(!nm) continue;
+      const nm=canonOfRow(r); if(!nm||nm===(r["챔피언"]||"")) continue;
       if(!per.has(nm)) per.set(nm,{g:0,w:0,k:0,d:0,a:0,mvp:0,bad:0,champs:new Map()});
       const v=per.get(nm);
       v.g++; if(res==="승리") v.w++;
@@ -5072,7 +5075,7 @@ function renderMitoLog(){
   for(const g of games){
     for(const r of g.rows){
       const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
-      const nm=canonOfName(r["소환사명"]||""); if(!nm) continue;
+      const nm=canonOfRow(r); if(!nm||nm===(r["챔피언"]||"")) continue;
       if(!agg.has(nm)) agg.set(nm,{g:0,w:0,k:0,d:0,a:0,mvp:0,bad:0});
       const s=agg.get(nm);
       s.g++; if(res==="승리")s.w++;
@@ -6476,7 +6479,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608081720";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608101150";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
