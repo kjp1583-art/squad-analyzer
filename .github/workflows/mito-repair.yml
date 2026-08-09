@@ -1,0 +1,46 @@
+name: Mito games repair
+
+# 🏟 MITO_GAMES 응급 수리 — 게임 종료 직후 Match-V5 404를 '영구 미보관'으로 오판해
+# 빈 코드로 봉인된 행(재조회 불가)을 지정 날짜 이후분만 삭제한다.
+# 삭제되면 호스트 분석기의 15분 주기 수집기가 그 게임들을 다시 조회해 코드를 채운다.
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: '이 날짜(포함) 이후의 빈-코드 행 삭제 (예: 2026-08-09)'
+        required: true
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete empty-code rows since date
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+          SINCE: ${{ github.event.inputs.since }}
+        run: |
+          pip -q install gspread oauth2client
+          python3 - <<'PY'
+          import base64, os, json, time
+          import gspread
+          from oauth2client.service_account import ServiceAccountCredentials
+          open("creds.json","wb").write(base64.b64decode(os.environ["CREDENTIALS_JSON_B64"]))
+          scope=["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/spreadsheets",
+                 "https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
+          creds=ServiceAccountCredentials.from_json_keyfile_name("creds.json",scope)
+          ss=gspread.authorize(creds).open_by_key("10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU")
+          ws=ss.worksheet("MITO_GAMES")
+          vals=ws.get_all_values()
+          since=os.environ["SINCE"].strip()
+          doomed=[]   # 1-based row numbers
+          for i,r in enumerate(vals[1:],start=2):
+              gid=(r[0] if len(r)>0 else "").strip()
+              date=(r[1] if len(r)>1 else "").strip()
+              code=(r[2] if len(r)>2 else "").strip()
+              if gid and date>=since and not code:
+                  doomed.append(i)
+          print(f"삭제 대상 {len(doomed)}행 (since {since})")
+          for i in reversed(doomed):    # 뒤에서부터 지워야 행번호가 안 밀린다
+              ws.delete_rows(i); time.sleep(1.2)
+          print("완료")
+          PY
