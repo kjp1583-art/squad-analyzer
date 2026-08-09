@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.91"
+CURRENT_VERSION = "82.92"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -4040,6 +4040,14 @@ def sync_mito_games():
     if not todo: return
     picks = sorted(todo.items(), key=lambda kv: kv[1], reverse=True)[:_MITO_SCAN_PER_CYCLE]
 
+    # 🏟 [2026-08-10 사장님 제보: 미토 웹 표기 이상] 게임 종료 직후엔 Match-V5가 아직 색인 전이라
+    #    404가 나는데, 이를 '영구 미보관'으로 오판해 빈 코드로 봉인 → 어제 미토가 통째로 누락됐다.
+    #    24시간 안 된 게임은 404/빈코드를 기록하지 않고 다음 주기에 재조회한다.
+    def _fresh(date_s):
+        try:
+            return (time.time() - time.mktime(time.strptime(str(date_s)[:16], "%Y-%m-%d %H:%M"))) < 24 * 3600
+        except Exception:
+            return False
     new_rows, found = [], 0
     for gid, date_s in picks:
         try:
@@ -4050,10 +4058,12 @@ def sync_mito_games():
                 except Exception: time.sleep(10)
                 break                      # 이번 주기는 여기까지 — 다음 주기에 이어서
             if resp.status_code == 404:
-                new_rows.append([gid, date_s, ""])   # 리엇 미보관 → 재조회 대상에서 영구 제외
+                if _fresh(date_s): continue          # 색인 전일 수 있음 — 다음 주기 재조회
+                new_rows.append([gid, date_s, ""])   # 하루 지나도 404 = 진짜 미보관 → 영구 제외
                 continue
             if resp.status_code != 200: continue
             code = str(((resp.json() or {}).get("info") or {}).get("tournamentCode") or "").strip()
+            if not code and _fresh(date_s): continue   # 갓 끝난 판의 빈 코드도 보류(색인 지연 의심)
             new_rows.append([gid, date_s, code])
             if code:
                 found += 1
