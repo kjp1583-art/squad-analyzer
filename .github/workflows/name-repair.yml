@@ -1,0 +1,51 @@
+name: Summoner name repair
+
+# 🎭 익명화 백필이 소환사명 칸에 챔피언 이름을 남긴 행을 실명으로 교정.
+# 같은 PUUID의 정상 행(태그 포함 최신 닉)에서 이름을 가져와 덮어쓴다.
+on:
+  workflow_dispatch:
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fix champion-name rows
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+        run: |
+          pip -q install gspread oauth2client
+          python3 - <<'PY'
+          import base64, os, time
+          import gspread
+          from oauth2client.service_account import ServiceAccountCredentials
+          open("creds.json","wb").write(base64.b64decode(os.environ["CREDENTIALS_JSON_B64"]))
+          scope=["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/spreadsheets",
+                 "https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
+          creds=ServiceAccountCredentials.from_json_keyfile_name("creds.json",scope)
+          ss=gspread.authorize(creds).open_by_key("10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU")
+          for tab in ("CLASSIC_NORMAL","KIWI_KIWI"):
+              try: ws=ss.worksheet(tab)
+              except Exception: continue
+              vals=ws.get_all_values()
+              if not vals: continue
+              h=vals[0]
+              try: nI,pI,cI,dI=h.index("소환사명"),h.index("PUUID"),h.index("챔피언"),h.index("날짜")
+              except ValueError: continue
+              latest={}
+              for r in vals[1:]:
+                  pu=r[pI].strip(); nm=r[nI].strip(); d=r[dI].strip()
+                  if not pu or "#" not in nm: continue
+                  if nm.replace(" ","")==r[cI].strip().replace(" ",""): continue
+                  cur=latest.get(pu)
+                  if not cur or d>=cur[1]: latest[pu]=(nm,d)
+              fixed=0
+              for i,r in enumerate(vals[1:],start=2):
+                  pu=r[pI].strip(); nm=r[nI].strip()
+                  if not pu or not nm: continue
+                  if "#" in nm: continue
+                  if nm.replace(" ","")!=r[cI].strip().replace(" ",""): continue   # 챔피언명과 같은 행만
+                  real=latest.get(pu)
+                  if not real: continue
+                  ws.update_cell(i,nI+1,real[0]); fixed+=1; time.sleep(1.1)
+              print(f"{tab}: {fixed}행 실명 교정")
+          PY

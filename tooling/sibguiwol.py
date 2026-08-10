@@ -92,6 +92,10 @@ def build_identity(raw, alt_to_main):
     for i, r in enumerate(raw):
         pu, nm, d = r.get("PUUID"), r.get("소환사명"), str(r.get("날짜") or "")
         if not pu or not nm: continue
+        # 🎭 [2026-08-10 사장님 제보: 상현2가 '카시오페아'로 표기] 익명화 백필 행은 소환사명 칸이
+        #    챔피언 이름 — 태그(#) 없는 이름·자기 행 챔피언명과 같은 이름은 최신닉 후보에서 제외
+        if "#" not in str(nm): continue
+        if str(r.get("챔피언") or "").replace(" ", "") == str(nm).replace(" ", ""): continue
         cur = latest.get(pu)
         if not cur or d > cur[1] or (d == cur[1] and i >= cur[2]): latest[pu] = (nm, d, i)
     canon_by_puuid = {pu: v[0] for pu, v in latest.items()}

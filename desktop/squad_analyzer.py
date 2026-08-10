@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.92"
+CURRENT_VERSION = "82.93"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -1714,7 +1714,8 @@ def _clan_index(force=False):
                 ps = str(r[c_ps]).strip() if 0 <= c_ps < len(r) else ""
                 tm = str(r[c_tm]).strip() if 0 <= c_tm < len(r) else ""
                 e = by_pu.setdefault(pu, {"name": nm, "champs": {}, "pos": {}, "g": 0, "w": 0})
-                if nm: e["name"] = nm
+                # 🎭 [2026-08-10] 익명화 백필 행(소환사명=챔피언명·태그 없음)은 대표닉 갱신에서 제외
+                if nm and "#" in nm and nm.replace(" ", "") != ch.replace(" ", ""): e["name"] = nm
                 e["g"] += 1; e["w"] += (res == "승리")
                 e.setdefault("seq", []).append(res == "승리")   # 🖥️ [v82.85] 로딩 오버레이 연승·연패용(행 순서=시간순)
                 # 🕸 [v82.86] 웹 육각형과 동일한 6축 원자료(포지션별) — 캐리·성장·시야·생존·교전·챔프폭
