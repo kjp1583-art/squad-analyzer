@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.93"
+CURRENT_VERSION = "82.94"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -750,7 +750,7 @@ def stop_attendance():
 # ===== 🎮 롤 로비 자동초대 폴러 (2026-07-06) =====
 # 봇 /invites(팀초대 버튼 요청) 폴링 → '내 LCU 현재소환사 == 요청자'(=내가 로비 호스트)면
 # 같은 조 나머지 9명을 LCU(/lol-lobby/v2/lobby/invitations)로 실제 초대. (요청자 아니면 조용히 무시)
-INVITE_BRIDGE_URL = "http://fi15.bot-hosting.net:27116/invites"   # 봇 공개엔드포인트(노드 이전 시 변경)
+INVITE_BRIDGE_URL = "https://hth3thmujs.apps.bot-hosting.cloud/invites"   # 봇 공개엔드포인트(노드 이전 시 변경)
 _processed_invites = {}   # invite_id -> 처리시각(180s 보관, 봇 TTL 120s보다 길게 → 재발동 방지)
 
 def _inv_norm(s):
@@ -2566,7 +2566,7 @@ def _draft_advise(ctx, my_pool):
             return "⚠️ 고스트밴픽왕: 응답이 늦어 이번 픽은 건너뛰었어요"
         return f"⚠️ 고스트밴픽왕 오류: {_t}\n{_m[:120]}"
 
-_COACH_PROXY_URL = "http://fi15.bot-hosting.net:27116/draft-coach"   # 봇 프록시(INVITE_BRIDGE와 동일 노드)
+_COACH_PROXY_URL = "https://hth3thmujs.apps.bot-hosting.cloud/draft-coach"   # 봇 프록시(INVITE_BRIDGE와 동일 노드)
 def _coach_token():
     """구독자 토큰 — config.json에 저장(설정 UI에서 입력). 없으면 None."""
     try:
@@ -3084,7 +3084,7 @@ def _loading_overlay_sync(root):
 #   설계: 추천이 뜨면 추천 챔프 목록을 보관 → 내가 실제로 밴/픽을 확정하는 순간 대조 → 봇에 1건 전송.
 #   게임ID는 밴픽 중엔 모르므로 나중에 시트(CLASSIC_NORMAL)와 시각·닉으로 조인해 승패를 붙인다.
 #   ⚠️ 절대 코치 동작을 방해하지 않는다(전부 예외 무시).
-_COACH_LOG_URL = "http://fi15.bot-hosting.net:27116/coach-log"
+_COACH_LOG_URL = "https://hth3thmujs.apps.bot-hosting.cloud/coach-log"
 _COACH_LAST = {}     # mode -> {"rec":[챔프...], "ts":epoch, "sent":False}
 
 def _parse_rec_champs(txt):
