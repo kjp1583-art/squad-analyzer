@@ -849,18 +849,18 @@
   .bk-box:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.22)}
   .bk-box.win{border-color:rgba(58,115,232,.65);background:linear-gradient(160deg,#1a2542,#131a2e 70%);
           box-shadow:0 2px 10px rgba(58,115,232,.22)}
-  .bk-box.champ{border-color:var(--gold);background:linear-gradient(160deg,#2e2410,#1b1608 70%);
+  .bk-box.bk-champ{border-color:var(--gold);background:linear-gradient(160deg,#2e2410,#1b1608 70%);
           box-shadow:0 0 14px rgba(224,164,55,.35);position:relative;animation:champ-glow 2.6s ease-in-out infinite}
   @keyframes champ-glow{0%,100%{box-shadow:0 0 10px rgba(224,164,55,.3)}50%{box-shadow:0 0 20px rgba(224,164,55,.55)}}
-  @media (prefers-reduced-motion: reduce){.bk-box.champ{animation:none}}
+  @media (prefers-reduced-motion: reduce){.bk-box.bk-champ{animation:none}}
   .bk-top{font-weight:900;font-size:10.5px;color:var(--sub);margin-bottom:3px;white-space:nowrap;
           letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.07);padding-bottom:3px}
   .bk-box.win .bk-top{color:#7fa8ff;border-bottom-color:rgba(58,115,232,.3)}
-  .bk-box.champ .bk-top{color:#ffd86e;font-size:11.5px;border-bottom-color:rgba(224,164,55,.35)}
-  .bk-box.champ .bk-mem{color:#ffe9b0;font-weight:700}
+  .bk-box.bk-champ .bk-top{color:#ffd86e;font-size:11.5px;border-bottom-color:rgba(224,164,55,.35)}
+  .bk-box.bk-champ .bk-mem{color:#ffe9b0;font-weight:700}
   .bk-mem{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* 시드(1라운드 명단) 박스는 은은하게 — 본 대진 카드와 위계 구분 */
-  .bk-slot .bk-box:not(.win):not(.champ){border-style:dashed;border-color:#262d40;opacity:.92}
+  .bk-slot .bk-box:not(.win):not(.bk-champ){border-style:dashed;border-color:#262d40;opacity:.92}
   .empty{text-align:center;color:var(--mut);padding:60px 20px}
   .loadbar{height:3px;background:var(--accent);width:0;transition:width .3s;position:fixed;top:0;left:0;z-index:50}
   .hidden{display:none}
@@ -4969,7 +4969,7 @@ function bkNode(m,isRoot){
   const score=(m.winner?[m.winner.wins,...m.teamList.filter(t=>t.key!==m.winner.key).map(t=>t.wins)]
                       :m.teamList.map(t=>t.wins)).join(":");
   const top=(m.label?m.label+" ":"")+score+(m.winner?"":" 무승부");
-  const box=m.winner?bkTeamBox(m.winner,isRoot?'champ':'win',(isRoot?"🏆 ":"")+top,m.idx)
+  const box=m.winner?bkTeamBox(m.winner,isRoot?'bk-champ':'win',(isRoot?"🏆 ":"")+top,m.idx)
                     :`<div class="bk-box"><div class="bk-top">${esc(top)}</div>${
                         m.teamList.map(t=>t.members.map(n=>`<div class="bk-mem">${esc(shortName(n))}</div>`).join("")).join('<div class="bk-mem muted">vs</div>')}</div>`;
   // 위 → 아래 순서로 쌓는다: 승자 박스 / 연결선 / 하위 라운드
@@ -6479,7 +6479,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608101150";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608101250";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
