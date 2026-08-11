@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.95"
+CURRENT_VERSION = "82.96"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -3861,7 +3861,8 @@ def backfill_pending_results():
                         _eval_done_gids.add(str(r[c_gid]).strip())
                 except Exception: continue
         pend = []
-        for r in rows[1:]:
+        _pend_meta = {}   # gid -> (가장 이른 날짜문자열, [시트행번호…]) — 오래된 미보관 판 마감용
+        for _ri, r in enumerate(rows[1:], start=2):
             try:
                 if len(r) <= max(c_gid, c_res): continue
                 _res_v = str(r[c_res]).strip()
@@ -3877,6 +3878,8 @@ def backfill_pending_results():
                 except Exception:
                     continue
                 if gid not in pend: pend.append(gid)
+                _m = _pend_meta.setdefault(gid, [str(r[c_date]).strip(), []])
+                if _res_v == "결과 대기": _m[1].append(_ri)
             except Exception: continue
         for gid in pend:
             try:
@@ -3887,6 +3890,16 @@ def backfill_pending_results():
                     if _bf_404_counts[gid] >= 6:   # 6주기(약 90분) 연속 404 = 진행중 게임이 아니라 진짜 미보관
                         _bf_skip_gids.add(gid)
                         print(f"[backfill] {gid} 리엇 미보관(404×{_bf_404_counts[gid]}) → 영구 스킵", flush=True)
+                        # 🧹 [2026-08-11 주간감사 반영] 7일 넘게 '결과 대기'로 남은 미보관 판은 영영 못 채운다.
+                        #    그대로 두면 시트에 유령 행이 쌓이고 매주 감사에 같은 항목이 계속 뜬다 → '무효'로 마감.
+                        try:
+                            _md, _mrows = _pend_meta.get(gid, ["", []])
+                            _age = now - time.mktime(time.strptime(_md, "%Y-%m-%d %H:%M"))
+                            if _mrows and _age > 7 * 86400:
+                                ws.update_cells([gspread.Cell(row=_r, col=c_res + 1, value="무효") for _r in _mrows])
+                                print(f"[backfill] 🧹 {gid} 7일 초과 미보관 — {len(_mrows)}행 '무효' 마감", flush=True)
+                        except Exception as _ce:
+                            print(f"[backfill] 마감 실패(무시): {type(_ce).__name__}", flush=True)
                     continue
                 if resp.status_code == 429:
                     try: time.sleep(min(int(resp.headers.get("Retry-After", "10") or 10), 120))
