@@ -6001,6 +6001,7 @@ def lcu_core_backend_loop():
     posted_game_ids = set()              # 🔔 [웹훅] 이 인스턴스가 결과 웹훅을 이미 보낸 게임ID (게임당 1회, cells_to_update 무관)
     announced_starts = set()             # 🎬 게임 시작 웹훅을 이미 보낸 게임ID (게임당 1회 발송)
     announced_ends = set()               # 🏁 [2026-07-07] 경기 종료 웹훅을 이미 보낸 게임ID (봇 종료신호, 인스턴스당 게임당 1회)
+    nonclan_games = set()                # 🚧 [2026-08-11] 클랜원 0명이라 기록을 건너뛴 게임ID (로그 1회만)
     game_seq = 0                         # 🔢 게임 진입 카운터 (커스텀게임 gameId=0일 때 판별 — 같은멤버 연속게임 중복기록 방지)
     was_in_prog = False                  #    이전 루프가 InProgress였나 (전환 감지용)
     last_known_phase = "None"            # [V81.48] gameflow-phase 폴링 실패 시 직전 phase 유지(헛플립→game_seq 드리프트 방지)
@@ -6963,6 +6964,20 @@ def lcu_core_backend_loop():
                                     _roster_complete = (_live_n >= _expected) or (_waited > 120 and _live_n >= 6)
                                     if rows_to_append and not has_bot and not _roster_complete:
                                         with gui_lock: gui_data["status"] = f"⏳ 로스터 로딩 대기 ({_live_n}/{_frozen_n or '?'}인) — 완전해지면 기록"
+                                    # 🚧 [2026-08-11 사장님 제보 '10명 중 한 명도 모르겠다'] 비클랜 판 기록 차단.
+                                    #   분석기를 켠 사람이 우리 클랜원이 아니면 그 사람의 남의 내전까지 우리 시트에 들어오고
+                                    #   시작 웹훅 → 봇 현황판에 남의 내전이 뜬다(8/11 21:07 #8336352560, 10인 전원 외부인).
+                                    #   내부티어 로스터(CLAN_TIERS, 270명)에 한 명도 안 걸리면 우리 판이 아니다 → 기록·웹훅 모두 생략.
+                                    #   실측: 과거 1002판 중 클랜원 0명인 판은 한 판도 없음(최소 1명) → 오탐 위험 없음.
+                                    #   로스터 로드 실패(50명 미만)면 게이트를 열어 둔다(진짜 내전을 놓치는 쪽이 더 나쁨).
+                                    if rows_to_append and _roster_complete and len(TIER_OF) >= 50:
+                                        _clan_hit = sum(1 for _rd in roster_data if tier_of(_rd[3]))
+                                        if _clan_hit == 0:
+                                            if fetched_game_id not in nonclan_games:
+                                                nonclan_games.add(fetched_game_id)
+                                                print(f"[기록생략] 클랜원 0명 — 우리 내전이 아니라 판단해 기록·시작알림 모두 생략 ({game_id_str})", flush=True)
+                                            with gui_lock: gui_data["status"] = "⏸️ 클랜원이 없는 판 — 기록하지 않습니다"
+                                            rows_to_append = []
                                     # [트래픽↓ 2026-07-07 동시시작 429 완화] 신선한 col_values(서비스계정) 재확인+append는 '하위 순번(0~3)'만 수행.
                                     #   상위 순번은 서비스계정 안 건드리고 다음 루프에서 gviz(위 sheet_data_fresh)로 기록확인→existing_rows_count≥5면 스킵.
                                     #   → 2팀 동시시작 시 gviz stale이어도 서비스읽기 ~20 → ~8로 감소. 승자 append는 이미 게임당 1회.

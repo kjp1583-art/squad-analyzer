@@ -1,0 +1,73 @@
+name: Non-clan game purge
+
+# 🚧 비클랜 판 제거 (2026-08-11 사장님 제보: 웹 현황판에 모르는 사람 10명짜리 내전이 떴다)
+#   원인: 우리 클랜원이 아닌 사람이 분석기를 켜고 자기 내전을 돌리면
+#         그 판이 우리 시트(CLASSIC_NORMAL/KIWI_KIWI)에 그대로 기록된다.
+#   판정: 참가자 10명 중 CLAN_TIERS(내부티어 로스터)에 걸리는 사람이 '한 명도' 없는 게임.
+#         과거 1002판 실측 결과 클랜원 0명인 판은 존재하지 않았으므로 오탐 위험이 없다.
+#   기본은 미리보기. apply=true 일 때만 실제로 지운다.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 삭제 (체크 안 하면 미리보기만)'
+        type: boolean
+        default: false
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge games with zero clan members
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+          APPLY: ${{ inputs.apply && '1' || '0' }}
+        run: |
+          pip -q install gspread oauth2client
+          python3 - <<'PY'
+          import base64, os, time
+          from collections import defaultdict
+          import gspread
+          from oauth2client.service_account import ServiceAccountCredentials
+          open("creds.json","wb").write(base64.b64decode(os.environ["CREDENTIALS_JSON_B64"]))
+          scope=["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/spreadsheets",
+                 "https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
+          creds=ServiceAccountCredentials.from_json_keyfile_name("creds.json",scope)
+          ss=gspread.authorize(creds).open_by_key("10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU")
+          APPLY = os.environ.get("APPLY")=="1"
+
+          def tnorm(s): return "".join(str(s or "").split("#")[0].lower().split())
+          tiers=set()
+          for r in ss.worksheet("CLAN_TIERS").get_all_values()[1:]:
+              if len(r)>=2 and r[0].strip() and r[1].strip(): tiers.add(tnorm(r[0]))
+          print(f"CLAN_TIERS 로스터 {len(tiers)}명")
+          if len(tiers) < 50:
+              raise SystemExit("로스터가 비정상적으로 작습니다 — 중단(오삭제 방지)")
+
+          for tab in ("CLASSIC_NORMAL","KIWI_KIWI"):
+              try: ws=ss.worksheet(tab)
+              except Exception: continue
+              vals=ws.get_all_values()
+              if not vals: continue
+              h=vals[0]
+              try: gI,nI,dI = h.index("게임ID"), h.index("소환사명"), h.index("날짜")
+              except ValueError: continue
+              rows_of=defaultdict(list); hit=defaultdict(int); date_of={}
+              for i,r in enumerate(vals[1:], start=2):
+                  gid=(r[gI] if len(r)>gI else "").strip()
+                  if not gid: continue
+                  rows_of[gid].append(i)
+                  date_of[gid]=(r[dI] if len(r)>dI else "").strip()
+                  if tnorm(r[nI] if len(r)>nI else "") in tiers: hit[gid]+=1
+              doomed=[]
+              for gid,rs in rows_of.items():
+                  if hit[gid]==0:
+                      print(f"  · {tab} {gid} ({date_of[gid]}) — 클랜원 0명 / {len(rs)}행 삭제 대상")
+                      doomed += rs
+              print(f"{tab}: 삭제 대상 {len(doomed)}행")
+              if doomed and APPLY:
+                  for i in sorted(doomed, reverse=True):   # 뒤에서부터 지워야 행번호가 안 밀린다
+                      ws.delete_rows(i); time.sleep(1.2)
+                  print(f"{tab}: 삭제 완료")
+          if not APPLY: print("미리보기만 했습니다(APPLY=1 이어야 실제 삭제).")
+          PY
