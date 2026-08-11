@@ -34,7 +34,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.94"
+CURRENT_VERSION = "82.95"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -2010,6 +2010,14 @@ def _pool_by_puuid(puuid, limit=6, pos=""):
     if not key or not global_spreadsheet: return []
     want = str(pos or "").strip()
     agg = {}
+    # 🎯 [2026-08-11 주간감사 반영] 밴 추천 위협 적중률 12%의 주범 = '옛날에 몇 판 한 잡픽'이
+    #    후보로 올라오는 것(뽀삐 20회·로크 19회 헛방). 최근 사용 여부와 점유율을 같이 재서
+    #    호출부가 '이번 판에 진짜 나올 픽'만 고를 수 있게 한다.
+    _RECENT_DAYS = 90
+    _cut = time.strftime("%Y-%m-%d", time.localtime(time.time() - _RECENT_DAYS * 86400))
+    rec = {}      # 챔프 -> 최근 판수
+    tot_all = 0   # (그 포지션) 총 판수
+    tot_rec = 0   # (그 포지션) 최근 총 판수
     try:
         # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람은 챔프 선택 성격이 달라 장인 판단을 왜곡한다.
         for _tab in ("CLASSIC_NORMAL",):
@@ -2034,8 +2042,18 @@ def _pool_by_puuid(puuid, limit=6, pos=""):
                 g, w, nm = agg.get(ch, (0, 0, ""))
                 nm = nm or (str(r[c_nm]).strip() if c_nm >= 0 and len(r) > c_nm else "")
                 agg[ch] = (g + 1, w + (1 if (c_rs >= 0 and len(r) > c_rs and str(r[c_rs]).strip() == "승리") else 0), nm)
+                tot_all += 1
+                _c_dt = ci("날짜")
+                if 0 <= _c_dt < len(r) and str(r[_c_dt]).strip()[:10] >= _cut:
+                    rec[ch] = rec.get(ch, 0) + 1; tot_rec += 1
     except Exception: pass
-    out = sorted(([c, g, w, nm] for c, (g, w, nm) in agg.items()), key=lambda x: -x[1])[:limit]
+    # 정렬: 최근 판수 우선 → 총 판수. 반환 원소 = [챔프, 총판, 승, 닉, 최근판, 점유율%(최근 없으면 통산 기준)]
+    def _share(c, g):
+        base = tot_rec if tot_rec >= 5 else tot_all
+        num = rec.get(c, 0) if tot_rec >= 5 else g
+        return round(num / base * 100) if base else 0
+    out = sorted(([c, g, w, nm, rec.get(c, 0), _share(c, g)] for c, (g, w, nm) in agg.items()),
+                 key=lambda x: (-x[4], -x[1]))[:limit]
     return out
 
 
@@ -2053,11 +2071,23 @@ def _enemy_ban_pool(pu, ep, cidx, limit=6):
     nm = str(_e.get("name") or (full[0][3] if full and len(full[0]) > 3 else "") or "상대").split("#")[0].strip() or "상대"
     hdr = nm + (f" [이번 판 포지션: {ep}]" if ep else "")
 
+    def _live(rows):
+        """🎯 [2026-08-11 주간감사 실측 반영] '이번 판에 나올 픽'만 남긴다.
+           과거 밴 로그 202건을 그 자리 점유율로 나눠 재보니 —
+             점유 0%(그 자리 전적 없음) 64건 → 적중 0 / 1~9% 48건 → 적중 2(4%) / 10%↑ 90건 → 적중 27(30%).
+           즉 점유 10% 미만 추천의 96%가 그 판에 등장조차 안 했다. 임계 10%가 최적점이었다
+           (후보 55% 감축, 실제 적중은 29건 중 27건 유지, 정밀도 14%→30%).
+           15%로 올리면 적중의 3분의 1을 잃어 과했다."""
+        keep = [t for t in rows if len(t) < 6 or (t[5] >= 10 and t[1] >= 2)]
+        return keep or rows[:2]      # 전부 걸러지면 최소한 주력 2개는 남긴다
+
     def _fmt(rows, with_pos):
         out = []
         for t in rows:
             c3, g3, w3 = t[0], t[1], t[2]
             s = f"{c3}({g3}판 {round(w3 / g3 * 100) if g3 else 0}%"
+            if len(t) > 5:
+                s += f"·최근90일 {t[4]}판·점유 {t[5]}%"
             if with_pos:
                 _d = _cp.get(c3) or {}
                 _mp = max(_d.items(), key=lambda x: x[1])[0] if _d else ""
@@ -2066,10 +2096,10 @@ def _enemy_ban_pool(pu, ep, cidx, limit=6):
         return out
 
     if not ep:
-        return (hdr, _fmt(full, True)) if full else None
+        return (hdr, _fmt(_live(full), True)) if full else None
     lst = _pool_by_puuid(pu, limit=limit, pos=ep) or []
     if lst:
-        return (hdr, _fmt(lst, False))          # 전부 그 포지션 전적이라 병기가 불필요
+        return (hdr, _fmt(_live(lst), False))   # 전부 그 포지션 전적이라 병기가 불필요
     off = ", ".join(_fmt(full[:3], True))
     return (hdr, [f"※ {ep} 전적 0판 — 이 사람 저격 밴은 값이 없다"
                   + (f" (다른 자리 주력 {off} 은 이번 판에 못 씀)" if off else " (내전 전적 자체가 없음)")])
@@ -2304,6 +2334,10 @@ _DRAFT_BAN_RULES = (
     "- [상대 팀원들의 내전 챔프폭]이 주어지면 그것이 1페이즈 밴의 최우선 근거다. 판수 많고 승률 높은\n"
     "  '그 사람의 밥줄 챔프'를 자르면 상대는 숙련 없는 2번째 카드를 꺼내야 한다.\n"
     "- 단, 판수가 적은 고승률(3판 100% 등)은 우연이니 밴 근거로 쓰지 마라. 판수 5판 이상을 우선하라.\n"
+    "- ★[2026-08-11 감사 반영] 챔프폭에 붙은 **'점유 P%'가 그 픽이 이번 판에 나올 확률**이다(그 자리에서 P판 중 몇 번 꺼냈나).\n"
+    "  밴의 가치 = 등장 확률 × 위력. 실측하니 점유율 한 자릿수 픽 추천은 **96%가 그 판에 등장조차 안 했다** —\n"
+    "  통산 승률이 아무리 높아도 점유율이 낮으면 밴 후보로 올리지 마라. 같은 값이면 점유율 높은 쪽을 먼저 자른다.\n"
+    "  5개를 억지로 채우려 저확률 픽을 끼워 넣지 마라 — **확신 있는 3~4개**가 낭비 없는 밴이다.\n"
     "- ★선픽 위험군: 챔프폭에서 **판수 비중이 크고 승률도 높은** 챔프는 매치업을 안 가리고 꺼내는 '선픽 카드'다.\n"
     "  1페이즈 밴에서 같은 값이면 이쪽을 우선하라(어차피 나올 확률이 가장 높은 픽이 가장 값진 밴이다).\n"
     "- ★[이번 판 포지션]이 표기된 상대의 챔프폭은 **이미 그 포지션 전적만 걸러서** 실려 있다. 목록에 없는\n"
