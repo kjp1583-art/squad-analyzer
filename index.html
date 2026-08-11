@@ -1692,6 +1692,24 @@ function offRoleOf(name){
   return OFFROLE.get(name)||null;
 }
 
+/* 🏷 [2026-08-11 사장님 지시] 지표 구간 표현 — "숫자만 있으면 감이 안 온다".
+   0~100 점수형은 백분위 밴드로, 억울지수는 %p 밴드로 한마디를 붙인다. 색은 좋고 나쁨이 아니라
+   '눈에 띄는 구간'을 표시한다(무게는 높다고 나쁜 게 아니므로 골드). */
+function bandTag(kind,v){
+  if(v==null||isNaN(v)) return '';
+  const R='#e84057', O='#ff9d5c', N='var(--sub)', G='#7dd87d', W='var(--win)', GD='#f5d47a', B='#7fa8ff';
+  const T={
+    luck:  [[9,'지옥',R],[24,'불운',O],[39,'박복',O],[59,'평범',N],[74,'순풍',G],[89,'행운아',W],[999,'천운',GD]],
+    burden:[[9,'깃털',N],[24,'가벼움',N],[39,'수월',N],[59,'보통',N],[74,'묵직',G],[89,'짐꾼',W],[999,'대들보',GD]],
+    off:   [[9,'외길',R],[24,'서툼',O],[39,'아쉬움',O],[59,'무난',N],[74,'준수',G],[89,'멀티형',W],[999,'만능',GD]],
+    act:   [[9,'혹한기',R],[24,'부진',O],[39,'아쉬움',O],[59,'평균',N],[74,'준수',G],[89,'상위권',W],[999,'최상위',GD]],
+    grudge:[[-15,'완전 저평가',B],[-7,'꽤 저평가',B],[-2.5,'살짝 저평가',G],[2.5,'제자리',N],[7,'살짝 억울',O],[15,'꽤 억울',R],[999,'억울 폭발',R]]
+  }[kind];
+  if(!T) return '';
+  let hit=T[T.length-1];
+  for(const row of T){ if(v<=row[0]){ hit=row; break; } }
+  return `<b style="color:${hit[2]};font-weight:800">${hit[1]}</b>`;
+}
 let TEAMLUCK=null;
 function teamLuckOf(name){
   if(!TEAMLUCK){
@@ -4653,7 +4671,7 @@ function playerCardHtml(name){
     let cells='';
     // 🔥 내전 활약 점수 — 솔랭 뺀 내전 기록만의 점수(클랜 평균 50). '클랜 상위 %'와 다른 축.
     if(a.score100!=null)
-      cells+=box('🔥 내전 활약',`${a.score100}<span style="font-size:11px;color:var(--mut)">/100</span>`,'클랜 평균 50',
+      cells+=box('🔥 내전 활약',`${a.score100}<span style="font-size:11px;color:var(--mut)">/100</span>`,`${bandTag('act',a.score100)} · 클랜 평균 50`,
                  a.score100>=65?'cmp-good':(a.score100<=35?'cmp-bad':''));
     // 🧊 멘탈 지수 — 연패 중에도 팀과 같이 싸우는가(자기 평소 대비)
     { const mt=(typeof mentalOf==='function')?mentalOf(a.name):null;
@@ -4672,19 +4690,19 @@ function playerCardHtml(name){
     if(gr&&!isNaN(gr.score)){
       const pos=gr.score>0;
       cells+=box('😤 억울지수',`${pos?'+':''}${gr.score.toFixed(1)}<span style="font-size:11px;color:var(--mut)">%p</span>`,
-        (!isNaN(gr.act)&&!isNaN(gr.exp))?`실제 ${Math.round(gr.act)}% / 기대 ${Math.round(gr.exp)}%`:`대결 ${gr.n}회`,
+        `${bandTag('grudge',gr.score)} · `+((!isNaN(gr.act)&&!isNaN(gr.exp))?`실제 ${Math.round(gr.act)}% / 기대 ${Math.round(gr.exp)}%`:`대결 ${gr.n}회`),
         Math.abs(gr.score)<2?'':(pos?'cmp-bad':'cmp-good'));
     }
     { const lk=(typeof teamLuckOf==='function')?teamLuckOf(a.name):null;
       if(lk) cells+=box('🍀 팀운',`${lk.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
-        `매칭보정 전력차 ${lk.adj>=0?'+':''}${lk.adj.toFixed(1)}점 · ${lk.n}판`,
+        `${bandTag('luck',lk.score)} · 매칭보정 전력차 ${lk.adj>=0?'+':''}${lk.adj.toFixed(1)}점 · ${lk.n}판`,
         lk.score>=65?'cmp-good':(lk.score<=35?'cmp-bad':'')); }
     { const lk=(typeof teamLuckOf==='function')?teamLuckOf(a.name):null;
       if(lk&&lk.burden!=null) cells+=box('⚖️ 짊어진 무게',`${lk.burden}<span style="font-size:11px;color:var(--mut)">/100</span>`,
-        '매칭 배치로 추정한 실력', lk.burden>=65?'cmp-good':''); }
+        `${bandTag('burden',lk.burden)} · 매칭 배치로 추정한 실력`, lk.burden>=65?'cmp-good':''); }
     { const orr=(typeof offRoleOf==='function')?offRoleOf(a.name):null;
       if(orr) cells+=box('🔀 부포지션',`${orr.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
-        orr.detail||`${orr.n}판`, orr.score>=65?'cmp-good':(orr.score<=35?'cmp-bad':'')); }
+        `${bandTag('off',orr.score)} · ${orr.detail||orr.n+'판'}`, orr.score>=65?'cmp-good':(orr.score<=35?'cmp-bad':'')); }
     const nameJs=JSON.stringify(a.name).replace(/"/g,'&quot;');
     return `<div class="tbm-back" onclick="closePlayerCard(event)">
       <div class="tbm-card" onclick="event.stopPropagation()">
@@ -5598,13 +5616,14 @@ function renderPlayer(name){
   const asmtChip = _asmt ? `<span class="assess ${_asmt.cls}" style="vertical-align:middle;margin-left:5px">${_asmt.urgent?'🚨 ':''}${_asmt.label}</span>` : '';
   const statBox=(()=>{
     const cell=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
-    const pc=k=>{const p=_pctOf(k);return {cls:_pctCls(p),tip:_pctTip(p)};};
+    const pc=k=>{const p=_pctOf(k);return {cls:_pctCls(p),tip:_pctTip(p),
+      band:(p==null?'':bandTag('act',p)+' · ')};};   // 🏷 같은 포지션 백분위를 말로도 한마디
     const it=[];
-    if(_sc!=null) it.push(cell("🔥 내전 활약",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,"클랜 평균 50","cmp-hi",
+    if(_sc!=null) it.push(cell("🔥 내전 활약",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,`${bandTag('act',_sc)} · 클랜 평균 50`,"cmp-hi",
       "내전 기록만으로 낸 활약 점수 — 승률 30% · MVP/ACE율 25% · 역적율 −20% · KDA 15% · 킬관여 10%. 솔랭·AI는 넣지 않습니다(그건 '클랜 상위 %'가 봅니다). 50점이 클랜 평균."));
-    if(avgRatio!=null){ const q=pc("kda"); it.push(cell("KDA",avgRatio.toFixed(2),`${kdaGames}판 평균`,q.cls,q.tip)); }
-    if(_csN){ const q=pc("cspm"); it.push(cell("CS/분",(_csS/_csN).toFixed(1),`${_csN}판 평균`,q.cls,q.tip)); }
-    if(_vsN){ const q=pc("vision"); it.push(cell("시야",Math.round(_vsS/_vsN),`${_vsN}판 평균`,q.cls,q.tip)); }
+    if(avgRatio!=null){ const q=pc("kda"); it.push(cell("KDA",avgRatio.toFixed(2),`${q.band}${kdaGames}판 평균`,q.cls,q.tip)); }
+    if(_csN){ const q=pc("cspm"); it.push(cell("CS/분",(_csS/_csN).toFixed(1),`${q.band}${_csN}판 평균`,q.cls,q.tip)); }
+    if(_vsN){ const q=pc("vision"); it.push(cell("시야",Math.round(_vsS/_vsN),`${q.band}${_vsN}판 평균`,q.cls,q.tip)); }
     // 🧊 멘탈 지수 — 연패 중에도 팀과 같이 싸우는가(자기 평소 대비)
     { const _mt=(typeof mentalOf==='function')?mentalOf(name):null;
       if(_mt) it.push(cell("🧊 멘탈",`${_mt.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
@@ -5627,26 +5646,26 @@ function renderPlayer(name){
     if(gr&&!isNaN(gr.score)){
       const pos=gr.score>0;
       it.push(cell("😤 억울지수",`${pos?'+':''}${gr.score.toFixed(1)}<span style="font-size:11px;color:var(--mut)">%p</span>`,
-        (!isNaN(gr.act)&&!isNaN(gr.exp))?`실제 ${Math.round(gr.act)}% / 기대 ${Math.round(gr.exp)}%`:`대결 ${gr.n}회`,
+        `${bandTag('grudge',gr.score)} · `+((!isNaN(gr.act)&&!isNaN(gr.exp))?`실제 ${Math.round(gr.act)}% / 기대 ${Math.round(gr.exp)}%`:`대결 ${gr.n}회`),
         Math.abs(gr.score)<2?'':(pos?'cmp-bad':'cmp-good'),
         "맞라인 상대 티어 대비 '기대 우위율 − 실제 우위율'. 양수일수록 내 티어에 기대되는 만큼 못 이긴다 = '티어 과대평가'가 사실에 가까움. 음수면 오히려 저평가."));
     }
     // 🍀 팀운 — 판마다 팀원·상대의 '통산' AI점수를 비교(그 판 점수가 아님 — 승패 편향 제거)
     { const lk=teamLuckOf(name);
       if(lk) it.push(cell("🍀 팀운",`${lk.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
-        `매칭보정 전력차 ${lk.adj>=0?'+':''}${lk.adj.toFixed(1)}점 · ${lk.n}판`,
+        `${bandTag('luck',lk.score)} · 매칭보정 전력차 ${lk.adj>=0?'+':''}${lk.adj.toFixed(1)}점 · ${lk.n}판`,
         lk.score>=65?'cmp-good':(lk.score<=35?'cmp-bad':''),
         "판마다 [팀원(본인 제외) 통산 AI점수 평균 − 상대팀 평균]을 잰 뒤, 매칭이 상정한 내 실력(짊어진 무게)으로 설명되는 몫을 회귀로 걷어낸 잔차를 백분위로 환산(평균 50). 무게와 수학적으로 무상관이라 '무게도 무겁고 팀운도 좋은' 사람이 정상적으로 나올 수 있다.")); }
     // ⚖️ 짊어진 무게 — 팀운 원시 전력차의 역수 활용(본인 지표 무사용 독립 실력 축)
     { const lk=teamLuckOf(name);
       if(lk&&lk.burden!=null) it.push(cell("⚖️ 짊어진 무게",`${lk.burden}<span style="font-size:11px;color:var(--mut)">/100</span>`,
-        `매칭 상정 실력 ${lk.imp.toFixed(1)}점 · ${lk.n}판`,
+        `${bandTag('burden',lk.burden)} · 매칭 상정 실력 ${lk.imp.toFixed(1)}점 · ${lk.n}판`,
         lk.burden>=65?'cmp-good':'',
         "밸런스 가정에서 판마다 역산한 '매칭이 상정한 내 실력'(상대평균×5 − 팀원평균×4)의 통산 평균을 백분위로 환산. 본인 경기 지표를 전혀 쓰지 않는 독립 추정치로, 높을수록 매판 무거운 짐을 지고 있다는 뜻.")); }
     // 🔀 부포지션 수행력 — 주포지션 외 4개 라인 전부(실제 뛴 기록 기준)
     { const orr=offRoleOf(name);
       if(orr) it.push(cell("🔀 부포지션",`${orr.score}<span style="font-size:11px;color:var(--mut)">/100</span>`,
-        `${orr.detail||''} · 주 ${orr.main}`,
+        `${bandTag('off',orr.score)} · ${orr.detail||''} · 주 ${orr.main}`,
         orr.score>=65?'cmp-good':(orr.score<=35?'cmp-bad':''),
         "주포지션(최다 판수) 하나를 뺀 나머지 4개 라인 전부에서의 승률·AI점수를 그 포지션 클랜원 비교군 백분위로 환산해 판수 가중 평균(0~100, 평균 50). 높을수록 어느 자리에 놔도 제 몫을 하는 멀티포지션형.")); }
     const head=(_asmt&&_asmt.implPct!=null)?`<b style="color:#ffd24a">🎯 클랜 상위 ${_asmt.implPct}%</b>`:'<b>스탯 요약</b>';
@@ -6479,7 +6498,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608101250";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608110930";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
