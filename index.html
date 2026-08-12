@@ -5237,6 +5237,7 @@ async function renderMarket(){
 const DUO_PAIRS = {
   bot: {key:'bot', label:'봇듀오',   icon:'💘', a:'원딜', b:'서폿',  desc:'같은 팀 원딜+서폿 — 함께일 때 얼마나 강해지는가'},
   mid: {key:'mid', label:'미드·정글', icon:'🌀', a:'정글', b:'미드',  desc:'같은 팀 정글+미드 — 갱킹 호흡이 실제로 이기는가'},
+  jgs: {key:'jgs', label:'정글·서폿', icon:'🧭', a:'정글', b:'서폿',  desc:'같은 팀 정글+서폿 — 로밍·시야 호흡이 실제로 이기는가'},
 };
 let DUO_MODE='bot';
 function setDuoMode(m){ DUO_MODE = DUO_PAIRS[m] ? m : 'bot'; renderDuo(); }
@@ -6514,7 +6515,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608121430";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608121520";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
