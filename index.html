@@ -497,6 +497,12 @@
   .tab{padding:10px 13px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;flex:0 0 auto}
   .tab:hover{color:var(--txt)}
   .tab.on{color:var(--txt);border-bottom-color:var(--accent)}
+  /* 💘 듀오 시너지 — 봇듀오 / 미드·정글 전환 토글 (2026-08-12) */
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .segbtn{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;
+    color:var(--sub);font-weight:700;font-size:13.5px;cursor:pointer;white-space:nowrap;font-family:inherit}
+  .segbtn:hover{color:var(--txt);border-color:var(--accent)}
+  .segbtn.on{background:var(--accent);border-color:var(--accent);color:#12161f}
   /* 📱 [2026-08-01 사장님 지시] 모바일 시인성 개선.
      증상: 탭·검색 버튼 글자가 한 글자씩 세로로 쪼개지고, 상단 필터가 화면을 다 먹어
            본문까지 스크롤이 너무 길었다. 원인은 좁은 폭에서 flex 가 칸을 쥐어짜며 줄바꿈된 것.
@@ -4425,7 +4431,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','봇듀오')}${tab('cal','클랜일정')}</div>`;
+  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('cal','클랜일정')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -5225,23 +5231,31 @@ async function renderMarket(){
   window.scrollTo(0,0);
 }
 
-/* 💘 봇듀오 궁합 (2026-08-07 사장님 지시) — 같은 팀 원딜+서폿 조합의 시너지를 수치화해 랭킹.
+/* 💘 듀오 시너지 (2026-08-07 봇듀오 → 2026-08-12 사장님 지시로 미드·정글 추가)
+   같은 팀 두 포지션 조합의 시너지를 수치화해 랭킹.
    시너지 = 듀오 승률 − 기대 승률(두 사람 개인 승률 평균). 함께 3판 이상만 랭킹, 미만은 표본부족 목록. */
+const DUO_PAIRS = {
+  bot: {key:'bot', label:'봇듀오',   icon:'💘', a:'원딜', b:'서폿',  desc:'같은 팀 원딜+서폿 — 함께일 때 얼마나 강해지는가'},
+  mid: {key:'mid', label:'미드·정글', icon:'🌀', a:'정글', b:'미드',  desc:'같은 팀 정글+미드 — 갱킹 호흡이 실제로 이기는가'},
+};
+let DUO_MODE='bot';
+function setDuoMode(m){ DUO_MODE = DUO_PAIRS[m] ? m : 'bot'; renderDuo(); }
 function renderDuo(){
+  const P=DUO_PAIRS[DUO_MODE]||DUO_PAIRS.bot;
   const per=new Map();   // 개인 통산 {g,w} — 기대 승률용
-  const duo=new Map();   // "원딜|서폿" -> {adc,sup,g,w,k,d,a,last}
+  const duo=new Map();   // "A|B" -> {adc,sup,g,w,k,d,a,last}
   for(const g of GAMES.values()){
-    const side={};   // 진영 -> {원딜:row, 서폿:row}
+    const side={};   // 진영 -> {포지션A:row, 포지션B:row}
     for(const r of g.rows){
       const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
       const nm=r["소환사명"]; if(!nm) continue;
       if(!per.has(nm)) per.set(nm,{g:0,w:0});
       const v=per.get(nm); v.g++; if(res==="승리")v.w++;
       const pos=r["포지션"], sd=r["진영"];
-      if(pos==="원딜"||pos==="서폿"){ (side[sd]=side[sd]||{})[pos]=r; }
+      if(pos===P.a||pos===P.b){ (side[sd]=side[sd]||{})[pos]=r; }
     }
     for(const sd in side){
-      const A=side[sd]["원딜"], S=side[sd]["서폿"];
+      const A=side[sd][P.a], S=side[sd][P.b];
       if(!A||!S) continue;
       const key=A["소환사명"]+"|"+S["소환사명"];
       if(!duo.has(key)) duo.set(key,{adc:A["소환사명"],sup:S["소환사명"],g:0,w:0,k:0,d:0,a:0,last:""});
@@ -5265,8 +5279,8 @@ function renderDuo(){
   const medal=i=>i===0?'💘':i===1?'💞':i===2?'💕':`${i+1}`;
   const tr=(e,i)=>`<tr${i===0?' style="background:rgba(224,164,55,.06)"':''}>
       <td class="num" style="font-weight:800">${medal(i)}</td>
-      <td>${nmBtn(e.adc)} <span class="muted" style="font-size:11px">원딜</span></td>
-      <td>${nmBtn(e.sup)} <span class="muted" style="font-size:11px">서폿</span></td>
+      <td>${nmBtn(e.adc)} <span class="muted" style="font-size:11px">${P.a}</span></td>
+      <td>${nmBtn(e.sup)} <span class="muted" style="font-size:11px">${P.b}</span></td>
       <td class="num">${e.g}</td>
       <td class="num" style="color:${e.wr>=50?'var(--win)':'var(--lose)'}">${Math.round(e.wr)}%</td>
       <td class="num" style="color:var(--sub)">${Math.round(e.exp)}%</td>
@@ -5274,16 +5288,18 @@ function renderDuo(){
       <td class="num" style="color:${kdaColor(e.kda)}">${e.kda.toFixed(2)}</td>
     </tr>`;
   const smallRows=small.map(e=>`<span style="font-size:12.5px;color:var(--sub);white-space:nowrap">${esc(shortName(e.adc))}+${esc(shortName(e.sup))} ${e.g}판</span>`).join(' · ');
+  const pick=Object.values(DUO_PAIRS).map(x=>`<button class="segbtn${x.key===P.key?' on':''}" onclick="setDuoMode('${x.key}')">${x.icon} ${x.label}</button>`).join('');
   view().innerHTML=`${navTabsHtml('duo')}
     <div class="card" style="margin-bottom:14px">
-      <h2>💘 봇듀오 궁합 <span class="muted" style="font-size:13px;font-weight:400">같은 팀 원딜+서폿 — 함께일 때 얼마나 강해지는가</span></h2>
+      <h2>${P.icon} ${P.label} 궁합 <span class="muted" style="font-size:13px;font-weight:400">${P.desc}</span></h2>
+      <div class="seg" style="margin:9px 0 7px">${pick}</div>
       <div class="muted" style="font-size:12.5px">시너지 = 듀오 승률 − 기대 승률(두 사람 개인 승률의 평균) · +면 함께일 때 더 강한 환상의 듀오, −면 따로가 나은 듀오 · 함께 ${MIN}판 이상만 랭킹</div>
     </div>
     <div class="card">
       ${ranked.length?`<div class="tblwrap"><table>
-        <thead><tr><th class="num">순위</th><th>원딜</th><th>서포터</th><th class="num">함께</th><th class="num">듀오 승률</th><th class="num">기대</th><th class="num">시너지</th><th class="num">듀오 KDA</th></tr></thead>
+        <thead><tr><th class="num">순위</th><th>${P.a}</th><th>${P.b}</th><th class="num">함께</th><th class="num">듀오 승률</th><th class="num">기대</th><th class="num">시너지</th><th class="num">듀오 KDA</th></tr></thead>
         <tbody>${ranked.map(tr).join("")}</tbody></table></div>`
-      :`<div class="muted">함께 ${MIN}판 이상 뛴 봇듀오가 아직 없어요</div>`}
+      :`<div class="muted">함께 ${MIN}판 이상 뛴 ${P.label}가 아직 없어요</div>`}
       ${small.length?`<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:9px">
         <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:4px">표본 부족 (함께 ${MIN}판 미만)</div>
         <div style="line-height:1.9">${smallRows}</div></div>`:''}
@@ -6498,7 +6514,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608110930";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608121430";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
