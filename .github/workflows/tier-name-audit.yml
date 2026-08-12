@@ -7,10 +7,13 @@ name: Tier name audit
 #   '티어 미보유'로 조용히 떨어진다. 실제 사고: 차트 '텍스' ↔ 롤닉 '택 스#tax'(27판) →
 #   전적·티어가 통째로 미매칭. 사람 눈에는 같은 이름으로 보여서 발견이 늦는다.
 #
-#   ⚠️ 이 워크플로는 고치지 않고 '보고만' 한다. CLAN_TIERS 를 직접 고치면 안 되기 때문 —
-#   호스트 분석기가 마스터 티어 차트(별도 시트)를 15분 주기로 upsert(추가·변경만, 삭제 없음)
-#   하므로, 여기서 이름을 바꿔도 다음 주기에 옛 이름이 되살아나 행이 둘로 늘어난다.
-#   → 고칠 곳은 마스터 차트다. 거기만 고치면 15분 안에 CLAN_TIERS·분석기·웹·봇이 전부 따라온다.
+#   ⚠️ 보고만 한다. 고칠 수 있는 곳이 없기 때문이다 —
+#   ① 마스터 티어 차트는 클랜이 관리하는 문서라 우리가 손대면 안 된다.
+#   ② CLAN_TIERS 는 그 차트를 15분 주기로 upsert(추가·변경만, 삭제 없음) 한 결과물이라,
+#      여기서 이름을 바꿔도 다음 주기에 옛 이름이 되살아나 행이 둘로 늘어난다.
+#   기준은 CLAN_TIERS 가 아니라 '마스터 차트'다. CLAN_TIERS 에는 과거 오타·탈퇴자 잔재가
+#   100행 넘게 쌓여 있어 그걸 기준으로 삼으면 유령을 오류로 보고하게 된다(2026-08-12 실측).
+#   또 차트에는 휴면·탈퇴 인원이 섞여 있으므로, '최근 60일 내전 기록이 있는 사람'만 따진다.
 on:
   workflow_dispatch:
   schedule:
@@ -26,7 +29,25 @@ jobs:
           import json, urllib.request, urllib.parse, collections, csv, io
 
           DOC = "10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU"
-          MASTER = "1UFuAYsXZGMquChIZY-HGsEbE5fmzk4apgWEwthvpQ44"   # 사장님이 직접 편집하는 시각적 차트
+          MASTER = "1UFuAYsXZGMquChIZY-HGsEbE5fmzk4apgWEwthvpQ44"   # 클랜이 관리하는 시각적 차트(수정 금지)
+          CHART_GID = 354094721
+          ACTIVE_DAYS = 60        # 이 기간 안에 내전 기록이 있어야 '활동 중'으로 본다
+
+          def csv_chart():
+              # 마스터 티어 차트(클랜 관리 문서) — 시각적 격자라 CSV 로 읽어 이름만 긁는다
+              u = (f"https://docs.google.com/spreadsheets/d/{MASTER}/gviz/tq"
+                   f"?tqx=out:csv&gid={CHART_GID}")
+              req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+              rows = list(csv.reader(io.StringIO(
+                  urllib.request.urlopen(req, timeout=30).read().decode("utf-8"))))
+              out = []
+              for r in rows[4:]:
+                  for x in r:
+                      x = x.strip()
+                      if not x or x == "-" or x == "닉네임": continue
+                      if "티어" in x or "등급" in x: continue
+                      out.append(x)
+              return out
 
           def gviz(tab):
               u = (f"https://docs.google.com/spreadsheets/d/{DOC}/gviz/tq"
@@ -68,6 +89,7 @@ jobs:
               return prev[-1]
 
           # ── 1. 실제 롤닉 대장 (전적 로그) ──
+          import datetime
           play = collections.Counter(); last = {}; disp = {}
           for tab in ("CLASSIC_NORMAL", "KIWI_KIWI"):
               for r in gviz(tab):
@@ -78,60 +100,64 @@ jobs:
                   play[k] += 1
                   disp[k] = nm
                   d = str(r.get("날짜") or "")[:10]
-                  if k not in last or d > last[k]: last[k] = d
+                  if len(d) == 10 and (k not in last or d > last[k]): last[k] = d
 
-          # ── 2. 별칭(LINK_ACCOUNT)은 이미 연결된 것으로 본다 ──
+          today = datetime.date.today()
+          def ago(k):
+              d = last.get(k)
+              if not d: return None
+              try: return (today - datetime.date(*map(int, d.split("-")))).days
+              except Exception: return None
+
           alias = set()
           for r in gviz("LINK_ACCOUNT"):
               for v in r.values():
                   if v: alias.add(nk(v))
 
-          tiers = [(str(r.get("닉네임") or "").strip(), str(r.get("티어") or "").strip())
-                   for r in gviz("CLAN_TIERS") if r.get("닉네임")]
-          print(f"CLAN_TIERS {len(tiers)}명 · 전적 로그 고유 롤닉 {len(play)}개\n")
+          chart = csv_chart()
+          print(f"마스터 차트 {len(chart)}명 · 전적 로그 고유 롤닉 {len(play)}개 · "
+                f"활동 기준 최근 {ACTIVE_DAYS}일\n")
 
           POOL = [k for k, c in play.items() if c >= 3]
-          bad = []
-          for nm, ti in tiers:
+          broken = []
+          for nm in chart:
               k = nk(nm)
               if k in play or k in alias: continue
               ja = jamo(k)
               lim = 2 if len(ja) >= 16 else 1        # 짧은 이름은 1글자 차이만(오탐 차단)
               cand = sorted((lev(ja, jamo(x)), x) for x in POOL)
               cand = [c for c in cand if c[0] <= lim]
-              bad.append((nm, ti, cand[:2]))
+              # 후보가 하나로 좁혀지고, 그 사람이 '활동 중' 일 때만 진짜 오타로 본다
+              if cand and (len(cand) == 1 or cand[0][0] < cand[1][0]):
+                  a = ago(cand[0][1])
+                  if a is not None and a <= ACTIVE_DAYS:
+                      broken.append((nm, cand[0][1], cand[0][0], a))
 
-          sure = [b for b in bad if len(b[2]) == 1 or (len(b[2]) > 1 and b[2][0][0] < b[2][1][0])]
-          none = [b for b in bad if b not in sure]
           print("=" * 78)
-          print(f"🔧 마스터 차트에서 고쳐야 할 이름 {len(sure)}건 — 유력 후보가 특정됨")
+          print(f"🔧 오타로 보이는 이름 {len(broken)}건 — 활동 중인 사람인데 차트 표기가 어긋남")
           print("=" * 78)
-          for nm, ti, cand in sorted(sure, key=lambda b: -play[b[2][0][1]]):
-              d, k = cand[0]
-              print(f"  차트 '{nm}' ({ti}티어)  →  실제 롤닉 '{disp[k]}'")
-              print(f"      근거: {play[k]}판 · 최근 {last.get(k,'?')} · 자모거리 {d}")
+          if not broken:
+              print("  없음 — 차트 표기와 실제 롤닉이 전부 연결됩니다.")
+          for nm, k, d, a in sorted(broken, key=lambda b: -play[b[1]]):
+              print(f"  차트 '{nm}'  →  실제 롤닉 '{disp[k]}'")
+              print(f"      {play[k]}판 · 최근 {last.get(k,'?')} ({a}일 전) · 자모거리 {d}")
+
+          # 활동 중인데 차트에 없는 사람 (신규 가입자 등록 누락)
+          cset = {nk(x) for x in chart} | alias
+          newbie = [(k, c) for k, c in play.items()
+                    if c >= 20 and k not in cset and (ago(k) or 999) <= ACTIVE_DAYS]
           print()
           print("=" * 78)
-          print(f"❓ 후보를 못 찾음 {len(none)}건 — 롤닉이 완전히 다르거나 내전 기록이 없음")
+          print(f"🆕 20판 이상 뛰고 활동 중인데 차트에 없는 롤닉 {len(newbie)}명")
           print("=" * 78)
-          for nm, ti, _ in none:
-              print(f"  차트 '{nm}' ({ti}티어) — 전적 로그에 대응하는 이름 없음")
-
-          # ── 3. 반대 방향: 많이 뛰는데 티어가 없는 사람 ──
-          tset = {nk(n) for n, _ in tiers} | alias
-          orphan = [(k, c) for k, c in play.items() if c >= 20 and k not in tset]
-          print()
-          print("=" * 78)
-          print(f"🆕 20판 이상 뛰는데 티어 차트에 없는 롤닉 {len(orphan)}명")
-          print("=" * 78)
-          for k, c in sorted(orphan, key=lambda x: -x[1]):
+          if not newbie: print("  없음")
+          for k, c in sorted(newbie, key=lambda x: -x[1]):
               print(f"  '{disp[k]}'  {c}판 · 최근 {last.get(k,'?')}")
 
           print()
           print("─" * 78)
-          print("※ 고칠 곳은 CLAN_TIERS 가 아니라 마스터 티어 차트입니다.")
-          print(f"   https://docs.google.com/spreadsheets/d/{MASTER}/edit")
-          print("   호스트 분석기가 15분 주기로 마스터 차트 → CLAN_TIERS 를 upsert(추가·변경만) 하므로,")
-          print("   CLAN_TIERS 를 직접 고치면 다음 주기에 옛 이름이 되살아나 행이 둘로 늘어납니다.")
-          print("   마스터 차트만 고치면 15분 안에 분석기·웹·봇의 티어 조회가 전부 정상화됩니다.")
+          print("※ 차트에 있으나 전적 로그에 없는 인원은 대부분 휴면·탈퇴자이거나 디스코드 별명으로")
+          print("   등록된 경우라 정상입니다. 그래서 '활동 중 + 후보 특정' 인 건만 위에 올립니다.")
+          print("※ 마스터 차트는 클랜 관리 문서이므로 우리가 고치지 않습니다. 연결이 꼭 필요하면")
+          print("   LINK_ACCOUNT 탭에 '차트이름 ↔ 실제롤닉' 한 줄을 넣으면 코드 수정 없이 이어집니다.")
           PY
