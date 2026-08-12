@@ -3902,11 +3902,16 @@ function kizukiBoard(){
     </div>`;
   };
   // [2026-08-07 사장님 지시] 동부가 빠진 오른쪽 자리에 '다가오는 일정' 패널
-  const evPane=`<div class="kzleague" style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
-    <div class="kzhd"><h2>📅 다가오는 일정</h2><span class="kanji">日程</span></div>
-    <div class="kzsub">디스코드 이벤트 탭과 자동 동기화 · <span class="kzsub-m">클릭하면 </span>달력으로</div>
-    <div class="kzrule"></div>
-    <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${eventsListHtml(6)||'<div class="muted" style="font-size:12.5px">예정된 일정이 없어요</div>'}</div>
+  // [2026-08-12 사장님 지시] 일정 아래로 남던 빈 공간에 🏪 거래소 현재 매물을 붙인다.
+  marketHomeLoad();
+  const evPane=`<div class="kzleague">
+    <div style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
+      <div class="kzhd"><h2>📅 다가오는 일정</h2><span class="kanji">日程</span></div>
+      <div class="kzsub">디스코드 이벤트 탭과 자동 동기화 · <span class="kzsub-m">클릭하면 </span>달력으로</div>
+      <div class="kzrule"></div>
+      <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${eventsListHtml(5)||'<div class="muted" style="font-size:12.5px">예정된 일정이 없어요</div>'}</div>
+    </div>
+    ${marketPaneHtml()}
   </div>`;
   return `<div class="card kzboard two">${leagues.map(pane).join("")}${evPane}</div>`;
 }
@@ -4183,6 +4188,86 @@ async function loadPerks(){
 }
 let WEB_HOLIDAYS={},PERKS_AT=0;
 let WEB_EVENTS=[];
+/* 🏪 [2026-08-12 사장님 지시] 홈 우측 — '다가오는 일정' 아래 빈 자리에 거래소 현재 매물.
+   거래소 탭과 같은 UNIQ_MARKET 데이터를 쓰되, 홈에서는 '지금 살 수 있는 것'만 추린다.
+   유니크는 몇 개 안 돼서 매물이 올라온 걸 아무도 모르면 그대로 묵는다 — 홈에 걸어 눈에 띄게 한다. */
+let MKT_HOME=null, MKT_HOME_AT=0, MKT_HOME_BUSY=false;
+function marketHomeLoad(force){
+  if(MKT_HOME_BUSY) return;
+  if(!force && MKT_HOME_AT && Date.now()-MKT_HOME_AT<120000) return;   // 2분 캐시
+  MKT_HOME_BUSY=true;
+  _marketFetch().then(d=>{MKT_HOME=d;}).catch(()=>{}).then(()=>{
+    MKT_HOME_AT=Date.now(); MKT_HOME_BUSY=false;
+    const el=document.getElementById('mkHomePane');
+    if(el){ const w=document.createElement('div'); w.innerHTML=marketPaneHtml(); el.replaceWith(w.firstElementChild); }
+  });
+}
+function marketPaneHtml(){
+  const d=MKT_HOME, ts=(d&&d.titles)||[];
+  const now=Date.now()/1000;
+  const auc=(d&&d.auction&&(+d.auction.end||0)>now)?d.auction:null;
+  const onsale=ts.filter(t=>t.market!=null);
+  let body="";
+  if(!d && !MKT_HOME_AT){
+    body=`<div class="muted" style="font-size:12.5px">시세를 불러오는 중…</div>`;
+  }else if(!d){
+    body=`<div class="muted" style="font-size:12.5px">시세를 불러오지 못했어요 — 🏪 거래소 탭에서 확인해 주세요</div>`;
+  }else{
+    const rows=[];
+    if(auc){
+      const top=auc.bidder?`<b>${esc(auc.bidder)}</b> ${+auc.bid||0}P`:'아직 입찰 없음';
+      rows.push(`<div style="padding:8px 10px;border-radius:9px;border:1px solid rgba(245,212,122,.55);background:linear-gradient(135deg,rgba(255,210,74,.12),rgba(255,210,74,.02))">
+        <div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap">
+          <b style="color:var(--gold);font-size:11px">🔨 경매 중</b>
+          <span style="font-size:12px;color:var(--sub)">마감 ${esc(new Date(auc.end*1000).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}))}</span>
+        </div>
+        <b style="font-size:13.5px">${esc(auc.emoji||'🪙')} ${esc(auc.name||'')}</b>
+        <div class="muted" style="font-size:12px">${top} · 디스코드 <b>/입찰</b></div>
+      </div>`);
+    }
+    for(const t of onsale){
+      const ask=+t.market||0, last=+t.price||0;
+      const gap=last?Math.round((ask-last)/last*100):0;
+      const tag=!last?'':gap<0?`<span style="color:#5b8cff;font-weight:800">▼ ${Math.abs(gap)}%</span>`
+                             :gap>0?`<span style="color:#e84057;font-weight:800">▲ ${gap}%</span>`
+                                   :`<span class="muted">시세와 같음</span>`;
+      rows.push(`<div style="padding:8px 10px;border-radius:9px;border:1px solid rgba(43,177,119,.45);background:rgba(43,177,119,.08)">
+        <div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap">
+          <b style="color:#5ad48a;font-size:11px">🏷️ 판매 중</b>
+          <span style="font-size:12px;color:var(--sub)">최근 거래가 ${last}P</span>
+          <span style="font-size:11.5px;margin-left:auto">${tag}</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap">
+          <b style="font-size:13.5px">${esc(t.emoji||'🪙')} ${esc(t.name||'')}</b>
+          <b style="color:var(--gold);font-size:15px;margin-left:auto;font-variant-numeric:tabular-nums">${ask}P</b>
+        </div>
+        <div class="muted" style="font-size:12px">소유 ${esc(t.owner||'—')} · 디스코드 <b>/거래소</b></div>
+      </div>`);
+    }
+    if(!rows.length){
+      rows.push(`<div class="muted" style="font-size:12.5px">지금은 나온 매물이 없어요.${
+        ts.length?` 발행된 유니크 칭호 <b>${ts.length}개</b> 전부 주인이 쥐고 있습니다.`:''}</div>`);
+      const recent=ts.map(t=>({t,h:(t.history||[])[(t.history||[]).length-1]})).filter(x=>x.h&&x.h.at)
+                     .sort((a,b)=>String(a.h.at)<String(b.h.at)?1:-1)[0];
+      if(recent) rows.push(`<div style="padding:7px 10px;border-radius:9px;background:var(--bg2);border:1px solid var(--line)">
+        <div style="font-size:11.5px;color:var(--sub)">최근 거래 · ${esc(String(recent.h.at||''))}</div>
+        <div style="font-size:13px"><b>${esc(recent.t.emoji||'🪙')} ${esc(recent.t.name||'')}</b>
+          <b style="color:var(--gold);float:right;font-variant-numeric:tabular-nums">${+recent.h.p||0}P</b></div>
+        <div class="muted" style="font-size:12px">소유 ${esc(recent.t.owner||'—')}</div>
+      </div>`);
+    }
+    body=rows.join("");
+  }
+  const n=onsale.length+(auc?1:0);
+  return `<div id="mkHomePane" style="margin-top:18px;cursor:pointer" onclick="go('market')" title="클릭하면 거래소로">
+    <div class="kzhd"><h2>🏪 거래소</h2><span class="kanji">商店</span>${
+      n?`<span style="margin-left:auto;font-size:11.5px;font-weight:900;color:#5ad48a">${n}건</span>`:''}</div>
+    <div class="kzsub">유니크 칭호 매물 · <span class="kzsub-m">클릭하면 </span>시세 차트로</div>
+    <div class="kzrule"></div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${body}</div>
+  </div>`;
+}
+
 /* 📅 다가오는 일정 카드 — 디스코드 이벤트 탭을 봇이 미러(PERKS 탭). 홈 우측 열에 표시 */
 function eventsCardHtml(limit){
   const evs=WEB_EVENTS.filter(e=>(+e.start||0)*1000>Date.now()-3*3600*1000).slice(0,limit||6);
@@ -6510,7 +6595,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608122140";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608122215";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
