@@ -18,6 +18,7 @@ import random
 import hashlib
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
+import tkinter.font as tkfont   # 로딩 오버레이 칩 — 글자 폭 실측(줄바꿈 대신 잘라 넣어 겹침 차단)
 from oauth2client.service_account import ServiceAccountCredentials
 from io import BytesIO
 import ctypes
@@ -34,7 +35,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =========================================================================
 # 📡 [스쿼드 해체 분석기 V80.9 마스터 빌드 - AI 밸런스 패치 및 버전 오류 수정]
 # =========================================================================
-CURRENT_VERSION = "82.96"
+CURRENT_VERSION = "82.97"
 VERSION_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt"
 EXE_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.exe"
 ZIP_URL = "https://github.com/kjp1583-art/squad-analyzer/releases/latest/download/squad_analyzer.zip"  # [V81.28] onedir 폴더 zip
@@ -218,7 +219,8 @@ def invalidate_sheet_cache(title):
 def load_config():
     default_cfg = {"windows_startup": False, "lol_auto_show": True, "minimize_to_tray": False,
                    "pos_view_default": True,   # [v82.37] 대기실 모스트 표시 기본값(True=현재포지션)
-                   "load_overlay": True}       # [v82.85] 로딩 화면 정보 오버레이 온오프
+                   "load_overlay": True,       # [v82.85] 로딩 화면 정보 오버레이 온오프
+                   "load_overlay_hex": False}  # [2026-08-12] 칩에 6축 육각형 표시(끄면 글자 폭을 넓게 씀)
     # [v82.30] lol_auto_show 기본값을 설정 UI(True)와 일치시킴
     try:
         if os.path.exists(CONFIG_FILE):
@@ -1241,16 +1243,48 @@ def _version_heartbeat_loop():
 _SPELL_OWNERS = {"맛동산장인유미"}
 _SPELL_TIMERS = {}   # 표기명 -> 만료 인게임초
 def _spell_set_clipboard(text):
+    """[2026-08-12 사장님 제보 '아무리 눌러도 아무 텍스트도 복사가 안돼'] 64비트 핸들 절단 버그 수정.
+       ctypes 의 기본 restype 은 c_int(32비트)라, GlobalAlloc 이 돌려주는 64비트 HGLOBAL 이 잘려서
+       들어왔다. 잘린 핸들로 GlobalLock 을 부르면 NULL 이 나오고 memmove(NULL,...) 에서 접근 위반이
+       터지는데, 그 예외를 호출부 루프의 except 가 통째로 삼켜 아무 일도 없는 것처럼 보였다.
+       restype/argtypes 를 명시해 절단을 없애고, 실패하면 조용히 넘기지 말고 원인을 찍는다."""
     import ctypes
+    from ctypes import wintypes
     u = ctypes.windll.user32; k = ctypes.windll.kernel32
-    if not u.OpenClipboard(0): return
+    u.OpenClipboard.argtypes = [wintypes.HWND]; u.OpenClipboard.restype = wintypes.BOOL
+    u.EmptyClipboard.restype = wintypes.BOOL
+    u.CloseClipboard.restype = wintypes.BOOL
+    u.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+    u.SetClipboardData.restype = wintypes.HANDLE
+    k.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]; k.GlobalAlloc.restype = wintypes.HGLOBAL
+    k.GlobalLock.argtypes = [wintypes.HGLOBAL]; k.GlobalLock.restype = ctypes.c_void_p
+    k.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+    k.GlobalFree.argtypes = [wintypes.HGLOBAL]; k.GlobalFree.restype = wintypes.HGLOBAL
+    opened = False
+    for _ in range(10):        # 다른 앱이 클립보드를 쥐고 있으면 잠깐 뒤 재시도
+        if u.OpenClipboard(None): opened = True; break
+        time.sleep(0.05)
+    if not opened:
+        print("[spell] 클립보드를 다른 프로그램이 점유 중 — 복사 실패", flush=True); return False
+    h = None
     try:
         u.EmptyClipboard()
         data = text.encode("utf-16-le") + b"\x00\x00"
-        h = k.GlobalAlloc(0x2002, len(data))          # GMEM_MOVEABLE|GMEM_ZEROINIT
-        ptr = k.GlobalLock(h); ctypes.memmove(ptr, data, len(data)); k.GlobalUnlock(h)
-        u.SetClipboardData(13, h)                     # CF_UNICODETEXT
+        h = k.GlobalAlloc(0x2002, len(data))          # GMEM_DDESHARE|GMEM_MOVEABLE
+        if not h:
+            print("[spell] GlobalAlloc 실패 — 복사 실패", flush=True); return False
+        ptr = k.GlobalLock(h)
+        if not ptr:
+            print("[spell] GlobalLock 실패 — 복사 실패", flush=True); return False
+        ctypes.memmove(ptr, data, len(data)); k.GlobalUnlock(h)
+        if not u.SetClipboardData(13, h):             # CF_UNICODETEXT
+            print(f"[spell] SetClipboardData 실패 (err {ctypes.get_last_error()})", flush=True); return False
+        h = None                                      # 성공 시 소유권은 OS로 넘어간다 — 우리가 free 하면 안 됨
+        return True
+    except Exception as e:
+        print(f"[spell] 클립보드 쓰기 예외: {type(e).__name__} {e}", flush=True); return False
     finally:
+        if h: k.GlobalFree(h)                         # 실패 경로에서만 회수(누수 방지)
         u.CloseClipboard()
 def _spell_live(path):
     r = requests.get("https://127.0.0.1:2999/liveclientdata/" + path, verify=False, timeout=1.5)
@@ -1270,9 +1304,20 @@ def _spell_enemy_champ(pos_key):
 def _spellcheck_hotkey_loop():
     import ctypes, winsound
     u = ctypes.windll.user32
+    u.GetAsyncKeyState.argtypes = [ctypes.c_int]; u.GetAsyncKeyState.restype = ctypes.c_short
     KEYS = {0x71: ("TOP", "top"), 0x72: ("JUNGLE", "jg"), 0x73: ("MIDDLE", "mid"),
             0x74: ("BOTTOM", "bot"), 0x75: ("UTILITY", "sup")}   # F2~F6
     VK_F7, VK_SHIFT, VK_CTRL = 0x76, 0x10, 0x11
+    # 🔑 [2026-08-12] 눌림 판정을 최하위 비트(&1)에서 '직접 추적하는 눌림→뗌 전환'으로 교체.
+    #   MSDN 명시: &1('마지막 조회 이후 눌림')은 다른 프로세스가 먼저 GetAsyncKeyState 를 부르면
+    #   그쪽이 가져가 버린다. 롤 클라이언트처럼 입력을 상시 폴링하는 프로그램과 같이 돌면 키가 씹힌다.
+    #   최상위 비트(0x8000, 현재 눌림 상태)는 공유 자원이 아니므로 우리가 에지를 만들면 안 씹힌다.
+    _down = {}
+    def _pressed(vk):
+        cur = bool(u.GetAsyncKeyState(vk) & 0x8000)
+        was = _down.get(vk, False)
+        _down[vk] = cur
+        return cur and not was
     def owner_ok():
         nm = (MY_RIOT_NAME[0] or "").split("#")[0].replace(" ", "").lower()
         return nm in {o.lower() for o in _SPELL_OWNERS}
@@ -1292,14 +1337,18 @@ def _spellcheck_hotkey_loop():
         try:
             hit = None; recopy = False
             for vk in KEYS:
-                if u.GetAsyncKeyState(vk) & 1: hit = vk
-            if u.GetAsyncKeyState(VK_F7) & 1: recopy = True
+                if _pressed(vk): hit = vk
+            if _pressed(VK_F7): recopy = True
             if not (hit or recopy): continue
             # 롤 기본키 F2~F5 = 아군 시점 전환과 충돌 — Ctrl을 누르고 있을 때만 반응
             if not (u.GetAsyncKeyState(VK_CTRL) & 0x8000): continue
-            if not owner_ok(): continue
+            if not owner_ok():
+                print(f"[spell] 전용 계정이 아니라 무시 (현재 계정: {MY_RIOT_NAME[0] or '미확인'})", flush=True)
+                continue
             now = game_time()
-            if now is None: continue
+            if now is None:
+                print("[spell] 인게임 시각을 못 읽음(포트 2999 응답 없음) — 게임 중에만 동작", flush=True)
+                continue
             if now < last_gt[0] - 60: _SPELL_TIMERS.clear()   # 새 게임(시각 역행) — 이전 판 타이머 파기
             last_gt[0] = now
             if hit:
@@ -2859,7 +2908,12 @@ def _build_loading_info(headers, base_url, gen=None):
             except Exception: return "?"
         def _cells(team):
             out = []
-            for p in (team or [])[:5]:
+            # 👀 관전자 제외 — 폴링 루프(파싱부)는 관전자를 걸러내는데 여기만 앞 5개를 그대로 잘라 썼다.
+            #    관전자가 섞이면 칩 하나가 관전자가 되고 실제 플레이어 한 명이 통째로 사라지며,
+            #    그 뒤 전원이 한 칸씩 밀린다(= '다른 사람이 뜬다'의 원인 중 하나).
+            _pl = [p for p in (team or [])
+                   if not p.get("isSpectator") and str(p.get("role") or "").upper() != "SPECTATOR"][:5]
+            for p in _pl:
                 pu = str(p.get("puuid") or "").lower()
                 nm = str(p.get("summonerName") or p.get("gameName") or "").split("#")[0].strip() or "?"
                 ch = _kor(p.get("championId"))
@@ -2889,10 +2943,16 @@ def _build_loading_info(headers, base_url, gen=None):
                 out.append({"ch": ch, "nm": nm, "tv": tv, "g": g, "w": w, "cg": cg, "cw": cw,
                             "st": st, "radar": radar, "pos": posmap.get(pu, ""),
                             "solo": (sv if sv and sv != "UNRANKED" else "")})
-            # 🧭 [2026-08-08 사장님 제보] 로딩 화면 카드 순서 = 탑·정글·미드·원딜·서폿 —
-            #   로비 배열 순서로 깔면 칩이 남의 초상화 밑에 붙는다. 포지션순으로 정렬.
-            _po = {"탑": 0, "정글": 1, "미드": 2, "원딜": 3, "서폿": 4}
-            out.sort(key=lambda d: _po.get(d.get("pos", ""), 9))
+            # 🧭 [2026-08-12] 포지션 정렬 제거 — 이 정렬은 원리적으로 순서를 못 고친다.
+            #   정렬 키 pos 는 gui_data 의 chosen_pos_icon 에서 오는데, parse_team 은 내전에서
+            #   assignedPosition·firstPositionPreference·position·role 이 전부 비면
+            #   fallback_pos[idx] 로 '배열 인덱스에 포지션 이름을 붙인다'. 그리고 그 배열이 바로
+            #   여기서 도는 gameData.teamOne 이다. 즉 자기 자신의 인덱스로 자기 자신을 정렬하는
+            #   순환 참조라, 두 배열 순서가 같으면 완전 항등(=고쳐도 그대로), 중간에 로비 로스터가
+            #   끼어들면 gameflow 순서를 로비 순서로 통째로 치환한다(=다른 사람이 뜬다).
+            #   부분 정보일 땐 미상 인원이 전부 뒤로 밀려 정렬 안 한 것보다 정확도가 낮았다.
+            #   → 로딩 화면과 같은 소스인 gameData 배열 순서를 그대로 쓴다. 순서가 어긋나도
+            #     칩에 소환사명을 찍으므로 누구 정보인지는 항상 읽을 수 있다.
             return out
         one, two = _cells(gd.get("teamOne")), _cells(gd.get("teamTwo"))
         # 🧭 [2026-08-08 사장님 제보: 위아래 뒤바뀜] 로딩 화면 줄 배치는 '내 팀/상대팀'이 아니라
@@ -2943,6 +3003,34 @@ def _chip_prefetch_icons(champs):
                         _CHIP_IMG_RAW[ch] = r.content; break
                 except Exception: pass
         except Exception: pass
+
+_LOADFONT = {}
+def _lf(spec):
+    """폰트 튜플 → tkinter.font.Font 캐시. measure()/linespace 실측용(GUI 스레드 전용)."""
+    key = tuple(spec)
+    f = _LOADFONT.get(key)
+    if f is None:
+        f = tkfont.Font(family=spec[0], size=spec[1], weight=(spec[2] if len(spec) > 2 else "normal"))
+        _LOADFONT[key] = f
+    return f
+
+def _fit_text(s, spec, maxw):
+    """maxw 픽셀에 들어가도록 뒤를 잘라 '…'을 붙인다.
+       [2026-08-12 사장님 제보 '텍스트가 겹쳐서 못 읽겠다'] 근본 원인은 create_text(width=) 자동 줄바꿈이었다.
+       1920x1080에서 텍스트에 배정된 폭은 67px인데 실제 문구는 150px라 3줄로 접히고,
+       Tk가 접힌 블록을 앵커 기준 세로 중앙정렬하는 바람에 위아래 줄을 관통했다.
+       줄바꿈을 아예 없애고 잘라 넣으면 한 줄 = 한 줄이 보장돼 겹칠 수가 없다."""
+    s = str(s or "")
+    if not s or maxw <= 0: return ""
+    f = _lf(spec)
+    if f.measure(s) <= maxw: return s
+    if f.measure("…") > maxw: return ""
+    lo, hi = 0, len(s)
+    while lo < hi:                                   # 들어가는 최대 길이를 이분 탐색
+        mid = (lo + hi + 1) // 2
+        if f.measure(s[:mid] + "…") <= maxw: lo = mid
+        else: hi = mid - 1
+    return (s[:lo] + "…") if lo > 0 else ""
 
 def _chip_icon(ch, size):
     """프리페치된 바이트 → PhotoImage (GUI 스레드 전용 · 캐시). 없으면 None."""
@@ -2996,7 +3084,8 @@ def _apply_ghost_exstyle(w):
 
 def _loading_overlay_sync(root):
     """gui_data['load_info']를 게임 창 위 '투명·클릭통과' 오버레이로 — 로딩 화면의
-       챔피언 카드 열(좌 아군5 / 우 적군5) 각 칸 바로 아래에 정보 칩을 얹는다.
+       챔피언 카드 각 칸 안쪽 하단에 정보 칩을 얹는다(위 줄 레드5 / 아래 줄 블루5 — 2026-08-08 실측).
+       ⚠️ '좌 아군5 / 우 적군5'라고 적혀 있던 옛 설계 문구는 실측으로 폐기됐다(되돌리지 말 것).
        (GUI 스레드 1초 폴링 · 팝업창 방식은 사장님 반려로 폐기, 2026-08-07)
        한계: 게임 '전체 화면(전용)' 모드에선 OS 오버레이가 보이지 않는다 — 테두리 없는 창 모드 권장."""
     with gui_lock:
@@ -3053,7 +3142,8 @@ def _loading_overlay_sync(root):
         return (gw - (n * cw + max(0, n - 1) * gap)) / 2.0
     y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(레드팀) 카드 하단부 안쪽
     y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(블루팀) 카드 하단부 안쪽
-    f_ch = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")
+    f_nm = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")   # 1행 소환사명 — 누구 정보인지 즉시 보이게
+    f_ch = ("Malgun Gothic", max(8, int(gh * 0.0100)), "bold")
     f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
     imgs = _LOAD_OVL.setdefault("imgs", [])
     imgs.clear()   # 이전 프레임 PhotoImage 참조 해제(새로 그리는 프레임 것만 유지)
@@ -3061,21 +3151,29 @@ def _loading_overlay_sync(root):
         x1, x2 = x + 3, x + cw - 3
         cv.create_rectangle(x1, y0, x2, y0 + chh, fill="#0b101c", outline=accent, width=1)
         cv.create_rectangle(x1, y0, x2, y0 + 2, fill=accent, outline="")
-        tx1 = x1   # 텍스트 영역 왼쪽(초상화가 있으면 그만큼 밀림)
-        isz = int(chh - 14)
+        # 초상화 — 칩 폭이 카드 폭(base의 13.1%)에 묶여 있어 좁다. 글자 자리를 우선해 크기를 제한한다.
+        tx1 = x1
+        isz = int(max(24, min(chh - 14, cw * 0.20)))
         ph = _chip_icon(d.get("ch"), isz)
         if ph is not None:
-            cv.create_image(x1 + 5, y0 + chh / 2, image=ph, anchor="w")
+            cv.create_image(x1 + 4, y0 + chh / 2, image=ph, anchor="w")
             imgs.append(ph)   # GC 방지 — canvas는 참조를 유지하지 않는다
-            tx1 = x1 + isz + 8
-        # 🕸 [v82.86] 웹 육각형 능력치 미니어처 — 값이 있으면 칩 오른쪽에 그린다
+            tx1 = x1 + isz + 6
+        # 🕸 육각형 — 정육각형의 가로 점유는 지름(2R)이 아니라 √3·R 이다. 예약폭을 실제값으로 줄인다.
+        #   그래도 칩이 좁으면 글자가 우선이다: 남는 폭이 최소 가독폭에 못 미치면 육각형을 뺀다.
+        #   (구버전 임계 30px 는 gh≤609 에서만 발동해 사실상 죽은 코드였고, 그래서 늘 글자를 눌렀다.)
         hex_pad = 0
-        vals = d.get("radar")
-        if vals and (x2 - tx1 - 6 - int(chh + 10)) < 30: vals = None   # 좁은 칩에선 육각형 생략(텍스트 겹침 방지)
+        vals = d.get("radar") if APP_CONFIG.get("load_overlay_hex", False) else None
+        min_txt = max(70.0, gh * 0.074)         # 한글 약 5자 — 이보다 좁으면 어떤 축약도 못 읽는다
         if vals:
             hexR = chh / 2 - 5
-            hcx, hcy = x2 - hexR - 12, y0 + chh / 2
-            hex_pad = int(2 * hexR + 20)   # 축 라벨 여백 포함
+            _hw = int(1.733 * hexR + 18)        # √3·R + 축 라벨 여백
+            if (x2 - tx1 - 6) - _hw < min_txt:
+                vals = None                     # 글자 우선 — 이번 칩에선 육각형 생략
+            else:
+                hex_pad = _hw
+        if vals:
+            hcx, hcy = x2 - hexR * 0.866 - 12, y0 + chh / 2
             def _hexpts(rr, vv=None):
                 pts = []
                 for _i in range(6):
@@ -3093,17 +3191,28 @@ def _loading_overlay_sync(root):
                 ang = -math.pi / 2 + _i * math.pi / 3
                 cv.create_text(hcx + (hexR + 6) * math.cos(ang), hcy + (hexR + 6) * math.sin(ang),
                                text=_axl[_i], fill="#8b94a8", font=_f_ax)
-        cx = (tx1 + x2 - hex_pad) / 2; tw = max(30, x2 - tx1 - 6 - hex_pad)
+        tw = (x2 - tx1 - 6) - hex_pad
+        # 표시 줄 — 우선순위 순. 1행 소환사명이 최우선: 칩 순서가 어긋나도 누구 정보인지는 읽힌다.
+        rows = []
+        if d.get("nm"): rows.append((str(d["nm"]), f_nm, "#ffffff"))
         tv = f" · {d['tv']}" if d.get("tv") else ""
-        cv.create_text(cx, y0 + chh * 0.20, text=f"{d['ch']}{tv}", fill=accent, font=f_ch, width=tw)
-        l2 = f"내전 {d['g']}판 {round(d['w'] / d['g'] * 100)}%" if d.get("g") else "내전 기록 없음"
+        rows.append((f"{d['ch']}{tv}", f_ch, accent))
         st = int(d.get("st") or 0)   # 최근 연승·연패 — 2연 이상만 표기(1은 정보가 없다)
-        if abs(st) >= 2: l2 += f"  {'🔥' + str(st) + '연승' if st > 0 else '❄' + str(-st) + '연패'}"
-        cv.create_text(cx, y0 + chh * 0.50, text=l2,
-                       fill=("#7dd87d" if st >= 2 else ("#ff8a9a" if st <= -2 else "#dfe3ee")), font=f_ln, width=tw)
+        l2 = f"내전 {d['g']}판 {round(d['w'] / d['g'] * 100)}%" if d.get("g") else "내전 기록 없음"
+        if abs(st) >= 2: l2 += f" {'🔥' if st > 0 else '❄'}{abs(st)}"
+        rows.append((l2, f_ln, ("#7dd87d" if st >= 2 else ("#ff8a9a" if st <= -2 else "#dfe3ee"))))
         l3 = f"이 챔프 {d['cg']}판 {round(d['cw'] / d['cg'] * 100)}%" if d.get("cg") else (d.get("solo") or "")
         if d.get("cg") and d.get("solo"): l3 += f" · {d['solo']}"
-        if l3: cv.create_text(cx, y0 + chh * 0.79, text=l3, fill="#9aa3b5", font=f_ln, width=tw)
+        if l3: rows.append((l3, f_ln, "#9aa3b5"))
+        # 세로 예산 — 들어가는 만큼만 그리고 남는 줄은 버린다(칩 밖으로 넘치지 않게).
+        while len(rows) > 1 and sum(_lf(fs).metrics("linespace") for _, fs, _ in rows) > chh - 6:
+            rows.pop()
+        yy = y0 + (chh - sum(_lf(fs).metrics("linespace") for _, fs, _ in rows)) / 2.0
+        for s, fs, col in rows:
+            lh = _lf(fs).metrics("linespace")
+            t = _fit_text(s, fs, tw)      # 줄바꿈 없이 잘라 넣는다 — 한 줄은 반드시 한 줄
+            if t: cv.create_text(tx1, yy + lh / 2, text=t, fill=col, font=fs, anchor="w")
+            yy += lh
     _bl = (info.get("blue") or [])[:5]; _rd = (info.get("red") or [])[:5]
     bx0 = _row_x0(len(_bl)); rx0 = _row_x0(len(_rd))
     # [2026-08-08 사장님 실측 정정] 로딩 화면은 레드팀이 위, 블루팀이 아래
@@ -9563,6 +9672,7 @@ class ClanSettingsWindow(tk.Toplevel):
         self.var_tray = tk.BooleanVar(value=APP_CONFIG.get("minimize_to_tray", False))
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
         self.var_loadovl = tk.BooleanVar(value=APP_CONFIG.get("load_overlay", True))   # [v82.85] 로딩 오버레이
+        self.var_loadhex = tk.BooleanVar(value=APP_CONFIG.get("load_overlay_hex", False))   # 육각형 표시
         
         # 체크박스를 먼저(오른쪽) 배치해 공간을 확보 → 긴 설명이 밀어내지 않음. 설명은 wraplength로 줄바꿈.
         opt_f1 = tk.Frame(body_frame, bg=theme.BG); opt_f1.pack(fill="x", pady=10)
@@ -9596,7 +9706,16 @@ class ClanSettingsWindow(tk.Toplevel):
         ttk.Checkbutton(opt_lo, variable=self.var_loadovl, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_lo = tk.Frame(opt_lo, bg=theme.BG); txt_lo.pack(side="left", fill="both", expand=True)
         tk.Label(txt_lo, text="로딩 화면 정보 오버레이", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
-        tk.Label(txt_lo, text="게임 로딩 중 각 챔피언 초상화 위에 내부티어·내전 전적 칩을 표시합니다. 끄면 즉시 반영됩니다.",
+        tk.Label(txt_lo, text="게임 로딩 중 각 챔피언 초상화 위에 소환사명·내부티어·내전 전적 칩을 표시합니다. 끄면 즉시 반영됩니다.",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
+        # 🕸 [2026-08-12] 칩은 로딩 카드 폭(화면의 13%)에 묶여 있어 초상화·육각형·글자가 다 들어가지 않는다.
+        #   기본은 글자 우선(끔). 켜면 육각형을 넣되 남는 글자 폭이 줄어 문구가 잘릴 수 있다.
+        opt_lh = tk.Frame(body_frame, bg=theme.BG); opt_lh.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_lh, variable=self.var_loadhex, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_lh = tk.Frame(opt_lh, bg=theme.BG); txt_lh.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_lh, text="오버레이에 육각형 능력치 표시", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
+        tk.Label(txt_lh, text="칩 오른쪽에 6축 육각형을 함께 그립니다. 칩이 좁아 글자가 잘릴 수 있어 기본은 꺼짐입니다(FHD 권장: 꺼짐).",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
@@ -9640,6 +9759,7 @@ class ClanSettingsWindow(tk.Toplevel):
         _pv = bool(self.var_posview.get())
         APP_CONFIG["pos_view_default"] = _pv
         APP_CONFIG["load_overlay"] = bool(self.var_loadovl.get())   # [v82.85] 로딩 오버레이 온오프
+        APP_CONFIG["load_overlay_hex"] = bool(self.var_loadhex.get())
         try:
             with gui_lock: gui_data["pos_view_mode"] = _pv
             _posview_btn_sync(_pv)
