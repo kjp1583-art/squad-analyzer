@@ -2279,9 +2279,7 @@ function titleChip(name){   // 보유한 칭호 전부 (유니크 → 상점 칭
     return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}</span>`;
   }).join(" ");
 }
-// ⚔️ 멸망전·🏅점수전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
-//   [2026-08-12 클랜원 제보] 점수전 우승자만 뱃지가 없었다 — 봇이 '멸망전' 글자가 든 글만 세고 있었다.
-//   MYEOL 탭에 '점수전' 열이 추가됐다('우승횟수'=멸망전은 그대로).
+// ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
 let MYEOL=new Map();
 function loadMyeol(){
   return new Promise((resolve)=>{
@@ -2293,12 +2291,12 @@ function loadMyeol(){
       const out=new Map();
       try{
         const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
-        const ni=cols.indexOf("닉네임"), wi=cols.indexOf("우승횟수"), si=cols.indexOf("점수전");
-        if(ni<0||wi<0){ resolve(out); return; }   // 탭 부재 폴백 오독 방지 (점수전 열은 없어도 됨)
+        const ni=cols.indexOf("닉네임"), wi=cols.indexOf("우승횟수");
+        if(ni<0||wi<0){ resolve(out); return; }   // 탭 부재 폴백 오독 방지
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
-          const nm=String(g(ni)||"").trim(), w=parseInt(g(wi),10)||0, sc=parseInt(g(si),10)||0;
-          if(nm&&(w>0||sc>0)) out.set(tnorm(nm),{name:nm,wins:w,score:sc});
+          const nm=String(g(ni)||"").trim(), w=parseInt(g(wi),10)||0;
+          if(nm&&w>0) out.set(tnorm(nm),{name:nm,wins:w});
         }
       }catch(e){}
       resolve(out);
@@ -2310,19 +2308,26 @@ function loadMyeol(){
   });
 }
 function myeolOf(name){   // 🔁 닉변·부계 추적 + [2026-07-28] 옛닉/부계로 나뉜 행 합산
-  let hit=null, wins=0, score=0; const seen=new Set();
+  let hit=null, wins=0; const seen=new Set();
   for(const k of aliasKeysOf(name)){
     const v=MYEOL.get(k);
-    if(v&&!seen.has(v)){ seen.add(v); wins+=v.wins||0; score+=v.score||0; if(!hit)hit=v; }
+    if(v&&!seen.has(v)){ seen.add(v); wins+=v.wins||0; if(!hit)hit=v; }
   }
-  return hit ? {name:hit.name, wins, score} : null;
+  return hit ? {name:hit.name, wins} : null;
 }
 function myeolChip(name){
-  const e=myeolOf(name); if(!e) return '';
-  let h='';
-  if(e.wins>0) h+=`<span title="스쿼드 멸망전(대규모 팀 대항전) 역대 우승 기록 — 디코 명예의전당 채널 집계" style="background:rgba(255,90,90,.10);border:1px solid rgba(255,90,90,.45);color:#ff9d9d;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">⚔️ 멸망전 우승 ${e.wins}회</span>`;
-  if(e.score>0) h+=`<span title="스쿼드 점수전 역대 우승 기록 — 디코 명예의전당 채널 집계" style="background:rgba(255,196,90,.10);border:1px solid rgba(255,196,90,.45);color:#ffd79a;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">🏅 점수전 우승 ${e.score}회</span>`;
-  return h;
+  const e=myeolOf(name); if(!e||!e.wins) return '';
+  return `<span title="스쿼드 멸망전(대규모 팀 대항전) 역대 우승 기록 — 디코 명예의전당 채널 집계" style="background:rgba(255,90,90,.10);border:1px solid rgba(255,90,90,.45);color:#ff9d9d;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">⚔️ 멸망전 우승 ${e.wins}회</span>`;
+}
+/* 🏅 [2026-08-12 클랜원 제보] 점수전 우승자에게만 뱃지가 없었다.
+   멸망전은 MYEOL 탭 집계로 '⚔️ 멸망전 우승 N회' 뱃지가 붙는데 점수전은 커리어 목록에만 있어
+   눈에 안 띄었다. 점수전 명단은 CAREER 탭(디코 '점수전 우승자' 역할 스캔)에 이미 정확히 있으므로
+   그걸 세어 같은 모양의 뱃지를 만든다 — 두 번째 데이터 소스를 만들지 않는다. */
+function jumsuChip(name){
+  if(typeof careersOfPlayer!=='function') return '';
+  const n=careersOfPlayer(name).filter(r=>String(r.title||"").includes("점수전")).length;
+  if(!n) return '';
+  return `<span title="스쿼드 점수전 역대 우승 기록 — 디코 '점수전 우승자' 역할 기준(CAREER)" style="background:rgba(255,196,90,.10);border:1px solid rgba(255,196,90,.45);color:#ffd79a;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">🏅 점수전 우승 ${n}회</span>`;
 }
 // 🚫 노밴 기록(NOBAN 탭 — 분석기가 로비 채팅의 노밴 선언을 감지해 게임별 적재)
 let NOBAN_BY_GAME=new Map(), NOBAN_CNT=new Map();   // 게임ID(숫자만)→[챔피언...] / 챔피언→노밴 선언 판수
@@ -4830,6 +4835,7 @@ function playerCardHtml(name){
                 `<span class="tbm-car${x.cur?' cur':''}" title="${escAttr(x.date+' 획득')}">👑 ${esc(x.title)}${x.cur?'':`<span style="opacity:.55;font-weight:400"> ${esc(x.date)}</span>`}</span>`).join("");
               if(typeof titleChip==='function') c+=titleChip(a.name)||'';
               if(typeof myeolChip==='function') c+=myeolChip(a.name)||'';
+              if(typeof jumsuChip==='function') c+=jumsuChip(a.name)||'';
               const mi=(typeof mitoStatOf==='function')?mitoStatOf(a.name):null;
               if(mi&&(mi.wins>0||mi.parts>0))
                 c+=`<span class="tbm-car" title="주말 미니토너먼트 기록">🏟️ 미토 우승 ${mi.wins}회${mi.parts?` / 참가 ${mi.parts}회`:''}</span>`;
@@ -5817,7 +5823,7 @@ function renderPlayer(name){
   const _mbti = mbtiOf(name);   // 🧠 디코 MBTI 역할 매칭
   const _ghost = isGhost(name);   // 👻 고스트밴픽왕 구독자
   const _titleChip = titleChip(name);   // 🏷️ 상점 구매 칭호
-  const _myeolChip = myeolChip(name);   // ⚔️ 멸망전 · 🏅 점수전 우승
+  const _myeolChip = myeolChip(name) + jumsuChip(name);   // ⚔️ 멸망전 · 🏅 점수전 우승
   // 🏷️ [2026-08-03 사장님 제보] 칭호는 이름 옆에 붙인다 — 뱃지 줄 맨 아래에 있으면
   //    스크롤해야 보여서 '낙찰받았는데 안 보인다'가 된다. 여기 줄에서는 뺀다.
   const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_myeolChip)
@@ -6600,7 +6606,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608122320";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608130010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
