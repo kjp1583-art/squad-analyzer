@@ -5273,9 +5273,8 @@ function renderDuo(){
     const kda=e.d>0?(e.k+e.a)/e.d:(e.k+e.a);
     return Object.assign(e,{wr,exp,syn:wr-exp,kda});
   });
-  const MIN=3;
+  const MIN=5;   // [2026-08-12 사장님 지시] 3판은 우연이 너무 많이 섞인다
   const ranked=rows.filter(e=>e.g>=MIN).sort((a,b)=>(b.syn-a.syn)||(b.g-a.g));
-  const small=rows.filter(e=>e.g<MIN).sort((a,b)=>b.g-a.g);
   const nmBtn=n=>`<span class="clickname" onclick="openPlayerCard(${JSON.stringify(n).replace(/"/g,'&quot;')})">${esc(shortName(n))}</span>`;
   const medal=i=>i===0?'💘':i===1?'💞':i===2?'💕':`${i+1}`;
   const tr=(e,i)=>`<tr${i===0?' style="background:rgba(224,164,55,.06)"':''}>
@@ -5288,7 +5287,6 @@ function renderDuo(){
       <td class="num" style="font-weight:800;color:${e.syn>=0?'#5ad48a':'#ff8a9a'}">${e.syn>=0?'+':''}${e.syn.toFixed(1)}%p</td>
       <td class="num" style="color:${kdaColor(e.kda)}">${e.kda.toFixed(2)}</td>
     </tr>`;
-  const smallRows=small.map(e=>`<span style="font-size:12.5px;color:var(--sub);white-space:nowrap">${esc(shortName(e.adc))}+${esc(shortName(e.sup))} ${e.g}판</span>`).join(' · ');
   const pick=Object.values(DUO_PAIRS).map(x=>`<button class="segbtn${x.key===P.key?' on':''}" onclick="setDuoMode('${x.key}')">${x.icon} ${x.label}</button>`).join('');
   view().innerHTML=`${navTabsHtml('duo')}
     <div class="card" style="margin-bottom:14px">
@@ -5301,9 +5299,6 @@ function renderDuo(){
         <thead><tr><th class="num">순위</th><th>${P.a}</th><th>${P.b}</th><th class="num">함께</th><th class="num">듀오 승률</th><th class="num">기대</th><th class="num">시너지</th><th class="num">듀오 KDA</th></tr></thead>
         <tbody>${ranked.map(tr).join("")}</tbody></table></div>`
       :`<div class="muted">함께 ${MIN}판 이상 뛴 ${P.label}가 아직 없어요</div>`}
-      ${small.length?`<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:9px">
-        <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:4px">표본 부족 (함께 ${MIN}판 미만)</div>
-        <div style="line-height:1.9">${smallRows}</div></div>`:''}
     </div>`;
   window.scrollTo(0,0);
 }
@@ -6515,7 +6510,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608121520";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608121605";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
