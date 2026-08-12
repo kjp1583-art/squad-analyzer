@@ -3593,12 +3593,20 @@ function go(route,arg){
 }
 // 공백 무시 + 소문자 정규화 (이름 중간 띄어쓰기가 불규칙해서 필수)
 function norm(s){return (s||"").toLowerCase().replace(/\s+/g,"");}
+/* 🔎 [2026-08-12 사장님 지시] 검색은 패치 필터를 타지 않는다.
+   패치가 새로 나온 날엔 그 버전 기록이 있는 사람이 몇 명뿐이라, PLAYERS(패치 필터 적용본)로
+   검색하면 대부분이 "결과가 없습니다" 로 떨어졌다. 사람 찾기는 통산(PLAYERS_ALL) 기준으로 하고,
+   프로필에 들어간 뒤 그 패치 기록이 없으면 renderPlayer 가 '전체 기간으로 보기' 를 안내한다.
+   단 정렬은 이번 패치에 뛴 사람을 위로 올린다 — 지금 활동 중인 사람을 먼저 찾는 게 보통이라서. */
+function searchSrc(){ return (typeof PLAYERS_ALL!=='undefined'&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS; }
+function partsOfAny(n){ return PLAYERS.get(n)||searchSrc().get(n)||[]; }
 function findPlayers(q,limit){
   const nq=norm(q); if(!nq)return [];
+  const SRC=searchSrc();
   const starts=[],contains=[],seen=new Set();
-  const add=(canon,bucket)=>{ if(!PLAYERS.has(canon)||seen.has(canon))return; seen.add(canon); bucket.push(canon); };
+  const add=(canon,bucket)=>{ if(!SRC.has(canon)||seen.has(canon))return; seen.add(canon); bucket.push(canon); };
   // 1) 최신 닉(대표 키) 직접 매칭
-  for(const n of PLAYERS.keys()){
+  for(const n of SRC.keys()){
     const nn=norm(n);
     if(nn.startsWith(nq))add(n,starts);
     else if(nn.includes(nq))add(n,contains);
@@ -3609,8 +3617,9 @@ function findPlayers(q,limit){
     if(oldNorm.startsWith(nq))add(canon,starts);
     else if(oldNorm.includes(nq))add(canon,contains);
   }
-  starts.sort((a,b)=>PLAYERS.get(b).length-PLAYERS.get(a).length);
-  contains.sort((a,b)=>PLAYERS.get(b).length-PLAYERS.get(a).length);
+  const rank=n=>[PLAYERS.has(n)?0:1, -((SRC.get(n)||[]).length)];   // 이번 패치 우선 → 통산 판수
+  const cmp=(a,b)=>{const ra=rank(a),rb=rank(b);return ra[0]-rb[0]||ra[1]-rb[1];};
+  starts.sort(cmp); contains.sort(cmp);
   return starts.concat(contains).slice(0,limit||8);
 }
 function onSearch(e){
@@ -3642,13 +3651,14 @@ function toggleFav(n){
   renderFavRow();
 }
 function favLine(n,i){
-  const parts=PLAYERS.get(n);
-  if(!parts) return "";
+  const parts=partsOfAny(n);
+  if(!parts.length) return "";
+  const off=!PLAYERS.has(n);   // 이번 패치엔 기록이 없는 사람(통산으로 표시)
   let w=0,l=0; parts.forEach(r=>{if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;});
   return `<div class="it fav" onmousedown="event.preventDefault();$('#q').value='';hideSuggest();go('player',${JSON.stringify(n).replace(/"/g,'&quot;')})">
       <span class="favstar">★</span>
       <span>${esc(shortName(n))} <span class="muted" style="font-size:13.5px">${esc(tagOf(n))}</span>${tierBadge(n)}</span>
-      <span class="sub">${parts.length}게임 · ${pct(w,w+l)}%</span>
+      <span class="sub">${off?'통산 ':''}${parts.length}게임 · ${pct(w,w+l)}%</span>
     </div>`;
 }
 function renderFavRow(){ /* 프로필에서 별을 누른 직후 열려있는 추천창을 갱신 */
@@ -3656,7 +3666,7 @@ function renderFavRow(){ /* 프로필에서 별을 누른 직후 열려있는 �
   if(box && !box.classList.contains("hidden") && !$("#q").value.trim()) showFavSuggest();
 }
 function showFavSuggest(){
-  const favs=getFavs().filter(n=>PLAYERS.has(n));
+  const favs=getFavs().filter(n=>searchSrc().has(n));
   const box=$("#suggest");
   if(!box) return;
   if(!favs.length){ hideSuggest(); return; }
@@ -3668,7 +3678,7 @@ function onType(){
   const q=$("#q").value.trim();
   const box=$("#suggest");
   if(!q){ showFavSuggest(); return; }                       // 빈 칸 → 즐겨찾기 목록
-  if(!GAMES.size||/^#?\d{5,}$/.test(q)){hideSuggest();return;}
+  if((!GAMES.size&&!searchSrc().size)||/^#?\d{5,}$/.test(q)){hideSuggest();return;}
   SUGG=findPlayers(q,8);SUGGI=0;
   if(!SUGG.length){hideSuggest();return;}
   renderSuggest();
@@ -3676,11 +3686,12 @@ function onType(){
 function renderSuggest(){
   const box=$("#suggest");
   box.innerHTML=SUGG.map((n,i)=>{
-    const parts=PLAYERS.get(n);let w=0,l=0;
+    const parts=partsOfAny(n);let w=0,l=0;
+    const off=!PLAYERS.has(n);   // 이번 패치 기록 없음 — 통산으로 보여주고 표시를 남긴다
     parts.forEach(r=>{if(r["결과"]==="승리")w++;else if(r["결과"]==="패배")l++;});
     return `<div class="it ${i===SUGGI?'active':''}" onmousedown="event.preventDefault();pickSuggest(${i})">
       <span>${esc(shortName(n))} <span class="muted" style="font-size:13.5px">${esc(tagOf(n))}</span>${tierBadge(n)}</span>
-      <span class="sub">${parts.length}게임 · ${pct(w,w+l)}%</span>
+      <span class="sub"${off?' style="opacity:.65"':''}>${off?'통산 ':''}${parts.length}게임 · ${pct(w,w+l)}%</span>
     </div>`;}).join("");
   box.classList.remove("hidden");
 }
@@ -5635,12 +5646,20 @@ function submitComment(target,sfx){
 }
 let MOST_EXPANDED=false;   // 🏅 모스트 챔피언 전체 펼침 여부(프로필 이동 시 초기화)
 function toggleMost(){ MOST_EXPANDED=!MOST_EXPANDED; const y=window.scrollY; renderPlayer(CUR_PLAYER); window.scrollTo(0,y); }
+let PLAYER_PATCH_FELL=null;   // 그 패치에 기록이 없어 전체 기간으로 자동 전환한 선수
 function renderPlayer(name){
   name=canonOfName(name);                 // 옛 닉으로 들어와도 최신 닉 프로필로 통합
   if(CUR_PLAYER!==name){ MOST_EXPANDED=false; PROF_POS=null; }   // 다른 선수로 이동 시 펼침·포지션 선택 초기화
   CUR_PLAYER=name;                        // 로그인 후 이 페이지로 복귀
   const parts=PLAYERS.get(name);
   if(!parts){
+    /* 🔎 [2026-08-12 사장님 지시] 검색으로 들어왔는데 빈 화면이면 검색이 되는 의미가 없다.
+       그 패치에 기록이 없고 통산에는 있으면 전체 기간으로 돌려 바로 전적을 보여준다.
+       (패치가 새로 나온 날엔 통산 213명 중 20명만 그 버전 기록이 있다 — 2026-08-12 실측) */
+    if(PATCH_SEL!=="ALL"&&PATCH_SEL!=null&&typeof PLAYERS_ALL!=='undefined'&&PLAYERS_ALL.has(name)){
+      PLAYER_PATCH_FELL=name;            // 안내 문구용 — 왜 필터가 풀렸는지 알려준다
+      switchPatch("ALL"); return;
+    }
     // 패치 필터를 좁혀서 그 기간에 이 선수 기록이 없는 경우가 대부분 — 빠져나갈 길을 같이 준다.
     const _lbl = (PATCH_SEL==="ALL"||PATCH_SEL==null) ? "" :
       (selYear(PATCH_SEL) ? `${selYear(PATCH_SEL)}년` : `패치 ${PATCH_SEL}`);
@@ -5653,6 +5672,11 @@ function renderPlayer(name){
       </div>`;
     return;
   }
+  const _fellMsg = (PLAYER_PATCH_FELL===name)
+    ? `<div class="card" style="margin:10px 0 0;padding:9px 12px;border-color:rgba(122,162,255,.4);background:rgba(122,162,255,.07);font-size:13px">
+         🔎 이 선수는 선택한 패치에 기록이 없어 <b>전체 기간</b>으로 바꿔 보여드립니다.
+       </div>` : '';
+  PLAYER_PATCH_FELL=null;
   // 최신순 (게임 등장 순서 역순)
   const list=[...parts].reverse();
   let w=0,l=0,mvp=0,bad=0,aceN=0;
@@ -5901,6 +5925,7 @@ function renderPlayer(name){
   const _emb=kizukiEmblem(name);
   view().innerHTML=`
     <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
+    ${_fellMsg}
     <div class="card${_splash?' hasbanner':''}" style="margin-top:10px;position:relative">
       ${bannerHtml}
       ${_emb}
@@ -6606,7 +6631,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608130010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608130105";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
