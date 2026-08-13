@@ -3183,9 +3183,16 @@ def _build_loading_info(headers, base_url, gen=None):
                    if not p.get("isSpectator") and str(p.get("role") or "").upper() != "SPECTATOR"][:5]
             for p in _pl:
                 pu = str(p.get("puuid") or "").lower()
-                nm = str(p.get("summonerName") or p.get("gameName") or "").split("#")[0].strip() or "?"
                 ch = _kor(p.get("championId"))
                 e = ((cidx or {}).get("by_pu") or {}).get(pu) or {}
+                # 🪪 [2026-08-13 사장님 제보 '하나도 안 맞아'] 내전 로딩 페이로드는 summonerName·gameName이
+                #   비어 오는 일이 잦아 열 칸 전원 '?'로 찍혔다. 전적·티어·챔프기록은 puuid로 이미 정확히
+                #   붙고 있으므로 이름도 같은 클랜 인덱스 항목에서 채운다.
+                #   ※ 이게 '순서가 어긋나도 칩의 소환사명으로 누구 정보인지 읽는다'는 안전망의 전제였는데,
+                #     이름이 통째로 비면서 그 안전망이 죽어 있었다(줄 배치 실측 오판의 원인이기도 하다).
+                nm = str(p.get("summonerName") or p.get("gameName") or "").split("#")[0].strip()
+                if not nm: nm = str(e.get("name") or "").split("#")[0].strip()
+                if not nm: nm = "?"
                 g, w = e.get("g", 0), e.get("w", 0)
                 cg, cw = ((e.get("champs") or {}).get(ch) or [0, 0])[:2]
                 tv = tier_of(e.get("name") or nm) or ""
@@ -3352,8 +3359,10 @@ def _apply_ghost_exstyle(w):
 
 def _loading_overlay_sync(root):
     """gui_data['load_info']를 게임 창 위 '투명·클릭통과' 오버레이로 — 로딩 화면의
-       챔피언 카드 각 칸 안쪽 하단에 정보 칩을 얹는다(위 줄 레드5 / 아래 줄 블루5 — 2026-08-08 실측).
-       ⚠️ '좌 아군5 / 우 적군5'라고 적혀 있던 옛 설계 문구는 실측으로 폐기됐다(되돌리지 말 것).
+       챔피언 카드 각 칸 안쪽 하단에 정보 칩을 얹는다(위 줄 블루5 / 아래 줄 레드5 — 2026-08-13 재검증).
+       ⚠️ '좌 아군5 / 우 적군5'라고 적혀 있던 옛 설계 문구는 폐기됐다(되돌리지 말 것).
+       ⚠️ 줄 배치를 다시 만질 땐 칩 이름이 제대로 찍히는지부터 확인할 것 — 이름이 '?'인 상태의 실측은
+          누가 어느 줄인지 알 수 없어 신뢰할 수 없다(2026-08-08 오판이 그렇게 나왔다).
        (GUI 스레드 1초 폴링 · 팝업창 방식은 사장님 반려로 폐기, 2026-08-07)
        한계: 게임 '전체 화면(전용)' 모드에선 OS 오버레이가 보이지 않는다 — 테두리 없는 창 모드 권장."""
     with gui_lock:
@@ -3408,8 +3417,8 @@ def _loading_overlay_sync(root):
     chh = max(48, gh * G["h"])
     def _row_x0(n):   # 실제 인원 수 기준 중앙 정렬(칼바람 리메이크 등 5인 미만 대응)
         return (gw - (n * cw + max(0, n - 1) * gap)) / 2.0
-    y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(레드팀) 카드 하단부 안쪽
-    y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(블루팀) 카드 하단부 안쪽
+    y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(블루팀) 카드 하단부 안쪽
+    y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(레드팀) 카드 하단부 안쪽
     f_nm = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")   # 1행 소환사명 — 누구 정보인지 즉시 보이게
     f_ch = ("Malgun Gothic", max(8, int(gh * 0.0100)), "bold")
     f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
@@ -3483,11 +3492,15 @@ def _loading_overlay_sync(root):
             yy += lh
     _bl = (info.get("blue") or [])[:5]; _rd = (info.get("red") or [])[:5]
     bx0 = _row_x0(len(_bl)); rx0 = _row_x0(len(_rd))
-    # [2026-08-08 사장님 실측 정정] 로딩 화면은 레드팀이 위, 블루팀이 아래
-    for j, d in enumerate(_rd):
-        chip(rx0 + j * (cw + gap), d, "#e84057", y_top)   # 위 줄 = 레드팀
+    # 🧭 [2026-08-13 재정정] 블루팀(teamOne)=위 / 레드팀(teamTwo)=아래 — 수집부 주석과 일치시킨다.
+    #   2026-08-08 '레드가 위' 실측은 뒤집힌 판정이었다. 근거: 사장님 제보 스크린샷의 위 줄 칩(레드 강조색)
+    #   다섯 장을 시트와 대조하니 내전 판수·승률·내부티어·솔랭·챔프기록이 모두 유일하게 일치하는 사람들이
+    #   나왔는데, 그 다섯의 챔피언(브라이어·트페·트리스타나·노틸러스 등)은 전부 화면 '아래 줄' 초상화였다.
+    #   당시엔 칩 이름이 전원 '?'라 누가 누군지 못 읽어 줄 배치를 반대로 재단한 것으로 보인다(위 이름 수정 참조).
     for i, d in enumerate(_bl):
-        chip(bx0 + i * (cw + gap), d, "#5b8cff", y_bot)   # 아래 줄 = 블루팀
+        chip(bx0 + i * (cw + gap), d, "#5b8cff", y_top)   # 위 줄 = 블루팀(teamOne)
+    for j, d in enumerate(_rd):
+        chip(rx0 + j * (cw + gap), d, "#e84057", y_bot)   # 아래 줄 = 레드팀(teamTwo)
     try: w.deiconify(); w.attributes("-topmost", True)
     except Exception: pass
 
