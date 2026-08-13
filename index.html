@@ -768,6 +768,15 @@
     border-radius:12px;padding:10px 13px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
   .cmpbox-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:8px}
   .cmpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:7px}
+  /* 📊 리포트 — 챔피언 칩(밴픽 채점 결과) */
+  /* 📊 리포트 — 최근 판 판정 한 줄(좁은 화면에선 자연스럽게 두 줄로 접힌다) */
+  .rpr{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .rpr-d{color:var(--sub);min-width:38px}
+  .rpr-t{white-space:nowrap}
+  .rpr-v{margin-left:auto;font-weight:800;white-space:nowrap}
+  .rpr-g{font-size:11.5px;white-space:nowrap;opacity:.75}
+  .rpchip{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:3px 9px 3px 4px;font-size:12.5px;font-weight:700}
+  .rpchip .champ{width:20px;height:20px;border-radius:5px;font-size:9.5px}
   .cmp{background:rgba(16,20,28,.78);border:1px solid rgba(255,255,255,.13);border-radius:10px;padding:6px 10px}
   .cmp-k{display:block;font-size:11.5px;color:#a7b1c4;font-weight:600}
   .cmp-v{display:block;font-size:15.5px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.3}
@@ -3573,6 +3582,7 @@ function go(route,arg){
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(route==='market'){navPush(route,arg);renderMarket();return;}   // 🪙 거래소 — 자체 데이터(UNIQ_MARKET) 로드
   if(route==='cal'){navPush(route,arg);renderCal();return;}         // 📅 클랜일정 — 디스코드 이벤트 탭 미러
+  if(route==='report'){ if(!GAMES.size){renderEmpty();return;} navPush(route);renderReport();return;}   // 📊 리포트 — COACH_LOG 를 따로 읽는다
   if(route==='gpti'){ if(!GAMES.size){renderEmpty();return;} navPush(route);renderGPTI();return;}   // 🧬 성향유형 도감
   if(!GAMES.size){renderEmpty();return;}         // 오류/로딩 화면은 스택에 안 쌓음
   navPush(route,arg);
@@ -4537,7 +4547,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('cal','클랜일정')}</div>`;
+  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -5338,6 +5348,445 @@ async function renderMarket(){
   window.scrollTo(0,0);
 }
 
+/* ============== 화면: 📊 리포트 — 🔨 밴픽 추천 성적 · ⚖️ 내전 밸런스 사후 평가 ==============
+   [2026-08-13 사장님 승인] "우리가 만든 것이 실제로 맞았는지"를 클랜원 아무나 볼 수 있게 공개한다.
+   ① 밴픽 추천 성적 — tooling/coach_audit.py 와 **완전히 같은 방법론**으로 계산한다.
+      숫자가 어긋나면 주간 DM(coach_audit.md)과 웹이 서로 다른 말을 하게 되므로,
+      창(3시간)·최소표본(5)·"밴한 챔프는 채점에서 뺀다"는 규칙을 그대로 옮겼다.
+   ② 내전 밸런스 사후 평가 — 팀을 짤 때 쓴 내부티어로 '어느 팀이 셌어야 하는가'를 계산하고,
+      실제 결과와 맞대본다. 전력차가 벌어질수록 우세팀 승률이 올라가야 정상(캘리브레이션). */
+const CA_WINDOW_H = 3.0;   // 추천 시각 이후 이 시간 안에 시작된 그 사람의 판 = 같은 판 (coach_audit.py 와 동일)
+const CA_MIN_N    = 5;     // 이보다 표본이 적으면 비율을 말하지 않는다   (coach_audit.py 와 동일)
+let COACH_ROWS=null, COACH_ERR=null;
+
+/* 시트 탭을 이름으로 읽는 범용 JSONP 로더 (gid를 몰라도 됨) */
+function loadTabJsonp(sheetName){
+  return new Promise((resolve,reject)=>{
+    const cb="__tabCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{done=true;cleanup();resolve(resp);};
+    s.onerror=()=>{if(!done){cleanup();reject(new Error("스크립트 로드 실패"));}};
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&headers=1&cb=${Date.now()}&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{if(!done){cleanup();reject(new Error("시간 초과 — 시트 공유 설정을 확인하세요."));}},15000);
+  });
+}
+/* 헤더를 그대로 살린 객체 배열 (gvizToObjects 는 게임ID/소환사명이 있는 행만 남겨서 범용 탭엔 못 쓴다) */
+function gvizRowsAll(resp){
+  if(!resp||!resp.table)throw new Error("시트 응답 형식 오류");
+  const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+  return (resp.table.rows||[]).map(row=>{
+    const o={};
+    (row.c||[]).forEach((cell,i)=>{ const h=cols[i]; if(!h)return;
+      const v = cell==null ? "" : (cell.f!=null?cell.f:cell.v);
+      o[h] = v==null ? "" : String(v).trim(); });
+    return o;
+  });
+}
+/* "2026-08-13 2:18" / "2026-08-13" 둘 다 받는다 — 옛 기록엔 시각이 없다 */
+function _rdt(s){
+  const m=String(s||"").trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  return m ? new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)) : null;
+}
+const _ck=s=>String(s||"").replace(/\s+/g,"");   // 챔피언 이름 비교키(띄어쓰기 흔들림 흡수)
+
+/* ── ① 밴픽 추천 채점 (coach_audit.py 이식) ───────────────────────────── */
+function coachAudit(rows){
+  const src = (typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size) ? GAMES_ALL : GAMES;
+  const played=new Map(), gmeta=new Map();
+  for(const [gid,g] of src){
+    const rs=g.rows||[]; gmeta.set(gid,rs);
+    let day=null; for(const r of rs){ const d=_rdt(r["날짜"]); if(d){day=d;break;} }
+    if(!day)continue;
+    for(const r of rs){
+      const k=tnorm(r["소환사명"]); if(!k)continue;
+      if(!played.has(k))played.set(k,[]);
+      played.get(k).push([day,gid]);
+    }
+  }
+  for(const v of played.values())v.sort((a,b)=>a[0]-b[0]);
+
+  const st={ban:0,matched:0,unbanned:0,hit:0,enemy:0,covered:0,pick:0,follow:0,from:"",to:""};
+  const hits=new Map(), misses=new Map(), per=new Map();
+  for(const r of rows){
+    const mode=String(r["모드"]||"").trim();
+    const ts=_rdt(r["시각"]);
+    if(ts){ const d=String(r["시각"]).slice(0,10); if(!st.from||d<st.from)st.from=d; if(!st.to||d>st.to)st.to=d; }
+    if(mode==="pick"){
+      st.pick++;
+      if(parseFloat(r["따름순위"])>0)st.follow++;
+      continue;
+    }
+    const who=r["닉네임"]||"";
+    const rec=String(r["추천"]||"").split(",").map(x=>x.trim()).filter(Boolean);
+    const actual=String(r["실제선택"]||"").trim();
+    if(mode!=="ban"||!rec.length||!ts)continue;
+    st.ban++;
+    let gid=null;
+    for(const [day,g] of (played.get(tnorm(who))||[])){
+      const h=(day-ts)/3600000;
+      if(h>=-0.5&&h<=CA_WINDOW_H){gid=g;break;}
+    }
+    if(!gid)continue;
+    st.matched++;
+    const rs=gmeta.get(gid)||[];
+    const me=rs.find(p=>tnorm(p["소환사명"])===tnorm(who));
+    if(!me)continue;
+    const enemy=new Set();
+    for(const p of rs){ if(p["진영"]&&p["진영"]!==me["진영"]&&p["챔피언"]&&p["챔피언"]!=="?")enemy.add(p["챔피언"]); }
+    const enemyK=new Set([...enemy].map(_ck)), recK=new Set(rec.map(_ck));
+    if(!per.has(who))per.set(who,{h:0,n:0});
+    const pe=per.get(who);
+    for(const c of rec){
+      if(c===actual)continue;                       // 밴해버렸으면 그 판에 나올 수 없다 — 채점 대상 아님
+      st.unbanned++; pe.n++;
+      if(enemyK.has(_ck(c))){ st.hit++; pe.h++; hits.set(c,(hits.get(c)||0)+1); }
+      else misses.set(c,(misses.get(c)||0)+1);
+    }
+    for(const c of enemy){ st.enemy++; if(recK.has(_ck(c)))st.covered++; }
+  }
+  return {st,hits,misses,per};
+}
+
+/* ── ② 내전 밸런스 사후 평가 ──────────────────────────────────────────── */
+const TIER_RK={"上":0,"中":1,"下":2};
+function tierScore(t){   // 높을수록 강함. 0티어 11 / 1上 9 … 3下 1 (tierDelta 와 같은 순서 체계)
+  t=String(t||"").trim();
+  if(!t||!/^\d/.test(t))return null;
+  return 12-(parseInt(t[0],10)*3+(TIER_RK[t[1]]??1));
+}
+function balanceAudit(days){
+  const src = (typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size) ? GAMES_ALL : GAMES;
+  const cut = days ? new Date(Date.now()-days*86400000) : null;
+  const out={n:0,skipped:0,decided:0,favWin:0,tie:0,blue:0,blueWin:0,gapSum:0,
+             buckets:new Map(),recent:[],even:0};
+  for(const [gid,g] of src){
+    const rs=g.rows||[];
+    let day=null; for(const r of rs){ const d=_rdt(r["날짜"]); if(d){day=d;break;} }
+    if(cut&&(!day||day<cut))continue;
+    const side={};
+    for(const r of rs){ const s=r["진영"]; if(s!=="블루팀"&&s!=="레드팀")continue; (side[s]=side[s]||[]).push(r); }
+    if(!side["블루팀"]||!side["레드팀"]||side["블루팀"].length!==5||side["레드팀"].length!==5)continue;
+    const res=s=>{ const v=new Set(side[s].map(r=>r["결과"])); return v.size===1?[...v][0]:null; };
+    const rb=res("블루팀"), rr=res("레드팀");
+    if(!(rb==="승리"&&rr==="패배")&&!(rb==="패배"&&rr==="승리"))continue;
+    let bad=false; const sc={};
+    for(const s of ["블루팀","레드팀"]){
+      let sum=0;
+      for(const r of side[s]){ const v=tierScore(tierOf(canonOfRow(r))); if(v==null){bad=true;break;} sum+=v; }
+      if(bad)break; sc[s]=sum;
+    }
+    if(bad){ out.skipped++; continue; }
+    out.n++; out.blue++;
+    if(rb==="승리")out.blueWin++;
+    const gap=sc["블루팀"]-sc["레드팀"];
+    out.gapSum+=Math.abs(gap);
+    if(Math.abs(gap)<=1)out.even++;
+    if(gap===0){ out.tie++; continue; }
+    const fav = gap>0 ? "블루팀" : "레드팀";
+    const won = (fav==="블루팀") ? (rb==="승리") : (rr==="승리");
+    out.decided++; if(won)out.favWin++;
+    const b=Math.min(Math.abs(gap),6);
+    let e=out.buckets.get(b); if(!e){e={n:0,w:0};out.buckets.set(b,e);}
+    e.n++; if(won)e.w++;
+    out.recent.push({gid,day,gap:Math.abs(gap),fav,won,
+                     blue:sc["블루팀"],red:sc["레드팀"],winner:rb==="승리"?"블루팀":"레드팀"});
+  }
+  out.recent.sort((a,b)=>(b.day?b.day-0:0)-(a.day?a.day-0:0));
+  out.recent=out.recent.slice(0,12);
+  return out;
+}
+
+/* ── 화면 ─────────────────────────────────────────────────────────────── */
+let REPORT_RANGE=0;   // 0=통산, 30/90=최근 N일 (밸런스 섹션 전용)
+function setReportRange(d){ REPORT_RANGE=d; renderReport(); }
+async function renderReport(){
+  view().innerHTML=`${navTabsHtml('report')}<div class="card"><h2>📊 리포트</h2><div class="muted">채점 중…</div></div>`;
+  if(COACH_ROWS==null&&COACH_ERR==null){
+    try{ COACH_ROWS=gvizRowsAll(await loadTabJsonp("COACH_LOG")); }
+    catch(e){ COACH_ERR=String(e&&e.message||e); }
+  }
+  if(!document.querySelector('.tab.on')||!document.querySelector('.tab.on').textContent.includes('리포트'))return;
+  view().innerHTML=`${navTabsHtml('report')}
+    <div class="card" style="margin-bottom:14px">
+      <h2>📊 시스템 리포트 <span class="muted" style="font-size:13px;font-weight:400">우리가 만든 것이 실제로 맞았는지 숫자로 공개합니다</span></h2>
+      <div class="muted" style="font-size:12.5px">잘 맞은 것만 골라 보여주지 않습니다 — 틀린 쪽도 같은 크기로 적습니다. 상단 패치 필터와 무관한 전체 기간 기준이에요.</div>
+    </div>
+    ${coachSectionHtml()}
+    ${balanceSectionHtml()}`;
+  window.scrollTo(0,0);
+}
+function coachSectionHtml(){
+  if(COACH_ERR||!COACH_ROWS)
+    return `<div class="card" style="margin-bottom:14px"><h2>🔨 밴픽 추천 성적</h2>
+      <div class="muted" style="font-size:13px">추천 기록을 불러오지 못했어요${COACH_ERR?` <span style="opacity:.6">(${esc(COACH_ERR)})</span>`:''}</div></div>`;
+  const {st,hits,misses,per}=coachAudit(COACH_ROWS);
+  const bar=(p,col)=>`<div style="height:8px;border-radius:5px;background:var(--bg2);overflow:hidden;margin-top:5px"><div style="height:100%;width:${Math.max(0,Math.min(100,p))}%;background:${col}"></div></div>`;
+  const box=(t,v,sub,col,tip)=>`<div class="cmp" title="${escAttr(tip||'')}" style="align-items:stretch">
+      <span class="cmp-k">${t}</span><b class="cmp-v" style="color:${col}">${v}</b>
+      <span class="cmp-r">${sub}</span></div>`;
+  const cells=[];
+  if(st.unbanned>=CA_MIN_N){
+    const p=100*st.hit/st.unbanned;
+    cells.push(box("위협 적중률",`${p.toFixed(0)}%`,`밴 안 한 추천 ${st.unbanned}개 중 ${st.hit}개가 실제로 나옴`,
+      p>=25?'var(--win)':(p>=12?'#ffd24a':'var(--lose)'),
+      "추천했지만 밴하지 않은 챔프만 채점합니다. 밴해버린 챔프는 그 판에 나올 수 없어서 '맞췄다'가 공짜로 나오거든요."));
+  }else cells.push(box("위협 적중률","—",`표본 ${st.unbanned}개 — ${CA_MIN_N}개는 모여야 합니다`,'var(--sub)',''));
+  if(st.enemy>=CA_MIN_N){
+    const p=100*st.covered/st.enemy;
+    cells.push(box("커버리지",`${p.toFixed(0)}%`,`상대가 꺼낸 챔프 ${st.enemy}개 중 ${st.covered}개를 미리 짚음`,
+      p>=15?'var(--win)':(p>=7?'#ffd24a':'var(--lose)'),
+      "상대 다섯 명이 실제로 꺼낸 챔프 중, 추천 목록(보통 3개)이 미리 이름을 올려둔 비율입니다."));
+  }
+  if(st.pick)cells.push(box("픽 추천 채택률",`${(100*st.follow/st.pick).toFixed(0)}%`,`${st.follow}/${st.pick}건 — 추천 안에서 골랐다`,'#8fd0ff',
+    "적중이 아니라 '얼마나 쓰였는가'입니다. 낮다고 추천이 틀린 건 아니지만, 아무도 안 따르면 고칠 이유가 됩니다."));
+  const rank=(m,n)=>[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
+  const chipRow=(arr,col)=>arr.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">`+arr.map(([c,n])=>
+      `<span class="rpchip" style="border-color:${col}">${champImg(c)}${esc(c)} <span style="opacity:.65;font-weight:600">${n}회</span></span>`).join("")+`</div>`:'';
+  const ppl=[...per.entries()].filter(([,e])=>e.n>=CA_MIN_N).sort((a,b)=>b[1].h/b[1].n-a[1].h/a[1].n);
+  return `<div class="card" style="margin-bottom:14px">
+    <h2>🔨 밴픽 추천 성적 <span class="muted" style="font-size:13px;font-weight:400">👻 고스트밴픽왕이 실제로 맞았나${st.from?` · ${esc(st.from)} ~ ${esc(st.to)}`:''}</span></h2>
+    <div class="muted" style="font-size:12.5px;margin-bottom:9px">밴 추천 <b>${st.ban}건</b> 중 경기와 이어붙인 것 <b>${st.matched}건</b> · 픽 추천 <b>${st.pick}건</b>
+      <span style="opacity:.7">(추천 시각 뒤 ${CA_WINDOW_H}시간 안에 시작된 그 사람의 판을 같은 판으로 봅니다)</span></div>
+    <div class="cmpgrid">${cells.join("")}</div>
+    ${hits.size?`<div style="margin-top:14px"><b style="font-size:13.5px">✅ 잘 짚은 챔프</b> <span class="muted" style="font-size:12px">밴하지 않았더니 실제로 상대가 꺼냄 — 밴할 값어치가 있었다</span>${chipRow(rank(hits,8),'rgba(43,177,119,.55)')}</div>`:''}
+    ${misses.size?`<div style="margin-top:12px"><b style="font-size:13.5px">❌ 헛방이 잦은 챔프</b> <span class="muted" style="font-size:12px">추천했는데 그 판에 아무도 안 꺼냄 — 오추천 후보</span>${chipRow(rank(misses,10),'rgba(232,64,87,.45)')}</div>`:''}
+    ${ppl.length?`<div style="margin-top:14px"><b style="font-size:13.5px">👤 사용자별</b> <span class="muted" style="font-size:12px">표본 ${CA_MIN_N}개 이상</span>
+      <div style="margin-top:7px;display:flex;flex-direction:column;gap:5px">${ppl.slice(0,8).map(([w,e])=>{
+        const p=100*e.h/e.n;
+        return `<div style="display:flex;align-items:center;gap:9px;font-size:13px">
+          <span class="clickname" onclick="go('player','${escAttr(playerKeyOf(w))}')" style="min-width:120px;font-weight:700">${esc(shortName(w))}</span>
+          <div style="flex:1">${bar(p*3,'linear-gradient(90deg,#3a73e8,#7aa2ff)')}</div>
+          <b style="min-width:64px;text-align:right;font-variant-numeric:tabular-nums">${p.toFixed(0)}% <span class="muted" style="font-weight:400">(${e.h}/${e.n})</span></b></div>`;}).join("")}</div></div>`:''}
+    <div class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.6">※ 한계는 정직하게 — 밴하지 않은 챔프는 '상대가 쓸 수 있었다'만 알려주고, 안 꺼낸 이유(생각이 없었는지, 다른 자리로 갔는지)까지는 기록에 남지 않습니다.
+      디스코드 주간 점검 DM에 나가는 숫자와 같은 방법으로 계산합니다.</div>
+  </div>`;
+}
+function balanceSectionHtml(){
+  const b=balanceAudit(REPORT_RANGE||0);
+  const rchip=(d,l)=>`<span class="pchip${REPORT_RANGE===d?' on':''}" style="cursor:pointer;padding:4px 11px;font-size:12.5px" onclick="setReportRange(${d})">${l}</span>`;
+  const head=`<h2>⚖️ 내전 밸런스 사후 평가 <span class="muted" style="font-size:13px;font-weight:400">내부티어로 예측한 우세팀이 실제로 이겼나</span></h2>
+    <div style="display:flex;gap:6px;margin:2px 0 10px">${rchip(0,'통산')}${rchip(90,'최근 90일')}${rchip(30,'최근 30일')}</div>`;
+  if(b.n<10)return `<div class="card">${head}<div class="muted" style="font-size:13px">채점할 판이 부족해요 (양 팀 5명 전원이 내부티어를 가진 판 ${b.n}판). 기간을 넓혀보세요.</div></div>`;
+  const favP=b.decided?100*b.favWin/b.decided:0;
+  const blueP=b.n?100*b.blueWin/b.n:0;
+  const evenP=100*b.even/b.n;
+  const avgGap=b.gapSum/b.n;
+  // 밸런스 등급 — 우세팀 승률이 50%에 가까울수록 팀이 잘 갈렸다는 뜻(예측이 무의미할 만큼 팽팽했다)
+  const dev=Math.abs(favP-50);
+  const grade = dev<4?["아주 팽팽","var(--win)"] : dev<8?["대체로 팽팽","#8fd0ff"] : dev<13?["약간 기울어짐","#ffd24a"] : ["뚜렷하게 기울어짐","var(--lose)"];
+  const box=(k,v,r,col,tip)=>`<div class="cmp" title="${escAttr(tip||'')}"><span class="cmp-k">${k}</span><b class="cmp-v" style="color:${col||''}">${v}</b><span class="cmp-r">${r}</span></div>`;
+  const bk=[...b.buckets.entries()].sort((a,b2)=>a[0]-b2[0]);
+  const maxN=Math.max(...bk.map(([,e])=>e.n),1);
+  const calib=bk.map(([g,e])=>{
+    const p=100*e.w/e.n, w=Math.max(6,100*e.n/maxN);
+    const thin=e.n<10;
+    return `<div style="display:flex;align-items:center;gap:9px;font-size:12.5px;margin-bottom:5px">
+      <span style="min-width:74px;color:var(--sub)">전력차 ${g===6?'6+':g}</span>
+      <div style="flex:1;height:16px;background:var(--bg2);border-radius:5px;position:relative;overflow:hidden">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:rgba(122,162,255,.18)"></div>
+        <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)"></div>
+        <div style="position:absolute;left:${Math.min(98,Math.max(0,p))}%;top:1px;bottom:1px;width:3px;border-radius:2px;background:${p>=50?'var(--win)':'var(--lose)'}"></div>
+      </div>
+      <b style="min-width:98px;text-align:right;font-variant-numeric:tabular-nums${thin?';opacity:.55':''}">${p.toFixed(0)}% <span class="muted" style="font-weight:400">${e.n}판${thin?' ↓':''}</span></b></div>`;
+  }).join("");
+  const rows=b.recent.map(r=>`<div class="rpr">
+      <span class="rpr-d">${esc(r.day?`${r.day.getMonth()+1}/${r.day.getDate()}`:'')}</span>
+      <span class="rpr-t">예상 <b style="color:${r.fav==='블루팀'?'#5b8cff':'#e84057'}">${esc(r.fav)}</b> <span class="muted">+${r.gap}</span></span>
+      <span class="rpr-t">실제 <b style="color:${r.winner==='블루팀'?'#5b8cff':'#e84057'}">${esc(r.winner)}</b> 승</span>
+      <span class="rpr-v" style="color:${r.won?'var(--win)':'var(--lose)'}">${r.won?'적중':'빗나감'}</span>
+      <span class="rpr-g clickname" onclick="go('game','${escAttr(r.gid)}')">보기 ›</span>
+    </div>`).join("");
+  return `<div class="card">${head}
+    <div class="cmpgrid">
+      ${box("우세팀 승률",`${favP.toFixed(1)}%`,`${b.favWin}/${b.decided}판 · ${grade[0]}`,grade[1],
+        "내부티어 합이 높은 팀이 실제로 이긴 비율입니다. 50%에 가까울수록 팀이 팽팽하게 갈렸다는 뜻이고, 높을수록 티어가 결과를 잘 설명한다는 뜻입니다.")}
+      ${box("팽팽한 판 비율",`${evenP.toFixed(0)}%`,`전력차 1 이하 ${b.even}판 / ${b.n}판`,evenP>=35?'var(--win)':'',
+        "양 팀 내부티어 합의 차이가 1 이하였던 판. 팀 짜기가 얼마나 촘촘했는지 봅니다.")}
+      ${box("평균 전력차",avgGap.toFixed(2),`티어 점수 합 기준 · 무승부급 ${b.tie}판`,'',
+        "0티어 11점 · 1上 9점 … 3下 1점으로 환산한 팀 합계의 차이입니다.")}
+      ${box("블루 진영 승률",`${blueP.toFixed(1)}%`,`${b.blueWin}/${b.n}판`,Math.abs(blueP-50)<3?'var(--win)':'#ffd24a',
+        "맵 자체의 유불리입니다. 50%에서 크게 벗어나면 진영 배정도 밸런스 변수로 봐야 합니다.")}
+    </div>
+    <div style="margin-top:15px"><b style="font-size:13.5px">📐 캘리브레이션</b>
+      <span class="muted" style="font-size:12px">전력차가 벌어질수록 우세팀 승률이 올라가야 정상 — 막대는 그 구간의 판수</span>
+      <div style="margin-top:8px">${calib}</div>
+      <div class="muted" style="font-size:11.5px">※ 세로선이 50%(동전던지기). 10판 미만 구간은 흐리게 표시했어요.</div></div>
+    <div style="margin-top:15px"><b style="font-size:13.5px">🕐 최근 판 판정</b>
+      <div style="margin-top:6px">${rows}</div></div>
+    <div class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.6">※ 양 팀 5명 전원이 내부티어를 가진 판만 채점합니다 (기간 내 제외 ${b.skipped}판 — 티어 미부여자 포함).
+      내부티어는 팀을 짤 때 실제로 쓰는 기준이라, 여기 숫자가 곧 '팀 짜기가 잘 됐는가'입니다.</div>
+  </div>`;
+}
+
+/* ============== 📈 성장 그래프 (2026-08-13 사장님 승인) ==============
+   "지금 내가 늘고 있나"를 한 장으로. 판수(옅은 막대)와 지표(꺾은선)를 겹쳐 그린다.
+   구간은 두 가지 — 월별(달력 흐름)과 판수 구간(최근 기록 밀도가 높을 때 흐름이 보인다).
+   우리 기록은 아직 몇 달치라 월별로는 점이 서너 개뿐이라서, 달이 4개 미만이면 판수 구간을 먼저 보여준다.
+   패치 필터와 무관한 통산 기준 — 한 달치 표본도 얇은데 패치까지 쪼개면 아무 말도 못 한다.
+   기록이 없는 달은 선을 끊는다(0으로 이으면 '급락'처럼 보여서 거짓말이 된다). */
+let GROWTH_METRIC='wr', GROWTH_SPAN=null;   // null = 자동(데이터 양을 보고 결정)
+const GROWTH_METRICS={
+  wr:  {k:'wr',  label:'승률',   unit:'%p', fmt:v=>`${v.toFixed(0)}%`, dom:[0,100], ref:50, eps:2,
+        tip:'그 구간의 승률'},
+  ai:  {k:'ai',  label:'AI점수', unit:'점',  fmt:v=>v.toFixed(1),       dom:null,    ref:null, eps:0.5,
+        tip:'분석기가 매 판 매긴 점수의 그 구간 평균'},
+  kda: {k:'kda', label:'KDA',    unit:'',   fmt:v=>v.toFixed(2),       dom:null,    ref:3,  eps:0.15,
+        tip:'(킬+어시)÷데스 — 그 구간 평균'},
+};
+function _growthRows(name){
+  const SRC=(typeof PLAYERS_ALL!=='undefined'&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
+  return (SRC.get(name)||[])
+    .filter(r=>(r["결과"]==="승리"||r["결과"]==="패배")&&/^\d{4}-\d{2}/.test(String(r["날짜"]||"")))
+    .sort((a,b)=>String(a["날짜"]).localeCompare(String(b["날짜"])));
+}
+function _growthAgg(rows){
+  const e={g:0,w:0,sc:0,scn:0,k:0,d:0,a:0,kn:0};
+  for(const r of rows){
+    e.g++; if(r["결과"]==="승리")e.w++;
+    const sv=parseFloat(r["점수"]); if(!isNaN(sv)){e.sc+=sv;e.scn++;}
+    const ko=parseKDA(r["KDA"]); if(ko){e.k+=ko.k;e.d+=ko.d;e.a+=ko.a;e.kn++;}
+  }
+  return {g:e.g,w:e.w,
+    wr:e.g?100*e.w/e.g:null,
+    ai:e.scn?e.sc/e.scn:null,
+    kda:e.kn?(e.d===0?(e.k+e.a):(e.k+e.a)/e.d):null};
+}
+const _md=s=>{const m=String(s||"").match(/^\d{4}-(\d{2})-(\d{2})/);return m?`${+m[1]}/${+m[2]}`:"";};
+function growthSeries(name,span){
+  const rows=_growthRows(name);
+  if(!rows.length)return [];
+  if(span==='chunk'){
+    // 판수 구간 — 점이 12개를 넘지 않게 묶음 크기를 정한다(10~30판)
+    const N=Math.max(10,Math.min(30,Math.ceil(rows.length/12)));
+    const out=[];
+    for(let i=0;i<rows.length;i+=N){
+      const ch=rows.slice(i,i+N);
+      if(ch.length<Math.max(5,Math.floor(N/3))&&out.length)break;   // 꼬리가 너무 짧으면 버린다(허수 급등락 방지)
+      out.push(Object.assign({label:_md(ch[ch.length-1]["날짜"]),
+        tip:`${_md(ch[0]["날짜"])}~${_md(ch[ch.length-1]["날짜"])}`},_growthAgg(ch)));
+    }
+    return out;
+  }
+  // 월별 — 기록이 없는 달도 자리를 비워 시간축을 왜곡하지 않는다
+  const m=new Map();
+  for(const r of rows){ const k=String(r["날짜"]).slice(0,7); (m.get(k)||m.set(k,[]).get(k)).push(r); }
+  const keys=[...m.keys()].sort();
+  let [y,mo]=keys[0].split("-").map(Number);
+  const [ey,emo]=keys[keys.length-1].split("-").map(Number);
+  const out=[];
+  while((y<ey||(y===ey&&mo<=emo))&&out.length<60){
+    const k=`${y}-${String(mo).padStart(2,"0")}`, rs=m.get(k);
+    const lab=(mo===1||!out.length)?`${String(y).slice(2)}.${mo}월`:`${mo}월`;
+    out.push(rs?Object.assign({label:lab,tip:`${y}년 ${mo}월`},_growthAgg(rs))
+               :{label:lab,tip:`${y}년 ${mo}월`,g:0,w:0,wr:null,ai:null,kda:null});
+    mo++; if(mo>12){mo=1;y++;}
+  }
+  return out;
+}
+function growthSpanOf(name){   // 자동: 기록이 있는 달이 4개 미만이면 판수 구간이 더 많은 걸 보여준다
+  if(GROWTH_SPAN)return GROWTH_SPAN;
+  const mset=new Set(_growthRows(name).map(r=>String(r["날짜"]).slice(0,7)));
+  return mset.size>=4?'month':'chunk';
+}
+function growthChart(ser,mk,showBars){
+  const M=GROWTH_METRICS[mk]||GROWTH_METRICS.wr;
+  // 폰에서는 좌표계를 좁게 잡는다 — 넓은 viewBox를 390px로 줄이면 축 글자가 4px가 돼 읽을 수가 없다
+  const NAR=(window.innerWidth||1200)<760;
+  const W=NAR?430:880, H=NAR?250:230, L=NAR?36:46, R=NAR?42:52, T=16, B=30;
+  const FS=NAR?11.5:10.5;
+  const pw=W-L-R, ph=H-T-B;
+  // 판수 구간 모드에선 묶음 크기가 같아 막대가 전부 같은 높이 = 정보가 없다 → 선에 자리를 다 준다
+  const barTop=showBars?T+ph*0.68:T+ph;
+  const vals=ser.map(s=>s[M.k]).filter(v=>v!=null&&isFinite(v));
+  if(vals.length<2)return `<div class="muted" style="font-size:13px;padding:16px 0">${esc(M.label)} 기록이 있는 구간이 ${vals.length}개뿐이라 아직 흐름을 그릴 수 없어요.</div>`;
+  let lo,hi;
+  if(M.dom){ [lo,hi]=M.dom; }
+  else{ lo=Math.min(...vals); hi=Math.max(...vals); const pad=(hi-lo)*0.25||Math.abs(hi*0.15)||1; lo-=pad; hi+=pad; }
+  const span=(hi-lo)||1, n=ser.length;
+  const x=i=>n<2?L+pw/2:L+i*pw/(n-1);
+  const y=v=>T+(1-(v-lo)/span)*(barTop-T);
+  const maxG=Math.max(...ser.map(s=>s.g),1);
+  const bh=H-B-barTop-6;
+  const bw=Math.max(4,Math.min(30,pw/Math.max(n,1)*0.5));
+  const bx=i=>Math.max(L,Math.min(W-R-bw,x(i)-bw/2));   // 양 끝 막대가 축 밖으로 삐져나가지 않게
+  const bars=!showBars?'':ser.map((s,i)=>{
+    const h=s.g?Math.max(2,(s.g/maxG)*bh):0;
+    return h?`<rect x="${bx(i).toFixed(1)}" y="${(H-B-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="rgba(122,162,255,.22)"><title>${esc(s.tip)} · ${s.g}판 (${s.w}승 ${s.g-s.w}패)</title></rect>`:'';
+  }).join("");
+  const segs=[]; let cur=[];
+  ser.forEach((s,i)=>{ const v=s[M.k];
+    if(v==null||!isFinite(v)){ if(cur.length)segs.push(cur); cur=[]; } else cur.push([i,v]); });
+  if(cur.length)segs.push(cur);
+  const path=segs.filter(sg=>sg.length>1).map(sg=>
+    `<path d="${sg.map(([i,v],j)=>`${j?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="#7aa2ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`).join("");
+  const dots=segs.flat().map(([i,v])=>{
+    const s=ser[i], col=(mk==='wr')?(v>=50?'#2bb177':'#e84057'):'#7aa2ff';
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.6" fill="${col}" stroke="#0d1017" stroke-width="1.2"><title>${esc(s.tip)} · ${esc(M.label)} ${M.fmt(v)} · ${s.g}판</title></circle>`;
+  }).join("");
+  const grid=[0,.5,1].map(t=>{
+    const v=hi-t*span, yy=T+t*(barTop-T);
+    return `<line x1="${L}" y1="${yy.toFixed(1)}" x2="${W-R}" y2="${yy.toFixed(1)}" stroke="var(--line)"${t===0||t===1?'':' stroke-dasharray="3 4"'} opacity=".55"/>
+      <text x="${L-5}" y="${(yy+3.5).toFixed(1)}" font-size="${FS}" fill="#717a91" text-anchor="end">${M.fmt(v)}</text>`;
+  }).join("");
+  const refLine=(M.ref!=null&&M.ref>lo&&M.ref<hi)?`<line x1="${L}" y1="${y(M.ref).toFixed(1)}" x2="${W-R}" y2="${y(M.ref).toFixed(1)}" stroke="#ffd24a" stroke-width="1" stroke-dasharray="5 4" opacity=".45"/>`:'';
+  const step=Math.max(1,Math.ceil(n/(NAR?4:9)));
+  const xlab=ser.map((s,i)=>{
+    if(i%step!==0&&i!==n-1)return '';
+    if(i!==n-1&&i+step>n-1)return '';                 // 마지막 라벨과 겹치는 자리는 건너뛴다
+    const anc=i===0?'start':(i===n-1?'end':'middle');
+    return `<text x="${x(i).toFixed(1)}" y="${H-9}" font-size="${FS}" fill="#717a91" text-anchor="${anc}">${esc(s.label)}</text>`;
+  }).join("");
+  const last=segs.flat().slice(-1)[0];
+  const lastTxt=last?`<text x="${W-R+5}" y="${(y(last[1])+4).toFixed(1)}" font-size="${FS+1.5}" font-weight="800" fill="#7aa2ff">${M.fmt(last[1])}</text>`:'';
+  const barLbl=showBars?`<text x="${L-5}" y="${(barTop+13).toFixed(1)}" font-size="${FS-1}" fill="#5d6678" text-anchor="end">판수</text>`:'';
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    ${grid}${refLine}${barLbl}${bars}${path}${dots}${xlab}${lastTxt}</svg>`;
+}
+function growthInner(name){
+  const span=growthSpanOf(name);
+  const ser=growthSeries(name,span);
+  if(ser.length<2)return `<div class="muted" style="font-size:13px">아직 흐름을 그릴 만큼 기록이 쌓이지 않았어요 — 몇 판만 더 하면 보입니다.</div>`;
+  const M=GROWTH_METRICS[GROWTH_METRIC]||GROWTH_METRICS.wr;
+  const have=ser.filter(s=>s[M.k]!=null&&isFinite(s[M.k]));
+  let delta='';
+  if(have.length>=2){
+    const cut=have.length>=6?3:1;                       // 구간이 넉넉하면 최근 3구간, 아니면 마지막 구간만
+    const rec=have.slice(-cut), old=have.slice(0,-cut);
+    const wavg=arr=>{let s=0,n=0;for(const r of arr){s+=r[M.k]*r.g;n+=r.g;}return n?s/n:null;};
+    const a=wavg(rec), b=wavg(old);
+    if(a!=null&&b!=null){
+      const d=a-b, up=d>=0, flat=Math.abs(d)<M.eps;
+      const amt=(M.k==='wr')?`${Math.abs(d).toFixed(0)}%p`:(M.k==='kda')?Math.abs(d).toFixed(2):`${Math.abs(d).toFixed(1)}점`;
+      delta=`<div style="font-size:13.5px;margin-top:10px">${cut===3?'최근 3구간':'가장 최근 구간'} <b>${M.fmt(a)}</b> · 그 이전 <b style="opacity:.7">${M.fmt(b)}</b> →
+        <b style="color:${flat?'var(--sub)':(up?'var(--win)':'var(--lose)')}">${flat?'거의 그대로':`${up?'▲':'▼'} ${amt}`}</b>
+        <span class="muted" style="font-size:12px">· 판수로 가중 평균</span></div>`;
+    }
+  }
+  const chip=(k,l,on,fn,tip)=>`<span class="pchip${on?' on':''}" style="cursor:pointer;padding:4px 11px;font-size:12.5px"${tip?` title="${escAttr(tip)}"`:''} onclick="${fn}">${l}</span>`;
+  const tot=ser.reduce((a,s)=>a+s.g,0);
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:9px">
+      ${Object.keys(GROWTH_METRICS).map(k=>chip(k,GROWTH_METRICS[k].label,GROWTH_METRIC===k,`setGrowth('${k}')`,GROWTH_METRICS[k].tip)).join("")}
+      <span style="width:1px;height:20px;background:var(--line);margin:0 4px"></span>
+      ${chip('month','월별',span==='month',"setGrowthSpan('month')",'달력 기준 — 언제 잘했는지')}
+      ${chip('chunk','판수 구간',span==='chunk',"setGrowthSpan('chunk')",'최근 순서대로 일정 판수씩 묶어서 — 흐름이 더 촘촘하게 보입니다')}
+    </div>
+    ${growthChart(ser,GROWTH_METRIC,span==='month')}
+    ${delta}
+    <div class="muted" style="font-size:11.5px;margin-top:7px">※ ${span==='month'?`옅은 막대는 그 달의 판수 · `:`한 점 = 연속 ${Math.round(tot/ser.length)}판 묶음 · `}총 ${tot}판 · ${ser.filter(s=>s.g).length}구간 · 점에 커서를 올리면 상세가 나와요${M.ref!=null?` · 노란 점선은 ${M.fmt(M.ref)} 기준선`:''} · 상단 패치 필터와 무관한 통산 기준</div>`;
+}
+function _growthRedraw(){ const el=document.getElementById('growthBox'); if(el&&CUR_PLAYER)el.innerHTML=growthInner(CUR_PLAYER); }
+function setGrowth(k){ if(!GROWTH_METRICS[k])return; GROWTH_METRIC=k; _growthRedraw(); }
+function setGrowthSpan(s){ if(s!=='month'&&s!=='chunk')return; GROWTH_SPAN=s; _growthRedraw(); }
+function growthCardHtml(name){
+  return `<div class="card" style="margin-top:14px">
+    <h2>📈 성장 그래프 <span class="muted" style="font-size:13px;font-weight:400">늘고 있나 — 승률·AI점수·KDA의 시간 흐름</span></h2>
+    <div id="growthBox">${growthInner(name)}</div>
+  </div>`;
+}
+
 /* 💘 듀오 시너지 (2026-08-07 봇듀오 → 2026-08-12 사장님 지시로 미드·정글 추가)
    같은 팀 두 포지션 조합의 시너지를 수치화해 랭킹.
    시너지 = 듀오 승률 − 기대 승률(두 사람 개인 승률 평균). 함께 3판 이상만 랭킹, 미만은 표본부족 목록. */
@@ -5943,6 +6392,7 @@ function renderPlayer(name){
     </div>
     <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지 · 기록</h2>${mitoHtml}${badgesHtml}</div>
     ${aiEvalHtml}
+    ${growthCardHtml(name)}
     <div class="grid cols">
       <div>
         <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
@@ -6631,7 +7081,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608130520";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608131029";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
