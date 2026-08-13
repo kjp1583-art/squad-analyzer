@@ -1302,12 +1302,28 @@ def _spell_enemy_champ(pos_key):
     except Exception: pass
     return None
 def _spellcheck_hotkey_loop():
+    """[2026-08-12 사장님 재제보 '전혀 안 되더라, 이 방법으론 안 되나봐']
+
+    원인을 못 짚은 채 같은 구조를 고치는 건 세 번째다. 이번엔 구조에서 의심스러운 것을 걷어내고,
+    무엇보다 **어디서 막혔는지 눈에 보이게** 만든다.
+
+    ① 조합키(Ctrl)를 뺀 새 기본키 — 숫자패드 1~5. F2~F5 는 롤에서 '아군 시점 전환'이라 조합키를
+       붙일 수밖에 없었는데, 조합키가 걸리면 롤이 먼저 먹거나 사용자가 Ctrl 을 놓친다.
+       숫자패드는 롤 기본 설정에서 비어 있어 단독으로 쓸 수 있다. (F2~F6+Ctrl 도 그대로 둔다)
+    ② 키가 눌린 건 잡았는데 뒤 관문에서 걸러진 경우를 전부 로그로 남긴다 — 소유자 불일치·인게임
+       미연결·클립보드 실패가 지금까지 조용히 넘어갔다.
+    ③ 상태를 gui_data['spell_diag'] 에 실어 분석기 화면에서 바로 확인할 수 있게 한다.
+    """
     import ctypes, winsound
     u = ctypes.windll.user32
     u.GetAsyncKeyState.argtypes = [ctypes.c_int]; u.GetAsyncKeyState.restype = ctypes.c_short
+    # 숫자패드 1~5(단독) — 롤 기본 키설정에서 비어 있다
+    NUMPAD = {0x61: ("TOP", "top"), 0x62: ("JUNGLE", "jg"), 0x63: ("MIDDLE", "mid"),
+              0x64: ("BOTTOM", "bot"), 0x65: ("UTILITY", "sup")}
+    # F2~F6 — 롤의 아군 시점 전환과 겹쳐 Ctrl 을 함께 눌러야 한다(기존 방식 유지)
     KEYS = {0x71: ("TOP", "top"), 0x72: ("JUNGLE", "jg"), 0x73: ("MIDDLE", "mid"),
             0x74: ("BOTTOM", "bot"), 0x75: ("UTILITY", "sup")}   # F2~F6
-    VK_F7, VK_SHIFT, VK_CTRL = 0x76, 0x10, 0x11
+    VK_F7, VK_SHIFT, VK_CTRL, VK_NUM0 = 0x76, 0x10, 0x11, 0x60
     # 🔑 [2026-08-12] 눌림 판정을 최하위 비트(&1)에서 '직접 추적하는 눌림→뗌 전환'으로 교체.
     #   MSDN 명시: &1('마지막 조회 이후 눌림')은 다른 프로세스가 먼저 GetAsyncKeyState 를 부르면
     #   그쪽이 가져가 버린다. 롤 클라이언트처럼 입력을 상시 폴링하는 프로그램과 같이 돌면 키가 씹힌다.
@@ -1325,38 +1341,51 @@ def _spellcheck_hotkey_loop():
         gs = _spell_live("gamestats") or {}
         t = gs.get("gameTime")
         return int(float(t)) if t is not None else None
-    def push_clip(now):
+    def push_clip(now, diag=None):
         live = sorted(((n, x) for n, x in _SPELL_TIMERS.items() if x > now), key=lambda e: e[1])
         for n in [n for n, x in _SPELL_TIMERS.items() if x <= now]: _SPELL_TIMERS.pop(n, None)
-        if not live: return
-        _spell_set_clipboard(" ".join(f"{n} {x//60}:{x%60:02d}" for n, x in live))
-        winsound.MessageBeep(0x40)
+        if not live:
+            if diag: diag("복사할 타이머가 없어요(전부 만료)")
+            return
+        txt = " ".join(f"{n} {x//60}:{x%60:02d}" for n, x in live)
+        ok = _spell_set_clipboard(txt)
+        if diag: diag(("복사됨: " + txt) if ok else ("클립보드 쓰기 실패 — " + txt))
+        if ok: winsound.MessageBeep(0x40)
+    def _diag(msg):
+        try:
+            with gui_lock:
+                gui_data["spell_diag"] = msg; gui_data["spell_diag_at"] = time.time()
+        except Exception: pass
+        print(f"[spell] {msg}", flush=True)
+    print(f"[spell] 헬퍼 시작 — 숫자패드 1~5(단독) 또는 Ctrl+F2~F6 · 다시복사 숫자패드0/Ctrl+F7", flush=True)
     last_gt = [0]
     while True:
         time.sleep(0.05)
         try:
-            hit = None; recopy = False
-            for vk in KEYS:
-                if _pressed(vk): hit = vk
-            if _pressed(VK_F7): recopy = True
+            hit = None; recopy = False; need_ctrl = False
+            for vk in NUMPAD:                       # 숫자패드 — 조합키 없이 바로
+                if _pressed(vk): hit = NUMPAD[vk]
+            if _pressed(VK_NUM0): recopy = True
+            if not (hit or recopy):
+                for vk in KEYS:                     # F2~F6 — Ctrl 필요
+                    if _pressed(vk): hit = KEYS[vk]; need_ctrl = True
+                if _pressed(VK_F7): recopy = True; need_ctrl = True
             if not (hit or recopy): continue
-            # 롤 기본키 F2~F5 = 아군 시점 전환과 충돌 — Ctrl을 누르고 있을 때만 반응
-            if not (u.GetAsyncKeyState(VK_CTRL) & 0x8000): continue
+            if need_ctrl and not (u.GetAsyncKeyState(VK_CTRL) & 0x8000):
+                _diag("F키를 눌렀지만 Ctrl 이 함께 눌리지 않았어요 (숫자패드는 단독으로 됩니다)"); continue
             if not owner_ok():
-                print(f"[spell] 전용 계정이 아니라 무시 (현재 계정: {MY_RIOT_NAME[0] or '미확인'})", flush=True)
-                continue
+                _diag(f"전용 계정이 아니라 무시 — 현재 계정 '{MY_RIOT_NAME[0] or '미확인'}'"); continue
             now = game_time()
             if now is None:
-                print("[spell] 인게임 시각을 못 읽음(포트 2999 응답 없음) — 게임 중에만 동작", flush=True)
-                continue
+                _diag("인게임 시각을 못 읽음(포트 2999 무응답) — 게임 중에만 동작"); continue
             if now < last_gt[0] - 60: _SPELL_TIMERS.clear()   # 새 게임(시각 역행) — 이전 판 타이머 파기
             last_gt[0] = now
             if hit:
-                pos_key, fallback = KEYS[hit]
+                pos_key, fallback = hit
                 cd = 272 if (u.GetAsyncKeyState(VK_SHIFT) & 0x8000) else 300
                 label = _spell_enemy_champ(pos_key) or fallback
                 _SPELL_TIMERS[label] = now + cd
-            push_clip(now)
+            push_clip(now, _diag)
         except Exception:
             time.sleep(1)
 
@@ -2888,6 +2917,14 @@ def _build_loading_info(headers, base_url, gen=None):
             time.sleep(3)
         if not (gd.get("teamOne") or gd.get("teamTwo")):
             print("[loadovl] 로스터가 비어 수집 포기(재시도 6회)", flush=True); return
+        # 🎮 [2026-08-12 사장님 지시] 매칭게임(솔랭·자유랭·일반 등)에서는 띄우지 않는다.
+        #   이 오버레이는 '내전 상대가 누구인지'를 보는 물건이라 매칭게임에선 쓸모가 없고 화면만 가린다.
+        #   내전 판정은 분석기가 기록에 쓰는 기준과 같게 맞춘다 — 큐0(토너먼트코드 포함) 또는 커스텀.
+        try:
+            _qid = int(((gd.get("queue") or {}).get("id")) if isinstance(gd.get("queue"), dict) else -1)
+        except Exception: _qid = -1
+        if not (_qid == 0 or gd.get("isCustomGame")):
+            print(f"[loadovl] 매칭게임(queue {_qid}) — 오버레이 생략", flush=True); return
         # 로딩이 이미 끝났으면(게임 렌더링 중) 띄우지 않는다 — 200+gameTime 엄격 판정
         if _live2999_rendering():
             print("[loadovl] 게임이 이미 진행 중 — 오버레이 생략", flush=True); return
@@ -8687,6 +8724,10 @@ def create_graphic_ui():
                     gui_data["achievements"] = []
                     
                 local_status = gui_data.get("status", "")
+                # 🕵️ 스펠체크 헬퍼 상태 — 왜 안 되는지 콘솔을 안 봐도 보이게(사장님 전용 기능이라 값이 있을 때만)
+                _sd = gui_data.get("spell_diag", "")
+                if _sd and time.time() - gui_data.get("spell_diag_at", 0) < 20:
+                    local_status = f"🕵️ {_sd}"
                 local_bans = gui_data.get("bans", "")
                 local_b_wr = gui_data.get("blue_win_rate", 50)
                 local_r_wr = gui_data.get("red_win_rate", 50)
