@@ -10270,19 +10270,67 @@ class ClanSettingsWindow(tk.Toplevel):
             messagebox.showinfo("환경 설정", "트레이 최소화 설정은 프로그램을 재시작하면 적용됩니다.")
 
 class GuideWindow(tk.Toplevel):
+    """📖 사용 안내 — [2026-08-12 정리] v81 시절 문구가 그대로 남아 실제와 어긋나 있었다.
+       (없어진 '🤖 AI 밸런서' 버튼 안내, 부캐를 시트에 손으로 등록하라는 안내 등)
+       지금 실제로 도는 기능만 적는다. 기능이 바뀌면 여기와 웹 소개(analyzer.html)를 같이 고칠 것."""
     def __init__(self, parent):
         super().__init__(parent)
         self.title("사용 안내")
-        self.geometry("600x420")
+        self.geometry("640x620")
         self.configure(bg=theme.BG)
         self.attributes("-topmost", True)
         self.create_widgets()
 
+    GUIDE = [
+        ("자동으로 도는 것", None),
+        ("🎖 대기실·밴픽창 정보", "양 팀 10명 칸에 내부티어·내전 전적·모스트 챔피언과 그 포지션 고승률픽이 뜹니다."),
+        ("🎯 저격 밴 추천", "상대가 실제로 자주 꺼내고 잘하는 챔피언을 클랜 내전 기록에서 찾아 올립니다. "
+                          "승률만이 아니라 그 자리에서 몇 번 꺼냈는지(점유율)까지 봅니다."),
+        ("⚔ 시너지·천적 경보", "우측 3칸 — 고승률 시너지 / 같이 서면 지는 역시너지 / 나에게 유독 강한 천적. "
+                             "설정에서 끄면 두 팀 칸이 넓어집니다."),
+        ("🖥 로딩 화면 오버레이", "로딩 중 10명의 티어·전적을 한 장으로 띄웁니다. 내전에서만 뜨고 솔랭·일반게임엔 안 뜹니다."),
+        ("📝 전적 자동 기록", "경기가 끝나면 챔피언·KDA·아이템·룬·CS 까지 구글 시트에 쌓입니다. "
+                            "그 판에 한 명만 켜져 있어도 기록됩니다."),
+        ("👑 디스코드 결과 리포트", "종료 시 결과·MVP·역적·밴 목록이 디스코드에 자동으로 올라갑니다."),
+        ("🔗 닉변·부계 통합", "이름을 바꿔도 PUUID 로 같은 사람으로 묶습니다. 따로 등록하지 않아도 됩니다."),
+        ("🚫 노밴 선언 감지", "로비 채팅의 '○○ 노밴' 약속을 읽어 기록하고, 1페이즈 밴 추천에서 제외합니다."),
+        ("🔄 자동 업데이트", "새 버전이 나오면 켜져 있는 동안 알아서 받아 교체하고 다시 켭니다."),
+        ("직접 누르는 것", None),
+        ("☰ 서랍 메뉴", "제목 옆 ☰ — 명예의전당·내부티어·SQUAD.GG·설정·로그·후원 등이 들어 있습니다. "
+                      "화면 아무 데나 누르면 닫힙니다."),
+        ("👑 팀뽑선정", "방에 있는 사람 중 전력이 가장 비슷한 2인을 팀장으로 뽑습니다(직전 판 팀장은 회피). "
+                      "결과를 로비 채팅에 바로 알릴 수 있습니다."),
+        ("🎯 모스트 표시 전환", "모스트를 '현재 선택한 포지션' 기준으로 볼지 '전체 라인' 기준으로 볼지 바꿉니다."),
+        ("⚙ 설정", "부팅 시 자동 실행(숨김) · 롤 켜질 때 자동 팝업 · 트레이 최소화 · 시너지 3칸 표시 · "
+                  "창 크기 · 고스트밴픽왕 구독 토큰. 바꾼 뒤 반드시 [설정 및 저장]을 눌러야 적용됩니다."),
+        ("알아두면 좋은 것", None),
+        ("🧠 고스트밴픽왕", "밴·픽 차례에 AI 추천을 받는 구독 기능입니다. 구독 안 해도 나머지는 전부 무료입니다."),
+        ("🩹 누락된 판", "아무도 분석기를 안 켠 판은 기록이 비어 있습니다. 디스코드 누락경기 채널에 "
+                       "deeplol 주소를 올리면 봇이 채워 넣고 판당 포인트도 지급합니다."),
+        ("🔐 계정 정보", "아이디·비밀번호는 묻지도, 알 수도 없습니다. 롤 클라이언트가 자기 PC 안에 열어 둔 "
+                       "공식 통로로 화면에 이미 보이는 정보만 읽습니다."),
+    ]
+
     def create_widgets(self):
-        tk.Label(self, text="📖 스쿼드해체분석기 사용 안내", bg=theme.BG_BAR, fg=theme.GOLD, font=("Malgun Gothic", 16, "bold"), pady=15).pack(fill="x")
-        txt = tk.Text(self, bg=theme.BG_CARD, fg=theme.TEXT, font=("Malgun Gothic", 11), padx=20, pady=20, bd=0)
+        tk.Label(self, text="📖 스쿼드해체분석기 사용 안내", bg=theme.BG_BAR, fg=theme.GOLD,
+                 font=("Malgun Gothic", 16, "bold"), pady=15).pack(fill="x")
+        txt = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT,
+                                        font=("Malgun Gothic", 11), padx=22, pady=18, bd=0,
+                                        highlightthickness=0, wrap="word", spacing3=4)
         txt.pack(fill="both", expand=True)
-        for line in ["1. [🎯저격 밴 분석] 각 유저별 치명적인 승률 하락폭을 즉각 박제합니다.", "2. [🤖AI 밸런서] 상단 🤖버튼을 누르면 최적의 황금 밸런스를 짜줍니다.", "3. [🔗부캐 통합] 구글 시트에 부캐를 등록해두면 완벽히 통합됩니다.", "4. [⚔라이벌 경보] 적팀에 배치된 상대방과 역대 승률이 극단적일 때 알립니다.", "5. [👑디코 리포트] 게임 종료 시 AI가 MVP와 범인을 리포팅합니다.", "6. [🔥개별 밴 기록] 구글 시트 내 각 유저가 밴한 챔피언이 딱 1개씩 깔끔하게 정리됩니다.", "7. [SQUAD.GG] 버튼을 통해 멤버들의 전적을 편리하게 조회하세요."]: txt.insert(tk.END, line + "\n\n")
+        txt.tag_configure("sec", foreground=theme.GOLD, font=("Malgun Gothic", 11, "bold"),
+                          spacing1=14, spacing3=6)
+        txt.tag_configure("h", foreground=theme.TEXT, font=("Malgun Gothic", 11, "bold"), spacing1=8)
+        txt.tag_configure("b", foreground=theme.TEXT_SUB, font=("Malgun Gothic", 10),
+                          lmargin1=14, lmargin2=14, spacing3=6)
+        for head, body in self.GUIDE:
+            if body is None:
+                txt.insert(tk.END, f"── {head} ──\n", "sec")
+            else:
+                txt.insert(tk.END, head + "\n", "h")
+                txt.insert(tk.END, body + "\n", "b")
+        txt.insert(tk.END, f"\n버전 v{CURRENT_VERSION} · 자세한 소개는 SQUAD.GG 웹의 "
+                           "'스쿼드해체분석기' 페이지에서도 볼 수 있어요.\n", "b")
         txt.configure(state="disabled")
 
 class OnlineUsersWindow(tk.Toplevel):
