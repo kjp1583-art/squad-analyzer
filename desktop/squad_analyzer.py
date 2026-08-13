@@ -220,7 +220,8 @@ def load_config():
     default_cfg = {"windows_startup": False, "lol_auto_show": True, "minimize_to_tray": False,
                    "pos_view_default": True,   # [v82.37] 대기실 모스트 표시 기본값(True=현재포지션)
                    "load_overlay": True,       # [v82.85] 로딩 화면 정보 오버레이 온오프
-                   "load_overlay_hex": False}  # [2026-08-12] 칩에 6축 육각형 표시(끄면 글자 폭을 넓게 씀)
+                   "load_overlay_hex": False,  # [2026-08-12] 칩에 6축 육각형 표시(끄면 글자 폭을 넓게 씀)
+                   "show_synergy": True}       # 🧩 우측 시너지 3칸(고승률·역시너지·천적) 표시
     # [v82.30] lol_auto_show 기본값을 설정 UI(True)와 일치시킴
     try:
         if os.path.exists(CONFIG_FILE):
@@ -2797,6 +2798,7 @@ def _dock_overlay(w):
         y = max(0, rect[1] + 60)
         w.geometry("+%d+%d" % (x, y))
     except Exception: pass
+DRAWER_ALPHA = 0.75      # ☰ 서랍 불투명도 — 낮을수록 뒤가 잘 비친다
 # 🔆 오버레이 시인성 — 테두리 두께·색, 글자 줄바꿈 폭
 DRAFT_OVL_BORDER = 3
 DRAFT_OVL_EDGE = "#f5d47a"       # 평소 테두리(금색)
@@ -5456,6 +5458,7 @@ def _compute_pos_champ_lists(p_matches):
 # 🎯 [v82.37] 대기실 모스트 표시 기본값 — 설정(config.json `pos_view_default`)에서 사용자가 지정.
 #   세션 중 버튼으로 바꾼 값(gui_data["pos_view_mode"])이 있으면 그게 우선, 없으면 이 기본값을 쓴다.
 _POSVIEW_BTN = [None]   # 설정 저장 시 버튼 문구·색을 즉시 맞추기 위한 참조
+_SYNERGY_SYNC = [None]  # 🧩 우측 시너지 3칸 표시/숨김을 설정 창에서 즉시 적용하기 위한 콜백
 
 def _posview_default():
     try: return bool(APP_CONFIG.get("pos_view_default", True))
@@ -8612,7 +8615,8 @@ def create_graphic_ui():
     drawer.overrideredirect(True)
     drawer.transient(root)
     drawer.configure(bg=C_PANEL)
-    try: drawer.attributes("-alpha", 0.93)     # 반투명 — 뒤 화면이 비친다
+    # [2026-08-12 사장님 지시] 0.93 → 0.75. 20%p 더 비치게 해서 서랍을 열어도 뒤 로스터가 읽힌다.
+    try: drawer.attributes("-alpha", DRAWER_ALPHA)
     except Exception: pass
 
     _drw_head = tk.Frame(drawer, bg=C_PANEL); _drw_head.pack(fill="x", padx=18, pady=(18, 4))
@@ -8807,6 +8811,7 @@ def create_graphic_ui():
         _step()
 
     def _drw_toggle(_e=None):
+        if _DRW["busy"]: return          # 미끄러지는 중에 또 누르면 열림/닫힘 상태가 어긋난다
         _DRW["open"] = not _DRW["open"]
         if _DRW["open"] and _DRW["x"] >= 0: _DRW["x"] = -_DRW["w"]      # 닫힌 상태 좌표 보정
         _drw_animate(0 if _DRW["open"] else -_DRW["w"])
@@ -8819,6 +8824,18 @@ def create_graphic_ui():
     _drw_x.bind("<Button-1>", _drw_close)
     _btn_menu.config(command=_drw_toggle)
     root.bind("<Escape>", _drw_close)
+    # 🖱 [2026-08-12 사장님 지시] ✕ 말고 화면 아무 데나 눌러도 닫히게.
+    #   root.bind 는 root 자신의 빈 자리를 눌렀을 때만 오므로 자식 위젯 클릭이 안 잡힌다 → bind_all.
+    #   단 서랍 안(별도 Toplevel)을 누른 건 제외해야 메뉴를 고르기도 전에 닫히지 않는다.
+    #   ☰ 버튼도 제외 — 여기서 닫고 토글이 또 열어 버리면 영영 안 열린다.
+    def _drw_click_away(e):
+        if not _DRW["open"]: return
+        try:
+            if e.widget.winfo_toplevel() is drawer: return
+            if e.widget is _btn_menu: return
+        except Exception: pass
+        _drw_close()
+    root.bind_all("<Button-1>", _drw_click_away, add="+")
     # 본체를 움직이거나 크기를 바꾸면 따라오고, 최소화하면 같이 숨는다(따로 떠 있는 창이라 필수)
     root.bind("<Configure>", lambda e: (_drw_geo() if _DRW["open"] else None), add="+")
     root.bind("<Unmap>", lambda e: (drawer.withdraw() if e.widget is root else None), add="+")
@@ -8840,6 +8857,20 @@ def create_graphic_ui():
 
     right_panel = tk.Frame(body, bg=BG_MAIN)
     right_panel.grid(row=0, column=2, sticky="nsew", padx=(6, 0), pady=5)
+    # 🧩 [2026-08-12 사장님 지시] 우측 시너지 3칸 접기 — 끄면 그 열을 통째로 빼서 두 팀 칸이 넓어진다.
+    #   열을 남긴 채 위젯만 숨기면 빈 칸이 그대로 남는다 → grid_remove + 열 가중치 0 이 함께 가야 한다.
+    def _synergy_sync(on=None):
+        if on is None: on = bool(APP_CONFIG.get("show_synergy", True))
+        try:
+            if on:
+                body.columnconfigure(2, weight=1, uniform="cols3")
+                right_panel.grid()
+            else:
+                right_panel.grid_remove()
+                body.columnconfigure(2, weight=0, uniform="")
+        except Exception: pass
+    _SYNERGY_SYNC[0] = _synergy_sync
+    _synergy_sync()                      # 저장된 설정대로 시작(끈 채로 재시작해도 유지)
     # [v82.13 시안] 우측 열 = 시너지 3칸만 세로 균등 분할(광고·개발텍스트는 헤더로 복귀)
 
     pos_card = tk.Frame(right_panel, bg=theme.BG_BAR)
@@ -10022,6 +10053,7 @@ class ClanSettingsWindow(tk.Toplevel):
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
         self.var_loadovl = tk.BooleanVar(value=APP_CONFIG.get("load_overlay", True))   # [v82.85] 로딩 오버레이
         self.var_loadhex = tk.BooleanVar(value=APP_CONFIG.get("load_overlay_hex", False))   # 육각형 표시
+        self.var_syn = tk.BooleanVar(value=APP_CONFIG.get("show_synergy", True))   # 🧩 우측 시너지 3칸
         
         # 체크박스를 먼저(오른쪽) 배치해 공간을 확보 → 긴 설명이 밀어내지 않음. 설명은 wraplength로 줄바꿈.
         opt_f1 = tk.Frame(body_frame, bg=theme.BG); opt_f1.pack(fill="x", pady=10)
@@ -10050,6 +10082,15 @@ class ClanSettingsWindow(tk.Toplevel):
         txt_f3 = tk.Frame(opt_f3, bg=theme.BG); txt_f3.pack(side="left", fill="both", expand=True)
         tk.Label(txt_f3, text="닫기(X) 시 트레이로 최소화", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
         tk.Label(txt_f3, text="끄면(기본) X로 완전 종료 · 켜면 트레이에서 백그라운드 실행 (재시작 후 적용)", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
+        # 🧩 [2026-08-12 사장님 지시] 우측 시너지 3칸 접기 — 끄면 두 팀 칸이 그만큼 넓어진다
+        opt_sy = tk.Frame(body_frame, bg=theme.BG); opt_sy.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_sy, variable=self.var_syn, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_sy = tk.Frame(opt_sy, bg=theme.BG); txt_sy.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_sy, text="우측 시너지 3칸 표시", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
+        tk.Label(txt_sy, text="고승률 시너지·역시너지 경보·천적 관계 칸입니다. 끄면 그 열이 사라지고 "
+                             "블루/레드 팀 칸이 넓어져 더 컴팩트하게 씁니다. (저장 즉시 적용)",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         # 🎯 [v82.37] 대기실 모스트 표시 기본값 — 켜면 '현재포지션', 끄면 '전체라인'으로 시작
         opt_pv = tk.Frame(body_frame, bg=theme.BG); opt_pv.pack(fill="x", pady=10)
@@ -10118,6 +10159,10 @@ class ClanSettingsWindow(tk.Toplevel):
         APP_CONFIG["pos_view_default"] = _pv
         APP_CONFIG["load_overlay"] = bool(self.var_loadovl.get())   # [v82.85] 로딩 오버레이 온오프
         APP_CONFIG["load_overlay_hex"] = bool(self.var_loadhex.get())
+        APP_CONFIG["show_synergy"] = bool(self.var_syn.get())   # 🧩 우측 시너지 3칸
+        try:
+            if _SYNERGY_SYNC[0]: _SYNERGY_SYNC[0](APP_CONFIG["show_synergy"])   # 재시작 없이 즉시 반영
+        except Exception: pass
         try:
             with gui_lock: gui_data["pos_view_mode"] = _pv
             _posview_btn_sync(_pv)
