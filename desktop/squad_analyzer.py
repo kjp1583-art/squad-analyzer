@@ -5099,6 +5099,11 @@ def rebuild_stat_aggregate():
         _roster = _dd(lambda: {"블루팀": set(), "레드팀": set(), "win": None})  # gid -> 진영별 pk + 승리진영
         _seq = _dd(list); _seqseen = set()                     # pk -> 결과열(게임dedup, 연승용)
         _pchamps = _dd(set); _pgames = _dd(dict)               # pk -> 챔프풀 / {gid:win} (약점용)
+        # 🎯 [v83.4] 포지션별 약점 — 그 사람이 '그 포지션으로 뛴 판'에서만 센다.
+        #   STAT_BAN 에 포지션 열을 더하면 안 된다: 읽는 쪽이 BAN[(키,챔프)] = ... 로 '대입'이라
+        #   행이 포지션만큼 쪼개지는 순간 마지막 포지션 값만 남아 구버전 클라이언트가 조용히 틀린다.
+        #   그래서 별도 탭(STAT_BAN_POS)으로 낸다 — 구버전은 읽지 않으므로 영향이 없다.
+        _pchamps_pos = _dd(set); _pgpos = _dd(dict)            # (pk,포지션) -> 챔프풀 / pk -> {gid: 포지션}
         # [v82.5] PUUID 누락 행을 crunch와 동일하게 이름→PUUID 폴백으로 본계 키에 합산(키 분리로 판수 어긋나던 것 수정)
         _name_fb = {}
         for r in _rows[1:]:
@@ -5124,6 +5129,7 @@ def rebuild_stat_aggregate():
             _seen.add(k); _disp[pk] = str(r[NM]).strip()
             if cc:
                 e = _champ[(pk, cc, pos)]; e[0] += 1; e[1] += win; _pchamps[pk].add(cc)
+                if pos: _pchamps_pos[(pk, pos)].add(cc)
             p = _pl[pk]
             p[0] += 1; p[1] += win
             ev = str(r[EV]).strip() if EV < len(r) else ""
@@ -5140,6 +5146,7 @@ def rebuild_stat_aggregate():
             if win: _roster[gid]["win"] = _side
             if dec and (gid, pk) not in _seqseen:              # 연승 시퀀스(게임 dedup, append순=시간순)
                 _seqseen.add((gid, pk)); _seq[pk].append(res); _pgames[pk][gid] = win
+                _pgpos[pk][gid] = pos
         def _streak(pk):
             s = _seq.get(pk, [])
             if not s: return 0
@@ -5163,12 +5170,16 @@ def rebuild_stat_aggregate():
                     a1, a2 = sorted([b, rd]); ne = _nem[(a1, a2)]; ne[0] += 1
                     ne[1] += (1 if w == ("블루팀" if a1 == b else "레드팀") else 0)
         # 약점(선수 챔프가 그 선수 게임에서 밴된 판수)
-        _ban = _dd(lambda: [0, 0])
+        _ban = _dd(lambda: [0, 0]); _banp = _dd(lambda: [0, 0])
         for pk, gw in _pgames.items():
+            _gp = _pgpos.get(pk, {})
             for gid, win in gw.items():
+                _po = _gp.get(gid, "")
                 for bc in _gban.get(gid, ()):
                     if bc in _pchamps[pk]:
                         be = _ban[(pk, bc)]; be[0] += 1; be[1] += win
+                    if _po and bc in _pchamps_pos.get((pk, _po), ()):
+                        bp = _banp[(pk, bc, _po)]; bp[0] += 1; bp[1] += win
         champ_vals = [["키", "소환사명", "챔피언", "포지션", "판수", "승"]]
         for (pk, c, pos), e in _champ.items():
             if e[0] > 0: champ_vals.append([pk, _disp.get(pk, ""), c, pos, e[0], e[1]])
@@ -5178,27 +5189,41 @@ def rebuild_stat_aggregate():
         syn_vals = [["키A", "키B", "진영", "판수", "같은팀승"]] + [[a, b, sd_, e[0], e[1]] for (a, b, sd_), e in _syn.items() if e[0] >= 5]
         nem_vals = [["키A", "키B", "판수", "A측승"]] + [[a, b, e[0], e[1]] for (a, b), e in _nem.items() if e[0] >= 5]
         ban_vals = [["키", "챔피언", "밴판수", "밴판승"]] + [[pk, c, e[0], e[1]] for (pk, c), e in _ban.items() if e[0] >= 3]
+        banpos_vals = ([["키", "챔피언", "포지션", "밴판수", "밴판승"]]
+                       + [[pk, c, po, e[0], e[1]] for (pk, c, po), e in _banp.items() if e[0] >= 3])
         if len(player_vals) < 20 or len(champ_vals) < 50: return   # 안전판: 읽기 실패/급감 시 덮어쓰기 금지
         scope = ["https://www.googleapis.com/auth/spreadsheets"]
         creds = ServiceAccountCredentials.from_json_keyfile_name(resource_path('credentials.json.json'), scope)
         tok = creds.get_access_token().access_token
         H = {"Authorization": "Bearer " + tok, "Content-Type": "application/json"}
+        _tabs = (("STAT_CHAMP", champ_vals), ("STAT_PLAYER", player_vals),
+                 ("STAT_SYNERGY", syn_vals), ("STAT_NEMESIS", nem_vals), ("STAT_BAN", ban_vals),
+                 ("STAT_BAN_POS", banpos_vals))
         try:   # 신규 집계탭 없으면 생성(호스트 최초 1회)
-            _existing = {ws.title for ws in global_spreadsheet.worksheets()} if global_spreadsheet else set()
-            for _t in ("STAT_SYNERGY", "STAT_NEMESIS", "STAT_BAN"):
-                if _t not in _existing:
-                    try: global_spreadsheet.add_worksheet(title=_t, rows=2000, cols=6)
+            _ws = {ws.title: ws for ws in global_spreadsheet.worksheets()} if global_spreadsheet else {}
+            for _t in ("STAT_SYNERGY", "STAT_NEMESIS", "STAT_BAN", "STAT_BAN_POS"):
+                if _t not in _ws:
+                    try: global_spreadsheet.add_worksheet(title=_t, rows=20000, cols=8)
+                    except Exception: pass
+            # ⚠️ 값 쓰기(values.update)는 격자를 자동으로 늘려주지 않는다 — 행이 넘치면 통째로 실패한다.
+            #   STAT_BAN 은 2000행짜리 탭에 이미 1860행이라 곧 벽에 닿는다(2026-08-13 실측).
+            #   내용이 탭보다 커졌으면 먼저 늘려 둔다.
+            for _t, _v in _tabs:
+                w = _ws.get(_t)
+                if w is not None and getattr(w, "row_count", 0) and len(_v) + 20 > w.row_count:
+                    try:
+                        w.resize(rows=len(_v) + 5000)
+                        print(f"[stat_agg] {_t} 탭 행 확장 → {len(_v)+5000}", flush=True)
                     except Exception: pass
         except Exception: pass
-        for tab, vals in (("STAT_CHAMP", champ_vals), ("STAT_PLAYER", player_vals),
-                          ("STAT_SYNERGY", syn_vals), ("STAT_NEMESIS", nem_vals), ("STAT_BAN", ban_vals)):
+        for tab, vals in _tabs:
             base = f"https://sheets.googleapis.com/v4/spreadsheets/{DOCUMENT_ID}/values/{tab}"
             try:
                 requests.post(base + "!A1:Z1000000:clear", headers=H, timeout=30)
                 requests.put(base + "!A1?valueInputOption=RAW", headers=H, data=json.dumps({"values": vals}), timeout=60)
             except Exception as _we:
                 print(f"[stat_agg] {tab} 쓰기 실패: {type(_we).__name__}", flush=True)
-        print(f"[stat_agg] 사전집계 갱신 — CHAMP {len(champ_vals)-1} · PLAYER {len(player_vals)-1} · SYN {len(syn_vals)-1} · NEM {len(nem_vals)-1} · BAN {len(ban_vals)-1}", flush=True)
+        print(f"[stat_agg] 사전집계 갱신 — CHAMP {len(champ_vals)-1} · PLAYER {len(player_vals)-1} · SYN {len(syn_vals)-1} · NEM {len(nem_vals)-1} · BAN {len(ban_vals)-1} · BANPOS {len(banpos_vals)-1}", flush=True)
     except Exception as e:
         print(f"[stat_agg] 재계산 실패(무시): {type(e).__name__}: {e}", flush=True)
 
@@ -5485,6 +5510,35 @@ def load_champion_image(champ_kor_name, size=32):
         except Exception: pass
     return None
 
+# 🎯 [v83.4 사장님 지시] "밴 당할 시 승률 N% 하락" 을 현재포지션 기준으로도 낸다.
+#   기존 줄은 그 사람의 **전체 라인** 승률을 기준으로 계산한다 — 원딜만 하는 사람에겐 맞지만,
+#   정글·서폿을 오가는 사람에겐 "그래서 지금 이 자리에서 얼마나 아픈가"를 못 알려준다.
+#   문턱은 전체 기준과 **똑같이** 둔다(밴된 판 5판↑·하락 10%p↑). 포지션이라고 기준을 낮추면
+#   표본 3판짜리 −40%p 같은 숫자가 튀어나와 경고가 싸구려가 된다.
+#   다만 기준선(그 포지션 승률) 자체가 흔들리면 안 되므로, 그 포지션 10판 이상일 때만 계산한다.
+#   실측(2026-08-13 CLASSIC_NORMAL): 채점 가능한 (사람,포지션) 222쌍 중 73쌍(33%)에 경고가 뜬다.
+FB_MIN_BAN_GAMES = 5     # 그 챔프가 밴된 판이 이만큼은 돼야 비율을 말한다(전체 기준과 동일)
+FB_MIN_DROP = 0.10       # 하락폭 문턱(전체 기준과 동일)
+FB_POS_MIN_GAMES = 10    # 그 포지션 기준 승률이 흔들리지 않을 최소 표본
+FB_POS_ROLES = ("탑", "정글", "미드", "원딜", "서폿")
+
+
+def _fatal_bans_pos_entry(pos_games, pos_wins, cand):
+    """한 포지션의 약점 목록. cand = [(챔프, 밴판수, 밴판승), ...]. 없으면 []."""
+    if pos_games < FB_POS_MIN_GAMES: return []
+    pwr = pos_wins / pos_games
+    out = []
+    for c, bg_, bw_ in cand:
+        if bg_ < FB_MIN_BAN_GAMES: continue
+        b_wr = bw_ / bg_
+        drop = pwr - b_wr
+        if drop >= FB_MIN_DROP:
+            out.append({"champ": c, "drop": int(drop * 100), "b_wr": int(b_wr * 100),
+                        "b_games": bg_, "pos_games": pos_games})
+    out.sort(key=lambda x: -x["drop"])
+    return out
+
+
 def _compute_pos_champ_lists(p_matches):
     """[2026-07-08] 포지션별(한글 탑/정글/미드/원딜/서폿) 모스트5 + 고승률픽 계산 → (most_by_pos, op_by_pos).
        [v82.36 사장님 지시] 고승률픽 기준을 **전체라인과 동일하게 통일**: 5판↑ + 승률 60%↑.
@@ -5562,6 +5616,25 @@ def _posview_btn_sync(on):
             b.config(text=("모스트: 현재포지션" if on else "모스트: 전체라인"),
                      bg=(theme.SUCCESS if on else theme.BG_RAISED))
     except Exception: pass
+
+def _fatal_ban_text(p, s, pos_view):
+    """대기실 약점 한 줄. 현재포지션 뷰면 그 포지션 기준, 없으면 전체 기준으로 폴백.
+       [v83.4 사장님 지시] 전체 기준만 보여주면 정글·서폿을 오가는 사람에게
+       '지금 이 자리에서 얼마나 아픈가'를 못 알려준다. 모스트/고승률픽이 이미 포지션을 따라가므로
+       같은 줄에서 약점만 전체 기준으로 남아 있으면 오히려 어긋나 보인다.
+       그 포지션 표본이 얇으면(FB_POS_MIN_GAMES 미만) 억지로 만들지 않고 전체 기준으로 돌아간다."""
+    if pos_view:
+        pkor = POSITION_TRANSLATE_KOR.get(str(p.get("chosen_pos_icon", "NONE")), "선택안함")
+        fbp = (s.get("fatal_bans_by_pos") or {}).get(pkor) or []
+        if fbp:
+            fb = fbp[0]
+            return f"[{pkor}] {fb['champ']} 밴 당할 시 승률 {fb['drop']}% 하락"
+    fbs = s.get("fatal_bans") or []
+    if not fbs: return ""
+    fb = fbs[0]
+    # 포지션 뷰인데 그 자리 표본이 모자라 전체로 돌아왔다면, 무엇 기준인지 밝힌다.
+    return (("[전체] " if pos_view else "") + f"{fb['champ']} 밴 당할 시 승률 {fb['drop']}% 하락")
+
 
 def _display_champ_lists(p, s, pos_view):
     """대기실 슬롯 표시용 (모스트, 고승률픽, 포지션태그) 선택.
@@ -5657,6 +5730,17 @@ def _crunch_from_aggregate(blue_players, red_players):
     h = {c: i for i, c in enumerate(rows[0])} if rows else {}
     for r in rows[1:]:
         BAN[(str(r[h["키"]]).strip().lower(), str(r[h["챔피언"]]).strip())] = (_i(r[h["밴판수"]]), _i(r[h["밴판승"]]))
+    # 🎯 [v83.4] 포지션별 약점 — 호스트가 아직 옛 버전이면 이 탭이 없다. 없으면 조용히 전체 기준만 쓴다.
+    BANP = {}
+    try:
+        rows = _gviz_tab_csv("STAT_BAN_POS")
+        h = {c: i for i, c in enumerate(rows[0])} if rows else {}
+        if {"키", "챔피언", "포지션", "밴판수", "밴판승"} <= set(h):
+            for r in rows[1:]:
+                BANP[(str(r[h["키"]]).strip().lower(), str(r[h["챔피언"]]).strip(),
+                      str(r[h["포지션"]]).strip())] = (_i(r[h["밴판수"]]), _i(r[h["밴판승"]]))
+    except Exception:
+        BANP = {}
 
     def _key_of(p):
         uid = str(p.get('puuid', '')).strip().lower()
@@ -5671,7 +5755,7 @@ def _crunch_from_aggregate(blue_players, red_players):
         is_blue = any(str(bp.get('puuid', '')).strip().lower() == str(p.get('puuid', '')).strip().lower() for bp in blue_players)
         current_pool = blue_pool if is_blue else red_pool
         if not pd or pd["g"] == 0:
-            stats_dashboard[p_key] = {"summary": "기록 없음", "most_list": [], "op_list": [], "most_by_pos": {}, "op_by_pos": {}, "fatal_bans": [], "pos1": "선택안함", "pos2": "선택안함", "streak": "", "streak_val": 0, "overall_wr": 0.5, "games": 0, "side_wr_str": ""}
+            stats_dashboard[p_key] = {"summary": "기록 없음", "most_list": [], "op_list": [], "most_by_pos": {}, "op_by_pos": {}, "fatal_bans": [], "fatal_bans_by_pos": {}, "pos1": "선택안함", "pos2": "선택안함", "streak": "", "streak_val": 0, "overall_wr": 0.5, "games": 0, "side_wr_str": ""}
             continue
         total, wins = pd["g"], pd["w"]
         overall_wr = wins / total
@@ -5700,8 +5784,8 @@ def _crunch_from_aggregate(blue_players, red_players):
         fatal_bans.sort(key=lambda x: x['drop'], reverse=True)
         for _c, _sc in sorted(user_ban_score.items(), key=lambda x: x[1], reverse=True)[:3]:
             current_pool[_c] = current_pool.get(_c, 0) + _sc
-        most_by_pos, op_by_pos = {}, {}
-        for _pk in ("탑", "정글", "미드", "원딜", "서폿"):
+        most_by_pos, op_by_pos, fatal_bans_by_pos = {}, {}, {}
+        for _pk in FB_POS_ROLES:
             _pc = {c: e["pos"][_pk] for c, e in champs.items() if _pk in e["pos"]}
             if not _pc: continue
             _sc2 = sorted(_pc.items(), key=lambda x: (-x[1][0], x[0]))   # 동률 이름순(원본과 동일)
@@ -5712,9 +5796,15 @@ def _crunch_from_aggregate(blue_players, red_players):
                 if n_ >= 3 and _wr >= 50.0: _ops.append({"name": c, "wr": _wr, "count": n_})
             _ops.sort(key=lambda x: (-x["wr"], -x["count"]))
             op_by_pos[_pk] = _ops
+            # 🎯 [v83.4] 이 포지션에서의 약점 — 기준선도 이 포지션 승률로 잡는다(전체 승률이 아니라).
+            _pn = sum(nv[0] for _c, nv in _pc.items()); _pw = sum(nv[1] for _c, nv in _pc.items())
+            _fb = _fatal_bans_pos_entry(_pn, _pw,
+                                        [(c,) + tuple(BANP.get((p_key, c, _pk), (0, 0))) for c, _nv in _sc2[:5]])
+            if _fb: fatal_bans_by_pos[_pk] = _fb
         stats_dashboard[p_key] = {
             "summary": f"{total}전 {wins}승 {total-wins}패 ({round(overall_wr*100, 1)}%)",
             "most_list": most_list, "op_list": op_list, "fatal_bans": fatal_bans,
+            "fatal_bans_by_pos": fatal_bans_by_pos,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
             "streak": "", "streak_val": sv, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
         }
@@ -5938,7 +6028,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
         current_pool = blue_pool if is_blue else red_pool
 
         if total == 0:
-            stats_dashboard[p_key] = {"summary": "기록 없음", "most_list": [], "op_list": [], "most_by_pos": {}, "op_by_pos": {}, "fatal_bans": [], "pos1": "선택안함", "pos2": "선택안함", "streak": "", "streak_val": 0, "overall_wr": 0.5, "games": 0, "side_wr_str": ""}
+            stats_dashboard[p_key] = {"summary": "기록 없음", "most_list": [], "op_list": [], "most_by_pos": {}, "op_by_pos": {}, "fatal_bans": [], "fatal_bans_by_pos": {}, "pos1": "선택안함", "pos2": "선택안함", "streak": "", "streak_val": 0, "overall_wr": 0.5, "games": 0, "side_wr_str": ""}
             continue
         
         wins = sum(1 for m in p_matches if m.get('result') == '승리')
@@ -6008,10 +6098,27 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
 
         # 🎯 [2026-07-08] 포지션별 모스트/고승률픽 (대기실 '현재 선택 포지션' 뷰 토글용)
         most_by_pos, op_by_pos = _compute_pos_champ_lists(p_matches)
+        # 🎯 [v83.4] 포지션별 약점 — 이 경로는 원본 로그를 들고 있어 시트 집계 없이 바로 낸다.
+        fatal_bans_by_pos = {}
+        for _pk in FB_POS_ROLES:
+            _pm = [m for m in p_matches if m.get('pos') == _pk]
+            if len(_pm) < FB_POS_MIN_GAMES: continue
+            _pw = sum(1 for m in _pm if m.get('result') == '승리')
+            _pcnt = {}
+            for m in _pm:
+                _c = m.get('champ')
+                if _c: _pcnt[_c] = _pcnt.get(_c, 0) + 1
+            _cand = []
+            for _c, _n in sorted(_pcnt.items(), key=lambda x: (-x[1], x[0]))[:5]:
+                _bm = [m for m in _pm if _c in game_all_bans.get(m.get('g_id'), set())]
+                _cand.append((_c, len(_bm), sum(1 for m in _bm if m.get('result') == '승리')))
+            _fb = _fatal_bans_pos_entry(len(_pm), _pw, _cand)
+            if _fb: fatal_bans_by_pos[_pk] = _fb
 
         stats_dashboard[p_key] = {
             "summary": f"{total}전 {wins}승 {total-wins}패 ({round(overall_wr*100, 1)}%)",
             "most_list": most_list, "op_list": op_list, "fatal_bans": fatal_bans, "ban_pressure": bp_list,
+            "fatal_bans_by_pos": fatal_bans_by_pos,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
             "streak": "", "streak_val": streak_val, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
         }
@@ -7101,14 +7208,14 @@ def lcu_core_backend_loop():
                 else:
                     final_blue = []
                     for p in temp_blue:
-                        default_s = {"summary": "기록 없음", "most_list": [], "op_list": [], "fatal_bans": [], "streak": "", "side_wr_str": ""}
+                        default_s = {"summary": "기록 없음", "most_list": [], "op_list": [], "fatal_bans": [], "fatal_bans_by_pos": {}, "streak": "", "side_wr_str": ""}
                         p_uid = str(p.get('puuid', '')).strip().lower()
                         p_nam = get_main_name(p.get('name', ''))
                         p_key = p_uid if p_uid else p_nam
                         final_blue.append((p, cached_stats.get(p_key, default_s)))
                     final_red = []
                     for p in temp_red:
-                        default_s = {"summary": "기록 없음", "most_list": [], "op_list": [], "fatal_bans": [], "streak": "", "side_wr_str": ""}
+                        default_s = {"summary": "기록 없음", "most_list": [], "op_list": [], "fatal_bans": [], "fatal_bans_by_pos": {}, "streak": "", "side_wr_str": ""}
                         p_uid = str(p.get('puuid', '')).strip().lower()
                         p_nam = get_main_name(p.get('name', ''))
                         p_key = p_uid if p_uid else p_nam
@@ -9418,10 +9525,8 @@ def create_graphic_ui():
                                 tk.Label(blue_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
                     # [시인성] 진영승률 표기 제거
 
-                    fatal_bans = s.get("fatal_bans", [])
-                    if fatal_bans:
-                        fb = fatal_bans[0]
-                        text_fb = f"{fb['champ']} 밴 당할 시 승률 {fb['drop']}% 하락"
+                    text_fb = _fatal_ban_text(p, s, local_pos_view)
+                    if text_fb:
                         blue_slots[i][10].config(text=text_fb, fg=theme.LOSE)
                         blue_slots[i][9].pack(fill="x", padx=12, pady=0)   # [v82.11] 경고 있을 때만 줄 표시(빈 줄이 세로공간 잠식 → 서폿칸 잘림)
                     else:
@@ -9495,10 +9600,8 @@ def create_graphic_ui():
                                 tk.Label(red_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
                     # [시인성] 진영승률 표기 제거
 
-                    fatal_bans = s.get("fatal_bans", [])
-                    if fatal_bans:
-                        fb = fatal_bans[0]
-                        text_fb = f"{fb['champ']} 밴 당할 시 승률 {fb['drop']}% 하락"
+                    text_fb = _fatal_ban_text(p, s, local_pos_view)
+                    if text_fb:
                         red_slots[i][10].config(text=text_fb, fg=theme.LOSE)
                         red_slots[i][9].pack(fill="x", padx=12, pady=0)   # [v82.11] 경고 있을 때만 줄 표시
                     else:
