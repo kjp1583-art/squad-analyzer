@@ -754,6 +754,7 @@ def stop_attendance():
 # 봇 /invites(팀초대 버튼 요청) 폴링 → '내 LCU 현재소환사 == 요청자'(=내가 로비 호스트)면
 # 같은 조 나머지 9명을 LCU(/lol-lobby/v2/lobby/invitations)로 실제 초대. (요청자 아니면 조용히 무시)
 INVITE_BRIDGE_URL = "https://hth3thmujs.apps.bot-hosting.cloud/invites"   # 봇 공개엔드포인트(노드 이전 시 변경)
+VOICE_BRIDGE_URL = "https://hth3thmujs.apps.bot-hosting.cloud/voice"      # 봇: 요청자가 들어가 있는 음성방 인원
 _processed_invites = {}   # invite_id -> 처리시각(180s 보관, 봇 TTL 120s보다 길게 → 재발동 방지)
 
 def _inv_norm(s):
@@ -841,6 +842,48 @@ def _lobby_invite_poll_loop():
         except Exception as e:
             print(f"[invite] loop err: {e}", flush=True)
         time.sleep(5)
+
+def _invite_voice_members():
+    """🎮 [2026-08-13] '음성방 초대' 버튼 — 디스코드로 알트탭하지 않고 분석기에서 바로 초대.
+       봇 /voice 가 '요청자가 지금 들어가 있는 음성방'만 돌려주므로 대상 선정 규칙은 /팀초대와 같다
+       (봇 제외·본인 제외). 초대 실행부는 기존 폴러와 동일한 LCU 경로를 그대로 쓴다.
+       반환: (성공여부, 사용자에게 보여줄 메시지)"""
+    L = _inv_lcu_creds()
+    if not L:
+        return False, "League 클라이언트를 찾지 못했어요.\n롤을 켜고 로그인한 뒤 다시 눌러주세요."
+    base, h = L
+    me = _inv_current_riot_id(base, h)
+    if not me:
+        return False, "현재 소환사를 읽지 못했어요.\n롤 클라이언트가 완전히 켜졌는지 확인해주세요."
+    try:
+        from urllib.parse import quote
+        j = requests.get(f"{VOICE_BRIDGE_URL}?requester={quote(me)}", timeout=8).json() or {}
+    except Exception as e:
+        return False, f"봇 조회에 실패했어요: {e}"
+    ch = j.get("channel") or "음성방"
+    invitees = [x for x in (j.get("invitees") or []) if x]
+    if not invitees:
+        return False, (f"'{me}' 가 들어가 있는 음성방을 찾지 못했어요.\n"
+                       "디스코드 음성방에 먼저 들어가 주시고, 봇에 /연동 이 돼 있는지도 확인해주세요.")
+    sids = []
+    for rid in invitees:
+        sid = _inv_resolve_summoner_id(base, h, rid)
+        print(f"[voice-invite] {rid} -> summonerId={sid}", flush=True)
+        if sid: sids.append(sid)
+    if not sids:
+        return False, f"'{ch}' 인원 {len(invitees)}명 중 롤 계정을 해석한 사람이 없어요.\n(미연동자만 있는 방일 수 있어요)"
+    try:
+        r = requests.post(base + "/lol-lobby/v2/lobby/invitations", headers=h,
+                          data=json.dumps([{"toSummonerId": s} for s in sids]), verify=False, timeout=6)
+    except Exception as e:
+        return False, f"초대 전송에 실패했어요: {e}"
+    if r.status_code >= 300:
+        return False, (f"롤이 초대를 거부했어요 (HTTP {r.status_code}).\n"
+                       "사용자 지정 게임 로비를 먼저 만들어 두셨는지 확인해주세요.")
+    miss = len(invitees) - len(sids)
+    print(f"[voice-invite] {ch} {len(sids)}명 초대 → HTTP {r.status_code}", flush=True)
+    return True, (f"🎮 '{ch}' 음성방 {len(sids)}명에게 초대를 보냈어요!"
+                  + (f"\n(계정을 못 찾은 {miss}명은 빠졌어요 — 그 분들은 /연동 이 필요해요)" if miss else ""))
 
 def ping_called_at_gamestart(game_id):
     """게임 시작 시 호출자(승격된 대기자)를 웹훅으로 @멘션. 게임당 1회. (호스트만)"""
@@ -8703,6 +8746,15 @@ def create_graphic_ui():
         return _Tile(icon, label, cmd, accent)
 
     _drw_add("📖", "사용 안내", lambda: GuideWindow(root), "#9db8ff")
+
+    # 🎮 [2026-08-13] 음성방 초대 — 디스코드 /팀초대와 같은 일을 분석기에서 바로. 로비 호스트가 누른다.
+    def _do_voice_invite():
+        def _work():
+            ok, msg = _invite_voice_members()
+            root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("음성방 초대", msg))
+        threading.Thread(target=_work, daemon=True).start()
+
+    _drw_add("🎮", "음성방 초대", _do_voice_invite, "#7ee1a8")
 
     # 👥 접속자 버튼 제거(2026-07-05 사장님 지시). 접속기록 자체는 백그라운드로 계속 시트에 기록됨.
     # ❄ 증내의 전당 버튼 삭제(2026-07-16) → 명예의 전당 창 내부 '칼바람' 탭으로 통합
