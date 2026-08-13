@@ -68,20 +68,33 @@
   /* 실사용 예시 화면 — 분석기 오버레이(#12141a / #f5d47a) 재현 */
   .shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;margin-bottom:12px}
   .shot{margin:0}
-  .ovl{background:#12141a;border:1px solid #3a3f52;border-radius:10px;overflow:hidden;
-    box-shadow:0 8px 24px rgba(0,0,0,.45)}
-  .ovl-hd{background:#191c26;color:#f5d47a;font-weight:800;font-size:13px;padding:9px 13px;
-    border-bottom:1px solid #2c3143}
-  .ovl-bd{padding:13px 15px 15px}
-  .ovl-t{font-weight:800;font-size:14px;margin-bottom:9px}
-  .ovl-t.ban{color:#ff7b7b}
-  .ovl-t.pick{color:#7fb0ff}
-  .ovl-note{font-size:12px;color:#cfd6e6;background:#1b2030;border-left:3px solid var(--gold);
-    border-radius:4px;padding:7px 10px;margin-bottom:10px;line-height:1.5}
-  .ovl-list{margin:0;padding-left:19px;font-size:12.5px;line-height:1.75;color:#dfe4f0}
-  .ovl-list li{margin-bottom:3px}
-  .ovl-list b{color:#fff}
-  .ovl-list span{color:#98a1b6}
+  /* 🎨 [2026-08-12] 실제 오버레이(v82.98 카드 UI)와 같은 모양으로 다시 그림 — 화면과 소개가 어긋나면
+     "설명이랑 다른데?"가 되고, 그 순간부터 페이지 전체가 안 믿긴다. */
+  .ovl{--ac:#ff5f6d;background:#0e1016;border:2px solid var(--ac);border-radius:16px;overflow:hidden;
+    box-shadow:0 14px 34px rgba(0,0,0,.55)}
+  .ovl.pick{--ac:#5aa2ff}
+  .ovl-hd{display:flex;align-items:center;gap:9px;padding:13px 16px 0}
+  .ovl-badge{background:var(--ac);color:#12141a;font-weight:800;font-size:11px;
+    padding:2px 8px;border-radius:4px;letter-spacing:1px}
+  .ovl-name{color:#eef2f8;font-weight:800;font-size:15px}
+  .ovl-sub{color:#6b7789;font-size:11px;margin-left:auto;margin-right:6px}
+  .ovl-x{color:#6b7789;font-size:14px}
+  .ovl-rule{height:2px;background:var(--ac);margin:9px 16px 0}
+  .ovl-bd{padding:11px 16px 14px}
+  .ovl-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:9px}
+  .ovl-rk{flex:0 0 22px;height:21px;line-height:21px;text-align:center;background:var(--ac);
+    color:#12141a;font-weight:800;font-size:11px;border-radius:3px}
+  .ovl-champ{color:#eef2f8;font-weight:800;font-size:15px;line-height:1.25}
+  .ovl-why{color:#8d9aae;font-size:11.5px;margin-top:1px;line-height:1.45}
+  .ovl-note{display:flex;background:#171b23;border-radius:5px;margin:2px 0 9px;overflow:hidden}
+  .ovl-note i{flex:0 0 3px;background:var(--ac)}
+  .ovl-note div{padding:8px 11px;color:#eef2f8;font-size:12.5px;font-weight:700;line-height:1.5;font-style:normal}
+  .ovl-chip{background:#171b23;color:#8d9aae;font-size:11.5px;border-radius:5px;
+    padding:6px 10px;margin-bottom:9px;line-height:1.5}
+  .ovl-warn{color:#ffb347;font-size:11.5px;margin:2px 0 9px;line-height:1.5}
+  .ovl-ft{display:flex;align-items:center;padding:0 16px 14px}
+  .ovl-more{background:#171b23;color:#8d9aae;font-size:11px;padding:4px 11px;border-radius:4px}
+  .ovl-drag{margin-left:auto;color:#6b7789;font-size:10.5px}
   .shot figcaption{font-size:13px;color:var(--sub);margin-top:12px;line-height:1.6}
   .shot figcaption b{color:var(--txt)}
 
@@ -201,22 +214,25 @@
 
   <h2 class="sec-title">실제로 이렇게 뜹니다</h2>
   <p class="sec-sub">밴 페이즈가 시작되면 팀 밴 추천이, 내 픽 차례엔 픽 추천이 롤 클라이언트 옆에 붙어 뜹니다.<br>
-     핵심만 짧게 보여주고, <b>근거 보기</b>를 누르면 판단 논리가 펼쳐집니다. (아래는 예시 화면)</p>
+     핵심만 짧게 보여주고, <b>근거 보기</b>를 누르면 판단 논리가 펼쳐집니다.<br>
+     추천은 <b>만들어지는 대로 바로</b> 뜨고, 제목줄을 잡아 원하는 자리로 옮길 수 있습니다. (아래는 실제 화면 그대로)</p>
   <div class="shots">
 
     <figure class="shot">
       <div class="ovl">
-        <div class="ovl-hd">🧠 고스트밴픽왕</div>
+        <div class="ovl-hd"><span class="ovl-badge">밴</span><span class="ovl-name">고스트밴픽왕</span>
+          <span class="ovl-sub">1페이즈 밴 추천</span><span class="ovl-x">✕</span></div>
+        <div class="ovl-rule"></div>
         <div class="ovl-bd">
-          <div class="ovl-t ban">🚫 1페이즈 밴 추천</div>
-          <ol class="ovl-list">
-            <li><b>레넥톤</b> <span>— 레멍이 43판·점유 38%·견제압력 1위</span></li>
-            <li><b>파이크</b> <span>— 유미 26판·밴압 +55%p</span></li>
-            <li><b>세라핀</b> <span>— 클랜 다수 의견 6표(적중 3)</span></li>
-          </ol>
-          <div class="ovl-note">→ 픽 방향: 우리 미드 제라스 선픽 안전(17판 76%)</div>
-          <div style="margin-top:8px;font-size:11.5px;color:#7fa0d8">[근거 보기 ▼]&nbsp;&nbsp;[닫기]</div>
+          <div class="ovl-row"><span class="ovl-rk">1</span><div><div class="ovl-champ">레넥톤</div>
+            <div class="ovl-why">레멍이 43판·점유 38%·견제압력 1위</div></div></div>
+          <div class="ovl-row"><span class="ovl-rk">2</span><div><div class="ovl-champ">파이크</div>
+            <div class="ovl-why">유미 26판·밴압 +55%p</div></div></div>
+          <div class="ovl-row"><span class="ovl-rk">3</span><div><div class="ovl-champ">세라핀</div>
+            <div class="ovl-why">클랜 다수 의견 6표(적중 3)</div></div></div>
+          <div class="ovl-note"><i></i><div>픽 방향: 우리 미드 제라스 선픽 안전(17판 76%)</div></div>
         </div>
+        <div class="ovl-ft"><span class="ovl-more">근거 보기 ▼</span><span class="ovl-drag">⠿ 끌어서 이동</span></div>
       </div>
       <figcaption><b>① 1페이즈 밴</b> — 밴픽창이 열리면 <b>우리 팀이 밴할 3개 + 픽 방향</b>이 통째로 뜹니다.
         내 밴 차례를 기다릴 필요 없이 팀이 상의할 재료가 됩니다. 이 페이즈는 조합이 없으니 <b>‘사람’을 자릅니다</b> —
@@ -224,36 +240,40 @@
     </figure>
 
     <figure class="shot">
-      <div class="ovl">
-        <div class="ovl-hd">🧠 고스트밴픽왕</div>
+      <div class="ovl pick">
+        <div class="ovl-hd"><span class="ovl-badge">픽</span><span class="ovl-name">고스트밴픽왕</span>
+          <span class="ovl-sub">AI 픽 추천</span><span class="ovl-x">✕</span></div>
+        <div class="ovl-rule"></div>
         <div class="ovl-bd">
-          <div class="ovl-t pick">🧠 AI 픽 추천</div>
-          <div class="ovl-note">🆚 럭스(미드 유저가 고른 픽) 🎯 한타 이니시 조합</div>
-          <ol class="ovl-list">
-            <li><b>아리</b> <span>— 6판 67%·기동 우위</span></li>
-            <li><b>갈리오</b> <span>— 팀 AP 쏠림 보정</span></li>
-            <li><b>사일러스</b> <span>— 궁 강탈, 5판 20% 주의</span></li>
-          </ol>
-          <div style="margin-top:8px;font-size:11.5px;color:#7fa0d8">[근거 보기 ▼]&nbsp;&nbsp;[닫기]</div>
+          <div class="ovl-chip">🆚 럭스(미드 유저가 고른 픽) &nbsp;🎯 한타 이니시 조합</div>
+          <div class="ovl-row"><span class="ovl-rk">1</span><div><div class="ovl-champ">아리</div>
+            <div class="ovl-why">6판 67%·기동 우위</div></div></div>
+          <div class="ovl-row"><span class="ovl-rk">2</span><div><div class="ovl-champ">갈리오</div>
+            <div class="ovl-why">팀 AP 쏠림 보정</div></div></div>
+          <div class="ovl-row"><span class="ovl-rk">3</span><div><div class="ovl-champ">사일러스</div>
+            <div class="ovl-why">궁 강탈, 5판 20% 주의</div></div></div>
         </div>
+        <div class="ovl-ft"><span class="ovl-more">근거 보기 ▼</span><span class="ovl-drag">⠿ 끌어서 이동</span></div>
       </div>
-      <figcaption><b>② 픽 차례</b> — 핵심만 짧게. 내전은 밴픽에 포지션 배정이 없어서
-        <b>‘서폿 럭스’처럼 단정하지 않습니다</b> — 누가 골랐는지로만 라인을 추론하고 그 근거를 밝힙니다.
-        우리 팀 챔프폭이 한쪽 데미지로 쏠려 있으면 <b>부족한 쪽을 메우는 방향</b>으로 권합니다.</figcaption>
+      <figcaption><b>② 픽 차례</b> — <b>밴은 적색, 픽은 청색</b>이라 색만 보고 지금 뭘 할 차례인지 압니다.
+        내전은 밴픽에 포지션 배정이 없어서 <b>‘서폿 럭스’처럼 단정하지 않습니다</b> — 누가 골랐는지로만 라인을
+        추론하고 그 근거를 밝힙니다. 우리 팀 챔프폭이 한쪽 데미지로 쏠려 있으면 <b>부족한 쪽</b>을 권합니다.</figcaption>
     </figure>
 
     <figure class="shot">
       <div class="ovl">
-        <div class="ovl-hd">🧠 고스트밴픽왕</div>
+        <div class="ovl-hd"><span class="ovl-badge">밴</span><span class="ovl-name">고스트밴픽왕</span>
+          <span class="ovl-sub">2페이즈 밴 추천</span><span class="ovl-x">✕</span></div>
+        <div class="ovl-rule"></div>
         <div class="ovl-bd">
-          <div class="ovl-t ban">🚫 2페이즈 밴 추천</div>
-          <ol class="ovl-list">
-            <li><b>나르</b> <span>— 상대 탑 빈자리·레넥톤 상대 7판 29%</span></li>
-            <li><b>쓰레쉬</b> <span>— 상대 이니시 퍼즐 차단</span></li>
-          </ol>
-          <div class="ovl-note">→ 내 픽(후픽): <b>브라움</b> — 저티어 오프롤 실측 65%<br>⚠️ 블리츠는 함정(28판 29%) — 제외</div>
-          <div style="margin-top:8px;font-size:11.5px;color:#7fa0d8">[근거 보기 ▼]&nbsp;&nbsp;[닫기]</div>
+          <div class="ovl-row"><span class="ovl-rk">1</span><div><div class="ovl-champ">나르</div>
+            <div class="ovl-why">상대 탑 빈자리·레넥톤 상대 7판 29%</div></div></div>
+          <div class="ovl-row"><span class="ovl-rk">2</span><div><div class="ovl-champ">쓰레쉬</div>
+            <div class="ovl-why">상대 이니시 퍼즐 차단</div></div></div>
+          <div class="ovl-note"><i></i><div>내 픽(후픽): 브라움 — 저티어 오프롤 실측 65%</div></div>
+          <div class="ovl-warn">⚠️ 블리츠는 함정(28판 29%) — 제외</div>
         </div>
+        <div class="ovl-ft"><span class="ovl-more">근거 보기 ▼</span><span class="ovl-drag">⠿ 끌어서 이동</span></div>
       </div>
       <figcaption><b>③ 2페이즈 밴</b> — 이제 ‘사람’이 아니라 <b>‘조합’을 자릅니다.</b> 밴 2개 +
         <b>내가 아직 안 골랐으면 내 픽까지 동시 설계</b>. 이미 챔피언이 확정된 자리는 막아봐야 낭비라 후보에서 빠지고,
