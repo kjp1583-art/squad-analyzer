@@ -896,18 +896,48 @@ def _start_file_log():
     except Exception: pass
 
 
-def toggle_windows_startup(enabled):
-    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+_STARTUP_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+def startup_registered():
+    """부팅 자동실행에 실제로 등록돼 있는 명령줄. 없으면 None.
+       [2026-08-12 사장님 제보 '체크해둬도 작동을 안 한다'] 지금까지 등록 성공/실패를 확인할
+       방법이 없었다 — 실패해도 except 로 삼키고 체크박스만 켜진 채로 남았다."""
     try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
-        if enabled:
-            exe_path = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(sys.argv[0])   # [v82.30] 반대로 돼 있던 분기 교정
-            winreg.SetValueEx(key, "SquadAnalyzer", 0, winreg.REG_SZ, f'"{exe_path}" --stealth')
-        else:
-            try: winreg.DeleteValue(key, "SquadAnalyzer")
-            except Exception: pass
-        winreg.CloseKey(key)
-    except Exception: pass
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _STARTUP_KEY, 0, winreg.KEY_READ)
+        try: v, _t = winreg.QueryValueEx(k, "SquadAnalyzer"); return v
+        finally: winreg.CloseKey(k)
+    except Exception:
+        return None
+
+def startup_cmdline():
+    exe = sys.executable if getattr(sys, "frozen", False) else os.path.abspath(sys.argv[0])
+    return f'"{exe}" --stealth'
+
+def toggle_windows_startup(enabled):
+    """부팅 시 자동실행 등록/해제. 반환 (성공, 설명) — 실패를 더 이상 조용히 삼키지 않는다."""
+    want = startup_cmdline() if enabled else None
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _STARTUP_KEY, 0, winreg.KEY_SET_VALUE)
+        try:
+            if enabled:
+                winreg.SetValueEx(key, "SquadAnalyzer", 0, winreg.REG_SZ, want)
+            else:
+                try: winreg.DeleteValue(key, "SquadAnalyzer")
+                except FileNotFoundError: pass
+        finally:
+            winreg.CloseKey(key)
+    except Exception as e:
+        msg = f"레지스트리 쓰기 실패: {type(e).__name__} {e}"
+        print(f"[startup] {msg}", flush=True); return False, msg
+    got = startup_registered()                       # ✅ 쓴 값을 되읽어 확인한다
+    if enabled and got != want:
+        msg = f"등록했는데 되읽으니 값이 다릅니다(보안 프로그램이 되돌렸을 수 있어요) — 현재값: {got}"
+        print(f"[startup] {msg}", flush=True); return False, msg
+    if (not enabled) and got:
+        msg = f"해제했는데 값이 남아 있습니다 — 현재값: {got}"
+        print(f"[startup] {msg}", flush=True); return False, msg
+    print(f"[startup] {'등록' if enabled else '해제'} 완료 — {got or '(없음)'}", flush=True)
+    return True, (got or "")
 
 UPDATER_BAT_TEMPLATE = r'''@echo off
 set /a w=0
@@ -2649,15 +2679,34 @@ def _draft_advise(ctx, my_pool):
         return "⚠️ 고스트밴픽왕: 프로그램 구성요소 누락(재설치 필요)"
     try:
         cl = anthropic.Anthropic(api_key=key, timeout=14.0, max_retries=1)
-        resp = cl.messages.create(
-            model=DRAFT_MODEL,
-            max_tokens=550,   # [v82.40] 요약(짧게) + 접힌 근거 6줄 — 시인성과 신뢰도 동시 확보
-            thinking={"type": "disabled"},          # 밴픽 30초 제한 → 저지연 최우선
-            output_config={"effort": "medium"},     # [v81.77] 상성 판단 품질 ↑ (low는 매치업을 대충 봄)
-            system=[{"type": "text", "text": system_text,
-                     "cache_control": {"type": "ephemeral"}}],   # 고정 파트 → 캐시(2회차부터 1/10 가격)
-            messages=[{"role": "user", "content": user_txt}],
-        )
+        # ⚡ [2026-08-12 사장님 제보 '추천 뜨는 게 너무 느리다'] 스트리밍으로 바꾼다.
+        #   예전엔 550토큰을 다 만든 뒤에야 화면에 떴다. 출력의 뒷부분은 접혀 있는 '근거' 6줄이라
+        #   정작 급한 요약 3줄까지 그것을 기다렸다. 이제 도착하는 대로 뿌리고, 요약이 끝나는
+        #   구분줄(=====근거=====)이 오면 그 시점에 이미 볼 것은 다 보인다.
+        _hdr = ("🚫 %s페이즈 밴 추천" % ctx.get("ban_phase") if is_ban else "🧠 AI 픽 추천")
+        buf = []
+        with cl.messages.stream(
+                model=DRAFT_MODEL,
+                max_tokens=550,   # [v82.40] 요약(짧게) + 접힌 근거 6줄 — 시인성과 신뢰도 동시 확보
+                thinking={"type": "disabled"},          # 밴픽 30초 제한 → 저지연 최우선
+                output_config={"effort": "medium"},     # [v81.77] 상성 판단 품질 ↑ (low는 매치업을 대충 봄)
+                system=[{"type": "text", "text": system_text,
+                         "cache_control": {"type": "ephemeral"}}],   # 고정 파트 → 캐시(2회차부터 1/10 가격)
+                messages=[{"role": "user", "content": user_txt}],
+        ) as st:
+            _last = 0.0
+            for piece in st.text_stream:
+                buf.append(piece)
+                _now = time.time()
+                if _now - _last < 0.12: continue     # 매 토큰마다 다시 그리면 GUI 가 버벅인다
+                _last = _now
+                _partial = "".join(buf)
+                _sum = _partial.split(_REASON_SEP)[0].rstrip()
+                if not _sum: continue
+                with gui_lock:
+                    gui_data["draft_advice"] = f"{_hdr}\n{_sum}"
+                    gui_data["draft_advice_ts"] = time.time()
+            resp = st.get_final_message()
         if getattr(resp, "stop_reason", "") == "refusal": return None
         txt = "".join(b.text for b in resp.content if b.type == "text").strip()
         try:
@@ -2737,16 +2786,35 @@ def _dock_overlay(w):
         if rect is None:
             if _DRAFT_OVL.get("dock_rect") is None:   # 최초 1회만 기본 위치
                 _DRAFT_OVL["dock_rect"] = "fallback"
-                w.geometry("+%d+%d" % (w.winfo_screenwidth() - 430, 90))
+                w.geometry("+%d+%d" % (max(0, w.winfo_screenwidth() - (DRAFT_OVL_WRAP + 70)), 90))
             return
         if rect == _DRAFT_OVL.get("dock_rect"): return   # 클라 안 움직임 → 그대로
         _DRAFT_OVL["dock_rect"] = rect
         sw = w.winfo_screenwidth()
         x = rect[2] + 6                                   # 클라 오른쪽 모서리 +6px
-        if x + 420 > sw: x = max(0, sw - 425)             # 화면 밖이면 우측 끝에 겹쳐 부착
+        _ow = DRAFT_OVL_WRAP + 60                         # 창이 커졌으니 폭도 같이 계산(안 그러면 화면 밖으로 나간다)
+        if x + _ow > sw: x = max(0, sw - _ow - 5)         # 화면 밖이면 우측 끝에 겹쳐 부착
         y = max(0, rect[1] + 60)
         w.geometry("+%d+%d" % (x, y))
     except Exception: pass
+# 🔆 오버레이 시인성 — 테두리 두께·색, 글자 줄바꿈 폭
+DRAFT_OVL_BORDER = 3
+DRAFT_OVL_EDGE = "#f5d47a"       # 평소 테두리(금색)
+DRAFT_OVL_FLASH = "#ff5a5a"      # 새 추천이 뜰 때 깜빡이는 색
+DRAFT_OVL_WRAP = 520             # 380 → 520 (글자도 11 → 14pt)
+
+def _draft_flash(w, n=6):
+    """새 추천이 떴을 때 테두리를 몇 번 깜빡인다. 소리는 내지 않는다(인게임 방해)."""
+    def _step(i):
+        try:
+            if not w.winfo_exists(): return
+            w.configure(bg=DRAFT_OVL_FLASH if i % 2 == 0 else DRAFT_OVL_EDGE)
+            if i < n: w.after(140, _step, i + 1)
+            else: w.configure(bg=DRAFT_OVL_EDGE)
+        except Exception: pass
+    try: _step(0)
+    except Exception: pass
+
 _REASON_SEP = "=====근거====="   # [v82.40] AI 출력의 요약/근거 구분자 — 기본은 요약만 표시, 버튼으로 근거 펼침
 
 def _split_reason(txt):
@@ -2773,19 +2841,26 @@ def _draft_overlay_sync(root):
         _DRAFT_OVL["shown"] = ""
         return
     if w is None or not w.winfo_exists():
+        # 🔆 [2026-08-12 사장님 제보 '팝업이 너무 작아 눈에 띄질 않는다']
+        #   글씨·폭을 키우고, 창 둘레에 금색 테두리를 둘러 밴픽 화면 위에서 바로 보이게 한다.
+        #   새 추천이 뜰 때는 테두리를 잠깐 깜빡여 시선을 끈다(소리는 안 낸다 — 인게임 방해).
         w = tk.Toplevel(root)
         w.title("고스트밴픽왕")
         w.attributes("-topmost", True)
         w.overrideredirect(False)
-        w.configure(bg="#12141a")
+        w.configure(bg=DRAFT_OVL_EDGE)
+        try: w.attributes("-alpha", 0.97)
+        except Exception: pass
         try: _dock_overlay(w)   # 🧲 롤 클라 우측 부착(폴백: 화면 우측)
         except Exception: pass
-        tk.Label(w, text="🧠 고스트밴픽왕", bg="#12141a", fg="#f5d47a",
-                 font=("Malgun Gothic", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 2))
-        lbl = tk.Label(w, text="", bg="#12141a", fg="#e8eaf0", justify="left", wraplength=380,
-                       font=("Malgun Gothic", 11))
-        lbl.pack(anchor="w", padx=12, pady=(0, 10))
-        _btns = tk.Frame(w, bg="#12141a"); _btns.pack(fill="x", padx=12, pady=(0, 10))
+        _pad = tk.Frame(w, bg="#12141a"); _pad.pack(fill="both", expand=True, padx=DRAFT_OVL_BORDER, pady=DRAFT_OVL_BORDER)
+        _hd = tk.Frame(_pad, bg="#12141a"); _hd.pack(fill="x", padx=14, pady=(11, 2))
+        tk.Label(_hd, text="🧠 고스트밴픽왕", bg="#12141a", fg="#f5d47a",
+                 font=("Malgun Gothic", 15, "bold")).pack(side="left")
+        lbl = tk.Label(_pad, text="", bg="#12141a", fg="#f2f5fb", justify="left",
+                       wraplength=DRAFT_OVL_WRAP, font=("Malgun Gothic", 14))
+        lbl.pack(anchor="w", padx=14, pady=(2, 10))
+        _btns = tk.Frame(_pad, bg="#12141a"); _btns.pack(fill="x", padx=14, pady=(0, 11))
         def _render():
             _s, _r = _split_reason(_DRAFT_OVL["shown"])
             _full = (_s + ("\n\n📎 근거\n" + _r if (_r and _DRAFT_OVL["expanded"]) else ""))
@@ -2799,19 +2874,29 @@ def _draft_overlay_sync(root):
         def _toggle():
             _DRAFT_OVL["expanded"] = not _DRAFT_OVL["expanded"]; _render()
         btn_more = tk.Button(_btns, text="근거 보기 ▼", command=_toggle,
-                             bg="#1e2436", fg="#9db8ff", relief="flat")
+                             bg="#1e2436", fg="#9db8ff", relief="flat",
+                             font=("Malgun Gothic", 11), padx=10, pady=3)
         btn_more.pack(side="left")
         tk.Button(_btns, text="닫기", command=lambda: (_DRAFT_OVL.update({"shown": ""}), w.withdraw()),
-                  bg="#232838", fg="#cfd6e4", relief="flat").pack(side="right")
+                  bg="#232838", fg="#cfd6e4", relief="flat",
+                  font=("Malgun Gothic", 11), padx=10, pady=3).pack(side="right")
         w.protocol("WM_DELETE_WINDOW", lambda: (_DRAFT_OVL.update({"shown": ""}), w.withdraw()))
         _DRAFT_OVL["win"] = w; _DRAFT_OVL["lbl"] = lbl
         _DRAFT_OVL["btn_more"] = btn_more; _DRAFT_OVL["_render"] = _render
     if _DRAFT_OVL["shown"] != txt:
         try:
+            # ⚡ 스트리밍 중에는 같은 추천의 글자가 늘어나는 것뿐이다. 그때마다 창을 다시 끌어올리면
+            #    초당 여러 번 깜빡이며 인게임 포커스를 흔든다 — 첫 줄(제목)이 바뀔 때만 '새 추천'으로 본다.
+            _key = str(txt).split("\n", 1)[0]
+            _fresh = (_key != _DRAFT_OVL.get("hdr"))
             _DRAFT_OVL["shown"] = txt
-            _DRAFT_OVL["expanded"] = False   # 새 추천은 항상 요약부터
+            if _fresh:
+                _DRAFT_OVL["hdr"] = _key
+                _DRAFT_OVL["expanded"] = False   # 새 추천은 항상 요약부터
             _DRAFT_OVL["_render"]()
-            w.deiconify(); w.attributes("-topmost", True); w.lift()
+            if _fresh:
+                w.deiconify(); w.attributes("-topmost", True); w.lift()
+                _draft_flash(w)                  # 🔆 테두리 깜빡임으로 시선 유도
         except Exception: pass
     try: _dock_overlay(w)   # 🧲 클라가 움직였으면 따라붙기(표시 중일 때만 호출됨)
     except Exception: pass
@@ -9720,12 +9805,21 @@ class ClanSettingsWindow(tk.Toplevel):
         txt_f1 = tk.Frame(opt_f1, bg=theme.BG); txt_f1.pack(side="left", fill="both", expand=True)
         tk.Label(txt_f1, text="컴퓨터 부팅 시 스텔스(숨김) 자동 실행", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
         tk.Label(txt_f1, text="백그라운드에 숨어 대기하며 리소스를 최소화합니다.", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+        # 🔎 [2026-08-12] 체크박스는 '내 의도'일 뿐이고 실제로 등록됐는지는 별개다 — 진짜 상태를 그대로 보여준다
+        _reg = startup_registered()
+        _same = (_reg == startup_cmdline())
+        tk.Label(txt_f1,
+                 text=("✅ 현재 등록됨" if _same else (f"⚠️ 등록값이 지금 실행 파일과 다릅니다 — {_reg}" if _reg else "⛔ 현재 등록 안 됨")),
+                 bg=theme.BG, fg=("#5ad48a" if _same else ("#ffb347" if _reg else "#ff8a8a")),
+                 font=("Malgun Gothic", 9), wraplength=430, justify="left").pack(anchor="w")
 
         opt_f2 = tk.Frame(body_frame, bg=theme.BG); opt_f2.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_f2, variable=self.var_lol_auto, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_f2 = tk.Frame(opt_f2, bg=theme.BG); txt_f2.pack(side="left", fill="both", expand=True)
         tk.Label(txt_f2, text="롤 클라이언트 켜질 때 자동 팝업", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
-        tk.Label(txt_f2, text="롤이 켜지는 순간 숨겨진 프로그램이 자동으로 화면에 나타납니다.", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+        tk.Label(txt_f2, text="이미 실행 중인(숨겨진) 분석기를 화면에 띄웁니다. 분석기가 아예 꺼져 있으면 "
+                             "롤을 켜도 아무 일도 일어나지 않아요 — 위의 '부팅 시 자동 실행'을 함께 켜 주세요.",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         opt_f3 = tk.Frame(body_frame, bg=theme.BG); opt_f3.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_f3, variable=self.var_tray, style="TCheckbutton").pack(side="right", padx=(8, 6))
@@ -9820,8 +9914,19 @@ class ClanSettingsWindow(tk.Toplevel):
                 if _sh <= 1080: _root.state('zoomed')
         except Exception: pass
         save_config(APP_CONFIG)
-        toggle_windows_startup(val_start)
+        _ok, _detail = toggle_windows_startup(val_start)
         self.destroy()
+        if not _ok:
+            messagebox.showwarning("자동 실행 등록 실패",
+                                   "부팅 시 자동 실행을 " + ("등록" if val_start else "해제") + "하지 못했습니다.\n\n"
+                                   + _detail + "\n\n백신·보안 프로그램이 시작프로그램 등록을 막는 경우가 많습니다. "
+                                   "예외로 등록하거나, 시작프로그램 폴더에 바로가기를 직접 넣어 주세요.")
+        elif val_auto and not val_start:
+            messagebox.showinfo("확인해 주세요",
+                                "'롤 켜질 때 자동 팝업'만 켜져 있습니다.\n\n"
+                                "이 기능은 이미 실행 중인 분석기를 화면에 띄우는 것이라, 분석기가 꺼져 있으면 "
+                                "롤을 켜도 아무 일도 일어나지 않습니다.\n"
+                                "롤을 켤 때 분석기가 저절로 뜨게 하려면 '부팅 시 자동 실행'도 함께 켜 주세요.")
         if _tray_changed:
             messagebox.showinfo("환경 설정", "트레이 최소화 설정은 프로그램을 재시작하면 적용됩니다.")
 
@@ -9913,7 +10018,14 @@ if __name__ == "__main__":
         pass
 
     if APP_CONFIG.get("windows_startup"):
+        # 설치 위치를 옮기거나 재설치하면 등록된 경로가 옛 경로로 남아 조용히 실패한다 — 매 시작 시 맞춘다
+        _cur = startup_registered()
+        if _cur != startup_cmdline():
+            print(f"[startup] 등록값 불일치 — 재등록합니다 (이전: {_cur})", flush=True)
         toggle_windows_startup(True)
+    else:
+        _cur = startup_registered()
+        if _cur: print(f"[startup] 설정은 꺼져 있는데 레지스트리에 남아 있음 — 정리 {_cur}", flush=True); toggle_windows_startup(False)
         
     threading.Thread(target=auto_updater_engine, daemon=True).start()
     threading.Thread(target=announce_patch_if_updated, daemon=True).start()   # 신버전 패치노트 웹훅 알림(호스트 1회)
