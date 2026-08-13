@@ -8593,17 +8593,36 @@ def create_graphic_ui():
     text_frame = tk.Frame(left_header, bg=theme.BG_BAR)
     text_frame.pack(side="left", padx=5)
     
-    tk.Label(text_frame, text="스쿼드해체분석기", bg=theme.BG_BAR, fg=theme.GOLD, font=FONT_TITLE).pack(anchor="w", pady=(0, 5))
+    _title_row = tk.Frame(text_frame, bg=theme.BG_BAR); _title_row.pack(anchor="w", pady=(0, 5))
+    _btn_menu = tk.Button(_title_row, text="☰", font=("Malgun Gothic", 15, "bold"),
+                          bg=theme.BG_RAISED, fg=theme.GOLD, bd=0, padx=10, pady=1,
+                          activebackground=theme.GOLD, activeforeground="#1b1b1b", cursor="hand2")
+    _btn_menu.pack(side="left", padx=(0, 10))
+    tk.Label(_title_row, text="스쿼드해체분석기", bg=theme.BG_BAR, fg=theme.GOLD, font=FONT_TITLE).pack(side="left")
     
-    sub_ctrl_frame = tk.Frame(text_frame, bg=theme.BG_BAR)
-    sub_ctrl_frame.pack(anchor="w")
-    
+    # ☰ [2026-08-12 사장님 지시] 상단에 3줄로 깔려 있던 버튼 무더기를 왼쪽 서랍(drawer)으로 옮긴다.
+    #    헤더가 세로로 세 줄이나 먹어 정작 봐야 할 로스터 영역이 밀려 있었다.
+    #    버튼 객체는 그대로 두고 '담기는 자리'만 서랍 안으로 바꾼다 — 기존 참조(_POSVIEW_BTN 등)와
+    #    동작이 하나도 안 깨진다. 배치(가로 → 세로 꽉 채움)는 만든 뒤 한 번에 다시 잡는다.
+    _DRW = {"open": False, "w": 236, "x": -236, "busy": False}
+    drawer = tk.Frame(root, bg=theme.BG_BAR, highlightthickness=0)
+    drawer.place(x=-_DRW["w"], y=0, width=_DRW["w"], relheight=1.0)
+    _drw_head = tk.Frame(drawer, bg=theme.BG_BAR); _drw_head.pack(fill="x", padx=14, pady=(16, 6))
+    tk.Label(_drw_head, text="메뉴", bg=theme.BG_BAR, fg=theme.GOLD,
+             font=("Malgun Gothic", 13, "bold")).pack(side="left")
+    _drw_x = tk.Label(_drw_head, text="✕", bg=theme.BG_BAR, fg=theme.TEXT_SUB,
+                      font=("Malgun Gothic", 12), cursor="hand2")
+    _drw_x.pack(side="right")
+    tk.Frame(drawer, bg=theme.BG_RAISED, height=1).pack(fill="x", padx=14, pady=(2, 8))
+    sub_ctrl_frame = tk.Frame(drawer, bg=theme.BG_BAR)
+    sub_ctrl_frame.pack(fill="x")
+
     btn_row1 = tk.Frame(sub_ctrl_frame, bg=theme.BG_BAR)
-    btn_row1.pack(anchor="w", pady=(0, 3))
+    btn_row1.pack(fill="x", padx=12, pady=(0, 2))
     btn_row2 = tk.Frame(sub_ctrl_frame, bg=theme.BG_BAR)
-    btn_row2.pack(anchor="w", pady=(3, 3))
+    btn_row2.pack(fill="x", padx=12, pady=2)
     btn_row3 = tk.Frame(sub_ctrl_frame, bg=theme.BG_BAR)
-    btn_row3.pack(anchor="w", pady=(3, 0))
+    btn_row3.pack(fill="x", padx=12, pady=(2, 0))
     
     btn_guide = tk.Button(btn_row1, text="사용 안내", font=("Malgun Gothic", 10, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=8, pady=2, cursor="hand2")
     btn_guide.config(command=lambda: GuideWindow(root))
@@ -8741,6 +8760,50 @@ def create_graphic_ui():
         btn_tieradmin = tk.Button(btn_row3, text="티어관리", font=("Malgun Gothic", 10, "bold"), bg=theme.PURPLE, fg=theme.TEXT, bd=0, padx=8, pady=2, cursor="hand2")
         btn_tieradmin.config(command=open_tieradmin_window)
         btn_tieradmin.pack(side="left", padx=3)
+
+    # ☰ 서랍 마무리 — 가로로 붙어 있던 버튼들을 세로 목록으로 다시 깐다(한 번에, 개별 pack 수정 없이)
+    for _r in (btn_row1, btn_row2, btn_row3):
+        for _ch in _r.winfo_children():
+            try: _ch.pack_configure(side="top", fill="x", padx=0, pady=2, anchor="w")
+            except Exception: pass
+    tk.Label(drawer, text=f"v{CURRENT_VERSION}", bg=theme.BG_BAR, fg=theme.TEXT_SUB,
+             font=("Malgun Gothic", 8)).pack(side="bottom", anchor="w", padx=16, pady=10)
+
+    def _drw_animate(target):
+        if _DRW["busy"]: return
+        _DRW["busy"] = True
+        def _step():
+            x = _DRW["x"]
+            d = 26 if target > x else -26
+            x = min(target, x + d) if d > 0 else max(target, x + d)
+            _DRW["x"] = x
+            drawer.place_configure(x=x)
+            if x != target: root.after(8, _step)
+            else:
+                _DRW["busy"] = False
+                if target < 0: drawer.place_forget()
+        if target >= 0:
+            drawer.place(x=_DRW["x"], y=0, width=_DRW["w"], relheight=1.0)
+            drawer.lift()
+        _step()
+
+    def _drw_toggle(_e=None):
+        _DRW["open"] = not _DRW["open"]
+        _drw_animate(0 if _DRW["open"] else -_DRW["w"])
+        _btn_menu.config(text=("✕" if _DRW["open"] else "☰"))
+
+    def _drw_close(_e=None):
+        if _DRW["open"]: _drw_toggle()
+
+    _drw_x.bind("<Button-1>", _drw_close)
+    _btn_menu.config(command=_drw_toggle)
+    root.bind("<Escape>", _drw_close)
+    # 서랍 안의 버튼을 누르면 그 창이 뜨므로 서랍은 닫아 준다(가리지 않게)
+    for _r in (btn_row1, btn_row2, btn_row3):
+        for _ch in _r.winfo_children():
+            try: _ch.bind("<ButtonRelease-1>", lambda e: root.after(120, _drw_close), add="+")
+            except Exception: pass
+    drawer.place_forget()
 
     # [v82.12] 하단 가로 3칸 → 레드팀 우측 세로 패널로 이동(사장님 지시). 광고·개발텍스트도 이 열로.
     body = tk.Frame(root, bg=BG_MAIN)
