@@ -2902,13 +2902,13 @@ def _draft_build_card(root):
     # ── 헤더 ──
     hd = tk.Frame(body, bg=C["card"]); hd.pack(fill="x", padx=16, pady=(13, 0))
     badge = tk.Label(hd, text=" 밴 ", bg=C["ban"], fg="#12141a",
-                     font=("Malgun Gothic", 10, "bold"), padx=7, pady=2)
+                     font=UF(10, "bold"), padx=7, pady=2)
     badge.pack(side="left")
     tk.Label(hd, text="고스트밴픽왕", bg=C["card"], fg=C["text"],
-             font=("Malgun Gothic", 13, "bold")).pack(side="left", padx=(9, 0))
-    sub = tk.Label(hd, text="", bg=C["card"], fg=C["dim"], font=("Malgun Gothic", 9))
+             font=UF(13, "bold")).pack(side="left", padx=(9, 0))
+    sub = tk.Label(hd, text="", bg=C["card"], fg=C["dim"], font=UF(9))
     sub.pack(side="left", padx=(8, 0))
-    close = tk.Label(hd, text="✕", bg=C["card"], fg=C["dim"], font=("Malgun Gothic", 12), cursor="hand2")
+    close = tk.Label(hd, text="✕", bg=C["card"], fg=C["dim"], font=UF(12), cursor="hand2")
     close.pack(side="right")
     close.bind("<Button-1>", lambda e: (_DRAFT_OVL.update({"shown": "", "hdr": None}), w.withdraw()))
     close.bind("<Enter>", lambda e: close.config(fg=C["ban"]))
@@ -2922,12 +2922,12 @@ def _draft_build_card(root):
     # ── 푸터 ──
     ft = tk.Frame(body, bg=C["card"]); ft.pack(fill="x", padx=16, pady=(10, 13))
     more = tk.Label(ft, text="근거 보기 ▼", bg=C["surface"], fg=C["sub"],
-                    font=("Malgun Gothic", 10), padx=11, pady=4, cursor="hand2")
+                    font=UF(10), padx=11, pady=4, cursor="hand2")
     more.pack(side="left")
     more.bind("<Enter>", lambda e: more.config(fg=C["text"]))
     more.bind("<Leave>", lambda e: more.config(fg=C["sub"]))
     tk.Label(ft, text="⠿ 끌어서 이동", bg=C["card"], fg=C["dim"],
-             font=("Malgun Gothic", 9)).pack(side="right")
+             font=UF(9)).pack(side="right")
 
     # ── 제목줄을 잡고 창 이동(프레임리스라 OS 가 안 해준다) ──
     drag = {"x": 0, "y": 0}
@@ -2946,29 +2946,29 @@ def _draft_build_card(root):
         f = tk.Frame(parent, bg=C["card"]); f.pack(fill="x", pady=2)
         if kind == "num":
             tk.Label(f, text=a, bg=_DRAFT_OVL["accent"], fg="#12141a", width=2,
-                     font=("Malgun Gothic", 10, "bold")).pack(side="left", pady=1)
+                     font=UF(10, "bold")).pack(side="left", pady=1)
             tx = tk.Frame(f, bg=C["card"]); tx.pack(side="left", fill="x", expand=True, padx=(9, 0))
             tk.Label(tx, text=b[0], bg=C["card"], fg=C["text"], anchor="w",
-                     font=("Malgun Gothic", 14, "bold")).pack(anchor="w")
+                     font=UF(14, "bold")).pack(anchor="w")
             if b[1]:
                 tk.Label(tx, text=b[1], bg=C["card"], fg=C["sub"], anchor="w", justify="left",
-                         wraplength=DRAFT_OVL_WRAP - 40, font=("Malgun Gothic", 10)).pack(anchor="w")
+                         wraplength=DRAFT_OVL_WRAP - 40, font=UF(10)).pack(anchor="w")
         elif kind == "dir":
             box = tk.Frame(f, bg=C["surface"]); box.pack(fill="x")
             tk.Frame(box, bg=_DRAFT_OVL["accent"], width=3).pack(side="left", fill="y")
             tk.Label(box, text=a, bg=C["surface"], fg=C["text"], anchor="w", justify="left",
-                     wraplength=DRAFT_OVL_WRAP - 30, font=("Malgun Gothic", 12, "bold"),
+                     wraplength=DRAFT_OVL_WRAP - 30, font=UF(12, "bold"),
                      padx=10, pady=7).pack(side="left", fill="x", expand=True)
         elif kind == "warn":
             tk.Label(f, text=a, bg=C["card"], fg=C["warn"], anchor="w", justify="left",
-                     wraplength=DRAFT_OVL_WRAP, font=("Malgun Gothic", 11)).pack(anchor="w")
+                     wraplength=DRAFT_OVL_WRAP, font=UF(11)).pack(anchor="w")
         elif kind == "ctx":
             tk.Label(f, text=a, bg=C["surface"], fg=C["sub"], anchor="w", justify="left",
-                     wraplength=DRAFT_OVL_WRAP - 20, font=("Malgun Gothic", 11),
+                     wraplength=DRAFT_OVL_WRAP - 20, font=UF(11),
                      padx=9, pady=5).pack(anchor="w", fill="x")
         else:
             tk.Label(f, text=a, bg=C["card"], fg=C["text"], anchor="w", justify="left",
-                     wraplength=DRAFT_OVL_WRAP, font=("Malgun Gothic", 12)).pack(anchor="w")
+                     wraplength=DRAFT_OVL_WRAP, font=UF(12)).pack(anchor="w")
 
     def _render():
         try:
@@ -2993,9 +2993,9 @@ def _draft_build_card(root):
             if reason and _DRAFT_OVL.get("expanded"):
                 tk.Frame(rows, bg=C["line"], height=1).pack(fill="x", pady=(9, 6))
                 tk.Label(rows, text="📎 판단 근거", bg=C["card"], fg=C["dim"],
-                         font=("Malgun Gothic", 9, "bold")).pack(anchor="w")
+                         font=UF(9, "bold")).pack(anchor="w")
                 tk.Label(rows, text=reason.strip(), bg=C["card"], fg=C["sub"], anchor="w", justify="left",
-                         wraplength=DRAFT_OVL_WRAP, font=("Malgun Gothic", 10)).pack(anchor="w", pady=(2, 0))
+                         wraplength=DRAFT_OVL_WRAP, font=UF(10)).pack(anchor="w", pady=(2, 0))
             if reason:
                 more.config(text=("근거 접기 ▲" if _DRAFT_OVL.get("expanded") else "근거 보기 ▼"))
                 more.pack(side="left")
@@ -5460,6 +5460,37 @@ def _compute_pos_champ_lists(p_matches):
 
 # 🎯 [v82.37] 대기실 모스트 표시 기본값 — 설정(config.json `pos_view_default`)에서 사용자가 지정.
 #   세션 중 버튼으로 바꾼 값(gui_data["pos_view_mode"])이 있으면 그게 우선, 없으면 이 기본값을 쓴다.
+# 🔠 [2026-08-13 사장님 제보 '창을 줄이면 글자가 그대로라 못 읽겠다'] 창 크기에 따라 같이 변하는 폰트.
+#   튜플 폰트(UF(11))는 위젯에 박히는 순간 크기가 굳는다 — 창을 줄여도 글자는 그대로라
+#   좁은 화면에서 글자끼리 겹치고 잘린다. Tk 는 '이름 있는 폰트'를 쓰면 그 폰트의 size 만 바꿔도
+#   그 폰트를 쓰는 모든 위젯이 한 번에 다시 그려진다 → 앱 전체 글자를 한 줄로 확대·축소할 수 있다.
+_UI_FONTS = {}          # (family, 기준크기, weight) -> tkfont.Font
+_UI_SCALE = [1.0]
+UI_BASE_W, UI_BASE_H = 1560, 1045    # 이 크기일 때 배율 1.0 ('표준' 프리셋 기준)
+
+def UF(size, weight="normal", family="Malgun Gothic"):
+    """이름 있는 폰트를 돌려준다(같은 조합은 재사용). 배율이 바뀌면 여기 등록된 폰트가 전부 따라간다."""
+    key = (family, int(size), weight)
+    f = _UI_FONTS.get(key)
+    if f is None:
+        try:
+            f = tkfont.Font(family=family, size=max(6, int(round(size * _UI_SCALE[0]))), weight=weight)
+        except Exception:
+            return (family, int(size), weight)      # 루트가 아직 없으면 옛 방식으로 폴백
+        _UI_FONTS[key] = f
+    return f
+
+def ui_scale_apply(scale):
+    """앱 전체 글자 배율 변경. 너무 잦은 재계산을 막으려 2% 미만 변화는 무시한다."""
+    #  아래로 0.55 까지 열어 둔다 — 사장님이 창을 아주 작게 쓰실 때 글자가 안 줄면 서로 겹친다.
+    #  위로는 1.30 까지만 — 큰 화면에서 무한정 커지면 정작 정보가 덜 들어간다.
+    scale = max(0.55, min(1.30, float(scale)))
+    if abs(scale - _UI_SCALE[0]) < 0.02: return
+    _UI_SCALE[0] = scale
+    for (fam, base, wt), f in list(_UI_FONTS.items()):
+        try: f.configure(size=max(6, int(round(base * scale))))
+        except Exception: pass
+
 _POSVIEW_BTN = [None]   # 설정 저장 시 버튼 문구·색을 즉시 맞추기 위한 참조
 _SYNERGY_SYNC = [None]  # 🧩 우측 시너지 3칸 표시/숨김을 설정 창에서 즉시 적용하기 위한 콜백
 
@@ -8335,35 +8366,35 @@ class TierAdminWindow(tk.Toplevel):
     def _build(self):
         top = tk.Frame(self, bg=theme.BG_BAR); top.pack(fill="x")
         tk.Label(top, text="🎖 내부티어 관리", bg=theme.BG_BAR, fg=theme.GOLD,
-                 font=("Malgun Gothic", 15, "bold")).pack(side="left", padx=18, pady=12)
+                 font=UF(15, "bold")).pack(side="left", padx=18, pady=12)
 
         form = tk.Frame(self, bg=theme.BG); form.pack(fill="x", padx=18, pady=(14, 4))
-        tk.Label(form, text="닉네임", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 11)).grid(row=0, column=0, sticky="w", pady=4)
+        tk.Label(form, text="닉네임", bg=theme.BG, fg=theme.TEXT, font=UF(11)).grid(row=0, column=0, sticky="w", pady=4)
         self.name_var = tk.StringVar()
         tk.Entry(form, textvariable=self.name_var, bg=theme.BG_INPUT, fg=theme.TEXT, insertbackground=theme.TEXT,
-                 bd=0, font=("Malgun Gothic", 12)).grid(row=0, column=1, padx=8, pady=4, sticky="we")
-        tk.Label(form, text="티어", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 11)).grid(row=1, column=0, sticky="w", pady=4)
+                 bd=0, font=UF(12)).grid(row=0, column=1, padx=8, pady=4, sticky="we")
+        tk.Label(form, text="티어", bg=theme.BG, fg=theme.TEXT, font=UF(11)).grid(row=1, column=0, sticky="w", pady=4)
         self.tier_var = tk.StringVar(value="1上")   # 신규 부여 기본값(0티어 오지정 방지). 목록 클릭 시 자동 대체
         ttk.Combobox(form, textvariable=self.tier_var, values=TIER_ORDER_LIST, state="readonly",
-                     width=10, font=("Malgun Gothic", 12)).grid(row=1, column=1, padx=8, pady=4, sticky="w")
+                     width=10, font=UF(12)).grid(row=1, column=1, padx=8, pady=4, sticky="w")
         form.columnconfigure(1, weight=1)
 
         btns = tk.Frame(self, bg=theme.BG); btns.pack(fill="x", padx=18, pady=4)
         tk.Button(btns, text="💾 부여 / 변경 저장", bg=theme.SUCCESS, fg=theme.TEXT, bd=0, padx=12, pady=6,
-                  font=("Malgun Gothic", 11, "bold"), cursor="hand2", command=self._save).pack(side="left")
+                  font=UF(11, "bold"), cursor="hand2", command=self._save).pack(side="left")
         tk.Button(btns, text="🗑 선택 삭제", bg=theme.LOSE, fg=theme.TEXT, bd=0, padx=12, pady=6,
-                  font=("Malgun Gothic", 11, "bold"), cursor="hand2", command=self._delete).pack(side="left", padx=8)
+                  font=UF(11, "bold"), cursor="hand2", command=self._delete).pack(side="left", padx=8)
         tk.Label(self, text="이름 입력 후 티어 선택 → 저장 (있으면 변경·없으면 추가). 아래 목록 클릭 시 폼 자동입력. 웹·앱 자동 반영.",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 9), wraplength=520, justify="left").pack(fill="x", padx=18, pady=(2, 8))
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9), wraplength=520, justify="left").pack(fill="x", padx=18, pady=(2, 8))
 
         lf = tk.Frame(self, bg=theme.BG); lf.pack(fill="both", expand=True, padx=18, pady=(0, 14))
-        tk.Label(lf, text="🔎 검색", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 9)).pack(anchor="w")
+        tk.Label(lf, text="🔎 검색", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9)).pack(anchor="w")
         self.search_var = tk.StringVar()
         tk.Entry(lf, textvariable=self.search_var, bg=theme.BG_INPUT, fg=theme.TEXT, insertbackground=theme.TEXT,
-                 bd=0, font=("Malgun Gothic", 11)).pack(fill="x", pady=(0, 6))
+                 bd=0, font=UF(11)).pack(fill="x", pady=(0, 6))
         self.search_var.trace_add("write", lambda *a: self._render_list())
         self.listbox = tk.Listbox(lf, bg=theme.BG_INPUT, fg=theme.TEXT, bd=0, highlightthickness=0,
-                                  font=("Malgun Gothic", 11), selectbackground=theme.BG_RAISED, activestyle="none")
+                                  font=UF(11), selectbackground=theme.BG_RAISED, activestyle="none")
         self.listbox.pack(fill="both", expand=True)
         self.listbox.bind("<<ListboxSelect>>", self._on_select)
 
@@ -8546,14 +8577,14 @@ def create_graphic_ui():
     for tier in TIERS:
         tier_images[tier] = robust_load_image(str(tier) + ".png", 32)
 
-    FONT_TITLE = ("Malgun Gothic", 20, "bold")
-    FONT_CREDIT = ("Malgun Gothic", 11)
-    FONT_STATUS = ("Malgun Gothic", 12, "bold")
-    FONT_BANS = ("Malgun Gothic", 12)
-    FONT_LF_TITLE = ("Malgun Gothic", 12, "bold")
-    FONT_SLOT_NAME = ("Malgun Gothic", 13, "bold")
-    FONT_SLOT_STAT = ("Malgun Gothic", 11)
-    FONT_SYNERGY = ("Malgun Gothic", 11)
+    FONT_TITLE = UF(20, "bold")
+    FONT_CREDIT = UF(11)
+    FONT_STATUS = UF(12, "bold")
+    FONT_BANS = UF(12)
+    FONT_LF_TITLE = UF(12, "bold")
+    FONT_SLOT_NAME = UF(13, "bold")
+    FONT_SLOT_STAT = UF(11)
+    FONT_SYNERGY = UF(11)
 
     header = tk.Frame(root, bg=theme.BG_BAR, height=158)
     header.pack(fill="x", side="top", pady=(5, 5))
@@ -8563,7 +8594,7 @@ def create_graphic_ui():
     ad_frame = tk.Frame(header, bg=theme.BG_BAR, width=345, height=150, cursor="hand2")
     ad_frame.pack_propagate(False)
     ad_frame.pack(side="right", padx=(6, 8), pady=4)
-    ad_lbl = tk.Label(ad_frame, text="✨ 스폰서 배너 로딩 중... ✨", bg=theme.BG_BAR, fg=theme.WARN, font=("Malgun Gothic", 10, "bold"))
+    ad_lbl = tk.Label(ad_frame, text="✨ 스폰서 배너 로딩 중... ✨", bg=theme.BG_BAR, fg=theme.WARN, font=UF(10, "bold"))
     ad_lbl.pack(expand=True, fill="both")
     def on_ad_click(event):
         link = ""
@@ -8600,7 +8631,7 @@ def create_graphic_ui():
     text_frame.pack(side="left", padx=5)
     
     _title_row = tk.Frame(text_frame, bg=theme.BG_BAR); _title_row.pack(anchor="w", pady=(0, 5))
-    _btn_menu = tk.Button(_title_row, text="☰", font=("Malgun Gothic", 15, "bold"),
+    _btn_menu = tk.Button(_title_row, text="☰", font=UF(15, "bold"),
                           bg=theme.BG_RAISED, fg=theme.GOLD, bd=0, padx=10, pady=1,
                           activebackground=theme.GOLD, activeforeground="#1b1b1b", cursor="hand2")
     _btn_menu.pack(side="left", padx=(0, 10))
@@ -8624,9 +8655,9 @@ def create_graphic_ui():
 
     _drw_head = tk.Frame(drawer, bg=C_PANEL); _drw_head.pack(fill="x", padx=18, pady=(18, 4))
     tk.Label(_drw_head, text="MENU", bg=C_PANEL, fg=theme.GOLD,
-             font=("Malgun Gothic", 12, "bold")).pack(side="left")
+             font=UF(12, "bold")).pack(side="left")
     _drw_x = tk.Label(_drw_head, text="✕", bg=C_PANEL, fg="#6b7789",
-                      font=("Malgun Gothic", 13), cursor="hand2")
+                      font=UF(13), cursor="hand2")
     _drw_x.pack(side="right")
     tk.Frame(drawer, bg="#222a37", height=1).pack(fill="x", padx=18, pady=(6, 10))
 
@@ -8642,10 +8673,10 @@ def create_graphic_ui():
             self.f = tk.Frame(_drw_body, bg=C_TILE, cursor="hand2")
             self.f.grid(row=r, column=c, padx=4, pady=4, sticky="nsew")
             self.bar = tk.Frame(self.f, bg=accent, height=2); self.bar.pack(fill="x")
-            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=("Segoe UI Emoji", 17))
+            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=UF(17, family="Segoe UI Emoji"))
             self.ic.pack(pady=(9, 1))
             self.tx = tk.Label(self.f, text=label, bg=C_TILE, fg="#cdd6e3",
-                               font=("Malgun Gothic", 9), wraplength=74, justify="center")
+                               font=UF(9), wraplength=74, justify="center")
             self.tx.pack(pady=(0, 9))
             self.cmd = cmd
             for wgt in (self.f, self.ic, self.tx):
@@ -8741,16 +8772,16 @@ def create_graphic_ui():
                 w = tk.Toplevel(root); w.title("팀장뽑기")
                 w.attributes("-topmost", True); w.configure(bg="#12141a")
                 tk.Label(w, text="👑 이번 판 팀장", bg="#12141a", fg="#f5d47a",
-                         font=("Malgun Gothic", 13, "bold")).pack(padx=18, pady=(14, 4))
+                         font=UF(13, "bold")).pack(padx=18, pady=(14, 4))
                 def _one(c):
                     t = c['nm'].split('#')[0].strip() + (f"  [{c['tier']}티어]" if c['tier'] else "") \
                         + (f"  주:{c['pos']}" if c['pos'] else "")
                     tk.Label(w, text=t, bg="#12141a", fg="#e8eaf0",
-                             font=("Malgun Gothic", 12, "bold")).pack(padx=18, pady=2)
+                             font=UF(12, "bold")).pack(padx=18, pady=2)
                 _one(a)
-                tk.Label(w, text="VS", bg="#12141a", fg="#8a93a6", font=("Malgun Gothic", 10)).pack()
+                tk.Label(w, text="VS", bg="#12141a", fg="#8a93a6", font=UF(10)).pack()
                 _one(b)
-                tk.Label(w, text=why, bg="#12141a", fg="#8a93a6", font=("Malgun Gothic", 9)).pack(padx=18, pady=(6, 2))
+                tk.Label(w, text=why, bg="#12141a", fg="#8a93a6", font=UF(9)).pack(padx=18, pady=(6, 2))
                 bs = tk.Frame(w, bg="#12141a"); bs.pack(pady=(6, 12))
                 def _announce():
                     def w2():
@@ -8797,18 +8828,18 @@ def create_graphic_ui():
         except Exception: pass
         tk.Frame(w, bg="#f5d47a", height=3).pack(fill="x")
         tk.Label(w, text="💝  후원하기", bg="#0e1016", fg="#f5d47a",
-                 font=("Malgun Gothic", 15, "bold")).pack(anchor="w", padx=22, pady=(16, 2))
+                 font=UF(15, "bold")).pack(anchor="w", padx=22, pady=(16, 2))
         tk.Label(w, text="분석기·squad.gg·디스코드 봇은 클랜원 한 명이 사비로 굴리고 있어요.\n"
                          "AI 비용·서버비에 그대로 들어갑니다. 부담 갖지 마세요 🙏",
-                 bg="#0e1016", fg="#8d9aae", font=("Malgun Gothic", 9), justify="left").pack(anchor="w", padx=22)
+                 bg="#0e1016", fg="#8d9aae", font=UF(9), justify="left").pack(anchor="w", padx=22)
         box = tk.Frame(w, bg="#171b23"); box.pack(fill="x", padx=22, pady=(14, 6))
         tk.Label(box, text=_bank, bg="#171b23", fg="#8d9aae",
-                 font=("Malgun Gothic", 10)).pack(anchor="w", padx=14, pady=(11, 0))
+                 font=UF(10)).pack(anchor="w", padx=14, pady=(11, 0))
         tk.Label(box, text=_acct, bg="#171b23", fg="#eef2f8",
-                 font=("Malgun Gothic", 19, "bold")).pack(anchor="w", padx=14)
+                 font=UF(19, "bold")).pack(anchor="w", padx=14)
         tk.Label(box, text=f"예금주  {_name}", bg="#171b23", fg="#cdd6e3",
-                 font=("Malgun Gothic", 10)).pack(anchor="w", padx=14, pady=(1, 12))
-        _msg = tk.Label(w, text="", bg="#0e1016", fg="#5ad48a", font=("Malgun Gothic", 9))
+                 font=UF(10)).pack(anchor="w", padx=14, pady=(1, 12))
+        _msg = tk.Label(w, text="", bg="#0e1016", fg="#5ad48a", font=UF(9))
         _msg.pack(anchor="w", padx=22)
         def _copy(full=False):
             try:
@@ -8820,19 +8851,19 @@ def create_graphic_ui():
                 _msg.config(text=f"복사 실패: {e}", fg="#ff8a8a")
         bar = tk.Frame(w, bg="#0e1016"); bar.pack(fill="x", padx=22, pady=(8, 18))
         tk.Button(bar, text="계좌번호 복사", command=lambda: _copy(False), bg="#f5d47a", fg="#1b1b1b",
-                  relief="flat", font=("Malgun Gothic", 10, "bold"), padx=14, pady=5,
+                  relief="flat", font=UF(10, "bold"), padx=14, pady=5,
                   cursor="hand2").pack(side="left")
         tk.Button(bar, text="전체 복사", command=lambda: _copy(True), bg="#1e2436", fg="#9db8ff",
-                  relief="flat", font=("Malgun Gothic", 10), padx=12, pady=5,
+                  relief="flat", font=UF(10), padx=12, pady=5,
                   cursor="hand2").pack(side="left", padx=6)
         tk.Button(bar, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
-                  relief="flat", font=("Malgun Gothic", 10), padx=12, pady=5,
+                  relief="flat", font=UF(10), padx=12, pady=5,
                   cursor="hand2").pack(side="right")
     _drw_add("💝", "후원하기", _open_donate, "#ff8fb1")
 
     tk.Frame(drawer, bg="#222a37", height=1).pack(fill="x", padx=18, pady=(12, 0))
     tk.Label(drawer, text=f"스쿼드해체분석기  v{CURRENT_VERSION}", bg=C_PANEL, fg="#5a6474",
-             font=("Malgun Gothic", 8)).pack(anchor="w", padx=20, pady=(8, 14))
+             font=UF(8)).pack(anchor="w", padx=20, pady=(8, 14))
 
     def _drw_geo():
         """본체 창에 맞춰 서랍 위치·높이를 잡는다(본체가 움직이거나 크기가 바뀌면 따라간다)."""
@@ -8886,6 +8917,26 @@ def create_graphic_ui():
         except Exception: pass
         _drw_close()
     root.bind_all("<Button-1>", _drw_click_away, add="+")
+    # 🔠 [2026-08-13 사장님 제보] 창 크기에 맞춰 글자 크기도 같이 바꾼다.
+    #   해상도만 줄고 글자는 그대로여서 작게 쓰면 읽을 수가 없었다.
+    #   ⚠️ <Configure> 는 창을 끄는 동안 초당 수십 번 온다 — 그때마다 폰트를 다시 계산하면
+    #      화면이 덜덜 떨린다. 마지막 이벤트로부터 140ms 뒤에 한 번만 적용한다(디바운스).
+    _ui_job = [None]
+    def _ui_do():
+        _ui_job[0] = None
+        try:
+            w, h = root.winfo_width(), root.winfo_height()
+            if w < 200 or h < 200: return          # 최소화·초기화 중엔 무시
+            ui_scale_apply(min(w / UI_BASE_W, h / UI_BASE_H))
+        except Exception: pass
+    def _ui_rescale(_e=None):
+        if _ui_job[0]:
+            try: root.after_cancel(_ui_job[0])
+            except Exception: pass
+        _ui_job[0] = root.after(140, _ui_do)
+    root.bind("<Configure>", lambda e: (_ui_rescale() if e.widget is root else None), add="+")
+    root.after(500, _ui_do)                        # 시작 크기(프리셋·저장된 크기)에도 즉시 반영
+
     # 본체를 움직이거나 크기를 바꾸면 따라오고, 최소화하면 같이 숨는다(따로 떠 있는 창이라 필수)
     root.bind("<Configure>", lambda e: (_drw_geo() if _DRW["open"] else None), add="+")
     root.bind("<Unmap>", lambda e: (drawer.withdraw() if e.widget is root else None), add="+")
@@ -8962,7 +9013,7 @@ def create_graphic_ui():
         with gui_lock:
             open_multisearch(gui_data.get("red", []))
             
-    btn_b_multi = tk.Button(b_head, text="멀티서치", font=("Malgun Gothic", 9, "bold"), bg=theme.WIN, fg="white", bd=0, cursor="hand2", command=do_blue_multi)
+    btn_b_multi = tk.Button(b_head, text="멀티서치", font=UF(9, "bold"), bg=theme.WIN, fg="white", bd=0, cursor="hand2", command=do_blue_multi)
     btn_b_multi.pack(side="right", padx=10, pady=5)
 
     r_head = tk.Frame(red_card, bg=theme.TEAM_RED_BG)
@@ -8975,7 +9026,7 @@ def create_graphic_ui():
 
     red_ban_frame = tk.Frame(r_title_frame, bg=theme.TEAM_RED_BG)
     red_ban_frame.pack(side="left", padx=5)
-    btn_r_multi = tk.Button(r_head, text="멀티서치", font=("Malgun Gothic", 9, "bold"), bg=theme.LOSE, fg="white", bd=0, cursor="hand2", command=do_red_multi)
+    btn_r_multi = tk.Button(r_head, text="멀티서치", font=UF(9, "bold"), bg=theme.LOSE, fg="white", bd=0, cursor="hand2", command=do_red_multi)
     btn_r_multi.pack(side="right", padx=10, pady=5)
 
     blue_slots = []
@@ -9005,14 +9056,14 @@ def create_graphic_ui():
         bti.pack(side="left")
         btn = tk.Label(bz, text="Wait...", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT, font=FONT_SLOT_NAME)
         btn.pack(side="left", padx=6)
-        bcb = tk.Button(bz, text="📋", font=("Malgun Gothic", 9), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=5, pady=0, cursor="hand2")
+        bcb = tk.Button(bz, text="📋", font=UF(9), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=5, pady=0, cursor="hand2")
         bcb.pack(side="left", padx=2)
-        b_opgg = tk.Button(bz, text="🔍", font=("Malgun Gothic", 9), bg=theme.WARN, fg=theme.TEXT, bd=0, padx=5, pady=0, cursor="hand2")
+        b_opgg = tk.Button(bz, text="🔍", font=UF(9), bg=theme.WARN, fg=theme.TEXT, bd=0, padx=5, pady=0, cursor="hand2")
         b_opgg.pack(side="left", padx=2)
         tk.Label(bz, text="➡", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_MUT).pack(side="left", padx=4)
         bpi = tk.Label(bz, bg=theme.TEAM_BLUE_SOFT)
         bpi.pack(side="left", padx=4)
-        btr = tk.Label(bz, text="", bg=theme.TEAM_BLUE_SOFT, fg=theme.GOLD, font=("Malgun Gothic", 11, "bold"))
+        btr = tk.Label(bz, text="", bg=theme.TEAM_BLUE_SOFT, fg=theme.GOLD, font=UF(11, "bold"))
         btr.pack(side="left", padx=(2, 0))
         bem = tk.Label(bz, bg=theme.TEAM_BLUE_SOFT)   # 🎨 [v81.93] '내 꾸미기' 엠블럼(내 칸에만)
         bem.pack(side="right", padx=(0, 6))
@@ -9041,14 +9092,14 @@ def create_graphic_ui():
         rti.pack(side="left")
         rtn = tk.Label(rz, text="Wait...", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT, font=FONT_SLOT_NAME)
         rtn.pack(side="left", padx=6)
-        rcb = tk.Button(rz, text="📋", font=("Malgun Gothic", 9), bg=theme.TEAM_RED_BG, fg=theme.TEXT, bd=0, padx=5, pady=0, cursor="hand2")
+        rcb = tk.Button(rz, text="📋", font=UF(9), bg=theme.TEAM_RED_BG, fg=theme.TEXT, bd=0, padx=5, pady=0, cursor="hand2")
         rcb.pack(side="left", padx=2)
-        r_opgg = tk.Button(rz, text="🔍", font=("Malgun Gothic", 9), bg=theme.WARN, fg=theme.TEXT, bd=0, padx=5, pady=0, cursor="hand2")
+        r_opgg = tk.Button(rz, text="🔍", font=UF(9), bg=theme.WARN, fg=theme.TEXT, bd=0, padx=5, pady=0, cursor="hand2")
         r_opgg.pack(side="left", padx=2)
         tk.Label(rz, text="➡", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_MUT).pack(side="left", padx=4)
         rpi = tk.Label(rz, bg=theme.TEAM_RED_SOFT)
         rpi.pack(side="left", padx=4)
-        rtr = tk.Label(rz, text="", bg=theme.TEAM_RED_SOFT, fg=theme.GOLD, font=("Malgun Gothic", 11, "bold"))
+        rtr = tk.Label(rz, text="", bg=theme.TEAM_RED_SOFT, fg=theme.GOLD, font=UF(11, "bold"))
         rtr.pack(side="left", padx=(2, 0))
         rem = tk.Label(rz, bg=theme.TEAM_RED_SOFT)   # 🎨 [v81.93] '내 꾸미기' 엠블럼(내 칸에만)
         rem.pack(side="right", padx=(0, 6))
@@ -9166,7 +9217,7 @@ def create_graphic_ui():
             # 🚫 [v81.76] 추천 밴 10개 → 5개씩 2줄(grid). 가로 한 줄로 늘어지지 않게.
             for widget in blue_ban_frame.winfo_children(): widget.destroy()
             if not local_b_advice:
-                tk.Label(blue_ban_frame, text="자유 밴", bg=theme.TEAM_BLUE_BG, fg=theme.TEAM_BLUE_FG, font=("Malgun Gothic", 11, "bold")).grid(row=0, column=0, sticky="w")
+                tk.Label(blue_ban_frame, text="자유 밴", bg=theme.TEAM_BLUE_BG, fg=theme.TEAM_BLUE_FG, font=UF(11, "bold")).grid(row=0, column=0, sticky="w")
             else:
                 for _bi, champ_name in enumerate(local_b_advice):
                     _r, _c = divmod(_bi, 5)
@@ -9176,12 +9227,12 @@ def create_graphic_ui():
                         lbl.image = img
                         lbl.grid(row=_r, column=_c, padx=2, pady=1)
                     else:
-                        tk.Label(blue_ban_frame, text=champ_name, bg=theme.TEAM_BLUE_BG, fg=theme.TEAM_BLUE_FG, font=("Malgun Gothic", 10, "bold")).grid(row=_r, column=_c, padx=2, pady=1)
+                        tk.Label(blue_ban_frame, text=champ_name, bg=theme.TEAM_BLUE_BG, fg=theme.TEAM_BLUE_FG, font=UF(10, "bold")).grid(row=_r, column=_c, padx=2, pady=1)
 
             red_title_lbl.config(text=f"🟥 RED TEAM (예상 승률: {local_r_wr}%) | 밴 추천: ")
             for widget in red_ban_frame.winfo_children(): widget.destroy()
             if not local_r_advice:
-                tk.Label(red_ban_frame, text="자유 밴", bg=theme.TEAM_RED_BG, fg=theme.TEAM_RED_FG, font=("Malgun Gothic", 11, "bold")).grid(row=0, column=0, sticky="w")
+                tk.Label(red_ban_frame, text="자유 밴", bg=theme.TEAM_RED_BG, fg=theme.TEAM_RED_FG, font=UF(11, "bold")).grid(row=0, column=0, sticky="w")
             else:
                 for _ri, champ_name in enumerate(local_r_advice):
                     _r, _c = divmod(_ri, 5)      # [v81.76] 5개씩 2줄
@@ -9191,7 +9242,7 @@ def create_graphic_ui():
                         lbl.image = img
                         lbl.grid(row=_r, column=_c, padx=2, pady=1)
                     else:
-                        tk.Label(red_ban_frame, text=champ_name, bg=theme.TEAM_RED_BG, fg=theme.TEAM_RED_FG, font=("Malgun Gothic", 10, "bold")).grid(row=_r, column=_c, padx=2, pady=1)
+                        tk.Label(red_ban_frame, text=champ_name, bg=theme.TEAM_RED_BG, fg=theme.TEAM_RED_FG, font=UF(10, "bold")).grid(row=_r, column=_c, padx=2, pady=1)
 
             if ad_list:
                 current_time = time.time()
@@ -9284,14 +9335,14 @@ def create_graphic_ui():
                             lbl = tk.Label(blue_slots[i][5], image=img, bg=theme.TEAM_BLUE_SOFT)
                             lbl.image = img; lbl.pack(side="left", padx=2)
                         else:
-                            tk.Label(blue_slots[i][5], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10)).pack(side="left", padx=2)
+                            tk.Label(blue_slots[i][5], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
 
                     blue_slots[i][8].config(text=" 고승률픽" + _pos_tag + ": ")
                     for widget in blue_slots[i][7].winfo_children():
                         if widget != blue_slots[i][8]: widget.destroy()
                     
                     op_list = _op_disp
-                    if not op_list: tk.Label(blue_slots[i][7], text="없음", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10)).pack(side="left", padx=2)
+                    if not op_list: tk.Label(blue_slots[i][7], text="없음", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
                     else:
                         for champ_info in op_list[:5]:   # [시인성] 고승률픽 초상화만(승률·판수 텍스트 제거)
                             img = load_champion_image(champ_info["name"])
@@ -9299,7 +9350,7 @@ def create_graphic_ui():
                                 lbl = tk.Label(blue_slots[i][7], image=img, bg=theme.TEAM_BLUE_SOFT)
                                 lbl.image = img; lbl.pack(side="left", padx=2)
                             else:
-                                tk.Label(blue_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10)).pack(side="left", padx=2)
+                                tk.Label(blue_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
                     # [시인성] 진영승률 표기 제거
 
                     fatal_bans = s.get("fatal_bans", [])
@@ -9361,14 +9412,14 @@ def create_graphic_ui():
                             lbl = tk.Label(red_slots[i][5], image=img, bg=theme.TEAM_RED_SOFT)
                             lbl.image = img; lbl.pack(side="left", padx=2)
                         else:
-                            tk.Label(red_slots[i][5], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10)).pack(side="left", padx=2)
+                            tk.Label(red_slots[i][5], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
 
                     red_slots[i][8].config(text=" 고승률픽" + _pos_tag + ": ")
                     for widget in red_slots[i][7].winfo_children():
                         if widget != red_slots[i][8]: widget.destroy()
                     
                     op_list = _op_disp
-                    if not op_list: tk.Label(red_slots[i][7], text="없음", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10)).pack(side="left", padx=2)
+                    if not op_list: tk.Label(red_slots[i][7], text="없음", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
                     else:
                         for champ_info in op_list[:5]:   # [시인성] 고승률픽 초상화만(승률·판수 텍스트 제거)
                             img = load_champion_image(champ_info["name"])
@@ -9376,7 +9427,7 @@ def create_graphic_ui():
                                 lbl = tk.Label(red_slots[i][7], image=img, bg=theme.TEAM_RED_SOFT)
                                 lbl.image = img; lbl.pack(side="left", padx=2)
                             else:
-                                tk.Label(red_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10)).pack(side="left", padx=2)
+                                tk.Label(red_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
                     # [시인성] 진영승률 표기 제거
 
                     fatal_bans = s.get("fatal_bans", [])
@@ -9510,9 +9561,9 @@ def create_graphic_ui():
             sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
             win.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
             fr = tk.Frame(win, bg=theme.BG_BAR, highlightbackground=theme.GOLD, highlightthickness=2); fr.pack(fill="both", expand=True)
-            tk.Label(fr, text="🔄  새 버전으로 업데이트 중", bg=theme.BG_BAR, fg=theme.GOLD, font=("Malgun Gothic", 15, "bold")).pack(pady=(24, 6))
-            tk.Label(fr, text="잠시 후 프로그램이 자동으로 다시 시작됩니다.", bg=theme.BG_BAR, fg=theme.TEXT, font=("Malgun Gothic", 11)).pack()
-            tk.Label(fr, text="(창이 잠깐 닫혔다가 새 버전으로 켜집니다 — 정상입니다)", bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=("Malgun Gothic", 9)).pack(pady=(6, 0))
+            tk.Label(fr, text="🔄  새 버전으로 업데이트 중", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(15, "bold")).pack(pady=(24, 6))
+            tk.Label(fr, text="잠시 후 프로그램이 자동으로 다시 시작됩니다.", bg=theme.BG_BAR, fg=theme.TEXT, font=UF(11)).pack()
+            tk.Label(fr, text="(창이 잠깐 닫혔다가 새 버전으로 켜집니다 — 정상입니다)", bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=UF(9)).pack(pady=(6, 0))
             win.update()
         except Exception: pass
     def _poll_update_exit():
@@ -9548,19 +9599,19 @@ class ClanRankingWindow(tk.Toplevel):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=60)
         top_bar.pack(fill="x", side="top")
         
-        self.title_lbl = tk.Label(top_bar, text=self.title_text, bg=theme.BG_BAR, fg=theme.GOLD, font=("Malgun Gothic", 16, "bold"))
+        self.title_lbl = tk.Label(top_bar, text=self.title_text, bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold"))
         self.title_lbl.pack(side="left", padx=20, pady=15)
 
         btn_frame = tk.Frame(top_bar, bg=theme.BG_BAR)
         btn_frame.pack(side="right", padx=20, pady=15)
 
-        self.btn_refresh = tk.Button(btn_frame, text="데이터 갱신", font=("Malgun Gothic", 10, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=12, pady=4, cursor="hand2", command=self.refresh_action)
+        self.btn_refresh = tk.Button(btn_frame, text="데이터 갱신", font=UF(10, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=12, pady=4, cursor="hand2", command=self.refresh_action)
         self.btn_refresh.pack(side="right", padx=5)
 
-        tk.Label(btn_frame, text="메타(패치) 필터:", bg=theme.BG_BAR, fg=theme.TEXT, font=("Malgun Gothic", 10)).pack(side="left", padx=5)
+        tk.Label(btn_frame, text="메타(패치) 필터:", bg=theme.BG_BAR, fg=theme.TEXT, font=UF(10)).pack(side="left", padx=5)
 
         self.ver_var = tk.StringVar()
-        self.ver_combo = ttk.Combobox(btn_frame, textvariable=self.ver_var, state="readonly", width=12, font=("Malgun Gothic", 10))
+        self.ver_combo = ttk.Combobox(btn_frame, textvariable=self.ver_var, state="readonly", width=12, font=UF(10))
         self.ver_combo.bind("<<ComboboxSelected>>", self.switch_version)
         self.ver_combo.pack(side="left", padx=5)
 
@@ -9569,12 +9620,12 @@ class ClanRankingWindow(tk.Toplevel):
         self.cat_frame.pack(fill="x", padx=20, pady=(8, 0))
         self.cat_btns = {}
         for c_key, c_kor in [("CLASSIC", "협곡"), ("ARAM", "칼바람")]:
-            cb = tk.Button(self.cat_frame, text=c_kor, font=("Malgun Gothic", 11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=22, pady=5, cursor="hand2", command=lambda k=c_key: self.switch_mode(k))
+            cb = tk.Button(self.cat_frame, text=c_kor, font=UF(11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=22, pady=5, cursor="hand2", command=lambda k=c_key: self.switch_mode(k))
             cb.pack(side="left", padx=(0, 6))
             self.cat_btns[c_key] = cb
         # 🏅 [v82.22] 기록실 토글 — 킬/데스/어시/딜량/AI점수 단일게임·누적 랭킹
         self.records_mode = False
-        self.btn_records = tk.Button(self.cat_frame, text="🏅 기록실", font=("Malgun Gothic", 11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=22, pady=5, cursor="hand2", command=self.toggle_records)
+        self.btn_records = tk.Button(self.cat_frame, text="🏅 기록실", font=UF(11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=22, pady=5, cursor="hand2", command=self.toggle_records)
         self.btn_records.pack(side="left", padx=(18, 0))
 
         # 포지션 필터(협곡 전용) — 항상 생성하고 모드에 따라 pack/pack_forget
@@ -9582,7 +9633,7 @@ class ClanRankingWindow(tk.Toplevel):
         self.pos_btns = {}
         pos_list = [("ALL", "통합"), ("TOP", "탑"), ("JUNGLE", "정글"), ("MIDDLE", "미드"), ("BOTTOM", "원딜"), ("UTILITY", "서폿")]
         for p_key, p_kor in pos_list:
-            btn = tk.Button(self.pos_frame, text=p_kor, font=("Malgun Gothic", 11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=15, pady=4, cursor="hand2", command=lambda k=p_key: self.switch_pos(k))
+            btn = tk.Button(self.pos_frame, text=p_kor, font=UF(11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=15, pady=4, cursor="hand2", command=lambda k=p_key: self.switch_pos(k))
             btn.pack(side="left", padx=5)
             self.pos_btns[p_key] = btn
         self._apply_mode_ui()
@@ -9603,7 +9654,7 @@ class ClanRankingWindow(tk.Toplevel):
 
         bot_bar = tk.Frame(self, bg=theme.BG, height=50)
         bot_bar.pack(fill="x", side="bottom")
-        tk.Button(bot_bar, text="닫기", font=("Malgun Gothic", 11, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2", command=self.destroy).pack(pady=10)
+        tk.Button(bot_bar, text="닫기", font=UF(11, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2", command=self.destroy).pack(pady=10)
 
     def _apply_mode_ui(self):
         # 카테고리 버튼 하이라이트 + 포지션 필터(협곡·종합랭킹에서만 노출)
@@ -9778,8 +9829,8 @@ class ClanRankingWindow(tk.Toplevel):
         for idx, (title, color, entries) in enumerate(cards):
             card = tk.Frame(inner, bg=theme.BG_BAR)
             card.grid(row=idx // 2, column=idx % 2, sticky="nsew", padx=8, pady=8)
-            tk.Label(card, text=f"{title} TOP 10", bg=theme.BG_CARD, fg=color, font=("Malgun Gothic", 12, "bold"), anchor="w", padx=12, pady=6).pack(fill="x")
-            box = tk.Text(card, bg=theme.BG_CARD, fg=theme.TEXT, font=("Malgun Gothic", 10), bd=0, highlightthickness=0, padx=12, pady=10, height=11)
+            tk.Label(card, text=f"{title} TOP 10", bg=theme.BG_CARD, fg=color, font=UF(12, "bold"), anchor="w", padx=12, pady=6).pack(fill="x")
+            box = tk.Text(card, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(10), bd=0, highlightthickness=0, padx=12, pady=10, height=11)
             top = sorted(entries, key=lambda x: -x[0])[:10]
             if not top:
                 box.insert(tk.END, "\n 💤 기록 데이터가 부족합니다.")
@@ -9851,8 +9902,8 @@ class ClanRankingWindow(tk.Toplevel):
                 if self.mode == "ARAM" and stat_type in ["total", "wr"]: header_fg = theme.TEAM_BLUE_FG
                 
                 lbl_f = tk.Frame(card, bg=header_bg, height=35); lbl_f.pack(fill="x")
-                tk.Label(lbl_f, text=title, bg=header_bg, fg=header_fg, font=("Malgun Gothic", 12, "bold")).pack(anchor="w", padx=12, pady=6)
-                box = tk.Text(card, bg=theme.BG_CARD, fg=theme.TEXT, font=("Malgun Gothic", 10), bd=0, highlightthickness=0, padx=12, pady=12); box.pack(fill="both", expand=True)
+                tk.Label(lbl_f, text=title, bg=header_bg, fg=header_fg, font=UF(12, "bold")).pack(anchor="w", padx=12, pady=6)
+                box = tk.Text(card, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(10), bd=0, highlightthickness=0, padx=12, pady=12); box.pack(fill="both", expand=True)
                 
                 if not lst:
                     box.insert(tk.END, f"\n 💤 기준({min_games_wr if stat_type == 'wr' else min_games_eval}판)을 충족하는 유저 데이터가 부족합니다.")
@@ -9901,11 +9952,11 @@ class TierAssessmentWindow(tk.Toplevel):
     def create_widgets(self):
         top = tk.Frame(self, bg=theme.BG_BAR, height=58)
         top.pack(fill="x", side="top")
-        tk.Label(top, text="🎖 내부티어 평가", bg=theme.BG_BAR, fg=theme.GOLD, font=("Malgun Gothic", 16, "bold")).pack(side="left", padx=20, pady=14)
-        self.btn_refresh = tk.Button(top, text="데이터 갱신", font=("Malgun Gothic", 10, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=12, pady=4, cursor="hand2", command=self.refresh_action)
+        tk.Label(top, text="🎖 내부티어 평가", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold")).pack(side="left", padx=20, pady=14)
+        self.btn_refresh = tk.Button(top, text="데이터 갱신", font=UF(10, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=12, pady=4, cursor="hand2", command=self.refresh_action)
         self.btn_refresh.pack(side="right", padx=20, pady=14)
         tk.Label(top, text="기준: 협곡 전체 · 같은 내부티어 평균 대비 (승률×1 + MVP율×0.5 − 역적율×0.5, ±7)   ·   ℹ MVP율 = (MVP + ACE×0.5) / 평가판 — 진팀 ACE도 MVP의 절반으로 합산됩니다",
-                 bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=("Malgun Gothic", 9)).pack(side="right", padx=8)
+                 bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=UF(9)).pack(side="right", padx=8)
 
         body = tk.Frame(self, bg=theme.BG)
         body.pack(fill="both", expand=True, padx=16, pady=10)
@@ -9926,7 +9977,7 @@ class TierAssessmentWindow(tk.Toplevel):
 
         bot = tk.Frame(self, bg=theme.BG, height=46)
         bot.pack(fill="x", side="bottom")
-        tk.Button(bot, text="닫기", font=("Malgun Gothic", 11, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2", command=self._close).pack(pady=8)
+        tk.Button(bot, text="닫기", font=UF(11, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2", command=self._close).pack(pady=8)
 
     def _close(self):
         try: self.canvas.unbind_all("<MouseWheel>")
@@ -9947,7 +9998,7 @@ class TierAssessmentWindow(tk.Toplevel):
             assessments, tier_avg = compute_tier_assessment()
             if not assessments:
                 tk.Label(self.inner, text="데이터를 불러오는 중입니다. 데이터 갱신을 눌러주세요.",
-                         bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 12)).pack(pady=50)
+                         bg=theme.BG, fg=theme.TEXT_SUB, font=UF(12)).pack(pady=50)
                 return
             by_tier = {}
             for a in assessments: by_tier.setdefault(a["tier"], []).append(a)
@@ -9955,7 +10006,7 @@ class TierAssessmentWindow(tk.Toplevel):
             order_label = {"고평가": 0, "저평가": 1, "적절": 2, "표본부족": 3}
 
             tk.Label(self.inner, text="🔵저평가 = 클랜 전체 성적이 현 티어보다 2등급↑ 위(승격 후보)   🟢적절 = 티어와 비슷(±0.5티어)   🔴고평가 = 2등급↑ 아래   ·   🎯전체 상위 X% = 클랜 전체 종합실력 순위",
-                     bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), anchor="w").pack(fill="x", padx=4, pady=(0, 6))
+                     bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), anchor="w").pack(fill="x", padx=4, pady=(0, 6))
 
             for t in self.TIER_ORDER:
                 members = by_tier.get(t, [])
@@ -9963,7 +10014,7 @@ class TierAssessmentWindow(tk.Toplevel):
                 avg = tier_avg.get(t, {})
                 hdr = tk.Frame(self.inner, bg=theme.BG_BAR)
                 hdr.pack(fill="x", pady=(10, 2))
-                tk.Label(hdr, text=f"  [{t}]", bg=theme.BG_BAR, fg=theme.GOLD, font=("Malgun Gothic", 13, "bold")).pack(side="left", padx=(6, 0), pady=5)
+                tk.Label(hdr, text=f"  [{t}]", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(13, "bold")).pack(side="left", padx=(6, 0), pady=5)
                 if avg.get("wr") is not None:
                     avg_txt = f"동티어 평균 — 승률 {round(avg['wr'])}%"
                     if avg.get("mvp") is not None: avg_txt += f" · MVP율 {round(avg['mvp'])}%"
@@ -9971,24 +10022,24 @@ class TierAssessmentWindow(tk.Toplevel):
                     avg_txt += f"  ·  표본 {avg.get('n', 0)}명"
                 else:
                     avg_txt = "동티어 표본 부족"
-                tk.Label(hdr, text=avg_txt, bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10)).pack(side="left", padx=8, pady=5)
+                tk.Label(hdr, text=avg_txt, bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=8, pady=5)
 
                 members.sort(key=lambda x: (order_label.get(x["label"], 9), x.get("implPct", 999)))
                 for a in members:
                     row = tk.Frame(self.inner, bg=theme.BG_CARD)
                     row.pack(fill="x", pady=1, padx=2)
                     nm = str(a["name"]).split("#")[0]
-                    tk.Label(row, text=nm, bg=theme.BG_CARD, fg=theme.TEXT, font=("Malgun Gothic", 11, "bold"), width=16, anchor="w").pack(side="left", padx=(10, 4), pady=5)
+                    tk.Label(row, text=nm, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(11, "bold"), width=16, anchor="w").pack(side="left", padx=(10, 4), pady=5)
                     _pos = position_label(a["name"])   # 선언 포지션(디스코드 역할 → CLAN_POSITIONS 시트)
                     if _pos:
                         tk.Label(row, text=f" {_pos} ", bg=theme.BG_RAISED, fg=theme.TEAM_BLUE_FG,
-                                 font=("Malgun Gothic", 9, "bold")).pack(side="left", padx=(0, 4))
+                                 font=UF(9, "bold")).pack(side="left", padx=(0, 4))
                     if a.get("title"):   # 🗡 상현(1~3위) / 🌙 하현(4~6위) 십이귀월 정예 타이틀
                         _isup = "상현" in str(a["title"])
                         tk.Label(row, text=f" {'🗡' if _isup else '🌙'} {a['title']} ",
                                  bg=(theme.TEAM_RED_BG if _isup else theme.BG_RAISED), fg=(theme.GOLD if _isup else theme.TEXT),
-                                 font=("Malgun Gothic", 10, "bold")).pack(side="left", padx=(0, 4))
-                    tk.Label(row, text=f" {a['label']} ", bg=theme.BG, fg=label_color.get(a["label"], theme.TEXT), font=("Malgun Gothic", 10, "bold")).pack(side="left", padx=4)
+                                 font=UF(10, "bold")).pack(side="left", padx=(0, 4))
+                    tk.Label(row, text=f" {a['label']} ", bg=theme.BG, fg=label_color.get(a["label"], theme.TEXT), font=UF(10, "bold")).pack(side="left", padx=4)
                     d = a.get("detail")
                     if d:
                         det = (f"🎯 전체 상위 {a['implPct']}%   ·   " if a.get("implPct") is not None else "") + f"승률 {d['wr']}%(동티어 {d.get('wrAvg','—')}%)"
@@ -9999,10 +10050,10 @@ class TierAssessmentWindow(tk.Toplevel):
                         if d.get("ace") is not None: det += f"   ·   ACE율 {d['ace']}%(패배중)"
                     else:
                         det = f"{a['games']}판 — 평가엔 10판 이상 필요"
-                    tk.Label(row, text=det, bg=theme.BG_CARD, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), anchor="w").pack(side="left", padx=8)
+                    tk.Label(row, text=det, bg=theme.BG_CARD, fg=theme.TEXT_SUB, font=UF(10), anchor="w").pack(side="left", padx=8)
         except Exception as e:
             for w in self.inner.winfo_children(): w.destroy()
-            tk.Label(self.inner, text=f"표시 중 오류 — 잠시 후 🔄 갱신을 눌러주세요.\n({e})", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 11)).pack(pady=40)
+            tk.Label(self.inner, text=f"표시 중 오류 — 잠시 후 🔄 갱신을 눌러주세요.\n({e})", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(11)).pack(pady=40)
 
 class PatchNoteWindow(tk.Toplevel):
     def __init__(self, parent):
@@ -10014,8 +10065,8 @@ class PatchNoteWindow(tk.Toplevel):
         self.create_widgets()
 
     def create_widgets(self):
-        tk.Label(self, text="📜 스쿼드해체분석기 버전별 업데이트 기록", bg=theme.BG_BAR, fg=theme.GOLD, font=("Malgun Gothic", 16, "bold"), pady=15).pack(fill="x")
-        txt = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT, font=("Malgun Gothic", 11), padx=15, pady=15, bd=0)
+        tk.Label(self, text="📜 스쿼드해체분석기 버전별 업데이트 기록", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold"), pady=15).pack(fill="x")
+        txt = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(11), padx=15, pady=15, bd=0)
         txt.pack(fill="both", expand=True, padx=20, pady=10)
         
         notes = [
@@ -10074,7 +10125,7 @@ class PatchNoteWindow(tk.Toplevel):
             if line.startswith("["): txt.insert(tk.END, line + "\n", "title")
             else: txt.insert(tk.END, line + "\n\n" + "-"*50 + "\n\n")
         
-        txt.tag_config("title", foreground=theme.TEAM_BLUE_FG, font=("Malgun Gothic", 12, "bold"))
+        txt.tag_config("title", foreground=theme.TEAM_BLUE_FG, font=UF(12, "bold"))
         txt.configure(state="disabled")
 
 class ClanSettingsWindow(tk.Toplevel):
@@ -10090,7 +10141,7 @@ class ClanSettingsWindow(tk.Toplevel):
     def create_widgets(self):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=55)
         top_bar.pack(fill="x", side="top")
-        tk.Label(top_bar, text="⚙ 환경 설정 (SETTINGS)", bg=theme.BG_BAR, fg=theme.GOLD, font=("Malgun Gothic", 14, "bold")).pack(side="left", padx=20, pady=12)
+        tk.Label(top_bar, text="⚙ 환경 설정 (SETTINGS)", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(14, "bold")).pack(side="left", padx=20, pady=12)
 
         # 🐞 [2026-08-12 사장님 제보 '체크를 꺼도 다시 켜져 있다'] 원인은 저장이 아니라 배치였다.
         #   Tk packer 는 순서대로 요청 크기를 나눠 준다. 본문(body_frame)이 먼저 packed 되고 옵션이
@@ -10100,7 +10151,7 @@ class ClanSettingsWindow(tk.Toplevel):
         #   ② 본문을 스크롤 가능하게 만들어, 앞으로 옵션이 더 늘어도 같은 사고가 안 나게 한다.
         bot_bar = tk.Frame(self, bg=theme.BG, height=56); bot_bar.pack(fill="x", side="bottom")
         bot_bar.pack_propagate(False)
-        tk.Button(bot_bar, text="설정 및 저장", font=("Malgun Gothic", 11, "bold"), bg=theme.TEAM_RED_BG,
+        tk.Button(bot_bar, text="설정 및 저장", font=UF(11, "bold"), bg=theme.TEAM_RED_BG,
                   fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2",
                   command=self.apply_settings).pack(pady=11)
 
@@ -10117,7 +10168,7 @@ class ClanSettingsWindow(tk.Toplevel):
         body_frame.configure(padx=25, pady=20)
         
         style = ttk.Style()
-        style.configure("TCheckbutton", background=theme.BG, foreground=theme.TEXT, font=("Malgun Gothic", 10))
+        style.configure("TCheckbutton", background=theme.BG, foreground=theme.TEXT, font=UF(10))
         
         self.var_startup = tk.BooleanVar(value=APP_CONFIG.get("windows_startup", False))
         self.var_lol_auto = tk.BooleanVar(value=APP_CONFIG.get("lol_auto_show", True))
@@ -10131,63 +10182,63 @@ class ClanSettingsWindow(tk.Toplevel):
         opt_f1 = tk.Frame(body_frame, bg=theme.BG); opt_f1.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_f1, variable=self.var_startup, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_f1 = tk.Frame(opt_f1, bg=theme.BG); txt_f1.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_f1, text="컴퓨터 부팅 시 스텔스(숨김) 자동 실행", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
-        tk.Label(txt_f1, text="백그라운드에 숨어 대기하며 리소스를 최소화합니다.", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+        tk.Label(txt_f1, text="컴퓨터 부팅 시 스텔스(숨김) 자동 실행", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_f1, text="백그라운드에 숨어 대기하며 리소스를 최소화합니다.", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
         # 🔎 [2026-08-12] 체크박스는 '내 의도'일 뿐이고 실제로 등록됐는지는 별개다 — 진짜 상태를 그대로 보여준다
         _reg = startup_registered()
         _same = (_reg == startup_cmdline())
         tk.Label(txt_f1,
                  text=("✅ 현재 등록됨" if _same else (f"⚠️ 등록값이 지금 실행 파일과 다릅니다 — {_reg}" if _reg else "⛔ 현재 등록 안 됨")),
                  bg=theme.BG, fg=("#5ad48a" if _same else ("#ffb347" if _reg else "#ff8a8a")),
-                 font=("Malgun Gothic", 9), wraplength=430, justify="left").pack(anchor="w")
+                 font=UF(9), wraplength=430, justify="left").pack(anchor="w")
 
         opt_f2 = tk.Frame(body_frame, bg=theme.BG); opt_f2.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_f2, variable=self.var_lol_auto, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_f2 = tk.Frame(opt_f2, bg=theme.BG); txt_f2.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_f2, text="롤 클라이언트 켜질 때 자동 팝업", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
+        tk.Label(txt_f2, text="롤 클라이언트 켜질 때 자동 팝업", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
         tk.Label(txt_f2, text="이미 실행 중인(숨겨진) 분석기를 화면에 띄웁니다. 분석기가 아예 꺼져 있으면 "
                              "롤을 켜도 아무 일도 일어나지 않아요 — 위의 '부팅 시 자동 실행'을 함께 켜 주세요.",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         opt_f3 = tk.Frame(body_frame, bg=theme.BG); opt_f3.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_f3, variable=self.var_tray, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_f3 = tk.Frame(opt_f3, bg=theme.BG); txt_f3.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_f3, text="닫기(X) 시 트레이로 최소화", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
-        tk.Label(txt_f3, text="끄면(기본) X로 완전 종료 · 켜면 트레이에서 백그라운드 실행 (재시작 후 적용)", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+        tk.Label(txt_f3, text="닫기(X) 시 트레이로 최소화", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_f3, text="끄면(기본) X로 완전 종료 · 켜면 트레이에서 백그라운드 실행 (재시작 후 적용)", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         # 🧩 [2026-08-12 사장님 지시] 우측 시너지 3칸 접기 — 끄면 두 팀 칸이 그만큼 넓어진다
         opt_sy = tk.Frame(body_frame, bg=theme.BG); opt_sy.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_sy, variable=self.var_syn, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_sy = tk.Frame(opt_sy, bg=theme.BG); txt_sy.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_sy, text="우측 시너지 3칸 표시", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
+        tk.Label(txt_sy, text="우측 시너지 3칸 표시", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
         tk.Label(txt_sy, text="고승률 시너지·역시너지 경보·천적 관계 칸입니다. 끄면 그 열이 사라지고 "
                              "블루/레드 팀 칸이 넓어져 더 컴팩트하게 씁니다. (저장 즉시 적용)",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         # 🎯 [v82.37] 대기실 모스트 표시 기본값 — 켜면 '현재포지션', 끄면 '전체라인'으로 시작
         opt_pv = tk.Frame(body_frame, bg=theme.BG); opt_pv.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_pv, variable=self.var_posview, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_pv = tk.Frame(opt_pv, bg=theme.BG); txt_pv.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_pv, text="대기실 모스트를 '현재 포지션' 기준으로 표시", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
+        tk.Label(txt_pv, text="대기실 모스트를 '현재 포지션' 기준으로 표시", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
         tk.Label(txt_pv, text="켜면 각자 선택한 포지션의 모스트·고승률픽만, 끄면 전체 라인 기준으로 보여줍니다. (상단 버튼으로 언제든 전환 가능)",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         # 🖥 [v82.85] 로딩 화면 정보 오버레이 온오프
         opt_lo = tk.Frame(body_frame, bg=theme.BG); opt_lo.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_lo, variable=self.var_loadovl, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_lo = tk.Frame(opt_lo, bg=theme.BG); txt_lo.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_lo, text="로딩 화면 정보 오버레이", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
+        tk.Label(txt_lo, text="로딩 화면 정보 오버레이", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
         tk.Label(txt_lo, text="게임 로딩 중 각 챔피언 초상화 위에 소환사명·내부티어·내전 전적 칩을 표시합니다. 끄면 즉시 반영됩니다.",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         # 🕸 [2026-08-12] 칩은 로딩 카드 폭(화면의 13%)에 묶여 있어 초상화·육각형·글자가 다 들어가지 않는다.
         #   기본은 글자 우선(끔). 켜면 육각형을 넣되 남는 글자 폭이 줄어 문구가 잘릴 수 있다.
         opt_lh = tk.Frame(body_frame, bg=theme.BG); opt_lh.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_lh, variable=self.var_loadhex, style="TCheckbutton").pack(side="right", padx=(8, 6))
         txt_lh = tk.Frame(opt_lh, bg=theme.BG); txt_lh.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_lh, text="오버레이에 육각형 능력치 표시", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
+        tk.Label(txt_lh, text="오버레이에 육각형 능력치 표시", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
         tk.Label(txt_lh, text="칩 오른쪽에 6축 육각형을 함께 그립니다. 칩이 좁아 글자가 잘릴 수 있어 기본은 꺼짐입니다(FHD 권장: 꺼짐).",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
         opt_f4 = tk.Frame(body_frame, bg=theme.BG); opt_f4.pack(fill="x", pady=10)
@@ -10195,19 +10246,19 @@ class ClanSettingsWindow(tk.Toplevel):
         _cur_label = next((lb for k, lb in WIN_PRESET_CHOICES if k == _cur_key), WIN_PRESET_CHOICES[0][1])
         self.var_preset = tk.StringVar(value=_cur_label)
         cb_preset = ttk.Combobox(opt_f4, textvariable=self.var_preset, state="readonly", width=18,
-                                 values=[lb for _k, lb in WIN_PRESET_CHOICES], font=("Malgun Gothic", 10))
+                                 values=[lb for _k, lb in WIN_PRESET_CHOICES], font=UF(10))
         cb_preset.pack(side="right", padx=(8, 6))
         txt_f4 = tk.Frame(opt_f4, bg=theme.BG); txt_f4.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_f4, text="창 크기 프리셋", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
-        tk.Label(txt_f4, text="화면·취향에 맞는 창 크기를 고르세요. 저장 즉시 적용되며 다음 실행에도 유지됩니다.", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=380, justify="left").pack(anchor="w", pady=4)
+        tk.Label(txt_f4, text="창 크기 프리셋", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_f4, text="화면·취향에 맞는 창 크기를 고르세요. 저장 즉시 적용되며 다음 실행에도 유지됩니다.", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=380, justify="left").pack(anchor="w", pady=4)
 
         # 🧠 [v82.33] 고스트밴픽왕 구독 토큰 — 호스트(키 보유)는 비워도 됨. 구독자는 디스코드 /구독 토큰 붙여넣기.
         opt_f5 = tk.Frame(body_frame, bg=theme.BG); opt_f5.pack(fill="x", pady=10)
         txt_f5 = tk.Frame(opt_f5, bg=theme.BG); txt_f5.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_f5, text="🧠 고스트밴픽왕 구독 토큰", bg=theme.BG, fg=theme.TEXT, font=("Malgun Gothic", 12, "bold")).pack(anchor="w")
-        tk.Label(txt_f5, text="디스코드에서 /구독 으로 받은 토큰을 붙여넣으세요. 내 밴/픽 차례에 AI 추천이 뜹니다.", bg=theme.BG, fg=theme.TEXT_SUB, font=("Malgun Gothic", 10), wraplength=500, justify="left").pack(anchor="w", pady=4)
+        tk.Label(txt_f5, text="🧠 고스트밴픽왕 구독 토큰", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_f5, text="디스코드에서 /구독 으로 받은 토큰을 붙여넣으세요. 내 밴/픽 차례에 AI 추천이 뜹니다.", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=500, justify="left").pack(anchor="w", pady=4)
         self.var_coach = tk.StringVar(value=APP_CONFIG.get("coach_token", ""))
-        tk.Entry(txt_f5, textvariable=self.var_coach, font=("Consolas", 11), width=46,
+        tk.Entry(txt_f5, textvariable=self.var_coach, font=UF(11, family="Consolas"), width=46,
                  bg=theme.BG_RAISED, fg=theme.TEXT, insertbackground=theme.TEXT, relief="flat").pack(anchor="w", pady=(4, 0), ipady=3)
 
 
@@ -10313,15 +10364,15 @@ class GuideWindow(tk.Toplevel):
 
     def create_widgets(self):
         tk.Label(self, text="📖 스쿼드해체분석기 사용 안내", bg=theme.BG_BAR, fg=theme.GOLD,
-                 font=("Malgun Gothic", 16, "bold"), pady=15).pack(fill="x")
+                 font=UF(16, "bold"), pady=15).pack(fill="x")
         txt = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT,
-                                        font=("Malgun Gothic", 11), padx=22, pady=18, bd=0,
+                                        font=UF(11), padx=22, pady=18, bd=0,
                                         highlightthickness=0, wrap="word", spacing3=4)
         txt.pack(fill="both", expand=True)
-        txt.tag_configure("sec", foreground=theme.GOLD, font=("Malgun Gothic", 11, "bold"),
+        txt.tag_configure("sec", foreground=theme.GOLD, font=UF(11, "bold"),
                           spacing1=14, spacing3=6)
-        txt.tag_configure("h", foreground=theme.TEXT, font=("Malgun Gothic", 11, "bold"), spacing1=8)
-        txt.tag_configure("b", foreground=theme.TEXT_SUB, font=("Malgun Gothic", 10),
+        txt.tag_configure("h", foreground=theme.TEXT, font=UF(11, "bold"), spacing1=8)
+        txt.tag_configure("b", foreground=theme.TEXT_SUB, font=UF(10),
                           lmargin1=14, lmargin2=14, spacing3=6)
         for head, body in self.GUIDE:
             if body is None:
@@ -10345,8 +10396,8 @@ class OnlineUsersWindow(tk.Toplevel):
     def create_widgets(self):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=50)
         top_bar.pack(fill="x", side="top")
-        tk.Label(top_bar, text="👥 실시간 접속자 현황", bg=theme.BG_BAR, fg=theme.SUCCESS, font=("Malgun Gothic", 14, "bold")).pack(side="left", padx=20, pady=10)
-        self.list_box = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT, font=("Malgun Gothic", 11), bd=0, highlightthickness=0, padx=15, pady=15)
+        tk.Label(top_bar, text="👥 실시간 접속자 현황", bg=theme.BG_BAR, fg=theme.SUCCESS, font=UF(14, "bold")).pack(side="left", padx=20, pady=10)
+        self.list_box = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(11), bd=0, highlightthickness=0, padx=15, pady=15)
         self.list_box.pack(fill="both", expand=True, padx=20, pady=20)
         self.list_box.insert(tk.END, "📡 통신 중... 데이터를 불러옵니다.")
         self.list_box.configure(state="disabled")
