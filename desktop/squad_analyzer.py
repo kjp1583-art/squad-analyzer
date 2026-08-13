@@ -2798,7 +2798,7 @@ def _dock_overlay(w):
         y = max(0, rect[1] + 60)
         w.geometry("+%d+%d" % (x, y))
     except Exception: pass
-DRAWER_ALPHA = 0.75      # ☰ 서랍 불투명도 — 낮을수록 뒤가 잘 비친다
+DRAWER_ALPHA = 0.93      # ☰ 서랍 불투명도 — 낮을수록 뒤가 잘 비친다 (0.75 는 사장님이 별로라 하여 롤백)
 # 💝 후원 계좌 — squad.gg 고스트밴픽왕 소개 페이지(coach.html)에 이미 공개된 것과 같은 계좌.
 #   바뀌면 여기 세 줄만 고치면 된다(설정 파일로 덮어쓸 수도 있게 load_config 값을 우선한다).
 DONATE_BANK, DONATE_ACCT, DONATE_NAME = "토스뱅크", "1000-2535-5662", "박상준"
@@ -10091,8 +10091,30 @@ class ClanSettingsWindow(tk.Toplevel):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=55)
         top_bar.pack(fill="x", side="top")
         tk.Label(top_bar, text="⚙ 환경 설정 (SETTINGS)", bg=theme.BG_BAR, fg=theme.GOLD, font=("Malgun Gothic", 14, "bold")).pack(side="left", padx=20, pady=12)
-        body_frame = tk.Frame(self, bg=theme.BG)
-        body_frame.pack(fill="both", expand=True, padx=25, pady=20)
+
+        # 🐞 [2026-08-12 사장님 제보 '체크를 꺼도 다시 켜져 있다'] 원인은 저장이 아니라 배치였다.
+        #   Tk packer 는 순서대로 요청 크기를 나눠 준다. 본문(body_frame)이 먼저 packed 되고 옵션이
+        #   늘어 요청 높이가 창을 넘기면, 뒤에 packed 되는 저장 버튼 줄에 남는 공간이 0이 되어
+        #   '설정 및 저장' 버튼이 화면 밖으로 밀려난다 → 사장님은 X 로 닫을 수밖에 없고 저장이 안 된다.
+        #   ① 저장 줄을 본문보다 먼저 pack 해 항상 자리를 확보하고
+        #   ② 본문을 스크롤 가능하게 만들어, 앞으로 옵션이 더 늘어도 같은 사고가 안 나게 한다.
+        bot_bar = tk.Frame(self, bg=theme.BG, height=56); bot_bar.pack(fill="x", side="bottom")
+        bot_bar.pack_propagate(False)
+        tk.Button(bot_bar, text="설정 및 저장", font=("Malgun Gothic", 11, "bold"), bg=theme.TEAM_RED_BG,
+                  fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2",
+                  command=self.apply_settings).pack(pady=11)
+
+        _scroll_wrap = tk.Frame(self, bg=theme.BG); _scroll_wrap.pack(fill="both", expand=True)
+        _cv = tk.Canvas(_scroll_wrap, bg=theme.BG, highlightthickness=0, bd=0)
+        _sb = ttk.Scrollbar(_scroll_wrap, orient="vertical", command=_cv.yview)
+        _cv.configure(yscrollcommand=_sb.set)
+        _sb.pack(side="right", fill="y"); _cv.pack(side="left", fill="both", expand=True)
+        body_frame = tk.Frame(_cv, bg=theme.BG)
+        _bw = _cv.create_window(0, 0, window=body_frame, anchor="nw")
+        body_frame.bind("<Configure>", lambda e: _cv.configure(scrollregion=_cv.bbox("all")))
+        _cv.bind("<Configure>", lambda e: _cv.itemconfigure(_bw, width=e.width))
+        self.bind("<MouseWheel>", lambda e: _cv.yview_scroll(int(-e.delta / 120), "units"))
+        body_frame.configure(padx=25, pady=20)
         
         style = ttk.Style()
         style.configure("TCheckbutton", background=theme.BG, foreground=theme.TEXT, font=("Malgun Gothic", 10))
@@ -10188,8 +10210,6 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Entry(txt_f5, textvariable=self.var_coach, font=("Consolas", 11), width=46,
                  bg=theme.BG_RAISED, fg=theme.TEXT, insertbackground=theme.TEXT, relief="flat").pack(anchor="w", pady=(4, 0), ipady=3)
 
-        bot_bar = tk.Frame(self, bg=theme.BG, height=50); bot_bar.pack(fill="x", side="bottom")
-        tk.Button(bot_bar, text="설정 및 저장", font=("Malgun Gothic", 11, "bold"), bg=theme.TEAM_RED_BG, fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2", command=self.apply_settings).pack(pady=15)
 
     def apply_settings(self):
         val_start = self.var_startup.get()
