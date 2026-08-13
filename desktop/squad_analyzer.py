@@ -2799,6 +2799,9 @@ def _dock_overlay(w):
         w.geometry("+%d+%d" % (x, y))
     except Exception: pass
 DRAWER_ALPHA = 0.75      # ☰ 서랍 불투명도 — 낮을수록 뒤가 잘 비친다
+# 💝 후원 계좌 — squad.gg 고스트밴픽왕 소개 페이지(coach.html)에 이미 공개된 것과 같은 계좌.
+#   바뀌면 여기 세 줄만 고치면 된다(설정 파일로 덮어쓸 수도 있게 load_config 값을 우선한다).
+DONATE_BANK, DONATE_ACCT, DONATE_NAME = "토스뱅크", "1000-2535-5662", "박상준"
 # 🔆 오버레이 시인성 — 테두리 두께·색, 글자 줄바꿈 폭
 DRAFT_OVL_BORDER = 3
 DRAFT_OVL_EDGE = "#f5d47a"       # 평소 테두리(금색)
@@ -8779,6 +8782,53 @@ def create_graphic_ui():
             except Exception as e:
                 messagebox.showerror("티어관리 오류", f"티어 관리 창을 여는 중 오류가 발생했습니다.\n(에러: {str(e)})")
         _drw_add("🛠", "티어관리", open_tieradmin_window, theme.PURPLE)
+
+    # 💝 [2026-08-12 사장님 지시] 후원 — 계좌·예금주를 띄우고 한 번에 복사할 수 있게
+    def _open_donate():
+        _bank = APP_CONFIG.get("donate_bank") or DONATE_BANK
+        _acct = APP_CONFIG.get("donate_acct") or DONATE_ACCT
+        _name = APP_CONFIG.get("donate_name") or DONATE_NAME
+        w = tk.Toplevel(root); w.title("후원")
+        w.configure(bg="#0e1016"); w.attributes("-topmost", True); w.resizable(False, False)
+        try:   # 본체 가운데에 띄운다(모니터 구석에 뜨면 못 찾는다)
+            w.update_idletasks()
+            w.geometry("+%d+%d" % (root.winfo_rootx() + root.winfo_width() // 2 - 190,
+                                   root.winfo_rooty() + 160))
+        except Exception: pass
+        tk.Frame(w, bg="#f5d47a", height=3).pack(fill="x")
+        tk.Label(w, text="💝  후원하기", bg="#0e1016", fg="#f5d47a",
+                 font=("Malgun Gothic", 15, "bold")).pack(anchor="w", padx=22, pady=(16, 2))
+        tk.Label(w, text="분석기·squad.gg·디스코드 봇은 클랜원 한 명이 사비로 굴리고 있어요.\n"
+                         "AI 비용·서버비에 그대로 들어갑니다. 부담 갖지 마세요 🙏",
+                 bg="#0e1016", fg="#8d9aae", font=("Malgun Gothic", 9), justify="left").pack(anchor="w", padx=22)
+        box = tk.Frame(w, bg="#171b23"); box.pack(fill="x", padx=22, pady=(14, 6))
+        tk.Label(box, text=_bank, bg="#171b23", fg="#8d9aae",
+                 font=("Malgun Gothic", 10)).pack(anchor="w", padx=14, pady=(11, 0))
+        tk.Label(box, text=_acct, bg="#171b23", fg="#eef2f8",
+                 font=("Malgun Gothic", 19, "bold")).pack(anchor="w", padx=14)
+        tk.Label(box, text=f"예금주  {_name}", bg="#171b23", fg="#cdd6e3",
+                 font=("Malgun Gothic", 10)).pack(anchor="w", padx=14, pady=(1, 12))
+        _msg = tk.Label(w, text="", bg="#0e1016", fg="#5ad48a", font=("Malgun Gothic", 9))
+        _msg.pack(anchor="w", padx=22)
+        def _copy(full=False):
+            try:
+                w.clipboard_clear()
+                w.clipboard_append(f"{_bank} {_acct} {_name}" if full else _acct.replace("-", ""))
+                w.update()          # 창이 닫혀도 클립보드가 남게(Tk 는 소유 창이 사라지면 내용도 사라진다)
+                _msg.config(text=("✅ 은행·계좌·예금주를 복사했어요" if full else "✅ 계좌번호를 복사했어요"))
+            except Exception as e:
+                _msg.config(text=f"복사 실패: {e}", fg="#ff8a8a")
+        bar = tk.Frame(w, bg="#0e1016"); bar.pack(fill="x", padx=22, pady=(8, 18))
+        tk.Button(bar, text="계좌번호 복사", command=lambda: _copy(False), bg="#f5d47a", fg="#1b1b1b",
+                  relief="flat", font=("Malgun Gothic", 10, "bold"), padx=14, pady=5,
+                  cursor="hand2").pack(side="left")
+        tk.Button(bar, text="전체 복사", command=lambda: _copy(True), bg="#1e2436", fg="#9db8ff",
+                  relief="flat", font=("Malgun Gothic", 10), padx=12, pady=5,
+                  cursor="hand2").pack(side="left", padx=6)
+        tk.Button(bar, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
+                  relief="flat", font=("Malgun Gothic", 10), padx=12, pady=5,
+                  cursor="hand2").pack(side="right")
+    _drw_add("💝", "후원하기", _open_donate, "#ff8fb1")
 
     tk.Frame(drawer, bg="#222a37", height=1).pack(fill="x", padx=18, pady=(12, 0))
     tk.Label(drawer, text=f"스쿼드해체분석기  v{CURRENT_VERSION}", bg=C_PANEL, fg="#5a6474",
