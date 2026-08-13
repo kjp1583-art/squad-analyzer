@@ -2803,18 +2803,6 @@ DRAFT_OVL_EDGE = "#f5d47a"       # 평소 테두리(금색)
 DRAFT_OVL_FLASH = "#ff5a5a"      # 새 추천이 뜰 때 깜빡이는 색
 DRAFT_OVL_WRAP = 520             # 380 → 520 (글자도 11 → 14pt)
 
-def _draft_flash(w, n=6):
-    """새 추천이 떴을 때 테두리를 몇 번 깜빡인다. 소리는 내지 않는다(인게임 방해)."""
-    def _step(i):
-        try:
-            if not w.winfo_exists(): return
-            w.configure(bg=DRAFT_OVL_FLASH if i % 2 == 0 else DRAFT_OVL_EDGE)
-            if i < n: w.after(140, _step, i + 1)
-            else: w.configure(bg=DRAFT_OVL_EDGE)
-        except Exception: pass
-    try: _step(0)
-    except Exception: pass
-
 _REASON_SEP = "=====근거====="   # [v82.40] AI 출력의 요약/근거 구분자 — 기본은 요약만 표시, 버튼으로 근거 펼침
 
 def _split_reason(txt):
@@ -2826,7 +2814,15 @@ def _split_reason(txt):
     return t.strip(), ""
 
 def _draft_overlay_sync(root):
-    """gui_data['draft_advice']를 항상-위 오버레이 창에 반영. 추천 없으면 창 숨김. (GUI 스레드에서만 호출)"""
+    """gui_data['draft_advice']를 항상-위 카드 오버레이에 반영. 추천 없으면 숨김. (GUI 스레드 전용)
+
+    🎨 [2026-08-12 사장님 지시 '상업 프로그램급으로'] 회색 상자에 글자를 통째로 붓던 것을
+       카드 UI 로 다시 만들었다. 구조를 살려서 그리면 같은 내용도 훨씬 빨리 읽힌다.
+         · 프레임리스 + 둥근 모서리(투명색 트릭) · 모드별 강조색(밴=적, 픽=청)
+         · 추천 줄을 파싱해 [순위 배지][챔피언 굵게][근거 흐리게] 3단으로 분리
+         · 픽 방향(→)은 강조 박스, 경고(⚠️)는 호박색 줄로 따로
+         · 제목줄을 잡고 끌어 옮길 수 있음(프레임리스라 OS 타이틀바가 없다)
+    """
     with gui_lock:
         txt = str(gui_data.get("draft_advice", "") or "")
         ts = float(gui_data.get("draft_advice_ts", 0) or 0)
@@ -2841,48 +2837,10 @@ def _draft_overlay_sync(root):
         _DRAFT_OVL["shown"] = ""
         return
     if w is None or not w.winfo_exists():
-        # 🔆 [2026-08-12 사장님 제보 '팝업이 너무 작아 눈에 띄질 않는다']
-        #   글씨·폭을 키우고, 창 둘레에 금색 테두리를 둘러 밴픽 화면 위에서 바로 보이게 한다.
-        #   새 추천이 뜰 때는 테두리를 잠깐 깜빡여 시선을 끈다(소리는 안 낸다 — 인게임 방해).
-        w = tk.Toplevel(root)
-        w.title("고스트밴픽왕")
-        w.attributes("-topmost", True)
-        w.overrideredirect(False)
-        w.configure(bg=DRAFT_OVL_EDGE)
-        try: w.attributes("-alpha", 0.97)
+        _draft_build_card(root)
+        w = _DRAFT_OVL["win"]
+        try: _dock_overlay(w)
         except Exception: pass
-        try: _dock_overlay(w)   # 🧲 롤 클라 우측 부착(폴백: 화면 우측)
-        except Exception: pass
-        _pad = tk.Frame(w, bg="#12141a"); _pad.pack(fill="both", expand=True, padx=DRAFT_OVL_BORDER, pady=DRAFT_OVL_BORDER)
-        _hd = tk.Frame(_pad, bg="#12141a"); _hd.pack(fill="x", padx=14, pady=(11, 2))
-        tk.Label(_hd, text="🧠 고스트밴픽왕", bg="#12141a", fg="#f5d47a",
-                 font=("Malgun Gothic", 15, "bold")).pack(side="left")
-        lbl = tk.Label(_pad, text="", bg="#12141a", fg="#f2f5fb", justify="left",
-                       wraplength=DRAFT_OVL_WRAP, font=("Malgun Gothic", 14))
-        lbl.pack(anchor="w", padx=14, pady=(2, 10))
-        _btns = tk.Frame(_pad, bg="#12141a"); _btns.pack(fill="x", padx=14, pady=(0, 11))
-        def _render():
-            _s, _r = _split_reason(_DRAFT_OVL["shown"])
-            _full = (_s + ("\n\n📎 근거\n" + _r if (_r and _DRAFT_OVL["expanded"]) else ""))
-            try:
-                _DRAFT_OVL["lbl"].config(text=_full)
-                _bm = _DRAFT_OVL["btn_more"]
-                if _bm is not None:
-                    if _r: _bm.config(text=("근거 접기 ▲" if _DRAFT_OVL["expanded"] else "근거 보기 ▼")); _bm.pack(side="left")
-                    else: _bm.pack_forget()   # 근거 없으면 버튼 숨김
-            except Exception: pass
-        def _toggle():
-            _DRAFT_OVL["expanded"] = not _DRAFT_OVL["expanded"]; _render()
-        btn_more = tk.Button(_btns, text="근거 보기 ▼", command=_toggle,
-                             bg="#1e2436", fg="#9db8ff", relief="flat",
-                             font=("Malgun Gothic", 11), padx=10, pady=3)
-        btn_more.pack(side="left")
-        tk.Button(_btns, text="닫기", command=lambda: (_DRAFT_OVL.update({"shown": ""}), w.withdraw()),
-                  bg="#232838", fg="#cfd6e4", relief="flat",
-                  font=("Malgun Gothic", 11), padx=10, pady=3).pack(side="right")
-        w.protocol("WM_DELETE_WINDOW", lambda: (_DRAFT_OVL.update({"shown": ""}), w.withdraw()))
-        _DRAFT_OVL["win"] = w; _DRAFT_OVL["lbl"] = lbl
-        _DRAFT_OVL["btn_more"] = btn_more; _DRAFT_OVL["_render"] = _render
     if _DRAFT_OVL["shown"] != txt:
         try:
             # ⚡ 스트리밍 중에는 같은 추천의 글자가 늘어나는 것뿐이다. 그때마다 창을 다시 끌어올리면
@@ -2896,10 +2854,194 @@ def _draft_overlay_sync(root):
             _DRAFT_OVL["_render"]()
             if _fresh:
                 w.deiconify(); w.attributes("-topmost", True); w.lift()
-                _draft_flash(w)                  # 🔆 테두리 깜빡임으로 시선 유도
+                _draft_flash(w)                  # 🔆 강조색 링으로 시선 유도
         except Exception: pass
-    try: _dock_overlay(w)   # 🧲 클라가 움직였으면 따라붙기(표시 중일 때만 호출됨)
+    try: _dock_overlay(w)   # 🧲 클라가 움직였으면 따라붙기(표시 중일 때만)
     except Exception: pass
+
+
+# 🎨 카드 팔레트 — 다크 글래스 + 모드별 강조색
+_OVC = {"magic": "#010203",        # 투명 처리용(둥근 모서리 바깥)
+        "card": "#0e1016", "surface": "#171b23", "line": "#252b36",
+        "text": "#eef2f8", "sub": "#8d9aae", "dim": "#6b7789",
+        "ban": "#ff5f6d", "pick": "#5aa2ff", "gold": "#f5d47a", "warn": "#ffb347"}
+
+def _rrect(cv, x1, y1, x2, y2, r, **kw):
+    """캔버스 둥근 사각형 — Tk 에 기본 도형이 없어 직접 그린다."""
+    pts = [x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r, x2, y2, x2-r, y2,
+           x1+r, y2, x1, y2, x1, y2-r, x1, y1+r, x1, y1]
+    return cv.create_polygon(pts, smooth=True, splinesteps=24, **kw)
+
+_DRAFT_LINE_RE = re.compile(r"^\s*(\d+)\s*[.)]\s*(.+?)\s*(?:[—–]|(?<=\s)-)\s*(.*)$")
+
+def _draft_build_card(root):
+    """카드 창을 만든다. 내용은 _render() 가 채운다."""
+    C = _OVC
+    w = tk.Toplevel(root)
+    w.title("고스트밴픽왕")
+    w.overrideredirect(True)                     # 프레임리스 — OS 타이틀바 제거
+    w.attributes("-topmost", True)
+    rounded = True
+    try:
+        w.configure(bg=C["magic"]); w.attributes("-transparentcolor", C["magic"])
+    except Exception:
+        rounded = False; w.configure(bg=C["card"])
+    try: w.attributes("-alpha", 0.98)
+    except Exception: pass
+
+    cv = tk.Canvas(w, bg=(C["magic"] if rounded else C["card"]), highlightthickness=0, bd=0)
+    cv.pack(fill="both", expand=True)
+    body = tk.Frame(cv, bg=C["card"])
+    win_id = cv.create_window(10, 8, window=body, anchor="nw")
+
+    # ── 헤더 ──
+    hd = tk.Frame(body, bg=C["card"]); hd.pack(fill="x", padx=16, pady=(13, 0))
+    badge = tk.Label(hd, text=" 밴 ", bg=C["ban"], fg="#12141a",
+                     font=("Malgun Gothic", 10, "bold"), padx=7, pady=2)
+    badge.pack(side="left")
+    tk.Label(hd, text="고스트밴픽왕", bg=C["card"], fg=C["text"],
+             font=("Malgun Gothic", 13, "bold")).pack(side="left", padx=(9, 0))
+    sub = tk.Label(hd, text="", bg=C["card"], fg=C["dim"], font=("Malgun Gothic", 9))
+    sub.pack(side="left", padx=(8, 0))
+    close = tk.Label(hd, text="✕", bg=C["card"], fg=C["dim"], font=("Malgun Gothic", 12), cursor="hand2")
+    close.pack(side="right")
+    close.bind("<Button-1>", lambda e: (_DRAFT_OVL.update({"shown": "", "hdr": None}), w.withdraw()))
+    close.bind("<Enter>", lambda e: close.config(fg=C["ban"]))
+    close.bind("<Leave>", lambda e: close.config(fg=C["dim"]))
+
+    rule = tk.Frame(body, bg=C["ban"], height=2)
+    rule.pack(fill="x", padx=16, pady=(9, 0))
+
+    rows = tk.Frame(body, bg=C["card"]); rows.pack(fill="x", padx=16, pady=(10, 0))
+
+    # ── 푸터 ──
+    ft = tk.Frame(body, bg=C["card"]); ft.pack(fill="x", padx=16, pady=(10, 13))
+    more = tk.Label(ft, text="근거 보기 ▼", bg=C["surface"], fg=C["sub"],
+                    font=("Malgun Gothic", 10), padx=11, pady=4, cursor="hand2")
+    more.pack(side="left")
+    more.bind("<Enter>", lambda e: more.config(fg=C["text"]))
+    more.bind("<Leave>", lambda e: more.config(fg=C["sub"]))
+    tk.Label(ft, text="⠿ 끌어서 이동", bg=C["card"], fg=C["dim"],
+             font=("Malgun Gothic", 9)).pack(side="right")
+
+    # ── 제목줄을 잡고 창 이동(프레임리스라 OS 가 안 해준다) ──
+    drag = {"x": 0, "y": 0}
+    def _dn(e): drag["x"], drag["y"] = e.x_root, e.y_root
+    def _mv(e):
+        try:
+            w.geometry("+%d+%d" % (w.winfo_x() + e.x_root - drag["x"], w.winfo_y() + e.y_root - drag["y"]))
+            drag["x"], drag["y"] = e.x_root, e.y_root
+            _DRAFT_OVL["dock_rect"] = "manual"      # 손으로 옮겼으면 자동 도킹이 되돌리지 않게
+        except Exception: pass
+    for _wg in (hd, body, rows):
+        _wg.bind("<Button-1>", _dn); _wg.bind("<B1-Motion>", _mv)
+
+    def _row(parent, kind, a, b=""):
+        """추천 한 줄 — kind: num(순위) / ctx(대치·윈컨) / dir(픽 방향) / warn(경고) / plain"""
+        f = tk.Frame(parent, bg=C["card"]); f.pack(fill="x", pady=2)
+        if kind == "num":
+            tk.Label(f, text=a, bg=_DRAFT_OVL["accent"], fg="#12141a", width=2,
+                     font=("Malgun Gothic", 10, "bold")).pack(side="left", pady=1)
+            tx = tk.Frame(f, bg=C["card"]); tx.pack(side="left", fill="x", expand=True, padx=(9, 0))
+            tk.Label(tx, text=b[0], bg=C["card"], fg=C["text"], anchor="w",
+                     font=("Malgun Gothic", 14, "bold")).pack(anchor="w")
+            if b[1]:
+                tk.Label(tx, text=b[1], bg=C["card"], fg=C["sub"], anchor="w", justify="left",
+                         wraplength=DRAFT_OVL_WRAP - 40, font=("Malgun Gothic", 10)).pack(anchor="w")
+        elif kind == "dir":
+            box = tk.Frame(f, bg=C["surface"]); box.pack(fill="x")
+            tk.Frame(box, bg=_DRAFT_OVL["accent"], width=3).pack(side="left", fill="y")
+            tk.Label(box, text=a, bg=C["surface"], fg=C["text"], anchor="w", justify="left",
+                     wraplength=DRAFT_OVL_WRAP - 30, font=("Malgun Gothic", 12, "bold"),
+                     padx=10, pady=7).pack(side="left", fill="x", expand=True)
+        elif kind == "warn":
+            tk.Label(f, text=a, bg=C["card"], fg=C["warn"], anchor="w", justify="left",
+                     wraplength=DRAFT_OVL_WRAP, font=("Malgun Gothic", 11)).pack(anchor="w")
+        elif kind == "ctx":
+            tk.Label(f, text=a, bg=C["surface"], fg=C["sub"], anchor="w", justify="left",
+                     wraplength=DRAFT_OVL_WRAP - 20, font=("Malgun Gothic", 11),
+                     padx=9, pady=5).pack(anchor="w", fill="x")
+        else:
+            tk.Label(f, text=a, bg=C["card"], fg=C["text"], anchor="w", justify="left",
+                     wraplength=DRAFT_OVL_WRAP, font=("Malgun Gothic", 12)).pack(anchor="w")
+
+    def _render():
+        try:
+            raw = str(_DRAFT_OVL.get("shown") or "")
+            lines = raw.split("\n")
+            head = lines[0] if lines else ""
+            is_ban = "밴" in head
+            _DRAFT_OVL["accent"] = C["ban"] if is_ban else C["pick"]
+            badge.config(text=(" 밴 " if is_ban else " 픽 "), bg=_DRAFT_OVL["accent"])
+            rule.config(bg=_DRAFT_OVL["accent"])
+            sub.config(text=head.replace("🚫", "").replace("🧠", "").strip())
+            summ, reason = _split_reason("\n".join(lines[1:]))
+            for ch in rows.winfo_children(): ch.destroy()
+            for ln in [x for x in summ.split("\n") if x.strip()]:
+                t = ln.strip()
+                m = _DRAFT_LINE_RE.match(t)
+                if m: _row(rows, "num", m.group(1), (m.group(2).replace("*", "").strip(), m.group(3).strip()))
+                elif t.startswith("→"): _row(rows, "dir", t.lstrip("→ ").strip())
+                elif t.startswith("⚠"): _row(rows, "warn", t)
+                elif t.startswith(("🆚", "🎯")): _row(rows, "ctx", t)
+                else: _row(rows, "plain", t)
+            if reason and _DRAFT_OVL.get("expanded"):
+                tk.Frame(rows, bg=C["line"], height=1).pack(fill="x", pady=(9, 6))
+                tk.Label(rows, text="📎 판단 근거", bg=C["card"], fg=C["dim"],
+                         font=("Malgun Gothic", 9, "bold")).pack(anchor="w")
+                tk.Label(rows, text=reason.strip(), bg=C["card"], fg=C["sub"], anchor="w", justify="left",
+                         wraplength=DRAFT_OVL_WRAP, font=("Malgun Gothic", 10)).pack(anchor="w", pady=(2, 0))
+            if reason:
+                more.config(text=("근거 접기 ▲" if _DRAFT_OVL.get("expanded") else "근거 보기 ▼"))
+                more.pack(side="left")
+            else:
+                more.pack_forget()
+            _draft_fit()
+        except Exception as e:
+            print(f"[draft] 오버레이 렌더 실패: {type(e).__name__} {e}", flush=True)
+
+    def _draft_fit():
+        """내용 크기에 맞춰 창·배경을 다시 그린다(그림자 여백 포함)."""
+        body.update_idletasks()
+        bw, bh = body.winfo_reqwidth(), body.winfo_reqheight()
+        # 폭을 내용에 맡기면 스트리밍 중 글자가 늘 때마다 창이 좌우로 출렁인다 — 최소폭으로 고정한다.
+        bw = max(bw, DRAFT_OVL_WRAP - 40)
+        W, H = bw + 20, bh + 18
+        w.geometry("%dx%d" % (W, H))
+        cv.configure(width=W, height=H)
+        cv.coords(win_id, 10, 8)
+        cv.delete("bgart")
+        _rrect(cv, 4, 4, W - 4, H - 4, 16, fill="#05070b", outline="", tags="bgart")      # 그림자
+        _rrect(cv, 2, 2, W - 6, H - 6, 16, fill=C["card"],
+               outline=_DRAFT_OVL.get("ring") or _DRAFT_OVL.get("accent") or C["gold"],
+               width=2, tags="bgart")
+        cv.tag_lower("bgart")
+    _DRAFT_OVL["_fit"] = _draft_fit
+
+    def _toggle(_e=None):
+        _DRAFT_OVL["expanded"] = not _DRAFT_OVL.get("expanded"); _render()
+    more.bind("<Button-1>", _toggle)
+
+    _DRAFT_OVL.update({"win": w, "lbl": None, "btn_more": more, "_render": _render,
+                       "accent": C["ban"], "ring": None, "cv": cv})
+
+
+def _draft_flash(w, n=6):
+    """새 추천이 떴을 때 카드 테두리를 몇 번 깜빡인다. 소리는 내지 않는다(인게임 방해)."""
+    def _step(i):
+        try:
+            if not w.winfo_exists(): return
+            _DRAFT_OVL["ring"] = "#ffffff" if i % 2 == 0 else None
+            fit = _DRAFT_OVL.get("_fit")
+            if fit: fit()
+            if i < n: w.after(130, _step, i + 1)
+            else:
+                _DRAFT_OVL["ring"] = None
+                if fit: fit()
+        except Exception: pass
+    try: _step(0)
+    except Exception: pass
+
 
 # ===== 🖥️ 로딩 화면 정보 오버레이 (2026-08-07 사장님 지시 — op.gg 데스크탑 스타일) =====
 #   로딩 화면(phase=GameStart)에 들어가면 양 팀 10명의 챔피언·내부티어·내전 전적·이 챔프 전적·솔랭을
