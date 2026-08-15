@@ -4994,10 +4994,18 @@ function renderLog(){
    토너먼트코드로 판 방만 골라, 일반 내전과 분리해서 보여준다.
    같은 날 = 한 회차로 묶고(대회 단위), 회차별 게임 목록 + 미토 누적 성적표를 낸다. */
 function mitoEntries(){
+  /* 🗓️ [2026-08-16] 미토는 대회 기록이라 패치 필터와 무관하게 통산(GAMES_ALL)에서 본다.
+     패치가 바뀌면 지난주 회차가 통째로 사라지던 문제(8/9 회차가 16.15라 숨었다). */
+  const src=(typeof GAMES_ALL!=='undefined'&&GAMES_ALL.size)?GAMES_ALL:GAMES;
   const out=[];
-  for(const g of GAMES.values()){
+  for(const g of src.values()){
     if(!isMitoGame(g.id)) continue;
     if(!g.rows.some(r=>r["결과"]==="승리"||r["결과"]==="패배")) continue;
+    if(!g.date){ let d=""; for(const r of g.rows){ const v=String(r["날짜"]||""); if(v>d)d=v; } g.date=d; }  // GAMES_ALL 엔 date 필드가 없다
+    if(!g.teams){ g.teams={}; g.bans={};   // teams·bans 는 build()가 GAMES 에만 만든다 — logRow·gameDetailHtml 이 쓴다
+      for(const r of g.rows){ const s=r["진영"]||"기타"; (g.teams[s]=g.teams[s]||[]).push(r);
+        if(validBan(r["밴"])) (g.bans[s]=g.bans[s]||[]).push(r["밴"]); }
+      for(const s in g.teams) g.teams[s].sort((x,y)=>(POS_ORDER[x["포지션"]]??9)-(POS_ORDER[y["포지션"]]??9)); }
     out.push(g);
   }
   out.reverse();   // 최신순
@@ -5203,11 +5211,17 @@ function renderMitoLog(){
         코드가 다 채워지면 MITO_CODES 에 등록된 회차부터 여기에 뜹니다.</div></div>`;
     return;
   }
-  // 회차 = MITO_CODES 에 적힌 회차명(없으면 날짜)
+  /* 🗓️ [2026-08-16] 회차 = '경기가 뛴 밤'(경기시각 −6시간의 날짜) — 봇 지급 로직과 동일 규칙.
+     토너먼트 코드는 매주 같은 것을 돌려써서(8/9·8/14 실측 동일 17개) MITO_CODES 회차명으로 묶으면
+     두 대회가 한 회차로 합쳐진다. 자정 넘긴 결승(00:19·00:16 실측)도 6시간을 빼면 전날 밤에 붙는다. */
+  const mitoNight=ds=>{ const m=String(ds||"").match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+    if(m){ const t=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]); t.setHours(t.getHours()-6);
+      return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; }
+    return String(ds||"").slice(0,10); };
   const byDay=new Map();
   for(const g of games){
-    const inf=mitoInfoOf(g.id);
-    const d=(inf&&inf.round)||String(g.date||"").slice(0,10)||"날짜미상";
+    const n=mitoNight(g.date);
+    const d=n?`${n} 미토`:"날짜미상";
     if(!byDay.has(d)) byDay.set(d,[]);
     byDay.get(d).push(g);
   }
@@ -7081,7 +7095,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608131029";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608151904";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
