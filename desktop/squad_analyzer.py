@@ -18,7 +18,7 @@ import random
 import hashlib
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
-import tkinter.font as tkfont   # 로딩 오버레이 칩 — 글자 폭 실측(줄바꿈 대신 잘라 넣어 겹침 차단)
+import tkinter.font as tkfont   # 창 크기에 맞춘 UI 폰트 스케일(UF/_UI_FONTS)
 from oauth2client.service_account import ServiceAccountCredentials
 from io import BytesIO
 import ctypes
@@ -219,8 +219,6 @@ def invalidate_sheet_cache(title):
 def load_config():
     default_cfg = {"windows_startup": False, "lol_auto_show": True, "minimize_to_tray": False,
                    "pos_view_default": True,   # [v82.37] 대기실 모스트 표시 기본값(True=현재포지션)
-                   "load_overlay": True,       # [v82.85] 로딩 화면 정보 오버레이 온오프
-                   "load_overlay_hex": False,  # [2026-08-12] 칩에 6축 육각형 표시(끄면 글자 폭을 넓게 씀)
                    "show_synergy": True}       # 🧩 우측 시너지 3칸(고승률·역시너지·천적) 표시
     # [v82.30] lol_auto_show 기본값을 설정 UI(True)와 일치시킴
     try:
@@ -1283,7 +1281,6 @@ def _position_sync_loop():
         time.sleep(3600)
 
 MY_RIOT_NAME = [""]   # 🩺 LCU 로그인 계정 롤닉#태그(폴링 루프가 채움)
-_MY_PUUID = [""]      # 🖥️ 내 puuid(폴링 루프가 채움) — 로딩 오버레이 아군/적군 판별
 def _version_heartbeat_loop():
     """🩺 [2026-07-13 사장님 지시] 실행 인스턴스별 [롤닉, 버전, 마지막 실행]을 VERSIONS 탭에 기록 —
        누가 구버전/미갱신인지 시트에서 바로 확인(구버전 접속자 색출). 시작 90초 후 1회 + 이후 60분 주기.
@@ -1868,7 +1865,6 @@ def _clan_index(force=False):
                 # 🎭 [2026-08-10] 익명화 백필 행(소환사명=챔피언명·태그 없음)은 대표닉 갱신에서 제외
                 if nm and "#" in nm and nm.replace(" ", "") != ch.replace(" ", ""): e["name"] = nm
                 e["g"] += 1; e["w"] += (res == "승리")
-                e.setdefault("seq", []).append(res == "승리")   # 🖥️ [v82.85] 로딩 오버레이 연승·연패용(행 순서=시간순)
                 # 🕸 [v82.86] 웹 육각형과 동일한 6축 원자료(포지션별) — 캐리·성장·시야·생존·교전·챔프폭
                 _pv = str(r[c_pt] or "").strip().lstrip("vV") if 0 <= c_pt < len(r) else ""
                 if ps and ps != "선택안함" and _latest_patch and _pv == _latest_patch:
@@ -3090,462 +3086,6 @@ def _draft_flash(w, n=6):
     try: _step(0)
     except Exception: pass
 
-
-# ===== 🖥️ 로딩 화면 정보 오버레이 (2026-08-07 사장님 지시 — op.gg 데스크탑 스타일) =====
-#   로딩 화면(phase=GameStart)에 들어가면 양 팀 10명의 챔피언·내부티어·내전 전적·이 챔프 전적·솔랭을
-#   항상-위 창으로 띄운다. 게임 시작(InProgress)하면 자동으로 내려간다.
-_LOAD_OVL = {"win": None, "cv": None, "key": ""}
-# 로딩 화면 카드 배치 비율 — 실기기 스크린샷(2026-08-08) 실측: 카드는 한 줄 10장이 아니라
-#   위 5장(상대팀)/아래 5장(내 팀) 2줄이다. cw=카드 폭, gap=카드 사이 간격(모든 카드 사이),
-#   row_top/row_bot=각 줄 카드의 '하단' y비율, h=칩 높이(화면높이 대비)
-_LOADCARD_GEOM = {"cw": 0.131, "gap": 0.0247, "row_top": 0.490, "row_bot": 0.973, "h": 0.078}
-
-_RADAR_PCT = {"ts": 0.0, "pos": {}, "people": None}   # 포지션별 백분위·사람단위 병합 캐시(클랜 인덱스 갱신 시 재계산)
-_RADAR_PCT_LOCK = threading.Lock()   # [검증 지적] 세대 교차 경합 — 옛 비교군이 새 ts 밑에 캐시되는 것 방지
-def _radar_metrics(rd):
-    """축 원자료 → 웹 radarMetrics와 동일한 6축 값. 표본 없으면 None."""
-    g = rd.get("g", 0)
-    if not g: return None
-    return {"mvpr": rd["mvp"] / g * 100.0,
-            "cspm": (rd["csS"] / rd["csN"]) if rd["csN"] else None,
-            "vision": (rd["vsS"] / rd["vsN"]) if rd["vsN"] else None,
-            "surv": (-(rd["dS"] / rd["kn"])) if rd["kn"] else None,
-            "fight": (rd["kaS"] / rd["kn"]) if rd["kn"] else None,
-            "pool": len(rd["ch"]) or None}
-def _radar_person_key(name):
-    """부계→본계 병합 키(웹 resolveAlt와 같은 취지 — LINK_ACCOUNT 기준, 태그 뗀 소문자)."""
-    return str(get_main_name(name or "")).split("#")[0].strip().lower()
-def _radar_people(cidx):
-    """by_pu(계정 단위) → 사람 단위 rad 병합. [검증 지적] 부계 보유자가 비교군에 두 번 들어가거나
-       표본이 계정별로 쪼개져 5판 문턱·백분위가 웹과 어긋나던 문제."""
-    with _RADAR_PCT_LOCK:
-        ts = cidx.get("ts")
-        if _RADAR_PCT["ts"] != ts:
-            _RADAR_PCT.update({"ts": ts, "pos": {}, "people": None})
-        if _RADAR_PCT["people"] is None:
-            people = {}
-            for e in (cidx.get("by_pu") or {}).values():
-                rads = e.get("rad") or {}
-                if not rads: continue
-                key = _radar_person_key(e.get("name"))
-                if not key: continue
-                P = people.setdefault(key, {})
-                for pos_, rd in rads.items():
-                    t = P.setdefault(pos_, {"g": 0, "mvp": 0, "csS": 0.0, "csN": 0,
-                                            "vsS": 0.0, "vsN": 0, "dS": 0, "kaS": 0, "kn": 0, "ch": set()})
-                    for kk in ("g", "mvp", "csS", "csN", "vsS", "vsN", "dS", "kaS", "kn"): t[kk] += rd[kk]
-                    t["ch"] |= rd["ch"]
-            _RADAR_PCT["people"] = people
-        return _RADAR_PCT["people"]
-def _radar_pct_of(cidx, pos, mine):
-    """웹 posPercentiles와 동일 — 같은 포지션 5판↑(사람 단위) 비교군에서 각 축 백분위(0~100)."""
-    try:
-        people = _radar_people(cidx)
-        with _RADAR_PCT_LOCK:
-            if _RADAR_PCT["ts"] != cidx.get("ts"): return None   # 인덱스 세대가 바뀜 — 다음 틱에 재계산
-            cols = _RADAR_PCT["pos"].get(pos)
-            if cols is None:
-                allm = [_radar_metrics(P[pos]) for P in people.values() if pos in P and P[pos].get("g", 0) >= 5]
-                cols = {}
-                for k in ("mvpr", "cspm", "vision", "surv", "fight", "pool"):
-                    cols[k] = sorted(v[k] for v in allm if v and v[k] is not None)
-                _RADAR_PCT["pos"][pos] = cols
-        import bisect
-        out = []
-        for k in ("mvpr", "cspm", "vision", "surv", "fight", "pool"):
-            a = cols.get(k) or []; v = mine.get(k)
-            if v is None or len(a) < 5: out.append(None)
-            else: out.append(int(round(bisect.bisect_left(a, v) / len(a) * 100)))
-        return out
-    except Exception:
-        return None
-
-def _live2999_rendering():
-    """게임이 '실제 렌더링 중'인지 엄격 판정 — 포트만 열린 과도기(에러 응답)를 렌더 시작으로 오판하지 않게
-       200 + gameTime 존재까지 요구한다(검증 지적)."""
-    try:
-        r = requests.get("https://127.0.0.1:2999/liveclientdata/gamestats", verify=False, timeout=1.5)
-        if r.status_code != 200: return False
-        t = (r.json() or {}).get("gameTime")
-        # [2026-08-08 사장님 제보: 오버레이 즉시 소멸] 로딩 중에도 API가 미리 뜨며 gameTime=0을
-        # 응답하는 경우가 있다 — 게임 시계는 로딩이 끝나야 흐르므로 1초 이상 경과했을 때만 '렌더 시작'
-        return t is not None and float(t) >= 1.0
-    except Exception:
-        return False
-
-def _build_loading_info(headers, base_url, gen=None):
-    """백그라운드 스레드 — 로딩 로스터 수집 → gui_data['load_info'] (GUI는 update_gui가 그림).
-       [2026-08-07 사장님 재지시] 팝업창이 아니라 로딩 화면 '카드 배치에 맞춘' 오버레이용
-       구조화 데이터(아군/적군 5칸씩)로 수집한다. 아군이 항상 왼쪽(로딩 화면과 동일)."""
-    try:
-        if not APP_CONFIG.get("load_overlay", True):
-            return   # [v82.85] 설정에서 꺼짐 — 수집 자체를 생략
-        gd = {}
-        for _try in range(6):   # 게임 클라 기동 스파이크 시점 — 3초 간격 재시도(검증에서 1회성 실패 지적)
-            try:
-                r = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=4)
-                if r.status_code == 200:
-                    gd = (r.json() or {}).get("gameData") or {}
-                    if gd.get("teamOne") or gd.get("teamTwo"): break
-            except Exception: pass
-            time.sleep(3)
-        if not (gd.get("teamOne") or gd.get("teamTwo")):
-            print("[loadovl] 로스터가 비어 수집 포기(재시도 6회)", flush=True); return
-        # 🎮 [2026-08-12 사장님 지시] 매칭게임(솔랭·자유랭·일반 등)에서는 띄우지 않는다.
-        #   이 오버레이는 '내전 상대가 누구인지'를 보는 물건이라 매칭게임에선 쓸모가 없고 화면만 가린다.
-        #   내전 판정은 분석기가 기록에 쓰는 기준과 같게 맞춘다 — 큐0(토너먼트코드 포함) 또는 커스텀.
-        try:
-            _qid = int(((gd.get("queue") or {}).get("id")) if isinstance(gd.get("queue"), dict) else -1)
-        except Exception: _qid = -1
-        if not (_qid == 0 or gd.get("isCustomGame")):
-            print(f"[loadovl] 매칭게임(queue {_qid}) — 오버레이 생략", flush=True); return
-        # 로딩이 이미 끝났으면(게임 렌더링 중) 띄우지 않는다 — 200+gameTime 엄격 판정
-        if _live2999_rendering():
-            print("[loadovl] 게임이 이미 진행 중 — 오버레이 생략", flush=True); return
-        try: cidx = _clan_index()
-        except Exception: cidx = None
-        solo, posmap = {}, {}
-        with gui_lock:   # 로비·밴픽 때 캐시한 솔랭 티어·포지션 재활용(로딩 중 재조회 없이)
-            for side in ("blue", "red"):
-                for p, _s in (gui_data.get(side) or []):
-                    if p.get("puuid"):
-                        _pu = str(p["puuid"]).lower()
-                        solo[_pu] = str(p.get("tier_icon") or "")
-                        posmap[_pu] = POSITION_TRANSLATE_KOR.get(str(p.get("chosen_pos_icon") or "NONE").upper(), "")
-        def _kor(cid):
-            try:
-                e = global_champ_map.get(int(cid or 0)) or {}
-                return e.get("kor") or GLOBAL_NUMERIC_CHAMP_MAP.get(int(cid or 0), "?")
-            except Exception: return "?"
-        def _cells(team):
-            out = []
-            # 👀 관전자 제외 — 폴링 루프(파싱부)는 관전자를 걸러내는데 여기만 앞 5개를 그대로 잘라 썼다.
-            #    관전자가 섞이면 칩 하나가 관전자가 되고 실제 플레이어 한 명이 통째로 사라지며,
-            #    그 뒤 전원이 한 칸씩 밀린다(= '다른 사람이 뜬다'의 원인 중 하나).
-            _pl = [p for p in (team or [])
-                   if not p.get("isSpectator") and str(p.get("role") or "").upper() != "SPECTATOR"][:5]
-            for p in _pl:
-                pu = str(p.get("puuid") or "").lower()
-                ch = _kor(p.get("championId"))
-                e = ((cidx or {}).get("by_pu") or {}).get(pu) or {}
-                # 🪪 [2026-08-13 사장님 제보 '하나도 안 맞아'] 내전 로딩 페이로드는 summonerName·gameName이
-                #   비어 오는 일이 잦아 열 칸 전원 '?'로 찍혔다. 전적·티어·챔프기록은 puuid로 이미 정확히
-                #   붙고 있으므로 이름도 같은 클랜 인덱스 항목에서 채운다.
-                #   ※ 이게 '순서가 어긋나도 칩의 소환사명으로 누구 정보인지 읽는다'는 안전망의 전제였는데,
-                #     이름이 통째로 비면서 그 안전망이 죽어 있었다(줄 배치 실측 오판의 원인이기도 하다).
-                nm = str(p.get("summonerName") or p.get("gameName") or "").split("#")[0].strip()
-                if not nm: nm = str(e.get("name") or "").split("#")[0].strip()
-                if not nm: nm = "?"
-                g, w = e.get("g", 0), e.get("w", 0)
-                cg, cw = ((e.get("champs") or {}).get(ch) or [0, 0])[:2]
-                tv = tier_of(e.get("name") or nm) or ""
-                sv = solo.get(pu, "")
-                seq = e.get("seq") or []
-                st = 0   # 최근 연승(+)/연패(−) — 마지막 결과와 같은 값이 이어진 길이
-                if seq:
-                    cur = seq[-1]; c = 0
-                    for x in reversed(seq):
-                        if x == cur: c += 1
-                        else: break
-                    st = c if cur else -c
-                radar = None
-                try:   # 🕸 주 포지션 기준 6축 백분위 — 사람 단위(부계 병합) rad로 웹과 동일 기준
-                    rads = (_radar_people(cidx or {}) or {}).get(_radar_person_key(e.get("name") or nm)) or {}
-                    if rads:
-                        mp = max(rads, key=lambda k: rads[k]["g"])
-                        if rads[mp].get("g", 0) >= 5:
-                            mine = _radar_metrics(rads[mp])
-                            px = _radar_pct_of(cidx or {}, mp, mine) if mine else None
-                            if px and sum(1 for x in px if x is not None) >= 3: radar = px
-                except Exception: pass
-                out.append({"ch": ch, "nm": nm, "tv": tv, "g": g, "w": w, "cg": cg, "cw": cw,
-                            "st": st, "radar": radar, "pos": posmap.get(pu, ""),
-                            "solo": (sv if sv and sv != "UNRANKED" else "")})
-            # 🧭 [2026-08-12] 포지션 정렬 제거 — 이 정렬은 원리적으로 순서를 못 고친다.
-            #   정렬 키 pos 는 gui_data 의 chosen_pos_icon 에서 오는데, parse_team 은 내전에서
-            #   assignedPosition·firstPositionPreference·position·role 이 전부 비면
-            #   fallback_pos[idx] 로 '배열 인덱스에 포지션 이름을 붙인다'. 그리고 그 배열이 바로
-            #   여기서 도는 gameData.teamOne 이다. 즉 자기 자신의 인덱스로 자기 자신을 정렬하는
-            #   순환 참조라, 두 배열 순서가 같으면 완전 항등(=고쳐도 그대로), 중간에 로비 로스터가
-            #   끼어들면 gameflow 순서를 로비 순서로 통째로 치환한다(=다른 사람이 뜬다).
-            #   부분 정보일 땐 미상 인원이 전부 뒤로 밀려 정렬 안 한 것보다 정확도가 낮았다.
-            #   → 로딩 화면과 같은 소스인 gameData 배열 순서를 그대로 쓴다. 순서가 어긋나도
-            #     칩에 소환사명을 찍으므로 누구 정보인지는 항상 읽을 수 있다.
-            return out
-        one, two = _cells(gd.get("teamOne")), _cells(gd.get("teamTwo"))
-        # 🧭 [2026-08-08 사장님 제보: 위아래 뒤바뀜] 로딩 화면 줄 배치는 '내 팀/상대팀'이 아니라
-        #   블루팀(teamOne)=위 / 레드팀(teamTwo)=아래 고정 — 아군 판별 로직을 버리고 진영 고정으로.
-        try: _chip_prefetch_icons([d["ch"] for d in one + two])
-        except Exception: pass
-        payload = {"ts": time.time(), "blue": one, "red": two}
-        if one or two:
-            with gui_lock:   # 세대 토큰 검증 — 지연된 수집이 '정리된/다음 게임' 상태를 덮어쓰지 않게(검증 지적)
-                if gen is not None and gui_data.get("load_gen") != gen:
-                    print("[loadovl] 세대 불일치 — 발행 취소(게임 이탈/새 게임)", flush=True); return
-                gui_data["load_info"] = payload
-            print(f"[loadovl] 로딩 정보 준비 — 블루 {len(one)} · 레드 {len(two)}", flush=True)
-            def _watch_render():
-                """게임이 실제 렌더링을 시작하면(=로딩 종료) 오버레이 자동 종료 — 200+gameTime 엄격 판정."""
-                for _ in range(50):
-                    time.sleep(3)
-                    with gui_lock: cur = gui_data.get("load_info")
-                    if not cur or cur.get("ts") != payload["ts"]: return
-                    if _live2999_rendering():
-                        with gui_lock:
-                            if (gui_data.get("load_info") or {}).get("ts") == payload["ts"]:
-                                gui_data["load_info"] = None
-                        print("[loadovl] 게임 렌더 시작 — 오버레이 자동 종료", flush=True); return
-            threading.Thread(target=_watch_render, daemon=True).start()
-    except Exception as e:
-        print(f"[loadovl] 로딩 정보 수집 실패(무시): {e}", flush=True)
-
-_CHIP_IMG_RAW = {}   # 챔프명 -> png bytes (백그라운드 프리페치 — GUI에서 네트워크 금지)
-_CHIP_IMG_TK = {}    # (챔프명,크기) -> PhotoImage (GUI 스레드에서만 생성)
-def _chip_prefetch_icons(champs):
-    """로딩 오버레이용 챔프 초상화 바이트를 미리 받아둔다(수집 스레드에서 호출)."""
-    for ch in champs:
-        if not ch or ch == "?" or ch in _CHIP_IMG_RAW: continue
-        try:
-            urls = []
-            _cid = _champ_id_of(ch)
-            if _cid:
-                urls.append("https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/"
-                            f"default/v1/champion-icons/{_cid}.png")
-            eng = get_champ_eng_name(ch)
-            if eng:
-                urls.append(f"https://ddragon.leagueoflegends.com/cdn/{DDRAGON_VERSION}/img/champion/{eng}.png")
-            for u in urls:
-                try:
-                    r = requests.get(u, timeout=3)
-                    if r.status_code == 200:
-                        _CHIP_IMG_RAW[ch] = r.content; break
-                except Exception: pass
-        except Exception: pass
-
-_LOADFONT = {}
-def _lf(spec):
-    """폰트 튜플 → tkinter.font.Font 캐시. measure()/linespace 실측용(GUI 스레드 전용)."""
-    key = tuple(spec)
-    f = _LOADFONT.get(key)
-    if f is None:
-        f = tkfont.Font(family=spec[0], size=spec[1], weight=(spec[2] if len(spec) > 2 else "normal"))
-        _LOADFONT[key] = f
-    return f
-
-def _fit_text(s, spec, maxw):
-    """maxw 픽셀에 들어가도록 뒤를 잘라 '…'을 붙인다.
-       [2026-08-12 사장님 제보 '텍스트가 겹쳐서 못 읽겠다'] 근본 원인은 create_text(width=) 자동 줄바꿈이었다.
-       1920x1080에서 텍스트에 배정된 폭은 67px인데 실제 문구는 150px라 3줄로 접히고,
-       Tk가 접힌 블록을 앵커 기준 세로 중앙정렬하는 바람에 위아래 줄을 관통했다.
-       줄바꿈을 아예 없애고 잘라 넣으면 한 줄 = 한 줄이 보장돼 겹칠 수가 없다."""
-    s = str(s or "")
-    if not s or maxw <= 0: return ""
-    f = _lf(spec)
-    if f.measure(s) <= maxw: return s
-    if f.measure("…") > maxw: return ""
-    lo, hi = 0, len(s)
-    while lo < hi:                                   # 들어가는 최대 길이를 이분 탐색
-        mid = (lo + hi + 1) // 2
-        if f.measure(s[:mid] + "…") <= maxw: lo = mid
-        else: hi = mid - 1
-    return (s[:lo] + "…") if lo > 0 else ""
-
-def _chip_icon(ch, size):
-    """프리페치된 바이트 → PhotoImage (GUI 스레드 전용 · 캐시). 없으면 None."""
-    if not PILLOW_INSTALLED: return None
-    key = (ch, size)
-    if key in _CHIP_IMG_TK: return _CHIP_IMG_TK[key]
-    raw = _CHIP_IMG_RAW.get(ch)
-    if not raw: return None
-    try:
-        im = Image.open(BytesIO(raw)).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
-        ph = ImageTk.PhotoImage(im)
-        _CHIP_IMG_TK[key] = ph
-        return ph
-    except Exception:
-        return None
-
-def _lol_game_rect():
-    """롤 '게임' 창(클라이언트 아님)의 화면 좌표 클라이언트 영역. 없거나 최소화면 None."""
-    try:
-        import ctypes
-        from ctypes import wintypes, byref
-        u = ctypes.windll.user32
-        hwnd = u.FindWindowW("RiotWindowClass", None) or u.FindWindowW(None, "League of Legends (TM) Client")
-        if not hwnd or u.IsIconic(hwnd): return None
-        rc = wintypes.RECT(); u.GetClientRect(hwnd, byref(rc))
-        if rc.right < 400 or rc.bottom < 300: return None
-        pt = wintypes.POINT(0, 0); u.ClientToScreen(hwnd, byref(pt))
-        return (hwnd, pt.x, pt.y, rc.right, rc.bottom)
-    except Exception:
-        return None
-
-def _apply_ghost_exstyle(w):
-    """오버레이를 '유령 창'으로 — 클릭통과·포커스미탈취·작업표시줄 숨김.
-       Tk 최상위 래퍼 HWND는 첫 map 때 생성·재생성되므로(검증 지적: map 전 적용은 소실),
-       map을 강제한 뒤 실제 래퍼에만 적용하고, 매 틱 비트 누락 시 재적용한다.
-       WS_EX_LAYERED는 Tk의 -transparentcolor가 스스로 관리 — 여기서 건드리지 않는다."""
-    try:
-        import ctypes
-        u = ctypes.windll.user32
-        w.update_idletasks()                      # map 강제 → 실제 래퍼 HWND 확보
-        hw = u.GetParent(w.winfo_id())
-        if not hw: return                         # 자식 HWND 폴백 금지(고아 LAYERED → 빈 창)
-        GWL_EXSTYLE = -20
-        WANT = 0x20 | 0x8000000 | 0x80            # TRANSPARENT | NOACTIVATE | TOOLWINDOW
-        st = u.GetWindowLongW(hw, GWL_EXSTYLE)
-        if (st & WANT) != WANT:
-            u.SetWindowLongW(hw, GWL_EXSTYLE, st | WANT)
-            u.SetWindowPos(hw, 0, 0, 0, 0, 0, 0x37)   # FRAMECHANGED|NOMOVE|NOSIZE|NOZORDER|NOACTIVATE
-        _LOAD_OVL["hw"] = hw
-    except Exception: pass
-
-def _loading_overlay_sync(root):
-    """gui_data['load_info']를 게임 창 위 '투명·클릭통과' 오버레이로 — 로딩 화면의
-       챔피언 카드 각 칸 안쪽 하단에 정보 칩을 얹는다(위 줄 블루5 / 아래 줄 레드5 — 2026-08-13 재검증).
-       ⚠️ '좌 아군5 / 우 적군5'라고 적혀 있던 옛 설계 문구는 폐기됐다(되돌리지 말 것).
-       ⚠️ 줄 배치를 다시 만질 땐 칩 이름이 제대로 찍히는지부터 확인할 것 — 이름이 '?'인 상태의 실측은
-          누가 어느 줄인지 알 수 없어 신뢰할 수 없다(2026-08-08 오판이 그렇게 나왔다).
-       (GUI 스레드 1초 폴링 · 팝업창 방식은 사장님 반려로 폐기, 2026-08-07)
-       한계: 게임 '전체 화면(전용)' 모드에선 OS 오버레이가 보이지 않는다 — 테두리 없는 창 모드 권장."""
-    with gui_lock:
-        info = gui_data.get("load_info")
-    if not APP_CONFIG.get("load_overlay", True):   # [v82.85] 설정에서 끄면 즉시 숨김
-        info = None
-    w = _LOAD_OVL["win"]
-    def _hide():
-        if w is not None:
-            try: w.withdraw()
-            except Exception: pass
-        _LOAD_OVL["key"] = ""
-    if not info or time.time() - float(info.get("ts", 0)) > 150:   # 최대 150초(안전 상한)
-        _hide(); return
-    geo = _lol_game_rect()
-    if not geo:
-        _hide(); return
-    hwnd, gx, gy, gw, gh = geo
-    try:   # 게임이 전면이 아닐 때(알탭) 칩이 바탕화면에 떠 있지 않게 숨김
-        import ctypes
-        fg = ctypes.windll.user32.GetForegroundWindow()
-        ov_hw = _LOAD_OVL.get("hw") or 0
-        if fg and fg not in (hwnd, ov_hw):   # fg==0(전환 과도기·UAC)은 판단 보류(깜빡임 방지 — 검증 지적)
-            _hide(); return
-    except Exception: pass
-    KEYCOL = "#010203"   # 투명 키 컬러(칩 색과 절대 겹치지 않는 값)
-    if w is None or not w.winfo_exists():
-        w = tk.Toplevel(root)
-        w.overrideredirect(True)
-        w.configure(bg=KEYCOL)
-        try: w.attributes("-transparentcolor", KEYCOL)
-        except Exception: pass
-        w.attributes("-topmost", True)
-        cv = tk.Canvas(w, bg=KEYCOL, highlightthickness=0, bd=0)
-        cv.pack(fill="both", expand=True)
-        _LOAD_OVL["win"] = w; _LOAD_OVL["cv"] = cv; _LOAD_OVL["key"] = ""; _LOAD_OVL["hw"] = 0   # 스테일 hw 제거
-        _apply_ghost_exstyle(w)
-    cv = _LOAD_OVL["cv"]
-    _apply_ghost_exstyle(w)   # 래퍼 재생성 대비 — 비트 누락 시에만 재적용(무변경이면 no-op)
-    key = f"{info.get('ts')}|{gx},{gy},{gw},{gh}"
-    if _LOAD_OVL["key"] == key:
-        try: w.deiconify(); w.attributes("-topmost", True)
-        except Exception: pass
-        return
-    _LOAD_OVL["key"] = key
-    try: w.geometry(f"{gw}x{gh}+{gx}+{gy}")
-    except Exception: pass
-    cv.delete("all")
-    G = _LOADCARD_GEOM
-    base = min(gw, gh * 16.0 / 9.0)   # 로딩 카드 UI는 16:9 기준 균일 스케일·중앙 정렬(울트라와이드 대응)
-    cw = base * G["cw"]; gap = base * G["gap"]
-    chh = max(48, gh * G["h"])
-    def _row_x0(n):   # 실제 인원 수 기준 중앙 정렬(칼바람 리메이크 등 5인 미만 대응)
-        return (gw - (n * cw + max(0, n - 1) * gap)) / 2.0
-    y_top = min(gh - chh - 4, gh * G["row_top"] - chh - 6)   # 위 줄(블루팀) 카드 하단부 안쪽
-    y_bot = min(gh - chh - 4, gh * G["row_bot"] - chh - 6)   # 아래 줄(레드팀) 카드 하단부 안쪽
-    f_nm = ("Malgun Gothic", max(9, int(gh * 0.0115)), "bold")   # 1행 소환사명 — 누구 정보인지 즉시 보이게
-    f_ch = ("Malgun Gothic", max(8, int(gh * 0.0100)), "bold")
-    f_ln = ("Malgun Gothic", max(8, int(gh * 0.0095)))
-    imgs = _LOAD_OVL.setdefault("imgs", [])
-    imgs.clear()   # 이전 프레임 PhotoImage 참조 해제(새로 그리는 프레임 것만 유지)
-    def chip(x, d, accent, y0):
-        x1, x2 = x + 3, x + cw - 3
-        cv.create_rectangle(x1, y0, x2, y0 + chh, fill="#0b101c", outline=accent, width=1)
-        cv.create_rectangle(x1, y0, x2, y0 + 2, fill=accent, outline="")
-        # 초상화 — 칩 폭이 카드 폭(base의 13.1%)에 묶여 있어 좁다. 글자 자리를 우선해 크기를 제한한다.
-        tx1 = x1
-        isz = int(max(24, min(chh - 14, cw * 0.20)))
-        ph = _chip_icon(d.get("ch"), isz)
-        if ph is not None:
-            cv.create_image(x1 + 4, y0 + chh / 2, image=ph, anchor="w")
-            imgs.append(ph)   # GC 방지 — canvas는 참조를 유지하지 않는다
-            tx1 = x1 + isz + 6
-        # 🕸 육각형 — 정육각형의 가로 점유는 지름(2R)이 아니라 √3·R 이다. 예약폭을 실제값으로 줄인다.
-        #   그래도 칩이 좁으면 글자가 우선이다: 남는 폭이 최소 가독폭에 못 미치면 육각형을 뺀다.
-        #   (구버전 임계 30px 는 gh≤609 에서만 발동해 사실상 죽은 코드였고, 그래서 늘 글자를 눌렀다.)
-        hex_pad = 0
-        vals = d.get("radar") if APP_CONFIG.get("load_overlay_hex", False) else None
-        min_txt = max(70.0, gh * 0.074)         # 한글 약 5자 — 이보다 좁으면 어떤 축약도 못 읽는다
-        if vals:
-            hexR = chh / 2 - 5
-            _hw = int(1.733 * hexR + 18)        # √3·R + 축 라벨 여백
-            if (x2 - tx1 - 6) - _hw < min_txt:
-                vals = None                     # 글자 우선 — 이번 칩에선 육각형 생략
-            else:
-                hex_pad = _hw
-        if vals:
-            hcx, hcy = x2 - hexR * 0.866 - 12, y0 + chh / 2
-            def _hexpts(rr, vv=None):
-                pts = []
-                for _i in range(6):
-                    ang = -math.pi / 2 + _i * math.pi / 3
-                    r_ = rr if vv is None else rr * max(0.08, (vv[_i] or 0) / 100.0)
-                    pts += [hcx + r_ * math.cos(ang), hcy + r_ * math.sin(ang)]
-                return pts
-            cv.create_polygon(*_hexpts(hexR), fill="", outline="#2e3852", width=1)
-            cv.create_polygon(*_hexpts(hexR * 0.5), fill="", outline="#232c42", width=1)
-            cv.create_polygon(*_hexpts(hexR, vals), fill=accent, stipple="gray50", outline=accent, width=1)
-            # 축 라벨(웹 육각형과 같은 순서) — 캐리·성장·시야·생존·교전·챔프폭
-            _axl = ("캐", "성", "시", "생", "교", "폭")
-            _f_ax = ("Malgun Gothic", max(7, int(gh * 0.0068)))
-            for _i in range(6):
-                ang = -math.pi / 2 + _i * math.pi / 3
-                cv.create_text(hcx + (hexR + 6) * math.cos(ang), hcy + (hexR + 6) * math.sin(ang),
-                               text=_axl[_i], fill="#8b94a8", font=_f_ax)
-        tw = (x2 - tx1 - 6) - hex_pad
-        # 표시 줄 — 우선순위 순. 1행 소환사명이 최우선: 칩 순서가 어긋나도 누구 정보인지는 읽힌다.
-        rows = []
-        if d.get("nm"): rows.append((str(d["nm"]), f_nm, "#ffffff"))
-        tv = f" · {d['tv']}" if d.get("tv") else ""
-        rows.append((f"{d['ch']}{tv}", f_ch, accent))
-        st = int(d.get("st") or 0)   # 최근 연승·연패 — 2연 이상만 표기(1은 정보가 없다)
-        l2 = f"내전 {d['g']}판 {round(d['w'] / d['g'] * 100)}%" if d.get("g") else "내전 기록 없음"
-        if abs(st) >= 2: l2 += f" {'🔥' if st > 0 else '❄'}{abs(st)}"
-        rows.append((l2, f_ln, ("#7dd87d" if st >= 2 else ("#ff8a9a" if st <= -2 else "#dfe3ee"))))
-        l3 = f"이 챔프 {d['cg']}판 {round(d['cw'] / d['cg'] * 100)}%" if d.get("cg") else (d.get("solo") or "")
-        if d.get("cg") and d.get("solo"): l3 += f" · {d['solo']}"
-        if l3: rows.append((l3, f_ln, "#9aa3b5"))
-        # 세로 예산 — 들어가는 만큼만 그리고 남는 줄은 버린다(칩 밖으로 넘치지 않게).
-        while len(rows) > 1 and sum(_lf(fs).metrics("linespace") for _, fs, _ in rows) > chh - 6:
-            rows.pop()
-        yy = y0 + (chh - sum(_lf(fs).metrics("linespace") for _, fs, _ in rows)) / 2.0
-        for s, fs, col in rows:
-            lh = _lf(fs).metrics("linespace")
-            t = _fit_text(s, fs, tw)      # 줄바꿈 없이 잘라 넣는다 — 한 줄은 반드시 한 줄
-            if t: cv.create_text(tx1, yy + lh / 2, text=t, fill=col, font=fs, anchor="w")
-            yy += lh
-    _bl = (info.get("blue") or [])[:5]; _rd = (info.get("red") or [])[:5]
-    bx0 = _row_x0(len(_bl)); rx0 = _row_x0(len(_rd))
-    # 🧭 [2026-08-13 재정정] 블루팀(teamOne)=위 / 레드팀(teamTwo)=아래 — 수집부 주석과 일치시킨다.
-    #   2026-08-08 '레드가 위' 실측은 뒤집힌 판정이었다. 근거: 사장님 제보 스크린샷의 위 줄 칩(레드 강조색)
-    #   다섯 장을 시트와 대조하니 내전 판수·승률·내부티어·솔랭·챔프기록이 모두 유일하게 일치하는 사람들이
-    #   나왔는데, 그 다섯의 챔피언(브라이어·트페·트리스타나·노틸러스 등)은 전부 화면 '아래 줄' 초상화였다.
-    #   당시엔 칩 이름이 전원 '?'라 누가 누군지 못 읽어 줄 배치를 반대로 재단한 것으로 보인다(위 이름 수정 참조).
-    for i, d in enumerate(_bl):
-        chip(bx0 + i * (cw + gap), d, "#5b8cff", y_top)   # 위 줄 = 블루팀(teamOne)
-    for j, d in enumerate(_rd):
-        chip(rx0 + j * (cw + gap), d, "#e84057", y_bot)   # 아래 줄 = 레드팀(teamTwo)
-    try: w.deiconify(); w.attributes("-topmost", True)
-    except Exception: pass
 
 # ===== 📊 [v82.34] 추천 적중 기록 — '추천대로 했을 때 실제로 이겼는가'를 나중에 검증하기 위한 원자료 =====
 #   설계: 추천이 뜨면 추천 챔프 목록을 보관 → 내가 실제로 밴/픽을 확정하는 순간 대조 → 봇에 1건 전송.
@@ -6577,7 +6117,6 @@ def lcu_core_backend_loop():
     game_seq = 0                         # 🔢 게임 진입 카운터 (커스텀게임 gameId=0일 때 판별 — 같은멤버 연속게임 중복기록 방지)
     was_in_prog = False                  #    이전 루프가 InProgress였나 (전환 감지용)
     last_known_phase = "None"            # [V81.48] gameflow-phase 폴링 실패 시 직전 phase 유지(헛플립→game_seq 드리프트 방지)
-    _load_prev = ["None"]                # 🖥️ 로딩 오버레이 — ChampSelect→게임 전환 감지용 직전 phase
     _roster_wait_since = {}              # [V81.48] 게임ID별 '완전 로스터 대기 시작 시각'(파편 append 방지 게이트용)
     _cs_since = [0.0]                    # 🧭 [2026-07-29] 밴픽 진입 시각 — 진입 직후 몇 초는 로비를 더 읽어 포지션 정정
     active_recording_id = None
@@ -6657,7 +6196,6 @@ def lcu_core_backend_loop():
                         c_name = str(c_data.get('gameName', '')) + "#" + str(c_data.get('tagLine', ''))
                         global_my_puuid = c_data.get('puuid', '').strip().lower()
                         if c_data.get('gameName'): MY_RIOT_NAME[0] = c_name   # 🩺 버전 하트비트용 내 계정 식별자
-                        if c_data.get('puuid'): _MY_PUUID[0] = str(c_data['puuid']).lower()   # 🖥️ 로딩 오버레이 아군판별용
                         # 🏅 [v81.31 보류] 직전시즌 솔랭 앵커 반영 기능 잠정 중단.
                         # 사유: 애초 요청은 "직전시즌 최고점(맥시멈)"이었으나 LCU current-ranked-stats의
                         # previousSeasonEndTier는 "시즌 종료 시점" 값이라 개념이 달랐고(실측: 다이아3=2500점,
@@ -6781,23 +6319,6 @@ def lcu_core_backend_loop():
                 _cs_since[0] = 0.0
             _cs_fresh = _cs_since[0] > 0 and (time.time() - _cs_since[0]) < CS_REFRESH_SEC
             try: noban_tick(headers, base_url, current_phase)   # 🚫 노밴 선언 감지(로비 채팅, 2초 간격)
-            except Exception: pass
-            # 🖥️ [2026-08-07 사장님 지시 / 08-07 재수정] 로딩 화면 정보 오버레이.
-            #   ⚠️ 처음엔 phase=="GameStart"에 띄우고 "InProgress"에 내렸는데 실기기에서 전혀 안 떴다 —
-            #   GameStart는 몇 초짜리(폴링이 놓침)이고 실제 로딩 화면은 대부분 InProgress 구간이다.
-            #   → 트리거: ChampSelect에서 게임(GameStart/InProgress)으로 '전환'하는 순간 1회 수집.
-            #   → 내림: 시간(150초, _loading_overlay_sync TTL)으로 — phase로 내리지 않는다.
-            try:
-                _pp = _load_prev[0]; _load_prev[0] = current_phase
-                _INGAME3 = ("GameStart", "InProgress", "Reconnect")   # Reconnect 도 게임 안(검증 지적)
-                if current_phase in _INGAME3 and _pp == "ChampSelect":
-                    with gui_lock:   # 세대 토큰 — 지연 수집이 다음 게임/정리 상태를 덮어쓰지 못하게(검증 지적)
-                        gui_data["load_gen"] = gui_data.get("load_gen", 0) + 1; _lg = gui_data["load_gen"]
-                    threading.Thread(target=_build_loading_info, args=(headers, base_url, _lg), daemon=True).start()
-                elif current_phase not in _INGAME3 and _pp in _INGAME3:
-                    with gui_lock:   # 게임 밖으로 나가면 정리 + 세대 무효화(진행 중이던 수집 발행 차단)
-                        gui_data["load_info"] = None
-                        gui_data["load_gen"] = gui_data.get("load_gen", 0) + 1
             except Exception: pass
 
             # 🔢 게임에 새로 '진입'할 때마다 카운터 증가 (새 게임 = 새 ID 보장)
@@ -9653,9 +9174,6 @@ def create_graphic_ui():
             # 🧠 [v81.74] 고스트밴픽왕 오버레이 — 추천이 생기면 항상-위 작은 창으로 띄움(롤 클라 위에 보이게)
             try: _draft_overlay_sync(root)
             except Exception: pass
-            # 🖥️ [2026-08-07] 로딩 화면 정보 오버레이
-            try: _loading_overlay_sync(root)
-            except Exception: pass
 
         except Exception: pass
         finally: root.after(1000, update_gui)
@@ -10342,8 +9860,6 @@ class ClanSettingsWindow(tk.Toplevel):
         self.var_lol_auto = tk.BooleanVar(value=APP_CONFIG.get("lol_auto_show", True))
         self.var_tray = tk.BooleanVar(value=APP_CONFIG.get("minimize_to_tray", False))
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
-        self.var_loadovl = tk.BooleanVar(value=APP_CONFIG.get("load_overlay", True))   # [v82.85] 로딩 오버레이
-        self.var_loadhex = tk.BooleanVar(value=APP_CONFIG.get("load_overlay_hex", False))   # 육각형 표시
         self.var_syn = tk.BooleanVar(value=APP_CONFIG.get("show_synergy", True))   # 🧩 우측 시너지 3칸
         
         # 체크박스를 먼저(오른쪽) 배치해 공간을 확보 → 긴 설명이 밀어내지 않음. 설명은 wraplength로 줄바꿈.
@@ -10391,23 +9907,6 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Label(txt_pv, text="켜면 각자 선택한 포지션의 모스트·고승률픽만, 끄면 전체 라인 기준으로 보여줍니다. (상단 버튼으로 언제든 전환 가능)",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
-        # 🖥 [v82.85] 로딩 화면 정보 오버레이 온오프
-        opt_lo = tk.Frame(body_frame, bg=theme.BG); opt_lo.pack(fill="x", pady=10)
-        ttk.Checkbutton(opt_lo, variable=self.var_loadovl, style="TCheckbutton").pack(side="right", padx=(8, 6))
-        txt_lo = tk.Frame(opt_lo, bg=theme.BG); txt_lo.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_lo, text="로딩 화면 정보 오버레이", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
-        tk.Label(txt_lo, text="게임 로딩 중 각 챔피언 초상화 위에 소환사명·내부티어·내전 전적 칩을 표시합니다. 끄면 즉시 반영됩니다.",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
-
-        # 🕸 [2026-08-12] 칩은 로딩 카드 폭(화면의 13%)에 묶여 있어 초상화·육각형·글자가 다 들어가지 않는다.
-        #   기본은 글자 우선(끔). 켜면 육각형을 넣되 남는 글자 폭이 줄어 문구가 잘릴 수 있다.
-        opt_lh = tk.Frame(body_frame, bg=theme.BG); opt_lh.pack(fill="x", pady=10)
-        ttk.Checkbutton(opt_lh, variable=self.var_loadhex, style="TCheckbutton").pack(side="right", padx=(8, 6))
-        txt_lh = tk.Frame(opt_lh, bg=theme.BG); txt_lh.pack(side="left", fill="both", expand=True)
-        tk.Label(txt_lh, text="오버레이에 육각형 능력치 표시", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
-        tk.Label(txt_lh, text="칩 오른쪽에 6축 육각형을 함께 그립니다. 칩이 좁아 글자가 잘릴 수 있어 기본은 꺼짐입니다(FHD 권장: 꺼짐).",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
-
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
         opt_f4 = tk.Frame(body_frame, bg=theme.BG); opt_f4.pack(fill="x", pady=10)
         _cur_key = APP_CONFIG.get("win_preset", "auto")
@@ -10446,8 +9945,6 @@ class ClanSettingsWindow(tk.Toplevel):
         # 🎯 [v82.37] 모스트 표시 기본값 — 저장 즉시 화면·버튼에 반영(재시작 기다릴 필요 없게)
         _pv = bool(self.var_posview.get())
         APP_CONFIG["pos_view_default"] = _pv
-        APP_CONFIG["load_overlay"] = bool(self.var_loadovl.get())   # [v82.85] 로딩 오버레이 온오프
-        APP_CONFIG["load_overlay_hex"] = bool(self.var_loadhex.get())
         APP_CONFIG["show_synergy"] = bool(self.var_syn.get())   # 🧩 우측 시너지 3칸
         try:
             if _SYNERGY_SYNC[0]: _SYNERGY_SYNC[0](APP_CONFIG["show_synergy"])   # 재시작 없이 즉시 반영
