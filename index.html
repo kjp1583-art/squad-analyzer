@@ -3221,6 +3221,36 @@ function build(){
   _PCT_CACHE={}; MENTAL=new Map(); TEAMLUCK=null; OFFROLE=null;   // 🧊 멘탈 지수도 데이터가 바뀌면 다시 계산                 // 카테고리/패치가 바뀌면 레이더 비교군도 다시 계산해야 한다
   // 패치 정규화 (v16.13 → 16.13, 빈칸 → 16.13). 'v' 표기/무표기를 같은 버전으로 통합
   for(const r of RAW){ r["패치버전"]=normPatch(r["패치버전"]); }
+  /* 👥 [2026-08-16 사장님 제보 '한 경기가 두 개로'] 같은 판이 두 게임ID로 기록된 것을 걸러낸다.
+     분석기 두 인스턴스 중 하나는 리엇 실번호를, 하나는 LCU 조회 실패로 CUSTOM_ 합성 ID를 얻으면
+     ID가 달라 중복 게이트를 둘 다 통과한다(실측 3건 — 7/17·7/31·8/15, 챔프·KDA 10/10 일치).
+     같은 PUUID 10명 + 같은 챔프 구성 + 30분 이내면 같은 판 — 합성 ID 쪽을 버린다(실번호가 원본). */
+  const _DUP_DROP=(()=>{
+    const gm=new Map();   // gid -> {pu:Set, ch:[], d:Date|null, day:"YYYY-MM-DD"}
+    for(const r of RAW){
+      const gid=r["게임ID"]; if(!gid)continue;
+      let e=gm.get(gid); if(!e){e={pu:new Set(),ch:[],d:null,day:""};gm.set(gid,e);}
+      const pu=String(r["PUUID"]||"").trim().toLowerCase(); if(pu)e.pu.add(pu);
+      if(r["챔피언"])e.ch.push(String(r["챔피언"]).replace(/\s+/g,""));
+      const m=String(r["날짜"]||"").match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/);
+      if(m){ const d=m[4]!=null?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]):null;
+        if(d&&(!e.d||d>e.d))e.d=d; if(m[0].slice(0,10)>e.day)e.day=m[0].slice(0,10); }
+    }
+    const sig=e=>[...e.pu].sort().join(",")+"∥"+e.ch.slice().sort().join(",");
+    const real=new Map();   // sig -> [{d,day}]
+    for(const [gid,e] of gm){ if(/^#\d+$/.test(gid)&&e.pu.size>=8){ const k=sig(e);
+      (real.get(k)||real.set(k,[]).get(k)).push(e); } }
+    const drop=new Set();
+    for(const [gid,e] of gm){
+      if(!/^#?CUSTOM/i.test(gid)||e.pu.size<8)continue;
+      for(const t of (real.get(sig(e))||[])){
+        const near=(e.d&&t.d)?Math.abs(e.d-t.d)<=30*60000:(e.day&&e.day===t.day);
+        if(near){ drop.add(gid); break; }
+      }
+    }
+    if(drop.size)console.log("[dedup] 합성ID 중복 게임 숨김:",[...drop]);
+    return drop;
+  })();
   // 감지된 모든 패치(최신순) + 최신 패치
   const pset=new Set();
   for(const r of RAW){ if(r["게임ID"]&&r["패치버전"]) pset.add(r["패치버전"]); }
@@ -3234,7 +3264,7 @@ function build(){
   if(PATCH_SEL!=="ALL" && !selYear(PATCH_SEL) && !pset.has(PATCH_SEL)) PATCH_SEL=LATEST_PATCH;
   const seen=new Set(); // 게임 내 동일 참가자 중복 기록 제거용
   for(const r of RAW){
-    const gid=r["게임ID"]; if(!gid)continue;
+    const gid=r["게임ID"]; if(!gid||_DUP_DROP.has(gid))continue;
     // 필터: '전체'=모두 / 년도("Y2025")=그 해만 / 그 외=선택한 패치만
     if(PATCH_SEL!=="ALL"){
       const _ysel=selYear(PATCH_SEL);
@@ -3303,7 +3333,7 @@ function build(){
     GAMES_ALL=new Map(); PLAYERS_ALL=new Map();
     const seenA=new Set();
     for(const r of RAW){
-      const gid=r["게임ID"]; if(!gid)continue;
+      const gid=r["게임ID"]; if(!gid||_DUP_DROP.has(gid))continue;
       const ident=(r["PUUID"]||r["소환사명"]||"")+"∥"+(r["챔피언"]||"")+"∥"+(r["포지션"]||"")+"∥"+(r["진영"]||"");
       const key=gid+"∥"+ident;
       if(seenA.has(key))continue;
@@ -7095,7 +7125,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608151904";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608160342";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
