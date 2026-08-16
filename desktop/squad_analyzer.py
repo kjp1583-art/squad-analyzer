@@ -8361,21 +8361,47 @@ def create_graphic_ui():
     text_frame = tk.Frame(left_header, bg=theme.BG_BAR)
     text_frame.pack(side="left", padx=5)
     
-    # 🧲 [2026-08-16 사장님 지시] ☰ 서랍 폐기 — 버튼을 전부 헤더로 도로 꺼낸다.
-    #    로고·제목·☰ 이 있던 자리를 비우고 그 위치에 평면 버튼 두 줄로 배치.
-    #    (서랍은 2026-08-12에 넣었던 것 — 별도 Toplevel·알파·바깥클릭 닫기 등 부속 전부 제거)
-    def _hbtn(row, text, cmd, bg=None, fg=None):
-        b = tk.Button(row, text=text, font=UF(10, "bold"), bg=(bg or theme.BG_RAISED),
-                      fg=(fg or theme.TEXT), bd=0, padx=8, pady=2, cursor="hand2",
-                      activebackground=(bg or theme.BG_RAISED), activeforeground=(fg or theme.TEXT))
-        b.config(command=cmd)
-        b.pack(side="left", padx=3, pady=1)
-        return b
-
+    # 🧲 [2026-08-16 사장님 지시] ☰ 서랍 폐기 — 타일 아이콘 모양은 그대로, 정렬만 상단 가로 한 줄.
+    #    로고·제목·☰ 이 있던 자리를 비우고, 서랍 안에 있던 타일(윗줄 색 바·아이콘·라벨)을
+    #    그 모습 그대로 헤더에 옆으로 늘어놓는다. 서랍 부속(Toplevel·알파·바깥클릭 닫기)은 제거.
+    C_TILE, C_TILE_H = "#1a1f2b", "#28303f"
     btn_row1 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row1.pack(anchor="w", pady=(2, 2))
-    btn_row2 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row2.pack(anchor="w", pady=(2, 2))
 
-    _hbtn(btn_row1, "📖 사용 안내", lambda: GuideWindow(root))
+    class _HTile:
+        """서랍의 _Tile 을 헤더용으로 — 시각은 동일, 배치만 가로(pack). 13개가 한 줄에 들어가야
+           하므로 아이콘·여백을 한 단계 줄였다. config(text=, bg=) 를 받아 _posview_btn_sync 호환."""
+        def __init__(self, icon, label, cmd, accent):
+            # [사장님 지시] 정사각형 고정 — 라벨 길이에 따라 폭이 들쭉날쭉하지 않게 크기를 못박는다.
+            self.f = tk.Frame(btn_row1, bg=C_TILE, cursor="hand2", width=74, height=74)
+            self.f.pack_propagate(False)
+            self.f.pack(side="left", padx=3, pady=1)
+            self.bar = tk.Frame(self.f, bg=accent, height=2); self.bar.pack(fill="x")
+            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=UF(15, family="Segoe UI Emoji"))
+            self.ic.pack(pady=(8, 0))
+            self.tx = tk.Label(self.f, text=label, bg=C_TILE, fg="#cdd6e3",
+                               font=UF(8), wraplength=70, justify="center")
+            self.tx.pack(pady=(0, 6))
+            self.cmd = cmd
+            for wgt in (self.f, self.ic, self.tx):
+                wgt.bind("<Button-1>", self._hit)
+                wgt.bind("<Enter>", lambda e: self._bg(C_TILE_H))
+                wgt.bind("<Leave>", lambda e: self._bg(C_TILE))
+        def _bg(self, col):
+            for wgt in (self.f, self.ic, self.tx):
+                try: wgt.configure(bg=col)
+                except Exception: pass
+        def _hit(self, _e=None):
+            try: self.cmd()
+            except Exception as ex: print(f"[menu] {ex}", flush=True)
+        def config(self, text=None, bg=None, **_kw):
+            if text:                                   # '모스트: 현재포지션' → 라벨엔 뒷부분만
+                self.tx.config(text=str(text).split(":")[-1].strip() or text)
+            if bg:
+                self.bar.config(bg=bg); self.ic.config(fg=bg)
+        configure = config
+        def pack(self, *_a, **_kw): pass
+
+    _HTile("📖", "사용 안내", lambda: GuideWindow(root), "#9db8ff")
 
     # 🎮 [2026-08-13] 음성방 초대 — 디스코드 /팀초대와 같은 일을 분석기에서 바로. 로비 호스트가 누른다.
     def _do_voice_invite():
@@ -8384,7 +8410,7 @@ def create_graphic_ui():
             root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("음성방 초대", msg))
         threading.Thread(target=_work, daemon=True).start()
 
-    _hbtn(btn_row1, "🎮 음성방 초대", _do_voice_invite, bg="#1d3a2c", fg="#7ee1a8")
+    _HTile("🎮", "음성방 초대", _do_voice_invite, "#7ee1a8")
 
     # 👥 접속자 버튼 제거(2026-07-05 사장님 지시). 접속기록 자체는 백그라운드로 계속 시트에 기록됨.
     # ❄ 증내의 전당 버튼 삭제(2026-07-16) → 명예의 전당 창 내부 '칼바람' 탭으로 통합
@@ -8392,16 +8418,16 @@ def create_graphic_ui():
         try: ClanRankingWindow(root, mode=mode_type)
         except Exception as e: messagebox.showerror("전당 오류", f"데이터를 갱신 중입니다. 잠시 후 다시 시도해주세요.\n(에러: {str(e)})")
 
-    _hbtn(btn_row1, "🏆 명예의 전당", lambda: open_hof_window("CLASSIC"), bg=theme.LOSE)
+    _HTile("🏆", "명예의 전당", lambda: open_hof_window("CLASSIC"), theme.LOSE)
 
     def open_tier_window():
         try: TierAssessmentWindow(root)
         except Exception as e: messagebox.showerror("평가 오류", f"데이터를 갱신 중입니다. 잠시 후 다시 시도해주세요.\n(에러: {str(e)})")
-    _hbtn(btn_row1, "🎖 내부티어", open_tier_window, bg=theme.PURPLE)
+    _HTile("🎖", "내부티어", open_tier_window, theme.PURPLE)
 
-    _hbtn(btn_row1, "🧪 모의밴픽", lambda: webbrowser.open("https://www.fullbanpick.com/"), bg=theme.WARN)
-    _hbtn(btn_row1, "🌐 SQUAD.GG", lambda: webbrowser.open("https://kjp1583-art.github.io/squad-analyzer/"), bg=theme.ACCENT)
-    _hbtn(btn_row1, "🔨 AUC.GG", lambda: webbrowser.open("https://auc-gg.up.railway.app/"), bg=theme.GOLD, fg="#1b1b1b")
+    _HTile("🧪", "모의밴픽", lambda: webbrowser.open("https://www.fullbanpick.com/"), theme.WARN)
+    _HTile("🌐", "SQUAD.GG", lambda: webbrowser.open("https://kjp1583-art.github.io/squad-analyzer/"), theme.ACCENT)
+    _HTile("🔨", "AUC.GG", lambda: webbrowser.open("https://auc-gg.up.railway.app/"), theme.GOLD)
 
     # 🎯 [2026-07-08] 대기실 모스트 표시 토글: 전체 라인 ↔ 현재 선택 포지션(모스트3 + 그 포지션 고승률픽)
     def _toggle_pos_view():
@@ -8411,11 +8437,11 @@ def create_graphic_ui():
         _posview_btn_sync(_on)
     # [v82.37] 초기 문구·색은 설정값(pos_view_default)을 따른다 — 하드코딩하면 화면과 실동작이 어긋남
     _pv0 = _posview_default()
-    btn_posview = _hbtn(btn_row2, ("모스트: 현재포지션" if _pv0 else "모스트: 전체라인"), _toggle_pos_view,
-                        bg=(theme.SUCCESS if _pv0 else theme.BG_RAISED))
+    btn_posview = _HTile("🎯", ("현재포지션" if _pv0 else "전체라인"), _toggle_pos_view,
+                         (theme.SUCCESS if _pv0 else "#6b7789"))
     _POSVIEW_BTN[0] = btn_posview   # 설정 창에서 즉시 갱신할 수 있도록 참조 보관
 
-    _hbtn(btn_row2, "⚙ 설정", lambda: ClanSettingsWindow(root))
+    _HTile("⚙", "설정", lambda: ClanSettingsWindow(root), "#cdd6e3")
 
     def _open_log():
         try:
@@ -8424,7 +8450,7 @@ def create_graphic_ui():
             os.startfile(LOG_PATH)
         except Exception as e:
             messagebox.showerror("로그", f"열지 못했습니다: {e}\n\n경로: {LOG_PATH}")
-    _hbtn(btn_row2, "🗒 로그", _open_log)
+    _HTile("🗒", "로그", _open_log, "#8d9aae")
 
     # 👑 [2026-08-06 사장님 지시] 팀장뽑기 — 방 인원 중 전력이 가장 비슷한 2인 자동 선정(직전 판 팀장 회피)
     def _do_pick_captains(extra_exclude=None):
@@ -8474,7 +8500,7 @@ def create_graphic_ui():
                           relief="flat", padx=10).pack(side="left", padx=4)
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
-    _hbtn(btn_row2, "👑 팀뽑선정", _do_pick_captains, bg=theme.GOLD, fg="#1b1b1b")
+    _HTile("👑", "팀뽑선정", _do_pick_captains, theme.GOLD)
 
     # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 노출 (내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지)
     if load_bot_token():
@@ -8482,7 +8508,7 @@ def create_graphic_ui():
             try: TierAdminWindow(root)
             except Exception as e:
                 messagebox.showerror("티어관리 오류", f"티어 관리 창을 여는 중 오류가 발생했습니다.\n(에러: {str(e)})")
-        _hbtn(btn_row2, "🛠 티어관리", open_tieradmin_window, bg=theme.PURPLE)
+        _HTile("🛠", "티어관리", open_tieradmin_window, theme.PURPLE)
 
     # 💝 [2026-08-12 사장님 지시] 후원 — 계좌·예금주를 띄우고 한 번에 복사할 수 있게
     def _open_donate():
@@ -8529,7 +8555,7 @@ def create_graphic_ui():
         tk.Button(bar, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
                   relief="flat", font=UF(10), padx=12, pady=5,
                   cursor="hand2").pack(side="right")
-    _hbtn(btn_row2, "💝 후원하기", _open_donate, bg="#3a1f2b", fg="#ff8fb1")
+    _HTile("💝", "후원하기", _open_donate, "#ff8fb1")
 
     # 🔠 [2026-08-13 사장님 제보] 창 크기에 맞춰 글자 크기도 같이 바꾼다.
     #   해상도만 줄고 글자는 그대로여서 작게 쓰면 읽을 수가 없었다.
