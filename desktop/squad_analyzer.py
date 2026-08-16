@@ -2837,7 +2837,6 @@ def _dock_overlay(w):
         y = max(0, rect[1] + 60)
         w.geometry("+%d+%d" % (x, y))
     except Exception: pass
-DRAWER_ALPHA = 0.93      # ☰ 서랍 불투명도 — 낮을수록 뒤가 잘 비친다 (0.75 는 사장님이 별로라 하여 롤백)
 # 💝 후원 계좌 — squad.gg 고스트밴픽왕 소개 페이지(coach.html)에 이미 공개된 것과 같은 계좌.
 #   바뀌면 여기 세 줄만 고치면 된다(설정 파일로 덮어쓸 수도 있게 load_config 값을 우선한다).
 DONATE_BANK, DONATE_ACCT, DONATE_NAME = "토스뱅크", "1000-2535-5662", "박상준"
@@ -8359,89 +8358,24 @@ def create_graphic_ui():
     left_header = tk.Frame(header, bg=theme.BG_BAR)
     left_header.pack(side="left", fill="both", expand=True, padx=15, pady=5)
 
-    try:
-        yumi_img = tk.PhotoImage(file=resource_path("yumi_avatar.png")).subsample(7, 7)
-        lbl_yumi = tk.Label(left_header, image=yumi_img, bg=theme.BG_BAR)
-        lbl_yumi.image = yumi_img
-        lbl_yumi.pack(side="left", padx=5)
-    except Exception: pass
-
     text_frame = tk.Frame(left_header, bg=theme.BG_BAR)
     text_frame.pack(side="left", padx=5)
     
-    _title_row = tk.Frame(text_frame, bg=theme.BG_BAR); _title_row.pack(anchor="w", pady=(0, 5))
-    _btn_menu = tk.Button(_title_row, text="☰", font=UF(15, "bold"),
-                          bg=theme.BG_RAISED, fg=theme.GOLD, bd=0, padx=10, pady=1,
-                          activebackground=theme.GOLD, activeforeground="#1b1b1b", cursor="hand2")
-    _btn_menu.pack(side="left", padx=(0, 10))
-    tk.Label(_title_row, text="스쿼드해체분석기", bg=theme.BG_BAR, fg=theme.GOLD, font=FONT_TITLE).pack(side="left")
-    
-    # ☰ [2026-08-12 사장님 지시] 상단 버튼 무더기 → 왼쪽 서랍. 모바일 게임 메뉴처럼 반투명 타일 격자.
-    #   ⚠️ Tk 는 위젯 단위 투명도가 없다. 그래서 서랍을 '별도 Toplevel'로 띄우고 -alpha 를 준다 —
-    #      창 전체에 알파가 먹으므로 뒤에 있는 분석기 화면이 실제로 비쳐 보인다(가짜 합성이 아니다).
-    #      대신 본체가 움직이거나 크기가 바뀌면 서랍이 따라가야 한다 → <Configure> 로 좌표를 맞춘다.
-    _DRW = {"open": False, "w": 268, "x": 0, "busy": False, "win": None}
-    C_PANEL, C_TILE, C_TILE_H = "#0d1017", "#1a1f2b", "#28303f"
+    # 🧲 [2026-08-16 사장님 지시] ☰ 서랍 폐기 — 버튼을 전부 헤더로 도로 꺼낸다.
+    #    로고·제목·☰ 이 있던 자리를 비우고 그 위치에 평면 버튼 두 줄로 배치.
+    #    (서랍은 2026-08-12에 넣었던 것 — 별도 Toplevel·알파·바깥클릭 닫기 등 부속 전부 제거)
+    def _hbtn(row, text, cmd, bg=None, fg=None):
+        b = tk.Button(row, text=text, font=UF(10, "bold"), bg=(bg or theme.BG_RAISED),
+                      fg=(fg or theme.TEXT), bd=0, padx=8, pady=2, cursor="hand2",
+                      activebackground=(bg or theme.BG_RAISED), activeforeground=(fg or theme.TEXT))
+        b.config(command=cmd)
+        b.pack(side="left", padx=3, pady=1)
+        return b
 
-    drawer = tk.Toplevel(root)
-    drawer.withdraw()
-    drawer.overrideredirect(True)
-    drawer.transient(root)
-    drawer.configure(bg=C_PANEL)
-    # [2026-08-12 사장님 지시] 0.93 → 0.75. 20%p 더 비치게 해서 서랍을 열어도 뒤 로스터가 읽힌다.
-    try: drawer.attributes("-alpha", DRAWER_ALPHA)
-    except Exception: pass
+    btn_row1 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row1.pack(anchor="w", pady=(2, 2))
+    btn_row2 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row2.pack(anchor="w", pady=(2, 2))
 
-    _drw_head = tk.Frame(drawer, bg=C_PANEL); _drw_head.pack(fill="x", padx=18, pady=(18, 4))
-    tk.Label(_drw_head, text="MENU", bg=C_PANEL, fg=theme.GOLD,
-             font=UF(12, "bold")).pack(side="left")
-    _drw_x = tk.Label(_drw_head, text="✕", bg=C_PANEL, fg="#6b7789",
-                      font=UF(13), cursor="hand2")
-    _drw_x.pack(side="right")
-    tk.Frame(drawer, bg="#222a37", height=1).pack(fill="x", padx=18, pady=(6, 10))
-
-    _drw_body = tk.Frame(drawer, bg=C_PANEL); _drw_body.pack(fill="both", expand=True, padx=12)
-    for _c in range(3): _drw_body.columnconfigure(_c, weight=1, uniform="tiles")
-    _drw_cell = [0]
-
-    class _Tile:
-        """아이콘 타일 — 기존 tk.Button 자리를 대신한다. config(text=, bg=) 를 받아 주므로
-           _posview_btn_sync 같은 기존 코드가 그대로 동작한다."""
-        def __init__(self, icon, label, cmd, accent):
-            r, c = divmod(_drw_cell[0], 3); _drw_cell[0] += 1
-            self.f = tk.Frame(_drw_body, bg=C_TILE, cursor="hand2")
-            self.f.grid(row=r, column=c, padx=4, pady=4, sticky="nsew")
-            self.bar = tk.Frame(self.f, bg=accent, height=2); self.bar.pack(fill="x")
-            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=UF(17, family="Segoe UI Emoji"))
-            self.ic.pack(pady=(9, 1))
-            self.tx = tk.Label(self.f, text=label, bg=C_TILE, fg="#cdd6e3",
-                               font=UF(9), wraplength=74, justify="center")
-            self.tx.pack(pady=(0, 9))
-            self.cmd = cmd
-            for wgt in (self.f, self.ic, self.tx):
-                wgt.bind("<Button-1>", self._hit)
-                wgt.bind("<Enter>", lambda e: self._bg(C_TILE_H))
-                wgt.bind("<Leave>", lambda e: self._bg(C_TILE))
-        def _bg(self, col):
-            for wgt in (self.f, self.ic, self.tx):
-                try: wgt.configure(bg=col)
-                except Exception: pass
-        def _hit(self, _e=None):
-            try: self.cmd()
-            except Exception as ex: print(f"[drawer] {ex}", flush=True)
-            root.after(140, _drw_close)
-        def config(self, text=None, bg=None, **_kw):
-            if text:                                   # '모스트: 현재포지션' → 두 줄로 접어 넣는다
-                self.tx.config(text=str(text).split(":")[-1].strip() or text)
-            if bg:
-                self.bar.config(bg=bg); self.ic.config(fg=bg)
-        configure = config
-        def pack(self, *_a, **_kw): pass                # 옛 코드가 pack 을 불러도 무시(격자로 이미 배치됨)
-
-    def _drw_add(icon, label, cmd, accent):
-        return _Tile(icon, label, cmd, accent)
-
-    _drw_add("📖", "사용 안내", lambda: GuideWindow(root), "#9db8ff")
+    _hbtn(btn_row1, "📖 사용 안내", lambda: GuideWindow(root))
 
     # 🎮 [2026-08-13] 음성방 초대 — 디스코드 /팀초대와 같은 일을 분석기에서 바로. 로비 호스트가 누른다.
     def _do_voice_invite():
@@ -8450,7 +8384,7 @@ def create_graphic_ui():
             root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("음성방 초대", msg))
         threading.Thread(target=_work, daemon=True).start()
 
-    _drw_add("🎮", "음성방 초대", _do_voice_invite, "#7ee1a8")
+    _hbtn(btn_row1, "🎮 음성방 초대", _do_voice_invite, bg="#1d3a2c", fg="#7ee1a8")
 
     # 👥 접속자 버튼 제거(2026-07-05 사장님 지시). 접속기록 자체는 백그라운드로 계속 시트에 기록됨.
     # ❄ 증내의 전당 버튼 삭제(2026-07-16) → 명예의 전당 창 내부 '칼바람' 탭으로 통합
@@ -8458,21 +8392,16 @@ def create_graphic_ui():
         try: ClanRankingWindow(root, mode=mode_type)
         except Exception as e: messagebox.showerror("전당 오류", f"데이터를 갱신 중입니다. 잠시 후 다시 시도해주세요.\n(에러: {str(e)})")
 
-    _drw_add("🏆", "명예의 전당", lambda: open_hof_window("CLASSIC"), theme.LOSE)
+    _hbtn(btn_row1, "🏆 명예의 전당", lambda: open_hof_window("CLASSIC"), bg=theme.LOSE)
 
     def open_tier_window():
         try: TierAssessmentWindow(root)
         except Exception as e: messagebox.showerror("평가 오류", f"데이터를 갱신 중입니다. 잠시 후 다시 시도해주세요.\n(에러: {str(e)})")
-    _drw_add("🎖", "내부티어", open_tier_window, theme.PURPLE)
+    _hbtn(btn_row1, "🎖 내부티어", open_tier_window, bg=theme.PURPLE)
 
-    # 📜 패치노트 버튼 폐기(2026-07-01) — 패치 안내는 디스코드 웹훅으로 대체
-
-    _drw_add("🧪", "모의밴픽", lambda: webbrowser.open("https://www.fullbanpick.com/"), theme.WARN)
-
-    _drw_add("🌐", "SQUAD.GG", lambda: webbrowser.open("https://kjp1583-art.github.io/squad-analyzer/"), theme.ACCENT)
-
-    # 🏟 [v82.41 사장님 지시] 클랜원 제작 토너먼트(경매) 사이트 바로가기
-    _drw_add("🔨", "AUC.GG", lambda: webbrowser.open("https://auc-gg.up.railway.app/"), theme.GOLD)
+    _hbtn(btn_row1, "🧪 모의밴픽", lambda: webbrowser.open("https://www.fullbanpick.com/"), bg=theme.WARN)
+    _hbtn(btn_row1, "🌐 SQUAD.GG", lambda: webbrowser.open("https://kjp1583-art.github.io/squad-analyzer/"), bg=theme.ACCENT)
+    _hbtn(btn_row1, "🔨 AUC.GG", lambda: webbrowser.open("https://auc-gg.up.railway.app/"), bg=theme.GOLD, fg="#1b1b1b")
 
     # 🎯 [2026-07-08] 대기실 모스트 표시 토글: 전체 라인 ↔ 현재 선택 포지션(모스트3 + 그 포지션 고승률픽)
     def _toggle_pos_view():
@@ -8482,13 +8411,11 @@ def create_graphic_ui():
         _posview_btn_sync(_on)
     # [v82.37] 초기 문구·색은 설정값(pos_view_default)을 따른다 — 하드코딩하면 화면과 실동작이 어긋남
     _pv0 = _posview_default()
-    btn_posview = _drw_add("🎯", ("현재포지션" if _pv0 else "전체라인"), _toggle_pos_view,
-                           (theme.SUCCESS if _pv0 else "#6b7789"))
+    btn_posview = _hbtn(btn_row2, ("모스트: 현재포지션" if _pv0 else "모스트: 전체라인"), _toggle_pos_view,
+                        bg=(theme.SUCCESS if _pv0 else theme.BG_RAISED))
     _POSVIEW_BTN[0] = btn_posview   # 설정 창에서 즉시 갱신할 수 있도록 참조 보관
 
-    _drw_add("⚙", "설정", lambda: ClanSettingsWindow(root), "#cdd6e3")
-
-    # 🗒️ [2026-07-29] 로그 보기 — 창 모드라 콘솔이 없어 문제가 생겨도 확인할 방법이 없었다.
+    _hbtn(btn_row2, "⚙ 설정", lambda: ClanSettingsWindow(root))
 
     def _open_log():
         try:
@@ -8497,12 +8424,7 @@ def create_graphic_ui():
             os.startfile(LOG_PATH)
         except Exception as e:
             messagebox.showerror("로그", f"열지 못했습니다: {e}\n\n경로: {LOG_PATH}")
-    _drw_add("🗒", "로그", _open_log, "#8d9aae")
-
-    # 🏟 토너먼트 버튼 삭제(2026-07-16 사장님 지시)
-
-    # 🅣 [v82.8] '내 꾸미기' 로컬 버튼 폐지 — 구매 검증이 불가능해 아무나 쓰던 문제.
-    #    T1 프레임은 이제 봇 /상점에서 구매·장착(서버 검증) → /cosmetics로 내려와 모든 PC에 표시.
+    _hbtn(btn_row2, "🗒 로그", _open_log)
 
     # 👑 [2026-08-06 사장님 지시] 팀장뽑기 — 방 인원 중 전력이 가장 비슷한 2인 자동 선정(직전 판 팀장 회피)
     def _do_pick_captains(extra_exclude=None):
@@ -8552,7 +8474,7 @@ def create_graphic_ui():
                           relief="flat", padx=10).pack(side="left", padx=4)
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
-    _drw_add("👑", "팀뽑선정", _do_pick_captains, theme.GOLD)
+    _hbtn(btn_row2, "👑 팀뽑선정", _do_pick_captains, bg=theme.GOLD, fg="#1b1b1b")
 
     # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 노출 (내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지)
     if load_bot_token():
@@ -8560,7 +8482,7 @@ def create_graphic_ui():
             try: TierAdminWindow(root)
             except Exception as e:
                 messagebox.showerror("티어관리 오류", f"티어 관리 창을 여는 중 오류가 발생했습니다.\n(에러: {str(e)})")
-        _drw_add("🛠", "티어관리", open_tieradmin_window, theme.PURPLE)
+        _hbtn(btn_row2, "🛠 티어관리", open_tieradmin_window, bg=theme.PURPLE)
 
     # 💝 [2026-08-12 사장님 지시] 후원 — 계좌·예금주를 띄우고 한 번에 복사할 수 있게
     def _open_donate():
@@ -8607,64 +8529,8 @@ def create_graphic_ui():
         tk.Button(bar, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
                   relief="flat", font=UF(10), padx=12, pady=5,
                   cursor="hand2").pack(side="right")
-    _drw_add("💝", "후원하기", _open_donate, "#ff8fb1")
+    _hbtn(btn_row2, "💝 후원하기", _open_donate, bg="#3a1f2b", fg="#ff8fb1")
 
-    tk.Frame(drawer, bg="#222a37", height=1).pack(fill="x", padx=18, pady=(12, 0))
-    tk.Label(drawer, text=f"스쿼드해체분석기  v{CURRENT_VERSION}", bg=C_PANEL, fg="#5a6474",
-             font=UF(8)).pack(anchor="w", padx=20, pady=(8, 14))
-
-    def _drw_geo():
-        """본체 창에 맞춰 서랍 위치·높이를 잡는다(본체가 움직이거나 크기가 바뀌면 따라간다)."""
-        try:
-            rx, ry = root.winfo_rootx(), root.winfo_rooty()
-            rh = root.winfo_height()
-            drawer.geometry("%dx%d+%d+%d" % (_DRW["w"], max(320, rh), rx + _DRW["x"], ry))
-        except Exception: pass
-
-    def _drw_animate(target):
-        if _DRW["busy"]: return
-        _DRW["busy"] = True
-        def _step():
-            x = _DRW["x"]
-            d = 30 if target > x else -30
-            x = min(target, x + d) if d > 0 else max(target, x + d)
-            _DRW["x"] = x
-            _drw_geo()
-            if x != target: root.after(8, _step)
-            else:
-                _DRW["busy"] = False
-                if target < 0: drawer.withdraw()
-        if target >= 0:
-            _drw_geo(); drawer.deiconify(); drawer.lift(); drawer.attributes("-topmost", True)
-            root.after(60, lambda: drawer.attributes("-topmost", False))
-        _step()
-
-    def _drw_toggle(_e=None):
-        if _DRW["busy"]: return          # 미끄러지는 중에 또 누르면 열림/닫힘 상태가 어긋난다
-        _DRW["open"] = not _DRW["open"]
-        if _DRW["open"] and _DRW["x"] >= 0: _DRW["x"] = -_DRW["w"]      # 닫힌 상태 좌표 보정
-        _drw_animate(0 if _DRW["open"] else -_DRW["w"])
-        _btn_menu.config(text=("✕" if _DRW["open"] else "☰"))
-
-    def _drw_close(_e=None):
-        if _DRW["open"]: _drw_toggle()
-
-    _DRW["x"] = -_DRW["w"]
-    _drw_x.bind("<Button-1>", _drw_close)
-    _btn_menu.config(command=_drw_toggle)
-    root.bind("<Escape>", _drw_close)
-    # 🖱 [2026-08-12 사장님 지시] ✕ 말고 화면 아무 데나 눌러도 닫히게.
-    #   root.bind 는 root 자신의 빈 자리를 눌렀을 때만 오므로 자식 위젯 클릭이 안 잡힌다 → bind_all.
-    #   단 서랍 안(별도 Toplevel)을 누른 건 제외해야 메뉴를 고르기도 전에 닫히지 않는다.
-    #   ☰ 버튼도 제외 — 여기서 닫고 토글이 또 열어 버리면 영영 안 열린다.
-    def _drw_click_away(e):
-        if not _DRW["open"]: return
-        try:
-            if e.widget.winfo_toplevel() is drawer: return
-            if e.widget is _btn_menu: return
-        except Exception: pass
-        _drw_close()
-    root.bind_all("<Button-1>", _drw_click_away, add="+")
     # 🔠 [2026-08-13 사장님 제보] 창 크기에 맞춰 글자 크기도 같이 바꾼다.
     #   해상도만 줄고 글자는 그대로여서 작게 쓰면 읽을 수가 없었다.
     #   ⚠️ <Configure> 는 창을 끄는 동안 초당 수십 번 온다 — 그때마다 폰트를 다시 계산하면
@@ -8684,11 +8550,6 @@ def create_graphic_ui():
         _ui_job[0] = root.after(140, _ui_do)
     root.bind("<Configure>", lambda e: (_ui_rescale() if e.widget is root else None), add="+")
     root.after(500, _ui_do)                        # 시작 크기(프리셋·저장된 크기)에도 즉시 반영
-
-    # 본체를 움직이거나 크기를 바꾸면 따라오고, 최소화하면 같이 숨는다(따로 떠 있는 창이라 필수)
-    root.bind("<Configure>", lambda e: (_drw_geo() if _DRW["open"] else None), add="+")
-    root.bind("<Unmap>", lambda e: (drawer.withdraw() if e.widget is root else None), add="+")
-    root.bind("<Map>", lambda e: (_drw_geo() or drawer.deiconify()) if (e.widget is root and _DRW["open"]) else None, add="+")
 
     # [v82.12] 하단 가로 3칸 → 레드팀 우측 세로 패널로 이동(사장님 지시). 광고·개발텍스트도 이 열로.
     body = tk.Frame(root, bg=BG_MAIN)
@@ -10067,8 +9928,8 @@ class GuideWindow(tk.Toplevel):
         ("🚫 노밴 선언 감지", "로비 채팅의 '○○ 노밴' 약속을 읽어 기록하고, 1페이즈 밴 추천에서 제외합니다."),
         ("🔄 자동 업데이트", "새 버전이 나오면 켜져 있는 동안 알아서 받아 교체하고 다시 켭니다."),
         ("직접 누르는 것", None),
-        ("☰ 서랍 메뉴", "제목 옆 ☰ — 명예의전당·내부티어·SQUAD.GG·설정·로그·후원 등이 들어 있습니다. "
-                      "화면 아무 데나 누르면 닫힙니다."),
+        ("🔘 상단 버튼", "화면 위쪽 두 줄 — 사용 안내·음성방 초대·명예의전당·내부티어·모의밴픽·"
+                      "SQUAD.GG·AUC.GG / 모스트 전환·설정·로그·팀뽑선정·후원이 바로 눌립니다."),
         ("👑 팀뽑선정", "방에 있는 사람 중 전력이 가장 비슷한 2인을 팀장으로 뽑습니다(직전 판 팀장은 회피). "
                       "결과를 로비 채팅에 바로 알릴 수 있습니다."),
         ("🎯 모스트 표시 전환", "모스트를 '현재 선택한 포지션' 기준으로 볼지 '전체 라인' 기준으로 볼지 바꿉니다."),
