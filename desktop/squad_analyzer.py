@@ -5063,6 +5063,13 @@ FB_POS_MIN_GAMES = 10    # 그 포지션 기준 승률이 흔들리지 않을 �
 FB_POS_ROLES = ("탑", "정글", "미드", "원딜", "서폿")
 
 
+def _ga(nm):
+    """이름 뒤 주격 조사 — 받침 있으면 '이', 없으면 '가'. 한글이 아니면 '가'(wei ha가)."""
+    c = str(nm or "").strip()[-1:] if str(nm or "").strip() else ""
+    if "가" <= c <= "힣" and (ord(c) - 0xAC00) % 28: return "이"
+    return "가"
+
+
 def _fatal_bans_pos_entry(pos_games, pos_wins, cand):
     """한 포지션의 약점 목록. cand = [(챔프, 밴판수, 밴판승), ...]. 없으면 []."""
     if pos_games < FB_POS_MIN_GAMES: return []
@@ -5406,9 +5413,12 @@ def _crunch_from_aggregate(blue_players, red_players):
                 bw = aw if a == b_key else (hg - aw)   # A측승 = 정렬상 앞 키 기준 → 블루측 관점으로 환산
                 wr = (bw / hg) * 100
                 b_disp, r_disp = str(b_p['name']).split('#')[0], str(r_p['name']).split('#')[0]
-                if wr <= 30.0: nemesis_alerts.append(f" 😱 {b_disp} ➡ {r_disp} {round(wr)}%")
-                elif wr >= 70.0: nemesis_alerts.append(f" 😈 {b_disp} ➡ {r_disp} {round(wr)}%")
-                elif bw == (hg - bw): nemesis_alerts.append(f" ⚔ {b_disp} 🆚 {r_disp} 5:5")
+                # 🗣 [2026-08-16 사장님 지시] "A ➡ B 27%" 는 누가 앞서는지 읽는 사람마다 달랐다.
+                #    강한 쪽을 앞에 두고 조사+전적으로 문장을 만든다 — "레멍이가 wei ha 상대로 8승 3패".
+                #    (기존 5:5 표기는 6승 6패여도 '5:5'로 찍히던 오표기도 겸사겸사 수정)
+                if wr <= 30.0: nemesis_alerts.append(f" 💀 {r_disp}{_ga(r_disp)} {b_disp} 상대로 {hg - bw}승 {bw}패")
+                elif wr >= 70.0: nemesis_alerts.append(f" 💀 {b_disp}{_ga(b_disp)} {r_disp} 상대로 {bw}승 {hg - bw}패")
+                elif bw == (hg - bw): nemesis_alerts.append(f" ⚔ {b_disp} 🆚 {r_disp} {bw}승 {bw}패 호각")
 
     return stats_dashboard, pos_alerts, neg_alerts, nemesis_alerts
 
@@ -5743,9 +5753,12 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
             if hg >= 10:
                 wr = (bw / hg) * 100
                 b_disp, r_disp = str(b_p['name']).split('#')[0], str(r_p['name']).split('#')[0]
-                if wr <= 30.0: nemesis_alerts.append(f" 😱 {b_disp} ➡ {r_disp} {round(wr)}%")
-                elif wr >= 70.0: nemesis_alerts.append(f" 😈 {b_disp} ➡ {r_disp} {round(wr)}%")
-                elif bw == (hg - bw): nemesis_alerts.append(f" ⚔ {b_disp} 🆚 {r_disp} 5:5")
+                # 🗣 [2026-08-16 사장님 지시] "A ➡ B 27%" 는 누가 앞서는지 읽는 사람마다 달랐다.
+                #    강한 쪽을 앞에 두고 조사+전적으로 문장을 만든다 — "레멍이가 wei ha 상대로 8승 3패".
+                #    (기존 5:5 표기는 6승 6패여도 '5:5'로 찍히던 오표기도 겸사겸사 수정)
+                if wr <= 30.0: nemesis_alerts.append(f" 💀 {r_disp}{_ga(r_disp)} {b_disp} 상대로 {hg - bw}승 {bw}패")
+                elif wr >= 70.0: nemesis_alerts.append(f" 💀 {b_disp}{_ga(b_disp)} {r_disp} 상대로 {bw}승 {hg - bw}패")
+                elif bw == (hg - bw): nemesis_alerts.append(f" ⚔ {b_disp} 🆚 {r_disp} {bw}승 {bw}패 호각")
 
     return stats_dashboard, pos_alerts, neg_alerts, nemesis_alerts
 
