@@ -3153,21 +3153,31 @@ def _draft_coach_tick(s_json, headers, base_url):
                 return GLOBAL_NUMERIC_CHAMP_MAP.get(cid, "")
             except Exception: return ""
         _coach_outcome_tick(s_json, my_cell, _kor)   # 📊 내가 확정한 밴/픽 ↔ 추천 대조 기록
-        # ① 트리거 판정 [v82.39 설계B] — 밴은 '팀 밴'을 페이즈 시작에 통째로(내 차례 무관, 5명이 상의해 밴하므로).
+        # ① 트리거 판정 [v82.39 설계B → v83.8 선제화, 사장님 지시] — 밴은 '팀 밴'을 통째로(내 차례 무관).
         #    표준 드래프트: 1페이즈 밴 6개(양팀) → 픽6 → 2페이즈 밴 4개 → 픽4. 우리 팀 기준 3밴+2밴.
+        #    [v83.8] 종전엔 밴 액션이 isInProgress 가 돼야(=첫 밴 타이머 시작) 분석을 시작했다.
+        #    선언(PLANNING) 단계와 픽6→밴 전환 사이의 시간을 통째로 버렸고, AI 응답이 20~30초라
+        #    추천이 밴 중반에야 떴다. 이제 ①1페이즈: 밴픽 세션이 보이는 즉시 ②2페이즈: 1라운드
+        #    픽 6개가 완료되는 순간 선제 분석한다. 페이즈당 1회 서명(_DRAFT_SEEN)은 그대로라
+        #    앞당겨질 뿐 중복 호출은 없다. 밴 없는 방(밴 액션 0개)에선 종전대로 침묵.
         mode = None; ban_phase = 0; my_already_picked = False
-        _ban_inprog = False; _bans_done = 0; _my_pick_turn = False
+        _ban_inprog = False; _bans_done = 0; _bans_total = 0; _picks_done = 0; _my_pick_turn = False
         for act_list in s_json.get("actions", []) or []:
             for act in (act_list if isinstance(act_list, list) else []):
                 if not isinstance(act, dict): continue
                 _t = act.get("type")
                 if _t == "ban":
+                    _bans_total += 1
                     if act.get("completed"): _bans_done += 1
                     if act.get("isInProgress") and not act.get("completed"): _ban_inprog = True
-                elif _t == "pick" and act.get("actorCellId") == my_cell:
-                    if act.get("completed"): my_already_picked = True
-                    if act.get("isInProgress") and not act.get("completed"): _my_pick_turn = True
-        if _ban_inprog:
+                elif _t == "pick":
+                    if act.get("completed"): _picks_done += 1
+                    if act.get("actorCellId") == my_cell:
+                        if act.get("completed"): my_already_picked = True
+                        if act.get("isInProgress") and not act.get("completed"): _my_pick_turn = True
+        if _ban_inprog \
+           or (_bans_total > 0 and _bans_done < 6 and _picks_done == 0) \
+           or (_bans_done >= 6 and _bans_total > _bans_done and _picks_done >= 6):
             mode = "ban"; ban_phase = 1 if _bans_done < 6 else 2   # 1페이즈 밴 6개 완료 전=phase1
         elif _my_pick_turn:
             mode = "pick"
