@@ -8547,7 +8547,6 @@ def create_graphic_ui():
                           relief="flat", padx=10).pack(side="left", padx=4)
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
-    _HTile("👑", "팀뽑선정", _do_pick_captains, theme.GOLD)
 
     # ⚖ [2026-08-16 사장님 지시] 5:5 전원 자동 배분 — 전력 합 팽팽 + 주포지션 분산
     _TEAM_SPLIT_LAST = [""]
@@ -8599,7 +8598,38 @@ def create_graphic_ui():
                           relief="flat", padx=10).pack(side="left", padx=4)
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
-    _HTile("⚖", "5:5팀짜기", _do_team_split, "#7ec8e3")
+    # 👑⚖ [2026-08-16 사장님 재지시] 팀장뽑기와 5:5팀짜기를 한 버튼으로 — 누르면 무엇을 뽑을지 고른다
+    def _do_team_menu():
+        w = tk.Toplevel(root); w.title("팀뽑선정")
+        w.attributes("-topmost", True); w.configure(bg="#12141a"); w.resizable(False, False)
+        try:
+            w.update_idletasks()
+            w.geometry("+%d+%d" % (root.winfo_rootx() + root.winfo_width() // 2 - 170,
+                                   root.winfo_rooty() + 150))
+        except Exception: pass
+        tk.Label(w, text="무엇을 뽑을까요?", bg="#12141a", fg="#f5d47a",
+                 font=UF(13, "bold")).pack(padx=24, pady=(16, 10))
+        def _pick(fn):
+            w.destroy(); fn()
+        def _big(icon, title, sub, fn, accent):
+            f = tk.Frame(w, bg="#1a1f2b", cursor="hand2")
+            f.pack(fill="x", padx=18, pady=5, ipady=4)
+            tk.Frame(f, bg=accent, width=3).pack(side="left", fill="y")
+            tk.Label(f, text=icon, bg="#1a1f2b", fg=accent,
+                     font=UF(18, family="Segoe UI Emoji")).pack(side="left", padx=(12, 8))
+            tf2 = tk.Frame(f, bg="#1a1f2b"); tf2.pack(side="left", pady=6)
+            tk.Label(tf2, text=title, bg="#1a1f2b", fg="#e8eaf0", font=UF(12, "bold")).pack(anchor="w")
+            tk.Label(tf2, text=sub, bg="#1a1f2b", fg="#8a93a6", font=UF(9)).pack(anchor="w")
+            for wgt in (f, tf2, *f.winfo_children(), *tf2.winfo_children()):
+                try: wgt.bind("<Button-1>", lambda e, fn=fn: _pick(fn))
+                except Exception: pass
+        _big("👑", "팀장 2인 뽑기", "전력이 가장 비슷한 두 명을 팀장으로 (직전 판 팀장 회피)",
+             _do_pick_captains, theme.GOLD)
+        _big("⚖", "5:5 명단 짜기", "방 전원을 전력·주포지션 균형으로 두 팀으로 나눔",
+             _do_team_split, "#7ec8e3")
+        tk.Button(w, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
+                  relief="flat", padx=12, cursor="hand2").pack(pady=(8, 14))
+    _HTile("👑", "팀뽑선정", _do_team_menu, theme.GOLD)
 
     # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 노출 (내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지)
     if load_bot_token():
