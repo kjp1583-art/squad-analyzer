@@ -28,8 +28,11 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
-          allow-prereleases: true
+          # ⚠️ 정확 버전 고정. '3.14'로 두면 러너가 최신 패치로 떠서 빌드가 조용히 바뀐다 —
+          #    3.14.7은 Tcl/Tk 9(zipfs 내장 경로)라 PyInstaller 6.21이 Tcl 데이터를 통째로 빠뜨렸고,
+          #    v83.5가 "성공"으로 릴리스됐지만 실행 즉시 죽었다(2026-08-16 사장님 제보).
+          #    올릴 때는 PyInstaller의 Tcl9 지원을 확인하고 아래 _tcl_data 게이트로 검증할 것.
+          python-version: '3.14.6' 
 
       - name: Install dependencies
         run: |
@@ -67,6 +70,10 @@ jobs:
           # onedir 빌드(spec 기준): dist/squad_analyzer/ 에 exe + _internal — 자동업데이터가 기대하는 구조 그대로 zip
           if (-not (Test-Path "dist/squad_analyzer/squad_analyzer.exe")) { throw "dist/squad_analyzer/squad_analyzer.exe not found" }
           if (-not (Test-Path "dist/squad_analyzer/_internal")) { throw "_internal folder not found" }
+          # 🧯 [2026-08-16] Tcl/Tk 데이터 게이트 — v83.5는 이게 빠진 채 '성공'으로 릴리스돼 전원 실행 불가였다.
+          #    PyInstaller는 Tcl 수집 실패를 경고로만 남기므로 여기서 강제로 실패시킨다.
+          if (-not (Test-Path "dist/squad_analyzer/_internal/_tcl_data")) { throw "_tcl_data missing - Tcl/Tk not bundled (v83.5 regression)" }
+          if (-not (Test-Path "dist/squad_analyzer/_internal/_tk_data")) { throw "_tk_data missing - Tcl/Tk not bundled" }
           New-Item -ItemType Directory -Force -Path release | Out-Null
           Compress-Archive -Path "dist/squad_analyzer" -DestinationPath "release/squad_analyzer.zip" -Force
           $h = (Get-FileHash "release/squad_analyzer.zip" -Algorithm SHA256).Hash
