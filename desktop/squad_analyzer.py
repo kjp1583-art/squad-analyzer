@@ -6115,6 +6115,7 @@ def lcu_core_backend_loop():
     announced_ends = set()               # 🏁 [2026-07-07] 경기 종료 웹훅을 이미 보낸 게임ID (봇 종료신호, 인스턴스당 게임당 1회)
     nonclan_games = set()                # 🚧 [2026-08-11] 클랜원 0명이라 기록을 건너뛴 게임ID (로그 1회만)
     game_seq = 0                         # 🔢 게임 진입 카운터 (커스텀게임 gameId=0일 때 판별 — 같은멤버 연속게임 중복기록 방지)
+    _gid_wait = {}                       # 👥 로스터해시 -> 게임ID 조회 첫 실패 시각 — 합성 ID 폴백 90초 유예용
     was_in_prog = False                  #    이전 루프가 InProgress였나 (전환 감지용)
     last_known_phase = "None"            # [V81.48] gameflow-phase 폴링 실패 시 직전 phase 유지(헛플립→game_seq 드리프트 방지)
     _roster_wait_since = {}              # [V81.48] 게임ID별 '완전 로스터 대기 시작 시각'(파편 append 방지 게이트용)
@@ -6779,10 +6780,18 @@ def lcu_core_backend_loop():
                             if not fetched_game_id:
                                 fingerprint = "".join([str(p.get('puuid', '')) for p in temp_blue + temp_red])
                                 hashed_id = hashlib.md5(fingerprint.encode()).hexdigest()[:10]
-                                # 커스텀게임은 gameId=0 → 게임카운터(game_seq) 붙여 같은 멤버 연속게임도 고유 ID 보장(#2 기록버그)
-                                fetched_game_id = (f"CUSTOM_{hashed_id}_{game_seq}" if fingerprint else f"CUSTOM_MATCH_{game_seq}")
-                            
-                            if fetched_game_id not in recorded_game_ids:
+                                # 👥 [2026-08-16 사장님 제보 '한 경기가 두 개로'] 조회가 한 번 실패했다고 바로 합성 ID를
+                                #    만들면, 실번호를 받은 다른 인스턴스와 ID가 달라 중복 게이트를 둘 다 통과한다
+                                #    (실측 3건 — 7/17·7/31·8/15, 같은 판 20행). 일시 실패는 다음 폴링에서 대부분
+                                #    회복되므로 90초까지는 이번 루프 기록을 미루고 재조회만 한다.
+                                if len(_gid_wait) > 100: _gid_wait.clear()
+                                if time.time() - _gid_wait.setdefault(hashed_id, time.time()) < 90.0:
+                                    fetched_game_id = None
+                                else:
+                                    # 커스텀게임은 gameId=0 → 게임카운터(game_seq) 붙여 같은 멤버 연속게임도 고유 ID 보장(#2 기록버그)
+                                    fetched_game_id = (f"CUSTOM_{hashed_id}_{game_seq}" if fingerprint else f"CUSTOM_MATCH_{game_seq}")
+
+                            if fetched_game_id and fetched_game_id not in recorded_game_ids:
                                 
                                 human_puuids = []
                                 for p in temp_blue + temp_red:
@@ -6907,6 +6916,29 @@ def lcu_core_backend_loop():
                                 for row in sheet_data_fresh:
                                     if len(row) > gid_idx and row[gid_idx] == game_id_str:
                                         existing_rows_count += 1
+                                # 👥 [2026-08-16] 합성 ID 폴백일 땐 게임ID 문자열 대조가 무력하다 — 남은 실번호로 적는다.
+                                #    같은 로스터(PUUID 8명 이상 일치)가 최근 30분 내 다른 게임ID로 이미 기록돼 있으면
+                                #    그게 이 판이다 → 내 합성 ID 기록은 중복이므로 '이미 기록됨'으로 처리.
+                                if existing_rows_count == 0 and "CUSTOM" in str(fetched_game_id):
+                                    try:
+                                        _pu_i = headers_row.index("PUUID"); _dt_i = headers_row.index("날짜")
+                                        _mine = {u for u in human_puuids if u}
+                                        if len(_mine) >= 8:
+                                            _now_t = time.time(); _byg = {}
+                                            for row in (sheet_data_fresh[1:] if sheet_data_fresh else []):
+                                                if len(row) <= max(_pu_i, _dt_i, gid_idx): continue
+                                                _g = str(row[gid_idx]).strip()
+                                                if not _g or _g == game_id_str: continue
+                                                try: _t = time.mktime(time.strptime(str(row[_dt_i])[:16], "%Y-%m-%d %H:%M"))
+                                                except Exception: continue
+                                                if _now_t - _t > 1800: continue
+                                                _byg.setdefault(_g, set()).add(str(row[_pu_i]).strip().lower())
+                                            for _g, _pus in _byg.items():
+                                                if len(_mine & _pus) >= 8:
+                                                    existing_rows_count = 99
+                                                    print(f"[중복방지] 같은 로스터가 {_g} 로 이미 기록됨 — 합성 ID({game_id_str}) 기록 생략", flush=True)
+                                                    break
+                                    except Exception: pass
                                         
                                 _record_confirmed = False   # [V81.45] 기록 확정 여부 — 미확정(429 등)이면 다음 루프 재시도
                                 _dedup_ok = True
