@@ -8365,22 +8365,28 @@ def create_graphic_ui():
     #    로고·제목·☰ 이 있던 자리를 비우고, 서랍 안에 있던 타일(윗줄 색 바·아이콘·라벨)을
     #    그 모습 그대로 헤더에 옆으로 늘어놓는다. 서랍 부속(Toplevel·알파·바깥클릭 닫기)은 제거.
     C_TILE, C_TILE_H = "#1a1f2b", "#28303f"
-    btn_row1 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row1.pack(anchor="w", pady=(2, 2))
+    # [2026-08-16 사장님 재지시] 한 줄 13개는 해상도가 낮으면 우측(쿠팡 배너·상태줄)에 짤렸다 →
+    #   7+6 두 줄. 아이콘·글자는 1.5배(15→22 / 8→12) 키우되 네모칸(74px)은 그대로.
+    btn_row1 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row1.pack(anchor="w", pady=(2, 1))
+    btn_row2 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row2.pack(anchor="w", pady=(1, 2))
+    _tile_n = [0]
 
     class _HTile:
-        """서랍의 _Tile 을 헤더용으로 — 시각은 동일, 배치만 가로(pack). 13개가 한 줄에 들어가야
-           하므로 아이콘·여백을 한 단계 줄였다. config(text=, bg=) 를 받아 _posview_btn_sync 호환."""
+        """서랍의 _Tile 을 헤더용으로 — 시각은 동일, 배치만 가로 두 줄(앞 7개 윗줄, 나머지 아랫줄).
+           config(text=, bg=) 를 받아 _posview_btn_sync 호환."""
         def __init__(self, icon, label, cmd, accent):
+            _row = btn_row1 if _tile_n[0] < 7 else btn_row2
+            _tile_n[0] += 1
             # [사장님 지시] 정사각형 고정 — 라벨 길이에 따라 폭이 들쭉날쭉하지 않게 크기를 못박는다.
-            self.f = tk.Frame(btn_row1, bg=C_TILE, cursor="hand2", width=74, height=74)
+            self.f = tk.Frame(_row, bg=C_TILE, cursor="hand2", width=74, height=74)
             self.f.pack_propagate(False)
-            self.f.pack(side="left", padx=3, pady=1)
+            self.f.pack(side="left", padx=2, pady=1)   # 7칸 한 줄 546px — 최소 프리셋(compact 1280)에서도 안 짤린다
             self.bar = tk.Frame(self.f, bg=accent, height=2); self.bar.pack(fill="x")
-            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=UF(15, family="Segoe UI Emoji"))
-            self.ic.pack(pady=(8, 0))
-            self.tx = tk.Label(self.f, text=label, bg=C_TILE, fg="#cdd6e3",
-                               font=UF(8), wraplength=70, justify="center")
-            self.tx.pack(pady=(0, 6))
+            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=UF(22, family="Segoe UI Emoji"))
+            self.ic.pack(pady=(2, 0))
+            # 글자 1.5배(12pt)에서 두 줄이 되면 74px 칸을 세로로 넘겨 짤린다 → 라벨은 무조건 한 줄(4자 이내)
+            self.tx = tk.Label(self.f, text=label, bg=C_TILE, fg="#cdd6e3", font=UF(12))
+            self.tx.pack(pady=(0, 2))
             self.cmd = cmd
             for wgt in (self.f, self.ic, self.tx):
                 wgt.bind("<Button-1>", self._hit)
@@ -8394,14 +8400,15 @@ def create_graphic_ui():
             try: self.cmd()
             except Exception as ex: print(f"[menu] {ex}", flush=True)
         def config(self, text=None, bg=None, **_kw):
-            if text:                                   # '모스트: 현재포지션' → 라벨엔 뒷부분만
-                self.tx.config(text=str(text).split(":")[-1].strip() or text)
+            if text:                                   # '모스트: 현재포지션' → 라벨엔 뒷부분만, 4자로 축약
+                _t = str(text).split(":")[-1].strip() or str(text)
+                self.tx.config(text={"현재포지션": "포지션별"}.get(_t, _t))
             if bg:
                 self.bar.config(bg=bg); self.ic.config(fg=bg)
         configure = config
         def pack(self, *_a, **_kw): pass
 
-    _HTile("📖", "사용 안내", lambda: GuideWindow(root), "#9db8ff")
+    _HTile("📖", "사용안내", lambda: GuideWindow(root), "#9db8ff")
 
     # 🎮 [2026-08-13] 음성방 초대 — 디스코드 /팀초대와 같은 일을 분석기에서 바로. 로비 호스트가 누른다.
     def _do_voice_invite():
@@ -8410,7 +8417,7 @@ def create_graphic_ui():
             root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("음성방 초대", msg))
         threading.Thread(target=_work, daemon=True).start()
 
-    _HTile("🎮", "음성방 초대", _do_voice_invite, "#7ee1a8")
+    _HTile("🎮", "음성초대", _do_voice_invite, "#7ee1a8")
 
     # 👥 접속자 버튼 제거(2026-07-05 사장님 지시). 접속기록 자체는 백그라운드로 계속 시트에 기록됨.
     # ❄ 증내의 전당 버튼 삭제(2026-07-16) → 명예의 전당 창 내부 '칼바람' 탭으로 통합
@@ -8418,7 +8425,7 @@ def create_graphic_ui():
         try: ClanRankingWindow(root, mode=mode_type)
         except Exception as e: messagebox.showerror("전당 오류", f"데이터를 갱신 중입니다. 잠시 후 다시 시도해주세요.\n(에러: {str(e)})")
 
-    _HTile("🏆", "명예의 전당", lambda: open_hof_window("CLASSIC"), theme.LOSE)
+    _HTile("🏆", "명예전당", lambda: open_hof_window("CLASSIC"), theme.LOSE)
 
     def open_tier_window():
         try: TierAssessmentWindow(root)
@@ -8437,7 +8444,7 @@ def create_graphic_ui():
         _posview_btn_sync(_on)
     # [v82.37] 초기 문구·색은 설정값(pos_view_default)을 따른다 — 하드코딩하면 화면과 실동작이 어긋남
     _pv0 = _posview_default()
-    btn_posview = _HTile("🎯", ("현재포지션" if _pv0 else "전체라인"), _toggle_pos_view,
+    btn_posview = _HTile("🎯", ("포지션별" if _pv0 else "전체라인"), _toggle_pos_view,
                          (theme.SUCCESS if _pv0 else "#6b7789"))
     _POSVIEW_BTN[0] = btn_posview   # 설정 창에서 즉시 갱신할 수 있도록 참조 보관
 
