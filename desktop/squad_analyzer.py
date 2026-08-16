@@ -3189,6 +3189,22 @@ def _draft_coach_tick(s_json, headers, base_url):
         if _trig_st != _COACH_TRIG_LAST[0]:
             _COACH_TRIG_LAST[0] = _trig_st
             print(f"[coach-trig] {_trig_st}", flush=True)
+        # 🔬 [v83.14] 밴픽당 1회 — LCU 액션 '원형'을 로그에 박제한다. 밴 추천이 8/6부터 죽어 있는데
+        #    (COACH_LOG: 픽은 흐르고 밴만 0건) 원격 재현이 불가능하다. 실제 type/isInProgress/completed
+        #    조합이 어떻게 생겼는지가 다음 판 로그 한 장으로 확정된다.
+        try:
+            _dk = "__dump__" + str(s_json.get("gameId") or int(time.time() // 600))
+            if _dk not in _DRAFT_TRY_TS:
+                _DRAFT_TRY_TS[_dk] = time.time()
+                _rows = []
+                for _al in s_json.get("actions", []) or []:
+                    for _ac in (_al if isinstance(_al, list) else []):
+                        if isinstance(_ac, dict):
+                            _rows.append(f"{_ac.get('type')}/c{_ac.get('actorCellId')}"
+                                         f"{'P' if _ac.get('isInProgress') else ''}{'C' if _ac.get('completed') else ''}")
+                print(f"[coach-trig] 액션원형 my_cell={my_cell} timer={((s_json.get('timer') or {}).get('phase'))} "
+                      f"gameId={s_json.get('gameId')} [{' '.join(_rows) or '비어있음'}]", flush=True)
+        except Exception: pass
         if mode is None:
             return
         # ② 현재 밴픽판 수집
