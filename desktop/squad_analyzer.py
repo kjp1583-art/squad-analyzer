@@ -3090,6 +3090,8 @@ def _draft_flash(w, n=6):
 #   설계: 추천이 뜨면 추천 챔프 목록을 보관 → 내가 실제로 밴/픽을 확정하는 순간 대조 → 봇에 1건 전송.
 #   게임ID는 밴픽 중엔 모르므로 나중에 시트(CLASSIC_NORMAL)와 시각·닉으로 조인해 승패를 붙인다.
 #   ⚠️ 절대 코치 동작을 방해하지 않는다(전부 예외 무시).
+_COACH_TRIG_LAST = [""]   # [v83.13] 트리거 판단 로그 — 상태 변화 감지용
+_DRAFT_TRY_TS = {}        # [v83.13] sig -> 마지막 시도 시각 — 죽은 시도 부활 판정용
 _COACH_LOG_URL = "https://hth3thmujs.apps.bot-hosting.cloud/coach-log"
 _COACH_LAST = {}     # mode -> {"rec":[챔프...], "ts":epoch, "sent":False}
 
@@ -3180,7 +3182,14 @@ def _draft_coach_tick(s_json, headers, base_url):
             mode = "ban"; ban_phase = 1 if _bans_done < 6 else 2   # 1페이즈 밴 6개 완료 전=phase1
         elif _my_pick_turn:
             mode = "pick"
-        else:
+        # 🔎 [v83.13 사장님 제보 '밴 추천이 하나도 안 뜬다'] 트리거가 왜 그 판단을 했는지 로그로 남긴다.
+        #    상태가 바뀔 때 한 줄씩만 — 이 로그가 있어야 다음 판에서 원인을 짚을 수 있다.
+        _trig_st = (f"밴 {_bans_done}/{_bans_total} 진행중={int(_ban_inprog)} 픽완료={_picks_done} "
+                    f"→ {mode or '대기'}{ban_phase if mode == 'ban' else ''}")
+        if _trig_st != _COACH_TRIG_LAST[0]:
+            _COACH_TRIG_LAST[0] = _trig_st
+            print(f"[coach-trig] {_trig_st}", flush=True)
+        if mode is None:
             return
         # ② 현재 밴픽판 수집
         def _pos(p):
@@ -3439,9 +3448,19 @@ def _draft_coach_tick(s_json, headers, base_url):
             sig = f"{_sid}|banphase{ban_phase}"
         else:
             sig = f"{_sid}|pick|{my_pos}|{','.join(c for c,_ in ally)}|{','.join(c for c,_ in enemy)}|{','.join(sorted(bans))}"
-        if sig in _DRAFT_SEEN: return          # 같은 상황 재호출 금지(폴링이 초당 여러 번 도니 필수)
-        _DRAFT_SEEN.add(sig)
-        if len(_DRAFT_SEEN) > 200: _DRAFT_SEEN.clear()
+        if sig in _DRAFT_SEEN:                 # 같은 상황 재호출 금지(폴링이 초당 여러 번 도니 필수)
+            # 🧟 [v83.13] 죽은 시도 부활 — 서명은 소비됐는데 20초가 지나도록 화면에 아무 추천도 없다면
+            #    그 시도는 어딘가에서 죽은 것이다(예외·무응답). 서명을 풀어 이번 폴링에서 다시 간다.
+            #    '밴 추천이 한 판 내내 하나도 안 뜨는' 상태가 구조적으로 불가능해진다.
+            with gui_lock: _adv_now = str(gui_data.get("draft_advice") or "").strip()
+            if (mode == "ban" and not _DRAFT_BUSY[0] and not _adv_now
+                    and time.time() - _DRAFT_TRY_TS.get(sig, 0) > 20):
+                _DRAFT_SEEN.discard(sig)
+                print(f"[coach-trig] 죽은 시도 부활 — {sig} 재시도", flush=True)
+            else:
+                return
+        _DRAFT_SEEN.add(sig); _DRAFT_TRY_TS[sig] = time.time()
+        if len(_DRAFT_SEEN) > 200: _DRAFT_SEEN.clear(); _DRAFT_TRY_TS.clear()
 
         def _work():
             _DRAFT_BUSY[0] = True
@@ -3502,7 +3521,14 @@ def _draft_coach_tick(s_json, headers, base_url):
             except Exception: pass
             finally: _DRAFT_BUSY[0] = False
         threading.Thread(target=_work, daemon=True).start()
-    except Exception: pass
+    except Exception:
+        # [v83.13] 이 함수 안 예외는 그동안 소리 없이 사라졌다 — 원인 추적이 불가능했다. 30초에 한 번만 남긴다.
+        try:
+            import traceback as _tb
+            if time.time() - _DRAFT_TRY_TS.get("__err__", 0) > 30:
+                _DRAFT_TRY_TS["__err__"] = time.time()
+                print("[coach-trig] tick 예외:\n" + _tb.format_exc(), flush=True)
+        except Exception: pass
 
 _TIER_BASE = {"IRON":0,"BRONZE":400,"SILVER":800,"GOLD":1200,"PLATINUM":1600,"EMERALD":2000,
               "DIAMOND":2400,"MASTER":2800,"GRANDMASTER":2800,"CHALLENGER":2800}
