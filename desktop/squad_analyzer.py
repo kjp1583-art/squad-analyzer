@@ -5888,6 +5888,46 @@ def _captain_pick(entries, exclude_tnorms, cidx):
     return a, b, " · ".join(why)
 
 
+def _team_split(entries, cidx, avoid_key=""):
+    """⚖ [2026-08-16 사장님 지시] 방 전원 5:5 자동 배분 — (A팀, B팀, 사유, 배분키) 또는 (None,None,안내문,"").
+    전력(_captain_power 동일 산식) 합이 팽팽하고 주포지션이 겹치지 않게. 짝수 6명부터 받는다.
+    조합 전수 채점(10명 = C(10,5)=252가지, 순간) 후 최적 근처(+0.7)에서 무작위 — '다시 뽑기'마다
+    똑같은 답만 나오지 않게 하되, avoid_key(직전 배분)는 피한다."""
+    import itertools
+    cand = []
+    for p, st_ in entries:
+        nm = str((p or {}).get('name') or '').strip()
+        if not nm: continue
+        if str((p or {}).get('puuid') or '').startswith('BOT_'): continue
+        cand.append({'nm': nm, 'tn': tnorm(nm), 'pw': _captain_power(p, st_),
+                     'pos': _captain_main_pos(p, cidx), 'tier': tier_of(nm) or ''})
+    n = len(cand)
+    if n < 6: return None, None, f"방 인원이 부족해요({n}명) — 6명부터 나눌 수 있어요", ""
+    if n % 2: return None, None, f"인원이 홀수({n}명)라 5:5로 나눌 수 없어요", ""
+    half = n // 2
+    def _dups(team):    # 같은 주포지션이 겹치는 수(미상은 제외) — 0이면 다섯 자리가 다 다르다
+        seen = {}
+        for c in team:
+            if c['pos']: seen[c['pos']] = seen.get(c['pos'], 0) + 1
+        return sum(v - 1 for v in seen.values() if v > 1)
+    scored = []
+    idxs = range(n)
+    for combo in itertools.combinations(idxs, half):
+        if 0 not in combo: continue                     # 대칭 제거(첫 사람을 A팀에 고정) — 중복 절반 컷
+        A = [cand[i] for i in combo]; B = [cand[i] for i in idxs if i not in combo]
+        gap = abs(sum(c['pw'] for c in A) - sum(c['pw'] for c in B))
+        sc = gap + 0.8 * (_dups(A) + _dups(B))
+        key = ",".join(sorted(c['tn'] for c in A))
+        scored.append((sc, gap, A, B, key))
+    scored.sort(key=lambda x: x[0])
+    best = scored[0][0]
+    near = [x for x in scored if x[0] <= best + 0.7 and x[4] != avoid_key] or scored[:1]
+    sc, gap, A, B, key = random.choice(near)
+    dups = int(round((sc - gap) / 0.8))
+    why = f"전력차 {gap:.1f}" + (f" · 주포지션 겹침 {dups}건" if dups else " · 주포지션 전원 분산")
+    return A, B, why, key
+
+
 # ===== 🚫 노밴 감지(v82.41 사장님 지시) — 커스텀 로비 채팅의 '노밴' 선언을 읽어 기록·코치 반영 =====
 #   선언 흐름: 진행자 "노밴" → (3333/2222 준비신호) → 각 팀 대표가 챔피언명 선언(초성 "ㅋㅇㄴ"=키아나,
 #   축약 "블츠"=블리츠크랭크 등) 또는 거절("없음"/"x"/"ㅌㅌㅌ"/무응답). 감지분은 게임시작 웹훅 기록 + 코치 밴 제외.
@@ -8508,6 +8548,58 @@ def create_graphic_ui():
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
     _HTile("👑", "팀뽑선정", _do_pick_captains, theme.GOLD)
+
+    # ⚖ [2026-08-16 사장님 지시] 5:5 전원 자동 배분 — 전력 합 팽팽 + 주포지션 분산
+    _TEAM_SPLIT_LAST = [""]
+    def _do_team_split():
+        with gui_lock:
+            entries = list(gui_data.get("blue") or []) + list(gui_data.get("red") or [])
+        def worker():
+            try: cidx = _clan_index()
+            except Exception: cidx = None
+            A, B, why, key = _team_split(entries, cidx, _TEAM_SPLIT_LAST[0])
+            def show():
+                if not A:
+                    messagebox.showinfo("5:5 팀짜기", why); return
+                _TEAM_SPLIT_LAST[0] = key
+                w = tk.Toplevel(root); w.title("5:5 팀짜기")
+                w.attributes("-topmost", True); w.configure(bg="#12141a")
+                tk.Label(w, text="⚖ 자동 팀 배분", bg="#12141a", fg="#f5d47a",
+                         font=UF(13, "bold")).pack(padx=18, pady=(14, 6))
+                cols = tk.Frame(w, bg="#12141a"); cols.pack(padx=18)
+                def _team_col(team, title, col, fg):
+                    f = tk.Frame(cols, bg="#12141a"); f.grid(row=0, column=col, padx=10, sticky="n")
+                    tk.Label(f, text=f"{title}  (전력 {sum(c['pw'] for c in team):.1f})",
+                             bg="#12141a", fg=fg, font=UF(11, "bold")).pack(anchor="w", pady=(0, 3))
+                    for c in sorted(team, key=lambda x: -x['pw']):
+                        t = c['nm'].split('#')[0].strip()                             + (f"  [{c['tier']}]" if c['tier'] else "")                             + (f"  {c['pos']}" if c['pos'] else "")
+                        tk.Label(f, text=t, bg="#12141a", fg="#e8eaf0", font=UF(10)).pack(anchor="w")
+                _team_col(A, "🟦 A팀", 0, "#7ea7ff")
+                _team_col(B, "🟥 B팀", 1, "#ff8a8a")
+                tk.Label(w, text=why, bg="#12141a", fg="#8a93a6", font=UF(9)).pack(padx=18, pady=(8, 2))
+                bs = tk.Frame(w, bg="#12141a"); bs.pack(pady=(4, 12))
+                def _announce():
+                    def w2():
+                        try:
+                            port, pw2 = get_lcu_credentials()
+                            if not port: return
+                            hd = {"Authorization": "Basic " + base64.b64encode(("riot:" + str(pw2)).encode()).decode(),
+                                  "Accept": "application/json"}
+                            _n = lambda team: "·".join(c['nm'].split('#')[0].strip() for c in team)
+                            send_lcu_chat_announcement(
+                                f"⚖ 자동 팀배분: [A팀] {_n(A)}  ↔  [B팀] {_n(B)} ({why})",
+                                hd, "https://127.0.0.1:" + str(port))
+                        except Exception: pass
+                    threading.Thread(target=w2, daemon=True).start()
+                tk.Button(bs, text="📢 로비에 알리기", command=_announce, bg="#1e2436", fg="#9db8ff",
+                          relief="flat", padx=10).pack(side="left", padx=4)
+                tk.Button(bs, text="🔁 다시 뽑기", bg="#232838", fg="#cfd6e4", relief="flat", padx=10,
+                          command=lambda: (w.destroy(), _do_team_split())).pack(side="left", padx=4)
+                tk.Button(bs, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
+                          relief="flat", padx=10).pack(side="left", padx=4)
+            root.after(0, show)
+        threading.Thread(target=worker, daemon=True).start()
+    _HTile("⚖", "5:5팀짜기", _do_team_split, "#7ec8e3")
 
     # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 노출 (내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지)
     if load_bot_token():
