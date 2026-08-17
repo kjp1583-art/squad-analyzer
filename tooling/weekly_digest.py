@@ -10,8 +10,14 @@
 #     ⚖️ 짊어진무게: 매칭 상정 실력(5f−4m) 평균 백분위 — 매칭이 매긴 몸값
 #     🔀 부포지션: 주포지션 외 라인들의 승률·AI를 그 포지션 5판↑ 비교군 백분위로, 판수 가중(3판↑만)
 #     😤 억울지수: GRUDGE 탭 값 그대로(맞라인 기대우위율−실제우위율, +면 티어 과대평가 주장에 근거)
-import openpyxl, json, re, sys, bisect
+import openpyxl, json, re, sys, bisect, datetime as _dt
 from collections import defaultdict
+
+def kda_str(v):
+    # 🩹 [2026-08-17] USER_ENTERED 백필이 "9/4/3"을 날짜(2009-04-03)로 바꾼 셀 복원 — YY/M/D 역산
+    if isinstance(v, (_dt.datetime, _dt.date)):
+        return f'{v.year - 2000}/{v.month}/{v.day}'
+    return str(v or '')
 
 def metrics(s):
     o = {}
@@ -87,7 +93,7 @@ def build(week_mon, xlsx='squad_sheet.xlsx', prev_path='ai_eval_latest.json'):
         if W0 <= d <= W1:
             mt = metrics(gvx(r, ix, '지표'))
             g = {'d': str(gvx(r, ix, '날짜') or '')[5:16], 'champ': ch, 'pos': ps,
-                 'kda': str(gvx(r, ix, 'KDA') or ''), 'res': res, 'eval': ev or None}
+                 'kda': kda_str(gvx(r, ix, 'KDA')), 'res': res, 'eval': ev or None}
             if ai is not None: g['ai'] = round(ai, 1)
             if mt:
                 m = mt['m']; dl = None
