@@ -1873,6 +1873,12 @@ function gvizToObjects(resp){
     (row.c||[]).forEach((cell,i)=>{
       const h=cols[i]; if(!h)return;
       let v = cell==null ? "" : (cell.f!=null?cell.f:cell.v);
+      // 🩹 [2026-08-17] KDA 날짜 오염 복원 — USER_ENTERED 백필이 "9/4/3"을 날짜(2009-04-03)로 바꾼 셀.
+      //   JSONP는 날짜 셀의 cell.v를 진짜 Date로 내려주므로 무손실 역산(YY/M/D: 연-2000=킬, 월=데스, 일=어시).
+      if(h==="KDA"&&cell){
+        if(cell.v instanceof Date){ v=`${cell.v.getFullYear()%100}/${cell.v.getMonth()+1}/${cell.v.getDate()}`; }
+        else{ const dm=/^(\d{4})[./\s]+(\d{1,2})[./\s]+(\d{1,2})\.?$/.exec(String(v==null?"":v).trim()); if(dm)v=`${(+dm[1])%100}/${+dm[2]}/${+dm[3]}`; }
+      }
       o[h] = v==null ? "" : String(v).trim();
     });
     if(o["게임ID"]||o["소환사명"]) out.push(o);
@@ -6006,6 +6012,7 @@ function parseKDA(s){
   if(s==null)return null;
   const p=String(s).trim().split(/[\/:]/).map(x=>parseInt(x,10));
   if(p.length<3||p.slice(0,3).some(n=>isNaN(n)))return null;
+  if(p[0]>=1900)p[0]%=100;   // 🩹 날짜 오염 셀("2009/4/3") 역산 — 킬이 4자리일 수는 없다
   return {k:p[0],d:p[1],a:p[2]};
 }
 function kdaRatio(o){ return o.d===0 ? (o.k+o.a) : (o.k+o.a)/o.d; }
@@ -6897,7 +6904,8 @@ function computeHofRecords(rows){
     const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10);
     const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
     if(m){
-      const k=+m[1],d=+m[2],a=+m[3];
+      let k=+m[1];const d=+m[2],a=+m[3];
+      if(k>=1900)k%=100;   // 🩹 날짜 오염 셀("2009/4/3") 역산
       rc.tk+=k;rc.td+=d;rc.ta+=a;
       rc.kdaN++; if(d===0)rc.ndN++; if(k>=10)rc.dkN++;   // 📊 평균/비율 랭킹용
       if(k>rc.mxK[0])rc.mxK=[k,ch,dt];
