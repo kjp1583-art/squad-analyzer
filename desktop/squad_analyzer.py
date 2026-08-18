@@ -1313,6 +1313,12 @@ def _version_heartbeat_loop():
 #   사장님 계정(MY_RIOT_NAME)이 아닐 땐 스레드가 아무것도 하지 않는다.
 _SPELL_OWNERS = {"맛동산장인유미"}
 _SPELL_TIMERS = {}   # 표기명 -> 만료 인게임초
+# 🕒 [2026-08-18 사장님 지시] 클립보드 붙여넣기가 게임에서 막히는 환경 대비 — 화면 위 상시 오버레이.
+#   포지션별 벽시계 만료를 따로 들고, GUI 쪽 오버레이 틱이 이걸 읽어 카운트다운을 그린다.
+_SPELL_OVL = {}      # pos_key("TOP"...) -> {"label": 챔프명, "until": 벽시계 만료}
+_SPELL_OVL_ORDER = (("TOP", "탑"), ("JUNGLE", "정글"), ("MIDDLE", "미드"),
+                    ("BOTTOM", "원딜"), ("UTILITY", "서폿"))
+_SPELL_OVL_UI = {"win": None, "rows": None, "hidden": False}
 def _spell_set_clipboard(text):
     """[2026-08-12 사장님 제보 '아무리 눌러도 아무 텍스트도 복사가 안돼'] 64비트 핸들 절단 버그 수정.
        ctypes 의 기본 restype 은 c_int(32비트)라, GlobalAlloc 이 돌려주는 64비트 HGLOBAL 이 잘려서
@@ -1448,16 +1454,81 @@ def _spellcheck_hotkey_loop():
             now = game_time()
             if now is None:
                 _diag("인게임 시각을 못 읽음(포트 2999 무응답) — 게임 중에만 동작"); continue
-            if now < last_gt[0] - 60: _SPELL_TIMERS.clear()   # 새 게임(시각 역행) — 이전 판 타이머 파기
+            if now < last_gt[0] - 60: _SPELL_TIMERS.clear(); _SPELL_OVL.clear()   # 새 게임(시각 역행) — 이전 판 타이머 파기
             last_gt[0] = now
             if hit:
                 pos_key, fallback = hit
                 cd = 272 if (u.GetAsyncKeyState(VK_SHIFT) & 0x8000) else 300
                 label = _spell_enemy_champ(pos_key) or fallback
                 _SPELL_TIMERS[label] = now + cd
+                _SPELL_OVL[pos_key] = {"label": label, "until": time.time() + cd}   # 🕒 오버레이 갱신
+                _SPELL_OVL_UI["hidden"] = False                                     # 숨겨놨어도 다시 표시
             push_clip(now, _diag)
         except Exception:
             time.sleep(1)
+
+def _spell_overlay_tick(root):
+    """🕒 [2026-08-18 사장님 지시] 스펠체크 오버레이 — 탑/정글/미드/원딜/서폿 5줄 상시 표시.
+       단축키(F6~F10·숫자패드 1~5)를 누르면 해당 줄의 점멸 타이머가 돌기 시작한다.
+       게임 화면 위 '별도 최상위 창'일 뿐 게임 프로세스에는 손대지 않는다(입력 주입·메모리 접근 없음).
+       전용 계정(_SPELL_OWNERS)에서만 나타난다. 드래그로 이동(위치 저장) · 우클릭 = 숨김(다음 단축키에 복귀)."""
+    try:
+        nm = (MY_RIOT_NAME[0] or "").split("#")[0].replace(" ", "").lower()
+        U = _SPELL_OVL_UI
+        if nm not in {o.lower() for o in _SPELL_OWNERS} or U["hidden"]:
+            if U["win"] is not None:
+                try: U["win"].withdraw()
+                except Exception: pass
+            return
+        if U["win"] is None:
+            w = tk.Toplevel(root)
+            w.overrideredirect(True); w.attributes("-topmost", True)
+            try: w.attributes("-alpha", 0.85)
+            except Exception: pass
+            w.configure(bg="#10131c")
+            frame = tk.Frame(w, bg="#10131c", padx=7, pady=5); frame.pack()
+            rows = {}
+            for _pk, _kor in _SPELL_OVL_ORDER:
+                r = tk.Label(frame, text=f"{_kor}  —", font=UF(11, "bold"),
+                             bg="#10131c", fg="#5a6377", anchor="w", width=15)
+                r.pack(fill="x", pady=1); rows[_pk] = r
+            drag = {"x": 0, "y": 0}
+            def _dn(e): drag["x"], drag["y"] = e.x_root - w.winfo_x(), e.y_root - w.winfo_y()
+            def _mv(e): w.geometry(f"+{e.x_root - drag['x']}+{e.y_root - drag['y']}")
+            def _up(e):
+                APP_CONFIG["spell_ovl_pos"] = [w.winfo_x(), w.winfo_y()]; save_config(APP_CONFIG)
+            def _hide(e): U["hidden"] = True
+            for wd in (w, frame, *rows.values()):
+                wd.bind("<ButtonPress-1>", _dn); wd.bind("<B1-Motion>", _mv)
+                wd.bind("<ButtonRelease-1>", _up); wd.bind("<Button-3>", _hide)
+            p = APP_CONFIG.get("spell_ovl_pos")
+            try: w.geometry(f"+{int(p[0])}+{int(p[1])}")
+            except Exception: w.geometry(f"+12+{max(0, w.winfo_screenheight() // 2 - 90)}")
+            U["win"], U["rows"] = w, rows
+        w, rows = U["win"], U["rows"]
+        try: w.deiconify(); w.attributes("-topmost", True)
+        except Exception: pass
+        _now = time.time()
+        for _pk, _kor in _SPELL_OVL_ORDER:
+            t = _SPELL_OVL.get(_pk); lb = rows[_pk]
+            if not t:
+                lb.config(text=f"{_kor}  —", fg="#5a6377"); continue
+            left = int(t["until"] - _now)
+            name = str(t.get("label") or "")[:6]
+            if left > 0:
+                lb.config(text=f"{_kor} {name} {left // 60}:{left % 60:02d}",
+                          fg=("#ff8181" if left <= 30 else "#ffd479"))
+            elif left > -12:                                    # 만료 직후 12초 'UP!' 강조
+                lb.config(text=f"{_kor} {name} UP!", fg="#7ee1a8")
+            else:
+                _SPELL_OVL.pop(_pk, None)
+                lb.config(text=f"{_kor}  —", fg="#5a6377")
+    except Exception:
+        pass
+    finally:
+        try: root.after(500, lambda: _spell_overlay_tick(root))
+        except Exception: pass
+
 
 def announce_patch_if_updated():
     """신버전으로 업데이트된 뒤 첫 실행 시, 릴리스 노트를 웹훅으로 1회 알림.
@@ -9298,6 +9369,7 @@ def create_graphic_ui():
         finally: root.after(1000, update_gui)
 
     root.after(1000, update_gui)
+    root.after(1500, lambda: _spell_overlay_tick(root))   # 🕒 스펠체크 오버레이(전용 계정만 표시)
     root.after(200, _burn_tick)   # 🔥 불꽃 애니메이션(불타는 칸만 다시 칠함)
 
     # ===== 트레이 모드(설정에서 켤 때만): X(닫기)→트레이 최소화. 기본값 OFF = X 누르면 완전 종료. =====
