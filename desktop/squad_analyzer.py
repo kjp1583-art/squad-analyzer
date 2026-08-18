@@ -3091,6 +3091,7 @@ def _draft_flash(w, n=6):
 #   게임ID는 밴픽 중엔 모르므로 나중에 시트(CLASSIC_NORMAL)와 시각·닉으로 조인해 승패를 붙인다.
 #   ⚠️ 절대 코치 동작을 방해하지 않는다(전부 예외 무시).
 _COACH_TRIG_LAST = [""]   # [v83.13] 트리거 판단 로그 — 상태 변화 감지용
+_FB_LOG_LAST = [""]       # [2026-08-18] 챔프선택 폴백 로스터 진단 — 매초 반복 출력이던 것을 상태 변화 시 1줄로
 _DRAFT_TRY_TS = {}        # [v83.13] sig -> 마지막 시도 시각 — 죽은 시도 부활 판정용
 _COACH_LOG_URL = "https://hth3thmujs.apps.bot-hosting.cloud/coach-log"
 _COACH_LAST = {}     # mode -> {"rec":[챔프...], "ts":epoch, "sent":False}
@@ -6519,7 +6520,12 @@ def lcu_core_backend_loop():
                                 (_fb_blue if _p.get('team', 1) == 1 else _fb_red).append(_e)
                         if _fb_blue or _fb_red:
                             c100, c200 = _fb_blue, _fb_red
-                            print(f"[v82.2진단] 챔프선택 폴백 로스터 {len(c100)}v{len(c200)}", flush=True)
+                            # 🧹 [2026-08-18 사장님 지시] 밴픽 내내 초당 1줄(판당 300~600줄) 찍히던 것을
+                            #    게임·인원수가 바뀔 때만 1줄로. 폴백 대입 로직 자체는 그대로다.
+                            _fb_st = f"{s_json.get('gameId') or ''}|{len(c100)}v{len(c200)}"
+                            if _fb_st != _FB_LOG_LAST[0]:
+                                _FB_LOG_LAST[0] = _fb_st
+                                print(f"[v82.2진단] 챔프선택 폴백 로스터 {len(c100)}v{len(c200)}", flush=True)
 
                     # 🥇 [v82.26] 픽순서(1~10) 캡처 — 완료된 pick 액션의 등장 순서(드래프트 모드만 의미, 블라인드/칼바람은 빈 맵)
                     try:
