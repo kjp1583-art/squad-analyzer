@@ -3922,6 +3922,138 @@ _bf_skip_gids = set()    # 영구 조회불가 게임ID(세션 한정) — 매 �
 _bf_404_counts = {}      # gid -> 404 횟수. [적대적리뷰 반영] 장기게임(40~60분)·리엇 색인 지연 중 404를 즉시 영구스킵하면
                          # 그 게임 백필이 세션 내내 무력화 → 6주기(약 90분) 유예 후에만 영구 스킵.
 
+
+# ═══════ 🕰️ [2026-08-18 사장님 지시 · v83.16] LCU 전적 백필 — 분석기 없이 치른 커스텀 판 자동 회수 ═══════
+#   deeplol엔 커스텀 칼바람이 안 나오고, Riot 매치목록 API(by-puuid)도 커스텀을 아예 돌려주지 않는다
+#   (2026-08-18 실측 — 커스텀은 게임ID 직접 조회만 가능). 유일한 원천은 참가자 롤 클라이언트의 전적(LCU).
+#   참가자 중 한 명이 분석기를 켜면: 최근 7일의 커스텀(협곡11/칼바람12) 중 시트에 없는 판을 10명 전원 행으로 append.
+#   점수·매치평가는 비운다(실시간 채점 원본이 없음 — 봇 deeplol 백필과 같은 규칙). 밴 미상은 "".
+#   비용: 20분마다 LCU GET 1회, 후보가 있을 때만 시트 왕복 — 평시 부하 사실상 0.
+_LCU_BF_DONE = set()          # gameId — 이 실행에서 처리/스킵 확정
+_LCU_BF_SPELL = {1: "SummonerBoost", 3: "SummonerExhaust", 4: "SummonerFlash", 6: "SummonerHaste",
+                 7: "SummonerHeal", 11: "SummonerSmite", 12: "SummonerTeleport", 13: "SummonerMana",
+                 14: "SummonerDot", 21: "SummonerBarrier", 30: "SummonerPoroRecall", 31: "SummonerPoroThrow",
+                 32: "SummonerSnowball"}
+_LCU_LANE_KOR = {("TOP", ""): "탑", ("JUNGLE", ""): "정글", ("MIDDLE", ""): "미드",
+                 ("BOTTOM", "DUO_CARRY"): "원딜", ("BOTTOM", "DUO_SUPPORT"): "서폿"}
+
+def _lcu_backfill_once():
+    L = _inv_lcu_creds()
+    if not L or global_spreadsheet is None: return
+    base, h = L
+    try:
+        j = requests.get(base + "/lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=40",
+                         headers=h, verify=False, timeout=8).json()
+        games = ((j.get("games") or {}).get("games")) or []
+    except Exception:
+        return
+    now_ms = time.time() * 1000
+    cand = []
+    for g in games:
+        gid = str(g.get("gameId") or "")
+        if not gid or gid in _LCU_BF_DONE: continue
+        if str(g.get("gameType")) != "CUSTOM_GAME": continue
+        if g.get("mapId") not in (11, 12): continue
+        if now_ms - float(g.get("gameCreation") or 0) > 7 * 86400 * 1000: continue
+        cand.append(gid)
+    if not cand: return
+    tabs, names = {}, set()          # 탭별(워크시트, 헤더, 게임ID집합) + 클랜원 대조용 이름 집합
+    for tn in ("CLASSIC_NORMAL", "KIWI_KIWI"):
+        try:
+            ws = global_spreadsheet.worksheet(tn)
+            hd = ws.row_values(1)
+            gi = hd.index("게임ID") + 1 if "게임ID" in hd else 1
+            ni = hd.index("소환사명") + 1 if "소환사명" in hd else 3
+            gids = {str(x).strip() for x in ws.col_values(gi)}
+            for x in ws.col_values(ni):
+                k = tnorm(x)
+                if k: names.add(k)
+            tabs[tn] = (ws, hd, gids)
+        except Exception:
+            return                    # 시트가 안 열리면 이번 주기 통째 보류(다음 주기 재시도)
+    done_n = 0
+    for gid in cand:
+        if done_n >= 3: break         # 주기당 3판 상한 — 시트 API 부담 억제
+        try:
+            full = requests.get(base + f"/lol-match-history/v1/games/{gid}", headers=h, verify=False, timeout=10).json()
+        except Exception:
+            continue
+        parts = full.get("participants") or []
+        idents = {p.get("participantId"): (p.get("player") or {}) for p in (full.get("participantIdentities") or [])}
+        if len(parts) < 10 or len(idents) < 10:
+            _LCU_BF_DONE.add(gid); continue           # 봇전·인원미달 커스텀 — 회수 대상 아님
+        tab = "KIWI_KIWI" if full.get("mapId") == 12 else "CLASSIC_NORMAL"
+        ws, hd, gids = tabs[tab]
+        if ("#" + gid) in gids:
+            _LCU_BF_DONE.add(gid); continue
+        pn = []
+        for p in parts:
+            pl = idents.get(p.get("participantId")) or {}
+            nm = f'{pl.get("gameName") or pl.get("summonerName") or ""}#{pl.get("tagLine") or ""}'.rstrip("#")
+            pn.append((p, pl, nm))
+        hit = sum(1 for _p, _pl, nm in pn if tnorm(nm) in names)
+        if hit < 4:                   # 🚧 남의 커스텀 방지 — 시트에 등장한 적 있는 이름 4명 이상일 때만
+            _LCU_BF_DONE.add(gid)
+            print(f"[lcu백필] #{gid} 스킵 — 클랜원 매칭 {hit}명(남의 커스텀으로 판단)", flush=True)
+            continue
+        dt = time.strftime("%Y-%m-%d %H:%M", time.localtime(float(full.get("gameCreation") or 0) / 1000))
+        ver = ".".join(str(full.get("gameVersion") or "").split(".")[:2])
+        mins = max(0.1, float(full.get("gameDuration") or 0) / 60.0)
+        tkill = {100: 0, 200: 0}
+        for p in parts:
+            st = p.get("stats") or {}
+            tkill[100 if p.get("teamId") == 100 else 200] += int(st.get("kills") or 0)
+        rows = []
+        for p, pl, nm in pn:
+            st = p.get("stats") or {}
+            tl = p.get("timeline") or {}
+            team = "블루팀" if p.get("teamId") == 100 else "레드팀"
+            pos = "선택안함" if tab == "KIWI_KIWI" else _LCU_LANE_KOR.get(
+                (str(tl.get("lane") or ""), str(tl.get("role") or "")),
+                _LCU_LANE_KOR.get((str(tl.get("lane") or ""), ""), "선택안함"))
+            cid = int(p.get("championId") or 0)
+            kor = (global_champ_map.get(cid) or {}).get("kor") or str(cid)
+            k, d, a = int(st.get("kills") or 0), int(st.get("deaths") or 0), int(st.get("assists") or 0)
+            items = "|".join(str(st.get(f"item{i}")) for i in range(7) if st.get(f"item{i}"))
+            sp = "|".join(x for x in (_LCU_BF_SPELL.get(int(p.get("spell1Id") or 0), ""),
+                                      _LCU_BF_SPELL.get(int(p.get("spell2Id") or 0), "")) if x)
+            _tk = tkill[100 if p.get("teamId") == 100 else 200]
+            kp = round((k + a) / _tk * 100) if _tk else 0
+            met = (f"g{int(st.get('goldEarned') or 0)}"
+                   f"|cs{int(st.get('totalMinionsKilled') or 0) + int(st.get('neutralMinionsKilled') or 0)}"
+                   f"|m{mins:.1f}|kp{kp}|vs{int(st.get('visionScore') or 0)}"
+                   f"|cw{int(st.get('visionWardsBoughtInGame') or 0)}|wp{int(st.get('wardsPlaced') or 0)}"
+                   f"|wk{int(st.get('wardsKilled') or 0)}|dt{int(st.get('totalDamageTaken') or 0)}")
+            rows.append(["#" + gid, dt, nm, str(pl.get("puuid") or ""), team, pos, kor, "",
+                         "승리" if st.get("win") else "패배", "평가 없음", ("v" + ver) if ver else "",
+                         f"{k}/{d}/{a}", "", int(st.get("totalDamageDealtToChampions") or 0),
+                         items, f"{st.get('perk0') or ''}|{st.get('perkPrimaryStyle') or ''}",
+                         str(st.get("perkSubStyle") or ""), sp, met])
+        # ⏳ 동시기록 경쟁 완화 — 참가자 여럿이 같이 켜도 한 명만 성공하게: 내 puuid 지터 후 재확인
+        try:
+            _me = str(requests.get(base + "/lol-summoner/v1/current-summoner", headers=h,
+                                   verify=False, timeout=5).json().get("puuid") or "")
+        except Exception:
+            _me = ""
+        time.sleep(3 + (abs(hash(_me + gid)) % 20))
+        try:
+            gi = hd.index("게임ID") + 1 if "게임ID" in hd else 1
+            if ("#" + gid) in {str(x).strip() for x in ws.col_values(gi)}:
+                _LCU_BF_DONE.add(gid); continue
+            ws.append_rows(rows)      # gspread 기본 RAW — 문자열 그대로(KDA 날짜 오염 재발 방지)
+            _LCU_BF_DONE.add(gid); done_n += 1
+            print(f"[lcu백필] #{gid} {tab} {len(rows)}행 회수 (클랜원 {hit}명 · {dt})", flush=True)
+        except Exception as e:
+            print(f"[lcu백필] #{gid} 기입 실패: {e}", flush=True)
+
+def _lcu_backfill_loop():
+    time.sleep(90)                    # 시작 직후 LCU·시트 연결 안정 대기 후 1회차
+    while True:
+        try: _lcu_backfill_once()
+        except Exception as e: print(f"[lcu백필] 오류: {e}", flush=True)
+        time.sleep(1200)
+
+
 def backfill_pending_results():
     key = load_riot_key()
     if not key or not global_spreadsheet: return
@@ -10352,6 +10484,7 @@ if __name__ == "__main__":
     threading.Thread(target=_position_sync_loop, daemon=True).start()         # 🎯 디스코드 포지션역할 → CLAN_POSITIONS 재작성(호스트만, 1h)
     threading.Thread(target=_cosmetics_loop, daemon=True).start()             # 🖼️ 상점 장식(모든 PC) → 밴픽 '내 칸' 꾸미기
     threading.Thread(target=_spellcheck_hotkey_loop, daemon=True).start()    # 🕵️ 스펠체크 헬퍼(사장님 계정 전용·비공개)
+    threading.Thread(target=_lcu_backfill_loop, daemon=True).start()        # 🕰️ LCU 전적 백필(분석기 없이 치른 커스텀 회수)
     threading.Thread(target=ad_banner_engine, daemon=True).start()
     
     create_graphic_ui()
