@@ -1331,10 +1331,13 @@ def _spell_say(pos_kor, kind):
         import winsound
         fn = f"{pos_kor}_{kind}.wav"
         _appdir = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
-        for p in (os.path.join(_appdir, "voice", fn), resource_path(os.path.join("voice", fn))):
-            if p and os.path.exists(p):
-                winsound.PlaySound(p, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
-                return
+        # 🎙 팩 선택(환경 설정): 'dub'=성우 더빙판(voice_dub) 우선, 파일 없으면 기본 AI(voice)로 자동 대체
+        _dirs = ("voice_dub", "voice") if APP_CONFIG.get("spell_voice_pack", "tts") == "dub" else ("voice",)
+        for _d in _dirs:
+            for p in (os.path.join(_appdir, _d, fn), resource_path(os.path.join(_d, fn))):
+                if p and os.path.exists(p):
+                    winsound.PlaySound(p, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+                    return
         winsound.MessageBeep(0x40)
     except Exception:
         pass
@@ -10466,6 +10469,27 @@ class ClanSettingsWindow(tk.Toplevel):
                              "블루/레드 팀 칸이 넓어져 더 컴팩트하게 씁니다. (저장 즉시 적용)",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
+        # 🔊 [2026-08-18 사장님 지시] 스펠 타이머 음성팩 선택 — 기본 AI vs 성우 더빙판 (전용 계정에서만 노출)
+        self.var_voice = tk.StringVar(value=APP_CONFIG.get("spell_voice_pack", "tts"))
+        try:
+            _me_nm = (MY_RIOT_NAME[0] or "").split("#")[0].replace(" ", "").lower()
+            _is_owner = _me_nm in {o.lower() for o in _SPELL_OWNERS}
+        except Exception:
+            _is_owner = False
+        if _is_owner:
+            opt_vc = tk.Frame(body_frame, bg=theme.BG); opt_vc.pack(fill="x", pady=10)
+            rb_f = tk.Frame(opt_vc, bg=theme.BG); rb_f.pack(side="right", padx=(8, 6))
+            for _lbl, _val in (("기본(AI)", "tts"), ("성우 더빙판", "dub")):
+                tk.Radiobutton(rb_f, text=_lbl, variable=self.var_voice, value=_val,
+                               bg=theme.BG, fg=theme.TEXT, selectcolor=theme.BG_BAR,
+                               activebackground=theme.BG, activeforeground=theme.TEXT,
+                               font=UF(10)).pack(anchor="w")
+            txt_vc = tk.Frame(opt_vc, bg=theme.BG); txt_vc.pack(side="left", fill="both", expand=True)
+            tk.Label(txt_vc, text="스펠 타이머 음성", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+            tk.Label(txt_vc, text="타이머 안내 목소리를 고릅니다. 성우 더빙판 파일(voice_dub 폴더)이 아직 없으면 "
+                                 "자동으로 기본 음성이 나옵니다. (저장 즉시 적용)",
+                     bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
         # 🎯 [v82.37] 대기실 모스트 표시 기본값 — 켜면 '현재포지션', 끄면 '전체라인'으로 시작
         opt_pv = tk.Frame(body_frame, bg=theme.BG); opt_pv.pack(fill="x", pady=10)
         ttk.Checkbutton(opt_pv, variable=self.var_posview, style="TCheckbutton").pack(side="right", padx=(8, 6))
@@ -10534,6 +10558,8 @@ class ClanSettingsWindow(tk.Toplevel):
                 _root.state('normal')
                 _root.geometry(f"{min(1560, int(_sw*0.95))}x{min(1150, int(_sh*0.95))}")
                 if _sh <= 1080: _root.state('zoomed')
+        except Exception: pass
+        try: APP_CONFIG["spell_voice_pack"] = self.var_voice.get() or "tts"   # 🔊 스펠 음성팩(저장 즉시 적용)
         except Exception: pass
         save_config(APP_CONFIG)
         _ok, _detail = toggle_windows_startup(val_start)
