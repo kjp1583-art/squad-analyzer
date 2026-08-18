@@ -1715,6 +1715,24 @@ def tier_of(name):
     except Exception: pass
     return None
 
+# ⚖️ 분석기·웹 공용 우열 기준 (2026-08-18 사장님 지시: "실력+내부티어 모든걸 고려한 같은 우열판단기준")
+#    squad.gg '내전 밸런스 사후 평가'와 같은 산식 — 1인분 전력 = (내부티어 점수 + 내전 통산승률 수축×10)/2,
+#    팀 예상승률 = 50 + 전력차×4 (15~85). 솔랭 아이콘·연승 가중은 제거(웹이 볼 수 없는 값이라 기준이 갈린다).
+_UT_RK = {"上": 0, "中": 1, "下": 2}
+def _unified_tier_score(tv):
+    """내부티어 → 점수(웹 tierScore와 동일: 0티어 11 · 1上 9 … 3下 1). 미보유는 6(중립)."""
+    tv = str(tv or "").strip()
+    if not tv or not tv[0].isdigit(): return 6
+    return 12 - (int(tv[0]) * 3 + _UT_RK.get(tv[1] if len(tv) > 1 else "", 1))
+
+def _unified_power_one(name, s_data):
+    """1인분 전력 — 내부티어 절반 + 내전 통산승률(K=8 수축) 절반. 전력차 1 = 예상승률 4%p."""
+    s_data = s_data or {}
+    g = s_data.get('games', 0); raw = s_data.get('overall_wr', 0.5)
+    K = 8
+    shrunk = (raw * g + 0.5 * K) / (g + K)
+    return (_unified_tier_score(tier_of(name or '')) + shrunk * 10) / 2
+
 # ===== 내부티어 SSOT (CLAN_TIERS 시트) =====
 def load_clan_tiers():
     """CLAN_TIERS 시트에서 {tnorm(닉네임): 티어} 읽어 TIER_OF 재구성. 실패/빈 시트면 하드코딩 유지."""
@@ -5762,23 +5780,13 @@ def _crunch_from_aggregate(blue_players, red_players):
         gui_data["red_ban_advice_list"] = [c for c, _ in red_advice_list]
 
     def calculate_hybrid_power(players_list):
-        power_sum = 0
-        for p in players_list:
-            t_icon = p.get('tier_icon', 'UNRANKED')
-            t_score = TIERS.index(t_icon) if t_icon in TIERS else 4
-            s_data = stats_dashboard.get(_key_of(p), {})
-            g = s_data.get('games', 0)
-            raw_wr = s_data.get('overall_wr', 0.5)
-            K = 8
-            shrunk_wr = (raw_wr * g + 0.5 * K) / (g + K)
-            streak_factor = min(1.0, g / 10.0)
-            power_sum += ((t_score + shrunk_wr * 10) / 2) + (s_data.get('streak_val', 0) * 0.3 * streak_factor)
-        return power_sum
+        # ⚖️ [2026-08-18 사장님 지시] 웹 '내전 밸런스 사후 평가'와 같은 공용 기준(내부티어+내전 통산승률).
+        return sum(_unified_power_one(p.get('name'), stats_dashboard.get(_key_of(p), {})) for p in players_list)
 
     blue_power, red_power = calculate_hybrid_power(blue_players), calculate_hybrid_power(red_players)
     with gui_lock:
         if blue_power + red_power > 0:
-            gui_data["blue_win_rate"] = max(15, min(85, int(50 + ((blue_power - red_power) * 4))))
+            gui_data["blue_win_rate"] = max(15, min(85, int(50 + (blue_power - red_power) * 4 + 0.5)))
             gui_data["red_win_rate"] = 100 - gui_data["blue_win_rate"]
         else:
             gui_data["blue_win_rate"] = 50; gui_data["red_win_rate"] = 50
@@ -6081,30 +6089,19 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
         gui_data["red_ban_advice_list"] = [c for c, _ in red_advice_list]
 
     def calculate_hybrid_power(players_list):
+        # ⚖️ [2026-08-18 사장님 지시] 웹 '내전 밸런스 사후 평가'와 같은 공용 기준(내부티어+내전 통산승률).
         power_sum = 0
         for p in players_list:
-            t_icon = p.get('tier_icon', 'UNRANKED')
-            t_score = TIERS.index(t_icon) if t_icon in TIERS else 4
-            
             p_uid = str(p.get('puuid', '')).strip().lower()
             p_nam = get_main_name(p.get('name', ''))
             p_key = p_uid if p_uid else name_to_puuid_fallback.get(p_nam, p_nam)
-            
-            s_data = stats_dashboard.get(p_key, {})
-            g = s_data.get('games', 0)
-            raw_wr = s_data.get('overall_wr', 0.5)
-            # 🔥 베이지안 수축: 판수 적을수록 승률을 50%로 수렴 (작은 표본 노이즈 억제 → 예측 신뢰도↑)
-            K = 8
-            shrunk_wr = (raw_wr * g + 0.5 * K) / (g + K)
-            # 연승/연패 가중치도 판수 적으면 축소 (2판 2연승이 예측을 크게 흔들지 않도록)
-            streak_factor = min(1.0, g / 10.0)
-            power_sum += ((t_score + shrunk_wr * 10) / 2) + (s_data.get('streak_val', 0) * 0.3 * streak_factor)
+            power_sum += _unified_power_one(p.get('name'), stats_dashboard.get(p_key, {}))
         return power_sum
 
     blue_power, red_power = calculate_hybrid_power(blue_players), calculate_hybrid_power(red_players)
     with gui_lock:
         if blue_power + red_power > 0:
-            gui_data["blue_win_rate"] = max(15, min(85, int(50 + ((blue_power - red_power) * 4))))
+            gui_data["blue_win_rate"] = max(15, min(85, int(50 + (blue_power - red_power) * 4 + 0.5)))
             gui_data["red_win_rate"] = 100 - gui_data["blue_win_rate"]
         else:
             gui_data["blue_win_rate"] = 50; gui_data["red_win_rate"] = 50
@@ -6226,18 +6223,9 @@ def _captain_recent_save(pair_tnorms):
     except Exception: pass
 
 def _captain_power(p, s):
-    """개인 전력 스칼라 — 예상 승률과 같은 공식(calculate_hybrid_power의 1인분)에 내부티어를 절반 섞는다."""
-    t_icon = (p or {}).get('tier_icon', 'UNRANKED')
-    t_score = TIERS.index(t_icon) if t_icon in TIERS else 4
-    s = s or {}
-    g = s.get('games', 0); raw_wr = s.get('overall_wr', 0.5)
-    K = 8
-    shrunk = (raw_wr * g + 0.5 * K) / (g + K)
-    pw = (t_score + shrunk * 10) / 2 + s.get('streak_val', 0) * 0.3 * min(1.0, g / 10.0)
-    tv = tier_of((p or {}).get('name') or '')
-    if tv in TIER_ORDER_LIST:            # 클랜 공식 사다리(내부티어)가 있으면 그쪽을 절반 가중
-        pw = pw * 0.5 + (9 - TIER_ORDER_LIST.index(tv)) * 0.5
-    return pw
+    """개인 전력 스칼라 — 예상 승률·웹 사후평가와 같은 공용 1인분(내부티어+내전 통산승률).
+       (종전의 솔랭+연승+티어 재가중 대신 공용 기준 하나로 통일 — 2026-08-18 사장님 지시)"""
+    return _unified_power_one((p or {}).get('name') or '', s or {})
 
 def _captain_main_pos(p, cidx):
     """주포지션 — 클랜 시트 전적의 최다 포지션 우선, 없으면 로비에서 고른 포지션."""
