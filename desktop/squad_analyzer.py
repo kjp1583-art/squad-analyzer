@@ -1517,7 +1517,7 @@ def _spell_overlay_tick(root):
     """🕒 [2026-08-18 사장님 지시] 스펠체크 오버레이 — 탑/정글/미드/원딜/서폿 5줄 상시 표시.
        단축키(F6~F10·숫자패드 1~5)를 누르면 해당 줄의 점멸 타이머가 돌기 시작한다.
        게임 화면 위 '별도 최상위 창'일 뿐 게임 프로세스에는 손대지 않는다(입력 주입·메모리 접근 없음).
-       전용 계정(_SPELL_OWNERS)에서만 나타난다. 드래그로 이동(위치 저장) · 우클릭 = 숨김(다음 단축키에 복귀)."""
+       전용 계정(_SPELL_OWNERS)에서만 나타난다. 드래그로 이동(위치 저장) · 우클릭 = 숨김(다음 단축키에 복귀) · 휠 = 크기조절(배율 저장)."""
     try:
         nm = (MY_RIOT_NAME[0] or "").split("#")[0].replace(" ", "").lower()
         U = _SPELL_OVL_UI
@@ -1535,18 +1535,65 @@ def _spell_overlay_tick(root):
             frame = tk.Frame(w, bg="#10131c", padx=7, pady=5); frame.pack()
             rows = {}
             for _pk, _kor in _SPELL_OVL_ORDER:
-                r = tk.Label(frame, text=f"{_kor}  —", font=UF(11, "bold"),
-                             bg="#10131c", fg="#5a6377", anchor="w", width=15)
+                r = tk.Label(frame, text=f"{_kor}  —", bg="#10131c", fg="#5a6377", anchor="w")
                 r.pack(fill="x", pady=1); rows[_pk] = r
+            def _apply_scale(sc):
+                # ⚠️ 이미지가 붙은 Label 은 width 단위가 '글자 수'가 아니라 '픽셀'로 바뀐다(v83.20 아이콘 기둥 버그).
+                #    항상 투명 자리끼(blank)를 깔아 단위를 픽셀로 고정하고, 폭은 폰트 실측으로 잡는다.
+                try: sc = float(sc or 1.0)
+                except Exception: sc = 1.0        # config 값 오염 시 1.0 — 여기서 죽으면 틱마다 창 껍데기가 쌓인다
+                U["scale"] = min(2.2, max(0.6, sc))
+                fs = max(7, int(round(11 * U["scale"])))
+                U["isz"] = max(12, int(round(18 * U["scale"])))
+                if U.get("font") is None:
+                    # UF() 공용 폰트는 메인 창 배율(ui_scale_apply)이 건드려 픽셀 고정폭과 어긋난다 — 전용 폰트 사용
+                    try: U["font"] = tkfont.Font(family="Malgun Gothic", size=fs, weight="bold")
+                    except Exception: U["font"] = UF(fs, "bold")
+                else:
+                    try: U["font"].configure(size=fs)
+                    except Exception: pass
+                _SPELL_IMG_TK.clear()                                   # 초상화는 새 크기로 재생성
+                U["blank"] = tk.PhotoImage(width=U["isz"], height=U["isz"])
+                try: _tw = U["font"].measure(" 원딜 가나다라마바 00:00 ")   # 초상화 실패 폴백 = 이름 6자 — 최악 폭 기준
+                except Exception: _tw = int(190 * U["scale"])
+                U["wpx"] = _tw + U["isz"] + 8
+                for _lb in rows.values():
+                    _lb.config(font=U["font"], width=U["wpx"], image=U["blank"], compound="left")
             drag = {"x": 0, "y": 0}
             def _dn(e): drag["x"], drag["y"] = e.x_root - w.winfo_x(), e.y_root - w.winfo_y()
             def _mv(e): w.geometry(f"+{e.x_root - drag['x']}+{e.y_root - drag['y']}")
             def _up(e):
                 APP_CONFIG["spell_ovl_pos"] = [w.winfo_x(), w.winfo_y()]; save_config(APP_CONFIG)
             def _hide(e): U["hidden"] = True
+            def _whl(e):                                                # 🖱 Ctrl+휠 = 크기조절(한 노치 10%)
+                # Ctrl 없는 맨 휠은 무시 — Win10/11 호버 스크롤이 게임 카메라 줌 휠을 여기로 라우팅해 오발동한다.
+                # Ctrl 판정은 포커스와 무관한 GetAsyncKeyState 우선(게임이 포커스를 쥐면 e.state 가 굳는다).
+                try:
+                    import ctypes as _ct
+                    _ctrl = bool(_ct.windll.user32.GetAsyncKeyState(0x11) & 0x8000)
+                except Exception:
+                    _ctrl = bool(getattr(e, "state", 0) & 0x4)
+                if not _ctrl or (getattr(e, "state", 0) & 0x1): return  # Shift 는 가로휠 표식 — 제외
+                _sig = (getattr(e, "serial", 0), getattr(e, "time", 0))
+                if U.get("_wser") == _sig: return                       # bindtags 중복 전달 방지(같은 이벤트 2회 발동)
+                U["_wser"] = _sig
+                _d = getattr(e, "delta", 0)
+                _stp = max(1, abs(int(_d)) // 120)                      # 빠른 연사는 한 이벤트에 240/360 으로 합쳐 온다
+                s1 = round(min(2.2, max(0.6, U.get("scale", 1.0) * ((1.1 if _d > 0 else 1 / 1.1) ** _stp))), 2)
+                if abs(s1 - U.get("scale", 1.0)) < 0.005: return
+                _apply_scale(s1)
+                APP_CONFIG["spell_ovl_scale"] = U["scale"]
+                try:                                                    # 저장은 700ms 디바운스 — 노치마다 디스크 쓰기 방지
+                    if U.get("_wsav"): w.after_cancel(U["_wsav"])
+                    U["_wsav"] = w.after(700, lambda: (U.__setitem__("_wsav", None), save_config(APP_CONFIG)))
+                except Exception:
+                    save_config(APP_CONFIG)
             for wd in (w, frame, *rows.values()):
                 wd.bind("<ButtonPress-1>", _dn); wd.bind("<B1-Motion>", _mv)
                 wd.bind("<ButtonRelease-1>", _up); wd.bind("<Button-3>", _hide)
+            w.bind("<MouseWheel>", _whl)   # 휠은 톱레벨 한 곳만 — 자식 이벤트는 bindtags 로 올라온다(중복 발동 방지)
+            U["_wser"] = U["_wsav"] = None  # 이전 창의 이벤트 서명·저장 예약 잔재 무효화
+            _apply_scale(APP_CONFIG.get("spell_ovl_scale"))
             p = APP_CONFIG.get("spell_ovl_pos")
             try: w.geometry(f"+{int(p[0])}+{int(p[1])}")
             except Exception: w.geometry(f"+12+{max(0, w.winfo_screenheight() // 2 - 90)}")
@@ -1558,18 +1605,18 @@ def _spell_overlay_tick(root):
         for _pk, _kor in _SPELL_OVL_ORDER:
             t = _SPELL_OVL.get(_pk); lb = rows[_pk]
             if not t:
-                lb.config(text=f"{_kor}  —", fg="#5a6377", image="", compound="none"); continue
+                lb.config(text=f"{_kor}  —", fg="#5a6377", image=U["blank"]); continue
             left = int(t["until"] - _now)
             name = str(t.get("label") or "")[:6]
             # 🖼 챔프 초상화 — 프리페치된 bytes 로 GUI 스레드에서만 PhotoImage 생성(이름 텍스트 대체)
             _img = _SPELL_IMG_TK.get(t.get("label"))
             if _img is None and _SPELL_IMG_RAW.get(t.get("label")) and PILLOW_INSTALLED:
                 try:
-                    _im = Image.open(BytesIO(_SPELL_IMG_RAW[t["label"]])).convert("RGBA").resize((18, 18), Image.Resampling.LANCZOS)
+                    _im = Image.open(BytesIO(_SPELL_IMG_RAW[t["label"]])).convert("RGBA").resize((U["isz"], U["isz"]), Image.Resampling.LANCZOS)
                     _img = ImageTk.PhotoImage(_im); _SPELL_IMG_TK[t["label"]] = _img
                 except Exception: _SPELL_IMG_TK[t["label"]] = None; _img = None
             _shown = "" if _img else f" {name}"
-            if _img is not None: lb.config(image=_img, compound="left")
+            lb.config(image=(_img if _img is not None else U["blank"]))
             if left > 0:
                 lb.config(text=f"{_kor}{_shown} {left // 60}:{left % 60:02d}",
                           fg=("#ff8181" if left <= 30 else "#ffd479"))
@@ -1580,7 +1627,7 @@ def _spell_overlay_tick(root):
                 lb.config(text=f"{_kor}{_shown} UP!", fg="#7ee1a8")
             else:
                 _SPELL_OVL.pop(_pk, None)
-                lb.config(text=f"{_kor}  —", fg="#5a6377", image="", compound="none")
+                lb.config(text=f"{_kor}  —", fg="#5a6377", image=U["blank"])
     except Exception:
         pass
     finally:
