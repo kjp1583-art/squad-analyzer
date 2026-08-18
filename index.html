@@ -1233,9 +1233,18 @@ function tierMetricsOf(name, evalGids){
 // 전체 평가 1회 산출 → ASSESSMENTS(name→평가), TIER_AVG 채움
 function computeAssessments(){
   TIER_EVAL_GIDS=evalGameSet();
+  // 👻 [2026-08-18 사장님 지시] 동티어 평균에서 90일 무기록(유령)을 제외 — 티어표(CLAN_TIERS)는 그대로 두고
+  //   통계 분모에서만 뺀다. 기준일은 '오늘'이 아니라 데이터의 마지막 기록일(수집이 며칠 멈춰도 전원 유령화 방지).
+  //   유령 본인의 카드·평가는 계속 나온다 — 활동 중인 동티어와 비교될 뿐이다.
+  const GHOST_DAYS=90;
+  const _lastOf=ps=>{let m=""; for(const r of ps||[]){const d=String(r["날짜"]||"").slice(0,10); if(d>m)m=d;} return m;};
+  let _maxD=""; for(const [,ps] of PLAYERS_ALL){const d=_lastOf(ps); if(d>_maxD)_maxD=d;}
+  const _gct=new Date((_maxD||"2026-01-01")+"T00:00:00"); _gct.setDate(_gct.getDate()-GHOST_DAYS);
+  const _gcut=`${_gct.getFullYear()}-${String(_gct.getMonth()+1).padStart(2,"0")}-${String(_gct.getDate()).padStart(2,"0")}`;
   const members=[];
-  for(const [name] of PLAYERS_ALL){ const t=tierOf(name); if(!t)continue; members.push({name,t,m:tierMetricsOf(name,TIER_EVAL_GIDS)}); }   // 전체 데이터 기준
-  const elig=members.filter(x=>x.m.g>=TIER_MIN_GAMES);
+  for(const [name] of PLAYERS_ALL){ const t=tierOf(name); if(!t)continue;
+    members.push({name,t,m:tierMetricsOf(name,TIER_EVAL_GIDS),act:_lastOf(PLAYERS_ALL.get(name))>=_gcut}); }   // 전체 데이터 기준
+  const elig=members.filter(x=>x.m.g>=TIER_MIN_GAMES&&x.act);
   const g_wr=_amean(elig.map(x=>x.m.wr))??50;
   const g_ai=_amean(elig.filter(x=>x.m.avgAI!=null).map(x=>x.m.avgAI))??0;
   const g_mvp=_amean(elig.filter(x=>x.m.evalG>=TIER_MIN_EVAL).map(x=>x.m.mvpRate))??10;
