@@ -59,12 +59,23 @@ def main():
 
     ver = (os.environ.get("IN_VER") or "").strip().lstrip("vV")
     fields = []
+    def _add(name, text):
+        """디스코드 필드 1024자 제한 — 줄 단위로 잘라 '(계속)' 필드로 이어 붙인다(2026-08-18: 잘림 실사고)."""
+        chunks, cur = [], ""
+        for line in text.splitlines():
+            if cur and len(cur) + 1 + len(line) > 1024:
+                chunks.append(cur); cur = line
+            else:
+                cur = (cur + "\n" + line) if cur else line
+        if cur: chunks.append(cur)
+        for i, c in enumerate(chunks):
+            fields.append({"name": name if i == 0 else f"{name} (계속)", "value": c[:1024], "inline": False})
     a = _clean(os.environ.get("IN_ANALYZER"))
-    if a: fields.append({"name": f"🖥️ 분석기{f' (v{ver})' if ver else ''}", "value": a[:1024], "inline": False})
+    if a: _add(f"🖥️ 분석기{f' (v{ver})' if ver else ''}", a)
     w = _clean(os.environ.get("IN_WEB"))
-    if w: fields.append({"name": "🌐 웹 (squad.gg)", "value": w[:1024], "inline": False})
+    if w: _add("🌐 웹 (squad.gg)", w)
     b = _clean(os.environ.get("IN_BOT"))
-    if b: fields.append({"name": "🤖 내전봇", "value": b[:1024], "inline": False})
+    if b: _add("🤖 내전봇", b)
     if not fields:
         print("보낼 내용이 없습니다 — 최소 한 칸은 채워주세요", file=sys.stderr); return 1
 
