@@ -8496,10 +8496,10 @@ def create_graphic_ui():
     def _do_voice_invite():
         def _work():
             ok, msg = _invite_voice_members()
-            root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("음성방 초대", msg))
+            root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("팀초대", msg))
         threading.Thread(target=_work, daemon=True).start()
 
-    _HTile("🎮", "음성초대", _do_voice_invite, "#7ee1a8")
+    _HTile("🎮", "팀초대", _do_voice_invite, "#7ee1a8")   # [2026-08-18 사장님 지시] '음성초대' → 디코 명령어와 같은 이름으로
 
     # 👥 접속자 버튼 제거(2026-07-05 사장님 지시). 접속기록 자체는 백그라운드로 계속 시트에 기록됨.
     # ❄ 증내의 전당 버튼 삭제(2026-07-16) → 명예의 전당 창 내부 '칼바람' 탭으로 통합
