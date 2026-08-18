@@ -6187,21 +6187,36 @@ def _team_split(entries, cidx, avoid_key=""):
         for c in team:
             if c['pos']: seen[c['pos']] = seen.get(c['pos'], 0) + 1
         return sum(v - 1 for v in seen.values() if v > 1)
+    # 👑 [2026-08-18 사장님 지시] 최상위권(0티어·1티어 上中下) 반반 강제 — 짝수면 정확히 반,
+    #    홀수면 ±1까지만. '최상위 2+최하위 3 vs 중위 5' 같은 전력합만 맞춘 기형 매치업 차단.
+    _TOPT = {"0", "1上", "1中", "1下"}
+    top_n = sum(1 for c in cand if c['tier'] in _TOPT)
+    _top_ok = ({top_n // 2} if top_n % 2 == 0 else {top_n // 2, top_n // 2 + 1})
     scored = []
     idxs = range(n)
     for combo in itertools.combinations(idxs, half):
         if 0 not in combo: continue                     # 대칭 제거(첫 사람을 A팀에 고정) — 중복 절반 컷
         A = [cand[i] for i in combo]; B = [cand[i] for i in idxs if i not in combo]
+        if sum(1 for c in A if c['tier'] in _TOPT) not in _top_ok: continue   # 👑 최상위권 반반
         gap = abs(sum(c['pw'] for c in A) - sum(c['pw'] for c in B))
         sc = gap + 0.8 * (_dups(A) + _dups(B))
         key = ",".join(sorted(c['tn'] for c in A))
         scored.append((sc, gap, A, B, key))
+    if not scored:                                      # 안전망 — 이론상 항상 가능하지만 만일을 대비해 규칙 없이 재시도
+        for combo in itertools.combinations(idxs, half):
+            if 0 not in combo: continue
+            A = [cand[i] for i in combo]; B = [cand[i] for i in idxs if i not in combo]
+            gap = abs(sum(c['pw'] for c in A) - sum(c['pw'] for c in B))
+            scored.append((gap + 0.8 * (_dups(A) + _dups(B)), gap, A, B, ",".join(sorted(c['tn'] for c in A))))
     scored.sort(key=lambda x: x[0])
     best = scored[0][0]
     near = [x for x in scored if x[0] <= best + 0.7 and x[4] != avoid_key] or scored[:1]
     sc, gap, A, B, key = random.choice(near)
     dups = int(round((sc - gap) / 0.8))
     why = f"전력차 {gap:.1f}" + (f" · 주포지션 겹침 {dups}건" if dups else " · 주포지션 전원 분산")
+    if top_n >= 2:
+        _ta = sum(1 for c in A if c['tier'] in _TOPT)
+        why += f" · 최상위권 {top_n}명 {_ta}:{top_n - _ta} 배분"
     return A, B, why, key
 
 
