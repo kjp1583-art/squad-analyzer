@@ -5345,13 +5345,25 @@ function computeMyeol(){
   //    실력 백분위 q 로 상·하위 계수를 선형 보간 + 상한 700P(0티어급 캡). 이미지 파이프라인(price4/fill2)과 동일 계수.
   const PF_HI={"탑":0.975,"정글":1.088,"미드":1.043,"원딜":0.953,"서폿":0.941};
   const PF_LO={"탑":1.201,"정글":0.892,"미드":0.868,"원딜":0.884,"서폿":1.155};
-  const toPrice=(q,pos)=>{
-    const base=PR[Math.min(PR.length-1,Math.round(q/100*(PR.length-1)))];
+  // ⚖️ [2026-08-18 사장님 지시] 절대평가 반 반영 — 순위만 보면 꼴찌가 성적과 무관하게 5P.
+  //    같은 종합점수 = 같은 값인 고정 선형 척도(5~PR최대)를 상대 매핑과 반반 평균 (이미지 파이프라인과 동일).
+  const SLO=sk[0], SHI=sk[sk.length-1];
+  // 🧱 [2026-08-18 사장님 지시] 승률 기반 절대 하한 — 5~10P는 '3티어下에서도 최악의 승률'일 때만.
+  //    수축 승률(K=8) 35% 이하만 바닥 허용, 그 위로는 1%p당 +8P 하한 (51%→130P·43%→65P).
+  const wrFloor=(wr,mg)=>{
+    if(wr==null||!mg)return 5;
+    const shr=((wr/100)*mg+0.5*8)/(mg+8)*100;
+    return Math.max(5,Math.round((shr-35)*8/5)*5);
+  };
+  const toPrice=(q,pos,skill,wr,mg)=>{
+    const rel=PR[Math.min(PR.length-1,Math.round(q/100*(PR.length-1)))];
+    const sv=(skill!=null)?skill:sk[Math.min(sk.length-1,Math.round(q/100*(sk.length-1)))];
+    const ab=5+(sv-SLO)/(SHI-SLO)*(PR[PR.length-1]-5);
     const hi=PF_HI[pos];
     const f=(hi==null||q==null)?1.0:PF_LO[pos]+(hi-PF_LO[pos])*(q/100);
-    return Math.min(700,Math.max(5,Math.round(base*f/5)*5));
+    return Math.min(700,Math.max(wrFloor(wr,mg),Math.max(5,Math.round((rel+ab)/2*f/5)*5)));
   };
-  for(const c of C){ c.q=pct(sk,c.skill); c.fair=toPrice(c.q,c.pos); }
+  for(const c of C){ c.q=pct(sk,c.skill); c.fair=toPrice(c.q,c.pos,c.skill,c.wr,c.mg); }
   const pts=MYEOL_FLAT.map(f=>f[3]).sort((a,b)=>a-b);
   const A=[...C];
   for(const [tier,grade,nm,pt] of MYEOL_FLAT){
@@ -5449,7 +5461,7 @@ function renderMyeol(){
   <div class="myeol-grid">${MYEOL_POS==="ALL"?POS.map(col).join(""):colSplit(MYEOL_POS)}</div>
   ${unk.length?`<div class="card" style="margin-top:10px"><h2>포지션 미등록 <span class="muted" style="font-size:12.5px;font-weight:400">${unk.length}명</span></h2>${unk.map(c=>`<span style="margin:3px 8px 3px 0;display:inline-block"><b style="color:${MYEOL_TCOL[c.tier]}">${tg(c)}</b> ${esc(c.nm)} <b style="color:${pb(c.fair)}">${c.fair}P</b></span>`).join("")}</div>`:''}
   <div class="card" style="margin-top:10px"><h2>🎯 검증 — 내부티어 등급별 실측 평균가</h2><div style="margin:4px 0">${lad}</div>
-  <div class="muted" style="font-size:12.5px;margin-top:6px;line-height:1.5">등급이 내려갈수록 값도 순서대로 내려가면 이 계산이 클랜 내부티어와 같은 방향을 본다는 뜻이에요.<br>산식: AI점수·짊어진무게·MVP/ACE율·솔랭피크·승률·KDA·분당딜·킬관여·시야·분당CS·솔로킬·챔프폭·역적률·억울지수를 <b>같은 포지션끼리</b> 백분위 비교하고 판수가 적으면 평균 쪽으로 보정 → 제6·7·8회 실제 낙찰가 148건 분포에 매핑 → <b>포지션 가중</b>(상위 매물: 정글 웃돈·탑/서폿 할인, 하위 매물: 탑·서폿 우대 — 대회 시세표 기준)을 곱하고 <b>상한 700P</b>. 그 포지션 <b>12판 이상</b>만 실측이고, 미만은 내부티어 순위로만 추정합니다. 사람을 평가하는 순위표가 아니라 경매 참고용 기계 추정치입니다.</div></div>
+  <div class="muted" style="font-size:12.5px;margin-top:6px;line-height:1.5">등급이 내려갈수록 값도 순서대로 내려가면 이 계산이 클랜 내부티어와 같은 방향을 본다는 뜻이에요.<br>산식: AI점수·짊어진무게·MVP/ACE율·솔랭피크·승률·KDA·분당딜·킬관여·시야·분당CS·솔로킬·챔프폭·역적률·억울지수를 <b>같은 포지션끼리</b> 백분위 비교하고 판수가 적으면 평균 쪽으로 보정 → <b>상대가</b>(제6·7·8회 실제 낙찰가 148건 분포 매핑)와 <b>절대가</b>(같은 점수 = 같은 값인 고정 척도)를 <b>반반 평균</b> → <b>포지션 가중</b>(상위 매물: 정글 웃돈·탑/서폿 할인, 하위 매물: 탑·서폿 우대 — 대회 시세표 기준) → <b>상한 700P·승률 하한</b>(5~10P는 승률까지 바닥일 때만). 그 포지션 <b>12판 이상</b>만 실측이고, 미만은 내부티어 순위로만 추정합니다. 사람을 평가하는 순위표가 아니라 경매 참고용 기계 추정치입니다.</div></div>
   <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹</h2><div class="muted">경매(8/22)로 팀이 확정되면 여기에 열립니다.</div></div>`;
 }
 
