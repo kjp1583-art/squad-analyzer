@@ -3996,6 +3996,33 @@ def _lcu_backfill_once():
             _LCU_BF_DONE.add(gid)
             print(f"[lcu백필] #{gid} 스킵 — 클랜원 매칭 {hit}명(남의 커스텀으로 판단)", flush=True)
             continue
+        # 🧮 [v83.17 사장님 지시 '경기결과만으로 평가 못 하나?'] 회수 판도 라이브와 같은 산식으로 점수·매치평가.
+        #   LCU v4(중첩 stats)를 Match-V5 모양(평평한 참가자 + puuid + teamPosition)으로 펴서
+        #   parse_endgame_achievements 를 그대로 재사용한다(기존 사후 회복 루프 _bf_compute_evals 와 같은 원리).
+        _LANE_EN = {("TOP", ""): "TOP", ("JUNGLE", ""): "JUNGLE", ("MIDDLE", ""): "MIDDLE",
+                    ("BOTTOM", "DUO_CARRY"): "BOTTOM", ("BOTTOM", "DUO_SUPPORT"): "UTILITY"}
+        merged = []
+        for p, pl, nm in pn:
+            q = dict(p.get("stats") or {})
+            tl = p.get("timeline") or {}
+            q["teamId"] = p.get("teamId"); q["participantId"] = p.get("participantId")
+            q["championId"] = p.get("championId"); q["puuid"] = str(pl.get("puuid") or "")
+            q["teamPosition"] = _LANE_EN.get((str(tl.get("lane") or ""), str(tl.get("role") or "")),
+                                _LANE_EN.get((str(tl.get("lane") or ""), ""), ""))
+            merged.append(q)
+        ev_by_pu, sc_map = {}, {}
+        try:
+            md = {"gameDuration": full.get("gameDuration") or 0,
+                  "teams": [{"teamId": t_.get("teamId"), "win": (t_.get("win") is True or str(t_.get("win")) == "Win")}
+                            for t_ in (full.get("teams") or [])],
+                  "participants": merged}
+            _r = parse_endgame_achievements(md, {}, {}, [], [], is_aram=(tab == "KIWI_KIWI"))
+            for _pu, _lb in ((_r[1], "MVP"), (_r[4], "ACE"), (_r[7], "역적")):
+                _k = str(_pu or "").strip().lower()
+                if _k: ev_by_pu[_k] = _lb
+            sc_map = _r[11] or {}
+        except Exception as _e:
+            print(f"[lcu백필] 채점 생략(평가·점수 공란 폴백): {type(_e).__name__}", flush=True)
         dt = time.strftime("%Y-%m-%d %H:%M", time.localtime(float(full.get("gameCreation") or 0) / 1000))
         ver = ".".join(str(full.get("gameVersion") or "").split(".")[:2])
         mins = max(0.1, float(full.get("gameDuration") or 0) / 60.0)
@@ -4024,9 +4051,13 @@ def _lcu_backfill_once():
                    f"|m{mins:.1f}|kp{kp}|vs{int(st.get('visionScore') or 0)}"
                    f"|cw{int(st.get('visionWardsBoughtInGame') or 0)}|wp{int(st.get('wardsPlaced') or 0)}"
                    f"|wk{int(st.get('wardsKilled') or 0)}|dt{int(st.get('totalDamageTaken') or 0)}")
+            _pk = str(pl.get("puuid") or "").strip().lower()
+            _sc = sc_map.get(_pk)
+            try: _sc = round(float(_sc), 1)
+            except Exception: _sc = ""
             rows.append(["#" + gid, dt, nm, str(pl.get("puuid") or ""), team, pos, kor, "",
-                         "승리" if st.get("win") else "패배", "평가 없음", ("v" + ver) if ver else "",
-                         f"{k}/{d}/{a}", "", int(st.get("totalDamageDealtToChampions") or 0),
+                         "승리" if st.get("win") else "패배", ev_by_pu.get(_pk, "평가 없음"), ("v" + ver) if ver else "",
+                         f"{k}/{d}/{a}", _sc, int(st.get("totalDamageDealtToChampions") or 0),
                          items, f"{st.get('perk0') or ''}|{st.get('perkPrimaryStyle') or ''}",
                          str(st.get("perkSubStyle") or ""), sp, met])
         # ⏳ 동시기록 경쟁 완화 — 참가자 여럿이 같이 켜도 한 명만 성공하게: 내 puuid 지터 후 재확인
