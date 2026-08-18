@@ -1319,6 +1319,47 @@ _SPELL_OVL = {}      # pos_key("TOP"...) -> {"label": 챔프명, "until": 벽시
 _SPELL_OVL_ORDER = (("TOP", "탑"), ("JUNGLE", "정글"), ("MIDDLE", "미드"),
                     ("BOTTOM", "원딜"), ("UTILITY", "서폿"))
 _SPELL_OVL_UI = {"win": None, "rows": None, "hidden": False}
+_SPELL_POSKOR = dict(_SPELL_OVL_ORDER)          # "TOP"→"탑" …
+_SPELL_IMG_RAW = {}   # 챔프 한글명 → png bytes (핫키 스레드가 미리 받아둠 — GUI 블로킹 방지)
+_SPELL_IMG_TK = {}    # 챔프 한글명 → PhotoImage (GUI 스레드에서만 생성)
+
+def _spell_say(pos_kor, kind):
+    """🔊 [2026-08-18 사장님 지시] 비프음 대신 음성 — kind: 'noflash'(점멸 사용) / 'flashon'(쿨 회복).
+       분석기 폴더의 voice/ 에 같은 이름의 파일이 있으면 그걸 먼저 쓴다(클랜원 더빙 교체용),
+       없으면 내장 AI 음성. 그것도 없으면 종전 비프음."""
+    try:
+        import winsound
+        fn = f"{pos_kor}_{kind}.wav"
+        _appdir = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
+        for p in (os.path.join(_appdir, "voice", fn), resource_path(os.path.join("voice", fn))):
+            if p and os.path.exists(p):
+                winsound.PlaySound(p, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+                return
+        winsound.MessageBeep(0x40)
+    except Exception:
+        pass
+
+def _spell_prefetch_img(kor):
+    """챔프 초상화 bytes 를 백그라운드에서 받아둔다(핫키 스레드) — PhotoImage 는 GUI 틱이 만든다."""
+    if not kor or kor in _SPELL_IMG_RAW: return
+    try:
+        urls = []
+        _cid = _champ_id_of(kor)
+        if _cid:
+            urls.append("https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/"
+                        f"default/v1/champion-icons/{_cid}.png")
+        _eng = get_champ_eng_name(kor)
+        if _eng:
+            urls.append(f"https://ddragon.leagueoflegends.com/cdn/{DDRAGON_VERSION}/img/champion/{_eng}.png")
+        for u in urls:
+            try:
+                r = requests.get(u, timeout=3)
+                if r.status_code == 200:
+                    _SPELL_IMG_RAW[kor] = r.content; return
+            except Exception: pass
+        _SPELL_IMG_RAW[kor] = None                      # 실패 기록 — 재시도 폭주 방지
+    except Exception:
+        pass
 def _spell_set_clipboard(text):
     """[2026-08-12 사장님 제보 '아무리 눌러도 아무 텍스트도 복사가 안돼'] 64비트 핸들 절단 버그 수정.
        ctypes 의 기본 restype 은 c_int(32비트)라, GlobalAlloc 이 돌려주는 64비트 HGLOBAL 이 잘려서
@@ -1420,7 +1461,7 @@ def _spellcheck_hotkey_loop():
         gs = _spell_live("gamestats") or {}
         t = gs.get("gameTime")
         return int(float(t)) if t is not None else None
-    def push_clip(now, diag=None):
+    def push_clip(now, diag=None, beep=True):
         live = sorted(((n, x) for n, x in _SPELL_TIMERS.items() if x > now), key=lambda e: e[1])
         for n in [n for n, x in _SPELL_TIMERS.items() if x <= now]: _SPELL_TIMERS.pop(n, None)
         if not live:
@@ -1429,7 +1470,7 @@ def _spellcheck_hotkey_loop():
         txt = " ".join(f"{n} {x//60}:{x%60:02d}" for n, x in live)
         ok = _spell_set_clipboard(txt)
         if diag: diag(("복사됨: " + txt) if ok else ("클립보드 쓰기 실패 — " + txt))
-        if ok: winsound.MessageBeep(0x40)
+        if ok and beep: winsound.MessageBeep(0x40)   # 🔊 위치키는 음성이 대신 — 재복사(F11)만 비프
     def _diag(msg):
         try:
             with gui_lock:
@@ -1463,7 +1504,9 @@ def _spellcheck_hotkey_loop():
                 _SPELL_TIMERS[label] = now + cd
                 _SPELL_OVL[pos_key] = {"label": label, "until": time.time() + cd}   # 🕒 오버레이 갱신
                 _SPELL_OVL_UI["hidden"] = False                                     # 숨겨놨어도 다시 표시
-            push_clip(now, _diag)
+                _spell_say(_SPELL_POSKOR.get(pos_key, ""), "noflash")               # 🔊 "탑 노플!"
+                _spell_prefetch_img(label)                                          # 🖼 초상화 미리 받기
+            push_clip(now, _diag, beep=(hit is None))
         except Exception:
             time.sleep(1)
 
@@ -1512,17 +1555,29 @@ def _spell_overlay_tick(root):
         for _pk, _kor in _SPELL_OVL_ORDER:
             t = _SPELL_OVL.get(_pk); lb = rows[_pk]
             if not t:
-                lb.config(text=f"{_kor}  —", fg="#5a6377"); continue
+                lb.config(text=f"{_kor}  —", fg="#5a6377", image="", compound="none"); continue
             left = int(t["until"] - _now)
             name = str(t.get("label") or "")[:6]
+            # 🖼 챔프 초상화 — 프리페치된 bytes 로 GUI 스레드에서만 PhotoImage 생성(이름 텍스트 대체)
+            _img = _SPELL_IMG_TK.get(t.get("label"))
+            if _img is None and _SPELL_IMG_RAW.get(t.get("label")) and PILLOW_INSTALLED:
+                try:
+                    _im = Image.open(BytesIO(_SPELL_IMG_RAW[t["label"]])).convert("RGBA").resize((18, 18), Image.Resampling.LANCZOS)
+                    _img = ImageTk.PhotoImage(_im); _SPELL_IMG_TK[t["label"]] = _img
+                except Exception: _SPELL_IMG_TK[t["label"]] = None; _img = None
+            _shown = "" if _img else f" {name}"
+            if _img is not None: lb.config(image=_img, compound="left")
             if left > 0:
-                lb.config(text=f"{_kor} {name} {left // 60}:{left % 60:02d}",
+                lb.config(text=f"{_kor}{_shown} {left // 60}:{left % 60:02d}",
                           fg=("#ff8181" if left <= 30 else "#ffd479"))
             elif left > -12:                                    # 만료 직후 12초 'UP!' 강조
-                lb.config(text=f"{_kor} {name} UP!", fg="#7ee1a8")
+                if not t.get("said_up"):
+                    t["said_up"] = True
+                    _spell_say(_kor, "flashon")                  # 🔊 "탑 플 온!"
+                lb.config(text=f"{_kor}{_shown} UP!", fg="#7ee1a8")
             else:
                 _SPELL_OVL.pop(_pk, None)
-                lb.config(text=f"{_kor}  —", fg="#5a6377")
+                lb.config(text=f"{_kor}  —", fg="#5a6377", image="", compound="none")
     except Exception:
         pass
     finally:

@@ -8,7 +8,8 @@
 # 반드시 --clean 으로 빌드:  pyinstaller --clean squad_analyzer.spec
 from PyInstaller.utils.hooks import collect_all, collect_data_files
 
-datas = [('credentials.json.json', '.'), ('*.png', '.'), ('icon.ico', '.')]   # icon.ico: 트레이/창 아이콘이 런타임에 resource_path로 읽음
+datas = [('credentials.json.json', '.'), ('*.png', '.'), ('icon.ico', '.')]
+datas += [('voice/*.wav', 'voice')]   # 🔊 스펠 타이머 음성(포지션×노플/플온)   # icon.ico: 트레이/창 아이콘이 런타임에 resource_path로 읽음
 binaries = []
 hiddenimports = []
 
