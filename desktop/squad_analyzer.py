@@ -1905,6 +1905,7 @@ def _clan_index(force=False):
             c_nm, c_ps, c_tm = ci("소환사명"), ci("포지션"), ci("진영")
             c_bn = ci("밴")
             c_mv, c_kd, c_gp = ci("매치평가"), ci("KDA"), ci("지표")   # 🕸 [v82.86] 육각형 축 원자료
+            c_sc = ci("점수")   # 🎯 [2026-08-18] 포지션 추천용 — 포지션별 AI 평균 재료
             c_pt = ci("패치버전")
             # 🕸 [검증 지적] 웹 육각형 비교군은 '최신 패치' 화면 기준 — rad 집계도 최신 패치 행만
             _pset = set()
@@ -1961,7 +1962,14 @@ def _clan_index(force=False):
                     cw = e["champs"].setdefault(ch, [0, 0]); cw[0] += 1; cw[1] += (res == "승리")
                     if ps and ps != "선택안함":   # [v82.40] 챔프별 '어느 라인에서 쌓은 기록인지' — 교차라인 숙련 과신 방지
                         _cp = e.setdefault("chpos", {}).setdefault(ch, {}); _cp[ps] = _cp.get(ps, 0) + 1
-                if ps and ps != "선택안함": e["pos"][ps] = e["pos"].get(ps, 0) + 1
+                if ps and ps != "선택안함":
+                    e["pos"][ps] = e["pos"].get(ps, 0) + 1
+                    _pw2 = e.setdefault("posw", {}); _pw2[ps] = _pw2.get(ps, 0) + (res == "승리")   # 🎯 포지션 추천용
+                    if 0 <= c_sc < len(r):
+                        try:
+                            _ai2 = float(str(r[c_sc]).replace(",", ""))
+                            _pa2 = e.setdefault("pos_ai", {}).setdefault(ps, [0.0, 0]); _pa2[0] += _ai2; _pa2[1] += 1
+                        except Exception: pass
                 per_game.setdefault(gid, {})[pu] = (tm, res, ch, ps)   # [v82.35] 매치업용 챔프·포지션 동반
                 if _tab == "CLASSIC_NORMAL":
                     _lo_recs.append((pu, ps, ch, res == "승리"))   # 📊 저티어 오프롤 통계용
@@ -6177,7 +6185,8 @@ def _team_split(entries, cidx, avoid_key=""):
         if not nm: continue
         if str((p or {}).get('puuid') or '').startswith('BOT_'): continue
         cand.append({'nm': nm, 'tn': tnorm(nm), 'pw': _captain_power(p, st_),
-                     'pos': _captain_main_pos(p, cidx), 'tier': tier_of(nm) or ''})
+                     'pos': _captain_main_pos(p, cidx), 'tier': tier_of(nm) or '',
+                     'pu': str((p or {}).get('puuid') or '')})
     n = len(cand)
     if n < 6: return None, None, f"방 인원이 부족해요({n}명) — 6명부터 나눌 수 있어요", ""
     if n % 2: return None, None, f"인원이 홀수({n}명)라 5:5로 나눌 수 없어요", ""
@@ -6218,6 +6227,59 @@ def _team_split(entries, cidx, avoid_key=""):
         _ta = sum(1 for c in A if c['tier'] in _TOPT)
         why += f" · 최상위권 {top_n}명 {_ta}:{top_n - _ta} 배분"
     return A, B, why, key
+
+
+def _pos_recommend(A, B, idx):
+    """🎯 [2026-08-18 사장님 지시] 5:5 배분 뒤 팀별 포지션 추천 — 배치 조율 시간 단축용.
+       팀별 5×5 전수(120가지 순열)로 [그 포지션 실측 승률(수축 K=8·판수 가중) + 선언 주/부포지션
+       보너스 + 실측 최다 포지션 보너스]가 최대인 배치를 먼저 구하고(=양팀 예상 라인),
+       그 예상 상대를 기준으로 맞상대 상대전적(반대팀으로 만난 판, 5판↑) 보정을 더해 재최적화.
+       결과는 각 팀원 딕트에 c['rec'](한글 포지션)로 심는다. 실패해도 조용히 생략(추천은 곁가지)."""
+    try:
+        import itertools
+        POS5 = ("탑", "정글", "미드", "원딜", "서폿")
+        bp = (idx or {}).get("by_pu") or {}
+        h2h = (idx or {}).get("h2h") or {}
+        def comp(c, q):
+            e = bp.get(c.get('pu')) or {}
+            n = (e.get("pos") or {}).get(q, 0)
+            w = (e.get("posw") or {}).get(q, 0)
+            sc = (((w + 4.0) / (n + 8.0)) - 0.5) * 100 * min(1.0, n / 10.0) if n else 0.0
+            mp, sp = POSITION_OF.get(tnorm(get_main_name(c['nm']) or c['nm']), ("", ""))
+            if q == mp: sc += 6.0                              # 선언 주포지션
+            elif sp and (sp == "ALL" or q in str(sp).split("/")): sc += 3.0   # 선언 부포지션
+            if c.get('pos') == q: sc += 2.0                    # 실측 최다 포지션
+            if n == 0 and q != mp: sc -= 4.0                   # 무경험 오프롤 회피
+            return sc
+        def best(team, bonus=None):
+            bmax, basg = None, None
+            for perm in itertools.permutations(range(5)):
+                s = sum(comp(team[i], POS5[perm[i]]) for i in range(5))
+                if bonus: s += sum(bonus(team[i], POS5[perm[i]]) for i in range(5))
+                if bmax is None or s > bmax: bmax, basg = s, perm
+            return {id(team[i]): POS5[basg[i]] for i in range(5)}
+        if not A or not B or len(A) != 5 or len(B) != 5: return False
+        eA, eB = best(A), best(B)                              # 자체 성적만으로 본 양팀 예상 라인
+        def h2h_bonus(enemy_by_pos):
+            def f(c, q):
+                op = enemy_by_pos.get(q)
+                if op is None: return 0.0
+                a, b = sorted((c.get('pu') or "", op.get('pu') or ""))
+                d = h2h.get((a, b))
+                if not d or d[0] < 5: return 0.0               # 표본 5판 미만 무시(관례)
+                myw = d[1] if a == (c.get('pu') or "") else d[0] - d[1]
+                return max(-8.0, min(8.0, (myw / d[0] - 0.5) * 100 * 0.3))
+            return f
+        atq = {eA[id(c)]: c for c in A}
+        btq = {eB[id(c)]: c for c in B}
+        fA = best(A, h2h_bonus(btq))
+        fB = best(B, h2h_bonus(atq))
+        for c in A: c['rec'] = fA[id(c)]
+        for c in B: c['rec'] = fB[id(c)]
+        return True
+    except Exception as e:
+        print(f"[팀추천] 포지션 추천 생략: {e}", flush=True)
+        return False
 
 
 # ===== 🚫 노밴 감지(v82.41 사장님 지시) — 커스텀 로비 채팅의 '노밴' 선언을 읽어 기록·코치 반영 =====
@@ -8854,6 +8916,7 @@ def create_graphic_ui():
             try: cidx = _clan_index()
             except Exception: cidx = None
             A, B, why, key = _team_split(entries, cidx, _TEAM_SPLIT_LAST[0])
+            if A: _pos_recommend(A, B, cidx)   # 🎯 팀별 포지션 추천(c['rec']) — 실패해도 배분 표시는 그대로
             def show():
                 if not A:
                     messagebox.showinfo("5:5 팀짜기", why); return
@@ -8867,12 +8930,21 @@ def create_graphic_ui():
                     f = tk.Frame(cols, bg="#12141a"); f.grid(row=0, column=col, padx=10, sticky="n")
                     tk.Label(f, text=f"{title}  (전력 {sum(c['pw'] for c in team):.1f})",
                              bg="#12141a", fg=fg, font=UF(11, "bold")).pack(anchor="w", pady=(0, 3))
-                    for c in sorted(team, key=lambda x: -x['pw']):
+                    _PO = {"탑": 0, "정글": 1, "미드": 2, "원딜": 3, "서폿": 4}
+                    _rec_all = all(c.get('rec') for c in team)
+                    _order = (lambda x: _PO.get(x.get('rec'), 9)) if _rec_all else (lambda x: -x['pw'])
+                    for c in sorted(team, key=_order):
                         t = c['nm'].split('#')[0].strip()                             + (f"  [{c['tier']}]" if c['tier'] else "")                             + (f"  {c['pos']}" if c['pos'] else "")
                         tk.Label(f, text=t, bg="#12141a", fg="#e8eaf0", font=UF(10)).pack(anchor="w")
+                        if c.get('rec'):   # 🎯 추천 라인 — 실측 성적·선언 포지션·맞상대 전적 종합
+                            tk.Label(f, text=f"   ↳ 추천 {c['rec']}" + (" (주포 그대로)" if c['rec'] == c.get('pos') else ""),
+                                     bg="#12141a", fg="#f0c987", font=UF(9)).pack(anchor="w", padx=(8, 0))
                 _team_col(A, "🟦 A팀", 0, "#7ea7ff")
                 _team_col(B, "🟥 B팀", 1, "#ff8a8a")
                 tk.Label(w, text=why, bg="#12141a", fg="#8a93a6", font=UF(9)).pack(padx=18, pady=(8, 2))
+                if any(c.get('rec') for c in A + B):
+                    tk.Label(w, text="↳ 추천 = 그 라인 실측 승률·선언 포지션·맞상대 전적 종합 (참고용 — 팀에서 조율해도 됩니다)",
+                             bg="#12141a", fg="#6f7787", font=UF(8)).pack(padx=18, pady=(0, 2))
                 bs = tk.Frame(w, bg="#12141a"); bs.pack(pady=(4, 12))
                 def _announce():
                     def w2():
@@ -8881,7 +8953,9 @@ def create_graphic_ui():
                             if not port: return
                             hd = {"Authorization": "Basic " + base64.b64encode(("riot:" + str(pw2)).encode()).decode(),
                                   "Accept": "application/json"}
-                            _n = lambda team: "·".join(c['nm'].split('#')[0].strip() for c in team)
+                            _n = lambda team: "·".join(
+                                c['nm'].split('#')[0].strip() + (f"({c['rec']})" if c.get('rec') else "")
+                                for c in team)
                             send_lcu_chat_announcement(
                                 f"⚖ 자동 팀배분: [A팀] {_n(A)}  ↔  [B팀] {_n(B)} ({why})",
                                 hd, "https://127.0.0.1:" + str(port))
