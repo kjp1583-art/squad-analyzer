@@ -5719,6 +5719,24 @@ function balanceAudit(days){
   const cut = days ? new Date(Date.now()-days*86400000) : null;
   const out={n:0,skipped:0,decided:0,favWin:0,tie:0,blue:0,blueWin:0,gapSum:0,
              buckets:new Map(),recent:[],even:0};
+  // ⚖️ [2026-08-18 사장님 지시] 분석기·웹 공용 우열 기준 — 내부티어만 보던 것을
+  //    '내부티어 + 내전 통산승률(K=8 수축)' 반반의 1인분 전력으로 통일 (분석기 예상승률과 같은 산식).
+  const rec=new Map();                       // canon → 내전 통산 {g,w}
+  for(const [,g] of src){
+    for(const r of g.rows||[]){
+      const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
+      const k=canonOfRow(r); if(!k)continue;
+      let e=rec.get(k); if(!e)rec.set(k,e={g:0,w:0});
+      e.g++; if(res==="승리")e.w++;
+    }
+  }
+  const K=8;
+  const powerOf=r=>{                         // 1인분 전력 — 전력차 1 = 예상승률 4%p
+    const k=canonOfRow(r);
+    const t=tierScore(tierOf(k)); if(t==null)return null;   // 내부티어 미보유 판은 종전대로 제외
+    const e=rec.get(k)||{g:0,w:0};
+    return (t+((e.w+0.5*K)/(e.g+K))*10)/2;
+  };
   for(const [gid,g] of src){
     const rs=g.rows||[];
     let day=null; for(const r of rs){ const d=_rdt(r["날짜"]); if(d){day=d;break;} }
@@ -5732,7 +5750,7 @@ function balanceAudit(days){
     let bad=false; const sc={};
     for(const s of ["블루팀","레드팀"]){
       let sum=0;
-      for(const r of side[s]){ const v=tierScore(tierOf(canonOfRow(r))); if(v==null){bad=true;break;} sum+=v; }
+      for(const r of side[s]){ const v=powerOf(r); if(v==null){bad=true;break;} sum+=v; }
       if(bad)break; sc[s]=sum;
     }
     if(bad){ out.skipped++; continue; }
@@ -5741,15 +5759,17 @@ function balanceAudit(days){
     const gap=sc["블루팀"]-sc["레드팀"];
     out.gapSum+=Math.abs(gap);
     if(Math.abs(gap)<=1)out.even++;
-    if(gap===0){ out.tie++; continue; }
+    if(Math.abs(gap)*4<0.5){ out.tie++; continue; }   // 예상승률이 50%로 반올림되는 판 = 무승부급
     const fav = gap>0 ? "블루팀" : "레드팀";
     const won = (fav==="블루팀") ? (rb==="승리") : (rr==="승리");
     out.decided++; if(won)out.favWin++;
-    const b=Math.min(Math.abs(gap),6);
+    const b=Math.min(6,Math.max(1,Math.round(Math.abs(gap))));
     let e=out.buckets.get(b); if(!e){e={n:0,w:0};out.buckets.set(b,e);}
     e.n++; if(won)e.w++;
-    out.recent.push({gid,day,gap:Math.abs(gap),fav,won,
-                     blue:sc["블루팀"],red:sc["레드팀"],winner:rb==="승리"?"블루팀":"레드팀"});
+    const bwr=Math.max(15,Math.min(85,Math.floor(50+gap*4+0.5)));       // 분석기와 같은 환산·같은 반올림(half-up)
+    out.recent.push({gid,day,gap:+Math.abs(gap).toFixed(1),fav,won,
+                     pct:fav==="블루팀"?bwr:100-bwr,
+                     blue:+sc["블루팀"].toFixed(1),red:+sc["레드팀"].toFixed(1),winner:rb==="승리"?"블루팀":"레드팀"});
   }
   out.recent.sort((a,b)=>(b.day?b.day-0:0)-(a.day?a.day-0:0));
   out.recent=out.recent.slice(0,12);
@@ -5824,7 +5844,7 @@ function coachSectionHtml(){
 function balanceSectionHtml(){
   const b=balanceAudit(REPORT_RANGE||0);
   const rchip=(d,l)=>`<span class="pchip${REPORT_RANGE===d?' on':''}" style="cursor:pointer;padding:4px 11px;font-size:12.5px" onclick="setReportRange(${d})">${l}</span>`;
-  const head=`<h2>⚖️ 내전 밸런스 사후 평가 <span class="muted" style="font-size:13px;font-weight:400">내부티어로 예측한 우세팀이 실제로 이겼나</span></h2>
+  const head=`<h2>⚖️ 내전 밸런스 사후 평가 <span class="muted" style="font-size:13px;font-weight:400">내부티어+실전 승률로 예측한 우세팀이 실제로 이겼나 — 분석기 예상 승률과 같은 기준</span></h2>
     <div style="display:flex;gap:6px;margin:2px 0 10px">${rchip(0,'통산')}${rchip(90,'최근 90일')}${rchip(30,'최근 30일')}</div>`;
   if(b.n<10)return `<div class="card">${head}<div class="muted" style="font-size:13px">채점할 판이 부족해요 (양 팀 5명 전원이 내부티어를 가진 판 ${b.n}판). 기간을 넓혀보세요.</div></div>`;
   const favP=b.decided?100*b.favWin/b.decided:0;
@@ -5851,7 +5871,7 @@ function balanceSectionHtml(){
   }).join("");
   const rows=b.recent.map(r=>`<div class="rpr">
       <span class="rpr-d">${esc(r.day?`${r.day.getMonth()+1}/${r.day.getDate()}`:'')}</span>
-      <span class="rpr-t">예상 <b style="color:${r.fav==='블루팀'?'#5b8cff':'#e84057'}">${esc(r.fav)}</b> <span class="muted">+${r.gap}</span></span>
+      <span class="rpr-t">예상 <b style="color:${r.fav==='블루팀'?'#5b8cff':'#e84057'}">${esc(r.fav)}</b> <span class="muted">${r.pct}%</span></span>
       <span class="rpr-t">실제 <b style="color:${r.winner==='블루팀'?'#5b8cff':'#e84057'}">${esc(r.winner)}</b> 승</span>
       <span class="rpr-v" style="color:${r.won?'var(--win)':'var(--lose)'}">${r.won?'적중':'빗나감'}</span>
       <span class="rpr-g clickname" onclick="go('game','${escAttr(r.gid)}')">보기 ›</span>
@@ -5859,11 +5879,11 @@ function balanceSectionHtml(){
   return `<div class="card">${head}
     <div class="cmpgrid">
       ${box("우세팀 승률",`${favP.toFixed(1)}%`,`${b.favWin}/${b.decided}판 · ${grade[0]}`,grade[1],
-        "내부티어 합이 높은 팀이 실제로 이긴 비율입니다. 50%에 가까울수록 팀이 팽팽하게 갈렸다는 뜻이고, 높을수록 티어가 결과를 잘 설명한다는 뜻입니다.")}
+        "내부티어+내전 승률로 계산한 전력 합이 높은 팀이 실제로 이긴 비율입니다. 50%에 가까울수록 팀이 팽팽하게 갈렸다는 뜻이고, 높을수록 이 기준이 결과를 잘 설명한다는 뜻입니다.")}
       ${box("팽팽한 판 비율",`${evenP.toFixed(0)}%`,`전력차 1 이하 ${b.even}판 / ${b.n}판`,evenP>=35?'var(--win)':'',
-        "양 팀 내부티어 합의 차이가 1 이하였던 판. 팀 짜기가 얼마나 촘촘했는지 봅니다.")}
-      ${box("평균 전력차",avgGap.toFixed(2),`티어 점수 합 기준 · 무승부급 ${b.tie}판`,'',
-        "0티어 11점 · 1上 9점 … 3下 1점으로 환산한 팀 합계의 차이입니다.")}
+        "양 팀 전력 합의 차이가 1(예상승률 4%p) 이하였던 판. 팀 짜기가 얼마나 촘촘했는지 봅니다.")}
+      ${box("평균 전력차",avgGap.toFixed(2),`전력차 1 = 예상승률 4%p · 무승부급 ${b.tie}판`,'',
+        "1인분 전력 = (내부티어 점수[0티어 11 … 3下 1] + 내전 통산승률 수축×10) ÷ 2. 분석기 게임 시작 화면의 예상 승률과 같은 산식입니다.")}
       ${box("블루 진영 승률",`${blueP.toFixed(1)}%`,`${b.blueWin}/${b.n}판`,Math.abs(blueP-50)<3?'var(--win)':'#ffd24a',
         "맵 자체의 유불리입니다. 50%에서 크게 벗어나면 진영 배정도 밸런스 변수로 봐야 합니다.")}
     </div>
@@ -5874,7 +5894,7 @@ function balanceSectionHtml(){
     <div style="margin-top:15px"><b style="font-size:13.5px">🕐 최근 판 판정</b>
       <div style="margin-top:6px">${rows}</div></div>
     <div class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.6">※ 양 팀 5명 전원이 내부티어를 가진 판만 채점합니다 (기간 내 제외 ${b.skipped}판 — 티어 미부여자 포함).
-      내부티어는 팀을 짤 때 실제로 쓰는 기준이라, 여기 숫자가 곧 '팀 짜기가 잘 됐는가'입니다.</div>
+      1인분 전력 = 내부티어 점수 절반 + 내전 통산승률(판수 적으면 50%로 수축) 절반 — 분석기 게임 시작 화면의 예상 승률과 같은 기준이라, 두 화면의 우열 판단이 항상 일치합니다.</div>
   </div>`;
 }
 
