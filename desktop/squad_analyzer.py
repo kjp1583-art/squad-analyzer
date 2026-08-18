@@ -8970,6 +8970,73 @@ def create_graphic_ui():
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
     # 👑⚖ [2026-08-16 사장님 재지시] 팀장뽑기와 5:5팀짜기를 한 버튼으로 — 누르면 무엇을 뽑을지 고른다
+    def _do_pos_recommend():
+        """🎯 [2026-08-18 사장님 재지시] 포지션 추천 단독 기능 — 5:5팀짜기를 안 쓰고 수동으로
+           팀을 정한 로비에서도, 현재 블루/레드 5:5 명단을 그대로 읽어 '어디 갈지'를 추천한다."""
+        with gui_lock:
+            blues = list(gui_data.get("blue") or []); reds = list(gui_data.get("red") or [])
+        def worker():
+            try: cidx = _clan_index()
+            except Exception: cidx = None
+            def mk(team):
+                out = []
+                for p, st_ in team:
+                    nm = str((p or {}).get('name') or '').strip()
+                    if not nm: continue
+                    if str((p or {}).get('puuid') or '').startswith('BOT_'): continue
+                    out.append({'nm': nm, 'tn': tnorm(nm), 'pw': _captain_power(p, st_),
+                                'pos': _captain_main_pos(p, cidx), 'tier': tier_of(nm) or '',
+                                'pu': str((p or {}).get('puuid') or '')})
+                return out
+            A, B = mk(blues), mk(reds)
+            if len(A) != 5 or len(B) != 5:
+                root.after(0, lambda: messagebox.showinfo(
+                    "포지션 추천", f"지금 로비가 블루 {len(A)}명 · 레드 {len(B)}명이에요.\n"
+                                 "5:5 명단이 완성된 뒤 다시 눌러주세요."))
+                return
+            _pos_recommend(A, B, cidx)
+            def show():
+                w = tk.Toplevel(root); w.title("포지션 추천")
+                w.attributes("-topmost", True); w.configure(bg="#12141a")
+                tk.Label(w, text="🎯 포지션 추천 — 현재 로비 명단 기준", bg="#12141a", fg="#f5d47a",
+                         font=UF(13, "bold")).pack(padx=18, pady=(14, 6))
+                cols = tk.Frame(w, bg="#12141a"); cols.pack(padx=18)
+                _PO = {"탑": 0, "정글": 1, "미드": 2, "원딜": 3, "서폿": 4}
+                def _col(team, title, col, fg):
+                    f = tk.Frame(cols, bg="#12141a"); f.grid(row=0, column=col, padx=10, sticky="n")
+                    tk.Label(f, text=title, bg="#12141a", fg=fg, font=UF(11, "bold")).pack(anchor="w", pady=(0, 3))
+                    for c in sorted(team, key=lambda x: _PO.get(x.get('rec'), 9)):
+                        rec = c.get('rec') or "?"
+                        tk.Label(f, text=f"{rec}  ←  " + c['nm'].split('#')[0].strip()
+                                 + (f"  [{c['tier']}]" if c['tier'] else ""),
+                                 bg="#12141a", fg="#e8eaf0", font=UF(10)).pack(anchor="w")
+                _col(A, "🟦 블루팀", 0, "#7ea7ff")
+                _col(B, "🟥 레드팀", 1, "#ff8a8a")
+                tk.Label(w, text="그 라인 실측 승률 · 선언 주/부포지션 · 맞상대 전적 종합 (참고용 — 팀에서 조율해도 됩니다)",
+                         bg="#12141a", fg="#8a93a6", font=UF(9)).pack(padx=18, pady=(8, 2))
+                bs = tk.Frame(w, bg="#12141a"); bs.pack(pady=(4, 12))
+                def _announce():
+                    def w2():
+                        try:
+                            port, pw2 = get_lcu_credentials()
+                            if not port: return
+                            hd = {"Authorization": "Basic " + base64.b64encode(("riot:" + str(pw2)).encode()).decode(),
+                                  "Accept": "application/json"}
+                            _n = lambda team: "·".join(
+                                c['nm'].split('#')[0].strip() + (f"({c['rec']})" if c.get('rec') else "")
+                                for c in team)
+                            send_lcu_chat_announcement(
+                                f"🎯 포지션 추천: [블루] {_n(A)}  ↔  [레드] {_n(B)}",
+                                hd, "https://127.0.0.1:" + str(port))
+                        except Exception: pass
+                    threading.Thread(target=w2, daemon=True).start()
+                tk.Button(bs, text="📢 로비에 알리기", command=_announce, bg="#1e2436", fg="#9db8ff",
+                          relief="flat", padx=10).pack(side="left", padx=4)
+                tk.Button(bs, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
+                          relief="flat", padx=10).pack(side="left", padx=4)
+            root.after(0, show)
+        threading.Thread(target=worker, daemon=True).start()
+
     def _do_team_menu():
         w = tk.Toplevel(root); w.title("팀뽑선정")
         w.attributes("-topmost", True); w.configure(bg="#12141a"); w.resizable(False, False)
@@ -8998,6 +9065,8 @@ def create_graphic_ui():
              _do_pick_captains, theme.GOLD)
         _big("⚖", "5:5 명단 짜기", "방 전원을 전력·주포지션 균형으로 두 팀으로 나눔",
              _do_team_split, "#7ec8e3")
+        _big("🎯", "포지션 추천", "수동으로 짠 팀도 OK — 현재 블루/레드 명단 그대로 라인 추천",
+             _do_pos_recommend, "#f0c987")
         tk.Button(w, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
                   relief="flat", padx=12, cursor="hand2").pack(pady=(8, 14))
     _HTile("👑", "팀뽑선정", _do_team_menu, theme.GOLD)
