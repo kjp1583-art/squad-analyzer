@@ -3457,6 +3457,25 @@ def _draft_coach_tick(s_json, headers, base_url):
                 print(f"[coach-trig] 액션원형 my_cell={my_cell} timer={((s_json.get('timer') or {}).get('phase'))} "
                       f"gameId={s_json.get('gameId')} [{' '.join(_rows) or '비어있음'}]", flush=True)
         except Exception: pass
+        # 🚑 [2026-08-19 사장님 지시] 밴 추천을 LCU 액션 모양에 의존하지 않는다 — 8/6부터 밴 액션이
+        #    기대 형태로 안 잡혀 밴 추천만 통째로 죽었다(픽은 정상 → 액션 기반 밴 감지가 사인).
+        #    시점 기반 트리거 보강: ① 챔프선택 진입 직후(확정 챔프 0) = 1페이즈 밴 — "게임 시작하자마자"
+        #    ② 확정 챔프 6~7개(1페이즈 픽 종료) = 2페이즈 밴. 서명(banphase1/2)이 같아 액션 기반
+        #    경로가 살아 있어도 중복 발동하지 않는다.
+        if mode is None:
+            try:
+                _locked = sum(1 for _p9 in (list(s_json.get("myTeam") or []) + list(s_json.get("theirTeam") or []))
+                              if isinstance(_p9, dict) and _p9.get("championId"))
+                _sid0 = str(s_json.get("gameId") or "") or f"t{int(time.time() // 600)}"
+                if 6 <= _locked <= 7 and f"{_sid0}|banphase2" not in _DRAFT_SEEN:
+                    mode, ban_phase = "ban", 2
+                    print("[coach-trig] 시점 기반 발동 — 픽 6 확정 → 2페이즈 밴 추천", flush=True)
+                elif (_locked == 0 and _picks_done == 0 and _bans_done < 6
+                      and len(s_json.get("theirTeam") or []) >= 5          # 상대 로스터가 보이는 판(내전)만 — 솔랭은 상대 비공개
+                      and f"{_sid0}|banphase1" not in _DRAFT_SEEN):
+                    mode, ban_phase = "ban", 1
+                    print("[coach-trig] 시점 기반 발동 — 챔프선택 진입 → 1페이즈 밴 추천", flush=True)
+            except Exception: pass
         if mode is None:
             return
         # ② 현재 밴픽판 수집
