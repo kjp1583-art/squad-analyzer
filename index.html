@@ -1270,7 +1270,10 @@ function computeAssessments(){
     const solowr=m.soloWR!=null?((m.soloW+SHRINK_SOLOWR*(g_solowr/100))/(m.soloW+m.soloL+SHRINK_SOLOWR)*100):null;
     return {wr,ai,mvp,tr,solo,solowr};
   };
-  elig.forEach(x=>x.sh=shrunk(x.m));
+  // ⚠️ [2026-08-19 사장님 제보 '아무것도 안 나옴'] sh는 '카드가 나올 모든 인원'에 계산해야 한다 —
+  //   elig에서 빠진 인원(유령·디스코드 탈퇴자)도 아래 z 루프는 도니, elig에만 계산하면 sh=undefined로
+  //   전체 로드가 죽는다(DEPARTED 목록이 처음 채워진 순간 전면 장애). 평균·표준편차는 여전히 elig만 쓴다.
+  members.forEach(x=>{ if(x.m.g>=TIER_MIN_GAMES) x.sh=shrunk(x.m); });
   const byTier={}; elig.forEach(x=>{(byTier[x.t]||(byTier[x.t]=[])).push(x);});
   const col=k=>elig.map(x=>x.sh[k]);
   const G_STD={}; for(const k of ["wr","ai","mvp","tr","solo","solowr"]) G_STD[k]=_astd(col(k),_amean(col(k)))||1;
@@ -1282,7 +1285,7 @@ function computeAssessments(){
     if(m.g<TIER_MIN_GAMES){ASSESSMENTS.set(name,{tier:t,label:"표본부족",cls:"a-na",games:m.g,detail:null});continue;}
     const peers=(byTier[t]||[]).filter(p=>p!==x), sMe=x.sh;
     const z=(metric,gkey)=>{
-      const me=sMe[metric]; if(me==null)return null;
+      const me=sMe&&sMe[metric]; if(me==null)return null;   // 방어: sh 미계산 인원은 지표 생략(전면 장애 금지)
       const vals=peers.map(p=>p.sh[metric]).filter(v=>v!=null), mu=_amean(vals);
       if(mu==null)return 0;
       let sd=_astd(vals,mu)||0; sd=Math.max(sd,0.6*G_STD[gkey]);   // 소티어 z폭주 방지
