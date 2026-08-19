@@ -146,6 +146,10 @@
   .ci-pr{font-size:13px;font-weight:800;margin-top:4px}
   .ci-nm{font-size:10.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:1px 0}
   .ci-wr{font-size:11.5px;font-weight:700}
+  /* ⏱ 경기 타임라인 — 킬 피드 */
+  .tl-feed{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:3px 14px;max-height:200px;overflow-y:auto}
+  .tl-kill{font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-kill .tl-t{color:var(--mut);font-variant-numeric:tabular-nums;min-width:42px;font-size:11.5px}
   /* 🩸 십이귀월 홀더 엠블럼 (프로필 우상단) */
   /* [2026-07-30] 배너 위 가운데로 — 우상단은 레이더 자리와 겹쳐서, 보유자만 카드가 늘어나는 문제가 있었다 */
   .kizuki-emblem{position:absolute;top:10px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:2}
@@ -6816,6 +6820,134 @@ function metricsLine(p){
 }
 /* 게임 상세(밴 헤더 + 양 팀 상세표) — 게임 페이지와 미토 매치업 카드가 같이 쓴다.
    [2026-08-02 사장님 지시] 미토 매치업에서도 이 상세표를 그대로 봐야 한다. */
+/* ============== ⏱ 경기 타임라인 (deeplol 공개 캐시 API) ==============
+   [2026-08-19 사장님 지시] 우세도 곡선 · 킬 미니맵 · 분당 팀 점수를 게임 상세에 붙인다.
+   ⚠️ 협곡 커스텀만 수집돼 있다(칼바람 커스텀은 대부분 없음 — 표본 10판 중 2판) → 없으면 조용히 안내.
+   시트에 저장하지 않고 열람 시 1회 호출 후 메모리 캐시(같은 판 재방문은 요청 0). */
+const TL_CACHE=new Map();   // gid(숫자문자열) -> {ok, seq, events, parts, dur} | {ok:false}
+const TL_POS=[["B_Top","탑"],["B_Jun","정글"],["B_Mid","미드"],["B_Bot","원딜"],["B_Sup","서폿"],
+              ["R_Top","탑"],["R_Jun","정글"],["R_Mid","미드"],["R_Bot","원딜"],["R_Sup","서폿"]];
+function tlNum(gid){ return String(gid||"").replace(/\D/g,""); }
+async function tlLoad(gid){
+  const id=tlNum(gid); if(!id) return {ok:false};
+  if(TL_CACHE.has(id)) return TL_CACHE.get(id);
+  let out={ok:false};
+  try{
+    const r=await fetch(`https://b2c-api-cdn.deeplol.gg/match/match-cached?match_id=KR_${id}&platform_id=KR`);
+    if(r.ok){
+      const j=await r.json();
+      const ta=j.time_analysis||{}, seq=ta.concat_seq_dict||{}, ev=ta.concat_events_dict||{};
+      if(Object.keys(seq).length){
+        const names={};
+        for(const p of (j.participants_list||[])){
+          const side=p.side==="RED"?"R":"B";
+          const po=({Top:"Top",Jungle:"Jun",Middle:"Mid",Bot:"Bot",Supporter:"Sup"})[p.position]||p.position;
+          names[side+"_"+po]={nm:p.riot_id_name||"", ch:p.champion_id, win:!!p.is_win};
+        }
+        out={ok:true, seq, ev, names, dur:Number((j.match_basic_dict||{}).game_duration||0)};
+      }
+    }
+  }catch(e){/* 네트워크·차단 시 조용히 미표시 */}
+  TL_CACHE.set(id,out); return out;
+}
+/* 분당 팀 합산 점수 → 우세도(50 기준). deeplol 이벤트의 win_rate 가 있으면 그걸 우선 쓴다. */
+function tlSeries(t){
+  const mins=Object.keys(t.seq).map(Number).sort((a,b)=>a-b);
+  const rows=mins.map(m=>{
+    const d=t.seq[String(m)]||{};
+    let b=0,r=0,bn=0,rn=0;
+    for(const [k] of TL_POS){ const v=Number(d[k]); if(!isNaN(v)){ if(k[0]==="B"){b+=v;bn++;} else {r+=v;rn++;} } }
+    return {m, b:bn?b/bn:50, r:rn?r/rn:50, bObj:d.B_Obj||[], rObj:d.R_Obj||[]};
+  });
+  // 킬 이벤트(좌표·시각) 평탄화
+  const kills=[];
+  for(const mk of Object.keys(t.ev)){
+    const bag=t.ev[mk]||{};
+    for(const k of Object.keys(bag)){
+      if(k==="tower_plate"||k==="building")continue;
+      const e=(bag[k]||{}).event; if(!e||e.type!=="Champion")continue;
+      const c=e.coordinates||{};
+      kills.push({t:Number(e.minute_float||e.minute||0), side:e.side||"BLUE", killer:e.killer||"", target:e.target||"",
+                  as:(e.assists||[]).length, x:Number(c.x_scaled||0), y:Number(c.y_scaled||0),
+                  wr:Number((bag[k]||{}).win_rate||0)});
+    }
+  }
+  kills.sort((a,b)=>a.t-b.t);
+  return {rows, kills};
+}
+function tlLabel(t,key){
+  const info=(t.names||{})[key]||{};
+  const po=(TL_POS.find(p=>p[0]===key)||[])[1]||key;
+  return (info.nm?String(info.nm).split("#")[0]:po)+` (${po})`;
+}
+/* 우세도 라인 + 킬 마커 SVG */
+function tlChart(t){
+  const {rows,kills}=tlSeries(t);
+  if(rows.length<2) return "";
+  const W=760,H=190,PL=34,PR=10,PT=14,PB=22;
+  const xs=m=>PL+(W-PL-PR)*(m/Math.max(1,rows[rows.length-1].m));
+  const lo=42, hi=58;   // 팀 평균 점수는 50 중심 — 42~58로 잡아 변화를 크게 본다
+  const ys=v=>PT+(H-PT-PB)*(1-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo));
+  const path=(k,col)=>`<path d="${rows.map((r,i)=>(i?"L":"M")+xs(r.m).toFixed(1)+" "+ys(r[k]).toFixed(1)).join(" ")}" fill="none" stroke="${col}" stroke-width="2.2"/>`;
+  const grid=[42,46,50,54,58].map(v=>`<line x1="${PL}" y1="${ys(v)}" x2="${W-PR}" y2="${ys(v)}" stroke="var(--line)" stroke-width="1" opacity="${v===50?.9:.35}"/><text x="${PL-6}" y="${ys(v)+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`).join("");
+  const ticks=rows.filter(r=>r.m%5===0).map(r=>`<text x="${xs(r.m)}" y="${H-6}" text-anchor="middle" font-size="10" fill="var(--mut)">${r.m}분</text>`).join("");
+  const km=kills.map(k=>{
+    const cx=xs(k.t), blue=k.side==="BLUE";
+    return `<circle cx="${cx.toFixed(1)}" cy="${ys(blue?58:42).toFixed(1)}" r="2.6" fill="${blue?"#5b8cff":"#e84057"}" opacity=".75"><title>${esc(k.t.toFixed(1))}분 · ${esc(tlLabel(t,k.killer))} → ${esc(tlLabel(t,k.target))}${k.as?` (어시 ${k.as})`:""}</title></circle>`;
+  }).join("");
+  const obj=rows.flatMap(r=>[...r.bObj.map(o=>[r.m,o,true]),...r.rObj.map(o=>[r.m,o,false])])
+    .map(([m,o,blue])=>`<rect x="${(xs(m)-2).toFixed(1)}" y="${blue?PT:H-PB-8}" width="4" height="8" rx="1.5" fill="${blue?"#5b8cff":"#e84057"}" opacity=".8"><title>${esc(String(m))}분 · ${esc(String(o))}</title></rect>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    ${grid}${ticks}${obj}${path("r","#e84057")}${path("b","#5b8cff")}${km}</svg>`;
+}
+/* 킬 미니맵 — deeplol 좌표는 0~255 스케일 */
+function tlMinimap(t){
+  const {kills}=tlSeries(t);
+  const pts=kills.filter(k=>k.x||k.y);
+  if(!pts.length) return "";
+  const S=255;
+  const dots=pts.map(k=>`<circle cx="${k.x.toFixed(1)}" cy="${k.y.toFixed(1)}" r="4" fill="${k.side==="BLUE"?"#5b8cff":"#e84057"}" fill-opacity=".62" stroke="${k.side==="BLUE"?"#9dbcff":"#ff8a9a"}" stroke-width="1"><title>${esc(k.t.toFixed(1))}분 · ${esc(tlLabel(t,k.killer))} → ${esc(tlLabel(t,k.target))}</title></circle>`).join("");
+  const map=`https://ddragon.leagueoflegends.com/cdn/${DDVER||"15.1.1"}/img/map/map11.png`;
+  return `<svg viewBox="0 0 ${S} ${S}" style="width:100%;max-width:250px;height:auto;border:1px solid var(--line);border-radius:10px;background:#0e1a14">
+    <image href="${map}" x="0" y="0" width="${S}" height="${S}" opacity=".62" preserveAspectRatio="none"/>
+    ${dots}</svg>`;
+}
+function tlKillFeed(t){
+  const {kills}=tlSeries(t);
+  if(!kills.length) return "";
+  return kills.slice(0,40).map(k=>{
+    const blue=k.side==="BLUE";
+    return `<div class="tl-kill" title="${escAttr(k.t.toFixed(1)+"분 · "+tlLabel(t,k.killer)+" → "+tlLabel(t,k.target)+(k.as?" (어시 "+k.as+")":""))}"><span class="tl-t">${k.t.toFixed(1)}분</span>
+      <b style="color:${blue?"#7aa2ff":"#ff7a8a"}">${esc(tlLabel(t,k.killer))}</b>
+      <span class="muted">→</span> <span style="color:${blue?"#ff7a8a":"#7aa2ff"}">${esc(tlLabel(t,k.target))}</span>
+      ${k.as?`<span class="muted" style="font-size:11px">어시 ${k.as}</span>`:""}</div>`;
+  }).join("");
+}
+async function tlRender(gid){
+  // ⚠️ await 중에 상세 화면이 다시 그려지면 이 box 는 DOM 에서 떨어져 나간다(결과가 죽은 요소로 들어가
+  //    화면은 '불러오는 중'에서 영영 멈춤) → 로드 후 반드시 최신 요소를 다시 잡는다.
+  const sel=()=>document.getElementById("tlBox");
+  let box=sel(); if(!box)return;
+  box.innerHTML=`<div class="muted" style="font-size:13px;padding:6px 0">타임라인 불러오는 중…</div>`;
+  const t=await tlLoad(gid);
+  box=sel(); if(!box)return;
+  if(!t.ok){ box.innerHTML=`<div class="muted" style="font-size:12.5px;padding:4px 0">이 게임은 타임라인 기록이 없어요 — 협곡 경기만 제공되며, 칼바람 커스텀은 외부에 기록이 남지 않습니다.</div>`; return; }
+  const {kills}=tlSeries(t);
+  box.innerHTML=`
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:1 1 420px;min-width:300px">
+        <div class="muted" style="font-size:12px;margin-bottom:4px">
+          <b style="color:#7aa2ff">■ 블루</b> <b style="color:#ff7a8a">■ 레드</b> 팀 평균 점수(50 = 균형) · 위아래 점 = 킬 발생 · 막대 = 오브젝트</div>
+        ${tlChart(t)}
+      </div>
+      <div style="flex:0 0 250px">
+        <div class="muted" style="font-size:12px;margin-bottom:4px">킬 발생 위치 (총 ${kills.length}건)</div>
+        ${tlMinimap(t)}
+      </div>
+    </div>
+    <div class="tl-feed">${tlKillFeed(t)}</div>`;
+}
+
 function gameDetailHtml(g){
   const sides=teamOrder(g);
   // 인게임 평점 랭킹: 양 팀 통합 점수순 등수 (점수/ KDA 있는 사람만). 점수 컬럼 생기면 자동 반영.
@@ -6872,7 +7004,10 @@ function gameDetailHtml(g){
       ${_nbStrip?`<span style="display:inline-flex;align-items:center;gap:8px" title="로비에서 노밴으로 선언된 챔피언 (1페이즈 밴 금지 약속 — 플레이 의무는 없음)"><b style="color:#8fe3b0">🚫 노밴</b>${_nbStrip}</span>`:''}
       ${_banR?`<span style="margin-left:auto">${_banR}</span>`:''}
     </div>`:'';
-  return `${_bnHeader}<div class="gd-teams">${teamsHtml}</div>`;
+  // ⏱ [2026-08-19 사장님 지시] 경기 타임라인 — 렌더 후 비동기 로드(없으면 카드 안에서 안내)
+  const _tlCard=`<div class="card" style="margin-top:10px"><h2 style="margin-bottom:6px">⏱ 경기 흐름</h2><div id="tlBox"></div></div>`;
+  setTimeout(()=>{ try{ tlRender(g.id); }catch(e){} }, 30);
+  return `${_bnHeader}<div class="gd-teams">${teamsHtml}</div>${_tlCard}`;
 }
 function renderGame(gid){
   const g=GAMES.get(gid);
