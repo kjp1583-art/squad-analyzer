@@ -1177,6 +1177,17 @@ function tierOf(name){
   if(al)for(const a of al){const t=TIER_OF[tnorm(a)];if(t)return t;}
   return null;
 }
+// 👥 [2026-08-19 사장님 지시] 디스코드 탈퇴 = 클랜 탈퇴 간주 — DEPARTED 탭(분석기 호스트가 봇 /roster
+//    대조로 30분마다 재작성)에 오른 인원은 '평균을 내는 곳'(동티어 평균·멸망전 적정가)에서 제외.
+//    티어표·과거 경기 기록·본인 카드는 그대로 — 분모에서만 뺀다.
+let DEPARTED_SET=new Set();
+async function loadDeparted(){
+  try{
+    const rows=gvizRowsAll(await loadTabJsonp("DEPARTED"));
+    DEPARTED_SET=new Set(rows.map(r=>tnorm(r["닉네임"]||"")).filter(Boolean));
+    if(DEPARTED_SET.size){ MYEOL_FAIR=null; ASSESSMENTS=new Map(); TIER_AVG={}; }   // 캐시 재계산 유도
+  }catch(e){/* 탭이 아직 없으면 조용히 통과 */}
+}
 function tierGroupCls(t){return !t?"":t[0]==="0"?"t0":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
 function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:"";}
 
@@ -1244,7 +1255,7 @@ function computeAssessments(){
   const members=[];
   for(const [name] of PLAYERS_ALL){ const t=tierOf(name); if(!t)continue;
     members.push({name,t,m:tierMetricsOf(name,TIER_EVAL_GIDS),act:_lastOf(PLAYERS_ALL.get(name))>=_gcut}); }   // 전체 데이터 기준
-  const elig=members.filter(x=>x.m.g>=TIER_MIN_GAMES&&x.act);
+  const elig=members.filter(x=>x.m.g>=TIER_MIN_GAMES&&x.act&&!DEPARTED_SET.has(tnorm(x.name)));   // 👥 탈퇴자 분모 제외
   const g_wr=_amean(elig.map(x=>x.m.wr))??50;
   const g_ai=_amean(elig.filter(x=>x.m.avgAI!=null).map(x=>x.m.avgAI))??0;
   const g_mvp=_amean(elig.filter(x=>x.m.evalG>=TIER_MIN_EVAL).map(x=>x.m.mvpRate))??10;
@@ -5380,6 +5391,7 @@ function computeMyeol(){
   }
   const act=[],gone=[];
   for(const c of A){
+    if(DEPARTED_SET.has(tnorm(c.nm))||(c.cn&&DEPARTED_SET.has(tnorm(c.cn)))){gone.push(c.nm);continue;}   // 👥 디스코드 탈퇴자 제외
     const last=lastOf(c.cn?PLAYERS_ALL.get(c.cn):null);
     if(last&&last>=cut)act.push(c); else gone.push(c.nm);
   }
@@ -7418,6 +7430,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   renderLoading();
   await loadDDragon();
   await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
+  loadDeparted();                    // 👥 디스코드 탈퇴자 목록(평균 분모 제외) — 실패해도 화면 진행
   { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks()]);   // 병렬 로드
     LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
     MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부

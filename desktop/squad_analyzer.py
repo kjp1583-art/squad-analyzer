@@ -1240,6 +1240,55 @@ def _tier_role_sync_loop():
         except Exception: pass
         time.sleep(900)
 
+# 👥 [2026-08-19 사장님 지시] 디스코드 탈퇴 = 클랜 탈퇴 간주 — 봇 /roster 폴링 → CLAN_TIERS 대조 →
+#    DEPARTED 탭 전량 재작성(호스트·30분). 마스터 티어표·CLAN_TIERS는 절대 수정하지 않고,
+#    평균을 내는 소비처(웹 동티어 평균·멸망전 적정가)가 이 목록을 빼고 계산한다.
+ROSTER_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/roster"
+_DEP_SIG = [None]
+def _write_departed(names):
+    try:
+        try: ws = global_spreadsheet.worksheet("DEPARTED")
+        except Exception: ws = global_spreadsheet.add_worksheet(title="DEPARTED", rows=300, cols=2)
+        now = time.strftime("%Y-%m-%d %H:%M")
+        ws.clear()
+        ws.update("A1", [["닉네임", "갱신시각"]] + [[n, now] for n in names], value_input_option="RAW")
+        print(f"[departed] 디스코드 탈퇴 간주 {len(names)}명 기록", flush=True)
+        return True
+    except Exception as e:
+        print(f"[departed] 시트 기록 실패: {e}", flush=True); return False
+
+def _departed_sync_loop():
+    time.sleep(300)
+    while True:
+        try:
+            if load_bot_token() and global_spreadsheet is not None:
+                try: j = requests.get(ROSTER_BRIDGE_URL, timeout=8).json() or {}
+                except Exception: j = {}
+                keys = set(j.get("keys") or [])
+                if int(j.get("n") or 0) >= 50 and keys:      # 안전판: 봇 캐시 미적재로 인원 급감 시 보류
+                    import csv as _csv, io as _io
+                    tier_names = []
+                    try:
+                        rows = list(_csv.reader(_io.StringIO(_fetch_public_csv(DOCUMENT_ID, CLAN_TIERS_GID))))
+                        if rows and (rows[0][0] if rows[0] else "").strip() == "닉네임":
+                            tier_names = [r[0].strip() for r in rows[1:] if r and r[0].strip()]
+                    except Exception: tier_names = []
+                    if tier_names:
+                        dep = []
+                        for nm in tier_names:
+                            k = tnorm(nm)
+                            try: k2 = tnorm(get_main_name(nm) or "")
+                            except Exception: k2 = ""
+                            if k in keys or (k2 and k2 in keys): continue
+                            dep.append(nm)
+                        # 안전판: 40% 넘게 탈퇴 판정이면 명단 스캔 오류 의심 → 기록 보류
+                        if len(dep) <= max(5, int(len(tier_names) * 0.4)):
+                            sig = "|".join(sorted(tnorm(x) for x in dep))
+                            if sig != _DEP_SIG[0] and _write_departed(sorted(dep)):
+                                _DEP_SIG[0] = sig
+        except Exception: pass
+        time.sleep(1800)
+
 # 🎯 [2026-07-16 사장님 지시] 클랜포지션 자동화 — 봇 /positions 폴링 → CLAN_POSITIONS 전량 재작성(호스트·1h).
 #   (기존 sync_positions.py 예약작업이 7/5 이후 멈춤 → 봇 상시 스캔+분석기 폴링으로 대체, 티어와 동일 파이프라인)
 POSITION_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/positions"
@@ -10876,6 +10925,7 @@ if __name__ == "__main__":
     threading.Thread(target=_version_heartbeat_loop, daemon=True).start()     # 🩺 버전 하트비트(전 인스턴스 → VERSIONS 시트)
     threading.Thread(target=_tier_role_sync_loop, daemon=True).start()        # 🎖 디스코드 티어역할 → CLAN_TIERS 신규 추가(호스트만)
     threading.Thread(target=_position_sync_loop, daemon=True).start()         # 🎯 디스코드 포지션역할 → CLAN_POSITIONS 재작성(호스트만, 1h)
+    threading.Thread(target=_departed_sync_loop, daemon=True).start()         # 👥 디스코드 탈퇴자 → DEPARTED 탭(호스트만, 30분)
     threading.Thread(target=_cosmetics_loop, daemon=True).start()             # 🖼️ 상점 장식(모든 PC) → 밴픽 '내 칸' 꾸미기
     threading.Thread(target=_spellcheck_hotkey_loop, daemon=True).start()    # 🕵️ 스펠체크 헬퍼(사장님 계정 전용·비공개)
     threading.Thread(target=_lcu_backfill_loop, daemon=True).start()        # 🕰️ LCU 전적 백필(분석기 없이 치른 커스텀 회수)
