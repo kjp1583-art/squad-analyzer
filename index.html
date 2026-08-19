@@ -1324,7 +1324,12 @@ function computeAssessments(){
     }
     _recent.set(nm,c);
   }
-  const _powered=elig.filter(x=>x.sh.solo!=null&&(_recent.get(x.name)||0)>=5).map(x=>{
+  // ⚔️ [2026-08-19 사장님 지시] 칼바람·클래식은 '통산' 기준으로 편성한다.
+  //   협곡은 매주 도니 최근 30일 5판이 유령 필터로 맞지만, 칼바람은 몰아서 하는 모드라
+  //   (예: 7/20에 몰림 · 8월 6판) 통산 65판인 사람도 최근 0판이 되어 12자리가 통째로 공석이 됐다.
+  //   유령 방지는 elig의 act(90일 무기록 제외)가 이미 담당하므로 중복 게이트를 걷어낸다.
+  const _MIN_RECENT=(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift")?0:5;
+  const _powered=elig.filter(x=>x.sh.solo!=null&&(_recent.get(x.name)||0)>=_MIN_RECENT).map(x=>{
     const sh=x.sh, tm=[];
     const zs=_zG(sh,"solo"); if(zs!=null)tm.push([W_SOLO,zs]);
     const za=_zG(sh,"ai"); if(za!=null)tm.push([W_AI,za]);
@@ -3980,7 +3985,7 @@ function kizukiBoard(){
                 ?'상현=<span class="kzsub-m">내부티어 </span>0·1티어 · 하현=2·3티어 <span class="kzsub-m">각 상위 6인</span>':"전체";
     return `<div class="kzleague">
       <div class="kzhd"><h2>🩸 ${nm}</h2><span class="kanji">十二鬼月</span></div>
-      <div class="kzsub">${scope} · <span class="kzsub-m">파워랭킹 </span>상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · 최근 30일 5판 이상만 편성 · 실시간 변동</span></div>
+      <div class="kzsub">${scope} · <span class="kzsub-m">파워랭킹 </span>상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift")?"통산 10판 이상(90일 내 기록)":"최근 30일 5판 이상만"} 편성 · 실시간 변동</span></div>
       <div class="kzrule"></div>
       <div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
       <div class="kzlist">${[1,2,3,4,5,6].map(i=>row(`${pre}상현 ${i}`,true,i)).join("")}${
