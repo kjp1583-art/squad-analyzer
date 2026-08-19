@@ -6543,40 +6543,72 @@ _MAKPAN = {"decls": [], "trig": False}
 #    갱신해 가며 진행되고, 마지막 5:5 완성본을 사람이 기록 채널에 복붙해 왔다. 그 완성본(양쪽 5명 전원
 #    로스터 대조 성공)을 감지해 DATA 채널로 쏘면, 봇이 중복 제거 후 수동기록 채널에 원문 그대로 게시한다.
 #    감지는 로비의 어느 분석기든 가능(호스트 전용 아님) — 중복 발송 차단은 봇 쪽 해시 dedup 담당.
-_RREC = {"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0, "gap": "", "diag": 0.0}
+_RREC = {"lines": [], "sent": set(), "noticed": False, "notice_due": 0.0, "gap": "", "diag": 0.0}
 
 def _rr_reset():
-    _RREC.update({"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0, "gap": "", "diag": 0.0})
+    _RREC.update({"lines": [], "sent": set(), "noticed": False, "notice_due": 0.0, "gap": "", "diag": 0.0})
 
-def _rr_scan(body):
-    b = body.strip()
-    if "자동발송 완료" in b: _RREC["noticed"] = True; return   # 다른 분석기가 이미 안내함 — 내 안내 생략
-    if re.match(r"^\d+\s*팀", b): _RREC["head"] = b
-    elif re.match(r"^블루", b): _RREC["blue"] = b
-    elif re.match(r"^레드", b): _RREC["red"] = b
+def _rr_lobby():
+    """로비 참가자 → {정규화닉: 원본닉}. 2글자 미만은 오탐이 커서 제외."""
+    out = {}
+    for v in (_NOBAN.get("names") or {}).values():
+        k = tnorm(v)
+        if k and len(k) >= 2: out[k] = v
+    return out
 
-def _rr_names(line, known):
-    """'블루: 뵤뵤 wei ha …' → 정규화 닉 목록. 붙여쓴 닉('weiha')·띄어쓴 닉('악 진') 모두 흡수.
-       ① 로스터·로비 참가자와 대조되는 조합을 우선 찾고(띄어쓴 닉까지 붙여서 시도),
-       ② 그래도 안 맞으면 '토큰 5개 = 5명'으로 보되 과반(3명 이상)이 확인될 때만 인정한다.
-          [2026-08-19] 종전엔 미확인 토큰이 하나만 있어도 통째로 버려서(신입·오타·별명) 실전에서
-          거의 발동하지 않았다 — 클랜 로스터에 없는 사람이 한 명만 껴도 그 판은 통째로 누락됐다."""
-    s = re.sub(r"^(블루|레드)\s*[:：]?\s*", "", line.strip())
-    toks = [t for t in s.split() if t]
-    if not toks: return None
-    out, i, ok = [], 0, True
-    while i < len(toks):
-        hit = None
-        for j in range(min(4, len(toks) - i), 0, -1):
-            cand = "".join(toks[i:i + j]).split("#")[0].lower()
-            if cand in known: hit = (j, cand); break
-        if not hit: ok = False; break
-        out.append(hit[1]); i += hit[0]
-    if ok and len(out) == 5: return out
-    # ② 완화 폴백 — 토큰 5개이고 그 중 3명 이상이 아는 얼굴이면 명단으로 인정
-    if len(toks) == 5:
-        cands = [t.split("#")[0].strip().lower() for t in toks]
-        if sum(1 for c in cands if c in known) >= 3: return cands
+def _rr_hits(body, lobby):
+    """메시지에 등장하는 참가자 집합. 양식(블루:/레드:/쉼표/줄바꿈)을 전혀 보지 않고
+       '이름이 들어 있는가'만 본다 — 사람마다 적는 방식이 다르기 때문(2026-08-19 사장님 지시)."""
+    s = tnorm(body)
+    if not s: return frozenset()
+    return frozenset(k for k in lobby if k in s)
+
+def _rr_scan(body, lobby=None):
+    b = (body or "").strip()
+    if not b: return
+    if "자동발송 완료" in b: _RREC["noticed"] = True; return   # 다른 분석기가 이미 안내함
+    if lobby is None: lobby = _rr_lobby()
+    if len(lobby) < 8: return                       # 커스텀 5:5 로비가 아니면 볼 것 없음
+    hit = _rr_hits(b, lobby)
+    if len(hit) < 3: return                         # 3명 미만은 명단으로 보지 않는다(잡담 배제)
+    L = _RREC["lines"]
+    for i, e in enumerate(L):                       # 같은 사람 조합을 다시 적으면 최신본으로 갱신
+        if e[1] == hit: L[i] = (b, hit); break
+    else:
+        L.append((b, hit))
+    del L[:-8]                                      # 최근 8건만 유지
+
+def _rr_pair(lobby):
+    """최근 명단 후보들에서 '서로 겹치지 않는 두 팀'을 찾는다.
+       마지막 1명이 유찰로 채팅에 안 적히는 경우가 있어(사장님 팀뽑 규칙) 9명도 인정하고,
+       로비 참가자 중 빠진 한 명을 인원이 적은 팀에 채운다."""
+    L = _RREC["lines"]
+    for i in range(len(L) - 1, -1, -1):
+        a_txt, a = L[i]
+        if not (4 <= len(a) <= 6): continue
+        for j in range(i - 1, -1, -1):
+            b_txt, b = L[j]
+            if not (4 <= len(b) <= 6): continue
+            if a & b: continue                      # 같은 사람이 양팀에 있으면 명단이 아니다
+            tot = len(a) + len(b)
+            if tot < 9: continue
+            A, B = set(a), set(b)
+            if tot == 9:                            # 유찰 1명 자동 배정
+                rest = set(lobby) - A - B
+                if len(rest) != 1: continue
+                (A if len(A) < len(B) else B).add(rest.pop())
+            if len(A) != 5 or len(B) != 5: continue
+            # 표기에 팀색이 있으면 살리고, 없으면 먼저 적힌 쪽을 블루로 둔다
+            def _side(t):
+                z = t.replace(" ", "").lower()
+                if any(w in z for w in ("블루", "blue", "1팀", "1team")): return "B"
+                if any(w in z for w in ("레드", "red", "2팀", "2team")): return "R"
+                return ""
+            sa, sb = _side(a_txt), _side(b_txt)
+            # a=최근 적힌 명단, b=그 앞. 팀색 표기가 있으면 그대로, 없으면 '먼저 적은 쪽'을 블루로.
+            if sa == "B" or sb == "R":
+                return (A, B, a_txt, b_txt)
+            return (B, A, b_txt, a_txt)
     return None
 
 def _rr_gap_text(b, r):
@@ -6614,28 +6646,29 @@ def _rr_try_send(headers=None, base_url=None, cid=None):
             except Exception: pass
         elif _RREC["notice_due"] and _RREC["noticed"]:
             _RREC["notice_due"] = 0.0                    # 남이 먼저 안내함 — 예약 취소
-        if not (_RREC["blue"] and _RREC["red"]): return
-        known = {tnorm(n) for n in _NOBAN["names"].values() if n}
-        known |= set(TIER_OF.keys())                     # 로비 채팅 참가자 + 클랜 로스터
-        b = _rr_names(_RREC["blue"], known); r = _rr_names(_RREC["red"], known)
-        if not b or not r or len(set(b)) != 5 or len(set(r)) != 5 or set(b) & set(r):
-            # 🔎 [2026-08-19] 왜 안 나갔는지 남긴다 — 실전 미발동 원인 추적용(30초 1회)
+        lobby = _rr_lobby()
+        if len(lobby) < 8: return
+        pair = _rr_pair(lobby)
+        if not pair:
+            # 🔎 왜 아직인지 남긴다(30초 1회) — 실전 미발동 추적용
             try:
-                if time.time() - _RREC.get("diag", 0) > 30:
+                if _RREC["lines"] and time.time() - _RREC.get("diag", 0) > 30:
                     _RREC["diag"] = time.time()
-                    _why = ("블루 해석실패" if not b else "레드 해석실패" if not r else
-                            f"인원수 블루{len(set(b or []))}·레드{len(set(r or []))}" if (len(set(b))!=5 or len(set(r))!=5)
-                            else "양팀 중복 인원")
-                    print(f"[기록릴레이] 미발동({_why}) | 블루='{_RREC['blue'][:60]}' 레드='{_RREC['red'][:60]}'", flush=True)
+                    _sz = " / ".join(f"{len(h)}명:'{t[:34]}'" for t, h in _RREC["lines"][-3:])
+                    print(f"[기록릴레이] 대기(짝 미성립·로비 {len(lobby)}명) | 후보 {_sz}", flush=True)
             except Exception: pass
             return
+        b, r, b_txt, r_txt = pair
         h = hashlib.md5(("|".join(sorted(set(b) | set(r)))).encode()).hexdigest()[:10]
         if h in _RREC["sent"]: return                    # 이 인스턴스는 같은 매치업 1회만
         _RREC["sent"].add(h)
-        txt = (_RREC["head"] + "\n" if _RREC["head"] else "") + _RREC["blue"] + "\n" + _RREC["red"]
+        _nm = lambda k: lobby.get(k, k)
+        txt = ("블루 : " + " ".join(_nm(x) for x in sorted(b)) + "\n"
+               + "레드 : " + " ".join(_nm(x) for x in sorted(r))
+               + "\n-# 원문 · " + b_txt[:80] + " | " + r_txt[:80])
         if DATA_WEBHOOK_URL and not DATA_WEBHOOK_URL.startswith("여기에"):
             rr = requests.post(DATA_WEBHOOK_URL, json={"content": "📋 [수동기록백업] h=" + h + chr(10) + txt}, timeout=5)
-            print(f"[기록릴레이] 5:5 완성 감지 → 백업 발송 (h={h})", flush=True)
+            print(f"[기록릴레이] 5:5 성립 → 백업 발송 (h={h}) 블루 {sorted(b)} 레드 {sorted(r)}", flush=True)
             if rr.status_code < 400 and not _RREC["noticed"]:
                 # 발송 성공 시에만 안내 예약 — 닉 기반 지터로 선착 1명이 대표 발화
                 _RREC["gap"] = _rr_gap_text(b, r)   # ⚖ 전력차·예상승률 병기(팀뽑선정과 동일 산식)
@@ -6716,7 +6749,7 @@ def noban_tick(headers, base_url, phase):
             _NOBAN["seen"].add(mid)
             body = str(m.get("body") or "").strip()
             if not body: continue
-            _rr_scan(body)   # 📋 수동기록 백업 릴레이 — 블루/레드 명단 줄 수집
+            _rr_scan(body)   # 📋 수동기록 백업 릴레이 — 이름 기반 명단 감지(양식 무관)
             nb = body.replace(" ", "")
             who = (_NOBAN["names"].get(str(m.get("fromId") or "")) or
                    str(m.get("fromSummonerName") or "")).split("#")[0].strip()
