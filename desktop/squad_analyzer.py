@@ -6468,10 +6468,10 @@ _MAKPAN = {"decls": [], "trig": False}
 #    갱신해 가며 진행되고, 마지막 5:5 완성본을 사람이 기록 채널에 복붙해 왔다. 그 완성본(양쪽 5명 전원
 #    로스터 대조 성공)을 감지해 DATA 채널로 쏘면, 봇이 중복 제거 후 수동기록 채널에 원문 그대로 게시한다.
 #    감지는 로비의 어느 분석기든 가능(호스트 전용 아님) — 중복 발송 차단은 봇 쪽 해시 dedup 담당.
-_RREC = {"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0}
+_RREC = {"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0, "gap": ""}
 
 def _rr_reset():
-    _RREC.update({"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0})
+    _RREC.update({"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0, "gap": ""})
 
 def _rr_scan(body):
     b = body.strip()
@@ -6495,6 +6495,23 @@ def _rr_names(line, known):
         out.append(hit[1]); i += hit[0]
     return out
 
+def _rr_gap_text(b, r):
+    """⚖ 5:5 완성 명단의 전력차·예상승률 — 팀뽑선정과 같은 공용 산식(내부티어+내전 통산승률)."""
+    try:
+        rec = {}
+        for e in ((_clan_index() or {}).get("by_pu") or {}).values():
+            k = tnorm(e.get("name") or "")
+            if k and e.get("g", 0) > rec.get(k, (0, 0))[0]:   # 동명 복수 계정은 판수 많은 쪽 대표
+                rec[k] = (e["g"], e["w"])
+        def one(k):
+            g, w = rec.get(k, (0, 0))
+            return _unified_power_one(k, {"games": g, "overall_wr": (w / g if g else 0.5)})
+        pa, pb = sum(one(x) for x in b), sum(one(x) for x in r)
+        bw = max(15, min(85, int(50 + (pa - pb) * 4 + 0.5)))
+        return f" · ⚖ 전력차 {abs(pa - pb):.1f} (예상 블루 {bw}% : 레드 {100 - bw}%)"
+    except Exception:
+        return ""
+
 def _rr_try_send(headers=None, base_url=None, cid=None):
     try:
         if _OUTDATED: return
@@ -6504,10 +6521,12 @@ def _rr_try_send(headers=None, base_url=None, cid=None):
                 and headers and base_url and cid):
             _RREC["notice_due"] = 0.0; _RREC["noticed"] = True
             try:
+                _msg = ("📋 내전기록 자동발송 완료 — 수동 복붙 안 하셔도 됩니다!"
+                        + str(_RREC.get("gap") or ""))
                 requests.post(str(base_url) + "/lol-chat/v1/conversations/" + str(cid) + "/messages",
-                              headers=headers, data=json.dumps({"body": "📋 내전기록 자동발송 완료 — 이 명단은 기록채널에 올라갔어요. 수동 복붙 안 하셔도 됩니다!"}),
+                              headers=headers, data=json.dumps({"body": _msg}),
                               verify=False, timeout=3)
-                print("[기록릴레이] 로비 채팅 안내 발화", flush=True)
+                print("[기록릴레이] 로비 채팅 안내 발화: " + _msg, flush=True)
             except Exception: pass
         elif _RREC["notice_due"] and _RREC["noticed"]:
             _RREC["notice_due"] = 0.0                    # 남이 먼저 안내함 — 예약 취소
@@ -6525,6 +6544,7 @@ def _rr_try_send(headers=None, base_url=None, cid=None):
             print(f"[기록릴레이] 5:5 완성 감지 → 백업 발송 (h={h})", flush=True)
             if rr.status_code < 400 and not _RREC["noticed"]:
                 # 발송 성공 시에만 안내 예약 — 닉 기반 지터로 선착 1명이 대표 발화
+                _RREC["gap"] = _rr_gap_text(b, r)   # ⚖ 전력차·예상승률 병기(팀뽑선정과 동일 산식)
                 _j = (int(hashlib.md5((MY_RIOT_NAME[0] or "?").encode()).hexdigest(), 16) % 55) / 10.0 + 0.5
                 _RREC["notice_due"] = time.time() + _j
     except Exception as e:
