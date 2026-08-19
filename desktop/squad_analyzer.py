@@ -6464,9 +6464,58 @@ _NOBAN = {"decls": [], "trig": False, "conv": None, "seen": set(), "names": {}, 
 # 🔚 막판자 조사(같은 로비 채팅 의식) — 진행자 "막판(조사)" → 카운트다운(3/2/1) 중 '.'(오타 ',' 포함) 타이핑 = 막판 선언
 _MAKPAN = {"decls": [], "trig": False}
 
+# 📋 [2026-08-19 사장님 지시] 수동 내전기록 백업 릴레이 — 팀뽑 의식은 로비 채팅에 "블루 …"/"레드 …" 줄을
+#    갱신해 가며 진행되고, 마지막 5:5 완성본을 사람이 기록 채널에 복붙해 왔다. 그 완성본(양쪽 5명 전원
+#    로스터 대조 성공)을 감지해 DATA 채널로 쏘면, 봇이 중복 제거 후 수동기록 채널에 원문 그대로 게시한다.
+#    감지는 로비의 어느 분석기든 가능(호스트 전용 아님) — 중복 발송 차단은 봇 쪽 해시 dedup 담당.
+_RREC = {"head": "", "blue": "", "red": "", "sent": set()}
+
+def _rr_reset():
+    _RREC.update({"head": "", "blue": "", "red": "", "sent": set()})
+
+def _rr_scan(body):
+    b = body.strip()
+    if re.match(r"^\d+\s*팀", b): _RREC["head"] = b
+    elif re.match(r"^블루", b): _RREC["blue"] = b
+    elif re.match(r"^레드", b): _RREC["red"] = b
+
+def _rr_names(line, known):
+    """'블루: 뵤뵤 wei ha …' → 정규화 닉 목록. 붙여쓴 닉('weiha')·띄어쓴 닉('악 진') 모두 흡수.
+       미확인 토큰이 하나라도 있으면 None(아직 완성이 아니거나 명단이 아님)."""
+    s = re.sub(r"^(블루|레드)\s*[:：]?\s*", "", line.strip())
+    toks = [t for t in s.split() if t]
+    out, i = [], 0
+    while i < len(toks):
+        hit = None
+        for j in range(min(4, len(toks) - i), 0, -1):
+            cand = "".join(toks[i:i + j]).split("#")[0].lower()
+            if cand in known: hit = (j, cand); break
+        if not hit: return None
+        out.append(hit[1]); i += hit[0]
+    return out
+
+def _rr_try_send():
+    try:
+        if _OUTDATED: return
+        if not (_RREC["blue"] and _RREC["red"]): return
+        known = {tnorm(n) for n in _NOBAN["names"].values() if n}
+        known |= set(TIER_OF.keys())                     # 로비 채팅 참가자 + 클랜 로스터
+        b = _rr_names(_RREC["blue"], known); r = _rr_names(_RREC["red"], known)
+        if not b or not r or len(set(b)) != 5 or len(set(r)) != 5 or set(b) & set(r): return
+        h = hashlib.md5(("|".join(sorted(set(b) | set(r)))).encode()).hexdigest()[:10]
+        if h in _RREC["sent"]: return                    # 이 인스턴스는 같은 매치업 1회만
+        _RREC["sent"].add(h)
+        txt = (_RREC["head"] + "\n" if _RREC["head"] else "") + _RREC["blue"] + "\n" + _RREC["red"]
+        if DATA_WEBHOOK_URL and not DATA_WEBHOOK_URL.startswith("여기에"):
+            requests.post(DATA_WEBHOOK_URL, json={"content": "📋 [수동기록백업] h=" + h + chr(10) + txt}, timeout=5)
+            print(f"[기록릴레이] 5:5 완성 감지 → 백업 발송 (h={h})", flush=True)
+    except Exception as e:
+        print(f"[기록릴레이] 예외: {e}", flush=True)
+
 def _noban_reset():
     _NOBAN.update({"decls": [], "trig": False, "conv": None, "seen": set(), "names": {}, "r1": False, "r2": False})
     _MAKPAN.update({"decls": [], "trig": False})
+    _rr_reset()
 
 def _nb_played(who):
     try:
@@ -6535,6 +6584,7 @@ def noban_tick(headers, base_url, phase):
             _NOBAN["seen"].add(mid)
             body = str(m.get("body") or "").strip()
             if not body: continue
+            _rr_scan(body)   # 📋 수동기록 백업 릴레이 — 블루/레드 명단 줄 수집
             nb = body.replace(" ", "")
             who = (_NOBAN["names"].get(str(m.get("fromId") or "")) or
                    str(m.get("fromSummonerName") or "")).split("#")[0].strip()
@@ -6568,6 +6618,7 @@ def noban_tick(headers, base_url, phase):
                 _NOBAN["decls"].append(champ)
                 print(f"[noban] 선언 감지 — {champ} <- '{body}' (by {who or '?'})", flush=True)
         if len(_NOBAN["seen"]) > 3000: _NOBAN["seen"] = set(list(_NOBAN["seen"])[-500:])
+        _rr_try_send()   # 📋 이번 배치 반영 후 5:5 완성 여부 판정(완성 시 1회 발송)
     except Exception: pass
 
 # =========================================================================
