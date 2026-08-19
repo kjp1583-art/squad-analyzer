@@ -4254,9 +4254,16 @@ def _lcu_backfill_once():
             _sc = sc_map.get(_pk)
             try: _sc = round(float(_sc), 1)
             except Exception: _sc = ""
+            # ⚠️ [2026-08-19 사장님 제보] 두 탭의 열 순서가 반대다 — CLASSIC: …매치평가·패치버전·KDA…,
+            #    KIWI: …매치평가·KDA·패치버전…. 종전 코드는 CLASSIC 순서 고정이라 칼바람 행만 뒤바뀌어
+            #    웹 칼바람 탭 패치 칩에 KDA가 섞여 나왔다(30행 오염 → seq13으로 수리).
+            _pv = ("v" + ver) if ver else ""
+            _kda = f"{k}/{d}/{a}"
+            _mid = [_kda, _pv] if tab == "KIWI_KIWI" else [_pv, _kda]
             rows.append(["#" + gid, dt, nm, str(pl.get("puuid") or ""), team, pos, kor, "",
-                         "승리" if st.get("win") else "패배", ev_by_pu.get(_pk, "평가 없음"), ("v" + ver) if ver else "",
-                         f"{k}/{d}/{a}", _sc, int(st.get("totalDamageDealtToChampions") or 0),
+                         "승리" if st.get("win") else "패배", ev_by_pu.get(_pk, "평가 없음"),
+                         _mid[0], _mid[1],
+                         _sc, int(st.get("totalDamageDealtToChampions") or 0),
                          items, f"{st.get('perk0') or ''}|{st.get('perkPrimaryStyle') or ''}",
                          str(st.get("perkSubStyle") or ""), sp, met])
         # ⏳ 동시기록 경쟁 완화 — 참가자 여럿이 같이 켜도 한 명만 성공하게: 내 puuid 지터 후 재확인
