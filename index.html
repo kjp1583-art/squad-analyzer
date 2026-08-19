@@ -50,6 +50,9 @@
   .dl{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:700;white-space:nowrap}
   .dlver{font-size:11px;font-weight:600;opacity:.85;background:rgba(255,255,255,.18);padding:1px 6px;border-radius:6px}
   .dl:hover{filter:brightness(1.08)}
+  /* 💝 후원 — 헤더 버튼(탭 줄을 늘리지 않으려고 헤더로 뺐다, 2026-08-19) */
+  .donlink{display:inline-flex;align-items:center;gap:5px;color:#ff9fbe;border:1px solid #4a2233;background:#1d1016;border-radius:10px;padding:10px 13px;font-weight:700;white-space:nowrap;cursor:pointer}
+  .donlink:hover{background:#26141c;border-color:#6b3049}
   .coachlink{display:inline-flex;align-items:center;gap:6px;color:var(--gold);border:1px solid #4a3c1a;background:#1e1809;border-radius:10px;padding:10px 14px;font-weight:700;white-space:nowrap;margin-right:10px}
   .coachlink:hover{filter:brightness(1.15)}
   @media(max-width:680px){.dl span.t{display:none}}   /* 고스트밴픽왕은 아이콘 제거(2026-08-06) — 글자 유지 */
@@ -513,7 +516,8 @@
 
   /* Tabs */
   .tabs{display:flex;gap:2px;margin:18px 0 8px;border-bottom:1px solid var(--line);flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
-  .tab{padding:10px 13px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+  /* 탭 13개가 1080px 안에 한 줄로 들어가게 좌우 여백만 소폭 축소(2026-08-19 — 끝 탭이 잘려 안 보이던 문제) */
+  .tab{padding:10px 11px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;flex:0 0 auto}
   .tab:hover{color:var(--txt)}
   .tab.on{color:var(--txt);border-bottom-color:var(--accent)}
   /* 💘 듀오 시너지 — 봇듀오 / 미드·정글 전환 토글 (2026-08-12) */
@@ -917,6 +921,7 @@
     </div>
     <a class="coachlink" href="coach.html" title="고스트밴픽왕 — 내 밴·픽 차례에 AI가 추천해주는 구독 서비스"><span class="t">고스트밴픽왕</span></a>
     <a class="dl" href="analyzer.html" title="스쿼드해체분석기 — 기능 소개와 다운로드">🖥 <span class="t">스쿼드해체분석기</span> <span class="dlver" id="dlver"></span></a>
+    <a class="donlink" href="#" onclick="go('donate');return false;" title="후원하기 — 스해분 운영개발비 · 스쿼드 클랜 후원 계좌">💝 <span class="t">후원</span></a>
   </div>
 </header>
 
@@ -4687,7 +4692,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}${tab('donate','💝 후원')}</div>`;
+  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
