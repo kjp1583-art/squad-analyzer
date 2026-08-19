@@ -6468,13 +6468,14 @@ _MAKPAN = {"decls": [], "trig": False}
 #    갱신해 가며 진행되고, 마지막 5:5 완성본을 사람이 기록 채널에 복붙해 왔다. 그 완성본(양쪽 5명 전원
 #    로스터 대조 성공)을 감지해 DATA 채널로 쏘면, 봇이 중복 제거 후 수동기록 채널에 원문 그대로 게시한다.
 #    감지는 로비의 어느 분석기든 가능(호스트 전용 아님) — 중복 발송 차단은 봇 쪽 해시 dedup 담당.
-_RREC = {"head": "", "blue": "", "red": "", "sent": set()}
+_RREC = {"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0}
 
 def _rr_reset():
-    _RREC.update({"head": "", "blue": "", "red": "", "sent": set()})
+    _RREC.update({"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0})
 
 def _rr_scan(body):
     b = body.strip()
+    if "자동발송 완료" in b: _RREC["noticed"] = True; return   # 다른 분석기가 이미 안내함 — 내 안내 생략
     if re.match(r"^\d+\s*팀", b): _RREC["head"] = b
     elif re.match(r"^블루", b): _RREC["blue"] = b
     elif re.match(r"^레드", b): _RREC["red"] = b
@@ -6494,9 +6495,22 @@ def _rr_names(line, known):
         out.append(hit[1]); i += hit[0]
     return out
 
-def _rr_try_send():
+def _rr_try_send(headers=None, base_url=None, cid=None):
     try:
         if _OUTDATED: return
+        # 🗣 예약된 로비 채팅 안내 처리 — 지터가 지났고 아직 아무도 안내하지 않았으면 내가 올린다.
+        #    (여러 분석기 동시 감지 대비: 닉 기반 지터 0.5~5.9s + 매 틱 채팅 재확인으로 선착 1명만 발화)
+        if (_RREC["notice_due"] and time.time() >= _RREC["notice_due"] and not _RREC["noticed"]
+                and headers and base_url and cid):
+            _RREC["notice_due"] = 0.0; _RREC["noticed"] = True
+            try:
+                requests.post(str(base_url) + "/lol-chat/v1/conversations/" + str(cid) + "/messages",
+                              headers=headers, data=json.dumps({"body": "📋 내전기록 자동발송 완료 — 이 명단은 기록채널에 올라갔어요. 수동 복붙 안 하셔도 됩니다!"}),
+                              verify=False, timeout=3)
+                print("[기록릴레이] 로비 채팅 안내 발화", flush=True)
+            except Exception: pass
+        elif _RREC["notice_due"] and _RREC["noticed"]:
+            _RREC["notice_due"] = 0.0                    # 남이 먼저 안내함 — 예약 취소
         if not (_RREC["blue"] and _RREC["red"]): return
         known = {tnorm(n) for n in _NOBAN["names"].values() if n}
         known |= set(TIER_OF.keys())                     # 로비 채팅 참가자 + 클랜 로스터
@@ -6507,8 +6521,12 @@ def _rr_try_send():
         _RREC["sent"].add(h)
         txt = (_RREC["head"] + "\n" if _RREC["head"] else "") + _RREC["blue"] + "\n" + _RREC["red"]
         if DATA_WEBHOOK_URL and not DATA_WEBHOOK_URL.startswith("여기에"):
-            requests.post(DATA_WEBHOOK_URL, json={"content": "📋 [수동기록백업] h=" + h + chr(10) + txt}, timeout=5)
+            rr = requests.post(DATA_WEBHOOK_URL, json={"content": "📋 [수동기록백업] h=" + h + chr(10) + txt}, timeout=5)
             print(f"[기록릴레이] 5:5 완성 감지 → 백업 발송 (h={h})", flush=True)
+            if rr.status_code < 400 and not _RREC["noticed"]:
+                # 발송 성공 시에만 안내 예약 — 닉 기반 지터로 선착 1명이 대표 발화
+                _j = (int(hashlib.md5((MY_RIOT_NAME[0] or "?").encode()).hexdigest(), 16) % 55) / 10.0 + 0.5
+                _RREC["notice_due"] = time.time() + _j
     except Exception as e:
         print(f"[기록릴레이] 예외: {e}", flush=True)
 
@@ -6618,7 +6636,7 @@ def noban_tick(headers, base_url, phase):
                 _NOBAN["decls"].append(champ)
                 print(f"[noban] 선언 감지 — {champ} <- '{body}' (by {who or '?'})", flush=True)
         if len(_NOBAN["seen"]) > 3000: _NOBAN["seen"] = set(list(_NOBAN["seen"])[-500:])
-        _rr_try_send()   # 📋 이번 배치 반영 후 5:5 완성 여부 판정(완성 시 1회 발송)
+        _rr_try_send(headers, base_url, cid)   # 📋 5:5 완성 판정(발송) + 로비 채팅 '자동발송 완료' 안내
     except Exception: pass
 
 # =========================================================================
