@@ -6543,10 +6543,10 @@ _MAKPAN = {"decls": [], "trig": False}
 #    갱신해 가며 진행되고, 마지막 5:5 완성본을 사람이 기록 채널에 복붙해 왔다. 그 완성본(양쪽 5명 전원
 #    로스터 대조 성공)을 감지해 DATA 채널로 쏘면, 봇이 중복 제거 후 수동기록 채널에 원문 그대로 게시한다.
 #    감지는 로비의 어느 분석기든 가능(호스트 전용 아님) — 중복 발송 차단은 봇 쪽 해시 dedup 담당.
-_RREC = {"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0, "gap": ""}
+_RREC = {"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0, "gap": "", "diag": 0.0}
 
 def _rr_reset():
-    _RREC.update({"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0, "gap": ""})
+    _RREC.update({"head": "", "blue": "", "red": "", "sent": set(), "noticed": False, "notice_due": 0.0, "gap": "", "diag": 0.0})
 
 def _rr_scan(body):
     b = body.strip()
@@ -6557,18 +6557,27 @@ def _rr_scan(body):
 
 def _rr_names(line, known):
     """'블루: 뵤뵤 wei ha …' → 정규화 닉 목록. 붙여쓴 닉('weiha')·띄어쓴 닉('악 진') 모두 흡수.
-       미확인 토큰이 하나라도 있으면 None(아직 완성이 아니거나 명단이 아님)."""
+       ① 로스터·로비 참가자와 대조되는 조합을 우선 찾고(띄어쓴 닉까지 붙여서 시도),
+       ② 그래도 안 맞으면 '토큰 5개 = 5명'으로 보되 과반(3명 이상)이 확인될 때만 인정한다.
+          [2026-08-19] 종전엔 미확인 토큰이 하나만 있어도 통째로 버려서(신입·오타·별명) 실전에서
+          거의 발동하지 않았다 — 클랜 로스터에 없는 사람이 한 명만 껴도 그 판은 통째로 누락됐다."""
     s = re.sub(r"^(블루|레드)\s*[:：]?\s*", "", line.strip())
     toks = [t for t in s.split() if t]
-    out, i = [], 0
+    if not toks: return None
+    out, i, ok = [], 0, True
     while i < len(toks):
         hit = None
         for j in range(min(4, len(toks) - i), 0, -1):
             cand = "".join(toks[i:i + j]).split("#")[0].lower()
             if cand in known: hit = (j, cand); break
-        if not hit: return None
+        if not hit: ok = False; break
         out.append(hit[1]); i += hit[0]
-    return out
+    if ok and len(out) == 5: return out
+    # ② 완화 폴백 — 토큰 5개이고 그 중 3명 이상이 아는 얼굴이면 명단으로 인정
+    if len(toks) == 5:
+        cands = [t.split("#")[0].strip().lower() for t in toks]
+        if sum(1 for c in cands if c in known) >= 3: return cands
+    return None
 
 def _rr_gap_text(b, r):
     """⚖ 5:5 완성 명단의 전력차·예상승률 — 팀뽑선정과 같은 공용 산식(내부티어+내전 통산승률)."""
@@ -6609,7 +6618,17 @@ def _rr_try_send(headers=None, base_url=None, cid=None):
         known = {tnorm(n) for n in _NOBAN["names"].values() if n}
         known |= set(TIER_OF.keys())                     # 로비 채팅 참가자 + 클랜 로스터
         b = _rr_names(_RREC["blue"], known); r = _rr_names(_RREC["red"], known)
-        if not b or not r or len(set(b)) != 5 or len(set(r)) != 5 or set(b) & set(r): return
+        if not b or not r or len(set(b)) != 5 or len(set(r)) != 5 or set(b) & set(r):
+            # 🔎 [2026-08-19] 왜 안 나갔는지 남긴다 — 실전 미발동 원인 추적용(30초 1회)
+            try:
+                if time.time() - _RREC.get("diag", 0) > 30:
+                    _RREC["diag"] = time.time()
+                    _why = ("블루 해석실패" if not b else "레드 해석실패" if not r else
+                            f"인원수 블루{len(set(b or []))}·레드{len(set(r or []))}" if (len(set(b))!=5 or len(set(r))!=5)
+                            else "양팀 중복 인원")
+                    print(f"[기록릴레이] 미발동({_why}) | 블루='{_RREC['blue'][:60]}' 레드='{_RREC['red'][:60]}'", flush=True)
+            except Exception: pass
+            return
         h = hashlib.md5(("|".join(sorted(set(b) | set(r)))).encode()).hexdigest()[:10]
         if h in _RREC["sent"]: return                    # 이 인스턴스는 같은 매치업 1회만
         _RREC["sent"].add(h)
