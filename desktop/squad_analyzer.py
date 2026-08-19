@@ -6563,12 +6563,22 @@ def _rr_hits(body, lobby):
     if not s: return frozenset()
     return frozenset(k for k in lobby if k in s)
 
+def _rr_pool():
+    """이름 매칭 풀 = 로비 참가자 + 클랜 로스터.
+       [2026-08-19] 참가자 목록(LCU participants)이 비거나 일부만 읽히는 경우가 있어
+       로비 인원만으로 게이트를 걸면 통째로 무음이 됐다 — 로스터로도 이름을 알아본다."""
+    pool = dict(_rr_lobby())
+    try:
+        for k in TIER_OF.keys():
+            if k and len(k) >= 2: pool.setdefault(k, k)
+    except Exception: pass
+    return pool
+
 def _rr_scan(body, lobby=None):
     b = (body or "").strip()
     if not b: return
     if "자동발송 완료" in b: _RREC["noticed"] = True; return   # 다른 분석기가 이미 안내함
-    if lobby is None: lobby = _rr_lobby()
-    if len(lobby) < 8: return                       # 커스텀 5:5 로비가 아니면 볼 것 없음
+    if lobby is None: lobby = _rr_pool()
     hit = _rr_hits(b, lobby)
     if len(hit) < 3: return                         # 3명 미만은 명단으로 보지 않는다(잡담 배제)
     L = _RREC["lines"]
@@ -6578,7 +6588,7 @@ def _rr_scan(body, lobby=None):
         L.append((b, hit))
     del L[:-8]                                      # 최근 8건만 유지
 
-def _rr_pair(lobby):
+def _rr_pair(lobby, roster=None):
     """최근 명단 후보들에서 '서로 겹치지 않는 두 팀'을 찾는다.
        마지막 1명이 유찰로 채팅에 안 적히는 경우가 있어(사장님 팀뽑 규칙) 9명도 인정하고,
        로비 참가자 중 빠진 한 명을 인원이 적은 팀에 채운다."""
@@ -6593,8 +6603,10 @@ def _rr_pair(lobby):
             tot = len(a) + len(b)
             if tot < 9: continue
             A, B = set(a), set(b)
-            if tot == 9:                            # 유찰 1명 자동 배정
-                rest = set(lobby) - A - B
+            if tot == 9:                            # 유찰 1명 자동 배정(로비 인원이 10명일 때만 신뢰)
+                _lob = roster if roster else lobby
+                if len(_lob) != 10: continue
+                rest = set(_lob) - A - B
                 if len(rest) != 1: continue
                 (A if len(A) < len(B) else B).add(rest.pop())
             if len(A) != 5 or len(B) != 5: continue
@@ -6646,23 +6658,24 @@ def _rr_try_send(headers=None, base_url=None, cid=None):
             except Exception: pass
         elif _RREC["notice_due"] and _RREC["noticed"]:
             _RREC["notice_due"] = 0.0                    # 남이 먼저 안내함 — 예약 취소
-        lobby = _rr_lobby()
-        if len(lobby) < 8: return
-        pair = _rr_pair(lobby)
+        lobby = _rr_lobby()          # 실제 로비 참가자(유찰 보충·표기 복원용)
+        pool = _rr_pool()            # 이름 인식 풀(참가자 + 클랜 로스터)
+        pair = _rr_pair(pool, lobby)
         if not pair:
             # 🔎 왜 아직인지 남긴다(30초 1회) — 실전 미발동 추적용
             try:
-                if _RREC["lines"] and time.time() - _RREC.get("diag", 0) > 30:
+                if time.time() - _RREC.get("diag", 0) > 60:
                     _RREC["diag"] = time.time()
-                    _sz = " / ".join(f"{len(h)}명:'{t[:34]}'" for t, h in _RREC["lines"][-3:])
-                    print(f"[기록릴레이] 대기(짝 미성립·로비 {len(lobby)}명) | 후보 {_sz}", flush=True)
+                    _sz = (" / ".join(f"{len(h)}명:'{t[:34]}'" for t, h in _RREC["lines"][-3:])
+                           if _RREC["lines"] else "없음(명단으로 보이는 채팅이 아직 없음)")
+                    print(f"[기록릴레이] 대기 | 로비참가자 {len(lobby)}명 · 인식풀 {len(pool)}명 · 후보 {_sz}", flush=True)
             except Exception: pass
             return
         b, r, b_txt, r_txt = pair
         h = hashlib.md5(("|".join(sorted(set(b) | set(r)))).encode()).hexdigest()[:10]
         if h in _RREC["sent"]: return                    # 이 인스턴스는 같은 매치업 1회만
         _RREC["sent"].add(h)
-        _nm = lambda k: lobby.get(k, k)
+        _nm = lambda k: lobby.get(k) or pool.get(k) or k
         txt = ("블루 : " + " ".join(_nm(x) for x in sorted(b)) + "\n"
                + "레드 : " + " ".join(_nm(x) for x in sorted(r))
                + "\n-# 원문 · " + b_txt[:80] + " | " + r_txt[:80])
@@ -6691,15 +6704,18 @@ def _nb_played(who):
 def noban_tick(headers, base_url, phase):
     """Lobby/ChampSelect에서 2초 간격으로 커스텀 로비 채팅을 읽어 노밴 선언 수집(히스토리 소급이라 순간 놓침 없음)."""
     try:
-        if phase not in ("Lobby", "ChampSelect", "Matchmaking"):
-            # [2026-07-25] 결과 리포트가 선언을 부착하므로 종료 직후엔 유지 — 마지막 로비활동 10분 뒤(None)에만 초기화.
-            #   (다음 판 로비 진입 시엔 대화방 id 변경으로 어차피 리셋됨)
+        # 📋 [2026-08-19] 팀뽑 채팅은 로비 밖(게임 중·종료 직후)에도 이어진다 — 여러 팀이 동시에 돌면
+        #    내가 이미 게임에 들어가 있는 동안 다음 판 명단이 채팅에 올라온다. 그래서 채팅 스캔은
+        #    모든 상태에서 하되, 로비·챔프선택이 아닐 때는 간격을 늘려 부하를 줄인다.
+        _idle = phase not in ("Lobby", "ChampSelect", "Matchmaking")
+        if _idle:
+            # [2026-07-25] 결과 리포트가 선언을 부착하므로 종료 직후엔 유지 — 마지막 로비활동 10분 뒤에만 초기화.
             if phase == "None" and (_NOBAN["decls"] or _NOBAN["trig"] or _MAKPAN["decls"]) \
                and time.time() - _NOBAN.get("ts", 0) > 600:
                 _noban_reset()
-            return
+            if time.time() - _NOBAN.get("last", 0) < 8: return   # 로비 밖에서는 8초 간격으로만
         now = time.time()
-        if now - _NOBAN["last"] < 2: return   # [v82.41] 2초 간격 — '선언 직후 1초 만에 게임시작' 경합창 최소화
+        if not _idle and now - _NOBAN["last"] < 2: return   # [v82.41] 로비·챔프선택은 2초 간격
         _NOBAN["last"] = now
         _NOBAN["ts"] = now   # 로비 활동 시각(초기화 유예 기준)
         res = requests.get(str(base_url) + "/lol-chat/v1/conversations", headers=headers, verify=False, timeout=2)
