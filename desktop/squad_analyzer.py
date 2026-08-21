@@ -6334,7 +6334,7 @@ def _captain_pick(entries, exclude_tnorms, cidx):
                 sc += 2.5 * ((a['tn'] in exclude_tnorms) + (b['tn'] in exclude_tnorms))
             if best is None or sc < best[0]: best = (sc, a, b)
     _, a, b = best
-    why = [f"전력차 {abs(a['pw'] - b['pw']):.1f}"]
+    why = [f"전투력차 {abs(a['pw'] - b['pw']):.1f}"]
     if a['pos'] and a['pos'] == b['pos']: why.append(f"주포지션 동일({a['pos']})")
     elif a['pos'] or b['pos']: why.append(f"주포지션 {a['pos'] or '?'}·{b['pos'] or '?'}")
     if exclude_tnorms and not soft: why.append("직전 판 팀장 제외")
@@ -6390,7 +6390,7 @@ def _team_split(entries, cidx, avoid_key=""):
     near = [x for x in scored if x[0] <= best + 0.7 and x[4] != avoid_key] or scored[:1]
     sc, gap, A, B, key = random.choice(near)
     dups = int(round((sc - gap) / 0.8))
-    why = f"전력차 {gap:.1f}" + (f" · 주포지션 겹침 {dups}건" if dups else " · 주포지션 전원 분산")
+    why = f"전투력차 {gap:.1f}" + (f" · 주포지션 겹침 {dups}건" if dups else " · 주포지션 전원 분산")
     if top_n >= 2:
         _ta = sum(1 for c in A if c['tier'] in _TOPT)
         why += f" · 최상위권 {top_n}명 {_ta}:{top_n - _ta} 배분"
@@ -6636,7 +6636,7 @@ def _rr_gap_text(b, r):
             return _unified_power_one(k, {"games": g, "overall_wr": (w / g if g else 0.5)})
         pa, pb = sum(one(x) for x in b), sum(one(x) for x in r)
         bw = max(15, min(85, int(50 + (pa - pb) * 4 + 0.5)))
-        return f" · ⚖ 전력차 {abs(pa - pb):.1f} (예상 블루 {bw}% : 레드 {100 - bw}%)"
+        return f" · ⚖ 전투력차 {abs(pa - pb):.1f} (예상 블루 {bw}% : 레드 {100 - bw}%)"
     except Exception:
         return ""
 
@@ -9253,13 +9253,13 @@ def create_graphic_ui():
                 cols = tk.Frame(w, bg="#12141a"); cols.pack(padx=18)
                 def _team_col(team, title, col, fg):
                     f = tk.Frame(cols, bg="#12141a"); f.grid(row=0, column=col, padx=10, sticky="n")
-                    tk.Label(f, text=f"{title}  (전력 {sum(c['pw'] for c in team):.1f})",
+                    tk.Label(f, text=f"{title}  (전투력 {sum(c['pw'] for c in team):.1f})",
                              bg="#12141a", fg=fg, font=UF(11, "bold")).pack(anchor="w", pady=(0, 3))
                     _PO = {"탑": 0, "정글": 1, "미드": 2, "원딜": 3, "서폿": 4}
                     _rec_all = all(c.get('rec') for c in team)
                     _order = (lambda x: _PO.get(x.get('rec'), 9)) if _rec_all else (lambda x: -x['pw'])
                     for c in sorted(team, key=_order):
-                        t = c['nm'].split('#')[0].strip()                             + (f"  [{c['tier']}]" if c['tier'] else "")                             + (f"  {c['pos']}" if c['pos'] else "")
+                        t = c['nm'].split('#')[0].strip()                             + (f"  [{c['tier']}]" if c['tier'] else "")                             + (f"  {c['pos']}" if c['pos'] else "")                             + f"  ⚔{c['pw']:.1f}"
                         tk.Label(f, text=t, bg="#12141a", fg="#e8eaf0", font=UF(10)).pack(anchor="w")
                         if c.get('rec'):   # 🎯 추천 라인 — 실측 성적·선언 포지션·맞상대 전적 종합
                             tk.Label(f, text=f"   ↳ 추천 {c['rec']}" + (" (주포 그대로)" if c['rec'] == c.get('pos') else ""),
@@ -9386,9 +9386,9 @@ def create_graphic_ui():
             for wgt in (f, tf2, *f.winfo_children(), *tf2.winfo_children()):
                 try: wgt.bind("<Button-1>", lambda e, fn=fn: _pick(fn))
                 except Exception: pass
-        _big("👑", "팀장 2인 뽑기", "전력이 가장 비슷한 두 명을 팀장으로 (직전 판 팀장 회피)",
+        _big("👑", "팀장 2인 뽑기", "전투력이 가장 비슷한 두 명을 팀장으로 (직전 판 팀장 회피)",
              _do_pick_captains, theme.GOLD)
-        _big("⚖", "5:5 명단 짜기", "방 전원을 전력·주포지션 균형으로 두 팀으로 나눔",
+        _big("⚖", "5:5 명단 짜기", "방 전원을 전투력·주포지션 균형으로 두 팀으로 나눔",
              _do_team_split, "#7ec8e3")
         _big("🎯", "포지션 추천", "수동으로 짠 팀도 OK — 현재 블루/레드 명단 그대로 라인 추천",
              _do_pos_recommend, "#f0c987")
@@ -10874,7 +10874,7 @@ class GuideWindow(tk.Toplevel):
         ("직접 누르는 것", None),
         ("🔘 상단 버튼", "화면 위쪽 두 줄 — 사용 안내·음성방 초대·명예의전당·내부티어·모의밴픽·"
                       "SQUAD.GG·AUC.GG / 모스트 전환·설정·로그·팀뽑선정·후원이 바로 눌립니다."),
-        ("👑 팀뽑선정", "방에 있는 사람 중 전력이 가장 비슷한 2인을 팀장으로 뽑습니다(직전 판 팀장은 회피). "
+        ("👑 팀뽑선정", "방에 있는 사람 중 전투력이 가장 비슷한 2인을 팀장으로 뽑습니다(직전 판 팀장은 회피). "
                       "결과를 로비 채팅에 바로 알릴 수 있습니다."),
         ("🎯 모스트 표시 전환", "모스트를 '현재 선택한 포지션' 기준으로 볼지 '전체 라인' 기준으로 볼지 바꿉니다."),
         ("⚙ 설정", "부팅 시 자동 실행(숨김) · 롤 켜질 때 자동 팝업 · 트레이 최소화 · 시너지 3칸 표시 · "
