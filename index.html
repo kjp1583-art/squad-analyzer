@@ -4940,6 +4940,10 @@ function playerCardHtml(name){
       ? (SPLASHMAP[mainChamp]||SPLASHMAP[String(mainChamp).replace(/\s/g,"")]||'') : '';
 
     let cells='';
+    // ⚔️ [2026-08-20 사장님 지시] 전투력 — 홈 목록·밸런스 평가와 같은 1인분 산식 (상세페이지와 같은 취급)
+    { const _ts=tierScore(tierOf(a.name));
+      if(_ts!=null){ const _pw=Math.round((_ts+((w+0.5*8)/(w+l+8))*10)/2*10)/10;
+        cells+=`<div class="cmp" title="${escAttr("전투력 = (내부티어 점수 + 내전 통산승률 수축×10) ÷ 2 — 예상승률·밸런스 사후평가와 같은 산식. 전투력차 1 = 예상승률 4%p")}"><span class="cmp-k">⚔️ 전투력</span><b class="cmp-v" style="color:var(--gold)">${_pw.toFixed(1)}</b><span class="cmp-r">1차 = 승률 4%p</span></div>`; } }
     // 🔥 내전 활약 점수 — 솔랭 뺀 내전 기록만의 점수(클랜 평균 50). '클랜 상위 %'와 다른 축.
     if(a.score100!=null)
       cells+=box('🔥 내전 활약',`${a.score100}<span style="font-size:11px;color:var(--mut)">/100</span>`,`${bandTag('act',a.score100)} · 클랜 평균 50`,
@@ -6625,6 +6629,10 @@ function renderPlayer(name){
     const pc=k=>{const p=_pctOf(k);return {cls:_pctCls(p),tip:_pctTip(p),
       band:(p==null?'':bandTag('act',p)+' · ')};};   // 🏷 같은 포지션 백분위를 말로도 한마디
     const it=[];
+    // ⚔️ 전투력 — 팝업 카드와 같은 취급(같은 산식·같은 위치)
+    { const _ts=tierScore(tierOf(name));
+      if(_ts!=null){ const _pw=Math.round((_ts+((w+0.5*8)/(w+l+8))*10)/2*10)/10;
+        it.push(cell("⚔️ 전투력",_pw.toFixed(1),"전투력차 1 = 예상승률 4%p","","전투력 = (내부티어 점수 + 내전 통산승률 수축×10) ÷ 2 — 예상승률·밸런스 사후평가와 같은 산식. 전투력차 1 = 예상승률 4%p")); } }
     if(_sc!=null) it.push(cell("🔥 내전 활약",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,`${bandTag('act',_sc)} · 클랜 평균 50`,"cmp-hi",
       "내전 기록만으로 낸 활약 점수 — 승률 30% · MVP/ACE율 25% · 역적율 −20% · KDA 15% · 킬관여 10%. 솔랭·AI는 넣지 않습니다(그건 '클랜 상위 %'가 봅니다). 50점이 클랜 평균."));
     if(avgRatio!=null){ const q=pc("kda"); it.push(cell("KDA",avgRatio.toFixed(2),`${q.band}${kdaGames}판 평균`,q.cls,q.tip)); }
