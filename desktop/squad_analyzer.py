@@ -9895,7 +9895,10 @@ def create_graphic_ui():
                     blue_slots[i][2].config(image=ti if ti else ''); blue_slots[i][2].image = ti
                     blue_slots[i][3].config(image=ci if ci else ''); blue_slots[i][3].image = ci
                     _ct = tier_of(name_str)
-                    blue_slots[i][11].config(text=(str(_ct) if _ct else ""))
+                    # ⚔ [2026-08-22 사장님 지시] 내부티어 우측에 전투력 상시 표기 — 예상승률·웹과 같은 공용 1인분
+                    try: _pw = "⚔%.1f" % _unified_power_one(name_str, s if isinstance(s, dict) else {})
+                    except Exception: _pw = ""
+                    blue_slots[i][11].config(text=" ".join(x for x in ((str(_ct) if _ct else ""), _pw) if x))
 
                     blue_slots[i][4].config(command=lambda b=blue_slots[i][4], n=name_str: copy_id_to_clipboard(root, b, n), state="normal")
                     blue_slots[i][6].config(command=lambda n=name_str: open_opgg_profile(n), state="normal")
@@ -9970,7 +9973,10 @@ def create_graphic_ui():
                     red_slots[i][2].config(image=ti if ti else ''); red_slots[i][2].image = ti
                     red_slots[i][3].config(image=ci if ci else ''); red_slots[i][3].image = ci
                     _ct = tier_of(name_str)
-                    red_slots[i][11].config(text=(str(_ct) if _ct else ""))
+                    # ⚔ [2026-08-22 사장님 지시] 내부티어 우측에 전투력 상시 표기 — 예상승률·웹과 같은 공용 1인분
+                    try: _pw = "⚔%.1f" % _unified_power_one(name_str, s if isinstance(s, dict) else {})
+                    except Exception: _pw = ""
+                    red_slots[i][11].config(text=" ".join(x for x in ((str(_ct) if _ct else ""), _pw) if x))
 
                     red_slots[i][4].config(command=lambda b=red_slots[i][4], n=name_str: copy_id_to_clipboard(root, b, n), state="normal")
                     red_slots[i][6].config(command=lambda n=name_str: open_opgg_profile(n), state="normal")
