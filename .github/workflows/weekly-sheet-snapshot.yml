@@ -32,6 +32,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add squad_sheet.xlsx
+          pip install --quiet openpyxl
+          curl -sSL -o mk_clan_meta.py "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/tooling/mk_clan_meta.py"
+          python mk_clan_meta.py squad_sheet.xlsx clan_meta.json && rm -f mk_clan_meta.py
+          git add squad_sheet.xlsx clan_meta.json
           git diff --cached --quiet || git commit -m "data: sheet snapshot $(date -u +%FT%H:%M)"
           git push origin ai-eval-data

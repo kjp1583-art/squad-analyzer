@@ -2046,6 +2046,80 @@ def load_claude_key():
 # ── 📈 [2026-08-23 사장님 지시] 조합 승률 통계(lol-draft-game.com · 프로경기 79,778판 2019~2026) ──
 #    정적 meta.json(챔프 base 승률·포지션별 카운터·시너지·밴 위협도)을 받아 로컬 계산 후
 #    밴픽 프롬프트에 '고승률픽/위협도 표'로 주입한다. 절대 지표가 아니라 참고 신호(AUC 0.61).
+# 🏠 클랜 내전판 조합 통계(clan_meta.json, ai-eval-data) — 프로 통계와 같은 개념을 우리 데이터로.
+#    소표본이라 전 지표 수축 승률([승률, 판수] 쌍). tooling/mk_clan_meta.py 가 생성한다.
+_CLANSTAT_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/ai-eval-data/clan_meta.json"
+_CLANSTAT = {"meta": None, "tried": 0.0}
+
+def _clanstat_meta():
+    now = time.time()
+    if _CLANSTAT["meta"] is not None: return _CLANSTAT["meta"]
+    if now - _CLANSTAT["tried"] < 600: return None
+    _CLANSTAT["tried"] = now
+    fp = os.path.join(CONFIG_DIR, "clan_meta.json")
+    try:
+        if os.path.exists(fp) and now - os.path.getmtime(fp) < 86400:
+            with open(fp, encoding="utf-8") as f: _CLANSTAT["meta"] = json.load(f)
+            return _CLANSTAT["meta"]
+    except Exception: pass
+    try:
+        r = requests.get(_CLANSTAT_URL, timeout=5)
+        if r.status_code == 200:
+            m = r.json()
+            if m.get("champions"):
+                _CLANSTAT["meta"] = m
+                try:
+                    with open(fp, "w", encoding="utf-8") as f: json.dump(m, f, ensure_ascii=False)
+                except Exception: pass
+                print(f"[clanstat] 내전 조합 통계 로드 — {m.get('n_games')}게임", flush=True)
+                return m
+    except Exception as e:
+        print(f"[clanstat] 로드 실패(무시): {e}", flush=True)
+    return None
+
+def _clanstat_nc(s2): return str(s2 or "").replace(" ", "").strip()
+
+def _clanstat_pick_lines(my_pos, lane_enemy, ally_champs):
+    """픽: 이 맞라인 상대를 실제로 이겨 본 클랜 내전 픽 + 아군 확정픽과 같이 이긴 조합."""
+    M = _clanstat_meta()
+    pos = str(my_pos or "").strip()
+    if not M or pos not in ("탑", "정글", "미드", "원딜", "서폿"): return []
+    out = []
+    le = _clanstat_nc(lane_enemy)
+    if le:
+        rows = []
+        for a, mm in (M.get("counter") or {}).get(pos, {}).items():
+            v = mm.get(le)
+            if v: rows.append((v[0], v[1], a))
+        rows.sort(key=lambda x: (-x[0], -x[1]))
+        for wr, n, a in rows[:5]:
+            out.append(f"{a} vs {lane_enemy} — 내전 {n}판 수축승률 {wr*100:.0f}%")
+    syn = M.get("synergy") or {}
+    srows = []
+    for al in (ally_champs or []):
+        ak = _clanstat_nc(al)
+        for k2, v in syn.items():
+            p1, p2 = k2.split("|")
+            if ak == p1: srows.append((v[0], v[1], p2, al))
+            elif ak == p2: srows.append((v[0], v[1], p1, al))
+    srows.sort(key=lambda x: (-x[0], -x[1]))
+    for wr, n, c2, al in srows[:4]:
+        if wr >= 0.53: out.append(f"{c2} + 아군 {al} — 내전 {n}판 수축승률 {wr*100:.0f}%")
+    return out
+
+def _clanstat_ban_lines(enemy_pool_champs):
+    """밴: 상대 후보 챔프가 내전에서 잡혔을 때의 실측 승률(높으면 위협)."""
+    M = _clanstat_meta()
+    if not M: return []
+    CH = {c["name"]: c for c in M.get("champions") or []}
+    rows = []
+    for kor in enemy_pool_champs or []:
+        c = CH.get(_clanstat_nc(kor))
+        if c and c.get("wr", 0.5) >= 0.53:
+            rows.append((c["wr"], c["n"], kor))
+    rows.sort(key=lambda x: -x[0])
+    return [f"{kor} — 내전 {n}판 수축승률 {wr*100:.0f}%" for wr, n, kor in rows[:6]]
+
 _LDG_URL = "https://lol-draft-game.com/data/meta.json"
 _LDG = {"meta": None, "ts": 0.0, "tried": 0.0}
 _LDG_POS = {"탑": "top", "정글": "jng", "미드": "mid", "원딜": "bot", "서폿": "sup"}
@@ -2992,11 +3066,19 @@ def _draft_advise(ctx, my_pool):
             if _ll:
                 _ldg_blk = ("\n\n[프로경기 통계(2019~26, 약 8만 판) — 상대 후보 챔프의 밴 위협도. 참고 신호로만]\n"
                             + "\n".join(_ll))
+            _cl = _clanstat_ban_lines(_ep_ch)
+            if _cl:
+                _ldg_blk += ("\n\n[클랜 내전 실측(약 1,100판) — 상대 후보 챔프가 잡혔을 때 우리 내전 승률(수축 보정). 팀 승패 기반이라 참고만]\n"
+                             + "\n".join(_cl))
         else:
             _ll = _ldg_pick_lines(ctx.get("pos"), _lane, _ally_ch8)
             if _ll:
                 _ldg_blk = ("\n\n[프로경기 통계(2019~26, 약 8만 판) — 이 매치업 고승률픽 상위. 아래 '내가 다뤄본 챔피언'과 교차해 참고]\n"
                             + "\n".join(_ll))
+            _cl = _clanstat_pick_lines(ctx.get("pos"), _lane, _ally_ch8)
+            if _cl:
+                _ldg_blk += ("\n\n[클랜 내전 실측(약 1,100판) — 같은 매치업·조합이 실제로 이긴 기록(수축 보정). 팀 승패 기반이라 단정 금지, 교차 참고]\n"
+                             + "\n".join(_cl))
     except Exception as _le:
         print(f"[ldg] 블록 생성 실패(무시): {_le}", flush=True)
     if is_ban:
