@@ -2043,6 +2043,103 @@ def load_claude_key():
         except Exception: pass
     return None
 
+# ── 📈 [2026-08-23 사장님 지시] 조합 승률 통계(lol-draft-game.com · 프로경기 79,778판 2019~2026) ──
+#    정적 meta.json(챔프 base 승률·포지션별 카운터·시너지·밴 위협도)을 받아 로컬 계산 후
+#    밴픽 프롬프트에 '고승률픽/위협도 표'로 주입한다. 절대 지표가 아니라 참고 신호(AUC 0.61).
+_LDG_URL = "https://lol-draft-game.com/data/meta.json"
+_LDG = {"meta": None, "ts": 0.0, "tried": 0.0}
+_LDG_POS = {"탑": "top", "정글": "jng", "미드": "mid", "원딜": "bot", "서폿": "sup"}
+
+def _ldg_meta():
+    """7일 파일 캐시 → 메모리. 실패하면 None(기능 통째 무시 — 밴픽왕은 기존대로 동작)."""
+    now = time.time()
+    if _LDG["meta"] is not None: return _LDG["meta"]
+    if now - _LDG["tried"] < 600: return None      # 실패 직후 10분간 재시도 안 함
+    _LDG["tried"] = now
+    fp = os.path.join(CONFIG_DIR, "ldg_meta.json")
+    try:
+        if os.path.exists(fp) and now - os.path.getmtime(fp) < 7 * 86400:
+            with open(fp, encoding="utf-8") as f: _LDG["meta"] = json.load(f)
+            return _LDG["meta"]
+    except Exception: pass
+    try:
+        r = requests.get(_LDG_URL, timeout=5)
+        if r.status_code == 200:
+            m = r.json()
+            if m.get("champions") and m.get("model"):
+                _LDG["meta"] = m
+                try:
+                    with open(fp, "w", encoding="utf-8") as f: json.dump(m, f)
+                except Exception: pass
+                print(f"[ldg] 조합승률 통계 로드 — 챔프 {len(m['champions'])}", flush=True)
+                return m
+    except Exception as e:
+        print(f"[ldg] 통계 로드 실패(무시): {e}", flush=True)
+    return None
+
+_LDG_ALIAS = {"monkeyking": "wukong", "nunu": "nunuwillump", "renata": "renataglasc"}   # ddragon id ↔ 통계 key 표기차
+def _ldg_key(kor):
+    try:
+        e = get_champ_eng_name(kor)
+        if not e: return None
+        k = e.lower()
+        return _LDG_ALIAS.get(k, k)
+    except Exception: return None
+
+def _ldg_pick_lines(my_pos, lane_enemy, ally_champs):
+    """픽 모드: 내 포지션 기준 '프로경기 고승률픽' 상위 — 상대 카운터·아군 시너지·표본승률."""
+    M = _ldg_meta()
+    pos = _LDG_POS.get(str(my_pos or "").strip())
+    if not M or not pos: return []
+    import math as _m
+    CH = {c["key"]: c for c in M["champions"]}
+    KOR = {}          # key → 한글명(분석기 매핑 역이용)
+    try:
+        for _cid, _d in global_champ_map.items():
+            k = str(_d.get("eng") or "").lower()
+            if k and k not in KOR: KOR[k] = _d.get("kor") or _d.get("eng")
+    except Exception: pass
+    le = _ldg_key(str(lane_enemy or "").strip())
+    allies = [k for k in (_ldg_key(a) for a in (ally_champs or [])) if k]
+    ctab = (M.get("counter") or {}).get(pos) or {}
+    syn = M.get("synergy") or {}
+    _lg = lambda p2: _m.log(max(0.02, min(0.98, p2)) / (1 - max(0.02, min(0.98, p2))))
+    rows = []
+    for k, c in CH.items():
+        if (c.get("position_share") or {}).get(pos, 0) < 0.05: continue
+        if c.get("n_pick", 0) < 300: continue
+        cw = ((ctab.get(k) or {}).get(le)) if le else None
+        sv = [syn.get("|".join(sorted([k, a]))) for a in allies]
+        sv = [x for x in sv if x is not None]
+        sm = (sum(sv) / len(sv)) if sv else None
+        score = (_lg(cw) if cw is not None else 0) * 1.2 + ((sm - 0.5) * 4 if sm is not None else 0) + _lg(c.get("base_wr", 0.5))
+        rows.append((score, k, cw, sm, c.get("base_wr")))
+    rows.sort(key=lambda x: -x[0])
+    out = []
+    for _sc, k, cw, sm, bw in rows[:8]:
+        nm = KOR.get(k, k)
+        seg = [f"{nm}"]
+        if cw is not None: seg.append(f"vs {lane_enemy} 승률 {cw*100:.1f}%")
+        if sm is not None: seg.append(f"아군시너지 {('+' if sm >= 0.5 else '')}{(sm-0.5)*100:.1f}%p")
+        seg.append(f"표본승률 {bw*100:.1f}%")
+        out.append(" · ".join(seg))
+    return out
+
+def _ldg_ban_lines(enemy_pool_champs, ally_champs):
+    """밴 모드: 상대 챔프폭 후보의 프로경기 밴 위협도 + 아군 확정픽 상대 카운터."""
+    M = _ldg_meta()
+    if not M: return []
+    ban = M.get("ban") or {}
+    CH = {c["key"]: c for c in M["champions"]}
+    rows = []
+    for kor in enemy_pool_champs or []:
+        k = _ldg_key(kor)
+        if not k or k not in CH: continue
+        th = (ban.get(k) or {}).get("threat", 0)
+        rows.append((th, kor, CH[k].get("base_wr", 0.5)))
+    rows.sort(key=lambda x: -x[0])
+    return [f"{kor} — 위협도 {th*1000:.1f} · 표본승률 {bw*100:.1f}%" for th, kor, bw in rows[:8] if th > 0]
+
 DRAFT_MODEL = "claude-haiku-4-5"    # [8/23 사장님] 밴픽 추천이 느리다 → 최저지연 모델(TTFT·출력속도 최상, 비용 1/3). 품질 아쉬우면 claude-sonnet-5 복귀
 # ⚙️ Haiku 4.5 는 thinking·output_config(effort) 파라미터를 받지 않는다(400) — Sonnet 계열로 되돌릴 때만 붙는다.
 _DRAFT_XTRA = {} if DRAFT_MODEL.startswith("claude-haiku") else {
@@ -2640,7 +2737,8 @@ def _patch_meta_text():
 # [v82.21 전면 개편] 명장(양대인·김정수·씨맥류) 드래프트 이론 이식 — 윈컨디션 설계·픽순서·밸런스 점검.
 _DRAFT_RULES = (
     "너는 LCK 우승팀 감독급 밴픽 전략가다. 명장들의 드래프트 이론(조합 컨셉 우선·구도 설계)을 따른다.\n"
-    "지금 사용자의 **픽 차례**다. 남은 시간이 짧으니 결론부터, 그러나 아래 사고 순서를 반드시 지켜라.\n\n"
+    "지금 사용자의 **픽 차례**다. 남은 시간이 짧으니 결론부터, 그러나 아래 사고 순서를 반드시 지켜라.\n"
+    "[프로경기 통계] 표가 있으면 참고 신호로 써라 — 개인 숙련도(내전 판수·승률)가 항상 우선이고, 통계는 다뤄본 챔프들 사이의 우선순위를 가를 때 쓴다.\n\n"
     "【★★맛장유 5원칙 — 모든 픽 판단에 최우선 적용】\n"
     "P1. **라인전 최소 반반**: 지는 라인전을 전제로 한 픽 금지. 못 이겨도 반반은 가져가야 이후 그림이 성립한다.\n"
     "P2. **상대 조합이 고밸류·탄탄하면 저밸류 픽 금지**: 실수해도 일어날 힘(목숨코인)이 없어지고,\n"
@@ -2774,6 +2872,7 @@ _DRAFT_BAN_RULES = (
     "  근거가 없으면 포지션을 아예 언급하지 마라. 한 답변 안에서 같은 픽의 포지션을 다르게 말하면 절대 안 된다.\n\n"
     "【출력 형식 — 한국어·★최대한 짧게(오버레이 작은 창이라 시인성이 생명)】\n"
     "- 밴 개수는 사용자 메시지가 지정(1페이즈 3 / 2페이즈 2). '1. 챔프 — 이유(★20자 이내)' 우선순위대로.\n"
+    "- [프로경기 통계] 표는 참고 신호다 — 개인 숙련도(내전 판수·승률)가 항상 우선이고, 통계는 동급 후보의 우선순위를 가를 때만 써라.\n"
     "- [클랜 밴픽퀴즈 표]가 있으면 강한 참고 신호다 — 표가 많고 적중 이력이 있는 챔프는 우선순위를 올려라.\n"
     "  예: '1. 레넥톤 — 레멍이 43판·견제압력 1위' / '2. 세라핀 — 상대 포킹 완성 차단'. 이 밀도로.\n"
     "- 픽 방향/내 픽 설계를 요구받으면 밴 아래 '→'로 시작해 **픽당 한 줄**(챔프 — 20자 근거).\n"
@@ -2880,6 +2979,26 @@ def _draft_advise(ctx, my_pool):
                      "   단독 근거로 쓰지 말고, 상대가 실제로 뽑을 만한 픽일 때만 밴 후보로 올려라. 판수를 함께 말하라.\n"
                      "※★이 승률도 '팀의 승패'다. 그날 팀 전력이 불리해서 진 판이 섞여 있으니, 낮은 승률을\n"
                      "   '이 챔프에게 카운터당한다'는 증거로 단정하지 마라. 상성이 실제로 성립할 때만 근거로 써라.")
+    # 📈 조합 승률 통계 블록(프로경기, lol-draft-game.com) — 미로드·실패 시 빈 문자열(기능 무시)
+    _ldg_blk = ""
+    try:
+        _ally_ch8 = [str(_c8) for _c8, _x8 in (ctx.get("ally") or [])]
+        if is_ban:
+            _ep_ch = []
+            for _h8, _cs8 in (ctx.get("enemy_pools") or []):
+                for _s8 in (_cs8 or [])[:6]:
+                    _ep_ch.append(str(_s8).split("(")[0].strip())
+            _ll = _ldg_ban_lines(_ep_ch, _ally_ch8)
+            if _ll:
+                _ldg_blk = ("\n\n[프로경기 통계(2019~26, 약 8만 판) — 상대 후보 챔프의 밴 위협도. 참고 신호로만]\n"
+                            + "\n".join(_ll))
+        else:
+            _ll = _ldg_pick_lines(ctx.get("pos"), _lane, _ally_ch8)
+            if _ll:
+                _ldg_blk = ("\n\n[프로경기 통계(2019~26, 약 8만 판) — 이 매치업 고승률픽 상위. 아래 '내가 다뤄본 챔피언'과 교차해 참고]\n"
+                            + "\n".join(_ll))
+    except Exception as _le:
+        print(f"[ldg] 블록 생성 실패(무시): {_le}", flush=True)
     if is_ban:
         # 밴 모드 [v82.39 설계B]: '내 밴'이 아니라 '우리 팀이 밴할 것'을 페이즈별로 통째 추천(5명이 상의해 밴).
         _bphase = int(ctx.get("ban_phase") or 1)
@@ -2942,6 +3061,7 @@ def _draft_advise(ctx, my_pool):
             + clan_blk_ban   # [v82.44] 밴 모드엔 아군 챔프폭 미주입(아군 픽 밴 추천 사고 방지)
             + ((chr(10) + chr(10) + "[클랜 밴픽퀴즈 표 — 클랜원들이 '이 상대에게 밴할 챔프'로 투표한 집단 학습]" + chr(10)
                 + chr(10).join(ctx.get("quiz") or [])) if ctx.get("quiz") else "")
+            + _ldg_blk
         )
     else:
         _mt2 = ctx.get("my_tier")
@@ -2958,6 +3078,7 @@ def _draft_advise(ctx, my_pool):
             + _loff_blk
             + _mu_blk
             + clan_blk
+            + _ldg_blk
         )
     # 시스템 프롬프트(코칭 규칙 + 현 패치 메타 + 클랜 메타) — 호스트·구독자 공통
     # [2026-07-29 사장님 지시] 솔랭 티어리스트(메타 챔프) 주입 제거 — 판단 근거를 클랜 데이터로만 좁힌다.
