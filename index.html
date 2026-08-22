@@ -5521,6 +5521,53 @@ function myeolFairOf(name){
   const e=es.find(c=>c.pos===mp)||es.slice().sort((a,b)=>b.fair-a.fair)[0];
   return {fair:e.fair,pos:e.pos,est:e.est,bee:!!e.bee,multi:es.length};
 }
+// 🏆 [2026-08-22] 제9회 멸망전 확정 팀 — 경매 낙찰 결과(팀장, [팀원, 낙찰가]). 표기는 시트·별칭과 매칭되는 형태.
+const MYEOL_TEAMS9=[
+ {cap:"택 스",m:[["앙앵모르딱",400],["SPYAIR",550],["GYUSE0K",245],["한 별",50]]},
+ {cap:"수직낙하하는중",m:[["망무새",375],["김쪼랭",90],["집중겜",90],["언 진",445]]},
+ {cap:"태 희",m:[["서렌안치는사람",440],["건 빡",160],["팀원과싸우지말자",200],["손톱깎이",100]]},
+ {cap:"태 웅",m:[["임준현",5],["ASCASS",300],["뵤뵤",270],["WEI HA",300]]},
+ {cap:"CARTER",m:[["오함마",95],["우 거",740],["SALTHUNT",150],["현타온덕현하콩",305]]},
+ {cap:"프 싱",m:[["뭉탱이",540],["지옥의왕",255],["PIACERD AMOR",185],["김야옹",50]]},
+ {cap:"난오늘만살아",m:[["파 랑",310],["듀우쿠우",410],["지을게없다구",265],["아 리",0]]},
+ {cap:"예니야",m:[["그냥해",370],["또그입니까",10],["맨헤라공원팬티도둑",125],["뎁뚜처럼",535]]},
+ {cap:"MARU",m:[["지 르",540],["용조련사",400],["간절한명예소환사",100],["정글위치생각해요",170]]},
+ {cap:"야릇한언니들",m:[["맛동산장인유미",300],["JESTER",5],["배불배불",410],["착 부",265]]},
+ {cap:"RAYB",m:[["귤 갓",410],["12X16",5],["라이프스타일",5],["수화은연",740]]},
+ {cap:"SIAH K",m:[["악 진",340],["일단즐겨",630],["레멍이",5],["CHIHUAHUA",0]]},
+];
+function myeolTeamRankHtml(){
+  // 팀 전투력 = 5인 공용 1인분(내부티어+통산승률 수축) 합 — 밸런스 사후평가·분석기 예상승률과 같은 산식.
+  const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
+  if(!src||!src.size) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  const rec=new Map();
+  for(const [,g] of src){ for(const r of g.rows||[]){ const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
+    const k=canonOfRow(r); if(!k)continue; let e=rec.get(k); if(!e)rec.set(k,e={g:0,w:0}); e.g++; if(res==="승리")e.w++; } }
+  const K=8;
+  const pOf=nm=>{ const cn=canonOfName(MYEOL_NAMEFIX[nm]||nm); const t=tierScore(tierOf(cn)); if(t==null)return null;
+    const e=rec.get(cn)||{g:0,w:0}; return (t+((e.w+0.5*K)/(e.g+K))*10)/2; };
+  const teams=MYEOL_TEAMS9.map(t=>{
+    const rows=[[t.cap,null]].concat(t.m).map(([n,p])=>({n,p,pw:pOf(n)}));
+    const ok=rows.every(r=>r.pw!=null);
+    return {cap:t.cap, rows, sum:ok?rows.reduce((a,r)=>a+r.pw,0):null,
+            spent:t.m.reduce((a,[,p])=>a+p,0)};
+  }).sort((a,b)=>(b.sum??-1)-(a.sum??-1));
+  const smax=Math.max(...teams.map(t=>t.sum??0)), smin=Math.min(...teams.map(t=>t.sum??99));
+  return teams.map((t,i)=>{
+    const med=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}위`;
+    const w=t.sum==null?0:(smax>smin?(t.sum-smin)/(smax-smin)*100:50);
+    return `<div style="padding:9px 2px;border-top:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:9px">
+        <b style="min-width:34px;color:var(--sub)">${med}</b>
+        <b style="flex:1;font-size:15px">${esc(t.cap)}</b>
+        <span class="muted" style="font-size:12px">지출 ${t.spent}P</span>
+        <b style="color:var(--gold);font-size:15px" title="5인 전투력 합 — 전투력차 1 = 예상승률 4%p">⚔ ${t.sum==null?'-':t.sum.toFixed(1)}</b></div>
+      <div style="height:5px;background:var(--bg2);border-radius:3px;margin:6px 0 7px;overflow:hidden"><div style="height:100%;width:${w.toFixed(0)}%;background:linear-gradient(90deg,#7aa2ff,var(--gold));border-radius:3px"></div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px">
+        ${t.rows.map(r=>`<span><span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[r.n]||r.n))}')">${esc(r.n)}</span> <b style="color:#9fd0ff">⚔${r.pw==null?'-':r.pw.toFixed(1)}</b><span class="muted"> ${r.p==null?'팀장':(r.p?r.p+'P':'유찰')}</span></span>`).join("")}
+      </div></div>`;
+  }).join("");
+}
 function renderMyeol(){
   const M0=computeMyeol();
   if(!M0){ view().innerHTML=`${navTabsHtml('myeol')}<div class="empty">데이터 로딩 후 이용할 수 있어요.</div>`; return; }
@@ -5592,7 +5639,7 @@ function renderMyeol(){
   ${unk.length?`<div class="card" style="margin-top:10px"><h2>포지션 미등록 <span class="muted" style="font-size:12.5px;font-weight:400">${unk.length}명</span></h2>${unk.map(c=>`<span style="margin:3px 8px 3px 0;display:inline-block"><b style="color:${MYEOL_TCOL[c.tier]}">${tg(c)}</b> ${esc(c.nm)} <b style="color:${pb(c.fair)}">${c.fair}P</b></span>`).join("")}</div>`:''}
   <div class="card" style="margin-top:10px"><h2>🎯 검증 — 내부티어 등급별 실측 평균가</h2><div style="margin:4px 0">${lad}</div>
   <div class="muted" style="font-size:12.5px;margin-top:6px;line-height:1.5">등급이 내려갈수록 값도 순서대로 내려가면 이 계산이 클랜 내부티어와 같은 방향을 본다는 뜻이에요.<br>산식: AI점수·짊어진무게·MVP/ACE율·솔랭피크·승률·KDA·분당딜·킬관여·시야·분당CS·솔로킬·챔프폭·역적률·억울지수를 <b>같은 포지션끼리</b> 백분위 비교하고 판수가 적으면 평균 쪽으로 보정 → <b>상대가</b>(제6·7·8회 실제 낙찰가 148건 분포 매핑)와 <b>절대가</b>(같은 점수 = 같은 값인 고정 척도)를 <b>반반 평균</b> → <b>포지션 가중</b>(상위 매물: 정글 웃돈·탑/서폿 할인, 하위 매물: 탑·서폿 우대 — 대회 시세표 기준) → <b>상한 700P·승률 하한</b>(5~10P는 승률까지 바닥일 때만). 그 포지션 <b>12판 이상</b>만 실측이고, 미만은 내부티어 순위로만 추정합니다. 사람을 평가하는 순위표가 아니라 경매 참고용 기계 추정치입니다.</div></div>
-  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹</h2><div class="muted">경매(8/22)로 팀이 확정되면 여기에 열립니다.</div></div>`;
+  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/22 경매 확정 로스터 · 전투력(내부티어+통산승률) 5인 합 · 내전 기록 갱신 시 자동 변동</span></h2>${myeolTeamRankHtml()}</div>`;
 }
 
 function renderMitoLog(){
