@@ -2043,7 +2043,12 @@ def load_claude_key():
         except Exception: pass
     return None
 
-DRAFT_MODEL = "claude-sonnet-5"     # 밴픽 30초 제한 → 저지연/저비용 우선(품질 부족하면 claude-opus-4-8로 상향)
+DRAFT_MODEL = "claude-haiku-4-5"    # [8/23 사장님] 밴픽 추천이 느리다 → 최저지연 모델(TTFT·출력속도 최상, 비용 1/3). 품질 아쉬우면 claude-sonnet-5 복귀
+# ⚙️ Haiku 4.5 는 thinking·output_config(effort) 파라미터를 받지 않는다(400) — Sonnet 계열로 되돌릴 때만 붙는다.
+_DRAFT_XTRA = {} if DRAFT_MODEL.startswith("claude-haiku") else {
+    "thinking": {"type": "disabled"},          # 밴픽 30초 제한 → 저지연 최우선
+    "output_config": {"effort": "medium"},     # [v81.77] 상성 판단 품질 ↑ (low는 매치업을 대충 봄)
+}
 _DRAFT_SEEN = set()                 # 같은 밴픽 상황 중복 호출 방지(상태 해시)
 _DRAFT_BUSY = [False]
 _DRAFT_POOL_CACHE = {}              # {내이름: [(챔프, 판수, 승)]} — 밴픽당 1회 계산
@@ -2979,8 +2984,7 @@ def _draft_advise(ctx, my_pool):
         with cl.messages.stream(
                 model=DRAFT_MODEL,
                 max_tokens=550,   # [v82.40] 요약(짧게) + 접힌 근거 6줄 — 시인성과 신뢰도 동시 확보
-                thinking={"type": "disabled"},          # 밴픽 30초 제한 → 저지연 최우선
-                output_config={"effort": "medium"},     # [v81.77] 상성 판단 품질 ↑ (low는 매치업을 대충 봄)
+                **_DRAFT_XTRA,
                 system=[{"type": "text", "text": system_text,
                          "cache_control": {"type": "ephemeral"}}],   # 고정 파트 → 캐시(2회차부터 1/10 가격)
                 messages=[{"role": "user", "content": user_txt}],
