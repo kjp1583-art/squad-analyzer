@@ -5569,6 +5569,46 @@ function myeolTeamRankHtml(){
       </div></div>`;
   }).join("");
 }
+// ⚔ [2026-08-24 사장님 지시] 스크림 전적 — '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 팀 대 팀으로 인정.
+//    팀장이 일반 내전에 낀 판을 스크림으로 오인하지 않기 위한 기준(8/24 QnA 오답의 원인).
+function myeolScrimHtml(){
+  const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
+  if(!src||!src.size) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  const teamOf=new Map();   // 키 = _myNk(태그·공백 제거) — canonOfRow는 태그 포함이라 직접 매칭이 안 된다
+  const _tk=n=>_myNk(canonOfName(MYEOL_NAMEFIX[n]||n));
+  for(const t of MYEOL_TEAMS9){ teamOf.set(_tk(t.cap),t.cap);
+    for(const [n] of t.m) teamOf.set(_tk(n),t.cap); }
+  const rec=new Map(); const list=[];
+  for(const [gid,g] of src){
+    const rs=g.rows||[]; let day=null;
+    for(const r of rs){ const d=_rdt(r["날짜"]); if(d){day=d;break;} }
+    if(!day||day<new Date(2026,7,22))continue;   // 경매(8/22) 이후만
+    const side={};
+    for(const r of rs){ const sd=r["진영"]; if(sd!=="블루팀"&&sd!=="레드팀")continue; (side[sd]=side[sd]||[]).push(r); }
+    if(!side["블루팀"]||!side["레드팀"])continue;
+    const teamMaj=ms=>{ const c=new Map();
+      for(const r of ms){ const t=teamOf.get(_myNk(canonOfName(canonOfRow(r)))); if(t)c.set(t,(c.get(t)||0)+1); }
+      let best=null,bn=0; for(const [t,n] of c) if(n>bn){best=t;bn=n;}
+      return bn>=4?best:null; };
+    const bt=teamMaj(side["블루팀"]), rt=teamMaj(side["레드팀"]);
+    if(!bt||!rt||bt===rt)continue;
+    const res=ms=>{ const v=new Set(ms.map(r=>r["결과"])); return v.size===1?[...v][0]:null; };
+    const rb=res(side["블루팀"]);
+    if(rb!=="승리"&&rb!=="패배")continue;
+    const win=rb==="승리"?bt:rt, lose=rb==="승리"?rt:bt;
+    for(const [t,w] of [[win,1],[lose,0]]){ let e=rec.get(t); if(!e)rec.set(t,e={w:0,l:0}); w?e.w++:e.l++; }
+    list.push({day,gid,win,lose});
+  }
+  if(!list.length) return `<div class="muted">아직 스크림(양 팀 모두 같은 멸망전 팀 4인 이상) 기록이 없어요 — 팀장끼리 일반 내전에 낀 판은 세지 않습니다.</div>`;
+  const rank=[...rec.entries()].sort((a,b)=>(b[1].w-b[1].l)-(a[1].w-a[1].l)||b[1].w-a[1].w);
+  const rows=rank.map(([t,e])=>`<span style="margin:2px 12px 2px 0;display:inline-block"><b>${esc(t)}</b> <b style="color:var(--win)">${e.w}승</b> <b style="color:var(--lose)">${e.l}패</b></span>`).join("");
+  const recent=list.sort((a,b)=>b.day-a.day).slice(0,10).map(m=>`<div class="rpr">
+      <span class="rpr-d">${m.day.getMonth()+1}/${m.day.getDate()}</span>
+      <span class="rpr-t"><b style="color:var(--win)">${esc(m.win)}</b> 승 <span class="muted">vs</span> ${esc(m.lose)}</span>
+      <span class="rpr-g clickname" onclick="go('game','${escAttr(m.gid)}')">보기 ›</span></div>`).join("");
+  return `<div style="margin:4px 0 8px">${rows}</div><div>${recent}</div>
+    <div class="muted" style="font-size:11.5px;margin-top:8px">※ '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 스크림으로 집계합니다(용병 1명까지 허용). 팀장·팀원이 일반 내전에 흩어져 낀 판은 팀 전적이 아니에요.</div>`;
+}
 function renderMyeol(){
   const M0=computeMyeol();
   if(!M0){ view().innerHTML=`${navTabsHtml('myeol')}<div class="empty">데이터 로딩 후 이용할 수 있어요.</div>`; return; }
@@ -5644,6 +5684,7 @@ function renderMyeol(){
   .myeol-t td{padding:3px 2px;text-align:center;border-bottom:1px solid rgba(120,130,160,.08);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
   ${priceSec}
   ${MYEOL_SHOW_PRICES?"":`<h2 style="margin:6px 0 4px">⚔️ 제9회 멸망전</h2><div class="muted" style="font-size:13px;margin-bottom:4px">경매가 끝나 적정가 표는 내렸어요 — 아래는 확정 12팀의 파워랭킹입니다.</div>`}
+  <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 팀 대 팀으로 붙은 판만 · 시트 갱신 시 자동</span></h2>${myeolScrimHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/22 경매 확정 로스터 · 전투력(내부티어+통산승률) 5인 합 · 내전 기록 갱신 시 자동 변동</span></h2>${myeolTeamRankHtml()}</div>`;
 }
 
