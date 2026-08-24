@@ -4581,6 +4581,31 @@ def backfill_pending_results():
                 info = (resp.json() or {}).get("info") or {}
                 win_by_team = {tm.get("teamId"): bool(tm.get("win")) for tm in info.get("teams", [])}
                 if 100 not in win_by_team and 200 not in win_by_team: continue
+                # 🔁 [v83.31] 다시하기(리메이크) 무효판 가드 — 승리팀이 없거나(양팀 win=false) 5분 미만 종료.
+                #   8/23 #8352648286: 전원 KDA 0/0/0 리메이크가 양팀 '패배'로 백필돼 스크림 전적이 오염됐다(사장님 제보).
+                #   리엇 공식 기록 기준이라 오탐 없음 — 정상 판은 승리팀이 반드시 있고, 최단 조기항복(3:30)도 리메이크 판정이다.
+                try: _gdur = float(info.get("gameDuration") or 0)
+                except Exception: _gdur = 0.0
+                if (not any(win_by_team.values())) or (0 < _gdur < 300):
+                    try:
+                        time.sleep(random.uniform(0, 5))   # 다중 인스턴스 동시 삭제 창 축소(잔행은 다음 주기가 정리)
+                        _lv = ws.get_all_values()          # 서비스계정 재독 — 행번호 정확성(삭제는 절대 gviz 기준 금지)
+                        _gc = _lv[0].index("게임ID") if (_lv and "게임ID" in _lv[0]) else c_gid
+                        _hits = [i + 1 for i in range(1, len(_lv)) if len(_lv[i]) > _gc and str(_lv[i][_gc]).strip() == gid]
+                        _runs = []                          # 연속 구간으로 묶어 호출 최소화, 아래부터 삭제(인덱스 밀림 방지)
+                        for _rn in _hits:
+                            if _runs and _rn == _runs[-1][1] + 1: _runs[-1][1] = _rn
+                            else: _runs.append([_rn, _rn])
+                        for _s, _e in reversed(_runs): ws.delete_rows(_s, _e)
+                        invalidate_sheet_cache(ws.title)
+                        _bf_skip_gids.add(gid)
+                        print(f"[backfill] 🔁 {gid} 다시하기(리메이크) 판 — {len(_hits)}행 제거(승리팀 없음, {int(_gdur)}s)", flush=True)
+                        if _hits:
+                            try: broadcast_plain_webhook(f"🔁 {gid} 판은 다시하기(리메이크)로 무효 — 전적에서 제외했어요 (리엇 공식 기록 기준)")
+                            except Exception: pass
+                    except Exception as _de:
+                        print(f"[backfill] 리메이크 행 제거 실패(다음 주기 재시도): {type(_de).__name__} {str(_de)[:80]}", flush=True)
+                    continue
                 # 참가자 KDA 매칭 맵: ①소환사명(롤닉#태그, tnorm) ②(진영, 포지션) 폴백
                 kda_by_name, kda_by_pos = {}, {}
                 ext_by_name, ext_by_pos = {}, {}   # 🛒 (아이템, 주룬, 보조룬)
@@ -8300,6 +8325,21 @@ def lcu_core_backend_loop():
                         #   (예전엔 여기서 시트기록 전에 즉시 발송 → 이른 스냅샷 ACE가 나중에 시트에서 뒤집혀도 웹훅은 그대로 = 불일치)
                         #   (종료 로스터 메시지는 제거됨 — 매치 결과 리포트만. 봇은 '매치 결과 리포트'를 종료 신호로 인식.)
 
+                        # 🔁 [v83.31] 다시하기(리메이크) 가드 — '이 게임'으로 검증된 데이터(_md_verified)에서 승리팀이
+                        #   없고 전원 KDA 0/0/0이면 무효판. 승패·평가를 쓰지 않고 '결과 대기'로 남긴다 → 30분 뒤 백필
+                        #   스위퍼가 리엇 공식 기록으로 확증한 뒤 행을 통째로 제거(삭제 지점 단일화 — 라이브 쓰기 경합 방지).
+                        #   구버전은 win_id=0이면 전원 '패배'를 적어 리메이크가 승패로 남았다. 종료 웹훅은 위에서 이미
+                        #   발송됐으므로(승리 진영 줄 없음) 봇의 게임 종료 인식에는 영향 없음.
+                        _rmk_kvals = [v for v in kda_map.values() if isinstance(v, str) and v.count("/") == 2]
+                        try: _rmk_dur = float(match_data.get('gameLength', match_data.get('gameDuration', 0)) or 0)
+                        except Exception: _rmk_dur = 0.0
+                        if (_md_verified and win_id == 0 and _rmk_kvals
+                                and all(v.strip() == "0/0/0" for v in _rmk_kvals) and _rmk_dur < 600):
+                            print(f"[finalize] 🔁 #{active_recording_id} 다시하기(리메이크) 감지 — 승패 기입 생략(백필 스위퍼가 행 제거)", flush=True)
+                            with gui_lock: gui_data["status"] = "🔁 다시하기 판 — 전적에 기록하지 않습니다"
+                            active_recording_id = None
+                            eog_retry_count = 0; eog_write_retry = 0; _fin_write_retry = 0
+                            continue
                         # [V81.45→V81.47] 쓰기 폭주 차단 + 행정합 정확성(리뷰반영).
                         _finalize_gid = f"#{active_recording_id}"
                         _is_appender = active_recording_id in appended_game_ids
