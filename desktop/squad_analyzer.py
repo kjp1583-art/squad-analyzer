@@ -4388,6 +4388,16 @@ def _lcu_backfill_once():
         idents = {p.get("participantId"): (p.get("player") or {}) for p in (full.get("participantIdentities") or [])}
         if len(parts) < 10 or len(idents) < 10:
             _LCU_BF_DONE.add(gid); continue           # 봇전·인원미달 커스텀 — 회수 대상 아님
+        # 🔁 [v83.31] 다시하기(리메이크) 판은 회수하지 않는다 — 승리팀 없음 또는 5분 미만 종료(백필 스위퍼와 같은 판정).
+        #   회수하면 전원 '패배'로 들어가 스위퍼의 무효 마감과 청소↔부활 루프가 생긴다.
+        try: _ld = float(full.get("gameDuration") or 0)
+        except Exception: _ld = 0.0
+        _lteams = full.get("teams") or []
+        _lw = any((t.get("win") in ("Win", True)) or t.get("isWinningTeam") is True for t in _lteams) if _lteams else True
+        if (not _lw) or (0 < _ld < 300):
+            _LCU_BF_DONE.add(gid)
+            print(f"[lcu백필] #{gid} 스킵 — 다시하기(리메이크) 판({int(_ld)}s)", flush=True)
+            continue
         tab = "KIWI_KIWI" if full.get("mapId") == 12 else "CLASSIC_NORMAL"
         ws, hd, gids = tabs[tab]
         if ("#" + gid) in gids:
@@ -4534,10 +4544,15 @@ def backfill_pending_results():
                 except Exception: continue
         pend = []
         _pend_meta = {}   # gid -> (가장 이른 날짜문자열, [시트행번호…]) — 오래된 미보관 판 마감용
+        _res_by_gid = {}; _gid_date = {}; _rmk_suspects = set()   # 🔁 [v83.31] 전원 패배 게임 = 리메이크 의심 재검용
         for _ri, r in enumerate(rows[1:], start=2):
             try:
                 if len(r) <= max(c_gid, c_res): continue
                 _res_v = str(r[c_res]).strip()
+                _g0 = str(r[c_gid]).strip()
+                if _g0 and _res_v: _res_by_gid.setdefault(_g0, set()).add(_res_v)
+                if _g0 and _g0 not in _gid_date and c_date >= 0 and len(r) > c_date:
+                    _gid_date[_g0] = str(r[c_date]).strip()
                 _eval_v = str(r[c_eval]).strip() if (c_eval >= 0 and len(r) > c_eval) else ""
                 _need_eval = ((_res_v in ("승리", "패배")) and (_eval_v == "평가 없음")
                               and str(r[c_gid]).strip() not in _eval_done_gids)
@@ -4553,6 +4568,20 @@ def backfill_pending_results():
                 _m = _pend_meta.setdefault(gid, [str(r[c_date]).strip(), []])
                 if _res_v == "결과 대기": _m[1].append(_ri)
             except Exception: continue
+        # 🔁 [v83.31] '전원 패배' 게임 = 리메이크 의심 — 정상 판은 승리 진영이 반드시 있다. 구버전 인스턴스가
+        #   리메이크를 양팀 패배로 마감해 둔 판(예: 8/23 #8352648286 유형)을 리엇 기록으로 재검해 자가치유.
+        #   MVP가 배정돼 _eval_done_gids로 재큐잉이 막힌 판도 이 규칙으로는 잡힌다. 승리팀이 확인되면
+        #   _bf_skip_gids에 넣어 재조회 반복을 막는다(위 fetch 루프의 _rmk_suspects 분기).
+        for _sg, _rv in _res_by_gid.items():
+            try:
+                if _rv != {"패배"} or _sg in pend or _sg in _bf_skip_gids: continue
+                if not re.fullmatch(r"#\d+", _sg): continue
+                _sd = _gid_date.get(_sg, "")
+                try: _st = time.mktime(time.strptime(_sd, "%Y-%m-%d %H:%M"))
+                except ValueError: _st = time.mktime(time.strptime(_sd, "%Y-%m-%d"))   # 2026-07-06 이전 '날짜만' 행 폴백
+                if now - _st < 1800: continue
+                pend.append(_sg); _rmk_suspects.add(_sg)
+            except Exception: continue
         for gid in pend:
             try:
                 resp = requests.get("https://asia.api.riotgames.com/lol/match/v5/matches/KR_" + gid.lstrip("#"),
@@ -4566,10 +4595,18 @@ def backfill_pending_results():
                         #    그대로 두면 시트에 유령 행이 쌓이고 매주 감사에 같은 항목이 계속 뜬다 → '무효'로 마감.
                         try:
                             _md, _mrows = _pend_meta.get(gid, ["", []])
-                            _age = now - time.mktime(time.strptime(_md, "%Y-%m-%d %H:%M"))
-                            if _mrows and _age > 7 * 86400:
-                                ws.update_cells([gspread.Cell(row=_r, col=c_res + 1, value="무효") for _r in _mrows])
-                                print(f"[backfill] 🧹 {gid} 7일 초과 미보관 — {len(_mrows)}행 '무효' 마감", flush=True)
+                            if _mrows and _md:   # 전원 패배 의심(suspects) 경유 gid는 _pend_meta가 비어 조용히 건너뜀
+                                _age = now - time.mktime(time.strptime(_md, "%Y-%m-%d %H:%M"))
+                                if _age > 7 * 86400:
+                                    # [v83.31] 스냅샷(gviz) 행번호로 쓰던 것을 쓰기 직전 서비스계정 재독으로 통일 —
+                                    #   gviz는 빈 행을 드롭해 행번호가 어긋날 수 있어, 다른 게임 행에 '무효'가 박힐 위험.
+                                    _lv2 = ws.get_all_values()
+                                    _cells2 = [gspread.Cell(row=i + 1, col=c_res + 1, value="무효")
+                                               for i in range(1, len(_lv2))
+                                               if len(_lv2[i]) > max(c_gid, c_res) and str(_lv2[i][c_gid]).strip() == gid
+                                               and str(_lv2[i][c_res]).strip() == "결과 대기"]
+                                    if _cells2: ws.update_cells(_cells2)
+                                    print(f"[backfill] 🧹 {gid} 7일 초과 미보관 — {len(_cells2)}행 '무효' 마감", flush=True)
                         except Exception as _ce:
                             print(f"[backfill] 마감 실패(무시): {type(_ce).__name__}", flush=True)
                     continue
@@ -4587,25 +4624,33 @@ def backfill_pending_results():
                 try: _gdur = float(info.get("gameDuration") or 0)
                 except Exception: _gdur = 0.0
                 if (not any(win_by_team.values())) or (0 < _gdur < 300):
+                    # ⚠️ 행을 지우거나 비우지 않고 '무효' 마감(7일 미보관 마감과 같은 관례) — 삭제·비우기는
+                    #   ①빈 행을 gviz가 통째로 드롭해 행번호가 어긋나고(실측 확인) ②게임ID가 시트에서 사라져
+                    #   LCU 백필이 이 판을 '미기록'으로 보고 되살리며(청소↔부활 루프) ③append가 빈 구간에
+                    #   착지해 행순서=시간순 가정을 깰 수 있다. '무효'는 웹·통계·백필 전부가 승패 아님으로 무시.
+                    #   멱등(이미 무효인 행은 건너뜀)·행번호 불변이라 다중 인스턴스가 겹쳐도 무해.
                     try:
-                        time.sleep(random.uniform(0, 5))   # 다중 인스턴스 동시 삭제 창 축소(잔행은 다음 주기가 정리)
-                        _lv = ws.get_all_values()          # 서비스계정 재독 — 행번호 정확성(삭제는 절대 gviz 기준 금지)
-                        _gc = _lv[0].index("게임ID") if (_lv and "게임ID" in _lv[0]) else c_gid
-                        _hits = [i + 1 for i in range(1, len(_lv)) if len(_lv[i]) > _gc and str(_lv[i][_gc]).strip() == gid]
-                        _runs = []                          # 연속 구간으로 묶어 호출 최소화, 아래부터 삭제(인덱스 밀림 방지)
-                        for _rn in _hits:
-                            if _runs and _rn == _runs[-1][1] + 1: _runs[-1][1] = _rn
-                            else: _runs.append([_rn, _rn])
-                        for _s, _e in reversed(_runs): ws.delete_rows(_s, _e)
+                        _lv = ws.get_all_values()          # 서비스계정 재독 — 행번호 정확성(쓰기는 절대 gviz 기준 금지)
+                        _h0 = _lv[0] if _lv else []
+                        _gc = _h0.index("게임ID") if "게임ID" in _h0 else c_gid
+                        _rc = _h0.index("결과") if "결과" in _h0 else c_res
+                        _cells = [gspread.Cell(row=i + 1, col=_rc + 1, value="무효")
+                                  for i in range(1, len(_lv))
+                                  if len(_lv[i]) > max(_gc, _rc) and str(_lv[i][_gc]).strip() == gid
+                                  and str(_lv[i][_rc]).strip() != "무효"]
+                        if _cells: ws.update_cells(_cells)
                         invalidate_sheet_cache(ws.title)
                         _bf_skip_gids.add(gid)
-                        print(f"[backfill] 🔁 {gid} 다시하기(리메이크) 판 — {len(_hits)}행 제거(승리팀 없음, {int(_gdur)}s)", flush=True)
-                        if _hits:
+                        print(f"[backfill] 🔁 {gid} 다시하기(리메이크) 판 — {len(_cells)}행 '무효' 마감(승리팀 없음, {int(_gdur)}s)", flush=True)
+                        if _cells:
                             try: broadcast_plain_webhook(f"🔁 {gid} 판은 다시하기(리메이크)로 무효 — 전적에서 제외했어요 (리엇 공식 기록 기준)")
                             except Exception: pass
                     except Exception as _de:
-                        print(f"[backfill] 리메이크 행 제거 실패(다음 주기 재시도): {type(_de).__name__} {str(_de)[:80]}", flush=True)
+                        print(f"[backfill] 리메이크 무효 마감 실패(다음 주기 재시도): {type(_de).__name__} {str(_de)[:80]}", flush=True)
                     continue
+                if gid in _rmk_suspects:
+                    _bf_skip_gids.add(gid)   # 전원 패배로 의심했지만 리엇 기록엔 승리팀 존재(이례) → 재조회 반복 방지
+                    continue                 # 기입 경로로 흘리지 않는다 — _eval_done_gids 우회 평가 중복·오보 리포트 방지
                 # 참가자 KDA 매칭 맵: ①소환사명(롤닉#태그, tnorm) ②(진영, 포지션) 폴백
                 kda_by_name, kda_by_pos = {}, {}
                 ext_by_name, ext_by_pos = {}, {}   # 🛒 (아이템, 주룬, 보조룬)
@@ -8327,15 +8372,17 @@ def lcu_core_backend_loop():
 
                         # 🔁 [v83.31] 다시하기(리메이크) 가드 — '이 게임'으로 검증된 데이터(_md_verified)에서 승리팀이
                         #   없고 전원 KDA 0/0/0이면 무효판. 승패·평가를 쓰지 않고 '결과 대기'로 남긴다 → 30분 뒤 백필
-                        #   스위퍼가 리엇 공식 기록으로 확증한 뒤 행을 통째로 제거(삭제 지점 단일화 — 라이브 쓰기 경합 방지).
+                        #   스위퍼가 리엇 공식 기록으로 확증한 뒤 '무효'로 마감(마감 지점 단일화 — 라이브 쓰기 경합 방지).
                         #   구버전은 win_id=0이면 전원 '패배'를 적어 리메이크가 승패로 남았다. 종료 웹훅은 위에서 이미
                         #   발송됐으므로(승리 진영 줄 없음) 봇의 게임 종료 인식에는 영향 없음.
                         _rmk_kvals = [v for v in kda_map.values() if isinstance(v, str) and v.count("/") == 2]
+                        _rmk_zero = bool(_rmk_kvals) and all(v.strip() == "0/0/0" for v in _rmk_kvals)
                         try: _rmk_dur = float(match_data.get('gameLength', match_data.get('gameDuration', 0)) or 0)
                         except Exception: _rmk_dur = 0.0
-                        if (_md_verified and win_id == 0 and _rmk_kvals
-                                and all(v.strip() == "0/0/0" for v in _rmk_kvals) and _rmk_dur < 600):
-                            print(f"[finalize] 🔁 #{active_recording_id} 다시하기(리메이크) 감지 — 승패 기입 생략(백필 스위퍼가 행 제거)", flush=True)
+                        # 전원 0/0/0 또는 5분 미만 종료(킬이 난 리메이크) 중 하나면 무효판. 어느 쪽도 아니면 기존
+                        #   경로(승패 기입)로 두고, 백필의 '전원 패배' 재검이 최종 안전망으로 정리한다.
+                        if _md_verified and win_id == 0 and (_rmk_zero or 0 < _rmk_dur < 300):
+                            print(f"[finalize] 🔁 #{active_recording_id} 다시하기(리메이크) 감지 — 승패 기입 생략(백필 스위퍼가 '무효' 마감)", flush=True)
                             with gui_lock: gui_data["status"] = "🔁 다시하기 판 — 전적에 기록하지 않습니다"
                             active_recording_id = None
                             eog_retry_count = 0; eog_write_retry = 0; _fin_write_retry = 0
