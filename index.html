@@ -5583,6 +5583,7 @@ function myeolScrimHtml(){
     const rs=g.rows||[]; let day=null;
     for(const r of rs){ const d=_rdt(r["날짜"]); if(d){day=d;break;} }
     if(!day||day<new Date(2026,7,22))continue;   // 경매(8/22) 이후만
+    if(rs.length&&rs.every(r=>String(r["KDA"]||"").trim()==="0/0/0"))continue;   // 전원 0/0/0 = 다시하기(리메이크) 무효판
     const side={};
     for(const r of rs){ const sd=r["진영"]; if(sd!=="블루팀"&&sd!=="레드팀")continue; (side[sd]=side[sd]||[]).push(r); }
     if(!side["블루팀"]||!side["레드팀"])continue;
