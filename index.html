@@ -5537,16 +5537,21 @@ const MYEOL_TEAMS9=[
  {cap:"RAYB",m:[["귤 갓",410],["12X16",5],["라이프스타일",5],["수화은연",740]]},
  {cap:"SIAH K",m:[["악 진",340],["일단즐겨",630],["레멍이",5],["CHIHUAHUA",0]]},
 ];
-function myeolTeamRankHtml(){
-  // 팀 전투력 = 5인 공용 1인분(내부티어+통산승률 수축) 합 — 밸런스 사후평가·분석기 예상승률과 같은 산식.
+function _myeolPOf(){
+  // 공용 1인 전투력(내부티어+통산승률 수축) 클로저 — 팀 파워랭킹·봇듀오 랭킹 공용.
   const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
-  if(!src||!src.size) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  if(!src||!src.size) return null;
   const rec=new Map();
   for(const [,g] of src){ for(const r of g.rows||[]){ const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
     const k=canonOfRow(r); if(!k)continue; let e=rec.get(k); if(!e)rec.set(k,e={g:0,w:0}); e.g++; if(res==="승리")e.w++; } }
   const K=8;
-  const pOf=nm=>{ const cn=canonOfName(MYEOL_NAMEFIX[nm]||nm); const t=tierScore(tierOf(cn)); if(t==null)return null;
+  return nm=>{ const cn=canonOfName(MYEOL_NAMEFIX[nm]||nm); const t=tierScore(tierOf(cn)); if(t==null)return null;
     const e=rec.get(cn)||{g:0,w:0}; return (t+((e.w+0.5*K)/(e.g+K))*10)/2; };
+}
+function myeolTeamRankHtml(){
+  // 팀 전투력 = 5인 공용 1인분(내부티어+통산승률 수축) 합 — 밸런스 사후평가·분석기 예상승률과 같은 산식.
+  const pOf=_myeolPOf();
+  if(!pOf) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
   const teams=MYEOL_TEAMS9.map(t=>{
     const rows=[[t.cap,null]].concat(t.m).map(([n,p])=>({n,p,pw:pOf(n)}));
     const ok=rows.every(r=>r.pw!=null);
@@ -5567,6 +5572,50 @@ function myeolTeamRankHtml(){
       <div style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px">
         ${t.rows.map(r=>`<span><span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[r.n]||r.n))}')">${esc(r.n)}</span> <b style="color:#9fd0ff">⚔${r.pw==null?'-':r.pw.toFixed(1)}</b><span class="muted"> ${r.p==null?'팀장':(r.p?r.p+'P':'유찰')}</span></span>`).join("")}
       </div></div>`;
+  }).join("");
+}
+// 💑 [2026-08-24 사장님 지시] 팀별 봇듀오(원딜+서폿) 파워랭킹. 라인업은 8/23 스크림 실측 우선, 없으면 주포지션.
+//    바텀이 유동적인 팀(사장님 지정: SIAH K·택스·MARU + 실측 불가 태희)은 경우의수를 각각 랭킹에 올린다.
+const MYEOL_BOTDUOS=[
+ {t:"택 스",ad:"GYUSE0K",sup:"앙앵모르딱"},
+ {t:"택 스",ad:"GYUSE0K",sup:"택 스"},
+ {t:"수직낙하하는중",ad:"집중겜",sup:"김쪼랭",note:"실측 7판"},
+ {t:"태 희",ad:"태 희",sup:"팀원과싸우지말자",note:"원딜 미확정"},
+ {t:"태 희",ad:"건 빡",sup:"팀원과싸우지말자",note:"원딜 미확정"},
+ {t:"태 웅",ad:"임준현",sup:"뵤뵤",note:"실측 5판"},
+ {t:"CARTER",ad:"현타온덕현하콩",sup:"오함마",note:"실측 2판"},
+ {t:"프 싱",ad:"뭉탱이",sup:"김야옹",note:"실측 4판"},
+ {t:"난오늘만살아",ad:"파 랑",sup:"아 리",note:"실측 2판"},
+ {t:"예니야",ad:"예니야",sup:"그냥해",note:"실측 2판"},
+ {t:"MARU",ad:"간절한명예소환사",sup:"MARU"},
+ {t:"MARU",ad:"간절한명예소환사",sup:"정글위치생각해요"},
+ {t:"야릇한언니들",ad:"배불배불",sup:"맛동산장인유미",note:"주포지션 기준"},
+ {t:"RAYB",ad:"수화은연",sup:"RAYB",note:"실측 5판"},
+ {t:"SIAH K",ad:"악 진",sup:"레멍이",note:"실측 3판"},
+ {t:"SIAH K",ad:"악 진",sup:"CHIHUAHUA",note:"실측 3판"},
+];
+function myeolBotDuoHtml(){
+  const pOf=_myeolPOf();
+  if(!pOf) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  const multi=new Map(); for(const d of MYEOL_BOTDUOS) multi.set(d.t,(multi.get(d.t)||0)+1);
+  const list=MYEOL_BOTDUOS.map(d=>{
+    const pa=pOf(d.ad), ps=pOf(d.sup);
+    return {...d, pa, ps, sum:(pa!=null&&ps!=null)?pa+ps:null};
+  }).sort((a,b)=>(b.sum??-1)-(a.sum??-1));
+  const smax=Math.max(...list.map(x=>x.sum??0)), smin=Math.min(...list.map(x=>x.sum??99));
+  const nm=n=>`<span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[n]||n))}')">${esc(n)}</span>`;
+  return list.map((d,i)=>{
+    const med=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}위`;
+    const w=d.sum==null?0:(smax>smin?(d.sum-smin)/(smax-smin)*100:50);
+    const cs=multi.get(d.t)>1?`<span style="color:#ffc861;font-size:10.5px;margin-left:4px">경우의수</span>`:"";
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid var(--line);font-size:13px">
+      <b style="min-width:34px;color:var(--sub)">${med}</b>
+      <b style="min-width:96px">${esc(d.t)}</b>${cs}
+      <span style="flex:1">🏹 ${nm(d.ad)} <b style="color:#9fd0ff">⚔${d.pa==null?'-':d.pa.toFixed(1)}</b>
+        <span class="muted">+</span> 🛡 ${nm(d.sup)} <b style="color:#9fd0ff">⚔${d.ps==null?'-':d.ps.toFixed(1)}</b>
+        ${d.note?`<span class="muted" style="font-size:10.5px;margin-left:5px">${esc(d.note)}</span>`:""}</span>
+      <div style="width:70px;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${w.toFixed(0)}%;background:linear-gradient(90deg,#7aa2ff,var(--gold))"></div></div>
+      <b style="color:var(--gold);min-width:48px;text-align:right">⚔ ${d.sum==null?'-':d.sum.toFixed(1)}</b></div>`;
   }).join("");
 }
 // ⚔ [2026-08-24 사장님 지시] 스크림 전적 — '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 팀 대 팀으로 인정.
@@ -5686,7 +5735,8 @@ function renderMyeol(){
   ${priceSec}
   ${MYEOL_SHOW_PRICES?"":`<h2 style="margin:6px 0 4px">⚔️ 제9회 멸망전</h2><div class="muted" style="font-size:13px;margin-bottom:4px">경매가 끝나 적정가 표는 내렸어요 — 아래는 확정 12팀의 파워랭킹입니다.</div>`}
   <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 팀 대 팀으로 붙은 판만 · 시트 갱신 시 자동</span></h2>${myeolScrimHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/22 경매 확정 로스터 · 전투력(내부티어+통산승률) 5인 합 · 내전 기록 갱신 시 자동 변동</span></h2>${myeolTeamRankHtml()}</div>`;
+  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/22 경매 확정 로스터 · 전투력(내부티어+통산승률) 5인 합 · 내전 기록 갱신 시 자동 변동</span></h2>${myeolTeamRankHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>💑 봇듀오 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 원딜+서폿 전투력 2인 합 · 라인업은 스크림 실측 우선(없으면 주포지션) · 바텀 유동 팀은 경우의수 병기</span></h2>${myeolBotDuoHtml()}</div>`;
 }
 
 function renderMitoLog(){
