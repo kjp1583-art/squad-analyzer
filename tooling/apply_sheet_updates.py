@@ -2,7 +2,7 @@
 """ai-eval-data 브랜치의 sheet_updates.json을 구글 시트에 직접 반영(Actions 전용).
 
 Apps Script 대체 — 사장님이 스크립트를 붙여넣고 sync를 누르지 않아도 시트 편집이 끝나게 한다.
-지원 op: create(+header) / append(중복 행 무시) / remove(첫 열 값 일치 행 삭제).
+지원 op: create(+header) / append(중복 행 무시) / remove(첫 열 값 일치 행 삭제) / update(조건 일치 행 셀 수정).
 적용된 seq는 sheet_updates_applied.txt에 남겨 재실행 시 건너뛴다(중복 반영 방지).
 """
 import base64, json, os, sys
@@ -68,6 +68,32 @@ def main():
                 ws.delete_rows(i + 1)   # 아래에서부터 삭제 — 인덱스 밀림 방지
             applied += len(hit)
             print(f"  · {tab}: {len(hit)}행 삭제")
+
+        # [2026-08-25] update: 조건 일치 행의 특정 열만 수정 — [{"match":{열:값,...},"set":{열:값,...}}, ...]
+        #   match 열 '전부'가 일치(공백 제거·소문자)하는 행만 set 열을 바꾼다. 이미 같은 값이면 건너뜀(멱등).
+        #   행 추가·삭제가 아니라 셀 수정이라 행번호가 안 밀린다. 헤더에 없는 열 이름이면 그 항목만 건너뛴다.
+        ups = op.get("update") or []
+        if ups:
+            vals = ws.get_all_values()
+            hd = vals[0] if vals else []
+            cells, skipped = [], 0
+            for u in ups:
+                match, setv = (u.get("match") or {}), (u.get("set") or {})
+                if not match or not setv: skipped += 1; continue
+                try:
+                    mi = {hd.index(k): v for k, v in match.items()}
+                    si = {hd.index(k): v for k, v in setv.items()}
+                except ValueError:
+                    print(f"  · {tab}: update 열 이름 없음 — 건너뜀 {sorted(match)}+{sorted(setv)}"); skipped += 1; continue
+                for r_i, row in enumerate(vals[1:], start=2):
+                    if all(len(row) > c and _norm(row[c]) == _norm(v) for c, v in mi.items()):
+                        for c, v in si.items():
+                            if len(row) <= c or str(row[c]).strip() != str(v).strip():
+                                cells.append(gspread.Cell(row=r_i, col=c + 1, value=v))
+            if cells:
+                ws.update_cells(cells)
+                applied += len(cells)
+            print(f"  · {tab}: update {len(cells)}셀 수정 (건너뜀 {skipped}건)")
 
     open(STATE, "w", encoding="utf-8").write(str(seq))
     print(f"완료 — seq {seq}, 총 {applied}건")
