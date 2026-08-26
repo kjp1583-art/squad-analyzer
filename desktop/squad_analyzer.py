@@ -2837,6 +2837,8 @@ _DRAFT_RULES = (
     "     챔프의 '통상 주 포지션'으로 단정하면 안 된다 — 럭스·세라핀처럼 두 라인 다 쓰는 챔프에서 반드시 틀린다.\n"
     "     예: 럭스를 고른 사람이 주:미드이고 서폿 유저는 럭스 전적이 0이면 → 그 럭스는 미드로 보는 게 맞다.\n"
     "     귀속 정보가 없으면 '상대 라이너 미확정'으로 두고 블라인드 안전픽으로 대응하라.\n"
+    "   - ★[내 라인 상대 후보] 블록이 있으면 후보를 하나로 고르지 마라 — 반드시 **후보별 분기**\n"
+    "     (\"A가 맞라인이면 → 픽 / B면 → 픽\")로 추천하고, 전 후보 공통 안전픽이 있으면 그걸 먼저 말하라.\n"
     "   - 대표 함정: 사일러스 상대 강궁 챔프(궁 강탈), 짧은 사거리로 장사거리 포킹 상대, 돌진기로 CC덩어리에 진입.\n"
     "3) **픽 순서 읽기**: 내 라인의 상대가 아직 미확정이면 나는 '선픽' — 카운터 여지 적은 블라인드 안전픽·플렉스픽(2개 라인 가능) 우선.\n"
     "   [내 챔프 숙련도] 블록의 '카운터당한 판 없음'은 **숙련도 근거일 뿐 선픽 안전이 아니다**(정밀 카운터를\n"
@@ -3071,14 +3073,37 @@ def _draft_advise(ctx, my_pool):
                 _ldg_blk += ("\n\n[클랜 내전 실측(약 1,100판) — 상대 후보 챔프가 잡혔을 때 우리 내전 승률(수축 보정). 팀 승패 기반이라 참고만]\n"
                              + "\n".join(_cl))
         else:
-            _ll = _ldg_pick_lines(ctx.get("pos"), _lane, _ally_ch8)
+            # [v83.32] lane_enemy는 "챔프 (포지션)" 형식 — 챔프명만 넘겨야 프로/내전 매치업 표가 매칭된다.
+            _lane_c = (_lane or "").split(" (")[0].strip()
+            _ll = _ldg_pick_lines(ctx.get("pos"), _lane_c, _ally_ch8)
             if _ll:
                 _ldg_blk = ("\n\n[프로경기 통계(2019~26, 약 8만 판) — 이 매치업 고승률픽 상위. 아래 '내가 다뤄본 챔피언'과 교차해 참고]\n"
                             + "\n".join(_ll))
-            _cl = _clanstat_pick_lines(ctx.get("pos"), _lane, _ally_ch8)
+            _cl = _clanstat_pick_lines(ctx.get("pos"), _lane_c, _ally_ch8)
             if _cl:
                 _ldg_blk += ("\n\n[클랜 내전 실측(약 1,100판) — 같은 매치업·조합이 실제로 이긴 기록(수축 보정). 팀 승패 기반이라 단정 금지, 교차 참고]\n"
                              + "\n".join(_cl))
+            # 💡 [v83.32 사장님 지시] 맞라이너 미확정 → 후보별 분기 추천. 상대의 미배정 픽(예: 룰루·뽀삐·
+            #   모르가나)은 전부 내 라인으로 올 수 있으므로, 후보마다 매치업 표를 따로 실어
+            #   "룰루면 →○ / 뽀삐면 →○ / 모르가나면 →○" 형태의 분기 답을 강제한다.
+            _cands = ctx.get("lane_cands") or []
+            if not _lane_c and _cands:
+                _pos_k = ctx.get("pos") or ""
+                _cand_blk = ("\n\n[★★내 라인 상대 후보 — 포지션 미확정: 절대 하나로 단정 금지]\n"
+                             + f"상대 픽 중 {'·'.join(c for c, _ in _cands)} 는 전부 내 라인({_pos_k})으로 올 수 있다.\n"
+                             + "\n".join(f"  · {c} — {w}" for c, w in _cands))
+                _rest = ctx.get("lane_cands_rest") or []
+                if _rest: _cand_blk += f"\n  · (그 외 {', '.join(_rest)} 도 배제 불가)"
+                _cand_blk += ("\n→ ★최종 요약은 반드시 후보별 분기로 써라: "
+                              + " / ".join(f"\"{c}가 맞라인이면 → (픽)\"" for c, _ in _cands) + ".\n"
+                              "   모든 후보에게 두루 무난한 픽이 있으면 그것을 첫 줄에 '공통 안전픽'으로 먼저 올려라.\n"
+                              "   특정 후보를 '얘가 맞라인일 것'이라고 단정한 추천은 그 판 전체를 무의미하게 만든다.")
+                for _c0, _w0 in _cands:
+                    _l0 = _ldg_pick_lines(_pos_k, _c0, _ally_ch8)[:5]
+                    if _l0: _cand_blk += f"\n▸ {_c0}가 맞라인일 때 프로 고승률픽:\n" + "\n".join("  " + x for x in _l0)
+                    _c0l = _clanstat_pick_lines(_pos_k, _c0, [])[:4]
+                    if _c0l: _cand_blk += f"\n▸ {_c0} 상대 내전 실측:\n" + "\n".join("  " + x for x in _c0l)
+                _ldg_blk += _cand_blk
     except Exception as _le:
         print(f"[ldg] 블록 생성 실패(무시): {_le}", flush=True)
     if is_ban:
@@ -3751,12 +3776,14 @@ def _draft_coach_tick(s_json, headers, base_url):
                     ally_desc.append(_pick_desc(c, _pu, _pos(p)))
                 if _pu: ally_pus.append(_pu)
         enemy_pools = []
+        _enemy_unassigned = []   # 💡 [v83.32] 포지션 미확정 상대 픽 — 맞라이너 후보 계산 재료
         for p in s_json.get("theirTeam", []) or []:
             c = _kor(p.get("championId")); ep = _pos(p)
             _pu = _rpu(p)
             if c:
                 enemy.append((c, ep))
                 enemy_desc.append(_pick_desc(c, _pu, ep))
+                if not ep or ep == "선택안함": _enemy_unassigned.append((c, _pu))
             if _pu: enemy_pus.append(_pu)
             # ★ 내 라인 상대(같은 포지션의 상대 챔프) — 픽 추천에서 상성 판단의 핵심
             if ep and my_pos != "선택안함" and ep == my_pos:
@@ -3802,6 +3829,41 @@ def _draft_coach_tick(s_json, headers, base_url):
                 else:
                     print(f"[ghost] 상대 판별 실패 — 로비 로스터도 비었음(blue {len(_fb_b)} / red {len(_fb_r)}, 내 puuid 매칭 실패)", flush=True)
             except Exception: pass
+        # 💡 [v83.32 사장님 지시] 맞라이너 미확정이면 '후보'를 계산해 후보별 분기 추천 재료로 넘긴다.
+        #   상대가 룰루·뽀삐·모르가나를 골라둔 상태면 셋 다 내 라인으로 올 수 있다 — 하나로 단정하는
+        #   순간 그 판의 추천이 통째로 무의미해진다는 제보. 단정을 프롬프트가 아니라 데이터에서부터 막는다.
+        #   모든 미배정 픽이 후보다(배제 불가가 원칙) — 근거(픽한 사람 주포지션·프로 점유·내전 기록)는
+        #   순서 결정과 표기에만 쓰고, 상위 3개만 분기 대상으로 준다(그 외는 '배제 불가'로만 언급).
+        lane_cands, lane_cands_rest = [], []
+        if my_pos != "선택안함" and not lane_enemy and _enemy_unassigned:
+            try:
+                _pk9 = _LDG_POS.get(my_pos)
+                _sh9 = {}
+                try:
+                    for _c9d in ((_ldg_meta() or {}).get("champions") or []):
+                        _sh9[_c9d["key"]] = (_c9d.get("position_share") or {}).get(_pk9, 0)
+                except Exception: pass
+                _copp9 = set()
+                try:
+                    for _mm9 in (((_clanstat_meta() or {}).get("counter") or {}).get(my_pos) or {}).values():
+                        _copp9.update(_mm9.keys())
+                except Exception: pass
+                _scored9 = []
+                for _c9, _pu9 in _enemy_unassigned:
+                    _why9 = []
+                    _e9 = ((_cidx or {}).get("by_pu") or {}).get(str(_pu9 or "").strip().lower()) if _pu9 else None
+                    _mp9 = max(_e9["pos"].items(), key=lambda x: x[1])[0] if (_e9 and _e9.get("pos")) else ""
+                    if _mp9 == my_pos: _why9.append(f"픽한 사람의 주포지션이 {my_pos}")
+                    _k9 = _ldg_key(_c9)
+                    _s9 = _sh9.get(_k9, 0) if _k9 else 0
+                    if _s9 >= 0.05: _why9.append(f"프로 {my_pos} 점유 {_s9*100:.0f}%")
+                    if _clanstat_nc(_c9) in _copp9: _why9.append(f"내전에서 {my_pos}로 잡힌 기록 있음")
+                    _scored9.append(((1 if _mp9 == my_pos else 0), _s9, _c9, " · ".join(_why9) or "가능성 배제 불가"))
+                _scored9.sort(key=lambda x: (-x[0], -x[1]))
+                lane_cands = [(c9, w9) for _a9, _b9, c9, w9 in _scored9[:3]]
+                lane_cands_rest = [c9 for _a9, _b9, c9, _w9 in _scored9[3:]]
+            except Exception as _ce9:
+                print(f"[ghost] 맞라이너 후보 계산 실패(무시): {_ce9}", flush=True)
         # 🧠 [v82.29] 내전 특화 컨텍스트 — 양팀 전원의 클랜 챔프폭 + 나와의 맞대결/합 전적
         clan_ally, clan_enemy, h2h_txt, syn_lines = [], [], "", []
         bp_lines = []   # [v82.32] 견제 압력 — 클랜이 실제로 밴해온 '진짜 무서운 픽'
@@ -3922,6 +3984,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
                "enemy_names": [_n for _n, _cs in (enemy_pools or [])],   # 🗳️ 퀴즈 표 조회용
                "lane_enemy": lane_enemy, "enemy_pools": enemy_pools,
+               "lane_cands": lane_cands, "lane_cands_rest": lane_cands_rest,   # 💡 [v83.32] 맞라이너 후보 분기
                "clan_ally": clan_ally, "clan_enemy": clan_enemy, "h2h": h2h_txt, "syn": syn_lines,
                "me": (my_pu or MY_RIOT_NAME[0] or ""),   # 🔐 [v82.34] 토큰-계정 결속용 식별자(공유 차단)
                "bp": bp_lines, "ally_desc": ally_desc, "enemy_desc": enemy_desc,
