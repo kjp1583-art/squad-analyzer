@@ -66,6 +66,10 @@ jobs:
 
       - name: Stage release assets
         shell: pwsh
+        env:
+          # 노트를 인라인 보간(${{ }})으로 스크립트에 박으면 큰따옴표가 문자열을 끊어 ParserError.
+          # (2026-08-26 v83.32 1차 실패 — 노트에 "…" 인용이 들어가자 빌드 성공 후 이 단계에서 죽음)
+          NOTES_IN: ${{ github.event.inputs.notes }}
         run: |
           # onedir 빌드(spec 기준): dist/squad_analyzer/ 에 exe + _internal — 자동업데이터가 기대하는 구조 그대로 zip
           if (-not (Test-Path "dist/squad_analyzer/squad_analyzer.exe")) { throw "dist/squad_analyzer/squad_analyzer.exe not found" }
@@ -79,7 +83,7 @@ jobs:
           $h = (Get-FileHash "release/squad_analyzer.zip" -Algorithm SHA256).Hash
           # 패치노트(입력) → 릴리스 본문 상단. 분석기가 이 본문을 그대로 디스코드 패치노트로 발송한다.
           # '---' 아래(SHA256 등 기술 푸터)는 분석기가 잘라내므로 노출되지 않음.
-          $n = "${{ github.event.inputs.notes }}"
+          $n = $env:NOTES_IN
           $body = if ([string]::IsNullOrWhiteSpace($n)) { "" } else { $n.Replace('\n', [Environment]::NewLine) }
           $body + [Environment]::NewLine + "---" + [Environment]::NewLine + "SHA256(zip): $h" |
             Out-File -FilePath release/notes.txt -Encoding utf8
