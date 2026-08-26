@@ -5542,11 +5542,13 @@ function _myeolPOf(){
   const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
   if(!src||!src.size) return null;
   const rec=new Map();
+  // ⚠️ 키는 _myNk 정규화 — canonOfRow는 태그 포함, canonOfName은 태그가 없을 수 있어 원형 그대로면
+  //   조회가 통째로 빗나가 전원 수축승률이 0.5(중립)로 굳는다(2026-08-26 발견: 종이 전력이 티어만으로 계산되던 버그).
   for(const [,g] of src){ for(const r of g.rows||[]){ const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
-    const k=canonOfRow(r); if(!k)continue; let e=rec.get(k); if(!e)rec.set(k,e={g:0,w:0}); e.g++; if(res==="승리")e.w++; } }
+    const k=_myNk(canonOfRow(r)); if(!k)continue; let e=rec.get(k); if(!e)rec.set(k,e={g:0,w:0}); e.g++; if(res==="승리")e.w++; } }
   const K=8;
   return nm=>{ const cn=canonOfName(MYEOL_NAMEFIX[nm]||nm); const t=tierScore(tierOf(cn)); if(t==null)return null;
-    const e=rec.get(cn)||{g:0,w:0}; return (t+((e.w+0.5*K)/(e.g+K))*10)/2; };
+    const e=rec.get(_myNk(cn))||{g:0,w:0}; return (t+((e.w+0.5*K)/(e.g+K))*10)/2; };
 }
 function myeolTeamRankHtml(){
   // 팀 전투력 = 5인 공용 1인분(내부티어+통산승률 수축) 합 — 밸런스 사후평가·분석기 예상승률과 같은 산식.
@@ -5557,17 +5559,40 @@ function myeolTeamRankHtml(){
     const ok=rows.every(r=>r.pw!=null);
     return {cap:t.cap, rows, sum:ok?rows.reduce((a,r)=>a+r.pw,0):null,
             spent:t.m.reduce((a,[,p])=>a+p,0)};
-  }).sort((a,b)=>(b.sum??-1)-(a.sum??-1));
-  const smax=Math.max(...teams.map(t=>t.sum??0)), smin=Math.min(...teams.map(t=>t.sum??99));
+  });
+  // ⚔ [2026-08-26 사장님 지시] 스크림 실전 보정 — 종이 전력(5인 합)에 실제 스크림 결과를 얹는다.
+  //   판마다 종이 전력차 기준 기대승률(전투력차 1 = 4%p, 5~95% 클램프)을 구해, 기대보다
+  //   많이/적게 이긴 만큼을 전투력 단위로 환산(표본 수축 K=8 — 전투력 산식과 같은 상수).
+  //   시트가 갱신될 때마다(스크림이 쌓일 때마다) 페이지 로드 시 자동 재계산된다.
+  const paperOf=new Map(teams.map(t=>[t.cap,t.sum]));
+  const st=new Map(teams.map(t=>[t.cap,{w:0,l:0,E:0}]));
+  const S=_myeolScrims();
+  for(const m of (S&&S.list)||[]){
+    const pw=paperOf.get(m.win), pl=paperOf.get(m.lose);
+    if(pw==null||pl==null)continue;
+    const ew=Math.min(0.95,Math.max(0.05,0.5+0.04*(pw-pl)));
+    const a=st.get(m.win), b=st.get(m.lose);
+    a.w++; a.E+=ew; b.l++; b.E+=(1-ew);
+  }
+  for(const t of teams){
+    const e=st.get(t.cap), n=e.w+e.l;
+    t.adj=n?(e.w-e.E)/(0.04*(n+8)):0;
+    t.sw=e.w; t.sl=e.l;
+    t.total=t.sum==null?null:t.sum+t.adj;
+  }
+  teams.sort((a,b)=>(b.total??-99)-(a.total??-99));
+  const smax=Math.max(...teams.map(t=>t.total??0)), smin=Math.min(...teams.map(t=>t.total??99));
   return teams.map((t,i)=>{
     const med=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}위`;
-    const w=t.sum==null?0:(smax>smin?(t.sum-smin)/(smax-smin)*100:50);
+    const w=t.total==null?0:(smax>smin?(t.total-smin)/(smax-smin)*100:50);
     return `<div style="padding:9px 2px;border-top:1px solid var(--line)">
       <div style="display:flex;align-items:center;gap:9px">
         <b style="min-width:34px;color:var(--sub)">${med}</b>
         <b style="flex:1;font-size:15px">${esc(t.cap)}</b>
+        <span style="font-size:12px">${t.sw+t.sl?`<b style="color:var(--win)">${t.sw}승</b> <b style="color:var(--lose)">${t.sl}패</b>`:`<span class="muted">스크림 전</span>`}</span>
+        <span class="muted" style="font-size:11.5px" title="종이 전력(5인 전투력 합)과 스크림 실전 보정">종이 ${t.sum==null?'-':t.sum.toFixed(1)} ${t.adj>=0?'+':'−'}${Math.abs(t.adj).toFixed(1)}</span>
         <span class="muted" style="font-size:12px">지출 ${t.spent}P</span>
-        <b style="color:var(--gold);font-size:15px" title="5인 전투력 합 — 전투력차 1 = 예상승률 4%p">⚔ ${t.sum==null?'-':t.sum.toFixed(1)}</b></div>
+        <b style="color:var(--gold);font-size:15px" title="종이 전력 + 스크림 실전 보정 — 전투력차 1 = 예상승률 4%p">⚔ ${t.total==null?'-':t.total.toFixed(1)}</b></div>
       <div style="height:5px;background:var(--bg2);border-radius:3px;margin:6px 0 7px;overflow:hidden"><div style="height:100%;width:${w.toFixed(0)}%;background:linear-gradient(90deg,#7aa2ff,var(--gold));border-radius:3px"></div></div>
       <div style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px">
         ${t.rows.map(r=>`<span><span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[r.n]||r.n))}')">${esc(r.n)}</span> <b style="color:#9fd0ff">⚔${r.pw==null?'-':r.pw.toFixed(1)}</b><span class="muted"> ${r.p==null?'팀장':(r.p?r.p+'P':'유찰')}</span></span>`).join("")}
@@ -5620,9 +5645,10 @@ function myeolBotDuoHtml(){
 }
 // ⚔ [2026-08-24 사장님 지시] 스크림 전적 — '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 팀 대 팀으로 인정.
 //    팀장이 일반 내전에 낀 판을 스크림으로 오인하지 않기 위한 기준(8/24 QnA 오답의 원인).
-function myeolScrimHtml(){
+function _myeolScrims(){
+  // 스크림 경기 추출(공용) — 8/22 경매 이후 · 양팀 4인+ · 리메이크 제외. 파워랭킹 보정과 전적 표가 같이 쓴다.
   const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
-  if(!src||!src.size) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  if(!src||!src.size) return null;
   const teamOf=new Map();   // 키 = _myNk(태그·공백 제거) — canonOfRow는 태그 포함이라 직접 매칭이 안 된다
   const _tk=n=>_myNk(canonOfName(MYEOL_NAMEFIX[n]||n));
   for(const t of MYEOL_TEAMS9){ teamOf.set(_tk(t.cap),t.cap);
@@ -5649,6 +5675,12 @@ function myeolScrimHtml(){
     for(const [t,w] of [[win,1],[lose,0]]){ let e=rec.get(t); if(!e)rec.set(t,e={w:0,l:0}); w?e.w++:e.l++; }
     list.push({day,gid,win,lose});
   }
+  return {list, rec};
+}
+function myeolScrimHtml(){
+  const S=_myeolScrims();
+  if(!S) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  const {list, rec}=S;
   if(!list.length) return `<div class="muted">아직 스크림(양 팀 모두 같은 멸망전 팀 4인 이상) 기록이 없어요 — 팀장끼리 일반 내전에 낀 판은 세지 않습니다.</div>`;
   const rank=[...rec.entries()].sort((a,b)=>(b[1].w-b[1].l)-(a[1].w-a[1].l)||b[1].w-a[1].w);
   const rows=rank.map(([t,e])=>`<span style="margin:2px 12px 2px 0;display:inline-block"><b>${esc(t)}</b> <b style="color:var(--win)">${e.w}승</b> <b style="color:var(--lose)">${e.l}패</b></span>`).join("");
@@ -5735,7 +5767,7 @@ function renderMyeol(){
   ${priceSec}
   ${MYEOL_SHOW_PRICES?"":`<h2 style="margin:6px 0 4px">⚔️ 제9회 멸망전</h2><div class="muted" style="font-size:13px;margin-bottom:4px">경매가 끝나 적정가 표는 내렸어요 — 아래는 확정 12팀의 파워랭킹입니다.</div>`}
   <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 팀 대 팀으로 붙은 판만 · 시트 갱신 시 자동</span></h2>${myeolScrimHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/22 경매 확정 로스터 · 전투력(내부티어+통산승률) 5인 합 · 내전 기록 갱신 시 자동 변동</span></h2>${myeolTeamRankHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 종이 전력(전투력 5인 합) + 스크림 실전 보정 · 스크림이 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)</span></h2>${myeolTeamRankHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>💑 봇듀오 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 원딜+서폿 전투력 2인 합 · 라인업은 스크림 실측 우선(없으면 주포지션) · 바텀 유동 팀은 경우의수 병기</span></h2>${myeolBotDuoHtml()}</div>`;
 }
 
