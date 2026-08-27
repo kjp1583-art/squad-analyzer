@@ -1212,6 +1212,17 @@ async function loadDeparted(){
     if(DEPARTED_SET.size){ MYEOL_FAIR=null; ASSESSMENTS=new Map(); TIER_AVG={}; }   // 캐시 재계산 유도
   }catch(e){/* 탭이 아직 없으면 조용히 통과 */}
 }
+// 👥 [2026-08-27 사장님 지시] 탈퇴 확정자는 명예의전당 '현재 랭킹'(망령·승률왕·기록실·견제압력·미토 다승·승부예측)에서 제외.
+//    커리어(대회 우승 역사)·멸망전 우승 뱃지는 역사 기록이라 유지. 닉변자는 과거 닉(별칭)까지 대조.
+function isDeparted(name){
+  if(!DEPARTED_SET.size||!name) return false;
+  if(DEPARTED_SET.has(tnorm(name))) return true;
+  const cn=canonOfName(name);
+  if(cn&&DEPARTED_SET.has(tnorm(cn))) return true;
+  const al=CANON_TO_ALIASES.get(cn);
+  if(al) for(const a of al) if(DEPARTED_SET.has(tnorm(a))) return true;
+  return false;
+}
 function tierGroupCls(t){return !t?"":t[0]==="0"?"t0":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
 function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:"";}
 
@@ -2471,7 +2482,7 @@ function loadNoban(){
 function mitoWinsOf(name){ const e=mitoStatOf(name); return e?e.wins:0; }
 function mitoRateTxt(e){ return e&&e.parts>0?` (우승률 ${Math.round(e.wins/e.parts*100)}%)`:''; }
 function banPressureHofHtml(){   // 🎯 명예의전당 — 견제 압력 랭킹(협곡 전용)
-  let arr=[...banPressure().entries()].filter(([_,v])=>v.top).sort((a,b)=>b[1].top.targeted-a[1].top.targeted);
+  let arr=[...banPressure().entries()].filter(([_,v])=>v.top&&!isDeparted(v.name)).sort((a,b)=>b[1].top.targeted-a[1].top.targeted);   // 👥 탈퇴 확정자 제외
   if(BP_POS!=="ALL") arr=arr.filter(([_,v])=>mainPosOf(v.name)===BP_POS);   // 주포지션 기준(미토 랭킹과 동일 규칙)
   if(!arr.length&&BP_POS==="ALL") return "";
   const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
@@ -2501,7 +2512,7 @@ function setMitoPos(p){ MITO_POS=p; const el=document.getElementById('mitoHofBox
 function mitoHofHtml(){   // 명예의전당 미토 다승 랭킹 (포지션 필터)
   if(!MITO_WINS.size) return "";
   const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
-  let arr=[...MITO_WINS.values()].sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
+  let arr=[...MITO_WINS.values()].filter(e=>!isDeparted(e.name)).sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));   // 👥 탈퇴 확정자 제외
   if(MITO_POS!=='ALL') arr=arr.filter(e=>mainPosOf(e.name)===MITO_POS);
   const posBtns=hofPosBar(MITO_POS,"setMitoPos","포지션 = 선언 주포지션(없으면 실플레이 최다)");
   const keyOf=nm=>{const t=tnorm(canonOfName(nm)||nm);   // 태그 없는 닉 → PLAYERS 실제 키(태그 포함)로 해석해야 프로필 이동됨
@@ -3016,7 +3027,7 @@ function renderLckPredHof(){
   if(!LCK_PRED.length){ el.innerHTML=""; return; }
   const esc2=s2=>String(s2).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
   const MIN=5;   // LCK 는 경기 수가 적어 타이틀 자격 5판부터
-  const all=LCK_PRED.map(p=>({...p,rate:p.n?p.w/p.n*100:0}));
+  const all=LCK_PRED.filter(p=>!isDeparted(p.name)).map(p=>({...p,rate:p.n?p.w/p.n*100:0}));   // 👥 탈퇴 확정자 제외
   const elig=all.filter(p=>p.n>=MIN).sort((a,b)=> b.rate-a.rate || b.profit-a.profit);
   const god=elig[0]||null;
   const board=all.filter(p=>p.n>=1).sort((a,b)=> b.rate-a.rate || b.profit-a.profit || b.n-a.n).slice(0,10);
@@ -3038,7 +3049,7 @@ function renderLckPredHof(){
 }
 function computePredTitles(){
   PRED_GOD=PRED_NOOB=null;
-  const elig=Object.values(PREDICTIONS).filter(p=>p.total>=PRED_MIN);
+  const elig=Object.values(PREDICTIONS).filter(p=>p.total>=PRED_MIN&&!isDeparted(p.name));   // 👥 탈퇴 확정자는 타이틀 자격 없음
   if(!elig.length) return;
   elig.sort((a,b)=> b.rate-a.rate || b.total-a.total); PRED_GOD=elig[0];
   elig.sort((a,b)=> a.rate-b.rate || b.total-a.total); PRED_NOOB=elig[0];
@@ -3052,7 +3063,8 @@ function predTitleOf(name){   // 이름 옆 배지
 }
 function renderPredictionTitles(){
   const el=document.getElementById("predTitleCard"); if(!el) return;
-  const all=Object.values(PREDICTIONS);
+  computePredTitles();   // 👥 DEPARTED가 init 경합으로 늦게 와도 전당 진입 시점엔 반영되도록 재계산
+  const all=Object.values(PREDICTIONS).filter(p=>!isDeparted(p.name));   // 👥 탈퇴 확정자 제외
   if(!all.length){ el.innerHTML=""; return; }
   // [2026-07-27 사장님 지시] 자격자만 보이던 현상 수정 — 전원 랭킹(3판↑), 10판 미만은 흐리게 표시(타이틀 자격은 여전히 10판)
   const board=all.filter(p=>p.total>=3).sort((a,b)=> b.rate-a.rate || b.total-a.total).slice(0,10);
@@ -7694,6 +7706,7 @@ function computeHofRecords(rows){
   return Object.values(rec);
 }
 function hofRecordsHtml(rl, patchSel){
+  rl=rl.filter(e=>!isDeparted(e.name));   // 👥 탈퇴 확정자 랭킹 제외
   // [2026-07-21 사장님 지시] 기록실도 패치버전 필터 적용 — 특정 버전 선택 시 표본이 적어 판수 기준 완화
   const isAll=!patchSel||patchSel==="전체 (ALL)";
   const G10=isAll?10:5, G5=isAll?5:3;   // 누적/평균 카드 최소 판수
@@ -7786,6 +7799,7 @@ function hofMainBoxHtml(){   // 🎖️ 망령/승률왕/MVP/역적 4카드 + �
   const verData=data[HOF.patch]||{};
   const list=[];
   for(const name in verData){
+    if(isDeparted(name))continue;   // 👥 탈퇴 확정자 랭킹 제외
     const s=verData[name],st=pos==="ALL"?s.ALL:s[pos];
     if(!st||!st.total)continue;
     list.push({name,total:st.total,wins:st.wins,mvp:st.mvp,ace:st.ace,troll:st.troll,evalTotal:st.evalTotal,mainPos:s.mainPos});
@@ -7848,6 +7862,7 @@ async function renderHOF(catArg){
         <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button>
       </div>
     </div>
+    ${DEPARTED_SET.size?`<div class="muted" style="font-size:12px;margin:-4px 0 10px">👥 탈퇴 확정 인원은 랭킹 지표에서 제외됩니다 · 대회 우승 역사(커리어)는 기록으로 보존</div>`:""}
     ${isRift?careerHofHtml():""}
     ${isRift?banPressureHofHtml():""}
     ${isRift?mitoHofHtml():""}
@@ -7867,7 +7882,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608160342";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608270443";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
