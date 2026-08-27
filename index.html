@@ -6901,6 +6901,31 @@ function submitComment(target,sfx){
 let MOST_EXPANDED=false;   // 🏅 모스트 챔피언 전체 펼침 여부(프로필 이동 시 초기화)
 function toggleMost(){ MOST_EXPANDED=!MOST_EXPANDED; const y=window.scrollY; renderPlayer(CUR_PLAYER); window.scrollTo(0,y); }
 let PLAYER_PATCH_FELL=null;   // 그 패치에 기록이 없어 전체 기간으로 자동 전환한 선수
+// 📛 [2026-08-28 사장님 지시] 프로필 닉네임 변천사 — 같은 사람(PUUID 통합·부계 등록)으로 합쳐진
+//   기록을 '소환사명'별로 묶어 사용 기간·판수를 보여준다. 이름이 2개 이상일 때만 카드가 뜬다.
+function nickHistHtml(name){
+  const src=(typeof PLAYERS_ALL!=='undefined'&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
+  const parts=src.get(name)||[];
+  const m=new Map();
+  for(const r of parts){
+    const nm=(r["소환사명"]||"").trim(); if(!nm)continue;
+    const d=String(r["날짜"]||"").slice(0,10);
+    let e=m.get(nm); if(!e)m.set(nm,e={n:0,min:"",max:""});
+    e.n++;
+    if(d){ if(!e.min||d<e.min)e.min=d; if(!e.max||d>e.max)e.max=d; }
+  }
+  if(m.size<2) return "";
+  const cur=tnorm(name);
+  const list=[...m.entries()].sort((a,b)=>(a[1].max||"")<(b[1].max||"")?1:-1);   // 최근 사용 순
+  const rows=list.map(([nm,e])=>{
+    const isCur=tnorm(nm)===cur;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid var(--line);font-size:13.5px">
+      <span>${isCur?'🟢 ':''}<b${isCur?' style="color:var(--gold)"':''}>${esc(nm)}</b>${isCur?' <span class="muted" style="font-size:11.5px">현재</span>':''}</span>
+      <span class="muted" style="font-size:12.5px;white-space:nowrap">${e.min===e.max?esc(e.max):esc(e.min)+" ~ "+esc(e.max)} · ${e.n}판</span></div>`;
+  }).join("");
+  return `<div class="card" style="margin-top:14px"><h2>📛 닉네임 기록 <span class="muted" style="font-size:13.5px;font-weight:400">${m.size}개</span></h2>
+    <div class="muted" style="font-size:12.5px;margin:2px 0 6px">같은 사람으로 확인된 이름들(닉변·부계 포함) — 내전 기록의 사용 기간·판수 기준</div>${rows}</div>`;
+}
 function renderPlayer(name){
   name=canonOfName(name);                 // 옛 닉으로 들어와도 최신 닉 프로필로 통합
   if(CUR_PLAYER!==name){ MOST_EXPANDED=false; PROF_POS=null; }   // 다른 선수로 이동 시 펼침·포지션 선택 초기화
@@ -7212,6 +7237,7 @@ function renderPlayer(name){
       <div>
         <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
           champAll.length>6?`<div style="text-align:center;margin-top:10px"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 16px;border-radius:8px;cursor:pointer" onclick="toggleMost()">${MOST_EXPANDED?'접기 ▲':`전체 보기 (${champAll.length}종) ▼`}</button></div>`:''}</div>
+        ${nickHistHtml(name)}
         ${gptiCardHtml(name)}
         ${tierHistHtml}
         <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b></div>':''}${posStyleHtml(parts,posAgg,posTotal,(()=>{const c=[...posAgg.entries()].filter(([p])=>p&&p!=="?"&&p!=="선택안함").sort((a,b)=>b[1]-a[1])[0];return c?c[0]:POS_LIST[0];})())}
@@ -8063,7 +8089,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608271525";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608271602";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
