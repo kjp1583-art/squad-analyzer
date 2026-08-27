@@ -981,6 +981,7 @@ const CATEGORIES = [
 ];
 let CURRENT_CAT = "rift";
 const CAT_CACHE = {};          // key -> RAW (재방문 시 즉시 표시)
+const CAT_INFLIGHT = {};       // key -> 진행 중인 시트 요청 Promise (같은 시트 중복 다운로드 방지)
 const DEFAULT_SHEET = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${CATEGORIES[0].gid}`;
 const catLabel = k => (CATEGORIES.find(c=>c.key===k)||{}).label || "";
 
@@ -7526,7 +7527,12 @@ async function loadCategory(key, preP, keep){
   try{
     if(CAT_CACHE[key]){ RAW=CAT_CACHE[key]; build(); }
     else{
-      const resp=await (preP || loadSheetJsonp(SHEET_ID, cat.gid));
+      // 🔗 진행 중인 요청을 등록해 둔다 — 이걸 받는 동안 명예의전당을 누르면 getCatRaw 가
+      //    같은 5.8MB 를 한 번 더 받아 지금 받는 것과 대역폭을 나눠 쓰게 된다(2026-08-27 리뷰 지적).
+      const _p = preP || loadSheetJsonp(SHEET_ID, cat.gid);
+      CAT_INFLIGHT[key]=_p;
+      let resp;
+      try{ resp=await _p; } finally{ if(CAT_INFLIGHT[key]===_p) delete CAT_INFLIGHT[key]; }
       loadbar(70);
       // ⚠️ 검증을 '먼저' 한다 — 빈 응답으로 RAW·CAT_CACHE·GAMES 를 먼저 망가뜨리고 나중에 던지면
       //    복구할 원본이 남지 않는다(2026-08-27 리뷰 지적).
@@ -7601,6 +7607,10 @@ let HOF={cat:"rift",pos:"ALL",patch:"전체 (ALL)"};
 
 // 카테고리 RAW 확보 (현재 보기와 무관하게 전당 집계용으로 캐시/로드)
 async function getCatRaw(catKey){
+  if(CAT_CACHE[catKey]) return CAT_CACHE[catKey];
+  // 같은 시트를 이미 받는 중이면 거기에 합류한다(중복 다운로드 방지). 그 요청이 실패하면 아래에서 직접 받는다.
+  const _inf=CAT_INFLIGHT[catKey];
+  if(_inf){ try{ return CAT_CACHE[catKey] || gvizToObjects(await _inf); }catch(e){} }
   if(CAT_CACHE[catKey]) return CAT_CACHE[catKey];
   const cat=CATEGORIES.find(c=>c.key===catKey); if(!cat) return [];
   const resp=await loadSheetJsonp(SHEET_ID, cat.gid);
@@ -8016,7 +8026,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608270944";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608270947";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
