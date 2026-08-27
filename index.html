@@ -1209,7 +1209,7 @@ async function loadDeparted(){
   try{
     const rows=gvizRowsAll(await loadTabJsonp("DEPARTED"));
     DEPARTED_SET=new Set(rows.map(r=>tnorm(r["닉네임"]||"")).filter(Boolean));
-    if(DEPARTED_SET.size){ MYEOL_FAIR=null; ASSESSMENTS=new Map(); TIER_AVG={}; }   // 캐시 재계산 유도
+    if(DEPARTED_SET.size){ MYEOL_FAIR=null; ASSESSMENTS=new Map(); TIER_AVG={}; DATA_SEQ++; }   // 캐시 재계산 유도
   }catch(e){/* 탭이 아직 없으면 조용히 통과 */}
 }
 // 👥 [2026-08-27 사장님 지시] 탈퇴 확정자는 명예의전당 '현재 랭킹'(망령·승률왕·기록실·견제압력·미토 다승·승부예측)에서 제외.
@@ -1913,7 +1913,24 @@ function parseSheet(url){
 }
 
 /* ---- JSONP 로더 (CORS 우회, 로컬·배포 모두 작동) ---- */
+// 🚀 [2026-08-27 사장님 지시 '로딩 개선'] 메인 시트(협곡 5.8MB)를 <script> JSONP 대신 fetch+JSON.parse 로 받는다.
+//   JSONP 는 5.8MB 를 'JS 소스'로 파스·컴파일해야 해서 JSON.parse 보다 느리고, 콜백명이 매번 달라져
+//   브라우저 바이트코드 캐시도 못 탄다. gviz 가 페이지 오리진에 Access-Control-Allow-Origin 을
+//   그대로 되돌려주는 것을 실측 확인(2026-08-27)해서 fetch 가 가능해졌다.
+//   ⚠️ 시트에 날짜 셀이 섞이면 응답이 `new Date(...)`를 담아 JSON 이 아니게 된다(KDA 오염 역산이 이걸 쓴다).
+//      그 경우 JSON.parse 가 실패하므로 조용히 아래 <script> 경로로 떨어진다 — 기능 손실 없음(느릴 뿐).
 function loadSheetJsonp(id,gid){
+  const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?gid=${gid}&headers=1&cb=${Date.now()}&tqx=out:json`;
+  return fetch(url,{cache:"no-store"})
+    .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+    .then(t=>{
+      const i=t.indexOf("("), j=t.lastIndexOf(")");
+      if(i<0||j<=i) throw new Error("gviz 응답 형식 오류");
+      return JSON.parse(t.slice(i+1,j));
+    })
+    .catch(()=>_loadSheetTag(id,gid));   // CORS 차단·날짜셀·네트워크 실패 → 기존 JSONP 폴백
+}
+function _loadSheetTag(id,gid){
   return new Promise((resolve,reject)=>{
     const cb="__sheetCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
     let done=false;
@@ -3006,7 +3023,7 @@ function mbtiDexHtml(){
 let LCK_PRED=[];
 function loadLckPred(){
   return new Promise((resolve)=>{
-    const cb="__lckpred_cb";
+    const cb="__lckpred_cb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);   // 고정 콜백명이면 재호출이 서로를 덮어쓴다
     window[cb]=(d)=>{ try{
       const cols=(d.table.cols||[]).map(c=>(c.label||"").trim());
       const ni=cols.indexOf("닉네임"), wi=cols.indexOf("적중"), pi=cols.indexOf("참여"), gi=cols.indexOf("수익");
@@ -3424,14 +3441,22 @@ function build(){
   supplementGptiFromMainLog();   // 🧬 [2026-07-28] GPTI_STATS 탭 중단(구 PC 파이프라인) 보완 — 7/21+ 메인 경기록 인라인 지표 합류
   computeGPTI();               // 🧬 GPTI 성향유형(포지션 정규화) — 2026-07-16
   computeHeadToHead();         // ⚔️ 천적(상대팀 head-to-head 전적)
+  DATA_SEQ++;                  // 🧮 파생 캐시(홈 표·멸망전 집계) 무효화 — 데이터가 바뀐 지점은 여기뿐
 }
 
 /* ============== Data Dragon (챔피언 아이콘) ============== */
 async function loadDDragon(){
+  // 🚀 [2026-08-27] 버전만 정해지면 아래 4개(챔피언·룬·아이템·스펠)는 서로 독립인데
+  //   예전엔 개별 await 로 직렬이라 왕복 3회를 그냥 버렸다. 버전 조회 뒤 한꺼번에 받는다.
+  //   DDVER 이 빈 문자열이면 뒤 요청은 어차피 전부 404 라 그냥 빠져나온다.
   try{
     const v=await(await fetch("https://ddragon.leagueoflegends.com/api/versions.json")).json();
     DDVER=v[0];
-    const data=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/champion.json`)).json();
+  }catch(e){ return; }   // 아이콘 없이 진행
+  const D=`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR`;
+  await Promise.all([(async()=>{
+  try{
+    const data=await(await fetch(`${D}/champion.json`)).json();
     for(const k in data.data){
       const c=data.data[k];
       // 🚫 [2026-08-01 사장님 제보] '롤 클래식' 항목 제외 — 초상화가 2009년 그림으로 바뀌던 원인.
@@ -3453,14 +3478,16 @@ async function loadDDragon(){
       CHAMPTAG[c.name]=c.tags||[]; CHAMPTAG[c.name.replace(/\s/g,"")]=c.tags||[];
     }
   }catch(e){/* 아이콘 없이 진행 */}
+  })(), (async()=>{
   // 🛒 룬 아이콘(주룬 키스톤·보조트리) + 아이템명 (전적카드 빌드 표시용 — 실패해도 무해)
   try{
-    const rn=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/runesReforged.json`)).json();
+    const rn=await(await fetch(`${D}/runesReforged.json`)).json();
     for(const st of rn){ PERKMAP[st.id]={icon:st.icon,name:st.name};
       for(const sl of st.slots||[])for(const p of sl.runes||[])PERKMAP[p.id]={icon:p.icon,name:p.name}; }
   }catch(e){}
+  })(), (async()=>{
   try{
-    const it=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/item.json`)).json();
+    const it=await(await fetch(`${D}/item.json`)).json();
     for(const k in it.data){const d=it.data[k]; ITEMNAME[k]=d.name;
       // 완성템 판별: 구매가능 + 상위 조합처(into) 없음(=하위템 아님) + 총골드 900+ (물약·와드·도란템 컷)
       const g=d.gold||{}; const terminal=!d.into||d.into.length===0;
@@ -3468,11 +3495,13 @@ async function loadDDragon(){
       if(g.purchasable&&(terminal||boots)&&(g.total||0)>=900)ITEMFINAL.add(k);
     }
   }catch(e){}
+  })(), (async()=>{
   // 🔮 소환사 스펠 아이콘 — id(SummonerFlash)·key(숫자 4) 양쪽으로 인덱싱(라이브=키명, 백필=숫자ID 모두 조회)
   try{
-    const sp=await(await fetch(`https://ddragon.leagueoflegends.com/cdn/${DDVER}/data/ko_KR/summoner.json`)).json();
+    const sp=await(await fetch(`${D}/summoner.json`)).json();
     for(const k in sp.data){const s=sp.data[k]; const o={img:s.image.full,name:s.name}; SPELLMAP[s.id]=o; SPELLMAP[String(s.key)]=o;}
   }catch(e){}
+  })()]);
 }
 let PERKMAP={}, ITEMNAME={}, SPELLMAP={}, ITEMFINAL=new Set();
 function itemIcons(r){   // 시트 '아이템' 열("id|id|...") → 아이콘 나열
@@ -3541,7 +3570,14 @@ const CHTIER_MIN_SHOW=3;      // 참고(표본부족) 섹션 노출 최소 픽�
 const CHTIER_MIN_TIER=8;      // ★ 티어·클랜점수·OP/꿀챔 부여 최소 픽수 — 소표본 티어가 신뢰도를 깎아 상향(2026-07-03)
 const CHTIER_MIN_MARK=8;      // OP/꿀챔 마크 최소 픽수(티어 기준과 통일)
 const CHTIER_K=8;             // 베이지안 prior (표본 적으면 50%로 수축 — 6→8 강화)
+// 🧮 [2026-08-27 로딩 개선] 홈 표의 두 원천(챔피언 티어·플레이어 집계)은 build() 결과만 보는데도
+//   렌더할 때마다 전 행을 새로 스캔했다 — 정렬 화살표 한 번 누를 때마다 전체 재계산.
+//   build() 마다 도는 DATA_SEQ 를 키로 캐시하고, 정렬은 캐시 사본을 쓴다(원본 순서 오염 방지).
+let DATA_SEQ=0, _DERIV={seq:-1, players:null, champs:new Map()};
+function _derivCache(){ if(_DERIV.seq!==DATA_SEQ) _DERIV={seq:DATA_SEQ, players:null, champs:new Map()}; return _DERIV; }
 function champTierData(posFilter){
+  const _c=_derivCache(), _k=String(posFilter||"");
+  const _hit=_c.champs.get(_k); if(_hit) return _hit.slice();
   const champs=championStats(posFilter);
   // AI점수 평균/표준편차(정규화), 평균 데스 (픽된 챔프 기준)
   const played=champs.filter(c=>c.picks>0);
@@ -3563,7 +3599,9 @@ function champTierData(posFilter){
     c.isOP=c.picks>=CHTIER_MIN_MARK && c.swr>=0.58 && c.tier===1;         // 표본충분+높은보정승률+최상위
     c.isHoney=c.picks>=CHTIER_MIN_MARK && c.swr>=0.55 && c.avgDeath!=null && c.avgDeath<=meanDeath*0.9; // 잘이기고 적게죽음
   }
-  return champs.sort((a,b)=>b.clanScore-a.clanScore);
+  champs.sort((a,b)=>b.clanScore-a.clanScore);
+  _c.champs.set(_k,champs);
+  return champs.slice();
 }
 function tierBadgeNum(t){ return t?`<span class="ctier ct${t}">${t}</span>`:''; }
 function champMarks(c){ return (c.isOP?'<span class="op-badge">OP</span>':'')+(c.isHoney?'<span class="honeybee" title="꿀챔: 잘 이기고 적게 죽음"></span>':''); }
@@ -3618,6 +3656,7 @@ function renderChampTier(){
     </div>`;
 }
 function playerStats(){
+  const _c=_derivCache(); if(_c.players) return _c.players.slice();   // 🧮 build() 단위 캐시(정렬 클릭마다 재계산하던 것)
   const out=[];
   for(const [name,parts] of PLAYERS){
     let w=0,l=0,mvp=0,bad=0,ace=0;
@@ -3640,7 +3679,8 @@ function playerStats(){
               score:(a&&a.score100)||null,      // 🔥 내전 활약 점수(솔랭 제외)
               mental:_mt?_mt.score:null});      // 🧊 멘탈 지수(연패 중 성적 유지)
   }
-  return out;
+  _c.players=out;
+  return out.slice();
 }
 
 /* ============== 라우팅 ============== */
@@ -3946,6 +3986,7 @@ async function _scrimFetchState(){
 }
 async function _scrimPoll(){
   if(!document.getElementById('scrimdash')){ clearInterval(_scrimTimer); _scrimTimer=null; return; }
+  if(document.hidden) return;   // 🪶 [2026-08-27] 안 보고 있는 탭은 건너뛴다(복귀하면 다음 틱에 갱신)
   try{ _scrimSt=await _scrimFetchState(); _scrimRender(); }
   catch(e){ // 이미 받은 상태가 있으면 유지 — 일시 실패 때 명단이 사라졌다 나타나는 깜빡임 방지
     if(!_scrimSt){ const el=document.getElementById('scrimdash'); if(el) el.textContent='현황 준비 중(봇이 첫 상태를 올리면 표시됩니다)'; }
@@ -5549,7 +5590,17 @@ const MYEOL_TEAMS9=[
  {cap:"RAYB",m:[["귤 갓",410],["12X16",5],["라이프스타일",5],["수화은연",740]]},
  {cap:"SIAH K",m:[["악 진",340],["일단즐겨",630],["레멍이",5],["CHIHUAHUA",0]]},
 ];
-function _myeolPOf(){
+// 🧮 [2026-08-27] 멸망전 탭은 카드 하나하나가 이 두 함수를 새로 불러 전 경기를 5번 훑었다.
+//   (파워랭킹·봇듀오·미드정글이 각각 _myeolPOf, 랭킹과 전적표가 각각 _myeolScrims)
+//   결과는 build() 전까지 안 바뀌므로 DATA_SEQ 로 캐시한다 — 탭 진입·필터 토글이 1회 스캔으로.
+let _MYEOL_MEMO={seq:-1};
+function _myeolMemo(key, calc){
+  if(_MYEOL_MEMO.seq!==DATA_SEQ) _MYEOL_MEMO={seq:DATA_SEQ};
+  if(!(key in _MYEOL_MEMO)) _MYEOL_MEMO[key]=calc();
+  return _MYEOL_MEMO[key];
+}
+function _myeolPOf(){ return _myeolMemo("pOf", _myeolPOfCalc); }
+function _myeolPOfCalc(){
   // 공용 1인 전투력(내부티어+통산승률 수축) 클로저 — 팀 파워랭킹·봇듀오 랭킹 공용.
   const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
   if(!src||!src.size) return null;
@@ -5678,7 +5729,8 @@ function _myeolDuoRankHtml(DUOS,icA,icB){
 }
 // ⚔ [2026-08-24 사장님 지시] 스크림 전적 — '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 팀 대 팀으로 인정.
 //    팀장이 일반 내전에 낀 판을 스크림으로 오인하지 않기 위한 기준(8/24 QnA 오답의 원인).
-function _myeolScrims(){
+function _myeolScrims(){ return _myeolMemo("scrims", _myeolScrimsCalc); }
+function _myeolScrimsCalc(){
   // 스크림 경기 추출(공용) — 8/22 경매 이후 · 양팀 4인+ · 리메이크 제외. 파워랭킹 보정과 전적 표가 같이 쓴다.
   const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
   if(!src||!src.size) return null;
@@ -7401,7 +7453,8 @@ function switchCat(key){
   if(key===CURRENT_CAT && GAMES.size){go('home');return;}
   loadCategory(key);
 }
-async function loadCategory(key){
+// preP = 부팅 때 미리 발사해 둔 시트 응답 Promise(init 참고). 있으면 그걸 기다리고, 없으면 지금 요청한다.
+async function loadCategory(key, preP){
   const cat=CATEGORIES.find(c=>c.key===key); if(!cat)return;
   CURRENT_CAT=key; PATCH_SEL=null; renderCatbar();
   SORT={key:null,dir:-1};
@@ -7410,7 +7463,7 @@ async function loadCategory(key){
   try{
     if(CAT_CACHE[key]){ RAW=CAT_CACHE[key]; build(); }
     else{
-      const resp=await loadSheetJsonp(SHEET_ID, cat.gid);
+      const resp=await (preP || loadSheetJsonp(SHEET_ID, cat.gid));
       loadbar(70);
       RAW=gvizToObjects(resp);
       CAT_CACHE[key]=RAW;
@@ -7882,13 +7935,24 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608270443";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
-let _newBuildNotified=false;
+const BUILD_ID="202608270834";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
+  // 🪶 [2026-08-27] 예전엔 확인할 때마다 index.html 본문(전송 312KB)을 통째로 다시 받았다.
+  //   ?cb= 캐시버스터 + no-store 조합이라 304 재검증이 원천적으로 불가능했던 것. 이제 ETag 를
+  //   직접 들고 If-None-Match 로 물어본다 — 바뀐 게 없으면 304(본문 0바이트)로 끝난다.
+  //   (실측 2026-08-27: Pages 가 ETag 를 주고 조건부 GET 에 304/0B 로 응답)
+  const _now=Date.now();
+  if(_now-_lastBuildChk < 60*1000) return;   // 탭 복귀 연타 방어(1분 최소 간격)
+  _lastBuildChk=_now;
   try{
-    const r=await fetch(location.pathname+"?cb="+Date.now(),{cache:"no-store"});
+    const r=await fetch(location.pathname,{cache:"no-store",headers:_buildEtag?{"If-None-Match":_buildEtag}:{}});
+    if(r.status===304) return;               // 배포 없음 — 본문 안 받음
     if(!r.ok) return;
+    const et=r.headers.get("ETag");
+    if(et&&_buildEtag&&et===_buildEtag) return;   // 304 를 안 주는 환경 대비(헤더 비교로 본문 생략)
+    if(et)_buildEtag=et;
     const m=(await r.text()).match(/BUILD_ID="(\d+)"/);
     if(m&&m[1]!==BUILD_ID){
       _newBuildNotified=true;
@@ -7900,8 +7964,9 @@ async function checkNewBuild(){
     }
   }catch(e){}
 }
-checkNewBuild();                       // 🆕 부팅 즉시 1회 — F5는 Pages가 캐시한 index.html을 그대로 쓸 수 있어(최대 10분)
-                                       //    새로고침했는데도 옛 코드가 도는 경우가 생긴다. 켜자마자 확인해 배너로 알린다.
+// 🆕 F5를 눌러도 Pages가 캐시한 옛 index.html이 그대로 돌 수 있어(최대 10분) 배포를 따로 확인한다.
+//    부팅 즉시 확인하던 것을 init 끝으로 옮겼다 — 시작하자마자 312KB를 더 받아 시트 로딩과
+//    대역폭을 다투던 문제(2026-08-27 로딩 개선). 목적(옛 코드 감지)은 몇 초 늦어도 그대로다.
 setInterval(checkNewBuild, 10*60*1000);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNewBuild(); });
 
@@ -7911,10 +7976,16 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   renderAds();
   renderCatbar();
   renderLoading();
-  await loadDDragon();
-  await loadClanTiers();             // 내부티어 SSOT(CLAN_TIERS 시트) 로드
-  loadDeparted();                    // 👥 디스코드 탈퇴자 목록(평균 분모 제외) — 실패해도 화면 진행
-  { const [_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp]=await Promise.all([loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks()]);   // 병렬 로드
+  // 🚀 [2026-08-27 사장님 지시 '로딩 개선'] 가장 큰 다운로드(협곡 5.8MB)를 맨 먼저 발사한다.
+  //   예전에는 DDragon → 내부티어 → 부가탭 21개를 '전부 끝낸 뒤에야' 시트를 받기 시작해서,
+  //   앞 단계 중 하나만 늦어도 그만큼 통째로 밀렸다(부팅 = 합계). 이제 전부 동시에 흘러
+  //   부팅 시간 = 가장 느린 하나(대개 시트 자체)로 줄어든다.
+  //   ⚠️ build()는 아래 로더들(LINK_ACCOUNT·CLAN_TIERS·SOLO_RANK·DEPARTED…)의 결과를 쓰므로
+  //      '다운로드'만 앞당기고 build()는 여전히 로더 완료 뒤에 돈다.
+  const mainP = loadSheetJsonp(SHEET_ID, CATEGORIES.find(c=>c.key===CURRENT_CAT).gid);
+  mainP.catch(()=>{});               // 미처리 거부 경고 방지 — 실제 처리는 loadCategory 의 try/catch
+  const ddP = loadDDragon();         // 아이콘 전용(build 는 안 씀) — 부팅을 막지 않고 병렬 진행
+  { const [,,_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks()]);   // 병렬 로드(내부티어·탈퇴자도 합류 — 예전엔 앞에서 직렬로 기다렸다)
     LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
     MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
@@ -7926,8 +7997,10 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   // ⬇ 다운로드 버튼 버전 자동 표시 — 분석기 자동업데이트와 동일 소스(version.txt). 실패 시 버전만 생략(버튼은 releases/latest라 항상 최신 zip)
   fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt",{cache:"no-store"})
     .then(r=>r.ok?r.text():"").then(v=>{v=String(v).trim();const el=document.getElementById("dlver");if(el&&/^\d+(\.\d+)+$/.test(v))el.textContent="v"+v;}).catch(()=>{});
-  await loadCategory(CURRENT_CAT);   // 기본=협곡, 성공 시 대시보드 표시
+  await ddP;                         // 아이콘 맵 — 위 로더들과 함께 흘렀으니 여기선 대개 이미 끝나 있다
+  await loadCategory(CURRENT_CAT, mainP);   // 기본=협곡, 미리 받아둔 응답으로 즉시 진행
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
+  checkNewBuild();                   // 🆕 배포 확인은 부팅이 끝난 뒤에 — 부팅 중엔 시트와 대역폭을 다투지 않게(2026-08-27)
 })();
 </script>
 </body>
