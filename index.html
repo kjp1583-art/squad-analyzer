@@ -6461,7 +6461,11 @@ function renderDuo(){
     const pa=per.get(isC?(e.adc+"@"+P.a):e.adc)||{g:0,w:0}, ps=per.get(isC?(e.sup+"@"+P.b):e.sup)||{g:0,w:0};
     const exp=((pa.g?pa.w/pa.g:0.5)+(ps.g?ps.w/ps.g:0.5))/2*100;
     const kda=e.d>0?(e.k+e.a)/e.d:(e.k+e.a);
-    return Object.assign(e,{wr,exp,syn:wr-exp,kda});
+    // [2026-08-28 사장님 지시] 판수 수축 보정 — 원시 (승률−기대)로 줄 세우면 5판 100%가 다판 검증
+    //   듀오를 눌러버린다. 초과 성과(승수−기대승수)를 (판수+K)로 나눠, 판수가 적을수록 0으로 당긴다.
+    //   K=20 = 밴픽왕 클랜 조합 통계(clan_meta K_PAIR)와 같은 상수.
+    const syn=(e.w-(exp/100)*e.g)/(e.g+20)*100;
+    return Object.assign(e,{wr,exp,syn,rawsyn:wr-exp,kda});
   });
   const MIN=5;   // [2026-08-12 사장님 지시] 3판은 우연이 너무 많이 섞인다
   const ranked=rows.filter(e=>e.g>=MIN).sort((a,b)=>(b.syn-a.syn)||(b.g-a.g));
@@ -6476,7 +6480,7 @@ function renderDuo(){
       <td class="num">${e.g}</td>
       <td class="num" style="color:${e.wr>=50?'var(--win)':'var(--lose)'}">${Math.round(e.wr)}%</td>
       <td class="num" style="color:var(--sub)">${Math.round(e.exp)}%</td>
-      <td class="num" style="font-weight:800;color:${e.syn>=0?'#5ad48a':'#ff8a9a'}">${e.syn>=0?'+':''}${e.syn.toFixed(1)}%p</td>
+      <td class="num" style="font-weight:800;color:${e.syn>=0?'#5ad48a':'#ff8a9a'}" title="보정 전 ${e.rawsyn>=0?'+':''}${e.rawsyn.toFixed(1)}%p">${e.syn>=0?'+':''}${e.syn.toFixed(1)}%p</td>
       <td class="num" style="color:${kdaColor(e.kda)}">${e.kda.toFixed(2)}</td>
     </tr>`;
   const pick=Object.values(DUO_PAIRS).map(x=>`<button class="segbtn${x.key===P.key?' on':''}" onclick="setDuoMode('${x.key}')">${x.icon} ${x.label}</button>`).join('');
@@ -6487,7 +6491,7 @@ function renderDuo(){
       <h2>${P.icon} ${P.label} 궁합${isC?' — 챔피언':''} <span class="muted" style="font-size:13px;font-weight:400">${P.desc}${isC?' (챔피언 조합 기준)':''}</span></h2>
       <div class="seg" style="margin:9px 0 7px">${pick}</div>
       <div class="seg" style="margin:0 0 7px">${subjPick}</div>
-      <div class="muted" style="font-size:12.5px">시너지 = 듀오 승률 − 기대 승률(${expDesc}) · +면 함께일 때 더 강한 환상의 듀오, −면 따로가 나은 듀오 · 함께 ${MIN}판 이상만 랭킹${isC?' · 내전 실측이라 표본이 작아요 — 판수를 같이 봐주세요':''}</div>
+      <div class="muted" style="font-size:12.5px">시너지 = 듀오 승률 − 기대 승률(${expDesc})을 <b>판수로 수축 보정</b>한 값 — 판수가 적을수록 0으로 당겨져, 몇 판 반짝 100%가 다판 검증 듀오를 못 넘어요 · +면 함께일 때 더 강한 듀오 · 함께 ${MIN}판 이상만 랭킹${isC?' · 내전 실측이라 표본이 작아요 — 판수를 같이 봐주세요':''}</div>
     </div>
     <div class="card">
       ${ranked.length?`<div class="tblwrap"><table>
