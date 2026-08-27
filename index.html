@@ -5619,11 +5619,32 @@ const MYEOL_BOTDUOS=[
  {t:"SIAH K",ad:"악 진",sup:"레멍이",note:"실측 3판"},
  {t:"SIAH K",ad:"악 진",sup:"CHIHUAHUA",note:"실측 3판"},
 ];
-function myeolBotDuoHtml(){
+// 🌀 [2026-08-27 사장님 지시] 미드·정글 파워랭킹 — 라인업은 8/22 이후 스크림 실측(팀별 최다 조합, 4:3·4:2:2처럼
+//    갈린 팀만 경우의수 병기). ad=미드, sup=정글 (공용 렌더러의 자리 이름 재사용).
+const MYEOL_MIDJGL=[
+ {t:"수직낙하하는중",ad:"망무새",sup:"언 진",note:"실측 16판"},
+ {t:"프 싱",ad:"PIACERD AMOR",sup:"프 싱",note:"실측 13판"},
+ {t:"RAYB",ad:"라이프스타일",sup:"12X16",note:"실측 11판"},
+ {t:"SIAH K",ad:"일단즐겨",sup:"SIAH K",note:"실측 11판"},
+ {t:"태 웅",ad:"ASCASS",sup:"태 웅",note:"실측 9판"},
+ {t:"택 스",ad:"한 별",sup:"SPYAIR",note:"실측 7판"},
+ {t:"CARTER",ad:"우 거",sup:"CARTER",note:"실측 7판"},
+ {t:"야릇한언니들",ad:"착 부",sup:"야릇한언니들",note:"실측 7판"},
+ {t:"예니야",ad:"맨헤라공원팬티도둑",sup:"뎁뚜처럼",note:"실측 6판"},
+ {t:"난오늘만살아",ad:"아 리",sup:"난오늘만살아",note:"실측 4판"},
+ {t:"난오늘만살아",ad:"지을게없다구",sup:"난오늘만살아",note:"실측 3판"},
+ {t:"MARU",ad:"지 르",sup:"정글위치생각해요",note:"실측 4판"},
+ {t:"MARU",ad:"지 르",sup:"MARU",note:"실측 2판"},
+ {t:"MARU",ad:"지 르",sup:"용조련사",note:"실측 2판"},
+ {t:"태 희",ad:"태 희",sup:"손톱깎이",note:"실측 2판"},
+];
+function myeolMidJglHtml(){ return _myeolDuoRankHtml(MYEOL_MIDJGL,"🔮","🌳"); }
+function myeolBotDuoHtml(){ return _myeolDuoRankHtml(MYEOL_BOTDUOS,"🏹","🛡"); }
+function _myeolDuoRankHtml(DUOS,icA,icB){
   const pOf=_myeolPOf();
   if(!pOf) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
-  const multi=new Map(); for(const d of MYEOL_BOTDUOS) multi.set(d.t,(multi.get(d.t)||0)+1);
-  const list=MYEOL_BOTDUOS.map(d=>{
+  const multi=new Map(); for(const d of DUOS) multi.set(d.t,(multi.get(d.t)||0)+1);
+  const list=DUOS.map(d=>{
     const pa=pOf(d.ad), ps=pOf(d.sup);
     return {...d, pa, ps, sum:(pa!=null&&ps!=null)?pa+ps:null};
   }).sort((a,b)=>(b.sum??-1)-(a.sum??-1));
@@ -5636,8 +5657,8 @@ function myeolBotDuoHtml(){
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid var(--line);font-size:13px">
       <b style="min-width:34px;color:var(--sub)">${med}</b>
       <b style="min-width:96px">${esc(d.t)}</b>${cs}
-      <span style="flex:1">🏹 ${nm(d.ad)} <b style="color:#9fd0ff">⚔${d.pa==null?'-':d.pa.toFixed(1)}</b>
-        <span class="muted">+</span> 🛡 ${nm(d.sup)} <b style="color:#9fd0ff">⚔${d.ps==null?'-':d.ps.toFixed(1)}</b>
+      <span style="flex:1">${icA} ${nm(d.ad)} <b style="color:#9fd0ff">⚔${d.pa==null?'-':d.pa.toFixed(1)}</b>
+        <span class="muted">+</span> ${icB} ${nm(d.sup)} <b style="color:#9fd0ff">⚔${d.ps==null?'-':d.ps.toFixed(1)}</b>
         ${d.note?`<span class="muted" style="font-size:10.5px;margin-left:5px">${esc(d.note)}</span>`:""}</span>
       <div style="width:70px;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${w.toFixed(0)}%;background:linear-gradient(90deg,#7aa2ff,var(--gold))"></div></div>
       <b style="color:var(--gold);min-width:48px;text-align:right">⚔ ${d.sum==null?'-':d.sum.toFixed(1)}</b></div>`;
@@ -5768,7 +5789,8 @@ function renderMyeol(){
   ${MYEOL_SHOW_PRICES?"":`<h2 style="margin:6px 0 4px">⚔️ 제9회 멸망전</h2><div class="muted" style="font-size:13px;margin-bottom:4px">경매가 끝나 적정가 표는 내렸어요 — 아래는 확정 12팀의 파워랭킹입니다.</div>`}
   <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 팀 대 팀으로 붙은 판만 · 시트 갱신 시 자동</span></h2>${myeolScrimHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 종이 전력(전투력 5인 합) + 스크림 실전 보정 · 스크림이 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)</span></h2>${myeolTeamRankHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>💑 봇듀오 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 원딜+서폿 전투력 2인 합 · 라인업은 스크림 실측 우선(없으면 주포지션) · 바텀 유동 팀은 경우의수 병기</span></h2>${myeolBotDuoHtml()}</div>`;
+  <div class="card" style="margin-top:10px"><h2>💑 봇듀오 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 원딜+서폿 전투력 2인 합 · 라인업은 스크림 실측 우선(없으면 주포지션) · 바텀 유동 팀은 경우의수 병기</span></h2>${myeolBotDuoHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>🌀 미드·정글 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 미드+정글 전투력 2인 합 · 라인업은 스크림 실측 최다 조합 · 갈린 팀은 경우의수 병기</span></h2>${myeolMidJglHtml()}</div>`;
 }
 
 function renderMitoLog(){
