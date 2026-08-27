@@ -6399,27 +6399,35 @@ const DUO_PAIRS = {
   mid: {key:'mid', label:'미드·정글', icon:'🌀', a:'정글', b:'미드',  desc:'같은 팀 정글+미드 — 갱킹 호흡이 실제로 이기는가'},
   jgs: {key:'jgs', label:'정글·서폿', icon:'🧭', a:'정글', b:'서폿',  desc:'같은 팀 정글+서폿 — 로밍·시야 호흡이 실제로 이기는가'},
 };
-let DUO_MODE='bot';
+let DUO_MODE='bot', DUO_SUBJ='p';   // 주체: p=사람 / c=챔피언 (2026-08-27 사장님 지시)
 function setDuoMode(m){ DUO_MODE = DUO_PAIRS[m] ? m : 'bot'; renderDuo(); }
+function setDuoSubj(s){ DUO_SUBJ = s==='c' ? 'c' : 'p'; renderDuo(); }
 function renderDuo(){
   const P=DUO_PAIRS[DUO_MODE]||DUO_PAIRS.bot;
-  const per=new Map();   // 개인 통산 {g,w} — 기대 승률용
+  const isC = DUO_SUBJ==='c';   // 챔피언 모드: 같은 팀 두 포지션의 '챔피언 조합' 시너지
+  const per=new Map();   // 기대 승률용 — 사람: 개인 통산 {g,w} / 챔피언: 그 포지션에서의 챔프 통산
   const duo=new Map();   // "A|B" -> {adc,sup,g,w,k,d,a,last}
   for(const g of GAMES.values()){
     const side={};   // 진영 -> {포지션A:row, 포지션B:row}
     for(const r of g.rows){
       const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
-      const nm=r["소환사명"]; if(!nm) continue;
-      if(!per.has(nm)) per.set(nm,{g:0,w:0});
-      const v=per.get(nm); v.g++; if(res==="승리")v.w++;
       const pos=r["포지션"], sd=r["진영"];
+      const nm=isC?r["챔피언"]:r["소환사명"]; if(!nm) continue;
+      // 챔피언은 포지션 따라 딴 챔프처럼 굴러간다 — 기대치도 '그 포지션에서의' 승률로만 계산
+      const pk=isC?(nm+"@"+pos):nm;
+      if(!isC||pos===P.a||pos===P.b){
+        if(!per.has(pk)) per.set(pk,{g:0,w:0});
+        const v=per.get(pk); v.g++; if(res==="승리")v.w++;
+      }
       if(pos===P.a||pos===P.b){ (side[sd]=side[sd]||{})[pos]=r; }
     }
     for(const sd in side){
       const A=side[sd][P.a], S=side[sd][P.b];
       if(!A||!S) continue;
-      const key=A["소환사명"]+"|"+S["소환사명"];
-      if(!duo.has(key)) duo.set(key,{adc:A["소환사명"],sup:S["소환사명"],g:0,w:0,k:0,d:0,a:0,last:""});
+      const an=isC?A["챔피언"]:A["소환사명"], sn=isC?S["챔피언"]:S["소환사명"];
+      if(!an||!sn) continue;
+      const key=an+"|"+sn;
+      if(!duo.has(key)) duo.set(key,{adc:an,sup:sn,g:0,w:0,k:0,d:0,a:0,last:""});
       const e=duo.get(key);
       e.g++; if(A["결과"]==="승리")e.w++;
       for(const r2 of [A,S]){ const o=parseKDA(r2["KDA"]||""); if(o){e.k+=o.k;e.d+=o.d;e.a+=o.a;} }
@@ -6428,7 +6436,7 @@ function renderDuo(){
   }
   const rows=[...duo.values()].map(e=>{
     const wr=e.g?e.w/e.g*100:0;
-    const pa=per.get(e.adc)||{g:0,w:0}, ps=per.get(e.sup)||{g:0,w:0};
+    const pa=per.get(isC?(e.adc+"@"+P.a):e.adc)||{g:0,w:0}, ps=per.get(isC?(e.sup+"@"+P.b):e.sup)||{g:0,w:0};
     const exp=((pa.g?pa.w/pa.g:0.5)+(ps.g?ps.w/ps.g:0.5))/2*100;
     const kda=e.d>0?(e.k+e.a)/e.d:(e.k+e.a);
     return Object.assign(e,{wr,exp,syn:wr-exp,kda});
@@ -6436,11 +6444,13 @@ function renderDuo(){
   const MIN=5;   // [2026-08-12 사장님 지시] 3판은 우연이 너무 많이 섞인다
   const ranked=rows.filter(e=>e.g>=MIN).sort((a,b)=>(b.syn-a.syn)||(b.g-a.g));
   const nmBtn=n=>`<span class="clickname" onclick="openPlayerCard(${JSON.stringify(n).replace(/"/g,'&quot;')})">${esc(shortName(n))}</span>`;
+  const chBtn=n=>`<span class="champcell" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="go('champlog','${escAttr(n)}')" title="클릭 시 이 챔피언 전적 보기">${champImg(n,"sm")}<span>${esc(n)}</span></span>`;
+  const cell=n=>isC?chBtn(n):nmBtn(n);
   const medal=i=>i===0?'💘':i===1?'💞':i===2?'💕':`${i+1}`;
   const tr=(e,i)=>`<tr${i===0?' style="background:rgba(224,164,55,.06)"':''}>
       <td class="num" style="font-weight:800">${medal(i)}</td>
-      <td>${nmBtn(e.adc)} <span class="muted" style="font-size:11px">${P.a}</span></td>
-      <td>${nmBtn(e.sup)} <span class="muted" style="font-size:11px">${P.b}</span></td>
+      <td>${cell(e.adc)} <span class="muted" style="font-size:11px">${P.a}</span></td>
+      <td>${cell(e.sup)} <span class="muted" style="font-size:11px">${P.b}</span></td>
       <td class="num">${e.g}</td>
       <td class="num" style="color:${e.wr>=50?'var(--win)':'var(--lose)'}">${Math.round(e.wr)}%</td>
       <td class="num" style="color:var(--sub)">${Math.round(e.exp)}%</td>
@@ -6448,17 +6458,20 @@ function renderDuo(){
       <td class="num" style="color:${kdaColor(e.kda)}">${e.kda.toFixed(2)}</td>
     </tr>`;
   const pick=Object.values(DUO_PAIRS).map(x=>`<button class="segbtn${x.key===P.key?' on':''}" onclick="setDuoMode('${x.key}')">${x.icon} ${x.label}</button>`).join('');
+  const subjPick=`<button class="segbtn${!isC?' on':''}" onclick="setDuoSubj('p')">👥 사람</button><button class="segbtn${isC?' on':''}" onclick="setDuoSubj('c')">🏆 챔피언</button>`;
+  const expDesc=isC?`두 챔피언의 그 포지션 개인 승률 평균`:`두 사람 개인 승률의 평균`;
   view().innerHTML=`${navTabsHtml('duo')}
     <div class="card" style="margin-bottom:14px">
-      <h2>${P.icon} ${P.label} 궁합 <span class="muted" style="font-size:13px;font-weight:400">${P.desc}</span></h2>
+      <h2>${P.icon} ${P.label} 궁합${isC?' — 챔피언':''} <span class="muted" style="font-size:13px;font-weight:400">${P.desc}${isC?' (챔피언 조합 기준)':''}</span></h2>
       <div class="seg" style="margin:9px 0 7px">${pick}</div>
-      <div class="muted" style="font-size:12.5px">시너지 = 듀오 승률 − 기대 승률(두 사람 개인 승률의 평균) · +면 함께일 때 더 강한 환상의 듀오, −면 따로가 나은 듀오 · 함께 ${MIN}판 이상만 랭킹</div>
+      <div class="seg" style="margin:0 0 7px">${subjPick}</div>
+      <div class="muted" style="font-size:12.5px">시너지 = 듀오 승률 − 기대 승률(${expDesc}) · +면 함께일 때 더 강한 환상의 듀오, −면 따로가 나은 듀오 · 함께 ${MIN}판 이상만 랭킹${isC?' · 내전 실측이라 표본이 작아요 — 판수를 같이 봐주세요':''}</div>
     </div>
     <div class="card">
       ${ranked.length?`<div class="tblwrap"><table>
         <thead><tr><th class="num">순위</th><th>${P.a}</th><th>${P.b}</th><th class="num">함께</th><th class="num">듀오 승률</th><th class="num">기대</th><th class="num">시너지</th><th class="num">듀오 KDA</th></tr></thead>
         <tbody>${ranked.map(tr).join("")}</tbody></table></div>`
-      :`<div class="muted">함께 ${MIN}판 이상 뛴 ${P.label}가 아직 없어요</div>`}
+      :`<div class="muted">함께 ${MIN}판 이상 뛴 ${P.label}${isC?' 챔피언 조합이':'가'} 아직 없어요</div>`}
     </div>`;
   window.scrollTo(0,0);
 }
