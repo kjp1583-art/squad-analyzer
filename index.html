@@ -1945,6 +1945,17 @@ async function rawCacheGet(gid){
     });
   }catch(e){ return null; }
 }
+// 💾 스냅샷 표시 배너 — setStatus 는 '데이터 설정' 패널(기본 hidden) 안이라 화면에 안 뜬다.
+//   낡은 기록을 보고 있다는 사실은 반드시 보여야 하므로 화면 위에 직접 띄운다(2026-08-27 리뷰 지적).
+function _snapBanner(msg, warn){
+  let b=document.getElementById("snapBanner");
+  if(!msg){ if(b&&b.parentNode)b.parentNode.removeChild(b); return; }
+  if(!b){ b=document.createElement("div"); b.id="snapBanner"; document.body.appendChild(b); }
+  b.textContent=msg;
+  b.style.cssText="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9998;padding:8px 14px;"
+    +"border-radius:10px;font-size:13px;max-width:92vw;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.4);"
+    +(warn?"background:#3a2416;border:1px solid #c98a3a;color:#ffdcae":"background:#16233a;border:1px solid #4a7dff;color:#dfe8ff");
+}
 async function rawCachePut(gid,rows){
   try{
     if(!rows||!rows.length) return;
@@ -1956,18 +1967,24 @@ async function rawCachePut(gid,rows){
 //   JSONP 는 5.8MB 를 'JS 소스'로 파스·컴파일해야 해서 JSON.parse 보다 느리고, 콜백명이 매번 달라져
 //   브라우저 바이트코드 캐시도 못 탄다. gviz 가 페이지 오리진에 Access-Control-Allow-Origin 을
 //   그대로 되돌려주는 것을 실측 확인(2026-08-27)해서 fetch 가 가능해졌다.
-//   ⚠️ 시트에 날짜 셀이 섞이면 응답이 `new Date(...)`를 담아 JSON 이 아니게 된다(KDA 오염 역산이 이걸 쓴다).
-//      그 경우 JSON.parse 가 실패하므로 조용히 아래 <script> 경로로 떨어진다 — 기능 손실 없음(느릴 뿐).
+//   날짜 셀은 두 방식 모두 문자열 "Date(2026,7,24)" 로 온다(2026-08-27 AI_EVAL 탭으로 실측 —
+//   JSONP 라고 진짜 Date 객체를 주지 않는다). 즉 파싱 방식을 바꿔도 날짜 처리는 달라지지 않는다.
+//   ⏱ fetch 는 응답이 '멎으면' resolve 도 reject 도 안 해서 그대로 영구 대기가 된다(모바일 셀 전환·캡티브 포털).
+//      예전 <script> 경로에는 15초 상한이 있었으므로, 같은 안전장치를 AbortController 로 되살린다 —
+//      abort 는 reject 로 떨어져 아래 .catch 가 JSONP 폴백으로 이어준다.
 function loadSheetJsonp(id,gid){
   const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?gid=${gid}&headers=1&cb=${Date.now()}&tqx=out:json`;
-  return fetch(url,{cache:"no-store"})
+  const ac=(typeof AbortController!=="undefined")?new AbortController():null;
+  const to=setTimeout(()=>{ try{ ac&&ac.abort(); }catch(e){} }, 30000);
+  return fetch(url, ac?{cache:"no-store",signal:ac.signal}:{cache:"no-store"})
     .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
     .then(t=>{
+      clearTimeout(to);
       const i=t.indexOf("("), j=t.lastIndexOf(")");
       if(i<0||j<=i) throw new Error("gviz 응답 형식 오류");
       return JSON.parse(t.slice(i+1,j));
     })
-    .catch(()=>_loadSheetTag(id,gid));   // CORS 차단·날짜셀·네트워크 실패 → 기존 JSONP 폴백
+    .catch(()=>{ clearTimeout(to); return _loadSheetTag(id,gid); });   // CORS 차단·응답 멎음·네트워크 실패 → 기존 JSONP 폴백
 }
 function _loadSheetTag(id,gid){
   return new Promise((resolve,reject)=>{
@@ -7497,8 +7514,10 @@ function switchCat(key){
 }
 // preP  = 부팅 때 미리 발사해 둔 시트 응답 Promise(init 참고). 있으면 그걸 기다리고, 없으면 지금 요청한다.
 // keep  = 저장된 데이터로 이미 화면을 그려둔 상태 — 로딩 화면으로 덮지 말고, 다 받으면 보던 자리에서 갈아끼운다.
+let LOAD_SEQ=0;   // 진행 중이던 로드를 무효화하는 세대 번호 — 사용자가 그새 다른 카테고리로 옮기면 옛 응답이 화면을 덮지 않게
 async function loadCategory(key, preP, keep){
   const cat=CATEGORIES.find(c=>c.key===key); if(!cat)return;
+  const my=++LOAD_SEQ, _prevRaw=RAW;
   CURRENT_CAT=key; PATCH_SEL=null; renderCatbar();
   SORT={key:null,dir:-1};
   $("#q").value=""; hideSuggest();
@@ -7509,13 +7528,18 @@ async function loadCategory(key, preP, keep){
     else{
       const resp=await (preP || loadSheetJsonp(SHEET_ID, cat.gid));
       loadbar(70);
-      RAW=gvizToObjects(resp);
-      CAT_CACHE[key]=RAW;
-      build();
-      const _snap=RAW;                                  // ⚠️ 전역 RAW 를 나중에 읽으면 그새 카테고리가 바뀔 수 있다 — 지금 값을 붙잡는다
-      setTimeout(()=>rawCachePut(cat.gid,_snap),1500);   // 💾 다음 방문용 스냅샷 — 렌더 끝난 뒤 한가할 때
+      // ⚠️ 검증을 '먼저' 한다 — 빈 응답으로 RAW·CAT_CACHE·GAMES 를 먼저 망가뜨리고 나중에 던지면
+      //    복구할 원본이 남지 않는다(2026-08-27 리뷰 지적).
+      const _next=gvizToObjects(resp);
+      if(!_next.length) throw new Error("데이터가 비어 있습니다.");
+      if(my!==LOAD_SEQ){ CAT_CACHE[key]=_next; _snapBanner(null); return; }   // 그새 다른 카테고리로 옮겼다 — 데이터만 챙기고 화면은 그대로
+      RAW=_next; build();
+      if(!GAMES.size)throw new Error("데이터가 비어 있습니다.");
+      CAT_CACHE[key]=_next;                              // 검증을 통과한 뒤에만 캐시에 등록
+      setTimeout(()=>rawCachePut(cat.gid,_next),1500);   // 💾 다음 방문용 스냅샷 — 렌더 끝난 뒤 한가할 때(전역 RAW 가 아니라 이 응답을 붙잡는다)
     }
     if(!GAMES.size)throw new Error("데이터가 비어 있습니다.");
+    _snapBanner(null);   // 최신 데이터 도착 — 스냅샷 안내 제거
     renderPatchbar();
     setStatus(`${cat.label} — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`+(DUPLICATES?` · 중복 ${DUPLICATES}행 제거`:""),"ok");
     loadbar(100);
@@ -7525,7 +7549,12 @@ async function loadCategory(key, preP, keep){
       go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
     } else go('home');
   }catch(e){
-    if(keep){ setStatus(`${cat.label} — 저장된 기록 표시 중(최신 불러오기 실패: ${e.message})`,"err"); loadbar(100); return; }   // 화면은 살려둔다
+    if(keep){   // 저장된 기록으로 그려둔 화면을 살려둔다 — 망가졌을 수 있는 상태를 스냅샷으로 되돌리고 안내를 남긴다
+      if(RAW!==_prevRaw){ RAW=_prevRaw; try{ build(); }catch(_e){} }
+      setStatus(`${cat.label} — 저장된 기록 표시 중(최신 불러오기 실패: ${e.message})`,"err");
+      _snapBanner("⚠ 최신 데이터를 받지 못했습니다 — 저장된 기록을 보고 있어요", true);
+      loadbar(100); return;
+    }
     setStatus(`${cat.label} 불러오기 실패: ${e.message}`,"err"); loadbar(100); renderEmpty();
   }
 }
@@ -7987,7 +8016,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608270916";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608270944";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -8037,7 +8066,9 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   const _bootCat = CURRENT_CAT;      // ⚠️ 미리 받는 건 '이 카테고리' 것 — 부팅 중 사용자가 칼바람을 누르면 써먹으면 안 된다
   const _gid0 = CATEGORIES.find(c=>c.key===_bootCat).gid;
   const mainP = loadSheetJsonp(SHEET_ID, _gid0);
-  let _mainDone=false; mainP.then(()=>{_mainDone=true},()=>{_mainDone=true});
+  // 0=아직 · 1=도착 · 2=실패. 실패를 '도착'과 뭉뚱그리면 오프라인일 때 멀쩡한 스냅샷을 버리고
+  // '불러오지 못했습니다'를 띄우게 된다(2026-08-27 리뷰 지적).
+  let _mainState=0; mainP.then(()=>{_mainState=1;},()=>{_mainState=2;});
   mainP.catch(()=>{});               // 미처리 거부 경고 방지 — 실제 처리는 loadCategory 의 try/catch
   const cacheP = rawCacheGet(_gid0); // 💾 지난 방문 스냅샷(있으면 먼저 그린다)
   const ddP = loadDDragon();         // 아이콘 전용(build 는 안 씀) — 부팅을 막지 않고 병렬 진행
@@ -8057,10 +8088,12 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   //    아이콘(ddP)은 여기서 기다리지 않는다 — 아직이면 챔피언 칸이 잠깐 글자로 뜨고 곧 그림으로 바뀐다.
   let _painted=false;
   try{
-    const c=await cacheP;
-    if(!_mainDone && CURRENT_CAT===_bootCat && c && Array.isArray(c.rows) && c.rows.length && (Date.now()-(c.t||0))<RAW_CACHE_TTL){
+    const c = (_mainState===1) ? null : await cacheP;   // 이미 최신이 왔으면 IndexedDB 를 기다릴 이유가 없다
+    if(_mainState!==1 && CURRENT_CAT===_bootCat && c && Array.isArray(c.rows) && c.rows.length && (Date.now()-(c.t||0))<RAW_CACHE_TTL){
       RAW=c.rows; build();           // ⚠️ CAT_CACHE 에는 넣지 않는다 — 넣으면 최신 데이터를 안 받는다
       if(GAMES.size){ renderPatchbar(); _painted=true; go('home');
+        const _min=Math.max(1,Math.round((Date.now()-(c.t||0))/60000));
+        _snapBanner(`💾 저장된 기록(${_min}분 전)으로 먼저 표시 중 — 최신 불러오는 중…`);
         setStatus(`저장된 기록으로 먼저 표시 중 — 최신 불러오는 중…`); }
     }
   }catch(e){/* 스냅샷 실패는 무시 — 평소 경로로 */}
