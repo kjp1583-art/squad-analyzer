@@ -8158,6 +8158,41 @@ def lcu_core_backend_loop():
                                         team_color_cache.append((t_id_num, p_puuid, kor_cname.replace(" ", "")))
                                         roster_data.append(("B" if team_val == "블루팀" else "R", cached_pos_kor, kor_cname, s_name))   # 🎮 스코어보드용
 
+                                    # 🧩 [2026-08-27 사장님 지시] 닉변 직후 PUUID 공란 방지 — 소거법으로 결정적 복구.
+                                    #   PUUID 는 밴픽(챔프선택) 로스터의 '이름'으로 찾는데, 닉을 막 바꾼 사람은 LCU 에 남은
+                                    #   옛 이름과 인게임 새 이름이 어긋나 못 찾고, 시트 폴백(v81.90)도 새 닉으론 과거 기록이
+                                    #   없어 통하지 않는다. (실측 2026-08-27 카무사리#귤 갓 2판 — 나머지 9명은 PUUID 정상)
+                                    #   이름 대신 소거법: 빈 사람이 정확히 한 명이고 밴픽 로스터 PUUID 중 이번 판에서 아무도
+                                    #   안 쓴 것이 정확히 하나면 그 사람이다. 다만 '누가 빠지고 관전자가 들어온' 판도 모양이
+                                    #   같으므로, 그 PUUID 가 밴픽에서 확정한 챔피언이 이 사람이 실제 플레이한 챔피언과
+                                    #   일치할 때만 채운다 — 아니면 빈칸으로 둔다(틀린 PUUID 가 빈칸보다 훨씬 나쁘다).
+                                    try:
+                                        # ⚠️ (적대검증 반영) 소거법은 '전원이 행으로 존재'할 때만 성립한다 — 부분 로스터(9/10)에서
+                                        #   빈 행의 주인(B, 맵에 없음)과 아직 안 로딩된 맵 멤버(M)가 다르면 M의 PUUID가 B에게 갈 수 있다.
+                                        #   조건: 10행 이상 + 빈 행 제외 전원 PUUID 보유 + 맵의 실제 인원수 = 행 수 → 비둘기집으로 남은 1개가 곧 빈 행의 주인.
+                                        #   칼바람(벤치 스왑으로 밴픽 확정 챔프≠실제 챔프가 상례)은 챔피언 대조가 무력해 제외.
+                                        if rows_to_append and not has_bot and not is_aram_session and len(rows_to_append) >= 10                                                 and "PUUID" in headers_row and "챔피언" in headers_row:
+                                            _pi = headers_row.index("PUUID"); _ci = headers_row.index("챔피언")
+                                            _blanks = [_i for _i, _r in enumerate(rows_to_append) if not str(_r[_pi]).strip()]
+                                            if len(_blanks) == 1:
+                                                _used = {str(_r[_pi]).strip().lower() for _r in rows_to_append if str(_r[_pi]).strip()}
+                                                _realvals = [_v for _v in dict.fromkeys(lcu_puuid_map.values())
+                                                             if _v and not _v.startswith(("bot_", "temp_"))]   # 봇·임시 슬롯 제외
+                                                _free = [_v for _v in _realvals if _v not in _used]
+                                                if len(_free) == 1 and len(_used) == len(rows_to_append) - 1 and len(_realvals) == len(rows_to_append):
+                                                    _cand = _free[0]
+                                                    _lc2 = frozen_lock_champ.get(_cand) or global_lock_champ_map.get(_cand)
+                                                    _kor2 = str((champ_map.get(_lc2) or {}).get('kor', '')) if _lc2 else ""
+                                                    _played = str(rows_to_append[_blanks[0]][_ci])
+                                                    if _kor2 and _played and _kor2.replace(" ", "") == _played.replace(" ", ""):
+                                                        rows_to_append[_blanks[0]][_pi] = _cand
+                                                        _nmi = headers_row.index("소환사명") if "소환사명" in headers_row else -1
+                                                        print(f"[PUUID복구] {rows_to_append[_blanks[0]][_nmi] if _nmi >= 0 else '?'} ← 밴픽 로스터 소거법(챔프 {_played} 일치)", flush=True)
+                                                    else:
+                                                        print(f"[PUUID복구 보류] 남은 후보 1명이나 챔프 불일치(밴픽 {_kor2 or '없음'} vs 실제 {_played}) — 빈칸 유지", flush=True)
+                                    except Exception as _e_pu:
+                                        print(f"[PUUID복구 예외] {type(_e_pu).__name__}: {_e_pu}", flush=True)
+
                                     # [V81.48] 🧩 완전성 게이트 — 라이브 로스터(playerlist)가 밴픽 확정 인원만큼 다 로드됐을 때만 기록.
                                     #   근본원인: append 소스가 실시간 playerlist라 로딩 중 폴링이 '부분 로드' 순간(레드1명만 등)을 잡으면
                                     #   그 부분만 append → R1/B1R1처럼 여러 번 쪼개져 들어가 finalize 실패(결과대기)로 남던 문제.
