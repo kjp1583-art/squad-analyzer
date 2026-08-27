@@ -3850,11 +3850,21 @@ function findPlayers(q,limit){
     if(nn.startsWith(nq))add(n,starts);
     else if(nn.includes(nq))add(n,contains);
   }
-  // 2) 옛 닉으로 검색 → 같은 사람의 최신 닉으로 매핑
+  // 2) 옛 닉으로 검색 → 같은 사람의 최신 닉으로 매핑 (부계닉이면 본계까지 타고 간다)
   for(const [oldNorm,canon] of NAME_TO_CANON){
-    if(seen.has(canon))continue;
-    if(oldNorm.startsWith(nq))add(canon,starts);
-    else if(oldNorm.includes(nq))add(canon,contains);
+    const c=resolveAlt(canon);
+    if(seen.has(c))continue;
+    if(oldNorm.startsWith(nq))add(c,starts);
+    else if(oldNorm.includes(nq))add(c,contains);
+  }
+  // 3) [2026-08-27 사장님 제보] LINK_ACCOUNT 부계닉으로도 찾게 한다.
+  //    부계 기록은 본계로 합쳐지므로 부계닉은 검색 대상(PLAYERS_ALL 키)에서 사라진다.
+  //    그래서 부계닉을 치면 '결과 없음'이 떠, 합산이 안 된 것처럼 보였다.
+  for(const altNorm of ALT_TO_MAIN.keys()){
+    const c=resolveAlt(altNorm);   // 본계 이름이 태그 없이 적혀 있어도 대표닉까지 해석해 준다
+    if(seen.has(c))continue;
+    if(altNorm.startsWith(nq))add(c,starts);
+    else if(altNorm.includes(nq))add(c,contains);
   }
   const rank=n=>[PLAYERS.has(n)?0:1, -((SRC.get(n)||[]).length)];   // 이번 패치 우선 → 통산 판수
   const cmp=(a,b)=>{const ra=rank(a),rb=rank(b);return ra[0]-rb[0]||ra[1]-rb[1];};
@@ -8053,7 +8063,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608271039";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608271525";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
