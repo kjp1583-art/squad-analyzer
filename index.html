@@ -1913,6 +1913,45 @@ function parseSheet(url){
 }
 
 /* ---- JSONP 로더 (CORS 우회, 로컬·배포 모두 작동) ---- */
+/* 💾 [2026-08-27 사장님 지시 '로딩 개선'] 재방문 즉시 표시.
+   협곡 시트는 방문할 때마다 5.8MB를 처음부터 다시 받는다 — 구글이 no-store 로 주므로
+   브라우저 캐시가 아예 안 생기기 때문. 마지막으로 성공한 데이터를 IndexedDB 에 넣어두고,
+   다음 방문에는 그걸로 '먼저' 그린 뒤 새 데이터가 도착하면 조용히 갈아끼운다.
+   ⚠️ 안전장치: 6시간 지난 캐시는 안 쓰고, 네트워크가 이미 도착했으면 건너뛰고,
+      IndexedDB 가 막힌 환경(사생활 모드·용량 부족)에서는 전부 무시하고 기존 경로로 간다. */
+const IDB_NAME="squadgg", IDB_STORE="raw", RAW_CACHE_TTL=6*60*60*1000;
+function _idbOpen(){
+  return new Promise(res=>{
+    try{
+      if(typeof indexedDB==="undefined"||!indexedDB) return res(null);
+      const rq=indexedDB.open(IDB_NAME,1);
+      rq.onupgradeneeded=()=>{ try{ rq.result.createObjectStore(IDB_STORE); }catch(e){} };
+      rq.onsuccess=()=>res(rq.result||null);
+      rq.onerror=()=>res(null);
+      rq.onblocked=()=>res(null);
+      setTimeout(()=>res(null),3000);   // 열리지 않으면 그냥 포기(부팅을 막지 않는다)
+    }catch(e){ res(null); }
+  });
+}
+async function rawCacheGet(gid){
+  try{
+    const db=await _idbOpen(); if(!db) return null;
+    return await new Promise(res=>{
+      try{
+        const rq=db.transaction(IDB_STORE,"readonly").objectStore(IDB_STORE).get("gid:"+gid);
+        rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>res(null);
+        setTimeout(()=>res(null),4000);
+      }catch(e){ res(null); }
+    });
+  }catch(e){ return null; }
+}
+async function rawCachePut(gid,rows){
+  try{
+    if(!rows||!rows.length) return;
+    const db=await _idbOpen(); if(!db) return;
+    db.transaction(IDB_STORE,"readwrite").objectStore(IDB_STORE).put({t:Date.now(),rows},"gid:"+gid);
+  }catch(e){/* 용량 초과 등 — 캐시는 있으면 좋고 없어도 그만 */}
+}
 // 🚀 [2026-08-27 사장님 지시 '로딩 개선'] 메인 시트(협곡 5.8MB)를 <script> JSONP 대신 fetch+JSON.parse 로 받는다.
 //   JSONP 는 5.8MB 를 'JS 소스'로 파스·컴파일해야 해서 JSON.parse 보다 느리고, 콜백명이 매번 달라져
 //   브라우저 바이트코드 캐시도 못 탄다. gviz 가 페이지 오리진에 Access-Control-Allow-Origin 을
@@ -3305,7 +3344,7 @@ function aliasLookup(m, name){
 
 function build(){
   GAMES=new Map();PLAYERS=new Map();DUPLICATES=0;
-  _PCT_CACHE={}; MENTAL=new Map(); TEAMLUCK=null; OFFROLE=null;   // 🧊 멘탈 지수도 데이터가 바뀌면 다시 계산                 // 카테고리/패치가 바뀌면 레이더 비교군도 다시 계산해야 한다
+  _PCT_CACHE={}; MENTAL=new Map(); TEAMLUCK=null; OFFROLE=null; MYEOL_FAIR=null;   // 🧊 멘탈 지수도 데이터가 바뀌면 다시 계산 · 멸망전 적정가도(안 비우면 옛 데이터로 계산된 값이 세션 내내 굳는다)
   // 패치 정규화 (v16.13 → 16.13, 빈칸 → 16.13). 'v' 표기/무표기를 같은 버전으로 통합
   for(const r of RAW){ r["패치버전"]=normPatch(r["패치버전"]); }
   /* 👥 [2026-08-16 사장님 제보 '한 경기가 두 개로'] 같은 판이 두 게임ID로 기록된 것을 걸러낸다.
@@ -3576,7 +3615,7 @@ const CHTIER_K=8;             // 베이지안 prior (표본 적으면 50%로 수
 let DATA_SEQ=0, _DERIV={seq:-1, players:null, champs:new Map()};
 function _derivCache(){ if(_DERIV.seq!==DATA_SEQ) _DERIV={seq:DATA_SEQ, players:null, champs:new Map()}; return _DERIV; }
 function champTierData(posFilter){
-  const _c=_derivCache(), _k=String(posFilter||"");
+  const _c=_derivCache(), _k=(!posFilter||posFilter==="ALL")?"":String(posFilter);   // championStats 가 'ALL'과 미지정을 같게 보므로 키도 같게
   const _hit=_c.champs.get(_k); if(_hit) return _hit.slice();
   const champs=championStats(posFilter);
   // AI점수 평균/표준편차(정규화), 평균 데스 (픽된 챔프 기준)
@@ -5729,7 +5768,10 @@ function _myeolDuoRankHtml(DUOS,icA,icB){
 }
 // ⚔ [2026-08-24 사장님 지시] 스크림 전적 — '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 팀 대 팀으로 인정.
 //    팀장이 일반 내전에 낀 판을 스크림으로 오인하지 않기 위한 기준(8/24 QnA 오답의 원인).
-function _myeolScrims(){ return _myeolMemo("scrims", _myeolScrimsCalc); }
+function _myeolScrims(){   // 호출자가 list 를 제자리 정렬하므로 사본을 준다(메모 원본 순서 보호)
+  const S=_myeolMemo("scrims", _myeolScrimsCalc);
+  return S?{list:S.list.slice(), rec:S.rec}:null;
+}
 function _myeolScrimsCalc(){
   // 스크림 경기 추출(공용) — 8/22 경매 이후 · 양팀 4인+ · 리메이크 제외. 파워랭킹 보정과 전적 표가 같이 쓴다.
   const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
@@ -7453,13 +7495,15 @@ function switchCat(key){
   if(key===CURRENT_CAT && GAMES.size){go('home');return;}
   loadCategory(key);
 }
-// preP = 부팅 때 미리 발사해 둔 시트 응답 Promise(init 참고). 있으면 그걸 기다리고, 없으면 지금 요청한다.
-async function loadCategory(key, preP){
+// preP  = 부팅 때 미리 발사해 둔 시트 응답 Promise(init 참고). 있으면 그걸 기다리고, 없으면 지금 요청한다.
+// keep  = 저장된 데이터로 이미 화면을 그려둔 상태 — 로딩 화면으로 덮지 말고, 다 받으면 보던 자리에서 갈아끼운다.
+async function loadCategory(key, preP, keep){
   const cat=CATEGORIES.find(c=>c.key===key); if(!cat)return;
   CURRENT_CAT=key; PATCH_SEL=null; renderCatbar();
   SORT={key:null,dir:-1};
   $("#q").value=""; hideSuggest();
-  renderLoading(); setStatus("불러오는 중…"); loadbar(30);
+  if(!keep){ renderLoading(); setStatus("불러오는 중…"); }
+  loadbar(30);
   try{
     if(CAT_CACHE[key]){ RAW=CAT_CACHE[key]; build(); }
     else{
@@ -7468,12 +7512,20 @@ async function loadCategory(key, preP){
       RAW=gvizToObjects(resp);
       CAT_CACHE[key]=RAW;
       build();
+      const _snap=RAW;                                  // ⚠️ 전역 RAW 를 나중에 읽으면 그새 카테고리가 바뀔 수 있다 — 지금 값을 붙잡는다
+      setTimeout(()=>rawCachePut(cat.gid,_snap),1500);   // 💾 다음 방문용 스냅샷 — 렌더 끝난 뒤 한가할 때
     }
     if(!GAMES.size)throw new Error("데이터가 비어 있습니다.");
     renderPatchbar();
     setStatus(`${cat.label} — 게임 ${GAMES.size}개 · 플레이어 ${PLAYERS.size}명`+(DUPLICATES?` · 중복 ${DUPLICATES}행 제거`:""),"ok");
-    loadbar(100); go('home');
+    loadbar(100);
+    if(keep){   // 보고 있던 화면을 그대로 두고 새 데이터로 다시 그린다(패치 전환과 같은 규칙)
+      const _cur=(history.state&&history.state.route)||'home', _arg=history.state?history.state.arg:null;
+      const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','myeol','mito','game','report','donate']);
+      go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
+    } else go('home');
   }catch(e){
+    if(keep){ setStatus(`${cat.label} — 저장된 기록 표시 중(최신 불러오기 실패: ${e.message})`,"err"); loadbar(100); return; }   // 화면은 살려둔다
     setStatus(`${cat.label} 불러오기 실패: ${e.message}`,"err"); loadbar(100); renderEmpty();
   }
 }
@@ -7935,7 +7987,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608270834";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608270916";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -7982,8 +8034,12 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   //   부팅 시간 = 가장 느린 하나(대개 시트 자체)로 줄어든다.
   //   ⚠️ build()는 아래 로더들(LINK_ACCOUNT·CLAN_TIERS·SOLO_RANK·DEPARTED…)의 결과를 쓰므로
   //      '다운로드'만 앞당기고 build()는 여전히 로더 완료 뒤에 돈다.
-  const mainP = loadSheetJsonp(SHEET_ID, CATEGORIES.find(c=>c.key===CURRENT_CAT).gid);
+  const _bootCat = CURRENT_CAT;      // ⚠️ 미리 받는 건 '이 카테고리' 것 — 부팅 중 사용자가 칼바람을 누르면 써먹으면 안 된다
+  const _gid0 = CATEGORIES.find(c=>c.key===_bootCat).gid;
+  const mainP = loadSheetJsonp(SHEET_ID, _gid0);
+  let _mainDone=false; mainP.then(()=>{_mainDone=true},()=>{_mainDone=true});
   mainP.catch(()=>{});               // 미처리 거부 경고 방지 — 실제 처리는 loadCategory 의 try/catch
+  const cacheP = rawCacheGet(_gid0); // 💾 지난 방문 스냅샷(있으면 먼저 그린다)
   const ddP = loadDDragon();         // 아이콘 전용(build 는 안 씀) — 부팅을 막지 않고 병렬 진행
   { const [,,_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks()]);   // 병렬 로드(내부티어·탈퇴자도 합류 — 예전엔 앞에서 직렬로 기다렸다)
     LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
@@ -7997,8 +8053,20 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   // ⬇ 다운로드 버튼 버전 자동 표시 — 분석기 자동업데이트와 동일 소스(version.txt). 실패 시 버전만 생략(버튼은 releases/latest라 항상 최신 zip)
   fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt",{cache:"no-store"})
     .then(r=>r.ok?r.text():"").then(v=>{v=String(v).trim();const el=document.getElementById("dlver");if(el&&/^\d+(\.\d+)+$/.test(v))el.textContent="v"+v;}).catch(()=>{});
+  // 💾 시트가 아직 안 왔으면 지난 방문 스냅샷으로 먼저 화면을 채운다(도착하면 아래에서 갈아끼움)
+  //    아이콘(ddP)은 여기서 기다리지 않는다 — 아직이면 챔피언 칸이 잠깐 글자로 뜨고 곧 그림으로 바뀐다.
+  let _painted=false;
+  try{
+    const c=await cacheP;
+    if(!_mainDone && CURRENT_CAT===_bootCat && c && Array.isArray(c.rows) && c.rows.length && (Date.now()-(c.t||0))<RAW_CACHE_TTL){
+      RAW=c.rows; build();           // ⚠️ CAT_CACHE 에는 넣지 않는다 — 넣으면 최신 데이터를 안 받는다
+      if(GAMES.size){ renderPatchbar(); _painted=true; go('home');
+        setStatus(`저장된 기록으로 먼저 표시 중 — 최신 불러오는 중…`); }
+    }
+  }catch(e){/* 스냅샷 실패는 무시 — 평소 경로로 */}
   await ddP;                         // 아이콘 맵 — 위 로더들과 함께 흘렀으니 여기선 대개 이미 끝나 있다
-  await loadCategory(CURRENT_CAT, mainP);   // 기본=협곡, 미리 받아둔 응답으로 즉시 진행
+  const _same = (CURRENT_CAT===_bootCat);   // 부팅 중 카테고리를 바꿨으면 미리 받은 협곡 응답을 쓰면 안 된다
+  await loadCategory(CURRENT_CAT, _same?mainP:null, _painted&&_same);   // 기본=협곡, 미리 받아둔 응답으로 즉시 진행
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
   checkNewBuild();                   // 🆕 배포 확인은 부팅이 끝난 뒤에 — 부팅 중엔 시트와 대역폭을 다투지 않게(2026-08-27)
 })();
