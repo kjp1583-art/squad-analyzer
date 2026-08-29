@@ -5875,6 +5875,22 @@ const MYEOL_GROUPS=[
    4강·결승 매치업은 미정 — 이 시각 이후 4팀끼리 붙는 경기를 시리즈로 묶어 대진표를 자동으로 채운다. */
 const MYEOL_FINAL4=["RAYB","태 웅","수직낙하하는중","택 스"];
 const MYEOL_KO_START=new Date(2026,7,30,2);   // 진출전 종료(00:09)와 4강 사이 확실한 경계
+// 🏆 [2026-08-30 사장님 지시] 개인 멸망전 본선 전적 — 프로필 카드 표기용(본선 경기의 그 선수 승패)
+function myeolMainRecOf(name){
+  const S=_myeolScrims(); if(!S) return null;
+  const gids=new Set(S.list.filter(m=>m.day>=MYEOL_MAIN_START).map(m=>m.gid));
+  if(!gids.size) return null;
+  const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
+  const me=_myNk(canonOfName(name)); if(!me) return null;
+  let w=0,l=0;
+  for(const gid of gids){ const g=src.get(gid); if(!g)continue;
+    for(const r of g.rows||[]){
+      if(_myNk(canonOfRow(r))!==me)continue;
+      if(r["결과"]==="승리")w++; else if(r["결과"]==="패배")l++;
+      break;   // 한 판에 한 행만
+    } }
+  return (w+l)?{w,l}:null;
+}
 function myeolBracketHtml(){
   const S=_myeolScrims();
   const F4=new Set(MYEOL_FINAL4);
@@ -7139,6 +7155,12 @@ function renderPlayer(name){
     { const _ts=tierScore(tierOf(name));
       if(_ts!=null){ const _pw=Math.round((_ts+((w+0.5*8)/(w+l+8))*10)/2*10)/10;
         it.push(cell("⚔️ 전투력",_pw.toFixed(1),"전투력차 1 = 예상승률 4%p","","전투력 = (내부티어 점수 + 내전 통산승률 수축×10) ÷ 2 — 예상승률·밸런스 사후평가와 같은 산식. 전투력차 1 = 예상승률 4%p")); } }
+    // 🏆 멸망전 본선 개인 전적 — 본선(조별리그+토너먼트) 경기에 뛴 판의 승패 [2026-08-30 사장님 지시]
+    { const _mr=myeolMainRecOf(name);
+      if(_mr) it.push(cell("🏆 멸망전",
+        `${_mr.w+_mr.l}전 <b style="color:var(--win)">${_mr.w}승</b> <b style="color:var(--lose)">${_mr.l}패</b>`,
+        "제9회 본선 (조별리그+토너먼트)","",
+        "8/29 본선 개막 이후 '양 팀 모두 같은 멸망전 팀 4인 이상' 경기에서 본인이 뛴 판의 승패 — 경기가 기록되는 대로 자동 갱신")); }
     if(_sc!=null) it.push(cell("🔥 내전 활약",`${_sc}<span style="font-size:12px;color:var(--mut);font-weight:600">/100</span>`,`${bandTag('act',_sc)} · 클랜 평균 50`,"cmp-hi",
       "내전 기록만으로 낸 활약 점수 — 승률 30% · MVP/ACE율 25% · 역적율 −20% · KDA 15% · 킬관여 10%. 솔랭·AI는 넣지 않습니다(그건 '클랜 상위 %'가 봅니다). 50점이 클랜 평균."));
     if(avgRatio!=null){ const q=pc("kda"); it.push(cell("KDA",avgRatio.toFixed(2),`${q.band}${kdaGames}판 평균`,q.cls,q.tip)); }
@@ -8194,7 +8216,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608291701";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608291733";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
