@@ -5859,11 +5859,68 @@ function _myeolScrimsCalc(){
   }
   return {list, rec};
 }
+/* ⚔️ [2026-08-29 사장님 지시] 멸망전 본선 조별리그 — 8/29 저녁 개막(실측: 19:00 5경기 동시 시작,
+   대진 전부 조 편성과 일치 — 수직vs카터·택스vsMARU(A), SIAHKvs태웅·언니들vs난오살(B), 예니야vsRAYB(C)).
+   이 시각 이후의 팀 대 팀 매치는 본선으로 분류해 조별 표에 넣고, 그 전 판은 종전대로 스크림.
+   컷오프를 8/29 정오로 둔 이유: 마지막 스크림이 8/29 04:38(새벽), 본선 첫 경기가 19:00라 정오가 확실한 경계다.
+   (8/28 밤 매치들은 전부 조가 다른 팀끼리라 스크림이 맞음을 대진으로 재확인) */
+const MYEOL_MAIN_START=new Date(2026,7,29,12);
+const MYEOL_GROUPS=[
+ {g:"A조",caps:["택 스","MARU","수직낙하하는중","CARTER"]},
+ {g:"B조",caps:["SIAH K","태 웅","난오늘만살아","야릇한언니들"]},
+ {g:"C조",caps:["태 희","프 싱","RAYB","예니야"]},
+];
+function myeolGroupHtml(){
+  const S=_myeolScrims();
+  if(!S) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  const main=S.list.filter(m=>m.day>=MYEOL_MAIN_START);
+  if(!main.length) return `<div class="muted">본선 경기가 기록되면 자동으로 표시됩니다 — 분석기가 기록한 판이 시트에 오르는 즉시.</div>`;
+  const h2h=new Map();   // "a∥b" → a가 b를 이긴 횟수
+  for(const m of main){ const k=m.win+"∥"+m.lose; h2h.set(k,(h2h.get(k)||0)+1); }
+  const W=(a,b)=>h2h.get(a+"∥"+b)||0;
+  const short=c=>String(c).replace(/\s+/g,"");
+  const grouped=new Set();
+  let h="";
+  for(const G of MYEOL_GROUPS){
+    for(const c of G.caps) grouped.add(c);
+    // 조 내 종합 승패 → 순위 정렬(승-패 → 승 → 이름)
+    const tot=G.caps.map(c=>{ let w=0,l=0;
+      for(const o of G.caps){ if(o===c)continue; w+=W(c,o); l+=W(o,c); }
+      return {c,w,l}; }).sort((a,b)=>(b.w-b.l)-(a.w-a.l)||b.w-a.w||a.c.localeCompare(b.c));
+    const order=tot.map(t=>t.c);
+    const head=order.map(c=>`<th style="min-width:52px">${esc(short(c))}</th>`).join("");
+    const body=tot.map(t=>{
+      const cells=order.map(o=>{
+        if(o===t.c) return `<td style="background:var(--bg2)"></td>`;
+        const w=W(t.c,o), l=W(o,t.c);
+        if(!w&&!l) return `<td class="muted">-</td>`;
+        const col=w>l?"var(--win)":l>w?"var(--lose)":"var(--sub)";
+        return `<td><b style="color:${col}">${w}－${l}</b></td>`;
+      }).join("");
+      const wl=(t.w||t.l)?`<b style="color:var(--win)">${t.w}승</b> <b style="color:var(--lose)">${t.l}패</b>`:`<span class="muted">경기 전</span>`;
+      return `<tr><td style="text-align:left;white-space:nowrap"><b>${esc(t.c)}</b></td>${cells}<td style="white-space:nowrap">${wl}</td></tr>`;
+    }).join("");
+    h+=`<div style="margin:6px 0 12px;overflow-x:auto"><table class="tbl" style="min-width:340px"><thead><tr><th style="text-align:left">${G.g}</th>${head}<th>합계</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+  // 조 편성 밖 매치(순위 결정전·플레이오프 등) — 표에 못 넣는 판을 숨기지 않는다
+  const cross=main.filter(m=>{ const ga=MYEOL_GROUPS.find(G=>G.caps.includes(m.win)), gb=MYEOL_GROUPS.find(G=>G.caps.includes(m.lose)); return !ga||!gb||ga!==gb; });
+  const recent=main.slice().sort((a,b)=>b.day-a.day).slice(0,12).map(m=>`<div class="rpr">
+      <span class="rpr-d">${m.day.getMonth()+1}/${m.day.getDate()}</span>
+      <span class="rpr-t"><b style="color:var(--win)">${esc(m.win)}</b> 승 <span class="muted">vs</span> ${esc(m.lose)}</span>
+      <span class="rpr-g clickname" onclick="go('game','${escAttr(m.gid)}')">보기 ›</span></div>`).join("");
+  return h
+    +(cross.length?`<div class="muted" style="font-size:12px;margin:2px 0 8px">🔀 조 편성 밖 경기 ${cross.length}판(플레이오프·순위전 등)은 아래 경기 목록에서 확인하세요.</div>`:"")
+    +`<div style="margin-top:4px"><b style="font-size:13px">최근 본선 경기</b></div><div>${recent}</div>
+    <div class="muted" style="font-size:11.5px;margin-top:8px">※ 8/29 개막 이후 '양 팀 모두 같은 멸망전 팀 4인 이상'인 판을 본선으로 자동 집계 · 셀은 가로줄 팀 기준 승－패 · 시트 갱신 시 자동 반영</div>`;
+}
 function myeolScrimHtml(){
   const S=_myeolScrims();
   if(!S) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
-  const {list, rec}=S;
+  // 본선 개막 후에는 스크림(개막 전) 판만 이 카드에 남긴다 — 본선은 위 조별리그 카드가 담당
+  const list=S.list.filter(m=>m.day<MYEOL_MAIN_START);
   if(!list.length) return `<div class="muted">아직 스크림(양 팀 모두 같은 멸망전 팀 4인 이상) 기록이 없어요 — 팀장끼리 일반 내전에 낀 판은 세지 않습니다.</div>`;
+  const rec=new Map();
+  for(const m of list){ for(const [t,w] of [[m.win,1],[m.lose,0]]){ let e=rec.get(t); if(!e)rec.set(t,e={w:0,l:0}); w?e.w++:e.l++; } }
   const rank=[...rec.entries()].sort((a,b)=>(b[1].w-b[1].l)-(a[1].w-a[1].l)||b[1].w-a[1].w);
   const rows=rank.map(([t,e])=>`<span style="margin:2px 12px 2px 0;display:inline-block"><b>${esc(t)}</b> <b style="color:var(--win)">${e.w}승</b> <b style="color:var(--lose)">${e.l}패</b></span>`).join("");
   const recent=list.sort((a,b)=>b.day-a.day).slice(0,10).map(m=>`<div class="rpr">
@@ -5948,8 +6005,9 @@ function renderMyeol(){
   .myeol-t td{padding:3px 2px;text-align:center;border-bottom:1px solid rgba(120,130,160,.08);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
   ${priceSec}
   ${MYEOL_SHOW_PRICES?"":`<h2 style="margin:6px 0 4px">⚔️ 제9회 멸망전</h2><div class="muted" style="font-size:13px;margin-bottom:4px">경매가 끝나 적정가 표는 내렸어요 — 아래는 확정 12팀의 파워랭킹입니다.</div>`}
-  <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 팀 대 팀으로 붙은 판만 · 시트 갱신 시 자동</span></h2>${myeolScrimHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 종이 전력(전투력 5인 합) + 스크림 실전 보정 · 스크림이 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)</span></h2>${myeolTeamRankHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>🏟️ 본선 조별리그 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동</span></h2>${myeolGroupHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만</span></h2>${myeolScrimHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 종이 전력(전투력 5인 합) + 실전 보정(스크림·본선) · 경기가 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)</span></h2>${myeolTeamRankHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>💑 봇듀오 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 원딜+서폿 전투력 2인 합 · 라인업은 스크림 실측 우선(없으면 주포지션) · 바텀 유동 팀은 경우의수 병기</span></h2>${myeolBotDuoHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🌀 미드·정글 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 미드+정글 전투력 2인 합 · 라인업은 스크림 실측 최다 조합 · 갈린 팀은 경우의수 병기</span></h2>${myeolMidJglHtml()}</div>`;
 }
@@ -8089,7 +8147,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608271602";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608291018";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
