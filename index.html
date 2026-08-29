@@ -5870,6 +5870,52 @@ const MYEOL_GROUPS=[
  {g:"B조",caps:["SIAH K","태 웅","난오늘만살아","야릇한언니들"]},
  {g:"C조",caps:["태 희","프 싱","RAYB","예니야"]},
 ];
+/* 🏆 [2026-08-30 사장님 지시] 4강 진출 확정 — RAYB·태웅·수직낙하·택스 (진출 결정전 실측:
+   RAYB 2-0 CARTER · 태웅 2-1 언니들 · 택스 2-1 SIAH K · 수직 2-1 태희, 8/29 19:00~8/30 00:09).
+   4강·결승 매치업은 미정 — 이 시각 이후 4팀끼리 붙는 경기를 시리즈로 묶어 대진표를 자동으로 채운다. */
+const MYEOL_FINAL4=["RAYB","태 웅","수직낙하하는중","택 스"];
+const MYEOL_KO_START=new Date(2026,7,30,2);   // 진출전 종료(00:09)와 4강 사이 확실한 경계
+function myeolBracketHtml(){
+  const S=_myeolScrims();
+  const F4=new Set(MYEOL_FINAL4);
+  const ko=(S?S.list.filter(m=>m.day>=MYEOL_KO_START&&F4.has(m.win)&&F4.has(m.lose)):[]).slice().sort((a,b)=>a.day-b.day);
+  const pk=(a,b)=>[a,b].sort().join("∥");
+  const ser=new Map();
+  for(const m of ko){ const k=pk(m.win,m.lose); let e=ser.get(k);
+    if(!e)ser.set(k,e={teams:[m.win,m.lose].sort(),w:new Map(),n:0,first:m.day});
+    e.w.set(m.win,(e.w.get(m.win)||0)+1); e.n++; }
+  const series=[...ser.values()].sort((a,b)=>a.first-b.first);
+  // 4강 = 서로 겹치지 않는 첫 두 시리즈. 한쪽만 확정돼도 반대편은 '남은 두 팀'으로 자동 확정.
+  const semis=[];
+  for(const q of series){ if(semis.length<2 && !semis.some(x=>x.teams.some(t=>q.teams.includes(t)))) semis.push(q); }
+  if(semis.length===1){ const used=new Set(semis[0].teams);
+    const rest=MYEOL_FINAL4.filter(t=>!used.has(t));
+    semis.push({teams:rest,w:new Map(),n:0,pending:true}); }
+  const lead=q=>{ if(!q||q.pending||q.teams.length<2)return null;
+    const [a,b]=q.teams, wa=q.w.get(a)||0, wb=q.w.get(b)||0; return wa===wb?null:(wa>wb?a:b); };
+  let fin=null;
+  if(semis.length===2){ const l0=lead(semis[0]), l1=lead(semis[1]);
+    if(l0&&l1) fin=ser.get(pk(l0,l1))||null; }
+  const roster=cap=>{ const t=MYEOL_TEAMS9.find(x=>x.cap===cap); return t?t.m.map(([n])=>n):[]; };
+  const team=(cap,w,hot)=>cap
+    ?`<div class="bk-box${hot?' win':''}" style="min-width:120px"><div class="bk-top">${esc(cap)}</div><div class="bk-mem" style="font-size:14px;font-weight:900;text-align:center">${w==null?'':w+'승'}</div></div>`
+    :`<div class="bk-box" style="min-width:120px;opacity:.55"><div class="bk-top">미정</div><div class="bk-mem" style="text-align:center">?</div></div>`;
+  const matchBox=(q,label)=>{
+    if(!q) return `<div style="text-align:center"><div class="muted" style="font-size:11px;margin-bottom:4px">${label}</div><div style="display:flex;align-items:center;justify-content:center">${team(null)}<b style="padding:0 6px;color:var(--sub)">VS</b>${team(null)}</div></div>`;
+    const [a,b]=q.teams, wa=q.w.get(a)||0, wb=q.w.get(b)||0;
+    return `<div style="text-align:center"><div class="muted" style="font-size:11px;margin-bottom:4px">${label}${q.pending?' <span style="color:#ffcf7a">(예정)</span>':q.n?` · ${q.n}세트`:''}</div>
+      <div style="display:flex;align-items:center;justify-content:center">${team(a,q.pending?null:wa,wa>wb)}<b style="padding:0 6px;color:var(--sub)">VS</b>${team(b,q.pending?null:wb,wb>wa)}</div></div>`;
+  };
+  const names=MYEOL_FINAL4.map(cap=>`<div style="flex:1;min-width:150px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)">
+      <div style="font-weight:900;margin-bottom:4px;color:#ffd479">👑 ${esc(cap)}</div>
+      <div class="muted" style="font-size:12px;line-height:1.7">${roster(cap).map(esc).join(" · ")}</div></div>`).join("");
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${names}</div>
+    <div style="display:grid;gap:14px;justify-items:center">
+      ${matchBox(fin,"🏆 결승")}
+      <div style="display:flex;gap:26px;flex-wrap:wrap;justify-content:center">${matchBox(semis[0],"4강 1경기")}${matchBox(semis[1],"4강 2경기")}</div>
+    </div>
+    <div class="muted" style="font-size:11.5px;margin-top:10px">※ 4강·결승 대진과 스코어는 4팀끼리 붙는 경기가 기록되는 대로 자동으로 채워집니다 · 진출 결정전: RAYB 2-0 CARTER · 태웅 2-1 언니들 · 택스 2-1 SIAH K · 수직 2-1 태희</div>`;
+}
 function myeolGroupHtml(){
   const S=_myeolScrims();
   if(!S) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
@@ -6005,6 +6051,7 @@ function renderMyeol(){
   .myeol-t td{padding:3px 2px;text-align:center;border-bottom:1px solid rgba(120,130,160,.08);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
   ${priceSec}
   ${MYEOL_SHOW_PRICES?"":`<h2 style="margin:6px 0 4px">⚔️ 제9회 멸망전</h2><div class="muted" style="font-size:13px;margin-bottom:4px">경매가 끝나 적정가 표는 내렸어요 — 아래는 확정 12팀의 파워랭킹입니다.</div>`}
+  <div class="card" style="margin-top:10px"><h2>🏆 4강 토너먼트 <span class="muted" style="font-size:12.5px;font-weight:400">— RAYB·태웅·수직낙하·택스 진출 확정 · 대진·스코어 자동 갱신</span></h2>${myeolBracketHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🏟️ 본선 조별리그 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동</span></h2>${myeolGroupHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만</span></h2>${myeolScrimHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 종이 전력(전투력 5인 합) + 실전 보정(스크림·본선) · 경기가 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)</span></h2>${myeolTeamRankHtml()}</div>
@@ -8147,7 +8194,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608291018";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608291701";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
