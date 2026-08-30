@@ -2651,7 +2651,9 @@ function careersOfPlayer(name){   // 프로필용: 이 선수의 우승 기록 [
   return CAREERS.filter(r=>{ for(const k of careerKeysOf(r)) if(mine.has(k)) return true; return false; });
 }
 function careerHofHtml(){   // 명예의전당 커리어 섹션(대회별 현재 우승팀 + 역대 기록)
-  if(!CAREERS.length) return "";
+  // 파이널 MVP는 웹 내장 기록 — CAREER 탭이 (일시 장애로) 비어도 카드는 떠야 한다.
+  const _hasMvp=typeof MYEOL_FINALS_MVPS!=="undefined"&&MYEOL_FINALS_MVPS.length;
+  if(!CAREERS.length&&!_hasMvp) return "";
   const byTitle=new Map();
   for(const r of CAREERS){
     if(!byTitle.has(r.title)) byTitle.set(r.title,new Map());
@@ -5899,7 +5901,7 @@ const MYEOL9_CHAMP={cap:"수직낙하하는중",runner:"RAYB",score:"3-2",date:"
   mvp:{name:"망무새",line:"승리한 3·4·5세트 게임 MVP 싹쓸이 — 오리아나 5/0/12 · 판테온 13/2/6 · 흐웨이 13/1/7"}};
 // 🏅 파이널 MVP 커리어 — '…우승자' 역할 스캔 파이프라인(CAREER 탭)에 없는 특별 기록이라 웹이 직접 보관.
 const MYEOL_FINALS_MVPS=[
-  {title:"멸망전 파이널 MVP",name:"망무새",date:"2026-08-30 (제9회)",note:"결승 리버스 스윕 3·4·5세트 게임 MVP 싹쓸이"},
+  {title:"멸망전 파이널 MVP",name:"망무새",riot:"망무새#난 망했어",date:"2026-08-30 (제9회)",note:"결승 리버스 스윕 3·4·5세트 게임 MVP 싹쓸이"},
 ];
 // 🏆 [2026-08-30 사장님 지시] 개인 멸망전 본선 전적 — 프로필 카드 표기용(본선 경기의 그 선수 승패)
 function myeolMainRecOf(name){
@@ -5952,9 +5954,10 @@ function myeolBracketHtml(){
       <div style="font-weight:900;margin-bottom:4px;color:#ffd479">👑 ${esc(cap)}</div>
       <div class="muted" style="font-size:12px;line-height:1.7">${roster(cap).map(esc).join(" · ")}</div></div>`).join("");
   // 🏆 우승 배너 — 결과 확정 기록(MYEOL9_CHAMP). 선수명은 현역이면 프로필 링크.
+  //    ⚠️ 로스터는 태그 없는 경매용 닉이라 canonOfName으로는 못 찾는다 — playerKeyOf(태그 무관 매칭)로 해석(거래소와 동일 수법).
   const champBanner=(()=>{ const C=typeof MYEOL9_CHAMP!=="undefined"?MYEOL9_CHAMP:null; if(!C) return "";
-    const link=n=>{ const cn=canonOfName(n); return (cn&&PLAYERS.has(cn))
-      ?`<span class="clickname" onclick="go('player','${escAttr(cn)}')" style="font-weight:800">${esc(n)}</span>`:esc(n); };
+    const link=n=>{ const key=playerKeyOf(n); return (key&&PLAYERS.has(key))
+      ?`<span class="clickname" onclick="go('player','${escAttr(key)}')" style="font-weight:800">${esc(n)}</span>`:esc(n); };
     const mem=[C.cap,...roster(C.cap)].map(n=>n===C.mvp.name?`<span style="white-space:nowrap">🏅 ${link(n)}</span>`:link(n)).join(" · ");
     return `<div style="margin-bottom:14px;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,205,90,.55);background:linear-gradient(135deg,rgba(255,205,90,.14),rgba(255,150,60,.05))">
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px">
