@@ -2507,6 +2507,13 @@ function jumsuChip(name){
   if(!n) return '';
   return `<span title="스쿼드 점수전 역대 우승 기록 — 디코 '점수전 우승자' 역할 기준(CAREER)" style="background:rgba(255,196,90,.10);border:1px solid rgba(255,196,90,.45);color:#ffd79a;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">🏅 점수전 우승 ${n}회</span>`;
 }
+// 🏅 멸망전 파이널 MVP 뱃지 — 웹 보관 기록(MYEOL_FINALS_MVPS) 기준. 별칭맵으로 닉변·부계도 임자를 찾는다.
+function finalsMvpChip(name){
+  if(typeof MYEOL_FINALS_MVPS==="undefined"||!MYEOL_FINALS_MVPS.length) return '';
+  const mine=new Set(aliasKeysOf(name));
+  return MYEOL_FINALS_MVPS.filter(r=>{ for(const k of aliasKeysOf(r.name)) if(mine.has(k)) return true; return false; })
+    .map(r=>`<span title="${escAttr(r.date+" · "+r.note)}" style="background:linear-gradient(135deg,rgba(255,215,80,.18),rgba(255,150,60,.08));border:1px solid rgba(255,205,90,.55);color:#ffd75e;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">🏅 ${esc(r.title)}</span>`).join("");
+}
 // 🚫 노밴 기록(NOBAN 탭 — 분석기가 로비 채팅의 노밴 선언을 감지해 게임별 적재)
 let NOBAN_BY_GAME=new Map(), NOBAN_CNT=new Map();   // 게임ID(숫자만)→[챔피언...] / 챔피언→노밴 선언 판수
 // 😤 억울지수(GRUDGE 탭) — 맞라인 개인지표 기대 우위율 − 실제 우위율.
@@ -2672,6 +2679,14 @@ function careerHofHtml(){   // 명예의전당 커리어 섹션(대회별 현재
     if(past.length){
       h+='<div style="margin-top:8px;font-size:12.5px;opacity:.85">'+past.map(e=>`<div style="padding:2px 0">${esc(e.date)} — ${e.names.map(nameLink).join(", ")}</div>`).join("")+'</div>';
     }
+    h+='</div>';
+  }
+  // 🏅 멸망전 파이널 MVP — '…우승자' 역할 파이프라인(CAREER)에 없는 특별 기록이라 웹이 직접 보관(MYEOL_FINALS_MVPS)
+  if(typeof MYEOL_FINALS_MVPS!=="undefined"&&MYEOL_FINALS_MVPS.length){
+    h+=`<div style="margin-bottom:12px;padding:10px 12px;background:linear-gradient(135deg,rgba(255,215,80,.10),rgba(255,150,60,.04));border:1px solid rgba(255,205,90,.45);border-radius:12px">`;
+    h+=`<div style="font-weight:800">🏅 멸망전 파이널 MVP</div>`;
+    h+='<div style="margin-top:6px;font-size:13px">'+MYEOL_FINALS_MVPS.slice().sort((a,b)=>b.date.localeCompare(a.date))
+      .map(r=>`<div style="padding:2px 0">${esc(r.date)} — ${nameLink({name:r.name,riot:r.riot||""})} <span class="muted" style="font-size:12px">· ${esc(r.note)}</span></div>`).join("")+'</div>';
     h+='</div>';
   }
   h+='</div>';
@@ -4640,11 +4655,14 @@ function roleBadge(name){
 }
 /* 📢 고성능확성기 — 공지 슬라이드 + 구매 메시지들을 6초 간격 페이드 회전 */
 let WEB_MEGA=[],_megaIdx=0,_megaTimer=null;
-// 📣 [2026-08-19 사장님 지시] 공지 = 제9회 멸망전 홍보. 경매(8/22) 지나면 다음 공지로 교체할 것.
-const MEGA_NOTICE={notice:true,msg:"⚔️ 제9회 멸망전 경매가 8월 22일(토)에 열립니다! 상단 [멸망전] 탭에서 내 AI 추정 적정가와 포지션별 순위를 미리 확인해 보세요"};
+// 📣 [2026-08-30 사장님 지시] 공지 = 제9회 멸망전 폐막 — 종료 알림 + 우승 축하 + 참가자 감사. 다음 행사 공지가 생기면 교체할 것.
+const MEGA_NOTICES=[
+  {notice:true,msg:"🏆 제9회 멸망전이 막을 내렸습니다 — 우승 '수직낙하하는중' 팀! (수직낙하하는중·망무새·김쪼랭·집중겜·언 진) 결승 0-2에서 내리 3연승, 리버스 스윕 우승 🎉 파이널 MVP 망무새"},
+  {notice:true,msg:"🙏 이틀간 뜨거운 본선을 함께 만들어준 12개 팀 참가자 여러분 모두 감사합니다 — 조별리그·토너먼트·재미난 기록은 [멸망전] 탭, 우승 커리어는 [명예의전당]에서 확인하세요"},
+];
 function _megaSlides(){
   const act=WEB_MEGA.filter(m=>(+m.until||0)*1000>Date.now()&&String(m.msg||'').trim());
-  return [MEGA_NOTICE,...act];
+  return [...MEGA_NOTICES,...act];
 }
 function renderMega(){
   const el=document.getElementById('megaboard'); if(!el) return;
@@ -5875,6 +5893,14 @@ const MYEOL_GROUPS=[
    4강·결승 매치업은 미정 — 이 시각 이후 4팀끼리 붙는 경기를 시리즈로 묶어 대진표를 자동으로 채운다. */
 const MYEOL_FINAL4=["RAYB","태 웅","수직낙하하는중","택 스"];
 const MYEOL_KO_START=new Date(2026,7,30,2);   // 진출전 종료(00:09)와 4강 사이 확실한 경계
+// 🏆 제9회 멸망전 결과 확정(2026-08-30 사장님 지시로 기록) — 우승 수직낙하하는중, 결승 0-2에서 3연승 리버스 스윕.
+//    파이널 MVP는 데이터로 확정: 승리한 결승 3·4·5세트 게임 MVP가 전부 망무새(오리아나 5/0/12 · 판테온 13/2/6 · 흐웨이 13/1/7).
+const MYEOL9_CHAMP={cap:"수직낙하하는중",runner:"RAYB",score:"3-2",date:"2026-08-30",
+  mvp:{name:"망무새",line:"승리한 3·4·5세트 게임 MVP 싹쓸이 — 오리아나 5/0/12 · 판테온 13/2/6 · 흐웨이 13/1/7"}};
+// 🏅 파이널 MVP 커리어 — '…우승자' 역할 스캔 파이프라인(CAREER 탭)에 없는 특별 기록이라 웹이 직접 보관.
+const MYEOL_FINALS_MVPS=[
+  {title:"멸망전 파이널 MVP",name:"망무새",date:"2026-08-30 (제9회)",note:"결승 리버스 스윕 3·4·5세트 게임 MVP 싹쓸이"},
+];
 // 🏆 [2026-08-30 사장님 지시] 개인 멸망전 본선 전적 — 프로필 카드 표기용(본선 경기의 그 선수 승패)
 function myeolMainRecOf(name){
   const S=_myeolScrims(); if(!S) return null;
@@ -5925,12 +5951,78 @@ function myeolBracketHtml(){
   const names=MYEOL_FINAL4.map(cap=>`<div style="flex:1;min-width:150px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)">
       <div style="font-weight:900;margin-bottom:4px;color:#ffd479">👑 ${esc(cap)}</div>
       <div class="muted" style="font-size:12px;line-height:1.7">${roster(cap).map(esc).join(" · ")}</div></div>`).join("");
-  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${names}</div>
+  // 🏆 우승 배너 — 결과 확정 기록(MYEOL9_CHAMP). 선수명은 현역이면 프로필 링크.
+  const champBanner=(()=>{ const C=typeof MYEOL9_CHAMP!=="undefined"?MYEOL9_CHAMP:null; if(!C) return "";
+    const link=n=>{ const cn=canonOfName(n); return (cn&&PLAYERS.has(cn))
+      ?`<span class="clickname" onclick="go('player','${escAttr(cn)}')" style="font-weight:800">${esc(n)}</span>`:esc(n); };
+    const mem=[C.cap,...roster(C.cap)].map(n=>n===C.mvp.name?`<span style="white-space:nowrap">🏅 ${link(n)}</span>`:link(n)).join(" · ");
+    return `<div style="margin-bottom:14px;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,205,90,.55);background:linear-gradient(135deg,rgba(255,205,90,.14),rgba(255,150,60,.05))">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px">
+        <div style="font-size:19px;font-weight:900;color:#ffd75e">🏆 제9회 멸망전 우승 — ${esc(C.cap)}</div>
+        <div class="muted" style="font-size:12.5px">결승 <b style="color:var(--win)">${esc(C.score)}</b> ${esc(C.runner)} · ${esc(C.date)}</div></div>
+      <div style="margin-top:7px;font-size:13.5px;line-height:1.8">${mem}</div>
+      <div style="margin-top:9px;padding:8px 11px;border-radius:10px;background:rgba(255,215,80,.10);border:1px solid rgba(255,215,80,.3)">
+        <b style="color:#ffd75e">🏅 파이널 MVP — ${link(C.mvp.name)}</b>
+        <span class="muted" style="font-size:12.5px"> · ${esc(C.mvp.line)}</span></div>
+      <div class="muted" style="font-size:12px;margin-top:8px">1·2세트를 내주고 벼랑 끝에서 시작한 결승 — 내리 3연승 리버스 스윕으로 트로피를 들어올렸습니다 🔥</div>
+    </div>`; })();
+  return `${champBanner}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${names}</div>
     <div style="display:grid;gap:14px;justify-items:center">
       ${matchBox(fin,"🏆 결승")}
       <div style="display:flex;gap:26px;flex-wrap:wrap;justify-content:center">${matchBox(semis[0],"4강 1경기")}${matchBox(semis[1],"4강 2경기")}</div>
     </div>
     <div class="muted" style="font-size:11.5px;margin-top:10px">※ 4강·결승 대진과 스코어는 4팀끼리 붙는 경기가 기록되는 대로 자동으로 채워집니다 · 진출 결정전: RAYB 2-0 CARTER · 태웅 2-1 언니들 · 택스 2-1 SIAH K · 수직 2-1 태희</div>`;
+}
+function myeolFunHtml(){ return _myeolMemo("funHtml", _myeolFunHtmlCalc); }
+function _myeolFunHtmlCalc(){
+  // ✨ 본선(조별리그+토너먼트) 재미난 기록 — 시트에서 그대로 집계. 동률은 전원 표기.
+  const S=_myeolScrims(); if(!S) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  const main=S.list.filter(m=>m.day>=MYEOL_MAIN_START);
+  if(!main.length) return `<div class="muted">본선 기록이 아직 없습니다.</div>`;
+  const G=new Set(main.map(m=>m.gid));
+  const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
+  const kdaRe=/^\s*(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)\s*$/;
+  const one=[];                                        // 단일 경기 활약 행
+  const mvp=new Map(), nod=new Map(), asum=new Map(), gcnt=new Map(), tk=new Map(), pick=new Map();
+  const bump=(mp,k,v)=>mp.set(k,(mp.get(k)||0)+(v==null?1:v));
+  for(const [gid,g] of src){ if(!G.has(gid))continue;
+    for(const r of g.rows||[]){
+      const cn=canonOfRow(r); if(!cn)continue;
+      const ch=String(r["챔피언"]||"").trim();
+      if(ch) bump(pick,ch);
+      bump(gcnt,cn);
+      if(String(r["매치평가"]||"")==="MVP") bump(mvp,cn);
+      const m=kdaRe.exec(String(r["KDA"]||"")); if(!m)continue;
+      const k=+m[1],d=+m[2],a=+m[3];
+      one.push({cn,ch,k,d,a,gid});
+      if(d===0) bump(nod,cn);
+      bump(asum,cn,a); bump(tk,gid,k);
+    } }
+  if(!one.length) return `<div class="muted">본선 기록이 아직 없습니다.</div>`;
+  const pl=cn=>`<span class="clickname" onclick="go('player','${escAttr(cn)}')" style="font-weight:800">${esc(shortName(cn))}</span>`;
+  const gl=gid=>`<span class="clickname" onclick="go('game','${escAttr(gid)}')" style="font-size:11.5px">경기 ↗</span>`;
+  const kdaTxt=x=>`<span class="muted">(${esc(x.ch)} ${x.k}/${x.d}/${x.a})</span> ${gl(x.gid)}`;
+  const maxRows=f=>{ const mx=Math.max(...one.map(f)); return {mx,list:one.filter(x=>f(x)===mx)}; };
+  const maxMap=mp=>{ const mx=Math.max(...mp.values()); return {mx,keys:[...mp.keys()].filter(k=>mp.get(k)===mx)}; };
+  const items=[];
+  { const {mx,list}=maxRows(x=>x.k);
+    items.push(["🗡️","한 경기 최다 킬",`${mx}킬`,list.map(x=>`${pl(x.cn)} ${kdaTxt(x)}`).join("<br>")]); }
+  { const {mx,list}=maxRows(x=>(x.k+x.a)/Math.max(x.d,1));
+    items.push(["🧮","한 경기 최고 KDA",String(Math.round(mx*10)/10),list.map(x=>`${pl(x.cn)} ${kdaTxt(x)}`).join("<br>")]); }
+  { const {mx,list}=maxRows(x=>x.a);
+    items.push(["🤝","한 경기 최다 도움",`${mx}어시`,list.map(x=>`${pl(x.cn)} ${kdaTxt(x)}`).join("<br>")]); }
+  if(mvp.size){ const t=maxMap(mvp); items.push(["🎖️","게임 MVP 최다",`${t.mx}회`,t.keys.map(pl).join(" · ")]); }
+  if(nod.size){ const t=maxMap(nod); items.push(["🛡️","노데스 경기 최다",`${t.mx}경기`,t.keys.map(pl).join(" · ")]); }
+  if(asum.size){ const t=maxMap(asum); items.push(["💞","본선 도움왕 (합산)",`${t.mx}어시`,t.keys.map(pl).join(" · ")]); }
+  if(tk.size){ const t=maxMap(tk); items.push(["🔥","최다 합킬 난타전",`${t.mx}킬`,t.keys.map(gl).join(" · ")]); }
+  if(pick.size){ const t=maxMap(pick); items.push(["📈","본선 최다 픽",`${t.mx}픽`,t.keys.map(esc).join(" · ")]); }
+  if(gcnt.size){ const t=maxMap(gcnt); items.push(["💪","철인상 (최다 출전)",`${t.mx}경기`,t.keys.map(pl).join(" · ")]); }
+  return `<div class="muted" style="font-size:12.5px;margin-bottom:8px">본선 ${main.length}경기 집계 · 동률은 전원 표기</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">`+
+    items.map(([em,t,v,d])=>`<div style="border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)">
+      <div class="muted" style="font-size:11.5px">${em} ${t}</div>
+      <div style="font-weight:900;font-size:16px;margin:2px 0">${v}</div>
+      <div style="font-size:12.5px;line-height:1.7">${d}</div></div>`).join("")+`</div>`;
 }
 function myeolGroupHtml(){
   const S=_myeolScrims();
@@ -6067,7 +6159,8 @@ function renderMyeol(){
   .myeol-t td{padding:3px 2px;text-align:center;border-bottom:1px solid rgba(120,130,160,.08);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
   ${priceSec}
   ${MYEOL_SHOW_PRICES?"":`<h2 style="margin:6px 0 4px">⚔️ 제9회 멸망전</h2><div class="muted" style="font-size:13px;margin-bottom:4px">경매가 끝나 적정가 표는 내렸어요 — 아래는 확정 12팀의 파워랭킹입니다.</div>`}
-  <div class="card" style="margin-top:10px"><h2>🏆 4강 토너먼트 <span class="muted" style="font-size:12.5px;font-weight:400">— RAYB·태웅·수직낙하·택스 진출 확정 · 대진·스코어 자동 갱신</span></h2>${myeolBracketHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>🏆 4강 토너먼트 <span class="muted" style="font-size:12.5px;font-weight:400">— 우승 수직낙하하는중 · 결승 리버스 스윕 3-2 RAYB · 스코어 자동 집계</span></h2>${myeolBracketHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>✨ 제9회 재미난 기록 <span class="muted" style="font-size:12.5px;font-weight:400">— 본선 전 경기에서 뽑은 기록들 · 동률은 전원 표기</span></h2>${myeolFunHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🏟️ 본선 조별리그 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동</span></h2>${myeolGroupHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만</span></h2>${myeolScrimHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 종이 전력(전투력 5인 합) + 실전 보정(스크림·본선) · 경기가 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)</span></h2>${myeolTeamRankHtml()}</div>
@@ -7263,7 +7356,7 @@ function renderPlayer(name){
   const _mbti = mbtiOf(name);   // 🧠 디코 MBTI 역할 매칭
   const _ghost = isGhost(name);   // 👻 고스트밴픽왕 구독자
   const _titleChip = titleChip(name);   // 🏷️ 상점 구매 칭호
-  const _myeolChip = myeolChip(name) + jumsuChip(name);   // ⚔️ 멸망전 · 🏅 점수전 우승
+  const _myeolChip = myeolChip(name) + jumsuChip(name) + finalsMvpChip(name);   // ⚔️ 멸망전 · 🏅 점수전 우승 · 🏅 파이널 MVP
   // 🏷️ [2026-08-03 사장님 제보] 칭호는 이름 옆에 붙인다 — 뱃지 줄 맨 아래에 있으면
   //    스크롤해야 보여서 '낙찰받았는데 안 보인다'가 된다. 여기 줄에서는 뺀다.
   const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_myeolChip)
@@ -8216,7 +8309,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608291733";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202608302030";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
