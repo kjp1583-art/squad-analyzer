@@ -6885,7 +6885,11 @@ function renderBrjang(){
   // 🩹 [2026-09-03 사장님 제보] 봇이 넘긴 이름이 옛 디코닉('귤갓입니다')이어도 별칭 맵(canonOfName: 부계·닉변)으로
   //    현재 닉에 맞춘다. 태그 없는 롤닉은 playerKeyOf(태그 무관)로 한 번 더 시도. 풀리면 현재 닉으로 표시+링크.
   const ALL=(typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
-  const resolveKey=nm=>{ try{ const cn=canonOfName(nm); if(cn&&ALL.has(cn)) return cn; }catch(e){} const k=playerKeyOf(nm); return (k&&ALL.has(k))?k:null; };
+  // 🩹 [2026-09-03 사장님 제보 2] 디코닉이 **옛 롤닉의 태그 뗀 형태**('默 言' → 해 원#해 원 닉변)면 canonOfName(풀네임 키)도
+  //    playerKeyOf(현재 닉만)도 못 푼다 → 전체 별칭(CANON_TO_ALIASES)의 베이스닉으로 한 번 더 찾는다. 동명이인 베이스는 임자에게만.
+  const aliasBase=nm=>{ const b=tnorm(nm); if(!b) return null; if(AMBIG_BASE&&AMBIG_BASE.has(b)){ const o=AMBIG_OWNER&&AMBIG_OWNER.get(b); return (o&&ALL.has(o))?o:null; }
+    for(const [cn,als] of CANON_TO_ALIASES){ if(!ALL.has(cn)) continue; if(tnorm(cn)===b) return cn; for(const a of (als||[])) if(tnorm(a)===b) return cn; } return null; };
+  const resolveKey=nm=>{ try{ const cn=canonOfName(nm); if(cn&&ALL.has(cn)) return cn; }catch(e){} const k=playerKeyOf(nm); if(k&&ALL.has(k)) return k; try{ return aliasBase(nm); }catch(e){ return null; } };
   const rows=list.map((b,i)=>{ const key=resolveKey(b.name); const shown=key?shortName(key):b.name;
     const link=key?`<span class="clickname" onclick="go('player','${escAttr(key)}')" style="font-weight:800">${esc(shown)}</span>`:`<b>${esc(b.name)}</b>`;
     return `<div style="display:grid;grid-template-columns:34px 44px 1fr 120px;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
@@ -8487,7 +8491,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609032230";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609032300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
