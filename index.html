@@ -2516,7 +2516,7 @@ function loadBrjang(){
 function brjOf(name){ return aliasLookup(BRJANG, name); }
 function brjChip(name){
   const b=brjOf(name); if(!b) return '';
-  return `<span title="${escAttr('브장신 키우기 — '+b.xp+' XP · 코인 배율 ×'+b.mult)}" onclick="go('brjang')" style="cursor:pointer;background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.5);color:#ffcf8a;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</span>`;
+  return `<span title="${escAttr('브장신 키우기 — '+b.xp+' XP · 유니크 배율 ×'+b.mult)}" onclick="go('brjang')" style="cursor:pointer;background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.5);color:#ffcf8a;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</span>`;
 }
 // ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
 let MYEOL=new Map();
@@ -6884,7 +6884,7 @@ function renderBrjang(){
     <div class="card"><h2>🍗 브장신 키우기 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜 마스코트 육성 미니게임 · 디스코드 <b>/브장신</b> 으로 플레이</span></h2>
       <div style="margin:6px 0 10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,179,71,.45);background:rgba(255,179,71,.08)"><span style="font-size:22px">🍗</span> <b>브장신:</b> "${esc(line)}"</div>
       <div class="muted" style="font-size:12.5px;line-height:1.8">먹이는 클랜 활동이에요 — <b>내전 1판 +10 XP</b> · <b>밴픽퀴즈 참여 +3</b> · <b>하루 1회 쓰다듬기(/브장신) +8</b> (쓰다듬다 보면 가끔 이벤트가 터집니다)<br>
-      🪙 <b>스쿼드코인 1개당 경험치 +10%</b>(최대 +50%) — 코인을 모을수록 브장신이 빨리 큽니다 · 게임 재화는 포인트와 완전히 분리(환전 없음)</div></div>
+      🪙 <b>유니크 칭호 1개당 경험치 +10%</b>(최대 +50%) — 스쿼드코인·특별 발행(고추바사삭·엄) 모두 인정, 모을수록 브장신이 빨리 큽니다 · 게임 재화는 포인트와 완전히 분리(환전 없음)</div></div>
     <div class="card" style="margin-top:10px"><h2>🧬 진화 단계</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">${stageTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🏆 육성 랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— ${list.length}명 · 봇이 30분마다 갱신</span></h2>
       ${list.length?`<div style="display:grid;gap:6px">${rows}</div>`:`<div class="muted">아직 아무도 브장신을 키우지 않았어요 — 디스코드에서 <b>/브장신</b> 을 쳐서 알을 받아보세요 🥚</div>`}</div>`;
@@ -8472,7 +8472,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609031500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609031700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
