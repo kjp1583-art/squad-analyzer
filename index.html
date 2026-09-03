@@ -2497,13 +2497,13 @@ function loadBrjang(){
       try{
         const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
         const ix=k=>cols.indexOf(k);
-        const ni=ix("닉네임"), xi=ix("XP"), li=ix("단계"), si=ix("단계명"), ei=ix("이모지"), mi=ix("코인배율"), ti=ix("오늘사료"), ai=ix("갱신");
+        const ni=ix("닉네임"), xi=ix("XP"), li=ix("단계"), si=ix("단계명"), ei=ix("이모지"), mi=ix("코인배율"), ti=ix("오늘사료"), ai=ix("갱신"), bi=ix("가방"), wi=ix("근무종료");
         if(ni<0||xi<0){ resolve(out); return; }   // 탭 부재 폴백(첫 시트) 오독 방지
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
           const nm=String(g(ni)||"").trim(); if(!nm) continue;
           out.set(tnorm(nm),{name:nm,xp:parseInt(g(xi),10)||0,lv:parseInt(g(li),10)||0,stage:String(g(si)||""),emoji:String(g(ei)||"🥚"),
-                             mult:parseFloat(g(mi))||1,today:parseInt(g(ti),10)||0,at:String(g(ai)||"")});
+                             mult:parseFloat(g(mi))||1,today:parseInt(g(ti),10)||0,at:String(g(ai)||""),bag:parseInt(g(bi),10)||0,workEnd:parseInt(g(wi),10)||0});
         }
       }catch(e){}
       resolve(out);
@@ -6891,11 +6891,12 @@ function renderBrjang(){
     return `<div style="display:grid;grid-template-columns:34px 44px 1fr 120px;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
       <div style="font-weight:900;color:${i<3?'#ffd75e':'var(--sub)'}">${i+1}</div><div style="font-size:26px;text-align:center">${esc(b.emoji)}</div>
       <div>${link} <span class="muted" style="font-size:12px">Lv.${b.lv} ${esc(b.stage)}</span>${bar(b)}</div>
-      <div class="muted" style="font-size:12px;text-align:right">🪙 ×${(+b.mult||1).toFixed(1)}<br>🍗 오늘 ${b.today}개</div></div>`; }).join("");
+      <div class="muted" style="font-size:12px;text-align:right">🪙 ×${(+b.mult||1).toFixed(1)}<br>🎒 사료 ${b.bag||0}${b.workEnd?`<br>${b.workEnd*1000>Date.now()?'🏪 근무 중':'🧺 퇴근 대기'}`:''}</div></div>`; }).join("");
   view().innerHTML=`${navTabsHtml('brjang')}
     <div class="card"><h2>🍗 브장신 키우기 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜 마스코트 육성 미니게임 · 디스코드 <b>/브장신</b> 으로 플레이</span></h2>
       <div style="margin:6px 0 10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,179,71,.45);background:rgba(255,179,71,.08)"><span style="font-size:22px">🍗</span> <b>브장신:</b> "${esc(line)}"</div>
-      <div class="muted" style="font-size:12.5px;line-height:1.8">먹이는 클랜 활동이에요 — <b>내전 1판 +10 XP</b> · <b>밴픽퀴즈 참여 +3</b> · <b>하루 1회 쓰다듬기(/브장신) +8</b> (쓰다듬다 보면 가끔 이벤트가 터집니다)<br>
+      <div class="muted" style="font-size:12.5px;line-height:1.8">사료는 클랜 활동으로 생겨요 — <b>내전 1판 = 사료 1개</b> · <b>밴픽퀴즈 참여 = 간식 1개</b> → 🎒 가방에 쌓이고, 채널에 <b>"먹이"</b>라고 쳐서 직접 먹여야 경험치가 됩니다(사료 +10 · 간식 +3)<br>
+      🏪 <b>bhc 합정점 출근</b> — "출근" 하면 4시간 뒤 "퇴근"으로 +30 XP, "야근"은 8시간 뒤 +70 (심고 기다렸다 수확하는 룰) · <b>하루 1회 쓰다듬기 +8</b> (가끔 이벤트)<br>
       🪙 <b>유니크 칭호 1개당 경험치 +10%</b>(최대 +50%) — 스쿼드코인·특별 발행(고추바사삭·엄) 모두 인정, 모을수록 브장신이 빨리 큽니다 · 게임 재화는 포인트와 완전히 분리(환전 없음)</div></div>
     <div class="card" style="margin-top:10px"><h2>🧬 진화 단계</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">${stageTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🏆 육성 랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— ${list.length}명 · 봇이 30분마다 갱신</span></h2>
@@ -8484,7 +8485,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609031900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609032100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
