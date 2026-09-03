@@ -1708,6 +1708,8 @@ function playerBadges(name, useAll){
   let solo=null; const sr=aliasLookup(SOLO_RANKS, name); if(sr&&sr.cur!=null) solo=sr.cur; else if(sr&&sr.cur===undefined&&sr.score!=null) solo=sr.score;
   const b=[];
   if(asmt&&asmt.title) b.push({k:'sib',i:asmt.title.includes('상현')?'🗡':'🌙',t:asmt.title,d:'십이귀월 — 순수 실력 파워랭킹 최상위 12인'});
+  { const _cn=(typeof coinCountOf==='function')?coinCountOf(name):0, _ct=_cn?coinTierOf(_cn):null;   // 🪙 스쿼드코인 수집 시리즈
+    if(_ct) b.push({k:'coin',i:_ct.i,t:_ct.t,d:`${_ct.d} (${_cn}개)`}); }
   if(asmt&&(asmt.label==='저평가'||(asmt.urgent&&asmt.implRel==='up'))) b.push({k:'rise',i:'🌱',t:'떡상',d:'자기 내부티어보다 잘함 — 승격 후보, 상승세!'});
   if(G>=100) b.push({k:'vet',i:'🎂',t:'고인물',d:`내전 ${G}판 — 클랜의 산증인`});
   else if(G>=50) b.push({k:'iron',i:'🏃',t:'철인',d:`내전 ${G}판 — 압도적 개근`});
@@ -1732,6 +1734,7 @@ function playerBadges(name, useAll){
 const BADGE_CATALOG=[
   {k:'sib',i:'🗡🌙',name:'십이귀월',d:'순수 실력 파워랭킹 최상위 12인(상현6·하현6)'},
   {k:'mito',i:'🏟️',name:'미토 우승',d:'주말 미니토너먼트 우승 3회 이상 (10회+ = 미토의 지배자)'},
+  {k:'coin',i:'🪙',name:'스쿼드코인 수집',d:'유니크 스쿼드코인 보유 개수 — 1개 홀더 · 2개 수집가 · 3개 부자 · 5개 재벌 · 10개 코인의 용 (경매·거래소에서 모은다)'},
   {k:'rise',i:'🌱',name:'떡상',d:'자기 내부티어보다 잘하는 승격 후보'},
   {k:'winrate',i:'📈',name:'고승률',d:'15판+ 승률 60% 이상'},
   {k:'streak',i:'🔥',name:'연승',d:'최고 4연승 이상 달성'},
@@ -2458,6 +2461,25 @@ function titleChip(name){   // 보유한 칭호 전부 (유니크 → 상점 칭
     const tip=t.tier==="유니크"?"세상에 단 하나뿐인 칭호 — 경매·거래소에서만 구할 수 있습니다":`포인트 상점에서 구매한 칭호 (${escAttr(t.tier||'일반')})`;
     return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}</span>`;
   }).join(" ");
+}
+// 🪙 [2026-09-03 사장님 지시] 스쿼드코인 수집 뱃지 시리즈 — 보유한 유니크 '스쿼드코인 No.N' 개수로 등급이 오른다.
+//    특별 발행(고추바사삭·엄 등)은 코인이 아니라 제외. 데이터는 TITLES 탭(봇이 보유 칭호 전부 미러) 그대로.
+const COIN_TIERS=[   // 개수 하한 오름차순 — 마지막이 최고 등급
+  {n:1, i:'🪙', t:'코인 홀더',   d:'스쿼드코인 1개 보유 — 경매장에 발을 들였다'},
+  {n:2, i:'💰', t:'코인 수집가', d:'스쿼드코인 2개 보유 — 모으기 시작했다'},
+  {n:3, i:'🏦', t:'코인 부자',   d:'스쿼드코인 3개 보유 — 클랜 경제의 큰손'},
+  {n:5, i:'👑', t:'코인 재벌',   d:'스쿼드코인 5개 보유 — 시장을 움직이는 손'},
+  {n:10,i:'🐉', t:'코인의 용',   d:'스쿼드코인 10개 보유 — 황금 더미 위의 용'},
+];
+function coinCountOf(name){
+  return titlesOf(name).filter(t=>t.tier==="유니크"&&/^스쿼드코인 No\.\d+$/.test(String(t.title||""))).length;
+}
+function coinTierOf(n){ let cur=null; for(const t of COIN_TIERS){ if(n>=t.n) cur=t; } return cur; }
+function coinChip(name){
+  const n=coinCountOf(name); const t=coinTierOf(n); if(!t) return '';
+  const next=COIN_TIERS.find(x=>x.n>n);
+  const tip=`${t.d}`+(next?` · 다음 등급 ${next.i} ${next.t}까지 ${next.n-n}개`:' · 최고 등급');
+  return `<span title="${escAttr(tip)}" style="background:linear-gradient(90deg,rgba(255,200,60,.18),rgba(255,150,40,.10));border:1px solid rgba(255,190,80,.6);color:#ffd75e;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${t.i} ${esc(t.t)} <span style="opacity:.75;font-weight:600">${n}개</span></span>`;
 }
 // ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
 let MYEOL=new Map();
@@ -4793,7 +4815,7 @@ function renderAchievements(){
     let chips;
     if(!hs.length){ chips='<span class="muted" style="font-size:12.5px">아직 획득자 없음</span>'; }
     else chips=hs.map(h=>{
-      let suf=''; if(cat.k==='streak')suf=h.t; else if(cat.k==='main')suf=h.t.replace(' 장인',''); else if(cat.k==='specialist')suf=h.t.replace(' 스페셜리스트','');
+      let suf=''; if(cat.k==='streak')suf=h.t; else if(cat.k==='main')suf=h.t.replace(' 장인',''); else if(cat.k==='specialist')suf=h.t.replace(' 스페셜리스트',''); else if(cat.k==='coin')suf=h.t;
       return `<span class="ach-name" onclick="go('player','${escAttr(h.name)}')">${esc(shortName(h.name))}${suf?` <span style="opacity:.55;font-size:11px">${esc(suf)}</span>`:''}</span>`;
     }).join("");
     return `<div class="ach-sec${hs.length?'':' empty'}">
@@ -7436,7 +7458,7 @@ function renderPlayer(name){
   const _mbti = mbtiOf(name);   // 🧠 디코 MBTI 역할 매칭
   const _ghost = isGhost(name);   // 👻 고스트밴픽왕 구독자
   const _titleChip = titleChip(name);   // 🏷️ 상점 구매 칭호
-  const _myeolChip = myeolChip(name) + jumsuChip(name) + finalsMvpChip(name);   // ⚔️ 멸망전 · 🏅 점수전 우승 · 🏅 파이널 MVP
+  const _myeolChip = myeolChip(name) + jumsuChip(name) + finalsMvpChip(name) + coinChip(name);   // ⚔️ 멸망전 · 🏅 점수전 우승 · 🏅 파이널 MVP · 🪙 코인 수집
   // 🏷️ [2026-08-03 사장님 제보] 칭호는 이름 옆에 붙인다 — 뱃지 줄 맨 아래에 있으면
   //    스크롤해야 보여서 '낙찰받았는데 안 보인다'가 된다. 여기 줄에서는 뺀다.
   const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_myeolChip)
@@ -8389,7 +8411,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609030900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609031200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
