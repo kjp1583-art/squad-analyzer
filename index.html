@@ -6875,7 +6875,12 @@ function renderBrjang(){
   const bar=b=>{ const i=Math.max(0,BRJ_STAGES.findIndex(s=>s[0]>b.xp)); const nxt=i>0?BRJ_STAGES[i]:null; const cur=nxt?BRJ_STAGES[i-1]:BRJ_STAGES[BRJ_STAGES.length-1];
     const f=nxt?Math.max(0,Math.min(1,(b.xp-cur[0])/Math.max(1,nxt[0]-cur[0]))):1;
     return `<div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden"><div style="width:${Math.round(f*100)}%;height:100%;background:linear-gradient(90deg,#ffb347,#ff7a3d)"></div></div><div class="muted" style="font-size:11px;margin-top:3px">${b.xp} XP${nxt?` · 다음 ${nxt[1]} ${esc(nxt[2])}까지 ${nxt[0]-b.xp}`:' · 최종 진화'}</div>`; };
-  const rows=list.map((b,i)=>{ const key=playerKeyOf(b.name); const link=(key&&PLAYERS.has(key))?`<span class="clickname" onclick="go('player','${escAttr(key)}')" style="font-weight:800">${esc(b.name)}</span>`:`<b>${esc(b.name)}</b>`;
+  // 🩹 [2026-09-03 사장님 제보] 봇이 넘긴 이름이 옛 디코닉('귤갓입니다')이어도 별칭 맵(canonOfName: 부계·닉변)으로
+  //    현재 닉에 맞춘다. 태그 없는 롤닉은 playerKeyOf(태그 무관)로 한 번 더 시도. 풀리면 현재 닉으로 표시+링크.
+  const ALL=(typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
+  const resolveKey=nm=>{ try{ const cn=canonOfName(nm); if(cn&&ALL.has(cn)) return cn; }catch(e){} const k=playerKeyOf(nm); return (k&&ALL.has(k))?k:null; };
+  const rows=list.map((b,i)=>{ const key=resolveKey(b.name); const shown=key?shortName(key):b.name;
+    const link=key?`<span class="clickname" onclick="go('player','${escAttr(key)}')" style="font-weight:800">${esc(shown)}</span>`:`<b>${esc(b.name)}</b>`;
     return `<div style="display:grid;grid-template-columns:34px 44px 1fr 120px;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
       <div style="font-weight:900;color:${i<3?'#ffd75e':'var(--sub)'}">${i+1}</div><div style="font-size:26px;text-align:center">${esc(b.emoji)}</div>
       <div>${link} <span class="muted" style="font-size:12px">Lv.${b.lv} ${esc(b.stage)}</span>${bar(b)}</div>
@@ -8472,7 +8477,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609031700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609031800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
