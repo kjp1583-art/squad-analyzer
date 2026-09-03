@@ -520,6 +520,8 @@
   .tab{padding:10px 11px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;flex:0 0 auto}
   .tab:hover{color:var(--txt)}
   .tab.on{color:var(--txt);border-bottom-color:var(--accent)}
+  /* 🥊 [2026-09-03 사장님 지시] 탭 둘째 줄 — 인간상성. 첫 줄 바로 아래에 붙여 한 덩어리로 보이게 */
+  .tabs.tabs2{margin:-8px 0 8px}
   /* 💘 듀오 시너지 — 봇듀오 / 미드·정글 전환 토글 (2026-08-12) */
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .segbtn{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;
@@ -3844,6 +3846,7 @@ function go(route,arg){
   else if(route==='mito')renderMitoLog();
   else if(route==='myeol')renderMyeol();   // ⚔️ 멸망전(적정가·추후 파워랭킹)
   else if(route==='duo')renderDuo();
+  else if(route==='rival')renderRival();   // 🥊 인간상성(맞라인 상대전적)
   else if(route==='donate')renderDonate();   // 💝 후원하기(개발비·클랜 별개 계좌)
   window.scrollTo(0,0);
 }
@@ -4863,7 +4866,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div>`;
+  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -6802,6 +6805,80 @@ const DUO_PAIRS = {
 let DUO_MODE='bot', DUO_SUBJ='p';   // 주체: p=사람 / c=챔피언 (2026-08-27 사장님 지시)
 function setDuoMode(m){ DUO_MODE = DUO_PAIRS[m] ? m : 'bot'; renderDuo(); }
 function setDuoSubj(s){ DUO_SUBJ = s==='c' ? 'c' : 'p'; renderDuo(); }
+
+/* ============== 화면: 🥊 인간상성 — 맞라인 상대전적 (2026-09-03 사장님 지시) ==============
+   "전투력은 비슷한데 맞라인에서 유독 한쪽만 이기는 짝"을 찾는다.
+   · 맞대결 = 같은 판, 같은 포지션, 서로 다른 진영. 통산(전 패치)·닉변·부계 통합(canonOfRow) 기준.
+   · 전투력 = 플레이어카드 산식과 동일(_myeolPOf: 내부티어 + 통산승률 수축) — 다른 숫자를 또 만들지 않는다.
+   · 🔥 하극상 = 전투력 낮은 쪽이 지배 — 내부티어로 설명 안 되는 진짜 '사람 상성'. */
+const RIVAL_TH={std:{n:5,wr:0.75,gap:1.0}, wide:{n:3,wr:0.75,gap:1.5}};   // 3승1패는 '상성'이라기엔 표본이 얇다 — 기본은 5전+
+let RIVAL_MODE='std';
+function setRivalMode(m){ RIVAL_MODE=RIVAL_TH[m]?m:'std'; renderRival(); }
+function rivalPairs(){ return _myeolMemo("rival", _rivalPairsCalc); }   // 통산·티어 의존 → DATA_SEQ 캐시
+function _rivalPairsCalc(){
+  const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
+  if(!src||!src.size) return [];
+  const POS=["탑","정글","미드","원딜","서폿"];
+  const pairs=new Map();   // pos|A|B (A<B) -> {pos,a,b,n,wa,last}
+  for(const [,g] of src){
+    const side={};
+    for(const r of g.rows||[]){
+      const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+      const pos=r["포지션"]; if(!POS.includes(pos)) continue;
+      const sd=r["진영"]||""; if(!sd) continue;
+      const cn=canonOfRow(r); if(!cn) continue;
+      const S=(side[sd]=side[sd]||{});
+      if(S[pos]) { S[pos]=null; continue; }   // 같은 진영·같은 포지션 2명(구성 깨진 팀) → 그 라인은 판정 불가
+      S[pos]={cn,res};
+    }
+    const sds=Object.keys(side); if(sds.length!==2) continue;
+    for(const pos of POS){
+      const x=side[sds[0]][pos], y=side[sds[1]][pos];
+      if(!x||!y||x.cn===y.cn||x.res===y.res) continue;
+      const [a,b]=x.cn<y.cn?[x,y]:[y,x];
+      const key=pos+"|"+a.cn+"|"+b.cn;
+      let e=pairs.get(key); if(!e) pairs.set(key,e={pos,a:a.cn,b:b.cn,n:0,wa:0,last:""});
+      e.n++; if(a.res==="승리") e.wa++;
+      const dt=String(g.date||(g.rows&&g.rows[0]&&g.rows[0]["날짜"])||"").slice(0,10); if(dt>e.last) e.last=dt;   // GAMES_ALL 은 date 칸이 없다
+    }
+  }
+  const pOf=_myeolPOf();
+  const out=[];
+  for(const e of pairs.values()){
+    const pa=pOf?pOf(e.a):null, pb=pOf?pOf(e.b):null;
+    const wa=e.wa, wb=e.n-e.wa;
+    const [win,lose,ww,wl,pw,pl]= wa>=wb?[e.a,e.b,wa,wb,pa,pb]:[e.b,e.a,wb,wa,pb,pa];
+    const gap=(pw!=null&&pl!=null)?Math.abs(pw-pl):null;
+    out.push({pos:e.pos,win,lose,ww,wl,n:e.n,wr:ww/e.n,pw,pl,gap,upset:(gap!=null&&pw<pl),last:e.last});
+  }
+  return out;
+}
+function renderRival(){
+  const TH=RIVAL_TH[RIVAL_MODE];
+  const list=rivalPairs().filter(e=>e.n>=TH.n&&e.wr>=TH.wr&&e.gap!=null&&e.gap<=TH.gap)
+    .sort((x,y)=>(y.n-x.n)||(y.wr-x.wr)||(x.gap-y.gap));
+  const POS=["탑","정글","미드","원딜","서폿"];
+  const pl=cn=>`<span class="clickname" onclick="go('player','${escAttr(cn)}')" style="font-weight:800">${esc(shortName(cn))}</span>`;
+  const row=e=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);flex-wrap:wrap">
+      <div style="flex:1;min-width:230px">${pl(e.win)} <span class="muted">(${e.pw.toFixed(1)})</span> <b style="color:var(--win);padding:0 4px">⚔</b> ${pl(e.lose)} <span class="muted">(${e.pl.toFixed(1)})</span>${e.upset?' <span title="전투력이 낮은 쪽이 이긴다 — 내부티어로 설명 안 되는 상성" style="color:#ff9d9d;font-weight:800">🔥 하극상</span>':''}</div>
+      <div style="font-weight:900;color:var(--win);white-space:nowrap">${e.ww}승 ${e.wl}패 <span class="muted" style="font-weight:400">(${Math.round(e.wr*100)}%)</span></div>
+      <div class="muted" style="font-size:12px;white-space:nowrap">격차 ${e.gap.toFixed(1)} · 최근 ${e.last||'-'}</div></div>`;
+  let h=`${navTabsHtml('rival')}
+    <div class="card"><h2>🥊 인간상성 <span class="muted" style="font-size:12.5px;font-weight:400">— 전투력은 비슷한데 맞라인에서 유독 한쪽만 이기는 짝 · 통산 맞대결 기준</span></h2>
+      <div class="muted" style="font-size:12.5px;margin:4px 0 8px">전투력은 플레이어카드와 같은 산식(내부티어 + 통산승률 수축) · 같은 판·같은 라인에서 상대편으로 만난 판만 집계 · 조건: <b>${TH.n}전 이상 · 승률 ${Math.round(TH.wr*100)}% 이상 · 전투력 격차 ${TH.gap} 이하</b></div>
+      <div class="seg"><button class="segbtn ${RIVAL_MODE==='std'?'on':''}" onclick="setRivalMode('std')">기본 (5전+ · 75%+ · 격차 1.0)</button><button class="segbtn ${RIVAL_MODE==='wide'?'on':''}" onclick="setRivalMode('wide')">넓게 (3전+ · 75%+ · 격차 1.5)</button></div>
+      <div class="muted" style="font-size:12px;margin-top:8px">🔥 <b>하극상</b> = 전투력이 낮은 쪽이 오히려 지배하는 짝 — 내부티어로는 설명이 안 되는 진짜 '사람 상성'</div></div>`;
+  if(!list.length){ h+=`<div class="card" style="margin-top:10px"><div class="muted">조건에 맞는 짝이 아직 없어요 — '넓게'로 바꿔 보세요.</div></div>`; view().innerHTML=h; return; }
+  const top=list.slice(0,8);
+  h+=`<div class="card" style="margin-top:10px"><h2>🏆 가장 확실한 인간상성 TOP ${top.length}</h2><div style="display:grid;gap:6px">${top.map(row).join("")}</div></div>`;
+  for(const pos of POS){
+    const L=list.filter(e=>e.pos===pos); if(!L.length) continue;
+    h+=`<div class="card" style="margin-top:10px"><h2>${pos} <span class="muted" style="font-size:12.5px;font-weight:400">— ${L.length}짝</span></h2><div style="display:grid;gap:6px">${L.map(row).join("")}</div></div>`;
+  }
+  h+=`<div class="muted" style="font-size:11.5px;margin-top:10px">※ 통산(전 패치)·닉변·부계 통합 기준 · 리메이크·불완전 기록 제외 · 라인 구성이 깨진 판(한 진영 같은 라인 2명)은 그 라인만 제외</div>`;
+  view().innerHTML=h;
+}
+
 function renderDuo(){
   const P=DUO_PAIRS[DUO_MODE]||DUO_PAIRS.bot;
   const isC = DUO_SUBJ==='c';   // 챔피언 모드: 같은 팀 두 포지션의 '챔피언 조합' 시너지
@@ -7837,7 +7914,7 @@ async function loadCategory(key, preP, keep){
     loadbar(100);
     if(keep){   // 보고 있던 화면을 그대로 두고 새 데이터로 다시 그린다(패치 전환과 같은 규칙)
       const _cur=(history.state&&history.state.route)||'home', _arg=history.state?history.state.arg:null;
-      const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','myeol','mito','game','report','donate']);
+      const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','myeol','mito','game','report','donate','rival']);
       go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
     } else go('home');
   }catch(e){
@@ -7882,7 +7959,7 @@ function switchPatch(sel){
   const _arg=history.state?history.state.arg:null;
   // [2026-07-31 사장님 지시] 선수 페이지도 유지 — 홈으로 튕기지 말고 그 선수의 해당 패치 전적을 바로 보여준다.
   //   그 패치에 기록이 없으면 renderPlayer 가 '이 기간엔 기록 없음' 안내를 띄운다(전체 보기 버튼 포함).
-  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo']);
+  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','rival']);
   go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
@@ -8312,7 +8389,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202608302030";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609030900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
