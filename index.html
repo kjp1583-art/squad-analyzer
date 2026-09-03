@@ -2481,6 +2481,43 @@ function coinChip(name){
   const tip=`${t.d}`+(next?` · 다음 등급 ${next.i} ${next.t}까지 ${next.n-n}개`:' · 최고 등급');
   return `<span title="${escAttr(tip)}" style="background:linear-gradient(90deg,rgba(255,200,60,.18),rgba(255,150,40,.10));border:1px solid rgba(255,190,80,.6);color:#ffd75e;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${t.i} ${esc(t.t)} <span style="opacity:.75;font-weight:600">${n}개</span></span>`;
 }
+// 🍗 [2026-09-03 사장님 지시] 브장신 키우기 — 봇이 BRJANG 탭에 미러(닉네임/XP/단계/단계명/이모지/코인배율/오늘사료/갱신)
+let BRJANG=new Map();
+const BRJ_STAGES=[[0,'🥚','브장신의 알'],[30,'🐣','병아리 브장신'],[100,'🍗','아기 브장신'],[250,'🧑‍🍳','합정점 브장신'],[500,'🌶','고추바사삭 브장신'],[900,'🫒','황금올리브 브장신'],[1500,'👑','카톡방의 지배자'],[2500,'✨','전설의 브장신']];
+const BRJ_LINES=["엄","엄;","개엄;","엄ㅋㅋ","헉","ㄷㄷ","반갑습니다","예?","허허..","논란이있겠는데요","이거 논란 지워드렸습니다","합정오면 바로사주지ㅋㅋ","고추바사삭가져와도돼","나는 예능담당인데","크아아악","주겨줘..","그게무슨소리니..","안나시겠죠 ㅎ","고추바사삭? 저희 매장엔 그런 메뉴 없습니다. 엄.","황금올리브요? 허허… 논란이 되겠는걸."];
+function loadBrjang(){
+  return new Promise((resolve)=>{
+    const cb="__bjCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out=new Map();
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
+        const ix=k=>cols.indexOf(k);
+        const ni=ix("닉네임"), xi=ix("XP"), li=ix("단계"), si=ix("단계명"), ei=ix("이모지"), mi=ix("코인배율"), ti=ix("오늘사료"), ai=ix("갱신");
+        if(ni<0||xi<0){ resolve(out); return; }   // 탭 부재 폴백(첫 시트) 오독 방지
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const nm=String(g(ni)||"").trim(); if(!nm) continue;
+          out.set(tnorm(nm),{name:nm,xp:parseInt(g(xi),10)||0,lv:parseInt(g(li),10)||0,stage:String(g(si)||""),emoji:String(g(ei)||"🥚"),
+                             mult:parseFloat(g(mi))||1,today:parseInt(g(ti),10)||0,at:String(g(ai)||"")});
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=BRJANG&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },12000);
+  });
+}
+function brjOf(name){ return aliasLookup(BRJANG, name); }
+function brjChip(name){
+  const b=brjOf(name); if(!b) return '';
+  return `<span title="${escAttr('브장신 키우기 — '+b.xp+' XP · 코인 배율 ×'+b.mult)}" onclick="go('brjang')" style="cursor:pointer;background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.5);color:#ffcf8a;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</span>`;
+}
 // ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
 let MYEOL=new Map();
 function loadMyeol(){
@@ -3869,6 +3906,7 @@ function go(route,arg){
   else if(route==='myeol')renderMyeol();   // ⚔️ 멸망전(적정가·추후 파워랭킹)
   else if(route==='duo')renderDuo();
   else if(route==='rival')renderRival();   // 🥊 인간상성(맞라인 상대전적)
+  else if(route==='brjang')renderBrjang(); // 🍗 브장신 키우기
   else if(route==='donate')renderDonate();   // 💝 후원하기(개발비·클랜 별개 계좌)
   window.scrollTo(0,0);
 }
@@ -4888,7 +4926,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}</div>`;
+  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전 기록부')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('brjang','브장신 키우기')}</div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -6828,6 +6866,29 @@ let DUO_MODE='bot', DUO_SUBJ='p';   // 주체: p=사람 / c=챔피언 (2026-08-2
 function setDuoMode(m){ DUO_MODE = DUO_PAIRS[m] ? m : 'bot'; renderDuo(); }
 function setDuoSubj(s){ DUO_SUBJ = s==='c' ? 'c' : 'p'; renderDuo(); }
 
+
+/* ============== 화면: 🍗 브장신 키우기 (2026-09-03 사장님 지시) — 봇 미니게임의 웹 대시보드 ============== */
+function renderBrjang(){
+  const list=[...BRJANG.values()].sort((a,b)=>(b.xp-a.xp)||a.name.localeCompare(b.name));
+  const line=BRJ_LINES[Math.floor(Math.random()*BRJ_LINES.length)];
+  const stageTable=BRJ_STAGES.map(([xp,em,nm],i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg)"><span style="font-size:18px">${em}</span><div><div style="font-weight:800">Lv.${i} ${esc(nm)}</div><div class="muted" style="font-size:11.5px">${xp} XP${i<BRJ_STAGES.length-1?' ~':' (최종)'}</div></div></div>`).join("");
+  const bar=b=>{ const i=Math.max(0,BRJ_STAGES.findIndex(s=>s[0]>b.xp)); const nxt=i>0?BRJ_STAGES[i]:null; const cur=nxt?BRJ_STAGES[i-1]:BRJ_STAGES[BRJ_STAGES.length-1];
+    const f=nxt?Math.max(0,Math.min(1,(b.xp-cur[0])/Math.max(1,nxt[0]-cur[0]))):1;
+    return `<div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden"><div style="width:${Math.round(f*100)}%;height:100%;background:linear-gradient(90deg,#ffb347,#ff7a3d)"></div></div><div class="muted" style="font-size:11px;margin-top:3px">${b.xp} XP${nxt?` · 다음 ${nxt[1]} ${esc(nxt[2])}까지 ${nxt[0]-b.xp}`:' · 최종 진화'}</div>`; };
+  const rows=list.map((b,i)=>{ const key=playerKeyOf(b.name); const link=(key&&PLAYERS.has(key))?`<span class="clickname" onclick="go('player','${escAttr(key)}')" style="font-weight:800">${esc(b.name)}</span>`:`<b>${esc(b.name)}</b>`;
+    return `<div style="display:grid;grid-template-columns:34px 44px 1fr 120px;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
+      <div style="font-weight:900;color:${i<3?'#ffd75e':'var(--sub)'}">${i+1}</div><div style="font-size:26px;text-align:center">${esc(b.emoji)}</div>
+      <div>${link} <span class="muted" style="font-size:12px">Lv.${b.lv} ${esc(b.stage)}</span>${bar(b)}</div>
+      <div class="muted" style="font-size:12px;text-align:right">🪙 ×${(+b.mult||1).toFixed(1)}<br>🍗 오늘 ${b.today}개</div></div>`; }).join("");
+  view().innerHTML=`${navTabsHtml('brjang')}
+    <div class="card"><h2>🍗 브장신 키우기 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜 마스코트 육성 미니게임 · 디스코드 <b>/브장신</b> 으로 플레이</span></h2>
+      <div style="margin:6px 0 10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,179,71,.45);background:rgba(255,179,71,.08)"><span style="font-size:22px">🍗</span> <b>브장신:</b> "${esc(line)}"</div>
+      <div class="muted" style="font-size:12.5px;line-height:1.8">먹이는 클랜 활동이에요 — <b>내전 1판 +10 XP</b> · <b>밴픽퀴즈 참여 +3</b> · <b>하루 1회 쓰다듬기(/브장신) +8</b> (쓰다듬다 보면 가끔 이벤트가 터집니다)<br>
+      🪙 <b>스쿼드코인 1개당 경험치 +10%</b>(최대 +50%) — 코인을 모을수록 브장신이 빨리 큽니다 · 게임 재화는 포인트와 완전히 분리(환전 없음)</div></div>
+    <div class="card" style="margin-top:10px"><h2>🧬 진화 단계</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">${stageTable}</div></div>
+    <div class="card" style="margin-top:10px"><h2>🏆 육성 랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— ${list.length}명 · 봇이 30분마다 갱신</span></h2>
+      ${list.length?`<div style="display:grid;gap:6px">${rows}</div>`:`<div class="muted">아직 아무도 브장신을 키우지 않았어요 — 디스코드에서 <b>/브장신</b> 을 쳐서 알을 받아보세요 🥚</div>`}</div>`;
+}
 /* ============== 화면: 🥊 인간상성 — 맞라인 상대전적 (2026-09-03 사장님 지시) ==============
    "전투력은 비슷한데 맞라인에서 유독 한쪽만 이기는 짝"을 찾는다.
    · 맞대결 = 같은 판, 같은 포지션, 서로 다른 진영. 통산(전 패치)·닉변·부계 통합(canonOfRow) 기준.
@@ -7458,7 +7519,7 @@ function renderPlayer(name){
   const _mbti = mbtiOf(name);   // 🧠 디코 MBTI 역할 매칭
   const _ghost = isGhost(name);   // 👻 고스트밴픽왕 구독자
   const _titleChip = titleChip(name);   // 🏷️ 상점 구매 칭호
-  const _myeolChip = myeolChip(name) + jumsuChip(name) + finalsMvpChip(name) + coinChip(name);   // ⚔️ 멸망전 · 🏅 점수전 우승 · 🏅 파이널 MVP · 🪙 코인 수집
+  const _myeolChip = myeolChip(name) + jumsuChip(name) + finalsMvpChip(name) + coinChip(name) + brjChip(name);   // ⚔️ 멸망전 · 🏅 점수전 우승 · 🏅 파이널 MVP · 🪙 코인 수집 · 🍗 브장신
   // 🏷️ [2026-08-03 사장님 제보] 칭호는 이름 옆에 붙인다 — 뱃지 줄 맨 아래에 있으면
   //    스크롤해야 보여서 '낙찰받았는데 안 보인다'가 된다. 여기 줄에서는 뺀다.
   const mitoHtml = ((mitoE&&(mitoE.wins>0||mitoE.parts>0))||_mbti||_ghost||_myeolChip)
@@ -7936,7 +7997,7 @@ async function loadCategory(key, preP, keep){
     loadbar(100);
     if(keep){   // 보고 있던 화면을 그대로 두고 새 데이터로 다시 그린다(패치 전환과 같은 규칙)
       const _cur=(history.state&&history.state.route)||'home', _arg=history.state?history.state.arg:null;
-      const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','myeol','mito','game','report','donate','rival']);
+      const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','myeol','mito','game','report','donate','rival','brjang']);
       go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
     } else go('home');
   }catch(e){
@@ -7981,7 +8042,7 @@ function switchPatch(sel){
   const _arg=history.state?history.state.arg:null;
   // [2026-07-31 사장님 지시] 선수 페이지도 유지 — 홈으로 튕기지 말고 그 선수의 해당 패치 전적을 바로 보여준다.
   //   그 패치에 기록이 없으면 renderPlayer 가 '이 기간엔 기록 없음' 안내를 띄운다(전체 보기 버튼 포함).
-  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','rival']);
+  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','rival','brjang']);
   go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
@@ -8411,7 +8472,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609031200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609031500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -8467,7 +8528,8 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   mainP.catch(()=>{});               // 미처리 거부 경고 방지 — 실제 처리는 loadCategory 의 try/catch
   const cacheP = rawCacheGet(_gid0); // 💾 지난 방문 스냅샷(있으면 먼저 그린다)
   const ddP = loadDDragon();         // 아이콘 전용(build 는 안 씀) — 부팅을 막지 않고 병렬 진행
-  { const [,,_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks()]);   // 병렬 로드(내부티어·탈퇴자도 합류 — 예전엔 앞에서 직렬로 기다렸다)
+  { const [,,_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp,_pk,_bj]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks(),loadBrjang()]);   // 병렬 로드(내부티어·탈퇴자도 합류 — 예전엔 앞에서 직렬로 기다렸다)
+    BRJANG=_bj;      // 🍗 브장신 키우기(BRJANG 탭)
     LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
     MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
