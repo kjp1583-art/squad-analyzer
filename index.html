@@ -2484,6 +2484,7 @@ function coinChip(name){
 // 🍗 [2026-09-03 사장님 지시] 브장신 키우기 — 봇이 BRJANG 탭에 미러(닉네임/XP/단계/단계명/이모지/코인배율/오늘사료/갱신)
 let BRJANG=new Map();
 const BRJ_STAGES=[[0,'🥚','브장신의 알'],[30,'🐣','병아리 브장신'],[100,'🍗','아기 브장신'],[250,'🧑‍🍳','합정점 브장신'],[500,'🌶','고추바사삭 브장신'],[900,'🫒','황금올리브 브장신'],[1500,'👑','카톡방의 지배자'],[2500,'✨','전설의 브장신']];
+const BRJ_SKILLS={1:['엄','쓰다듬기 +8→+10, 희귀 대사 해금'],2:['간식 욕심','밴픽퀴즈 경험치 +3→+5'],3:['합정점 개업','하루 1회 "치킨" +6 XP'],4:['없는 메뉴','이벤트 확률 30%, 보너스 2배'],5:['황금 배달','주 1회 "배달 @닉" — 남에게 +15 XP'],6:['한마디','하루 1회 "엄" — 랜덤 클랜원 카톡방 탈주, 그 사람 다음 쓰다듬기 2배'],7:['논란 제조기','웹 홈 배너 + 프로필 황금 프레임 + 잭팟 응모권 +1']};
 const BRJ_LINES=["엄","엄;","개엄;","엄ㅋㅋ","헉","ㄷㄷ","반갑습니다","예?","허허..","논란이있겠는데요","이거 논란 지워드렸습니다","합정오면 바로사주지ㅋㅋ","고추바사삭가져와도돼","나는 예능담당인데","크아아악","주겨줘..","그게무슨소리니..","안나시겠죠 ㅎ","고추바사삭? 저희 매장엔 그런 메뉴 없습니다. 엄.","황금올리브요? 허허… 논란이 되겠는걸."];
 function loadBrjang(){
   return new Promise((resolve)=>{
@@ -2516,7 +2517,9 @@ function loadBrjang(){
 function brjOf(name){ return aliasLookup(BRJANG, name); }
 function brjChip(name){
   const b=brjOf(name); if(!b) return '';
-  return `<span title="${escAttr('브장신 키우기 — '+b.xp+' XP · 유니크 배율 ×'+b.mult)}" onclick="go('brjang')" style="cursor:pointer;background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.5);color:#ffcf8a;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</span>`;
+  const gold=b.lv>=7;   // ✨ 「논란 제조기」 — 전설의 브장신 황금 프레임
+  const st=gold?"background:linear-gradient(90deg,rgba(255,215,80,.28),rgba(255,120,40,.18));border:2px solid #ffd75e;box-shadow:0 0 8px rgba(255,215,80,.45);color:#fff3c4":"background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.5);color:#ffcf8a";
+  return `<span title="${escAttr('브장신 키우기 — '+b.xp+' XP · 유니크 배율 ×'+b.mult+(gold?' · 전설의 브장신':''))}" onclick="go('brjang')" style="cursor:pointer;${st};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</span>`;
 }
 // ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
 let MYEOL=new Map();
@@ -4727,7 +4730,10 @@ const MEGA_NOTICES=[
 ];
 function _megaSlides(){
   const act=WEB_MEGA.filter(m=>(+m.until||0)*1000>Date.now()&&String(m.msg||'').trim());
-  return [...MEGA_NOTICES,...act];
+  // ✨ 「논란 제조기」 — 전설의 브장신(Lv.7) 보유자는 홈 확성기에 배너로
+  const legends=(typeof BRJANG!=="undefined"&&BRJANG.size)?[...BRJANG.values()].filter(b=>b.lv>=7).map(b=>b.name):[];
+  const leg=legends.length?[{notice:true,msg:`✨ 전설의 브장신 탄생 — ${legends.join(' · ')} 님의 브장신이 최종 진화했습니다. 논란 그 자체가 되었다, 허허.`}]:[];
+  return [...MEGA_NOTICES,...leg,...act];
 }
 function renderMega(){
   const el=document.getElementById('megaboard'); if(!el) return;
@@ -6871,7 +6877,8 @@ function setDuoSubj(s){ DUO_SUBJ = s==='c' ? 'c' : 'p'; renderDuo(); }
 function renderBrjang(){
   const list=[...BRJANG.values()].sort((a,b)=>(b.xp-a.xp)||a.name.localeCompare(b.name));
   const line=BRJ_LINES[Math.floor(Math.random()*BRJ_LINES.length)];
-  const stageTable=BRJ_STAGES.map(([xp,em,nm],i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg)"><span style="font-size:18px">${em}</span><div><div style="font-weight:800">Lv.${i} ${esc(nm)}</div><div class="muted" style="font-size:11.5px">${xp} XP${i<BRJ_STAGES.length-1?' ~':' (최종)'}</div></div></div>`).join("");
+  const stageTable=BRJ_STAGES.map(([xp,em,nm],i)=>{ const sk=BRJ_SKILLS[i];
+    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 9px;border:1px solid var(--line);border-radius:9px;background:var(--bg)"><span style="font-size:20px">${em}</span><div><div style="font-weight:800">Lv.${i} ${esc(nm)} <span class="muted" style="font-weight:400;font-size:11px">${xp} XP${i<BRJ_STAGES.length-1?'~':' (최종)'}</span></div>${sk?`<div style="font-size:12px;margin-top:2px"><span style="color:#ffcf8a;font-weight:800">🎯 「${esc(sk[0])}」</span> <span class="muted">${esc(sk[1])}</span></div>`:`<div class="muted" style="font-size:11.5px">스킬 없음 — 쓰다듬어서 깨우자</div>`}</div></div>`; }).join("");
   const bar=b=>{ const i=Math.max(0,BRJ_STAGES.findIndex(s=>s[0]>b.xp)); const nxt=i>0?BRJ_STAGES[i]:null; const cur=nxt?BRJ_STAGES[i-1]:BRJ_STAGES[BRJ_STAGES.length-1];
     const f=nxt?Math.max(0,Math.min(1,(b.xp-cur[0])/Math.max(1,nxt[0]-cur[0]))):1;
     return `<div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden"><div style="width:${Math.round(f*100)}%;height:100%;background:linear-gradient(90deg,#ffb347,#ff7a3d)"></div></div><div class="muted" style="font-size:11px;margin-top:3px">${b.xp} XP${nxt?` · 다음 ${nxt[1]} ${esc(nxt[2])}까지 ${nxt[0]-b.xp}`:' · 최종 진화'}</div>`; };
@@ -8477,7 +8484,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609031800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609031900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
