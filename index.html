@@ -8292,6 +8292,12 @@ function computeHofRecords(rows){
     const key=g+"∥"+(r["PUUID"]||name);if(seen.has(key))continue;seen.add(key);
     const rc=rec[name]||(rec[name]={name,g:0,tk:0,td:0,ta:0,dmgSum:0,dmgN:0,mxK:[-1,"",""],mxD:[-1,"",""],mxA:[-1,"",""],mxDmg:[-1,"",""],mxSc:[-1,"",""],
       metN:0,dpmSum:0,gpmSum:0,cspmSum:0,kpSum:0,vsSum:0,cwSum:0,skSum:0,geSum:0,epSum:0,dtpmSum:0,mxDt:[-1,"",""],
+      // 🩹 [2026-09-08 사장님 제보 "wei ha 지표가 이상한데?"] 지표마다 '실제로 기록된 판수'를 따로 센다.
+      //   예전엔 전부 metN(지표팩 있는 판 전체)으로 나눴는데, 기록기가 그 항목을 안 쓴 판은 분자에 0을 더하고
+      //   분모엔 1을 더해 평균이 통째로 깎였다. 딜량 칸은 2026-06 행의 87%, 07 행의 20%가 비어 있어서
+      //   그 시절부터 뛴 고인물일수록 DPM 이 최대 18% 낮게 찍혔고, 8월 이후 합류자만 정상으로 보였다.
+      //   '기록 안 됨'은 0이 아니라 표본 제외다.
+      dpmN:0,gpmN:0,cspmN:0,kpN:0,vsN:0,cwN:0,skN:0,dtpmN:0,hsN:0,wpN:0,wkN:0,drN:0,brN:0,turN:0,
       // 📊 [2026-07-24] 평균 지표 랭킹 추가분 — kdaN=KDA 파싱된 판수(평균 분모), ndN=무데스 판, dkN=두자릿수 킬 판
       kdaN:0,ndN:0,dkN:0,hsSum:0,wpSum:0,wkSum:0,drSum:0,brSum:0,turSum:0,
       // 🧭 [2026-07-24] 라인 종속 지표(CS·딜·골드)는 '전체' 뷰에서 주 포지션 판만으로 계산 — 다역 플레이어 희석 방지
@@ -8315,7 +8321,7 @@ function computeHofRecords(rows){
     const _isMain=rc.mpPos && r["포지션"]===rc.mpPos;
     // 🧭 [2026-07-25] 포지션별 분리 버킷 — 이 판의 실제 포지션 기준
     const _pos=r["포지션"];
-    const pp=(POS_ORDER[_pos]!=null)?(rc.pp[_pos]||(rc.pp[_pos]={metN:0,dpm:0,gpm:0,cspm:0,dmgSum:0,dmgN:0,scSum:0,scN:0})):null;
+    const pp=(POS_ORDER[_pos]!=null)?(rc.pp[_pos]||(rc.pp[_pos]={metN:0,dpm:0,gpm:0,cspm:0,dpmN:0,gpmN:0,cspmN:0,dmgSum:0,dmgN:0,scSum:0,scN:0})):null;
     const dv=String(r["딜량"]||"").replace(/,/g,"").trim();
     if(/^\d+$/.test(dv)){const dvi=+dv;rc.dmgSum+=dvi;rc.dmgN++;if(dvi>rc.mxDmg[0])rc.mxDmg=[dvi,ch,dt];
       if(_isMain){rc.mpDmgSum+=dvi;rc.mpDmgN++;}
@@ -8328,31 +8334,34 @@ function computeHofRecords(rows){
     const mt=parseMetrics(r);
     if(mt){
       rc.metN++;
-      const dvi2=/^\d+$/.test(dv)?+dv:0;
-      rc.dpmSum+=dvi2/mt.m;
-      if(mt.g!=null){rc.gpmSum+=mt.g/mt.m;rc.geSum+=mt.g;}
-      if(mt.cs!=null)rc.cspmSum+=mt.cs/mt.m;
+      const _hasDmg=/^\d+$/.test(dv), dvi2=_hasDmg?+dv:0;
+      if(_hasDmg){rc.dpmSum+=dvi2/mt.m;rc.dpmN++;}   // 딜량 칸이 빈 판은 0딜이 아니라 '모름' — 평균에서 뺀다
+      if(mt.g!=null){rc.gpmSum+=mt.g/mt.m;rc.geSum+=mt.g;rc.gpmN++;}
+      if(mt.cs!=null){rc.cspmSum+=mt.cs/mt.m;rc.cspmN++;}
       if(_isMain){   // 🧭 주 포지션 판만의 라인 종속 지표(레거시 — 현재 미사용)
         rc.mpMetN++; rc.mpDpm+=dvi2/mt.m;
         if(mt.g!=null)rc.mpGpm+=mt.g/mt.m;
         if(mt.cs!=null)rc.mpCspm+=mt.cs/mt.m;
       }
       if(pp){   // 🧭 포지션별 분리 버킷(전체 뷰 = 선수×포지션 랭킹용)
-        pp.metN++; pp.dpm+=dvi2/mt.m;
-        if(mt.g!=null)pp.gpm+=mt.g/mt.m;
-        if(mt.cs!=null)pp.cspm+=mt.cs/mt.m;
+        pp.metN++;
+        if(_hasDmg){pp.dpm+=dvi2/mt.m;pp.dpmN++;}
+        if(mt.g!=null){pp.gpm+=mt.g/mt.m;pp.gpmN++;}
+        if(mt.cs!=null){pp.cspm+=mt.cs/mt.m;pp.cspmN++;}
       }
-      if(mt.kp!=null)rc.kpSum+=mt.kp;
-      if(mt.vs!=null)rc.vsSum+=mt.vs;
-      if(mt.cw!=null)rc.cwSum+=mt.cw;
-      if(mt.sk!=null)rc.skSum+=mt.sk;
+      if(mt.kp!=null){rc.kpSum+=mt.kp;rc.kpN++;}
+      if(mt.vs!=null){rc.vsSum+=mt.vs;rc.vsN++;}      // 구버전 기록기는 vs를 아예 안 썼다 — 0점이 아니라 미기록
+      if(mt.cw!=null){rc.cwSum+=mt.cw;rc.cwN++;}
+      if(mt.sk!=null){rc.skSum+=mt.sk;rc.skN++;}
       rc.epSum+=(mt.dr||0)+(mt.br||0);   // 에픽 오브젝트(용+바론) 처치 관여 개수
       // 📊 [2026-07-24] 오브젝트 3분할 + 서포팅 지표 (mt.tk=포탑킬 — rc.tk는 '누적 킬'이라 이름 충돌 주의)
-      rc.drSum+=(mt.dr||0); rc.brSum+=(mt.br||0); rc.turSum+=(mt.tk||0);
-      if(mt.hs!=null)rc.hsSum+=mt.hs;
-      if(mt.wp!=null)rc.wpSum+=mt.wp;
-      if(mt.wk!=null)rc.wkSum+=mt.wk;
-      if(mt.dt!=null){ rc.dtpmSum+=mt.dt/mt.m; if(mt.dt>rc.mxDt[0])rc.mxDt=[mt.dt,ch,dt]; }   // 🛡 받은 피해
+      if(mt.dr!=null){rc.drSum+=mt.dr;rc.drN++;}
+      if(mt.br!=null){rc.brSum+=mt.br;rc.brN++;}
+      if(mt.tk!=null){rc.turSum+=mt.tk;rc.turN++;}
+      if(mt.hs!=null){rc.hsSum+=mt.hs;rc.hsN++;}
+      if(mt.wp!=null){rc.wpSum+=mt.wp;rc.wpN++;}
+      if(mt.wk!=null){rc.wkSum+=mt.wk;rc.wkN++;}
+      if(mt.dt!=null){ rc.dtpmSum+=mt.dt/mt.m; rc.dtpmN++; if(mt.dt>rc.mxDt[0])rc.mxDt=[mt.dt,ch,dt]; }   // 🛡 받은 피해
     }
   }
   return Object.values(rec);
@@ -8396,28 +8405,28 @@ function hofRecordsHtml(rl, patchSel){
       `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
       + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준")
       + `<div class="hof-grid">`
-      + card("⚡ 분당 데미지(DPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"dpm","metN","dpmSum","metN",v=>`분당 ${fmt(v)}`))
-      + card("💰 분당 골드(GPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"gpm","metN","gpmSum","metN",v=>`분당 ${fmt(v)}G`))
-      + card("🌾 분당 CS TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"cspm","metN","cspmSum","metN",v=>`분당 ${v.toFixed(1)}개`))
-      + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.kpSum/x.metN,`${Math.round(x.kpSum/x.metN)}% ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.metN>=G5).map(x=>[x.vsSum/x.metN,`${(x.vsSum/x.metN).toFixed(1)}점 ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.metN}판 · 솔킬률 ${Math.round(x.skSum/Math.max(1,x.metN)*100)}%)`)}`,x.name]))
-      + card("🗡 솔킬률 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>판당 솔로킬</span>", rl.filter(x=>x.metN>=G5&&x.skSum>0).map(x=>[x.skSum/x.metN,`${Math.round(x.skSum/x.metN*100)}% ${sub(`(${x.skSum}회 / ${x.metN}판)`)}`,x.name]))
-      + card("🛡 분당 받은 피해 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>탱킹</span>", rl.filter(x=>x.metN>=G5).map(x=>[x.dtpmSum/x.metN,`분당 ${fmt(x.dtpmSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("⚡ 분당 데미지(DPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"dpm","dpmN","dpmSum","dpmN",v=>`분당 ${fmt(v)}`))
+      + card("💰 분당 골드(GPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"gpm","gpmN","gpmSum","gpmN",v=>`분당 ${fmt(v)}G`))
+      + card("🌾 분당 CS TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"cspm","cspmN","cspmSum","cspmN",v=>`분당 ${v.toFixed(1)}개`))
+      + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.kpN>=G5).map(x=>[x.kpSum/x.kpN,`${Math.round(x.kpSum/x.kpN)}% ${sub(`(${x.kpN}판)`)}`,x.name]))
+      + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.vsN>=G5).map(x=>[x.vsSum/x.vsN,`${(x.vsSum/x.vsN).toFixed(1)}점 ${sub(`(${x.vsN}판)`)}`,x.name]))
+      + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.cwN}판)`)}`,x.name]))
+      + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.skN}판 · 솔킬률 ${Math.round(x.skSum/Math.max(1,x.skN)*100)}%)`)}`,x.name]))
+      + card("🗡 솔킬률 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>판당 솔로킬</span>", rl.filter(x=>x.skN>=G5&&x.skSum>0).map(x=>[x.skSum/x.skN,`${Math.round(x.skSum/x.skN*100)}% ${sub(`(${x.skSum}회 / ${x.skN}판)`)}`,x.name]))
+      + card("🛡 분당 받은 피해 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>탱킹</span>", rl.filter(x=>x.dtpmN>=G5).map(x=>[x.dtpmSum/x.dtpmN,`분당 ${fmt(x.dtpmSum/x.dtpmN)} ${sub(`(${x.dtpmN}판)`)}`,x.name]))
       + card("🛡 한 판 최다 받은 피해 TOP 10", rl.filter(x=>x.mxDt[0]>0).map(x=>[x.mxDt[0],`${fmt(x.mxDt[0])} ${ctx(x.mxDt)}`,x.name]))
       // 🐉 [2026-07-24 사장님 지시] 뭉뚱그린 '오브젝트'를 용/바론/포탑으로 3분할 — 성격이 서로 다름
-      + card("🐉 평균 드래곤 관여 TOP 10", rl.filter(x=>x.metN>=G5&&x.drSum>0).map(x=>[x.drSum/x.metN,`판당 ${(x.drSum/x.metN).toFixed(2)}마리 ${sub(`(총 ${x.drSum}·${x.metN}판)`)}`,x.name]))
-      + card("🟣 평균 바론 관여 TOP 10", rl.filter(x=>x.metN>=G5&&x.brSum>0).map(x=>[x.brSum/x.metN,`판당 ${(x.brSum/x.metN).toFixed(2)}마리 ${sub(`(총 ${x.brSum}·${x.metN}판)`)}`,x.name]))
-      + card("🏰 평균 포탑 철거 TOP 10", rl.filter(x=>x.metN>=G5&&x.turSum>0).map(x=>[x.turSum/x.metN,`판당 ${(x.turSum/x.metN).toFixed(2)}개 ${sub(`(총 ${x.turSum}·${x.metN}판)`)}`,x.name]))
+      + card("🐉 평균 드래곤 관여 TOP 10", rl.filter(x=>x.drN>=G5&&x.drSum>0).map(x=>[x.drSum/x.drN,`판당 ${(x.drSum/x.drN).toFixed(2)}마리 ${sub(`(총 ${x.drSum}·${x.drN}판)`)}`,x.name]))
+      + card("🟣 평균 바론 관여 TOP 10", rl.filter(x=>x.brN>=G5&&x.brSum>0).map(x=>[x.brSum/x.brN,`판당 ${(x.brSum/x.brN).toFixed(2)}마리 ${sub(`(총 ${x.brSum}·${x.brN}판)`)}`,x.name]))
+      + card("🏰 평균 포탑 철거 TOP 10", rl.filter(x=>x.turN>=G5&&x.turSum>0).map(x=>[x.turSum/x.turN,`판당 ${(x.turSum/x.turN).toFixed(2)}개 ${sub(`(총 ${x.turSum}·${x.turN}판)`)}`,x.name]))
       // 💚 서포팅·시야 평균 + 🔥 캐리·생존 비율
-      + card("💚 평균 힐+실드 TOP 10", rl.filter(x=>x.metN>=G5&&x.hsSum>0).map(x=>[x.hsSum/x.metN,`판당 ${fmt(x.hsSum/x.metN)} ${sub(`(${x.metN}판)`)}`,x.name]))
-      + card("👁 평균 와드 설치 TOP 10", rl.filter(x=>x.metN>=G5&&x.wpSum>0).map(x=>[x.wpSum/x.metN,`판당 ${(x.wpSum/x.metN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wpSum)}·${x.metN}판)`)}`,x.name]))
-      + card("🧹 평균 와드 제거 TOP 10", rl.filter(x=>x.metN>=G5&&x.wkSum>0).map(x=>[x.wkSum/x.metN,`판당 ${(x.wkSum/x.metN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wkSum)}·${x.metN}판)`)}`,x.name]))
+      + card("💚 평균 힐+실드 TOP 10", rl.filter(x=>x.hsN>=G5&&x.hsSum>0).map(x=>[x.hsSum/x.hsN,`판당 ${fmt(x.hsSum/x.hsN)} ${sub(`(${x.hsN}판)`)}`,x.name]))
+      + card("👁 평균 와드 설치 TOP 10", rl.filter(x=>x.wpN>=G5&&x.wpSum>0).map(x=>[x.wpSum/x.wpN,`판당 ${(x.wpSum/x.wpN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wpSum)}·${x.wpN}판)`)}`,x.name]))
+      + card("🧹 평균 와드 제거 TOP 10", rl.filter(x=>x.wkN>=G5&&x.wkSum>0).map(x=>[x.wkSum/x.wkN,`판당 ${(x.wkSum/x.wkN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wkSum)}·${x.wkN}판)`)}`,x.name]))
       + card("🤝 평균 어시스트 TOP 10", rl.filter(x=>x.kdaN>=G5).map(x=>[x.ta/x.kdaN,`판당 ${(x.ta/x.kdaN).toFixed(1)}개 ${sub(`(총 ${fmt(x.ta)}·${x.kdaN}판)`)}`,x.name]))
       + card("🛡 무데스 경기 비율 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>한 번도 안 죽은 판</span>", rl.filter(x=>x.kdaN>=G10&&x.ndN>0).map(x=>[x.ndN/x.kdaN,`${(x.ndN/x.kdaN*100).toFixed(1)}% ${sub(`(${x.ndN}판 / ${x.kdaN}판)`)}`,x.name]))
       + card("🔥 두 자릿수 킬 비율 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10킬 이상 판</span>", rl.filter(x=>x.kdaN>=G10&&x.dkN>0).map(x=>[x.dkN/x.kdaN,`${(x.dkN/x.kdaN*100).toFixed(1)}% ${sub(`(${x.dkN}판 / ${x.kdaN}판)`)}`,x.name]))
-      + card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.metN>=G5&&x.gpmSum>0).map(x=>[x.dpmSum/x.gpmSum,`골드당 ${(x.dpmSum/x.gpmSum).toFixed(2)}딜 ${sub(`(${x.metN}판)`)}`,x.name]))
+      + card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.dpmN>=G5&&x.gpmN>0&&x.gpmSum>0).map(x=>[(x.dpmSum/x.dpmN)/(x.gpmSum/x.gpmN),`골드당 ${((x.dpmSum/x.dpmN)/(x.gpmSum/x.gpmN)).toFixed(2)}딜 ${sub(`(${x.dpmN}판)`)}`,x.name]))
     ) : "")
     + `</div>`;
 }
@@ -8534,7 +8543,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609080420";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609080510";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
