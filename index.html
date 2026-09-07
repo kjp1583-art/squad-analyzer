@@ -8273,7 +8273,21 @@ function parseMetrics(r){
   const s=r&&r["지표"]; if(!s||s==="기록 대기")return null;
   const o={};
   for(const t of String(s).split("|")){ const m=/^([a-z]+)(-?\d+(?:\.\d+)?)$/.exec(t.trim()); if(m)o[m[1]]=parseFloat(m[2]); }
-  return (o.m&&o.m>0)?o:null;
+  // 🩹 [2026-09-07] 2026-08 구버전 기록기가 m 칸에 '경기 길이(분)' 대신 '분당 CS'를 써 넣은 행이 140개 있다
+  //    (14게임). 그대로 두면 분당딜·분당골드가 수십 배로 튀어 상세지표 랭킹 상단을 통째로 오염시킨다
+  //    — 사람이 6분 만에 골드 8,836을 벌 수는 없다.
+  //    판별: 그 기록기는 vs(시야) 칸을 아예 안 썼다. 실측상 vs 없는 140행은 m 0.50~11.66,
+  //    vs 있는 13,847행은 m 15.20~51.30 으로 범위가 겹치지 않아 오탐이 없다.
+  //    복원: 같은 게임 안에서 cs/m 이 전원 동일하고 그 값이 곧 실제 경기 길이다(m 에 분당CS가 들어갔으므로).
+  //    → m = cs / m 으로 되돌린다. 버리지 않고 살려야 그 판의 딜·골드·킬관여가 랭킹에 정상 반영된다.
+  if(!(o.m>0)) return null;
+  if(o.vs==null){
+    if(!(o.cs>0)) return null;                 // cs 가 없으면 복원 불가 — 버린다
+    const _real=o.cs/o.m;
+    if(!(_real>=5&&_real<=90)) return null;    // 복원값이 경기 길이로 말이 안 되면 버린다
+    o.m=Math.round(_real*10)/10; o._fixm=1;
+  }
+  return o;
 }
 function computeHofRecords(rows){
   const canonMap=puuidLatestFromRows(rows);
@@ -8529,7 +8543,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609060500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609071930";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
