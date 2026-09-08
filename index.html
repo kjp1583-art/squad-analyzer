@@ -2506,8 +2506,8 @@ function brjSpriteRows(lv,cos,flags){
   const full=r=>(r||"")+"................".slice((r||"").length);
   const out=st.r.map(r=>full(r).split(""));
   const ovs=[];
-  for(const sl of ["o","h","a"]){ const k=cos&&cos[sl]; if(k&&BRJ_SPR.cos[k]) ovs.push(BRJ_SPR.cos[k].r); }
-  if(lv>=1) for(const f of ["work","staff","stun"]) if(flags&&flags.indexOf(f)>=0) ovs.push(BRJ_SPR.state[f]);
+  for(const sl of ["o","h","a"]){ const k=cos&&cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) ovs.push(BRJ_SPR.cos[k].r); }   // 시트 값이라 own-property 만(__proto__ 류 차단)
+  if(lv>=1) for(const f of ["work","staff","stun"]) if(Array.isArray(flags)&&flags.indexOf(f)>=0) ovs.push(BRJ_SPR.state[f]);
   for(const ov of ovs) for(let y=0;y<16;y++){ const row=full(ov[y]); for(let x=0;x<16;x++){ const ch=row[x]; if(ch!=='.') out[y][x]=ch; } }
   return {rows:out.map(r=>r.join("")),glow:st.g};
 }
@@ -2527,7 +2527,7 @@ function brjParseCos(s){ const o={}; for(const t of String(s||"").split("|")){ c
 function brjParseFlags(s){ return String(s||"").split("|").map(t=>t.trim()).filter(Boolean); }
 function brjSpriteHtml(name,size){
   const b=brjOf(name); if(!b) return '';
-  const wear=["o","h","a"].map(sl=>b.cos&&b.cos[sl]&&BRJ_SPR.cos[b.cos[sl]]).filter(Boolean);
+  const wear=["o","h","a"].map(sl=>{const k=b.cos&&b.cos[sl]; return k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)?BRJ_SPR.cos[k]:null;}).filter(Boolean);
   const tip='브장신 키우기 — Lv.'+b.lv+' '+b.stage+(wear.length?' · 꾸미기: '+wear.map(c=>c.e+' '+c.n).join(', '):' · 꾸미기 없음')+(b.flags&&b.flags.length?' · '+b.flags.map(f=>({work:'근무 중',staff:'스탭',stun:'행동불능'})[f]||f).join('·'):'');
   return `<div class="brjspr" onclick="go('brjang')" title="${escAttr(tip)}">${brjSpriteSvg(b.lv,b.cos,b.flags,size||104)}<div class="brjspr-cap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</div></div>`;
 }
