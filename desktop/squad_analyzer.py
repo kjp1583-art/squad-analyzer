@@ -2541,37 +2541,6 @@ def _pair_txt(my_pu, other_pu, idx, kind, min_g):
     my_w = d[1] if k[0] == a else d[0] - d[1]
     return f"{d[0]}판 {my_w}승 {d[0]-my_w}패 ({round(my_w/d[0]*100)}%)"
 
-_QUIZ_PREF_CACHE = {"at": 0.0, "map": {}}
-
-
-def _quiz_pref(force=False):
-    """🗳️ [2026-07-30 사장님 지시] 밴픽 퀴즈에서 클랜원들이 직접 적어낸 '이 사람 상대면 이걸 자른다'.
-       {상대닉: [(챔프, 표, 적중), ...]} — 코치 추천 순위의 근거로 쓴다. 실패하면 빈 값(무해)."""
-    if not force and _QUIZ_PREF_CACHE["map"] and time.time() - _QUIZ_PREF_CACHE["at"] < 1800:
-        return _QUIZ_PREF_CACHE["map"]
-    out = {}
-    try:
-        import urllib.request as _u, csv as _csv, io as _io
-        url = (f"https://docs.google.com/spreadsheets/d/{DOCUMENT_ID}/gviz/tq?tqx=out:csv"
-               f"&sheet=QUIZ_PREF&headers=1")
-        rows = list(_csv.reader(_io.StringIO(
-            _u.urlopen(_u.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=8)
-            .read().decode("utf-8"))))
-        if rows and len(rows) > 1:
-            h = rows[0]
-            ci = {c: i for i, c in enumerate(h)}
-            for r in rows[1:]:
-                try:
-                    nm = r[ci["상대"]].strip(); ch = r[ci["챔피언"]].strip()
-                    v = int(float(r[ci["표"]] or 0)); hit = int(float(r[ci["적중"]] or 0))
-                except Exception: continue
-                if nm and ch and v > 0: out.setdefault(nm, []).append((ch, v, hit))
-            for nm in out: out[nm].sort(key=lambda x: -x[1])
-    except Exception: pass
-    _QUIZ_PREF_CACHE.update({"at": time.time(), "map": out})
-    return out
-
-
 def _pool_by_puuid(puuid, limit=6, pos=""):
     """[v81.77] PUUID로 그 사람의 챔피언별 (판수, 승) 상위 N — 밴 추천의 '상대 장인' 판단용.
 
@@ -2866,7 +2835,9 @@ _DRAFT_RULES = (
     "6-2) ⚔️**[내 챔프폭 × 이 라인 상대]**가 주어지면, 같은 매치업을 클랜에서 실제로 겪은 기록이다.\n"
     "   후보 둘이 비슷할 때 이걸로 가르되, 표본이 4~10판이라 오차가 크니 **조합·상성 판단을 뒤집지는 마라.**\n"
     "   인용할 땐 '레넥톤으로 나르 상대 7판 2승 29%'처럼 **판수를 반드시 함께** 말하라.\n"
-    "7) 동급 후보면 **클랜 내전에서 실제로 성적이 좋았던 쪽**을 우선하라(판수 5판 이상). 판수를 함께 밝혀라.\n\n"
+    "7) 동급 후보면 **클랜 내전에서 실제로 성적이 좋았던 쪽**을 우선하라(판수 5판 이상). 판수를 함께 밝혀라.\n"
+    "7-2) [클랜 픽 퀴즈]가 있으면 동급 후보의 순서를 가르는 참고 신호다 — 클랜원들이 같은 자리에서 직접 뽑겠다고 적어낸 답.\n"
+    "   표 2개 미만은 무시하고, 인용할 땐 '퀴즈 N표'. 이것만으로 상성·조합 판단을 뒤집지는 마라.\n\n"
     "【절대 규칙】\n"
     "- 이미 밴되었거나 이미 픽된 챔피언은 추천 금지.\n"
     "- 사용자 라인이 아닌 포지션의 챔프를 추천하지 마라.\n"
@@ -2950,6 +2921,10 @@ _DRAFT_BAN_RULES = (
     "- 밴 개수는 사용자 메시지가 지정(1페이즈 3 / 2페이즈 2). '1. 챔프 — 이유(★20자 이내)' 우선순위대로.\n"
     "- [프로경기 통계] 표는 참고 신호다 — 개인 숙련도(내전 판수·승률)가 항상 우선이고, 통계는 동급 후보의 우선순위를 가를 때만 써라.\n"
     "- [클랜 밴픽퀴즈 표]가 있으면 강한 참고 신호다 — 표가 많고 적중 이력이 있는 챔프는 우선순위를 올려라.\n"
+    "- [클랜 밴픽퀴즈 집계]는 상대와 무관한 클랜 전체의 밴 성향이다. 상대 데이터가 없을 때는 그 상위가 1순위 근거이고\n"
+    "  ('클랜 데이터 없음' 대신 '퀴즈 N표'를 붙여라), 상대 데이터가 있을 때는 동급 후보의 순서만 가른다.\n"
+    "  '출제 N회'는 그 챔프가 퀴즈 판에 실제로 나온 횟수 — 출제는 많은데 표가 0인 챔프는 클랜이 위협으로 안 본 것이니\n"
+    "  다른 근거가 없으면 후순위로 미뤄라. 표 2개 미만은 인용하지 마라.\n"
     "  예: '1. 레넥톤 — 레멍이 43판·견제압력 1위' / '2. 세라핀 — 상대 포킹 완성 차단'. 이 밀도로.\n"
     "- 픽 방향/내 픽 설계를 요구받으면 밴 아래 '→'로 시작해 **픽당 한 줄**(챔프 — 20자 근거).\n"
     "- 서술형 문장·접속사·배경 설명 금지. 경고(⚠️)는 꼭 필요한 것 하나만 한 줄.\n"
@@ -3118,20 +3093,7 @@ def _draft_advise(ctx, my_pool):
                                                   " 이 경우 [클랜 내전 챔피언 메타]와 우리 팀 데이터만으로 추천하고,\n"
                                                   " 맨 앞줄에 '상대 데이터 없음 — 클랜 내전 통계만으로 판단'이라고 반드시 밝혀라.\n"
                                                   " 솔랭 메타·티어리스트를 근거로 지어내지 마라)")
-        # 🗳️ 클랜 집단 판단 — 밴픽 퀴즈에서 실제로 적어낸 표(상대 선수별 상위 3)
-        _qp = _quiz_pref()
-        _qp_lines = []
-        if _qp:
-            for _nm in (ctx.get("enemy_names") or []):
-                _hit = _qp.get(_nm) or _qp.get(str(_nm).split("#")[0])
-                if not _hit: continue
-                _qp_lines.append(f"- {_nm}: " + ", ".join(f"{c} {v}표(적중 {h})" for c, v, h in _hit[:3]))
-        if _qp_lines:
-            opp_txt += ("\n\n[🗳️ 클랜 집단 판단 — 밴픽 퀴즈 표(클랜원이 직접 적어낸 밴 후보)]\n"
-                        + "\n".join(_qp_lines)
-                        + "\n★이건 클랜원 여러 명이 같은 상대를 두고 '무엇을 자를까'를 직접 적어낸 결과다.\n"
-                          "  동급 후보면 표가 많은 쪽을 우선하고, 이유에 '클랜 다수 의견(N표)'임을 밝혀라.\n"
-                          "  단 표가 3표 미만이면 참고만 하라. 적중 수는 그 답이 실제로 상대가 꺼낸 픽이었던 횟수다.")
+        # 🗳️ 상대별 밴픽 퀴즈 표는 ctx["quiz"](아래 블록)로만 넣는다 — [2026-09-08] 같은 표를 두 번 넣던 중복 제거.
         _ef = ctx.get("enemy_filled_pos") or []
         _eo = ctx.get("enemy_open_pos") or []
         if _ef:
@@ -3166,8 +3128,10 @@ def _draft_advise(ctx, my_pool):
             + _bp_blk
             + _wk_blk
             + clan_blk_ban   # [v82.44] 밴 모드엔 아군 챔프폭 미주입(아군 픽 밴 추천 사고 방지)
-            + ((chr(10) + chr(10) + "[클랜 밴픽퀴즈 표 — 클랜원들이 '이 상대에게 밴할 챔프'로 투표한 집단 학습]" + chr(10)
-                + chr(10).join(ctx.get("quiz") or [])) if ctx.get("quiz") else "")
+            + ((chr(10) + chr(10) + "[🗳️ 클랜 밴픽퀴즈 표 — 클랜원들이 '이 상대에게 밴할 챔프'로 직접 적어낸 집단 판단]" + chr(10)
+                + chr(10).join(ctx.get("quiz") or [])
+                + chr(10) + "★같은 상대를 두고 여러 명이 적어낸 답이다. 동급 후보면 표 많은 쪽을 우선하고 이유에 '퀴즈 N표'를 밝혀라."
+                + chr(10) + "  적중 = 그 답이 실제로 상대가 꺼낸 픽이었던 횟수. 표 3개 미만은 참고만. 따옴표 안은 적어낸 이유다.") if ctx.get("quiz") else "")
             + _ldg_blk
         )
     else:
@@ -3185,6 +3149,7 @@ def _draft_advise(ctx, my_pool):
             + _loff_blk
             + _mu_blk
             + clan_blk
+            + _quiz_pick_blk(ctx.get("pos"))   # 🗳️ [2026-09-08] 이 자리에서 클랜원들이 뽑겠다고 적어낸 챔프(픽 퀴즈)
             + _ldg_blk
         )
     # 시스템 프롬프트(코칭 규칙 + 현 패치 메타 + 클랜 메타) — 호스트·구독자 공통
@@ -3192,6 +3157,11 @@ def _draft_advise(ctx, my_pool):
     #   일반론은 클랜원 누구나 아는 얘기라 조언의 값이 없었고, 근거 없는 단정의 출처이기도 했다.
     system_text = ((_DRAFT_BAN_RULES if is_ban else _DRAFT_RULES)
                    + "\n\n[클랜 내전 챔피언 메타(판수순)]\n" + _clan_meta_lines())
+    if is_ban:
+        # 🗳️ [2026-09-08 사장님 지시 '쌓인 데이터 갱신'] 상대 무관 챔피언 단위 퀴즈 집계(QUIZ_CHAMP) — 하루 3번 바뀌는
+        #    정도라 고정 파트(캐시)에 둔다. 상대 데이터가 없는 판(실측 다수)에서 '클랜 데이터 없음' 대신 쓸 근거.
+        _qc = _quiz_champ_lines()
+        if _qc: system_text += "\n\n[🗳️ 클랜 밴픽퀴즈 집계 — 상대 무관, 클랜원들이 '자르겠다'고 적어낸 챔프(표 많은 순)]\n" + _qc
     # 🌐 [v82.33] 구독자(로컬 키 없음) → 봇 프록시로 호출(사장님 키는 서버에만, 유출 방지)
     if not key:
         return _draft_advise_via_proxy(tok, system_text, user_txt, ctx.get("me"))
@@ -3976,9 +3946,10 @@ def _draft_coach_tick(s_json, headers, base_url):
                     _e9 = ((_cidx or {}).get("by_pu") or {}).get(_pu9) or {}
                     if _e9.get("name"): _enames.add(str(_e9["name"]).split('#')[0].strip())
                 for _nm9 in sorted(_enames):
-                    for _c9, _v9, _h9 in _qm.get(tnorm(_nm9), [])[:3]:
+                    for _c9, _v9, _h9, _r9, _w9 in _qm.get(tnorm(_nm9), [])[:3]:
                         if _c9 in _dead_ch or _v9 <= 0: continue
-                        quiz_lines.append(f"{_nm9} ← {_c9} {_v9}표" + (f"·적중{_h9}" if _h9 else ""))
+                        quiz_lines.append(f"{_nm9} ← {_c9} {_v9}표" + (f"·적중{_h9}" if _h9 else "")
+                                          + (f"·최근30일 {_r9}표" if _r9 else "") + (f' — "{_w9}"' if _w9 else ""))
             except Exception: pass
         ctx = {"mode": mode, "pos": my_pos, "ally": ally, "enemy": enemy, "bans": bans,
                "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
@@ -6040,7 +6011,8 @@ _QUIZ_PREF_CACHE = {"ts": 0.0, "map": {}}
 
 def _quiz_pref_map():
     """🔨 [2026-08-07 사장님 지시] 밴픽 퀴즈의 '상대별 밴 표'(QUIZ_PREF 탭)를 밴 추천 근거로.
-    {tnorm(상대): [(챔프, 표, 적중), ...표순]} — 공개 gviz, 10분 캐시."""
+    {tnorm(상대): [(챔프, 표, 적중, 최근30일표, 이유), ...표순]} — 공개 gviz, 10분 캐시.
+    [2026-09-08] 봇이 열을 늘렸다(최근30일·이유). 옛 4열 탭이어도 그대로 읽힌다(없는 열은 0·빈칸)."""
     now = time.time()
     if _QUIZ_PREF_CACHE["ts"] and now - _QUIZ_PREF_CACHE["ts"] < 600: return _QUIZ_PREF_CACHE["map"]
     _QUIZ_PREF_CACHE["ts"] = now
@@ -6048,6 +6020,7 @@ def _quiz_pref_map():
         rows = _gviz_tab_csv("QUIZ_PREF")
         h = {c: i for i, c in enumerate(rows[0])} if rows else {}
         ni, ci, vi, hi = h.get("상대"), h.get("챔피언"), h.get("표"), h.get("적중")
+        ri, wi = h.get("최근30일"), h.get("이유")
         if None not in (ni, ci, vi, hi):
             mp = {}
             for r in rows[1:]:
@@ -6056,12 +6029,72 @@ def _quiz_pref_map():
                 if not k or not str(r[ci]).strip(): continue
                 try: v, ht = int(float(r[vi] or 0)), int(float(r[hi] or 0))
                 except Exception: v, ht = 0, 0
-                mp.setdefault(k, []).append((str(r[ci]).strip(), v, ht))
+                try: rc = int(float(r[ri] or 0)) if ri is not None and ri < len(r) else 0
+                except Exception: rc = 0
+                why = str(r[wi]).strip()[:60] if wi is not None and wi < len(r) else ""
+                mp.setdefault(k, []).append((str(r[ci]).strip(), v, ht, rc, why))
             for k in mp: mp[k].sort(key=lambda x: -x[1])
             _QUIZ_PREF_CACHE["map"] = mp
     except Exception as e:
         print(f"[quiz] QUIZ_PREF 로드 실패(무시): {e}", flush=True)
     return _QUIZ_PREF_CACHE["map"]
+
+_QUIZ_AGG_CACHE = {"ts": 0.0, "champ": [], "pick": {}}
+
+def _quiz_agg():
+    """🗳️ [2026-09-08 사장님 지시 '쌓인 데이터 갱신'] 봇이 문제 로그 전체에서 집계한 두 탭 — 10분 캐시, 실패해도 빈 값(무해).
+    QUIZ_CHAMP: 챔피언별 밴 표(상대 무관) → champ = [{c, v 표, hit 적중, on 출제, react 반응, v30 최근30일표}...] 표순
+    QUIZ_PICK : 픽 문제의 포지션별 표      → pick  = {포지션: [(챔프, 표, 실제픽일치)...] 표순}"""
+    now = time.time()
+    if _QUIZ_AGG_CACHE["ts"] and now - _QUIZ_AGG_CACHE["ts"] < 600: return _QUIZ_AGG_CACHE
+    _QUIZ_AGG_CACHE["ts"] = now
+    def _i(x):
+        try: return int(float(x or 0))
+        except Exception: return 0
+    try:
+        rows = _gviz_tab_csv("QUIZ_CHAMP")
+        h = {c: i for i, c in enumerate(rows[0])} if rows else {}
+        if "챔피언" in h and "표" in h:
+            g = lambda r, k: r[h[k]] if k in h and h[k] < len(r) else ""
+            ch = [{"c": str(g(r, "챔피언")).strip(), "v": _i(g(r, "표")), "hit": _i(g(r, "적중")), "on": _i(g(r, "출제")),
+                   "react": _i(g(r, "반응")), "v30": _i(g(r, "최근30일표"))} for r in rows[1:] if str(g(r, "챔피언")).strip()]
+            ch.sort(key=lambda e: (-e["v"], -e["on"]))
+            _QUIZ_AGG_CACHE["champ"] = ch
+    except Exception as e:
+        print(f"[quiz] QUIZ_CHAMP 로드 실패(무시): {e}", flush=True)
+    try:
+        rows = _gviz_tab_csv("QUIZ_PICK")
+        h = {c: i for i, c in enumerate(rows[0])} if rows else {}
+        if "포지션" in h and "챔피언" in h and "표" in h:
+            mp = {}
+            for r in rows[1:]:
+                if len(r) <= max(h["포지션"], h["챔피언"], h["표"]): continue
+                pos, c = str(r[h["포지션"]]).strip(), str(r[h["챔피언"]]).strip()
+                if not pos or not c: continue
+                mp.setdefault(pos, []).append((c, _i(r[h["표"]]), _i(r[h["실제픽일치"]]) if "실제픽일치" in h and h["실제픽일치"] < len(r) else 0))
+            for k in mp: mp[k].sort(key=lambda x: -x[1])
+            _QUIZ_AGG_CACHE["pick"] = mp
+    except Exception as e:
+        print(f"[quiz] QUIZ_PICK 로드 실패(무시): {e}", flush=True)
+    return _QUIZ_AGG_CACHE
+
+def _quiz_champ_lines(limit=14):
+    """밴 모드 시스템 프롬프트용 — 표 2개 이상인 챔프 상위 + '출제 5회 이상인데 표 0'(클랜 무반응) 목록. 없으면 빈 문자열."""
+    ch = _quiz_agg()["champ"]
+    top = [e for e in ch if e["v"] >= 2][:limit]
+    lines = [f"- {e['c']}: {e['v']}표(적중 {e['hit']}) · 출제 {e['on']}회" + (f" · 최근30일 {e['v30']}표" if e["v30"] else "")
+             for e in top]
+    cold = [f"{e['c']}({e['on']}회)" for e in ch if e["on"] >= 5 and e["v"] == 0][:8]
+    if cold: lines.append("- 출제 5회 이상인데 표 0(클랜이 위협으로 안 본 챔프): " + ", ".join(cold))
+    return "\n".join(lines)
+
+def _quiz_pick_blk(pos, limit=6):
+    """픽 모드 사용자 프롬프트용 — 내 포지션에서 클랜원들이 뽑겠다고 적어낸 챔프(표 2개 이상). 없으면 빈 문자열."""
+    if not pos or pos == "선택안함": return ""
+    rows = [(c, v, m) for c, v, m in (_quiz_agg()["pick"].get(str(pos)) or []) if v >= 2][:limit]
+    if not rows: return ""
+    return ("\n\n[🗳️ 클랜 픽 퀴즈 — " + str(pos) + " 자리에서 클랜원들이 뽑겠다고 적어낸 챔프(표순)]\n"
+            + "\n".join(f"- {c}: 퀴즈 {v}표" + (f"(실제 픽과 일치 {m})" if m else "") for c, v, m in rows))
 
 def _crunch_from_aggregate(blue_players, red_players):
     """[v82.5 시트경량화 2b] crunch를 사전집계탭(STAT_*)에서 계산 — 원본 CLASSIC_NORMAL 전체읽기 제거.
