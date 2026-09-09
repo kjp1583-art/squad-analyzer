@@ -2540,14 +2540,17 @@ function brjVecSvg(lv,cos,flags,size){
   const bodyShapes=(fill,w)=>`<rect x="${bx0}" y="${by0}" width="${bx1-bx0}" height="${by1-by0}" rx="${96*bw}" fill="${fill}"${w?` stroke="${INK}" stroke-width="${w}"`:""}/><ellipse cx="160" cy="${by0+75*bw}" rx="${96*bw}" ry="${75*bw}" fill="${fill}"${w?` stroke="${INK}" stroke-width="${w}"`:""}/>`;
   o+=bodyShapes(INK,20)+bodyShapes(body,0);
   if(chick){ o+=poly([[96,190],[70,178],[84,198]],body,7); o+=poly([[224,190],[250,178],[236,198]],body,7); }
-  if(F.has("red")) o+=rr(80,160,240,250,46,RED);
-  if(F.has("apron")){ o+=rr(108,178,212,250,34,"#3a8a52"); o+=ln([[124,178],[196,178]],5); }
-  if(F.has("c_suit")){ o+=rr(86,166,234,254,44,"#282830"); o+=`<polygon points="140,168 180,168 160,214" fill="${W}"/><polygon points="156,172 164,172 162,206 158,206" fill="${RED}"/>`; }
-  if(F.has("c_hanbok")){ o+=rr(86,166,234,254,44,"#f078a0"); o+=rr(86,166,234,190,12,"#5078c8",5); o+=ln([[160,190],[160,250]],3); }
-  if(F.has("c_pajama")){ o+=rr(86,166,234,254,44,W); for(let y=176;y<250;y+=16) o+=ln([[92,y],[228,y]],6,"#5a82dc"); }
-  if(F.has("c_jersey")){ o+=rr(86,166,234,254,44,"#2850c8"); o+=ln([[100,200],[220,200]],8,W); }
-  if(F.has("c_bhc")){ o+=rr(86,170,234,254,44,"#ff8a00"); o+=`<rect x="132" y="200" width="56" height="20" rx="8" fill="${W}"/>`; }
-  if(F.has("c_jgpos")){ o+=rr(86,166,234,254,44,"#965ac8"); o+=`<text x="160" y="222" text-anchor="middle" font-size="40" font-weight="800" font-family="sans-serif" fill="${W}">2</text>`; o+=el(206,178,226,198,RED,4); }
+  // 의상 — [2026-09-09 사장님 지시] 몸통을 가로선으로 갈라 그 아래를 몸통 클립으로 통째로 채운다(봇 _vec_draw 와 동일)
+  const clipId=id+"b"; o+=`<defs><clipPath id="${clipId}">${bodyShapes("#000",0)}</clipPath></defs>`;
+  const lower=(cut,fill,deco="")=>`<g clip-path="url(#${clipId})"><rect x="0" y="${cut}" width="320" height="${320-cut}" fill="${fill}"/>${deco}</g>`+ln([[bx0,cut],[bx1,cut]],6);
+  if(F.has("red")) o+=lower(168,RED);
+  if(F.has("apron")) o+=lower(180,"#3a8a52");
+  if(F.has("c_suit")) o+=lower(170,"#282830",`<polygon points="140,170 180,170 160,214" fill="${W}"/><polygon points="156,174 164,174 162,206 158,206" fill="${RED}"/>`);
+  if(F.has("c_hanbok")) o+=lower(166,"#f078a0",`<rect x="0" y="166" width="320" height="24" fill="#5078c8"/>`+ln([[0,190],[320,190]],4)+ln([[160,190],[160,262]],3));
+  if(F.has("c_pajama")){ let d=""; for(let y=180;y<262;y+=16) d+=ln([[0,y],[320,y]],6,"#5a82dc"); o+=lower(168,W,d); }
+  if(F.has("c_jersey")) o+=lower(168,"#2850c8",ln([[0,204],[320,204]],8,W));
+  if(F.has("c_bhc")) o+=lower(172,"#ff8a00",`<rect x="132" y="202" width="56" height="20" rx="8" fill="${W}"/>`);
+  if(F.has("c_jgpos")){ o+=lower(168,"#965ac8"); o+=`<text x="160" y="224" text-anchor="middle" font-size="40" font-weight="800" font-family="sans-serif" fill="${W}">2</text>`; o+=el(206,178,226,198,RED,4); }
   // 얼굴
   const ey=142, stun=S.has("stun");
   for(const ex of [124,190]){
@@ -8649,7 +8652,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609091200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609091500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
