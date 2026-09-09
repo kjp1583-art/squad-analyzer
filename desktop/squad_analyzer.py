@@ -4200,31 +4200,53 @@ def update_solo_ranks():
     key = load_riot_key()
     if not key or not global_spreadsheet: return
     # 시트에서 {tnorm(게임닉): 롤닉#태그} 맵 (소환사명 = 풀 롤닉#태그)
-    rid_map = {}
+    # 🧭 [2026-09-09 사장님 제보 '카무사리 솔랭이 한 달째 그대로'] 예전엔 닉별 '첫 등장' 롤닉#태그를 잡고
+    #    현재 닉이 없으면 별칭(옛 닉)으로 폴백했다 — 닉변한 사람은 옛 롤닉(귤갓입니다#KR1)으로 계속 조회돼
+    #    옛 기록(에메랄드)에 멈춰 있었다(현재 카무사리#귤갓 마스터). 이제 닉마다 '가장 최근 판'의 롤닉#태그와
+    #    그 날짜를 들고, 현재 닉·별칭 후보를 최근 판 순으로 정렬해 조회한다(실패하면 다음 후보).
+    rid_map = {}      # tnorm(닉) -> (마지막 등장 날짜, 롤닉#태그)
     try:
         rows0 = get_sheet_data_cached(global_spreadsheet.worksheet("CLASSIC_NORMAL"), force=True)
-        h0 = rows0[0]; ni = h0.index("소환사명")
+        h0 = rows0[0]; ni = h0.index("소환사명"); di = h0.index("날짜") if "날짜" in h0 else -1
         for r in rows0[1:]:
             if len(r) > ni:
                 rid = str(r[ni]).strip()
                 if "#" in rid:
                     k = tnorm(rid)
-                    if k and k not in rid_map: rid_map[k] = rid
+                    dt = str(r[di]).strip() if 0 <= di < len(r) else ""
+                    if k and (k not in rid_map or dt >= rid_map[k][0]): rid_map[k] = (dt, rid)
     except Exception: pass
     with gui_lock:
         gstats = dict(gui_data.get("hof_classic", {}).get("global_stats", {}).get("전체 (ALL)", {}))
         aliases = dict(gui_data.get("hof_classic", {}).get("aliases", {}))
     out = [["닉네임","티어","LP","솔랭승","솔랭패","점수","갱신"]]
+    # 🔗 LINK_ACCOUNT(부계·계정 이전·닉변 통합) 그룹 — PUUID 별칭만으론 못 잇는 케이스(닉변 직후 PUUID 가 바뀐
+    #    카무사리#귤 갓 ← 귤갓입니다#KR1 ← 귤 갓#Gyul)를 같은 사람으로 묶어 후보에 넣는다.
+    _grp = {}
+    try:
+        for _sub, _main in (global_alt_map or {}).items():
+            _g = _grp.setdefault(tnorm(_main), {tnorm(_main)}); _g.add(tnorm(_sub)); _grp[tnorm(_sub)] = _g
+    except Exception: pass
+    _renamed = []
     for _pk, s in gstats.items():
         nm = s.get("name", "")
         if not tier_of(nm): continue
-        rid = rid_map.get(tnorm(nm))
-        if not rid:
-            for al in aliases.get(_pk, ()):        # 닉변 시 과거 닉으로도 매칭
-                rid = rid_map.get(tnorm(al))
-                if rid: break
-        if not rid: continue
-        rk = fetch_solo_rank_by_riotid(rid, key)
+        _names = [nm] + list(aliases.get(_pk, ()))            # 현재 닉 + 과거 닉(PUUID 별칭)
+        for _n in list(_names):
+            for _m in _grp.get(tnorm(_n), ()):                  # + LINK_ACCOUNT 그룹 멤버
+                if _m not in [tnorm(x) for x in _names]: _names.append(_m)
+        _cands = []
+        for _n in _names:                                       # 최근 판 순으로 조회
+            _e = rid_map.get(tnorm(_n))
+            if _e and _e[1] not in [c[1] for c in _cands]: _cands.append(_e)
+        _cands.sort(key=lambda x: x[0], reverse=True)
+        if not _cands: continue
+        rk, rid = None, ""
+        for _dt, rid in _cands:
+            rk = fetch_solo_rank_by_riotid(rid, key)
+            if rk: break
+            time.sleep(1.3)
+        if rk and len(_cands) > 1 and tnorm(rid) != tnorm(nm): _renamed.append(f"{nm}→{rid}")
         if rk and rk.get("score") is not None:
             out.append([nm, f"{rk['tier']} {rk.get('rank','')}".strip(), rk.get("lp",0),
                         rk.get("wins",0), rk.get("losses",0), rk["score"],
@@ -4249,7 +4271,7 @@ def update_solo_ranks():
             return
         ws.clear(); ws.update(out)
         invalidate_sheet_cache("SOLO_RANK")
-        print(f"[solo] SOLO_RANK 갱신 {_new_n}명", flush=True)
+        print(f"[solo] SOLO_RANK 갱신 {_new_n}명" + (f" · 최근 롤닉으로 조회 {len(_renamed)}명: {', '.join(_renamed[:8])}" if _renamed else ""), flush=True)
     except Exception as _se:
         print(f"[solo] SOLO_RANK 기록 실패: {type(_se).__name__}", flush=True)
 
