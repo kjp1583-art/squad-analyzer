@@ -2647,12 +2647,18 @@ def _enemy_ban_pool(pu, ep, cidx, limit=6):
     return (hdr, [f"※ {ep} 전적 0판 — 이 사람 저격 밴은 값이 없다"
                   + (f" (다른 자리 주력 {off} 은 이번 판에 못 씀)" if off else " (내전 전적 자체가 없음)")])
 
-def _my_champ_pool(my_name, limit=12):
-    """시트 전적에서 '내' 챔피언별 (판수, 승) 상위 N개. 라이브 중 서비스계정 호출 없이 gviz 캐시만 사용."""
+def _my_champ_pool(my_name, limit=12, pos=""):
+    """시트 전적에서 '내' 챔피언별 (판수, 승) 상위 N개. 라이브 중 서비스계정 호출 없이 gviz 캐시만 사용.
+       [2026-09-09 사장님 제보 '정글 갔는데 서폿 챔프를 추천'] pos 를 주면 [챔프, 판수, 승, 그 포지션 판수]
+       4열로 돌려주고, 그 포지션 전적이 있는 챔프를 먼저(그 포지션 판수순) 싼다 — 전적이 한 라인에 몰린
+       사람이 다른 라인을 갔을 때 챔프풀 전체가 그 라인으로 읽히는 것을 데이터에서부터 막는다."""
     key = tnorm(my_name or "")
     if not key: return []
-    if key in _DRAFT_POOL_CACHE: return _DRAFT_POOL_CACHE[key]
-    agg = {}
+    pos = str(pos or "")
+    if pos == "선택안함": pos = ""
+    ck = key + ("|" + pos if pos else "")
+    if ck in _DRAFT_POOL_CACHE: return _DRAFT_POOL_CACHE[ck]
+    agg = {}; posg = {}
     try:
         if not global_spreadsheet: return []
         # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람 숙련을 협곡 챔프폭으로 세면 안 된다.
@@ -2663,7 +2669,7 @@ def _my_champ_pool(my_name, limit=12):
             if not rows: continue
             h = rows[0]
             ci = lambda n: h.index(n) if n in h else -1
-            c_nm, c_ch, c_rs = ci("소환사명"), ci("챔피언"), ci("결과")
+            c_nm, c_ch, c_rs, c_ps = ci("소환사명"), ci("챔피언"), ci("결과"), ci("포지션")
             if min(c_nm, c_ch) < 0: continue
             for r in rows[1:]:
                 if len(r) <= max(c_nm, c_ch, c_rs): continue
@@ -2672,9 +2678,17 @@ def _my_champ_pool(my_name, limit=12):
                 if not ch: continue
                 g, w = agg.get(ch, (0, 0))
                 agg[ch] = (g + 1, w + (1 if (c_rs >= 0 and str(r[c_rs]).strip() == "승리") else 0))
+                if pos and c_ps >= 0 and c_ps < len(r) and str(r[c_ps]).strip() == pos:
+                    posg[ch] = posg.get(ch, 0) + 1
     except Exception: pass
-    out = sorted(([c, g, w] for c, (g, w) in agg.items()), key=lambda x: -x[1])[:limit]
-    _DRAFT_POOL_CACHE[key] = out
+    if not pos:
+        out = sorted(([c, g, w] for c, (g, w) in agg.items()), key=lambda x: -x[1])[:limit]
+    else:
+        # 그 포지션 전적 있는 챔프 전부(포지션 판수순) + 나머지 상위(총판수순)로 limit 채움
+        _in = sorted(([c, g, w, posg[c]] for c, (g, w) in agg.items() if posg.get(c)), key=lambda x: (-x[3], -x[1]))
+        _out = sorted(([c, g, w, 0] for c, (g, w) in agg.items() if not posg.get(c)), key=lambda x: -x[1])
+        out = _in[:limit] + _out[:max(0, limit - len(_in[:limit])) + 4]
+    _DRAFT_POOL_CACHE[ck] = out
     return out
 
 def _clan_meta_lines(limit=25):
@@ -2840,7 +2854,9 @@ _DRAFT_RULES = (
     "   표 2개 미만은 무시하고, 인용할 땐 '퀴즈 N표'. 이것만으로 상성·조합 판단을 뒤집지는 마라.\n\n"
     "【절대 규칙】\n"
     "- 이미 밴되었거나 이미 픽된 챔피언은 추천 금지.\n"
-    "- 사용자 라인이 아닌 포지션의 챔프를 추천하지 마라.\n"
+    "- ★★사용자 라인이 아닌 포지션의 챔프를 추천하지 마라. [내 포지션]이 확정이면 그 자리에서 실제로 쓰이는\n"
+    "  챔프만 후보다 — 내 내전 전적이 서폿에 몰려 있어도 지금 정글이면 정글 챔프를 추천한다(전적 없으면 프로 통계·\n"
+    "  일반 지식으로). '다른 라인 전적' 챔프는 그 포지션으로 통용되는 플렉스픽일 때만, 근거를 밝히고 올려라.\n"
     "- 상성상 불리한 픽을 '무난하다'는 이유로 추천하지 마라.\n"
     "- ★포지션을 지어내지 마라. 5명이 다 나오기 전에는 어떤 픽의 포지션도 확정이 아니다.\n"
     "  '서폿 럭스'처럼 단정하지 말고 '미드 유저가 고른 럭스'처럼 근거를 밝혀라. 근거가 없으면 포지션을 언급하지 마라.\n"
@@ -2941,7 +2957,21 @@ def _draft_advise(ctx, my_pool):
     tok = _coach_token()
     if not key and not tok: return None
     is_ban = ctx.get("mode") == "ban"
-    pool_txt = "\n".join(f"- {c}: {g}판 {round(w/g*100) if g else 0}%" for c, g, w in my_pool) or "(내전 기록 없음)"
+    _pk = ctx.get("pos") if ctx.get("pos_known") else ""
+    if _pk and my_pool and len(my_pool[0]) >= 4:
+        # [2026-09-09] 포지션 확정 → '이 포지션 전적' / '다른 라인 전적'을 갈라 싼다(서폿 장인이 정글 간 판 방지)
+        _pin = [x for x in my_pool if x[3] > 0]; _pout = [x for x in my_pool if x[3] <= 0]
+        pool_txt = (f"(★{_pk} 전적 — 지금 자리와 같은 라인. 여기서 우선 고른다)\n"
+                    + ("\n".join(f"- {c}: {_pk} {pg}판 · 통산 {g}판 {round(w/g*100) if g else 0}%" for c, g, w, pg in _pin)
+                       or f"- (내전 {_pk} 기록 없음 — 프로 통계·일반 지식으로 {_pk} 챔프를 추천하라)")
+                    + (f"\n(다른 라인 전적 — {_pk}(으)로도 실제 통용되는 챔프일 때만 참고, 아니면 추천 금지)\n"
+                       + "\n".join(f"- {c}: {g}판 {round(w/g*100) if g else 0}% [{_pk} 0판]" for c, g, w, pg in _pout[:8])
+                       if _pout else ""))
+    else:
+        pool_txt = "\n".join(f"- {c}: {g}판 {round(w/g*100) if g else 0}%" for c, g, w, *_x in my_pool) or "(내전 기록 없음)"
+    if not is_ban and not ctx.get("pos_known"):
+        pool_txt += ("\n★내 포지션이 미확정이다. **내 전적이 어느 라인에 몰려 있는지로 내 포지션을 추측하지 마라**"
+                     " — 라인별로 후보를 나눠 제시하거나, 미확정임을 첫 줄에 밝혀라.")
     # [v81.77] 라인 매치업을 최상단에 명시 — '사일러스 상대 알리스타' 같은 상성 무시 방지의 핵심
     _lane = ctx.get("lane_enemy") or ""
     # [v82.34] 픽은 '누가 골랐는지'까지 붙여 제시 — 포지션 환각(예: 근거 없이 '서폿 럭스' 단정) 방지
@@ -3106,7 +3136,7 @@ def _draft_advise(ctx, my_pool):
                           "★이미 챔피언을 확정한 상대 선수는 [상대 팀원들의 내전 챔프폭]에서 아예 빠져 있다.\n"
                           "  거기 없는 사람의 장인챔을 기억으로 되살려 밴 후보에 올리지 마라 — 그 사람은 이미 픽이 끝났다.")
         if _bphase == 1:
-            _task = ("★**1페이즈 밴**. ① 우리 팀 밴 **3개** 우선순위로(챔피언 자체가 위험한 것: 현 패치 OP·상대\n"
+            _task = ("★**1페이즈 밴**. ① 우리 팀 밴 후보 **5개** 우선순위로(챔피언 자체가 위험한 것: 현 패치 OP·상대\n"
                      "장인·견제압력). ② 픽 방향 **딱 한 줄**(단정 금지). 전체 출력 극도로 짧게 — 근거는 판수%·핵심 단어만.")
         else:
             _picked = ctx.get("already_picked")
@@ -3137,7 +3167,8 @@ def _draft_advise(ctx, my_pool):
     else:
         _mt2 = ctx.get("my_tier")
         user_txt = (
-            f"[내 포지션] {ctx['pos']}" + (f" · 내 내부티어 {_mt2}티어(0=최상위)" if _mt2 not in (None, "") else "") + "\n"
+            f"[내 포지션] {ctx['pos']}" + (" (★확정 — 이 포지션의 챔프만 추천)" if ctx.get("pos_known") else " (미확정)")
+            + (f" · 내 내부티어 {_mt2}티어(0=최상위)" if _mt2 not in (None, "") else "") + "\n"
             f"[★내 라인 상대] {_lane or '아직 확정 안 됨'}\n"
             f"[우리 팀 확정 픽] {_ally_txt}\n"
             f"[상대 팀 확정 픽] {_enemy_txt}\n"
@@ -3254,7 +3285,25 @@ def _draft_advise_via_proxy(token, system_text, user_txt, who=""):
         return "⚠️ 고스트밴픽왕: 서버 연결 실패(인터넷 확인)"
 
 _BANS_SHOWN = [None]   # 🚫 [v81.77] 10밴 아이콘 재렌더 캐시(매초 이미지 재생성 방지)
-_DRAFT_OVL = {"win": None, "lbl": None, "shown": "", "expanded": False, "btn_more": None, "dock_rect": None}
+_DRAFT_OVL = {"win": None, "lbl": None, "shown": "", "expanded": False, "btn_more": None, "dock_rect": None,
+              "gid": "", "pos": ""}
+# 🧭 [2026-09-09 사장님 제보] 이 판 내 포지션 수동 지정 — {"gid": 게임식별자, "pos": "정글"}. 카드의 포지션 칩으로 설정.
+_COACH_POS = {"gid": "", "pos": ""}
+_COACH_POS_LIST = ("탑", "정글", "미드", "원딜", "서폿")
+
+def _coach_set_pos(pos):
+    """카드 포지션 칩 클릭 → 이 판의 내 포지션 확정. 픽 서명(포지션 포함)을 풀어 다음 폴링에서 재추천."""
+    try:
+        _COACH_POS["gid"] = str(_DRAFT_OVL.get("gid") or ""); _COACH_POS["pos"] = pos
+        _DRAFT_OVL["pos"] = pos
+        for _k in [k for k in list(_DRAFT_SEEN) if "|pick|" in k]:
+            _DRAFT_SEEN.discard(_k); _DRAFT_TRY_TS.pop(_k, None)
+        _DRAFT_POOL_CACHE.clear()
+        print(f"[coach] 내 포지션 수동 지정 → {pos} (게임 {_COACH_POS['gid'] or '?'})", flush=True)
+        _r = _DRAFT_OVL.get("_render")
+        if _r: _r()
+    except Exception as e:
+        print(f"[coach] 포지션 지정 실패: {type(e).__name__} {e}", flush=True)
 
 def _lol_client_rect():
     """🧲 롤 클라이언트(LeagueClientUx, 클래스 RCLIENT) 창 좌표. 없거나 최소화면 None."""
@@ -3408,6 +3457,26 @@ def _draft_build_card(root):
     rule = tk.Frame(body, bg=C["ban"], height=2)
     rule.pack(fill="x", padx=16, pady=(9, 0))
 
+    # 🧭 [2026-09-09] 내 포지션 칩 — 내전은 배정이 없어 자동 인식이 비거나 틀린다. 눌러서 이 판 포지션 확정.
+    posf = tk.Frame(body, bg=C["card"]); posf.pack(fill="x", padx=16, pady=(8, 0))
+    tk.Label(posf, text="내 포지션", bg=C["card"], fg=C["dim"], font=UF(9)).pack(side="left", padx=(0, 6))
+    pos_chips = {}
+    for _pn in _COACH_POS_LIST:
+        _cl = tk.Label(posf, text=_pn, bg=C["surface"], fg=C["sub"], font=UF(10, "bold"),
+                       padx=8, pady=2, cursor="hand2")
+        _cl.pack(side="left", padx=(0, 4))
+        _cl.bind("<Button-1>", lambda e, _p=_pn: _coach_set_pos(_p))
+        pos_chips[_pn] = _cl
+    pos_hint = tk.Label(posf, text="", bg=C["card"], fg=C["warn"], font=UF(9))
+    pos_hint.pack(side="left", padx=(6, 0))
+    def _paint_pos():
+        _cur = str(_DRAFT_OVL.get("pos") or "")
+        _man = (_COACH_POS.get("pos") and _COACH_POS.get("gid") == str(_DRAFT_OVL.get("gid") or ""))
+        for _pn, _cl in pos_chips.items():
+            if _pn == _cur: _cl.config(bg=_DRAFT_OVL.get("accent") or C["gold"], fg="#12141a")
+            else: _cl.config(bg=C["surface"], fg=C["sub"])
+        pos_hint.config(text=("직접 지정" if _man else ("자동 인식" if _cur and _cur != "선택안함" else "← 눌러서 지정")))
+
     rows = tk.Frame(body, bg=C["card"]); rows.pack(fill="x", padx=16, pady=(10, 0))
 
     # ── 푸터 ──
@@ -3471,6 +3540,8 @@ def _draft_build_card(root):
             badge.config(text=(" 밴 " if is_ban else " 픽 "), bg=_DRAFT_OVL["accent"])
             rule.config(bg=_DRAFT_OVL["accent"])
             sub.config(text=head.replace("🚫", "").replace("🧠", "").strip())
+            try: _paint_pos()
+            except Exception: pass
             summ, reason = _split_reason("\n".join(lines[1:]))
             for ch in rows.winfo_children(): ch.destroy()
             for ln in [x for x in summ.split("\n") if x.strip()]:
@@ -3733,10 +3804,15 @@ def _draft_coach_tick(s_json, headers, base_url):
             _v = _pos_raw(p)
             if _v and _v != "선택안함": return _v
             return _gpos.get(str(_rpu(p) or "").strip().lower(), _v)
+        _sid_now = str(s_json.get("gameId") or "") or f"t{int(time.time() // 600)}"
         for p in s_json.get("myTeam", []) or []:
             _pu = _rpu(p)
             if p.get("cellId") == my_cell:
                 my_pos = _pos(p) or "선택안함"
+                # 🧭 [2026-09-09 사장님 제보] 내전은 포지션 배정이 없어 자동 인식이 틀리거나 빈다 →
+                #    오버레이 카드의 포지션 칩으로 이 판의 내 포지션을 직접 지정(게임 단위, 최우선)
+                if _COACH_POS.get("gid") == _sid_now and _COACH_POS.get("pos"):
+                    my_pos = _COACH_POS["pos"]
                 my_pu = _pu
             c = _kor(p.get("championId"))
             if p.get("cellId") == my_cell and c: my_champ = c
@@ -3971,7 +4047,8 @@ def _draft_coach_tick(s_json, headers, base_url):
         # 밴은 페이즈당 1회만(팀 밴 통째 추천) / 픽은 판 상태 바뀌면 갱신
         # [2026-07-25 사장님 제보 수정] 서명에 게임 식별자 포함 — 닷지·다음 게임에서 같은 서명("banphase1")으로
         #   오인돼 추천이 안 뜨던 문제 해결(gameId 없으면 10분 창 폴백으로라도 게임 간 구분).
-        _sid = str(s_json.get("gameId") or "") or f"t{int(time.time() // 600)}"
+        _sid = _sid_now
+        _DRAFT_OVL["gid"] = _sid; _DRAFT_OVL["pos"] = my_pos   # 오버레이 포지션 칩 표시·클릭용
         if mode == "ban":
             sig = f"{_sid}|banphase{ban_phase}"
         else:
@@ -3996,7 +4073,13 @@ def _draft_coach_tick(s_json, headers, base_url):
                 with gui_lock:
                     gui_data["draft_advice"] = "🚫 밴 분석 중…" if mode == "ban" else "🧠 픽 분석 중…"
                     gui_data["draft_advice_ts"] = time.time()
-                txt = _draft_advise(ctx, _my_champ_pool(MY_RIOT_NAME[0]))
+                txt = _draft_advise(ctx, _my_champ_pool(MY_RIOT_NAME[0], pos=(ctx.get("pos") if ctx.get("pos_known") else "")))
+                # 🧭 [2026-09-09] 픽 추천인데 내 포지션을 못 잡았으면 카드 첫 줄에 안내(칩을 눌러 지정)
+                try:
+                    if mode == "pick" and txt and not ctx.get("pos_known") and not str(txt).lstrip().startswith(("⚠️", "⏳", "🔐", "✅")):
+                        _l0, _r0 = (str(txt).split("\n", 1) + [""])[:2]
+                        txt = _l0 + "\n⚠️ 내 포지션 미확정 — 카드 위 포지션 버튼을 눌러 주세요\n" + _r0
+                except Exception: pass
                 # 🚫 [2026-08-06 사장님 제보] 데이터에서 빼도 모델이 일반 지식으로 죽은 챔프(이미 밴·픽)를
                 #    추천할 수 있다 — 응답에서 해당 줄을 잘라내는 최종 방어. 요약부의 "N. 챔프 — 이유" 줄만 손댄다.
                 try:
