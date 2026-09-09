@@ -2511,7 +2511,73 @@ function brjSpriteRows(lv,cos,flags){
   for(const ov of ovs) for(let y=0;y<16;y++){ const row=full(ov[y]); for(let x=0;x<16;x++){ const ch=row[x]; if(ch!=='.') out[y][x]=ch; } }
   return {rows:out.map(r=>r.join("")),glow:st.g};
 }
-function brjSpriteSvg(lv,cos,flags,size){
+// 🎨 벡터 브장신 (2026-09-09) — 봇 _vec_draw 와 같은 도형·좌표(320×320). 에셋 없이 SVG 도형만. 기본 볏 없음.
+const BRJ_VEC_STAGE={0:["#fff",["egg"]],1:["#fff",["chick"]],2:["#fff",[]],3:["#fff",["apron"]],4:["#fff",["apron","red"]],5:["#ffe278",[]],6:["#fff",["sungl","crown"]],7:["#ffe278",["crown"]],
+  8:["#ffe278",["red","crown"]],9:["#ffe278",["sungl","crown"]],10:["#ffe278",["sungl","crown","apron"]],11:["#ffe278",["red","sungl","crown"]],12:["#ffe278",["red","sungl","crown","apron"]]};
+function brjVecSvg(lv,cos,flags,size){
+  size=size||96; const INK="#121216", W="#fff", YEL="#fac41e", RED="#e42428";
+  const st=BRJ_VEC_STAGE[Math.max(0,Math.min(12,lv|0))]||BRJ_VEC_STAGE[2]; const body=st[0]; const F=new Set(st[1]);
+  cos=cos||{}; for(const sl of ["o","h","a"]){ const k=cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) F.add(k); }
+  if(cos.h&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,cos.h)) F.delete("crown");
+  const S=new Set(flags||[]); const glow=(BRJ_SPR.stage[String(Math.max(0,Math.min(12,lv|0)))]||{}).g;
+  const id="brjv"+(++_brjSprSeq); let o="";
+  const P=pts=>pts.map(p=>p.join(",")).join(" ");
+  const poly=(pts,fill,w=9)=>`<polygon points="${P(pts)}" fill="${fill}" stroke="${INK}" stroke-width="${w}" stroke-linejoin="round"/>`;
+  const rr=(x0,y0,x1,y1,r,fill,w=7)=>`<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" rx="${r}" fill="${fill}" stroke="${INK}" stroke-width="${w}"/>`;
+  const el=(x0,y0,x1,y1,fill,w=0,stroke=INK)=>`<ellipse cx="${(x0+x1)/2}" cy="${(y0+y1)/2}" rx="${(x1-x0)/2}" ry="${(y1-y0)/2}" fill="${fill}"${w?` stroke="${stroke}" stroke-width="${w}"`:""}/>`;
+  const ln=(pts,w,stroke=INK)=>`<polyline points="${P(pts)}" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const gd=glow?`<defs><radialGradient id="${id}"><stop offset="0" stop-color="${glow}" stop-opacity=".43"/><stop offset=".55" stop-color="${glow}" stop-opacity=".12"/><stop offset="1" stop-color="${glow}" stop-opacity="0"/></radialGradient></defs><ellipse cx="160" cy="176" rx="150" ry="140" fill="url(#${id})"/>`:"";
+  if(F.has("egg")){
+    o+=el(96,60,224,260,W,9); for(const [cx,cy] of [[150,120],[190,170],[140,200]]) o+=el(cx-9,cy-9,cx+9,cy+9,"#ffecaa");
+    return `<svg viewBox="0 0 320 320" width="${size}" height="${size}" role="img" aria-label="브장신">${gd}${o}</svg>`;
+  }
+  const chick=F.has("chick"), bw=chick?0.72:1.0, bx0=160-96*bw, bx1=160+96*bw, by0=78+(1-bw)*60, by1=262;
+  if(F.has("c_aura")) o+=`<ellipse cx="160" cy="${(by0+by1)/2}" rx="${(bx1-bx0)/2+30}" ry="${(by1-by0)/2+25}" fill="#ff503c" opacity=".55" filter="blur(6px)"/>`;
+  if(F.has("c_wing")) for(const pts of [[[30,150],[-4,110],[14,170],[-2,160],[30,182]],[[290,150],[324,110],[306,170],[322,160],[290,182]]]) o+=poly(pts,"#ffd700",7);
+  if(!chick){ o+=poly([[74,180],[30,150],[22,166],[38,178],[20,190],[42,196],[34,214],[66,206],[80,214]],body); o+=poly([[246,180],[290,150],[298,166],[282,178],[300,190],[278,196],[286,214],[254,206],[240,214]],body); }
+  if(F.has("c_balloon")){ o+=ln([[58,150],[46,60]],3); o+=el(22,10,72,70,RED,6); }
+  // 몸통 — (타원 ∪ 둥근사각): 외곽선 덩어리(검정 fill+stroke) 위에 몸 색 덩어리(fill만) → 이음새 없음
+  const bodyShapes=(fill,w)=>`<rect x="${bx0}" y="${by0}" width="${bx1-bx0}" height="${by1-by0}" rx="${96*bw}" fill="${fill}"${w?` stroke="${INK}" stroke-width="${w}"`:""}/><ellipse cx="160" cy="${by0+75*bw}" rx="${96*bw}" ry="${75*bw}" fill="${fill}"${w?` stroke="${INK}" stroke-width="${w}"`:""}/>`;
+  o+=bodyShapes(INK,20)+bodyShapes(body,0);
+  if(chick){ o+=poly([[96,190],[70,178],[84,198]],body,7); o+=poly([[224,190],[250,178],[236,198]],body,7); }
+  if(F.has("red")) o+=rr(80,160,240,250,46,RED);
+  if(F.has("apron")){ o+=rr(108,178,212,250,34,"#3a8a52"); o+=ln([[124,178],[196,178]],5); }
+  if(F.has("c_suit")){ o+=rr(86,166,234,254,44,"#282830"); o+=`<polygon points="140,168 180,168 160,214" fill="${W}"/><polygon points="156,172 164,172 162,206 158,206" fill="${RED}"/>`; }
+  if(F.has("c_hanbok")){ o+=rr(86,166,234,254,44,"#f078a0"); o+=rr(86,166,234,190,12,"#5078c8",5); o+=ln([[160,190],[160,250]],3); }
+  if(F.has("c_pajama")){ o+=rr(86,166,234,254,44,W); for(let y=176;y<250;y+=16) o+=ln([[92,y],[228,y]],6,"#5a82dc"); }
+  if(F.has("c_jersey")){ o+=rr(86,166,234,254,44,"#2850c8"); o+=ln([[100,200],[220,200]],8,W); }
+  if(F.has("c_bhc")){ o+=rr(86,170,234,254,44,"#ff8a00"); o+=`<rect x="132" y="200" width="56" height="20" rx="8" fill="${W}"/>`; }
+  if(F.has("c_jgpos")){ o+=rr(86,166,234,254,44,"#965ac8"); o+=`<text x="160" y="222" text-anchor="middle" font-size="40" font-weight="800" font-family="sans-serif" fill="${W}">2</text>`; o+=el(206,178,226,198,RED,4); }
+  // 얼굴
+  const ey=142, stun=S.has("stun");
+  for(const ex of [124,190]){
+    if(stun){ o+=ln([[ex-8,ey-8],[ex+8,ey+8]],5); o+=ln([[ex-8,ey+8],[ex+8,ey-8]],5); }
+    else { o+=el(ex-9,ey-12,ex+9,ey+12,INK); o+=el(ex-6,ey-9,ex-1,ey-3,W); }
+  }
+  o+=ln([[112,118],[132,112]],6)+ln([[182,112],[202,118]],6);
+  o+=poly([[140,150],[176,150],[170,178],[146,178]],YEL,8); o+=`<rect x="146" y="152" width="24" height="24" rx="10" fill="${YEL}"/>`;
+  if(F.has("sungl")&&!stun){ o+=`<rect x="104" y="128" width="42" height="30" rx="9" fill="${INK}"/><rect x="170" y="128" width="42" height="30" rx="9" fill="${INK}"/>`; o+=ln([[146,142],[170,142]],5); }
+  // 장신구·상태
+  if(F.has("c_scarf")){ o+=rr(92,170,228,190,10,RED,5); o+=rr(188,186,214,236,8,RED,5); }
+  if(F.has("c_coin")){ o+=`<path d="M 118 168 A 50 30 0 0 0 202 168" fill="none" stroke="#e6c83c" stroke-width="4"/>`; o+=el(146,196,174,224,"#ffd700",5); }
+  if(F.has("c_trophy")){ o+=rr(236,200,262,230,6,"#ffd700",5); o+=rr(228,230,270,240,3,"#ffd700",4); }
+  if(F.has("c_sign")){ o+=ln([[266,250],[266,190]],6); o+=rr(256,150,276,192,10,"#ff69b4",5); }
+  if(S.has("work")){ o+=rr(236,206,296,258,6,"#8c5028",6); o+=`<rect x="244" y="222" width="44" height="10" fill="#ffbe78"/>`; }
+  if(S.has("staff")) o+=rr(186,196,214,216,4,"#78c8ff",4);
+  if(stun) for(const [cx,cy] of [[100,40],[160,24],[220,40]]) o+=poly([[cx,cy-12],[cx+4,cy-3],[cx+12,cy],[cx+4,cy+3],[cx,cy+12],[cx-4,cy+3],[cx-12,cy],[cx-4,cy-3]],"#ffd700",3);
+  // 모자·왕관
+  if(F.has("c_santa")){ o+=`<polygon points="96,88 150,4 204,88" fill="${RED}" stroke="${INK}" stroke-width="8" stroke-linejoin="round"/>`; o+=rr(86,74,216,100,13,W,7); o+=el(136,-12,166,18,W,7); }
+  if(F.has("c_gat")){ o+=poly([[30,96],[160,26],[290,96]],"#3c2c22",8); o+=rr(26,90,294,104,7,"#3c2c22",6); }
+  if(F.has("c_helm")){ o+=`<path d="M 80 96 A 80 60 0 0 1 240 96 Z" fill="#466e3c" stroke="${INK}" stroke-width="8" stroke-linejoin="round"/>`; o+=rr(74,90,246,106,8,"#466e3c",6); }
+  if(F.has("c_head")){ o+=`<path d="M 100 130 A 64 72 0 0 1 220 130" fill="none" stroke="${INK}" stroke-width="12"/>`; o+=rr(84,120,112,164,10,"#3c3c46",6); o+=rr(208,120,236,164,10,"#3c3c46",6); }
+  if(F.has("c_pin")){ o+=el(190,80,222,108,YEL,5); o+=el(206,88,212,94,INK); }
+  if(F.has("crown")) o+=poly([[104,84],[112,40],[136,66],[158,28],[180,66],[204,40],[212,84]],"#ffd700",7);
+  if(F.has("c_halo")) o+=`<ellipse cx="160" cy="22" rx="56" ry="14" fill="none" stroke="#ffd700" stroke-width="10"/>`;
+  return `<svg viewBox="-10 -20 340 300" width="${size}" height="${size}" role="img" aria-label="브장신">${gd}${o}</svg>`;
+}
+
+function brjSpriteSvg(lv,cos,flags,size){ return brjVecSvg(lv,cos,flags,size); }   // 🎨 2026-09-09 새 디자인(벡터). 도트 버전은 brjSpriteSvgPixel
+function brjSpriteSvgPixel(lv,cos,flags,size){
   size=size||96;
   const {rows,glow}=brjSpriteRows(lv,cos,flags);
   const id="brjg"+(++_brjSprSeq);
@@ -8583,7 +8649,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609081700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609091200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
