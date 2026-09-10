@@ -2523,7 +2523,10 @@ function brjVecSvg(lv,cos,flags,size){
   const st=BRJ_VEC_STAGE[Math.max(0,Math.min(12,lv|0))]||BRJ_VEC_STAGE[2]; const body=st[0]; const F=new Set(st[1]);
   cos=cos||{}; for(const sl of ["o","h","a"]){ const k=cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) F.add(k); }
   if(cos.h&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,cos.h)) F.delete("crown");
-  const S=new Set(flags||[]); const skinTok=[...S].find(f=>/^skin:/.test(f)); const skinHref=skinTok?`img/brjang/skins/${encodeURIComponent(skinTok.slice(5))}/`:"";   // 🌟 PNG 스킨(봇 상태 셀 'skin:sg')
+  const S=new Set(flags||[]); const skinTok=[...S].find(f=>/^skin:/.test(f)); const skinKey=skinTok?skinTok.slice(5):"";
+  const skinHref=skinKey?`img/brjang/skins/${encodeURIComponent(skinKey)}/`:"";   // 🌟 PNG 스킨(봇 상태 셀 'skin:sg')
+  const costume=skinKey==="sg";                                                    // 의상형 스킨은 옷·왕관·선글라스 생략(봇 SKINS.costume 과 동일)
+  const BASE_HREF="img/brjang/parts/";                                             // 🐥 [2026-09-10] 기본 몸 = AI 원화 PNG(봇과 동일 파일)
   const glow=(BRJ_SPR.stage[String(Math.max(0,Math.min(12,lv|0)))]||{}).g;
   const id="brjv"+(++_brjSprSeq); let o="";
   const P=pts=>pts.map(p=>p.join(",")).join(" ");
@@ -2533,11 +2536,7 @@ function brjVecSvg(lv,cos,flags,size){
   const ln=(pts,w,stroke=INK)=>`<polyline points="${P(pts)}" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
   const gd=glow?`<defs><radialGradient id="${id}"><stop offset="0" stop-color="${glow}" stop-opacity=".43"/><stop offset=".55" stop-color="${glow}" stop-opacity=".12"/><stop offset="1" stop-color="${glow}" stop-opacity="0"/></radialGradient></defs><circle cx="160" cy="150" r="160" fill="url(#${id})"/>`:"";
   const wrap=inner=>`<svg viewBox="-10 -20 340 320" width="${size}" height="${size}" role="img" aria-label="브장신">${gd}${inner}</svg>`;
-  if(F.has("egg")){
-    if(skinHref) return wrap(`<image x="0" y="0" width="320" height="320" href="${skinHref}egg.png"/>`);
-    o+=el(96,60,224,260,W,9); for(const [cx,cy] of [[150,120],[190,170],[140,200]]) o+=el(cx-9,cy-9,cx+9,cy+9,"#ffecaa");
-    return wrap(o);
-  }
+  if(F.has("egg")) return wrap(`<image x="0" y="0" width="320" height="320" href="${skinHref?skinHref+"egg.png":BASE_HREF+"egg.png"}"/>`);
   const chick=F.has("chick"), s=chick?0.82:1, HX=160, HY=118+(1-s)*40, HR=82*s;
   const BX0=160-48*s, BX1=160+48*s, BY0=HY+HR-10, BY1=266, AY0=BY0+8, AY1=BY0+48, CY=(BY0+BY1)/2, NY=BY0-2, RX=BX1+12, T=HY-HR;
   // 뒤 장식
@@ -2545,7 +2544,27 @@ function brjVecSvg(lv,cos,flags,size){
   if(F.has("c_wing")) for(const pts of [[[BX0,BY0+24],[52,168],[70,234],[44,224],[BX0,256]],[[BX1,BY0+24],[268,168],[250,234],[276,224],[BX1,256]]]) o+=poly(pts,"#ffd700",6);
   if(F.has("c_balloon")){ o+=ln([[96,AY0+16],[56,70]],3); o+=el(30,20,82,76,RED,6); }
   const stun=S.has("stun");
-  if(skinHref){ o+=`<image x="0" y="0" width="320" height="320" href="${skinHref}front.png"/>`; } else {
+  const bodyHref=skinHref?skinHref+"front.png":BASE_HREF+(chick?"body_chick/":"body/")+"front.png";
+  o+=`<image x="0" y="0" width="320" height="320" href="${bodyHref}"/>`;
+  if(!costume){                                                                   // 옷·앞치마·조끼 — 몸통 박스 ∩ PNG 실루엣(alpha mask)
+    const cs=chick?0.905:1, bx0=160-48*cs, bx1=160+48*cs, by0=284-(284-183)*cs, by1=264, cy=(by0+by1)/2;
+    const mk=id+"m", cp=id+"c";
+    o+=`<defs><mask id="${mk}" style="mask-type:alpha"><image x="0" y="0" width="320" height="320" href="${bodyHref}"/></mask><clipPath id="${cp}"><rect x="${bx0}" y="${by0}" width="${bx1-bx0}" height="${by1-by0}" rx="40"/></clipPath></defs>`;
+    const fill=(col,deco="",top=null)=>`<g mask="url(#${mk})" clip-path="url(#${cp})"><rect x="0" y="${top==null?by0:top}" width="320" height="320" fill="${col}"/>${deco}</g>`+(top==null?"":ln([[bx0+6,top],[bx1-6,top]],5));
+    if(F.has("red")) o+=fill(RED);
+    if(F.has("apron")) o+=fill("#3a8a52","",by0+26);
+    if(F.has("c_suit")) o+=fill("#282830",`<polygon points="146,${by0} 174,${by0} 160,${by0+30}" fill="${W}"/><polygon points="157,${by0+4} 163,${by0+4} 162,${by0+34} 158,${by0+34}" fill="${RED}"/>`);
+    if(F.has("c_hanbok")) o+=fill("#f078a0",`<rect x="0" y="${by0}" width="320" height="26" fill="#5078c8"/>`+ln([[0,by0+26],[320,by0+26]],4)+ln([[160,by0+26],[160,by1]],3));
+    if(F.has("c_pajama")){ let d=""; for(let y=by0+10;y<by1;y+=14) d+=ln([[0,y],[320,y]],6,"#5a82dc"); o+=fill(W,d); }
+    if(F.has("c_jersey")) o+=fill("#2850c8",ln([[0,cy],[320,cy]],8,W));
+    if(F.has("c_bhc")) o+=fill("#ff8a00",`<rect x="138" y="${cy-6}" width="44" height="16" rx="6" fill="${W}"/>`);
+    if(F.has("c_jgpos")){ o+=fill("#965ac8"); o+=`<text x="160" y="${cy+18}" text-anchor="middle" font-size="40" font-weight="800" font-family="sans-serif" fill="${W}">2</text>`; o+=el(bx1-22,by0+6,bx1-4,by0+24,RED,4); }
+    // 얼굴 위 — ANCHORS.md: 눈 중심 (120,124)/(200,124) · 선글라스 y 108–140 · 행동불능 X 는 눈을 살색으로 덮고
+    const EY=284-160*cs, EXS=[160-40*cs,160+40*cs];
+    if(stun){ for(const ex of EXS){ o+=el(ex-17*cs,EY-15*cs,ex+17*cs,EY+15*cs,"#fdeaa8"); o+=ln([[ex-10,EY-10],[ex+10,EY+10]],6); o+=ln([[ex-10,EY+10],[ex+10,EY-10]],6); } }
+    else if(F.has("sungl")){ o+=`<rect x="${EXS[0]-21}" y="${EY-16}" width="42" height="32" rx="9" fill="${INK}"/><rect x="${EXS[1]-21}" y="${EY-16}" width="42" height="32" rx="9" fill="${INK}"/>`; o+=ln([[EXS[0]+21,EY-2],[EXS[1]-21,EY-2]],5); }
+  }
+  if(false){
   // 팔·발
   o+=el(BX0-34,AY0,BX0+10,AY1,body,7)+el(BX1-10,AY0,BX1+34,AY1,body,7);
   for(const x of [BX0+12,BX1-40*s]) o+=rr(x,BY1-16,x+28*s,BY1+18,14,body,6);
@@ -2573,12 +2592,13 @@ function brjVecSvg(lv,cos,flags,size){
   for(const cx of [100,220]) o+=el(cx-15*s,HY+20,cx+15*s,HY+34,"#ffa0b0");
   if(F.has("sungl")&&!stun){ o+=`<rect x="104" y="${HY-16}" width="40" height="28" rx="8" fill="${INK}"/><rect x="176" y="${HY-16}" width="40" height="28" rx="8" fill="${INK}"/>`; o+=ln([[144,HY-2],[176,HY-2]],5); }
   }
-  // 장신구·상태
+  // 장신구·상태 — 손에 드는 것은 ANCHORS.md 대로 (+14,+14): 오른손 끝 (236,222)
+  const RX2=RX+14, AY2=AY0+14;
   if(F.has("c_scarf")){ o+=rr(BX0-6,NY-6,BX1+6,NY+14,10,RED,5); o+=rr(BX1-22,NY+10,BX1-2,NY+52,8,RED,5); }
   if(F.has("c_coin")){ o+=`<path d="M ${BX0+12} ${NY+2} A ${(BX1-BX0)/2-8} 22 0 0 0 ${BX1-12} ${NY+2}" fill="none" stroke="#e6c83c" stroke-width="4"/>`; o+=el(146,NY+16,174,NY+44,"#ffd700",5); }
-  if(F.has("c_trophy")){ o+=rr(RX-12,AY0-24,RX+14,AY0+6,6,"#ffd700",5); o+=rr(RX-20,AY0+6,RX+22,AY0+16,3,"#ffd700",4); }
-  if(F.has("c_sign")){ o+=ln([[RX+4,AY0+20],[RX+4,AY0-60]],6); o+=rr(RX-6,AY0-100,RX+14,AY0-58,10,"#ff69b4",5); }
-  if(S.has("work")){ o+=rr(RX-4,AY0+10,RX+52,AY1+22,6,"#8c5028",6); o+=`<rect x="${RX+4}" y="${AY0+26}" width="40" height="10" fill="#ffbe78"/>`; }
+  if(F.has("c_trophy")){ o+=rr(RX2-12,AY2-24,RX2+14,AY2+6,6,"#ffd700",5); o+=rr(RX2-20,AY2+6,RX2+22,AY2+16,3,"#ffd700",4); }
+  if(F.has("c_sign")){ o+=ln([[RX2+4,AY2+20],[RX2+4,AY2-60]],6); o+=rr(RX2-6,AY2-100,RX2+14,AY2-58,10,"#ff69b4",5); }
+  if(S.has("work")){ o+=rr(RX2-4,AY2+10,RX2+52,AY1+36,6,"#8c5028",6); o+=`<rect x="${RX2+4}" y="${AY2+26}" width="40" height="10" fill="#ffbe78"/>`; }
   if(S.has("staff")) o+=rr(BX1-34,BY0+14,BX1-8,BY0+34,4,"#78c8ff",4);
   if(stun) for(const [cx,cy] of [[96,30],[160,12],[224,30]]) o+=poly([[cx,cy-12],[cx+4,cy-3],[cx+12,cy],[cx+4,cy+3],[cx,cy+12],[cx-4,cy+3],[cx-12,cy],[cx-4,cy-3]],"#ffd700",3);
   // 모자·왕관 — 머리 꼭대기(T) 기준
@@ -2589,7 +2609,7 @@ function brjVecSvg(lv,cos,flags,size){
   if(F.has("c_pin")){ o+=el(196,T+4,228,T+32,YEL,5); o+=el(212,T+12,218,T+18,INK); }
   if(F.has("c_yumi")){ const YU="#b080e0", y0=T-40; o+=poly([[136,y0+24],[146,y0],[156,y0+22]],YU,5); o+=poly([[164,y0+22],[174,y0],[184,y0+24]],YU,5); o+=el(128,y0+12,192,y0+62,YU,6);
     o+=ln([[190,y0+52],[214,y0+40],[222,y0+20]],9)+ln([[190,y0+52],[214,y0+40],[222,y0+20]],4,YU); for(const ex of [148,172]) o+=el(ex-4,y0+32,ex+4,y0+42,INK); o+=poly([[157,y0+46],[163,y0+46],[160,y0+50]],"#ff96be",0); }
-  if(F.has("crown")&&!skinHref) o+=poly([[110,T+16],[118,T-28],[140,T-4],[160,T-36],[180,T-4],[202,T-28],[210,T+16]],"#ffd700",7);
+  if(F.has("crown")&&!costume) o+=poly([[110,T+16],[118,T-28],[140,T-4],[160,T-36],[180,T-4],[202,T-28],[210,T+16]],"#ffd700",7);
   if(F.has("c_halo")) o+=`<ellipse cx="160" cy="${T-17}" rx="56" ry="13" fill="none" stroke="#ffd700" stroke-width="10"/>`;
   return wrap(o);
 }
@@ -8677,7 +8697,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609100857";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609101014";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
