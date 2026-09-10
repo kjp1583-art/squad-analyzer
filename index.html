@@ -2509,7 +2509,7 @@ function brjSpriteRows(lv,cos,flags){
   const full=r=>(r||"")+"................".slice((r||"").length);
   const out=st.r.map(r=>full(r).split(""));
   const ovs=[];
-  for(const sl of ["o","h","a"]){ const k=cos&&cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) ovs.push(BRJ_SPR.cos[k].r); }   // 시트 값이라 own-property 만(__proto__ 류 차단)
+  for(const sl of ["o","h","a","a2","a3"]){ const k=cos&&cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) ovs.push(BRJ_SPR.cos[k].r); }   // 시트 값이라 own-property 만(__proto__ 류 차단)
   if(lv>=1) for(const f of ["work","staff","stun"]) if(Array.isArray(flags)&&flags.indexOf(f)>=0) ovs.push(BRJ_SPR.state[f]);
   for(const ov of ovs) for(let y=0;y<16;y++){ const row=full(ov[y]); for(let x=0;x<16;x++){ const ch=row[x]; if(ch!=='.') out[y][x]=ch; } }
   return {rows:out.map(r=>r.join("")),glow:st.g};
@@ -2537,7 +2537,7 @@ function brjVecSvg(lv,cos,flags,size){
   // 🧸 [2026-09-10 사장님 지시 "치이카와처럼 인간 형태의 몸"] 봇 _vec_draw 와 같은 골격: 큰 머리(160,118 r82) + 작은 몸통(112..208×190..266) + 둥근 팔·발
   size=size||96; const INK="#121216", W="#fff", YEL="#fac41e", RED="#e42428";
   const st=BRJ_VEC_STAGE[Math.max(0,Math.min(12,lv|0))]||BRJ_VEC_STAGE[2]; const body=st[0]; const F=new Set(st[1]);
-  cos=cos||{}; for(const sl of ["o","h","a"]){ const k=cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) F.add(k); }
+  cos=cos||{}; for(const sl of ["o","h","a","a2","a3"]){ const k=cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) F.add(k); }
   if(cos.h&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,cos.h)) F.delete("crown");
   const S=new Set(flags||[]); const skinTok=[...S].find(f=>/^skin:/.test(f)); const skinKey=skinTok?skinTok.slice(5):"";
   const outfitKey=(cos&&cos.o&&(OUTFIT_SKINS.includes(cos.o)||BRJ_SKINS[cos.o]))?cos.o:"";        // 👗 착용 의상 = 전신 스킨(PNG 없으면 브라우저가 못 그림 → onerror 로 기본 몸)
@@ -2659,7 +2659,7 @@ function brjParseCos(s){ const o={}; for(const t of String(s||"").split("|")){ c
 function brjParseFlags(s){ return String(s||"").split("|").map(t=>t.trim()).filter(Boolean); }
 function brjSpriteHtml(name,size){
   const b=brjOf(name); if(!b) return '';
-  const wear=["o","h","a"].map(sl=>{const k=b.cos&&b.cos[sl]; return k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)?BRJ_SPR.cos[k]:null;}).filter(Boolean);
+  const wear=["o","h","a","a2","a3"].map(sl=>{const k=b.cos&&b.cos[sl]; return k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)?BRJ_SPR.cos[k]:null;}).filter(Boolean);
   const tip='브장신 키우기 — Lv.'+b.lv+' '+b.stage+(wear.length?' · 꾸미기: '+wear.map(c=>c.e+' '+c.n).join(', '):' · 꾸미기 없음')+(b.flags&&b.flags.length?' · '+b.flags.map(f=>({work:'근무 중',staff:'스탭',stun:'행동불능','skin:sg':'🌟 별수호자 스킨'})[f]||f).join('·'):'');
   return `<div class="brjspr" onclick="go('brjang')" title="${escAttr(tip)}">${brjSpriteSvg(b.lv,b.cos,b.flags,size||104)}<div class="brjspr-cap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</div></div>`;
 }
@@ -8726,7 +8726,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609101335";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609101549";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
