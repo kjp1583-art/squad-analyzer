@@ -2559,14 +2559,16 @@ function brjVecSvg(lv,cos,flags,size){
   if(F.has("c_bhc")) o+=lower(172,"#ff8a00",`<rect x="132" y="202" width="56" height="20" rx="8" fill="${W}"/>`);
   if(F.has("c_jgpos")){ o+=lower(168,"#965ac8"); o+=`<text x="160" y="224" text-anchor="middle" font-size="40" font-weight="800" font-family="sans-serif" fill="${W}">2</text>`; o+=el(206,178,226,198,RED,4); }
   // 얼굴
-  const ey=142;
+  // 🦁 [2026-09-10 사장님 지시] 라이언 느낌 — 굵은 일자 눈썹 · 점눈 · 흰 주둥이 + 검은 코(봇 _vec_draw 와 동일 좌표)
+  const ey=136;
   for(const ex of [124,190]){
     if(stun){ o+=ln([[ex-8,ey-8],[ex+8,ey+8]],5); o+=ln([[ex-8,ey+8],[ex+8,ey-8]],5); }
-    else { o+=el(ex-9,ey-12,ex+9,ey+12,INK); o+=el(ex-6,ey-9,ex-1,ey-3,W); }
+    else o+=el(ex-9,ey-9,ex+9,ey+9,INK);
   }
-  o+=ln([[112,118],[132,112]],6)+ln([[182,112],[202,118]],6);
-  o+=poly([[140,150],[176,150],[170,178],[146,178]],YEL,8); o+=`<rect x="146" y="152" width="24" height="24" rx="10" fill="${YEL}"/>`;
-  if(F.has("sungl")&&!stun){ o+=`<rect x="104" y="128" width="42" height="30" rx="9" fill="${INK}"/><rect x="170" y="128" width="42" height="30" rx="9" fill="${INK}"/>`; o+=ln([[146,142],[170,142]],5); }
+  o+=`<rect x="100" y="102" width="44" height="14" rx="5" fill="${INK}"/><rect x="176" y="102" width="44" height="14" rx="5" fill="${INK}"/>`;
+  for(const cx of [142,178]) o+=el(cx-25,144,cx+25,190,W,7);
+  o+=el(138,148,182,186,W); o+=ln([[160,164],[160,190]],5); o+=el(145,134,175,156,INK);
+  if(F.has("sungl")&&!stun){ o+=`<rect x="100" y="122" width="46" height="28" rx="9" fill="${INK}"/><rect x="174" y="122" width="46" height="28" rx="9" fill="${INK}"/>`; o+=ln([[146,134],[174,134]],5); o+=el(145,134,175,156,INK); }
   }
   // 장신구·상태
   if(F.has("c_scarf")){ o+=rr(92,170,228,190,10,RED,5); o+=rr(188,186,214,236,8,RED,5); }
@@ -8673,7 +8675,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609100842";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609100845";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
