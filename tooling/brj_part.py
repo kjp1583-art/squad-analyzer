@@ -122,9 +122,13 @@ def extract_layer(gen_bytes, base_bytes, slot):
     dmax = ImageChops.lighter(ImageChops.lighter(dif.getchannel(0), dif.getchannel(1)), dif.getchannel(2))
     ba_h = ba.point(lambda v: 255 if v > 128 else 0)
     both = ImageChops.darker(ga, ba).point(lambda v: 255 if v > 128 else 0)
-    changed = ImageChops.darker(dmax.point(lambda v: 255 if v > 56 else 0), both)
+    changed = ImageChops.darker(dmax.point(lambda v: 255 if v > 72 else 0), both)     # 72: JPEG·리샘플 잔상(±20)은 버리고 흰 옷(크림과 87 차이)은 살린다
     edge = ImageChops.subtract(ba_h.filter(ImageFilter.MaxFilter(9)), ba_h.filter(ImageFilter.MinFilter(9)))   # 기본 몸 외곽선 ±4px 띠 — 리샘플 잔상은 여기서 나온다
     changed = ImageChops.darker(changed, ImageChops.invert(edge))
+    if slot == "h":                                                                    # 모자 — 얼굴 안쪽(눈·부리·볼)의 색 잔상은 무시(새 픽셀은 유지)
+        from PIL import ImageDraw as _ID
+        fb = Image.new("L", mask_size := changed.size, 255); _ID.Draw(fb).rectangle([95 * K, 95 * K, 225 * K, 165 * K], fill=0)
+        changed = ImageChops.darker(changed, fb)
     new_px = ImageChops.darker(ga.point(lambda v: 255 if v > 128 else 0), ImageChops.invert(ba_h))
     mask = ImageChops.lighter(changed, new_px)
     mask = mask.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(7))   # 구멍 메우기(닫힘)

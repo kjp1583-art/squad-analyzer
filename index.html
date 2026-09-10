@@ -2517,6 +2517,22 @@ function brjSpriteRows(lv,cos,flags){
 // 🎨 벡터 브장신 (2026-09-09) — 봇 _vec_draw 와 같은 도형·좌표(320×320). 에셋 없이 SVG 도형만. 기본 볏 없음.
 const BRJ_VEC_STAGE={0:["#fff",["egg"]],1:["#fff",["chick"]],2:["#fff",[]],3:["#fff",["apron"]],4:["#fff",["apron","red"]],5:["#ffe278",[]],6:["#fff",["sungl","crown"]],7:["#ffe278",["crown"]],
   8:["#ffe278",["red","crown"]],9:["#ffe278",["sungl","crown"]],10:["#ffe278",["sungl","crown","apron"]],11:["#ffe278",["red","sungl","crown"]],12:["#ffe278",["red","sungl","crown","apron"]]};
+// 🧩 [2026-09-10] 파츠 manifest(img/brjang/parts/manifest.json) — 봇 /파츠추가 로 올린 PNG 레이어 꾸미기. 로드되면 도감·스프라이트에 합쳐진다.
+let BRJ_PARTS={}, _brjPartsLoaded=false;
+function loadBrjParts(){
+  if(_brjPartsLoaded) return Promise.resolve(BRJ_PARTS);
+  return fetch("img/brjang/parts/manifest.json?cb="+Math.floor(Date.now()/600000)).then(r=>r.ok?r.json():{}).then(j=>{
+    BRJ_PARTS=(j&&j.parts)||{}; _brjPartsLoaded=true;
+    const SLOT_KO={h:"모자",o:"의상",a:"장신구"};
+    for(const [k,p] of Object.entries(BRJ_PARTS)){
+      if(!["h","o","a"].includes(p.slot)) continue;
+      if(!Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)){ BRJ_SPR.cos[k]={}; BRJ_COS.push([p.emoji||"🧩",p.name||k,p.rarity||"에픽",SLOT_KO[p.slot],p.desc||""]); }
+    }
+    return BRJ_PARTS;
+  }).catch(()=>{ _brjPartsLoaded=true; return BRJ_PARTS; });
+}
+loadBrjParts();
+function brjPartHref(k,view){ const p=BRJ_PARTS[k]; if(!p||!p.views) return ""; const v=p.views.includes(view)?view:(view==="oblique"&&p.views.includes("front")?"front":""); return v?`img/brjang/parts/${p.slot}/${encodeURIComponent(k)}/${v}.png`:""; }
 function brjVecSvg(lv,cos,flags,size){
   // 🧸 [2026-09-10 사장님 지시 "치이카와처럼 인간 형태의 몸"] 봇 _vec_draw 와 같은 골격: 큰 머리(160,118 r82) + 작은 몸통(112..208×190..266) + 둥근 팔·발
   size=size||96; const INK="#121216", W="#fff", YEL="#fac41e", RED="#e42428";
@@ -2543,6 +2559,10 @@ function brjVecSvg(lv,cos,flags,size){
   if(F.has("c_aura")) o+=`<ellipse cx="160" cy="155" rx="116" ry="145" fill="#ff503c" opacity=".55" filter="blur(6px)"/>`;
   if(F.has("c_wing")) for(const pts of [[[BX0,BY0+24],[52,168],[70,234],[44,224],[BX0,256]],[[BX1,BY0+24],[268,168],[250,234],[276,224],[BX1,256]]]) o+=poly(pts,"#ffd700",6);
   if(F.has("c_balloon")){ o+=ln([[96,AY0+16],[56,70]],3); o+=el(30,20,82,76,RED,6); }
+  const STATIC_SLOT={apron:"o",red:"o",sungl:"h",crown:"h",work:"state",staff:"state",stun:"state"};
+  const layKeys={}; for(const k of [...F,...S]){ const h=brjPartHref(k,"front"); if(h){ layKeys[k]=h; F.delete(k); S.delete(k); } }
+  const slotOf=k=>(BRJ_PARTS[k]&&BRJ_PARTS[k].slot)||STATIC_SLOT[k]||"a";
+  const layers=slot=>Object.entries(layKeys).filter(([k])=>slotOf(k)===slot).map(([k,h])=>chick?`<g transform="translate(160,284) scale(0.905) translate(-160,-284)"><image x="0" y="0" width="320" height="320" href="${h}"/></g>`:`<image x="0" y="0" width="320" height="320" href="${h}"/>`).join("");
   const stun=S.has("stun");
   const bodyHref=skinHref?skinHref+"front.png":BASE_HREF+(chick?"body_chick/":"body/")+"front.png";
   o+=`<image x="0" y="0" width="320" height="320" href="${bodyHref}"/>`;
@@ -2592,6 +2612,7 @@ function brjVecSvg(lv,cos,flags,size){
   for(const cx of [100,220]) o+=el(cx-15*s,HY+20,cx+15*s,HY+34,"#ffa0b0");
   if(F.has("sungl")&&!stun){ o+=`<rect x="104" y="${HY-16}" width="40" height="28" rx="8" fill="${INK}"/><rect x="176" y="${HY-16}" width="40" height="28" rx="8" fill="${INK}"/>`; o+=ln([[144,HY-2],[176,HY-2]],5); }
   }
+  o+=layers("o");                                                                 // 🧩 PNG 의상
   // 장신구·상태 — 손에 드는 것은 ANCHORS.md 대로 (+14,+14): 오른손 끝 (236,222)
   const RX2=RX+14, AY2=AY0+14;
   if(F.has("c_scarf")){ o+=rr(BX0-6,NY-6,BX1+6,NY+14,10,RED,5); o+=rr(BX1-22,NY+10,BX1-2,NY+52,8,RED,5); }
@@ -2601,6 +2622,7 @@ function brjVecSvg(lv,cos,flags,size){
   if(S.has("work")){ o+=rr(RX2-4,AY2+10,RX2+52,AY1+36,6,"#8c5028",6); o+=`<rect x="${RX2+4}" y="${AY2+26}" width="40" height="10" fill="#ffbe78"/>`; }
   if(S.has("staff")) o+=rr(BX1-34,BY0+14,BX1-8,BY0+34,4,"#78c8ff",4);
   if(stun) for(const [cx,cy] of [[96,30],[160,12],[224,30]]) o+=poly([[cx,cy-12],[cx+4,cy-3],[cx+12,cy],[cx+4,cy+3],[cx,cy+12],[cx-4,cy+3],[cx-12,cy],[cx-4,cy-3]],"#ffd700",3);
+  o+=layers("a")+layers("state");                                                 // 🧩 PNG 장신구·상태
   // 모자·왕관 — 머리 꼭대기(T) 기준
   if(F.has("c_santa")){ o+=`<polygon points="102,${T+10} 154,${T-50} 208,${T+10}" fill="${RED}" stroke="${INK}" stroke-width="8" stroke-linejoin="round"/>`; o+=rr(90,T-2,222,T+24,13,W,7); o+=el(140,T-64,170,T-34,W,7); }
   if(F.has("c_gat")){ o+=poly([[36,T+18],[160,T-40],[284,T+18]],"#3c2c22",8); o+=rr(32,T+12,288,T+26,7,"#3c2c22",6); }
@@ -2611,6 +2633,7 @@ function brjVecSvg(lv,cos,flags,size){
     o+=ln([[190,y0+52],[214,y0+40],[222,y0+20]],9)+ln([[190,y0+52],[214,y0+40],[222,y0+20]],4,YU); for(const ex of [148,172]) o+=el(ex-4,y0+32,ex+4,y0+42,INK); o+=poly([[157,y0+46],[163,y0+46],[160,y0+50]],"#ff96be",0); }
   if(F.has("crown")&&!costume) o+=poly([[110,T+16],[118,T-28],[140,T-4],[160,T-36],[180,T-4],[202,T-28],[210,T+16]],"#ffd700",7);
   if(F.has("c_halo")) o+=`<ellipse cx="160" cy="${T-17}" rx="56" ry="13" fill="none" stroke="#ffd700" stroke-width="10"/>`;
+  o+=layers("h");                                                                 // 🧩 PNG 모자
   return wrap(o);
 }
 
@@ -7050,6 +7073,7 @@ function setDuoSubj(s){ DUO_SUBJ = s==='c' ? 'c' : 'p'; renderDuo(); }
 
 /* ============== 화면: 🍗 브장신 키우기 (2026-09-03 사장님 지시) — 봇 미니게임의 웹 대시보드 ============== */
 function renderBrjang(){
+  if(!_brjPartsLoaded) loadBrjParts().then(()=>{ if(location.hash.replace('#','').split('/')[0]==='brjang') renderBrjang(); });
   const list=[...BRJANG.values()].sort((a,b)=>(b.xp-a.xp)||a.name.localeCompare(b.name));
   const line=BRJ_LINES[Math.floor(Math.random()*BRJ_LINES.length)];
   const stageTable=BRJ_STAGES.map(([xp,em,nm],i)=>{ const sk=BRJ_SKILLS[i];
@@ -8697,7 +8721,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609101014";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609101053";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
