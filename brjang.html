@@ -299,11 +299,12 @@ function brjSpriteRows(lv,cos,flags){
 // 🎨 벡터 브장신 (2026-09-09) — 봇 _vec_draw 와 같은 도형·좌표(320×320). 에셋 없이 SVG 도형만. 기본 볏 없음.
 const BRJ_VEC_STAGE={0:["#fff",["egg"]],1:["#fff",["chick"]],2:["#fff",[]],3:["#fff",[]],4:["#fff",[]],5:["#fff",[]],6:["#fff",[]],7:["#fff",[]],8:["#fff",[]],9:["#fff",[]],10:["#fff",[]],11:["#fff",[]],12:["#fff",[]]};   // 🧸 레벨업 외형 변화 없음(2026-09-10)
 // 🧩 [2026-09-10] 파츠 manifest(img/brjang/parts/manifest.json) — 봇 /파츠추가 로 올린 PNG 레이어 꾸미기. 로드되면 도감·스프라이트에 합쳐진다.
-let BRJ_PARTS={}, _brjPartsLoaded=false;
+let BRJ_PARTS={}, BRJ_SKINS={}, _brjPartsLoaded=false;   // BRJ_SKINS: manifest.skins(전신 스킨 — 의상 키 c_* 는 착용 시 통째로 바뀐다)
+const OUTFIT_SKINS=["c_suit","c_hanbok","c_pajama","c_jersey","c_bhc","c_jgpos"];
 function loadBrjParts(){
   if(_brjPartsLoaded) return Promise.resolve(BRJ_PARTS);
   return fetch("img/brjang/parts/manifest.json?cb="+Math.floor(Date.now()/600000)).then(r=>r.ok?r.json():{}).then(j=>{
-    BRJ_PARTS=(j&&j.parts)||{}; _brjPartsLoaded=true;
+    BRJ_PARTS=(j&&j.parts)||{}; BRJ_SKINS=(j&&j.skins)||{}; _brjPartsLoaded=true;
     const SLOT_KO={h:"모자",o:"의상",a:"장신구"};
     for(const [k,p] of Object.entries(BRJ_PARTS)){
       if(!["h","o","a"].includes(p.slot)) continue;
@@ -321,8 +322,10 @@ function brjVecSvg(lv,cos,flags,size){
   cos=cos||{}; for(const sl of ["o","h","a"]){ const k=cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) F.add(k); }
   if(cos.h&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,cos.h)) F.delete("crown");
   const S=new Set(flags||[]); const skinTok=[...S].find(f=>/^skin:/.test(f)); const skinKey=skinTok?skinTok.slice(5):"";
-  const skinHref=skinKey?`img/brjang/skins/${encodeURIComponent(skinKey)}/`:"";   // 🌟 PNG 스킨(봇 상태 셀 'skin:sg')
-  const costume=skinKey==="sg";                                                    // 의상형 스킨은 옷·왕관·선글라스 생략(봇 SKINS.costume 과 동일)
+  const outfitKey=(cos&&cos.o&&(OUTFIT_SKINS.includes(cos.o)||BRJ_SKINS[cos.o]))?cos.o:"";        // 👗 착용 의상 = 전신 스킨(PNG 없으면 브라우저가 못 그림 → onerror 로 기본 몸)
+  const effKey=skinKey||outfitKey;
+  const skinHref=effKey?`img/brjang/skins/${encodeURIComponent(effKey)}/`:"";   // 🌟 PNG 스킨(봇 상태 셀 'skin:sg' / 의상)
+  const costume=!!effKey;                                                          // 스킨은 통짜 — 옷·왕관·선글라스 생략(봇 SKINS.costume 과 동일)
   const BASE_HREF="img/brjang/parts/";                                             // 🐥 [2026-09-10] 기본 몸 = AI 원화 PNG(봇과 동일 파일)
   const glow=(BRJ_SPR.stage[String(Math.max(0,Math.min(12,lv|0)))]||{}).g;
   const id="brjv"+(++_brjSprSeq); let o="";
@@ -342,12 +345,14 @@ function brjVecSvg(lv,cos,flags,size){
   if(F.has("c_balloon")){ o+=ln([[96,AY0+16],[56,70]],3); o+=el(30,20,82,76,RED,6); }
   const STATIC_SLOT={apron:"o",red:"o",sungl:"h",crown:"h",work:"state",staff:"state",stun:"state"};
   const csP=chick?0.905:1, BY0p=284-(284-183)*csP, BX0p=160-48*csP, BX1p=160+48*csP;   // 🐥 PNG 몸 앵커(봇과 동일): 목선 183·몸통 112–208
+  for(const k of [...F]){ if((BRJ_PARTS[k]&&BRJ_PARTS[k].slot==="o")||OUTFIT_SKINS.includes(k)) F.delete(k); }   // 👗 의상 슬롯은 레이어·색 패치 없음(스킨으로만)
   const layKeys={}; for(const k of [...F,...S]){ const h=brjPartHref(k,"front"); if(h){ layKeys[k]=h; F.delete(k); S.delete(k); } }
   const slotOf=k=>(BRJ_PARTS[k]&&BRJ_PARTS[k].slot)||STATIC_SLOT[k]||"a";
   const layers=slot=>Object.entries(layKeys).filter(([k])=>slotOf(k)===slot).map(([k,h])=>chick?`<g transform="translate(160,284) scale(0.905) translate(-160,-284)"><image x="0" y="0" width="320" height="320" href="${h}"/></g>`:`<image x="0" y="0" width="320" height="320" href="${h}"/>`).join("");
   const stun=S.has("stun");
   const bodyHref=skinHref?skinHref+"front.png":BASE_HREF+(chick?"body_chick/":"body/")+"front.png";
-  o+=`<image x="0" y="0" width="320" height="320" href="${bodyHref}"/>`;
+  const baseBody=BASE_HREF+(chick?"body_chick/":"body/")+"front.png";
+  o+=`<image x="0" y="0" width="320" height="320" href="${bodyHref}"${bodyHref!==baseBody?` onerror="this.setAttribute('href','${baseBody}')"`:""}/>`;
   if(!costume){                                                                   // 옷·앞치마·조끼 — 몸통 박스 ∩ PNG 실루엣(alpha mask)
     const cs=chick?0.905:1, bx0=160-48*cs, bx1=160+48*cs, by0=284-(284-183)*cs, by1=262, cy=(by0+by1)/2;
     const mk=id+"m", cp=id+"c";

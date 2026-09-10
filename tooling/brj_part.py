@@ -14,6 +14,7 @@ CLI:
       --front gen_front.png [--quarter gen_quarter.png] [--price 10] [--limited] [--root img/brjang/parts]
   python3 tooling/brj_part.py remove --key c_hoodie
   python3 tooling/brj_part.py check --front gen_front.png            # 등록 없이 품질 리포트만
+  python3 tooling/brj_part.py skin --key c_suit --name "검은 정장" --front s_front.png --oblique s_obl.png --quarter s_q.png   # 👗 전신 스킨(의상)
 """
 import io, os, sys, json, argparse, datetime
 from PIL import Image, ImageChops, ImageFilter, ImageOps
@@ -160,6 +161,24 @@ def extract_layer(gen_bytes, base_bytes, slot):
     return buf.getvalue(), rep
 
 
+def prepare_skin(gen_bytes, base_bytes, register=True):
+    """👗 전신 스킨 — 착용 전신 그림을 그대로 스킨으로: 배경 키잉 → (register 면) 기본 몸 실루엣에 스케일·위치 정합. 반환 (PNG bytes, 리포트)."""
+    gen = Image.open(io.BytesIO(gen_bytes)); gen.load()
+    base = Image.open(io.BytesIO(base_bytes)).convert("RGBA")
+    if gen.size != base.size: gen = gen.resize(base.size, Image.LANCZOS)
+    gen, bg = _key_bg(gen)
+    s, dx, dy = 1.0, 0, 0
+    if register: gen, s, dx, dy = _register(gen, base)
+    ga = gen.getchannel("A").point(lambda v: 255 if v > 128 else 0); ba = base.getchannel("A").point(lambda v: 255 if v > 128 else 0)
+    inter = ImageChops.darker(ga, ba).histogram()[255]
+    cover = inter / max(1, ba.histogram()[255]); fill = ga.histogram()[255] / (gen.size[0] * gen.size[1])
+    rep = {"cover": round(cover, 4), "scale": round(s, 4), "dx": dx, "dy": dy, "fill": round(fill, 4), "bg": "#%02x%02x%02x" % bg, "warn": []}
+    if register and cover < 0.85: rep["warn"].append(f"기본 몸과 실루엣이 많이 다름(덮임 {cover:.2f}) — 모자·장신구 앵커가 어긋날 수 있음")
+    if fill < 0.05: rep["warn"].append("캐릭터가 너무 작거나 배경 키잉 실패")
+    buf = io.BytesIO(); gen.save(buf, "PNG", optimize=True)
+    return buf.getvalue(), rep
+
+
 def load_manifest(root):
     p = os.path.join(root, "manifest.json")
     try:
@@ -201,7 +220,26 @@ def main():
     a.add_argument("--limited", action="store_true"); a.add_argument("--root", default="img/brjang/parts")
     r = sub.add_parser("remove"); r.add_argument("--key", required=True); r.add_argument("--root", default="img/brjang/parts")
     c = sub.add_parser("check"); c.add_argument("--front", required=True); c.add_argument("--slot", default="o"); c.add_argument("--root", default="img/brjang/parts")
+    k = sub.add_parser("skin", help="전신 스킨 등록 — skins/<key>/<view>.png + manifest.skins"); k.add_argument("--key", required=True); k.add_argument("--name", required=True)
+    k.add_argument("--emoji", default="🎽"); k.add_argument("--desc", default=""); k.add_argument("--price", type=int, default=0); k.add_argument("--rarity", default="전설")
+    k.add_argument("--front", required=True); k.add_argument("--oblique"); k.add_argument("--quarter"); k.add_argument("--egg"); k.add_argument("--root", default="img/brjang/parts")
     args = ap.parse_args()
+    if args.cmd == "skin":
+        root = args.root; sk_dir = os.path.join(os.path.dirname(root.rstrip("/")), "skins", args.key); os.makedirs(sk_dir, exist_ok=True)
+        views, reps = [], {}
+        for v in ("front", "oblique", "quarter", "egg"):
+            fp = getattr(args, v)
+            if not fp: continue
+            with open(fp, "rb") as f: gb = f.read()
+            with open(os.path.join(root, "egg.png") if v == "egg" else os.path.join(root, "body", f"{v}.png"), "rb") as f: bb = f.read()
+            png, rep = prepare_skin(gb, bb, register=(v != "egg"))
+            with open(os.path.join(sk_dir, f"{v}.png"), "wb") as f: f.write(png)
+            reps[v] = rep
+            if v != "egg": views.append(v)
+        m = load_manifest(root); sk = m.setdefault("skins", {}); cur = dict(sk.get(args.key) or {})
+        cur.update({"name": args.name, "emoji": args.emoji, "desc": args.desc, "rarity": args.rarity, "price": args.price,
+                    "views": sorted(set((cur.get("views") or []) + views)), "egg": bool(cur.get("egg") or args.egg), "added": cur.get("added") or datetime.date.today().isoformat()})
+        sk[args.key] = cur; save_manifest(root, m); print(json.dumps({"entry": cur, "reports": reps}, ensure_ascii=False, indent=1)); return
     if args.cmd == "remove":
         m = load_manifest(args.root); ent = m.get("parts", {}).pop(args.key, None); save_manifest(args.root, m)
         print("removed" if ent else "no such key", args.key); return
