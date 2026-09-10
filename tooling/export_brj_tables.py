@@ -58,10 +58,20 @@ for k, v in out.items():
 open(web, "w", encoding="utf-8").write(h)
 # 🍘 맛동산 상점(브장신 소개 페이지 brjang.html) — MD_SHOP + BRJ_ITEMS 에서
 try:
-    exec(seg("MD_SHOP = [", "MD_SHOP_BY ="), ns)
+    exec(seg("MD_UNIT = ", "MD_SHOP_BY ="), ns)          # MD_UNIT(1만원당 개수) + MD_SHOP
+    unit = int(ns.get("MD_UNIT") or 1)
     shop = [[ns["BRJ_ITEMS"][ik][0], ns["BRJ_ITEMS"][ik][1], n, pr, bl] for k, pr, ik, n, bl in ns["MD_SHOP"]]
     bp = os.path.join(os.path.dirname(os.path.abspath(web)), "brjang.html")
     b = open(bp, encoding="utf-8").read()
     b2, n2 = re.subn(r"^const BRJ_MDSHOP=.*;$", lambda m: "const BRJ_MDSHOP=" + json.dumps(shop, ensure_ascii=False, separators=(",", ":")) + ";", b, count=1, flags=re.M)
-    if n2: open(bp, "w", encoding="utf-8").write(b2); print(f"BRJ_MDSHOP: {len(shop)} (brjang.html)")
+    # 가격표 블록(.items) + 환율 문구 — 봇의 MD_SHOP/MD_UNIT 이 SSOT
+    def _won(pr):
+        w = pr / unit
+        return f"{w:g}만원" if w >= 1 else f"{int(round(w * 10000)):,}원"
+    esc = lambda t: t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    items = "".join(f'<div class="item"><div class="ic">{ic}</div><div><h4>{esc(nm)}{f" ×{n}" if n > 1 else ""}</h4><p>{esc(bl)}</p><span class="pr">🍘 맛동산 {pr}개 = {_won(pr)}</span></div></div>' for ic, nm, n, pr, bl in shop)
+    b2, n3 = re.subn(r'<div class="items">.*?</div></div></div>\n', '<div class="items">' + items + "</div>\n", b2, count=1, flags=re.S)
+    b2 = re.sub(r'<div class="amt">1만원<small> = 🍘 맛동산 \d+개</small></div>', f'<div class="amt">1만원<small> = 🍘 맛동산 {unit}개</small></div>', b2, count=1)
+    b2 = re.sub(r"1만원 단위로 후원합니다\. 2만원이면 맛동산 \d+개\.", f"1만원 단위로 후원합니다. 2만원이면 맛동산 {unit * 2}개.", b2, count=1)
+    if n2: open(bp, "w", encoding="utf-8").write(b2); print(f"BRJ_MDSHOP: {len(shop)} · 가격표 {n3} · 1만원={unit}개 (brjang.html)")
 except Exception as e: print("brjang.html 갱신 생략:", e)
