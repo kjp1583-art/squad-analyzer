@@ -9,12 +9,12 @@
 
 ```
 Character sheet asset for a Discord pet-raising game. Subject: "Brjangsin", a round chicken mascot.
-Base anatomy (must be kept EXACTLY so game overlays line up): a wide egg-shaped body with a domed head
-that is one single blob (no neck), body fills about 60% of the canvas width and sits slightly below center;
-two tiny round black eyes with a single white highlight, set wide apart on the upper third of the blob;
-short thick eyebrow strokes above the eyes; a small trapezoid yellow beak centered just below the eyes;
-two small serrated (zig-zag) wings sticking out at mid-height on both sides; no visible legs or feet;
-no comb on the head (hats go there).
+Base anatomy (must be kept EXACTLY so game overlays line up) — Chiikawa-like proportions: a big round head
+(circle, about 52% of canvas width, centered slightly above the middle) sitting directly on a small rounded
+body (about 30% of canvas width, below the head, no neck); two stubby rounded arms at the sides of the body,
+two tiny rounded feet at the bottom; on the face: two small round black eyes with two white highlights, set
+wide apart at the middle of the head; thin short straight eyebrows above them; a tiny "ω" cat-mouth centered
+below; soft pink oval blush on both cheeks. No beak, no comb (hats go on top of the head).
 Rendering style: flat cel-shaded sticker art, very thick uniform dark-navy ink outline (like a marker),
 two-tone shading only (base color + one shadow tone), no gradients on the outline, no texture, no text,
 no background. Cute, deadpan face, slightly unimpressed expression.
@@ -62,15 +62,29 @@ Keep the eyes tiny and black with one highlight, beak yellow. It must still read
 ## 2. 봇 적용 규격(개발용)
 
 - **좌표계**: 벡터 브장신 320×320 기준. 1024 PNG 는 `k = 1024/320 = 3.2` 배. 봇은 `size` 에 맞춰 LANCZOS 축소.
-- **몸통 기준 박스(320)**: x 64–256, y 78–262 (머리 돔 상단 y 78, 눈높이 y 142, 부리 중심 (160,164), 하반신 절개선 y≈168–180).
-  1024 로는 x 205–819, y 250–838, 눈높이 y 454.
-- **스킨이 대체하는 것**: 몸통·얼굴·날개·단계 의상(앞치마/빨간 조끼/선글라스/왕관)·몸 색. → 스킨 장착 시 `VEC_STAGE` 의 특징 집합을 **무시**하고 스킨 PNG 만 그린다(왕관은 티아라가 대신).
+- **골격(320, 2026-09-10 인간형 개편)**: 머리 원 중심 (160,118) r 82 → y 36–200 · 몸통 x 112–208, y 190–266 · 팔 (78–122 / 198–242, 198–238) · 발 y 250–284 · 눈높이 118 · 입 126–148 · 목선 188.
+  1024 로는 머리 y 115–640, 몸통 x 358–666 y 608–851.
+- **스킨이 대체하는 것**: 머리·얼굴·몸통·팔·발·단계 의상(앞치마/빨간 조끼/선글라스/왕관)·몸 색. → 스킨 장착 시 `VEC_STAGE` 의 특징 집합을 **무시**하고 스킨 PNG 만 그린다(왕관은 티아라가 대신).
 - **스킨 위에 그대로 얹는 것**(기존 벡터 함수 재사용, 같은 좌표):
-  - 모자(h) 6종 — 머리 앵커 (86–216, 4–100) · 삿갓은 (30–290)
-  - 장신구(a) 7종 — 목도리 (92,170)-(228,190) · 코인 목걸이 호 (110,150)-(210,210) · 트로피 (228–270, 200–240) · 응원봉 (256–276, 150–250) · 풍선 (22,10)-(72,70)+줄 (58,150) · 황금 날개 (−4..30 / 290..324, 110–182) · 논란 오라 뒤 타원 (34,48)-(286,282)
-  - 상태 3종 — 근무 상자 (236,206)-(296,258) · 스탭 명찰 (186,196)-(214,216) · 행동불능 별 (100,40)(160,24)(220,40) + 눈 X 는 스킨에서 생략(별만)
+  - 모자(h) 7종 — 머리 꼭대기 T=36 기준 (90–222, T−64…T+44) · 삿갓은 (32–288)
+  - 장신구(a) 7종 — 목도리 목선 (106,182)-(214,202) · 코인 목걸이 (124–196, 174–232) · 트로피 오른손 (208–234, 174–214) · 응원봉 오른손 위 (214–234, 98–218) · 풍선 왼손→(30,20)-(82,76) · 황금 날개 몸통 옆 (44–112 / 208–276, 168–256) · 논란 오라 (44,10)-(276,300)
+  - 상태 3종 — 근무 상자 오른손 (216,208)-(272,260) · 스탭 명찰 몸통 (174,204)-(200,224) · 행동불능 별 (96,30)(160,12)(224,30)
   - 의상(o) 6종은 **숨김**(스킨 의상이 우선) — 가방엔 그대로 남고 스킨 해제 시 다시 보임
 - **시점 매핑**: `fx=0` → `front.png`, `fx<0` → `oblique.png`(fx>0 이면 좌우반전), `quarter=True` → `quarter.png`(fx<0 이면 좌우반전). 파일이 없으면 `front.png` 를 fx 만큼 평행이동으로 대체.
 - **배포 경로**: `https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/main/img/brjang/skins/<skin>/<view>.png`
   봇은 첫 사용 때 `BASE/skins/<skin>/` 에 내려받아 캐시(실패 시 벡터로 폴백, 로그 `[skin]`). `self_update` 는 bot.py 만 갈아끼우므로 에셋은 이 경로에서만 온다.
 - **상점**: `MD_SHOP` 에 `("skin_sg", 10, "skin_sg", 1, "🌟 별수호자 브장신 — 겉모습만 바뀐다(회차 리셋에도 유지)")`, 아이템 `BRJ_ITEMS["skin_sg"]` 슬롯 `s`(스킨). 기록 `r["skin"]` 에 키 저장, `"스킨 별수호자"` / `"스킨 해제"` 채팅으로 전환. 부화(리셋) 때 `skin`·가방의 스킨 아이템은 유지.
+
+## 3. (권장) 파츠까지 PNG 로 — 레이어 규격
+
+절차 그림으로는 한계가 있어 **기본 몸·파츠 전부를 이미지 모델로 뽑아 레이어 합성**하는 쪽이 품질이 훨씬 낫다. 같은 1024 캔버스·같은 골격으로 따로따로 뽑되 다음 파일명을 지키면 봇이 그대로 얹는다(구현 예정: `img/brjang/parts/`).
+
+| 레이어 | 파일 | 내용 |
+|---|---|---|
+| 몸(단계별) | `parts/body/{front,oblique,quarter}.png`, `parts/body_chick/*.png`, `parts/egg.png` | 알몸 상태(옷 없음), 얼굴 포함 |
+| 의상(o) | `parts/o/<키>.png` | 몸통(358–666 × 608–851)만 덮는 옷, 나머지 투명 |
+| 모자(h) | `parts/h/<키>.png` | 머리 위(T 기준) — 후드형은 얼굴 링을 남긴 도넛 |
+| 장신구(a) | `parts/a/<키>.png` | 위 앵커 위치에 |
+| 상태 | `parts/state/{work,staff,stun}.png` | 근무 상자·명찰·별 |
+
+키는 봇 `BRJ_COS` 의 키(`c_santa` …)와 같게. 프롬프트는 1절의 공통 정의 + "draw ONLY the <part> on a transparent canvas, positioned for the base character at <앵커>" 로.
