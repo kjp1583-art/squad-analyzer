@@ -1,6 +1,8 @@
 # 🧥 브장신 파츠(옷·모자·장신구·상태) 생성 프롬프트 — 새 원화 기준
 
 ## 원칙
+- **ChatGPT 는 반드시 '편집(인페인팅)' 모드로**: 참조 이미지(`parts/body/front.png`)를 올리고 → 편집 → 바꿀 부분(몸통, 머리 위 등)만 브러시로 칠하고 → 프롬프트.
+  새로 생성(text-to-image)하면 얼굴·비율이 매번 달라진다. 편집 모드는 칠한 곳 밖의 픽셀을 그대로 두므로 차분이 깨끗하다.
 - 파츠는 **"기본 브장신이 그 파츠 하나만 착용한 전신 그림"**으로 뽑는다. 파츠만 따로 그리게 하면 크기·위치가 매번 어긋난다.
   뽑은 그림을 `parts/body/front.png`(또는 quarter)와 픽셀 비교해 **달라진 부분만** 잘라 투명 레이어로 만든다(맞춤 스크립트가 함).
 - 그래서 매 장마다 **기본 몸 이미지를 참조로 첨부**하고, "same character, same pose, same camera, same line weight, same palette" 를 반드시 넣는다.
@@ -13,7 +15,8 @@ Reference image attached: "Brjangsin", a chubby pastel-yellow chick mascot — b
 straight brows, small orange beak, pink cheek blush, stubby wings as arms, orange feet. Flat cel-shaded sticker
 style, uniform dark-navy outline, two-tone shading, no texture, no text, no background props.
 Draw the SAME character in the SAME pose, SAME camera angle, SAME size and position on a 1024x1024 canvas with the
-SAME flat light-cream background, identical line weight and palette. Change NOTHING except: the character is now
+SAME flat light-cream background, identical line weight and palette. This is an EDIT of the attached image, not a new
+drawing: keep every pixel outside the item unchanged (face, eyes, brows, beak, blush, wings, feet). Change NOTHING except: the character is now
 wearing / holding the single item described below. The item must follow the body's curves, never float, never
 extend past what a real garment on this body would cover; keep the face fully visible unless stated.
 ```
