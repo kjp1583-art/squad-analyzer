@@ -5072,12 +5072,25 @@ def _load_solo_ranks():
                         k = tnorm(r[ni2])
                         if k not in cache: cache[k] = pk   # 중복행은 첫 값만(이중 평균 방지)
             _PEAK_SEASONS_CACHE = cache
-        for k, pk in _PEAK_SEASONS_CACHE.items():
-            if k in out:
+        # 🔗 [2026-09-10 사장님 지시 '그룹 최고 피크'] 자기 닉으로 PEAK 행이 없으면(닉변·계정 이전) LINK_ACCOUNT 그룹의
+        #    최고 피크로 블렌드 — 카무사리(현시즌 3423, 피크 없음)가 귤갓입니다(3127)·귤 갓(2938) 중 3127 을 받아 3275.
+        _grp = {}
+        try:
+            for _sub, _main in (global_alt_map or {}).items():
+                _g = _grp.setdefault(tnorm(_main), {tnorm(_main)}); _g.add(tnorm(_sub)); _grp[tnorm(_sub)] = _g
+        except Exception: pass
+        def _peak_of(k):
+            if k in _PEAK_SEASONS_CACHE: return _PEAK_SEASONS_CACHE[k]
+            _c = [_PEAK_SEASONS_CACHE[m] for m in _grp.get(k, ()) if m in _PEAK_SEASONS_CACHE]
+            return max(_c) if _c else None
+        for k in list(out.keys()):
+            pk = _peak_of(k)
+            if pk is not None:
                 cur = out[k]["score"]
                 out[k]["score"] = (cur + pk) / 2.0
                 out[k]["cur"] = cur                       # 현시즌 원값 보존(뱃지 등 현시즌 판단용)
-            else:
+        for k, pk in _PEAK_SEASONS_CACHE.items():
+            if k not in out:
                 out[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}   # 과거만 보유(솔랭 쉬는 클랜원)
     except Exception: pass
     # 🔗 [v82.50 사장님 제보 — 귤갓 십이귀월 누락] 부계정 통합(LINK_ACCOUNT) 반영.
@@ -5222,7 +5235,7 @@ def compute_tier_assessment():
         wr = (m["wins"] + SHRINK_WR * (g_wr / 100.0)) / (m["games"] + SHRINK_WR) * 100.0
         ai = ((m["ai_sum"] + SHRINK_AI * g_ai) / (m["ai_n"] + SHRINK_AI)) if m["ai_n"] > 0 else None
         if m["eval"] >= TIER_MIN_EVAL:
-            mvp = (m["mvp"] + SHRINK_EVAL * (g_mvp / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0
+            mvp = (m["mvp"] + 0.5 * m.get("ace", 0) + SHRINK_EVAL * (g_mvp / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0   # [2026-09-10] ACE 0.5 — 웹·툴링과 동일
             tr  = (m["troll"] + SHRINK_EVAL * (g_tr / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0
         else:
             mvp = tr = None
@@ -5415,7 +5428,7 @@ def _sibguiwol_aram_roster():
             wr = (m["wins"] + SHRINK_WR * (g_wr / 100.0)) / (m["games"] + SHRINK_WR) * 100.0
             ai = ((m["ai_sum"] + SHRINK_AI * g_ai) / (m["ai_n"] + SHRINK_AI)) if m["ai_n"] > 0 else None
             if m["eval"] >= TIER_MIN_EVAL:
-                mvp = (m["mvp"] + SHRINK_EVAL * (g_mvp / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0
+                mvp = (m["mvp"] + 0.5 * m.get("ace", 0) + SHRINK_EVAL * (g_mvp / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0   # [2026-09-10] ACE 0.5 — 웹·툴링과 동일
                 tr  = (m["troll"] + SHRINK_EVAL * (g_tr / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0
             else:
                 mvp = tr = None
@@ -5742,13 +5755,30 @@ def update_hof_stats(force=False):
                     puuid_to_latest_name[puuid] = name 
                     name_to_puuid_fallback[main_name] = puuid
             
+            # 🔗 [2026-09-10 사장님 지시] 집계 엔티티를 LINK_ACCOUNT 로 정규화 — 본계·부계·닉변 뒤 새 PUUID 를 한 사람으로.
+            #    (웹 canonOfRow/resolveAlt · 툴링 build_identity 와 같은 규칙.) 전엔 raw PUUID 로만 묶어 귤갓입니다(7판)가
+            #    카무사리와 별개로 남았고, 그 7판 차이로 십이귀월 순위가 웹과 어긋났다. 대표 PUUID = 그룹에서 가장 최근 판의 PUUID.
+            _pu_date, _pu_key, _grp_best = {}, {}, {}
+            for r in rows[1:]:
+                _pu9 = str(r[col_puuid]).strip().lower() if col_puuid != -1 and col_puuid < len(r) else ""
+                if not _pu9: continue
+                _d9 = str(r[col_date])[:16] if 0 <= col_date < len(r) else ""
+                if _d9 >= _pu_date.get(_pu9, ""): _pu_date[_pu9] = _d9
+            for _pu9, _nm9 in puuid_to_latest_name.items():
+                _k9 = tnorm(get_main_name(_nm9))
+                if not _k9: continue
+                _pu_key[_pu9] = _k9
+                if _k9 not in _grp_best or _pu_date.get(_pu9, "") >= _pu_date.get(_grp_best[_k9], ""): _grp_best[_k9] = _pu9
+            puuid_canon = {_pu9: _grp_best[_k9] for _pu9, _k9 in _pu_key.items()}
+            for _mn9, _pu9 in list(name_to_puuid_fallback.items()): name_to_puuid_fallback[_mn9] = puuid_canon.get(_pu9, _pu9)
+
             for r in rows[1:]:
                 g_id = r[col_gid] if col_gid != -1 and col_gid < len(r) else ""
                 raw_name = r[col_name].strip() if col_name != -1 and col_name < len(r) else ""
                 main_name = get_main_name(raw_name)
                 
                 raw_puuid = str(r[col_puuid]).strip().lower() if col_puuid != -1 and col_puuid < len(r) else ""
-                p_key = raw_puuid if raw_puuid else name_to_puuid_fallback.get(main_name, main_name)
+                p_key = puuid_canon.get(raw_puuid, raw_puuid) if raw_puuid else name_to_puuid_fallback.get(main_name, main_name)
                 if p_key and main_name: target_aliases.setdefault(p_key, set()).add(main_name)
 
                 res = r[col_res] if col_res != -1 and col_res < len(r) else ""

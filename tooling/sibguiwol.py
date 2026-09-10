@@ -76,13 +76,25 @@ def load(path):
     h, prows = read_tab(wb, "PEAK_SEASONS")
     pn, pp = col(h, "닉네임"), col(h, "점수")
     if pn >= 0 and pp >= 0:
+        peak = {}
         for r in prows:
             if len(r) <= max(pn, pp) or not r[pn]: continue
             try: pk = float(r[pp])
             except (TypeError, ValueError): continue
-            k = tnorm(r[pn])
-            if k in solo: solo[k]["score"] = (solo[k]["score"] + pk) / 2.0
-            else: solo[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}
+            peak.setdefault(tnorm(r[pn]), pk)
+        # [2026-09-10] 자기 피크 없으면 LINK_ACCOUNT 그룹 최고 피크 (웹·분석기와 동일)
+        grp = {}
+        for sub, main in alt_to_main.items():
+            g = grp.setdefault(tnorm(main), {tnorm(main)}); g.add(sub); grp[sub] = g
+        def peak_of(k):
+            if k in peak: return peak[k]
+            c = [peak[m] for m in grp.get(k, ()) if m in peak]
+            return max(c) if c else None
+        for k in list(solo):
+            pk = peak_of(k)
+            if pk is not None: solo[k]["score"] = (solo[k]["score"] + pk) / 2.0
+        for k, pk in peak.items():
+            if k not in solo: solo[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}
     return raw, tier_of_raw, alt_to_main, solo
 
 

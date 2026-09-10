@@ -2134,11 +2134,13 @@ function loadPeakSeasons(){
 // 블렌드 규칙: 둘 다 있으면 평균 / 현시즌만 있으면 현시즌 / 과거만 있으면 과거(솔랭 쉬는 클랜원도 집계됨)
 // cur 필드 = 현시즌 원값 보존(솔랭다이아+ 뱃지 등 '현시즌' 판단용)
 function blendSoloRanks(cur, peak){
-  for(const k in cur) cur[k].cur=cur[k].score;
-  for(const k in peak){
-    if(cur[k]) cur[k].score=(cur[k].score+peak[k])/2;
-    else cur[k]={score:peak[k],wins:0,losses:0,wr:null,cur:null};
-  }
+  // 🔗 [2026-09-10 사장님 지시 '그룹 최고 피크'] 자기 닉의 PEAK 행이 없으면(닉변·계정 이전) LINK_ACCOUNT 그룹의 최고 피크로 블렌드.
+  //    ALT_TO_MAIN 이 먼저 대입돼 있어야 한다(init 순서 참고). 분석기 _load_solo_ranks·툴링 sibguiwol.py 와 같은 규칙.
+  const grp=new Map();
+  try{ for(const [sub,main] of ALT_TO_MAIN){ const mk=tnorm(main), sk=tnorm(sub); if(!grp.has(mk)) grp.set(mk,new Set([mk])); const g=grp.get(mk); g.add(sk); grp.set(sk,g); } }catch(e){}
+  const peakOf=k=>{ if(peak[k]!=null) return peak[k]; let best=null; const g=grp.get(k); if(g) for(const m of g){ if(peak[m]!=null&&(best==null||peak[m]>best)) best=peak[m]; } return best; };
+  for(const k in cur){ cur[k].cur=cur[k].score; const pk=peakOf(k); if(pk!=null) cur[k].score=(cur[k].score+pk)/2; }
+  for(const k in peak){ if(!cur[k]) cur[k]={score:peak[k],wins:0,losses:0,wr:null,cur:null}; }
   return cur;
 }
 
@@ -8654,7 +8656,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609100320";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609100400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -8715,10 +8717,10 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
     LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
     MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
-    SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 없으면 {}로 자동 폴백
+    ALT_TO_MAIN = _alt; CAREERS = _car; AI_EVAL = _aie;   // 🎭 부계→본계 통합 맵 — 솔랭 블렌드(그룹 피크)보다 먼저
+    SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 자기 피크 없으면 LINK 그룹 최고 피크
     POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
-    PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles();   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)
-    ALT_TO_MAIN = _alt; CAREERS = _car; AI_EVAL = _aie; }   // 🎭 부계→본계 통합 맵 · 🏅 커리어 · 🤖 AI 주간평
+    PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles(); }   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)   // 🎭 부계→본계 통합 맵 · 🏅 커리어 · 🤖 AI 주간평
   // [v81.31 보류] PREV_SEASONS = await loadPrevSeasons(); — 직전시즌 블렌드 기능 잠정 중단(사유는 tierMetricsOf 주석 참고)
   // ⬇ 다운로드 버튼 버전 자동 표시 — 분석기 자동업데이트와 동일 소스(version.txt). 실패 시 버전만 생략(버튼은 releases/latest라 항상 최신 zip)
   fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt",{cache:"no-store"})
