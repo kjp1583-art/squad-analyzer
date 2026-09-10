@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>브장신 키우기 — SQUAD.GG</title>
+<meta name="description" content="스쿼드 클랜 디스코드 마스코트 육성 미니게임 '브장신 키우기' 소개 — 내전으로 사료를 모아 먹이고, 진화·장비·꾸미기·전투·이야기로 멸망전 우승까지. 후원 안내와 맛동산 상점."/>
+<style>
+  :root{
+    --bg:#11131a; --bg2:#171a23; --card:#1b1f2b; --card2:#212636;
+    --line:#2a3042; --txt:#e7eaf3; --sub:#9aa3b8; --mut:#717a91;
+    --blue:#3a73e8; --blue-bg:#16243f; --red:#e84057; --red-bg:#3a1c25;
+    --gold:#e0a437; --green:#2bb177; --accent:#5b8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);
+    font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  header{background:linear-gradient(180deg,#1a1f2e,#11131a);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:20}
+  .hd{max-width:1000px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
+  .logo{font-size:20px;font-weight:800;letter-spacing:.5px;cursor:pointer;color:var(--txt)}
+  .logo b{color:var(--gold)}
+  .hd .spacer{flex:1}
+  .hd .home{font-size:14px;color:var(--sub);border:1px solid var(--line);padding:7px 14px;border-radius:8px}
+  .hd .home:hover{border-color:var(--accent);color:var(--txt)}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px 80px}
+
+  .hero{text-align:center;padding:64px 16px 40px}
+  .hero .badge{display:inline-block;font-size:13px;font-weight:700;color:var(--gold);
+    border:1px solid #4a3c1a;background:#221b0d;padding:6px 14px;border-radius:20px;margin-bottom:22px}
+  .hero h1{font-size:40px;line-height:1.2;margin:0 0 16px;font-weight:800}
+  .hero h1 .ai{background:linear-gradient(90deg,var(--accent),var(--gold));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero p{font-size:17px;color:var(--sub);max-width:600px;margin:0 auto}
+  @media(max-width:600px){.hero h1{font-size:30px}.hero{padding:44px 8px 30px}}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin:8px 0 44px}
+  .feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .feat .ic{font-size:26px;margin-bottom:10px}
+  .feat h3{margin:0 0 8px;font-size:17px;font-weight:700}
+  .feat p{margin:0;font-size:14px;color:var(--sub)}
+  .feat.hot{border-color:#4a3c1a;background:linear-gradient(180deg,#211a0d,var(--card))}
+  .feat.hot .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--gold);margin-left:6px;
+    border:1px solid #4a3c1a;padding:1px 7px;border-radius:10px;vertical-align:middle}
+
+  .sec-title{font-size:24px;font-weight:800;margin:48px 0 8px;text-align:center}
+  .sec-sub{text-align:center;color:var(--sub);font-size:15px;margin:0 0 28px}
+
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px 20px;position:relative}
+  .step .n{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:14px}
+  .step h3{margin:0 0 8px;font-size:16px;font-weight:700}
+  .step p{margin:0;font-size:14px;color:var(--sub)}
+  .step code{background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;
+    font-size:13px;color:var(--gold)}
+
+  /* ⚠️ 내전 전용 경고 — 구독 전 반드시 인지해야 하는 제약 */
+  .warn{display:flex;gap:14px;align-items:flex-start;max-width:760px;margin:40px auto 0;
+    background:#2a1d0d;border:1px solid #6b4a18;border-left:4px solid var(--gold);
+    border-radius:12px;padding:18px 20px;font-size:14px;line-height:1.65;color:#f0e3cc}
+  .warn b{color:#ffd98a}
+  .warn-ic{font-size:22px;line-height:1.2}
+
+  /* 실사용 예시 화면 — 분석기 오버레이(#12141a / #f5d47a) 재현 */
+  .shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;margin-bottom:12px}
+  .shot{margin:0}
+  /* 🎨 [2026-08-12] 실제 오버레이(v82.98 카드 UI)와 같은 모양으로 다시 그림 — 화면과 소개가 어긋나면
+     "설명이랑 다른데?"가 되고, 그 순간부터 페이지 전체가 안 믿긴다. */
+  .ovl{--ac:#ff5f6d;background:#0e1016;border:2px solid var(--ac);border-radius:16px;overflow:hidden;
+    box-shadow:0 14px 34px rgba(0,0,0,.55)}
+  .ovl.pick{--ac:#5aa2ff}
+  .ovl-hd{display:flex;align-items:center;gap:9px;padding:13px 16px 0}
+  .ovl-badge{background:var(--ac);color:#12141a;font-weight:800;font-size:11px;
+    padding:2px 8px;border-radius:4px;letter-spacing:1px}
+  .ovl-name{color:#eef2f8;font-weight:800;font-size:15px}
+  .ovl-sub{color:#6b7789;font-size:11px;margin-left:auto;margin-right:6px}
+  .ovl-x{color:#6b7789;font-size:14px}
+  .ovl-rule{height:2px;background:var(--ac);margin:9px 16px 0}
+  .ovl-bd{padding:11px 16px 14px}
+  .ovl-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:9px}
+  .ovl-rk{flex:0 0 22px;height:21px;line-height:21px;text-align:center;background:var(--ac);
+    color:#12141a;font-weight:800;font-size:11px;border-radius:3px}
+  .ovl-champ{color:#eef2f8;font-weight:800;font-size:15px;line-height:1.25}
+  .ovl-why{color:#8d9aae;font-size:11.5px;margin-top:1px;line-height:1.45}
+  .ovl-note{display:flex;background:#171b23;border-radius:5px;margin:2px 0 9px;overflow:hidden}
+  .ovl-note i{flex:0 0 3px;background:var(--ac)}
+  .ovl-note div{padding:8px 11px;color:#eef2f8;font-size:12.5px;font-weight:700;line-height:1.5;font-style:normal}
+  .ovl-chip{background:#171b23;color:#8d9aae;font-size:11.5px;border-radius:5px;
+    padding:6px 10px;margin-bottom:9px;line-height:1.5}
+  .ovl-warn{color:#ffb347;font-size:11.5px;margin:2px 0 9px;line-height:1.5}
+  .ovl-ft{display:flex;align-items:center;padding:0 16px 14px}
+  .ovl-more{background:#171b23;color:#8d9aae;font-size:11px;padding:4px 11px;border-radius:4px}
+  .ovl-drag{margin-left:auto;color:#6b7789;font-size:10.5px}
+  .shot figcaption{font-size:13px;color:var(--sub);margin-top:12px;line-height:1.6}
+  .shot figcaption b{color:var(--txt)}
+
+  .price{max-width:440px;margin:8px auto 0;background:linear-gradient(180deg,var(--card2),var(--card));
+    border:1px solid #3a4260;border-radius:18px;padding:34px 28px;text-align:center}
+  .price .amt{font-size:44px;font-weight:800;color:var(--txt)}
+  .price .amt small{font-size:18px;color:var(--sub);font-weight:600}
+  .price .acct{margin-top:18px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;font-size:15px}
+  .price .acct .lab{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
+  .price .acct b{font-size:17px;letter-spacing:.3px}
+  .price .note{margin-top:16px;font-size:13px;color:var(--sub)}
+
+  /* 💸 요금 투명성 — 신뢰용 블록 */
+  .costbox{max-width:760px;margin:34px auto 0;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:26px 28px}
+  .costbox h3{margin:0 0 6px;font-size:19px;font-weight:800}
+  .costbox>p{margin:0 0 16px;font-size:14px;color:var(--sub)}
+  .costbox ul{margin:0;padding-left:20px}
+  .costbox li{font-size:14px;line-height:1.75;color:var(--sub);margin-bottom:12px}
+  .costbox li b{color:var(--txt)}
+  .costend{margin:16px 0 0!important;padding-top:15px;border-top:1px solid var(--line);
+    font-size:13.5px;color:var(--sub)!important;line-height:1.7}
+  @media(max-width:600px){.costbox{padding:20px 18px}}
+
+  /* 📌 비공식 고지 — 클랜 공식 서비스가 아님 */
+  .disc{max-width:760px;margin:22px auto 0;background:var(--bg2);border:1px dashed var(--line);
+    border-radius:12px;padding:18px 22px;font-size:13.5px;line-height:1.75;color:var(--sub)}
+  .disc b{color:var(--txt)}
+
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:40px}
+  .cta a{padding:14px 26px;border-radius:10px;font-weight:700;font-size:15px}
+  .cta .dl{background:var(--gold);color:#241a04}
+  .cta .dl:hover{filter:brightness(1.08)}
+  .cta .gh{border:1px solid var(--line);color:var(--txt)}
+  .cta .gh:hover{border-color:var(--accent)}
+
+  .faq{max-width:720px;margin:0 auto}
+  .faq details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 18px;margin-bottom:10px}
+  .faq summary{cursor:pointer;font-weight:700;font-size:15px;padding:14px 0;list-style:none}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::before{content:"＋";color:var(--accent);font-weight:800;margin-right:10px}
+  .faq details[open] summary::before{content:"－"}
+  .faq p{margin:0 0 16px;font-size:14px;color:var(--sub)}
+
+  footer{text-align:center;color:var(--mut);font-size:13px;margin-top:56px;padding-top:24px;border-top:1px solid var(--line)}
+
+
+  .strip{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:18px auto 0;max-width:960px}
+  .stg{width:96px;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 4px 6px}
+  .stg svg{width:72px;height:72px;display:block;margin:0 auto}
+  .stg .lv{font-size:11px;color:var(--gold);font-weight:800}
+  .stg .nm{font-size:11px;color:var(--sub);line-height:1.2;margin-top:2px;word-break:keep-all}
+  .flow{display:flex;flex-wrap:wrap;justify-content:center;align-items:stretch;gap:8px;margin:14px 0 0}
+  .flow .nd{flex:1 1 130px;max-width:170px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 10px;text-align:center}
+  .flow .nd .ic{font-size:34px;line-height:1}
+  .flow .nd h4{margin:8px 0 2px;font-size:15px}
+  .flow .nd p{margin:0;font-size:12px;color:var(--sub)}
+  .flow .ar{align-self:center;color:var(--mut);font-size:22px}
+  .figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+  .figs figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .figs img{width:100%;height:auto;border-radius:10px;display:block;image-rendering:auto}
+  .figs figcaption{font-size:13px;color:var(--sub);margin-top:10px;line-height:1.6}
+  .figs figcaption b{color:var(--txt)}
+  .stats3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:14px}
+  .stat3{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center}
+  .stat3 .ic{font-size:30px}.stat3 h4{margin:6px 0 4px;font-size:16px}.stat3 p{margin:0;font-size:13px;color:var(--sub)}
+  .nums{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:14px}
+  .num{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 18px;text-align:center;min-width:120px}
+  .num b{display:block;font-size:26px;color:var(--gold)}.num span{font-size:12px;color:var(--sub)}
+  .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:14px}
+  .chip{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+  .chip code{color:var(--gold);font-weight:800;background:none;border:none;padding:0;font-size:13px}
+  .chip span{color:var(--sub);margin-left:6px}
+  .looks{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:14px}
+  .look{width:110px;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 4px}
+  .look svg{width:84px;height:84px;display:block;margin:0 auto}.look .nm{font-size:11px;color:var(--sub);margin-top:2px}
+  .items{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:14px}
+  .item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;gap:12px;align-items:flex-start}
+  .item .ic{font-size:30px;line-height:1}.item h4{margin:0 0 4px;font-size:15px}.item p{margin:0;font-size:12.5px;color:var(--sub)}
+  .item .pr{margin-top:6px;display:inline-block;font-size:12px;font-weight:800;color:var(--gold);border:1px solid #4a3c1a;background:#221b0d;padding:2px 9px;border-radius:10px}
+  .faq details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:8px}
+  .faq summary{cursor:pointer;font-weight:700;font-size:15px}.faq p{margin:8px 0 0;font-size:14px;color:var(--sub)}
+  footer{text-align:center;color:var(--mut);font-size:12.5px;margin-top:60px;line-height:1.7}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd">
+    <div class="logo" onclick="location.href='index.html'">SQUAD<b>.GG</b></div>
+    <div class="spacer"></div>
+    <a class="home" href="index.html#brjang">← 육성 랭킹·도감</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div class="badge">디스코드 #브장신키우기 · 누구나 무료</div>
+    <h1>🍗 <span class="ai">브장신</span> 키우기</h1>
+    <p>내전 한 판이 사료 한 개. 먹이고, 키우고, 싸우고, 멸망전 우승까지 —
+       클랜 채팅 한 줄로 굴러가는 스쿼드의 마스코트 육성 게임입니다.</p>
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <h2 class="sec-title">이렇게 흘러갑니다</h2>
+  <p class="sec-sub">알에서 시작해 멸망전 우승 엔딩까지. 우승하면 알로 돌아가 <b>다음 회차</b>가 시작됩니다(아이템·장비·꾸미기는 그대로).</p>
+  <div class="flow">
+    <div class="nd"><div class="ic">🎮</div><h4>내전 · 퀴즈</h4><p>1판 = 사료 1<br>퀴즈 = 간식 1</p></div><div class="ar">→</div>
+    <div class="nd"><div class="ic">🍗</div><h4>먹이</h4><p>채팅에 "먹이"<br>경험치 획득</p></div><div class="ar">→</div>
+    <div class="nd"><div class="ic">🐣</div><h4>진화 13단계</h4><p>단계마다 스킬<br>능력치 포인트 +1</p></div><div class="ar">→</div>
+    <div class="nd"><div class="ic">⚔️</div><h4>장비 · 전투</h4><p>모의내전 · 레이드<br>야생 클랜원 대결</p></div><div class="ar">→</div>
+    <div class="nd"><div class="ic">📖</div><h4>이야기 28막</h4><p>클랜원이 까메오<br>주사위 판정</p></div><div class="ar">→</div>
+    <div class="nd"><div class="ic">🏆</div><h4>멸망전 우승</h4><p>우승컵 · 인형 · 100P<br>🥚 다음 회차</p></div>
+  </div>
+
+  <h2 class="sec-title">실제로 이렇게 보입니다</h2>
+  <p class="sec-sub">디스코드 안에서 이미지 한 장으로 진행됩니다. 버튼 도배 없이 한 화면이 갈아끼워져요.</p>
+  <div class="figs">
+    <figure><img src="img/brjang/battle.png" alt="포켓몬 골드풍 전투 화면 — 내 브장신과 상대 팀장이 HP를 걸고 싸운다"/>
+      <figcaption><b>⚔️ 전투 화면</b> — 팀뽑·밴픽의 <b>한 턴이 한 번의 공격</b>. 내 브장신과 상대 팀장이 HP(100 + 체력×5)를 걸고,
+        뽑은 선수 전투력만큼 데미지를 주고받습니다. 밴을 먹은 선수는 공격력 −15%, 남은 HP가 많은 쪽이 승리.</figcaption></figure>
+    <figure><img src="img/brjang/shop.png" alt="bhc 합정점 매장 화면 — 손님 응대 결과가 대화창에 표기된다"/>
+      <figcaption><b>🏪 bhc 합정점 경영</b> — 손님이 시간당 몰려오고, 선택마다 쓰는 능력치가 달라 🎲 판정으로 매출이 갈립니다.
+        매출 100원 = 사료 1, 500원 = 1P. 설비는 쓸수록 저절로 성장.</figcaption></figure>
+    <figure><img src="img/brjang/inventory.png" alt="디아블로풍 가방·장비 패널"/>
+      <figcaption><b>🎒 가방 · 장비 패널</b> — 무기/방어구/장신구 3슬롯, 등급별 테두리, 칸 번호로 <code>장착 3</code> <code>판매 3번 5p</code> 처럼 바로 명령.
+        장비 30종은 전부 클랜원 시그니처(치속크라켄, BL노트, 승수의 숟가락…), 같은 장비를 먹여 +3까지 강화.</figcaption></figure>
+    <figure><img src="img/brjang/outfits.png" alt="꾸미기 의상을 입은 브장신들"/>
+      <figcaption><b>🎀 꾸미기 19종</b> — 모자·의상·장신구. 능력치는 0, 순수 외형. 디스코드 그림과 이 사이트 프로필 카드에 그대로 그려집니다.
+        같은 등급 3개를 <code>리폼</code>하면 한 단계 위 1개.</figcaption></figure>
+  </div>
+
+  <h2 class="sec-title">능력치는 딱 세 개</h2>
+  <p class="sec-sub">진화할 때마다 포인트 1. 채팅에 <code>체력</code> <code>공격력</code> <code>논란력</code> 이라고 치면 찍힙니다.</p>
+  <div class="stats3">
+    <div class="stat3"><div class="ic">❤️</div><h4>체력</h4><p>전투 최대 HP +5 / pt<br>체력 판정</p></div>
+    <div class="stat3"><div class="ic">⚔️</div><h4>공격력</h4><p>픽·결전 데미지 +5% / pt<br>레이드 데미지</p></div>
+    <div class="stat3"><div class="ic">🎲</div><h4>논란력</h4><p>모든 주사위 눈 +1 / 2pt<br>이벤트 확률 +5%p / pt</p></div>
+  </div>
+  <div class="nums">
+    <div class="num"><b>13</b><span>진화 단계</span></div>
+    <div class="num"><b>30</b><span>장비</span></div>
+    <div class="num"><b>19</b><span>꾸미기</span></div>
+    <div class="num"><b>28</b><span>이야기 막</span></div>
+    <div class="num"><b>2</b><span>월드보스</span></div>
+  </div>
+  <div class="looks" id="looks"></div>
+
+  <h2 class="sec-title">채팅 한 줄이면 됩니다</h2>
+  <p class="sec-sub">#브장신키우기 채널에 그냥 치세요. 슬래시 명령 <code>/브장신</code> 으로도 됩니다.</p>
+  <div class="chips"><div class="chip"><code>쓰다듬기</code><span>하루 1회 +8 XP, 가끔 이벤트</span></div><div class="chip"><code>먹이</code><span>사료·간식으로 경험치</span></div><div class="chip"><code>출근 / 퇴근</code><span>4시간·8시간 근무 수확</span></div><div class="chip"><code>합정점</code><span>손님 응대로 매출 → 사료·P</span></div><div class="chip"><code>이야기</code><span>7부 28막 시나리오</span></div><div class="chip"><code>내전</code><span>모의 내전 팀뽑 대결</span></div><div class="chip"><code>공격</code><span>월드보스 신림 레이드(11·18시)</span></div><div class="chip"><code>가방</code><span>아이템·장비 패널</span></div><div class="chip"><code>장착 / 강화</code><span>장비 끼기·+3 강화</span></div><div class="chip"><code>착용 / 리폼</code><span>꾸미기 입기·3개→1개</span></div><div class="chip"><code>장터</code><span>P로 아이템 거래</span></div><div class="chip"><code>맛동산상점</code><span>후원 답례 특수 아이템</span></div></div>
+
+  <h2 class="sec-title">후원 안내</h2>
+  <p class="sec-sub">게임은 전부 무료입니다. 후원은 서버·AI 비용에 쓰이고, 답례로 <b>🍘 맛동산</b>을 드립니다.</p>
+  <div class="price">
+    <div class="amt">1만원<small> = 🍘 맛동산 1개</small></div>
+    <div class="acct">
+      <span class="lab">후원 계좌</span>
+      <b>토스뱅크 1000-2535-5662 박상준</b>
+    </div>
+    <div class="note">입금자명은 디스코드 닉네임과 같게. 입금 후 <b>(맛동산장인 유미)</b> 에게 알려주시면 <code>/맛동산지급</code> 으로 바로 넣어 드립니다.</div>
+  </div>
+  <div class="steps" style="margin-top:22px">
+    <div class="step"><div class="n">1</div><h3>입금</h3><p>1만원 단위로 후원합니다. 2만원이면 맛동산 2개.</p></div>
+    <div class="step"><div class="n">2</div><h3>알리기</h3><p>디스코드나 카톡으로 맛장유에게 입금자명을 알려주세요.</p></div>
+    <div class="step"><div class="n">3</div><h3>상점에서 사용</h3><p>#브장신키우기 채널에 <code>맛동산상점</code> 이라고 치면 메뉴가 뜹니다. 고르면 바로 가방에.</p></div>
+  </div>
+
+  <h2 class="sec-title">🍘 맛동산 상점</h2>
+  <p class="sec-sub">전투력을 직접 올리는 건 없습니다 — 편의·표현 아이템만. 포인트(P)와 별개이고 거래는 안 됩니다.</p>
+  <div class="items"><div class="item"><div class="ic">🏷</div><div><h4>브장신 이름표</h4><p>내 브장신에 이름을 붙인다 — 현황·전투 화면에 표시</p><span class="pr">🍘 맛동산 1개 = 1만원</span></div></div><div class="item"><div class="ic">📺</div><div><h4>다음화 예고편 ×3</h4><p>📖 이야기를 3번 더 진행(하루 제한 밖)</p><span class="pr">🍘 맛동산 1개 = 1만원</span></div></div><div class="item"><div class="ic">⏰</div><div><h4>알람시계 ×3</h4><p>근무 2시간 단축 ×3</p><span class="pr">🍘 맛동산 1개 = 1만원</span></div></div><div class="item"><div class="ic">🎲</div><div><h4>행운의 주사위 ×3</h4><p>다음 🎲 판정 +5 ×3</p><span class="pr">🍘 맛동산 1개 = 1만원</span></div></div><div class="item"><div class="ic">🛡</div><div><h4>강화 보호권</h4><p>강화 실패 시 재료를 돌려받는다(자동 소모)</p><span class="pr">🍘 맛동산 2개 = 2만원</span></div></div><div class="item"><div class="ic">🥚</div><div><h4>부화 가속권</h4><p>다음 회차를 Lv.3 합정점 브장신부터 시작</p><span class="pr">🍘 맛동산 2개 = 2만원</span></div></div><div class="item"><div class="ic">🎁</div><div><h4>전설 꾸미기 선택권</h4><p>전설 꾸미기(황금 날개 / 논란 오라) 중 하나를 골라 받는다</p><span class="pr">🍘 맛동산 3개 = 3만원</span></div></div></div>
+
+  <h2 class="sec-title">자주 묻는 질문</h2>
+  <div class="faq">
+    <details><summary>후원 안 해도 되나요?</summary><p>네. 키우기·전투·이야기·장비·꾸미기 전부 무료입니다. 맛동산 상점은 편의 아이템뿐이라 없어도 똑같이 즐길 수 있어요.</p></details>
+    <details><summary>맛동산으로 강해지나요?</summary><p>아니요. 상점에는 전투력을 올리는 아이템을 두지 않습니다. 상대는 실제 클랜원 실측 데이터라, 돈으로 이기는 구조는 처음부터 뺐어요.</p></details>
+    <details><summary>포인트(P)와 뭐가 다른가요?</summary><p>P는 내전으로 버는 클랜 재화(장터·뽑기·경매). 맛동산은 후원 답례로만 생기고 상점 전용이며 P로 바꿀 수 없습니다.</p></details>
+    <details><summary>어디서 시작하나요?</summary><p>디스코드 #브장신키우기 채널에서 <code>쓰다듬기</code> 라고 치면 알을 받습니다. 그다음은 내전 한 판.</p></details>
+  </div>
+
+  <footer>
+    SQUAD.GG · 스쿼드 내전 전적검색 &amp; 브장신 키우기<br>
+    <span style="opacity:.75">브장신 키우기는 클랜원 개인이 운영하는 비공식 미니게임이며, 스쿼드 클랜 공식 입장과 무관합니다.</span>
+  </footer>
+
+</div>
+<script>
+const BRJ_VEC_STAGE={0:["#fff",["egg"]],1:["#fff",["chick"]],2:["#fff",[]],3:["#fff",["apron"]],4:["#fff",["apron","red"]],5:["#ffe278",[]],6:["#fff",["sungl","crown"]],7:["#ffe278",["crown"]],
+  8:["#ffe278",["red","crown"]],9:["#ffe278",["sungl","crown"]],10:["#ffe278",["sungl","crown","apron"]],11:["#ffe278",["red","sungl","crown"]],12:["#ffe278",["red","sungl","crown","apron"]]};
+
+const BRJ_SPR={"pal":{"k":"rgb(30,30,36)","w":"rgb(250,250,250)","y":"rgb(255,214,90)","o":"rgb(255,150,60)","r":"rgb(230,60,60)","g":"rgb(232,180,60)","G":"rgb(255,215,0)","d":"rgb(120,80,40)","p":"rgb(150,90,200)","a":"rgb(200,200,210)","s":"rgb(90,90,100)","e":"rgb(255,120,150)","n":"rgb(60,140,80)","l":"rgb(120,200,255)","m":"rgb(255,190,120)","t":"rgb(120,60,30)","u":"rgb(255,255,180)","B":"rgb(40,60,120)","R":"rgb(200,30,30)","W":"rgb(240,240,240)","P":"rgb(255,105,180)","C":"rgb(0,200,200)","K":"rgb(255,140,0)"},"stage":{"0":{"r":["","","......kkkk......","....kkwwwwkk....","...kwwwwwwwwk...","...kwwuwwwwwk...","..kwwwwwwwwwwk..","..kwwwwuwwwwwk..","..kwwwwwwwuwwk..","..kwwwwwwwwwwk..","..kwwuwwwwwwwk..","...kwwwwwwwwk...","...kwwwwwwwwk...","....kkwwwwkk....","......kkkk......",""],"g":null},"1":{"r":["","","......rr........",".....kyyyk......","....kyyyyyk.....","....kykyyyk.oo..","....kyyyyykoo...","....kyyyyyk.....","...kyyyyyyyk....","..kyyyyyyyyyk...","..kyyyyyyyyyk...","..kyyyyyyyyyk...","...kyyyyyyyk....","....kkkkkkk.....",".....o...o......","....oo...oo....."],"g":null},"2":{"r":["","......rr........",".....krrk.......","....kwwwwk......","...kwwkwwwk.oo..","...kwwwwwwkoo...","...kwwwwwwk.....","..kwwwwwwwwk....",".kwwwwwwwwwwk...",".kwwwawwwwwwk...",".kwwwwwwwwwwk...",".kwwwwwwwwwwk...","..kwwwwwwwwk....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":null},"3":{"r":["","......rr........",".....krrk.......","....kwwwwk......","...kwwkwwwk.oo..","...kwwwwwwkoo...","...kwwwwwwk.....","..kwwwwwwwwk....",".kwwwwwwwwnwk...",".knnnnnnnnnwk...",".nnnnnnnnnnwk...",".nnnnwnnnnnwk...","..nnnnnnnnwk....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":null},"4":{"r":["","......rr........",".....krrk.......","....kwwwwk......","...kwwkwwwk.oo..","...kwwwwwwkoo...","...kwwwwwwk.....","..rrrrrrrrrr....",".rrrrrrrrrnrr...",".rnnnnnnnnnrr...",".nnnnnnnnnnrr...",".nnnnwnnnnnrr...","..nnnnnnnnrr....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":null},"5":{"r":["","......rr........",".....krrk.......","....kwwwwk......","...kwwkwwwk.oo..","...kwwwwwwkoo...","...kwwwwwwk.....","..GGGGGGGGGG....",".GGGGGGGGGGGG...",".GGGgGGGGGGGG...",".GGGGGGGGGGGG...",".GGGGGGGGGGGG...","..GGGGGGGGGG....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":"rgb(255,215,0)"},"6":{"r":["....G.G.G.......","....GGGGG.......",".....krrk.......","....kwwwwk......","...kkkkkkkk.oo..","...kkkkkkkkoo...","...kwwwwwwk.....","..kwwwwwwwwk....",".kwwwwwwwwwwk...",".kwwwawwwwwwk...",".kwwwwwwwwwwk...",".kwwwwwwwwwwk...","..kwwwwwwwwk....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":"rgb(150,90,200)"},"7":{"r":["....G.G.G.......","....GGGGG.......",".....krrk.......","....kwwwwk......","...kwwkwwwk.oo..","...kwwwwwwkoo...","...kwwwwwwk.....","..GGGGGGGGGG....",".GGGGGGGGGGGG...",".GGGgGGGGGGGG...",".GGGGGGGGGGGG...",".GGGGGGGGGGGG...","..GGGGGGGGGG....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":"rgb(255,255,255)"},"8":{"r":["....G.G.G.......","....GGGGG.......",".....krrk.......","....kwwwwk......","...kwwkwwwk.oo..","...kwwwwwwkoo...","...kwwwwwwk.....","..rrrrrrrrrr....",".rrrrrrrrrrrr...",".rrrrrrrrrrrr...",".rrrrrrrrrrrr...",".rrrrrrrrrrrr...","..rrrrrrrrrr....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":"rgb(255,80,60)"},"9":{"r":["....G.G.G.......","....GGGGG.......",".....krrk.......","....kwwwwk......","...kkkkkkkk.oo..","...kkkkkkkkoo...","...kwwwwwwk.....","..GGGGGGGGGG....",".GGGGGGGGGGGG...",".GGGgGGGGGGGG...",".GGGGGGGGGGGG...",".GGGGGGGGGGGG...","..GGGGGGGGGG....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":"rgb(255,190,60)"},"10":{"r":["....G.G.G.......","....GGGGG.......",".....krrk.......","....kwwwwk......","...kkkkkkkk.oo..","...kkkkkkkkoo...","...kwwwwwwk.....","..GGGGGGGGGG....",".GGGGGGGGGnGG...",".GnnnnnnnnnGG...",".nnnnnnnnnnGG...",".nnnnwnnnnnGG...","..nnnnnnnnGG....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":"rgb(170,170,170)"},"11":{"r":["....G.G.G.......","....GGGGG.......",".....krrk.......","....kwwwwk......","...kkkkkkkk.oo..","...kkkkkkkkoo...","...kwwwwwwk.....","..rrrrrrrrrr....",".rrrrrrrrrrrr...",".rrrrrrrrrrrr...",".rrrrrrrrrrrr...",".rrrrrrrrrrrr...","..rrrrrrrrrr....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":"rgb(130,90,230)"},"12":{"r":["....G.G.G.......","....GGGGG.......",".....krrk.......","....kwwwwk......","...kkkkkkkk.oo..","...kkkkkkkkoo...","...kwwwwwwk.....","..rrrrrrrrrr....",".rrrrrrrrrnrr...",".rnnnnnnnnnrr...",".nnnnnnnnnnrr...",".nnnnwnnnnnrr...","..nnnnnnnnrr....","...kkkkkkkk.....",".....o..o.......","....oo..oo......"],"g":"rgb(255,255,255)"}},"cos":{"c_santa":{"n":"산타 모자","e":"🎅","s":"h","r":["......RRR.......",".....RRRRR..W...","....WWWWWWW.....","","","","","","","","","","","","",""]},"c_head":{"n":"게이밍 헤드셋","e":"🎧","s":"h","r":["","....kkkkkkk.....","...kk.....kk....","...kk.....kk....","...CC.....CC....","","","","","","","","","","",""]},"c_gat":{"n":"삿갓","e":"🎩","s":"h","r":[".......dd.......","....dddddddd....","..dddddddddddd..","","","","","","","","","","","","",""]},"c_pin":{"n":"병아리 머리핀","e":"🐣","s":"h","r":["",".........yy.....","........yyyo....","","","","","","","","","","","","",""]},"c_helm":{"n":"예비군 철모","e":"🪖","s":"h","r":[".....nnnnnn.....","....nnnnnnnn....","...nnnnnnnnnn...","","","","","","","","","","","","",""]},"c_halo":{"n":"천사 링","e":"😇","s":"h","r":["....GGGGGGG.....","...G.......G....","","","","","","","","","","","","","",""]},"c_suit":{"n":"검은 정장","e":"🤵","s":"o","r":["","","","","","","","..ssssssssss....",".sssswwssssss...",".ssssRRssssss...",".sssswwssssss...",".ssssssssssss...","..ssssssssss....","","",""]},"c_hanbok":{"n":"한복","e":"👘","s":"o","r":["","","","","","","","..PPPPPPPPPP....",".PPPPCCPPPPPP...",".PPPPCCPPPPPP...",".CCCCCCCCCCCC...",".CCCCCCCCCCCC...","..CCCCCCCCCC....","","",""]},"c_pajama":{"n":"줄무늬 잠옷","e":"🛌","s":"o","r":["","","","","","","","..llllllllll....",".wwwwwwwwwwww...",".llllllllllll...",".wwwwwwwwwwww...",".llllllllllll...","..wwwwwwwwww....","","",""]},"c_jersey":{"n":"스쿼드 유니폼","e":"👕","s":"o","r":["","","","","","","","..BBBBBBBBBB....",".BBBBWWWBBBBB...",".BBBWWWWWBBBB...",".BBBBWWWBBBBB...",".BBBBBBBBBBBB...","..BBBBBBBBBB....","","",""]},"c_bhc":{"n":"bhc 유니폼","e":"🍗","s":"o","r":["","","","","","","","..KKKKKKKKKK....",".KKKKKKKKKKKK...",".KKKWWWWWWKKK...",".KKKKKKKKKKKK...",".KKKKKKKKKKKK...","..KKKKKKKKKK....","","",""]},"c_jgpos":{"n":"정글위치생각해요의 2티어하 코스프레 의상","e":"🎭","s":"o","r":["","","","","","","","..pppppppppp....",".ppppWWWppppp...",".ppppppWpppRp...",".ppppWWWppppp...",".ppppWppppppp...","..pppWWWpppp....","","",""]},"c_sign":{"n":"응원봉","e":"🪧","s":"a","r":["","","","","","","","","..............P.","..............P.","..............a.","..............a.","..............a.","","",""]},"c_scarf":{"n":"목도리","e":"🧣","s":"a","r":["","","","","","","...RRRRRRRR.....","..RRRRRRRRRRR...","","","","","","","",""]},"c_balloon":{"n":"풍선","e":"🎈","s":"a","r":["","","..............P.",".............PPP","..............P.","..............k.","..............k.","","","","","","","","",""]},"c_trophy":{"n":"미니 트로피","e":"🏆","s":"a","r":["","","","","","","","","","............G.G.","............GGG.",".............G..","............GGG.","","",""]},"c_coin":{"n":"스쿼드코인 목걸이","e":"🪙","s":"a","r":["","","","","","","","......G.........",".....GgG........","......G.........","","","","","",""]},"c_wing":{"n":"황금 날개","e":"🕊","s":"a","r":["","","","","","","GG............GG",".GGG........GGG.","..GGG......GGG..","...GG......GG...","","","","","",""]},"c_aura":{"n":"논란 오라","e":"🔥","s":"a","r":["R..............R",".R............R.","","","","","","","","","","","","",".R............R.","R..............R"]}},"state":{"work":["","","","","","","","","","","............ttt.","............tmt.","............ttt.","","",""],"staff":["","","","","","","","","",".........ll.....",".........ll.....","","","","",""],"stun":["","","","","","","","","..............e.","..............e.","..............a.","..............a.","..............a.","","",""]}};
+let _brjSprSeq=0;
+function brjVecSvg(lv,cos,flags,size){
+  size=size||96; const INK="#121216", W="#fff", YEL="#fac41e", RED="#e42428";
+  const st=BRJ_VEC_STAGE[Math.max(0,Math.min(12,lv|0))]||BRJ_VEC_STAGE[2]; const body=st[0]; const F=new Set(st[1]);
+  cos=cos||{}; for(const sl of ["o","h","a"]){ const k=cos[sl]; if(k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)) F.add(k); }
+  if(cos.h&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,cos.h)) F.delete("crown");
+  const S=new Set(flags||[]); const glow=(BRJ_SPR.stage[String(Math.max(0,Math.min(12,lv|0)))]||{}).g;
+  const id="brjv"+(++_brjSprSeq); let o="";
+  const P=pts=>pts.map(p=>p.join(",")).join(" ");
+  const poly=(pts,fill,w=9)=>`<polygon points="${P(pts)}" fill="${fill}" stroke="${INK}" stroke-width="${w}" stroke-linejoin="round"/>`;
+  const rr=(x0,y0,x1,y1,r,fill,w=7)=>`<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" rx="${r}" fill="${fill}" stroke="${INK}" stroke-width="${w}"/>`;
+  const el=(x0,y0,x1,y1,fill,w=0,stroke=INK)=>`<ellipse cx="${(x0+x1)/2}" cy="${(y0+y1)/2}" rx="${(x1-x0)/2}" ry="${(y1-y0)/2}" fill="${fill}"${w?` stroke="${stroke}" stroke-width="${w}"`:""}/>`;
+  const ln=(pts,w,stroke=INK)=>`<polyline points="${P(pts)}" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const gd=glow?`<defs><radialGradient id="${id}"><stop offset="0" stop-color="${glow}" stop-opacity=".43"/><stop offset=".55" stop-color="${glow}" stop-opacity=".12"/><stop offset="1" stop-color="${glow}" stop-opacity="0"/></radialGradient></defs><ellipse cx="160" cy="176" rx="150" ry="140" fill="url(#${id})"/>`:"";
+  if(F.has("egg")){
+    o+=el(96,60,224,260,W,9); for(const [cx,cy] of [[150,120],[190,170],[140,200]]) o+=el(cx-9,cy-9,cx+9,cy+9,"#ffecaa");
+    return `<svg viewBox="0 0 320 320" width="${size}" height="${size}" role="img" aria-label="브장신">${gd}${o}</svg>`;
+  }
+  const chick=F.has("chick"), bw=chick?0.72:1.0, bx0=160-96*bw, bx1=160+96*bw, by0=78+(1-bw)*60, by1=262;
+  if(F.has("c_aura")) o+=`<ellipse cx="160" cy="${(by0+by1)/2}" rx="${(bx1-bx0)/2+30}" ry="${(by1-by0)/2+25}" fill="#ff503c" opacity=".55" filter="blur(6px)"/>`;
+  if(F.has("c_wing")) for(const pts of [[[30,150],[-4,110],[14,170],[-2,160],[30,182]],[[290,150],[324,110],[306,170],[322,160],[290,182]]]) o+=poly(pts,"#ffd700",7);
+  if(!chick){ o+=poly([[74,180],[30,150],[22,166],[38,178],[20,190],[42,196],[34,214],[66,206],[80,214]],body); o+=poly([[246,180],[290,150],[298,166],[282,178],[300,190],[278,196],[286,214],[254,206],[240,214]],body); }
+  if(F.has("c_balloon")){ o+=ln([[58,150],[46,60]],3); o+=el(22,10,72,70,RED,6); }
+  // 몸통 — (타원 ∪ 둥근사각): 외곽선 덩어리(검정 fill+stroke) 위에 몸 색 덩어리(fill만) → 이음새 없음
+  const bodyShapes=(fill,w)=>`<rect x="${bx0}" y="${by0}" width="${bx1-bx0}" height="${by1-by0}" rx="${96*bw}" fill="${fill}"${w?` stroke="${INK}" stroke-width="${w}"`:""}/><ellipse cx="160" cy="${by0+75*bw}" rx="${96*bw}" ry="${75*bw}" fill="${fill}"${w?` stroke="${INK}" stroke-width="${w}"`:""}/>`;
+  o+=bodyShapes(INK,20)+bodyShapes(body,0);
+  if(chick){ o+=poly([[96,190],[70,178],[84,198]],body,7); o+=poly([[224,190],[250,178],[236,198]],body,7); }
+  // 의상 — [2026-09-09 사장님 지시] 몸통을 가로선으로 갈라 그 아래를 몸통 클립으로 통째로 채운다(봇 _vec_draw 와 동일)
+  const clipId=id+"b"; o+=`<defs><clipPath id="${clipId}">${bodyShapes("#000",0)}</clipPath></defs>`;
+  const lower=(cut,fill,deco="")=>`<g clip-path="url(#${clipId})"><rect x="0" y="${cut}" width="320" height="${320-cut}" fill="${fill}"/>${deco}</g>`+ln([[bx0,cut],[bx1,cut]],6);
+  if(F.has("red")) o+=lower(168,RED);
+  if(F.has("apron")) o+=lower(180,"#3a8a52");
+  if(F.has("c_suit")) o+=lower(170,"#282830",`<polygon points="140,170 180,170 160,214" fill="${W}"/><polygon points="156,174 164,174 162,206 158,206" fill="${RED}"/>`);
+  if(F.has("c_hanbok")) o+=lower(166,"#f078a0",`<rect x="0" y="166" width="320" height="24" fill="#5078c8"/>`+ln([[0,190],[320,190]],4)+ln([[160,190],[160,262]],3));
+  if(F.has("c_pajama")){ let d=""; for(let y=180;y<262;y+=16) d+=ln([[0,y],[320,y]],6,"#5a82dc"); o+=lower(168,W,d); }
+  if(F.has("c_jersey")) o+=lower(168,"#2850c8",ln([[0,204],[320,204]],8,W));
+  if(F.has("c_bhc")) o+=lower(172,"#ff8a00",`<rect x="132" y="202" width="56" height="20" rx="8" fill="${W}"/>`);
+  if(F.has("c_jgpos")){ o+=lower(168,"#965ac8"); o+=`<text x="160" y="224" text-anchor="middle" font-size="40" font-weight="800" font-family="sans-serif" fill="${W}">2</text>`; o+=el(206,178,226,198,RED,4); }
+  // 얼굴
+  const ey=142, stun=S.has("stun");
+  for(const ex of [124,190]){
+    if(stun){ o+=ln([[ex-8,ey-8],[ex+8,ey+8]],5); o+=ln([[ex-8,ey+8],[ex+8,ey-8]],5); }
+    else { o+=el(ex-9,ey-12,ex+9,ey+12,INK); o+=el(ex-6,ey-9,ex-1,ey-3,W); }
+  }
+  o+=ln([[112,118],[132,112]],6)+ln([[182,112],[202,118]],6);
+  o+=poly([[140,150],[176,150],[170,178],[146,178]],YEL,8); o+=`<rect x="146" y="152" width="24" height="24" rx="10" fill="${YEL}"/>`;
+  if(F.has("sungl")&&!stun){ o+=`<rect x="104" y="128" width="42" height="30" rx="9" fill="${INK}"/><rect x="170" y="128" width="42" height="30" rx="9" fill="${INK}"/>`; o+=ln([[146,142],[170,142]],5); }
+  // 장신구·상태
+  if(F.has("c_scarf")){ o+=rr(92,170,228,190,10,RED,5); o+=rr(188,186,214,236,8,RED,5); }
+  if(F.has("c_coin")){ o+=`<path d="M 118 168 A 50 30 0 0 0 202 168" fill="none" stroke="#e6c83c" stroke-width="4"/>`; o+=el(146,196,174,224,"#ffd700",5); }
+  if(F.has("c_trophy")){ o+=rr(236,200,262,230,6,"#ffd700",5); o+=rr(228,230,270,240,3,"#ffd700",4); }
+  if(F.has("c_sign")){ o+=ln([[266,250],[266,190]],6); o+=rr(256,150,276,192,10,"#ff69b4",5); }
+  if(S.has("work")){ o+=rr(236,206,296,258,6,"#8c5028",6); o+=`<rect x="244" y="222" width="44" height="10" fill="#ffbe78"/>`; }
+  if(S.has("staff")) o+=rr(186,196,214,216,4,"#78c8ff",4);
+  if(stun) for(const [cx,cy] of [[100,40],[160,24],[220,40]]) o+=poly([[cx,cy-12],[cx+4,cy-3],[cx+12,cy],[cx+4,cy+3],[cx,cy+12],[cx-4,cy+3],[cx-12,cy],[cx-4,cy-3]],"#ffd700",3);
+  // 모자·왕관
+  if(F.has("c_santa")){ o+=`<polygon points="96,88 150,4 204,88" fill="${RED}" stroke="${INK}" stroke-width="8" stroke-linejoin="round"/>`; o+=rr(86,74,216,100,13,W,7); o+=el(136,-12,166,18,W,7); }
+  if(F.has("c_gat")){ o+=poly([[30,96],[160,26],[290,96]],"#3c2c22",8); o+=rr(26,90,294,104,7,"#3c2c22",6); }
+  if(F.has("c_helm")){ o+=`<path d="M 80 96 A 80 60 0 0 1 240 96 Z" fill="#466e3c" stroke="${INK}" stroke-width="8" stroke-linejoin="round"/>`; o+=rr(74,90,246,106,8,"#466e3c",6); }
+  if(F.has("c_head")){ o+=`<path d="M 100 130 A 64 72 0 0 1 220 130" fill="none" stroke="${INK}" stroke-width="12"/>`; o+=rr(84,120,112,164,10,"#3c3c46",6); o+=rr(208,120,236,164,10,"#3c3c46",6); }
+  if(F.has("c_pin")){ o+=el(190,80,222,108,YEL,5); o+=el(206,88,212,94,INK); }
+  if(F.has("crown")) o+=poly([[104,84],[112,40],[136,66],[158,28],[180,66],[204,40],[212,84]],"#ffd700",7);
+  if(F.has("c_halo")) o+=`<ellipse cx="160" cy="22" rx="56" ry="14" fill="none" stroke="#ffd700" stroke-width="10"/>`;
+  return `<svg viewBox="-10 -20 340 300" width="${size}" height="${size}" role="img" aria-label="브장신">${gd}${o}</svg>`;
+}
+
+const BRJ_MDSHOP=[["🏷","브장신 이름표",1,1,"내 브장신에 이름을 붙인다 — 현황·전투 화면에 표시"],["📺","다음화 예고편",3,1,"📖 이야기를 3번 더 진행(하루 제한 밖)"],["⏰","알람시계",3,1,"근무 2시간 단축 ×3"],["🎲","행운의 주사위",3,1,"다음 🎲 판정 +5 ×3"],["🛡","강화 보호권",1,2,"강화 실패 시 재료를 돌려받는다(자동 소모)"],["🥚","부화 가속권",1,2,"다음 회차를 Lv.3 합정점 브장신부터 시작"],["🎁","전설 꾸미기 선택권",1,3,"전설 꾸미기(황금 날개 / 논란 오라) 중 하나를 골라 받는다"]];
+(function(){
+  const st=[[0,"브장신의 알"],[1,"병아리 브장신"],[2,"아기 브장신"],[3,"합정점 브장신"],[4,"고추바사삭 브장신"],[5,"황금올리브 브장신"],[6,"카톡방의 지배자"],[7,"전설의 브장신"],[8,"논란의 화신"],[9,"합정점 신화"],[10,"박제된 브장신"],[11,"카톡방 밖의 존재"],[12,"브장신 그 자체"]];
+  document.getElementById("strip").innerHTML=st.map(([lv,nm])=>`<div class="stg">${brjVecSvg(lv,{},[],72)}<div class="lv">Lv.${lv}</div><div class="nm">${nm}</div></div>`).join("");
+  const looks=[[9,{h:"c_santa",o:"c_bhc",a:"c_scarf"},"산타·bhc 유니폼·목도리"],[7,{h:"c_halo",o:"c_suit",a:"c_wing"},"천사 링·정장·황금 날개"],[5,{h:"c_head",o:"c_jersey",a:"c_sign"},"헤드셋·스쿼드 유니폼·응원봉"],[6,{h:"c_gat",o:"c_hanbok",a:"c_aura"},"삿갓·한복·논란 오라"],[3,{h:"c_helm",o:"c_pajama",a:"c_balloon"},"철모·잠옷·풍선"],[8,{o:"c_jgpos",a:"c_trophy"},"2티어하 코스프레·트로피"]];
+  document.getElementById("looks").innerHTML=looks.map(([lv,c,nm])=>`<div class="look">${brjVecSvg(lv,c,["work"],84)}<div class="nm">${nm}</div></div>`).join("");
+})();
+</script>
+</body>
+</html>

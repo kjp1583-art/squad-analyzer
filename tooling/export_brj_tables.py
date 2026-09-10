@@ -3,7 +3,7 @@
 봇 쪽 표가 바뀌면 이걸 다시 돌려 index.html 의 해당 줄을 통째로 교체한다(스프라이트는 export_brj_sprites.py).
 사용: python3 tooling/export_brj_tables.py ../squad-naejeon-bot/bot.py index.html
 """
-import json, re, sys
+import json, os, re, sys
 bot, web = sys.argv[1], sys.argv[2]
 s = open(bot, encoding="utf-8").read()
 def seg(start, end):
@@ -56,3 +56,12 @@ for k, v in out.items():
         h = re.sub(r"^(const BRJ_COS=.*;)$", lambda m: m.group(1) + "\n" + js, h, count=1, flags=re.M)
     print(f"{k}: {len(v)}")
 open(web, "w", encoding="utf-8").write(h)
+# 🍘 맛동산 상점(브장신 소개 페이지 brjang.html) — MD_SHOP + BRJ_ITEMS 에서
+try:
+    exec(seg("MD_SHOP = [", "MD_SHOP_BY ="), ns)
+    shop = [[ns["BRJ_ITEMS"][ik][0], ns["BRJ_ITEMS"][ik][1], n, pr, bl] for k, pr, ik, n, bl in ns["MD_SHOP"]]
+    bp = os.path.join(os.path.dirname(os.path.abspath(web)), "brjang.html")
+    b = open(bp, encoding="utf-8").read()
+    b2, n2 = re.subn(r"^const BRJ_MDSHOP=.*;$", lambda m: "const BRJ_MDSHOP=" + json.dumps(shop, ensure_ascii=False, separators=(",", ":")) + ";", b, count=1, flags=re.M)
+    if n2: open(bp, "w", encoding="utf-8").write(b2); print(f"BRJ_MDSHOP: {len(shop)} (brjang.html)")
+except Exception as e: print("brjang.html 갱신 생략:", e)
