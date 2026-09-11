@@ -5497,6 +5497,135 @@ function antiAgingHtml(){
     ${A.rows.length>10?`<div style="text-align:center;margin-top:8px"><button class="btn" style="font-size:12px;padding:3px 12px" onclick="toggleAA()">${AA_OPEN?'접기':`전체 ${A.rows.length}명 보기`}</button></div>`:''}
   </div>`;
 }
+/* 🔥🐢🍶 [2026-09-11 사장님 지시] 재미 지표 3종 — 뒷심지수 · CS강박지수 · 세대대결 */
+let _FUNIDX={seq:-1};
+function _funMemo(key,calc){ if(_FUNIDX.seq!==DATA_SEQ) _FUNIDX={seq:DATA_SEQ}; if(!(key in _FUNIDX)) _FUNIDX[key]=calc(); return _FUNIDX[key]; }
+function _idxRow(i,name,tier,valHtml,w,good,note){
+  return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+    <span class="muted" style="width:22px;text-align:right;flex:none">${i}</span>
+    <span class="clickname" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(name)}')">${esc(shortName(name))}</span>
+    ${tier?`<span class="tier ${tierGroupCls(tier)}" style="flex:none">${esc(tier)}</span>`:''}
+    <span style="flex:none;width:62px;text-align:right;font-weight:800;color:${good?'#7ee8b0':'#ff8a9a'}">${valHtml}</span>
+    <span style="flex:1;min-width:40px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:${w}%;background:${good?'#4cd68f':'#e84057'};opacity:.75"></span></span>
+    <span class="muted" style="flex:none;font-size:11.5px">${note}</span>
+  </div>`;
+}
+// 🔥 뒷심지수 — 30분 이상 장기전 승률 − 30분 미만 승률(%p). 20판 이상 · 장기전 5판 이상.
+function gritCalc(){ return _funMemo("grit",()=>{
+  if(typeof PLAYERS_ALL==='undefined') return [];
+  const out=[];
+  for(const [nm,parts] of PLAYERS_ALL){
+    if(isDeparted(nm)) continue;
+    let lg=0,lw=0,sg=0,sw=0;
+    for(const r of parts){ const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
+      const mt=parseMetrics(r); if(!mt||!mt.m)continue;
+      if(mt.m>=30){lg++; if(res==="승리")lw++;} else {sg++; if(res==="승리")sw++;} }
+    if(lg+sg<20||lg<5||sg<5) continue;
+    out.push({name:nm,tier:tierOf(nm)||'',lg,lw,sg,sw,lwr:lw/lg*100,swr:sw/sg*100,idx:lw/lg*100-sw/sg*100});
+  }
+  out.sort((a,b)=>b.idx-a.idx); out.forEach((r,i)=>r.rank=i+1); return out; }); }
+function gritOf(name){ const cn=canonOfName(name); return gritCalc().find(r=>r.name===cn||r.name===name)||null; }
+// 🐢 CS강박지수 — 주포지션(서폿 제외) 동포지션 백분위: CS/분 − 킬관여. 15판 이상.
+function csObsCalc(){ return _funMemo("cs",()=>{
+  if(typeof PLAYERS_ALL==='undefined') return [];
+  const per=new Map();   // pos -> [{name,csm,kp,g}]
+  for(const [nm,parts] of PLAYERS_ALL){
+    if(isDeparted(nm)) continue;
+    const P={};
+    for(const r of parts){ const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
+      const ps=r["포지션"]; if(!ps||ps==="선택안함"||ps==="서폿")continue;
+      const mt=parseMetrics(r); if(!mt||!mt.m||mt.cs==null||mt.kp==null)continue;
+      const e=P[ps]||(P[ps]={g:0,cs:0,kp:0}); e.g++; e.cs+=mt.cs/mt.m; e.kp+=mt.kp; }
+    const top=Object.entries(P).sort((a,b)=>b[1].g-a[1].g)[0]; if(!top||top[1].g<15)continue;
+    const [pos,e]=top; if(!per.has(pos))per.set(pos,[]);
+    per.get(pos).push({name:nm,tier:tierOf(nm)||'',pos,g:e.g,csm:e.cs/e.g,kp:e.kp/e.g});
+  }
+  const out=[];
+  for(const [pos,arr] of per){ if(arr.length<4)continue;
+    const pct=(key)=>{ const s=arr.slice().sort((a,b)=>a[key]-b[key]); const n=s.length; s.forEach((r,i)=>r["p"+key]=Math.round(i/(n-1)*100)); };
+    pct("csm"); pct("kp");
+    for(const r of arr){ r.idx=r.pcsm-r.pkp; out.push(r); } }
+  out.sort((a,b)=>b.idx-a.idx); out.forEach((r,i)=>r.rank=i+1); return out; }); }
+function csObsOf(name){ const cn=canonOfName(name); return csObsCalc().find(r=>r.name===cn||r.name===name)||null; }
+let GRIT_OPEN=false, CSO_OPEN=false;
+function toggleGrit(){ GRIT_OPEN=!GRIT_OPEN; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
+function toggleCso(){ CSO_OPEN=!CSO_OPEN; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
+function gritHtml(){
+  const L=gritCalc(); if(L.length<5) return '';
+  const mx=Math.max(...L.map(r=>Math.abs(r.idx)))||1;
+  const row=r=>_idxRow(r.rank,r.name,r.tier,`${r.idx>0?'+':''}${r.idx.toFixed(0)}%p`,Math.min(100,Math.abs(r.idx)/mx*100),r.idx>=0,`장기전 ${r.lwr.toFixed(0)}% (${r.lg}판) / 단기전 ${r.swr.toFixed(0)}% (${r.sg}판)`);
+  const N=GRIT_OPEN?L.length:5;
+  return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
+    <h3 style="margin:0 0 2px;font-size:15px">🔥 뒷심지수 <span class="muted" style="font-size:12.5px">— 역전의 명수 vs 던지는 사람 · ${L.length}명</span></h3>
+    <div class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.6"><b>30분 이상 장기전 승률 − 30분 미만 승률</b>. <b style="color:#7ee8b0">양수</b>면 길어질수록 강해지는 뒷심형, <b style="color:#ff8a9a">음수</b>면 초반 리드를 못 지키는 유형. <span style="opacity:.75">20판 이상 · 장기전·단기전 각 5판 이상.</span></div>
+    <div class="muted" style="font-size:12px;font-weight:700;margin:4px 0 2px">🏋 역전의 명수</div>${L.slice(0,N).map(row).join('')}
+    ${!GRIT_OPEN&&L.length>10?`<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 2px">🫠 장기전 약자</div>${L.slice(-5).map(row).join('')}`:''}
+    ${L.length>10?`<div style="text-align:center;margin-top:8px"><button class="btn" style="font-size:12px;padding:3px 12px" onclick="toggleGrit()">${GRIT_OPEN?'접기':`전체 ${L.length}명 보기`}</button></div>`:''}
+  </div>`;
+}
+function csObsHtml(){
+  const L=csObsCalc(); if(L.length<5) return '';
+  const row=r=>_idxRow(r.rank,r.name,r.tier,`${r.idx>0?'+':''}${r.idx}`,Math.min(100,Math.abs(r.idx)),r.idx<0,`${r.pos} · CS/분 ${r.csm.toFixed(1)} (상위 ${100-r.pcsm}%) · 킬관여 ${r.kp.toFixed(0)}% (상위 ${100-r.pkp}%) · ${r.g}판`);
+  const N=CSO_OPEN?L.length:5;
+  return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
+    <h3 style="margin:0 0 2px;font-size:15px">🐢 CS강박지수 <span class="muted" style="font-size:12.5px">— 파밍만 하다 끝나는 사람 · ${L.length}명</span></h3>
+    <div class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.6">주포지션 동료들 사이에서 <b>CS/분 백분위 − 킬관여 백분위</b>. <b style="color:#ff8a9a">양수가 클수록</b> CS는 잘 먹는데 한타엔 없는 강박형, <b style="color:#7ee8b0">음수</b>면 CS를 버리고 싸움에 사는 난전형. <span style="opacity:.75">서폿 제외 · 주포지션 15판 이상.</span></div>
+    <div class="muted" style="font-size:12px;font-weight:700;margin:4px 0 2px">🐢 CS 강박러</div>${L.slice(0,N).map(row).join('')}
+    ${!CSO_OPEN&&L.length>10?`<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 2px">⚔ 난전 중독자</div>${L.slice(-5).map(row).join('')}`:''}
+    ${L.length>10?`<div style="text-align:center;margin-top:8px"><button class="btn" style="font-size:12px;padding:3px 12px" onclick="toggleCso()">${CSO_OPEN?'접기':`전체 ${L.length}명 보기`}</button></div>`:''}
+  </div>`;
+}
+// 🍶 세대대결 — 생년 그룹별 전력 비교 + 팀 평균 나이 차 3세 이상인 판의 노장 vs 신예 승패
+function generationHtml(){
+  if(!AGE_OF.size||typeof PLAYERS_ALL==='undefined') return '';
+  const pOf=(typeof _myeolPOf==='function')?_myeolPOf():null;
+  const G=[{k:'80',label:'80년대생',t:by=>by<1990},{k:'90a',label:'90~94년생',t:by=>by>=1990&&by<=1994},{k:'90b',label:'95~99년생',t:by=>by>=1995&&by<=1999},{k:'00',label:'00년대생',t:by=>by>=2000}];
+  const agg=G.map(g=>({...g,n:0,pw:0,pwn:0,g:0,w:0,ai:0,ain:0,ch:new Map(),pos:new Map()}));
+  const byOf=new Map();
+  for(const [nm,parts] of PLAYERS_ALL){
+    if(isDeparted(nm)) continue;
+    const by=birthYearOf(nm); if(!by)continue; byOf.set(nm,by);
+    const grp=agg.find(x=>x.t(by)); if(!grp)continue;
+    let g=0; for(const r of parts){ if(r["결과"]==="승리"||r["결과"]==="패배")g++; }
+    if(g<5)continue;
+    grp.n++; const pw=pOf?pOf(nm):null; if(pw!=null){grp.pw+=pw;grp.pwn++;}
+    for(const r of parts){ const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue;
+      grp.g++; if(res==="승리")grp.w++;
+      const sv=parseFloat(r["점수"]); if(!isNaN(sv)){grp.ai+=sv;grp.ain++;}
+      const c=r["챔피언"]; if(c&&c!=="?")grp.ch.set(c,(grp.ch.get(c)||0)+1);
+      const ps=r["포지션"]; if(ps&&ps!=="선택안함")grp.pos.set(ps,(grp.pos.get(ps)||0)+1); }
+  }
+  if(agg.filter(x=>x.n>=3).length<2) return '';
+  // 노장팀 vs 신예팀
+  const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
+  let oldW=0,youngW=0,diffs=0;
+  for(const [,gm] of src){
+    const side={}; for(const r of gm.rows||[]){ const sd=r["진영"]; if(sd!=="블루팀"&&sd!=="레드팀")continue; const by=byOf.get(canonOfRow(r))||birthYearOf(canonOfRow(r)); if(!by)continue; (side[sd]=side[sd]||{s:0,n:0,res:r["결과"]}); side[sd].s+=by; side[sd].n++; side[sd].res=r["결과"]; }
+    const B=side["블루팀"],R=side["레드팀"]; if(!B||!R||B.n<3||R.n<3)continue;
+    const d=(B.s/B.n)-(R.s/R.n); if(Math.abs(d)<3)continue;   // 평균 생년 차 3년 이상
+    const bw=B.res==="승리", rw=R.res==="승리"; if(bw===rw)continue;
+    const blueYounger=d>0;   // 생년이 크면 젊다
+    if((blueYounger&&bw)||(!blueYounger&&rw)) youngW++; else oldW++; diffs++;
+  }
+  const cell=x=>{ const wr=x.g?Math.round(x.w/x.g*100):null;
+    const most=[...x.ch.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c])=>`<span title="${escAttr(c)}">${champImg(c,"sm")}</span>`).join('');
+    const pos=[...x.pos.entries()].sort((a,b)=>b[1]-a[1])[0];
+    return `<div class="ss-cell" style="flex:1 1 150px;min-width:150px;gap:3px">
+      <span class="ss-k" style="font-size:12.5px;font-weight:800;color:var(--txt)">${x.label} <span class="muted" style="font-weight:500">${x.n}명</span></span>
+      <span style="font-size:12.5px">전투력 <b style="color:var(--gold)">${x.pwn?(x.pw/x.pwn).toFixed(1):'-'}</b> · 승률 <b style="color:${wr>=50?'var(--win)':'var(--lose)'}">${wr==null?'-':wr+'%'}</b> <span class="muted">${x.g}판</span></span>
+      <span style="font-size:12px" class="muted">AI ${x.ain?(x.ai/x.ain).toFixed(1):'-'} · 최다 ${pos?esc(pos[0]):'-'}</span>
+      <span style="display:flex;gap:2px;align-items:center;margin-top:2px">${most||'<span class="muted">-</span>'}</span>
+    </div>`; };
+  const best=agg.filter(x=>x.pwn).sort((a,b)=>b.pw/b.pwn-a.pw/a.pwn)[0];
+  return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
+    <h3 style="margin:0 0 2px;font-size:15px">🍶 세대대결 <span class="muted" style="font-size:12.5px">— 생년 그룹별 전력 · 5판 이상 · 생년 기재자</span></h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px">${agg.filter(x=>x.n>=3).map(cell).join('')}</div>
+    <div style="font-size:13px;line-height:1.7">
+      ${best?`🏆 평균 전투력 1위 세대: <b style="color:var(--gold)">${best.label}</b> (${(best.pw/best.pwn).toFixed(1)})<br>`:''}
+      ${diffs?`⚔ 팀 평균 생년이 3년 이상 갈린 <b>${diffs}판</b>: 🧓 노장팀 <b style="color:${oldW>=youngW?'var(--win)':'var(--lose)'}">${oldW}승</b> vs 🐣 신예팀 <b style="color:${youngW>oldW?'var(--win)':'var(--lose)'}">${youngW}승</b> — ${oldW===youngW?'팽팽':oldW>youngW?'짬이 실력이다':'젊음이 실력이다'}`:`<span class="muted">팀 평균 나이가 3년 이상 갈린 판이 아직 없어요.</span>`}
+    </div>
+  </div>`;
+}
 /* 🎖 [2026-07-31 사장님 지시] 내부티어 페이지를 '티어표' 형식으로 재구성.
    실제 클랜 티어표(0/I/II/III × 上中下)를 그대로 옮기고, 서부(0·1티어)·동부(2·3티어)로 나눈다.
    칸에는 닉네임 + 평가 딱지(고평가/저평가/적절)만. 세부 지표는 이름을 누르면 아래 패널에 펼친다. */
@@ -5737,6 +5866,9 @@ function renderTiers(){
       <div style="font-size:13px;margin:14px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑+최근 30일 5판↑ 대상)</span></div>
       ${grudgeHtml()}
       ${antiAgingHtml()}
+      ${gritHtml()}
+      ${csObsHtml()}
+      ${generationHtml()}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
         ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 클랜 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
         <span style="opacity:.75">· 각 지표 뒤 <b>(동티어)</b>는 <b>같은 내부티어</b> 동료들의 평균(참고용) — 판정 자체는 위의 클랜 전체 기준입니다.</span><br>
@@ -8205,6 +8337,17 @@ function renderPlayer(name){
         `${r.skillAge!=null?`실력 나이 <b>${r.skillAge}세</b> · `:''}또래 기대 ${r.exp.toFixed(1)} · 클랜 ${r.rank}위/${antiAging().n}명`,
         r.idx>=0.5?'cmp-good':(r.idx<=-0.5?'cmp-bad':''),
         "디스코드 닉의 /생년으로 나이를, 전투력으로 실력을 잡아 클랜 전체 '나이 → 전투력' 직선보다 얼마나 위인지(전투력 단위). 양수면 또래 기대보다 강함. 내부티어 탭에서 전체 순위를 볼 수 있습니다.")); }
+    // 🔥 뒷심지수 · 🐢 CS강박지수 — [2026-09-11 사장님 지시]
+    { const r=(typeof gritOf==='function')?gritOf(name):null;
+      if(r) it.push(cell("🔥 뒷심지수",`${r.idx>0?'+':''}${r.idx.toFixed(0)}%p`,
+        `장기전 ${r.lwr.toFixed(0)}% (${r.lg}판) · 단기전 ${r.swr.toFixed(0)}% (${r.sg}판) · ${r.rank}위/${gritCalc().length}명`,
+        r.idx>=10?'cmp-good':(r.idx<=-10?'cmp-bad':''),
+        "30분 이상 장기전 승률 − 30분 미만 승률. 양수면 길어질수록 강해지는 뒷심형.")); }
+    { const r=(typeof csObsOf==='function')?csObsOf(name):null;
+      if(r) it.push(cell("🐢 CS강박지수",`${r.idx>0?'+':''}${r.idx}`,
+        `${r.pos} · CS/분 상위 ${100-r.pcsm}% · 킬관여 상위 ${100-r.pkp}% · ${r.rank}위/${csObsCalc().length}명`,
+        r.idx>=30?'cmp-bad':(r.idx<=-30?'cmp-good':''),
+        "주포지션 동료 대비 CS/분 백분위 − 킬관여 백분위. 양수가 클수록 파밍만 하고 한타엔 없는 강박형, 음수면 난전형.")); }
     const head=(_asmt&&_asmt.implPct!=null)?`<b style="color:#ffd24a">🎯 클랜 상위 ${_asmt.implPct}%</b>`:'<b>스탯 요약</b>';
     const sub=(d)?'전체기간 · 같은 내부티어 평균과 비교':'';
     const note=(_asmt&&!d)?`<div class="muted" style="font-size:12.5px;margin-bottom:6px">${_asmt.games}판 — 티어 비교엔 10판 이상 필요</div>`:'';
@@ -9223,7 +9366,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609111130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609111200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
