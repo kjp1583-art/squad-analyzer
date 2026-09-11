@@ -793,6 +793,16 @@
     border-radius:12px;padding:10px 13px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
   .cmpbox-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:8px}
   .cmpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:7px}
+  /* 📊 플레이스타일 */
+  .st-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px}
+  .st-card h3{margin:0 0 8px;font-size:15px}.st-card h3 .muted{font-size:12px;font-weight:400;margin-left:6px}
+  .st-tbl{width:100%;border-collapse:collapse;font-size:13px}.st-tbl th{color:var(--sub);font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);font-size:12px}
+  .st-tbl td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.05)}.st-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+  .st-bar{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:2px 0}.st-bl{min-width:32px;color:var(--sub)}.st-bb{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}.st-bb i{display:block;height:100%;background:linear-gradient(90deg,#5b8cff,#7aa2ff);border-radius:4px}.st-bv{min-width:74px;text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}
+  .st-sub{display:block;font-size:11px;margin-top:1px}.st-up{color:#7ee081}.st-dn{color:#ff6f83}
+  .st-radar-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-top:6px}
+  .st-samp{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}.st-samp:hover{background:rgba(255,255,255,.04)}
+  .st-link{display:block;width:100%;margin-top:8px;background:rgba(122,162,255,.14);border:1px solid rgba(122,162,255,.45);color:#cfe0ff;border-radius:9px;padding:7px 10px;font-weight:700;cursor:pointer;font-size:12.5px}.st-link:hover{background:rgba(122,162,255,.24)}
   /* 📊 리포트 — 챔피언 칩(밴픽 채점 결과) */
   /* 📊 리포트 — 최근 판 판정 한 줄(좁은 화면에선 자연스럽게 두 줄로 접힌다) */
   .rpr{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line)}
@@ -4090,6 +4100,7 @@ function go(route,arg){
   navPush(route,arg);
   if(route==='home')renderHome();
   else if(route==='player')renderPlayer(arg);
+  else if(route==='style'){ CUR_PLAYER=canonOfName(arg); renderStyle(arg); }   // 📊 플레이스타일
   else if(route==='game')renderGame(arg);
   else if(route==='log')renderLog();
   else if(route==='counts'){ if(IS_ADMIN)renderCounts(); else renderHome(); }
@@ -7543,6 +7554,145 @@ function nickHistHtml(name){
   return `<div class="card" style="margin-top:14px"><h2>📛 닉네임 기록 <span class="muted" style="font-size:13.5px;font-weight:400">${m.size}개</span></h2>
     <div class="muted" style="font-size:12.5px;margin:2px 0 6px">같은 사람으로 확인된 이름들(닉변·부계 포함) — 내전 기록의 사용 기간·판수 기준</div>${rows}</div>`;
 }
+/* ============== 📊 플레이스타일 (2026-09-11 사장님 지시 "op.gg 플레이 스타일 페이지처럼 세부 데이터") ==============
+   CLASSIC_NORMAL 행(현재 패치 필터)의 '지표' 팩(g골드|cs|m분|kp킬관여|vs시야|cw제어와드|wp설치|wk제거|op오브젝트관여|tk포탑|dt받은피해|hs힐실드|dr용|br바론)
+   + KDA·딜량·AI점수·매치평가·진영·날짜로 만든다. 팀 비중(피해·골드)은 같은 게임 같은 진영 5명 합으로 계산.
+   비교는 '주 포지션 안에서' — 같은 포지션 5판 이상 클랜원의 백분위·중앙값(프로필 레이더와 같은 규칙). */
+const STYLE_M=[   // key, 라벨, 그룹, 소수, 단위, 높을수록 좋은가, 설명
+  ["kda","평점","core",2,"",1,"(킬+어시)/데스"],["kp","킬 관여율","core",0,"%",1,"팀 킬 중 내가 킬·어시로 관여한 비율"],
+  ["dshare","팀 피해 비중","combat",0,"%",1,"우리 팀 5명 챔피언 피해 합 중 내 몫"],["dpm","DPM","combat",0,"",1,"분당 챔피언 피해량"],
+  ["dtpm","분당 받은 피해","combat",0,"",0,"분당 받은 피해(탱커는 높은 게 정상)"],["hspm","분당 힐·실드","combat",0,"",1,"아군에게 준 힐+실드/분"],
+  ["dpg","골드 대비 딜","combat",2,"",1,"챔피언 피해 ÷ 획득 골드(골드 효율)"],
+  ["cspm","CSM","growth",1,"",1,"분당 CS(미니언+정글)"],["gpm","GPM","growth",0,"",1,"분당 골드"],["gshare","골드 비중","growth",0,"%",1,"우리 팀 골드 합 중 내 몫"],
+  ["vspm","VSPM","vision",2,"",1,"분당 시야 점수"],["wp","설치 와드","vision",1,"",1,"게임당 설치한 와드"],["wk","제거 와드","vision",1,"",1,"게임당 제거한 와드"],["cw","제어 와드 구매","vision",1,"",1,"게임당 산 제어 와드"],
+  ["op","오브젝트 관여","obj",0,"%",1,"팀 용·바론 처치 중 내가 관여한 비율"],["tk","포탑 처치","obj",1,"",1,"게임당 포탑 처치"],["dr","용 처치","obj",1,"",1,"게임당 용 처치"],["br","바론 처치","obj",1,"",1,"게임당 바론 처치"],
+  ["k","평균 킬","fight",1,"",1,""],["d","평균 데스","fight",1,"",0,""],["a","평균 어시","fight",1,"",1,""],["dead","데스당 피해","fight",0,"",1,"챔피언 피해 ÷ 데스(죽기 전에 얼마나 일했나)"],
+  ["ai","AI 점수","eval",1,"",1,"분석기 경기 채점 평균"],["mvpr","MVP율","eval",0,"%",1,"MVP 판정 비율"],["acer","ACE율","eval",0,"%",1,"ACE 판정 비율"],["badr","역적율","eval",0,"%",0,"역적 판정 비율"],
+];
+const STYLE_GROUP={core:"핵심",combat:"전투",growth:"성장",vision:"시야",obj:"오브젝트",fight:"교전",eval:"평가"};
+function styleRowMetrics(r){
+  const mt=parseMetrics(r)||{}, ko=parseKDA(r["KDA"])||{k:0,d:0,a:0};
+  const m=mt.m>0?mt.m:null, dmg=+(r["딜량"]||0)||0, ai=parseFloat(r["점수"]); 
+  let tdmg=0,tgold=0; const g=GAMES.get(r["게임ID"]);
+  if(g){ for(const x of g.rows){ if((x["진영"]||"")===(r["진영"]||"")){ tdmg+=(+(x["딜량"]||0)||0); const xm=parseMetrics(x); if(xm&&xm.g) tgold+=xm.g; } } }
+  return {m, k:ko.k,d:ko.d,a:ko.a, kda:(ko.k+ko.a)/Math.max(1,ko.d), kp:mt.kp!=null?mt.kp:null,
+    dshare:(tdmg>0&&dmg)?dmg/tdmg*100:null, dpm:(m&&dmg)?dmg/m:null, dtpm:(m&&mt.dt!=null)?mt.dt/m:null, hspm:(m&&mt.hs!=null)?mt.hs/m:null,
+    dpg:(mt.g>0&&dmg)?dmg/mt.g:null, cspm:(m&&mt.cs!=null)?mt.cs/m:null, gpm:(m&&mt.g!=null)?mt.g/m:null, gshare:(tgold>0&&mt.g)?mt.g/tgold*100:null,
+    vspm:(m&&mt.vs!=null)?mt.vs/m:null, wp:mt.wp!=null?mt.wp:null, wk:mt.wk!=null?mt.wk:null, cw:mt.cw!=null?mt.cw:null,
+    op:mt.op!=null?mt.op:null, tk:mt.tk!=null?mt.tk:null, dr:mt.dr!=null?mt.dr:null, br:mt.br!=null?mt.br:null,
+    dead:dmg?dmg/Math.max(1,ko.d):null, ai:isFinite(ai)?ai:null,
+    mvpr:r["매치평가"]==="MVP"?100:0, acer:r["매치평가"]==="ACE"?100:0, badr:r["매치평가"]==="역적"?100:0,
+    win:r["결과"]==="승리", dmg};
+}
+function styleAgg(rows){
+  const per=rows.map(styleRowMetrics), out={games:rows.length, wins:per.filter(p=>p.win).length};
+  for(const [k] of STYLE_M){ const v=per.map(p=>p[k]).filter(x=>x!=null&&isFinite(x)); out[k]=v.length?v.reduce((a,b)=>a+b,0)/v.length:null; out[k+"_n"]=v.length; }
+  const ms=per.map(p=>p.m).filter(Boolean); out.minTot=ms.reduce((a,b)=>a+b,0); out.minAvg=ms.length?out.minTot/ms.length:null;
+  return out;
+}
+let _STYLE_PCT={};
+function stylePct(pos){
+  if(_STYLE_PCT[pos]) return _STYLE_PCT[pos];
+  const all=[];
+  for(const [nm,parts] of PLAYERS){
+    const rows=parts.filter(r=>(r["포지션"]||"")===pos&&(r["결과"]==="승리"||r["결과"]==="패배"));
+    if(rows.length<5) continue; all.push(styleAgg(rows));
+  }
+  const cols={}; for(const [k] of STYLE_M) cols[k]=all.map(p=>p[k]).filter(v=>v!=null).sort((a,b)=>a-b);
+  const of=(k,v)=>{ const a=cols[k]; if(v==null||!a||a.length<5) return null; return Math.round(a.filter(x=>x<v).length/a.length*100); };
+  const med=k=>{ const a=cols[k]; if(!a||!a.length) return null; return a[Math.floor(a.length/2)]; };
+  return _STYLE_PCT[pos]={n:all.length,of,med};
+}
+function styleFmt(v,dec,unit){ if(v==null||!isFinite(v)) return "-"; return (dec?v.toFixed(dec):Math.round(v).toLocaleString())+(unit||""); }
+function styleDur(min){ if(!min) return "-"; const m=Math.floor(min), s=Math.round((min-m)*60); return `${m}:${String(s).padStart(2,"0")}`; }
+function styleHours(min){ if(!min) return "-"; const h=Math.floor(min/60), m=Math.round(min%60); return h?`${h}시간 ${m}분`:`${m}분`; }
+function renderStyle(name){
+  name=canonOfName(name); const parts=PLAYERS.get(name);
+  if(!parts){ view().innerHTML=`${navTabsHtml('home')}<div class="card" style="margin-top:10px">${esc(name)} — 이 기간 기록이 없어요. <span class="clickname" onclick="go('player','${escAttr(name)}')">프로필로</span></div>`; return; }
+  const rows=parts.filter(r=>r["결과"]==="승리"||r["결과"]==="패배").slice().sort((a,b)=>String(b["날짜"]).localeCompare(String(a["날짜"])));
+  const all=styleAgg(rows), rec=styleAgg(rows.slice(0,20));
+  const posAgg=new Map(); for(const r of rows){ const p=r["포지션"]||""; if(p) posAgg.set(p,(posAgg.get(p)||0)+1); }
+  const posTotal=[...posAgg.values()].reduce((a,b)=>a+b,0);
+  const mainPos=[...posAgg.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||"";
+  const selPos=(PROF_POS&&posAgg.get(PROF_POS))?PROF_POS:mainPos;
+  const posRows=rows.filter(r=>(r["포지션"]||"")===selPos), posA=styleAgg(posRows), posR=styleAgg(posRows.slice(0,20)), pct=selPos?stylePct(selPos):null;
+  const wr=all.games?Math.round(all.wins/all.games*100):0, wrR=rec.games?Math.round(rec.wins/rec.games*100):0;
+  // 챔피언 풀
+  const cc=new Map(); for(const r of rows){ const c=r["챔피언"]; if(c) cc.set(c,(cc.get(c)||0)+1); }
+  const cs=[...cc.entries()].sort((a,b)=>b[1]-a[1]); const conc=n=>rows.length?Math.round(cs.slice(0,n).reduce((a,[_,v])=>a+v,0)/rows.length*100):0;
+  const posChamp=POS_LIST.map(p=>{ const s=new Set(rows.filter(r=>(r["포지션"]||"")===p).map(r=>r["챔피언"]).filter(Boolean)); return [p,s.size,posAgg.get(p)||0]; });
+  // 진영
+  const side=s=>{ const x=rows.filter(r=>String(r["진영"]||"").includes(s)); const w=x.filter(r=>r["결과"]==="승리").length; return {n:x.length,w,wr:x.length?Math.round(w/x.length*100):null}; };
+  const blue=side("블루"), red=side("레드");
+  // 활동 패턴
+  const DAYS=["일","월","화","수","목","금","토"]; const byDay=Array.from({length:7},()=>({n:0,w:0})), byHour=Array.from({length:24},()=>({n:0,w:0})); let hourN=0;
+  for(const r of rows){ const d=new Date(String(r["날짜"]).replace(/-/g,"/")); if(isNaN(d)) continue; const w=r["결과"]==="승리"; byDay[d.getDay()].n++; if(w) byDay[d.getDay()].w++;
+    if(String(r["날짜"]).length>=16){ byHour[d.getHours()].n++; if(w) byHour[d.getHours()].w++; hourN++; } }
+  const maxDay=Math.max(1,...byDay.map(x=>x.n)), maxHour=Math.max(1,...byHour.map(x=>x.n));
+  const bar=(label,x,max)=>`<div class="st-bar"><span class="st-bl">${label}</span><span class="st-bb"><i style="width:${Math.round(x.n/max*100)}%"></i></span><span class="st-bv">${x.n}판${x.n?` · ${Math.round(x.w/x.n*100)}%`:''}</span></div>`;
+  // 레이더 7축(포지션 백분위)
+  const AX=[["평점","kda"],["킬 관여","kp"],["팀 피해","dshare"],["DPM","dpm"],["CSM","cspm"],["GPM","gpm"],["VSPM","vspm"]];
+  const axes=AX.map(([label,k])=>({label,v:pct?pct.of(k,posA[k]):null,raw:posA[k]}));
+  const radar=(pct&&pct.n>=5&&posRows.length>=5&&axes.filter(a=>a.v!=null).length>=4)
+    ? `<div class="radarbox" style="width:auto">${radarSvg(axes.map(a=>({label:a.label,v:a.v||0})),236,{grades:true,avg:true})}
+       <div class="radar-lg"><span class="lg-me">■ ${esc(shortName(name))}</span><span class="lg-avg">▨ ${esc(selPos)} 클랜 중앙값</span></div>
+       <div class="radarcap muted">${esc(selPos)} ${posRows.length}판 · 같은 포지션 5판 이상 클랜원 ${pct.n}명 중 등급</div></div>`
+    : `<div class="muted" style="font-size:13px;padding:14px">${esc(selPos||'포지션')} 5판 이상 + 비교군 5명이 되면 레이더가 열립니다 (지금 ${posRows.length}판)</div>`;
+  const axTbl=`<table class="st-tbl"><thead><tr><th>지표</th><th class="num">내 값</th><th class="num">중앙값</th><th class="num">등급</th></tr></thead><tbody>`+
+    axes.map(a=>{ const m=STYLE_M.find(x=>x[0]===AX.find(y=>y[0]===a.label)[1]); const g=a.v!=null?radarGrade(a.v):null;
+      return `<tr><td>${a.label}</td><td class="num">${styleFmt(a.raw,m[3],m[4])}</td><td class="num muted">${styleFmt(pct?pct.med(m[0]):null,m[3],m[4])}</td><td class="num">${g?`<b style="color:${g[2]}">${g[1]}</b> <span class="muted" style="font-size:11px">상위 ${Math.max(1,100-a.v)}%</span>`:'-'}</td></tr>`; }).join("")+`</tbody></table>`;
+  // 세부 지표 표(그룹별): 최근 20 / 전체 / 포지션 중앙값 / 등급(포지션 백분위, 전체 기준)
+  const groups=Object.keys(STYLE_GROUP).filter(g=>g!=="core");
+  const detail=groups.map(gk=>{
+    const ms=STYLE_M.filter(m=>m[2]===gk); if(!ms.some(m=>all[m[0]]!=null)) return '';
+    return `<div class="card st-card"><h3>${STYLE_GROUP[gk]} <span class="muted">${esc(selPos||'')} ${posRows.length}판</span></h3><table class="st-tbl"><thead><tr><th>지표</th><th class="num">최근 20</th><th class="num">전체</th><th class="num">${esc(selPos||'포지션')} 중앙값</th><th class="num">등급</th></tr></thead><tbody>`+
+      ms.map(m=>{ const [k,label,_g,dec,unit,hi,tip]=m; const v=posA[k]; if(v==null) return '';
+        let p=pct?pct.of(k,v):null; if(p!=null&&!hi) p=100-p; const g=p!=null?radarGrade(p):null;
+        return `<tr title="${escAttr(tip||label)}"><td>${label}</td><td class="num">${styleFmt(posR[k],dec,unit)}</td><td class="num"><b>${styleFmt(v,dec,unit)}</b></td><td class="num muted">${styleFmt(pct?pct.med(k):null,dec,unit)}</td><td class="num">${g?`<b style="color:${g[2]}">${g[1]}</b>`:'-'}</td></tr>`; }).join("")+`</tbody></table></div>`;
+  }).join("");
+  const cmp=(label,a,b,fmt,unit)=>{ const d=(a!=null&&b!=null)?a-b:null; const cls=d==null?'':(d>0?'st-up':(d<0?'st-dn':'')); return `<div class="cmp"><span class="cmp-k">${label}</span><span class="cmp-v">${fmt(a)}</span><span class="st-sub muted">시즌 ${fmt(b)} <b class="${cls}">${d==null?'':(d>0?'+':'')+(unit==='%'?Math.round(d)+'%p':d.toFixed(2))}</b></span></div>`; };
+  const sample=rows.slice(0,5).map(r=>{ const ko=parseKDA(r["KDA"])||{k:0,d:0,a:0}, mt=parseMetrics(r)||{}; return `<div class="st-samp" onclick="go('game','${escAttr(r["게임ID"])}')">${champImg(r["챔피언"],"sm")}<span>${esc(r["챔피언"]||'')}</span><span class="muted">${esc(r["포지션"]||'')}</span><span class="muted">${styleDur(mt.m)}</span><span>${ko.k}/${ko.d}/${ko.a}</span><b style="color:${r["결과"]==="승리"?'var(--win)':'var(--lose)'}">${r["결과"]==="승리"?'승':'패'}</b></div>`; }).join("");
+  view().innerHTML=`${navTabsHtml('home')}
+  <div class="card" style="margin-top:10px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">📊 ${esc(shortName(name))}의 플레이스타일</h2>
+      <span class="muted" style="font-size:12.5px">${(PATCH_SEL==="ALL"||PATCH_SEL==null)?'전체 기간':'패치 '+esc(PATCH_SEL)} · 내전 ${rows.length}판</span>
+      <span class="clickname" style="margin-left:auto" onclick="go('player','${escAttr(name)}')">← 프로필</span></div>
+    <div class="cmpgrid" style="margin-top:10px">
+      <div class="cmp"><span class="cmp-k">게임</span><span class="cmp-v">${all.games}</span></div>
+      <div class="cmp"><span class="cmp-k">승패</span><span class="cmp-v">${all.wins}승 ${all.games-all.wins}패</span></div>
+      <div class="cmp ${wr>=50?'cmp-good':'cmp-bad'}"><span class="cmp-k">승률</span><span class="cmp-v">${wr}%</span></div>
+      <div class="cmp"><span class="cmp-k">평점</span><span class="cmp-v">${styleFmt(all.kda,2)}:1</span></div>
+      <div class="cmp"><span class="cmp-k">총 플레이 시간</span><span class="cmp-v" style="font-size:14px">${styleHours(all.minTot)}</span></div>
+      <div class="cmp"><span class="cmp-k">평균 게임 시간</span><span class="cmp-v">${styleDur(all.minAvg)}</span></div>
+      <div class="cmp"><span class="cmp-k">챔피언 풀</span><span class="cmp-v">${cs.length}</span></div>
+    </div>
+  </div>
+  <div class="st-grid">
+    <div class="card st-card"><h3>퍼포먼스 <span class="muted">최근 20게임 vs 시즌</span></h3><div class="cmpgrid">
+      ${cmp("승률",wrR,wr,v=>v+"%","%")}${cmp("평균 KDA",rec.kda,all.kda,v=>styleFmt(v,2))}${cmp("킬 관여율",rec.kp,all.kp,v=>styleFmt(v,0,"%"),"%")}${cmp("AI 점수",rec.ai,all.ai,v=>styleFmt(v,1))}
+      ${cmp("평균 게임 시간",rec.minAvg,all.minAvg,styleDur)}${cmp("MVP율",rec.mvpr,all.mvpr,v=>styleFmt(v,0,"%"),"%")}</div></div>
+    <div class="card st-card">${posStyleHtml(rows,posAgg,posTotal,mainPos).replace("selProfPos(","selStylePos(")}</div>
+    <div class="card st-card"><h3>챔피언 풀</h3><div class="cmpgrid">
+      <div class="cmp"><span class="cmp-k">플레이 챔피언</span><span class="cmp-v">${cs.length}</span></div>
+      <div class="cmp"><span class="cmp-k">주 챔피언 집중도</span><span class="cmp-v">${conc(1)}%</span><span class="st-sub muted">${esc((cs[0]||[""])[0])}</span></div>
+      <div class="cmp"><span class="cmp-k">Top 3 집중도</span><span class="cmp-v">${conc(3)}%</span></div>
+      <div class="cmp"><span class="cmp-k">Top 5 집중도</span><span class="cmp-v">${conc(5)}%</span></div></div>
+      <table class="st-tbl" style="margin-top:8px"><thead><tr><th>포지션</th><th class="num">챔피언 수</th><th class="num">판수</th></tr></thead><tbody>${posChamp.map(([p,n,g])=>`<tr><td>${p}</td><td class="num">${n}</td><td class="num">${g}</td></tr>`).join("")}</tbody></table></div>
+    <div class="card st-card"><h3>진영별</h3><div class="cmpgrid">
+      <div class="cmp"><span class="cmp-k">🟦 블루 승률</span><span class="cmp-v" style="color:#7aa2ff">${blue.wr==null?'-':blue.wr+'%'}</span><span class="st-sub muted">${blue.n}판</span></div>
+      <div class="cmp"><span class="cmp-k">🟥 레드 승률</span><span class="cmp-v" style="color:#ff7a8a">${red.wr==null?'-':red.wr+'%'}</span><span class="st-sub muted">${red.n}판</span></div>
+      <div class="cmp"><span class="cmp-k">격차</span><span class="cmp-v">${(blue.wr!=null&&red.wr!=null)?(blue.wr>=red.wr?'블루 +'+(blue.wr-red.wr):'레드 +'+(red.wr-blue.wr))+'%p':'-'}</span></div>
+      <div class="cmp"><span class="cmp-k">선택 비중</span><span class="cmp-v" style="font-size:13px">블루 ${rows.length?Math.round(blue.n/rows.length*100):0}% · 레드 ${rows.length?Math.round(red.n/rows.length*100):0}%</span></div></div></div>
+    <div class="card st-card"><h3>활동 패턴 <span class="muted">요일별</span></h3>${byDay.map((x,i)=>bar(DAYS[i],x,maxDay)).join("")}</div>
+    <div class="card st-card"><h3>활동 패턴 <span class="muted">시간대별${hourN<rows.length?` · 시각 기록 ${hourN}판`:''}</span></h3>${byHour.map((x,i)=>x.n?bar(String(i).padStart(2,"0")+"시",x,maxHour):'').join("")||'<div class="muted" style="font-size:13px">시각이 기록된 판이 없어요</div>'}</div>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>퍼포먼스 지표 <span class="muted" style="font-size:12.5px;font-weight:400">· ${esc(selPos||'')} 기준 · 포지션 타일을 눌러 다른 자리 보기</span></h2>
+    <div class="st-radar-row">${radar}<div style="flex:1;min-width:240px">${axTbl}</div></div></div>
+  <div class="st-grid">${detail}</div>
+  <div class="card" style="margin-top:14px"><h2>표본 게임 <span class="muted" style="font-size:12.5px;font-weight:400">최근 5판</span></h2>${sample||'<div class="muted">없음</div>'}</div>`;
+}
+function selStylePos(p){ PROF_POS=(PROF_POS===p?null:p); const y=window.scrollY; renderStyle(CUR_PLAYER||history.state?.arg); window.scrollTo(0,y); }
+
 function renderPlayer(name){
   name=canonOfName(name);                 // 옛 닉으로 들어와도 최신 닉 프로필로 통합
   if(CUR_PLAYER!==name){ MOST_EXPANDED=false; PROF_POS=null; }   // 다른 선수로 이동 시 펼침·포지션 선택 초기화
@@ -7847,7 +7997,7 @@ function renderPlayer(name){
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${statBox}
         </div>
-        <div class="sidecol">${brjSpriteHtml(name)}${radarHtml}
+        <div class="sidecol">${brjSpriteHtml(name)}${radarHtml}<button class="st-link" onclick="go('style','${escAttr(name)}')">📊 플레이스타일 자세히</button>
           <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
           <div class="side-rec">${w+l}전 <b style="color:var(--win)">${w}승</b> <b style="color:var(--lose)">${l}패</b></div>
         </div>
@@ -8237,7 +8387,7 @@ async function loadCategory(key, preP, keep){
     loadbar(100);
     if(keep){   // 보고 있던 화면을 그대로 두고 새 데이터로 다시 그린다(패치 전환과 같은 규칙)
       const _cur=(history.state&&history.state.route)||'home', _arg=history.state?history.state.arg:null;
-      const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','myeol','mito','game','report','donate','rival','brjang']);
+      const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','myeol','mito','game','report','donate','rival','brjang','style']);
       go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
     } else go('home');
   }catch(e){
@@ -8282,7 +8432,7 @@ function switchPatch(sel){
   const _arg=history.state?history.state.arg:null;
   // [2026-07-31 사장님 지시] 선수 페이지도 유지 — 홈으로 튕기지 말고 그 선수의 해당 패치 전적을 바로 보여준다.
   //   그 패치에 기록이 없으면 renderPlayer 가 '이 기간엔 기록 없음' 안내를 띄운다(전체 보기 버튼 포함).
-  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','rival','brjang']);
+  const _KEEP=new Set(['home','log','counts','champ','champlog','mastery','tiers','ach','army','gpti','hof','player','market','cal','duo','rival','brjang','style']);
   go(_KEEP.has(_cur)?_cur:'home', _KEEP.has(_cur)?_arg:null);
 }
 
@@ -8726,7 +8876,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609110005";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609110319";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
