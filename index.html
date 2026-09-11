@@ -8071,6 +8071,26 @@ function stylePct(pos){
 function styleFmt(v,dec,unit){ if(v==null||!isFinite(v)) return "-"; return (dec?v.toFixed(dec):Math.round(v).toLocaleString())+(unit||""); }
 function styleDur(min){ if(!min) return "-"; const m=Math.floor(min), s=Math.round((min-m)*60); return `${m}:${String(s).padStart(2,"0")}`; }
 function styleHours(min){ if(!min) return "-"; const h=Math.floor(min/60), m=Math.round(min%60); return h?`${h}시간 ${m}분`:`${m}분`; }
+// 💸 [2026-09-11 사장님 지시] 총 플레이 시간 재미 환산 — 알바했으면 얼마, 영화 몇 편, 치킨 몇 마리…
+const MIN_WAGE_KRW=10320;   // 2026년 최저시급(원)
+function styleTimeFunHtml(min){
+  if(!min||min<60) return '';
+  const h=min/60, won=Math.round(h*MIN_WAGE_KRW);
+  const krw=n=>n>=1e8?`${(n/1e8).toFixed(1)}억원`:n>=1e4?`${Math.round(n/1e4).toLocaleString()}만원`:`${n.toLocaleString()}원`;
+  const items=[
+    ["💸 알바했다면",krw(won),`최저시급 ${MIN_WAGE_KRW.toLocaleString()}원 × ${h.toFixed(0)}시간`],
+    ["🍗 치킨으로",`${Math.floor(won/22000)}마리`,"그 돈으로 2만2천원 치킨"],
+    ["🎬 영화로",`${Math.floor(h/2)}편`,"2시간 영화 기준"],
+    ["🚄 서울↔부산",`${Math.floor(h/5.4)}회 왕복`,"KTX 편도 2시간 40분"],
+    ["😴 수면으로",`${(h/8).toFixed(0)}일치`,"하루 8시간 잠"],
+    ["📚 토익 공부",`${(h/300*100).toFixed(0)}%`,"300시간 = 목표 점수 1회분"],
+    ["🌍 지구 한 바퀴",`${(h*900/40075*100).toFixed(1)}%`,"여객기 900km/h로 4만km"],
+    ["🏃 마라톤",`${Math.floor(h/4.5)}완주`,"초보 4시간 30분 기준"],
+  ];
+  return `<details class="st-fun" style="margin-top:8px"><summary class="muted" style="cursor:pointer;font-size:12.5px">⏳ 이 시간에 다른 걸 했다면? <span style="opacity:.7">— 총 플레이 시간 ${styleHours(min)} 환산 (재미용)</span></summary>
+    <div class="cmpgrid" style="margin-top:8px">${items.map(([k,v,r])=>`<div class="cmp"><span class="cmp-k">${k}</span><b class="cmp-v" style="font-size:15px">${v}</b><span class="cmp-r">${r}</span></div>`).join('')}</div>
+  </details>`;
+}
 function renderStyle(name){
   name=canonOfName(name); const parts=PLAYERS_ALL.get(name)||PLAYERS.get(name);
   if(!parts){ view().innerHTML=`${navTabsHtml('home')}<div class="card" style="margin-top:10px">${esc(name)} — 기록이 없어요. <span class="clickname" onclick="go('player','${escAttr(name)}')">프로필로</span></div>`; return; }
@@ -8135,6 +8155,7 @@ function renderStyle(name){
       <div class="cmp"><span class="cmp-k">평균 게임 시간</span><span class="cmp-v">${styleDur(all.minAvg)}</span></div>
       <div class="cmp"><span class="cmp-k">챔피언 풀</span><span class="cmp-v">${cs.length}</span></div>
     </div>
+    ${styleTimeFunHtml(all.minTot)}
   </div>
   <div class="st-grid">
     <div class="card st-card"><h3>퍼포먼스 <span class="muted">최근 20게임 vs 시즌</span></h3><div class="cmpgrid">
@@ -9366,7 +9387,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609111200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609111230";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
