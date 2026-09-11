@@ -793,6 +793,18 @@
     border-radius:12px;padding:10px 13px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
   .cmpbox-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:8px}
   .cmpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:7px}
+  /* 👑 MVP·ACE 카드 효과 — 황금 테두리+반짝임 / 은색 은은한 반짝임 */
+  @keyframes evShine{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  @keyframes evGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,210,74,.55),0 0 14px rgba(255,190,40,.28)}50%{box-shadow:0 0 0 1px rgba(255,230,120,.95),0 0 26px rgba(255,200,60,.55)}}
+  @keyframes evGlowS{0%,100%{box-shadow:0 0 0 1px rgba(200,210,230,.45),0 0 10px rgba(190,200,220,.18)}50%{box-shadow:0 0 0 1px rgba(230,236,248,.8),0 0 18px rgba(200,210,230,.38)}}
+  .match.ev-mvp{position:relative;border-color:#ffd24a!important;border-left-color:#ffd24a!important;animation:evGlow 2.4s ease-in-out infinite}
+  .match.ev-mvp::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;background:linear-gradient(115deg,transparent 30%,rgba(255,240,170,.28) 45%,rgba(255,255,255,.55) 50%,rgba(255,240,170,.28) 55%,transparent 70%);background-size:250% 100%;animation:evShine 3.2s linear infinite;mix-blend-mode:screen}
+  .match.ev-ace{position:relative;border-color:#c9d3e6!important;border-left-color:#c9d3e6!important;animation:evGlowS 3.2s ease-in-out infinite}
+  .match.ev-ace::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(220,228,240,.14) 48%,rgba(255,255,255,.3) 50%,rgba(220,228,240,.14) 52%,transparent 65%);background-size:250% 100%;animation:evShine 4.5s linear infinite;mix-blend-mode:screen}
+  .logrow.ev-mvp{box-shadow:inset 3px 0 0 #ffd24a,0 0 10px rgba(255,200,60,.18)}.logrow.ev-ace{box-shadow:inset 3px 0 0 #c9d3e6}
+  /* 🧾 챔피언 상세 */
+  .cp-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0}.cp-l{min-width:52px;color:var(--sub)}.cp-bar{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}.cp-bar i{display:block;height:100%;background:linear-gradient(90deg,#ff8a3d,#ffd24a);border-radius:4px}.cp-n{min-width:40px;text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}.cp-wr{min-width:40px;text-align:right}
+  .cp-ic{display:inline-flex;align-items:center;gap:2px;vertical-align:middle}.cp-ic .itm,.cp-ic .rn,.cp-ic .sp{width:24px;height:24px;border-radius:5px}.cp-ic .rn.ks{width:26px;height:26px}
   /* 📊 플레이스타일 */
   .st-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px}
   .st-card h3{margin:0 0 8px;font-size:15px}.st-card h3 .muted{font-size:12px;font-weight:400;margin-left:6px}
@@ -7295,53 +7307,117 @@ function renderDuo(){
 }
 
 // 🏆 챔피언 전적 상세 — 홈 챔피언 통계에서 챔피언 클릭 시 해당 챔피언이 사용된 게임만 나열
+/* ============== 🧾 챔피언 상세 (2026-09-11 사장님 지시 "lol.ps 챔피언 페이지처럼 세부 통계") ==============
+   내전 데이터로: 픽·밴·승률 → 라인 분포(라인 선택으로 아래 전부 필터) → 룬·스펠 조합 → 완성 아이템·핵심 3코어·신발 →
+   지표 평균(같은 라인 클랜 중앙값 비교) → 게임 시간대별 승률 → 패치별 추이(전체 기간) → 맞상대(같은 라인 상대 챔프) → 시너지(같은 팀 챔프) → 사용 기록. */
+let CHAMP_LANE="ALL";
+function setChampLane(l){ CHAMP_LANE=l; const y=window.scrollY; renderChampLog(history.state?.arg||CUR_CHAMP); window.scrollTo(0,y); }
+let CUR_CHAMP=null;
+const BOOT_IDS=new Set(["3006","3009","3020","3047","3111","3117","3158","3010","1001"]);
+function champEntries(champ,map){ const out=[]; for(const g of map.values()){ for(const r of g.rows){ if(r["챔피언"]===champ&&(r["결과"]==="승리"||r["결과"]==="패배")) out.push({g,r}); } } return out; }
+function wrRow(label,n,w,max,extra){ const wr=n?Math.round(w/n*100):0; return `<div class="cp-row"><span class="cp-l">${label}</span><span class="cp-bar"><i style="width:${max?Math.round(n/max*100):0}%"></i></span><span class="cp-n">${n}판</span><b class="cp-wr" style="color:${wr>=50?'var(--win)':'var(--lose)'}">${n?wr+'%':'-'}</b>${extra||''}</div>`; }
 function renderChampLog(champ){
-  const entries=[];   // {g, r} — 이 챔피언이 픽된 게임의 해당 행
-  for(const g of GAMES.values()){
-    for(const r of g.rows){
-      if(r["챔피언"]===champ&&(r["결과"]==="승리"||r["결과"]==="패배")) entries.push({g,r});
-    }
-  }
-  entries.reverse();   // 최신순
-  const wins=entries.filter(e=>e.r["결과"]==="승리").length, total=entries.length;
-  const wr=pct(wins,total);
-  const c=champTierData().find(x=>x.champ===champ);
-  const bans=c?c.bans:0;
-  // 많이 쓴 플레이어 TOP 5
-  const byP=new Map();
-  for(const e of entries){const n=e.r["소환사명"];if(n)byP.set(n,(byP.get(n)||0)+1);}
-  const topP=[...byP.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5)
-    .map(([n,cnt])=>`<span class="clickname" onclick="go('player','${escAttr(n)}')">${esc(shortName(n))}</span> <span class="muted">${cnt}판</span>`).join(" · ");
+  CUR_CHAMP=champ;
+  const allE=champEntries(champ,GAMES), lanes=new Map();
+  for(const e of allE){ const p=e.r["포지션"]||""; if(p&&p!=="선택안함") lanes.set(p,(lanes.get(p)||0)+1); }
+  if(CHAMP_LANE!=="ALL"&&!lanes.get(CHAMP_LANE)) CHAMP_LANE="ALL";
+  const entries=(CHAMP_LANE==="ALL"?allE:allE.filter(e=>(e.r["포지션"]||"")===CHAMP_LANE)).slice().sort((a,b)=>String(b.g.date).localeCompare(String(a.g.date)));
+  const wins=entries.filter(e=>e.r["결과"]==="승리").length, total=entries.length, wr=pct(wins,total);
+  const c=champTierData().find(x=>x.champ===champ); const bans=c?c.bans:0; const gTot=GAMES.size||1;
+  const byP=new Map(); for(const e of entries){const n=canonOfRow(e.r);if(n)byP.set(n,(byP.get(n)||0)+1);}
+  const topP=[...byP.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,cnt])=>`<span class="clickname" onclick="go('player','${escAttr(n)}')">${esc(shortName(n))}</span> <span class="muted">${cnt}판</span>`).join(" · ");
+  const laneChips=`<div class="st-ptabs"><button class="pchip ${CHAMP_LANE==="ALL"?"on":""}" onclick="setChampLane('ALL')">전체 ${allE.length}</button>`+POS_LIST.filter(p=>lanes.get(p)).map(p=>`<button class="pchip ${CHAMP_LANE===p?"on":""}" onclick="setChampLane('${p}')">${p} ${lanes.get(p)}</button>`).join("")+`</div>`;
+  const laneMax=Math.max(1,...[...lanes.values()]);
+  const laneRows=POS_LIST.filter(p=>lanes.get(p)).map(p=>{ const es=allE.filter(e=>(e.r["포지션"]||"")===p); return wrRow(p,es.length,es.filter(e=>e.r["결과"]==="승리").length,laneMax); }).join("");
+  // 조합 집계 헬퍼
+  const agg=(keyFn)=>{ const m=new Map(); for(const e of entries){ const k=keyFn(e.r); if(!k) continue; const o=m.get(k)||{n:0,w:0,r:e.r}; o.n++; if(e.r["결과"]==="승리") o.w++; m.set(k,o);} return [...m.entries()].map(([k,o])=>({k,...o})).sort((a,b)=>b.n-a.n||b.w/b.n-a.w/a.n); };
+  const comboTbl=(list,cellFn,top=6)=>list.length?`<table class="st-tbl"><thead><tr><th>조합</th><th class="num">픽률</th><th class="num">승률</th></tr></thead><tbody>`+list.slice(0,top).map(o=>`<tr><td>${cellFn(o)}</td><td class="num">${Math.round(o.n/total*100)}% <span class="muted">(${o.n})</span></td><td class="num" style="color:${o.w/o.n>=.5?'var(--win)':'var(--lose)'}"><b>${Math.round(o.w/o.n*100)}%</b></td></tr>`).join("")+`</tbody></table>`:'<div class="muted" style="font-size:13px">기록 없음</div>';
+  const runeImg=id=>{const p=PERKMAP[String(id)]; return p?`<img class="rn" src="https://ddragon.leagueoflegends.com/cdn/img/${p.icon}" title="${escAttr(p.name)}" loading="lazy" onerror="this.remove()">`:'';};
+  const runes=agg(r=>{ const ks=String(r["주룬"]||"").split("|")[0], st=String(r["보조룬"]||"").trim(); return (ks&&st)?ks+"|"+st:null; });
+  const runeHtml=comboTbl(runes,o=>{const [ks,st]=o.k.split("|"); return `<span class="cp-ic">${runeImg(ks)}${runeImg(st)}</span> <span class="muted" style="font-size:12px">${esc((PERKMAP[ks]||{}).name||ks)} · ${esc((PERKMAP[st]||{}).name||st)}</span>`;});
+  const spells=agg(r=>{ const p=String(r["스펠"]||"").split("|").map(x=>x.trim()).filter(Boolean); return p.length===2?p.slice().sort().join("|"):null; });
+  const spImg=k=>{const s=SPELLMAP[k]; return s?`<img class="sp" src="https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/spell/${s.img}" title="${escAttr(s.name)}" loading="lazy" onerror="this.remove()">`:esc(k);};
+  const spellHtml=comboTbl(spells,o=>`<span class="cp-ic">${o.k.split("|").map(spImg).join("")}</span>`);
+  const itemImg=id=>`<img class="itm" src="https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/item/${id}.png" title="${escAttr(ITEMNAME[id]||("아이템 "+id))}" loading="lazy" onerror="this.remove()">`;
+  const finalsOf=r=>String(r["아이템"]||"").split("|").map(x=>x.trim()).filter(x=>/^\d+$/.test(x)&&ITEMFINAL.has(x)&&!BOOT_IDS.has(x));
+  const items=(()=>{ const m=new Map(); for(const e of entries){ for(const id of new Set(finalsOf(e.r))){ const o=m.get(id)||{n:0,w:0}; o.n++; if(e.r["결과"]==="승리") o.w++; m.set(id,o);} } return [...m.entries()].map(([k,o])=>({k,...o})).sort((a,b)=>b.n-a.n); })();
+  const itemHtml=comboTbl(items,o=>`<span class="cp-ic">${itemImg(o.k)}</span> <span class="muted" style="font-size:12px">${esc(ITEMNAME[o.k]||o.k)}</span>`,8);
+  const cores=agg(r=>{ const f=finalsOf(r); return f.length>=3?f.slice(0,3).join("|"):null; });
+  const coreHtml=comboTbl(cores,o=>`<span class="cp-ic">${o.k.split("|").map(itemImg).join("")}</span>`,5);
+  const boots=agg(r=>{ const b=String(r["아이템"]||"").split("|").map(x=>x.trim()).find(x=>BOOT_IDS.has(x)&&x!=="1001"); return b||null; });
+  const bootHtml=comboTbl(boots,o=>`<span class="cp-ic">${itemImg(o.k)}</span> <span class="muted" style="font-size:12px">${esc(ITEMNAME[o.k]||o.k)}</span>`,4);
+  // 지표 평균 vs 같은 라인 클랜 중앙값
+  const lane=CHAMP_LANE!=="ALL"?CHAMP_LANE:([...lanes.entries()].sort((a,b)=>b[1]-a[1])[0]||[""])[0];
+  const mine=styleAgg(entries.map(e=>e.r)); const pctL=lane?stylePct(lane):null;
+  const MET=[["kda","평점",2,""],["kp","킬 관여율",0,"%"],["dpm","DPM",0,""],["dshare","팀 피해 비중",0,"%"],["cspm","CSM",1,""],["gpm","GPM",0,""],["vspm","VSPM",2,""],["dtpm","분당 받은 피해",0,""],["ai","AI 점수",1,""]];
+  const metHtml=`<table class="st-tbl"><thead><tr><th>지표</th><th class="num">${esc(champ)}</th><th class="num">${esc(lane||'라인')} 중앙값</th></tr></thead><tbody>`+MET.map(([k,l,d,u])=>mine[k]==null?'':`<tr><td>${l}</td><td class="num"><b>${styleFmt(mine[k],d,u)}</b></td><td class="num muted">${styleFmt(pctL?pctL.med(k):null,d,u)}</td></tr>`).join("")+`</tbody></table>`;
+  // 게임 시간대별
+  const durB=[["~25분",0,25],["25~30",25,30],["30~35",30,35],["35~40",35,40],["40분~",40,999]].map(([l,a,b])=>{ const es=entries.filter(e=>{const m=(parseMetrics(e.r)||{}).m; return m&&m>=a&&m<b;}); return [l,es.length,es.filter(e=>e.r["결과"]==="승리").length]; });
+  const durMax=Math.max(1,...durB.map(x=>x[1])); const durHtml=durB.map(([l,n,w])=>wrRow(l,n,w,durMax)).join("");
+  // 패치별 추이(전체 기간)
+  const allTime=champEntries(champ,GAMES_ALL.size?GAMES_ALL:GAMES).filter(e=>CHAMP_LANE==="ALL"||(e.r["포지션"]||"")===CHAMP_LANE);
+  const byPatch=new Map(); for(const e of allTime){ const p=String(e.r["패치버전"]||"?"); const o=byPatch.get(p)||{n:0,w:0}; o.n++; if(e.r["결과"]==="승리") o.w++; byPatch.set(p,o); }
+  const patches=[...byPatch.entries()].sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true})); const pMax=Math.max(1,...patches.map(x=>x[1].n));
+  const patchHtml=patches.map(([p,o])=>wrRow(p,o.n,o.w,pMax)).join("");
+  // 맞상대·시너지
+  const vs=new Map(), syn=new Map();
+  for(const e of entries){ const my=e.r["진영"]||"", pos=e.r["포지션"]||"", win=e.r["결과"]==="승리";
+    for(const x of e.g.rows){ if(x===e.r||!x["챔피언"]) continue;
+      if((x["진영"]||"")===my){ const o=syn.get(x["챔피언"])||{n:0,w:0}; o.n++; if(win) o.w++; syn.set(x["챔피언"],o); }
+      else if(pos&&(x["포지션"]||"")===pos){ const o=vs.get(x["챔피언"])||{n:0,w:0}; o.n++; if(win) o.w++; vs.set(x["챔피언"],o); } } }
+  const list=(m,minN)=>[...m.entries()].filter(([_,o])=>o.n>=minN).map(([k,o])=>({k,...o,wr:o.w/o.n}));
+  const vsL=list(vs,2), synL=list(syn,2);
+  const champRows=(arr,top)=>arr.slice(0,top).map(o=>`<div class="cp-row" onclick="go('champlog','${escAttr(o.k)}')" style="cursor:pointer">${champImg(o.k,"sm")}<span class="cp-l" style="min-width:0;flex:1">${esc(o.k)}</span><span class="cp-n">${o.n}판</span><b class="cp-wr" style="color:${o.wr>=.5?'var(--win)':'var(--lose)'}">${Math.round(o.wr*100)}%</b></div>`).join("")||'<div class="muted" style="font-size:13px">2판 이상 기록 없음</div>';
+  const hard=champRows(vsL.slice().sort((a,b)=>a.wr-b.wr||b.n-a.n),6), easy=champRows(vsL.slice().sort((a,b)=>b.wr-a.wr||b.n-a.n),6);
+  const synG=champRows(synL.slice().sort((a,b)=>b.wr-a.wr||b.n-a.n),6), synB=champRows(synL.slice().sort((a,b)=>a.wr-b.wr||b.n-a.n),6);
+  // 사용 기록
   const rows=entries.map(e=>{
-    const win=e.r["결과"]==="승리";
-    const kda=e.r["KDA"]||"-";
-    const o=parseKDA(kda);
-    return `<div class="logrow" onclick="go('game','${escAttr(e.g.id)}')" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    const win=e.r["결과"]==="승리", kda=e.r["KDA"]||"-", o=parseKDA(kda), ev=e.r["매치평가"];
+    return `<div class="logrow ${ev==="MVP"?'ev-mvp':ev==="ACE"?'ev-ace':''}" onclick="go('game','${escAttr(e.g.id)}')" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="lr-date">${esc(e.g.date||'')||'-'}</div>
       <span style="font-weight:800;color:${win?'var(--win)':'var(--lose)'};min-width:30px">${win?'승':'패'}</span>
-      <span class="clickname" onclick="event.stopPropagation();go('player','${escAttr(e.r["소환사명"]||'')}')">${esc(shortName(e.r["소환사명"]||'-'))}</span>${tierBadge(e.r["소환사명"]||'')}
+      <span class="clickname" onclick="event.stopPropagation();go('player','${escAttr(canonOfRow(e.r)||'')}')">${esc(shortName(canonOfRow(e.r)||'-'))}</span>${tierBadge(canonOfRow(e.r)||'')}
       <span class="muted" style="font-size:12.5px">${esc(e.r["포지션"]&&e.r["포지션"]!=="선택안함"?e.r["포지션"]:'')}</span>
       <span style="font-size:13px;color:${o?kdaColor(kdaRatio(o)):'var(--sub)'}">${esc(kda)}${o?` <span class="muted">(${kdaRatioStr(o)})</span>`:''}</span>
       ${aiScoreChip(e.r)}
-      ${e.r["매치평가"]==="MVP"?'<span style="color:var(--gold);font-weight:800;font-size:12px">MVP</span>':e.r["매치평가"]==="ACE"?'<span style="color:#9db8ff;font-weight:800;font-size:12px">ACE</span>':e.r["매치평가"]==="역적"?'<span style="color:var(--lose);font-weight:800;font-size:12px">역적</span>':''}
+      ${ev==="MVP"?'<span class="badge b-mvp">MVP</span>':ev==="ACE"?'<span class="badge b-ace">ACE</span>':ev==="역적"?'<span class="badge b-bad">역적</span>':''}
+      <span class="cp-ic" style="margin-left:auto">${runeIcons(e.r)}${spellIcons(e.r)}${itemIcons(e.r)}</span>
     </div>`;}).join("");
   view().innerHTML=`${navTabsHtml('home')}
     <div class="card" style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         ${champImg(champ,"lg")}
-        <div>
-          <h2 style="margin:0">${esc(champ)} <span class="muted" style="font-size:14px;font-weight:400">챔피언 전적</span></h2>
-          <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px">
-            <span><b>${total}</b>픽 <b style="color:var(--win)">${wins}승</b> <b style="color:var(--lose)">${total-wins}패</b></span>
-            ${total?wrBar(wr):''}
-            <span class="muted">밴 ${bans}회</span>
+        <div style="flex:1;min-width:240px">
+          <h2 style="margin:0">${esc(champ)} <span class="muted" style="font-size:14px;font-weight:400">챔피언 통계${CHAMP_LANE!=="ALL"?' · '+esc(CHAMP_LANE):''}</span></h2>
+          <div class="cmpgrid" style="margin-top:8px">
+            <div class="cmp"><span class="cmp-k">픽</span><span class="cmp-v">${total}판</span><span class="st-sub muted">픽률 ${Math.round(allE.length/gTot*100)}%</span></div>
+            <div class="cmp ${wr>=50?'cmp-good':'cmp-bad'}"><span class="cmp-k">승률</span><span class="cmp-v">${total?wr+'%':'-'}</span><span class="st-sub muted">${wins}승 ${total-wins}패</span></div>
+            <div class="cmp"><span class="cmp-k">밴</span><span class="cmp-v">${bans}회</span><span class="st-sub muted">밴률 ${Math.round(bans/gTot*100)}%</span></div>
+            <div class="cmp"><span class="cmp-k">평점</span><span class="cmp-v">${styleFmt(mine.kda,2)}</span></div>
+            <div class="cmp"><span class="cmp-k">AI 점수</span><span class="cmp-v">${styleFmt(mine.ai,1)}</span></div>
           </div>
-          ${topP?`<div class="muted" style="margin-top:5px;font-size:12.5px">🎯 주 사용: ${topP}</div>`:''}
+          ${topP?`<div class="muted" style="margin-top:8px;font-size:12.5px">🎯 주 사용: ${topP}</div>`:''}
+          ${laneChips}
         </div>
-        <button class="ghost" style="margin-left:auto;background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 14px;border-radius:8px;cursor:pointer" onclick="goBack()">← 뒤로</button>
+        <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 14px;border-radius:8px;cursor:pointer;align-self:flex-start" onclick="goBack()">← 뒤로</button>
       </div>
     </div>
-    <div class="card">
+    <div class="st-grid">
+      <div class="card st-card"><h3>라인 분포</h3>${laneRows||'<div class="muted">-</div>'}</div>
+      <div class="card st-card"><h3>지표 평균 <span class="muted">${esc(lane||'')} 클랜 중앙값과 비교</span></h3>${metHtml}</div>
+      <div class="card st-card"><h3>룬 <span class="muted">키스톤 · 보조 트리</span></h3>${runeHtml}</div>
+      <div class="card st-card"><h3>소환사 주문</h3>${spellHtml}</div>
+      <div class="card st-card"><h3>핵심 3코어 <span class="muted">완성 아이템 앞 3칸</span></h3>${coreHtml}</div>
+      <div class="card st-card"><h3>신발</h3>${bootHtml}</div>
+      <div class="card st-card"><h3>완성 아이템 <span class="muted">게임 종료 시점</span></h3>${itemHtml}</div>
+      <div class="card st-card"><h3>게임 시간대별 승률</h3>${durHtml}</div>
+      <div class="card st-card"><h3>패치별 추이 <span class="muted">전체 기간</span></h3>${patchHtml||'<div class="muted">-</div>'}</div>
+      <div class="card st-card"><h3>어려운 맞상대 <span class="muted">같은 라인 · 2판 이상</span></h3>${hard}</div>
+      <div class="card st-card"><h3>쉬운 맞상대 <span class="muted">같은 라인 · 2판 이상</span></h3>${easy}</div>
+      <div class="card st-card"><h3>같이 하면 좋은 챔피언 <span class="muted">같은 팀 · 2판 이상</span></h3>${synG}</div>
+      <div class="card st-card"><h3>같이 하면 안 좋은 챔피언 <span class="muted">같은 팀 · 2판 이상</span></h3>${synB}</div>
+    </div>
+    <div class="card" style="margin-top:14px">
       <h2>📜 사용된 게임 <span class="muted" style="font-size:13.5px">(${total}판 · 최신순 · 클릭 시 게임 상세)</span></h2>
       <div class="loglist">${rows||'<div class="muted" style="padding:12px 4px">이 버전에는 사용 기록이 없습니다.</div>'}</div>
     </div>`;
@@ -8077,7 +8153,8 @@ function matchCard(r,selfName){
   const evalBadge=r["매치평가"]==="MVP"?`<span class="badge b-mvp">MVP</span>`
                  :r["매치평가"]==="ACE"?`<span class="badge b-ace">ACE</span>`
                  :r["매치평가"]==="역적"?`<span class="badge b-bad">역적</span>`:"";
-  return `<div class="match ${cls}" onclick="go('game','${escAttr(r["게임ID"])}')" style="cursor:pointer">
+  const evCls=r["매치평가"]==="MVP"?' ev-mvp':r["매치평가"]==="ACE"?' ev-ace':'';   // 👑 MVP 황금 반짝 · ⭐ ACE 은은한 은색(lol.ps 참고, 2026-09-11)
+  return `<div class="match ${cls}${evCls}" onclick="go('game','${escAttr(r["게임ID"])}')" style="cursor:pointer">
     <div>
       <div class="res ${cls}">${esc(label)}</div>
       <div class="meta">${esc(r["날짜"]||'')}<br>${esc(r["패치버전"]||'')}</div>
@@ -8886,7 +8963,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609110548";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609110703";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
