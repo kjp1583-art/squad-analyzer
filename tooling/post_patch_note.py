@@ -85,20 +85,30 @@ def main():
     if w: foot.append("웹은 새로고침하면 바로 적용")
     if b: foot.append("봇은 따로 하실 것 없어요")
 
-    payload = {"content": "🔔 　**스쿼드 업데이트 안내**",
-               "embeds": [{"title": f"📋 {today} 패치노트", "color": 0x5A9BD5,
-                           "fields": fields, "footer": {"text": " · ".join(foot)}}]}
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
-                                 headers={"Content-Type": "application/json", "User-Agent": "squad-ci"})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            print("발송 완료:", r.status)
-    except urllib.error.HTTPError as e:
-        # 🔎 [2026-09-11] 500 만 보고는 원인을 알 수 없다 — 디스코드가 주는 오류 본문(code/message/errors)을 같이 남긴다.
-        body = e.read().decode("utf-8", "replace")[:2000]
-        print(f"발송 실패: HTTP {e.code} — {body}", file=sys.stderr)
-        print(f"페이로드 크기 {len(json.dumps(payload))}B · 필드 {len(fields)}개 · 값 합계 {sum(len(f['value']) for f in fields)}자", file=sys.stderr)
-        return 1
+    # 📨 [2026-09-11] 한글 임베드가 커지면(4,500자·7필드) 디스코드가 본문 없는 500 을 돌려준다(9/03 1,300자는 성공).
+    #   섹션(분석기/웹/봇)별로 임베드를 나눠 메시지 여러 개로 보낸다 — 한 메시지 임베드는 2,500자 이내로.
+    groups, cur, cur_len = [], [], 0
+    for f in fields:
+        L = len(f["name"]) + len(f["value"])
+        if cur and cur_len + L > 2500: groups.append(cur); cur, cur_len = [], 0
+        cur.append(f); cur_len += L
+    if cur: groups.append(cur)
+    n = len(groups)
+    for i, grp in enumerate(groups):
+        payload = {"content": "🔔 　**스쿼드 업데이트 안내**" if i == 0 else "",
+                   "embeds": [{"title": f"📋 {today} 패치노트" + (f" ({i+1}/{n})" if n > 1 else ""), "color": 0x5A9BD5,
+                               "fields": grp, "footer": {"text": " · ".join(foot)} if i == n - 1 else {"text": f"{i+1}/{n}"}}]}
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
+                                     headers={"Content-Type": "application/json", "User-Agent": "squad-ci"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                print(f"발송 완료 {i+1}/{n}:", r.status)
+        except urllib.error.HTTPError as e:
+            # 🔎 [2026-09-11] 500 만 보고는 원인을 알 수 없다 — 디스코드가 주는 오류 본문(code/message/errors)을 같이 남긴다.
+            body = e.read().decode("utf-8", "replace")[:2000]
+            print(f"발송 실패 {i+1}/{n}: HTTP {e.code} — {body}", file=sys.stderr)
+            print(f"페이로드 크기 {len(json.dumps(payload))}B · 필드 {len(grp)}개 · 값 합계 {sum(len(f['value']) for f in grp)}자", file=sys.stderr)
+            return 1
     return 0
 
 
