@@ -135,6 +135,9 @@
   .mst-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
   .mst-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:border-color .15s}
   .mst-card:hover{border-color:var(--gold,#f5d47a)}
+  .mst-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 12px}
+  .mst-q{flex:1 1 220px;min-width:180px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--txt);font-size:14px;outline:none}
+  .mst-q:focus{border-color:#ff8a3d;box-shadow:0 0 0 3px rgba(255,138,61,.15)}
   /* 🎖 내부티어 기록 타임라인 */
   .thist{display:flex;flex-direction:column;gap:2px}
   .thist-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;position:relative}
@@ -3875,6 +3878,8 @@ async function loadDDragon(){
       CHAMPFB[c.name]=`https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/champion/${c.image.full}`;
       CHAMPMAP[c.name.replace(/\s/g,"")]=CHAMPMAP[c.name];
       CHAMPFB[c.name.replace(/\s/g,"")]=CHAMPFB[c.name];
+      CHAMP_EN[c.name]=String(c.id||"");   // 🔍 [2026-09-11] 장인랭킹 영문 검색용(예: gangplank)
+      CHAMP_CANON[c.name.replace(/\s/g,"")]=c.name;   // '누누와윌럼프' → '누누와 윌럼프' 표기 통일
       // 🖼 [2026-07-30] 프로필 배너용 스플래시 — 카드 상단 배경으로 쓴다.
       const _sp=`https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${c.id}_0.jpg`;
       SPLASHMAP[c.name]=_sp; SPLASHMAP[c.name.replace(/\s/g,"")]=_sp;
@@ -3908,6 +3913,7 @@ async function loadDDragon(){
   })()]);
 }
 let PERKMAP={}, ITEMNAME={}, SPELLMAP={}, ITEMFINAL=new Set();
+const CHAMP_EN={}, CHAMP_CANON={};
 function itemIcons(r){   // 시트 '아이템' 열("id|id|...") → 아이콘 나열
   const raw=String(r["아이템"]||"").trim();
   if(!raw||raw==="기록 대기")return "";
@@ -5185,11 +5191,20 @@ function navTabsHtml(active){
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
+let MASTERY_ALL=true, MASTERY_Q="", MASTERY_SORT="name";   // 🔤 [2026-09-11 사장님 지시] 기본 통산 · 가나다순 · 챔피언 검색(op.gg 챔피언 랭킹 참고)
+function setMasteryAll(v){ MASTERY_ALL=!!v; const y=window.scrollY; renderMastery(CUR_MASTERY); window.scrollTo(0,y); }
+function setMasterySort(v){ MASTERY_SORT=v; const y=window.scrollY; renderMastery(null); window.scrollTo(0,y); }
+function setMasteryQ(v){ MASTERY_Q=String(v||"").trim(); const grid=document.getElementById("mstGrid"); if(!grid) return;
+  const q=MASTERY_Q.replace(/\s+/g,"").toLowerCase(); let n=0;
+  for(const el of grid.querySelectorAll(".mst-card")){ const hit=!q||(el.dataset.k||"").includes(q); el.style.display=hit?"":"none"; if(hit)n++; }
+  const cnt=document.getElementById("mstCnt"); if(cnt) cnt.textContent=`${n}종`; }
 function masteryAgg(posFilter){
   const m=new Map();   // champ -> Map(canonName -> {g,w,k,d,a,kg,mvp,pos})
-  for(const [name,rows] of PLAYERS){
+  const src=(MASTERY_ALL&&typeof PLAYERS_ALL!=='undefined'&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
+  for(const [name,rows] of src){
     for(const r of rows){
-      const c=r["챔피언"]; if(!c||c==="?")continue;
+      let c=r["챔피언"]; if(!c||c==="?")continue;
+      c=CHAMP_CANON[c.replace(/\s/g,"")]||c;   // 띄어쓰기 차이로 갈라진 같은 챔피언 합치기
       if(r["결과"]!=="승리"&&r["결과"]!=="패배")continue;
       const _ps=r["포지션"]||"";
       if(posFilter&&posFilter!=="ALL"&&_ps!==posFilter)continue;   // 🎯 [2026-07-22] 라인별 보기
@@ -5299,8 +5314,10 @@ function renderMastery(champ){
     const total=[...pm.values()].reduce((x,s)=>x+s.g,0);
     const cand=[...pm.entries()].filter(([n,s])=>s.g>=MASTER_MIN).sort((A,B)=>B[1].g-A[1].g||(B[1].w/B[1].g)-(A[1].w/A[1].g))[0];
     return {c,total,best:cand?{n:cand[0],g:cand[1].g,wr:Math.round(cand[1].w/cand[1].g*100)}:null};
-  }).sort((a,b)=>b.total-a.total);
-  const cards=list.map(x=>`<div class="mst-card" onclick="go('mastery','${escAttr(x.c)}')">
+  }).sort((a,b)=>MASTERY_SORT==="games"?(b.total-a.total||a.c.localeCompare(b.c,"ko")):a.c.localeCompare(b.c,"ko"));
+  const _q=MASTERY_Q.replace(/\s+/g,"").toLowerCase();
+  const _key=c=>(c+"|"+(typeof CHAMP_EN==='object'&&CHAMP_EN[c]?CHAMP_EN[c]:"")).replace(/\s+/g,"").toLowerCase();
+  const cards=list.map(x=>`<div class="mst-card" data-k="${escAttr(_key(x.c))}" ${_q&&!_key(x.c).includes(_q)?'style="display:none"':''} onclick="go('mastery','${escAttr(x.c)}')">
       ${champImg(x.c,"lg")}
       <div style="flex:1;min-width:0">
         <b>${esc(x.c)}</b> <span class="muted" style="font-size:12px">${x.total}판</span><br>
@@ -5310,8 +5327,19 @@ function renderMastery(champ){
     </div>`).join("");
   view().innerHTML=`${navTabsHtml('mastery')}
     <div class="card">
-      <h2>🎯 챔피언 장인랭킹 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 챔피언을 누르면 그 챔프의 클랜 장인 순위)</span></h2>
-      <div class="mst-grid">${cards||'<span class="muted">데이터 없음</span>'}</div>
+      <h2>🎯 챔피언 장인랭킹 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · ${MASTERY_ALL?'통산':esc(patchScopeLabel())} · 챔피언을 누르면 그 챔프의 클랜 장인 순위)</span></h2>
+      <div class="mst-tools">
+        <input class="mst-q" id="mstQ" type="search" placeholder="🔍 챔피언 검색 (예: 갱플, gang)" value="${escAttr(MASTERY_Q)}" oninput="setMasteryQ(this.value)" autocomplete="off">
+        <div class="st-ptabs" style="margin:0">
+          <button class="pchip ${MASTERY_SORT==='name'?'on':''}" onclick="setMasterySort('name')">가나다순</button>
+          <button class="pchip ${MASTERY_SORT==='games'?'on':''}" onclick="setMasterySort('games')">판수순</button>
+          <span style="width:6px"></span>
+          <button class="pchip ${MASTERY_ALL?'on':''}" onclick="setMasteryAll(true)" title="상단 패치 필터와 무관하게 전체 기간">통산</button>
+          <button class="pchip ${!MASTERY_ALL?'on':''}" onclick="setMasteryAll(false)" title="상단 패치 필터 적용">${esc(patchScopeLabel())}</button>
+        </div>
+        <span class="muted" style="font-size:12px;margin-left:auto" id="mstCnt">${list.filter(x=>!_q||_key(x.c).includes(_q)).length}종</span>
+      </div>
+      <div class="mst-grid" id="mstGrid">${cards||'<span class="muted">데이터 없음</span>'}</div>
     </div>`;
 }
 
@@ -8985,7 +9013,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609110905";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609110940";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
