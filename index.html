@@ -4005,7 +4005,7 @@ function renderChampTier(){
     return `<tr>
       <td class="num">${i+1}</td>
       <td>${tierBadgeNum(c.tier)}</td>
-      <td><div class="champcell" style="cursor:pointer" title="🎯 장인랭킹 보기" onclick="go('mastery','${escAttr(c.champ)}')">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
+      <td><div class="champcell" style="cursor:pointer" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(c.champ)}')">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
       <td class="num"><b>${c.clanScore.toFixed(1)}</b></td>
       <td>${decided?wrBar(c.wr):'<span class="muted">-</span>'}</td>
       <td class="num">${c.picks}</td>
@@ -4016,7 +4016,7 @@ function renderChampTier(){
     return `<tr style="opacity:.55">
       <td class="num">-</td>
       <td><span class="muted" style="font-size:11px">표본↓</span></td>
-      <td><div class="champcell" style="cursor:pointer" title="🎯 장인랭킹 보기" onclick="go('mastery','${escAttr(c.champ)}')">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div></td>
+      <td><div class="champcell" style="cursor:pointer" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(c.champ)}')">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div></td>
       <td class="num"><span class="muted">-</span></td>
       <td>${decided?wrBar(c.wr):'<span class="muted">-</span>'}</td>
       <td class="num">${c.picks}</td>
@@ -8967,7 +8967,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609110820";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609110840";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
