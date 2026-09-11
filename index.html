@@ -5414,6 +5414,89 @@ function grudgeHtml(){
     ${GRUDGE.length>5?`<div style="text-align:center;margin-top:8px"><button class="btn" style="font-size:12px;padding:3px 12px" onclick="toggleGrudge()">${GRUDGE_OPEN?'접기':`전체 ${GRUDGE.length}명 보기`}</button></div>`:''}
   </div>`;
 }
+/* 🧬 [2026-09-11 사장님 지시] 항노화지수 — 디코닉 '롤닉/생년' 규칙으로 봇이 모은 생년(data/ages.json, 하루 1회)과
+   전투력(내부티어+통산승률 수축 — 멸망전 전투력과 같은 산식)을 견줘, 나이로 기대되는 실력보다 얼마나 위인지.
+   클랜 전체로 '나이 → 전투력' 직선(최소제곱)을 긋고, 그 선에서 위로 떨어진 거리(잔차)가 지수. 실력 나이 = 내 전투력이
+   직선상에서 해당하는 나이(기울기가 음수일 때만). 화면엔 생년 원값 대신 나이대만 보여준다. */
+let AGES=[], AGE_OF=new Map(), _AA_CACHE={seq:-1};
+async function loadAges(){
+  try{
+    const r=await fetch(`data/ages.json?cb=${BUILD_ID}`,{cache:"no-store"}); if(!r.ok) return;
+    const j=await r.json(); AGES=(j&&j.ages)||[]; AGE_OF=new Map();
+    for(const e of AGES) for(const k of (e.k||[])) if(!AGE_OF.has(k)) AGE_OF.set(k,e.by);
+    _AA_CACHE={seq:-1};
+  }catch(e){/* 파일이 아직 없으면 조용히 통과 */}
+}
+function birthYearOf(name){
+  if(!AGE_OF.size||!name) return null;
+  const k=tnorm(name); if(AGE_OF.has(k)) return AGE_OF.get(k);
+  const al=CANON_TO_ALIASES.get(canonOfName(name))||[];
+  for(const a of al){ const t=tnorm(a); if(AGE_OF.has(t)) return AGE_OF.get(t); }
+  return null;
+}
+function ageBand(by){ const a=new Date().getFullYear()-by; const d=Math.floor(a/10)*10, r=a-d; return `${d}대 ${r<3?'초반':r<7?'중반':'후반'}`; }
+function antiAging(){
+  if(_AA_CACHE.seq===DATA_SEQ&&_AA_CACHE.res) return _AA_CACHE.res;
+  const pOf=(typeof _myeolPOf==='function')?_myeolPOf():null;
+  if(!pOf||!AGE_OF.size||typeof PLAYERS_ALL==='undefined') return null;
+  const Y=new Date().getFullYear(), MIN_G=10;
+  const rows=[];
+  for(const [nm,parts] of PLAYERS_ALL){
+    if(isDeparted(nm)) continue;
+    let g=0; for(const r of parts){ const res=r["결과"]; if(res==="승리"||res==="패배") g++; }
+    if(g<MIN_G) continue;
+    const by=birthYearOf(nm); if(!by) continue;
+    const pw=pOf(nm); if(pw==null) continue;
+    rows.push({name:nm,age:Y-by,pw,g,tier:tierOf(nm)||''});
+  }
+  if(rows.length<8) return null;
+  const n=rows.length, mx=rows.reduce((a,r)=>a+r.age,0)/n, my=rows.reduce((a,r)=>a+r.pw,0)/n;
+  let sxx=0,sxy=0; for(const r of rows){ sxx+=(r.age-mx)**2; sxy+=(r.age-mx)*(r.pw-my); }
+  const a=sxx?sxy/sxx:0, b=my-a*mx;
+  for(const r of rows){ r.exp=a*r.age+b; r.idx=r.pw-r.exp; }
+  const sd=Math.sqrt(rows.reduce((s,r)=>s+r.idx**2,0)/Math.max(1,n-2))||1;
+  for(const r of rows){
+    r.z=r.idx/sd;
+    r.skillAge=a<-0.01?Math.round((r.pw-b)/a):null;
+    const peers=rows.filter(x=>Math.abs(x.age-r.age)<=3); r.peerN=peers.length;
+    r.peerPct=peers.length>1?Math.round(peers.filter(x=>x.pw>r.pw).length/(peers.length-1)*100):null;   // 또래 중 나보다 센 비율(작을수록 좋음)
+  }
+  rows.sort((x,y)=>y.idx-x.idx);
+  rows.forEach((r,i)=>r.rank=i+1);
+  const res={rows,a,b,sd,n,mx};
+  _AA_CACHE={seq:DATA_SEQ,res}; return res;
+}
+function antiAgingOf(name){ const A=antiAging(); if(!A) return null; const cn=canonOfName(name); return A.rows.find(r=>r.name===cn||r.name===name)||null; }
+let AA_OPEN=false;
+function toggleAA(){ AA_OPEN=!AA_OPEN; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
+function antiAgingHtml(){
+  const A=antiAging(); if(!A) return '';
+  const N=AA_OPEN?A.rows.length:10;
+  const mxAbs=Math.max(...A.rows.map(r=>Math.abs(r.idx)))||1;
+  const row=(r)=>{ const pos=r.idx>=0; const w=Math.min(100,Math.abs(r.idx)/mxAbs*100);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+      <span class="muted" style="width:22px;text-align:right;flex:none">${r.rank}</span>
+      <span class="clickname" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(r.name)}')">${esc(shortName(r.name))}</span>
+      ${r.tier?`<span class="tier ${tierGroupCls(r.tier)}" style="flex:none">${esc(r.tier)}</span>`:''}
+      <span class="muted" style="flex:none;width:58px;font-size:11.5px">${ageBand(new Date().getFullYear()-r.age)}</span>
+      <span style="flex:none;width:52px;text-align:right;font-weight:800;color:${pos?'#7ee8b0':'#ff8a9a'}">${r.idx>0?'+':''}${r.idx.toFixed(1)}</span>
+      <span style="flex:1;min-width:40px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden">
+        <span style="display:block;height:100%;width:${w}%;background:${pos?'#4cd68f':'#e84057'};opacity:.75"></span></span>
+      <span class="muted" style="flex:none;font-size:11.5px">전투력 ${r.pw.toFixed(1)} / 또래 기대 ${r.exp.toFixed(1)}${r.skillAge!=null?` · 실력 나이 <b style="color:var(--txt)">${r.skillAge}세</b>`:''}${r.peerPct!=null&&r.peerN>=4?` · 또래 ${r.peerN}명 중 상위 ${Math.max(1,r.peerPct)}%`:''}</span>
+    </div>`; };
+  const slope=A.a;
+  return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
+    <h3 style="margin:0 0 2px;font-size:15px">🧬 항노화지수 <span class="muted" style="font-size:12.5px">— 나이를 거스르는 순서 · ${A.n}명</span></h3>
+    <div class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.6">
+      디스코드 닉의 <b>/생년</b>으로 나이를, <b>전투력</b>(내부티어 + 통산승률 수축 — 멸망전 전투력과 같은 값)으로 실력을 잡고,
+      클랜 전체로 그은 <b>나이 → 전투력</b> 직선에서 위로 얼마나 떨어져 있는지가 지수(전투력 단위).
+      <b style="color:#7ee8b0">양수</b>면 또래 기대보다 강함, <b style="color:#ff8a9a">음수</b>면 약함.
+      <span style="opacity:.75">클랜 추세: 한 살 많을수록 전투력 ${slope>=0?'+':''}${slope.toFixed(2)} (평균 나이 ${A.mx.toFixed(0)}세)${slope>=-0.01?' — 지금은 나이와 실력의 상관이 거의 없어 실력 나이는 표시하지 않아요':''}. 10판 이상 · 생년 기재자만 · 나이는 나이대로만 표시.</span>
+    </div>
+    ${A.rows.slice(0,N).map(row).join('')}
+    ${A.rows.length>10?`<div style="text-align:center;margin-top:8px"><button class="btn" style="font-size:12px;padding:3px 12px" onclick="toggleAA()">${AA_OPEN?'접기':`전체 ${A.rows.length}명 보기`}</button></div>`:''}
+  </div>`;
+}
 /* 🎖 [2026-07-31 사장님 지시] 내부티어 페이지를 '티어표' 형식으로 재구성.
    실제 클랜 티어표(0/I/II/III × 上中下)를 그대로 옮기고, 서부(0·1티어)·동부(2·3티어)로 나눈다.
    칸에는 닉네임 + 평가 딱지(고평가/저평가/적절)만. 세부 지표는 이름을 누르면 아래 패널에 펼친다. */
@@ -5653,6 +5736,7 @@ function renderTiers(){
       ${boards}
       <div style="font-size:13px;margin:14px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑+최근 30일 5판↑ 대상)</span></div>
       ${grudgeHtml()}
+      ${antiAgingHtml()}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
         ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 클랜 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
         <span style="opacity:.75">· 각 지표 뒤 <b>(동티어)</b>는 <b>같은 내부티어</b> 동료들의 평균(참고용) — 판정 자체는 위의 클랜 전체 기준입니다.</span><br>
@@ -8246,7 +8330,7 @@ function renderPlayer(name){
       ${_emb}
       <div class="prof${_emb?' profemb':''}">
         <div class="profmain" style="flex:1">
-          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${asmtChip}${(()=>{const r=antiAgingOf(name);return r?` <span style="background:${r.idx>=0?'rgba(76,214,150,.14)':'rgba(232,64,87,.14)'};color:${r.idx>=0?'#7ee8b0':'#ff8a9a'};border:1px solid ${r.idx>=0?'rgba(76,214,150,.4)':'rgba(232,64,87,.4)'};font-size:12.5px;font-weight:800;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap;cursor:pointer" title="🧬 항노화지수 — 또래 기대 전투력 ${r.exp.toFixed(1)} 대비 ${r.idx>=0?'+':''}${r.idx.toFixed(1)}${r.skillAge!=null?` · 실력 나이 ${r.skillAge}세`:''} · 클랜 ${r.rank}위 / ${antiAging().n}명 (내부티어 탭에서 전체 보기)" onclick="go('tiers')">🧬 ${r.idx>=0?'+':''}${r.idx.toFixed(1)}${r.skillAge!=null?` · 실력 ${r.skillAge}세`:''}</span>`:'';})()}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           <button class="st-cta" onclick="go('style','${escAttr(name)}')"><span class="st-cta-i">📊</span><span><b>플레이스타일 자세히보기</b><small>통산 세부 지표 25종 · 포지션 등급 · 챔피언 풀 · 진영·시간대 패턴</small></span><span class="st-cta-a">→</span></button>
           ${statBox}
@@ -9133,7 +9217,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609111010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609111100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -9189,7 +9273,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   mainP.catch(()=>{});               // 미처리 거부 경고 방지 — 실제 처리는 loadCategory 의 try/catch
   const cacheP = rawCacheGet(_gid0); // 💾 지난 방문 스냅샷(있으면 먼저 그린다)
   const ddP = loadDDragon();         // 아이콘 전용(build 는 안 씀) — 부팅을 막지 않고 병렬 진행
-  { const [,,_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp,_pk,_bj]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks(),loadBrjang()]);   // 병렬 로드(내부티어·탈퇴자도 합류 — 예전엔 앞에서 직렬로 기다렸다)
+  { const [,,_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp,_pk,_bj]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks(),loadBrjang(),loadAges()]);   // 병렬 로드(내부티어·탈퇴자도 합류 — 예전엔 앞에서 직렬로 기다렸다)
     BRJANG=_bj;      // 🍗 브장신 키우기(BRJANG 탭)
     LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
     MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부
