@@ -794,13 +794,17 @@
   .cmpbox-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:8px}
   .cmpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:7px}
   /* 👑 MVP·ACE 카드 효과 — 황금 테두리+반짝임 / 은색 은은한 반짝임 */
-  @keyframes evShine{0%{background-position:-200% 0}100%{background-position:200% 0}}
-  @keyframes evGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,210,74,.55),0 0 14px rgba(255,190,40,.28)}50%{box-shadow:0 0 0 1px rgba(255,230,120,.95),0 0 26px rgba(255,200,60,.55)}}
-  @keyframes evGlowS{0%,100%{box-shadow:0 0 0 1px rgba(200,210,230,.45),0 0 10px rgba(190,200,220,.18)}50%{box-shadow:0 0 0 1px rgba(230,236,248,.8),0 0 18px rgba(200,210,230,.38)}}
-  .match.ev-mvp{position:relative;border-color:#ffd24a!important;border-left-color:#ffd24a!important;animation:evGlow 2.4s ease-in-out infinite}
-  .match.ev-mvp::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;background:linear-gradient(115deg,transparent 30%,rgba(255,240,170,.28) 45%,rgba(255,255,255,.55) 50%,rgba(255,240,170,.28) 55%,transparent 70%);background-size:250% 100%;animation:evShine 3.2s linear infinite;mix-blend-mode:screen}
-  .match.ev-ace{position:relative;border-color:#c9d3e6!important;border-left-color:#c9d3e6!important;animation:evGlowS 3.2s ease-in-out infinite}
-  .match.ev-ace::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(220,228,240,.14) 48%,rgba(255,255,255,.3) 50%,rgba(220,228,240,.14) 52%,transparent 65%);background-size:250% 100%;animation:evShine 4.5s linear infinite;mix-blend-mode:screen}
+  /* 👑 MVP/ACE 효과 — transform·opacity만 애니메이션(GPU 합성, 리페인트 없음 → 60fps). background-position/box-shadow 애니메이션은 카드마다 매 프레임 리페인트라 끊김(2026-09-11) */
+  @keyframes evShine{0%{transform:translateX(-100%) skewX(-18deg)}100%{transform:translateX(420%) skewX(-18deg)}}
+  @keyframes evGlow{0%,100%{opacity:.35}50%{opacity:1}}
+  .match.ev-mvp,.match.ev-ace{position:relative;overflow:hidden;isolation:isolate}
+  .match.ev-mvp{border-color:#ffd24a!important;border-left-color:#ffd24a!important;box-shadow:0 0 0 1px rgba(255,210,74,.5)}
+  .match.ev-mvp::before{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,230,120,.9),inset 0 0 22px rgba(255,200,60,.45),0 0 26px rgba(255,200,60,.6);animation:evGlow 2.4s ease-in-out infinite;will-change:opacity}
+  .match.ev-mvp::after{content:"";position:absolute;top:-20%;bottom:-20%;left:0;width:32%;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,240,170,.22) 35%,rgba(255,255,255,.55) 50%,rgba(255,240,170,.22) 65%,transparent);animation:evShine 3.2s linear infinite;mix-blend-mode:screen;will-change:transform}
+  .match.ev-ace{border-color:#c9d3e6!important;border-left-color:#c9d3e6!important;box-shadow:0 0 0 1px rgba(200,210,230,.4)}
+  .match.ev-ace::before{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(230,236,248,.7),inset 0 0 16px rgba(200,210,230,.28),0 0 18px rgba(200,210,230,.4);animation:evGlow 3.2s ease-in-out infinite;will-change:opacity}
+  .match.ev-ace::after{content:"";position:absolute;top:-20%;bottom:-20%;left:0;width:26%;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(220,228,240,.12) 35%,rgba(255,255,255,.3) 50%,rgba(220,228,240,.12) 65%,transparent);animation:evShine 4.5s linear infinite;mix-blend-mode:screen;will-change:transform}
+  @media (prefers-reduced-motion:reduce){.match.ev-mvp::before,.match.ev-ace::before,.match.ev-mvp::after,.match.ev-ace::after{animation:none}}
   .logrow.ev-mvp{box-shadow:inset 3px 0 0 #ffd24a,0 0 10px rgba(255,200,60,.18)}.logrow.ev-ace{box-shadow:inset 3px 0 0 #c9d3e6}
   /* 🧾 챔피언 상세 */
   .cp-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0}.cp-l{min-width:52px;color:var(--sub)}.cp-bar{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}.cp-bar i{display:block;height:100%;background:linear-gradient(90deg,#ff8a3d,#ffd24a);border-radius:4px}.cp-n{min-width:40px;text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}.cp-wr{min-width:40px;text-align:right}
@@ -8963,7 +8967,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609110703";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609110820";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
