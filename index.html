@@ -802,7 +802,10 @@
   .st-sub{display:block;font-size:11px;margin-top:1px}.st-up{color:#7ee081}.st-dn{color:#ff6f83}
   .st-radar-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-top:6px}
   .st-samp{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}.st-samp:hover{background:rgba(255,255,255,.04)}
-  .st-link{display:block;width:100%;margin-top:8px;background:rgba(122,162,255,.14);border:1px solid rgba(122,162,255,.45);color:#cfe0ff;border-radius:9px;padding:7px 10px;font-weight:700;cursor:pointer;font-size:12.5px}.st-link:hover{background:rgba(122,162,255,.24)}
+  .st-cta{display:flex;align-items:center;gap:12px;width:100%;margin:10px 0 4px;text-align:left;background:linear-gradient(135deg,rgba(255,138,61,.28),rgba(255,210,74,.12)),rgba(16,20,28,.85);border:1.5px solid #ff8a3d;color:#fff;border-radius:12px;padding:10px 14px;cursor:pointer;box-shadow:0 0 0 3px rgba(255,138,61,.12),0 4px 18px rgba(255,138,61,.18);transition:transform .12s,box-shadow .12s}
+  .st-cta:hover{transform:translateY(-1px);box-shadow:0 0 0 3px rgba(255,138,61,.22),0 6px 22px rgba(255,138,61,.28)}
+  .st-cta b{display:block;font-size:15.5px;color:#ffd24a}.st-cta small{display:block;font-size:11.5px;color:#d8dde8;opacity:.85;margin-top:2px}.st-cta-i{font-size:22px}.st-cta-a{margin-left:auto;font-size:20px;color:#ff8a3d;font-weight:800}
+  .st-ptabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.st-ptabs .pchip{font-size:12px}
   /* 📊 리포트 — 챔피언 칩(밴픽 채점 결과) */
   /* 📊 리포트 — 최근 판 판정 한 줄(좁은 화면에선 자연스럽게 두 줄로 접힌다) */
   .rpr{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line)}
@@ -4100,7 +4103,7 @@ function go(route,arg){
   navPush(route,arg);
   if(route==='home')renderHome();
   else if(route==='player')renderPlayer(arg);
-  else if(route==='style'){ CUR_PLAYER=canonOfName(arg); renderStyle(arg); }   // 📊 플레이스타일
+  else if(route==='style'){ CUR_PLAYER=canonOfName(arg); _STYLE_PCT={}; renderStyle(arg); }   // 📊 플레이스타일(통산 기본)
   else if(route==='game')renderGame(arg);
   else if(route==='log')renderLog();
   else if(route==='counts'){ if(IS_ADMIN)renderCounts(); else renderHome(); }
@@ -7573,7 +7576,7 @@ const STYLE_GROUP={core:"핵심",combat:"전투",growth:"성장",vision:"시야"
 function styleRowMetrics(r){
   const mt=parseMetrics(r)||{}, ko=parseKDA(r["KDA"])||{k:0,d:0,a:0};
   const m=mt.m>0?mt.m:null, dmg=+(r["딜량"]||0)||0, ai=parseFloat(r["점수"]); 
-  let tdmg=0,tgold=0; const g=GAMES.get(r["게임ID"]);
+  let tdmg=0,tgold=0; const g=GAMES_ALL.get(r["게임ID"])||GAMES.get(r["게임ID"]);
   if(g){ for(const x of g.rows){ if((x["진영"]||"")===(r["진영"]||"")){ tdmg+=(+(x["딜량"]||0)||0); const xm=parseMetrics(x); if(xm&&xm.g) tgold+=xm.g; } } }
   return {m, k:ko.k,d:ko.d,a:ko.a, kda:(ko.k+ko.a)/Math.max(1,ko.d), kp:mt.kp!=null?mt.kp:null,
     dshare:(tdmg>0&&dmg)?dmg/tdmg*100:null, dpm:(m&&dmg)?dmg/m:null, dtpm:(m&&mt.dt!=null)?mt.dt/m:null, hspm:(m&&mt.hs!=null)?mt.hs/m:null,
@@ -7590,26 +7593,31 @@ function styleAgg(rows){
   const ms=per.map(p=>p.m).filter(Boolean); out.minTot=ms.reduce((a,b)=>a+b,0); out.minAvg=ms.length?out.minTot/ms.length:null;
   return out;
 }
-let _STYLE_PCT={};
+let _STYLE_PCT={}, STYLE_PATCH="ALL";   // 📊 플레이스타일은 기본 통산(전체 기간) — 페이지 안의 버전 탭으로만 좁힌다(상단 패치 필터와 독립)
+function styleRowsOf(parts){ return parts.filter(r=>(r["결과"]==="승리"||r["결과"]==="패배")&&(STYLE_PATCH==="ALL"||String(r["패치버전"]||"")===STYLE_PATCH)); }
+function setStylePatch(p){ STYLE_PATCH=p; renderStyle(CUR_PLAYER||history.state?.arg); }
 function stylePct(pos){
-  if(_STYLE_PCT[pos]) return _STYLE_PCT[pos];
+  const ck=pos+"∥"+STYLE_PATCH; if(_STYLE_PCT[ck]) return _STYLE_PCT[ck];
   const all=[];
-  for(const [nm,parts] of PLAYERS){
-    const rows=parts.filter(r=>(r["포지션"]||"")===pos&&(r["결과"]==="승리"||r["결과"]==="패배"));
+  for(const [nm,parts] of PLAYERS_ALL){
+    const rows=styleRowsOf(parts).filter(r=>(r["포지션"]||"")===pos);
     if(rows.length<5) continue; all.push(styleAgg(rows));
   }
   const cols={}; for(const [k] of STYLE_M) cols[k]=all.map(p=>p[k]).filter(v=>v!=null).sort((a,b)=>a-b);
   const of=(k,v)=>{ const a=cols[k]; if(v==null||!a||a.length<5) return null; return Math.round(a.filter(x=>x<v).length/a.length*100); };
   const med=k=>{ const a=cols[k]; if(!a||!a.length) return null; return a[Math.floor(a.length/2)]; };
-  return _STYLE_PCT[pos]={n:all.length,of,med};
+  return _STYLE_PCT[ck]={n:all.length,of,med};
 }
 function styleFmt(v,dec,unit){ if(v==null||!isFinite(v)) return "-"; return (dec?v.toFixed(dec):Math.round(v).toLocaleString())+(unit||""); }
 function styleDur(min){ if(!min) return "-"; const m=Math.floor(min), s=Math.round((min-m)*60); return `${m}:${String(s).padStart(2,"0")}`; }
 function styleHours(min){ if(!min) return "-"; const h=Math.floor(min/60), m=Math.round(min%60); return h?`${h}시간 ${m}분`:`${m}분`; }
 function renderStyle(name){
-  name=canonOfName(name); const parts=PLAYERS.get(name);
-  if(!parts){ view().innerHTML=`${navTabsHtml('home')}<div class="card" style="margin-top:10px">${esc(name)} — 이 기간 기록이 없어요. <span class="clickname" onclick="go('player','${escAttr(name)}')">프로필로</span></div>`; return; }
-  const rows=parts.filter(r=>r["결과"]==="승리"||r["결과"]==="패배").slice().sort((a,b)=>String(b["날짜"]).localeCompare(String(a["날짜"])));
+  name=canonOfName(name); const parts=PLAYERS_ALL.get(name)||PLAYERS.get(name);
+  if(!parts){ view().innerHTML=`${navTabsHtml('home')}<div class="card" style="margin-top:10px">${esc(name)} — 기록이 없어요. <span class="clickname" onclick="go('player','${escAttr(name)}')">프로필로</span></div>`; return; }
+  const myPatches=[...new Set(parts.map(r=>String(r["패치버전"]||"")).filter(Boolean))].sort((a,b)=>b.localeCompare(a,undefined,{numeric:true}));
+  if(STYLE_PATCH!=="ALL"&&!myPatches.includes(STYLE_PATCH)) STYLE_PATCH="ALL";
+  const rows=styleRowsOf(parts).slice().sort((a,b)=>String(b["날짜"]).localeCompare(String(a["날짜"])));
+  const ptabs=`<div class="st-ptabs"><button class="pchip ${STYLE_PATCH==="ALL"?"on":""}" onclick="setStylePatch('ALL')">통산</button>`+myPatches.map(pv=>`<button class="pchip ${STYLE_PATCH===pv?"on":""}" onclick="setStylePatch('${escAttr(pv)}')">${esc(pv)}</button>`).join("")+`</div>`;
   const all=styleAgg(rows), rec=styleAgg(rows.slice(0,20));
   const posAgg=new Map(); for(const r of rows){ const p=r["포지션"]||""; if(p) posAgg.set(p,(posAgg.get(p)||0)+1); }
   const posTotal=[...posAgg.values()].reduce((a,b)=>a+b,0);
@@ -7655,8 +7663,9 @@ function renderStyle(name){
   view().innerHTML=`${navTabsHtml('home')}
   <div class="card" style="margin-top:10px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">📊 ${esc(shortName(name))}의 플레이스타일</h2>
-      <span class="muted" style="font-size:12.5px">${(PATCH_SEL==="ALL"||PATCH_SEL==null)?'전체 기간':'패치 '+esc(PATCH_SEL)} · 내전 ${rows.length}판</span>
+      <span class="muted" style="font-size:12.5px">${STYLE_PATCH==="ALL"?'통산(전체 기간)':'패치 '+esc(STYLE_PATCH)} · 내전 ${rows.length}판</span>
       <span class="clickname" style="margin-left:auto" onclick="go('player','${escAttr(name)}')">← 프로필</span></div>
+    ${ptabs}
     <div class="cmpgrid" style="margin-top:10px">
       <div class="cmp"><span class="cmp-k">게임</span><span class="cmp-v">${all.games}</span></div>
       <div class="cmp"><span class="cmp-k">승패</span><span class="cmp-v">${all.wins}승 ${all.games-all.wins}패</span></div>
@@ -7995,9 +8004,10 @@ function renderPlayer(name){
         <div class="profmain" style="flex:1">
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
+          <button class="st-cta" onclick="go('style','${escAttr(name)}')"><span class="st-cta-i">📊</span><span><b>플레이스타일 자세히보기</b><small>통산 세부 지표 25종 · 포지션 등급 · 챔피언 풀 · 진영·시간대 패턴</small></span><span class="st-cta-a">→</span></button>
           ${statBox}
         </div>
-        <div class="sidecol">${brjSpriteHtml(name)}${radarHtml}<button class="st-link" onclick="go('style','${escAttr(name)}')">📊 플레이스타일 자세히</button>
+        <div class="sidecol">${brjSpriteHtml(name)}${radarHtml}
           <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
           <div class="side-rec">${w+l}전 <b style="color:var(--win)">${w}승</b> <b style="color:var(--lose)">${l}패</b></div>
         </div>
@@ -8876,7 +8886,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609110319";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609110548";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
