@@ -11,7 +11,7 @@
   · 파일명·함수명·API 이름 금지
   · 버전 번호는 헤더에만
 """
-import base64, datetime, json, os, re, sys, urllib.request
+import base64, datetime, json, os, re, sys, urllib.request, urllib.error
 
 # Windows 러너 콘솔은 cp1252 라 한글 print 가 UnicodeEncodeError 로 터진다(2026-07-30 실사고 —
 # 발송은 성공했는데 마지막 '발송 완료' 출력에서 죽어 잡 전체가 빨간불). 출력을 UTF-8 로 강제.
@@ -90,8 +90,15 @@ def main():
                            "fields": fields, "footer": {"text": " · ".join(foot)}}]}
     req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
                                  headers={"Content-Type": "application/json", "User-Agent": "squad-ci"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        print("발송 완료:", r.status)
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            print("발송 완료:", r.status)
+    except urllib.error.HTTPError as e:
+        # 🔎 [2026-09-11] 500 만 보고는 원인을 알 수 없다 — 디스코드가 주는 오류 본문(code/message/errors)을 같이 남긴다.
+        body = e.read().decode("utf-8", "replace")[:2000]
+        print(f"발송 실패: HTTP {e.code} — {body}", file=sys.stderr)
+        print(f"페이로드 크기 {len(json.dumps(payload))}B · 필드 {len(fields)}개 · 값 합계 {sum(len(f['value']) for f in fields)}자", file=sys.stderr)
+        return 1
     return 0
 
 
