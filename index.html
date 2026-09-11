@@ -8199,6 +8199,12 @@ function renderPlayer(name){
         `${mf.pos!=='?'?mf.pos+' 기준':'포지션 미등록'}${mf.est?' · 기록 부족(티어 추정)':''}${mf.multi>1?` · ${mf.multi}개 라인 산정`:''}`,
         mf.bee?'cmp-good':'',
         "제9회 멸망전 경매 참고용 AI 추정가 — 내전 성적을 포지션별 백분위로 비교해 제6·7·8회 실제 낙찰가 분포에 매핑. 멸망전 탭에서 전체 표를 볼 수 있습니다.")); }
+    // 🧬 항노화지수 — [2026-09-11 사장님 지시] 이름 옆 칩 대신 스탯 칸으로
+    { const r=(typeof antiAgingOf==='function')?antiAgingOf(name):null;
+      if(r) it.push(cell("🧬 항노화지수",`${r.idx>=0?'+':''}${r.idx.toFixed(1)}`,
+        `${r.skillAge!=null?`실력 나이 <b>${r.skillAge}세</b> · `:''}또래 기대 ${r.exp.toFixed(1)} · 클랜 ${r.rank}위/${antiAging().n}명`,
+        r.idx>=0.5?'cmp-good':(r.idx<=-0.5?'cmp-bad':''),
+        "디스코드 닉의 /생년으로 나이를, 전투력으로 실력을 잡아 클랜 전체 '나이 → 전투력' 직선보다 얼마나 위인지(전투력 단위). 양수면 또래 기대보다 강함. 내부티어 탭에서 전체 순위를 볼 수 있습니다.")); }
     const head=(_asmt&&_asmt.implPct!=null)?`<b style="color:#ffd24a">🎯 클랜 상위 ${_asmt.implPct}%</b>`:'<b>스탯 요약</b>';
     const sub=(d)?'전체기간 · 같은 내부티어 평균과 비교':'';
     const note=(_asmt&&!d)?`<div class="muted" style="font-size:12.5px;margin-bottom:6px">${_asmt.games}판 — 티어 비교엔 10판 이상 필요</div>`:'';
@@ -8330,7 +8336,7 @@ function renderPlayer(name){
       ${_emb}
       <div class="prof${_emb?' profemb':''}">
         <div class="profmain" style="flex:1">
-          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${asmtChip}${(()=>{const r=antiAgingOf(name);return r?` <span style="background:${r.idx>=0?'rgba(76,214,150,.14)':'rgba(232,64,87,.14)'};color:${r.idx>=0?'#7ee8b0':'#ff8a9a'};border:1px solid ${r.idx>=0?'rgba(76,214,150,.4)':'rgba(232,64,87,.4)'};font-size:12.5px;font-weight:800;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap;cursor:pointer" title="🧬 항노화지수 — 또래 기대 전투력 ${r.exp.toFixed(1)} 대비 ${r.idx>=0?'+':''}${r.idx.toFixed(1)}${r.skillAge!=null?` · 실력 나이 ${r.skillAge}세`:''} · 클랜 ${r.rank}위 / ${antiAging().n}명 (내부티어 탭에서 전체 보기)" onclick="go('tiers')">🧬 ${r.idx>=0?'+':''}${r.idx.toFixed(1)}${r.skillAge!=null?` · 실력 ${r.skillAge}세`:''}</span>`:'';})()}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           <button class="st-cta" onclick="go('style','${escAttr(name)}')"><span class="st-cta-i">📊</span><span><b>플레이스타일 자세히보기</b><small>통산 세부 지표 25종 · 포지션 등급 · 챔피언 풀 · 진영·시간대 패턴</small></span><span class="st-cta-a">→</span></button>
           ${statBox}
@@ -9217,7 +9223,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609111100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609111130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
