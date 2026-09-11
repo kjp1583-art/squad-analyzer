@@ -131,6 +131,42 @@
   .bl .sp{width:20px;height:20px;border-radius:4px;border:1px solid var(--line)}
   .bl-sep{width:6px}
   .prow-build{padding:0 8px 6px 46px;margin-top:-4px}
+  /* 🧑‍🤝‍🧑 멸망전 팀별 선수 명단(deeplol 스타일) */
+  .mr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(640px,1fr));gap:14px;margin-top:8px}
+  .mr-card .mr-tw{overflow-x:auto}
+  @media(max-width:560px){.mr-grid{grid-template-columns:1fr}}
+  .mr-card{border:1px solid rgba(76,214,150,.35);border-radius:14px;background:linear-gradient(180deg,rgba(76,214,150,.06),rgba(0,0,0,0) 90px),var(--bg);overflow:hidden}
+  .mr-head{display:flex;gap:12px;align-items:center;padding:12px 14px 10px}
+  .mr-ht{flex:1;min-width:0}
+  .mr-capline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:16px}
+  .mr-capline .clickname{font-weight:900;color:#7ee8b0}
+  .mr-capchip{font-size:11.5px;font-weight:800;color:#7ee8b0;background:rgba(76,214,150,.14);border:1px solid rgba(76,214,150,.4);border-radius:6px;padding:2px 7px}
+  .mr-rank{font-size:12px;font-weight:800;color:#ffd479;background:rgba(255,212,121,.12);border:1px solid rgba(255,212,121,.4);border-radius:6px;padding:2px 7px}
+  .mr-grp{font-size:11.5px;color:var(--sub);background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+  .mr-sub{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12px;color:var(--sub);background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+  .mr-sub .mr-sum{margin-left:auto;color:var(--gold);font-weight:800;font-size:13px}
+  .mr-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .mr-tbl th{background:rgba(76,214,150,.1);color:#7ee8b0;font-weight:700;font-size:12px;padding:8px 6px;text-align:center;border-top:1px solid rgba(76,214,150,.25);border-bottom:1px solid rgba(76,214,150,.25)}
+  .mr-tbl th:nth-child(2){text-align:left}
+  .mr-tbl td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:center;vertical-align:middle;white-space:nowrap}
+  .mr-tbl tr:last-child td{border-bottom:0} .mr-tbl tbody tr:hover td{background:rgba(255,255,255,.03)}
+  .mr-pos{font-size:11.5px;color:var(--sub);width:48px;padding-left:8px!important} .mr-pi{margin-right:2px}
+  .mr-pl{text-align:left!important} .mr-pl .clickname{font-weight:700;font-size:13.5px;vertical-align:middle}
+  .mr-c{display:inline-block;margin-right:6px;font-style:normal;font-size:9.5px;font-weight:900;color:#0b1a12;background:#7ee8b0;border-radius:50%;width:16px;height:16px;line-height:16px;text-align:center;vertical-align:middle}
+  .mr-tier .tier{font-size:11.5px}
+  .mr-wr{width:112px}
+  .mr-bar{position:relative;display:inline-flex;width:74px;height:16px;background:#e84057;border-radius:4px;overflow:hidden;vertical-align:middle}
+  .mr-bar i{position:absolute;left:0;top:0;bottom:0;background:#3a73e8}
+  .mr-bar .mr-w,.mr-bar .mr-l{position:relative;font-size:10.5px;color:#fff;line-height:16px;padding:0 4px}
+  .mr-bar .mr-l{margin-left:auto}
+  .mr-pct{font-size:12px;font-weight:700;margin-left:5px;vertical-align:middle}
+  .mr-most .champ.sm{width:24px;height:24px;border-radius:6px;margin:0 1px}
+  .mr-pt{font-size:12.5px;font-weight:700;color:#ffcf7a} .mr-pt small{font-size:10px;font-weight:600;opacity:.75}
+  .mr-cap{font-size:11.5px;color:#7ee8b0}
+  .mr-sc{font-size:14.5px;font-weight:900;color:var(--gold);width:46px;padding-right:10px!important}
+  .mr-pl .clickname{display:inline-block;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mr-pct small{font-size:10px;font-weight:500}
+  @media(max-width:520px){.mr-most,.mr-tbl th:nth-child(5){display:none}}
   /* 🎯 장인랭킹 그리드 */
   .mst-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
   .mst-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:border-color .15s}
@@ -6073,6 +6109,89 @@ function _myeolPOfCalc(){
   return nm=>{ const cn=canonOfName(MYEOL_NAMEFIX[nm]||nm); const t=tierScore(tierOf(cn)); if(t==null)return null;
     const e=rec.get(_myNk(cn))||{g:0,w:0}; return (t+((e.w+0.5*K)/(e.g+K))*10)/2; };
 }
+/* 🧑‍🤝‍🧑 [2026-09-11 사장님 지시] 팀별 선수 명단 — deeplol 멸망전 소개 페이지 스타일(팀장 헤더 + 포지션·선수·티어·승률바·모스트·낙찰가·전투력 표) */
+function myeolRosterHtml(){
+  const S=_myeolScrims(); const pOf=_myeolPOf();
+  const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
+  if(!S||!pOf||!src) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  const nk=n=>_myNk(canonOfName(MYEOL_NAMEFIX[n]||n));
+  // 명단 표기(공백·태그 없음) → 시트 정식 이름(PLAYERS_ALL 키). computeMyeol 과 같은 방식 — 안 맞으면 티어·전적이 전부 비어 보인다.
+  const N2C=new Map();
+  if(typeof PLAYERS_ALL!=="undefined"){ for(const nm of PLAYERS_ALL.keys()) if(!N2C.has(_myNk(nm))) N2C.set(_myNk(nm),nm);
+    if(typeof CANON_TO_ALIASES!=="undefined") for(const [cn,al] of CANON_TO_ALIASES){ if(!PLAYERS_ALL.has(cn))continue; for(const a of (al||[])){ const k=_myNk(a); if(!N2C.has(k)) N2C.set(k,cn); } } }
+  const cnOf=n=>N2C.get(nk(n))||canonOfName(MYEOL_NAMEFIX[n]||n);
+  // 내부티어가 시트 티어표에 없으면 멸망전 확정 티어표(MYEOL_FLAT)로 보충 — "I티어/上" → "1上"
+  const FLAT=new Map(); for(const [t,g,nm] of MYEOL_FLAT){ const b=t==="0티어"?"0":String({I:1,II:2,III:3}[t.replace("티어","")]||""); FLAT.set(_myNk(nm),b+(g!=="-"?g:"")); }
+  const tierTxt=(n,cn)=>tierOf(cn)||tierOf(n)||FLAT.get(nk(n))||null;
+  const tierHtml=(n,cn)=>{ const t=tierTxt(n,cn); return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:'<span class="muted">-</span>'; };
+  const pwOf=(n,cn)=>{ const v=pOf(n)??pOf(cn); if(v!=null) return v;
+    const t=tierScore(tierTxt(n,cn)); if(t==null) return null;
+    let g=0,w=0; for(const r of (typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.get(cn))||[]){ const res=r["결과"]; if(res==="승리"){g++;w++;} else if(res==="패배")g++; }
+    return (t+((w+4)/(g+8))*10)/2; };
+  // 팀별 경기(스크림+본선) → 선수별 팀 내 실측(포지션·승패·챔피언·AI점수)
+  const byTeam=new Map();
+  for(const m of S.list){ for(const cap of [m.win,m.lose]){ if(!byTeam.has(cap))byTeam.set(cap,[]); byTeam.get(cap).push(m); } }
+  const stat=(cap,n)=>{
+    const key=nk(n); const e={g:0,w:0,mg:0,mw:0,pos:new Map(),ch:new Map(),ai:0,ain:0};
+    for(const m of byTeam.get(cap)||[]){ const g=src.get(m.gid); if(!g)continue;
+      for(const r of g.rows||[]){ if(_myNk(canonOfName(canonOfRow(r)))!==key)continue;
+        const win=r["결과"]==="승리"; e.g++; if(win)e.w++;
+        if(m.day>=MYEOL_MAIN_START){ e.mg++; if(win)e.mw++; }
+        const ps=r["포지션"]; if(ps&&ps!=="선택안함")e.pos.set(ps,(e.pos.get(ps)||0)+1);
+        const c=r["챔피언"]; if(c&&c!=="?")e.ch.set(c,(e.ch.get(c)||0)+1);
+        const sv=parseFloat(r["점수"]); if(!isNaN(sv)){e.ai+=sv;e.ain++;}
+        break; } }
+    // 팀 경기 기록이 없으면 통산으로 보충(포지션·챔피언·승률)
+    if(!e.g){ const rows=(typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.get(cnOf(n)))||[];
+      for(const r of rows){ const res=r["결과"]; if(res!=="승리"&&res!=="패배")continue; e.g++; if(res==="승리")e.w++;
+        const ps=r["포지션"]; if(ps&&ps!=="선택안함")e.pos.set(ps,(e.pos.get(ps)||0)+1);
+        const c=r["챔피언"]; if(c&&c!=="?")e.ch.set(c,(e.ch.get(c)||0)+1); }
+      e.fallback=true; }
+    const top=[...e.pos.entries()].sort((a,b)=>b[1]-a[1])[0];
+    e.mainPos=top?top[0]:null;
+    e.most=[...e.ch.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
+    return e; };
+  const POSI={"탑":"🗡","정글":"🌿","미드":"✨","원딜":"🏹","서폿":"🛡"};
+  const posEn={"탑":"Top","정글":"Jug","미드":"Mid","원딜":"Bot","서폿":"Sup"};
+  const rank=new Map(); rank.set(MYEOL9_CHAMP.cap,"🏆 우승"); rank.set(MYEOL9_CHAMP.runner,"🥈 준우승");
+  for(const c of MYEOL_FINAL4) if(!rank.has(c)) rank.set(c,"4강");
+  const order=[MYEOL9_CHAMP.cap,MYEOL9_CHAMP.runner,...MYEOL_FINAL4.filter(c=>c!==MYEOL9_CHAMP.cap&&c!==MYEOL9_CHAMP.runner)];
+  const teams=MYEOL_TEAMS9.slice().sort((a,b)=>{ const ia=order.indexOf(a.cap), ib=order.indexOf(b.cap); return (ia<0?99:ia)-(ib<0?99:ib); });
+  const grpOf=cap=>(MYEOL_GROUPS.find(g=>g.caps.includes(cap))||{}).g||"";
+  return `<div class="mr-grid">`+teams.map(t=>{
+    const members=[[t.cap,null],...t.m].map(([n,p])=>{ const cn=cnOf(n); return {n,p,cn,st:stat(t.cap,n),pw:pwOf(n,cn)}; });
+    members.sort((a,b)=>{ const ia=POS_LIST.indexOf(a.st.mainPos), ib=POS_LIST.indexOf(b.st.mainPos); return (ia<0?9:ia)-(ib<0?9:ib); });
+    const rec=S.rec.get(t.cap)||{w:0,l:0};
+    const mainRec=(byTeam.get(t.cap)||[]).filter(m=>m.day>=MYEOL_MAIN_START).reduce((a,m)=>{m.win===t.cap?a.w++:a.l++;return a;},{w:0,l:0});
+    const sum=members.every(m=>m.pw!=null)?members.reduce((a,m)=>a+m.pw,0):null;
+    const rows=members.map(m=>{
+      const st=m.st, wr=st.g?Math.round(st.w/st.g*100):null, wp=st.g?st.w/st.g*100:50;
+      return `<tr>
+        <td class="mr-pos" title="${st.fallback?'팀 경기 기록 없음 — 통산 주포지션':'멸망전 팀 경기 기준 주포지션'}">${st.mainPos?`<span class="mr-pi">${POSI[st.mainPos]||''}</span>${posEn[st.mainPos]||esc(st.mainPos)}`:'<span class="muted">-</span>'}</td>
+        <td class="mr-pl">${m.n===t.cap?'<i class="mr-c" title="팀장">C</i>':''}<span class="clickname" onclick="go('player','${escAttr(m.cn)}')">${esc(shortName(m.n))}</span></td>
+        <td class="mr-tier">${tierHtml(m.n,m.cn)}</td>
+        <td class="mr-wr">${st.g?`<span class="mr-bar" title="${st.fallback?'통산':'멸망전 팀 경기'} ${st.w}승 ${st.g-st.w}패"><i style="width:${wp.toFixed(0)}%"></i><b class="mr-w">${st.w}</b><b class="mr-l">${st.g-st.w}</b></span><span class="mr-pct">${wr}%${st.fallback?'<small class="muted" title="팀 경기 기록 없음 — 통산"> 통산</small>':''}</span>`:'<span class="muted">-</span>'}</td>
+        <td class="mr-most">${st.most.map(([c,n])=>`<span title="${escAttr(c)} ${n}판">${champImg(c,"sm")}</span>`).join("")||'<span class="muted">-</span>'}</td>
+        <td class="mr-pt">${m.p==null?'<span class="mr-cap">팀장</span>':(m.p?`${m.p}<small>P</small>`:'<span class="muted">유찰</span>')}</td>
+        <td class="mr-sc">${m.pw==null?'-':m.pw.toFixed(1)}</td>
+      </tr>`; }).join("");
+    return `<div class="mr-card">
+      <div class="mr-head">
+        <div class="mr-ht">
+          <div class="mr-capline"><span class="mr-capchip">팀장</span><b class="clickname" onclick="go('player','${escAttr(cnOf(t.cap))}')">${esc(t.cap)}</b>
+            ${rank.get(t.cap)?`<span class="mr-rank">${rank.get(t.cap)}</span>`:''}<span class="mr-grp">${esc(grpOf(t.cap))}</span></div>
+          <div class="mr-sub">
+            <span>본선 <b style="color:var(--win)">${mainRec.w}승</b> <b style="color:var(--lose)">${mainRec.l}패</b></span>
+            <span>스크림 포함 <b>${rec.w}승 ${rec.l}패</b></span>
+            <span>지출 <b>${t.m.reduce((a,[,p])=>a+p,0)}P</b></span>
+            <span class="mr-sum" title="5인 전투력 합">⚔ ${sum==null?'-':sum.toFixed(1)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="mr-tw"><table class="mr-tbl"><thead><tr><th>#</th><th>Players</th><th>Tier</th><th>Win Rate</th><th>Most</th><th>낙찰가</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`; }).join("")+`</div>
+    <div class="muted" style="font-size:11.5px;margin-top:8px">※ 포지션·승률·모스트는 멸망전 팀 경기(스크림+본선) 실측 기준, 팀 경기 기록이 없는 분은 통산으로 보충 · Score = 전투력(내부티어+통산승률 수축)</div>`;
+}
 function myeolTeamRankHtml(){
   // 팀 전투력 = 5인 공용 1인분(내부티어+통산승률 수축) 합 — 밸런스 사후평가·분석기 예상승률과 같은 산식.
   const pOf=_myeolPOf();
@@ -6512,6 +6631,7 @@ function renderMyeol(){
   <div class="card" style="margin-top:10px"><h2>✨ 제9회 재미난 기록 <span class="muted" style="font-size:12.5px;font-weight:400">— 본선 전 경기에서 뽑은 기록들 · 동률은 전원 표기</span></h2>${myeolFunHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🏟️ 본선 조별리그 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동</span></h2>${myeolGroupHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만</span></h2>${myeolScrimHtml()}</div>
+  <div class="card" style="margin-top:10px"><h2>🧑‍🤝‍🧑 팀별 선수 명단 <span class="muted" style="font-size:12.5px;font-weight:400">— 12팀 · 우승팀부터 · 포지션순</span></h2>${myeolRosterHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 종이 전력(전투력 5인 합) + 실전 보정(스크림·본선) · 경기가 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)</span></h2>${myeolTeamRankHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>💑 봇듀오 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 원딜+서폿 전투력 2인 합 · 라인업은 스크림 실측 우선(없으면 주포지션) · 바텀 유동 팀은 경우의수 병기</span></h2>${myeolBotDuoHtml()}</div>
   <div class="card" style="margin-top:10px"><h2>🌀 미드·정글 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 미드+정글 전투력 2인 합 · 라인업은 스크림 실측 최다 조합 · 갈린 팀은 경우의수 병기</span></h2>${myeolMidJglHtml()}</div>`;
@@ -9013,7 +9133,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609110940";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609111010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
