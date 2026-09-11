@@ -745,8 +745,24 @@
   @media(max-width:900px){.gd-teams{grid-template-columns:1fr}}
   .team{margin-bottom:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
   .team .thead{padding:11px 14px;font-weight:800;font-size:15px;display:flex;justify-content:space-between}
-  .team.blue .thead{background:var(--blue-bg);color:#9cc0ff}
-  .team.red .thead{background:var(--red-bg);color:#ff9aa8}
+  /* 🎨 [2026-09-11 사장님 지시] deeplol 식 진영 배경 — 블루팀 파란 틴트 · 레드팀 붉은 틴트로 한눈에 구분 */
+  .team.blue{background:linear-gradient(180deg,rgba(58,115,232,.16),rgba(58,115,232,.06));border-color:rgba(90,140,255,.45)}
+  .team.red{background:linear-gradient(180deg,rgba(232,64,87,.16),rgba(232,64,87,.06));border-color:rgba(255,110,130,.45)}
+  .team.blue .thead{background:linear-gradient(90deg,#1c3260,#16243f);color:#b4d0ff;border-bottom:2px solid rgba(90,140,255,.5)}
+  .team.red .thead{background:linear-gradient(90deg,#5a2230,#3a1c25);color:#ffb3bd;border-bottom:2px solid rgba(255,110,130,.5)}
+  .team .thead .tres{font-size:13px;padding:2px 10px;border-radius:999px;font-weight:800}
+  .team .thead .tres.w{background:rgba(60,200,120,.2);color:#7ee081;border:1px solid rgba(60,200,120,.5)}
+  .team .thead .tres.l{background:rgba(232,64,87,.18);color:#ff8a9a;border:1px solid rgba(232,64,87,.5)}
+  .team .thead .tsum{font-size:12px;font-weight:600;opacity:.8;margin-left:8px}
+  .team.blue .prow{border-top-color:rgba(90,140,255,.22)} .team.red .prow{border-top-color:rgba(255,110,130,.22)}
+  .team.blue .clickname{color:#b4d0ff} .team.red .clickname{color:#ffb3bd}
+  .team.blue .dmgfill{background:linear-gradient(90deg,#3a73e8,#7aa2ff)} .team.red .dmgfill{background:linear-gradient(90deg,#e84057,#ff8a9a)}
+  .prow:hover{background:rgba(255,255,255,.04)}
+  .prow.is-mvp{background:linear-gradient(90deg,rgba(255,210,74,.16),rgba(255,210,74,.03));box-shadow:inset 3px 0 0 var(--gold)}
+  .prow.is-ace{background:linear-gradient(90deg,rgba(57,199,214,.14),rgba(57,199,214,.02));box-shadow:inset 3px 0 0 #39c7d6}
+  .team .pmet{font-size:11.5px;padding:1px 8px 6px 44px;color:var(--sub);display:flex;flex-wrap:wrap;gap:2px 0}
+  .team .pmet span{white-space:nowrap} .team .pmet span+span::before{content:"·";margin:0 5px;opacity:.45}
+  .team.blue .pmet{color:#aebfdc} .team.red .pmet{color:#dcb4bb}
   .prow{display:flex;align-items:center;gap:9px;padding:9px 12px;border-top:1px solid var(--line)}
   .prow .champ{width:42px;height:42px}
   .prow .clickname{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
@@ -8192,7 +8208,7 @@ function metricsLine(p){
   if(mt.sk)bits.push(`솔로킬 ${mt.sk}`);
   {const ep=(mt.dr||0)+(mt.br||0); if(mt.dr!=null||mt.br!=null)bits.push(`오브젝트 ${ep}개${ep?`(용${mt.dr||0}·바론${mt.br||0})`:""}`);}
   if(!bits.length)return "";
-  return `<div class="muted" style="font-size:11.5px;padding:1px 8px 5px 44px;opacity:.85">${bits.join(" · ")}</div>`;
+  return `<div class="pmet">${bits.map(b=>`<span>${b}</span>`).join("")}</div>`;
 }
 /* 게임 상세(밴 헤더 + 양 팀 상세표) — 게임 페이지와 미토 매치업 카드가 같이 쓴다.
    [2026-08-02 사장님 지시] 미토 매치업에서도 이 상세표를 그대로 봐야 한다. */
@@ -8347,7 +8363,7 @@ function gameDetailHtml(g){
                       : rk ? `<span class="rk ${rk===1?'rk1':''}" title="이 게임 ${total}명 중 ${rk}등">${rk===1?'👑 ':''}${rk}등</span>` : "";
       const badge = me==="역적" ? `<span class="badge b-bad">역적</span>` : "";
       const bl=buildLine(p);
-      return `<div class="prow">
+      return `<div class="prow${me==="MVP"?' is-mvp':me==="ACE"?' is-ace':''}">
         ${rankBadge}
         ${champImg(p["챔피언"])}
         <span class="pos">${esc(posLabel(p["포지션"]))}</span>
@@ -8356,8 +8372,10 @@ function gameDetailHtml(g){
         ${dmgBar(p,maxDmg)}${kdaChip(p)}${aiScoreChip(p)}${badge}
       </div>${bl?`<div class="prow-build">${bl}</div>`:''}${metricsLine(p)}`;
     }).join("");
+    // 팀 합계 킬/데스 — 헤더에서 스코어가 바로 읽히게
+    const tk=players.reduce((a,p)=>{const o=parseKDA(p["KDA"]);return o?[a[0]+o.k,a[1]+o.d]:a;},[0,0]);
     return `<div class="team ${cls}">
-      <div class="thead"><span>${esc(side)}</span><span>${tres}</span></div>
+      <div class="thead"><span>${esc(side)}${tk[0]||tk[1]?`<span class="tsum">${tk[0]}킬 · ${tk[1]}데스</span>`:''}</span><span class="tres ${tres==="승리"?'w':tres==="패배"?'l':''}">${tres}</span></div>
       ${rows}
     </div>`;
   }).join("");
@@ -8967,7 +8985,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609110840";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609110905";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
