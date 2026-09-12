@@ -8867,8 +8867,9 @@ function renderAds(){
     : COUPANG.banners.map(bannerHtml).join("");
   // 🍗 [2026-09-12 사장님 지시] 양옆 레일은 쿠팡 대신 브장신 키우기 광고
   const brj = `<a class="brjad" href="brjang.html" title="브장신 키우기 소개 보기"><img src="img/brjang_promo_tall.png" alt="브장신 키우기 — 디스코드 미니게임"></a>`;
+  const brjPool = `<a class="brjad" href="brjang.html" title="브장신 키우기 — 수영장파티 신스킨"><img src="img/brjang_promo_pool_tall.png" alt="브장신 키우기 — 수영장파티 브장신 신스킨"></a>`;   // 🏖 우측 레일은 신스킨 크리에이티브 (2026-09-13)
   const elL=$("#adL"); if(elL) elL.innerHTML = brj + railStoreHtml(STORES[0]);  // 좌측: BHC
-  const elR=$("#adR"); if(elR) elR.innerHTML = brj + railStoreHtml(STORES[1]);  // 우측: 아카보시
+  const elR=$("#adR"); if(elR) elR.innerHTML = brjPool + railStoreHtml(STORES[1]);  // 우측: 아카보시
   const f=$("#adFooter");
   if(f)f.innerHTML=COUPANG.banners.map(bannerHtml).join("")
     +`<div class="addisc">${COUPANG.disclosure}</div>`
@@ -9428,7 +9429,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609132000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609140200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
