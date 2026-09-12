@@ -5695,13 +5695,24 @@ def update_hof_stats(force=False):
         all_ws = global_spreadsheet.worksheets()
         c_g_data, a_g_data = {"전체 (ALL)": {}}, {"전체 (ALL)": {}}
         def _hof_parse_met(s):
-            """📊 '지표' 팩("g8566|cs26|m25.9|kp82|...") → {키: float}. 실패 시 {}."""
+            """📊 '지표' 팩("g8566|cs26|m25.9|kp82|...") → {키: float}. 실패 시 {}.
+               🩹 [2026-09-07 사장님 지시] m↔분당CS 뒤바뀜 방어 — 구버전 LCU 백필 빌드가 m(게임 길이)
+                  자리에 '분당 CS'를 써넣은 판이 실재한다(8/1~8/24 14판, 팀 전원 동일 증상).
+                  그대로 읽으면 cs/m·g/m 이 3~9배로 튀어 분당 랭킹이 통째로 뒤집힌다.
+                  판정: m 이 게임 길이로 보기엔 너무 작고(<12분) cs/m 이 분당 CS로 보기엔 너무 큰(≥14)
+                  경우만 되돌린다 — 실제 짧은 판(분당 CS 12 이하)은 건드리지 않는다."""
             out = {}
             try:
                 for tok in str(s or "").split("|"):
                     m2 = re.match(r"([a-z]+)(-?[\d.]+)$", tok.strip())
                     if m2: out[m2.group(1)] = float(m2.group(2))
             except Exception: return {}
+            try:
+                _m, _cs = out.get("m", 0.0), out.get("cs", 0.0)
+                if 0 < _m < 12 and _cs > 0:
+                    _dur = _cs / _m
+                    if 14 <= _dur <= 90: out["m"] = round(_dur, 1)
+            except Exception: pass
             return out
         c_rec, a_rec = {}, {}   # 🏅 [v82.22] 기록실 — p_key별 킬/데스/어시/딜량/AI점수 기록(단일게임 최고 + 누적)
         c_patches, a_patches = set(), set()
