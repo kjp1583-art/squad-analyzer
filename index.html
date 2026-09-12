@@ -4584,7 +4584,7 @@ function renderHome(){
   const pShow=pAll?playersOrdered:playersOrdered.slice(0,15);
   const playerRows=pShow.map(p=>`<tr${isPinned(p.name)?' style="background:rgba(245,212,122,.06)"':''}>
       <td><span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${isPinned(p.name)?'📌 ':''}${roleBadge(p.name)}${nameFx(p.name)}</span>${tierBadge(p.name)}</td>
-      <td class="num" title="전투력 = (내부티어 점수 + 내전 통산승률 수축×10) ÷ 2 — 예상승률·밸런스 평가와 같은 산식" style="color:var(--gold);font-weight:${p.power!=null&&p.power>=8?'700':'400'}">${p.power!=null?p.power.toFixed(1):'<span class="muted">-</span>'}</td>
+      <td class="num" title="내전 활약 점수 — 솔랭을 빼고 내전 기록(승률·KDA·킬관여·MVP·역적 등)만으로 매긴 점수. 클랜 평균 50" style="color:${p.score==null?'var(--mut)':p.score>=65?'var(--gold)':p.score<=35?'var(--lose)':'var(--txt)'};font-weight:${p.score!=null&&p.score>=65?'700':'400'}">${p.score!=null?p.score+'<span class="muted" style="font-size:10.5px">/100</span>':'<span class="muted">-</span>'}</td>
       <td class="num">${p.games}</td>
       <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%</td>
       <td class="num" style="color:var(--gold)">${p.mvp||""}</td>
@@ -4600,7 +4600,7 @@ function renderHome(){
       <div class="card">
         <h2>👥 플레이어 목록 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
         <table class="ranktbl"><thead><tr>
-          ${pth("소환사","name")}${pth("전투력","power")}${pth("게임수","games")}${pth("승률","wr")}${pth("MVP","mvp")}${pth("ACE","ace")}${pth("역적","bad")}
+          ${pth("소환사","name")}${pth("내전 활약","score")}${pth("게임수","games")}${pth("승률","wr")}${pth("MVP","mvp")}${pth("ACE","ace")}${pth("역적","bad")}
         </tr></thead><tbody>${playerRows}</tbody></table>
         ${pAll?'':`<div class="showall" onclick="homeShowAll('p')">▼ 전체 보기 (${playersOrdered.length}명)</div>`}
       </div>
@@ -9388,7 +9388,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609130010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609130040";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
