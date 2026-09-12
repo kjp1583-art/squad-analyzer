@@ -479,6 +479,7 @@
   .adrail .brjad{display:block;border-radius:10px;overflow:hidden;border:1px solid var(--line);box-shadow:0 6px 24px rgba(0,0,0,.35)} .adrail .brjad img{margin:0;border:0;border-radius:0}
   /* 🍗 브장신 키우기 팝업 */
   .brjpop{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+  .brjpop[hidden]{display:none!important}   /* 🩹 display:flex 가 hidden 속성 숨김을 덮어 닫기가 안 되던 문제 */
   .brjpop-bd{position:absolute;inset:0;background:rgba(6,8,14,.72);backdrop-filter:blur(3px)}
   .brjpop-box{position:relative;width:min(760px,100%);background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:brjpop-in .28s cubic-bezier(.2,1.2,.4,1)}
   @keyframes brjpop-in{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
@@ -9427,7 +9428,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609131700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609131750";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
