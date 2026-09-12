@@ -39,7 +39,15 @@ def _key_bg(im):
     d = ImageChops.lighter(ImageChops.lighter(ImageChops.difference(rgb, Image.new("RGB", rgb.size, bg)).getchannel(0),
                                               ImageChops.difference(rgb, Image.new("RGB", rgb.size, bg)).getchannel(1)),
                            ImageChops.difference(rgb, Image.new("RGB", rgb.size, bg)).getchannel(2))
-    hard = d.point(lambda v: 255 if v > 40 else 0)
+    # 🩹 [2026-09-13] 배경색과 비슷한 픽셀을 '전부' 지우면 몸통(연노랑)이 크림색 배경과 가까워 구멍이 뚫린다(별수호자 사고).
+    #    배경 후보(색 거리 ≤ 40) 중 테두리에서 이어진 영역만 배경으로 본다 — 몸 안쪽의 비슷한 색은 남긴다.
+    cand = d.point(lambda v: 255 if v <= 40 else 0)          # 255 = 배경 후보
+    from PIL import ImageDraw as _ID
+    seeds = [(x, y) for x in range(0, w, max(1, w // 32)) for y in (0, h - 1)] + [(x, y) for y in range(0, h, max(1, h // 32)) for x in (0, w - 1)]
+    for sx, sy in seeds:
+        if cand.getpixel((sx, sy)) == 255:
+            _ID.floodfill(cand, (sx, sy), 128)                # 128 = 테두리와 이어진 배경
+    hard = cand.point(lambda v: 0 if v == 128 else 255)
     hard = hard.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))   # 1px 헤일로 제거
     out = rgb.convert("RGBA"); out.putalpha(hard)
     return out, bg
