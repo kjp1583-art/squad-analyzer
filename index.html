@@ -5854,7 +5854,8 @@ function renderTiers(){
 
   view().innerHTML=`${navTabsHtml('tiers')}
     <div class="card">
-      <h2>🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;flex:1">🎖 내부티어 평가 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
+        <a href="tier_note.html" target="_blank" rel="noopener" class="pchip on" style="text-decoration:none;font-size:13px;white-space:nowrap" title="2026-09-11 내부티어 조정을 성적 데이터로 검토한 보고서">📝 내부티어 분석노트</a></div>
       <div style="font-size:13px;margin:2px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span><span class="assess a-urgent">🚨 긴급픽스요망</span> <span class="muted">추정과 2티어 이상 차이 — ↑저평가(승격 시급)·↓고평가(강등 시급) 방향 병기 · ${cUr}명</span></span>
         <span><span class="assess a-under">저평가</span> <span class="muted">클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보) · ${cU}명</span></span>
@@ -9387,7 +9388,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609122300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609130010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
