@@ -2625,19 +2625,19 @@ function brjSpriteRows(lv,cos,flags){
 // 🎨 벡터 브장신 (2026-09-09) — 봇 _vec_draw 와 같은 도형·좌표(320×320). 에셋 없이 SVG 도형만. 기본 볏 없음.
 const BRJ_VEC_STAGE={0:["#fff",["egg"]],1:["#fff",["chick"]],2:["#fff",[]],3:["#fff",[]],4:["#fff",[]],5:["#fff",[]],6:["#fff",[]],7:["#fff",[]],8:["#fff",[]],9:["#fff",[]],10:["#fff",[]],11:["#fff",[]],12:["#fff",[]]};   // 🧸 레벨업 외형 변화 없음(2026-09-10)
 // 🧩 [2026-09-10] 파츠 manifest(img/brjang/parts/manifest.json) — 봇 /파츠추가 로 올린 PNG 레이어 꾸미기. 로드되면 도감·스프라이트에 합쳐진다.
-let BRJ_PARTS={}, BRJ_SKINS={}, _brjPartsLoaded=false;   // BRJ_SKINS: manifest.skins(전신 스킨 — 의상 키 c_* 는 착용 시 통째로 바뀐다)
+let BRJ_PARTS={}, BRJ_SKINS={}, _brjPartsLoaded=false, _brjPartsAt=0;   // BRJ_SKINS: manifest.skins(전신 스킨 — 의상 키 c_* 는 착용 시 통째로 바뀐다)
 const OUTFIT_SKINS=[];   // 👗 [2026-09-13] 의상 꾸미기 전부 삭제
-function loadBrjParts(){
-  if(_brjPartsLoaded) return Promise.resolve(BRJ_PARTS);
+function loadBrjParts(force){
+  if(_brjPartsLoaded&&!force) return Promise.resolve(BRJ_PARTS);
   return fetch("img/brjang/parts/manifest.json?cb="+Math.floor(Date.now()/600000)).then(r=>r.ok?r.json():{}).then(j=>{
-    BRJ_PARTS=(j&&j.parts)||{}; BRJ_SKINS=(j&&j.skins)||{}; _brjPartsLoaded=true;
+    BRJ_PARTS=(j&&j.parts)||{}; BRJ_SKINS=(j&&j.skins)||{}; _brjPartsLoaded=true; _brjPartsAt=Date.now();
     const SLOT_KO={h:"모자",o:"의상",a:"장신구"};
     for(const [k,p] of Object.entries(BRJ_PARTS)){
       if(!["h","o","a"].includes(p.slot)) continue;
       if(!Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)){ BRJ_SPR.cos[k]={}; BRJ_COS.push([p.emoji||"🧩",p.name||k,p.rarity||"에픽",SLOT_KO[p.slot],p.desc||""]); }
     }
     return BRJ_PARTS;
-  }).catch(()=>{ _brjPartsLoaded=true; return BRJ_PARTS; });
+  }).catch(()=>{ _brjPartsLoaded=true; _brjPartsAt=Date.now(); return BRJ_PARTS; });
 }
 loadBrjParts();
 function brjPartHref(k,view){ const p=BRJ_PARTS[k]; if(!p||!p.views) return ""; const v=p.views.includes(view)?view:(view==="oblique"&&p.views.includes("front")?"front":""); return v?`img/brjang/parts/${p.slot}/${encodeURIComponent(k)}/${v}.png`:""; }
@@ -7513,7 +7513,8 @@ function setDuoSubj(s){ DUO_SUBJ = s==='c' ? 'c' : 'p'; renderDuo(); }
 
 /* ============== 화면: 🍗 브장신 키우기 (2026-09-03 사장님 지시) — 봇 미니게임의 웹 대시보드 ============== */
 function renderBrjang(){
-  if(!_brjPartsLoaded) loadBrjParts().then(()=>{ if(location.hash.replace('#','').split('/')[0]==='brjang') renderBrjang(); });
+  // 🌟 [2026-09-13 사장님 지시 "스킨도감 — 신스킨 넣으면 웹도 자동"] 매니페스트가 10분 넘게 묵었으면 다시 읽는다(봇이 main 에 올린 스킨이 따라온다)
+  if(!_brjPartsLoaded||Date.now()-_brjPartsAt>600000) loadBrjParts(true).then(()=>{ if(location.hash.replace('#','').split('/')[0]==='brjang') renderBrjang(); });
   const list=[...BRJANG.values()].sort((a,b)=>(b.xp-a.xp)||a.name.localeCompare(b.name));
   const line=BRJ_LINES[Math.floor(Math.random()*BRJ_LINES.length)];
   const stageTable=BRJ_STAGES.map(([xp,em,nm],i)=>{ const sk=BRJ_SKILLS[i];
@@ -7539,6 +7540,16 @@ function renderBrjang(){
   const gearTable=['무기','방어구','장신구'].map(sl=>`<div><div style="font-weight:800;margin:4px 0">${sl}</div>${BRJ_GEAR.filter(g=>g[3]===sl).map(([em,nm,gr,_s,st,ds])=>`<div style="display:flex;gap:8px;align-items:center;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);margin-bottom:4px"><span style="font-size:18px">${em}</span><div><div style="font-weight:800">${esc(nm)} <span style="font-size:10.5px">${GR[gr]||''} ${gr}</span> <span style="color:#ffcf8a;font-size:11.5px">${esc(st)}</span></div><div class="muted" style="font-size:11.5px">✨ ${esc(ds)}</div></div></div>`).join("")}</div>`).join("");
   const campTable=BRJ_CAMP.map(([no,t,lv,cond],i)=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 9px;border:1px solid var(--line);border-radius:9px;background:var(--bg)"><span style="font-weight:900;color:${i===BRJ_CAMP.length-1?'#ffd75e':'var(--sub)'}">${i===BRJ_CAMP.length-1?'🏆':(i+1)}</span><div><div style="font-weight:800">${esc(no)} — ${esc(t)}</div><div class="muted" style="font-size:11.5px">Lv.${lv} ${esc(BRJ_STAGES[lv][2])}${cond?` · ${esc(cond)}`:''}</div></div></div>`).join("");
   const itemTable=BRJ_ITEMS.map(([em,nm,g,ds])=>`<div style="display:flex;gap:8px;align-items:center;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg)"><span style="font-size:18px">${em}</span><div><div style="font-weight:800">${esc(nm)} <span style="font-size:10.5px">${GR[g]||''} ${g}</span></div><div class="muted" style="font-size:11.5px">${esc(ds)}</div></div></div>`).join("");
+  // 🌟 스킨 도감 — 기본 몸 + manifest.skins(봇 /스킨추가 가 쓰는 파일 그대로). 이미지는 img/brjang/skins/<키>/<view>.png, 등록일로 캐시 무효화.
+  const BRJ_GACHA_SKIN_P=0.5;   // 봇 GACHA_SKIN_P(0.005) — 표기용
+  const skinEntries=[["base",{name:"기본 브장신",emoji:"🐥",desc:"알에서 깨어난 그대로. 스킨을 해제하면 이 모습.",rarity:"기본",price:0,views:["front","oblique","quarter"],base:true}],
+    ...Object.entries(BRJ_SKINS||{}).filter(([k,v])=>k!=="base"&&v&&typeof v==="object").sort((a,b)=>String(a[1].added||"").localeCompare(String(b[1].added||""))||a[0].localeCompare(b[0]))];
+  const skinTable=skinEntries.map(([k,sk])=>{ const vs=(sk.views&&sk.views.length?sk.views:["front"]).filter(x=>x!=="egg"); const main=vs.includes("front")?"front":vs[0]; const cb=sk.added?`?v=${encodeURIComponent(String(sk.added))}`:"";
+    const img=v=>`img/brjang/skins/${encodeURIComponent(k)}/${v}.png${cb}`;
+    const how=sk.base?'기본 지급':([(sk.price>0?`🍘 맛동산 ${sk.price}개`:null),(sk.gacha===false?null:`🎰 뽑기 ${BRJ_GACHA_SKIN_P}% (미보유만)`)].filter(Boolean).join(' · ')||'비매품 · 이벤트 지급');
+    return `<div style="border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:10px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:6px;justify-content:center;align-items:flex-end;min-height:160px">${vs.slice(0,3).map(v=>`<img src="${img(v)}" alt="${escAttr(sk.name||k)} ${v}" loading="lazy" style="height:${v===main?160:115}px;width:auto;max-width:100%;object-fit:contain" onerror="this.style.display='none'">`).join("")}</div>
+      <div><div style="font-weight:800">${esc(sk.emoji||'🎽')} ${esc(sk.name||k)} <span style="font-size:10.5px">${GR[sk.rarity]||''} ${esc(sk.rarity||'')}</span></div>${sk.desc?`<div class="muted" style="font-size:11.5px">${esc(sk.desc)}</div>`:''}<div style="font-size:11.5px;margin-top:4px;color:#ffcf8a">${how}</div>${sk.base?'':`<div class="muted" style="font-size:10.5px">${sk.added?`등록 ${esc(String(sk.added))} · `:''}<code>사용 ${esc(String(sk.name||k).replace(/\s+/g,''))}스킨</code> 등록 → <code>스킨 ${esc(String(sk.name||k).replace(/\s+/g,'').slice(0,4))}</code> 장착</div>`}</div></div>`; }).join("");
   const cosTable=['장신구'].map(sl=>`<div><div style="font-weight:800;margin:4px 0">${sl}</div>${BRJ_COS.filter(c=>c[3]===sl).map(([em,nm,gr,_s,ds])=>`<div style="display:flex;gap:8px;align-items:center;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);margin-bottom:4px"><span style="font-size:18px">${em}</span><div><div style="font-weight:800">${esc(nm)} <span style="font-size:10.5px">${GR[gr]||''} ${gr}</span></div><div class="muted" style="font-size:11.5px">${esc(ds)}</div></div></div>`).join("")}</div>`).join("");
   const endings=list.filter(b=>/엔딩/.test(b.camp||"")); const endBanner=endings.length?`<div style="margin:8px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,215,94,.6);background:linear-gradient(90deg,rgba(255,215,94,.15),rgba(255,122,61,.1))">🏆 <b>멸망전 우승 엔딩 달성</b> — ${endings.map(b=>esc(b.name)).join(', ')} 의 브장신이 트로피를 들었다. 관전석: "엄"</div>`:'';
   const mk=BRJ_MARKET; const mkHtml=mk===null?`<div class="muted">장터 불러오는 중…</div>`:(mk.length?`<div style="overflow-x:auto"><table class="tbl" style="width:100%"><thead><tr><th>#</th><th>아이템</th><th>등급</th><th>수량</th><th>가격</th><th>판매자</th><th>등록</th></tr></thead><tbody>${mk.slice().sort((a,b)=>a.price-b.price).map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.emoji)} ${esc(x.item)}</td><td>${GR[x.grade]||''} ${esc(x.grade)}</td><td>${x.n}</td><td><b>${x.price.toLocaleString()}P</b></td><td>${esc(x.seller)}</td><td class="muted">${esc(x.at)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="muted">매물 없음 — 채널에 <b>"판매 아이템명 가격"</b> 으로 올릴 수 있어요</div>`);
@@ -7557,8 +7568,9 @@ function renderBrjang(){
     ${endBanner}
     <div class="card" style="margin-top:10px"><h2>📖 시나리오 — 브장신, 멸망전 우승하기</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px">${campTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🏪 브장신 장터 <span class="muted" style="font-size:12.5px;font-weight:400">— 아이템 P 거래 · 봇이 30분마다 갱신</span></h2>${mkHtml}</div>
-    <div class="card" style="margin-top:10px"><h2>⚔ 장비 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜원 시그니처 ${BRJ_GEAR.length}종 · 무기/방어구/장신구 1개씩 장착 · 능력치가 전투·판정·이벤트에 전부 반영 · <b>장비마다 고유 특수효과</b> · 드롭 1~6%로 장터 거래의 핵심 · "뽑기"로 포인트 랜덤 뽑기(1회 2P · 10연 20P, 할인·보장 없음, 장비 18% — 전체 확률 레어 15%·에픽 2.3%·전설 0.5%, 꽝은 일반 아이템·꾸미기). 장비는 뽑기·드롭·장터로만 얻습니다</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">${gearTable}</div></div>
+    <div class="card" style="margin-top:10px"><h2>⚔ 장비 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜원 시그니처 ${BRJ_GEAR.length}종 · 무기/방어구/장신구 1개씩 장착 · 능력치가 전투·판정·이벤트에 전부 반영 · <b>장비마다 고유 특수효과</b> · 드롭 1~6%로 장터 거래의 핵심 · "뽑기"로 포인트 랜덤 뽑기(1회 2P · 10연 20P, 할인·보장 없음, 장비 18% — 전체 확률 레어 15%·에픽 2.3%·전설 0.5% · 🌟 스킨 0.5%(미보유 스킨만), 꽝은 일반 아이템·꾸미기). 장비는 뽑기·드롭·장터로만 얻습니다</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">${gearTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🎀 꾸미기 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— ${BRJ_COS.length}종 · 장신구만 · 3개까지 겹쳐 착용 <b>"착용 아이템명"</b>(해제는 "벗기 모자") · 능력치는 0, 디스코드 브장신 그림과 이 페이지 프로필 카드에 그대로 그려집니다 · 뽑기 꽝의 15%·퀘스트 20%·신림 처치(추첨 1명 + 15%)로 드롭, 장터 거래·리폼 가능</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">${cosTable}</div></div>
+    <div class="card" style="margin-top:10px"><h2>🌟 스킨 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— 전신 스킨 ${skinEntries.length}종(기본 포함) · 봇 <b>/스킨추가</b> 로 등록되면 이 칸에 자동으로 뜹니다(10분 내) · 얻는 길: 🍘 맛동산 상점 또는 🎰 뽑기 ${BRJ_GACHA_SKIN_P}%(아직 없는 스킨만) · 채널에 <b>"사용 스킨이름"</b>으로 등록 → <b>"스킨 이름"</b>으로 장착, <b>"스킨 해제"</b>로 원래 모습 · 겉모습만 바뀌고 회차 리셋에도 유지</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">${skinTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>📕 아이템 도감</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px">${itemTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🧬 진화 단계</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">${stageTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🏆 육성 랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— ${list.length}명 · 봇이 30분마다 갱신</span></h2>
@@ -9429,7 +9441,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609140200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609140300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
