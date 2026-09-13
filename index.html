@@ -7548,7 +7548,7 @@ function renderBrjang(){
     const vs=[main].concat(vs0.filter(x=>x!==main).sort((a,b)=>(a==="quarter"?0:1)-(b==="quarter"?0:1)).slice(0,1));   // 정면 + 옆모습(있으면) 2장까지 — 카드 폭 안에 맞춘다
     const cb=sk.added?`?v=${encodeURIComponent(String(sk.added))}`:"";
     const img=v=>`img/brjang/skins/${encodeURIComponent(k)}/${v}.png${cb}`;
-    const how=sk.base?'기본 지급':([(sk.price>0?`🍘 맛동산 ${sk.price}개`:null),(sk.gacha===false?null:`🎰 뽑기 ${BRJ_GACHA_SKIN_P}% (미보유만)`)].filter(Boolean).join(' · ')||'비매품 · 이벤트 지급');
+    const how=sk.base?'기본 지급':([(sk.price>0?`🍘 맛동산 ${sk.price}개`:null),(sk.gacha?`🎰 뽑기 ${BRJ_GACHA_SKIN_P}%`:null),'🏪 장터 거래 가능' ].filter(Boolean).join(' · ')||'비매품 · 이벤트 지급');
     return `<div style="border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:10px;display:flex;flex-direction:column;gap:8px">
       <div style="display:flex;gap:6px;justify-content:center;align-items:flex-end;min-height:160px;overflow:hidden">${vs.map(v=>`<img src="${img(v)}" alt="${escAttr(sk.name||k)} ${v}" loading="lazy" style="max-height:${v===main?160:115}px;max-width:${v===main?'58%':'38%'};height:auto;width:auto;object-fit:contain" onerror="this.style.display='none'">`).join("")}</div>
       <div><div style="font-weight:800">${esc(sk.emoji||'🎽')} ${esc(sk.name||k)} <span style="font-size:10.5px">${GR[sk.rarity]||''} ${esc(sk.rarity||'')}</span></div>${sk.desc?`<div class="muted" style="font-size:11.5px">${esc(sk.desc)}</div>`:''}<div style="font-size:11.5px;margin-top:4px;color:#ffcf8a">${how}</div>${sk.base?'':`<div class="muted" style="font-size:10.5px">${sk.added?`등록 ${esc(String(sk.added))} · `:''}<code>사용 ${esc(String(sk.name||k).replace(/\s+/g,''))}스킨</code> 등록 → <code>스킨 ${esc(String(sk.name||k).replace(/\s+/g,'').slice(0,4))}</code> 장착</div>`}</div></div>`; }).join("");
@@ -7570,9 +7570,9 @@ function renderBrjang(){
     ${endBanner}
     <div class="card" style="margin-top:10px"><h2>📖 시나리오 — 브장신, 멸망전 우승하기</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px">${campTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🏪 브장신 장터 <span class="muted" style="font-size:12.5px;font-weight:400">— 아이템 P 거래 · 봇이 30분마다 갱신</span></h2>${mkHtml}</div>
-    <div class="card" style="margin-top:10px"><h2>⚔ 장비 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜원 시그니처 ${BRJ_GEAR.length}종 · 무기/방어구/장신구 1개씩 장착 · 능력치가 전투·판정·이벤트에 전부 반영 · <b>장비마다 고유 특수효과</b> · 드롭 1~6%로 장터 거래의 핵심 · "뽑기"로 포인트 랜덤 뽑기(1회 2P · 10연 20P, 할인·보장 없음, 장비 18% — 전체 확률 레어 15%·에픽 2.3%·전설 0.5% · 🌟 스킨 0.5%(미보유 스킨만), 꽝은 일반 아이템·꾸미기). 장비는 뽑기·드롭·장터로만 얻습니다</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">${gearTable}</div></div>
+    <div class="card" style="margin-top:10px"><h2>⚔ 장비 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜원 시그니처 ${BRJ_GEAR.length}종 · 무기/방어구/장신구 1개씩 장착 · 능력치가 전투·판정·이벤트에 전부 반영 · <b>장비마다 고유 특수효과</b> · 드롭 1~6%로 장터 거래의 핵심 · "뽑기"로 포인트 랜덤 뽑기(1회 2P · 10연 20P, 할인·보장 없음, 장비 18% — 전체 확률 레어 15%·에픽 2.3%·전설 0.5% · 🌟 뽑기 지정 스킨 0.5%(중복 가능·장터 거래), 꽝은 일반 아이템·꾸미기). 장비는 뽑기·드롭·장터로만 얻습니다</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">${gearTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🎀 꾸미기 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— ${BRJ_COS.length}종 · 장신구만 · 3개까지 겹쳐 착용 <b>"착용 아이템명"</b>(해제는 "벗기 모자") · 능력치는 0, 디스코드 브장신 그림과 이 페이지 프로필 카드에 그대로 그려집니다 · 뽑기 꽝의 15%·퀘스트 20%·신림 처치(추첨 1명 + 15%)로 드롭, 장터 거래·리폼 가능</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">${cosTable}</div></div>
-    <div class="card" style="margin-top:10px"><h2>🌟 스킨 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— 전신 스킨 ${skinEntries.length}종(기본 포함) · 봇 <b>/스킨추가</b> 로 등록되면 이 칸에 자동으로 뜹니다(10분 내) · 얻는 길: 🍘 맛동산 상점 또는 🎰 뽑기 ${BRJ_GACHA_SKIN_P}%(아직 없는 스킨만) · 채널에 <b>"사용 스킨이름"</b>으로 등록 → <b>"스킨 이름"</b>으로 장착, <b>"스킨 해제"</b>로 원래 모습 · 겉모습만 바뀌고 회차 리셋에도 유지</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">${skinTable}</div></div>
+    <div class="card" style="margin-top:10px"><h2>🌟 스킨 도감 <span class="muted" style="font-size:12.5px;font-weight:400">— 전신 스킨 ${skinEntries.length}종(기본 포함) · 봇 <b>/스킨추가</b> 로 등록되면 이 칸에 자동으로 뜹니다(10분 내) · 얻는 길: 🍘 맛동산 상점 · 🎰 뽑기 ${BRJ_GACHA_SKIN_P}%(🎰 표시된 스킨만 · 이미 가진 스킨도 나옴) · 🏪 장터 거래 · 채널에 <b>"사용 스킨이름"</b>으로 등록 → <b>"스킨 이름"</b>으로 장착, <b>"스킨 해제"</b>로 원래 모습 · 겉모습만 바뀌고 회차 리셋에도 유지</span></h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">${skinTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>📕 아이템 도감</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px">${itemTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🧬 진화 단계</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">${stageTable}</div></div>
     <div class="card" style="margin-top:10px"><h2>🏆 육성 랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— ${list.length}명 · 봇이 30분마다 갱신</span></h2>
@@ -9441,7 +9441,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609140320";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609140340";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
