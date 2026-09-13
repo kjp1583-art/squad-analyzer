@@ -1009,7 +1009,7 @@
 <body>
 <div class="loadbar" id="loadbar"></div>
 <div id="brjPop" class="brjpop" hidden role="dialog" aria-modal="true" aria-label="브장신 키우기 안내">
-  <div class="brjpop-bd" onclick="brjPopClose(false)"></div>
+  <div class="brjpop-bd"></div>   <!-- 🩹 [2026-09-13 사장님 지시] 바깥을 눌러도 안 닫힘 — 닫기 버튼(또는 일주일간 보지 않기)으로만 -->
   <div class="brjpop-box">
     <a href="brjang.html" class="brjpop-img"><img src="img/brjang_promo.png" alt="브장신 키우기 — 알에서 합정점 사장까지, 스타터팩 1,000원"></a>
     <div class="brjpop-bar">
@@ -8866,12 +8866,10 @@ function brjPopShow(){
   if(sessionStorage.getItem("brjPopSeen")) return;
   const el=document.getElementById("brjPop"); if(!el) return;
   el.hidden=false; try{ sessionStorage.setItem("brjPopSeen","1"); }catch(e){}
-  document.addEventListener("keydown",brjPopEsc);
+  // [2026-09-13 사장님 지시 "닫기 버튼을 눌러야만 닫히게"] 배경 클릭·ESC 닫힘 제거 — 버튼 두 개(닫기·일주일간 보지 않기)만 닫는다
 }
-function brjPopEsc(e){ if(e.key==="Escape") brjPopClose(false); }
 function brjPopClose(week){
   const el=document.getElementById("brjPop"); if(el) el.hidden=true;
-  document.removeEventListener("keydown",brjPopEsc);
   if(week){ try{ localStorage.setItem(BRJ_POP_KEY,String(Date.now()+7*86400*1000)); }catch(e){} }
 }
 /* ============== 광고 (쿠팡 파트너스) ============== */
@@ -9443,7 +9441,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609140310";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609140320";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
