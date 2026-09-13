@@ -6788,6 +6788,9 @@ def send_lcu_chat_announcement(message, headers, base_url):
 #   내전 방 인원 중 전력이 가장 비슷한 2명을 팀장으로 자동 선정해 팀원뽑기를 시킨다.
 #   · 직전 판 팀장은 후보에서 제외(두 판 연속 방지가 관건) — 후보가 모자라면 제외 대신 큰 감점으로 완화
 #   · 주포지션 고려: 두 팀장의 주포지션이 같으면 가산(같을 필요는 없음 — 같으면 남는 포지션 풀이 대칭)
+#   · 👑 [2026-09-13 사장님 지시] 전투력차가 CAPTAIN_GAP_MAX 를 넘는 두 사람은 짝으로 추천하지 않는다 — 주포지션
+#     가산은 그 상한 안의 짝에만 붙이고, 상한 안에 짝이 하나도 없으면 포지션을 보지 않고 전투력 최근접 두 명.
+CAPTAIN_GAP_MAX = 1.0   # 전투력차 1 = 예상승률 4%p(웹 '팽팽한 판' 기준과 같은 값)
 _CAPTAIN_STATE_FILE = os.path.join(CONFIG_DIR, 'captains_recent.json')
 
 def _captain_recent_load():
@@ -6832,18 +6835,23 @@ def _captain_pick(entries, exclude_tnorms, cidx):
     hard = [c for c in cand if c['tn'] not in exclude_tnorms]
     soft = len(hard) < 2      # 직전 팀장을 빼면 2명이 안 남는 극단 상황 — 감점으로 완화(되도록 회피)
     pool = cand if soft else hard
-    best = None
+    pairs = []      # (전투력차, 직전팀장 감점, 주포지션 동일, a, b)
     for i in range(len(pool)):
         for j in range(i + 1, len(pool)):
             a, b = pool[i], pool[j]
-            sc = abs(a['pw'] - b['pw'])
-            if a['pos'] and a['pos'] == b['pos']: sc -= 0.6
-            if soft:
-                sc += 2.5 * ((a['tn'] in exclude_tnorms) + (b['tn'] in exclude_tnorms))
-            if best is None or sc < best[0]: best = (sc, a, b)
-    _, a, b = best
-    why = [f"전투력차 {abs(a['pw'] - b['pw']):.1f}"]
-    if a['pos'] and a['pos'] == b['pos']: why.append(f"주포지션 동일({a['pos']})")
+            gap = abs(a['pw'] - b['pw'])
+            pen = 2.5 * ((a['tn'] in exclude_tnorms) + (b['tn'] in exclude_tnorms)) if soft else 0.0
+            pairs.append((gap, pen, bool(a['pos']) and a['pos'] == b['pos'], a, b))
+    ok = [x for x in pairs if x[0] <= CAPTAIN_GAP_MAX]
+    if ok:          # 1차 — 전투력차 상한 안의 짝만 두고, 그 안에서 주포지션 동일 가산(0.6)
+        gap, _, same, a, b = min(ok, key=lambda x: x[0] - (0.6 if x[2] else 0.0) + x[1])
+        fallback = False
+    else:           # 2차 — 비슷한 짝이 하나도 없다: 포지션은 보지 않고 전투력 최근접 두 명
+        gap, _, same, a, b = min(pairs, key=lambda x: x[0] + x[1])
+        fallback = True
+    why = [f"전투력차 {gap:.1f}"]
+    if fallback: why.append(f"전투력차 {CAPTAIN_GAP_MAX:g} 이내 짝이 없어 포지션 무시·최근접")
+    elif same: why.append(f"주포지션 동일({a['pos']})")
     elif a['pos'] or b['pos']: why.append(f"주포지션 {a['pos'] or '?'}·{b['pos'] or '?'}")
     if exclude_tnorms and not soft: why.append("직전 판 팀장 제외")
     return a, b, " · ".join(why)
@@ -9946,7 +9954,7 @@ def create_graphic_ui():
             for wgt in (f, tf2, *f.winfo_children(), *tf2.winfo_children()):
                 try: wgt.bind("<Button-1>", lambda e, fn=fn: _pick(fn))
                 except Exception: pass
-        _big("👑", "팀장 2인 뽑기", "전투력이 가장 비슷한 두 명을 팀장으로 (직전 판 팀장 회피)",
+        _big("👑", "팀장 2인 뽑기", "전투력차 1 이내에서 가장 비슷한 두 명을 팀장으로 (직전 판 팀장 회피)",
              _do_pick_captains, theme.GOLD)
         _big("⚖", "5:5 명단 짜기", "방 전원을 전투력·주포지션 균형으로 두 팀으로 나눔",
              _do_team_split, "#7ec8e3")
@@ -11441,7 +11449,8 @@ class GuideWindow(tk.Toplevel):
         ("🔘 상단 버튼", "화면 위쪽 두 줄 — 사용 안내·음성방 초대·명예의전당·내부티어·모의밴픽·"
                       "SQUAD.GG·AUC.GG / 모스트 전환·설정·로그·팀뽑선정·후원이 바로 눌립니다."),
         ("👑 팀뽑선정", "방에 있는 사람 중 전투력이 가장 비슷한 2인을 팀장으로 뽑습니다(직전 판 팀장은 회피). "
-                      "결과를 로비 채팅에 바로 알릴 수 있습니다."),
+                      "전투력차 1 이내 짝만 추천하고 그 안에서 주포지션이 같은 짝을 우선, 비슷한 짝이 없으면 "
+                      "포지션을 보지 않고 전투력이 가장 가까운 두 명을 고릅니다. 결과를 로비 채팅에 바로 알릴 수 있습니다."),
         ("🎯 모스트 표시 전환", "모스트를 '현재 선택한 포지션' 기준으로 볼지 '전체 라인' 기준으로 볼지 바꿉니다."),
         ("⚙ 설정", "부팅 시 자동 실행(숨김) · 롤 켜질 때 자동 팝업 · 트레이 최소화 · 시너지 3칸 표시 · "
                   "창 크기 · 고스트밴픽왕 구독 토큰. 바꾼 뒤 반드시 [설정 및 저장]을 눌러야 적용됩니다."),
