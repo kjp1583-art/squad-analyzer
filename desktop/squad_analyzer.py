@@ -5372,7 +5372,11 @@ def compute_tier_assessment():
 
     return out, tier_avg
 
-# ===== 🩸 십이귀월(상현/하현) 로스터 변동 → 자동내전기록 채널 웹훅 (호스트만) =====
+# ===== 🩸 십이귀월(상현/하현) 로스터 → 결과 채널 웹훅 (호스트만) =====
+#   [2026-09-14 사장님 지시 "변동 실시간 알림 말고 하루에 한 번 — 협곡도 칼바람도"]
+#   원인: 15분마다 HOF 를 갱신하며 명단이 '순서만' 바뀌어도 발송(2026-07-29 규칙)했는데, 칼바람은 표본이 얇아
+#   판 한두 개로 12인 순위가 계속 뒤집혀 활동 많은 날엔 갱신 주기마다 웹훅이 나갔다. 이제는 하루 1회(09시 이후
+#   첫 HOF 갱신 때) '오늘의 십이귀월' 로 협곡·칼바람 각 1장만 — 어제 명단과의 변동을 같은 카드에 적는다.
 def _sibguiwol_roster(league=""):
     """[v82.26] league='서부'/'동부' — 해당 리그 상현1~6·하현1~6 순서 리스트(12개, 빈칸 가능). 없으면 None."""
     try:
@@ -5459,8 +5463,9 @@ def _sibguiwol_aram_roster():
     except Exception:
         return None
 
-def _post_sibguiwol_webhook(prev, cur, aram=False, league=""):
+def _post_sibguiwol_webhook(prev, cur, aram=False, league="", daily=False):
     # 2026-07-04: 십이귀월 재편 공지를 내전기록 → 내전결과리포트(RESULT) 채널로 이동(사장님 지시)
+    # daily=True: 하루 1회 '오늘의 십이귀월' — 변동 없어도 명단을 보내고 "어제와 동일" 로 적는다.
     if not RESULT_WEBHOOK_URL or RESULT_WEBHOOK_URL.startswith("여기에"): return
     def _nm(x): return str(x).split("#")[0]
     NUM = ["壱", "弐", "参", "肆", "伍", "陸"]
@@ -5486,10 +5491,13 @@ def _post_sibguiwol_webhook(prev, cur, aram=False, league=""):
         if _mv:
             ch.append("🔄 **순위 변동** — " + ", ".join(
                 f"{_nm(x)} {'▲' if d > 0 else '▼'}{abs(d)}" for x, d in _mv[:6]))
+    _same = (list(cur) == prev)
+    _chg = ("\n".join(ch) if ch else ("어제와 동일" if _same else "순위 변동"))
     if aram:
-        desc = "　**칼바람 파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·칼바람 내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
-        title, color, content = "❄️　칼바람 십이귀월 ( 十二鬼月 ) 　재편성　❄️", 0x2B6E9B, "❄️❄️　**칼바람 십이귀월이 재편성되었다!**　❄️❄️"
-        footer = "스쿼드해체분석기 · 칼바람(KIWI) 파워랭킹 (1~6위 상현 · 7~12위 하현)"
+        desc = ("　**오늘의 칼바람 십이귀월 — 파워랭킹 최강 12인.**" if daily else "　**칼바람 파워랭킹 최강 12인이 재편성되었다.**") + "\n　_솔로랭크·칼바람 내전성적 종합_\n\n" + _chg
+        title, color = ("❄️　오늘의 칼바람 십이귀월 ( 十二鬼月 )　❄️" if daily else "❄️　칼바람 십이귀월 ( 十二鬼月 ) 　재편성　❄️"), 0x2B6E9B
+        content = ("❄️　**오늘의 칼바람 십이귀월**" + ("" if _same else " — 어제와 달라졌다") + "　❄️") if daily else "❄️❄️　**칼바람 십이귀월이 재편성되었다!**　❄️❄️"
+        footer = "스쿼드해체분석기 · 칼바람(KIWI) 파워랭킹 (1~6위 상현 · 7~12위 하현)" + (" · 매일 1회" if daily else "")
     elif league:   # [v82.26] 서부(0·1티어)/동부(2·3티어) 리그 분할
         _tier_txt = "0·1티어" if league == "서부" else "2·3티어"
         desc = f"　**{league} 리그({_tier_txt}) 파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·AI·내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
@@ -5498,9 +5506,10 @@ def _post_sibguiwol_webhook(prev, cur, aram=False, league=""):
         content = f"🩸🩸　**{league} 십이귀월이 재편성되었다!**　🩸🩸"
         footer = f"스쿼드해체분석기 · squad.gg 내부티어 {league} 리그({_tier_txt}) — 파워 1~6위 상현 · 7~12위 하현"
     else:
-        desc = "　**파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·AI·내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
-        title, color, content = "⚔️　십이귀월 ( 十二鬼月 ) 　재편성　⚔️", 0x9B1B1B, "🩸🩸　**십이귀월이 재편성되었다!**　🩸🩸"
-        footer = "스쿼드해체분석기 · squad.gg — 상현=0·1티어 상위 6 · 하현=2·3티어 상위 6"
+        desc = ("　**오늘의 십이귀월 — 파워랭킹 최강 12인.**" if daily else "　**파워랭킹 최강 12인이 재편성되었다.**") + "\n　_솔로랭크·AI·내전성적 종합_\n\n" + _chg
+        title, color = ("⚔️　오늘의 십이귀월 ( 十二鬼月 )　⚔️" if daily else "⚔️　십이귀월 ( 十二鬼月 ) 　재편성　⚔️"), 0x9B1B1B
+        content = ("🩸　**오늘의 십이귀월**" + ("" if _same else " — 어제와 달라졌다") + "　🩸") if daily else "🩸🩸　**십이귀월이 재편성되었다!**　🩸🩸"
+        footer = "스쿼드해체분석기 · squad.gg — 상현=0·1티어 상위 6 · 하현=2·3티어 상위 6" + (" · 매일 1회" if daily else "")
     embed = {
         "title": title,
         "description": desc, "color": color,
@@ -5514,27 +5523,34 @@ def _post_sibguiwol_webhook(prev, cur, aram=False, league=""):
         requests.post(RESULT_WEBHOOK_URL, json={"content": content, "embeds": [embed]}, timeout=6)
     except Exception: pass
 
-def announce_sibguiwol_if_changed():
-    """상현/하현 세트가 바뀌면 웹훅 발송(협곡 + 칼바람 각각). 호스트(token.txt)만. 첫 실행은 기준선만 저장(공지 X)."""
+SIBGUIWOL_DAILY_HOUR = 9   # 이 시각(호스트 PC 로컬=KST) 이후 첫 HOF 갱신 때 하루 1회 발송
+def announce_sibguiwol_daily():
+    """하루 1회 '오늘의 십이귀월'(협곡 + 칼바람). 호스트(token.txt)만. 09시 이후 첫 HOF 갱신에서 그날 아직 안 보냈으면 발송.
+       명단이 어제와 같아도 보낸다('어제와 동일'). 계산이 안 되는 쪽(None)은 그날 건너뛰고 다음 갱신에 재시도.
+       최초 실행은 기준선만 저장(공지 X) — 변동 표기용 prev 가 없기 때문."""
     try:
         if not load_bot_token(): return
+        if time.localtime().tm_hour < SIBGUIWOL_DAILY_HOUR: return
+        today = time.strftime("%Y-%m-%d")
         for cfg_key, roster_fn, is_aram, _lg in (
                 ("sibguiwol_unified", lambda: _sibguiwol_roster(), False, ""),   # [2026-08-07] 동서 통합 단일 12인
                 ("sibguiwol_roster_aram", _sibguiwol_aram_roster, True, "")):
             try:
-                cur = roster_fn()
-                if not cur: continue
                 cfg = load_config()
+                if cfg.get(cfg_key + "_sent") == today: continue                # 오늘 이미 보냄
+                cur = roster_fn()
+                if not cur: continue                                            # 계산 불가(시트 429 등) — 다음 갱신에 재시도
                 prev = cfg.get(cfg_key)
-                if prev is None:                   # 최초 = baseline만 저장, 공지 안 함(스팸 방지)
-                    cfg[cfg_key] = cur; save_config(cfg); continue
+                if prev is None:                                                # 최초 = baseline 저장만
+                    cfg[cfg_key] = cur; cfg[cfg_key + "_sent"] = today; save_config(cfg); continue
                 prev = (list(prev) + [""] * 12)[:12]
-                # [2026-07-29 사장님 지시] 순서만 바뀐 경우도 공지 대상 — 세트만 보면 웹과 명단이 어긋나 보인다.
-                if list(cur) != list(prev):
-                    _post_sibguiwol_webhook(prev, cur, aram=is_aram, league=_lg)
-                    cfg[cfg_key] = cur; save_config(cfg)
+                _post_sibguiwol_webhook(prev, cur, aram=is_aram, league=_lg, daily=True)
+                cfg[cfg_key] = cur; cfg[cfg_key + "_sent"] = today; save_config(cfg)
+                print(f"[sibguiwol] 오늘의 십이귀월 발송 — {'칼바람' if is_aram else '협곡'} · {'어제와 동일' if list(cur) == prev else '변동'}", flush=True)
             except Exception: pass
     except Exception: pass
+
+announce_sibguiwol_if_changed = announce_sibguiwol_daily   # 호환 별칭(예전 호출부·외부 스크립트)
 
 # ===== 📊 [v81.96] 사전집계 재계산(호스트) — 원본 전량스캔을 '호스트 1대·주기당 1회'로 이동 =====
 #   Phase2a: additive(집계 탭 STAT_CHAMP/STAT_PLAYER만 씀, 어떤 읽기경로도 안 바꿈). 소비자 전환은 Phase2b(crunch)·3(웹).
@@ -5925,7 +5941,7 @@ def update_hof_stats(force=False):
     try:
         if load_bot_token(): sync_master_tier_chart()   # 🎖 마스터 티어표→CLAN_TIERS 자동 동기화(호스트만, 15분 주기)
     except Exception: pass
-    try: announce_sibguiwol_if_changed()   # 🩸 십이귀월 로스터 변동 시 웹훅(호스트만)
+    try: announce_sibguiwol_daily()        # 🩸 오늘의 십이귀월 — 하루 1회(09시 이후 첫 갱신), 협곡·칼바람 (호스트만)
     except Exception: pass
 
 def get_champ_eng_name(kor_name):
@@ -7414,7 +7430,7 @@ def lcu_core_backend_loop():
                             threading.Thread(target=update_hof_stats, daemon=True).start()
                     else:
                         reconnect_fail = min(reconnect_fail + 1, 5)
-            # 🩸 십이귀월 자동 감지: 호스트에서 15분마다 HOF 재갱신 → update_hof_stats 끝에서 로스터 변동 체크·웹훅
+            # 🩸 십이귀월: 호스트에서 15분마다 HOF 재갱신 → update_hof_stats 끝에서 '오늘의 십이귀월' 하루 1회 발송(2026-09-14 실시간 변동 알림 폐지)
             # [v82.42 사장님 지시] 인게임 중엔 무거운 집계(시트 전체 파싱) 유예 — 저사양 PC 프레임 드랍 방지(게임 끝나면 다음 주기에 자연 실행)
             if (global_spreadsheet is not None and time.time() - last_hof_refresh > 900 and load_bot_token()
                     and last_known_phase not in ("GameStart", "InProgress", "Reconnect")):
