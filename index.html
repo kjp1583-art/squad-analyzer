@@ -64,6 +64,18 @@
   .catbar .cat-sep{width:1px;align-self:stretch;background:var(--line);margin:0 3px}
   .catbar .cat.hof{background:var(--card2)}
   .catbar .cat.hof:hover{border-color:var(--gold);color:var(--gold)}
+  /* 📖 가이드북 진입 버튼 — 브키도감 안에서 제일 먼저 눈에 들어오게 */
+  .gbtn{display:flex;align-items:center;gap:14px;width:100%;box-sizing:border-box;margin:14px 0 4px;padding:16px 20px;
+    border-radius:16px;cursor:pointer;text-align:left;color:#2a1704;font-weight:800;
+    border:1px solid rgba(255,179,71,.55);background:linear-gradient(135deg,#ffcf7a,#ff9f43);
+    box-shadow:0 6px 18px rgba(255,159,67,.28);transition:transform .12s ease,box-shadow .15s ease,filter .15s ease}
+  .gbtn:hover{filter:brightness(1.05);box-shadow:0 10px 26px rgba(255,159,67,.38);transform:translateY(-2px)}
+  .gbtn:active{transform:translateY(0) scale(.99)}
+  .gbtn .gbtn-ico{font-size:34px;line-height:1;flex:0 0 auto}
+  .gbtn .gbtn-t{font-size:19px;letter-spacing:-.2px}
+  .gbtn .gbtn-s{font-size:12.5px;font-weight:600;opacity:.78;margin-top:3px;line-height:1.5}
+  .gbtn .gbtn-go{margin-left:auto;font-size:22px;flex:0 0 auto;opacity:.75}
+  @media (max-width:640px){ .gbtn{padding:14px 15px;gap:11px} .gbtn .gbtn-ico{font-size:28px} .gbtn .gbtn-t{font-size:17px} .gbtn .gbtn-go{display:none} }
   /* 명예의 전당 / 증내의 전당 */
   .hof-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:18px 0 4px}
   .hof-title{font-size:20px;margin:0;color:var(--gold)}
@@ -2664,7 +2676,7 @@ function guideCardHtml(g){
     </div></div>`;
 }
 function renderGuide(title){
-  if(BRJ_GUIDE===null){ view().innerHTML=`${navTabsHtml('guide')}<div class="card"><div class="muted">가이드북 불러오는 중…</div></div>`;
+  if(BRJ_GUIDE===null){ view().innerHTML=`${navTabsHtml('brjang')}<div class="card"><div class="muted">가이드북 불러오는 중…</div></div>`;
     loadBrjGuide().then(()=>renderGuide(title)); return; }
   const G=BRJ_GUIDE.guides||[], CATS=BRJ_GUIDE.cats||[];
   const g=title?guideBy(title):null;
@@ -2672,9 +2684,9 @@ function renderGuide(title){
   if(g){
     const c=CATS.find(x=>x.key===g.cat)||{};
     const others=G.filter(x=>x.id!==g.id).sort((a,b)=>(a.order||99)-(b.order||99)).slice(0,5);
-    view().innerHTML=`${navTabsHtml('guide')}
+    view().innerHTML=`${navTabsHtml('brjang')}
       <div class="card">
-        <div class="muted" style="font-size:12px"><span style="cursor:pointer" onclick="go('guide')">📖 가이드북</span> › ${esc((c.emoji||"")+" "+(c.name||""))}</div>
+        <div class="muted" style="font-size:12px"><span style="cursor:pointer" onclick="go('brjang')">🍗 브키도감</span> › <span style="cursor:pointer" onclick="go('guide')">📖 가이드북</span> › ${esc((c.emoji||"")+" "+(c.name||""))}</div>
         <h2 style="margin:6px 0 2px">${esc(g.emoji||"📖")} ${esc(g.title||"")}</h2>
         <div class="muted" style="font-size:12.5px">${esc(g.sub||"")}</div>
         <div style="margin-top:14px">${(g.body||[]).map(guideBlock).join("")}</div>
@@ -2690,8 +2702,8 @@ function renderGuide(title){
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${L.map(guideCardHtml).join("")}</div></div>`:``;
   }).join("");
   const rest=G.filter(x=>!CATS.some(c=>c.key===x.cat));
-  view().innerHTML=`${navTabsHtml('guide')}
-    <div class="card"><h2>📖 브장신 가이드북 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜 마스코트 육성 미니게임의 사용설명서. 글을 누르면 주소에 제목이 붙어 그대로 공유할 수 있어요 · 디스코드 <b>#브장신키우기</b> 에서 플레이</span></h2>
+  view().innerHTML=`${navTabsHtml('brjang')}
+    <div class="card"><div class="muted" style="font-size:12px;margin-bottom:6px"><span style="cursor:pointer" onclick="go('brjang')">← 🍗 브키도감</span></div><h2>📖 브장신 가이드북 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜 마스코트 육성 미니게임의 사용설명서. 글을 누르면 주소에 제목이 붙어 그대로 공유할 수 있어요 · 디스코드 <b>#브장신키우기</b> 에서 플레이</span></h2>
       ${G.length?byCat+(rest.length?`<div style="margin-top:14px"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${rest.map(guideCardHtml).join("")}</div></div>`:``)
                 :`<div class="muted">아직 올라온 가이드가 없어요.</div>`}
     </div>`;
@@ -5350,7 +5362,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('brjang','브키도감')}${tab('guide','가이드북')}<div class="tab don ${active==='donate'?'on':''}" onclick="go('donate')">💝 후원</div></div>`;
+  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('brjang','브키도감')}<div class="tab don ${active==='donate'?'on':''}" onclick="go('donate')">💝 후원</div></div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -7663,12 +7675,19 @@ function renderBrjang(){
   // 📖 가이드북 — 긴 설명을 이 탭에 다 붙이는 대신, 항목별 글로 빼서 링크로 공유할 수 있게
   if(BRJ_GUIDE===null) loadBrjGuide().then(()=>{ if(location.hash.replace('#','').split('/')[0]==='brjang') renderBrjang(); });
   const _gl=(BRJ_GUIDE&&BRJ_GUIDE.guides||[]).slice().sort((a,b)=>(a.order||99)-(b.order||99));
-  const guideCard=`<div class="card" style="margin-top:10px"><h2>📖 가이드북 <span class="muted" style="font-size:12.5px;font-weight:400">— 처음 시작하는 법부터 강화·레이드·아카보시까지, 항목별로 정리한 사용설명서. 글을 열면 주소에 제목이 붙어서 그대로 복사해 공유할 수 있어요</span></h2>
-    ${_gl.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${_gl.map(guideCardHtml).join("")}</div>
-      <div class="muted" style="font-size:12px;margin-top:10px"><span style="cursor:pointer;color:#ffb347;font-weight:800" onclick="go('guide')">📖 가이드북 전체 보기 →</span></div>`
+  const guideBtn=`<div class="gbtn" onclick="go('guide')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();go('guide')}">
+      <div class="gbtn-ico">📖</div>
+      <div style="min-width:0">
+        <div class="gbtn-t">브장신 가이드북 열기</div>
+        <div class="gbtn-s">시작하는 법부터 🎲 주사위 판정 · 🔨 강화 꿀팁 · 🐲 월드보스 · 🍣 아카보시 · 💰 재화까지${_gl.length?` — 총 ${_gl.length}편`:``}</div>
+      </div>
+      <div class="gbtn-go">→</div>
+    </div>`;
+  const guideCard=`<div class="card" style="margin-top:10px"><h2>📖 가이드북 <span class="muted" style="font-size:12.5px;font-weight:400">— 항목별로 정리한 사용설명서. 글을 열면 주소에 제목이 붙어서 그대로 복사해 클랜원에게 보낼 수 있어요</span></h2>
+    ${_gl.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${_gl.map(guideCardHtml).join("")}</div>`
       :`<div class="muted">가이드북 불러오는 중…</div>`}</div>`;
   const patchCard=`<div class="card" style="margin-top:10px"><h2>🗞 패치노트 <span class="muted" style="font-size:12.5px;font-weight:400">— 브장신 키우기에 뭐가 바뀌었는지. 디스코드 #브장신키우기 채널에도 같은 내용이 올라가고, 채널에 <b>"패치노트"</b> 라고 치면 최근 것을 다시 볼 수 있어요</span></h2>${brjPatchHtml(0)}</div>`;
-  view().innerHTML=`${navTabsHtml('brjang')}
+  view().innerHTML=`${navTabsHtml('brjang')}${guideBtn}
     <div class="card"><h2>🍗 브장신 키우기 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜 마스코트 육성 미니게임 · 전설(Lv.7) 위로 초월 5단계(Lv.12)까지 · 디스코드 <b>/브장신</b> 으로 플레이 · <a href="brjang.html" style="color:#ffb347;font-weight:800">📖 게임 소개 · 후원 안내 · 🍘 맛동산 상점 →</a></span></h2>
       <div style="margin:6px 0 10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,179,71,.45);background:rgba(255,179,71,.08)"><span style="font-size:22px">🍗</span> <b>브장신:</b> "${esc(line)}"</div>
       <div class="muted" style="font-size:12.5px;line-height:1.8">사료는 클랜 활동으로 생겨요 — <b>내전 1판 = 사료 1개</b> · <b>밴픽퀴즈 참여 = 간식 1개</b> → 🎒 가방에 쌓이고, 채널에 <b>"먹이"</b>라고 쳐서 직접 먹여야 경험치가 됩니다(사료 +10 · 간식 +3)<br>
@@ -9555,7 +9574,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609152340";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609160010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
