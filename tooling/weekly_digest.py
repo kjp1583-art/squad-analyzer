@@ -37,6 +37,11 @@ def build(week_mon, xlsx='squad_sheet.xlsx', prev_path='ai_eval_latest.json'):
     except Exception: prev_eval = {}
 
     latest, rows_all = {}, []
+    # ❄️ [2026-09-15 사장님 지시] 칼바람(KIWI_KIWI)은 주간평 평가 대상에서 제외한다.
+    #    포지션도 없고 몰아서 하는 모드라 협곡 기준 지표와 섞이면 평이 엉뚱해진다.
+    #    다만 '대표닉(PUUID→닉네임)' 만은 칼바람 행에서도 계속 읽는다 — 협곡을 잠시 쉰 사람의
+    #    최신 닉을 놓치면 이름이 갈라지기 때문. 통계(rows_all)에는 넣지 않는다.
+    EVAL_TABS = ('CLASSIC_NORMAL',)
     for tab in ('CLASSIC_NORMAL', 'KIWI_KIWI'):
         if tab not in wb.sheetnames: continue
         rows = list(wb[tab].values)
@@ -47,7 +52,7 @@ def build(week_mon, xlsx='squad_sheet.xlsx', prev_path='ai_eval_latest.json'):
             return r[i] if 0 <= i < len(r) else None
         for r in rows[1:]:
             pu, nm, d = str(gv(r, 'PUUID') or ''), str(gv(r, '소환사명') or ''), str(gv(r, '날짜') or '')
-            rows_all.append((r, dict(ix)))
+            if tab in EVAL_TABS: rows_all.append((r, dict(ix)))
             # 대표닉: 태그 있는 이름만·챔피언명 유출 행 제외 (2026-08-10 카시오페아 사고 가드)
             if pu and nm and '#' in nm and str(gv(r, '챔피언') or '').replace(' ', '') != nm.replace(' ', ''):
                 cur = latest.get(pu)
