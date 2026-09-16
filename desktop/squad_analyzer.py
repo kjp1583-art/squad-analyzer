@@ -3320,24 +3320,51 @@ def _lol_client_rect():
     except Exception:
         return None
 
+def _virtual_screen(w):
+    """모든 모니터를 합친 가상 데스크톱 영역 (x, y, 폭, 높이).
+       winfo_screenwidth() 는 **주 모니터**만 알려준다 — 롤을 보조 모니터에 띄워 두면
+       클라 좌표(가상 데스크톱 기준, 음수일 수도 있다)와 어긋나 오버레이가 엉뚱한 데로 끌려간다."""
+    try:
+        import ctypes
+        g = ctypes.windll.user32.GetSystemMetrics
+        vx, vy, vw, vh = g(76), g(77), g(78), g(79)      # SM_(XY|CXCY)VIRTUALSCREEN
+        if vw > 0 and vh > 0: return (int(vx), int(vy), int(vw), int(vh))
+    except Exception: pass
+    return (0, 0, w.winfo_screenwidth(), w.winfo_screenheight())
+
+def _ovl_clamp(w, x, y):
+    """창이 화면 밖으로 완전히 나가지 않게 가상 데스크톱 안으로 물린다."""
+    vx, vy, vw, vh = _virtual_screen(w)
+    ow = max(w.winfo_width(), DRAFT_OVL_WRAP + 60)
+    oh = max(w.winfo_height(), 200)
+    return (max(vx, min(int(x), vx + vw - ow - 5)),
+            max(vy, min(int(y), vy + vh - oh - 5)))
+
 def _dock_overlay(w):
     """🧲 [2026-07-25 사장님 지시] 오버레이를 롤 클라 우측에 자석처럼 부착.
-       클라가 움직였을 때만 재배치(그 외엔 사용자가 끌어놓은 위치 존중). 클라 못 찾으면 화면 우측 기본 위치."""
+
+    🐛 [2026-09-16 사장님 제보 "이상한 위치로 고정되어 있고 옮겨지지가 않는다"]
+       손으로 끌면 dock_rect 에 "manual" 을 적어 뒀지만, 바로 다음 tick 의
+       `rect == dock_rect` 비교에 "manual" 은 당연히 걸리지 않아 그 자리에서
+       다시 도킹 좌표로 되돌려 놨다. 끄는 동안 창이 사용자와 싸우는 셈이라
+       사실상 못 옮겼다. 이제 **한 번이라도 손으로 옮기면 그 뒤로는 건드리지 않는다.**
+    """
     try:
+        if _DRAFT_OVL.get("manual"): return               # 사람이 정한 자리가 언제나 이긴다
         rect = _lol_client_rect()
         if rect is None:
-            if _DRAFT_OVL.get("dock_rect") is None:   # 최초 1회만 기본 위치
+            if _DRAFT_OVL.get("dock_rect") is None:       # 최초 1회만 기본 위치
                 _DRAFT_OVL["dock_rect"] = "fallback"
-                w.geometry("+%d+%d" % (max(0, w.winfo_screenwidth() - (DRAFT_OVL_WRAP + 70)), 90))
+                vx, vy, vw, vh = _virtual_screen(w)
+                w.geometry("+%d+%d" % _ovl_clamp(w, vx + vw - (DRAFT_OVL_WRAP + 130), vy + 90))
             return
-        if rect == _DRAFT_OVL.get("dock_rect"): return   # 클라 안 움직임 → 그대로
+        if rect == _DRAFT_OVL.get("dock_rect"): return     # 클라 안 움직임 → 그대로
         _DRAFT_OVL["dock_rect"] = rect
-        sw = w.winfo_screenwidth()
-        x = rect[2] + 6                                   # 클라 오른쪽 모서리 +6px
-        _ow = DRAFT_OVL_WRAP + 60                         # 창이 커졌으니 폭도 같이 계산(안 그러면 화면 밖으로 나간다)
-        if x + _ow > sw: x = max(0, sw - _ow - 5)         # 화면 밖이면 우측 끝에 겹쳐 부착
-        y = max(0, rect[1] + 60)
-        w.geometry("+%d+%d" % (x, y))
+        vx, vy, vw, vh = _virtual_screen(w)
+        ow = max(w.winfo_width(), DRAFT_OVL_WRAP + 60)
+        x = rect[2] + 6                                    # 클라 오른쪽 모서리 +6px
+        if x + ow > vx + vw: x = rect[0] - ow - 6          # 안 들어가면 클라 왼쪽에 붙인다
+        w.geometry("+%d+%d" % _ovl_clamp(w, x, rect[1] + 60))   # 양쪽 다 안 되면 화면 끝에 겹친다
     except Exception: pass
 # 💝 후원 계좌 — squad.gg 고스트밴픽왕 소개 페이지(coach.html)에 이미 공개된 것과 같은 계좌.
 #   바뀌면 여기 세 줄만 고치면 된다(설정 파일로 덮어쓸 수도 있게 load_config 값을 우선한다).
@@ -3444,8 +3471,9 @@ def _draft_build_card(root):
     badge = tk.Label(hd, text=" 밴 ", bg=C["ban"], fg="#12141a",
                      font=UF(10, "bold"), padx=7, pady=2)
     badge.pack(side="left")
-    tk.Label(hd, text="고스트밴픽왕", bg=C["card"], fg=C["text"],
-             font=UF(13, "bold")).pack(side="left", padx=(9, 0))
+    title_lb = tk.Label(hd, text="고스트밴픽왕", bg=C["card"], fg=C["text"],
+                        font=UF(13, "bold"))
+    title_lb.pack(side="left", padx=(9, 0))
     sub = tk.Label(hd, text="", bg=C["card"], fg=C["dim"], font=UF(9))
     sub.pack(side="left", padx=(8, 0))
     close = tk.Label(hd, text="✕", bg=C["card"], fg=C["dim"], font=UF(12), cursor="hand2")
@@ -3486,20 +3514,41 @@ def _draft_build_card(root):
     more.pack(side="left")
     more.bind("<Enter>", lambda e: more.config(fg=C["text"]))
     more.bind("<Leave>", lambda e: more.config(fg=C["sub"]))
-    tk.Label(ft, text="⠿ 끌어서 이동", bg=C["card"], fg=C["dim"],
+    tk.Label(ft, text="⠿ 아무 데나 끌어서 이동 · 제목 더블클릭=자동 위치", bg=C["card"], fg=C["dim"],
              font=UF(9)).pack(side="right")
 
-    # ── 제목줄을 잡고 창 이동(프레임리스라 OS 가 안 해준다) ──
+    # ── 창을 잡고 이동(프레임리스라 OS 가 안 해준다) ──
+    #   🐛 [2026-09-16] 예전엔 (hd, body, rows) 세 **프레임**에만 걸었다. Tk 는 자식 위젯이 먹은
+    #      클릭을 부모 프레임으로 올려 주지 않으므로, 제목 글자·추천 줄·여백 아닌 곳은 전부
+    #      눌리지 않았다 — 아래에 "⠿ 끌어서 이동" 이라 써 놓고 잡을 데가 사실상 없었던 것.
+    #      Toplevel 은 모든 자손의 bindtag 에 들어 있으니 여기 한 번만 걸면 카드 전체가 손잡이가 된다.
     drag = {"x": 0, "y": 0}
     def _dn(e): drag["x"], drag["y"] = e.x_root, e.y_root
     def _mv(e):
         try:
-            w.geometry("+%d+%d" % (w.winfo_x() + e.x_root - drag["x"], w.winfo_y() + e.y_root - drag["y"]))
+            _x, _y = _ovl_clamp(w, w.winfo_x() + e.x_root - drag["x"], w.winfo_y() + e.y_root - drag["y"])
+            w.geometry("+%d+%d" % (_x, _y))
             drag["x"], drag["y"] = e.x_root, e.y_root
-            _DRAFT_OVL["dock_rect"] = "manual"      # 손으로 옮겼으면 자동 도킹이 되돌리지 않게
+            _DRAFT_OVL["manual"] = True             # 손으로 옮겼으면 자동 도킹이 다시는 되돌리지 않는다
         except Exception: pass
-    for _wg in (hd, body, rows):
-        _wg.bind("<Button-1>", _dn); _wg.bind("<B1-Motion>", _mv)
+    def _up(_e=None):
+        try:
+            if not _DRAFT_OVL.get("manual"): return
+            APP_CONFIG["coach_ovl_pos"] = [w.winfo_x(), w.winfo_y()]   # 다음에 켜도 그 자리
+            save_config(APP_CONFIG)
+        except Exception: pass
+    w.bind("<Button-1>", _dn, add="+")
+    w.bind("<B1-Motion>", _mv, add="+")
+    w.bind("<ButtonRelease-1>", _up, add="+")
+
+    def _reset_pos(_e=None):
+        """제목줄 더블클릭 — 자동 도킹으로 되돌린다(창을 화면 밖으로 보냈을 때의 탈출구)."""
+        _DRAFT_OVL["manual"] = False
+        _DRAFT_OVL["dock_rect"] = None
+        APP_CONFIG.pop("coach_ovl_pos", None); save_config(APP_CONFIG)
+        _dock_overlay(w)
+    for _wg in (hd, title_lb):
+        _wg.bind("<Double-Button-1>", _reset_pos, add="+")
 
     def _row(parent, kind, a, b=""):
         """추천 한 줄 — kind: num(순위) / ctx(대치·윈컨) / dir(픽 방향) / warn(경고) / plain"""
@@ -3589,8 +3638,18 @@ def _draft_build_card(root):
         _DRAFT_OVL["expanded"] = not _DRAFT_OVL.get("expanded"); _render()
     more.bind("<Button-1>", _toggle)
 
+    # 창을 새로 만들었으면 도킹 기록도 비운다 — 안 비우면 이전 창 때의 rect 와 같다는 이유로
+    # _dock_overlay 가 곧장 return 해 새 창이 Tk 기본 위치(화면 좌상단)에 그대로 굳는다.
     _DRAFT_OVL.update({"win": w, "lbl": None, "btn_more": more, "_render": _render,
-                       "accent": C["ban"], "ring": None, "cv": cv})
+                       "accent": C["ban"], "ring": None, "cv": cv,
+                       "dock_rect": None, "manual": False})
+    try:                                             # 🧷 지난번에 손으로 잡아 둔 자리 복원
+        _sv = APP_CONFIG.get("coach_ovl_pos")
+        if isinstance(_sv, (list, tuple)) and len(_sv) == 2:
+            w.update_idletasks()
+            w.geometry("+%d+%d" % _ovl_clamp(w, int(_sv[0]), int(_sv[1])))
+            _DRAFT_OVL["manual"] = True
+    except Exception: pass
 
 
 def _draft_flash(w, n=6):
