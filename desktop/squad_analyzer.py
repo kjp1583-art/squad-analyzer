@@ -5248,7 +5248,45 @@ def _player_metrics_from_stat(s):
         "aceRate": (ace / (g - w) * 100) if (g - w) > 0 else None,    # ACE획득률 = ACE ÷ 패배수(진 판에서만 %)
         "avgAI": (ai_sum / ai_n) if ai_n else None,
         "recent30": a.get("recent30", 0),   # [v82.27] 최근 30일 판수(십이귀월 활동 조건)
+        "last": a.get("last", ""),          # 👻 마지막 기록일(YYYY-MM-DD) — 90일 유령 판정
     }
+
+# 👥👻 십이귀월 분모 — 웹 index.html computeAssessments 의 elig 와 같은 규칙
+#   · DEPARTED 탭(디스코드 탈퇴 간주)에 오른 사람 제외          [2026-08-19 웹 반영 · 분석기 누락]
+#   · 데이터 마지막 기록일 기준 90일 무기록(유령) 제외            [2026-08-18 웹 반영 · 분석기 누락]
+#   🐛 [2026-09-17 사장님 제보 "웹은 칼바람 상현1인데 웹훅은 2"] 분석기는 이 둘을 안 빼서 탈퇴자(귤 갓)가
+#      후보에 남아 사장님 바로 아래 0.02 차이로 붙어 있었다. 산식을 아무리 맞춰도 분모가 다르면 명단이 갈린다.
+SIBGUI_GHOST_DAYS = 90
+_DEPARTED_CACHE = {"t": 0.0, "set": set()}
+def _departed_set():
+    """DEPARTED 탭 → {tnorm(닉)}. 30분 캐시. 실패하면 마지막 값(없으면 빈 집합 — 제외 없이 진행)."""
+    if time.time() - _DEPARTED_CACHE["t"] < 1800: return _DEPARTED_CACHE["set"]
+    try:
+        import csv as _csv, io as _io
+        rows = list(_csv.reader(_io.StringIO(_fetch_public_csv(DOCUMENT_ID, sheet="DEPARTED", headers=1, timeout=8))))
+        if rows and rows[0] and str(rows[0][0]).strip() == "닉네임":
+            _DEPARTED_CACHE["set"] = {tnorm(r[0]) for r in rows[1:] if r and str(r[0]).strip()}
+            _DEPARTED_CACHE["t"] = time.time()
+    except Exception as e:
+        print(f"[sibguiwol] DEPARTED 읽기 실패(이전 값 유지): {type(e).__name__} {e}", flush=True)
+        _DEPARTED_CACHE["t"] = time.time() - 1800 + 300      # 5분 뒤 재시도
+    return _DEPARTED_CACHE["set"]
+
+def _sibgui_ghost_cut(metrics_list):
+    """유령 기준일 — '오늘'이 아니라 데이터의 마지막 기록일에서 90일 전(수집이 멈춰도 전원 유령화 방지, 웹과 동일)."""
+    mx = max((str(m.get("last") or "") for m in metrics_list), default="")
+    if not mx: return ""
+    try:
+        import datetime as _dt
+        d = _dt.date.fromisoformat(mx) - _dt.timedelta(days=SIBGUI_GHOST_DAYS)
+        return d.isoformat()
+    except Exception: return ""
+
+def _sibgui_excluded(nm, m, aliases, ghost_cut, departed):
+    """십이귀월 분모에서 빼야 하나 — 탈퇴자(현재닉·과거닉 모두 대조) 또는 유령."""
+    if departed and (tnorm(nm) in departed or any(tnorm(a) in departed for a in (aliases or ()))): return True
+    if ghost_cut and str(m.get("last") or "") < ghost_cut: return True
+    return False
 
 def compute_tier_assessment():
     """동티어 평균 대비 고/저평가 판정 — 신뢰도 강화판.
@@ -5280,9 +5318,13 @@ def compute_tier_assessment():
         m["soloWR"] = sr.get("wr") if sr else None
         m["soloW"] = sr.get("wins", 0) if sr else 0
         m["soloL"] = sr.get("losses", 0) if sr else 0
+        m["_aliases"] = list(aliases.get(_pk, ()))
         members.append((t, nm, m))
 
-    elig = [(t, nm, m) for (t, nm, m) in members if m["games"] >= TIER_MIN_GAMES]
+    # 👥👻 분모(elig) = 10판↑ 이고 탈퇴자·유령이 아닌 사람 — 웹 computeAssessments 와 동일. 카드(out)는 전원 나온다.
+    _dep = _departed_set(); _gcut = _sibgui_ghost_cut([m for _, _, m in members])
+    elig = [(t, nm, m) for (t, nm, m) in members
+            if m["games"] >= TIER_MIN_GAMES and not _sibgui_excluded(nm, m, m.get("_aliases"), _gcut, _dep)]
     # 전체 사전평균(shrinkage prior)
     g_wr  = _mean([m["wr"] for _, _, m in elig]) or 50.0
     g_ai  = _mean([m["avgAI"] for _, _, m in elig if m["avgAI"] is not None]) or 0.0
@@ -5305,7 +5347,8 @@ def compute_tier_assessment():
             swr = None
         return {"wr": wr, "ai": ai, "mvp": mvp, "tr": tr, "solo": ss, "solowr": swr}
 
-    sh = {id(m): shrunk(m) for _, _, m in elig}
+    # ⚠️ sh 는 '카드가 나올 모든 인원'(10판↑)에 계산 — elig 에서 빠진 탈퇴자·유령 카드가 KeyError 로 죽지 않게(웹 2026-08-19 장애와 같은 함정)
+    sh = {id(m): shrunk(m) for _, _, m in members if m["games"] >= TIER_MIN_GAMES}
     by_tier = {}
     for t, nm, m in elig:
         by_tier.setdefault(t, []).append(m)
@@ -5479,7 +5522,11 @@ def _sibguiwol_aram_roster():
             m["soloWR"] = sr.get("wr") if sr else None
             m["soloW"] = sr.get("wins", 0) if sr else 0
             m["soloL"] = sr.get("losses", 0) if sr else 0
+            m["_aliases"] = list(aliases.get(_pk, ()))
             ms.append((nm, m))
+        # 👥👻 분모 = 탈퇴자·유령 제외(웹 elig 와 동일) — 이 필터가 없어 탈퇴자가 명단에 끼어 웹과 어긋났다(2026-09-17)
+        _dep = _departed_set(); _gcut = _sibgui_ghost_cut([m for _, m in ms])
+        ms = [(nm, m) for nm, m in ms if not _sibgui_excluded(nm, m, m.get("_aliases"), _gcut, _dep)]
         if len(ms) < 2: return None
         g_wr  = _mean([m["wr"] for _, m in ms]) or 50.0
         g_ai  = _mean([m["avgAI"] for _, m in ms if m["avgAI"] is not None]) or 0.0
@@ -5506,7 +5553,8 @@ def _sibguiwol_aram_roster():
         ranked = []
         for nm, m in ms:
             if sh[nm]["solo"] is None: continue      # 웹과 동일: 솔랭 보유자만 후보
-            if m.get("recent30", 0) < 5: continue    # [v82.27] 최근 30일 5판↑(칼바람도 동일 활동 조건)
+            # ⚔️ [2026-08-19 웹 반영 '칼바람은 통산 기준'] 최근 30일 게이트 없음 — 칼바람은 몰아서 하는 모드라
+            #    통산 65판인 사람도 최근 0판이 되어 12자리가 비었다. 유령 방지는 위의 90일 필터가 맡는다.
             tm = []
             for w, k, neg in ((W_SOLO, "solo", 1), (W_AI, "ai", 1), (W_WR, "wr", 1),
                               (W_SOLOWR, "solowr", 1), (W_MVP, "mvp", 1), (W_TROLL, "tr", -1)):
@@ -5968,6 +6016,9 @@ def update_hof_stats(force=False):
                         _dm = re.match(r"(\d{4})-(\d{1,2})-(\d{1,2})", str(r[col_date]) if 0 <= col_date < len(r) else "")
                         if _dm and time.mktime((int(_dm.group(1)), int(_dm.group(2)), int(_dm.group(3)), 0, 0, 0, 0, 0, -1)) >= time.time() - 30 * 86400:
                             target_data[p_ver][p_key]["ALL"]["recent30"] = target_data[p_ver][p_key]["ALL"].get("recent30", 0) + 1
+                        if _dm:   # 👻 마지막 기록일 — 십이귀월 유령(90일 무기록) 판정용(웹 computeAssessments 의 _lastOf 와 동일)
+                            _ds = "%04d-%02d-%02d" % (int(_dm.group(1)), int(_dm.group(2)), int(_dm.group(3)))
+                            if _ds > target_data[p_ver][p_key]["ALL"].get("last", ""): target_data[p_ver][p_key]["ALL"]["last"] = _ds
                     except Exception: pass
                     
                     if g_id in eval_gids:

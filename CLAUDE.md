@@ -47,6 +47,18 @@
 확정하고, `g["me"]` 를 나중에 바꾸는 쪽이 라인표를 같이 안 고치면 조용히 어긋난다.
 `g["hp"]["st"]`(`_hp_init` 캐시)도 같은 성질이다.
 
+## 🩸 십이귀월은 세 군데가 같이 움직인다 (2026-09-17 사고)
+> "웹엔 칼바람 상현1인데 웹훅은 2로 떴다 — 저번에 동기화했는데 왜 또"
+
+명단을 뽑는 구현이 **셋**이다. 하나만 고치면 반드시 갈라진다.
+- 웹 `index.html` `computeAssessments` (화면)
+- 분석기 `desktop/squad_analyzer.py` `compute_tier_assessment` · `_sibguiwol_aram_roster` (09시 웹훅)
+- 툴링 `tooling/sibguiwol.py` (호스트 꺼졌을 때 CI 웹훅)
+
+산식(가중치·shrink·ACE 0.5·피크 블렌드)만 맞추면 안 된다. **분모(elig)** 도 같아야 한다:
+10판↑ · **DEPARTED 탈퇴자 제외** · **마지막 기록일 기준 90일 유령 제외** · 협곡만 최근 30일 5판(칼바람은 통산).
+2026-09-17 은 분석기가 탈퇴자를 안 빼서 갈렸다. 필터를 하나 더할 때는 세 파일에 같은 커밋으로 넣는다.
+
 ## 배포
 - 두 저장소 모두 `claude/project-cloud-migration-0qtorl` 에서 작업 → main 으로 fast-forward
 - 웹을 고쳤으면 `index.html` 의 `BUILD_ID` 를 올린다(안 올리면 캐시 때문에 안 바뀐 것처럼 보인다)

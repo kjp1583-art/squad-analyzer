@@ -13,6 +13,7 @@ TIER_MIN_GAMES, TIER_MIN_EVAL = 10, 5
 SHRINK_WR, SHRINK_AI, SHRINK_EVAL, SHRINK_SOLOWR = 10, 10, 5, 20
 W_SOLO, W_AI, W_WR, W_SOLOWR, W_MVP, W_TROLL = 0.35, 0.20, 0.15, 0.10, 0.10, 0.10
 RECENT_DAYS, RECENT_MIN = 30, 5
+GHOST_DAYS = 90            # 👻 데이터 마지막 기록일 기준 90일 무기록 = 유령 → 분모 제외(웹 computeAssessments 와 동일)
 
 
 def norm(s):
@@ -53,6 +54,9 @@ def load(path):
     _h, trows = read_tab(wb, "CLAN_TIERS")
     tier_of_raw = {tnorm(r[0]): str(r[1]).strip() for r in trows if r and r[0] and len(r) > 1 and r[1]}
 
+    # 👥 탈퇴자(DEPARTED 탭) — 분모·명단에서 제외 [2026-09-17: 분석기와 함께 누락돼 있던 것을 세 구현 동시에 맞춤]
+    _h, drows = read_tab(wb, "DEPARTED")
+    departed = {tnorm(r[0]) for r in drows if r and r[0]}
     # 부계정 통합
     _h, lrows = read_tab(wb, "LINK_ACCOUNT")
     alt_to_main = {tnorm(r[1]): str(r[0]).strip() for r in lrows if r and len(r) > 1 and r[0] and r[1]}
@@ -95,7 +99,7 @@ def load(path):
             if pk is not None: solo[k]["score"] = (solo[k]["score"] + pk) / 2.0
         for k, pk in peak.items():
             if k not in solo: solo[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}
-    return raw, tier_of_raw, alt_to_main, solo
+    return raw, tier_of_raw, alt_to_main, solo, departed
 
 
 def build_identity(raw, alt_to_main):
@@ -137,7 +141,7 @@ def build_identity(raw, alt_to_main):
 
 
 def compute(path, today=None):
-    raw, tier_of_raw, alt_to_main, solo = load(path)
+    raw, tier_of_raw, alt_to_main, solo, departed = load(path)
     canon_of_row, canon_aliases, resolve_alt = build_identity(raw, alt_to_main)
 
     # 게임 단위 중복 제거 후 대표닉으로 묶기
@@ -172,7 +176,7 @@ def compute(path, today=None):
         t = tier_of(name)
         if not t: continue
         w = l = mvp = ace = troll = 0
-        ai_sum = 0.0; ai_n = 0; eg = set(); recent = 0
+        ai_sum = 0.0; ai_n = 0; eg = set(); recent = 0; last = None
         for r in parts:
             res = str(r.get("결과") or "")
             if res == "승리": w += 1
@@ -187,11 +191,16 @@ def compute(path, today=None):
             if res in ("승리", "패배"):
                 m = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})", str(r.get("날짜") or ""))
                 if m and datetime.date(int(m[1]), int(m[2]), int(m[3])) >= cut: recent += 1
+            _dm = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})", str(r.get("날짜") or ""))
+            if _dm:
+                _d = datetime.date(int(_dm[1]), int(_dm[2]), int(_dm[3]))
+                if last is None or _d > last: last = _d
         g, eval_g = w + l, len(eg)
         cands = [solo.get(tnorm(name))] + [solo.get(tnorm(a)) for a in canon_aliases.get(name, ())]
         cands = [c for c in cands if c]
         sr = next((c for c in cands if c.get("wr") is not None), cands[0] if cands else None)
-        members.append({"name": name, "tier": t, "recent": recent, "g": g, "w": w, "evalG": eval_g,
+        members.append({"name": name, "tier": t, "recent": recent, "g": g, "w": w, "evalG": eval_g, "last": last,
+                        "departed": tnorm(name) in departed or any(tnorm(a) in departed for a in canon_aliases.get(name, ())),
                         "mvp": mvp, "ace": ace, "troll": troll, "aiSum": ai_sum, "aiN": ai_n,
                         "wr": (w / g * 100) if g else None,
                         "mvpRate": ((mvp + 0.5 * ace) / eval_g * 100) if eval_g else None,
@@ -201,7 +210,11 @@ def compute(path, today=None):
                         "soloWR": sr["wr"] if sr else None,
                         "soloW": sr["wins"] if sr else 0, "soloL": sr["losses"] if sr else 0})
 
-    elig = [m for m in members if m["g"] >= TIER_MIN_GAMES]
+    # 👥👻 분모 = 10판↑ · 탈퇴자 제외 · 유령(마지막 기록일−90일 이전) 제외 — 웹 elig 와 동일
+    max_last = max((m["last"] for m in members if m["last"]), default=None)
+    ghost_cut = (max_last - datetime.timedelta(days=GHOST_DAYS)) if max_last else None
+    elig = [m for m in members if m["g"] >= TIER_MIN_GAMES and not m["departed"]
+            and not (ghost_cut and (m["last"] is None or m["last"] < ghost_cut))]
     if not elig: return []
     g_wr = mean([m["wr"] for m in elig]) or 50
     g_ai = mean([m["avgAI"] for m in elig if m["avgAI"] is not None]) or 0
