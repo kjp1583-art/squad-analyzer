@@ -1245,6 +1245,94 @@ def _tier_role_sync_loop():
 #    평균을 내는 소비처(웹 동티어 평균·멸망전 적정가)가 이 목록을 빼고 계산한다.
 ROSTER_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/roster"
 _DEP_SIG = [None]
+# 👥 [2026-09-17 사장님 제보 "웹은 칼바람 상현1인데 웹훅은 2(카무사리, 귤갓 닉변)"] 탈퇴 판정이 **이름 한 개**만 대조했다.
+#    CLAN_TIERS 의 옛 닉 '귤 갓' 은 디스코드 명단(이미 '카무사리')에 없으니 탈퇴로 찍혔고, 같은 사람의 다른 닉은
+#    보지도 않았다(get_main_name 은 부계→본계 한 방향 · 공백 표기 차이로 LINK 도 못 탐). 게다가 40% 절대 상한에
+#    막혀 DEPARTED 탭은 9/3 이후 한 번도 다시 쓰이지 않았다(보류 분기에 로그도 없었다).
+#    이제 한 행 = 한 사람: LINK_ACCOUNT 그룹(양방향·사슬) ∪ 같은 PUUID 로 기록된 닉 전부 중 **하나라도** 명단에
+#    있으면 재직. 애매하면 재직 쪽 — 재직자를 탈퇴로 찍는 쪽이 십이귀월 타이틀을 빼앗는 눈에 보이는 피해다.
+DEP_CAP_SHARE = 0.60       # 절대 상한 — 이 비율 넘게 탈퇴 판정이면 명단 스캔 오작동으로 보고 보류
+DEP_CAP_DELTA = 10         # 직전 탭 대비 한 번에 늘어날 수 있는 신규 탈퇴(절대) …
+DEP_CAP_DELTA_PCT = 0.10   # … 또는 비율. 둘 중 큰 값
+DEP_STALE_DAYS = 3         # 직전 탭이 이보다 오래됐으면 증가 상한을 안 건다(동결 뒤 따라잡기)
+DEP_ROSTER_DROP = 0.85     # roster n 이 직전 기록 대비 이 비율 아래면 봇 캐시 미적재로 보고 보류
+DEP_ACTIVE_DAYS = 14       # 최근 2주 안에 클랜 내전을 뛴 사람은 이름이 하나도 안 맞아도 탈퇴로 찍지 않는다
+                           #   (디스코드 표시명 ≠ 롤닉 · LINK 미등록인 재직자 방어. 진짜 탈퇴자는 최대 2주 늦게 잡힌다)
+
+def _dep_link_groups(alt_map, link_rows=()):
+    """LINK_ACCOUNT → {tnorm(닉): 그룹 전체(tnorm 집합)}. 본계↔부계 양방향, 사슬(A←B, B←C)도 한 그룹.
+       메모리의 global_alt_map(부팅 때 1회) 과 방금 읽은 공개 CSV 행을 둘 다 흡수한다."""
+    parent = {}
+    def _find(x):
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]; x = parent[x]
+        return x
+    def _union(a, b):
+        if a and b: parent[_find(a)] = _find(b)
+    for alt, main in (alt_map or {}).items(): _union(tnorm(alt), tnorm(main))
+    for r in link_rows or ():
+        if len(r) >= 2 and str(r[0]).strip() and str(r[1]).strip(): _union(tnorm(r[0]), tnorm(r[1]))
+    groups = {}
+    for k in list(parent): groups.setdefault(_find(k), set()).add(k)
+    return {k: groups[_find(k)] for k in parent}
+
+def _dep_puuid_names():
+    """HOF 집계(협곡+칼바람)에서 같은 PUUID(그룹) 로 기록된 닉 집합 — ({tnorm(닉): {tnorm(닉)…}}, {tnorm(닉): 마지막 기록일}).
+       집계 전이면 None."""
+    out, last, ready = {}, {}, False
+    with gui_lock:
+        hs = [dict(gui_data.get("hof_classic") or {}), dict(gui_data.get("hof_aram") or {})]
+    for h in hs:
+        gs = (h.get("global_stats") or {}).get("전체 (ALL)") or {}
+        al = h.get("aliases") or {}
+        if gs: ready = True
+        for pk, st in gs.items():
+            names = {tnorm(st.get("name", ""))} | {tnorm(a) for a in al.get(pk, ())}
+            names.discard("")
+            ld = str((st.get("ALL") or {}).get("last") or "")
+            for nm in names:
+                out.setdefault(nm, set()).update(names)
+                if ld > last.get(nm, ""): last[nm] = ld
+    return (out, last) if ready else None
+
+def _dep_person_keys(nm, link_groups, puuid_names):
+    """CLAN_TIERS 한 행 → 그 사람일 수 있는 닉 전부(tnorm). LINK 그룹 → PUUID 별칭 → 다시 LINK 로 사슬을 닫는다.
+       동명이인(태그만 다른 두 PUUID)은 합집합으로 — 후하게 본다."""
+    keys = {tnorm(nm)}
+    for _ in range(2):
+        for x in list(keys): keys |= link_groups.get(x, set())
+        for x in list(keys): keys |= puuid_names.get(x, set())
+    keys.discard("")
+    return keys
+
+def _departed_compute(keys, tier_names, link_groups, puuid_names, last=None, active_cut=""):
+    """roster 키에 그 사람의 어떤 닉도 없고, 최근(active_cut 이후) 클랜 내전 기록도 없을 때만 탈퇴."""
+    dep = []
+    for nm in tier_names:
+        pk = _dep_person_keys(nm, link_groups, puuid_names)
+        if pk & keys: continue
+        if active_cut and last and max((last.get(x, "") for x in pk), default="") >= active_cut: continue
+        dep.append(nm)
+    return dep
+
+def _departed_guard(dep, tier_names, n, prev_rows, cfg):
+    """기록해도 되나 → (ok, 사유). 절대 상한 · roster 급감 · 신규 탈퇴 급증(직전 탭이 신선할 때만)."""
+    if len(dep) > int(len(tier_names) * DEP_CAP_SHARE):
+        return False, f"절대 상한 초과 {len(dep)}/{len(tier_names)}"
+    prev_n = int(cfg.get("departed_roster_n") or 0)
+    if prev_n and n < prev_n * DEP_ROSTER_DROP:
+        return False, f"roster 급감 {prev_n}→{n}"
+    prev = {tnorm(r[0]) for r in prev_rows if r and str(r[0]).strip()}
+    ts = max((str(r[1]).strip() for r in prev_rows if len(r) > 1 and str(r[1]).strip()), default="")
+    stale = True
+    if ts:
+        try: stale = (time.time() - time.mktime(time.strptime(ts[:16], "%Y-%m-%d %H:%M"))) > DEP_STALE_DAYS * 86400
+        except Exception: stale = True
+    if prev and not stale:
+        added = [x for x in dep if tnorm(x) not in prev]
+        if len(added) > max(DEP_CAP_DELTA, int(len(prev) * DEP_CAP_DELTA_PCT)):
+            return False, f"신규 탈퇴 급증 +{len(added)} (직전 {len(prev)}): {', '.join(added[:8])}"
+    return True, ""
 def _write_departed(names):
     try:
         try: ws = global_spreadsheet.worksheet("DEPARTED")
@@ -1260,34 +1348,56 @@ def _write_departed(names):
 def _departed_sync_loop():
     time.sleep(300)
     while True:
+        wait = 1800
         try:
             if load_bot_token() and global_spreadsheet is not None:
                 try: j = requests.get(ROSTER_BRIDGE_URL, timeout=8).json() or {}
                 except Exception: j = {}
                 keys = set(j.get("keys") or [])
-                if int(j.get("n") or 0) >= 50 and keys:      # 안전판: 봇 캐시 미적재로 인원 급감 시 보류
+                n = int(j.get("n") or 0)
+                if n >= 50 and keys:                          # 안전판: 봇 캐시 미적재로 인원 급감 시 보류
                     import csv as _csv, io as _io
-                    tier_names = []
+                    tier_names, link_rows = [], []
                     try:
                         rows = list(_csv.reader(_io.StringIO(_fetch_public_csv(DOCUMENT_ID, CLAN_TIERS_GID))))
                         if rows and (rows[0][0] if rows[0] else "").strip() == "닉네임":
                             tier_names = [r[0].strip() for r in rows[1:] if r and r[0].strip()]
                     except Exception: tier_names = []
-                    if tier_names:
-                        dep = []
-                        for nm in tier_names:
-                            k = tnorm(nm)
-                            try: k2 = tnorm(get_main_name(nm) or "")
-                            except Exception: k2 = ""
-                            if k in keys or (k2 and k2 in keys): continue
-                            dep.append(nm)
-                        # 안전판: 40% 넘게 탈퇴 판정이면 명단 스캔 오류 의심 → 기록 보류
-                        if len(dep) <= max(5, int(len(tier_names) * 0.4)):
+                    try: link_rows = list(_csv.reader(_io.StringIO(_fetch_public_csv(DOCUMENT_ID, sheet="LINK_ACCOUNT", headers=1))))[1:]
+                    except Exception: link_rows = []       # 못 읽으면 부팅 때의 global_alt_map 만으로
+                    _pn = _dep_puuid_names()
+                    puuid_names, last_seen = (_pn if _pn else (None, {}))
+                    if tier_names and puuid_names is None:
+                        print("[departed] HOF 집계 전 — 5분 뒤 재시도(PUUID 별칭 없이 판정하면 닉변자가 탈퇴로 찍힌다)", flush=True)
+                        wait = 300
+                    elif tier_names:
+                        link_groups = _dep_link_groups(global_alt_map, link_rows)
+                        _cut = time.strftime("%Y-%m-%d", time.localtime(time.time() - DEP_ACTIVE_DAYS * 86400))
+                        dep = _departed_compute(keys, tier_names, link_groups, puuid_names, last_seen, _cut)
+                        try: prev_rows = global_spreadsheet.worksheet("DEPARTED").get_all_values()[1:]
+                        except Exception: prev_rows = []
+                        cfg = APP_CONFIG                                  # 메모리 설정을 그대로 갱신(다른 스레드의 미저장 변경을 덮어쓰지 않게)
+                        ok, why = _departed_guard(dep, tier_names, n, prev_rows, cfg)
+                        if not ok:
+                            print(f"[departed] 기록 보류 — {why} (roster n={n} keys={len(keys)} · 티어표 {len(tier_names)}행)", flush=True)
+                        else:
                             sig = "|".join(sorted(tnorm(x) for x in dep))
-                            if sig != _DEP_SIG[0] and _write_departed(sorted(dep)):
+                            prev = {tnorm(r[0]) for r in prev_rows if r and str(r[0]).strip()}
+                            cur = {tnorm(x) for x in dep}
+                            if sig == cfg.get("departed_sig") and prev == cur:
+                                pass                                              # 그대로 — 쓰지 않는다
+                            elif _write_departed(sorted(dep)):
                                 _DEP_SIG[0] = sig
-        except Exception: pass
-        time.sleep(1800)
+                                added = sorted(x for x in dep if tnorm(x) not in prev)
+                                gone = sorted(str(r[0]).strip() for r in prev_rows if r and str(r[0]).strip() and tnorm(r[0]) not in cur)   # 원문 표기로
+                                print(f"[departed] {len(dep)}명 기록 (+{len(added)} −{len(gone)}) · 신규 {', '.join(added[:8])}{' …' if len(added) > 8 else ''}"
+                                      f" · 복귀/구제 {', '.join(gone[:8])}{' …' if len(gone) > 8 else ''}", flush=True)
+                            cfg["departed_sig"] = sig; cfg["departed_roster_n"] = n; save_config(cfg)
+                else:
+                    print(f"[departed] 기록 보류 — roster 응답 부족(n={n}, keys={len(keys)})", flush=True)
+        except Exception as e:
+            print(f"[departed] 루프 예외: {type(e).__name__} {e}", flush=True)
+        time.sleep(wait)
 
 # 🎯 [2026-07-16 사장님 지시] 클랜포지션 자동화 — 봇 /positions 폴링 → CLAN_POSITIONS 전량 재작성(호스트·1h).
 #   (기존 sync_positions.py 예약작업이 7/5 이후 멈춤 → 봇 상시 스캔+분석기 폴링으로 대체, 티어와 동일 파이프라인)
@@ -5902,7 +6012,9 @@ def update_hof_stats(force=False):
                 
                 raw_puuid = str(r[col_puuid]).strip().lower() if col_puuid != -1 and col_puuid < len(r) else ""
                 p_key = puuid_canon.get(raw_puuid, raw_puuid) if raw_puuid else name_to_puuid_fallback.get(main_name, main_name)
-                if p_key and main_name: target_aliases.setdefault(p_key, set()).add(main_name)
+                if p_key and main_name:
+                    target_aliases.setdefault(p_key, set()).add(main_name)
+                    if "#" in raw_name: target_aliases[p_key].add(raw_name)   # 원문 닉도(태그 있는 진짜 롤닉만 — 익명화 백필 행의 챔피언명은 제외) — 웹·툴링 별칭 집합과 맞춤
 
                 res = r[col_res] if col_res != -1 and col_res < len(r) else ""
                 

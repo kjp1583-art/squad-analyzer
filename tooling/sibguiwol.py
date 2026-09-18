@@ -143,6 +143,9 @@ def build_identity(raw, alt_to_main):
 def compute(path, today=None):
     raw, tier_of_raw, alt_to_main, solo, departed = load(path)
     canon_of_row, canon_aliases, resolve_alt = build_identity(raw, alt_to_main)
+    link_group = {}                                                      # tnorm 닉 → LINK 그룹 전체(본계↔부계 양방향)
+    for sub, main in alt_to_main.items():
+        g = link_group.setdefault(tnorm(main), {tnorm(main)}); g.add(sub); link_group[sub] = g
 
     # 게임 단위 중복 제거 후 대표닉으로 묶기
     seen, games = set(), defaultdict(list)
@@ -199,8 +202,10 @@ def compute(path, today=None):
         cands = [solo.get(tnorm(name))] + [solo.get(tnorm(a)) for a in canon_aliases.get(name, ())]
         cands = [c for c in cands if c]
         sr = next((c for c in cands if c.get("wr") is not None), cands[0] if cands else None)
+        _grp = {tnorm(name)} | {tnorm(a) for a in canon_aliases.get(name, ())}
+        for _k in list(_grp): _grp |= link_group.get(_k, set())          # LINK 그룹(양방향)까지 — 분석기 _sibgui_excluded 와 같은 집합
         members.append({"name": name, "tier": t, "recent": recent, "g": g, "w": w, "evalG": eval_g, "last": last,
-                        "departed": tnorm(name) in departed or any(tnorm(a) in departed for a in canon_aliases.get(name, ())),
+                        "departed": bool(_grp & departed),
                         "mvp": mvp, "ace": ace, "troll": troll, "aiSum": ai_sum, "aiN": ai_n,
                         "wr": (w / g * 100) if g else None,
                         "mvpRate": ((mvp + 0.5 * ace) / eval_g * 100) if eval_g else None,

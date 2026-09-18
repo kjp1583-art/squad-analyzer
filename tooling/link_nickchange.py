@@ -146,6 +146,12 @@ def main():
             if old_n < MIN_OLD_GAMES:
                 skip.append((old_disp, cur_disp, f"옛 닉 판수 < {MIN_OLD_GAMES}")); continue
             if old_k in seen or cur_k in seen:
+                #   ⚠ [2026-09-17] 현재 닉이 **부계정 열**에, 옛 닉이 본계정 열에 있으면(귤 갓#Gyul ← 카무사리#귤 갓) 방향이
+                #      규약(본계=지금 이름)과 반대다. 사람의 판단이라 고치진 않지만, 조용히 넘기면 웹 칼바람 탭이 이 사람을
+                #      옛 닉(옛 티어·피크 전용 솔랭)으로 부르고 탈퇴 판정도 어긋난다 — 요약에 크게 남긴다.
+                _rev = [r for r in cur_rows if len(r) >= 2 and _nk(r[1]) == cur_k and _nk(r[0]) == old_k]
+                if _rev:
+                    skip.append((old_disp, cur_disp, f"⚠ 방향 역전 — LINK_ACCOUNT 에 본계정={_rev[0][0]} / 부계정={_rev[0][1]} 로 있음. 지금 이름은 {cur_disp}. 본계정을 지금 이름으로 바꿔 주세요")); continue
                 skip.append((old_disp, cur_disp, "이미 LINK_ACCOUNT 에 있음(사람이 정한 것)")); continue
             if old_k in added_alt:
                 skip.append((old_disp, cur_disp, "이번 실행에서 이미 부계정으로 넣음")); continue
