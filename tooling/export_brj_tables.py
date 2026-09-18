@@ -16,7 +16,7 @@ exec(seg("BRJ_LINES = [", "\n]\n") + "\n]\n", ns)
 exec(seg("BRJ_STATS = {", "\n"), ns)
 exec(seg("BRJ_ITEMS = {", "# ---- ⚔ 장비"), ns)                      # BRJ_ITEMS + 뒤이어 붙는 staffcard·tale 까지
 exec(seg("BRJ_GEAR = {", "BRJ_SLOT_NM ="), ns)
-exec(seg("BRJ_SLOT_NM = {", "\n"), ns)
+exec(seg("BRJ_SLOT_NM = ", "\n"), ns)      # [2026-09-18] 🎖 징표 슬롯 뒤로 BRJ_SLOT_NM 이 _SlotNames({...}) 가 됐다 — 클래스는 BRJ_GEAR 구간에서 같이 실행된다
 exec(seg("BRJ_GEAR_FX = {", "\n}\n") + "\n}\n", ns)
 ns["_spr_rows"] = lambda d: d
 exec(seg("BRJ_COS = {", "\n}\n") + "\n}\n", ns)
