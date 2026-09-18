@@ -1043,6 +1043,21 @@ _UPDATE_EXIT_REQUESTED = False   # 🔄 업데이터가 교체 준비 완료 →
 _OUTDATED = False   # 🛑 [v81.65 원격 킬스위치] 신버전 감지 시 True → 모든 웹훅 발송 즉시 중단(구버전 마비).
                     #    자동 업데이트 성공 시 재시작으로 해소, 다운로드 실패해도 발송 중단은 유지(10분 주기 재시도).
 _LIVE_GAME = [False]   # 🛡️ [v81.67] 폴링 루프가 매 주기 갱신 — 게임(챔슬렉~종료)·기록 중 여부.
+_LIVE_SINCE = [0.0]    # 🕒 [2026-09-18] 라이브 상태가 시작된 시각 — 걸린 상태(4시간↑) 판정용
+_LIVE_STUCK_LOGGED = [False]
+LIVE_GATE_MAX_SEC = 4 * 3600
+def _live_gate_blocking():
+    """게임·기록 중이라 업데이트(버전 확인·재시작)를 미뤄야 하나.
+       🐛 [2026-09-18 사장님 PC] 호스트가 83.41 로 21시간을 버텼다 — 두 릴리스를 못 받았다. 롤 클라가 게임 중에 죽거나
+       기록이 끝맺지 못하면 _LIVE_GAME 이 참인 채 굳고, 이 게이트가 버전 확인 자체를 영원히 건너뛴다.
+       내전 한 판 + 기록은 길어도 두 시간이다. 4시간 넘게 이어진 '라이브' 는 걸린 것으로 보고 막지 않는다."""
+    if not _LIVE_GAME[0]: return False
+    if _LIVE_SINCE[0] and time.time() - _LIVE_SINCE[0] > LIVE_GATE_MAX_SEC:
+        if not _LIVE_STUCK_LOGGED[0]:
+            print(f"[update] 게임/기록 상태가 {int((time.time() - _LIVE_SINCE[0]) // 3600)}시간 이어짐 — 걸린 것으로 보고 업데이트 게이트를 연다", flush=True)
+            _LIVE_STUCK_LOGGED[0] = True
+        return False
+    return True
 _HDR_MIG_DONE = set()  # 🧱 [v81.72] 시트별 헤더 자동생성 시도 1회 제한 — 실패 반복이 쓰기쿼터 소진하던 사고 방지.
                        #    라이브 중 신버전이 릴리스돼도 업데이터가 재시작을 연기(게임 중 재시작=종료신호 유실 방지).
 
@@ -1050,7 +1065,7 @@ def _auto_update_once():
     # [V81.28] onedir 자동 업데이트: 새 버전 zip 다운로드 → 압축해제 → 폴더(exe+_internal) 교체(백업+롤백).
     #   구 onefile(단일 exe) 업데이터는 이 함수로 대체됨. 온디렉토리는 임시추출이 없어 'python DLL 로드실패' 원천 제거.
     global _OUTDATED
-    if _LIVE_GAME[0] and not _OUTDATED:
+    if _live_gate_blocking() and not _OUTDATED:
         return   # 🛡️ [v81.67] 게임·기록 중엔 버전 확인/킬스위치/재시작 전부 연기(종료신호 유실 방지) — 게임 끝나면 다음 주기에 진행
     try:
         v_res = requests.get(VERSION_URL, timeout=5)
@@ -1095,9 +1110,9 @@ def _auto_update_once():
                        for fn in os.listdir(os.path.join(new_root, "_internal"))): return
         except Exception: return
 
-        if _LIVE_GAME[0]:      # 🛡️ [v81.67] 다운로드 중 게임이 시작된 경우 — 게임 끝날 때까지 교체·재시작 연기.
-            _OUTDATED = False  #    연기 동안은 발송 재개(이번 게임 종료신호 보전 — 어차피 직후 신버전으로 재시작).
-            while _LIVE_GAME[0]:
+        if _live_gate_blocking():   # 🛡️ [v81.67] 다운로드 중 게임이 시작된 경우 — 게임 끝날 때까지 교체·재시작 연기.
+            _OUTDATED = False       #    연기 동안은 발송 재개(이번 게임 종료신호 보전 — 어차피 직후 신버전으로 재시작).
+            while _live_gate_blocking():   # 걸린 라이브(4시간↑)면 여기서도 빠져나온다
                 time.sleep(30)
             _OUTDATED = True
         with open(bat_path, "w", encoding="cp949") as f:
@@ -7831,7 +7846,10 @@ def lcu_core_backend_loop():
                 except Exception: pass
             was_in_prog = _in_prog_now
             # 🛡️ [v81.67] 자동 업데이트 재시작 게이트용 미러 — 게임/기록 중이면 업데이터가 재시작을 연기.
-            _LIVE_GAME[0] = bool(_in_prog_now or active_recording_id or current_phase == "ChampSelect")
+            _now_live = bool(_in_prog_now or active_recording_id or current_phase == "ChampSelect")
+            if _now_live and not _LIVE_GAME[0]: _LIVE_SINCE[0] = time.time(); _LIVE_STUCK_LOGGED[0] = False   # 라이브 시작 시각
+            elif not _now_live: _LIVE_SINCE[0] = 0.0
+            _LIVE_GAME[0] = _now_live
 
             c100, c200, multi_id = [], [], ""
             queue_id = -1
