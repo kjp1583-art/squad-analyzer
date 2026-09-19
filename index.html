@@ -5004,8 +5004,9 @@ function newsPageHtml(W,opt){
       return `<div class="np-person">${ph}<div style="min-width:0">${_npName(s.name,"nm")}<div class="ln"><span class="em">${esc(s.emoji||"")}</span>${mdLite(s.line||"")}</div></div></div>`; }).join("");
   const todo=(W.homework||[]).filter(Boolean).map(h=>`<div><span class="bx"></span><span>${mdLite(h)}</span></div>`).join("");
   const facts=(W.facts||[]).filter(Boolean);
-  const hist=(W.history||[]).filter(h=>h&&h.week).map(h=>{ const g=typeof h.grade==="string"?h.grade:((h.grade||{}).letter||""); const t=_npTo((h.week||{}).to);
-      return `<div class="np-arch" ${t?`onclick="go('news','${t}')" title="이 호 지면 열기"`:'style="cursor:default"'}><span class="no">${h.issue?`제${parseInt(h.issue,10)}호`:"—"}</span><span class="wk">${esc(h.week.label||"")} ${esc(h.week.from||"")}~${esc(h.week.to||"")}</span><span class="hl">${esc(h.headline||"")}</span><span class="g">${esc(g)}</span></div>`; }).join("");
+  const readers=((W.stats||{}).readers)||{};   // 봇이 COMMENTS 시트에서 센 호별 독자 댓글 수(다음 호를 만들 때 함께 읽는다)
+  const hist=(W.history||[]).filter(h=>h&&h.week).map(h=>{ const g=typeof h.grade==="string"?h.grade:((h.grade||{}).letter||""); const t=_npTo((h.week||{}).to); const rc=t?parseInt(readers[t],10)||0:0;
+      return `<div class="np-arch" ${t?`onclick="go('news','${t}')" title="이 호 지면 열기"`:'style="cursor:default"'}><span class="no">${h.issue?`제${parseInt(h.issue,10)}호`:"—"}</span><span class="wk">${esc(h.week.label||"")} ${esc(h.week.from||"")}~${esc(h.week.to||"")}</span><span class="hl">${esc(h.headline||"")}</span>${rc?`<span class="wk" title="독자 댓글">💬${rc}</span>`:""}<span class="g">${esc(g)}</span></div>`; }).join("");
   const old=opt.old?`<div class="np-old"><span>📼 지난 호를 보고 있어요 — ${esc(issue)} · ${esc(wk.label||"")} (${esc(wk.from||"")} ~ ${esc(wk.to||"")})</span><button class="np-btn" onclick="go('news')">최신 호 보기</button></div>`:"";
   return `<div class="np">${mast}${old}${topHtml}
     <div class="np-body"><div style="min-width:0">${arts?`<div class="np-arts">${arts}</div>`:""}${colm}
@@ -9970,7 +9971,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609192100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609192130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
