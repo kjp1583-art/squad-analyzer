@@ -2877,10 +2877,15 @@ function brjSpriteSvgPixel(lv,cos,flags,size){
 }
 function brjParseCos(s){ const o={}; for(const t of String(s||"").split("|")){ const i=t.indexOf(":"); if(i>0){ const sl=t.slice(0,i).trim(), k=t.slice(i+1).trim(); if(k) o[sl]=k; } } return o; }
 function brjParseFlags(s){ return String(s||"").split("|").map(t=>t.trim()).filter(Boolean); }
+// 🏆 [2026-09-19 사장님 지시 "웹 프로필 🏆 우승 뱃지도 실제로 넣어줘"] 봇은 '이야기' 열 앞에 '🏆우승수 · 회차 🥈준우승 💀탈락' 을 적는다(봇 복원 파서와 같은 형식).
+function brjParseRec(camp){
+  const t=String(camp||""); const num=re=>{ const m=re.exec(t); return m?parseInt(m[1],10)||0:0; };
+  return {wins:num(/🏆(\d+)/), gen:num(/(\d+)회차/), runner:num(/🥈(\d+)/), outs:num(/💀(\d+)/)};
+}
 function brjSpriteHtml(name,size){
   const b=brjOf(name); if(!b) return '';
   const wear=["o","h","a","a2","a3"].map(sl=>{const k=b.cos&&b.cos[sl]; return k&&Object.prototype.hasOwnProperty.call(BRJ_SPR.cos,k)?BRJ_SPR.cos[k]:null;}).filter(Boolean);
-  const tip='브장신 키우기 — Lv.'+b.lv+' '+b.stage+(wear.length?' · 꾸미기: '+wear.map(c=>c.e+' '+c.n).join(', '):' · 꾸미기 없음')+(b.flags&&b.flags.length?' · '+b.flags.map(f=>({work:'근무 중',staff:'스탭',stun:'행동불능','skin:sg':'🌟 별수호자 스킨'})[f]||f).join('·'):'');
+  const tip='브장신 키우기 — Lv.'+b.lv+' '+b.stage+(b.wins>0?' · 🏆 우승 '+b.wins+'회':'')+(wear.length?' · 꾸미기: '+wear.map(c=>c.e+' '+c.n).join(', '):' · 꾸미기 없음')+(b.flags&&b.flags.length?' · '+b.flags.map(f=>({work:'근무 중',staff:'스탭',stun:'행동불능','skin:sg':'🌟 별수호자 스킨'})[f]||f).join('·'):'');
   return `<div class="brjspr" onclick="go('brjang')" title="${escAttr(tip)}">${brjSpriteSvg(b.lv,b.cos,b.flags,size||104)}<div class="brjspr-cap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</div></div>`;
 }
 let BRJ_MARKET=null;   // BRJ_MARKET 탭 — 탭 열 때 지연 로드
@@ -2917,7 +2922,7 @@ function loadBrjang(){
           const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
           const nm=String(g(ni)||"").trim(); if(!nm) continue;
           out.set(tnorm(nm),{name:nm,xp:parseInt(g(xi),10)||0,lv:parseInt(g(li),10)||0,stage:String(g(si)||""),emoji:String(g(ei)||"🥚"),
-                             mult:parseFloat(g(mi))||1,today:parseInt(g(ti),10)||0,at:String(g(ai)||""),bag:parseInt(g(bi),10)||0,workEnd:parseInt(g(wi),10)||0,stat:String(g(st)||""),items:String(g(ii)||""),camp:String(g(ci)||""),legend:/전설/.test(String(g(lgi)||"")),gear:String(g(gi)||""),cos:brjParseCos(g(csi)),flags:brjParseFlags(g(fli))});
+                             mult:parseFloat(g(mi))||1,today:parseInt(g(ti),10)||0,at:String(g(ai)||""),bag:parseInt(g(bi),10)||0,workEnd:parseInt(g(wi),10)||0,stat:String(g(st)||""),items:String(g(ii)||""),camp:String(g(ci)||""),...brjParseRec(g(ci)),legend:/전설/.test(String(g(lgi)||"")),gear:String(g(gi)||""),cos:brjParseCos(g(csi)),flags:brjParseFlags(g(fli))});
         }
       }catch(e){}
       resolve(out);
@@ -2933,7 +2938,14 @@ function brjChip(name){
   const b=brjOf(name); if(!b) return '';
   const gold=!!b.legend||b.lv>=7;   // ✨ 전설의 브장신 황금 프레임 — 회차가 돌아도 남는 영구 기록
   const st=gold?"background:linear-gradient(90deg,rgba(255,215,80,.28),rgba(255,120,40,.18));border:2px solid #ffd75e;box-shadow:0 0 8px rgba(255,215,80,.45);color:#fff3c4":"background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.5);color:#ffcf8a";
-  return `<span title="${escAttr('브장신 키우기 — '+b.xp+' XP · 유니크 배율 ×'+b.mult+(gold?' · 전설의 브장신':''))}" onclick="go('brjang')" style="cursor:pointer;${st};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</span>`;
+  const main=`<span title="${escAttr('브장신 키우기 — '+b.xp+' XP · 유니크 배율 ×'+b.mult+(gold?' · 전설의 브장신':'')+(b.gen>1?' · '+b.gen+'회차':''))}" onclick="go('brjang')" style="cursor:pointer;${st};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(b.emoji)} Lv.${b.lv} ${esc(b.stage)}</span>`;
+  return main+brjWinChip(b);
+}
+// 🏆 브장신 멸망전 우승 뱃지 — 우승 횟수가 있을 때만. 봇 엔딩 문구가 약속하던 '웹 프로필 🏆 뱃지' (2026-09-19 실제 구현)
+function brjWinChip(b){
+  if(!b||!(b.wins>0)) return '';
+  const tip='브장신 멸망전 우승 '+b.wins+'회'+(b.gen>1?' · '+b.gen+'회차':'')+(b.runner?' · 준우승 '+b.runner+'회':'')+(b.outs?' · 탈락 '+b.outs+'회':'')+' · 우승 1회마다 전투 능력치 +0.5(최대 10회)';
+  return `<span title="${escAttr(tip)}" onclick="go('brjang')" style="cursor:pointer;background:linear-gradient(90deg,rgba(255,215,80,.32),rgba(255,160,40,.22));border:1.5px solid #ffd75e;color:#fff3c4;font-size:12.5px;font-weight:900;padding:3px 10px;border-radius:9px;white-space:nowrap;box-shadow:0 0 6px rgba(255,215,80,.35)">🏆 브장신 우승 ${b.wins}${b.wins>=2?'회':''}</span>`;
 }
 // ⚔️ 멸망전 우승(MYEOL 탭 — 봇이 명예의전당 채널 스크랩) → 프로필 뱃지줄 표시
 let MYEOL=new Map();
@@ -7649,7 +7661,7 @@ function renderBrjang(){
     const link=key?`<span class="clickname" onclick="go('player','${escAttr(key)}')" style="font-weight:800">${esc(shown)}</span>`:`<b>${esc(b.name)}</b>`;
     return `<div style="display:grid;grid-template-columns:34px 44px 1fr 120px;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
       <div style="font-weight:900;color:${i<3?'#ffd75e':'var(--sub)'}">${i+1}</div><div style="font-size:26px;text-align:center">${esc(b.emoji)}</div>
-      <div>${link} <span class="muted" style="font-size:12px">Lv.${b.lv} ${esc(b.stage)}</span>${bar(b)}</div>
+      <div>${link}${b.wins>0?` <span title="멸망전 우승 ${b.wins}회${b.gen>1?' · '+b.gen+'회차':''}" style="color:#ffd75e;font-weight:900;font-size:12px">🏆${b.wins}</span>`:''} <span class="muted" style="font-size:12px">Lv.${b.lv} ${esc(b.stage)}</span>${bar(b)}</div>
       <div class="muted" style="font-size:12px;text-align:right">🪙 ×${(+b.mult||1).toFixed(1)}<br>🎒 사료 ${b.bag||0}${b.workEnd?`<br>${b.workEnd*1000>Date.now()?'🏪 근무 중':'🧺 퇴근 대기'}`:''}${b.stat&&/[1-9]/.test(b.stat)?`<br>⚔ ${esc(b.stat)}`:''}${b.camp?`<br>📖 ${esc(b.camp)}`:''}${b.items?`<br><span title="가방 아이템">${esc(b.items)}</span>`:''}${b.gear?`<br><span title="장착 장비" style="color:#ffcf8a">⚔ ${esc(b.gear)}</span>`:''}</div></div>`; }).join("");
   const GR={'일반':'⚪','레어':'🔵','에픽':'🟣','전설':'🟠'};
   const gearTable=['무기','방어구','장신구'].map(sl=>`<div><div style="font-weight:800;margin:4px 0">${sl}</div>${BRJ_GEAR.filter(g=>g[3]===sl).map(([em,nm,gr,_s,st,ds,ust,uds])=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);margin-bottom:4px"><span style="font-size:18px;line-height:1.5">${em}</span><div><div style="font-weight:800">${esc(nm)} <span style="font-size:10.5px">${GR[gr]||''} ${gr}</span> <span style="color:#ffcf8a;font-size:11.5px">${esc(st)}</span></div><div class="muted" style="font-size:11.5px">✨ ${esc(ds)}</div>${ust?`<div style="font-size:11px;margin-top:3px;padding-top:3px;border-top:1px dashed var(--line);color:#ffb347">🏷 <b>[엄] ${esc(nm)}</b> <span style="color:#ffcf8a">${esc(ust)}</span><div class="muted" style="font-size:10.5px">✨ ${esc(uds)}</div></div>`:``}</div></div>`).join("")}</div>`).join("");
@@ -9574,7 +9586,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609190900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609190930";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
