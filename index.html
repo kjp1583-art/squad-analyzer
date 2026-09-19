@@ -10,6 +10,8 @@
 <meta property="og:description" content="스쿼드 내전 전적 검색 · 협곡/칼바람/클래식 지표" />
 <meta property="og:type" content="website" />
 <meta property="og:image" content="https://squad-gg.pages.dev/logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;900&display=swap">   <!-- 📰 스쿼드 일보 마스트헤드·헤드라인 명조(없으면 시스템 명조) -->
 <style>
   :root{
     --bg:#11131a; --bg2:#171a23; --card:#1b1f2b; --card2:#212636;
@@ -726,6 +728,157 @@
   .scrim-join:hover{transform:translateY(-1px);box-shadow:0 5px 22px rgba(100,120,255,.5)}
   @keyframes scrim-border{to{background-position:320% 0}}
   @media (prefers-reduced-motion: reduce){.scrim-hero{animation:none}}
+  /* 📰 [2026-09-19 사장님 지시] 「스쿼드 일보」 — 주간평을 신문 지면으로. 어두운 사이트 안에 크림색 종이 한 장을 깐다(대비가 곧 정체성).
+     .np-tease = 홈 1면 미리보기(자동매칭 자리) · .np = 전체 지면(#news 라우트). 종이 위 글자색은 사이트 변수(--txt 등)를 쓰지 않고 잉크색을 직접 준다. */
+  .np-serif{font-family:"Noto Serif KR","Apple Myungjo","Nanum Myeongjo","Batang",Georgia,serif}
+  .np-tease{--pp:#f4ecd9;--ink:#1c1a17;--ink2:#524b41;--rule:#2a251f;--acc:#a3271f;position:relative;border-radius:8px;margin-bottom:14px;padding:12px 16px 12px;cursor:pointer;color:var(--ink);
+    background:var(--pp) repeating-linear-gradient(0deg,rgba(0,0,0,.018) 0 1px,transparent 1px 3px);box-shadow:0 10px 28px rgba(0,0,0,.45),inset 0 0 60px rgba(120,90,40,.08);border:1px solid #d8ccae}
+  .np-tease:hover{box-shadow:0 12px 34px rgba(0,0,0,.55),inset 0 0 60px rgba(120,90,40,.1)}
+  .np-tease .np-tmast{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:3px double var(--rule);padding-bottom:6px}
+  .np-tease .np-tname{font-size:22px;font-weight:900;letter-spacing:6px;color:var(--ink)}
+  .np-tease .np-tmeta{font-size:12px;color:var(--ink2);display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .np-tease .np-tbody{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:14px;align-items:stretch;margin-top:10px}
+  .np-tease .np-thl{font-size:24px;font-weight:900;line-height:1.25;color:var(--ink);letter-spacing:-.3px;word-break:keep-all}
+  .np-tease .np-tlead{font-size:13.5px;line-height:1.6;color:var(--ink2);margin-top:6px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .np-tease .np-tfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;border-top:1px solid #c9bd9f;padding-top:8px;font-size:12.5px;color:var(--ink2)}
+  .np-tease .np-topen{background:var(--ink);color:#f4ecd9;border:0;border-radius:4px;padding:7px 14px;font-weight:800;font-size:13px;letter-spacing:.5px}
+  .np-tease .np-tweather{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--ink)}
+  .np-tease .np-tweather .l{font-size:18px;font-weight:900;color:var(--acc)}
+  .np-tease .np-fig{margin:0}
+  .np-tease.ph .np-thl{font-size:19px}
+  @media(max-width:680px){.np-tease .np-tbody{grid-template-columns:1fr}.np-tease .np-fig{display:none}.np-tease .np-thl{font-size:20px}.np-tease .np-tname{font-size:18px;letter-spacing:4px}}
+
+  .np{--pp:#f4ecd9;--pp2:#ece2cb;--ink:#1c1a17;--ink2:#524b41;--ink3:#7a7264;--rule:#2a251f;--acc:#a3271f;--soft:#c9bd9f;
+    color:var(--ink);background:var(--pp) repeating-linear-gradient(0deg,rgba(0,0,0,.018) 0 1px,transparent 1px 3px);border:1px solid #d8ccae;border-radius:6px;
+    padding:18px 22px 26px;box-shadow:0 14px 40px rgba(0,0,0,.5),inset 0 0 80px rgba(120,90,40,.08);margin-top:10px;word-break:keep-all;overflow-wrap:anywhere}
+  .np a,.np .np-nm{color:inherit}
+  .np .np-nm.clickname{color:#1f3f8f;cursor:pointer;text-decoration:underline dotted #7f93c7;text-underline-offset:2px}
+  .np code{background:rgba(0,0,0,.07);border-radius:3px;padding:0 4px;font-size:.92em}
+  .np b{color:var(--ink)}
+  .np-mast{text-align:center;border-bottom:4px double var(--rule);padding-bottom:10px;position:relative}
+  .np-ears{display:flex;justify-content:space-between;align-items:flex-end;font-size:12px;color:var(--ink2);gap:10px;flex-wrap:wrap}
+  .np-ear{border:1px solid var(--soft);padding:5px 9px;border-radius:3px;background:rgba(255,255,255,.35);text-align:left;line-height:1.45;min-width:120px}
+  .np-ear b{font-size:13px}
+  .np-name{font-size:56px;font-weight:900;letter-spacing:14px;line-height:1.05;margin:6px 0 2px;color:var(--ink);text-shadow:0 1px 0 rgba(255,255,255,.5)}
+  .np-slogan{font-size:12.5px;color:var(--ink2);letter-spacing:2px}
+  .np-dateline{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--rule);padding:6px 2px;font-size:12.5px;color:var(--ink2)}
+  .np-dateline b{color:var(--ink)}
+  .np-old{margin-top:12px;border:1px dashed var(--acc);background:rgba(163,39,31,.06);color:var(--acc);padding:8px 12px;border-radius:4px;font-size:13px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+  .np-old .np-btn{border-color:var(--acc);color:var(--acc)}
+  .np-btn{background:transparent;border:1.5px solid var(--ink);color:var(--ink);border-radius:3px;padding:5px 12px;font-weight:800;font-size:12.5px;letter-spacing:.3px}
+  .np-btn.solid{background:var(--ink);color:var(--pp)}
+  .np-btn:hover{background:rgba(0,0,0,.06)} .np-btn.solid:hover{background:#000}
+
+  /* 1면 톱 */
+  .np-top{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start;padding:18px 0 16px;border-bottom:1px solid var(--rule)}
+  .np-kicker{display:inline-block;font-size:11.5px;font-weight:900;letter-spacing:1.5px;color:var(--acc);border:1.5px solid var(--acc);padding:1px 7px;border-radius:2px;margin-bottom:8px}
+  .np-hl{font-size:40px;font-weight:900;line-height:1.18;letter-spacing:-.5px;color:var(--ink);margin:0}
+  .np-lead{font-size:16px;line-height:1.75;color:var(--ink);margin:12px 0 0;text-align:justify}
+  .np-lead::first-letter{font-size:2.6em;font-weight:900;float:left;line-height:.85;margin:5px 8px 0 0;color:var(--acc)}
+  .np-byline{font-size:12px;color:var(--ink3);margin-top:10px}
+  .np-fig{margin:0;border:1px solid var(--soft);background:#fff;padding:5px;box-shadow:2px 3px 0 rgba(0,0,0,.08)}
+  .np-img{aspect-ratio:4/3;width:100%;background:#d8cdb4 center/cover no-repeat;position:relative;overflow:hidden;filter:sepia(.28) contrast(1.06) saturate(.9)}
+  .np-img.spr{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 60%,#efe6d1,#c8bb9c)}
+  .np-img.spr svg,.np-img.spr img{max-height:88%;max-width:88%}
+  .np-img.emo{display:flex;align-items:center;justify-content:center;font-size:64px;background:repeating-linear-gradient(45deg,#e6dcc4 0 10px,#ddd1b6 10px 20px)}
+  .np-img img.boss{width:100%;height:100%;object-fit:contain;object-position:bottom}
+  .np-img img.ci{position:absolute;right:6px;bottom:6px;width:44px;height:44px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  .np-fig figcaption{font-size:11.5px;color:var(--ink2);padding:5px 3px 1px;line-height:1.4}
+  .np-fig figcaption .src{color:var(--ink3)}
+
+  /* 본문 3단 + 사이드 */
+  .np-body{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:22px;margin-top:16px}
+  .np-arts{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0 18px}
+  .np-art{padding:12px 0 14px;border-bottom:1px solid var(--soft);min-width:0;position:relative}
+  .np-art+.np-art::before{content:"";position:absolute;left:-9px;top:14px;bottom:14px;border-left:1px solid var(--soft)}
+  .np-art .np-fig{margin-bottom:8px}
+  .np-art .np-img{aspect-ratio:16/10}
+  .np-art .np-img.emo{font-size:40px}
+  .np-art h3{margin:0 0 5px;font-size:18px;line-height:1.3;font-weight:900;color:var(--ink);letter-spacing:-.3px}
+  .np-art p{margin:0;font-size:13.5px;line-height:1.7;color:var(--ink);text-align:justify}
+  .np-art .np-kicker{font-size:10.5px;padding:0 6px;margin-bottom:6px}
+  .np-side{display:grid;gap:14px;align-content:start;min-width:0}
+  .np-box{border-top:3px solid var(--rule);border-bottom:1px solid var(--soft);padding:8px 2px 10px;min-width:0}
+  .np-box h3{margin:0 0 8px;font-size:13px;font-weight:900;letter-spacing:1.5px;color:var(--ink);text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline}
+  .np-box h3 .cnt{font-weight:600;font-size:11.5px;color:var(--ink3);letter-spacing:0}
+  .np-weather{display:flex;align-items:center;gap:12px}
+  .np-weather .ic{font-size:44px;line-height:1}
+  .np-weather .wt{font-size:15px;font-weight:900}
+  .np-weather .wr{font-size:12.5px;color:var(--ink2);line-height:1.5}
+  .np-weather .lt{font-size:30px;font-weight:900;color:var(--acc);margin-left:auto;padding:0 6px;border:2px solid var(--acc);border-radius:4px;transform:rotate(-6deg);letter-spacing:-1px}
+  .np-stat{width:100%;border-collapse:collapse;font-size:12.5px}
+  .np-stat th{text-align:left;font-weight:700;color:var(--ink2);padding:3px 0;border-bottom:1px solid var(--soft)}
+  .np-stat td{padding:3px 0;border-bottom:1px dotted var(--soft);font-variant-numeric:tabular-nums}
+  .np-stat td.n{text-align:right;font-weight:800}
+  .np-bars{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;align-items:end;height:64px;margin:8px 0 2px;padding:0 2px}
+  .np-bar{background:var(--ink);border-radius:2px 2px 0 0;position:relative;min-height:2px;opacity:.85}
+  .np-bar.mx{background:var(--acc);opacity:1}
+  .np-bar span{position:absolute;top:-15px;left:0;right:0;text-align:center;font-size:10px;color:var(--ink2);font-weight:700}
+  .np-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:10.5px;color:var(--ink3);text-align:center}
+  .np-notice{padding:6px 0;border-bottom:1px dotted var(--soft);font-size:13px;line-height:1.55;display:flex;gap:8px;align-items:flex-start}
+  .np-notice:last-child{border-bottom:0}
+  .np-notice .k{flex:none;font-size:11px;font-weight:900;border:1px solid var(--ink);padding:0 5px;border-radius:2px;margin-top:2px;min-width:34px;text-align:center;letter-spacing:1px}
+  .np-notice.k부고 .k{background:var(--ink);color:var(--pp)} .np-notice.k축하 .k{border-color:var(--acc);color:var(--acc)} .np-notice.k실종 .k{border-style:dashed}
+  .np-award{padding:7px 0;border-bottom:1px dotted var(--soft);font-size:13px;line-height:1.55}
+  .np-award .t{display:inline-block;font-size:11px;font-weight:900;color:var(--acc);border:1px solid var(--acc);border-radius:2px;padding:0 6px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+  .np-award .np-nm{font-weight:900}
+  .np-ad{border:2px solid var(--ink);padding:8px 10px;margin-top:8px;font-size:12.5px;line-height:1.5;background:rgba(255,255,255,.35);position:relative;cursor:pointer}
+  .np-ad:hover{background:rgba(255,255,255,.6)}
+  .np-ad .tag{position:absolute;top:-9px;left:8px;background:var(--pp);padding:0 5px;font-size:10px;font-weight:900;letter-spacing:2px;color:var(--acc)}
+  .np-ad b{font-size:14px}
+  .np-ad .pr{font-weight:900;color:var(--acc)}
+  .np-ad.house{border-style:double;border-width:4px;text-align:center}
+
+  /* 담임 칼럼 */
+  .np-colm{margin-top:18px;border-top:4px double var(--rule);border-bottom:1px solid var(--rule);padding:14px 0 16px;display:grid;grid-template-columns:110px minmax(0,1fr);gap:18px;align-items:start;position:relative}
+  .np-colm .who{text-align:center;font-size:12px;color:var(--ink2);line-height:1.45}
+  .np-colm .who .av{width:74px;height:74px;border-radius:50%;background:#e5dac1;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:38px;margin:0 auto 6px;filter:sepia(.2)}
+  .np-colm h3{margin:0 0 8px;font-size:22px;font-weight:900;line-height:1.3}
+  .np-colm h3 small{display:block;font-size:12px;font-weight:700;color:var(--acc);letter-spacing:2px;margin-bottom:4px}
+  .np-colm p{margin:0;font-size:15px;line-height:1.85;color:var(--ink);text-align:justify}
+  .np-colm .closing{margin-top:10px;font-weight:800;text-align:right;color:var(--ink2);font-size:14px}
+  .np-stamp{position:absolute;right:14px;top:10px;border:3px solid var(--acc);color:var(--acc);border-radius:6px;padding:2px 10px;font-size:34px;font-weight:900;transform:rotate(-12deg);opacity:.8;letter-spacing:-1px;line-height:1.1;text-align:center;mix-blend-mode:multiply}
+  .np-stamp small{display:block;font-size:9px;letter-spacing:2px;font-weight:900}
+
+  /* 인물 동정 · 예고 */
+  .np-sec{margin-top:18px}
+  .np-sec>h3{margin:0 0 10px;font-size:15px;font-weight:900;letter-spacing:2px;border-bottom:2px solid var(--rule);padding-bottom:5px;display:flex;justify-content:space-between;align-items:baseline}
+  .np-sec>h3 .cnt{font-weight:600;font-size:12px;color:var(--ink3);letter-spacing:0}
+  .np-people{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
+  .np-person{display:flex;gap:10px;align-items:flex-start;padding:8px;border:1px solid var(--soft);background:rgba(255,255,255,.3);min-width:0}
+  .np-person .ph{flex:none;width:58px;height:58px;border:1px solid var(--soft);background:#e5dac1 center/cover;display:flex;align-items:center;justify-content:center;font-size:26px;filter:sepia(.3) contrast(1.05);overflow:hidden}
+  .np-person .ph svg,.np-person .ph img{width:100%;height:100%;object-fit:cover}
+  .np-person .nm{font-weight:900;font-size:13.5px;display:block;line-height:1.3}
+  .np-person .ln{font-size:12.5px;line-height:1.55;color:var(--ink);margin-top:2px}
+  .np-person .em{font-size:14px;margin-right:3px}
+  .np-todo{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px 16px}
+  .np-todo div{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;line-height:1.55;padding:4px 0}
+  .np-todo .bx{flex:none;width:15px;height:15px;border:1.5px solid var(--ink);border-radius:2px;margin-top:3px}
+  .np details{margin-top:14px;font-size:12.5px;color:var(--ink2)}
+  .np summary{cursor:pointer;font-weight:800;color:var(--ink)}
+  .np details ul{margin:6px 0 0;padding-left:18px;line-height:1.65}
+  .np-arch{display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px dotted var(--soft);font-size:13px;cursor:pointer}
+  .np-arch:hover{background:rgba(0,0,0,.04)}
+  .np-arch .no{flex:none;font-weight:900;min-width:44px}
+  .np-arch .wk{flex:none;color:var(--ink3);font-size:11.5px}
+  .np-arch .hl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .np-arch .g{flex:none;font-weight:900;color:var(--acc)}
+  .np-cmt{margin-top:18px;border-top:4px double var(--rule);padding-top:12px}
+  .np-cmt .cmt-ta{background:#fffaf0;color:var(--ink);border:1px solid var(--soft);font-size:14px}
+  .np-cmt .cmt-ta::placeholder{color:#9a917f}
+  .np-cmt .cmt-btn{background:var(--ink);color:var(--pp);border-radius:3px}
+  .np-cmt .cmt-item{border-top:1px dotted var(--soft)}
+  .np-cmt .cmt-author{color:var(--ink)} .np-cmt .cmt-body{color:var(--ink)} .np-cmt .cmt-time{color:var(--ink3)}
+  .np-cmt .muted{color:var(--ink3)}
+  .np-cmt .me{font-size:12px;color:var(--ink2);margin-bottom:6px;display:flex;justify-content:space-between;gap:8px}
+  .np-cmt .me span{cursor:pointer;text-decoration:underline}
+  .np-foot{margin-top:18px;border-top:1px solid var(--rule);padding-top:8px;font-size:11.5px;color:var(--ink3);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;line-height:1.5}
+  .np-empty{padding:40px 10px;text-align:center;color:var(--ink2);font-size:15px;line-height:1.7}
+  @media(max-width:860px){.np-body{grid-template-columns:1fr}.np-top{grid-template-columns:1fr}.np-top .np-fig{order:-1}.np-hl{font-size:30px}}
+  @media(max-width:680px){.np{padding:14px 13px 20px}.np-name{font-size:34px;letter-spacing:8px}.np-hl{font-size:26px}.np-lead{font-size:15px}.np-ears{display:none}.np-arts{grid-template-columns:1fr}.np-art+.np-art::before{display:none}
+    .np-colm{grid-template-columns:1fr}.np-colm .who{display:flex;gap:10px;align-items:center;text-align:left}.np-colm .who .av{width:48px;height:48px;font-size:24px;margin:0}.np-stamp{font-size:24px;right:6px;top:6px}
+    .np-people{grid-template-columns:1fr}.np-todo{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion: no-preference){.np-tease{transition:box-shadow .18s ease}}
   /* 📢 고성능확성기 보드 — 흐르는 그라데이션 테두리 + 슬라이드 페이드 */
   #megaboard{margin:10px 0 4px;border-radius:12px;padding:2px;
     background:linear-gradient(100deg,#e0a437,#ff5a6e,#8a5cd6,#4a7ef0,#e0a437);background-size:400% 100%;
@@ -4317,6 +4470,8 @@ function goBack(){ if(history.state&&history.state.depth>0)history.back(); else 
 function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
   if(route==='guide'){navPush(route,arg);renderGuide(arg);return;}  // 📖 가이드북 — 내전 데이터와 무관하게 바로 열린다
+  if(route==='news'){navPush(route,arg);renderNews(arg);try{ history.replaceState(history.state,"",location.pathname+location.search+"#news"+(arg?"/"+encodeURIComponent(String(arg)):"")); }catch(e){} return;}   // 📰 스쿼드 일보 — 자체 JSON(데이터 로딩 전에도 열림) · 공유 링크 #news[/종료일]
+  if(location.hash&&location.hash.indexOf("#news")===0){ try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){} }   // 다른 화면으로 가면 #news 해시 정리
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(route==='market'){navPush(route,arg);renderMarket();return;}   // 🪙 거래소 — 자체 데이터(UNIQ_MARKET) 로드
   if(route==='cal'){navPush(route,arg);renderCal();return;}         // 📅 클랜일정 — 디스코드 이벤트 탭 미러
@@ -4519,6 +4674,7 @@ function _scrimApi(){ try{ return localStorage.getItem('scrim_relay')||SCRIM_REL
 let _scrimTimer=null,_scrimSt=null;
 function _sv(id){ const e=document.getElementById(id); return e?e.value:''; }
 function scrimDashHtml(){
+  if(!SHOW_SCRIM) return '';   // 🎪 [2026-09-19 사장님 지시] 잠정 숨김 — 폴링 타이머도 안 건다(아래 코드는 되살릴 때를 위해 유지)
   // 💾 [2026-08-05 사장님 지시] 같은 사람이 매일 같은 값을 적는다 — 아이디·주·부포지션을 기억해 복원
   const nm=(localStorage.getItem('scrim_nm')||'').replace(/"/g,'&quot;');
   if(!_scrimTimer){ _scrimTimer=setInterval(_scrimPoll,12000); setTimeout(_scrimPoll,50); }
@@ -4635,6 +4791,231 @@ function _scrimRender(){
   }
   el.innerHTML=h;
 }
+/* 📰 [2026-09-19 사장님 지시] 「스쿼드 일보」 — "자동매칭은 일단 숨겨두고 그 자리에 AI 선생이 클랜 전체를 평가하는 주간평" →
+   "네이버뉴스처럼 뉴스기사, 신문처럼 페이지를 꾸미고 거기에 유저댓글 달 수 있게 — 유저 반응을 데이터로 보게".
+   출처는 data/weekly_review.json 하나 — 봇이 매주 월 09:00 KST 에 지난 월~일 기록을 정리해 커밋한다(사장님 /주간평생성 으로 강제 가능).
+   호별 사본은 data/weekly_archive/{종료일}.json (지난 호 열기). 패치노트(loadBrjPatch)와 같은 방식으로 no-store 로 읽고 10분 지나면 다시 읽는다.
+   · 홈: 자동매칭 자리에 1면 미리보기(.np-tease) → 누르면 #news 지면(renderNews).
+   · 댓글: 기존 댓글 시스템(디스코드 로그인 + Apps Script + COMMENTS 시트) 그대로 — target 은 '뉴스:{종료일}' (호마다 따로 쌓인다 → 다음 호 톤 조정 자료).
+   · 사진: 봇이 검증한 photo(kind player/champion/boss)를 브장신 스프라이트·DDragon 스플래시·보스 아트로 그린다. 없으면 면(section)별 폴백.
+   · 스키마(필드명)는 봇·프롬프트와 공유하므로 여기서 바꾸지 않는다. 모든 문자열은 esc/mdLite 를 거친다. 파일이 없거나(404) 실패하면 미리보기를 조용히 생략. */
+const SHOW_SCRIM=false;   // 🎪 내전 자동매칭 히어로 — 잠정 숨김(2026-09-19). 렌더·폴링·릴레이 호출을 전부 건너뛴다. 되살릴 땐 true 만 바꾸면 그 자리에 다시 뜬다
+let WEEKLY_REVIEW=null, _wkrvAt=0, _wkrvP=null;   // null=아직 안 읽음 · false=없음/실패(미리보기 생략) · object=최신 호
+const WKRV_TTL=10*60*1000;
+const NEWS_ARCHIVE={};      // 종료일 → 지난 호 JSON · false=없음(404)
+let NEWS_CUR=null;          // 뉴스 화면에서 보고 있는 호의 종료일("" = 최신 호) · null = 뉴스 화면 아님
+const NEWS_BOOT_HASH=(()=>{ try{ const h=location.hash.replace(/^#/,"").split("/"); return h[0]==="news"?{arg:h[1]?decodeURIComponent(h[1]):undefined}:null; }catch(e){ return null; } })();   // #news[/종료일] 공유 링크 — 부팅 중 go('home') 이 해시를 정리하기 전에 읽어 둔다
+let _npStamp="";            // 마지막으로 그린 최신 호 표식(issue|generated_at) — 10분 갱신 때 내용이 바뀐 경우에만 다시 그린다(댓글 쓰는 중 날아가지 않게)
+function loadWeeklyReview(force){
+  if(_wkrvP) return _wkrvP;
+  if(!force&&WEEKLY_REVIEW!==null&&Date.now()-_wkrvAt<WKRV_TTL) return Promise.resolve(WEEKLY_REVIEW);
+  _wkrvP=fetch(`data/weekly_review.json?cb=${BUILD_ID}&t=${Math.floor(Date.now()/WKRV_TTL)}`,{cache:"no-store"}).then(r=>r.ok?r.json():null)
+    .then(j=>{ WEEKLY_REVIEW=(j&&typeof j==="object"&&!Array.isArray(j))?j:false; },()=>{ if(WEEKLY_REVIEW===null) WEEKLY_REVIEW=false; })   // 갱신 실패면 마지막 호를 유지
+    .then(()=>{ _wkrvAt=Date.now(); _wkrvP=null; _wkrvPaint(); return WEEKLY_REVIEW; });
+  return _wkrvP;
+}
+function _npStampOf(W){ return W&&typeof W==="object"?`${W.issue||""}|${W.generated_at||""}|${(W.week||{}).to||""}`:""; }
+function _wkrvPaint(){
+  const el=document.getElementById("wkrv-wrap");
+  if(el){ try{ el.innerHTML=newsTeaserHtml(); }catch(e){ console.warn("news teaser",e); el.innerHTML=""; } }
+  // 뉴스 화면이 '최신 호'를 보고 있고 새 호가 왔으면 다시 그린다(지난 호를 보는 중이면 건드리지 않는다)
+  if(NEWS_CUR===""&&document.getElementById("np-page")&&WEEKLY_REVIEW&&typeof WEEKLY_REVIEW==="object"&&_npStampOf(WEEKLY_REVIEW)!==_npStamp) renderNews("",true);
+}
+setInterval(()=>{ if(!document.hidden&&(document.getElementById("wkrv-wrap")||document.getElementById("np-page"))) loadWeeklyReview(true); }, WKRV_TTL);   // 홈·지면을 켜둔 탭도 10분마다 새 호를 받는다
+function _wkrvKey(nm){
+  // 닉(태그 없음) → 현재 전적 키. renderBrjang 의 resolveKey 와 같은 순서: 별칭맵(닉변·부계) → 태그 무관 → 전체 별칭의 베이스닉(동명이인은 임자만)
+  try{
+    const ALL=(typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
+    if(!nm||!ALL||!ALL.size) return null;
+    const cn=canonOfName(nm); if(cn&&ALL.has(cn)) return cn;
+    const k=playerKeyOf(nm); if(k&&ALL.has(k)) return k;
+    const b=tnorm(nm); if(!b) return null;
+    if(AMBIG_BASE.has(b)){ const o=AMBIG_OWNER.get(b); return (o&&ALL.has(o))?o:null; }
+    for(const [c,als] of CANON_TO_ALIASES){ if(!ALL.has(c)) continue; if(tnorm(c)===b) return c; for(const a of (als||[])) if(tnorm(a)===b) return c; }
+  }catch(e){}
+  return null;
+}
+function _npName(nm,cls){   // 이름 → 프로필 링크(풀리면 현재 닉으로 표시). 못 풀면 그냥 이름
+  const key=_wkrvKey(nm);
+  return key?`<span class="${cls||""} np-nm clickname" onclick="event.stopPropagation();go('player','${escAttr(key)}')">${esc(shortName(key))}</span>`:`<span class="${cls||""} np-nm">${esc(nm||"")}</span>`;
+}
+function _npGradeColor(l){
+  const c=String(l||"").trim().charAt(0).toUpperCase();
+  return (c==="S"||c==="A")?"#8a5a00":c==="B"?"#1f3f8f":c==="C"?"#7a4a00":c==="D"?"#a3271f":c==="F"?"#7a1f1f":"#524b41";
+}
+function _npWeather(letter){   // 등급 → 이번 주 클랜 날씨(웹만의 표현 — 봇 JSON 엔 없다)
+  const c=String(letter||"").trim().charAt(0).toUpperCase(), plus=/\+$/.test(String(letter||"")), minus=/-$/.test(String(letter||""));
+  if(c==="S") return {ic:"🌈",t:"쾌청",d:"기록적인 한 주. 우산은 두고 오셔도 됩니다."};
+  if(c==="A") return {ic:plus?"☀️":"🌤️",t:plus?"맑음":"대체로 맑음",d:"내전 열기가 협곡 전역에 고르게 퍼졌습니다."};
+  if(c==="B") return {ic:minus?"⛅":"🌤️",t:minus?"구름 많음":"구름 조금",d:"평년 수준. 심야 지역엔 국지성 역적이 예보됩니다."};
+  if(c==="C") return {ic:"☁️",t:"흐림",d:"참가자 저기압. 한 판만 더 하면 개일 전망."};
+  if(c==="D") return {ic:"🌧️",t:"비",d:"기록이 드문 한 주. 실내(내전 채널)에 머무르세요."};
+  if(c==="F") return {ic:"⛈️",t:"폭풍",d:"편집국도 우산이 뒤집혔습니다."};
+  return {ic:"🌫️",t:"관측 중",d:"이번 주 날씨는 창간호에서."};
+}
+function _npTo(v){ v=String(v||"").trim(); return /^\d{4}-\d{2}-\d{2}$/.test(v)?v:""; }   // 종료일 — 이 꼴이 아니면 링크·댓글 target 을 만들지 않는다
+function _npIssueNo(W){ const n=parseInt((W||{}).issue,10); return n>0?`제${n}호`:"창간준비호"; }
+function _npDateKo(s){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||"")); if(!m) return esc(s||""); const d=new Date(+m[1],+m[2]-1,+m[3]); return `${+m[1]}년 ${+m[2]}월 ${+m[3]}일 (${"일월화수목금토"[d.getDay()]})`; }
+function _npMainChamp(key,wk){   // 그 사람이 이번 주(없으면 통산)에 가장 많이 한 챔피언 — 인물 사진 폴백
+  try{
+    const src=(typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS; const rows=src.get(key)||[]; if(!rows.length) return "";
+    const cnt=(pred)=>{ const m=new Map(); for(const r of rows){ const c=r["챔피언"]; if(!c||c==="?"||!pred(r)) continue; m.set(c,(m.get(c)||0)+1); } let b="",n=0; for(const [c,k] of m) if(k>n){b=c;n=k;} return b; };
+    const fr=(wk||{}).from||"", to=(wk||{}).to||"";
+    return (fr&&to?cnt(r=>{ const d=String(r["날짜"]||"").slice(0,10); return d>=fr&&d<=to; }):"")||cnt(()=>true);
+  }catch(e){ return ""; }
+}
+function _npSplash(c){ return c?(SPLASHMAP[c]||SPLASHMAP[String(c).replace(/\s/g,"")]||""):""; }
+function _npFig(inner,cap,src){ return `<figure class="np-fig">${inner}<figcaption>${cap?esc(cap):""}${src?` <span class="src">${esc(src)}</span>`:""}</figcaption></figure>`; }
+function _npPhotoPlayer(nm,cap,size){   // 사람 사진: 브장신 스프라이트 → 이번 주 주챔 스플래시 → 이모지
+  const key=_wkrvKey(nm); const b=key?brjOf(key):null; const show=key?shortName(key):nm;
+  if(b) return _npFig(`<div class="np-img spr">${brjSpriteSvg(b.lv,b.cos,b.flags,size||150)}</div>`,cap||`${show} (자료사진 · Lv.${b.lv} ${b.stage})`,"사진=브장신 도감");
+  const ch=key?_npMainChamp(key,(WEEKLY_REVIEW||{}).week):""; const sp=_npSplash(ch);
+  if(sp) return _npFig(`<div class="np-img" style="background-image:url('${escAttr(sp)}')">${champImg(ch,"ci")}</div>`,cap||`${show} — 이번 주 ${ch}`,"사진=라이엇 게임즈");
+  return _npFig(`<div class="np-img emo">🧑‍🎓</div>`,cap||`${show} (사진 없음)`,"");
+}
+function _npPhotoChamp(c,cap){ const sp=_npSplash(c); if(!sp) return _npFig(`<div class="np-img emo">${champImg(c,"")}</div>`,cap||c,""); return _npFig(`<div class="np-img" style="background-image:url('${escAttr(sp)}')">${champImg(c,"ci")}</div>`,cap||c,"사진=라이엇 게임즈"); }
+const NP_BOSS={sr:"신림",ddo:"또뀨",yj:"용조",tw:"태웅"};
+function _npPhotoBoss(k,cap){ k=String(k||"").toLowerCase(); if(!NP_BOSS[k]) return ""; return _npFig(`<div class="np-img spr"><img class="boss" src="img/brjang/skins/boss_${escAttr(k)}/front.png" alt="${escAttr(NP_BOSS[k])}" loading="lazy" onerror="this.parentNode.className='np-img emo';this.parentNode.textContent='🐲'"></div>`,cap||`월드보스 ${NP_BOSS[k]} (자료사진)`,"사진=브장신 레이드"); }
+function _npPhoto(e,W,size){   // 기사 사진 — 봇이 검증한 photo 우선, 없으면 면(section)별 폴백(stats 의 최다 픽·최다 보스·최고 브장신)
+  const p=(e&&e.photo)||{}, st=(W&&W.stats)||{}, sec=(e&&e.section)||"";
+  try{
+    if(p.kind==="player"&&p.key) return _npPhotoPlayer(p.key,"",size);
+    if(p.kind==="champion"&&p.key) return _npPhotoChamp(p.key,`${p.key} (자료사진)`);
+    if(p.kind==="boss"&&p.key){ const h=_npPhotoBoss(p.key); if(h) return h; }
+    if(sec==="협곡"||sec==="칼바람"){ const s=st[sec==="협곡"?"sr":"aram"]||{}; const c=(s.picks||[])[0]; if(c&&c[0]) return _npPhotoChamp(c[0],`이번 주 ${sec} 최다 픽 ${c[0]} (${c[1]}회)`); }
+    if(sec==="레이드"){ const b=((st.raid||{}).boss||[])[0]; if(b){ const h=_npPhotoBoss(b[0],`이번 주 최다 출현 월드보스 ${b[1]||NP_BOSS[b[0]]||""} (${b[2]}회)`); if(h) return h; } }
+    if(sec==="브장신"){ const t=((st.brj||{}).top||[])[0]; if(t&&t[0]) return _npPhotoPlayer(t[0],`최고 레벨 브장신 — ${t[0]} Lv.${t[1]} ${t[2]||""}`,size); }
+  }catch(err){ console.warn("np photo",err); }
+  const emo={협곡:"🏟️",칼바람:"❄️",레이드:"🐲",브장신:"🍗",퀴즈:"🧩",예측:"🎲",클랜:"🏠"}[sec]||(e&&e.emoji)||"📰";
+  return _npFig(`<div class="np-img emo">${esc(emo)}</div>`,"(사진 없음 · 편집국 자료)","");
+}
+function _npBars(days){   // 요일별 판수 막대(월~일)
+  const d=Array.isArray(days)?days.slice(0,7).map(x=>parseInt(x,10)||0):[]; while(d.length<7) d.push(0);
+  const mx=Math.max(1,...d);
+  return `<div class="np-bars">${d.map(v=>`<div class="np-bar ${v===mx&&v>0?'mx':''}" style="height:${Math.max(3,Math.round(v/mx*100))}%"><span>${v||""}</span></div>`).join("")}</div><div class="np-days">${"월화수목금토일".split("").map(x=>`<span>${x}</span>`).join("")}</div>`;
+}
+function _npStatsBox(W){
+  const st=(W&&W.stats)||{}; const sr=st.sr, ar=st.aram, rd=st.raid;
+  if(!sr&&!ar&&!rd) return "";
+  const N=v=>{ const n=parseInt(v,10); return isNaN(n)?0:n; };   // 숫자 칸은 숫자로만 — 문자열이 섞여 와도 HTML 이 되지 않는다
+  const row=(k,v)=>`<tr><td>${k}</td><td class="n">${v}</td></tr>`;
+  let rows="";
+  if(sr) rows+=row("협곡 내전",`${N(sr.games)}판`)+row("　참가",`${N(sr.players)}명`)+(N(sr.late)?row("　심야(00~05시)",`${N(sr.late)}판`):"");
+  if(ar) rows+=row("칼바람 내전",`${N(ar.games)}판`)+(N(ar.players)?row("　참가",`${N(ar.players)}명`):"");
+  if(rd) rows+=row("레이드 공격",`${N(rd.n)}회 (승 ${N(rd.w)})`);
+  const top=(sr&&Array.isArray(sr.top)?sr.top:[]).filter(t=>Array.isArray(t)&&t[0]).slice(0,5).map((t,i)=>`<tr><td>${i+1}. ${_npName(String(t[0]))}</td><td class="n">${N(t[1])}판 ${N(t[2])}승</td></tr>`).join("");
+  return `<div class="np-box"><h3>📊 이번 주 결과표</h3>${sr&&sr.days?_npBars(sr.days):""}<table class="np-stat"><tbody>${rows}</tbody></table>
+    ${top?`<table class="np-stat" style="margin-top:8px"><thead><tr><th>협곡 출전 상위</th><th></th></tr></thead><tbody>${top}</tbody></table>`:""}</div>`;
+}
+function _npAdsInner(){   // 광고란 = 브장신 장터(BRJ_MARKET) 실제 매물 + 자사 광고
+  const M=Array.isArray(BRJ_MARKET)?BRJ_MARKET:null;
+  const ads=(M||[]).filter(x=>x&&x.item).slice().sort((a,b)=>(b.price||0)-(a.price||0)).slice(0,4)
+    .map(x=>`<div class="np-ad" onclick="go('brjang')"><span class="tag">급매</span><b>${esc(x.emoji||"🎁")} ${esc(x.item)}</b>${x.n>1?` ×${x.n}`:""} <span class="pr">${(x.price||0).toLocaleString()}P</span><br><span style="color:var(--ink2)">판매자 ${esc(x.seller||"익명")}${x.grade?` · ${esc(x.grade)}`:""} · 장터 #${esc(x.id||"")}</span></div>`).join("");
+  const house=`<div class="np-ad house" onclick="go('brjang')"><span class="tag">광고</span><b>🍗 브장신 키우기</b><br>오늘 사료는 주셨습니까? 쓰다듬기 무료.</div>`;
+  return (M===null?`<div class="muted" style="font-size:12px;color:var(--ink3)">장터 매물 불러오는 중…</div>`:(ads||`<div style="font-size:12.5px;color:var(--ink2);line-height:1.5">지금 장터에 매물이 없습니다. 브장신 장터에 물건을 올리면 다음 호 광고란에 실립니다.</div>`))+house;
+}
+function _npCommentsBox(target){
+  const me=dcValid()?`<div class="me"><span style="text-decoration:none;cursor:default">🪪 ${esc(DISCORD_USER.name)} 님으로 씁니다</span><span onclick="_npLogout()">로그아웃</span></div>`:"";
+  return `<div class="np-cmt"><h3 class="np-serif" style="margin:0 0 8px;font-size:16px;letter-spacing:2px">💬 독자 의견</h3>
+    <div style="font-size:12.5px;color:var(--ink2);margin-bottom:8px;line-height:1.5">이번 호 어땠나요? 웃긴 기사, 억울한 기사, 다음 호 제보까지. 반응은 다음 호를 만드는 자료가 됩니다.${dcValid()?"":" 댓글은 <b>디스코드 로그인</b> 뒤 남길 수 있어요."}</div>${me}
+    <textarea id="cmtContent_news" class="cmt-ta" placeholder="${dcValid()?'한마디 남기기 (300자)':'등록 버튼을 누르면 디스코드 로그인으로 이동해요'}" maxlength="300"></textarea>
+    <div class="cmt-row"><button id="cmtSubmit_news" class="cmt-btn" style="flex:1" onclick="submitComment('${escAttr(target)}','_news')">${dcValid()?"등록":"디스코드 로그인 후 등록"}</button></div>
+    <div id="cmtList_news"><div class="muted" style="padding:8px 0;font-size:14px">댓글 불러오는 중…</div></div></div>`;
+}
+function _npLogout(){ DISCORD_USER=null; try{ localStorage.removeItem("sgg_dc"); }catch(e){} if(NEWS_CUR!==null) renderNews(NEWS_CUR,true); }
+function newsTeaserHtml(){   // 홈 1면 미리보기(자동매칭 자리)
+  const W=WEEKLY_REVIEW;
+  if(W===false) return "";
+  if(W===null) return `<div class="np-tease ph"><div class="np-tmast"><span class="np-tname np-serif">스쿼드 일보</span><span class="np-tmeta">지면 불러오는 중…</span></div></div>`;
+  const wk=W.week||{}, G=W.grade||{}, wt=_npWeather(G.letter);
+  const meta=`<span class="np-tmeta"><span>${esc(_npIssueNo(W))}</span><span>${esc(wk.label||"")}</span>${(wk.from||wk.to)?`<span>${esc(wk.from||"")} ~ ${esc(wk.to||"")}</span>`:""}</span>`;
+  if(W.placeholder){
+    return `<div class="np-tease ph" onclick="go('news')" title="스쿼드 일보 창간 준비 중"><div class="np-tmast"><span class="np-tname np-serif">스쿼드 일보</span>${meta}</div>
+      <div class="np-tbody" style="grid-template-columns:1fr"><div><div class="np-thl np-serif">📰 ${esc(W.headline||"스쿼드 일보 창간 준비 중")}</div><div class="np-tlead">${W.summary?mdLite(W.summary):"편집국(AI 선생님)이 첫 호를 준비하고 있어요."}</div></div></div>
+      <div class="np-tfoot"><span>매주 월요일 아침 9시 발행 · 독자 댓글 받습니다</span><button class="np-topen" onclick="event.stopPropagation();go('news')">창간 예고 보기</button></div></div>`;
+  }
+  const top=(W.events||[])[0]||null;
+  const lead=top&&top.body?top.body:(W.summary||"");
+  const cnt=[`기사 ${(W.events||[]).length}`,(W.notices||[]).length?`알림 ${W.notices.length}`:"",`인물 ${(W.students||[]).length}`,(W.awards||[]).length?`이주의 인물 ${W.awards.length}`:""].filter(Boolean).join(" · ");
+  return `<div class="np-tease" onclick="go('news')" title="지면 펼치기">
+    <div class="np-tmast"><span class="np-tname np-serif">스쿼드 일보</span>${meta}</div>
+    <div class="np-tbody"><div style="min-width:0"><span class="np-kicker" style="margin-bottom:6px">1면${top&&top.section?` · ${esc(top.section)}`:""}</span><div class="np-thl np-serif">${esc(W.headline||"")}</div><div class="np-tlead">${mdLite(lead)}</div></div>${top?_npPhoto(top,W,120):""}</div>
+    <div class="np-tfoot"><span>${esc(cnt)} · 💬 독자 댓글</span><span class="np-tweather" title="이번 주 클랜 날씨 = 등급"><span>${wt.ic} ${esc(wt.t)}</span>${G.letter?`<span class="l">${esc(G.letter)}</span>`:""}</span><button class="np-topen" onclick="event.stopPropagation();go('news')">📰 지면 펼치기</button></div></div>`;
+}
+function loadNewsIssue(to){   // 지난 호 — data/weekly_archive/{to}.json (없으면 false)
+  if(NEWS_ARCHIVE[to]!==undefined) return Promise.resolve(NEWS_ARCHIVE[to]);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(to||""))) return Promise.resolve(false);
+  return fetch(`data/weekly_archive/${to}.json?cb=${BUILD_ID}`,{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{ NEWS_ARCHIVE[to]=(j&&typeof j==="object"&&!Array.isArray(j))?j:false; return NEWS_ARCHIVE[to]; },()=>{ NEWS_ARCHIVE[to]=false; return false; });
+}
+function renderNews(arg,silent){   // #news[/종료일] — arg 없음 = 최신 호
+  const to=_npTo(arg); const cur=WEEKLY_REVIEW;
+  if(arg&&!to){ view().innerHTML=`${navTabsHtml('home')}<div id="np-page"><div class="np"><div class="np-empty">그런 호는 없어요.<div style="margin-top:14px"><button class="np-btn solid" onclick="go('news')">최신 호 보기</button></div></div></div></div>`; NEWS_CUR=""; return; }
+  const curTo=cur&&typeof cur==="object"?String((cur.week||{}).to||""):"";
+  const isCur=!to||(curTo&&to===curTo);
+  NEWS_CUR=isCur?"":to;
+  const shell=inner=>{ view().innerHTML=`${navTabsHtml('home')}<div id="np-page">${inner}</div>`; };
+  if(isCur){
+    if(cur===null){ shell(`<div class="np"><div class="np-empty">📰 지면을 불러오는 중…</div></div>`); loadWeeklyReview().then(()=>{ if(NEWS_CUR==="") renderNews("",true); }); return; }
+    if(cur===false){ shell(`<div class="np"><div class="np-empty">아직 발행된 호가 없어요.<br><span style="font-size:13px">첫 호는 봇이 올라오는 대로 최근 7일치로 나옵니다.</span><div style="margin-top:14px"><button class="np-btn" onclick="go('home')">← 홈으로</button></div></div></div>`); return; }
+    _npStamp=_npStampOf(cur);
+    shell(newsPageHtml(cur,{old:false})); _npAfterRender(cur); if(!silent) window.scrollTo(0,0); return;
+  }
+  const A=NEWS_ARCHIVE[to];
+  if(A===undefined){ shell(`<div class="np"><div class="np-empty">📼 ${esc(to)} 호 지면을 찾는 중…</div></div>`); loadNewsIssue(to).then(()=>{ if(NEWS_CUR===to) renderNews(to,true); }); return; }
+  if(!A){ shell(`<div class="np"><div class="np-empty">📼 ${esc(to)} 호의 지면은 보관되어 있지 않아요.<br><span style="font-size:13px">창간 초기 호는 제목만 남아 있습니다.</span><div style="margin-top:14px"><button class="np-btn solid" onclick="go('news')">최신 호 보기</button> <button class="np-btn" onclick="go('home')">← 홈으로</button></div></div></div>`); return; }
+  shell(newsPageHtml(A,{old:true})); _npAfterRender(A); if(!silent) window.scrollTo(0,0);
+}
+function _npAfterRender(W){
+  try{ const to=_npTo((W.week||{}).to); if(to&&document.getElementById("cmtList_news")) loadComments("뉴스:"+to,"_news"); }catch(e){}
+  try{ if(BRJ_MARKET===null&&typeof loadBrjMarket==="function") loadBrjMarket().then(r=>{ BRJ_MARKET=r; const el=document.getElementById("npAds"); if(el) el.innerHTML=_npAdsInner(); }); }catch(e){}
+}
+function newsPageHtml(W,opt){
+  opt=opt||{}; const wk=W.week||{}, T=W.teacher||{}, G=W.grade||{}, wt=_npWeather(G.letter);
+  const issue=_npIssueNo(W), to=_npTo(wk.to), target=to?"뉴스:"+to:"";
+  const mast=`<div class="np-mast"><div class="np-ears"><div class="np-ear"><b>${esc(issue)}</b><br>${esc(wk.label||"")}<br>${_npDateKo(wk.to)} 발행</div><div class="np-ear" style="text-align:right"><b>${wt.ic} ${esc(wt.t)}</b><br>이번 주 클랜 날씨<br>정가 무료 · 광고 문의 브장신</div></div>
+    <div class="np-name np-serif">스쿼드 일보</div><div class="np-slogan">SQUAD DAILY · 클랜의 한 주를 기록합니다 · 편집국 AI 선생님</div></div>
+    <div class="np-dateline"><span>취재 기간 <b>${esc(wk.from||"")} ~ ${esc(wk.to||"")}</b>${W.generated_at?` · 인쇄 ${esc(W.generated_at)}`:""}</span><span>${esc(T.name||"AI 선생님")} ${esc(T.mood||"")}</span></div>`;
+  const back=`<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px"><button class="np-btn" onclick="goBack()">← 돌아가기</button><span style="font-size:12px;color:var(--ink3)">${W.placeholder?"":"이름을 누르면 프로필로 · 사진은 자료사진"}</span></div>`;
+  if(W.placeholder){
+    return `<div class="np">${mast}<div class="np-top" style="grid-template-columns:1fr"><div><span class="np-kicker">창간 예고</span><h1 class="np-hl np-serif">${esc(W.headline||"스쿼드 일보 창간 준비 중")}</h1><p class="np-lead">${W.summary?mdLite(W.summary):"편집국이 첫 호를 준비하고 있어요."}</p>
+      <p class="np-lead" style="font-size:14px;color:var(--ink2)">매주 <b>월요일 아침 9시</b>, 지난 월~일의 내전·칼바람·레이드·퀴즈·브장신 기록을 모아 1면 기사, 알림란, 담임 칼럼, 인물 동정, 이주의 인물, 다음 주 예고를 냅니다. 놀림은 게임 기록(역적 횟수·연패·판수)에만 — 상처 주는 기사는 쓰지 않습니다. 지면 아래에는 독자 댓글을 받습니다.</p></div></div>
+      <div class="np-body" style="grid-template-columns:1fr"><div class="np-side" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))"><div class="np-box"><h3>🌤 이번 주 클랜 날씨</h3><div class="np-weather"><span class="ic">${wt.ic}</span><div><div class="wt">${esc(wt.t)}</div><div class="wr">${esc(wt.d)}</div></div></div></div><div class="np-box"><h3>📣 광고</h3><div id="npAds">${_npAdsInner()}</div></div></div></div>
+      ${target?_npCommentsBox(target):""}${back}</div>`;
+  }
+  const ev=(W.events||[]).filter(e=>e&&(e.title||e.body)); const top=ev[0]||null, rest=ev.slice(1);
+  const topHtml=top?`<div class="np-top"><div style="min-width:0"><span class="np-kicker">1면 ${top.section?`· ${esc(top.section)}`:""}</span><h1 class="np-hl np-serif">${esc(W.headline||top.title||"")}</h1>
+      ${W.headline&&top.title&&top.title!==W.headline?`<div class="np-serif" style="font-size:17px;font-weight:800;margin-top:8px;color:var(--ink2)">${esc(top.emoji||"")} ${esc(top.title)}</div>`:""}
+      <p class="np-lead">${mdLite(top.body||"")}</p><div class="np-byline">스쿼드 일보 편집국 · ${esc(wk.label||"")} ${esc(issue)}</div></div>${_npPhoto(top,W,200)}</div>`
+    :`<div class="np-top" style="grid-template-columns:1fr"><div><span class="np-kicker">1면</span><h1 class="np-hl np-serif">${esc(W.headline||"")}</h1>${W.summary?`<p class="np-lead">${mdLite(W.summary)}</p>`:""}</div></div>`;
+  const arts=rest.map(e=>`<article class="np-art">${_npPhoto(e,W,120)}<span class="np-kicker">${esc(e.section||"클랜")}</span><h3 class="np-serif">${esc(e.emoji||"")} ${esc(e.title||"")}</h3><p>${mdLite(e.body||"")}</p></article>`).join("");
+  const notices=(W.notices||[]).filter(n=>n&&n.text).map(n=>`<div class="np-notice k${esc(n.kind||"알림")}"><span class="k">${esc(n.kind||"알림")}</span><span>${mdLite(n.text)}</span></div>`).join("");
+  const awards=(W.awards||[]).filter(a=>a&&a.title).map(a=>`<div class="np-award"><span class="t">${esc(a.title)}</span>${_npName(a.name)}${a.why?` <span style="color:var(--ink3)">—</span> ${mdLite(a.why)}`:""}</div>`).join("");
+  const side=`<div class="np-side">
+      <div class="np-box"><h3>🌤 이번 주 클랜 날씨</h3><div class="np-weather"><span class="ic">${wt.ic}</span><div style="min-width:0"><div class="wt">${esc(wt.t)}</div><div class="wr">${G.reason?mdLite(G.reason):esc(wt.d)}</div></div>${G.letter?`<span class="lt" title="클랜 종합 등급">${esc(G.letter)}</span>`:""}</div></div>
+      ${_npStatsBox(W)}
+      ${awards?`<div class="np-box"><h3>🏅 이주의 인물 <span class="cnt">${(W.awards||[]).length}</span></h3>${awards}</div>`:""}
+      ${notices?`<div class="np-box"><h3>📢 알림 · 축하 · 부고</h3>${notices}</div>`:""}
+      <div class="np-box"><h3>📣 광고</h3><div id="npAds">${_npAdsInner()}</div></div></div>`;
+  const colm=(W.summary||W.closing)?`<div class="np-colm"><div class="who"><div class="av">🧑‍🏫</div><b>${esc(T.name||"AI 선생님")}</b><br>${esc(T.mood||"")}<br><span style="font-size:11px;color:var(--ink3)">담임 · 편집국장</span></div>
+      <div style="min-width:0"><h3 class="np-serif"><small>담임 칼럼</small>${esc(wk.label||"")} 우리 반 통지표</h3><p>${mdLite(W.summary||"")}</p>${W.closing?`<div class="closing">— ${mdLite(W.closing)}</div>`:""}</div>
+      ${G.letter?`<div class="np-stamp np-serif"><small>종합</small>${esc(G.letter)}</div>`:""}</div>`:"";
+  const people=(W.students||[]).filter(s=>s&&s.name).map(s=>{ const key=_wkrvKey(s.name); const b=key?brjOf(key):null; const ch=key?_npMainChamp(key,wk):""; const sp=_npSplash(ch);
+      const ph=b?`<div class="ph">${brjSpriteSvg(b.lv,b.cos,b.flags,56)}</div>`:sp?`<div class="ph" style="background-image:url('${escAttr(sp)}')"></div>`:`<div class="ph">${esc(s.emoji||"🧑‍🎓")}</div>`;
+      return `<div class="np-person">${ph}<div style="min-width:0">${_npName(s.name,"nm")}<div class="ln"><span class="em">${esc(s.emoji||"")}</span>${mdLite(s.line||"")}</div></div></div>`; }).join("");
+  const todo=(W.homework||[]).filter(Boolean).map(h=>`<div><span class="bx"></span><span>${mdLite(h)}</span></div>`).join("");
+  const facts=(W.facts||[]).filter(Boolean);
+  const hist=(W.history||[]).filter(h=>h&&h.week).map(h=>{ const g=typeof h.grade==="string"?h.grade:((h.grade||{}).letter||""); const t=_npTo((h.week||{}).to);
+      return `<div class="np-arch" ${t?`onclick="go('news','${t}')" title="이 호 지면 열기"`:'style="cursor:default"'}><span class="no">${h.issue?`제${parseInt(h.issue,10)}호`:"—"}</span><span class="wk">${esc(h.week.label||"")} ${esc(h.week.from||"")}~${esc(h.week.to||"")}</span><span class="hl">${esc(h.headline||"")}</span><span class="g">${esc(g)}</span></div>`; }).join("");
+  const old=opt.old?`<div class="np-old"><span>📼 지난 호를 보고 있어요 — ${esc(issue)} · ${esc(wk.label||"")} (${esc(wk.from||"")} ~ ${esc(wk.to||"")})</span><button class="np-btn" onclick="go('news')">최신 호 보기</button></div>`:"";
+  return `<div class="np">${mast}${old}${topHtml}
+    <div class="np-body"><div style="min-width:0">${arts?`<div class="np-arts">${arts}</div>`:""}${colm}
+      ${people?`<div class="np-sec"><h3 class="np-serif">📋 인물 동정 <span class="cnt">${(W.students||[]).length}명 · 이름을 누르면 프로필로</span></h3><div class="np-people">${people}</div></div>`:""}
+      ${todo?`<div class="np-sec"><h3 class="np-serif">📌 다음 주 예고 — 담임의 숙제</h3><div class="np-todo">${todo}</div></div>`:""}</div>${side}</div>
+    ${facts.length?`<details><summary>🔍 취재 근거 — 편집국이 참고한 사실 ${facts.length}줄</summary><ul>${facts.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></details>`:""}
+    ${hist?`<details${opt.old?" open":""}><summary>🗂 지난 호 ${(W.history||[]).length}개</summary><div style="margin-top:6px">${hist}</div></details>`:""}
+    ${target?_npCommentsBox(target):""}
+    <div class="np-foot"><span>스쿼드 일보는 클랜 시트 기록만으로 씁니다 · 놀림은 게임 기록에만 · 생년·개인정보는 싣지 않습니다</span><span>발행 스쿼드 클랜 · 편집 AI 선생님 · 인쇄 브장신</span></div>${back}</div>`;
+}
 function kizukiBoard(){
   const KN={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
   const seen=new Map();   // "서부 상현 1" → 이름
@@ -4702,6 +5083,7 @@ function kizukiBoard(){
   return `<div class="card kzboard two">${leagues.map(pane).join("")}${evPane}</div>`;
 }
 function renderHome(){
+  loadWeeklyReview();   // 📝 주간평 — 캐시가 10분 넘게 묵었으면 다시 읽고, 도착하면 #wkrv-wrap 만 갈아끼운다
   const champs=champTierData();
   const players=playerStats();
   const totalGames=GAMES.size;
@@ -4744,7 +5126,8 @@ function renderHome(){
 
   view().innerHTML=`
     ${navTabsHtml('home')}
-    ${scrimDashHtml()}
+    ${SHOW_SCRIM?scrimDashHtml():''}
+    <div id="wkrv-wrap">${(()=>{ try{ return newsTeaserHtml(); }catch(e){ console.warn("news teaser",e); return ""; } })()}</div>
     ${kizukiBoard()}
     <div class="home3">
       <div class="card">
@@ -8130,6 +8513,7 @@ function dcHandleRedirect(){
 }
 function _dcReturn(ret){   // 로그인 복귀 — '@라우트'/'이주의인물:*'는 홈 계열, 그 외는 플레이어 프로필
   if(ret.startsWith('@')) go(ret.slice(1));
+  else if(ret.startsWith('뉴스:')){ const t=ret.slice(3); go('news',(WEEKLY_REVIEW&&typeof WEEKLY_REVIEW==="object"&&String((WEEKLY_REVIEW.week||{}).to||"")===t)?undefined:(t||undefined)); }   // 📰 스쿼드 일보 댓글 → 그 호 지면으로
   else if(ret.startsWith('이주의인물')) go('home');
   else if(ret.startsWith('군장병')) go('army');
   else go('player',ret);
@@ -9586,7 +9970,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609191100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609192100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -9674,6 +10058,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   await loadCategory(CURRENT_CAT, _same?mainP:null, _painted&&_same);   // 기본=협곡, 미리 받아둔 응답으로 즉시 진행
   // 📖 주소에 ?title= 이 붙어 있으면(공유 링크) 그 가이드를 연다 — 데이터 로딩이 끝난 뒤라 go('home') 에 덮이지 않는다
   try{ const _gt=new URLSearchParams(location.search).get('title'); if(_gt) go('guide',_gt); }catch(e){}
+  try{ if(NEWS_BOOT_HASH) go('news',NEWS_BOOT_HASH.arg); }catch(e){}   // 📰 #news[/종료일] 공유 링크(봇 /주간평생성 안내)
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
   checkNewBuild();                   // 🆕 배포 확인은 부팅이 끝난 뒤에 — 부팅 중엔 시트와 대역폭을 다투지 않게(2026-08-27)
 })();
