@@ -4866,11 +4866,11 @@ function _npMainChamp(key,wk){   // 그 사람이 이번 주(없으면 통산)�
 }
 function _npSplash(c){ return c?(SPLASHMAP[c]||SPLASHMAP[String(c).replace(/\s/g,"")]||""):""; }
 function _npFig(inner,cap,src){ return `<figure class="np-fig">${inner}<figcaption>${cap?esc(cap):""}${src?` <span class="src">${esc(src)}</span>`:""}</figcaption></figure>`; }
-function _npPhotoPlayer(nm,cap,size){   // 사람 사진: 브장신 스프라이트 → 이번 주 주챔 스플래시 → 이모지
+function _npPhotoPlayer(nm,cap,size){   // 사람 사진: 이번 주 주챔 스플래시 → 브장신 스프라이트 → 이모지 [2026-09-20 사장님 "브장신 비중이 너무 커" — 내전 얼굴이 먼저]
   const key=_wkrvKey(nm); const b=key?brjOf(key):null; const show=key?shortName(key):nm;
-  if(b) return _npFig(`<div class="np-img spr">${brjSpriteSvg(b.lv,b.cos,b.flags,size||150)}</div>`,cap||`${show} (자료사진 · Lv.${b.lv} ${b.stage})`,"사진=브장신 도감");
   const ch=key?_npMainChamp(key,(WEEKLY_REVIEW||{}).week):""; const sp=_npSplash(ch);
   if(sp) return _npFig(`<div class="np-img" style="background-image:url('${escAttr(sp)}')">${champImg(ch,"ci")}</div>`,cap||`${show} — 이번 주 ${ch}`,"사진=라이엇 게임즈");
+  if(b) return _npFig(`<div class="np-img spr">${brjSpriteSvg(b.lv,b.cos,b.flags,size||150)}</div>`,cap||`${show} (자료사진 · Lv.${b.lv} ${b.stage})`,"사진=브장신 도감");
   return _npFig(`<div class="np-img emo">🧑‍🎓</div>`,cap||`${show} (사진 없음)`,"");
 }
 function _npPhotoChamp(c,cap){ const sp=_npSplash(c); if(!sp) return _npFig(`<div class="np-img emo">${champImg(c,"")}</div>`,cap||c,""); return _npFig(`<div class="np-img" style="background-image:url('${escAttr(sp)}')">${champImg(c,"ci")}</div>`,cap||c,"사진=라이엇 게임즈"); }
@@ -4909,9 +4909,9 @@ function _npStatsBox(W){
 }
 function _npAdsInner(){   // 광고란 = 브장신 장터(BRJ_MARKET) 실제 매물 + 자사 광고
   const M=Array.isArray(BRJ_MARKET)?BRJ_MARKET:null;
-  const ads=(M||[]).filter(x=>x&&x.item).slice().sort((a,b)=>(b.price||0)-(a.price||0)).slice(0,4)
+  const ads=(M||[]).filter(x=>x&&x.item).slice().sort((a,b)=>(b.price||0)-(a.price||0)).slice(0,2)
     .map(x=>`<div class="np-ad" onclick="go('brjang')"><span class="tag">급매</span><b>${esc(x.emoji||"🎁")} ${esc(x.item)}</b>${x.n>1?` ×${x.n}`:""} <span class="pr">${(x.price||0).toLocaleString()}P</span><br><span style="color:var(--ink2)">판매자 ${esc(x.seller||"익명")}${x.grade?` · ${esc(x.grade)}`:""} · 장터 #${esc(x.id||"")}</span></div>`).join("");
-  const house=`<div class="np-ad house" onclick="go('brjang')"><span class="tag">광고</span><b>🍗 브장신 키우기</b><br>오늘 사료는 주셨습니까? 쓰다듬기 무료.</div>`;
+  const house=`<div class="np-ad house" onclick="go('log')"><span class="tag">광고</span><b>🏟 스쿼드 내전</b><br>매일 저녁, 디스코드 내전 채널. 경력 무관 · 역적도 환영.</div>`;
   return (M===null?`<div class="muted" style="font-size:12px;color:var(--ink3)">장터 매물 불러오는 중…</div>`:(ads||`<div style="font-size:12.5px;color:var(--ink2);line-height:1.5">지금 장터에 매물이 없습니다. 브장신 장터에 물건을 올리면 다음 호 광고란에 실립니다.</div>`))+house;
 }
 function _npCommentsBox(target){
@@ -5000,7 +5000,7 @@ function newsPageHtml(W,opt){
       <div style="min-width:0"><h3 class="np-serif"><small>담임 칼럼</small>${esc(wk.label||"")} 우리 반 통지표</h3><p>${mdLite(W.summary||"")}</p>${W.closing?`<div class="closing">— ${mdLite(W.closing)}</div>`:""}</div>
       ${G.letter?`<div class="np-stamp np-serif"><small>종합</small>${esc(G.letter)}</div>`:""}</div>`:"";
   const people=(W.students||[]).filter(s=>s&&s.name).map(s=>{ const key=_wkrvKey(s.name); const b=key?brjOf(key):null; const ch=key?_npMainChamp(key,wk):""; const sp=_npSplash(ch);
-      const ph=b?`<div class="ph">${brjSpriteSvg(b.lv,b.cos,b.flags,56)}</div>`:sp?`<div class="ph" style="background-image:url('${escAttr(sp)}')"></div>`:`<div class="ph">${esc(s.emoji||"🧑‍🎓")}</div>`;
+      const ph=sp?`<div class="ph" style="background-image:url('${escAttr(sp)}')"></div>`:b?`<div class="ph">${brjSpriteSvg(b.lv,b.cos,b.flags,56)}</div>`:`<div class="ph">${esc(s.emoji||"🧑‍🎓")}</div>`;
       return `<div class="np-person">${ph}<div style="min-width:0">${_npName(s.name,"nm")}<div class="ln"><span class="em">${esc(s.emoji||"")}</span>${mdLite(s.line||"")}</div></div></div>`; }).join("");
   const todo=(W.homework||[]).filter(Boolean).map(h=>`<div><span class="bx"></span><span>${mdLite(h)}</span></div>`).join("");
   const facts=(W.facts||[]).filter(Boolean);
@@ -9971,7 +9971,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609192130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609201200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
