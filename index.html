@@ -11,7 +11,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:image" content="https://squad-gg.pages.dev/logo.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;900&display=swap">   <!-- 📰 스쿼드 일보 마스트헤드·헤드라인 명조(없으면 시스템 명조) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;900&display=swap">   <!-- 📰 주간스쿼드 마스트헤드·헤드라인 명조(없으면 시스템 명조) -->
 <style>
   :root{
     --bg:#11131a; --bg2:#171a23; --card:#1b1f2b; --card2:#212636;
@@ -728,7 +728,7 @@
   .scrim-join:hover{transform:translateY(-1px);box-shadow:0 5px 22px rgba(100,120,255,.5)}
   @keyframes scrim-border{to{background-position:320% 0}}
   @media (prefers-reduced-motion: reduce){.scrim-hero{animation:none}}
-  /* 📰 [2026-09-19 사장님 지시] 「스쿼드 일보」 — 주간평을 신문 지면으로. 어두운 사이트 안에 크림색 종이 한 장을 깐다(대비가 곧 정체성).
+  /* 📰 [2026-09-19 사장님 지시] 「주간스쿼드」 — 주간평을 신문 지면으로. 어두운 사이트 안에 크림색 종이 한 장을 깐다(대비가 곧 정체성).
      .np-tease = 홈 1면 미리보기(자동매칭 자리) · .np = 전체 지면(#news 라우트). 종이 위 글자색은 사이트 변수(--txt 등)를 쓰지 않고 잉크색을 직접 준다. */
   .np-serif{font-family:"Noto Serif KR","Apple Myungjo","Nanum Myeongjo","Batang",Georgia,serif}
   .np-tease{--pp:#f4ecd9;--ink:#1c1a17;--ink2:#524b41;--rule:#2a251f;--acc:#a3271f;position:relative;border-radius:8px;margin-bottom:14px;padding:12px 16px 12px;cursor:pointer;color:var(--ink);
@@ -4470,7 +4470,7 @@ function goBack(){ if(history.state&&history.state.depth>0)history.back(); else 
 function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
   if(route==='guide'){navPush(route,arg);renderGuide(arg);return;}  // 📖 가이드북 — 내전 데이터와 무관하게 바로 열린다
-  if(route==='news'){navPush(route,arg);renderNews(arg);try{ history.replaceState(history.state,"",location.pathname+location.search+"#news"+(arg?"/"+encodeURIComponent(String(arg)):"")); }catch(e){} return;}   // 📰 스쿼드 일보 — 자체 JSON(데이터 로딩 전에도 열림) · 공유 링크 #news[/종료일]
+  if(route==='news'){navPush(route,arg);renderNews(arg);try{ history.replaceState(history.state,"",location.pathname+location.search+"#news"+(arg?"/"+encodeURIComponent(String(arg)):"")); }catch(e){} return;}   // 📰 주간스쿼드 — 자체 JSON(데이터 로딩 전에도 열림) · 공유 링크 #news[/종료일]
   if(location.hash&&location.hash.indexOf("#news")===0){ try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){} }   // 다른 화면으로 가면 #news 해시 정리
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(route==='market'){navPush(route,arg);renderMarket();return;}   // 🪙 거래소 — 자체 데이터(UNIQ_MARKET) 로드
@@ -4791,7 +4791,7 @@ function _scrimRender(){
   }
   el.innerHTML=h;
 }
-/* 📰 [2026-09-19 사장님 지시] 「스쿼드 일보」 — "자동매칭은 일단 숨겨두고 그 자리에 AI 선생이 클랜 전체를 평가하는 주간평" →
+/* 📰 [2026-09-19 사장님 지시] 「주간스쿼드」 — "자동매칭은 일단 숨겨두고 그 자리에 AI 선생이 클랜 전체를 평가하는 주간평" →
    "네이버뉴스처럼 뉴스기사, 신문처럼 페이지를 꾸미고 거기에 유저댓글 달 수 있게 — 유저 반응을 데이터로 보게".
    출처는 data/weekly_review.json 하나 — 봇이 매주 월 09:00 KST 에 지난 월~일 기록을 정리해 커밋한다(사장님 /주간평생성 으로 강제 가능).
    호별 사본은 data/weekly_archive/{종료일}.json (지난 호 열기). 패치노트(loadBrjPatch)와 같은 방식으로 no-store 로 읽고 10분 지나면 다시 읽는다.
@@ -4926,19 +4926,19 @@ function _npLogout(){ DISCORD_USER=null; try{ localStorage.removeItem("sgg_dc");
 function newsTeaserHtml(){   // 홈 1면 미리보기(자동매칭 자리)
   const W=WEEKLY_REVIEW;
   if(W===false) return "";
-  if(W===null) return `<div class="np-tease ph"><div class="np-tmast"><span class="np-tname np-serif">스쿼드 일보</span><span class="np-tmeta">지면 불러오는 중…</span></div></div>`;
+  if(W===null) return `<div class="np-tease ph"><div class="np-tmast"><span class="np-tname np-serif">주간스쿼드</span><span class="np-tmeta">지면 불러오는 중…</span></div></div>`;
   const wk=W.week||{}, G=W.grade||{}, wt=_npWeather(G.letter);
   const meta=`<span class="np-tmeta"><span>${esc(_npIssueNo(W))}</span><span>${esc(wk.label||"")}</span>${(wk.from||wk.to)?`<span>${esc(wk.from||"")} ~ ${esc(wk.to||"")}</span>`:""}</span>`;
   if(W.placeholder){
-    return `<div class="np-tease ph" onclick="go('news')" title="스쿼드 일보 창간 준비 중"><div class="np-tmast"><span class="np-tname np-serif">스쿼드 일보</span>${meta}</div>
-      <div class="np-tbody" style="grid-template-columns:1fr"><div><div class="np-thl np-serif">📰 ${esc(W.headline||"스쿼드 일보 창간 준비 중")}</div><div class="np-tlead">${W.summary?mdLite(W.summary):"편집국(AI 선생님)이 첫 호를 준비하고 있어요."}</div></div></div>
+    return `<div class="np-tease ph" onclick="go('news')" title="주간스쿼드 창간 준비 중"><div class="np-tmast"><span class="np-tname np-serif">주간스쿼드</span>${meta}</div>
+      <div class="np-tbody" style="grid-template-columns:1fr"><div><div class="np-thl np-serif">📰 ${esc(W.headline||"주간스쿼드 창간 준비 중")}</div><div class="np-tlead">${W.summary?mdLite(W.summary):"편집국(AI 선생님)이 첫 호를 준비하고 있어요."}</div></div></div>
       <div class="np-tfoot"><span>매주 월요일 아침 9시 발행 · 독자 댓글 받습니다</span><button class="np-topen" onclick="event.stopPropagation();go('news')">창간 예고 보기</button></div></div>`;
   }
   const top=(W.events||[])[0]||null;
   const lead=top&&top.body?top.body:(W.summary||"");
   const cnt=[`기사 ${(W.events||[]).length}`,(W.notices||[]).length?`알림 ${W.notices.length}`:"",`인물 ${(W.students||[]).length}`,(W.awards||[]).length?`이주의 인물 ${W.awards.length}`:""].filter(Boolean).join(" · ");
   return `<div class="np-tease" onclick="go('news')" title="지면 펼치기">
-    <div class="np-tmast"><span class="np-tname np-serif">스쿼드 일보</span>${meta}</div>
+    <div class="np-tmast"><span class="np-tname np-serif">주간스쿼드</span>${meta}</div>
     <div class="np-tbody"><div style="min-width:0"><span class="np-kicker" style="margin-bottom:6px">1면${top&&top.section?` · ${esc(top.section)}`:""}</span><div class="np-thl np-serif">${esc(W.headline||"")}</div><div class="np-tlead">${mdLite(lead)}</div></div>${top?_npPhoto(top,W,120):""}</div>
     <div class="np-tfoot"><span>${esc(cnt)} · 💬 독자 댓글</span><span class="np-tweather" title="이번 주 클랜 날씨 = 등급"><span>${wt.ic} ${esc(wt.t)}</span>${G.letter?`<span class="l">${esc(G.letter)}</span>`:""}</span><button class="np-topen" onclick="event.stopPropagation();go('news')">📰 지면 펼치기</button></div></div>`;
 }
@@ -4972,12 +4972,12 @@ function _npAfterRender(W){
 function newsPageHtml(W,opt){
   opt=opt||{}; const wk=W.week||{}, T=W.teacher||{}, G=W.grade||{}, wt=_npWeather(G.letter);
   const issue=_npIssueNo(W), to=_npTo(wk.to), target=to?"뉴스:"+to:"";
-  const mast=`<div class="np-mast"><div class="np-ears"><div class="np-ear"><b>${esc(issue)}</b><br>${esc(wk.label||"")}<br>${_npDateKo(wk.to)} 발행</div><div class="np-ear" style="text-align:right"><b>${wt.ic} ${esc(wt.t)}</b><br>이번 주 클랜 날씨<br>정가 무료 · 광고 문의 브장신</div></div>
-    <div class="np-name np-serif">스쿼드 일보</div><div class="np-slogan">SQUAD DAILY · 클랜의 한 주를 기록합니다 · 편집국 AI 선생님</div></div>
+  const mast=`<div class="np-mast"><div class="np-ears"><div class="np-ear"><b>${esc(issue)}</b><br>${esc(wk.label||"")}<br>${_npDateKo(wk.to)} 발행</div><div class="np-ear" style="text-align:right"><b>${wt.ic} ${esc(wt.t)}</b><br>이번 주 클랜 날씨<br>정가 무료 · 광고 문의 맛장유</div></div>
+    <div class="np-name np-serif">주간스쿼드</div><div class="np-slogan">SQUAD WEEKLY · 클랜의 한 주를 기록합니다 · 발행인 맛장유 · 편집국 AI 선생님</div></div>
     <div class="np-dateline"><span>취재 기간 <b>${esc(wk.from||"")} ~ ${esc(wk.to||"")}</b>${W.generated_at?` · 인쇄 ${esc(W.generated_at)}`:""}</span><span>${esc(T.name||"AI 선생님")} ${esc(T.mood||"")}</span></div>`;
   const back=`<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px"><button class="np-btn" onclick="goBack()">← 돌아가기</button><span style="font-size:12px;color:var(--ink3)">${W.placeholder?"":"이름을 누르면 프로필로 · 사진은 자료사진"}</span></div>`;
   if(W.placeholder){
-    return `<div class="np">${mast}<div class="np-top" style="grid-template-columns:1fr"><div><span class="np-kicker">창간 예고</span><h1 class="np-hl np-serif">${esc(W.headline||"스쿼드 일보 창간 준비 중")}</h1><p class="np-lead">${W.summary?mdLite(W.summary):"편집국이 첫 호를 준비하고 있어요."}</p>
+    return `<div class="np">${mast}<div class="np-top" style="grid-template-columns:1fr"><div><span class="np-kicker">창간 예고</span><h1 class="np-hl np-serif">${esc(W.headline||"주간스쿼드 창간 준비 중")}</h1><p class="np-lead">${W.summary?mdLite(W.summary):"편집국이 첫 호를 준비하고 있어요."}</p>
       <p class="np-lead" style="font-size:14px;color:var(--ink2)">매주 <b>월요일 아침 9시</b>, 지난 월~일의 내전·칼바람·레이드·퀴즈·브장신 기록을 모아 1면 기사, 알림란, 담임 칼럼, 인물 동정, 이주의 인물, 다음 주 예고를 냅니다. 놀림은 게임 기록(역적 횟수·연패·판수)에만 — 상처 주는 기사는 쓰지 않습니다. 지면 아래에는 독자 댓글을 받습니다.</p></div></div>
       <div class="np-body" style="grid-template-columns:1fr"><div class="np-side" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))"><div class="np-box"><h3>🌤 이번 주 클랜 날씨</h3><div class="np-weather"><span class="ic">${wt.ic}</span><div><div class="wt">${esc(wt.t)}</div><div class="wr">${esc(wt.d)}</div></div></div></div><div class="np-box"><h3>📣 광고</h3><div id="npAds">${_npAdsInner()}</div></div></div></div>
       ${target?_npCommentsBox(target):""}${back}</div>`;
@@ -4985,7 +4985,7 @@ function newsPageHtml(W,opt){
   const ev=(W.events||[]).filter(e=>e&&(e.title||e.body)); const top=ev[0]||null, rest=ev.slice(1);
   const topHtml=top?`<div class="np-top"><div style="min-width:0"><span class="np-kicker">1면 ${top.section?`· ${esc(top.section)}`:""}</span><h1 class="np-hl np-serif">${esc(W.headline||top.title||"")}</h1>
       ${W.headline&&top.title&&top.title!==W.headline?`<div class="np-serif" style="font-size:17px;font-weight:800;margin-top:8px;color:var(--ink2)">${esc(top.emoji||"")} ${esc(top.title)}</div>`:""}
-      <p class="np-lead">${mdLite(top.body||"")}</p><div class="np-byline">스쿼드 일보 편집국 · ${esc(wk.label||"")} ${esc(issue)}</div></div>${_npPhoto(top,W,200)}</div>`
+      <p class="np-lead">${mdLite(top.body||"")}</p><div class="np-byline">주간스쿼드 편집국 · ${esc(wk.label||"")} ${esc(issue)}</div></div>${_npPhoto(top,W,200)}</div>`
     :`<div class="np-top" style="grid-template-columns:1fr"><div><span class="np-kicker">1면</span><h1 class="np-hl np-serif">${esc(W.headline||"")}</h1>${W.summary?`<p class="np-lead">${mdLite(W.summary)}</p>`:""}</div></div>`;
   const arts=rest.map(e=>`<article class="np-art">${_npPhoto(e,W,120)}<span class="np-kicker">${esc(e.section||"클랜")}</span><h3 class="np-serif">${esc(e.emoji||"")} ${esc(e.title||"")}</h3><p>${mdLite(e.body||"")}</p></article>`).join("");
   const notices=(W.notices||[]).filter(n=>n&&n.text).map(n=>`<div class="np-notice k${esc(n.kind||"알림")}"><span class="k">${esc(n.kind||"알림")}</span><span>${mdLite(n.text)}</span></div>`).join("");
@@ -5015,7 +5015,7 @@ function newsPageHtml(W,opt){
     ${facts.length?`<details><summary>🔍 취재 근거 — 편집국이 참고한 사실 ${facts.length}줄</summary><ul>${facts.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></details>`:""}
     ${hist?`<details${opt.old?" open":""}><summary>🗂 지난 호 ${(W.history||[]).length}개</summary><div style="margin-top:6px">${hist}</div></details>`:""}
     ${target?_npCommentsBox(target):""}
-    <div class="np-foot"><span>스쿼드 일보는 클랜 시트 기록만으로 씁니다 · 놀림은 게임 기록에만 · 생년·개인정보는 싣지 않습니다</span><span>발행 스쿼드 클랜 · 편집 AI 선생님 · 인쇄 브장신</span></div>${back}</div>`;
+    <div class="np-foot"><span>주간스쿼드는 클랜 시트 기록만으로 씁니다 · 놀림은 게임 기록에만 · 생년·개인정보는 싣지 않습니다</span><span>발행인 맛장유 · 편집 AI 선생님 · 발행 스쿼드 클랜</span></div>${back}</div>`;
 }
 function kizukiBoard(){
   const KN={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
@@ -8514,7 +8514,7 @@ function dcHandleRedirect(){
 }
 function _dcReturn(ret){   // 로그인 복귀 — '@라우트'/'이주의인물:*'는 홈 계열, 그 외는 플레이어 프로필
   if(ret.startsWith('@')) go(ret.slice(1));
-  else if(ret.startsWith('뉴스:')){ const t=ret.slice(3); go('news',(WEEKLY_REVIEW&&typeof WEEKLY_REVIEW==="object"&&String((WEEKLY_REVIEW.week||{}).to||"")===t)?undefined:(t||undefined)); }   // 📰 스쿼드 일보 댓글 → 그 호 지면으로
+  else if(ret.startsWith('뉴스:')){ const t=ret.slice(3); go('news',(WEEKLY_REVIEW&&typeof WEEKLY_REVIEW==="object"&&String((WEEKLY_REVIEW.week||{}).to||"")===t)?undefined:(t||undefined)); }   // 📰 주간스쿼드 댓글 → 그 호 지면으로
   else if(ret.startsWith('이주의인물')) go('home');
   else if(ret.startsWith('군장병')) go('army');
   else go('player',ret);
@@ -9971,7 +9971,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609201200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609211200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

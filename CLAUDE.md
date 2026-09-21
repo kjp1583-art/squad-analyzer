@@ -71,13 +71,14 @@
   옛 닉 행이 없을 때 대표닉이 옛 닉으로 되돌아가 옛 티어·피크 전용 솔랭으로 계산된다. `link_nickchange.py` 가 요약에
   "⚠ 방향 역전" 으로 알려 준다.
 
-## 📰 스쿼드 일보(주간평)는 파일 하나를 셋이 읽는다 (2026-09-19)
+## 📰 주간스쿼드(주간평)는 파일 하나를 셋이 읽는다 (2026-09-19 · 2026-09-21 이름 변경)
 `data/weekly_review.json` 이 단일 출처다. **필드명을 바꾸면 세 곳을 같은 커밋에서 고친다.**
 - 봇 `bot.py` `_weekly_clean`(검수·필드 확정) · `_weekly_push`(호수 `issue`·`history`·`data/weekly_archive/{to}.json` 사본)
 - 프롬프트 `tooling/weekly_review_prompt.md`(첫 `---` 아래가 system · 사장님이 톤을 고치는 파일) — user 메시지는 `<week>…</week>` + `<facts>…</facts>` 만
 - 웹 `index.html` `newsPageHtml` / `newsTeaserHtml`(#news 라우트 · 홈 1면 미리보기)
 규칙: 모델이 낸 이름·사진(`photo.key`)은 **사실 목록에 있는 것만** 통과(봇이 걸러 낸다). 웹은 모든 문자열을 `esc/mdLite`, 종료일은 `_npTo` 로 검증한 뒤에만 링크·댓글 target(`뉴스:{종료일}`) 을 만든다.
 독자 댓글은 기존 댓글 시스템(디스코드 로그인 + Apps Script + COMMENTS 시트) 그대로 — 별도 채널·스레드로 나누지 않는다(사장님 지시 "웹으로 가야 해").
+이름은 **주간스쿼드**(스쿼드 일보 아님). 지면 안에서 **브장신은 브장신 키우기·레이드 문맥에서만** 등장한다 — 발행인·광고 문의·편집국·클랜 운영 자리는 **맛장유**(사장님 · 사실 표기 "맛동산장인 유미")다(2026-09-21 사장님 지시 "관련 없는 내용에 브장신 넣지 말고 내 아이디를").
 
 ## 배포
 - 두 저장소 모두 `claude/project-cloud-migration-0qtorl` 에서 작업 → main 으로 fast-forward
