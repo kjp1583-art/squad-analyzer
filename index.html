@@ -5085,11 +5085,12 @@ function _sxIsClan(o){ return _sxClanScore(o)>0; }
 function _sxNoticeParse(body, postedStr, author){
   const b=String(body||""); const lines=b.split("\n"); let opp="";
   for(const ln0 of lines.slice(0,10)){
-    const ln=ln0.replace(/\*/g,"").trim(); if(!ln) continue;
+    const ln=ln0.replace(/\*/g,"").replace(/<[@#][!&]?\d+>/g,"").replace(/@(everyone|here)\b/g,"").trim(); if(!ln) continue;   // 멘션·@everyone 은 이름이 아니다(봇 _scrimx_parse 와 같은 규칙)
+    const okOpp=v=>v&&!/[<@>]/.test(v)&&!/^(스쿼드|squad|외부|everyone|here)$/i.test(v);
     let m=/(?:^|\s)(?:vs|VS|Vs|vS)\s*\[?\s*([^\[\]\n]{1,24}?)\s*(?:클\s*랜)?\s*\]?\s*$/.exec(ln);
-    if(m&&!/^(스쿼드|squad)$/i.test(m[1].trim())){ opp=m[1].trim(); break; }
+    if(m&&okOpp(m[1].trim())){ opp=m[1].trim(); break; }
     m=/^\W*([^\n]{1,20}?)\s*클\s*랜\s*스크림/.exec(ln);
-    if(m&&!/^(스쿼드|squad|외부)$/i.test(m[1].trim())){ opp=m[1].trim(); break; }
+    if(m&&okOpp(m[1].trim())){ opp=m[1].trim(); break; }
   }
   const posted=_rdt(postedStr)||new Date(); let date="";
   let m=/(20\d\d)[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})/.exec(b);
@@ -9471,10 +9472,10 @@ function tlKillFeed(t){
       ${k.as?`<span class="muted" style="font-size:11px">어시 ${k.as}</span>`:""}</div>`;
   }).join("");
 }
-async function tlRender(gid){
+async function tlRender(gid, boxId){   // boxId: 한 화면에 상세가 여러 장 있을 때(스크림 탭) 판마다 다른 박스
   // ⚠️ await 중에 상세 화면이 다시 그려지면 이 box 는 DOM 에서 떨어져 나간다(결과가 죽은 요소로 들어가
   //    화면은 '불러오는 중'에서 영영 멈춤) → 로드 후 반드시 최신 요소를 다시 잡는다.
-  const sel=()=>document.getElementById("tlBox");
+  const sel=()=>document.getElementById(boxId||"tlBox");
   let box=sel(); if(!box)return;
   box.innerHTML=`<div class="muted" style="font-size:13px;padding:6px 0">타임라인 불러오는 중…</div>`;
   const t=await tlLoad(gid);
@@ -9555,8 +9556,9 @@ function gameDetailHtml(g){
       ${_banR?`<span style="margin-left:auto">${_banR}</span>`:''}
     </div>`:'';
   // ⏱ [2026-08-19 사장님 지시] 경기 타임라인 — 렌더 후 비동기 로드(없으면 카드 안에서 안내)
-  const _tlCard=`<div class="card" style="margin-top:10px"><h2 style="margin-bottom:6px">⏱ 경기 흐름</h2><div id="tlBox"></div></div>`;
-  setTimeout(()=>{ try{ tlRender(g.id); }catch(e){} }, 30);
+  const _tid="tlBox-"+String(g.id||"").replace(/[^A-Za-z0-9_-]/g,"_");   // 판마다 다른 id — 스크림 탭처럼 상세가 여러 장 열려도 서로 안 섞인다
+  const _tlCard=`<div class="card" style="margin-top:10px"><h2 style="margin-bottom:6px">⏱ 경기 흐름</h2><div id="${_tid}"></div></div>`;
+  setTimeout(()=>{ try{ tlRender(g.id, _tid); }catch(e){} }, 30);
   return `${_bnHeader}<div class="gd-teams">${teamsHtml}</div>${_tlCard}`;
 }
 function renderGame(gid){
