@@ -879,6 +879,30 @@
     .np-colm{grid-template-columns:1fr}.np-colm .who{display:flex;gap:10px;align-items:center;text-align:left}.np-colm .who .av{width:48px;height:48px;font-size:24px;margin:0}.np-stamp{font-size:24px;right:6px;top:6px}
     .np-people{grid-template-columns:1fr}.np-todo{grid-template-columns:1fr}}
   @media (prefers-reduced-motion: no-preference){.np-tease{transition:box-shadow .18s ease}}
+  /* 🤝 [2026-09-22 사장님 지시] 외부 스크림 상대전적(#scrim) */
+  .sx-total{font-size:15px;white-space:nowrap}
+  .sx-head .ranktbl tr.on td{background:rgba(91,140,255,.12)}
+  .sx-head .ranktbl tbody tr:hover td{background:rgba(255,255,255,.04)}
+  .sx-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--mut);margin:0 1.5px;vertical-align:middle}
+  .sx-dot.w{background:var(--win)} .sx-dot.l{background:var(--lose)}
+  .sx-game{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:9px 11px;margin-top:8px;border-left-width:4px}
+  .sx-game.w{border-left-color:var(--win)} .sx-game.l{border-left-color:var(--lose)}
+  .sx-gh{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13.5px}
+  .sx-res{display:inline-block;min-width:24px;text-align:center;font-weight:900;border-radius:6px;padding:1px 6px;color:#fff}
+  .sx-res.w{background:var(--win)} .sx-res.l{background:var(--lose)}
+  .sx-gd{color:var(--sub);white-space:nowrap}
+  .sx-score{font-variant-numeric:tabular-nums}
+  .sx-btn{background:var(--bg2);color:var(--sub);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:12px;font-weight:700}
+  .sx-lines{display:grid;gap:5px;margin-top:8px}
+  .sx-line{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;font-size:12.5px;padding:4px 0}
+  .sx-line.ours{border-bottom:1px dashed var(--line)}
+  .sx-tag{flex:none;font-size:11px;font-weight:800;color:var(--sub);border:1px solid var(--line);border-radius:5px;padding:0 6px;min-width:52px;text-align:center}
+  .sx-line.ours .sx-tag{color:#a8c0ff;border-color:rgba(168,192,255,.4)}
+  .sx-pl{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  .sx-pl .champ.sm{width:22px;height:22px;border-radius:5px}
+  .sx-out{color:var(--sub)}
+  .sx-detail{margin-top:10px}
+  @media(max-width:680px){.sx-total{font-size:13.5px}.sx-line{font-size:12px}.sx-head .ranktbl th:nth-child(5),.sx-head .ranktbl td:nth-child(5){display:none}}
   /* 📢 고성능확성기 보드 — 흐르는 그라데이션 테두리 + 슬라이드 페이드 */
   #megaboard{margin:10px 0 4px;border-radius:12px;padding:2px;
     background:linear-gradient(100deg,#e0a437,#ff5a6e,#8a5cd6,#4a7ef0,#e0a437);background-size:400% 100%;
@@ -4471,6 +4495,7 @@ function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
   if(route==='guide'){navPush(route,arg);renderGuide(arg);return;}  // 📖 가이드북 — 내전 데이터와 무관하게 바로 열린다
   if(route==='news'){navPush(route,arg);renderNews(arg);try{ history.replaceState(history.state,"",location.pathname+location.search+"#news"+(arg?"/"+encodeURIComponent(String(arg)):"")); }catch(e){} return;}   // 📰 주간스쿼드 — 자체 JSON(데이터 로딩 전에도 열림) · 공유 링크 #news[/종료일]
+  if(route==='scrim'){navPush(route,arg);renderScrim();return;}   // 🤝 외부 스크림 상대전적 — 자체 탭(SCRIM_EXT·SCRIM_NOTICE_RAW) 로드
   if(location.hash&&location.hash.indexOf("#news")===0){ try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){} }   // 다른 화면으로 가면 #news 해시 정리
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(route==='market'){navPush(route,arg);renderMarket();return;}   // 🪙 거래소 — 자체 데이터(UNIQ_MARKET) 로드
@@ -5016,6 +5041,166 @@ function newsPageHtml(W,opt){
     ${hist?`<details${opt.old?" open":""}><summary>🗂 지난 호 ${(W.history||[]).length}개</summary><div style="margin-top:6px">${hist}</div></details>`:""}
     ${target?_npCommentsBox(target):""}
     <div class="np-foot"><span>주간스쿼드는 클랜 시트 기록만으로 씁니다 · 놀림은 게임 기록에만 · 생년·개인정보는 싣지 않습니다</span><span>발행인 맛장유 · 편집 AI 선생님 · 발행 스쿼드 클랜</span></div>${back}</div>`;
+}
+/* 🤝 [2026-09-22 사장님 지시] 외부 스크림 상대전적 — "스크림이 보통 외부 클랜과의 경기인데, 클랜 간 상대전적도 스크림 페이지에서 찾아볼 수 있으면"
+   (카톡: "엘레강스랑 우리랑 상대전적 아시는분 / 우리가 우세인가?").
+   출처 둘: SCRIM_EXT(봇 scrimx_sweep 이 CLASSIC_NORMAL 에서 분리한 스크림 판 · 마지막 열 '상대클랜') + SCRIM_NOTICE_RAW(스크림공지 채널 원문 미러).
+   · SCRIM_EXT 는 헤더 행이 없을 수 있다(2026-09-22 실측 — 첫 행부터 데이터). headers=0 으로 받아 첫 행이 '게임ID' 면 헤더로, 아니면 CLASSIC_NORMAL 열 순서(SCRIM_COLS)로 본다.
+   · 공지 원문은 절대 그대로 그리지 않는다 — 디스코드 멘션 ID 와 작성자 생년 꼬리('/97')가 들어 있다. 날짜·상대·규칙만 뽑고, 작성자는 '/NN' 을 뗀다.
+   · 우리 편 판정: 그 판에서 클랜원(전적 통산 PLAYERS_ALL · 내부티어)으로 풀리는 이름이 많은 진영. 상대 선수 이름은 프로필 링크를 걸지 않는다.
+   · 상대 클랜명 정규화(_sxClanKey): '**겜모사클랜**' '겜모사 클랜' → 겜모사. '외부팀'·빈칸은 '상대 미표기' 로 묶는다. */
+const SCRIM_COLS=["게임ID","날짜","소환사명","PUUID","진영","포지션","챔피언","밴","결과","매치평가","패치버전","KDA","점수","딜량","아이템","주룬","보조룬","스펠","지표","상대클랜"];
+const SX_UNKNOWN_RX=/^(외부\s*팀|외부\s*대회\s*팀|외부|상대|미정|\?)?$/;
+let SCRIMX=null, _sxP=null, _sxAt=0, SX_SEL=null, SX_OPEN=new Set();   // SCRIMX: null=안 읽음 · false=실패 · object
+function loadTabRawJsonp(sheetName){   // headers=0 — 첫 행을 헤더로 삼지 않는다(헤더가 없는 탭용)
+  return new Promise((resolve,reject)=>{
+    const cb="__rawCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6); let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{done=true;cleanup();resolve(resp);};
+    s.onerror=()=>{if(!done){cleanup();reject(new Error("스크립트 로드 실패"));}};
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&headers=0&cb=${Date.now()}&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{if(!done){cleanup();reject(new Error("시간 초과"));}},15000);
+  });
+}
+function _sxCell(cell){ if(cell==null) return ""; if(cell.f!=null) return String(cell.f).trim(); const v=cell.v; if(v instanceof Date){ const p=n=>String(n).padStart(2,"0"); return `${v.getFullYear()}-${p(v.getMonth()+1)}-${p(v.getDate())}`+((v.getHours()||v.getMinutes())?` ${p(v.getHours())}:${p(v.getMinutes())}`:""); } return v==null?"":String(v).trim(); }
+function _sxRowsFromRaw(resp){
+  if(!resp||!resp.table) throw new Error("시트 응답 형식 오류");
+  const raw=(resp.table.rows||[]).map(r=>(r.c||[]).map((c,i)=>{ let v=_sxCell(c); if(i===11&&c&&c.v instanceof Date) v=`${c.v.getFullYear()%100}/${c.v.getMonth()+1}/${c.v.getDate()}`; return v; }));   // KDA 날짜 오염 복원(gvizToObjects 와 같은 규칙)
+  let cols=SCRIM_COLS, body=raw;
+  if(raw.length&&String(raw[0][0]||"").trim()==="게임ID"){ cols=raw[0].map(x=>String(x||"").trim()); body=raw.slice(1); }
+  return body.map(r=>{ const o={}; cols.forEach((h,i)=>{ if(h) o[h]=r[i]==null?"":String(r[i]); }); return o; }).filter(o=>o["게임ID"]&&o["소환사명"]);
+}
+function _sxClanKey(s){ return String(s||"").replace(/\*/g,"").replace(/[\[\]]/g," ").replace(/\([^)]*\)/g,"").replace(/클\s*랜\s*$/,"").replace(/\s+/g,"").toLowerCase(); }
+function _sxClanName(s){ const t=String(s||"").replace(/\*/g,"").replace(/[\[\]]/g," ").replace(/\([^)]*\)/g,"").replace(/\s*클\s*랜\s*$/,"").replace(/\s+/g," ").trim(); return SX_UNKNOWN_RX.test(_sxClanKey(t))?"상대 미표기":t; }
+function _sxClanScore(o){   // 이 행의 사람이 우리 클랜원일 가능성 — 0 아님 · 1 내전 기록만 있음(용병일 수도) · 2 통산 10판↑ · 3 내부티어 등록
+  try{ const cn=canonOfRow(o); const ALL=(typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
+    if(typeof tierOf==="function"&&tierOf(cn)) return 3;
+    const k=(ALL&&ALL.has(cn))?cn:(()=>{ const kk=playerKeyOf(o["소환사명"]||""); return (kk&&ALL&&ALL.has(kk))?kk:null; })();
+    if(k) return (ALL.get(k)||[]).length>=10?2:1; }catch(e){}
+  return 0;
+}
+function _sxIsClan(o){ return _sxClanScore(o)>0; }
+function _sxNoticeParse(body, postedStr, author){
+  const b=String(body||""); const lines=b.split("\n"); let opp="";
+  for(const ln0 of lines.slice(0,10)){
+    const ln=ln0.replace(/\*/g,"").trim(); if(!ln) continue;
+    let m=/(?:^|\s)(?:vs|VS|Vs|vS)\s*\[?\s*([^\[\]\n]{1,24}?)\s*(?:클\s*랜)?\s*\]?\s*$/.exec(ln);
+    if(m&&!/^(스쿼드|squad)$/i.test(m[1].trim())){ opp=m[1].trim(); break; }
+    m=/^\W*([^\n]{1,20}?)\s*클\s*랜\s*스크림/.exec(ln);
+    if(m&&!/^(스쿼드|squad|외부)$/i.test(m[1].trim())){ opp=m[1].trim(); break; }
+  }
+  const posted=_rdt(postedStr)||new Date(); let date="";
+  let m=/(20\d\d)[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})/.exec(b);
+  if(m) date=`${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;
+  else{ m=/(\d{1,2})\s*월\s*(\d{1,2})\s*일/.exec(b); if(m){ const y=posted.getFullYear()+((posted.getMonth()===11&&+m[1]===1)?1:0); date=`${y}-${String(+m[1]).padStart(2,"0")}-${String(+m[2]).padStart(2,"0")}`; } }
+  if(!date) date=`${posted.getFullYear()}-${String(posted.getMonth()+1).padStart(2,"0")}-${String(posted.getDate()).padStart(2,"0")}`;
+  const rules=[]; m=/(\d)\s*판\s*(\d)\s*선/.exec(b); if(m) rules.push(`${m[1]}판 ${m[2]}선`); if(/하드\s*피어리스/.test(b)) rules.push("하드피어리스"); else if(/피어리스/.test(b)) rules.push("피어리스");
+  const tm=/(\d{1,2})\s*[:시]\s*(\d{2})?/.exec((b.match(/(?:일정|시간)\s*[:：][^\n]*/)||[""])[0]); const time=tm?`${String(+tm[1]).padStart(2,"0")}:${tm[2]||"00"}`:"";
+  const roster=(b.match(/^\s*[\*\s■●·]*(탑|정글?|미드?|원딜?|원|서폿?)\s*[\*\s]*[:：]/gm)||[]).length;   // 포지션 줄 수 — 라인업이 적힌 공지인지
+  return {opp, oppKey:_sxClanKey(opp), date, time, rules, roster, author:String(author||"").replace(/\/\s*\d{2,4}\s*$/,"").trim(), at:String(postedStr||"").slice(0,16)};
+}
+function _sxBuild(rows, notices){
+  const games=new Map(), seen=new Set();
+  for(const o of rows){
+    const gid=String(o["게임ID"]||"").trim(); if(!gid) continue;
+    const key=gid+"∥"+(o["PUUID"]||o["소환사명"]||""); if(seen.has(key)) continue; seen.add(key);
+    let g=games.get(gid); if(!g) games.set(gid,g={id:gid,date:"",patch:"",rows:[],teams:{},bans:{},opp:""});
+    g.rows.push(o); if(o["날짜"]&&o["날짜"]>g.date) g.date=o["날짜"]; if(o["패치버전"]) g.patch=normPatch(o["패치버전"]); if(o["상대클랜"]&&!g.opp) g.opp=o["상대클랜"];
+  }
+  const list=[];
+  for(const g of games.values()){
+    for(const r of g.rows){ const side=r["진영"]||"기타"; (g.teams[side]=g.teams[side]||[]).push(r); if(validBan(r["밴"])) (g.bans[side]=g.bans[side]||[]).push(r["밴"]); }
+    for(const side in g.teams) g.teams[side].sort((a,b)=>(POS_ORDER[a["포지션"]]??9)-(POS_ORDER[b["포지션"]]??9));
+    const sides=Object.keys(g.teams).filter(s=>s!=="기타"); if(!sides.length) continue;
+    const cnt=Object.fromEntries(sides.map(s=>[s,g.teams[s].reduce((a,p)=>a+_sxClanScore(p),0)]));   // 가중 합 — 상대가 우리 내전에 용병으로 낀 적이 있어도 내부티어·판수로 갈린다
+    const our=sides.slice().sort((a,b)=>cnt[b]-cnt[a])[0]; const their=sides.find(s=>s!==our)||"";
+    g.our=our; g.their=their; g.known=cnt[our]>0&&(!their||cnt[our]>cnt[their]);
+    g.win=(g.teams[our]||[]).some(p=>p["결과"]==="승리"); g.lose=(g.teams[our]||[]).some(p=>p["결과"]==="패배");
+    g.oppName=_sxClanName(g.opp); g.oppKey=SX_UNKNOWN_RX.test(_sxClanKey(g.opp))?"?":_sxClanKey(g.opp);
+    g.day=String(g.date||"").slice(0,10); g.kills=[our,their].map(s=>(g.teams[s]||[]).reduce((a,p)=>{const o=parseKDA(p["KDA"]);return a+(o?o.k:0);},0));
+    list.push(g);
+  }
+  list.sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const clans=new Map();
+  for(const g of list){ let c=clans.get(g.oppKey); if(!c) clans.set(g.oppKey,c={key:g.oppKey,name:g.oppName,w:0,l:0,games:[],last:"",notices:0}); (g.win?c.w++:g.lose?c.l++:0); c.games.push(g); if(g.day>c.last) c.last=g.day; }
+  const nts=(notices||[]).map(n=>_sxNoticeParse(n["본문"],n["작성시각(KST)"],n["작성자"])).filter(n=>n.date).sort((a,b)=>b.date.localeCompare(a.date));
+  for(const n of nts){
+    const k=SX_UNKNOWN_RX.test(n.oppKey)?"?":n.oppKey; n.key=k; n.name=n.opp?_sxClanName(n.opp):"상대 미표기";
+    const d0=_rdt(n.date); n.games=list.filter(g=>{ const d=_rdt(g.day); if(!d0||!d) return false; const dd=Math.round((d-d0)/86400000); return dd>=-1&&dd<=3&&(g.oppKey===k||g.oppKey==="?"||k==="?"); });
+    let c=clans.get(k); if(k!=="?"&&!c) clans.set(k,c={key:k,name:n.name,w:0,l:0,games:[],last:"",notices:0}); if(c){ c.notices++; if(!c.last||n.date>c.last) c.lastNotice=n.date; }
+  }
+  const order=[...clans.values()].sort((a,b)=>(b.games.length-a.games.length)||(b.notices-a.notices)||(b.last||"").localeCompare(a.last||""));
+  return {games:list, byId:games, clans:order, notices:nts, w:list.filter(g=>g.win).length, l:list.filter(g=>g.lose&&!g.win).length};
+}
+function loadScrimExt(force){
+  if(_sxP) return _sxP;
+  if(!force&&SCRIMX&&Date.now()-_sxAt<10*60*1000) return Promise.resolve(SCRIMX);
+  const fail={ext:false,nt:false};
+  _sxP=Promise.all([loadTabRawJsonp("SCRIM_EXT").then(_sxRowsFromRaw).catch(e=>{ fail.ext=true; console.warn("scrim ext",e); return []; }), loadTabJsonp("SCRIM_NOTICE_RAW").then(r=>gvizRowsAll(r)).catch(e=>{ fail.nt=true; console.warn("scrim notice",e); return []; })])
+    .then(([rows,nt])=>{ if(fail.ext&&fail.nt){ SCRIMX=false; return; } SCRIMX=_sxBuild(rows,nt); SCRIMX.fail=fail; },e=>{ console.warn("scrim",e); SCRIMX=false; })
+    .then(()=>{ _sxAt=Date.now(); _sxP=null; return SCRIMX; });
+  return _sxP;
+}
+function sxSel(i){ const c=SCRIMX&&SCRIMX.clans[i]; SX_SEL=(c&&SX_SEL!==c.key)?c.key:null; const y=window.scrollY; renderScrim(); window.scrollTo(0,y); }
+function sxToggle(gid){ if(SX_OPEN.has(gid)) SX_OPEN.delete(gid); else SX_OPEN.add(gid); const el=document.getElementById("sxg-"+_sxDom(gid)); if(el){ el.outerHTML=_sxGameHtml(SCRIMX.byId.get(gid)); } }
+function _sxDom(gid){ return String(gid||"").replace(/[^A-Za-z0-9_-]/g,"_"); }
+function _sxForm(games){ return games.slice(0,5).map(g=>`<span class="sx-dot ${g.win?'w':g.lose?'l':''}" title="${escAttr(g.day)} ${g.win?'승':g.lose?'패':'?'}"></span>`).join(""); }
+function _sxLineup(g, side, ours){
+  return (g.teams[side]||[]).map(p=>{ const nm=ours?canonOfRow(p):(p["소환사명"]||""); const clan=ours&&_sxIsClan(p);
+    return `<span class="sx-pl">${champImg(p["챔피언"],"sm")}${clan?`<span class="clickname" onclick="go('player','${escAttr(nm)}')">${esc(shortName(nm))}</span>`:`<span class="sx-out" title="상대 클랜 선수">${esc(shortName(nm))}</span>`}</span>`; }).join("");
+}
+function _sxDetail(g){   // 내전 상세와 같은 화면(gameDetailHtml) — 상대 선수 이름의 프로필 링크만 뗀다
+  let h; try{ h=gameDetailHtml(g); }catch(e){ return `<div class="muted">상세를 그리지 못했어요.</div>`; }
+  for(const p of (g.teams[g.their]||[])){ if(_sxIsClan(p)) continue; const x=escAttr(canonOfRow(p)); h=h.split(`<span class="clickname" onclick="go('player','${x}')">`).join(`<span class="sx-out" title="상대 클랜 선수">`); }
+  return h;
+}
+function _sxGameHtml(g){
+  const open=SX_OPEN.has(g.id); const res=g.win?"승":g.lose?"패":"?";
+  return `<div class="sx-game ${g.win?'w':g.lose?'l':''}" id="sxg-${_sxDom(g.id)}">
+    <div class="sx-gh"><span class="sx-res ${g.win?'w':'l'}">${res}</span><span class="sx-gd">${esc(g.day)}${g.date.length>10?` <span class="muted">${esc(g.date.slice(11,16))}</span>`:""}</span><b>vs ${esc(g.oppName)}</b><span class="muted sx-score">${g.kills[0]} : ${g.kills[1]}</span>${g.known?"":`<span class="muted" style="font-size:11px">우리 편 판정 불확실</span>`}<span style="flex:1"></span><button class="sx-btn" onclick="sxToggle('${escAttr(g.id)}')">${open?"접기 ▴":"상세 ▾"}</button></div>
+    <div class="sx-lines"><div class="sx-line ours"><span class="sx-tag">스쿼드</span>${_sxLineup(g,g.our,true)}</div><div class="sx-line"><span class="sx-tag">${esc(g.oppName)}</span>${_sxLineup(g,g.their,false)}</div></div>
+    ${open?`<div class="sx-detail">${_sxDetail(g)}</div>`:""}</div>`;
+}
+function scrimPageHtml(){
+  const S=SCRIMX;
+  if(S===null) return `<div class="card" style="margin-top:12px"><div class="muted">🤝 스크림 전적 불러오는 중…</div></div>`;
+  if(S===false) return `<div class="card" style="margin-top:12px"><div class="muted">스크림 전적을 불러오지 못했어요. <span class="clickname" onclick="loadScrimExt(true).then(renderScrim)">다시 시도</span></div></div>`;
+  const total=S.w+S.l, wr=total?Math.round(100*S.w/total):0;
+  const sel=SX_SEL?S.clans.find(c=>c.key===SX_SEL):null;
+  const warn=(S.fail&&(S.fail.ext||S.fail.nt))?`<div style="margin-top:8px;font-size:12.5px;color:#ff8a9a">⚠ ${S.fail.ext?"스크림 전적 시트(SCRIM_EXT)":"스크림 공지 시트"}를 못 읽었어요 — 숫자가 비어 보일 수 있어요. <span class="clickname" onclick="loadScrimExt(true).then(renderScrim)">다시 시도</span></div>`:"";
+  const clanRows=S.clans.map((c,i)=>{ const n=c.w+c.l, r=n?Math.round(100*c.w/n):0;
+    return `<tr class="${SX_SEL===c.key?'on':''}" onclick="sxSel(${i})" style="cursor:pointer">
+      <td><b>${esc(c.name)}</b>${c.key==="?"?`<span class="muted" style="font-size:11px"> · 공지에 이름이 없던 판</span>`:""}</td>
+      <td class="num">${n?`<b style="color:var(--win)">${c.w}승</b> <b style="color:var(--lose)">${c.l}패</b>`:`<span class="muted">기록 없음</span>`}</td>
+      <td><div class="wr">${n?`<div class="wrbar"><i style="width:${r}%"></i></div><span>${r}%</span>`:`<span class="muted" style="font-size:12px">공지만 ${c.notices}건</span>`}</div></td>
+      <td class="num">${_sxForm(c.games)||`<span class="muted">-</span>`}</td>
+      <td class="num muted" style="white-space:nowrap">${esc(c.last||c.lastNotice||"-")}</td></tr>`; }).join("");
+  const games=(sel?sel.games:S.games);
+  const nts=S.notices.filter(n=>!sel||n.key===sel.key).slice(0,40).map(n=>{ const w=n.games.filter(g=>g.win).length, l=n.games.filter(g=>g.lose&&!g.win).length;
+    return `<div class="rpr"><span class="rpr-d">${esc(n.date.slice(2))}</span><span class="rpr-t"><b>${n.key==="?"?esc(n.name):"vs "+esc(n.name)}</b>${n.time?` <span class="muted">${esc(n.time)}</span>`:""}${n.rules.length?` <span class="muted">· ${esc(n.rules.join(" · "))}</span>`:""}</span><span style="flex:1"></span>${n.games.length?`<span><b style="color:var(--win)">${w}승</b> <b style="color:var(--lose)">${l}패</b></span>`:`<span class="muted" style="font-size:11.5px">결과 미기록</span>`}</div>`; }).join("");
+  // 클랜원 스크림 출전
+  const pl=new Map();
+  for(const g of S.games) for(const p of (g.teams[g.our]||[])){ if(!_sxIsClan(p)) continue; const cn=canonOfRow(p); let e=pl.get(cn); if(!e) pl.set(cn,e={n:0,w:0,ch:new Map()}); e.n++; if(g.win) e.w++; const c=p["챔피언"]; if(c) e.ch.set(c,(e.ch.get(c)||0)+1); }
+  const plRows=[...pl.entries()].sort((a,b)=>(b[1].n-a[1].n)||(b[1].w-a[1].w)).slice(0,20).map(([cn,e])=>{ const top=[...e.ch.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3);
+    return `<tr><td><span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span></td><td class="num">${e.n}</td><td class="num"><b style="color:var(--win)">${e.w}</b>-<b style="color:var(--lose)">${e.n-e.w}</b></td><td>${top.map(([c,k])=>`<span class="sx-pl" title="${escAttr(c)} ${k}판">${champImg(c,"sm")}</span>`).join("")}</td></tr>`; }).join("");
+  return `<div class="card sx-head" style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div><h2 style="margin:0">🤝 외부 스크림 상대전적</h2><div class="muted" style="font-size:12.5px;margin-top:4px">다른 클랜과 붙은 스크림만 — 클랜 내전·멸망전 팀 스크림은 세지 않아요. 상대 클랜을 누르면 그 클랜과의 경기만 봅니다.</div></div>
+        <div class="sx-total"><span class="muted">스쿼드 통산</span> <b style="color:var(--win)">${S.w}승</b> <b style="color:var(--lose)">${S.l}패</b>${total?` <span class="muted">(${wr}%)</span>`:""}${S.games[0]?` <span class="muted">· 마지막 ${esc(S.games[0].day)}</span>`:""}</div></div>
+      ${warn}${S.clans.length?`<table class="ranktbl" style="margin-top:10px"><thead><tr><th>상대 클랜</th><th class="num">전적</th><th>승률</th><th class="num">최근</th><th class="num">마지막</th></tr></thead><tbody>${clanRows}</tbody></table>`:`<div class="muted" style="margin-top:10px">아직 기록된 외부 스크림이 없어요.</div>`}
+    </div>
+    <div class="card" style="margin-top:10px"><h2>⚔ 경기 기록 <span class="muted" style="font-size:12.5px;font-weight:400">${sel?`— vs ${esc(sel.name)} <span class="clickname" onclick="sxSel(-1)">전체 보기</span>`:`— 최신순 ${S.games.length}판`}</span></h2>
+      ${games.length?games.map(_sxGameHtml).join(""):`<div class="muted">이 클랜과의 경기 기록이 아직 없어요 — 공지만 있고 전적이 시트에 안 남은 스크림이에요.</div>`}</div>
+    <div class="card" style="margin-top:10px"><h2>📢 스크림 공지 기록 <span class="muted" style="font-size:12.5px;font-weight:400">— 스크림공지 채널에서 날짜·상대·규칙만 뽑았어요</span></h2>
+      ${nts||`<div class="muted">공지 기록이 없어요.</div>`}</div>
+    ${plRows?`<div class="card" style="margin-top:10px"><h2>🧑‍🤝‍🧑 스크림 출전 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜원별 판수·전적·주챔</span></h2><table class="ranktbl"><thead><tr><th>클랜원</th><th class="num">판</th><th class="num">승-패</th><th>주챔</th></tr></thead><tbody>${plRows}</tbody></table></div>`:""}
+    <div class="muted" style="font-size:11.5px;margin:10px 2px 0;line-height:1.5">※ 스크림 판은 봇이 스크림공지(우리 명단 4명↑)와 그 날짜 ±3일의 경기(비클랜원 4명↑)를 맞춰 자동으로 골라내 SCRIM_EXT 로 옮긴 것이에요. 2026-08 이전 스크림은 공지만 남아 있어 결과가 비어 있습니다. 상대 선수 이름엔 프로필 링크를 걸지 않아요.</div>`;
+}
+function renderScrim(){
+  view().innerHTML=`${navTabsHtml('scrim')}<div id="sx-wrap">${scrimPageHtml()}</div>`;
+  if(SCRIMX===null||Date.now()-_sxAt>10*60*1000) loadScrimExt().then(()=>{ const el=document.getElementById("sx-wrap"); if(el) el.innerHTML=scrimPageHtml(); });
 }
 function kizukiBoard(){
   const KN={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
@@ -5758,7 +5943,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('brjang','브키도감')}<div class="tab don ${active==='donate'?'on':''}" onclick="go('donate')">💝 후원</div></div>`;
+  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('scrim','스크림')}${tab('brjang','브키도감')}<div class="tab don ${active==='donate'?'on':''}" onclick="go('donate')">💝 후원</div></div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -9971,7 +10156,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609211200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609221200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
