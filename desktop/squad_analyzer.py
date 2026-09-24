@@ -1225,7 +1225,8 @@ def _cosmetics_loop():
 # ===== 🌱 [2026-09-24 사장님 지시] 뉴비 새싹 — "클랜 가입한 지 일주일까지 아이디 옆에 새싹, 뉴비인 걸 알아보게" =====
 #   가입일은 두 가지로 본다(사장님: "디스코드 서버 가입일이 떠오르고, 분석기에 최초로 기록되는 것도 될 수 있을 것 같고").
 #   ① 디스코드 클랜 서버 가입 시각(봇 /joined · 10분 폴링) — 1순위.
-#   ② 디스코드에서 못 찾은 사람만: 첫 내전 기록일(STAT_PLAYER '첫기록' · 원본 폴백은 CLASSIC_NORMAL 날짜).
+#   ② 디스코드에서 못 찾은 사람만: 첫 내전 기록일(STAT_PLAYER '첫기록' = 협곡·칼바람 중 이른 날짜).
+#      단 **클랜원(내부티어 등록, 부계면 본계)** 일 때만 — 외부 스크림 상대·게스트도 협곡 시트에 기록되므로(2026-09-24 리뷰).
 #   재가입 가드: 디스코드 가입은 최근이어도 30일보다 오래된 내전 기록이 있으면 새싹을 달지 않는다(돌아온 고참).
 #   디스코드엔 오래 있었는데 첫 기록만 최근(새 롤 계정·늦게 첫 내전)이면 ①이 이겨 새싹 없음.
 JOINED_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/joined"
@@ -1242,7 +1243,7 @@ def _joined_loop():
             if len(d) >= 50: JOINED = {tnorm(k): int(v) for k, v in d.items() if k and v}
         except Exception:
             pass
-        time.sleep(600)
+        time.sleep(600 if JOINED else 60)   # 봇이 막 재시작해 아직 비어 있으면 1분 뒤 다시
 
 def _date_ts(s):
     """'2026-09-20' / '2026-09-20 21:08' → 그날 00:00 로컬 unix 시각. 못 읽으면 None."""
@@ -1264,7 +1265,7 @@ def _is_newbie(name, first_date=None, now=None, joined=None):
     if js:
         d_age = (now - min(js)) / 86400.0                  # 동명이인은 고참 쪽(봇이 이미 최솟값을 준다)
         return d_age <= NEWBIE_DAYS and (f_age is None or f_age <= NEWBIE_REJOIN_DAYS)
-    return f_age is not None and f_age <= NEWBIE_DAYS
+    return f_age is not None and f_age <= NEWBIE_DAYS and bool(tier_of(name))
 
 TIER_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/tiers"   # 🎖 봇 내부티어 역할 엔드포인트
 def _tier_role_sync_loop():
@@ -5940,6 +5941,20 @@ def rebuild_stat_aggregate():
         champ_vals = [["키", "소환사명", "챔피언", "포지션", "판수", "승"]]
         for (pk, c, pos), e in _champ.items():
             if e[0] > 0: champ_vals.append([pk, _disp.get(pk, ""), c, pos, e[0], e[1]])
+        # 🌱 칼바람(KIWI_KIWI)에서 먼저 뛴 사람도 있다 — 첫기록은 두 모드 중 이른 날짜(협곡 선수 키에만 얹는다)
+        try:
+            _ku = f"https://docs.google.com/spreadsheets/d/{DOCUMENT_ID}/gviz/tq?tqx=out:csv&sheet=KIWI_KIWI&headers=1"
+            _kr = list(_csv.reader(_io.StringIO(_u.urlopen(_u.Request(_ku, headers={"User-Agent": "Mozilla/5.0"}), timeout=25).read().decode("utf-8"))))
+            _kc = {c: i for i, c in enumerate(_kr[0])} if _kr else {}
+            if {"날짜", "소환사명", "결과"} <= set(_kc):
+                _kd, _kn, _kres, _kp = _kc["날짜"], _kc["소환사명"], _kc["결과"], _kc.get("PUUID", -1)
+                for r in _kr[1:]:
+                    if len(r) <= max(_kd, _kn, _kres) or str(r[_kres]).strip() not in ("승리", "패배"): continue
+                    _kpk = (str(r[_kp]).strip().lower() if 0 <= _kp < len(r) else "") or _name_fb.get(get_main_name(str(r[_kn]).strip()), "")
+                    _d10 = str(r[_kd]).strip()[:10]
+                    if _kpk in _pl and len(_d10) == 10 and _d10[4] == "-" and (_kpk not in _first or _d10 < _first[_kpk]): _first[_kpk] = _d10
+        except Exception as _ke:
+            print(f"[stat_agg] 칼바람 첫기록 합산 건너뜀: {type(_ke).__name__}", flush=True)
         # 🌱 '첫기록' 은 맨 끝 열 — 읽는 쪽이 전부 열 이름으로 찾으므로 구버전 클라이언트는 그냥 무시한다
         player_vals = [["키", "소환사명", "총판수", "총승", "MVP", "역적", "ACE", "점수합", "점수판수", "블루판", "블루승", "레드판", "레드승", "연승", "첫기록"]]
         for pk, p in _pl.items():
@@ -5973,12 +5988,23 @@ def rebuild_stat_aggregate():
                         w.resize(rows=len(_v) + 5000)
                         print(f"[stat_agg] {_t} 탭 행 확장 → {len(_v)+5000}", flush=True)
                     except Exception: pass
+                #   🌱 [2026-09-24] 열도 같다 — STAT_PLAYER 는 14열 탭인데 '첫기록'(15번째)을 더했다. 모자라면 먼저 늘린다.
+                _wd = max((len(r) for r in _v), default=0)
+                if w is not None and getattr(w, "col_count", 0) and w.col_count < _wd:
+                    try:
+                        w.add_cols(_wd - w.col_count)
+                        print(f"[stat_agg] {_t} 탭 열 확장 → {_wd}", flush=True)
+                    except Exception as _ce: print(f"[stat_agg] {_t} 열 확장 실패: {type(_ce).__name__}", flush=True)
         except Exception: pass
         for tab, vals in _tabs:
             base = f"https://sheets.googleapis.com/v4/spreadsheets/{DOCUMENT_ID}/values/{tab}"
             try:
-                requests.post(base + "!A1:Z1000000:clear", headers=H, timeout=30)
-                requests.put(base + "!A1?valueInputOption=RAW", headers=H, data=json.dumps({"values": vals}), timeout=60)
+                #   쓰고 나서 남는 아래 행만 지운다 — 예전엔 먼저 지우고 썼는데, 쓰기가 실패하면(격자 초과 등) 탭이 빈 채로 남아
+                #   모든 PC 가 무거운 원본 경로로 떨어졌다. 이제 쓰기가 실패하면 옛 값이 그대로 남는다.
+                _pr = requests.put(base + "!A1?valueInputOption=RAW", headers=H, data=json.dumps({"values": vals}), timeout=60)
+                if getattr(_pr, "status_code", 200) != 200:
+                    print(f"[stat_agg] {tab} 쓰기 거부 HTTP {_pr.status_code} — 옛 값 유지: {str(getattr(_pr, 'text', ''))[:160]}", flush=True); continue
+                requests.post(base + f"!A{len(vals) + 1}:Z1000000:clear", headers=H, timeout=30)
             except Exception as _we:
                 print(f"[stat_agg] {tab} 쓰기 실패: {type(_we).__name__}", flush=True)
         print(f"[stat_agg] 사전집계 갱신 — CHAMP {len(champ_vals)-1} · PLAYER {len(player_vals)-1} · SYN {len(syn_vals)-1} · NEM {len(nem_vals)-1} · BAN {len(ban_vals)-1} · BANPOS {len(banpos_vals)-1}", flush=True)
@@ -6771,7 +6797,22 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
 
     player_games, player_champ_counts, games_dict = {}, {}, {}
     processed_records = set()
-    player_first = {}   # 🌱 p_key -> 첫 기록일 'YYYY-MM-DD'
+    player_first = {}   # 🌱 p_key -> 첫 기록일 'YYYY-MM-DD'(이 탭 기준 — 아래에서 요약표 첫기록과 합친다)
+    stat_first, stat_first_nm = {}, {}   # 🌱 STAT_PLAYER 첫기록(협곡+칼바람) — 칼바람 로비에서도 협곡 이력을 알게(2026-09-24 리뷰)
+    try:
+        _sr = _gviz_tab_csv("STAT_PLAYER"); _sh = {c: i for i, c in enumerate(_sr[0])} if _sr else {}
+        if {"키", "소환사명", "첫기록"} <= set(_sh):
+            for _r in _sr[1:]:
+                if len(_r) <= max(_sh.values()): continue
+                _fd = str(_r[_sh["첫기록"]]).strip()[:10]
+                if len(_fd) != 10: continue
+                stat_first[str(_r[_sh["키"]]).strip().lower()] = _fd
+                _mn = get_main_name(str(_r[_sh["소환사명"]]).strip())
+                if _mn and (_mn not in stat_first_nm or _fd < stat_first_nm[_mn]): stat_first_nm[_mn] = _fd
+    except Exception: pass
+    def _first_of(pk, pn):
+        _c = [x for x in (player_first.get(pk), stat_first.get(pk), stat_first_nm.get(pn)) if x]
+        return min(_c) if _c else ""
 
     for r in data_rows:
         g_id = r[col_gid] if col_gid != -1 and col_gid < len(r) else ""
@@ -6877,6 +6918,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
 
         if total == 0:
             stats_dashboard[p_key] = {"summary": "기록 없음", "most_list": [], "op_list": [], "most_by_pos": {}, "op_by_pos": {}, "fatal_bans": [], "fatal_bans_by_pos": {}, "pos1": "선택안함", "pos2": "선택안함", "streak": "", "streak_val": 0, "overall_wr": 0.5, "games": 0, "side_wr_str": ""}
+            stats_dashboard[p_key]["first"] = _first_of(p_key, p_name)   # 🌱 이 탭엔 기록 없어도 다른 모드 첫기록
             continue
         
         wins = sum(1 for m in p_matches if m.get('result') == '승리')
@@ -6969,7 +7011,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
             "fatal_bans_by_pos": fatal_bans_by_pos,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
             "streak": "", "streak_val": streak_val, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str,
-            "first": player_first.get(p_key, "")   # 🌱 첫 내전 기록일(뉴비 새싹 폴백)
+            "first": _first_of(p_key, p_name)   # 🌱 첫 내전 기록일(이 탭 ∪ 요약표 — 뉴비 새싹 폴백·재가입 가드)
         }
 
     # 🚫 [v81.76 사장님 지시] 추천 밴 5 → 10개(GUI는 5개씩 2줄)
@@ -9899,7 +9941,7 @@ def create_graphic_ui():
     _T1_REG = set()   # 엠블럼이 표시된 슬롯(bf) 레지스트리 — 매 사이클 스윕으로 잔상 원천 차단
     _T1_EMB_CACHE = {}
     _SPROUT_CACHE = {}
-    _SPROUT_H = {}      # 폰트 이름 → 새싹 높이(px)
+    _SPROUT_H = {}      # (폰트 이름, 크기) → 새싹 높이(px)
     def _sprout_photo(bg, h):
         """🌱 새싹 아이콘 — 흙 한 줌 + 줄기 + 물방울 잎 두 장. 파일 없이 그린다(8배로 그려 줄여 작아도 또렷).
            라벨 배경색 위에 합성(T1 엠블럼과 같은 이유 — 라벨 투명 불가). (배경, 높이)별 캐시."""
@@ -9947,13 +9989,13 @@ def create_graphic_ui():
                     lbl.config(image="", compound="none"); lbl._sprout = None
                 return
             fk = str(lbl.cget("font"))
-            h = _SPROUT_H.get(fk)
-            if h is None:                                   # 폰트별 한 번만 잰다 — 1초마다 Font 를 새로 만들면 Tk 폰트가 쌓인다
-                try: _f = tkfont.nametofont(fk)
-                except Exception: _f = tkfont.Font(font=lbl.cget("font"))
-                try: h = max(12, int(_f.metrics("linespace") * 0.92))
+            try: _f = tkfont.nametofont(fk); ck = (fk, _f.actual("size"))   # 창 크기 변경(UF 배율)은 같은 이름 폰트의 크기만 바꾼다 → 크기까지 키로
+            except Exception: _f = None; ck = (fk, None)
+            h = _SPROUT_H.get(ck)
+            if h is None:                                   # 폰트·크기별 한 번만 잰다 — 1초마다 Font 를 새로 만들면 Tk 폰트가 쌓인다
+                try: h = max(12, int((_f or tkfont.Font(font=lbl.cget("font"))).metrics("linespace") * 0.92))
                 except Exception: h = 20
-                _SPROUT_H[fk] = h
+                _SPROUT_H[ck] = h
             bg = lbl.cget("bg"); key = (bg, h)
             if getattr(lbl, "_sprout", None) == key: return
             ph = _sprout_photo(bg, h)
