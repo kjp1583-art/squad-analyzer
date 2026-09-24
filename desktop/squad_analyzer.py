@@ -1222,6 +1222,50 @@ def _cosmetics_loop():
             pass
         time.sleep(60)
 
+# ===== 🌱 [2026-09-24 사장님 지시] 뉴비 새싹 — "클랜 가입한 지 일주일까지 아이디 옆에 새싹, 뉴비인 걸 알아보게" =====
+#   가입일은 두 가지로 본다(사장님: "디스코드 서버 가입일이 떠오르고, 분석기에 최초로 기록되는 것도 될 수 있을 것 같고").
+#   ① 디스코드 클랜 서버 가입 시각(봇 /joined · 10분 폴링) — 1순위.
+#   ② 디스코드에서 못 찾은 사람만: 첫 내전 기록일(STAT_PLAYER '첫기록' · 원본 폴백은 CLASSIC_NORMAL 날짜).
+#   재가입 가드: 디스코드 가입은 최근이어도 30일보다 오래된 내전 기록이 있으면 새싹을 달지 않는다(돌아온 고참).
+#   디스코드엔 오래 있었는데 첫 기록만 최근(새 롤 계정·늦게 첫 내전)이면 ①이 이겨 새싹 없음.
+JOINED_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/joined"
+NEWBIE_DAYS = 7
+NEWBIE_REJOIN_DAYS = 30
+JOINED = {}             # {tnorm(롤닉·표시명): 클랜 서버 가입 unix 시각}
+
+def _joined_loop():
+    """봇 /joined 10분 폴링(모든 PC). 실패하면 이전 값 유지 — 새싹은 없어도 게임엔 지장 없다."""
+    global JOINED
+    while True:
+        try:
+            d = (requests.get(JOINED_BRIDGE_URL, timeout=8).json() or {}).get("players") or {}
+            if len(d) >= 50: JOINED = {tnorm(k): int(v) for k, v in d.items() if k and v}
+        except Exception:
+            pass
+        time.sleep(600)
+
+def _date_ts(s):
+    """'2026-09-20' / '2026-09-20 21:08' → 그날 00:00 로컬 unix 시각. 못 읽으면 None."""
+    try:
+        y, m, d = (int(x) for x in str(s or "").strip()[:10].split("-"))
+        return time.mktime((y, m, d, 0, 0, 0, 0, 0, -1))
+    except Exception: return None
+
+def _is_newbie(name, first_date=None, now=None, joined=None):
+    """🌱 뉴비 판정 — 위 주석의 규칙. name 은 LCU 롤닉(태그 있어도 됨), first_date 는 첫 내전 기록일(없으면 None)."""
+    now = time.time() if now is None else now
+    jm = JOINED if joined is None else joined
+    keys = {tnorm(name)}
+    try: keys.add(tnorm(get_main_name(name)))           # 부계 → 본계 이름(LINK_ACCOUNT)으로도 찾는다
+    except Exception: pass
+    js = [jm[k] for k in keys if k and k in jm]
+    f = _date_ts(first_date)
+    f_age = (now - f) / 86400.0 if f else None
+    if js:
+        d_age = (now - min(js)) / 86400.0                  # 동명이인은 고참 쪽(봇이 이미 최솟값을 준다)
+        return d_age <= NEWBIE_DAYS and (f_age is None or f_age <= NEWBIE_REJOIN_DAYS)
+    return f_age is not None and f_age <= NEWBIE_DAYS
+
 TIER_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/tiers"   # 🎖 봇 내부티어 역할 엔드포인트
 def _tier_role_sync_loop():
     """🎖 [2026-07-13 사장님 지시] 디스코드 내부티어 역할 → CLAN_TIERS '신규 인원만' 추가(호스트·15분).
@@ -5801,6 +5845,8 @@ def rebuild_stat_aggregate():
         if any(c not in _ci for c in _need): return
         G, NM, PU, SD, PO, CH, RS, EV, SC = [_ci[c] for c in _need]
         BN = _ci.get("밴", -1)   # 약점발견(STAT_BAN)용, 없으면 스킵
+        DT = _ci.get("날짜", -1)  # 🌱 첫기록(뉴비 새싹 폴백)용, 없으면 빈칸
+        _first = {}
         SKIP_BAN = {"밴 없음", "밴 안함", "기록 대기", "결과 대기", "평가 대기", "알수없음", ""}
         _seen = set(); _champ = _dd(lambda: [0, 0]); _disp = {}
         _pl = _dd(lambda: [0, 0, 0, 0, 0, 0.0, 0, 0, 0, 0, 0])   # g,w,mvp,tr,ace,ssum,sn,bg,bw,rg,rw
@@ -5841,6 +5887,8 @@ def rebuild_stat_aggregate():
                 if pos: _pchamps_pos[(pk, pos)].add(cc)
             p = _pl[pk]
             p[0] += 1; p[1] += win
+            _d10 = str(r[DT]).strip()[:10] if 0 <= DT < len(r) else ""
+            if len(_d10) == 10 and _d10[4] == "-" and (pk not in _first or _d10 < _first[pk]): _first[pk] = _d10
             ev = str(r[EV]).strip() if EV < len(r) else ""
             if ev == "MVP": p[2] += 1
             elif ev == "역적": p[3] += 1
@@ -5892,9 +5940,10 @@ def rebuild_stat_aggregate():
         champ_vals = [["키", "소환사명", "챔피언", "포지션", "판수", "승"]]
         for (pk, c, pos), e in _champ.items():
             if e[0] > 0: champ_vals.append([pk, _disp.get(pk, ""), c, pos, e[0], e[1]])
-        player_vals = [["키", "소환사명", "총판수", "총승", "MVP", "역적", "ACE", "점수합", "점수판수", "블루판", "블루승", "레드판", "레드승", "연승"]]
+        # 🌱 '첫기록' 은 맨 끝 열 — 읽는 쪽이 전부 열 이름으로 찾으므로 구버전 클라이언트는 그냥 무시한다
+        player_vals = [["키", "소환사명", "총판수", "총승", "MVP", "역적", "ACE", "점수합", "점수판수", "블루판", "블루승", "레드판", "레드승", "연승", "첫기록"]]
         for pk, p in _pl.items():
-            player_vals.append([pk, _disp.get(pk, ""), p[0], p[1], p[2], p[3], p[4], round(p[5], 1), p[6], p[7], p[8], p[9], p[10], _streak(pk)])
+            player_vals.append([pk, _disp.get(pk, ""), p[0], p[1], p[2], p[3], p[4], round(p[5], 1), p[6], p[7], p[8], p[9], p[10], _streak(pk), _first.get(pk, "")])
         syn_vals = [["키A", "키B", "진영", "판수", "같은팀승"]] + [[a, b, sd_, e[0], e[1]] for (a, b, sd_), e in _syn.items() if e[0] >= 5]
         nem_vals = [["키A", "키B", "판수", "A측승"]] + [[a, b, e[0], e[1]] for (a, b), e in _nem.items() if e[0] >= 5]
         ban_vals = [["키", "챔피언", "밴판수", "밴판승"]] + [[pk, c, e[0], e[1]] for (pk, c), e in _ban.items() if e[0] >= 3]
@@ -6501,7 +6550,8 @@ def _crunch_from_aggregate(blue_players, red_players):
         if not k: continue
         P[k] = {"name": r[h["소환사명"]], "g": _i(r[h["총판수"]]), "w": _i(r[h["총승"]]),
                 "bg": _i(r[h["블루판"]]), "bw": _i(r[h["블루승"]]),
-                "rg": _i(r[h["레드판"]]), "rw": _i(r[h["레드승"]]), "stk": _i(r[h.get("연승", -1)] if "연승" in h else 0)}
+                "rg": _i(r[h["레드판"]]), "rw": _i(r[h["레드승"]]), "stk": _i(r[h.get("연승", -1)] if "연승" in h else 0),
+                "first": (str(r[h["첫기록"]]).strip() if "첫기록" in h and h["첫기록"] < len(r) else "")}
         mn = get_main_name(str(r[h["소환사명"]]))
         if mn: name_to_key[mn] = k
     if len(P) < 20: raise RuntimeError("STAT_PLAYER 표본 부족")
@@ -6606,7 +6656,8 @@ def _crunch_from_aggregate(blue_players, red_players):
             "most_list": most_list, "op_list": op_list, "fatal_bans": fatal_bans,
             "fatal_bans_by_pos": fatal_bans_by_pos,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
-            "streak": "", "streak_val": sv, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
+            "streak": "", "streak_val": sv, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str,
+            "first": pd.get("first", "")   # 🌱 첫 내전 기록일(뉴비 새싹 폴백)
         }
 
     blue_advice_list = sorted(red_pool.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -6687,6 +6738,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
         col_champ = headers.index("챔피언") if "챔피언" in headers else -1
         col_bans = headers.index("밴") if "밴" in headers else -1
         col_res = headers.index("결과") if "결과" in headers else -1
+        col_date = headers.index("날짜") if "날짜" in headers else -1   # 🌱 첫기록(뉴비 새싹 폴백)
         
         if col_res == -1: return {}, [], [], []
         data_rows = rows[1:]
@@ -6719,6 +6771,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
 
     player_games, player_champ_counts, games_dict = {}, {}, {}
     processed_records = set()
+    player_first = {}   # 🌱 p_key -> 첫 기록일 'YYYY-MM-DD'
 
     for r in data_rows:
         g_id = r[col_gid] if col_gid != -1 and col_gid < len(r) else ""
@@ -6740,6 +6793,8 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
         if p_key not in player_games:
             player_games[p_key] = []; player_champ_counts[p_key] = {}
         
+        _d10 = str(r[col_date]).strip()[:10] if col_date != -1 and col_date < len(r) else ""
+        if len(_d10) == 10 and _d10[4] == "-" and (p_key not in player_first or _d10 < player_first[p_key]): player_first[p_key] = _d10
         safe_bans = ", ".join(game_all_bans.get(g_id, set()))
         player_games[p_key].append({'g_id': g_id, 'champ': champ, 'bans': safe_bans, 'result': res, 'pos': matched_pos, 'team': t_name})
         
@@ -6913,7 +6968,8 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
             "most_list": most_list, "op_list": op_list, "fatal_bans": fatal_bans, "ban_pressure": bp_list,
             "fatal_bans_by_pos": fatal_bans_by_pos,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
-            "streak": "", "streak_val": streak_val, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
+            "streak": "", "streak_val": streak_val, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str,
+            "first": player_first.get(p_key, "")   # 🌱 첫 내전 기록일(뉴비 새싹 폴백)
         }
 
     # 🚫 [v81.76 사장님 지시] 추천 밴 5 → 10개(GUI는 5개씩 2줄)
@@ -9842,6 +9898,68 @@ def create_graphic_ui():
     # [v82.18] 엠블럼 로더 — variant별 로고를 팀 배경색 위에 합성(높이 26px, 원본 비율 유지). 캐시.
     _T1_REG = set()   # 엠블럼이 표시된 슬롯(bf) 레지스트리 — 매 사이클 스윕으로 잔상 원천 차단
     _T1_EMB_CACHE = {}
+    _SPROUT_CACHE = {}
+    _SPROUT_H = {}      # 폰트 이름 → 새싹 높이(px)
+    def _sprout_photo(bg, h):
+        """🌱 새싹 아이콘 — 흙 한 줌 + 줄기 + 물방울 잎 두 장. 파일 없이 그린다(8배로 그려 줄여 작아도 또렷).
+           라벨 배경색 위에 합성(T1 엠블럼과 같은 이유 — 라벨 투명 불가). (배경, 높이)별 캐시."""
+        if not PILLOW_INSTALLED: return None
+        key = (str(bg), int(h))
+        if key in _SPROUT_CACHE: return _SPROUT_CACHE[key]
+        try:
+            from PIL import ImageDraw as _ID
+            S = 8; W = H = max(10, int(h)); cw, ch = W * S, H * S
+            im = Image.new("RGBA", (cw, ch), (0, 0, 0, 0)); d = _ID.Draw(im)
+            OUT = (18, 60, 26, 255); SOIL = (122, 84, 52, 255); SOIL_O = (60, 38, 22, 255)
+            STEM = (96, 184, 72, 255); VEIN = (205, 248, 170, 255)
+            def _bez(p0, p1, p2, p3, n=24):
+                return [((1-t)**3*p0[0] + 3*(1-t)**2*t*p1[0] + 3*(1-t)*t*t*p2[0] + t**3*p3[0],
+                         (1-t)**3*p0[1] + 3*(1-t)**2*t*p1[1] + 3*(1-t)*t*t*p2[1] + t**3*p3[1]) for t in [i / n for i in range(n + 1)]]
+            def _leaf(base, tip, bulge, fill):
+                bx, by = base; tx, ty = tip; dx, dy = tx - bx, ty - by; L = math.hypot(dx, dy) or 1; nx, ny = -dy / L, dx / L
+                a = _bez(base, (bx+dx*.25+nx*bulge, by+dy*.25+ny*bulge), (bx+dx*.75+nx*bulge*.9, by+dy*.75+ny*bulge*.9), tip)
+                b = _bez(tip, (bx+dx*.75-nx*bulge*.9, by+dy*.75-ny*bulge*.9), (bx+dx*.25-nx*bulge, by+dy*.25-ny*bulge), base)
+                d.polygon(a + b[1:], fill=fill, outline=OUT, width=int(S * 1.1))
+                d.line([base, (bx + dx * .8, by + dy * .8)], fill=VEIN, width=max(1, int(S * .9)))
+            sx = cw * .5; top = (sx, ch * .46)
+            d.ellipse([cw*.16, ch*.80, cw*.84, ch*1.08], fill=SOIL, outline=SOIL_O, width=int(S * 1.2))
+            d.line([sx, ch*.90, sx, top[1]], fill=OUT, width=int(S * 3.8))
+            d.line([sx, ch*.89, sx, top[1] + S*.6], fill=STEM, width=int(S * 2.2))
+            _leaf(top, (cw*.05, ch*.22), ch*.17, (98, 196, 80, 255))
+            _leaf(top, (cw*.97, ch*.06), ch*.21, (128, 220, 92, 255))
+            d.ellipse([sx - S*1.5, top[1] - S*1.5, sx + S*1.5, top[1] + S*1.5], fill=STEM)
+            im = im.resize((W, H), Image.Resampling.LANCZOS)
+            gap = max(2, H // 6)                              # 이름과 붙지 않게 오른쪽 여백(compound 는 간격 옵션이 없다)
+            base = Image.new("RGBA", (W + gap, H), bg)
+            base.alpha_composite(im, (0, 0))
+            ph = ImageTk.PhotoImage(base)
+            _SPROUT_CACHE[key] = ph
+            return ph
+        except Exception: return None
+
+    def _apply_newbie(slot, p, s):
+        """🌱 가입 7일 이내(_is_newbie)면 이름 바로 앞에 새싹. 아니면 지운다. 상태가 그대로면 아무것도 안 한다(1초 주기 리드로우 방지)."""
+        try:
+            lbl = slot[0]
+            on = bool(p) and _is_newbie(str((p or {}).get('name', '')), (s or {}).get("first"))
+            if not on:
+                if getattr(lbl, "_sprout", None) is not None:
+                    lbl.config(image="", compound="none"); lbl._sprout = None
+                return
+            fk = str(lbl.cget("font"))
+            h = _SPROUT_H.get(fk)
+            if h is None:                                   # 폰트별 한 번만 잰다 — 1초마다 Font 를 새로 만들면 Tk 폰트가 쌓인다
+                try: _f = tkfont.nametofont(fk)
+                except Exception: _f = tkfont.Font(font=lbl.cget("font"))
+                try: h = max(12, int(_f.metrics("linespace") * 0.92))
+                except Exception: h = 20
+                _SPROUT_H[fk] = h
+            bg = lbl.cget("bg"); key = (bg, h)
+            if getattr(lbl, "_sprout", None) == key: return
+            ph = _sprout_photo(bg, h)
+            if ph is None: return
+            lbl.config(image=ph, compound="left"); lbl.image = ph; lbl._sprout = key
+        except Exception: pass
     def _t1_emblem_photo(ck, soft_bg, target_h=26):
         if not PILLOW_INSTALLED: return None
         key = (ck, soft_bg)
@@ -10675,6 +10793,7 @@ def create_graphic_ui():
                     _pre, _suf, _bdg = _apply_cosmetic(blue_slots[i], name_str, theme.TEAM_BLUE_SOFT, theme.TEAM_BLUE_FG)
                     _apply_my_cosmetic(blue_slots[i], p, theme.TEAM_BLUE_SOFT)
                     _apply_burn(blue_slots[i], s.get("streak_val", 0))   # 🔥 5연승 이상이면 닉네임이 탄다
+                    _apply_newbie(blue_slots[i], p, s)                    # 🌱 가입 7일 이내 뉴비 — 이름 앞 새싹
                     name_str = _pre + name_str + _suf + _bdg
                     blue_slots[i][0].config(text=name_str + lp_str)
                     _most_disp, _op_disp, _pos_tag = _display_champ_lists(p, s, local_pos_view)
@@ -10729,6 +10848,7 @@ def create_graphic_ui():
                 else:
                     _apply_my_cosmetic(blue_slots[i], {}, theme.TEAM_BLUE_SOFT)   # [v82.6] 빈 슬롯 꾸미기 잔상 정리(자리이동 시 프레임 남던 것)
                     _apply_burn(blue_slots[i], 0)   # 빈 슬롯이 되면 불도 끈다(잔상 방지)
+                    _apply_newbie(blue_slots[i], None, None)   # 🌱 빈 칸이 되면 새싹도 지운다(잔상 방지)
                     blue_slots[i][0].config(text="대기 중...", fg=theme.TEXT_MUT)
                     blue_slots[i][1].config(text="소환사를 정찰하고 있습니다.")
                     blue_slots[i][8].config(text="")
@@ -10753,6 +10873,7 @@ def create_graphic_ui():
                     _pre, _suf, _bdg = _apply_cosmetic(red_slots[i], name_str, theme.TEAM_RED_SOFT, theme.TEAM_RED_FG)
                     _apply_my_cosmetic(red_slots[i], p, theme.TEAM_RED_SOFT)
                     _apply_burn(red_slots[i], s.get("streak_val", 0))    # 🔥 5연승 이상이면 닉네임이 탄다
+                    _apply_newbie(red_slots[i], p, s)                     # 🌱 가입 7일 이내 뉴비 — 이름 앞 새싹
                     name_str = _pre + name_str + _suf + _bdg
                     red_slots[i][0].config(text=name_str + lp_str)
                     _most_disp, _op_disp, _pos_tag = _display_champ_lists(p, s, local_pos_view)
@@ -10807,6 +10928,7 @@ def create_graphic_ui():
                 else:
                     _apply_my_cosmetic(red_slots[i], {}, theme.TEAM_RED_SOFT)   # [v82.6] 빈 슬롯 꾸미기 잔상 정리
                     _apply_burn(red_slots[i], 0)   # 빈 슬롯이 되면 불도 끈다(잔상 방지)
+                    _apply_newbie(red_slots[i], None, None)    # 🌱 빈 칸이 되면 새싹도 지운다(잔상 방지)
                     red_slots[i][0].config(text="대기 중...", fg=theme.TEXT_MUT)
                     red_slots[i][1].config(text="소환사를 정찰하고 있습니다.")
                     red_slots[i][8].config(text="")
@@ -11852,6 +11974,7 @@ if __name__ == "__main__":
     threading.Thread(target=_position_sync_loop, daemon=True).start()         # 🎯 디스코드 포지션역할 → CLAN_POSITIONS 재작성(호스트만, 1h)
     threading.Thread(target=_departed_sync_loop, daemon=True).start()         # 👥 디스코드 탈퇴자 → DEPARTED 탭(호스트만, 30분)
     threading.Thread(target=_cosmetics_loop, daemon=True).start()             # 🖼️ 상점 장식(모든 PC) → 밴픽 '내 칸' 꾸미기
+    threading.Thread(target=_joined_loop, daemon=True).start()                # 🌱 클랜 서버 가입 시각(모든 PC) → 가입 7일 이내 새싹
     threading.Thread(target=_spellcheck_hotkey_loop, daemon=True).start()    # 🕵️ 스펠체크 헬퍼(사장님 계정 전용·비공개)
     threading.Thread(target=_lcu_backfill_loop, daemon=True).start()        # 🕰️ LCU 전적 백필(분석기 없이 치른 커스텀 회수)
     threading.Thread(target=ad_banner_engine, daemon=True).start()
