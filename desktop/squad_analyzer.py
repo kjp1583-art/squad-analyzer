@@ -399,6 +399,43 @@ _NB_TEAMS = {"blue": [], "red": []}   # 🚫 [v82.46] 노밴 진영 판정용 �
 #   한 게임 데이터만으로는 못 잡던 것들(하루 판수·연승·당일 전 라인 승리·연속 맞라이너 전승)을
 #   결과 리포트 직전에 시트에서 계산해 덧붙인다. 판정 실패는 무해(빈 리스트 반환).
 #   ※ '복수자'는 미토 3판2선승 구조상 매 시리즈 자연발생이라 자동판정 제외(2026-07-28 사장님 판단).
+def sheet_report_block(sheet_rows, this_gid, mine=None):
+    """[2026-09-25] 이미 마감된 게임의 MVP/ACE/역적 블록을 시트 값으로 만든다.
+       다른 분석기가 먼저 마감한 판은 그쪽 판정이 시트·웹훅에 나간 '정답'이다. 내 파스(mine={"MVP","ACE","역적": puuid})와
+       사람이 같으면 ""(내 리포트 그대로 써도 됨), 다르거나 비교가 안 되면 시트 기준 블록을 돌려준다. 시트에 MVP가 없으면 ""."""
+    try:
+        if not sheet_rows or len(sheet_rows) < 2: return ""
+        H = sheet_rows[0]
+        ci = lambda n: H.index(n) if n in H else -1
+        c_gid, c_name, c_ev = ci("게임ID"), ci("소환사명"), ci("매치평가")
+        c_pu, c_ch, c_sc = ci("PUUID"), ci("챔피언"), ci("점수")
+        if min(c_gid, c_name, c_ev) < 0: return ""
+        got = {}
+        for r in sheet_rows[1:]:
+            if len(r) > max(c_gid, c_ev) and str(r[c_gid]).strip() == str(this_gid).strip():
+                ev = str(r[c_ev]).strip()
+                if ev in ("MVP", "ACE", "역적") and ev not in got: got[ev] = r
+        if "MVP" not in got: return ""
+        cell = lambda r, c: str(r[c]).strip() if c >= 0 and len(r) > c else ""
+        if mine is not None and c_pu >= 0:
+            a = {k: cell(v, c_pu).lower() for k, v in got.items()}
+            b = {k: str(v or "").strip().lower() for k, v in mine.items() if str(v or "").strip()}
+            if a == b: return ""
+        def _ln(icon, tag, r):
+            s = f"{icon} [{tag}] {cell(r, c_name).split('#')[0].strip()}"
+            if cell(r, c_ch): s += f" ({cell(r, c_ch)})"
+            try: s += f" (AI점수 {float(cell(r, c_sc)):.1f}점)"
+            except Exception: pass
+            return s
+        lines = [_ln("🏆", "MVP", got["MVP"])]
+        if "ACE" in got: lines.append(_ln("🔥", "ACE", got["ACE"]))
+        if "역적" in got: lines.append(_ln("💀", "역적", got["역적"]))
+        else: lines.append("✨ 이번 경기는 역적 없이 다들 제 몫을 했어요!")
+        return "\n".join(lines) + "\n"
+    except Exception as _e:
+        print(f"[report] 시트 기준 리포트 생략: {type(_e).__name__}", flush=True)
+        return ""
+
 def cross_game_titles(sheet_rows, this_gid):
     out = []
     try:
@@ -9054,6 +9091,20 @@ def lcu_core_backend_loop():
                             try: _pre = get_sheet_data_cached(sheet_target, force=True)   # gviz-first(할당량0)
                             except Exception: _pre = []
                             if _game_all_finalized(_pre):
+                                # 🏆 [2026-09-25 사장님 제보 '리포트 팝업이 첫 판만 뜬다'] 여기서 바로 continue 하면 아래 팝업까지
+                                #   못 가서, 시트를 직접 마감한 분석기 한 대만 리포트가 떴다(여럿이 켜 둔 방에선 대부분 이쪽).
+                                #   쓰기·웹훅은 그대로 생략하고 내 화면 팝업만 띄운다. MVP/ACE/역적은 시트에 먼저 적힌 판정과
+                                #   다르면 시트 쪽으로 맞춘다(웹·디스코드와 같은 이름). 이미 마감된 행이라 게임 간 타이틀도 여기서 정확하다.
+                                try:
+                                    _rep = list(achieves_list or [])
+                                    _blk = sheet_report_block(_pre, _finalize_gid, {"MVP": mvp_puuid, "ACE": ace_puuid, "역적": troll_puuid})
+                                    if _blk:
+                                        if _rep and str(_rep[0]).startswith("🏆 [MVP]"): _rep[0] = _blk
+                                        else: _rep.insert(0, _blk)
+                                    _rep += cross_game_titles(_pre, _finalize_gid)
+                                    if _rep:
+                                        with gui_lock: gui_data["achievements"] = _rep
+                                except Exception: pass
                                 active_recording_id = None; eog_write_retry = 0; _fin_write_retry = 0   # [리뷰반영] 쓰기예산도 리셋 — 같은 로비 연속게임(multi_id 불변)서 예산 누수로 다음 게임 조기포기 방지
                                 continue
                         # 실제 기입은 항상 authoritative(서비스계정) 행번호 사용 — gviz 행드롭/오시트 리스크 제거(리뷰 #1/#9).
@@ -9084,6 +9135,7 @@ def lcu_core_backend_loop():
                             
                             target_gid = f"#{active_recording_id}"
                             cells_to_update = []
+                            _xt_fill = {}   # 🏅 [2026-09-25] 게임 간 타이틀용 — 방금 정한 이 판 결과·포지션(시트 사본엔 아직 '결과 대기')
 
                             # [모의테스트 HIGH — 잔여 중복 감지] 같은 게임ID + 같은 PUUID가 2회↑면 멀티인스턴스 동시 append 잔재(중복행).
                             #   구글시트는 원자적 락이 없어 100% 방지가 불가 → 남으면 감지해 로그·GUI로 알림(오삭제 위험 때문에 자동삭제 안 함, 수동 정리 유도).
@@ -9117,6 +9169,7 @@ def lcu_core_backend_loop():
                                         
                                         res_str = "승리" if t_id_num == win_id else "패배"
                                         if res_c != -1: cells_to_update.append(gspread.Cell(row=row_num, col=res_c+1, value=res_str))
+                                        if res_c != -1: _xt_fill.setdefault(r_idx, {})[res_c] = res_str
                                         
                                         if ban_c != -1:
                                             existing_ban = r[ban_c] if len(r) > ban_c else ""
@@ -9165,6 +9218,7 @@ def lcu_core_backend_loop():
                                             _pold = r[pos_c] if len(r) > pos_c else ""
                                             if _pv and _pv != _pold:
                                                 cells_to_update.append(gspread.Cell(row=row_num, col=pos_c+1, value=_pv))
+                                                _xt_fill.setdefault(r_idx, {})[pos_c] = _pv
                                                 print(f"[포지션정정] {target_gid} {_pold or '(빈칸)'} → {_pv}", flush=True)
 
                                         # 📊 [v82.26] 상세지표 팩 + 픽순서(드래프트만, pk1~10)
@@ -9235,7 +9289,16 @@ def lcu_core_backend_loop():
                             #   시트는 마감하지만 _is_appender=False라 리포트를 못 쏴 매 게임 유실됐음. 이제 finalize 지점 도달(=행 가시+마감 수행) 인스턴스가 발송.
                             #   단일발송 유지: 비주체는 rank 스태거(L3012) 후 '이미 마감?' 확인되면 continue(L3017)로 여기 도달 안 함 → 실제 마감 수행한 ~1인스턴스만 도달. posted_game_ids로 인스턴스내 1회.
                             try:   # 🏅 [v82.48] 게임 간 타이틀(하루 판수·연승·다재다능·스토커) 합류
-                                _xt = cross_game_titles(sheet_data_check, _finalize_gid)
+                                #   [2026-09-25] sheet_data_check 는 기입 '전' 사본이라 이 판 행이 '결과 대기'였다 → 판정이
+                                #   이 판을 못 세서 타이틀이 한 번도 안 나왔다. 방금 정한 결과·포지션을 사본에 채워서 판정한다.
+                                _xt_rows = list(sheet_data_check)
+                                for _xi, _xf in _xt_fill.items():
+                                    _xr = list(_xt_rows[_xi])
+                                    for _xc, _xv in _xf.items():
+                                        while len(_xr) <= _xc: _xr.append("")
+                                        _xr[_xc] = _xv
+                                    _xt_rows[_xi] = _xr
+                                _xt = cross_game_titles(_xt_rows, _finalize_gid)
                                 if _xt: achieves_list = list(achieves_list) + _xt
                             except Exception: pass
                             if achieves_list and _game_visible(sheet_data_check) and (active_recording_id not in posted_game_ids):
@@ -10669,6 +10732,43 @@ def create_graphic_ui():
         finally:
             root.after(140, _burn_tick)
 
+    _REPORT_WIN = {"w": None, "txt": None, "gen": 0}
+    def _show_match_report(text):
+        """🏆 매치 결과 리포트 창. [2026-09-25] 윈도우 기본 메시지박스(messagebox.showinfo)는 롤 클라이언트가
+           앞에 있으면 앞으로 못 나오고 뒤에 깔릴 수 있다(작업표시줄만 깜빡임) → 우리 창으로 띄우고 4초간
+           최상단에 뒀다 내린다(다음 판 게임 화면까지 덮지 않게). 이전 리포트 창이 열려 있으면 그 창을 새 내용으로 바꾼다."""
+        try:
+            w, txt = _REPORT_WIN.get("w"), _REPORT_WIN.get("txt")
+            if not (w is not None and w.winfo_exists()):
+                w = tk.Toplevel(root); w.title("🏆 매치 결과 리포트 및 타이틀 획득!")
+                w.configure(bg="#12141a")
+                try: w.iconbitmap(resource_path("icon.ico"))
+                except Exception: pass
+                bar = tk.Frame(w, bg="#12141a"); bar.pack(side="bottom", fill="x")
+                tk.Button(bar, text="확인", command=w.destroy, bg="#232838", fg="#cfd6e4",
+                          relief="flat", padx=18, cursor="hand2").pack(pady=(4, 12))
+                box = tk.Frame(w, bg="#12141a"); box.pack(side="top", fill="both", expand=True, padx=16, pady=(14, 4))
+                sb = tk.Scrollbar(box); sb.pack(side="right", fill="y")
+                txt = tk.Text(box, wrap="word", width=58, bg="#12141a", fg="#e8eaf0", relief="flat",
+                              font=UF(10), yscrollcommand=sb.set, highlightthickness=0, bd=0)
+                txt.pack(side="left", fill="both", expand=True)
+                sb.config(command=txt.yview)
+                w.bind("<Return>", lambda e: w.destroy()); w.bind("<Escape>", lambda e: w.destroy())
+                _REPORT_WIN.update({"w": w, "txt": txt})
+            txt.config(state="normal"); txt.delete("1.0", "end"); txt.insert("1.0", str(text).rstrip())
+            txt.config(height=max(6, min(22, int(txt.index("end-1c").split(".")[0]) + 1)), state="disabled")
+            w.update_idletasks()
+            # 본체가 숨김·최소화여도 보이게 화면 가운데 기준(본체 좌표는 숨김 상태에서 의미 없음)
+            w.geometry("+%d+%d" % (max(0, (w.winfo_screenwidth() - w.winfo_reqwidth()) // 2),
+                                   max(0, (w.winfo_screenheight() - w.winfo_reqheight()) // 3)))
+            _REPORT_WIN["gen"] += 1; _gen = _REPORT_WIN["gen"]
+            w.deiconify(); w.lift(); w.attributes("-topmost", True)
+            w.after(4000, lambda: _REPORT_WIN["gen"] == _gen and w.winfo_exists() and w.attributes("-topmost", False))
+            try: w.bell()
+            except Exception: pass
+        except Exception as _re:
+            print(f"[report] 리포트 창 표시 실패: {type(_re).__name__} {str(_re)[:120]}", flush=True)
+
     def update_gui():
         try:
             with gui_lock:
@@ -10702,13 +10802,7 @@ def create_graphic_ui():
             if local_achievements:
                 ach_text = "아래 유저들이 게임 종료 후 특수 타이틀(업적)을 달성했습니다!\n\n"
                 for a in local_achievements: ach_text += str(a) + "\n"
-                def show_popup():
-                    top_msg = tk.Toplevel(root)
-                    top_msg.withdraw()
-                    top_msg.attributes("-topmost", True)
-                    messagebox.showinfo("🏆 매치 결과 리포트 및 타이틀 획득!", ach_text, parent=top_msg)
-                    top_msg.destroy()
-                root.after(100, show_popup)
+                root.after(100, lambda t=ach_text: _show_match_report(t))
                 
             status_var.set(local_status)
             bans_var.set(local_bans)
