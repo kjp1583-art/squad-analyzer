@@ -395,10 +395,6 @@ def _rotation_label(seq):
 
 _NB_TEAMS = {"blue": [], "red": []}   # 🚫 [v82.46] 노밴 진영 판정용 — 리포트 발송 직전 루프가 팀 로스터를 복사해 둠
 
-# 🏅 [v82.48 사장님 지시] 시트 전체 기록 기반 '게임 간' 타이틀 자동판정 —
-#   한 게임 데이터만으로는 못 잡던 것들(하루 판수·연승·당일 전 라인 승리·연속 맞라이너 전승)을
-#   결과 리포트 직전에 시트에서 계산해 덧붙인다. 판정 실패는 무해(빈 리스트 반환).
-#   ※ '복수자'는 미토 3판2선승 구조상 매 시리즈 자연발생이라 자동판정 제외(2026-07-28 사장님 판단).
 def sheet_report_block(sheet_rows, this_gid, mine=None):
     """[2026-09-25] 이미 마감된 게임의 MVP/ACE/역적 블록을 시트 값으로 만든다.
        다른 분석기가 먼저 마감한 판은 그쪽 판정이 시트·웹훅에 나간 '정답'이다. 내 파스(mine={"MVP","ACE","역적": puuid})와
@@ -436,6 +432,10 @@ def sheet_report_block(sheet_rows, this_gid, mine=None):
         print(f"[report] 시트 기준 리포트 생략: {type(_e).__name__}", flush=True)
         return ""
 
+# 🏅 [v82.48 사장님 지시] 시트 전체 기록 기반 '게임 간' 타이틀 자동판정 —
+#   한 게임 데이터만으로는 못 잡던 것들(하루 판수·연승·당일 전 라인 승리·연속 맞라이너 전승)을
+#   결과 리포트 직전에 시트에서 계산해 덧붙인다. 판정 실패는 무해(빈 리스트 반환).
+#   ※ '복수자'는 미토 3판2선승 구조상 매 시리즈 자연발생이라 자동판정 제외(2026-07-28 사장님 판단).
 def cross_game_titles(sheet_rows, this_gid):
     out = []
     try:
@@ -450,13 +450,16 @@ def cross_game_titles(sheet_rows, this_gid):
         disp = lambda r: str(r[c_name]).split("#")[0].strip()
 
         # 이 게임 참가자 · 게임 순서(시트 기록 순 = 시간순)
-        gids = []
+        gids, _gs = [], set()   # [2026-09-25] 같은 판이 두 덩어리로 갈려 있어도(늦은 중복 append) 한 판으로 센다
         for r in rows:
             g = str(r[c_gid]).strip()
-            if g and (not gids or gids[-1] != g): gids.append(g)
+            if g and g not in _gs: _gs.add(g); gids.append(g)
         try: gi_now = gids.index(str(this_gid).strip())
         except ValueError: gi_now = len(gids) - 1
-        cur = [r for r in rows if str(r[c_gid]).strip() == str(this_gid).strip()]
+        cur, _ck = [], set()
+        for r in rows:   # 중복행이 있어도 사람당 한 줄(타이틀 두 번 출력 방지)
+            if str(r[c_gid]).strip() == str(this_gid).strip() and key(r) not in _ck:
+                _ck.add(key(r)); cur.append(r)
         if not cur: return out
         today = str(cur[0][c_date])[:10]
 
@@ -468,14 +471,21 @@ def cross_game_titles(sheet_rows, this_gid):
         for r in cur:
             k, nm = key(r), disp(r)
             mine = by_player_today.get(k, [])
-            played = [x for x in mine if str(x[c_res]) in ("승리", "패배")]
+            played, _pg = [], set()
+            for x in mine:   # 판(게임ID)당 한 번
+                if str(x[c_res]) in ("승리", "패배") and str(x[c_gid]).strip() not in _pg:
+                    _pg.add(str(x[c_gid]).strip()); played.append(x)
             # ① 하루 종일 할 수 있어 — 당일 내전 20판 달성(달성 판에서 1회)
             if len(played) == 20 and str(r[c_res]) in ("승리", "패배"):
                 out.append(f"🕛 [하루 종일 할 수 있어] 하루 내전 20판 달성 ({nm})")
             # ② 다재다능 — 당일 5개 라인 각각 1승 이상
+            #    [2026-09-25] 완성시킨 그 판에서 한 번만(이후 승리마다 반복되지 않게 — ①③과 같은 '달성 판 1회')
             if c_pos >= 0 and str(r[c_res]) == "승리":
+                _lanes = {"탑", "정글", "미드", "원딜", "서폿"}
+                _gnow = str(r[c_gid]).strip()
                 wins_pos = {str(x[c_pos]).strip() for x in played if str(x[c_res]) == "승리"}
-                if {"탑", "정글", "미드", "원딜", "서폿"} <= wins_pos:
+                wins_before = {str(x[c_pos]).strip() for x in played if str(x[c_res]) == "승리" and str(x[c_gid]).strip() != _gnow}
+                if _lanes <= wins_pos and not (_lanes <= wins_before):
                     out.append(f"🎭 [다재다능] 하루 안에 모든 라인에서 1승씩 달성 ({nm})")
             # ③ 모두가 내 발아래 — 10연승(이번 판 포함, 시트 전체 기준)
             if str(r[c_res]) == "승리":
@@ -489,17 +499,21 @@ def cross_game_titles(sheet_rows, this_gid):
                 if streak == 10:
                     out.append(f"👑 [모두가 내 발아래] 내전 10연승 달성 ({nm})")
             # ④ 스토커 — 최근 3게임 연속 같은 맞라이너와 붙어 전승
+            #    [2026-09-25] 실제 라인(탑~서폿)끼리만 맞라이너 — 칼바람·'선택안함' 행은 아무 상대나 잡혀 이긴 팀 5명이 다 받았다.
+            #    연속 4·5판째엔 다시 주지 않는다(딱 3판째 1회).
+            def _vs(g):
+                me = next((x for x in rows if str(x[c_gid]).strip() == g and key(x) == k), None)
+                if me is None or str(me[c_res]) != "승리": return None
+                if str(me[c_pos]).strip() not in {"탑", "정글", "미드", "원딜", "서폿"}: return None
+                o = next((x for x in rows if str(x[c_gid]).strip() == g
+                          and str(x[c_pos]).strip() == str(me[c_pos]).strip()
+                          and str(x[c_side]).strip() != str(me[c_side]).strip()), None)
+                return key(o) if o is not None else None
             if c_pos >= 0 and c_side >= 0 and str(r[c_res]) == "승리" and gi_now >= 2:
-                opps, ok = [], True
-                for g in gids[gi_now - 2: gi_now + 1]:
-                    me = next((x for x in rows if str(x[c_gid]).strip() == g and key(x) == k), None)
-                    if me is None or str(me[c_res]) != "승리": ok = False; break
-                    o = next((x for x in rows if str(x[c_gid]).strip() == g
-                              and str(x[c_pos]).strip() == str(me[c_pos]).strip()
-                              and str(x[c_side]).strip() != str(me[c_side]).strip()), None)
-                    if o is None: ok = False; break
-                    opps.append(key(o))
-                if ok and len(opps) == 3 and len(set(opps)) == 1:
+                opps = [_vs(g) for g in gids[gi_now - 2: gi_now + 1]]
+                ok = all(opps) and len(set(opps)) == 1
+                if ok and gi_now >= 3 and _vs(gids[gi_now - 3]) == opps[0]: ok = False   # 이미 3연속을 넘긴 흐름
+                if ok and len(opps) == 3:
                     o_nm = next((disp(x) for x in rows if key(x) == opps[0]), "상대")
                     out.append(f"🕵 [스토커] 3판 연속 같은 맞라이너({o_nm})와 만나 전부 승리 ({nm})")
     except Exception as _e:
@@ -9077,6 +9091,22 @@ def lcu_core_backend_loop():
                                     if not (res in ("승리", "패배") and ev not in ("", "평가 대기")):
                                         return False
                             return found
+                        def _popup_from_sheet(rows):
+                            """남이 이미 마감한 판 — 쓰기·웹훅 없이 내 화면 리포트만 띄운다. MVP/ACE/역적은 시트에 먼저 적힌
+                               판정과 다르면 시트 쪽으로 맞춘다(웹·디스코드와 같은 이름). 마감된 행이라 게임 간 타이틀도 정확하다."""
+                            try:
+                                _rep = list(achieves_list or [])
+                                _mine = {"MVP": mvp_puuid or (f"cid:{mvp_cid}" if mvp_cid else ""),   # puuid 없이 챔프로 잡은 판정도 '있음'으로 비교
+                                         "ACE": ace_puuid or (f"cid:{ace_cid}" if ace_cid else ""),
+                                         "역적": troll_puuid or (f"cid:{troll_cid}" if troll_cid else "")}
+                                _blk = sheet_report_block(rows, _finalize_gid, _mine)
+                                if _blk:
+                                    if _rep and str(_rep[0]).startswith("🏆 [MVP]"): _rep[0] = _blk
+                                    else: _rep.insert(0, _blk)
+                                _rep += cross_game_titles(rows, _finalize_gid)
+                                if _rep:
+                                    with gui_lock: gui_data["achievements"] = _rep
+                            except Exception: pass
                         # 비주체(append 승자 아님)는 '결정적 순번(rank)' 양보 후 값싼 gviz로 '이미 마감?'만 확인 → 마감이면 스킵(쓰기 0).
                         #   [V81.48] 랜덤 15~30s → rank 계단(12 + rank*6s)으로 변경: 앞 순번이 먼저 마감하면 뒤 순번은 여기서 스킵 →
                         #   여러 비주체가 동시에 몰려 429 충돌·예산소진으로 '결과대기 영구화'되던 문제 해소. 주체 부재 시엔 순차로 반드시 1명이 마감.
@@ -9093,18 +9123,7 @@ def lcu_core_backend_loop():
                             if _game_all_finalized(_pre):
                                 # 🏆 [2026-09-25 사장님 제보 '리포트 팝업이 첫 판만 뜬다'] 여기서 바로 continue 하면 아래 팝업까지
                                 #   못 가서, 시트를 직접 마감한 분석기 한 대만 리포트가 떴다(여럿이 켜 둔 방에선 대부분 이쪽).
-                                #   쓰기·웹훅은 그대로 생략하고 내 화면 팝업만 띄운다. MVP/ACE/역적은 시트에 먼저 적힌 판정과
-                                #   다르면 시트 쪽으로 맞춘다(웹·디스코드와 같은 이름). 이미 마감된 행이라 게임 간 타이틀도 여기서 정확하다.
-                                try:
-                                    _rep = list(achieves_list or [])
-                                    _blk = sheet_report_block(_pre, _finalize_gid, {"MVP": mvp_puuid, "ACE": ace_puuid, "역적": troll_puuid})
-                                    if _blk:
-                                        if _rep and str(_rep[0]).startswith("🏆 [MVP]"): _rep[0] = _blk
-                                        else: _rep.insert(0, _blk)
-                                    _rep += cross_game_titles(_pre, _finalize_gid)
-                                    if _rep:
-                                        with gui_lock: gui_data["achievements"] = _rep
-                                except Exception: pass
+                                _popup_from_sheet(_pre)
                                 active_recording_id = None; eog_write_retry = 0; _fin_write_retry = 0   # [리뷰반영] 쓰기예산도 리셋 — 같은 로비 연속게임(multi_id 불변)서 예산 누수로 다음 게임 조기포기 방지
                                 continue
                         # 실제 기입은 항상 authoritative(서비스계정) 행번호 사용 — gviz 행드롭/오시트 리스크 제거(리뷰 #1/#9).
@@ -9252,6 +9271,13 @@ def lcu_core_backend_loop():
                                         # 🔥 [V80.9] 패치 버전을 텍스트로 안전하게 고정
                                         if patch_c != -1: cells_to_update.append(gspread.Cell(row=row_num, col=patch_c+1, value=f"v{PATCH_VERSION_SHORT}"))
 
+                            # 🏆 [2026-09-25] gviz 가 늦어 위 '이미 마감?' 확인을 놓친 비주체 — 서비스 읽기로 보니 전 행이 이미 남이 마감.
+                            #   쓸 게 없는데 아래로 가면 리포트 웹훅이 한 번 더 나가고(봇 타이틀 원장 중복) 팝업은 시트와 다를 수 있다.
+                            #   내가 쓰기를 한 번이라도 시도했으면(_fin_write_retry>0 — 실패로 보였어도 반영됐을 수 있다) 예전대로 간다.
+                            if (not _is_appender) and (not cells_to_update) and _fin_write_retry == 0 and _game_all_finalized(sheet_data_check):
+                                _popup_from_sheet(sheet_data_check)
+                                active_recording_id = None; eog_retry_count = 0; eog_write_retry = 0; _fin_write_retry = 0
+                                continue
                             if cells_to_update:
                                 # [V81.45] '결과 대기 영원' 수정 / [2026-07-07 쓰기429 근본완화] 예전엔 실패 시 최대 20회×3=60번 update_cells를
                                 #   짧은 간격(5s)으로 재시도 → 피크(2~3로비 종료 클러스터)에 분당 쓰기할당량(≈60/분)을 재시도가 스스로 소진하는 악순환.
@@ -10732,7 +10758,7 @@ def create_graphic_ui():
         finally:
             root.after(140, _burn_tick)
 
-    _REPORT_WIN = {"w": None, "txt": None, "gen": 0}
+    _REPORT_WIN = {"w": None, "txt": None, "gen": 0, "font": None}
     def _show_match_report(text):
         """🏆 매치 결과 리포트 창. [2026-09-25] 윈도우 기본 메시지박스(messagebox.showinfo)는 롤 클라이언트가
            앞에 있으면 앞으로 못 나오고 뒤에 깔릴 수 있다(작업표시줄만 깜빡임) → 우리 창으로 띄우고 4초간
@@ -10749,21 +10775,32 @@ def create_graphic_ui():
                           relief="flat", padx=18, cursor="hand2").pack(pady=(4, 12))
                 box = tk.Frame(w, bg="#12141a"); box.pack(side="top", fill="both", expand=True, padx=16, pady=(14, 4))
                 sb = tk.Scrollbar(box); sb.pack(side="right", fill="y")
+                if _REPORT_WIN.get("font") is None:   # 전용 폰트 — UF() 공용 폰트는 본체 창 배율을 따라 작은 화면에서 6~7pt로 줄어든다
+                    try: _REPORT_WIN["font"] = tkfont.Font(family="Malgun Gothic", size=10)
+                    except Exception: _REPORT_WIN["font"] = UF(10)
                 txt = tk.Text(box, wrap="word", width=58, bg="#12141a", fg="#e8eaf0", relief="flat",
-                              font=UF(10), yscrollcommand=sb.set, highlightthickness=0, bd=0)
+                              font=_REPORT_WIN["font"], yscrollcommand=sb.set, highlightthickness=0, bd=0)
                 txt.pack(side="left", fill="both", expand=True)
                 sb.config(command=txt.yview)
                 w.bind("<Return>", lambda e: w.destroy()); w.bind("<Escape>", lambda e: w.destroy())
                 _REPORT_WIN.update({"w": w, "txt": txt})
             txt.config(state="normal"); txt.delete("1.0", "end"); txt.insert("1.0", str(text).rstrip())
-            txt.config(height=max(6, min(22, int(txt.index("end-1c").split(".")[0]) + 1)), state="disabled")
+            _n = int(txt.index("end-1c").split(".")[0])
+            txt.config(height=max(6, min(22, _n + 1)))
             w.update_idletasks()
+            try:   # 긴 타이틀은 줄바꿈돼 두 줄을 먹는다 → 창이 뜬 뒤 화면상 줄 수로 다시 맞춘다(마지막 줄이 가려지지 않게)
+                _d = txt.count("1.0", "end", "update", "displaylines")
+                _d = int(_d[0] if isinstance(_d, (tuple, list)) else (_d or 0))
+                if _d > _n:
+                    txt.config(height=max(6, min(22, _d + 1))); w.update_idletasks()
+            except Exception: pass
+            txt.config(state="disabled")
             # 본체가 숨김·최소화여도 보이게 화면 가운데 기준(본체 좌표는 숨김 상태에서 의미 없음)
             w.geometry("+%d+%d" % (max(0, (w.winfo_screenwidth() - w.winfo_reqwidth()) // 2),
                                    max(0, (w.winfo_screenheight() - w.winfo_reqheight()) // 3)))
             _REPORT_WIN["gen"] += 1; _gen = _REPORT_WIN["gen"]
             w.deiconify(); w.lift(); w.attributes("-topmost", True)
-            w.after(4000, lambda: _REPORT_WIN["gen"] == _gen and w.winfo_exists() and w.attributes("-topmost", False))
+            root.after(4000, lambda: _REPORT_WIN["gen"] == _gen and w.winfo_exists() and w.attributes("-topmost", False))
             try: w.bell()
             except Exception: pass
         except Exception as _re:
