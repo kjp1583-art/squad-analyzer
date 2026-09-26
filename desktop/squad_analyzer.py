@@ -9468,6 +9468,7 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
                     _team_obj[_t] = _team_obj.get(_t, 0) + int(_st.get('dragonKills', _st.get('DRAGON_KILLS', 0)) or 0) + int(_st.get('baronKills', _st.get('BARON_KILLS', 0)) or 0)
 
         player_scores = []
+        _win_names = []   # 🔥 [2026-09-26] 팀 타이틀(전투민족) 획득자 — 봇이 이 명단으로 역할을 준다
         for p in participants:
             if not isinstance(p, dict): continue
             t_id = p.get('teamId')
@@ -9520,6 +9521,9 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
                     pos_final_map[f"{t_id}_{c_id}"] = _pk
 
             is_win = teams[t_id]['win']
+            if is_win:
+                _wn = str(name or "").split('#')[0].strip()
+                if _wn and not _wn.startswith("유저") and _wn not in _win_names: _win_names.append(_wn)
             deaths = stats.get('deaths', stats.get('NUM_DEATHS', 0))
             kills = stats.get('kills', stats.get('CHAMPIONS_KILLED', 0))
             assists = stats.get('assists', stats.get('ASSISTS', 0))
@@ -9675,7 +9679,12 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
             if total_kills >= 100:
                 for t_id in [100, 200]:
                     if teams[t_id]['win']:
-                        achievements.append(f"🔥 [전투민족] 양팀 도합 100킬 이상 돌파! ({t_id}팀 승리 / 총 {total_kills}킬)")
+                        # [2026-09-26 사장님 제보 '전투민족 떴는데 역할이 안 붙는다'] 팀 타이틀은 괄호가 사람 이름이 아니라
+                        #   봇이 누구에게 줄지 몰랐다 → 승리팀 명단을 다음 줄 '└ 획득: …' 로 싣는다(봇 _parse_title_awards 가 읽음).
+                        _side = "블루팀" if t_id == 100 else "레드팀"
+                        _cl = f"🔥 [전투민족] 양팀 도합 100킬 이상 돌파! ({_side} 승리 / 총 {total_kills}킬)"
+                        if _win_names: _cl += "\n   └ 획득: " + ", ".join(_win_names)
+                        achievements.append(_cl)
                         break
 
         if player_scores:
