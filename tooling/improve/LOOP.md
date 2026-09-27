@@ -9,6 +9,8 @@
 - `signals.py` — 신호 수집 스크립트.
 
 저장소: `kjp1583-art/squad-analyzer`(분석기·웹·툴링) · `kjp1583-art/squad-naejeon-bot`(봇).
+클론 위치는 `/home/user/squad-analyzer` · `/home/user/squad-naejeon-bot`(없으면 `add_repo`(push) 후 그 경로로 클론).
+루틴: 전용 세션에 매일 09:47 KST 발화(「🔁 자동 개선 루프」). 봇 공개 주소 `https://hth3thmujs.apps.bot-hosting.cloud`.
 두 저장소의 `CLAUDE.md` 규칙이 이 헌장보다 우선한다(패치노트·장비 끼운 테스트·십이귀월 3곳 동기·주간스쿼드·배포·금지 사항).
 
 ## 목표
@@ -59,6 +61,7 @@
    - 분석기 릴리스는 워크플로 success + version.txt 올라감 확인.
 8. **기록·보고** — `log.md` 맨 위에 회차 기록(아래 형식)을 넣고 backlog 상태를 갱신해 커밋·푸시(패치노트 없는 툴링 커밋은 main 직행 가능).
    사장님께는 **배포했거나 · 승인할 제안이 새로 생겼거나 · 사고/롤백이 있었을 때만** 한국어로 짧게(3~6줄) 보고한다. 아무 일 없으면 조용히 끝낸다.
+   보고는 세션 마지막 메시지로 하고, `PushNotification` 도구가 있으면 같은 내용 한 줄 요약을 푸시로도 보낸다(사장님이 이 전용 세션을 늘 열어 보진 않는다).
 
 ## 회차 기록 형식(`log.md`)
 ```
