@@ -217,7 +217,9 @@ def invalidate_sheet_cache(title):
         global_cache_time[title] = 0
 
 def load_config():
-    default_cfg = {"windows_startup": False, "lol_auto_show": True, "minimize_to_tray": False,
+    # [2026-09-27 사장님 지시] 부팅 숨김 대기(windows_startup) 기본 켜짐 — 이게 켜져 있어야 롤을 켤 때(lol_auto_show) 분석기가 같이 뜬다.
+    #   설정에서 직접 끈 사람은 config.json 에 false 가 남아 그대로 유지된다.
+    default_cfg = {"windows_startup": True, "lol_auto_show": True, "minimize_to_tray": False,
                    "pos_view_default": True,   # [v82.37] 대기실 모스트 표시 기본값(True=현재포지션)
                    "show_synergy": True}       # 🧩 우측 시너지 3칸(고승률·역시너지·천적) 표시
     # [v82.30] lol_auto_show 기본값을 설정 UI(True)와 일치시킴
@@ -11827,7 +11829,7 @@ class ClanSettingsWindow(tk.Toplevel):
         style = ttk.Style()
         style.configure("TCheckbutton", background=theme.BG, foreground=theme.TEXT, font=UF(10))
         
-        self.var_startup = tk.BooleanVar(value=APP_CONFIG.get("windows_startup", False))
+        self.var_startup = tk.BooleanVar(value=APP_CONFIG.get("windows_startup", True))
         self.var_lol_auto = tk.BooleanVar(value=APP_CONFIG.get("lol_auto_show", True))
         self.var_tray = tk.BooleanVar(value=APP_CONFIG.get("minimize_to_tray", False))
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
