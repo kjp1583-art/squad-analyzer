@@ -1662,7 +1662,10 @@ function tierMetricsOf(name, evalGids){
     trollRate:evalG?troll/evalG*100:null,
     aceRate:l?ace/l*100:null,   // ACE획득률 = ACE ÷ 패배수(진 판에서만 %)
     avgAI:aiN?aiSum/aiN:null,
-    soloScore:sr?sr.score:null, soloWR:sr?sr.wr:null, soloW:sr?sr.wins:0, soloL:sr?sr.losses:0};
+    soloScore:sr?sr.score:null, soloWR:sr?sr.wr:null, soloW:sr?sr.wins:0, soloL:sr?sr.losses:0,
+    // 🏅 표시 전용 — 현시즌 점수·'다이아 2 30LP' 라벨(시트 티어·LP 우선). 현시즌 없으면(피크만) null
+    soloCur:(sr&&sr.cur!=null)?sr.cur:null,
+    soloTxt:(sr&&sr.cur!=null)?(soloTierText(sr.tier,sr.lp)||soloScoreText(sr.cur)):null};
 }
 // 전체 평가 1회 산출 → ASSESSMENTS(name→평가), TIER_AVG 채움
 function computeAssessments(){
@@ -1701,7 +1704,8 @@ function computeAssessments(){
   const col=k=>elig.map(x=>x.sh[k]);
   const G_STD={}; for(const k of ["wr","ai","mvp","tr","solo","solowr"]) G_STD[k]=_astd(col(k),_amean(col(k)))||1;
   TIER_AVG={};
-  for(const t in byTier){const ms=byTier[t];TIER_AVG[t]={wr:_amean(ms.map(x=>x.sh.wr)),ai:_amean(ms.map(x=>x.sh.ai)),mvp:_amean(ms.map(x=>x.sh.mvp)),troll:_amean(ms.map(x=>x.sh.tr)),solo:_amean(ms.map(x=>x.sh.solo)),solowr:_amean(ms.map(x=>x.sh.solowr)),n:ms.length};}
+  for(const t in byTier){const ms=byTier[t];TIER_AVG[t]={wr:_amean(ms.map(x=>x.sh.wr)),ai:_amean(ms.map(x=>x.sh.ai)),mvp:_amean(ms.map(x=>x.sh.mvp)),troll:_amean(ms.map(x=>x.sh.tr)),solo:_amean(ms.map(x=>x.sh.solo)),solowr:_amean(ms.map(x=>x.sh.solowr)),n:ms.length,
+    soloCur:_amean(ms.map(x=>x.m.soloCur))};}   // 🏅 soloCur = 현시즌 랭크 보유자만의 평균 — 카드 표기 전용(평가는 solo)
   ASSESSMENTS=new Map();
   for(const x of members){
     const {name,t,m}=x;
@@ -1731,6 +1735,7 @@ function computeAssessments(){
       wr:r1(m.wr),wrAvg:r1(avg.wr), ai:r2(m.avgAI),aiAvg:r2(avg.ai),
       mvp:r1(m.mvpRate),mvpAvg:r1(avg.mvp), troll:r1(m.trollRate),trollAvg:r1(avg.troll), ace:r1(m.aceRate),
       solo:r1(m.soloScore),soloAvg:r1(avg.solo),soloWR:r1(m.soloWR),
+      soloCur:r1(m.soloCur),soloCurAvg:r1(avg.soloCur),soloTxt:m.soloTxt,   // 🏅 표시 전용
       score:Math.round(composite*100)/100}});
   }
   // 🗡 상현 파워랭킹: 솔로랭크 보유 + 내전 10판↑(elig) 중 종합 파워점수(전체평균 z, 기존 가중치) top3
@@ -2558,7 +2563,7 @@ function gvizToObjects(resp){
   }
   return out;
 }
-// 솔로랭크 시트(SOLO_RANK 탭) 로드 → {puuid: {score,wins,losses,wr}} (없으면 {})
+// 솔로랭크 시트(SOLO_RANK 탭) 로드 → {puuid: {score,wins,losses,wr,tier,lp}} (없으면 {}) — tier·lp 는 표시 전용
 let SOLO_RANKS = {};
 // 🖼 [P-5 2026-09-28] 롤 프로필 아이콘·레벨 — SOLO_RANK 탭 '아이콘'·'레벨' 열. tnorm(닉) -> {icon, level}
 let PROFILE_ICONS = {};
@@ -2579,12 +2584,13 @@ function loadSoloRanks(){
       try{
         const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim());
         const idx=n=>cols.indexOf(n);
-        const ni=idx("닉네임"), si=idx("점수"), wi=idx("솔랭승"), li=idx("솔랭패"), ii=idx("아이콘"), vi=idx("레벨");
+        const ni=idx("닉네임"), si=idx("점수"), wi=idx("솔랭승"), li=idx("솔랭패"), ii=idx("아이콘"), vi=idx("레벨"), ti=idx("티어"), pi=idx("LP");
         for(const row of (resp.table.rows||[])){
           const c=row.c||[]; const gv=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:c[i].v);
           const nmk=tnorm(String(gv(ni)||""));   // 닉네임(tnorm) 키 — LCU PUUID 불안정 회피
           const sc=parseFloat(gv(si)); const w=parseInt(gv(wi))||0, l=parseInt(gv(li))||0;
-          if(nmk && !isNaN(sc)) out[nmk]={score:sc,wins:w,losses:l,wr:(w+l)?w/(w+l)*100:null};
+          if(nmk && !isNaN(sc)) out[nmk]={score:sc,wins:w,losses:l,wr:(w+l)?w/(w+l)*100:null,
+            tier:String(gv(ti)||"").trim(), lp:parseInt(gv(pi),10)};   // 🏅 티어·LP 원문 — 카드에 '다이아 2 30LP'로 보여 줄 때만 쓴다(평가는 점수)
           // 🖼 [P-5] 롤 프로필 아이콘·레벨(분석기가 솔랭과 함께 기록 · 언랭 행은 점수 없이 아이콘만)
           const ic=parseInt(gv(ii),10), lv=parseInt(gv(vi),10);
           if(nmk && ii>=0 && ic>=0 && ic<100000) PROFILE_ICONS[nmk]={icon:ic, level:(lv>0&&lv<10000)?lv:null};
@@ -2602,8 +2608,30 @@ function loadSoloRanks(){
 // ★ 과거 3시즌 최고티어(PEAK_SEASONS 탭) 로드 → 솔랭점수 블렌드 + 프로필 '3시즌 최고' 표시
 let PEAK_INFO = {};   // tnorm -> {tier:"master 1", score, season:"S15"}
 const _TIER_KO = {iron:"아이언",bronze:"브론즈",silver:"실버",gold:"골드",platinum:"플래티넘",emerald:"에메랄드",diamond:"다이아",master:"마스터",grandmaster:"그마",challenger:"챌린저"};
-const _DIV_RO = {"1":"I","2":"II","3":"III","4":"IV"};
-// PEAK_SEASONS의 '최고티어'(예:"master 1")+점수 → "마스터 375" / "다이아 II" 라벨. 마스터+는 LP(점수-2800), 그 외는 디비전.
+// 🏅 [2026-09-28 사장님 지시 '솔랭 점수 말고 실제 티어'] 2000~3000대 솔랭 점수 대신 클랜원이 게임에서 보는 티어로 표기.
+//   점수 척도 = 분석기 _rank_score: 티어 기준점(아이언0…다이아2400·마스터+2800) + 디비전(IV=0…I=3)×100 + min(LP,99) / 마스터+ = 2800+LP.
+//   표시 전용 — 평가(SOLO_RANKS.score 블렌드·shrunk·computeAssessments·십이귀월)는 점수 그대로 쓴다.
+const _SOLO_TIER_KO={IRON:"아이언",BRONZE:"브론즈",SILVER:"실버",GOLD:"골드",PLATINUM:"플래티넘",EMERALD:"에메랄드",DIAMOND:"다이아",MASTER:"마스터",GRANDMASTER:"그랜드마스터",CHALLENGER:"챌린저"};
+const _SOLO_TIER_ORD=["IRON","BRONZE","SILVER","GOLD","PLATINUM","EMERALD","DIAMOND"];
+const _SOLO_DIV_N={I:1,II:2,III:3,IV:4,"1":1,"2":2,"3":3,"4":4};
+// 시트 '티어'("DIAMOND II"·"master 1")+LP → "다이아 2 30LP" / "마스터 35LP". 모르는 티어면 null
+function soloTierText(tier, lp){
+  const ps=String(tier||"").trim().toUpperCase().split(/\s+/), tk=ps[0], ko=_SOLO_TIER_KO[tk];
+  if(!ko) return null;
+  const n=(lp!=null&&!isNaN(lp))?Math.max(0,Math.round(lp)):0;
+  if(tk==="MASTER"||tk==="GRANDMASTER"||tk==="CHALLENGER") return `${ko} ${n}LP`;
+  const dv=_SOLO_DIV_N[ps[1]];
+  return dv?`${ko} ${dv} ${n}LP`:`${ko} ${n}LP`;
+}
+// 점수 → "다이아 2 30LP". 평균·블렌드처럼 시트 티어가 없는 값용. 마스터 이상은 점수만으로 그마·챌린저를 가를 수 없어 '마스터 NLP'
+function soloScoreText(sc){
+  if(sc==null||isNaN(sc)) return null;
+  const v=Math.max(0,Math.round(sc));
+  if(v>=2800) return `마스터 ${v-2800}LP`;
+  const ti=Math.min(6,Math.floor(v/400)), rem=v-ti*400, dvi=Math.min(3,Math.floor(rem/100));
+  return `${_SOLO_TIER_KO[_SOLO_TIER_ORD[ti]]} ${4-dvi} ${rem-dvi*100}LP`;
+}
+// PEAK_SEASONS의 '최고티어'(예:"master 1")+점수 → "마스터 375LP" / "다이아 4 35LP" 라벨(점수에서 LP를 되돌린다 — 현시즌 표기와 같은 모양)
 function peakLabel(name){
   let p=PEAK_INFO[tnorm(name)];
   if(!p){ const al=CANON_TO_ALIASES.get(canonOfName(name)); if(al)for(const a of al){ if(PEAK_INFO[tnorm(a)]){p=PEAK_INFO[tnorm(a)];break;} } }
@@ -2612,9 +2640,12 @@ function peakLabel(name){
   if(!ko) return null;
   if(tk==="master"||tk==="grandmaster"||tk==="challenger"){
     const lp=Math.max(0,Math.round((p.score||0)-2800));
-    return {ko, cls:tk, txt:`${ko} ${lp}`, season:p.season};   // 마스터+ : LP 표기
+    return {ko, cls:tk, txt:soloTierText(tk,lp)||`${ko} ${lp}LP`, season:p.season};   // 마스터+ : LP 표기
   }
-  return {ko, cls:tk, txt:`${ko} ${_DIV_RO[parts[1]]||""}`.trim(), season:p.season};
+  // 마스터 미만 — 점수 = 기준점+디비전×100+LP 라서 디비전이 맞으면 LP 를 되돌릴 수 있다. 어긋나면 디비전만
+  const sc=Math.round(p.score||0), tt=soloScoreText(sc), dv=_SOLO_DIV_N[String(parts[1]||"").toUpperCase()];
+  const same=tt&&dv&&tt.startsWith(`${_SOLO_TIER_KO[tk.toUpperCase()]} ${dv} `);
+  return {ko, cls:tk, txt:same?tt:(dv?`${ko} ${dv}`:ko), season:p.season};
 }
 function loadPeakSeasons(){
   return new Promise((resolve)=>{
@@ -5599,7 +5630,7 @@ function kizukiBoard(){
     const bits=[];
     if(d.wr!=null) bits.push(["",`승률 ${d.wr}%`]);
     if(a.games) bits.push(["kz-games",`${a.games}판`]);
-    if(d.solo!=null) bits.push(["kz-solo",`솔랭 ${d.solo}`]);
+    if(d.solo!=null) bits.push(["kz-solo",`솔랭 ${d.soloTxt||"언랭"}`]);   // 🏅 점수 대신 현시즌 실제 티어(표시만 — 순위는 그대로)
     const sub=bits.map(([c,t],i)=>{ const txt=(i?" · ":"")+t;
       return c?`<span class="${c}">${esc(txt)}</span>`:esc(txt); }).join("")||"기록 없음";
     return `<div class="kzrow ${rankUp?'up':'low'}" onclick="openPlayerCard(${JSON.stringify(nm).replace(/"/g,'&quot;')})" title="${escAttr(nm+' — '+title)}">
@@ -6746,6 +6777,25 @@ const LEAGUES=[
            {g:'3',  label:'III 티어',cls:'t3', cols:['3上','3中','3下']}]},
 ];
 const SUBLABEL={'上':'上등급','中':'中등급','下':'下등급'};
+// 🏅 [2026-09-28] 🏅솔랭 칸 내용 — 값은 현시즌 실제 티어(+솔랭 승률), 비교는 동티어 현시즌 평균(티어 라벨).
+//   평가에 쓰는 블렌드 점수(3시즌 최고 반영)는 숫자로 보이지 않고 툴팁에서 티어 라벨로만 설명한다.
+//   → {v, ref, cls, tip}. v·ref 는 HTML(esc 완료), tip 은 평문(부르는 쪽이 escAttr). cmpCls = 부르는 쪽의 5% 비교 함수
+function soloCellParts(name, d, cmpCls, wrStyle){
+  const curAvg=d.soloCurAvg!=null?soloScoreText(d.soloCurAvg):null;
+  const ref=curAvg?`동티어 평균 <span style="white-space:nowrap">${esc(curAvg)}</span>`:'';   // 좁은 칸에서 'LP'만 떨어지지 않게
+  const wr=d.soloWR!=null?` <span style="${wrStyle}">(${esc(String(d.soloWR))}%)</span>`:'';
+  if(d.soloTxt){
+    const same=d.soloCur!=null&&d.solo===d.soloCur;
+    const tip=same?'평가 계산에도 현시즌 티어가 그대로 쓰여요'
+      :`평가에는 3시즌 최고를 반영한 ${soloScoreText(d.solo)} 수준으로 계산돼요`;
+    return {v:`${esc(d.soloTxt)}${wr}`, ref, cls:cmpCls(d.soloCur,d.soloCurAvg,1), tip};
+  }
+  // 현시즌 랭크 없음(3시즌 최고만) — '언랭' + 작은 글씨로 최고 기록
+  const pk=(typeof peakLabel==='function')?peakLabel(name):null;
+  const pkTxt=(pk&&pk.txt)||soloScoreText(d.solo);
+  return {v:`언랭${pkTxt?`<span style="display:block;font-size:11px;font-weight:600;opacity:.7">3시즌 최고 ${esc(pkTxt)}</span>`:''}`,
+    ref, cls:'', tip:`현시즌 솔랭 기록이 없어 평가에는 3시즌 최고${pkTxt?`(${pkTxt})`:''}가 그대로 쓰여요`};
+}
 /* 🪟 [2026-07-31] 플레이어 카드 팝업 본문 — 내부티어 표·홈 플레이어 목록 공용.
    1차로 요약 카드를 보여주고, 더 자세한 건 '전적 상세 보기'로 넘어간다. */
 function playerCardHtml(name){
@@ -6758,7 +6808,7 @@ function playerCardHtml(name){
     const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
       const dd=(mine-ref)/Math.abs(ref); if(Math.abs(dd)<0.05) return '';
       return (dd>0)===!!hiGood?'cmp-good':'cmp-bad'; };
-    const box=(k,v,ref,cls)=>`<div class="cmp${cls?' '+cls:''}"><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+    const box=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
 
     // 카드 상단 요약 — 전적·승률·최근 폼·모스트 챔프(배너용)·육각형(주 포지션 백분위)
     let w=0,l=0,mvpN=0,badN=0,form='',mainChamp='',radar='';
@@ -6823,7 +6873,7 @@ function playerCardHtml(name){
     if(d){
       // 이 칸은 패치 필터와 무관한 전체 통산(내부티어 산출과 같은 기준) — 위쪽 전적과 값이 달라 헷갈린다는 제보.
       cells+=box('승률 <span style="font-size:10px;opacity:.7">통산</span>',`${d.wr}%`,`동티어 ${d.wrAvg}%`,cmpCls(d.wr,d.wrAvg,1));
-      if(d.solo!=null) cells+=box('🏅솔랭',`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`,cmpCls(d.solo,d.soloAvg,1));
+      if(d.solo!=null){ const sp=soloCellParts(a.name,d,cmpCls,'opacity:.6;font-size:12.5px'); cells+=box('🏅솔랭',sp.v,sp.ref,sp.cls,sp.tip); }   // 🏅 점수 대신 실제 티어
       if(d.ai!=null) cells+=box('AI점수',d.ai,`동티어 ${d.aiAvg}`,cmpCls(d.ai,d.aiAvg,1));
       if(d.mvp!=null) cells+=box('MVP율',`${d.mvp}%`,`동티어 ${d.mvpAvg}%`,cmpCls(d.mvp,d.mvpAvg,1));
       if(d.troll!=null) cells+=box('역적율',`${d.troll}%`,`동티어 ${d.trollAvg}%`,cmpCls(d.troll,d.trollAvg,0));
@@ -6895,7 +6945,7 @@ function playerCardHtml(name){
         </div>
         <div class="tbm-body">
           ${d?`<div class="cmpgrid">${cells}</div>
-            <div class="muted" style="font-size:12px;margin-top:8px">동티어 평균 — 승률 ${r1(av.wr)}%${av.mvp!=null?` · MVP율 ${r1(av.mvp)}%`:''}${av.troll!=null?` · 역적율 ${r1(av.troll)}%`:''}${av.solo!=null?` · 🏅솔랭 ${r1(av.solo)}`:''} · 표본 ${av.n||0}명</div>`
+            <div class="muted" style="font-size:12px;margin-top:8px">동티어 평균 — 승률 ${r1(av.wr)}%${av.mvp!=null?` · MVP율 ${r1(av.mvp)}%`:''}${av.troll!=null?` · 역적율 ${r1(av.troll)}%`:''}${av.soloCur!=null?` · 🏅솔랭 ${esc(soloScoreText(av.soloCur))}`:''} · 표본 ${av.n||0}명</div>`
             :`<div class="muted" style="font-size:13.5px">${hasEval?`${a.games}판 — 평가엔 10판 이상 필요`:'내부티어가 아직 부여되지 않았어요'}</div>`}
           <button class="tbm-go" onclick="pcardGo(${nameJs})">전적 상세 보기 →</button>
         </div>
@@ -6981,7 +7031,7 @@ function renderTiers(){
         ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 클랜 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
         <span style="opacity:.75">· 각 지표 뒤 <b>(동티어)</b>는 <b>같은 내부티어</b> 동료들의 평균(참고용) — 판정 자체는 위의 클랜 전체 기준입니다.</span><br>
         <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.<br>
-        <span style="opacity:.75">· 🏅솔랭 점수 = <b>(최근 3시즌 최고티어 + 현시즌 솔랭) ÷ 2</b> — 과거 시즌은 op.gg 기준(시즌 종료 시점 티어).</span>
+        <span style="opacity:.75">· 🏅솔랭 = 카드에는 <b>현시즌 실제 티어</b>(예: 다이아 2 30LP)로 보여 주고, 평가 계산에는 <b>(최근 3시즌 최고티어 + 현시즌 티어) ÷ 2</b> 수준을 씁니다(칸에 마우스를 올리면 어느 티어 수준인지 나와요) — 과거 시즌은 op.gg 기준(시즌 종료 시점 티어).</span>
       </div>
     </div>`;
 }
@@ -9457,7 +9507,7 @@ function renderPlayer(name){
       const dd=(mine-ref)/Math.abs(ref); if(Math.abs(dd)<0.05) return '';
       return (dd>0)===!!hiGood?'cmp-good':'cmp-bad'; };
     if(d){
-      if(d.solo!=null) it.push(cell("🏅솔랭",`${d.solo}${d.soloWR!=null?` <span style="opacity:.6;font-weight:600;font-size:12.5px">(${d.soloWR}%)</span>`:''}`,`동티어 ${d.soloAvg}`,cmpCls(d.solo,d.soloAvg,1)));
+      if(d.solo!=null){ const sp=soloCellParts(name,d,cmpCls,'opacity:.6;font-weight:600;font-size:12.5px'); it.push(cell("🏅솔랭",sp.v,sp.ref,sp.cls,sp.tip)); }   // 🏅 점수 대신 실제 티어
       if(d.ai!=null) it.push(cell("AI점수",d.ai,`동티어 ${d.aiAvg}`,cmpCls(d.ai,d.aiAvg,1)));
       if(d.mvp!=null) it.push(cell("MVP율",`${d.mvp}%`,`동티어 ${d.mvpAvg}%`,cmpCls(d.mvp,d.mvpAvg,1)));
       if(d.troll!=null) it.push(cell("역적율",`${d.troll}%`,`동티어 ${d.trollAvg}%`,cmpCls(d.troll,d.trollAvg,0)));
@@ -10640,7 +10690,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609282330";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609282340";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
