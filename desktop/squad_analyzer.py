@@ -489,7 +489,7 @@ def cross_game_titles(sheet_rows, this_gid):
                 wins_before = {str(x[c_pos]).strip() for x in played if str(x[c_res]) == "승리" and str(x[c_gid]).strip() != _gnow}
                 if _lanes <= wins_pos and not (_lanes <= wins_before):
                     out.append(f"🎭 [다재다능] 하루 안에 모든 라인에서 1승씩 달성 ({nm})")
-            # ③ 모두가 내 발 아래 — 10연승(이번 판 포함, 시트 전체 기준)
+            # ③ 모두가 내 발아래 — 10연승(이번 판 포함, 시트 전체 기준)
             if str(r[c_res]) == "승리":
                 streak = 0
                 for g in reversed(gids[:gi_now + 1]):
@@ -499,7 +499,7 @@ def cross_game_titles(sheet_rows, this_gid):
                     if str(row[c_res]) == "승리": streak += 1
                     else: break
                 if streak == 10:
-                    out.append(f"👑 [모두가 내 발 아래] 내전 10연승 달성 ({nm})")
+                    out.append(f"👑 [모두가 내 발아래] 내전 10연승 달성 ({nm})")
             # ④ 스토커 — 최근 3게임 연속 같은 맞라이너와 붙어 전승
             #    [2026-09-25] 실제 라인(탑~서폿)끼리만 맞라이너 — 칼바람·'선택안함' 행은 아무 상대나 잡혀 이긴 팀 5명이 다 받았다.
             #    연속 4·5판째엔 다시 주지 않는다(딱 3판째 1회).
