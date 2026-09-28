@@ -4668,13 +4668,16 @@ window.addEventListener("popstate",e=>{
   }finally{NAV_SILENT=false;}
 });
 // 🔗 공유 링크 주소 (2026-09-28 P-2) — #p/[aram|classic/]닉#태그 · #g/[..]게임번호 · #c/[..]챔피언. access_token·news 는 건드리지 않는다
+let _ROUTE_CUR="";   // 우리가 replaceState 로 쓴 해시 — 뒤로/앞으로 때 hashchange 가 같은 화면을 또 열며 패치 필터를 '전체'로 바꾸던 것 방지
 function _routeHashClear(){
+  _ROUTE_CUR="";
   const h=location.hash||""; if(!/^#(p|g|c|news)(\/|$)/.test(h)) return;
   try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){}
 }
 function _routeHashSet(k,v){
   const c=CURRENT_CAT!=="rift"?CURRENT_CAT+"/":"";
-  try{ history.replaceState(history.state,"",location.pathname+location.search+"#"+k+"/"+c+encodeURIComponent(String(v))); }catch(e){}
+  const h="#"+k+"/"+c+encodeURIComponent(String(v));
+  try{ history.replaceState(history.state,"",location.pathname+location.search+h); _ROUTE_CUR=location.hash; }catch(e){}
 }
 // 🔗 링크 복사 (P-2 조각2) — 주소 앞부분은 늘 진짜 사이트로(lab·로컬에서 눌러도 같은 주소)
 const SITE_URL="https://kjp1583-art.github.io/squad-analyzer/";
@@ -4746,6 +4749,7 @@ function _openBootRoute(final){
 }
 // 같은 탭 주소창에 링크를 붙여 넣은 경우(replaceState 는 hashchange 를 안 일으킨다)
 window.addEventListener("hashchange",async()=>{
+  if(location.hash===_ROUTE_CUR) return;   // popstate 가 이미 이 화면을 그렸다(뒤로/앞으로)
   const r=_parseRouteHash(location.hash); if(!r) return;
   if(!r.bad&&r.cat!==CURRENT_CAT&&CATEGORIES.some(c=>c.key===r.cat)){
     if(CAT_CACHE[r.cat]){ CURRENT_CAT=r.cat; RAW=CAT_CACHE[r.cat]; build(); renderCatbar(); }
@@ -9623,7 +9627,7 @@ function newBestOf(name){
   const LB={k:"개인 최다킬",a:"개인 최다어시",d:"개인 최대 딜량",s:"개인 최고 AI점수"};
   for(const [dt,,r] of parts){
     const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
-    const g=r["게임ID"]||""; if(seen.has(g)) continue; seen.add(g);
+    const g=r["게임ID"]||""; if(g){ if(seen.has(g)) continue; seen.add(g); }   // 게임ID 빈 판끼리 서로 지우지 않게
     const v={};
     const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
     if(m){ let k=+m[1]; if(k>=1900)k%=100; v.k=k; v.a=+m[3]; }   // 🩹 날짜 오염 셀 역산(명예의 전당과 같은 규칙)
@@ -10552,7 +10556,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281930";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
