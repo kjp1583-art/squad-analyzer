@@ -5288,7 +5288,39 @@ function renderNews(arg,silent){   // #news[/종료일] — arg 없음 = 최신 
   if(!A){ shell(`<div class="np"><div class="np-empty">📼 ${esc(to)} 호의 지면은 보관되어 있지 않아요.<br><span style="font-size:13px">창간 초기 호는 제목만 남아 있습니다.</span><div style="margin-top:14px"><button class="np-btn solid" onclick="go('news')">최신 호 보기</button> <button class="np-btn" onclick="go('home')">← 홈으로</button></div></div></div>`); return; }
   shell(newsPageHtml(A,{old:true})); _npAfterRender(A); if(!silent) window.scrollTo(0,0);
 }
+// 🏆 [2026-09-28 사장님 "미토를 주말마다 하는데 주간스쿼드에 정보가 없다"] 봇이 대진표로 만든 W.mito([{date,games,players,teams,members[]}] · 옛 단일 객체도 받음). 없으면 박스째 숨김
+function _npMitoBox(W){
+  const raw=W&&W.mito; const L=(Array.isArray(raw)?raw:(raw&&typeof raw==="object"?[raw]:[])).filter(m=>m&&_npTo(m.date)).slice(0,3);
+  if(!L.length) return "";
+  const N=v=>{ const n=parseInt(v,10); return isNaN(n)||n<0?0:n; };
+  const body=L.map(m=>{ const mem=(Array.isArray(m.members)?m.members:[]).filter(x=>typeof x==="string"&&x.trim()).slice(0,8);
+    const meta=[N(m.players)?`참가 ${N(m.players)}명`:"",N(m.teams)?`${N(m.teams)}팀`:"",N(m.games)?`${N(m.games)}판`:""].filter(Boolean).join(" · ");
+    return `<div style="margin-bottom:8px"><div style="font-size:12.5px;font-weight:800">${_npDateKo(_npTo(m.date))} 밤</div>${meta?`<div style="font-size:12px;color:var(--ink2)">${esc(meta)}</div>`:""}
+      <div style="font-size:12.5px;margin-top:3px">👑 우승팀 ${mem.length?mem.map(x=>_npName(x)).join(", "):`<span style="color:var(--ink3)">판별 못 함</span>`}</div></div>`; }).join("");
+  return `<div class="np-box"><h3>🏆 이번 주 미토 <span class="cnt">미니토너먼트 ${L.length}회</span></h3>${body}<div style="font-size:11px;color:var(--ink3)">미토 판은 위 내전 통계에 넣지 않았습니다</div></div>`;
+}
+// 🛠 [2026-09-28 사장님 "이번 주에 맛장유가 패치한 패치노트도 총정리"] data/patch_notes.json 에서 그 호의 from~to 날짜 항목만(지난 호도 그 호 날짜로). 없으면 숨김
+let NP_PATCH_ALL=null, _npPatchLoading=null;
+function _npLoadPatchAll(){
+  if(NP_PATCH_ALL!==null) return Promise.resolve(NP_PATCH_ALL);
+  if(_npPatchLoading) return _npPatchLoading;
+  return _npPatchLoading=fetch(`data/patch_notes.json?cb=${BUILD_ID}`,{cache:"no-store"}).then(r=>r.ok?r.json():null)
+    .then(j=>{ NP_PATCH_ALL=(j&&Array.isArray(j.notes))?j.notes.filter(n=>n&&typeof n==="object"):[]; return NP_PATCH_ALL; })
+    .catch(()=>{ NP_PATCH_ALL=[]; return NP_PATCH_ALL; });
+}
+function _npPatchInner(W){
+  const wk=(W&&W.week)||{}, fr=_npTo(wk.from), to=_npTo(wk.to);
+  if(!Array.isArray(NP_PATCH_ALL)||!fr||!to) return "";
+  const L=NP_PATCH_ALL.filter(n=>{ const d=_npTo(String(n.date||"").slice(0,10)); return d&&d>=fr&&d<=to; });
+  if(!L.length) return "";
+  const grp=[["⚔️ 스쿼드 · 내전 · 웹",L.filter(n=>!isBrjPatch(n))],["🍗 브장신 키우기",L.filter(n=>isBrjPatch(n))]].filter(g=>g[1].length);
+  const item=n=>{ const tg=String(n.tag||""); const c=PATCH_TAG_C[tg]||"#999"; const l0=Array.isArray(n.lines)&&n.lines.length?String(n.lines[0]):"";
+    return `<li style="margin:0 0 6px;list-style:none"><span style="display:inline-block;font-size:10.5px;font-weight:800;padding:0 5px;border:1px solid ${c};color:${c};border-radius:3px;margin-right:4px">${esc(tg||"변경")}</span><b>${mdLite(n.title||"")}</b> <span style="font-size:11px;color:var(--ink3)">${esc(String(n.date||"").slice(5,10))}</span>${l0?`<div style="font-size:12.5px;color:var(--ink2);margin-top:2px;line-height:1.5">${mdLite(l0)}</div>`:""}</li>`; };
+  return `<div class="np-sec"><h3 class="np-serif">🛠 이번 주 패치노트 <span class="cnt">이번 주 맛장유가 고친 것 ${L.length}건</span></h3>`+
+    grp.map(g=>`<div style="margin-top:6px"><div style="font-size:12px;font-weight:900;margin-bottom:4px">${g[0]} <span style="color:var(--ink3);font-weight:600">${g[1].length}</span></div><ul style="margin:0;padding:0">${g[1].slice(0,8).map(item).join("")}</ul>${g[1].length>8?`<details><summary style="font-size:12px;cursor:pointer;color:var(--ink2)">나머지 ${g[1].length-8}건 더 보기</summary><ul style="margin:6px 0 0;padding:0">${g[1].slice(8).map(item).join("")}</ul></details>`:""}</div>`).join("")+`</div>`;
+}
 function _npAfterRender(W){
+  try{ const el=document.getElementById("npPatch"); if(el){ if(NP_PATCH_ALL!==null) el.innerHTML=_npPatchInner(W); else _npLoadPatchAll().then(()=>{ const e2=document.getElementById("npPatch"); if(e2) e2.innerHTML=_npPatchInner(W); }); } }catch(e){}
   try{ const to=_npTo((W.week||{}).to); if(to&&document.getElementById("cmtList_news")) loadComments("뉴스:"+to,"_news"); }catch(e){}
   try{ if(BRJ_MARKET===null&&typeof loadBrjMarket==="function"&&document.getElementById("npMarket")) loadBrjMarket().then(r=>{ BRJ_MARKET=r; const el=document.getElementById("npMarket"); if(el) el.innerHTML=_npMarketInner(); }); }catch(e){}
 }
@@ -5316,6 +5348,7 @@ function newsPageHtml(W,opt){
   const side=`<div class="np-side">
       <div class="np-box"><h3>🌤 이번 주 클랜 날씨</h3><div class="np-weather"><span class="ic">${wt.ic}</span><div style="min-width:0"><div class="wt">${esc(wt.t)}</div><div class="wr">${G.reason?mdLite(G.reason):esc(wt.d)}</div></div>${G.letter?`<span class="lt" title="클랜 종합 등급">${esc(G.letter)}</span>`:""}</div></div>
       ${_npStatsBox(W)}
+      ${_npMitoBox(W)}
       ${awards?`<div class="np-box"><h3>🏅 이주의 인물 <span class="cnt">${(W.awards||[]).length}</span></h3>${awards}</div>`:""}
       ${notices?`<div class="np-box"><h3>📢 알림 · 축하 · 부고</h3>${notices}</div>`:""}
       <div class="np-box"><h3>📣 광고</h3><div id="npAds">${_npAdsInner()}</div></div></div>`;
@@ -5334,7 +5367,8 @@ function newsPageHtml(W,opt){
   return `<div class="np">${mast}${old}${topHtml}
     <div class="np-body"><div style="min-width:0">${arts?`<div class="np-arts">${arts}</div>`:""}${colm}
       ${people?`<div class="np-sec"><h3 class="np-serif">📋 인물 동정 <span class="cnt">${(W.students||[]).length}명 · 이름을 누르면 프로필로</span></h3><div class="np-people">${people}</div></div>`:""}
-      ${todo?`<div class="np-sec"><h3 class="np-serif">📌 다음 주 예고 — 담임의 숙제</h3><div class="np-todo">${todo}</div></div>`:""}</div>${side}</div>
+      ${todo?`<div class="np-sec"><h3 class="np-serif">📌 다음 주 예고 — 담임의 숙제</h3><div class="np-todo">${todo}</div></div>`:""}
+      <div id="npPatch">${_npPatchInner(W)}</div></div>${side}</div>
     ${_npBrjCorner(W)}
     ${facts.length?`<details><summary>🔍 취재 근거 — 편집국이 참고한 사실 ${facts.length}줄</summary><ul>${facts.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></details>`:""}
     ${hist?`<details${opt.old?" open":""}><summary>🗂 지난 호 ${(W.history||[]).length}개</summary><div style="margin-top:6px">${hist}</div></details>`:""}
@@ -10573,7 +10607,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609282100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609282200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
