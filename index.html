@@ -4505,13 +4505,65 @@ window.addEventListener("popstate",e=>{
     go(st.route,st.arg);
   }finally{NAV_SILENT=false;}
 });
+// 🔗 공유 링크 주소 (2026-09-28 P-2) — #p/[aram|classic/]닉#태그 · #g/[..]게임번호 · #c/[..]챔피언. access_token·news 는 건드리지 않는다
+function _routeHashClear(){
+  const h=location.hash||""; if(!/^#(p|g|c|news)(\/|$)/.test(h)) return;
+  try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){}
+}
+function _routeHashSet(k,v){
+  const c=CURRENT_CAT!=="rift"?CURRENT_CAT+"/":"";
+  try{ history.replaceState(history.state,"",location.pathname+location.search+"#"+k+"/"+c+encodeURIComponent(String(v))); }catch(e){}
+}
+function _parseRouteHash(h){   // → {k,cat,arg} | {k,bad:true}(잘린 링크) | null
+  const m=/^#?(p|g|c)\/(?:(aram|classic|rift)\/)?(.*)$/.exec(h||""); if(!m) return null;
+  let arg; try{ arg=decodeURIComponent(m[3]).trim(); }catch(e){ return {k:m[1],bad:true,raw:m[3]}; }
+  if(!arg) return {k:m[1],bad:true,raw:""};
+  return {k:m[1],cat:m[2]||"rift",arg};
+}
+// final=최신 데이터 도착 뒤 — 그때만 '못 찾음' 판정. 열었으면 true
+function _openRoute(r,final){
+  if(!r||!GAMES.size) return false;
+  const miss=msg=>{ if(!final) return false; _routeHashClear(); go('home'); _snapBanner(msg,true); setTimeout(()=>_snapBanner(null),4000); return true; };
+  if(r.bad) return miss(r.k==='p'?"🔗 링크 속 닉을 읽지 못했어요 — 링크가 잘렸으면 검색창에 닉을 쳐 보세요":"🔗 링크가 잘려서 열지 못했어요");
+  PATCH_SEL="ALL"; build(); renderPatchbar();   // 링크는 '전체 기간'으로 연다(복사 요약 줄의 통산 숫자와 맞춤)
+  if(r.k==='p'){
+    let nm=canonOfName(r.arg);
+    if(PLAYERS.has(nm)){ go('player',nm); return true; }
+    return miss(`🔗 링크 속 ‘${r.arg}’ 기록을 찾지 못했어요 — 닉이 바뀌었으면 검색창에 새 닉을 쳐 보세요`);
+  }
+  if(r.k==='g'){
+    const id=r.arg.replace(/^#/,""), gid=GAMES.has("#"+id)?"#"+id:(GAMES.has(id)?id:null);
+    if(gid){ go('game',gid); return true; }
+    return miss(`🔗 이 판(${id})은 아직 기록에 없어요 — 방금 끝난 판이면 몇 분 뒤 다시 열어 주세요`);
+  }
+  if(r.k==='c'){
+    if(champEntries(r.arg,GAMES).length){ go('champlog',r.arg); return true; }
+    return miss(`🔗 ‘${r.arg}’ 챔피언의 내전 기록이 없어요`);
+  }
+  return false;
+}
+// 부팅: 스냅샷 페인트 자리(final=false) · loadCategory 다음(final=true, 한 번만)
+function _openBootRoute(final){
+  const r=ROUTE_BOOT_HASH; if(!r) return false;
+  if(final) ROUTE_BOOT_HASH=null;
+  return _openRoute(r, final&&!!CAT_CACHE[CURRENT_CAT]);
+}
+// 같은 탭 주소창에 링크를 붙여 넣은 경우(replaceState 는 hashchange 를 안 일으킨다)
+window.addEventListener("hashchange",async()=>{
+  const r=_parseRouteHash(location.hash); if(!r) return;
+  if(!r.bad&&r.cat!==CURRENT_CAT&&CATEGORIES.some(c=>c.key===r.cat)){
+    if(CAT_CACHE[r.cat]){ CURRENT_CAT=r.cat; RAW=CAT_CACHE[r.cat]; build(); renderCatbar(); }
+    else await loadCategory(r.cat);
+  }
+  _openRoute(r, !!CAT_CACHE[CURRENT_CAT]);
+});
 function goBack(){ if(history.state&&history.state.depth>0)history.back(); else go('home'); }
 function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
+  if(route!=='news') _routeHashClear();   // 🔗 p/g/c/news 공유 해시는 맨 앞에서 한 번에 정리(guide·scrim 조기 return 보다 먼저)
   if(route==='guide'){navPush(route,arg);renderGuide(arg);return;}  // 📖 가이드북 — 내전 데이터와 무관하게 바로 열린다
   if(route==='news'){navPush(route,arg);renderNews(arg);try{ history.replaceState(history.state,"",location.pathname+location.search+"#news"+(arg?"/"+encodeURIComponent(String(arg)):"")); }catch(e){} return;}   // 📰 주간스쿼드 — 자체 JSON(데이터 로딩 전에도 열림) · 공유 링크 #news[/종료일]
   if(route==='scrim'){navPush(route,arg);renderScrim();return;}   // 🤝 외부 스크림 상대전적 — 자체 탭(SCRIM_EXT·SCRIM_NOTICE_RAW) 로드
-  if(location.hash&&location.hash.indexOf("#news")===0){ try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){} }   // 다른 화면으로 가면 #news 해시 정리
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
   if(route==='market'){navPush(route,arg);renderMarket();return;}   // 🪙 거래소 — 자체 데이터(UNIQ_MARKET) 로드
   if(route==='cal'){navPush(route,arg);renderCal();return;}         // 📅 클랜일정 — 디스코드 이벤트 탭 미러
@@ -4520,13 +4572,13 @@ function go(route,arg){
   if(!GAMES.size){renderEmpty();return;}         // 오류/로딩 화면은 스택에 안 쌓음
   navPush(route,arg);
   if(route==='home')renderHome();
-  else if(route==='player')renderPlayer(arg);
+  else if(route==='player'){ renderPlayer(arg); if(PLAYERS.has(CUR_PLAYER)) _routeHashSet("p",CUR_PLAYER); }
   else if(route==='style'){ CUR_PLAYER=canonOfName(arg); _STYLE_PCT={}; renderStyle(arg); }   // 📊 플레이스타일(통산 기본)
-  else if(route==='game')renderGame(arg);
+  else if(route==='game'){ renderGame(arg); if(GAMES.has(arg)) _routeHashSet("g",String(arg).replace(/^#/,"")); }
   else if(route==='log')renderLog();
   else if(route==='counts'){ if(IS_ADMIN)renderCounts(); else renderHome(); }
   else if(route==='champ')renderChampTier();
-  else if(route==='champlog')renderChampLog(arg);
+  else if(route==='champlog'){ renderChampLog(arg); if(arg) _routeHashSet("c",arg); }
   else if(route==='mastery')renderMastery(arg);
   else if(route==='tiers')renderTiers();
   else if(route==='ach')renderAchievements();
@@ -4844,6 +4896,7 @@ let WEEKLY_REVIEW=null, _wkrvAt=0, _wkrvP=null;   // null=아직 안 읽음 · f
 const WKRV_TTL=10*60*1000;
 const NEWS_ARCHIVE={};      // 종료일 → 지난 호 JSON · false=없음(404)
 let NEWS_CUR=null;          // 뉴스 화면에서 보고 있는 호의 종료일("" = 최신 호) · null = 뉴스 화면 아님
+let ROUTE_BOOT_HASH=(()=>{ const r=_parseRouteHash(location.hash); if(r&&!r.bad&&r.cat!=="rift"&&CATEGORIES.some(c=>c.key===r.cat)) CURRENT_CAT=r.cat; return r; })();   // 🔗 #p/#g/#c 공유 링크 — 칼바람·클래식이면 그 시트부터 받게 CURRENT_CAT 을 미리 바꾼다
 const NEWS_BOOT_HASH=(()=>{ try{ const h=location.hash.replace(/^#/,"").split("/"); return h[0]==="news"?{arg:h[1]?decodeURIComponent(h[1]):undefined}:null; }catch(e){ return null; } })();   // #news[/종료일] 공유 링크 — 부팅 중 go('home') 이 해시를 정리하기 전에 읽어 둔다
 let _npStamp="";            // 마지막으로 그린 최신 호 표식(issue|generated_at) — 10분 갱신 때 내용이 바뀐 경우에만 다시 그린다(댓글 쓰는 중 날아가지 않게)
 function loadWeeklyReview(force){
@@ -10212,7 +10265,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281230";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -10289,7 +10342,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
     const c = (_mainState===1) ? null : await cacheP;   // 이미 최신이 왔으면 IndexedDB 를 기다릴 이유가 없다
     if(_mainState!==1 && CURRENT_CAT===_bootCat && c && Array.isArray(c.rows) && c.rows.length && (Date.now()-(c.t||0))<RAW_CACHE_TTL){
       RAW=c.rows; build();           // ⚠️ CAT_CACHE 에는 넣지 않는다 — 넣으면 최신 데이터를 안 받는다
-      if(GAMES.size){ renderPatchbar(); _painted=true; go('home');
+      if(GAMES.size){ renderPatchbar(); _painted=true; if(!_openBootRoute(false)) go('home');
         const _min=Math.max(1,Math.round((Date.now()-(c.t||0))/60000));
         _snapBanner(`💾 저장된 기록(${_min}분 전)으로 먼저 표시 중 — 최신 불러오는 중…`);
         setStatus(`저장된 기록으로 먼저 표시 중 — 최신 불러오는 중…`); }
@@ -10300,6 +10353,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   await loadCategory(CURRENT_CAT, _same?mainP:null, _painted&&_same);   // 기본=협곡, 미리 받아둔 응답으로 즉시 진행
   // 📖 주소에 ?title= 이 붙어 있으면(공유 링크) 그 가이드를 연다 — 데이터 로딩이 끝난 뒤라 go('home') 에 덮이지 않는다
   try{ const _gt=new URLSearchParams(location.search).get('title'); if(_gt) go('guide',_gt); }catch(e){}
+  try{ _openBootRoute(true); }catch(e){}   // 🔗 #p/#g/#c 공유 링크 — 최신 데이터가 온 뒤라 '못 찾음' 판정이 정확하다
   try{ if(NEWS_BOOT_HASH) go('news',NEWS_BOOT_HASH.arg); }catch(e){}   // 📰 #news[/종료일] 공유 링크(봇 /주간평생성 안내)
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
   checkNewBuild();                   // 🆕 배포 확인은 부팅이 끝난 뒤에 — 부팅 중엔 시트와 대역폭을 다투지 않게(2026-08-27)
