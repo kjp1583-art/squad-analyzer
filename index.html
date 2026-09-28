@@ -478,6 +478,10 @@
   .ach-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   /* ← 뒤로가기 (2026-07-10) — 모바일 44px 터치 타깃 */
   .backrow{margin-top:14px}
+  .sharerow{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+  .sharewrap{display:inline-flex;flex-direction:column;align-items:flex-end;gap:4px;max-width:100%}
+  .sharefb{display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:100%}
+  .sharein{width:min(320px,82vw);font-size:12px;padding:5px 7px;background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:6px}
   .backbtn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:10px 16px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);border-radius:10px;font-weight:700;font-size:14.5px;cursor:pointer}
   .backbtn:active{transform:scale(.97)}
   .ach{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:20px;background:#1b2230;color:#cdd6e6;border:1px solid #33405c;cursor:pointer;white-space:nowrap}
@@ -1268,7 +1272,7 @@
   <div class="adfooter" id="adFooter"></div>
 
   <footer class="ftr">
-    <div>© 2026 squad.gg · 스쿼드 내전 비공식 전적 사이트 · 데이터: 구글시트 · 만든 사람: 클랜원 <b>맛장유</b></div>
+    <div>© 2026 squad.gg · 스쿼드 내전 비공식 전적 사이트 · 데이터: 구글시트 · 만든 사람: 클랜원 <b>맛동산장인 유미</b></div>
     <div class="muted" style="margin-top:4px;font-size:12.5px">
       이 사이트는 쿠팡 파트너스 제휴 배너를 게재하며, 구매 발생 시 일정액의 수수료를 받을 수 있습니다.
       <a href="#" onclick="togglePrivacy();return false;" style="color:var(--accent)">개인정보처리방침</a>
@@ -4514,6 +4518,40 @@ function _routeHashSet(k,v){
   const c=CURRENT_CAT!=="rift"?CURRENT_CAT+"/":"";
   try{ history.replaceState(history.state,"",location.pathname+location.search+"#"+k+"/"+c+encodeURIComponent(String(v))); }catch(e){}
 }
+// 🔗 링크 복사 (P-2 조각2) — 주소 앞부분은 늘 진짜 사이트로(lab·로컬에서 눌러도 같은 주소)
+const SITE_URL="https://kjp1583-art.github.io/squad-analyzer/";
+function _shareUrl(k,v){ const c=CURRENT_CAT!=="rift"?CURRENT_CAT+"/":""; return SITE_URL+"#"+k+"/"+c+encodeURIComponent(String(v)); }
+function _shareCatLbl(){ const c=CATEGORIES.find(x=>x.key===CURRENT_CAT); return (c?c.label:"협곡")+" 내전"; }
+function _shareKda(r){ const o=parseKDA(r["KDA"]); return o?`${o.k}/${o.d}/${o.a}`:""; }
+function shareText(k,arg){   // 요약 한 줄 + <주소> (디스코드 미리보기 카드 끔). 통산(ALL) 기준 · 나이·생년 없음
+  const G=GAMES_ALL.size?GAMES_ALL:GAMES;
+  if(k==='p'){
+    const rows=(PLAYERS_ALL.get(arg)||PLAYERS.get(arg)||[]).filter(r=>r["결과"]==="승리"||r["결과"]==="패배");
+    const w=rows.filter(r=>r["결과"]==="승리").length, mvp=rows.filter(r=>r["매치평가"]==="MVP").length;
+    return `🏆 ${arg} — ${_shareCatLbl()} ${rows.length}전 · 승률 ${pct(w,rows.length)}% · MVP ${mvp}회\n<${_shareUrl('p',arg)}>`;
+  }
+  if(k==='g'){
+    const g=G.get(arg)||GAMES.get(arg); const id=String(arg).replace(/^#/,""); if(!g) return `⚔ ${_shareCatLbl()} ${id}\n<${_shareUrl('g',id)}>`;
+    const m=/(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(String(g.date||""));
+    const dt=m?`${+m[2]}/${+m[3]}${m[4]?` ${m[4].padStart(2,"0")}:${m[5]}`:""}`:String(g.date||"");
+    const win=g.rows.find(r=>r["결과"]==="승리"); const side=win?String(win["진영"]||""):"";
+    const who=ev=>{ const r=g.rows.find(x=>x["매치평가"]===ev); if(!r) return ""; const kd=_shareKda(r);
+      return ` · ${ev} ${shortName(canonOfRow(r))}(${r["챔피언"]||""}${kd?" "+kd:""})`; };
+    return `⚔ ${dt} ${_shareCatLbl()}${side?` — ${side} 승`:""}${who("MVP")}${who("ACE")}\n<${_shareUrl('g',id)}>`;
+  }
+  const es=champEntries(arg,G), w=es.filter(e=>e.r["결과"]==="승리").length;
+  return `📘 ${arg} — ${_shareCatLbl()} ${es.length}판 · 승률 ${pct(w,es.length)}%\n<${_shareUrl('c',arg)}>`;
+}
+function shareBtn(k,arg){ return `<span class="sharewrap"><button class="backbtn sharebtn" id="sharebtn" onclick="shareCopy('${k}','${escAttr(arg)}')">🔗 링크 복사</button><span id="sharebox"></span></span>`; }
+function shareCopy(k,arg){   // donCopy 와 같은 폴백: clipboard → execCommand → 선택된 칸
+  const txt=shareText(k,arg), btn=document.getElementById("sharebtn"), box=document.getElementById("sharebox");
+  const ok=()=>{ if(!btn) return; btn.textContent="✅ 복사했어요 — 디스코드에 붙여 넣으세요"; clearTimeout(btn._t); btn._t=setTimeout(()=>{btn.textContent="🔗 링크 복사";},3000); };
+  const fail=()=>{ if(!box) return; box.innerHTML=`<div class="sharefb"><input readonly class="sharein" value="${escAttr(txt.replace(/\n/g," "))}"><div class="muted" style="font-size:12px">길게 눌러 복사해 주세요</div></div>`;
+    const i=box.querySelector("input"); if(i){ i.focus(); i.select(); } };
+  const legacy=()=>{ try{ const ta=document.createElement("textarea"); ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select(); const r=document.execCommand("copy"); document.body.removeChild(ta); r?ok():fail(); }catch(e){ fail(); } };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok).catch(legacy); else legacy();
+}
 function _parseRouteHash(h){   // → {k,cat,arg} | {k,bad:true}(잘린 링크) | null
   const m=/^#?(p|g|c)\/(?:(aram|classic|rift)\/)?(.*)$/.exec(h||""); if(!m) return null;
   let arg; try{ arg=decodeURIComponent(m[3]).trim(); }catch(e){ return {k:m[1],bad:true,raw:m[3]}; }
@@ -5372,7 +5410,7 @@ function welcomeCardHtml(){   // 👋 [2026-09-28 사장님 지시] "신규 클�
     <li><b>스쿼드 클랜 내전 기록</b>을 모아 보는 사이트예요. 위 검색창에 <b>롤 닉네임</b>을 치면 내 전적이 나와요.</li>
     <li><b>스쿼드해체분석기</b>를 켜 두고 내전하면 판마다 <b>자동으로 기록</b>되고, 밴픽 도우미·게임 후 리포트도 떠요.</li>
     <li>내전은 저녁에 디스코드 스쿼드 서버의 <b>팀 음성방</b>에 모여서 해요. 분석기는 방에 한 명만 켜 둬도 기록돼요.</li></ul>
-    <div class="row"><a class="btn go" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html">🖥 분석기 받기</a><button class="btn" onclick="welcomeClose()">알겠어요, 닫기</button><span class="who">만든 사람: 클랜원 <b>맛장유</b></span></div></div>`;
+    <div class="row"><a class="btn go" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html">🖥 분석기 받기</a><button class="btn" onclick="welcomeClose()">알겠어요, 닫기</button><span class="who">만든 사람: 클랜원 <b>맛동산장인 유미</b></span></div></div>`;
 }
 function welcomeClose(){ try{ localStorage.setItem("sgg_welcome_off","1"); }catch(e){} const el=document.getElementById("welcomeCard"); if(el) el.remove(); }
 function renderHome(){
@@ -8633,7 +8671,7 @@ function renderChampLog(champ){
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         ${champImg(champ,"lg")}
         <div style="flex:1;min-width:240px">
-          <h2 style="margin:0">${esc(champ)} <span class="muted" style="font-size:14px;font-weight:400">챔피언 통계${CHAMP_LANE!=="ALL"?' · '+esc(CHAMP_LANE):''}</span></h2>
+          <div class="sharerow" style="align-items:center"><h2 style="margin:0">${esc(champ)} <span class="muted" style="font-size:14px;font-weight:400">챔피언 통계${CHAMP_LANE!=="ALL"?' · '+esc(CHAMP_LANE):''}</span></h2>${shareBtn('c',champ)}</div>
           <div class="cmpgrid" style="margin-top:8px">
             <div class="cmp"><span class="cmp-k">픽</span><span class="cmp-v">${total}판</span><span class="st-sub muted">픽률 ${Math.round(allE.length/gTot*100)}%</span></div>
             <div class="cmp ${wr>=50?'cmp-good':'cmp-bad'}"><span class="cmp-k">승률</span><span class="cmp-v">${total?wr+'%':'-'}</span><span class="st-sub muted">${wins}승 ${total-wins}패</span></div>
@@ -9355,7 +9393,7 @@ function renderPlayer(name){
 
   const _emb=kizukiEmblem(name);
   view().innerHTML=`
-    <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
+    <div class="backrow sharerow"><button class="backbtn" onclick="goBack()">← 뒤로</button>${shareBtn('p',name)}</div>
     ${_fellMsg}
     <div class="card${_splash?' hasbanner':''}" style="margin-top:10px;position:relative">
       ${bannerHtml}
@@ -9675,6 +9713,7 @@ function renderGame(gid){
     <div class="card" style="margin-top:16px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div><b style="font-size:16px">${esc(g.id)}</b> <span class="muted">· ${esc(g.date)} · 패치 ${esc(g.patch)}</span></div>
       <button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:6px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button>
+      ${shareBtn('g',gid)}
     </div>
     ${gameDetailHtml(g)}`;
 }
@@ -9686,6 +9725,7 @@ function togglePrivacy(){$("#privacy").classList.toggle("hidden");}
 /* 🍗 [2026-09-12 사장님 지시] 브장신 키우기 홍보 팝업 — 첫 진입 시 1회, '일주일간 보지 않기'는 로컬 저장 */
 const BRJ_POP_KEY="brjPromoHideUntil";
 function brjPopShow(){
+  if(/^#(news|p\/|g\/|c\/)/.test(location.hash||"")) return;   // 공유 링크로 들어온 사람에겐 홍보 팝업으로 화면을 가리지 않는다(#news 가 메인처럼 보이던 문제)
   try{ const u=parseInt(localStorage.getItem(BRJ_POP_KEY)||"0",10); if(u&&Date.now()<u) return; }catch(e){}
   if(sessionStorage.getItem("brjPopSeen")) return;
   const el=document.getElementById("brjPop"); if(!el) return;
@@ -10265,7 +10305,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
