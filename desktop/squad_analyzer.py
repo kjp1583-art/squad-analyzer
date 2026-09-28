@@ -1044,6 +1044,15 @@ if %w% GEQ 60 goto gone
 ping -n 2 127.0.0.1 >nul
 goto waitpid
 :gone
+set /a w=0
+:waitothers
+tasklist /FI "IMAGENAME eq __EXE__" 2>nul | find /I "__EXE__" >nul
+if errorlevel 1 goto gone2
+set /a w+=1
+if %w% GEQ 30 goto gone2
+ping -n 2 127.0.0.1 >nul
+goto waitothers
+:gone2
 set /a b=0
 :bkexe
 if not exist "__APP__\__EXE__" goto bkint
@@ -1061,9 +1070,12 @@ if exist "__APP__\_sqa_old_internal" rmdir /s /q "__APP__\_sqa_old_internal" >nu
 move /y "__APP__\_internal" "__APP__\_sqa_old_internal" >nul 2>&1
 if not exist "__APP__\_internal" goto putnew
 set /a b+=1
-if %b% GEQ 20 goto rollback
+if %b% GEQ 20 goto restore_exe
 ping -n 2 127.0.0.1 >nul
 goto bkintloop
+:restore_exe
+if not exist "__APP__\__EXE__" if exist "__APP__\_sqa_old_exe" move /y "__APP__\_sqa_old_exe" "__APP__\__EXE__" >nul 2>&1
+goto safe_relaunch
 :putnew
 move /y "__NEW__\__EXE__" "__APP__\__EXE__" >nul 2>&1
 move /y "__NEW__\_internal" "__APP__\_internal" >nul 2>&1
@@ -1076,8 +1088,12 @@ start "" "__APP__\__EXE__"
 del "%~f0" >nul 2>&1
 goto :eof
 :rollback
+if not exist "__APP__\_sqa_old_exe" goto rb_int
 if exist "__APP__\__EXE__" del /f /q "__APP__\__EXE__" >nul 2>&1
+:rb_int
+if not exist "__APP__\_sqa_old_internal" goto rb_exe
 if exist "__APP__\_internal" rmdir /s /q "__APP__\_internal" >nul 2>&1
+:rb_exe
 if exist "__APP__\_sqa_old_exe" move /y "__APP__\_sqa_old_exe" "__APP__\__EXE__" >nul 2>&1
 if exist "__APP__\_sqa_old_internal" move /y "__APP__\_sqa_old_internal" "__APP__\_internal" >nul 2>&1
 :safe_relaunch
