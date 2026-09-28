@@ -4449,6 +4449,23 @@ def _prev_season_from_ranked(rj):
             if sc is not None: return (f"{t} {d}".strip(), sc)
     return None, None
 
+def _fetch_summoner_profile(base, puuid, headers):
+    """summoner-v4 by-puuid → dict(profileIconId·summonerLevel·id) 또는 None. 429 면 Retry-After(최대 10초) 1회 재시도."""
+    for _att in range(2):
+        try:
+            sr = requests.get(f"{base}/lol/summoner/v4/summoners/by-puuid/{puuid}", headers=headers, timeout=8)
+        except Exception:
+            return None
+        if sr.status_code == 200:
+            try: return sr.json() or None
+            except Exception: return None
+        if sr.status_code == 429 and _att == 0:
+            try: _ra = float(sr.headers.get("Retry-After", 5))
+            except Exception: _ra = 5
+            time.sleep(min(max(_ra, 1), 10)); continue
+        return None
+    return None
+
 def fetch_solo_rank_by_riotid(riot_id, key, region="kr", routing="asia"):
     """롤닉#태그 → account-v1로 진짜 PUUID 해석 → 솔랭. (시트 PUUID는 LCU형식이라 직접 못 씀)"""
     try:
@@ -4462,19 +4479,40 @@ def fetch_solo_rank_by_riotid(riot_id, key, region="kr", routing="asia"):
         puuid = ar.json().get("puuid")
         if not puuid: return None
         b = f"https://{region}.api.riotgames.com"
+        # 🖼 [P-5] 프로필 아이콘·롤 레벨 — 같은 PUUID 로 summoner-v4 1회(실패해도 솔랭은 그대로 진행)
+        prof = {}
+        sj = _fetch_summoner_profile(b, puuid, h)
+        if sj: prof = {"icon": sj.get("profileIconId"), "level": sj.get("summonerLevel")}
         r = requests.get(f"{b}/lol/league/v4/entries/by-puuid/{puuid}", headers=h, timeout=8)
         if r.status_code != 200:   # 폴백: summoner-v4 → by-summoner
-            sr = requests.get(f"{b}/lol/summoner/v4/summoners/by-puuid/{puuid}", headers=h, timeout=8)
-            if sr.status_code != 200: return None
-            r = requests.get(f"{b}/lol/league/v4/entries/by-summoner/{sr.json().get('id')}", headers=h, timeout=8)
+            if not sj or not sj.get("id"): return None
+            r = requests.get(f"{b}/lol/league/v4/entries/by-summoner/{sj.get('id')}", headers=h, timeout=8)
             if r.status_code != 200: return None
         for e in r.json():
             if e.get("queueType") == "RANKED_SOLO_5x5":
                 t, rk, lp = e.get("tier"), e.get("rank"), e.get("leaguePoints", 0)
                 w, l = e.get("wins", 0), e.get("losses", 0)
-                return {"tier": t, "rank": rk, "lp": lp, "wins": w, "losses": l, "score": _rank_score(t, rk, lp)}
-        return {"tier": "UNRANKED", "score": None}
+                return {"tier": t, "rank": rk, "lp": lp, "wins": w, "losses": l, "score": _rank_score(t, rk, lp), **prof}
+        return {"tier": "UNRANKED", "score": None, **prof}
     except Exception: return None
+
+def _carry_profile_icons(out, prev_rows):
+    """🖼 [P-5] out(헤더 포함)의 아이콘·레벨 칸이 비었으면 이전 SOLO_RANK 의 같은 닉 값으로 채운다(제자리 수정)."""
+    try:
+        if not prev_rows: return
+        ph = prev_rows[0]
+        if "아이콘" not in ph: return
+        ii = ph.index("아이콘"); li = ph.index("레벨") if "레벨" in ph else -1
+        prev = {}
+        for r in prev_rows[1:]:
+            if r and len(r) > ii and str(r[ii]).strip():
+                prev[tnorm(r[0])] = (r[ii], r[li] if 0 <= li < len(r) else "")
+        for row in out[1:]:
+            if len(row) >= 9 and str(row[7]).strip() == "":
+                p = prev.get(tnorm(row[0]))
+                if p: row[7] = p[0]; row[8] = row[8] if str(row[8]).strip() else p[1]
+    except Exception:
+        pass
 
 def update_solo_ranks():
     """내부티어 보유 클랜원 솔랭을 롤닉으로 조회해 SOLO_RANK 시트에 저장.
@@ -4501,7 +4539,7 @@ def update_solo_ranks():
     with gui_lock:
         gstats = dict(gui_data.get("hof_classic", {}).get("global_stats", {}).get("전체 (ALL)", {}))
         aliases = dict(gui_data.get("hof_classic", {}).get("aliases", {}))
-    out = [["닉네임","티어","LP","솔랭승","솔랭패","점수","갱신"]]
+    out = [["닉네임","티어","LP","솔랭승","솔랭패","점수","갱신","아이콘","레벨"]]   # 🖼 [P-5] 아이콘·레벨은 맨 뒤(기존 열 순서 불변)
     # 🔗 LINK_ACCOUNT(부계·계정 이전·닉변 통합) 그룹 — PUUID 별칭만으론 못 잇는 케이스(닉변 직후 PUUID 가 바뀐
     #    카무사리#귤 갓 ← 귤갓입니다#KR1 ← 귤 갓#Gyul)를 같은 사람으로 묶어 후보에 넣는다.
     _grp = {}
@@ -4529,28 +4567,41 @@ def update_solo_ranks():
             if rk: break
             time.sleep(1.3)
         if rk and len(_cands) > 1 and tnorm(rid) != tnorm(nm): _renamed.append(f"{nm}→{rid}")
+        _ic = rk.get("icon") if rk else None
+        _lv = rk.get("level") if rk else None
         if rk and rk.get("score") is not None:
             out.append([nm, f"{rk['tier']} {rk.get('rank','')}".strip(), rk.get("lp",0),
                         rk.get("wins",0), rk.get("losses",0), rk["score"],
-                        time.strftime("%Y-%m-%d %H:%M")])
+                        time.strftime("%Y-%m-%d %H:%M"),
+                        "" if _ic is None else _ic, "" if _lv is None else _lv])
+        elif rk and _ic is not None:
+            # 🖼 [P-5] 언랭도 아이콘·레벨은 남긴다 — 점수 칸이 비어 있어 솔랭 소비처(웹·분석기·툴링)는 모두 이 행을 건너뛴다
+            out.append([nm, "UNRANKED", "", "", "", "", time.strftime("%Y-%m-%d %H:%M"), _ic, "" if _lv is None else _lv])
         time.sleep(1.3)   # rate limit
     # 🛡️ [v82.48 사장님 제보 — 시트 전멸 사고 방지] 예전엔 조회 결과와 무관하게 clear+덮어쓰기라,
     #    Riot API 키 만료·네트워크 실패로 전건 조회가 실패하면 SOLO_RANK가 헤더만 남고 통째로 비워졌다.
     #    ① 수집 0건이면 아예 쓰지 않음 ② 기존 대비 절반 미만으로 급감해도 보류(부분 실패 보호).
     try:
         try: ws = global_spreadsheet.worksheet("SOLO_RANK")
-        except Exception: ws = global_spreadsheet.add_worksheet(title="SOLO_RANK", rows="400", cols="7")
-        _new_n = len(out) - 1
+        except Exception: ws = global_spreadsheet.add_worksheet(title="SOLO_RANK", rows="400", cols="9")
+        _new_n = len([r for r in out[1:] if str(r[5]).strip() != ""])   # 솔랭 점수 있는 행만(언랭 아이콘 행 제외)
         if _new_n <= 0:
             print("[solo] 수집 0건 — 기존 SOLO_RANK 보존(덮어쓰기 취소). Riot API 키 만료 여부 확인 필요", flush=True)
             return
         try:
-            _prev_n = max(0, len([r for r in (get_sheet_data_cached(ws, force=True) or [])[1:] if r and str(r[0]).strip()]))
+            _prev_rows = get_sheet_data_cached(ws, force=True) or []
+            _prev_n = max(0, len([r for r in _prev_rows[1:] if r and str(r[0]).strip() and len(r) > 5 and str(r[5]).strip()]))
         except Exception:
-            _prev_n = 0
+            _prev_rows, _prev_n = [], 0
+        _carry_profile_icons(out, _prev_rows)   # 🖼 [P-5] 이번에 못 받은 아이콘·레벨은 이전 값 유지
         if _prev_n >= 10 and _new_n < _prev_n * 0.5:
             print(f"[solo] 수집 급감({_prev_n}→{_new_n}) — 부분 실패로 보고 덮어쓰기 보류", flush=True)
             return
+        try:   # 🖼 [P-5] 기존 탭은 7열 — 9열 쓰기 전에 격자 확장(모자라면 update 가 grid limits 로 실패)
+            if getattr(ws, "col_count", 9) < 9: ws.add_cols(9 - ws.col_count)
+            if getattr(ws, "row_count", len(out)) < len(out): ws.add_rows(len(out) - ws.row_count + 20)
+        except Exception as _ge:
+            print(f"[solo] SOLO_RANK 격자 확장 실패: {type(_ge).__name__}", flush=True)
         ws.clear(); ws.update(out)
         invalidate_sheet_cache("SOLO_RANK")
         print(f"[solo] SOLO_RANK 갱신 {_new_n}명" + (f" · 최근 롤닉으로 조회 {len(_renamed)}명: {', '.join(_renamed[:8])}" if _renamed else ""), flush=True)
