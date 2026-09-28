@@ -482,6 +482,7 @@
   .rr-cell{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
   .rr-go{cursor:pointer}.rr-go:hover{border-color:#5a6f99}
   .rr-t{font-size:12px;color:var(--sub);font-weight:700;display:flex;justify-content:space-between;gap:4px;flex-wrap:wrap}
+  .badge.b-nb{background:#1f3a2c;color:#8ff0b8;border:1px solid #2f6b4a}
   .rr-rk{font-size:11px;color:#ffd479;font-weight:800;white-space:nowrap}
   .rr-v{font-size:20px;font-weight:900;margin-top:3px}
   .rr-c{font-size:11.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2013,6 +2014,14 @@ function kizukiEmblem(name){
     <div class="kz-cap">🩸 십이귀월 · ${esc(a.title)}</div>
   </div>`;
 }
+// 🎂 판수 사다리(높은 순) — 고인물(100판) 위로. 이름은 사장님이 바꾸셔도 된다
+const G_LADDER=[
+  {n:1000,k:'g1000',i:'🌌',name:'천 판',sub:'전설 그 너머'},
+  {n:500,k:'g500',i:'👑',name:'스쿼드 그 자체',sub:'이 클랜의 역사'},
+  {n:300,k:'g300',i:'🗿',name:'살아있는 전설',sub:'모두가 아는 얼굴'},
+  {n:200,k:'g200',i:'🏯',name:'수문장',sub:'내전을 지키는 사람'},
+  {n:150,k:'g150',i:'🌳',name:'터줏대감',sub:'뿌리 내린 고인물'},
+];
 // 🎖 재미 업적 뱃지 — 한 플레이어의 획득 뱃지 목록 [{k(그룹키),i(아이콘),t(칭호),d(설명)}]. 하위·캐주얼도 획득 가능.
 function playerBadges(name, useAll){
   // [2026-07-31 사장님 지시] 업적 도감은 항상 전체 패치 기준(useAll=true).
@@ -2041,7 +2050,10 @@ function playerBadges(name, useAll){
   { const _cn=(typeof coinCountOf==='function')?coinCountOf(name):0, _ct=_cn?coinTierOf(_cn):null;   // 🪙 스쿼드코인 수집 시리즈
     if(_ct) b.push({k:'coin',i:_ct.i,t:_ct.t,d:`${_ct.d} (${_cn}개)`}); }
   if(asmt&&(asmt.label==='저평가'||(asmt.urgent&&asmt.implRel==='up'))) b.push({k:'rise',i:'🌱',t:'떡상',d:'자기 내부티어보다 잘함 — 승격 후보, 상승세!'});
-  if(G>=100) b.push({k:'vet',i:'🎂',t:'고인물',d:`내전 ${G}판 — 클랜의 산증인`});
+  // 🏅 [2026-09-28 P-1] 판수 사다리를 100판 위로 잇는다 — 한 사람에게는 가장 높은 것 하나만
+  const _gl=G_LADDER.find(x=>G>=x.n);
+  if(_gl) b.push({k:_gl.k,i:_gl.i,t:_gl.name,d:`내전 ${G}판 — ${_gl.sub}`});
+  else if(G>=100) b.push({k:'vet',i:'🎂',t:'고인물',d:`내전 ${G}판 — 클랜의 산증인`});
   else if(G>=50) b.push({k:'iron',i:'🏃',t:'철인',d:`내전 ${G}판 — 압도적 개근`});
   else if(G>=25) b.push({k:'diligent',i:'🎯',t:'성실',d:`내전 ${G}판 — 꾸준한 참여`});
   else if(G>0&&G<10) b.push({k:'rookie',i:'🐣',t:'새내기',d:`아직 ${G}판 — 앞으로가 기대되는 신입`});
@@ -2077,6 +2089,7 @@ const BADGE_CATALOG=[
   {k:'main',i:'🏅',name:'챔피언 장인',d:'한 챔피언 50판 이상 (미래 목표 뱃지)'},
   {k:'onetrick',i:'🔮',name:'원챔러',d:'주 챔피언 비중 50% 이상'},
   {k:'soloflex',i:'💎',name:'솔랭 다이아+',d:'솔로랭크 다이아 이상'},
+  ...G_LADDER.map(x=>({k:x.k,i:x.i,name:x.name,d:`내전 ${x.n}판 이상`})),
   {k:'vet',i:'🎂',name:'고인물',d:'내전 100판 이상'},
   {k:'iron',i:'🏃',name:'철인',d:'내전 50판 이상'},
   {k:'diligent',i:'🎯',name:'성실',d:'내전 25판 이상'},
@@ -9598,6 +9611,32 @@ function renderPlayer(name){
   loadComments(name);
 }
 
+// 🆕 [2026-09-28 P-1] 전적 카드 '개인 최고 경신' — 통산 판을 날짜순으로 훑어 게임ID → 새로 쓴 항목
+//   항목별로 20판 넘게 쌓인 뒤부터만(처음 몇 판은 매번 신기록). AI점수는 7/27 이후 판만
+let _NB={seq:-1,cat:null,m:new Map()};
+function newBestOf(name){
+  if(_NB.seq!==DATA_SEQ||_NB.cat!==CURRENT_CAT) _NB={seq:DATA_SEQ,cat:CURRENT_CAT,m:new Map()};
+  if(_NB.m.has(name)) return _NB.m.get(name);
+  const out=new Map(), parts=(PLAYERS_ALL.get(name)||[]).map((r,i)=>[String(r["날짜"]||""),i,r]);
+  parts.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:a[1]-b[1]);
+  const st={k:[0,-1],a:[0,-1],d:[0,-1],s:[0,-1]}, seen=new Set();
+  const LB={k:"개인 최다킬",a:"개인 최다어시",d:"개인 최대 딜량",s:"개인 최고 AI점수"};
+  for(const [dt,,r] of parts){
+    const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+    const g=r["게임ID"]||""; if(seen.has(g)) continue; seen.add(g);
+    const v={};
+    const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
+    if(m){ let k=+m[1]; if(k>=1900)k%=100; v.k=k; v.a=+m[3]; }   // 🩹 날짜 오염 셀 역산(명예의 전당과 같은 규칙)
+    const dv=String(r["딜량"]||"").replace(/,/g,"").trim(); if(/^\d+$/.test(dv)) v.d=+dv;   // 빈칸은 0이 아니라 '모름'
+    const sv=parseFloat(r["점수"]); if(!isNaN(sv)&&dt>="2026-07-27") v.s=sv;
+    const hit=[];
+    for(const key in v){ const x=st[key];
+      if(x[0]>=20&&v[key]>x[1]) hit.push(LB[key]);
+      x[0]++; if(v[key]>x[1]) x[1]=v[key]; }
+    if(hit.length) out.set(g,hit);
+  }
+  _NB.m.set(name,out); return out;
+}
 function matchCard(r,selfName){
   const decided=r["결과"]==="승리"||r["결과"]==="패배";
   const win=r["결과"]==="승리";
@@ -9622,6 +9661,8 @@ function matchCard(r,selfName){
   const evalBadge=r["매치평가"]==="MVP"?`<span class="badge b-mvp">MVP</span>`
                  :r["매치평가"]==="ACE"?`<span class="badge b-ace">ACE</span>`
                  :r["매치평가"]==="역적"?`<span class="badge b-bad">역적</span>`:"";
+  const nb=selfName?newBestOf(selfName).get(r["게임ID"]||""):null;
+  const nbHtml=nb?nb.map(t=>` <span class="badge b-nb" title="이 판에서 내 통산 기록을 새로 썼어요">🆕 ${esc(t)}</span>`).join(""):"";
   const evCls=r["매치평가"]==="MVP"?' ev-mvp':r["매치평가"]==="ACE"?' ev-ace':'';   // 👑 MVP 황금 반짝 · ⭐ ACE 은은한 은색(lol.ps 참고, 2026-09-11)
   return `<div class="match ${cls}${evCls}" onclick="go('game','${escAttr(r["게임ID"])}')" style="cursor:pointer">
     <div>
@@ -9632,7 +9673,7 @@ function matchCard(r,selfName){
       ${champImg(r["챔피언"],"lg")}
       <div class="info">
         <b>${esc(r["챔피언"]||'?')}</b>
-        <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span> ${evalBadge}
+        <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span> ${evalBadge}${nbHtml}
         ${kdaChip(r)?`<div style="margin-top:2px">${kdaChip(r)}</div>`:''}
         ${buildLine(r)}
       </div>
@@ -10511,7 +10552,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281830";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
