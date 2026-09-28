@@ -876,7 +876,7 @@
   .np-brj{margin-top:22px;border:1px dashed var(--soft);background:rgba(0,0,0,.025);padding:10px 12px 12px}
   .np-brj>h3{margin:0 0 4px;font-size:15px;font-weight:900;letter-spacing:1px}
   .np-brj .sub{font-size:12px;color:var(--ink3);margin-bottom:8px}
-  .np-brj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 18px;align-items:start}
+  .np-brj-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 18px;align-items:start}
   .np-brj .np-art{border-bottom:0;padding:6px 0}
   .np-cmt .cmt-ta{background:#fffaf0;color:var(--ink);border:1px solid var(--soft);font-size:14px}
   .np-cmt .cmt-ta::placeholder{color:#9a917f}
@@ -4906,11 +4906,13 @@ function _npMainChamp(key,wk){   // 그 사람이 이번 주(없으면 통산)�
 }
 function _npSplash(c){ return c?(SPLASHMAP[c]||SPLASHMAP[String(c).replace(/\s/g,"")]||""):""; }
 function _npFig(inner,cap,src){ return `<figure class="np-fig">${inner}<figcaption>${cap?esc(cap):""}${src?` <span class="src">${esc(src)}</span>`:""}</figcaption></figure>`; }
-function _npPhotoPlayer(nm,cap,size,brjOk){   // 사람 사진: 이번 주 주챔 스플래시 → (브장신 코너에서만) 브장신 스프라이트 → 이모지 [2026-09-28 내전 지면엔 브장신 그림을 대신 쓰지 않는다]
-  const key=_wkrvKey(nm); const b=(key&&brjOk)?brjOf(key):null; const show=key?shortName(key):nm;
-  const ch=key?_npMainChamp(key,(WEEKLY_REVIEW||{}).week):""; const sp=_npSplash(ch);
+function _npPhotoPlayer(nm,cap,size,brjOk,wk){   // 사람 사진 [2026-09-28 사장님 "브장신은 내전과 섞지 말 것"] — 내전 지면: 그 주 주챔 스플래시 → 이모지 · 브장신 코너(brjOk): 브장신 그림 → 이모지(챔피언 사진은 안 쓴다)
+  const key=_wkrvKey(nm); const show=key?shortName(key):nm;
+  if(brjOk){ const b=key?brjOf(key):null;
+    if(b) return _npFig(`<div class="np-img spr">${brjSpriteSvg(b.lv,b.cos,b.flags,size||150)}</div>`,cap||`${show} (자료사진 · Lv.${b.lv} ${b.stage})`,"사진=브장신 도감");
+    return _npFig(`<div class="np-img emo">🍗</div>`,cap||`${show} (사진 없음)`,""); }
+  const ch=key?_npMainChamp(key,wk||(WEEKLY_REVIEW||{}).week):""; const sp=_npSplash(ch);
   if(sp) return _npFig(`<div class="np-img" style="background-image:url('${escAttr(sp)}')">${champImg(ch,"ci")}</div>`,cap||`${show} — 이번 주 ${ch}`,"사진=라이엇 게임즈");
-  if(b) return _npFig(`<div class="np-img spr">${brjSpriteSvg(b.lv,b.cos,b.flags,size||150)}</div>`,cap||`${show} (자료사진 · Lv.${b.lv} ${b.stage})`,"사진=브장신 도감");
   return _npFig(`<div class="np-img emo">🧑‍🎓</div>`,cap||`${show} (사진 없음)`,"");
 }
 function _npPhotoChamp(c,cap){ const sp=_npSplash(c); if(!sp) return _npFig(`<div class="np-img emo">${champImg(c,"")}</div>`,cap||c,""); return _npFig(`<div class="np-img" style="background-image:url('${escAttr(sp)}')">${champImg(c,"ci")}</div>`,cap||c,"사진=라이엇 게임즈"); }
@@ -4919,12 +4921,12 @@ function _npPhotoBoss(k,cap){ k=String(k||"").toLowerCase(); if(!NP_BOSS[k]) ret
 function _npPhoto(e,W,size,brj){   // 기사 사진 — 봇이 검증한 photo 우선, 없으면 면(section)별 폴백. brj=true 는 브장신 코너(보스·브장신 그림은 거기서만)
   const p=(e&&e.photo)||{}, st=(W&&W.stats)||{}, sec=brj?((e&&e.section)||"브장신"):((e&&e.section)||"");
   try{
-    if(p.kind==="player"&&p.key) return _npPhotoPlayer(p.key,"",size,!!brj);
+    if(p.kind==="player"&&p.key) return _npPhotoPlayer(p.key,"",size,!!brj,W&&W.week);
     if(p.kind==="champion"&&p.key) return _npPhotoChamp(p.key,`${p.key} (자료사진)`);
     if(brj&&p.kind==="boss"&&p.key){ const h=_npPhotoBoss(p.key); if(h) return h; }
     if(sec==="협곡"||sec==="칼바람"){ const s=st[sec==="협곡"?"sr":"aram"]||{}; const c=(s.picks||[])[0]; if(c&&c[0]) return _npPhotoChamp(c[0],`이번 주 ${sec} 최다 픽 ${c[0]} (${c[1]}회)`); }
     if(brj&&(sec==="레이드"||/레이드|보스/.test(String((e&&e.title)||"")))){ const b=((st.raid||{}).boss||[])[0]; if(b){ const h=_npPhotoBoss(b[0],`이번 주 최다 출현 월드보스 ${b[1]||NP_BOSS[b[0]]||""} (${b[2]}회)`); if(h) return h; } }
-    if(brj){ const t=((st.brj||{}).top||[])[0]; if(t&&t[0]) return _npPhotoPlayer(t[0],`최고 레벨 브장신 — ${t[0]} Lv.${t[1]} ${t[2]||""}`,size,true); }
+    if(brj){ const t=((st.brj||{}).top||[])[0]; if(t&&t[0]) return _npPhotoPlayer(t[0],`최고 레벨 브장신 — ${t[0]} Lv.${t[1]} ${t[2]||""}`,size,true,W&&W.week); }
   }catch(err){ console.warn("np photo",err); }
   const emo={협곡:"🏟️",칼바람:"❄️",레이드:"🐲",브장신:"🍗",퀴즈:"🧩",예측:"🎲",클랜:"🏠"}[sec]||(e&&e.emoji)||"📰";
   return _npFig(`<div class="np-img emo">${esc(emo)}</div>`,"(사진 없음 · 편집국 자료)","");
@@ -4966,8 +4968,8 @@ function _npBrjCorner(W){   // 🍗 [2026-09-28 사장님 지시 "브장신 뉴�
   let rows="";
   if(rd&&N(rd.n)){ rows+=row("레이드 공격",`${N(rd.n)}회 (승 ${N(rd.w)})`)+(N(rd.players)?row("　참가",`${N(rd.players)}명`):"");
     (Array.isArray(rd.top)?rd.top:[]).filter(t=>Array.isArray(t)&&t[0]).slice(0,3).forEach((t,i)=>{ rows+=row(`　${i+1}. ${_npName(String(t[0]))}`,`${N(t[1])}회 ${N(t[2])}승`); }); }
+  if(!items.length&&!rows) return "";   // 이번 주 브장신 소식(기사·레이드)이 없으면 코너째 안 싣는다 — 누적 레벨만으로는 매 호 자리를 차지하지 않게
   (bt&&Array.isArray(bt.top)?bt.top:[]).filter(t=>Array.isArray(t)&&t[0]).slice(0,1).forEach(t=>{ rows+=row(`최고 레벨 ${_npName(String(t[0]))}`,`Lv.${N(t[1])}`); });
-  if(!items.length&&!rows) return "";
   const arts=items.map(e=>`<article class="np-art">${_npPhoto(e,W,110,true)}<h3 class="np-serif">${esc(e.emoji||"🍗")} ${esc(e.title||"")}</h3><p>${mdLite(e.body||"")}</p></article>`).join("");
   return `<div class="np-brj"><h3 class="np-serif">🍗 브장신 키우기 코너</h3><div class="sub">디스코드 봇 미니게임 소식 — 내전 기록과는 따로 모아 둡니다</div>
     <div class="np-brj-grid">${arts}<div>${rows?`<table class="np-stat"><tbody>${rows}</tbody></table>`:""}<div style="margin-top:8px"><div style="font-size:12px;font-weight:800;margin-bottom:4px">📣 브장신 장터</div><div id="npMarket">${_npMarketInner()}</div></div></div></div></div>`;
@@ -10210,7 +10212,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
