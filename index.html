@@ -2178,6 +2178,54 @@ function pickDataOf(name,pos){
     return {g,w,avg,good,rest};
   });
 }
+/* 🆕 해볼 만한 챔프 — 이웃 = 같은 라인에서 내 모스트5(3판↑)와 1개↑ 겹치는 클랜원.
+   이웃 합계: 내가 3판 미만 · 15판↑ · 3명↑ · (승+4)/(판+8) ≥ .55. 비면 클랜 검증 픽(최근 60일). */
+function _pickLaneIdx(){
+  return _funMemo('pickLane',()=>{
+    const L={}; let last="";
+    for(const [nm,parts] of PLAYERS_ALL) for(const r of parts){
+      const p=r["포지션"], res=r["결과"], c=r["챔피언"]; if(!p||!c||(res!=="승리"&&res!=="패배")) continue;
+      const d=String(r["날짜"]||"").slice(0,10); if(d>last) last=d;
+      const pm=L[p]=L[p]||new Map(); const m=pm.get(nm)||new Map(); pm.set(nm,m);
+      const e=m.get(c)||{g:0,w:0}; e.g++; if(res==="승리")e.w++; m.set(c,e);
+    }
+    // 클랜 검증 픽: 최근 60일 · 20판↑ · 4명↑ · 최다 1인 ≤ 50% · 보정 ≥ 55%
+    const cut=last?new Date(new Date(last).getTime()-60*864e5).toISOString().slice(0,10):"";
+    const agg={};
+    for(const [nm,parts] of PLAYERS_ALL) for(const r of parts){
+      const p=r["포지션"], res=r["결과"], c=r["챔피언"]; if(!p||!c||(res!=="승리"&&res!=="패배")) continue;
+      if(String(r["날짜"]||"").slice(0,10)<cut) continue;
+      const a=agg[p]=agg[p]||new Map(); const e=a.get(c)||{c,g:0,w:0,by:new Map()};
+      e.g++; if(res==="승리")e.w++; e.by.set(nm,(e.by.get(nm)||0)+1); a.set(c,e);
+    }
+    const ver={};
+    for(const p in agg) ver[p]=[...agg[p].values()].filter(e=>e.g>=20&&e.by.size>=4&&Math.max(...e.by.values())<=e.g/2)
+      .map(e=>({c:e.c,g:e.g,w:e.w,n:e.by.size,adj:(e.w+4)/(e.g+8)})).filter(e=>e.adj>=.55).sort((a,b)=>b.adj-a.adj);
+    return {L,ver};
+  });
+}
+function tryPicksOf(name,pos){
+  return _funMemo('try:'+name+'|'+pos,()=>{
+    const {L,ver}=_pickLaneIdx(); const pm=L[pos]||new Map(); const mine=pm.get(name)||new Map();
+    const most=new Set([...mine.entries()].filter(([,e])=>e.g>=3).sort((a,b)=>b[1].g-a[1].g).slice(0,5).map(([c])=>c));
+    const tried=c=>(mine.get(c)||{g:0}).g>=3;
+    const sum=new Map();
+    if(most.size) for(const [nm,m] of pm){
+      if(nm===name||![...most].some(c=>m.has(c))||isDeparted(nm)) continue;
+      for(const [c,e] of m){ if(tried(c)) continue;
+        const s=sum.get(c)||{c,g:0,w:0,n:0}; s.g+=e.g; s.w+=e.w; s.n++; sum.set(c,s); }
+    }
+    const nb=[...sum.values()].map(e=>({...e,adj:(e.w+4)/(e.g+8)}))
+      .filter(e=>e.g>=15&&e.n>=3&&e.adj>=.55).sort((a,b)=>b.adj-a.adj).slice(0,3);
+    if(nb.length) return {src:'nb',list:nb};
+    // 선호 역할군(그 라인에서 내가 가장 많이 한 역할)이 같은 검증 픽부터
+    const rc={}; for(const [c,e] of mine){ const k=roleOfChamp(c,pos); if(k) rc[k]=(rc[k]||0)+e.g; }
+    const myRole=Object.keys(rc).sort((a,b)=>rc[b]-rc[a])[0]||null;
+    const v=(ver[pos]||[]).filter(e=>!tried(e.c)).map((e,i)=>({...e,i,same:myRole&&roleOfChamp(e.c,pos)===myRole?0:1}))
+      .sort((a,b)=>a.same-b.same||a.i-b.i).slice(0,3);
+    return {src:'ver',list:v};
+  });
+}
 function pickCardHtml(name){
   if(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift") return '';
   if(isDeparted(name)) return '';
@@ -2189,13 +2237,18 @@ function pickCardHtml(name){
   const chips=L.rows.map(r=>`<span class="chip" onclick="selProfPos('${r.p}')" style="cursor:pointer;font-size:12px;padding:3px 9px;border-radius:10px;margin:0 5px 5px 0;display:inline-block;${r.p===pos?'background:rgba(127,168,255,.22);color:#7fa8ff;font-weight:700':'background:var(--bg2);color:var(--sub)'}">${r.p} ${r.g}</span>`).join('');
   const D=pickDataOf(name,pos);
   const cell=e=>`<span class="champcell" style="cursor:pointer;display:inline-flex;margin:0 10px 6px 0" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(e.c)}')">${champImg(e.c,"sm")}<span>${esc(e.c)} · ${e.g}판 ${e.w}승 <span style="color:${e.w/e.g>=.5?'var(--win)':'var(--lose)'}">${Math.round(e.w/e.g*100)}%</span></span></span>`;
+  const T=tryPicksOf(name,pos);
+  const tcell=e=>`<span class="champcell" style="cursor:pointer;display:inline-flex;margin:0 10px 6px 0" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(e.c)}')">${champImg(e.c,"sm")}<span>${esc(e.c)} <span class="muted">(${e.n}명 · ${e.g}판 <span style="color:var(--win)">${Math.round(e.w/e.g*100)}%</span>)</span></span></span>`;
+  const tryHtml=T.list.length?`<div style="font-size:12.5px;font-weight:800;margin:8px 0 5px">🆕 해볼 만한 챔프</div><div>${T.list.map(tcell).join('')}</div>
+      <div class="muted" style="font-size:11.5px;margin-bottom:6px">${T.src==='nb'?`나와 챔프폭이 비슷한 ${pos} 클랜원들이 잘 이긴 챔프예요 (내가 3판 미만)`:`최근 60일 클랜 ${pos}에서 검증된 픽이에요 (4명↑ · 20판↑)`}</div>`:'';
   let body;
-  if(!D.g) body=`<div class="muted" style="font-size:13px">이 라인은 아직 기록이 없어요 — 클랜에서 검증된 픽을 보여 드릴게요</div>`;
+  if(!D.g) body=`<div class="muted" style="font-size:13px">이 라인은 아직 기록이 없어요 — 클랜에서 검증된 픽을 보여 드릴게요</div>${tryHtml}`;
   else {
     const avgP=Math.round(D.avg*100);
     body=`<div class="muted" style="font-size:12.5px;margin-bottom:8px">${pos} ${D.g}판 기준 (내 ${pos} 평균 ${avgP}%)</div>
       <div style="font-size:12.5px;font-weight:800;margin-bottom:5px">✅ 잘 되는 챔프</div>
       ${D.good.length?`<div>${D.good.map(cell).join('')}</div><div class="muted" style="font-size:11.5px;margin-bottom:6px">내 ${pos} 평균 ${avgP}%보다 잘 돼요</div>`:`<div class="muted" style="font-size:12.5px;margin-bottom:6px">아직 눈에 띄게 잘 되는 챔프가 없어요 — 한 챔프로 5판이 쌓이면 보여요</div>`}
+      ${tryHtml}
       ${D.rest.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12.5px;font-weight:800">⏸ 잠깐 쉬어가기 (${D.rest.length})</summary><div style="margin-top:6px">${D.rest.map(cell).join('')}</div><div class="muted" style="font-size:11.5px">요즘 이 라인에선 덜 풀렸어요 — 잠깐 쉬고 위 챔프부터 해 봐요</div></details>`:''}`;
   }
   return `<div class="card" style="margin-top:14px">${head}<div style="margin:4px 0 8px">${chips}</div>${body}
@@ -10387,7 +10440,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
