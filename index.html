@@ -2082,7 +2082,7 @@ let RAW = [];            // 행 배열 (객체)
    승률·AI점수를 '그 포지션을 5판↑ 뛰는 클랜원' 비교군 백분위로 환산해 판수 가중 평균(0~100).
    선택해둔 부포지션과 무관 — 실제로 뛴 오프라인 기록 전체가 대상. 3판 미만 포지션은 표본 제외.
    [2026-08-08 사장님 지시] */
-let OFFROLE=null;
+let OFFROLE=null, OFFROLE_RAW=null;   // RAW: 사람×라인 집계·비교군(라인별 성적 줄이 같이 쓴다)
 function offRoleOf(name){
   if(!OFFROLE){
     OFFROLE=new Map();
@@ -2104,6 +2104,7 @@ function offRoleOf(name){
     for(const p in coh){ coh[p].wr.sort((a,b)=>a-b); coh[p].ai.sort((a,b)=>a-b); }
     const pct=(arr,v)=>{ if(!arr||arr.length<5||v==null)return null;
       let i=0; while(i<arr.length&&arr[i]<v)i++; return Math.round(i/arr.length*100); };
+    OFFROLE_RAW={per,coh,pct};
     for(const [nm,m] of per){
       const posArr=Object.keys(m); if(posArr.length<2)continue;
       const main=posArr.reduce((a,b)=>m[a].g>=m[b].g?a:b);
@@ -2119,6 +2120,45 @@ function offRoleOf(name){
     }
   }
   return OFFROLE.get(name)||null;
+}
+
+/* 🎯 [2026-09-28 P-3] 라인별 성적 · 통산 — offRoleOf 와 같은 집계·비교군·백분위(승률·AI 평균).
+   posPercentiles 는 패치 필터 기준이라 쓰지 않는다. 5판 미만은 표본 부족. */
+function posLinesOf(name){
+  offRoleOf(name);
+  const R=OFFROLE_RAW; if(!R) return null;
+  const m=R.per.get(name); if(!m) return null;
+  const POS=["탑","정글","미드","원딜","서폿"], ks=Object.keys(m);
+  if(!ks.length) return null;
+  const main=ks.reduce((a,b)=>m[a].g>=m[b].g?a:b);
+  const rows=POS.map(p=>{
+    const e=m[p]; if(!e) return {p,g:0};
+    const o={p,g:e.g,w:e.w,l:e.g-e.w,wr:Math.round(e.w/e.g*100),ai:e.aiN?e.aiS/e.aiN:null,main:p===main};
+    if(e.g>=5){
+      const c=R.coh[p]||{wr:[],ai:[]};
+      const vals=[R.pct(c.wr,e.w/e.g),e.aiN?R.pct(c.ai,e.aiS/e.aiN):null].filter(v=>v!=null);
+      if(vals.length) o.pc=vals.reduce((a,b)=>a+b,0)/vals.length;
+      o.n=c.wr.length;
+    }
+    return o;
+  });
+  const mr=rows.find(r=>r.main);
+  for(const r of rows) if(!r.main&&r.g>=8&&r.pc!=null&&mr&&mr.pc!=null&&r.pc-mr.pc>=15) r.swap=true;
+  return {rows,main:mr};
+}
+function posLinesHtml(name){
+  if(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift") return '';
+  const L=posLinesOf(name); if(!L) return '';
+  const top=pc=>Math.max(1,Math.round(100-pc));
+  const body=L.rows.filter(r=>r.g>0).map(r=>{
+    if(r.g<5) return `<div class="muted" style="font-size:12.5px;margin-bottom:5px;opacity:.7"><b>${r.p}</b> ${r.g}판 · 표본 부족(5판부터 보여요)</div>`;
+    const rank=r.pc!=null?` · 클랜 ${r.p} ${r.n}명 중 상위 ${top(r.pc)}%`:'';
+    const chip=r.swap?` <span class="chip" style="font-size:11px;padding:1px 7px;border-radius:9px;background:rgba(127,168,255,.15);color:#7fa8ff;cursor:help" title="${r.p}에서 클랜 상위 ${top(r.pc)}% — 주포지션 ${L.main.p}(상위 ${top(L.main.pc)}%)보다 앞서요. 참고용이에요.">🔀 포변 후보</span>`:'';
+    const mk=r.main?` <span class="muted" style="font-size:11px">← 주포지션</span>`:'';
+    return `<div style="font-size:12.5px;margin-bottom:5px${r.main?';font-weight:700':''}"><b>${r.p}</b> ${r.g}판 ${r.w}승 ${r.l}패 <span style="color:${r.wr>=50?'var(--win)':'var(--lose)'}">${r.wr}%</span>${r.ai!=null?' · AI '+r.ai.toFixed(1):''}${rank}${chip}${mk}</div>`;
+  }).join('');
+  if(!body) return '';
+  return `<div class="muted" style="font-size:12.5px;margin:14px 0 6px;font-weight:800">라인별 성적 · 통산</div>${body}`;
 }
 
 /* 🏷 [2026-08-11 사장님 지시] 지표 구간 표현 — "숫자만 있으면 감이 안 온다".
@@ -9422,7 +9462,7 @@ function renderPlayer(name){
         ${tierHistHtml}
         ${gptiCardHtml(name)}
         <div class="card" style="margin-top:14px"><h2>포지션</h2>${posDeclLabel(name)?'<div class="muted" style="font-size:12.5px;margin:2px 0 6px">📌 선언 포지션(디스코드 역할): <b style="color:#8fd0ff">'+esc(posDeclLabel(name))+'</b></div>':''}${posStyleHtml(parts,posAgg,posTotal,(()=>{const c=[...posAgg.entries()].filter(([p])=>p&&p!=="?"&&p!=="선택안함").sort((a,b)=>b[1]-a[1])[0];return c?c[0]:POS_LIST[0];})())}
-          <div class="muted" style="font-size:12.5px;margin:14px 0 6px;font-weight:800">실제 플레이 분포</div>${posHtml}</div>
+          <div class="muted" style="font-size:12.5px;margin:14px 0 6px;font-weight:800">실제 플레이 분포</div>${posHtml}${isDeparted(name)?'':posLinesHtml(name)}</div>
         <div class="card" style="margin-top:14px">
           <h2>💬 댓글 <span class="muted" style="font-size:13.5px">· 한마디 (예의를 지켜주세요)</span></h2>
           ${ dcValid() ? `
@@ -10305,7 +10345,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
