@@ -476,6 +476,17 @@
   }
   /* 🎖 재미 업적 뱃지 (전원 수집형) */
   .ach-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .rr-chip{display:inline-block;margin-left:6px;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:20px;background:#2a2238;color:#e6c9ff;border:1px solid #4a3a66;vertical-align:middle;white-space:nowrap}
+  .rr-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  @media (max-width:600px){.rr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .rr-cell{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
+  .rr-go{cursor:pointer}.rr-go:hover{border-color:#5a6f99}
+  .rr-t{font-size:12px;color:var(--sub);font-weight:700;display:flex;justify-content:space-between;gap:4px;flex-wrap:wrap}
+  .rr-rk{font-size:11px;color:#ffd479;font-weight:800;white-space:nowrap}
+  .rr-v{font-size:20px;font-weight:900;margin-top:3px}
+  .rr-c{font-size:11.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rr-n{font-size:10.5px;color:var(--sub);opacity:.75}
+  .rr-none{font-size:11.5px;color:var(--sub);margin-top:4px;line-height:1.35}
   /* ← 뒤로가기 (2026-07-10) — 모바일 44px 터치 타깃 */
   .backrow{margin-top:14px}
   .sharerow{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
@@ -9546,6 +9557,7 @@ function renderPlayer(name){
       </div>
     </div>
     <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지 · 기록</h2>${mitoHtml}${badgesHtml}</div>
+    ${recordRoomHtml(name)}
     ${aiEvalHtml}
     ${growthCardHtml(name)}
     <div class="grid cols">
@@ -10177,9 +10189,9 @@ function parseMetrics(r){
   //    삼킨 CSV로 측정한 것이었다. 지표 원문은 시트를 그대로 믿는다.
   return (o.m&&o.m>0)?o:null;
 }
-function computeHofRecords(rows){
-  const canonMap=puuidLatestFromRows(rows);
-  const canonName=r=>{const pu=r["PUUID"];return resolveAlt((pu&&canonMap.has(pu))?canonMap.get(pu):r["소환사명"]);};
+function computeHofRecords(rows, nameOf){   // nameOf: 사람 키 함수(없으면 rows 안 PUUID 최신 닉) — 🏅 내 기록실은 canonOfRow
+  const canonMap=nameOf?null:puuidLatestFromRows(rows);
+  const canonName=nameOf||(r=>{const pu=r["PUUID"];return resolveAlt((pu&&canonMap.has(pu))?canonMap.get(pu):r["소환사명"]);});
   const rec={},seen=new Set();
   const _mpMemo={}, mpOf=n=>{ if(!(n in _mpMemo)) _mpMemo[n]=mainPosOf(n)||null; return _mpMemo[n]; };   // 🧭 주 포지션 1회 계산·캐시
   for(const r of rows){
@@ -10188,6 +10200,8 @@ function computeHofRecords(rows){
     const g=r["게임ID"]||"";
     const key=g+"∥"+(r["PUUID"]||name);if(seen.has(key))continue;seen.add(key);
     const rc=rec[name]||(rec[name]={name,g:0,tk:0,td:0,ta:0,dmgSum:0,dmgN:0,mxK:[-1,"",""],mxD:[-1,"",""],mxA:[-1,"",""],mxDmg:[-1,"",""],mxSc:[-1,"",""],
+      // 🏅 [2026-09-28 P-1] 내 기록실 — 튜플은 [값,챔피언,날짜,게임ID,포지션](명예의 전당은 [0]~[2]만 읽는다)
+      mxSc2:[-1,"",""],mxLong:[-1,"",""],seq:[],
       metN:0,dpmSum:0,gpmSum:0,cspmSum:0,kpSum:0,vsSum:0,cwSum:0,skSum:0,geSum:0,epSum:0,dtpmSum:0,mxDt:[-1,"",""],
       // 🩹 [2026-09-08 사장님 제보 "wei ha 지표가 이상한데?"] 지표마다 '실제로 기록된 판수'를 따로 센다.
       //   예전엔 전부 metN(지표팩 있는 판 전체)으로 나눴는데, 기록기가 그 항목을 안 쓴 판은 분자에 0을 더하고
@@ -10202,16 +10216,17 @@ function computeHofRecords(rows){
       pp:{},   // 🧭 [2026-07-25 사장님 지시] 포지션별 분리 집계 — 전체뷰 라인지표는 (선수×포지션) 엔트리로 랭킹(한 사람이 포지션별 복수 랭크 가능)
       scSum:0,scN:0,mpScSum:0,mpScN:0});   // 🧠 [2026-07-24] 평균 AI점수 — 포지션 편향(정글29.8↔미드24.0) 있음
     rc.g++;
-    const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10);
+    const ch=r["챔피언"]||"", dt=String(r["날짜"]||"").slice(5,10), _pz=r["포지션"]||"";
+    rc.seq.push([String(r["날짜"]||""),rc.seq.length,res==="승리",g,ch,dt]);   // 🔥 연승은 날짜순으로 다시 센다(누락 제보 판이 시트 끝에 붙음)
     const m=/^(\d+)\/(\d+)\/(\d+)$/.exec(String(r["KDA"]||"").trim());
     if(m){
       let k=+m[1];const d=+m[2],a=+m[3];
       if(k>=1900)k%=100;   // 🩹 날짜 오염 셀("2009/4/3") 역산
       rc.tk+=k;rc.td+=d;rc.ta+=a;
       rc.kdaN++; if(d===0)rc.ndN++; if(k>=10)rc.dkN++;   // 📊 평균/비율 랭킹용
-      if(k>rc.mxK[0])rc.mxK=[k,ch,dt];
-      if(d>rc.mxD[0])rc.mxD=[d,ch,dt];
-      if(a>rc.mxA[0])rc.mxA=[a,ch,dt];
+      if(k>rc.mxK[0])rc.mxK=[k,ch,dt,g,_pz];
+      if(d>rc.mxD[0])rc.mxD=[d,ch,dt,g,_pz];
+      if(a>rc.mxA[0])rc.mxA=[a,ch,dt,g,_pz];
     }
     // 🧭 이 판이 그 사람 주 포지션 판인지 (라인 종속 지표를 '전체' 뷰에서 이 값만으로 계산)
     if(rc.mpPos===null)rc.mpPos=mpOf(name);
@@ -10220,17 +10235,19 @@ function computeHofRecords(rows){
     const _pos=r["포지션"];
     const pp=(POS_ORDER[_pos]!=null)?(rc.pp[_pos]||(rc.pp[_pos]={metN:0,dpm:0,gpm:0,cspm:0,dpmN:0,gpmN:0,cspmN:0,dmgSum:0,dmgN:0,scSum:0,scN:0})):null;
     const dv=String(r["딜량"]||"").replace(/,/g,"").trim();
-    if(/^\d+$/.test(dv)){const dvi=+dv;rc.dmgSum+=dvi;rc.dmgN++;if(dvi>rc.mxDmg[0])rc.mxDmg=[dvi,ch,dt];
+    if(/^\d+$/.test(dv)){const dvi=+dv;rc.dmgSum+=dvi;rc.dmgN++;if(dvi>rc.mxDmg[0])rc.mxDmg=[dvi,ch,dt,g,_pz];
       if(_isMain){rc.mpDmgSum+=dvi;rc.mpDmgN++;}
       if(pp){pp.dmgSum+=dvi;pp.dmgN++;}}
     const sv=parseFloat(r["점수"]);
-    if(!isNaN(sv)){rc.scSum+=sv;rc.scN++;if(sv>rc.mxSc[0])rc.mxSc=[sv,ch,dt];
+    if(!isNaN(sv)){rc.scSum+=sv;rc.scN++;if(sv>rc.mxSc[0])rc.mxSc=[sv,ch,dt,g,_pz];
+      if(String(r["날짜"]||"")>="2026-07-27"&&sv>rc.mxSc2[0])rc.mxSc2=[sv,ch,dt,g,_pz];   // 7/26 이전 AI점수는 척도가 달랐다
       if(_isMain){rc.mpScSum+=sv;rc.mpScN++;}
       if(pp){pp.scSum+=sv;pp.scN++;}}
     // 📊 [2026-07-21] 상세지표 집계 — 지표 팩 있는 게임만(metN)
     const mt=parseMetrics(r);
     if(mt){
       rc.metN++;
+      if(res==="승리"&&mt.m>rc.mxLong[0])rc.mxLong=[mt.m,ch,dt,g,_pz];   // ⏱ 가장 긴 승리(분)
       const _hasDmg=/^\d+$/.test(dv), dvi2=_hasDmg?+dv:0;
       if(_hasDmg){rc.dpmSum+=dvi2/mt.m;rc.dpmN++;}   // 딜량 칸이 빈 판은 0딜이 아니라 '모름' — 평균에서 뺀다
       if(mt.g!=null){rc.gpmSum+=mt.g/mt.m;rc.geSum+=mt.g;rc.gpmN++;}
@@ -10261,7 +10278,61 @@ function computeHofRecords(rows){
       if(mt.dt!=null){ rc.dtpmSum+=mt.dt/mt.m; rc.dtpmN++; if(mt.dt>rc.mxDt[0])rc.mxDt=[mt.dt,ch,dt]; }   // 🛡 받은 피해
     }
   }
+  for(const rc of Object.values(rec)){   // 🔥 최장 연승 — [값,끝낸 판 챔피언,날짜,게임ID]
+    rc.seq.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:a[1]-b[1]);
+    let cur=0; rc.mxSt=[-1,"",""];
+    for(const x of rc.seq){ cur=x[2]?cur+1:0; if(cur>rc.mxSt[0]&&cur>0)rc.mxSt=[cur,x[4],x[5],x[3],""]; }
+    delete rc.seq;
+  }
   return Object.values(rec);
+}
+// 🏅 [2026-09-28 P-1] 프로필 '내 기록실' — 통산(PLAYERS_ALL · 패치 무관) 한 판 최고 6칸 + 다음 기념 판수 칩
+let _RR={seq:-1,cat:null,map:null,rank:null};
+function _rrData(){
+  if(_RR.seq===DATA_SEQ&&_RR.cat===CURRENT_CAT) return _RR;   // RAW 가 바뀔 때만 다시 계산
+  const rows=[]; for(const v of PLAYERS_ALL.values()) for(const r of v) rows.push(r);
+  const rl=computeHofRecords(rows, canonOfRow);
+  const map=new Map(rl.map(x=>[x.name,x]));
+  const act=rl.filter(x=>!isDeparted(x.name));   // 순위 모수: 탈퇴자 제외
+  const rank={}; for(const k of RR_KEYS) rank[k]=act.map(x=>x[k][0]).filter(v=>v>0).sort((a,b)=>b-a);
+  _RR={seq:DATA_SEQ,cat:CURRENT_CAT,map,rank};
+  return _RR;
+}
+const RR_KEYS=["mxK","mxA","mxDmg","mxSc2","mxSt","mxLong"];
+function nextMilestone(n){ const ms=[50,100,150,200]; for(const m of ms) if(n<m) return m; return (Math.floor(n/100)+1)*100; }
+function rrGo(gid){   // 통산 기록이라 지금 패치 필터에 없는 판일 수 있다 — 그땐 전체 기간으로 풀고 연다
+  if(!GAMES.has(gid)&&GAMES_ALL.has(gid)&&PATCH_SEL!=="ALL"){ PATCH_SEL="ALL"; build(); renderPatchbar(); }
+  go('game',gid);
+}
+function recordRoomHtml(name){
+  if(typeof PLAYERS_ALL==='undefined'||!PLAYERS_ALL.size) return '';
+  const d=_rrData(), rc=d.map.get(name); if(!rc) return '';
+  const aram=CURRENT_CAT!=="rift"&&CURRENT_CAT!=="classic";
+  const cat=catLabel(CURRENT_CAT)||"협곡";
+  const nx=nextMilestone(rc.g);
+  const chip=`<span class="rr-chip">🎂 ${esc(cat)} ${rc.g}판 · ${nx}판까지 ${nx-rc.g}판</span>`;
+  const md=s=>{const m=/^(\d\d)-(\d\d)$/.exec(s||"");return m?`${+m[1]}/${+m[2]}`:"";};
+  const rankTxt=(k,v)=>{   // 30위 안이면 등수, 밖이면 '상위 N%'(낮은 등수를 그대로 박지 않는다)
+    const arr=d.rank[k]; if(!arr.length||isDeparted(name)) return "";
+    const r=1+arr.filter(x=>x>v).length;
+    return r<=30?`클랜 ${r}위`:`상위 ${Math.max(1,Math.ceil(r/arr.length*100))}%`;
+  };
+  const cells=[
+    ["mxK","⚔ 한 판 최다킬",v=>`${v}킬`],
+    ["mxA","🤝 한 판 최다어시",v=>`${v}어시`],
+    ["mxDmg","💥 한 판 최대 딜량",v=>Math.round(v).toLocaleString()],
+    ["mxSc2","🧠 한 판 최고 AI점수",v=>`${v.toFixed(1)}점`,"7/27 이후"],
+    ["mxSt","🔥 최장 연승",v=>`${v}연승`],
+    ["mxLong","⏱ 가장 긴 승리",v=>`${v.toFixed(1)}분`],
+  ].map(([k,t,f,note])=>{
+    const x=rc[k];
+    if(!x||!(x[0]>0)) return `<div class="rr-cell rr-empty"><div class="rr-t">${t}</div><div class="rr-none">아직 기록 없음 — 딜량·지표는 분석기가 기록한 판부터 셉니다</div></div>`;
+    const ctx=[k==="mxSt"?"":x[1], (aram||k==="mxSt")?"":x[4], md(x[2])].filter(Boolean).map(esc).join(" · ");
+    const rk=rankTxt(k,x[0]);
+    const click=x[3]?` onclick="rrGo('${escAttr(x[3])}')" role="button" tabindex="0"`:"";
+    return `<div class="rr-cell${x[3]?' rr-go':''}"${click}><div class="rr-t">${t}${rk?`<span class="rr-rk">${rk}</span>`:""}</div><div class="rr-v">${f(x[0])}</div><div class="rr-c">${ctx||"&nbsp;"}</div>${note?`<div class="rr-n">${note}</div>`:""}</div>`;
+  }).join("");
+  return `<div class="card sect" style="margin-top:14px"><h2>🏅 내 기록실 ${chip}</h2><div class="muted" style="font-size:12px;margin:-2px 0 8px">통산 기준 · 패치 필터와 상관없어요 · 칸을 누르면 그 경기로 가요</div><div class="rr-grid">${cells}</div></div>`;
 }
 function hofRecordsHtml(rl, patchSel){
   rl=rl.filter(e=>!isDeparted(e.name));   // 👥 탈퇴 확정자 랭킹 제외
@@ -10440,7 +10511,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281830";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
