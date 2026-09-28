@@ -7178,60 +7178,100 @@ def build_translation_map(port, password):
 #   입장하면 '스해분 xx.xx 사용중 · 링크' 를 띄우면 내전하는 사람은 무조건 알 수밖에". 그리고 "로비 메시지가 안 떠 지금은" —
 #   예전 '로딩 완료' 줄은 로비 정보의 multiplayerGameId 가 바뀔 때만 나갔는데, 요즘 로비 정보에 그 값이 비어 있어 조건이 안 켜졌다
 #   (실패해도 흔적이 없어 몰랐다). 이제 로비 채팅방 ID(multiUserChatId)로 방을 알아보고, 사설게임 방에서만, 방마다 한 번만 올린다.
-#   분석기를 켠 사람이 여럿이어도 방 채팅에 이미 소개가 있으면 올리지 않는다(도배 방지). 결과는 전부 로그에 남긴다.
+#   · 방이 어느 정도 찼을 때(8명↑, 또는 4명↑로 3분) 올린다 — 텅 빈 방에 올리면 나중에 들어온 사람은 못 본다.
+#   · 클랜원(티어표에 있는 이름)이 2명↑인 방만 — 클랜 밖 친구들끼리 하는 사설게임엔 올리지 않는다.
+#   · 분석기를 켠 사람이 여럿이면 로비 인원 PUUID 순번대로 시차를 둬서 첫 사람만 올리고, 나머지는 채팅에 이미 있으면 멈춘다.
+#   · 실패하면 같은 방에서 최대 3번까지 다시 시도한다. 결과는 전부 로그에 남긴다.
 LOBBY_INTRO_MARK = "스쿼드해체분석기"
-SITE_SHORT = "squad-gg.pages.dev"
+SITE_URL = "https://kjp1583-art.github.io/squad-analyzer/"   # squad-gg.pages.dev 는 6월에 멈춘 옛 사본 — 안내하지 않는다
+SITE_SHORT = "kjp1583-art.github.io/squad-analyzer"
+_INTRO_DONE, _INTRO_BUSY, _INTRO_TRIES = set(), set(), {}   # 방 → 끝남 / 진행 중 / (시도 횟수, 마지막 시각)
+_INTRO_SEEN = {}                                             # 방 → 처음 본 시각(4명↑ 3분 조건용)
+_INTRO_WHY = {}                                              # 방 → 마지막으로 로그에 남긴 보류 이유
 
 def _lobby_intro_text(with_link=True):
-    tail = f"전적·분석기 받기 {SITE_SHORT}" if with_link else "전적·분석기는 디스코드 스쿼드 서버에서"
-    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · {tail} · 제작 클랜원 맛장유"
+    tail = f"전적 보기·분석기 받기 {SITE_SHORT}" if with_link else "전적·분석기는 디스코드 스쿼드 서버에서"
+    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · {tail} · 클랜원 맛장유가 만들었어요"
 
-def _lobby_chat_conv(headers, base_url, lobby_key):
-    """로비 채팅방(대화) — 방 채팅 ID 가 들어간 대화를 먼저, 없으면 종류(customGame·lobby)로. (대화, 본 종류 목록)"""
+def _lobby_intro_ready(lobby_key, members, gc):
+    """지금 이 방에 소개를 올릴 때인가 — (올릴까, 이유). members 는 관전자 뺀 로비 인원."""
+    if not lobby_key: return False, "방 ID 없음"
+    if lobby_key in _INTRO_DONE or lobby_key in _INTRO_BUSY: return False, "이미 함"
+    n_try, t_last = _INTRO_TRIES.get(lobby_key, (0, 0.0))
+    if n_try >= 3 or (n_try and time.time() - t_last < 20): return False, "재시도 대기"
+    gm = str((gc or {}).get("gameMode", "")).upper()
+    if gm == "PRACTICETOOL": return False, "연습 모드"
+    try:
+        if int((gc or {}).get("maxLobbySize") or 10) <= 1: return False, "1인 방"
+    except (TypeError, ValueError): pass
+    n = len(members)
+    t0 = _INTRO_SEEN.setdefault(lobby_key, time.time())
+    if n < 8 and not (n >= 4 and time.time() - t0 >= 180): return False, f"인원 {n}명"
+    names = [str(m.get("gameName") or m.get("summonerName") or "").strip() for m in members if isinstance(m, dict)]
+    names = [x for x in names if x]
+    if names:                                   # 이름이 하나도 안 보이면(로비 정보 형식 변경) 클랜 확인은 건너뛴다
+        clan = sum(1 for x in names if tier_of(x))
+        if clan < 2: return False, f"클랜원 {clan}명"
+    return True, f"인원 {n}명"
+
+def _lobby_chat_conv(headers, base_url, lobby_key, allow_type=True):
+    """로비 채팅방(대화) — 방 채팅 ID 가 들어간 대화를 먼저, 없으면(마지막 시도에서만) 종류(customGame·lobby)로. (대화, 본 종류 목록)"""
     try:
         res = requests.get(str(base_url) + "/lol-chat/v1/conversations", headers=headers, verify=False, timeout=3)
         convs = res.json() if res.status_code == 200 else []
     except Exception: convs = []
     convs = [c for c in (convs if isinstance(convs, list) else []) if isinstance(c, dict)]
-    key = str(lobby_key or "").lower()
+    key = str(lobby_key or "").split("@")[0].lower()
     for c in convs:
         if key and key in str(c.get("id", "")).lower(): return c, [c.get("type") for c in convs]
+    if not allow_type: return None, [c.get("type") for c in convs]
     for c in convs:
         if c.get("type") in ("customGame", "lobby"): return c, [c.get("type") for c in convs]
     return None, [c.get("type") for c in convs]
 
-def _lobby_intro(headers, base_url, lobby_key):
+def _lobby_intro(headers, base_url, lobby_key, rank=0):
+    done = False
+    n_try, _t = _INTRO_TRIES.get(lobby_key, (0, 0.0))
+    _INTRO_TRIES[lobby_key] = (n_try + 1, time.time())
     try:
-        time.sleep(1.5 + random.uniform(0, 4.0))   # 여러 분석기가 한꺼번에 들어와도 먼저 올린 한 명만 — 나머지는 아래 확인에서 멈춘다
+        if _OUTDATED:
+            print("[lobby-intro] 새 버전 받는 중 — 생략", flush=True); done = True; return
+        time.sleep(1.5 + min(int(rank), 12) * 2.5 + random.uniform(0, 0.5))   # 로비 인원 PUUID 순번별 시차(게임 기록과 같은 방식)
         conv, types = None, []
-        for _ in range(6):                           # 방에 막 들어온 직후엔 채팅방이 아직 안 열렸을 수 있다
-            conv, types = _lobby_chat_conv(headers, base_url, lobby_key)
+        for _a in range(6):                          # 방에 막 들어온 직후엔 채팅방이 아직 안 열렸을 수 있다
+            conv, types = _lobby_chat_conv(headers, base_url, lobby_key, allow_type=(_a >= 4))
             if conv: break
             time.sleep(2.0)
         if not conv:
             print(f"[lobby-intro] 로비 채팅방을 못 찾음 — 보이는 대화 종류 {types}", flush=True); return
         url = str(base_url) + "/lol-chat/v1/conversations/" + str(conv.get("id")) + "/messages"
-        def _has_intro():
+        def _has_intro(log=False):
             """방 채팅에 소개가 이미 있나 — True/False, 못 읽으면 None."""
             try:
                 r = requests.get(url, headers=headers, verify=False, timeout=3)
                 if r.status_code != 200: return None
-                ms = r.json()
-                return any(LOBBY_INTRO_MARK in str(m.get("body", "")) for m in (ms if isinstance(ms, list) else []) if isinstance(m, dict))
+                ms = [m for m in (r.json() or []) if isinstance(m, dict)]
+                if log:
+                    print(f"[lobby-intro] 방 채팅 {len(ms)}줄(지난 기록 {sum(1 for m in ms if m.get('isHistorical'))}줄) · 순번 {rank}", flush=True)
+                return any(str(m.get("body", "")).startswith("[" + LOBBY_INTRO_MARK) for m in ms)
             except Exception: return None
-        if _has_intro():
-            print("[lobby-intro] 이 방엔 이미 소개가 있음 — 생략", flush=True); return
+        if _has_intro(log=True):
+            print("[lobby-intro] 이 방엔 이미 소개가 있음 — 생략", flush=True); done = True; return
         for with_link in (True, False):
             r = requests.post(url, headers=headers, json={"body": _lobby_intro_text(with_link), "type": "chat"}, verify=False, timeout=3)
             print(f"[lobby-intro] 소개 보냄(링크 {'있음' if with_link else '없음'}) → HTTP {r.status_code}"
                   + (f" {str(r.text)[:120]}" if r.status_code >= 400 else "") + f" · 대화 종류 {conv.get('type')}", flush=True)
-            if r.status_code >= 400: continue
+            if 400 <= r.status_code < 500: continue      # 주소 때문에 거절됐을 수 있다 → 주소 없이 한 번
+            if r.status_code >= 500: return             # 롤 쪽 일시 문제 — 다음 시도로
             time.sleep(2.0)
             seen = _has_intro()
-            if seen or seen is None: return             # 보였거나 확인할 수 없으면 끝(두 번 올리지 않는다)
+            if seen or seen is None: done = True; return   # 보였거나 확인할 수 없으면 끝(두 번 올리지 않는다)
             print("[lobby-intro] 보낸 줄이 채팅에 안 보임(주소가 걸러졌을 수 있음) — 주소 없이 한 번 더", flush=True)
     except Exception as e:
         print(f"[lobby-intro] 실패: {type(e).__name__}: {str(e)[:120]}", flush=True)
+    finally:
+        if done: _INTRO_DONE.add(lobby_key)
+        _INTRO_BUSY.discard(lobby_key)
 
 def send_lcu_chat_announcement(message, headers, base_url):
     try:
@@ -7828,7 +7868,6 @@ def lcu_core_backend_loop():
 
     champ_map = {}
     last_lobby_fingerprint, last_chat_game_id = "", ""
-    intro_posted = set()                 # 🖥 [2026-09-28] 로비 소개를 이미 시도한 방(로비 채팅방 ID) — 이 실행 동안 방마다 한 번
     recorded_game_ids = set()
     appended_game_ids = set()            # 🔒 [중복방지] 이 인스턴스가 '실제로 append'한 게임ID(=기록 주체) → 웹훅도 이 인스턴스만 발송
     posted_game_ids = set()              # 🔔 [웹훅] 이 인스턴스가 결과 웹훅을 이미 보낸 게임ID (게임당 1회, cells_to_update 무관)
@@ -8063,7 +8102,7 @@ def lcu_core_backend_loop():
             _LIVE_GAME[0] = _now_live
 
             c100, c200, multi_id = [], [], ""
-            lobby_key, lobby_custom = "", False
+            lobby_key, lobby_custom, gc = "", False, {}
             queue_id = -1
             map_id = 11
             is_custom_game_flag = False
@@ -8284,10 +8323,20 @@ def lcu_core_backend_loop():
                 last_lobby_fingerprint = ""
                 last_chat_game_id = multi_id   # (예전 '로딩 완료' 채팅은 아래 로비 소개로 바뀜)
 
-            # 🖥 [2026-09-28] 로비 소개 — 사설게임 방에 들어오면 방마다 한 번(이미 누가 올렸으면 생략). 설정 lobby_intro=false 로 끈다.
-            if lobby_key and lobby_custom and lobby_key not in intro_posted and APP_CONFIG.get("lobby_intro", True):
-                intro_posted.add(lobby_key)
-                threading.Thread(target=_lobby_intro, args=(headers, base_url, lobby_key), daemon=True).start()
+            # 🖥 [2026-09-28] 로비 소개 — 사설게임 방이 찼을 때 방마다 한 번(이미 누가 올렸으면 생략). 설정 lobby_intro=false 로 끈다.
+            if lobby_key and lobby_custom and current_phase == "Lobby" and APP_CONFIG.get("lobby_intro", True):
+                _ok, _why = _lobby_intro_ready(lobby_key, c100 + c200, gc)
+                if not _ok and _why != "이미 함" and _INTRO_WHY.get(lobby_key) != _why:
+                    _INTRO_WHY[lobby_key] = _why                # 보류 이유는 바뀔 때만 한 줄(조용한 보류 금지)
+                    print(f"[lobby-intro] 아직 안 올림 — {_why}", flush=True)
+                if _ok:
+                    _INTRO_BUSY.add(lobby_key)
+                    try:
+                        _pus = sorted({str(x.get('puuid') or '').strip().lower() for x in (c100 + c200) if isinstance(x, dict) and x.get('puuid')})
+                        _irank = _pus.index(global_my_puuid) if global_my_puuid in _pus else 10 + (int(hashlib.md5(str(global_my_puuid or 'x').encode()).hexdigest(), 16) % 3)
+                    except Exception: _irank = 10
+                    print(f"[lobby-intro] 올릴 때 — {_why} · 순번 {_irank}", flush=True)
+                    threading.Thread(target=_lobby_intro, args=(headers, base_url, lobby_key, _irank), daemon=True).start()
 
             if current_phase in ["Lobby", "Matchmaking"] and not active_recording_id:
                 global_captured_bans.clear()
@@ -11882,7 +11931,7 @@ class ClanSettingsWindow(tk.Toplevel):
         _cred = tk.Label(self, text=f"만든 사람: 클랜원 맛장유  ·  전적·다운로드 {SITE_SHORT}", bg=theme.BG, fg=theme.TEXT_SUB,
                          font=UF(9), cursor="hand2")
         _cred.pack(side="bottom", fill="x", pady=(2, 0))
-        _cred.bind("<Button-1>", lambda e: webbrowser.open("https://" + SITE_SHORT))
+        _cred.bind("<Button-1>", lambda e: webbrowser.open(SITE_URL))
 
         _scroll_wrap = tk.Frame(self, bg=theme.BG); _scroll_wrap.pack(fill="both", expand=True)
         _cv = tk.Canvas(_scroll_wrap, bg=theme.BG, highlightthickness=0, bd=0)
