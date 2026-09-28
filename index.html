@@ -2161,6 +2161,47 @@ function posLinesHtml(name){
   return `<div class="muted" style="font-size:12.5px;margin:14px 0 6px;font-weight:800">라인별 성적 · 통산</div>${body}`;
 }
 
+/* 🎯 [2026-09-28 P-3] 나에게 맞는 픽 — 통산·라인별. 잘 되는 챔프 / 쉬어가기.
+   값 = (승 − 내라인평균×판)/(판+20) (듀오 시너지와 같은 K=20). 라인 선택은 PROF_POS 공유. */
+function pickDataOf(name,pos){
+  return _funMemo('pick:'+name+'|'+pos,()=>{
+    const parts=PLAYERS_ALL.get(name)||[]; const ch=new Map(); let g=0,w=0;
+    for(const r of parts){
+      if(r["포지션"]!==pos) continue; const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+      const c=r["챔피언"]; if(!c) continue;
+      const e=ch.get(c)||{c,g:0,w:0}; e.g++; g++; if(res==="승리"){e.w++;w++;} ch.set(c,e);
+    }
+    const avg=g?w/g:0;
+    const arr=[...ch.values()].map(e=>({...e,v:(e.w-avg*e.g)/(e.g+20)}));
+    const good=arr.filter(e=>e.g>=5&&e.v>=0.03).sort((a,b)=>b.v-a.v).slice(0,3);
+    const rest=arr.filter(e=>e.g>=8&&e.v<=-0.07).sort((a,b)=>a.v-b.v).slice(0,2);
+    return {g,w,avg,good,rest};
+  });
+}
+function pickCardHtml(name){
+  if(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift") return '';
+  if(isDeparted(name)) return '';
+  const L=posLinesOf(name); if(!L||!L.main) return '';
+  const tot=L.rows.reduce((a,r)=>a+r.g,0);
+  const head=`<h2>🎯 나에게 맞는 픽 <span class="muted" style="font-size:13.5px;font-weight:400">· 통산</span></h2>`;
+  if(tot<10) return `<div class="card" style="margin-top:14px">${head}<div class="muted" style="font-size:13px">10판을 채우면 열려요 (지금 ${tot}판)</div></div>`;
+  const pos=(PROF_POS&&L.rows.some(r=>r.p===PROF_POS))?PROF_POS:L.main.p;
+  const chips=L.rows.map(r=>`<span class="chip" onclick="selProfPos('${r.p}')" style="cursor:pointer;font-size:12px;padding:3px 9px;border-radius:10px;margin:0 5px 5px 0;display:inline-block;${r.p===pos?'background:rgba(127,168,255,.22);color:#7fa8ff;font-weight:700':'background:var(--bg2);color:var(--sub)'}">${r.p} ${r.g}</span>`).join('');
+  const D=pickDataOf(name,pos);
+  const cell=e=>`<span class="champcell" style="cursor:pointer;display:inline-flex;margin:0 10px 6px 0" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(e.c)}')">${champImg(e.c,"sm")}<span>${esc(e.c)} · ${e.g}판 ${e.w}승 <span style="color:${e.w/e.g>=.5?'var(--win)':'var(--lose)'}">${Math.round(e.w/e.g*100)}%</span></span></span>`;
+  let body;
+  if(!D.g) body=`<div class="muted" style="font-size:13px">이 라인은 아직 기록이 없어요 — 클랜에서 검증된 픽을 보여 드릴게요</div>`;
+  else {
+    const avgP=Math.round(D.avg*100);
+    body=`<div class="muted" style="font-size:12.5px;margin-bottom:8px">${pos} ${D.g}판 기준 (내 ${pos} 평균 ${avgP}%)</div>
+      <div style="font-size:12.5px;font-weight:800;margin-bottom:5px">✅ 잘 되는 챔프</div>
+      ${D.good.length?`<div>${D.good.map(cell).join('')}</div><div class="muted" style="font-size:11.5px;margin-bottom:6px">내 ${pos} 평균 ${avgP}%보다 잘 돼요</div>`:`<div class="muted" style="font-size:12.5px;margin-bottom:6px">아직 눈에 띄게 잘 되는 챔프가 없어요 — 한 챔프로 5판이 쌓이면 보여요</div>`}
+      ${D.rest.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12.5px;font-weight:800">⏸ 잠깐 쉬어가기 (${D.rest.length})</summary><div style="margin-top:6px">${D.rest.map(cell).join('')}</div><div class="muted" style="font-size:11.5px">요즘 이 라인에선 덜 풀렸어요 — 잠깐 쉬고 위 챔프부터 해 봐요</div></details>`:''}`;
+  }
+  return `<div class="card" style="margin-top:14px">${head}<div style="margin:4px 0 8px">${chips}</div>${body}
+    <div class="muted" style="font-size:11px;margin-top:10px;opacity:.8">판수가 적은 칸은 참고용이에요 · 연습할 방향은 여기서, 밴픽하는 순간의 추천은 👻 고스트밴픽왕</div></div>`;
+}
+
 /* 🏷 [2026-08-11 사장님 지시] 지표 구간 표현 — "숫자만 있으면 감이 안 온다".
    0~100 점수형은 백분위 밴드로, 억울지수는 %p 밴드로 한마디를 붙인다. 색은 좋고 나쁨이 아니라
    '눈에 띄는 구간'을 표시한다(무게는 높다고 나쁜 게 아니므로 골드). */
@@ -9458,6 +9499,7 @@ function renderPlayer(name){
       <div>
         <div class="card"><h2>모스트 챔피언 <span class="muted" style="font-size:13.5px;font-weight:400">${champAll.length}종</span></h2>${mostHtml}${
           champAll.length>6?`<div style="text-align:center;margin-top:10px"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 16px;border-radius:8px;cursor:pointer" onclick="toggleMost()">${MOST_EXPANDED?'접기 ▲':`전체 보기 (${champAll.length}종) ▼`}</button></div>`:''}</div>
+        ${pickCardHtml(name)}
         ${nickHistHtml(name)}
         ${tierHistHtml}
         ${gptiCardHtml(name)}
@@ -10345,7 +10387,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
