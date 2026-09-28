@@ -6806,23 +6806,22 @@ const SUBLABEL={'上':'上등급','中':'中등급','下':'下등급'};
 //   평가에 쓰는 블렌드 점수(3시즌 최고 반영)는 숫자로 보이지 않고 툴팁에서 티어 라벨로만 설명한다.
 //   → {v, ref, cls, tip}. v·ref 는 HTML(esc 완료), tip 은 평문(부르는 쪽이 escAttr). cmpCls = 부르는 쪽의 5% 비교 함수
 function soloCellParts(name, d, cmpCls, wrStyle){
+  // 🏅 [2026-09-28 사장님 "내용이 너무 길어서 혼자만 사이즈가 커져버린다 — 현재 솔랭만"] 칸 크기를 옆 칸과 맞춘다:
+  //   큰 글씨 = 현시즌 티어·LP 한 줄(길면 글씨만 줄임) · 작은 줄 = 솔랭 승률. 동티어 평균·평가 티어·3시즌 최고는 마우스 올리면(title).
+  const one=t=>`<span style="white-space:nowrap${String(t).length>8?';font-size:.8em':''}">${esc(t)}</span>`;
   const curAvg=d.soloCurAvg!=null?soloScoreText(d.soloCurAvg):null;
-  const ref=curAvg?`동티어 평균 <span style="white-space:nowrap">${esc(curAvg)}</span>`:'';   // 좁은 칸에서 'LP'만 떨어지지 않게
-  const wr=d.soloWR!=null?` <span style="${wrStyle}">(${esc(String(d.soloWR))}%)</span>`:'';
+  const avgTip=curAvg?` · 동티어 평균 ${curAvg}`:'';
+  const ref=d.soloWR!=null?`승률 ${esc(String(d.soloWR))}%`:'';
   if(d.soloTxt){
     const same=d.soloCur!=null&&d.solo===d.soloCur;
-    const tip=same?'평가 계산에도 현시즌 티어가 그대로 쓰여요'
-      :`평가에는 3시즌 최고를 반영한 ${soloScoreText(d.solo)} 수준으로 계산돼요`;
-    // 🏅 [2026-09-28 사장님 "1번가자"] 평가에 쓰는 점수(3시즌 최고 반영)도 작은 줄로 늘 보인다 — 숫자 대신 티어로
-    const ev=same?'':soloScoreText(d.solo);
-    const evLine=ev?`<span style="display:block;font-size:11px;font-weight:600;opacity:.7;word-break:keep-all">평가 <span style="white-space:nowrap">${esc(ev)}</span> 수준 · 3시즌 최고 반영</span>`:'';
-    return {v:`${esc(d.soloTxt)}${wr}${evLine}`, ref, cls:cmpCls(d.soloCur,d.soloCurAvg,1), tip};
+    const tip=(same?'평가 계산에도 현시즌 티어가 그대로 쓰여요'
+      :`평가에는 3시즌 최고를 반영한 ${soloScoreText(d.solo)} 수준으로 계산돼요`)+avgTip;
+    return {v:one(d.soloTxt), ref, cls:cmpCls(d.soloCur,d.soloCurAvg,1), tip};
   }
-  // 현시즌 랭크 없음(3시즌 최고만) — '언랭' + 작은 글씨로 최고 기록
+  // 현시즌 랭크 없음(3시즌 최고만) — '언랭' 만 보이고 최고 기록은 마우스 올리면
   const pk=(typeof peakLabel==='function')?peakLabel(name):null;
   const pkTxt=(pk&&pk.txt)||soloScoreText(d.solo);
-  return {v:`언랭${pkTxt?`<span style="display:block;font-size:11px;font-weight:600;opacity:.7;word-break:keep-all">3시즌 최고 <span style="white-space:nowrap">${esc(pkTxt)}</span></span>`:''}`,   // '플래티 / 넘' 처럼 낱말 중간에서 안 끊기게
-    ref, cls:'', tip:`현시즌 솔랭 기록이 없어 평가에는 3시즌 최고${pkTxt?`(${pkTxt})`:''}가 그대로 쓰여요`};
+  return {v:'언랭', ref:'', cls:'', tip:`현시즌 솔랭 기록이 없어요${pkTxt?` · 3시즌 최고 ${pkTxt}(평가에 그대로 쓰여요)`:''}${avgTip}`};
 }
 /* 🪟 [2026-07-31] 플레이어 카드 팝업 본문 — 내부티어 표·홈 플레이어 목록 공용.
    1차로 요약 카드를 보여주고, 더 자세한 건 '전적 상세 보기'로 넘어간다. */
@@ -10718,7 +10717,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609282355";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609290005";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
