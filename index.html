@@ -442,7 +442,7 @@
   .kz-tier{flex:0 0 auto;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:5px;
     background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.14);color:#cdd6e6}
   /* 📱 [2026-08-03 사장님 제보] 모바일에서 자리를 너무 먹는다 — 인장·글씨·여백을 한 단계 더 줄이고
-     좁은 칸에서 못 읽을 곁가지(솔랭 점수·내부티어 칩·리그 설명)는 감춘다. 순위·이름·승률·판수는 남긴다. */
+     좁은 칸에서 못 읽을 곁가지(솔랭 티어·내부티어 칩·리그 설명)는 감춘다. 순위·이름·승률·판수는 남긴다. */
   @media(max-width:900px){          /* 서부·동부가 위아래로 쌓이는 폭부터 = 태블릿·모바일 공통 */
     .kzleague{padding:10px 9px 11px}
     .kzhd{gap:7px;margin-bottom:1px}
@@ -1735,7 +1735,7 @@ function computeAssessments(){
       wr:r1(m.wr),wrAvg:r1(avg.wr), ai:r2(m.avgAI),aiAvg:r2(avg.ai),
       mvp:r1(m.mvpRate),mvpAvg:r1(avg.mvp), troll:r1(m.trollRate),trollAvg:r1(avg.troll), ace:r1(m.aceRate),
       solo:r1(m.soloScore),soloAvg:r1(avg.solo),soloWR:r1(m.soloWR),
-      soloCur:r1(m.soloCur),soloCurAvg:r1(avg.soloCur),soloTxt:m.soloTxt,   // 🏅 표시 전용
+      soloCur:r1(m.soloCur),soloCurAvg:avg.soloCur!=null?Math.floor(avg.soloCur):null,soloTxt:m.soloTxt,   // 🏅 표시 전용(평균은 내림 — soloScoreText 와 같은 눈)
       score:Math.round(composite*100)/100}});
   }
   // 🗡 상현 파워랭킹: 솔로랭크 보유 + 내전 10판↑(elig) 중 종합 파워점수(전체평균 z, 기존 가중치) top3
@@ -2617,16 +2617,17 @@ const _SOLO_DIV_N={I:1,II:2,III:3,IV:4,"1":1,"2":2,"3":3,"4":4};
 // 시트 '티어'("DIAMOND II"·"master 1")+LP → "다이아 2 30LP" / "마스터 35LP". 모르는 티어면 null
 function soloTierText(tier, lp){
   const ps=String(tier||"").trim().toUpperCase().split(/\s+/), tk=ps[0], ko=_SOLO_TIER_KO[tk];
-  if(!ko) return null;
-  const n=(lp!=null&&!isNaN(lp))?Math.max(0,Math.round(lp)):0;
+  const x=(lp==null||lp==="")?NaN:Number(lp);
+  if(!ko||!isFinite(x)) return null;   // LP 칸이 비었거나 없으면 null → 부르는 쪽이 점수로 환산('0LP'로 잘못 보이지 않게)
+  const n=Math.max(0,Math.round(x));
   if(tk==="MASTER"||tk==="GRANDMASTER"||tk==="CHALLENGER") return `${ko} ${n}LP`;
   const dv=_SOLO_DIV_N[ps[1]];
-  return dv?`${ko} ${dv} ${n}LP`:`${ko} ${n}LP`;
+  return dv?`${ko} ${dv} ${n}LP`:null;   // 마스터 미만인데 디비전을 모르면 null(점수 환산으로)
 }
 // 점수 → "다이아 2 30LP". 평균·블렌드처럼 시트 티어가 없는 값용. 마스터 이상은 점수만으로 그마·챌린저를 가를 수 없어 '마스터 NLP'
 function soloScoreText(sc){
-  if(sc==null||isNaN(sc)) return null;
-  const v=Math.max(0,Math.round(sc));
+  if(typeof sc!=="number"||!isFinite(sc)) return null;
+  const v=Math.max(0,Math.floor(sc));   // 내림 — 평균 2799.6 은 아직 다이아(경계에서 한 단계 올려 보이지 않게)
   if(v>=2800) return `마스터 ${v-2800}LP`;
   const ti=Math.min(6,Math.floor(v/400)), rem=v-ti*400, dvi=Math.min(3,Math.floor(rem/100));
   return `${_SOLO_TIER_KO[_SOLO_TIER_ORD[ti]]} ${4-dvi} ${rem-dvi*100}LP`;
@@ -5610,6 +5611,20 @@ function renderScrim(){
   view().innerHTML=`${navTabsHtml('scrim')}<div id="sx-wrap">${scrimPageHtml()}</div>`;
   if(SCRIMX===null||Date.now()-_sxAt>10*60*1000) loadScrimExt().then(()=>{ const el=document.getElementById("sx-wrap"); if(el) el.innerHTML=scrimPageHtml(); });
 }
+// 🏅 십이귀월 칸 솔랭 라벨 맞추기 — 칸 너비가 글꼴·화면폭마다 달라 실제로 재 본다.
+//   다이아 3 58LP(들어가면) → 다이아 3(기본) → 그래도 넘치면 조각째 감춘다(구분점도 조각 안이라 같이 사라진다)
+function kzFitSolo(){
+  for(const el of document.querySelectorAll('.kz-sub .kz-solo')){
+    const sub=el.parentElement;
+    el.style.display="";
+    if(getComputedStyle(el).display==="none") continue;   // ≤900px 는 CSS 가 감춘다
+    const fits=()=>sub.scrollWidth<=sub.clientWidth;
+    if(el.dataset.full){ el.textContent=el.dataset.full; if(fits()) continue; el.textContent=el.dataset.short; }
+    if(!fits()) el.style.display="none";
+  }
+}
+let _kzFitT=0;
+window.addEventListener("resize",()=>{ clearTimeout(_kzFitT); _kzFitT=setTimeout(kzFitSolo,150); });
 function kizukiBoard(){
   const KN={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
   const seen=new Map();   // "서부 상현 1" → 이름
@@ -5630,10 +5645,19 @@ function kizukiBoard(){
     const bits=[];
     if(d.wr!=null) bits.push(["",`승률 ${d.wr}%`]);
     if(a.games) bits.push(["kz-games",`${a.games}판`]);
-    if(d.solo!=null) bits.push(["kz-solo",`솔랭 ${d.soloTxt||"언랭"}`]);   // 🏅 점수 대신 현시즌 실제 티어(표시만 — 순위는 그대로)
-    const sub=bits.map(([c,t],i)=>{ const txt=(i?" · ":"")+t;
-      return c?`<span class="${c}">${esc(txt)}</span>`:esc(txt); }).join("")||"기록 없음";
-    return `<div class="kzrow ${rankUp?'up':'low'}" onclick="openPlayerCard(${JSON.stringify(nm).replace(/"/g,'&quot;')})" title="${escAttr(nm+' — '+title)}">
+    // 🏅 점수 대신 현시즌 실제 티어(표시만 — 순위는 그대로). 칸이 좁아 말줄임되면 '마스터 40…'(403LP)가 40LP 처럼 읽힌다
+    //    → 기본은 짧은 꼴(다이아 3·마스터), 칸에 들어가면 kzFitSolo 가 LP 까지 편다. 전체는 행 툴팁에
+    let soloTip="";
+    if(d.solo!=null){
+      const full=d.soloTxt||"언랭", short=full.replace(/ \d+LP$/,"");
+      bits.push(["kz-solo",short,full]);
+      const pk=d.soloTxt?null:peakLabel(nm);
+      soloTip=` · 솔랭 ${full}${pk&&pk.txt?` (3시즌 최고 ${pk.txt})`:''}`;
+    }
+    const sub=bits.map(([c,t,f],i)=>{ const sep=i?" · ":"", txt=sep+t;
+      const fa=(f&&f!==t)?` data-full="${escAttr(sep+f)}" data-short="${escAttr(txt)}"`:'';
+      return c?`<span class="${c}"${fa}>${esc(txt)}</span>`:esc(txt); }).join("")||"기록 없음";
+    return `<div class="kzrow ${rankUp?'up':'low'}" onclick="openPlayerCard(${JSON.stringify(nm).replace(/"/g,'&quot;')})" title="${escAttr(nm+' — '+title+soloTip)}">
       ${bg}${seal}
       <div class="kz-body"><div class="kz-name">${esc(shortName(nm))}</div>
         <div class="kz-sub">${sub}</div></div>
@@ -5753,6 +5777,7 @@ function renderHome(){
         ${recentGamesHtml(5)}
       </div>
     </div>`;
+  kzFitSolo(); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(kzFitSolo);   // 🏅 십이귀월 솔랭 라벨(글꼴이 늦게 오면 한 번 더)
 }
 function recentFinishedGames(n){
   const arr=[...GAMES.values()], out=[];
@@ -6793,7 +6818,7 @@ function soloCellParts(name, d, cmpCls, wrStyle){
   // 현시즌 랭크 없음(3시즌 최고만) — '언랭' + 작은 글씨로 최고 기록
   const pk=(typeof peakLabel==='function')?peakLabel(name):null;
   const pkTxt=(pk&&pk.txt)||soloScoreText(d.solo);
-  return {v:`언랭${pkTxt?`<span style="display:block;font-size:11px;font-weight:600;opacity:.7">3시즌 최고 ${esc(pkTxt)}</span>`:''}`,
+  return {v:`언랭${pkTxt?`<span style="display:block;font-size:11px;font-weight:600;opacity:.7;word-break:keep-all">3시즌 최고 <span style="white-space:nowrap">${esc(pkTxt)}</span></span>`:''}`,   // '플래티 / 넘' 처럼 낱말 중간에서 안 끊기게
     ref, cls:'', tip:`현시즌 솔랭 기록이 없어 평가에는 3시즌 최고${pkTxt?`(${pkTxt})`:''}가 그대로 쓰여요`};
 }
 /* 🪟 [2026-07-31] 플레이어 카드 팝업 본문 — 내부티어 표·홈 플레이어 목록 공용.
@@ -10690,7 +10715,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609282340";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609282350";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
