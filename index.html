@@ -567,6 +567,14 @@
   .dmgnum{min-width:34px;text-align:right;font-weight:600}
   .dmgtrk{width:44px;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden}
   .dmgfill{display:block;height:100%;background:linear-gradient(90deg,#c84057,#e0a437)}
+  /* 👋 [2026-09-28 사장님 지시] 처음 온 클랜원 안내 카드 */
+  .welcome{position:relative;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:14px 16px 12px;margin:12px 0}
+  .welcome h3{margin:0 0 6px;font-size:16px}
+  .welcome ul{margin:0;padding-left:18px;line-height:1.7;font-size:14px}
+  .welcome .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+  .welcome .btn{font-size:13.5px;font-weight:700;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg2);color:var(--txt);text-decoration:none;cursor:pointer}
+  .welcome .btn.go{background:var(--accent);border-color:var(--accent);color:#fff}
+  .welcome .who{margin-left:auto;font-size:12.5px;color:var(--sub)}
   .ftr{margin:18px 0 28px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:13.5px;text-align:center}
 
   /* Settings panel */
@@ -1230,7 +1238,7 @@
     </div>
     <a class="coachlink" href="brjang.html" title="브장신 키우기 — 디스코드 마스코트 육성 미니게임 소개 · 후원 안내 · 맛동산 상점" style="color:#ffb347;border-color:#4a3418;background:#1e1309"><span class="t">브장신 키우기</span></a>
     <a class="coachlink" href="coach.html" title="고스트밴픽왕 — 내 밴·픽 차례에 AI가 추천해주는 구독 서비스"><span class="t">고스트밴픽왕</span></a>
-    <a class="dl" href="analyzer.html" title="스쿼드해체분석기 — 기능 소개와 다운로드">🖥 <span class="t">스쿼드해체분석기</span> <span class="dlver" id="dlver"></span></a>
+    <a class="dl" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html" title="스쿼드해체분석기 — 기능 소개와 다운로드">🖥 <span class="t">스쿼드해체분석기</span> <span class="dlver" id="dlver"></span></a>
   </div>
 </header>
 
@@ -1260,7 +1268,7 @@
   <div class="adfooter" id="adFooter"></div>
 
   <footer class="ftr">
-    <div>© 2026 squad.gg · 스쿼드 내전 비공식 전적 사이트 · 데이터: 구글시트</div>
+    <div>© 2026 squad.gg · 스쿼드 내전 비공식 전적 사이트 · 데이터: 구글시트 · 만든 사람: 클랜원 <b>맛장유</b></div>
     <div class="muted" style="margin-top:4px;font-size:12.5px">
       이 사이트는 쿠팡 파트너스 제휴 배너를 게재하며, 구매 발생 시 일정액의 수수료를 받을 수 있습니다.
       <a href="#" onclick="togglePrivacy();return false;" style="color:var(--accent)">개인정보처리방침</a>
@@ -5303,6 +5311,15 @@ function kizukiBoard(){
   </div>`;
   return `<div class="card kzboard two">${leagues.map(pane).join("")}${evPane}</div>`;
 }
+function welcomeCardHtml(){   // 👋 [2026-09-28 사장님 지시] "신규 클랜원이 이 시스템이 뭔지, 누가 만든 건지 모른 채 지낸다" — 첫 화면 안내(닫으면 다시 안 뜸)
+  try{ if(localStorage.getItem("sgg_welcome_off")==="1") return ""; }catch(e){}
+  return `<div class="welcome" id="welcomeCard"><h3>👋 처음 오셨나요?</h3><ul>
+    <li><b>스쿼드 클랜 내전 기록</b>을 모아 보는 사이트예요. 위 검색창에 <b>롤 닉네임</b>을 치면 내 전적이 나와요.</li>
+    <li><b>스쿼드해체분석기</b>를 켜 두고 내전하면 판마다 <b>자동으로 기록</b>되고, 밴픽 도우미·게임 후 리포트도 떠요.</li>
+    <li>내전 참여는 디스코드 스쿼드 서버의 출석 채널에서 해요.</li></ul>
+    <div class="row"><a class="btn go" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html">🖥 분석기 받기</a><button class="btn" onclick="welcomeClose()">알겠어요, 닫기</button><span class="who">만든 사람: 클랜원 <b>맛장유</b></span></div></div>`;
+}
+function welcomeClose(){ try{ localStorage.setItem("sgg_welcome_off","1"); }catch(e){} const el=document.getElementById("welcomeCard"); if(el) el.remove(); }
 function renderHome(){
   loadWeeklyReview();   // 📝 주간평 — 캐시가 10분 넘게 묵었으면 다시 읽고, 도착하면 #wkrv-wrap 만 갈아끼운다
   const champs=champTierData();
@@ -5347,6 +5364,7 @@ function renderHome(){
 
   view().innerHTML=`
     ${navTabsHtml('home')}
+    ${welcomeCardHtml()}
     ${SHOW_SCRIM?scrimDashHtml():''}
     <div id="wkrv-wrap">${(()=>{ try{ return newsTeaserHtml(); }catch(e){ console.warn("news teaser",e); return ""; } })()}</div>
     ${kizukiBoard()}
@@ -10192,7 +10210,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609281400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609281130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

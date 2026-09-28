@@ -7174,6 +7174,65 @@ def build_translation_map(port, password):
     if not champ_map: champ_map = global_champ_map.copy()
     return champ_map
 
+# 🖥 [2026-09-28 사장님 지시] 로비 소개 — "신규 클랜원이 이 시스템도, 누가 만들었는지도 모른 채 지낸다 / 분석기 킨 채로 사설게임에
+#   입장하면 '스해분 xx.xx 사용중 · 링크' 를 띄우면 내전하는 사람은 무조건 알 수밖에". 그리고 "로비 메시지가 안 떠 지금은" —
+#   예전 '로딩 완료' 줄은 로비 정보의 multiplayerGameId 가 바뀔 때만 나갔는데, 요즘 로비 정보에 그 값이 비어 있어 조건이 안 켜졌다
+#   (실패해도 흔적이 없어 몰랐다). 이제 로비 채팅방 ID(multiUserChatId)로 방을 알아보고, 사설게임 방에서만, 방마다 한 번만 올린다.
+#   분석기를 켠 사람이 여럿이어도 방 채팅에 이미 소개가 있으면 올리지 않는다(도배 방지). 결과는 전부 로그에 남긴다.
+LOBBY_INTRO_MARK = "스쿼드해체분석기"
+SITE_SHORT = "squad-gg.pages.dev"
+
+def _lobby_intro_text(with_link=True):
+    tail = f"전적·분석기 받기 {SITE_SHORT}" if with_link else "전적·분석기는 디스코드 스쿼드 서버에서"
+    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · {tail} · 제작 클랜원 맛장유"
+
+def _lobby_chat_conv(headers, base_url, lobby_key):
+    """로비 채팅방(대화) — 방 채팅 ID 가 들어간 대화를 먼저, 없으면 종류(customGame·lobby)로. (대화, 본 종류 목록)"""
+    try:
+        res = requests.get(str(base_url) + "/lol-chat/v1/conversations", headers=headers, verify=False, timeout=3)
+        convs = res.json() if res.status_code == 200 else []
+    except Exception: convs = []
+    convs = [c for c in (convs if isinstance(convs, list) else []) if isinstance(c, dict)]
+    key = str(lobby_key or "").lower()
+    for c in convs:
+        if key and key in str(c.get("id", "")).lower(): return c, [c.get("type") for c in convs]
+    for c in convs:
+        if c.get("type") in ("customGame", "lobby"): return c, [c.get("type") for c in convs]
+    return None, [c.get("type") for c in convs]
+
+def _lobby_intro(headers, base_url, lobby_key):
+    try:
+        time.sleep(1.5 + random.uniform(0, 4.0))   # 여러 분석기가 한꺼번에 들어와도 먼저 올린 한 명만 — 나머지는 아래 확인에서 멈춘다
+        conv, types = None, []
+        for _ in range(6):                           # 방에 막 들어온 직후엔 채팅방이 아직 안 열렸을 수 있다
+            conv, types = _lobby_chat_conv(headers, base_url, lobby_key)
+            if conv: break
+            time.sleep(2.0)
+        if not conv:
+            print(f"[lobby-intro] 로비 채팅방을 못 찾음 — 보이는 대화 종류 {types}", flush=True); return
+        url = str(base_url) + "/lol-chat/v1/conversations/" + str(conv.get("id")) + "/messages"
+        def _has_intro():
+            """방 채팅에 소개가 이미 있나 — True/False, 못 읽으면 None."""
+            try:
+                r = requests.get(url, headers=headers, verify=False, timeout=3)
+                if r.status_code != 200: return None
+                ms = r.json()
+                return any(LOBBY_INTRO_MARK in str(m.get("body", "")) for m in (ms if isinstance(ms, list) else []) if isinstance(m, dict))
+            except Exception: return None
+        if _has_intro():
+            print("[lobby-intro] 이 방엔 이미 소개가 있음 — 생략", flush=True); return
+        for with_link in (True, False):
+            r = requests.post(url, headers=headers, json={"body": _lobby_intro_text(with_link), "type": "chat"}, verify=False, timeout=3)
+            print(f"[lobby-intro] 소개 보냄(링크 {'있음' if with_link else '없음'}) → HTTP {r.status_code}"
+                  + (f" {str(r.text)[:120]}" if r.status_code >= 400 else "") + f" · 대화 종류 {conv.get('type')}", flush=True)
+            if r.status_code >= 400: continue
+            time.sleep(2.0)
+            seen = _has_intro()
+            if seen or seen is None: return             # 보였거나 확인할 수 없으면 끝(두 번 올리지 않는다)
+            print("[lobby-intro] 보낸 줄이 채팅에 안 보임(주소가 걸러졌을 수 있음) — 주소 없이 한 번 더", flush=True)
+    except Exception as e:
+        print(f"[lobby-intro] 실패: {type(e).__name__}: {str(e)[:120]}", flush=True)
+
 def send_lcu_chat_announcement(message, headers, base_url):
     try:
         res = requests.get(str(base_url) + "/lol-chat/v1/conversations", headers=headers, verify=False, timeout=2)
@@ -7769,6 +7828,7 @@ def lcu_core_backend_loop():
 
     champ_map = {}
     last_lobby_fingerprint, last_chat_game_id = "", ""
+    intro_posted = set()                 # 🖥 [2026-09-28] 로비 소개를 이미 시도한 방(로비 채팅방 ID) — 이 실행 동안 방마다 한 번
     recorded_game_ids = set()
     appended_game_ids = set()            # 🔒 [중복방지] 이 인스턴스가 '실제로 append'한 게임ID(=기록 주체) → 웹훅도 이 인스턴스만 발송
     posted_game_ids = set()              # 🔔 [웹훅] 이 인스턴스가 결과 웹훅을 이미 보낸 게임ID (게임당 1회, cells_to_update 무관)
@@ -8003,6 +8063,7 @@ def lcu_core_backend_loop():
             _LIVE_GAME[0] = _now_live
 
             c100, c200, multi_id = [], [], ""
+            lobby_key, lobby_custom = "", False
             queue_id = -1
             map_id = 11
             is_custom_game_flag = False
@@ -8146,8 +8207,10 @@ def lcu_core_backend_loop():
                     if lobby_res.status_code == 200:
                         lobby_data = lobby_res.json() or {}
                         multi_id = str(lobby_data.get('multiplayerGameId', ''))
+                        lobby_key = str(lobby_data.get('multiUserChatId') or lobby_data.get('partyId') or '')
                         
                         gc = lobby_data.get('gameConfig') or {}
+                        lobby_custom = bool(gc.get('isCustom'))
                         if 'queueId' in gc: queue_id = gc['queueId']
                         if gc.get('isCustom'): is_custom_game_flag = True
                         map_id = gc.get('mapId', map_id)
@@ -8219,10 +8282,12 @@ def lcu_core_backend_loop():
                 eog_write_retry = 0          # 새 게임 진입 시 finalize 재시도 예산도 초기화(리뷰반영: 예산 누수 방지)
                 _fin_write_retry = 0
                 last_lobby_fingerprint = ""
-                try:
-                    threading.Timer(1.5, send_lcu_chat_announcement, args=[f"[분석기 정찰 시스템] 스쿼드해체분석기 v{CURRENT_VERSION} 로딩 완료", headers, base_url]).start()
-                    last_chat_game_id = multi_id
-                except Exception: pass
+                last_chat_game_id = multi_id   # (예전 '로딩 완료' 채팅은 아래 로비 소개로 바뀜)
+
+            # 🖥 [2026-09-28] 로비 소개 — 사설게임 방에 들어오면 방마다 한 번(이미 누가 올렸으면 생략). 설정 lobby_intro=false 로 끈다.
+            if lobby_key and lobby_custom and lobby_key not in intro_posted and APP_CONFIG.get("lobby_intro", True):
+                intro_posted.add(lobby_key)
+                threading.Thread(target=_lobby_intro, args=(headers, base_url, lobby_key), daemon=True).start()
 
             if current_phase in ["Lobby", "Matchmaking"] and not active_recording_id:
                 global_captured_bans.clear()
@@ -11813,6 +11878,11 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Button(bot_bar, text="설정 및 저장", font=UF(11, "bold"), bg=theme.TEAM_RED_BG,
                   fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2",
                   command=self.apply_settings).pack(pady=11)
+        # 🖥 [2026-09-28 사장님 지시] 만든 사람 표시 — "시스템은 알아도 누가 만든 건지 모르는 경우가 많다"
+        _cred = tk.Label(self, text=f"만든 사람: 클랜원 맛장유  ·  전적·다운로드 {SITE_SHORT}", bg=theme.BG, fg=theme.TEXT_SUB,
+                         font=UF(9), cursor="hand2")
+        _cred.pack(side="bottom", fill="x", pady=(2, 0))
+        _cred.bind("<Button-1>", lambda e: webbrowser.open("https://" + SITE_SHORT))
 
         _scroll_wrap = tk.Frame(self, bg=theme.BG); _scroll_wrap.pack(fill="both", expand=True)
         _cv = tk.Canvas(_scroll_wrap, bg=theme.BG, highlightthickness=0, bd=0)
