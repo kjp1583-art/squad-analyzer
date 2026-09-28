@@ -7191,7 +7191,7 @@ _INTRO_WHY = {}                                              # 방 → 마지막
 
 def _lobby_intro_text(with_link=True):
     tail = f"전적 보기·분석기 받기 {SITE_SHORT}" if with_link else "전적·분석기는 디스코드 스쿼드 서버에서"
-    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · {tail} · 클랜원 맛장유가 만들었어요"
+    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · {tail} · 클랜원 맛동산장인 유미가 만들었어요"
 
 def _lobby_intro_ready(lobby_key, members, gc):
     """지금 이 방에 소개를 올릴 때인가 — (올릴까, 이유). members 는 관전자 뺀 로비 인원."""
@@ -11928,7 +11928,7 @@ class ClanSettingsWindow(tk.Toplevel):
                   fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2",
                   command=self.apply_settings).pack(pady=11)
         # 🖥 [2026-09-28 사장님 지시] 만든 사람 표시 — "시스템은 알아도 누가 만든 건지 모르는 경우가 많다"
-        _cred = tk.Label(self, text=f"만든 사람: 클랜원 맛장유  ·  전적·다운로드 {SITE_SHORT}", bg=theme.BG, fg=theme.TEXT_SUB,
+        _cred = tk.Label(self, text=f"만든 사람: 클랜원 맛동산장인 유미  ·  전적·다운로드 {SITE_SHORT}", bg=theme.BG, fg=theme.TEXT_SUB,
                          font=UF(9), cursor="hand2")
         _cred.pack(side="bottom", fill="x", pady=(2, 0))
         _cred.bind("<Button-1>", lambda e: webbrowser.open(SITE_URL))
