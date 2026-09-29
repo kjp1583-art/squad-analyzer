@@ -65,7 +65,7 @@ def bot_health(since, bot_src):
     out["breadcrumbs_new"] = len(errs) - len(out["errors_new"]) + sum(1 for c in (h.get("crumbs") or []) if c.get("t", 0) > since)   # 2026-09-27~ 빵조각은 crumbs 칸
     out["errors_by_loc"] = Counter((e.get("loc") or e.get("head", "")[:60]) for e in out["errors_new"]).most_common(10)
     out["errors_head"] = {}   # 위치별 대표 한 줄(명령·예외) — 위치만으론 원인을 못 짚는다
-    for e in out["errors_new"]: out["errors_head"].setdefault(e.get("loc") or e.get("head", "")[:60], str(e.get("head", ""))[:140])
+    for e in out["errors_new"]: out["errors_head"].setdefault(e.get("loc") or e.get("head", "")[:60], str(e.get("head", ""))[:220])
     return out
 
 
