@@ -264,7 +264,7 @@ Pool.prototype.clear=function(){for(const o of this.a)o.on=false;};
 const LOW=(navigator.hardwareConcurrency||4)<=4||Math.min(screen.width,screen.height)<420;
 const MAXE=LOW?140:220;   // 적 수 상한은 그대로 — 후반엔 숫자 대신 체력·공격력이 오른다
 const enemies=new Pool(MAXE,()=>({x:0,y:0,hp:0,mhp:0,r:10,sp:0,dmg:0,t:0,hit:0,boss:0,xp:1,kb:0,kx:0,ky:0,st:0,slow:0,gold:0,hb:-9,wv:0,zp:0,el:0,fx:0,ft:0,pl:0,at:null,
-  bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0}));   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호
+  bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0,tn:0}));   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호 · tn 등장 대사 대기(기한)
 let SN=0;   // 적 출생 번호 — 풀 칸은 재사용되므로 '같은 적인가'는 on 이 아니라 sn 으로 본다(갈고리·레이저·브레스의 주인)
 const srcOk=b=>!!(b.src&&b.src.on&&b.src.sn===b.sn);
 const shots=new Pool(LOW?160:220,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,pierce:0,r:6,c:'#e8c46a'}));
@@ -274,7 +274,7 @@ const rangs=new Pool(24,()=>({x:0,y:0,vx:0,vy:0,t:0,life:0,dmg:0,r:12,orb:0,a:0}
 const bolts=new Pool(48,()=>({x1:0,y1:0,x2:0,y2:0,life:0,ev:0}));                         // ⌨ 번개
 const waves=new Pool(12,()=>({x:0,y:0,r:0,R:0,dmg:0,id:0,ev:0}));                          // 🎧 음파
 const puds=new Pool(18,()=>({x:0,y:0,R:0,life:0,tk:0,dmg:0,ev:0,fall:0}));                // 🧪 웅덩이
-const clouds=new Pool(36,()=>({x:0,y:0,life:0,d:0}));                                      // ☁ 싱지드 독가스
+const clouds=new Pool(36,()=>({x:0,y:0,life:0,d:0,own:null,osn:0}));                      // ☁ 싱지드 독가스(own/osn 뿌린 싱지드 — 도발 말풍선)
 
 // ---------- 무기·패시브 — 무기 Lv8 + 짝 패시브 → 보스 상자에서 ✨ 각성 ----------
 const WEAP={
@@ -475,12 +475,12 @@ function drawMap(){
 let S=null,state='title',keys={},joy={on:false,id:null,ox:0,oy:0,dx:0,dy:0};
 function newRun(){
   enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
-  rangs.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();bannerT=0;bannerQ.length=0;
+  rangs.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
   S={t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
      p:{x:0,y:0,r:16,hp:100+(CH.hp||0),mhp:100+(CH.hp||0),sp:150,face:1,inv:0,moving:false,slow:0,slowG:'📜',stun:0,yt:0,yvx:0,yvy:0},
      w:{[CH.w]:CH.wl||1},ps:{},ev:{},seen:{},midKill:0,bossKill:0,bossN:0,nextBoss:300,nextMini:150,miniN:0,bigT:300,bigSeen:0,evT:150,evN:0,revUsed:0,ramen:0,
      cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
-     sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0};
+     sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{}};   // tcd 💬 도발 대사 종류별 다음 허용 시각
 }
 const pv=k=>S.ps[k]||0;
 const cdMul=()=>Math.pow(.92,pv('cd'));
@@ -639,7 +639,62 @@ const BOSS={
 const BOSS_ROT=['mao','mundo','sr','talon','naut','ddo','teemo','tw','sona','yj'];   // 5·10·…·50분 — 55분은 최종 보스
 const MINI_ROT=['yorick','blitz','morde','ez','lux','garen','blitz','yorick','lux','morde','ez'];   // 2:30·7:30·…·52:30 — 보스 사이사이(2분 30초마다 큰 놈)
 const TROLL_LINES=['클랜원들: 헉…','클랜원들: 제발…','흐접새우: 증바람 하실분?','클랜원들: 이거 논란이 되겠는걸','흐접새우: (즐거워하는 중)'];
-const hazards=new Pool(60,()=>({x:0,y:0,life:0,d:8}));
+// 💬 🦐 [2026-09-29 사장님 지시] 트롤픽 도발 대사 — "원딜 블츠가 끌어당기는 데 성공하면 '거봐요 원딜 블츠 좋다니깐요?'"
+//   그 몬스터의 특기가 플레이어에게 먹혔을 때만(끌기·기절·함정·피해 등) 머리 위 말풍선 1.8초 · 같은 종류 8초 쿨 · 화면 동시 최대 2개.
+//   키는 챔피언 id(같은 챔피언 보스판도 이 줄을 쓴다) · blitzB/luxB 미니 보스 · big 👹 대형 트롤픽 등장.
+const TAUNT={
+  Blitzcrank:['거봐요 원딜 블츠 좋다니깐요?','끌려오셨네요~ 이게 원딜 블츠'],   // 🪝 갈고리로 끌려옴
+  Nautilus:['원딜 노틸 정지 먹을 만하죠?','닻 맞으셨죠? 캐리각'],               // 몸통 박치기 · ⚓ 보스 닻 끌기
+  Mordekaiser:['화나서 모데 서폿 했는데 캐리 ㅋㅋ','서폿 모데가 정배임'],       // 몸통 박치기 · ⚔ 미니 보스 끌기
+  Maokai:['AP 마오 딜 보이죠?','라바돈 올렸습니다'],                           // 몸통 박치기
+  DrMundo:['마관 문도가 과학이라니까','신발부터 마관 가요'],                     // 💉 보스 탄·박치기
+  Teemo:['버섯 밟으셨네요 ㅋㅋ','정글 티모 국룰'],                             // 🍄 버섯 밟음
+  Sona:['탑 소나 라인전 개쎔','탑 접고 소나 갑니다'],                           // ♪ 음표 적중
+  Talon:['서폿 탈론 로밍 보셨죠?','서폿이 암살하면 반칙인가요?'],               // 돌진하며 박치기
+  Yorick:['요릭 정글은 과학입니다','구울 추가요~'],                             // 🪦 분열(구울이 화면에 나옴)
+  Soraka:['정글 소라카 유지력 보소','다시 풀피~'],                             // ✚ 다친 적 회복
+  Twitch:['어디서 나왔게요~','탑 트위치 갱 각'],                               // 👻 은신 기습
+  Braum:['막았죠? 미드 브라움 체급','그거 안 들어와요'],                        // 🛡 투사체 막음
+  Darius:['데마시아!! 서폿 다리우스 되네','빙글빙글~','서폿 다리우스 딜교 이득 ㅋㅋ','도끼 한 바퀴면 끝나요'],   // 🪓 회전 적중(사장님 원문 '서폿 가렌' — 회전 트롤픽이 다리우스라 이름만 바꿈 · 뒤 두 줄은 새로 씀)
+  Lux:['탑 럭스 포킹 무한','라인 밖에서 다 닿아요'],                            // 🌈 레이저 적중
+  Malphite:['원딜 말파 한타 보셨죠','궁 한 방이면 됩니다'],                      // 🪨 띄우기
+  big:['흐접새우: 제발… 이번엔 진짜 됩니다'],                                  // 👹 대형 트롤픽 — 화면에 처음 들어올 때
+  // ── 사장님 목록에 없던 트롤픽(같은 톤으로 새로 씀 · 사장님 검토용) ──
+  Amumu:['미드 아무무 절망 맛 어때요?','발 느려지셨죠? 같이 울어요 ㅠㅠ'],      // 😢 절망에 걸림
+  Zilean:['원딜 질리언 폭탄 딜 보셨죠?','째깍째깍~ 펑! ㅋㅋ'],                  // ⏰ 시한폭탄 적중
+  Janna:['정글 잔나 갱 들어갑니다~','바람 타고 멀리 가세요~'],                  // 🌪 회오리에 밀려남
+  Anivia:['알 못 깨셨죠? 부활~','정글 애니비아는 두 번 삽니다'],               // 🥚 알에서 부활
+  Singed:['서폿 싱지드 쫓아오면 손해예요~','독가스 길 따라오셨네요 ㅋㅋ'],       // ☁ 독가스 적중
+  blitzB:['그랩 장인은 안 빗나가요~','이번 그랩도 백발백중 ㅋㅋ'],              // 🤖 미니 보스 갈고리
+  luxB:['세 줄 섬광은 못 피하죠?','탑 럭스 궁은 끝까지 닿아요~'],              // 🌈 미니 보스 레이저
+  Garen:['AP 가렌 한 대 어때요 ㅋㅋ','데마시아에도 AP는 있어요~'],             // 몸통 박치기 · 🌀 미니 보스 돌진
+  Veigar:['원딜 베이가 평타 아프죠?','별 맞으셨네요~ 이게 원딜 베이가'],        // ★ 별 적중
+};
+const DEATH_SAY=['거봐요 되잖아요 ㅋㅋ','레드 5픽 제제이야~'];   // 쓰러졌을 때 결과 말풍선
+const TAUNT_T=1.8,TAUNT_CD=8;
+const bubs=new Pool(2,()=>({e:null,sn:0,k:'',x:0,y:0,fy:0,s:'',l1:'',l2:'',w:0,life:0,dn:0}));   // 풀 2칸 = 화면 동시 최대 2개 · fy 발밑 · dn 겹쳐서 아래로 옮김
+const onScr=(e,m)=>Math.abs(e.x-S.p.x)*SC<W/2-m&&Math.abs(e.y-S.p.y)*SC<H/2-m;
+function bubY(e){   // 말풍선 꼬리 끝(월드 y) — 라바돈 모자·이름표 위
+  if(e.boss&&e.b.img)return e.y-e.r*1.75-16;
+  const hat=(e.acc||[]).some(a=>a[1]==='head')?e.r*1.15:0;
+  return e.y-e.r-hat-(e.boss?27:e.bg?28:4);}
+function taunt(k,e,sn){   // 말한 쪽이 사라졌으면(sn 불일치) 화면 안 같은 챔피언이 대신 — 살아 있는데 화면 밖이면 말하지 않는다
+  const L=TAUNT[k];if(!L||state!=='play'||S.t<(S.tcd[k]||0))return false;
+  let free=false;for(const b of bubs.a)if(!b.on)free=true;if(!free)return false;
+  if(e&&!(e.on&&(sn===undefined||e.sn===sn))){e=null;let bd=1e18;
+    for(const o of S.live)if(o.on&&o.id===k&&onScr(o,8)){const d=(o.x-S.p.x)**2+(o.y-S.p.y)**2;if(d<bd){bd=d;e=o;}}}
+  if(!e||!onScr(e,8))return false;
+  const b=bubs.get();S.tcd[k]=S.t+TAUNT_CD;b.e=e;b.sn=e.sn;b.k=k;b.x=e.x;b.y=bubY(e);b.fy=e.y+e.r+4;b.s=pickLine(L);b.w=0;b.dn=0;b.life=TAUNT_T;return true;}
+function bubTick(dt){for(const b of bubs.a){if(!b.on)continue;b.life-=dt;if(b.life<=0){b.on=false;b.e=null;continue;}
+  const e=b.e;if(e&&e.on&&e.sn===b.sn){b.x=e.x;b.y=bubY(e);b.fy=e.y+e.r+4;}else b.e=null;}}   // 말한 쪽이 쓰러지면 그 자리에 남았다 사라진다
+const BUMP=new Set(['Maokai','Nautilus','Mordekaiser','Garen']);   // 특기가 곧 몸통 박치기인 기본형
+function bumpKey(e){   // 몸에 부딪혀 피해가 들어갈 때 말할 트롤픽
+  if(e.boss){const k=e.b.key;return k==='mao'?'Maokai':k==='mundo'?'DrMundo':k==='talon'&&e.at.dash>3.7?'Talon':k==='garen'&&e.at.charge>4.5?'Garen':'';}
+  const K=KIND[e.ki];if(!K||e.id!==K.id)return '';   // 구울(요릭)은 노틸 칸을 빌려 쓴다 — 박치기로는 말하지 않는다
+  if(K.dash)return e.ft>2.4?'Talon':'';              // 돌진(0.35초) 중·직후
+  if(K.stealth)return e.sv||e.ft>2.6?'Twitch':'';     // 은신 중이거나 막 튀어나왔을 때
+  return BUMP.has(K.id)?K.id:'';}
+const hazards=new Pool(60,()=>({x:0,y:0,life:0,d:8,own:null,osn:0}));   // 🍄 버섯(own/osn 심은 티모 — 도발 말풍선)
 const eshots=new Pool(LOW?100:140,()=>({x:0,y:0,vx:0,vy:0,life:0,d:0,g:'',sl:0,k:0,src:null,sn:0,ox:0,oy:0}));   // k 1 🪝 갈고리(끌어당김) · 2 🌪 회오리(밀쳐냄)
 const BIMG={};function bossImg(k){if(!BIMG[k])BIMG[k]=sprite('img/survivors/boss_'+k+'.webp',200);return BIMG[k];}
 const pickLine=a=>a&&a.length?a[Math.random()*a.length|0]:'';
@@ -648,7 +703,7 @@ function spawnEnemy(kind,mult,boss,at){
   if(at){e.x=at.x+(Math.random()-.5)*20;e.y=at.y+(Math.random()-.5)*20;}
   else{const a=Math.random()*Math.PI*2,R=Math.hypot(W,H)/2/SC+40;e.x=S.p.x+Math.cos(a)*R;e.y=S.p.y+Math.sin(a)*R;}
   e.ki=kind;e.fx=0;e.ft=Math.random()*3;e.st=0;e.slow=0;e.gold=0;e.hb=-9;e.wv=0;e.zp=0;e.el=0;e.pl=0;e.at=null;
-  e.bg=0;e.ph=0;e.ax=Math.random()<.5?1:-1;e.ay=0;e.sv=0;e.sh=0;e.eg=0;e.fl=0;e.sn=++SN;
+  e.bg=0;e.ph=0;e.ax=Math.random()<.5?1:-1;e.ay=0;e.sv=0;e.sh=0;e.eg=0;e.fl=0;e.tn=0;e.sn=++SN;
   const m=MIN();
   if(boss){e.boss=boss.key;e.b=boss;e.r=boss.r;e.sp=boss.sp*(1+Math.min(.35,m/120));e.dmg=boss.d*atkMul(m)*DMG_BOSS;e.xp=boss.xp;e.c='#f5c04a';e.id=boss.id||null;e.acc=boss.acc||null;
     e.mhp=e.hp=boss.hp*bossMul(m)*(boss.fin?1.6:1)*(boss.mini?Math.min(1,.55+m/25):1);   // 2:30 미니 보스는 조금 여리게(×0.65) → 11분부터 제 체력
@@ -672,7 +727,7 @@ function pickKind(){   // 나온 적 중 비중(w)대로 — 특수 기술 트�
 function spawnBig(hm){   // 👹 대형 흐접새우 트롤픽 — 덩치 2.2배 · 체력 8배 · 잘 안 밀림 · 쓰러뜨리면 💎/💣/🍗
   const k=pickKind();if(k<0)return null;let e=spawnEnemy(k,hm);
   if(!e){const x=enemies.a.find(o=>o.on&&!o.boss&&!o.bg&&!o.el);if(!x)return null;x.on=false;e=spawnEnemy(k,hm);if(!e)return null;}   // 자리가 없으면 잡몹 하나를 비운다
-  e.bg=1;e.mhp=e.hp=e.hp*8;e.r*=2.2;e.xp*=8;e.dmg*=1.6;e.sp*=.85;if(e.sh)e.sh*=2;
+  e.bg=1;e.mhp=e.hp=e.hp*8;e.r*=2.2;e.xp*=8;e.dmg*=1.6;e.sp*=.85;if(e.sh)e.sh*=2;e.tn=S.t+15;   // 💬 화면에 들어오면 등장 대사(15초 안에)
   if(!S.bigSeen){S.bigSeen=1;banner('👹 대형 흐접새우 트롤픽 출현!','덩치 2배 · 체력 8배 — 쓰러뜨리면 💎·💣·🍗를 떨굴 때가 많다');}
   return e;}
 function eventTick(){   // 🌊 3분마다 몰이 이벤트 — 포위·돌격·구울 떼
@@ -738,7 +793,8 @@ function hurt(e,d){
     for(let i=0;i<n;i++){const v=(e.boss?e.xp/n:e.xp)*xm,g=gems.get();
       if(!g){const o=gems.a[Math.random()*gems.a.length|0];o.v+=v;continue;}   // 보석이 넘치면 기존 보석에 합친다
       g.x=e.x+(n>1?(Math.random()-.5)*60:0);g.y=e.y+(n>1?(Math.random()-.5)*60:0);g.v=v;g.mag=0;}
-    if(!e.boss&&KIND[e.ki]&&KIND[e.ki].split&&e.id==='Yorick'&&e.r>9)for(let i=0;i<2;i++){const m=spawnEnemy(1,.6*hpMul(MIN()),null,e);if(m){m.id='Yorick';m.r=8;m.sp=85;m.c='#7a7f9a';m.xp=.5;}}
+    if(!e.boss&&KIND[e.ki]&&KIND[e.ki].split&&e.id==='Yorick'&&e.r>9){let g=null;for(let i=0;i<2;i++){const m=spawnEnemy(1,.6*hpMul(MIN()),null,e);if(m){m.id='Yorick';m.r=8;m.sp=85;m.c='#7a7f9a';m.xp=.5;g=g||m;}}
+      if(g)taunt('Yorick',g);}   // 💬 분열 — 구울이 대사
     if(e.boss){S.midKill=1;if(e.b.fin)S.bossKill=1;dropItem('chest',e.x,e.y);S.p.hp=Math.min(S.p.mhp,S.p.hp+(e.b.mini?15:30));
       banner(`🏆 ${e.b.nm} 처치!`,e.b.dead?'「'+pickLine(e.b.dead)+'」':e.b.fin?'흐접새우: 크큭.. 60분까지 버텨 보시지':'🎁 보스 상자가 떨어졌다!',1);
       if(e.b.key==='ddo')S.room=null;if(e===S.bossRef){S.bossRef=null;for(const x of enemies.a)if(x.on&&x.boss){S.bossRef=x;break;}}}}
@@ -839,7 +895,7 @@ function bossAct(e,dt,d,dx,dy){   // 보스 패턴 — 돌려받는 값: 속도 
   const B=e.b,at=e.at,p=S.p,m=MIN();let spm=1;
   for(const k of B.atk)at[k]-=dt;
   const has=k=>B.atk.includes(k);
-  const shot=(a,v,g,sl,k)=>{const b=eshots.get();if(!b)return;b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=Math.cos(a)*v;b.vy=Math.sin(a)*v;b.life=3;b.d=e.dmg*.6;b.g=g||B.g||'';b.sl=sl||0;b.k=k||0;b.src=k?e:null;b.sn=e.sn;};
+  const shot=(a,v,g,sl,k)=>{const b=eshots.get();if(!b)return;b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=Math.cos(a)*v;b.vy=Math.sin(a)*v;b.life=3;b.d=e.dmg*.6;b.g=g||B.g||'';b.sl=sl||0;b.k=k||0;b.src=e;b.sn=e.sn;};   // src: 갈고리 주인 · 💬 도발 말풍선의 주인
   const aim=Math.atan2(dy,dx);
   if(has('dash')&&at.dash<=0){at.dash=B.key==='tw'?2.6:4.5;e.fx=.5;}
   if(has('charge')&&at.charge<=0){at.charge=5.5;e.fx=.8;if(B.key==='yj')say(e,'탑 주세요. 탑만.');}
@@ -847,21 +903,23 @@ function bossAct(e,dt,d,dx,dy){   // 보스 패턴 — 돌려받는 값: 속도 
   if(has('shots')&&at.shots<=0){at.shots=2.2;for(let i=-1;i<=1;i++)shot(aim+i*.22,220);}
   if(has('ring')&&at.ring<=0){at.ring=4.5;const n=LOW?10:14,o=Math.random();for(let i=0;i<n;i++)shot(o+i*6.283/n,170);}
   if(has('summon')&&at.summon<=0){at.summon=7;const k=B.key==='yorick'||B.key==='mao'?(B.key==='mao'?0:1):S.t>=720?7:2;
-    for(let i=0;i<(B.sum||4);i++){const x=spawnEnemy(k,hpMul(m)*.8,null,{x:e.x+(Math.random()-.5)*120,y:e.y+(Math.random()-.5)*120});if(x&&B.key==='yorick'){x.id='Yorick';x.r=8;x.sp=90;}}}
-  if(has('shroom')&&at.shroom<=0){at.shroom=1.4;const h=hazards.get();if(h){const a=Math.random()*6.283,r=80+Math.random()*160;h.x=p.x+Math.cos(a)*r;h.y=p.y+Math.sin(a)*r;h.life=14;h.d=8*atkMul(m)*DMG_BOSS;}}
-  if(has('pull')&&at.pull<=0){at.pull=8;e.pl=.8;}
+    for(let i=0;i<(B.sum||4);i++){const x=spawnEnemy(k,hpMul(m)*.8,null,{x:e.x+(Math.random()-.5)*120,y:e.y+(Math.random()-.5)*120});if(x&&B.key==='yorick'){x.id='Yorick';x.r=8;x.sp=90;}}
+    if(B.key==='yorick')taunt('Yorick',e);}
+  if(has('shroom')&&at.shroom<=0){at.shroom=1.4;const h=hazards.get();if(h){const a=Math.random()*6.283,r=80+Math.random()*160;h.x=p.x+Math.cos(a)*r;h.y=p.y+Math.sin(a)*r;h.life=14;h.d=8*atkMul(m)*DMG_BOSS;h.own=B.id==='Teemo'?e:null;h.osn=e.sn;}}
+  if(has('pull')&&at.pull<=0){at.pull=8;e.pl=.8;taunt(B.key==='naut'?'Nautilus':B.key==='morde'?'Mordekaiser':'',e);}   // 💬 닻·영역으로 끌어당김
   if(e.pl>0){e.pl-=dt;p.x+=dx/d*-150*dt;p.y+=dy/d*-150*dt;}
   if(has('staff')&&at.staff<=0){at.staff=3;for(let i=-2;i<=2;i++)shot(aim+i*.3,200,'📜',1);if(Math.random()<.4)say(e,'스탭 임명장 받으세요.');}   // 📜 맞으면 느려진다
   if(has('room')&&at.room<=0&&!S.room){at.room=12;S.room={x:p.x,y:p.y,R:300,t:6};say(e,'자, 앉으세요. 문은 잠갔습니다.');banner('☠ 진실의 방','방이 좁아진다 — 안에서 버텨라!',1);}
   if(has('rage')&&e.hp<e.mhp*.4&&at.rage<=0){at.rage=3;S.ebooms.push({x:e.x,y:e.y,R:190,t:.9,T:.9,d:e.dmg*1.2});say(e,'나와 같은 기분을 느껴봐라!!');}
   if(has('breath')&&at.breath<=0&&!S.cone){at.breath=5;S.cone={e,sn:e.sn,a:aim,t:.9,R:340,w:.5,d:e.dmg*1.4,hit:0};}
   if(has('hook')&&at.hook<=0){at.hook=3.6;shot(aim,400,'🪝',0,1);if(Math.random()<.3)say(e,'그랩 들어갑니다~');}   // 🪝 맞으면 끌려간다
-  if(has('beam')&&at.beam<=0){at.beam=5.5;for(let i=-1;i<=1;i++)addBeam(e.x,e.y,aim+i*.42,1.1,640,e.dmg*1.2,null);}   // 🌈 부채꼴 레이저 3줄
+  if(has('beam')&&at.beam<=0){at.beam=5.5;for(let i=-1;i<=1;i++)addBeam(e.x,e.y,aim+i*.42,1.1,640,e.dmg*1.2,null,e);}   // 🌈 부채꼴 레이저 3줄
   if(S.cone&&S.cone.e===e)spm=0;
   return spm;
 }
 // 🌈 럭스 레이저 — 예고선(t초) 뒤 한 번 번쩍. 럭스(잡몹)는 쏘는 동안 멈춰 선다
-function addBeam(x,y,a,t,L,d,src){if(S.beams.length>=12)return false;S.beams.push({x,y,ax:Math.cos(a),ay:Math.sin(a),t,T:t,L,d,fl:0,src,sn:src?src.sn:0});return true;}
+function addBeam(x,y,a,t,L,d,src,own){if(S.beams.length>=12)return false;own=own||src;   // own: 쏜 쪽(💬 도발 말풍선) — 보스 레이저는 src 없이 own 만
+  S.beams.push({x,y,ax:Math.cos(a),ay:Math.sin(a),t,T:t,L,d,fl:0,src,sn:src?src.sn:0,own,osn:own?own.sn:0,tk:own?(own.boss?'luxB':'Lux'):''});return true;}
 function beamTick(dt){const p=S.p;
   for(let i=S.beams.length-1;i>=0;i--){const b=S.beams[i];if(!b)continue;   // 👼 부활(die)이 도중에 목록을 비울 수 있다
     if(b.fl>0){b.fl-=dt;if(b.fl<=0)S.beams.splice(i,1);continue;}
@@ -869,7 +927,7 @@ function beamTick(dt){const p=S.p;
     b.t-=dt;if(b.t>0)continue;
     b.fl=.22;if(b.src){b.src.ph=0;b.src.ft=5;}AU.play('zap');
     const px=p.x-b.x,py=p.y-b.y,t=Math.max(0,Math.min(b.L,px*b.ax+py*b.ay)),qx=px-b.ax*t,qy=py-b.ay*t;
-    if(qx*qx+qy*qy<(p.r+11)**2&&hitP(b.d,'🌈 최후의 섬광!'))return true;}
+    if(qx*qx+qy*qy<(p.r+11)**2){if(p.inv<=0&&b.tk)taunt(b.tk,b.own,b.osn);if(hitP(b.d,'🌈 최후의 섬광!'))return true;}}
   return false;}
 function yank(dx,dy,t){const p=S.p;p.yt=t;p.yvx=dx/t;p.yvy=dy/t;}   // 🪝·🌪 플레이어를 t초 동안 끌거나 민다
 function update(dt){
@@ -891,60 +949,65 @@ function update(dt){
   weapons(dt);
   for(const s of shots.a){if(!s.on)continue;s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;if(s.life<=0){s.on=false;continue;}
     for(const e of enemies.a){if(!e.on)continue;if((e.x-s.x)**2+(e.y-s.y)**2<(e.r+s.r)**2){
-        if(e.sh>0&&s.vx*(p.x-e.x)+s.vy*(p.y-e.y)<0){e.sh--;s.on=false;e.fl=.12;AU.play('hit');if(!e.sh)txt(e.x,e.y-e.r-8,'🛡 방패 깨짐!','#9fd0ff');break;}   // 🛡 브라움 — 앞에서 온 투사체는 막는다
+        if(e.sh>0&&s.vx*(p.x-e.x)+s.vy*(p.y-e.y)<0){e.sh--;s.on=false;e.fl=.12;AU.play('hit');taunt('Braum',e);if(!e.sh)txt(e.x,e.y-e.r-8,'🛡 방패 깨짐!','#9fd0ff');break;}   // 🛡 브라움 — 앞에서 온 투사체는 막는다
         hurt(e,s.dmg);if(s.pierce-->0){s.x+=s.vx*.05;s.y+=s.vy*.05;}else s.on=false;break;}}
     if(s.on)for(const o of props.a)if(o.on&&(o.x-s.x)**2+(o.y-s.y)**2<(PROP[o.k].r+s.r)**2){hitProp(o,s.dmg);s.on=false;break;}}
   for(const e of enemies.a){if(!e.on)continue;e.t+=dt;if(e.hit>0)e.hit-=dt;if(e.gold>0)e.gold-=dt;
     if(e.kb>0){e.kb-=dt;e.x+=e.kx*dt;e.y+=e.ky*dt;e.kx*=.9;e.ky*=.9;}
     const dx=p.x-e.x,dy=p.y-e.y,d=Math.hypot(dx,dy)||1;
     if(d>1400&&!e.boss){e.on=false;continue;} // 너무 멀어진 잡몹 정리
+    if(e.tn){if(S.t>e.tn)e.tn=0;else if(onScr(e,8)&&taunt('big',e))e.tn=0;}   // 💬 👹 대형 등장 대사 — 화면에 들어올 때
     if(e.boss&&d>900){e.x+=dx/d*(d-700);e.y+=dy/d*(d-700);}   // 보스는 따라온다
     const K=e.boss?null:KIND[e.ki];let spm=1,ux=dx/d,uy=dy/d;
     if(e.fl>0)e.fl-=dt;
     if(K){e.ft-=dt;
-      if(e.eg===1){spm=0;if(e.ft<=0){e.eg=2;e.hp=e.mhp;e.fl=.3;txt(e.x,e.y-e.r-8,'🐦 부활!','#9ad8ff');}}   // 🥚 알을 못 깨면 부활
+      if(e.eg===1){spm=0;if(e.ft<=0){e.eg=2;e.hp=e.mhp;e.fl=.3;txt(e.x,e.y-e.r-8,'🐦 부활!','#9ad8ff');taunt('Anivia',e);}}   // 🥚 알을 못 깨면 부활
       else{
-      if(K.shroom&&e.ft<=0){e.ft=4;const h=hazards.get();if(h){h.x=e.x;h.y=e.y;h.life=12;h.d=8*atkMul(MIN())*mobX(MIN());}}
-      if(K.ranged){if(d<220)spm=0;if(e.ft<=0&&d<320){e.ft=2.4;const b=eshots.get();if(b){b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=ux*190;b.vy=uy*190;b.life=2.2;b.d=e.dmg;b.g=K.g||'♪';b.sl=0;b.k=0;b.src=null;}}}
+      if(K.shroom&&e.ft<=0){e.ft=4;const h=hazards.get();if(h){h.x=e.x;h.y=e.y;h.life=12;h.d=8*atkMul(MIN())*mobX(MIN());h.own=e;h.osn=e.sn;}}
+      if(K.ranged){if(d<220)spm=0;if(e.ft<=0&&d<320){e.ft=2.4;const b=eshots.get();if(b){b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=ux*190;b.vy=uy*190;b.life=2.2;b.d=e.dmg;b.g=K.g||'♪';b.sl=0;b.k=0;b.src=e;b.sn=e.sn;}}}
       if(K.dash){if(e.ft<=0){e.ft=3;e.fx=.35;}if(e.fx>0){e.fx-=dt;spm=3.2;}}
       if(K.hook){if(e.ph===1){spm=0;e.fx-=dt;if(e.fx<=0){e.ph=0;e.ft=5.5;const b=eshots.get();   // 🪝 블리츠 — 멈춰서 조준 0.45초 → 갈고리
           if(b){b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=e.ax*430;b.vy=e.ay*430;b.life=1.1;b.d=e.dmg*.8;b.g='🪝';b.sl=0;b.k=1;b.src=e;b.sn=e.sn;}}}
         else if(e.ft<=0&&d<400&&d>90){e.ph=1;e.fx=.45;e.ax=ux;e.ay=uy;}}
       if(K.heal){if(d<240)spm=-.6;if(e.ft<=0){e.ft=3.2;e.fl=.45;   // ✚ 소라카 — 뒤로 빠지며 주변 적 체력 25% 회복
-        for(const o of S.live)if(o.on&&!o.boss&&o!==e&&o.hp<o.mhp&&(o.x-e.x)**2+(o.y-e.y)**2<170*170)o.hp=Math.min(o.mhp,o.hp+o.mhp*.25);}}
-      if(K.sad&&d<SAD_R+e.r){p.slow=Math.max(p.slow,.2);p.slowG='😢';}   // 😢 아무무 절망 — 가까이 있으면 느려진다
+        let n=0;for(const o of S.live)if(o.on&&!o.boss&&o!==e&&o.hp<o.mhp&&(o.x-e.x)**2+(o.y-e.y)**2<170*170){o.hp=Math.min(o.mhp,o.hp+o.mhp*.25);n++;}
+        if(n)taunt('Soraka',e);}}   // 💬 다친 적을 실제로 채웠을 때만
+      if(K.sad&&d<SAD_R+e.r){if(!(p.slow>0&&p.slowG==='😢'))taunt('Amumu',e);p.slow=Math.max(p.slow,.2);p.slowG='😢';}   // 😢 아무무 절망 — 가까이 있으면 느려진다
       if(K.stealth){if(e.ft<=0){e.sv=e.sv?0:1;e.ft=e.sv?2.2:3.2;}if(e.sv)spm=1.35;}   // 👻 트위치 — 은신 중엔 빠르고 조준 무기에 안 잡힌다
-      if(K.bomb&&e.ft<=0&&d<340){e.ft=4.6;if(S.ebooms.length<24)S.ebooms.push({x:p.x,y:p.y,R:62,t:1.5,T:1.5,d:e.dmg*1.3,m:'⏰ 시한폭탄!',g:'⏰'});}   // ⏰ 질리언
+      if(K.bomb&&e.ft<=0&&d<340){e.ft=4.6;if(S.ebooms.length<24)S.ebooms.push({x:p.x,y:p.y,R:62,t:1.5,T:1.5,d:e.dmg*1.3,m:'⏰ 시한폭탄!',g:'⏰',tk:'Zilean',own:e,osn:e.sn});}   // ⏰ 질리언
       if(K.gust){if(d<240)spm=0;if(e.ft<=0&&d<330){e.ft=4;const b=eshots.get();   // 🌪 잔나 — 맞으면 밀려난다
-        if(b){b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=ux*230;b.vy=uy*230;b.life=2;b.d=e.dmg*.5;b.g='🌪';b.sl=0;b.k=2;b.src=null;}}}
-      if(K.spin){if(e.ph===1){spm=.25;e.fx-=dt;if(e.fx<=0){e.ph=0;e.ft=4.5;e.fl=.25;if(d<e.r+62+p.r&&hitP(e.dmg*1.3,'🪓 회전 베기!'))return;}}   // 🪓 다리우스 — 붉은 원 0.7초 뒤 회전
+        if(b){b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=ux*230;b.vy=uy*230;b.life=2;b.d=e.dmg*.5;b.g='🌪';b.sl=0;b.k=2;b.src=e;b.sn=e.sn;}}}
+      if(K.spin){if(e.ph===1){spm=.25;e.fx-=dt;if(e.fx<=0){e.ph=0;e.ft=4.5;e.fl=.25;if(d<e.r+62+p.r){if(p.inv<=0)taunt('Darius',e);if(hitP(e.dmg*1.3,'🪓 회전 베기!'))return;}}}   // 🪓 다리우스 — 붉은 원 0.7초 뒤 회전
         else if(e.ft<=0&&d<e.r+110){e.ph=1;e.fx=.7;}}
       if(K.beam){if(d<260||e.ph===1)spm=0;if(e.ph!==1&&e.ft<=0&&d<420){if(addBeam(e.x,e.y,Math.atan2(dy,dx),1,560,e.dmg*1.2,e)){e.ph=1;e.ft=99;}else e.ft=2;}}   // 🌈 럭스
       if(K.charge){if(e.ph===1){spm=0;e.fx-=dt;if(e.fx<=0){e.ph=2;e.fx=.55;}}   // 🪨 말파이트 — 예고 0.55초 → 일직선 돌진
         else if(e.ph===2){spm=0;e.fx-=dt;e.x+=e.ax*520*dt;e.y+=e.ay*520*dt;if(e.fx<=0){e.ph=0;e.ft=5;}
-          if(d<e.r+p.r+4&&p.inv<=0){e.ph=0;e.ft=5;p.stun=.6;if(hitP(e.dmg*1.2,'🪨 에어본!'))return;}}
+          if(d<e.r+p.r+4&&p.inv<=0){e.ph=0;e.ft=5;p.stun=.6;taunt('Malphite',e);if(hitP(e.dmg*1.2,'🪨 에어본!'))return;}}
         else if(e.ft<=0&&d<320&&d>60){e.ph=1;e.fx=.55;e.ax=ux;e.ay=uy;}}
       if(K.gas){const sg=e.ax,rd=Math.max(-1,Math.min(1,(d-170)/120)),nx=-uy*sg*.9+ux*rd,ny=ux*sg*.9+uy*rd,nl=Math.hypot(nx,ny)||1;ux=nx/nl;uy=ny/nl;   // ☁ 싱지드 — 빙빙 돌며 독가스
-        if(e.ft<=0){e.ft=.45;const c=clouds.get();if(c){c.x=e.x;c.y=e.y;c.life=3;c.d=e.dmg*.35;}}}
+        if(e.ft<=0){e.ft=.45;const c=clouds.get();if(c){c.x=e.x;c.y=e.y;c.life=3;c.d=e.dmg*.35;c.own=e;c.osn=e.sn;}}}
       }}
     else if(e.boss){spm=bossAct(e,dt,d,dx,dy);if(state!=='play')return;}
     if(e.slow>0){e.slow-=dt;spm*=.55;}
     if(e.st>0){e.st-=dt;spm=0;}
     if(!(e.kb>0&&!e.boss)){e.x+=ux*e.sp*spm*dt;e.y+=uy*e.sp*spm*dt;}
     if(d<e.r+p.r&&e.eg!==1){if(CH.push&&!e.boss&&e.kb<=0){e.kb=.3;e.kx=-dx/d*260*KB(e);e.ky=-dy/d*260*KB(e);}
+      if(p.inv<=0){const k=bumpKey(e);if(k)taunt(k,e);}   // 💬 박치기가 실제로 들어갈 때
       if(hitP(e.dmg))return;}}
   for(const h of hazards.a){if(!h.on)continue;h.life-=dt;if(h.life<=0){h.on=false;continue;}
-    if((h.x-p.x)**2+(h.y-p.y)**2<(p.r+8)**2){h.on=false;if(hitP(h.d,'🍄 버섯!'))return;}}
+    if((h.x-p.x)**2+(h.y-p.y)**2<(p.r+8)**2){h.on=false;if(p.inv<=0&&h.own)taunt('Teemo',h.own,h.osn);if(hitP(h.d,'🍄 버섯!'))return;}}
   for(const b of eshots.a){if(!b.on)continue;b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.life<=0){b.on=false;continue;}
     if((b.x-p.x)**2+(b.y-p.y)**2<(p.r+6)**2){b.on=false;if(b.sl){p.slow=1.5;p.slowG='📜';}
-      if(b.k===1){const o=srcOk(b)?b.src:{x:b.ox,y:b.oy,r:0},hx=o.x-p.x,hy=o.y-p.y,hd=Math.hypot(hx,hy)||1,pl=Math.min(hd-o.r-p.r-8,160);if(pl>0)yank(hx/hd*pl,hy/hd*pl,.22);}   // 🪝 끌려간다
-      else if(b.k===2){const v=Math.hypot(b.vx,b.vy)||1;yank(b.vx/v*150,b.vy/v*150,.3);}   // 🌪 밀려난다
+      const src=srcOk(b)?b.src:null;   // 쏜 쪽이 아직 살아 있으면 💬 도발 말풍선
+      if(b.k===1){const o=src||{x:b.ox,y:b.oy,r:0},hx=o.x-p.x,hy=o.y-p.y,hd=Math.hypot(hx,hy)||1,pl=Math.min(hd-o.r-p.r-8,160);if(pl>0){yank(hx/hd*pl,hy/hd*pl,.22);if(src)taunt(src.boss?'blitzB':'Blitzcrank',src);}}   // 🪝 끌려간다
+      else if(b.k===2){const v=Math.hypot(b.vx,b.vy)||1;yank(b.vx/v*150,b.vy/v*150,.3);if(src)taunt('Janna',src);}   // 🌪 밀려난다
+      else if(src&&!b.sl&&p.inv<=0)taunt(src.boss?(src.b.key==='mundo'?'DrMundo':src.b.key==='sona'?'Sona':''):src.id,src);   // ♪ 소나 · ★ 베이가 · 💉 문도 보스 탄
       if(hitP(b.d,b.sl?'📜 스탭 임명!':b.k===1?'🪝 그랩!':b.k===2?'🌪 회오리!':''))return;}}
   for(const c of clouds.a){if(!c.on)continue;c.life-=dt;if(c.life<=0){c.on=false;continue;}
-    if((c.x-p.x)**2+(c.y-p.y)**2<(p.r+20)**2&&hitP(c.d,'☁ 독가스!'))return;}
+    if((c.x-p.x)**2+(c.y-p.y)**2<(p.r+20)**2){if(p.inv<=0)taunt('Singed',c.own,c.osn);if(hitP(c.d,'☁ 독가스!'))return;}}
   if(beamTick(dt))return;
   for(let i=S.ebooms.length-1;i>=0;i--){const b=S.ebooms[i];if(!b)continue;b.t-=dt;if(b.t<=0){S.ebooms.splice(i,1);S.shake=.25;AU.play('boom');   // !b: 👼 부활(die)이 도중에 목록을 비울 수 있다
-    if((b.x-p.x)**2+(b.y-p.y)**2<(b.R+p.r)**2&&hitP(b.d,b.m||'💔 멘탈 폭발!'))return;}}
+    if((b.x-p.x)**2+(b.y-p.y)**2<(b.R+p.r)**2){if(b.tk&&p.inv<=0)taunt(b.tk,b.own,b.osn);if(hitP(b.d,b.m||'💔 멘탈 폭발!'))return;}}}
   if(S.cone){const c=S.cone;c.t-=dt;if(!(c.e.on&&c.e.sn===c.sn)){S.cone=null;}else if(c.t<=0){S.cone=null;S.shake=.3;AU.play('boom');   // 🐲 드래곤 브레스(부채꼴)
     const dx=p.x-c.e.x,dy=p.y-c.e.y,d=Math.hypot(dx,dy);let da=Math.atan2(dy,dx)-c.a;da=Math.atan2(Math.sin(da),Math.cos(da));
     if(d<c.R&&Math.abs(da)<c.w&&hitP(c.d,'🐲 브레스!'))return;}}
@@ -953,6 +1016,7 @@ function update(dt){
     if(d2<mag)g.mag=1;if(g.mag){const d=Math.sqrt(d2)||1;g.x+=dx/d*480*dt;g.y+=dy/d*480*dt;}
     if(d2<(p.r+6)**2){g.on=false;AU.play('gem');gainXp(g.v*(1+(CH.xp||0)));}}
   for(const t of texts.a)if(t.on){t.life-=dt;t.y-=(t.big?12:40)*dt;if(t.life<=0)t.on=false;}
+  bubTick(dt);
   mapTick(dt);if(state!=='play')return;
   bannerTick(dt);if(S.shake>0)S.shake-=dt;if(S.flash>0)S.flash-=dt;
   if(S.pendingLv>0)openLvup();
@@ -975,7 +1039,7 @@ function endRun(won,quit){
   $('unlockMsg').innerHTML=nu.map(c=>REVEAL?`🔓 새 캐릭터 해금: ${c.e} ${c.nm}`:'🔓 ??? 해금 조건 달성 — 캐릭터 공개를 기다려 주세요').join('<br>');
   const SAY=won?['크큭.. 60분을 버티다니. 다음엔 5인 트롤 조합이다','…인정. 오늘은 내 트롤픽이 졌다','말도 안 돼. 풀AP 마스터 이가 졌다고?']
     :['크큭.. 다음엔 AP 마오카이다','제발… 한 판만 더','증바람 하실분?','크큭.. 이번 트롤픽도 완벽했군','내 빌드에 문제는 없었다. 팀이 문제였지','서폿 이즈리얼… 이것이 낭만','다음 판은 정글 티모로 간다','ㅋㅋ 방금 그거 의도한 거임'];
-  $('rSay').textContent=SAY[Math.random()*SAY.length|0];
+  $('rSay').textContent=!won&&!quit&&Math.random()<.5?pickLine(DEATH_SAY):SAY[Math.random()*SAY.length|0];   // 💬 쓰러졌을 땐 절반은 도발 마무리 대사
   renderRoster();show('result');submitRun(won);
 }
 
@@ -1168,10 +1232,38 @@ function draw(){
   for(const it of items.a){if(!it.on||it.k!=='chest')continue;   // 🎁 화면 밖 상자 방향 표시
     const vx=(it.x-p.x)*SC,vy=(it.y-p.y)*SC;if(Math.abs(vx)<W/2-10&&Math.abs(vy)<H/2-10)continue;
     const k=Math.min((W/2-24)/Math.abs(vx||1),(H/2-24)/Math.abs(vy||1));cx.font='20px sans-serif';cx.textAlign='center';cx.fillText('🎁',W/2+vx*k,H/2+vy*k+7);}
+  drawBubs(p,sx,sy);
   if(S.flash>0){cx.fillStyle=`rgba(255,230,160,${Math.min(.6,S.flash)})`;cx.fillRect(0,0,W,H);}
   if(joy.on){cx.strokeStyle='rgba(255,255,255,.25)';cx.lineWidth=2;cx.beginPath();cx.arc(joy.ox,joy.oy,50,0,7);cx.stroke();cx.fillStyle='rgba(91,140,255,.5)';cx.beginPath();cx.arc(joy.ox+joy.dx*50,joy.oy+joy.dy*50,20,0,7);cx.fill();}
   if(bannerT>0){cx.globalAlpha=Math.max(0,Math.min(1,bannerT,.3+bannerA*5));cx.fillStyle='#f5c04a';cx.textAlign='center';fitFont('bold ',W<420?16:22,bannerS);cx.fillText(bannerS,W/2,H*.3);if(bannerS2){fitFont('',W<420?12:14,bannerS2);cx.fillStyle='#e7eaf3';cx.fillText(bannerS2,W/2,H*.3+24);}cx.globalAlpha=1;}
 }
+// 💬 🦐 [2026-09-29 사장님 지시] 트롤픽 도발 말풍선 — 화면 좌표로 그린다(폰은 SC 0.7 이라 월드 좌표 글자는 9px 로 작아진다)
+function drawBubs(p,sx,sy){
+  if(state!=='play')return;   // 일시정지·레벨업·상자·결과 화면 뒤로는 띄우지 않는다
+  let any=false;for(const b of bubs.a)if(b.on)any=true;if(!any)return;
+  const top=S.bossRef?100:70;   // HUD(경험치·체력·보스 바)에 가리지 않게
+  cx.font='bold 13px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.lineWidth=1.5;
+  let pL=0,pT=0,pR=0,pB=0,prev=false;   // 먼저 그린 말풍선 자리 — 다음 것이 겹치면 말한 쪽 발밑으로(한 번 옮기면 그대로)
+  for(const b of bubs.a){if(!b.on)continue;
+    if(!b.w){const mw=Math.min(W-24,300)-18;let w=cx.measureText(b.s).width;b.l1=b.s;b.l2='';   // 처음 그릴 때 한 번만 재고, 넓으면 가운데 띄어쓰기에서 두 줄
+      if(w>mw){const s=b.s,mid=s.length/2;let at=-1;for(let i=0;i<s.length;i++)if(s[i]===' '&&(at<0||Math.abs(i-mid)<Math.abs(at-mid)))at=i;
+        if(at>0){b.l1=s.slice(0,at);b.l2=s.slice(at+1);w=Math.max(cx.measureText(b.l1).width,cx.measureText(b.l2).width);}}
+      b.w=Math.min(w,mw);}
+    const age=TAUNT_T-b.life,pop=Math.min(1,age/.12);
+    const X=W/2+sx+(b.x-p.x)*SC,Y=H/2+sy+(b.y-p.y)*SC-(1-pop)*6;
+    const bw=b.w+18,bh=b.l2?40:24,L=Math.max(6,Math.min(W-6-bw,X-bw/2));let T=Math.max(top,Math.min(H-bh-14,Y-8-bh));
+    if(!b.dn&&prev&&L<pR&&L+bw>pL&&T<pB&&T+bh>pT)b.dn=1;
+    const FY=H/2+sy+(b.fy-p.y)*SC;if(b.dn)T=Math.max(top,Math.min(H-bh-6,FY+8));
+    pL=L;pT=T;pR=L+bw;pB=T+bh;prev=true;
+    cx.globalAlpha=Math.min(1,pop*1.5,b.life/.3);
+    const big=b.k==='big';cx.fillStyle=big?'#fff0f3':'#fff';cx.strokeStyle=big?'#ff3b6b':'#ff7a45';
+    cx.beginPath();if(cx.roundRect)cx.roundRect(L,T,bw,bh,10);else cx.rect(L,T,bw,bh);
+    const tail=b.dn?FY<T-2:Y>T+bh+2,tx=Math.max(L+12,Math.min(L+bw-12,X)),ty=b.dn?T:T+bh,tk=b.dn?-8:8;
+    if(tail){cx.moveTo(tx-6,ty);cx.lineTo(tx,ty+tk);cx.lineTo(tx+6,ty);}   // 꼬리 — 말한 트롤픽 쪽으로(아래로 옮긴 건 위로)
+    cx.fill();cx.stroke();if(tail)cx.fillRect(tx-5,ty-1.25,10,2.5);   // 꼬리 이음매의 테두리 선 지우기
+    cx.fillStyle='#1a1d2e';const cxm=L+bw/2;
+    if(b.l2){cx.fillText(b.l1,cxm,T+12,bw-12);cx.fillText(b.l2,cxm,T+28,bw-12);}else cx.fillText(b.l1,cxm,T+12.5,bw-12);}
+  cx.globalAlpha=1;cx.textBaseline='alphabetic';}
 function fitFont(pre,px,s){cx.font=pre+px+'px sans-serif';const w=cx.measureText(s).width,mw=W-20;if(w>mw)cx.font=pre+Math.max(9,px*mw/w).toFixed(1)+'px sans-serif';}   // 좁은 폰에서 배너가 잘리지 않게 글자를 줄인다
 function hud(){
   $('xpb').firstElementChild.style.width=(S.xp/S.need*100)+'%';
