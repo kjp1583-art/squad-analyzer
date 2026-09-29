@@ -371,6 +371,71 @@ function endRun(won){
   renderRoster();show('result');
 }
 
+
+// ---------- 🗺 소환사의 협곡 배경(코드로 그림) ----------
+//   세상은 끝없이 이어진다 → 256px 조각마다 좌표로 정해지는 난수로 풀·부쉬·바위·와드 자국·잔해·클랜 소품을 그려 캐시.
+//   구역: 0~3분 아군 정글(초록) → 3~6분 강가(청록·물) → 6분~ 적 본진(보라·돌바닥). 바뀔 땐 1.5초 겹쳐 그린다.
+const RIFT_CH=256, RIFT_CACHE=new Map(), RIFT_MAX=90;
+const RIFT_ZONES=[
+  {nm:'아군 정글', base:'#16241a', g1:'#1c2f20', g2:'#12201a', bush:'#0f2a17', bushHi:'#1d4a2a', rock:'#2a3330', water:0},
+  {nm:'강가',     base:'#132226', g1:'#18302f', g2:'#10201f', bush:'#0e2a24', bushHi:'#1a4a40', rock:'#27383a', water:1},
+  {nm:'적 본진',   base:'#1d1626', g1:'#271d33', g2:'#170f20', bush:'#231532', bushHi:'#3a2350', rock:'#3a3144', water:0, stone:1},
+];
+function riftZoneAt(t){return t<180?0:t<360?1:2;}
+function rnd(ix,iy,k){let h=(ix*374761393+iy*668265263+k*2246822519)|0;h=(h^(h>>>13))*1274126177|0;return((h^(h>>>16))>>>0)/4294967296;}
+function riftRiver(x,y){return Math.abs(y-Math.sin(x/620)*260-Math.floor((y+1200)/2400)*2400)}   // 2400px 마다 굽이치는 강 줄기
+function riftChunk(ix,iy,zi){
+  const key=zi+':'+ix+':'+iy; let c=RIFT_CACHE.get(key); if(c){RIFT_CACHE.delete(key);RIFT_CACHE.set(key,c);return c;}
+  const Z=RIFT_ZONES[zi]; c=document.createElement('canvas'); c.width=c.height=RIFT_CH; const g=c.getContext('2d');
+  const ox=ix*RIFT_CH, oy=iy*RIFT_CH;
+  g.fillStyle=Z.base; g.fillRect(0,0,RIFT_CH,RIFT_CH);
+  if(Z.stone){ g.strokeStyle='rgba(255,255,255,.035)'; g.lineWidth=2;   // 본진 돌바닥 이음매
+    for(let k=0;k<5;k++){const y=k*64+(ix&1)*32; g.beginPath(); g.moveTo(0,y); g.lineTo(RIFT_CH,y); g.stroke();
+      for(let j=0;j<4;j++){const x=j*64+(k&1)*32; g.beginPath(); g.moveTo(x,y); g.lineTo(x,y+64); g.stroke();}}}
+  for(let k=0;k<70;k++){ const x=rnd(ix,iy,k)*RIFT_CH, y=rnd(ix,iy,k+99)*RIFT_CH;   // 풀 결
+    g.fillStyle=k&1?Z.g1:Z.g2; g.fillRect(x,y,2+rnd(ix,iy,k+7)*3,1+rnd(ix,iy,k+8)*2); }
+  // 강 — 월드 좌표로 이어지게 픽셀 대신 4px 격자로 칠한다(강가 구역은 물이 넓다)
+  const rw=Z.water?120:46;
+  for(let y=0;y<RIFT_CH;y+=4)for(let x=0;x<RIFT_CH;x+=4){ const d=riftRiver(ox+x,oy+y);
+    if(d<rw){ g.fillStyle=d<rw*.55?(Z.water?'rgba(40,110,140,.55)':'rgba(40,110,140,.32)'):'rgba(60,140,160,.16)'; g.fillRect(x,y,4,4);} }
+  const r=rnd(ix,iy,1);
+  if(r<.45){ // 부쉬
+    const bx=30+rnd(ix,iy,2)*(RIFT_CH-60), by=30+rnd(ix,iy,3)*(RIFT_CH-60);
+    for(let k=0;k<7;k++){ g.fillStyle=k<5?Z.bush:Z.bushHi; g.beginPath(); g.arc(bx+(rnd(ix,iy,k+20)-.5)*60,by+(rnd(ix,iy,k+30)-.5)*28,10+rnd(ix,iy,k+40)*10,0,7); g.fill(); } }
+  if(rnd(ix,iy,4)<.3){ // 바위
+    const x=rnd(ix,iy,5)*RIFT_CH, y=rnd(ix,iy,6)*RIFT_CH; g.fillStyle=Z.rock; g.beginPath(); g.ellipse(x,y,12+rnd(ix,iy,9)*10,8+rnd(ix,iy,10)*6,rnd(ix,iy,11)*3,0,7); g.fill();
+    g.fillStyle='rgba(255,255,255,.05)'; g.beginPath(); g.ellipse(x-3,y-3,5,3,0,0,7); g.fill(); }
+  if(rnd(ix,iy,12)<.12){ // 와드 자국
+    const x=rnd(ix,iy,13)*RIFT_CH, y=rnd(ix,iy,14)*RIFT_CH; g.strokeStyle=rnd(ix,iy,15)<.5?'rgba(245,192,74,.35)':'rgba(255,90,120,.3)'; g.lineWidth=2;
+    g.beginPath(); g.arc(x,y,16,0,7); g.stroke(); g.fillStyle=g.strokeStyle; g.beginPath(); g.arc(x,y,3,0,7); g.fill(); }
+  if(rnd(ix,iy,16)<(zi===2?.14:.05)){ // 부서진 포탑 잔해
+    const x=rnd(ix,iy,17)*RIFT_CH, y=rnd(ix,iy,18)*RIFT_CH; g.fillStyle='rgba(120,130,150,.28)';
+    for(let k=0;k<5;k++){ g.save(); g.translate(x+(rnd(ix,iy,k+50)-.5)*40,y+(rnd(ix,iy,k+60)-.5)*30); g.rotate(rnd(ix,iy,k+70)*3); g.fillRect(-7,-4,14,8); g.restore(); }
+    g.strokeStyle='rgba(120,160,220,.22)'; g.lineWidth=3; g.beginPath(); g.arc(x,y,22,0,7); g.stroke(); }
+  const pr=rnd(ix,iy,19);   // 🍗 클랜 소품 — 드물게
+  if(pr<.035){ const x=rnd(ix,iy,21)*RIFT_CH, y=rnd(ix,iy,22)*RIFT_CH;
+    g.fillStyle='rgba(150,150,160,.35)'; g.fillRect(x-10,y-8,20,16); g.fillStyle='rgba(245,170,60,.35)'; g.fillRect(x-8,y-6,16,5); }          // 튀김기
+  else if(pr<.07){ const x=rnd(ix,iy,21)*RIFT_CH, y=rnd(ix,iy,22)*RIFT_CH;
+    g.fillStyle='rgba(235,235,245,.28)'; g.beginPath(); g.ellipse(x,y,14,6,0,0,7); g.fill(); g.fillStyle='rgba(247,141,84,.4)'; g.fillRect(x-6,y-6,12,5); }   // 초밥 접시
+  else if(pr<.1){ const x=rnd(ix,iy,21)*RIFT_CH, y=rnd(ix,iy,22)*RIFT_CH;
+    g.fillStyle='rgba(200,170,110,.3)'; g.beginPath(); g.roundRect?g.roundRect(x-8,y-10,16,20,4):g.rect(x-8,y-10,16,20); g.fill(); }             // 사료 포대
+  RIFT_CACHE.set(key,c); if(RIFT_CACHE.size>RIFT_MAX) RIFT_CACHE.delete(RIFT_CACHE.keys().next().value);
+  return c;
+}
+function riftLayer(p,zi,alpha){
+  const vw=W/2/SC+RIFT_CH, vh=H/2/SC+RIFT_CH;
+  const x0=Math.floor((p.x-vw)/RIFT_CH), x1=Math.floor((p.x+vw)/RIFT_CH), y0=Math.floor((p.y-vh)/RIFT_CH), y1=Math.floor((p.y+vh)/RIFT_CH);
+  cx.globalAlpha=alpha;
+  for(let iy=y0;iy<=y1;iy++)for(let ix=x0;ix<=x1;ix++) cx.drawImage(riftChunk(ix,iy,zi),ix*RIFT_CH,iy*RIFT_CH,RIFT_CH+1,RIFT_CH+1);
+  cx.globalAlpha=1;
+}
+function drawRift(p){
+  const t=S.t, zi=riftZoneAt(t);
+  riftLayer(p,zi,1);
+  const since=zi>0?t-(zi===1?180:360):99;   // 막 바뀐 구역은 이전 구역을 1.5초 동안 옅게 겹쳐 부드럽게
+  if(since<1.5) riftLayer(p,zi-1,1-since/1.5);
+  if(zi!==S.zone){ S.zone=zi; if(t>1&&typeof banner==='function') banner('🗺 '+RIFT_ZONES[zi].nm+' 진입'); }
+}
 // ---------- 그리기 ----------
 function drawChamp(e,r){
   const ic=ICON[e.id],bob=e.boss?0:Math.sin(e.t*8)*1.5;
@@ -394,12 +459,8 @@ function draw(){
   let sx=0,sy=0;if(S.shake>0){sx=(Math.random()-.5)*6;sy=(Math.random()-.5)*6;}
   cx.setTransform(DPR*SC,0,0,DPR*SC,DPR*(W/2+sx),DPR*(H/2+sy));
   cx.translate(-p.x,-p.y);
-  // 바닥 격자
-  const vw=W/2/SC+80,vh=H/2/SC+80,g=80;
-  cx.strokeStyle='#1c2030';cx.lineWidth=1;cx.beginPath();
-  for(let x=Math.floor((p.x-vw)/g)*g;x<p.x+vw;x+=g){cx.moveTo(x,p.y-vh);cx.lineTo(x,p.y+vh);}
-  for(let y=Math.floor((p.y-vh)/g)*g;y<p.y+vh;y+=g){cx.moveTo(p.x-vw,y);cx.lineTo(p.x+vw,y);}
-  cx.stroke();
+  // 🗺 협곡 바닥 — 조각(청크)을 미리 그려 두고 이어 붙인다. 시간에 따라 구역이 바뀐다
+  drawRift(p);
   // 오라
   if(S.w.fryer){const R=S.auraR||60;const gr=cx.createRadialGradient(p.x,p.y,R*.3,p.x,p.y,R);gr.addColorStop(0,'rgba(255,170,60,.05)');gr.addColorStop(1,'rgba(255,140,40,.28)');cx.fillStyle=gr;cx.beginPath();cx.arc(p.x,p.y,R,0,7);cx.fill();}
   // 폭탄
