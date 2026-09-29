@@ -9188,9 +9188,13 @@ function dcLogin(target){
   location.href=u;
 }
 // 디스코드에서 #access_token=... 로 돌아왔을 때 처리 (init 끝에서 호출)
+// 🔐 [2026-09-29] 로그인 복귀 해시는 페이지가 열리자마자 잡아 둔다 — 데이터 로딩 동안 다른 주소 처리가 해시를 지우면
+//   로그인이 조용히 사라지고 메인에 남던 것(흐접새우 서바이벌에서 로그인 → 메인 → 다시 게임 → 로그아웃 상태 무한 반복).
+const DC_BOOT_HASH=(location.hash||"").indexOf("access_token=")>=0?location.hash:"";
+let _DC_DONE=false;
 function dcHandleRedirect(){
-  if(!location.hash || location.hash.indexOf("access_token=")<0) return;
-  const p=new URLSearchParams(location.hash.replace(/^#/,""));
+  if(_DC_DONE||!DC_BOOT_HASH) return; _DC_DONE=true;
+  const p=new URLSearchParams(DC_BOOT_HASH.replace(/^#/,""));
   const token=p.get("access_token");
   const state=p.get("state");
   const expiresIn=parseInt(p.get("expires_in")||"604800",10);
@@ -9210,6 +9214,8 @@ function dcHandleRedirect(){
       if(ret) _dcReturn(ret);
     }).catch(()=>{ if(ret) _dcReturn(ret); });
 }
+// 게임에서 온 로그인은 데이터 로딩을 기다리지 않고 바로 처리해 게임으로 돌려보낸다
+try{ if(DC_BOOT_HASH && sessionStorage.getItem("sgg_oauth_return")==="게임:survivors") dcHandleRedirect(); }catch(e){}
 function _dcReturn(ret){   // 로그인 복귀 — '@라우트'/'이주의인물:*'는 홈 계열, 그 외는 플레이어 프로필
   if(ret.startsWith('@')) go(ret.slice(1));
   else if(ret.startsWith('뉴스:')){ const t=ret.slice(3); go('news',(WEEKLY_REVIEW&&typeof WEEKLY_REVIEW==="object"&&String((WEEKLY_REVIEW.week||{}).to||"")===t)?undefined:(t||undefined)); }   // 📰 주간스쿼드 댓글 → 그 호 지면으로
@@ -10766,7 +10772,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609291400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609291405";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
