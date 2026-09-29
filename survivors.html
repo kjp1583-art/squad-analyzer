@@ -41,6 +41,11 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
 canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none}
+/* ✨ 배경 분위기 — 화면 고정 층은 CSS 로(한 번 그려 두고 투명도만 바꿔 합성기가 처리 · 캔버스에 매 프레임 전체 화면을 찍으면 폰에서 10fps 넘게 떨어졌다) */
+.fxo{position:fixed;inset:0;pointer-events:none;opacity:0}
+#fxv{background:radial-gradient(circle at 50% 50%,rgba(255,236,190,.1) 0,rgba(255,236,190,0) 32vmin),radial-gradient(ellipse farthest-corner at 50% 50%,rgba(4,6,14,0) 42%,rgba(4,6,14,.3) 70%,rgba(4,6,14,.62) 100%)}
+#fxr{background:radial-gradient(ellipse farthest-corner at 50% 50%,rgba(200,20,40,0) 38%,rgba(200,20,40,.22) 68%,rgba(200,20,40,.62) 100%);will-change:opacity}
+#fxf{background:radial-gradient(circle at 18% 38%,rgba(210,220,235,.55),rgba(210,220,235,0) 34%),radial-gradient(circle at 78% 30%,rgba(210,220,235,.5),rgba(210,220,235,0) 36%),radial-gradient(circle at 40% 72%,rgba(210,220,235,.5),rgba(210,220,235,0) 38%),radial-gradient(circle at 85% 80%,rgba(210,220,235,.45),rgba(210,220,235,0) 30%),rgba(200,210,228,.35);will-change:opacity,transform}
 #hud{position:fixed;left:0;right:0;top:0;padding:8px 12px;pointer-events:none;display:none}
 .bar{height:8px;background:var(--card2);border-radius:6px;overflow:hidden;border:1px solid #3a2a3a}
 .bar i{display:block;height:100%;width:0}
@@ -102,6 +107,7 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 .dc{background:#5865f2!important}
 #unlockMsg{color:var(--gold);font-weight:700;margin:6px 0}
 .snd{text-align:left;font-size:12.5px;margin:6px 0}.snd label{display:flex;align-items:center;gap:8px;margin:6px 0}.snd input{flex:1;min-width:0;accent-color:var(--acc)}.snd b{min-width:28px;text-align:right;color:var(--gold);font-size:12px}.snd label span{flex:0 0 64px;white-space:nowrap}
+.snd .fxl{flex-wrap:wrap}.snd .fxl input{flex:0 0 auto;width:18px;height:18px;margin:0}.snd .fxl b{text-align:left}.snd .fxl small{flex:1 0 100%;color:var(--mut);font-size:11px;margin-top:-4px}
 .psnd{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:0 0 8px}.psnd .t{font-weight:700;color:#ffb089;font-size:12.5px}
 .psnd .ph{display:flex;justify-content:space-between;align-items:center;gap:8px}.psnd label{margin:4px 0}
 .psnd .btn{width:auto;padding:3px 10px;font-size:12px;margin:0}
@@ -114,6 +120,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 </head>
 <body>
 <canvas id="cv"></canvas>
+<div id="fxv" class="fxo"></div><div id="fxr" class="fxo"></div><div id="fxf" class="fxo"></div>
 <div id="hud">
   <div class="bar" id="xpb"><i></i></div>
   <div class="hrow"><span id="hLv">Lv 1</span><span id="hTime">00:00</span><span id="hKill">💀 0</span><span><button id="sndBtn" aria-label="소리 켜기/끄기">🔊</button> <button id="pauseBtn">⏸</button></span></div>
@@ -142,9 +149,10 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>무기는 6개·패시브는 6개까지. 무기 Lv8 + 짝 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>!</li>
     <li>맵의 🟡 와드·🧺 사료 포대·🎁 포로 간식 상자를 부수면 🍗 치킨(HP 20% 회복)·💎 자석·💣 폭탄이 나와요. 치킨은 귀해요 — 아껴 먹기!</li>
   </ol></details>
-  <details class="howd"><summary>🔊 소리 설정</summary><div class="snd">
+  <details class="howd"><summary>⚙ 소리·화면 설정</summary><div class="snd">
     <label><span>🔊 효과음</span><input type="range" id="sfxV" min="0" max="100" data-k="sfx"><b data-v="sfx"></b></label>
     <label><span>🎵 음악</span><input type="range" id="musV" min="0" max="100" data-k="mus"><b data-v="mus"></b></label>
+    <label class="fxl"><span>✨ 배경 효과</span><input type="checkbox" data-fx aria-label="배경 효과"><b data-fxv></b><small>빛·입자·안개 — 폰이 버벅이면 끄세요</small></label>
   </div></details>
   <footer>SQUAD.GG · 만든 사람: 클랜원 맛동산장인 유미</footer>
 </div></div>
@@ -152,9 +160,10 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 <div class="ov" id="lvup"><div class="box"><h2>⬆ 레벨 업! 하나 고르세요</h2><div id="choices"></div></div></div>
 
 <div class="ov" id="pause"><div class="box"><h2>⏸ 일시정지</h2>
-  <div class="snd psnd"><div class="ph"><span class="t">⚙ 소리 설정</span><button class="btn g" id="muteBtn">🔇 소리 끄기</button></div>
+  <div class="snd psnd"><div class="ph"><span class="t">⚙ 소리·화면 설정</span><button class="btn g" id="muteBtn">🔇 소리 끄기</button></div>
     <label><span>🔊 효과음</span><input type="range" id="sfxV2" min="0" max="100" data-k="sfx" aria-label="효과음 크기"><b data-v="sfx"></b></label>
-    <label><span>🎵 음악</span><input type="range" id="musV2" min="0" max="100" data-k="mus" aria-label="음악 크기"><b data-v="mus"></b></label></div>
+    <label><span>🎵 음악</span><input type="range" id="musV2" min="0" max="100" data-k="mus" aria-label="음악 크기"><b data-v="mus"></b></label>
+    <label class="fxl"><span>✨ 배경 효과</span><input type="checkbox" data-fx aria-label="배경 효과"><b data-fxv></b></label></div>
   <div id="pInfo" class="muted"></div><button class="btn" id="resumeBtn">계속하기</button><button class="btn g" id="quitBtn">🏳 포기하고 결과 보기</button></div></div>
 
 <div class="ov" id="chest"><div class="box"><h2 id="chestT">🎁 보스 상자</h2><div id="chestList"></div><button class="btn" id="chestOk">좋아!</button></div></div>
@@ -516,7 +525,7 @@ function drawMap(){
 let S=null,state='title',keys={},joy={on:false,id:null,ox:0,oy:0,dx:0,dy:0};
 function newRun(){
   enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
-  rangs.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();allies.clear();for(const a of allies.a)a.tg=null;bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
+  rangs.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();allies.clear();FX.reset();for(const a of allies.a)a.tg=null;bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
   S={t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
      p:{x:0,y:0,r:16,hp:100+(CH.hp||0),mhp:100+(CH.hp||0),sp:150,face:1,inv:0,moving:false,slow:0,slowG:'📜',stun:0,yt:0,yvx:0,yvy:0,mdx:1,mdy:0},   // mdx/mdy 마지막으로 움직인 방향(🔥 브레스·💨 돌진)
      w:{[CH.w]:CH.wl||1},ps:{},ev:{},seen:{},midKill:0,bossKill:0,bossN:0,nextBoss:300,nextMini:150,miniN:0,bigT:300,bigSeen:0,evT:150,evN:0,revUsed:0,ramen:0,
@@ -761,7 +770,7 @@ function spawnEnemy(kind,mult,boss,at){
 function spawnBoss(key){
   const B=Object.assign({key},BOSS[key]);if(B.img)bossImg(B.img);
   let e=spawnEnemy(0,1,B);if(!e){const x=enemies.a.find(o=>o.on&&!o.boss);if(!x)return null;x.on=false;e=spawnEnemy(0,1,B);}   // 자리가 없으면 잡몹 하나를 비운다
-  S.bossRef=e;AU.play('boss');
+  S.bossRef=e;AU.play('boss');FX.glow=B.mini?1.2:2.4;   // ✨ 보스 등장 — 화면 가장자리에 붉은 빛이 잠깐 번진다
   banner((B.fin?'🔥 최종 보스 — ':B.mini?'⚠ 미니 보스 — ':'⚠ 보스 — ')+(B.brj?'':'흐접새우의 ')+B.nm,(B.brj?'「'+pickLine(B.sp0)+'」':pickLine(B.sp0)),2);
   return e;
 }
@@ -1215,6 +1224,61 @@ function drawRift(p){
   if(since<1.5) riftLayer(p,zi-1,1-since/1.5);
   if(zi!==S.zone){ S.zone=zi; if(t>1&&typeof banner==='function') banner('🗺 '+RIFT_ZONES[zi].nm+' 진입'); }
 }
+// ---------- ✨ 🦐 [2026-09-29 사장님 지시] 배경 분위기(코드) — 비네팅·플레이어 빛·보스 붉은 빛·그림자·강 반짝임·구역 입자·안개 전환 ----------
+//   전부 미리 그려 둔 작은 캔버스를 drawImage 로만 찍는다(프레임마다 그라디언트를 새로 만들지 않는다) · 입자는 풀(최대 36)
+//   FX.lv: 2 전부 · 1 가볍게(입자 절반 · 잡몹 그림자·강 반짝임 끔) · 0 끔. 설정(✨ 배경 효과)은 p6_fx 에 저장, 판 중 FPS 가 떨어지면 저절로 한 단계씩 낮춘다(그 판만)
+const FX=(()=>{
+  let on=1;try{on=localStorage.getItem('p6_fx')==='0'?0:1;}catch(e){}
+  const o={on,lv:on?2:0,auto:0,glow:0,fogT:0,sh:null,dots:{},parts:[],pz:-1,fa:0,fn:0,low:0};
+  const mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
+  const L={v:$('fxv'),r:$('fxr'),f:$('fxf')},cur={v:-1,r:-1,f:-1};
+  function op(k,v){v=Math.round(v*50)/50;if(v!==cur[k]){cur[k]=v;L[k].style.opacity=v;}}   // 바뀔 때만 건드린다
+  (function(){
+    const s=mk(48,16),q=s.getContext('2d'),sg=q.createRadialGradient(24,8,0,24,8,24);sg.addColorStop(0,'rgba(0,0,0,.42)');sg.addColorStop(1,'rgba(0,0,0,0)');
+    q.translate(0,8);q.scale(1,1/3);q.translate(0,-8);q.fillStyle=sg;q.fillRect(0,-16,48,48);o.sh=s;})();   // 납작한 타원 그림자
+  function dot(rgb){if(o.dots[rgb])return o.dots[rgb];const c=mk(16,16),g=c.getContext('2d'),gr=g.createRadialGradient(8,8,0,8,8,8);
+    gr.addColorStop(0,`rgba(${rgb},1)`);gr.addColorStop(.35,`rgba(${rgb},.55)`);gr.addColorStop(1,`rgba(${rgb},0)`);g.fillStyle=gr;g.fillRect(0,0,16,16);return o.dots[rgb]=c;}
+  // 구역별 입자 — 0 반딧불 · 1 물안개 · 2 낙엽/포자 · 3 불씨 · 4 마력(소용돌이)
+  const PZ=[{c:'255,230,110',n:28,s:[3,6],v:[8,8],a:.85,fl:1},{c:'170,215,240',n:16,s:[40,80],v:[10,3],a:.1,fl:0},
+            {c:'190,120,230',n:30,s:[3,7],v:[14,22],a:.7,fl:0,fall:1},{c:'255,150,60',n:34,s:[2.5,5],v:[10,-30],a:.9,fl:1},{c:'200,110,255',n:36,s:[3,6],v:[0,0],a:.8,fl:1,sw:1}];
+  for(let i=0;i<36;i++)o.parts.push({x:0,y:0,s:4,vx:0,vy:0,ph:0,z:-1});
+  function seed(q,zi,p,vw,vh,any){const Z=PZ[zi];q.z=zi;q.s=Z.s[0]+Math.random()*(Z.s[1]-Z.s[0]);q.ph=Math.random()*6.283;
+    q.vx=(Math.random()-.5)*2*Z.v[0];q.vy=Z.fall?Z.v[1]*(.5+Math.random()):Z.v[1]<0?Z.v[1]*(.6+Math.random()*.8):(Math.random()-.5)*2*Z.v[1];   // 낙엽은 아래로 · 불씨는 위로
+    if(any){q.x=p.x+(Math.random()-.5)*2*vw;q.y=p.y+(Math.random()-.5)*2*vh;}
+    else{const sd=Math.random()*4|0;q.x=p.x+(sd<2?(Math.random()-.5)*2*vw:(sd===2?-vw:vw));q.y=p.y+(sd<2?(sd?vh:-vh):(Math.random()-.5)*2*vh);}}
+  o.reset=function(){o.glow=0;o.fogT=0;o.pz=-1;o.fa=0;o.fn=0;o.low=0;o.lv=o.on?2:0;for(const q of o.parts)q.z=-1;};
+  o.set=function(v){o.on=v?1:0;o.lv=o.on?2:0;try{localStorage.setItem('p6_fx',o.on?'1':'0');}catch(e){}o.ui();};
+  o.ui=function(){for(const el of document.querySelectorAll('input[data-fx]'))el.checked=!!o.on;for(const el of document.querySelectorAll('[data-fxv]'))el.textContent=o.on?(o.lv<2?'줄임':'켜짐'):'꺼짐';};
+  o.perf=function(dt){   // 판 중 2초마다 평균 FPS — 42 아래가 두 번 이어지면 한 단계 낮춘다(그 판만 · 설정값은 그대로)
+    if(!o.lv)return;o.fa+=dt;o.fn++;if(o.fa<2)return;const fps=o.fn/o.fa;o.fa=0;o.fn=0;
+    if(fps<42){if(++o.low>=2){o.low=0;o.lv--;o.auto=1;o.ui();if(typeof toast==='function')toast(o.lv?'✨ 화면이 버벅여서 배경 효과를 줄였어요':'✨ 화면이 버벅여서 배경 효과를 껐어요');}}else o.low=0;};
+  // 🌊 강 반짝임 — 월드 좌표(바닥 청크 위). 강 줄기 가운데선을 따라 흐르는 밝은 점·물결 줄
+  o.river=function(p){if(o.lv<2)return;const vw=W/2/SC+20,vh=H/2/SC+40,zi=riftZoneAt(S.t),rw=RIFT_ZONES[zi].water?120:46,t=S.t;
+    const k0=Math.floor((p.y-vh-400+1200)/2400),k1=Math.floor((p.y+vh+400+1200)/2400),x0=Math.floor((p.x-vw)/34)*34;
+    cx.fillStyle='#bfefff';
+    for(let k=k0;k<=k1;k++)for(let x=x0;x<p.x+vw;x+=34){if(Math.abs(Math.sin(x/620)*260+k*2400-p.y)>vh+rw)continue;
+      for(let j=0;j<(zi===1?3:2);j++){const h=rnd(x/34|0,k,j+300),fx=x+((t*38+h*34)%34),a=.5+.5*Math.sin(t*2.6+h*40+x*.03);   // 물결 따라 오른쪽으로 흐른다
+        if(a<.35)continue;cx.globalAlpha=(a-.35)*.55;cx.fillRect(fx,Math.sin(fx/620)*260+k*2400+(h-.5)*rw*1.3,j?7:3,j?1.3:2.2);}}
+    cx.globalAlpha=1;};
+  o.shadow=function(x,y,r){cx.drawImage(o.sh,x-r*1.05,y+r*.62,r*2.1,r*.7);};
+  // ✨ 떠다니는 입자 — 월드 좌표, 화면 밖으로 나가면 화면 가장자리에서 다시 태어난다
+  o.parts2=function(p,dt){if(!o.lv)return;const zi=riftZoneAt(S.t),Z=PZ[zi],n=o.lv<2?Z.n>>1:S.lite?Z.n*2/3|0:Z.n,vw=W/2/SC+30,vh=H/2/SC+30,t=S.t;
+    if(o.pz!==zi){const first=o.pz<0;o.pz=zi;for(let i=0;i<o.parts.length;i++)seed(o.parts[i],zi,p,vw,vh,true);if(!first)o.fogT=1.5;}
+    const im=dot(Z.c);
+    for(let i=0;i<n;i++){const q=o.parts[i];if(q.z!==zi)seed(q,zi,p,vw,vh,true);
+      if(Z.sw){const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy)||1;q.vx=-dy/d*28-dx/d*4;q.vy=dx/d*28-dy/d*4;}   // 넥서스 앞 — 나를 중심으로 도는 소용돌이
+      q.ph+=dt*(Z.fl?3:1);q.x+=(q.vx+(Z.fall?Math.sin(q.ph)*14:0))*dt;q.y+=q.vy*dt;
+      if(Math.abs(q.x-p.x)>vw+q.s||Math.abs(q.y-p.y)>vh+q.s){seed(q,zi,p,vw,vh,false);continue;}
+      const a=Z.a*(Z.fl?.45+.55*Math.abs(Math.sin(q.ph)):1);if(a<.04)continue;cx.globalAlpha=a;const s=q.s*2;cx.drawImage(im,q.x-s/2,q.y-s/2,s,s);}
+    cx.globalAlpha=1;};
+  // 화면 고정(CSS 층) — 비네팅+플레이어 빛 · 보스 붉은 빛 · 구역 전환 안개. 판 화면(일시정지·레벨업 포함)에서만
+  o.screen=function(dt){const act=o.lv>0&&state!=='title'&&state!=='result';
+    op('v',act?1:0);
+    if(o.glow>0)o.glow=Math.max(0,o.glow-dt);op('r',act&&o.glow>0?Math.min(1,o.glow/.8)*(.75+.25*Math.sin(S.t*9)):0);
+    if(o.fogT>0)o.fogT=Math.max(0,o.fogT-dt);const k=o.fogT/1.5;op('f',act?.85*k*k:0);
+    if(act&&k>0)L.f.style.transform=`scale(${(1.25-.25*k).toFixed(3)})`;};   // 안개가 걷히며 퍼진다
+  return o;})();
+for(const el of document.querySelectorAll('input[data-fx]'))el.onchange=e=>FX.set(e.target.checked);FX.ui();
 // ---------- 그리기 ----------
 function drawSkill(e,r){   // 새 트롤픽 기술 예고(바닥에 먼저 그린다)
   const K=KIND[e.ki];if(!K)return;
@@ -1266,6 +1330,7 @@ function draw(){
   cx.translate(-p.x,-p.y);
   // 🗺 협곡 바닥 — 조각(청크)을 미리 그려 두고 이어 붙인다. 시간에 따라 구역이 바뀐다
   drawRift(p);
+  FX.river(p);   // ✨ 강 반짝임
   // 오라
   if(S.w.fryer&&S.auraR){const R=S.auraR,ev=S.ev.fryer;const gr=cx.createRadialGradient(p.x,p.y,R*.3,p.x,p.y,R);
     gr.addColorStop(0,ev?'rgba(255,90,30,.08)':'rgba(255,170,60,.05)');gr.addColorStop(1,ev?`rgba(255,${60+Math.sin(S.t*9)*30|0},20,.38)`:'rgba(255,140,40,.28)');cx.fillStyle=gr;cx.beginPath();cx.arc(p.x,p.y,R,0,7);cx.fill();
@@ -1301,7 +1366,8 @@ function draw(){
   for(const gm of gems.a){if(!gm.on)continue;const s=gm.v>3?6:4;cx.beginPath();cx.moveTo(gm.x,gm.y-s);cx.lineTo(gm.x+s,gm.y);cx.lineTo(gm.x,gm.y+s);cx.lineTo(gm.x-s,gm.y);cx.fill();}
   // 🎧 음파
   for(const w of waves.a){if(!w.on)continue;cx.strokeStyle=w.ev?`rgba(255,120,220,${1-w.r/w.R})`:`rgba(140,220,255,${1-w.r/w.R})`;cx.lineWidth=w.ev?6:3;cx.beginPath();cx.arc(w.x,w.y,w.r,0,7);cx.stroke();}
-  // 적
+  // 적 — ✨ 발밑 그림자 먼저(잡몹은 가벼운 단계에서만 · 붐빌 땐 큰 놈만)
+  if(FX.lv){const all=FX.lv>1&&!S.lite;for(const e of enemies.a)if(e.on&&e.eg!==1&&!(e.boss&&e.b.img)&&(all||e.boss||e.el||e.bg))FX.shadow(e.x,e.y,e.r);}
   for(const e of enemies.a)if(e.on)drawChamp(e,e.r);
   // 🪪 🕷 신림의 스탭
   for(const a of allies.a){if(!a.on)continue;cx.globalAlpha=Math.min(1,a.life/.6);
@@ -1336,6 +1402,7 @@ function draw(){
   // 브장신
   const bi=CH.boss?BIMG[CH.k]:null,spr=CH.k==='brj'?(p.moving?SPR.run:SPR.front).c:bi&&bi.c;   // 🐲 보스 캐릭터는 레이드 보스 그림(못 불러오면 이모지 동그라미)
   const blink=p.inv>0&&((S.t*20|0)%2);
+  if(FX.lv&&!(spr&&CH.boss))FX.shadow(p.x,p.y+2,p.r+2);   // ✨ 내 그림자(보스 캐릭터는 그림 쪽에서 그린다)
   if(!blink){cx.save();cx.translate(p.x,p.y);if(p.face<0)cx.scale(-1,1);
     if(spr&&CH.boss){const k=72/Math.max(spr.width,spr.height),w=spr.width*k,h=spr.height*k;
       cx.fillStyle='rgba(0,0,0,.32)';cx.beginPath();cx.ellipse(0,p.r+4,20,6,0,0,7);cx.fill();
@@ -1345,6 +1412,7 @@ function draw(){
     cx.restore();}
   if(p.slow>0){cx.font='14px sans-serif';cx.textAlign='center';cx.fillText(p.slowG||'📜',p.x+18,p.y-22);}
   if(p.stun>0){cx.font='16px sans-serif';cx.textAlign='center';cx.fillText('💫',p.x,p.y-30);}
+  FX.parts2(p,state==='play'?FX.dt:0);   // ✨ 구역 입자(반딧불·물안개·포자·불씨·마력)
   if(CH.rage&&p.hp<p.mhp*.8){cx.font='14px sans-serif';cx.textAlign='center';cx.fillText('💢',p.x-20,p.y-26);}   // 💔 「씩씩」 피해 +20% 넘으면
   // 떠오르는 숫자·대사
   cx.textAlign='center';
@@ -1354,6 +1422,7 @@ function draw(){
   cx.globalAlpha=1;
   // 화면 고정 요소
   cx.setTransform(DPR,0,0,DPR,0,0);
+  FX.screen(state==='play'?FX.dt:0);   // ✨ 비네팅·내 주변 빛·보스 붉은 빛·구역 전환 안개(HUD·말풍선 아래)
   for(const it of items.a){if(!it.on||it.k!=='chest')continue;   // 🎁 화면 밖 상자 방향 표시
     const vx=(it.x-p.x)*SC,vy=(it.y-p.y)*SC;if(Math.abs(vx)<W/2-10&&Math.abs(vy)<H/2-10)continue;
     const k=Math.min((W/2-24)/Math.abs(vx||1),(H/2-24)/Math.abs(vy||1));cx.font='20px sans-serif';cx.textAlign='center';cx.fillText('🎁',W/2+vx*k,H/2+vy*k+7);}
@@ -1403,7 +1472,7 @@ let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
   let dt=(now-last)/1000;last=now;dt=Math.min(.05,Math.max(0,dt));   // 재개 직후 rAF 시각이 last 보다 앞설 수 있다(음수면 타이머가 거꾸로 감)
-  if(state==='play'){update(dt);if(S){hud();if(state!=='result')AU.boss(!!(S.bossRef&&S.bossRef.on&&S.bossRef.boss));}}
+  FX.dt=dt;if(state==='play'){update(dt);FX.perf(dt);if(S){hud();if(state!=='result')AU.boss(!!(S.bossRef&&S.bossRef.on&&S.bossRef.boss));}}
   AU.tick();
   draw();
 }
@@ -1412,7 +1481,7 @@ showBest();renderRoster();renderAcct();loadBoard();loadMe();if(CH.boss)bossImg(C
 requestAnimationFrame(frame);
 
 // 검증용 훅(화면엔 영향 없음)
-window.__p6={get state(){return state;},get S(){return S;},forceLevel(){if(state==='play'){S.pendingLv++;S.lv++;openLvup();}},skip(t){if(S)S.t=t;}};
+window.__p6={get state(){return state;},get S(){return S;},forceLevel(){if(state==='play'){S.pendingLv++;S.lv++;openLvup();}},skip(t){if(S)S.t=t;},fx:FX};
 })();
 </script>
 </body>
