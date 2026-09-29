@@ -4747,7 +4747,7 @@ window.addEventListener("popstate",e=>{
 let _ROUTE_CUR="";   // 우리가 replaceState 로 쓴 해시 — 뒤로/앞으로 때 hashchange 가 같은 화면을 또 열며 패치 필터를 '전체'로 바꾸던 것 방지
 function _routeHashClear(){
   _ROUTE_CUR="";
-  const h=location.hash||""; if(!/^#(p|g|c|news|brj)(\/|$)/.test(h)) return;
+  const h=location.hash||""; if(!/^#(p|g|c|news|brj|ach|mst)(\/|$)/.test(h)) return;
   try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){}
 }
 function _routeHashSet(k,v){
@@ -4755,6 +4755,12 @@ function _routeHashSet(k,v){
   const h="#"+k+"/"+c+encodeURIComponent(String(v));
   try{ history.replaceState(history.state,"",location.pathname+location.search+h); _ROUTE_CUR=location.hash; }catch(e){}
 }
+// 🗂 [2026-09-29 사장님 승인 A-12] 긴 탭 하위 탭 — 업적 도감 #ach/<탭> · 장인랭킹 #mst/<탭> (브키도감 #brj/<탭> 과 같은 방식)
+function _subHashSet(k,t){ try{ history.replaceState(history.state,"",location.pathname+location.search+"#"+k+"/"+t); }catch(e){} }
+function _subHashOf(h){ const m=/^#(ach|mst)\/([a-z]+)$/.exec(h||""); return m?{route:m[1]==="ach"?"ach":"mastery",tab:m[2]}:null; }
+function _subRemember(k,t){ try{ localStorage.setItem("sgg_sub_"+k,t); }catch(e){} }
+function _subRecall(k){ try{ return localStorage.getItem("sgg_sub_"+k)||""; }catch(e){ return ""; } }
+function subTabsHtml(tabs,cur,route){ return `<div class="brjtabs" role="tablist">${tabs.map(([k,lb])=>`<button class="segbtn ${k===cur?'on':''}" role="tab" aria-selected="${k===cur}" onclick="go('${route}','${k}')">${lb}</button>`).join("")}</div>`; }
 // 🔗 링크 복사 (P-2 조각2) — 주소 앞부분은 늘 진짜 사이트로(lab·로컬에서 눌러도 같은 주소)
 const SITE_URL="https://kjp1583-art.github.io/squad-analyzer/";
 function _shareUrl(k,v){ const c=CURRENT_CAT!=="rift"?CURRENT_CAT+"/":""; return SITE_URL+"#"+k+"/"+c+encodeURIComponent(String(v)); }
@@ -4826,6 +4832,7 @@ function _openBootRoute(final){
 // 같은 탭 주소창에 링크를 붙여 넣은 경우(replaceState 는 hashchange 를 안 일으킨다)
 window.addEventListener("hashchange",async()=>{
   { const m=/^#brj(?:\/([a-z]+))?$/.exec(location.hash||""); if(m){ if(!(history.state&&history.state.route==='brjang'&&history.state.arg===(m[1]||"intro"))) go('brjang',m[1]||"intro"); return; } }   // 🍗 주소창에 #brj/<탭> 붙여 넣기
+  { const m=_subHashOf(location.hash); if(m){ if(!(history.state&&history.state.route===m.route&&history.state.arg===m.tab)) go(m.route,m.tab); return; } }   // 🗂 #ach/<탭> · #mst/<탭>
   if(location.hash===_ROUTE_CUR) return;   // popstate 가 이미 이 화면을 그렸다(뒤로/앞으로)
   const r=_parseRouteHash(location.hash); if(!r) return;
   if(!r.bad&&r.cat!==CURRENT_CAT&&CATEGORIES.some(c=>c.key===r.cat)){
@@ -4849,6 +4856,8 @@ function go(route,arg){
   if(route==='report'){ if(!GAMES.size){renderEmpty();return;} navPush(route);renderReport();return;}   // 📊 리포트 — COACH_LOG 를 따로 읽는다
   if(route==='gpti'){ if(!GAMES.size){renderEmpty();return;} navPush(route);renderGPTI();return;}   // 🧬 성향유형 도감
   if(!GAMES.size){renderEmpty();return;}         // 오류/로딩 화면은 스택에 안 쌓음
+  if(route==='ach') arg=_achTabOf(arg);
+  if(route==='mastery'&&(!arg||_isMstTab(arg))) arg=_mstTabOf(arg);   // 챔피언 이름이 아니면 하위 탭 키
   navPush(route,arg);
   if(route==='home')renderHome();
   else if(route==='player'){ renderPlayer(arg); if(PLAYERS.has(CUR_PLAYER)) _routeHashSet("p",CUR_PLAYER); }
@@ -4858,9 +4867,9 @@ function go(route,arg){
   else if(route==='counts'){ if(IS_ADMIN)renderCounts(); else renderHome(); }
   else if(route==='champ')renderChampTier();
   else if(route==='champlog'){ renderChampLog(arg); if(arg) _routeHashSet("c",arg); }
-  else if(route==='mastery')renderMastery(arg);
+  else if(route==='mastery'){ renderMastery(arg); if(!CUR_MASTERY) _subHashSet('mst',MST_TAB); }   // 🗂 목록은 하위 탭(#mst/<탭>) · 챔피언 상세는 그대로
   else if(route==='tiers')renderTiers();
-  else if(route==='ach')renderAchievements();
+  else if(route==='ach'){ renderAchievements(arg); _subHashSet('ach',ACH_TAB); }   // 🗂 #ach/<탭>
   else if(route==='army')renderArmy();
   else if(route==='mito')renderMitoLog();
   else if(route==='myeol')renderMyeol();   // ⚔️ 멸망전(적정가·추후 파워랭킹)
@@ -5175,6 +5184,7 @@ const WKRV_TTL=10*60*1000;
 const NEWS_ARCHIVE={};      // 종료일 → 지난 호 JSON · false=없음(404)
 let NEWS_CUR=null;          // 뉴스 화면에서 보고 있는 호의 종료일("" = 최신 호) · null = 뉴스 화면 아님
 let ROUTE_BOOT_HASH=(()=>{ const r=_parseRouteHash(location.hash); if(r&&!r.bad&&r.cat!=="rift"&&CATEGORIES.some(c=>c.key===r.cat)) CURRENT_CAT=r.cat; return r; })();   // 🔗 #p/#g/#c 공유 링크 — 칼바람·클래식이면 그 시트부터 받게 CURRENT_CAT 을 미리 바꾼다
+const SUB_BOOT_HASH=_subHashOf(location.hash);   // 🗂 #ach/#mst — go('home') 이 해시를 지우기 전에 읽어 둔다
 const BRJ_BOOT_HASH=(()=>{ const m=/^#brj(?:\/([a-z]+))?$/.exec(location.hash||""); return m?{tab:m[1]||"intro"}:null; })();   // 🍗 #brj/<탭> — 부팅 중 go('home') 이 해시를 지우기 전에 읽어 둔다
 const NEWS_BOOT_HASH=(()=>{ try{ const h=location.hash.replace(/^#/,"").split("/"); return h[0]==="news"?{arg:h[1]?decodeURIComponent(h[1]):undefined}:null; }catch(e){ return null; } })();   // #news[/종료일] 공유 링크 — 부팅 중 go('home') 이 해시를 정리하기 전에 읽어 둔다
 let _npStamp="";            // 마지막으로 그린 최신 호 표식(issue|generated_at) — 10분 갱신 때 내용이 바뀐 경우에만 다시 그린다(댓글 쓰는 중 날아가지 않게)
@@ -6295,12 +6305,19 @@ function renderArmy(){
     ${cards||'<div class="card" style="margin-top:14px"><div class="muted">현재 복무 중인 클랜원이 없어요.</div></div>'}`;
   MIL_SORTED.forEach((p,i)=>loadComments('군장병:'+p.name,'_a'+i));   // 💌 개인별 편지 스레드 로드(정렬 순서와 동일 인덱스)
 }
-function renderAchievements(){
+const ACH_TABS=[["title","🏆 타이틀·수집"],["skill","📈 실력·활약"],["style","🧭 플레이 스타일"],["games","🎂 판수"]];
+const ACH_GROUP={sib:"title",mito:"title",coin:"title",soloflex:"title",rise:"skill",winrate:"skill",streak:"skill",carry:"skill",ace:"skill",immortal:"skill",
+  allround:"style",specialist:"style",champmaster:"style",main:"style",onetrick:"style",vet:"games",iron:"games",diligent:"games",rookie:"games"};
+let ACH_TAB=_subRecall("ach")||"title";
+function _achTabOf(t){ t=String(t||""); return ACH_TABS.some(x=>x[0]===t)?t:(ACH_TABS.some(x=>x[0]===ACH_TAB)?ACH_TAB:"title"); }
+function _achGroupOf(k){ return ACH_GROUP[k]||(/^g\d+$/.test(k)?"games":"title"); }
+function renderAchievements(tab){
+  ACH_TAB=_achTabOf(tab); _subRemember("ach",ACH_TAB);
   const byKey=new Map();
   const SRC=PLAYERS_ALL.size?PLAYERS_ALL:PLAYERS;   // 업적은 통산 기준(패치 필터 무관)
   for(const [nm] of SRC){ for(const b of playerBadges(nm,true)){ (byKey.get(b.k)||byKey.set(b.k,[]).get(b.k)).push({name:nm,t:b.t}); } }
   const holders1plus=[...SRC.keys()].filter(nm=>playerBadges(nm,true).length>0).length;
-  const sections=BADGE_CATALOG.map(cat=>{
+  const sections=BADGE_CATALOG.filter(cat=>_achGroupOf(cat.k)===ACH_TAB).map(cat=>{
     const hs=(byKey.get(cat.k)||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
     let chips;
     if(!hs.length){ chips='<span class="muted" style="font-size:12.5px">아직 획득자 없음</span>'; }
@@ -6317,6 +6334,7 @@ function renderAchievements(){
     <div class="card" style="margin-top:16px">
       <h2>🏅 업적 도감 <span class="muted" style="font-size:13.5px">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 통산 — 상단 패치 필터와 무관 · 실력 무관, 누구나 수집)</span></h2>
       <div class="muted" style="font-size:13px;margin:2px 0 10px">내전을 즐기다 보면 자연스럽게 모이는 재미 뱃지 모음이에요. 현재 <b>${holders1plus}명</b>이 하나 이상 보유 중 · 이름을 누르면 프로필로 이동합니다.</div>
+      ${subTabsHtml(ACH_TABS,ACH_TAB,'ach')}
       ${sections}
     </div>`;
 }
@@ -6395,9 +6413,19 @@ function navTabsHtml(active){
 let MASTERY_ALL=true, MASTERY_Q="", MASTERY_SORT="name";   // 🔤 [2026-09-11 사장님 지시] 기본 통산 · 가나다순 · 챔피언 검색(op.gg 챔피언 랭킹 참고)
 function setMasteryAll(v){ MASTERY_ALL=!!v; const y=window.scrollY; renderMastery(CUR_MASTERY); window.scrollTo(0,y); }
 function setMasterySort(v){ MASTERY_SORT=v; const y=window.scrollY; renderMastery(null); window.scrollTo(0,y); }
+// 🗂 장인랭킹 하위 탭 — 챔피언을 클랜에서 가장 많이 쓴 라인으로 나눈다(라인 기록이 하나도 없는 카테고리는 가나다 묶음). 검색은 탭과 무관하게 전체에서 찾는다
+const MST_LANE_TABS=[["top","탑"],["jg","정글"],["mid","미드"],["adc","원딜"],["sup","서폿"],["etc","기타"]];
+const MST_LANE_KEY={"탑":"top","정글":"jg","미드":"mid","원딜":"adc","서폿":"sup"};
+const MST_KO_TABS=[["k1","ㄱ~ㄷ"],["k2","ㄹ~ㅂ"],["k3","ㅅ~ㅇ"],["k4","ㅈ~ㅎ"]];
+let MST_TAB=_subRecall("mst")||"top";
+function _isMstTab(t){ return MST_LANE_TABS.some(x=>x[0]===t)||MST_KO_TABS.some(x=>x[0]===t); }
+function _mstTabOf(t){ t=String(t||""); return _isMstTab(t)?t:MST_TAB; }
+function _mstKoGroup(c){ const ch=String(c||"").charCodeAt(0); if(ch<0xAC00||ch>0xD7A3) return "k1"; const i=Math.floor((ch-0xAC00)/588);   // 초성 0ㄱ1ㄲ2ㄴ3ㄷ4ㄸ5ㄹ6ㅁ7ㅂ8ㅃ9ㅅ10ㅆ11ㅇ12ㅈ…
+  return i<=4?"k1":i<=8?"k2":i<=11?"k3":"k4"; }
 function setMasteryQ(v){ MASTERY_Q=String(v||"").trim(); const grid=document.getElementById("mstGrid"); if(!grid) return;
   const q=MASTERY_Q.replace(/\s+/g,"").toLowerCase(); let n=0;
-  for(const el of grid.querySelectorAll(".mst-card")){ const hit=!q||(el.dataset.k||"").includes(q); el.style.display=hit?"":"none"; if(hit)n++; }
+  const bar=document.getElementById("mstTabs"); if(bar) bar.style.opacity=q?".45":"";
+  for(const el of grid.querySelectorAll(".mst-card")){ const hit=q?(el.dataset.k||"").includes(q):el.dataset.t===MST_TAB; el.style.display=hit?"":"none"; if(hit)n++; }
   const cnt=document.getElementById("mstCnt"); if(cnt) cnt.textContent=`${n}종`; }
 function masteryAgg(posFilter){
   const m=new Map();   // champ -> Map(canonName -> {g,w,k,d,a,kg,mvp,pos})
@@ -6466,6 +6494,7 @@ function posChips(posMap){   // 이 선수가 그 챔프를 어느 라인에서 
   return a.map(([p,n])=>`<span style="display:inline-block;background:${C[p]||'var(--bg2)'};color:#fff;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;margin-right:3px">${esc(p)} ${n}</span>`).join("");
 }
 function renderMastery(champ){
+  if(champ&&_isMstTab(champ)){ MST_TAB=champ; champ=null; }   // 🗂 하위 탭 키(영문) — 챔피언 이름(한글)과 겹치지 않는다
   CUR_MASTERY=champ||null;
   if(!champ) MASTERY_POS='ALL';           // 목록으로 나가면 필터 초기화
   const agg=masteryAgg(champ?MASTERY_POS:'ALL');
@@ -6518,7 +6547,18 @@ function renderMastery(champ){
   }).sort((a,b)=>MASTERY_SORT==="games"?(b.total-a.total||a.c.localeCompare(b.c,"ko")):a.c.localeCompare(b.c,"ko"));
   const _q=MASTERY_Q.replace(/\s+/g,"").toLowerCase();
   const _key=c=>(c+"|"+(typeof CHAMP_EN==='object'&&CHAMP_EN[c]?CHAMP_EN[c]:"")).replace(/\s+/g,"").toLowerCase();
-  const cards=list.map(x=>`<div class="mst-card" data-k="${escAttr(_key(x.c))}" ${_q&&!_key(x.c).includes(_q)?'style="display:none"':''} onclick="go('mastery','${escAttr(x.c)}')">
+  // 🗂 하위 탭: 라인 기록이 있으면 그 챔프를 가장 많이 쓴 라인, 없으면(칼바람) 가나다 묶음
+  const _laneOf=pm=>{ const t=new Map(); for(const st of pm.values()) for(const [p,n] of (st.pos||new Map())) t.set(p,(t.get(p)||0)+n);
+    let b=null,bn=0; for(const [p,n] of t) if(MST_LANE_KEY[p]&&n>bn){ b=p; bn=n; } return b?MST_LANE_KEY[b]:null; };
+  const _laneMap=new Map([...agg.entries()].map(([c,pm])=>[c,_laneOf(pm)]));
+  const _byLane=[..._laneMap.values()].some(v=>v);
+  const _tabs=_byLane?MST_LANE_TABS.filter(([k])=>k!=="etc"||[..._laneMap.values()].some(v=>!v)):MST_KO_TABS;
+  for(const x of list) x.t=_byLane?(_laneMap.get(x.c)||"etc"):_mstKoGroup(x.c);
+  if(!_tabs.some(([k])=>k===MST_TAB)){ MST_TAB=_tabs[0][0]; try{ history.replaceState(Object.assign({},history.state,{arg:MST_TAB}),""); }catch(e){} }
+  _subRemember("mst",MST_TAB);
+  const _tabsN=_tabs.map(([k,lb])=>[k,`${lb} ${list.filter(x=>x.t===k).length}`]);
+  const _vis=x=>_q?_key(x.c).includes(_q):x.t===MST_TAB;
+  const cards=list.map(x=>`<div class="mst-card" data-k="${escAttr(_key(x.c))}" data-t="${x.t}" ${!_vis(x)?'style="display:none"':''} onclick="go('mastery','${escAttr(x.c)}')">
       ${champImg(x.c,"lg")}
       <div style="flex:1;min-width:0">
         <b>${esc(x.c)}</b> <span class="muted" style="font-size:12px">${x.total}판</span><br>
@@ -6538,8 +6578,9 @@ function renderMastery(champ){
           <button class="pchip ${MASTERY_ALL?'on':''}" onclick="setMasteryAll(true)" title="상단 패치 필터와 무관하게 전체 기간">통산</button>
           <button class="pchip ${!MASTERY_ALL?'on':''}" onclick="setMasteryAll(false)" title="상단 패치 필터 적용">${esc(patchScopeLabel())}</button>
         </div>
-        <span class="muted" style="font-size:12px;margin-left:auto" id="mstCnt">${list.filter(x=>!_q||_key(x.c).includes(_q)).length}종</span>
+        <span class="muted" style="font-size:12px;margin-left:auto" id="mstCnt">${list.filter(_vis).length}종</span>
       </div>
+      <div id="mstTabs" style="${_q?'opacity:.45':''}">${subTabsHtml(_tabsN,MST_TAB,'mastery')}</div>
       <div class="mst-grid" id="mstGrid">${cards||'<span class="muted">데이터 없음</span>'}</div>
     </div>`;
 }
@@ -10079,7 +10120,9 @@ function togglePrivacy(){$("#privacy").classList.toggle("hidden");}
 
 /* 🍗 [2026-09-12 사장님 지시] 브장신 키우기 홍보 팝업 — 첫 진입 시 1회, '일주일간 보지 않기'는 로컬 저장 */
 const BRJ_POP_KEY="brjPromoHideUntil";
+const WELCOME_FIRST_VISIT=(()=>{ try{ return localStorage.getItem("sgg_welcome_off")!=="1"; }catch(e){ return false; } })();   // 이 방문에 안내 카드가 보이는가(페이지를 연 순간 기준)
 function brjPopShow(){
+  if(WELCOME_FIRST_VISIT) return;   // 👋 [2026-09-29 사장님 승인] 새 클랜원 안내 카드가 뜬 방문엔 홍보 팝업을 겹쳐 띄우지 않는다(다음 방문부터 평소대로)
   if(/^#(news|brj|p\/|g\/|c\/)/.test(location.hash||"")) return;   // 공유 링크로 들어온 사람에겐 홍보 팝업으로 화면을 가리지 않는다(#news 가 메인처럼 보이던 문제)
   try{ const u=parseInt(localStorage.getItem(BRJ_POP_KEY)||"0",10); if(u&&Date.now()<u) return; }catch(e){}
   if(sessionStorage.getItem("brjPopSeen")) return;
@@ -10719,7 +10762,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609291000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609291200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -10796,7 +10839,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
     const c = (_mainState===1) ? null : await cacheP;   // 이미 최신이 왔으면 IndexedDB 를 기다릴 이유가 없다
     if(_mainState!==1 && CURRENT_CAT===_bootCat && c && Array.isArray(c.rows) && c.rows.length && (Date.now()-(c.t||0))<RAW_CACHE_TTL){
       RAW=c.rows; build();           // ⚠️ CAT_CACHE 에는 넣지 않는다 — 넣으면 최신 데이터를 안 받는다
-      if(GAMES.size){ renderPatchbar(); _painted=true; if(!_openBootRoute(false)) (BRJ_BOOT_HASH?go('brjang',BRJ_BOOT_HASH.tab):go('home'));
+      if(GAMES.size){ renderPatchbar(); _painted=true; if(!_openBootRoute(false)) (BRJ_BOOT_HASH?go('brjang',BRJ_BOOT_HASH.tab):SUB_BOOT_HASH?go(SUB_BOOT_HASH.route,SUB_BOOT_HASH.tab):go('home'));
         const _min=Math.max(1,Math.round((Date.now()-(c.t||0))/60000));
         _snapBanner(`💾 저장된 기록(${_min}분 전)으로 먼저 표시 중 — 최신 불러오는 중…`);
         setStatus(`저장된 기록으로 먼저 표시 중 — 최신 불러오는 중…`); }
@@ -10809,6 +10852,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   try{ const _gt=new URLSearchParams(location.search).get('title'); if(_gt) go('guide',_gt); }catch(e){}
   try{ _openBootRoute(true); }catch(e){}   // 🔗 #p/#g/#c 공유 링크 — 최신 데이터가 온 뒤라 '못 찾음' 판정이 정확하다
   try{ if(NEWS_BOOT_HASH) go('news',NEWS_BOOT_HASH.arg); }catch(e){}
+  try{ if(SUB_BOOT_HASH) go(SUB_BOOT_HASH.route,SUB_BOOT_HASH.tab); }catch(e){}   // 🗂 #ach/#mst 하위 탭 새로고침·공유 링크
   try{ if(BRJ_BOOT_HASH) go('brjang',BRJ_BOOT_HASH.tab); }catch(e){}   // 🍗 #brj/<탭> — 새로고침·공유 링크로 브키도감 하위 탭 다시 열기   // 📰 #news[/종료일] 공유 링크(봇 /주간평생성 안내)
   dcHandleRedirect();                // 디스코드 로그인 복귀 처리 (#access_token)
   checkNewBuild();                   // 🆕 배포 확인은 부팅이 끝난 뒤에 — 부팅 중엔 시트와 대역폭을 다투지 않게(2026-08-27)
