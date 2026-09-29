@@ -1,6 +1,26 @@
 <!doctype html>
 <html lang="ko">
 <head>
+<!-- 🔐 [2026-09-29 사장님 지시] 자동 로그인 — 토큰이 만료(24시간 안)됐고 한 번 로그인한 사람이면 디스코드를 조용히 한 번 다녀온다 -->
+<script>
+(function(){ try{
+  var ls=localStorage, ss=sessionStorage; ls.setItem('sgg_dc_probe','1'); ls.removeItem('sgg_dc_probe'); ss.setItem('sgg_dc_probe','1'); ss.removeItem('sgg_dc_probe');
+  var J=function(k){ try{ return JSON.parse(ls.getItem(k)||'null'); }catch(e){ return null; } };
+  var dc=J('sgg_dc'), auto=J('sgg_dc_auto'), now=Date.now();
+  if(ls.getItem('sgg_dc_auto')===null&&dc&&dc.id){ auto={id:String(dc.id),name:String(dc.name||''),avatar:String(dc.avatar||'')}; ls.setItem('sgg_dc_auto',JSON.stringify(auto)); }   // 옛 로그인 → 기억(한 번만)
+  if(ls.getItem('sgg_dc_try')!==null){ ls.setItem('sgg_dc_auto','0'); ls.removeItem('sgg_dc_try'); return; }   // 보냈는데 토큰 없이 돌아옴 = 실패 → 꺼짐(다시는 자동으로 안 보냄)
+  if(!(auto&&auto.id)) return;
+  if(dc&&dc.token&&dc.exp>now+24*3600*1000) return;
+  if(window.top!==window.self||document.prerendering||navigator.onLine===false) return;
+  var a=new Uint8Array(16); crypto.getRandomValues(a); var st=Array.prototype.map.call(a,function(x){return (x<16?'0':'')+x.toString(16);}).join('');
+  ls.setItem('sgg_dc_try',String(now)); ss.setItem('sgg_oauth_state',st); ss.setItem('sgg_oauth_return','게임:survivors');
+  window.SGG_DC_BOUNCE=true;   // 게임 본문은 이 값이 참이면 BGM·에셋·순위표 로딩을 시작하지 않는다(보통 1초 안에 떠난다)
+  location.replace('https://discord.com/api/oauth2/authorize?response_type=token&client_id=1520763174675022028'
+    +'&redirect_uri='+encodeURIComponent(location.origin+new URL('./',location.href).pathname)
+    +'&scope=identify&state='+encodeURIComponent(st)+'&prompt=none');
+}catch(e){} })();
+</script>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <link rel="icon" href="data:,">
@@ -170,12 +190,14 @@ const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
 function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페이지뿐 → 메인이 받아 로그인 처리 후 이 페이지로 되돌려 준다
   const st=Math.random().toString(36).slice(2)+'.'+Math.floor(performance.now());
-  try{sessionStorage.setItem('sgg_oauth_state',st);sessionStorage.setItem('sgg_oauth_return','게임:survivors');}catch(e){}
+  let none=false; try{const a=JSON.parse(localStorage.getItem('sgg_dc_auto')||'null');none=!!(a&&a.id);}catch(e){}   // 🔐 [2026-09-29 사장님 지시] 한 번 로그인한 사람은 승인 화면 없이
+  try{sessionStorage.setItem('sgg_oauth_state',st);sessionStorage.setItem('sgg_oauth_return','게임:survivors');
+      if(none)localStorage.setItem('sgg_dc_try',String(Date.now()));}catch(e){}
   const main=location.origin+new URL('./',location.href).pathname;
   location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(DISCORD_CLIENT_ID)
-    +'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st);
+    +'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
 }
-function dcLogout(){try{localStorage.removeItem('sgg_dc');}catch(e){}ME=null;renderAcct();}
+function dcLogout(){try{localStorage.removeItem('sgg_dc');localStorage.removeItem('sgg_dc_auto');localStorage.removeItem('sgg_dc_try');}catch(e){}ME=null;renderAcct();}
 let ME=null,BOARD=null;
 async function api(path,body){const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{};
   const r=await fetch(P6_API+path,o);let j=null;try{j=await r.json();}catch(e){}return j||{ok:false,code:'http'};}
@@ -187,7 +209,7 @@ function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순�
   const rows=BOARD.slice(0,10);el.innerHTML='<b>🏆 순위표 TOP 10</b>'+(rows.length?'<ol>'+rows.map(r=>`<li>${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':'<div class="muted">아직 기록이 없어요 — 첫 1등이 되어 보세요!</div>');}
 async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;}catch(e){BOARD=null;}renderBoard();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
-  if(j&&j.ok){ME=j;mergeUnl(j.unlocks);renderRoster();}else if(j&&j.code==='auth'){dcLogout();}}catch(e){}renderAcct();}   // upstream(디스코드 장애)은 로그인 유지
+  if(j&&j.ok){ME=j;mergeUnl(j.unlocks);renderRoster();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
 async function submitRun(won){const u=dcUser();const el=$('rAcct');
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
