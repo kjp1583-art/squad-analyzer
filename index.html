@@ -1252,6 +1252,8 @@
   .empty{text-align:center;color:var(--mut);padding:60px 20px}
   .loadbar{height:3px;background:var(--accent);width:0;transition:width .3s;position:fixed;top:0;left:0;z-index:50}
   .hidden{display:none}
+  /* 📱 [2026-09-29 A-11] 억울지수·항노화·재미 지표 줄 — 폰에서 회색 설명이 옆으로 뻗어 페이지가 775px 까지 넓어지던 것: 설명은 다음 줄로, 이름칸은 좁게 */
+  @media (max-width:640px){ .rrow{gap:6px!important} .rrow .rrow-n{width:92px!important} .rrow .rrow-d{flex:1 1 100%!important;padding-left:28px;white-space:normal} }
 </style>
 </head>
 <body>
@@ -6554,14 +6556,14 @@ function grudgeHtml(){
   const rows = GRUDGE.slice(0,N).map((g,i)=>{
     const pos = g.score>=0;   // 양수 = 억울함이 사실(빨강), 음수 = 오히려 저평가(파랑)
     const w = Math.min(100, Math.abs(g.score)*3);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+    return `<div class="rrow" style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;flex-wrap:wrap">
       <span class="muted" style="width:22px;text-align:right;flex:none">${i+1}</span>
-      <span class="clickname" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(g.name)}')">${esc(shortName(g.name)||g.name)}</span>
+      <span class="clickname rrow-n" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(g.name)}')">${esc(shortName(g.name)||g.name)}</span>
       <span class="tier ${tierGroupCls(g.tier)}" style="flex:none">${esc(g.tier)}</span>
       <span style="flex:none;width:62px;text-align:right;font-weight:700;color:${pos?'#e84057':'#5b8cff'}">${g.score>0?'+':''}${g.score.toFixed(1)}%p</span>
       <span style="flex:1;min-width:40px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden">
         <span style="display:block;height:100%;width:${w}%;background:${pos?'#e84057':'#5b8cff'};opacity:.75"></span></span>
-      <span class="muted" style="flex:none;font-size:11.5px">실제 ${g.act.toFixed(0)}% / 기대 ${g.exp.toFixed(0)}% · ${g.n}대결</span>
+      <span class="muted rrow-d" style="flex:none;font-size:11.5px">실제 ${g.act.toFixed(0)}% / 기대 ${g.exp.toFixed(0)}% · ${g.n}대결</span>
     </div>`;
   }).join('');
   return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
@@ -6637,15 +6639,15 @@ function antiAgingHtml(){
   const N=AA_OPEN?A.rows.length:10;
   const mxAbs=Math.max(...A.rows.map(r=>Math.abs(r.idx)))||1;
   const row=(r)=>{ const pos=r.idx>=0; const w=Math.min(100,Math.abs(r.idx)/mxAbs*100);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+    return `<div class="rrow" style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;flex-wrap:wrap">
       <span class="muted" style="width:22px;text-align:right;flex:none">${r.rank}</span>
-      <span class="clickname" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(r.name)}')">${esc(shortName(r.name))}</span>
+      <span class="clickname rrow-n" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(r.name)}')">${esc(shortName(r.name))}</span>
       ${r.tier?`<span class="tier ${tierGroupCls(r.tier)}" style="flex:none">${esc(r.tier)}</span>`:''}
       <span class="muted" style="flex:none;width:58px;font-size:11.5px">${ageBand(new Date().getFullYear()-r.age)}</span>
       <span style="flex:none;width:52px;text-align:right;font-weight:800;color:${pos?'#7ee8b0':'#ff8a9a'}">${r.idx>0?'+':''}${r.idx.toFixed(1)}</span>
       <span style="flex:1;min-width:40px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden">
         <span style="display:block;height:100%;width:${w}%;background:${pos?'#4cd68f':'#e84057'};opacity:.75"></span></span>
-      <span class="muted" style="flex:none;font-size:11.5px">전투력 ${r.pw.toFixed(1)} / 또래 기대 ${r.exp.toFixed(1)}${r.skillAge!=null?` · 실력 나이 <b style="color:var(--txt)">${r.skillAge}세</b>`:''}${r.peerPct!=null&&r.peerN>=4?` · 또래 ${r.peerN}명 중 상위 ${Math.max(1,r.peerPct)}%`:''}</span>
+      <span class="muted rrow-d" style="flex:none;font-size:11.5px">전투력 ${r.pw.toFixed(1)} / 또래 기대 ${r.exp.toFixed(1)}${r.skillAge!=null?` · 실력 나이 <b style="color:var(--txt)">${r.skillAge}세</b>`:''}${r.peerPct!=null&&r.peerN>=4?` · 또래 ${r.peerN}명 중 상위 ${Math.max(1,r.peerPct)}%`:''}</span>
     </div>`; };
   const slope=A.a;
   return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
@@ -6664,13 +6666,13 @@ function antiAgingHtml(){
 let _FUNIDX={seq:-1};
 function _funMemo(key,calc){ if(_FUNIDX.seq!==DATA_SEQ) _FUNIDX={seq:DATA_SEQ}; if(!(key in _FUNIDX)) _FUNIDX[key]=calc(); return _FUNIDX[key]; }
 function _idxRow(i,name,tier,valHtml,w,good,note){
-  return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+  return `<div class="rrow" style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;flex-wrap:wrap">
     <span class="muted" style="width:22px;text-align:right;flex:none">${i}</span>
-    <span class="clickname" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(name)}')">${esc(shortName(name))}</span>
+    <span class="clickname rrow-n" style="flex:none;width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="go('player','${escAttr(name)}')">${esc(shortName(name))}</span>
     ${tier?`<span class="tier ${tierGroupCls(tier)}" style="flex:none">${esc(tier)}</span>`:''}
     <span style="flex:none;width:62px;text-align:right;font-weight:800;color:${good?'#7ee8b0':'#ff8a9a'}">${valHtml}</span>
     <span style="flex:1;min-width:40px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:${w}%;background:${good?'#4cd68f':'#e84057'};opacity:.75"></span></span>
-    <span class="muted" style="flex:none;font-size:11.5px">${note}</span>
+    <span class="muted rrow-d" style="flex:none;font-size:11.5px">${note}</span>
   </div>`;
 }
 // 🔥 뒷심지수 — 30분 이상 장기전 승률 − 30분 미만 승률(%p). 20판 이상 · 장기전 5판 이상.
@@ -10717,7 +10719,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609290005";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609291000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
