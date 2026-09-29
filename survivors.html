@@ -244,7 +244,7 @@ const PASS={
 };
 const MAXLV=5,MAXPASS=5;
 
-// ---------- 🔊 소리 — 효과음은 WebAudio 로 즉석 합성(파일 없음), 음악은 bgm1.mp3 · 보스전엔 survivors_boss.mp3(못 불러오면 칩튠) ----------
+// ---------- 🔊 소리 — 효과음은 WebAudio 로 즉석 합성(파일 없음), 음악은 survivors_boss.mp3 한 곡 무한반복(사장님 지시) ----------
 const AU=(()=>{
   const SK='p6_snd';let cfg={sfx:.35,mus:.25,on:1};
   try{Object.assign(cfg,JSON.parse(localStorage.getItem(SK)||'{}'));}catch(e){}
@@ -256,7 +256,7 @@ const AU=(()=>{
       sfxG=ac.createGain();musG=ac.createGain();bgmG=ac.createGain();chipG=ac.createGain();bossG=ac.createGain();
       sfxG.connect(ac.destination);musG.connect(ac.destination);bgmG.connect(musG);chipG.connect(musG);bossG.connect(musG);chipG.gain.value=0;bossG.gain.value=0;apply();}
     if(ac.state!=='running')ac.resume().catch(()=>{});
-    if(!bgm){bgm=new Audio();bgm.src='bgm1.mp3';bgm.loop=true;bgm.preload='auto';   // 시작할 때 처음 불러온다
+    if(!bgm){bgm=new Audio();bgm.src='survivors_boss.mp3';bgm.loop=true;bgm.preload='auto';   // 시작할 때 처음 불러온다
       try{ac.createMediaElementSource(bgm).connect(bgmG);}catch(e){}}
     if(!bossA){bossA=new Audio();bossA.src='survivors_boss.mp3';bossA.loop=true;bossA.preload='auto';   // 🎵 보스곡(사장님 제공 · 2026-09-29) — 못 불러오면 칩튠으로
       bossA.onerror=()=>{bossOk=false;};try{ac.createMediaElementSource(bossA).connect(bossG);}catch(e){bossOk=false;}}
@@ -305,7 +305,8 @@ const AU=(()=>{
       chipT+=st;}
   }
   function music(on){if(!ac)return;if(on){if(bgm&&bgm.paused&&!bossMode)bgm.play().catch(()=>{});}else{bgm&&bgm.pause();}}
-  function boss(b){if(!ac||b===bossMode)return;bossMode=b;const t=ac.currentTime;const useFile=bossOk&&bossA;
+  function boss(b){return;   // 🎵 [2026-09-29 사장님 "보스곡 한 곡 무한반복"] 음악은 한 곡만 계속 — 보스 때도 바꾸지 않는다
+    if(!ac||b===bossMode)return;bossMode=b;const t=ac.currentTime;const useFile=bossOk&&bossA;
     bgmG.gain.cancelScheduledValues(t);chipG.gain.cancelScheduledValues(t);bossG.gain.cancelScheduledValues(t);
     bgmG.gain.setTargetAtTime(b?0:1,t,.5);
     if(useFile){bossG.gain.setTargetAtTime(b?1:0,t,.5);chipG.gain.setTargetAtTime(0,t,.2);}else chipG.gain.setTargetAtTime(b?1:0,t,.5);
