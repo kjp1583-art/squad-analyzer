@@ -9231,7 +9231,8 @@ function dcLoad(){
 }
 // 🔐 [2026-09-29 사장님 지시] 자동 로그인 기억 — sgg_dc_auto(id·이름·아바타만, 토큰 없음) · sgg_dc_try(자동으로 보낸 시각). 머리 스크립트 SGG_DC_BOOT 와 같은 키
 function _dcAuto(){ try{ const o=JSON.parse(localStorage.getItem("sgg_dc_auto")||"null"); return o&&o.id?o:null; }catch(e){ return null; } }
-function _dcForget(){ try{ localStorage.removeItem("sgg_dc_auto"); }catch(e){} try{ localStorage.removeItem("sgg_dc_try"); }catch(e){} }   // 로그아웃(sgg_dc 도 같이 지운다) → 다음엔 승인 화면부터
+let _DC_OUT=false;   // 🔐 로그아웃을 눌렀다 — 아직 끝나지 않은 로그인 확인이 늦게 돌아와도 다시 로그인시키지 않는다
+function _dcForget(){ _DC_OUT=true; try{ localStorage.removeItem("sgg_dc_auto"); }catch(e){} try{ localStorage.removeItem("sgg_dc_try"); }catch(e){} }   // 로그아웃(sgg_dc 도 같이 지운다) → 다음엔 승인 화면부터
 function _dcAutoOff(){ try{ localStorage.setItem("sgg_dc_auto","0"); }catch(e){ _dcForget(); } try{ localStorage.removeItem("sgg_dc_try"); }catch(e){} }   // 갱신 실패 → '꺼짐' 표시(남은 sgg_dc 에서 다시 옮겨 켜지지 않게)
 function dcLogout(){
   DISCORD_USER=null;
@@ -9272,12 +9273,13 @@ function dcHandleRedirect(){   // → Promise<로그인 성공 여부> · 복귀
   return fetch("https://discord.com/api/users/@me",{headers:{Authorization:"Bearer "+token}})
     .then(r=>r.ok?r.json():null).then(u=>{
       if(!(u&&u.id)) throw new Error("dc-verify");
+      if(_DC_OUT) return false;
       DISCORD_USER={id:String(u.id),name:String(u.global_name||u.username||"디코유저"),avatar:String(u.avatar||""),token:token,exp:Date.now()+expiresIn*1000};
       try{ localStorage.setItem("sgg_dc",JSON.stringify(DISCORD_USER)); }catch(e){}
       try{ localStorage.setItem("sgg_dc_auto",JSON.stringify({id:DISCORD_USER.id,name:DISCORD_USER.name,avatar:DISCORD_USER.avatar})); }catch(e){}   // 🔐 다음부터 자동 로그인
       try{ localStorage.removeItem("sgg_dc_try"); }catch(e){}   // 확인된 성공에서만 지운다
       return true;
-    }).catch(()=>{ _dcAutoOff(); return false; });   // 확인 실패도 실패로 — 다음 부팅에 또 튕기지 않게
+    }).catch(()=>{ if(!_DC_OUT) _dcAutoOff(); return false; });   // 확인 실패도 실패로 — 다음 부팅에 또 튕기지 않게
 }
 const DC_VERIFY_P=dcHandleRedirect();
 // 게임에서 온 로그인은 데이터 로딩을 기다리지 않고 바로 처리해 게임으로 돌려보낸다(승인을 취소하고 돌아와도 게임으로)
@@ -10884,7 +10886,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609292100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609292230";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
