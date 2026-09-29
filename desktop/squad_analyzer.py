@@ -7256,9 +7256,9 @@ _INTRO_DONE, _INTRO_BUSY, _INTRO_TRIES = set(), set(), {}   # 방 → 끝남 / �
 _INTRO_SEEN = {}                                             # 방 → 처음 본 시각(4명↑ 3분 조건용)
 _INTRO_WHY = {}                                              # 방 → 마지막으로 로그에 남긴 보류 이유
 
-def _lobby_intro_text(with_link=True):
-    tail = f"전적 보기·분석기 받기 {SITE_SHORT}" if with_link else "전적·분석기는 디스코드 스쿼드 서버에서"
-    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · {tail} · 개발자: 맛동산장인 유미"
+# 🖥 [2026-09-29 사장님 지시] 롤 채팅창은 어떤 주소도 눌리게 만들지 않는다 — 주소 대신 링크가 눌리는 디스코드 채널로 안내한다.
+def _lobby_intro_text():
+    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · 전적 보기·분석기 받기: 디스코드 #squad_gg · 개발자: 맛동산장인 유미"
 
 def _lobby_intro_ready(lobby_key, members, gc):
     """지금 이 방에 소개를 올릴 때인가 — (올릴까, 이유). members 는 관전자 뺀 로비 인원."""
@@ -7324,16 +7324,14 @@ def _lobby_intro(headers, base_url, lobby_key, rank=0):
             except Exception: return None
         if _has_intro(log=True):
             print("[lobby-intro] 이 방엔 이미 소개가 있음 — 생략", flush=True); done = True; return
-        for with_link in (True, False):
-            r = requests.post(url, headers=headers, json={"body": _lobby_intro_text(with_link), "type": "chat"}, verify=False, timeout=3)
-            print(f"[lobby-intro] 소개 보냄(링크 {'있음' if with_link else '없음'}) → HTTP {r.status_code}"
-                  + (f" {str(r.text)[:120]}" if r.status_code >= 400 else "") + f" · 대화 종류 {conv.get('type')}", flush=True)
-            if 400 <= r.status_code < 500: continue      # 주소 때문에 거절됐을 수 있다 → 주소 없이 한 번
-            if r.status_code >= 500: return             # 롤 쪽 일시 문제 — 다음 시도로
-            time.sleep(2.0)
-            seen = _has_intro()
-            if seen or seen is None: done = True; return   # 보였거나 확인할 수 없으면 끝(두 번 올리지 않는다)
-            print("[lobby-intro] 보낸 줄이 채팅에 안 보임(주소가 걸러졌을 수 있음) — 주소 없이 한 번 더", flush=True)
+        r = requests.post(url, headers=headers, json={"body": _lobby_intro_text(), "type": "chat"}, verify=False, timeout=3)
+        print(f"[lobby-intro] 소개 보냄 → HTTP {r.status_code}"
+              + (f" {str(r.text)[:120]}" if r.status_code >= 400 else "") + f" · 대화 종류 {conv.get('type')}", flush=True)
+        if r.status_code >= 400: return                 # 거절·롤 쪽 일시 문제 — 다음 시도로(방마다 최대 3번)
+        time.sleep(2.0)
+        seen = _has_intro()
+        if seen or seen is None: done = True; return    # 보였거나 확인할 수 없으면 끝(두 번 올리지 않는다)
+        print("[lobby-intro] 보낸 줄이 채팅에 안 보임 — 다음 시도로", flush=True)
     except Exception as e:
         print(f"[lobby-intro] 실패: {type(e).__name__}: {str(e)[:120]}", flush=True)
     finally:
