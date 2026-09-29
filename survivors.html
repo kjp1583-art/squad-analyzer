@@ -244,20 +244,22 @@ const PASS={
 };
 const MAXLV=5,MAXPASS=5;
 
-// ---------- 🔊 소리 — 효과음은 WebAudio 로 즉석 합성(파일 없음), 음악은 bgm1.mp3 · 보스전엔 칩튠 루프 ----------
+// ---------- 🔊 소리 — 효과음은 WebAudio 로 즉석 합성(파일 없음), 음악은 bgm1.mp3 · 보스전엔 survivors_boss.mp3(못 불러오면 칩튠) ----------
 const AU=(()=>{
   const SK='p6_snd';let cfg={sfx:.35,mus:.25,on:1};
   try{Object.assign(cfg,JSON.parse(localStorage.getItem(SK)||'{}'));}catch(e){}
   const save=()=>{try{localStorage.setItem(SK,JSON.stringify(cfg));}catch(e){}};
-  let ac=null,sfxG,musG,bgmG,chipG,bgm=null,chipOn=false,chipT=0,chipI=0,bossMode=false;
+  let ac=null,sfxG,musG,bgmG,chipG,bossG,bossA=null,bossOk=true,bgm=null,chipOn=false,chipT=0,chipI=0,bossMode=false;
   const last={},n={},ends=[];let chain=0,chainT=0;const MAXV=12;
   function init(){
     if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(!C)return;ac=new C();
-      sfxG=ac.createGain();musG=ac.createGain();bgmG=ac.createGain();chipG=ac.createGain();
-      sfxG.connect(ac.destination);musG.connect(ac.destination);bgmG.connect(musG);chipG.connect(musG);chipG.gain.value=0;apply();}
+      sfxG=ac.createGain();musG=ac.createGain();bgmG=ac.createGain();chipG=ac.createGain();bossG=ac.createGain();
+      sfxG.connect(ac.destination);musG.connect(ac.destination);bgmG.connect(musG);chipG.connect(musG);bossG.connect(musG);chipG.gain.value=0;bossG.gain.value=0;apply();}
     if(ac.state!=='running')ac.resume().catch(()=>{});
     if(!bgm){bgm=new Audio();bgm.src='bgm1.mp3';bgm.loop=true;bgm.preload='auto';   // 시작할 때 처음 불러온다
       try{ac.createMediaElementSource(bgm).connect(bgmG);}catch(e){}}
+    if(!bossA){bossA=new Audio();bossA.src='survivors_boss.mp3';bossA.loop=true;bossA.preload='auto';   // 🎵 보스곡(사장님 제공 · 2026-09-29) — 못 불러오면 칩튠으로
+      bossA.onerror=()=>{bossOk=false;};try{ac.createMediaElementSource(bossA).connect(bossG);}catch(e){bossOk=false;}}
   }
   function apply(){if(!ac)return;const t=ac.currentTime;sfxG.gain.setTargetAtTime(cfg.on?cfg.sfx:0,t,.02);musG.gain.setTargetAtTime(cfg.on?cfg.mus:0,t,.05);}
   function tone(type,f0,f1,dur,vol,at){   // 짧은 칩 음 하나
@@ -303,14 +305,16 @@ const AU=(()=>{
       chipT+=st;}
   }
   function music(on){if(!ac)return;if(on){if(bgm&&bgm.paused&&!bossMode)bgm.play().catch(()=>{});}else{bgm&&bgm.pause();}}
-  function boss(b){if(!ac||b===bossMode)return;bossMode=b;const t=ac.currentTime;
-    bgmG.gain.cancelScheduledValues(t);chipG.gain.cancelScheduledValues(t);
-    bgmG.gain.setTargetAtTime(b?0:1,t,.5);chipG.gain.setTargetAtTime(b?1:0,t,.5);
-    if(b){chipOn=true;chipT=0;}else{setTimeout(()=>{if(!bossMode)chipOn=false;},2500);if(bgm&&bgm.paused)bgm.play().catch(()=>{});}}
-  function suspend(){if(ac&&ac.state==='running')ac.suspend().catch(()=>{});bgm&&bgm.pause();}
-  function resume(){if(!ac)return;ac.resume().catch(()=>{});if(bgm&&bgm.paused)bgm.play().catch(()=>{});}
-  function stop(){if(!ac)return;if(bgm){bgm.pause();try{bgm.currentTime=0;}catch(e){}}reset();}
-  function reset(){bossMode=false;chipOn=false;if(ac){bgmG.gain.cancelScheduledValues(ac.currentTime);bgmG.gain.setValueAtTime(1,ac.currentTime);chipG.gain.setValueAtTime(0,ac.currentTime);}}
+  function boss(b){if(!ac||b===bossMode)return;bossMode=b;const t=ac.currentTime;const useFile=bossOk&&bossA;
+    bgmG.gain.cancelScheduledValues(t);chipG.gain.cancelScheduledValues(t);bossG.gain.cancelScheduledValues(t);
+    bgmG.gain.setTargetAtTime(b?0:1,t,.5);
+    if(useFile){bossG.gain.setTargetAtTime(b?1:0,t,.5);chipG.gain.setTargetAtTime(0,t,.2);}else chipG.gain.setTargetAtTime(b?1:0,t,.5);
+    if(b){ if(useFile){try{bossA.currentTime=0;}catch(e){} bossA.play().catch(()=>{bossOk=false;chipOn=true;chipT=0;chipG.gain.setTargetAtTime(1,ac.currentTime,.5);});} else {chipOn=true;chipT=0;} }
+    else{setTimeout(()=>{if(!bossMode){chipOn=false;bossA&&bossA.pause();}},2500);if(bgm&&bgm.paused)bgm.play().catch(()=>{});}}
+  function suspend(){if(ac&&ac.state==='running')ac.suspend().catch(()=>{});bgm&&bgm.pause();bossA&&bossA.pause();}
+  function resume(){if(!ac)return;ac.resume().catch(()=>{});if(bossMode&&bossOk&&bossA){if(bossA.paused)bossA.play().catch(()=>{});}else if(bgm&&bgm.paused)bgm.play().catch(()=>{});}
+  function stop(){if(!ac)return;if(bgm){bgm.pause();try{bgm.currentTime=0;}catch(e){}}if(bossA){bossA.pause();try{bossA.currentTime=0;}catch(e){}}reset();}
+  function reset(){bossMode=false;chipOn=false;if(ac){bgmG.gain.cancelScheduledValues(ac.currentTime);bgmG.gain.setValueAtTime(1,ac.currentTime);chipG.gain.setValueAtTime(0,ac.currentTime);bossG.gain.setValueAtTime(0,ac.currentTime);}}
   function ui(){$('sndBtn').textContent=cfg.on?'🔊':'🔇';$('sfxV').value=Math.round(cfg.sfx*100);$('musV').value=Math.round(cfg.mus*100);}
   $('sndBtn').onclick=()=>{cfg.on=cfg.on?0:1;save();apply();ui();};
   $('sfxV').oninput=e=>{cfg.sfx=e.target.value/100;save();apply();};
