@@ -1254,6 +1254,8 @@
   .hidden{display:none}
   /* 📱 [2026-09-29 A-11] 억울지수·항노화·재미 지표 줄 — 폰에서 회색 설명이 옆으로 뻗어 페이지가 775px 까지 넓어지던 것: 설명은 다음 줄로, 이름칸은 좁게 */
   @media (max-width:640px){ .rrow{gap:6px!important} .rrow .rrow-n{width:92px!important} .rrow .rrow-d{flex:1 1 100%!important;padding-left:28px;white-space:normal} }
+  /* 📱 [2026-09-29 A-13] 챔피언 장인랭킹 표 — 폰(360px)에서 418px 로 넘치던 것: 사용 라인·MVP 칸을 숨긴다 */
+  @media (max-width:640px){ .mstbl th:nth-child(4),.mstbl td:nth-child(4),.mstbl th:nth-child(7),.mstbl td:nth-child(7){display:none} }
 </style>
 </head>
 <body>
@@ -6533,7 +6535,7 @@ function renderMastery(champ){
         </div>
         ${posBar}
         ${list.length?'':'<div class="muted" style="padding:14px 4px">해당 라인에서 사용된 기록이 없습니다.</div>'}
-        <table class="ranktbl" ${list.length?'':'style="display:none"'}><thead><tr><th class="num">#</th><th>플레이어</th><th class="num">판수</th><th>사용 라인</th><th>승률</th><th class="num">평균 KDA</th><th class="num">MVP</th></tr></thead>
+        <table class="ranktbl mstbl" ${list.length?'':'style="display:none"'}><thead><tr><th class="num">#</th><th>플레이어</th><th class="num">판수</th><th>사용 라인</th><th>승률</th><th class="num">평균 KDA</th><th class="num">MVP</th></tr></thead>
         <tbody>${rows}</tbody></table>
       </div>
       ${champItemsHtml(champ)}`;
@@ -10762,7 +10764,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609291200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609291205";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
