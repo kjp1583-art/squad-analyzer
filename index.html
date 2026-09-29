@@ -1285,6 +1285,7 @@
       <div class="suggest hidden" id="suggest"></div>
     </div>
     <a class="coachlink" href="brjang.html" title="브장신 키우기 — 디스코드 마스코트 육성 미니게임 소개 · 후원 안내 · 맛동산 상점" style="color:#ffb347;border-color:#4a3418;background:#1e1309"><span class="t">브장신 키우기</span></a>
+    <a class="coachlink" href="survivors.html" title="흐접새우 서바이벌 — 8분 버티기 웹 미니게임 · 디스코드 로그인하면 순위표" style="color:#ff9a8a;border-color:#4a2420;background:#1e0f0d"><span class="t">🦐 서바이벌</span></a>
     <a class="coachlink" href="coach.html" title="고스트밴픽왕 — 내 밴·픽 차례에 AI가 추천해주는 구독 서비스"><span class="t">고스트밴픽왕</span></a>
     <a class="dl" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html" title="스쿼드해체분석기 — 기능 소개와 다운로드">🖥 <span class="t">스쿼드해체분석기</span> <span class="dlver" id="dlver"></span></a>
   </div>
@@ -6408,7 +6409,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('scrim','스크림')}${tab('brjang','브키도감')}<div class="tab don ${active==='donate'?'on':''}" onclick="go('donate')">💝 후원</div></div>`;
+  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('scrim','스크림')}${tab('brjang','브키도감')}<div class="tab" onclick="location.href='survivors.html'">🦐 서바이벌</div><div class="tab don ${active==='donate'?'on':''}" onclick="go('donate')">💝 후원</div></div>`;
 }
 
 /* ============== 화면: 🎯 챔피언 장인랭킹 (op.gg 장인 콘셉트 — 클랜 내전 표본) ============== */
@@ -9214,6 +9215,7 @@ function _dcReturn(ret){   // 로그인 복귀 — '@라우트'/'이주의인물
   else if(ret.startsWith('뉴스:')){ const t=ret.slice(3); go('news',(WEEKLY_REVIEW&&typeof WEEKLY_REVIEW==="object"&&String((WEEKLY_REVIEW.week||{}).to||"")===t)?undefined:(t||undefined)); }   // 📰 주간스쿼드 댓글 → 그 호 지면으로
   else if(ret.startsWith('이주의인물')) go('home');
   else if(ret.startsWith('군장병')) go('army');
+  else if(ret==='게임:survivors'){ location.replace('survivors.html'); }   // 🦐 흐접새우 서바이벌 — 게임 페이지에서 로그인하고 돌아가기
   else go('player',ret);
 }
 
@@ -10764,7 +10766,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609291205";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202609291400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
