@@ -108,6 +108,8 @@ def edit(prompt, base_png, model, n, quality, fidelity=True, timeout=300):
             p = p[:-2] if p.endswith("[]") else p
             if e.code == 400 and p in fields and p in ("input_fidelity", "background", "output_format", "quality"):
                 print(f"  · {model} 가 '{p}' 를 안 받아서 빼고 다시", flush=True); fields.pop(p); _REJECTED.add(p); continue
+            if err.get("type") == "insufficient_quota":   # 크레딧 소진 — 기다려도 안 풀린다
+                raise SystemExit(f"API {e.code}: 크레딧 소진 — {err.get('message')}")
             if e.code in (429, 500, 502, 503): print(f"  · {e.code} — 20초 뒤 다시", flush=True); time.sleep(20); continue
             raise SystemExit(f"API {e.code}: {err.get('message') or txt[:400]}")
     raise SystemExit("재시도 초과")
