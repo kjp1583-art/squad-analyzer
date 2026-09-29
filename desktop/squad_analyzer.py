@@ -7258,7 +7258,7 @@ _INTRO_WHY = {}                                              # 방 → 마지막
 
 def _lobby_intro_text(with_link=True):
     tail = f"전적 보기·분석기 받기 {SITE_SHORT}" if with_link else "전적·분석기는 디스코드 스쿼드 서버에서"
-    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · {tail} · 클랜원 맛동산장인 유미가 만들었어요"
+    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · {tail} · 개발자: 맛동산장인 유미"
 
 def _lobby_intro_ready(lobby_key, members, gc):
     """지금 이 방에 소개를 올릴 때인가 — (올릴까, 이유). members 는 관전자 뺀 로비 인원."""
