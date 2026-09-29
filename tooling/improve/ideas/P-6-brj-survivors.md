@@ -40,3 +40,8 @@
 - 사장님이 작업 환경 설정에 `OPENAI_API_KEY` 를 넣음(채팅에 키 붙여 넣기 금지 · 코드·저장소에 키 넣기 금지). 모델: GPT-Image-2(이미지 편집 — 원본 유지·소품만 추가).
 - 스크립트: 기본 `img/brjang/skins/base/front.png` + 위 소품 프롬프트 → 결과 PNG 를 직접 보고 확인(원본 병아리 모양 유지·소품·투명 배경) → 틀리면 프롬프트 고쳐 다시 → 후보를 사장님께 → 확정분은 brjang-part 절차로 파츠화 → 게임 캐릭터·브장신 꾸미기에 넣기.
 - 프롬프트 틀: "이 노란 병아리 캐릭터를 그대로 유지하고 ○○를 들고 있게. 정면·전신·투명 배경 PNG·원본과 같은 크기·그림체."
+
+### 2026-09-29 이어 하기 — 스크립트 준비됨, 네트워크 허용 대기
+- `tooling/p6_chars.py` — 8명 소품 프롬프트(영문, 위 표 그대로) · `gen`(편집 API, 캐릭터당 후보 2장) · `check`(brj_part.extract_layer 로 실루엣 덮임·차분 넓이·투명 배경 리포트 + `sheet.png` 모아 보기). 키는 `OPENAI_API_KEY` 또는 `openai_api` 환경변수.
+- 막힌 곳: 작업 환경 네트워크 정책이 `api.openai.com` 을 막음(403). 키는 들어와 있음(`openai_api`). 환경 설정 → 네트워크 허용 도메인에 `api.openai.com` 추가하면 바로 돌린다.
+- 돌리는 순서: `python3 tooling/p6_chars.py gen --out <scratch>/p6_gen` → `check` → sheet 를 직접 보고(원본 병아리 유지·소품·투명) 틀린 것만 `--only` 로 다시 → 후보를 사장님께.
