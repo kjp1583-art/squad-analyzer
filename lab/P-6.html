@@ -105,7 +105,8 @@ const SPR={run:sprite('../img/brjang/parts/poses/run.png',96),front:sprite('../i
 // 흐접새우의 트롤픽 — 챔피언 아이콘은 Data Dragon(오프라인이면 도형으로 그린다)
 const ICON={};let DDV=null;
 function champIcon(id){if(ICON[id]||!DDV)return;ICON[id]=sprite(`https://ddragon.leagueoflegends.com/cdn/${DDV}/img/champion/${id}.png`,64);}
-try{fetch('https://ddragon.leagueoflegends.com/api/versions.json').then(r=>r.json()).then(v=>{DDV=v[0];for(const k of KIND)champIcon(k.id);for(const b of Object.values(BOSS))champIcon(b.id);}).catch(()=>{});}catch(e){}
+function accIcon(path){if(ICON[path]||!DDV)return;ICON[path]=sprite(`https://ddragon.leagueoflegends.com/cdn/${DDV}/img/${path}.png`,48);}   // 트롤 빌드 아이템·스펠
+try{fetch('https://ddragon.leagueoflegends.com/api/versions.json').then(r=>r.json()).then(v=>{DDV=v[0];for(const k of KIND){champIcon(k.id);(k.acc||[]).forEach(a=>accIcon(a[0]));}for(const b of Object.values(BOSS)){champIcon(b.id);(b.acc||[]).forEach(a=>accIcon(a[0]));}}).catch(()=>{});}catch(e){}
 
 // ---------- 저장(내 브라우저에만) ----------
 const BK='p6_best_v1',PK='p6_prog_v1',CK='p6_char_v1';
@@ -231,17 +232,17 @@ function gainXp(v){S.xp+=v;while(S.xp>=S.need){S.xp-=S.need;S.lv++;S.need=Math.f
 
 // ---------- 스폰 ----------
 const KIND=[ // 흐접새우의 트롤픽 — 종류마다 다르게 움직인다
-  {id:'Maokai',nm:'AP 마오카이',c:'#8fbf6a',r:15,sp:44,hp:22,d:6,xp:2,from:0},          // 느리고 단단함
-  {id:'Nautilus',nm:'원딜 노틸',c:'#5fa8c8',r:12,sp:60,hp:10,d:5,xp:1,from:0},           // 기본형
-  {id:'Mordekaiser',nm:'서폿 모데카이저',c:'#9a8cff',r:13,sp:56,hp:14,d:6,xp:1,from:0},    // 기본형(조금 단단)
-  {id:'Teemo',nm:'정글 티모',c:'#c9e36b',r:10,sp:92,hp:7,d:4,xp:1,from:45,shroom:1},     // 빠름·버섯 남김
-  {id:'Sona',nm:'탑 소나',c:'#6be3d6',r:11,sp:48,hp:9,d:4,xp:2,from:75,ranged:1},        // 멀리서 음표
-  {id:'Talon',nm:'서폿 탈론',c:'#b0b6c8',r:11,sp:70,hp:9,d:6,xp:1,from:100,dash:1},      // 가끔 돌진
-  {id:'Yorick',nm:'정글 요릭',c:'#7a7f9a',r:14,sp:50,hp:18,d:6,xp:2,from:130,split:1},   // 죽으면 구울 2
+  {id:'Maokai',nm:'AP 마오카이',acc:[['item/3089','head']],c:'#8fbf6a',r:15,sp:44,hp:22,d:6,xp:2,from:0},          // 느리고 단단함
+  {id:'Nautilus',nm:'원딜 노틸',acc:[['item/3031','side']],c:'#5fa8c8',r:12,sp:60,hp:10,d:5,xp:1,from:0},           // 기본형
+  {id:'Mordekaiser',nm:'서폿 모데카이저',acc:[['item/3867','side']],c:'#9a8cff',r:13,sp:56,hp:14,d:6,xp:1,from:0},    // 기본형(조금 단단)
+  {id:'Teemo',nm:'정글 티모',acc:[['spell/SummonerSmite','side']],c:'#c9e36b',r:10,sp:92,hp:7,d:4,xp:1,from:45,shroom:1},     // 빠름·버섯 남김
+  {id:'Sona',nm:'탑 소나',acc:[['item/1054','side']],c:'#6be3d6',r:11,sp:48,hp:9,d:4,xp:2,from:75,ranged:1},        // 멀리서 음표
+  {id:'Talon',nm:'서폿 탈론',acc:[['item/3867','side']],c:'#b0b6c8',r:11,sp:70,hp:9,d:6,xp:1,from:100,dash:1},      // 가끔 돌진
+  {id:'Yorick',nm:'정글 요릭',acc:[['spell/SummonerSmite','side']],c:'#7a7f9a',r:14,sp:50,hp:18,d:6,xp:2,from:130,split:1},   // 죽으면 구울 2
 ];
 const BOSS={
-  mid:{id:'Maokai',nm:'🌳 거대 AP 마오카이',r:40,sp:58,hp:900,d:16,xp:40},
-  fin:{id:'DrMundo',nm:'💉 풀AP 마관 문도',r:54,sp:54,hp:4200,d:24,xp:120},
+  mid:{id:'Maokai',nm:'🌳 거대 AP 마오카이',acc:[['item/3089','head']],r:40,sp:58,hp:900,d:16,xp:40},
+  fin:{id:'DrMundo',nm:'💉 풀AP 마관 문도',acc:[['item/3089','head'],['item/3020','feet']],r:54,sp:54,hp:4200,d:24,xp:120},
 };
 const TROLL_LINES=['클랜원들: 헉…','클랜원들: 제발…','흐접새우: 증바람 하실분?','클랜원들: 이거 논란이 되겠는걸','흐접새우: (즐거워하는 중)'];
 const hazards=new Pool(40,()=>({x:0,y:0,life:0}));
@@ -252,8 +253,8 @@ function spawnEnemy(kind,mult,boss,at){
   if(at){e.x=at.x+(Math.random()-.5)*20;e.y=at.y+(Math.random()-.5)*20;}
   else{const a=Math.random()*Math.PI*2,R=Math.hypot(W,H)/2/SC+40;e.x=S.p.x+Math.cos(a)*R;e.y=S.p.y+Math.sin(a)*R;}
   e.ki=kind;e.fx=0;e.ft=Math.random()*3;
-  if(boss){e.boss=boss.key;e.b=boss;e.r=boss.r;e.sp=boss.sp;e.mhp=e.hp=boss.hp;e.dmg=boss.d;e.xp=boss.xp;e.c='#f5c04a';e.id=boss.id;}
-  else{const k=KIND[kind];e.boss=0;e.b=null;e.id=k.id;e.r=k.r;e.sp=k.sp*(1+S.t/900);e.mhp=e.hp=k.hp*mult;e.dmg=k.d+(S.t/60|0);e.xp=k.xp;e.c=k.c;}
+  if(boss){e.boss=boss.key;e.b=boss;e.r=boss.r;e.sp=boss.sp;e.mhp=e.hp=boss.hp;e.dmg=boss.d;e.xp=boss.xp;e.c='#f5c04a';e.id=boss.id;e.acc=boss.acc||null;}
+  else{const k=KIND[kind];e.boss=0;e.b=null;e.id=k.id;e.r=k.r;e.sp=k.sp*(1+S.t/900);e.mhp=e.hp=k.hp*mult;e.dmg=k.d+(S.t/60|0);e.xp=k.xp;e.c=k.c;e.acc=k.acc||null;}
   e.hit=0;e.kb=0;e.t=Math.random()*6;return e;
 }
 function waveTick(dt){
@@ -377,9 +378,13 @@ function drawChamp(e,r){
   if(ic&&ic.c){cx.save();cx.clip();cx.drawImage(ic.c,e.x-r,e.y+bob-r,r*2,r*2);cx.restore();}
   else{cx.fillStyle=e.c;cx.fill();}
   cx.lineWidth=e.boss?4:2;cx.strokeStyle=e.hit>0?'#fff':'#ff8a65';cx.stroke();cx.restore();
+  // 🧢 트롤 빌드 표시 — 라바돈 모자는 머리 위, 마법사의 신발은 발밑, 그 밖(무한의 대검·강타…)은 옆구리
+  for(const [pa,pos] of (e.acc||[])){const a=ICON[pa];if(!a||!a.c)continue;
+    const z=pos==='side'?r*.9:r*1.15, ax=pos==='side'?e.x-r*1.05-z/2:e.x-z/2, ay=pos==='head'?e.y+bob-r-z*.72:pos==='feet'?e.y+bob+r*.55:e.y+bob+r*.1-z/2;
+    cx.save();cx.drawImage(a.c,ax,ay,z,z);cx.lineWidth=1.5;cx.strokeStyle='#f5c04a';cx.strokeRect(ax,ay,z,z);cx.restore();}
   // 🦐 표식 — 흐접새우의 픽
   cx.fillStyle='#ff8a65';cx.beginPath();cx.arc(e.x+r*.72,e.y+bob-r*.72,Math.max(4,r*.28),0,7);cx.fill();
-  if(e.boss){cx.font='bold 13px sans-serif';cx.textAlign='center';cx.fillStyle='#f5c04a';cx.fillText('🦐 흐접새우의 '+e.b.nm,e.x,e.y-r-10);}
+  if(e.boss){const hat=(e.acc||[]).some(a=>a[1]==='head')?r*1.15:0;cx.font='bold 13px sans-serif';cx.textAlign='center';cx.fillStyle='#f5c04a';cx.fillText('🦐 흐접새우의 '+e.b.nm,e.x,e.y-r-10-hat);}   // 라바돈 모자 위로 이름
 }
 function draw(){
   const p=S?S.p:{x:0,y:0};
