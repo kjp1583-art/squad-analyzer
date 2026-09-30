@@ -334,6 +334,8 @@ const SPX=(()=>{const o={};
     for(let i=0;i<4;i++){g.save();g.rotate(i*Math.PI/2+Math.PI/4);g.beginPath();g.moveTo(13,-5.5);g.lineTo(24,0);g.lineTo(13,5.5);g.closePath();g.fillStyle='#1a0410';g.fill();g.lineWidth=1.6;g.strokeStyle='#ff2d55';g.stroke();g.restore();}
     g.beginPath();g.arc(0,0,15,0,7);g.fillStyle='#1a0410';g.fill();g.beginPath();g.arc(0,0,12.4,0,7);g.fillStyle='#ff2d55';g.fill();
     const q=g.createRadialGradient(0,0,0,0,0,9);q.addColorStop(0,'#ffffff');q.addColorStop(.45,'#fff1c2');q.addColorStop(1,'#ff8a3a');g.fillStyle=q;g.beginPath();g.arc(0,0,9,0,7);g.fill();});
+  o.petA=mk(32,32,g=>{g.font='24px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('🐥',16,17);});   // 🐥 병아리·🐔 닭 그림(이모지 글자는 매 프레임 찍으면 비싸서 한 번만 그려 둔다)
+  o.petB=mk(32,32,g=>{g.font='24px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('🐔',16,17);});
   o.ice=mk(128,128,g=>{g.fillStyle=rg(g,64,[0,'rgba(214,244,255,.05)',.6,'rgba(214,244,255,.13)',.9,'rgba(235,250,255,.36)',1,'rgba(235,250,255,0)']);g.fillRect(0,0,128,128);});   // 🧊 얼음 파동 바탕
   o.hole=mk(128,128,g=>{g.fillStyle=rg(g,64,[0,'rgba(6,12,38,.95)',.34,'rgba(10,30,90,.8)',.64,'rgba(56,182,255,.3)',.86,'rgba(111,230,255,.3)',1,'rgba(111,230,255,0)']);g.fillRect(0,0,128,128);});   // 🌀 블랙홀(속은 짙은 남색 · 가장자리는 하늘색 빛)
   o.aura=mk(128,128,g=>{g.fillStyle=rg(g,64,[0,'rgba(111,230,255,.03)',.55,'rgba(111,230,255,.07)',.86,'rgba(111,230,255,.22)',1,'rgba(111,230,255,0)']);g.fillRect(0,0,128,128);});   // 내 오라 바탕(가장자리로 갈수록 진하게)
@@ -2362,13 +2364,12 @@ function drawW2(p){   // 적·아군 위
   if(S.t<X.fzT){cx.beginPath();for(const e of S.live){if(!e.on||!(e.fz>0)||!inV(e.x,e.y,30))continue;const r=e.r+4;cx.moveTo(e.x+r,e.y);cx.arc(e.x,e.y,r,0,7);}   // 🧊 얼어붙은 적 — 푸른 얼음 덮개(실선)
     cx.fillStyle='rgba(190,238,255,.36)';cx.fill();cx.lineWidth=1.6;cx.strokeStyle='rgba(242,253,255,.9)';cx.stroke();}
   let any=false;for(const q of pets.a)if(q.on){any=true;break;}
-  if(any){cx.textAlign='center';cx.textBaseline='middle';   // 🐥 병아리 — 아군은 하늘색: 발밑 고리 + 푸른 몸
+  if(any){   // 🐥 병아리 — 아군은 하늘색: 발밑 고리 + 푸른 몸
     for(const q of pets.a){if(!q.on)continue;const z=q.big?1.45:1,bob=Math.sin(q.ph*12)*1.5;
       cx.fillStyle='rgba(0,0,0,.28)';cx.beginPath();cx.ellipse(q.x,q.y+9*z,8*z,3*z,0,0,7);cx.fill();
       cx.beginPath();cx.ellipse(q.x,q.y+9*z,13*z,5*z,0,0,7);cx.lineWidth=1.8;cx.strokeStyle='rgba(111,230,255,.8)';cx.stroke();
       cx.fillStyle='#1d78b8';cx.strokeStyle='#c8f4ff';cx.lineWidth=1.6;cx.beginPath();cx.arc(q.x,q.y+bob,9*z,0,7);cx.fill();cx.stroke();
-      cx.font=(12*z|0)+'px sans-serif';cx.fillText(q.big?'🐔':'🐥',q.x,q.y+1+bob);}
-    cx.textBaseline='alphabetic';}
+      cx.drawImage(q.big?SPX.petB:SPX.petA,q.x-8*z,q.y-7.5*z+bob,16*z,16*z);}}
   if(X.ln>0&&S.w.lid){const ev=S.ev.lid;   // 🥏 냄비뚜껑 — 푸른 흰 원반 + 진한 파랑 테 + 손잡이(깨진 뚜껑은 작은 고리만)
     for(let i=0;i<X.ln;i++){const lx=X.lp[i*2],ly=X.lp[i*2+1];
       if(X.lr[i]>0){cx.beginPath();cx.arc(lx,ly,5,0,7);cx.lineWidth=1.6;cx.strokeStyle='rgba(111,230,255,.3)';cx.stroke();continue;}
