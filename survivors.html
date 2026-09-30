@@ -242,15 +242,16 @@ const HZ=(()=>{
   const o={on,pat:null,patS:null};
   function mk(sz,lw,a){const c=document.createElement('canvas');c.width=c.height=sz;const g=c.getContext('2d');g.strokeStyle='rgba(255,45,85,'+a+')';g.lineWidth=lw;
     for(let k=-1;k<=1;k++){g.beginPath();g.moveTo(k*sz-1,sz+1);g.lineTo(k*sz+sz+1,-1);g.stroke();}return cx.createPattern(c,'repeat');}   // 오른쪽 위로 뻗는 사선 — 이음매 없이 이어 붙는다
-  o.pat=mk(14,2.6,.46);o.patS=mk(14,4.4,.62);const PMX=new DOMMatrix();let PMo=-1;
+  o.pat=mk(14,2.6,.46);o.patS=mk(14,4.4,.62);let PMX=null,PMo=-1;try{PMX=new DOMMatrix();o.pat.setTransform(PMX);}catch(e){PMX=null;}   // 패턴 이동을 못 쓰는 브라우저는 예전 방식
   o.set=function(v){o.on=v?1:0;try{localStorage.setItem('p6_hz',o.on?'1':'0');}catch(e){}o.ui();};
   o.ui=function(){for(const el of document.querySelectorAll('input[data-hz]'))el.checked=!!o.on;for(const el of document.querySelectorAll('[data-hzv]'))el.textContent=o.on?'켜짐':'꺼짐';};
   const cl=k=>k<0?0:k>1?1:k;
   // 원형 예고 — k: 0(방금 떴다)→1(터진다). 차오르는 안쪽 원 + 사선 빗금 + 어두운 밑선 위의 돌아가는 진홍 점선(마지막 28%는 뜨거운 흰색)
   o.disc=function(x,y,R,k,g){const t=S.t,lw=(o.on?4.2:3)*(1+.16*Math.sin(t*15)),off=(t*22)%14;k=cl(k);
     cx.fillStyle='rgba(255,45,85,'+(.07+.08*k).toFixed(3)+')';cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();
-    if(off!==PMo){PMo=off;PMX.e=off;o.pat.setTransform(PMX);o.patS.setTransform(PMX);}   // 🚀 빗금 무늬를 옆으로 흘린다 — 예전엔 원마다 save·translate·restore
-    cx.fillStyle=o.on?o.patS:o.pat;cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();
+    if(PMX){if(off!==PMo){PMo=off;PMX.e=off;o.pat.setTransform(PMX);o.patS.setTransform(PMX);}   // 🚀 빗금 무늬를 옆으로 흘린다 — 예전엔 원마다 save·translate·restore
+      cx.fillStyle=o.on?o.patS:o.pat;cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();}
+    else{cx.save();cx.translate(x+off,y);cx.fillStyle=o.on?o.patS:o.pat;cx.beginPath();cx.arc(-off,0,R,0,7);cx.fill();cx.restore();}
     if(k>.02){cx.fillStyle='rgba(255,70,90,'+(.11+.17*k).toFixed(3)+')';cx.beginPath();cx.arc(x,y,R*k,0,7);cx.fill();
       cx.strokeStyle='rgba(255,241,194,.78)';cx.lineWidth=1.6;cx.stroke();}
     cx.beginPath();cx.arc(x,y,R,0,7);cx.lineWidth=lw+3.5;cx.strokeStyle=PAL.dzDark;cx.stroke();
@@ -296,12 +297,26 @@ const HZ=(()=>{
     cx.setLineDash(D1);cx.lineDashOffset=-t*30;cx.lineWidth=o.on?5.5:4.2;cx.strokeStyle=PAL.dz;cx.stroke();cx.setLineDash(D0);cx.lineDashOffset=0;
     cx.beginPath();cx.arc(x,y,R-9,-1.5708,-1.5708+6.2832*cl(tl/T));cx.lineWidth=3.5;cx.strokeStyle='rgba(255,241,194,.85)';cx.stroke();
     cx.font='bold 12px sans-serif';cx.textAlign='center';cx.lineWidth=3;cx.strokeStyle=PAL.dzDark;cx.strokeText('☠ 진실의 방 (적의 함정)',x,y-R-38);cx.fillStyle='#ffb0bd';cx.fillText('☠ 진실의 방 (적의 함정)',x,y-R-38);};
-  // 독가스·함정 무더기 — 한 번에 그린다(경로 하나 · 채우기·빗금·선 각 한 번). 자홍 = 시간이 지나며 아픈 것(독)
-  o.clouds=function(){let n=0;cx.beginPath();for(const c of clouds.a)if(c.on){const r=Math.min(1,c.life*.9)*26;cx.moveTo(c.x+r,c.y);cx.arc(c.x,c.y,r,0,7);n++;}
-    if(!n)return;cx.fillStyle='rgba(255,63,160,.22)';cx.fill();cx.fillStyle=o.on?o.patS:o.pat;cx.fill();
-    cx.lineWidth=o.on?5:4;cx.strokeStyle=PAL.dzDark;cx.stroke();cx.setLineDash(D2);cx.lineDashOffset=-S.t*20;cx.lineWidth=o.on?2.6:2;cx.strokeStyle=PAL.dzMag;cx.stroke();cx.setLineDash(D0);cx.lineDashOffset=0;};
-  o.traps=function(){let n=0;const pr=1+.1*Math.sin(S.t*9);cx.beginPath();for(const h of hazards.a)if(h.on){cx.moveTo(h.x+13*pr,h.y);cx.arc(h.x,h.y,13*pr,0,7);n++;}
-    if(!n)return;cx.fillStyle='rgba(255,45,85,.16)';cx.fill();cx.lineWidth=o.on?5:4;cx.strokeStyle=PAL.dzDark;cx.stroke();cx.setLineDash(D2);cx.lineDashOffset=-S.t*24;cx.lineWidth=o.on?2.6:2;cx.strokeStyle=PAL.dz;cx.stroke();cx.setLineDash(D0);cx.lineDashOffset=0;};
+  // 독가스·함정 무더기 — 🚀 [속도] 원 하나 = 채우기·빗금·어두운 밑선·돌아가는 점선을 한 장에 미리 그려 두고(반지름 화면 픽셀 × 점선 위상 11칸) 정수 위치에 1:1 로 찍는다.
+  //   예전엔 원이 많으면 경로 하나로 4번 그렸어도 원 하나에 100µs 가까이 들었다(스무 개면 2ms). 점선이 흐르는 모양은 그대로(위상을 시간으로 고른다).
+  //   자홍 = 시간이 지나며 아픈 것(독) · 진홍 = 함정
+  const HB=new Map();
+  function hzImg(kind,rd,ph){const key=(((kind*2+o.on)*512+rd)*16)+ph;let c=HB.get(key);if(c)return c;
+    if(HB.size>=420)HB.clear();
+    const s=SPX.cam.s,R=rd/s,dw=o.on?5:4,D=2*(rd+Math.ceil(dw*s/2)+2);
+    c=document.createElement('canvas');c.width=c.height=D;const g=c.getContext('2d');g.setTransform(s,0,0,s,D/2,D/2);
+    g.beginPath();g.arc(0,0,R,0,7);
+    if(kind===0){g.fillStyle='rgba(255,63,160,.22)';g.fill();g.fillStyle=o.on?o.patS:o.pat;g.fill();}
+    else{g.fillStyle='rgba(255,45,85,.16)';g.fill();}
+    g.lineWidth=dw;g.strokeStyle=PAL.dzDark;g.stroke();g.setLineDash(D2);g.lineDashOffset=-ph;g.lineWidth=o.on?2.6:(kind?2:2);g.strokeStyle=kind?PAL.dz:PAL.dzMag;g.stroke();
+    HB.set(key,c);return c;}
+  o.clouds=function(){const M=SPX.cam,ms=M.s,ph=Math.floor((S.t*20)%11);let n=0;
+    for(const c of clouds.a)if(c.on){const rd=Math.round(Math.min(1,c.life*.9)*26*ms);if(rd<2)continue;
+      if(!n){cx.setTransform(1,0,0,1,0,0);}n++;const im=hzImg(0,rd,ph),D=im.width;cx.drawImage(im,Math.round(M.ox+ms*c.x-D/2),Math.round(M.oy+ms*c.y-D/2));}
+    if(n)cx.setTransform(ms,0,0,ms,M.ox,M.oy);};
+  o.traps=function(){const M=SPX.cam,ms=M.s,ph=Math.floor((S.t*24)%11),rd=Math.round(13*(1+.1*Math.sin(S.t*9))*ms);let n=0;
+    if(rd<2)return;for(const h of hazards.a)if(h.on){if(!n){cx.setTransform(1,0,0,1,0,0);}n++;const im=hzImg(1,rd,ph),D=im.width;cx.drawImage(im,Math.round(M.ox+ms*h.x-D/2),Math.round(M.oy+ms*h.y-D/2));}
+    if(n)cx.setTransform(ms,0,0,ms,M.ox,M.oy);};
   return o;})();
 for(const el of document.querySelectorAll('input[data-hz]'))el.onchange=e=>HZ.set(e.target.checked);HZ.ui();
 // 🎨 미리 그려 두는 그림(한 번만 만들고 drawImage 로 찍는다 — 프레임마다 그라디언트를 새로 만들지 않는다)
@@ -340,14 +355,29 @@ const SPX=(()=>{const o={};
   // 🚀 [속도] 화면 픽셀에 딱 맞춘 그림 — 정수 좌표·1:1 로 찍는 drawImage 는 확대·축소·소수점 좌표로 찍는 것보다 5~9배 싸다(소프트웨어 그리기에서).
   //   draw() 가 매 프레임 카메라(cam)를 적어 두고, 이 함수들은 월드 좌표를 화면 픽셀로 바꿔 미리 맞춰 둔 그림(크기별 캐시)을 정수 위치에 찍는다.
   //   모양은 그대로(크기 오차 ≤ 1 화면 픽셀 · 위치 오차 ≤ 0.5 픽셀) — 부드러운 빛·자국에만 쓴다.
-  const CAM={s:1,ox:0,oy:0},FC=new Map(),CAP=28,DMAXPX=400;let fcN=0;
+  const CAM={s:1,ox:0,oy:0},FC=new Map(),CC2=new Map(),DMAXPX=400,FCB=24e6;let fcN=0;   // fcN: 캐시에 든 그림의 대략적 바이트(넘치면 통째로 비우고 다시 쌓는다)
   o.cam=CAM;
   function fit(im,d){let m=FC.get(im);if(!m){m=new Map();FC.set(im,m);}let c=m.get(d);
-    if(!c){if(fcN>=CAP*4){FC.clear();fcN=0;m=new Map();FC.set(im,m);}c=mk(d,d,g=>{g.imageSmoothingQuality='high';g.drawImage(im,0,0,d,d);});m.set(d,c);fcN++;}return c;}
+    if(!c){if(fcN>=FCB){FC.clear();CC2.clear();fcN=0;m=new Map();FC.set(im,m);}c=mk(d,d,g=>{g.imageSmoothingQuality='high';g.drawImage(im,0,0,d,d);});m.set(d,c);fcN+=d*d*4;}return c;}
   // (x,y) 중심, 월드 반지름 r — st: 크기를 st 화면 픽셀 단위로 맞춘다(커졌다 작아지는 것은 2~4 로 · 고정 크기는 1)
   o.blit=function(im,x,y,r,st){const s=CAM.s;let d=Math.round(r*s*2/(st||1))*(st||1);d+=d&1;if(d<2)return;
     if(d>DMAXPX){cx.drawImage(im,x-r,y-r,r*2,r*2);return;}
     const c=fit(im,d);cx.setTransform(1,0,0,1,0,0);cx.drawImage(c,Math.round(CAM.ox+s*x-d/2),Math.round(CAM.oy+s*y-d/2));cx.setTransform(s,0,0,s,CAM.ox,CAM.oy);};
+  // 🚀 적 몸통 — 동그랗게 잘라 둔 챔피언 아이콘(크기별 캐시). 예전엔 적마다 save·clip·drawImage(축소)·restore
+  
+  function fitC(im,d,kind){let m=CC2.get(im);if(!m){m=new Map();CC2.set(im,m);}const key=d*4+kind;let c=m.get(key);
+    if(!c){if(fcN>=FCB){FC.clear();CC2.clear();fcN=0;m=new Map();CC2.set(im,m);}
+      if(kind===0)c=mk(d,d,g=>{g.imageSmoothingQuality='high';g.beginPath();g.arc(d/2,d/2,d/2,0,7);g.clip();g.drawImage(im,0,0,d,d);});
+      else c=mk(d+2,d+2,g=>{g.imageSmoothingQuality='high';g.drawImage(im,1,1,d,d);g.lineWidth=Math.max(1,1.5*CAM.s);g.strokeStyle='#f5c04a';g.strokeRect(1,1,d,d);});   // 트롤 아이템 칸(금색 테두리)
+      m.set(key,c);fcN+=(d+2)*(d+2)*4;}return c;}
+  // 중심 (x,y) 월드 · 반지름 r. 화면 픽셀에 맞춘 중심을 돌려준다(테두리 선도 같은 중심에 그려 어긋나지 않게)
+  o.iconC=function(im,x,y,r){const s=CAM.s;let d=Math.round(r*s)*2;if(d<2||d>DMAXPX)return false;
+    const px=Math.round(CAM.ox+s*x),py=Math.round(CAM.oy+s*y);
+    cx.setTransform(1,0,0,1,0,0);cx.drawImage(fitC(im,d,0),px-d/2,py-d/2);cx.setTransform(s,0,0,s,CAM.ox,CAM.oy);return true;};
+  o.snap=function(x,y,out){const s=CAM.s;out.x=(Math.round(CAM.ox+s*x)-CAM.ox)/s;out.y=(Math.round(CAM.oy+s*y)-CAM.oy)/s;};
+  // 왼쪽 위 (ax,ay) 월드 · 한 변 z — 금색 테두리 친 트롤 아이템 칸
+  o.iconTL=function(im,ax,ay,z){const s=CAM.s;const d=Math.round(z*s);if(d<2||d>DMAXPX)return false;
+    cx.setTransform(1,0,0,1,0,0);cx.drawImage(fitC(im,d,1),Math.round(CAM.ox+s*ax)-1,Math.round(CAM.oy+s*ay)-1);cx.setTransform(s,0,0,s,CAM.ox,CAM.oy);return true;};
   // 돌면서 떨어지는 그림(달걀·병아리) — 크기를 맞춰 둔 그림을 화면 픽셀 좌표에서 돌려 찍는다(save/restore·축소 없이)
   o.blitRot=function(im,x,y,r,ang){const s=CAM.s;let d=Math.round(r*s*2/2)*2;if(d<2)return;
     if(d>DMAXPX){cx.save();cx.translate(x,y);cx.rotate(ang);cx.drawImage(im,-r,-r,r*2,r*2);cx.restore();return;}
@@ -1846,6 +1876,7 @@ function drawSkill(e,r){   // 새 트롤픽 기술 예고(바닥에 먼저 그�
   else if(K.cav&&e.ph===1)HZ.band(e.x,e.y,e.ax,e.ay,610,e.r*2+12,1-e.fx/.8,true);   // 🐎 헤카림 — 돌진 길(화살표)
   else if(K.sad&&(e.x-S.p.x)**2+(e.y-S.p.y)**2<(SAD_R+e.r+200)**2)HZ.aura(e.x,e.y,SAD_R+e.r);   // 😢 아무무 절망 고리 — 가까울 때만
 }
+const SNP={x:0,y:0};
 function drawChamp(e,r){
   const bob=e.boss?0:Math.sin(e.t*8)*1.5;
   if(e.boss&&e.b.img){const im=BIMG[e.b.img];   // 🍗 브장신 키우기 레이드 보스 그림
@@ -1859,11 +1890,12 @@ function drawChamp(e,r){
   const ic=ICON[e.id];
   if(e.sv)cx.globalAlpha=.16+.08*Math.sin(e.t*20);   // 👻 은신
   if(e.ph===1&&KIND[e.ki]&&KIND[e.ki].kog&&((e.t*16|0)&1)){cx.fillStyle='#ff4030';cx.beginPath();cx.arc(e.x,e.y,r+4,0,7);cx.fill();}   // 💥 깜빡깜빡
-  cx.save();cx.beginPath();cx.arc(e.x,e.y+bob,r,0,7);cx.closePath();
-  if(ic&&ic.c){cx.save();cx.clip();cx.drawImage(ic.c,e.x-r,e.y+bob-r,r*2,r*2);cx.restore();}
-  else{cx.fillStyle=e.c;cx.fill();}
+  let bx=e.x,by=e.y+bob,pic=false;
+  if(ic&&ic.c&&SPX.iconC(ic.c,bx,by,r)){pic=true;SPX.snap(bx,by,SNP);bx=SNP.x;by=SNP.y;}   // 🚀 미리 동그랗게 잘라 둔 그림을 화면 픽셀에 맞춰 찍는다(예전: save·clip·축소 drawImage·restore)
+  cx.beginPath();cx.arc(bx,by,r,0,7);
+  if(!pic){if(ic&&ic.c){cx.save();cx.clip();cx.drawImage(ic.c,e.x-r,e.y+bob-r,r*2,r*2);cx.restore();cx.beginPath();cx.arc(bx,by,r,0,7);}else{cx.fillStyle=e.c;cx.fill();}}
   if(e.hit>.1){cx.fillStyle='rgba(255,255,255,'+Math.min(.7,(e.hit-.1)*9).toFixed(2)+')';cx.fill();}   // 💣 폭탄에 잡힌 적: 몸이 하얗게 번쩍
-  cx.lineWidth=(e.bg?5:e.boss||e.el?4:2)+(HZ.on?1:0);cx.strokeStyle=e.hit>0?'#fff':e.bg?'#ff3b6b':e.el?'#ffd36a':e.gold>0?'#ffe066':'#ff8a65';cx.stroke();cx.restore();
+  cx.lineWidth=(e.bg?5:e.boss||e.el?4:2)+(HZ.on?1:0);cx.strokeStyle=e.hit>0?'#fff':e.bg?'#ff3b6b':e.el?'#ffd36a':e.gold>0?'#ffe066':'#ff8a65';cx.stroke();
   const hat=(e.acc||[]).some(a=>a[1]==='head')?r*1.15:0;
   if(e.bg){   // 👹 대형 — 붉은 이중 테두리(돌아가는 점선) + 이름표
     cx.save();cx.strokeStyle='rgba(255,59,107,.8)';cx.lineWidth=HZ.on?4:3;cx.setLineDash(D3);cx.lineDashOffset=-e.t*40;cx.beginPath();cx.arc(e.x,e.y+bob,r+7,0,7);cx.stroke();cx.restore();
@@ -1873,7 +1905,7 @@ function drawChamp(e,r){
   // 🧢 트롤 빌드 표시 — 라바돈 모자는 머리 위, 마법사의 신발은 발밑, 그 밖(무한의 대검·강타…)은 옆구리
   for(const [pa,pos] of (e.acc||[])){const a=ICON[pa];if(!a||!a.c)continue;
     const z=pos==='side'?r*.9:r*1.15, ax=pos==='side'?e.x-r*1.05-z/2:e.x-z/2, ay=pos==='head'?e.y+bob-r-z*.72:pos==='feet'?e.y+bob+r*.55:e.y+bob+r*.1-z/2;
-    cx.save();cx.drawImage(a.c,ax,ay,z,z);cx.lineWidth=1.5;cx.strokeStyle='#f5c04a';cx.strokeRect(ax,ay,z,z);cx.restore();}
+    if(!SPX.iconTL(a.c,ax,ay,z)){cx.save();cx.drawImage(a.c,ax,ay,z,z);cx.lineWidth=1.5;cx.strokeStyle='#f5c04a';cx.strokeRect(ax,ay,z,z);cx.restore();}}
   // 🦐 표식 — 흐접새우의 픽
   cx.fillStyle='#ff8a65';cx.beginPath();cx.arc(e.x+r*.72,e.y+bob-r*.72,Math.max(4,r*.28),0,7);cx.fill();cx.globalAlpha=1;
   if(e.boss){cx.font='bold 13px sans-serif';cx.textAlign='center';cx.fillStyle='#f5c04a';cx.fillText('🦐 흐접새우의 '+e.b.nm,e.x,e.y-r-10-hat);}   // 라바돈 모자 위로 이름
