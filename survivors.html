@@ -423,52 +423,52 @@ const pairOf=k=>Object.keys(WEAP).find(w=>WEAP[w].pair===k&&wOk(w));
 const TZ={n:0,pc:0,a:0,c:0,d:0,s:0,w:0,life:0,b:0,rare:0,leg:0,roll:0,rear:0,big:0,pulse:0,slow:0,ring:0,pop:0,echo:0,ret:0,rev:0,boom:0,sx:0,stun:0,tk:0,frag:0,rate:0};
 // 무기별 단계표 [카드에 적는 말, 효과값]. 앞 3단계 = 🏅 마스터(비각성도 받는다) · 4~5단계 = ✨ 각성 전용. n 개수 · pc 관통 · a 범위/크기 · c 쿨타임 감소 · d 피해 · 나머지는 무기마다 다른 기믹
 const TIERS={
-  feed:[['투사체 +1',{n:1}],['관통 +2',{pc:2}],['연사 +12%',{c:.12}],['뒤쪽으로도 발사(각성은 사료 +1발)',{rear:1}],['5번째 발사마다 굵은 사료 — 피해 ×3 · 관통 +3',{big:1}]],
-  fryer:[['오라 범위 +12%',{a:.12}],['피해 +20%',{d:.2}],['태우는 간격 -15%',{c:.15}],['3초마다 불꽃 파동 — 범위 1.8배 · 피해 ×3',{pulse:1}],['오라 안의 적이 느려진다 · 파동이 2.2초마다',{slow:1}]],
-  sushi:[['초밥 +1',{n:1}],['반경 +12%',{a:.12}],['피해 +20%',{d:.2}],['바깥 반대 궤도에 초밥이 더 돈다',{ring:1}],['초밥에 맞은 적이 가끔 작게 터진다',{pop:1}]],
-  egg:[['달걀 +1',{n:1}],['폭발 범위 +12%',{a:.12}],['쿨타임 -12%',{c:.12}],['터진 자리에 0.5초 뒤 여진(피해 60%)',{echo:1}],['여진이 한 번 더 — 총 두 번',{echo:1}]],
-  shrimp:[['새우깡 +1',{n:1}],['크기 +15%',{a:.15}],['쿨타임 -12%',{c:.12}],['돌아오는 길에 피해 1.5배',{ret:1}],['반대 방향으로도 한 개(각성은 궤도 +1)',{rev:1}]],
-  kbd:[['연쇄 +1',{n:1}],['피해 +15%',{d:.15}],['쿨타임 -12%',{c:.12}],['연쇄 끝에서 폭발',{boom:1}],['번개 줄기 +1(동시에 하나 더 뻗는다)',{sx:1}]],
-  spk:[['범위 +12%',{a:.12}],['피해 +20%',{d:.2}],['쿨타임 -10%',{c:.1}],['음파가 0.35초 뒤 한 번 더(두 겹)',{echo:1}],['맞은 적이 잠깐 멈춘다',{stun:1}]],
-  potion:[['웅덩이 +15%',{a:.15}],['물약 +1',{n:1}],['지속 +1초',{life:1}],['웅덩이 안 적의 이동 -35%',{slow:1}],['독이 더 자주 튄다(0.5→0.33초)',{tk:1}]],
-  breath:[['사거리 +12%',{a:.12}],['피해 +20%',{d:.2}],['쿨타임 -12%',{c:.12}],['뒤쪽에도 불길(비각성은 60% 위력)',{rear:1}],['불길 폭 +30%',{w:.3}]],
-  ping:[['폭발 범위 +12%',{a:.12}],['지뢰 +1',{n:1}],['쿨타임 -12%',{c:.12}],['터질 때 주변에 작은 폭발 3번 더',{frag:1}],['지뢰가 두 배로 오래 남고 바로 무장한다',{life:1}]],
-  wifi:[['전파 길이 +12%',{a:.12}],['전파 +1줄',{n:1}],['회전 +15%',{s:.15}],['맞은 적이 느려진다',{slow:1}],['같은 적을 0.2초마다 · 피해 +15%',{rate:1,d:.15}]],
-  can:[['캔 +1',{n:1}],['튕김 +2번',{b:2}],['크기 +20%',{a:.2}],['튕길 때마다 작은 탄산 폭발',{pop:1}],['캔 +1',{n:1}]],
-  gacha:[['레어 확률 +6%',{rare:.06}],['피해 +20%',{d:.2}],['쿨타임 -12%',{c:.12}],['전설 확률 +5%',{leg:.05}],['캡슐 한 번 더 굴린다',{roll:1}]],
+  feed:[['투사체 +1',{n:1}],['관통 +2',{pc:2}],['연사 +5%',{c:.05}],['뒤쪽으로도 발사(각성은 사료 +1발)',{rear:1}],['5번째 발사마다 굵은 사료 — 피해 ×3 · 관통 +3',{big:1}]],
+  fryer:[['오라 범위 +5%',{a:.05}],['피해 +7%',{d:.07}],['태우는 간격 -6%',{c:.05}],['3초마다 불꽃 파동 — 범위 1.8배 · 피해 ×3',{pulse:1}],['오라 안의 적이 느려진다 · 파동이 2.2초마다',{slow:1}]],
+  sushi:[['초밥 +1',{n:1}],['반경 +5%',{a:.05}],['피해 +7%',{d:.07}],['바깥 반대 궤도에 초밥이 더 돈다',{ring:1}],['초밥에 맞은 적이 가끔 작게 터진다',{pop:1}]],
+  egg:[['달걀 +1',{n:1}],['폭발 범위 +5%',{a:.05}],['쿨타임 -5%',{c:.05}],['터진 자리에 0.5초 뒤 여진(피해 60%)',{echo:1}],['여진이 한 번 더 — 총 두 번',{echo:1}]],
+  shrimp:[['새우깡 +1',{n:1}],['크기 +6%',{a:.06}],['쿨타임 -5%',{c:.05}],['돌아오는 길에 피해 1.5배',{ret:1}],['반대 방향으로도 한 개(각성은 궤도 +1)',{rev:1}]],
+  kbd:[['연쇄 +1',{n:1}],['피해 +7%',{d:.07}],['쿨타임 -5%',{c:.05}],['연쇄 끝에서 폭발',{boom:1}],['번개 줄기 +1(동시에 하나 더 뻗는다)',{sx:1}]],
+  spk:[['범위 +5%',{a:.05}],['피해 +7%',{d:.07}],['쿨타임 -5%',{c:.05}],['음파가 0.35초 뒤 한 번 더(두 겹)',{echo:1}],['맞은 적이 잠깐 멈춘다',{stun:1}]],
+  potion:[['웅덩이 +6%',{a:.06}],['물약 +1',{n:1}],['지속 +1초',{life:1}],['웅덩이 안 적의 이동 -35%',{slow:1}],['독이 더 자주 튄다(0.5→0.33초)',{tk:1}]],
+  breath:[['사거리 +5%',{a:.05}],['피해 +7%',{d:.07}],['쿨타임 -5%',{c:.05}],['뒤쪽에도 불길(비각성은 60% 위력)',{rear:1}],['불길 폭 +14%',{w:.14}]],
+  ping:[['폭발 범위 +5%',{a:.05}],['지뢰 +1',{n:1}],['쿨타임 -5%',{c:.05}],['터질 때 주변에 작은 폭발 3번 더',{frag:1}],['지뢰가 두 배로 오래 남고 바로 무장한다',{life:1}]],
+  wifi:[['전파 길이 +5%',{a:.05}],['전파 +1줄',{n:1}],['회전 +6%',{s:.06}],['맞은 적이 느려진다',{slow:1}],['같은 적을 0.2초마다 · 피해 +11%',{rate:1,d:.11}]],
+  can:[['캔 +1',{n:1}],['튕김 +2번',{b:2}],['크기 +9%',{a:.09}],['튕길 때마다 작은 탄산 폭발',{pop:1}],['캔 +1',{n:1}]],
+  gacha:[['레어 확률 +3%',{rare:.03}],['피해 +7%',{d:.07}],['쿨타임 -5%',{c:.05}],['전설 확률 +2%',{leg:.02}],['캡슐 한 번 더 굴린다',{roll:1}]],
 };
 const TCAP=k=>S.ev[k]?5:3;   // 각성한 무기 5단계 · 안 한 Lv8 무기는 마스터 3단계
-function tkCalc(){S.tk={};for(const k in S.tier){const t=Object.assign({},TZ),T=TIERS[k];if(!T)continue;for(let i=0;i<S.tier[k]&&i<T.length;i++)for(const f in T[i][1])t[f]+=T[i][1][f];S.tk[k]=t;}}
+const LATE_K=1,LATE_FRAC={a:1,c:1,d:1,s:1,w:1,rare:1,leg:1};   // 한 번에 낮추고 싶으면 LATE_K 만 줄인다(개수·기믹은 그대로, 비율 수치만 곱해진다 — 카드 문구의 % 도 같이 고칠 것)
+function tkCalc(){S.tk={};for(const k in S.tier){const t=Object.assign({},TZ),T=TIERS[k];if(!T)continue;for(let i=0;i<S.tier[k]&&i<T.length;i++)for(const f in T[i][1])t[f]+=T[i][1][f]*(LATE_FRAC[f]?LATE_K:1);S.tk[k]=t;}}
 const TK=k=>(S&&S.tk&&S.tk[k])||TZ;
 // 🌟 초월 — 만렙 패시브의 다음 단계(효과는 각 훅에서 읽는다)
 const PT={
-  spd:['이동 중 받는 피해 -12%','이동 중 모든 쿨타임 -6%'],
-  hp:['최대 HP +40 · 치킨 회복량 +50%','가만히 있어도 HP 0.4/초 회복'],
-  cd:['모든 쿨타임 -6% 더','모든 쿨타임 -6% 더'],
-  mag:['획득 범위 +60% · 경험치 +5%','20초마다 화면의 경험치 보석을 전부 빨아들인다'],
-  arm:['받는 피해 -1 더 · 맞은 뒤 무적 +0.15초','맞으면 주변 적을 밀쳐낸다'],
-  area:['모든 범위 +10% 더'],
-  might:['HP가 80% 이상이면 모든 피해 +12%','HP가 80% 이상이면 모든 피해 +12% 더'],
-  luck:['치명타 +5% · 치명타 피해 +25%','보스 상자에서 카드가 더 잘 쏟아진다'],
-  crit:['치명타 피해 +40%'],
-  study:['경험치 +8% 더'],
-  pspd:['투사체·캔 속도 +15% 더'],
+  spd:['이동 중 받는 피해 -6%','이동 중 모든 쿨타임 -6%'],
+  hp:['최대 HP +25 · 치킨 회복량 +25%','가만히 있어도 HP 0.25/초 회복'],
+  cd:['모든 쿨타임 -4% 더','모든 쿨타임 -4% 더'],
+  mag:['획득 범위 +40%','20초마다 화면의 경험치 보석을 전부 빨아들인다'],
+  arm:['맞은 뒤 무적 +0.12초','맞으면 주변 적을 밀쳐낸다'],
+  area:['모든 범위 +6% 더'],
+  might:['HP가 80% 이상이면 모든 피해 +7%','HP가 80% 이상이면 모든 피해 +7% 더'],
+  luck:['치명타 +5% · 치명타 피해 +15%','보스 상자에서 카드가 더 잘 쏟아진다'],
+  crit:['치명타 피해 +25%'],
+  pspd:['투사체·캔 속도 +8% 더'],
 };
 const PTV=k=>(S&&S.pt&&S.pt[k])||0;
 // 🏺 유물 — 유물마다 고유 규칙(3단계)
 const REL={
-  tenth:{ic:'🥁',nm:'열 번째 타격',ds:l=>`적을 ${[10,8,6][l-1]}번 때릴 때마다 맞은 자리가 폭발한다`},
-  leech:{ic:'🩹',nm:'처치 응급처치',ds:l=>`적을 처치하면 HP +${[2,3,4][l-1]} (${[3,2.5,2][l-1]}초에 한 번)`},
-  still:{ic:'🛡',nm:'명상 방어막',ds:l=>`가만히 ${[2,1.6,1.2][l-1]}초 서 있으면 방어막 충전 — 다음 한 방을 막는다`},
-  sprint:{ic:'💨',nm:'줄행랑',ds:l=>`맞으면 2초간 이동속도 +${[25,40,55][l-1]}%${l>=3?' · 무적 +0.3초':''}`},
-  storm:{ic:'⚡',nm:'뇌우 부적',ds:l=>`${[7,6,5][l-1]}초마다 벼락 ${[3,4,5][l-1]}줄기가 내리친다`},
-  berserk:{ic:'🔥',nm:'배수의 진',ds:l=>`HP 40% 이하일 때 모든 피해 +${[35,50,65][l-1]}% · 이동 +10%`},
-  pulse:{ic:'🔔',nm:'비상 종',ds:l=>`${[70,60,50][l-1]}초마다 화면 펄스 — 잡몹 최대체력의 ${[25,30,35][l-1]}%(보스는 거의 안 아프다)`},
+  tenth:{ic:'🥁',nm:'열 번째 타격',ds:l=>`적을 ${[14,12,10][l-1]}번 때릴 때마다 맞은 자리가 폭발한다`},
+  leech:{ic:'🩹',nm:'처치 응급처치',ds:l=>`적을 처치하면 HP +${[1,1,2][l-1]} (${[5,4,3.5][l-1]}초에 한 번)`},
+  still:{ic:'🛡',nm:'명상 방어막',ds:l=>`가만히 ${[3.5,3,2.5][l-1]}초 서 있으면 방어막 충전 — 다음 한 방을 막는다`},
+  sprint:{ic:'💨',nm:'줄행랑',ds:l=>`맞으면 2초간 이동속도 +${[20,30,40][l-1]}%${l>=3?' · 무적 +0.2초':''}`},
+  storm:{ic:'⚡',nm:'뇌우 부적',ds:l=>`${[9,8,7][l-1]}초마다 벼락 ${[2,2,3][l-1]}줄기가 내리친다`},
+  berserk:{ic:'🔥',nm:'배수의 진',ds:l=>`HP 40% 이하일 때 모든 피해 +${[25,35,45][l-1]}% · 이동 +10%`},
+  pulse:{ic:'🔔',nm:'비상 종',ds:l=>`${[90,80,70][l-1]}초마다 화면 펄스 — 잡몹 최대체력의 ${[15,20,25][l-1]}%(보스는 거의 안 아프다)`},
 };
 // ⚖ 거래 카드 — 얻는 만큼 잃는다(최대 3번)
 const TRD={
   glassc:{ic:'🗡',nm:'유리 대포',ds:'모든 피해 +12% · 최대 HP -12'},
-  iron:{ic:'🛡',nm:'철갑 두르기',ds:'받는 피해 -1 · 이동속도 -5%'},
+  iron:{ic:'🛡',nm:'철갑 두르기',ds:'받는 피해 -1 · 이동속도 -5%',cap:2},
   gale:{ic:'💨',nm:'질풍',ds:'이동속도 +10% · 모든 범위 -5%'},
   focus:{ic:'🎯',nm:'정조준',ds:'치명타 확률 +6% · 최대 HP -10'},
   wide:{ic:'🌐',nm:'광역 확장',ds:'모든 범위 +10% · 쿨타임 5% 느려짐'},
@@ -477,7 +477,7 @@ const TRD={
 // 작은 능력치 카드 — 먹을수록 효과가 0.8배씩 줄어든다(🍜 라면은 0.85배·8번까지 · 나머지 5번까지)
 const SM={
   ramen:{ic:'🍜',nm:'야식 라면',base:.03,dec:.85,cap:8,unit:'모든 피해',pct:1},
-  xp:{ic:'📖',nm:'벼락치기 노트',base:.04,dec:.8,cap:5,unit:'경험치',pct:1},
+  chk:{ic:'🍗',nm:'치킨 사랑',base:.08,dec:.8,cap:5,unit:'치킨 회복량',pct:1},
   crit:{ic:'🎯',nm:'눈 밝히기',base:.02,dec:.8,cap:5,unit:'치명타 확률',pct:1},
   mag:{ic:'🧲',nm:'자석 손질',base:.1,dec:.8,cap:5,unit:'획득 범위',pct:1},
   spd:{ic:'👟',nm:'끈 고쳐 묶기',base:.03,dec:.8,cap:5,unit:'이동속도',pct:1},
@@ -490,7 +490,7 @@ const smNext=k=>{const m=SM[k];return m.base*Math.pow(m.dec,smn(k));};
 const CO={
   feast:{ic:'🍱',nm:'특대 도시락',ds:'HP를 가득 채운다'},
   pulse:{ic:'💥',nm:'긴급 펄스',ds:'지금 화면의 잡몹에게 최대체력 30% 피해(보스는 거의 안 아프다)'},
-  xpb:{ic:'📖',nm:'경험치 폭죽',ds:'지금 레벨의 경험치 60%를 한 번에 얻는다'},
+  shield:{ic:'🛡',nm:'일회용 방어막',ds:'방어막 한 장 — 다음 한 방을 막는다'},
   dice:{ic:'🎲',nm:'주사위 세트',ds:'다시 뽑기 +2 · 봉인 +1'},
 };
 const trn=k=>(S&&S.tr&&S.tr[k])||0;
@@ -626,7 +626,7 @@ function dropItem(k,x,y){let it=items.get();if(!it&&k==='chest'){it=items.a.find
 // 🍗 치킨 경제(2026-09-29 사장님 "치킨 드랍율이 너무 높아 hp 관리가 너무 잘돼") — 주워 먹는 양을 예전의 약 1/3 로:
 //   오브젝트 치킨 53%→25%(오브젝트도 4초→6초마다) · 맵 치킨 40~65초→100~150초 · 잡몹 1.2%→0.6%(첫 10분은 1.1%에서 서서히, 행운 보정 절반) ·
 //   엘리트 25%→12% · 적에게서 나오는 치킨은 서로 최소 CHK_GAP 초 간격(후반 처치 속도가 빨라도 치킨 비가 내리지 않게) · 회복 25%→20%
-const CHK_GAP=4,CHK_HEAL=.2;const chkHeal=()=>(S&&S.hard?HARD.chk:CHK_HEAL)*(PTV('hp')?1.5:1);
+const CHK_GAP=4,CHK_HEAL=.2;const chkHeal=()=>(S&&S.hard?HARD.chk:CHK_HEAL)*(PTV('hp')?1.25:1)*(1+smv('chk'));
 function breakProp(o){o.on=false;AU.play('brk');const r=Math.random();
   dropItem(r<.25?'chicken':r<.65?'magnet':'bomb',o.x,o.y);
   const t=texts.get();if(t){t.x=o.x;t.y=o.y-18;t.s='💥';t.life=.6;t.c='#fff';}}
@@ -675,11 +675,11 @@ function newRun(){
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
-const cdMul=()=>Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.94,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.94:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
-const dmgMul=()=>(1+.1*pv('might'))*(1+smv('ramen'))*(1+.15*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.12*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.35,.5,.65][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
+const cdMul=()=>Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
+const dmgMul=()=>(1+.1*pv('might'))*(1+smv('ramen'))*(1+.15*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*pv('dur');                  // ⏳ 지속시간
-const PS=()=>1+.12*pv('pspd')+.15*PTV('pspd');                  // 🏹 투사체 속도
+const PS=()=>1+.12*pv('pspd')+.08*PTV('pspd');                  // 🏹 투사체 속도
 let SRC='';                                      // 지금 피해를 넣는 무기(무기별 피해 통계)
 const lvm=(L,ups)=>{let m=1;for(const u of ups)if(L>=u[0])m*=u[1];return m;};
 const MIN=()=>S.t/60;
@@ -737,7 +737,7 @@ $('chestOk').onclick=()=>{if(state==='chest')resume();};
 // ---------- 레벨업 ----------
 function offers(n,excl){
   // 🎲 [2026-09-30 사장님 지시] 카드 풀 — 기존 무기·패시브 카드(가중치 3)에 ✨ 각성/🏅 마스터·🌟 초월 카드가 함께 섞이고,
-  //   🏺 유물·⚖ 거래·작은 능력치·🎁 일회용은 기존 카드가 얇아지거나 후반(Lv16+)에 채운다. 늘 서로 다른 카드 n장.
+  //   🏺 유물(Lv24+)·⚖ 거래·작은 능력치·🎁 일회용(Lv30+)은 기존 카드가 얇아지면 채우고 후반에 섞인다. 늘 서로 다른 카드 n장.
   n=n||3;
   const nw=Object.keys(S.w).length,np=Object.keys(S.ps).length,ban=new Set(S.banned),ex=new Set(excl||[]);
   const P=[],add=(o,w)=>{if(!ban.has(o.k)&&!ex.has(o.k))P.push({o,w});};
@@ -748,13 +748,13 @@ function offers(n,excl){
   for(const k in PT){const l=S.pt[k]||0;if(pv(k)>0&&pv(k)>=pmax(k)&&l<PT[k].length)add({t:'pt',k:'pt:'+k,p:k,l},2.4);}
   const L0=P.length;let Wn=0;for(const x of P)Wn+=x.w;
   const lateP=[],ladd=(o,w)=>{if(!ban.has(o.k)&&!ex.has(o.k))lateP.push({o,w});};
-  if(S.lv>=12||thin)for(const k in REL){const l=S.rel[k]||0;if(l<3)ladd({t:'rl',k:'rl:'+k,r:k,l},l?1.1:1.5);}
-  if(S.lv>=16||thin){
-    for(const k in TRD){if(trn(k)<3&&(S.p.mhp>70||(k!=='glassc'&&k!=='focus')))ladd({t:'tr',k:'tr:'+k,r:k,l:trn(k)},1);}
+  if(S.lv>=24||thin)for(const k in REL){const l=S.rel[k]||0;if(l<3)ladd({t:'rl',k:'rl:'+k,r:k,l},l?1.1:1.5);}
+  if(S.lv>=30||thin){
+    for(const k in TRD){if(trn(k)<(TRD[k].cap||3)&&(S.p.mhp>70||(k!=='glassc'&&k!=='focus')))ladd({t:'tr',k:'tr:'+k,r:k,l:trn(k)},1);}
     for(const k in SM){if(smn(k)<SM[k].cap)ladd({t:'sm',k:'sm:'+k,r:k,l:smn(k)},k==='ramen'?.3:.9);}
     ladd({t:'co',k:'co:feast',r:'feast'},S.p.hp<S.p.mhp*.6?1.6:.3);
     if(S.t-S.pulseT>=60)ladd({t:'co',k:'co:pulse',r:'pulse'},.8);
-    ladd({t:'co',k:'co:xpb',r:'xpb'},.7);ladd({t:'co',k:'co:dice',r:'dice'},.6);
+    ladd({t:'co',k:'co:shield',r:'shield'},.7);ladd({t:'co',k:'co:dice',r:'dice'},.6);
     ladd({t:'heal',k:'heal'},.5);
   }
   // 늦은 카드의 전체 몫: 기존이 넉넉하면 약 1/3, 얇으면 전부
@@ -780,13 +780,13 @@ function cardOf(o){
   if(o.t==='p'){const d=PASS[o.k],w=pairOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':`🎒 새 패시브 · 슬롯 ${Object.keys(S.ps).length+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+(w?`<br><span class="hint">각성 짝: ${WEAP[w].ic} ${WEAP[w].nm}${S.w[w]?' (보유)':''}</span>`:''),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
-    return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화 · ${ev?'각성 무기':'마스터 무기'}`,
-      ds:`<b>${nm} Lv${l} → ${l+1}:</b> ${T[l][0]}<br><span class="hint">지금 ${nm} Lv${l}/${cap}${have?' — '+have:''}</span>`+(ev?'':`<br><span class="muted">각성은 ${cap+2}단계까지 · 지금은 ${cap}단계까지</span>`),lv:`${ev?'✨':'🏅'} ${l}→${l+1}`};}
+    return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화`,
+      ds:`<b>${nm} Lv${l} → ${l+1}:</b> ${T[l][0]}<br><span class="hint">지금 Lv${l}/${cap}${have?' — '+have:''}${ev?'':' · 각성하면 5단계까지'}</span>`,lv:`${ev?'✨':'🏅'} ${l}→${l+1}`};}
   if(o.t==='pt'){const d=PASS[o.p],T=PT[o.p],l=o.l;
-    return {ic:d.ic,nm:d.nm+' 초월',ty:'🌟 패시브 초월',ds:`<b>🌟 초월 Lv${l} → ${l+1}:</b> ${T[l]}<br><span class="muted">(${d.nm} 최대 Lv${pmax(o.p)} 달성 · 초월 ${T.length}단계까지)</span>`,lv:`🌟 ${l}→${l+1}`};}
+    return {ic:d.ic,nm:d.nm+' 초월',ty:'🌟 패시브 초월',ds:`<b>🌟 초월 Lv${l} → ${l+1}:</b> ${T[l]}<span class="muted"> (초월 ${T.length}단계까지)</span>`,lv:`🌟 ${l}→${l+1}`};}
   if(o.t==='rl'){const d=REL[o.r],l=o.l;
-    return {ic:d.ic,nm:d.nm,ty:l?'🏺 유물 강화':'🏺 새 유물 · 고유 규칙',ds:(l?`<b>Lv${l} → ${l+1}:</b> `:'')+d.ds(l+1)+(l?`<br><span class="hint">지금 Lv${l}: ${d.ds(l)}</span>`:'')+`<span class="muted"> (최대 Lv3)</span>`,lv:l?`🏺 ${l}→${l+1}`:'새 유물'};}
-  if(o.t==='tr'){const d=TRD[o.r],l=o.l;return {ic:d.ic,nm:d.nm,ty:'⚖ 거래 — 얻는 만큼 잃어요',ds:`${d.ds}<span class="muted"> (최대 3번 · 지금 ${l}번)</span>`,lv:`⚖ ${l}→${l+1}`};}
+    return {ic:d.ic,nm:d.nm,ty:l?'🏺 유물 강화':'🏺 새 유물 · 고유 규칙',ds:(l?`<b>Lv${l} → ${l+1}:</b> `:'')+d.ds(l+1)+`<span class="muted"> (최대 Lv3)</span>`,lv:l?`🏺 ${l}→${l+1}`:'새 유물'};}
+  if(o.t==='tr'){const d=TRD[o.r],l=o.l;return {ic:d.ic,nm:d.nm,ty:'⚖ 거래 — 얻는 만큼 잃어요',ds:`${d.ds}<span class="muted"> (최대 ${d.cap||3}번 · 지금 ${l}번)</span>`,lv:`⚖ ${l}→${l+1}`};}
   if(o.t==='sm'){const m=SM[o.r],v=smNext(o.r),tot=smv(o.r),n=smn(o.r),f=x=>m.pct?Math.round(x*1000)/10+'%':Math.round(x);
     return {ic:m.ic,nm:m.nm,ty:o.r==='ramen'?'🍴 간식 — 드물고 먹을수록 약해져요':'🍴 작은 능력치 — 먹을수록 약해져요',ds:`${m.unit} +${f(v)}<span class="muted"> (지금까지 +${f(tot)} · ${n}/${m.cap}번)</span>`,lv:o.r==='ramen'?'':`${n}→${n+1}`};}
   if(o.t==='co'){const d=CO[o.r];return {ic:d.ic,nm:d.nm,ty:'🎁 일회용',ds:d.ds,lv:''};}
@@ -815,7 +815,7 @@ function applyUp(o){
   if(o.t==='w'){S.w[o.k]=(S.w[o.k]||0)+1;synCalc();}
   else if(o.t==='p'){S.ps[o.k]=pv(o.k)+1;if(o.k==='hp'){S.p.mhp+=25;S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
   else if(o.t==='wt'){S.tier[o.w]=(S.tier[o.w]||0)+1;tkCalc();const d=WEAP[o.w];txt(S.p.x,S.p.y-34,`${S.ev[o.w]?'✨':'🏅'} ${d.nm} ${S.tier[o.w]}`,'#ffd36a');}
-  else if(o.t==='pt'){S.pt[o.p]=(S.pt[o.p]||0)+1;if(o.p==='hp'&&S.pt.hp===1){S.p.mhp+=40;S.p.hp=Math.min(S.p.mhp,S.p.hp+40);}}
+  else if(o.t==='pt'){S.pt[o.p]=(S.pt[o.p]||0)+1;if(o.p==='hp'&&S.pt.hp===1){S.p.mhp+=25;S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
   else if(o.t==='rl')S.rel[o.r]=(S.rel[o.r]||0)+1;
   else if(o.t==='tr'){S.tr[o.r]=trn(o.r)+1;if(o.r==='glassc'||o.r==='focus'){const c=Math.min(o.r==='glassc'?12:10,S.p.mhp-60);if(c>0){S.p.mhp-=c;S.p.hp=Math.min(S.p.hp,S.p.mhp);}}}
   else if(o.t==='sm'){if(o.r==='ramen')S.ramen++;else S.sm[o.r]=(S.sm[o.r]||0)+1;
@@ -823,7 +823,7 @@ function applyUp(o){
   else if(o.t==='co'){
     if(o.r==='feast')S.p.hp=S.p.mhp;
     else if(o.r==='pulse'){S.pulseT=S.t;relPulse(.3);}
-    else if(o.r==='xpb')gainXp(S.need*.6);
+    else if(o.r==='shield'){S.shield=1;txt(S.p.x,S.p.y-30,'🛡 방어막 충전','#9fd0ff');}
     else if(o.r==='dice'){S.rr+=2;S.ban++;}}
   else S.p.hp=Math.min(S.p.mhp,S.p.hp+Math.round(S.p.mhp*chkHeal()));
 }
@@ -833,11 +833,11 @@ function relPulse(frac){const p=S.p;SRC='rel';S.flash=Math.max(S.flash,.18);S.sh
 function relTick(dt){const p=S.p,R=S.rel;
   S.magT-=dt;if(S.spr>0)S.spr-=dt;if(S.leechT>0)S.leechT-=dt;
   for(let i=S.dq.length-1;i>=0;i--){const q=S.dq[i];q.t-=dt;if(q.t<=0){S.dq.splice(i,1);q.f();}}
-  if(R.still){if(p.moving)S.stillT=0;else S.stillT+=dt;if(!S.shield&&S.stillT>=[2,1.6,1.2][R.still-1]){S.shield=1;S.stillT=0;txt(p.x,p.y-30,'🛡 방어막 충전','#9fd0ff');}}
-  if(R.storm){S.stT-=dt;if(S.stT<=0){S.stT=[7,6,5][R.storm-1];const n=[3,4,5][R.storm-1],d=55*dmgMul();SRC='rel';let any=false;
+  if(R.still){if(p.moving)S.stillT=0;else S.stillT+=dt;if(!S.shield&&S.stillT>=[3.5,3,2.5][R.still-1]){S.shield=1;S.stillT=0;txt(p.x,p.y-30,'🛡 방어막 충전','#9fd0ff');}}
+  if(R.storm){S.stT-=dt;if(S.stT<=0){S.stT=[9,8,7][R.storm-1];const n=[2,2,3][R.storm-1],d=40*dmgMul();SRC='rel';let any=false;
     for(let i=0;i<n;i++){const e=randLive();if(!e||!e.on||!onScr(e,20))continue;any=true;const b=bolts.get();if(b){b.x1=e.x;b.y1=e.y-260;b.x2=e.x;b.y2=e.y;b.life=.2;b.ev=1;}hurt(e,d);if(S.booms.length<40)S.booms.push({x:e.x,y:e.y,t:.05,R:40,d:d*.5,done:false,ev:0,src:'rel'});}
     if(any)AU.play('zap');SRC='';}}
-  if(R.pulse){S.relT+=dt;if(S.relT>=[70,60,50][R.pulse-1]){S.relT=0;S.pulseT=S.t;relPulse([.25,.3,.35][R.pulse-1]);}}
+  if(R.pulse){S.relT+=dt;if(S.relT>=[90,80,70][R.pulse-1]){S.relT=0;S.pulseT=S.t;relPulse([.15,.2,.25][R.pulse-1]);}}
 }
 function pick(o){
   applyUp(o);
@@ -1091,19 +1091,19 @@ const josa=(s,a,b)=>{const c=String(s).charCodeAt(String(s).length-1);return s+(
 function txt(x,y,s,c){const t=texts.get();if(t){t.x=x;t.y=y;t.s=s;t.life=.9;t.c=c||'#fff';t.big=0;}}
 function say(e,s){if(!s)return;const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r-26;t.s='💬 '+s;t.life=2.2;t.c='#ffe7a8';t.big=1;}}
 function hurt(e,d){
-  let crit=false;const cc=(CH.crit||0)+.03*LK()+.05*pv('crit')+.05*PTV('luck')+.06*trn('focus')+smv('crit');if(cc&&Math.random()<cc){d*=2+.2*pv('crit')+.4*PTV('crit')+.25*(PTV('luck')?1:0);crit=true;}
+  let crit=false;const cc=(CH.crit||0)+.03*LK()+.05*pv('crit')+(PTV('luck')?.05:0)+.06*trn('focus')+smv('crit');if(cc&&Math.random()<cc){d*=2+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);crit=true;}
   if(CH.low&&S.p.hp<S.p.mhp*.3)d*=1+CH.low;
   if(CH.rage)d*=1+Math.min(CH.rage,Math.max(0,1-S.p.hp/S.p.mhp));   // 💔 「씩씩」 잃은 체력 1%당 +1%(최대 +60%)
   if(SRC&&e.hp>0){const k=SRC;S.dmgBy[k]=(S.dmgBy[k]||0)+Math.min(d,e.hp);}
   e.hp-=d;e.hit=.08;if(e.hp>0)AU.play('hit');
-  if(S.rel.tenth&&SRC!=='rel'&&++S.hc>=[10,8,6][S.rel.tenth-1]){S.hc=0;if(S.booms.length<40)S.booms.push({x:e.x,y:e.y,t:.05,R:70*(1+.1*pv('area')),d:30*dmgMul()*[1,1.3,1.6][S.rel.tenth-1],done:false,ev:0,src:'rel'});}   // 🎲 [2026-09-30 사장님 지시] 🥁 열 번째 타격(유물 폭발은 다시 세지 않는다)
+  if(S.rel.tenth&&SRC!=='rel'&&++S.hc>=[14,12,10][S.rel.tenth-1]){S.hc=0;if(S.booms.length<40)S.booms.push({x:e.x,y:e.y,t:.05,R:70*(1+.1*pv('area')),d:22*dmgMul()*[1,1.3,1.6][S.rel.tenth-1],done:false,ev:0,src:'rel'});}   // 🎲 [2026-09-30 사장님 지시] 🥁 열 번째 타격(유물 폭발은 다시 세지 않는다)
   if(!S.lite||crit||e.boss||e.el){const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r;t.s=String(Math.round(d));t.life=.5;t.c=crit?'#ff6b6b':e.boss?'#f5c04a':'#fff';t.big=0;}}
   if(e.boss&&e.b.hit&&S.t-S.sayT>6){S.sayT=S.t;say(e,pickLine(e.b.hit));}
   if(e.hp<=0&&!e.boss&&!e.eg&&KIND[e.ki].egg){   // 🥚 애니비아 — 처음 쓰러지면 알이 된다(4초 안에 깨야 한다)
     e.eg=1;e.hp=e.mhp*.4;e.ft=4;e.ph=0;e.kb=0;const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r-8;t.s='🥚 알이 됐다!';t.life=.9;t.c='#9ad8ff';t.big=0;}return;}
   if(e.hp<=0){e.on=false;S.kills++;AU.play('kill');
     if(pv('vamp')&&++S.vk>=30){S.vk=0;S.p.hp=Math.min(S.p.mhp,S.p.hp+2*pv('vamp'));}   // 🥩 고기 반찬
-    if(S.rel.leech&&S.leechT<=0){S.leechT=[3,2.5,2][S.rel.leech-1];S.p.hp=Math.min(S.p.mhp,S.p.hp+[2,3,4][S.rel.leech-1]);}   // 🎲 [2026-09-30 사장님 지시] 🩹 처치 응급처치
+    if(S.rel.leech&&S.leechT<=0){S.leechT=[5,4,3.5][S.rel.leech-1];S.p.hp=Math.min(S.p.mhp,S.p.hp+[1,1,2][S.rel.leech-1]);}   // 🎲 [2026-09-30 사장님 지시] 🩹 처치 응급처치
     const KK=e.boss?null:KIND[e.ki];
     if(KK&&KK.kog&&e.ph!==3)kogBoom(e);   // 💥 코그모 — 잡아도 그 자리에서 터진다
     if(KK&&KK.zac&&e.id==='Zac'&&e.gen<2)zacSplit(e);   // 🟢 자크 분열
@@ -1141,7 +1141,7 @@ function nearTo(x,y,R,id){let b=null,bd=R*R;for(const e of enemies.a){if(!e.on||
 function fire(x,y,a,v,life,dmg,pc,r,c){const s=shots.get();if(!s)return;s.x=x;s.y=y;s.vx=Math.cos(a)*v;s.vy=Math.sin(a)*v;s.life=life;s.dmg=dmg;s.pierce=pc;s.r=r;s.c=c;}
 function randLive(){const L=S.live;return L.length?L[Math.random()*L.length|0]:null;}
 function weapons(dt){
-  const p=S.p,cm=cdMul(),MT=dmgMul(),AR=1+.1*pv('area')+.1*PTV('area')+.1*trn('wide')-.05*trn('gale'),AM=pv('amt');let L;
+  const p=S.p,cm=cdMul(),MT=dmgMul(),AR=1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale'),AM=pv('amt');let L;
   for(const k in S.w)if(S.cd[k]===undefined)S.cd[k]=0;
   // 🌾 사료 투척 → 🌪 사료 폭풍
   L=S.w.feed||0;SRC='feed';
@@ -1317,7 +1317,7 @@ function die(){   // 👼 부활이 남아 있으면 일어난다
 }
 function hitP(d,msg){const p=S.p;if(p.inv>0)return false;
   if(S.shield){S.shield=0;p.inv=.6;S.shake=Math.max(S.shake,.1);AU.play('hit');txt(p.x,p.y-26,'🛡 막았다!','#9fd0ff');return false;}   // 🎲 [2026-09-30 사장님 지시] 🛡 명상 방어막
-  const arm=pv('arm')+(CH.arm||0)+2*pv('turtle')+trn('iron')+(PTV('arm')?1:0);d*=(1+.1*pv('glass'))*(p.moving&&PTV('spd')?.88:1);p.hp-=Math.max(1,d-arm);p.inv=.45+(PTV('arm')?.15:0)+(S.rel.sprint>=3?.3:0);S.shake=Math.max(S.shake,.12);AU.play('hurt');
+  const arm=pv('arm')+(CH.arm||0)+2*pv('turtle')+trn('iron');d*=(1+.1*pv('glass'))*(p.moving&&PTV('spd')?.94:1);p.hp-=Math.max(1,d-arm);p.inv=.45+(PTV('arm')?.12:0)+(S.rel.sprint>=3?.2:0);S.shake=Math.max(S.shake,.12);AU.play('hurt');
   if(S.rel.sprint)S.spr=2;if(PTV('arm')>=2&&p.hp>0){for(const e of S.live)if(e.on&&!e.boss){const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy)||1;if(dd<130){e.kr=0;knock(e,dx/dd,dy/dd,260,.25);}}}
   if(msg){const t=texts.get();if(t){t.x=p.x;t.y=p.y-24;t.s=msg;t.life=.8;t.c='#ffb089';t.big=0;}}
   if(CH.dash&&S.dashCd<=0&&p.hp>0)taeDash();   // 💔 태웅 — 맞으면 돌진 무적
@@ -1379,8 +1379,8 @@ function update(dt){
   if(p.stun>0){p.stun-=dt;mx=my=0;p.moving=false;}   // 🪨 에어본 — 잠깐 못 움직인다
   if(p.moving){const l=Math.hypot(mx,my)||1;p.mdx=mx/l;p.mdy=my/l;}   // 🔥 브레스는 마지막으로 움직인 방향
   if(p.slow>0)p.slow-=dt;
-  const sp=p.sp*(1+.08*pv('spd')+(CH.spd||0)-.05*pv('turtle')+(S.spr>0?[.25,.4,.55][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.rel.berserk&&p.hp<=p.mhp*.4?.1:0))*(p.slow>0?.6:1);   // 🎲 [2026-09-30 사장님 지시] 
-  if((CH.regen||0)+(PTV('hp')>=2?.4:0)>0&&p.hp<p.mhp)p.hp=Math.min(p.mhp,p.hp+((CH.regen||0)+(PTV('hp')>=2?.4:0))*dt);p.x+=mx*sp*dt;p.y+=my*sp*dt;if(mx)p.face=mx>0?1:-1;
+  const sp=p.sp*(1+.08*pv('spd')+(CH.spd||0)-.05*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.rel.berserk&&p.hp<=p.mhp*.4?.1:0))*(p.slow>0?.6:1);   // 🎲 [2026-09-30 사장님 지시] 
+  if((CH.regen||0)+(PTV('hp')>=2?.25:0)>0&&p.hp<p.mhp)p.hp=Math.min(p.mhp,p.hp+((CH.regen||0)+(PTV('hp')>=2?.25:0))*dt);p.x+=mx*sp*dt;p.y+=my*sp*dt;if(mx)p.face=mx>0?1:-1;
   if(p.yt>0){const k=Math.min(dt,p.yt);p.yt-=dt;p.x+=p.yvx*k;p.y+=p.yvy*k;}   // 🪝 끌려가거나 🌪 밀려난다
   if(S.room){const R=S.room;R.t-=dt;R.R=Math.max(110,R.R-40*dt);const dx=p.x-R.x,dy=p.y-R.y,d=Math.hypot(dx,dy);   // ☠ 진실의 방 — 밖으로 못 나간다
     if(d>R.R-p.r){p.x=R.x+dx/d*(R.R-p.r);p.y=R.y+dy/d*(R.R-p.r);}if(R.t<=0)S.room=null;}
@@ -1466,10 +1466,10 @@ function update(dt){
   if(S.cone){const c=S.cone;c.t-=dt;if(!(c.e.on&&c.e.sn===c.sn)){S.cone=null;}else if(c.t<=0){S.cone=null;S.shake=.3;AU.play('boom');   // 🐲 드래곤 브레스(부채꼴)
     const dx=p.x-c.e.x,dy=p.y-c.e.y,d=Math.hypot(dx,dy);let da=Math.atan2(dy,dx)-c.a;da=Math.atan2(Math.sin(da),Math.cos(da));
     if(d<c.R&&Math.abs(da)<c.w&&hitP(c.d,'🐲 브레스!'))return;}}
-  const mag=(70*(1+.3*pv('mag')+(CH.mag||0)+.6*(PTV('mag')?1:0)+smv('mag')))**2,am=S.magT<=0&&PTV('mag')>=2;if(am)S.magT=20;
+  const mag=(70*(1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag')))**2,am=S.magT<=0&&PTV('mag')>=2;if(am)S.magT=20;
   for(const g of gems.a){if(!g.on)continue;const dx=p.x-g.x,dy=p.y-g.y,d2=dx*dx+dy*dy;
     if(d2<mag||am)g.mag=1;if(g.mag){const d=Math.sqrt(d2)||1;g.x+=dx/d*480*dt;g.y+=dy/d*480*dt;}
-    if(d2<(p.r+6)**2){g.on=false;AU.play('gem');gainXp(g.v*XP_X*(1+(CH.xp||0)+.08*pv('study')+S.syn.xp+.08*PTV('study')+.05*(PTV('mag')?1:0)+smv('xp')));}}
+    if(d2<(p.r+6)**2){g.on=false;AU.play('gem');gainXp(g.v*XP_X*(1+(CH.xp||0)+.08*pv('study')+S.syn.xp));}}
   for(const t of texts.a)if(t.on){t.life-=dt;t.y-=(t.big?12:40)*dt;if(t.life<=0)t.on=false;}
   bubTick(dt);
   mapTick(dt);if(state!=='play')return;
