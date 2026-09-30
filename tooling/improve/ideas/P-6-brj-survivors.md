@@ -27,7 +27,7 @@
 ## 클랜원 캐릭터 그림 — 방식 2: 브장신 + 시그니처 소품 (사장님 선택)
 | 캐릭터 | 능력 | 소품(출처) | 새로 뽑을 그림 |
 |---|---|---|---|
-| 🗡 집중겜 | 치명타 20% | 치속크라켄(BRJ_GEAR g_kraken) | 크라켄 검을 든 브장신 |
+| 🔫 집중겜 | 치명타 20% | 치속크라켄 → 미스 포츈 코스프레 + 머리 위 배지(치명적 속도 룬·크라켄 학살자 아이템) | 붉은 가발·삼각모·쌍권총 병아리 |
 | 🥲 망무새 | HP 30%↓ 피해 +60% | "난 망했어"(BRJ_CAMEOS) | 울상 + 머리 위 먹구름 |
 | 🏄 조선제일하리보 | 이동속도 +20% | 다대포 서핑보드(g_surf) | 자크 코스프레(연두 슬라임 옷) 병아리 |
 | ✈️ 승수 | 초당 회복 0.8·받는 피해 -1 | 기내 서비스(공개 밈 기반 · 키 `ssu`) | 승무원 제복 + 쟁반 든 병아리 |
@@ -39,7 +39,7 @@
 ### 그림 제작 완료 (2026-09-30) — 8종 `img/survivors/char_<key>.webp` (256px WebP, 10~22 KB), survivors.html 에 연결, `REVEAL=false` 로 숨김 — 공개는 사장님 결정
 - 레시피: 환경에 키 없음(세션 프록시가 인증) → `POST https://api.openai.com/v1/images/edits` 멀티파트(model=gpt-image-2, image=front.png, quality=low, size=1024x1024, background=transparent, output_format=png, prompt). 프록시가 ~30초에 끊어 medium 은 실패, low 는 ~20초. 분당 입력 이미지 5장 제한이라 동시 4개 이하·429 는 재시도. 결과는 회색/어두운 배경에 합성해 눈으로 확인(contact sheet).
 - 프롬프트 틀: `Keep this yellow chick character exactly as it is — same head shape, face, cheeks, beak, feet, outline and art style — and it is <소품>. Front view, full body, centered, transparent background, same art style as the original, no text, no letters, no numbers.`
-- 소품 문구: jjg = holding a big sword with a kraken tentacle-themed blade · mms = sad teary face + small dark rain cloud above its head · hrb = slime-monster costume (translucent lime-green suit and hood, goo drips, face visible) · ssu = flight attendant (navy jacket, cap, red neckerchief, serving tray, charming smile) · amd = small picket sign, blank with a heart icon · ildj = porcelain half mask, dark-and-white gold-trimmed coat, tall hat, slim pistol cane · kyo = cat ears + hamburger · ddmj = small iron helmet + brick-pattern shield.
+- 소품 문구: jjg = pirate bounty-hunter captain (fiery red-orange wavy wig, tricorn hat with feather, red-and-gold coat, a pistol in each wing; 초안은 크라켄 검 — 교체). 머리 위 배지 2개(⚡ 치명적 속도 룬 · 🐙 크라켄 학살자 6672)는 그림에 굽지 않고 실행 때 그린다(Data Dragon 이 이 환경에서 막혀 있음 — `bdg` 필드, 카드·판·결과 얼굴, 못 불러오면 이모지 배지) · mms = sad teary face + small dark rain cloud above its head · hrb = slime-monster costume (translucent lime-green suit and hood, goo drips, face visible) · ssu = flight attendant (navy jacket, cap, red neckerchief, serving tray, charming smile) · amd = small picket sign, blank with a heart icon · ildj = porcelain half mask, dark-and-white gold-trimmed coat, tall hat, slim pistol cane · kyo = cat ears + hamburger · ddmj = small iron helmet + brick-pattern shield.
 - 전원 첫 시도에 통과(8장 + 폐기한 초안 3장: 방패 · 서핑보드 · 물약병 · 바벨은 주인 요청으로 교체).
 - 연결: 카드(`artEl`) · 판 중 스프라이트(`charImg`) · 결과 얼굴 — 보스 그림과 같은 경로(`hasArt`/`artUrl`). `shown()` 이 false 인 캐릭터는 그림을 요청하지 않는다.
 

@@ -98,6 +98,7 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 .bc{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;background:linear-gradient(180deg,#2b2140,var(--card2));border:1px solid var(--line);border-radius:10px;padding:4px 3px 6px;color:var(--txt);font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.25;overflow:hidden}
 .bc .art{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;margin:0 auto 2px}
 .bc .fb{display:block;font-size:30px;line-height:1;padding:12px 0 8px}
+.rc{position:relative}.bdgs{position:absolute;top:1px;left:50%;transform:translateX(-50%);display:flex;gap:2px;pointer-events:none}.bdg{width:16px;height:16px;border-radius:5px;background:rgba(10,12,24,.85);border:1px solid #c8a24a;font-size:10px;line-height:14px;text-align:center;overflow:hidden;display:block}.bdg img{width:100%;height:100%;display:block}
 .rc .art{display:block;width:52px;height:52px;object-fit:contain;margin:0 auto 2px}.rc .fb{display:block;font-size:24px;line-height:52px}.rc.art-lock .art{filter:brightness(0) invert(.42);opacity:.8}
 .bc.lock .art{filter:brightness(0) invert(.42);opacity:.8}.bc.lock .fb{filter:grayscale(1) brightness(.5)}
 .bc small{display:block;color:var(--sub);font-size:10.5px;font-weight:400;word-break:keep-all;overflow-wrap:anywhere}.bc.lock{color:var(--sub)}.bc.lock small{color:var(--mut)}
@@ -393,7 +394,7 @@ const SPR={run:sprite('img/brjang/parts/poses/run.png',96),front:sprite('img/brj
 const ICON={};let DDV=null;
 function champIcon(id){if(ICON[id]||!DDV)return;ICON[id]=sprite(`https://ddragon.leagueoflegends.com/cdn/${DDV}/img/champion/${id}.png`,64);}
 function accIcon(path){if(ICON[path]||!DDV)return;ICON[path]=sprite(`https://ddragon.leagueoflegends.com/cdn/${DDV}/img/${path}.png`,48);}   // 트롤 빌드 아이템·스펠
-try{fetch('https://ddragon.leagueoflegends.com/api/versions.json').then(r=>r.json()).then(v=>{DDV=v[0];for(const k of KIND){champIcon(k.id);(k.acc||[]).forEach(a=>accIcon(a[0]));}for(const b of Object.values(BOSS)){if(b.id)champIcon(b.id);(b.acc||[]).forEach(a=>accIcon(a[0]));}}).catch(()=>{});}catch(e){}
+try{fetch('https://ddragon.leagueoflegends.com/api/versions.json').then(r=>r.json()).then(v=>{DDV=v[0];try{renderRoster();}catch(e){}for(const k of KIND){champIcon(k.id);(k.acc||[]).forEach(a=>accIcon(a[0]));}for(const b of Object.values(BOSS)){if(b.id)champIcon(b.id);(b.acc||[]).forEach(a=>accIcon(a[0]));}}).catch(()=>{});}catch(e){}
 
 // ---------- 🔐 디스코드 로그인(메인 사이트와 같은 저장소 sgg_dc) · 서버 기록 ----------
 const P6_API='https://hth3thmujs.apps.bot-hosting.cloud';
@@ -449,7 +450,7 @@ function setProg(p){try{localStorage.setItem(PK,JSON.stringify(p));}catch(e){}}
 // 👥 클랜원 캐릭터 — 밈은 봇 BRJ_CAMEOS·BRJ_GEAR(사장님 승인분)에서만, 숫자는 시트 STAT_PLAYER·CLASSIC_NORMAL
 const CHARS=[
   {k:'brj',e:'🐤',nm:'브장신',tag:'스타터',q:'논란이 되겠는걸',ds:'🌾 사료 투척으로 시작. 평범하지만 엄.',w:'feed',un:null},
-  {k:'jjg',img:1,e:'🗡',nm:'집중겜',tag:'원딜 · 378판',q:'집중하면 뭐든 벤다',ds:'「치속크라켄」 — 모든 공격 20% 확률 치명타(2배). 🌾 사료 Lv2 시작.',w:'feed',wl:2,crit:.2,un:{t:'처치 누적 300',ok:p=>p.kills>=300,pr:p=>`${Math.min(p.kills,300)}/300`}},
+  {k:'jjg',img:1,bdg:[{u:'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',e:'⚡'},{it:6672,e:'🐙'}],e:'🔫',nm:'집중겜',tag:'원딜 · 378판',q:'집중하면 뭐든 벤다',ds:'「치명적 속도 · 크라켄 학살자」 — 미스 포츈 코스프레 선장. 모든 공격 20% 확률 치명타(2배). 🌾 사료 Lv2 시작.',w:'feed',wl:2,crit:.2,un:{t:'처치 누적 300',ok:p=>p.kills>=300,pr:p=>`${Math.min(p.kills,300)}/300`}},
   {k:'mms',img:1,e:'🥲',nm:'망무새',tag:'미드 · 232판',q:'난 망했어',ds:'「난 망했어」 — HP 30% 이하에서 피해 +60%. 🥚 달걀 폭탄 시작.',w:'egg',low:.6,un:{t:'쓰러지기 3회',ok:p=>p.deaths>=3,pr:p=>`${Math.min(p.deaths,3)}/3`}},
   {k:'hrb',img:1,e:'🏄',nm:'조선제일하리보',tag:'정글 · 137판',q:'집집집집집집',ds:'「자크 코스프레」 — 끈적끈적 슬라임 옷으로 이동속도 +20%. 🍟 튀김기 오라 시작.',w:'fryer',spd:.2,un:{t:'5분 생존',ok:p=>p.best>=300,pr:p=>`최고 ${fmt(p.best)}`}},
   {k:'ssu',img:1,e:'✈️',nm:'승수',tag:'기내 서비스',q:'승객 여러분, 안전벨트를 매 주세요.',ds:'「기내 서비스」 — 초당 HP 0.8 회복, 받는 피해 -1. 🥫 제로콜라 캔 시작.',w:'can',regen:.8,arm:1,un:{t:'🌾 사료 투척 Lv5',ok:p=>p.w5.feed,pr:p=>p.w5.feed?'완료':'미완'}},
@@ -475,6 +476,11 @@ let CH=CHARS[0];try{const c=localStorage.getItem(CK);const f=CHARS.find(x=>x.k==
 const bossArt=k=>'img/survivors/boss_'+k+'.webp';
 const hasArt=c=>!!(c.boss||c.img);   // 🎨 그림이 있는 캐릭터(보스 · 클랜원) — 클랜원 그림은 공개(REVEAL)된 뒤에만 불러온다
 const artUrl=c=>c.boss?bossArt(c.k):'img/survivors/char_'+c.k+'.webp';
+const BDI={};
+const bdgUrl=b=>b.u||(DDV&&b.it?`https://ddragon.leagueoflegends.com/cdn/${DDV}/img/item/${b.it}.png`:null);   // 🏷 머리 위 배지(룬·아이템 아이콘) — 못 불러오면 이모지 동그라미
+function bdgSpr(b){if(!BDI[b.e]){const u=bdgUrl(b);if(u)BDI[b.e]=sprite(u,48);}return BDI[b.e];}
+function bdgEls(c){const w=document.createElement('span');w.className='bdgs';for(const b of c.bdg||[]){const s=document.createElement('span');s.className='bdg';s.textContent=b.e;const u=bdgUrl(b);
+  if(u){const im=new Image();im.alt='';im.onload=()=>{s.textContent='';s.appendChild(im);};im.src=u;}w.appendChild(s);}return w;}
 const bkey=c=>c.boss?c.k:'c:'+c.k;
 const chLine=c=>c.boss?pickLine(BOSS[c.k].sp0):c.q;   // 🐲 보스 캐릭터의 한 줄 = 봇 레이드 출현 대사
 const chDesc=c=>`<b>${c.e} ${esc(c.nm)}</b> “${esc(chLine(c))}” · ${c.ds}`;
@@ -486,7 +492,7 @@ function renderRoster(){const pg=getProg();const box=$('roster'),bx=$('bossRoste
     if(c.boss){b.className='bc'+(c===CH?' on':'')+(ok?'':' lock');b.setAttribute('aria-label',c.nm+(ok?'':' — 잠김, 해금: '+c.un.t));
       b.appendChild(artEl(c));b.insertAdjacentHTML('beforeend',`${esc(c.sn)}<small>${ok?c.tag:'🔒 '+esc(c.un.t)}</small>`);}
     else{b.className='rc'+(c===CH?' on':'')+(ok?'':' lock');
-      if(!hid&&c.img){b.appendChild(artEl(c));b.insertAdjacentHTML('beforeend',`${esc(c.nm)}<small>${ok?c.tag:esc(c.un.t)}</small>`);if(!ok)b.classList.add('art-lock');}
+      if(!hid&&c.img){b.appendChild(artEl(c));if(c.bdg&&ok)b.appendChild(bdgEls(c));b.insertAdjacentHTML('beforeend',`${esc(c.nm)}<small>${ok?c.tag:esc(c.un.t)}</small>`);if(!ok)b.classList.add('art-lock');}
       else b.innerHTML=hid?`<span class="e">🔒</span>???<small>${met?'조건 달성 · 공개 준비 중':esc(c.un.t)}</small>`:`<span class="e">${ok?c.e:'🔒'}</span>${c.nm}<small>${ok?c.tag:c.un.t}</small>`;}
     b.onclick=()=>{$('chDesc').innerHTML=hid?`🔒 <b>???</b> — ${met?'해금 조건 달성! 캐릭터 공개를 기다려 주세요.':`해금: ${esc(c.un.t)} (${c.un.pr(pg)})`}<br><span class="muted">곧 공개될 클랜원 캐릭터예요.</span>`:ok?chDesc(c):`🔒 <b>${c.e} ${esc(c.nm)}</b> — 해금: ${esc(c.un.t)} (${c.un.pr(pg)})<br>${c.ds}`;
       if(ok){CH=c;try{localStorage.setItem(CK,c.k);}catch(e){}if(hasArt(c))charImg(c);renderRoster();}};
@@ -1192,7 +1198,7 @@ function bumpKey(e){   // 몸에 부딪혀 피해가 들어갈 때 말할 트롤
 const hazards=new Pool(60,()=>({x:0,y:0,life:0,d:8,own:null,osn:0}));   // 🍄 버섯(own/osn 심은 티모 — 도발 말풍선)
 const eshots=new Pool(LOW?100:140,()=>({x:0,y:0,vx:0,vy:0,life:0,d:0,g:'',sl:0,k:0,src:null,sn:0,ox:0,oy:0}));   // k 1 🪝 갈고리(끌어당김) · 2 🌪 회오리(밀쳐냄)
 const BIMG={};function bossImg(k){if(!BIMG[k])BIMG[k]=sprite('img/survivors/boss_'+k+'.webp',200);return BIMG[k];}
-function charImg(c){const k=bkey(c);if(!BIMG[k])BIMG[k]=sprite(artUrl(c),200);return BIMG[k];}
+function charImg(c){for(const b of c.bdg||[])bdgSpr(b);const k=bkey(c);if(!BIMG[k])BIMG[k]=sprite(artUrl(c),200);return BIMG[k];}
 const pickLine=a=>a&&a.length?a[Math.random()*a.length|0]:'';
 function spawnEnemy(kind,mult,boss,at){
   const e=enemies.get();if(!e)return null;
@@ -1700,7 +1706,7 @@ function endRun(won,quit){
     :['크큭.. 다음엔 AP 마오카이다','제발… 한 판만 더','증바람 하실분?','크큭.. 이번 트롤픽도 완벽했군','내 빌드에 문제는 없었다. 팀이 문제였지','서폿 이즈리얼… 이것이 낭만','다음 판은 정글 티모로 간다','ㅋㅋ 방금 그거 의도한 거임'];
   // 🐲 보스 캐릭터로 했으면 그 보스가 말한다 — 클리어는 봇 레이드 승리 대사(win), 쓰러짐·포기는 퇴장 대사(dead). 그림을 못 불러왔으면 예전처럼 흐접새우
   const bi=hasArt(CH)?BIMG[bkey(CH)]:null,bs=!!(bi&&bi.c),face=document.querySelector('#result .face');
-  face.style.backgroundImage=bs?`url(${artUrl(CH)})`:'';face.style.backgroundSize=bs?'contain':'';face.style.backgroundPosition=bs?'50% 45%':'';face.setAttribute('aria-label',bs?CH.nm:'흐접새우');
+  face.style.backgroundImage=bs?`url(${artUrl(CH)})`:'';face.style.backgroundSize=bs?'contain':'';face.style.backgroundPosition=bs?'50% 45%':'';face.setAttribute('aria-label',bs?CH.nm:'흐접새우');face.querySelectorAll('.bdgs').forEach(x=>x.remove());if(bs&&CH.bdg){face.style.position='relative';face.appendChild(bdgEls(CH));}
   $('rSay').textContent=bs&&CH.boss?pickLine(won?BOSS[CH.k].win:BOSS[CH.k].dead):!won&&!quit&&Math.random()<.5?pickLine(DEATH_SAY):SAY[Math.random()*SAY.length|0];   // 💬 쓰러졌을 땐 절반은 도발 마무리 대사
   renderRoster();show('result');submitRun(won);
 }
@@ -2202,7 +2208,9 @@ function draw(){
   if(!blink){cx.save();cx.translate(p.x,p.y);if(p.face<0)cx.scale(-1,1);
     if(spr&&hasArt(CH)){const k=72/Math.max(spr.width,spr.height),w=spr.width*k,h=spr.height*k;
       cx.fillStyle='rgba(0,0,0,.32)';cx.beginPath();cx.ellipse(0,p.r+4,20,6,0,0,7);cx.fill();
-      cx.drawImage(spr,-w/2,p.r+8-h+(p.moving?Math.sin(S.t*14)*1.5:0),w,h);}
+      const by=p.r+8-h+(p.moving?Math.sin(S.t*14)*1.5:0);cx.drawImage(spr,-w/2,by,w,h);
+      if(CH.bdg){const n=CH.bdg.length,bs=17,gp=3,x0=-(n*bs+(n-1)*gp)/2;CH.bdg.forEach((b,i)=>{const bx=x0+i*(bs+gp),by2=by-bs-2,im=bdgSpr(b);cx.save();cx.scale(p.face<0?-1:1,1);cx.fillStyle='rgba(10,12,24,.85)';cx.strokeStyle='#c8a24a';cx.lineWidth=1;cx.beginPath();cx.roundRect?cx.roundRect(bx,by2,bs,bs,5):cx.rect(bx,by2,bs,bs);cx.fill();cx.stroke();
+        if(im&&im.c)cx.drawImage(im.c,bx+1,by2+1,bs-2,bs-2);else{cx.font='11px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillStyle='#fff';cx.fillText(b.e,bx+bs/2,by2+bs/2+1);cx.textBaseline='alphabetic';}cx.restore();});}}
     else if(spr){const s=52,h=s*spr.height/spr.width;cx.drawImage(spr,-s/2,-h/2-4+(p.moving?Math.sin(S.t*18)*2:0),s,h);}
     else{cx.fillStyle='#212636';cx.strokeStyle='#f5c04a';cx.lineWidth=2;cx.beginPath();cx.arc(0,0,p.r+4,0,7);cx.fill();cx.stroke();cx.scale(p.face<0?-1:1,1);cx.font='22px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(CH.e,0,1);cx.textBaseline='alphabetic';cx.font='bold 11px sans-serif';cx.fillStyle='#e7eaf3';cx.fillText(CH.nm,0,p.r+18);}
     cx.restore();}
