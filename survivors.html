@@ -242,14 +242,15 @@ const HZ=(()=>{
   const o={on,pat:null,patS:null};
   function mk(sz,lw,a){const c=document.createElement('canvas');c.width=c.height=sz;const g=c.getContext('2d');g.strokeStyle='rgba(255,45,85,'+a+')';g.lineWidth=lw;
     for(let k=-1;k<=1;k++){g.beginPath();g.moveTo(k*sz-1,sz+1);g.lineTo(k*sz+sz+1,-1);g.stroke();}return cx.createPattern(c,'repeat');}   // 오른쪽 위로 뻗는 사선 — 이음매 없이 이어 붙는다
-  o.pat=mk(14,2.6,.46);o.patS=mk(14,4.4,.62);
+  o.pat=mk(14,2.6,.46);o.patS=mk(14,4.4,.62);const PMX=new DOMMatrix();let PMo=-1;
   o.set=function(v){o.on=v?1:0;try{localStorage.setItem('p6_hz',o.on?'1':'0');}catch(e){}o.ui();};
   o.ui=function(){for(const el of document.querySelectorAll('input[data-hz]'))el.checked=!!o.on;for(const el of document.querySelectorAll('[data-hzv]'))el.textContent=o.on?'켜짐':'꺼짐';};
   const cl=k=>k<0?0:k>1?1:k;
   // 원형 예고 — k: 0(방금 떴다)→1(터진다). 차오르는 안쪽 원 + 사선 빗금 + 어두운 밑선 위의 돌아가는 진홍 점선(마지막 28%는 뜨거운 흰색)
   o.disc=function(x,y,R,k,g){const t=S.t,lw=(o.on?4.2:3)*(1+.16*Math.sin(t*15)),off=(t*22)%14;k=cl(k);
     cx.fillStyle='rgba(255,45,85,'+(.07+.08*k).toFixed(3)+')';cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();
-    cx.save();cx.translate(x+off,y);cx.fillStyle=o.on?o.patS:o.pat;cx.beginPath();cx.arc(-off,0,R,0,7);cx.fill();cx.restore();
+    if(off!==PMo){PMo=off;PMX.e=off;o.pat.setTransform(PMX);o.patS.setTransform(PMX);}   // 🚀 빗금 무늬를 옆으로 흘린다 — 예전엔 원마다 save·translate·restore
+    cx.fillStyle=o.on?o.patS:o.pat;cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();
     if(k>.02){cx.fillStyle='rgba(255,70,90,'+(.11+.17*k).toFixed(3)+')';cx.beginPath();cx.arc(x,y,R*k,0,7);cx.fill();
       cx.strokeStyle='rgba(255,241,194,.78)';cx.lineWidth=1.6;cx.stroke();}
     cx.beginPath();cx.arc(x,y,R,0,7);cx.lineWidth=lw+3.5;cx.strokeStyle=PAL.dzDark;cx.stroke();
@@ -1774,14 +1775,14 @@ const EX=(()=>{
       if(b.t>0){const T=b.T||.45,u=Math.max(0,Math.min(1,1-b.t/T)),ma=dn*(st==='chick'?.85:1);
         if(np<=6){cx.globalAlpha=(.5+.5*u)*ma;SPX.blit(SPX.mark,b.x,b.y,R,2);cx.globalAlpha=1;}   // 여럿이면 큰 스프라이트는 생략(링만)
         {const ms=SPX.cam.s,rdv=Math.round(R*ms);
-          if(rdv>=2&&rdv<=RMAXD){if(RSs!==ms){RS.clear();RSs=ms;}{const ra=(.28+.42*u)*ma;if(ra>.035){cx.globalAlpha=ra;ringBlit(ringImg(9,rdv,Math.round(2*ms*2),16),b.x,b.y);cx.globalAlpha=1;}}}
+          if(rdv>=2&&rdv<=RMAXD){if(RSs!==ms){RS.clear();RSs=ms;}{const ra=(.28+.42*u)*ma;if(ra>.1){cx.globalAlpha=ra;ringBlit(ringImg(9,rdv,Math.round(2*ms*2),16),b.x,b.y);cx.globalAlpha=1;}}}
           else{cx.beginPath();cx.arc(b.x,b.y,R,0,7);cx.lineWidth=2;cx.strokeStyle='rgba(111,230,255,'+((.28+.42*u)*ma).toFixed(2)+')';cx.stroke();}}
         if(np<=3){cx.beginPath();cx.arc(b.x,b.y,R*(1+.4*(1-u)),0,7);cx.lineWidth=1.5;cx.strokeStyle='rgba(242,253,255,'+((.12+.5*u)*ma).toFixed(2)+')';cx.stroke();}
         const h=(st==='chick'?190:150)*(1-u)*(1-u);
-        cx.fillStyle='rgba(0,0,0,'+(.12+.26*u).toFixed(2)+')';cx.beginPath();cx.ellipse(b.x,b.y+3,5+9*u,2.4+4*u,0,0,7);cx.fill();
-        if(st==='chick'){SPX.blitRot(SPX.chick,b.x,b.y-h-8,13*(.8+.4*u),Math.sin(S.t*22+b.x)*.35);}
+        if(np<=20){cx.fillStyle='rgba(0,0,0,'+(.12+.26*u).toFixed(2)+')';cx.beginPath();cx.ellipse(b.x,b.y+3,5+9*u,2.4+4*u,0,0,7);cx.fill();}
+        if(st==='chick'){if(np>10)SPX.blit(SPX.chick,b.x,b.y-h-8,13*(.8+.4*u),2);else SPX.blitRot(SPX.chick,b.x,b.y-h-8,13*(.8+.4*u),Math.sin(S.t*22+b.x)*.35);}   // 🚀 한꺼번에 많이 떨어질 땐 돌리지 않는다
         else if(st==='gacha'){cx.save();cx.translate(b.x,b.y-h-8);const rad=7+3*u;cx.beginPath();cx.arc(0,0,rad,Math.PI,0);cx.fillStyle='#8b7bff';cx.fill();cx.beginPath();cx.arc(0,0,rad,0,Math.PI);cx.fillStyle='#f2fdff';cx.fill();cx.lineWidth=1.4;cx.strokeStyle='rgba(20,30,70,.8)';cx.beginPath();cx.arc(0,0,rad,0,7);cx.stroke();cx.restore();}
-        else if(SPR.egg.c){SPX.blitRot(SPR.egg.c,b.x,b.y-h-12,21+5*u,(1-u)*7);}
+        else if(SPR.egg.c){if(np>10)SPX.blit(SPR.egg.c,b.x,b.y-h-12,21+5*u,2);else SPX.blitRot(SPR.egg.c,b.x,b.y-h-12,21+5*u,(1-u)*7);}
         else{cx.fillStyle='#fff6e4';cx.beginPath();cx.ellipse(b.x,b.y-h-12,9,12,0,0,7);cx.fill();cx.lineWidth=1.5;cx.strokeStyle='#0a0c26';cx.stroke();}}
       else if(b.t>-.25){cx.globalAlpha=Math.max(0,.9+b.t*3.4);SPX.blit(SPX.mark,b.x,b.y,R,2);cx.globalAlpha=1;}}};   // 터진 자리(범위) — 잠깐 남는다
   o.fx=function(){   // 충격 링·번쩍임·입자 — 적 위 · 내 캐릭터 아래(나를 가리지 않는다)
@@ -1807,7 +1808,7 @@ const EX=(()=>{
       cx.fillStyle='#fff6e4';cx.fill();cx.lineWidth=.9;cx.strokeStyle='rgba(166,132,92,.75)';cx.stroke();}
     n=bc[YK];if(n){cx.beginPath();for(j=0;j<n;j++){i=bi[YK][j];s=ps[i]*Math.min(1,pl[i]/pm[i]*2.5);const X=px[i],Y=py[i]-pz[i];cx.moveTo(X+s,Y);cx.arc(X,Y,s,0,7);}cx.fillStyle='#ffd84a';cx.fill();}
     n=bc[DB];if(n){cx.beginPath();for(j=0;j<n;j++){i=bi[DB][j];s=ps[i]*Math.min(1,pl[i]/pm[i]*3);c=Math.cos(pr[i])*s;sn=Math.sin(pr[i])*s;const X=px[i],Y=py[i]-pz[i];cx.moveTo(X+c,Y+sn);cx.lineTo(X-sn,Y+c);cx.lineTo(X-c,Y-sn);cx.lineTo(X+sn,Y-c);cx.closePath();}
-      cx.fillStyle='#3b425c';cx.fill();cx.lineWidth=.9;cx.strokeStyle='rgba(190,215,245,.4)';cx.stroke();}
+      cx.fillStyle='#3b425c';cx.fill();if(n<=16){cx.lineWidth=.9;cx.strokeStyle='rgba(190,215,245,.4)';cx.stroke();}}
     n=bc[FE];if(n){for(let col=0;col<2;col++){let any=false;cx.beginPath();for(j=0;j<n;j++){i=bi[FE][j];if((pc[i]===10?1:0)!==col)continue;any=true;s=ps[i]*Math.min(1,pl[i]/pm[i]*2.5);c=Math.cos(pr[i])*s;sn=Math.sin(pr[i])*s;const X=px[i],Y=py[i]-pz[i];
         cx.moveTo(X+c,Y+sn);cx.lineTo(X-sn*.3,Y+c*.3);cx.lineTo(X-c,Y-sn);cx.lineTo(X+sn*.3,Y-c*.3);cx.closePath();}
       if(any){cx.fillStyle=col?'#ffffff':'#fff2a8';cx.fill();cx.lineWidth=.7;cx.strokeStyle='rgba(210,180,90,.55)';cx.stroke();}}}
@@ -1816,7 +1817,7 @@ const EX=(()=>{
           cx.moveTo(X+c-sn,Y+sn+c*.2);cx.lineTo(X+c+sn,Y+sn-c*.2);cx.lineTo(X-c+sn,Y-sn-c*.2);cx.lineTo(X-c-sn,Y-sn+c*.2);cx.closePath();}
         cx.fillStyle=CC[col];cx.fill();}}
     n=bc[BB];if(n){cx.beginPath();for(j=0;j<n;j++){i=bi[BB][j];s=ps[i]*(.55+.45*Math.min(1,pl[i]/pm[i]*2));const X=px[i]+Math.sin(pr[i]+pl[i]*9)*1.6,Y=py[i]-pz[i];cx.moveTo(X+s,Y);cx.arc(X,Y,s,0,7);}
-      cx.fillStyle='rgba(180,236,255,.2)';cx.fill();cx.lineWidth=1.2;cx.strokeStyle='rgba(235,251,255,.9)';cx.stroke();}
+      if(n<=40){cx.fillStyle='rgba(180,236,255,.2)';cx.fill();}cx.lineWidth=1.2;cx.strokeStyle='rgba(235,251,255,.9)';cx.stroke();}   // 🚀 거품이 아주 많을 땐 속 채우기(옅은 하늘색)는 생략
     n=bc[EM];for(j=0;j<n;j++){i=bi[EM][j];s=ps[i]*Math.min(1,pl[i]/pm[i]*2)*2.2;SPX.blit(SPX.gfr,px[i],py[i]-pz[i],s,2);}
     n=bc[SP];if(n){for(let pass=0;pass<2;pass++){let any=false;cx.beginPath();for(j=0;j<n;j++){i=bi[SP][j];if((pc[i]>=12?1:0)!==pass)continue;any=true;const X=px[i],Y=py[i]-pz[i],k=Math.min(1,pl[i]/pm[i]*2.2)*.055;cx.moveTo(X,Y);cx.lineTo(X-pvx[i]*k,Y-pvy[i]*k);}
         if(any){cx.lineCap='round';
