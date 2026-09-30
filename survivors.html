@@ -55,6 +55,7 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 #bossb{margin-top:6px;display:none}#bossb .bar i{background:var(--gold)}
 .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(9,12,28,.8);z-index:5}
 .ov.on{display:flex}
+#lvup .box{max-height:calc(100vh - 32px);overflow-y:auto}   /* 🗡 [2026-09-30 사장님 지시] 카드가 길어도(새 무기 설명·시너지) 화면 밖으로 잘리지 않게 스크롤 */
 .box{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--acc);border-radius:14px;padding:18px 16px;width:100%;max-width:420px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,122,69,.08)}
 .box h1{font-size:22px;margin:4px 0}.box h2{font-size:18px;margin:0 0 10px;color:#ffb089}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -501,7 +502,7 @@ Pool.prototype.clear=function(){for(const o of this.a)o.on=false;};
 const LOW=(navigator.hardwareConcurrency||4)<=4||Math.min(screen.width,screen.height)<420;
 const MAXE=LOW?140:220;   // 적 수 상한은 그대로 — 후반엔 숫자 대신 체력·공격력이 오른다
 const enemies=new Pool(MAXE,()=>({x:0,y:0,hp:0,mhp:0,r:10,sp:0,dmg:0,t:0,hit:0,boss:0,xp:1,kb:0,kx:0,ky:0,st:0,slow:0,gold:0,hb:-9,wv:0,zp:0,el:0,fx:0,ft:0,pl:0,at:null,
-  bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0,tn:0,kr:0,bph:0,gen:0,wf:-9,cn:-9,far:0,fz:0,fv:0,fw:0,hk:0,mt:0,lw:-9}));   // fz·fv 🧊 얼음 · fw 얼음 파동 번호 · hk 🎣 줄 번호 · mt 운석·저격 지정 번호 · lw 🥏 뚜껑 마지막 접촉   // wf 📶 전파 · cn 🥫 캔 마지막 적중 시각   // kr 넉백 저항(연달아 밀릴수록 덜 밀린다) · bph 보스 페이즈 · gen 분열 세대(자크)   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호 · tn 등장 대사 대기(기한)
+  bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0,tn:0,kr:0,bph:0,gen:0,wf:-9,cn:-9,far:0,fz:0,fv:0,fw:0,hk:0,mt:0,mc:0,lw:-9}));   // fz·fv 🧊 얼음 · fw 얼음 파동 번호 · hk 🎣 줄 번호 · mt 운석·저격 지정 번호 · lw 🥏 뚜껑 마지막 접촉   // wf 📶 전파 · cn 🥫 캔 마지막 적중 시각   // kr 넉백 저항(연달아 밀릴수록 덜 밀린다) · bph 보스 페이즈 · gen 분열 세대(자크)   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호 · tn 등장 대사 대기(기한)
 let SN=0;   // 적 출생 번호 — 풀 칸은 재사용되므로 '같은 적인가'는 on 이 아니라 sn 으로 본다(갈고리·레이저·브레스의 주인)
 const srcOk=b=>!!(b.src&&b.src.on&&b.src.sn===b.sn);
 const shots=new Pool(LOW?160:220,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,pierce:0,r:6,c:'#e8c46a'}));
@@ -566,23 +567,23 @@ const WEAP={
     ds:['2.8초마다 캡슐 — 일반: 가까운 3마리 저격 · 레어: 큰 폭발 · 전설: 화면 전체(🍀 행운이 등급을 올린다)','피해 +35%','레어 확률 +8%','쿨타임 -20%','피해 +35%','전설 확률 +4%','캡슐 한 번 더','피해 +50% · 레어 확률 +8%']},
   // 🗡 [2026-09-30 사장님 지시] "무기 다양성 10개 정도는 기획해서 더 추가해 줘" — 새 무기 10종(nw:1 · rl 역할 표시). 설계·수치표: tooling/improve/ideas/P-6-weapons-v4.md
   //   짝 패시브: 새로 🩸 광분·🥩 고기 반찬·🐢 거북 등껍질이 처음 짝이 되고, 나머지 7개는 기존 무기와 최대 2개까지만 공유(한 패시브가 과부하되지 않게)
-  pan:{nw:1,rl:'근접 · 광역',ic:'🍳',nm:'프라이팬',pair:'glass',ev:{ic:'🥘',nm:'무쇠 가마솥 돌려차기',ds:'매번 주변을 빙 돌려 두 번 친다 — 범위 1.3배 · 피해 1.2배 · 더 자주'},
+  pan:{nw:1,rl:'근접 · 광역',ic:'🍳',nm:'프라이팬',pair:'glass',ev:{ic:'🥘',nm:'무쇠 가마솥 돌려차기',ds:'매번 주변을 빙 돌려 두 번 친다 — 범위 1.3배'},
     ds:['가까운 적 쪽으로 프라이팬을 휘둘러 부채꼴로 때린다(근접 · 살짝 밀쳐 낸다)','범위 +15%','피해 +40%','3번째 휘두름마다 내려치기 — 내 주위 전체 · 피해 ×1.6','쿨타임 -20% · 피해 +40%','범위 +15%','뒤쪽도 함께 휘두른다','피해 +50% · 쿨타임 -15%']},
   rkt:{nw:1,rl:'광역 · 유도',ic:'🎆',nm:'폭죽',pair:'pspd',ev:{ic:'🎇',nm:'대형 불꽃놀이',ds:'로켓 +2 · 피해 1.15배 · 터질 때 사방으로 작은 불꽃이 3번 더 터진다'},
-    ds:['폭죽을 쏘아 올리면 각자 다른 적을 쫓아가 터진다(유도 · 작은 폭발)','로켓 +1','피해 +30%','로켓 +1 · 쿨타임 -15%','피해 +30%','로켓 +1 · 폭발 범위 +20%','피해 +30%','로켓 +1 · 피해 +40%']},
+    ds:['폭죽을 쏘아 올리면 각자 다른 적을 쫓아가 터진다(유도 · 작은 폭발)','피해 +10%','폭발 범위 +10%','로켓 +1','피해 +10%','폭발 범위 +15% · 쿨타임 -10%','피해 +5%','로켓 +1 · 피해 +10%']},
   chick:{nw:1,rl:'광역 · 아군',ic:'🐥',nm:'병아리 친구들',pair:'vamp',ev:{ic:'🐔',nm:'닭장 탈출',ds:'병아리 +2 · 몸집이 커지고 쫄 때마다 주변 적도 함께 쪼인다'},
     ds:['병아리 한 마리가 가까운 적에게 달려가 쫀다(쓰러지지 않는 아군)','병아리 +1','피해 +35%','병아리 +1 · 더 빨라진다','피해 +35%','병아리 +1','피해 +35%','병아리 +1 · 쪼는 간격 -20%']},
-  rod:{nw:1,rl:'군중 제어',ic:'🎣',nm:'낚싯대',pair:'mag',ev:{ic:'🐋',nm:'고래 낚시 대회',ds:'줄이 앞뒤로 두 개 — 길이 1.3배 · 피해 1.2배 · 더 많이 낚는다'},
+  rod:{nw:1,rl:'군중 제어',ic:'🎣',nm:'낚싯대',pair:'mag',ev:{ic:'🐋',nm:'고래 낚시 대회',ds:'줄이 앞뒤로 두 개 — 길이 1.3배 · 피해 1.6배 · 더 많이 낚는다'},
     ds:['줄을 던져 닿은 적 몇 마리를 내 앞으로 끌어와 잠깐 멈추게 한다(보스는 안 끌려온다)','줄 길이 +15%','낚는 수 +1 · 피해 +40%','쿨타임 -15%','낚는 수 +1 · 피해 +40%','줄 길이 +15%','낚는 수 +2 · 쿨타임 -20%','피해 +50%']},
-  frost:{nw:1,rl:'군중 제어',ic:'🧊',nm:'얼음땡',pair:'cd',ev:{ic:'🥶',nm:'절대영도',ds:'얼음 파동이 1.4배 커지고 1.8초 얼린다 — 얼어붙은 적은 피해를 40% 더 받는다'},
+  frost:{nw:1,rl:'군중 제어',ic:'🧊',nm:'얼음땡',pair:'cd',ev:{ic:'🥶',nm:'절대영도',ds:'얼음 파동이 1.4배 커지고 1.8초 얼린다 — 피해 1.5배 · 얼어붙은 적은 피해를 40% 더 받는다'},
     ds:['얼음 파동 — 닿은 적이 1초 얼어붙고, 얼어붙은 동안 모든 피해를 25% 더 받는다(보스는 느려지고 증가량은 절반)','범위 +15%','피해 +40%','쿨타임 -15%','범위 +15% · 얼음 +0.2초','피해 +40%','쿨타임 -15%','범위 +20% · 피해 +40% · 얼음 +0.2초']},
   lid:{nw:1,rl:'방어',ic:'🥏',nm:'냄비뚜껑',pair:'turtle',ev:{ic:'🍲',nm:'불멸의 냄비',ds:'뚜껑 +2 · 두 배 빨리 돌아온다 · 막을 때마다 그 자리에서 폭발'},
     ds:['냄비뚜껑이 주위를 돌며 날아오는 적의 공격을 막고, 내가 맞을 때 한 대를 대신 받는다(깨지면 잠시 뒤 돌아온다)','뚜껑 +1','피해 +40% · 돌아오는 시간 -15%','궤도 +20%','뚜껑 +1','돌아오는 시간 -15% · 피해 +40%','막을 때 주변 적을 밀쳐 낸다','뚜껑 +1 · 피해 +50%']},
-  meteor:{nw:1,rl:'단일 · 보스 킬러',ic:'☄️',nm:'운석',pair:'area',ev:{ic:'🌠',nm:'별똥별 대낙하',ds:'운석 +2 · 더 빨리 떨어진다 · 범위 1.25배 · 피해 1.15배'},
-    ds:['제일 튼튼한 적(보스 우선) 위로 1.1초 예고 뒤 운석이 떨어져 크게 터진다(보스·엘리트에게 ×1.5)','폭발 범위 +20%','피해 +40%','운석 +1','쿨타임 -25% · 피해 +40%','폭발 범위 +20%','피해 +40%','운석 +1 · 피해 +50% · 쿨타임 -15%']},
-  snipe:{nw:1,rl:'단일 · 보스 킬러',ic:'🔭',nm:'망원경 저격',pair:'crit',ev:{ic:'👁',nm:'천리안',ds:'조준선이 세 개 — 서로 다른 적 셋을 동시에 저격한다 · 피해 1.2배 · 더 자주'},
-    ds:['멀리 있는 보스·엘리트(없으면 가장 먼 적)에 조준선이 붙고 0.4초 뒤 줄 위의 적을 꿰뚫는다','피해 +30%','쿨타임 -15%','관통 +2','피해 +30%','쿨타임 -15%','피해 +30%','관통 +2 · 피해 +40% · 쿨타임 -15%']},
-  hole:{nw:1,rl:'군중 제어 · 광역',ic:'🌀',nm:'블랙홀',pair:'dur',ev:{ic:'🕳',nm:'초신성',ds:'블랙홀이 1.4배 크고 1.5배 오래 머문다 — 끝나면 두 배 크게 터지고 경험치 알도 끌어온다'},
+  meteor:{nw:1,rl:'단일 · 보스 킬러',ic:'☄️',nm:'운석',pair:'area',ev:{ic:'🌠',nm:'별똥별 대낙하',ds:'운석 +2 · 더 자주 · 더 빨리 떨어진다 · 범위 1.25배 · 피해 1.15배'},
+    ds:['제일 튼튼한 적(보스 우선) 위로 1.1초 예고 뒤 운석이 떨어져 크게 터진다(보스에겐 최대 체력의 0.36%(Lv8 0.6%)씩 · 엘리트·대형에겐 ×2.5 · 보스엔 한 번에 2개까지)','폭발 범위 +20%','피해 +25%','운석 +1','쿨타임 -15% · 피해 +15%','폭발 범위 +20%','피해 +10%','운석 +1 · 피해 +10% · 쿨타임 -5%']},
+  snipe:{nw:1,rl:'단일 · 보스 킬러',ic:'🔭',nm:'망원경 저격',pair:'crit',ev:{ic:'👁',nm:'천리안',ds:'조준선이 세 개 — 서로 다른 적 셋을 동시에 저격한다 · 더 자주'},
+    ds:['멀리 있는 보스·엘리트(없으면 가장 먼 적)에 조준선이 붙고 0.4초 뒤 줄 위의 적을 꿰뚫는다(보스에겐 최대 체력의 0.34%(Lv8 0.7%))','피해 +25%','쿨타임 -15%','관통 +2','피해 +20%','쿨타임 -15%','피해 +15%','관통 +2 · 피해 +20% · 쿨타임 -15%']},
+  hole:{nw:1,rl:'군중 제어 · 광역',ic:'🌀',nm:'블랙홀',pair:'dur',ev:{ic:'🕳',nm:'초신성',ds:'블랙홀이 1.4배 크고 1.5배 오래 머문다 — 피해 1.8배 · 끝나면 두 배 크게 터지고 경험치 알도 끌어온다'},
     ds:['적이 제일 많이 몰린 곳에 블랙홀 — 주변 적을 빨아들이며 지속 피해, 끝나면 폭발(보스는 안 끌려온다)','흡입 범위 +20%','피해 +40%','지속 +0.5초','쿨타임 -15% · 피해 +40%','흡입 범위 +20%','블랙홀 +1(동시에 둘)','피해 +50% · 폭발 범위 +20%']},
   bell:{nw:1,rl:'유틸 · 버프',ic:'🎵',nm:'리듬 게임',pair:'spd',ev:{ic:'🪩',nm:'클럽 사운드',ds:'매 박자 큰 파동 · 4번째는 더 크게 — 강화가 훨씬 세고(피해 +18% · 이동 +12%) 거의 항상 켜져 있다'},
     ds:['박자마다 내 주위에 파동 — 4번째 박자는 큰 파동과 함께 잠깐 내 피해·이동속도가 오른다(피해 +8% · 이동 +8%)','파동 범위 +15%','피해 +40%','강화 시간 +0.6초 · 강화 효과 +4%p','박자 -10%(더 빠르게)','피해 +40%','파동 범위 +20%','피해 +50% · 강화 효과 +4%p']},
@@ -1021,6 +1022,7 @@ const evLeft=()=>MAXEV-Object.keys(S.ev).length;
 function synHint(k){   // 이 무기를 고르면 가까워지는/완성되는 시너지
   const out=[];for(const y of SYN){if(!y.req.includes(k)||S.synOn.includes(y.k))continue;if(y.req.some(r=>!wOk(r)&&r!==k))continue;
     const have=y.req.filter(r=>S.w[r]||r===k).length;out.push(`🔗 ${y.ic} ${y.nm} ${have}/${y.req.length}${have===y.req.length?' <b>완성!</b>':''} — ${y.ds}`);}
+  const more=out.length-2;if(more>0){out.length=2;out.push(`🔗 … 외 ${more}개`);}   // 🗡 [2026-09-30 사장님 지시] 무기가 23종이 돼 시너지가 많아졌다 — 카드가 화면을 넘지 않게 2줄까지만
   return out.length?'<br><span class="syn">'+out.join('<br>')+'</span>':'';}
 function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
@@ -1394,8 +1396,8 @@ function randLive(){const L=S.live;return L.length?L[Math.random()*L.length|0]:n
 //   🥏 냄비뚜껑 · ☄️ 운석 · 🔭 저격 · 🌀 블랙홀 · 🎵 리듬. 설계·수치표는 tooling/improve/ideas/P-6-weapons-v4.md.
 //   튜닝은 아래 W4 한 표에서만(개선 루프는 이 수치를 다시 만지지 않는다). 풀은 전부 상한이 있고 매 프레임 새로 만들지 않는다.
 // ============================================================================================================
-const W4={pan:{d:34,R:92,cd:1.1},rkt:{d:20,R:46,cd:1.7,sp:250},chick:{d:9,sp:300,gap:.45},rod:{d:16,len:260,cd:3},frost:{d:10,R:110,cd:4.5},lid:{d:10,reg:14,R:52},
-  meteor:{d:120,R:70,cd:6.5,dl:1.1},snipe:{d:90,cd:3.4},hole:{d:6,R:130,cd:7,life:2.2,pull:130},bell:{d:8,R:85,iv:.75}};
+const W4={pan:{d:95,R:100,cd:1.1},rkt:{d:3.3,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:48,len:260,cd:3},frost:{d:44,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
+  meteor:{d:5,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:78,bp:.0034,cd:3.4},hole:{d:.65,R:130,cd:7,life:2.2,pull:130},bell:{d:26,R:100,iv:.75}};   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
 const rkts=new Pool(24,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,R:46,tg:null,tsn:0,ev:0,t:0,fr:0}));      // 🎆 폭죽 로켓
 const pets=new Pool(8,()=>({x:0,y:0,a:0,tg:null,tsn:0,hit:0,ph:0,rt:0,big:0}));                        // 🐥 병아리 친구들(아군)
 const hooks=new Pool(4,()=>({x:0,y:0,ux:0,uy:0,d:0,len:0,ph:0,dmg:0,n:0,cap:0,c:new Array(12).fill(null),cs:new Array(12).fill(0),ev:0,id:0,stn:0,bm:0}));   // 🎣 낚싯줄
@@ -1413,7 +1415,7 @@ function pickScr(){for(let i=0;i<5;i++){const e=randLive();if(e&&e.on&&onScr(e,-
 // 🍳 프라이팬 — 부채꼴(full 이면 원형 내려치기) 한 번
 function panSwing(a,full,mm){const p=S.p,L=S.w.pan||0;if(!L)return;const ev=S.ev.pan,t=TK('pan'),X=S.x2,s0=SRC;
   const R=W4.pan.R*lvm(L,[[2,1.15],[6,1.15]])*areaMul()*(ev?1.3:1)*(1+t.a)*(full&&!ev?.9:1),hw=full?3.2:.9,
-    d=W4.pan.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*dmgMul()*(ev?1.2:1)*(1+t.d)*(full&&!ev?1.6:1)*mm;SRC='pan';
+    d=W4.pan.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*dmgMul()*(1+t.d)*(full&&!ev?1.6:1)*mm;SRC='pan';
   for(const e of S.live){if(!e.on)continue;const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy);if(dd>R+e.r)continue;
     if(!full&&dd>e.r+p.r+10){let da=Math.atan2(dy,dx)-a;da=Math.atan2(Math.sin(da),Math.cos(da));if(Math.abs(da)>hw)continue;}
     hurt(e,d);if(e.on&&!e.boss){knock(e,dx/(dd||1),dy/(dd||1),full?260:190,.22);if(t.stun)e.st=Math.max(e.st,.45);}}
@@ -1431,9 +1433,9 @@ function lidTake(){const X=S.x2;if(!S.w.lid||X.ln<=0)return false;for(let i=0;i<
 // 🔭 저격 — 보스 > 엘리트·대형 > 가장 먼 적
 function snipeTarget(id){const p=S.p;let b=null,bs=-1;for(const e of S.live){if(!e.on||e.sv||e.mt===id||!onScr(e,-10))continue;const d2=(e.x-p.x)**2+(e.y-p.y)**2;if(d2>520*520)continue;const s=(e.boss?3e6:(e.el||e.bg)?2e6:0)+d2;if(s>bs){bs=s;b=e;}}return b;}
 function snipeFire(e){const p=S.p,L=S.w.snipe||0;if(!L)return;const ev=S.ev.snipe,t=TK('snipe'),s0=SRC;
-  const d=W4.snipe.d*lvm(L,[[2,1.3],[5,1.3],[7,1.3],[8,1.4]])*dmgMul()*(ev?1.2:1)*(1+t.d),pcN=2+(L>=4?2:0)+(L>=8?2:0)+t.pc,
+  const d=W4.snipe.d*lvm(L,[[2,1.25],[5,1.2],[7,1.15],[8,1.2]])*dmgMul()*(1+t.d),pcN=2+(L>=4?2:0)+(L>=8?2:0)+t.pc,
     ex=e.x,ey=e.y,dx=ex-p.x,dy=ey-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,ext=dd+260,big=t.big&&(e.boss||e.el||e.bg);
-  SRC='snipe';hurt(e,d*(big?1.25:1));let k=0;
+  SRC='snipe';hurt(e,(e.boss?Math.max(d,e.mhp*W4.snipe.bp*lvm(L,[[2,1.25],[5,1.2],[7,1.15],[8,1.2]])*dmgMul()*(1+t.d)):d)*(big?1.25:1));let k=0;   // 보스에겐 최대 체력 비율(보스 킬러)
   for(const o of S.live){if(!o.on||o===e||k>=pcN)continue;const ox=o.x-p.x,oy=o.y-p.y,al=ox*ux+oy*uy;if(al<0||al>ext)continue;if(Math.abs(ox*uy-oy*ux)<10+o.r){hurt(o,d*.5);k++;}}
   SRC=s0;if(t.boom)bang(ex,ey,50*areaMul(),d*.6,'snipe','mine',0);
   const s=snps.get();if(s){s.x1=p.x;s.y1=p.y;s.x2=p.x+ux*ext;s.y2=p.y+uy*ext;s.life=.22;s.ev=ev?1:0;}AU.play('snipe');S.shake=Math.max(S.shake,.06);}
@@ -1452,16 +1454,16 @@ function weapons2(dt,cm,MT,AR,AM){
       const a=Math.atan2(tg.y-p.y,tg.x-p.x),slam=ev||(L>=4&&(++X.pn%3===0));
       panSwing(a,slam,1);if(L>=7)panSwing(a+Math.PI,false,.6);
       for(let j=1;j<=t.echo+(ev?1:0);j++)S.dq.push({t:.28*j,f:()=>panSwing(a,slam,.7)});
-      S.cd.pan=W4.pan.cd*lvm(L,[[5,.8],[8,.85]])*cm*(ev?.85:1)*(1-t.c);}
+      S.cd.pan=W4.pan.cd*lvm(L,[[5,.8],[8,.85]])*cm*(1-t.c);}
     else S.cd.pan=0;}
   // 🎆 폭죽 → 🎇 대형 불꽃놀이 — 하늘로 쏘면 각자 다른 적을 쫓아가 터진다(유도)
   L=S.w.rkt||0;SRC='rkt';
   if(L&&(S.cd.rkt-=dt)<=0){if(S.live.length){ev=S.ev.rkt;t=TK('rkt');
-      const n=1+(L>=2)+(L>=4)+(L>=6)+(L>=8)+AM+t.n+(ev?2:0),R=W4.rkt.R*lvm(L,[[6,1.2]])*AR*(1+t.a),d=W4.rkt.d*lvm(L,[[3,1.3],[5,1.3],[7,1.3],[8,1.4]])*MT*(ev?1.15:1)*(1+t.d),base=-Math.PI/2+(Math.random()-.5)*.6;
+      const n=1+(L>=4)+(L>=8)+AM+t.n+(ev?2:0),R=W4.rkt.R*lvm(L,[[3,1.1],[6,1.15]])*AR*(1+t.a),d=W4.rkt.d*lvm(L,[[2,1.1],[5,1.1],[7,1.05],[8,1.1]])*MT*(ev?1.15:1)*(1+t.d),base=-Math.PI/2+(Math.random()-.5)*.6;
       for(let i=0;i<n;i++){const r=rkts.get();if(!r)break;const a=base+(i-(n-1)/2)*.5+(Math.random()-.5)*.25;
         r.x=p.x;r.y=p.y-10;r.vx=Math.cos(a)*140;r.vy=Math.sin(a)*140;r.life=2.6;r.t=0;r.dmg=d;r.R=R;r.ev=ev?1:0;r.fr=(ev?3:0)+(t.frag?3:0);
         const e=pickScr();r.tg=e||null;r.tsn=e?e.sn:0;}
-      AU.play('rocket');S.cd.rkt=W4.rkt.cd*lvm(L,[[4,.85]])*cm*(1-t.c);}
+      AU.play('rocket');S.cd.rkt=W4.rkt.cd*lvm(L,[[6,.9]])*cm*(1-t.c);}
     else S.cd.rkt=0;}
   {const tr=TK('rkt'),spd=W4.rkt.sp*PS()*(1+tr.s);SRC='rkt';
     for(const r of rkts.a){if(!r.on)continue;r.t+=dt;r.life-=dt;
@@ -1494,7 +1496,7 @@ function weapons2(dt,cm,MT,AR,AM){
   L=S.w.rod||0;SRC='rod';
   if(L&&(S.cd.rod-=dt)<=0){ev=S.ev.rod;t=TK('rod');const len=W4.rod.len*lvm(L,[[2,1.15],[6,1.15]])*AR*(ev?1.3:1)*(1+t.a),tg=nearest();
     if(tg&&(tg.x-p.x)**2+(tg.y-p.y)**2<(len+tg.r)**2){
-      const cap=3+(L>=3)+(L>=5)+(L>=7)*2+(ev?3:0)+t.n,dmg=W4.rod.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*MT*(ev?1.2:1)*(1+t.d),stn=.5+.4*t.stun;
+      const cap=3+(L>=3)+(L>=5)+(L>=7)*2+(ev?3:0)+t.n,dmg=W4.rod.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*MT*(ev?1.6:1)*(1+t.d),stn=.5+.4*t.stun;
       castHook(tg,len,cap,dmg,ev,stn,t.boom);
       if(ev){const ux=tg.x-p.x,uy=tg.y-p.y;let b2=null,bd=(len+20)**2;for(const e of S.live){if(!e.on||e.sv)continue;const dx=e.x-p.x,dy=e.y-p.y;if(dx*ux+dy*uy>=0)continue;const d2=dx*dx+dy*dy;if(d2<bd){bd=d2;b2=e;}}
         if(b2)castHook(b2,len,cap,dmg,ev,stn,t.boom);}
@@ -1514,7 +1516,7 @@ function weapons2(dt,cm,MT,AR,AM){
   L=S.w.frost||0;SRC='frost';
   if(L&&(S.cd.frost-=dt)<=0){ev=S.ev.frost;t=TK('frost');const R=W4.frost.R*lvm(L,[[2,1.15],[5,1.15],[8,1.2]])*AR*(ev?1.4:1)*(1+t.a),tg=nearest();
     if(tg&&(tg.x-p.x)**2+(tg.y-p.y)**2<(R+tg.r+40)**2){const f=frs.get();
-      if(f){f.x=p.x;f.y=p.y;f.r=10;f.R=R;f.dmg=W4.frost.d*lvm(L,[[3,1.4],[6,1.4],[8,1.4]])*MT*(1+t.d);f.id=++X.fid;f.ev=ev?1:0;
+      if(f){f.x=p.x;f.y=p.y;f.r=10;f.R=R;f.dmg=W4.frost.d*lvm(L,[[3,1.4],[6,1.4],[8,1.4]])*MT*(ev?1.5:1)*(1+t.d);f.id=++X.fid;f.ev=ev?1:0;
         f.fz=(ev?1.8:1+.2*(L>=5)+.2*(L>=8))+t.life;f.vm=(ev?.4:.25)+.1*t.tk;AU.play('freeze');EX.frzCast(p.x,p.y,R);}
       S.cd.frost=W4.frost.cd*lvm(L,[[4,.85],[7,.85]])*cm*(ev?.8:1)*(1-t.c);}
     else S.cd.frost=0;}
@@ -1530,18 +1532,18 @@ function weapons2(dt,cm,MT,AR,AM){
       const a=X.la+i*6.2832/X.ln,lx=p.x+Math.cos(a)*R,ly=p.y+Math.sin(a)*R;X.lp[i*2]=lx;X.lp[i*2+1]=ly;
       if(X.lr[i]>0)continue;
       if(X.lb[i]<=0)for(const b of eshots.a){if(!b.on)continue;if((b.x-lx)**2+(b.y-ly)**2<22*22){b.on=false;X.lb[i]=.5;lidBlock(lx,ly);SRC='lid';break;}}
-      for(const e of S.live){if(!e.on||S.t-e.lw<.35)continue;if((e.x-lx)**2+(e.y-ly)**2<(e.r+14)**2){e.lw=S.t;hurt(e,dmg);
+      for(const e of S.live){if(!e.on||S.t-e.lw<.25)continue;if((e.x-lx)**2+(e.y-ly)**2<(e.r+14)**2){e.lw=S.t;hurt(e,dmg);
         if(e.on&&!e.boss){const dd=Math.hypot(e.x-p.x,e.y-p.y)||1;knock(e,(e.x-p.x)/dd,(e.y-p.y)/dd,200,.2);}}}}}
   // ☄️ 운석 → 🌠 별똥별 대낙하 — 체력이 가장 높은 적(보스 우선)에 예고 → 낙하
   L=S.w.meteor||0;SRC='meteor';
   if(L&&(S.cd.meteor-=dt)<=0){if(S.live.length){ev=S.ev.meteor;t=TK('meteor');
-      const n=1+(L>=4)+(L>=8)+(ev?2:0)+t.n,R=W4.meteor.R*lvm(L,[[2,1.2],[6,1.2]])*AR*(ev?1.25:1)*(1+t.a),d=W4.meteor.d*lvm(L,[[3,1.4],[5,1.4],[7,1.4],[8,1.5]])*MT*(ev?1.15:1)*(1+t.d),dl=W4.meteor.dl*(ev?.68:1),id=++X.mid;let any=false;
-      for(let i=0;i<n;i++){let b=null,bh=-1;for(const e of S.live){if(!e.on||e.mt===id||!onScr(e,-10))continue;const w=e.hp+(e.boss?1e12:0);if(w>bh){bh=w;b=e;}}
-        if(!b||S.booms.length>=38)break;b.mt=id;any=true;
-        const dx=p.x-b.x,dy=p.y-b.y,dd=Math.hypot(dx,dy)||1,lead=b.boss?0:Math.min(dd*.6,b.sp*dl*.85),bx=b.x+dx/dd*lead,by=b.y+dy/dd*lead,bt=dl+i*.12;
-        S.booms.push({x:bx,y:by,t:bt,T:bt,R,d,done:false,ev:ev?1:0,src:'meteor',style:'meteor',bm:1.5});
+      const n=1+(L>=4)+(L>=8)+(ev?2:0)+t.n,R=W4.meteor.R*lvm(L,[[2,1.2],[6,1.2]])*AR*(ev?1.25:1)*(1+t.a),d=W4.meteor.d*lvm(L,[[3,1.25],[5,1.15],[7,1.1],[8,1.1]])*MT*(ev?1.15:1)*(1+t.d),dl=W4.meteor.dl*(ev?.68:1),id=++X.mid;let any=false;
+      for(let i=0;i<n;i++){let b=null,bh=-1;for(const e of S.live){if(!e.on||(e.mt===id&&(!e.boss||e.mc>=2))||!onScr(e,-10))continue;const w=e.hp+(e.boss?1e12:0);if(w>bh){bh=w;b=e;}}
+        if(!b||S.booms.length>=38)break;if(b.mt===id)b.mc++;else{b.mt=id;b.mc=1;}any=true;   // 보스는 한 번에 운석 2개까지 받는다(보스 킬러)
+        const dx=p.x-b.x,dy=p.y-b.y,dd=Math.hypot(dx,dy)||1,lead=b.boss?0:Math.min(dd*.6,b.sp*dl*.85),bx=b.x+dx/dd*lead+(b.mc>1?(Math.random()-.5)*60:0),by=b.y+dy/dd*lead+(b.mc>1?(Math.random()-.5)*60:0),bt=dl+i*.12;
+        S.booms.push({x:bx,y:by,t:bt,T:bt,R,d,done:false,ev:ev?1:0,src:'meteor',style:'meteor',bm:2.5,bp:W4.meteor.bp*lvm(L,[[3,1.25],[5,1.15],[7,1.1],[8,1.1]])*MT*(1+t.d)});
         for(let j=1;j<=t.echo&&S.booms.length<40;j++)S.booms.push({x:bx,y:by,t:bt+.6*j,T:bt+.6*j,R:R*.8,d:d*.5,done:false,ev:0,src:'meteor',style:'mine',bm:1});}
-      if(any){AU.play('meteor');S.cd.meteor=W4.meteor.cd*lvm(L,[[5,.75],[8,.85]])*cm*(1-t.c);}else S.cd.meteor=.5;}
+      if(any){AU.play('meteor');S.cd.meteor=W4.meteor.cd*lvm(L,[[5,.85],[8,.95]])*cm*(ev?.8:1)*(1-t.c);}else S.cd.meteor=.5;}
     else S.cd.meteor=0;}
   // 🔭 망원경 저격 → 👁 천리안 — 조준선(0.4초) 뒤 관통 저격
   L=S.w.snipe||0;SRC='snipe';
@@ -1554,7 +1556,7 @@ function weapons2(dt,cm,MT,AR,AM){
   // 🌀 블랙홀 → 🕳 초신성 — 적이 가장 몰린 곳에 빨아들이며 지속 피해, 끝나면 폭발
   L=S.w.hole||0;SRC='hole';
   if(L&&(S.cd.hole-=dt)<=0){if(S.live.length){ev=S.ev.hole;t=TK('hole');
-      const nn=1+(L>=7)+t.n,R=W4.hole.R*lvm(L,[[2,1.2],[6,1.2]])*AR*(ev?1.4:1)*(1+t.a),dmg=W4.hole.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*MT*(1+t.d),
+      const nn=1+(L>=7)+t.n,R=W4.hole.R*lvm(L,[[2,1.2],[6,1.2]])*AR*(ev?1.4:1)*(1+t.a),dmg=W4.hole.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*MT*(ev?1.8:1)*(1+t.d),
         life=(W4.hole.life+.5*(L>=4))*DUR()*(ev?1.5:1),bR=85*(L>=8?1.2:1)*AR*(ev?2:1)*(1+t.a);let px=null,py=null,any=false;
       for(let i=0;i<nn;i++){if(!clusterSpot(px,py))break;const h=holes.get();if(!h)break;any=true;h.x=CS.x;h.y=CS.y;px=h.x;py=h.y;h.R=R;h.life=h.T=life;h.tk=.15;h.dmg=dmg;h.ev=ev?1:0;h.sl=t.slow;h.bR=bR;h.pull=W4.hole.pull;}
       if(any){AU.play('hole');S.cd.hole=W4.hole.cd*lvm(L,[[5,.85]])*cm*(1-t.c);}else S.cd.hole=.5;}
@@ -1571,7 +1573,7 @@ function weapons2(dt,cm,MT,AR,AM){
   if(X.bT>0)X.bT-=dt;
   if(L){ev=S.ev.bell;t=TK('bell');X.bt-=dt;
     if(X.bt<=0){X.bt=W4.bell.iv*cm*(L>=5?.9:1)*(ev?.85:1);X.bn=(X.bn+1)&3;const big=X.bn===0,
-        R=W4.bell.R*lvm(L,[[2,1.15],[7,1.2]])*AR*(1+t.a)*(ev?1.4:1)*(big?(ev?2.4:1.75):1),d=W4.bell.d*lvm(L,[[3,1.4],[6,1.4],[8,1.5]])*MT*(1+t.d)*(ev?1.1:1)*(big?3:1);
+        R=W4.bell.R*lvm(L,[[2,1.15],[7,1.2]])*AR*(1+t.a)*(ev?1.4:1)*(big?(ev?2:1.75):1),d=W4.bell.d*lvm(L,[[3,1.4],[6,1.4],[8,1.5]])*MT*(1+t.d)*(ev?1.1:1)*(big?3:1);
       for(const e of S.live){if(!e.on)continue;const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy);if(dd<R+e.r){hurt(e,d);if(big&&t.stun&&e.on&&!e.boss)knock(e,dx/(dd||1),dy/(dd||1),240,.22);}}
       hitPropsAt(p.x,p.y,R,d);EX.beat(p.x,p.y,R,big);AU.play('beat',big?1:0);
       if(big){X.bT=(2+.6*(L>=4)+t.life)*(ev?1.3:1);X.bm=ev?.18:.08+.04*(L>=4)+.04*(L>=8);X.bs=ev?.12:.08+.03*(L>=4)+.03*(L>=8);}}}
@@ -1612,7 +1614,7 @@ function weapons(dt){
       for(let j=1;j<=t.echo&&S.booms.length<40;j++)S.booms.push({x:bx,y:by,t:bt+.5*j,T:bt+.5*j,R:R*.85,d:d*.6,done:false,ev:0,src:'egg',style:'egg'});}   // 🎲 [2026-09-30 사장님 지시] 🥚 여진
     S.cd.egg=(ev?1.3:2.6*lvm(L,[[5,.7],[8,.8]]))*cm*(1-t.c);}}
   for(let i=S.booms.length-1;i>=0;i--){const b=S.booms[i];b.t-=dt;
-    if(b.t<=0&&!b.done){b.done=true;SRC=b.src||'egg';AU.play('boom',b.R/55);EX.boom(b);for(const e of enemies.a)if(e.on&&(e.x-b.x)**2+(e.y-b.y)**2<(b.R+e.r)**2)hurt(e,b.bm&&(e.boss||e.el||e.bg)?b.d*b.bm:b.d);hitPropsAt(b.x,b.y,b.R,b.d);}
+    if(b.t<=0&&!b.done){b.done=true;SRC=b.src||'egg';AU.play('boom',b.R/55);EX.boom(b);for(const e of enemies.a)if(e.on&&(e.x-b.x)**2+(e.y-b.y)**2<(b.R+e.r)**2)hurt(e,b.bp&&e.boss?Math.max(b.d,e.mhp*b.bp):b.bm&&!e.boss&&(e.el||e.bg)?b.d*b.bm:b.d);hitPropsAt(b.x,b.y,b.R,b.d);}   // bp 보스 최대 체력 비율(운석·보스 킬러) · bm 엘리트·대형 배수
     if(b.t<-.25)S.booms.splice(i,1);}
   // 🍤 새우깡 부메랑 → 🦐 새우깡 대회전
   L=S.w.shrimp||0;SRC='shrimp';
