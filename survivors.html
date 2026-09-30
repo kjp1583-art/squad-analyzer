@@ -1721,15 +1721,15 @@ const EX=(()=>{
   const RC=[['56,182,255','111,230,255','242,253,255'],['150,220,255','210,244,255','255,255,255'],['120,100,255','160,140,255','235,228,255'],['255,190,60','255,212,90','255,248,210'],['56,182,255','111,230,255','242,253,255'],['56,182,255','150,240,255','255,255,255'],null,['255,30,70','255,45,85','255,241,194']];
   const bi=[];for(let i=0;i<9;i++)bi.push(new Int16Array(PMAX));const bc=new Int16Array(9);
   o.ground=function(){   // 바닥층(적·내 몸 아래) — 그을음 자국
-    if(dAct)for(let i=0;i<DMAX;i++){if(dl[i]<=0)continue;const u=dl[i]/dm[i],k=dk[i];
+    if(dAct)for(let i=0;i<DMAX;i++){if(dl[i]<=0||!vis(dx[i],dy[i],dr[i]))continue;const u=dl[i]/dm[i],k=dk[i];
       const a=(k===1?Math.min(1,u*2.2)*Math.min(1,u*2.2):Math.min(1,u*2.4))*.9,r=dr[i];cx.globalAlpha=a;
       cx.drawImage(k===0?SPX.scorch:k===1?SPX.crack:SPX.splat,dx[i]-r,dy[i]-r,r*2,r*2);}
     cx.globalAlpha=1;};
   o.booms=function(){   // 내 폭발 예고·낙하 물건 — 부드러운 하늘색 착탄 표시(실선·테두리 없음) + 좁혀지는 링 + 그림자 + 떨어지는 달걀/병아리/캡슐
     let np=0;for(const b of S.booms)if(b.t>0)np++;const dn=1/(1+.32*Math.max(0,np-1));   // 한꺼번에 여럿이면(병아리 대폭격) 표시를 각각 옅고 단순하게
-    for(const b of S.booms){const st=b.style||(b.ev?'chick':'egg'),R=b.R;
+    for(const b of S.booms){const st=b.style||(b.ev?'chick':'egg'),R=b.R;if(!vis(b.x,b.y-150,R+160))continue;   // 화면 밖은 그리지 않는다
       if(b.t>0){const T=b.T||.45,u=Math.max(0,Math.min(1,1-b.t/T)),ma=dn*(st==='chick'?.85:1);
-        cx.globalAlpha=(.5+.5*u)*ma;cx.drawImage(SPX.mark,b.x-R,b.y-R,R*2,R*2);cx.globalAlpha=1;
+        if(np<=6){cx.globalAlpha=(.5+.5*u)*ma;cx.drawImage(SPX.mark,b.x-R,b.y-R,R*2,R*2);cx.globalAlpha=1;}   // 여럿이면 큰 스프라이트는 생략(링만)
         cx.beginPath();cx.arc(b.x,b.y,R,0,7);cx.lineWidth=2;cx.strokeStyle='rgba(111,230,255,'+((.28+.42*u)*ma).toFixed(2)+')';cx.stroke();
         if(np<=3){cx.beginPath();cx.arc(b.x,b.y,R*(1+.4*(1-u)),0,7);cx.lineWidth=1.5;cx.strokeStyle='rgba(242,253,255,'+((.12+.5*u)*ma).toFixed(2)+')';cx.stroke();}
         const h=(st==='chick'?190:150)*(1-u)*(1-u);
@@ -1745,7 +1745,7 @@ const EX=(()=>{
       if(k===8){cx.globalAlpha=a;cx.drawImage(SPX.dzf,rx[i]-r,ry[i]-r,r*2,r*2);cx.globalAlpha=1;continue;}
       if(k===9){cx.save();cx.translate(rx[i],ry[i]);cx.rotate(u*.7);cx.globalAlpha=a;cx.drawImage(SPX.burst,-r,-r,r*2,r*2);cx.restore();continue;}   // 금이 간 별(달걀이 깨지는 순간)
       const C=RC[k],w=rw[i]*(1-u*.85)+.8;cx.beginPath();cx.arc(rx[i],ry[i],r,0,7);
-      cx.lineWidth=w*2.2+2;cx.strokeStyle='rgba('+C[0]+','+(a*.3).toFixed(2)+')';cx.stroke();
+      if(w>5){cx.lineWidth=w*2.2+2;cx.strokeStyle='rgba('+C[0]+','+(a*.3).toFixed(2)+')';cx.stroke();}   // 굵은 링(큰 폭발)만 바깥 후광 줄 — 가는 링은 두 줄로(비용)
       cx.lineWidth=w;cx.strokeStyle='rgba('+C[1]+','+(a*.92).toFixed(2)+')';cx.stroke();
       cx.lineWidth=Math.max(1,w*.32);cx.strokeStyle='rgba('+C[2]+','+a.toFixed(2)+')';cx.stroke();}
     if(kAct)for(let i=0;i<4;i++){if(kl[i]<=0)continue;const u=kl[i]/km[i];cx.beginPath();cx.moveTo(kx[i],ky[i]);cx.arc(kx[i],ky[i],kR[i]*(1.05-.05*u),ka[i]-kw[i],ka[i]+kw[i]);cx.closePath();
