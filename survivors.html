@@ -347,6 +347,10 @@ const SPX=(()=>{const o={};
   o.blit=function(im,x,y,r,st){const s=CAM.s;let d=Math.round(r*s*2/(st||1))*(st||1);d+=d&1;if(d<2)return;
     if(d>DMAXPX){cx.drawImage(im,x-r,y-r,r*2,r*2);return;}
     const c=fit(im,d);cx.setTransform(1,0,0,1,0,0);cx.drawImage(c,Math.round(CAM.ox+s*x-d/2),Math.round(CAM.oy+s*y-d/2));cx.setTransform(s,0,0,s,CAM.ox,CAM.oy);};
+  // 돌면서 떨어지는 그림(달걀·병아리) — 크기를 맞춰 둔 그림을 화면 픽셀 좌표에서 돌려 찍는다(save/restore·축소 없이)
+  o.blitRot=function(im,x,y,r,ang){const s=CAM.s;let d=Math.round(r*s*2/2)*2;if(d<2)return;
+    if(d>DMAXPX){cx.save();cx.translate(x,y);cx.rotate(ang);cx.drawImage(im,-r,-r,r*2,r*2);cx.restore();return;}
+    const c=fit(im,d),co=Math.cos(ang),si=Math.sin(ang);cx.setTransform(co,si,-si,co,CAM.ox+s*x,CAM.oy+s*y);cx.drawImage(c,-d/2,-d/2);cx.setTransform(s,0,0,s,CAM.ox,CAM.oy);};
   return o;})();
 
 // ---------- assets (가볍게: 필요할 때만, 작은 캔버스로 한 번 줄여 둔다) ----------
@@ -1504,7 +1508,9 @@ function endRun(won,quit){
 //   세상은 끝없이 이어진다 → 256px 조각마다 좌표로 정해지는 난수로 풀·부쉬·바위·와드 자국·잔해·클랜 소품을 그려 캐시.
 //   구역: 0~10분 아군 정글 → 10~20분 강가 → 20~35분 적 정글 → 35~50분 적 본진 → 50분~ 넥서스 앞. 바뀔 땐 1.5초 겹쳐 그린다.
 const RIFT_CH=256, RIFT_CACHE=new Map();let RIFT_MAX=90, RIFT_BUD=0;
-function riftResize(){const c=Math.ceil(VW/RIFT_CH)+3,r=Math.ceil(VH/RIFT_CH)+3;RIFT_MAX=Math.max(90,c*r*2+16);}   // 🖥 보이는 조각 × 2(구역 전환 겹침) — 캐시보다 많이 보이면 매 프레임 다시 그리게 된다
+const RDEV=new Map();let RDEV_S=0,RDEV_MAX=60,RDEV_BUD=0;   // 🚀 [속도] 화면 픽셀 크기로 한 번 줄여(늘려) 둔 바닥 조각 — 정수 좌표에 1:1 로 찍으면 소수점 좌표·배율로 찍는 것보다 5~8배 싸다
+function riftResize(){const c=Math.ceil(VW/RIFT_CH)+3,r=Math.ceil(VH/RIFT_CH)+3;RIFT_MAX=Math.max(90,c*r*2+16);
+  const cc=Math.ceil(VW/RIFT_CH)+2,rr=Math.ceil(VH/RIFT_CH)+2,tw=Math.ceil(RIFT_CH*DPR*SC)+1;RDEV_MAX=Math.max(24,Math.min(cc*rr*2+8,Math.floor(64e6/(tw*tw*4))));RDEV.clear();}   // 🖥 보이는 조각 × 2(구역 전환 겹침) — 캐시보다 많이 보이면 매 프레임 다시 그리게 된다
 riftResize();
 const RIFT_ZONES=[
   {nm:'아군 정글', base:'#16241a', g1:'#1c2f20', g2:'#12201a', bush:'#0f2a17', bushHi:'#1d4a2a', rock:'#2a3330', water:0},
@@ -1558,14 +1564,24 @@ function riftChunk(ix,iy,zi){
   RIFT_CACHE.set(key,c); if(RIFT_CACHE.size>RIFT_MAX) RIFT_CACHE.delete(RIFT_CACHE.keys().next().value);
   return c;
 }
+function riftDev(c,zi,ix,iy,s){
+  if(RDEV_S!==s){RDEV.clear();RDEV_S=s;}
+  const key=zi*1e8+(ix+5000)*1e4+(iy+5000);let d=RDEV.get(key);if(d){RDEV.delete(key);RDEV.set(key,d);return d;}
+  if(RDEV_BUD<=0)return null;RDEV_BUD--;   // 한 프레임에 새로 만드는 수 제한 — 못 만든 칸은 이번 프레임만 예전 방식(배율)으로 찍는다
+  const tw=Math.ceil(RIFT_CH*s)+1;d=document.createElement('canvas');d.width=d.height=tw;d.getContext('2d').drawImage(c,0,0,tw,tw);
+  RDEV.set(key,d);if(RDEV.size>RDEV_MAX)RDEV.delete(RDEV.keys().next().value);return d;}
 function riftLayer(p,zi,alpha){
   const vw=W/2/SC+RIFT_CH, vh=H/2/SC+RIFT_CH;
   const x0=Math.floor((p.x-vw)/RIFT_CH), x1=Math.floor((p.x+vw)/RIFT_CH), y0=Math.floor((p.y-vh)/RIFT_CH), y1=Math.floor((p.y+vh)/RIFT_CH);
   cx.globalAlpha=alpha;
   const sw=W/2/SC+26,sh=H/2/SC+26,L=p.x-sw,Rr=p.x+sw,T=p.y-sh,B=p.y+sh;   // 🚀 [속도] 바깥 한 칸은 미리 만들어 두기만 하고(캐시) 화면 안에 걸친 조각만 그린다(흔들림 여유 26)
+  const M=SPX.cam,ms=M.s;RDEV_BUD=6;
   for(let iy=y0;iy<=y1;iy++)for(let ix=x0;ix<=x1;ix++){const c=riftChunk(ix,iy,zi);const X=ix*RIFT_CH,Y=iy*RIFT_CH;
     if(X>Rr||X+RIFT_CH+1<L||Y>B||Y+RIFT_CH+1<T)continue;
-    if(c)cx.drawImage(c,X,Y,RIFT_CH+1,RIFT_CH+1);else if(alpha>=1){cx.fillStyle=RIFT_ZONES[zi].base;cx.fillRect(X,Y,RIFT_CH+1,RIFT_CH+1);}}
+    if(c){const d=riftDev(c,zi,ix,iy,ms);
+      if(d){cx.setTransform(1,0,0,1,0,0);cx.drawImage(d,Math.round(M.ox+ms*X),Math.round(M.oy+ms*Y));cx.setTransform(ms,0,0,ms,M.ox,M.oy);}
+      else cx.drawImage(c,X,Y,RIFT_CH+1,RIFT_CH+1);}
+    else if(alpha>=1){cx.fillStyle=RIFT_ZONES[zi].base;cx.fillRect(X,Y,RIFT_CH+1,RIFT_CH+1);}}
   cx.globalAlpha=1;
 }
 function drawRift(p){
@@ -1758,14 +1774,14 @@ const EX=(()=>{
       if(b.t>0){const T=b.T||.45,u=Math.max(0,Math.min(1,1-b.t/T)),ma=dn*(st==='chick'?.85:1);
         if(np<=6){cx.globalAlpha=(.5+.5*u)*ma;SPX.blit(SPX.mark,b.x,b.y,R,2);cx.globalAlpha=1;}   // 여럿이면 큰 스프라이트는 생략(링만)
         {const ms=SPX.cam.s,rdv=Math.round(R*ms);
-          if(rdv>=2&&rdv<=RMAXD){if(RSs!==ms){RS.clear();RSs=ms;}cx.globalAlpha=(.28+.42*u)*ma;ringBlit(ringImg(9,rdv,Math.round(2*ms*2),16),b.x,b.y);cx.globalAlpha=1;}
+          if(rdv>=2&&rdv<=RMAXD){if(RSs!==ms){RS.clear();RSs=ms;}{const ra=(.28+.42*u)*ma;if(ra>.035){cx.globalAlpha=ra;ringBlit(ringImg(9,rdv,Math.round(2*ms*2),16),b.x,b.y);cx.globalAlpha=1;}}}
           else{cx.beginPath();cx.arc(b.x,b.y,R,0,7);cx.lineWidth=2;cx.strokeStyle='rgba(111,230,255,'+((.28+.42*u)*ma).toFixed(2)+')';cx.stroke();}}
         if(np<=3){cx.beginPath();cx.arc(b.x,b.y,R*(1+.4*(1-u)),0,7);cx.lineWidth=1.5;cx.strokeStyle='rgba(242,253,255,'+((.12+.5*u)*ma).toFixed(2)+')';cx.stroke();}
         const h=(st==='chick'?190:150)*(1-u)*(1-u);
         cx.fillStyle='rgba(0,0,0,'+(.12+.26*u).toFixed(2)+')';cx.beginPath();cx.ellipse(b.x,b.y+3,5+9*u,2.4+4*u,0,0,7);cx.fill();
-        if(st==='chick'){const s=26*(.8+.4*u);cx.save();cx.translate(b.x,b.y-h-8);cx.rotate(Math.sin(S.t*22+b.x)*.35);cx.drawImage(SPX.chick,-s/2,-s/2,s,s);cx.restore();}
+        if(st==='chick'){SPX.blitRot(SPX.chick,b.x,b.y-h-8,13*(.8+.4*u),Math.sin(S.t*22+b.x)*.35);}
         else if(st==='gacha'){cx.save();cx.translate(b.x,b.y-h-8);const rad=7+3*u;cx.beginPath();cx.arc(0,0,rad,Math.PI,0);cx.fillStyle='#8b7bff';cx.fill();cx.beginPath();cx.arc(0,0,rad,0,Math.PI);cx.fillStyle='#f2fdff';cx.fill();cx.lineWidth=1.4;cx.strokeStyle='rgba(20,30,70,.8)';cx.beginPath();cx.arc(0,0,rad,0,7);cx.stroke();cx.restore();}
-        else if(SPR.egg.c){const s=42+10*u;cx.save();cx.translate(b.x,b.y-h-12);cx.rotate((1-u)*7);cx.drawImage(SPR.egg.c,-s/2,-s/2,s,s);cx.restore();}
+        else if(SPR.egg.c){SPX.blitRot(SPR.egg.c,b.x,b.y-h-12,21+5*u,(1-u)*7);}
         else{cx.fillStyle='#fff6e4';cx.beginPath();cx.ellipse(b.x,b.y-h-12,9,12,0,0,7);cx.fill();cx.lineWidth=1.5;cx.strokeStyle='#0a0c26';cx.stroke();}}
       else if(b.t>-.25){cx.globalAlpha=Math.max(0,.9+b.t*3.4);SPX.blit(SPX.mark,b.x,b.y,R,2);cx.globalAlpha=1;}}};   // 터진 자리(범위) — 잠깐 남는다
   o.fx=function(){   // 충격 링·번쩍임·입자 — 적 위 · 내 캐릭터 아래(나를 가리지 않는다)
@@ -1803,7 +1819,10 @@ const EX=(()=>{
       cx.fillStyle='rgba(180,236,255,.2)';cx.fill();cx.lineWidth=1.2;cx.strokeStyle='rgba(235,251,255,.9)';cx.stroke();}
     n=bc[EM];for(j=0;j<n;j++){i=bi[EM][j];s=ps[i]*Math.min(1,pl[i]/pm[i]*2)*2.2;SPX.blit(SPX.gfr,px[i],py[i]-pz[i],s,2);}
     n=bc[SP];if(n){for(let pass=0;pass<2;pass++){let any=false;cx.beginPath();for(j=0;j<n;j++){i=bi[SP][j];if((pc[i]>=12?1:0)!==pass)continue;any=true;const X=px[i],Y=py[i]-pz[i],k=Math.min(1,pl[i]/pm[i]*2.2)*.055;cx.moveTo(X,Y);cx.lineTo(X-pvx[i]*k,Y-pvy[i]*k);}
-        if(any){cx.lineCap='round';cx.lineWidth=4.6;cx.strokeStyle=pass?'rgba(255,45,85,.4)':'rgba(111,230,255,.36)';cx.stroke();cx.lineWidth=1.8;cx.strokeStyle=pass?PAL.dzCore:PAL.frCore;cx.stroke();cx.lineCap='butt';}}}
+        if(any){cx.lineCap='round';
+          if(n<=28){cx.lineWidth=4.6;cx.strokeStyle=pass?'rgba(255,45,85,.4)':'rgba(111,230,255,.36)';cx.stroke();cx.lineWidth=1.8;cx.strokeStyle=pass?PAL.dzCore:PAL.frCore;cx.stroke();}
+          else{cx.lineWidth=2.8;cx.strokeStyle=pass?'rgba(255,190,170,.92)':'rgba(190,244,255,.92)';cx.stroke();}   // 🚀 불꽃이 많이 튈 땐 한 줄로(색은 그대로: 하늘빛 흰색 / 뜨거운 붉은 흰색)
+          cx.lineCap='butt';}}}
   };
   o.pops=function(){if(!tAct)return;   // 큰 글자('펑!' + 별 모양 폭발) — 튀어나왔다 자리 잡고 사라진다
     cx.textAlign='center';cx.lineJoin='round';
