@@ -152,6 +152,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <details class="howd"><summary>❔ 조작법</summary><ol class="how">
     <li>WASD·방향키(폰은 화면을 끌어서)로 캐릭터를 움직여요.</li>
     <li>공격은 자동! 떨어진 경험치 알을 주워 레벨업하고 3개 중 하나를 골라요.</li>
+    <li>💎 색이 진하고 클수록 경험치가 커요. (하늘 ◆ → 민트 ■ → 금색 ⬢ → 연보라 ✦ → 흰보라 ✸) <!-- 💎 [2026-09-30 사장님 지시] --></li>
     <li><b>60분 버티면 클리어!</b> 5분마다 보스(흐접새우의 트롤픽 · 브장신 키우기 레이드 보스), 그 사이 2:30·7:30…엔 미니 보스, 55분엔 최종 보스.</li>
     <li>5분부터는 👹 <b>대형 트롤픽</b>(덩치 2배·체력 8배)이 섞여 나와요. 잡으면 💎·💣·🍗를 떨굴 때가 많아요.</li>
     <li>무기는 6개·패시브는 6개까지. 무기 Lv8 + 짝 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>(한 판에 3개까지)!</li>
@@ -333,7 +334,23 @@ const enemies=new Pool(MAXE,()=>({x:0,y:0,hp:0,mhp:0,r:10,sp:0,dmg:0,t:0,hit:0,b
 let SN=0;   // 적 출생 번호 — 풀 칸은 재사용되므로 '같은 적인가'는 on 이 아니라 sn 으로 본다(갈고리·레이저·브레스의 주인)
 const srcOk=b=>!!(b.src&&b.src.on&&b.src.sn===b.sn);
 const shots=new Pool(LOW?160:220,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,pierce:0,r:6,c:'#e8c46a'}));
-const gems=new Pool(300,()=>({x:0,y:0,v:1,mag:0}));
+const gems=new Pool(200,()=>({x:0,y:0,v:1,mag:0}));   // 💎 [2026-09-30 사장님 지시] 처치 1마리 = 보석 1개(보스도 1개) · 값에 따라 색·크기가 티어로 갈린다 · 바닥에 60개 넘게 쌓이면 가까운 것끼리 합친다
+const gemTier=v=>v<3?0:v<8?1:v<20?2:v<50?3:4;   // 💎 T0 하늘 ◆ 1~2 · T1 민트 ■ 3~7 · T2 금색 ⬢ 8~19 · T3 연보라 ✦ 20~49 · T4 흰보라 ✸ 50+ (빨강 계열은 적 위험 표시 전용이라 안 쓴다)
+const GEM_SOFT=60,GEM_COL=['#5bd1ff','#5ff2b4','#ffd95a','#c3a8ff','#f4eeff'],GEM_R=[4,6,7,9,11];
+const GEM_SHAPE=(()=>{const mk=(n,ri)=>{const a=[];for(let i=0;i<2*n;i++){const t=-Math.PI/2+i*Math.PI/n,r=i%2?ri:1;a.push(Math.cos(t)*r,Math.sin(t)*r);}return a;};
+  return [mk(2,1),[-.75,-.75,.75,-.75,.75,.75,-.75,.75],mk(3,1),mk(4,.42),mk(8,.5)];})();   // 다이아 · 네모 · 육각 · 4각별 · 8각별(모양도 달라서 색을 못 봐도 구분된다)
+let gemMT=0;const gemGrid=new Map();
+function gemMerge(){   // 💎 [2026-09-30 사장님 지시] 바닥 보석이 GEM_SOFT 를 넘으면 격자(O(n))로 가까운 것끼리 합친다 — 합계 값은 그대로, 위치는 값 가중 평균, mag(자석) 표시는 같은 것끼리만
+  let n=0;for(const g of gems.a)if(g.on)n++;
+  if(n<=GEM_SOFT)return;
+  const p=S.p,far=1.5*Math.hypot(W,H)/SC,far2=far*far;
+  for(let cs=56;cs<=448&&n>GEM_SOFT;cs*=2){
+    gemGrid.clear();
+    for(const g of gems.a){if(!g.on)continue;const dx=g.x-p.x,dy=g.y-p.y,fr=dx*dx+dy*dy>far2,c=fr?cs*4:cs;   // 화면 대각선 1.5배 밖은 굵은 칸으로 크게 묶는다
+      const k=((Math.floor(g.x/c)+4096)*8192+Math.floor(g.y/c)+4096)*4+(g.mag?2:0)+(fr?1:0),o=gemGrid.get(k);
+      if(!o){gemGrid.set(k,g);continue;}
+      const t=o.v+g.v;o.x=(o.x*o.v+g.x*g.v)/t;o.y=(o.y*o.v+g.y*g.v)/t;o.v=t;g.on=false;if(--n<=GEM_SOFT)break;}}
+}
 const texts=new Pool(60,()=>({x:0,y:0,s:'',life:0,c:''}));
 const rangs=new Pool(24,()=>({x:0,y:0,vx:0,vy:0,t:0,life:0,dmg:0,r:12,orb:0,a:0}));      // 🍤 새우깡
 const bolts=new Pool(48,()=>({x1:0,y1:0,x2:0,y2:0,life:0,ev:0}));                         // ⌨ 번개
@@ -972,10 +989,9 @@ function hurt(e,d){
       if(e.bg){if(can&&r<.2*lk)chick();else if(r<.85)dropItem(r<.62?'magnet':'bomb',e.x,e.y);}   // 👹 대형 — 🍗20% · 💎 · 💣(후반 화면 청소가 너무 잦지 않게 💣는 23%)
       else if(e.el){if(can&&r<.12*lk)chick();else if(r<.18)dropItem('magnet',e.x,e.y);}   // ⭐ 엘리트 🍗12% · 💎6%
       else if(can&&r<.006*lk*(1+.8*Math.max(0,1-S.t/600)))chick();}   // 잡몹 0.6%(첫 10분은 조금 더 — 0분 1.1% → 10분 0.6%)
-    const xm=e.gold>0?2:1,n=e.boss?8:1;
-    for(let i=0;i<n;i++){const v=(e.boss?e.xp/n:e.xp)*xm,g=gems.get();
-      if(!g){const o=gems.a[Math.random()*gems.a.length|0];o.v+=v;continue;}   // 보석이 넘치면 기존 보석에 합친다
-      g.x=e.x+(n>1?(Math.random()-.5)*60:0);g.y=e.y+(n>1?(Math.random()-.5)*60:0);g.v=v;g.mag=0;}
+    {const v=e.xp*(e.gold>0?2:1),g=gems.get();   // 💎 [2026-09-30 사장님 지시] 보스도 큰 보석 하나(예전 8개) — 경험치 총량은 그대로
+      if(!g){const o=gems.a[Math.random()*gems.a.length|0];o.v+=v;}   // 보석이 넘치면 기존 보석에 합친다
+      else{g.x=e.x;g.y=e.y;g.v=v;g.mag=0;}}
     if(!e.boss&&KIND[e.ki]&&KIND[e.ki].split&&e.id==='Yorick'&&e.r>9){let g=null;for(let i=0;i<2;i++){const m=spawnEnemy(1,.6*hpMul(MIN()),null,e);if(m){m.id='Yorick';m.r=8;m.sp=85;m.c='#7a7f9a';m.xp=.5;g=g||m;}}
       if(g)taunt('Yorick',g);}   // 💬 분열 — 구울이 대사
     if(e.boss){S.midKill=1;if(e.b.fin)S.bossKill=1;bossUnlock(e.b.key);dropItem('chest',e.x,e.y);S.p.hp=Math.min(S.p.mhp,S.p.hp+(e.b.mini?15:30));
@@ -1320,6 +1336,7 @@ function update(dt){
     const dx=p.x-c.e.x,dy=p.y-c.e.y,d=Math.hypot(dx,dy);let da=Math.atan2(dy,dx)-c.a;da=Math.atan2(Math.sin(da),Math.cos(da));
     if(d<c.R&&Math.abs(da)<c.w&&hitP(c.d,'🐲 브레스!'))return;}}
   const mag=(70*(1+.3*pv('mag')+(CH.mag||0)))**2;
+  if((gemMT-=dt)<=0){gemMT=.25;gemMerge();}   // 💎 1초에 4번만 합치기 검사
   for(const g of gems.a){if(!g.on)continue;const dx=p.x-g.x,dy=p.y-g.y,d2=dx*dx+dy*dy;
     if(d2<mag)g.mag=1;if(g.mag){const d=Math.sqrt(d2)||1;g.x+=dx/d*480*dt;g.y+=dy/d*480*dt;}
     if(d2<(p.r+6)**2){g.on=false;AU.play('gem');gainXp(g.v*XP_X*(1+(CH.xp||0)+.08*pv('study')+S.syn.xp));}}
@@ -1575,8 +1592,19 @@ function draw(){
     else{cx.fillStyle=b.ev?`rgba(255,240,150,${Math.max(0,.6+b.t*2)})`:`rgba(255,220,120,${Math.max(0,.5+b.t*2)})`;cx.beginPath();cx.arc(b.x,b.y,b.R,0,7);cx.fill();}}
   drawMap();
   // 보석
-  cx.fillStyle='#5bd1ff';
-  for(const gm of gems.a){if(!gm.on)continue;const s=gm.v>3?6:4;cx.beginPath();cx.moveTo(gm.x,gm.y-s);cx.lineTo(gm.x+s,gm.y);cx.lineTo(gm.x,gm.y+s);cx.lineTo(gm.x-s,gm.y);cx.fill();}
+  {const vx=W/2/SC+16,vy=H/2/SC+16;   // 💎 [2026-09-30 사장님 지시] 티어별로 경로 하나·채우기 한 번 — 화면 밖은 안 그린다(정수 좌표)
+   cx.lineWidth=1;cx.strokeStyle='rgba(255,255,255,.7)';
+   for(let t=0;t<5;t++){const R=GEM_R[t],sh=GEM_SHAPE[t],m=sh.length;let any=false;
+     cx.beginPath();
+     for(const gm of gems.a){if(!gm.on||gemTier(gm.v)!==t)continue;const X=Math.round(gm.x),Y=Math.round(gm.y);
+       if(X-p.x>vx||p.x-X>vx||Y-p.y>vy||p.y-Y>vy)continue;any=true;
+       cx.moveTo(X+sh[0]*R,Y+sh[1]*R);for(let i=2;i<m;i+=2)cx.lineTo(X+sh[i]*R,Y+sh[i+1]*R);cx.closePath();}
+     if(!any)continue;
+     cx.fillStyle=GEM_COL[t];cx.fill();cx.stroke();}
+   cx.fillStyle='rgba(190,220,255,.15)';cx.beginPath();   // 큰 보석(T2+)만 은은한 빛무리 — 한 번에
+   for(const gm of gems.a){if(!gm.on||gm.v<8)continue;const X=Math.round(gm.x),Y=Math.round(gm.y);
+     if(X-p.x>vx||p.x-X>vx||Y-p.y>vy||p.y-Y>vy)continue;const r=GEM_R[gemTier(gm.v)]*1.7;cx.moveTo(X+r,Y);cx.arc(X,Y,r,0,7);}
+   cx.fill();}
   // 🎧 음파
   for(const w of waves.a){if(!w.on)continue;cx.strokeStyle=w.ev?`rgba(255,120,220,${1-w.r/w.R})`:`rgba(140,220,255,${1-w.r/w.R})`;cx.lineWidth=w.ev?6:3;cx.beginPath();cx.arc(w.x,w.y,w.r,0,7);cx.stroke();}
   // 적 — ✨ 발밑 그림자 먼저(잡몹은 가벼운 단계에서만 · 붐빌 땐 큰 놈만)
