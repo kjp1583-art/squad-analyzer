@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>P-7 시제품 · 새내기 첫 3판</title><style>:root{--bg:#11131a;--card:#1b1f2b;--txt:#e7eaf3;--sub:#9aa3b8;--line:#2a3042;--acc:#5b8cff;--gold:#f5c542;--ok:#4cc38a;--bad:#ef6b6b}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}.wrap{max-width:560px;margin:0 auto;padding:16px}.lab{background:#2a2110;border:1px solid #6b5420;color:#f5d58a;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:14px}h1{font-size:18px;margin:4px 0 12px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}.muted{color:var(--sub);font-size:12.5px}.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:4px 10px;margin:3px 3px 0 0;font-size:12.5px}.seg button{background:var(--card);color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font:inherit;cursor:pointer;margin:0 6px 8px 0}.seg button.on{color:var(--txt);border-color:var(--acc)}.row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line)}.row:first-child{border-top:0}.w{color:var(--ok)}.l{color:var(--bad)}.bar{height:7px;background:#11131a;border-radius:4px;overflow:hidden;margin:4px 0 8px}.bar i{display:block;height:100%;background:var(--acc)}pre{white-space:pre-wrap;background:#11131a;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12.5px;margin:6px 0}button.act{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}</style></head><body><div class="wrap">
+<div class="lab">🧪 P-7 시제품 — 가짜 닉네임·가짜 숫자입니다(링크 없음). 위쪽 버튼으로 새내기의 상황을 바꿔 보세요.</div>
+<h1>🐣 새내기 첫 3판</h1>
+<div class="seg" id="seg"></div>
+<div class="card" id="web"></div>
+<div class="muted" style="margin:6px 0">② 봇 결과 리포트 끝에 붙는 한 줄</div><pre id="bot"></pre>
+<div class="muted" style="margin:6px 0">③ 스태프 채널 · 월요일 아침 (가짜 명단)</div><pre id="staff">🐣 새 얼굴 주간 (9/22~9/28) — 14명 합류 · 7일 넘게 안 보이는 사람 6명
+· 새싹1  미드 1판(패) · 마지막 9/22 · 6일 전
+· 새싹2  서폿 2판(1승 1패) · 마지막 9/23
+· 새싹3  탑 1판(패) · 마지막 9/21
+(나머지 3명 · 웹 프로필 링크는 실제 구현 때 붙습니다)</pre>
+<p class="muted">근거: 첫 3판 3승 → 2주 안 재방문 85%, 전패 → 39% (9/28 시트, 212명).</p>
+</div><script>
+var S={
+ lose:{n:'새싹A',pos:'미드',g:[['패','7/2/3'],['패','3/6/4']],avgK:48,k:55,dmg:42,txt:'아직 첫 승 전이에요'},
+ mix:{n:'새싹B',pos:'서폿',g:[['승','1/2/14'],['패','0/5/6'],['승','2/3/12']],avgK:58,k:66,dmg:0,txt:'첫 승은 1번째 판!'},
+ win:{n:'새싹C',pos:'탑',g:[['승','8/3/4'],['승','5/4/6'],['승','9/2/2']],avgK:50,k:52,dmg:61,txt:'3연승으로 시작했어요'}};
+function show(k){var s=S[k],w=s.g.filter(function(x){return x[0]=='승'}).length,n=s.g.length,good=[];
+ if(s.k>s.avgK)good.push(s.pos+' 평균 대비 킬관여 +'+(s.k-s.avgK)+'%p');
+ if(s.dmg>=50)good.push('딜량 상위 '+(100-s.dmg)+'%');
+ var h='<b>🐣 '+s.n+'</b> <span class="chip">10판 미만 · '+n+'판째</span><div class="muted">'+s.pos+' · '+w+'승 '+(n-w)+'패 · '+s.txt+'</div>';
+ h+='<div style="margin-top:8px">'+(good.length?good.map(function(x){return'<span class="chip">✅ '+x+'</span>'}).join(''):'<span class="muted">아직 평균보다 앞선 숫자는 없어요 — 숫자만 보여 드려요</span>')+'</div>';
+ h+='<div style="margin-top:8px">';s.g.forEach(function(x,i){h+='<div class="row"><span>'+(i+1)+'번째 판</span><span class="'+(x[0]=='승'?'w':'l')+'">'+x[0]+' '+x[1]+'</span></div>'});h+='</div>';
+ h+='<div class="muted" style="margin-top:8px">10판까지 '+(10-n)+'판 남음</div><div class="bar"><i style="width:'+n*10+'%"></i></div>';
+ document.getElementById('web').innerHTML=h;
+ document.getElementById('bot').textContent='🐣 '+s.n+' 님 '+n+'번째 판 — '+w+'승 '+(n-w)+'패\n'+(good.length?good.join(' · ')+'\n':'')+'다음 내전은 보통 밤 8~9시에 시작해요.';
+ [].forEach.call(document.querySelectorAll('#seg button'),function(b){b.className=b.dataset.k==k?'on':''})}
+var L={lose:'2판 전패',mix:'3판 1패 2승',win:'3연승'};
+Object.keys(L).forEach(function(k){var b=document.createElement('button');b.textContent=L[k];b.dataset.k=k;b.onclick=function(){show(k)};document.getElementById('seg').appendChild(b)});show('lose');
+</script></body></html>
