@@ -1315,6 +1315,7 @@ window.SGG_DC_BOOT=(function(){
   @media (max-width:640px){ .rrow{gap:6px!important} .rrow .rrow-n{width:92px!important} .rrow .rrow-d{flex:1 1 100%!important;padding-left:28px;white-space:normal} }
   /* 📱 [2026-09-29 A-13] 챔피언 장인랭킹 표 — 폰(360px)에서 418px 로 넘치던 것: 사용 라인·MVP 칸을 숨긴다 */
   @media (max-width:640px){ .mstbl th:nth-child(4),.mstbl td:nth-child(4),.mstbl th:nth-child(7),.mstbl td:nth-child(7){display:none} }
+.newbie-cells{display:flex;flex-wrap:wrap;gap:8px}.newbie-cells .cmp{flex:1 1 140px;min-width:0}.newbie-cells .cmp-r{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -2346,6 +2347,102 @@ function tryPicksOf(name,pos){
       .sort((a,b)=>a.same-b.same||a.i-b.i).slice(0,3);
     return {src:'ver',list:v};
   });
+}
+/* 🐣 [P-7 2026-10-01] 새내기 카드 — 협곡 통산 10판 미만 클랜원 프로필 맨 위. 읽기 전용 · 사실 숫자만.
+   · 라인 평균 = 같은 라인 전체 기록(본인 제외)의 AI점수·킬관여 평균. 라인 표본(30행↑·8명↑)과 본인 표본(2판↑)이 모자라면 그 칸은 통째로 뺀다.
+   · 한 줄 응원은 '사실 하나'가 있을 때만(첫 승 · 평균보다 높은 지표). 진 판을 탓하는 문구는 어떤 경우에도 쓰지 않는다.
+   · 끄기: NEWBIE_CARD=false (또는 renderPlayer 의 호출 한 줄 삭제). */
+const NEWBIE_CARD=true;
+/* 클랜원 = 내부티어표(CLAN_TIERS·마스터 차트·닉변 별칭)에 있거나 LINK_ACCOUNT 본계·부계인 사람. 손님·외부 스크림 상대는 새내기가 아니다. */
+function _nbMember(n){
+  return _funMemo('nbMem:'+n,()=>{
+    if(tierOf(n)) return true;
+    const k=tnorm(n);
+    const mains=_funMemo('nbMains',()=>{ const m=new Set(); for(const v of ALT_TO_MAIN.values()) m.add(tnorm(v)); return m; });
+    return ALT_TO_MAIN.has(k)||mains.has(k);
+  });
+}
+/* 외부 스크림 = 한 진영에서 클랜원이 아닌 사람이 4명 이상인 판(2026-10-01 9/28 시트 실측 52/1783판). 이 판은 새내기 판수·라인 평균에서 뺀다. */
+function _nbScrimSet(){
+  return _funMemo('nbScrim',()=>{
+    const out=new Set();
+    for(const [gid,g] of GAMES_ALL){
+      const bad={};
+      for(const r of g.rows){ if(!_nbMember(canonOfRow(r))){ const sd=r["진영"]||"?"; bad[sd]=(bad[sd]||0)+1; } }
+      if(Object.values(bad).some(c=>c>=4)) out.add(gid);
+    }
+    return out;
+  });
+}
+function _nbLaneIdx(){
+  return _funMemo('nbLane',()=>{
+    const A={};   // 라인 -> {n,ai:[합,수],kp:[합,수],who:Map(이름->{ai:[합,수],kp:[합,수]})}
+    const sc=_nbScrimSet();
+    for(const [nm,parts] of (PLAYERS_ALL.size?PLAYERS_ALL:PLAYERS)){
+      if(!_nbMember(nm)) continue;
+      for(const r of parts){
+        const p=r["포지션"]; if(!POS_LIST.includes(p)||(r["결과"]!=="승리"&&r["결과"]!=="패배")||sc.has(r["게임ID"])) continue;
+        const a=A[p]=A[p]||{n:0,ai:[0,0],kp:[0,0],who:new Map()};
+        const w=a.who.get(nm)||{ai:[0,0],kp:[0,0]}; a.who.set(nm,w); a.n++;
+        const sv=parseFloat(r["점수"]); if(isFinite(sv)){ a.ai[0]+=sv; a.ai[1]++; w.ai[0]+=sv; w.ai[1]++; }
+        const mt=parseMetrics(r); if(mt&&mt.kp!=null&&isFinite(mt.kp)){ a.kp[0]+=mt.kp; a.kp[1]++; w.kp[0]+=mt.kp; w.kp[1]++; }
+      }
+    }
+    return A;
+  });
+}
+/* 본인을 뺀 라인 평균 — 표본이 모자라면 null */
+function _nbLaneAvg(lane,name,key){
+  const a=_nbLaneIdx()[lane]; if(!a||a.n<30||a.who.size<8) return null;
+  const me=a.who.get(name); let s=a[key][0], n=a[key][1];
+  if(me){ s-=me[key][0]; n-=me[key][1]; }
+  return n>=30?{avg:s/n,n}:null;
+}
+function newbieFacts(name){
+  const parts=(PLAYERS_ALL.size?PLAYERS_ALL:PLAYERS).get(name); if(!parts) return null;
+  if(!_nbMember(name)) return null;
+  const sc=_nbScrimSet();
+  const dec=parts.filter(r=>(r["결과"]==="승리"||r["결과"]==="패배")&&!sc.has(r["게임ID"])); const G=dec.length;
+  if(G<1||G>=10) return null;
+  const w=dec.filter(r=>r["결과"]==="승리").length, firstWin=dec.findIndex(r=>r["결과"]==="승리")+1;   // 0 = 아직 없음
+  const cnt={}; for(const r of dec){ const p=r["포지션"]; if(POS_LIST.includes(p)) cnt[p]=(cnt[p]||0)+1; }
+  const lane=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||POS_LIST.indexOf(a)-POS_LIST.indexOf(b))[0]||null;
+  const out={G,w,l:G-w,firstWin,lane,laneG:lane?cnt[lane]:0,ai:null,kp:null};
+  if(lane){
+    for(const key of ["ai","kp"]){
+      const mine=dec.filter(r=>r["포지션"]===lane).map(r=>key==="ai"?parseFloat(r["점수"]):(()=>{const m=parseMetrics(r); return m&&m.kp!=null?m.kp:NaN;})()).filter(isFinite);
+      if(mine.length<2) continue;
+      const ref=_nbLaneAvg(lane,name,key); if(!ref) continue;
+      const v=mine.reduce((a,b)=>a+b,0)/mine.length;
+      out[key]={v,ref:ref.avg,n:mine.length,refN:ref.n,d:v-ref.avg};
+    }
+  }
+  return out;
+}
+function newbieCardHtml(name){
+  if(!NEWBIE_CARD||(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift")||isDeparted(name)) return '';
+  let f; try{ f=newbieFacts(name); }catch(e){ return ''; }
+  if(!f) return '';
+  const sg=(x,u)=>`${x>=0?'+':'−'}${Math.abs(x).toFixed(u)}`;
+  const cell=(k,v,sub)=>`<div class="cmp"><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${sub?`<span class="cmp-r">${sub}</span>`:''}</div>`;
+  const cells=[cell('경기',`${f.G}<span style="font-size:12px;color:var(--mut)">/10판</span>`,'10판을 채우면 새내기 졸업'),
+    cell('승패',`${f.w}승 ${f.l}패`,'')];
+  if(f.lane) cells.push(cell('라인',esc(f.lane),f.laneG===f.G?`${f.laneG}판`:`${f.laneG}판 · 가장 많이 한 라인`));
+  if(f.ai) cells.push(cell('AI 점수',f.ai.v.toFixed(1),`${esc(f.lane)} 클랜 평균 ${f.ai.ref.toFixed(1)} ${f.ai.d>0?` (${sg(f.ai.d,1)})`:''}`));
+  if(f.kp) cells.push(cell('킬관여',`${Math.round(f.kp.v)}%`,`${esc(f.lane)} 클랜 평균 ${Math.round(f.kp.ref)}% ${f.kp.d>0?` (${sg(f.kp.d,0)}%p)`:''}`));
+  const notes=[];
+  if(f.firstWin) notes.push(f.firstWin===1?'첫 판부터 승리했어요.':`첫 승은 ${f.firstWin}번째 판에서 나왔어요.`);
+  // 응원은 '사실이 있을 때'만 — 평균보다 확실히 높은 칸(AI +2점↑ · 킬관여 +3%p↑)
+  let cheer='';
+  if(f.ai&&f.ai.d>=2) cheer=`${esc(f.lane)} 클랜 평균보다 AI 점수가 높게 나왔어요.`;
+  else if(f.kp&&f.kp.d>=3) cheer=`${esc(f.lane)} 클랜 평균보다 킬관여가 높게 나왔어요 — 팀과 같이 싸웠다는 뜻이에요.`;
+  const smallN=(f.ai&&f.ai.n<5)||(f.kp&&f.kp.n<5);
+  return `<div class="card newbie-card" style="margin-top:14px">
+    <h2>🐣 새내기 카드 <span class="muted" style="font-size:13.5px;font-weight:400">· 처음 ${f.G}판</span></h2>
+    <div class="newbie-cells">${cells.join('')}</div>
+    ${notes.length?`<div style="font-size:13px;margin-top:8px">${notes.map(esc).join(' ')}</div>`:''}
+    ${cheer?`<div style="font-size:13.5px;font-weight:700;margin-top:6px;color:var(--win)">🌱 ${cheer}</div>`:''}
+    <div class="muted" style="font-size:11.5px;margin-top:8px;opacity:.85">${smallN?'판수가 적어 흔들리는 숫자예요 · ':''}라인 평균은 같은 라인 클랜 기록(본인 제외) 기준 · 참고용이에요</div></div>`;
 }
 function pickCardHtml(name){
   if(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift") return '';
@@ -9901,6 +9998,7 @@ function renderPlayer(name){
         </div>
       </div>
     </div>
+    ${newbieCardHtml(name)}
     <div class="card sect" style="margin-top:14px"><h2>🎖 뱃지 · 기록</h2>${mitoHtml}${badgesHtml}</div>
     ${recordRoomHtml(name)}
     ${aiEvalHtml}
@@ -10888,7 +10986,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202609302040";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610011130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
