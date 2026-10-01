@@ -439,9 +439,21 @@ async function submitRun(won){const u=dcUser();const el=$('rAcct');
 async function postRun(body,n){const el=$('rAcct');   // 판 결과는 보낼 때 한 번 찍어 둔다(다시 보내는 사이 새 판이 시작돼도 그대로)
   try{const j=await api('/p6/run',body);
     if(j.code==='upstream'&&n<2){el.textContent='📡 디스코드 확인이 늦어요 — 잠시 뒤 다시 올려 볼게요…';setTimeout(()=>postRun(body,n+1),4000*(n+1));return;}   // 서버가 저장 안 했다고 확답한 경우만 재시도
-    if(j.ok){el.innerHTML=`✅ 기록 저장! ${body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.hard)BTAB=1;mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();}
-    else el.textContent=j.code==='rate'?'⏳ 너무 빨리 끝났어요 — 이번 판은 저장되지 않았어요(20초 간격).':j.code==='auth'?'🔐 로그인이 만료됐어요 — 다시 로그인해 주세요.':j.code==='upstream'?'⚠ 디스코드 확인이 안 돼 이번 기록은 이 기기에만 남았어요(로그인은 그대로).':'⚠ 이번 기록은 저장되지 않았어요.';
-  }catch(e){el.textContent='⚠ 서버에 닿지 않아 이번 기록은 이 기기에만 남았어요.';}}
+    if(j.ok){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 기록 저장! ${body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.hard)BTAB=1;mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();}
+    else if(j.code==='rate')el.textContent='⏳ 너무 빨리 끝났어요 — 이번 판은 저장되지 않았어요(20초 간격).';
+    else if(j.code==='auth')el.textContent='🔐 로그인이 만료됐어요 — 다시 로그인해 주세요.';
+    else if(j.code==='upstream')keepUnsent(body,'⚠ 디스코드 확인이 안 돼 이번 기록은 아직 저장되지 않았어요(로그인은 그대로).');
+    else keepUnsent(body,'⚠ 서버가 이번 기록을 받지 못했어요'+(j.code?'(코드 '+esc(j.code)+')':'')+'. 기록은 이 기기에 남겨 뒀어요.');
+  }catch(e){keepUnsent(body,'⚠ 서버에 닿지 않아 이번 기록은 이 기기에 남겨 뒀어요.');}}
+// 🩹 [2026-10-01] 저장이 안 된 판은 이 기기에 남겨 두고 '🔁 다시 저장' 으로 다시 올린다(60분 클리어가 서버 상한 때문에 거절돼 기록이 사라지던 일)
+const UNSENT='p6_unsent';
+function keepUnsent(body,msg){const el=$('rAcct');const o=Object.assign({},body);delete o.token;o.ts=Date.now();
+  try{localStorage.setItem(UNSENT,JSON.stringify(o));}catch(e){}
+  if(!el)return;el.innerHTML=msg+'<br><button class="btn" id="rRetry" style="margin-top:6px">🔁 다시 저장</button>';const b=$('rRetry');if(b)b.onclick=()=>flushUnsent(true);}
+function flushUnsent(show){const u=dcUser();let o=null;try{o=JSON.parse(localStorage.getItem(UNSENT)||'null');}catch(e){}
+  if(!o||!u||Date.now()-(o.ts||0)>3*86400*1000){if(o&&Date.now()-(o.ts||0)>3*86400*1000){try{localStorage.removeItem(UNSENT);}catch(e){}}return;}
+  const el=$('rAcct');if(show&&el)el.textContent='📡 기록 다시 올리는 중…';
+  const b=Object.assign({},o,{token:u.token});delete b.ts;postRun(b,0);}
 const UK='p6_unl_v1';
 function getUnl(){try{return new Set(JSON.parse(localStorage.getItem(UK)||'[]'));}catch(e){return new Set();}}
 function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>s.add(String(x)));try{localStorage.setItem(UK,JSON.stringify([...s]));}catch(e){}}
@@ -2613,7 +2625,7 @@ function frame(now){
   draw();
 }
 // 첫 화면 — BOSS·pickLine·bossImg(아래쪽 const)가 준비된 뒤에 그린다(🐲 보스 캐릭터 카드가 출현 대사를 쓴다)
-showBest();renderRoster();renderAcct();loadBoard();loadMe();if(hasArt(CH))charImg(CH);
+showBest();renderRoster();renderAcct();loadBoard();loadMe();setTimeout(()=>{try{flushUnsent(false);}catch(e){}},2500);if(hasArt(CH))charImg(CH);
 requestAnimationFrame(frame);
 
 // 검증용 훅(화면엔 영향 없음)
