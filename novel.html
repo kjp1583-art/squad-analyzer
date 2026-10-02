@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>스콰드 (비주얼 노벨)</title>
+<meta name="theme-color" content="#05060a">
+<!--
+==========================================================================
+ 「스콰드」 호러 비주얼 노벨 — 단일 정적 페이지 (서버·라이브러리·외부 오디오 없음)
+ 이 이야기는 전부 허구이며 실제 인물·단체와 관계없습니다. 등장인물은 전부 가상의 알리아스입니다.
+
+ [수정하는 법]  대사·장면은 아래 <script> 의 const SCENES 한 곳에서 고친다.
+   대사 = ['화자','대사', {옵션}]  /  지문 = {n:'지문'}  /  선택 = {choice:{...}}  /  이동 = {go:'장면'}  /  엔딩 = {end:'A'}
+   옵션: when(플래그 조건) fx sfx bg clue(단서 줍기)  — 화자 이름은 CHARS 의 name 과 같아야 초상화가 붙는다.
+
+ [그림]  img/novel/bg_<배경id>.webp , img/novel/ch_<캐릭터id>.webp 가 있으면 자동으로 쓰고,
+         없으면 어두운 그라디언트 배경 + 이름표/동그라미(첫 글자)로 대신한다.
+
+ [분기 규칙]
+   플래그: key(7장①로 열쇠를 빼앗음) / heard(7장②로 이유를 들음) / alerted(7장③으로 모두에게 알림)
+   변수:   trust(간장맛명태소환사와의 신뢰: 7장②+1, 7장③+1, 4장 쪽지 줍기 +1), clues(단서 6개)
+   단서 6개(탭해서 줍기): 3장 열쇠·벽의 숫자 / 4장 가입 문구 쪽지 / 6장 서류철·'마지막 생존 후보' 메모 / 7장 낡은 명단 조각
+   7장 ①②③ → 8장 지문이 달라진다(열쇠를 쥔 승우, 그냥혀의 말, 물러난 일행).
+   8장 ① 승우가 남는다 → 엔딩 A(희생)  ② 허기허기·포만포만이 남는다 → 엔딩 B(함께)  ③ 규칙 거부 → 엔딩 C(거부)
+   ★ 진엔딩: 단서 6개 전부 + 7장②(이유를 들음) 를 모두 충족하면 8장에 숨은 선택지 ④(명단 조각을 맞춰 본다)가 나타나고,
+     그것을 고르면 진엔딩. (조건이 안 되면 ④는 아예 보이지 않는다)
+ [접근성] 번쩍임은 초당 2회 이하의 느린 명멸뿐. '움직임 줄이기'는 OS 설정을 따르고 메뉴에서도 켤 수 있다(흔들림·명멸·타자기 끔).
+          선택지 제한시간은 메뉴에서 끌 수 있다.
+==========================================================================
+-->
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#05060a;color:#e8e6ea;overflow:hidden;
+  font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+#app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#020306}
+#stage{position:relative;width:min(100vw,960px);height:100vh;height:100dvh;max-height:720px;overflow:hidden;background:#000;
+  user-select:none;-webkit-user-select:none;box-shadow:0 0 60px #000}
+@media (max-width:600px){#stage{max-height:none}}
+.layer{position:absolute;inset:0}
+.bg{background-size:cover;background-position:center;opacity:0;transition:opacity 1s}
+.bg.on{opacity:1}
+#vig{pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.65) 100%)}
+#chars{position:absolute;left:0;right:0;top:9%;bottom:33%;display:flex;justify-content:center;align-items:flex-end;gap:2%;pointer-events:none}
+.ch{flex:0 1 32%;height:100%;display:flex;align-items:flex-end;justify-content:center;transition:filter .4s,opacity .4s,transform .4s;filter:brightness(.4);opacity:.75}
+.ch.on{filter:none;opacity:1;transform:translateY(-1%)}
+.ch img{max-width:100%;max-height:100%;object-fit:contain}
+.ch .sil{width:min(30vw,150px);aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:min(14vw,64px);font-weight:700;color:#fff;border:2px solid rgba(255,255,255,.25);margin-bottom:6%}
+#props{position:absolute;inset:0;pointer-events:none}
+.prop{position:absolute;pointer-events:auto;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;
+  border:2px solid #f0c060;background:rgba(240,192,96,.15);font-size:28px;display:flex;align-items:center;justify-content:center;
+  animation:glow 1.6s ease-in-out infinite;z-index:5}
+.prop small{position:absolute;top:100%;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:#f0c060;margin-top:2px}
+@keyframes glow{0%,100%{box-shadow:0 0 6px #f0c06088}50%{box-shadow:0 0 22px #f0c060}}
+#fxBlack{background:#000;opacity:0;transition:opacity .8s;pointer-events:none;z-index:5}
+#fxBlack.on{opacity:1}
+#fxWhite{background:#f4f1ea;opacity:0;transition:opacity .6s;pointer-events:none;z-index:2}
+#fxWhite.on{opacity:1}
+#fxFlick{background:#000;opacity:0;pointer-events:none;z-index:4}
+#fxFlick.on{animation:flick 1.25s steps(1) infinite}
+@keyframes flick{0%{opacity:0}30%{opacity:.55}45%{opacity:.1}70%{opacity:.7}100%{opacity:0}}
+#stage.shake{animation:shake .5s linear 2}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,2px)}50%{transform:translate(3px,-3px)}75%{transform:translate(-2px,3px)}}
+.rm #fxFlick.on{animation:none;opacity:.35}
+.rm #stage.shake{animation:none}
+.rm .prop{animation:none}
+.rm *{transition-duration:.01s!important}
+/* HUD */
+#hud{position:absolute;top:0;left:0;right:0;padding:max(8px,env(safe-area-inset-top)) 10px 0;display:flex;gap:6px;align-items:center;z-index:9;pointer-events:none}
+#hud>*{pointer-events:auto}
+#clueHud{white-space:nowrap;font-size:12px;color:#f0c060;background:rgba(0,0,0,.5);padding:4px 8px;border-radius:12px;margin-right:auto}
+.hb{white-space:nowrap;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);border-radius:14px;min-height:32px;padding:3px 8px;font-size:12px}
+.hb.on{background:#7a1f2b;border-color:#c0394a}
+/* textbox */
+#tb{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:0 10px max(10px,env(safe-area-inset-bottom));min-height:30%}
+#name{display:inline-block;min-height:26px;padding:3px 14px;margin:0 0 -1px 8px;border-radius:8px 8px 0 0;font-weight:700;font-size:15px;background:#222;border:1px solid rgba(255,255,255,.3);border-bottom:0}
+#name:empty{visibility:hidden}
+#box{background:rgba(6,8,14,.88);border:1px solid rgba(255,255,255,.28);border-radius:10px;padding:14px 16px 26px;min-height:112px;font-size:17px;line-height:1.7;position:relative;word-break:keep-all;overflow-wrap:anywhere}
+#box.narr{font-style:italic;color:#c9c6cf}
+#more{position:absolute;right:12px;bottom:6px;font-size:12px;opacity:.7}
+#more.blink{animation:bl 1.2s steps(2) infinite}
+.rm #more.blink{animation:none}
+@keyframes bl{50%{opacity:.1}}
+@media (min-width:700px){#box{font-size:19px;min-height:128px}#tb{padding-left:6%;padding-right:6%}}
+/* choices */
+#choices{position:absolute;left:0;right:0;top:0;bottom:0;z-index:7;display:none;flex-direction:column;justify-content:center;gap:10px;padding:0 6%;background:rgba(0,0,0,.45)}
+#choices.on{display:flex}
+#cl{display:flex;flex-direction:column;gap:10px}
+#cq{text-align:center;font-size:15px;color:#cfcad6;margin-bottom:4px}
+.cbtn{background:rgba(10,12,20,.92);border:1px solid #8c8498;border-radius:10px;padding:14px 14px;text-align:left;font-size:16px;line-height:1.5;min-height:48px}
+.cbtn:hover,.cbtn:focus-visible{border-color:#f0c060;outline:none}
+.cbtn.true{border-color:#f0c060;color:#f0c060}
+#timer{height:6px;background:#222;border-radius:3px;overflow:hidden;margin-top:6px}
+#timer i{display:block;height:100%;width:100%;background:#c0394a;transform-origin:left}
+/* overlays */
+.ov{position:absolute;inset:0;z-index:20;background:rgba(3,4,8,.96);display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto;text-align:center}
+.ov.on{display:flex}
+.ov h1{font-size:clamp(34px,10vw,56px);letter-spacing:.3em;margin:0 0 6px;color:#e8d8d8;text-shadow:0 0 18px #7a1f2b;font-weight:900}
+.ov .sub{color:#9a95a4;font-size:13px;margin:0 0 26px;max-width:320px;line-height:1.6}
+.ov .m{display:block;width:min(260px,80vw);margin:6px auto;padding:13px;background:#14161e;border:1px solid #5a5666;border-radius:10px;font-size:16px;min-height:46px}
+.ov .m:hover,.ov .m:focus-visible{border-color:#f0c060;outline:none}
+.ov .m[disabled]{opacity:.35;cursor:default}
+.ov .back{margin-top:16px;background:none;border:0;color:#9a95a4;text-decoration:underline;min-height:40px}
+.set{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(300px,86vw);margin:6px 0;font-size:15px;text-align:left}
+.set button{min-width:64px}
+#log{width:min(560px,100%);text-align:left;max-height:70vh;overflow-y:auto;font-size:15px;line-height:1.6}
+#log p{margin:0 0 10px}#log b{color:#f0c060}
+#gal{display:grid;gap:10px;width:min(420px,100%)}
+.gcard{border:1px solid #444;border-radius:10px;padding:12px;text-align:left;background:#0f1118}
+.gcard.lock{opacity:.4}
+.gcard b{display:block;margin-bottom:4px}
+#chap{position:absolute;inset:0;z-index:10;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;opacity:0;transition:opacity .7s;pointer-events:none}
+#chap.on{display:flex;opacity:1}
+#chap span{font-size:13px;letter-spacing:.4em;color:#8a8494}
+#chap b{font-size:clamp(26px,7vw,40px);margin-top:10px;font-weight:700}
+#endcard{z-index:25}
+#endcard h2{font-size:clamp(26px,7vw,38px);margin:0 0 6px}
+#toast{position:absolute;left:50%;top:48px;transform:translateX(-50%);z-index:30;background:#222;border:1px solid #f0c060;border-radius:10px;padding:6px 12px;font-size:13px;display:none}
+</style>
+</head>
+<body>
+<div id="app">
+ <div id="stage">
+  <div class="layer bg" id="bgA"></div><div class="layer bg" id="bgB"></div>
+  <div class="layer" id="fxWhite"></div>
+  <div class="layer" id="vig"></div>
+  <div id="chars"></div>
+  <div id="props"></div>
+  <div class="layer" id="fxFlick"></div>
+  <div class="layer" id="fxBlack"></div>
+  <div id="hud">
+   <span id="clueHud">🔍 단서 0/6</span>
+   <button class="hb" id="bAuto">AUTO</button><button class="hb" id="bSkip">SKIP</button>
+   <button class="hb" id="bLog">기록</button><button class="hb" id="bMute">🔊</button><button class="hb" id="bMenu">메뉴</button>
+  </div>
+  <div id="tb"><div id="name"></div><div id="box"><span id="txt"></span><span id="more">▼</span></div></div>
+  <div id="choices"><div id="cq"></div><div id="cl"></div><div id="timer"><i></i></div></div>
+  <div id="chap"><span id="chapN"></span><b id="chapT"></b></div>
+  <div id="toast"></div>
+
+  <div class="ov on" id="ovTitle">
+   <h1>스콰드</h1>
+   <p class="sub">이 이야기는 전부 허구이며 실제 인물·단체와 관계없습니다.<br>소리가 납니다. 이어폰을 권합니다.</p>
+   <button class="m" id="tCont">이어하기</button>
+   <button class="m" id="tNew">처음부터</button>
+   <button class="m" id="tGal">엔딩 보기</button>
+   <button class="m" id="tSet">설정</button>
+  </div>
+  <div class="ov" id="ovMenu">
+   <h2>메뉴</h2>
+   <button class="m" id="mSave">슬롯에 저장</button>
+   <button class="m" id="mLoad">슬롯에서 불러오기</button>
+   <button class="m" id="mSet">설정</button>
+   <button class="m" id="mTitle">타이틀로</button>
+   <button class="back" data-close>닫기</button>
+  </div>
+  <div class="ov" id="ovSet">
+   <h2>설정</h2>
+   <div class="set">움직임 줄이기 <button class="hb" id="sRm"></button></div>
+   <div class="set">선택 제한시간 <button class="hb" id="sTimer"></button></div>
+   <div class="set">글자 속도 <button class="hb" id="sSpeed"></button></div>
+   <div class="set">소리 <button class="hb" id="sMute"></button></div>
+   <button class="back" data-close>닫기</button>
+  </div>
+  <div class="ov" id="ovLog"><div id="log"></div><button class="back" data-close>닫기</button></div>
+  <div class="ov" id="ovGal"><h2>엔딩 보기</h2><div id="gal"></div><button class="back" data-close>닫기</button></div>
+  <div class="ov" id="endcard"><h2 id="eT"></h2><p class="sub" id="eS"></p><button class="m" id="eBack">타이틀로</button></div>
+ </div>
+</div>
+
+<script>
+"use strict";
+/* ===================== 데이터 ===================== */
+// 캐릭터(전원 가상의 알리아스). id → img/novel/ch_<id>.webp
+const CHARS=[
+ {id:'seungwoo',name:'승우',c:'#3b6ea5'},{id:'myeongtae',name:'간장맛명태소환사',c:'#c98a2b'},
+ {id:'ttokku',name:'또꾸',c:'#8a2b3a'},{id:'sinrin',name:'신린',c:'#6a2b8a'},
+ {id:'hungry',name:'허기허기',c:'#d0607a'},{id:'pman',name:'포만포만',c:'#4a8a9a'},
+ {id:'yumi',name:'감자깡장인 유미',c:'#b08a4a'},{id:'arin',name:'아린',c:'#a05a9a'},
+ {id:'squirrel',name:'용맹한다람쥐',c:'#9a6a3a'},{id:'ugeoji',name:'우거지',c:'#5a8a4a'},
+ {id:'leivy',name:'레이비',c:'#4a5aa0'},{id:'mongip',name:'몰입겜',c:'#7a7a3a'},
+ {id:'usjeul',name:'우선즐겨',c:'#3a8a7a'},{id:'jelly',name:'대한제일젤리',c:'#a04a4a'},
+ {id:'hallabong',name:'한라봉 갓',c:'#d08a2a'},{id:'taeyong',name:'태용',c:'#4a6a8a'},
+ {id:'snake',name:'뱀조련사',c:'#3a7a4a'},{id:'gaeul',name:'가을',c:'#a0604a'},
+ {id:'anjin',name:'안진',c:'#5a5a8a'},{id:'ongaeng',name:'앙앵모르콩',c:'#8a4a6a'},
+ {id:'weiho',name:'weiho',c:'#4a8a6a'},{id:'yeri',name:'예리야',c:'#a07a9a'},
+ {id:'parrot',name:'망앵무',c:'#6a9a3a'},{id:'geunyang',name:'그냥혀',c:'#7a3a3a'},
+ {id:'kater',name:'kater',c:'#5a6a7a'}
+];
+const BYNAME={}; CHARS.forEach(c=>BYNAME[c.name]=c);
+// 배경 id → img/novel/bg_<id>.webp (없으면 그라디언트)
+const BGFALL={
+ white:'#f4f1ea',
+ prologue:'linear-gradient(#10131c,#05060a)',
+ forest:'linear-gradient(#3a2a2a 0%,#1a1a22 55%,#07080c 100%)',
+ lobby:'linear-gradient(#262a35,#0b0d13)',
+ door:'linear-gradient(#1b1d24,#050608)',
+ dining:'linear-gradient(#2b2220,#0a0809)',
+ dark:'linear-gradient(#050507,#000)',
+ archive:'linear-gradient(#232a2a,#080b0b)',
+ broadcast:'linear-gradient(#1a2230,#06080c)',
+ final:'linear-gradient(#2a1a1a,#060405)',
+ morning:'linear-gradient(#d9b98a,#5a6a7a)'
+};
+
+/* 장면. 대사=[화자,대사,{옵션}] 지문={n:'..'} */
+const SCENES={
+ s0:{ch:['프롤로그','모집글'],bg:'white',mood:'none',next:'s1',steps:[
+  {n:'모집글: 스콰드 클랜원 모집. 오래 같이 놀 사람. 분위기 좋아요. 내전 매일 열어요. 가입하면 챙겨 드립니다.',sfx:'keys',white:1},
+  {fx:'white-off',bg:'prologue'},
+  ['또꾸','이번 달에 스물다섯 명 모였어.'],
+  ['신린','딱 맞네. 더 받으면 흐트러져.'],
+  ['또꾸','이제 날짜만 정하면 돼. MT로 하자.'],
+  ['신린','다들 웃으면서 올 거야. 아무도 의심 안 하고.'],
+  {fx:'black',wait:1600}
+ ]},
+ s1:{ch:['1장','도착'],bg:'forest',mood:'calm',next:'s2',steps:[
+  ['승우','승객… 아니, 여러분, 한 줄로 모여 주세요. 인원 확인하겠습니다.'],
+  ['우거지','승우 형, 여기 신호 안 잡혀요.'],
+  ['레이비','어차피 이틀이잖아. 와이파이 있겠지.'],
+  ['허기허기','오빠, 배고파… 고기부터 굽자.'],
+  ['포만포만','저녁은 도착해서 먹는다고 했잖아.'],
+  ['간장맛명태소환사','저는 아직 어디가 방인지도 모르겠어요…'],
+  ['승우','제가 안내해 드릴게요. 일단 안으로 들어가세요.'],
+  {n:'승우가 마지막으로 들어서며 센다.',sfx:'door'},
+  ['승우','스물여섯.',{sfx:'heart'}],
+  {n:'승우가 멈춘다. 다시 센다.'},
+  ['승우','스물다섯.'],
+  {n:'…넘어간다.'}
+ ]},
+ s2:{ch:['2장','문이 잠긴다'],bg:'lobby',mood:'tense',next:'s3',steps:[
+  {n:'불이 깜빡인다.',fx:'flicker',sfx:'chime'},
+  ['방송','환영합니다, 스콰드 여러분. 여러분은 오늘 이곳을 떠날 수 없습니다.'],
+  ['몰입겜','뭐야, 장난치는 거죠? 또꾸 형이죠?'],
+  ['방송','규칙은 세 가지입니다. 하나, 미션은 순서대로 진행됩니다. 둘, 실패한 사람은 다음 방으로 가지 않습니다. 셋, 모든 미션을 끝낸 사람만 문을 나갑니다.'],
+  ['우선즐겨','문이 안 열려!',{sfx:'knock',fx:'shake'}],
+  ['한라봉 갓','창문도 철판이야.'],
+  ['가을','…진정해. 규칙을 끝까지 듣자.'],
+  ['방송','첫 미션은 한 시간 뒤입니다.'],
+  {n:'(정적)',fx:'flicker-off'}
+ ]},
+ s3:{ch:['3장','첫 번째 미션'],bg:'door',mood:'tense',next:'s4',steps:[
+  {n:'복도 끝, 철문. 열 개의 열쇠 중 맞는 것을 3분 안에 골라야 한다.'},
+  ['방송','첫 번째 참가자는 kater입니다.',{sfx:'chime'}],
+  ['kater','저요? 왜 저예요? 못 한다고요!'],
+  ['승우','제가 대신 들어갈게요!'],
+  ['방송','지정은 바뀌지 않습니다.'],
+  {n:'kater가 밀려 들어간다. 문이 닫힌다.',sfx:'door'},
+  {n:'불이 꺼진다. 소리는 없다.',fx:'black-on',sfx:'drop',wait:1500},
+  ['태용','…3분 지났어.',{fx:'black-off'}],
+  {n:'문이 열린다. 안은 비어 있다. 열쇠 하나가 바닥에 있다.',clue:{id:'c1',x:35,y:52,icon:'🗝',label:'열쇠'}},
+  {n:'열린 문 안쪽 벽에, 누군가 긁어 쓴 숫자가 있다. 「26」.',clue:{id:'c2',x:68,y:40,icon:'🔢',label:'벽의 숫자'}},
+  ['뱀조련사','어디 간 거야… 어디 갔냐고!'],
+  ['간장맛명태소환사','(작게) 이게 진짜… 일이에요?']
+ ]},
+ s4:{ch:['4장','균열'],bg:'dining',mood:'tense',next:'s5',steps:[
+  {n:'식당. 아무도 먹지 않는다.',clue:{id:'c3',x:50,y:58,icon:'📄',label:'가입 문구 쪽지',trust:1}},
+  ['우거지','이 중에 또꾸 편이 있을지도 몰라. 모집 도와준 사람 누구야?'],
+  ['레이비','클랜 초대한 사람 다 나와 봐.'],
+  ['그냥혀','…나도 초대받아서 왔어. 의심하지 마.'],
+  ['안진','가입 문구, 내전 팀 짜는 순서, 밴픽 규칙… 방금 방송 규칙이랑 똑같아요.'],
+  ['망앵무','내가 내전 열 때마다 팀 나누는 걸 연습시켰잖아. 그거 일부러였다는 거야?'],
+  ['감자깡장인 유미','…클랜을 만든 건 또꾸와 신린이었어. 나는 운영만 도와 달라는 말을 들었는데.'],
+  ['승우','(낮게) 인원이 스물여섯이었어요. 처음부터 한 명이 많았습니다.'],
+  ['간장맛명태소환사','그럼 누군가 우리 사이에 처음부터 섞여 있었다는 거예요?']
+ ]},
+ s5:{ch:['5장','두 번째 미션'],bg:'dark',mood:'dark',next:'s6',steps:[
+  {n:'어둠. 한 명은 눈을 가리고, 다른 한 명이 목소리로 길을 안내해야 한다.'},
+  ['방송','허기허기와 포만포만. 앞으로 나오세요.'],
+  ['허기허기','우리 둘이야?'],
+  ['포만포만','괜찮아. 내가 목소리로 길 알려 줄게.'],
+  ['허기허기','무서우면 손 잡아도 돼?'],
+  ['포만포만','…응. 끝까지 잡고 있어.'],
+  {n:'어둠 속, 바닥이 사라지는 소리.',sfx:'fall',fx:'black-on',wait:1800},
+  {n:'짧은 비명.',sfx:'thud',wait:1200},
+  {n:'한쪽이 울며 도착한다. 결과는 보이지 않는다.',fx:'black-off'},
+  ['승우','둘 다 들어왔어요. 그런데… 한 명이 전부 알고 있었다는 얼굴이에요.']
+ ]},
+ s6:{ch:['6장','진실의 단서'],bg:'archive',mood:'tense',next:'s7',steps:[
+  {n:'수상한 방. 서류철이 쌓여 있다.',clue:{id:'c4',x:30,y:55,icon:'📁',label:'서류철'}},
+  ['앙앵모르콩','이것 봐요. 가입일, 내전 횟수, 승률… 클랜원 성적표예요. 누가 오래 버틸지를 기록해 놨어요.'],
+  ['한라봉 갓','우리 전적을 보고 선별했다고?'],
+  ['안진','승우 이름 옆에 "마지막 생존 후보"라고 적혀 있어요.',{clue:{id:'c5',x:72,y:45,icon:'✏️',label:'메모'}}],
+  ['승우','…제가요?'],
+  ['가을','이유가 있을 거야. 승우는 매번 인원 확인하고 가장 마지막에 나오니까.'],
+  ['간장맛명태소환사','승우 씨, 괜찮아요? 얼굴이 하얘요.'],
+  ['승우','(천천히) 괜찮습니다. 끝까지 책임지고 인원 맞추겠습니다.']
+ ]},
+ s7:{ch:['7장','배신'],bg:'broadcast',mood:'dark',next:'s8',steps:[
+  {n:'방송실 앞. 바닥 틈에 낡은 종이 조각이 끼어 있다.',clue:{id:'c6',x:55,y:62,icon:'🧾',label:'명단 조각'}},
+  ['승우','어디 가세요?'],
+  ['그냥혀','…미안해. 나한테는 방법이 없었어.'],
+  ['승우','무슨 말입니까.'],
+  ['그냥혀','신린이 내 가족 이야기를 알고 있었어. 이 일을 도우면 나만은 보내 준다고 했어.'],
+  ['승우','사람을 팔았다는 겁니까.'],
+  ['그냥혀','(떨며) 이럴 줄은 몰랐어. 미션 하나만 막아 달라고 했어. 문 열쇠를.'],
+  {n:'그가 열쇠를 꺼낸다.',sfx:'heart'},
+  {choice:{q:'어떻게 할까',timer:10,opts:[
+    {t:'열쇠를 빼앗는다',set:{key:1},go:'s8'},
+    {t:'이유를 더 듣는다',set:{heard:1},trust:1,go:'s8',def:1},
+    {t:'모두에게 알린다',set:{alerted:1},trust:1,go:'s8'}
+  ]}}
+ ]},
+ s8:{ch:['8장','마지막 미션'],bg:'final',mood:'dark',steps:[
+  {n:'승우의 손안에 그냥혀에게서 빼앗은 열쇠가 차갑게 쥐여 있다.',when:'key'},
+  {n:'그냥혀에게서 들은 말이 머릿속에서 떠나지 않는다.',when:'heard'},
+  {n:'일행이 그냥혀에게서 한 걸음씩 물러나 있다. 그는 말없이 서 있다.',when:'alerted'},
+  ['방송','마지막 문은 한 명이 남아야 열립니다. 문이 열리면 나머지는 나갈 수 있습니다.',{sfx:'chime'}],
+  ['포만포만','내가 남을게. 허기를 보내 줘.'],
+  ['허기허기','안 돼! 내가 남을 거야. 네가 나가야 해.'],
+  ['간장맛명태소환사','저도 남을 수 있어요. 저는 혼자니까…'],
+  ['승우','아닙니다. 인원 확인은 제 일입니다. 제가 남겠습니다.'],
+  ['한라봉 갓','이게 말이 돼? 누가 정해?'],
+  ['방송','선택은 여러분의 몫입니다. 제한 시간 5분.'],
+  {choice:{q:'마지막 선택',timer:20,opts:[
+    {t:'승우가 남는다',go:'endA'},
+    {t:'허기허기·포만포만이 남는다',go:'endB',def:1},
+    {t:'규칙을 거부하고 또꾸·신린을 찾는다',go:'endC'},
+    {t:'품속의 명단 조각을 맞춰 본다',go:'endT',when:'true'}
+  ]}}
+ ]},
+ endA:{ch:['엔딩 A','희생'],bg:'final',mood:'dark',steps:[
+  ['승우','승객 여러분, 안전하게 내리십시오. 인원은 이상 없습니다.'],
+  ['간장맛명태소환사','승우 씨…!'],
+  {n:'문이 닫힌다.',sfx:'door',fx:'black-on',wait:1400},
+  {n:'간장맛명태소환사는 문이 닫힌 뒤에도 끝까지 승우의 이름을 부른다.',when:'trust2',bg:'morning',fx:'black-off'},
+  {n:'아침 햇살. 일행은 말이 없다.',bg:'morning',fx:'black-off',when:'!trust2'},
+  {n:'간장맛명태소환사만 닫힌 문을 오래 본다.'},
+  {fx:'black-on',wait:1200},{end:'A'}
+ ]},
+ endB:{ch:['엔딩 B','함께'],bg:'final',mood:'dark',steps:[
+  ['포만포만','같이 있으면 무섭지 않아.'],
+  ['허기허기','약속했잖아. 끝까지 손 잡는다고.'],
+  {n:'둘이 문 뒤로 걸어 들어간다.',sfx:'door',fx:'black-on',wait:1400},
+  {n:'남은 일행은 말없이 밖으로 나온다.',bg:'morning',fx:'black-off'},
+  ['승우','스물셋.',{sfx:'heart'}],
+  {n:'승우가 멈춘다.'},
+  {fx:'black-on',wait:1200},{end:'B'}
+ ]},
+ endC:{ch:['엔딩 C','거부'],bg:'broadcast',mood:'dark',steps:[
+  ['승우','이 모든 걸 만든 사람이 바로 여기 있을 겁니다.'],
+  {n:'방송실. 또꾸와 신린이 모니터 앞에 있다.',sfx:'door'},
+  ['또꾸','왔구나. 생각보다 늦었네.'],
+  ['신린','이제 진짜 규칙을 알려 줄게.'],
+  {fx:'black-on',wait:1200},{end:'C'}
+ ]},
+ endT:{ch:['진엔딩','스물여섯 번째 칸'],bg:'archive',mood:'dark',steps:[
+  {n:'건물의 오래된 명단. 이미 다른 클랜의 이름들이 빼곡히 적혀 있다.'},
+  {n:'맨 아래, 「스물여섯 번째 칸」.'},
+  {n:'그곳에 승우의 이름이 이미 적혀 있다.',sfx:'heart'},
+  ['승우','…처음부터, 알고 있었습니다.'],
+  {fx:'black-on',wait:1600},{end:'T'}
+ ]}
+};
+const ENDINGS={
+ A:{t:'엔딩 A · 희생',s:'인원은 이상 없습니다.'},
+ B:{t:'엔딩 B · 함께',s:'스물셋.'},
+ C:{t:'엔딩 C · 거부',s:'다음 이야기에서 계속'},
+ T:{t:'진엔딩 · 스물여섯 번째 칸',s:'승우가 처음부터 이곳을 알았다는 암시.'}
+};
+const NCLUE=6;
+
+/* ===================== 유틸 ===================== */
+const $=id=>document.getElementById(id);
+const stage=$('stage'), app=$('app');
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
+const K_SAVE='sq_novel_save_v1',K_SLOT='sq_novel_slot_v1',K_END='sq_novel_end_v1',K_SET='sq_novel_set_v1';
+let mem={}; // 저장소 막힌 경우 메모리 대체
+const SET=Object.assign({rm:matchMedia('(prefers-reduced-motion: reduce)').matches,timer:true,speed:1,mute:false},lsGet(K_SET)||{});
+function saveSet(){lsSet(K_SET,SET)}
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',1600)}
+
+/* ===================== 소리(WebAudio 합성만) ===================== */
+const AU={ctx:null,master:null,drone:null,hbT:null,mood:'none'};
+function auInit(){
+  if(AU.ctx){ if(AU.ctx.state==='suspended')AU.ctx.resume(); return; }
+  try{
+    const C=window.AudioContext||window.webkitAudioContext; if(!C)return;
+    const x=AU.ctx=new C(); AU.master=x.createGain(); AU.master.gain.value=SET.mute?0:.8; AU.master.connect(x.destination);
+    const g=AU.drone=x.createGain(); g.gain.value=0; g.connect(AU.master);
+    const lp=x.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=180; lp.connect(g);
+    [55,55.7,82.4].forEach((f,i)=>{const o=x.createOscillator(); o.type=i==2?'sine':'sawtooth'; o.frequency.value=f; const og=x.createGain(); og.gain.value=i==2?.25:.5; o.connect(og); og.connect(lp); o.start();});
+    const lfo=x.createOscillator(), lg=x.createGain(); lfo.frequency.value=.08; lg.gain.value=60; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+  }catch(e){AU.ctx=null}
+}
+function auMute(){ if(AU.master)AU.master.gain.value=SET.mute?0:.8; $('bMute').textContent=SET.mute?'🔇':'🔊'; }
+function noiseBuf(d){const x=AU.ctx,b=x.createBuffer(1,x.sampleRate*d,x.sampleRate),a=b.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1;return b}
+function tone(f,t0,d,vol,type,f2){const x=AU.ctx,o=x.createOscillator(),g=x.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t0);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t0+d);g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.01);g.gain.exponentialRampToValueAtTime(.001,t0+d);o.connect(g);g.connect(AU.master);o.start(t0);o.stop(t0+d+.05)}
+function noise(t0,d,vol,fq){const x=AU.ctx,s=x.createBufferSource(),f=x.createBiquadFilter(),g=x.createGain();s.buffer=noiseBuf(d);f.type='lowpass';f.frequency.value=fq;g.gain.setValueAtTime(vol,t0);g.gain.exponentialRampToValueAtTime(.001,t0+d);s.connect(f);f.connect(g);g.connect(AU.master);s.start(t0)}
+function sfx(n){
+  if(!AU.ctx||SET.mute)return; const t=AU.ctx.currentTime;
+  if(n==='knock'){[0,.25,.5].forEach(d=>{tone(110,t+d,.18,.7,'sine',60);noise(t+d,.08,.4,500)})}
+  else if(n==='door'){noise(t,.5,.5,300);tone(70,t,.7,.8,'sine',35)}
+  else if(n==='thud'){tone(80,t,.4,.9,'sine',40);noise(t,.15,.4,200)}
+  else if(n==='fall'){tone(320,t,1.6,.35,'triangle',35);noise(t+.2,1.2,.2,800)}
+  else if(n==='drop'){tone(60,t,1.2,.5,'sine',30)}
+  else if(n==='chime'){tone(660,t,.9,.25);tone(495,t+.5,1.2,.25)}
+  else if(n==='keys'){for(let i=0;i<14;i++)noise(t+i*.12+Math.random()*.05,.03,.25,3000)}
+  else if(n==='heart'){beat(t)}
+}
+function beat(t){tone(62,t,.18,.9,'sine',40);tone(55,t+.2,.2,.6,'sine',38)}
+function setMood(m){
+  AU.mood=m; if(!AU.ctx)return; clearInterval(AU.hbT);
+  const v={none:0,calm:.05,tense:.09,dark:.12}[m]||0; AU.drone.gain.setTargetAtTime(v,AU.ctx.currentTime,1.2);
+  const per={tense:1100,dark:760}[m];
+  if(per) AU.hbT=setInterval(()=>{if(!SET.mute&&AU.ctx.state==='running')beat(AU.ctx.currentTime)},per);
+}
+
+/* ===================== 상태 / 엔진 ===================== */
+let S={sc:'s0',i:0,F:{},clues:[],trust:0};
+let chShown=0,hist=[],backlog=[],cur=null,typing=false,typeT=null,fullText='',auto=false,skip=false,waitT=null,choiceT=null,locked=false,bgOn='A',started=false;
+
+function cond(w){
+  if(!w)return true; const neg=w[0]==='!'; if(neg)w=w.slice(1);
+  let r;
+  if(w==='true')r=S.clues.length>=NCLUE&&!!S.F.heard;
+  else if(w==='trust2')r=S.trust>=2;
+  else r=!!S.F[w];
+  return neg?!r:r;
+}
+function norm(a){
+  if(Array.isArray(a)){const o=Object.assign({},a[2]||{});o.s=a[0];o.t=a[1];return o}
+  const o=Object.assign({},a); if(o.n!==undefined){o.t=o.n;o.s=null} return o;
+}
+function stepsOf(sc){return SCENES[sc].steps}
+function autosave(){
+  const d={sc:S.sc,i:S.i,F:S.F,clues:S.clues,trust:S.trust}; if(!lsSet(K_SAVE,d))mem[K_SAVE]=d;
+}
+function loadAuto(){return lsGet(K_SAVE)||mem[K_SAVE]||null}
+
+function setBg(id){
+  const next=bgOn==='A'?'B':'A', el=$('bg'+next), old=$('bg'+bgOn);
+  el.style.background=BGFALL[id]||BGFALL.dark; el.style.backgroundSize='cover';
+  const im=new Image(); im.onload=()=>{if(el.dataset.id===id)el.style.background="center/cover url('img/novel/bg_"+id+".webp') , "+(BGFALL[id]||'#000')}; // 이미지 있으면 자동 사용
+  el.dataset.id=id; im.src='img/novel/bg_'+id+'.webp';
+  el.classList.add('on'); old.classList.remove('on'); bgOn=next;
+  $('fxWhite').classList.toggle('on',id==='white');
+}
+function renderChars(spk){
+  const wrap=$('chars'); wrap.innerHTML='';
+  hist.slice(-3).forEach(id=>{
+    const c=CHARS.find(x=>x.id===id); const d=document.createElement('div'); d.className='ch'+(c.name===spk?' on':'');
+    const sil=document.createElement('div'); sil.className='sil'; sil.style.background=c.c; sil.textContent=c.name[0].toUpperCase();
+    const im=new Image(); im.alt=c.name; im.onload=()=>{d.innerHTML='';d.appendChild(im)}; im.src='img/novel/ch_'+c.id+'.webp';
+    d.appendChild(sil); wrap.appendChild(d);
+  });
+}
+function noteSpeaker(name){
+  const c=BYNAME[name]; if(!c)return;
+  hist=hist.filter(x=>x!==c.id); hist.push(c.id); if(hist.length>3)hist.shift();
+}
+function updClue(){$('clueHud').textContent='🔍 단서 '+S.clues.length+'/'+NCLUE}
+
+function enterScene(id,i,silent){
+  S.sc=id; S.i=i||0; const sc=SCENES[id];
+  setMood(sc.mood||'none'); setBg(sc.bg);
+  $('fxBlack').classList.remove('on'); $('fxFlick').classList.remove('on');
+  $('props').innerHTML='';
+  if(silent){ // 이어하기: 앞부분을 조용히 훑어 화자 목록 복원
+    hist=[]; stepsOf(id).slice(0,S.i).forEach(a=>{const st=norm(a);if(st.s&&cond(st.when))noteSpeaker(st.s);if(st.bg)setBg(st.bg)});
+    run(); return;
+  }
+  hist=[]; $('name').textContent=''; $('txt').textContent=''; renderChars('');
+  const cp=$('chap'); $('chapN').textContent=sc.ch[0]; $('chapT').textContent=sc.ch[1];
+  locked=true; cp.classList.add('on');
+  setTimeout(()=>{cp.classList.remove('on');setTimeout(()=>{locked=false;run()},SET.rm?10:700)},SET.rm?900:1900);
+}
+function run(){
+  clearTimeout(waitT); const arr=stepsOf(S.sc);
+  while(S.i<arr.length&&!cond(norm(arr[S.i]).when))S.i++;
+  if(S.i>=arr.length){ const nx=SCENES[S.sc].next; if(nx){enterScene(nx,0)} return; }
+  autosave(); const st=norm(arr[S.i]); cur=st;
+  if(st.bg)setBg(st.bg);
+  if(st.fx)doFx(st.fx);
+  if(st.sfx)sfx(st.sfx);
+  if(st.go){enterScene(st.go,0);return}
+  if(st.end){doEnd(st.end);return}
+  if(st.choice){showChoice(st.choice);return}
+  $('props').innerHTML='';
+  if(st.clue&&!S.clues.includes(st.clue.id))showProp(st.clue);
+  if(st.t===undefined){ // 연출 전용: 자동 진행
+    $('tb').style.visibility='hidden'; waitT=setTimeout(next,SET.rm?300:(st.wait||800)); return; }
+  $('tb').style.visibility='visible';
+  show(st);
+  if(st.wait&&!st.t){}
+}
+function show(st){
+  const spk=st.s; $('name').textContent=spk||''; const c=BYNAME[spk]; $('name').style.background=c?c.c:'#333';
+  $('box').classList.toggle('narr',!spk);
+  if(spk)noteSpeaker(spk); renderChars(spk);
+  backlog.push({s:spk,t:st.t}); if(backlog.length>200)backlog.shift();
+  fullText=st.t; startType();
+}
+function startType(){
+  clearInterval(typeT); const el=$('txt'); el.textContent=''; $('more').classList.remove('blink'); typing=true; let n=0;
+  if(SET.rm||skip){el.textContent=fullText;endType();return}
+  const sp=[44,26,12][SET.speed]||26;
+  typeT=setInterval(()=>{n++;el.textContent=fullText.slice(0,n);if(n>=fullText.length)endType()},sp);
+}
+function endType(){
+  clearInterval(typeT); typing=false; $('txt').textContent=fullText; $('more').classList.add('blink');
+  if(skip&&!blocking()){waitT=setTimeout(next,70);return}
+  if(auto&&!blocking()){waitT=setTimeout(next,1500+fullText.length*45)}
+}
+function blocking(){return !!(cur&&cur.choice)}
+function next(){
+  if(locked||$('choices').classList.contains('on'))return;
+  if(typing){endType();return}
+  if(cur&&cur.wait&&cur.t!==undefined&&false)return;
+  S.i++; run();
+}
+function doFx(f){
+  const B=$('fxBlack'),F=$('fxFlick');
+  if(f==='flicker'){if(!SET.rm||true)F.classList.add('on')}
+  else if(f==='flicker-off')F.classList.remove('on');
+  else if(f==='shake'){stage.classList.remove('shake');void stage.offsetWidth;stage.classList.add('shake')}
+  else if(f==='black'||f==='black-on')B.classList.add('on');
+  else if(f==='black-off')B.classList.remove('on');
+  else if(f==='white-off')$('fxWhite').classList.remove('on');
+}
+function showProp(cl){
+  const p=document.createElement('button'); p.className='prop'; p.style.left=cl.x+'%'; p.style.top=cl.y+'%';
+  p.innerHTML=cl.icon+'<small>'+cl.label+'</small>'; p.setAttribute('aria-label',cl.label+' 줍기');
+  p.onclick=e=>{e.stopPropagation(); if(!S.clues.includes(cl.id)){S.clues.push(cl.id);if(cl.trust)S.trust+=cl.trust;updClue();toast('단서 획득: '+cl.label);sfx('chime')} p.remove();autosave()};
+  $('props').appendChild(p);
+}
+/* 선택 */
+function showChoice(ch){
+  clearTimeout(waitT); clearTimeout(choiceT); auto=false;$('bAuto').classList.remove('on'); skip=false;$('bSkip').classList.remove('on');
+  $('props').innerHTML=''; $('cq').textContent=ch.q||''; const L=$('cl'); L.innerHTML='';
+  const opts=ch.opts.filter(o=>cond(o.when)); let k=0;
+  opts.forEach((o,idx)=>{const b=document.createElement('button'); b.className='cbtn'+(o.when?' true':''); b.textContent=(idx+1)+'. '+o.t; b.onclick=()=>{if(Date.now()-chShown>350)pick(o)}; L.appendChild(b)});
+  $('choices').classList.add('on'); chShown=Date.now();
+  const tm=$('timer'); tm.style.display='none';
+  if(ch.timer&&SET.timer){
+    tm.style.display='block'; const bar=tm.firstChild; bar.style.transition='none'; bar.style.transform='scaleX(1)'; void bar.offsetWidth;
+    bar.style.transition='transform '+ch.timer+'s linear'; bar.style.transform='scaleX(0)';
+    const d=opts.find(o=>o.def&&!o.when)||opts[0]; choiceT=setTimeout(()=>pick(d),ch.timer*1000);
+  }
+  cur=Object.assign({},cur,{choice:ch,_opts:opts});
+}
+function pick(o){
+  clearTimeout(choiceT); $('choices').classList.remove('on');
+  if(o.set)Object.assign(S.F,o.set); if(o.trust)S.trust+=o.trust;
+  backlog.push({s:'선택',t:o.t}); enterScene(o.go,0);
+}
+/* 엔딩 */
+function doEnd(k){
+  const g=lsGet(K_END)||{}; g[k]=1; lsSet(K_END,g); mem.end=g;
+  try{localStorage.removeItem(K_SAVE)}catch(e){} delete mem[K_SAVE];
+  $('eT').textContent=ENDINGS[k].t; $('eS').textContent=ENDINGS[k].s; $('endcard').classList.add('on'); setMood('none');
+  $('tb').style.visibility='hidden';
+}
+
+/* ===================== UI ===================== */
+function openOv(id){$(id).classList.add('on')}
+function closeOv(id){$(id).classList.remove('on')}
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('.ov').classList.remove('on'));
+function anyOv(){return !!stage.querySelector('.ov.on')}
+function newGame(){S={sc:'s0',i:0,F:{},clues:[],trust:0};backlog=[];updClue();closeOv('ovTitle');closeOv('endcard');started=true;auInit();auMute();
+  $('tb').style.visibility='visible'; enterScene('s0',0)}
+function resume(d){S={sc:d.sc,i:d.i,F:d.F||{},clues:d.clues||[],trust:d.trust||0};updClue();closeOv('ovTitle');closeOv('endcard');closeOv('ovMenu');started=true;auInit();auMute();
+  $('tb').style.visibility='visible'; enterScene(S.sc,S.i,true)}
+function refreshTitle(){const d=loadAuto();$('tCont').disabled=!d;}
+$('tNew').onclick=newGame;
+$('tCont').onclick=()=>{const d=loadAuto();if(d)resume(d)};
+$('tGal').onclick=()=>{buildGal();openOv('ovGal')};
+$('tSet').onclick=()=>{buildSet();openOv('ovSet')};
+$('mSet').onclick=()=>{buildSet();openOv('ovSet')};
+$('bMenu').onclick=()=>openOv('ovMenu');
+$('mTitle').onclick=()=>{closeOv('ovMenu');setMood('none');clearTimeout(waitT);clearTimeout(choiceT);$('choices').classList.remove('on');refreshTitle();openOv('ovTitle')};
+$('eBack').onclick=()=>{closeOv('endcard');refreshTitle();openOv('ovTitle')};
+$('mSave').onclick=()=>{const d={sc:S.sc,i:S.i,F:S.F,clues:S.clues,trust:S.trust};toast(lsSet(K_SLOT,d)?'저장했습니다':'저장 실패(브라우저 저장소 막힘)');closeOv('ovMenu')};
+$('mLoad').onclick=()=>{const d=lsGet(K_SLOT);if(!d){toast('저장된 슬롯이 없습니다');return}clearTimeout(waitT);clearTimeout(choiceT);$('choices').classList.remove('on');resume(d)};
+$('bAuto').onclick=()=>{auto=!auto;$('bAuto').classList.toggle('on',auto);if(auto&&!typing)next()};
+$('bSkip').onclick=()=>{skip=!skip;$('bSkip').classList.toggle('on',skip);if(skip&&!typing&&!blocking())next();else if(skip)endType()};
+$('bMute').onclick=()=>{SET.mute=!SET.mute;saveSet();auMute()};
+$('bLog').onclick=()=>{const L=$('log');L.innerHTML='';backlog.forEach(b=>{const p=document.createElement('p');p.innerHTML=(b.s?'<b></b> ':'')+'<span></span>';if(b.s)p.firstChild.textContent=b.s;p.lastChild.textContent=b.t;L.appendChild(p)});openOv('ovLog');L.scrollTop=L.scrollHeight};
+function buildGal(){const g=lsGet(K_END)||mem.end||{},G=$('gal');G.innerHTML='';
+  Object.keys(ENDINGS).forEach(k=>{const d=document.createElement('div');d.className='gcard'+(g[k]?'':' lock');d.innerHTML='<b></b><span></span>';d.firstChild.textContent=g[k]?ENDINGS[k].t:'??? (미공개)';d.lastChild.textContent=g[k]?ENDINGS[k].s:'';G.appendChild(d)})}
+function applyRm(){app.classList.toggle('rm',!!SET.rm)}
+function buildSet(){
+  $('sRm').textContent=SET.rm?'켬':'끔';$('sTimer').textContent=SET.timer?'켬':'끔';$('sSpeed').textContent=['느림','보통','빠름'][SET.speed];$('sMute').textContent=SET.mute?'끔':'켬';
+}
+$('sRm').onclick=()=>{SET.rm=!SET.rm;saveSet();applyRm();buildSet()};
+$('sTimer').onclick=()=>{SET.timer=!SET.timer;saveSet();buildSet()};
+$('sSpeed').onclick=()=>{SET.speed=(SET.speed+1)%3;saveSet();buildSet()};
+$('sMute').onclick=()=>{SET.mute=!SET.mute;saveSet();auMute();buildSet()};
+// 진행 입력
+$('stage').addEventListener('click',e=>{
+  if(!started||anyOv())return; if(e.target.closest('#hud,.prop,#choices,.ov'))return; next();
+});
+document.addEventListener('keydown',e=>{
+  if(!started||anyOv())return;
+  if($('choices').classList.contains('on')){if(e.key==='Enter'||e.key===' ')e.preventDefault();const n=parseInt(e.key,10);const b=$('cl').children[n-1];if(b&&Date.now()-chShown>350){b.click()}return}
+  if(e.key===' '||e.key==='Enter'){if(e.target.tagName==='BUTTON')return;e.preventDefault();next()}
+});
+document.addEventListener('visibilitychange',()=>{if(AU.ctx){document.hidden?AU.ctx.suspend():AU.ctx.resume()}});
+applyRm(); auMute(); refreshTitle();
+window.__novel={S:()=>S,SCENES,pick:k=>0};
+</script>
+</body>
+</html>
