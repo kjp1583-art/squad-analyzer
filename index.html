@@ -184,6 +184,18 @@ window.SGG_DC_BOOT=(function(){
   .champtbl .champcell span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:96px}
   .champtbl th:last-child,.champtbl td:last-child{padding-right:8px}
   .home3 .card{overflow-x:auto;overflow-y:hidden}
+  .hc-card{margin-bottom:14px;padding:0}
+  .hc-card>summary{cursor:pointer;font-weight:900;font-size:15px;padding:13px 16px;list-style:none;overflow-wrap:anywhere}
+  .hc-card>summary::-webkit-details-marker{display:none}
+  .hc-card>summary::before{content:"▸ ";color:var(--sub)} .hc-card[open]>summary::before{content:"▾ "}
+  .hc-card>:not(summary){margin-left:16px;margin-right:16px} .hc-card>:last-child{margin-bottom:14px}
+  .hc-h{font-size:12.5px;font-weight:900;color:var(--sub);margin:8px 0 4px}
+  .hc-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0;border-top:1px solid var(--line);font-size:13px}
+  .hc-n{font-weight:800;min-width:0;overflow-wrap:anywhere} .hc-v{margin-left:auto;text-align:right;min-width:0;overflow-wrap:anywhere} .hc-s{color:var(--mut);font-size:11.5px}
+  .hc-note{font-size:11.5px;color:var(--mut);margin-top:8px;line-height:1.5}
+  .hc-big{font-size:14px;margin:4px 0 8px} .hc-names{display:flex;flex-wrap:wrap;gap:6px}
+  .hc-chip{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:700;max-width:100%;overflow-wrap:anywhere}
+  .hc-chip i{font-style:normal;color:var(--mut);font-size:11px;margin-left:6px} .hc-more{color:var(--sub)}
   .home3 table{width:100%;table-layout:auto}
   /* 최근 게임 카드 */
   .rg{cursor:pointer}
@@ -5880,6 +5892,84 @@ function welcomeCardHtml(){   // 👋 [2026-09-28 사장님 지시] "신규 클�
     <div class="row"><a class="btn go" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html">🖥 분석기 받기</a><button class="btn" onclick="welcomeClose()">알겠어요, 닫기</button><span class="who">만든 사람: 클랜원 <b>맛동산장인 유미</b></span></div></div>`;
 }
 function welcomeClose(){ try{ localStorage.setItem("sgg_welcome_off","1"); }catch(e){} const el=document.getElementById("welcomeCard"); if(el) el.remove(); }
+/* 📈🌙 [2026-10-02 사장님 승인] 홈 접이식 카드 둘 — 둘 다 읽기 전용, 이미 불러온 경기 기록(GAMES_ALL)만 쓴다(새 저장·새 요청 없음).
+   PATCH_SHIFT_CARD: P-11 「이번 패치, 우리 내전은 이렇게 바뀌었다」(최근 두 패치 비교 · 양쪽 8판↑ 챔프만)
+   REGULARS_CARD  : 「오늘 밤 단골 예보」(같은 요일·시간대에 최근 4주 중 2번↑ 뛴 클랜원 · 10판↑ · 탈퇴자 제외 · 시각 있는 기록만)
+   껐다 켜려면 아래 상수를 false/true 로. */
+const PATCH_SHIFT_CARD=true, REGULARS_CARD=true;
+function _homeGameRows(){ const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES; const out=[]; for(const g of src.values()) for(const r of g.rows) out.push(r); return out; }
+function patchShiftData(){
+  const byP=new Map();   // 패치 -> {games:Set, ch:Map(챔프->{n,w})}
+  for(const g of ((typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES).values()){
+    for(const r of g.rows){
+      const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+      const ch=r["챔피언"]; if(!ch) continue;
+      const pv=normPatch(r["패치버전"]);
+      let e=byP.get(pv); if(!e){ e={games:new Set(),ch:new Map()}; byP.set(pv,e); }
+      e.games.add(g.id);
+      let c=e.ch.get(ch); if(!c){ c={n:0,w:0}; e.ch.set(ch,c); }
+      c.n++; if(res==="승리") c.w++;
+    }
+  }
+  const pats=[...byP.keys()].filter(p=>byP.get(p).games.size>=20).sort((a,b)=>patchNum(b)-patchNum(a));   // 표본 20판 미만인 막 시작한 패치는 건너뛴다
+  if(pats.length<2) return null;
+  const cur=pats[0], prev=pats[1], A=byP.get(cur), B=byP.get(prev), MIN=8, rows=[];
+  for(const [ch,c] of A.ch){
+    const o=B.ch.get(ch); if(!o||c.n<MIN||o.n<MIN) continue;
+    const prA=c.n/A.games.size*100, prB=o.n/B.games.size*100;
+    rows.push({ch,nA:c.n,nB:o.n,prA,prB,dPr:prA-prB,wrA:Math.round(c.w/c.n*100),wrB:Math.round(o.w/o.n*100),dWr:Math.round(c.w/c.n*100)-Math.round(o.w/o.n*100)});
+  }
+  if(!rows.length) return null;
+  const rise=rows.filter(x=>x.dPr>0).sort((a,b)=>b.dPr-a.dPr).slice(0,3);
+  const fall=rows.filter(x=>x.dPr<0).sort((a,b)=>a.dPr-b.dPr).slice(0,3);
+  const wr=rows.filter(x=>x.dWr!==0).sort((a,b)=>Math.abs(b.dWr)-Math.abs(a.dWr)).slice(0,3);
+  return {cur,prev,gA:A.games.size,gB:B.games.size,pool:rows.length,rise,fall,wr};
+}
+function patchShiftCardHtml(){
+  if(!PATCH_SHIFT_CARD) return "";
+  const D=patchShiftData(); if(!D) return "";
+  const f1=v=>(Math.round(v*10)/10).toFixed(1);
+  const sec=(title,arr,line)=>arr.length?`<div class="hc-sec"><div class="hc-h">${title}</div>${arr.map(x=>`<div class="hc-row">${champImg(x.ch,"sm")}<span class="hc-n">${esc(x.ch)}</span><span class="hc-v">${line(x)}</span></div>`).join("")}</div>`:"";
+  const pr=x=>`픽률 <b>${f1(x.prB)}% → ${f1(x.prA)}%</b> <span class="hc-s">(${x.nB}판 → ${x.nA}판)</span>`;
+  const wr=x=>`<span class="hc-s">픽률 ${f1(x.prB)}→${f1(x.prA)}% ·</span> 승률 <b style="color:${x.dWr>0?'var(--win)':'var(--lose)'}">${x.wrB}% → ${x.wrA}% (${x.dWr>0?'+':''}${x.dWr}%p)</b> <span class="hc-s">(${x.nB}판 → ${x.nA}판)</span>`;
+  return `<details class="card hc-card"><summary>📈 이번 패치, 우리 내전은 이렇게 바뀌었다 <span class="muted">패치 ${esc(D.prev)} → ${esc(D.cur)}</span></summary>
+    ${sec("🔺 픽률 급상승",D.rise,pr)}${sec("🔻 픽률 급하락",D.fall,pr)}${sec("🎯 승률 변동",D.wr,wr)}
+    <div class="hc-note">두 패치 모두 8판 이상 나온 챔피언 ${D.pool}종만 비교했어요 · 패치 ${esc(D.prev)} ${D.gB}판 · 패치 ${esc(D.cur)} ${D.gA}판 기준. 판수가 적어 승률은 크게 흔들릴 수 있으니 참고만 해 주세요(픽률 변화를 먼저 봐 주세요).</div></details>`;
+}
+function regularsData(now){
+  now=now||new Date();
+  const BANDS=[[0,5,"심야 0~5시"],[6,11,"오전 6~11시"],[12,18,"오후 12~18시"],[19,23,"저녁 19~23시"]];
+  const bandOf=h=>BANDS.findIndex(b=>h>=b[0]&&h<=b[1]);
+  const effDay=d=>{ const x=new Date(d.getTime()-(d.getHours()<6?86400000:0)); return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0"); };   // 심야(0~5시)는 전날 밤으로 센다
+  const nb=bandOf(now.getHours()); if(nb<0) return null;
+  const base=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12);
+  if(now.getHours()<6) base.setDate(base.getDate()-1);
+  const targets=new Set(), WD=["일","월","화","수","목","금","토"];
+  for(let k=1;k<=4;k++){ const t=new Date(base); t.setDate(t.getDate()-7*k); targets.add(t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0")); }
+  const src=(typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.size)?PLAYERS_ALL:PLAYERS;
+  const list=[]; const perWeek=new Map();
+  for(const [name,rows] of src){
+    if(!name||rows.length<10||isDeparted(name)) continue;
+    const wk=new Set();
+    for(const r of rows){
+      const ds=String(r["날짜"]||""); if(ds.length<16) continue;   // 시각이 없는 옛 기록은 제외
+      const d=new Date(ds.replace(/-/g,"/")); if(isNaN(d)||bandOf(d.getHours())!==nb) continue;
+      const day=effDay(d); if(targets.has(day)) wk.add(day);
+    }
+    if(wk.size>=2){ list.push({name,weeks:wk.size,games:rows.length}); for(const w of wk) perWeek.set(w,(perWeek.get(w)||0)+1); }
+  }
+  list.sort((a,b)=>b.weeks-a.weeks||b.games-a.games||(a.name<b.name?-1:1));
+  return {list,wd:WD[base.getDay()],band:BANDS[nb][2],night:now.getHours()<6};
+}
+function regularsCardHtml(){
+  if(!REGULARS_CARD) return "";
+  const D=regularsData(); if(!D||D.list.length<3) return "";
+  const show=D.list.slice(0,8), rest=D.list.length-show.length;
+  return `<details class="card hc-card"><summary>🌙 오늘 밤 단골 예보 <span class="muted">${D.night?'어젯밤 ':''}${esc(D.wd)}요일 ${esc(D.band)}</span></summary>
+    <div class="hc-big">보통 이 시간엔 <b>${D.list.length}명</b>이 모여요</div>
+    <div class="hc-names">${show.map(x=>`<span class="hc-chip" title="최근 4주 중 ${x.weeks}번">${esc(shortName(x.name))}<i>${x.weeks}/4</i></span>`).join("")}${rest>0?`<span class="hc-chip hc-more">외 ${rest}명</span>`:""}</div>
+    <div class="hc-note">최근 4주 중 같은 요일·같은 시간대에 2번 이상 내전을 뛴 클랜원이에요(10판 이상 · 탈퇴자 제외 · 시각이 기록된 판만). 옆 숫자는 4주 중 나온 횟수.</div></details>`;
+}
 function renderHome(){
   loadWeeklyReview();   // 📝 주간평 — 캐시가 10분 넘게 묵었으면 다시 읽고, 도착하면 #wkrv-wrap 만 갈아끼운다
   const champs=champTierData();
@@ -5928,6 +6018,7 @@ function renderHome(){
     ${SHOW_SCRIM?scrimDashHtml():''}
     <div id="wkrv-wrap">${(()=>{ try{ return newsTeaserHtml(); }catch(e){ console.warn("news teaser",e); return ""; } })()}</div>
     ${kizukiBoard()}
+    ${(()=>{ try{ return regularsCardHtml()+patchShiftCardHtml(); }catch(e){ console.warn("home cards",e); return ""; } })()}
     <div class="home3">
       <div class="card">
         <h2>👥 플레이어 목록 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
@@ -10986,7 +11077,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610011130";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610021200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
