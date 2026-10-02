@@ -2896,9 +2896,10 @@ function pzVote(op,B){
   });
   if(d.refuse&&evalC(d.refuse.c)){ const b=el('button','vc ref',d.refuse.t); b.type='button'; b.setAttribute('aria-pressed','false'); mk(d.cands.length,b); cards.push(b); g.appendChild(b) }
   const w=el('div','pzact'); w.appendChild(go); B.appendChild(w);
-  go.onclick=()=>{ if(sel<0)return; const acts=sel<d.cands.length?d.cands[sel].do:d.refuse.do; backlog.push({s:'투표',t:sel<d.cands.length?d.cands[sel].name:d.refuse.t}); pzFinish('vote',acts) };
-  PZ.solve=PZ.wrong=()=>{ sel=0; go.click() };
-  PZ.pickIdx=i=>{ sel=i; go.click() };
+  const confirmVote=()=>{ if(sel<0)return; const acts=sel<d.cands.length?d.cands[sel].do:d.refuse.do; backlog.push({s:'투표',t:sel<d.cands.length?d.cands[sel].name:d.refuse.t}); pzFinish('vote',acts) };
+  go.onclick=confirmVote;
+  PZ.solve=PZ.wrong=()=>{ sel=0; confirmVote() };
+  PZ.pickIdx=i=>{ sel=i; confirmVote() };
 }
 /* 목소리 유도 */
 function pzGuide(op,B){
