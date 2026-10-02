@@ -331,6 +331,10 @@ weiho: 나도.
 @end
 @end
 @end
+// [통합 수정] 진엔딩 조건 ⊇ D 조건이라 D 선택지가 영영 안 나왔다 → 둘 다 맞으면 ④⑤가 함께 나오는 선택지로 보낸다
+@if true_ok && d_ok
+@goto ch11_choice_both
+@end
 @if true_ok
 @goto ch11_choice_true
 @end
@@ -354,6 +358,17 @@ weiho: 나도.
 - 허기허기의 뜻을 따른다 => @goto ch11_pick_B
 - 규칙을 거부하고 또꾸·신린을 찾으러 간다 => @goto ch11_pick_C
 - 26번째 칸에 이름을 쓰지 않고 전원의 이름을 쓴다 => @goto ch11_pick_D
+@label ch11_choice_both
+@show seungwoo
+* 5:00이 줄어든다. 일행의 눈이 승우에게 모인다.
+* 승우는 모은 단서와 잡았던 손을 하나씩 떠올린다.
+* 승우는 가방 속 명단 조각 두 장을 만진다. 맞춰 볼 수 있을 것 같다.
+@choice [timer=300]
+- 내가 남겠다. 인원 점검은 내 일이다 => @goto ch11_pick_A
+- 허기허기의 뜻을 따른다 => @goto ch11_pick_B
+- 규칙을 거부하고 또꾸·신린을 찾으러 간다 => @goto ch11_pick_C
+- 26번째 칸에 이름을 쓰지 않고 전원의 이름을 쓴다 => @goto ch11_pick_D
+- 명단 조각을 맞춰 본다 => @goto ch11_pick_true
 @label ch11_choice_true
 @show seungwoo
 * 5:00이 줄어든다. 일행의 눈이 승우에게 모인다.
