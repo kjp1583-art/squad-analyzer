@@ -1,0 +1,106 @@
+// 엔진 시험용 가짜 이야기 — 모든 지시어와 다섯 퍼즐을 한 번씩 지나간다. (진짜 원고 아님)
+## T1 시험 장
+@card T1|시험 장
+@bg lobby
+@mood tense
+@show seungwoo,myeongtae:f,ttokku
+승우: 첫 줄입니다.
+간장맛명태소환사: 놀란 얼굴로 말하고 있습니다.
+방송: 방송 목소리입니다.
+* 지문 한 줄.
+(승우) 속마음 한 줄.
+@fx flicker
+@sfx knock
+@sfx door
+@sfx thud
+@sfx fall
+@sfx chime
+@sfx keys
+@sfx heartbeat
+@sfx drone
+@fx shake
+@clue c_flyer|모집글 인쇄본. 인원 확인 잘 해 주시는 분 우대.
+@clue c_hooks|명찰함에 칸이 스물여섯 개.
+@clue c_chairs|의자가 스물여섯 개.
+승우: 단서를 주울 수 있습니다.
+@set a
+@add trust 1
+@add trust 1
+@if trust>=2
+* trust 는 2 이상입니다.
+@if a
+* 중첩 조건 a 참.
+@else
+* 중첩 조건 a 거짓(나오면 안 됨).
+@end
+@else
+* trust 가 모자랍니다(나오면 안 됨).
+@end
+@if clues>=3 && a
+* 단서 3개 이상, 그리고 a.
+@else
+* 단서를 다 줍지 않았습니다.
+@end
+@unset a
+@if !a
+* a 는 꺼졌습니다.
+@end
+@fx blackout
+* 암전 뒤에 이어지는 줄.
+@fx off
+@wait 300
+@label c_choice
+@choice timer=20 default=2 timeout=c_timeout
+- 첫째 선택 => @set pickA; @goto c_after
+- 둘째 선택 (기본) => @set pickB; @add trust 1; @goto c_after
+- [clues>=3] 숨은 셋째 선택 => @set pickC; @goto c_after
+@label c_timeout
+* 시간 초과로 왔습니다.
+@set timed_out
+@goto c_after
+@label c_after
+@bg dining
+@show hungry,pman
+허기허기: 퍼즐 시간입니다.
+
+@puzzle pick3 {"prompt":"올바른 세 개를 고르세요","options":["사과","배","포도","귤","감"],"correct":[0,2,4],"hint":"과일 이름 순서","on_success":"@set p_pick; @goto t_code","on_fail":"@goto t_code"}
+@label t_code
+@puzzle code {"digits":4,"answer":"2526","hint":"25 + 1","hint_if":{"anyOf":["c_flyer","c_hooks","c_chairs"],"min":2},"max_tries":3,"on_success":"@set p_code; @goto t_vote","on_fail":"@goto t_vote","on_wrong":"경고음이 울린다."}
+@label t_vote
+@set can_refuse
+@add sus_yumi 2
+@puzzle vote {"title":"한 명을 고르세요","candidates":[{"id":"gnyang","name":"그냥혀","sus":"sus_gnyang"},{"id":"yumi","name":"맛동산장인 유미","sus":"sus_yumi"},{"id":"anjin","name":"안진"}],"refuse":{"label":"지목하지 않는다","show_if":"can_refuse"},"results":{"gnyang":"v_g","yumi":"v_y","anjin":"v_a","refuse":"v_r"}}
+@label v_g
+@set voted_g
+@goto t_guide
+@label v_y
+@set voted_y
+@goto t_guide
+@label v_a
+@set voted_a
+@goto t_guide
+@label v_r
+@set voted_r
+@goto t_guide
+@label t_guide
+@puzzle guide {"title":"목소리 유도","viewpoint":"포만포만","timer_sec":6,"turns":[{"see":"앞 바닥이 단단하다.","options":["앞","왼쪽","오른쪽"],"answer":"앞","say_correct":"포만포만: 앞으로.","say_wrong":"포만포만: 아니야!"},{"see":"오른쪽에 흔적이 있다.","options":["앞","왼쪽","오른쪽"],"answer":"오른쪽","say_correct":"포만포만: 오른쪽.","say_wrong":"포만포만: 서!"}],"on_success":"@set p_guide; @goto t_cctv","on_fail":"@goto t_cctv"}
+@label t_cctv
+@puzzle cctv {"grid":25,"cells":["승우","간장맛명태소환사","또꾸","신린","허기허기","포만포만","맛동산장인 유미","아린","용맹한다람쥐","두유쿠키로","레이비","브론즈장인 우르곳","우선즐겨","대한제일젤리","헤롱우","태용","뱀조련사","가을","안진","앙앵모르콩","weiho","예리야","탑위치생각해요","그냥혀","kater"],"extra_empty_cell":"26번째 칸(비어 있음)","order":["kater","허기허기","포만포만"],"hint_if_clues>=3":"순서 힌트","on_success":"@set p_cctv; @goto t_odd","on_fail":"@goto t_odd"}
+@label t_odd
+@puzzle cctv {"rounds":2,"lives":3,"on_success":"@set p_odd; @goto t_end","on_fail":"@goto t_end"}
+@label t_end
+## T2 마무리
+@bg final
+@show seungwoo,hungry,pman
+승우: 하나.
+허기허기: 둘.
+포만포만: 셋.
+태용: 넷, @show 에 없던 사람이 말하면 올라온다.
+@if p_pick && p_code
+* 앞의 두 퍼즐을 풀었습니다.
+@end
+@if clues>=3
+@ending clear|시험 엔딩 — 퍼즐 통과
+@else
+@ending plain|보통 시험 엔딩 — 단서 부족
+@end

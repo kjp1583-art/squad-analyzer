@@ -9472,6 +9472,8 @@ function dcHandleRedirect(){   // → Promise<로그인 성공 여부> · 복귀
 const DC_VERIFY_P=dcHandleRedirect();
 // 게임에서 온 로그인은 데이터 로딩을 기다리지 않고 바로 처리해 게임으로 돌려보낸다(승인을 취소하고 돌아와도 게임으로)
 if(DC_VERIFY_P&&DC_BOOT.ret==="게임:survivors") DC_VERIFY_P.then(()=>_dcReturn("게임:survivors"));
+if(DC_VERIFY_P&&DC_BOOT.ret==="게임:novel") DC_VERIFY_P.then(()=>_dcReturn("게임:novel"));
+if(DC_VERIFY_P&&DC_BOOT.ret==="게임:novel_dash") DC_VERIFY_P.then(()=>_dcReturn("게임:novel_dash"));   // 📊 스콰드 진행도 대시보드(운영진)   // 📖 스콰드(비주얼 노벨) — 로그인 뒤 게임 페이지로
 // 🔐 확인이 첫 화면보다 늦게 끝났으면 로그인에 따라 달라지는 화면만 다시 그린다
 if(DC_VERIFY_P) DC_VERIFY_P.then(ok=>{ if(ok&&GAMES.size) _dcRefreshView(); });
 function _dcRefreshView(){   // 🔐 로그인 상태가 바뀌었을 때 — 댓글·편지 칸이 있는 화면만, 쓰던 글이 없을 때만 다시 그린다
@@ -9522,6 +9524,8 @@ function _dcReturn(ret){   // 로그인 복귀 — '@라우트'/'이주의인물
   else if(ret.startsWith('뉴스:')){ const t=ret.slice(3); go('news',(WEEKLY_REVIEW&&typeof WEEKLY_REVIEW==="object"&&String((WEEKLY_REVIEW.week||{}).to||"")===t)?undefined:(t||undefined)); }   // 📰 주간스쿼드 댓글 → 그 호 지면으로
   else if(ret.startsWith('이주의인물')) go('home');
   else if(ret.startsWith('군장병')) go('army');
+  else if(ret==='게임:novel'){ location.replace('novel.html'); }
+  else if(ret==='게임:novel_dash'){ location.replace('novel_dash.html'); }
   else if(ret==='게임:survivors'){ location.replace('survivors.html'); }   // 🦐 흐접새우 서바이벌 — 게임 페이지에서 로그인하고 돌아가기
   else if(ret[0]==='#'||ret[0]==='?') _dcReturnRaw(ret);   // 🔐 [2026-09-29 사장님 지시] 자동 로그인 복귀(떠나기 전 주소) — 머리 스크립트가 주소를 못 되돌렸을 때만 여기로
   else go('player',ret);
@@ -11077,7 +11081,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610021200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610021330";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -11174,7 +11178,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   try{ if(NEWS_BOOT_HASH) go('news',NEWS_BOOT_HASH.arg); }catch(e){}
   try{ if(SUB_BOOT_HASH) go(SUB_BOOT_HASH.route,SUB_BOOT_HASH.tab); }catch(e){}   // 🗂 #ach/#mst 하위 탭 새로고침·공유 링크
   try{ if(BRJ_BOOT_HASH) go('brjang',BRJ_BOOT_HASH.tab); }catch(e){}   // 🍗 #brj/<탭> — 새로고침·공유 링크로 브키도감 하위 탭 다시 열기   // 📰 #news[/종료일] 공유 링크(봇 /주간평생성 안내)
-  try{ if(DC_VERIFY_P){ await DC_VERIFY_P; const _r=DC_BOOT.ret; if(_r&&_r!=="게임:survivors") _dcReturn(_r); } }catch(e){}   // 디스코드 로그인 복귀 — 원래 보던 곳으로(확인은 부팅과 동시에 시작해 뒀다)
+  try{ if(DC_VERIFY_P){ await DC_VERIFY_P; const _r=DC_BOOT.ret; if(_r&&_r!=="게임:survivors"&&_r!=="게임:novel"&&_r!=="게임:novel_dash") _dcReturn(_r); } }catch(e){}   // 디스코드 로그인 복귀 — 원래 보던 곳으로(확인은 부팅과 동시에 시작해 뒀다)
   try{ _cmtDraftRestore(); }catch(e){}   // 🔐 로그인하러 다녀오기 전에 쓰던 댓글·편지 되살리기
   checkNewBuild();                   // 🆕 배포 확인은 부팅이 끝난 뒤에 — 부팅 중엔 시트와 대역폭을 다투지 않게(2026-08-27)
 })();
