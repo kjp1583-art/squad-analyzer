@@ -119,6 +119,12 @@ button{font:inherit;color:inherit;cursor:pointer}
 .cnote.got{border-color:#f0c06088}
 .cnote .ic{float:left;font-size:22px;margin-right:10px;line-height:1.2}
 #ovNote .hint{font-size:12px;color:#f0c060;margin:0 0 10px;min-height:16px}
+#gate{width:min(440px,92vw);margin:6px 0 10px;padding:12px 14px;border:1px solid #f0c06066;border-radius:10px;background:#0f1118;font-size:14px;line-height:1.6;word-break:keep-all}
+#gate p{margin:0 0 10px}#gate .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#gate button{min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid #f0c060;background:#1a1710;color:#f0c060;font-weight:700}
+#gate button.dc{background:#5865f2;border-color:#5865f2;color:#fff}
+#testBadge{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:30;background:#f0c060;color:#1a1200;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;pointer-events:none;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+#ovSet .nvhint{width:min(320px,88vw);font-size:12px;color:#8a8494;line-height:1.5;margin:0 0 6px;text-align:left}
 #chap{position:absolute;inset:0;z-index:15;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;opacity:0;transition:opacity .7s;pointer-events:none;padding:0 16px;text-align:center}
 #chap.on{display:flex;opacity:1}
 #chap span{font-size:13px;letter-spacing:.4em;color:#8a8494}
@@ -201,10 +207,12 @@ button{font:inherit;color:inherit;cursor:pointer}
   <div id="puz" role="dialog" aria-modal="true"><div id="pzBody" style="width:100%;display:flex;flex-direction:column;align-items:center"></div></div>
   <div id="chap"><span id="chapN"></span><b id="chapT"></b></div>
   <div id="toast" role="status" aria-live="polite"></div>
+  <div id="testBadge" hidden>시험 모드(로그인 없음 · 진행도 기록 안 함)</div>
 
   <div class="ov on" id="ovTitle">
    <h1>스콰드</h1>
    <p class="sub">이 이야기는 전부 허구이며 실제 인물·단체와 관계없습니다.<br>소리가 납니다. 이어폰을 권합니다.<br>한 시간쯤 걸리는 이야기이고, 언제든 저장할 수 있습니다.</p>
+   <div id="gate" role="status" aria-live="polite" hidden><p id="gMsg"></p><div class="row"><button class="dc" id="gLogin" type="button" hidden>디스코드로 로그인</button><button id="gRetry" type="button" hidden>다시 확인</button></div></div>
    <button class="m" id="tCont">이어하기</button>
    <button class="m" id="tNew">처음부터</button>
    <button class="m" id="tChap">장 선택</button>
@@ -231,6 +239,8 @@ button{font:inherit;color:inherit;cursor:pointer}
    <div class="set">퍼즐 넘어가기(2번 틀리면) <button class="hb" id="sAssist"></button></div>
    <div class="set">글자 속도 <button class="hb" id="sSpeed"></button></div>
    <div class="set">소리 <button class="hb" id="sMute"></button></div>
+   <div class="set">진행도 기록 보내기 <button class="hb" id="sNv"></button></div>
+   <p class="nvhint">보내는 것: 지금 장·단서·엔딩·플레이 시간·선택(갈림길과 보기 번호)뿐입니다. 저장 파일 내용·연락처는 보내지 않습니다. 클랜 운영진이 통계로만 봅니다.</p>
    <button class="back" data-close>닫기</button>
   </div>
   <div class="ov" id="ovLog"><h2>지난 대사</h2><div id="log"></div><button class="back" data-close>닫기</button></div>
@@ -2709,6 +2719,7 @@ function onChap(op){
   const s=snap(); const m=lsGet(K_CHAP)||{}; m[op.n]=s; lsSet(K_CHAP,m); lsSet(K_AUTO,s); lsSet(K_LAST,s); saveRead();
   warmChapter(op.n+1);
   if(op.n>0)toast('자동 저장됨',1000);
+  try{nvSend('ch')}catch(e){}
 }
 function showCard(title,sub,cb){
   locked=true; WS='card'; const cp=$('chap');
@@ -2817,7 +2828,7 @@ function timeout(op,vis){
   const d=(op.def&&vis.find(x=>x.i===op.def-1))||vis[vis.length-1]; pick(d.o,true);
 }
 function pick(o,tmo){
-  if(WS!=='choice')return; clearInterval(tickT); TM.forEach(h=>clearTimeout(h)); TM.clear();
+  if(WS!=='choice')return; try{nvPick(o)}catch(e){} clearInterval(tickT); TM.forEach(h=>clearTimeout(h)); TM.clear();
   $('choices').classList.remove('on'); backlog.push({s:'선택',t:o.t+(tmo?' (시간 초과)':'')});
   if(!applyActs(o.a))ST.pc++; run();
 }
@@ -3023,7 +3034,7 @@ function isTrueEnd(e){return e.id==='true'||e.id==='T'||/진실|진엔딩/.test(
 function doEnd(op){
   WS='end'; lastEnd=op.id; killTimers(); clearProps(); fxClear();
   const g=lsGet(K_END)||{}; g[op.id]={t:op.t,ts:Date.now(),play:ST.play}; lsSet(K_END,g);
-  lsDel(K_LAST); saveRead(); saveMeta();
+  lsDel(K_LAST); saveRead(); saveMeta(); try{nvSend('end')}catch(e){}
   const [a,...b]=op.t.split(/\s+[—-]\s+/); const n=Object.keys(g).length, N=Math.max(STORY.endings.length,n);
   $('eT').textContent=a; $('eS').textContent=(b.join(' — ')?b.join(' — ')+'\n':'')+'플레이 시간 '+fmtT(ST.play)+' · 본 엔딩 '+n+'/'+N;
   $('eS').style.whiteSpace='pre-line';
@@ -3031,6 +3042,7 @@ function doEnd(op){
 }
 function saveMeta(){const m=lsGet(K_META)||{play:0}; m.play=(m.play||0)+(ST.play-(saveMeta.last||0)); saveMeta.last=ST.play; lsSet(K_META,m)}
 function loadSnap(s){
+  if(!gateOk())return false;
   if(!s||s.sv!==SV){toast('원고가 바뀌어 불러올 수 없습니다');return false}
   killTimers(); ST=Object.assign(fresh(),JSON.parse(JSON.stringify(s))); saveMeta.last=ST.play;
   closeAllOv(); clearProps(); fxClear(); $('choices').classList.remove('on'); $('puz').classList.remove('on'); $('chap').classList.remove('on'); locked=false;
@@ -3039,7 +3051,92 @@ function loadSnap(s){
   $('name').textContent=''; $('txt').textContent=''; $('tb').style.visibility='hidden';
   const pc=ST.pc; run(); return pc>=0;
 }
-function newGame(){ killTimers(); ST=fresh(); backlog=[]; saveMeta.last=0; closeAllOv(); started=true; setAuto(false); setSkip(false); auInit(); auMute(); updClue(); $('props').innerHTML=''; hist=[]; $('chars').innerHTML=''; setBg('white'); run() }
+function newGame(){ if(!gateOk())return; killTimers(); ST=fresh(); backlog=[]; saveMeta.last=0; closeAllOv(); started=true; setAuto(false); setSkip(false); auInit(); auMute(); updClue(); $('props').innerHTML=''; hist=[]; $('chars').innerHTML=''; setBg('white'); run() }
+
+/* ===================== 🔐 로그인 게이트 · 📊 진행도 기록 =====================
+   운영 도메인(NV_PROD_HOST)에서는 디스코드 로그인 + 봇의 클랜 멤버 확인(/nv/me)이 돼야만 시작·이어하기가 열린다.
+   그 밖(비공개 미리보기·localhost)은 '시험 모드' — 게이트도 기록도 없다. 판별은 location.hostname 하나뿐(?fast=1 같은 주소 값으로는 못 건너뛴다).
+   토큰은 사이트 로그인이 저장해 둔 sgg_dc 를 읽을 뿐, 이 페이지는 토큰·키를 갖고 있지 않다. 기록 전송은 실패해도 플레이를 막지 않는다. */
+const NV_API='https://hth3thmujs.apps.bot-hosting.cloud', NV_CLIENT='1520763174675022028', NV_PROD_HOST='kjp1583-art.github.io';
+const NV={prod:location.hostname===NV_PROD_HOST||/[?&]nvgate=1/.test(location.search),st:'checking',name:'',last:0,busy:false,tm:null,ev:'tick',picks:[],off:false,retryT:null};
+function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o}catch(e){}return null}
+function dcLogin(){
+  const st=Math.random().toString(36).slice(2)+'.'+Math.floor(performance.now());
+  let none=false; try{const a=JSON.parse(localStorage.getItem('sgg_dc_auto')||'null');none=!!(a&&a.id&&a!==0)}catch(e){}
+  try{sessionStorage.setItem('sgg_oauth_state',st);sessionStorage.setItem('sgg_oauth_return','게임:novel');if(none)localStorage.setItem('sgg_dc_try',String(Date.now()))}catch(e){}
+  const main=location.origin+new URL('./',location.href).pathname;
+  location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(NV_CLIENT)+'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
+}
+function gateOk(){return !NV.prod||NV.st==='ok'}
+async function nvApi(path,body){
+  const ac=typeof AbortController==='function'?new AbortController():null, to=setTimeout(()=>{try{ac&&ac.abort()}catch(e){}},8000);
+  try{
+    const r=await fetch(NV_API+path,Object.assign({cache:'no-store'},ac?{signal:ac.signal}:{},body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{}));
+    let j=null; try{j=await r.json()}catch(e){} return {status:r.status,j:j||{}};
+  }finally{clearTimeout(to)}
+}
+async function nvCheck(){
+  clearTimeout(NV.retryT);
+  if(!NV.prod){NV.st='test';gateApply();return}
+  const u=dcUser(); if(!u){NV.st='nologin';gateApply();return}
+  NV.st='checking';gateApply();
+  try{
+    const {status,j}=await nvApi('/nv/me?token='+encodeURIComponent(u.token));
+    if(status===200&&j.ok&&j.member){NV.st='ok';NV.name=j.name||u.name||''}
+    else if(status===401||j.code==='auth')NV.st='nologin';
+    else if(status===403&&j.code==='not_member')NV.st='notmember';
+    else NV.st='fail';
+  }catch(e){NV.st='fail'}
+  if(NV.st==='fail')NV.retryT=setTimeout(()=>{if(NV.st==='fail'&&!started)nvCheck()},FAST?3000:15000);
+  gateApply(); if(NV.st==='ok')nvSend('tick');
+}
+function gateApply(){
+  const g=$('gate'), play=['tCont','tNew','tChap','tLoad'].map($), lock=NV.prod&&NV.st!=='ok';
+  $('testBadge').hidden=NV.prod;
+  play.forEach(b=>{b.style.display=lock?'none':''});
+  g.hidden=!lock; if(!lock)return;
+  const M={checking:'로그인 상태를 확인하는 중…',
+    nologin:'이 이야기는 클랜 디스코드에 로그인해야 읽을 수 있어요.',
+    notmember:'클랜 디스코드 서버 멤버만 읽을 수 있어요. 방금 가입했다면 잠시 뒤 다시 확인해 보세요. 다른 계정이라면 로그인을 다시 해 주세요.',
+    fail:'서버에 연결하지 못했어요. 인터넷이 끊겼거나 봇이 점검 중일 수 있어요. 연결되면 자동으로 다시 확인하며, 오프라인에서는 플레이할 수 없어요.'};
+  $('gMsg').textContent=M[NV.st]||''; $('gLogin').hidden=!(NV.st==='nologin'||NV.st==='notmember'); $('gRetry').hidden=!(NV.st==='notmember'||NV.st==='fail');
+  $('gLogin').textContent=NV.st==='notmember'?'다른 계정으로 로그인':'디스코드로 로그인';
+}
+$('gLogin').onclick=()=>{ if(NV.st==='notmember'){try{localStorage.removeItem('sgg_dc');localStorage.removeItem('sgg_dc_auto');localStorage.removeItem('sgg_dc_try')}catch(e){}} dcLogin() };
+$('gRetry').onclick=()=>nvCheck();
+function nvSetBtn(){
+  const b=$('sNv'); if(!NV.prod){b.textContent='시험 모드';b.disabled=true;return}
+  if(NV.st!=='ok'){b.textContent='로그인 필요';b.disabled=true;return}
+  b.disabled=false; b.textContent=SET.nvSend===false?'끔':'켬'; b.setAttribute('aria-pressed',SET.nvSend!==false);
+}
+function nvOn(){return NV.prod&&NV.st==='ok'&&SET.nvSend!==false&&!NV.off}
+function nvPick(o){ if(!cur||!cur.opts)return; const i=cur.opts.indexOf(o); if(i<0||i>9)return; NV.picks.push([ST.pc,i,String(o.t||'').slice(0,28)]); if(NV.picks.length>20)NV.picks.shift() }
+function nvBody(ev){
+  const g=lsGet(K_END)||{}, m=lsGet(K_META)||{play:0}, u=dcUser(), flags={};
+  Object.keys(ST.V).forEach(k=>{ const v=ST.V[k]; if(/^[a-z][a-z0-9_]{0,15}$/.test(k)&&Number.isFinite(v)&&Object.keys(flags).length<12)flags[k]=Math.max(-99,Math.min(999,Math.round(v))) });
+  return {token:u?u.token:'',sv:SV,ch:chapterIdx(ST.pc),nch:CHAPS.length,line:ST.pc,play:Math.round((m.play||0)+(ST.play-(saveMeta.last||0))),nc:NCLUE,
+    clues:ST.clues.filter(c=>/^[A-Za-z0-9_\-]{1,24}$/.test(c)).slice(0,24),flags,
+    endings:Object.keys(g).filter(k=>/^[A-Za-z0-9_\-]{1,24}$/.test(k)).slice(0,16),te:STORY.endings.some(e=>g[e.id]&&isTrueEnd(e))?1:0,
+    choices:NV.picks.slice(),ev}
+}
+function nvSend(ev){
+  if(!nvOn())return;
+  const rank={tick:0,ch:1,end:2}; if(rank[ev]>rank[NV.ev])NV.ev=ev;
+  if(NV.tm||NV.busy)return;
+  NV.tm=setTimeout(nvFlush,Math.max(0,NV.last+11000-Date.now()));
+}
+async function nvFlush(){
+  NV.tm=null; if(!nvOn()||NV.busy||!started&&NV.ev==='tick')return;
+  NV.busy=true; const ev=NV.ev; NV.ev='tick';
+  try{
+    const b=nvBody(ev); if(!b.token)return;
+    const {status}=await nvApi('/nv/prog',b); NV.last=Date.now();
+    if(status===429){NV.ev=ev;NV.busy=false;nvSend(ev);return}
+    if(status===401||status===403)NV.off=true;
+  }catch(e){NV.last=Date.now()}
+  finally{NV.busy=false}
+}
+setInterval(()=>{ if(started&&!document.hidden&&WS!=='title')nvSend('tick') },FAST?3000:60000);
 
 const OVS=['ovTitle','ovMenu','ovSet','ovLog','ovNote','ovGal','ovSlots','ovChap','endcard'];
 function openOv(id){ $(id).classList.add('on'); const f=$(id).querySelector('button:not([disabled])'); if(f&&!FAST)setTimeout(()=>f.focus({preventScroll:true}),30) }
@@ -3054,6 +3151,7 @@ function refreshTitle(){
   $('tCont').disabled=!(last&&last.sv===SV)||!rd; $('tNew').disabled=!rd; $('tChap').disabled=!ch.some(x=>x.ok)||!rd; $('tLoad').disabled=!rd;
   if(rd)$('tStat').textContent='누적 플레이 '+fmtT(m.play||0)+' · 엔딩 '+Object.keys(g).length+'/'+Math.max(STORY.endings.length,Object.keys(g).length)+' · 읽은 대사 '+READ.size+'/'+STORY.meta.lines;
   else prog();
+  try{gateApply()}catch(e){}
 }
 function onPreloaded(){ refreshTitle() }
 function chapUnlocked(){
@@ -3105,7 +3203,7 @@ function buildGal(){
 function applyRm(){app.classList.toggle('rm',!!SET.rm)}
 function buildSet(){
   $('sRm').textContent=SET.rm?'켬':'끔';$('sTimer').textContent=SET.timer?'켬':'끔';$('sAssist').textContent=SET.assist?'켬':'끔';
-  $('sSpeed').textContent=['느림','보통','빠름'][SET.speed];$('sMute').textContent=SET.mute?'끔':'켬';
+  $('sSpeed').textContent=['느림','보통','빠름'][SET.speed];$('sMute').textContent=SET.mute?'끔':'켬'; nvSetBtn();
   $('sRm').setAttribute('aria-pressed',SET.rm);$('sTimer').setAttribute('aria-pressed',SET.timer);$('sAssist').setAttribute('aria-pressed',SET.assist);
 }
 function buildMenu(){ $('mInfo').textContent=(CHAPS[chapterIdx(ST.pc)]?CHAPS[chapterIdx(ST.pc)].t+' · ':'')+'플레이 '+fmtT(ST.play)+' · 단서 '+ST.clues.length+'/'+NCLUE }
@@ -3143,6 +3241,7 @@ $('sTimer').onclick=()=>{SET.timer=!SET.timer;saveSet();buildSet()};
 $('sAssist').onclick=()=>{SET.assist=!SET.assist;saveSet();buildSet()};
 $('sSpeed').onclick=()=>{SET.speed=(SET.speed+1)%3;saveSet();buildSet()};
 $('sMute').onclick=()=>{SET.mute=!SET.mute;saveSet();auMute();buildSet()};
+$('sNv').onclick=()=>{ if(!(NV.prod&&NV.st==='ok'))return; SET.nvSend=SET.nvSend===false; saveSet(); buildSet(); if(SET.nvSend!==false)nvSend('tick') };
 $('stage').addEventListener('click',e=>{
   if(!started||anyOv())return; if(e.target.closest('#hud,.prop,#choices,.ov,#puz'))return; next();
 });
@@ -3158,13 +3257,14 @@ window.addEventListener('pagehide',()=>{saveRead();saveMeta()});
 setInterval(()=>{ if(started&&!document.hidden&&WS!=='title'&&WS!=='end')ST.play++ },1000);
 setInterval(()=>{ if(started)saveMeta() },20000);
 
-applyRm(); auMute(); updClue(); refreshTitle(); preloadAll();
+applyRm(); auMute(); updClue(); refreshTitle(); preloadAll(); nvCheck();
 window.__novel={STORY,SET,READ,ST:()=>ST,
   mode:()=>({ws:WS,pc:ST.pc,ch:chapterIdx(ST.pc),text:fullText,locked,
     opts:WS==='choice'?[...$('cl').children].map(b=>b.textContent):[],vis:CH_VIS.map(x=>x.i),end:lastEnd,ptype:PZ&&PZ.type||null}),
   advance:()=>next(), choose:i=>{const b=$('cl').children[i];if(b){chShown=0;b.click()}},
   puzzle:{solve:()=>PZ&&PZ.solve&&PZ.solve(),wrong:()=>PZ&&PZ.wrong&&PZ.wrong(),skip:()=>pzFinish('skip'),pick:i=>PZ&&PZ.pickIdx&&PZ.pickIdx(i),op:()=>PZ&&PZ.op,fails:()=>PZ?PZ.fails:-1},
-  newGame, loadSnap, goTitle, snap, evalC, run, getv};
+  newGame, loadSnap, goTitle, snap, evalC, run, getv,
+  nv:{st:()=>NV.st,prod:NV.prod,body:nvBody,recheck:nvCheck,flush:nvFlush,gateOk}};
 </script>
 </body>
 </html>

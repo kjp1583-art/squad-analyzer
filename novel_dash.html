@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>스콰드 진행도 (운영진)</title>
+<meta name="theme-color" content="#05060a">
+<!-- 스콰드(비주얼 노벨) 진행도 대시보드 — 운영진 전용 · 어디에도 링크하지 않는다.
+     디스코드 로그인은 사이트와 같은 저장소(sgg_dc)를 쓰고, 봇의 /nv/dash 가 운영진(BOT_OWNER_ID·SUB_OWNER_IDS)에게만 답한다. 이 페이지는 토큰·키를 갖고 있지 않다. -->
+<style>
+:root{--bg:#05060a;--card:#0f1118;--line:#2a2d3a;--tx:#e8e6ea;--mut:#8a8494;--gold:#f0c060;--red:#e0607a;--grn:#6fcf97}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:14px;line-height:1.5}
+body{padding:14px 16px 40px;max-width:1180px;margin:0 auto}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 10px;color:var(--gold)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;min-height:40px;padding:6px 14px;border-radius:10px;border:1px solid var(--line);background:#161926}
+button:hover{border-color:var(--gold)}button.dc{background:#5865f2;border-color:#5865f2;color:#fff;font-weight:700}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mut{color:var(--mut);font-size:12px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.msg{text-align:center;padding:40px 14px}.msg b{font-size:18px;display:block;margin-bottom:8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.cards .panel{margin:0}.cards .v{font-size:26px;font-weight:700;color:var(--gold);line-height:1.2}.cards .l{font-size:12px;color:var(--mut)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.hl{border-color:#e0607a88;background:#1a0f13}.hl b{color:var(--red)}
+.rows{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.row{display:grid;grid-template-columns:minmax(64px,92px) 1fr 74px;gap:8px;align-items:center}
+.row .nm{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{height:18px;background:#1b1e2b;border-radius:5px;overflow:hidden;position:relative}
+.fill{height:100%;background:linear-gradient(90deg,#b8862c,var(--gold));min-width:2px}
+.fill.e{background:linear-gradient(90deg,#4a6a9a,#7ab0f0)}.fill.q{background:linear-gradient(90deg,#8a2b3a,var(--red))}
+.row .n{font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.row.drop .nm{color:var(--red);font-weight:700}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:middle}
+th{font-size:12px;color:var(--mut);font-weight:600;position:sticky;top:0;background:var(--card)}
+th button{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center;min-height:32px}
+th[aria-sort] button{color:var(--gold)}
+td.num{font-variant-numeric:tabular-nums}
+.pb{display:inline-block;width:90px;height:10px;background:#1b1e2b;border-radius:5px;overflow:hidden;vertical-align:middle;margin-right:6px}.pb i{display:block;height:100%;background:var(--gold)}
+.bd{display:inline-block;padding:1px 7px;margin:1px 2px 1px 0;border-radius:10px;font-size:11px;border:1px solid #4a6a9a;color:#9ac0f0}.bd.t{border-color:var(--gold);color:var(--gold)}
+.old{opacity:.55}
+input[type=search]{min-height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#0b0d14;min-width:0;flex:1 1 160px}
+.ch-t{display:grid;gap:10px}.ch-t .q{border:1px solid var(--line);border-radius:10px;padding:8px 10px}.ch-t .q>b{font-size:12px;color:var(--mut)}
+.ch-t .opt{display:grid;grid-template-columns:1fr 54px;gap:8px;align-items:center;margin-top:4px;font-size:13px}
+.ch-t .opt .track{grid-column:1/-1;height:8px}
+.sr{position:absolute;left:-9999px}
+@media(max-width:480px){body{padding:10px 12px 32px}h1{font-size:17px}.row{grid-template-columns:62px 1fr 64px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+ <div><h1>📖 스콰드 진행도</h1><div class="mut" id="upd">불러오는 중…</div></div>
+ <div class="bar"><button id="bRef" type="button">새로고침</button><button id="bCsv" type="button" hidden>CSV 내보내기</button><button id="bOut" type="button" hidden>로그아웃</button></div>
+</header>
+<div id="state" class="panel msg" role="status" aria-live="polite">불러오는 중…</div>
+<main id="main" hidden>
+ <section class="cards" id="cards" aria-label="요약"></section>
+ <section class="panel hl" id="quit" aria-label="어디서 그만두나"></section>
+ <div class="grid2">
+  <section class="panel"><h2>장별 도달 인원</h2><ol class="rows" id="funnel"></ol><p class="mut" style="margin:8px 0 0">그 장까지 닿은 사람 수(누적) · 붉은 줄은 가장 많이 빠진 구간</p></section>
+  <section class="panel"><h2>엔딩 분포</h2><ol class="rows" id="ends"></ol><p class="mut" id="endNote" style="margin:8px 0 0"></p></section>
+ </div>
+ <section class="panel"><h2>갈림길 선택 분포</h2><div class="ch-t" id="choices"></div></section>
+ <section class="panel"><h2>플레이어</h2>
+  <div class="bar" style="margin-bottom:8px"><input type="search" id="q" placeholder="이름 검색" aria-label="이름 검색"><span class="mut" id="cnt"></span></div>
+  <div class="tw"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+ </section>
+</main>
+<script>
+"use strict";
+const NV_API='https://hth3thmujs.apps.bot-hosting.cloud', NV_CLIENT='1520763174675022028';
+const $=id=>document.getElementById(id);
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o}catch(e){}return null}
+function dcLogin(){
+  const st=Math.random().toString(36).slice(2)+'.'+Math.floor(performance.now());
+  let none=false; try{const a=JSON.parse(localStorage.getItem('sgg_dc_auto')||'null');none=!!(a&&a.id)}catch(e){}
+  try{sessionStorage.setItem('sgg_oauth_state',st);sessionStorage.setItem('sgg_oauth_return','게임:novel_dash');if(none)localStorage.setItem('sgg_dc_try',String(Date.now()))}catch(e){}
+  location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(NV_CLIENT)+'&redirect_uri='+encodeURIComponent(location.origin+new URL('./',location.href).pathname)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
+}
+function fmtT(s){s=Math.floor(s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+'시간 '+m+'분':m+'분'}
+function ago(ts,now){if(!ts)return '-';const d=Math.max(0,now-ts);if(d<90)return '방금';if(d<3600)return Math.floor(d/60)+'분 전';if(d<86400)return Math.floor(d/3600)+'시간 전';return Math.floor(d/86400)+'일 전'}
+const chName=i=>i===0?'프롤로그':i+'번째 장';
+let DATA=null, SORT={k:'seen',dir:-1}, TIMER=null;
+
+function showState(html,btn){const s=$('state');s.hidden=false;s.innerHTML=html;$('main').hidden=true;$('bCsv').hidden=true;
+  if(btn==='login'){const b=document.createElement('button');b.className='dc';b.textContent='디스코드로 로그인';b.onclick=dcLogin;s.appendChild(document.createElement('br'));s.appendChild(b)}
+  if(btn==='retry'){const b=document.createElement('button');b.textContent='다시 시도';b.onclick=load;s.appendChild(document.createElement('br'));s.appendChild(b)}}
+async function load(){
+  const u=dcUser(); $('bOut').hidden=!u;
+  if(!u){showState('<b>로그인이 필요해요</b>운영진 전용 페이지예요.','login');$('upd').textContent='';return}
+  const ac=new AbortController(), to=setTimeout(()=>ac.abort(),10000);
+  try{
+    const r=await fetch(NV_API+'/nv/dash?token='+encodeURIComponent(u.token),{cache:'no-store',signal:ac.signal}); let j={};try{j=await r.json()}catch(e){}
+    if(r.status===403){DATA=null;showState('<b>운영진 전용</b>이 페이지는 운영진만 볼 수 있어요.');$('upd').textContent='';return}
+    if(r.status===401){showState('<b>로그인이 만료됐어요</b>다시 로그인해 주세요.','login');return}
+    if(r.status!==200||!j.ok){showState('<b>불러오지 못했어요</b>봇이 점검 중이거나 연결이 끊겼어요.','retry');return}
+    DATA=j; render();
+  }catch(e){showState('<b>불러오지 못했어요</b>봇이 점검 중이거나 연결이 끊겼어요.','retry')}finally{clearTimeout(to)}
+}
+function bars(el,items,max,cls){ // items: [{nm,n,txt,cls}]
+  el.innerHTML=items.map(x=>`<li class="row${x.drop?' drop':''}"><span class="nm" title="${esc(x.nm)}">${esc(x.nm)}</span><span class="track" role="img" aria-label="${esc(x.nm)} ${x.n}명"><i class="fill ${x.cls||cls||''}" style="display:block;width:${max?Math.round(x.n/max*100):0}%"></i></span><span class="n">${esc(x.txt==null?x.n+'명':x.txt)}</span></li>`).join('')||'<li class="mut">아직 없어요</li>';
+}
+function render(){
+  const D=DATA,a=D.agg,now=D.now; $('state').hidden=true;$('main').hidden=false;$('bCsv').hidden=false;
+  $('upd').textContent='갱신 '+new Date(now*1000).toLocaleTimeString('ko-KR')+' · 60초마다 자동 새로고침'+(D.on?'':' · ⚠ 서버가 기록을 받지 않는 상태(NOVEL_PROG=0)');
+  const cards=[[a.current+(a.old?' / '+a.players:''),'플레이어(현재 원고'+(a.old?' / 전체':'')+')'],[Math.round(a.completion*100)+'%','완주율(엔딩 1개 이상) · '+a.finished+'명'],[fmtT(a.avg_play),'평균 플레이 시간'],[a.true_enders+'명','진엔딩 달성자'],[a.active24h+'명','최근 24시간 접속']];
+  $('cards').innerHTML=cards.map(c=>`<div class="panel"><div class="v">${esc(c[0])}</div><div class="l">${esc(c[1])}</div></div>`).join('');
+  const f=a.funnel||[]; let worst=-1,wd=0; for(let i=0;i<f.length-1;i++){const d=f[i]-f[i+1];if(d>wd){wd=d;worst=i}}
+  const drop=a.dropout||[]; let dm=-1,dn=0; drop.forEach((n,i)=>{if(n>dn){dn=n;dm=i}});
+  let h='<h2>🚪 어디서 그만두나</h2>';
+  if(!f.length||!f[0])h+='<p style="margin:0" class="mut">아직 기록이 모자라요.</p>';
+  else{
+    if(worst>=0&&wd>0)h+=`<p style="margin:0 0 6px"><b>${esc(chName(worst))} → ${esc(chName(worst+1))}</b> 사이에서 가장 많이 빠져요 — ${f[worst]}명 중 <b>${wd}명(${Math.round(wd/f[worst]*100)}%)</b>이 다음 장에 못 갔어요.</p>`;
+    else h+='<p style="margin:0 0 6px">장 사이에서 눈에 띄게 빠지는 곳은 아직 없어요.</p>';
+    if(dm>=0)h+=`<p style="margin:0" class="mut">엔딩 없이 3일 넘게 안 돌아온 ${drop.reduce((x,y)=>x+y,0)}명 중 <b style="color:var(--tx)">${dn}명</b>이 ${esc(chName(dm))}에서 멈췄어요.</p>`;
+  }
+  $('quit').innerHTML=h;
+  bars($('funnel'),f.map((n,i)=>({nm:chName(i),n,txt:n+'명 · '+(f[0]?Math.round(n/f[0]*100):0)+'%',drop:i===worst+1&&wd>0,cls:i===worst+1&&wd>0?'q':''})),f[0]||0,'');
+  const E=Object.entries(a.endings||{}).sort((x,y)=>y[1]-x[1]); bars($('ends'),E.map(([k,n])=>({nm:'엔딩 '+k,n})),Math.max(1,...E.map(x=>x[1])),'e');
+  $('endNote').textContent=a.current?'엔딩을 본 사람 '+a.finished+'명 / 현재 원고 플레이어 '+a.current+'명':'';
+  $('choices').innerHTML=(a.choices||[]).map(c=>{const mx=Math.max(1,...c.opts.map(o=>o.n));return `<div class="q"><b>갈림길 #${c.pc} · ${c.n}명 선택</b>${c.opts.map(o=>`<div class="opt"><span>${esc(o.t||'보기 '+(o.i+1))}</span><span class="n">${o.n}명 ${Math.round(o.n/c.n*100)}%</span><span class="track" role="img" aria-label="${esc(o.t||'보기 '+(o.i+1))} ${o.n}명"><i class="fill" style="display:block;width:${Math.round(o.n/mx*100)}%"></i></span></div>`).join('')}</div>`}).join('')||'<p class="mut" style="margin:0">보기가 2개 이상 갈린 갈림길이 아직 없어요.</p>';
+  renderTable();
+}
+const COLS=[['name','이름'],['seen','마지막 접속'],['ch','도달한 장'],['clues','단서'],['endings','엔딩'],['play','플레이 시간'],['cur','지금 판']];
+function val(p,k){return k==='endings'?p.endings.length+(p.te?0.5:0):k==='cur'?(p.cur&&p.cur.ch!=null?p.cur.ch:-1):k==='name'?p.name:p[k]}
+function rows(){
+  const q=$('q').value.trim().toLowerCase(), nch=DATA.meta.nch||1;
+  let L=DATA.players.filter(p=>!q||String(p.name).toLowerCase().includes(q));
+  L=L.slice().sort((x,y)=>{const a=val(x,SORT.k),b=val(y,SORT.k);return (typeof a==='string'?a.localeCompare(b,'ko'):a-b)*SORT.dir||x.seen-y.seen});
+  return L;
+}
+function renderTable(){
+  const now=DATA.now,nch=DATA.meta.nch||1;
+  $('tbl').tHead.innerHTML='<tr>'+COLS.map(([k,t])=>`<th scope="col"${SORT.k===k?` aria-sort="${SORT.dir>0?'ascending':'descending'}"`:''}><button type="button" data-k="${k}">${t}${SORT.k===k?(SORT.dir>0?' ▲':' ▼'):''}</button></th>`).join('')+'</tr>';
+  const L=rows(); $('cnt').textContent=L.length+'명';
+  $('tbl').tBodies[0].innerHTML=L.map(p=>{
+    const pr=Math.min(100,Math.round((p.ch+1)/nch*100)), cu=p.cur||{};
+    return `<tr class="${p.old?'old':''}"><td>${esc(p.name)}${p.old?' <span class="mut">(구원고)</span>':''}</td><td title="${p.seen?esc(new Date(p.seen*1000).toLocaleString('ko-KR')):''}">${esc(ago(p.seen,now))}</td>`
+     +`<td><span class="pb" role="img" aria-label="${pr}%"><i style="width:${pr}%"></i></span>${esc(chName(p.ch))}</td><td class="num">${p.clues}/${p.nc||DATA.meta.nc||12}</td>`
+     +`<td>${p.endings.map(e=>`<span class="bd${p.te&&/^(T|true)$/.test(e)?' t':''}">${esc(e)}</span>`).join('')||'<span class="mut">-</span>'}${p.te&&!p.endings.some(e=>/^(T|true)$/.test(e))?'<span class="bd t">진</span>':''}</td>`
+     +`<td class="num">${esc(fmtT(p.play))}</td><td class="mut">${cu.ch!=null?esc(chName(cu.ch))+' · 단서 '+(cu.clues||0):'-'}</td></tr>`}).join('');
+}
+$('tbl').tHead.addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(!b)return;const k=b.dataset.k;SORT=SORT.k===k?{k,dir:-SORT.dir}:{k,dir:k==='name'?1:-1};renderTable()});
+$('q').addEventListener('input',()=>{if(DATA)renderTable()});
+$('bRef').onclick=load; $('bOut').onclick=()=>{try{localStorage.removeItem('sgg_dc');localStorage.removeItem('sgg_dc_auto');localStorage.removeItem('sgg_dc_try')}catch(e){}DATA=null;load()};
+function csvCell(v){let s=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(s))s="'"+s; return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
+$('bCsv').onclick=()=>{ if(!DATA)return; const nch=DATA.meta.nch||1;
+  const out=[['이름','마지막 접속','도달한 장','진행률%','단서','단서 총수','엔딩','진엔딩','플레이 시간(초)','지금 판 장','원고 구버전']].concat(rows().map(p=>[p.name,p.seen?new Date(p.seen*1000).toISOString():'',chName(p.ch),Math.round((p.ch+1)/nch*100),p.clues,p.nc||DATA.meta.nc,p.endings.join(' '),p.te?1:0,p.play,p.cur&&p.cur.ch!=null?chName(p.cur.ch):'',p.old?1:0]));
+  const blob=new Blob(['﻿'+out.map(r=>r.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='novel_progress_'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)};
+function sched(){clearInterval(TIMER);TIMER=setInterval(()=>{if(!document.hidden&&dcUser())load()},60000)}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DATA&&Date.now()/1000-DATA.now>60)load()});
+sched(); load();
+window.__dash={load,get:()=>DATA};
+</script>
+</body>
+</html>
