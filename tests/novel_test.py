@@ -192,6 +192,57 @@ async def slow_net(b):
     check('느린 네트워크(300ms)에서도 폴백 글자가 안 보임', await pg.evaluate('window.__sil')==0, await pg.evaluate('window.__sil'))
     await ctx.close()
 
+async def bgm_test(b):
+    # 1) 순수 선택 함수
+    ctx, pg, errs = await ctx_page(b, 360, 740)
+    await pg.goto('http://localhost:%d/novel_test.html?fast=1' % PORT); await pg.wait_for_function("!document.getElementById('tNew').disabled")
+    exp = {0: 'bright', 1: 'bright', 2: 'bright', 3: 'uneasy', 4: 'uneasy', 5: 'dread', 6: 'dread', 7: 'tension', 8: 'tension', 9: 'tension',
+           10: 'climax', 11: 'climax', 12: 'sorrow', 13: 'hope', 14: 'hope', 15: 'sorrow', 16: 'sorrow', 17: 'sorrow', 18: 'sorrow'}
+    got = await pg.evaluate("Object.fromEntries(Array.from({length:19},(_,i)=>[i,__novel.bgm.forChap(i)]))")
+    check('BGM 장→곡 매핑 0~18', {int(k): v for k, v in got.items()} == exp, got)
+    check('BGM 엔딩→곡(진실·D 희망, 나머지 쓸쓸)', await pg.evaluate("['A','B','C','E','F'].every(i=>__novel.bgm.forEnd(i)==='sorrow')&&__novel.bgm.forEnd('true')==='hope'&&__novel.bgm.forEnd('D')==='hope'"))
+    check('BGM 이상한 값은 곡 없음', await pg.evaluate("__novel.bgm.forChap(-1)===null&&__novel.bgm.forChap(undefined)===null&&__novel.bgm.forChap('x')===null"))
+    # 2) 새 게임: 제스처 뒤에 시작·같은 곡 재시작 안 함·불러오기가 장 번호로 곡 결정·뮤트
+    st0 = await pg.evaluate('__novel.bgm.state()'); check('BGM 제스처 전에는 재생 안 함', st0['live'] is None and not st0['on'], st0)
+    await pg.click('#tNew'); await ws(pg, 'line'); await pg.wait_for_timeout(600)
+    st = await pg.evaluate('__novel.bgm.state()'); check('BGM 새 게임 → 밝은 곡', st['want'] == 'bright' and (st['live'] == 'bright' or st['fail']), st)
+    check('BGM 음량 0.35(효과음보다 작게)', abs(st['vol'] - .35) < 1e-6)
+    if st['on']:
+        t1 = (await pg.evaluate('__novel.bgm.state()'))['t']; await pg.evaluate("__novel.bgm.set('bright')"); await pg.wait_for_timeout(200)
+        t2 = (await pg.evaluate('__novel.bgm.state()'))['t']; check('BGM 같은 곡이면 재시작 안 함', t2 >= t1, (t1, t2))
+        check('BGM 재생 중엔 드론이 낮아짐', (await pg.evaluate("__novel.bgm.state()"))['drone'] < .03)
+    chs = await pg.evaluate("__novel.STORY.chapters.map(c=>[c.n,c.pc])")
+    ok = True; bad = []
+    for n, pc in chs:
+        await pg.evaluate("(pc)=>{__novel.ST().pc=pc;__novel.bgm.sync()}", pc)
+        w = (await pg.evaluate('__novel.bgm.state()'))['want']
+        if w != exp.get(n): ok = False; bad.append((n, w))
+    check('BGM 챕터 위치로 곡 결정(불러오기·이어하기)', ok, bad)
+    await pg.evaluate("__novel.SET.mute=true"); await pg.evaluate("document.getElementById('bMute').click()")   # 토글 → 켬
+    await pg.evaluate("document.getElementById('bMute').click()")                                              # 토글 → 끔
+    ms = await pg.evaluate('__novel.bgm.state()'); check('BGM 뮤트 버튼 → 마스터 0', ms['master'] == 0, ms)
+    await pg.evaluate("document.getElementById('bMute').click()"); ms = await pg.evaluate('__novel.bgm.state()')
+    check('BGM 뮤트 해제 → 마스터 복귀', ms['master'] and ms['master'] > 0, ms)
+    await pg.evaluate("__novel.goTitle()"); await pg.wait_for_timeout(100)
+    check('BGM 타이틀로 나가면 곡 없음', (await pg.evaluate('__novel.bgm.state()'))['want'] is None)
+    check('BGM 콘솔 오류 없음', not errs, errs); await ctx.close()
+    # 3) 파일 못 읽으면 조용히 합성 드론으로
+    ctx = await b.new_context(viewport={'width': 360, 'height': 740})
+    async def route(r):
+        u = r.request.url
+        if '/audio/novel/' in u: await r.fulfill(status=404, body='no'); return
+        if not u.startswith('http://localhost:%d/' % PORT): await r.abort(); return
+        await r.continue_()
+    await ctx.route('**/*', route); pg = await ctx.new_page(); errs = []
+    pg.on('pageerror', lambda e: errs.append(str(e))); pg.on('console', lambda m: errs.append(m.text) if m.type == 'error' and 'Failed to load resource' not in m.text else None)
+    await pg.goto('http://localhost:%d/novel_test.html?fast=1' % PORT); await pg.wait_for_function("!document.getElementById('tNew').disabled")
+    await pg.click('#tNew'); await ws(pg, 'line'); await pg.wait_for_function('__novel.bgm.state().fail', timeout=5000)
+    await pg.evaluate("__novel.ST().mood='dark'"); await pg.evaluate("__novel.bgm.set('dread')")
+    await pg.evaluate("document.getElementById('bMute').click();document.getElementById('bMute').click()")
+    st = await pg.evaluate('__novel.bgm.state()'); check('BGM 로드 실패 → 폴백 표시·재생중 아님', st['fail'] and not st['on'], st)
+    check('BGM 로드 실패 후에도 게임 진행·오류 없음', (await mode(pg))['ws'] in ('line', 'choice', 'puzzle') and not errs, errs)
+    await ctx.close()
+
 async def main():
     build()
     sp = subprocess.Popen([sys.executable, '-m', 'http.server', str(PORT)], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
@@ -200,7 +251,7 @@ async def main():
             b = await p.chromium.launch(executable_path='/opt/pw-browsers/chromium')
             await story_walk(b, 360, 740, 'm360')
             await story_walk(b, 1280, 800, 'd1280')
-            await resume_test(b); await rm_and_timer(b); await cast_hide(b); await slow_net(b)
+            await resume_test(b); await rm_and_timer(b); await cast_hide(b); await slow_net(b); await bgm_test(b)
             await b.close()
     finally:
         sp.terminate(); os.remove(os.path.join(ROOT, 'novel_test.html'))

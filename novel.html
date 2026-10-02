@@ -4499,19 +4499,61 @@ function warmChapter(n){
   for(let i=ch.pc;i<end;i++){const o=STORY.ops[i]; if(o.o==='bg')imGet('bg_'+o.id); else if(o.o==='show')o.ids.forEach(x=>{imGet('ch_'+x.id);if(x.f)imGet('ch_'+x.id+'_f')})}
 }
 
-/* ===================== 소리(WebAudio 합성만) ===================== */
-const AU={ctx:null,master:null,drone:null,hbT:null,mood:'none'};
+/* ===================== 소리(효과음·드론은 WebAudio 합성 / 배경음악은 audio/novel/bgm_*.mp3) ===================== */
+const AU={ctx:null,master:null,drone:null,hbT:null,mood:'none',bgm:null};
+const BG={want:null,live:null,slots:[],on:false,fail:false,tm:null};   // 배경음악 상태(want=원하는 곡, live=지금 틀린 목소리, on=실제 재생 중, fail=파일 못 읽음→합성 드론 폴백)
+const BGM_URL=n=>'audio/novel/bgm_'+n+'.mp3', BGM_VOL=.35, BGM_FADE=2, BGM_LOOPX=1.5;   // 파일 = 본체 + 앞부분 1.5초(루프 크로스페이드용)
+// 장 번호 → 곡. 0~2 밝음 / 3~4 불안 / 5~6 어둠 / 7~9 추리 / 10~11 절정 / 엔딩(12~) 쓸쓸함, 진실(13)·D(14)는 희망
+function bgmForChap(n){n=+n; if(!(n>=0))return null; if(n<=2)return 'bright'; if(n<=4)return 'uneasy'; if(n<=6)return 'dread'; if(n<=9)return 'tension'; if(n<=11)return 'climax'; return (n===13||n===14)?'hope':'sorrow'}
+function bgmForEnd(id){return (id==='true'||id==='D')?'hope':'sorrow'}
 function auInit(){
   if(AU.ctx){ if(AU.ctx.state==='suspended')AU.ctx.resume(); return; }
   try{
     const C=window.AudioContext||window.webkitAudioContext; if(!C)return;
     const x=AU.ctx=new C(); AU.master=x.createGain(); AU.master.gain.value=SET.mute?0:.8; AU.master.connect(x.destination);
     const g=AU.drone=x.createGain(); g.gain.value=0; g.connect(AU.master);
+    bgmInit();
     const lp=x.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=180; lp.connect(g);
     [55,55.7,82.4].forEach((f,i)=>{const o=x.createOscillator(); o.type=i==2?'sine':'sawtooth'; o.frequency.value=f; const og=x.createGain(); og.gain.value=i==2?.25:.5; o.connect(og); og.connect(lp); o.start();});
     const lfo=x.createOscillator(), lg=x.createGain(); lfo.frequency.value=.08; lg.gain.value=60; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
   }catch(e){AU.ctx=null}
 }
+function setBgOn(v){ if(BG.on===v)return; BG.on=v; try{setMood(AU.mood)}catch(e){} }
+function bgmInit(){
+  try{
+    AU.bgm=AU.ctx.createGain(); AU.bgm.gain.value=BGM_VOL; AU.bgm.connect(AU.master);
+    // 요소 2개를 미리 만들어 사용자 제스처 안에서 한 번 건드려 둔다(iOS 가 제스처 없는 재생을 막으므로 돌려 쓴다)
+    BG.slots=[0,1].map(()=>{const el=new Audio(); el.preload='auto'; el.loop=false; el.setAttribute('playsinline','');
+      const g=AU.ctx.createGain(); g.gain.value=0; AU.ctx.createMediaElementSource(el).connect(g); g.connect(AU.bgm);
+      const sl={el,g,name:null,tk:0,busy:false}; el.addEventListener('error',()=>{if(sl.busy&&BG.live===sl)bgmFail('load')}); return sl});
+    BG.tm=setInterval(bgmTick,40);
+  }catch(e){bgmFail('init')}
+}
+function bgmFail(why){ BG.fail=true; try{console.warn('BGM 폴백(합성 드론):',why)}catch(e){}; BG.slots.forEach(s=>{try{s.busy=false;s.el.pause()}catch(e){}}); BG.live=null; setBgOn(false) }
+function bgmRetire(s,fade){ if(!s)return; const t=AU.ctx.currentTime,tk=++s.tk; s.g.gain.cancelScheduledValues(t); s.g.gain.setValueAtTime(s.g.gain.value,t); s.g.gain.linearRampToValueAtTime(0,t+fade);
+  setTimeout(()=>{ if(s.tk===tk){s.busy=false; try{s.el.pause()}catch(e){}} },fade*1000+120) }
+function bgmStart(name,fade,skipTo){
+  const s=BG.slots.find(x=>!x.busy&&x!==BG.live)||BG.slots.find(x=>x!==BG.live); if(!s)return null;
+  const t=AU.ctx.currentTime; s.tk++; s.busy=true; s.name=name; s.wrapped=false;
+  const url=BGM_URL(name); if(!s.el.src||!s.el.src.endsWith(url))s.el.src=url;
+  try{s.el.currentTime=skipTo||0}catch(e){}
+  s.g.gain.cancelScheduledValues(t); s.g.gain.setValueAtTime(0,t); s.g.gain.linearRampToValueAtTime(1,t+fade);
+  const pr=s.el.play(); if(pr&&pr.then)pr.then(()=>{ if(BG.live===s&&!BG.fail)setBgOn(true) }).catch(e=>{ if(BG.live===s&&!document.hidden&&e&&e.name!=='AbortError')bgmFail('play '+(e.name||e)) });
+  return s;
+}
+function bgmSet(name){
+  BG.want=name||null; if(!AU.ctx||BG.fail||!BG.slots.length)return;
+  if(!name){ if(BG.live){bgmRetire(BG.live,BGM_FADE); BG.live=null} setBgOn(false); return }
+  if(BG.live&&BG.live.name===name)return;                                // 같은 곡이면 이어서(재시작 안 함)
+  const old=BG.live; BG.live=null; const nv=bgmStart(name,BGM_FADE); BG.live=nv; if(old&&old!==nv)bgmRetire(old,BGM_FADE);
+}
+function bgmSync(){ const c=CHAPS[chapterIdx(ST.pc)]; bgmSet(bgmForChap(c&&c.n)) }   // 지금 장 번호로 곡 결정(불러오기·이어하기·되감기·시험 훅)
+function bgmTick(){   // 곡이 끝나기 1.5초 전에 같은 곡을 다시 시작해 선형 크로스페이드 → 이음매 없는 루프
+  const s=BG.live; if(!s||BG.fail||document.hidden||s.wrapped)return; const d=s.el.duration,c=s.el.currentTime;
+  if(d&&isFinite(d)&&d>BGM_LOOPX*2&&c>=d-BGM_LOOPX&&!s.el.paused){ s.wrapped=true; const nv=bgmStart(s.name,BGM_LOOPX,Math.max(0,c-(d-BGM_LOOPX))); if(nv){BG.live=nv; bgmRetire(s,BGM_LOOPX)} }
+}
+function bgmPause(){ BG.slots.forEach(s=>{if(s.busy){try{s.el.pause()}catch(e){}}}) }
+function bgmResume(){ if(BG.fail||!AU.ctx)return; BG.slots.forEach(s=>{if(s.busy){const pr=s.el.play(); if(pr&&pr.catch)pr.catch(()=>{})}}); if(BG.want&&!BG.live)bgmSet(BG.want) }
 function auMute(){ if(AU.master)AU.master.gain.value=SET.mute?0:.8; $('bMute').textContent=SET.mute?'🔇':'🔊'; }
 function noiseBuf(d){const x=AU.ctx,b=x.createBuffer(1,x.sampleRate*d,x.sampleRate),a=b.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1;return b}
 function tone(f,t0,d,vol,type,f2){const x=AU.ctx,o=x.createOscillator(),g=x.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t0);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t0+d);g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.01);g.gain.exponentialRampToValueAtTime(.001,t0+d);o.connect(g);g.connect(AU.master);o.start(t0);o.stop(t0+d+.05)}
@@ -4530,8 +4572,8 @@ function sfx(n){
 function beat(t){tone(62,t,.18,.9,'sine',40);tone(55,t+.2,.2,.6,'sine',38)}
 function setMood(m){
   AU.mood=m; if(!AU.ctx)return; clearInterval(AU.hbT);
-  const v={none:0,calm:.05,tense:.09,dark:.12}[m]||0; AU.drone.gain.setTargetAtTime(v,AU.ctx.currentTime,1.2);
-  const per=SET.rm?0:{tense:1100,dark:760}[m];
+  const v=({none:0,calm:.05,tense:.09,dark:.12}[m]||0)*(BG.on?.15:1); AU.drone.gain.setTargetAtTime(v,AU.ctx.currentTime,1.2);   // 배경음악이 돌면 드론은 아주 낮게
+  const per=(SET.rm||BG.on)?0:{tense:1100,dark:760}[m];
   if(per) AU.hbT=setInterval(()=>{if(!SET.mute&&AU.ctx.state==='running')beat(AU.ctx.currentTime)},per);
 }
 
@@ -4651,7 +4693,7 @@ function onChap(op){
   clearProps(); fxClear(); ST.show=null; hist=[]; renderChars(null);
   backlog.push({chap:op.t});
   const s=snap(); const m=lsGet(K_CHAP)||{}; m[op.n]=s; lsSet(K_CHAP,m); lsSet(K_AUTO,s); lsSet(K_LAST,s); saveRead();
-  warmChapter(op.n+1);
+  warmChapter(op.n+1); bgmSet(bgmForChap(op.n));
   if(op.n>0)toast('자동 저장됨',1000);
   try{nvSend('ch')}catch(e){}
 }
@@ -4973,7 +5015,7 @@ function doEnd(op){
   const [a,...b]=op.t.split(/\s+[—-]\s+/); const n=Object.keys(g).length, N=Math.max(STORY.endings.length,n);
   $('eT').textContent=a; $('eS').textContent=(b.join(' — ')?b.join(' — ')+'\n':'')+'플레이 시간 '+fmtT(ST.play)+' · 본 엔딩 '+n+'/'+N;
   $('eS').style.whiteSpace='pre-line';
-  $('tb').style.visibility='hidden'; setMood('none'); openOv('endcard');
+  $('tb').style.visibility='hidden'; setMood('none'); bgmSet(bgmForEnd(op.id)); openOv('endcard');
 }
 function saveMeta(){const m=lsGet(K_META)||{play:0}; m.play=(m.play||0)+(ST.play-(saveMeta.last||0)); saveMeta.last=ST.play; lsSet(K_META,m)}
 function loadSnap(s){
@@ -4982,11 +5024,11 @@ function loadSnap(s){
   killTimers(); ST=Object.assign(fresh(),JSON.parse(JSON.stringify(s))); saveMeta.last=ST.play;
   closeAllOv(); clearProps(); fxClear(); $('choices').classList.remove('on'); $('puz').classList.remove('on'); $('chap').classList.remove('on'); locked=false;
   hist=[]; backlog=[]; setAuto(false); setSkip(false); started=true; PZ=null;
-  auInit(); auMute(); setMood(ST.mood||'none'); setBg(ST.bg||'prologue'); renderChars(null); updClue(); noteHud();
+  auInit(); auMute(); setMood(ST.mood||'none'); bgmSync(); setBg(ST.bg||'prologue'); renderChars(null); updClue(); noteHud();
   $('name').textContent=''; $('txt').textContent=''; $('tb').style.visibility='hidden';
   const pc=ST.pc; run(); return pc>=0;
 }
-function newGame(){ if(!gateOk())return; killTimers(); ST=fresh(); backlog=[]; saveMeta.last=0; closeAllOv(); started=true; setAuto(false); setSkip(false); auInit(); auMute(); updClue(); $('props').innerHTML=''; hist=[]; $('chars').innerHTML=''; setBg('white'); run() }
+function newGame(){ if(!gateOk())return; killTimers(); ST=fresh(); backlog=[]; saveMeta.last=0; closeAllOv(); started=true; setAuto(false); setSkip(false); auInit(); auMute(); bgmSync(); updClue(); $('props').innerHTML=''; hist=[]; $('chars').innerHTML=''; setBg('white'); run() }
 
 /* ===================== 🔐 로그인 게이트 · 📊 진행도 기록 =====================
    운영 도메인(NV_PROD_HOST)에서는 디스코드 로그인 + 봇의 클랜 멤버 확인(/nv/me)이 돼야만 시작·이어하기가 열린다.
@@ -5080,7 +5122,7 @@ function closeAllOv(){OVS.forEach(closeOv)}
 function anyOv(){return OVS.some(id=>$(id).classList.contains('on'))}
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('.ov').classList.remove('on'));
 
-function goTitle(){ killTimers(); WS='title'; started=false; saveRead(); saveMeta(); closeAllOv(); $('choices').classList.remove('on'); $('puz').classList.remove('on'); PZ=null; setMood('none'); refreshTitle(); openOv('ovTitle') }
+function goTitle(){ killTimers(); WS='title'; started=false; saveRead(); saveMeta(); closeAllOv(); $('choices').classList.remove('on'); $('puz').classList.remove('on'); PZ=null; setMood('none'); bgmSet(null); refreshTitle(); openOv('ovTitle') }
 function refreshTitle(){
   const last=lsGet(K_LAST), ch=chapUnlocked(), g=lsGet(K_END)||{}, m=lsGet(K_META)||{play:0}, rd=IM.ready;
   $('tCont').disabled=!(last&&last.sv===SV)||!rd; $('tNew').disabled=!rd; $('tChap').disabled=!ch.some(x=>x.ok)||!rd; $('tLoad').disabled=!rd;
@@ -5187,7 +5229,7 @@ document.addEventListener('keydown',e=>{
   if(WS==='choice'){ if(e.key==='Enter'||e.key===' ')return; const n=parseInt(e.key,10);const b=$('cl').children[n-1];if(b&&Date.now()-chShown>(FAST?0:350)){b.click()} return }
   if(WS==='line'&&(e.key===' '||e.key==='Enter')){if(e.target.tagName==='BUTTON')return;e.preventDefault();next()}
 });
-document.addEventListener('visibilitychange',()=>{ if(AU.ctx){document.hidden?AU.ctx.suspend():AU.ctx.resume()} if(document.hidden){saveRead();saveMeta()} });
+document.addEventListener('visibilitychange',()=>{ if(AU.ctx){document.hidden?AU.ctx.suspend():AU.ctx.resume()} document.hidden?bgmPause():bgmResume(); if(document.hidden){saveRead();saveMeta()} });
 window.addEventListener('pagehide',()=>{saveRead();saveMeta()});
 // 플레이 시간(탭이 보일 때, 타이틀이 아닐 때만)
 setInterval(()=>{ if(started&&!document.hidden&&WS!=='title'&&WS!=='end')ST.play++ },1000);
@@ -5203,6 +5245,7 @@ window.__novel={STORY,SET,READ,ST:()=>ST,
   advance:()=>next(), choose:i=>{const b=$('cl').children[i];if(b){chShown=0;b.click()}},
   puzzle:{solve:()=>PZ&&PZ.solve&&PZ.solve(),wrong:()=>PZ&&PZ.wrong&&PZ.wrong(),skip:()=>pzFinish('skip'),pick:i=>PZ&&PZ.pickIdx&&PZ.pickIdx(i),op:()=>PZ&&PZ.op,fails:()=>PZ?PZ.fails:-1},
   newGame, loadSnap, goTitle, snap, evalC, run, getv,
+  bgm:{forChap:bgmForChap,forEnd:bgmForEnd,set:bgmSet,sync:bgmSync,state:()=>({want:BG.want,live:BG.live&&BG.live.name||null,on:BG.on,fail:BG.fail,vol:BGM_VOL,drone:AU.drone?AU.drone.gain.value:null,master:AU.master?AU.master.gain.value:null,t:BG.live?BG.live.el.currentTime:0,mood:AU.mood})},
   nv:{st:()=>NV.st,prod:NV.prod,body:nvBody,recheck:nvCheck,flush:nvFlush,gateOk}};
 </script>
 </body>
