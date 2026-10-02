@@ -9,6 +9,7 @@
   python3 tooling/novel_build.py --check        # 검사만(파일 안 씀). 오류 있으면 종료코드 1
   python3 tooling/novel_build.py --json out.json  # STORY 를 JSON 으로도 저장
   python3 tooling/novel_build.py --strict       # 경고(도달 불가 라벨 등)도 오류로
+  python3 tooling/novel_build.py --import DIR   # 작가 폴더의 ch_*.txt 를 가져와(통합 수정 포함) 바로 빌드 — 원고가 바뀔 때 이 한 줄이면 됨
 
 줄 형식(요약)
   ## 장 제목                  장 시작(자동 저장·장 선택 지점)
@@ -552,11 +553,41 @@ def render_js(story):
     out.append('};')
     return '\n'.join(out)
 
+
+# --import 로 원고를 가져올 때 자동으로 적용하는 통합 수정(이미 들어 있으면 건너뜀). 산문은 건드리지 않고 분기 지시어만 고친다.
+PATCHES = [
+    ('ch_1011_end.txt', '@if true_ok\n@goto ch11_choice_true\n@end\n@if d_ok',
+     '// [통합 수정] 진엔딩 조건이 D 조건을 품고 있어 D 선택지가 안 나왔다 -> 둘 다 맞으면 ④⑤가 함께 나오는 선택지로 보낸다\n'
+     '@if true_ok && d_ok\n@goto ch11_choice_both\n@end\n@if true_ok\n@goto ch11_choice_true\n@end\n@if d_ok'),
+    ('ch_1011_end.txt', '@label ch11_choice_true\n',
+     '@label ch11_choice_both\n@show seungwoo\n* 5:00이 줄어든다. 일행의 눈이 승우에게 모인다.\n* 승우는 모은 단서와 잡았던 손을 하나씩 떠올린다.\n'
+     '* 승우는 가방 속 명단 조각 두 장을 만진다. 맞춰 볼 수 있을 것 같다.\n@choice [timer=300]\n'
+     '- 내가 남겠다. 인원 점검은 내 일이다 => @goto ch11_pick_A\n- 허기허기의 뜻을 따른다 => @goto ch11_pick_B\n'
+     '- 규칙을 거부하고 또꾸·신린을 찾으러 간다 => @goto ch11_pick_C\n- 26번째 칸에 이름을 쓰지 않고 전원의 이름을 쓴다 => @goto ch11_pick_D\n'
+     '- 명단 조각을 맞춰 본다 => @goto ch11_pick_true\n@label ch11_choice_true\n'),
+]
+
+def import_dir(srcdir):
+    import shutil
+    dst = os.path.join(ROOT, 'data', 'novel', 'ch'); os.makedirs(dst, exist_ok=True)
+    files = sorted(glob.glob(os.path.join(srcdir, 'ch_*.txt')))
+    if not files: print('가져올 ch_*.txt 가 없음: %s' % srcdir); return False
+    for f in files: shutil.copy(f, os.path.join(dst, os.path.basename(f)))
+    for name, old, new in PATCHES:
+        p = os.path.join(dst, name)
+        if not os.path.exists(p): continue
+        t = open(p, encoding='utf-8').read()
+        if new.split('\n')[0] in t: continue
+        if old not in t: print('경고 통합 수정 자리를 못 찾음(%s): %s' % (name, old.split('\n')[0])); continue
+        open(p, 'w', encoding='utf-8').write(t.replace(old, new, 1)); print('통합 수정 적용: %s' % name)
+    print('원고 %d개 가져옴' % len(files)); return True
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--src'); ap.add_argument('--out', default=os.path.join(ROOT, 'novel.html'))
-    ap.add_argument('--check', action='store_true'); ap.add_argument('--json'); ap.add_argument('--strict', action='store_true')
+    ap.add_argument('--check', action='store_true'); ap.add_argument('--json'); ap.add_argument('--strict', action='store_true'); ap.add_argument('--import', dest='imp', help='이 폴더의 ch_*.txt 를 data/novel/ch 로 복사(+통합 수정)한 뒤 빌드')
     a = ap.parse_args()
+    if a.imp and not import_dir(a.imp): return 1
     src = a.src
     if not src:
         d = os.path.join(ROOT, 'data', 'novel', 'ch')

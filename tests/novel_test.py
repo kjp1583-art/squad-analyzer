@@ -109,6 +109,10 @@ async def story_walk(b, w, h, tag):
     for r in range(2):
         txt = await pg.evaluate("(()=>{const t={};[...document.querySelectorAll('.cc')].forEach(b=>{const k=b.firstChild.textContent;t[k]=(t[k]||0)+1});return Object.keys(t).find(k=>t[k]===1)})()")
         await pg.locator('.cc').filter(has_text=txt).first.click(); await pg.wait_for_timeout(60)
+    await adv_until(pg, "__novel.mode().text.includes('넷')")
+    await pg.wait_for_timeout(60)
+    ids = await pg.evaluate("[...document.querySelectorAll('#chars .ch:not(.out)')].map(d=>d.dataset.id).sort()")
+    check(tag + ' 말하는 사람 자동 등장(가장 오래 말 안 한 사람이 내려감)', ids == ['hungry', 'pman', 'taeyong'], ids)
     check(tag + ' 마무리 줄', await adv_until(pg, "__novel.mode().ws==='end'", 200))
     check(tag + ' 엔딩 카드', 'clear' not in await pg.inner_text('#eT') and '시험 엔딩' in await pg.inner_text('#eT'))
     check(tag + ' 플레이 시간 표시', '플레이 시간' in await pg.inner_text('#eS')); await shot(pg, tag + '_end')
