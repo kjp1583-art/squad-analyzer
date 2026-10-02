@@ -34,10 +34,10 @@ button{font:inherit;color:inherit;cursor:pointer}
 .bg{background-size:cover;background-position:center;opacity:0;transition:opacity 1s}
 .bg.on{opacity:1}
 #vig{pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.65) 100%)}
-#chars{position:absolute;left:0;right:0;top:9%;bottom:33%;display:flex;justify-content:center;align-items:flex-end;gap:2%;pointer-events:none}
+#chars{position:absolute;left:0;right:0;top:44px;bottom:var(--tbh,33%);display:flex;justify-content:center;align-items:flex-end;gap:2%;pointer-events:none}
 .ch{flex:0 1 32%;height:100%;display:flex;align-items:flex-end;justify-content:center;transition:filter .4s,opacity .4s,transform .4s,flex-basis .4s,max-width .4s;filter:brightness(.3);opacity:.7}
-.ch.on{filter:none;opacity:1;transform:translateY(-1%)}
-.ch img{max-width:100%;max-height:100%;object-fit:contain}
+.ch.on{filter:none;opacity:1}
+.ch img{width:100%;height:100%;object-fit:contain;object-position:center bottom;display:block}
 .ch .sil{width:min(30vw,150px);aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-size:min(14vw,64px);font-weight:700;color:#fff;border:2px solid rgba(255,255,255,.25);margin-bottom:6%}
 #props{position:absolute;inset:0;pointer-events:none}
@@ -4372,6 +4372,9 @@ window.addEventListener('pagehide',()=>{saveRead();saveMeta()});
 setInterval(()=>{ if(started&&!document.hidden&&WS!=='title'&&WS!=='end')ST.play++ },1000);
 setInterval(()=>{ if(started)saveMeta() },20000);
 
+function fitChars(){const r=$('box').getBoundingClientRect(),st=stage.getBoundingClientRect();stage.style.setProperty('--tbh',Math.max(0,Math.round(st.bottom-r.top))+'px')}
+try{new ResizeObserver(fitChars).observe($('box'));new ResizeObserver(fitChars).observe(stage)}catch(e){}
+addEventListener('resize',fitChars); fitChars();
 applyRm(); auMute(); updClue(); refreshTitle(); preloadAll(); nvCheck();
 window.__novel={STORY,SET,READ,ST:()=>ST,
   mode:()=>({ws:WS,pc:ST.pc,ch:chapterIdx(ST.pc),text:fullText,locked,
