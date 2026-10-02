@@ -100,7 +100,7 @@ async def story_walk(b, w, h, tag):
     check(tag + ' guide 도움 통과 기록', await pg.evaluate("__novel.ST().V.assisted>=1 && __novel.ST().V.p_guide===1"))
     # 퍼즐 5: cctv seq
     check(tag + ' cctv 칸 25+1', await pg.locator('.cc').count() == 26); await shot(pg, tag + '_cctv')
-    check(tag + ' cctv 힌트(단서 3)', '방송이 부른 순서' in await pg.inner_text('.hints'))
+    check(tag + ' cctv 힌트(단서 3)', '순서:' in await pg.inner_text('.hints'))
     for nm in ['kater', '허기허기', '포만포만']:
         await pg.locator('.cc.nm').filter(has_text=re.compile('^' + nm)).first.click(); await pg.wait_for_timeout(15)
     await adv_until(pg, "__novel.mode().ptype==='cctv'&&document.querySelectorAll('.cc').length===25&&!document.querySelector('.cc.nm')")
@@ -168,6 +168,20 @@ async def rm_and_timer(b):
     m = await mode(pg); check('단서 없으면 조건부 선택지 숨김', len(m['opts']) == 2, m['opts'])
     await ctx.close()
 
+async def cast_hide(b):
+    ctx, pg, errs = await ctx_page(b, 360, 740)
+    await pg.goto('http://localhost:%d/novel_test.html?fast=1&hide=hungry,taeyong' % PORT)
+    await pg.wait_for_function("!document.getElementById('tNew').disabled")
+    await pg.click('#tNew'); await ws(pg, 'line')
+    await pg.evaluate("__novel.ST().pc=__novel.STORY.labels.t_end; __novel.run()"); await ws(pg, 'line')
+    await adv_until(pg, "__novel.mode().text.startsWith('둘')", 300)
+    await pg.wait_for_timeout(80)
+    check('출연 제외: 화자 이름표가 참가자', (await pg.inner_text('#name')) == '참가자', await pg.inner_text('#name'))
+    check('출연 제외: 대사 내용은 그대로', (await pg.inner_text('#txt')).startswith('둘'))
+    check('출연 제외: 무명 실루엣', await pg.locator('#chars .sil', has_text='?').count() >= 1)
+    await pg.click('#bLog'); lg = await pg.inner_text('#log'); check('출연 제외: 기록에도 참가자', '참가자' in lg and '허기허기' not in lg)
+    check('출연 제외: 콘솔 오류 없음', not errs, errs); await ctx.close()
+
 async def slow_net(b):
     ctx, pg, errs = await ctx_page(b, 360, 740, delay=300)
     await pg.add_init_script("window.__sil=0;new MutationObserver(()=>{if(document.querySelector('.sil'))window.__sil++}).observe(document,{subtree:true,childList:true})")
@@ -186,7 +200,7 @@ async def main():
             b = await p.chromium.launch(executable_path='/opt/pw-browsers/chromium')
             await story_walk(b, 360, 740, 'm360')
             await story_walk(b, 1280, 800, 'd1280')
-            await resume_test(b); await rm_and_timer(b); await slow_net(b)
+            await resume_test(b); await rm_and_timer(b); await cast_hide(b); await slow_net(b)
             await b.close()
     finally:
         sp.terminate(); os.remove(os.path.join(ROOT, 'novel_test.html'))

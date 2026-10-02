@@ -81,7 +81,28 @@ def apply(story, kind, pc, payload, dec, V, clues):
     else: a = d['ok'] if dec[1] == 'ok' else d.get('fail', [])
     j = acts(a, V, lab); return pc + 1 if j is None else j
 
-def search(story, limit=3_000_000, want=None):
+def relevant(story):
+    rv = set(); ids = set()
+    def cs(c):
+        for n, *_ in c: rv.add(n)
+    for op in story['ops']:
+        k = op['o']
+        if k == 'jf': cs(op['c'])
+        elif k == 'choice':
+            for o in op['opts']: cs(o['c'])
+        elif k == 'puz':
+            d = op['d']
+            for h in d.get('hints', []):
+                cs(h['c']); rv.update(h.get('any', []))
+            if d.get('refuse'): cs(d['refuse']['c'])
+            if d.get('hint'): cs(d['hint']['c'])
+        if k == 'clue': ids.add(op['id'])
+    return rv, ids
+
+def search(story, limit=40_000_000, want=None):
+    RV, CID = relevant(story)
+    def skey(pc, V, clues):
+        return (pc, tuple(sorted((k, min(v, 9)) for k, v in V.items() if k in RV)), tuple(sorted(c for c in clues if c in RV)), len(clues) if 'clues' in RV else 0)
     ends = {e['id'] for e in story['endings']}; want = set(want or ends); found = {}
     seen = set(); t0 = time.time()
     # DFS, 선호 순서: 줍기 > 첫 선택 ... (여러 방문 순서를 섞어서 시도)
@@ -98,7 +119,7 @@ def search(story, limit=3_000_000, want=None):
                 if pl not in found: found[pl] = (path, lines)
                 continue
             if k in ('loop', 'fall'): continue
-            key = (pc, tuple(sorted(V.items())), tuple(sorted(clues)))
+            key = skey(pc, V, clues)
             if key in seen: continue
             seen.add(key)
             opts = options(story, k, pc, pl, V, clues)
@@ -113,7 +134,7 @@ def search(story, limit=3_000_000, want=None):
 if __name__ == '__main__':
     story, ctx = load()
     for e in ctx.errors: print('오류', e)
-    found, n, dt = search(story)
+    found, n, dt = search(story, limit=40_000_000)
     print('방문한 상태 %d개 · %.1f초' % (n, dt))
     for e in story['endings']:
         f = found.get(e['id'])

@@ -375,11 +375,13 @@ def check_puzzles(ops, src, ctx):
                     if o not in cells: ctx.err(loc, 'cctv order "%s" 가 cells 에 없음' % o)
                 d['mode'] = 'seq'; d['cells'] = [{'t': c, 'face': NAME2ID.get(c, '')} for c in cells]
                 d['order'] = [cells.index(o) if o in cells else -1 for o in order]
+                d['guide'] = str(first(raw, 'guide', 'task', 'instruction', default='')); 
+                if d['q'] == d['guide']: d['q'] = ''
                 d['extra'] = str(raw.get('extra_empty_cell', ''))
                 hk = [k for k in raw if k.startswith('hint_if')]
                 if hk:
                     cs = hk[0][len('hint_if'):].lstrip('_')
-                    d['hint'] = {'c': parse_cond(cs, ctx, loc) if cs else [], 't': '방송이 부른 순서: ' + ' → '.join(order)}
+                    d['hint'] = {'c': parse_cond(cs, ctx, loc) if cs else [], 't': str(raw.get('hint_text') or ('순서: ' + ' → '.join(order)))}
                 d['lives'] = int(raw.get('lives', 3))
             else:
                 d['mode'] = 'odd'; d['rounds'] = int(raw.get('rounds', 3)); d['lives'] = int(raw.get('lives', 3))
@@ -555,17 +557,7 @@ def render_js(story):
 
 
 # --import 로 원고를 가져올 때 자동으로 적용하는 통합 수정(이미 들어 있으면 건너뜀). 산문은 건드리지 않고 분기 지시어만 고친다.
-PATCHES = [
-    ('ch_1011_end.txt', '@if true_ok\n@goto ch11_choice_true\n@end\n@if d_ok',
-     '// [통합 수정] 진엔딩 조건이 D 조건을 품고 있어 D 선택지가 안 나왔다 -> 둘 다 맞으면 ④⑤가 함께 나오는 선택지로 보낸다\n'
-     '@if true_ok && d_ok\n@goto ch11_choice_both\n@end\n@if true_ok\n@goto ch11_choice_true\n@end\n@if d_ok'),
-    ('ch_1011_end.txt', '@label ch11_choice_true\n',
-     '@label ch11_choice_both\n@show seungwoo\n* 5:00이 줄어든다. 일행의 눈이 승우에게 모인다.\n* 승우는 모은 단서와 잡았던 손을 하나씩 떠올린다.\n'
-     '* 승우는 가방 속 명단 조각 두 장을 만진다. 맞춰 볼 수 있을 것 같다.\n@choice [timer=300]\n'
-     '- 내가 남겠다. 인원 점검은 내 일이다 => @goto ch11_pick_A\n- 허기허기의 뜻을 따른다 => @goto ch11_pick_B\n'
-     '- 규칙을 거부하고 또꾸·신린을 찾으러 간다 => @goto ch11_pick_C\n- 26번째 칸에 이름을 쓰지 않고 전원의 이름을 쓴다 => @goto ch11_pick_D\n'
-     '- 명단 조각을 맞춰 본다 => @goto ch11_pick_true\n@label ch11_choice_true\n'),
-]
+PATCHES = []   # (파일, 찾을 글, 바꿀 글) — 필요할 때만 채운다
 
 def import_dir(srcdir):
     import shutil
