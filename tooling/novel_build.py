@@ -281,9 +281,9 @@ def do_from(c, ctx, loc):
 
 def check_puzzles(ops, src, ctx):
     NAME2ID = {'승우': 'seungwoo', '간장맛명태소환사': 'myeongtae', '또꾸': 'ttokku', '신린': 'sinrin', '허기허기': 'hungry', '포만포만': 'pman',
-               '맛동산장인 유미': 'yumi', '아린': 'arin', '용맹한다람쥐': 'squirrel', '우거지': 'ugeoji', '레이비': 'leivy', '몰입겜': 'mongip',
-               '우선즐겨': 'usjeul', '대한제일젤리': 'jelly', '한라봉 갓': 'hallabong', '태용': 'taeyong', '뱀조련사': 'snake', '가을': 'gaeul',
-               '안진': 'anjin', '앙앵모르콩': 'ongaeng', 'weiho': 'weiho', '예리야': 'yeri', '망앵무': 'parrot', '그냥혀': 'geunyang', 'kater': 'kater'}
+               '맛동산장인 유미': 'yumi', '아린': 'arin', '용맹한다람쥐': 'squirrel', '두유쿠키로': 'ugeoji', '레이비': 'leivy', '브론즈장인 우르곳': 'mongip',
+               '우선즐겨': 'usjeul', '대한제일젤리': 'jelly', '헤롱우': 'hallabong', '태용': 'taeyong', '뱀조련사': 'snake', '가을': 'gaeul',
+               '안진': 'anjin', '앙앵모르콩': 'ongaeng', 'weiho': 'weiho', '예리야': 'yeri', '탑위치생각해요': 'parrot', '그냥혀': 'geunyang', 'kater': 'kater'}
     for idx, op in enumerate(ops):
         if op['o'] != 'puz': continue
         loc = src[idx]; t = op['type']; raw = op['d']; d = {}

@@ -6,6 +6,7 @@ import asyncio, subprocess, sys, os, time, random, json
 from playwright.async_api import async_playwright
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+os.environ.setdefault('SIM_ALLCLUE', '1')
 import novel_sim as sim
 PORT = 8792
 NR = int(sys.argv[sys.argv.index('--random') + 1]) if '--random' in sys.argv else 30

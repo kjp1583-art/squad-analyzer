@@ -1,10 +1,12 @@
-// 「스콰드」 v3 — 10장 + 11장 + 엔딩 C·진·D·F (작가5)
-// 이 파일에서 정의하지 않는 라벨(다른 작가 파일): end_A end_B end_E (ch_end_AB.txt / ch_end_E.txt)
-// 의존 플래그: clues(개수) key_got heard couple_ok vote_refused gnyang_redeemed gnyang_lost yumi_lost code_ok betrayed(=e_betray) trust
-//   단서: c_hooks c_chairs c_engrave c_listA c_listB c_katernote c_log c_note (획득 시 같은 이름 플래그)
-//   협약/보드: pact_taeyong pact_gaeul pact_hall tb_hall tb_gaeul
-// 이 파일이 만드는 플래그: kater_alive c_box c_tape c_toilet c_log(보정) cctv_ok cctv_fail hosts_susp hosts_hint pressed sus_ttokku sus_sinrin
-//   true_ok d_ok pick_done hosts_exposed acc_ttokku acc_sinrin proof_fail(변수) wrong_acc(변수) wrong_gnyang wrong_yumi wrong_anjin head(변수)
+// 「스콰드」 라운드6 — 10장 + 11장 + 엔딩 C·진·D·F (작가5)
+// 이 파일에서 정의하지 않는 라벨(다른 작가 파일): end_A end_B (ch_end_AB.txt) · end_E (ch_end_E.txt)
+// 읽는 것(앞 장): clues odd wheel kn help host_pts sus_host trust key_got couple_ok vote_refused gnyang_redeemed gnyang_lost yumi_lost
+//   code_ok betrayed(=e_betray) pact_taeyong pact_gaeul tb_hall tb_gaeul gnyang_hid yeri_care cry_heard anjin_ok
+//   단서 c_notice c_hooks c_chairs c_fixed c_book c_listA c_file c_pay c_app c_log c_calm c_watch c_precise c_precise2 c_wrist c_note c_motor c_vote_live
+// 이 파일이 만드는 것: 단서 c_kater_iv c_box c_sched c_tape c_toilet c_closet d_absent d_device d_bluff (+ 재제공 c_app c_log c_book c_listA c_file c_note)
+//   플래그 kater_alive sched_ok clr_gnyang clr_squirrel clr_yumi clr_parrot clr_anjin chain_A chain_B chain_C chain_D bluff_known
+//   cctv_ok cctv_fail hosts_susp hosts_hint pressed ledger_seen true_ok d_ok pick_struct pick_done hosts_exposed acc_ttokku acc_sinrin
+//   wrong_gnyang wrong_yumi wrong_anjin wrong_parrot  변수 clr_n head sus_ttokku sus_sinrin sus_parrot proof_fail wrong_acc
 
 ## 10장 방송실 앞
 @label ch10_start
@@ -15,29 +17,28 @@
 @sfx drone
 * 복도 끝. 방송실 표지판은 반쯤 떨어져 "…송실"만 남았다.
 * 천장 스피커 선이 전부 이 문 쪽으로 모인다.
-(승우) 앞사람 뒤통수를 하나씩 센다. 스물넷. 마지막 칸 때문에 아직 하나가 더 남는다.
+(승우) 앞사람 등이 줄줄이 보인다. 다들 아직 여기 있다.
 태용: 다섯 시 이십오 분. 스피커가 마지막으로 운 지 사십 분쯤 됐어.
-가을: 한 줄로 가요. 흩어지면 인원 세기 힘들어요.
-승우: 한 줄로 갈게요. 앞에서부터 번호요. 승객… 아니, 여러분.
+가을: 승우 형, 한 줄로 가요. 흩어지면 서로 놓쳐요.
+승우: 네, 한 줄로 갈게요. 제가 맨 뒤에 설게요.
 * 줄이 천천히 움직이기 시작한다.
 @show seungwoo,squirrel,arin
 용맹한다람쥐: 제, 제가 맨 앞에… 설게요…
 아린: 선이 다 이쪽으로 이어져 있어요. 방송실 맞는 것 같… 앗, 선 밟았다. 죄송해요, 괜찮아요!
 * 일행이 잠깐 멈췄다가 다시 걷는다.
-@show seungwoo,yeri,weiho
+@show seungwoo,yeri,ugeoji
 예리야: 조용히 가요. 벽이 얇아요.
-@show seungwoo,ugeoji,leivy
-* 우거지는 소매 끝만 만지작거린다. 레이비는 맨 뒤에서 뒤쪽 복도를 본다.
+* 두유쿠키로는 팔짱을 꼈다 풀었다 한다. 아까 걷어찬 의자 얘기를 아직 못 꺼내고 있다.
 * 일행은 양말 바람으로 걷는다. 마룻바닥이 한 번씩 운다.
 @sfx chime
 * 문 옆 회색 상자에서 지직 소리가 난다. 방송이 아니다. 인터콤이다.
 @show seungwoo,myeongtae,anjin
 간장맛명태소환사: 이 소리, 문 옆 상자에서 나는 것 같아요.
 안진: 인터콤입니다. 안쪽이 아니라 바깥에서 켜졌어요.
-승우: 제가 가 볼게요. 한 걸음씩만 물러서 주세요.
+승우: 제가 가 볼게요. 다들 조금만 물러서 주세요.
 * 버튼 하나에 빨간 불이 들어와 있다.
 (승우) 목소리가 kater 형 같았다. 아니면 그렇게 듣고 싶어서일까.
-@if clues>=11
+@if clues>=24
 @goto ch10_katervoice_clear
 @else
 @goto ch10_katervoice_noise
@@ -45,15 +46,29 @@
 @label ch10_katervoice_clear
 @show seungwoo,kater
 @sfx knock
-kater: 거기 있죠? 승우 씨, 내 목소리 들려요? 나 여기 있어요.
-승우: kater 형?
-kater: 살아 있어요. 방송실 옆방이고, 이불도 있어서 춥지 않아요. 걱정 말아요.
-kater: 수첩 봤죠? 26번째 칸. 장부 맨 아래 칸이 문이고, 그게 열쇠예요. 그것만 기억해요.
-@show seungwoo,gaeul,hallabong
-한라봉 갓: 잠깐, 진짜 kater 목소리야? 누가 녹음해 둔 거 아니야?
-kater: 녹음이면 이런 얘긴 못 하죠. 지난주에 같이 치킨 먹었잖아요. 양념 반 간장 반으로.
-가을: 그건 우리끼리만 아는 얘기예요. 진짜 kater 형이네요.
-kater: 지금 아는 건 이게 다예요. 잠깐만…
+kater: 거기 있어? 승우야, 내 목소리 들려?
+승우: kater 형? 형, 어디예요?
+kater: 아래야. 방이 하나 있는데 이불도 물도 있어. 춥지 않아.
+kater: 처음에 문 밑으로 쪽지가 들어왔어. 인쇄체야. "모두 안전합니다. 아침에 나갑니다."
+@clue c_kater_iv|kater: "문 밑으로 인쇄체 쪽지가 들어왔어요 — '모두 안전합니다. 아침에 나갑니다.' 둥근 고딕이었어요"
+kater: 글씨가 둥근 고딕이었어. 서툴게 친절한 느낌이야. 직원이 쓴 건 아닌 것 같아.
+@show seungwoo,hallabong,gaeul
+헤롱우: 잠깐, 잠깐만요. 진짜 kater 씨 목소리예요? 누가 녹음해 둔 거 아니에요?
+kater: 녹음이면 지난주 얘기는 못 하지. 치킨 시켰잖아. 양념 반, 간장 반.
+가을: 그건 우리끼리만 아는 얘기예요. 진짜 kater 형 맞네요.
+@if !couple_ok
+@show seungwoo,hungry
+kater: 포만포만도 여기 있어. 신발 한 짝만 없다고 투덜대더라.
+허기허기: 나 지금 안심됐어. 진짜로.
+@end
+@if gnyang_lost
+kater: 그냥혀도 내려왔어. 말이 없긴 한데 괜찮아.
+@end
+@if yumi_lost
+kater: 유미 씨는 벌써 수첩 꺼내서 뭘 적고 있어.
+@end
+@show seungwoo,kater
+kater: 이 통화는 길게 못 써. 타이머가 있나 봐. 조심하고…
 @sfx thud
 * 인터콤이 거칠게 흔들리다가 끊긴다.
 @set kater_alive
@@ -62,24 +77,25 @@ kater: 지금 아는 건 이게 다예요. 잠깐만…
 @show seungwoo,myeongtae,anjin
 @sfx knock
 ???: 지직… 거… 있… 나 여…
-승우: 누구십니까. 다시 말씀해 주세요.
+승우: 누구세요? 다시 말해 주세요.
 ???: …번째… 칸… 봤…
 안진: 사람 목소리는 맞는데 끊겨서 모르겠습니다.
-간장맛명태소환사: kater 씨 목소리 같은데… 저는 모르겠어요.
+간장맛명태소환사: kater 씨 목소리 같은데, 저는 모르겠어요.
 @sfx thud
 * 소리가 한꺼번에 사라진다. 빨간 불도 꺼진다.
 @label ch10_katervoice_after
 @show seungwoo,snake,jelly
 뱀조련사: 방금 목소리, 누구 거냐.
+대한제일젤리: kater 같았어! 아니, 그랬으면 좋겠고!
 @show seungwoo,sinrin,ttokku
 신린: 승우야, 한 번만 더 불러 보면 어때? 소리가 멀었을 뿐 끊긴 건 아닐 수도 있어.
-또꾸: 불러서 손해 볼 건 없죠. 문부터 보고요.
+또꾸: 불러서 손해 볼 건 없지. 문부터 보고.
 @choice
 - 인터콤 버튼을 누르고 이름을 부른다 => @add trust 1; @goto ch10_call
 - 숨을 죽이고 한 번 더 들리길 기다린다 => @goto ch10_wait
 @label ch10_call
 @show seungwoo,myeongtae
-승우: 승우입니다. 응답해 주세요. 저희 전부 이 앞에 있어요.
+승우: 승우예요. 들리면 대답해 주세요. 저희 다 여기 있어요.
 * 대답은 없다. 빨간 불이 한 번 깜빡인다.
 간장맛명태소환사: 누가 듣고 있다면, 좋은 쪽이면 좋겠어요.
 @goto ch10_door
@@ -96,33 +112,33 @@ weiho: 일단 기다려 봐요. 웃을 틈은 없네요. 그래도 제가 앞에
 * 방송실 문. 두꺼운 철문에 작은 창 하나. 안은 불이 꺼져 있다.
 @if couple_ok
 포만포만: 손잡이 차가워. 허기허기, 손.
-허기허기: 응. 잡고 있으니까 덜 무섭네.
+허기허기: 응. 잡고 있으니까 덜 무서워.
 @else
 * 허기허기는 포만포만의 신발을 가슴에 안고 있다. 아무 말도 하지 않는다.
 @end
-@show seungwoo,hallabong,leivy
-한라봉 갓: 안에 있는 거 알아! 문 열어! 사람이 사람한테 이게 뭐 하는 짓이야!
+@show seungwoo,ugeoji,leivy
+두유쿠키로: 안에 있는 거 알아! 문 열어! 사람한테 이게 무슨 짓이야!
 레이비: 안에 누가 있는지 확인된 게 없습니다.
 @choice
 - 정중하게 문 안쪽에 말을 건다 => @add trust 1; @goto ch10_polite
 - 대꾸하지 않고 문 옆 단말기를 살핀다 => @goto ch10_ignore
 @label ch10_polite
 @show seungwoo,taeyong
-승우: 승우입니다. 안에 계시면… 저희 전부 안전하게 내보내 주세요. 부탁드립니다.
+승우: 승우예요. 안에 계시면, 저희 모두 안전하게 나가게 해 주세요. 부탁드려요.
 * 대답은 없다. 문은 조용하다.
-태용: 대답 없네. 입 다문 건지 사람이 없는 건지 아직 몰라.
+태용: 대답 없네. 입을 다문 건지 사람이 없는 건지 아직 몰라.
 @goto ch10_box
 @label ch10_ignore
 @show seungwoo,anjin,ongaeng
 앙앵모르콩: 이것 봐요, 문 옆에 단말기요. 열쇠 구멍 하나예요. 맞는 열쇠면 열려요.
-안진: 대꾸 안 하는 게 낫습니다. 반응 있었으면 벌써 있었어요.
+안진: 대꾸 안 하는 게 낫습니다. 반응이 있었으면 벌써 있었어요.
 @goto ch10_box
 @label ch10_box
 @bg broadcast
 @show seungwoo,anjin,snake
 @sfx door
 @if key_got
-안진: 규격이 보관방 열쇠랑 같습니다. 맞을 겁니다.
+안진: 열쇠 규격이 맞습니다. 이 방 열쇠가 맞을 겁니다.
 * 열쇠가 돌아간다. 딸각, 하고 문이 풀린다.
 @else
 뱀조련사: 핀이 바깥에 있다. 경첩 말이다.
@@ -130,24 +146,86 @@ weiho: 일단 기다려 봐요. 웃을 틈은 없네요. 그래도 제가 앞에
 @end
 @show seungwoo,yumi,taeyong
 * 방송실은 좁다. 책상 하나, 의자 하나, 상자 하나. 의자에는 아무도 없다.
-* 신발 상자만 한 장치에 스피커 선이 모여 있다. 옆면에 파란 불이 깜빡인다.
+* 책상 위 작은 모니터가 문이 열리자마자 저절로 켜진다. 격자 스물다섯 칸에 이름이 하나씩.
+* 아래에 스물여섯 번째 칸이 하나 더. 비어 있다.
 승우: 안에 아무도 없어요.
 태용: 그럼 방송은 안에서 튼 게 아니라는 거네.
-맛동산장인 유미: 누가 눌렀다는 건 맞아요. 이 방이 아니라 다른 곳에서요.
-@show seungwoo,ongaeng,mongip
-(승우) 의자도 책상도 먼지가 얇다. 누가 앉았다 간 자리가 아니다. 그럼 방송은 어디서 눌렀나.
-* 파란 불이 한 번 더 깜빡인다.
-앙앵모르콩: 파란 불은 블루투스예요. 연결된 기기가 딱 한 대 떠 있어요.
-몰입겜: 한 대면 한 사람 거네요. 이름은 안 나와요, 잠겨 있어요.
-@clue c_box|방송실에 사람이 없다 — 장치 한 대, 블루투스 연결 1대
-@show sinrin,ttokku,seungwoo
-* 신린은 문턱에 서서 상자를 오래 보지 않는다. 또꾸는 하품을 삼킨다.
-@sfx keys
-* 승우가 책상 서랍을 연다. 작은 테이프 하나. 연필 글씨가 붙어 있다. "예비 — 전원 클리어 시."
+맛동산장인 유미: 문이 열리자 모니터가 켜졌어요. 누가 눌렀다기보다 문이 눌렀죠.
+안진: 문 센서입니다. 사람이 앉아 있었다면 먼지가 이렇게 얇을 수 없고요.
+@show seungwoo,sinrin,ttokku
+* 신린은 문턱에 서서 안을 오래 보지 않는다. 또꾸는 하품을 삼킨다.
+@show seungwoo,ongaeng,hallabong
+* 신발 상자만 한 장치에 스피커 선이 모여 있다. 옆면에 파란 불이 깜빡인다.
+앙앵모르콩: 파란 불은 블루투스예요. 연결된 기기가 딱 한 대 떠 있어요. 이름이 SQ-PICK이네요.
+헤롱우: 그, 그럼 이거 누가 휴대폰으로 틀었다는 거예요? 마이크는요? 마이크는 어디 있어요?
+태용: 마이크가 없어. 말을 하는 장치가 아니라 소리를 재생하는 장치야.
+앙앵모르콩: 선이 하나 더 있어요. 회색 케이블이 바닥으로 내려가요.
+@clue c_box|방송 박스 — 마이크가 없다. 블루투스 연결은 한 대(SQ-PICK). 회색 케이블이 바닥으로 내려간다
+@show seungwoo,yumi,mongip
+맛동산장인 유미: 상자는 소리만 내고, 문이나 불을 움직이는 장치는 이 아래에 따로 있다는 거네요.
+브론즈장인 우르곳: 엄, 이거 논란이 있겠는걸. SQ-PICK이 팀뽑기 앱 이름이잖아.
+@if !c_app
+앙앵모르콩: 그 앱 운영 탭, 운영진 넷만 본다고 했죠. 안에 잠긴 칸이 있었는데 신린 씨 폰에만 있었어요.
+@clue c_app|팀뽑기 앱 — 운영 탭은 운영진 넷(또꾸·신린·태용·유미)만 본다. 그 안의 잠긴 4자리 칸은 신린 폰에만 있다
+승우: 그 칸이 이 상자랑 이어져 있다는 거예요?
+태용: 아직은 가능성이야. 단정하지 말자.
+@else
+승우: 앱 이름이랑 같다면, 5장에서 본 그 잠긴 칸이랑 이어져 있을 수도 있겠네요.
+태용: 가능성이야. 단정하지 말자.
+@end
+@bg broadcast
 @show seungwoo,ongaeng,anjin
+* 상자 옆면에 작은 덮개가 있다. 아래에 숫자판. 'HH MM'이라고만 적혀 있다.
+승우: 네 자리 시각을 넣으라는 것 같아요. 어떤 시각일까요?
+안진: 이 건물에서 마지막으로 시각이 적혀 있던 데가 어디였는지 떠올리면 될 것 같습니다.
+앙앵모르콩: 일단 한 번 넣어 봐요. 네 번까지는 기회가 있나 봐요.
+@puzzle code {"prompt":"방송 박스 덮개 — HH MM","digits":4,"answer":"0630","hints":[{"if":"c_notice","t":"1층 게시판: 덧창은 06시 30분에 올라간다"}],"hint_none":"덮개에는 'HH MM'이라고만 적혀 있다. 이 건물의 시각표에서 마지막 줄을 떠올려 본다.","max_tries":4,"on_wrong":"덮개가 열리지 않는다.","on_success":"ch10_sched_open","on_fail":"ch10_sched_fail"}
+@label ch10_sched_fail
+@show seungwoo,ongaeng,taeyong
+앙앵모르콩: 게시판에 덧창이 몇 시에 올라간다고 적혀 있었죠? 그 시각이요.
+태용: 이 건물이 정해 놓은 마지막 시각이야. 방송이 아니라 건물 쪽 규칙.
+@puzzle code {"prompt":"방송 박스 덮개 — HH MM","digits":4,"answer":"0630","hint":"덧창이 올라가는 시각","hint_force":true,"max_tries":99,"on_wrong":"덮개가 열리지 않는다.","on_success":"ch10_sched_open"}
+@label ch10_sched_open
+@bg broadcast
+@sfx chime
+@show seungwoo,taeyong,weiho
+* 덮개가 열린다. 작은 화면에 시각표가 켜진다.
+* 21:00:00 · 21:00:20 · 22:00:00 · 22:05:30 · 22:30:00 · 02:00:00 · 02:03:30 · 03:00:00 · 03:50:00 · 04:00:00 · 06:00:00
+* 맨 아래 한 줄은 색이 다르다. "06:30:00 전체 해제".
+태용: 방송은 전부 여기서 나왔어. 그런데 우리가 들은 것 중에 이 표에 없는 게 있어.
+weiho: 있어요! 수첩에 적어 뒀어요. 22시 58분 04초. 00시 41분 09초.
+@if vote_refused
+weiho: 그리고 투표 거부한 뒤, 04시 47분 12초요. 다 사람 말이 끝나고 몇 초 뒤였어요.
+@else
+weiho: 그리고 투표 끝나고 04시 41분 37초요. 다 사람 말이 끝나고 몇 초 뒤였어요.
+@end
+@if !c_log
+@clue c_log|weiho 수첩 — 방송 시각 기록. 대부분 정각·정분인데 정각이 아닌 것이 섞여 있다(22:58:04 · 00:41:09 …)
+안진: 수첩에 적어 둔 게 이렇게 쓰이네요. 정각은 일정, 어중간한 초는 사람 손입니다.
+weiho: 저 정리 잘했죠? 이런 데서 쓰일 줄은 몰랐어요!
+@else
+안진: 수첩에 적어 둔 게 정확합니다. 정각은 일정, 어중간한 초는 사람 손입니다.
+@end
+@puzzle pick3 {"prompt":"일정표에 없는 방송 세 개를 고르세요 (사람이 눌렀다는 뜻)","options":[{"id":"t1","t":"21:00:20 규칙 안내"},{"id":"t2","t":"22:00:00 첫 미션"},{"id":"t3","t":"22:30:00 식당 열림"},{"id":"r1","t":"22:58:04 승우의 말 직후"},{"id":"r2","t":"00:41:09 두유쿠키로가 소리친 직후"},{"id":"t4","t":"02:00:00 둘째 미션"},{"id":"t5","t":"03:50:00 삼 분 경고"},{"id":"r3","t":"04시대 투표 직후"},{"id":"t6","t":"06:00:00 마지막 문"}],"answer":["r1","r2","r3"],"tries":3,"hint":"일정표에 적힌 줄이 아닌 것이 사람이 누른 것.","on_success":"@set sched_ok; @goto ch10_sched_ok","on_fail":"@goto ch10_sched_fail2"}
+@label ch10_sched_fail2
+@show seungwoo,taeyong,anjin
+태용: 이 줄들은 전부 표에 있어. 표에 없는 건 어느 거야?
+안진: 시각표를 위에서부터 한 줄씩 지워 가면 남는 게 세 개입니다.
+@puzzle pick3 {"prompt":"일정표에 없는 방송 세 개를 고르세요 (사람이 눌렀다는 뜻)","options":[{"id":"t1","t":"21:00:20 규칙 안내"},{"id":"t2","t":"22:00:00 첫 미션"},{"id":"t3","t":"22:30:00 식당 열림"},{"id":"r1","t":"22:58:04 승우의 말 직후"},{"id":"r2","t":"00:41:09 두유쿠키로가 소리친 직후"},{"id":"t4","t":"02:00:00 둘째 미션"},{"id":"t5","t":"03:50:00 삼 분 경고"},{"id":"r3","t":"04시대 투표 직후"},{"id":"t6","t":"06:00:00 마지막 문"}],"answer":["r1","r2","r3"],"tries":99,"hint":"표에 적힌 줄이 아닌 것.","on_success":"@set sched_ok; @goto ch10_sched_ok","on_fail":"@goto ch10_sched_ok"}
+@label ch10_sched_ok
+@bg broadcast
+@show seungwoo,taeyong,yumi
+태용: 표에 없는 세 개는 누가 우리 말을 듣고 눌렀다는 거야. 그 사람은 이 건물 안에 있어.
+승우: 저기, 마지막 줄은요? 여섯 시 반에 전체 해제요. 그럼 그때 어차피 문이 열려요?
+맛동산장인 유미: 표대로라면 그렇죠. 그러면 지금 이 카운트다운은 뭘 위한 걸까요.
+@clue c_sched|박스 안 일정표 — 방송은 모두 정각·정분. 마지막 줄 06:30:00 전체 해제. 정각이 아닌 방송은 일정에 없다
+태용: 거기까지는 사실이야. 의미는 나중에 맞추자.
+@show seungwoo,ongaeng,anjin
+* 승우가 책상 서랍을 연다. 작은 테이프 하나. 연필 글씨가 붙어 있다. "예비 — 전원 클리어 시."
 앙앵모르콩: 읽을게요. "예비, 전원 클리어 시." 재생기는 안 보이네요.
+@clue c_tape|서랍 속 테이프 — 연필로 "예비 — 전원 클리어 시"(재생기 없음)
 안진: 전원이 나오는 경우를 누가 준비해 둔 겁니다.
-@clue c_tape|서랍 속 테이프 — "예비 — 전원 클리어 시" (재생기 없음)
+승우: 이름은 안 적혀 있네요. 누구한테 틀어 주려던 걸까요?
 @if vote_refused
 @goto ch10_tape_all
 @end
@@ -162,7 +240,7 @@ weiho: 일단 기다려 봐요. 웃을 틈은 없네요. 그래도 제가 앞에
 @label ch10_tape_all
 @show seungwoo,hallabong,gaeul
 승우: 서랍에 있었어요. 먼저 보여 드리는 게 맞는 것 같아서요.
-한라봉 갓: 전원 클리어? 우리를 시험하겠다는 거야, 뭐야!
+헤롱우: 전원 클리어? 이거 우리 시험하겠다는 거예요? 아니면 그, 나가게 해 주겠다는 거예요?
 가을: '클리어'면 나갈 수 있다는 얘기이기도 해요.
 @show seungwoo,jelly,ttokku
 또꾸: 그러게. 나갈 수 있다는 소리네.
@@ -171,23 +249,73 @@ weiho: 일단 기다려 봐요. 웃을 틈은 없네요. 그래도 제가 앞에
 @bg broadcast
 @show seungwoo,mongip,anjin
 @sfx heartbeat
-* 책상 위 작은 모니터가 저절로 켜진다. 격자 스물다섯 칸, 칸마다 이름이 있다.
-* 아래에 스물여섯 번째 칸이 하나 더. 비어 있다.
-몰입겜: CCTV 같은 거예요. 이건 제가 볼게요.
-안진: 카메라는 복도, 식당, 로비뿐입니다. 방 안이랑 지하는 안 나와요.
+브론즈장인 우르곳: 모니터는 내가 볼게. 엄, 이게 방송 직후 기록이네.
+안진: 카메라는 로비, 식당, 복도뿐입니다. 방 안이랑 지하는 안 나와요.
 @label ch10_logs
 태용: 방송 직후 구간만 돌려 보자. 기록 그대로.
-* 화면 아래로 글자가 흐른다. 방송 뒤에 화면 밖으로 나간 이름들이다.
+* 화면 아래로 글자가 흐른다. 소실 직후에 화면 밖으로 나간 이름들이다.
 * 22:06 ~ 22:16 — 또꾸 · 그냥혀 · 용맹한다람쥐
-* 02:20 ~ 02:31 — 신린 · 맛동산장인 유미
+* 02:20 ~ 02:31 — 신린 · 맛동산장인 유미 · 탑위치생각해요
 * 04:47 ~ 04:56 — 또꾸 · 신린 · 안진
-@clue c_toilet|방송 직후 세 구간 — 화면에서 같은 이름이 거듭 사라진다
-@show seungwoo,yumi,weiho
-(승우) 또꾸 씨. 신린 씨. 둘 다 어제 내 가방을 같이 들어 준 사람들이다. 줄이 겹칠 리가 없다고 생각하며 줄을 읽는다.
-맛동산장인 유미: 세 구간이네요. 겹치는 이름부터 보죠.
-weiho: 하하 저 화장실 간 건 안 찍혔네요. …아, 지금 웃을 때는 아니죠. 겹치는 구간부터 같이 봐요!
-승우: 두 번 이상 겹치는 분, 찍힌 순서대로 짚을게요.
-@puzzle cctv {"grid":25,"cells":["승우","간장맛명태소환사","또꾸","신린","허기허기","포만포만","맛동산장인 유미","아린","용맹한다람쥐","우거지","레이비","몰입겜","우선즐겨","대한제일젤리","한라봉 갓","태용","뱀조련사","가을","안진","앙앵모르콩","weiho","예리야","망앵무","그냥혀","kater"],"extra_empty_cell":"26번째 칸(비어 있음)","task":"방송 직후 세 구간 중 두 번 이상 화면에서 사라진 사람을 차례로 누른다","order":["또꾸","신린"],"on_success":"@set cctv_ok; @set hosts_susp; @goto ch10_cctv_ok","on_fail":"@set cctv_fail; @set hosts_hint; @goto ch10_cctv_fail"}
+@clue c_toilet|소실 직후 화면에서 사라진 사람 — 22:06 또꾸·그냥혀·다람쥐 / 02:20 신린·유미·탑위치 / 04:47 또꾸·신린·안진
+@show seungwoo,mongip,parrot,hallabong
+브론즈장인 우르곳: 야, 이거 논란이 있겠는걸. 방송 뒤마다 화면에서 빠지는 사람이 있네.
+탑위치생각해요: 저도 한 번 빠졌는데요! 저는 아니에요, 진짜! 억울해요!
+헤롱우: 아, 아니에요 형. 그때 저랑 계속 같이 있었잖아요.
+승우: 세 번 다 같은 사람이 빠진 건 아니네요. 겹치는 분이 있을까요?
+태용: 있어. 하나씩 지워 보자. 이유가 확실한 사람부터.
+@label ch10_clear
+@show seungwoo,taeyong,anjin
+@choice
+- [gnyang_hid && !clr_gnyang] 그냥혀 형은 화장실 천장 타일에 무언가(열쇠 또는 쪽지)를 숨기고 있었다 => @goto ch10_clr_gnyang
+- [yeri_care && !clr_squirrel] 다람쥐 누나는 계단참에서 울었고 예리야 형이 같이 있었다 => @goto ch10_clr_squirrel
+- [c_motor && !clr_yumi] 유미 형은 3층에서 벽 속 모터 소리를 수첩에 적고 있었다 => @goto ch10_clr_yumi
+- [cry_heard && !clr_parrot] 탑위치생각해요 형은 1층 복도에서 억울하다며 헤롱우 형과 같이 있었다 => @goto ch10_clr_parrot
+- [anjin_ok && !clr_anjin] 안진은 화장실에 가다가 두 사람을 본 증인이다 => @goto ch10_clr_anjin
+- 소거는 여기까지 => @goto ch10_clear2
+@label ch10_clr_gnyang
+@set clr_gnyang
+@add clr_n 1
+@show seungwoo,geunyang
+그냥혀: 그 천장 건 방송이랑 상관없어. …그건 알아줘.
+승우: 네, 알아요. 그냥혀 형은 빼도 돼요.
+@goto ch10_clear
+@label ch10_clr_squirrel
+@set clr_squirrel
+@add clr_n 1
+@show seungwoo,squirrel,yeri
+용맹한다람쥐: 저, 저는 계단참에서 울기만 했어요… 예리야 씨가 옆에 있어 줬고요…
+예리야: 맞아요. 십 분 내내 옆에 있었어요.
+@goto ch10_clear
+@label ch10_clr_yumi
+@set clr_yumi
+@add clr_n 1
+@show seungwoo,yumi,taeyong
+맛동산장인 유미: 302호에서 시각을 정리하고 있었습니다. 02시 22분 벽 속 모터 소리, 그게 수첩에 있어요.
+태용: 유미 형 알리바이는 수첩이 증명해. 소거.
+@goto ch10_clear
+@label ch10_clr_parrot
+@set clr_parrot
+@add clr_n 1
+@show seungwoo,parrot,hallabong
+탑위치생각해요: 거 봐요! 그때 저 진짜로 억울했다니까요!
+헤롱우: 네, 그, 그때 저랑 복도에 같이 있었어요. 형이 누구 말을 들어주나 서성이기만 했어요.
+@goto ch10_clear
+@label ch10_clr_anjin
+@set clr_anjin
+@add clr_n 1
+@show seungwoo,anjin,ongaeng
+안진: 저는 배가 아파서 화장실에 가던 길이었습니다. 가다가 본 걸 말씀드린 거고요.
+앙앵모르콩: 증인이 용의자가 될 수는 없죠. 소거예요.
+@goto ch10_clear
+@label ch10_clear2
+@show seungwoo,taeyong
+@if clr_n>=5
+@show seungwoo,sinrin,taeyong
+신린: 다섯 명을 근거를 대서 다 지웠네. 정리 잘했어.
+@end
+태용: 이제 남은 이름만 보자. 두 번 이상 화면에서 사라진 사람이야.
+@puzzle cctv {"grid":25,"cells":["승우","간장맛명태소환사","또꾸","신린","허기허기","포만포만","맛동산장인 유미","아린","용맹한다람쥐","두유쿠키로","레이비","브론즈장인 우르곳","우선즐겨","대한제일젤리","헤롱우","태용","뱀조련사","가을","안진","앙앵모르콩","weiho","예리야","탑위치생각해요","그냥혀","kater"],"extra_empty_cell":"26번째 칸(비어 있음)","task":"소실 직후 세 번의 공백 중 두 번 이상 화면에서 사라진 사람을 차례로 누른다","order":["또꾸","신린"],"lives":3,"hint_if_clr_n>=3":"1","hint_text":"공백마다 이름이 겹치지 않는다. 한 번뿐인 사람은 이유가 있었다. 남는 건 둘.","on_success":"@set cctv_ok; @set hosts_susp; @goto ch10_cctv_ok","on_fail":"@set cctv_fail; @set hosts_hint; @goto ch10_cctv_fail"}
 @label ch10_cctv_ok
 @bg broadcast
 @show ttokku,sinrin,seungwoo
@@ -198,13 +326,9 @@ weiho: 하하 저 화장실 간 건 안 찍혔네요. …아, 지금 웃을 때�
 @add sus_sinrin 2
 또꾸: 화장실이었어. 그건 맞아. 의심해도 돼.
 신린: 도망 안 가. 확인은 마지막 문 앞에서 해. 거기서 다 보여 줄게.
-@show hallabong,gaeul,seungwoo
-한라봉 갓: 지금 말해! 뭘 확인한다는 거야!
-@if pact_gaeul
-가을: 아무도 지목하지 말자고 했잖아요, 한라봉 갓 씨. 판단은 승우 씨가 해요.
-@else
-가을: 한라봉 갓 씨, 잠깐만요. 도망갈 사람 표정이 아니에요. 저도 모르겠지만요.
-@end
+@show seungwoo,ugeoji,hallabong
+두유쿠키로: 지금 말해! 뭘 확인한다는 거야!
+헤롱우: 그, 그래도 두 분이 도망갈 얼굴은 아니에요. 저는 모르겠지만요!
 @label ch10_press
 @choice
 - 지금 추궁한다 => @set pressed; @add tb_hall 1; @add tb_gaeul -1; @goto ch10_after_monitors
@@ -213,7 +337,7 @@ weiho: 하하 저 화장실 간 건 안 찍혔네요. …아, 지금 웃을 때�
 @bg broadcast
 @show taeyong,mongip,sinrin
 @sfx thud
-몰입겜: 아, 놓쳤어요. 이런 건 두 번째가 더 잘돼요, 진짜로.
+브론즈장인 우르곳: 아, 놓쳤다. 엄, 두 번째가 더 잘돼. 진짜로.
 태용: 다시 보자. 세 번 다 사라진 사람은 없어. 두 번 사라진 사람은 있어.
 * 태용은 이름을 말하지 않고 화면의 한 칸 위에 손가락을 올렸다 뗀다. 그 옆 칸에도.
 신린: 한 번 더 봐. 겹치는 곳을 천천히, 태용.
@@ -221,27 +345,83 @@ weiho: 하하 저 화장실 간 건 안 찍혔네요. …아, 지금 웃을 때�
 @add sus_sinrin 1
 @goto ch10_after_monitors
 @label ch10_after_monitors
+@bg door
+@show seungwoo,taeyong,usjeul
+@if pact_gaeul
+@show seungwoo,gaeul,taeyong
+가을: 아무도 지목하지 말자고 했잖아요. 판단은 승우 형이 해요.
+@end
+태용: 첫 번째 공백 때 또꾸가 화장실이라고 했어. 화장실부터 보자.
+우선즐겨: 화장실이라면 거기 한 번 보긴 해야죠. 문 열고 들어가 본 사람이 없긴 하니까요.
+@show seungwoo,ttokku,sinrin
+또꾸: 봐. 안 말려.
+신린: 구경은 해도 되는데, 뜯진 마.
+@label ch10_search
+@bg door
+@sfx door
+@show seungwoo,snake,arin
+* 2층 복도 끝. 화장실 문 안쪽 구석에 청소도구함이 있다. 대걸레 걸이가 삐딱하게 걸려 있다.
+* 도구함을 열면 대걸레와 양동이, 그 뒤로 합판 한 장. 바닥에 하얀 부스러기가 몇 알 떨어져 있다.
+아린: 어, 이거 스티로폼 아니에요? 또꾸 씨 소매에 묻어 있던 거랑 비슷한데요.
+승우: 그러고 보니 그때도 소매에 하얀 게 묻어 있었어요. 어디서 묻은 걸까요?
+뱀조련사: 뒤판이 이상하다.
+* 뱀조련사가 숟가락 자루를 합판 틈에 넣고 민다. 합판이 한 뼘도 안 움직인다.
+뱀조련사: 안 열린다. 걸쇠도 경첩도 반대편이야.
+@show seungwoo,anjin,yeri
+안진: 바닥에 반원 모양으로 긁힌 자국이 있습니다. 새 자국이에요. 문이 이쪽으로 열린 흔적인데, 걸쇠는 안쪽에 있고요.
+예리야: 틈으로 찬 바람이 올라와요. 아래층에서요.
+승우: 아래층이면, 이 뒤가 계단 같은 걸까요?
+안진: 1층 직원 전용 문이 주방 뒤라고 게시판에 있었습니다. 같은 계단이라면 이쪽도 이어져 있겠죠.
+@if gnyang_redeemed
+@show seungwoo,geunyang,yeri
+그냥혀: 첫 번째 때 나 칸 안에서 봤어. 또꾸 씨가 이 뒤판에서 나왔어.
+예리야: 그럼 이 문을 쓰는 사람이 있다는 거네요. 사람이 드나드는 문이요.
+@end
+@if anjin_ok
+@show seungwoo,anjin
+안진: 제가 본 04시 50분의 문도 같은 구조일 겁니다. 신린 형이 1층에서 들어간 문 말입니다.
+@end
+@clue c_closet|2층 화장실 청소도구함 뒤에 직원 계단으로 이어지는 문 — 또꾸와 신린이 거기로 드나드는 걸 본 사람이 있다
+(승우) 누가 이 문으로 드나든 걸까. 떠오르는 두 사람의 얼굴을 밀어낸다. 아직 모른다.
+@show seungwoo,taeyong,ugeoji
+두유쿠키로: 야, 그럼 부수고 내려가 보자! 거기 사람이 있을 거 아니야!
+승우: 잠깐만요. 부수면 아래 사람들이 다칠 수도 있어요.
+태용: 맞아. 문이 있다는 것만 확인하고, 열쇠는 문 만든 사람한테 받자.
+두유쿠키로: …알았어. 아니 내가 너무 급했다. 미안.
+@label ch10_note
 @bg broadcast
-@show seungwoo,usjeul,squirrel
-우선즐겨: 우릴 CCTV로 보고 있는 건 확실하긴 하네요.
-용맹한다람쥐: 그, 그게 좋은 소식이에요…? 저는 문부터 두드려 보고 싶은데…
-@sfx knock
-* 용맹한다람쥐가 철문을 두 번, 조심스럽게 두드린다. 안쪽에서는 아무 소리도 없다.
-@if !c_log
-@show weiho,seungwoo,anjin
-weiho: 잠깐요, 수첩 정리하다 생각났어요! 정각이 아닌 방송이 있었어요. 22시 58분 04초, 사람 말이 끝나고 몇 초 뒤요.
-@if vote_refused
-weiho: 04시 47분 12초도요. 정각은 숫자가 깔끔한데 이건 아니었어요.
+@show ongaeng,seungwoo,taeyong
+앙앵모르콩: 일단 수첩 정리해 볼게요. 이것 봐요.
+@if wheel>=2 && c_toilet
+@set chain_A
+@clue d_absent|소실 뒤 바퀴 소리와 화면 공백이 겹친다. 세 번의 공백에 공통 인물은 없다. 두 번 이상 사라진 사람은 또꾸와 신린뿐이다
 @end
-안진: 정각은 타이머고 어중간한 초는 누가 골랐다는 뜻입니다.
-@clue c_log|weiho 수첩 — 방송 시각이 정각(타이머)과 어중간한 초(손)로 섞여 있다
+태용: 세 번 다 같은 사람이 비운 건 아니야. 그건 확실해.
+승우: 그럼 이게… 같은 두 사람 아닐까요?
+@if c_box && c_app && c_closet
+@set chain_D
+@clue d_device|박스엔 마이크가 없고 폰 한 대로 눌렀다. 폰의 잠긴 칸은 신린 것, 직원 계단 문으로 둘이 드나든다
 @end
+앙앵모르콩: 박스, 앱, 문. 이 셋이 한 줄로 이어져요.
+@if c_calm && c_notice && c_sched
+@set bluff_known
+@end
+@if c_calm && c_vote_live && c_tape
+@set bluff_known
+@end
+@if bluff_known
+@clue d_bluff|"한 명이 남아야 열린다"는 말은 규칙일 뿐 장치 같지 않다. 06시 30분엔 어차피 열린다
+@end
+@show seungwoo,yumi,anjin
+맛동산장인 유미: 일정표에는 여섯 시 반 전체 해제가 있었고, 방송은 협박을 하면서 정작 장치는 안 달았죠.
+안진: 정리하면, 한 명이 남아야 한다는 말은 규칙이라기보다 문구에 가깝습니다. 아직 확인은 못 했지만요.
 @show seungwoo,gaeul,yumi
-(승우) 시각표, 로그, 상자. 따로 보면 우연이다. 세 개를 포개 놓으니 두 사람만 남는다.
-* 승우가 인원을 다시 훑는다.
-가을: 우리 아직 스물 몇 명이에요. 마지막 문 앞까지 같이 가요.
-맛동산장인 유미: 인원은 제가 거들까요.
-승우: 인원 확인은 제 일인데… 오늘은 같이 세 주세요.
+(승우) 시각표, 로그, 박스, 문. 따로 보면 우연이다. 겹쳐 놓으니 두 사람만 남는다.
+* 승우가 일행을 한 번 둘러본다.
+가을: 승우 형, 우리 마지막 문 앞까지 같이 가요.
+@show seungwoo,taeyong,myeongtae
+태용: 인원은 내가 맞출게. 남은 사람 얼굴만 한 번 봐.
+승우: 네, 부탁해요. 저는 한 분씩 얼굴 볼게요.
 @set head=24
 @if !couple_ok
 @add head -1
@@ -252,18 +432,17 @@ weiho: 04시 47분 12초도요. 정각은 숫자가 깔끔한데 이건 아니�
 @if yumi_lost
 @add head -1
 @end
-@show seungwoo,myeongtae
 @if head==24
-승우: 스물넷. 다 이 복도에 있어요.
+태용: 스물넷이야. 다 이 복도에 있어.
 @end
 @if head==23
-승우: 스물셋. 아래로 내려간 분까지 마음으로 셀게요.
+태용: 스물셋이야. 비는 자리 하나.
 @end
 @if head==22
-승우: 스물둘. 빈자리가 보여요. 그래도 끝까지 셀게요.
+태용: 스물둘이야. 비는 자리 둘.
 @end
 간장맛명태소환사: 모집글에 "챙겨 드립니다"라고 쓰여 있었잖아요. 이번엔 우리가 서로 챙겨요.
-(승우) 스물넷. 한 번 더 센다. 이번엔 틀리지 않았으면 한다.
+(승우) 얼굴을 한 명씩 마음에 새겨 둔다. 이번엔 아무도 놓치고 싶지 않다.
 @goto ch11_start
 
 ## 11장 마지막 문
@@ -276,80 +455,132 @@ weiho: 04시 47분 12초도요. 정각은 숫자가 깔끔한데 이건 아니�
 @show seungwoo,gaeul,taeyong
 * 복도 끝, 하얗게 칠한 문. 손잡이 대신 두꺼운 판이 붙어 있다.
 * 판 옆에는 작은 단상. 천을 씌운 두꺼운 책이 놓여 있다.
-(승우) 여기까지 오는 동안 한 번도 앞사람을 놓치지 않았다. 문 앞에서도 그러고 싶다.
+(승우) 여기까지 오는 동안 아무도 놓치지 않았다. 문 앞에서도 그러고 싶다.
 태용: 여섯 시 정각 직전. 기록은 맞아.
 @sfx chime
 @show ttokku,sinrin,seungwoo
-* 또꾸가 손목을 본다. 신린은 사람들 사이에 말없이 서 있다.
+* 또꾸가 손목을 본다. 신린은 사람들 사이에 말없이 서 있다. 한 손은 주머니 속이다.
 방송: 여섯 시 정각입니다. 마지막 문은 한 명이 남아야 열립니다.
 방송: 제한 시간은 오 분입니다. 스물다섯이 시작하고, 스물여섯 번째가 문을 엽니다.
-방송: 인원을 끝까지 확인해 주시는 분께 감사드립니다.
+방송: 끝까지 곁을 지켜 주시는 분께 감사드립니다.
 * 천장 가까이에 숫자가 켜진다. 5:00.
+// 앞 장의 정리 비트를 놓친 사람을 위한 안전망: 사슬마다 핵심 단서 셋이 모이면 그 길이 닫힌다
+@if c_log && c_watch && c_toilet
+@set chain_A
+@end
+@if c_precise && c_wrist && c_precise2
+@set chain_B
+@end
+@if c_pay && c_book && c_note
+@set chain_C
+@end
+@if c_box && c_app && c_closet
+@set chain_D
+@end
 @if betrayed
 @goto ch11_betrayed
 @end
-@show seungwoo,hallabong,jelly
-한라봉 갓: 한 명이 남으라고? 누가 정해? 누구 하나 희생시키라는 거잖아!
+@show seungwoo,hallabong,ugeoji
+헤롱우: 한 명이 남아야 한다고요? 그, 그럼 누가요? 누가 남는 건데요?
+두유쿠키로: 누구 하나 희생시키라는 거잖아! 이게 말이 돼?
 @show seungwoo,hungry,pman
 @if couple_ok
 허기허기: 내가 남을게. 포만포만, 너는 나가.
-포만포만: 아니, 내가 남아. 너는 나가야지.
-허기허기: 혼자 나가서 뭐 하라고.
+포만포만: 싫어. 내가 남아.
+허기허기: 혼자 나가서 뭐 해.
 포만포만: 살아야지. 나가서 같이 있기로 했잖아.
 @else
 * 허기허기는 포만포만의 신발을 손에 쥐고 있다.
-허기허기: 내가 남을게. 여긴 내가 남는 게 맞아.
-허기허기: 나, 오늘은 소란 안 떨게. 이번엔 내가 남는 게 맞아.
+허기허기: 내가 남을게. 나 지금 무서워. 그래도 남을게.
+허기허기: 신발은 돌아왔는데 사람이 안 돌아왔어. 그쪽으로 가고 싶어.
 @end
 @show seungwoo,myeongtae,squirrel
-간장맛명태소환사: 저도 남을 수 있어요. 저는 혼자니까… 아니, 그런 말이 아니라요.
+간장맛명태소환사: 남아야 하면 제가 남을게요. …승우 씨 말고요.
+승우: 명태도 안 돼요. 아무도 안 남을 거예요.
 용맹한다람쥐: 안 돼요… 남으면 여기서 못 나가잖아요…
 @show seungwoo,arin,yeri
 예리야: 다들 먼저 남겠다고만 해요. 누구도 "그럼 너희가 남아"라고는 안 해요.
 * 천장 숫자가 4:10을 지난다.
-@show seungwoo,parrot,leivy
+@show seungwoo,leivy,ugeoji
 레이비: 만든 쪽 말을 그대로 믿으라는 겁니까. 증거는 없습니다.
-@show seungwoo,ugeoji,usjeul
-우거지: 그래도 내가 남는다는 말은 못 하겠다. 미안하다.
+두유쿠키로: 그래도 나는 못 남아! …미안. 못 남는다는 말을 해서 미안하다.
 * 천장 숫자가 3:20을 지난다.
 @if pact_taeyong
 @show seungwoo,taeyong
-태용: 단서 공유하기로 했지. 정각 방송, 어중간한 초, 방송실 상자. 같이 보자.
+태용: 단서 공유하기로 했지. 정각 방송, 어중간한 시각, 박스. 같이 보자.
 @end
 @if tb_hall<1
 @show seungwoo,hallabong
-한라봉 갓: 승우, 난 아직 네가 뭘 하는지 모르겠어. 그래도 네가 정하는 걸 막진 않을게.
+헤롱우: 승우 씨, 저, 저는 아직 무슨 상황인지 잘 모르겠어요. 그래도 승우 씨가 정하는 건 안 막을게요!
 @end
 @show seungwoo,snake,weiho
-뱀조련사: 답은 아직 못 정했다. 근데 이건 안다. 누구든 혼자 두고 나가면, 나는 평생 못 나온다.
-weiho: 나도요! 혼자 나가는 건 없어요. 전부 같이 나가요.
+뱀조련사: 답은 아직 못 정했다. 근데 이건 안다. 누구든 혼자 두고 나가면 나는 평생 못 나온다.
+weiho: 저도요! 혼자 나가는 건 없어요. 전부 같이 나가요.
 * 단상 위 천이 조금 들썩인다.
 @show seungwoo,ongaeng,mongip
 앙앵모르콩: 이것 봐요. 단상 위 책 천 아래로 번호가 보여요. 1부터 26까지예요. 칸이 하나 더 있어요.
-몰입겜: 장부 같아요. 열면 뭔가 정해질 것 같아서 손이 안 가요.
+브론즈장인 우르곳: 장부 같아. 열면 뭔가 정해질 것 같아서 손이 안 가. 엄.
 (승우) 스물여섯. 그 숫자가 여기서도 기다리고 있다.
-// 분기 계산: 진엔딩 조건
-@if clues>=13 && c_hooks && c_chairs && c_engrave && c_listA && c_listB && c_katernote && heard
-@set true_ok
+@label ch11_ledger
+@bg ledger
+@show seungwoo,ongaeng,anjin
+* 승우가 천 모서리를 잡아 천천히 걷는다.
+* 두꺼운 책이 아니다. 접수 때 서명한 입소 확인부다. 줄마다 파란 볼펜 서명이 다르다.
+앙앵모르콩: 이거 접수 때 그 장부예요. 접수대에서 없어졌던 거요.
+안진: 정, 정리하면요. 줄은 스물여섯 개입니다. 서명이 된 줄이 스물셋, 비어 있는 줄이 둘, 마지막 줄은 확인자란이에요.
+앙앵모르콩: 비어 있는 게 3번이랑 4번이에요. 3번이 또꾸 씨, 4번이 신린 씨네요.
+승우: 26번째 줄은 접수 때 제가 서명한 거예요. 신린 형이 펜을 주셔서요.
+@if !c_book
+@clue c_book|입소 확인부 — 서명 스물셋, 빈 줄 둘(3번·4번), 26번 확인자란 서명 '승우'
+안진: 3번, 4번이 비어 있고 26번 확인자란이 승우 형입니다. 수첩에 이대로 적어 두십시오.
+앙앵모르콩: 접수 때 두 분이 "맨 마지막에 할게" 하고 넘어갔던 거 기억나요.
 @end
-// 분기 계산: 전원생존 D 조건
-@if vote_refused && gnyang_redeemed && couple_ok && code_ok && clues>=16
-@set d_ok
+@add sus_ttokku 1
+@add sus_sinrin 1
+@show seungwoo,sinrin,ttokku
+* 신린은 장부를 보지 않는다. 또꾸가 천장 숫자를 올려다본다.
+@show seungwoo,anjin,ugeoji
+안진: 마지막 줄 머리글입니다. "지킴이(문을 여는 사람)". 이름은 승우 형이고요.
+두유쿠키로: 문을 여는 사람? 승우 보고 남으라는 거잖아!
+승우: 형, 아직 몰라요. 접수 때 서명한 것뿐이에요.
+@show seungwoo,anjin,ongaeng
+안진: 스티커입니다. 가장자리가 들떠서 아래 글자가 비칩니다. 이건 "인솔·확인"이에요.
+@if !c_listA
+@clue c_listA|낡은 출석부 한 장(연수원 인쇄본) — 맨 아래 칸 "인솔·확인", 서명란은 비어 있다. 어느 단체나 한 줄 더 있는 양식
+안진: 낡은 출석부 한 장이 있었습니다. 맨 아래 칸이 "인솔·확인"이었어요. 같은 글자예요.
+앙앵모르콩: 연수원 양식이 원래 그렇대요. 어느 단체나 한 줄 더 있다고요.
+@else
+안진: 낡은 출석부와 같은 글자입니다. 연수원 양식 그대로예요.
+앙앵모르콩: 어느 단체나 한 줄 더 있는 줄이래요.
 @end
+@show seungwoo,anjin,taeyong
+안진: 형식으로 읽으면 이렇습니다. 스물다섯이 시작한다는 건 스물다섯 줄이 채워진다는 뜻일 수 있어요.
+안진: 스물여섯 번째가 문을 연다는 건, 마지막 서명이 문을 연다는 뜻이고요.
+태용: 그럼 남은 건 비어 있는 3번이랑 4번이네.
+승우: 그, 그럼 그 두 분이 이름을 쓰면…?
+* 아무도 대답하지 않는다. 신린은 주머니에서 손을 빼지 않는다.
+(승우) 문을 여는 사람. 그 말이 내 이름 위에 붙어 있다. 귀가 아니라 손끝이 차가워진다.
 @label ch11_gate
 @bg final
 @show seungwoo,myeongtae
+// 분기 계산: 진엔딩(진 6) · 전원생존 D — 장부 앞에서 단서를 새로 줍는 경우가 있어 매번 다시 계산
+@if c_hooks && c_chairs && c_book && c_listA && c_notice && c_file
+@set true_ok
+@end
+@if vote_refused && gnyang_redeemed && couple_ok && code_ok && bluff_known
+@set d_ok
+@end
 * 숫자가 줄어든다. 일행의 눈이 승우에게 모인다.
 @if hosts_susp
 * 또꾸와 신린은 맨 뒤에 서 있다. 도망갈 곳도, 도망갈 기색도 없다.
 @end
 (승우) 5분이 3분이 되고, 2분이 된다. 눈들이 나한테 모인다. 모두의 얼굴이 아직 다 보인다. 하나도 놓치고 싶지 않다.
 @choice [timer=300] timeout=ch11_timeout
-- 내가 남겠다. 인원 점검은 내 일이다 => @goto ch11_pick_A
+- 내가 남겠다. 모두 먼저 나가라 => @goto ch11_pick_A
 - 허기허기의 뜻을 따른다 => @goto ch11_pick_B
 - 규칙을 거부하고 방송실로 간다 => @goto ch11_pick_C
 - [d_ok] 26번째 칸에 이름을 쓰지 않고 전원의 이름을 쓴다 => @goto ch11_pick_D
-- [true_ok] 명단 조각을 맞춰 본다 => @goto ch11_pick_true
+- [true_ok] 장부의 뜻을 맞춰 본다 => @goto ch11_pick_true
 - [hosts_susp] 방송을 틀고 있는 사람부터 가린다 => @goto ch11_accuse
 - [hosts_hint] 방송을 틀고 있는 사람부터 가린다 => @goto ch11_accuse
 @label ch11_timeout
@@ -358,28 +589,70 @@ weiho: 나도요! 혼자 나가는 건 없어요. 전부 같이 나가요.
 * 숫자가 0:00이 된다. 아무도 정하지 못했다.
 승우: 시간이 다 됐어요. 제가 정할게요.
 간장맛명태소환사: 승우 씨? 잠깐만요, 아직…
-승우: 인원 점검은 제 일이에요. 끝까지 할게요.
+승우: 제가 남을게요. 괜찮아요, 정말로.
 @goto ch11_pick_A
 @label ch11_accuse
 @bg final
+@show seungwoo,taeyong,anjin
+승우: 정하기 전에 같이 맞춰 봐요. 방송은 사람이 누르고 있잖아요. 누구일까요?
+태용: 거기까진 확인했어. 정각은 일정, 정각 아닌 건 사람 손. 이제 누구냐야.
+@if chain_A
+태용: 소실 직후 세 번, 화면에서 빠진 이름이 있었어. 세 번에 공통인 사람은 없고, 두 번 빠진 사람이 둘 있어.
+안진: 또꾸 형이 첫 번째와 세 번째, 신린 형이 두 번째와 세 번째입니다.
+@end
+@if chain_B
+안진: 도움도 이상했습니다. 열쇠방도, 어둠방도, 우리가 찾기 전에 먼저 아신 분이 늘 같은 두 분이었어요.
+@if c_wrist
+@show seungwoo,hungry,anjin
+허기허기: 어둠방에서 내 손목 잡은 손, 차가웠어. 신린이었어.
+@end
+@else
+@if help>=4
+승우: 그런데요. 도와주신 분이 늘 같은 두 분이었어요. 그게 계속 마음에 걸려요.
+@end
+@end
+@if chain_C
+@show seungwoo,ongaeng,yumi
+앙앵모르콩: 서류도 그래요. 예약 확인증은 선결제가 신린 씨, 소개가 또꾸 씨예요. 쪽지 서체는 팀표 서체고요.
+@end
+@if chain_D
+@show seungwoo,yumi,taeyong
+맛동산장인 유미: 장치는 이렇습니다. 박스에는 마이크가 없으니 폰으로 눌러야 하는데, 잠긴 칸이 있는 폰은 신린 씨 것뿐이에요.
+태용: 거기에 화장실 도구함 뒤 문이 있어. 사람이 드나드는 문이야.
+@end
+@if !chain_A && !chain_B && !chain_C && !chain_D
+@show seungwoo,ongaeng
+앙앵모르콩: 닫힌 길이 아직 없어요. 그래도 지금 가진 걸로 해 봐요.
+@end
+@if c_fixed
+@show seungwoo,taeyong,anjin
+태용: 하나 더. 식탁 의자 네 개가 바닥에 박혀 있었어. 후보를 미리 정해 둔 건데, 판 짠 사람이 자기 의자를 거기 박진 않아.
+안진: 5번, 22번, 24번, 25번. 앉은 사람은 유미 형, 저, 그냥혀 형, 승우 형입니다.
+@end
 @show seungwoo,taeyong,yumi
-승우: 정하기 전에 가려낼게요. 방송은 사람이 틀고 있어요.
-태용: 근거는 셋이야. 정각 방송은 타이머, 어중간한 초는 사람 손, 그리고 방송실엔 사람이 없었어.
-맛동산장인 유미: 그럼 이 안 누군가가 우리 말을 들으면서 한 박자 늦게 누르고 있다는 거죠.
-* 안진이 수첩 모서리를 꽉 쥔다.
-@show seungwoo,squirrel,weiho
-@show seungwoo,hallabong,anjin
-한라봉 갓: 그러니까 누구냐고! 지금 지목하자!
-
-안진: 지목은 승우 씨가 하는 게 맞습니다. 다만 근거 없이는 안 됩니다.
+@if clr_gnyang
+승우: 그냥혀 형은 천장에 물건을 숨기고 있었던 거고, 방송이랑은 상관없었잖아요.
+@end
+@if clr_yumi
+태용: 유미 형은 02시 22분에 3층에서 모터 소리를 적고 있었어. 같은 시각에 방송을 못 눌러.
+@end
+@if clr_parrot
+@show seungwoo,hallabong,parrot
+헤롱우: 탑위치생각해요 형은 저랑 같이 있었어요. 억울하다고 서성이기만 했고요.
+@end
+@if clr_anjin
+@show seungwoo,anjin
+안진: 저는 증인입니다. 본 것을 말씀드린 것뿐입니다.
+@end
 @if hosts_susp
 @show seungwoo,ttokku,sinrin
 * 또꾸와 신린이 앞으로 한 걸음 나선다. 아무 말도 하지 않는다.
 @end
 @show seungwoo,gaeul
-가을: 한 번 지목하면 돌이키기 어려워요. 신중하게요, 승우 씨.
-(승우) 로그, 시계, 상자. 아는 건 전부 모았다. 이제 사람 이름을 불러야 한다. 어제 같이 컵라면을 나눠 먹은 사람의 이름을.
-@puzzle vote {"voter":"seungwoo","title":"방송을 틀고 있는 사람은?","candidates":[{"id":"ttokku","name":"또꾸","sus":"sus_ttokku","set":"acc_ttokku"},{"id":"sinrin","name":"신린","sus":"sus_sinrin","set":"acc_sinrin"},{"id":"gnyang","name":"그냥혀","sus":"sus_gnyang"},{"id":"yumi","name":"맛동산장인 유미","sus":"sus_yumi"},{"id":"anjin","name":"안진","sus":"sus_anjin"}],"refuse":{"label":"지목하지 않는다"},"results":{"ttokku":"ch11_proof","sinrin":"ch11_proof","gnyang":"ch11_wrong_gnyang","yumi":"ch11_wrong_yumi","anjin":"ch11_wrong_anjin","refuse":"ch11_gate"}}
+가을: 한 번 지목하면 돌이키기 어려워요. 신중하게요, 승우 형.
+(승우) 시각표, 로그, 상자, 문. 아는 건 전부 모았다. 이제 사람 이름을 불러야 한다. 어제 같이 컵라면을 나눠 먹은 사람의 이름을.
+@label ch11_vote
+@puzzle vote {"voter":"seungwoo","title":"방송을 틀고 있는 사람은?","candidates":[{"id":"ttokku","name":"또꾸","sus":"sus_ttokku","set":"acc_ttokku"},{"id":"sinrin","name":"신린","sus":"sus_sinrin","set":"acc_sinrin"},{"id":"gnyang","name":"그냥혀","sus":"sus_gnyang"},{"id":"yumi","name":"맛동산장인 유미","sus":"sus_yumi"},{"id":"anjin","name":"안진","sus":"sus_anjin"},{"id":"parrot","name":"탑위치생각해요","sus":"sus_parrot"}],"refuse":{"label":"지목하지 않는다"},"results":{"ttokku":"ch11_proof","sinrin":"ch11_proof","gnyang":"ch11_wrong_gnyang","yumi":"ch11_wrong_yumi","anjin":"ch11_wrong_anjin","parrot":"ch11_wrong_parrot","refuse":"ch11_gate"}}
 @label ch11_proof
 @bg final
 @show seungwoo,ttokku,sinrin
@@ -391,44 +664,97 @@ weiho: 나도요! 혼자 나가는 건 없어요. 전부 같이 나가요.
 @end
 (승우) 아니라고 해 주면 좋겠다. 그런데 눈이 피하지 않는다.
 @show seungwoo,taeyong,arin
-태용: 단서는 여럿이야. 정확히 셋만 골라. 많이 말하면 흐려져.
-* 승우는 수첩을 펴고 방송이 정각이 아니었던 시각부터 차례로 짚어 간다.
-@puzzle pick3 {"prompt":"방송을 틀고 있는 사람을 가리키는 단서 세 개를 고르세요","options":["또꾸의 시계 진동(방송 1분 전)","신린 폰의 숨은 관리자 탭","방송 직후 사라진 시각표(CCTV)","명단 조각 B(숫자 7 필체)","식당 마지막 의자","kater 수첩","weiho의 방송 시각 기록"],"correct":[0,1,2],"tries":2,"on_success":"@set hosts_exposed; @goto ch11_stop","on_fail":"@goto ch11_proof_afail"}
-@label ch11_proof_afail
-@if c_log
-@show seungwoo,weiho,sinrin
-weiho: 방송 시각 기록 수첩도 있잖아요! 그걸로도 되죠?
-신린: 그렇지. 다른 조합으로도 가능해. 한 번 더 봐.
-@puzzle pick3 {"prompt":"다른 세 개로도 방송을 틀고 있는 사람을 가리킬 수 있습니다","options":["또꾸의 시계 진동(방송 1분 전)","신린 폰의 숨은 관리자 탭","방송 직후 사라진 시각표(CCTV)","명단 조각 B(숫자 7 필체)","식당 마지막 의자","kater 수첩","weiho의 방송 시각 기록"],"correct":[0,1,6],"tries":2,"on_success":"@set hosts_exposed; @goto ch11_stop","on_fail":"@goto ch11_proof_fail"}
-@end
-@goto ch11_proof_fail
+태용: 단서는 여럿이야. 길을 하나 골라서 정확히 셋만 말해. 많이 말하면 흐려져.
+* 승우는 수첩을 펴고 어느 길로 말할지 고른다.
+@label ch11_proof_menu
+@choice
+- [chain_A] 방송 시각과 소실 패턴으로 증명한다 => @goto ch11_proofA
+- [chain_B] 너무 정확했던 도움들로 증명한다 => @goto ch11_proofB
+- [chain_C] 누가 이 판을 차렸는지 서류로 증명한다 => @goto ch11_proofC
+- [chain_D] 장치와 물증으로 증명한다 => @goto ch11_proofD
+- 증거가 모자란 것 같다 => @goto ch11_proof_help
+@label ch11_proofA
+@show seungwoo,taeyong,weiho
+승우: 방송 시각이랑 사라진 시간을 같이 놓고 보면요. 이 둘이 같은 곳을 가리키지 않을까요?
+태용: 같은 곳이야. 어느 셋인지 말해 봐.
+@puzzle pick3 {"prompt":"시각과 소실 패턴으로 방송을 누른 사람을 가리키는 단서 세 개","options":[{"id":"log","t":"weiho 수첩 — 정각이 아닌 방송들"},{"id":"watch","t":"또꾸의 시계가 방송 1분 전마다 진동"},{"id":"toilet","t":"소실 직후 화면에서 사라진 시각표"},{"id":"precise","t":"신린이 벽·문 밑·열쇠 목록을 먼저 짚음"},{"id":"pay","t":"예약 확인증 — 선결제 신린"},{"id":"app","t":"신린 폰의 잠긴 칸"},{"id":"chairs","t":"식당 의자 26개의 뒤집힌 명찰"},{"id":"ledger","t":"정산표 맨 위의 유미 이름"}],"answer":["log","watch","toilet"],"tries":3,"hint":"정각이 아닌 것, 1분 전, 소실 뒤.","on_success":"@set hosts_exposed; @goto ch11_stop","on_fail":"@goto ch11_proof_fail"}
+@label ch11_proofB
+@show seungwoo,anjin,hungry
+승우: 도와주신 게 너무 정확하지 않았나요. 우리가 찾기도 전에 먼저 아셨던 것 같아서요.
+안진: 어떤 도움이었는지 세 개만 짚어 주십시오.
+@puzzle pick3 {"prompt":"너무 정확했던 도움으로 방송을 만든 사람을 가리키는 단서 세 개","options":[{"id":"precise","t":"신린이 벽·문 밑·열쇠 목록을 먼저 짚음"},{"id":"wrist","t":"허기허기 손목을 잡은 차가운 손(신린)"},{"id":"precise2","t":"또꾸의 '스물다섯에, 하나 더하면'"},{"id":"log","t":"weiho 수첩 — 정각이 아닌 방송들"},{"id":"notice","t":"이용 안내 — 06시 30분 개방"},{"id":"book","t":"입소 확인부의 빈 두 줄"},{"id":"flyer","t":"모집글 밑줄"},{"id":"ledger","t":"정산표 맨 위의 유미 이름"}],"answer":["precise","wrist","precise2"],"tries":3,"hint":"우리가 찾기 전에 먼저 안 사람.","on_success":"@set hosts_exposed; @goto ch11_stop","on_fail":"@goto ch11_proof_fail"}
+@label ch11_proofC
+@show seungwoo,ongaeng,yumi
+승우: 이 판을 누가 차렸는지는 서류에 남아 있지 않을까요? 결제나 서명 같은 거요.
+앙앵모르콩: 서류는 거짓말을 안 하죠. 세 개만 골라 봐요.
+@puzzle pick3 {"prompt":"누가 이 판을 차렸는지 가리키는 서류 단서 세 개","options":[{"id":"pay","t":"예약 확인증 — 선결제 신린 · 소개 또꾸 · 인솔 2명 무료"},{"id":"book","t":"입소 확인부 — 3번·4번 서명 안 함, 26번은 신린이 부탁"},{"id":"note","t":"쪽지의 서체 = 팀표 서체"},{"id":"watch","t":"또꾸의 시계 진동"},{"id":"box","t":"방송 박스의 블루투스 1대"},{"id":"memo","t":"포스트잇 '마지막 생존 후보'"},{"id":"file","t":"성적표의 믿음 칸"},{"id":"chairs","t":"뒤집힌 26번 의자 명찰"}],"answer":["pay","book","note"],"tries":3,"hint":"결제·서명·서체.","on_success":"@set hosts_exposed; @goto ch11_stop","on_fail":"@goto ch11_proof_fail"}
+@label ch11_proofD
+@show seungwoo,yumi,mongip
+승우: 장치 쪽은요. 방송을 튼 폰이랑, 사람이 드나드는 문이 있었잖아요.
+브론즈장인 우르곳: 엄. 이건 논란이 있겠는걸. 셋만 짚어 봐.
+@puzzle pick3 {"prompt":"장치와 물증으로 방송을 튼 사람을 가리키는 단서 세 개","options":[{"id":"box","t":"방송 박스 — 마이크 없음, 블루투스 1대, 바닥으로 내려간 케이블"},{"id":"app","t":"신린 폰의 잠긴 칸 (운영 탭 4명 중 유일)"},{"id":"closet","t":"화장실 청소도구함 뒤 문"},{"id":"foam","t":"소매의 하얀 스펀지 가루"},{"id":"photo","t":"단체사진 21:00:00.000"},{"id":"hooks","t":"명찰함 26고리"},{"id":"keyring","t":"명태의 키링"},{"id":"ledger","t":"정산표 맨 위의 유미 이름"}],"answer":["box","app","closet"],"tries":3,"hint":"박스, 앱, 문.","on_success":"@set hosts_exposed; @goto ch11_stop","on_fail":"@goto ch11_proof_fail"}
 @label ch11_proof_fail
 @add proof_fail 1
 @show seungwoo,sinrin,ttokku
 @sfx thud
-신린: 그것만으로는 아직 모르겠네. 다시 봐.
 @if proof_fail>=2
-또꾸: 시계, 폰, 화면. 방송이 정각이 아닐 때 누가 어디에 서 있었는지. 그 정도면 돼.
-@else
-신린: 방송이 정각이 아니었던 순간. 그때 누가 시계를 보고, 누가 주머니에 손을 넣었는지.
+@goto ch11_proof_help
 @end
-@goto ch11_proof
+신린: 그것만으로는 아직 모르겠네. 다시 봐.
+또꾸: 방송이 정각이 아니었던 순간에 누가 어디에 있었는지. 소실 뒤에 누가 자리를 비웠는지. 그런 거.
+@goto ch11_proof_menu
+@label ch11_proof_help
+@bg ledger
+@show seungwoo,sinrin,ttokku
+신린: 장부부터 다시 읽어 봐, 승우야.
+@show seungwoo,ongaeng,anjin
+승우: 3번이랑 4번이 비어 있어요. 3번은 또꾸 형, 4번은 신린 형이에요.
+앙앵모르콩: 접수 때 두 분이 "맨 마지막에 할게" 하고 넘겼어요. 그리고 계속 안 하셨고요.
+안진: 서명을 안 한 두 분입니다. 접수 때 펜을 받고도 맨 마지막으로 미루신 분들이에요.
+@show seungwoo,sinrin
+신린: …다 읽었네.
+@set hosts_exposed
+@goto ch11_stop
 @label ch11_wrong_gnyang
+@if gnyang_lost
+@show seungwoo,taeyong,sinrin
+태용: 그냥혀 형은 지금 여기 없어. 아래에 있잖아. 없는 사람은 방송을 못 눌러.
+(승우) 아래에 있는 분 이름을 불렀다. 얼굴이 자꾸 아른거려서였다.
+신린: 괜찮아. 한 번 더 해 봐.
+@goto ch11_vote
+@end
 @unset wrong_yumi
 @unset wrong_anjin
+@unset wrong_parrot
 @set wrong_gnyang
 @add wrong_acc 1
 @goto ch11_wrong
 @label ch11_wrong_yumi
+@if yumi_lost
+@show seungwoo,taeyong,sinrin
+태용: 유미 형은 지금 여기 없어. 아래에 있어. 없는 사람은 방송을 못 눌러.
+(승우) 아래에 있는 분 이름을 불렀다. 수첩 넘기는 소리가 아직 귀에 남아서였다.
+신린: 괜찮아. 한 번 더 해 봐.
+@goto ch11_vote
+@end
 @unset wrong_gnyang
 @unset wrong_anjin
+@unset wrong_parrot
 @set wrong_yumi
 @add wrong_acc 1
 @goto ch11_wrong
 @label ch11_wrong_anjin
 @unset wrong_gnyang
 @unset wrong_yumi
+@unset wrong_parrot
 @set wrong_anjin
+@add wrong_acc 1
+@goto ch11_wrong
+@label ch11_wrong_parrot
+@unset wrong_gnyang
+@unset wrong_yumi
+@unset wrong_anjin
+@set wrong_parrot
 @add wrong_acc 1
 @goto ch11_wrong
 @label ch11_wrong
@@ -450,6 +776,11 @@ weiho: 방송 시각 기록 수첩도 있잖아요! 그걸로도 되죠?
 안진: 저, 저요? 정리하면 저는 아무것도… 그, 그게…
 * 안진이 안경을 만지작거린다. 앙앵모르콩이 한 발 다가서다 멈춘다.
 @end
+@if wrong_parrot
+@show seungwoo,parrot:f,hallabong
+탑위치생각해요: 저, 저요? 저는 아니에요. 늘 하던 말이긴 한데, 이번엔 진짜예요.
+* 아무도 웃지 않는다. 헤롱우가 소매를 쥔 채 반 걸음 다가섰다 멈춘다.
+@end
 @if wrong_acc>=2
 @goto ch11_cornered
 @end
@@ -457,6 +788,8 @@ weiho: 방송 시각 기록 수첩도 있잖아요! 그걸로도 되죠?
 (승우) 틀렸다. 증거는 있다고 생각했는데 사람부터 잘못 짚었다. 내 입에서 나간 이름이다.
 신린: 정말? 한 번만 더 해 봐. 아직 시간이 있어, 승우야.
 또꾸: 천천히 해. 한번 부른 이름은 취소가 안 되니까.
+@show seungwoo,taeyong,anjin
+태용: 소거표를 다시 봐. 한 번만 사라진 사람은 이유가 있었어.
 * 천장 숫자가 줄어든다. 분위기가 아까와 달라져 있다.
 @goto ch11_gate
 @label ch11_cornered
@@ -464,10 +797,13 @@ weiho: 방송 시각 기록 수첩도 있잖아요! 그걸로도 되죠?
 @fx flicker
 @show seungwoo,gaeul,hallabong
 * 두 번째 이름. 일행이 한 사람을 둥글게 에워싼다. 누구도 손을 대지 않는다. 누구도 눈을 맞추지 않는다.
-한라봉 갓: 이 사람이 맞는 거지? 맞아야 해. 이만큼 했는데.
+헤롱우: 이 사람이 맞는 거죠? 맞아야 해요. 이만큼 했는데요.
 가을: 아니에요. 모르겠어요. 맞다고 말하고 싶은 거예요, 우리가.
+@if wrong_parrot
+탑위치생각해요: 저… 이번엔 진짜 억울해요.
+@end
 @show seungwoo
-* 몰린 사람은 말없이 단상으로 걸어가 장부 앞 의자에 앉는다. 스스로.
+* 몰린 사람은 더 말하지 않고 단상으로 걸어가 장부 앞 의자에 앉는다. 스스로.
 * 천장 숫자가 0:30. 판이 물러나는 소리가 낮게 시작된다.
 (승우) 내가 불렀다. 저 사람은 내가 앉혔다.
 승우: 잠깐만요. …잠깐만.
@@ -479,7 +815,7 @@ weiho: 방송 시각 기록 수첩도 있잖아요! 그걸로도 되죠?
 @sfx chime
 * 천장 숫자가 1:12에서 멈춘다. 모두가 숨을 멈춘다.
 * 신린이 주머니에서 폰을 꺼내 화면을 한 번 누른다.
-(승우) 숫자를 멈춘 건 신린 씨다. 어제 내 가방끈을 고쳐 준 그 손이다.
+(승우) 숫자를 멈춘 건 신린 형이다. 어제 내 가방끈을 고쳐 준 그 손이다.
 신린: 맞아.
 또꾸: 들켰네요, 신린 씨.
 * 웃지 않는다. 말의 리듬만 가볍고 목소리는 낮다.
@@ -490,110 +826,143 @@ weiho: 방송 시각 기록 수첩도 있잖아요! 그걸로도 되죠?
 신린: 직접 열어 봐, 승우야. 눈으로 봐야 믿을 테니까.
 * 신린이 폰을 내민다. 팀을 짜던 앱이다. 하단에 탭이 하나 늘어 있다. 자물쇠 표시, 네 칸.
 신린: 비밀번호는 네 자리야. 승우라면 알 거야.
-(승우) 어둠방 바닥에 긁혀 있던 숫자. 25 더하기 1.
-@puzzle code {"prompt":"관리자 탭 비밀번호 네 자리","digits":4,"answer":"2526","hint":"25 + 1","hint_force":true,"max_tries":99,"on_success":"ch11_truth2"}
+(승우) 현원 스물다섯, 정원 스물여섯. 보관실 문패에 적혀 있던 그 숫자다.
+@puzzle code {"prompt":"관리자 탭 비밀번호 네 자리","digits":4,"answer":"2526","hint":"현원 · 정원","hint_force":true,"max_tries":99,"on_success":"ch11_truth2"}
 @label ch11_truth2
 @bg final
 @sfx chime
 @if code_ok
 안진: 2526. 보관실 코드락과 같은 숫자입니다.
-@end
 신린: 만든 사람이 같으니까.
-* 탭이 열린다. 방송 일곱 줄, 줄마다 시각과 이름. 그 아래에 짧은 소리 클립이 여덟 개.
-* 맨 아래 두 줄. "회수 대기 — 지하 보관방 kater (식량·침구 있음)". "소실자 — 전원 지하, 안전."
+@else
+신린: 보관실 문패랑 같은 숫자야. 만든 사람이 같으니까.
+@end
+* 탭이 열린다. 맨 위에 방송 일정. 맨 아래 줄은 "06:30:00 전체 해제".
+* 그 아래에 짧은 소리 클립이 여덟 개. 이름 대신 문장이다. "스물여섯 번째 칸은 아직 비어 있습니다." "유머 감각이 없으시군요."
+* 버튼 두 개. "OPEN FINAL". 그리고 "전체 개방".
+* 맨 아래 줄. "회수 대기 — 지하 보관방 kater (식량·침구 있음)".
 @if !couple_ok
-* 그 위에 한 줄 더. "포만포만 — 지하 보관방, 수면 중."
+* 그 위에 한 줄 더. "포만포만 — 지하 보관방, 안전."
 @end
 @if gnyang_lost
-* 그 위에 한 줄 더. "그냥혀 — 지하 보관방, 수면 중."
+* 그 위에 한 줄 더. "그냥혀 — 지하 보관방, 안전."
 @end
 @if yumi_lost
-* 그 위에 한 줄 더. "맛동산장인 유미 — 지하 보관방, 수면 중."
+* 그 위에 한 줄 더. "맛동산장인 유미 — 지하 보관방, 안전."
 @end
 @show seungwoo,taeyong,hallabong
-태용: 정각 방송은 타이머, 어중간한 초는 이 클립이네. 계산 맞아.
-한라봉 갓: 둘이서? 밤새 이 짓을 한 거야? 우리 가둬 놓고?
+태용: 정각 방송은 일정이고, 어중간한 시각은 이 클립이네. 계산이 맞아.
+헤롱우: 그, 그럼 이걸 신린 씨가 눌렀어요? 우리가 말하고 나면요?
+신린: 응. 주머니 속에서. 사람 말이 끝나고 네 박자쯤 늦게.
+@show seungwoo,ugeoji,ttokku
+두유쿠키로: 밤새 이 짓을 했다고? 우리 가둬 놓고?
 또꾸: 응.
-한라봉 갓: 응이 뭐야, 응이!
-또꾸: 시설 예약도 방송도 규칙도 우리가 짰어. 이유는… 별거 없어.
-또꾸: 내전은 천 판 해도 다 비슷하잖아. 심심했어.
-또꾸: 판이 흔들려도 클랜이 안 흩어지는지, 그게 보고 싶었어.
-@show seungwoo,sinrin
-신린: 못 푸는 문은 하나도 안 만들었어.
-신린: 사라진 사람들은 전부 지하 보관방에서 자고 있어. 이불도 물도 있어.
-승우: …자고 있다고요?
-신린: 응. 자고 있어.
-신린: 보고 싶었던 건 하나야. 버려도 되는 순간에도 서로를 안 버리는지.
-신린: 큰 부탁이었던 건 알아.
-또꾸: 난 더 어렵게 하자고 했어. …근데 한 명이라도 못 나오게 두자는 말은 안 했어.
-(승우) 화가 먼저 올라와야 하는데, 어둠방에서 내 손목을 잡아 준 손이 먼저 떠오른다. 같은 손이다. 어느 쪽 얼굴을 믿어야 하는지 모르겠다.
-@show seungwoo,anjin,arin
-승우: 그래서 제가 막힐 때마다… 두 분이 옆에 계셨던 거예요?
-안진: 열쇠방, 어둠방, 투표 때 안 찍는다던 말. …정리하면 전부 두 분이었습니다.
-신린: 도운 건 아니야. 판 만든 사람이 손을 뻗은 거지. 변명이야.
-또꾸: 그래도 매번 손은 나갔어.
-@if c_tape
-@show seungwoo,ttokku,sinrin
-승우: 이 테이프, 두 분 거예요?
-* 또꾸가 가방에서 작은 재생기를 꺼낸다. 양말이 먼저 딸려 나온다. 아무도 웃지 않는다.
-또꾸: (테이프) 이걸 듣고 있다면 다 같이 나온 거네. 수고했어. 진짜로.
-신린: (테이프) 사과는 직접 할게. 먼저 밥부터 먹자.
-신린: …이걸 진짜 틀게 될 줄은 몰랐네.
+두유쿠키로: 응이 뭐야, 응이!
+또꾸: 변명 안 할게. 시설도 방송도 규칙도 우리가 짰어.
+@show seungwoo,leivy,sinrin
+레이비: 이유를 말씀해 주십시오. 취미입니까.
+신린: 시험이었어. 판이 흔들려도 클랜이 안 흩어지는지 보고 싶었어.
+또꾸: 심심하기도 했고. 내전은 천 판 해도 다 비슷하잖아.
+레이비: 그게 전부입니까.
+신린: 아니. 시작하고 나니까 한 명이라도 못 나오는 건 못 하겠더라.
+또꾸: 시험하고 싶은 마음이랑, 다 같이 나갔으면 하는 마음. 둘 다 진짜예요, 신린 씨.
+신린: 응. 둘 다 진짜야.
+@show seungwoo,hungry,jelly
+허기허기: 나 지금 화나. 근데 이상하게 안 미워.
+대한제일젤리: 하하… 이거 깜짝 이벤트 2탄이었네! …하하.
+* 젤리의 웃음이 중간에 울음으로 섞인다. 누구도 그걸 지적하지 않는다.
+@show seungwoo,yumi,sinrin
+맛동산장인 유미: 말로만 안전하다고 하셔서는 안 되죠. 실제로 뭘 해 두셨습니까.
+신린: 문은 전부 풀 수 있게 만들었어. 못 풀어도 여섯 시 반엔 열려.
+또꾸: 게시판에 덧창 여섯 시 반이라고 적혀 있었지. 그게 진짜 규칙이야.
+신린: 위험해지면 바로 누르려고 폰에 전체 개방도 걸어 뒀어. 엄지는 계속 그 위에 있었고.
+@show seungwoo,hallabong,ttokku
+헤롱우: 그, 그럼 관리인 아저씨는요? 밖에서 안 와요?
+또꾸: 여섯 시 반에 와서 덧창이랑 문을 점검해. 이벤트 대관이라고만 알고 있어.
+@show seungwoo,sinrin,ttokku
+승우: kater 형이랑 사라진 분들은 지금 어디 계세요?
+신린: 아래 보관방이야. 이불이랑 물이 있어. 사람이 사라지면 우리 둘 중 하나가 내려가서 확인했어.
+또꾸: 화장실 간다고 하고 내려갔지. 그래서 화면에서 사라진 거고.
+@show seungwoo,squirrel,arin
+용맹한다람쥐: 그, 그럼 벽 속에서 나던 소리랑… 바퀴 소리는요…?
+또꾸: 착지 매트 카트야. 내려보내고 나면 매트를 제자리로 돌려놔야 해서.
+아린: 아, 소매에 하얀 가루 묻어 있던 것도 그거였어요?
+또꾸: 응. 털어도 안 털리더라.
+@show seungwoo,anjin,ttokku
+안진: 식탁 의자 네 개가 바닥에 박혀 있던 것도 두 분이 하신 겁니까.
+또꾸: 응. 5번이랑 24번은 진짜 내려가. 22번이랑 25번은 안 내려가.
+안진: 22번은 제 자리입니다.
+또꾸: 알아. 안진이랑 승우는 처음부터 내려보낼 생각이 없었어. 놀랐지. 미안.
+승우: 저도 후보 자리였던 거예요?
+신린: 후보 자리에 앉혀 둔 거지, 내려보낼 의자는 아니었어.
+@show seungwoo,anjin,hungry,sinrin
+승우: 그래서 제가 막힐 때마다 두 분이 옆에 계셨던 거예요?
+@if help>=4
+안진: 열쇠방, 어둠방, 투표 때 안 찍는다던 말. 정리하면 전부 두 분이었습니다.
 @else
-신린: 서랍에 예비 테이프가 있었지. 다 나오면 틀어 주려던 말이야. 수고했어. 진짜로.
+안진: 돌아보면 막힐 때마다 두 분이 근처에 계셨습니다.
 @end
+신린: 도운 건 아니야. 판 만든 사람이 손을 뻗은 거지. 변명이야.
+또꾸: 그래도 매번 손은 나갔어요, 신린 씨.
+허기허기: 손목 잡은 거 기억나. 차가웠어. 고마워. 그리고 화나. 둘 다야.
+(승우) 화가 먼저 올라와야 하는데, 허기허기 누나 손목을 잡던 손이 먼저 떠오른다. 같은 손이다. 어느 쪽 얼굴을 믿어야 할지 모르겠다.
 @if gnyang_lost
 @show seungwoo,sinrin
-신린: 그냥혀는 아래에서 자고 있어. 올라오면 내가 먼저 사과할게. 쪽지 앞면, 내가 쓴 거야.
+신린: 그냥혀는 아래에 있어. 쪽지 앞면은 내가 쓴 거야. 올라오면 내가 먼저 사과할게.
 @else
+@show seungwoo,geunyang,sinrin
+신린: 그냥혀. 가방 쪽지, 내가 넣었어. 앞면은 취소할게. 뒷면 한 줄은 읽었어?
 @if c_note
-@show seungwoo,geunyang,sinrin
-신린: 그냥혀, 뒷면 한 줄은 본 사람이 알 거야.
-그냥혀: "하지 않아도 된다. 정말로." 승우가 보여 줬어. …그때 알았어야 했는데.
-신린: 이름 없이 보낸 것도, 협박처럼 쓴 것도 내 잘못이야. 이 일은 누구한테도 안 알려. 처음부터.
+그냥혀: "하지 않아도 된다. 정말로." 승우가 보여 줬어. 그때 알았어야 했는데.
 @else
-@show seungwoo,geunyang,sinrin
-신린: 그냥혀, 가방 쪽지는 내가 넣었어. 앞면은 취소할게. 뒷면 한 줄은… 읽어 줘.
-그냥혀: 뒷면은 안 읽었어. …나중에 읽을게.
+* 그냥혀가 주머니에서 접힌 쪽지를 꺼낸다. 팀표와 같은 둥근 고딕. 뒷면에 연필 한 줄이 있다.
+@clue c_note|이름 없는 쪽지 — 앞면은 협박, 서체는 팀표와 같다. 뒷면 연필: "하지 않아도 된다. — 정말로."
+그냥혀: 이거. 뒷면은 안 읽었어. 읽을 용기가 없었어.
+신린: 서체는 앱 인쇄물이랑 같아. 내가 뽑는 거라서.
 @end
+신린: 이름 없이 보낸 것도, 협박처럼 쓴 것도 내 잘못이야.
 @end
-@show seungwoo,jelly,weiho
-대한제일젤리: 하하… 이거 깜짝 이벤트 2탄이었네! 하하…
-* 젤리의 웃음이 중간에 울음으로 섞인다. 누구도 그걸 지적하지 않는다.
-weiho: 하하… 아니 이게 뭐야 진짜. 화낼 타이밍인데 웃음부터 나오네요 ㅋㅋ
-@show seungwoo,yumi,hungry
-맛동산장인 유미: …엄. 그래서 이게 본질적으로 뭐였죠. 답은 알고 있습니다만.
-신린: 서로를 어떻게 대하는지. 그게 전부야.
-허기허기: 그러든가.
-* 허기허기가 숨을 길게 내쉰다. 어깨에서 힘이 빠진다.
-@show seungwoo,squirrel,myeongtae
-용맹한다람쥐: 그, 그러면 kater 오빠도 아래 분들도… 살아 있는 거죠…?
-신린: 응. 내가 화장실 간다 하고 내려가서 확인했어. 그래서 로그에 찍힌 거야.
-* 용맹한다람쥐가 그제야 어깨를 내린다.
-간장맛명태소환사: 다행이다… 승우 씨, 숨 쉬세요. 숨 쉬는 거 잊으셨죠.
-승우: 네. 쉬고 있어요.
-@show seungwoo,sinrin,ttokku
-신린: 승우야, 마지막 칸 얘기도 해야 해.
-신린: 사람은 스물다섯인데 칸은 스물여섯이지. 남는 한 칸은 한 사람 자리가 아니야. 모두를 쓰는 자리야.
-승우: 제 버릇요? 입구에서 저를 한 번 더 세던 거.
-간장맛명태소환사: 사진 찍을 때는 한 번만 세셨잖아요. "오늘은 한 번이면 충분합니다" 하고요.
-승우: 네. 그땐 진짜 한 번이면 충분했어요.
-또꾸: 한 명이 남아야 한다는 건 문구일 뿐이야. 열쇠는 따로 있어.
+@if c_tape
+신린: 서랍 테이프는 우리가 녹음한 거야. 다 같이 나오면 틀려고 했어.
+@end
+@show seungwoo,sinrin
+승우: 저기, 마지막 칸 말인데요. 왜 제 이름이었어요?
+* 신린이 접힌 종이를 꺼낸다. 클랜 성적표 사본이다. 맨 아래 칸에 "믿음(단톡 언급)".
+@if !c_file
+@clue c_file|클랜 성적표 — 가입일·내전 횟수·승률. 맨 아래 칸 "믿음(단톡 언급)": 승우 49회, 2위 17회
+@end
+신린: 단톡에서 "믿어도 돼"로 제일 많이 불린 이름이야. 승우가 마흔아홉 번, 2위가 열일곱.
+승우: 저요? 그건 그냥 짐 들어 드리고 그런 건데요.
+신린: 그게 이유야. 자세한 건 장부 앞에서 말할게.
+@show seungwoo,sinrin,anjin
+신린: 마지막 문 얘기도 해야 해. 한 명이 남아야 열린다는 건 문구일 뿐이야.
+안진: 장부는 센서와 이어져 있지 않다는 겁니까.
+신린: 응. 문은 내 폰 버튼이나 여섯 시 반에 열려. 장부는 우리가 정한 의식이야.
+승우: 의식이요?
+신린: 서명 안 된 줄이 3번이랑 4번뿐이지. 우리 둘 자리야. 끝에 우리도 이름을 쓰고 이 판에 들어오려고 했어.
+또꾸: 참가자로 합류하는 거야. 마지막에.
 @label ch11_choice_after
 @bg final
 @show seungwoo,myeongtae
-* 천장 숫자는 멈춰 있다. 장부는 아직 천에 덮여 있다. 문 앞의 판이 낮게 숨을 쉰다.
-(승우) 사람은 스물다섯인데 칸은 스물여섯이다. 세는 건 내 일이었다. 지금 어디까지 세야 하는지 모르겠다.
+// 분기 계산(다시): 고백 장면에서 c_note · c_file 을 새로 줍는 경우가 있다
+@if c_hooks && c_chairs && c_book && c_listA && c_notice && c_file
+@set true_ok
+@end
+@if vote_refused && gnyang_redeemed && couple_ok && code_ok && bluff_known
+@set d_ok
+@end
+* 천장 숫자는 멈춰 있다. 장부는 단상 위에 펼쳐져 있다. 문 앞의 판이 낮게 숨을 쉰다.
+(승우) 사람은 스물다섯인데 칸은 스물여섯이다. 마지막 칸이 내 자리였다. 이제 어디까지를 '우리'라고 불러야 하는지 모르겠다.
 @choice
-- [true_ok] 장부를 펼친다 => @goto ch11_pick_true
+- [true_ok] 장부의 뜻을 맞춰 본다 => @goto ch11_pick_true
 - [d_ok] 두 사람까지 포함해 스물다섯 명이 손잡고 문을 나간다 => @goto ch11_pick_D
 - 둘을 방송실로 데려가 끝까지 따진다 => @goto ch11_pick_C
 @label ch11_pick_A
 @show seungwoo,myeongtae
 승우: 제가 남을게요. 걱정 마세요. 먼저 나가세요.
 간장맛명태소환사: 승우 씨, 그건 아니에요. 그건…
-승우: 부탁드려요. 줄은 제가 마지막으로 셀게요.
-(승우) 무섭다. 그래도 문 앞에서 한 명이 빠진다면 센 사람인 내 쪽이 낫다.
+승우: 부탁드려요. 다들 먼저 나가 주세요.
+(승우) 무섭다. 그래도 문 앞에서 한 명이 빠진다면 내 쪽이 낫다. 이 사람들 얼굴을 한 번이라도 더 보고 싶다.
 @goto end_A
 @label ch11_pick_B
 @show seungwoo,hungry,pman
@@ -607,50 +976,67 @@ weiho: 하하… 아니 이게 뭐야 진짜. 화낼 타이밍인데 웃음부�
 승우: 알겠어요. 안 막을게요. 두 분이 정한 거면요.
 @goto end_B
 @label ch11_pick_C
-@show seungwoo,hallabong,gaeul
+@show seungwoo,ugeoji,gaeul
 @if hosts_exposed
 승우: 이 문 나가기 전에 들을게요. 끝까지요.
-한라봉 갓: 그래! 하나도 빼지 말고 다 말하게 해!
-가을: 앉아요. 둘 다요. 서서 들을 얘기가 아니에요.
+두유쿠키로: 그래! 하나도 빼지 말고 다 말하게 해!
+가을: 앉아요. 두 분 다요. 서서 들을 얘기가 아니에요.
 @else
 승우: 저는 안 정해요. 이 문 만든 쪽한테 직접 물어볼 거예요.
-한라봉 갓: 그래! 만든 놈이 책임져야지!
+두유쿠키로: 그래! 만든 쪽이 책임져야지!
 가을: 같이 움직여요. 아무도 혼자 남기지 말고요.
 @end
 @goto end_C
 @label ch11_pick_D
 @show seungwoo,hallabong,jelly
 승우: 장부 볼게요. 이 칸에 한 사람이 아니라 다 같이 이름을 쓸 거예요.
-한라봉 갓: 그게 되는 거야? 그래도 해 보자. 안 해 보고 후회하긴 싫어!
+헤롱우: 그게 되는 거예요? 그, 그래도 해 봐요. 안 해 보고 후회하는 건 싫어요!
 대한제일젤리: 우리 이름을 다 같이 쓰는 거네! 하하하!
 @goto end_D
 @label ch11_pick_true
+@bg ledger
 @show seungwoo,anjin,weiho
-승우: 조각 맞춰 볼게요. 안진 씨, weiho 씨, 같이 봐 주세요.
-안진: 네. 후보 여섯 개, 맞는 건 세 개입니다.
-weiho: 좋아요, 내가 먼저 볼게요! 틀리면 처음부터 다시 하면 되죠.
-@puzzle pick3 {"prompt":"장부 26번째 칸과 맞아떨어지는 단서 세 개를 고르세요","options":["명단 조각 A(맨 아래 칸에 번호만 남음)","명단 조각 B(숫자 7을 쓰는 필적)","정문 명찰함(칸이 26개)","식당 마지막 의자","서랍 속 예비 테이프","kater의 인터콤"],"correct":[0,1,2],"on_success":"@set pick_done; @goto ch11_true_reveal","on_fail":"@goto ch11_pick_true_fail"}
+승우: 조각 맞춰 볼게요. 안진, weiho 형, 같이 봐 주세요.
+안진: 네. 후보 여덟 개, 맞는 건 세 개입니다. 먼저 이 줄이 뭔지부터요.
+weiho: 좋아요, 제가 먼저 볼게요! 틀리면 처음부터 다시 하면 되죠.
+@puzzle pick3 {"prompt":"26번째 칸이 희생 자리가 아니라 양식의 한 줄이라는 근거 세 개","options":[{"id":"listA","t":"낡은 출석부 — 맨 아래 칸 '인솔·확인'"},{"id":"notice","t":"이용 안내 — 현원 25 · 정원 26"},{"id":"hooks","t":"명찰함 — 고리 26개, 명찰 25개"},{"id":"tape","t":"서랍 속 예비 테이프"},{"id":"engrave","t":"어둠방 각인 25 + 1"},{"id":"kater","t":"kater의 인터콤"},{"id":"memo","t":"포스트잇 '마지막 생존 후보'"},{"id":"watch","t":"또꾸의 시계"}],"answer":["listA","notice","hooks"],"tries":3,"hint":"어느 단체에나 있는 한 줄, 정원과 현원, 빈 고리.","on_success":"@set pick_struct; @goto ch11_pick_true2","on_fail":"@goto ch11_pick_true_fail"}
+@label ch11_pick_true2
+@show seungwoo,anjin,yumi
+승우: 그럼 이 줄이 양식이라면요. 왜 그 줄에 제 이름이 있어요?
+맛동산장인 유미: 좋은 질문입니다. 누가 부탁했고, 왜 그 사람이었고, 그 자리가 어디였는지 짚어 보죠.
+@puzzle pick3 {"prompt":"그 줄에 왜 승우 이름이 있는지 가리키는 근거 세 개","options":[{"id":"book","t":"입소 확인부 — 26번 확인자란, 신린이 건넨 펜"},{"id":"file","t":"성적표 — 믿음(단톡 언급) 승우 49회"},{"id":"chairs","t":"26번 의자 — 명찰이 뒤집힌 빈자리, 승우 옆"},{"id":"flyer","t":"모집글 — 끝까지 남아 챙겨 주시는 분 우대"},{"id":"pay","t":"예약 확인증"},{"id":"glow","t":"예리야가 본 파란 빛"},{"id":"fixed","t":"볼트로 고정된 의자 4개"},{"id":"photo","t":"단체사진 시각"}],"answer":["book","file","chairs"],"tries":3,"hint":"누가 부탁했고, 왜 그 사람이고, 어디가 비어 있었나.","on_success":"@set pick_done; @goto ch11_true_reveal","on_fail":"@goto ch11_pick_true_fail"}
 @label ch11_pick_true_fail
 @show seungwoo,anjin
 @sfx thud
 * 조각이 맞지 않는다. 천 아래에서 낮은 소리가 난다.
-안진: 안 맞습니다. 뭔가 빠졌어요. 다시 보겠습니다.
+안진: 정, 정리하면… 26번째 칸이 뭐였죠? 그리고 왜 그 줄에 승우 형 이름이었죠?
+안진: 두 질문부터 다시 보겠습니다.
 @if hosts_exposed
 @goto ch11_choice_after
 @end
 @goto ch11_gate
 @label ch11_true_reveal
-@show seungwoo,gaeul,hallabong
+@bg ledger
+@show seungwoo,gaeul,anjin
 @sfx chime
-* 두 장의 조각이 책 모서리에 꼭 맞는다. 천이 스르르 미끄러진다.
-가을: 책이 열려요. 이 시설의 장부예요.
-한라봉 갓: 이름이 세로로 쭉 있고, 아래에 한 칸 더 있어.
+* 두 장의 조각이 책 모서리에 꼭 맞는다. 장부 위 스티커 한 장이 소리 없이 들떠 올라온다.
+안진: 정리하면요. 이 줄은 지킴이가 아니라 인솔·확인입니다. 연수원 양식 그대로예요.
+가을: 그럼 승우 형 이름이 거기 있는 건, 희생이 아니라 서명이라는 거예요?
+안진: 접수 때 신린 형이 펜을 건넨 서명입니다. 부탁받은 겁니다.
+@if !hosts_exposed
+@show seungwoo,ongaeng,sinrin
+앙앵모르콩: 그리고 서명 안 된 줄은 3번이랑 4번뿐이에요.
+신린: 맞아. 우리 줄이야.
+또꾸: 들켰네요, 신린 씨.
+신린: 방송은 내 폰으로 틀었어. 사라진 사람들은 지하에서 안전해. 여섯 시 반엔 어차피 열리고.
+신린: 한 명이 남아야 한다는 건 문구야. 장부는 우리가 정한 의식이고.
+@end
 @goto end_true
 @label ch11_betrayed
 @bg final
 @show seungwoo,myeongtae,gaeul
 * 하얀 문 앞에 일행이 서 있다. 발소리가 뒤에서 들린다. 한 사람이다.
-(승우) 뒤에서 발소리가 난다. 한 사람이다. 세어 보지 않아도 누군지 안다.
+(승우) 뒤에서 발소리가 난다. 한 사람이다. 돌아보지 않아도 누군지 안다.
 @show geunyang
 그냥혀: 비켜 줘. 부탁이야. 열쇠를 쓸 거야.
 간장맛명태소환사: 그냥혀 씨? 그 열쇠로 어디를 열려는 거예요?
@@ -669,9 +1055,9 @@ weiho: 좋아요, 내가 먼저 볼게요! 틀리면 처음부터 다시 하면 
 그냥혀: 미안해. 이미 정했어. 더는 설명 못 해.
 @sfx keys
 * 열쇠가 판에 들어간다. 낮은 기계음. 문이 한 뼘 열린다.
-@show seungwoo,gaeul,hallabong
-한라봉 갓: 막아! 저 사람 혼자 나가려고 해!
-가을: 멈춰요. 지금 누가 다치면 안 돼요. 그냥혀, 정말 가는 거예요?
+@show seungwoo,gaeul,ugeoji
+두유쿠키로: 막아! 저 사람 혼자 나가려고 해!
+가을: 멈춰요. 지금 누가 다치면 안 돼요. 그냥혀 형, 정말 가는 거예요?
 그냥혀: 응.
 (승우) 막아야 한다. 발이 안 떨어진다. 뒷모습이 가볍다. 가방도 없다.
 @sfx door
@@ -686,15 +1072,15 @@ weiho: 좋아요, 내가 먼저 볼게요! 틀리면 처음부터 다시 하면 
 @goto end_C_exposed
 @end
 @bg broadcast
-@show seungwoo,gaeul,hallabong
+@show seungwoo,gaeul,ugeoji
 @sfx drone
 * 일행이 하얀 문에서 등을 돌린다. 발소리가 방송실 쪽으로 되돌아간다.
-한라봉 갓: 열 때까지 두드린다. 만든 놈이 나올 때까지.
-가을: 부수지 말고 열게 해요. 승우 씨, 방법 있어요?
+두유쿠키로: 열 때까지 두드린다. 만든 쪽이 나올 때까지.
+가을: 부수지 말고 열게 해요. 승우 형, 방법 있어요?
 승우: 인터콤이랑 단말기가 있잖아요. 저쪽이 보고 있으면 반응할 거예요.
 (승우) 문을 안 열고 돌아선 건 처음이다. 등 뒤에서 판이 닫히는 소리는 없다.
 @show seungwoo,mongip,anjin
-몰입겜: 모니터 아직 켜져 있어요! 단말기도 반응해요!
+브론즈장인 우르곳: 모니터 아직 켜져 있어. 단말기도 반응하고. 엄.
 안진: 신호선이 이쪽으로 모입니다. 전원도 이 방에서 들어와요.
 @sfx knock
 @show seungwoo,squirrel,snake
@@ -712,55 +1098,82 @@ weiho: 좋아요, 내가 먼저 볼게요! 틀리면 처음부터 다시 하면 
 @end
 @show seungwoo,myeongtae,ongaeng
 간장맛명태소환사: 승우 씨, 저 옆에 있어요. 어디로 가도요.
-앙앵모르콩: 이것 봐요. 모니터 아래에 작은 글씨가 흘러요.
+앙앵모르콩: 이것 봐요. 모니터 위쪽 시각이 곧 여섯 시 반이에요.
 @sfx chime
 @fx flicker
 * 모니터 스물여섯 칸이 한꺼번에 켜진다. 마지막 칸에 승우의 뒷모습이 비친다.
-방송: 규칙은 변경되지 않았습니다. 설명은 다음에 드리겠습니다.
+방송: 여섯 시 삼십 분입니다. 모든 문을 엽니다.
+@sfx door
+* 복도 창마다 덧창이 올라가는 소리. 멀리서 하얀 문의 판이 저절로 물러난다. 아무도 한 명을 고르지 않았다.
+@show seungwoo,taeyong,yumi
+태용: 일정표 마지막 줄이야. 여섯 시 반.
+맛동산장인 유미: 한 명이 남아야 한다던 말은, 결국 아무도 남지 않았는데 열렸네요.
+@sfx door
+* 아래층에서 직원 전용 문이 열리는 소리. 계단을 올라오는 발소리가 여럿이다.
+@show seungwoo,kater,sinrin
+kater: 승우야, 여기야. 나 괜찮아. 문이 저절로 열렸어.
+@if !couple_ok
+@show seungwoo,hungry,pman
+포만포만: 허기허기. 신발 한 짝만 없어.
+허기허기: 여기 있어. 내가 들고 있었어.
+@end
+@if gnyang_lost
+@show seungwoo,geunyang,snake
+그냥혀: 나도 같이 올라와도 돼?
+뱀조련사: 와. 짐 이리 줘.
+@end
+@if yumi_lost
+@show seungwoo,yumi,leivy
+맛동산장인 유미: 정산은 제가 하겠습니다. 치킨도요.
+레이비: 유미 형은 쉬십시오. 오늘은 제가 하겠습니다.
+@end
 @show seungwoo,ttokku,sinrin
-또꾸: 돌아가자. 배고프다. 일단 먹고, 그다음에 생각해.
-* 신린이 문턱에서 한 번 돌아본다. 승우와 눈이 마주친다. 그뿐이다.
-가을: 끝까지 같이 들어요. 정하는 건 그다음에요.
-(승우) 마지막 칸에 비친 건 내 뒷모습이다. 저 칸은 아직 아무도 쓰지 않았다.
+또꾸: 설명은 해야지. 일단 밥부터 먹고, 그다음에 전부.
+* 신린이 문턱에서 한 번 돌아본다. 승우와 눈이 마주친다.
+신린: 도망 안 가. 나가서 다 말할게.
+(승우) 마지막 칸에 비친 건 내 뒷모습이다. 저 칸은 아직 아무도 쓰지 않았다. 문은 열렸는데, 설명은 이제부터다.
 @fx blackout
 @bg white
-* 다음 이야기에서 계속.
-@ending C|거부 — 다음 이야기에서 계속
+* 산길 아래에서 트럭 소리가 올라온다. 관리인이 점검하러 오는 시각이다.
+@ending C|거부 — 여섯 시 반
 @label end_C_exposed
 @bg final
-@show seungwoo,gaeul,hallabong
+@show seungwoo,gaeul,ugeoji
 * 판은 멈춰 있다. 문 안쪽에서 새벽빛이 한 줄 스민다. 아직 아무도 나가지 않는다.
 * 또꾸와 신린이 문 앞 바닥에 마주 앉는다. 일행이 둥글게 둘러선다.
-한라봉 갓: 하나도 빼지 마. 처음부터 전부. 화내는 건 그다음이야.
+두유쿠키로: 하나도 빼지 마. 처음부터 전부. 화내는 건 그다음이야.
 신린: 응. 처음부터 말할게.
 @show seungwoo,yumi,taeyong
 맛동산장인 유미: 규칙 말고, 왜 이 시설이었는지부터 말씀해 주세요.
 신린: 시설은 내가 찾았어. 싸고 좋은 데 있다고 링크를 올렸고, 결제도 내가 했어.
-또꾸: 날짜는 내가 잡았어. 내전 천 판 기념이라고 하면서.
-* 태용이 손가락으로 시각을 짚는다.
+또꾸: 날짜는 내가 잡았어요. 내전 천 판 기념이라고 하면서.
 태용: 사라진 사람들은 정말 다 안전해? 장소하고 시각으로 말해.
-신린: 지하 보관방 한 곳이야. 이불, 물, 식량 있어. 마지막으로 본 게 05시 48분이고 전부 자고 있었어.
-* 우거지가 고개를 숙이고 숨을 고른다.
+신린: 지하 보관방 한 곳이야. 이불, 물, 간식 있어. 마지막으로 내려가서 본 게 04시 56분이고 전부 멀쩡했어.
 @show seungwoo,ugeoji,leivy
-우거지: 다 말해라. 사과는 그다음이다.
+두유쿠키로: 다 말해라. 사과는 그다음이다.
 레이비: 책임자는 누굽니까. 한 명이라고 하지 마십시오.
 또꾸: 둘 다야. 판은 같이 짰어. 난이도는 내가 올렸고. 책임은 반으로 못 나눠.
-신린: 문 앞에서 한 명 남으라고 한 건 시험이었어.
-신린: 승우가 그 자리에서 자기 이름을 대는 걸 보고… 너무 무거운 시험이었다는 걸 알았어.
+신린: 한 명이 남으라는 건 시험 문구였어. 너희가 어떻게 하나 보고 싶었어. 무거운 시험이었다는 건 알아.
 (승우) 속은 줄 알았는데 화가 안 난다. 둘 다 어젯밤 우리와 같은 컵라면을 먹었다. 그게 자꾸 걸린다.
 @show seungwoo,squirrel,myeongtae
 용맹한다람쥐: 저는 무서웠어요… 다음엔 이런 거 안 하시면 안 될까요…
 간장맛명태소환사: 승우 씨 얘기부터 듣고 싶어요. 승우 씨가 괜찮아야 저도 괜찮아서요.
 * 승우는 대답 대신 고개를 한 번 끄덕인다.
 승우: 하나만 물을게요. 이 문, 지금 나가는 게 이미 되는 거예요?
-신린: 응. 언제든. 지금 너희가 앉아서 끝까지 묻는 것도 말리지 않을게.
+@sfx door
+신린: 응. 방금 전체 개방도 눌렀어. 언제든. 지금 앉아서 끝까지 묻는 것도 말리지 않을게.
 @show seungwoo,ttokku,sinrin
 또꾸: 다음 판은 너희가 짜 봐.
 신린: 안 짜도 돼. 짜게 되면 풀 수 있게, 한 명도 빠지지 않게.
+@sfx door
+* 아래층에서 직원 전용 문이 열리는 소리. 발소리가 계단을 올라온다.
+@show seungwoo,kater,sinrin
+kater: 얘기 시작한 거야? 나 빼놓고 하지 마.
+신린: 마침 잘 왔어. 앉아.
 @fx blackout
 @bg white
-* 다음 이야기에서 계속.
-@ending C|거부 — 다음 이야기에서 계속
+* 문틈의 새벽빛이 점점 넓어진다. 일행은 앉은 채로 끝까지 듣는다.
+@ending C|거부 — 끝까지 묻기
 
 ## 엔딩 진실
 @label end_true
@@ -768,27 +1181,17 @@ weiho: 좋아요, 내가 먼저 볼게요! 틀리면 처음부터 다시 하면 
 @bg ledger
 @show seungwoo,gaeul,anjin
 @sfx drone
-* 장부 첫 장. 이름이 세로로 스물세 줄. 그 아래 두 줄은 "진행"이라고만 적혀 있다.
-* 맨 아래 칸이 하나 더. 스물여섯 번째 칸. 머리글은 "점검자(문을 여는 사람)".
-안진: 스물세 칸은 참가자 이름이고 두 칸은 비어 있고, 마지막이 점검자입니다. 그 이름은…
-@show seungwoo,hallabong,myeongtae
-한라봉 갓: 승우. 승우라고 적혀 있어.
-간장맛명태소환사: 승우 씨 이름이 처음부터 있었어요. 잉크가 오래돼 보여요.
-승우: 네… 제 글씨예요. 7 쓰는 방식이 같아요.
-(승우) 스물여섯. 입구에서 센 것도, 나까지 센 뒤 한 번 더 센 것도 이 칸 때문이었다.
-(승우) 나는 25번 안에도 있고 26번 칸에도 있다. 두 번 센 사람은 나뿐이다.
-@show seungwoo,weiho,ongaeng
-앙앵모르콩: 이것 봐요. 규칙 ④가 되려면 칸에 이름이 있어야 해요. 이름이 필요하다는 거예요.
-승우: 이름이 필요하면… 이름을 바꾸면 되죠.
-@show seungwoo,gaeul,jelly
-가을: 승우 씨, 위험할 수도 있어요. 점검자가 안 열면 문이 안 열릴지도 몰라요.
-대한제일젤리: 승우 씨 혼자 남는 건 싫다! 같이 나가자!
-승우: 가을 씨, 위험한 건 알아요. 근데 이 칸에 한 사람 이름만 쓰는 건 규칙이지 우리 약속이 아니에요.
+* 장부 첫 장. 이름 줄이 위에서 아래로 스물다섯. 3번과 4번만 비어 있다.
+* 맨 아래 스물여섯 번째 칸에는 승우의 서명. 그 위에 스티커. "지킴이(문을 여는 사람)".
+(승우) 스물여섯 번째 칸. 명찰함 앞에서 마음이 걸렸던 것도, 모집글 밑줄이 내 얘기 같았던 것도 이 칸 때문이었다.
+(승우) 나는 스물다섯 안에도 있고 이 칸에도 있다. 줄 끝에서 내가 있는지 물었던 것도 이 때문이었나 보다.
+가을: 승우 형, 위험할 수도 있어요. 지킴이 칸에 이름이 없으면 문이 안 열릴지도 몰라요.
+승우: 가을, 위험한 건 알아요. 근데 이 칸에 한 사람 이름만 쓰는 건 규칙이지 우리 약속이 아니에요.
 * 승우가 펜을 든다. 손이 흔들린다. 흔들림은 곧 멎는다.
 @sfx keys
-* 승우가 "점검자: 승우"를 한 줄 긋는다. 펜 소리가 마른다.
-승우: 점검자 이름은 지울게요. 그리고…
-* 승우가 그 자리에 천천히 적는다.
+* 승우가 "지킴이" 스티커에 줄을 한 번 긋는다. 펜 소리가 마른다. 아래의 "인솔·확인" 글자가 드러난다.
+승우: 지킴이는 지울게요. 그리고…
+* 승우가 그 옆에 천천히 적는다.
 승우: 스물다섯, 전원.
 @fx flicker
 @sfx chime
@@ -797,32 +1200,48 @@ weiho: 좋아요, 내가 먼저 볼게요! 틀리면 처음부터 다시 하면 
 신린: 다 맞았어.
 @else
 또꾸: 들켰네요, 신린 씨.
-신린: 승우야. 그 한 줄이 우리 둘이 제일 보고 싶던 거야.
 @end
-승우: 이 두 줄도 비어 있어요. 두 분 이름 적어 주세요. 참가자로요.
+신린: 승우야. 그 한 줄이 우리 둘이 제일 보고 싶던 거야.
+승우: …저 그렇게 믿음직한 사람 아닌데요. 맨날 짐만 들고 다니는데.
+@if hosts_exposed
+신린: 그게 믿음직한 거야. 아까 성적표 봤지. 마흔아홉 번.
+@else
+신린: 그게 믿음직한 거야. 몇 달 동안 클랜 채팅을 읽었어. 누가 제일 많이 "이 사람은 믿어도 돼" 소리를 듣는지. 전부 승우 이름이 나왔어.
+@end
+또꾸: 그래서 마지막 칸에 승우 이름을 쓰게 한 거야. 제일 믿는 사람이 문 앞에서 혼자 남는지, 같이 나가자고 하는지가 보고 싶었어.
+신린: 혼자 남겠다고 하면 우리가 지는 거였고, 같이 나가자고 하면 이기는 거였어. 속으로는 계속 이기길 바랐어.
+@show seungwoo,anjin,hallabong
+안진: …이기셨습니다. 아니, 저희가요. 아니, 승우 형이요.
+헤롱우: 그, 그러니까 승우 씨가 이긴 거예요? 다 같이 이긴 거예요?
+승우: 이긴 건 모르겠어요. 같이 나가고 싶었어요.
+@show seungwoo,ttokku,sinrin
+승우: 이 두 줄도 비어 있어요. 3번, 4번요. 두 분 이름 적어 주세요. 참가자로요.
 @sfx keys
-* 또꾸가 펜을 받아 "진행"을 긋고 이름을 적는다. 글씨가 삐뚤다.
+* 또꾸가 펜을 받아 3번 줄에 이름을 적는다. 글씨가 삐뚤다.
 또꾸: 이름 쓰는 거, 오랜만이다.
-* 신린도 받아서 적는다. 반듯한 글씨다. 한 글자씩, 천천히.
+* 신린도 받아서 4번 줄에 적는다. 반듯한 글씨다. 한 글자씩, 천천히.
 신린: 처음이야. 이 판에서 내 이름으로 쓰는 건.
+* 신린이 주머니에서 폰을 꺼낸다. "OPEN FINAL"에 엄지를 올린다.
+신린: 장부가 연 건 아니야. 문은 내 폰으로 여는 거야. 그래도 이 순간에 누르고 싶었어.
 @sfx door
 @fx flicker
 * 하얀 문이 안쪽에서 열린다. 빛이 한꺼번에 들어온다.
-@show seungwoo,gaeul,hallabong
-한라봉 갓: 열렸어! 진짜 열렸어!
-가을: 서두르지 마요. 한 줄로 나가요. 먼저 확인할 사람이 있어요.
-승우: 확인할게요. 나가기 전에 한 번만 더 셀게요.
-@sfx door
-@show seungwoo,sinrin,kater
-* 복도 끝 보관방 문이 열린다. 신린이 열쇠를 돌려 연 것이다. 사라졌던 사람들이 걸어 나온다.
-kater: 승우 씨, 여기예요. 나 괜찮아요. 수첩, 읽었죠?
-승우: 읽었어요. kater 형, 괜찮아요?
-* 보관방 안쪽에서 한 명씩 더 걸어 나온다. 이불 냄새가 복도로 밀려온다.
+@show seungwoo,gaeul,ugeoji
+두유쿠키로: 열렸다! 진짜 열렸어!
+가을: 서두르지 마요. 한 줄로 나가요. 먼저 올라올 사람들이 있어요.
+승우: 네. 아래에 계신 분들 올라오는 거 보고 나가요.
+@bg broadcast
+@show seungwoo,ttokku,kater
+@sfx keys
+* 또꾸가 왼쪽 양말에서 열쇠를 꺼낸다. 아무도 웃지 않는다. 주방 뒤 직원 전용 문이 열린다.
+* 계단 아래에서 발소리가 올라온다. 한 명이 아니다.
+kater: 승우야, 여기야. 나 괜찮아. 수첩 읽었지?
+승우: 읽었어요. kater 형, 다친 데 없어요?
+kater: 배고픈 것 빼고는. 얘기는 나가서 치킨 먹으면서 하자.
 @if !couple_ok
 @show seungwoo,hungry,pman
-허기허기: 포만포만. 포만포만이야. 우리 다 있어.
-포만포만: 응. 허기허기. 여기 있어. 약속했잖아.
-* 둘은 서로의 소매를 잡고 서 있다.
+허기허기: 포만포만. 신발 한 짝 돌려줄게. 나 계속 들고 있었어.
+포만포만: 응. 고마워. 약속했잖아, 같이 나간다고.
 @end
 @if gnyang_lost
 @show seungwoo,geunyang,yumi
@@ -831,34 +1250,41 @@ kater: 승우 씨, 여기예요. 나 괜찮아요. 수첩, 읽었죠?
 @end
 @if yumi_lost
 @show seungwoo,yumi,gaeul
-맛동산장인 유미: 제가 괜찮은 건가요. …아니, 질문이 틀렸네요. 그 말은 이제 안 할게요.
+맛동산장인 유미: 제가 괜찮은 건가요. 아니, 질문이 틀렸네요. 그 말은 이제 안 할게요.
 가을: 괜찮아요, 유미 형. 지금은 여기 있으면 돼요.
 * 가을이 유미의 가방끈을 대신 잡아 준다.
 @end
 @show seungwoo,snake,ugeoji
 뱀조련사: 진짜 있었구나. 고맙다.
 * 뱀조련사는 말없이 가장 가까운 사람의 짐을 받아 어깨에 멘다.
-우거지: 승우 씨, 미안. 의심한 거, 몰아세운 거. 사과할게.
+두유쿠키로: 승우, 미안. 의심한 거, 몰아세운 거. 사과할게.
 @show seungwoo,leivy,ttokku
-레이비: 저도. 뒤에서 투덜댄 거 미안해. 고마워, 진짜로.
+레이비: 저도 뒤에서 투덜댄 거 미안합니다. 고맙습니다.
 또꾸: 사과는 우리가 먼저 할 건데. 줄 서. 순서대로.
 @bg morning
 @show seungwoo,myeongtae,gaeul
 * 건물 밖. 아침 해. 안개가 걷히고 있다.
 * 일행은 한 줄로 서서 숲길로 내려온다. 승우는 가장 마지막에서 걸어 나온다.
-승우: 인원 확인할게요.
+승우: 다들 잘 내려왔는지 볼게요.
 간장맛명태소환사: 승우 씨, 잠깐만요.
 * 간장맛명태소환사가 자기 가방의 키링을 떼어 승우 가방에 단다.
 간장맛명태소환사: 이번엔 제가 세어 볼게요. 스물다섯.
-승우: 정말 스물다섯이에요?
+승우: 정말 다 있어요?
 간장맛명태소환사: 네. 한 사람씩, 천천히요. 승우 씨도 또꾸 씨도 신린 씨도 그 안에 있어요.
+@if c_tape
+@show seungwoo,ttokku,sinrin
+* 또꾸가 가방에서 작은 재생기를 꺼낸다. 양말이 먼저 딸려 나온다. 재생 버튼을 누른다.
+또꾸: (테이프) 이걸 듣고 있다면 다 같이 나온 거네. 수고했어. 진짜로.
+신린: (테이프) 사과는 직접 할게. 먼저 밥부터 먹자.
+신린: …이걸 진짜 틀게 될 줄은 몰랐네.
+@end
 @show seungwoo,taeyong,arin
 태용: 오전 여섯 시 사십 분. 다시 봐도 정확해.
 아린: 내려가다 슬리퍼 한 짝 잃어버렸어요. 스물다섯 명 중에 제 것만요.
 @bg white
 * 문 위 스피커는 이제 조용하다. 장부의 마지막 칸에 잉크가 마르고 있다.
 * "스물다섯, 전원."
-(승우) 숲길 흙냄새가 차다. 앞에서 뒤까지 뒤통수가 스물다섯. 이번엔 한 번만 센다.
+(승우) 숲길 흙냄새가 차다. 앞에서 뒤까지 뒤통수가 쭉 이어진다. 그 줄 끝에 나도 서 있다.
 @ending true|진실 — 스물다섯, 전원
 
 ## 엔딩 D
@@ -869,9 +1295,9 @@ kater: 승우 씨, 여기예요. 나 괜찮아요. 수첩, 읽었죠?
 * 승우가 장부 마지막 칸에 스물다섯 사람의 이름을 하나씩 적는다.
 * 이름을 쓸 때마다 한 사람씩 숨을 내쉰다.
 승우: 승우. 간장맛명태소환사. 또꾸. 신린. 허기허기. 포만포만…
-가을: 또꾸 씨랑 신린 씨 이름도 적는 거예요?
-승우: 인원 점검은 한 명도 안 빼는 일이에요. 두 분도 25번 안에 있어요.
-(승우) 펜이 종이를 긁는 소리만 들린다. 스물다섯 번째 이름까지 손이 멈추지 않았다.
+가을: 또꾸 형이랑 신린 형 이름도 적는 거예요?
+승우: 이 칸은 한 명도 안 빼고 쓰는 거예요. 두 분도 스물다섯 안에 있어요.
+(승우) 펜이 종이를 긁는 소리만 들린다. 마지막 이름까지 손이 멈추지 않았다.
 @show seungwoo,jelly,anjin
 대한제일젤리: 이름이 다 적히니까 장부가 따뜻한 느낌이야! 하하하!
 안진: 종이가 떨립니다. 판이 멈추는 겁니다.
@@ -880,27 +1306,28 @@ kater: 승우 씨, 여기예요. 나 괜찮아요. 수첩, 읽었죠?
 @show seungwoo,ttokku,sinrin
 @if hosts_exposed
 신린: 스물다섯 명 이름을 다 썼네. 순서도 안 틀리고.
+신린: 아까 말 못 한 이유, 이거야. 제일 믿는 사람이 같이 나가자고 해 주길 바랐어.
 @else
-또꾸: 들켰네요. 이름 적는 소리에서 들켰어요.
-신린: 승우야, 두 사람이라고 했지. 맞아. 우리도 이 안에 있어.
+또꾸: 들켰네요. 이름 적는 소리에서 들켰어요, 신린 씨.
+신린: 우리 둘 이름까지 넣었네, 승우야. 맞아. 우리도 이 안에 있어.
+신린: 방송은 내 폰으로 틀었어. 사라진 사람들은 지하에서 안전해. 여섯 시 반엔 어차피 열리고.
 @end
 또꾸: 한 명이 남아야 열린다는 건 처음부터 없는 규칙이야.
 신린: 그냥 열면 돼. 같이 걸어서.
 @sfx door
-* 하얀 문이 열린다. 새벽빛이 쏟아진다.
+* 신린이 폰에서 엄지를 뗀다. 하얀 문이 열린다. 새벽빛이 쏟아진다.
 @show seungwoo,mongip,weiho
-몰입겜: 기다려요! 이 층 끝에 보관방 있잖아요, kater 씨가 거기 있을 거예요!
-weiho: 같이 가요! 내가 앞장설게요. 혼자 기다리게 두면 안 되죠.
+브론즈장인 우르곳: 기다려. 이 층 아래에 보관방 있잖아. kater 씨가 거기 있을 거야. 엄.
+weiho: 같이 가요! 제가 앞장설게요. 혼자 기다리게 두면 안 되죠.
 @bg broadcast
-@show seungwoo,sinrin,kater
+@show seungwoo,ttokku,kater
 @sfx keys
-* 복도 끝 보관방 문. 신린이 열쇠를 꽂아 돌린다. 안에서 낮은 노크 소리.
-kater: 여기요. 문 열어 줘요. 한참 불렀더니 목이 쉬었네요.
-@sfx door
-* 문이 열린다. kater가 이불을 두른 채 걸어 나온다.
-kater: 올 줄 알았어요. 수첩 읽었죠? 그 한 줄이 내 마지막 부탁이었어요. 다들 무서웠을 텐데, 고생했어요.
+* 또꾸가 왼쪽 양말에서 열쇠를 꺼낸다. 주방 뒤 직원 전용 문이 열린다. 계단 아래에서 낮은 노크 소리.
+kater: 여기야. 한참 불렀더니 목이 쉬었어.
+* kater가 이불을 두른 채 계단을 올라온다.
+kater: 올 줄 알았어. 쪽지 읽었지? 다들 무서웠을 텐데 고생했어.
 승우: kater 형, 다친 데 없어요?
-kater: 난 괜찮아요. 배고픈 것 빼고는. 얘기는 나가서 치킨 먹으면서 해요.
+kater: 난 괜찮아. 배고픈 것 빼고는. 얘기는 나가서 치킨 먹으면서 하자.
 * 몇 명이 웃는다. 웃음이 복도에 오래 남는다.
 @if !couple_ok
 @show seungwoo,hungry,pman
@@ -922,9 +1349,9 @@ kater: 난 괜찮아요. 배고픈 것 빼고는. 얘기는 나가서 치킨 먹
 @show seungwoo,hallabong,ongaeng
 * 현관 홀에 현수막이 펼쳐져 있다. "다음 모임 참가비: 치킨 25마리 — 또꾸, 신린"
 앙앵모르콩: 이것 봐요. 참가비가 치킨 25마리래요.
-한라봉 갓: 뭐? 이게 지금 사과야, 농담이야? 아니면 협박이야?
+헤롱우: 이게 지금 사과예요, 농담이에요? 아니면 협박이에요?
 레이비: 제가 보기엔 셋 다입니다. 그래서 더 얄밉습니다. 그래도 치킨 25마리는 제가 낼 수 있습니다.
-* 한라봉 갓은 현수막을 접어 주머니에 넣는다.
+* 헤롱우는 현수막을 접어 주머니에 넣는다.
 @show seungwoo,ttokku,sinrin
 또꾸: 나눠 내요, 신린 씨. 반은 내가 낼게요.
 신린: 나는 나머지 반. 남은 건 사과로 갚을게.
@@ -934,8 +1361,11 @@ kater: 난 괜찮아요. 배고픈 것 빼고는. 얘기는 나가서 치킨 먹
 @bg morning
 @show seungwoo,myeongtae,gaeul
 * 아침. 스물다섯 명이 손을 잡고 한 줄로 건물을 나선다. 또꾸와 신린도 줄 가운데에 있다.
-간장맛명태소환사: 승우 씨, 이번엔 한 번만 세시면 돼요. 스물다섯.
-승우: 네. 한 번만 세겠습니다. 스물다섯. 전원 이상 없습니다.
+* 산길 아래에서 트럭이 올라오다 선다. 관리인이 창문을 내리고 줄을 한참 본다.
+관리인: 이벤트… 끝난 거예요?
+또꾸: 네. 잘 끝났어요. 점검은 안에서 하세요.
+간장맛명태소환사: 승우 씨, 이번엔 앞만 봐도 돼요. 다 같이 있어요. 스물다섯.
+승우: 네. 다 같이 있네요. …다행이에요.
 * 숲 위로 해가 오른다.
 (승우) 손바닥이 따뜻하다. 양옆에서 잡은 손이 둘 다 땀이 차 있다. 놓지 않았다.
 @fx blackout
@@ -958,10 +1388,10 @@ kater: 난 괜찮아요. 배고픈 것 빼고는. 얘기는 나가서 치킨 먹
 @show seungwoo,gaeul
 가을: 뭐라고요?
 신린: 방송을 튼 건 나야. 이 폰이야. 의자에 앉은 사람은 아무것도 안 했어.
-또꾸: 일어나요. 앉지 마요. 거긴 아무도 앉을 자리가 아니었어.
+또꾸: 일어나. 앉지 마. 거긴 아무도 앉을 자리가 아니었어.
 * 의자에 앉은 사람이 천천히 일어난다.
 @show seungwoo,hallabong,leivy
-한라봉 갓: 우리가 뭘 한 거야. 우린 방금…
+헤롱우: 우리가 뭘 한 거예요. 우린 방금…
 레이비: 말하지 마십시오. 지금은 아무 말 안 하는 게 낫습니다.
 @sfx door
 * 하얀 문이 안쪽에서 활짝 열린다. 아침 햇빛이 쏟아진다. 문밖 풀밭이 보인다.
@@ -983,8 +1413,13 @@ kater: 난 괜찮아요. 배고픈 것 빼고는. 얘기는 나가서 치킨 먹
 @show anjin
 안진: 정리하면 저는 아무것도 안 했습니다.
 @end
+@if wrong_parrot
+@show parrot,hallabong
+탑위치생각해요: 이번엔 진짜였는데요. 늘 억울하다고만 해서 못 믿으신 거죠.
+헤롱우: 알아요, 형. 미안해요. 저도 못 믿었어요.
+@end
 @show seungwoo
-승우: 스물다섯.
+승우: …미안해요. 정말로.
 * 대답하는 사람이 없다. 숲바람 소리만 오래 이어진다.
 (승우) 의자에 앉던 뒷모습이 눈에서 안 지워진다. 사과하러 돌아가면 줄이 또 한 번 갈라질 것 같다. 그래도 돌아가야 한다.
 @fx blackout

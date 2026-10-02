@@ -54,7 +54,7 @@ def advance(story, pc, V, clues, stats):
 
 def options(story, kind, pc, payload, V, clues):
     op = story['ops'][pc]
-    if kind == 'clue': return [True, False]
+    if kind == 'clue': return [True] if os.environ.get('SIM_ALLCLUE') else [True, False]
     if kind == 'choice':
         o = [('c', i) for i in payload]
         if op['to']: o.append(('timeout', 0))
@@ -95,7 +95,7 @@ def relevant(story):
             for h in d.get('hints', []):
                 cs(h['c']); rv.update(h.get('any', []))
             if d.get('refuse'): cs(d['refuse']['c'])
-            if d.get('hint'): cs(d['hint']['c'])
+            if isinstance(d.get('hint'), dict): cs(d['hint']['c'])
         if k == 'clue': ids.add(op['id'])
     return rv, ids
 
