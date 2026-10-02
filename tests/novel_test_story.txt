@@ -69,7 +69,7 @@
 @label t_vote
 @set can_refuse
 @add sus_yumi 2
-@puzzle vote {"title":"한 명을 고르세요","candidates":[{"id":"gnyang","name":"그냥혀","sus":"sus_gnyang"},{"id":"yumi","name":"감자깡장인 유미","sus":"sus_yumi"},{"id":"anjin","name":"안진"}],"refuse":{"label":"지목하지 않는다","show_if":"can_refuse"},"results":{"gnyang":"v_g","yumi":"v_y","anjin":"v_a","refuse":"v_r"}}
+@puzzle vote {"title":"한 명을 고르세요","candidates":[{"id":"gnyang","name":"그냥혀","sus":"sus_gnyang"},{"id":"yumi","name":"맛동산장인 유미","sus":"sus_yumi"},{"id":"anjin","name":"안진"}],"refuse":{"label":"지목하지 않는다","show_if":"can_refuse"},"results":{"gnyang":"v_g","yumi":"v_y","anjin":"v_a","refuse":"v_r"}}
 @label v_g
 @set voted_g
 @goto t_guide
@@ -85,7 +85,7 @@
 @label t_guide
 @puzzle guide {"title":"목소리 유도","viewpoint":"포만포만","timer_sec":6,"turns":[{"see":"앞 바닥이 단단하다.","options":["앞","왼쪽","오른쪽"],"answer":"앞","say_correct":"포만포만: 앞으로.","say_wrong":"포만포만: 아니야!"},{"see":"오른쪽에 흔적이 있다.","options":["앞","왼쪽","오른쪽"],"answer":"오른쪽","say_correct":"포만포만: 오른쪽.","say_wrong":"포만포만: 서!"}],"on_success":"@set p_guide; @goto t_cctv","on_fail":"@goto t_cctv"}
 @label t_cctv
-@puzzle cctv {"grid":25,"cells":["승우","간장맛명태소환사","또꾸","신린","허기허기","포만포만","감자깡장인 유미","아린","용맹한다람쥐","우거지","레이비","몰입겜","우선즐겨","대한제일젤리","한라봉 갓","태용","뱀조련사","가을","안진","앙앵모르콩","weiho","예리야","망앵무","그냥혀","kater"],"extra_empty_cell":"26번째 칸(비어 있음)","order":["kater","허기허기","포만포만"],"hint_if_clues>=3":"순서 힌트","on_success":"@set p_cctv; @goto t_odd","on_fail":"@goto t_odd"}
+@puzzle cctv {"grid":25,"cells":["승우","간장맛명태소환사","또꾸","신린","허기허기","포만포만","맛동산장인 유미","아린","용맹한다람쥐","우거지","레이비","몰입겜","우선즐겨","대한제일젤리","한라봉 갓","태용","뱀조련사","가을","안진","앙앵모르콩","weiho","예리야","망앵무","그냥혀","kater"],"extra_empty_cell":"26번째 칸(비어 있음)","order":["kater","허기허기","포만포만"],"hint_if_clues>=3":"순서 힌트","on_success":"@set p_cctv; @goto t_odd","on_fail":"@goto t_odd"}
 @label t_odd
 @puzzle cctv {"rounds":2,"lives":3,"on_success":"@set p_odd; @goto t_end","on_fail":"@goto t_end"}
 @label t_end
