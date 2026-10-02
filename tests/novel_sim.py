@@ -65,7 +65,7 @@ def options(story, kind, pc, payload, V, clues):
             r = [('v', i) for i in range(len(d['cands']))]
             if d.get('refuse') and ev(d['refuse']['c'], V, clues): r.append(('v', len(d['cands'])))
             return r
-        return [('p', 'ok'), ('p', 'fail')]
+        return [('p', 'ok'), ('p', 'fail')] if 'fail' in d else [('p', 'ok')]
 
 def apply(story, kind, pc, payload, dec, V, clues):
     ops = story['ops']; lab = story['labels']; op = ops[pc]
