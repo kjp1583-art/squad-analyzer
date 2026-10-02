@@ -577,6 +577,7 @@ def main():
     if a.check: return 0
     html = open(a.out, encoding='utf-8').read()
     b, e = '/*STORY:BEGIN*/', '/*STORY:END*/'
+    if html.count(b) != 1 or html.count(e) != 1: print('%s 에 STORY 표식이 정확히 한 번씩 있어야 함(지금 %d/%d)' % (a.out, html.count(b), html.count(e))); return 1
     i, j = html.find(b), html.find(e)
     if i < 0 or j < 0: print('%s 에 STORY 표식이 없음' % a.out); return 1
     html = html[:i + len(b)] + '\n' + render_js(story) + '\n' + html[j:]

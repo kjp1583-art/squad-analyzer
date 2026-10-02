@@ -12,7 +12,240 @@
  이 이야기는 전부 허구이며 실제 인물·단체와 관계없습니다. 등장인물은 전부 가상의 알리아스입니다.
 
  [원고 → 이 페이지]  시나리오는 data/novel/ch/ch_*.txt (없으면 data/novel/fallback_short.txt) 에 있다.
-   고친 뒤  python3 tooling/novel_build.py  를 돌리면 아래 /*STORY:BEGIN*/
+   고친 뒤  python3 tooling/novel_build.py  를 돌리면 아래 STORY 시작·끝 표식 사이(const STORY)가 다시 만들어진다.
+   (줄 형식·퍼즐 json 은 tooling/novel_build.py 맨 위 설명 참고. 표식 사이는 손으로 고쳐도 되지만 다음 변환 때 덮어 쓴다.)
+ [그림]  img/novel/bg_<배경id>.webp , ch_<캐릭터id>.webp(놀란 얼굴은 ch_<id>_f.webp) 가 있으면 쓰고, 없으면 그라디언트·동그라미로 대신한다.
+ [저장]  장 시작마다 자동 저장 + 마지막 위치 이어하기 + 슬롯 3칸. 장 선택은 지난 장만. 읽은 대사는 따로 기억해 '건너뛰기'는 읽은 대사만 넘긴다.
+ [접근성] 번쩍임은 초당 2회 이하·2초 남짓. '움직임 줄이기'는 OS 설정을 따르고 설정에서도 켠다(흔들림·명멸·타자기·맥동 끔).
+          선택 제한시간·퍼즐 타이머는 설정에서 끌 수 있고, 퍼즐은 2번 틀리면 '넘어가기'가 나온다(설정에서 끌 수 있음).
+ [테스트] ?fast=1 이면 모든 대기·타자기를 줄인다(자동 테스트용). window.__novel 에 테스트용 손잡이가 있다.
+==========================================================================
+-->
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#05060a;color:#e8e6ea;overflow:hidden;
+  font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+#app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#020306}
+#stage{position:relative;width:min(100vw,960px);height:100vh;height:100dvh;max-height:720px;overflow:hidden;background:#000;
+  user-select:none;-webkit-user-select:none;box-shadow:0 0 60px #000}
+@media (max-width:600px){#stage{max-height:none}}
+.layer{position:absolute;inset:0}
+.bg{background-size:cover;background-position:center;opacity:0;transition:opacity 1s}
+.bg.on{opacity:1}
+#vig{pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.65) 100%)}
+#chars{position:absolute;left:0;right:0;top:9%;bottom:33%;display:flex;justify-content:center;align-items:flex-end;gap:2%;pointer-events:none}
+.ch{flex:0 1 32%;height:100%;display:flex;align-items:flex-end;justify-content:center;transition:filter .4s,opacity .4s,transform .4s,flex-basis .4s,max-width .4s;filter:brightness(.4);opacity:.75}
+.ch.on{filter:none;opacity:1;transform:translateY(-1%)}
+.ch img{max-width:100%;max-height:100%;object-fit:contain}
+.ch .sil{width:min(30vw,150px);aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:min(14vw,64px);font-weight:700;color:#fff;border:2px solid rgba(255,255,255,.25);margin-bottom:6%}
+#props{position:absolute;inset:0;pointer-events:none}
+.prop{position:absolute;pointer-events:auto;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;
+  border:2px solid #f0c060;background:rgba(240,192,96,.15);font-size:28px;display:flex;align-items:center;justify-content:center;
+  animation:glow 1.6s ease-in-out infinite;z-index:5}
+.prop small{position:absolute;top:100%;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:#f0c060;margin-top:2px}
+@keyframes glow{0%,100%{box-shadow:0 0 6px #f0c06088}50%{box-shadow:0 0 22px #f0c060}}
+#fxBlack{background:#000;opacity:0;transition:opacity .8s;pointer-events:none;z-index:5}
+#fxBlack.on{opacity:1}
+#fxWhite{background:#f4f1ea;opacity:0;transition:opacity .6s;pointer-events:none;z-index:2}
+#fxWhite.on{opacity:1}
+#fxFlick{background:#000;opacity:0;pointer-events:none;z-index:4}
+#fxFlick.on{animation:flick 1.25s steps(1) infinite}
+@keyframes flick{0%{opacity:0}30%{opacity:.55}45%{opacity:.1}70%{opacity:.7}100%{opacity:0}}
+#stage.shake{animation:shake .5s linear 2}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,2px)}50%{transform:translate(3px,-3px)}75%{transform:translate(-2px,3px)}}
+.rm #fxFlick.on{animation:none;opacity:.35}
+.rm #stage.shake{animation:none}
+.rm .prop{animation:none}
+.rm *{transition-duration:.01s!important}
+#chars[data-n="4"] .ch{flex-basis:24%}
+.ch.in{opacity:0}
+.ch.out{opacity:0;flex-basis:0;max-width:0}
+#tlab{text-align:center;font-size:12px;color:#9a95a4;margin-top:4px;min-height:16px}
+/* HUD */
+#hud{position:absolute;top:0;left:0;right:0;padding:max(8px,env(safe-area-inset-top)) 8px 0;display:flex;gap:4px;align-items:center;z-index:12;pointer-events:none}
+#hud>*{pointer-events:auto}
+#bNote{margin-right:auto;color:#f0c060;border-color:rgba(240,192,96,.5)}
+#bNote.pulse{animation:glow 1.6s ease-in-out infinite}
+.hb{white-space:nowrap;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);border-radius:14px;min-height:32px;padding:3px 7px;font-size:12px}
+.hb.on{background:#7a1f2b;border-color:#c0394a}
+.hb:focus-visible,.m:focus-visible,.cbtn:focus-visible,.pk:focus-visible,.key:focus-visible,.cc:focus-visible,.prop:focus-visible,.vc:focus-visible,.dir:focus-visible,.slot:focus-visible,.back:focus-visible{outline:2px solid #f0c060;outline-offset:2px}
+/* textbox */
+#tb{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:0 10px max(10px,env(safe-area-inset-bottom));min-height:30%}
+#name{display:inline-block;min-height:26px;padding:3px 14px;margin:0 0 -1px 8px;border-radius:8px 8px 0 0;font-weight:700;font-size:15px;background:#222;border:1px solid rgba(255,255,255,.3);border-bottom:0}
+#name:empty{visibility:hidden}
+#box{background:rgba(6,8,14,.9);border:1px solid rgba(255,255,255,.28);border-radius:10px;padding:14px 16px 26px;min-height:112px;font-size:17px;line-height:1.7;position:relative;word-break:keep-all;overflow-wrap:anywhere}
+#box.narr{font-style:italic;color:#c9c6cf}
+#box.tho{font-style:italic;color:#aeb8d8}
+#more{position:absolute;right:12px;bottom:6px;font-size:12px;opacity:.7}
+#more.blink{animation:bl 1.2s steps(2) infinite}
+.rm #more.blink{animation:none}
+@keyframes bl{50%{opacity:.1}}
+@media (min-width:700px){#box{font-size:19px;min-height:128px}#tb{padding-left:6%;padding-right:6%}}
+/* choices */
+#choices{position:absolute;left:0;right:0;top:0;bottom:0;z-index:7;display:none;flex-direction:column;justify-content:center;gap:10px;padding:48px 6% 12px;background:rgba(0,0,0,.5);overflow-y:auto}
+#choices.on{display:flex}
+#cl{display:flex;flex-direction:column;gap:10px}
+#cq{text-align:center;font-size:15px;color:#cfcad6;margin-bottom:4px}
+.cbtn{background:rgba(10,12,20,.94);border:1px solid #8c8498;border-radius:10px;padding:14px 14px;text-align:left;font-size:16px;line-height:1.5;min-height:48px;word-break:keep-all}
+.cbtn:hover{border-color:#f0c060}
+.cbtn.true{border-color:#f0c060;color:#f0c060}
+#timer{height:6px;background:#222;border-radius:3px;overflow:hidden;margin-top:6px}
+#timer i{display:block;height:100%;width:100%;background:#c0394a;transform-origin:left}
+/* overlays */
+.ov{position:absolute;inset:0;z-index:20;background:rgba(3,4,8,.97);display:none;flex-direction:column;align-items:center;padding:56px 16px 24px;overflow-y:auto;text-align:center}
+.ov::before{content:"";margin-top:auto}.ov::after{content:"";margin-bottom:auto}
+.ov.on{display:flex}
+.ov h1{font-size:clamp(34px,10vw,56px);letter-spacing:.3em;margin:0 0 6px;color:#e8d8d8;text-shadow:0 0 18px #7a1f2b;font-weight:900}
+.ov h2{margin:0 0 14px;font-size:20px}
+.ov .sub{color:#9a95a4;font-size:13px;margin:0 0 22px;max-width:320px;line-height:1.6}
+.ov .m{display:block;width:min(280px,84vw);margin:5px auto;padding:12px;background:#14161e;border:1px solid #5a5666;border-radius:10px;font-size:16px;min-height:46px}
+.ov .m:hover{border-color:#f0c060}
+.ov .m[disabled]{opacity:.35;cursor:default}
+.ov .back{margin-top:14px;background:none;border:0;color:#9a95a4;text-decoration:underline;min-height:44px;padding:0 16px}
+.set{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(320px,88vw);margin:6px 0;font-size:15px;text-align:left}
+.set button{min-width:64px}
+.stat{font-size:12px;color:#6f6a7a;margin-top:10px}
+#log{width:min(560px,100%);text-align:left;max-height:72vh;overflow-y:auto;font-size:15px;line-height:1.6}
+#log p{margin:0 0 10px}#log b{color:#f0c060}#log .chl{color:#8a8494;font-size:12px}
+.list{display:grid;gap:10px;width:min(440px,100%)}
+.gcard,.slot,.cnote{border:1px solid #444;border-radius:10px;padding:12px;text-align:left;background:#0f1118;color:#e8e6ea;font-size:14px;line-height:1.5;word-break:keep-all}
+.slot{cursor:pointer;min-height:56px;width:100%}.slot:hover{border-color:#f0c060}
+.slot[disabled]{opacity:.4;cursor:default}
+.slot small{display:block;color:#8a8494;font-size:12px}
+.gcard.lock,.cnote.lock{opacity:.45}
+.gcard b,.slot b,.cnote b{display:block;margin-bottom:3px}
+.cnote.got{border-color:#f0c06088}
+.cnote .ic{float:left;font-size:22px;margin-right:10px;line-height:1.2}
+#ovNote .hint{font-size:12px;color:#f0c060;margin:0 0 10px;min-height:16px}
+#chap{position:absolute;inset:0;z-index:15;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;opacity:0;transition:opacity .7s;pointer-events:none;padding:0 16px;text-align:center}
+#chap.on{display:flex;opacity:1}
+#chap span{font-size:13px;letter-spacing:.4em;color:#8a8494}
+#chap b{font-size:clamp(24px,7vw,40px);margin-top:10px;font-weight:700;word-break:keep-all}
+#endcard{z-index:19}
+#endcard h2{font-size:clamp(24px,7vw,36px);margin:0 0 6px;word-break:keep-all}
+#toast{position:absolute;left:50%;top:48px;transform:translateX(-50%);z-index:30;max-width:92%;background:#222;border:1px solid #f0c060;border-radius:10px;padding:6px 12px;font-size:13px;display:none;text-align:center;word-break:keep-all;pointer-events:none}
+/* 퍼즐 */
+#puz{position:absolute;inset:0;z-index:8;display:none;flex-direction:column;align-items:center;background:rgba(3,4,8,.94);padding:50px 14px 14px;overflow-y:auto}
+#puz.on{display:flex}
+#puz::before{content:"";margin-top:auto}#puz::after{content:"";margin-bottom:auto}
+.pzq{font-size:16px;line-height:1.6;text-align:center;margin:0 0 6px;max-width:520px;word-break:keep-all}
+.pzs{font-size:13px;color:#9a95a4;margin:0 0 10px;text-align:center;min-height:19px;max-width:520px;word-break:keep-all}
+.pzs.bad{color:#e0707e}.pzs.good{color:#8fd19e}
+.pzbar{height:5px;width:min(420px,100%);background:#222;border-radius:3px;overflow:hidden;margin:0 0 10px}
+.pzbar i{display:block;height:100%;width:100%;background:#c0394a;transform-origin:left}
+.pzgrid{display:grid;gap:8px;width:min(520px,100%);grid-template-columns:repeat(2,1fr)}
+@media (min-width:640px){.pzgrid.p3{grid-template-columns:repeat(3,1fr)}}
+.pk{background:#12141c;border:2px solid #4a4658;border-radius:10px;padding:10px 8px;min-height:64px;font-size:15px;line-height:1.4;text-align:center;word-break:keep-all}
+.pk small{display:block;font-size:11px;color:#8a8494;margin-top:2px}
+.pk[aria-pressed=true]{border-color:#f0c060;background:#2a2412;color:#ffe9b0}
+.pk[aria-pressed=true]::before{content:"✔ "}
+.pzact{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center}
+.pzbtn{background:#1c2030;border:1px solid #6a6678;border-radius:10px;padding:11px 18px;min-height:46px;font-size:15px}
+.pzbtn.go{border-color:#f0c060;color:#f0c060}
+.pzbtn[disabled]{opacity:.35;cursor:default}
+.pzbtn:focus-visible{outline:2px solid #f0c060;outline-offset:2px}
+.codeslots{display:flex;gap:8px;margin:2px 0 10px}
+.codeslots span{width:46px;height:56px;border:2px solid #6a6678;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;background:#0c0e14}
+.codeslots span.cur{border-color:#f0c060}
+.keys{display:grid;grid-template-columns:repeat(3,64px);gap:8px;justify-content:center}
+.key{height:54px;background:#161926;border:1px solid #5a5666;border-radius:10px;font-size:22px;font-weight:700}
+.key.sm{font-size:15px}
+.hints{width:min(420px,100%);margin:0 0 10px;font-size:13px;line-height:1.6;color:#c9c0a0;border-left:3px solid #f0c06088;padding-left:10px;text-align:left;word-break:keep-all}
+.vgrid{display:grid;gap:8px;width:min(560px,100%);grid-template-columns:repeat(2,1fr)}
+@media (min-width:640px){.vgrid{grid-template-columns:repeat(4,1fr)}}
+.vc{background:#12141c;border:2px solid #4a4658;border-radius:10px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:132px;font-size:14px;word-break:keep-all}
+.vc .face{width:64px;height:64px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;border:2px solid rgba(255,255,255,.25);flex:none}
+.vc .face img{width:100%;height:100%;object-fit:cover;object-position:top}
+.vc small{font-size:11px;color:#8a8494;line-height:1.3}
+.vc[aria-pressed=true]{border-color:#f0c060;background:#2a2412}
+.vc.ref{min-height:56px;justify-content:center;border-style:dashed;grid-column:1/-1;flex-direction:row}
+.voice{background:#10141d;border:1px solid #3a4560;border-radius:12px;padding:14px 16px;margin:0 0 12px;width:min(480px,100%);font-size:16px;line-height:1.7;text-align:center;word-break:keep-all}
+.voice b{display:block;font-size:12px;color:#8a98c0;margin-bottom:4px}
+.dots{display:flex;gap:6px;margin:0 0 10px}.dots i{width:12px;height:12px;border-radius:50%;border:2px solid #6a6678}.dots i.done{background:#8fd19e;border-color:#8fd19e}.dots i.now{border-color:#f0c060}
+.dirs{display:flex;gap:8px;width:min(480px,100%)}
+.dir{flex:1;min-height:76px;background:#161926;border:2px solid #5a5666;border-radius:12px;font-size:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.dir em{font-style:normal;font-size:26px}
+.dir:hover{border-color:#f0c060}
+.cgrid{display:grid;gap:5px;grid-template-columns:repeat(5,1fr);width:min(420px,100%)}
+.cc{aspect-ratio:1;min-height:48px;background:#0b1410;border:1px solid #2c4a3a;border-radius:6px;color:#9fe0b0;font-size:clamp(20px,6.5vw,30px);display:flex;align-items:center;justify-content:center;position:relative;padding:2px;line-height:1.1;word-break:keep-all;overflow-wrap:anywhere}
+.cc.nm{font-size:10.5px;aspect-ratio:auto;min-height:54px}
+.cc small{position:absolute;left:3px;top:1px;font-size:8px;color:#4a7a5a}
+.cc b{position:absolute;right:3px;top:1px;font-size:11px;color:#f0c060}
+.cc.miss{border-color:#c0394a;background:#241014}
+.cc.hit{border-color:#8fd19e;background:#10241a}
+.cc.extra{grid-column:1/-1;aspect-ratio:auto;min-height:40px;border-style:dashed;color:#5a7a68;font-size:12px}
+.cc:disabled{cursor:default}
+.rm .prop,.rm #bNote.pulse{animation:none}
+.rm .pzbar i,.rm #timer i{transition:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+ <div id="stage">
+  <div class="layer bg" id="bgA"></div><div class="layer bg" id="bgB"></div>
+  <div class="layer" id="fxWhite"></div>
+  <div class="layer" id="vig"></div>
+  <div id="chars"></div>
+  <div id="props"></div>
+  <div class="layer" id="fxFlick"></div>
+  <div class="layer" id="fxBlack"></div>
+  <div id="hud">
+   <button class="hb" id="bNote" aria-label="단서 수첩 열기">📓 0/12</button>
+   <button class="hb" id="bAuto" aria-pressed="false">AUTO</button><button class="hb" id="bSkip" aria-pressed="false" title="읽은 대사만 넘깁니다">SKIP</button>
+   <button class="hb" id="bLog">기록</button><button class="hb" id="bMute" aria-label="소리">🔊</button><button class="hb" id="bMenu">메뉴</button>
+  </div>
+  <div id="tb"><div id="name"></div><div id="box"><span id="txt"></span><span id="more">▼</span></div></div>
+  <div id="choices"><div id="cq"></div><div id="cl"></div><div id="timer"><i></i></div><div id="tlab"></div></div>
+  <div id="puz" role="dialog" aria-modal="true"><div id="pzBody" style="width:100%;display:flex;flex-direction:column;align-items:center"></div></div>
+  <div id="chap"><span id="chapN"></span><b id="chapT"></b></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <div class="ov on" id="ovTitle">
+   <h1>스콰드</h1>
+   <p class="sub">이 이야기는 전부 허구이며 실제 인물·단체와 관계없습니다.<br>소리가 납니다. 이어폰을 권합니다.<br>한 시간쯤 걸리는 이야기이고, 언제든 저장할 수 있습니다.</p>
+   <button class="m" id="tCont">이어하기</button>
+   <button class="m" id="tNew">처음부터</button>
+   <button class="m" id="tChap">장 선택</button>
+   <button class="m" id="tLoad">슬롯에서 불러오기</button>
+   <button class="m" id="tGal">엔딩 보기</button>
+   <button class="m" id="tSet">설정</button>
+   <div class="stat" id="tStat"></div>
+  </div>
+  <div class="ov" id="ovMenu">
+   <h2>메뉴</h2>
+   <p class="sub" id="mInfo" style="margin-bottom:12px"></p>
+   <button class="m" id="mSave">슬롯에 저장</button>
+   <button class="m" id="mLoad">슬롯에서 불러오기</button>
+   <button class="m" id="mChap">장 선택</button>
+   <button class="m" id="mNote">단서 수첩</button>
+   <button class="m" id="mSet">설정</button>
+   <button class="m" id="mTitle">타이틀로</button>
+   <button class="back" data-close>닫기</button>
+  </div>
+  <div class="ov" id="ovSet">
+   <h2>설정</h2>
+   <div class="set">움직임 줄이기 <button class="hb" id="sRm"></button></div>
+   <div class="set">제한시간(선택·퍼즐) <button class="hb" id="sTimer"></button></div>
+   <div class="set">퍼즐 넘어가기(2번 틀리면) <button class="hb" id="sAssist"></button></div>
+   <div class="set">글자 속도 <button class="hb" id="sSpeed"></button></div>
+   <div class="set">소리 <button class="hb" id="sMute"></button></div>
+   <button class="back" data-close>닫기</button>
+  </div>
+  <div class="ov" id="ovLog"><h2>지난 대사</h2><div id="log"></div><button class="back" data-close>닫기</button></div>
+  <div class="ov" id="ovNote"><h2 id="nT">수첩</h2><p class="hint" id="nHint"></p><div class="list" id="nList"></div><button class="back" data-close>닫기</button></div>
+  <div class="ov" id="ovGal"><h2 id="gT">엔딩 보기</h2><p class="sub" id="gHint"></p><div class="list" id="gal"></div><button class="back" data-close>닫기</button></div>
+  <div class="ov" id="ovSlots"><h2 id="slT"></h2><div class="list" id="slList"></div><button class="back" data-close>닫기</button></div>
+  <div class="ov" id="ovChap"><h2>장 선택</h2><p class="sub" id="chHint"></p><div class="list" id="chList"></div><button class="back" data-close>닫기</button></div>
+  <div class="ov" id="endcard"><h2 id="eT"></h2><p class="sub" id="eS"></p><button class="m" id="eGal">엔딩 보기</button><button class="m" id="eBack">타이틀로</button></div>
+ </div>
+</div>
+
+<script>
+"use strict";
+/* ===================== 데이터 ===================== */
+/*STORY:BEGIN*/
 const STORY={
  v:2,
  meta:{"lines": 1415, "puzzles": ["vote", "guide", "code", "code", "vote", "cctv", "pick3"], "chapters": 18},
@@ -2216,241 +2449,6 @@ const STORY={
   {"o":"end","id":"E","t":"배신 — 스물넷"},
  ]
 };
-/*STORY:END*/ 사이(const STORY)가 다시 만들어진다.
-   (줄 형식·퍼즐 json 은 tooling/novel_build.py 맨 위 설명 참고. 표식 사이는 손으로 고쳐도 되지만 다음 변환 때 덮어 쓴다.)
- [그림]  img/novel/bg_<배경id>.webp , ch_<캐릭터id>.webp(놀란 얼굴은 ch_<id>_f.webp) 가 있으면 쓰고, 없으면 그라디언트·동그라미로 대신한다.
- [저장]  장 시작마다 자동 저장 + 마지막 위치 이어하기 + 슬롯 3칸. 장 선택은 지난 장만. 읽은 대사는 따로 기억해 '건너뛰기'는 읽은 대사만 넘긴다.
- [접근성] 번쩍임은 초당 2회 이하·2초 남짓. '움직임 줄이기'는 OS 설정을 따르고 설정에서도 켠다(흔들림·명멸·타자기·맥동 끔).
-          선택 제한시간·퍼즐 타이머는 설정에서 끌 수 있고, 퍼즐은 2번 틀리면 '넘어가기'가 나온다(설정에서 끌 수 있음).
- [테스트] ?fast=1 이면 모든 대기·타자기를 줄인다(자동 테스트용). window.__novel 에 테스트용 손잡이가 있다.
-==========================================================================
--->
-<style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:#05060a;color:#e8e6ea;overflow:hidden;
-  font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
-button{font:inherit;color:inherit;cursor:pointer}
-#app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#020306}
-#stage{position:relative;width:min(100vw,960px);height:100vh;height:100dvh;max-height:720px;overflow:hidden;background:#000;
-  user-select:none;-webkit-user-select:none;box-shadow:0 0 60px #000}
-@media (max-width:600px){#stage{max-height:none}}
-.layer{position:absolute;inset:0}
-.bg{background-size:cover;background-position:center;opacity:0;transition:opacity 1s}
-.bg.on{opacity:1}
-#vig{pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.65) 100%)}
-#chars{position:absolute;left:0;right:0;top:9%;bottom:33%;display:flex;justify-content:center;align-items:flex-end;gap:2%;pointer-events:none}
-.ch{flex:0 1 32%;height:100%;display:flex;align-items:flex-end;justify-content:center;transition:filter .4s,opacity .4s,transform .4s,flex-basis .4s,max-width .4s;filter:brightness(.4);opacity:.75}
-.ch.on{filter:none;opacity:1;transform:translateY(-1%)}
-.ch img{max-width:100%;max-height:100%;object-fit:contain}
-.ch .sil{width:min(30vw,150px);aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-size:min(14vw,64px);font-weight:700;color:#fff;border:2px solid rgba(255,255,255,.25);margin-bottom:6%}
-#props{position:absolute;inset:0;pointer-events:none}
-.prop{position:absolute;pointer-events:auto;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;
-  border:2px solid #f0c060;background:rgba(240,192,96,.15);font-size:28px;display:flex;align-items:center;justify-content:center;
-  animation:glow 1.6s ease-in-out infinite;z-index:5}
-.prop small{position:absolute;top:100%;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:#f0c060;margin-top:2px}
-@keyframes glow{0%,100%{box-shadow:0 0 6px #f0c06088}50%{box-shadow:0 0 22px #f0c060}}
-#fxBlack{background:#000;opacity:0;transition:opacity .8s;pointer-events:none;z-index:5}
-#fxBlack.on{opacity:1}
-#fxWhite{background:#f4f1ea;opacity:0;transition:opacity .6s;pointer-events:none;z-index:2}
-#fxWhite.on{opacity:1}
-#fxFlick{background:#000;opacity:0;pointer-events:none;z-index:4}
-#fxFlick.on{animation:flick 1.25s steps(1) infinite}
-@keyframes flick{0%{opacity:0}30%{opacity:.55}45%{opacity:.1}70%{opacity:.7}100%{opacity:0}}
-#stage.shake{animation:shake .5s linear 2}
-@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,2px)}50%{transform:translate(3px,-3px)}75%{transform:translate(-2px,3px)}}
-.rm #fxFlick.on{animation:none;opacity:.35}
-.rm #stage.shake{animation:none}
-.rm .prop{animation:none}
-.rm *{transition-duration:.01s!important}
-#chars[data-n="4"] .ch{flex-basis:24%}
-.ch.in{opacity:0}
-.ch.out{opacity:0;flex-basis:0;max-width:0}
-#tlab{text-align:center;font-size:12px;color:#9a95a4;margin-top:4px;min-height:16px}
-/* HUD */
-#hud{position:absolute;top:0;left:0;right:0;padding:max(8px,env(safe-area-inset-top)) 8px 0;display:flex;gap:4px;align-items:center;z-index:12;pointer-events:none}
-#hud>*{pointer-events:auto}
-#bNote{margin-right:auto;color:#f0c060;border-color:rgba(240,192,96,.5)}
-#bNote.pulse{animation:glow 1.6s ease-in-out infinite}
-.hb{white-space:nowrap;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);border-radius:14px;min-height:32px;padding:3px 7px;font-size:12px}
-.hb.on{background:#7a1f2b;border-color:#c0394a}
-.hb:focus-visible,.m:focus-visible,.cbtn:focus-visible,.pk:focus-visible,.key:focus-visible,.cc:focus-visible,.prop:focus-visible,.vc:focus-visible,.dir:focus-visible,.slot:focus-visible,.back:focus-visible{outline:2px solid #f0c060;outline-offset:2px}
-/* textbox */
-#tb{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:0 10px max(10px,env(safe-area-inset-bottom));min-height:30%}
-#name{display:inline-block;min-height:26px;padding:3px 14px;margin:0 0 -1px 8px;border-radius:8px 8px 0 0;font-weight:700;font-size:15px;background:#222;border:1px solid rgba(255,255,255,.3);border-bottom:0}
-#name:empty{visibility:hidden}
-#box{background:rgba(6,8,14,.9);border:1px solid rgba(255,255,255,.28);border-radius:10px;padding:14px 16px 26px;min-height:112px;font-size:17px;line-height:1.7;position:relative;word-break:keep-all;overflow-wrap:anywhere}
-#box.narr{font-style:italic;color:#c9c6cf}
-#box.tho{font-style:italic;color:#aeb8d8}
-#more{position:absolute;right:12px;bottom:6px;font-size:12px;opacity:.7}
-#more.blink{animation:bl 1.2s steps(2) infinite}
-.rm #more.blink{animation:none}
-@keyframes bl{50%{opacity:.1}}
-@media (min-width:700px){#box{font-size:19px;min-height:128px}#tb{padding-left:6%;padding-right:6%}}
-/* choices */
-#choices{position:absolute;left:0;right:0;top:0;bottom:0;z-index:7;display:none;flex-direction:column;justify-content:center;gap:10px;padding:48px 6% 12px;background:rgba(0,0,0,.5);overflow-y:auto}
-#choices.on{display:flex}
-#cl{display:flex;flex-direction:column;gap:10px}
-#cq{text-align:center;font-size:15px;color:#cfcad6;margin-bottom:4px}
-.cbtn{background:rgba(10,12,20,.94);border:1px solid #8c8498;border-radius:10px;padding:14px 14px;text-align:left;font-size:16px;line-height:1.5;min-height:48px;word-break:keep-all}
-.cbtn:hover{border-color:#f0c060}
-.cbtn.true{border-color:#f0c060;color:#f0c060}
-#timer{height:6px;background:#222;border-radius:3px;overflow:hidden;margin-top:6px}
-#timer i{display:block;height:100%;width:100%;background:#c0394a;transform-origin:left}
-/* overlays */
-.ov{position:absolute;inset:0;z-index:20;background:rgba(3,4,8,.97);display:none;flex-direction:column;align-items:center;padding:56px 16px 24px;overflow-y:auto;text-align:center}
-.ov::before{content:"";margin-top:auto}.ov::after{content:"";margin-bottom:auto}
-.ov.on{display:flex}
-.ov h1{font-size:clamp(34px,10vw,56px);letter-spacing:.3em;margin:0 0 6px;color:#e8d8d8;text-shadow:0 0 18px #7a1f2b;font-weight:900}
-.ov h2{margin:0 0 14px;font-size:20px}
-.ov .sub{color:#9a95a4;font-size:13px;margin:0 0 22px;max-width:320px;line-height:1.6}
-.ov .m{display:block;width:min(280px,84vw);margin:5px auto;padding:12px;background:#14161e;border:1px solid #5a5666;border-radius:10px;font-size:16px;min-height:46px}
-.ov .m:hover{border-color:#f0c060}
-.ov .m[disabled]{opacity:.35;cursor:default}
-.ov .back{margin-top:14px;background:none;border:0;color:#9a95a4;text-decoration:underline;min-height:44px;padding:0 16px}
-.set{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(320px,88vw);margin:6px 0;font-size:15px;text-align:left}
-.set button{min-width:64px}
-.stat{font-size:12px;color:#6f6a7a;margin-top:10px}
-#log{width:min(560px,100%);text-align:left;max-height:72vh;overflow-y:auto;font-size:15px;line-height:1.6}
-#log p{margin:0 0 10px}#log b{color:#f0c060}#log .chl{color:#8a8494;font-size:12px}
-.list{display:grid;gap:10px;width:min(440px,100%)}
-.gcard,.slot,.cnote{border:1px solid #444;border-radius:10px;padding:12px;text-align:left;background:#0f1118;color:#e8e6ea;font-size:14px;line-height:1.5;word-break:keep-all}
-.slot{cursor:pointer;min-height:56px;width:100%}.slot:hover{border-color:#f0c060}
-.slot[disabled]{opacity:.4;cursor:default}
-.slot small{display:block;color:#8a8494;font-size:12px}
-.gcard.lock,.cnote.lock{opacity:.45}
-.gcard b,.slot b,.cnote b{display:block;margin-bottom:3px}
-.cnote.got{border-color:#f0c06088}
-.cnote .ic{float:left;font-size:22px;margin-right:10px;line-height:1.2}
-#ovNote .hint{font-size:12px;color:#f0c060;margin:0 0 10px;min-height:16px}
-#chap{position:absolute;inset:0;z-index:15;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;opacity:0;transition:opacity .7s;pointer-events:none;padding:0 16px;text-align:center}
-#chap.on{display:flex;opacity:1}
-#chap span{font-size:13px;letter-spacing:.4em;color:#8a8494}
-#chap b{font-size:clamp(24px,7vw,40px);margin-top:10px;font-weight:700;word-break:keep-all}
-#endcard{z-index:25}
-#endcard h2{font-size:clamp(24px,7vw,36px);margin:0 0 6px;word-break:keep-all}
-#toast{position:absolute;left:50%;top:48px;transform:translateX(-50%);z-index:30;max-width:92%;background:#222;border:1px solid #f0c060;border-radius:10px;padding:6px 12px;font-size:13px;display:none;text-align:center;word-break:keep-all;pointer-events:none}
-/* 퍼즐 */
-#puz{position:absolute;inset:0;z-index:8;display:none;flex-direction:column;align-items:center;background:rgba(3,4,8,.94);padding:50px 14px 14px;overflow-y:auto}
-#puz.on{display:flex}
-#puz::before{content:"";margin-top:auto}#puz::after{content:"";margin-bottom:auto}
-.pzq{font-size:16px;line-height:1.6;text-align:center;margin:0 0 6px;max-width:520px;word-break:keep-all}
-.pzs{font-size:13px;color:#9a95a4;margin:0 0 10px;text-align:center;min-height:19px;max-width:520px;word-break:keep-all}
-.pzs.bad{color:#e0707e}.pzs.good{color:#8fd19e}
-.pzbar{height:5px;width:min(420px,100%);background:#222;border-radius:3px;overflow:hidden;margin:0 0 10px}
-.pzbar i{display:block;height:100%;width:100%;background:#c0394a;transform-origin:left}
-.pzgrid{display:grid;gap:8px;width:min(520px,100%);grid-template-columns:repeat(2,1fr)}
-@media (min-width:640px){.pzgrid.p3{grid-template-columns:repeat(3,1fr)}}
-.pk{background:#12141c;border:2px solid #4a4658;border-radius:10px;padding:10px 8px;min-height:64px;font-size:15px;line-height:1.4;text-align:center;word-break:keep-all}
-.pk small{display:block;font-size:11px;color:#8a8494;margin-top:2px}
-.pk[aria-pressed=true]{border-color:#f0c060;background:#2a2412;color:#ffe9b0}
-.pk[aria-pressed=true]::before{content:"✔ "}
-.pzact{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center}
-.pzbtn{background:#1c2030;border:1px solid #6a6678;border-radius:10px;padding:11px 18px;min-height:46px;font-size:15px}
-.pzbtn.go{border-color:#f0c060;color:#f0c060}
-.pzbtn[disabled]{opacity:.35;cursor:default}
-.pzbtn:focus-visible{outline:2px solid #f0c060;outline-offset:2px}
-.codeslots{display:flex;gap:8px;margin:2px 0 10px}
-.codeslots span{width:46px;height:56px;border:2px solid #6a6678;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;background:#0c0e14}
-.codeslots span.cur{border-color:#f0c060}
-.keys{display:grid;grid-template-columns:repeat(3,64px);gap:8px;justify-content:center}
-.key{height:54px;background:#161926;border:1px solid #5a5666;border-radius:10px;font-size:22px;font-weight:700}
-.key.sm{font-size:15px}
-.hints{width:min(420px,100%);margin:0 0 10px;font-size:13px;line-height:1.6;color:#c9c0a0;border-left:3px solid #f0c06088;padding-left:10px;text-align:left;word-break:keep-all}
-.vgrid{display:grid;gap:8px;width:min(560px,100%);grid-template-columns:repeat(2,1fr)}
-@media (min-width:640px){.vgrid{grid-template-columns:repeat(4,1fr)}}
-.vc{background:#12141c;border:2px solid #4a4658;border-radius:10px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:132px;font-size:14px;word-break:keep-all}
-.vc .face{width:64px;height:64px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#fff;border:2px solid rgba(255,255,255,.25);flex:none}
-.vc .face img{width:100%;height:100%;object-fit:cover;object-position:top}
-.vc small{font-size:11px;color:#8a8494;line-height:1.3}
-.vc[aria-pressed=true]{border-color:#f0c060;background:#2a2412}
-.vc.ref{min-height:56px;justify-content:center;border-style:dashed;grid-column:1/-1;flex-direction:row}
-.voice{background:#10141d;border:1px solid #3a4560;border-radius:12px;padding:14px 16px;margin:0 0 12px;width:min(480px,100%);font-size:16px;line-height:1.7;text-align:center;word-break:keep-all}
-.voice b{display:block;font-size:12px;color:#8a98c0;margin-bottom:4px}
-.dots{display:flex;gap:6px;margin:0 0 10px}.dots i{width:12px;height:12px;border-radius:50%;border:2px solid #6a6678}.dots i.done{background:#8fd19e;border-color:#8fd19e}.dots i.now{border-color:#f0c060}
-.dirs{display:flex;gap:8px;width:min(480px,100%)}
-.dir{flex:1;min-height:76px;background:#161926;border:2px solid #5a5666;border-radius:12px;font-size:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
-.dir em{font-style:normal;font-size:26px}
-.dir:hover{border-color:#f0c060}
-.cgrid{display:grid;gap:5px;grid-template-columns:repeat(5,1fr);width:min(420px,100%)}
-.cc{aspect-ratio:1;min-height:48px;background:#0b1410;border:1px solid #2c4a3a;border-radius:6px;color:#9fe0b0;font-size:clamp(20px,6.5vw,30px);display:flex;align-items:center;justify-content:center;position:relative;padding:2px;line-height:1.1;word-break:keep-all;overflow-wrap:anywhere}
-.cc.nm{font-size:10.5px;aspect-ratio:auto;min-height:54px}
-.cc small{position:absolute;left:3px;top:1px;font-size:8px;color:#4a7a5a}
-.cc b{position:absolute;right:3px;top:1px;font-size:11px;color:#f0c060}
-.cc.miss{border-color:#c0394a;background:#241014}
-.cc.hit{border-color:#8fd19e;background:#10241a}
-.cc.extra{grid-column:1/-1;aspect-ratio:auto;min-height:40px;border-style:dashed;color:#5a7a68;font-size:12px}
-.cc:disabled{cursor:default}
-.rm .prop,.rm #bNote.pulse{animation:none}
-.rm .pzbar i,.rm #timer i{transition:none!important}
-</style>
-</head>
-<body>
-<div id="app">
- <div id="stage">
-  <div class="layer bg" id="bgA"></div><div class="layer bg" id="bgB"></div>
-  <div class="layer" id="fxWhite"></div>
-  <div class="layer" id="vig"></div>
-  <div id="chars"></div>
-  <div id="props"></div>
-  <div class="layer" id="fxFlick"></div>
-  <div class="layer" id="fxBlack"></div>
-  <div id="hud">
-   <button class="hb" id="bNote" aria-label="단서 수첩 열기">📓 0/12</button>
-   <button class="hb" id="bAuto" aria-pressed="false">AUTO</button><button class="hb" id="bSkip" aria-pressed="false" title="읽은 대사만 넘깁니다">SKIP</button>
-   <button class="hb" id="bLog">기록</button><button class="hb" id="bMute" aria-label="소리">🔊</button><button class="hb" id="bMenu">메뉴</button>
-  </div>
-  <div id="tb"><div id="name"></div><div id="box"><span id="txt"></span><span id="more">▼</span></div></div>
-  <div id="choices"><div id="cq"></div><div id="cl"></div><div id="timer"><i></i></div><div id="tlab"></div></div>
-  <div id="puz" role="dialog" aria-modal="true"><div id="pzBody" style="width:100%;display:flex;flex-direction:column;align-items:center"></div></div>
-  <div id="chap"><span id="chapN"></span><b id="chapT"></b></div>
-  <div id="toast" role="status" aria-live="polite"></div>
-
-  <div class="ov on" id="ovTitle">
-   <h1>스콰드</h1>
-   <p class="sub">이 이야기는 전부 허구이며 실제 인물·단체와 관계없습니다.<br>소리가 납니다. 이어폰을 권합니다.<br>한 시간쯤 걸리는 이야기이고, 언제든 저장할 수 있습니다.</p>
-   <button class="m" id="tCont">이어하기</button>
-   <button class="m" id="tNew">처음부터</button>
-   <button class="m" id="tChap">장 선택</button>
-   <button class="m" id="tLoad">슬롯에서 불러오기</button>
-   <button class="m" id="tGal">엔딩 보기</button>
-   <button class="m" id="tSet">설정</button>
-   <div class="stat" id="tStat"></div>
-  </div>
-  <div class="ov" id="ovMenu">
-   <h2>메뉴</h2>
-   <p class="sub" id="mInfo" style="margin-bottom:12px"></p>
-   <button class="m" id="mSave">슬롯에 저장</button>
-   <button class="m" id="mLoad">슬롯에서 불러오기</button>
-   <button class="m" id="mChap">장 선택</button>
-   <button class="m" id="mNote">단서 수첩</button>
-   <button class="m" id="mSet">설정</button>
-   <button class="m" id="mTitle">타이틀로</button>
-   <button class="back" data-close>닫기</button>
-  </div>
-  <div class="ov" id="ovSet">
-   <h2>설정</h2>
-   <div class="set">움직임 줄이기 <button class="hb" id="sRm"></button></div>
-   <div class="set">제한시간(선택·퍼즐) <button class="hb" id="sTimer"></button></div>
-   <div class="set">퍼즐 넘어가기(2번 틀리면) <button class="hb" id="sAssist"></button></div>
-   <div class="set">글자 속도 <button class="hb" id="sSpeed"></button></div>
-   <div class="set">소리 <button class="hb" id="sMute"></button></div>
-   <button class="back" data-close>닫기</button>
-  </div>
-  <div class="ov" id="ovLog"><h2>지난 대사</h2><div id="log"></div><button class="back" data-close>닫기</button></div>
-  <div class="ov" id="ovNote"><h2 id="nT">수첩</h2><p class="hint" id="nHint"></p><div class="list" id="nList"></div><button class="back" data-close>닫기</button></div>
-  <div class="ov" id="ovGal"><h2 id="gT">엔딩 보기</h2><p class="sub" id="gHint"></p><div class="list" id="gal"></div><button class="back" data-close>닫기</button></div>
-  <div class="ov" id="ovSlots"><h2 id="slT"></h2><div class="list" id="slList"></div><button class="back" data-close>닫기</button></div>
-  <div class="ov" id="ovChap"><h2>장 선택</h2><p class="sub" id="chHint"></p><div class="list" id="chList"></div><button class="back" data-close>닫기</button></div>
-  <div class="ov" id="endcard"><h2 id="eT"></h2><p class="sub" id="eS"></p><button class="m" id="eGal">엔딩 보기</button><button class="m" id="eBack">타이틀로</button></div>
- </div>
-</div>
-
-<script>
-"use strict";
-/* ===================== 데이터 ===================== */
-/*STORY:BEGIN*/
-const STORY={ops:[],labels:{},chapters:[],clues:{},endings:[],meta:{lines:0,puzzles:[],chapters:0},v:2};
 /*STORY:END*/
 const CHARS=[
  {id:'seungwoo',name:'승우',c:'#3b6ea5'},{id:'myeongtae',name:'간장맛명태소환사',c:'#c98a2b'},
@@ -3037,7 +3035,7 @@ function buildSlots(mode){
     if(mode==='load'){b.disabled=!s||s.sv!==SV; b.onclick=()=>{if(s)loadSnap(s)}}
     else{ let armed=false; b.onclick=()=>{
       if(s&&!armed){armed=true;b.lastChild.textContent='덮어씁니다. 한 번 더 누르세요';return}
-      const all=slotsGet(); all[i]=snap(); const okk=lsSet(K_SLOTS,all); toast(okk?'슬롯 '+(i+1)+'에 저장했습니다':'저장 실패(브라우저 저장소 막힘 — 이 탭에서만 유지)'); closeOv('ovSlots') } }
+      const all=slotsGet(); all[i]=snap(); const okk=lsSet(K_SLOTS,all); toast(okk?'슬롯 '+(i+1)+'에 저장했습니다':'저장 실패(브라우저 저장소 막힘 — 이 탭에서만 유지)'); closeOv('ovSlots'); closeOv('ovMenu') } }
     L.appendChild(b);
   });
 }

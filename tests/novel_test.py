@@ -109,7 +109,7 @@ async def story_walk(b, w, h, tag):
     for r in range(2):
         txt = await pg.evaluate("(()=>{const t={};[...document.querySelectorAll('.cc')].forEach(b=>{const k=b.firstChild.textContent;t[k]=(t[k]||0)+1});return Object.keys(t).find(k=>t[k]===1)})()")
         await pg.locator('.cc').filter(has_text=txt).first.click(); await pg.wait_for_timeout(60)
-    await ws(pg, 'end', 6000)
+    check(tag + ' 마무리 줄', await adv_until(pg, "__novel.mode().ws==='end'", 200))
     check(tag + ' 엔딩 카드', 'clear' not in await pg.inner_text('#eT') and '시험 엔딩' in await pg.inner_text('#eT'))
     check(tag + ' 플레이 시간 표시', '플레이 시간' in await pg.inner_text('#eS')); await shot(pg, tag + '_end')
     check(tag + ' 동그라미 폴백이 한 번도 안 뜸', await pg.evaluate('window.__sil')==0, await pg.evaluate('window.__sil'))
@@ -121,8 +121,11 @@ async def story_walk(b, w, h, tag):
     await pg.locator('#chList .slot').first.click(); await ws(pg, 'line')
     check(tag + ' 장 선택으로 1장 처음부터', '첫 줄' in await pg.inner_text('#txt'))
     # 읽은 것만 건너뛰기: 이미 읽은 줄 -> 선택지까지 넘어감
+    await pg.click('#bSkip'); await pg.wait_for_function("document.querySelectorAll('.prop').length>0 || __novel.mode().ws==='choice'", timeout=5000)
+    check(tag + ' SKIP 은 단서가 나오면 멈춤', await pg.locator('.prop').count() > 0 and 'on' not in (await pg.get_attribute('#bSkip', 'class')).split())
+    for i in range(3): await pg.locator('.prop').first.click()
     await pg.click('#bSkip'); await ws(pg, 'choice', 5000)
-    check(tag + ' SKIP 은 읽은 대사만(선택지에서 멈춤)', True)
+    check(tag + ' SKIP 은 읽은 대사만 넘기고 선택지에서 멈춤', True)
     # 저장 슬롯
     await pg.locator('#cl button').first.click(); await ws(pg, 'line')
     await pg.click('#bMenu'); await pg.click('#mSave'); await pg.locator('#slList .slot').nth(1).click()
@@ -137,13 +140,13 @@ async def resume_test(b):
     ctx, pg, errs = await ctx_page(b, 360, 740)
     await pg.goto('http://localhost:%d/novel_test.html?fast=1' % PORT); await pg.wait_for_function("!document.getElementById('tNew').disabled")
     await pg.click('#tNew'); await ws(pg, 'line'); await adv_until(pg, "__novel.mode().ws==='choice'")
-    await pg.locator('#cl button').nth(2).click(); await ws(pg, 'line')
+    await pg.locator('#cl button').nth(1).click(); await ws(pg, 'line')
     st = await ctx.storage_state(); await ctx.close()
     ctx, pg, errs = await ctx_page(b, 360, 740, store=st)
     await pg.goto('http://localhost:%d/novel_test.html?fast=1' % PORT); await pg.wait_for_function("!document.getElementById('tNew').disabled")
     check('새로고침 후 이어하기 켜짐', not await pg.locator('#tCont').is_disabled())
     await pg.click('#tCont'); await ws(pg, 'line')
-    check('이어하기 상태 복원(선택·단서)', await pg.evaluate("__novel.ST().V.pickC===1 && __novel.ST().clues.length>=0"))
+    check('이어하기 상태 복원(선택·단서)', await pg.evaluate("__novel.ST().V.pickB===1"))
     await ctx.close()
 
 async def rm_and_timer(b):

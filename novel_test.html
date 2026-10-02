@@ -12,96 +12,7 @@
  이 이야기는 전부 허구이며 실제 인물·단체와 관계없습니다. 등장인물은 전부 가상의 알리아스입니다.
 
  [원고 → 이 페이지]  시나리오는 data/novel/ch/ch_*.txt (없으면 data/novel/fallback_short.txt) 에 있다.
-   고친 뒤  python3 tooling/novel_build.py  를 돌리면 아래 /*STORY:BEGIN*/
-const STORY={
- v:2,
- meta:{"lines": 17, "puzzles": ["pick3", "code", "vote", "guide", "cctv", "cctv"], "chapters": 2},
- chapters:[{"n": 0, "t": "T1 시험 장", "pc": 0}, {"n": 1, "t": "T2 마무리", "pc": 69}],
- clues:{"c_flyer": "모집글 인쇄본. 인원 확인 잘 해 주시는 분 우대.", "c_hooks": "명찰함에 칸이 스물여섯 개.", "c_chairs": "의자가 스물여섯 개."},
- endings:[{"id": "clear", "t": "시험 엔딩 — 퍼즐 통과"}, {"id": "plain", "t": "보통 시험 엔딩 — 단서 부족"}],
- labels:{"c_choice": 46, "c_timeout": 47, "c_after": 50, "t_code": 54, "t_vote": 55, "v_g": 58, "v_y": 60, "v_a": 62, "v_r": 64, "t_guide": 66, "t_cctv": 67, "t_odd": 68, "t_end": 69},
- ops:[
-  {"o":"chap","t":"T1 시험 장","n":0,"c":1},
-  {"o":"card","t":"T1","s":"시험 장"},
-  {"o":"bg","id":"lobby"},
-  {"o":"mood","v":"tense"},
-  {"o":"show","ids":[{"id":"seungwoo","f":0},{"id":"myeongtae","f":1},{"id":"ttokku","f":0}]},
-  {"o":"say","s":"승우","t":"첫 줄입니다."},
-  {"o":"say","s":"간장맛명태소환사","t":"놀란 얼굴로 말하고 있습니다."},
-  {"o":"say","s":"방송","t":"방송 목소리입니다."},
-  {"o":"nar","t":"지문 한 줄."},
-  {"o":"tho","s":"승우","t":"속마음 한 줄."},
-  {"o":"fx","v":"flicker"},
-  {"o":"sfx","v":"knock"},
-  {"o":"sfx","v":"door"},
-  {"o":"sfx","v":"thud"},
-  {"o":"sfx","v":"fall"},
-  {"o":"sfx","v":"chime"},
-  {"o":"sfx","v":"keys"},
-  {"o":"sfx","v":"heartbeat"},
-  {"o":"sfx","v":"drone"},
-  {"o":"fx","v":"shake"},
-  {"o":"clue","id":"c_flyer"},
-  {"o":"clue","id":"c_hooks"},
-  {"o":"clue","id":"c_chairs"},
-  {"o":"say","s":"승우","t":"단서를 주울 수 있습니다."},
-  {"o":"set","k":"a","v":1},
-  {"o":"add","k":"trust","v":1},
-  {"o":"add","k":"trust","v":1},
-  {"o":"jf","c":[["trust",">=",2,0]],"to":34},
-  {"o":"nar","t":"trust 는 2 이상입니다."},
-  {"o":"jf","c":[["a","flag",1,0]],"to":32},
-  {"o":"nar","t":"중첩 조건 a 참."},
-  {"o":"jmp","to":33},
-  {"o":"nar","t":"중첩 조건 a 거짓(나오면 안 됨)."},
-  {"o":"jmp","to":35},
-  {"o":"nar","t":"trust 가 모자랍니다(나오면 안 됨)."},
-  {"o":"jf","c":[["clues",">=",3,0],["a","flag",1,0]],"to":38},
-  {"o":"nar","t":"단서 3개 이상, 그리고 a."},
-  {"o":"jmp","to":39},
-  {"o":"nar","t":"단서를 다 줍지 않았습니다."},
-  {"o":"set","k":"a","v":0},
-  {"o":"jf","c":[["a","flag",1,1]],"to":42},
-  {"o":"nar","t":"a 는 꺼졌습니다."},
-  {"o":"fx","v":"blackout"},
-  {"o":"nar","t":"암전 뒤에 이어지는 줄."},
-  {"o":"fx","v":"off"},
-  {"o":"wait","ms":300},
-  {"o":"choice","timer":20,"def":2,"to":"c_timeout","opts":[{"t":"첫째 선택","c":[],"a":[["set","pickA",1],["goto","c_after"]]},{"t":"둘째 선택 (기본)","c":[],"a":[["set","pickB",1],["add","trust",1],["goto","c_after"]]},{"t":"숨은 셋째 선택","c":[["clues",">=",3,0]],"a":[["set","pickC",1],["goto","c_after"]]}]},
-  {"o":"nar","t":"시간 초과로 왔습니다."},
-  {"o":"set","k":"timed_out","v":1},
-  {"o":"goto","l":"c_after"},
-  {"o":"bg","id":"dining"},
-  {"o":"show","ids":[{"id":"hungry","f":0},{"id":"pman","f":0}]},
-  {"o":"say","s":"허기허기","t":"퍼즐 시간입니다."},
-  {"o":"puz","type":"pick3","d":{"ok":[["set","p_pick",1],["goto","t_code"]],"fail":[["goto","t_code"]],"q":"올바른 세 개를 고르세요","note":"","wrong":"","items":[{"id":"0","t":"사과","sub":""},{"id":"1","t":"배","sub":""},{"id":"2","t":"포도","sub":""},{"id":"3","t":"귤","sub":""},{"id":"4","t":"감","sub":""}],"pick":3,"answer":["0","2","4"],"hint":"과일 이름 순서","tries":3}},
-  {"o":"puz","type":"code","d":{"ok":[["set","p_code",1],["goto","t_vote"]],"fail":[["goto","t_vote"]],"q":"","note":"","wrong":"경고음이 울린다.","answer":"2526","digits":4,"tries":3,"hints":[{"c":[],"any":["c_flyer","c_hooks","c_chairs"],"min":2,"t":"25 + 1"}],"none":""}},
-  {"o":"set","k":"can_refuse","v":1},
-  {"o":"add","k":"sus_yumi","v":2},
-  {"o":"puz","type":"vote","d":{"q":"한 명을 고르세요","note":"","wrong":"","cands":[{"id":"gnyang","face":"geunyang","name":"그냥혀","sub":"","sus":"sus_gnyang","do":[["goto","v_g"]]},{"id":"yumi","face":"yumi","name":"감자깡장인 유미","sub":"","sus":"sus_yumi","do":[["goto","v_y"]]},{"id":"anjin","face":"anjin","name":"안진","sub":"","sus":"","do":[["goto","v_a"]]}],"refuse":{"t":"지목하지 않는다","c":[["can_refuse","flag",1,0]],"do":[["goto","v_r"]]}}},
-  {"o":"set","k":"voted_g","v":1},
-  {"o":"goto","l":"t_guide"},
-  {"o":"set","k":"voted_y","v":1},
-  {"o":"goto","l":"t_guide"},
-  {"o":"set","k":"voted_a","v":1},
-  {"o":"goto","l":"t_guide"},
-  {"o":"set","k":"voted_r","v":1},
-  {"o":"goto","l":"t_guide"},
-  {"o":"puz","type":"guide","d":{"ok":[["set","p_guide",1],["goto","t_cctv"]],"fail":[["goto","t_cctv"]],"q":"목소리 유도","note":"","wrong":"","turns":[{"see":"앞 바닥이 단단하다.","dirs":["앞","왼쪽","오른쪽"],"answer":0,"good":"포만포만: 앞으로.","bad":"포만포만: 아니야!"},{"see":"오른쪽에 흔적이 있다.","dirs":["앞","왼쪽","오른쪽"],"answer":2,"good":"포만포만: 오른쪽.","bad":"포만포만: 서!"}],"who":"포만포만","timer":6,"maxfail":3}},
-  {"o":"puz","type":"cctv","d":{"ok":[["set","p_cctv",1],["goto","t_odd"]],"fail":[["goto","t_odd"]],"q":"","note":"","wrong":"","mode":"seq","cells":[{"t":"승우","face":"seungwoo"},{"t":"간장맛명태소환사","face":"myeongtae"},{"t":"또꾸","face":"ttokku"},{"t":"신린","face":"sinrin"},{"t":"허기허기","face":"hungry"},{"t":"포만포만","face":"pman"},{"t":"감자깡장인 유미","face":"yumi"},{"t":"아린","face":"arin"},{"t":"용맹한다람쥐","face":"squirrel"},{"t":"우거지","face":"ugeoji"},{"t":"레이비","face":"leivy"},{"t":"몰입겜","face":"mongip"},{"t":"우선즐겨","face":"usjeul"},{"t":"대한제일젤리","face":"jelly"},{"t":"한라봉 갓","face":"hallabong"},{"t":"태용","face":"taeyong"},{"t":"뱀조련사","face":"snake"},{"t":"가을","face":"gaeul"},{"t":"안진","face":"anjin"},{"t":"앙앵모르콩","face":"ongaeng"},{"t":"weiho","face":"weiho"},{"t":"예리야","face":"yeri"},{"t":"망앵무","face":"parrot"},{"t":"그냥혀","face":"geunyang"},{"t":"kater","face":"kater"}],"order":[24,4,5],"extra":"26번째 칸(비어 있음)","hint":{"c":[["clues",">=",3,0]],"t":"방송이 부른 순서: kater → 허기허기 → 포만포만"},"lives":3}},
-  {"o":"puz","type":"cctv","d":{"ok":[["set","p_odd",1],["goto","t_end"]],"fail":[["goto","t_end"]],"q":"","note":"","wrong":"","mode":"odd","rounds":2,"lives":3}},
-  {"o":"chap","t":"T2 마무리","n":1,"c":0},
-  {"o":"bg","id":"final"},
-  {"o":"show","ids":[{"id":"seungwoo","f":0}]},
-  {"o":"jf","c":[["p_pick","flag",1,0],["p_code","flag",1,0]],"to":74},
-  {"o":"nar","t":"앞의 두 퍼즐을 풀었습니다."},
-  {"o":"jf","c":[["clues",">=",3,0]],"to":77},
-  {"o":"end","id":"clear","t":"시험 엔딩 — 퍼즐 통과"},
-  {"o":"jmp","to":78},
-  {"o":"end","id":"plain","t":"보통 시험 엔딩 — 단서 부족"},
- ]
-};
-/*STORY:END*/ 사이(const STORY)가 다시 만들어진다.
+   고친 뒤  python3 tooling/novel_build.py  를 돌리면 아래 STORY 시작·끝 표식 사이(const STORY)가 다시 만들어진다.
    (줄 형식·퍼즐 json 은 tooling/novel_build.py 맨 위 설명 참고. 표식 사이는 손으로 고쳐도 되지만 다음 변환 때 덮어 쓴다.)
  [그림]  img/novel/bg_<배경id>.webp , ch_<캐릭터id>.webp(놀란 얼굴은 ch_<id>_f.webp) 가 있으면 쓰고, 없으면 그라디언트·동그라미로 대신한다.
  [저장]  장 시작마다 자동 저장 + 마지막 위치 이어하기 + 슬롯 3칸. 장 선택은 지난 장만. 읽은 대사는 따로 기억해 '건너뛰기'는 읽은 대사만 넘긴다.
@@ -212,7 +123,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 #chap.on{display:flex;opacity:1}
 #chap span{font-size:13px;letter-spacing:.4em;color:#8a8494}
 #chap b{font-size:clamp(24px,7vw,40px);margin-top:10px;font-weight:700;word-break:keep-all}
-#endcard{z-index:25}
+#endcard{z-index:19}
 #endcard h2{font-size:clamp(24px,7vw,36px);margin:0 0 6px;word-break:keep-all}
 #toast{position:absolute;left:50%;top:48px;transform:translateX(-50%);z-index:30;max-width:92%;background:#222;border:1px solid #f0c060;border-radius:10px;padding:6px 12px;font-size:13px;display:none;text-align:center;word-break:keep-all;pointer-events:none}
 /* 퍼즐 */
@@ -335,7 +246,94 @@ button{font:inherit;color:inherit;cursor:pointer}
 "use strict";
 /* ===================== 데이터 ===================== */
 /*STORY:BEGIN*/
-const STORY={ops:[],labels:{},chapters:[],clues:{},endings:[],meta:{lines:0,puzzles:[],chapters:0},v:2};
+const STORY={
+ v:2,
+ meta:{"lines": 17, "puzzles": ["pick3", "code", "vote", "guide", "cctv", "cctv"], "chapters": 2},
+ chapters:[{"n": 0, "t": "T1 시험 장", "pc": 0}, {"n": 1, "t": "T2 마무리", "pc": 69}],
+ clues:{"c_flyer": "모집글 인쇄본. 인원 확인 잘 해 주시는 분 우대.", "c_hooks": "명찰함에 칸이 스물여섯 개.", "c_chairs": "의자가 스물여섯 개."},
+ endings:[{"id": "clear", "t": "시험 엔딩 — 퍼즐 통과"}, {"id": "plain", "t": "보통 시험 엔딩 — 단서 부족"}],
+ labels:{"c_choice": 46, "c_timeout": 47, "c_after": 50, "t_code": 54, "t_vote": 55, "v_g": 58, "v_y": 60, "v_a": 62, "v_r": 64, "t_guide": 66, "t_cctv": 67, "t_odd": 68, "t_end": 69},
+ ops:[
+  {"o":"chap","t":"T1 시험 장","n":0,"c":1},
+  {"o":"card","t":"T1","s":"시험 장"},
+  {"o":"bg","id":"lobby"},
+  {"o":"mood","v":"tense"},
+  {"o":"show","ids":[{"id":"seungwoo","f":0},{"id":"myeongtae","f":1},{"id":"ttokku","f":0}]},
+  {"o":"say","s":"승우","t":"첫 줄입니다."},
+  {"o":"say","s":"간장맛명태소환사","t":"놀란 얼굴로 말하고 있습니다."},
+  {"o":"say","s":"방송","t":"방송 목소리입니다."},
+  {"o":"nar","t":"지문 한 줄."},
+  {"o":"tho","s":"승우","t":"속마음 한 줄."},
+  {"o":"fx","v":"flicker"},
+  {"o":"sfx","v":"knock"},
+  {"o":"sfx","v":"door"},
+  {"o":"sfx","v":"thud"},
+  {"o":"sfx","v":"fall"},
+  {"o":"sfx","v":"chime"},
+  {"o":"sfx","v":"keys"},
+  {"o":"sfx","v":"heartbeat"},
+  {"o":"sfx","v":"drone"},
+  {"o":"fx","v":"shake"},
+  {"o":"clue","id":"c_flyer"},
+  {"o":"clue","id":"c_hooks"},
+  {"o":"clue","id":"c_chairs"},
+  {"o":"say","s":"승우","t":"단서를 주울 수 있습니다."},
+  {"o":"set","k":"a","v":1},
+  {"o":"add","k":"trust","v":1},
+  {"o":"add","k":"trust","v":1},
+  {"o":"jf","c":[["trust",">=",2,0]],"to":34},
+  {"o":"nar","t":"trust 는 2 이상입니다."},
+  {"o":"jf","c":[["a","flag",1,0]],"to":32},
+  {"o":"nar","t":"중첩 조건 a 참."},
+  {"o":"jmp","to":33},
+  {"o":"nar","t":"중첩 조건 a 거짓(나오면 안 됨)."},
+  {"o":"jmp","to":35},
+  {"o":"nar","t":"trust 가 모자랍니다(나오면 안 됨)."},
+  {"o":"jf","c":[["clues",">=",3,0],["a","flag",1,0]],"to":38},
+  {"o":"nar","t":"단서 3개 이상, 그리고 a."},
+  {"o":"jmp","to":39},
+  {"o":"nar","t":"단서를 다 줍지 않았습니다."},
+  {"o":"set","k":"a","v":0},
+  {"o":"jf","c":[["a","flag",1,1]],"to":42},
+  {"o":"nar","t":"a 는 꺼졌습니다."},
+  {"o":"fx","v":"blackout"},
+  {"o":"nar","t":"암전 뒤에 이어지는 줄."},
+  {"o":"fx","v":"off"},
+  {"o":"wait","ms":300},
+  {"o":"choice","timer":20,"def":2,"to":"c_timeout","opts":[{"t":"첫째 선택","c":[],"a":[["set","pickA",1],["goto","c_after"]]},{"t":"둘째 선택 (기본)","c":[],"a":[["set","pickB",1],["add","trust",1],["goto","c_after"]]},{"t":"숨은 셋째 선택","c":[["clues",">=",3,0]],"a":[["set","pickC",1],["goto","c_after"]]}]},
+  {"o":"nar","t":"시간 초과로 왔습니다."},
+  {"o":"set","k":"timed_out","v":1},
+  {"o":"goto","l":"c_after"},
+  {"o":"bg","id":"dining"},
+  {"o":"show","ids":[{"id":"hungry","f":0},{"id":"pman","f":0}]},
+  {"o":"say","s":"허기허기","t":"퍼즐 시간입니다."},
+  {"o":"puz","type":"pick3","d":{"ok":[["set","p_pick",1],["goto","t_code"]],"fail":[["goto","t_code"]],"q":"올바른 세 개를 고르세요","note":"","wrong":"","items":[{"id":"0","t":"사과","sub":""},{"id":"1","t":"배","sub":""},{"id":"2","t":"포도","sub":""},{"id":"3","t":"귤","sub":""},{"id":"4","t":"감","sub":""}],"pick":3,"answer":["0","2","4"],"hint":"과일 이름 순서","tries":3}},
+  {"o":"puz","type":"code","d":{"ok":[["set","p_code",1],["goto","t_vote"]],"fail":[["goto","t_vote"]],"q":"","note":"","wrong":"경고음이 울린다.","answer":"2526","digits":4,"tries":3,"hints":[{"c":[],"any":["c_flyer","c_hooks","c_chairs"],"min":2,"t":"25 + 1"}],"none":""}},
+  {"o":"set","k":"can_refuse","v":1},
+  {"o":"add","k":"sus_yumi","v":2},
+  {"o":"puz","type":"vote","d":{"q":"한 명을 고르세요","note":"","wrong":"","cands":[{"id":"gnyang","face":"geunyang","name":"그냥혀","sub":"","sus":"sus_gnyang","do":[["goto","v_g"]]},{"id":"yumi","face":"yumi","name":"감자깡장인 유미","sub":"","sus":"sus_yumi","do":[["goto","v_y"]]},{"id":"anjin","face":"anjin","name":"안진","sub":"","sus":"","do":[["goto","v_a"]]}],"refuse":{"t":"지목하지 않는다","c":[["can_refuse","flag",1,0]],"do":[["goto","v_r"]]}}},
+  {"o":"set","k":"voted_g","v":1},
+  {"o":"goto","l":"t_guide"},
+  {"o":"set","k":"voted_y","v":1},
+  {"o":"goto","l":"t_guide"},
+  {"o":"set","k":"voted_a","v":1},
+  {"o":"goto","l":"t_guide"},
+  {"o":"set","k":"voted_r","v":1},
+  {"o":"goto","l":"t_guide"},
+  {"o":"puz","type":"guide","d":{"ok":[["set","p_guide",1],["goto","t_cctv"]],"fail":[["goto","t_cctv"]],"q":"목소리 유도","note":"","wrong":"","turns":[{"see":"앞 바닥이 단단하다.","dirs":["앞","왼쪽","오른쪽"],"answer":0,"good":"포만포만: 앞으로.","bad":"포만포만: 아니야!"},{"see":"오른쪽에 흔적이 있다.","dirs":["앞","왼쪽","오른쪽"],"answer":2,"good":"포만포만: 오른쪽.","bad":"포만포만: 서!"}],"who":"포만포만","timer":6,"maxfail":3}},
+  {"o":"puz","type":"cctv","d":{"ok":[["set","p_cctv",1],["goto","t_odd"]],"fail":[["goto","t_odd"]],"q":"","note":"","wrong":"","mode":"seq","cells":[{"t":"승우","face":"seungwoo"},{"t":"간장맛명태소환사","face":"myeongtae"},{"t":"또꾸","face":"ttokku"},{"t":"신린","face":"sinrin"},{"t":"허기허기","face":"hungry"},{"t":"포만포만","face":"pman"},{"t":"감자깡장인 유미","face":"yumi"},{"t":"아린","face":"arin"},{"t":"용맹한다람쥐","face":"squirrel"},{"t":"우거지","face":"ugeoji"},{"t":"레이비","face":"leivy"},{"t":"몰입겜","face":"mongip"},{"t":"우선즐겨","face":"usjeul"},{"t":"대한제일젤리","face":"jelly"},{"t":"한라봉 갓","face":"hallabong"},{"t":"태용","face":"taeyong"},{"t":"뱀조련사","face":"snake"},{"t":"가을","face":"gaeul"},{"t":"안진","face":"anjin"},{"t":"앙앵모르콩","face":"ongaeng"},{"t":"weiho","face":"weiho"},{"t":"예리야","face":"yeri"},{"t":"망앵무","face":"parrot"},{"t":"그냥혀","face":"geunyang"},{"t":"kater","face":"kater"}],"order":[24,4,5],"extra":"26번째 칸(비어 있음)","hint":{"c":[["clues",">=",3,0]],"t":"방송이 부른 순서: kater → 허기허기 → 포만포만"},"lives":3}},
+  {"o":"puz","type":"cctv","d":{"ok":[["set","p_odd",1],["goto","t_end"]],"fail":[["goto","t_end"]],"q":"","note":"","wrong":"","mode":"odd","rounds":2,"lives":3}},
+  {"o":"chap","t":"T2 마무리","n":1,"c":0},
+  {"o":"bg","id":"final"},
+  {"o":"show","ids":[{"id":"seungwoo","f":0}]},
+  {"o":"jf","c":[["p_pick","flag",1,0],["p_code","flag",1,0]],"to":74},
+  {"o":"nar","t":"앞의 두 퍼즐을 풀었습니다."},
+  {"o":"jf","c":[["clues",">=",3,0]],"to":77},
+  {"o":"end","id":"clear","t":"시험 엔딩 — 퍼즐 통과"},
+  {"o":"jmp","to":78},
+  {"o":"end","id":"plain","t":"보통 시험 엔딩 — 단서 부족"},
+ ]
+};
 /*STORY:END*/
 const CHARS=[
  {id:'seungwoo',name:'승우',c:'#3b6ea5'},{id:'myeongtae',name:'간장맛명태소환사',c:'#c98a2b'},
@@ -922,7 +920,7 @@ function buildSlots(mode){
     if(mode==='load'){b.disabled=!s||s.sv!==SV; b.onclick=()=>{if(s)loadSnap(s)}}
     else{ let armed=false; b.onclick=()=>{
       if(s&&!armed){armed=true;b.lastChild.textContent='덮어씁니다. 한 번 더 누르세요';return}
-      const all=slotsGet(); all[i]=snap(); const okk=lsSet(K_SLOTS,all); toast(okk?'슬롯 '+(i+1)+'에 저장했습니다':'저장 실패(브라우저 저장소 막힘 — 이 탭에서만 유지)'); closeOv('ovSlots') } }
+      const all=slotsGet(); all[i]=snap(); const okk=lsSet(K_SLOTS,all); toast(okk?'슬롯 '+(i+1)+'에 저장했습니다':'저장 실패(브라우저 저장소 막힘 — 이 탭에서만 유지)'); closeOv('ovSlots'); closeOv('ovMenu') } }
     L.appendChild(b);
   });
 }
