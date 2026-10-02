@@ -68,7 +68,10 @@ async def play(pg, decisions=None, rnd=None, tmax=240):
                         for _ in range(8):
                             await pg.evaluate('__novel.puzzle.wrong()'); await pg.wait_for_timeout(25)
                             if (await pg.evaluate('__novel.mode().ws')) != 'puz': break
-            await pg.wait_for_timeout(15)
+            if ws == 'puz':
+                try: await pg.wait_for_function("__novel.mode().ws!=='puz'||__novel.mode().pc!==%d" % m['pc'], timeout=5000)
+                except Exception: return {'err': '퍼즐이 안 끝남 pc=%s type=%s' % (m['pc'], m['ptype']), 'lines': lines}
+            else: await pg.wait_for_timeout(5)
         else: await pg.wait_for_timeout(8)
     return {'err': '시간 초과', 'lines': lines}
 
