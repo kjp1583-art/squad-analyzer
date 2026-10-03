@@ -481,7 +481,7 @@ const CHARS=[
   //   밸런스: 브장신보다 조금 센 해금 보상 — 60분 클리어가 쉬워지지 않게(봇 시뮬로 확인한 수치는 커밋 설명에)
   {k:'sr',boss:1,e:'🕷️',nm:'클랜마스터 신림',sn:'신림',tag:'스탭 임명',ds:'「스탭 임명」 — 주변 적 이동속도 -20%, 20초마다 🪪 스탭 2명이 10초 동안 같이 싸운다. ⌨️ 키보드 난타 시작.',w:'kbd',staff:1,slowR:140,un:bossUn('sr','15분 보스 신림')},
   {k:'ddo',boss:1,e:'☠️',nm:'클랜마스터 또뀨',sn:'또뀨',tag:'진실의 방',ds:'「진실의 방」 — 10초마다 내 주위에 원형 감옥: 안에 든 적을 3초 묶고 지속 피해(보스는 묶이지 않고 느려진다). 🎧 증바람 스피커 Lv2 시작.',w:'spk',wl:2,room:1,un:bossUn('ddo','30분 보스 또뀨')},
-  {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 잃은 체력 1%당 피해 +1%(최대 +60%), 맞으면 짧게 돌진하며 잠깐 무적(2.5초에 한 번). 🍤 새우깡 부메랑 Lv2 시작.',w:'shrimp',wl:2,rage:.6,dash:1,un:bossUn('tw','40분 보스 태웅')},
+  {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 잃은 체력 1%당 피해 +1%(최대 +60%), 맞으면 짧게 돌진하며 잠깐 무적(0.5초 · 5초에 한 번). 🍤 새우깡 부메랑 Lv2 시작.',w:'shrimp',wl:2,rage:.6,dash:1,un:bossUn('tw','40분 보스 태웅')},
   {k:'yj',boss:1,e:'🐲',nm:'쫑의 군주 용조련사',sn:'용조련사',tag:'쫑의 군주',ds:'「쫑의 군주」 — 최대 HP +60, 받는 피해 -3, 이동속도 -10%. 🔥 드래곤 브레스 Lv2(전용 무기 · 움직이는 방향으로 원뿔 불길) 시작.',w:'breath',wl:2,hp:60,arm:3,spd:-.1,un:bossUn('yj','50분 보스 용조련사')},
 ];
 function bossUn(k,nm){return {t:nm+' 처치',ok:p=>!!(p.bk&&p.bk[k]),pr:p=>p.bk&&p.bk[k]?'완료':'미완'};}
@@ -718,7 +718,7 @@ const PTV=k=>(S&&S.pt&&S.pt[k])||0;
 const REL={
   tenth:{ic:'🥁',nm:'열 번째 타격',ds:l=>`적을 ${[14,12,10][l-1]}번 때릴 때마다 맞은 자리가 폭발한다`},
   leech:{ic:'🩹',nm:'처치 응급처치',ds:l=>`적을 처치하면 HP +${[1,1,2][l-1]} (${[5,4,3.5][l-1]}초에 한 번)`},
-  still:{ic:'🛡',nm:'명상 방어막',ds:l=>`가만히 ${[3.5,3,2.5][l-1]}초 서 있으면 방어막 충전 — 다음 한 방을 막는다`},
+  still:{ic:'🛡',nm:'명상 방어막',ds:l=>`가만히 ${[6,5,4][l-1]}초 서 있으면 방어막 충전 — 다음 한 방을 막는다(막기는 1.2초에 한 번)`},
   sprint:{ic:'💨',nm:'줄행랑',ds:l=>`맞으면 2초간 이동속도 +${[20,30,40][l-1]}%${l>=3?' · 무적 +0.2초':''}`},
   storm:{ic:'⚡',nm:'뇌우 부적',ds:l=>`${[9,8,7][l-1]}초마다 벼락 ${[2,2,3][l-1]}줄기가 내리친다`},
   berserk:{ic:'🔥',nm:'배수의 진',ds:l=>`HP 40% 이하일 때 모든 피해 +${[25,35,45][l-1]}% · 이동 +10%`},
@@ -1109,7 +1109,7 @@ function relPulse(frac){const p=S.p;SRC='rel';S.flash=Math.max(S.flash,.18);S.sh
 function relTick(dt){const p=S.p,R=S.rel;
   S.magT-=dt;if(S.spr>0)S.spr-=dt;if(S.leechT>0)S.leechT-=dt;
   for(let i=S.dq.length-1;i>=0;i--){const q=S.dq[i];q.t-=dt;if(q.t<=0){S.dq.splice(i,1);q.f();}}
-  if(R.still){if(p.moving)S.stillT=0;else S.stillT+=dt;if(!S.shield&&S.stillT>=[3.5,3,2.5][R.still-1]){S.shield=1;S.stillT=0;txt(p.x,p.y-30,'🛡 방어막 충전','#9fd0ff');}}
+  if(R.still){if(p.moving)S.stillT=0;else S.stillT+=dt;if(!S.shield&&S.stillT>=[6,5,4][R.still-1]){S.shield=1;S.stillT=0;txt(p.x,p.y-30,'🛡 방어막 충전','#9fd0ff');}}
   if(R.storm){S.stT-=dt;if(S.stT<=0){S.stT=[9,8,7][R.storm-1];const n=[2,2,3][R.storm-1],d=40*dmgMul();SRC='rel';let any=false;
     for(let i=0;i<n;i++){const e=randLive();if(!e||!e.on||!onScr(e,20))continue;any=true;const b=bolts.get();if(b){b.x1=e.x;b.y1=e.y-260;b.x2=e.x;b.y2=e.y;b.life=.2;b.ev=1;}hurt(e,d);if(S.booms.length<40)S.booms.push({x:e.x,y:e.y,t:0,T:0,R:40,d:d*.5,done:false,ev:0,src:'rel',style:'mine'});}
     if(any)AU.play('zap');SRC='';}}
@@ -1764,8 +1764,8 @@ function charTick(dt){const p=S.p;SRC='char';
     if(o.t>0){o.t-=dt;o.tk-=dt;if(o.tk<=0){o.tk=.5;const d=12*(1+S.lv/15)*dmgMul();
       for(const e of S.live)if(e.on&&(e.x-o.x)**2+(e.y-o.y)**2<(o.R+e.r)**2)hurt(e,d);hitPropsAt(o.x,o.y,o.R,d);}}}
 }
-function taeDash(){   // 💔 태웅 「씩씩」 — 맞으면 짧게 돌진(움직이던 쪽 · 서 있으면 가까운 적 반대쪽) + 0.9초 무적 · 2.5초에 한 번
-  const p=S.p;S.dashCd=2.5;p.inv=.9;AU.play('dash');let dx=p.mdx,dy=p.mdy;
+function taeDash(){   // 💔 태웅 「씩씩」 — 맞으면 짧게 돌진(움직이던 쪽 · 서 있으면 가까운 적 반대쪽) + 0.5초 무적 · 5초에 한 번
+  const p=S.p;S.dashCd=5;p.inv=.5;AU.play('dash');let dx=p.mdx,dy=p.mdy;
   if(!p.moving){const e=nearest();if(e){const l=Math.hypot(p.x-e.x,p.y-e.y)||1;dx=(p.x-e.x)/l;dy=(p.y-e.y)/l;}}
   if(p.yt<=0&&p.stun<=0)yank(dx*120,dy*120,.16);   // 🪝 갈고리·🌪 회오리에 끌려가는 중이거나 🪨 에어본이면 무적만
   txt(p.x,p.y-26,'💨 씩씩!','#bff3ff');}
@@ -1782,8 +1782,10 @@ function die(){   // 👼 부활이 남아 있으면 일어난다
   p.hp=0;endRun(false);return true;
 }
 function hitP(d,msg){const p=S.p;if(p.inv>0)return false;
-  if(S.shield){S.shield=0;p.inv=.6;S.shake=Math.max(S.shake,.1);AU.play('hit');txt(p.x,p.y-26,'🛡 막았다!','#9fd0ff');return false;}   // 🎲 [2026-09-30 사장님 지시] 🛡 명상 방어막
-  if(lidTake()){p.inv=.6;S.shake=Math.max(S.shake,.1);txt(p.x,p.y-26,'🥏 막았다!','#9fd0ff');return false;}   // 🗡 [2026-09-30 사장님 지시] 🥏 냄비뚜껑이 한 대를 대신 받는다
+  // 🛡 [2026-10-03 사장님 지시 "가만히 서 있어도 무적이 돼 게임이 깨진다"] 막기(명상 방어막·냄비뚜껑)는 합쳐서 1.2초에 한 번만 · 막은 뒤 무적은 0.15초 — 막기 효과가 서로 이어 붙어 무한 무적이 되던 것을 끊는다
+  const blockOk=S.t-(S.lastBlock||-9)>=1.2;
+  if(blockOk&&S.shield){S.shield=0;S.lastBlock=S.t;p.inv=.15;S.shake=Math.max(S.shake,.1);AU.play('hit');txt(p.x,p.y-26,'🛡 막았다!','#9fd0ff');return false;}   // 🎲 [2026-09-30 사장님 지시] 🛡 명상 방어막
+  if(blockOk&&lidTake()){S.lastBlock=S.t;p.inv=.15;S.shake=Math.max(S.shake,.1);txt(p.x,p.y-26,'🥏 막았다!','#9fd0ff');return false;}   // 🗡 [2026-09-30 사장님 지시] 🥏 냄비뚜껑이 한 대를 대신 받는다
   const arm=pv('arm')+(CH.arm||0)+2*pv('turtle')+trn('iron');d*=(1+.1*pv('glass'))*(p.moving&&PTV('spd')?.94:1);const dm=Math.max(1,d-arm);p.hp-=dm;p.inv=.45+(PTV('arm')?.12:0)+(S.rel.sprint>=3?.2:0);S.shake=Math.max(S.shake,.12);AU.play('hurt');
   EX.hurtFx(dm);{const t=texts.get();if(t){t.x=p.x;t.y=p.y-14;t.s='-'+Math.round(dm);t.life=1;t.c=PAL.tHurt;t.k=3;t.num=1;}}   // 🎨 [2026-09-30 사장님 지시] 내가 받은 피해 = 빨간 큰 숫자 + 붉은 화면 가장자리 + 흔들림
   if(S.rel.sprint)S.spr=2;if(PTV('arm')>=2&&p.hp>0){for(const e of S.live)if(e.on&&!e.boss){const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy)||1;if(dd<130){e.kr=0;knock(e,dx/dd,dy/dd,260,.25);}}}
