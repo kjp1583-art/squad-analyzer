@@ -7481,6 +7481,85 @@ def _team_split(entries, cidx, avoid_key=""):
     return A, B, why, key
 
 
+# ===== ⚖️ [2026-10-03 사장님 승인 P-12] 대기실 '전력 차' 한 줄 + 1:1 맞바꾸기 제안 =====
+#   10명이 찼을 때 분석기 창 안에 한 줄만(대기실 채팅 전송 없음). 산식은 새로 만들지 않는다 —
+#   개인 전력 = _captain_power(=_unified_power_one), 예상 승률 = 50 + 전력차×4 (15~85, 게임 시작 화면과 동일).
+#   개인 점수는 어디에도 표시하지 않고 팀 합·승률만 보인다. 설정 'lobby_balance'(기본 켬)로 끈다.
+LOBBY_BALANCE_SWAP_MIN = 1.5     # 전력차가 이 이상일 때만 맞바꾸기 제안
+LOBBY_BALANCE_EVEN_MAX = 1.0     # 전력차가 이 이하면 '팽팽해요'
+_LB_POS_KO = {"TOP": "탑", "JUNGLE": "정글", "MIDDLE": "미드", "MID": "미드", "BOTTOM": "원딜", "ADC": "원딜",
+              "UTILITY": "서폿", "SUPPORT": "서폿"}
+
+def _lobby_wr_from_diff(diff):
+    """블루 예상 승률(%) — 게임 시작 화면(blue_win_rate)과 같은 식. diff = 블루 전력합 − 레드 전력합."""
+    return max(15, min(85, int(50 + diff * 4 + 0.5)))
+
+def _lb_pos_label(pos):
+    pos = str(pos or '').strip()
+    return _LB_POS_KO.get(pos.upper(), pos if pos in ("탑", "정글", "미드", "원딜", "서폿") else "")
+
+def _lobby_balance_eval(blue, red):
+    """blue/red = [{'nm','pw','pos'}...] → None(10명 아님·중복·빈 이름) 또는
+       {'bw','rw','gap','swap': None|{'b','r','bw','rw','same_pos'}}. 팀 합·승률만 다룬다."""
+    if len(blue or []) != 5 or len(red or []) != 5: return None
+    names = [tnorm(str(c.get('nm') or '')) for c in list(blue) + list(red)]
+    if not all(names) or len(set(names)) != 10: return None
+    diff = sum(c['pw'] for c in blue) - sum(c['pw'] for c in red)
+    gap = abs(diff); bw = _lobby_wr_from_diff(diff)
+    out = {'bw': bw, 'rw': 100 - bw, 'gap': gap, 'swap': None}
+    if gap < LOBBY_BALANCE_SWAP_MIN: return out
+    best = None
+    for b in blue:
+        for r in red:
+            nd = diff - 2 * (b['pw'] - r['pw'])            # b↔r 맞바꾼 뒤 전력차(부호 포함)
+            if abs(nd) >= gap - 1e-9: continue              # 실제로 줄이는 쌍만
+            same = bool(b.get('pos')) and b.get('pos') == r.get('pos')
+            key = (abs(nd) - (0.5 if same else 0.0), abs(nd), b['nm'], r['nm'])   # 같은 주포지션 우선(0.5 가산), 결정적 타이브레이크
+            if best is None or key < best[0]: best = (key, b, r, nd, same)
+    if best:
+        _, b, r, nd, same = best
+        nbw = _lobby_wr_from_diff(nd)
+        out['swap'] = {'b': b, 'r': r, 'bw': nbw, 'rw': 100 - nbw, 'same_pos': same}
+    return out
+
+def _lobby_balance_lines(ev):
+    """_lobby_balance_eval 결과 → 화면에 보일 줄 목록(개인 점수 없음)."""
+    if not ev: return []
+    if ev['gap'] <= LOBBY_BALANCE_EVEN_MAX: return ["⚖️ 팽팽해요 👍"]
+    lines = [f"⚖️ 예상 승률 블루 {ev['bw']}% : 레드 {ev['rw']}% · 전력차 {ev['gap']:.1f}"]
+    sw = ev.get('swap')
+    if sw:
+        def _t(c, side):
+            pl = _lb_pos_label(c.get('pos'))
+            return f"{str(c['nm']).split('#')[0].strip()}({side}" + (f"·{pl}" if pl else "") + ")"
+        lines.append(f"🔄 {_t(sw['b'], '블루')} ↔ {_t(sw['r'], '레드')} 바꾸면 {sw['bw']}% : {sw['rw']}%")
+    return lines
+
+def _lobby_balance_cands(entries, cidx):
+    """gui_data 의 (player, stats) 목록 → _lobby_balance_eval 입력."""
+    out = []
+    for p, st_ in entries:
+        nm = str((p or {}).get('name') or '').strip()
+        out.append({'nm': nm, 'pw': _captain_power(p, st_), 'pos': _captain_main_pos(p, cidx)})
+    return out
+
+def _lobby_balance_text(blue_entries, red_entries, cidx=None):
+    """대기실 한 줄 문구(여러 줄이면 줄바꿈). 10명이 아니면 빈 문자열."""
+    try:
+        ev = _lobby_balance_eval(_lobby_balance_cands(blue_entries, cidx), _lobby_balance_cands(red_entries, cidx))
+        return "\n".join(_lobby_balance_lines(ev))
+    except Exception: return ""
+
+_PRE_WR = [None, 0.0]    # [시작 전 블루 예상 승률, 기록 시각] — 10명이 찬 화면에서 마지막으로 본 값(결과 리포트용)
+
+def _pre_game_report_line(pre_bw, win_team_id):
+    """결과 리포트 한 줄 — '시작 전 예상 44:56 → 레드 승'. 승리팀 모르면 빈 문자열."""
+    if pre_bw is None or win_team_id not in (100, 200): return ""
+    try: bw = int(pre_bw)
+    except (TypeError, ValueError): return ""
+    return f"⚖️ 시작 전 예상 {bw}:{100 - bw} → {'블루' if win_team_id == 100 else '레드'} 승"
+
+
 def _pos_recommend(A, B, idx):
     """🎯 [2026-08-18 사장님 지시] 5:5 배분 뒤 팀별 포지션 추천 — 배치 조율 시간 단축용.
        팀별 5×5 전수(120가지 순열)로 [그 포지션 실측 승률(수축 K=8·판수 가중) + 선언 주/부포지션
@@ -9515,6 +9594,11 @@ def lcu_core_backend_loop():
                                     _NB_TEAMS["blue"] = list(global_cached_blue or [])
                                     _NB_TEAMS["red"] = list(global_cached_red or [])
                                 except Exception: pass
+                                try:   # ⚖️ [P-12] 시작 전 예상 → 결과 한 줄(맞았는지 쌓아 간다)
+                                    if APP_CONFIG.get("lobby_balance", True) and _PRE_WR[0] is not None and time.time() - _PRE_WR[1] < 4 * 3600:
+                                        _pl = _pre_game_report_line(_PRE_WR[0], win_id)
+                                        if _pl: achieves_list = list(achieves_list) + [_pl]
+                                except Exception: pass
                                 try: broadcast_to_discord_webhook(chr(10).join(achieves_list))
                                 except Exception: pass
 
@@ -10341,6 +10425,10 @@ def create_graphic_ui():
     tk.Label(bans_row, textvariable=bans_var, bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=FONT_BANS).pack(side="left", padx=(0, 6))
     bans_icon_frame = tk.Frame(bans_row, bg=theme.BG_BAR)
     bans_icon_frame.pack(side="left")
+    # ⚖️ [P-12] 대기실 전력차 한 줄(10명 찼을 때만 보임 · 설정 'lobby_balance' 로 끔)
+    balance_var = tk.StringVar(value="")
+    tk.Label(mid_header, textvariable=balance_var, bg=theme.BG_BAR, fg="#f5d47a", font=FONT_BANS, justify="right").pack(anchor="e", pady=1)
+    _LB_STATE = {"fp": None}
 
     left_header = tk.Frame(header, bg=theme.BG_BAR)
     left_header.pack(side="left", fill="both", expand=True, padx=15, pady=5)
@@ -11047,6 +11135,22 @@ def create_graphic_ui():
                         _bl2.pack(side="left", padx=1)
                     # [시인성] 밴 챔피언 이름 텍스트 표기 제거 — 아이콘만(이미지 없으면 생략)
 
+            try:   # ⚖️ [P-12] 대기실 전력차 — 사람이 바뀔 때만 다시 계산(포지션용 클랜 색인은 백그라운드)
+                if APP_CONFIG.get("lobby_balance", True) and len(local_blue) == 5 and len(local_red) == 5:
+                    _fp = "|".join(sorted(tnorm(str((p or {}).get('name') or '')) for p, _s in local_blue + local_red))
+                    _PRE_WR[0], _PRE_WR[1] = local_b_wr, time.time()
+                    if _fp != _LB_STATE["fp"]:
+                        _LB_STATE["fp"] = _fp
+                        def _lb_work(be=list(local_blue), re_=list(local_red), fp=_fp):
+                            try: cx = _clan_index()
+                            except Exception: cx = None
+                            t = _lobby_balance_text(be, re_, cx)
+                            if _LB_STATE["fp"] == fp: root.after(0, lambda: balance_var.set(t))
+                        threading.Thread(target=_lb_work, daemon=True).start()
+                else:
+                    _LB_STATE["fp"] = None
+                    if balance_var.get(): balance_var.set("")
+            except Exception: pass
             blue_title_lbl.config(text=f"🟦 BLUE TEAM (예상 승률: {local_b_wr}%) | 밴 추천: ")
             # 🚫 [v81.76] 추천 밴 10개 → 5개씩 2줄(grid). 가로 한 줄로 늘어지지 않게.
             for widget in blue_ban_frame.winfo_children(): widget.destroy()
@@ -12018,6 +12122,7 @@ class ClanSettingsWindow(tk.Toplevel):
         self.var_tray = tk.BooleanVar(value=APP_CONFIG.get("minimize_to_tray", False))
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
         self.var_syn = tk.BooleanVar(value=APP_CONFIG.get("show_synergy", True))   # 🧩 우측 시너지 3칸
+        self.var_lb = tk.BooleanVar(value=APP_CONFIG.get("lobby_balance", True))   # ⚖️ [P-12] 대기실 전력차 한 줄
         
         # 체크박스를 먼저(오른쪽) 배치해 공간을 확보 → 긴 설명이 밀어내지 않음. 설명은 wraplength로 줄바꿈.
         opt_f1 = tk.Frame(body_frame, bg=theme.BG); opt_f1.pack(fill="x", pady=10)
@@ -12085,6 +12190,14 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Label(txt_pv, text="켜면 각자 선택한 포지션의 모스트·고승률픽만, 끄면 전체 라인 기준으로 보여줍니다. (상단 버튼으로 언제든 전환 가능)",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
+        # ⚖️ [P-12] 대기실 전력차 한 줄 — 끄기(기본 켬)
+        opt_lb = tk.Frame(body_frame, bg=theme.BG); opt_lb.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_lb, variable=self.var_lb, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_lb = tk.Frame(opt_lb, bg=theme.BG); txt_lb.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_lb, text="대기실 전력차 한 줄 보기", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_lb, text="10명이 차면 '예상 승률 블루 44% : 레드 56%'를 한 줄 보여주고, 많이 기울었으면 한 쌍 맞바꾸기를 안내합니다. 결과 리포트에 '시작 전 예상' 한 줄도 붙습니다. (개인 점수는 보이지 않아요)",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
         opt_f4 = tk.Frame(body_frame, bg=theme.BG); opt_f4.pack(fill="x", pady=10)
         _cur_key = APP_CONFIG.get("win_preset", "auto")
@@ -12124,6 +12237,7 @@ class ClanSettingsWindow(tk.Toplevel):
         _pv = bool(self.var_posview.get())
         APP_CONFIG["pos_view_default"] = _pv
         APP_CONFIG["show_synergy"] = bool(self.var_syn.get())   # 🧩 우측 시너지 3칸
+        APP_CONFIG["lobby_balance"] = bool(self.var_lb.get())   # ⚖️ [P-12] 대기실 전력차 한 줄
         try:
             if _SYNERGY_SYNC[0]: _SYNERGY_SYNC[0](APP_CONFIG["show_synergy"])   # 재시작 없이 즉시 반영
         except Exception: pass
