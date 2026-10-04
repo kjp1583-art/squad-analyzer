@@ -478,6 +478,7 @@ const CHARS=[
   {k:'ildj',img:1,e:'🎭',nm:'일단즐겨',tag:'미드 · 323판',q:'아님말고',ds:'「진 코스프레」 — 은빛 가면에 크림색 망토, 경험치 +20%. 아님말고. 🥚 달걀 폭탄 시작.',w:'egg',xp:.2,un:{t:'레벨 20 달성',ok:p=>p.maxLv>=20,pr:p=>`최고 Lv ${p.maxLv}`}},
   {k:'kyo',img:1,e:'🍔',nm:'김야옹',tag:'서폿 · 114판',q:'편의점 햄버거로 꺼지쇼',ds:'「버거킹 쿠폰」 — 레벨업마다 HP 25 회복, 획득 범위 +50%. 🌾 사료 시작.',w:'feed',lvheal:25,mag:.5,un:{t:'처치 누적 1000',ok:p=>p.kills>=1000,pr:p=>`${Math.min(p.kills,1000)}/1000`}},
   {k:'ddmj',img:1,e:'🧱',nm:'단단묵직',tag:'정글·탑 · 465판',q:'묵직하게 막아선다',ds:'「디펜더」 — 부딪힌 적을 밀쳐 낸다, 받는 피해 -3, 이동속도 -10%. 🍣 초밥 시작.',w:'sushi',arm:3,spd:-.1,push:1,un:{t:'최종 보스 처치',ok:p=>p.bossKill>=1,pr:p=>p.bossKill?'완료':'미완'}},
+  {k:'psg',img:1,e:'🌿',nm:'프싱',tag:'정글 · 335판',q:'정글 차이',ds:'「정글 풀캠프」 — 20초부터 40초마다 버프가 번갈아 온다: 🔴 빨버프 15초(주변 적에게 지속 피해) · 🔵 파랑버프 15초(쿨타임 -20%). 🍳 프라이팬 시작.',w:'pan',camp:1,un:{t:'하드 모드 10분 생존',ok:p=>hardBest()>=600,pr:p=>`하드 최고 ${fmt(hardBest())}`}},
   // ── 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 "일러스트가 구현되어 있는 신림·또뀨·태웅·용조련사 플레이어블로도 — 해금 조건 알아서"
   //   해금 = 그 보스를 판에서 처치(처치한 순간 저장 · 로그인하면 서버 해금 목록으로 기기 간 이어짐). 그림이 있어 ??? 로 가리지 않는다(REVEAL 과 무관).
   //   k 는 BOSS 키·봇 P6_UNLOCK_KEYS 와 같다. 대사는 봇 RAID_BOSSES 의 spawn(선택 화면 한 줄 = BOSS[k].sp0)·win/dead(결과 말풍선).
@@ -518,6 +519,7 @@ function renderRoster(){const pg=getProg();const box=$('roster'),bx=$('bossRoste
       if(ok){CH=c;try{localStorage.setItem(CK,c.k);}catch(e){}if(hasArt(c))charImg(c);renderRoster();}};
     (c.boss?bx:box).appendChild(b);}
   $('chDesc').innerHTML=chDesc(CH);}
+function hardBest(){const a=getBest(1),b=getBest(0,1);return Math.max(a&&a.t||0,b&&b.t||0);}   // 🌿 프싱 해금 — 하드·💀 베리하드 기록 중 긴 쪽
 function getBest(h,v){try{return JSON.parse(localStorage.getItem(v?BKV:h?BKH:BK)||'null');}catch(e){return null;}}
 function setBest(b,h,v){try{localStorage.setItem(v?BKV:h?BKH:BK,JSON.stringify(b));}catch(e){}}
 const fmt=s=>{s=Math.floor(s);return String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0');};
@@ -949,11 +951,11 @@ function newRun(){
      cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
      sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{},   // tcd 💬 도발 대사 종류별 다음 허용 시각
      newU:[],staffT:5,slowR:0,proomT:6,proom:{x:0,y:0,R:0,t:0,tk:0},dashCd:0,br:{a:0,R:0,w:0,t:0,ev:0},
-     x2:newX2(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0};   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
+     x2:newX2(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},campT:0,campK:-1,campB:0,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0};   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
-const cdMul=()=>(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
+const cdMul=()=>(S.campB?.8:1)*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
 const dmgMul=()=>(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+.15*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*pv('dur');                  // ⏳ 지속시간
@@ -1004,7 +1006,7 @@ function buildHtml(){
   h+=dmgHtml();
   const nb=Math.min(S.nextBoss,S.nextMini);
   h+=`<div class="muted">다음 보스 ${nb<WIN_T?fmt(nb):'—'} · 60:00 까지 버티면 클리어</div></div>`;return h;}
-const SRCN={char:'🐲 캐릭터 능력',item:'💣 폭탄',kog:'💥 코그모 역이용',rel:'🏺 유물'};
+const SRCN={camp:'🌿 풀캠프',char:'🐲 캐릭터 능력',item:'💣 폭탄',kog:'💥 코그모 역이용',rel:'🏺 유물'};
 function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)return '';   // 📊 무기별 피해 비중 — 내 빌드에서 뭐가 일하는지
   const rows=Object.entries(S.dmgBy).sort((a,b)=>b[1]-a[1]).slice(0,6);
   return `<b>📊 피해 비중</b><div class="bw">${rows.map(([k,v])=>`${WEAP[k]?(S.ev[k]?WEAP[k].ev.ic:WEAP[k].ic)+' '+WEAP[k].nm:SRCN[k]||k} <b>${Math.round(v/t*100)}%</b>`).join(' · ')}</div>`;}
@@ -1744,6 +1746,12 @@ function weapons(dt){
 }
 // 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 고유 능력(용조련사 「쫑의 군주」는 CH.hp·arm·spd 숫자만이라 여기 없다)
 function charTick(dt){const p=S.p;SRC='char';
+  if(CH.camp){   // 🌿 「정글 풀캠프」 — 20초부터 40초마다 🔴/🔵 번갈아 15초(일시정지·레벨업 중엔 이 함수가 안 돌아 시간도 멈춘다)
+    S.campT+=dt;const c=S.campT-20,k=c>=0?Math.floor(c/40):-1,w=c>=0?c-k*40:99,on=w<15;
+    if(on&&k!==S.campK){S.campK=k;S.campR=k%2===0?1:0;AU.play(S.campR?'zap':'freeze');banner(S.campR?'🔴 빨버프!':'🔵 파랑버프!',S.campR?'주변 적이 타들어 간다 — 15초':'쿨타임 -20% — 15초');S.campX=0;}
+    S.campL=on?15-w:0;S.campB=on&&!S.campR?1:0;
+    if(on&&S.campR){S.campX-=dt;if(S.campX<=0){S.campX=.5;const R=160*areaMul(),d=7*dmgMul();SRC='camp';
+      for(const e of S.live)if(e.on&&(e.x-p.x)**2+(e.y-p.y)**2<(R+e.r)**2)hurt(e,d);hitPropsAt(p.x,p.y,R,d);SRC='char';}}}
   if(S.dashCd>0)S.dashCd-=dt;
   S.slowR=CH.slowR?CH.slowR*(1+.1*pv('area')):0;   // 🕷 「스탭 임명」 감속 오라 — 적 이동은 update 의 적 루프에서 ×0.8
   if(CH.staff){   // 🕷 「스탭 임명」 — 20초마다 🪪 스탭 2명이 10초 동안 가까운 적(내 곁 300 안)을 찾아가 주변을 후려친다
@@ -2448,6 +2456,9 @@ function draw(){
     cx.beginPath();cx.arc(p.x,p.y,R,0,7);cx.lineWidth=ev?3.4:2.2;cx.strokeStyle=ev?'rgba(214,236,255,'+(.72+.2*Math.sin(S.t*8)).toFixed(2)+')':'rgba(111,230,255,.6)';cx.stroke();
     if(ev){cx.beginPath();cx.arc(p.x,p.y,R*.72,0,7);cx.lineWidth=1.4;cx.strokeStyle='rgba(106,140,255,.42)';cx.stroke();}}
   // 🐲 보스 캐릭터 — 🕷 감속 오라 고리 · ☠ 진실의 방(내 것: 둥근 하늘색 실선 빛 — 보스의 함정(빨간 점선·빗금 벽)과 다르게)
+  if(CH.camp&&S.campL>0){const R=S.campR?160*areaMul():34,fr=S.campL/15,col=S.campR?'255,80,70':'90,170,255';   // 🌿 빨버프(피해 범위) · 파랑버프(내 몸 둘레) 링 — 남은 시간만큼 호
+    if(!LOW){cx.beginPath();cx.arc(p.x,p.y,R,0,7);cx.lineWidth=S.campR?6:4;cx.strokeStyle=`rgba(${col},.12)`;cx.stroke();}
+    cx.beginPath();cx.arc(p.x,p.y,R,-1.5708,-1.5708+6.2832*fr);cx.lineWidth=2.4;cx.strokeStyle=`rgba(${col},.85)`;cx.stroke();}
   if(S.slowR){cx.beginPath();cx.arc(p.x,p.y,S.slowR,0,7);cx.lineWidth=2;cx.strokeStyle='rgba(111,230,255,.34)';cx.stroke();}
   if(S.proom.t>0){const o=S.proom;cx.globalAlpha=Math.min(1,o.t/.3,(3-o.t)/.12+.25);cx.drawImage(SPX.aura,o.x-o.R,o.y-o.R,o.R*2,o.R*2);
     cx.beginPath();cx.arc(o.x,o.y,o.R,0,7);cx.lineWidth=8;cx.strokeStyle='rgba(111,230,255,.16)';cx.stroke();cx.lineWidth=2.6;cx.strokeStyle='rgba(190,242,255,.92)';cx.stroke();
@@ -2617,7 +2628,7 @@ function fitFont(pre,px,s){cx.font=pre+px+'px sans-serif';const w=cx.measureText
 function hud(){
   $('xpb').firstElementChild.style.width=(S.xp/S.need*100)+'%';
   $('hpb').firstElementChild.style.width=(S.p.hp/S.p.mhp*100)+'%';
-  $('hLv').textContent='Lv '+S.lv;$('hTime').textContent=(S.vh?'💀 ':S.hard?'🔥 ':'')+fmt(S.t)+' / 60:00';$('hKill').textContent='💀 '+S.kills;
+  $('hLv').textContent='Lv '+S.lv;$('hTime').textContent=(S.vh?'💀 ':S.hard?'🔥 ':'')+fmt(S.t)+' / 60:00';$('hKill').textContent='💀 '+S.kills;if(CH.camp&&S.campL>0)$('hTime').textContent+=(S.campR?' 🔴':' 🔵')+Math.ceil(S.campL);
   const b=S.bossRef;const bb=$('bossb');
   if(b&&!(b.on&&b.boss))S.bossRef=null;
   if(b&&b.on&&b.boss){bb.style.display='block';let nb=0;for(const x of S.live)if(x.on&&x.boss)nb++;$('bossName').textContent=(b.b.brj?'':'🦐 흐접새우의 ')+b.b.nm+(b.bph?` · ${b.bph+1}페이즈`:'')+(nb>1?` (+${nb-1})`:'');bb.querySelector('i').style.width=(b.hp/b.mhp*100)+'%';}else bb.style.display='none';
