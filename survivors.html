@@ -123,7 +123,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .lvx{display:flex;gap:6px;margin-top:4px}.lvx .btn{margin:0;padding:8px 6px;font-size:13px}.lvx .btn.on{border-color:var(--lose);color:#ffb0b0}.lvx .btn:disabled{opacity:.45}
 .ch.banm{border-color:var(--lose);border-style:dashed}
 .hardt{display:flex;align-items:center;gap:8px;text-align:left;background:#2a1418;border:1px solid #6b2a30;border-radius:10px;padding:8px 10px;margin:8px 0 0;cursor:pointer;font-size:13px}
-.hardt input{width:18px;height:18px;accent-color:var(--lose);margin:0}.hardt small{display:block;color:var(--sub);font-size:11px}
+.vht{background:#1d1022;border-color:#5a2a78}.hardt input{width:18px;height:18px;accent-color:var(--lose);margin:0}.hardt small{display:block;color:var(--sub);font-size:11px}
 .btabs{display:inline-flex;gap:4px;margin-left:6px}.btabs button{background:var(--card2);border:1px solid var(--line);color:var(--sub);border-radius:6px;font:inherit;font-size:11.5px;padding:0 8px;cursor:pointer}.btabs button.on{color:var(--txt);border-color:var(--acc)}
 .hb{color:#ff8a8a;font-size:11px}
 /* 🎨 [2026-09-30 사장님 지시] 색 언어 안내 한 줄 — 적의 위험은 빨간 점선·빗금, 내 공격은 하늘색 실선 */
@@ -155,6 +155,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="muted" id="chDesc"></div>
   <div class="lgd" id="lgdT"><span class="rd">🔴 빨간 표시(점선·빗금)</span> = 위험(적) · <span class="bl">🔵 파란/하늘색</span> = 내 공격</div>
   <label class="hardt"><input type="checkbox" id="hardChk"><span><b>🔥 하드 모드</b><small>몬스터 체력 또 ×2 · 더 아프고 더 많이 몰려온다 · 순위표 따로</small></span></label>
+  <label class="hardt vht"><input type="checkbox" id="vhChk"><span><b>💀 베리하드 모드</b><small>하드보다 몬스터 체력 ×2 더 · 훨씬 더 아프고 훨씬 더 많이 몰려온다 · 순위표 따로</small></span></label>
   <button class="btn" id="startBtn">▶ 시작하기</button>
   <details class="howd"><summary>❔ 조작법</summary><ol class="how">
     <li>WASD·방향키(폰은 화면을 끌어서)로 캐릭터를 움직여요.</li>
@@ -423,23 +424,25 @@ function renderAcct(){const u=dcUser();
   const h=u?`🔐 <b>${esc(ME&&ME.name||u.name)}</b> 로그인 중${ME&&ME.runs?` · ${ME.runs}판 · 최고 ${fmt(ME.best_t)}${ME.rank?` · <b style="color:var(--gold)">${ME.rank}위</b>`:''}`:''} <a href="#" id="dcOut" class="muted">로그아웃</a>`
     :`로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn">디스코드 로그인</button><div class="muted">로그인 없이도 플레이할 수 있어요(이 기기에만 저장·순위표 제외).</div>`;
   $('acct').innerHTML=h;const i=$('dcIn');if(i)i.onclick=dcLogin;const o=$('dcOut');if(o)o.onclick=e=>{e.preventDefault();dcLogout();};}
-let BOARDH=null,BTAB=0;   // 🔥 하드 순위표(서버가 아직 모르면 null — 탭은 '준비 중')
+let BOARDH=null,BOARDV=null,SRV_VH=null,BTAB=0;   // 🔥 하드 순위표(서버가 아직 모르면 null — 탭은 '준비 중')
 function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순위표</b><div class="muted">순위표를 불러오지 못했어요.</div>';return;}
-  const rows=(BTAB?BOARDH||[]:BOARD).slice(0,10);
-  el.innerHTML=`<b>🏆 순위표 TOP 10</b><span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB?'on':''}">🔥 하드</button></span>`
-    +(rows.length?'<ol>'+rows.map(r=>`<li>${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
+  const rows=(BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD).slice(0,10);
+  el.innerHTML=`<b>🏆 순위표 TOP 10</b><span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button></span>`
+    +(rows.length?'<ol>'+rows.map(r=>`<li>${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
   for(const b of el.querySelectorAll('[data-bt]'))b.onclick=()=>{BTAB=+b.dataset.bt;renderBoard();};}
-async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;}catch(e){BOARD=null;}renderBoard();}
+async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;}catch(e){BOARD=null;}renderBoard();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
   if(j&&j.ok){ME=j;mergeUnl(j.unlocks);renderRoster();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
 async function submitRun(won){const u=dcUser();const el=$('rAcct');
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
-  postRun({token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.hard?1:0,unlocks:[...getUnl()]},0);}
-async function postRun(body,n){const el=$('rAcct');   // 판 결과는 보낼 때 한 번 찍어 둔다(다시 보내는 사이 새 판이 시작돼도 그대로)
+  postRun({token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.vh?0:S.hard?1:0,vhard:S.vh?1:0,unlocks:[...getUnl()]},0);}
+async function postRun(body,n){const el=$('rAcct');
+  if(body.vhard){if(SRV_VH===null)await loadBoard();if(!SRV_VH){keepUnsent(body,'⚠ 순위 서버가 아직 베리하드를 몰라 이번 기록은 이 기기에 남겨 뒀어요(일반 기록과 섞이지 않게).');return;}}   // 옛 서버는 vhard 를 몰라 일반 기록으로 올려 버린다 — 서버가 지원할 때만 보낸다
+   // 판 결과는 보낼 때 한 번 찍어 둔다(다시 보내는 사이 새 판이 시작돼도 그대로)
   try{const j=await api('/p6/run',body);
     if(j.code==='upstream'&&n<2){el.textContent='📡 디스코드 확인이 늦어요 — 잠시 뒤 다시 올려 볼게요…';setTimeout(()=>postRun(body,n+1),4000*(n+1));return;}   // 서버가 저장 안 했다고 확답한 경우만 재시도
-    if(j.ok){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 기록 저장! ${body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.hard)BTAB=1;mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();}
+    if(j.ok){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 기록 저장! ${body.vhard&&j.vhard_rank?`💀 베리하드 순위 <b style="color:var(--gold)">${esc(j.vhard_rank)}위</b> / ${esc(j.vhard_total)}명`:body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.vhard)BTAB=2;else if(body.hard)BTAB=1;mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();}
     else if(j.code==='rate')el.textContent='⏳ 너무 빨리 끝났어요 — 이번 판은 저장되지 않았어요(20초 간격).';
     else if(j.code==='auth')el.textContent='🔐 로그인이 만료됐어요 — 다시 로그인해 주세요.';
     else if(j.code==='upstream')keepUnsent(body,'⚠ 디스코드 확인이 안 돼 이번 기록은 아직 저장되지 않았어요(로그인은 그대로).');
@@ -459,8 +462,8 @@ function getUnl(){try{return new Set(JSON.parse(localStorage.getItem(UK)||'[]'))
 function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>s.add(String(x)));try{localStorage.setItem(UK,JSON.stringify([...s]));}catch(e){}}
 
 // ---------- 저장(내 브라우저에만) ----------
-const BK='p6_best_v1',BKH='p6_best_hard_v1',PK='p6_prog_v1',CK='p6_char_v1',HK='p6_hard';
-let HARD_ON=false;try{HARD_ON=localStorage.getItem(HK)==='1';}catch(e){}BTAB=HARD_ON?1:0;   // 🔥 하드 모드(첫 화면에서 고른다 · 기억)
+const BK='p6_best_v1',BKH='p6_best_hard_v1',BKV='p6_best_vhard_v1',VK='p6_vh',PK='p6_prog_v1',CK='p6_char_v1',HK='p6_hard';
+let HARD_ON=false,VH_ON=false;try{HARD_ON=localStorage.getItem(HK)==='1';VH_ON=localStorage.getItem(VK)==='1';}catch(e){}if(VH_ON)HARD_ON=false;BTAB=VH_ON?2:HARD_ON?1:0;   // 🔥 하드 모드(첫 화면에서 고른다 · 기억)
 function getProg(){let p;try{p=Object.assign({deaths:0,kills:0,midKill:0,bossKill:0,maxLv:0,best:0,w5:{},bk:{}},JSON.parse(localStorage.getItem(PK)||'{}'));}catch(e){p={deaths:0,kills:0,midKill:0,bossKill:0,maxLv:0,best:0,w5:{},bk:{}};}
   if(!p.bk||typeof p.bk!=='object')p.bk={};return p;}   // bk 🐲 처치한 보스(보스 캐릭터 해금)
 function setProg(p){try{localStorage.setItem(PK,JSON.stringify(p));}catch(e){}}
@@ -515,10 +518,10 @@ function renderRoster(){const pg=getProg();const box=$('roster'),bx=$('bossRoste
       if(ok){CH=c;try{localStorage.setItem(CK,c.k);}catch(e){}if(hasArt(c))charImg(c);renderRoster();}};
     (c.boss?bx:box).appendChild(b);}
   $('chDesc').innerHTML=chDesc(CH);}
-function getBest(h){try{return JSON.parse(localStorage.getItem(h?BKH:BK)||'null');}catch(e){return null;}}
-function setBest(b,h){try{localStorage.setItem(h?BKH:BK,JSON.stringify(b));}catch(e){}}
+function getBest(h,v){try{return JSON.parse(localStorage.getItem(v?BKV:h?BKH:BK)||'null');}catch(e){return null;}}
+function setBest(b,h,v){try{localStorage.setItem(v?BKV:h?BKH:BK,JSON.stringify(b));}catch(e){}}
 const fmt=s=>{s=Math.floor(s);return String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0');};
-function showBest(){const b=getBest(),bh=getBest(1);$('bestT').textContent=(b?`🏆 최고 기록 ${fmt(b.t)} · 처치 ${b.k} · Lv ${b.lv}`:'최고 기록 없음')+(bh?` · 🔥 하드 ${fmt(bh.t)}`:'');}
+function showBest(){const b=getBest(),bh=getBest(1),bv=getBest(0,1);$('bestT').textContent=(b?`🏆 최고 기록 ${fmt(b.t)} · 처치 ${b.k} · Lv ${b.lv}`:'최고 기록 없음')+(bh?` · 🔥 하드 ${fmt(bh.t)}`:'')+(bv?` · 💀 베리하드 ${fmt(bv.t)}`:'');}
 
 // ---------- 풀 ----------
 function Pool(n,mk){this.a=[];for(let i=0;i<n;i++){const o=mk();o.on=false;this.a.push(o);}}
@@ -899,7 +902,7 @@ function dropItem(k,x,y){let it=items.get();if(!it&&k==='chest'){it=items.a.find
 // 🍗 치킨 경제(2026-09-29 사장님 "치킨 드랍율이 너무 높아 hp 관리가 너무 잘돼") — 주워 먹는 양을 예전의 약 1/3 로:
 //   오브젝트 치킨 53%→25%(오브젝트도 4초→6초마다) · 맵 치킨 40~65초→100~150초 · 잡몹 1.2%→0.6%(첫 10분은 1.1%에서 서서히, 행운 보정 절반) ·
 //   엘리트 25%→12% · 적에게서 나오는 치킨은 서로 최소 CHK_GAP 초 간격(후반 처치 속도가 빨라도 치킨 비가 내리지 않게) · 회복 25%→20%
-const CHK_GAP=4,CHK_HEAL=.2;const chkHeal=()=>(S&&S.hard?HARD.chk:CHK_HEAL)*(PTV('hp')?1.25:1)*(1+smv('chk'));
+const CHK_GAP=4,CHK_HEAL=.2;const chkHeal=()=>(S&&S.hard?hv().chk:CHK_HEAL)*(PTV('hp')?1.25:1)*(1+smv('chk'));
 function breakProp(o){o.on=false;AU.play('brk');const r=Math.random();
   dropItem(r<.25?'chicken':r<.65?'magnet':'bomb',o.x,o.y);
   const t=texts.get();if(t){t.x=o.x;t.y=o.y-18;t.s='💥';t.life=.6;t.c='#fff';}}
@@ -946,7 +949,7 @@ function newRun(){
      cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
      sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{},   // tcd 💬 도발 대사 종류별 다음 허용 시각
      newU:[],staffT:5,slowR:0,proomT:6,proom:{x:0,y:0,R:0,t:0,tk:0},dashCd:0,br:{a:0,R:0,w:0,t:0,ev:0},
-     x2:newX2(),hard:HARD_ON,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0};   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
+     x2:newX2(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0};   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
@@ -960,13 +963,15 @@ const lvm=(L,ups)=>{let m=1;for(const u of ups)if(L>=u[0])m*=u[1];return m;};
 const MIN=()=>S.t/60;
 // 난이도(2026-09-29 사장님 "오히려 난이도가 너무 쉽다") — 잡몹 공격력은 0분 ×1 → 10분부터 ×1.25(초반 입문은 그대로),
 //   10분 뒤로 잡몹 체력 곡선을 조금 더 가파르게. 보스 공격력은 그대로 — 보스·미니 보스가 2분 30초마다 나오게 된 데다 후반 브레스가 한 방이 되지 않게
-const hpMul=m=>(1+.4*m+.018*m*m+(m>10?.0035*(m-10)*(m-10):0))*(1+(MOB_HP-1)*Math.min(1,.4+m/12))*(S&&S.hard?HARD.hp:1);   // 잡몹 체력(+100% 는 입문 구간을 지나 12분부터 온전히: 0분 +40%) — 8분 ×5 · 30분 ×32 · 55분 ×92 (그 위에 ×2 · 하드 또 ×2)
-const atkMul=m=>(1+m/14)*(S&&S.hard?HARD.atk:1);   // 공격력 기본 곡선(하드 ×1.25)
+const hpMul=m=>(1+.4*m+.018*m*m+(m>10?.0035*(m-10)*(m-10):0))*(1+(MOB_HP-1)*Math.min(1,.4+m/12))*(S&&S.hard?hv().hp:1);   // 잡몹 체력(+100% 는 입문 구간을 지나 12분부터 온전히: 0분 +40%) — 8분 ×5 · 30분 ×32 · 55분 ×92 (그 위에 ×2 · 하드 또 ×2)
+const atkMul=m=>(1+m/14)*(S&&S.hard?hv().atk:1);   // 공격력 기본 곡선(하드 ×1.25)
 const mobX=m=>1+.25*Math.min(1,m/10),DMG_BOSS=.7;   // 보스 피해 ×0.7 — 체력 ×10 으로 훨씬 오래 맞서니 한 방은 덜 아프게
-const bossMul=m=>(1+.22*m+.028*m*m)*Math.min(BOSS_HP,Math.max(1,(m-2)*.6))*(S&&S.hard?HARD.bhp:1);   // 보스 체력 ×10 — 초반 보스는 예전에도 1~4분 걸려서 그대로 두고 점점 늘린다(5분 ×1.8 · 10분 ×4.8 · 15분 ×7.8 · 20분부터 ×10) · 하드 ×1.5
+const bossMul=m=>(1+.22*m+.028*m*m)*Math.min(BOSS_HP,Math.max(1,(m-2)*.6))*(S&&S.hard?hv().bhp:1);   // 보스 체력 ×10 — 초반 보스는 예전에도 1~4분 걸려서 그대로 두고 점점 늘린다(5분 ×1.8 · 10분 ×4.8 · 15분 ×7.8 · 20분부터 ×10) · 하드 ×1.5
 // ⚖ [2026-09-29 사장님 "너무 쉽다"] 잡몹 체력 +100% · 보스(미니·최종 포함) 체력 ×10 · 각성 피해 보너스 대폭 삭감(각성 효과 자체는 그대로)
 // 🔥 하드 모드 — 잡몹 체력 또 ×2 · 보스 ×1.5 · 공격력 ×1.25 · 스폰 ×1.15 · 치킨 회복 15%
 const MOB_HP=2,BOSS_HP=10,XP_X=1.6,HARD={hp:2,bhp:1.5,atk:1.25,rate:1.15,chk:.15};
+// 💀 베리하드 — 하드 효과를 전부 갖고 수치만 한 단계 더(체력 하드의 1.8배 · 보스 1.4배 · 공격 1.24배 · 스폰 1.13배 · 체크포인트 회복 절반 · 이벤트 간격 ×.72)
+const HARD_V={hp:3.6,bhp:2.1,atk:1.55,rate:1.3,chk:.08,ev:.72},HARD_EV=.85;const hv=()=>S&&S.vh?HARD_V:HARD;
 
 // ---------- 입력 ----------
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Escape'||e.code==='KeyP'){if(state==='play')pauseGame();else if(state==='pause')resume();}
@@ -983,7 +988,7 @@ addEventListener('blur',()=>{if(state==='play')pauseGame();});
 // ---------- 화면 전환 ----------
 const ovs=['title','lvup','pause','result','chest'];
 function show(id){for(const o of ovs)$(o).classList.toggle('on',o===id);$('hud').style.display=(id==='title'||id==='result')?'none':'block';}
-function start(){AU.init();AU.reset();AU.music(true);if(hasArt(CH))charImg(CH);HARD_ON=$('hardChk').checked;try{localStorage.setItem(HK,HARD_ON?'1':'0');}catch(e){}newRun();state='play';show(null);$('hud').style.display='block';last=performance.now();}
+function start(){AU.init();AU.reset();AU.music(true);if(hasArt(CH))charImg(CH);VH_ON=$('vhChk').checked;HARD_ON=!VH_ON&&$('hardChk').checked;try{localStorage.setItem(HK,HARD_ON?'1':'0');localStorage.setItem(VK,VH_ON?'1':'0');}catch(e){}newRun();state='play';show(null);$('hud').style.display='block';last=performance.now();}
 function buildHtml(){
   const wk=Object.keys(S.w),pk=Object.keys(S.ps);
   let h=`<div class="build"><b>⚔ 무기 ${wk.length}/${SLOTW}</b>`;
@@ -1005,7 +1010,7 @@ function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)r
   return `<b>📊 피해 비중</b><div class="bw">${rows.map(([k,v])=>`${WEAP[k]?(S.ev[k]?WEAP[k].ev.ic:WEAP[k].ic)+' '+WEAP[k].nm:SRCN[k]||k} <b>${Math.round(v/t*100)}%</b>`).join(' · ')}</div>`;}
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=`${fmt(S.t)} / 60:00 · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');}
 function resume(){if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();}
-$('hardChk').checked=HARD_ON;$('startBtn').onclick=start;$('againBtn').onclick=start;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
+$('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked)$('vhChk').checked=false;};$('vhChk').onchange=()=>{if($('vhChk').checked)$('hardChk').checked=false;};$('startBtn').onclick=start;$('againBtn').onclick=start;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
 $('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();show('title');};
 $('chestOk').onclick=()=>{if(state==='chest')resume();};
 
@@ -1330,7 +1335,7 @@ function eventTick(){
 }
 function waveTick(dt){
   const m=MIN();
-  const rate=Math.min(LOW?16:22,1.2+1.3*m+.05*m*m)*.85*(S.hard?HARD.rate:1);   // 몰이 이벤트가 잦아진 만큼 평소 스폰은 15% 덜 // 초당 마릿수 — 상한 이후엔 체력·공격력만 오른다
+  const rate=Math.min(LOW?16:22,1.2+1.3*m+.05*m*m)*.85*(S.hard?hv().rate:1);   // 몰이 이벤트가 잦아진 만큼 평소 스폰은 15% 덜 // 초당 마릿수 — 상한 이후엔 체력·공격력만 오른다
   S.spawnT+=dt*rate;
   const hm=hpMul(m),elP=S.t<180?0:Math.min(.065,.008+m*.0012);   // ⭐ 엘리트 — 3분부터(예전 10분) 조금씩 → 10분 2% · 30분 4.4% · 48분~ 6.5%
   while(S.spawnT>=1){S.spawnT--;
@@ -1338,7 +1343,7 @@ function waveTick(dt){
     if(KIND[k].from>0&&!S.seen[k]){S.seen[k]=1;banner(`⚠ 흐접새우가 ${josa(KIND[k].nm,'을','를')} 잡았습니다!`,TROLL_LINES[Math.random()*TROLL_LINES.length|0]);}
     const e=spawnEnemy(k,hm);
     if(e&&Math.random()<elP){e.el=1;e.mhp=e.hp=e.hp*6;e.r*=1.5;e.xp*=5;e.dmg*=1.3;}}   // ⭐ 엘리트(3분부터 자주 나오니 경험치는 ×10→×5)
-  if(S.t>=S.evT){S.evT+=Math.max(45,80-m*.7)*(S.hard?.85:1);eventTick();}
+  if(S.t>=S.evT){S.evT+=Math.max(45,80-m*.7)*(S.hard?(S.vh?HARD_V.ev:HARD_EV):1);eventTick();}
   // 👹 대형 흐접새우 트롤픽 — 5분부터 약 37초마다 → 20분 28초 · 40분 16초(30분부터 두 마리씩)
   if(S.t>=S.bigT){S.bigT=S.t+Math.max(12,40-m*.6)*(.85+Math.random()*.3);for(let i=0;i<1+(m>=30);i++)spawnBig(hm);}
   // 보스: 5분마다(5~50분 로테이션) · 55분 최종 · 미니 보스는 2:30 부터 5분마다(보스 사이사이)
@@ -1955,11 +1960,11 @@ function endRun(won,quit){
   if(!won&&!quit)pg.deaths++;pg.kills+=S.kills;pg.midKill+=S.midKill;pg.bossKill+=S.bossKill;pg.maxLv=Math.max(pg.maxLv,S.lv);pg.best=Math.max(pg.best,S.t);
   for(const k in S.w)if(S.w[k]>=5)pg.w5[k]=1;setProg(pg);
   const nu=CHARS.filter(c=>c.un&&c.un.ok(pg)&&!before.includes(c.k));mergeUnl(CHARS.filter(c=>isUnl(c,pg)).map(c=>c.k));
-  const b=getBest(S.hard);const cur={t:S.t,k:S.kills,lv:S.lv};let nb=false;
-  if(!b||cur.t>b.t||(cur.t===b.t&&cur.k>b.k)){setBest(cur,S.hard);nb=true;}
-  $('rTitle').innerHTML=(S.hard?'<span class="hb">🔥 하드 모드</span><br>':'')+(won?`🎉 60분 생존 — 클리어! ${esc(CH.nm)}이(가) 흐접새우의 트롤픽을 끝까지 막아냈다`:quit?`🏳 ${fmt(S.t)} 에서 포기 — 흐접새우는 아쉬워한다`:`💫 ${esc(CH.nm)}이(가) 쓰러졌다… 흐접새우는 즐거워한다`);
+  const b=getBest(S.hard&&!S.vh,S.vh);const cur={t:S.t,k:S.kills,lv:S.lv};let nb=false;
+  if(!b||cur.t>b.t||(cur.t===b.t&&cur.k>b.k)){setBest(cur,S.hard&&!S.vh,S.vh);nb=true;}
+  $('rTitle').innerHTML=(S.vh?'<span class="hb">💀 베리하드 모드</span><br>':S.hard?'<span class="hb">🔥 하드 모드</span><br>':'')+(won?`🎉 60분 생존 — 클리어! ${esc(CH.nm)}이(가) 흐접새우의 트롤픽을 끝까지 막아냈다`:quit?`🏳 ${fmt(S.t)} 에서 포기 — 흐접새우는 아쉬워한다`:`💫 ${esc(CH.nm)}이(가) 쓰러졌다… 흐접새우는 즐거워한다`);
   $('rTime').textContent=fmt(S.t);$('rKill').textContent=S.kills;$('rLv').textContent=S.lv;
-  const bb=getBest(S.hard);$('rBest').innerHTML=nb?'<span class="new">신기록!</span>':(bb?fmt(bb.t):'-');
+  const bb=getBest(S.hard&&!S.vh,S.vh);$('rBest').innerHTML=nb?'<span class="new">신기록!</span>':(bb?fmt(bb.t):'-');
   $('rWeap').textContent='빌드: '+Object.keys(S.w).map(k=>S.ev[k]?`${WEAP[k].ev.ic} ${WEAP[k].ev.nm}✨`:`${WEAP[k].ic} ${WEAP[k].nm} Lv${S.w[k]}`).join(' · ')
     +(Object.keys(S.ps).length?' / '+Object.keys(S.ps).map(k=>`${PASS[k].ic}${S.ps[k]}`).join(' '):'')
     +(S.synOn.length?' / 🔗 '+S.synOn.map(k=>SYN.find(y=>y.k===k).nm).join('·'):'');
@@ -2612,7 +2617,7 @@ function fitFont(pre,px,s){cx.font=pre+px+'px sans-serif';const w=cx.measureText
 function hud(){
   $('xpb').firstElementChild.style.width=(S.xp/S.need*100)+'%';
   $('hpb').firstElementChild.style.width=(S.p.hp/S.p.mhp*100)+'%';
-  $('hLv').textContent='Lv '+S.lv;$('hTime').textContent=(S.hard?'🔥 ':'')+fmt(S.t)+' / 60:00';$('hKill').textContent='💀 '+S.kills;
+  $('hLv').textContent='Lv '+S.lv;$('hTime').textContent=(S.vh?'💀 ':S.hard?'🔥 ':'')+fmt(S.t)+' / 60:00';$('hKill').textContent='💀 '+S.kills;
   const b=S.bossRef;const bb=$('bossb');
   if(b&&!(b.on&&b.boss))S.bossRef=null;
   if(b&&b.on&&b.boss){bb.style.display='block';let nb=0;for(const x of S.live)if(x.on&&x.boss)nb++;$('bossName').textContent=(b.b.brj?'':'🦐 흐접새우의 ')+b.b.nm+(b.bph?` · ${b.bph+1}페이즈`:'')+(nb>1?` (+${nb-1})`:'');bb.querySelector('i').style.width=(b.hp/b.mhp*100)+'%';}else bb.style.display='none';
