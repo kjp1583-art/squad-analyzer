@@ -7683,6 +7683,75 @@ def resolve_champ_decl(txt, champs, played=None):
         return _pick([c for c, n in norm.items() if _subseq(t, n)])
     return None
 
+# ===== 🧹 [2026-10-04] 같은 판 통째 중복 기록 사후 정리 (check-then-act 경합 보완) =====
+#   append 직전 col_values 재확인과 append 사이엔 잠금이 없어, 동시에 돌던 두 분석기가 둘 다 0을 보고 각자 10줄을 쓰면
+#   한 판이 20줄이 된다(#8401542555 등). 쓴 직후 시트를 다시 읽어, '내 블록보다 앞에 같은 판의 완전한 블록이 이미 있으면'
+#   내 블록만 지운다. 판단은 행 번호 — 가장 앞선 블록은 앞선 블록이 없으니 절대 안 지워서 양쪽 삭제(무기록)가 불가능.
+#   확신이 없으면(읽기 실패·시그니처 불일치·행 밀림) 지우지 않고 로그만(중복 보존 > 무기록).
+def _dup_block_start(append_resp):
+    """gspread append_rows 응답의 updatedRange('시트!A5:Z14')에서 시작 행 번호. 못 읽으면 0."""
+    try:
+        rng = str(((append_resp or {}).get("updates") or {}).get("updatedRange") or (append_resp or {}).get("updatedRange") or "")
+        m = re.search(r"!\$?[A-Za-z]+\$?(\d+)", rng)
+        return int(m.group(1)) if m else 0
+    except Exception:
+        return 0
+
+
+def _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, append_resp, sleep=None, log=print):
+    """gid_col·name_col = 1-기반 열 번호. my_names = 내가 쓴 줄의 소환사명 목록(길이 n).
+    반환 'none'(정상) | 'deleted'(내 블록 삭제) | 'held'(중복 의심이나 보존). 예외는 밖으로 안 던진다."""
+    sleep = sleep or time.sleep
+    n = len(my_names)
+    tag = f"[중복정리] #{game_id}"
+    try:
+        start = _dup_block_start(append_resp)
+        if n < 1 or start < 1:
+            log(f"{tag} 보류 — 내 블록 시작 행을 알 수 없음(append 응답 없음) — 정리 생략"); return 'held'
+        sig = sorted(str(x).strip() for x in my_names)
+
+        def _read():
+            g = sheet.col_values(gid_col); nm = sheet.col_values(name_col)
+            return g, nm
+        def _cell(col, i):   # i = 1-기반 행
+            return str(col[i - 1]).strip() if 0 < i <= len(col) else ""
+        g = nm = None
+        for _t in range(2):
+            sleep(1.0 if _t == 0 else 1.5)   # 시트 반영 지연 대기
+            try:
+                g, nm = _read(); break
+            except Exception as e:
+                log(f"{tag} 읽기 실패({type(e).__name__}) — {'재시도' if _t == 0 else '정리 생략'}")
+        if g is None:
+            return 'held'
+        pos = [i + 1 for i, v in enumerate(g) if str(v).strip() == str(game_id)]
+        if len(pos) <= n:
+            return 'none'                     # 내 블록뿐 — 정상
+        mine = list(range(start, start + n))
+        if not all(_cell(g, r) == str(game_id) for r in mine) or sorted(_cell(nm, r) for r in mine) != sig:
+            log(f"{tag} 보류 — 같은 판 {len(pos)}줄이나 행 {start}~{start + n - 1} 이 내 블록과 안 맞음(행 밀림/시그니처 불일치) — 삭제 안 함"); return 'held'
+        earlier = [p for p in pos if p < start]
+        if len(earlier) < n:
+            log(f"{tag} 유지 — 같은 판 {len(pos)}줄, 내 블록(행 {start})이 가장 앞섬 → 뒤쪽 사본이 지울 몫"); return 'none'
+        first = earlier[:n]
+        if first[-1] - first[0] != n - 1 or sorted(_cell(nm, r) for r in first) != sig:
+            log(f"{tag} 보류 — 앞선 줄 {earlier[:3]}…이 완전한 같은 블록이 아님 — 삭제 안 함"); return 'held'
+        # 삭제 직전 재확인(행 밀림 방지) — 내 블록이 그대로 같은 자리에 있고 앞선 블록도 아직 있을 때만
+        try:
+            g2, nm2 = _read()
+        except Exception as e:
+            log(f"{tag} 보류 — 삭제 직전 재확인 실패({type(e).__name__}) — 삭제 안 함"); return 'held'
+        if (not all(_cell(g2, r) == str(game_id) for r in mine) or sorted(_cell(nm2, r) for r in mine) != sig
+                or not all(_cell(g2, r) == str(game_id) for r in first) or sorted(_cell(nm2, r) for r in first) != sig):
+            log(f"{tag} 보류 — 삭제 직전 재확인에서 행이 바뀜 — 삭제 안 함"); return 'held'
+        sheet.delete_rows(start, start + n - 1)
+        log(f"{tag} 중복 {n}줄 삭제(행 {start}~{start + n - 1}) — 앞선 사본(행 {first[0]}~{first[-1]}) 남김")
+        return 'deleted'
+    except Exception as e:
+        log(f"{tag} 실패 {type(e).__name__}: {e} — 삭제 안 함")
+        return 'held'
+
+
 def _noban_sheet_push(game_id, date_str):
     """🚫 감지된 노밴 선언을 NOBAN 탭에 적재(웹 노밴률·게임 상세 표시용). 기록 append 승자만 호출(중복 방지).
        1회 시도 원칙(쿼터 보호 — v81.72 교훈), 실패는 무해(디코 리포트에는 어차피 남음)."""
@@ -9071,6 +9140,9 @@ def lcu_core_backend_loop():
                                     #   단 하위순번 전원 미가동 등으로 35초 넘게 미기록이면 상위 순번도 에스컬레이션해 반드시 기록(단일실패점 방지).
                                     if rows_to_append and not has_bot and _roster_complete and (_my_rank < 4 or _waited > 35):
                                         _appended_ok = False
+                                        _append_resp = None
+                                        if _my_rank >= 4 and _waited > 35:   # [2026-10-04 ③] 에스컬레이션 동시 진입 창 축소 — 순번별 시차+랜덤
+                                            time.sleep(min(_my_rank, 10) * 1.2 + random.uniform(0, 0.8))
                                         try: col_a_now = sheet_target.col_values(gid_idx + 1)   # 🔒 중복방지: append 직전 최신 게임ID열 재확인
                                         except Exception:
                                             col_a_now = []; _dedup_ok = False   # [V81.45] 재확인 실패(429 등) → 이번 루프 기록 보류(중복 원천 차단)
@@ -9091,9 +9163,23 @@ def lcu_core_backend_loop():
                                                         try:
                                                             if sheet_target.col_values(gid_idx + 1).count(game_id_str) > 0: break
                                                         except Exception: break
-                                                    sheet_target.append_rows(rows_to_append); _appended_ok = True; break
+                                                    _append_resp = sheet_target.append_rows(rows_to_append); _appended_ok = True; break
                                                 except Exception:
                                                     if _atry == 0: time.sleep(2.5 + random.uniform(0, 2))
+                                            if _appended_ok:
+                                                # [2026-10-04 ②] 사후 정리 — 동시 append 로 앞선 사본이 이미 있으면 내 블록만 삭제(시작알림·결과웹훅 이중 방지).
+                                                try:
+                                                    _nmc = headers_row.index("소환사명") if "소환사명" in headers_row else -1
+                                                    if _nmc >= 0:
+                                                        _dc = _dup_cleanup_after_append(sheet_target, gid_idx + 1, _nmc + 1, game_id_str,
+                                                                                         [r[_nmc] for r in rows_to_append], _append_resp)
+                                                    else:
+                                                        print(f"[중복정리] #{game_id_str} 보류 — 소환사명 열 없음", flush=True); _dc = 'held'
+                                                except Exception as _e_dc:
+                                                    print(f"[중복정리] 예외 {type(_e_dc).__name__}: {_e_dc}", flush=True); _dc = 'held'
+                                                if _dc == 'deleted':
+                                                    _appended_ok = False            # 내 블록은 지워졌다 → 시작알림·결과웹훅·행 인덱스는 앞선 사본 주인 몫
+                                                    _record_confirmed = True        # 시트엔 앞선 사본이 있으므로 기록은 확정
                                             if _appended_ok:
                                                 appended_game_ids.add(fetched_game_id)   # 이 인스턴스가 기록 주체 → 웹훅 발송 자격
                                                 try: _noban_sheet_push(fetched_game_id, time.strftime("%Y-%m-%d %H:%M"))   # 🚫 노밴 선언 → NOBAN 탭(웹 표시용)
