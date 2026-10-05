@@ -7016,6 +7016,83 @@ function csObsCalc(){ return _funMemo("cs",()=>{
     for(const r of arr){ r.idx=r.pcsm-r.pkp; out.push(r); } }
   out.sort((a,b)=>b.idx-a.idx); out.forEach((r,i)=>r.rank=i+1); return out; }); }
 function csObsOf(name){ const cn=canonOfName(name); return csObsCalc().find(r=>r.name===cn||r.name===name)||null; }
+/*P14-BEGIN 🌙 판 순서별 성적 — 순수 함수(입력=그 사람 판 목록, DOM·전역 무관). tests/night_order_test.js 가 이 구간을 그대로 떼어 시험한다 */
+// 밤 = 정오 기준(날짜+시각에서 12시간을 빼서 날짜로 묶음 → 자정 넘긴 판은 전날 밤). 시각 없는 옛 기록·결과 대기·무효는 제외.
+function nightOrderStats(rows,opt){
+  opt=opt||{};
+  const MIN=opt.minCell||15, seen=new Set(), L=[];
+  for(const r of rows||[]){
+    const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
+    const m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/.exec(String(r["날짜"]||"")); if(!m) continue;
+    const gid=String(r["게임ID"]||""), key=gid+"∥"+(r["PUUID"]||r["소환사명"]||"");
+    if(gid){ if(seen.has(key)) continue; seen.add(key); }
+    const ts=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);
+    const kk=/^\s*(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)/.exec(String(r["KDA"]||""));
+    const sc=parseFloat(r["점수"]);
+    L.push({ts,gid,night:Math.floor((ts-43200000)/86400000),win:res==="승리",k:kk?+kk[1]:null,d:kk?+kk[2]:0,a:kk?+kk[3]:0,sc:isFinite(sc)?sc:null});
+  }
+  L.sort((x,y)=>x.ts-y.ts||(x.gid<y.gid?-1:x.gid>y.gid?1:0));
+  const cnt=new Map(), cut=(opt.days&&opt.now!=null)?opt.now-opt.days*86400000:null;
+  const mk=()=>({n:0,w:0,k:0,d:0,a:0,kn:0,sc:0,scn:0});
+  const B={first:mk(),mid:mk(),late:mk()};
+  for(const g of L){
+    const o=(cnt.get(g.night)||0)+1; cnt.set(g.night,o);
+    if(cut!=null&&g.ts<cut) continue;   // 번호는 전 기간으로 매기고, 집계만 최근 N일
+    const b=B[o===1?"first":(o<=3?"mid":"late")];
+    b.n++; if(g.win)b.w++;
+    if(g.k!=null){b.k+=g.k;b.d+=g.d;b.a+=g.a;b.kn++;}
+    if(g.sc!=null){b.sc+=g.sc;b.scn++;}
+  }
+  const fin=b=>({n:b.n,w:b.w,wr:b.n?b.w/b.n*100:null,kda:b.kn?(b.d?(b.k+b.a)/b.d:(b.k+b.a)):null,score:b.scn?b.sc/b.scn:null,ok:b.n>=MIN});
+  const first=fin(B.first),mid=fin(B.mid),late=fin(B.late);
+  const rest=(()=>{ const n=mid.n+late.n,w=mid.w+late.w; return {n,w,wr:n?w/n*100:null,ok:n>=MIN}; })();
+  let kind="none", diff=null;
+  if(first.ok&&rest.ok){
+    diff=rest.wr-first.wr;
+    if(diff>=10) kind=(late.ok&&mid.ok&&late.wr-mid.wr>=10)?"grow":"warm";
+    else if(diff<=-10) kind="fresh";
+    else kind="flat";
+  }
+  return {first,mid,late,rest,kind,diff,total:first.n+mid.n+late.n};
+}
+/*P14-END*/
+// 🌙 판 순서별 성적 — 클랜 통계(첫 판 강자 · 막판 집중형). 협곡만 · 전 기간 · 20판↑ · 1판째·4판째 이후 각 15판↑
+function nightCalc(){ return _funMemo("night",()=>{
+  if(typeof PLAYERS_ALL==='undefined'||CURRENT_CAT!=="rift") return [];
+  const out=[];
+  for(const [nm,parts] of PLAYERS_ALL){
+    if(isDeparted(nm)) continue;
+    const S=nightOrderStats(parts); if(S.total<20||!S.first.ok||!S.late.ok) continue;
+    out.push({name:nm,tier:tierOf(nm)||'',first:S.first,late:S.late,d:S.late.wr-S.first.wr});
+  }
+  return out; }); }
+function nightOf(name){ if(CURRENT_CAT!=="rift") return null; const cn=canonOfName(name); const mine=(typeof PLAYERS_ALL!=='undefined')?(PLAYERS_ALL.get(cn)||PLAYERS_ALL.get(name)):null; if(!mine) return null;
+  const nowK=Date.now()+9*3600000; return nightOrderStats(mine,{days:90,now:nowK}); }
+function nightCardHtml(name){
+  const S=nightOf(name); if(!S||!S.total) return '';
+  const cell=(lab,b)=>{ const strong=b.ok&&b.wr!=null; const col=strong?(b.wr>=55?'var(--win)':(b.wr<=45?'var(--lose)':'inherit')):'var(--mut)';
+    return `<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;padding:3px 0;font-size:13px;${strong?'':'opacity:.7'}">
+      <span style="width:74px;flex:none" class="muted">${lab}</span>
+      <b style="width:42px;flex:none;color:${col}">${b.wr==null?'-':Math.round(b.wr)+'%'}</b>
+      <span class="muted" style="font-size:12px">${b.kda!=null?`KDA ${b.kda.toFixed(1)}`:''}${b.score!=null?` · 점수 ${b.score.toFixed(1)}`:''} · ${b.n}판${strong?'':' · 표본 부족'}</span></div>`; };
+  const f=Math.round(Math.abs(S.diff==null?0:S.diff));
+  const msg={warm:`☕ 몸 풀리는 데 한 판 — 2판째부터 +${f}%p`,grow:'🏃 판이 갈수록 좋아져요',fresh:`🌅 첫 판 컨디션이 좋은 편이에요 — 이어서 뛸 땐 잠깐 쉬어 가도 좋아요`,flat:'평평해요 — 몇 판째든 비슷하게 해요',none:'아직 표본이 모자라 비교는 참고용이에요'}[S.kind];
+  return `<div class="cmpbox" style="margin-top:9px" title="그 사람이 한 밤(정오 기준)에 뛴 협곡 내전의 몇 번째 판인지로 나눈 최근 90일 성적. 15판 이상 칸만 색을 칠해요.">
+    <div class="cmpbox-h"><b>🌙 판 순서별 성적</b><span class="muted" style="font-size:12px;font-weight:400">최근 90일 · 협곡 · 참고용</span></div>
+    ${cell('1판째',S.first)}${cell('2~3판째',S.mid)}${cell('4판째 이후',S.late)}
+    <div style="font-size:13px;margin-top:5px;font-weight:700">${msg}</div></div>`;
+}
+function nightHtml(){
+  const L=nightCalc(); if(L.length<5) return '';
+  const A=L.filter(r=>r.d<0).sort((a,b)=>a.d-b.d).slice(0,5), B=L.filter(r=>r.d>0).sort((a,b)=>b.d-a.d).slice(0,5);
+  const rows=(arr)=>arr.map((r,i)=>_idxRow(i+1,r.name,r.tier,`+${Math.abs(r.d).toFixed(0)}%p`,Math.min(100,Math.abs(r.d)/40*100),true,`1판째 ${r.first.wr.toFixed(0)}% (${r.first.n}판) / 4판째 이후 ${r.late.wr.toFixed(0)}% (${r.late.n}판)`)).join('')||'<div class="muted" style="font-size:12px">해당자 없음</div>';
+  return `<div class="card" style="margin:10px 0 12px;padding:12px 14px">
+    <h3 style="margin:0 0 2px;font-size:15px">🌙 몇 판째에 강한가 <span class="muted" style="font-size:12.5px">— 한 밤 안의 판 순서 · ${L.length}명</span></h3>
+    <div class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.6"><b>1판째 승률</b>과 <b>4판째 이후 승률</b>의 차이예요. 한 밤은 정오 기준으로 묶고, 협곡 내전만 세요. 팀 배정이라 우연이 섞이니 <b>참고용</b>입니다. <span style="opacity:.75">20판 이상 · 1판째·4판째 이후 각 15판 이상.</span></div>
+    <div class="muted" style="font-size:12px;font-weight:700;margin:4px 0 2px">☕ 첫 판 강자 TOP5</div>${rows(A)}
+    <div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 2px">🏃 막판 집중형 TOP5</div>${rows(B)}
+  </div>`;
+}
 let GRIT_OPEN=false, CSO_OPEN=false;
 function toggleGrit(){ GRIT_OPEN=!GRIT_OPEN; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
 function toggleCso(){ CSO_OPEN=!CSO_OPEN; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
@@ -7359,6 +7436,7 @@ function renderTiers(){
       ${antiAgingHtml()}
       ${gritHtml()}
       ${csObsHtml()}
+      ${nightHtml()}
       ${generationHtml()}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
         ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 클랜 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
@@ -10099,6 +10177,7 @@ function renderPlayer(name){
           ${profIconOf(name)?`</div></div>`:""}
           <button class="st-cta" onclick="go('style','${escAttr(name)}')"><span class="st-cta-i">📊</span><span><b>플레이스타일 자세히보기</b><small>통산 세부 지표 25종 · 포지션 등급 · 챔피언 풀 · 진영·시간대 패턴</small></span><span class="st-cta-a">→</span></button>
           ${statBox}
+          ${nightCardHtml(name)}
         </div>
         <div class="sidecol">${brjSpriteHtml(name)}${radarHtml}
           <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
@@ -11109,7 +11188,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610041500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610051600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
