@@ -125,6 +125,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .ch.banm{border-color:var(--lose);border-style:dashed}
 .hardt{display:flex;align-items:center;gap:8px;text-align:left;background:#2a1418;border:1px solid #6b2a30;border-radius:10px;padding:8px 10px;margin:8px 0 0;cursor:pointer;font-size:13px}
 .vht{background:#1d1022;border-color:#5a2a78}.dly{background:linear-gradient(180deg,#2a6f8a,#1d4f66)!important;margin-top:8px}#dailyInfo{margin:3px 0 2px}.endb{background:linear-gradient(180deg,#6a3fb8,#47288a)!important}.hardt input{width:18px;height:18px;accent-color:var(--lose);margin:0}.hardt small{display:block;color:var(--sub);font-size:11px}
+.bch{width:20px;height:20px;vertical-align:-5px;margin-right:3px;border-radius:50%;object-fit:contain}.bch.e{display:inline-block;text-align:center;line-height:20px;font-size:15px;vertical-align:-3px}.bchn{color:var(--sub);margin-right:3px;font-size:11px}
 .btabs{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px}.btabs button{background:var(--card2);border:1px solid var(--line);color:var(--sub);border-radius:6px;font:inherit;font-size:11.5px;padding:0 8px;cursor:pointer}.btabs button.on{color:var(--txt);border-color:var(--acc)}
 .hb{color:#ff8a8a;font-size:11px}
 /* 🎨 [2026-09-30 사장님 지시] 색 언어 안내 한 줄 — 적의 위험은 빨간 점선·빗금, 내 공격은 하늘색 실선 */
@@ -450,11 +451,13 @@ function renderAcct(){const u=dcUser();
   $('acct').innerHTML=h;const i=$('dcIn');if(i)i.onclick=dcLogin;const o=$('dcOut');if(o)o.onclick=e=>{e.preventDefault();dcLogout();};}
 let BOARDE=null,BOARDD=null,SRV_END=null,SRV_DLY=null,DLY_DATE='';
 let BOARDH=null,BOARDV=null,SRV_VH=null,BTAB=0;   // 🔥 하드 순위표(서버가 아직 모르면 null — 탭은 '준비 중')
+function bchHtml(k){const c=CHARS.find(x=>x.k===k);if(!c)return '';const nm=esc(c.sn||c.nm);   // 🏆 순위표 한 줄의 캐릭터 표기(그림 + 이름) — 빌드는 일부러 안 보여 준다
+  return (hasArt(c)?`<img class="bch" src="${artUrl(c)}" alt="" loading="lazy">`:`<span class="bch e">${esc(c.e)}</span>`)+`<small class="bchn">${nm}</small> `;}
 function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순위표</b><div class="muted">순위표를 불러오지 못했어요.</div>';return;}
   const rows=(BTAB===4?BOARDD||[]:BTAB===3?BOARDE||[]:BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD).slice(0,10);
   el.innerHTML=`<b>🏆 순위표 TOP 10</b><span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button><button data-bt="3" class="${BTAB===3?'on':''}">♾ 무한</button><button data-bt="4" class="${BTAB===4?'on':''}">📅 오늘</button></span>`
     +(BTAB===4&&DLY_DATE?`<div class="muted">📅 ${esc(DLY_DATE)} 오늘의 도전 — 하루 한 판 · 같은 시드</div>`:'')
-    +(rows.length?'<ol>'+rows.map(r=>`<li>${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
+    +(rows.length?'<ol>'+rows.map(r=>`<li>${bchHtml(r.ch)}${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
   for(const b of el.querySelectorAll('[data-bt]'))b.onclick=()=>{BTAB=+b.dataset.bt;renderBoard();};}
 async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);}catch(e){BOARD=null;}renderBoard();renderDaily();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
