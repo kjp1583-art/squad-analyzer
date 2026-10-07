@@ -534,6 +534,8 @@ const CHARS=[
   {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 경험치 줍는 범위 +40% · 5초마다 가장 가까운 소모 아이템(🍗·💎·💣) 1개를 자동으로 줍는다. 🍘 맛동산 투척(고유 무기 · 던지면 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,auto:5,un:SHOPUN},
   {k:'eom',img:1,shop:1,e:'📢',nm:'엄장신',tag:'엄!',q:'엄!',ds:'「엄!」 — 특별한 능력 없이 이 무기 하나로 승부. 📢 엄! 외침(고유 무기 · 외칠 때마다 맞은 적이 겁먹고 도망간다) 시작.',w:'eom',un:SHOPUN},
   {k:'yj',boss:1,e:'🐲',nm:'쫑의 군주 용조련사',sn:'용조련사',tag:'쫑의 군주',ds:'「쫑의 군주」 — 최대 HP +40, 받는 피해 -2, 이동속도 -10%. 🔥 드래곤 브레스 Lv2(전용 무기 · 가까운 적을 자동으로 겨눠 원뿔 불길) 시작.',w:'breath',wl:2,hp:40,arm:2,spd:-.1,un:bossUn('yj','50분 보스 용조련사')},
+  // 📸 [2026-10-07 사장님 지시] 신규 보스 배고배고 — 38분에 나오고, 판에서 처치하면 플레이어블로 열린다(sr·ddo·tw·yj 와 같은 경로 · 봇 P6_UNLOCK_KEYS 에 'bgb')
+  {k:'bgb',boss:1,e:'🌪',nm:'잔나 코스프레 배고배고',sn:'배고배고',tag:'바람의 대마법사',ds:'「바람의 대마법사 코스프레」 — 이동속도 +10% · 획득 범위 +15%. 📸 플레이브 포토카드(고유 무기 · 외치며 회전하는 포토카드를 부채꼴로 날려 맞은 적을 밀쳐 낸다) 시작.',w:'pcards',spd:.1,mag:.15,un:bossUn('bgb','38분 보스 배고배고')},
 ];
 function bossUn(k,nm){return {t:nm+' 처치',ok:p=>!!(p.bk&&p.bk[k]),pr:p=>p.bk&&p.bk[k]?'완료':'미완'};}
 const REVEAL=true;   // 🔓 사장님 지시(2026-09-30): 클랜원 캐릭터 그림 완성 — 공개(예전엔 그림이 나오기 전까지 ??? 로 잠가 뒀다)
@@ -699,6 +701,8 @@ const WEAP={
     ds:['맛동산 스틱을 던진다(적을 살짝 쫓아간다) — 맞으면 부스러기 5개가 사방으로 튄다(맛동산장인 유미 전용)','부스러기 +1','피해 +40% · 스틱 +1','부스러기 +1 · 쿨타임 -15%','피해 +40%','스틱 +1','부스러기 +1 · 쿨타임 -15%','피해 +50%']},
   eom:{only:'eom',rl:'고유 · 공포 파동',ic:'📢',nm:'엄! 외침',pair:'area',ev:{ic:'🗣',nm:'엄엄엄!!!',ds:'연달아 세 번 외친다 — 범위 1.3배 · 공포 1.4배 · 피해 1.2배'},
     ds:['4초마다 \'엄!\' 하고 외친다 — 범위 안의 적이 겁먹고 도망가며(접촉 피해 없음) 약한 피해를 입는다(보스는 느려지기만 · 엄장신 전용)','범위 +15%','피해 +40% · 쿨타임 -10%','범위 +15%','피해 +40% · 쿨타임 -10%','범위 +15%','쿨타임 -10%','범위 +15% · 피해 +50%']},
+  pcards:{only:'bgb',rl:'고유 · 회전 부채꼴',ic:'📸',nm:'플레이브 포토카드',pair:'luck',ev:{ic:'✨',nm:'팬싸인회',ds:'뒤쪽으로도 카드가 날아간다 — 카드 +3 · 피해 1.15배 · 더 자주'},
+    ds:['가까운 적에게 포토카드 4장을 부채꼴로 날린다 — 빠르게 회전하며 맞은 적을 밀쳐 낸다(보스는 안 밀리고 느려진다 · 배고배고 전용)','카드 +1','피해 +40%','카드 +1 · 쿨타임 -15%','피해 +40%','사거리 +20%','카드 +1','피해 +50% · 쿨타임 -10%']},
 };
 const PASS={
   spd:{ic:'👟',nm:'이동속도',ds:'이동속도 +8%'},
@@ -754,6 +758,7 @@ const SYN=[
   {k:'u_ram',ic:'🥊',nm:'새우깡 박치기',req:['ram','shrimp'],ds:'모든 피해 +8% · 범위 +6%',fx:{dmg:.08,area:.06}},
   {k:'u_snack',ic:'🍘',nm:'간식 나눠 먹기',req:['snack','chick'],ds:'경험치 +10% · 피해 +6%',fx:{xp:.1,dmg:.06}},
   {k:'u_eom',ic:'📢',nm:'엄 종소리',req:['eom','bell'],ds:'모든 범위 +10% · 피해 +4%',fx:{area:.1,dmg:.04}},
+  {k:'u_pcards',ic:'📸',nm:'응원봉 떼창',req:['pcards','spk'],ds:'모든 피해 +6% · 경험치 +6%',fx:{dmg:.06,xp:.06}},
 ];
 function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0},on=[];
   for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;}
@@ -813,6 +818,7 @@ const TIERS={
   chain:[['사슬 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['지속 +1초',{life:1}],['끊길 때 폭발(피해 ×3)',{boom:1}]],
   ram:[['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['충격파 범위 +7%',{a:.07}],['들이받은 적이 0.6초 기절한다',{stun:1}],['0.5초 뒤 한 번 더 돌진',{echo:1}]],
   snack:[['부스러기 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['부스러기 관통 +1',{pc:1}],['0.35초 뒤 부스러기가 한 번 더 튄다',{echo:1}]],
+  pcards:[['카드 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['카드 관통 +1',{pc:1}],['맞은 자리에서 카드가 반짝 터진다(피해 40%)',{pop:1}]],
   eom:[['범위 +7%',{a:.07}],['쿨타임 -7%',{c:.07}],['공포 +0.3초',{life:.3}],['0.4초 뒤 한 번 더 외친다(피해 60%)',{echo:1}],['공포 +0.5초 · 범위 +7%',{life:.5,a:.07}]],
 };
 const TCAP=k=>S.ev[k]?5:3;   // 각성한 무기 5단계 · 안 한 Lv8 무기는 마스터 3단계
@@ -936,8 +942,8 @@ const AU=(()=>{
     if(!noise.b||noise.b.length<len){noise.b=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=noise.b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
     const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noise.b;f.type='lowpass';f.frequency.setValueAtTime(lp,t);f.frequency.exponentialRampToValueAtTime(80,t+dur);
     g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f);f.connect(g);g.connect(bus||sfxG);s.start(t,0,dur);ends.push(t+dur);}
-  const GAP={shoot:90,hit:70,kill:60,gem:40,boom:120,bigboom:220,hurt:150,pick:80,brk:80,zap:110,wave:200,evo:500,chest:300,fire:180,staff:400,room:500,dash:200,swing:160,rocket:200,peep:150,hook:200,freeze:300,clang:120,meteor:400,snipe:250,hole:400,beat:200,snack:150,eom:500,quill:150,tempo:70,fuse:300,slime:180,cart:400,love:200,jhin:120,hop:150,bash:250,twin:200,stamp:200,chain:250,ram:300};
-  const SPAM={shoot:1,hit:1,kill:1,gem:1,boom:1,brk:1,zap:1,wave:1,fire:1,swing:1,rocket:1,peep:1,hook:1,freeze:1,clang:1,meteor:1,snipe:1,hole:1,beat:1,snack:1,quill:1,tempo:1,fuse:1,slime:1,love:1,jhin:1,hop:1,twin:1,stamp:1};   // 후반엔 쉴 새 없이 겹치는 소리 — 붐빌수록 spamG 로 줄인다(피격음은 제외 → 묻히지 않는다)
+  const GAP={shoot:90,hit:70,kill:60,gem:40,boom:120,bigboom:220,hurt:150,pick:80,brk:80,zap:110,wave:200,evo:500,chest:300,fire:180,staff:400,room:500,dash:200,swing:160,rocket:200,peep:150,hook:200,freeze:300,clang:120,meteor:400,snipe:250,hole:400,beat:200,snack:150,eom:500,quill:150,tempo:70,pcards:200,fuse:300,slime:180,cart:400,love:200,jhin:120,hop:150,bash:250,twin:200,stamp:200,chain:250,ram:300};
+  const SPAM={shoot:1,hit:1,kill:1,gem:1,boom:1,brk:1,zap:1,wave:1,fire:1,swing:1,rocket:1,peep:1,hook:1,freeze:1,clang:1,meteor:1,snipe:1,hole:1,beat:1,snack:1,quill:1,tempo:1,pcards:1,fuse:1,slime:1,love:1,jhin:1,hop:1,twin:1,stamp:1};   // 후반엔 쉴 새 없이 겹치는 소리 — 붐빌수록 spamG 로 줄인다(피격음은 제외 → 묻히지 않는다)
   function duck(){   // 동시에 울리는 소리 수로 잦은 소리 버스를 낮춘다: 2개까지 그대로 · 4개 -4.6dB · 8개 -9.8dB · 12개 -13dB
     if(!spamG)return;const now=ac.currentTime;let v=0;for(const e of ends)if(e>now)v++;
     const g=1/(1+Math.max(0,v-2)*.35);if(Math.abs(g-spamV)>.03){spamV=g;spamG.gain.setTargetAtTime(g,now,.12);}}
@@ -984,6 +990,7 @@ const AU=(()=>{
       case 'hole':tone('sine',130,60,.4,.1);tone('triangle',240,520,.3,.04);break;
       // 🎒 [2026-10-07] 고유 무기 13종 — 무기마다 다른 소리(음량은 예전 최대치를 넘지 않는다)
       case 'snack':tone('triangle',900,500,.06,.04);noise(.04,.06,4000);break;
+      case 'pcards':noise(.05,.08,5200);tone('triangle',1200,1800,.08,.05);tone('sine',1800,2400,.06,.03,now+.04);break;   // 📸 포토카드 — 종이 스치는 소리 + 반짝
       case 'eom':tone('sawtooth',330,520,.16,.1);tone('square',660,520,.2,.07,now+.04);noise(.12,.1,3000);break;
       case 'quill':noise(.07,.1,3200);tone('triangle',700,300,.07,.045);break;
       case 'tempo':tone('square',1100,700,.035,.03);break;
@@ -1097,8 +1104,8 @@ function newRun(dly){
   rangs.clear();rkts.clear();pets.clear();hooks.clear();frs.clear();holes.clear();snps.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();allies.clear();cans.clear();FX.reset();EX.reset();for(const a of allies.a)a.tg=null;bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
   S={t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
      p:{x:0,y:0,r:16,hp:100+(CH.hp||0),mhp:100+(CH.hp||0),sp:180,face:1,inv:0,moving:false,slow:0,slowG:'📜',stun:0,yt:0,yvx:0,yvy:0,mdx:1,mdy:0},   // mdx/mdy 마지막으로 움직인 방향(🔥 브레스·💨 돌진)
-     w:{[CH.w]:CH.wl||1},ps:{},ev:{},seen:{},midKill:0,bossKill:0,bossN:0,nextBoss:300,nextMini:150,miniN:0,bigT:300,bigSeen:0,evT:75,evN:0,revUsed:0,ramen:0,tier:{},tk:{},pt:{},rel:{},tr:{},sm:{},hc:0,leechT:0,stillT:0,shield:0,spr:0,stT:0,pulseT:0,relT:0,magT:0,dq:[],
-     cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
+     w:{[CH.w]:CH.wl||1},ps:{},ev:{},seen:{},midKill:0,bossKill:0,bossN:0,nextBoss:300,nextMini:150,nextSp:2280,miniN:0,bigT:300,bigSeen:0,evT:75,evN:0,revUsed:0,ramen:0,tier:{},tk:{},pt:{},rel:{},tr:{},sm:{},hc:0,leechT:0,stillT:0,shield:0,spr:0,stT:0,pulseT:0,relT:0,magT:0,dq:[],
+     cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,cardW:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
      sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{},   // tcd 💬 도발 대사 종류별 다음 허용 시각
      newU:[],staffT:5,slowR:0,proomT:6,proom:{x:0,y:0,R:0,t:0,tk:0},dashCd:0,br:{a:0,R:0,w:0,t:0,ev:0},
      x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9};   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
@@ -1362,7 +1369,7 @@ const KIND=[ // 흐접새우의 트롤픽 — 종류마다 다르게 움직인�
 ];
 const KI=Object.fromEntries(KIND.map((k,i)=>[k.id,i]));
 // 🦐 흐접새우 트롤픽 보스 + 🍗 브장신 키우기 레이드 보스(그림 img/survivors/boss_*.webp — 나올 때만 불러온다)
-//   atk: summon 부하 · shots 조준탄 · dash 돌진 · ring 원형탄 · shroom 버섯 · pull 끌어당김 · room 진실의 방 · rage 멘탈 폭발 · breath 브레스 · staff 스탭 임명장
+//   atk: cards 플레이브 포토카드(외침 → 예고 0.8초 → 부채꼴 카드) · summon 부하 · shots 조준탄 · dash 돌진 · ring 원형탄 · shroom 버섯 · pull 끌어당김 · room 진실의 방 · rage 멘탈 폭발 · breath 브레스 · staff 스탭 임명장
 const BOSS={
   mao:{id:'Maokai',nm:'🌳 거대 AP 마오카이',acc:[['item/3089','head']],r:40,sp:58,hp:700,d:16,xp:40,atk:['summon'],sum:4,sp0:['흐접새우: 이거 캐리 픽임']},
   mundo:{id:'DrMundo',nm:'💉 풀AP 마관 문도',acc:[['item/3089','head'],['item/3020','feet']],r:48,sp:56,hp:1000,d:20,xp:60,atk:['shots','summon'],sum:3,sp0:['흐접새우: 문도는 가고 싶은 대로 간다']},
@@ -1382,6 +1389,10 @@ const BOSS={
     hit:["씩… 씩…","이게 맞냐고","한 번만 더 하자","내 탓 아니야","아 진짜 왜 이러지"],dead:["크아악 세상이 왜이래","크아악… 세상이… 왜이래…"],
     win:["봐라. 이게 내 기분이다.","이제 알겠냐","씩씩."]},
   sona:{id:'Sona',nm:'🎶 탑 소나 콘서트',acc:[['item/1054','side']],r:38,sp:52,hp:1300,d:20,xp:80,atk:['ring','shots'],g:'♪',sp0:['흐접새우: 탑 소나는 과학이다']},
+  bgb:{img:'bgb',nm:'🌪 잔나 코스프레 배고배고',r:44,sp:58,hp:1400,d:22,xp:90,atk:['cards','pull'],brj:1,   // 📸 38분 특별 보스(BOSS_ROT·MINI_ROT 밖) — 클랜마스터급(신림 1100 · 또뀨 1300 · 태웅 1500 사이)
+    sp0:["바람이 분다… 나는 배고배고다.","잔나 코스프레 완벽하지? 배고파… 밥 줘.","포토카드 사러 왔어? 한 장씩 줄게.","배고배고… 배고배고… (바람 소리)"],
+    hit:["배고파서 힘이 안 나…","바람이 약해졌다…","밥 먹고 다시 하자."],dead:["…배고프다. 오늘은 여기까지.","포토카드는 다 팔렸다…","인정. 바람은 네 쪽이었어."],
+    win:["클리어 기념 포토카드 한 장 드립니다.","배고배고 승리! 이제 밥 먹으러 가자."]},
   yj:{img:'yj',nm:'🐲 쫑의 군주 용조련사',r:52,sp:58,hp:2600,d:28,xp:160,atk:['breath','charge','summon'],sum:4,brj:1,
     sp0:["12시다. 그가 왔다.","어, 아직 안 주무세요? 저도요. 한 판만 더 하죠.","탑 주세요. 탑만 주시면 돼요.","12시밖에 안 됐는데 왜 다들 나가요."],
     hit:["어 아프네. 근데 저 타워 두 개 밀었어요.","한타를 왜 가요. 사이드 미세요, 사이드.","미안 미안, 로밍 갈게요.","지금 텔 없어요. 좀만 버텨요."],dead:["…아 오늘은 진짜 자야겠다.","인정합니다. 오늘 내전은 안 쫑났네요.","트린다미어만 안 골랐어도 이겼는데. 엄."],
@@ -1460,7 +1471,7 @@ function bumpKey(e){   // 몸에 부딪혀 피해가 들어갈 때 말할 트롤
   if(K.stealth)return e.sv||e.ft>2.6?'Twitch':'';     // 은신 중이거나 막 튀어나왔을 때
   return BUMP.has(K.id)?K.id:'';}
 const hazards=new Pool(60,()=>({x:0,y:0,life:0,d:8,own:null,osn:0}));   // 🍄 버섯(own/osn 심은 티모 — 도발 말풍선)
-const eshots=new Pool(LOW?100:140,()=>({x:0,y:0,vx:0,vy:0,life:0,d:0,g:'',sl:0,k:0,src:null,sn:0,ox:0,oy:0}));   // k 1 🪝 갈고리(끌어당김) · 2 🌪 회오리(밀쳐냄)
+const eshots=new Pool(LOW?100:140,()=>({x:0,y:0,vx:0,vy:0,life:0,d:0,g:'',sl:0,k:0,src:null,sn:0,ox:0,oy:0,c:0}));   // k 1 🪝 갈고리(끌어당김) · 2 🌪 회오리(밀쳐냄) · 3 📸 포토카드(c 색 번호)
 const BIMG={};function bossImg(k){if(!BIMG[k])BIMG[k]=sprite('img/survivors/boss_'+k+'.webp',200);return BIMG[k];}
 function charImg(c){for(const b of c.bdg||[])bdgSpr(b);const k=bkey(c);if(!BIMG[k])BIMG[k]=sprite(artUrl(c),200);if(c.shv&&!BIMG.psg_drg)BIMG.psg_drg=sprite('img/survivors/char_psg_drg.webp?v=1',256);return BIMG[k];}   // 🐲 프싱은 용 변신용 그림도 같이 불러온다
 const pickLine=a=>a&&a.length?a[Math.random()*a.length|0]:'';
@@ -1473,7 +1484,7 @@ function spawnEnemy(kind,mult,boss,at){
   const m=MIN();
   if(boss){e.boss=boss.key;e.b=boss;e.r=boss.r;e.sp=boss.sp*(1+Math.min(.35,m/120));e.dmg=boss.d*atkMul(m)*DMG_BOSS;e.xp=boss.xp;e.c='#f5c04a';e.id=boss.id||null;e.acc=boss.acc||null;
     e.mhp=e.hp=boss.hp*bossMul(m)*(boss.fin?1.6:1)*(boss.mini?Math.min(1,.55+m/25):1);   // 2:30 미니 보스는 조금 여리게(×0.65) → 11분부터 제 체력
-    e.at={dash:2,shots:1.5,ring:3,summon:4,shroom:1,pull:5,room:2.5,rage:3,breath:3,charge:4,staff:2,hook:2.5,beam:2,nova:9};}
+    e.at={cards:3,dash:2,shots:1.5,ring:3,summon:4,shroom:1,pull:5,room:2.5,rage:3,breath:3,charge:4,staff:2,hook:2.5,beam:2,nova:9};}
   else{const k=KIND[kind];e.boss=0;e.b=null;e.id=k.id;e.r=k.r;e.sp=k.sp*(1+Math.min(.55,S.t/900));e.mhp=e.hp=k.hp*mult;e.dmg=k.d*atkMul(m)*mobX(m);e.xp=k.xp;e.c=k.c;e.acc=k.acc||null;
     e.sh=k.shield||0;S.kc[kind]++;}
   e.hit=0;e.kb=0;e.t=Math.random()*6;return e;
@@ -1485,7 +1496,7 @@ function spawnBoss(key){
   banner((B.fin?'🔥 최종 보스 — ':B.mini?'⚠ 미니 보스 — ':'⚠ 보스 — ')+(B.brj?'':'흐접새우의 ')+B.nm,(B.brj?'「'+pickLine(B.sp0)+'」':pickLine(B.sp0)),2);
   return e;
 }
-function bossRoom(){const bs=enemies.a.filter(x=>x.on&&x.boss).sort((a,b)=>a.sn-b.sn);
+function bossRoom(){const bs=enemies.a.filter(x=>x.on&&x.boss&&x.boss!=='bgb').sort((a,b)=>a.sn-b.sn);
   while(bs.length>=2){const o=bs.shift();o.on=false;const half=o.hp<o.mhp*.5;if(half)dropItem('chest',o.x,o.y);dropItem('magnet',o.x,o.y);
     banner(`🏃 ${o.b.nm} 퇴장!`,half?'흐접새우가 불러들였다 — 많이 깎아 둬서 🎁 상자는 두고 갔다':'흐접새우가 불러들였다 — 다음 보스가 온다',1);
     if(o===S.bossRef)S.bossRef=null;}}
@@ -1541,8 +1552,13 @@ function waveTick(dt){
     bossRoom();
     if(S.nextBoss===3300){spawnBoss('fin');S.nextBoss=Infinity;}
     else{spawnBoss(BOSS_ROT[S.bossN%BOSS_ROT.length]);S.bossN++;S.nextBoss+=300;}}
-  if(S.t>=S.nextMini){const alive=S.live.some(x=>x.on&&x.boss);
+  if(S.t>=S.nextMini){const alive=S.live.some(x=>x.on&&x.boss&&x.boss!=='bgb');
     if(!alive||S.t>=S.nextMini+90){if(!alive)spawnBoss(MINI_ROT[S.miniN%MINI_ROT.length]);S.miniN++;S.nextMini+=300;if(S.nextMini>3200&&!S.endless)S.nextMini=Infinity;}}
+  // 📸 특별 보스 배고배고 — 38분(2280초) · 5분 보스·2:30 미니 보스 표와 따로 돈다(출현 시각·순서에 영향 없음). 무한 모드에선 60분마다 다시.
+  //   다른 보스의 '남아 있으면 기다림/퇴장' 계산에는 안 센다 · 4분 안에 못 잡으면 물러난다
+  if(S.nextSp-S.t<25&&S.nextSp<Infinity){const B=BOSS.bgb;if(B.img)bossImg(B.img);}
+  if(S.t>=S.nextSp){S.nextSp+=3600;const e=spawnBoss('bgb');if(e)e.spT=S.t;}
+  for(const e of S.live)if(e.on&&e.boss==='bgb'&&e.spT&&S.t>e.spT+240){e.on=false;if(S.bossRef===e)S.bossRef=null;S.cardW=null;banner('🌪 배고배고 퇴장!','배고파서 밥 먹으러 갔다 — 다음엔 더 세게 때려라',1);}
   if(S.t>=WIN_T&&!S.won){S.won=true;endRun(true);endAskShow();}   // ♾ 60분 클리어 기록을 올린 뒤 '무한 모드로 이어갈까요?' 를 묻는다(모든 모드 공통 · 오늘의 도전 제외)
   if(S.endless&&S.t>=END_T)endRun(true);   // ♾ 무한 모드 한계(180분) — 성능·메모리를 위해 여기서 마무리
 }
@@ -1811,7 +1827,7 @@ const DL3=L=>lvm(L,[[3,1.4],[5,1.4],[8,1.5]]);
 const U3={quill:{d:6.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:13,bd:7,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:14,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
-  snack:{d:8,cd:1.3,rng:320},eom:{d:8,cd:4.2,R:150,fear:1.6},
+  snack:{d:8,cd:1.3,rng:320},pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:8,cd:4.2,R:150,fear:1.6},
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
 // 🐲 「쉬바나 코스프레」 — 분노 게이지(rg) → 가득 차면 용 변신(dT). 게이지는 초당 cap 만큼만 차오른다(후반 타수 폭주 방지)
@@ -1853,6 +1869,14 @@ function twinFire(ux,uy,len,n,R,life,d){const p=S.p;let c=0;for(const o of S.x3.
   for(let i=0;i<n&&c<6;i++,c++){const k=(i-(n-1)/2)*R*1.5;f3({k:'fl',x:p.x+ux*len*.75-uy*k,y:p.y+uy*len*.75+ux*k,life,L0:life,R,tk:.1,d});}}
 const SHVT={src:null,c:null};   // 🐲 변신 중 몸에 덧씌우는 불꽃색 사본(그림이 바뀔 때만 다시 만든다)
 function shvTint(spr){if(SHVT.src!==spr){const c=document.createElement('canvas');c.width=spr.width;c.height=spr.height;const g=c.getContext('2d');g.drawImage(spr,0,0);g.globalCompositeOperation='source-atop';g.fillStyle='rgb(255,110,20)';g.fillRect(0,0,c.width,c.height);SHVT.src=spr;SHVT.c=c;}return SHVT.c;}
+// 📸 포토카드 그림 — 얼굴·글자 없는 파스텔 그라데이션 직사각형 + ✦ 반짝이(bd 가 있으면 진홍 테두리 = 적의 위험 · 없으면 흰 테두리 = 내 카드)
+const CARD_C=[['#ffd1e3','#ff9ec4'],['#cfe8ff','#8fc7ff'],['#fff4b8','#ffd86b'],['#d4f5d0','#9fe3a0'],['#e3d4ff','#b79cff']];
+function cardDraw(x,y,rot,ci,bd,sc){const c=CARD_C[ci%5],w=6.5*sc,h=9.5*sc;cx.save();cx.translate(x,y);cx.rotate(rot);
+  const g=cx.createLinearGradient(-w,-h,w,h);g.addColorStop(0,c[0]);g.addColorStop(1,c[1]);
+  cx.beginPath();if(cx.roundRect)cx.roundRect(-w,-h,w*2,h*2,2.2*sc);else cx.rect(-w,-h,w*2,h*2);
+  cx.fillStyle=g;cx.fill();cx.lineWidth=bd?2.6:1.6;cx.strokeStyle=bd||'#fff';cx.stroke();
+  const q=3.4*sc;cx.beginPath();cx.moveTo(0,-q);cx.quadraticCurveTo(0,0,q,0);cx.quadraticCurveTo(0,0,0,q);cx.quadraticCurveTo(0,0,-q,0);cx.quadraticCurveTo(0,0,0,-q);cx.fillStyle='#fff';cx.fill();   // ✦
+  cx.restore();}
 function weapons3(dt,cm,MT,AR,AM){
   const p=S.p,X=S.x3,f=X.f;let L,t,ev,tg;
   if(X.hh>0)X.hh-=dt;if(X.cl>0)X.cl-=dt;if(X.ram.fx>0)X.ram.fx-=dt;
@@ -1978,6 +2002,14 @@ function weapons3(dt,cm,MT,AR,AM){
       shout(1);if(t.echo)S.dq.push({t:.4,f:()=>shout(.6)});if(ev)S.dq.push({t:.6,f:()=>shout(.8)});
       S.cd.eom=U3.eom.cd*lvm(L,[[3,.9],[5,.9],[7,.9]])*cm*(1-t.c);}
     else S.cd.eom=.3;}
+  // 📸 플레이브 포토카드 → ✨ 팬싸인회 — 가까운 적에게 회전하는 카드를 부채꼴로(맞은 적은 밀려난다 · 필드 아이템도 깬다)
+  L=S.w.pcards||0;
+  if(L&&(S.cd.pcards-=dt)<=0){ev=S.ev.pcards;t=TK('pcards');tg=aim3(U3.pcards.rng*lvm(L,[[6,1.2]]));
+    if(tg){const n=4+(L>=2)+(L>=4)+(L>=7)+AM+t.n+(ev?3:0),d=U3.pcards.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d),base=Math.atan2(tg.y-p.y,tg.x-p.x),sp=U3.pcards.sp*PS(),life=U3.pcards.life*lvm(L,[[6,1.2]]);
+      const fan=(a0,m,dd)=>{for(let i=0;i<m;i++){const a=a0+(i-(m-1)/2)*.2;f3({k:'pc',x:p.x,y:p.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life,d:dd,pc:1+t.pc,h:[],c:i%5,rot:Math.random()*6.28,pop:t.pop});}};
+      fan(base,n,d);if(ev)fan(base+Math.PI,n>>1,d*.7);   // ✨ 팬싸인회 — 뒤쪽에도 절반
+      AU.play('pcards');S.cd.pcards=U3.pcards.cd*lvm(L,[[4,.85],[8,.9]])*cm*(ev?.85:1)*(1-t.c);}
+    else S.cd.pcards=0;}
   // 🥊 씩씩 박치기 → 💢 씩씩 폭주 — 돌진
   L=S.w.ram||0;
   if(L){ev=S.ev.ram;t=TK('ram');
@@ -2076,6 +2108,15 @@ function weapons3(dt,cm,MT,AR,AM){
         if(!hit&&propTouch(o.x,o.y,8,o.d))hit=true;   // 필드 아이템에 맞아도 부스러기가 튄다
         if(hit){const burst=()=>{for(let j=0;j<o.m;j++)blt('snack',o.x,o.y,j*6.2832/o.m+Math.random()*.4,300,.4,o.sd,o.pc,4,'#fff6df','rgba(190,230,255,.5)');};
           burst();if(o.ev)bang(o.x,o.y,50*AR,o.d*.6,'snack','mine',0);if(o.echo)S.dq.push({t:.35,f:()=>{if(S.w.snack)burst();}});dead=true;}
+        break;}
+      case 'pc':{o.x+=o.vx*dt;o.y+=o.vy*dt;o.life-=dt;o.rot+=dt*18;if(o.life<=0){dead=true;break;}
+        if(propTouch(o.x,o.y,9,o.d)){if(o.pop)bang(o.x,o.y,34*AR,o.d*.4,'pcards','mine',0);dead=true;break;}   // 필드 아이템에 맞아도 깬다
+        for(const e of S.live){if(!e.on)continue;const rr=e.r+9;if((e.x-o.x)**2+(e.y-o.y)**2>=rr*rr||o.h.includes(e))continue;
+          const v=Math.hypot(o.vx,o.vy)||1;h3(e,o.d,'pcards');
+          if(e.on){if(e.boss)e.slow=Math.max(e.slow,.5);else knock(e,o.vx/v,o.vy/v,230,.22);}
+          if(o.pop)bang(o.x,o.y,34*AR,o.d*.4,'pcards','mine',0);
+          if(o.pc-->0){o.h.push(e);continue;}
+          dead=true;break;}
         break;}
       case 'sh':{o.life-=dt;if(o.life<=0)dead=true;break;}
       case 'bs':{o.life-=dt;if(o.life<=0)dead=true;break;}
@@ -2265,7 +2306,7 @@ function die(){   // 👼 부활이 남아 있으면 일어난다
   const p=S.p;
   if(pv('rev')>S.revUsed){S.revUsed++;p.hp=p.mhp*.5;invGrant('rev',2.5);S.flash=.5;AU.play('evo');banner('👼 부활! 한 번 더 버텨라','클랜원들: 살았다…',2);
     for(const e of enemies.a)if(e.on&&!e.boss&&(e.x-p.x)**2+(e.y-p.y)**2<260*260){const d=Math.hypot(e.x-p.x,e.y-p.y)||1;e.kr=0;knock(e,(e.x-p.x)/d,(e.y-p.y)/d,500/KB(e),.5);}
-    for(const b of eshots.a)b.on=false;S.ebooms.length=0;S.cone=null;S.room=null;clouds.clear();EX.reset();
+    for(const b of eshots.a)b.on=false;S.ebooms.length=0;S.cone=null;S.cardW=null;S.room=null;clouds.clear();EX.reset();
     for(const b of S.beams)if(srcOk(b)){b.src.ph=0;b.src.ft=3;}S.beams.length=0;p.stun=0;p.yt=0;return false;}
   p.hp=0;endRun(false);return true;
 }
@@ -2318,6 +2359,8 @@ function bossAct(e,dt,d,dx,dy){   // 보스 패턴 — 돌려받는 값: 속도 
   if(has('room')&&at.room<=0&&!S.room){at.room=12;S.room={x:p.x,y:p.y,R:300,t:6};say(e,'자, 앉으세요. 문은 잠갔습니다.');banner('☠ 진실의 방','방이 좁아진다 — 안에서 버텨라!',1);}
   if(has('rage')&&e.hp<e.mhp*.4&&at.rage<=0){at.rage=3;S.ebooms.push({x:e.x,y:e.y,R:190,t:.9,T:.9,d:e.dmg*1.2});say(e,'나와 같은 기분을 느껴봐라!!');}
   if(has('breath')&&at.breath<=0&&!S.cone){at.breath=5;S.cone={e,sn:e.sn,a:aim,t:.9,R:340,w:.5,d:e.dmg*1.4,hit:0};}
+  if(has('cards')&&at.cards<=0&&!S.cardW){at.cards=7;S.cardW={e,sn:e.sn,a:aim,t:.8,T:.8,n:5+2*e.bph,sp:.26,L:560};say(e,'플레이브 한번 잡숴봐!!');AU.play('pcards');}   // 📸 외침 → 0.8초 예고(진홍 빗금 띠) → 카드 부채꼴(체력이 줄면 5→7→9장)
+  if(S.cardW&&S.cardW.e===e)spm=0;
   if(has('hook')&&at.hook<=0){at.hook=3.6;shot(aim,400,'🪝',0,1);if(Math.random()<.3)say(e,'그랩 들어갑니다~');}   // 🪝 맞으면 끌려간다
   if(has('beam')&&at.beam<=0){at.beam=5.5;for(let i=-1;i<=1;i++)addBeam(e.x,e.y,aim+i*.42,1.1,640,e.dmg*1.2,null,e);}   // 🌈 부채꼴 레이저 3줄
   if(S.cone&&S.cone.e===e)spm=0;
@@ -2423,7 +2466,7 @@ function update(dt){
       if(b.k===1){const o=src||{x:b.ox,y:b.oy,r:0},hx=o.x-p.x,hy=o.y-p.y,hd=Math.hypot(hx,hy)||1,pl=Math.min(hd-o.r-p.r-8,160);if(pl>0){yank(hx/hd*pl,hy/hd*pl,.22);if(src)taunt(src.boss?'blitzB':'Blitzcrank',src);}}   // 🪝 끌려간다
       else if(b.k===2){const v=Math.hypot(b.vx,b.vy)||1;yank(b.vx/v*150,b.vy/v*150,.3);if(src)taunt('Janna',src);}   // 🌪 밀려난다
       else if(src&&!b.sl&&p.inv<=0)taunt(src.boss?(src.b.key==='mundo'?'DrMundo':src.b.key==='sona'?'Sona':''):src.id,src);   // ♪ 소나 · ★ 베이가 · 💉 문도 보스 탄
-      if(hitP(b.d,b.sl?'📜 스탭 임명!':b.k===1?'🪝 그랩!':b.k===2?'🌪 회오리!':''))return;}}
+      if(hitP(b.d,b.sl?'📜 스탭 임명!':b.k===1?'🪝 그랩!':b.k===2?'🌪 회오리!':b.k===3?'📸 포토카드!':''))return;}}
   for(const c of clouds.a){if(!c.on)continue;c.life-=dt;if(c.life<=0){c.on=false;continue;}
     if((c.x-p.x)**2+(c.y-p.y)**2<(p.r+20)**2){if(p.inv<=0)taunt('Singed',c.own,c.osn);if(hitP(c.d,'☁ 독가스!'))return;}}
   if(beamTick(dt))return;
@@ -2433,6 +2476,8 @@ function update(dt){
   if(S.cone){const c=S.cone;c.t-=dt;if(!(c.e.on&&c.e.sn===c.sn)){S.cone=null;}else if(c.t<=0){S.cone=null;S.shake=.3;AU.play('boom');EX.coneFx(c.e.x,c.e.y,c.a,c.w,c.R);   // 🐲 드래곤 브레스(부채꼴)
     const dx=p.x-c.e.x,dy=p.y-c.e.y,d=Math.hypot(dx,dy);let da=Math.atan2(dy,dx)-c.a;da=Math.atan2(Math.sin(da),Math.cos(da));
     if(d<c.R&&Math.abs(da)<c.w&&hitP(c.d,'🐲 브레스!'))return;}}
+  if(S.cardW){const c=S.cardW;c.t-=dt;if(!(c.e.on&&c.e.sn===c.sn))S.cardW=null;else if(c.t<=0){S.cardW=null;AU.play('pcards');
+    for(let i=0;i<c.n;i++){const b=eshots.get();if(!b)break;const a=c.a+(i-(c.n-1)/2)*c.sp;b.x=b.ox=c.e.x;b.y=b.oy=c.e.y;b.vx=Math.cos(a)*250;b.vy=Math.sin(a)*250;b.life=c.L/250;b.d=c.e.dmg*.55;b.g='';b.sl=0;b.k=3;b.c=i%5;b.src=c.e;b.sn=c.e.sn;}}}   // 카드 한 장 = 보스 공격력의 55% · 초속 250
   const mag=(70*(1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag')))**2,am=S.magT<=0&&PTV('mag')>=2;if(am)S.magT=20;
   if((gemMT-=dt)<=0){gemMT=.25;gemMerge();}   // 💎 1초에 4번만 합치기 검사
   for(const g of gems.a){if(!g.on)continue;const dx=p.x-g.x,dy=p.y-g.y,d2=dx*dx+dy*dy;
@@ -2983,6 +3028,7 @@ function drawW3(p){const X=S.x3;if(!X)return;
         cx.beginPath();cx.arc(e.x,e.y,e.r+5,0,7);cx.lineWidth=2.4;cx.strokeStyle='rgba(235,251,255,.95)';cx.stroke();break;}
       case 'sn':{if(!inV(o.x,o.y,30))break;const a=S.t*22,c=Math.cos(a)*9,sn=Math.sin(a)*9;
         cx.beginPath();cx.moveTo(o.x-c,o.y-sn);cx.lineTo(o.x+c,o.y+sn);cx.lineWidth=8;cx.strokeStyle='rgba(150,225,255,.45)';cx.stroke();cx.lineWidth=4.5;cx.strokeStyle='#fff3d6';cx.stroke();break;}
+      case 'pc':{if(!inV(o.x,o.y,30))break;cardDraw(o.x,o.y,o.rot,o.c,null,1.15);break;}
       case 'sh':{const u=1-o.life/o.T,rr=o.R*Math.min(1,u*2.4),al=Math.min(1,o.life/o.T*1.5);if(!inV(o.x,o.y,o.R))break;
         cx.beginPath();cx.arc(p.x,p.y,rr,0,7);cx.lineWidth=12;cx.strokeStyle='rgba(111,230,255,'+(al*.28).toFixed(2)+')';cx.stroke();cx.lineWidth=3.5;cx.strokeStyle='rgba(235,251,255,'+(al*.95).toFixed(2)+')';cx.stroke();
         if(o.big){cx.globalAlpha=al;cx.font='bold '+(40+14*Math.min(1,u*4))+'px sans-serif';cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=6;cx.strokeStyle='#1f6dff';cx.strokeText('엄!',p.x,p.y-52-u*18);cx.fillStyle='#fff';cx.fillText('엄!',p.x,p.y-52-u*18);cx.globalAlpha=1;}break;}
@@ -3036,6 +3082,8 @@ function draw(){
       cx.strokeStyle='rgba(255,45,85,.5)';cx.lineWidth=38;cx.stroke();cx.strokeStyle=PAL.dzDark;cx.lineWidth=28;cx.stroke();cx.strokeStyle=PAL.dz;cx.lineWidth=22;cx.stroke();cx.strokeStyle=PAL.dzHot;cx.lineWidth=13;cx.stroke();cx.strokeStyle=PAL.dzCore;cx.lineWidth=6;cx.stroke();cx.restore();}
     else HZ.band(b.x,b.y,b.ax,b.ay,b.L,22,1-b.t/b.T,false);}
   if(S.cone&&S.cone.e.on&&S.cone.e.sn===S.cone.sn){const c=S.cone;HZ.cone(c.e.x,c.e.y,c.a,c.w,c.R,1-c.t/.9);}   // 🐲 보스 브레스 예고 부채꼴
+  if(S.cardW&&S.cardW.e.on&&S.cardW.e.sn===S.cardW.sn){const c=S.cardW;   // 📸 포토카드 예고 — 카드 한 장마다 진홍 띠(빗금이 차오른다)
+    for(let i=0;i<c.n;i++){const a=c.a+(i-(c.n-1)/2)*c.sp;HZ.band(c.e.x,c.e.y,Math.cos(a),Math.sin(a),c.L,15,1-c.t/c.T,false);}}
   HZ.traps();   // 🍄 함정 고리
   for(const e of enemies.a)if(e.on&&!e.boss)drawSkill(e,e.r);   // 트롤픽 기술 예고(몸 아래)
   drawMap();
@@ -3082,8 +3130,9 @@ function draw(){
   cx.font='16px sans-serif';cx.textAlign='center';cx.textBaseline='middle';
   for(const h of hazards.a)if(h.on)cx.fillText('🍄',h.x,h.y);
   for(const b of eshots.a)if(b.on&&b.k===1){const o=srcOk(b)?b.src:{x:b.ox,y:b.oy};cx.beginPath();cx.moveTo(o.x,o.y);cx.lineTo(b.x,b.y);cx.lineWidth=5;cx.strokeStyle=PAL.dzDark;cx.stroke();cx.lineWidth=2.4;cx.strokeStyle=PAL.dz2;cx.stroke();}   // 🪝 사슬
-  for(const b of eshots.a){if(!b.on)continue;SPX.blit(SPX.eo,b.x,b.y,(b.g?12:7.5)/.468);}
+  for(const b of eshots.a){if(!b.on||b.k===3)continue;SPX.blit(SPX.eo,b.x,b.y,(b.g?12:7.5)/.468);}
   for(const b of eshots.a){if(!b.on||!b.g)continue;if(b.g.charCodeAt(0)<0x2700){cx.lineWidth=3;cx.strokeStyle=PAL.dzDark;cx.strokeText(b.g,b.x,b.y);cx.fillStyle=PAL.dzCore;}cx.fillText(b.g,b.x,b.y);}   // 글자(♪ ★)는 뜨거운 흰색 + 어두운 외곽선 · 그림은 그대로
+  for(const b of eshots.a)if(b.on&&b.k===3){SPX.blit(SPX.eo,b.x,b.y,16/.468);cardDraw(b.x,b.y,S.t*16+b.c*1.3,b.c,'#e0183c',1.35);}   // 📸 보스 카드 — 파스텔이지만 진홍 테두리 + 붉은 빛(위험)
   // 🍤 새우깡 — 내 것: 하늘색 빛 + 실선 고리 위에 그림
   cx.font='20px sans-serif';
   for(const r of rangs.a){if(!r.on)continue;cx.globalAlpha=.85;SPX.blit(SPX.gfr,r.x,r.y,r.r*4.4);cx.globalAlpha=1;cx.beginPath();cx.arc(r.x,r.y,r.r*1.4,0,7);cx.lineWidth=1.6;cx.strokeStyle='rgba(150,240,255,.75)';cx.stroke();
