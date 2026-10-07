@@ -1808,7 +1808,11 @@ function shvStart(){const p=S.p;S.dT=SHV.dur+[0,1.5,2.5,3.5][SGN('sg_psg')];S.dN
 function shvEnd(){const p=S.p;S.dT=0;S.rg=0;AU.play('wave');txt(p.x,p.y-40,'🔥 변신 해제','#ffd9a0');}
 function newX3(){return {f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0}};}
 const h3=(e,d,k)=>{const s0=SRC;SRC=k;hurt(e,d);SRC=s0;};   // 무기 키로 피해 통계를 남기며 한 번 때린다
-const aim3=rng=>{const t=nearest();return t&&(t.x-S.p.x)**2+(t.y-S.p.y)**2<rng*rng?t:null;};   // 사거리 안의 가장 가까운 적
+const aim3=rng=>{const t=nearest();if(t&&(t.x-S.p.x)**2+(t.y-S.p.y)**2<rng*rng)return t;
+  let b=null,bd=rng*rng;for(const q of props.a){if(!q.on)continue;const d=(q.x-S.p.x)**2+(q.y-S.p.y)**2;if(d<bd){bd=d;b=q;}}   // 🧺 적이 없으면 사거리 안의 필드 아이템(와드·포대·상자)을 겨눈다
+  return b;};   // 사거리 안의 가장 가까운 적(없으면 필드 아이템)
+// 🧺 [2026-10-07 제보] 고유 무기가 필드 아이템(와드·사료 포대·포로 간식 상자)을 못 때리던 곳 — 닿은 아이템을 때리고 true
+function propTouch(x,y,r,d){for(const q of props.a)if(q.on&&(q.x-x)**2+(q.y-y)**2<(PROP[q.k].r+r)**2){hitProp(q,d);return true;}return false;}
 function f3(o){const f=S.x3.f;if(f.length>=F3CAP)return null;f.push(o);return o;}
 function blt(src,x,y,a,v,life,d,pc,r,c,g,o){const b={k:'b',src,x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life,l0:life,d,pc,r,c,g,fall:0,ex:0,exd:0,h:null,big:0};if(o)Object.assign(b,o);return f3(b);}
 // 🛡 방패 밀치기 — 앞쪽 직사각형(길이 len · 반폭 hw) 안의 적을 u 방향으로 밀쳐 낸다
@@ -1951,6 +1955,7 @@ function weapons3(dt,cm,MT,AR,AM){
     if(any){const shout=mm=>{if(!S.w.eom)return;
         for(const e of S.live){if(!e.on||(e.x-p.x)**2+(e.y-p.y)**2>=(R+e.r)**2)continue;h3(e,d0*mm,'eom');if(!e.on)continue;
           if(e.boss)e.slow=Math.max(e.slow,e.b&&e.b.mini?fear0*.125:fear0*.25);else if(e.bg||e.el)e.fear=Math.max(e.fear||0,fear0*.25);else e.fear=Math.max(e.fear||0,fear0);}
+        hitPropsAt(p.x,p.y,R,d0*mm);   // 외침은 필드 아이템도 깬다
         f3({k:'sh',x:p.x,y:p.y,R,life:.8,T:.8,big:mm>=1?1:0});AU.play('eom');S.shake=Math.max(S.shake,.12);};
       shout(1);if(t.echo)S.dq.push({t:.4,f:()=>shout(.6)});if(ev)S.dq.push({t:.6,f:()=>shout(.8)});
       S.cd.eom=U3.eom.cd*lvm(L,[[3,.9],[5,.9],[7,.9]])*cm*(1-t.c);}
@@ -1965,6 +1970,7 @@ function weapons3(dt,cm,MT,AR,AM){
     if(R.t>0){R.t-=dt;const d=U3.ram.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d);
       for(const e of S.live){if(!e.on||e.rm===R.id)continue;const rr=e.r+p.r+10;
         if((e.x-p.x)**2+(e.y-p.y)**2<rr*rr){e.rm=R.id;h3(e,d,'ram');if(e.on){if(e.boss)e.slow=Math.max(e.slow,.8);else{knock(e,R.ux,R.uy,300,.25);if(t.stun)e.st=Math.max(e.st,.6);}}}}
+      for(const q of props.a)if(q.on&&q.rmr!==R.id&&(q.x-p.x)**2+(q.y-p.y)**2<(PROP[q.k].r+p.r+10)**2){q.rmr=R.id;hitProp(q,d);}   // 돌진하며 부딪힌 필드 아이템
       if(R.t<=0){bang(p.x,p.y,60*lvm(L,[[6,1.3]])*(ev?1.4:1)*AR*(1+t.a),d*.5,'ram','mine',ev?1:0);S.shake=Math.max(S.shake,.12);}}}
   // ── 엔티티 갱신(뒤에서부터 · 끝난 건 맨 뒤 것과 바꿔 치우기)
   for(let i=f.length-1;i>=0;i--){const o=f[i];let dead=false;
@@ -1983,6 +1989,7 @@ function weapons3(dt,cm,MT,AR,AM){
           o.e=b;o.sn=b?b.sn:0;if(b)b.hm=o.vid;}
         if(o.e){const dx=o.e.x-o.x,dy=o.e.y-o.y,dd=Math.hypot(dx,dy)||1,k=Math.min(1,7*dt);o.vx+=(dx/dd*230-o.vx)*k;o.vy+=(dy/dd*230-o.vy)*k;}
         o.x+=o.vx*dt;o.y+=o.vy*dt;const e=o.e;
+        if(propTouch(o.x,o.y,9,o.d)){if(o.pop)bang(o.x,o.y,38*AR,o.d*.5,'heart','mine',0);if(o.bn>0){o.bn--;o.last=null;o.e=null;o.life=Math.max(o.life,1.2);}else dead=true;break;}   // 필드 아이템에 닿아도 깨고 튕긴다
         if(e&&e.on&&(e.x-o.x)**2+(e.y-o.y)**2<(e.r+9)**2){h3(e,o.d,'heart');
           if(e.on){if(e.boss)e.slow=Math.max(e.slow,o.stun*1.5);else{e.st=Math.max(e.st,o.stun);e.kb=0;}}
           if(X.hh<=0&&p.hp<p.mhp){X.hh=.5;p.hp=Math.min(p.mhp,p.hp+o.hv);}
@@ -1991,6 +1998,7 @@ function weapons3(dt,cm,MT,AR,AM){
         break;}
       case 'sg':{o.x+=o.vx*dt;o.y+=o.vy*dt;o.life-=dt;let hit=o.life<=0;
         if(!hit)for(const e of S.live)if(e.on&&(e.x-o.x)**2+(e.y-o.y)**2<(e.r+11)**2){hit=true;break;}
+        if(!hit&&propTouch(o.x,o.y,11,o.d))hit=true;   // 필드 아이템에 부딪혀도 터진다
         if(hit){bang(o.x,o.y,o.R,o.d,'slime','can',0);
           for(let j=0;j<o.m;j++){const a=Math.random()*6.2832;f3({k:'sb',x:o.x,y:o.y,vx:Math.cos(a)*240,vy:Math.sin(a)*240,life:.9,d:o.bd,r:7,sl:o.sl,gen:0,ev:o.ev,pop:o.pop});}
           dead=true;}
@@ -1999,6 +2007,7 @@ function weapons3(dt,cm,MT,AR,AM){
         for(const e of S.live){if(!e.on)continue;const q=(e.x-o.x)**2+(e.y-o.y)**2;if(q<bd){bd=q;b=e;}}
         if(b){const dx=b.x-o.x,dy=b.y-o.y,dd=Math.hypot(dx,dy)||1,k=Math.min(1,8*dt);o.vx+=(dx/dd*330-o.vx)*k;o.vy+=(dy/dd*330-o.vy)*k;}else{const k=Math.max(0,1-3*dt);o.vx*=k;o.vy*=k;}
         o.x+=o.vx*dt;o.y+=o.vy*dt;
+        if(propTouch(o.x,o.y,o.r,o.d)){dead=true;break;}
         for(const e of S.live){if(!e.on||(e.x-o.x)**2+(e.y-o.y)**2>=(e.r+o.r)**2)continue;
           h3(e,o.d,'slime');if(e.on)e.slow=Math.max(e.slow,o.sl);
           if(o.ev&&o.gen<1)for(let j=0;j<2;j++){const a=Math.random()*6.2832;f3({k:'sb',x:o.x,y:o.y,vx:Math.cos(a)*220,vy:Math.sin(a)*220,life:.6,d:o.d*.6,r:5,sl:o.sl,gen:1,ev:1,pop:0});}
@@ -2046,6 +2055,7 @@ function weapons3(dt,cm,MT,AR,AM){
         if(o.e){const dx=o.e.x-o.x,dy=o.e.y-o.y,dd=Math.hypot(dx,dy)||1,k=Math.min(1,4*dt);o.vx+=(dx/dd*380-o.vx)*k;o.vy+=(dy/dd*380-o.vy)*k;}
         o.x+=o.vx*dt;o.y+=o.vy*dt;let hit=o.life<=0;
         if(!hit)for(const e of S.live)if(e.on&&(e.x-o.x)**2+(e.y-o.y)**2<(e.r+8)**2){h3(e,o.d,'snack');hit=true;break;}
+        if(!hit&&propTouch(o.x,o.y,8,o.d))hit=true;   // 필드 아이템에 맞아도 부스러기가 튄다
         if(hit){const burst=()=>{for(let j=0;j<o.m;j++)blt('snack',o.x,o.y,j*6.2832/o.m+Math.random()*.4,300,.4,o.sd,o.pc,4,'#fff6df','rgba(190,230,255,.5)');};
           burst();if(o.ev)bang(o.x,o.y,50*AR,o.d*.6,'snack','mine',0);if(o.echo)S.dq.push({t:.35,f:()=>{if(S.w.snack)burst();}});dead=true;}
         break;}
