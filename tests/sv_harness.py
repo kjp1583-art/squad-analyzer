@@ -5,7 +5,7 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 CHROME = os.environ.get('PW_CHROME') or next((p for p in [
     '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium/chrome-linux/chrome'] if os.path.exists(p)), None)
 HOOK = r"""window.__p6x={get S(){return S},get state(){return state},set state(v){state=v},get CUR(){return CUR},get keys(){return keys},set keys(v){keys=v},
-update,draw,pick,resume,offers,newRun,start,REL,CHARS,CH_set(k){CH=CHARS.find(c=>c.k===k)},get CH(){return CH},invGrant,hitP,hpMul,atkMul,bossMul,MIN,endRun,contEndless,
+update,draw,pick,resume,offers,newRun,start,REL,CHARS,WEAP,TIERS,tkCalc,synCalc,SRVUNL,srvUnl,canPick,CH_set(k){CH=CHARS.find(c=>c.k===k)},get CH(){return CH},invGrant,hitP,hpMul,atkMul,bossMul,MIN,endRun,contEndless,
 openChest,RN,seedOf,kstDate,applyUp,cardOf,get RSEED(){return RSEED},enemies,gems,props,items,shots,eshots,hazards,texts,RIFT_CACHE,gainXp,hurt,spawnEnemy,dailyGet,show,
 LOW,sgThorns,sgTick,relTick,mapTick,WIN_T,END_T,INV_CAP,renderBoard,renderDaily,loadBoard,renderRoster,getProg,setProg,hardBest,
 setCap(v){INV_CAP=v},get BTAB(){return BTAB},set BTAB(v){BTAB=v},get ME(){return ME},set ME(v){ME=v}};

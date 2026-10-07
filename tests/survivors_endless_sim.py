@@ -21,7 +21,7 @@ async def main():
     H.make_copy(); srv = H.Srv()
     async with async_playwright() as p:
         b = await H.launch(p); ctx, pg, errs = await H.new_page(b, srv.port)
-        await pg.evaluate("c=>{__p6x.CH_set(c);__p6x.start();}", CH)
+        await pg.evaluate("c=>{__p6x.SRVUNL.add(c);__p6x.CH_set(c);__p6x.start();}", CH)
         rows = []; t_wall = time.time(); bad = []
         marks = [10 * i for i in range(1, int(END_MIN // 10) + 1)] + ([END_MIN] if END_MIN % 10 else [])
         for mk in marks:
