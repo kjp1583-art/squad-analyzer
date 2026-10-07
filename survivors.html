@@ -2093,6 +2093,7 @@ function endRun(won,quit){
 // ---------- 🗺 소환사의 협곡 배경(코드로 그림) ----------
 //   세상은 끝없이 이어진다 → 256px 조각마다 좌표로 정해지는 난수로 풀·부쉬·바위·와드 자국·잔해·클랜 소품을 그려 캐시.
 //   구역: 0~10분 아군 정글 → 10~20분 강가 → 20~35분 적 정글 → 35~50분 적 본진 → 50분~ 넥서스 앞. 바뀔 땐 1.5초 겹쳐 그린다.
+const RTILE={ok:false,im:new Image()};RTILE.im.onload=()=>{RTILE.ok=true;RIFT_CACHE.clear();RDEV.clear();};RTILE.im.src='img/survivors/bg_tile.webp';   // 🎨 바닥 무늬 그림(512 이음매 없는 타일) — 못 불러오면 예전 코드 그림만
 const RIFT_CH=256, RIFT_CACHE=new Map();let RIFT_MAX=90, RIFT_BUD=0;
 const RDEV=new Map();let RDEV_S=0,RDEV_MAX=60,RDEV_BUD=0;   // 🚀 [속도] 화면 픽셀 크기로 한 번 줄여(늘려) 둔 바닥 조각 — 정수 좌표에 1:1 로 찍으면 소수점 좌표·배율로 찍는 것보다 5~8배 싸다
 function riftResize(){const c=Math.ceil(VW/RIFT_CH)+3,r=Math.ceil(VH/RIFT_CH)+3;RIFT_MAX=Math.max(90,c*r*2+16);
@@ -2118,6 +2119,7 @@ function riftChunk(ix,iy,zi){
   if(Z.stone){ g.strokeStyle='rgba(255,255,255,.035)'; g.lineWidth=2;   // 본진 돌바닥 이음매
     for(let k=0;k<5;k++){const y=k*64+(ix&1)*32; g.beginPath(); g.moveTo(0,y); g.lineTo(RIFT_CH,y); g.stroke();
       for(let j=0;j<4;j++){const x=j*64+(k&1)*32; g.beginPath(); g.moveTo(x,y); g.lineTo(x,y+64); g.stroke();}}}
+  if(RTILE.ok){ g.save(); g.globalAlpha=.6; g.drawImage(RTILE.im,-Math.floor(rnd(ix,iy,200)*512),-Math.floor(rnd(ix,iy,201)*512)); g.drawImage(RTILE.im,512-Math.floor(rnd(ix,iy,200)*512),-Math.floor(rnd(ix,iy,201)*512)); g.drawImage(RTILE.im,-Math.floor(rnd(ix,iy,200)*512),512-Math.floor(rnd(ix,iy,201)*512)); g.drawImage(RTILE.im,512-Math.floor(rnd(ix,iy,200)*512),512-Math.floor(rnd(ix,iy,201)*512)); g.restore(); }   // 🎨 그려 둔 바닥 무늬(풀결·클로버·새우튀김·초밥·발자국) — 조각마다 어긋나게 깔아 반복이 티 나지 않게
   for(let k=0;k<70;k++){ const x=rnd(ix,iy,k)*RIFT_CH, y=rnd(ix,iy,k+99)*RIFT_CH;   // 풀 결
     g.fillStyle=k&1?Z.g1:Z.g2; g.fillRect(x,y,2+rnd(ix,iy,k+7)*3,1+rnd(ix,iy,k+8)*2); }
   // 강 — 월드 좌표로 이어지게 픽셀 대신 4px 격자로 칠한다(강가 구역은 물이 넓다)
