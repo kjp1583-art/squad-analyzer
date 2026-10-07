@@ -531,7 +531,7 @@ const CHARS=[
   {k:'ddo',boss:1,e:'☠️',nm:'클랜마스터 또뀨',sn:'또뀨',tag:'진실의 방',ds:'「진실의 방」 — 10초마다 내 주위에 원형 감옥: 안에 든 적을 3초 묶고 지속 피해(보스는 묶이지 않고 느려진다). ⛓ 진실의 사슬 Lv2(고유 무기 · 적을 묶고 사슬 위 전부 지속 피해) 시작.',w:'chain',wl:2,room:1,un:bossUn('ddo','30분 보스 또뀨')},
   {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 잃은 체력 1%당 피해 +1%(최대 +60%), 맞으면 짧게 돌진하며 잠깐 무적(0.5초 · 5초에 한 번). 🥊 씩씩 박치기 Lv2(고유 무기 · 적을 향해 돌진) 시작.',w:'ram',wl:2,rage:.6,dash:1,un:bossUn('tw','40분 보스 태웅')},
   // 🍘 [2026-10-07 사장님 지시] 맛동산 상점(1개=1천원) 캐릭터 2명 — 서버 구매로만 열린다(shop:1)
-  {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 경험치 줍는 범위 +40%. 🍘 맛동산 투척(고유 무기 · 던지면 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,un:SHOPUN},
+  {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 경험치 줍는 범위 +40% · 5초마다 가장 가까운 소모 아이템(🍗·💎·💣) 1개를 자동으로 줍는다. 🍘 맛동산 투척(고유 무기 · 던지면 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,auto:5,un:SHOPUN},
   {k:'eom',img:1,shop:1,e:'📢',nm:'엄장신',tag:'엄!',q:'엄!',ds:'「엄!」 — 특별한 능력 없이 이 무기 하나로 승부. 📢 엄! 외침(고유 무기 · 외칠 때마다 맞은 적이 겁먹고 도망간다) 시작.',w:'eom',un:SHOPUN},
   {k:'yj',boss:1,e:'🐲',nm:'쫑의 군주 용조련사',sn:'용조련사',tag:'쫑의 군주',ds:'「쫑의 군주」 — 최대 HP +60, 받는 피해 -3, 이동속도 -10%. 🔥 드래곤 브레스 Lv2(전용 무기 · 가까운 적을 자동으로 겨눠 원뿔 불길) 시작.',w:'breath',wl:2,hp:60,arm:3,spd:-.1,un:bossUn('yj','50분 보스 용조련사')},
 ];
@@ -1047,6 +1047,8 @@ function mapTick(dt){
   if(S.propT<=0){S.propT=6;let c=0;for(const o of props.a)if(o.on)c++;   // 오브젝트는 6초마다(예전 4초) — 💎·💣가 넘치면 레벨이 너무 빨리 오른다
     if(c<(LOW?6:8)){const o=props.get();if(o){const a=RN('prop')*6.283,R=450+RN('prop')*450;o.x=p.x+Math.cos(a)*R;o.y=p.y+Math.sin(a)*R;const r=RN('prop');o.k=r<.5?0:r<.82?1:2;o.hp=PROP[o.k].hp;o.hit=0;}}}
   if(S.chickT<=0){S.chickT=100+RN('prop')*50;const a=RN('prop')*6.283,R=350+RN('prop')*350;dropItem('chicken',p.x+Math.cos(a)*R,p.y+Math.sin(a)*R);}
+  if(CH.auto){S.auT=(S.auT||0)+dt;if(S.auT>=CH.auto){let nb=null,nd=1e18;for(const it of items.a){if(!it.on||it.k==='chest')continue;const d=(it.x-p.x)**2+(it.y-p.y)**2;if(d<nd){nd=d;nb=it;}}   // 🍘 유미: 5초마다 가장 가까운 소모 아이템(치킨·자석·폭탄) 1개를 자동으로 줍는다(보스 상자는 제외) — 줄 게 없으면 시간을 모아 두지 않고 곧 다시 찾는다
+    if(nb){S.auT=0;nb.on=false;usePick(nb.k);}else S.auT=CH.auto;}}
   for(const it of items.a){if(!it.on)continue;it.life-=dt;it.t+=dt;if(it.life<=0){it.on=false;continue;}
     if((it.x-p.x)**2+(it.y-p.y)**2<(p.r+14)**2){it.on=false;usePick(it.k);if(state!=='play')break;}}   // 🎁 상자가 열렸으면 나머지는 다음 프레임에(상자 두 개가 한 화면에 섞이지 않게)
   if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on');}
