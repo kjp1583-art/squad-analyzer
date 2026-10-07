@@ -14,7 +14,7 @@ def check(name, cond, extra=''):
 
 # 캐릭터 키 → (고유 무기 키, 시작 레벨)
 UNIQ = {'brj': ('quill', 1), 'jjg': ('tempo', 2), 'mms': ('fuse', 1), 'hrb': ('slime', 1), 'ssu': ('cart', 1), 'amd': ('heart', 1), 'ildj': ('jhin', 1),
-        'kyo': ('whop', 1), 'ddmj': ('bash', 1), 'psg': ('totem', 1), 'sr': ('stamp', 1), 'ddo': ('chain', 2), 'tw': ('ram', 2),
+        'kyo': ('whop', 1), 'ddmj': ('bash', 1), 'psg': ('twin', 1), 'sr': ('stamp', 1), 'ddo': ('chain', 2), 'tw': ('ram', 2),
         'yumi': ('snack', 1), 'eom': ('eom', 1)}   # yumi·eom 은 맛동산 상점(서버 구매) 캐릭터
 COMMON_OLD = ['feed', 'egg', 'fryer', 'can', 'sushi', 'pan', 'kbd', 'spk', 'shrimp']   # 예전에 시작 무기로 쓰이던 공용 무기
 

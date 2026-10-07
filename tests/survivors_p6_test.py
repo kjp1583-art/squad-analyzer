@@ -195,8 +195,6 @@ async def main():
           {const S=mk('kyo');S.rel.sg_kyo=3;S.p.hp=10;const B={key:'t',nm:'t',r:20,sp:0,d:1,hp:10,xp:1};const e=x.spawnEnemy(0,1,B);e.x=S.p.x+50;e.y=S.p.y;e.hp=1;x.hurt(e,5);o.kyo=S.p.hp-10;}
           // ddmj: 가시 방패
           {const S=mk('ddmj');S.rel.sg_ddmj=3;const es=[];for(let i=0;i<10;i++)es.push(dummy(S,40+i*3,0,1e6));S.live=es;S.p.inv=0;x.hitP(100,'');o.ddmj={hit:es.filter(e=>e.hp<e.mhp).length,dmg:1e6-es[0].hp};}
-          // psg: 버프 길이
-          {const S=mk('psg');S.rel.sg_psg=3;S.campT=20.1;x.CH.camp=1;const relTick=x.relTick;o.psgBL=null;}
           return o;}""")
         check('🐤 논란 점화: 처치 시 폭발(0.5초 간격)', r['brj'] >= 1, r['brj'])
         check('🔫 한 방 장전: 치명타 7번에 1번 추가 일격 후 카운터 리셋', r['jjg']['c'] == 0 and r['jjg']['rel'] > 0, r['jjg'])
@@ -209,12 +207,12 @@ async def main():
         check('🧱 가시 방패: 피격 시 최대 8마리에게 반사', r['ddmj']['hit'] == 8 and r['ddmj']['dmg'] > 100, r['ddmj'])
         # 캐릭터 고유 능력 확장(psg·sr·ddo·tw·yj)
         r = await pg.evaluate("""()=>{const x=__p6x;const o={};
-          {const camp=(lvl)=>{x.CH_set('psg');x.start();const S=x.S;S.rel.sg_psg=lvl;let mx=0;for(let i=0;i<30*30;i++){if(x.state==='lvup'){x.pick(x.CUR[0]);continue;}if(x.state!=='play'){x.resume();continue;}S.p.hp=S.p.mhp;x.update(1/30);mx=Math.max(mx,S.campL);}return mx;};o.psg=camp(3);o.psg0=camp(0);}
+          {const camp=(lvl)=>{x.CH_set('psg');x.start();const S=x.S;S.rel.sg_psg=lvl;S.rg=100;let mx=0;for(let i=0;i<30*30;i++){if(x.state==='lvup'){x.pick(x.CUR[0]);continue;}if(x.state!=='play'){x.resume();continue;}S.p.hp=S.p.mhp;x.update(1/30);mx=Math.max(mx,S.dT);}return mx;};o.psg=camp(3);o.psg0=camp(0);}
           {x.CH_set('sr');x.start();const S=x.S;S.rel.sg_sr=3;S.staffT=0;x.update(1/30);o.sr={cd:S.staffT,life:Math.max(...x.CHARS?[0]:[0])};const al=window.__p6x;o.srAlly=null;}
           {x.CH_set('ddo');x.start();const S=x.S;S.rel.sg_ddo=3;S.proomT=0;x.update(1/30);o.ddo=S.proom.R;x.start();const S2=x.S;S2.proomT=0;x.update(1/30);o.ddo0=S2.proom.R;}
           {x.CH_set('tw');x.start();const S=x.S;S.p.hp=S.p.mhp*.05;const e=x.spawnEnemy(0,1);e.hp=e.mhp=1e9;e.x=S.p.x+30;e.y=S.p.y;const h=e.hp;x.hurt(e,100);const d0=h-e.hp;S.rel.sg_tw=3;const h2=e.hp;x.hurt(e,100);const d1=h2-e.hp;o.tw=[d0,d1];}
           return o;}""")
-        check('🌿 버프 연장: 버프 지속 15→18.5초', abs(r['psg0'] - 15) < 1.2 and 17.2 <= r['psg'] <= 18.6, (r['psg0'], r['psg']))
+        check('🐲 타오르는 비늘: 용 변신 지속 11→14.5초', abs(r['psg0'] - 11) < .3 and 14.2 <= r['psg'] <= 14.6, (r['psg0'], r['psg']))
         check('🕷️ 공지 도배: 스탭 주기 20→17초', abs(r['sr']['cd'] - 17) < .1, r['sr'])
         check('☠️ 공개 재판: 방 범위 +30%', abs(r['ddo'] / r['ddo0'] - 1.3) < 1e-6, r)
         check('💔 집착의 불꽃: 체력 5%에서 피해 보너스 상한 +60%→+90%', r['tw'][0] > 0 and abs(r['tw'][1] / r['tw'][0] - (1 + .9) / (1 + .6)) < .02, r['tw'])
