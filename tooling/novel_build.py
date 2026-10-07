@@ -28,7 +28,9 @@
 import sys, os, re, json, glob, argparse
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-BGS = {'white','prologue','forest','lobby','door','dining','dark','archive','broadcast','final','morning','ledger'}
+BGS = {'white','prologue','forest','lobby','door','dining','dark','archive','broadcast','final','morning','ledger','voice','kakao'}   # voice·kakao 는 그림 없이 CSS 로 그리는 음성방·톡방 화면
+CGS = {'bid','lobby','clip','stop','room','typing'}   # @cg 장면 그림(img/novel/cg/<id>.webp)
+HIDDEN_ENDINGS = {'end4'}   # 도감에 '숨겨진 엔딩' 으로만 나오는 엔딩 id
 FX = {'flicker','blackout','shake','off','clear','lights','flicker-off','blackout-off'}
 SFX = {'knock','door','thud','fall','chime','keys','heartbeat','drone'}
 MOODS = {'none','calm','tense','dark'}
@@ -61,6 +63,7 @@ def file_key(path):
     return (10**9, b)
 
 CMP = re.compile(r'^([^\s<>=!]+)\s*(>=|<=|==|!=|>|<|=)\s*(-?\d+)$')
+CMPS = re.compile(r'^([^\s<>=!]+)\s*(==|!=|=)\s*([^\s<>=!&,]+)$')   # @rec 글자 값 견주기: LAST=share
 
 def parse_cond(s, ctx, loc):
     """조건 문자열 -> [[name, op, n, neg], ...] (AND)"""
@@ -72,6 +75,9 @@ def parse_cond(s, ctx, loc):
         if m:
             op = '==' if m.group(2) == '=' else m.group(2)
             out.append([canon(m.group(1)), op, int(m.group(3)), 0]); continue
+        m = CMPS.match(part)
+        if m:
+            out.append([canon(m.group(1)), '==' if m.group(2) in ('=', '==') else '!=', m.group(3), 0]); continue
         neg = 0
         if part.startswith('!'): neg = 1; part = part[1:].strip()
         if not re.match(r'^[^\s<>=!&,;|]+$', part):
@@ -102,7 +108,15 @@ def parse_actions(s, ctx, loc):
             if m: acts.append(['add', canon(m.group(1)), int(m.group(2))])
             else: ctx.err(loc, '@add 형식 오류(변수 숫자): "%s"' % part)
         elif d == 'goto' and re.match(r'^[^\s]+$', rest): acts.append(['goto', rest])
-        else: ctx.err(loc, '알 수 없는 동작: "%s" (set/unset/add/goto 만 가능)' % part)
+        elif d == 'flag':
+            m = re.match(r'^([^\s=]+)\s*=\s*(true|false|1|0)$', rest, re.I)
+            if m: acts.append(['set', canon(m.group(1)), 1 if m.group(2).lower() in ('true', '1') else 0])
+            else: ctx.err(loc, '@flag 형식 오류(KEY=true|false): "%s"' % part)
+        elif d == 'rec':
+            m = re.match(r'^([^\s=]+)\s*=\s*(\S.*)$', rest)
+            if m: acts.append(['set', canon(m.group(1)), int(m.group(2)) if re.match(r'^-?\d+$', m.group(2).strip()) else m.group(2).strip()])
+            else: ctx.err(loc, '@rec 형식 오류(KEY=값): "%s"' % part)
+        else: ctx.err(loc, '알 수 없는 동작: "%s" (set/unset/add/flag/rec/goto 만 가능)' % part)
     return acts
 
 def balanced(s):
@@ -122,9 +136,18 @@ def parse_files(files, ctx):
     ops = []; labels = {}; label_loc = {}; chapters = []; clues = {}; endings = []
     ifstack = []   # [{'jf':idx,'jmp':None|idx,'loc':loc}]
     pending_choice = None
+    cur_end = None   # @card 엔딩|제목 으로 연 엔딩 — 다음 @label 이나 파일 끝에서 막을 내린다(@ending 이 없는 원고용)
     src = []       # op 인덱스 -> 'file:line'
     def emit(op, loc):
         ops.append(op); src.append(loc); return len(ops) - 1
+    def flush_end(loc):
+        nonlocal cur_end
+        if cur_end is None: return
+        e = cur_end; cur_end = None
+        if ops and ops[-1]['o'] in ('end', 'goto'): return
+        if e['id'] not in [x['id'] for x in endings]:
+            endings.append({'id': e['id'], 't': e['t'], **({'hid': 1} if e['id'] in HIDDEN_ENDINGS else {})})
+        emit({'o': 'end', 'id': e['id'], 't': e['t']}, loc)
     for path in files:
         base = os.path.basename(path)
         with open(path, encoding='utf-8') as f: lines = f.read().replace('\r\n', '\n').split('\n')
@@ -158,6 +181,10 @@ def parse_files(files, ctx):
                 w = line[1:].split(None, 1); d = w[0].lower(); rest = w[1].strip() if len(w) > 1 else ''
                 if d == 'card':
                     t, _, s = rest.partition('|')
+                    if t.strip() == '엔딩' and s.strip():
+                        lm = max([l for l, p in labels.items() if p == len(ops)] or [''])
+                        mm = re.search(r'end(\d+)$', lm)
+                        cur_end = {'id': ('end' + mm.group(1)) if mm else 'end%d' % (len(endings) + 1), 't': s.strip()}
                     if not t.strip(): ctx.err(loc, '@card 제목이 비어 있음')
                     if chapters and len(ops) - chapters[-1]['pc'] <= 3: chapters[-1]['card'] = True
                     emit({'o': 'card', 't': t.strip(), 's': s.strip()}, loc)
@@ -204,12 +231,17 @@ def parse_files(files, ctx):
                     if top['jmp'] is not None: ctx.err(loc, '@else 가 두 번 나옴(@if 는 %s)' % top['loc']); continue
                     top['jmp'] = emit({'o': 'jmp', 'to': -1}, loc)
                     ops[top['jf']]['to'] = len(ops)
-                elif d == 'end':
+                elif d in ('end', 'endif'):
                     if not ifstack: ctx.err(loc, '@end 가 짝이 되는 @if 없이 나옴'); continue
                     top = ifstack.pop()
                     if top['jmp'] is not None: ops[top['jmp']]['to'] = len(ops)
                     else: ops[top['jf']]['to'] = len(ops)
-                elif d in ('set', 'unset', 'add'):
+                elif d == 'credits':
+                    emit({'o': 'credits'}, loc)
+                elif d == 'cg':
+                    if rest not in CGS: ctx.err(loc, '알 수 없는 @cg "%s" (%s)' % (rest, ', '.join(sorted(CGS))))
+                    emit({'o': 'cg', 'id': rest}, loc)
+                elif d in ('set', 'unset', 'add', 'flag', 'rec'):
                     a = parse_actions('@' + line[1:], ctx, loc)
                     for x in a: emit({'o': x[0], 'k': x[1], 'v': x[2]}, loc)
                 elif d == 'choice':
@@ -224,6 +256,7 @@ def parse_files(files, ctx):
                     emit(op, loc); pending_choice = op
                 elif d == 'label':
                     if not re.match(r'^[^\s]+$', rest): ctx.err(loc, '@label 이름 오류: "%s"' % rest); continue
+                    flush_end(loc)
                     if rest in labels: ctx.err(loc, '라벨 "%s" 가 중복됨(앞: %s)' % (rest, label_loc[rest])); continue
                     labels[rest] = len(ops); label_loc[rest] = loc
                 elif d == 'goto':
@@ -256,11 +289,15 @@ def parse_files(files, ctx):
                 emit({'o': 'tho', 's': m.group(1).strip(), 't': m.group(2).strip()}, loc); continue
             m = re.match(r'^([^:：@*(\-#/][^:：]{0,23})[:：]\s*(.+)$', line)
             if m:
-                emit({'o': 'say', 's': m.group(1).strip(), 't': m.group(2).strip()}, loc); continue
+                nm = m.group(1).strip(); op = {'o': 'say', 's': nm, 't': m.group(2).strip()}
+                km = re.match(r'^(.*?)\s*\(톡\)$', nm)
+                if km and km.group(1): op['s'] = km.group(1); op['k'] = 1
+                emit(op, loc); continue
             ctx.err(loc, '해석할 수 없는 줄: "%s"' % (line[:40]))
         if pending_choice is not None:
             if not pending_choice['opts']: ctx.err(pending_choice['_loc'], '@choice 아래에 선택지가 없음')
             pending_choice = None
+        flush_end('%s:끝' % base)
         if ifstack:
             for t in ifstack: ctx.err(t['loc'], '@if 가 @end 로 닫히지 않음')
             ifstack = []

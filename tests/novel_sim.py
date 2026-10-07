@@ -17,6 +17,7 @@ def ev(cs, V, clues):
     for n, op, x, neg in cs:
         v = len(clues) if n == 'clues' else V.get(n, 1 if n in clues else 0)
         if op == 'flag': r = v > 0; r = (not r) if neg else r
+        elif isinstance(x, str): r = (str(v) == x) if op == '==' else (str(v) != x)   # @rec 글자 값
         else: r = {'>=': v >= x, '<=': v <= x, '>': v > x, '<': v < x, '==': v == x, '!=': v != x}[op]
         if not r: return False
     return True
@@ -103,7 +104,7 @@ def relevant(story):
 def search(story, limit=40_000_000, want=None):
     RV, CID = relevant(story)
     def skey(pc, V, clues):
-        return (pc, tuple(sorted((k, min(v, 9)) for k, v in V.items() if k in RV)), tuple(sorted(c for c in clues if c in RV)), len(clues) if 'clues' in RV else 0)
+        return (pc, tuple(sorted((k, (min(v, 9) if isinstance(v, int) else v)) for k, v in V.items() if k in RV)), tuple(sorted(c for c in clues if c in RV)), len(clues) if 'clues' in RV else 0)
     ends = {e['id'] for e in story['endings']}; want = set(want or ends); found = {}
     seen = set(); t0 = time.time()
     # DFS, 선호 순서: 줍기 > 첫 선택 ... (여러 방문 순서를 섞어서 시도)

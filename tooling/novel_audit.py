@@ -131,6 +131,7 @@ def static_audit(story, ctx, rep, files):
     for n, lst in sets.items():
         tot = 0
         for loc, kind, v in lst:
+            if isinstance(v, str): v = 1   # @rec 글자 값은 '정해졌다'로 센다(비교는 아래 check_cs 에서 값 단위로)
             i = pc_of.get(loc, -1); rep_ = any(a <= i <= b for a, b in loops)
             if kind == 'add': tot += (10 ** 6 if rep_ and v > 0 else max(v, 0))
             else: tot += max(v, 0)
@@ -144,6 +145,9 @@ def static_audit(story, ctx, rep, files):
             if n in clue_ids: continue
             if n not in sets:
                 if not neg and op == 'flag': rep.E('한 번도 정해지지 않는 "%s" 를 요구하는 분기(영영 안 열림) — %s' % (n, loc))
+                continue
+            if isinstance(x, str):
+                if op == '==' and x not in {v for _, _, v in sets[n]}: rep.E('@rec %s 가 "%s" 로 기록되는 곳이 없는데 그 값을 요구 — %s' % (n, x, loc))
                 continue
             if op in ('>=', '>'):
                 need = x + (1 if op == '>' else 0)
@@ -383,7 +387,7 @@ def main():
     reads, sets, clue_at = static_audit(story, ctx, rep, files)
     if a.reach or a.all: reach_audit(story, ctx, rep)
     if a.ending_deps or a.all: ending_deps(story, ctx, rep, reads)
-    time_audit(files, rep, show=(a.times or a.all) and not a.q)
+    if os.path.exists(os.path.join(ROOT, 'data/novel/ch/ch_1011_end.txt')): time_audit(files, rep, show=(a.times or a.all) and not a.q)   # 옛 원고의 시각표 대조 — 새 원고(2026-10)에는 시각표가 없다
     if not a.q:
         for m in rep.info: print('정보 ' + m)
     for m in rep.err: print('오류 ' + m)

@@ -87,7 +87,10 @@ function dcLogin(){
 }
 function fmtT(s){s=Math.floor(s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+'시간 '+m+'분':m+'분'}
 function ago(ts,now){if(!ts)return '-';const d=Math.max(0,now-ts);if(d<90)return '방금';if(d<3600)return Math.floor(d/60)+'분 전';if(d<86400)return Math.floor(d/3600)+'시간 전';return Math.floor(d/86400)+'일 전'}
-const chName=i=>i===0?'프롤로그':i+'번째 장';
+const CHN=['1 경매','2 첫 스크림','3 연패','4 확신','5 대회날','6 시즌 뒤','7 뒤풀이','8 자리(엔딩)'];   // 새 원고(2026-10) 8장 구조 — 봇의 ch 는 0 부터
+const chName=i=>CHN[i]?CHN[i].replace(/^(\d+) /,'$1장 '):(i+1)+'장';
+const ENDN={end1:'① 몫',end2:'② 가볍게',end3:'③ 탓하세요',end4:'④ 제 잘못이네요(숨김)'};
+const endName=k=>ENDN[k]||k;
 let DATA=null, SORT={k:'seen',dir:-1}, TIMER=null;
 
 function showState(html,btn){const s=$('state');s.hidden=false;s.innerHTML=html;$('main').hidden=true;$('bCsv').hidden=true;
@@ -124,7 +127,7 @@ function render(){
   }
   $('quit').innerHTML=h;
   bars($('funnel'),f.map((n,i)=>({nm:chName(i),n,txt:n+'명 · '+(f[0]?Math.round(n/f[0]*100):0)+'%',drop:i===worst+1&&wd>0,cls:i===worst+1&&wd>0?'q':''})),f[0]||0,'');
-  const E=Object.entries(a.endings||{}).sort((x,y)=>y[1]-x[1]); bars($('ends'),E.map(([k,n])=>({nm:'엔딩 '+k,n})),Math.max(1,...E.map(x=>x[1])),'e');
+  const E=Object.entries(a.endings||{}).sort((x,y)=>y[1]-x[1]); bars($('ends'),E.map(([k,n])=>({nm:'엔딩 '+endName(k),n})),Math.max(1,...E.map(x=>x[1])),'e');
   $('endNote').textContent=a.current?'엔딩을 본 사람 '+a.finished+'명 / 현재 원고 플레이어 '+a.current+'명':'';
   $('choices').innerHTML=(a.choices||[]).map(c=>{const mx=Math.max(1,...c.opts.map(o=>o.n));return `<div class="q"><b>갈림길 #${c.pc} · ${c.n}명 선택</b>${c.opts.map(o=>`<div class="opt"><span>${esc(o.t||'보기 '+(o.i+1))}</span><span class="n">${o.n}명 ${Math.round(o.n/c.n*100)}%</span><span class="track" role="img" aria-label="${esc(o.t||'보기 '+(o.i+1))} ${o.n}명"><i class="fill" style="display:block;width:${Math.round(o.n/mx*100)}%"></i></span></div>`).join('')}</div>`}).join('')||'<p class="mut" style="margin:0">보기가 2개 이상 갈린 갈림길이 아직 없어요.</p>';
   renderTable();
@@ -145,7 +148,7 @@ function renderTable(){
     const pr=Math.min(100,Math.round((p.ch+1)/nch*100)), cu=p.cur||{};
     return `<tr class="${p.old?'old':''}"><td>${esc(p.name)}${p.old?' <span class="mut">(구원고)</span>':''}</td><td title="${p.seen?esc(new Date(p.seen*1000).toLocaleString('ko-KR')):''}">${esc(ago(p.seen,now))}</td>`
      +`<td><span class="pb" role="img" aria-label="${pr}%"><i style="width:${pr}%"></i></span>${esc(chName(p.ch))}</td><td class="num">${p.clues}/${p.nc||DATA.meta.nc||12}</td>`
-     +`<td>${p.endings.map(e=>`<span class="bd${p.te&&/^(T|true)$/.test(e)?' t':''}">${esc(e)}</span>`).join('')||'<span class="mut">-</span>'}${p.te&&!p.endings.some(e=>/^(T|true)$/.test(e))?'<span class="bd t">진</span>':''}</td>`
+     +`<td>${p.endings.map(e=>`<span class="bd${p.te&&/^(T|true|end4)$/.test(e)?' t':''}">${esc(endName(e))}</span>`).join('')||'<span class="mut">-</span>'}${p.te&&!p.endings.some(e=>/^(T|true|end4)$/.test(e))?'<span class="bd t">진</span>':''}</td>`
      +`<td class="num">${esc(fmtT(p.play))}</td><td class="mut">${cu.ch!=null?esc(chName(cu.ch))+' · 단서 '+(cu.clues||0):'-'}</td></tr>`}).join('');
 }
 $('tbl').tHead.addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(!b)return;const k=b.dataset.k;SORT=SORT.k===k?{k,dir:-SORT.dir}:{k,dir:k==='name'?1:-1};renderTable()});

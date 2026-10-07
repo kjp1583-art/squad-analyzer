@@ -156,7 +156,7 @@ async def resume_test(b):
 async def rm_and_timer(b):
     ctx, pg, errs = await ctx_page(b, 360, 740, rm=True)
     await pg.goto('http://localhost:%d/novel_test.html' % PORT); await pg.wait_for_function("!document.getElementById('tNew').disabled")
-    await pg.click('#tNew'); await ws(pg, 'line', 8000)
+    await pg.fill('#nickIn', '시험'); await pg.click('#tNew'); await ws(pg, 'line', 8000)
     check('움직임 줄이기: OS 설정 따름', await pg.evaluate("document.getElementById('app').classList.contains('rm')"))
     await pg.wait_for_timeout(300); txt = await pg.inner_text('#txt'); check('움직임 줄이기: 타자기 없이 한 번에 표시', '첫 줄입니다.' in txt, txt)
     await ctx.close()
@@ -196,25 +196,25 @@ async def bgm_test(b):
     # 1) 순수 선택 함수
     ctx, pg, errs = await ctx_page(b, 360, 740)
     await pg.goto('http://localhost:%d/novel_test.html?fast=1' % PORT); await pg.wait_for_function("!document.getElementById('tNew').disabled")
-    exp = {0: 'bright', 1: 'bright', 2: 'bright', 3: 'uneasy', 4: 'uneasy', 5: 'dread', 6: 'dread', 7: 'tension', 8: 'tension', 9: 'tension',
-           10: 'climax', 11: 'climax', 12: 'sorrow', 13: 'hope', 14: 'hope', 15: 'sorrow', 16: 'sorrow', 17: 'sorrow', 18: 'sorrow'}
+    base = ['bright', 'bright', 'uneasy', 'uneasy', 'tension', 'uneasy', 'hope', 'hope']   # 새 원고(2026-10) 장별 기본곡(@mood calm) · 8장 이후는 마지막 곡
+    exp = {i: base[min(i, 7)] for i in range(19)}
     got = await pg.evaluate("Object.fromEntries(Array.from({length:19},(_,i)=>[i,__novel.bgm.forChap(i)]))")
     check('BGM 장→곡 매핑 0~18', {int(k): v for k, v in got.items()} == exp, got)
-    check('BGM 엔딩→곡(진실·D 희망, 나머지 쓸쓸)', await pg.evaluate("['A','B','C','E','F'].every(i=>__novel.bgm.forEnd(i)==='sorrow')&&__novel.bgm.forEnd('true')==='hope'&&__novel.bgm.forEnd('D')==='hope'"))
+    check('BGM 엔딩→곡(진실·D 희망, 나머지 쓸쓸)', await pg.evaluate("['A','B','C','E','F','end2','end3'].every(i=>__novel.bgm.forEnd(i)==='sorrow')&&['true','D','end1','end4'].every(i=>__novel.bgm.forEnd(i)==='hope')"))
     check('BGM 이상한 값은 곡 없음', await pg.evaluate("__novel.bgm.forChap(-1)===null&&__novel.bgm.forChap(undefined)===null&&__novel.bgm.forChap('x')===null"))
     # 2) 새 게임: 제스처 뒤에 시작·같은 곡 재시작 안 함·불러오기가 장 번호로 곡 결정·뮤트
     st0 = await pg.evaluate('__novel.bgm.state()'); check('BGM 제스처 전에는 재생 안 함', st0['live'] is None and not st0['on'], st0)
     await pg.click('#tNew'); await ws(pg, 'line'); await pg.wait_for_timeout(600)
-    st = await pg.evaluate('__novel.bgm.state()'); check('BGM 새 게임 → 밝은 곡', st['want'] == 'bright' and (st['live'] == 'bright' or st['fail']), st)
+    st = await pg.evaluate('__novel.bgm.state()'); check('BGM 새 게임 → @mood 에 맞는 곡', st['want'] == (await pg.evaluate("__novel.bgm.forMood('%s',0)" % st['mood'])) and (st['live'] == st['want'] or st['fail']), st)
     check('BGM 음량 0.35(효과음보다 작게)', abs(st['vol'] - .35) < 1e-6)
     if st['on']:
-        t1 = (await pg.evaluate('__novel.bgm.state()'))['t']; await pg.evaluate("__novel.bgm.set('bright')"); await pg.wait_for_timeout(200)
+        t1 = (await pg.evaluate('__novel.bgm.state()'))['t']; await pg.evaluate("__novel.bgm.set('%s')" % st['want']); await pg.wait_for_timeout(200)
         t2 = (await pg.evaluate('__novel.bgm.state()'))['t']; check('BGM 같은 곡이면 재시작 안 함', t2 >= t1, (t1, t2))
         check('BGM 재생 중엔 드론이 낮아짐', (await pg.evaluate("__novel.bgm.state()"))['drone'] < .03)
     chs = await pg.evaluate("__novel.STORY.chapters.map(c=>[c.n,c.pc])")
     ok = True; bad = []
     for n, pc in chs:
-        await pg.evaluate("(pc)=>{__novel.ST().pc=pc;__novel.bgm.sync()}", pc)
+        await pg.evaluate("(pc)=>{__novel.ST().pc=pc;__novel.ST().mood='calm';__novel.bgm.sync()}", pc)
         w = (await pg.evaluate('__novel.bgm.state()'))['want']
         if w != exp.get(n): ok = False; bad.append((n, w))
     check('BGM 챕터 위치로 곡 결정(불러오기·이어하기)', ok, bad)
