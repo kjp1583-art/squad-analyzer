@@ -2714,8 +2714,10 @@ function kAdd(m){ const L=$('kchat'), b=el('div','kb'+(m.me?' me':'')); if(!m.me
   while(L.children.length>14)L.removeChild(L.firstChild) }
 /* CG: 전체 화면 장면 그림 — 페이드 인, 탭/Enter/Space 로 닫고 다음 줄로 */
 let cgOpen=false;
+let cgLock=0;   // 그림이 뜬 직후 이 시각까지는 탭·Enter 로 안 넘어간다(막 누르다 지나쳐 버리는 것 방지) — 자동·건너뛰기는 그대로
+const cgLocked=()=>Date.now()<cgLock;
 function showCg(op){
-  WS='cg'; cgOpen=true; cgReset(); clearProps(); setAuto(auto); $('tb').style.visibility='hidden'; $('choices').classList.remove('on'); saveLast();
+  WS='cg'; cgOpen=true; cgReset(); cgLock=Date.now()+(FAST?0:2000); if(cgLocked()){ $('cgHint').textContent='잠깐 살펴보세요…'; setTimeout(()=>{ if(cgOpen&&!cgLocked())cgApply() },2050) } clearProps(); setAuto(auto); $('tb').style.visibility='hidden'; $('choices').classList.remove('on'); saveLast();
   const e=imGet('cg/'+op.id), box=$('cg'), im=$('cgImg'); const paint=()=>{ if(e.st==='ok')im.src=e.img.src; else im.removeAttribute('src') };
   if(e.st==='loading')e.cbs.push(paint); else paint();
   box.classList.add('show'); void box.offsetWidth; requestAnimationFrame(()=>box.classList.add('on'));
@@ -2738,11 +2740,12 @@ function cgZoomAt(ns,cx,cy){ ns=Math.max(1,Math.min(6,ns)); const r=$('cg').getB
     else{ CGZ.moved+=Math.abs(dx)+Math.abs(dy); if(CGZ.s>1.001&&CGZ.moved>6){CGZ.x+=dx;CGZ.y+=dy;cgApply()} } });
   const up=(e,cancel)=>{ if(!CGZ.ptr.has(e.pointerId))return; CGZ.ptr.delete(e.pointerId); if(CGZ.ptr.size>0||cancel)return;
     if(CGZ.pinched||CGZ.moved>=10){CGZ.pinched=false;return}
+    if(cgLocked()&&CGZ.s<=1.001){CGZ.last=0;return}   // 뜬 직후 2초: 막 누르는 탭은 넘기지도, 확대하지도 않는다
     const now=Date.now();
     if(now-CGZ.last<340&&Math.hypot(e.clientX-CGZ.lx,e.clientY-CGZ.ly)<40){ clearTimeout(CGZ.tapT); CGZ.last=0; if(CGZ.s>1.001)cgReset(); else cgZoomAt(3,e.clientX,e.clientY); return }
     CGZ.last=now;CGZ.lx=e.clientX;CGZ.ly=e.clientY;
-    if(CGZ.s>1.001)return;                       // 확대 중 한 번 탭은 아무 일도 없다
-    clearTimeout(CGZ.tapT); CGZ.tapT=setTimeout(()=>{ if(CGZ.s<=1.001)closeCg() },FAST?30:320) };
+    if(CGZ.s>1.001||cgLocked())return;                       // 확대 중 한 번 탭은 아무 일도 없다
+    clearTimeout(CGZ.tapT); CGZ.tapT=setTimeout(()=>{ if(CGZ.s<=1.001&&!cgLocked())closeCg() },FAST?30:320) };
   box.addEventListener('pointerup',e=>up(e,false)); box.addEventListener('pointercancel',e=>up(e,true));
   box.addEventListener('wheel',e=>{ if(!cgOpen)return; e.preventDefault(); cgZoomAt(CGZ.s*(e.deltaY<0?1.18:1/1.18),e.clientX,e.clientY) },{passive:false});
   const mid=()=>{const r=box.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]};
@@ -3506,7 +3509,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){const o=[...OVS].reverse().find(id=>id!=='ovTitle'&&id!=='endcard'&&$(id).classList.contains('on')); if(o){closeOv(o);return}}
   if(!started||anyOv())return;
   if(WS==='choice'){ if(e.key==='Enter'||e.key===' ')return; const n=parseInt(e.key,10);const b=$('cl').children[n-1];if(b&&Date.now()-chShown>(FAST?0:350)){b.click()} return }
-  if(WS==='cg'&&(e.key===' '||e.key==='Enter')){e.preventDefault();closeCg();return}
+  if(WS==='cg'&&(e.key===' '||e.key==='Enter')){e.preventDefault();if(!cgLocked())closeCg();return}
   if(WS==='line'&&(e.key===' '||e.key==='Enter')){if(e.target.tagName==='BUTTON')return;e.preventDefault();next()}
 });
 document.addEventListener('visibilitychange',()=>{ if(AU.ctx){document.hidden?AU.ctx.suspend():AU.ctx.resume()} document.hidden?bgmPause():bgmResume(); if(document.hidden){saveRead();saveMeta()} });
