@@ -2,6 +2,7 @@
 """「스콰드 생존게임」 구조·접근성·저장 복귀 시험 (Playwright).
 
   python3 tests/novel_struct_test.py            # 전부(진짜 원고 시험 포함 — 몇 분 걸린다)
+  python3 tests/novel_struct_test.py --resume-only  # 진짜 원고의 저장 복귀(슬롯·이어하기)만 — 약 2분 (전체는 5분 넘게 걸려 도구 시간 제한에 끊기기 쉽다)
   python3 tests/novel_struct_test.py --quick    # 가짜 이야기(tests/novel_struct_story.txt)로 하는 안전망·접근성 시험만
 
 1) 막힘 안전망 — 기회를 다 쓴 '뒤에만' 도움 단계가 열린다. 처음 몇 번의 시도에는 영향이 없다.
@@ -11,6 +12,8 @@
 3) 진짜 원고 — 엔딩 7종 전부 도달, 퍼즐 '실패' 분기를 하나씩 강제로 밟아 엔딩까지, 저장 슬롯·이어하기 뒤 복귀.
 환경변수 CHROME 으로 크로미움 실행 파일을 고를 수 있다."""
 import asyncio, subprocess, time, sys, os, shutil, json, re
+try: sys.stdout.reconfigure(line_buffering=True)   # 파이프로 받아도 진행 줄이 바로 보이게(시간 제한에 끊겨도 어디까지 갔는지 남는다)
+except Exception: pass
 from playwright.async_api import async_playwright
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +23,7 @@ import novel_walk as walk
 PORT = 8793
 walk.PORT = PORT
 QUICK = '--quick' in sys.argv
+RESUME_ONLY = '--resume-only' in sys.argv      # 진짜 원고에서 '저장 복귀'(슬롯·이어하기)만 — 실패 분기 12개 순회(수 분)를 건너뛴다
 FAILS = []
 def check(name, cond, extra=''):
     print(('PASS ' if cond else 'FAIL ') + name + (' ' + str(extra) if extra and not cond else ''))
@@ -357,6 +361,7 @@ async def real_story(b):
         check('엔딩 %s 도달(기본 경로)' % e, r.get('end') == e, r)
     # 퍼즐 '실패' 분기를 하나씩 강제로 밟는다
     fails = [(pc, op) for pc, op in enumerate(story['ops']) if op['o'] == 'puz' and op['type'] != 'vote' and 'fail' in op['d']]
+    if RESUME_ONLY: fails = []
     print('-- 실패 분기가 있는 퍼즐 %d개를 하나씩 실패시켜 엔딩까지 간다' % len(fails))
     ended = set(); skipped = []
     for pc, op in fails:
@@ -368,7 +373,7 @@ async def real_story(b):
         hit = tgt is None or any(tgt <= x < tgt + 12 for x in pcs)
         ended.add(r.get('end'))
         check('퍼즐 pc=%d(%s) 실패 분기 → 엔딩 %s 까지' % (pc, op['d'].get('q', '')[:18], r.get('end')), 'end' in r and hit, (r, 'fail 목적지 안 지남' if not hit else ''))
-    check('실패 분기로 닿은 엔딩이 하나 이상', len(ended) >= 1, ended)
+    if not RESUME_ONLY: check('실패 분기로 닿은 엔딩이 하나 이상', len(ended) >= 1, ended)
     if skipped: print('   (도달 못 해 건너뛴 퍼즐 pc: %s — 단서 전부 줍기 조건에서 갈 수 없는 자리)' % skipped)
     check('진짜 원고 콘솔 오류 없음', not errs, errs[:3]); await ctx.close()
     return story, found
@@ -386,7 +391,7 @@ async def resume_real(b, story, found):
     await pg.click('#bMenu'); await pg.click('#mSave'); await pg.locator('#slList .slot').nth(0).click()
     store = await ctx.storage_state(); await ctx.close()
     ctx, pg, errs = await real_pages(b, store)
-    check('저장 복귀(슬롯): 새로 열어도 슬롯 1 에 저장 표시', True)
+    check('저장 복귀(슬롯): 새로 열어도 슬롯 1 에 저장 표시', await pg.evaluate("(JSON.parse(localStorage.getItem('sq_novel2_slots')||'[]')[0]||{}).pc>=0"))
     await pg.click('#tLoad'); await pg.locator('#slList .slot').nth(0).click()
     await pg.wait_for_function("__novel.mode().ws==='choice'", timeout=5000)
     m = await pg.evaluate('__novel.mode()')
@@ -416,12 +421,12 @@ async def main():
             kw = {'executable_path': os.environ.get('CHROME') or '/opt/pw-browsers/chromium'}
             b = await p.chromium.launch(**kw)
             only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else None
-            for fn in (rescue_pick3, rescue_pick3_giveup, pick3_keyboard_plain, rescue_code, rescue_guide, rescue_cctv, rescue_odd, rescue_inf, vote_keyboard, a11y):
+            for fn in () if RESUME_ONLY else (rescue_pick3, rescue_pick3_giveup, pick3_keyboard_plain, rescue_code, rescue_guide, rescue_cctv, rescue_odd, rescue_inf, vote_keyboard, a11y):
                 if only and fn.__name__ not in only: continue
                 print('== %s' % fn.__name__)
                 try: await fn(b)
                 except Exception as e: check('%s 예외 없이 끝남' % fn.__name__, False, repr(e)[:900])
-            if not QUICK:
+            if not QUICK or RESUME_ONLY:
                 print('== real_story')
                 try:
                     story, found = await real_story(b)

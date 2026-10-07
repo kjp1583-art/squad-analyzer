@@ -116,6 +116,10 @@ button{font:inherit;color:inherit;cursor:pointer}
 .ov .m{display:block;width:min(280px,84vw);margin:5px auto;padding:12px;background:#14161e;border:1px solid #5a5666;border-radius:10px;font-size:16px;min-height:46px}
 .ov .m:hover{border-color:#f0c060}
 .ov .m[disabled]{opacity:.35;cursor:default}
+#syBadge{margin:10px auto 0;font-size:12px;color:#9a95a4;min-height:18px}
+#syBadge[data-s=ok],#syBadge2[data-s=ok]{color:#8fbf8f}#syBadge[data-s=wait],#syBadge[data-s=sync],#syBadge2[data-s=wait],#syBadge2[data-s=sync]{color:#d8c070}#syBadge[data-s=offline],#syBadge[data-s=fail],#syBadge2[data-s=offline],#syBadge2[data-s=fail]{color:#d08a7a}
+#syBadge button{background:none;border:0;color:inherit;text-decoration:underline;font:inherit;padding:6px 4px;min-height:32px}
+.ov .syc{display:block;width:min(300px,86vw);margin:6px auto;text-align:left}.ov .syc small{display:block;color:#9a95a4;font-size:12px;margin-top:3px;font-weight:400}
 .ov .back{margin-top:14px;background:none;border:0;color:#9a95a4;text-decoration:underline;min-height:44px;padding:0 16px}
 .set{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(320px,88vw);margin:6px 0;font-size:15px;text-align:left}
 .set button{min-width:64px}
@@ -266,10 +270,12 @@ button{font:inherit;color:inherit;cursor:pointer}
    <button class="m" id="tGal">엔딩 보기</button>
    <button class="m" id="tSet">설정</button>
    <div class="stat" id="tStat"></div>
+   <div id="syBadge" role="status" aria-live="polite" data-s="off"></div>
   </div>
   <div class="ov" id="ovMenu">
    <h2>메뉴</h2>
    <p class="sub" id="mInfo" style="margin-bottom:12px"></p>
+   <div id="syBadge2" role="status" aria-live="polite" data-s="off" style="font-size:12px;color:#9a95a4;margin:-6px 0 8px"></div>
    <button class="m" id="mSave">슬롯에 저장</button>
    <button class="m" id="mLoad">슬롯에서 불러오기</button>
    <button class="m" id="mChap">장 선택</button>
@@ -290,6 +296,8 @@ button{font:inherit;color:inherit;cursor:pointer}
    <p class="nvhint">보내는 것: 지금 장·단서·엔딩·플레이 시간·선택(갈림길과 보기 번호)뿐입니다. 저장 파일 내용·연락처는 보내지 않습니다. 클랜 운영진이 통계로만 봅니다.</p>
    <button class="back" data-close>닫기</button>
   </div>
+  <div class="ov" id="ovSync"><h2>어느 쪽으로 이어갈까요?</h2><p class="sub" id="syCP">이 계정의 다른 기기에서 저장한 기록과 이 기기의 기록이 서로 다른 곳까지 와 있어요. 고르지 않으면 더 최근에 저장한 쪽으로 이어집니다.</p>
+   <button class="m syc" id="syLoc" type="button"></button><button class="m syc" id="syRem" type="button"></button><button class="back" data-close>그대로 두기</button></div>
   <div class="ov" id="ovLog"><h2>지난 대사</h2><div id="log"></div><button class="back" data-close>닫기</button></div>
   <div class="ov" id="ovNote"><h2 id="nT">수첩</h2><p class="hint" id="nHint"></p><div class="list" id="nList"></div><button class="back" data-close>닫기</button></div>
   <div class="ov" id="ovGal"><h2 id="gT">엔딩 보기</h2><p class="sub" id="gHint"></p><div class="list" id="gal"></div><button class="back" data-close>닫기</button></div>
@@ -4678,7 +4686,7 @@ const SET=Object.assign({rm:MQ_RM.matches,timer:true,speed:1,mute:false,assist:t
 if(!SET.rmUser&&MQ_RM.matches)SET.rm=true;   // OS 가 동작 줄이기를 켜 뒀으면 따른다(사용자가 설정에서 직접 고른 적이 없을 때)
 if(!(SET.fs>=0&&SET.fs<=3))SET.fs=1;
 const FS_SCALE=[.9,1,1.2,1.45], FS_NAME=['작게','보통','크게','아주 크게'];
-function saveSet(){lsSet(K_SET,SET)}
+function saveSet(auto){lsSet(K_SET,SET); if(!auto)try{sySetTouch()}catch(e){}}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function toast(m,ms){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',FAST?200:(ms||1800))}
 function fmtT(s){s=Math.floor(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')}
@@ -4913,7 +4921,7 @@ function run(){
 function onChap(op){
   clearProps(); fxClear(); ST.show=null; hist=[]; renderChars(null);
   backlog.push({chap:op.t});
-  const s=snap(); const m=lsGet(K_CHAP)||{}; m[op.n]=s; lsSet(K_CHAP,m); lsSet(K_AUTO,s); lsSet(K_LAST,s); saveRead();
+  const s=snap(); const m=lsGet(K_CHAP)||{}; m[op.n]=s; lsSet(K_CHAP,m); lsSet(K_AUTO,s); lsSet(K_LAST,s); saveRead(); try{syLastTouch(s.ts)}catch(e){}
   warmChapter(op.n+1); bgmSet(bgmForChap(op.n));
   if(op.n>0)toast('자동 저장됨',1000);
   try{nvSend('ch')}catch(e){}
@@ -5313,7 +5321,7 @@ function isTrueEnd(e){return e.id==='true'||e.id==='T'||/진실|진엔딩/.test(
 function doEnd(op){
   WS='end'; lastEnd=op.id; killTimers(); clearProps(); fxClear();
   const g=lsGet(K_END)||{}; g[op.id]={t:op.t,ts:Date.now(),play:ST.play}; lsSet(K_END,g);
-  lsDel(K_LAST); saveRead(); saveMeta(); try{nvSend('end')}catch(e){}
+  lsDel(K_LAST); saveRead(); saveMeta(); try{syLastTouch(Date.now())}catch(e){} try{nvSend('end')}catch(e){}
   const [a,...b]=op.t.split(/\s+[—-]\s+/); const n=Object.keys(g).length, N=Math.max(STORY.endings.length,n);
   $('eT').textContent=a; $('eS').textContent=(b.join(' — ')?b.join(' — ')+'\n':'')+'플레이 시간 '+fmtT(ST.play)+' · 본 엔딩 '+n+'/'+N;
   $('eS').style.whiteSpace='pre-line';
@@ -5367,7 +5375,7 @@ async function nvCheck(){
     else NV.st='fail';
   }catch(e){NV.st='fail'}
   if(NV.st==='fail')NV.retryT=setTimeout(()=>{if(NV.st==='fail'&&!started)nvCheck()},FAST?3000:15000);
-  gateApply(); if(NV.st==='ok')nvSend('tick');
+  gateApply(); if(NV.st==='ok'){nvSend('tick');syStart()}
 }
 function gateApply(){
   const g=$('gate'), play=['tCont','tNew','tChap','tLoad'].map($), lock=NV.prod&&NV.st!=='ok';
@@ -5417,7 +5425,161 @@ async function nvFlush(){
 }
 setInterval(()=>{ if(started&&!document.hidden&&WS!=='title')nvSend('tick') },FAST?3000:60000);
 
-const OVS=['ovTitle','ovMenu','ovSet','ovLog','ovNote','ovGal','ovSlots','ovChap','endcard'];
+/* ===================== ☁ 계정 동기화(이어하기·본 엔딩·읽은 단서·설정) =====================
+   로그인한 디스코드 계정(봇 /nv/save)에 한 묶음으로 보관해 어느 기기에서 열어도 같은 진행도를 본다. 운영 도메인(NV.prod)에서만 켜진다.
+   · 시작할 때 서버본을 받아 이 기기의 로컬과 병합한다 — 엔딩·단서·읽은 대사·장 기록은 합집합, 슬롯은 칸마다 최신, 이어하기는 최신 쪽, 설정은 최신 쪽.
+     이어하기가 서로 다른 곳이고 '덜 최근' 쪽이 더 멀리 와 있으면 고르게 한다(ovSync). 고르지 않으면 최신 쪽.
+   · 저장은 로컬이 먼저(항상) → 8초 디바운스해 서버에 올린다. 실패하면 로컬을 그대로 두고 점점 늦춰 가며 다시 올린다(오프라인·429·5xx).
+   · 낙관적 동시성: 올릴 때 마지막으로 본 rev(base)를 같이 보내고, 다른 기기가 먼저 올렸으면(409) 돌려받은 서버본과 다시 합쳐 올린다.
+   · 세이브에는 스토리 버전(ver=SV)이 붙는다. 서버본의 ver 가 지금 원고와 다르면 syMigrate 가 옛 이어하기·장 기록·슬롯·읽은 대사를 버리고
+     엔딩·설정·누적 시간·(지금도 있는) 단서만 남긴다. 시나리오를 크게 고칠 때는 SY_MIG[옛ver]=fn 으로 변환기를 등록한다.
+   · 세이브에는 닉네임·생년 같은 개인정보를 넣지 않는다(게임 상태·설정뿐). 이 기기에 다른 계정의 기록이 남아 있으면 섞지 않고 보관해 둔다. */
+const K_SYNC='sq_novel2_sync', K_CLUES='sq_novel2_clues', K_SYBAK='sq_novel2_bak';
+const SY={ready:!NV.prod,st:'off',rev:0,tm:null,busy:false,dirty:false,fails:0,retryT:null,again:false,uid:'',pulled:false,conf:null};
+const SY_MIG={};   // 옛 ver → (blob)=>새 blob. 없으면 기본 규칙(도감·설정만 유지)
+const SY_DEBOUNCE=FAST?300:8000, SY_SET=['timer','speed','mute','assist','fs','nvSend','rm','rmUser'];
+function syGet(){return lsGet(K_SYNC)||{}}
+function sySave(o){lsSet(K_SYNC,o)}
+function syOn(){return NV.prod&&NV.st==='ok'&&SY.st!=='dead'}
+function syLastTs(){const sy=syGet(),l=lsGet(K_LAST); return Math.max(sy.lastTs||0,(l&&l.ts)||0)}
+function syLastTouch(ts){const sy=syGet(); sy.lastTs=ts||Date.now(); sySave(sy); syMark()}
+function sySetTouch(){const sy=syGet(); sy.setTs=Date.now(); sySave(sy); syMark()}
+function syClueN(){try{return (lsGet(K_CLUES)||[]).filter(c=>STORY.clues[c]).length}catch(e){return 0}}
+// 읽은 대사 번호 ↔ 구간 목록([[a,b],…]) — 크기를 줄이려고 구간으로 묶는다
+function syPack(set){const a=[...set].map(Number).filter(Number.isInteger).sort((x,y)=>x-y),o=[];for(const n of a){const l=o[o.length-1];if(l&&n===l[1]+1)l[1]=n;else if(!l||n>l[1])o.push([n,n])}return o}
+function syUnpack(r){const o=[];(Array.isArray(r)?r:[]).slice(0,4000).forEach(x=>{if(Array.isArray(x)&&Number.isInteger(x[0])&&Number.isInteger(x[1])&&x[1]>=x[0]&&x[1]-x[0]<100000)for(let i=x[0];i<=x[1]&&o.length<100000;i++)o.push(i)});return o}
+function syAllClues(){
+  const s=new Set(lsGet(K_CLUES)||[]); const add=x=>{if(x&&Array.isArray(x.clues))x.clues.forEach(c=>s.add(c))};
+  add(lsGet(K_LAST)); const m=lsGet(K_CHAP)||{}; Object.keys(m).forEach(k=>add(m[k])); (lsGet(K_SLOTS)||[]).forEach(add); if(started)add(ST);
+  return [...s].filter(c=>/^[A-Za-z0-9_\-]{1,24}$/.test(c)).sort().slice(0,60);
+}
+function syPickSet(){const o={};SY_SET.forEach(k=>{if(SET[k]!==undefined&&(k!=='rm'||SET.rmUser))o[k]=SET[k]});return o}
+function syBlob(){
+  saveRead(); const cl=syAllClues(); lsSet(K_CLUES,cl); const sy=syGet();
+  return {fmt:1,ts:Date.now(),last:lsGet(K_LAST)||null,lastTs:syLastTs(),chap:lsGet(K_CHAP)||{},slots:slotsGet(),end:lsGet(K_END)||{},meta:{play:Math.round((lsGet(K_META)||{}).play||0)},
+    read:{sv:SV,r:syPack(READ)},set:syPickSet(),setTs:sy.setTs||0,clues:cl};
+}
+function syHasLocal(){return !!(lsGet(K_LAST)||Object.keys(lsGet(K_CHAP)||{}).length||(lsGet(K_SLOTS)||[]).some(Boolean)||Object.keys(lsGet(K_END)||{}).length||((lsGet(K_META)||{}).play>0)||READ.size)}
+// 서버본 → 지금 원고 형식으로. 옛 ver 이면 이어하기 지점은 버린다(도감·설정·시간·단서만 유지)
+function syMigrate(b,ver){
+  if(!b||typeof b!=='object')return null; if(ver===SV)return b;
+  const f=SY_MIG[ver]; if(typeof f==='function'){try{const o=f(b); if(o&&typeof o==='object')return o}catch(e){}}
+  return {fmt:1,ts:b.ts||0,last:null,lastTs:0,chap:{},slots:[null,null,null],end:b.end||{},meta:b.meta||{play:0},read:null,set:b.set||{},setTs:b.setTs||0,
+    clues:(Array.isArray(b.clues)?b.clues:[]).filter(c=>STORY.clues[c])};
+}
+function syEndMerge(a,b){const o={};[a,b].forEach(m=>{if(m&&typeof m==='object')Object.keys(m).forEach(k=>{ if(!/^[A-Za-z0-9_\-]{1,24}$/.test(k)||!m[k]||typeof m[k]!=='object')return; const c=o[k]; if(!c||(m[k].ts||0)<(c.ts||0))o[k]=m[k] })});return o}  // 같은 엔딩은 먼저 본 기록을 남긴다
+const syGood=s=>s&&typeof s==='object'&&s.sv===SV&&Number.isInteger(s.pc);
+const syPos=s=>s?(s.ch||0)*1e6+(s.pc||0):-1;
+// 순수 병합: (로컬, 서버[이미 syMigrate]) → {m:합친 묶음, conf:{loc,rem}|null}
+function syMerge(L,R){
+  L=L||{};R=R||{}; const m={fmt:1,ts:Date.now()};
+  m.end=syEndMerge(L.end,R.end);
+  m.meta={play:Math.max((L.meta&&L.meta.play)||0,(R.meta&&R.meta.play)||0)};
+  m.clues=[...new Set([...(L.clues||[]),...(R.clues||[])])].filter(c=>STORY.clues[c]).sort();
+  const lr=(L.read&&L.read.sv===SV)?L.read.r:[], rr=(R.read&&R.read.sv===SV)?R.read.r:[];
+  m.read={sv:SV,r:syPack(new Set([...syUnpack(lr),...syUnpack(rr)]))};
+  m.chap={}; const lc=L.chap||{}, rc=R.chap||{};
+  new Set([...Object.keys(lc),...Object.keys(rc)]).forEach(k=>{const a=syGood(lc[k])?lc[k]:null,b=syGood(rc[k])?rc[k]:null; const w=a&&b?((b.ts||0)>(a.ts||0)?b:a):(a||b); if(w)m.chap[k]=w});
+  m.slots=[0,1,2].map(i=>{const a=syGood((L.slots||[])[i])?L.slots[i]:null,b=syGood((R.slots||[])[i])?R.slots[i]:null; return a&&b?((b.ts||0)>(a.ts||0)?b:a):(a||b||null)});
+  const lt=L.lastTs||0, rt=R.lastTs||0, la=syGood(L.last)?L.last:null, ra=syGood(R.last)?R.last:null;
+  const remWins=rt>lt; m.lastTs=Math.max(lt,rt); m.last=remWins?ra:la;
+  let conf=null;
+  if(la&&ra&&(la.pc!==ra.pc)){ const win=remWins?ra:la, lose=remWins?la:ra; if(syPos(lose)>syPos(win))conf={loc:la,rem:ra,remWins} }
+  const ls=L.setTs||0, rs=R.setTs||0; const rw=rs>ls;
+  m.set=rw?(R.set||{}):(L.set&&Object.keys(L.set).length?L.set:(R.set||{})); m.setTs=Math.max(ls,rs);
+  return {m,conf};
+}
+// 합친 결과를 이 기기에 쓴다
+function syApply(m){
+  if(m.last)lsSet(K_LAST,m.last); else lsDel(K_LAST);
+  lsSet(K_CHAP,m.chap||{}); lsSet(K_SLOTS,m.slots||[null,null,null]); lsSet(K_END,m.end||{});
+  const meta=lsGet(K_META)||{play:0}; meta.play=Math.max(meta.play||0,(m.meta&&m.meta.play)||0); lsSet(K_META,meta);
+  syUnpack(m.read&&m.read.r).forEach(n=>READ.add(n)); saveRead();
+  lsSet(K_CLUES,m.clues||[]);
+  const sy=syGet(); sy.lastTs=m.lastTs||0; sy.setTs=m.setTs||0; sySave(sy);
+  if(m.set&&Object.keys(m.set).length){ SY_SET.forEach(k=>{if(m.set[k]!==undefined&&(k!=='rm'||m.set.rmUser))SET[k]=m.set[k]}); lsSet(K_SET,SET); try{applyRm();applyFs();auMute();buildSet()}catch(e){} }
+}
+const syKey=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
+const syNorm=m=>{const o=Object.assign({},m);delete o.ts;return syKey(o)};
+const SY_TXT={off:'',sync:'☁ 동기화하는 중…',ok:'☁ 동기화됨',wait:'☁ 대기 중 — 곧 올립니다',offline:'☁ 오프라인 — 연결되면 다시 올립니다',fail:'☁ 동기화 실패 — 이 기기에는 저장돼 있어요'};
+function syBadge(){
+  const t=SY.st==='dead'?'':(NV.prod&&NV.st==='ok'?(SY_TXT[SY.st]||''):''); const s=SY.st==='dead'?'off':SY.st;
+  [$('syBadge'),$('syBadge2')].forEach(e=>{if(!e)return; e.textContent=t; e.dataset.s=s; e.title=t?'로그인한 디스코드 계정에 이어하기·엔딩·설정을 보관합니다':''});
+  const b=$('syBadge'); if(b&&(SY.st==='offline'||SY.st==='fail')){const r=el('button',null,'다시 시도');r.type='button';r.onclick=()=>{SY.fails=0;syPush(true)};b.appendChild(document.createTextNode(' '));b.appendChild(r)}
+}
+function syDesc(s){return s?((CHAPS[s.ch]?CHAPS[s.ch].t:'')+' · 플레이 '+fmtT(s.play||0)+' · '+new Date(s.ts).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})):''}
+function syAskConf(c){
+  const set=(id,title,s)=>{const b=$(id); b.textContent=''; b.appendChild(el('b',null,title)); b.appendChild(el('small',null,syDesc(s)))};
+  set('syLoc','이 기기의 기록으로',c.loc); set('syRem','☁ 계정(다른 기기)의 기록으로',c.rem);
+  const pick=useRem=>{const s=JSON.parse(JSON.stringify(useRem?c.rem:c.loc)); lsSet(K_LAST,s); const sy=syGet(); sy.lastTs=Date.now(); sySave(sy); closeOv('ovSync'); refreshTitle(); syMark(true)};
+  $('syLoc').onclick=()=>pick(false); $('syRem').onclick=()=>pick(true);
+  if(WS==='title'||!started)openOv('ovSync');
+}
+function syMark(now){
+  if(!syOn())return; SY.dirty=true; const sy=syGet(); if(!sy.dirty){sy.dirty=true;sySave(sy)}
+  if(SY.st!=='offline'&&SY.st!=='fail')SY.st='wait'; syBadge();
+  clearTimeout(SY.tm); SY.tm=setTimeout(()=>syPush(),now?0:SY_DEBOUNCE);
+}
+function syIdentity(){
+  // 이 기기에 남은 기록이 다른 계정 것이면 섞지 않는다 — 따로 보관하고 이 계정의 서버본으로 시작한다
+  const u=dcUser(), sy=syGet(); if(!u)return;
+  if(sy.uid&&sy.uid!==String(u.id)){
+    const bak={uid:sy.uid,ts:Date.now(),blob:null}; try{bak.blob=syBlob()}catch(e){}
+    lsSet(K_SYBAK,bak); [K_LAST,K_AUTO,K_CHAP,K_SLOTS,K_END,K_META,K_READ,K_CLUES].forEach(lsDel); READ.clear(); saveMeta.last=0;
+    const n={uid:String(u.id)}; sySave(n); try{console.info('[sync] 다른 계정 기록을 보관하고 새로 시작')}catch(e){}
+  } else if(!sy.uid){sy.uid=String(u.id);sySave(sy)}
+  SY.uid=String(u.id);
+}
+async function syStart(){
+  if(SY.pulled||SY.busy)return; SY.busy=true; SY.st='sync'; syBadge();
+  try{ syIdentity(); await syPull(); }
+  catch(e){ SY.st=(e&&e.status&&e.status<500&&e.status!==429)?'fail':'offline'; syRetry() }
+  SY.busy=false; SY.ready=true; try{refreshTitle()}catch(e){} syBadge();
+  if(SY.dirty&&SY.st!=='offline'&&SY.st!=='fail')syPush();
+}
+async function syPull(n){
+  const u=dcUser(); if(!u)throw {status:401};
+  const {status,j}=await nvApi('/nv/save?token='+encodeURIComponent(u.token));
+  if(status===401||status===403){SY.st='dead';return}
+  if(status===429&&(n|0)<3){await new Promise(r=>setTimeout(r,FAST?50:1600)); return syPull((n|0)+1)}
+  if(status!==200||!j.ok)throw {status};
+  SY.pulled=true; SY.rev=j.rev|0;
+  const R=j.data?syMigrate(j.data,j.ver):null; const L=syBlob(); let m=L,conf=null;
+  if(R){const r=syMerge(L,R); m=r.m; conf=r.conf; syApply(m)}
+  SY.st='ok';
+  const need=!R||syNorm(m)!==syNorm(R)||j.ver!==SV;
+  if(need&&(R||syHasLocal())){SY.dirty=true; const sy=syGet(); sy.dirty=true; sySave(sy); await syPush(false,true)}
+  else {SY.dirty=false; const sy=syGet(); delete sy.dirty; sySave(sy)}
+  if(conf)syAskConf(conf);
+}
+async function syPush(manual,inline){
+  clearTimeout(SY.tm); clearTimeout(SY.retryT);
+  if(!syOn()||!SY.pulled){ if(syOn()&&!SY.busy&&!SY.pulled)syStart(); return }
+  if(SY.busy&&!inline){SY.again=true;return}
+  SY.busy=true; SY.st='sync'; syBadge(); let tries=0;
+  try{
+    for(;;){
+      const u=dcUser(); if(!u){SY.st='dead';break}
+      const blob=syBlob(); const {status,j}=await nvApi('/nv/save',{token:u.token,ver:SV,base:SY.rev,data:blob});
+      if(status===200&&j.ok){SY.rev=j.rev|0;SY.fails=0; if(SY.again){SY.again=false;SY.dirty=true}else{SY.dirty=false;const sy=syGet();delete sy.dirty;sySave(sy)}; SY.st=SY.dirty?'wait':'ok'; break}
+      if(status===409&&j&&j.data&&tries++<3){ const R=syMigrate(j.data,j.ver); SY.rev=j.rev|0; const r=syMerge(syBlob(),R); syApply(r.m); try{refreshTitle()}catch(e){} if(r.conf)syAskConf(r.conf); continue }
+      if(status===401||status===403){SY.st='dead';break}
+      if(status===413||status===400){SY.st='fail';SY.fails=9;break}
+      SY.st=status===429?'wait':'offline'; SY.fails++; syRetry(status===429?7000:0); break
+    }
+  }catch(e){ SY.st='offline'; SY.fails++; syRetry() }
+  SY.busy=false; syBadge();
+  if(SY.again&&SY.st==='ok'){SY.again=false;syMark()}
+}
+function syRetry(min){ clearTimeout(SY.retryT); if(SY.fails>=9)return; const ms=FAST?400:Math.max(min||0,Math.min(300000,15000*Math.pow(2,Math.max(0,SY.fails-1)))); SY.retryT=setTimeout(()=>{ if(!SY.pulled)syStart(); else syPush() },ms) }
+addEventListener('online',()=>{SY.fails=0; if(syOn()){ SY.pulled?(SY.dirty&&syPush()):syStart() }});
+document.addEventListener('visibilitychange',()=>{
+  if(!syOn()||!SY.pulled)return;
+  if(document.hidden){ if(started&&!SY.dirty){SY.dirty=true;const sy=syGet();sy.dirty=true;sySave(sy)} if(SY.dirty){ try{ const u=dcUser(); const body=JSON.stringify({token:u.token,ver:SV,base:SY.rev,data:syBlob()}); if(body.length<60000&&navigator.sendBeacon)navigator.sendBeacon(NV_API+'/nv/save',new Blob([body],{type:'text/plain'})) }catch(e){} } }
+  else if(SY.dirty||SY.st==='offline'||SY.st==='fail'){SY.fails=Math.min(SY.fails,2);syPush()}
+});
+
+const OVS=['ovTitle','ovMenu','ovSet','ovSync','ovLog','ovNote','ovGal','ovSlots','ovChap','endcard'];
 function openOv(id){ $(id).classList.add('on'); const f=$(id).querySelector('button:not([disabled])'); if(f&&!FAST)setTimeout(()=>f.focus({preventScroll:true}),30) }
 function closeOv(id){$(id).classList.remove('on')}
 function closeAllOv(){OVS.forEach(closeOv)}
@@ -5427,8 +5589,8 @@ document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('.o
 function goTitle(){ killTimers(); WS='title'; started=false; saveRead(); saveMeta(); closeAllOv(); $('choices').classList.remove('on'); $('puz').classList.remove('on'); PZ=null; setMood('none'); bgmSet(null); refreshTitle(); openOv('ovTitle') }
 function refreshTitle(){
   const last=lsGet(K_LAST), ch=chapUnlocked(), g=lsGet(K_END)||{}, m=lsGet(K_META)||{play:0}, rd=IM.ready;
-  $('tCont').disabled=!(last&&last.sv===SV)||!rd; $('tNew').disabled=!rd; $('tChap').disabled=!ch.some(x=>x.ok)||!rd; $('tLoad').disabled=!rd;
-  if(rd)$('tStat').textContent='누적 플레이 '+fmtT(m.play||0)+' · 엔딩 '+Object.keys(g).length+'/'+Math.max(STORY.endings.length,Object.keys(g).length)+' · 읽은 대사 '+READ.size+'/'+STORY.meta.lines;
+  const pull=!SY.ready; $('tCont').disabled=!(last&&last.sv===SV)||!rd||pull; $('tNew').disabled=!rd||pull; $('tChap').disabled=!ch.some(x=>x.ok)||!rd||pull; $('tLoad').disabled=!rd||pull;
+  if(rd)$('tStat').textContent='누적 플레이 '+fmtT(m.play||0)+' · 엔딩 '+Object.keys(g).length+'/'+Math.max(STORY.endings.length,Object.keys(g).length)+' · 읽은 대사 '+READ.size+'/'+STORY.meta.lines+(syClueN()?' · 단서 '+syClueN()+'/'+NCLUE:'');
   else prog();
   try{gateApply()}catch(e){}
 }
@@ -5455,7 +5617,7 @@ function buildSlots(mode){
     if(mode==='load'){b.disabled=!s||s.sv!==SV; b.onclick=()=>{if(s)loadSnap(s)}}
     else{ let armed=false; b.onclick=()=>{
       if(s&&!armed){armed=true;b.lastChild.textContent='덮어씁니다. 한 번 더 누르세요';return}
-      const all=slotsGet(); all[i]=snap(); const okk=lsSet(K_SLOTS,all); toast(okk?'슬롯 '+(i+1)+'에 저장했습니다':'저장 실패(브라우저 저장소 막힘 — 이 탭에서만 유지)'); closeOv('ovSlots'); closeOv('ovMenu') } }
+      const all=slotsGet(); all[i]=snap(); const okk=lsSet(K_SLOTS,all); try{syMark()}catch(e){} toast(okk?'슬롯 '+(i+1)+'에 저장했습니다':'저장 실패(브라우저 저장소 막힘 — 이 탭에서만 유지)'); closeOv('ovSlots'); closeOv('ovMenu') } }
     L.appendChild(b);
   });
 }
@@ -5482,7 +5644,7 @@ function buildGal(){
 }
 function applyRm(){app.classList.toggle('rm',!!SET.rm);document.documentElement.setAttribute('data-rm',SET.rm?'on':'off')}
 function applyFs(){app.style.setProperty('--fs',FS_SCALE[SET.fs]||1);try{fitChars()}catch(e){}}
-try{MQ_RM.addEventListener('change',()=>{ if(SET.rmUser)return; SET.rm=MQ_RM.matches; saveSet(); applyRm(); buildSet(); if(AU.ctx)setMood(AU.mood) })}catch(e){}
+try{MQ_RM.addEventListener('change',()=>{ if(SET.rmUser)return; SET.rm=MQ_RM.matches; saveSet(true); applyRm(); buildSet(); if(AU.ctx)setMood(AU.mood) })}catch(e){}
 function buildSet(){
   $('sRm').textContent=SET.rm?'켬':'끔';$('sTimer').textContent=SET.timer?'켬':'끔';$('sAssist').textContent=SET.assist?'켬':'끔';
   $('sSpeed').textContent=['느림','보통','빠름'][SET.speed];$('sFs').textContent=FS_NAME[SET.fs];$('sMute').textContent=SET.mute?'끔':'켬'; nvSetBtn();
@@ -5552,7 +5714,8 @@ window.__novel={STORY,SET,READ,ST:()=>ST,
     rescue:()=>PZ?{open:!!PZ.rescuing,rs:PZ.rs,inf:!!PZ.inf}:null,nextStage:()=>{const b=$('rsNext');if(b)b.click();return !!b},giveUp:()=>{const b=$('rsEnd');if(b)b.click();return !!b},keep:()=>{const b=$('rsKeep');if(b)b.click();return !!b}},
   newGame, loadSnap, goTitle, snap, evalC, run, getv,
   bgm:{forChap:bgmForChap,forEnd:bgmForEnd,set:bgmSet,sync:bgmSync,state:()=>({want:BG.want,live:BG.live&&BG.live.name||null,on:BG.on,fail:BG.fail,vol:BGM_VOL,drone:AU.drone?AU.drone.gain.value:null,master:AU.master?AU.master.gain.value:null,t:BG.live?BG.live.el.currentTime:0,mood:AU.mood})},
-  nv:{st:()=>NV.st,prod:NV.prod,body:nvBody,recheck:nvCheck,flush:nvFlush,gateOk}};
+  nv:{st:()=>NV.st,prod:NV.prod,body:nvBody,recheck:nvCheck,flush:nvFlush,gateOk},
+  sy:{st:()=>SY.st,rev:()=>SY.rev,pulled:()=>SY.pulled,ready:()=>SY.ready,dirty:()=>SY.dirty,blob:syBlob,merge:syMerge,migrate:syMigrate,push:()=>syPush(true),mig:SY_MIG,keyEnd:K_END,SV}};
 </script>
 </body>
 </html>
