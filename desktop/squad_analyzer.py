@@ -4831,7 +4831,60 @@ _LCU_BF_SPELL = {1: "SummonerBoost", 3: "SummonerExhaust", 4: "SummonerFlash", 6
 _LCU_LANE_KOR = {("TOP", ""): "탑", ("JUNGLE", ""): "정글", ("MIDDLE", ""): "미드",
                  ("BOTTOM", "DUO_CARRY"): "원딜", ("BOTTOM", "DUO_SUPPORT"): "서폿"}
 
+# ===== 🧹 [2026-10-08] lcu백필 append = 재확인 → append → 응답 보존 → 사후 정리 (같은 판 통째 중복 재발 차단) =====
+#   배경: 같은 판 20줄(#8410400062)이 사후 정리(34bcc3b)가 든 83.55 에서도 또 나왔다. 이 경로는 실시간 기록과 똑같은
+#   check-then-act(col_values 확인 → append_rows)인데 사후 정리가 없어서, 겹치면 뒤쪽 사본이 그대로 남는다
+#   (여러 PC 의 lcu백필끼리 · 실시간 기록이 늦게 끼어든 경우). 판단은 오직 '게임ID 가 같은가' —
+#   로스터·시간으로 건너뛰지 않는다(같은 10명이 연달아 다른 판을 치르는 건 내전의 일상이라 정당한 다음 판을 영영 놓친다).
+#   삭제는 _dup_cleanup_after_append 를 그대로 쓴다 — 내 블록보다 앞에 같은 판의 완전한 블록이 이미 있을 때만 내 블록을
+#   지우고, 가장 앞선 블록은 앞선 블록이 없으니 절대 안 지워서 양쪽 삭제(무기록)가 불가능하다. 확신이 없으면 지우지 않는다.
+_LCU_BF_LOCK = threading.Lock()   # 회차 중복 실행 방지 — 한 회차가 끝나기 전에 다시 불리면 건너뛴다
+
+def _lcu_append_block(ws, hd, gid, rows, sleep=None, log=None):
+    """lcu백필이 만든 한 판(rows 전부)을 시트 끝에 붙인다. hd = 1행 헤더, gid = '#' 없는 게임ID.
+    반환 'exists'(이미 시트에 있어 안 씀) | 'appended'(내 블록이 남음) | 'deduped'(동시 기록에 져서 내 블록을 지움 — 앞선 사본이 남음)
+    | 'failed'(읽기·쓰기 예외 — 로그를 남겼고 다음 주기에 다시 본다). 예외는 밖으로 안 던진다."""
+    sleep = sleep or time.sleep
+    _lg = log or (lambda m: print(m, flush=True))
+    def say(m):                          # 로그 출력이 실패해도 기록 흐름을 깨지 않는다
+        try: _lg(m)
+        except Exception: pass
+    sid = "#" + str(gid)
+    try:
+        if not rows:
+            say(f"[lcu백필] #{gid} 기입 실패: 쓸 행이 없음"); return 'failed'
+        gi = hd.index("게임ID") + 1 if "게임ID" in hd else 1          # 확인 열 = 종전과 같은 규칙(헤더에 없으면 1열)
+        def _has():
+            return sid in {str(x).strip() for x in ws.col_values(gi)}
+        if _has(): return 'exists'
+        # 다른 PC 가 같은 순간에 같은 확인을 했다면 한쪽이 먼저 쓰도록 어긋나게 한 뒤, append 직전에 한 번 더 확인한다.
+        sleep(1.0 + random.random() * 1.5)
+        if _has():
+            say(f"[lcu백필] #{gid} 대기 중 다른 기록자가 먼저 기록 — 내 {len(rows)}행은 쓰지 않음"); return 'exists'
+        resp = ws.append_rows(rows)      # gspread 기본 RAW — 문자열 그대로(KDA 날짜 오염 재발 방지). 응답은 사후 정리가 쓴다
+    except Exception as e:
+        say(f"[lcu백필] #{gid} 기입 실패: {e}"); return 'failed'
+    try:
+        if "게임ID" not in hd or "소환사명" not in hd:
+            say(f"[lcu백필] #{gid} 중복정리 생략 — 헤더에 {'게임ID' if '게임ID' not in hd else '소환사명'} 열이 없음 (쓴 행은 그대로 둠)")
+            return 'appended'
+        gc, nc = hd.index("게임ID") + 1, hd.index("소환사명") + 1
+        if any(len(r) < max(gc, nc) or str(r[gc - 1]).strip() != sid for r in rows):
+            say(f"[lcu백필] #{gid} 중복정리 생략 — 쓴 행의 열 배치가 헤더와 안 맞음 (쓴 행은 그대로 둠)")
+            return 'appended'
+        res = _dup_cleanup_after_append(ws, gc, nc, sid, [r[nc - 1] for r in rows], resp, sleep=sleep, log=say)
+        return 'deduped' if res == 'deleted' else 'appended'
+    except Exception as e:
+        say(f"[lcu백필] #{gid} 중복정리 예외 {type(e).__name__}: {e} — 삭제 안 함")
+        return 'appended'
+
 def _lcu_backfill_once():
+    if not _LCU_BF_LOCK.acquire(blocking=False):
+        print("[lcu백필] 이전 회차가 아직 진행 중 — 이번 호출은 건너뜀", flush=True); return
+    try: _lcu_backfill_run()
+    finally: _LCU_BF_LOCK.release()
+
+def _lcu_backfill_run():
     L = _inv_lcu_creds()
     if not L or global_spreadsheet is None: return
     base, h = L
@@ -4978,15 +5031,16 @@ def _lcu_backfill_once():
         except Exception:
             _me = ""
         time.sleep(3 + (abs(hash(_me + gid)) % 20))
-        try:
-            gi = hd.index("게임ID") + 1 if "게임ID" in hd else 1
-            if ("#" + gid) in {str(x).strip() for x in ws.col_values(gi)}:
-                _LCU_BF_DONE.add(gid); continue
-            ws.append_rows(rows)      # gspread 기본 RAW — 문자열 그대로(KDA 날짜 오염 재발 방지)
-            _LCU_BF_DONE.add(gid); done_n += 1
+        _ar = _lcu_append_block(ws, hd, gid, rows)      # 확인 → 한 번 더 확인 → append → 사후 정리 (예외는 도우미가 로그로 삼킨다)
+        if _ar == 'exists':
+            _LCU_BF_DONE.add(gid); continue
+        if _ar == 'failed':
+            continue                                    # 기입 실패 로그는 도우미가 남겼다 — 다음 주기에 다시 본다
+        _LCU_BF_DONE.add(gid); done_n += 1
+        if _ar == 'deduped':
+            print(f"[lcu백필] #{gid} {tab} 동시 기록 경합 — 앞선 사본이 있어 내 {len(rows)}행은 정리함(기록은 확정)", flush=True)
+        else:
             print(f"[lcu백필] #{gid} {tab} {len(rows)}행 회수 (클랜원 {hit}명 · {dt})", flush=True)
-        except Exception as e:
-            print(f"[lcu백필] #{gid} 기입 실패: {e}", flush=True)
 
 def _lcu_backfill_loop():
     time.sleep(90)                    # 시작 직후 LCU·시트 연결 안정 대기 후 1회차
