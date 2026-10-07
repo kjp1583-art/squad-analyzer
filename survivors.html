@@ -1444,7 +1444,7 @@ function bumpKey(e){   // 몸에 부딪혀 피해가 들어갈 때 말할 트롤
 const hazards=new Pool(60,()=>({x:0,y:0,life:0,d:8,own:null,osn:0}));   // 🍄 버섯(own/osn 심은 티모 — 도발 말풍선)
 const eshots=new Pool(LOW?100:140,()=>({x:0,y:0,vx:0,vy:0,life:0,d:0,g:'',sl:0,k:0,src:null,sn:0,ox:0,oy:0}));   // k 1 🪝 갈고리(끌어당김) · 2 🌪 회오리(밀쳐냄)
 const BIMG={};function bossImg(k){if(!BIMG[k])BIMG[k]=sprite('img/survivors/boss_'+k+'.webp',200);return BIMG[k];}
-function charImg(c){for(const b of c.bdg||[])bdgSpr(b);const k=bkey(c);if(!BIMG[k])BIMG[k]=sprite(artUrl(c),200);return BIMG[k];}
+function charImg(c){for(const b of c.bdg||[])bdgSpr(b);const k=bkey(c);if(!BIMG[k])BIMG[k]=sprite(artUrl(c),200);if(c.shv&&!BIMG.psg_drg)BIMG.psg_drg=sprite('img/survivors/char_psg_drg.webp?v=1',256);return BIMG[k];}   // 🐲 프싱은 용 변신용 그림도 같이 불러온다
 const pickLine=a=>a&&a.length?a[Math.random()*a.length|0]:'';
 function spawnEnemy(kind,mult,boss,at){
   const e=enemies.get();if(!e)return null;
@@ -3085,7 +3085,7 @@ function draw(){
     cx.beginPath();for(const u of S.sushi)cx.rect(u.x-11,u.y-4,22,10);cx.fillStyle='#fff';cx.fill();
     cx.beginPath();for(const u of S.sushi)cx.rect(u.x-12,u.y-8,24,6);cx.fillStyle=ev?'#c4e8ff':'#7fd8ff';cx.fill();cx.lineWidth=1;cx.strokeStyle='rgba(31,109,255,.7)';cx.stroke();}
   // 브장신
-  const bi=hasArt(CH)?BIMG[bkey(CH)]:null,spr=CH.k==='brj'?(p.moving?SPR.run:SPR.front).c:bi&&bi.c;   // 🐲 보스 캐릭터는 레이드 보스 그림(못 불러오면 이모지 동그라미)
+  const bi=hasArt(CH)?BIMG[bkey(CH)]:null,dbi=CH.shv&&S.dT>0?BIMG.psg_drg:null,spr=CH.k==='brj'?(p.moving?SPR.run:SPR.front).c:(dbi&&dbi.c)||(bi&&bi.c);   // 🐲 프싱이 용 변신 중이면 용 모습 그림(못 불러오면 원래 그림)   // 🐲 보스 캐릭터는 레이드 보스 그림(못 불러오면 이모지 동그라미)
   const blink=p.inv>0&&((S.t*20|0)%2);
   if(FX.lv&&!(spr&&hasArt(CH)))FX.shadow(p.x,p.y+2,p.r+2);   // ✨ 내 그림자(보스 캐릭터는 그림 쪽에서 그린다)
   if(!blink){cx.save();cx.translate(p.x,p.y);if(p.face<0)cx.scale(-1,1);
