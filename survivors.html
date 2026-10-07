@@ -159,7 +159,6 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="lgd" id="lgdT"><span class="rd">🔴 빨간 표시(점선·빗금)</span> = 위험(적) · <span class="bl">🔵 파란/하늘색</span> = 내 공격</div>
   <label class="hardt"><input type="checkbox" id="hardChk"><span><b>🔥 하드 모드</b><small>몬스터 체력 또 ×2 · 더 아프고 더 많이 몰려온다 · 순위표 따로</small></span></label>
   <label class="hardt vht"><input type="checkbox" id="vhChk"><span><b>💀 베리하드 모드</b><small>하드보다 몬스터 체력 ×2 더 · 훨씬 더 아프고 훨씬 더 많이 몰려온다 · 순위표 따로</small></span></label>
-  <label class="hardt"><input type="checkbox" id="endChk"><span><b>♾ 무한 모드로 시작</b><small>일반 규칙 그대로 시작해서 60:00 을 넘기면 멈추지 않고 이어가요 · 180분이 한계 · 무한 순위표에 따로</small></span></label>
   <button class="btn" id="startBtn">▶ 시작하기</button>
   <button class="btn dly" id="dailyBtn">📅 오늘의 도전</button><div class="muted" id="dailyInfo"></div>
   <details class="howd"><summary>❔ 조작법</summary><ol class="how">
@@ -168,7 +167,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>💎 색이 진하고 클수록 경험치가 커요. (하늘 ◆ → 민트 ■ → 금색 ⬢ → 연보라 ✦ → 흰보라 ✸) <!-- 💎 [2026-09-30 사장님 지시] --></li>
     <li><b>60분 버티면 클리어!</b> 5분마다 보스(흐접새우의 트롤픽 · 브장신 키우기 레이드 보스), 그 사이 2:30·7:30…엔 미니 보스, 55분엔 최종 보스.</li>
     <li>📅 <b>오늘의 도전</b>: 날짜(KST)로 정해진 같은 시드(맵·카드 뽑기·상자·몰이 이벤트) · <b>하루 한 판</b>만 순위표 「오늘」에 올라가요. 두 번째부터는 연습이에요.</li>
-    <li>♾ <b>무한 모드</b>: 일반 모드로 60분을 클리어하면 결과 화면에서 이어서 계속할 수 있어요. 난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 「무한」 순위표에 따로 올라가요.</li>
+    <li>♾ <b>무한 모드</b>: 일반·하드·베리하드 어느 모드든 60분을 클리어하면 「무한 모드로 진입하시겠습니까?」를 물어봐요. 수락하면 이어서 계속 싸워요. 난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 무한 순위표에 따로 올라가요(하드·베리하드로 이어가면 순위표에 🔥·💀 표시).</li>
     <li>⭐ 시그니처 유물: 캐릭터마다 전용 유물이 하나씩 있어요(그 캐릭터로 할 때만 유물 카드에 나와요).</li>
     <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
     <li>5분부터는 👹 <b>대형 트롤픽</b>(덩치 2배·체력 8배)이 섞여 나와요. 잡으면 💎·💣·🍗를 떨굴 때가 많아요.</li>
@@ -200,6 +199,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 
 <div class="ov" id="chest"><div class="box"><h2 id="chestT">🎁 보스 상자</h2><div id="chestList"></div><button class="btn" id="chestOk">좋아!</button></div></div>
 
+<div class="ov" id="endAsk" style="z-index:7"><div class="box"><h2>♾ 무한 모드</h2><p id="endAskTxt" style="font-weight:700;margin:6px 0 4px">60분 클리어! 무한 모드로 진입하시겠습니까?</p><div class="muted" style="margin:0 0 10px">난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 무한 순위표에 따로 올라가요(방금 60분 클리어 기록은 이미 저장됐어요).</div><button class="btn endb" id="endYes">♾ 네, 계속할게요</button><button class="btn g" id="endNo">아니요, 결과 보기</button></div></div>
 <div class="ov" id="result"><div class="box">
   <h2 id="rTitle">결과</h2>
   <div class="bub"><div class="face" role="img" aria-label="흐접새우"></div><div class="say" id="rSay">크큭..</div></div>
@@ -211,8 +211,6 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   </div>
   <div id="rWeap" class="muted"></div><div id="unlockMsg"></div>
   <div class="acct" id="rAcct"></div>
-  <div class="muted" id="endNote" style="display:none;margin:6px 0">♾ 60분을 넘겨도 이어서 싸울 수 있어요 — 난이도는 +30분 치까지만 오르고 멈추며, 기록은 무한 순위표에 따로 올라가요. 180분이 한계예요.</div>
-  <button class="btn endb" id="endBtn" style="display:none">♾ 무한 모드로 계속</button>
   <button class="btn" id="againBtn">🔁 다시하기</button>
   <button class="btn g" id="homeBtn">처음으로</button>
   <footer>SQUAD.GG · 만든 사람: 클랜원 맛동산장인 유미</footer>
@@ -457,7 +455,7 @@ function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순�
   const rows=(BTAB===4?BOARDD||[]:BTAB===3?BOARDE||[]:BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD).slice(0,10);
   el.innerHTML=`<b>🏆 순위표 TOP 10</b><span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button><button data-bt="3" class="${BTAB===3?'on':''}">♾ 무한</button><button data-bt="4" class="${BTAB===4?'on':''}">📅 오늘</button></span>`
     +(BTAB===4&&DLY_DATE?`<div class="muted">📅 ${esc(DLY_DATE)} 오늘의 도전 — 하루 한 판 · 같은 시드</div>`:'')
-    +(rows.length?'<ol>'+rows.map(r=>`<li>${bchHtml(r.ch)}${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
+    +(rows.length?'<ol>'+rows.map(r=>`<li>${bchHtml(r.ch)}${r.d===2?'💀 ':r.d===1?'🔥 ':''}${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
   for(const b of el.querySelectorAll('[data-bt]'))b.onclick=()=>{BTAB=+b.dataset.bt;renderBoard();};}
 async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);}catch(e){BOARD=null;}renderBoard();renderDaily();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
@@ -467,7 +465,7 @@ async function submitRun(won){const u=dcUser();const el=$('rAcct');
   el.textContent='📡 기록 올리는 중…';
   if(S.dly&&!S.dly.ranked){el.textContent='🧪 연습 판이라 기록되지 않아요(오늘의 도전은 하루 한 판).';return;}
   const body={token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.vh?0:S.hard?1:0,vhard:S.vh?1:0,unlocks:[...getUnl()]};
-  if(S.dly)body.daily=S.dly.date;else if(S.endless)body.endless=1;
+  if(S.dly)body.daily=S.dly.date;else if(S.endless){body.endless=1;body.end_d=S.vh?2:S.hard?1:0;}   // 무한은 순위표 하나 — 어떤 난이도로 이어갔는지만 같이 보낸다
   postRun(body,0);}
 async function postRun(body,n){const el=$('rAcct');
   if(body.vhard){if(SRV_VH===null)await loadBoard();if(!SRV_VH){keepUnsent(body,'⚠ 순위 서버가 아직 베리하드를 몰라 이번 기록은 이 기기에 남겨 뒀어요(일반 기록과 섞이지 않게).');return;}}   // 옛 서버는 vhard 를 몰라 일반 기록으로 올려 버린다 — 서버가 지원할 때만 보낸다
@@ -503,7 +501,7 @@ function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>s.add(String(x)));try{l
 
 // ---------- 저장(내 브라우저에만) ----------
 const BK='p6_best_v1',BKH='p6_best_hard_v1',BKV='p6_best_vhard_v1',VK='p6_vh',PK='p6_prog_v1',CK='p6_char_v1',HK='p6_hard';
-let END_ON=false,HARD_ON=false,VH_ON=false;try{END_ON=localStorage.getItem('p6_end')==='1';}catch(e){}   // ♾ 무한으로 시작(60분 클리어하면 결과 화면 없이 바로 이어간다)
+let HARD_ON=false,VH_ON=false;
 try{HARD_ON=localStorage.getItem(HK)==='1';VH_ON=localStorage.getItem(VK)==='1';}catch(e){}if(VH_ON)HARD_ON=false;BTAB=VH_ON?2:HARD_ON?1:0;   // 🔥 하드 모드(첫 화면에서 고른다 · 기억)
 function getProg(){let p;try{p=Object.assign({deaths:0,kills:0,midKill:0,bossKill:0,maxLv:0,best:0,w5:{},bk:{}},JSON.parse(localStorage.getItem(PK)||'{}'));}catch(e){p={deaths:0,kills:0,midKill:0,bossKill:0,maxLv:0,best:0,w5:{},bk:{}};}
   if(!p.bk||typeof p.bk!=='object')p.bk={};return p;}   // bk 🐲 처치한 보스(보스 캐릭터 해금)
@@ -1085,7 +1083,7 @@ function newRun(dly){
      cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
      sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{},   // tcd 💬 도발 대사 종류별 다음 허용 시각
      newU:[],staffT:5,slowR:0,proomT:6,proom:{x:0,y:0,R:0,t:0,tk:0},dashCd:0,br:{a:0,R:0,w:0,t:0,ev:0},
-     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,autoEnd:(END_ON&&!HARD_ON&&!VH_ON&&!dly)?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9};   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
+     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9};   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
@@ -1129,11 +1127,11 @@ function renderDaily(){const el=$('dailyInfo');if(!el)return;const d=kstDate(),d
   const u=dcUser();
   el.innerHTML=`📅 ${esc(d.slice(5))} 오늘의 도전 — 날짜로 정해진 같은 시드(맵·카드 뽑기·상자·몰이 이벤트) · 빌드 제한 없음 · <b>하루 한 판</b>만 기록돼요`+(done?` · ✅ 오늘 기록 완료${ds.date===d&&ds.t?' '+fmt(ds.t):''}`:u?'':' · 로그인해야 기록돼요(안 하면 연습)');
   $('dailyBtn').textContent=done?'📅 오늘의 도전 연습하기(기록 안 됨)':'📅 오늘의 도전 시작';}
-function start(o){const daily=!!(o&&o.daily===true);
+function start(o){endAskHide();const daily=!!(o&&o.daily===true);
   if(CH.shop&&!SRVUNL.has(CH.k))CH=CHARS[0];   // 🍘 서버 구매 없이는 상점 캐릭터로 시작 못 한다
   AU.init();AU.reset();AU.music(true);if(hasArt(CH))charImg(CH);
   if(daily){VH_ON=false;HARD_ON=false;}   // 오늘의 도전은 일반 규칙 한 가지 — 저장해 둔 하드·베리하드 선택은 건드리지 않는다
-  else{VH_ON=$('vhChk').checked;HARD_ON=!VH_ON&&$('hardChk').checked;END_ON=!VH_ON&&!HARD_ON&&$('endChk').checked;try{localStorage.setItem(HK,HARD_ON?'1':'0');localStorage.setItem(VK,VH_ON?'1':'0');localStorage.setItem('p6_end',END_ON?'1':'0');}catch(e){}}
+  else{VH_ON=$('vhChk').checked;HARD_ON=!VH_ON&&$('hardChk').checked;try{localStorage.setItem(HK,HARD_ON?'1':'0');localStorage.setItem(VK,VH_ON?'1':'0');}catch(e){}}
   let dly=null;
   if(daily){const date=kstDate(),ds=dailyGet(),done=(ds.date===date)||(ME&&ME.daily_done&&ME.daily_date===date),ranked=!!dcUser()&&!done;
     if(ranked)dailySet({date,ranked:1,done:0,ts:Date.now()});   // 기록하는 판은 시작할 때 소모된다(중간에 나가도 오늘은 끝)
@@ -1141,10 +1139,12 @@ function start(o){const daily=!!(o&&o.daily===true);
   LASTDLY=daily;newRun(dly);
   if(dly)banner(dly.ranked?`📅 오늘의 도전 ${dly.date.slice(5)} — 이 판이 기록돼요`:`📅 오늘의 도전 ${dly.date.slice(5)} — 연습 판(기록 안 됨)`,dly.ranked?'하루 한 판 · 같은 시드':'로그인 전이거나 오늘 이미 도전했어요',1);
   state='play';show(null);$('hud').style.display='block';last=performance.now();}
-function contEndless(){   // ♾ 60분 클리어 뒤 이어서 — 일반 모드 클리어에서만(하드·베리하드·일일은 제외)
-  if(state!=='result'||!S||!S.won||S.dly||S.endless||S.hard)return;
+function endAskShow(){if(!S||S.dly||S.endless||!S.won)return;$('endAskTxt').textContent=(S.vh?'💀 베리하드 ':S.hard?'🔥 하드 ':'')+'60분 클리어! 무한 모드로 진입하시겠습니까?';$('endAsk').classList.add('on');}
+function endAskHide(){$('endAsk').classList.remove('on');}
+function contEndless(){   // ♾ 60분 클리어 뒤 이어서 — 일반·하드·베리하드 클리어에서(오늘의 도전은 제외)
+  endAskHide();
+  if(state!=='result'||!S||!S.won||S.dly||S.endless)return;
   S.endless=1;S.nextBoss=WIN_T+300;S.nextMini=WIN_T+150;S.p.hp=Math.min(S.p.mhp,S.p.hp+Math.round(S.p.mhp*.3));
-  $('endBtn').style.display='none';$('endNote').style.display='none';
   AU.init();AU.music(true);state='play';show(null);$('hud').style.display='block';last=performance.now();
   banner('♾ 무한 모드 — 여기서부터 기록이 따로 올라가요','난이도는 +30분 치까지만 오르고 멈춘다 · 180분이 한계',2);}
 function buildHtml(){
@@ -1168,7 +1168,7 @@ function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)r
   return `<b>📊 피해 비중</b><div class="bw">${rows.map(([k,v])=>`${WEAP[k]?(S.ev[k]?WEAP[k].ev.ic:WEAP[k].ic)+' '+WEAP[k].nm:SRCN[k]||k} <b>${Math.round(v/t*100)}%</b>`).join(' · ')}</div>`;}
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');}
 function resume(){if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();}
-$('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('endChk').checked=END_ON&&!HARD_ON&&!VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;$('endChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;$('endChk').checked=false;}};$('endChk').onchange=()=>{if($('endChk').checked){$('hardChk').checked=false;$('vhChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endBtn').onclick=contEndless;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
+$('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
 $('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();show('title');};
 $('chestOk').onclick=()=>{if(state==='chest')resume();};
 
@@ -1525,7 +1525,7 @@ function waveTick(dt){
     else{spawnBoss(BOSS_ROT[S.bossN%BOSS_ROT.length]);S.bossN++;S.nextBoss+=300;}}
   if(S.t>=S.nextMini){const alive=S.live.some(x=>x.on&&x.boss);
     if(!alive||S.t>=S.nextMini+90){if(!alive)spawnBoss(MINI_ROT[S.miniN%MINI_ROT.length]);S.miniN++;S.nextMini+=300;if(S.nextMini>3200&&!S.endless)S.nextMini=Infinity;}}
-  if(S.t>=WIN_T&&!S.won){S.won=true;endRun(true);if(S.autoEnd)contEndless();}   // ♾ 무한으로 시작했으면 60분 클리어 기록을 올리고 곧바로 이어간다
+  if(S.t>=WIN_T&&!S.won){S.won=true;endRun(true);endAskShow();}   // ♾ 60분 클리어 기록을 올린 뒤 '무한 모드로 이어갈까요?' 를 묻는다(모든 모드 공통 · 오늘의 도전 제외)
   if(S.endless&&S.t>=END_T)endRun(true);   // ♾ 무한 모드 한계(180분) — 성능·메모리를 위해 여기서 마무리
 }
 // 📣 배너 — 같은 순간에 겹친 것(보스+👹 첫 등장+구역 진입+새 트롤픽…)은 줄 세워 한 장에 최소 BAN_MIN 초씩 차례로.
@@ -2429,7 +2429,6 @@ function endRun(won,quit){
   const b=S.endless?getBestK(BKE):S.dly?null:getBest(S.hard&&!S.vh,S.vh);const cur={t:S.t,k:S.kills,lv:S.lv};let nb=false;
   if(!S.dly&&(!b||cur.t>b.t||(cur.t===b.t&&cur.k>b.k))){if(S.endless)setBestK(BKE,cur);else setBest(cur,S.hard&&!S.vh,S.vh);nb=true;}
   $('againBtn').textContent=S.dly?'🔁 같은 판 연습(기록 안 됨)':'🔁 다시하기';
-  $('endBtn').style.display=$('endNote').style.display=(won&&!S.endless&&!S.dly&&!S.hard&&!quit)?'':'none';
   $('rTitle').innerHTML=(S.dly?`<span class="hb">📅 오늘의 도전 ${esc(S.dly.date.slice(5))}${S.dly.ranked?'':' · 연습'}</span><br>`:S.endless?'<span class="hb">♾ 무한 모드</span><br>':S.vh?'<span class="hb">💀 베리하드 모드</span><br>':S.hard?'<span class="hb">🔥 하드 모드</span><br>':'')+(won&&S.endless?`🏁 무한 모드 ${fmt(END_T)} 완주 — 한계까지 버텼다! ${esc(CH.nm)}`:S.endless&&!quit?`♾ ${fmt(S.t)} 까지 버텼다 — ${esc(CH.nm)}이(가) 쓰러졌다…`:S.endless?`🏳 무한 모드 ${fmt(S.t)} 에서 마무리`:won?`🎉 60분 생존 — 클리어! ${esc(CH.nm)}이(가) 흐접새우의 트롤픽을 끝까지 막아냈다`:quit?`🏳 ${fmt(S.t)} 에서 포기 — 흐접새우는 아쉬워한다`:`💫 ${esc(CH.nm)}이(가) 쓰러졌다… 흐접새우는 즐거워한다`);
   $('rTime').textContent=fmt(S.t);$('rKill').textContent=S.kills;$('rLv').textContent=S.lv;
   const bb=S.endless?getBestK(BKE):S.dly?null:getBest(S.hard&&!S.vh,S.vh);$('rBest').innerHTML=nb?'<span class="new">신기록!</span>':(bb?fmt(bb.t):'-');
