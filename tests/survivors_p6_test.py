@@ -79,7 +79,7 @@ async def main():
         check('일일 결과가 daily 날짜로 올라가고 endless 는 없음', len(POSTS) == 1 and POSTS[0].get('daily') and not POSTS[0].get('endless') and not POSTS[0].get('hard') and not POSTS[0].get('vhard'), POSTS)
         txt = await pg.evaluate("document.getElementById('rAcct').textContent")
         check('결과 화면에 오늘 순위 표시', '오늘의 도전 기록 저장' in txt and '2위' in txt, txt)
-        check('일일 결과에 무한 버튼 없음 · 다시하기는 연습 표시', await pg.evaluate("document.getElementById('endBtn').style.display==='none'") and '연습' in await pg.evaluate("document.getElementById('againBtn').textContent"))
+        check('일일 결과에 무한 버튼 없음 · 다시하기는 연습 표시', await pg.evaluate("!document.getElementById('endAsk').classList.contains('on')") and '연습' in await pg.evaluate("document.getElementById('againBtn').textContent"))
         await pg.evaluate("document.getElementById('againBtn').click()")
         r = await pg.evaluate("({ranked:__p6x.S.dly.ranked,st:__p6x.state})")
         check('같은 날 두 번째 판은 연습(기록 안 됨)', r['ranked'] is False and r['st'] == 'play', r)
@@ -119,11 +119,11 @@ async def main():
         POSTS.clear()
         ctx, pg, errs = await fresh(b, srv.port)
         await pg.evaluate("__p6x.start();__p6x.S.t=3598;__adv(6,{god:true})")
-        r = await pg.evaluate("({st:__p6x.state,won:__p6x.S.won,btn:document.getElementById('endBtn').style.display,note:document.getElementById('endNote').style.display})")
-        check('60분 클리어 결과에 무한 계속 버튼', r['st'] == 'result' and r['won'] and r['btn'] == '' and r['note'] == '', r)
+        r = await pg.evaluate("({st:__p6x.state,won:__p6x.S.won,ask:document.getElementById('endAsk').classList.contains('on')})")
+        check('60분 클리어 결과에 무한 진입 선택지(무한 모드로 진입하시겠습니까?)', r['st'] == 'result' and r['won'] and r['ask'], r)
         await pg.wait_for_timeout(400)
         check('클리어 기록은 일반으로 먼저 올라감(t≈3600)', len(POSTS) == 1 and not POSTS[0].get('endless') and 3598 <= POSTS[0]['t'] <= 3601, POSTS)
-        await pg.evaluate("document.getElementById('endBtn').click()")
+        await pg.evaluate("document.getElementById('endYes').click()")
         r = await pg.evaluate("({st:__p6x.state,e:__p6x.S.endless,m:__p6x.MIN(),nb:__p6x.S.nextBoss,nm:__p6x.S.nextMini})")
         check('무한 시작: 플레이 상태 · 난이도 분 60 에서 이어짐 · 다음 보스/미니 예약', r['st'] == 'play' and r['e'] == 1 and abs(r['m'] - 60) < 0.05 and r['nb'] == 3900 and r['nm'] == 3750, r)
         r = await pg.evaluate("""()=>{const x=__p6x,S=x.S,o={};const set=t=>{S.t=t;return x.MIN();};
@@ -143,12 +143,12 @@ async def main():
         # 하드 클리어는 무한 제안 없음
         ctx, pg, errs = await fresh(b, srv.port, extra_init="localStorage.setItem('p6_hard','1')")
         await pg.evaluate("document.getElementById('hardChk').checked=true;__p6x.start();__p6x.S.t=3598;__adv(6,{god:true})")
-        r = await pg.evaluate("({st:__p6x.state,hard:__p6x.S.hard,btn:document.getElementById('endBtn').style.display})")
-        check('하드 클리어에는 무한 버튼이 없다', r['st'] == 'result' and r['hard'] and r['btn'] == 'none', r)
+        r = await pg.evaluate("({st:__p6x.state,hard:__p6x.S.hard,ask:document.getElementById('endAsk').classList.contains('on')})")
+        check('하드 클리어에도 무한 진입 선택지가 뜬다(모든 모드 공통)', r['st'] == 'result' and r['hard'] and r['ask'], r)
         await ctx.close()
         # 무한 한계 180분
         ctx, pg, errs = await fresh(b, srv.port)
-        await pg.evaluate("__p6x.start();__p6x.S.t=3598;__adv(6,{god:true});document.getElementById('endBtn').click();__p6x.S.t=10797;__adv(6,{god:true})")
+        await pg.evaluate("__p6x.start();__p6x.S.t=3598;__adv(6,{god:true});document.getElementById('endYes').click();__p6x.S.t=10797;__adv(6,{god:true})")
         r = await pg.evaluate("({st:__p6x.state,t:__p6x.S.t,title:document.getElementById('rTitle').textContent})")
         check('무한 180분에서 자동 마무리', r['st'] == 'result' and r['t'] <= 10800.01 and '완주' in r['title'], r)
         await pg.wait_for_timeout(300)
@@ -266,7 +266,7 @@ async def main():
         r = await pg.evaluate("""()=>{const bs=[...document.querySelectorAll('#board .btabs button')].map(b=>b.textContent);const w=document.documentElement.scrollWidth;
           document.querySelector('#board [data-bt="4"]').click();const t4=document.getElementById('board').textContent;document.querySelector('#board [data-bt="3"]').click();const t3=document.getElementById('board').textContent;
           return {bs,w,iw:innerWidth,t4,t3};}""")
-        check('순위표 탭 5개(일반·하드·베리하드·무한·오늘) · 가로 스크롤 없음', len(r['bs']) == 5 and r['w'] <= r['iw'] + 1, r)
+        check('순위표 탭 7개(일반·하드·베리하드·무한·무한 하드·무한 베리하드·오늘) · 가로 스크롤 없음', len(r['bs']) == 7 and r['w'] <= r['iw'] + 1, r)
         check('오늘·무한 탭에 서버 보드 표시', '700' not in r['t4'] and 'd' in r['t4'] and '11:40' in r['t4'] and '66:40' in r['t3'], (r['t4'], r['t3']))
         check('예외 없음', errs == [], errs)
         await ctx.close()
