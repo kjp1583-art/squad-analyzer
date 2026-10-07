@@ -167,7 +167,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>💎 색이 진하고 클수록 경험치가 커요. (하늘 ◆ → 민트 ■ → 금색 ⬢ → 연보라 ✦ → 흰보라 ✸) <!-- 💎 [2026-09-30 사장님 지시] --></li>
     <li><b>60분 버티면 클리어!</b> 5분마다 보스(흐접새우의 트롤픽 · 브장신 키우기 레이드 보스), 그 사이 2:30·7:30…엔 미니 보스, 55분엔 최종 보스.</li>
     <li>📅 <b>오늘의 도전</b>: 날짜(KST)로 정해진 같은 시드(맵·카드 뽑기·상자·몰이 이벤트) · <b>하루 한 판</b>만 순위표 「오늘」에 올라가요. 두 번째부터는 연습이에요.</li>
-    <li>♾ <b>무한 모드</b>: 일반·하드·베리하드 어느 모드든 60분을 클리어하면 「무한 모드로 진입하시겠습니까?」를 물어봐요. 수락하면 이어서 계속 싸워요. 난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 무한 순위표에 따로 올라가요(하드·베리하드로 이어가면 순위표에 🔥·💀 표시).</li>
+    <li>♾ <b>무한 모드</b>: 일반·하드·베리하드 어느 모드든 60분을 클리어하면 「무한 모드로 진입하시겠습니까?」를 물어봐요. 수락하면 이어서 계속 싸워요. 난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 무한 순위표에 따로 올라가요(일반·하드·베리하드 난이도별로 순위표가 나뉘어요).</li>
     <li>⭐ 시그니처 유물: 캐릭터마다 전용 유물이 하나씩 있어요(그 캐릭터로 할 때만 유물 카드에 나와요).</li>
     <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
     <li>5분부터는 👹 <b>대형 트롤픽</b>(덩치 2배·체력 8배)이 섞여 나와요. 잡으면 💎·💣·🍗를 떨굴 때가 많아요.</li>
@@ -447,17 +447,17 @@ function renderAcct(){const u=dcUser();
   const h=u?`🔐 <b>${esc(ME&&ME.name||u.name)}</b> 로그인 중${ME&&ME.runs?` · ${ME.runs}판 · 최고 ${fmt(ME.best_t)}${ME.rank?` · <b style="color:var(--gold)">${ME.rank}위</b>`:''}`:''} <a href="#" id="dcOut" class="muted">로그아웃</a>`
     :`로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn">디스코드 로그인</button><div class="muted">로그인 없이도 플레이할 수 있어요(이 기기에만 저장·순위표 제외).</div>`;
   $('acct').innerHTML=h;const i=$('dcIn');if(i)i.onclick=dcLogin;const o=$('dcOut');if(o)o.onclick=e=>{e.preventDefault();dcLogout();};}
-let BOARDE=null,BOARDD=null,SRV_END=null,SRV_DLY=null,DLY_DATE='';
+let BOARDE=null,BOARDEH=null,BOARDEV=null,BOARDD=null,SRV_END=null,SRV_DLY=null,DLY_DATE='';
 let BOARDH=null,BOARDV=null,SRV_VH=null,BTAB=0;   // 🔥 하드 순위표(서버가 아직 모르면 null — 탭은 '준비 중')
 function bchHtml(k){const c=CHARS.find(x=>x.k===k);if(!c)return '';const nm=esc(c.sn||c.nm);   // 🏆 순위표 한 줄의 캐릭터 표기(그림 + 이름) — 빌드는 일부러 안 보여 준다
   return (hasArt(c)?`<img class="bch" src="${artUrl(c)}" alt="" loading="lazy">`:`<span class="bch e">${esc(c.e)}</span>`)+`<small class="bchn">${nm}</small> `;}
 function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순위표</b><div class="muted">순위표를 불러오지 못했어요.</div>';return;}
-  const rows=(BTAB===4?BOARDD||[]:BTAB===3?BOARDE||[]:BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD).slice(0,10);
-  el.innerHTML=`<b>🏆 순위표 TOP 10</b><span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button><button data-bt="3" class="${BTAB===3?'on':''}">♾ 무한</button><button data-bt="4" class="${BTAB===4?'on':''}">📅 오늘</button></span>`
+  const rows=(BTAB===4?BOARDD||[]:BTAB===5?BOARDEH||[]:BTAB===6?BOARDEV||[]:BTAB===3?BOARDE||[]:BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD).slice(0,10);
+  el.innerHTML=`<b>🏆 순위표 TOP 10</b><span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button><button data-bt="3" class="${BTAB===3?'on':''}">♾ 무한</button><button data-bt="5" class="${BTAB===5?'on':''}">♾🔥 무한 하드</button><button data-bt="6" class="${BTAB===6?'on':''}">♾💀 무한 베리하드</button><button data-bt="4" class="${BTAB===4?'on':''}">📅 오늘</button></span>`
     +(BTAB===4&&DLY_DATE?`<div class="muted">📅 ${esc(DLY_DATE)} 오늘의 도전 — 하루 한 판 · 같은 시드</div>`:'')
-    +(rows.length?'<ol>'+rows.map(r=>`<li>${bchHtml(r.ch)}${r.d===2?'💀 ':r.d===1?'🔥 ':''}${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
+    +(rows.length?'<ol>'+rows.map(r=>`<li>${bchHtml(r.ch)}${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===5&&!BOARDEH?'무한 하드 순위표 준비 중이에요.':BTAB===6&&!BOARDEV?'무한 베리하드 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
   for(const b of el.querySelectorAll('[data-bt]'))b.onclick=()=>{BTAB=+b.dataset.bt;renderBoard();};}
-async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);}catch(e){BOARD=null;}renderBoard();renderDaily();}
+async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;BOARDEH=Array.isArray(j.endless_h)?j.endless_h:null;BOARDEV=Array.isArray(j.endless_v)?j.endless_v:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);}catch(e){BOARD=null;}renderBoard();renderDaily();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
   if(j&&j.ok){ME=j;srvUnl(j.unlocks);mergeUnl(j.unlocks);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
 async function submitRun(won){const u=dcUser();const el=$('rAcct');
@@ -566,7 +566,7 @@ function renderRoster(){const pg=getProg();const box=$('roster'),bx=$('bossRoste
       if(ok){CH=c;try{localStorage.setItem(CK,c.k);}catch(e){}if(hasArt(c))charImg(c);renderRoster();}};
     (c.boss?bx:box).appendChild(b);}
   $('chDesc').innerHTML=chDesc(CH);}
-const BKE='p6_best_endless_v1';
+const BKE='p6_best_endless_v1';const bke=()=>S&&S.vh?BKE+'_v':S&&S.hard?BKE+'_h':BKE;   // ♾ 내 무한 최고 기록도 난이도별
 function getBestK(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}}
 function setBestK(k,b){try{localStorage.setItem(k,JSON.stringify(b));}catch(e){}}
 function hardBest(){const a=getBest(1),b=getBest(0,1);return Math.max(a&&a.t||0,b&&b.t||0);}   // 🐲 프싱 해금 — 하드·💀 베리하드 기록 중 긴 쪽
@@ -2426,12 +2426,12 @@ function endRun(won,quit){
     for(const k in S.w)if(S.w[k]>=5)pg.w5[k]=1;setProg(pg);}
   const nu=CHARS.filter(c=>c.un&&c.un.ok(pg)&&!before.includes(c.k));mergeUnl(CHARS.filter(c=>isUnl(c,pg)).map(c=>c.k));
   // ♾ 무한은 자기 키 · 📅 일일은 기기 최고 기록과 섞지 않는다
-  const b=S.endless?getBestK(BKE):S.dly?null:getBest(S.hard&&!S.vh,S.vh);const cur={t:S.t,k:S.kills,lv:S.lv};let nb=false;
-  if(!S.dly&&(!b||cur.t>b.t||(cur.t===b.t&&cur.k>b.k))){if(S.endless)setBestK(BKE,cur);else setBest(cur,S.hard&&!S.vh,S.vh);nb=true;}
+  const b=S.endless?getBestK(bke()):S.dly?null:getBest(S.hard&&!S.vh,S.vh);const cur={t:S.t,k:S.kills,lv:S.lv};let nb=false;
+  if(!S.dly&&(!b||cur.t>b.t||(cur.t===b.t&&cur.k>b.k))){if(S.endless)setBestK(bke(),cur);else setBest(cur,S.hard&&!S.vh,S.vh);nb=true;}
   $('againBtn').textContent=S.dly?'🔁 같은 판 연습(기록 안 됨)':'🔁 다시하기';
   $('rTitle').innerHTML=(S.dly?`<span class="hb">📅 오늘의 도전 ${esc(S.dly.date.slice(5))}${S.dly.ranked?'':' · 연습'}</span><br>`:S.endless?'<span class="hb">♾ 무한 모드</span><br>':S.vh?'<span class="hb">💀 베리하드 모드</span><br>':S.hard?'<span class="hb">🔥 하드 모드</span><br>':'')+(won&&S.endless?`🏁 무한 모드 ${fmt(END_T)} 완주 — 한계까지 버텼다! ${esc(CH.nm)}`:S.endless&&!quit?`♾ ${fmt(S.t)} 까지 버텼다 — ${esc(CH.nm)}이(가) 쓰러졌다…`:S.endless?`🏳 무한 모드 ${fmt(S.t)} 에서 마무리`:won?`🎉 60분 생존 — 클리어! ${esc(CH.nm)}이(가) 흐접새우의 트롤픽을 끝까지 막아냈다`:quit?`🏳 ${fmt(S.t)} 에서 포기 — 흐접새우는 아쉬워한다`:`💫 ${esc(CH.nm)}이(가) 쓰러졌다… 흐접새우는 즐거워한다`);
   $('rTime').textContent=fmt(S.t);$('rKill').textContent=S.kills;$('rLv').textContent=S.lv;
-  const bb=S.endless?getBestK(BKE):S.dly?null:getBest(S.hard&&!S.vh,S.vh);$('rBest').innerHTML=nb?'<span class="new">신기록!</span>':(bb?fmt(bb.t):'-');
+  const bb=S.endless?getBestK(bke()):S.dly?null:getBest(S.hard&&!S.vh,S.vh);$('rBest').innerHTML=nb?'<span class="new">신기록!</span>':(bb?fmt(bb.t):'-');
   $('rWeap').textContent='빌드: '+Object.keys(S.w).map(k=>S.ev[k]?`${WEAP[k].ev.ic} ${WEAP[k].ev.nm}✨`:`${WEAP[k].ic} ${WEAP[k].nm} Lv${S.w[k]}`).join(' · ')
     +(Object.keys(S.ps).length?' / '+Object.keys(S.ps).map(k=>`${PASS[k].ic}${S.ps[k]}`).join(' '):'')
     +(S.synOn.length?' / 🔗 '+S.synOn.map(k=>SYN.find(y=>y.k===k).nm).join('·'):'');
