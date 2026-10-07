@@ -413,7 +413,7 @@ try{fetch('https://ddragon.leagueoflegends.com/api/versions.json').then(r=>r.jso
 //   일일 도전은 KST 날짜 문자열에서 시드를 만들어 난수 흐름 몇 개(카드·상자·몰이 이벤트·소품·적 출현)를 이름별로 따로 고정한다.
 //   프레임 시간이 사람마다 달라 전투 난수까지 비트 단위로 같지는 않다 — 같은 건 맵 모양·카드 뽑기 순서·상자·이벤트 종류와 방향·소품 위치다.
 const END_T=10800,END_SLOPE=.6,END_CAPM=30;   // ♾ 무한 모드: 180분에서 끝 · 난이도는 60분 뒤 분당 0.6분 치씩, 최대 +30분 치에서 멈춘다
-const INV_CAP=.80;                            // 🛡 피격 무적(소스가 겹쳐도) 한 번에 남아 있을 수 있는 총합(초) — 부활(2.5초)은 한 판에 한 번이라 제외
+let INV_CAP=.80;                            // 🛡 피격 무적(소스가 겹쳐도) 한 번에 남아 있을 수 있는 총합(초) — 부활(2.5초)은 한 판에 한 번이라 제외
 const kstDate=()=>new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
 function seedOf(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;}
 function mulberry(a){return function(){a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
@@ -2755,6 +2755,21 @@ requestAnimationFrame(frame);
 
 // 검증용 훅(화면엔 영향 없음)
 window.__p6={get state(){return state;},get S(){return S;},forceLevel(){if(state==='play'){S.pendingLv++;S.lv++;openLvup();}},skip(t){if(S)S.t=t;},fx:FX};
+window.__p6x={get S(){return S},get state(){return state},set state(v){state=v},get CUR(){return CUR},get keys(){return keys},set keys(v){keys=v},
+update,draw,pick,resume,offers,newRun,start,REL,CHARS,CH_set(k){CH=CHARS.find(c=>c.k===k)},get CH(){return CH},invGrant,hitP,hpMul,atkMul,bossMul,MIN,endRun,contEndless,
+openChest,RN,seedOf,kstDate,applyUp,cardOf,get RSEED(){return RSEED},enemies,gems,props,items,shots,eshots,hazards,texts,RIFT_CACHE,gainXp,hurt,spawnEnemy,dailyGet,show,
+LOW,sgThorns,sgTick,relTick,mapTick,WIN_T,END_T,INV_CAP,renderBoard,renderDaily,loadBoard,renderRoster,getProg,setProg,hardBest,
+setCap(v){INV_CAP=v},get BTAB(){return BTAB},set BTAB(v){BTAB=v},get ME(){return ME},set ME(v){ME=v}};
+window.__adv=function(sec,opt){opt=opt||{};const x=window.__p6x,dt=opt.dt||1/30,n=Math.round(sec/dt);let nc=0;
+ for(let i=0;i<n;i++){const st=x.state;
+  if(st==='result')return 'result';
+  if(st==='lvup'){x.pick(x.CUR[(opt.pickIdx||0)%x.CUR.length]);continue;}
+  if(st!=='play'){x.resume();continue;}
+  const S=x.S;if(opt.god){S.p.hp=S.p.mhp;}
+  if(opt.move!==false){const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];}
+  x.update(dt);}
+ return x.state;};
+
 })();
 </script>
 </body>
