@@ -23,18 +23,20 @@ async def new_page(b):
     await pg.wait_for_function("!document.getElementById('tNew').disabled", timeout=15000)
     return ctx, pg, errs
 
-HOOK = """(()=>{window.__dq=[];window.__novel.hook={clue:id=>{const d=window.__dq.shift();window.__log.push(['clue',id,d]);return d===undefined?window.__rnd():!!d}};window.__log=[];window.__lines=0;window.__rnd=()=>Math.random()<.5})()"""
+HOOK = """(()=>{window.__dq=[];window.__novel.hook={clue:id=>{const cm=window.__cmap||{}; if(id in cm){window.__log.push(['clue_re',id,cm[id]]);return !!cm[id]} const d=window.__dq.shift();window.__log.push(['clue',id,d]);return d===undefined?window.__rnd():!!d}};window.__log=[];window.__lines=0;window.__rnd=()=>Math.random()<.5})()"""
 
-async def play(pg, decisions=None, rnd=None, tmax=240):
+async def play(pg, decisions=None, rnd=None, tmax=240, resume_k=None, resume_clues=0, pause_k=None, cmap=None, pcs=None):
     """decisions: sim 의 (kind, pc, dec) 목록(엔진과 같은 자리에서 멈추는지 확인) / rnd: random.Random"""
-    await pg.evaluate("__novel.goTitle()"); await pg.evaluate("__novel.newGame()")
+    # resume_k 가 있으면 이미 열려 있는 게임(저장 복귀 시험)을 그 결정 번호부터 이어서 진행한다. pause_k 에서는 결정 직전에 멈춘다.
+    if resume_k is None: await pg.evaluate("__novel.goTitle()"); await pg.evaluate("__novel.newGame()")
     await pg.evaluate(HOOK)
-    dq = list(decisions or []); clue_q = [d[2] for d in dq if d[0] == 'clue']
-    await pg.evaluate("q=>{window.__dq=q}", clue_q)
-    di = [d for d in dq if d[0] != 'clue']; k = 0; lines = 0; npuz = 0; t0 = time.time(); last = None; stuck = 0; trace = []
+    dq = list(decisions or []); clue_q = [d[2] for d in dq if d[0] == 'clue'][resume_clues:]
+    await pg.evaluate("q=>{window.__dq=q}", clue_q); await pg.evaluate("c=>{window.__cmap=c}", cmap or {})
+    di = [d for d in dq if d[0] != 'clue']; k = resume_k or 0; lines = 0; npuz = 0; t0 = time.time(); last = None; stuck = 0; trace = []
     while time.time() - t0 < tmax:
         m = await pg.evaluate('__novel.mode()')
         sig = (m['ws'], m['pc'])
+        if pcs is not None: pcs.add(m['pc'])
         if sig == last: stuck += 1
         else: stuck = 0; last = sig
         if stuck > 400: return {'err': '막힘 ws=%s pc=%s' % sig, 'lines': lines, 'trace': trace[-6:]}
@@ -42,6 +44,10 @@ async def play(pg, decisions=None, rnd=None, tmax=240):
         if ws == 'line': lines += 1; await pg.evaluate('__novel.advance()')
         elif ws == 'end': return {'end': m['end'], 'lines': lines, 'puz': npuz, 'dec': k}
         elif ws in ('choice', 'puz'):
+            if pause_k is not None and k == pause_k:
+                used = await pg.evaluate("window.__log.filter(x=>x[0]==='clue').length")
+                cm = await pg.evaluate("Object.fromEntries(window.__log.filter(x=>x[0]==='clue'||x[0]==='clue_re').map(x=>[x[1],x[2]]))")
+                return {'paused': True, 'k': k, 'clues': used + resume_clues, 'pc': m['pc'], 'ws': ws, 'lines': lines, 'cmap': {**(cmap or {}), **cm}}
             if ws == 'puz': npuz += 1
             if decisions is not None:
                 if k >= len(di): return {'err': '결정이 모자람 pc=%s' % m['pc'], 'lines': lines}
@@ -69,6 +75,8 @@ async def play(pg, decisions=None, rnd=None, tmax=240):
                         for _ in range(8):
                             await pg.evaluate('__novel.puzzle.wrong()'); await pg.wait_for_timeout(25)
                             if (await pg.evaluate('__novel.mode().ws')) != 'puz': break
+                            if await pg.evaluate("(__novel.puzzle.rescue()||{}).open"):   # 기회를 다 쓰면 도움 단계가 열린다 → '이대로 진행'(실패 분기)
+                                await pg.evaluate('__novel.puzzle.giveUp()'); break
                         else:
                             await pg.evaluate('__novel.puzzle.skip()')   # 실패 경로가 없는 퍼즐은 '넘어가기'로
             if ws == 'puz':
@@ -112,4 +120,5 @@ async def main():
             await b.close()
     finally: sp.terminate()
     print('\n결과:', '통과' if ok else '실패'); return 0 if ok else 1
-sys.exit(asyncio.run(main()))
+if __name__ == '__main__':
+    sys.exit(asyncio.run(main()))

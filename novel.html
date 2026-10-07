@@ -16,8 +16,11 @@
    (줄 형식·퍼즐 json 은 tooling/novel_build.py 맨 위 설명 참고. 표식 사이는 손으로 고쳐도 되지만 다음 변환 때 덮어 쓴다.)
  [그림]  img/novel/bg_<배경id>.webp , ch_<캐릭터id>.webp(놀란 얼굴은 ch_<id>_f.webp) 가 있으면 쓰고, 없으면 그라디언트·동그라미로 대신한다.
  [저장]  장 시작마다 자동 저장 + 마지막 위치 이어하기 + 슬롯 3칸. 장 선택은 지난 장만. 읽은 대사는 따로 기억해 '건너뛰기'는 읽은 대사만 넘긴다.
- [접근성] 번쩍임은 초당 2회 이하·2초 남짓. '움직임 줄이기'는 OS 설정을 따르고 설정에서도 켠다(흔들림·명멸·타자기·맥동 끔).
+ [접근성] 번쩍임은 초당 2회 이하·2초 남짓. '움직임 줄이기'는 OS 설정(prefers-reduced-motion)을 따르고 설정에서도 켠다(흔들림·명멸·타자기·맥동 끔).
+          글자 크기 4단계(설정). 눌러지는 영역은 터치 기기에서 44px 이상. 퍼즐은 키보드만으로 풀린다(숫자·방향키·Enter).
           선택 제한시간·퍼즐 타이머는 설정에서 끌 수 있고, 퍼즐은 2번 틀리면 '넘어가기'가 나온다(설정에서 끌 수 있음).
+ [막힘 안전망] 퍼즐 기회를 다 쓴 뒤에만 단계별 도움(보기 줄이기 → 더 줄이기 → 정답 표시)이 열린다. 처음 몇 번의 시도에는 영향이 없다.
+          언제든 '이대로 진행'으로 실패 분기를 타고 이야기를 끝까지 이어 갈 수 있다.
  [테스트] ?fast=1 이면 모든 대기·타자기를 줄인다(자동 테스트용). window.__novel 에 테스트용 손잡이가 있다.
 ==========================================================================
 -->
@@ -195,6 +198,39 @@ button{font:inherit;color:inherit;cursor:pointer}
 .cc:disabled{cursor:default}
 .rm .prop,.rm #bNote.pulse{animation:none}
 .rm .pzbar i,.rm #timer i{transition:none!important}
+
+/* 접근성 ① 글자 크기(설정) — --fs 는 #app 에 걸린다 */
+#box{font-size:calc(17px*var(--fs,1));max-height:calc(100dvh - 150px);overflow-y:auto}
+#name{font-size:calc(15px*var(--fs,1))}
+@media (min-width:700px){#box{font-size:calc(19px*var(--fs,1))}}
+.cbtn{font-size:calc(16px*var(--fs,1))}#cq{font-size:calc(15px*var(--fs,1))}
+.pzq{font-size:calc(16px*var(--fs,1))}.pzs{font-size:calc(13px*var(--fs,1))}.pk{font-size:calc(15px*var(--fs,1))}.pk small{font-size:calc(11px*var(--fs,1))}
+.hints{font-size:calc(13px*var(--fs,1))}.voice{font-size:calc(16px*var(--fs,1))}.dir{font-size:calc(15px*var(--fs,1))}.vc{font-size:calc(14px*var(--fs,1))}.vc small{font-size:calc(11px*var(--fs,1))}
+.pzbtn{font-size:calc(15px*var(--fs,1))}.gcard,.slot,.cnote{font-size:calc(14px*var(--fs,1))}#log{font-size:calc(15px*var(--fs,1))}
+.ov .sub{font-size:calc(13px*var(--fs,1))}.ov .m{font-size:calc(16px*var(--fs,1))}.set{font-size:calc(15px*var(--fs,1))}
+.hb{font-size:calc(12px*var(--fs,1))}
+/* 접근성 ② 눌러지는 영역: 눈에 보이는 크기는 그대로, 반응 영역만 44px 이상으로 */
+.hb{position:relative}.hb::after{content:"";position:absolute;inset:-7px -2px}
+@media (pointer:coarse){.hb{min-height:38px;padding:4px 8px}.cc.extra{min-height:48px}.key{height:58px}.codeslots span{height:60px}.kh{display:none}}
+.set .hb{min-height:40px;min-width:72px}
+/* 접근성 ③ OS 의 '동작 줄이기' — 설정에서 사용자가 명시적으로 끈 경우(data-rm=off)만 제외 */
+@media (prefers-reduced-motion:reduce){
+ html:not([data-rm="off"]) #fxFlick.on{animation:none;opacity:.35}
+ html:not([data-rm="off"]) #stage.shake{animation:none}
+ html:not([data-rm="off"]) .prop,html:not([data-rm="off"]) #bNote.pulse,html:not([data-rm="off"]) #more.blink{animation:none}
+ html:not([data-rm="off"]) *{transition-duration:.01s!important;scroll-behavior:auto!important}
+}
+.kh{font-size:calc(12px*var(--fs,1));color:#7f7a8a;margin:6px 0 0;text-align:center}
+/* 막힘 안전망(기회를 다 쓴 뒤에만 나온다) */
+#pzBody.rescuing>:not(.rescue){display:none!important}
+.rescue{display:flex;flex-direction:column;align-items:center;gap:8px;width:min(480px,100%)}
+.rescue .pzbtn{width:100%;text-align:left;line-height:1.45}
+.rescue .pzs{margin:0 0 4px}
+.pk.off{opacity:.28;text-decoration:line-through}
+.pk.ans,.dir.ans{border-color:#8fd19e;box-shadow:0 0 0 2px #8fd19e66}
+.pk.ans::after{content:" ← 정답";color:#8fd19e;font-size:12px}
+.cc.nx{border-color:#8fd19e;box-shadow:0 0 0 2px #8fd19e88}
+.hints.rv{color:#8fd19e;border-left-color:#8fd19e88}
 </style>
 </head>
 <body>
@@ -246,8 +282,9 @@ button{font:inherit;color:inherit;cursor:pointer}
    <h2>설정</h2>
    <div class="set">움직임 줄이기 <button class="hb" id="sRm"></button></div>
    <div class="set">제한시간(선택·퍼즐) <button class="hb" id="sTimer"></button></div>
-   <div class="set">퍼즐 넘어가기(2번 틀리면) <button class="hb" id="sAssist"></button></div>
+   <div class="set">퍼즐 도움(넘어가기·단계 힌트) <button class="hb" id="sAssist"></button></div>
    <div class="set">글자 속도 <button class="hb" id="sSpeed"></button></div>
+   <div class="set">글자 크기 <button class="hb" id="sFs" aria-label="글자 크기"></button></div>
    <div class="set">소리 <button class="hb" id="sMute"></button></div>
    <div class="set">진행도 기록 보내기 <button class="hb" id="sNv"></button></div>
    <p class="nvhint">보내는 것: 지금 장·단서·엔딩·플레이 시간·선택(갈림길과 보기 번호)뿐입니다. 저장 파일 내용·연락처는 보내지 않습니다. 클랜 운영진이 통계로만 봅니다.</p>
@@ -4636,7 +4673,11 @@ function lsDel(k){delete mem[k];try{localStorage.removeItem(k)}catch(e){}}
 const K_LAST='sq_novel2_last',K_AUTO='sq_novel2_auto',K_CHAP='sq_novel2_chap',K_SLOTS='sq_novel2_slots',K_END='sq_novel2_end',K_SET='sq_novel_set_v1',K_READ='sq_novel2_read',K_META='sq_novel2_meta';
 const SV=T_sv();
 function T_sv(){return STORY.ops.length+':'+STORY.chapters.length}
-const SET=Object.assign({rm:matchMedia('(prefers-reduced-motion: reduce)').matches,timer:true,speed:1,mute:false,assist:true},lsGet(K_SET)||{});
+const MQ_RM=matchMedia('(prefers-reduced-motion: reduce)');
+const SET=Object.assign({rm:MQ_RM.matches,timer:true,speed:1,mute:false,assist:true,fs:1},lsGet(K_SET)||{});
+if(!SET.rmUser&&MQ_RM.matches)SET.rm=true;   // OS 가 동작 줄이기를 켜 뒀으면 따른다(사용자가 설정에서 직접 고른 적이 없을 때)
+if(!(SET.fs>=0&&SET.fs<=3))SET.fs=1;
+const FS_SCALE=[.9,1,1.2,1.45], FS_NAME=['작게','보통','크게','아주 크게'];
 function saveSet(){lsSet(K_SET,SET)}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function toast(m,ms){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',FAST?200:(ms||1800))}
@@ -4993,10 +5034,18 @@ function pick(o,tmo){
 let PZ=null;
 function openPuzzle(op){
   WS='puz'; clearProps(); setAuto(false); setSkip(false); noteHud(); $('tb').style.visibility='hidden';
-  PZ={op,fails:0,done:false,key:null};
-  const B=$('pzBody'); B.innerHTML=''; $('puz').classList.add('on'); $('puz').scrollTop=0;
+  const LIM={pick3:op.d.tries,code:op.d.tries,guide:op.d.maxfail,cctv:op.d.lives}[op.type]||0;
+  PZ={op,fails:0,done:false,key:null,rs:0,rescuing:false,limit:LIM,inf:LIM>=50,rsAt:RS_INF};
+  const B=$('pzBody'); B.innerHTML=''; B.classList.remove('rescuing'); $('puz').classList.add('on'); $('puz').scrollTop=0;
   ({pick3:pzPick3,code:pzCode,vote:pzVote,guide:pzGuide,cctv:pzCctv})[op.type](op,B);
+  const s0=PZ.solve,w0=PZ.wrong;
+  if(s0)PZ.solve=()=>{ if(PZ&&PZ.rescuing)pzRescueHide(); s0() };
+  if(w0)PZ.wrong=()=>{ if(PZ&&PZ.rescuing)return; w0() };
+  if(!FAST)setTimeout(()=>{ if(PZ&&!PZ.rescuing){const f=$('pzBody').querySelector('button:not([disabled])'); if(f)f.focus({preventScroll:true})} },60);
 }
+/* 퍼즐 키보드: 숫자·방향키·Enter. 눌린 버튼에 이미 포커스가 있으면 Enter 는 브라우저가 처리한다 */
+function pzKeys(fn){ PZ.keyH=e=>{ if(WS!=='puz'||anyOv()||!PZ||PZ.rescuing||e.ctrlKey||e.metaKey||e.altKey)return; fn(e) }; document.addEventListener('keydown',PZ.keyH) }
+function pzKeyHint(B,txt){ const p=el('p','kh',txt); p.setAttribute('aria-hidden','true'); B.appendChild(p) }
 function pzHead(B,op,sub){
   if(op.d.q)B.appendChild(el('p','pzq',op.d.q));
   if(op.d.note)B.appendChild(el('p','pzs',op.d.note));
@@ -5009,14 +5058,44 @@ function pzAssist(B){
   b.onclick=()=>pzFinish('skip'); const w=el('div','pzact'); w.appendChild(b); B.appendChild(w);
   PZ.skipBtn=b; return b;
 }
-function pzFail(){PZ.fails++; if(PZ.fails>=2&&SET.assist&&PZ.type!=='vote'&&PZ.skipBtn)PZ.skipBtn.style.display=''}
+/* ---- 막힘 안전망: 기회(tries·lives·maxfail)를 다 쓴 '뒤에만' 단계별 도움이 열린다 ----
+   무한 재시도 퍼즐(기회 50↑)은 틀린 횟수 RS_INF 번째부터. 도움 3단계까지 쓴 뒤에도, 언제든 '이대로 진행'으로 이야기를 잇는다. */
+const RS_INF=6;
+function pzFail(){
+  PZ.fails++;
+  if(PZ.fails>=2&&(SET.assist||(PZ.inf&&PZ.fails>=RS_INF))&&PZ.type!=='vote'&&PZ.skipBtn)PZ.skipBtn.style.display='';
+  if(PZ.inf&&PZ.fails>=PZ.rsAt&&!PZ.rescuing&&SET.assist){ PZ.rsAt=PZ.fails+3; const p=PZ; later(()=>{ if(PZ===p&&!p.done&&!p.rescuing)pzRescue() },D(900)) }
+}
+function pzRescueHide(){ if(!PZ)return; PZ.rescuing=false; const B=$('pzBody'); B.classList.remove('rescuing'); const r=B.querySelector('.rescue'); if(r)r.remove() }
+function pzRescue(){
+  if(!PZ||PZ.done||PZ.type==='vote'||!PZ.stage||PZ.rs>=3||PZ.rescuing)return false;
+  if(!PZ.inf&&!SET.assist)return false;          // 도움을 꺼 둔 사람에게는 실패 분기가 그대로 간다(그쪽도 끝까지 이어진다)
+  const B=$('pzBody'), n=PZ.rs, d=PZ.op.d, p=PZ;
+  PZ.rescuing=true; B.classList.add('rescuing');
+  const w=el('div','rescue'); w.setAttribute('role','group'); w.setAttribute('aria-label','막혔을 때 도움');
+  w.appendChild(el('p','pzq',PZ.inf?'계속 막히는 것 같습니다.':'기회를 모두 썼습니다.'));
+  const s=el('p','pzs','도움은 단계별로 열립니다. 쓸수록 답에 가까워지고, 도움을 받은 기록이 남습니다.'); s.setAttribute('aria-live','polite'); w.appendChild(s);
+  const nx=el('button','pzbtn go','도움 '+(n+1)+'단계 — '+PZ.rsTxt[n]); nx.type='button'; nx.id='rsNext';
+  nx.onclick=()=>{ if(PZ!==p)return; pzRescueHide(); PZ.rs=n+1; backlog.push({s:'퍼즐',t:'도움 '+(n+1)+'단계'});
+    if(n===2&&PZ.skip3)pzFinish('skip'); else PZ.stage(n+1) };
+  w.appendChild(nx);
+  if(PZ.inf){ const kp=el('button','pzbtn','계속 풀어 보기'); kp.type='button'; kp.id='rsKeep'; kp.onclick=()=>{ if(PZ===p)pzRescueHide() }; w.appendChild(kp) }
+  const end=el('button','pzbtn',d.fail?'이대로 진행 — 실패한 채로 이야기를 잇는다':'이대로 넘어가기'); end.type='button'; end.id='rsEnd';
+  end.onclick=()=>{ if(PZ!==p)return; PZ.final=true; pzRescueHide(); pzFinish(d.fail?'fail':'skip') };
+  w.appendChild(end); B.appendChild(w);
+  if(!FAST)setTimeout(()=>{ try{nx.focus({preventScroll:true})}catch(e){} },30);
+  return true;
+}
 function pzFinish(kind,acts){
-  if(!PZ||PZ.done)return; PZ.done=true; const d=PZ.op.d;
+  if(!PZ||PZ.done)return;
+  if(kind==='fail'&&!PZ.final&&pzRescue())return;     // 기회를 다 쓴 뒤에만 도움 단계가 열린다
+  PZ.done=true; const d=PZ.op.d;
   TM.forEach(h=>clearTimeout(h)); TM.clear(); clearInterval(tickT); document.removeEventListener('keydown',PZ.keyH||(()=>{}));
   $('puz').classList.remove('on'); $('pzBody').innerHTML='';
   if(kind==='skip'){ST.V.assisted=(ST.V.assisted|0)+1;acts=d.skip||d.ok}
-  else if(kind==='ok')acts=d.ok; else if(kind==='fail')acts=d.fail;
-  backlog.push({s:'퍼즐',t:PZ.op.type+' · '+(kind==='ok'?'성공':kind==='fail'?'실패':kind==='skip'?'도움으로 통과':'선택')});
+  else if(kind==='ok'){acts=d.ok; if(PZ.rs>0)ST.V.assisted=(ST.V.assisted|0)+1}
+  else if(kind==='fail')acts=d.fail;
+  backlog.push({s:'퍼즐',t:PZ.op.type+' · '+(kind==='ok'?(PZ.rs>0?'도움 '+PZ.rs+'단계 후 성공':'성공'):kind==='fail'?'실패':kind==='skip'?'도움으로 통과':'선택')});
   PZ=null; if(!applyActs(acts))ST.pc++; run();
 }
 /* 3개 고르기 */
@@ -5042,6 +5121,20 @@ function pzPick3(op,B){
   };
   PZ.solve=()=>{sel.length=0;d.answer.forEach(a=>sel.push(a));upd();ok.click()};
   PZ.wrong=()=>{sel.length=0;d.items.filter(it=>!d.answer.includes(it.id)).slice(0,d.pick).forEach(it=>sel.push(it.id));upd();ok.click()};
+  PZ.pickIdx=i=>{ const b=btns[d.items[i]&&d.items[i].id]; if(b&&!b.disabled)b.click() };
+  // 막힘 안전망(기회를 다 쓴 뒤에만): 오답 지우기 → 더 지우기 → 정답 표시
+  const wrongIds=d.items.map(i=>i.id).filter(id=>!d.answer.includes(id));
+  PZ.rsTxt=['보기를 절반쯤 지우고, 기회 2번 더','오답을 거의 다 지우고, 기회 2번 더','정답을 표시하고, 기회 1번 더'];
+  PZ.stage=n=>{
+    const keep=n===1?Math.ceil(wrongIds.length/2):n===2?1:0;
+    wrongIds.slice(0,wrongIds.length-keep).forEach(id=>{btns[id].disabled=true;btns[id].classList.add('off');btns[id].setAttribute('aria-label',btns[id].textContent+' (지워짐)')});
+    if(n===3)d.answer.forEach(id=>{btns[id].classList.add('ans');btns[id].setAttribute('aria-label',btns[id].textContent+' (정답)')});
+    sel.length=0; PZ.msg=false; ok.disabled=true; if(!PZ.inf)PZ.fails=Math.max(0,d.tries-(n===3?1:2)); upd();
+    pzSay(st,(n===3?'정답을 표시했습니다. ':'보기를 줄였습니다. ')+d.pick+'개를 고르세요'+(PZ.inf?'':' (남은 기회 '+(d.tries-PZ.fails)+')')); PZ.msg=true;
+    if(!FAST){ const f=g.querySelector('button:not([disabled])'); if(f)f.focus({preventScroll:true}) }
+  };
+  pzKeyHint(B,'키보드: 숫자 1~'+Math.min(9,d.items.length)+' 로 고르고, Enter 로 확인');
+  pzKeys(e=>{ const n=parseInt(e.key,10); if(n>=1&&n<=d.items.length&&n<=9){e.preventDefault();PZ.pickIdx(n-1)} else if(e.key==='Enter'&&e.target.tagName!=='BUTTON'&&!ok.disabled){e.preventDefault();ok.click()} });
 }
 /* 숫자 자물쇠 */
 function pzCode(op,B){
@@ -5054,6 +5147,7 @@ function pzCode(op,B){
     return true;
   }).map(h=>h.t);
   hv.textContent=shown.length?'힌트 — '+shown.join(' / '):(d.none||''); if(!hv.textContent)hv.style.display='none';
+  const rv=el('div','hints rv'); rv.style.display='none'; rv.setAttribute('aria-live','polite'); B.appendChild(rv);
   const sl=el('div','codeslots'); B.appendChild(sl); sl.setAttribute('aria-label','입력한 숫자');
   const spans=[]; for(let i=0;i<d.digits;i++){const s=el('span',null,''); sl.appendChild(s); spans.push(s)}
   const draw=()=>spans.forEach((s,i)=>{s.textContent=val[i]||'';s.classList.toggle('cur',i===val.length)});
@@ -5077,6 +5171,14 @@ function pzCode(op,B){
   document.addEventListener('keydown',PZ.keyH);
   PZ.solve=()=>{val=d.answer;draw();submit()};
   PZ.wrong=()=>{val=d.answer.split('').map(c=>String((+c+1)%10)).join('');draw();submit()};
+  // 막힘 안전망(기회를 다 쓴 뒤에만): 첫 자리 → 앞 절반 → 정답 전부
+  PZ.rsTxt=['정답의 첫 자리를 알려 주고, 기회 2번 더','정답의 앞 절반을 알려 주고, 기회 2번 더','정답을 모두 알려 주고, 기회 1번 더'];
+  PZ.stage=n=>{
+    const k=n===1?1:n===2?Math.ceil(d.digits/2):d.digits;
+    rv.textContent='도움 — 정답: '+d.answer.slice(0,k)+'○'.repeat(d.digits-k); rv.style.display='';
+    if(!PZ.inf)PZ.fails=Math.max(0,d.tries-(n===3?1:2)); val=''; draw(); pzSay(st,'다시 입력해 보세요'+(PZ.inf?'':' (남은 기회 '+(d.tries-PZ.fails)+')'),'');
+  };
+  pzKeyHint(B,'키보드: 숫자키로 입력 · Backspace 지움 · Enter 확인');
   draw();
 }
 /* 투표 */
@@ -5102,10 +5204,12 @@ function pzVote(op,B){
   go.onclick=confirmVote;
   PZ.solve=PZ.wrong=()=>{ sel=0; confirmVote() };
   PZ.pickIdx=i=>{ sel=i; confirmVote() };
+  pzKeyHint(B,'키보드: 숫자 1~'+Math.min(9,cards.length)+' 로 고르고, Enter 로 확정');
+  pzKeys(e=>{ const n=parseInt(e.key,10); if(n>=1&&n<=cards.length&&n<=9){e.preventDefault();cards[n-1].click()} else if(e.key==='Enter'&&e.target.tagName!=='BUTTON'&&!go.disabled){e.preventDefault();go.click()} });
 }
 /* 목소리 유도 */
 function pzGuide(op,B){
-  const d=op.d; PZ.type='guide'; let ti=0, busy=false;
+  const d=op.d; PZ.type='guide'; let ti=0, busy=false, noTimer=false, hl=false;
   const st=pzHead(B,op,'목소리를 듣고 방향을 고르세요');
   const dots=el('div','dots'); B.appendChild(dots);
   const bub=el('div','voice'); B.appendChild(bub);
@@ -5114,12 +5218,13 @@ function pzGuide(op,B){
   const strip=s=>s.replace(/^[^:：]{1,12}[:：]\s*/,'');
   const ICON={'왼쪽':'⬅','오른쪽':'➡','앞':'⬆','앞으로':'⬆','뒤':'⬇','멈춤':'✋','멈춘다':'✋'};
   const drawDots=()=>{dots.innerHTML='';d.turns.forEach((_,i)=>dots.appendChild(el('i',i<ti?'done':(i===ti?'now':''))) )};
-  const timerOn=()=>d.timer>0&&SET.timer;
+  const timerOn=()=>d.timer>0&&SET.timer&&!noTimer;
   function turn(){
     busy=false; clearInterval(tickT); TM.forEach(h=>clearTimeout(h)); TM.clear(); drawDots(); const t=d.turns[ti];
     bub.innerHTML=''; bub.appendChild(el('b',null,(d.who?d.who+'의 눈에 보이는 것':'보이는 것')+' ('+(ti+1)+'/'+d.turns.length+')')); bub.appendChild(document.createTextNode(t.see));
     dirs.innerHTML='';
     t.dirs.forEach((nm,i)=>{const b=el('button','dir'); b.type='button'; b.appendChild(el('em',null,ICON[nm]||'•')); b.appendChild(document.createTextNode(nm)); b.onclick=()=>answer(i); dirs.appendChild(b)});
+    if(hl&&dirs.children[t.answer])dirs.children[t.answer].classList.add('ans');
     bar.style.display=timerOn()?'':'none';
     if(timerOn()){ bi.style.transition='none'; bi.style.transform='scaleX(1)'; void bi.offsetWidth; bi.style.transition='transform '+d.timer+'s linear'; bi.style.transform='scaleX(0)'; later(()=>{if(!busy)answer(-1)},(FAST?Math.min(d.timer,2):d.timer)*1000); pzSay(st,d.timer+'초 안에 고르세요 (설정에서 끌 수 있습니다)') }
     else pzSay(st,'천천히 골라도 됩니다');
@@ -5138,12 +5243,20 @@ function pzGuide(op,B){
   }
   PZ.solve=()=>{ const p=PZ; (function go(){ if(!PZ||PZ!==p||PZ.done)return; busy=false; answer(d.turns[ti].answer); setTimeout(go,FAST?30:1100) })() };
   PZ.wrong=()=>{ for(let k=0;k<d.maxfail&&PZ;k++){ busy=false; answer((d.turns[ti].answer+1)%d.turns[ti].dirs.length); if(!PZ)break } };
+  // 막힘 안전망(기회를 다 쓴 뒤에만): 제한시간 멈춤 → 맞는 방향 표시 → 도움으로 통과
+  PZ.rsTxt=['제한시간을 멈추고, 기회 3번 더','맞는 방향을 표시하고, 기회 3번 더','도움을 받아 이 장면을 통과한다']; PZ.skip3=true;
+  PZ.stage=n=>{ noTimer=true; if(n>=2)hl=true; PZ.fails=Math.max(0,d.maxfail-3); busy=false; turn() };
+  pzKeyHint(B,'키보드: 숫자 1~'+Math.min(9,d.turns[0].dirs.length)+' 또는 방향키(← ↑ → ↓)');
+  const KEYDIR={ArrowLeft:'왼',ArrowRight:'오른',ArrowUp:'앞',ArrowDown:'뒤'};
+  pzKeys(e=>{ const n=parseInt(e.key,10); const bs=[...dirs.children];
+    if(n>=1&&n<=bs.length&&n<=9){e.preventDefault();bs[n-1].click();return}
+    const w=KEYDIR[e.key]; if(w){ const b=bs.find(x=>x.textContent.indexOf(w)>=0); if(b){e.preventDefault();b.click()} } });
   turn();
 }
 /* CCTV */
 const ODD=[['○','◎'],['□','◇'],['△','▽'],['＋','×'],['▮','▯']];
 function pzCctv(op,B){
-  const d=op.d; PZ.type='cctv'; let lives=d.lives;
+  const d=op.d; PZ.type='cctv'; let lives=d.lives, hl=false;
   const st=pzHead(B,op,d.mode==='seq'?(d.guide||'순서대로 누르세요'):'다른 모양이 하나 있습니다 — 찾아서 누르세요');
   const hv=el('div','hints'); hv.style.display='none'; B.appendChild(hv);
   const g=el('div','cgrid'); B.appendChild(g); pzAssist(B);
@@ -5152,6 +5265,7 @@ function pzCctv(op,B){
     let prog=0; const cells=[];
     if(d.hint&&evalC(d.hint.c)){hv.textContent='힌트 — '+d.hint.t;hv.style.display=''}
     const clear=()=>cells.forEach(c=>{c.classList.remove('hit','miss');const b=c.querySelector('b');if(b)b.remove()});
+    const mark=()=>{ cells.forEach(c=>c.classList.remove('nx')); if(hl&&prog<d.order.length&&cells[d.order[prog]])cells[d.order[prog]].classList.add('nx') };
     d.cells.forEach((c,i)=>{
       const nm=c.face&&isHid(c.face)?'참가자':c.t; const b=el('button','cc nm',nm); b.type='button'; b.appendChild(el('small',null,'CAM '+String(i+1).padStart(2,'0'))); b.setAttribute('aria-label','화면 '+(i+1)+' '+nm);
       b.onclick=()=>hit(i,b); cells.push(b); g.appendChild(b);
@@ -5159,14 +5273,15 @@ function pzCctv(op,B){
     let ex=null; if(d.extra){ex=el('button','cc extra',d.extra);ex.type='button';ex.onclick=()=>hit(-1,ex);g.appendChild(ex)}
     const hit=(i,b)=>{
       if(!PZ||PZ.busy)return;
-      if(i===d.order[prog]){ prog++; b.classList.add('hit'); b.appendChild(el('b',null,String(prog))); pzSay(st,prog+'/'+d.order.length,'good');
+      if(i===d.order[prog]){ prog++; b.classList.add('hit'); b.appendChild(el('b',null,String(prog))); pzSay(st,prog+'/'+d.order.length,'good'); mark();
         if(prog>=d.order.length){PZ.busy=true;pzSay(st,'순서가 맞았다','good');later(()=>pzFinish('ok'),D(700))} }
       else { b.classList.add('miss'); const l=miss(); prog=0; PZ.busy=true;
         if(l<=0){pzSay(st,'신호를 놓쳤다','bad');later(()=>pzFinish('fail'),D(900));return}
-        pzSay(st,'순서가 맞지 않는다. 처음부터. (남은 기회 '+l+')','bad'); later(()=>{PZ.busy=false;clear()},D(700)) }
+        pzSay(st,'순서가 맞지 않는다. 처음부터. (남은 기회 '+l+')','bad'); later(()=>{PZ.busy=false;clear();mark()},D(700)) }
     };
     PZ.solve=()=>{ clear(); prog=0; d.order.forEach(i=>cells[i].click()) };
     PZ.wrong=()=>{ for(let k=0;k<d.lives&&PZ;k++){ PZ.busy=false; const wrong=cells.findIndex((_,i)=>i!==d.order[0]); cells[wrong].click() } };
+    PZ.stage=n=>{ lives=3; prog=0; PZ.busy=false; if(n>=2)hl=true; clear(); mark(); pzSay(st,'처음부터 다시 (남은 기회 3)') };
   } else {
     let round=0; const total=d.rounds;
     const build=()=>{
@@ -5178,12 +5293,19 @@ function pzCctv(op,B){
           else{b.classList.add('miss');const l=miss(); if(l<=0){PZ.busy=true;pzSay(st,'놓쳤다','bad');later(()=>pzFinish('fail'),D(900));return} pzSay(st,'그 화면은 정상이다. (남은 기회 '+l+')','bad')} };
         cells.push(b); g.appendChild(b);
       }
-      PZ.oddBtn=cells[odd];
+      PZ.oddBtn=cells[odd]; if(hl)PZ.oddBtn.classList.add('nx');
     };
     PZ.solve=()=>{ for(let k=round;k<total&&PZ;k++){ if(PZ.busy)PZ.busy=false; PZ.oddBtn&&PZ.oddBtn.click(); } };
     PZ.wrong=()=>{ for(let k=0;k<d.lives&&PZ;k++){ PZ.busy=false; const b=[...g.children].find(x=>x!==PZ.oddBtn&&!x.classList.contains('miss')); b&&b.click() } };
+    PZ.stage=n=>{ lives=3; PZ.busy=false; if(n>=2)hl=true; build(); pzSay(st,'다시 시작합니다 (남은 기회 3)') };
     build();
   }
+  // 막힘 안전망(기회를 다 쓴 뒤에만): 기회 더 → 눌러야 할 칸 표시 → 도움으로 통과
+  PZ.rsTxt=['기회를 3번 더 주고 다시 시작','눌러야 할 칸을 표시하고, 기회 3번 더','도움을 받아 이 장면을 통과한다']; PZ.skip3=true;
+  // 방향키로 칸을 옮기고 Enter/Space 로 누른다(칸은 모두 버튼이라 Tab 으로도 간다)
+  pzKeyHint(B,'키보드: 방향키로 칸 이동 · Enter 또는 Space 로 선택');
+  pzKeys(e=>{ const cs=[...g.querySelectorAll('button')]; const i=cs.indexOf(document.activeElement); const dx={ArrowLeft:-1,ArrowRight:1,ArrowUp:-5,ArrowDown:5}[e.key];
+    if(dx===undefined)return; e.preventDefault(); const j=i<0?0:Math.max(0,Math.min(cs.length-1,i+dx)); if(cs[j])cs[j].focus({preventScroll:true}) });
 }
 
 /* ===================== 엔딩 / 저장 / 화면 ===================== */
@@ -5358,10 +5480,12 @@ function buildGal(){
     if(has)d.appendChild(el('span',null,'플레이 '+fmtT(g[e.id].play||0))); G.appendChild(d);
   });
 }
-function applyRm(){app.classList.toggle('rm',!!SET.rm)}
+function applyRm(){app.classList.toggle('rm',!!SET.rm);document.documentElement.setAttribute('data-rm',SET.rm?'on':'off')}
+function applyFs(){app.style.setProperty('--fs',FS_SCALE[SET.fs]||1);try{fitChars()}catch(e){}}
+try{MQ_RM.addEventListener('change',()=>{ if(SET.rmUser)return; SET.rm=MQ_RM.matches; saveSet(); applyRm(); buildSet(); if(AU.ctx)setMood(AU.mood) })}catch(e){}
 function buildSet(){
   $('sRm').textContent=SET.rm?'켬':'끔';$('sTimer').textContent=SET.timer?'켬':'끔';$('sAssist').textContent=SET.assist?'켬':'끔';
-  $('sSpeed').textContent=['느림','보통','빠름'][SET.speed];$('sMute').textContent=SET.mute?'끔':'켬'; nvSetBtn();
+  $('sSpeed').textContent=['느림','보통','빠름'][SET.speed];$('sFs').textContent=FS_NAME[SET.fs];$('sMute').textContent=SET.mute?'끔':'켬'; nvSetBtn();
   $('sRm').setAttribute('aria-pressed',SET.rm);$('sTimer').setAttribute('aria-pressed',SET.timer);$('sAssist').setAttribute('aria-pressed',SET.assist);
 }
 function buildMenu(){ $('mInfo').textContent=(CHAPS[chapterIdx(ST.pc)]?CHAPS[chapterIdx(ST.pc)].t+' · ':'')+'플레이 '+fmtT(ST.play)+' · 단서 '+ST.clues.length+'/'+NCLUE }
@@ -5394,10 +5518,11 @@ $('bLog').onclick=()=>{
     L.appendChild(p)});
   openOv('ovLog');L.scrollTop=L.scrollHeight;
 };
-$('sRm').onclick=()=>{SET.rm=!SET.rm;saveSet();applyRm();buildSet();if(AU.ctx)setMood(AU.mood)};
+$('sRm').onclick=()=>{SET.rm=!SET.rm;SET.rmUser=true;saveSet();applyRm();buildSet();if(AU.ctx)setMood(AU.mood)};
 $('sTimer').onclick=()=>{SET.timer=!SET.timer;saveSet();buildSet()};
 $('sAssist').onclick=()=>{SET.assist=!SET.assist;saveSet();buildSet()};
 $('sSpeed').onclick=()=>{SET.speed=(SET.speed+1)%3;saveSet();buildSet()};
+$('sFs').onclick=()=>{SET.fs=(SET.fs+1)%4;saveSet();applyFs();buildSet()};
 $('sMute').onclick=()=>{SET.mute=!SET.mute;saveSet();auMute();buildSet()};
 $('sNv').onclick=()=>{ if(!(NV.prod&&NV.st==='ok'))return; SET.nvSend=SET.nvSend===false; saveSet(); buildSet(); if(SET.nvSend!==false)nvSend('tick') };
 $('stage').addEventListener('click',e=>{
@@ -5418,12 +5543,13 @@ setInterval(()=>{ if(started)saveMeta() },20000);
 function fitChars(){const r=$('box').getBoundingClientRect(),st=stage.getBoundingClientRect();stage.style.setProperty('--tbh',Math.max(0,Math.round(st.bottom-r.top))+'px');try{normChars()}catch(e){}}
 try{new ResizeObserver(fitChars).observe($('box'));new ResizeObserver(fitChars).observe(stage)}catch(e){}
 addEventListener('resize',fitChars); fitChars();
-applyRm(); auMute(); updClue(); refreshTitle(); preloadAll(); nvCheck();
+applyRm(); applyFs(); auMute(); updClue(); refreshTitle(); preloadAll(); nvCheck();
 window.__novel={STORY,SET,READ,ST:()=>ST,
   mode:()=>({ws:WS,pc:ST.pc,ch:chapterIdx(ST.pc),text:fullText,locked,
     opts:WS==='choice'?[...$('cl').children].map(b=>b.textContent):[],vis:CH_VIS.map(x=>x.i),end:lastEnd,ptype:PZ&&PZ.type||null}),
   advance:()=>next(), choose:i=>{const b=$('cl').children[i];if(b){chShown=0;b.click()}},
-  puzzle:{solve:()=>PZ&&PZ.solve&&PZ.solve(),wrong:()=>PZ&&PZ.wrong&&PZ.wrong(),skip:()=>pzFinish('skip'),pick:i=>PZ&&PZ.pickIdx&&PZ.pickIdx(i),op:()=>PZ&&PZ.op,fails:()=>PZ?PZ.fails:-1},
+  puzzle:{solve:()=>PZ&&PZ.solve&&PZ.solve(),wrong:()=>PZ&&PZ.wrong&&PZ.wrong(),skip:()=>pzFinish('skip'),pick:i=>PZ&&PZ.pickIdx&&PZ.pickIdx(i),op:()=>PZ&&PZ.op,fails:()=>PZ?PZ.fails:-1,
+    rescue:()=>PZ?{open:!!PZ.rescuing,rs:PZ.rs,inf:!!PZ.inf}:null,nextStage:()=>{const b=$('rsNext');if(b)b.click();return !!b},giveUp:()=>{const b=$('rsEnd');if(b)b.click();return !!b},keep:()=>{const b=$('rsKeep');if(b)b.click();return !!b}},
   newGame, loadSnap, goTitle, snap, evalC, run, getv,
   bgm:{forChap:bgmForChap,forEnd:bgmForEnd,set:bgmSet,sync:bgmSync,state:()=>({want:BG.want,live:BG.live&&BG.live.name||null,on:BG.on,fail:BG.fail,vol:BGM_VOL,drone:AU.drone?AU.drone.gain.value:null,master:AU.master?AU.master.gain.value:null,t:BG.live?BG.live.el.currentTime:0,mood:AU.mood})},
   nv:{st:()=>NV.st,prod:NV.prod,body:nvBody,recheck:nvCheck,flush:nvFlush,gateOk}};

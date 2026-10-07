@@ -11,6 +11,8 @@
   python3 tooling/novel_build.py --strict       # 경고(도달 불가 라벨 등)도 오류로
   python3 tooling/novel_build.py --import DIR   # 작가 폴더의 ch_*.txt 를 가져와(통합 수정 포함) 바로 빌드 — 원고가 바뀔 때 이 한 줄이면 됨
 
+이야기가 앞뒤로 맞는지(플래그·단서 참조, 고아 라벨, 도달 불가 분기, 엔딩 단서 의존, 시각표 대조)는 tooling/novel_audit.py 가 본다 — 원고를 고친 뒤 --check --strict 와 함께 돌린다.
+
 줄 형식(요약)
   ## 장 제목                  장 시작(자동 저장·장 선택 지점)
   @card 제목|부제   @bg id   @show id1,id2:f   @fx flicker|blackout|shake|off   @sfx knock|door|thud|fall|chime|keys|heartbeat|drone
@@ -508,6 +510,7 @@ def stats(ops, chapters, endings):
 def build(files, strict=False):
     ctx = Ctx()
     ops, labels, label_loc, chapters, clues, endings, src = parse_files(files, ctx)
+    ctx.src = src; ctx.label_loc = label_loc   # 점검 도구(novel_audit)가 줄 위치를 되짚는 데 쓴다
     check_puzzles(ops, src, ctx)
     # 제한시간 초과 목적지: timeout=라벨 > 같은 장 안의 '*timeout*' 라벨(선택지 뒤 가장 가까운 것) > 보이는 선택지 중 마지막 항목(엔진 기본)
     for idx, op in enumerate(ops):

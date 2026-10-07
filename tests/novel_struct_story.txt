@@ -1,0 +1,23 @@
+// 막힘 안전망·키보드 시험용 가짜 이야기 — 퍼즐 종류마다 한 번씩. 결과는 플래그(ok_/fail_/skip_)로 남는다. (진짜 원고 아님)
+## S1 시험 장
+@card S1|안전망 시험
+@bg lobby
+@show seungwoo,hungry,pman
+승우: 시작합니다.
+@label s_pick
+@puzzle pick3 {"prompt":"맞는 세 개","options":["사과","배","포도","귤","감","밤","콩","잣"],"correct":[0,2,4],"hint":"과일","tries":3,"on_success":"@set ok_pick; @goto s_code","on_fail":"@set fail_pick; @goto s_code","on_skip":"@set skip_pick; @goto s_code"}
+@label s_code
+@puzzle code {"digits":4,"answer":"2526","tries":3,"hint":"25 + 1","hint_force":true,"on_success":"@set ok_code; @goto s_guide","on_fail":"@set fail_code; @goto s_guide","on_skip":"@set skip_code; @goto s_guide"}
+@label s_guide
+@puzzle guide {"title":"목소리 유도","viewpoint":"포만포만","timer_sec":6,"maxfail":3,"turns":[{"see":"앞이 단단하다.","options":["앞","왼쪽","오른쪽"],"answer":"앞","say_correct":"포만포만: 앞으로.","say_wrong":"포만포만: 아니야!"},{"see":"오른쪽에 흔적이 있다.","options":["앞","왼쪽","오른쪽"],"answer":"오른쪽","say_correct":"포만포만: 오른쪽.","say_wrong":"포만포만: 서!"}],"on_success":"@set ok_guide; @goto s_cctv","on_fail":"@set fail_guide; @goto s_cctv","on_skip":"@set skip_guide; @goto s_cctv"}
+@label s_cctv
+@puzzle cctv {"grid":25,"cells":["승우","간장맛명태소환사","또꾸","신린","허기허기","포만포만","맛동산장인 유미","아린","용맹한다람쥐","듀우쿠키","레이비","브론즈장인 우르곳","우선즐겨","대한제일젤리","헤롱우","태용","뱀조련사","가을","안진","앙앵모르콩","weiho","예리야","탑위치생각해요","그냥혀","kater"],"order":["kater","허기허기","포만포만"],"lives":3,"on_success":"@set ok_cctv; @goto s_odd","on_fail":"@set fail_cctv; @goto s_odd","on_skip":"@set skip_cctv; @goto s_odd"}
+@label s_odd
+@puzzle cctv {"rounds":2,"lives":3,"on_success":"@set ok_odd; @goto s_inf","on_fail":"@set fail_odd; @goto s_inf","on_skip":"@set skip_odd; @goto s_inf"}
+@label s_inf
+@puzzle code {"digits":4,"answer":"0630","tries":99,"on_success":"@set ok_inf; @goto s_end","on_skip":"@set skip_inf; @goto s_end"}
+@label s_end
+@puzzle vote {"title":"한 명","candidates":[{"id":"yumi","name":"맛동산장인 유미"},{"id":"anjin","name":"안진"},{"id":"gnyang","name":"그냥혀"}],"on_success":"@goto s_fin"}
+@label s_fin
+승우: 끝입니다.
+@ending done|안전망 시험 엔딩

@@ -37,6 +37,7 @@ def advance(story, pc, V, clues, stats):
         if n > 20000: return ('loop', pc, None)
         if pc >= len(ops): return ('fall', pc, None)
         op = ops[pc]; k = op['o']
+        if 'pcs' in stats: stats['pcs'].add(pc)
         if k in ('say', 'nar', 'tho'): stats['lines'] += 1; pc += 1
         elif k == 'set': V[op['k']] = op['v']; pc += 1
         elif k == 'unset': V[op['k']] = 0; pc += 1
