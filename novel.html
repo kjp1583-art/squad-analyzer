@@ -2412,7 +2412,7 @@ const JRX=new RegExp('\\{PLAYER\\}('+Object.keys(JOSA).sort((a,b)=>b.length-a.le
 function nickName(){return NICK||'플레이어'}
 function sub(t){ if(t==null||String(t).indexOf('{PLAYER}')<0)return t==null?'':String(t); const n=nickName();
   return String(t).replace(JRX,(m,k)=>n+josa(n,k)).replace(/\{PLAYER\}(은|는)(?![가-힣])/g,(m,k)=>n+josa(n,'은/는')).replace(/\{PLAYER\}/g,n) }
-function setNick(n){ n=nickClean(n); const e=nickCheck(n); if(e)return e; NICK=n; lsSet(K_NICK,n); return "" }
+function setNick(n){ n=nickClean(n); const e=nickCheck(n); if(e)return e; if(n!==NICK){NICK=n; lsSet(K_NICK,n); try{const sy=syGet(); sy.nickTs=Date.now(); sySave(sy); syMark()}catch(x){}} return "" }   // ☁ 닉이 바뀌면 시각을 남겨 계정에 올린다(다른 기기에서 다시 묻지 않게)
 
 /* ===================== 그림: 미리 불러오기 + 캐시 ===================== */
 const IM={m:{},manifest:null,total:0,done:0,ready:false};
@@ -3242,7 +3242,7 @@ function syPickSet(){const o={};SY_SET.forEach(k=>{if(SET[k]!==undefined&&(k!=='
 function syBlob(){
   saveRead(); const cl=syAllClues(); lsSet(K_CLUES,cl); const sy=syGet();
   return {fmt:1,ts:Date.now(),last:lsGet(K_LAST)||null,lastTs:syLastTs(),chap:lsGet(K_CHAP)||{},slots:slotsGet(),end:lsGet(K_END)||{},meta:{play:Math.round((lsGet(K_META)||{}).play||0)},
-    read:{sv:SV,r:syPack(READ)},set:syPickSet(),setTs:sy.setTs||0,clues:cl};
+    read:{sv:SV,r:syPack(READ)},set:syPickSet(),setTs:sy.setTs||0,clues:cl,nick:NICK||'',nickTs:sy.nickTs||0};
 }
 function syHasLocal(){return !!(lsGet(K_LAST)||Object.keys(lsGet(K_CHAP)||{}).length||(lsGet(K_SLOTS)||[]).some(Boolean)||Object.keys(lsGet(K_END)||{}).length||((lsGet(K_META)||{}).play>0)||READ.size)}
 // 서버본 → 지금 원고 형식으로. 옛 ver 이면 이어하기 지점은 버린다(도감·설정·시간·단서만 유지)
@@ -3272,6 +3272,8 @@ function syMerge(L,R){
   if(la&&ra&&(la.pc!==ra.pc)){ const win=remWins?ra:la, lose=remWins?la:ra; if(syPos(lose)>syPos(win))conf={loc:la,rem:ra,remWins} }
   const ls=L.setTs||0, rs=R.setTs||0; const rw=rs>ls;
   m.set=rw?(R.set||{}):(L.set&&Object.keys(L.set).length?L.set:(R.set||{})); m.setTs=Math.max(ls,rs);
+  {const ln=L.nick||'',rn=R.nick||'',lt2=L.nickTs||0,rt2=R.nickTs||0;   // 닉: 나중에 바꾼 쪽, 한쪽이 비었으면 있는 쪽
+    if(ln&&rn)m.nick=rt2>lt2?rn:ln; else m.nick=ln||rn; m.nickTs=Math.max(lt2,rt2)}
   return {m,conf};
 }
 // 합친 결과를 이 기기에 쓴다
@@ -3281,7 +3283,8 @@ function syApply(m){
   const meta=lsGet(K_META)||{play:0}; meta.play=Math.max(meta.play||0,(m.meta&&m.meta.play)||0); lsSet(K_META,meta);
   syUnpack(m.read&&m.read.r).forEach(n=>READ.add(n)); saveRead();
   lsSet(K_CLUES,m.clues||[]);
-  const sy=syGet(); sy.lastTs=m.lastTs||0; sy.setTs=m.setTs||0; sySave(sy);
+  const sy=syGet(); sy.lastTs=m.lastTs||0; sy.setTs=m.setTs||0; sy.nickTs=Math.max(sy.nickTs||0,m.nickTs||0); sySave(sy);
+  if(typeof m.nick==='string'&&m.nick&&m.nick!==NICK&&!nickCheck(m.nick)){NICK=nickClean(m.nick); lsSet(K_NICK,NICK); try{titleNickInit()}catch(e){}}
   if(m.set&&Object.keys(m.set).length){ SY_SET.forEach(k=>{if(m.set[k]!==undefined&&(k!=='rm'||m.set.rmUser))SET[k]=m.set[k]}); lsSet(K_SET,SET); try{applyRm();applyFs();auMute();buildSet()}catch(e){} }
 }
 const syKey=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
