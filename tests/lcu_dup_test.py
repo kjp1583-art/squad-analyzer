@@ -3,10 +3,12 @@
 분석기는 윈도우 전용 모듈(winreg 등)을 불러와 리눅스에서 import 가 안 되므로 dup_append_test.py 처럼 소스에서 해당 블록만
 잘라 실행한다. 실제 시트·LCU·디스코드에는 접속하지 않는다.
 
-  A. _lcu_append_block 단위 — 확인 → 한 번 더 확인 → append → 응답 보존 → 사후 정리
+  A. _lcu_append_block 단위 — 확인 → 한 번 더 확인 → append → 응답 보존 → 사후 정리 (+ 같은 판 3벌 이상 보류)
   B. _lcu_backfill_once 통합 — 가짜 LCU 전적 + 가짜 시트로 한 회차를 통째로 돌려 연결(NameError·상태값 처리)까지 확인
-  C. 실제 스레드 경합 — 여러 PC 가 같은 순간에 같은 판을 회수하는 상황(두 PC 는 한 블록만 남고, 몇 PC 든 앞선 블록은 보존)
-핵심 규칙: 지우는 건 '내 블록뿐'이고, 그것도 같은 게임ID 의 완전한 블록이 내 앞에 이미 있을 때만. 확신이 없으면 지우지 않는다."""
+  C. 실제 스레드 경합 — 여러 PC 가 같은 순간에 같은 판을 회수하는 상황(두 PC 는 한 블록만 남고, 몇 PC 든 앞선 블록·뒤따르는 다른 판은 보존)
+  D. 협력형 스케줄러 스윕 — API 호출마다 어느 PC 가 돌지 시드로 정하는 결정적 끼어들기(옛 코드가 다른 판을 지운 시드를 못 박아 둠)
+핵심 규칙: 지우는 건 '내 블록뿐'이고, 그것도 같은 게임ID 의 완전한 블록이 내 앞에 이미 있을 때만, 그리고 같은 판이 2벌일 때만.
+확신이 없으면 지우지 않는다 — 중복은 사람이 치우면 되지만 잘못 지운 정당한 판은 아무도 모른다."""
 import contextlib, io, os, random, re, sys, threading, time, types
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 SRC = open(os.path.join(ROOT, 'desktop', 'squad_analyzer.py'), encoding='utf-8').read()
@@ -35,6 +37,7 @@ class Sheet:
         self.post_append = None       # 내 append 직후, 사후 정리의 첫 읽기 직전에 일어나는 일
         self.after_gid_reads = None   # (n, fn): 게임ID 열을 n번째 읽은 직후 fn(self) — 확인과 확인 사이에 상대가 쓴다
         self.stale = None; self.stale_left = 0   # 앞으로 n번의 읽기는 옛 사본(= 상대가 쓰기 전)을 돌려준다
+        self.pre_delete = None        # 내 delete_rows 가 실행되기 직전에 일어나는 일(다른 정리자의 삭제가 먼저 끼어 행이 당겨짐)
         self._post = None
     def row_values(self, i): return list(self.rows[i - 1]) if 0 < i <= len(self.rows) else []
     def col_values(self, c):
@@ -59,9 +62,11 @@ class Sheet:
         if self.no_resp: return None
         return {"updates": {"updatedRange": f"{self.title}!A{start}:S{start + len(rows) - 1}"}}
     def delete_rows(self, s, e):
+        if self.pre_delete:
+            fn, self.pre_delete = self.pre_delete, None; fn(self)
         self.deletes.append((s, e)); del self.rows[s - 1:e]
 
-HDR = ["게임ID", "날짜", "소환사명", "PUUID", "진영", "포지션", "챔피언", "밴", "결과", "매치평가", "패치버전", "KDA", "점수", "딜량", "아이템", "주룬", "보조룬", "스펠", "지표"]
+HDR =["게임ID", "날짜", "소환사명", "PUUID", "진영", "포지션", "챔피언", "밴", "결과", "매치평가", "패치버전", "KDA", "점수", "딜량", "아이템", "주룬", "보조룬", "스펠", "지표"]
 KIWI_HDR = ["게임ID", "날짜", "소환사명", "PUUID", "진영", "포지션", "챔피언", "밴", "결과", "매치평가", "KDA", "패치버전", "점수", "딜량", "아이템", "주룬", "보조룬", "스펠", "지표"]
 NAMES = [f"p{i}#KR1" for i in range(10)]
 NATURAL = list(range(10)); RFIRST = [5, 0, 1, 2, 3, 4, 6, 7, 8, 9]   # 레드 한 명이 맨 앞 → 블루 5 → 레드 4 (이번 사고 블록의 모양)
@@ -134,13 +139,64 @@ sh = mk(); n0 = len(sh.rows)
 sh.post_append = lambda s: s.rows.extend([list(x) for x in b2])
 r1, _ = call(sh, "9", b1)
 check("(라) PC1 정리 시점에 PC2 가 이미 뒤에 있어도 PC1 은 유지", r1 == 'appended' and sh.deletes == [] and sh.rows[n0:n0 + 10] == b1 and len(sh.rows) == n0 + 20, (r1, sh.deletes))
-# 3중 동시(셋 다 쓴 뒤 정리) — 최악이어도 가장 앞선 블록·타판은 반드시 보존(남는 중복은 알려진 한계)
+# 3중 동시(셋 다 쓴 뒤 정리) — 상한 없는 공유 함수(= 실시간 기록 쪽 호출)는 종전대로 둘째를 지우고, 최악이어도 가장 앞선 블록·타판은 보존
 sh = mk(); n0 = len(sh.rows); bs = [block("#9", "lcu", o) for o in (NATURAL, RFIRST, NATURAL)]
 rs = [sh.append_rows(b) for b in bs]
 o2 = cleanup(sh, 1, 3, "#9", [x[2] for x in bs[1]], rs[1], sleep=nosleep, log=nolog)
 o3 = cleanup(sh, 1, 3, "#9", [x[2] for x in bs[2]], rs[2], sleep=nosleep, log=nolog)
-check("(라) 3중: 가장 앞선 블록·타판 보존(셋째는 행 밀림으로 보류돼도 무손실)",
+check("(라) 3중(상한 없는 호출): 가장 앞선 블록·타판 보존(셋째는 행 밀림으로 보류돼도 무손실)",
       o2 == 'deleted' and o3 in ('held', 'deleted') and sh.rows[n0:n0 + 10] == bs[0] and sh.rows[1:8] == OTHER and gcount(sh, "#9") >= 10, (o2, o3, gcount(sh, "#9")))
+
+# (아) 같은 판이 3벌 이상이면 도우미는 지우지 않는다(max_copies=2).
+#     삭제는 행 번호로 하는데 사본마다 정리가 따로 돌면 윗 사본의 삭제가 아랫 사본의 행을 당긴다 — 아랫 정리가 낡은 행 번호로
+#     지우면 뒤에 붙은 '다른 판'을 지운다. 검증에서 재현된 사고(정당한 다음 판 10줄 소실)이고, 이 시험은 그때 쓴 시나리오 그대로다.
+NEXT_NAMES = [f"nx{i}#KR1" for i in range(10)]; NEXTB = block("#NEXT", "rt", NATURAL, NEXT_NAMES)
+sh = mk(); n0 = len(sh.rows); A9 = block("#9", "rt", RFIRST); B9 = block("#9", "lcu", NATURAL)
+sh.before_append = lambda s: (s.rows.extend([list(x) for x in A9]), s.rows.extend([list(x) for x in B9]))   # 내 확인 두 번을 통과한 뒤 같은 판 사본 A·B 가 먼저 착륙 → 내 블록은 셋째
+sh.post_append = lambda s: s.rows.extend([list(x) for x in NEXTB])                                          # 내 append 직후 정당한 다음 판이 뒤에 붙음
+sh.pre_delete = lambda s: s.rows.__delitem__(slice(n0 + 10, n0 + 20))                                        # (삭제가 시도된다면) 직전에 B 의 정리가 끼어 행이 10칸 당겨짐
+r, logs = call(sh, "9", block("#9", "lcu", NATURAL))
+check("(아) 같은 판 셋째 사본 → 보류·삭제 시도 0·다음 판 10줄 그대로(옛 코드는 여기서 #NEXT 를 지웠다)",
+      r == 'appended' and sh.deletes == [] and sh.rows[-10:] == NEXTB and gcount(sh, "#NEXT") == 10 and gcount(sh, "#9") == 30
+      and any("사본 2벌 초과" in m for m in logs), (r, sh.deletes, gcount(sh, "#NEXT"), logs))
+# 같은 상황에서 셋째가 끼어드는 시점이 첫 읽기와 삭제 직전 재확인 사이여도(첫 읽기엔 2벌로 보임) 재확인이 막는다
+sh = mk(); n0 = len(sh.rows); rival = block("#9", "rt", RFIRST); third = block("#9", "lcu", RFIRST)
+sh.before_append = lambda s: s.rows.extend([list(x) for x in rival])
+sh.after_gid_reads = (3, lambda s: s.rows.extend([list(x) for x in third]))        # 게임ID 열 3번째 읽기 = 사후 정리의 첫 읽기 → 직후 셋째 사본이 붙음
+r, logs = call(sh, "9", block("#9"))
+check("(아) 첫 읽기 땐 2벌·재확인 땐 3벌 → 재확인에서 보류·삭제 0", r == 'appended' and sh.deletes == [] and gcount(sh, "#9") == 30
+      and any("재확인에서 같은 판이" in m for m in logs), (r, sh.deletes, logs))
+# 첫 읽기에선 3벌이었는데 재확인 땐 2벌이 되어도(내 아래 사본이 사라짐) 첫 읽기에서 이미 보류했으므로 지우지 않는다
+sh = mk(); n0 = len(sh.rows); a = block("#9", "rt", RFIRST); c = block("#9", "lcu", RFIRST)
+sh.rows += [list(x) for x in a]; resp_b = sh.append_rows(block("#9")); sh.rows += [list(x) for x in c]
+sh.after_gid_reads = (1, lambda s: s.rows.__delitem__(slice(n0 + 20, n0 + 30)))     # 첫 읽기 직후 내 아래(셋째) 사본이 사라짐
+res = cleanup(sh, 1, 3, "#9", NAMES, resp_b, sleep=nosleep, log=nolog, max_copies=2)
+check("(아) 첫 읽기에서 3벌이면 재확인에서 2벌로 줄어도 보류(보수적)", res == 'held' and sh.deletes == [] and gcount(sh, "#9") == 20, (res, sh.deletes))
+# 공유 함수 직접: 2벌은 상한이 있어도 정상 정리·3벌은 보류·상한 없으면 종전 동작·맨 앞 사본은 상한과 무관하게 유지
+def three():
+    s_ = mk(); r_ = [s_.append_rows(block("#9", "lcu", o)) for o in (NATURAL, RFIRST, NATURAL)]; return s_, r_
+s3, r3 = three()
+check("(아) 3벌 + max_copies=2 → held·삭제 0", cleanup(s3, 1, 3, "#9", NAMES, r3[2], sleep=nosleep, log=nolog, max_copies=2) == 'held' and s3.deletes == [] and gcount(s3, "#9") == 30)
+s3, r3 = three()
+check("(아) 3벌 + 상한 없음(실시간 호출부 종전 동작) → deleted", cleanup(s3, 1, 3, "#9", NAMES, r3[2], sleep=nosleep, log=nolog) == 'deleted' and gcount(s3, "#9") == 20)
+s3, r3 = three()
+check("(아) 3벌 중 맨 앞 사본 + max_copies=2 → 유지(none)·삭제 0", cleanup(s3, 1, 3, "#9", NAMES, r3[0], sleep=nosleep, log=nolog, max_copies=2) == 'none' and s3.deletes == [])
+s2 = mk(); r2 = [s2.append_rows(block("#9", "lcu", o)) for o in (NATURAL, RFIRST)]
+check("(아) 2벌 + max_copies=2 → 정상 정리(deleted)", cleanup(s2, 1, 3, "#9", NAMES, r2[1], sleep=nosleep, log=nolog, max_copies=2) == 'deleted' and gcount(s2, "#9") == 10)
+s2 = mk(); r2 = [s2.append_rows(block("#9", "lcu", o)) for o in (NATURAL, RFIRST)]; s2.rows.append(list(block("#9", "rt")[0]))   # 2벌 + 낱줄 하나(21줄)
+check("(아) 2벌 + 낱줄 1개(21줄) + max_copies=2 → 보류(보수적)", cleanup(s2, 1, 3, "#9", NAMES, r2[1], sleep=nosleep, log=nolog, max_copies=2) == 'held' and s2.deletes == [])
+
+# 헤더의 열 위치가 달라도(게임ID 4열·소환사명 2열) 헤더로 열을 찾아 정리한다 — 열 번호를 1·3 으로 고정해 둔 코드를 잡는다
+HDR_X = ["날짜", "소환사명", "PUUID", "게임ID"] + [h for h in HDR if h not in ("게임ID", "날짜", "소환사명", "PUUID")]
+def relayout(rows): return [[r[HDR.index(h)] for h in HDR_X] for r in rows]
+sh = Sheet([HDR_X] + relayout(OTHER)); n0 = len(sh.rows); rival = relayout(block("#9", "rt", RFIRST))
+sh.before_append = lambda s: s.rows.extend([list(x) for x in rival])
+r, logs = call(sh, "9", relayout(block("#9")), hd=HDR_X)
+check("열 위치가 다른 헤더(게임ID 4열·소환사명 2열)에서도 정리 → deduped·내 블록만 삭제",
+      r == 'deduped' and sh.deletes == [(n0 + 11, n0 + 20)] and sh.rows[n0:] == rival and len(sh.rows) == n0 + 10, (r, sh.deletes, logs))
+sh = Sheet([HDR_X] + relayout(OTHER) + relayout(block("#9", "rt", RFIRST))); n0 = len(sh.rows)
+r, logs = call(sh, "9", relayout(block("#9")), hd=HDR_X)
+check("열 위치가 다른 헤더에서 이미 있음 확인도 헤더 열로 → exists", r == 'exists' and sh.appends == 0 and len(sh.rows) == n0, (r, logs))
 
 # (마) 같은 로스터의 서로 다른 게임ID 연속 판 → 둘 다 보존(절대 지우지 않음)
 sh = mk(extra=block("#8", "rt", RFIRST)); n0 = len(sh.rows); g8 = [list(x) for x in sh.rows[-10:]]
@@ -335,9 +391,10 @@ check("B7 통합: 헤더에 소환사명 없음 → 쓰기 유지·정리 생략
 
 
 # ═══════════════ C. 실제 스레드 경합 (여러 PC 가 같은 순간에 같은 판을 회수하는 상황) ═══════════════
-#   각 API 호출은 원자적이고 응답은 지연되어 도착하는 가짜 시트에 스레드 N개가 동시에 도우미를 돌린다.
+#   각 API 호출은 원자적이고 응답은 지연되어 도착하는 가짜 시트에 스레드 N개가 동시에 도우미를 돌린다. 경합 도중 정당한
+#   '다음 판'(다른 게임ID·다른 로스터) 블록도 뒤에 붙는다.
 #   불변식: ① 두 PC 면 어떤 끼어들기에서도 정확히 한 블록만 남는다 ② 몇 PC 든 가장 앞선 블록은 지워지지 않고(무기록 불가)
-#   타판·헤더는 건드려지지 않는다. (셋 이상이 동시에 겹치면 행 밀림으로 사본이 남을 수 있다 — 보류하고 남기는 쪽이 안전한 한계)
+#   ③ 헤더·기존 행·뒤따르는 다음 판은 한 줄도 안 변한다. (셋 이상이 동시에 겹치면 사본이 남을 수 있다 — 보류하고 남기는 쪽이 안전한 한계)
 class TSheet:
     def __init__(self, lat): self.rows = [list(HDR)] + [list(r) for r in OTHER]; self.lock = threading.Lock(); self.lat = lat; self.title = "CLASSIC_NORMAL"
     def _l(self): time.sleep(random.uniform(0, self.lat))
@@ -356,30 +413,111 @@ class TSheet:
     def delete_rows(self, s, e):
         self._l()
         with self.lock: del self.rows[s - 1:e]
+def intact(sh, gid, blk):
+    """gid 줄이 blk 와 똑같고 한 덩어리(연속)로 그대로 있는가."""
+    idx = [i for i, r in enumerate(sh.rows) if r and r[0] == gid]
+    return [sh.rows[i] for i in idx] == blk and (not idx or idx[-1] - idx[0] == len(idx) - 1)
 def race(nwriters, lat=0.0008):
-    sh = TSheet(lat); out = {}; bar = threading.Barrier(nwriters)
+    sh = TSheet(lat); out = {}; bar = threading.Barrier(nwriters + 1)
     orders = [NATURAL, RFIRST, NATURAL[::-1], [3, 1, 2, 0, 4, 5, 6, 7, 8, 9]]
     def w(i):
         bar.wait()
         out[i] = append_block(sh, HDR, "9", block("#9", "lcu", orders[i % 4]), sleep=lambda s: time.sleep(random.uniform(0, lat * 2)), log=nolog)
-    ts = [threading.Thread(target=w, args=(i,)) for i in range(nwriters)]
+    def nx():                                   # 정당한 다음 판이 경합 도중 어느 때든 뒤에 붙는다
+        bar.wait(); time.sleep(random.uniform(0, lat * 14)); sh.append_rows(NEXTB)
+    ts = [threading.Thread(target=w, args=(i,)) for i in range(nwriters)] + [threading.Thread(target=nx)]
     [t.start() for t in ts]; [t.join() for t in ts]
     return sh, out
 random.seed(20261008)
-bad2 = bad_loss = bad_other = 0; T2 = 80
+bad2 = bad_other = bad_next = 0; T2 = 80
 for _ in range(T2):
     sh, out = race(2)
     if gcount(sh, "#9") != 10: bad2 += 1
     if sh.rows[0] != HDR or sh.rows[1:8] != OTHER: bad_other += 1
-check(f"C 스레드 경합: 두 PC {T2}회 → 매번 정확히 한 블록(10줄)·타판 무손상", bad2 == 0 and bad_other == 0, (bad2, bad_other))
-for nw in (3, 4):
-    T = 40; loss = other = notmult = 0
+    if not intact(sh, "#NEXT", NEXTB): bad_next += 1
+check(f"C 스레드 경합: 두 PC {T2}회 → 매번 정확히 한 블록(10줄)·타판·뒤따르는 다음 판 무손상", bad2 == 0 and bad_other == 0 and bad_next == 0, (bad2, bad_other, bad_next))
+for nw in (3, 4, 6):
+    T = 40; loss = other = notmult = nxt_bad = 0
     for _ in range(T):
         sh, out = race(nw)
         n9 = gcount(sh, "#9")
         if n9 < 10: loss += 1
         if n9 % 10: notmult += 1
         if sh.rows[0] != HDR or sh.rows[1:8] != OTHER: other += 1
-    check(f"C 스레드 경합: {nw}개 PC {T}회 → 무기록·반쪽 삭제·타판 훼손 0 (남는 중복은 허용 한계)", loss == 0 and notmult == 0 and other == 0, (loss, notmult, other))
+        if not intact(sh, "#NEXT", NEXTB): nxt_bad += 1
+    check(f"C 스레드 경합: {nw}개 PC {T}회 → 무기록·반쪽 삭제·타판·뒤따르는 다음 판 훼손 0 (남는 중복은 허용 한계)",
+          loss == 0 and notmult == 0 and other == 0 and nxt_bad == 0, (loss, notmult, other, nxt_bad))
+
+# ═══════════════ D. 협력형 스케줄러 스윕 (결정적 끼어들기) ═══════════════
+#   스레드를 실제로 돌리면 끼어드는 순서가 운에 달려 드문 사고를 못 잡는다. 여기선 모든 API 호출(과 대기)이 양보 지점이고
+#   다음에 돌릴 PC 를 시드로 정한다 → 같은 시드는 언제나 같은 끼어들기다.
+#   불변식: ① 대상 판은 최소 한 블록이 남는다(무기록 0) ② 반쪽 삭제 0 ③ 뒤에 붙는 다른 판 블록·헤더·기존 행은 한 줄도 안 변한다.
+#   PINNED = 상한(max_copies) 없던 옛 코드가 실제로 다른 판 10줄을 지운 시드들(검증 때 찾음) — 지금 코드는 전부 무사해야 한다.
+class Sched:
+    def __init__(self, seed):
+        self.rng = random.Random(seed); self.go = {}; self.state = {}; self.cv = threading.Condition()
+    def point(self):
+        tid = threading.current_thread().tid
+        with self.cv: self.state[tid] = 'wait'; self.cv.notify_all()
+        self.go[tid].acquire()
+    def run(self, funcs):
+        ths = []
+        for tid, fn in funcs.items():
+            self.go[tid] = threading.Semaphore(0); self.state[tid] = 'new'
+            def body(fn=fn):
+                try: self.point(); fn()
+                finally:
+                    with self.cv: self.state[threading.current_thread().tid] = 'done'; self.cv.notify_all()
+            t = threading.Thread(target=body); t.tid = tid; ths.append(t); t.start()
+        while True:
+            with self.cv:
+                self.cv.wait_for(lambda: all(v in ('wait', 'done') for v in self.state.values()))
+                waiting = sorted(k for k, v in self.state.items() if v == 'wait')
+                if not waiting: break
+                t = self.rng.choice(waiting); self.state[t] = 'run'
+            self.go[t].release()
+        for t in ths: t.join()
+class SSheet:
+    def __init__(self, sc, rows): self.sc = sc; self.rows = [list(r) for r in rows]; self.title = "CLASSIC_NORMAL"
+    def col_values(self, c):
+        self.sc.point()
+        col = [r[c - 1] if len(r) >= c else "" for r in self.rows]
+        while col and col[-1] == "": col.pop()
+        self.sc.point(); return col
+    def append_rows(self, rows, **kw):
+        self.sc.point()
+        start = len(self.rows) + 1; self.rows += [list(r) for r in rows]
+        resp = {"updates": {"updatedRange": f"{self.title}!A{start}:S{start + len(rows) - 1}"}}
+        self.sc.point(); return resp
+    def delete_rows(self, s, e):
+        self.sc.point(); del self.rows[s - 1:e]; self.sc.point()
+ORD4 = [NATURAL, RFIRST, NATURAL[::-1], [3, 1, 2, 0, 4, 5, 6, 7, 8, 9]]
+def sweep_one(seed, n_lcu, n_str):
+    """lcu PC n_lcu 대가 같은 판을 동시에 회수하고, 정당한 다른 판 n_str 개가 그 사이사이 붙는다. 위반 목록과 남은 대상판 줄 수를 돌려준다."""
+    sc = Sched(seed); sh = SSheet(sc, [HDR] + OTHER); base = [list(r) for r in sh.rows]
+    strangers = [block(f"#S{j}", "rt", ORD4[j % 4], [f"s{j}_{i}#KR1" for i in range(10)]) for j in range(n_str)]
+    funcs = {}
+    for i in range(n_lcu):
+        funcs[f"L{i}"] = (lambda i=i: append_block(sh, HDR, "9", block("#9", "lcu", ORD4[i % 4]), sleep=lambda s: sc.point(), log=nolog))
+    for j in range(n_str):
+        funcs[f"S{j}"] = (lambda j=j: sh.append_rows(strangers[j]))
+    sc.run(funcs)
+    bad = []
+    if sh.rows[:1 + len(OTHER)] != base: bad.append("헤더/기존행 변경")
+    n9 = sum(1 for r in sh.rows if r[0] == "#9")
+    if n9 < 10: bad.append(f"대상판 무기록({n9}줄)")
+    if n9 % 10: bad.append(f"대상판 반쪽({n9}줄)")
+    for j in range(n_str):
+        if not intact(sh, f"#S{j}", strangers[j]): bad.append(f"타판 #S{j} 훼손")
+    return bad, n9
+PINNED = {(4, 2): [950, 1669, 2591, 2884], (5, 3): [546, 1151, 1275, 1781, 2509],
+          (6, 2): [599, 970, 1025, 1036, 1151, 1542, 1820, 2114, 2809, 2949]}
+pin_bad = [(cfg, sd, b) for cfg, seeds in PINNED.items() for sd in seeds for b in [sweep_one(sd, *cfg)[0]] if b]
+check("D 스윕: 옛 코드가 다른 판을 지웠던 시드 %d개(4PC·5PC·6PC) → 전부 무사" % sum(len(v) for v in PINNED.values()), not pin_bad, pin_bad[:3])
+for cfg, T in (((3, 2), 150), ((4, 2), 150), ((5, 3), 150)):
+    viol = [(sd, b) for sd in range(1, T + 1) for b in [sweep_one(sd, *cfg)[0]] if b]
+    check(f"D 스윕: lcu {cfg[0]}대 + 다른 판 {cfg[1]}개 × 시드 {T}개 → 무기록·반쪽 삭제·다른 판 훼손 0", not viol, viol[:3])
+two = [(sd, n9) for sd in range(1, 151) for _b, n9 in [sweep_one(sd, 2, 2)] if n9 != 10 or _b]
+check("D 스윕: lcu 2대 + 다른 판 2개 × 시드 150개 → 어떤 끼어들기에서도 정확히 한 블록(10줄)", not two, two[:3])
 
 print("\n실패 %d건" % len(FAILS)); sys.exit(1 if FAILS else 0)

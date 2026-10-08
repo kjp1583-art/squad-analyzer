@@ -4831,18 +4831,25 @@ _LCU_BF_SPELL = {1: "SummonerBoost", 3: "SummonerExhaust", 4: "SummonerFlash", 6
 _LCU_LANE_KOR = {("TOP", ""): "탑", ("JUNGLE", ""): "정글", ("MIDDLE", ""): "미드",
                  ("BOTTOM", "DUO_CARRY"): "원딜", ("BOTTOM", "DUO_SUPPORT"): "서폿"}
 
-# ===== 🧹 [2026-10-08] lcu백필 append = 재확인 → append → 응답 보존 → 사후 정리 (같은 판 통째 중복 재발 차단) =====
-#   배경: 같은 판 20줄(#8410400062)이 사후 정리(34bcc3b)가 든 83.55 에서도 또 나왔다. 이 경로는 실시간 기록과 똑같은
-#   check-then-act(col_values 확인 → append_rows)인데 사후 정리가 없어서, 겹치면 뒤쪽 사본이 그대로 남는다
-#   (여러 PC 의 lcu백필끼리 · 실시간 기록이 늦게 끼어든 경우). 판단은 오직 '게임ID 가 같은가' —
-#   로스터·시간으로 건너뛰지 않는다(같은 10명이 연달아 다른 판을 치르는 건 내전의 일상이라 정당한 다음 판을 영영 놓친다).
-#   삭제는 _dup_cleanup_after_append 를 그대로 쓴다 — 내 블록보다 앞에 같은 판의 완전한 블록이 이미 있을 때만 내 블록을
-#   지우고, 가장 앞선 블록은 앞선 블록이 없으니 절대 안 지워서 양쪽 삭제(무기록)가 불가능하다. 확신이 없으면 지우지 않는다.
+# ===== 🧹 [2026-10-08] lcu백필 append = 재확인 → append → 응답 보존 → 사후 정리 (같은 판 통째 중복 차단) =====
+#   배경: 이 경로는 실시간 기록과 똑같은 check-then-act(col_values 확인 → append_rows)인데 사후 정리(34bcc3b)가 없었다.
+#   여러 PC 의 lcu백필끼리, 또는 실시간 기록이 늦게 끼어들면 뒤쪽 사본이 그대로 남아 한 판이 20줄이 된다.
+#   (시트 #8410400062 의 두 번째 블록이 이 경로 산이라는 확증은 없다 — 그 블록은 행 순서가 실시간 기록의 모양이고,
+#    lcu 행은 늘 LCU 참가자 순서(블루 5 → 레드 5)로 쓰인다. 이 변경은 같은 안전망을 이 경로에도 씌우는 예방이다.)
+#   판단은 오직 '게임ID 가 같은가' — 로스터·시간으로 건너뛰지 않는다(같은 10명이 연달아 다른 판을 치르는 건
+#   내전의 일상이라 정당한 다음 판을 영영 놓친다).
+#   삭제는 _dup_cleanup_after_append 를 쓴다 — 내 블록보다 앞에 같은 판의 완전한 블록이 이미 있을 때만 내 블록을 지우고,
+#   가장 앞선 블록은 앞선 블록이 없으니 절대 안 지워서 양쪽 삭제(무기록)가 불가능하다. 확신이 없으면 지우지 않는다.
+#   그리고 max_copies=2 로 부른다 — 같은 판이 셋 이상이면(첫 읽기든 삭제 직전 재확인이든) 보류한다. 삭제는 행 번호로 하는데
+#   사본이 셋 이상이면 사본마다 정리가 따로 돌아 윗 사본의 삭제가 아랫 사본의 행을 당기고, 낡은 행 번호로 지우는 쪽이
+#   그 뒤에 붙은 '다른 판' 10줄을 지울 수 있다(검증에서 재현). 둘뿐이면 내 위에 지울 쪽이 없어 이 경주가 없다.
+#   대가는 셋 이상 겹칠 때 중복이 남는 것 — 중복은 사람이 치우면 되지만 지워진 정당한 판은 아무도 모른다.
 _LCU_BF_LOCK = threading.Lock()   # 회차 중복 실행 방지 — 한 회차가 끝나기 전에 다시 불리면 건너뛴다
 
 def _lcu_append_block(ws, hd, gid, rows, sleep=None, log=None):
     """lcu백필이 만든 한 판(rows 전부)을 시트 끝에 붙인다. hd = 1행 헤더, gid = '#' 없는 게임ID.
-    반환 'exists'(이미 시트에 있어 안 씀) | 'appended'(내 블록이 남음) | 'deduped'(동시 기록에 져서 내 블록을 지움 — 앞선 사본이 남음)
+    반환 'exists'(이미 시트에 있어 안 씀) | 'appended'(내 블록이 남음 — 중복이 의심돼도 확신이 없거나 같은 판이 3벌 이상이면 지우지 않고 로그만)
+    | 'deduped'(동시 기록에 져서 내 블록을 지움 — 앞선 사본이 남음)
     | 'failed'(읽기·쓰기 예외 — 로그를 남겼고 다음 주기에 다시 본다). 예외는 밖으로 안 던진다."""
     sleep = sleep or time.sleep
     _lg = log or (lambda m: print(m, flush=True))
@@ -4872,7 +4879,8 @@ def _lcu_append_block(ws, hd, gid, rows, sleep=None, log=None):
         if any(len(r) < max(gc, nc) or str(r[gc - 1]).strip() != sid for r in rows):
             say(f"[lcu백필] #{gid} 중복정리 생략 — 쓴 행의 열 배치가 헤더와 안 맞음 (쓴 행은 그대로 둠)")
             return 'appended'
-        res = _dup_cleanup_after_append(ws, gc, nc, sid, [r[nc - 1] for r in rows], resp, sleep=sleep, log=say)
+        res = _dup_cleanup_after_append(ws, gc, nc, sid, [r[nc - 1] for r in rows], resp, sleep=sleep, log=say,
+                                        max_copies=2)            # 같은 판이 3벌 이상이면 보류(행 밀림으로 다른 판을 지우는 경주 차단)
         return 'deduped' if res == 'deleted' else 'appended'
     except Exception as e:
         say(f"[lcu백필] #{gid} 중복정리 예외 {type(e).__name__}: {e} — 삭제 안 함")
@@ -7752,8 +7760,11 @@ def _dup_block_start(append_resp):
         return 0
 
 
-def _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, append_resp, sleep=None, log=print):
+def _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, append_resp, sleep=None, log=print, max_copies=None):
     """gid_col·name_col = 1-기반 열 번호. my_names = 내가 쓴 줄의 소환사명 목록(길이 n).
+    max_copies = 같은 판이 이 벌 수(n줄 단위)를 넘게 시트에 있으면 지우지 않고 보류한다(None = 제한 없음 = 종전 동작).
+      이유: 삭제는 행 번호로 하는데, 같은 판 사본이 셋 이상이면 사본마다 정리가 따로 돌아 윗 사본의 삭제가 아랫 사본의 행을
+      당긴다 — 아랫 정리가 낡은 행 번호로 지우면 그 뒤에 붙은 '다른 판'을 지운다. 둘뿐이면 내 위에 지울 쪽이 없어 이 경주가 없다.
     반환 'none'(정상) | 'deleted'(내 블록 삭제) | 'held'(중복 의심이나 보존). 예외는 밖으로 안 던진다."""
     sleep = sleep or time.sleep
     n = len(my_names)
@@ -7787,6 +7798,8 @@ def _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, appen
         earlier = [p for p in pos if p < start]
         if len(earlier) < n:
             log(f"{tag} 유지 — 같은 판 {len(pos)}줄, 내 블록(행 {start})이 가장 앞섬 → 뒤쪽 사본이 지울 몫"); return 'none'
+        if max_copies and len(pos) > n * max_copies:
+            log(f"{tag} 보류 — 같은 판 {len(pos)}줄(사본 {max_copies}벌 초과) — 지우는 쪽이 둘 이상이면 행이 밀려 다른 판을 지울 수 있어 삭제 안 함"); return 'held'
         first = earlier[:n]
         if first[-1] - first[0] != n - 1 or sorted(_cell(nm, r) for r in first) != sig:
             log(f"{tag} 보류 — 앞선 줄 {earlier[:3]}…이 완전한 같은 블록이 아님 — 삭제 안 함"); return 'held'
@@ -7798,6 +7811,8 @@ def _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, appen
         if (not all(_cell(g2, r) == str(game_id) for r in mine) or sorted(_cell(nm2, r) for r in mine) != sig
                 or not all(_cell(g2, r) == str(game_id) for r in first) or sorted(_cell(nm2, r) for r in first) != sig):
             log(f"{tag} 보류 — 삭제 직전 재확인에서 행이 바뀜 — 삭제 안 함"); return 'held'
+        if max_copies and sum(1 for v in g2 if str(v).strip() == str(game_id)) > n * max_copies:
+            log(f"{tag} 보류 — 삭제 직전 재확인에서 같은 판이 {max_copies}벌을 넘음(그 사이 사본이 더 붙음) — 삭제 안 함"); return 'held'
         sheet.delete_rows(start, start + n - 1)
         log(f"{tag} 중복 {n}줄 삭제(행 {start}~{start + n - 1}) — 앞선 사본(행 {first[0]}~{first[-1]}) 남김")
         return 'deleted'
