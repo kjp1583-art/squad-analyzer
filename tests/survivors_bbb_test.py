@@ -98,10 +98,11 @@ async def main():
     async with async_playwright() as p:
         b = await H.launch(p, args=['--autoplay-policy=no-user-gesture-required'])
         ctx, pg, errs = await H.new_page(b, srv.port)
+        await pg.evaluate("__p6x.srvUnl(['brj','bbb'])")   # 상점 캐릭터는 서버가 열어 줘야 시작된다 — 구매한 사람(서버 unlocks 에 bbb) 흉내
         # ───────────────── A. 데이터
         r = await pg.evaluate("""()=>{const x=__p6x,y=__p6y;const c=x.CHARS.find(c=>c.k==='bbb'),w=x.WEAP.sing,T=x.TIERS.sing,sy=x.SYN.find(s=>s.k==='u_sing'),i=x.CHARS.findIndex(c=>c.k==='bbb');
           const names=x.CHARS.map(c=>c.k);
-          return {c:c&&{w:c.w,cdr:c.cdr,img:c.img,sn:c.sn,nm:c.nm,q:c.q,ds:c.ds,tag:c.tag,boss:!!c.boss,shop:!!c.shop,t:c.un&&c.un.t,ok0:c.un.ok({kills:19999}),ok1:c.un.ok({kills:20000}),pr:c.un.pr({kills:4321}),pr2:c.un.pr({kills:99999}),wl:c.wl||1},
+          return {c:c&&{w:c.w,cdr:c.cdr,img:c.img,sn:c.sn,nm:c.nm,q:c.q,ds:c.ds,tag:c.tag,boss:!!c.boss,shop:!!c.shop,t:c.un&&c.un.t,dh:c.un&&c.un.dh,ok0:c.un.ok({kills:99999,deaths:99,maxLv:99,best:99999}),wl:c.wl||1},
             order:names.slice(names.indexOf('psg'),names.indexOf('psg')+3),
             w:w&&{only:w.only,pair:w.pair,pairOk:!!y.PASS[w.pair],ds:w.ds.length,evnm:w.ev&&w.ev.nm,evic:w.ev&&w.ev.ic,ic:w.ic,nm:w.nm,rl:w.rl},
             T:T&&T.map(t=>t[1]),Ttx:T&&T.map(t=>t[0]),sy:sy&&{req:sy.req,fx:sy.fx,nm:sy.nm},
@@ -109,12 +110,21 @@ async def main():
             chick:!!x.WEAP.chick&&!x.WEAP.chick.only,sg:x.SYN.filter(s=>s.k==='u_sing').length,
             bbbPair:Object.keys(x.WEAP).filter(k=>x.WEAP[k].pair==='study')}}""")
         c = r['c']
-        check('CHARS bbb: 고유 무기 sing · 쿨타임 -8%(cdr) · 그림(img) · 짧은 이름', c and c['w'] == 'sing' and c['wl'] == 1 and c['cdr'] == .08 and c['img'] == 1 and c['sn'] == '배불배불' and c['nm'] == '플레이브 코스프레 배불배불' and not c['boss'] and not c['shop'], c)
-        check('CHARS bbb: 설명에 고유 무기 · 한 줄 대사 · 태그', c and '고유 무기' in c['ds'] and '쿨타임 -8%' in c['ds'] and c['q'] and c['tag'], c)
-        check('해금: 처치 누적 20,000 — 19,999 거짓 · 20,000 참 · 문구', c and c['ok0'] is False and c['ok1'] is True and c['t'] == '처치 누적 20,000' and '4,321/20,000' in c['pr'] and '20,000/20,000' in c['pr2'], c)
+        check('CHARS bbb: 고유 무기 sing · 쿨타임 -8%(cdr) · 그림(img) · 짧은 이름', c and c['w'] == 'sing' and c['wl'] == 1 and c['cdr'] == .08 and c['img'] == 1 and c['sn'] == '배불배불' and c['nm'] == '플레이브 코스프레 배불배불' and not c['boss'] and c['shop'], c)
+        check('CHARS bbb: 설명에 고유 무기 · 한 줄 대사 · 태그 · 능력 이름 「박자 감각」(패치노트와 같은 이름)', c and '고유 무기' in c['ds'] and '쿨타임 -8%' in c['ds'] and c['ds'].startswith('「박자 감각」') and c['q'] and c['tag'], c)
+        check('해금 = 상점 구매(shop:1): 진행도 조건 함수는 무엇을 줘도 거짓 · 카드 글씨 「봇 상점 200P」 · 설명창 문구', c and c['shop'] is True and c['ok0'] is False and c['t'] == '봇 상점 200P' and '/흐접새우상점' in c['dh'] and '200P' in c['dh'] and '맛동산 아님' in c['dh'] and '새로고침' in c['dh'] and 'nb' in c['dh'], c)
+        src_sh = open(os.path.join(H.ROOT, 'survivors.html'), encoding='utf-8').read()
+        i0 = src_sh.index("{k:'bbb'"); line_bbb = src_sh[i0:src_sh.index('\n', i0)]
+        check('CHARS bbb 줄에 처치 누적·진행도 해금 코드가 없다(p.kills · 20000 · 20,000)', 'p.kills' not in line_bbb and '20000' not in line_bbb and '20,000' not in line_bbb and 'un:SHOPUN_SV' in line_bbb, line_bbb[-200:])
+        pp = re.search(r"PP=\[\[([^\]]*)\],\[([^\]]*)\],\[([^\]]*)\]\]", src_sh)
+        ph = [[int(v) for v in g.split(',')] for g in pp.groups()]
+        lv_up = [0, 4, 7, 12]   # 레벨업 효과음 523/659/784/1047Hz = C5 E5 G5 C6
+        check('노래 가락 0 은 레벨업 효과음(C E G C)과 4음 중 2음 넘게 겹치지 않는다(보상음처럼 안 들리게)', ph[0] != lv_up and sum(1 for a, b in zip(ph[0], lv_up) if a == b) <= 2 and len(ph[0]) == 4, ph)
         check('선택 화면 순서: 프싱 다음 배불배불(클랜원 구역)', r['order'][:2] == ['psg', 'bbb'], r['order'])
         w = r['w']
         check('WEAP.sing: only bbb · 짝 패시브 study(실제 패시브) · 8줄 · 각성 「앙코르 무대」', w and w['only'] == 'bbb' and w['pair'] == 'study' and w['pairOk'] and w['ds'] == 8 and w['evnm'] == '앙코르 무대' and w['evic'] == '🎶' and w['ic'] == '🎤' and w['nm'] == '플레이브 노래부르기', w)
+        evds = await pg.evaluate("()=>{const d=__p6x.WEAP.sing.ev.ds;const c=document.createElement('canvas').getContext('2d');c.font='12px sans-serif';return {ds:d,len:d.length,w:c.measureText(d).width}}")
+        check('각성 알림 글씨(ev.ds): 폰 412px 배너(12px · 폭 392) 안에 들어간다 · 75자 → 50자 이하 · 의미 숫자 유지(피해 75% · +15%)', evds['w'] <= 392 and evds['len'] <= 50 and '75%' in evds['ds'] and '+15%' in evds['ds'] and '앙코르' in evds['ds'], evds)
         T = r['T']
         check('TIERS.sing: 마스터 3 + 각성 2 (음표 +1 · 피해 +12% · 쿨 -7% · 관통/피해/넋 · 흩어지는 음표)', T == [{'n': 1}, {'d': .12}, {'c': .07}, {'pc': 1, 'd': .08, 'life': .2}, {'frag': 1}], T)
         check('콤보 u_sing: 🎤 + 🐥 병아리 친구들(공용) · 경험치 +10% · 피해 +6%', r['sy'] and r['sy']['req'] == ['sing', 'chick'] and r['sy']['fx'] == {'xp': .1, 'dmg': .06} and r['chick'] and r['sg'] == 1 and r['uSyn'] == 17, r['sy'])
@@ -271,6 +281,7 @@ async def main():
 
         # ───────────────── H. 규칙
         ctx5, pg5, e5 = await H.new_page(b, srv.port)   # 새 페이지 — 적 풀 객체에 앞 장면이 남긴 필드가 없도록
+        await pg5.evaluate("__p6x.srvUnl(['brj','bbb'])")   # 상점 캐릭터는 서버가 열어 줘야 시작된다 — 구매한 사람(서버 unlocks 에 bbb) 흉내
         r = await pg5.evaluate("""()=>{const x=__p6x;const run=(ch,w)=>{x.CH_set(ch);x.start();const S=x.S;S.w={[w]:8};S.ev={[w]:1};S.tier={[w]:5};x.tkCalc();S.t=200;
             for(let i=0;i<600;i++){S.p.hp=S.p.mhp;if(x.state==='lvup'){x.pick(x.CUR[0]);continue;}if(x.state!=='play'){x.resume();continue;}x.update(1/30);}
             const ks=new Set();for(const e of x.enemies.a)if(e.ki!==undefined)for(const k of Object.keys(e))ks.add(k);return {keys:[...ks].sort().join(','),kills:S.kills};};
@@ -308,30 +319,72 @@ async def main():
         check('패시브는 모든 무기에 적용(사료 투척 쿨 .7 → .644)', near(r['bbb'], .644, .01) and near(r['brj'], .7, .01), r)
 
         # ───────────────── I. 화면 · 해금(412×860)
-        r = await pg.evaluate("""()=>{const x=__p6x;x.show('title');x.renderRoster();const bs=[...document.querySelectorAll('#roster button')];const b=bs.find(e=>e.textContent.includes('배불배불'));
+        r = await pg.evaluate("""()=>{const x=__p6x;x.srvUnl([]);x.show('title');x.renderRoster();const bs=[...document.querySelectorAll('#roster button')];const b=bs.find(e=>e.textContent.includes('배불배불'));
           b&&b.click();return {sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,small:b&&b.querySelector('small').textContent,lock:b&&b.classList.contains('lock'),desc:document.getElementById('chDesc').textContent,n:bs.length,hs:bs.map(e=>Math.round(e.getBoundingClientRect().width))}}""")
         check('선택 화면(412px): 가로 스크롤 없음 · 카드 폭이 모두 같다', r['sw'] <= r['cw'] and len(set(r['hs'])) == 1, (r['sw'], r['cw'], set(r['hs'])))
-        check('잠긴 카드: 작은 글씨 「처치 누적 20,000」 · 누르면 해금 문구 + 진행도', r['lock'] and r['small'] == '처치 누적 20,000' and '해금: 처치 누적 20,000' in r['desc'] and '0/20,000' in r['desc'], r)
+        check('잠긴 카드: 작은 글씨 「봇 상점 200P」 · 누르면 설명창에 구매 방법(디스코드 /흐접새우상점 · 200P · 맛동산 아님 · 새로고침) + 로그인 안내', r['lock'] and r['small'] == '봇 상점 200P' and '디스코드 「/흐접새우상점」에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침' in r['desc'] and '디스코드 로그인 필요' in r['desc'], r)
         hw = await pg.evaluate("()=>document.querySelector('ol.how').textContent")
         check('조작법 도움말(❔): 고유 시작 무기 목록에 「배불배불 🎤」(프싱 다음)', '프싱 🔥 · 배불배불 🎤 · 신림 📋' in hw, hw[hw.find('고유 시작 무기'):][:140])
-        r = await pg.evaluate("""()=>{const x=__p6x;const g=x.getProg();g.kills=19990;x.setProg(g);x.CH_set('brj');x.start();x.S.kills=9;x.endRun(false,true);const a={unl:[...JSON.parse(localStorage.getItem('p6_unl_v1')||'[]')],msg:document.getElementById('unlockMsg').textContent};
-          const g2=x.getProg();a.kills=g2.kills;x.start();x.S.kills=20;x.endRun(false,true);a.unl2=[...JSON.parse(localStorage.getItem('p6_unl_v1')||'[]')];a.msg2=document.getElementById('unlockMsg').textContent;
-          a.can=x.canPick(x.CHARS.find(c=>c.k==='bbb'),x.getProg());return a}""")
-        check('19,999 → 처치 누적이 20,000 을 넘으면 결과 화면에 새 캐릭터 해금 문구 + 로컬 해금 목록에 bbb', 'bbb' not in r['unl'] and r['kills'] == 19999 and 'bbb' in r['unl2'] and '플레이브 코스프레 배불배불' in r['msg2'] and r['can'], r)
-        # 기록 전송: 판을 bbb 로 마치면 body.ch === 'bbb'
-        POSTS = []
+        await pg.evaluate("__p6x.srvUnl(['brj','bbb'])")
+        # ───────────────── N. 해금 = 봇 흐접새우 상점 구매(200P) — 서버 응답(/p6/me · /p6/run)은 page.route 로 가짜를 주입한다
+        ST = {'unl': ['brj']}; POSTS = []
         async def mock(rt):
             u = rt.request.url; hdr = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*'}
             if rt.request.method == 'OPTIONS': await rt.fulfill(status=204, headers=hdr); return
             if '/p6/run' in u:
-                POSTS.append(json.loads(rt.request.post_data or '{}')); await rt.fulfill(status=200, headers=hdr, content_type='application/json', body=json.dumps({'ok': True, 'rank': 1, 'total': 1, 'unlocks': ['brj', 'bbb'], 'best_t': 10}))
-            else: await rt.fulfill(status=200, headers=hdr, content_type='application/json', body=json.dumps({'ok': True, 'name': 'T', 'unlocks': ['brj'], 'board': [], 'hard': [], 'vhard': []}))
-        ctx2, pg2, errs2 = await H.new_page(b, srv.port, mock=mock)
-        await pg2.evaluate("localStorage.setItem('sgg_dc',JSON.stringify({id:'1',token:'x'.repeat(30),exp:Date.now()+5*86400000,name:'T'}))")
-        await pg2.reload(); await pg2.wait_for_function('window.__p6x!==undefined'); await pg2.wait_for_timeout(300)
-        await pg2.evaluate("()=>{const x=__p6x;x.CH_set('bbb');x.start();x.S.t=120;x.S.kills=50;x.endRun(false,true)}"); await pg2.wait_for_timeout(600)
-        check('기록 전송 body.ch === "bbb"', len(POSTS) == 1 and POSTS[0].get('ch') == 'bbb', POSTS)
-        await ctx2.close()
+                POSTS.append(json.loads(rt.request.post_data or '{}')); await rt.fulfill(status=200, headers=hdr, content_type='application/json', body=json.dumps({'ok': True, 'rank': 1, 'total': 1, 'unlocks': ST['unl'], 'best_t': 10}))
+            elif '/p6/me' in u: await rt.fulfill(status=200, headers=hdr, content_type='application/json', body=json.dumps({'ok': True, 'name': 'T', 'runs': 1, 'best_t': 10, 'unlocks': ST['unl'], 'daily_done': False}))
+            else: await rt.fulfill(status=200, headers=hdr, content_type='application/json', body=json.dumps({'ok': True, 'board': [], 'hard': [], 'vhard': []}))
+        async def open_page(unl, login=True, local=None, w=412, h=860):
+            ST['unl'] = unl; POSTS.clear()
+            c_, p_, e_ = await H.new_page(b, srv.port, w=w, h=h, mock=mock)
+            js = "()=>{" + ("localStorage.setItem('sgg_dc',JSON.stringify({id:'1',token:'x'.repeat(30),exp:Date.now()+5*86400000,name:'T'}));" if login else "") + (local or '') + "}"
+            await p_.evaluate(js)
+            await p_.reload(); await p_.wait_for_function('window.__p6x!==undefined'); await p_.wait_for_timeout(500)
+            return c_, p_, e_
+        TILE = """()=>{const x=__p6x;x.show('title');x.renderRoster();const b=[...document.querySelectorAll('#roster button')].find(e=>e.textContent.includes('배불배불'));const c=x.CHARS.find(c=>c.k==='bbb');
+          const can=x.canPick(c,x.getProg());const o={lock:b.classList.contains('lock'),small:b.querySelector('small').textContent,can,unl:[...x.SRVUNL]};b.click();o.desc=document.getElementById('chDesc').textContent;o.sel=x.CH.k;
+          x.CH_set('bbb');x.start();o.started=x.CH.k;o.weap=Object.keys(x.S.w);return o}"""
+        # (가) 로그아웃: 잠김 + 문구 · 시작 시도해도 기본 캐릭터
+        c_, p_, e_ = await open_page(['brj'], login=False)
+        r = await p_.evaluate(TILE)
+        check('(가) 로그아웃: 카드 잠김 · 글씨 「봇 상점 200P」 · 설명 「디스코드 로그인 필요」 + 구매 방법 · 못 고르고 시작해도 브장신', r['lock'] and not r['can'] and r['small'] == '봇 상점 200P' and '디스코드 로그인 필요' in r['desc'] and '/흐접새우상점' in r['desc'] and '200P' in r['desc'] and r['sel'] == 'brj' and r['started'] == 'brj' and 'sing' not in r['weap'], r)
+        check('(가) 페이지 오류·콘솔 에러 없음', not e_, e_[:3])
+        await c_.close()
+        # (나) 로그인했지만 서버 unlocks 에 bbb 없음: 잠김 · 「구매하면 열려요」 · 시작해도 기본 캐릭터
+        c_, p_, e_ = await open_page(['brj'])
+        r = await p_.evaluate(TILE)
+        check('(나) 로그인 + 미구매: 잠김 · 설명 「구매하면 열려요」 · 못 고르고 시작해도 브장신', r['lock'] and not r['can'] and '구매하면 열려요' in r['desc'] and '로그인 필요' not in r['desc'] and r['sel'] == 'brj' and r['started'] == 'brj' and 'sing' not in r['weap'], r)
+        await c_.close()
+        # (라) 로컬 저장소에 bbb 를 직접 써넣어도 안 열린다(해금 목록 · 마지막 선택 캐릭터 · 진행도 모두 20,000킬)
+        c_, p_, e_ = await open_page(['brj'], local="localStorage.setItem('p6_unl_v1',JSON.stringify(['brj','bbb','yumi','eom']));localStorage.setItem('p6_char_v1','bbb');localStorage.setItem('p6_prog_v1',JSON.stringify({kills:99999,deaths:99,maxLv:60,best:4000,bossKill:5,w5:{},bk:{}}));")
+        r = await p_.evaluate(TILE)
+        await p_.reload(); await p_.wait_for_function('window.__p6x!==undefined'); await p_.wait_for_timeout(500)
+        ch0 = await p_.evaluate("()=>__p6x.CH.k")
+        check('(라) 로컬 저장소에 bbb(해금 목록·선택·처치 99,999)를 써넣어도 잠김 · 시작해도 브장신 · 새로 열어도 브장신으로 시작', r['lock'] and not r['can'] and r['sel'] == 'brj' and r['started'] == 'brj' and ch0 == 'brj', (r, ch0))
+        await c_.close()
+        # (다) 서버 unlocks 에 bbb: 열림 · 선택 · 시작(고유 무기 sing) · 로컬 해금 목록엔 안 쌓인다
+        c_, p_, e_ = await open_page(['brj', 'bbb'])
+        r = await p_.evaluate(TILE)
+        loc = await p_.evaluate("()=>JSON.parse(localStorage.getItem('p6_unl_v1')||'[]')")
+        check('(다) 서버 unlocks 에 bbb: 카드 열림(글씨 = 태그) · 고르면 bbb · 시작하면 bbb + 고유 무기 sing', not r['lock'] and r['can'] and r['small'] == '무대 위의 병아리' and r['sel'] == 'bbb' and r['started'] == 'bbb' and r['weap'] == ['sing'] and 'bbb' in r['unl'], r)
+        check('(다) 구매한 키는 로컬 해금 목록(p6_unl_v1)에 쌓지 않는다', 'bbb' not in loc and 'brj' in loc, loc)
+        # (마) 기록 POST 의 unlocks 에 bbb(와 다른 상점 키)가 안 실린다 — 로컬에 직접 써넣어도
+        await p_.evaluate("()=>{localStorage.setItem('p6_unl_v1',JSON.stringify(['brj','bbb','yumi','eom','jjg']));const x=__p6x;x.CH_set('bbb');x.start();x.S.t=120;x.S.kills=50;x.endRun(false,true)}"); await p_.wait_for_timeout(700)
+        check('(마) 기록 POST: ch === "bbb" 로 올라가되 unlocks 에는 bbb·yumi·eom 이 없다(진행도 키 brj·jjg 는 그대로)', len(POSTS) == 1 and POSTS[0].get('ch') == 'bbb' and 'bbb' not in POSTS[0].get('unlocks', []) and 'yumi' not in POSTS[0]['unlocks'] and 'eom' not in POSTS[0]['unlocks'] and 'brj' in POSTS[0]['unlocks'] and 'jjg' in POSTS[0]['unlocks'], POSTS)
+        # (바) 판 끝 해금 알림에 bbb 가 안 뜬다 — 처치 누적이 20,000 을 넘겨도(예전 조건)
+        r = await p_.evaluate("""()=>{const x=__p6x;const g=x.getProg();g.kills=19990;x.setProg(g);x.CH_set('brj');x.start();x.S.kills=9;x.endRun(false,true);const a={msg:document.getElementById('unlockMsg').textContent};
+          x.start();x.S.kills=50;x.endRun(false,true);a.msg2=document.getElementById('unlockMsg').textContent;a.kills=x.getProg().kills;return a}""")
+        check('(바) 처치 누적이 20,000 을 넘겨도 결과 화면 해금 알림에 배불배불이 안 뜬다', r['kills'] >= 20000 and '배불배불' not in r['msg'] and '배불배불' not in r['msg2'], r)
+        check('(다)(마)(바) 페이지 오류·콘솔 에러 없음', not e_, e_[:3])
+        await c_.close()
+        # (사) 구매 직후 응답(/p6/run 의 unlocks)으로도 열린다 — 판을 마치면 서버 목록이 갱신된다
+        c_, p_, e_ = await open_page(['brj'])
+        ST['unl'] = ['brj', 'bbb']
+        await p_.evaluate("()=>{const x=__p6x;x.CH_set('brj');x.start();x.S.t=120;x.S.kills=50;x.endRun(false,true)}"); await p_.wait_for_timeout(700)
+        r = await p_.evaluate(TILE)
+        check('(사) 기록 응답의 unlocks 에 bbb 가 오면(그사이 구매) 카드가 열린다', not r['lock'] and r['can'] and r['started'] == 'bbb', r)
+        await c_.close()
 
         # ───────────────── L. 그리기(LOW · 비 LOW) · 소리
         r = await pg.evaluate("""()=>{const x=__p6x;x.CH_set('bbb');x.start();const S=x.S;S.w={sing:8};S.ev={sing:1};S.tier={sing:5};S.ps={amt:3,area:5,cd:5};x.tkCalc();S.t=300;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
@@ -348,6 +401,7 @@ async def main():
         await ctx3.route('**/*', rt3)
         pg3 = await ctx3.new_page(); pg3.on('pageerror', lambda e: e3.append(str(e)))
         await pg3.goto('http://127.0.0.1:%d/survivors_x.html' % srv.port); await pg3.wait_for_function('window.__p6x!==undefined')
+        await pg3.evaluate("__p6x.srvUnl(['brj','bbb'])")   # 상점 캐릭터는 서버가 열어 줘야 시작된다 — 구매한 사람(서버 unlocks 에 bbb) 흉내
         r = await pg3.evaluate("""()=>{const x=__p6x;x.CH_set('bbb');x.start();const S=x.S;S.w={sing:8};S.ev={sing:1};S.tier={sing:5};S.ps={amt:3,area:5,cd:5};x.tkCalc();S.t=300;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
           let errs=0;for(let i=0;i<600;i++){S.p.hp=S.p.mhp;S.xp=0;S.need=1e12;const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];try{x.update(1/30);x.draw();}catch(e){errs++;if(errs<2)return {err:String(e)};}}
           return {errs,LOW:x.LOW}}""")

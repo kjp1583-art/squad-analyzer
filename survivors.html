@@ -91,8 +91,8 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 @supports (height:100dvh){.box{max-height:calc(100dvh - 24px)}}   /* 폰 주소창만큼 잘리지 않게 */
 .rosterH{text-align:left;font-weight:700;color:#ffb089;margin:10px 0 6px;font-size:13px}
 #roster{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.rc{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 4px;color:var(--txt);font:inherit;font-size:11.5px;cursor:pointer;line-height:1.3}
-.rc .e{font-size:20px;display:block}.rc.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset,0 0 10px rgba(255,122,69,.35)}
+.rc{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 4px;color:var(--txt);font:inherit;font-size:11.5px;cursor:pointer;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}   /* 🎤 이름이 단어 중간에서 끊기지 않게(띄어쓰기에서만) — 한 단어가 칸보다 길면 그때만 끊는다 */
+.nb{white-space:nowrap}.rc .e{font-size:20px;display:block}.rc.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset,0 0 10px rgba(255,122,69,.35)}
 .rc.lock{opacity:.5}.rc small{color:var(--mut);display:block;font-size:10.5px}
 #chDesc{text-align:left;min-height:36px;margin-top:6px}
 /* 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 — 그림 카드(잠겨 있으면 실루엣 + 해금 조건) */
@@ -527,7 +527,7 @@ async function submitRun(won){const u=dcUser();const el=$('rAcct');
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
   if(S.dly&&!S.dly.ranked){el.textContent='🧪 연습 판이라 기록되지 않아요(오늘의 도전은 하루 한 판).';return;}
-  const body={token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.vh?0:S.hard?1:0,vhard:S.vh?1:0,unlocks:[...getUnl()]};
+  const body={token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.vh?0:S.hard?1:0,vhard:S.vh?1:0,unlocks:[...getUnl()].filter(k=>!isShopKey(k))};
   if(S.dly)body.daily=S.dly.date;else if(S.endless){body.endless=1;body.end_d=S.vh?2:S.hard?1:0;}   // 무한은 순위표 하나 — 어떤 난이도로 이어갔는지만 같이 보낸다
   postRun(body,0);}
 async function postRun(body,n){const el=$('rAcct');
@@ -540,8 +540,8 @@ async function postRun(body,n){const el=$('rAcct');
     if(j.ok&&body.daily){try{localStorage.removeItem(UNSENT);}catch(e){}dailySet({date:body.daily,ranked:1,done:1,t:body.t,k:body.kills});if(ME)ME.daily_done=true;
       el.innerHTML=j.daily_dup?`📅 이 날짜 기록은 이미 올라가 있어요 — 하루 한 판만 기록돼요. 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`:`✅ 오늘의 도전 기록 저장! 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`;
       BTAB=4;srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();}
-    else if(j.ok&&body.endless){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 무한 기록 저장! ♾ 무한 순위 <b style="color:var(--gold)">${esc(j.end_rank)}위</b> / ${esc(j.end_total)}명`;BTAB=3;mergeUnl(j.unlocks);loadBoard();renderAcct();}
-    else if(j.ok){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 기록 저장! ${body.vhard&&j.vhard_rank?`💀 베리하드 순위 <b style="color:var(--gold)">${esc(j.vhard_rank)}위</b> / ${esc(j.vhard_total)}명`:body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.vhard)BTAB=2;else if(body.hard)BTAB=1;mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();}
+    else if(j.ok&&body.endless){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 무한 기록 저장! ♾ 무한 순위 <b style="color:var(--gold)">${esc(j.end_rank)}위</b> / ${esc(j.end_total)}명`;BTAB=3;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();}
+    else if(j.ok){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 기록 저장! ${body.vhard&&j.vhard_rank?`💀 베리하드 순위 <b style="color:var(--gold)">${esc(j.vhard_rank)}위</b> / ${esc(j.vhard_total)}명`:body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.vhard)BTAB=2;else if(body.hard)BTAB=1;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();}   // 🛒 그사이 상점에서 산 캐릭터(bbb·yumi·eom)가 기록 응답으로 열린다(목록이 없으면 건드리지 않는다)
     else if(j.code==='rate'&&(body.endless||body.daily))keepUnsent(body,'⏳ 방금 올린 기록과 20초 간격이 필요해요 — 잠시 뒤 아래 버튼으로 다시 저장해 주세요.');
     else if(j.code==='daily_date'){try{localStorage.removeItem(UNSENT);}catch(e){}el.textContent='📅 날짜가 지나 오늘의 도전 기록으로 올릴 수 없어요.';}
     else if(j.code==='rate')el.textContent='⏳ 너무 빨리 끝났어요 — 이번 판은 저장되지 않았어요(20초 간격).';
@@ -560,7 +560,8 @@ function flushUnsent(show){const u=dcUser();let o=null;try{o=JSON.parse(localSto
   const b=Object.assign({},o,{token:u.token});delete b.ts;postRun(b,0);}
 const UK='p6_unl_v1';
 function getUnl(){try{return new Set(JSON.parse(localStorage.getItem(UK)||'[]'));}catch(e){return new Set();}}
-function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>s.add(String(x)));try{localStorage.setItem(UK,JSON.stringify([...s]));}catch(e){}}
+const isShopKey=k=>CHARS.some(c=>c.shop&&c.k===k);   // 🛒 상점 캐릭터 키(yumi·eom·bbb) — 서버 구매로만 열린다: 로컬 해금 목록에 쌓지도, 기록 POST 로 보내지도 않는다(열림 여부는 SRVUNL 만 본다)
+function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>{if(!isShopKey(String(x)))s.add(String(x));});try{localStorage.setItem(UK,JSON.stringify([...s]));}catch(e){}}
 
 // ---------- 저장(내 브라우저에만) ----------
 const BK='p6_best_v1',BKH='p6_best_hard_v1',BKV='p6_best_vhard_v1',VK='p6_vh',PK='p6_prog_v1',CK='p6_char_v1',HK='p6_hard';
@@ -575,6 +576,9 @@ function setProg(p){try{localStorage.setItem(PK,JSON.stringify(p));}catch(e){}}
 const SRVUNL=new Set();
 const srvUnl=a=>{SRVUNL.clear();(a||[]).forEach(k=>SRVUNL.add(String(k)));};
 const SHOPUN={t:'🍘 맛동산 상점에서 1개 — 디스코드 「맛동산상점」',ok:()=>false,pr:()=>dcUser()?'구매하면 열려요':'디스코드 로그인 필요'};
+// 🛒 [2026-10-08 사장님 지시] 흐접새우 상점(봇 「/흐접새우상점」 · 스쿼드 포인트 200P — 내전 1판 1P · 승부예측 · 맛동산과 별개) 캐릭터 — t 는 카드 작은 글씨, dh 는 설명창 문구(고정 마크업 — 명령어가 줄 중간에서 끊기지 않게 nb · 없으면 t)
+const unTxt=c=>c.un.dh||esc(c.un.t);   // 해금 문구(설명창) — dh(고정 마크업)가 있으면 그것, 없으면 t 를 이스케이프해서
+const SHOPUN_SV={t:'봇 상점 200P',dh:'🛒 디스코드 <b class="nb">「/흐접새우상점」</b>에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침',ok:()=>false,pr:()=>dcUser()?'구매하면 열려요':'디스코드 로그인 필요'};
 const CHARS=[
   {k:'brj',e:'🐤',nm:'브장신',tag:'스타터',q:'논란이 되겠는걸',ds:'평범하지만 엄. 🪶 엄 깃털 산탄(고유 무기 · 가까운 적에게 깃털을 부채꼴로) 시작.',w:'quill',un:null},
   {k:'jjg',img:1,bdg:[{u:'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',e:'⚡'},{it:6672,e:'🐙'}],e:'🔫',nm:'집중겜',tag:'원딜 · 378판',q:'집중하면 뭐든 벤다',ds:'「치명적 속도 · 크라켄 학살자」 — 미스 포츈 코스프레 선장. 모든 공격 20% 확률 치명타(2배). 🔫 치명적 속도 Lv2(고유 무기 · 쌍권총 연사, 3번째는 크라켄탄) 시작.',w:'tempo',wl:2,crit:.2,un:{t:'처치 누적 300',ok:p=>p.kills>=300,pr:p=>`${Math.min(p.kills,300)}/300`}},
@@ -586,9 +590,10 @@ const CHARS=[
   {k:'kyo',img:1,e:'🍔',nm:'김야옹',tag:'서폿 · 114판',q:'편의점 햄버거로 꺼지쇼',ds:'「버거킹 쿠폰」 — 레벨업마다 HP 25 회복, 획득 범위 +50%. 🍔 와퍼 바운스(고유 무기 · 튕기며 터지는 햄버거) 시작.',w:'whop',lvheal:25,mag:.5,un:{t:'처치 누적 1000',ok:p=>p.kills>=1000,pr:p=>`${Math.min(p.kills,1000)}/1000`}},
   {k:'ddmj',img:1,e:'🧱',nm:'단단묵직',tag:'정글·탑 · 465판',q:'묵직하게 막아선다',ds:'「디펜더」 — 부딪힌 적을 밀쳐 낸다, 받는 피해 -3, 이동속도 -10%. 🛡 방패 밀치기(고유 무기 · 앞의 적을 크게 밀쳐 낸다) 시작.',w:'bash',arm:3,spd:-.1,push:1,un:{t:'최종 보스 처치',ok:p=>p.bossKill>=1,pr:p=>p.bossKill?'완료':'미완'}},
   {k:'psg',img:1,e:'🐲',nm:'프싱',tag:'정글 · 335판',q:'용의 강림',ds:'「쉬바나 코스프레」 — 피해를 주고 적을 처치할수록 🔥 분노 게이지가 찬다. 가득 차면 🐲 용으로 변신(11초): 몸이 커지고 주변 적이 불타며, 이동속도 +20% · 받는 피해 -30% · 무기 피해 +20%. 끝나면 게이지 0부터 다시. 🔥 쌍둥이 이빨(고유 무기 · 이중 베기 + 화염 장판) 시작.',w:'twin',shv:1,un:{t:'하드 모드 10분 생존',ok:p=>hardBest()>=600,pr:p=>`하드 최고 ${fmt(hardBest())}`}},
-  // 🎤 [2026-10-08 사장님 지시] 신캐릭터 「플레이브 코스프레 배불배불」 + 고유 무기 「플레이브 노래부르기」 — 무대 의상 병아리 · 해금 = 처치 누적 20,000(진행도 · 서버 키는 봇 P6_UNLOCK_KEYS 'bbb')
+  // 🎤 [2026-10-08 사장님 지시] 신캐릭터 「플레이브 코스프레 배불배불」 + 고유 무기 「플레이브 노래부르기」 — 무대 의상 병아리
+  //   🛒 [2026-10-08 사장님 지시 "배불배불 획득조건 봇 흐접새우상점 신설하고 200포인트로 구매가능하게 설정"] 해금 = 진행도가 아니라 봇 「/흐접새우상점」 구매(스쿼드 포인트 200P · 맛동산 아님) — 서버가 내려준 unlocks 의 'bbb' 로만 열린다(shop:1 · SHOPUN_SV)
   //   능력 「박자 감각」 = 모든 무기 쿨타임 -8%(cdr · cdMul 한 곳). 실존 인물·곡·가사는 쓰지 않는다 — 무대 의상 + 마이크 + 음표 연출만.
-  {k:'bbb',img:1,e:'🎤',nm:'플레이브 코스프레 배불배불',sn:'배불배불',tag:'무대 위의 병아리',q:'한 곡만 더 부르고 갈게요',ds:'「플레이브 코스프레」 — 무대 의상에 마이크를 든 병아리. 박자 감각으로 모든 무기 쿨타임 -8%. 🎤 플레이브 노래부르기(고유 무기 · 4박자 한 소절: 음표를 쏘고 마지막 박엔 큰 고음이 울린다) 시작.',w:'sing',cdr:.08,un:{t:'처치 누적 20,000',ok:p=>p.kills>=20000,pr:p=>`${Math.min(p.kills,20000).toLocaleString('ko-KR')}/20,000 · 판이 끝나면 합산`}},
+  {k:'bbb',img:1,e:'🎤',nm:'플레이브 코스프레 배불배불',sn:'배불배불',tag:'무대 위의 병아리',q:'한 곡만 더 부르고 갈게요',ds:'「박자 감각」 — 무대 의상에 마이크를 든 병아리. 모든 무기 쿨타임 -8%. 🎤 플레이브 노래부르기(고유 무기 · 4박자 한 소절: 음표를 쏘고 마지막 박엔 큰 고음이 울린다) 시작.',w:'sing',cdr:.08,shop:1,un:SHOPUN_SV},
   // ── 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 "일러스트가 구현되어 있는 신림·또뀨·태웅·용조련사 플레이어블로도 — 해금 조건 알아서"
   //   해금 = 그 보스를 판에서 처치(처치한 순간 저장 · 로그인하면 서버 해금 목록으로 기기 간 이어짐). 그림이 있어 ??? 로 가리지 않는다(REVEAL 과 무관).
   //   k 는 BOSS 키·봇 P6_UNLOCK_KEYS 와 같다. 대사는 봇 RAID_BOSSES 의 spawn(선택 화면 한 줄 = BOSS[k].sp0)·win/dead(결과 말풍선).
@@ -630,7 +635,7 @@ function renderRoster(){const pg=getProg();const box=$('roster'),bx=$('bossRoste
     else{b.className='rc'+(c===CH?' on':'')+(ok?'':' lock');
       if(!hid&&c.img){b.appendChild(artEl(c));if(c.bdg&&ok)b.appendChild(bdgEls(c));b.insertAdjacentHTML('beforeend',`${esc(c.nm)}<small>${ok?c.tag:esc(c.un.t)}</small>`);if(!ok)b.classList.add('art-lock');}
       else b.innerHTML=hid?`<span class="e">🔒</span>???<small>${met?'조건 달성 · 공개 준비 중':esc(c.un.t)}</small>`:`<span class="e">${ok?c.e:'🔒'}</span>${c.nm}<small>${ok?c.tag:c.un.t}</small>`;}
-    b.onclick=()=>{$('chDesc').innerHTML=hid?`🔒 <b>???</b> — ${met?'해금 조건 달성! 캐릭터 공개를 기다려 주세요.':`해금: ${esc(c.un.t)} (${c.un.pr(pg)})`}<br><span class="muted">곧 공개될 클랜원 캐릭터예요.</span>`:ok?chDesc(c):`🔒 <b>${c.e} ${esc(c.nm)}</b> — 해금: ${esc(c.un.t)} (${c.un.pr(pg)})<br>${c.ds}`;
+    b.onclick=()=>{$('chDesc').innerHTML=hid?`🔒 <b>???</b> — ${met?'해금 조건 달성! 캐릭터 공개를 기다려 주세요.':`해금: ${unTxt(c)} (${c.un.pr(pg)})`}<br><span class="muted">곧 공개될 클랜원 캐릭터예요.</span>`:ok?chDesc(c):`🔒 <b>${c.e} ${esc(c.nm)}</b> — 해금: ${unTxt(c)} (${c.un.pr(pg)})<br>${c.ds}`;
       if(ok){CH=c;try{localStorage.setItem(CK,c.k);}catch(e){}if(hasArt(c))charImg(c);renderRoster();}};
     (c.boss?bx:box).appendChild(b);}
   $('chDesc').innerHTML=chDesc(CH);}
@@ -770,7 +775,7 @@ const WEAP={
   pcards:{only:'bgb',rl:'고유 · 회전 부채꼴',ic:'📸',nm:'플레이브 포토카드',pair:'luck',ev:{ic:'✨',nm:'팬싸인회',ds:'뒤쪽으로도 카드가 날아간다 — 카드 +3 · 피해 1.15배 · 더 자주'},
     ds:['가까운 적에게 포토카드 4장을 부채꼴로 날린다 — 빠르게 회전하며 맞은 적을 밀쳐 낸다(보스는 안 밀리고 느려진다 · 배고배고 전용)','카드 +1','피해 +40%','카드 +1 · 쿨타임 -15%','피해 +40%','사거리 +20%','카드 +1','피해 +50% · 쿨타임 -10%']},
   // 🎤 [2026-10-08 사장님 지시] 배불배불 전용 — 4박자 한 소절(1·2·3박 ♪ 음표 · 4박 ♬ 고음). 짝 패시브 📚 공부(경험치 +8% — 약한 패시브에 칸을 쓰는 게 각성값). 수치는 U3.sing
-  sing:{only:'bbb',rl:'고유 · 박자 나선',ic:'🎤',nm:'플레이브 노래부르기',pair:'study',ev:{ic:'🎶',nm:'앙코르 무대',ds:'소절이 끝나면 곧바로 반대 방향으로 한 번 더 부른다(앙코르 · 피해 75%) — 피해 1.15배 · 고음 범위 1.15배 · 더 자주'},
+  sing:{only:'bbb',rl:'고유 · 박자 나선',ic:'🎤',nm:'플레이브 노래부르기',pair:'study',ev:{ic:'🎶',nm:'앙코르 무대',ds:'반대로 한 번 더 부른다(앙코르 · 피해 75%) · 피해·범위 +15% · 더 자주'},
     ds:['노래 한 소절은 4박자 — 1·2·3박은 가까운 적에게 음표 2개씩 쏘고, 4박은 가장 센 적에게 큰 고음이 울려 퍼진다 · 음표가 많이 맞을수록 고음이 세지고, 맞은 적은 넋을 잃고 느려진다(배불배불 전용)','음표 +1(박마다 3개)','피해 +35%','나선 — 박자마다 다음으로 가까운 적을 돌아가며 겨냥 · 박자 -15%(더 빠르게) · 쿨타임 -10%','피해 +35%','고음 범위 +25% · 울림 간격 -35% · 음표 사거리 +15%','음표 +1(박마다 4개)','음표 관통 +1 · 넋 잃음 +0.3초 · 쿨타임 -10%']},
 };
 const PASS={
@@ -1082,7 +1087,7 @@ const AU=(()=>{
       case 'chain':noise(.08,.1,6500);tone('sawtooth',500,900,.12,.04);break;
       case 'ram':noise(.12,.18,2600);tone('sawtooth',200,520,.14,.06);break;
       // 🎤 플레이브 노래부르기 — 박마다 음이 오르는 짧은 가락(소절마다 돌아가는 세 가지 · 모두 도·레·미·솔·라 펜타토닉 · 어떤 곡의 선율도 아니다). a = 박(0~3) + 10 × 가락 번호(0~2) · 4박(고음)은 길고 화음이 얹힌다
-      case 'sing':{const ph=((a|0)/10)|0,b=(a|0)%10,PP=[[0,4,7,12],[2,7,9,14],[-3,2,4,9]][ph]||[0,4,7,12],f=523.25*Math.pow(2,PP[b]/12),hi=b===3;
+      case 'sing':{const ph=((a|0)/10)|0,b=(a|0)%10,PP=[[0,5,9,12],[2,7,9,14],[-3,2,4,9]][ph]||[0,5,9,12],f=523.25*Math.pow(2,PP[b]/12),hi=b===3;
         tone('triangle',f,f*1.012,hi?.26:.12,hi?.085:.06);tone('sine',f*2,f*2,hi?.2:.09,hi?.04:.025,now+.01);if(hi)tone('sine',f*1.5,f*1.5,.22,.03,now+.03);break;}
       case 'beat':{const hi=a?1:0;tone('sine',hi?880:440,hi?880:420,hi?.12:.06,hi?.09:.06);if(hi)tone('triangle',1320,1320,.1,.04);break;}
     }

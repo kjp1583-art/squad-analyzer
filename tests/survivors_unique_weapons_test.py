@@ -40,7 +40,7 @@ async def main():
           o.locked=['yumi','eom'].map(k=>x.canPick(x.CHARS.find(c=>c.k===k),pg));
           x.CH_set('yumi');x.start();o.fallback=x.CH.k;x.S&&0;
           x.srvUnl(['yumi']);o.yumi=x.canPick(x.CHARS.find(c=>c.k==='yumi'),pg);o.eom=x.canPick(x.CHARS.find(c=>c.k==='eom'),pg);
-          x.srvUnl(['yumi','eom']);o.both=['yumi','eom'].map(k=>x.canPick(x.CHARS.find(c=>c.k===k),pg));
+          x.srvUnl(['yumi','eom','bbb']);o.both=['yumi','eom'].map(k=>x.canPick(x.CHARS.find(c=>c.k===k),pg));
           x.CH_set('eom');x.start();o.start=x.CH.k+':'+Object.keys(x.S.w);return o}""")
         check('상점 캐릭터: 서버 목록 없으면 잠김(로컬 저장소를 고쳐도) · 시작해도 브장신으로 되돌아감', r['locked'] == [False, False] and r['fallback'] == 'brj', r)
         check('서버 unlocks 에 있는 캐릭터만 열림', r['yumi'] and not r['eom'] and r['both'] == [True, True] and r['start'] == 'eom:eom', r)
