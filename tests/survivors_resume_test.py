@@ -366,7 +366,7 @@ async def sec_fidelity(b, srv):
         if r and r['dqN']: DQN.append(r['dqN'])
         if r and r['rep']: REPS.append(r['rep'])
     # 풀마다 '그 풀이 채워진 순간'에 저장 → 복구 → 같은 상태인지(갈고리·로켓·병아리·장판 같은 짧게 떠 있는 풀도 빠뜨리지 않는다)
-    covered = {}; names = await A.evaluate("()=>Object.keys(__R.pools).filter(n=>!__COS.has(n))"); badp = []
+    covered = {}; names = await A.evaluate("()=>Object.keys(__R.pools).filter(n=>!['texts','bubs','bolts','snps'].includes(n))"); badp = []
     sweep = [(l, sp) for l, sp in cases if l.startswith('무기:') or l.startswith('유물:')]
     for ch in chars: sweep.insert(0, ('캐릭터:' + ch, rand_spec(M, rng, ch, 'n', t0=rng.choice([600, 1200, 2000]), full=True)))
     for label, sp in sweep:
@@ -448,7 +448,10 @@ async def sec_pending(b, srv):
     B1 = await C.page(); B2 = await C.page(); await B1.reload(); await B2.reload()
     await B1.wait_for_function('window.__R!==undefined'); await B2.wait_for_function('window.__R!==undefined')
     r1 = await B1.evaluate("()=>{const ok=__R.RES.restore();return [ok,__R.state]}"); r2 = await B2.evaluate("()=>{const ok=__R.RES.restore();return [ok,__R.state]}")
-    check('같은 저장본을 두 창이 이어받을 수 없다(먼저 한 창만 성공)', (r1[0], r2[0]) == (True, False), (r1, r2))
+    # (먼저 이어받은 창이 숨김 이벤트로 다시 저장해 두 번째 창도 성공할 수 있다 — 그래도 판을 쥔 창은 끝내 하나뿐이어야 한다)
+    for pgx in (B1, B2): await pgx.evaluate("()=>{dispatchEvent(new Event('focus'));}")
+    alive = [await pgx.evaluate("()=>__R.state!=='title'") for pgx in (B1, B2)]
+    check('같은 저장본을 두 창이 동시에 이어갈 수 없다(판을 쥔 창은 하나뿐 · 나머지는 닫힘)', r1[0] is True and sum(alive) == 1, (r1, r2, alive))
     await B1.close(); await B2.close()
     check('스크립트 오류 없음', not C.errs, C.errs[:5]); await C.close()
 
@@ -733,7 +736,7 @@ async def sec_misc(b, srv):
     print('\n── 사. 두 창 · 저장 시점 · 저장 시간 · 비밀 · 오늘의 도전 · 제목 화면 UI ──', flush=True)
     # 저장 시점
     C = await Ctx(b, srv.port, seed=21).open(); A = await C.page()
-    await A.evaluate(FORGE, dict(ch='brj', t0=300)); await A.evaluate("()=>{__run(20,0)}")
+    await A.evaluate(FORGE, dict(ch='brj', t0=100, lv=10)); await A.evaluate("()=>{__run(20,0)}")   # (레벨업 카드가 안 뜨게 경험치 필요량을 막아 둔다 — 카드가 뜨는 순간은 일부러 저장하는 시점이다)
     s0 = await A.evaluate("()=>[__R.RES.info.saves,localStorage.getItem('p6_resume_v1')]")
     await A.evaluate("()=>{__run(40,0)}"); s1 = await A.evaluate("()=>[__R.RES.info.saves,localStorage.getItem('p6_resume_v1')]")
     check('판이 도는 동안에는(주기 저장 없음) 저장하지도, 저장본이 남아 있지도 않다', s0[1] is None and s1[1] is None and s1[0] == s0[0], (s0[0], s1[0]))
@@ -857,8 +860,15 @@ async def sec_misc(b, srv):
     await A.click('#resNoteX'); check('닫으면 숨는다', await A.evaluate("()=>document.getElementById('resNote').hidden"))
     await A.reload(); await A.wait_for_function('window.__R!==undefined')
     check('닫은 뒤에는 다시 열어도 안 뜬다(한 번만)', await A.evaluate("()=>document.getElementById('resNote').hidden"))
+    check('(닫기 기록은 x=1 로 남는다)', json.loads(await A.evaluate("()=>localStorage.getItem('p6_iab_tip')")).get('x') == 1)
     await A.evaluate("()=>{__R.CH_set('brj');__R.start();}"); check('(안내가 게임 시작을 막지 않는다)', await A.evaluate("()=>__R.state") == 'play')
     await C.close()
+    C = await Ctx(b, srv.port, seed=30, ua=UAK, mobile=True, w=390, h=800).open(); A = await C.page()
+    check('[카톡 내장 브라우저] 안내가 떴다(닫지는 않음)', not await A.evaluate("()=>document.getElementById('resNote').hidden"))
+    await A.reload(); await A.wait_for_function('window.__R!==undefined')
+    check('닫지 않아도 같은 날 다시 열면 또 안 뜬다(하루 한 번만)', await A.evaluate("()=>document.getElementById('resNote').hidden"))
+    await A.evaluate("()=>localStorage.setItem('p6_iab_tip',JSON.stringify({t:Date.now()-25*3600*1000,x:0}))"); await A.reload(); await A.wait_for_function('window.__R!==undefined')
+    check('하루가 지났고 닫은 적이 없으면 다시 한 번 뜬다', not await A.evaluate("()=>document.getElementById('resNote').hidden")); await C.close()
     C = await Ctx(b, srv.port, seed=27, ua=UAS, mobile=True, w=390, h=800).open(); A = await C.page()
     check('[일반 사파리] 안내가 안 뜬다', await A.evaluate("()=>document.getElementById('resNote').hidden")); await C.close()
     C = await Ctx(b, srv.port, seed=28, ua=UAK, mobile=True, w=390, h=800).open(); A = await C.page()

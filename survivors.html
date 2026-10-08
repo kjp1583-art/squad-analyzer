@@ -3528,10 +3528,10 @@ const RES=(()=>{
     // 안내 한 줄: 저장 불가 > 앱 내장 브라우저(한 번만 · 닫으면 다시 안 보임). 게임을 시작하면 사라진다
     if(state==='title'&&!noteShown){let txt='',kind='';
       if(info.ok===false){txt='⚠ 이 화면에서는 판 저장이 안 돼요. 다른 앱에 다녀오면 판이 사라질 수 있어요. 사파리나 크롬에서 열어 주세요.';kind='nosave';}
-      else if(!h&&IAB.test(navigator.userAgent||'')){let seen=false;try{seen=!!localStorage.getItem(TIPK);}catch(e){}
-        if(!seen){txt='💡 지금 앱 안의 작은 창으로 열려 있어요. 이런 창은 다른 앱에 다녀오면 게임이 꺼질 수 있어요. 오른쪽 위 ⋯ 메뉴에서 “다른 브라우저로 열기”를 누르면 더 안정적이에요. (그래도 꺼지면 “이어하기”로 되살릴 수 있어요)';kind='iab';}}
+      else if(!h&&IAB.test(navigator.userAgent||'')){let seen=false;try{const o=JSON.parse(localStorage.getItem(TIPK)||'null');seen=!!(o&&(o.x||Date.now()-o.t<24*3600*1000));}catch(e){}   // 닫았으면 다시 안 보이고, 안 닫아도 하루에 한 번만
+        if(!seen){try{localStorage.setItem(TIPK,JSON.stringify({t:Date.now(),x:0}));}catch(e){}txt='💡 지금 앱 안의 작은 창으로 열려 있어요. 이런 창은 다른 앱에 다녀오면 게임이 꺼질 수 있어요. 오른쪽 위 ⋯ 메뉴에서 “다른 브라우저로 열기”를 누르면 더 안정적이에요. (그래도 꺼지면 “이어하기”로 되살릴 수 있어요)';kind='iab';}}
       if(txt){noteShown=true;note.hidden=false;note.dataset.kind=kind;$('resNoteTxt').textContent=txt;$('resNoteCopy').hidden=kind!=='iab';}}}
-  function noteClose(){const n=$('resNote');n.hidden=true;if(n.dataset.kind==='iab'){try{localStorage.setItem(TIPK,String(Date.now()));}catch(e){}}}
+  function noteClose(){const n=$('resNote');n.hidden=true;if(n.dataset.kind==='iab'){try{localStorage.setItem(TIPK,JSON.stringify({t:Date.now(),x:1}));}catch(e){}}}
   function iabCopy(){const u=location.href.split('#')[0];
     const done=()=>say('링크를 복사했어요. 사파리나 크롬 주소창에 붙여 넣어 주세요.');
     try{navigator.clipboard.writeText(u).then(done,()=>say('링크를 복사하지 못했어요. 주소창의 주소를 길게 눌러 복사해 주세요.'));}catch(e){say('링크를 복사하지 못했어요. 주소창의 주소를 길게 눌러 복사해 주세요.');}}
