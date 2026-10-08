@@ -20,11 +20,11 @@ window.__adv=function(sec,opt){opt=opt||{};const x=window.__p6x,dt=opt.dt||1/30,
   x.update(dt);}
  return x.state;};
 """
-def make_copy(src='survivors.html', dst='survivors_x.html', root=ROOT):
+def make_copy(src='survivors.html', dst='survivors_x.html', root=ROOT, extra=''):
     s = open(os.path.join(root, src), encoding='utf-8').read()
     m = re.search(r"window\.__p6=\{[^\n]*\};", s)
     assert m, '기존 __p6 훅을 못 찾음'
-    s = s.replace(m.group(0), m.group(0) + '\n' + HOOK).replace('const INV_CAP=.80;', 'let INV_CAP=.80;')   # 임시 사본에서만 상한을 바꿔 볼 수 있게
+    s = s.replace(m.group(0), m.group(0) + '\n' + HOOK + extra).replace('const INV_CAP=.80;', 'let INV_CAP=.80;')   # 임시 사본에서만 상한을 바꿔 볼 수 있게
     p = os.path.join(root, dst); open(p, 'w', encoding='utf-8').write(s); return p
 class Srv:
     def __init__(self, root=ROOT, port=0):

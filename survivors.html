@@ -176,6 +176,17 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .tg0{--tc:#4CAF50}.tg1{--tc:#FFB347}.tg2{--tc:#64B5F6}.tg3{--tc:#BA68C8}.tg4{--tc:#EF5350}
 @media (max-height:480px){.pnsum{position:static}.pnbox{max-height:calc(100vh - 12px)}.pnov{padding:6px}}
 @media (prefers-reduced-motion:reduce){.pnchev{transition:none}}
+/* 🔁 [2026-10-08 사장님 지시] 이어하기 카드·안내 */
+.rescard{text-align:left;background:linear-gradient(180deg,#24305a,#1a2142);border:1px solid #4a6ad0;border-radius:12px;padding:10px 12px;margin:6px 0 8px;box-shadow:0 0 0 1px rgba(79,179,255,.18)}
+.rescard[hidden],.resmsg[hidden],.resnote[hidden],.resnote [hidden]{display:none}
+.rescard .rt{font-weight:700;color:#9fd0ff;font-size:14px}.rescard .rs{font-size:13.5px;margin:3px 0 1px;overflow-wrap:anywhere}
+.rescard .rb{display:flex;gap:8px;margin:6px 0 4px}.rescard .rb .btn{margin:0;min-height:44px;padding:8px 10px;font-size:15px}#resGo{flex:2}#resDel{flex:1;font-size:13px}
+.rescard.flash{animation:resflash 1.1s ease-in-out 3}@keyframes resflash{50%{box-shadow:0 0 0 3px rgba(255,214,102,.85)}}
+.resmsg{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:4px 0 6px;font-size:13px;font-weight:700;color:#f5d58a}
+.resnote{text-align:left;background:#1d2440;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:4px 0 6px;font-size:12.5px;color:var(--sub);line-height:1.5}
+.resnote .rnb{display:flex;gap:6px;margin-top:6px}.resnote .btn{width:auto;margin:0;padding:6px 12px;font-size:13px;min-height:44px}
+@media (max-width:480px){#title.hasres .key{max-height:36vh}}
+@media (max-height:520px){#title.hasres .key{max-height:26vh;overflow:visible}#title.hasres .pnopen{right:auto;bottom:auto;left:calc(100% + 10px);top:50%;transform:translateY(-50%);white-space:nowrap}}   /* 가로 화면(폰을 눕힘): 키아트를 낮춰 이어하기 카드가 아래 붙은 시작 버튼에 안 가린다 */
 </style>
 </head>
 <body>
@@ -193,6 +204,11 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 <div class="ov on" id="title"><div class="box">
   <div class="key"><a class="lab" href="./" style="text-decoration:none">← SQUAD.GG</a><img src="img/survivors_key.webp" width="1254" height="1254" alt="흐접새우 서바이벌 — 안경 쓴 흐접새우가 PC 앞에서 '크큭.. 오늘은 어떤 트롤픽을 해볼까나?'" decoding="async" fetchpriority="high"><button type="button" class="pnopen" id="pnOpen" aria-haspopup="dialog" aria-label="패치노트 열기">🗞 패치노트<span class="pnbadge" id="pnBadge" hidden aria-hidden="true"></span></button></div>
   <h1 class="sr">🦐 흐접새우 서바이벌</h1><div class="tag">흐접새우가 또 트롤픽을 잡았다. 클랜원들은 버텨야 한다.</div>
+  <!-- 🔁 [2026-10-08 사장님 지시] 이어하기 — 하던 판이 남아 있으면 카드로 보여 준다(다른 앱에 다녀오며 브라우저가 페이지를 지운 경우) -->
+  <div class="rescard" id="resCard" hidden><div class="rt">🦐 하던 판이 남아 있어요</div><div class="rs" id="resSum"></div><div class="muted" id="resAgo"></div>
+    <div class="rb"><button class="btn" id="resGo">▶ 이어하기</button><button class="btn g" id="resDel">버리기</button></div><div class="muted">새로 시작하면 이 판은 사라져요</div></div>
+  <div class="resmsg" id="resMsg" hidden role="status"></div>
+  <div class="resnote" id="resNote" hidden><span id="resNoteTxt"></span> <span class="rnb"><button class="btn g" id="resNoteCopy" hidden>링크 복사</button><button class="btn g" id="resNoteX">닫기</button></span></div>
   <div class="muted" id="bestT">최고 기록 없음</div>
   <div class="board" id="board"><b style="color:#ffb089">🏆 순위표 TOP10</b><div class="muted">불러오는 중…</div></div>
   <div class="acct" id="acct"></div>
@@ -534,7 +550,7 @@ const kstDate=()=>new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
 function seedOf(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;}
 function mulberry(a){return function(){a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
 let RSEED=0;
-function RN(k){const d=typeof S!=='undefined'&&S&&S.dly;if(!d)return Math.random();const g=d.rq[k]||(d.rq[k]=mulberry((d.seed^seedOf(k))>>>0));return g();}
+function RN(k){const d=typeof S!=='undefined'&&S&&S.dly;if(!d)return Math.random();let a=d.rq[k];if(a===undefined)a=(d.seed^seedOf(k))>>>0;a=(a+0x6D2B79F5)|0;d.rq[k]=a;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;}   // 🔁 [2026-10-08] mulberry 와 같은 수열 — 함수(클로저) 대신 정수 상태를 S.dly.rq 에 둔다(이어하기가 저장·복구할 수 있게)
 const DLYK='p6_daily_v1';
 function dailyGet(){try{return JSON.parse(localStorage.getItem(DLYK)||'null')||{};}catch(e){return {};}}
 function dailySet(o){try{localStorage.setItem(DLYK,JSON.stringify(o));}catch(e){}}
@@ -553,7 +569,7 @@ function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페�
   location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(DISCORD_CLIENT_ID)
     +'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
 }
-function dcLogout(){SRVUNL.clear();try{localStorage.removeItem('sgg_dc');localStorage.removeItem('sgg_dc_auto');localStorage.removeItem('sgg_dc_try');}catch(e){}ME=null;renderAcct();}
+function dcLogout(){SRVUNL.clear();SRVLOAD=false;try{localStorage.removeItem('sgg_dc');localStorage.removeItem('sgg_dc_auto');localStorage.removeItem('sgg_dc_try');}catch(e){}ME=null;renderAcct();}
 let ME=null,BOARD=null;
 async function api(path,body){const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{};
   const r=await fetch(P6_API+path,o);let j=null;try{j=await r.json();}catch(e){}return j||{ok:false,code:'http'};}
@@ -624,8 +640,8 @@ function setProg(p){try{localStorage.setItem(PK,JSON.stringify(p));}catch(e){}}
 // 👥 클랜원 캐릭터 — 밈은 봇 BRJ_CAMEOS·BRJ_GEAR(사장님 승인분)에서만, 숫자는 시트 STAT_PLAYER·CLASSIC_NORMAL
 // 🍘 [2026-10-07 사장님 지시] 맛동산 상점 캐릭터 — 진행도로는 안 열리고, 서버가 내려준 unlocks(/p6/me · 기록 응답)에 키가 있을 때만 열린다.
 //   SRVUNL 은 메모리에만 둔다(로컬 저장소 getUnl 은 서버 없이도 고칠 수 있으므로 믿지 않는다) — 로그인 안 했거나 서버 목록이 없으면 닫혀 있다.
-const SRVUNL=new Set();
-const srvUnl=a=>{SRVUNL.clear();(a||[]).forEach(k=>SRVUNL.add(String(k)));};
+const SRVUNL=new Set();let SRVLOAD=false;   // SRVLOAD: 서버 구매 목록을 받았는가(이어하기가 상점 캐릭터 판을 되살릴 때 '아직 모름'과 '안 샀음'을 가른다)
+const srvUnl=a=>{SRVUNL.clear();SRVLOAD=true;(a||[]).forEach(k=>SRVUNL.add(String(k)));};
 const SHOPUN={t:'🍘 맛동산 상점에서 1개 — 디스코드 「맛동산상점」',ok:()=>false,pr:()=>dcUser()?'구매하면 열려요':'디스코드 로그인 필요'};
 // 🛒 [2026-10-08 사장님 지시] 흐접새우 상점(봇 「/흐접새우상점」 · 스쿼드 포인트 200P — 내전 1판 1P · 승부예측 · 맛동산과 별개) 캐릭터 — t 는 카드 작은 글씨, dh 는 설명창 문구(고정 마크업 — 명령어가 줄 중간에서 끊기지 않게 nb · 없으면 t)
 const unTxt=c=>c.un.dh||esc(c.un.t);   // 해금 문구(설명창) — dh(고정 마크업)가 있으면 그것, 없으면 t 를 이스케이프해서
@@ -700,7 +716,8 @@ const fmt=s=>{s=Math.floor(s);return String(s/60|0).padStart(2,'0')+':'+String(s
 function showBest(){const b=getBest(),bh=getBest(1),bv=getBest(0,1);$('bestT').textContent=(b?`🏆 최고 기록 ${fmt(b.t)} · 처치 ${b.k} · Lv ${b.lv}`:'최고 기록 없음')+(bh?` · 🔥 하드 ${fmt(bh.t)}`:'')+(bv?` · 💀 베리하드 ${fmt(bv.t)}`:'');}
 
 // ---------- 풀 ----------
-function Pool(n,mk){this.a=[];for(let i=0;i<n;i++){const o=mk();o.on=false;this.a.push(o);}}
+function Pool(n,mk){this.mk=mk;this.a=[];Pool.all.push(this);for(let i=0;i<n;i++){const o=mk();o.on=false;this.a.push(o);}}
+Pool.all=[];   // 🔁 이어하기: 풀 목록이 RES 의 분류와 맞는지 확인하고, 복구 때 칸을 기본값(mk)으로 되돌리는 데 쓴다
 Pool.prototype.get=function(){for(const o of this.a)if(!o.on){o.on=true;return o;}return null;};
 Pool.prototype.clear=function(){for(const o of this.a)o.on=false;};
 const LOW=(navigator.hardwareConcurrency||4)<=4||Math.min(screen.width,screen.height)<420;
@@ -1232,18 +1249,20 @@ function drawMap(){
   cx.textBaseline='alphabetic';
 }
 
+let RUN=null;   // 🔁 이어하기: 지금 판의 신원 {rid,rs,gen} — 저장본의 주인 확인(두 창)에 쓴다
 let S=null,state='title',keys={},joy={on:false,id:null,ox:0,oy:0,dx:0,dy:0};
-function newRun(dly){
-  RSEED=dly?dly.seed:0;RIFT_CACHE.clear();RDEV.clear();   // 🗺 일일 도전은 같은 날 같은 맵 — 바닥 조각 난수에 시드를 섞고 캐시를 비운다
-  enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
-  rangs.clear();rkts.clear();pets.clear();hooks.clear();frs.clear();holes.clear();snps.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();allies.clear();cans.clear();FX.reset();EX.reset();for(const a of allies.a)a.tg=null;bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
-  S={t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
+function makeS(dly){return {t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
      p:{x:0,y:0,r:16,hp:100+(CH.hp||0),mhp:100+(CH.hp||0),sp:180,face:1,inv:0,moving:false,slow:0,slowG:'📜',stun:0,yt:0,yvx:0,yvy:0,mdx:1,mdy:0},   // mdx/mdy 마지막으로 움직인 방향(🔥 브레스·💨 돌진)
      w:{[CH.w]:CH.wl||1},ps:{},ev:{},seen:{},midKill:0,bossKill:0,bossN:0,nextBoss:300,nextMini:150,nextSp:2280,miniN:0,bigT:300,bigSeen:0,evT:75,evN:0,revUsed:0,ramen:0,tier:{},tk:{},pt:{},rel:{},tr:{},sm:{},hc:0,leechT:0,stillT:0,shield:0,spr:0,stT:0,pulseT:0,relT:0,magT:0,dq:[],
      cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,cardW:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
      sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{},   // tcd 💬 도발 대사 종류별 다음 허용 시각
      newU:[],staffT:5,slowR:0,proomT:6,proom:{x:0,y:0,R:0,t:0,tk:0},dashCd:0,br:{a:0,R:0,w:0,t:0,ev:0},
-     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9};   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
+     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9};}   // 🔁 [2026-10-08] 새 판의 S 기본값 — 이어하기가 복구할 때 이 위에 저장값을 얹는다(새로 생긴 필드가 기본값을 받는다)
+function newRun(dly){
+  RSEED=dly?dly.seed:0;RIFT_CACHE.clear();RDEV.clear();   // 🗺 일일 도전은 같은 날 같은 맵 — 바닥 조각 난수에 시드를 섞고 캐시를 비운다
+  enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
+  rangs.clear();rkts.clear();pets.clear();hooks.clear();frs.clear();holes.clear();snps.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();allies.clear();cans.clear();FX.reset();EX.reset();for(const a of allies.a)a.tg=null;bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
+  S=makeS(dly);   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
@@ -1287,7 +1306,7 @@ function renderDaily(){const el=$('dailyInfo');if(!el)return;const d=kstDate(),d
   const u=dcUser();
   el.innerHTML=`📅 ${esc(d.slice(5))} 오늘의 도전 — 날짜로 정해진 같은 시드(맵·카드 뽑기·상자·몰이 이벤트) · 빌드 제한 없음 · <b>하루 한 판</b>만 기록돼요`+(done?` · ✅ 오늘 기록 완료${ds.date===d&&ds.t?' '+fmt(ds.t):''}`:u?'':' · 로그인해야 기록돼요(안 하면 연습)');
   $('dailyBtn').textContent=done?'📅 오늘의 도전 연습하기(기록 안 됨)':'📅 오늘의 도전 시작';}
-function start(o){endAskHide();const daily=!!(o&&o.daily===true);
+function start(o){if(!RES.confirmStart())return;endAskHide();const daily=!!(o&&o.daily===true);
   if(CH.shop&&!SRVUNL.has(CH.k))CH=CHARS[0];   // 🍘 서버 구매 없이는 상점 캐릭터로 시작 못 한다
   AU.init();AU.reset();AU.music(true);if(hasArt(CH))charImg(CH);
   if(daily){VH_ON=false;HARD_ON=false;}   // 오늘의 도전은 일반 규칙 한 가지 — 저장해 둔 하드·베리하드 선택은 건드리지 않는다
@@ -1296,7 +1315,7 @@ function start(o){endAskHide();const daily=!!(o&&o.daily===true);
   if(daily){const date=kstDate(),ds=dailyGet(),done=(ds.date===date)||(ME&&ME.daily_done&&ME.daily_date===date),ranked=!!dcUser()&&!done;
     if(ranked)dailySet({date,ranked:1,done:0,ts:Date.now()});   // 기록하는 판은 시작할 때 소모된다(중간에 나가도 오늘은 끝)
     dly={date,seed:seedOf('p6-daily-'+date),ranked,rq:{}};}
-  LASTDLY=daily;newRun(dly);
+  LASTDLY=daily;newRun(dly);RES.begin();
   if(dly)banner(dly.ranked?`📅 오늘의 도전 ${dly.date.slice(5)} — 이 판이 기록돼요`:`📅 오늘의 도전 ${dly.date.slice(5)} — 연습 판(기록 안 됨)`,dly.ranked?'하루 한 판 · 같은 시드':'로그인 전이거나 오늘 이미 도전했어요',1);
   state='play';show(null);$('hud').style.display='block';last=performance.now();}
 function endAskShow(){if(!S||S.dly||S.endless||!S.won)return;$('endAskTxt').textContent=(S.vh?'💀 베리하드 ':S.hard?'🔥 하드 ':'')+'60분 클리어! 무한 모드로 진입하시겠습니까?';$('endAsk').classList.add('on');}
@@ -1325,11 +1344,11 @@ function buildHtml(){
 const SRCN={drg:'🐲 용 변신',char:'🐲 캐릭터 능력',item:'💣 폭탄',kog:'💥 코그모 역이용',rel:'🏺 유물'};
 function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)return '';   // 📊 무기별 피해 비중 — 내 빌드에서 뭐가 일하는지
   const rows=Object.entries(S.dmgBy).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  return `<b>📊 피해 비중</b><div class="bw">${rows.map(([k,v])=>`${WEAP[k]?(S.ev[k]?WEAP[k].ev.ic:WEAP[k].ic)+' '+WEAP[k].nm:SRCN[k]||k} <b>${Math.round(v/t*100)}%</b>`).join(' · ')}</div>`;}
-function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');}
-function resume(){if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();}
+  return `<b>📊 피해 비중</b><div class="bw">${rows.map(([k,v])=>`${WEAP[k]?(S.ev[k]?WEAP[k].ev.ic:WEAP[k].ic)+' '+WEAP[k].nm:SRCN[k]||esc(k)} <b>${Math.round(v/t*100)}%</b>`).join(' · ')}</div>`;}
+function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
+function resume(){if(RES.stale()||RES.shopBad())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
 $('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
-$('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
+$('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');RES.drop();RES.render();};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
 $('chestOk').onclick=()=>{if(state==='chest')resume();};
 
 // ---------- 레벨업 ----------
@@ -1402,13 +1421,13 @@ function drawCards(){
   box.appendChild(x);
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
   $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${Object.keys(S.ps).length}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''}`;}
-function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();}
+function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;
-  const rep=offers(1,CUR.map(x=>x.k).filter(Boolean))[0];CUR[i]=rep;toast(`🚫 ${cardOf(o).nm} 봉인`);drawCards();}
+  const rep=offers(1,CUR.map(x=>x.k).filter(Boolean))[0];CUR[i]=rep;toast(`🚫 ${cardOf(o).nm} 봉인`);drawCards();RES.save('ban');}
 function openLvup(){
   state='lvup';keys={};joy.on=false;joy.dx=joy.dy=0;S.banMode=false;
   CUR=offers(3);drawCards();
-  show('lvup');
+  show('lvup');RES.save('lvup');
 }
 function applyUp(o){
   if(o.t==='w'){S.w[o.k]=(S.w[o.k]||0)+1;synCalc();}
@@ -1477,7 +1496,7 @@ function openChest(){
   S.rr++;res.push(`<div class="cr">🎲 <b>다시 뽑기 +1</b><small>레벨업 카드가 마음에 안 들면 다시 뽑아요 (지금 ${S.rr}번)</small></div>`);
   $('chestList').innerHTML=res.join('')+(ek?'':`<div class="muted">${evLeft()<=0?`✨ 각성 ${MAXEV}개를 다 썼어요 — 이번 판 빌드 완성!`:nx.length?'':`각성: 무기 Lv8 + 짝 패시브를 갖추고 보스 상자를 열면 무기가 각성해요 (한 판에 ${MAXEV}개까지 · 지금 ${Object.keys(S.ev).length}개).`}</div>`);
   $('chestT').textContent=n===3?'🎁 보스 상자 — 대박! 3개':'🎁 보스 상자 — '+n+'개';
-  show('chest');
+  show('chest');RES.save('chest');
 }
 
 // ---------- 스폰 ----------
@@ -2692,6 +2711,7 @@ function update(dt){
 
 function endRun(won,quit){
   if(state==='result')return;
+  RES.drop();   // 🔁 끝난 판의 저장본은 지운다(되살리면 진행도·처치 수가 두 번 쌓인다)
   state='result';AU.stop();AU.play(won?'win':'lose');S.t=Math.min(S.t,S.endless?END_T:WIN_T);
   const pg=getProg();const before=CHARS.filter(c=>isUnl(c,pg)).map(c=>c.k);
   if(!S.endless){   // ♾ 무한 판은 60분 클리어 때 이미 반영한 진행도(처치·보스·최고 시간)를 다시 더하지 않는다
@@ -3562,6 +3582,340 @@ function frame(now){
 // 첫 화면 — BOSS·pickLine·bossImg(아래쪽 const)가 준비된 뒤에 그린다(🐲 보스 캐릭터 카드가 출현 대사를 쓴다)
 showBest();renderRoster();renderAcct();loadBoard();loadMe();setTimeout(()=>{try{flushUnsent(false);}catch(e){}},2500);if(hasArt(CH))charImg(CH);
 requestAnimationFrame(frame);
+
+// ---------- 🔁 [2026-10-08 사장님 지시] 이어하기 — 하던 판을 저장했다가, 브라우저가 페이지를 지워 다시 불러와도 되살린다 ----------
+//   "흐접새우 게임창이 웹 팝업창으로 열리는데, 정지시키고 다른 화면에 다녀오면 게임이 꺼지고 키아트 화면으로 돌아가 있다"
+//   원인: 폰은 숨겨진 페이지를 메모리가 모자라면 말없이 지운다(그때는 이벤트도 없다). 판은 메모리(S·풀)에만 있었다.
+//   ① 저장: 화면이 숨겨질 때(visibilitychange·pagehide·freeze)와 일시정지·레벨업·보스 상자 순간에 S·풀을 '일반 그래프 직렬화'로 localStorage 한 칸에 동기 저장
+//   ② 복구: 새로 연 제목 화면의 이어하기 카드 → 일시정지 상태로 되살린다(계속하기를 눌러야 시간이 흐른다 · 소리도 그 탭 뒤에)
+//   ③ 판 도중(play)에는 저장본이 없다 — 복구하면 소모, 계속하기를 누르면 삭제. 사망·클리어·그만두기·새 판에서도 지운다(앱을 강제 종료해 되감기하는 길을 막는다)
+//   필드를 손으로 나열하지 않는다: S 와 풀을 그대로 걸어서 저장하므로 새 필드는 자동으로 들어간다.
+//   저장 못 하는 값(함수·DOM·Image)이 새로 생기면 저장을 거부하고 시험(tests/survivors_resume_test.py)이 실패한다.
+//   잃는 것(일부러): S.dq(0.3~0.6초 뒤에 나갈 지연 타격 — 함수라 저장 불가) · 떠오르는 피해 숫자·말풍선·번개/저격 자국·입자(눈요기)
+const RES=(()=>{
+  const FMT=1,KEY='p6_resume_v1',LIVEK='p6_resume_live',TIPK='p6_iab_tip',TTL=12*3600*1000;
+  const POOL={enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,snps,bolts,waves,puds,clouds,allies,cans,bubs},PN=Object.keys(POOL);
+  const COSMETIC=new Set(['texts','bubs','bolts','snps']);                 // 눈요기뿐인 풀 — 저장하지 않고 복구 때 비운다
+  const SKIP_S=new Set(['live','tk','syn','synOn','sushi','auraR']);       // 다시 계산하는 파생값(복구 때 tkCalc·synCalc·update 가 채운다)
+  const REPLACE_S=['w'];                                                   // 기본값 위에 합치지 않고 저장본으로 통째로 바꾸는 필드(보유 무기: 기본값이 캐릭터마다 다르다)
+  const EXPECT_FN='S.dq[].f';                                              // 알고 버리는 함수(지연 발동 큐) — 이 밖의 함수·DOM 이 상태에 생기면 저장을 거부한다
+  const TA={Float32Array:1,Float64Array:1,Int32Array:1,Uint32Array:1,Int16Array:1,Uint16Array:1,Int8Array:1,Uint8Array:1,Uint8ClampedArray:1};
+  const IAB=/KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|FBIOS|NAVER\(inapp|DaumApps|\bLine\/|Discord/i;   // 앱 안의 작은 브라우저(UA 에 표지가 있는 것)
+  const isIab=ua=>{ua=ua||'';if(IAB.test(ua))return true;
+    if(/; wv\)/.test(ua))return true;                                                              // 안드로이드 웹뷰(앱이 자기 안에 띄운 브라우저)
+    return /\b(iPhone|iPad|iPod)\b/.test(ua)&&/Mobile\//.test(ua)&&!/Safari\//.test(ua)&&!navigator.standalone;};   // 아이폰 웹뷰(사파리 표지가 없다 · 홈 화면에 추가한 앱은 제외). 크롬 커스텀 탭 같은 표지 없는 내장창은 못 알아본다
+  const info={ok:null,saves:0,fails:0,skipped:0,ms:0,len:0,rep:null,why:'',poolsOk:null,lastSave:0};
+  let quiet=false,warned=false,lastKey='',noteShown=false,msgT=0,STATIC=null,SIG='',armedAt=0;
+  const isDom=v=>(typeof Node!=='undefined'&&v instanceof Node)||(typeof CanvasRenderingContext2D!=='undefined'&&v instanceof CanvasRenderingContext2D)||(typeof CanvasPattern!=='undefined'&&v instanceof CanvasPattern)||(typeof CanvasGradient!=='undefined'&&v instanceof CanvasGradient)||(typeof Window!=='undefined'&&v instanceof Window);
+  const isPO=v=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.getPrototypeOf(v)===Object.prototype;
+  const eqv=(a,b)=>{if(a===b)return true;if(typeof a==='number'&&typeof b==='number')return a!==a&&b!==b;
+    if(Array.isArray(a)&&Array.isArray(b)){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(!eqv(a[i],b[i]))return false;return true;}return false;};
+  // ① 정적 표(KIND·BOSS·…)에서 그대로 가져온 객체/배열은 '경로'로 저장한다(예: 적의 acc 는 KIND[i].acc 와 같은 배열 — 복사본을 만들면 정체성이 갈라지고 용량만 는다)
+  //    표의 경로 목록은 저장 서명(SIG)이기도 하다 — 표에 항목이 끼어들거나 빠진 배포 뒤에는 옛 저장본을 쓰지 않는다(인덱스로 맞물린 표가 조용히 어긋나는 것을 막는다)
+  const TABLES={KIND,BOSS,WEAP,PASS,REL,TRD,SM,CO,TIERS,PT,SYN,CHARS,PROP,PICK};
+  function buildStatic(){STATIC=new Map();const seen=new Set(),paths=[];
+    const walk=(v,p,d)=>{if(!v||typeof v!=='object'||d>4||seen.has(v))return;seen.add(v);if(isDom(v)||ArrayBuffer.isView(v))return;STATIC.set(v,p);paths.push(p);
+      if(Array.isArray(v))v.forEach((x,i)=>walk(x,p+'.'+i,d+1));else for(const k of Object.keys(v))walk(v[k],p+'.'+k,d+1);};
+    for(const n in TABLES)walk(TABLES[n],n,0);
+    SIG=FMT+':'+seedOf(paths.join('|')+'#'+PN.join(','))+':'+paths.length;}
+  const byPath=p=>{const a=p.split('.');let v=TABLES[a[0]];for(let i=1;i<a.length;i++){if(v==null)throw new Error('static '+p);v=v[a[i]];}if(v==null)throw new Error('static '+p);return v;};
+  // ② 일반 그래프 → JSON(손으로 나열하지 않는다). slotOf: 풀 칸이면 [풀이름,번호], statOf: 정적 표면 경로
+  function makeEnc(slotOf,statOf){
+    const rep={fn:[],dom:[],proto:[],undef:[],nonfinite:0,ids:0},cnt=new Map(),idOf=new Map();let nid=0;
+    const norm=p=>p.replace(/\[\d+\]/g,'[]');
+    function count(v){if(!v||typeof v!=='object'||slotOf(v)||statOf(v)||isDom(v))return;const c=(cnt.get(v)||0)+1;cnt.set(v,c);if(c>1)return;
+      if(Array.isArray(v)){for(const x of v)count(x);}else if(v instanceof Map){for(const [k,x] of v){count(k);count(x);}}else if(v instanceof Set){for(const x of v)count(x);}
+      else if(ArrayBuffer.isView(v)){}else for(const k in v)count(v[k]);}
+    function num(v){if(v!==v){rep.nonfinite++;return {$n:'NaN'};}if(v===Infinity){rep.nonfinite++;return {$n:'Inf'};}if(v===-Infinity){rep.nonfinite++;return {$n:'-Inf'};}if(v===0&&1/v<0)return {$n:'-0'};return v;}
+    function enc(v,path){
+      const t=typeof v;
+      if(v===null)return null;
+      if(t==='number')return num(v);
+      if(t==='string'||t==='boolean')return v;
+      if(t==='undefined'){rep.undef.push(norm(path));return {$u:1};}
+      if(t==='function'){rep.fn.push(norm(path));return undefined;}
+      if(t!=='object'){rep.proto.push(norm(path)+':'+t);return undefined;}   // symbol·bigint
+      if(isDom(v)){rep.dom.push(norm(path));return undefined;}
+      const sl=slotOf(v);if(sl)return {$p:sl};
+      const st=statOf(v);if(st)return {$st:st};
+      const shared=cnt.get(v)>1;if(shared&&idOf.has(v))return {$r:idOf.get(v)};
+      let id;if(shared){id=nid++;idOf.set(v,id);rep.ids++;}
+      let out;
+      if(Array.isArray(v)){const a=new Array(v.length);for(let i=0;i<v.length;i++){const x=enc(v[i],path+'['+i+']');a[i]=x===undefined?null:x;}out=shared?{$id:id,$a:a}:a;}
+      else if(v instanceof Map){const a=[];for(const [k,x] of v)a.push([enc(k,path+'.key'),enc(x,path+'.val')]);out={$m:a};if(shared)out.$id=id;}
+      else if(v instanceof Set){const a=[];for(const x of v)a.push(enc(x,path+'.item'));out={$s:a};if(shared)out.$id=id;}
+      else if(ArrayBuffer.isView(v)){const nm=v.constructor.name;if(!TA[nm]){rep.proto.push(norm(path)+':'+nm);return undefined;}out={$t:nm,d:Array.from(v,num)};if(shared)out.$id=id;}
+      else{const pr=Object.getPrototypeOf(v);if(pr!==Object.prototype&&pr!==null){rep.proto.push(norm(path)+':'+(v.constructor&&v.constructor.name));return undefined;}
+        out={};if(shared)out.$id=id;for(const k in v){const x=enc(v[k],path+'.'+k);if(x!==undefined)out[k]=x;}}
+      return out;}
+    return {count,enc,rep};}
+  function makeDec(slotAt,statAt){
+    const ids=new Map();
+    function dec(v){
+      if(v===null||typeof v!=='object')return v;
+      if(Array.isArray(v))return v.map(dec);
+      if('$n' in v)return v.$n==='NaN'?NaN:v.$n==='Inf'?Infinity:v.$n==='-Inf'?-Infinity:-0;
+      if('$u' in v)return undefined;
+      if('$p' in v)return slotAt(v.$p);
+      if('$st' in v)return statAt(v.$st);
+      if('$r' in v){if(!ids.has(v.$r))throw new Error('ref '+v.$r);return ids.get(v.$r);}
+      if('$a' in v){const a=[];ids.set(v.$id,a);for(const x of v.$a)a.push(dec(x));return a;}
+      if('$t' in v){if(!TA[v.$t])throw new Error('typed '+v.$t);const a=new (self[v.$t])(v.d.map(dec));if('$id' in v)ids.set(v.$id,a);return a;}
+      if('$m' in v){const m=new Map();if('$id' in v)ids.set(v.$id,m);for(const [k,x] of v.$m)m.set(dec(k),dec(x));return m;}
+      if('$s' in v){const s=new Set();if('$id' in v)ids.set(v.$id,s);for(const x of v.$s)s.add(dec(x));return s;}
+      const r={};if('$id' in v)ids.set(v.$id,r);for(const k in v){if(k==='$id')continue;r[k]=dec(v[k]);}return r;}
+    return dec;}
+  // ③ 판 → 문자열
+  const poolsCheck=()=>Pool.all.length===PN.length&&Pool.all.every(p=>PN.some(n=>POOL[n]===p));
+  function slotMap(){const m=new Map();for(const n of PN)POOL[n].a.forEach((o,i)=>m.set(o,[n,i]));return m;}
+  function build(){   // {text,body,head,rep,bad} — 저장할 수 없는 상태면 text 가 null
+    if(!S||!RUN)return {text:null,why:'no-run'};
+    const stt=state==='play'?'pause':state;if(stt!=='pause'&&stt!=='lvup'&&stt!=='chest')return {text:null,why:'state-'+state};
+    if(!STATIC)buildStatic();
+    const slot=slotMap(),E=makeEnc(v=>slot.get(v),v=>STATIC.get(v));
+    const diffs={},lens={},defs={};
+    for(const n of PN){const P=POOL[n];lens[n]=P.a.length;if(COSMETIC.has(n))continue;const d=P.mk();defs[n]=d;diffs[n]=[];   // defs: 저장 당시 풀 칸의 기본값(기본값과 같아 생략한 필드가, 새 버전에서 기본값이 바뀌어도 옛 값으로 복구되도록)
+      P.a.forEach((o,i)=>{if(!o.on)return;const e={};for(const k in o){if(k==='on')continue;if(!(k in d)||!eqv(o[k],d[k]))e[k]=o[k];}diffs[n].push([i,e]);E.count(e);});}
+    const sObj={};for(const k of Object.keys(S))if(!SKIP_S.has(k))sObj[k]=S[k];
+    const dqN=S.dq?S.dq.length:0;sObj.dq=[];                                  // 지연 발동 큐(함수)는 비워서 저장 — 최대 0.6초 분량의 지연 타격만 사라진다
+    const mod={ch:CH.k,state:stt,SN,gemMT,ban:{T:bannerT,S:bannerS,S2:bannerS2,A:bannerA,Q:bannerQ.map(q=>q.slice())}};
+    if(stt==='lvup')mod.CUR=CUR;
+    if(stt==='chest')mod.view={list:$('chestList').innerHTML,title:$('chestT').textContent};
+    E.count(sObj);E.count(mod);
+    const o={v:FMT,lens,defs};o.S=E.enc(sObj,'S');o.pools={};   // 읽는 순서(S → 풀 → mod)와 같은 순서로 내보내야 $r 이 항상 $id 뒤에 온다
+    for(const n of PN){if(COSMETIC.has(n))continue;o.pools[n]=diffs[n].map(([i,e])=>[i,E.enc(e,n+'[]')]);}
+    o.mod=E.enc(mod,'mod');
+    const rep=E.rep;rep.dqDropped=dqN;
+    const bad=rep.fn.filter(p=>p!==EXPECT_FN).concat(rep.dom.map(p=>'dom:'+p),rep.proto.map(p=>'proto:'+p));
+    info.poolsOk=poolsCheck();if(!info.poolsOk)bad.push('pool-list');          // 분류 안 된 새 풀이 생기면 저장을 거부한다(그 풀의 상태를 조용히 잃지 않게)
+    if(bad.length)return {text:null,why:'unsupported',bad,rep};
+    const body=JSON.stringify(o);
+    const head={f:FMT,sig:SIG,rid:RUN.rid,rs:RUN.rs,gen:RUN.gen,ts:Date.now(),st:stt,ch:CH.k,t:Math.floor(S.t),lv:S.lv,k:S.kills,
+      m:S.dly?'d':S.endless?'e':S.vh?'v':S.hard?'h':'n',len:body.length,ck:seedOf(body)};
+    return {text:JSON.stringify(head)+'\n'+body,body,head,rep};}
+  // ④ 저장소 읽기·쓰기(전부 try/catch — 저장이 안 돼도 게임은 평소처럼 돈다)
+  function probe(){try{const k='p6_resume_probe',v='x'.repeat(2048);localStorage.setItem(k,v);const r=localStorage.getItem(k)===v;localStorage.removeItem(k);return r;}catch(e){return false;}}
+  function peek(){let s=null;try{s=localStorage.getItem(KEY);}catch(e){return null;}
+    if(!s)return null;const i=s.indexOf('\n');if(i<2||i>1500)return null;try{const h=JSON.parse(s.slice(0,i));return h&&typeof h==='object'&&!Array.isArray(h)?h:null;}catch(e){return null;}}
+  function drop(force){try{if(!force){const h=peek();if(h&&(!RUN||h.rid!==RUN.rid))return;}localStorage.removeItem(KEY);}catch(e){}}
+  function write(text){
+    try{localStorage.setItem(KEY,text);}
+    catch(e){try{localStorage.removeItem(KEY);localStorage.setItem(KEY,text);}catch(e2){info.fails++;info.why='write:'+(e2&&e2.name||e2);return false;}}   // 용량이 모자라면 옛 저장본을 지우고 한 번 더
+    let back=null;try{back=localStorage.getItem(KEY);}catch(e){}
+    if(back!==text){info.fails++;info.why='verify';try{localStorage.removeItem(KEY);}catch(e){}return false;}   // 반쯤 써졌으면 지운다(반쪽 저장본을 남기지 않는다)
+    return true;}
+  // 두 창이 같은 저장본을 동시에 이어받는 경합: 이어받기 전에 먼저 '표'(CLAIMP+판+세대+무작위값)를 남기고, 같은 세대에 표가 둘 이상이면 무작위값이 작은 창만 산다.
+  // '마지막에 쓴 창이 산다' 대신 크기 비교를 쓰는 이유 — 저장소 쓰기가 창마다 몇 ms 늦게 보여도 두 창이 같은 답(누가 사는가)에 닿는다. 순서가 어긋난 일시적 오판으로 둘 다 닫히는 일이 없다.
+  const CLAIMP='p6_resume_claim:';
+  const newNonce=()=>{try{const a=crypto.getRandomValues(new Uint32Array(2));return a[0].toString(36).padStart(7,'0')+a[1].toString(36).padStart(7,'0');}catch(e){return (Date.now().toString(36)+Math.floor(performance.now()*1000).toString(36)).padStart(14,'0');}};   // (게임 난수 Math.random 은 쓰지 않는다 — 복구가 판의 난수 흐름을 건드리지 않게)
+  function claimsOf(rid,gen){const out=[],pre=CLAIMP+rid+':'+gen+':';try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(pre))out.push(k.slice(pre.length));}}catch(e){}return out;}
+  const liveStale=()=>{if(!RUN)return false;
+    try{const l=JSON.parse(localStorage.getItem(LIVEK)||'null');if(l&&l.rid===RUN.rid&&l.gen>RUN.gen)return true;}catch(e){}
+    if(RUN.gen>0&&RUN.nonce){for(const n of claimsOf(RUN.rid,RUN.gen))if(n<RUN.nonce)return true;}
+    return false;};
+  function claim(h,text){   // 이어받기를 선점한다 — 이미 다른 창이 이어받았으면 'claimed' 를 던진다. 되살리기가 성공한 뒤에야 commit 이 저장본을 지우고 다른 창을 낡게 만든다(실패한 복구가 살아 있는 창을 죽이지 않게)
+    const rid=String(h.rid),gen=(+h.gen||0)+1,nonce=newNonce();
+    try{const l=JSON.parse(localStorage.getItem(LIVEK)||'null');
+      if(l&&l.rid===rid&&l.gen>=gen){try{if(localStorage.getItem(KEY)===text)localStorage.removeItem(KEY);}catch(e){}throw new Error('claimed');}}   // 이 저장본은 낡은 것(이미 이어받은 창이 있다)
+    catch(e){if(e&&e.message==='claimed')throw e;}
+    const cl={rid,gen,nonce,key:CLAIMP+rid+':'+gen+':'+nonce};
+    try{localStorage.setItem(cl.key,String(Date.now()));}catch(e){}
+    if(claimsOf(rid,gen).some(n=>n<nonce)){unclaim(cl);throw new Error('claimed');}   // 같은 순간에 먼저 표를 낸 창(무작위값이 작은 쪽)이 있다
+    return cl;}
+  function unclaim(cl){try{localStorage.removeItem(cl.key);}catch(e){}}
+  function commit(cl,text){   // 되살리기 성공 — 저장본 소모 + 이 세대를 알려 같은 판을 들고 있던 다른 창을 낡게 만든다
+    try{localStorage.setItem(LIVEK,JSON.stringify({rid:cl.rid,gen:cl.gen}));
+      if(localStorage.getItem(KEY)===text)localStorage.removeItem(KEY);
+      const old=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(CLAIMP)){const v=+localStorage.getItem(k)||0;const a=k.split(':');if(Date.now()-v>TTL||(a[1]===cl.rid&&+a[2]<cl.gen))old.push(k);}}
+      old.forEach(k=>localStorage.removeItem(k));}catch(e){}}
+  function stale(){   // 다른 창에서 같은 판을 이어받았으면 이 창의 판은 낡았다 — 닫는다(기록도 안 올린다)
+    if(!S||!RUN||state==='title'||state==='result')return false;
+    let st=liveStale();if(!st){const h=peek();st=!!(h&&h.rid===RUN.rid&&h.gen>RUN.gen);}
+    if(!st)return false;
+    console.info('[이어하기] 다른 창에서 이 판을 이어받았어요 — 이 창의 판은 닫습니다');
+    closeRun('다른 창에서 이어하기를 해서 이 창의 판은 닫혔어요.');
+    return true;}
+  function closeRun(msg){S=null;RUN=null;for(const n of PN)POOL[n].clear();state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();show('title');render();say(msg,6000);}
+  function shopBad(){   // 이어받은 판이 상점 캐릭터인데 구매 목록(서버)에 없으면 계속하기에서 막는다 — 목록을 받기 전에 이어하기를 눌렀을 때의 마지막 확인
+    if(!S||!RUN||!(RUN.gen>0)||!CH.shop||!SRVLOAD||SRVUNL.has(CH.k))return false;
+    console.info('[이어하기] 구매하지 않은 상점 캐릭터의 판 — 닫습니다');drop(true);closeRun('이 캐릭터는 아직 구매 목록에 없어서 이어갈 수 없어요.');return true;}
+  // 저장 — 숨겨질 때·일시정지·레벨업·상자 순간. 절대 던지지 않는다.
+  function save(why){
+    try{
+      if(quiet||!S||!RUN||info.ok===false)return false;
+      if(state!=='pause'&&state!=='lvup'&&state!=='chest'&&state!=='play')return false;
+      if(stale())return false;
+      const cur=peek();
+      if(cur&&cur.rid!==RUN.rid&&cur.rs>RUN.rs){info.skipped++;info.why='newer-slot';return false;}   // 더 새 판(다른 창)의 저장본을 덮어쓰지 않는다
+      const key=(state==='play'?'pause':state)+'|'+RUN.rid+'|'+RUN.gen+'|'+S.t+'|'+S.lv+'|'+S.kills+'|'+S.rr+'|'+S.ban+'|'+S.banned.length+'|'+S.banMode+'|'+S.pendingLv+'|'+S.xp+'|'+(state==='lvup'?CUR.map(c=>c.k||c.r||c.t).join(','):'')+'|'+JSON.stringify([S.w,S.ps,S.ev,S.rel,S.tier,S.pt,S.tr,S.sm]);   // 같은 카드 구성이 연달아 나와도 그 사이 고른 것(보유 장비)이 다르면 다른 상태다
+      if(key===lastKey&&cur&&cur.rid===RUN.rid)return true;   // 방금 같은 상태를 이미 저장했다(pauseGame → 숨김 이벤트가 연달아 올 때)
+      const t0=performance.now(),b=build();
+      if(!b.text){info.why=b.why;info.rep=b.rep||null;
+        if(b.why==='unsupported'&&!warned){warned=true;console.error('[이어하기] 판 상태에 저장할 수 없는 값이 생겼어요 — 저장을 건너뜁니다(시험이 잡아야 하는 일):',b.bad);}
+        lastKey='';drop();   // 저장을 못 했으면 같은 판의 옛 저장본도 지운다 — 낡은 쪽으로 열려(다시 뽑기 환불 같은) 되감기가 되는 것을 막는다
+        return false;}
+      const ok=write(b.text);info.ms=performance.now()-t0;info.len=b.text.length;info.rep=b.rep;
+      if(ok){info.saves++;info.lastSave=Date.now();lastKey=key;info.why=why||'';if(info.ms>60)console.warn('[이어하기] 저장이 느려요 '+Math.round(info.ms)+'ms');}
+      else{lastKey='';drop();noteFail();}
+      return ok;
+    }catch(err){info.fails++;info.why='err:'+(err&&err.message);console.warn('[이어하기] 저장 실패',err);lastKey='';try{drop();}catch(e){}return false;}}
+  function noteFail(){if(state!=='pause')return;try{if($('pInfo').querySelector('#resFailHint'))return;$('pInfo').insertAdjacentHTML('beforeend','<div class="hint" id="resFailHint">⚠ 이 기기에서는 판 저장이 막혀 있어요 — 다른 앱에 다녀오면 판이 사라질 수 있어요.</div>');}catch(e){}}
+  // ⑤ 검사: 쓸 수 있는 저장본인가(헤더만 — 싸다) / 본문까지 온전한가
+  function usableHead(h,now){
+    if(!h)return 'none';if(h.f!==FMT)return 'ver';if(h.sig!==SIG)return 'sig';
+    const age=(now||Date.now())-h.ts;if(!(age>=-10*60*1000)||age>TTL)return 'old';
+    if(!CHARS.some(c=>c.k===h.ch))return 'char';
+    if(!['pause','lvup','chest'].includes(h.st))return 'state';
+    return '';}
+  function parse(text){
+    const i=text.indexOf('\n');if(i<2)throw new Error('format');
+    let h;try{h=JSON.parse(text.slice(0,i));}catch(e){throw new Error('header');}
+    const why=usableHead(h);if(why)throw new Error(why);
+    const body=text.slice(i+1);if(body.length!==h.len)throw new Error('len');if(seedOf(body)!==h.ck)throw new Error('ck');
+    return {h,o:JSON.parse(body)};}
+  // ⑥ 문자열 → 판(풀 칸의 정체성·번호를 그대로 둔다: 칸 번호와 sn 이 맞아야 모든 '같은 적인가' 참조가 원래 뜻을 지킨다)
+  const REFILL=n=>{const P=POOL[n];for(const s of P.a){for(const k of Object.keys(s))delete s[k];Object.assign(s,P.mk());s.on=false;}};
+  function load(o){
+    if(!o||o.v!==FMT)throw new Error('ver');
+    if(!STATIC)buildStatic();
+    for(const n of PN)if(o.lens&&o.lens[n]>POOL[n].a.length)throw new Error('pool-size '+n);   // 저장한 기기보다 풀이 작으면(저사양 모드) 칸이 모자라 이어하기 불가
+    const dec=makeDec(sl=>{const P=POOL[sl&&sl[0]];if(!P||!Number.isInteger(sl[1])||sl[1]<0||sl[1]>=P.a.length)throw new Error('slot');return P.a[sl[1]];},p=>byPath(p));
+    for(const n of PN)REFILL(n);
+    const mk2=n=>{const c=POOL[n].mk(),od=o.defs&&o.defs[n];if(od)for(const k in od)if(k in c&&!eqv(c[k],od[k]))c[k]=Array.isArray(od[k])?od[k].slice():od[k];return c;};
+    for(const n in o.pools){if(!POOL[n]||COSMETIC.has(n))throw new Error('pool '+n);for(const [i] of o.pools[n]){const s=POOL[n].a[i];if(!s)throw new Error('slot');Object.assign(s,mk2(n));s.on=true;}}
+    const sN=dec(o.S);                                                       // 같은 순서(S → 풀 → mod)로 읽어 $r 이 항상 $id 뒤에 오게 한다
+    for(const n in o.pools)for(const [i,e] of o.pools[n]){const s=POOL[n].a[i],d=dec(e);for(const k in d)s[k]=d[k];}
+    const mod=dec(o.mod);
+    return {sN,mod};}
+  function validate(mod){
+    const bad=m=>{throw new Error('invalid: '+m);};
+    const keys=(o,T,nm)=>{if(!isPO(o))bad(nm);for(const k in o)if(!(k in T))bad(nm+'.'+k);};
+    keys(S.w,WEAP,'w');keys(S.ev,WEAP,'ev');keys(S.tier,WEAP,'tier');keys(S.ps,PASS,'ps');keys(S.pt,PT,'pt');keys(S.rel,REL,'rel');keys(S.tr,TRD,'tr');keys(S.sm,SM,'sm');
+    for(const k of ['t','kills','lv','xp','need','pendingLv'])if(!Number.isFinite(S[k])||S[k]<0)bad(k);
+    for(const k of ['x','y','hp','mhp'])if(!isPO(S.p)||!Number.isFinite(S.p[k]))bad('p.'+k);
+    if(S.t>END_T+5)bad('t too large');
+    if(S.kills>50+250*Math.max(S.t,1))bad('kills too many');                  // 서버가 어차피 거절하는 값(_p6_max_kills) — 일찍 알린다
+    for(const T of [S.w,S.ps,S.ev,S.rel,S.tr,S.sm,S.tier,S.pt])for(const k in T){const v=T[k];if(!(typeof v==='boolean'||(typeof v==='number'&&Number.isFinite(v))))bad('value '+k);}   // 이 값들은 화면 문구에 그대로 들어간다 — 숫자·참거짓이 아니면 거부
+    if(S.ramen!=null&&!Number.isFinite(S.ramen))bad('ramen');
+    if(!isPO(S.dmgBy))bad('dmgBy');for(const k in S.dmgBy){if(!/^[\w\-]{1,24}$/.test(k)||!Number.isFinite(S.dmgBy[k]))bad('dmgBy.'+k);}   // 키는 피해 비중 문구에 들어간다
+    if(!Array.isArray(S.live))bad('live');
+    for(const e of S.live){if(!Number.isFinite(e.x)||!Number.isFinite(e.y)||!Number.isFinite(e.hp))bad('enemy');if(!e.boss&&!KIND[e.ki])bad('kind '+e.ki);}
+    if(S.dly&&(!isPO(S.dly)||!isPO(S.dly.rq)||typeof S.dly.date!=='string'))bad('dly');
+    if(!mod||!CHARS.some(c=>c.k===mod.ch))bad('ch');
+    if(mod.state==='lvup'){if(!Array.isArray(mod.CUR)||!mod.CUR.length||mod.CUR.length>4)bad('CUR');for(const c of mod.CUR){cardOf(c);if(c.l!=null&&!Number.isFinite(c.l))bad('CUR.l');}}
+    if(mod.state==='chest'&&!(mod.view&&typeof mod.view.list==='string'&&typeof mod.view.title==='string'))bad('chest');}
+  function cleanHtml(s){   // 상자 화면 문구(우리가 만든 div·b·small·span·br 뿐) — 저장소가 손댄 값이 스크립트가 되지 못하게 걸러서 쓴다
+    const t=document.createElement('template');t.innerHTML=String(s);const OK=new Set(['DIV','B','SMALL','BR','SPAN','I','EM','STRONG']);
+    (function walk(n){for(const c of Array.from(n.childNodes)){if(c.nodeType===3)continue;if(c.nodeType!==1||!OK.has(c.tagName)){c.remove();continue;}
+      for(const a of Array.from(c.attributes))if(!(a.name==='class'&&/^[\w\- ]*$/.test(a.value)))c.removeAttribute(a.name);walk(c);}})(t.content);
+    return t.innerHTML;}
+  function mergeFresh(f,s){for(const k in s){if(isPO(f[k])&&isPO(s[k]))mergeFresh(f[k],s[k]);else f[k]=s[k];}return f;}   // 새 버전의 기본값(makeS) 위에 저장값을 얹는다 — 새로 생긴 필드는 기본값을 받는다(순수 객체끼리만 재귀, 배열·값은 저장값 그대로)
+  const kstYesterday=()=>new Date(Date.now()+9*3600*1000-86400000).toISOString().slice(0,10);
+  function apply(h,o,cl){   // 실패하면 던진다 — 바깥에서 한꺼번에 수습
+    const L=load(o),mod=L.mod;cl=cl||{gen:(+h.gen||0)+1,nonce:newNonce()};
+    CH=CHARS.find(c=>c.k===mod.ch);                                           // makeS 가 CH(시작 무기·체력)를 읽으므로 먼저 맞춘다
+    S=mergeFresh(makeS(L.sN.dly||null),L.sN);for(const k of REPLACE_S)if(k in L.sN)S[k]=L.sN[k];
+    S.live=enemies.a.filter(e=>e.on);
+    if(CH.shop&&SRVLOAD&&!SRVUNL.has(CH.k))throw new Error('invalid: shop');  // 구매 목록을 이미 받은 뒤라면 사지 않은 상점 캐릭터 판은 되살리지 않는다(목록 전이면 계속하기 때 한 번 더 본다)
+    validate(mod);                                                            // 알 수 없는 키·유한하지 않은 수가 있으면 거부(배포로 무기가 사라진 경우·깨진 저장값)
+    S.kc=new Array(KIND.length).fill(0);for(const e of S.live)if(!e.boss)S.kc[e.ki]++;S.ne=S.live.length;S.lite=S.ne>150||S.t>1500;
+    S.sushi=[];S.auraR=0;tkCalc();synCalc();S.x2.lt=S.w.lid?TK('lid'):null;    // 파생값 다시 계산(S.x2.lt 는 S.tk.lid 와 같은 객체의 별칭)
+    if(S.dly&&S.dly.ranked&&S.dly.date<kstYesterday())S.dly.ranked=false;    // 서버는 오늘·어제 날짜만 받는다 — 더 지났으면 연습 판으로
+    SN=mod.SN;gemMT=mod.gemMT;bannerT=mod.ban.T;bannerS=mod.ban.S;bannerS2=mod.ban.S2;bannerA=mod.ban.A;bannerQ.length=0;for(const q of mod.ban.Q)bannerQ.push(q);
+    RSEED=S.dly?S.dly.seed:0;LASTDLY=!!S.dly;RIFT_CACHE.clear();RDEV.clear();gemGrid.clear();FX.reset();EX.reset();
+    toastT=0;$('toast').classList.remove('on');keys={};joy.on=false;joy.dx=joy.dy=0;SRC='';
+    if(hasArt(CH))charImg(CH);for(const e of enemies.a)if(e.on&&e.b&&e.b.img)bossImg(e.b.img);
+    endAskHide();RUN={rid:String(h.rid),rs:+h.rs,gen:cl.gen,nonce:cl.nonce};   // (같은 판을 아직 들고 있는 다른 창은 claim 이 남긴 LIVEK·표로 '낡았음'을 알아챈다)
+    last=performance.now();hud();   // 일시정지·레벨업·상자 화면 뒤의 HUD 도 저장 당시 값으로(frame 은 play 일 때만 hud 를 부른다)
+    if(mod.state==='lvup'){CUR=mod.CUR;state='lvup';keys={};drawCards();show('lvup');}
+    else if(mod.state==='chest'){$('chestList').innerHTML=cleanHtml(mod.view.list);$('chestT').textContent=mod.view.title;state='chest';show('chest');}
+    else{pauseGame();$('pInfo').insertAdjacentHTML('afterbegin','<div class="hint" style="margin:4px 0 8px">🔄 하던 판을 불러왔어요 — 준비되면 아래 계속하기를 눌러요</div>');}   // 일시정지 화면(소리 정지 포함)
+    return mod;}
+  function discard(why){console.info('[이어하기] 저장본 폐기:',why);drop(true);}
+  // 이어하기 — 제목 화면에서만. 실패하면 저장본을 지우고 제목 화면으로(앱이 먹통이 되지 않는 것이 최우선)
+  function restore(text){
+    if(state!=='title')return false;
+    quiet=true;const prevCH=CH;let done=false,cl=null;
+    try{
+      if(text==null){try{text=localStorage.getItem(KEY);}catch(e){}}
+      if(!text){render();say('이어갈 판이 없어요.');return false;}
+      const p=parse(text);
+      cl=claim(p.h,text);                                                      // 먼저 선점(두 창이 같은 저장본을 함께 이어받지 못하게 · 동시에 하면 표 비교로 한 창만 산다)
+      apply(p.h,p.o,cl);
+      commit(cl,text);lastKey='';render();done=true;
+      return true;
+    }catch(err){
+      if(cl&&!done)unclaim(cl);
+      CH=prevCH;                                                              // 실패하면 고른 캐릭터를 저장본의 것으로 바꿔 놓은 채 두지 않는다
+      try{S=null;RUN=null;for(const n of PN)POOL[n].clear();state='title';show('title');}catch(e){}
+      console.warn('[이어하기] 복구 실패 — 저장본을 버리고 제목 화면으로 돌아갑니다:',err&&err.message||err);
+      info.why='restore:'+(err&&err.message);
+      const claimed=!!(err&&err.message==='claimed');
+      if(!claimed)drop(true);                                                  // (다른 창이 이어받은 경우엔 그 창의 저장본을 건드리지 않는다)
+      render();
+      const soft=err&&/^(old|sig|ver|char|state)$/.test(err.message);
+      if(claimed)say('다른 창에서 이미 이어받은 판이에요.',6000);
+      else if(!soft)say('이어하기에 실패했어요. 새 판으로 시작해 주세요.',6000);
+      return false;
+    }finally{quiet=false;if(done)save('restore');}}   // 복구 직후 같은 판(일시정지 그대로 · 시간이 안 흐른 같은 상태)을 한 번 다시 저장 — 이벤트 없이 앱이 죽어도 또 잃지 않는다. 계속하기를 누르면 지워진다
+  // ⑦ 화면(제목 화면의 카드·안내)
+  function say(m,ms){const el=$('resMsg');if(!el)return;el.textContent=m;el.hidden=false;clearTimeout(msgT);msgT=setTimeout(()=>{el.hidden=true;},ms||4500);}
+  function ago(ts){const m=Math.max(0,Math.round((Date.now()-ts)/60000));return m<1?'방금':m<60?m+'분 전':Math.floor(m/60)+'시간 전';}
+  function render(){
+    const card=$('resCard'),note=$('resNote');if(!card)return;
+    let h=null;
+    if(state==='title'&&!window.SGG_DC_BOUNCE){h=peek();if(h){const why=usableHead(h);if(why){discard(why);h=null;if(why==='sig'||why==='ver')say('게임이 새로 바뀌어서 하던 판은 이어갈 수 없어요.',7000);else if(why==='old')say('저장한 지 오래돼서 하던 판이 사라졌어요.',6000);}}}   // 🔄 [2026-10-08 검증 지적] 말없이 사라지면 '또 날아갔다'로 보인다 — 배포로 판 구조가 바뀐 경우를 알려 준다
+    card.hidden=!h;$('title').classList.toggle('hasres',!!h);$('startBtn').textContent=h?'▶ 새로 시작하기':'▶ 시작하기';   // 하던 판이 있으면 '새로' 임을 분명히(눌러도 하던 판이 말없이 사라지지 않게 한 번 더 묻는다)
+    if(h){const c=CHARS.find(x=>x.k===h.ch);
+      $('resSum').innerHTML=`${esc(c.e||'')} <b>${esc(c.nm)}</b> · ${esc(fmt(h.t))} · Lv ${esc(h.lv)} · 처치 ${esc(h.k)}`+({d:' · 📅 오늘의 도전',e:' · ♾ 무한',v:' · 💀 베리하드',h:' · 🔥 하드'}[h.m]||'');
+      $('resAgo').textContent=(ago(h.ts)==='방금'?'방금 멈췄어요':`${ago(h.ts)}에 멈췄어요`)+({lvup:' · 레벨업 카드 고르는 중',chest:' · 보스 상자 앞'}[h.st]||'');
+      $('resDel').textContent='버리기';delete $('resDel').dataset.sure;}
+    // 안내 한 줄: 저장 불가 > 앱 내장 브라우저(한 번만 · 닫으면 다시 안 보임). 게임을 시작하면 사라진다
+    if(state==='title'&&!noteShown){let txt='',kind='';
+      if(info.ok===false){txt='⚠ 이 화면에서는 판 저장이 안 돼요. 다른 앱에 다녀오면 판이 사라질 수 있어요. 사파리나 크롬에서 열어 주세요.';kind='nosave';}
+      else if(!h&&isIab(navigator.userAgent||'')){let seen=false;try{const o=JSON.parse(localStorage.getItem(TIPK)||'null');seen=!!(o&&(o.x||Date.now()-o.t<24*3600*1000));}catch(e){}   // 닫았으면 다시 안 보이고, 안 닫아도 하루에 한 번만
+        if(!seen){try{localStorage.setItem(TIPK,JSON.stringify({t:Date.now(),x:0}));}catch(e){}txt='💡 지금 앱 안의 작은 창으로 열려 있는 것 같아요. 이런 창은 다른 앱에 다녀오면 게임이 꺼질 수도 있어요. 오른쪽 위 ⋯ 메뉴에서 “다른 브라우저로 열기”를 누르면 더 안정적이에요. (그래도 꺼지면 “이어하기”로 되살릴 수 있어요)';kind='iab';}}
+      if(txt){noteShown=true;note.hidden=false;note.dataset.kind=kind;$('resNoteTxt').textContent=txt;$('resNoteCopy').hidden=kind!=='iab';}}}
+  function noteClose(){const n=$('resNote');n.hidden=true;if(n.dataset.kind==='iab'){try{localStorage.setItem(TIPK,JSON.stringify({t:Date.now(),x:1}));}catch(e){}}}
+  function iabCopy(){const u=location.href.split('#')[0];
+    const done=()=>say('링크를 복사했어요. 사파리나 크롬 주소창에 붙여 넣어 주세요.');
+    try{navigator.clipboard.writeText(u).then(done,()=>say('링크를 복사하지 못했어요. 주소창의 주소를 길게 눌러 복사해 주세요.'));}catch(e){say('링크를 복사하지 못했어요. 주소창의 주소를 길게 눌러 복사해 주세요.');}}
+  // ⑧ 이벤트 연결
+  function onLeave(){   // 숨겨짐·페이지 떠남 — 판이 있으면 일시정지 상태로 저장(play 였다면 먼저 멈춘다)
+    if(!S||!RUN)return;
+    if(state==='play'){pauseGame();return;}   // pauseGame 이 저장한다
+    if(state==='pause'||state==='lvup'||state==='chest')save('leave');}
+  function onBack(){if(document.hidden)return;if(stale())return;if(state==='title')render();}
+  function init(){
+    try{buildStatic();}catch(e){console.warn('[이어하기] 표 서명 실패',e);}
+    info.poolsOk=poolsCheck();
+    if(!info.poolsOk)console.error('[이어하기] 풀 목록이 어긋났어요(새 풀을 RES.POOL 에 분류하세요) — 저장을 끕니다');
+    if(window.SGG_DC_BOUNCE)return;                                        // 자동 로그인 왕복 중 — 아무것도 읽거나 지우지 않는다
+    info.ok=probe();if(!info.poolsOk)info.ok=false;
+    $('resGo').onclick=()=>{AU.init();AU.reset();AU.music(true);if(!restore())AU.stop();};   // 소리는 사용자의 이 탭 안에서 켠다(복구한 판은 곧바로 일시정지가 소리를 멈춘다)
+    $('resDel').onclick=()=>{const b=$('resDel');if(b.dataset.sure){drop(true);render();say('버렸어요.');return;}
+      b.dataset.sure='1';b.textContent='한 번 더 누르면 사라져요';setTimeout(()=>{if(b.dataset.sure){delete b.dataset.sure;b.textContent='버리기';}},4000);};
+    $('resNoteX').onclick=noteClose;$('resNoteCopy').onclick=iabCopy;
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)onLeave();else onBack();});
+    addEventListener('pagehide',onLeave);
+    document.addEventListener('freeze',onLeave);                          // 크롬 계열 보조(사파리는 안 옴)
+    addEventListener('pageshow',onBack);addEventListener('focus',onBack);
+    addEventListener('storage',e=>{if(e.key===KEY||e.key===LIVEK||e.key===null){if(!stale()&&state==='title')render();}});
+    render();
+    const h=peek();if(h&&!usableHead(h)&&state==='title'){$('resCard').classList.add('flash');say(ago(h.ts)==='방금'?'👆 방금 하던 판이에요. 이어하기를 눌러 보세요!':'👆 하던 판이 남아 있어요. 이어하기를 눌러 보세요!',7000);}   // 로드 직후 자동 안내
+  }
+  return {init,save,build,peek,drop,restore,render,stale,say,parse,load,validate,cleanHtml,makeEnc,makeDec,buildStatic,usableHead,info,POOL,PN,COSMETIC,SKIP_S,EXPECT_FN,KEY,LIVEK,TTL,FMT,
+    shopBad,claim,claimsOf,isIab,CLAIMP,get SIG(){return SIG;},get STATIC(){return STATIC;},get quiet(){return quiet;},set quiet(v){quiet=v;},
+    confirmStart(){   // 하던 판(2분 넘게 한 것)이 남아 있는데 시작 버튼을 누르면 한 번 더 확인한다 — 반사적으로 눌러 판을 잃지 않게(오늘의 도전 기록 기회도 마찬가지)
+      if(state!=='title')return true;const h=peek();if(!h||usableHead(h)||!(h.t>=120))return true;
+      if(armedAt&&Date.now()-armedAt<6000){armedAt=0;return true;}
+      armedAt=Date.now();say('⚠ 하던 판이 남아 있어요. 새로 시작하면 사라져요. 정말 새로 시작하려면 한 번 더 눌러 주세요.',6000);
+      const c=$('resCard');c.classList.remove('flash');void c.offsetWidth;c.classList.add('flash');try{c.scrollIntoView({block:'nearest'});}catch(e){}
+      return false;},
+    begin(){armedAt=0;$('startBtn').textContent='▶ 시작하기';RUN={rid:Date.now().toString(36)+Math.random().toString(36).slice(2,8),rs:Date.now(),gen:0};lastKey='';drop(true);$('resCard').hidden=true;$('title').classList.remove('hasres');$('resNote').hidden=true;},   // 새 판 — 하던 판(저장본)은 버린다
+    onResume(){drop();},};
+})();
+RES.init();
 
 // 검증용 훅(화면엔 영향 없음)
 window.__p6={get state(){return state;},get S(){return S;},forceLevel(){if(state==='play'){S.pendingLv++;S.lv++;openLvup();}},skip(t){if(S)S.t=t;},fx:FX};
