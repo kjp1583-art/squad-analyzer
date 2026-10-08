@@ -10,7 +10,9 @@
      라  소모·삭제·만료·손상·버전/표 서명 불일치·저사양(풀 크기) 불일치
      마  저장소 차단(쓰기 거부·읽기 거부·용량 초과)에서도 게임이 평소처럼 돈다 + 제목 화면 안내
      바  미래 보호: 상태에 함수·DOM·Image 가 새로 생기면 저장을 거부한다 · 풀/최상위 let 분류표(새 상태는 분류를 정해야 한다)
-     사  두 창 · 저장 시점 · 저장 시간 · 비밀(토큰)이 저장본에 없음 · 오늘의 도전 · 제목 화면 UI(360×640 · 412×860)·내장 브라우저 안내
+     사  두 창 · 저장 시점 · 저장 시간 · 비밀(토큰)이 저장본에 없음 · 오늘의 도전 · 제목 화면 UI(세로 360×640 · 412×860 · 가로 5종)·내장 브라우저 안내
+     아  검증 지적 보완: 두 창 경합 반복 · 실패한 복구가 고른 캐릭터를 안 바꿈 · 복구 직후 HUD · 같은 카드 구성 연달아도 최신 저장 · 저장 실패 시 옛 저장본 삭제 ·
+         변조 저장본이 화면 문구로 새지 않음 · 상점 캐릭터 · 새로 시작 확인 · 복구 직후 재저장 · 경고 한 줄 · 앱 내장 브라우저 판별
    임시 사본 survivors_rx.html 에 훅을 꽂아 쓴다(끝나면 지운다 · 커밋하지 않는다)."""
 import asyncio, sys, os, json, re, time, random
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -33,7 +35,7 @@ def load_avg():
 HOOK_R = r"""
 window.__R={RES,get S(){return S},set S(v){S=v},get state(){return state},set state(v){state=v},get CUR(){return CUR},get RUN(){return RUN},
  pools:{enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,snps,bolts,waves,puds,clouds,allies,cans,bubs},
- CHARS,WEAP,PASS,REL,TRD,SM,KIND,BOSS,TIERS,PT,WIN_T,END_T,SRVUNL,getProg,setProg,
+ CHARS,WEAP,PASS,REL,TRD,SM,KIND,BOSS,TIERS,PT,WIN_T,END_T,SRVUNL,srvUnl,get SRVLOAD(){return SRVLOAD},getProg,setProg,
  synCalc,tkCalc,update,resume,pauseGame,pick,openLvup,openChest,endRun,contEndless,start,show,draw,offers,reroll,banCard,drawCards,cardOf,dailyGet,dailySet,
  CH_set(k){CH=CHARS.find(c=>c.k===k)},get CH(){return CH},get SN(){return SN},set SN(v){SN=v},RN,seedOf,mulberry,kstDate,get LOW(){return LOW},get bannerQ(){return bannerQ},get keys(){return keys},set keys(v){keys=v}};
 const COS=new Set(['texts','bubs','bolts','snps']);   // 눈요기 풀(시험이 따로 정해 둔다 — 저장 코드의 분류가 틀려도 시험은 흔들리지 않게)
@@ -78,6 +80,7 @@ window.__META=function(){const x=__R;return {chars:x.CHARS.map(c=>({k:c.k,w:c.w,
 """
 # 판을 '만든다' — 장비·유물·각성·시각을 끼운 판(평범한 캐릭터만 돌리면 조건부 코드를 안 밟는다)
 FORGE = r"""(sp)=>{const x=__R;
+ try{localStorage.removeItem('p6_resume_v1')}catch(e){}   // (제목 화면에서 하던 판이 남은 채 시작 버튼을 누르면 한 번 더 확인하는 제품 동작을 시험이 건너뛴다 — 확인 동작은 아 구간이 따로 본다)
  x.CH_set(sp.ch);x.SRVUNL.add(sp.ch);const g=x.getProg();g.bk[sp.ch]=1;x.setProg(g);
  document.getElementById('hardChk').checked=!!sp.hard;document.getElementById('vhChk').checked=!!sp.vh;
  x.start({daily:!!sp.daily});const S=x.S;
@@ -243,6 +246,7 @@ async def main():
             if want('마'): await sec_blocked(b, srv)
             if want('바'): await sec_future(b, srv)
             if want('사'): await sec_misc(b, srv)
+            if want('아'): await sec_review(b, srv)
             await b.close()
     finally:
         srv.close()
@@ -421,7 +425,8 @@ async def sec_pending(b, srv):
             on:[...document.querySelectorAll('.ov.on')].map(e=>e.id),pinfo:document.getElementById('pInfo').innerText.slice(0,80),d:JSON.stringify(__digest()),
             slot:localStorage.getItem('p6_resume_v1'),btns:document.querySelectorAll('#choices .ch').length}}""")
         check('[%s] 복구하면 같은 화면(%s)이 뜬다' % (label, kind), post['state'] == kind and post['on'] == [kind], (post['state'], post['on']))
-        check('[%s] 저장본은 복구하면 소모된다' % label, post['slot'] is None)
+        sl = post['slot'] and json.loads(post['slot'].split('\n')[0])
+        check('[%s] 복구 직후 같은 판(같은 상태 · 세대 +1)이 다시 저장돼 있다 — 이벤트 없이 앱이 죽어도 또 잃지 않는다' % label, bool(sl) and sl['st'] == kind and sl['gen'] == 1, post['slot'] and post['slot'][:120])
         check('[%s] 복구 직후 판 상태가 저장 직후와 같다' % label, post['d'] == d0n, diff_first(d0n, post['d']))
         if kind == 'lvup':
             check('[%s] 카드 3장이 한 장도 바뀌지 않고 같다(무료 리롤 없음)' % label, post['cur'] == pre['cur'] and post['ch'] == pre['ch'], (pre['cur'][:120], post['cur'][:120]))
@@ -442,17 +447,7 @@ async def sec_pending(b, srv):
             await B.evaluate("()=>{__R.reroll();}"); rr1 = await B.evaluate("()=>__R.S.rr")
             check('[%s] 다시 뽑기는 횟수를 쓴다(%d→%d)' % (label, rr0, rr1), rr1 == rr0 - 1)
         check('[%s] 오류 없음' % label, len(C.errs) == n0, C.errs[n0:n0 + 3]); await B.close()
-    # 복구본을 두 번 쓸 수 없다
-    await A.evaluate(FORGE, dict(ch='brj', t0=300)); await A.evaluate("()=>{__run(3,0);__R.pauseGame();}")
-    blob = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
-    B1 = await C.page(); B2 = await C.page(); await B1.reload(); await B2.reload()
-    await B1.wait_for_function('window.__R!==undefined'); await B2.wait_for_function('window.__R!==undefined')
-    r1 = await B1.evaluate("()=>{const ok=__R.RES.restore();return [ok,__R.state]}"); r2 = await B2.evaluate("()=>{const ok=__R.RES.restore();return [ok,__R.state]}")
-    # (먼저 이어받은 창이 숨김 이벤트로 다시 저장해 두 번째 창도 성공할 수 있다 — 그래도 판을 쥔 창은 끝내 하나뿐이어야 한다)
-    for pgx in (B1, B2): await pgx.evaluate("()=>{dispatchEvent(new Event('focus'));}")
-    alive = [await pgx.evaluate("()=>__R.state!=='title'") for pgx in (B1, B2)]
-    check('같은 저장본을 두 창이 동시에 이어갈 수 없다(판을 쥔 창은 하나뿐 · 나머지는 닫힘)', r1[0] is True and sum(alive) == 1, (r1, r2, alive))
-    await B1.close(); await B2.close()
+    # 복구본을 두 번 쓸 수 없다 — 동시에 이어받기 경합은 아 구간(20회 반복 · 표 비교)이 본다
     check('스크립트 오류 없음', not C.errs, C.errs[:5]); await C.close()
 
 # ═════════════ 라. 소모 · 삭제 · 만료 · 손상 · 버전 · 저사양 ═════════════
@@ -486,7 +481,7 @@ async def sec_invalid(b, srv):
     check('기준 저장본이 있다', blob and blob.count('\n') >= 1)
     nE = await A.evaluate("()=>__R.pools.enemies.a.filter(e=>e.on).length")
     async def fresh(modified):
-        pg = await C.page(); await pg.evaluate("([k,v])=>{if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}", [KEY, modified])
+        pg = await C.page(); await pg.evaluate("([k,v])=>{if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);for(const x of Object.keys(localStorage))if(x==='p6_resume_live'||x.startsWith('p6_resume_claim:'))localStorage.removeItem(x);}", [KEY, modified])   # (같은 저장본을 여러 번 되살리는 시험 — 제품에서는 한 번 이어받은 판의 옛 복사본은 낡은 것이라 다시 못 쓴다. 그 동작은 아 구간이 본다)
         await pg.reload(); await pg.wait_for_function('window.__R!==undefined'); return pg
     async def crafted(mode):
         pg = await C.page(); m = await pg.evaluate(CRAFT, [blob, mode]); await pg.close(); return m
@@ -499,9 +494,12 @@ async def sec_invalid(b, srv):
     check('이어하기 → 일시정지 상태(계속하기를 눌러야 시간이 흐른다)', await pg.evaluate("()=>[__R.state,document.getElementById('pause').classList.contains('on')]") == ['pause', True])
     t_a = await pg.evaluate("()=>__R.S.t"); await pg.wait_for_timeout(600); t_b = await pg.evaluate("()=>__R.S.t")
     check('일시정지에서는 시간이 안 흐른다', t_a == t_b, (t_a, t_b))
-    check('복구하면 저장본이 소모된다', await pg.evaluate("()=>localStorage.getItem('p6_resume_v1')")is None)
+    h1 = await pg.evaluate("()=>__R.RES.peek()")
+    check('복구하면 원래 저장본은 소모되고, 같은 상태가 세대 1 로 다시 저장된다(저장본 하나뿐)', h1 and h1['gen'] == 1 and h1['st'] == 'pause' and await pg.evaluate("()=>__R.RUN.gen") == 1, h1)
     pg2 = await C.page()
-    check('다른 창을 열어도 카드가 없다(두 번 이어받을 수 없다)', await pg2.evaluate("()=>document.getElementById('resCard').hidden"))
+    check('다른 창에는 세대 1 카드가 보이지만 눌러서 이어받으면 먼저 창은 닫힌다(판을 쥔 창은 끝내 하나)', await pg2.evaluate("()=>!document.getElementById('resCard').hidden"))
+    await pg2.click('#resGo'); await pg.evaluate("()=>{dispatchEvent(new Event('focus'));}")
+    await pg.wait_for_function("__R.state==='title'", timeout=4000); check('(닫힌 쪽: state=title)', True)
     await pg2.close()
     await pg.reload(); await pg.wait_for_function('window.__R!==undefined')
     check('이어받은 판을 일시정지한 채 떠나면(새로고침) 다시 저장돼 또 이어갈 수 있다 — 다음에 떠날 때 다시 저장', await pg.evaluate("()=>!document.getElementById('resCard').hidden"))
@@ -723,7 +721,7 @@ CLASSIFIED = {
  'W': 'DERIVE', 'H': 'DERIVE', 'DPR': 'DERIVE', 'SC': 'DERIVE', 'VW': 'DERIVE', 'VH': 'DERIVE', 'SPAWN_R': 'DERIVE', 'DESP_R': 'DERIVE',
  'D0': 'CACHE', 'ICON': 'CACHE', 'DDV': 'CACHE',
  'RSEED': 'DERIVE', 'ME': 'UI', 'BOARD': 'UI', 'BOARDE': 'UI', 'BOARDEH': 'UI', 'BOARDEV': 'UI', 'BOARDD': 'UI', 'SRV_END': 'UI', 'SRV_DLY': 'UI', 'DLY_DATE': 'UI', 'BOARDH': 'UI', 'BOARDV': 'UI', 'SRV_VH': 'UI', 'BTAB': 'UI',
- 'HARD_ON': 'UI', 'VH_ON': 'UI', 'SRVUNL': 'UI', 'BDI': 'CACHE', 'ART': 'CACHE', 'CH': 'MOD',
+ 'HARD_ON': 'UI', 'VH_ON': 'UI', 'SRVUNL': 'UI', 'SRVLOAD': 'UI', 'BDI': 'CACHE', 'ART': 'CACHE', 'CH': 'MOD',
  'SN': 'MOD', 'gemMT': 'MOD', 'gemGrid': 'RESET', 'toastT': 'RESET', 'S': 'S', 'RUN': 'MOD', 'state': 'MOD', 'keys': 'RESET', 'joy': 'RESET', 'SRC': 'RESET', 'LASTDLY': 'DERIVE',
  'CUR': 'MOD', 'BUMP': 'CACHE', 'BIMG': 'CACHE', 'bannerT': 'MOD', 'bannerS': 'MOD', 'bannerS2': 'MOD', 'bannerA': 'MOD', 'bannerQ': 'MOD',
  'RDEV': 'DERIVE', 'RDEV_S': 'DERIVE', 'RDEV_MAX': 'DERIVE', 'RDEV_BUD': 'DERIVE', 'last': 'RESET', 'RIFT_CACHE': 'DERIVE', 'RIFT_MAX': 'DERIVE', 'RIFT_BUD': 'DERIVE',
@@ -851,6 +849,19 @@ async def sec_misc(b, srv):
         check('[%dx%d] 가로 스크롤이 없다' % (w, h), g['sw'] <= g['vw'] and g['boxsw'] <= g['boxcw'] + 1, g)
         check('[%dx%d] 로드 직후 자동 안내(깜빡이는 카드 + 안내 한 줄)' % (w, h), (not g['msg']) and await B.evaluate("()=>document.getElementById('resCard').classList.contains('flash')"))
         check('[%dx%d] 오류 없음' % (w, h), not C.errs, C.errs[:3]); await C.close()
+    # 가로 화면(폰을 눕힘) — 이어하기 버튼이 보이고, 아래 붙은 시작 버튼에 가려지지 않고, 실제로 눌린다
+    for (w, h) in ((915, 412), (844, 390), (800, 360), (740, 360), (667, 375), (568, 320)):
+        C = await Ctx(b, srv.port, w=w, h=h, seed=25, mobile=True).open(); A = await C.page()
+        await A.evaluate(FORGE, dict(ch='brj', t0=700)); await A.evaluate("()=>{__run(10,0);__R.pauseGame();}")
+        B = await C.page(); await B.reload(); await B.wait_for_function('window.__R!==undefined'); await B.wait_for_timeout(300)
+        g = await B.evaluate("""()=>{const r=e=>{const b=document.getElementById(e).getBoundingClientRect();return [b.top,b.bottom,b.left,b.right,b.height]};
+          const go=document.getElementById('resGo').getBoundingClientRect(),el=document.elementFromPoint(go.left+go.width/2,go.top+go.height/2);
+          return {go:r('resGo'),del:r('resDel'),card:r('resCard'),start:r('startBtn'),vh:innerHeight,vw:innerWidth,top:el&&el.id,sw:document.documentElement.scrollWidth}}""")
+        check('[가로 %dx%d] 이어하기 버튼이 화면 안에 보이고 그 자리를 누르면 이어하기 버튼이 눌린다(시작 버튼에 안 가림)' % (w, h), g['go'][0] >= 0 and g['go'][1] <= g['vh'] and g['top'] == 'resGo', g)
+        check('[가로 %dx%d] 카드 전체(안내 줄 포함)가 스크롤 없이 보이고 가로 스크롤이 없다' % (w, h), g['card'][1] <= g['vh'] and g['sw'] <= g['vw'], g)
+        await B.click('#resGo'); await B.wait_for_function("__R.state==='pause'", timeout=6000)
+        check('[가로 %dx%d] 실제 클릭으로 이어하기가 된다' % (w, h), await B.evaluate("()=>__R.state") == 'pause')
+        await C.close()
     # 앱 안의 작은 브라우저 안내(UA 표지가 있는 것만 · 한 번 · 닫으면 다시 안 보임)
     UAK = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 KAKAOTALK 10.4.1'
     UAS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
@@ -882,5 +893,212 @@ async def sec_misc(b, srv):
     await A.evaluate("()=>{__run(3,0);__R.pauseGame();}"); eb = await A.evaluate("()=>__R.RES.peek()")
     check('무한 모드 판도 저장된다(모드 표시 e)', eb and eb['m'] == 'e', eb)
     check('스크립트 오류 없음', not C.errs, C.errs[:4]); await C.close()
+
+# ═════════════ 아. 검증 지적 보완 ═════════════
+CRAFT2 = r"""([blob,expr])=>{const R=__R;const i=blob.indexOf('\n');const h=JSON.parse(blob.slice(0,i)),x=JSON.parse(blob.slice(i+1));
+ (new Function('x','h',expr))(x,h);const body=JSON.stringify(x);h.len=body.length;h.ck=R.seedOf(body);return JSON.stringify(h)+'\n'+body;}"""
+BLOCK_RESUME = "(()=>{const s=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(String(k)==='p6_resume_v1')throw new DOMException('quota','QuotaExceededError');return s.call(this,k,v);};})();"
+async def alive_pair(pgs, tries=40):
+    """두 창 중 판을 쥔 창이 몇인가 — 낡은 창을 닫는 신호(저장소 이벤트)는 비동기라서 sleep 대신 '하나로 수렴할 때까지' 조건을 기다린다"""
+    al = []
+    for _ in range(tries):
+        for pg in pgs: await pg.evaluate("()=>{dispatchEvent(new Event('focus'));}")
+        al = [await pg.evaluate("()=>__R.state!=='title'") for pg in pgs]
+        if sum(al) <= 1: break
+        await pgs[0].wait_for_timeout(75)
+    return al
+async def sec_review(b, srv):
+    print('\n── 아. 검증 지적 보완 ──', flush=True)
+    # ① 두 창이 동시에 이어받는 경합 — 20회 반복(실제 클릭/호출을 동시에) + 저장소 반영이 늦는 상황을 흉내 낸 12회
+    C = await Ctx(b, srv.port, w=900, h=900, seed=41, raf=False, hc=8).open(); A = await C.page(); B1 = await C.page(); B2 = await C.page()
+    bad = []
+    for i in range(20):
+        await A.evaluate(FORGE, dict(ch='brj', t0=300)); await A.evaluate("()=>{__run(3,0);__R.pauseGame();}")
+        await B1.reload(); await B2.reload()
+        await B1.wait_for_function('window.__R!==undefined'); await B2.wait_for_function('window.__R!==undefined')
+        if i % 2 == 0: await asyncio.gather(B1.click('#resGo', timeout=8000), B2.click('#resGo', timeout=8000))
+        else: await asyncio.gather(B1.evaluate("()=>__R.RES.restore()"), B2.evaluate("()=>__R.RES.restore()"))
+        al = await alive_pair([B1, B2])
+        await B1.wait_for_timeout(250); al2 = await alive_pair([B1, B2], 6)
+        if sum(al) > 1 or sum(al2) > 1: bad.append((i, al, al2))
+    check('두 창이 동시에 같은 저장본을 이어받아도 판을 쥔 창은 끝내 하나뿐이다(20회 반복 · 위반 %d회)' % len(bad), not bad, bad[:3])
+    bad = []
+    for i in range(12):
+        await A.evaluate(FORGE, dict(ch='sr', t0=300)); await A.evaluate("()=>{__run(3,0);__R.pauseGame();}")
+        text = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+        await B1.reload(); await B2.reload()
+        await B1.wait_for_function('window.__R!==undefined'); await B2.wait_for_function('window.__R!==undefined')
+        r1 = await B1.evaluate("()=>__R.RES.restore()")
+        # 두 번째 창의 저장소 읽기가 아직 첫 창의 쓰기를 못 본 상황(캐시가 늦음): 'live' 칸을 못 읽는다
+        r2 = await B2.evaluate("""(t)=>{const g=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==='p6_resume_live')return null;return g.call(this,k);};
+          try{return __R.RES.restore(t);}finally{Storage.prototype.getItem=g;}}""", text)
+        al = await alive_pair([B1, B2]); al2 = await alive_pair([B1, B2], 6)
+        mins = await B1.evaluate("()=>__R.RES.claimsOf(__R.RUN?__R.RUN.rid:(__R.RES.peek()||{}).rid,1)")
+        if r1 is not True or sum(al) != 1 or sum(al2) != 1: bad.append((i, r1, r2, al, al2, mins))
+    check('저장소 반영이 늦어 두 창이 모두 이어받기를 시작해도 표 비교로 한 창만 산다(12회 · 위반 %d회)' % len(bad), not bad, bad[:3])
+    # 이미 이어받은 판의 옛 복사본은 다시 이어받을 수 없다(복사해 둔 저장본으로 되감기 · 같은 판 두 번 이어하기 방지)
+    await A.evaluate(FORGE, dict(ch='brj', t0=300)); await A.evaluate("()=>{__run(3,0);__R.pauseGame();}")
+    copy = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+    await B1.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", copy); await B1.reload(); await B1.wait_for_function('window.__R!==undefined')
+    await B1.click('#resGo'); await B1.wait_for_function("__R.state==='pause'")
+    await B1.evaluate("()=>{__R.resume();__run(2,0);__R.pauseGame();}")
+    await B2.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", copy); await B2.reload(); await B2.wait_for_function('window.__R!==undefined')
+    if await B2.evaluate("()=>!document.getElementById('resCard').hidden"): await B2.click('#resGo'); await B2.wait_for_timeout(300)
+    r = await B2.evaluate("()=>[__R.state,document.getElementById('resMsg').textContent,localStorage.getItem('p6_resume_v1')!==null]")
+    check('[옛 복사본] 이미 이어받은 판의 옛 저장본은 다시 이어받을 수 없고, 그 창의 새 저장본도 건드리지 않는다', r[0] == 'title' and '이미 이어받은' in r[1] and await B1.evaluate("()=>__R.state") == 'pause', r)
+    check('[경합] 스크립트 오류 없음', not [e for e in C.errs if '이어하기' not in e], C.errs[:3]); await C.close()
+
+    # ② 복구가 검증에서 실패해도 고른 캐릭터가 바뀌지 않는다 + 그 뒤 새 판은 고른 캐릭터로 시작
+    C = await Ctx(b, srv.port, w=900, h=900, seed=51, raf=False, hc=8).open(); A = await C.page()
+    M = await A.evaluate("()=>__META()"); chars = [c['k'] for c in M['chars'] if not c['shop'] and not c['boss']]
+    mine, other = chars[0], chars[1]
+    await A.evaluate(FORGE, dict(ch=other, t0=300)); await A.evaluate("()=>{__run(3,0);__R.pauseGame();}")
+    blob = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+    bad_blob = await A.evaluate(CRAFT2, [blob, "x.S.xp=-5"])
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", bad_blob); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    await B.evaluate("(k)=>__R.CH_set(k)", mine); await B.click('#resGo'); await B.wait_for_timeout(300)
+    r = await B.evaluate("()=>[__R.state,__R.CH.k,document.getElementById('resMsg').textContent]")
+    check('[캐릭터] 값이 깨진 저장본의 복구가 실패하면 제목 화면 + 안내 한 줄', r[0] == 'title' and '실패' in r[2], r)
+    check('[캐릭터] 실패한 복구가 고른 캐릭터(%s)를 저장본의 캐릭터(%s)로 바꿔 놓지 않는다' % (mine, other), r[1] == mine, r)
+    await B.click('#startBtn'); r = await B.evaluate("()=>[__R.state,__R.CH.k,Object.keys(__R.S.w)]")
+    check('[캐릭터] 이어서 새 판을 시작하면 고른 캐릭터의 시작 무기로 시작한다', r[0] == 'play' and r[1] == mine, r)
+
+    # ③ 복구 직후 HUD 가 저장 당시 값
+    for kind in ('pause', 'lvup', 'chest'):
+        await A.evaluate(FORGE, dict(ch='brj', t0=1500, lv=30)); await A.evaluate("()=>{__run(4,0);__R.S.kills=77;}")
+        if kind == 'lvup': await A.evaluate("()=>{const R=__R;R.S.pendingLv=1;R.S.lv++;R.openLvup();}")
+        elif kind == 'chest': await A.evaluate("()=>{__R.openChest();}")
+        else: await A.evaluate("()=>{__R.pauseGame();}")
+        want_ = await A.evaluate("()=>({lv:__R.S.lv,t:Math.floor(__R.S.t)})")
+        B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+        await B.click('#resGo'); await B.wait_for_function("__R.state!=='title'")
+        h = await B.evaluate("()=>[document.getElementById('hLv').textContent,document.getElementById('hTime').textContent,document.getElementById('hKill').textContent,document.getElementById('xpb').firstElementChild.style.width]")
+        mm = '%02d:%02d' % (want_['t'] // 60, want_['t'] % 60)
+        check('[HUD/%s] 복구한 화면 뒤의 HUD 가 Lv %d · %s · 처치 77 로 맞다(초기값 아님)' % (kind, want_['lv'], mm), h[0] == 'Lv %d' % want_['lv'] and h[1].startswith(mm) and '77' in h[2], h)
+        await B.close()
+
+    # ④ 같은 카드 구성이 연달아 나와도(그 사이 장비가 바뀌어도) 저장본은 마지막 상태
+    for kind in ('lvup', 'chest'):
+        await A.evaluate(FORGE, dict(ch='brj', t0=900)); await A.evaluate("()=>{__run(3,0);}")
+        if kind == 'lvup': await A.evaluate("()=>{const R=__R;R.S.pendingLv=2;R.S.lv+=2;R.openLvup();}")
+        else: await A.evaluate("()=>{__R.openChest();}")
+        b1 = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+        await A.evaluate("()=>{const R=__R,k=Object.keys(R.PASS).find(k=>!R.S.ps[k]);R.S.ps[k]=1;R.S.pendingLv=1;}"); await A.evaluate("()=>__R.RES.save('again')")
+        b2 = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+        check('[저장 최신/%s] 카드·시간이 같아도 그 사이 장비(패시브)가 바뀌면 다시 저장한다' % kind, b1 and b2 and b1 != b2 and '"pendingLv":1' in b2, (len(b1 or ''), len(b2 or '')))
+    # 같은 상태면 건너뛴다(숨김 이벤트가 연달아 와도 쓰기가 폭주하지 않는다)
+    s0 = await A.evaluate("()=>{const n=__R.RES.info.saves;__R.RES.save('x');__R.RES.save('y');__R.RES.save('z');return __R.RES.info.saves-n}")
+    check('[저장 최신] 아무것도 안 바뀐 연속 저장은 건너뛴다', s0 == 0, s0)
+
+    # ⑤ 저장이 실패하면 같은 판의 옛 저장본을 지운다(낡은 쪽으로 열려 다시 뽑기가 환불되는 것을 막는다)
+    await A.evaluate(FORGE, dict(ch='brj', t0=900)); await A.evaluate("()=>{__run(3,0);const R=__R;R.S.pendingLv=1;R.S.lv++;R.S.rr=3;R.openLvup();}")
+    pre = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+    r = await A.evaluate("()=>{const R=__R;R.S.oops=function(){};R.reroll();const out=[R.S.rr,localStorage.getItem('p6_resume_v1')===null,R.RES.info.why];delete R.S.oops;return out}")
+    check('[저장 실패] 저장할 수 없는 값이 생겨 저장이 실패하면 같은 판의 옛 저장본(다시 뽑기 3)이 남지 않는다', pre is not None and r[0] == 2 and r[1] is True and r[2] == 'unsupported', r)
+    C2 = await Ctx(b, srv.port, w=900, h=900, seed=52, raf=False, hc=8, init=BLOCK_RESUME).open(); P = await C2.page()
+    r = await P.evaluate("""()=>{const R=__R;R.CH_set('brj');R.start();__run(3,0);R.pauseGame();R.resume();R.S.pendingLv=1;R.S.lv++;R.openLvup();R.reroll();R.pauseGame();return [R.RES.info.fails,localStorage.getItem('p6_resume_v1')===null]}""")
+    check('[저장 실패] 쓰기가 거부돼도 옛 저장본은 남지 않는다', r[1] is True and r[0] >= 1, r)
+    # 경고 줄이 쌓이지 않는다
+    r = await P.evaluate("""()=>{const R=__R;R.pauseGame();dispatchEvent(new Event('pagehide'));dispatchEvent(new Event('pagehide'));document.dispatchEvent(new Event('freeze'));
+      return [document.querySelectorAll('#resFailHint').length,(document.getElementById('pInfo').innerText.match(/판 저장이 막혀/g)||[]).length]}""")
+    check('[저장 실패] 일시정지 화면의 \'판 저장이 막혀 있어요\' 경고는 한 줄뿐(이벤트마다 쌓이지 않는다)', r == [1, 1], r)
+    await C2.close()
+
+    # ⑥ 변조 저장본이 화면 문구로 새지 않는다
+    await A.evaluate(FORGE, dict(ch='brj', t0=500)); await A.evaluate("()=>{__run(4,0);__R.pauseGame();}")
+    blob = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+    for label, expr in (('dmgBy 키', "x.S.dmgBy={'<img src=x onerror=window.__pwn=1>':50}"), ('보유 무기 값', "x.S.w[Object.keys(x.S.w)[0]]='<img src=x onerror=window.__pwn=1>'"),
+                        ('각성 값', "x.S.ev[Object.keys(x.S.w)[0]]='<img src=x onerror=window.__pwn=1>'"), ('처치 수', "x.S.kills=1e9"), ('레벨업 카드 단계', "h.st='lvup';x.mod.state='lvup';x.mod.CUR=[{t:'w',k:Object.keys(x.S.w)[0],l:'<img src=x onerror=window.__pwn=1>'}]")):
+        m = await A.evaluate(CRAFT2, [blob, expr]); B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", m)
+        await B.reload(); await B.wait_for_function('window.__R!==undefined'); await B.evaluate("()=>{window.__pwn=0}")
+        clicked = await B.evaluate("()=>!document.getElementById('resCard').hidden")
+        if clicked: await B.click('#resGo'); await B.wait_for_timeout(300)
+        r = await B.evaluate("()=>[__R.state,window.__pwn,document.querySelectorAll('#pause img[src=x],#lvup img[src=x]').length,document.getElementById('resMsg').textContent]")
+        check('[변조/%s] 카드가 떴고 복구가 거부되며(제목 화면 · 실패 안내) 스크립트가 실행되지 않는다' % label, clicked and r[0] == 'title' and not r[1] and r[2] == 0 and '실패' in r[3], (clicked, r))
+        await B.close()
+    await A.evaluate("()=>{dispatchEvent(new Event('focus'))}")
+    check('[변조] 다른 창에서 실패한 복구가 원래 창의 판을 닫지 않는다(실패는 아무것도 소모하지 않는다)', await A.evaluate("()=>__R.state") == 'pause')
+    await A.evaluate(FORGE, dict(ch='brj', t0=500)); await A.evaluate("()=>{__run(2,0);}")
+    r = await A.evaluate("""()=>{const R=__R;window.__pwn=0;R.S.dmgBy['<img src=x onerror=window.__pwn=1>']=999999;R.pauseGame();
+      return [window.__pwn,document.querySelectorAll('#pInfo img[src=x]').length,document.getElementById('pInfo').innerText.includes('<img')]}""")
+    check('[피해 비중] 키에 태그가 있어도 문구로 이스케이프된다(dmgHtml)', not r[0] and r[1] == 0 and r[2] is True, r)
+
+    # ⑦ 상점 캐릭터: 구매 목록을 받은 뒤라면 사지 않은 판은 되살리지 않고, 받기 전이면 계속하기에서 한 번 더 본다
+    async def yblob():   # (같은 판의 저장본은 한 번 이어받으면 낡은 것이 되므로 경우마다 새 판을 만든다)
+        await A.evaluate(FORGE, dict(ch='yumi', t0=300)); await A.evaluate("()=>{__run(3,0);__R.pauseGame();}"); return await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+    blob = await yblob()
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    await B.evaluate("()=>__R.srvUnl(['other'])"); await B.click('#resGo'); await B.wait_for_timeout(300)
+    r = await B.evaluate("()=>[__R.state,document.getElementById('resMsg').textContent]")
+    check('[상점] 구매 목록을 받았는데 사지 않은 상점 캐릭터 판은 이어하기가 거부된다', r[0] == 'title' and '실패' in r[1], r); await B.close()
+    blob = await yblob()
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    await B.click('#resGo'); await B.wait_for_function("__R.state==='pause'")
+    check('[상점] 구매 목록을 아직 못 받았으면(로그인 확인 전) 일단 복구된다', await B.evaluate("()=>__R.state") == 'pause')
+    await B.evaluate("()=>__R.srvUnl([])"); await B.click('#resumeBtn'); r = await B.evaluate("()=>[__R.state,document.getElementById('resMsg').textContent,localStorage.getItem('p6_resume_v1')]")
+    check('[상점] 그 뒤 목록에 없다고 확인되면 계속하기에서 판을 닫고 안내한다', r[0] == 'title' and '구매 목록' in r[1] and r[2] is None, r); await B.close()
+    blob = await yblob()
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    await B.evaluate("()=>__R.srvUnl(['yumi'])"); await B.click('#resGo'); await B.wait_for_function("__R.state==='pause'"); await B.click('#resumeBtn')
+    check('[상점] 산 사람의 판은 정상으로 이어진다', await B.evaluate("()=>__R.state") == 'play'); await B.close()
+
+    # ⑧ 새로 시작 확인(2분 넘게 한 판) · 복구 직후 재저장 · '방금' 문구 · 시작 버튼 글자
+    await A.evaluate(FORGE, dict(ch='brj', t0=300)); await A.evaluate("()=>{__run(3,0);__R.pauseGame();}")
+    blob = await A.evaluate("()=>localStorage.getItem('p6_resume_v1')")
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    check('[새로 시작] 하던 판이 있으면 시작 버튼 글자가 \'새로 시작하기\'', '새로 시작하기' in await B.inner_text('#startBtn'))
+    await B.click('#startBtn'); r = await B.evaluate("()=>[__R.state,document.getElementById('resMsg').textContent,localStorage.getItem('p6_resume_v1')!==null]")
+    check('[새로 시작] 처음 누르면 시작하지 않고 \'하던 판이 남아 있어요\' 확인만 한다(저장본 유지)', r[0] == 'title' and '하던 판이 남아' in r[1] and r[2], r)
+    await B.click('#startBtn'); r = await B.evaluate("()=>[__R.state,localStorage.getItem('p6_resume_v1')]")
+    check('[새로 시작] 한 번 더 누르면 시작하고 하던 판은 사라진다', r == ['play', None], r)
+    await B.evaluate("()=>{__R.endRun(false,true);}"); await B.click('#homeBtn')
+    check('[새로 시작] 저장본이 없으면 글자가 \'시작하기\'로 돌아온다', '새로' not in await B.inner_text('#startBtn')); await B.close()
+    short = await A.evaluate(CRAFT2, [blob, "h.t=60"])
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", short); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    await B.click('#startBtn'); check('[새로 시작] 2분이 안 된 판은 묻지 않고 바로 시작한다', await B.evaluate("()=>__R.state") == 'play'); await B.close()
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    await B.click('#dailyBtn'); r = await B.evaluate("()=>[__R.state,localStorage.getItem('p6_resume_v1')!==null]")
+    check('[새로 시작] 오늘의 도전 버튼도 같은 확인을 거친다(기록 기회가 말없이 소모되지 않는다)', r == ['title', True], r); await B.close()
+    # 문구
+    old3h = await A.evaluate(CRAFT2, [blob, "h.ts=Date.now()-3*3600*1000"])
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", old3h); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    t = await B.evaluate("()=>document.getElementById('resMsg').textContent+'|'+document.getElementById('resAgo').textContent")
+    check('[안내 문구] 3시간 전 저장본에 \'방금\'이라고 하지 않는다', '하던 판이 남아' in t and '방금 하던' not in t and '3시간 전' in t, t); await B.close()
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    t = await B.evaluate("()=>document.getElementById('resMsg').textContent")
+    check('[안내 문구] 방금 저장한 판은 \'방금 하던 판이에요\'', '방금 하던 판' in t, t); await B.close()
+    # 복구 직후 재저장 → 새 페이지에서 또 이어받을 수 있다(복구 후 이벤트 없이 죽은 경우)
+    B = await C.page(); await B.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob); await B.reload(); await B.wait_for_function('window.__R!==undefined')
+    await B.click('#resGo'); await B.wait_for_function("__R.state==='pause'"); d1 = await B.evaluate("()=>__R.S.t"); await B.close()
+    B = await C.page(); await B.wait_for_function('window.__R!==undefined')
+    ok_ = await B.evaluate("()=>!document.getElementById('resCard').hidden")
+    if ok_: await B.click('#resGo'); await B.wait_for_function("__R.state==='pause'")
+    d2 = await B.evaluate("()=>[__R.S.t,__R.RUN.gen]")
+    check('[재저장] 복구한 화면에서 이벤트 없이 닫혀도(탭 폐기) 다시 열면 같은 판(시간 %.1f)이 세대 2 로 또 이어진다' % d1, ok_ and d2[0] == d1 and d2[1] == 2, (ok_, d2)); await B.close()
+    check('[아] 스크립트 오류 없음', not [e for e in C.errs if '이어하기' not in e], C.errs[:4]); await C.close()
+
+    # ⑨ 앱 내장 브라우저 판별(표지가 있는 것 + 안드로이드 웹뷰 + 아이폰 웹뷰, 일반 브라우저는 제외)
+    C = await Ctx(b, srv.port, seed=61).open(); A = await C.page()
+    UAS_ = {
+      'Android WebView': ('Mozilla/5.0 (Linux; Android 13; SM-S918N Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.144 Mobile Safari/537.36', True),
+      'iOS WKWebView(앱)': ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148', True),
+      'Discord': ('Mozilla/5.0 (Linux; Android 13; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 Discord/200.0', True),
+      '카카오톡': ('Mozilla/5.0 (Linux; Android 13; SM-S918N; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36 KAKAOTALK/10.4.1', True),
+      '안드로이드 크롬': ('Mozilla/5.0 (Linux; Android 13; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Mobile Safari/537.36', False),
+      '삼성 인터넷': ('Mozilla/5.0 (Linux; Android 13; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/23.0 Chrome/115.0.0.0 Mobile Safari/537.36', False),
+      '아이폰 사파리': ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', False),
+      '아이폰 크롬': ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0.6099.119 Mobile/15E148 Safari/604.1', False),
+      '아이폰 파이어폭스': ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/124.0 Mobile/15E148 Safari/605.1.15', False),
+      '데스크톱 크롬': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', False)}
+    bad = []
+    for nm, (ua, exp) in UAS_.items():
+        got = await A.evaluate("(u)=>__R.RES.isIab(u)", ua)
+        if got != exp: bad.append((nm, got, exp))
+    check('[내장 브라우저 판별] UA 10종(웹뷰·표지 있는 앱은 참 · 일반 브라우저는 거짓) — 어긋남 %s' % (bad or '없음'), not bad, bad)
+    await C.close()
+    C = await Ctx(b, srv.port, seed=62, ua=UAS_['Android WebView'][0], mobile=True, w=390, h=800).open(); A = await C.page()
+    t1 = await A.evaluate("()=>[document.getElementById('resNote').hidden,document.getElementById('resNoteTxt').textContent,document.getElementById('resNoteX').getBoundingClientRect().height,document.getElementById('resNoteCopy').getBoundingClientRect().height]")
+    check('[내장 브라우저] 안드로이드 웹뷰에서도 안내가 뜨고 \'꺼질 수도\'라고 단정하지 않는다', (not t1[0]) and '다른 브라우저' in t1[1] and '꺼질 수도' in t1[1], t1)
+    check('[내장 브라우저] 안내의 닫기·링크 복사 버튼이 손가락 크기(44px 이상)', t1[2] >= 44 and t1[3] >= 44, t1); await C.close()
 
 sys.exit(asyncio.run(main()))
