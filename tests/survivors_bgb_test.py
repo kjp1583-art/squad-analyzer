@@ -109,6 +109,7 @@ async def main():
         ctx0, pg0, errs0 = await H.new_page(b, srv0.port)
         r_old = await pg0.evaluate(TRACE, {'dt': .25, 'until': 3400})
         new_wo = [v for v in r_new if v[0] != 'bgb']
+        r_old = [v for v in r_old if v[0] != 'bgb']   # 기준선(origin/main)에 이미 배고배고가 들어 있어도 비교는 '기존 보스'끼리만
         check('기존 보스·미니 보스 출현 순서·시각이 main 과 같다', new_wo == r_old and len(r_old) >= 20, {'old': r_old if new_wo != r_old else len(r_old), 'diff': [(a, b) for a, b in zip(new_wo, r_old) if a != b][:4]})
         bg = [v for v in r_new if v[0] == 'bgb']
         check('배고배고는 2280초에 한 번만', len(bg) == 1 and bg[0][1] == 2280, bg)
