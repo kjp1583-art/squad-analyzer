@@ -400,6 +400,58 @@ const SPX=(()=>{const o={};
   o.blitRot=function(im,x,y,r,ang){const s=CAM.s;let d=Math.round(r*s*2/2)*2;if(d<2)return;
     if(d>DMAXPX){cx.save();cx.translate(x,y);cx.rotate(ang);cx.drawImage(im,-r,-r,r*2,r*2);cx.restore();return;}
     const c=fit(im,d),co=Math.cos(ang),si=Math.sin(ang);cx.setTransform(co,si,-si,co,CAM.ox+s*x,CAM.oy+s*y);cx.drawImage(c,-d/2,-d/2);cx.setTransform(s,0,0,s,CAM.ox,CAM.oy);};
+  // 📢 [2026-10-07] 엄장신 「엄!」 연출 — 균열 마스터(384²·변형 A/B)와 글자 판은 처음 그릴 때 한 번 굽고, 균열은 화면 지름에 맞춘 사본(최대 8장)을 정수 위치에 1:1 로 찍는다
+  const mulb=a=>()=>{a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};   // 연출 전용 난수(Math.random 아님)
+  function tapered(g,pts,w0,w1,R){const n=pts.length/2,L=[],Rr=[];   // 끝이 뾰족하게 가늘어지는 균열 하나(다각형 채우기)
+    for(let i=0;i<n;i++){const x=pts[2*i],y=pts[2*i+1],px=i>0?pts[2*i-2]:x,py=i>0?pts[2*i-1]:y,nx=i<n-1?pts[2*i+2]:x,ny=i<n-1?pts[2*i+3]:y;
+      let dx=nx-px,dy=ny-py;const d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;const w=(w0+(w1-w0)*Math.pow(i/(n-1),.8))/2,j1=1+(R()-.5)*.35,j2=1+(R()-.5)*.35;
+      L.push([x-dy*w*j1,y+dx*w*j1]);Rr.push([x+dy*w*j2,y-dx*w*j2]);}
+    g.beginPath();g.moveTo(L[0][0],L[0][1]);for(let i=1;i<n;i++)g.lineTo(L[i][0],L[i][1]);for(let i=n-1;i>=0;i--)g.lineTo(Rr[i][0],Rr[i][1]);g.closePath();g.fill();}
+  function crackMaster(seed,S,N,W0){const R=mulb(seed),Rm=S/2-3,k=S/256,stems=[],arcs=[],wedges=[];
+    function walk(a,r0,len,w0,depth){const pts=[Math.cos(a)*r0,Math.sin(a)*r0];let r=r0,aa=a;
+      while(r<r0+len){r=Math.min(r0+len,r+(depth?.55:1)*k*(20+R()*34));aa+=(R()-.5)*.2;if(R()<.16)aa+=(R()<.5?-1:1)*(.42+R()*.38);pts.push(Math.cos(aa)*r,Math.sin(aa)*r);
+        if(depth<2&&r>Rm*.2&&r<r0+len-S*.06&&R()<(depth?.16:.3)){const sd=R()<.5?-1:1;walk(aa+sd*(.32+R()*.32),r,Math.min(Rm*(.16+R()*.24),r0+len-r),w0*.5,depth+1);}}
+      stems.push({pts,w0});}
+    const A=[];for(let i=0;i<N;i++){const a=i*Math.PI*2/N+(R()-.5)*.5;A.push(a);walk(a,(2+R()*5)*k,Rm*(.55+.45*R())-4,W0*(.75+.5*R()),0);}
+    for(const rr of [.34,.62,.86])for(let i=0;i<N;i++)if(R()<.4){const a0=A[i]+.06+R()*.2;arcs.push([rr*Rm*(1+(R()-.5)*.05),a0,a0+.16+R()*.3]);}
+    for(let i=0;i<N;i++)if(R()<.55)wedges.push([A[i],A[(i+1)%N]+(i===N-1?Math.PI*2:0),Rm*(.28+.32*R())]);
+    const m2=()=>{const c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');g.translate(S/2,S/2);g.lineCap='round';g.lineJoin='round';return [c,g];};
+    const [cd,gd]=m2(),[cg,gg]=m2();
+    gd.fillStyle='rgba(4,8,24,.16)';for(const w of wedges){gd.beginPath();gd.moveTo(0,0);gd.arc(0,0,w[2],w[0],w[1]);gd.closePath();gd.fill();}
+    const q=gd.createRadialGradient(0,0,0,0,0,Rm*.24);q.addColorStop(0,'rgba(3,6,18,.9)');q.addColorStop(.6,'rgba(3,6,18,.55)');q.addColorStop(1,'rgba(3,6,18,0)');gd.fillStyle=q;gd.beginPath();gd.arc(0,0,Rm*.24,0,7);gd.fill();
+    gd.fillStyle='rgba(3,6,18,.94)';for(const s2 of stems)tapered(gd,s2.pts,s2.w0+k*1.6,s2.w0*.12,R);
+    for(const a of arcs){gd.beginPath();gd.arc(0,0,a[0],a[1],a[2]);gd.lineWidth=k*2.6;gd.strokeStyle='rgba(3,6,18,.8)';gd.stroke();}
+    gd.lineWidth=Math.max(.8,k*.9);gd.strokeStyle='rgba(170,226,255,.30)';for(const s2 of stems){const p=s2.pts;gd.beginPath();gd.moveTo(p[0]+k*1.3,p[1]-k*1.3);for(let i=2;i<p.length;i+=2)gd.lineTo(p[i]+k*1.3,p[i+1]-k*1.3);gd.stroke();}
+    for(let i=0;i<30;i++){const a=R()*6.283,r=Rm*(.12+.85*R());gd.fillStyle='rgba(3,6,18,.75)';gd.beginPath();gd.arc(Math.cos(a)*r,Math.sin(a)*r,(1+R()*2.4)*k,0,7);gd.fill();}
+    gg.save();gg.shadowColor='rgba(56,182,255,.95)';gg.shadowBlur=k*9;gg.fillStyle='rgba(206,246,255,.95)';for(const s2 of stems)tapered(gg,s2.pts,s2.w0*.42,s2.w0*.06,R);gg.restore();
+    gg.lineWidth=k*1.1;gg.strokeStyle='rgba(150,235,255,.6)';for(const a of arcs){gg.beginPath();gg.arc(0,0,a[0],a[1],a[2]);gg.stroke();}
+    const q2=gg.createRadialGradient(0,0,0,0,0,Rm*.2);q2.addColorStop(0,'rgba(242,253,255,.95)');q2.addColorStop(.4,'rgba(111,230,255,.42)');q2.addColorStop(1,'rgba(111,230,255,0)');gg.fillStyle=q2;gg.beginPath();gg.arc(0,0,Rm*.2,0,7);gg.fill();
+    return [cd,cg];}
+  const CM=[null,null],CRF=new Map();
+  o.hasCM=v=>!!CM[v];
+  o.crackM=function(v){return CM[v]||(CM[v]=crackMaster(v?23:11,384,v?9:10,v?10.2:7.2));};
+  o.crackE=function(v,l,d){const key=(d>>3)*4+v*2+l;let c=CRF.get(key);if(c)return c;   // v 변형 · l 층(0 어두운 · 1 빛나는) · d 장치 지름(8px 단위)
+    const m=o.crackM(v);if(CRF.size>=8)CRF.clear();c=mk(d,d,g=>{g.imageSmoothingQuality='high';g.drawImage(m[l],0,0,d,d);});CRF.set(key,c);return c;};
+  const LBL=['엄!','엄엄!','엄엄엄!!!'],EOMT=new Map();
+  function letterSprite(str,fs,cracked){const pad=Math.round(fs*.3),m=document.createElement('canvas').getContext('2d');m.font='900 '+fs+'px sans-serif';
+    const w=Math.ceil(m.measureText(str).width),c=document.createElement('canvas');c.width=w+pad*2;c.height=Math.round(fs*1.3)+pad;
+    const g=c.getContext('2d');g.font='900 '+fs+'px sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';g.miterLimit=2;
+    const X=c.width/2,Y=c.height/2+fs*.02;
+    g.lineWidth=fs*.30;g.strokeStyle='rgba(4,10,34,.5)';g.strokeText(str,X+fs*.04,Y+fs*.07);
+    g.lineWidth=fs*.24;g.strokeStyle='#06143a';g.strokeText(str,X,Y);
+    g.lineWidth=fs*.13;g.strokeStyle='#2f9bff';g.strokeText(str,X,Y);
+    g.lineWidth=fs*.05;g.strokeStyle='#bfeaff';g.strokeText(str,X,Y);
+    const gr=g.createLinearGradient(0,Y-fs*.5,0,Y+fs*.5);gr.addColorStop(0,'#ffffff');gr.addColorStop(.55,'#eaf8ff');gr.addColorStop(1,'#a9dcff');g.fillStyle=gr;g.fillText(str,X,Y);
+    if(cracked){g.lineCap='round';g.lineJoin='round';const zz=[[0,-.5],[.07,-.2],[-.05,0],[.06,.25],[-.02,.5]],br=[[.06,.25],[.2,.32],[.28,.5]];
+      const path=(pts,ox)=>{g.beginPath();pts.forEach((p,i)=>{const x=X+p[0]*fs*1.7+ox,y=Y+p[1]*fs;i?g.lineTo(x,y):g.moveTo(x,y);});};
+      for(const ox of [-w*.22,w*.18]){path(zz,ox);g.lineWidth=Math.max(2.2,fs*.045);g.strokeStyle='rgba(4,10,34,.95)';g.stroke();path(zz,ox);g.lineWidth=Math.max(1,fs*.014);g.strokeStyle='rgba(235,250,255,.95)';g.stroke();}
+      path(br,-w*.22);g.lineWidth=Math.max(1.8,fs*.035);g.strokeStyle='rgba(4,10,34,.9)';g.stroke();}
+    return c;}
+  const LWC=[0,0,0];
+  o.lw=function(lb){let v=LWC[lb];if(!v){const w=document.createElement('canvas').getContext('2d');w.font='900 100px sans-serif';const t=w.measureText(LBL[lb]).width/100;if(t>.3)v=LWC[lb]=t+.6;else return 1.6*(lb+1);}return v;};   // 글자 판 폭 ÷ 글자 크기(외곽선 여백 .6 포함) — 기기마다 글꼴이 달라 처음 한 번 재서 둔다(화면 폭 한도 계산용)
+  o.eomHas=(lb,fs,cr)=>EOMT.has((lb*1000+fs)*2+(cr?1:0));
+  o.eomT=function(lb,fs,cr){const key=(lb*1000+fs)*2+(cr?1:0);let c=EOMT.get(key);if(c)return c;if(EOMT.size>=30)EOMT.clear();c=letterSprite(LBL[lb],fs,cr);EOMT.set(key,c);return c;};
+  o.fear=mk(28,28,g=>{g.font='22px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillStyle='#fff';g.fillText('❕',14,15);});   // 📢 겁먹은 적 머리 위 느낌표(이모지 글자를 매 프레임 찍으면 비싸서 한 번만 그려 둔다)
   return o;})();
 
 // ---------- assets (가볍게: 필요할 때만, 작은 캔버스로 한 번 줄여 둔다) ----------
@@ -584,7 +636,7 @@ Pool.prototype.clear=function(){for(const o of this.a)o.on=false;};
 const LOW=(navigator.hardwareConcurrency||4)<=4||Math.min(screen.width,screen.height)<420;
 const MAXE=LOW?140:220;   // 적 수 상한은 그대로 — 후반엔 숫자 대신 체력·공격력이 오른다
 const enemies=new Pool(MAXE,()=>({x:0,y:0,hp:0,mhp:0,r:10,sp:0,dmg:0,t:0,hit:0,boss:0,xp:1,kb:0,kx:0,ky:0,st:0,slow:0,gold:0,hb:-9,wv:0,zp:0,el:0,fx:0,ft:0,pl:0,at:null,
-  bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0,tn:0,kr:0,bph:0,gen:0,wf:-9,cn:-9,far:0,fz:0,fv:0,fw:0,hk:0,mt:0,mc:0,lw:-9}));   // fz·fv 🧊 얼음 · fw 얼음 파동 번호 · hk 🎣 줄 번호 · mt 운석·저격 지정 번호 · lw 🥏 뚜껑 마지막 접촉   // wf 📶 전파 · cn 🥫 캔 마지막 적중 시각   // kr 넉백 저항(연달아 밀릴수록 덜 밀린다) · bph 보스 페이즈 · gen 분열 세대(자크)   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호 · tn 등장 대사 대기(기한)
+  bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0,tn:0,kr:0,bph:0,gen:0,wf:-9,cn:-9,far:0,fz:0,fv:0,fw:0,hk:0,mt:0,mc:0,lw:-9,fk:0,fa:0,fux:0,fuy:0,ff:0}));   // fz·fv 🧊 얼음 · fw 얼음 파동 번호 · hk 🎣 줄 번호 · mt 운석·저격 지정 번호 · lw 🥏 뚜껑 마지막 접촉   // wf 📶 전파 · cn 🥫 캔 마지막 적중 시각   // kr 넉백 저항(연달아 밀릴수록 덜 밀린다) · bph 보스 페이즈 · gen 분열 세대(자크)   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호 · tn 등장 대사 대기(기한)
 let SN=0;   // 적 출생 번호 — 풀 칸은 재사용되므로 '같은 적인가'는 on 이 아니라 sn 으로 본다(갈고리·레이저·브레스의 주인)
 const srcOk=b=>!!(b.src&&b.src.on&&b.src.sn===b.sn);
 const shots=new Pool(LOW?160:220,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,pierce:0,r:6,c:'#e8c46a'}));
@@ -942,7 +994,7 @@ const AU=(()=>{
     if(!noise.b||noise.b.length<len){noise.b=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=noise.b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
     const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noise.b;f.type='lowpass';f.frequency.setValueAtTime(lp,t);f.frequency.exponentialRampToValueAtTime(80,t+dur);
     g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f);f.connect(g);g.connect(bus||sfxG);s.start(t,0,dur);ends.push(t+dur);}
-  const GAP={shoot:90,hit:70,kill:60,gem:40,boom:120,bigboom:220,hurt:150,pick:80,brk:80,zap:110,wave:200,evo:500,chest:300,fire:180,staff:400,room:500,dash:200,swing:160,rocket:200,peep:150,hook:200,freeze:300,clang:120,meteor:400,snipe:250,hole:400,beat:200,snack:150,eom:500,quill:150,tempo:70,pcards:200,fuse:300,slime:180,cart:400,love:200,jhin:120,hop:150,bash:250,twin:200,stamp:200,chain:250,ram:300};
+  const GAP={shoot:90,hit:70,kill:60,gem:40,boom:120,bigboom:220,hurt:150,pick:80,brk:80,zap:110,wave:200,evo:500,chest:300,fire:180,staff:400,room:500,dash:200,swing:160,rocket:200,peep:150,hook:200,freeze:300,clang:120,meteor:400,snipe:250,hole:400,beat:200,snack:150,eom:120,quill:150,tempo:70,pcards:200,fuse:300,slime:180,cart:400,love:200,jhin:120,hop:150,bash:250,twin:200,stamp:200,chain:250,ram:300};
   const SPAM={shoot:1,hit:1,kill:1,gem:1,boom:1,brk:1,zap:1,wave:1,fire:1,swing:1,rocket:1,peep:1,hook:1,freeze:1,clang:1,meteor:1,snipe:1,hole:1,beat:1,snack:1,quill:1,tempo:1,pcards:1,fuse:1,slime:1,love:1,jhin:1,hop:1,twin:1,stamp:1};   // 후반엔 쉴 새 없이 겹치는 소리 — 붐빌수록 spamG 로 줄인다(피격음은 제외 → 묻히지 않는다)
   function duck(){   // 동시에 울리는 소리 수로 잦은 소리 버스를 낮춘다: 2개까지 그대로 · 4개 -4.6dB · 8개 -9.8dB · 12개 -13dB
     if(!spamG)return;const now=ac.currentTime;let v=0;for(const e of ends)if(e>now)v++;
@@ -952,7 +1004,7 @@ const AU=(()=>{
     const now=ac.currentTime;
     if(now*1000-(last[k]||-1e9)<(GAP[k]||60))return;   // 같은 소리는 몰아서 한 번
     for(let i=ends.length-1;i>=0;i--)if(ends[i]<now)ends.splice(i,1);
-    if(ends.length>=MAXV&&k!=='lv'&&k!=='boss'&&k!=='win'&&k!=='lose'&&k!=='evo'&&k!=='chest'&&k!=='bigboom')return;
+    if(ends.length>=MAXV&&k!=='lv'&&k!=='boss'&&k!=='win'&&k!=='lose'&&k!=='evo'&&k!=='chest'&&k!=='bigboom'&&k!=='eom')return;
     last[k]=now*1000;n[k]=(n[k]||0)+1;bus=SPAM[k]?spamG:sfxG;
     switch(k){
       case 'shoot':tone('square',660,440,.05,.05);break;
@@ -991,7 +1043,11 @@ const AU=(()=>{
       // 🎒 [2026-10-07] 고유 무기 13종 — 무기마다 다른 소리(음량은 예전 최대치를 넘지 않는다)
       case 'snack':tone('triangle',900,500,.06,.04);noise(.04,.06,4000);break;
       case 'pcards':noise(.05,.08,5200);tone('triangle',1200,1800,.08,.05);tone('sine',1800,2400,.06,.03,now+.04);break;   // 📸 포토카드 — 종이 스치는 소리 + 반짝
-      case 'eom':tone('sawtooth',330,520,.16,.1);tone('square',660,520,.2,.07,now+.04);noise(.12,.1,3000);break;
+      case 'eom':{const c=a|0;   // 📢 [2026-10-07] 묵직한 저음 쿵 + 균열 칙칙 — 0 첫 · 1 비각성 메아리 · 2 각성 마지막 · 3 각성 첫 · 4 각성 메아리
+        if(c===1||c===4){const g=c===4?1.6:1;tone('sine',150,60,.2,.13*g);noise(.16,.12*g,2200);tone('sawtooth',300,220,.12,.05*g);}
+        else if(c===2){const g=.85;tone('sine',100,30,.66,.22*g);tone('triangle',150,52,.42,.15*g);noise(.62,.28*g,4600);tone('sawtooth',190,120,.3,.12*g);tone('square',95,62,.32,.055*g);tone('square',2400,380,.05,.045*g,now+.05);tone('square',3100,520,.04,.04*g,now+.12);noise(.1,.1*g,6500);}
+        else{const g=c===3?1.12:1;tone('sine',112,36,.46,.24*g);tone('triangle',182,66,.3,.14*g);noise(.5,.3*g,4200);tone('sawtooth',214,148,.2,.11*g);tone('square',2600,420,.05,.045*g,now+.05);tone('square',3300,600,.04,.04*g,now+.12);}
+        break;}
       case 'quill':noise(.07,.1,3200);tone('triangle',700,300,.07,.045);break;
       case 'tempo':tone('square',1100,700,.035,.03);break;
       case 'fuse':tone('sine',320,190,.12,.07);tone('square',1400,1400,.03,.03,now+.06);break;
@@ -1488,7 +1544,7 @@ function spawnEnemy(kind,mult,boss,at){
     e.at={cards:3,dash:2,shots:1.5,ring:3,summon:4,shroom:1,pull:5,room:2.5,rage:3,breath:3,charge:4,staff:2,hook:2.5,beam:2,nova:9};}
   else{const k=KIND[kind];e.boss=0;e.b=null;e.id=k.id;e.r=k.r;e.sp=k.sp*(1+Math.min(.55,S.t/900));e.mhp=e.hp=k.hp*mult;e.dmg=k.d*atkMul(m)*mobX(m);e.xp=k.xp;e.c=k.c;e.acc=k.acc||null;
     e.sh=k.shield||0;S.kc[kind]++;}
-  e.hit=0;e.kb=0;e.t=Math.random()*6;return e;
+  e.hit=0;e.kb=0;e.fa=0;e.fk=0;e.ff=0;e.t=Math.random()*6;return e;
 }
 function spawnBoss(key){
   const B=Object.assign({key},BOSS[key]);if(B.img)bossImg(B.img);
@@ -1998,12 +2054,13 @@ function weapons3(dt,cm,MT,AR,AM){
   if(L&&(S.cd.eom-=dt)<=0){ev=S.ev.eom;t=TK('eom');
     const R=U3.eom.R*lvm(L,[[2,1.15],[4,1.15],[6,1.15],[8,1.15]])*AR*(ev?1.3:1)*(1+t.a),fear0=(U3.eom.fear+.25*(L-1)+t.life)*(ev?1.4:1),d0=U3.eom.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*MT*(ev?1.2:1)*(1+t.d);let any=false;
     for(const e of S.live)if(e.on&&(e.x-p.x)**2+(e.y-p.y)**2<(R+e.r)**2){any=true;break;}
-    if(any){const shout=mm=>{if(!S.w.eom)return;
+    if(any){const eo=ev?1:0,Le=L,shout=(mm,st)=>{if(!S.w.eom)return;   // eo·Le: 지연 호출(메아리·마지막)이 나중에 돌 때 ev·L 은 다른 무기가 덮어쓴 값이라 시전 순간 값을 쥐고 간다
         for(const e of S.live){if(!e.on||(e.x-p.x)**2+(e.y-p.y)**2>=(R+e.r)**2)continue;h3(e,d0*mm,'eom');if(!e.on)continue;
-          if(e.boss)e.slow=Math.max(e.slow,e.b&&e.b.mini?fear0*.125:fear0*.25);else if(e.bg||e.el)e.fear=Math.max(e.fear||0,fear0*.25);else e.fear=Math.max(e.fear||0,fear0);}
+          if(e.boss)e.slow=Math.max(e.slow,e.b&&e.b.mini?fear0*.125:fear0*.25);else if(e.bg||e.el)e.fear=Math.max(e.fear||0,fear0*.25);else e.fear=Math.max(e.fear||0,fear0);
+          if(!e.boss)EX.eomHit(e,p.x,p.y,R,st,eo);}
         hitPropsAt(p.x,p.y,R,d0*mm);   // 외침은 필드 아이템도 깬다
-        f3({k:'sh',x:p.x,y:p.y,R,life:.8,T:.8,big:mm>=1?1:0});AU.play('eom');S.shake=Math.max(S.shake,.12);};
-      shout(1);if(t.echo)S.dq.push({t:.4,f:()=>shout(.6)});if(ev)S.dq.push({t:.6,f:()=>shout(.8)});
+        EX.eom(p.x,p.y,R,st,eo,Le);AU.play('eom',st===2?2:st===1?(eo?4:1):(eo?3:0));};   // 🎨 연출·소리 전용(위에서 피해·공포는 끝났다)
+      shout(1,0);if(t.echo)S.dq.push({t:.4,f:()=>shout(.6,1)});if(ev)S.dq.push({t:.6,f:()=>shout(.8,2)});
       S.cd.eom=U3.eom.cd*lvm(L,[[3,.9],[5,.9],[7,.9]])*cm*(1-t.c);}
     else S.cd.eom=.3;}
   // 📸 플레이브 포토카드 → ✨ 팬싸인회 — 가까운 적에게 회전하는 카드를 부채꼴로(맞은 적은 밀려난다 · 필드 아이템도 깬다)
@@ -2122,7 +2179,6 @@ function weapons3(dt,cm,MT,AR,AM){
           if(o.pc-->0){o.h.push(e);continue;}
           dead=true;break;}
         break;}
-      case 'sh':{o.life-=dt;if(o.life<=0)dead=true;break;}
       case 'bs':{o.life-=dt;if(o.life<=0)dead=true;break;}
       default:dead=true;}
     if(dead){f[i]=f[f.length-1];f.pop();}}
@@ -2677,6 +2733,7 @@ for(const el of document.querySelectorAll('input[data-fx]'))el.onchange=e=>FX.se
 //   시뮬레이션은 update(게임 시간)에서만 → 일시정지·히트스톱에 같이 멈춘다. 화면 밖 폭발은 입자를 만들지 않고, 한 프레임에 만드는 입자 수(bud)도 제한한다.
 //   ✨ 배경 효과 단계(FX.lv)를 따른다: 2 전부 · 1 가볍게(입자 절반 이하 · 연기·자국 없음) · 0 최소(번쩍임+링+몇 알). 색 언어(하늘색=내 것 · 빨강=적)는 어느 단계에서도 그대로.
 //   구경거리 난수는 게임 난수(Math.random)와 따로(xorshift) — 이펙트가 판의 난수 흐름을 바꾸지 않는다.
+//   📢 [2026-10-07] 엄장신 「엄!」 외침 연출도 여기서 그린다(EX.eom — 큰 글자 ≤3 · 글자 조각 ≤24 · 균열 자국은 그을음 자국 풀을 같이 쓴다). 옛 'sh' 엔티티(S.x3.f)는 없앴다.
 const EX=(()=>{
   const PMAX=300,RMAX=24,DMAX=16,TMAX=4;
   const F=n=>new Float32Array(n);
@@ -2684,6 +2741,11 @@ const EX=(()=>{
   let ph=0,pAct=0;
   const rx=F(RMAX),ry=F(RMAX),ra=F(RMAX),rb=F(RMAX),rl=F(RMAX),rm=F(RMAX),rw=F(RMAX),rd=F(RMAX),rk=new Uint8Array(RMAX);let rh=0,rAct=0;
   const dx=F(DMAX),dy=F(DMAX),dr=F(DMAX),dl=F(DMAX),dm=F(DMAX),dk=new Uint8Array(DMAX);let dh=0,dAct=0;
+  const da=new Uint8Array(DMAX);let ckLast=-1;   // 📢 균열 데칼 변형 번호(0 A · 1 B) · 가장 최근 균열 칸
+  const LMAX=3,WPMAX=24;   // 📢 큰 글자 풀(동시 3) · 글자 조각 풀
+  const ltx=F(LMAX),lty=F(LMAX),lta=F(LMAX),ltT=F(LMAX),ltS=F(LMAX),ltD=new Uint8Array(LMAX),ltK=new Uint8Array(LMAX),ltQ=new Uint8Array(LMAX),ltB=new Uint8Array(LMAX);let lth=0,ltAct=0;
+  const fgx=F(WPMAX),fgy=F(WPMAX),fgpx=F(WPMAX),fgpy=F(WPMAX),fgvx=F(WPMAX),fgvy=F(WPMAX),fgr=F(WPMAX),fgvr=F(WPMAX),fgl=F(WPMAX),fgm=F(WPMAX),fgF=F(WPMAX),fgK=new Uint8Array(WPMAX),fgC=new Uint8Array(WPMAX),fgR=new Uint8Array(WPMAX),fgI=new Uint8Array(WPMAX);let fgi=0,fgAct=0;
+  let lastFl=-9,laCur=0,fcN=0,fcCap=80,warmKey='';const ecn=[0,0,0];
   const tx=F(TMAX),ty=F(TMAX),tz=F(TMAX),tl=F(TMAX),tm=F(TMAX),tsA=new Array(TMAX).fill('');let th=0,tAct=0;
   const kx=F(4),ky=F(4),ka=F(4),kw=F(4),kR=F(4),kl=F(4),km=F(4);let kh=0,kAct=0;   // 🐲 보스 브레스가 터지는 순간의 부채꼴 번쩍임(적의 위험색)
   const SP=0,SH=1,YK=2,SM=3,FE=4,CF=5,BB=6,EM=7,DB=8;   // 입자 종류: 불꽃줄 · 껍데기 · 노른자 · 연기 · 깃털 · 색종이 · 거품 · 불씨(빛) · 파편
@@ -2697,12 +2759,12 @@ const EX=(()=>{
   function cnt(n,min){let c=Math.max(min|0,Math.round(n*qf()));if(c>bud)c=bud;bud-=c;return c;}   // 프레임 예산 안에서 — 입자가 넘치는 후반에도 한 프레임에 몰리지 않는다
   function sp(k,x,y,z,vx,vy,vz,life,size,g,drag,c,rot,vr){const i=ph;ph=(ph+1)%PMAX;if(pl[i]<=0)pAct++;
     px[i]=x;py[i]=y;pz[i]=z;pvx[i]=vx;pvy[i]=vy;pvz[i]=vz;pl[i]=pm[i]=life;ps[i]=size;pg[i]=g;pd[i]=drag;pk[i]=k;pc[i]=c;pr[i]=rot;pvr[i]=vr;}
-  function ring(k,x,y,a,b,life,w,delay){const i=rh;rh=(rh+1)%RMAX;if(rl[i]<=0)rAct++;rx[i]=x;ry[i]=y;ra[i]=a;rb[i]=b;rl[i]=rm[i]=life;rw[i]=w;rk[i]=k;rd[i]=delay||0;}   // k 0 충격(하늘) · 1 연한 · 2 자주빛(가챠) · 3 금색(전설) · 4 핑 · 5 큰 폭탄 · 6 번쩍임 원판 · 7 적 폭발(진홍) · 8 적 번쩍임(뜨거운)
-  function decal(k,x,y,r,life,force){if(FX.lv<2||(!force&&dAct>=DMAX-5))return;const i=dh;dh=(dh+1)%DMAX;if(dl[i]<=0)dAct++;dx[i]=x;dy[i]=y;dr[i]=r;dl[i]=dm[i]=life;dk[i]=k;}   // 그을음·갈라짐·노른자 자국 — 효과 단계 2 에서만
+  function ring(k,x,y,a,b,life,w,delay){const i=rh;rh=(rh+1)%RMAX;if(rl[i]<=0)rAct++;rx[i]=x;ry[i]=y;ra[i]=a;rb[i]=b;rl[i]=rm[i]=life;rw[i]=w;rk[i]=k;rd[i]=delay||0;}   // k 0 충격(하늘) · 1 연한 · 2 자주빛(가챠) · 3 금색(전설) · 4 핑 · 5 큰 폭탄 · 6 번쩍임 원판 · 7 적 폭발(진홍) · 8 적 번쩍임(뜨거운) · 9 금이 간 별(달걀) · 10 📢 엄! 크레스트(남색 밑줄 + 푸른 흰 몸) · 11 📢 엄! 가는 링
+  function decal(k,x,y,r,life,force,v){if(FX.lv<2||(!force&&dAct>=DMAX-5))return -1;const i=dh;dh=(dh+1)%DMAX;if(dl[i]<=0)dAct++;dx[i]=x;dy[i]=y;dr[i]=r;dl[i]=dm[i]=life;dk[i]=k;da[i]=v|0;return i;}   // 그을음·갈라짐·노른자 자국 — 효과 단계 2 에서만
   function pop(x,y,s,sz,life){const i=th;th=(th+1)%TMAX;if(tl[i]<=0)tAct++;tx[i]=x;ty[i]=y;tsA[i]=s;tz[i]=sz;tl[i]=tm[i]=life;}
   o.kick=a=>{if(a>o.shk)o.shk=a;};   // 화면 흔들림 세기(px) — 지수로 빨리 잦아든다
-  o.reset=function(){pl.fill(0);rl.fill(0);dl.fill(0);tl.fill(0);kl.fill(0);pAct=rAct=dAct=tAct=kAct=0;ph=rh=dh=th=kh=0;o.hs=0;o.shk=0;o.hurt=0;bud=0;};
-  o.stats=()=>({p:pAct,r:rAct,d:dAct,t:tAct});
+  o.reset=function(){pl.fill(0);rl.fill(0);dl.fill(0);tl.fill(0);kl.fill(0);ltT.fill(0);fgl.fill(0);pAct=rAct=dAct=tAct=kAct=ltAct=fgAct=0;ph=rh=dh=th=kh=lth=fgi=0;ckLast=-1;lastFl=-9;laCur=0;ecn[0]=ecn[1]=ecn[2]=0;o.hs=0;o.shk=0;o.hurt=0;bud=0;};
+  o.stats=()=>({p:pAct,r:rAct,d:dAct,t:tAct,w:ltAct,q:fgAct,la:laCur,c:ecn.slice()});
   o.tick=function(dt){bud=LOW?70:110;
     if(o.shk>0){o.shk*=Math.exp(-7*dt);if(o.shk<.06)o.shk=0;}
     if(pAct)for(let i=0;i<PMAX;i++){if(pl[i]<=0)continue;pl[i]-=dt;if(pl[i]<=0){pAct--;continue;}
@@ -2711,7 +2773,12 @@ const EX=(()=>{
     if(rAct)for(let i=0;i<RMAX;i++){if(rl[i]<=0)continue;if(rd[i]>0){rd[i]-=dt;continue;}rl[i]-=dt;if(rl[i]<=0)rAct--;}
     if(dAct)for(let i=0;i<DMAX;i++){if(dl[i]<=0)continue;dl[i]-=dt;if(dl[i]<=0)dAct--;}
     if(tAct)for(let i=0;i<TMAX;i++){if(tl[i]<=0)continue;tl[i]-=dt;if(tl[i]<=0)tAct--;}
-    if(kAct)for(let i=0;i<4;i++){if(kl[i]<=0)continue;kl[i]-=dt;if(kl[i]<=0)kAct--;}};
+    if(kAct)for(let i=0;i<4;i++){if(kl[i]<=0)continue;kl[i]-=dt;if(kl[i]<=0)kAct--;}
+    if(ltAct)for(let i=0;i<LMAX;i++){if(ltT[i]<=0)continue;lta[i]+=dt;   // 📢 큰 글자 — 부서질 시각이 되면 조각으로 흩어지고 글자는 사라진다
+      if(ltS[i]>0&&lta[i]>=ltS[i]){shatter(i);ltT[i]=0;ltAct--;continue;}
+      if(lta[i]>=ltT[i]){ltT[i]=0;ltAct--;}}
+    if(fgAct)for(let i=0;i<WPMAX;i++){if(fgl[i]<=0)continue;fgl[i]-=dt;if(fgl[i]<=0){fgAct--;continue;}
+      const f=1-1.6*dt;fgvx[i]*=f;fgvy[i]*=f;fgvy[i]+=620*dt;fgx[i]+=fgvx[i]*dt;fgy[i]+=fgvy[i]*dt;fgr[i]+=fgvr[i]*dt;}};
   // ── 폭발 하나(달걀·병아리·지뢰·캔·가챠) — 부딪힌 자리에서 한 번 ──
   const TAU=6.2832;
   o.boom=function(b){const x=b.x,y=b.y,R=b.R,st=b.style||(b.ev?'chick':'egg'),ss=Math.max(.9,Math.min(1.5,Math.sqrt(R/55)));
@@ -2791,12 +2858,18 @@ const EX=(()=>{
   o.hurtFx=function(d){const p=S.p;o.hurt=.42;o.kick(1.6+5*Math.min(1,d/Math.max(1,p.mhp*.28)));};
   // ── 그리기 ──
   const RC=[['56,182,255','111,230,255','242,253,255'],['150,220,255','210,244,255','255,255,255'],['120,100,255','160,140,255','235,228,255'],['255,190,60','255,212,90','255,248,210'],['56,182,255','111,230,255','242,253,255'],['56,182,255','150,240,255','255,255,255'],null,['255,30,70','255,45,85','255,241,194']];
+  RC[10]=['6,20,64','200,248,255','242,253,255'];RC[11]=['150,220,255','200,245,255','255,255,255'];   // 📢 10 크레스트 · 11 가는 링(엄! 외침)
   const bi=[];for(let i=0;i<9;i++)bi.push(new Int16Array(PMAX));const bc=new Int16Array(9);
   // 🚀 [속도] 링(충격파) 그림 캐시 — 같은 크기·굵기·투명도의 링은 한 번만 획으로 그려 두고, 다음부터는 정수 위치에 1:1 로 찍는다(링 하나 = 획 2~3번 ≈ 70~120µs → 12µs).
   //   반지름은 화면 픽셀 2 단위, 굵기는 0.5 픽셀 단위, 투명도는 1/16 단위로 맞춘다(눈에 안 보이는 오차). 크면(반지름 140px↑ — 폭탄 충격파) 예전처럼 획으로 그린다.
   const RS=new Map();let RSs=0;const RMAXD=140;
   function ringImg(k,rd,wq,aq){const key=((k*512+rd)*128+wq)*17+aq;let c=RS.get(key);if(c)return c;
     if(RS.size>=220)RS.clear();
+    if(k>=10){const w=wq/2,a=aq/16,D=2*(rd+Math.ceil((k===10?1.9*w:w)/2)+3);   // 📢 엄! 외침 링 — 크레스트(k10)는 남색 밑줄 + 몸 두 획 · 가는 링(k11)은 한 획
+      c=document.createElement('canvas');c.width=c.height=D;const g=c.getContext('2d');g.translate(D/2,D/2);g.beginPath();g.arc(0,0,rd,0,7);
+      if(k===10){g.lineWidth=w*1.9;g.strokeStyle='rgba(6,20,64,'+(a*.5).toFixed(3)+')';g.stroke();g.lineWidth=w;g.strokeStyle='rgba(200,248,255,'+(a*.95).toFixed(3)+')';g.stroke();}
+      else{g.lineWidth=w;g.strokeStyle='rgba(200,245,255,'+(a*.9).toFixed(3)+')';g.stroke();}
+      RS.set(key,c);return c;}
     const s=RSs,w=wq/2,a=aq/16,cl=RC[k],mk=k===9;
     const halo=(!mk&&wq>10*s)?1.1*wq+2*s:0,core=mk?0:Math.max(s,.16*wq),D=2*(rd+Math.ceil(Math.max(halo,w)/2)+2);
     c=document.createElement('canvas');c.width=c.height=D;const g=c.getContext('2d');g.translate(D/2,D/2);g.beginPath();g.arc(0,0,rd,0,7);
@@ -2808,6 +2881,11 @@ const EX=(()=>{
   function ringBlit(c,x,y){const M=SPX.cam,D=c.width;cx.setTransform(1,0,0,1,0,0);cx.drawImage(c,Math.round(M.ox+M.s*x-D/2),Math.round(M.oy+M.s*y-D/2));cx.setTransform(M.s,0,0,M.s,M.ox,M.oy);}
   o.ground=function(){   // 바닥층(적·내 몸 아래) — 그을음 자국
     if(dAct)for(let i=0;i<DMAX;i++){if(dl[i]<=0||!vis(dx[i],dy[i],dr[i]))continue;const u=dl[i]/dm[i],k=dk[i];
+      if(k===3){const M=SPX.cam,s=M.s,dv=Math.min(520,Math.round(dr[i]*2*s/8)*8);if(dv<16)continue;   // 📢 엄! 균열 — 화면 지름에 맞춘 사본을 정수 위치에 1:1 로
+        const age=dm[i]-dl[i],fade=Math.min(1,dl[i]/.9),X=Math.round(M.ox+s*dx[i]-dv/2),Y=Math.round(M.oy+s*dy[i]-dv/2);
+        cx.setTransform(1,0,0,1,0,0);cx.globalAlpha=(.6+.4*Math.min(1,age/.05))*fade*.95;cx.drawImage(SPX.crackE(da[i],0,dv),X,Y);
+        if(eomQ()>=2){const ga=age<.12?.9:Math.max(0,1-(age-.12)/.6)*.9;if(ga>.02){cx.globalAlpha=ga*fade;cx.drawImage(SPX.crackE(da[i],1,dv),X,Y);}}
+        cx.setTransform(s,0,0,s,M.ox,M.oy);cx.globalAlpha=1;continue;}
       const a=(k===1?Math.min(1,u*2.2)*Math.min(1,u*2.2):Math.min(1,u*2.4))*.9,r=dr[i];cx.globalAlpha=a;
       SPX.blit(k===0?SPX.scorch:k===1?SPX.crack:SPX.splat,dx[i],dy[i],r,2);}
     cx.globalAlpha=1;};
@@ -2838,7 +2916,13 @@ const EX=(()=>{
       if(k===8){cx.globalAlpha=a;SPX.blit(SPX.dzf,rx[i],ry[i],r,4);cx.globalAlpha=1;continue;}
       if(k===9){cx.save();cx.translate(rx[i],ry[i]);cx.rotate(u*.7);cx.globalAlpha=a;cx.drawImage(SPX.burst,-r,-r,r*2,r*2);cx.restore();continue;}   // 금이 간 별(달걀이 깨지는 순간)
       const w=rw[i]*(1-u*.85)+.8,ms=SPX.cam.s,rdv=Math.round(r*ms/2)*2;
-      if(rdv>=2&&rdv<=RMAXD){const aq=Math.round(a*16);if(aq>0)ringBlit(ringImg(k,rdv,Math.round(w*ms*2),aq),rx[i],ry[i]);continue;}
+      if(k>=10){const M=SPX.cam,X0=M.ox+M.s*rx[i],Y0=M.oy+M.s*ry[i],Wd=cv.width,Hd=cv.height,dmin=Math.hypot(X0<0?-X0:X0>Wd?X0-Wd:0,Y0<0?-Y0:Y0>Hd?Y0-Hd:0),dmax=Math.hypot(Math.max(X0,Wd-X0),Math.max(Y0,Hd-Y0)),pw=w*M.s;
+        if(r*M.s+pw<dmin||r*M.s-pw>dmax)continue;}   // 📢 화면 밖으로 번진 링은 그리지 않는다(달려서 멀어진 링 · 아주 큰 범위)
+      if(rdv>=2&&rdv<=RMAXD){const aq=Math.round(a*16);if(aq>0)ringBlit(ringImg(k,rdv,Math.min(127,Math.round(w*ms*2)),aq),rx[i],ry[i]);continue;}
+      if(k>=10){cx.beginPath();cx.arc(rx[i],ry[i],r,0,7);
+        if(k===10){cx.lineWidth=w*1.9;cx.strokeStyle='rgba(6,20,64,'+(a*.5).toFixed(2)+')';cx.stroke();cx.lineWidth=w;cx.strokeStyle='rgba(200,248,255,'+(a*.95).toFixed(2)+')';cx.stroke();}
+        else{cx.lineWidth=w;cx.strokeStyle='rgba(200,245,255,'+(a*.9).toFixed(2)+')';cx.stroke();}
+        continue;}
       const C=RC[k];cx.beginPath();cx.arc(rx[i],ry[i],r,0,7);
       if(w>5){cx.lineWidth=w*2.2+2;cx.strokeStyle='rgba('+C[0]+','+(a*.3).toFixed(2)+')';cx.stroke();}   // 굵은 링(큰 폭발)만 바깥 후광 줄 — 가는 링은 두 줄로(비용)
       cx.lineWidth=w;cx.strokeStyle='rgba('+C[1]+','+(a*.92).toFixed(2)+')';cx.stroke();
@@ -2853,8 +2937,8 @@ const EX=(()=>{
     n=bc[SH];if(n){cx.beginPath();for(j=0;j<n;j++){i=bi[SH][j];s=ps[i]*Math.min(1,pl[i]/pm[i]*3);c=Math.cos(pr[i])*s;sn=Math.sin(pr[i])*s;const X=px[i],Y=py[i]-pz[i];cx.moveTo(X+c,Y+sn);cx.lineTo(X-sn*.9,Y+c*.9);cx.lineTo(X-c*.8,Y-sn*.8);cx.closePath();}
       cx.fillStyle='#fff6e4';cx.fill();cx.lineWidth=.9;cx.strokeStyle='rgba(166,132,92,.75)';cx.stroke();}
     n=bc[YK];if(n){cx.beginPath();for(j=0;j<n;j++){i=bi[YK][j];s=ps[i]*Math.min(1,pl[i]/pm[i]*2.5);const X=px[i],Y=py[i]-pz[i];cx.moveTo(X+s,Y);cx.arc(X,Y,s,0,7);}cx.fillStyle='#ffd84a';cx.fill();}
-    n=bc[DB];if(n){cx.beginPath();for(j=0;j<n;j++){i=bi[DB][j];s=ps[i]*Math.min(1,pl[i]/pm[i]*3);c=Math.cos(pr[i])*s;sn=Math.sin(pr[i])*s;const X=px[i],Y=py[i]-pz[i];cx.moveTo(X+c,Y+sn);cx.lineTo(X-sn,Y+c);cx.lineTo(X-c,Y-sn);cx.lineTo(X+sn,Y-c);cx.closePath();}
-      cx.fillStyle='#3b425c';cx.fill();if(n<=16){cx.lineWidth=.9;cx.strokeStyle='rgba(190,215,245,.4)';cx.stroke();}}
+    n=bc[DB];if(n){for(let pass=0;pass<2;pass++){let any=false;cx.beginPath();for(j=0;j<n;j++){i=bi[DB][j];if((pc[i]===1?1:0)!==pass)continue;any=true;s=ps[i]*Math.min(1,pl[i]/pm[i]*3);c=Math.cos(pr[i])*s;sn=Math.sin(pr[i])*s;const X=px[i],Y=py[i]-pz[i];cx.moveTo(X+c,Y+sn);cx.lineTo(X-sn,Y+c);cx.lineTo(X-c,Y-sn);cx.lineTo(X+sn,Y-c);cx.closePath();}
+        if(any){if(pass){cx.fillStyle='#aab4c8';cx.fill();}else{cx.fillStyle='#3b425c';cx.fill();if(n<=16){cx.lineWidth=.9;cx.strokeStyle='rgba(190,215,245,.4)';cx.stroke();}}}}}   // pc 1 = 밝은 칩(외곽선 없이 한 번에 — 어두운 바닥에서도 읽힌다)
     n=bc[FE];if(n){for(let col=0;col<2;col++){let any=false;cx.beginPath();for(j=0;j<n;j++){i=bi[FE][j];if((pc[i]===10?1:0)!==col)continue;any=true;s=ps[i]*Math.min(1,pl[i]/pm[i]*2.5);c=Math.cos(pr[i])*s;sn=Math.sin(pr[i])*s;const X=px[i],Y=py[i]-pz[i];
         cx.moveTo(X+c,Y+sn);cx.lineTo(X-sn*.3,Y+c*.3);cx.lineTo(X-c,Y-sn);cx.lineTo(X+sn*.3,Y-c*.3);cx.closePath();}
       if(any){cx.fillStyle=col?'#ffffff':'#fff2a8';cx.fill();cx.lineWidth=.7;cx.strokeStyle='rgba(210,180,90,.55)';cx.stroke();}}}
@@ -2871,6 +2955,77 @@ const EX=(()=>{
           else{cx.lineWidth=2.8;cx.strokeStyle=pass?'rgba(255,190,170,.92)':'rgba(190,244,255,.92)';cx.stroke();}   // 🚀 불꽃이 많이 튈 땐 한 줄로(색은 그대로: 하늘빛 흰색 / 뜨거운 붉은 흰색)
           cx.lineCap='butt';}}}
   };
+
+  // ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // 📢 [2026-10-07 사장님 지시 "엄장신의 엄 이펙트 파괴적인 이펙트로 변경"] 엄! 외침 연출 — 쾅 내리찍는 글자 · 갈라지는 바닥 · 겹겹 충격파 · 부서지는 글자 · 번쩍이며 움찔하는 적
+  //   연출 전용: 피해·공포·쿨타임·범위·보스 규칙은 weapons3 의 원래 줄 그대로. 적은 그리는 위치만 잠깐 움직인다(논리 좌표·knock·kb·kr 안 건드림).
+  //   단계 st 0 첫 외침 · 1 메아리(+.4초) · 2 마지막(+.6초) — ev 각성이면 규모가 점점 커진다(코드 ci 0 M0 · 1 M1 · 2 E0 · 3 E1 · 4 F)
+  const EK=[1,1.15,.55,1.25,1.65],EKT=[1,1.12,.5,1.2,1.45],ESH=[.22,.24,0,0,.34],EKI=[5.5,6.5,2.4,4.5,9],EHS=[.05,.05,0,0,.08],EFL=[0,.1,0,0,.14],ECT=[.27,.27,.22,.22,.36],EAM=[12,14,6,9,18],ELB=[0,0,0,1,2];
+  const EOM_CRACK_LOW=1;   // 폰(품질 1)에서 균열을 어두운 층 1장으로 단순화해 남길지(1) 완전히 생략할지(0)
+  const clm=(v,a,b)=>v<a?a:v>b?b:v;
+  o.eomOff=0;o.qo=-1;   // 시험 스위치: eomOff=1 이면 연출 전체가 꺼진다 · qo 0·1·2 면 품질 단계를 강제한다
+  const eomQ=()=>o.qo>=0?o.qo:(FX.lv<1?0:(LOW||FX.lv<2||S.lite)?1:2);   // 2 전부 · 1 폰(LOW)·줄임·후반 가볍게 · 0 배경 효과 끔
+  let rmq=null;try{rmq=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null;}catch(e){}   // 설정의 '동작 줄이기' — 질의 하나를 만들어 두고 쓸 때마다 값만 읽는다(바뀌면 다음 외침부터 따라간다)
+  const rmo=()=>!!(rmq&&rmq.matches);
+  const eci=(st,ev)=>st===2?4:st===1?(ev?3:2):(ev?1:0);
+  function lsz(ci,lb){let fs=clm(.15*Math.min(W,H),52,92)*EKT[ci]*DPR;const wd=W*DPR;   // 글자 크기(장치 px) — 슬램 때 화면 폭 92% · 자리 잡으면 66% 이내
+    const lw=SPX.lw(lb);if(lw*fs*1.45>.92*wd)fs=.92*wd/(lw*1.45);if(lw*fs>.66*wd)fs=.66*wd/lw;return Math.min(150,Math.max(24,Math.round(fs/4)*4));}
+  function shatter(i){const ci=ltD[i],lb=ltK[i],q=ltQ[i],x=ltx[i],y=lty[i],fs=lsz(ci,lb),s=Math.max(.3,SPX.cam.s),fsW=fs/s,cy=y-56-.62*fsW;
+    ring(6,x,cy,10,ci===4?48:34,.08,0);
+    if(q===2){const cols=lb===2?5:3,rows=2,bw=SPX.lw(lb)*fsW,bh=1.6*fsW,FF=ci===4?1.25:1;   // 금 간 글자 판을 격자로 잘라 흩뿌린다(조각은 글자 그림의 일부)
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const k=fgi;fgi=(fgi+1)%WPMAX;if(fgl[k]<=0)fgAct++;
+        let ox=((c+.5)/cols-.5)*bw,oy=((r+.5)/rows-.5)*bh*.8-bh*.1;const d=Math.hypot(ox,oy)||1,v=rr(110,260)*FF;
+        fgpx[k]=x;fgpy[k]=cy;fgx[k]=0;fgy[k]=0;fgvx[k]=ox/d*v+rr(-30,30);fgvy[k]=oy/d*v-rr(40,110);fgr[k]=rr(0,6.28);fgvr[k]=rr(-9,9);fgl[k]=fgm[k]=.55;fgF[k]=fs;fgK[k]=lb;fgC[k]=cols;fgR[k]=rows;fgI[k]=r*cols+c;}}
+    else if(q===1){const n=cnt(8,3),hz=56+.62*fsW;for(let j=0;j<n;j++){const a=rr(0,TAU),v=rr(90,220);sp(DB,x,y,hz,Math.cos(a)*v,Math.sin(a)*v,rr(80,200),rr(.5,.8),rr(6,10),620,1.6,1,rr(0,TAU),rr(-10,10));}}}   // 폰(LOW)은 조각 대신 밝은 칩 몇 알
+  o.eom=function(x,y,R,st,ev,L){if(o.eomOff)return;const ci=eci(st,ev),Q=eomQ(),mr=rmo(),K=EK[ci],Lk=.88+.16*(Math.max(1,L|0)-1)/7,T=ECT[ci];ecn[st]++;
+    o.kick(EKI[ci]*Lk*(mr?.3:1)*(Q<2?.85:1));if(!mr&&EHS[ci])o.hs=Math.max(o.hs,EHS[ci]);
+    if(Q>=2&&!mr&&EFL[ci]&&S.t-lastFl>=.34&&S.flash<.05){S.flash=Math.max(S.flash,EFL[ci]);lastFl=S.t;}   // 전체 화면 번쩍(푸른 흰색 · 알파 .10/.14)은 폰(LOW)에선 생략 — 전체 화면 채우기가 비싸고 광과민에도 더 안전하다
+    const crowd=rAct>=12,w=clm(7+.012*R,8,14)*(1+.12*(K-1));
+    ring(6,x,y,40,Math.min(R*(st===2?.38:.30),st===2?110:80),.10,0);   // 중심 번쩍 원판
+    ring(10,x,y,.12*R,R,T,w,0);                                         // 크레스트 — 가장 밝은 링의 끝 = 실제 판정선 R
+    if(ci!==2&&!crowd)ring(11,x,y,.08*R,.66*R,.30,4.5,.05);
+    if(st===2&&!crowd&&Q>=2)ring(10,x,y,.10*R,.86*R,.30,9,.10);   // 마지막 타의 추가 크레스트는 풀 품질에서만(링 큰 획이 폰에서 가장 비싸다)
+    if(Q>=2||(Q===1&&EOM_CRACK_LOW)){   // 바닥 균열(첫·마지막은 새로, 메아리는 빛만 다시 켠다) + 구덩이
+      if(ci===2||ci===3){if(ckLast>=0&&dk[ckLast]===3&&dl[ckLast]>0)dl[ckLast]=Math.max(dl[ckLast],dm[ckLast]-.12);}
+      else{const Rc=Math.min(st===2?230:210,Math.max(110,.95*R)*(st===2?1.15:1)),i=decal(3,x,y,Rc,st===2?3:2.6,1,st===2?1:0);if(i>=0){ckLast=i;decal(0,x,y,.5*Rc,2.8);}}}
+    const n0=(Q===1?.5:1)*K*Lk;let n=cnt(16*n0,4);   // 방사선 · 칩 · 먼지 · 불꽃
+    for(let i=0;i<n;i++){const a=i/n*TAU+rr(-.1,.1),v=Math.min(1800,R*rr(4.6,6.6));sp(SP,x+Math.cos(a)*.1*R,y+Math.sin(a)*.1*R,0,Math.cos(a)*v,Math.sin(a)*v,0,rr(.16,.26)*(st===2?1.2:1),1,0,1.8,i&1?0:1,0,0);}
+    n=cnt(12*n0,3);for(let i=0;i<n;i++){const a=rr(0,TAU),r0=R*rr(.08,.4),v=rr(70,260)*Math.min(1.6,R/200);sp(DB,x+Math.cos(a)*r0,y+Math.sin(a)*r0,2,Math.cos(a)*v,Math.sin(a)*v,rr(150,330),rr(.6,1),rr(3.4,6.8)*Math.sqrt(K),620,1.6,i&1,rr(0,TAU),rr(-10,10));}
+    if(Q>=2){n=cnt(8*K*Lk,0);for(let i=0;i<n;i++){const a=rr(0,TAU),r0=R*rr(.25,.6);sp(SM,x+Math.cos(a)*r0,y+Math.sin(a)*r0,3,Math.cos(a)*rr(40,90),Math.sin(a)*rr(40,90),rr(10,30),rr(.5,.9),rr(22,38)*Math.sqrt(K),0,1.2,0,0,0);}}
+    n=cnt(6*n0,1);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(60,300),r0=R*rr(.05,.3);sp(EM,x+Math.cos(a)*r0,y+Math.sin(a)*r0,2,Math.cos(a)*v,Math.sin(a)*v,rr(60,240),rr(.5,1.1),rr(3.4,7),-110,1.5,0,0,0);}
+    // 큰 글자(머리 위) — 앞 글자가 남아 있으면 곧 사라지게
+    for(let j=0;j<LMAX;j++)if(ltT[j]>0)ltT[j]=Math.min(ltT[j],lta[j]+.08);
+    const li=lth;lth=(lth+1)%LMAX;if(ltT[li]<=0)ltAct++;ltx[li]=x;lty[li]=y;lta[li]=0;ltD[li]=ci;ltK[li]=ELB[ci];ltQ[li]=Q;ltB[li]=(Q>=2&&(ci===1||ci===4))?1:0;
+    ltS[li]=ESH[ci];ltT[li]=ESH[ci]||(ci===2?.2:.32);};
+  o.eomHit=function(e,x,y,R,st,ev){if(o.eomOff||e.boss||!e.on||!vis(e.x,e.y,40))return;const ci=eci(st,ev),mr=rmo(),amp=EAM[ci]*(e.bg?.3:e.el?.6:1)*(mr?.3:1);if(amp<1)return;
+    const dx2=e.x-x,dy2=e.y-y,d=Math.hypot(dx2,dy2)||1,q=clm((d/R-.12)/.88,0,.98);   // 크레스트 파면이 닿는 시각에 맞춰 번쩍·움찔
+    e.fk=S.t+ECT[ci]*(1-Math.cbrt(1-q));e.fa=amp;e.fux=dx2/d;e.fuy=dy2/d;e.ff=(ci===2?0:ci===3?.6:1)*(mr?.5:1);};
+  o.flinchBegin=function(){fcN=0;fcCap=LOW?40:S.lite?50:80;};
+  o.flinch=function(e){const q=S.t-e.fk;if(q>=.22){e.fa=0;return false;}if(q<0||fcN>=fcCap)return false;fcN++;   // 그리는 동안만 위치·번쩍임을 바꾸고 곧바로 되돌린다
+    const u=q/.22,k=(u-.3)/.7,off=e.fa*(u<.3?Math.sin(u/.3*1.5708):1-k*k*(3-2*k)),al=(q<.03?.5:q<.06?.3:q<.09?.11:0)*e.ff,x0=e.x,y0=e.y,h0=e.hit;
+    e.x=x0+e.fux*off;e.y=y0+e.fuy*off;if(al>.02&&.1+al/9>e.hit)e.hit=.1+al/9;
+    try{drawChamp(e,e.r);}finally{e.x=x0;e.y=y0;e.hit=h0;}return true;};
+  o.danger=function(){if(S.ebooms.length||S.beams.length||S.cone||S.cardW||S.room)return true;for(const c of clouds.a)if(c.on)return true;for(const e of S.live)if(e.on&&e.ph===1)return true;return false;};
+  o.eomText=function(){if(!ltAct&&!fgAct){laCur=0;return;}const M=SPX.cam,s=M.s,dg=o.danger(),mr=rmo();laCur=0;cx.setTransform(1,0,0,1,0,0);
+    for(let i=0;i<WPMAX;i++){if(fgl[i]<=0)continue;const sp2=SPX.eomT(fgK[i],fgF[i],1),cw=sp2.width/fgC[i],ch=sp2.height/fgR[i],c=fgI[i]%fgC[i],r=(fgI[i]/fgC[i])|0;
+      const k=Math.max(.3,Math.abs(Math.cos(fgr[i])));cx.globalAlpha=Math.min(1,fgl[i]/(fgm[i]*.4))*(dg?.55:1);
+      const X=Math.round(M.ox+s*(fgpx[i]+fgx[i])+((c+.5)/fgC[i]-.5)*sp2.width),Y=Math.round(M.oy+s*(fgpy[i]+fgy[i])+((r+.5)/fgR[i]-.5)*sp2.height);
+      if(X<-cw||X>cv.width+cw||Y<-ch||Y>cv.height+ch)continue;   // 화면 밖이면 그리지 않는다(달려서 멀어진 뒤)
+      cx.drawImage(sp2,c*cw,r*ch,cw,ch,Math.round(X-cw*k/2),Math.round(Y-ch/2),Math.round(cw*k),ch);}
+    for(let i=0;i<LMAX;i++){if(ltT[i]<=0)continue;const age=lta[i],ci=ltD[i],lb=ltK[i],fs=lsz(ci,lb),cr=ltS[i]>0&&age>=ltS[i]-.09,step=age<.05?1.45:age<.09?1.15:1,f2=Math.min(217,Math.round(fs*step/4)*4);
+      let al=(age<.09?.95:.82)*(ltS[i]>0?1:Math.min(1,(ltT[i]-age)/(.4*ltT[i])))*(dg?.55:1);const sp2=SPX.eomT(lb,f2,cr);
+      const jx=cr&&!mr?Math.round((rn()-.5)*fs*.04):0,X=Math.round(M.ox+s*ltx[i]-sp2.width/2+jx),Y=Math.round(M.oy+s*(lty[i]-56)-.62*fs-sp2.height/2);
+      if(X+sp2.width+fs<0||X-fs>cv.width||Y+sp2.height+fs<0||Y-fs>cv.height){if(al>laCur)laCur=al;continue;}   // 화면 밖이면 그리지 않는다(달려서 멀어진 뒤)
+      if(ltB[i]&&!dg&&age<.25){const rs=fs*1.7/s/2;cx.globalAlpha=.55*(1-age/.25);SPX.blit(SPX.burst,ltx[i],lty[i]-56-.62*fs/s,rs,4);cx.setTransform(1,0,0,1,0,0);}
+      cx.globalAlpha=al;if(al>laCur)laCur=al;cx.drawImage(sp2,X,Y);}
+    cx.setTransform(s,0,0,s,M.ox,M.oy);cx.globalAlpha=1;};
+  let wkW=0,wkH=0,wkD=0,wkE=-1,wkQ=-1;   // 미리 굽기를 마친 화면 크기·배율·각성 여부·품질(숫자로 비교 — 프레임마다 문자열을 만들지 않는다)
+  o.eomWarm=function(){const q=eomQ();if(q<1)return;const ev=(S.ev&&S.ev.eom)?1:0;if(wkW===W&&wkH===H&&wkD===DPR&&wkE===ev&&wkQ===q)return;   // 첫 외침에서 굽는 끊김을 피한다 — 한 프레임에 하나씩
+    if(!SPX.hasCM(0)){SPX.crackM(0);return;}if(!SPX.hasCM(1)){SPX.crackM(1);return;}
+    const need=[];const add=(ci,lb,cr)=>{const fs=lsz(ci,lb);for(const st of (cr?[fs]:[fs*1.45,fs*1.15,fs]))need.push([lb,Math.min(217,Math.round(st/4)*4),cr]);};
+    add(0,0,true);add(0,0,false);if(ev){add(1,0,true);add(1,0,false);add(3,1,false);add(4,2,true);add(4,2,false);}
+    for(const [lb,fs,cr] of need)if(!SPX.eomHas(lb,fs,cr)){SPX.eomT(lb,fs,cr);return;}
+    wkW=W;wkH=H;wkD=DPR;wkE=ev;wkQ=q;};
   o.pops=function(){if(!tAct)return;   // 큰 글자('펑!' + 별 모양 폭발) — 튀어나왔다 자리 잡고 사라진다
     cx.textAlign='center';cx.lineJoin='round';
     for(let i=0;i<TMAX;i++){if(tl[i]<=0)continue;const u=1-tl[i]/tm[i],sc=u<.15?.4+u/.15:u<.3?1.4-(u-.15)/.15*.35:1.05,a=Math.min(1,tl[i]/tm[i]*3),Y=ty[i]-46-u*20,fs=Math.round(tz[i]*sc),bs=fs*1.25;
@@ -2999,7 +3154,7 @@ function drawW3(p){const X=S.x3;if(!X)return;
   if(R.fx>0){const k=Math.min(1,R.fx/.3);cx.lineCap='round';   // 🥊 박치기 — 돌진 자국(하늘색 세 줄)
     for(let i=-1;i<=1;i++){const ox=-R.uy*i*7,oy=R.ux*i*7;cx.beginPath();cx.moveTo(R.x0+ox,R.y0+oy);cx.lineTo(p.x+ox,p.y+oy);cx.lineWidth=i?3:6;cx.strokeStyle='rgba('+(i?'150,240,255':'235,251,255')+','+(k*.7).toFixed(2)+')';cx.stroke();}
     cx.lineCap='butt';}
-  if(S.w.eom)for(const e of S.live)if(e.on&&e.fear>0&&inV(e.x,e.y,30))em3('❕',e.x+e.r*.6,e.y-e.r-12+Math.sin(S.t*18)*2,18);   // 📢 겁먹은 적 — 머리 위 느낌표
+  if(S.w.eom)for(const e of S.live)if(e.on&&e.fear>0&&inV(e.x,e.y,30))SPX.blit(SPX.fear,e.x+e.r*.6,e.y-e.r-12+Math.sin(S.t*18)*2,10,2);   // 📢 겁먹은 적 — 머리 위 느낌표(예전엔 이모지 글자를 매 프레임 찍었다 — 한 번 그려 둔 그림을 정수 위치에 찍는다)
   if(!X.f.length)return;
   cx.lineCap='round';
   for(const o of X.f){
@@ -3033,9 +3188,6 @@ function drawW3(p){const X=S.x3;if(!X)return;
       case 'sn':{if(!inV(o.x,o.y,30))break;const a=S.t*22,c=Math.cos(a)*9,sn=Math.sin(a)*9;
         cx.beginPath();cx.moveTo(o.x-c,o.y-sn);cx.lineTo(o.x+c,o.y+sn);cx.lineWidth=8;cx.strokeStyle='rgba(150,225,255,.45)';cx.stroke();cx.lineWidth=4.5;cx.strokeStyle='#fff3d6';cx.stroke();break;}
       case 'pc':{if(!inV(o.x,o.y,30))break;cardDraw(o.x,o.y,o.rot,o.c,null,1.15);break;}
-      case 'sh':{const u=1-o.life/o.T,rr=o.R*Math.min(1,u*2.4),al=Math.min(1,o.life/o.T*1.5);if(!inV(o.x,o.y,o.R))break;
-        cx.beginPath();cx.arc(p.x,p.y,rr,0,7);cx.lineWidth=12;cx.strokeStyle='rgba(111,230,255,'+(al*.28).toFixed(2)+')';cx.stroke();cx.lineWidth=3.5;cx.strokeStyle='rgba(235,251,255,'+(al*.95).toFixed(2)+')';cx.stroke();
-        if(o.big){cx.globalAlpha=al;cx.font='bold '+(40+14*Math.min(1,u*4))+'px sans-serif';cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=6;cx.strokeStyle='#1f6dff';cx.strokeText('엄!',p.x,p.y-52-u*18);cx.fillStyle='#fff';cx.fillText('엄!',p.x,p.y-52-u*18);cx.globalAlpha=1;}break;}
       case 'bs':{const u=1-o.life/o.T,pr=Math.min(1,u*2.2);em3('🛡',o.x+o.ux*o.len*pr,o.y+o.uy*o.len*pr,32);break;}
       case 'tw':{if(!inV(o.x,o.y,o.len))break;const u=1-o.life/o.T,al=Math.min(1,o.life/o.T*1.6),a0=Math.atan2(o.uy,o.ux),sd=o.side?-1:1,a1=a0-sd*.95+sd*1.9*Math.min(1,u*2),rr=o.len*(.55+.45*Math.min(1,u*2.2));
         cx.beginPath();cx.arc(o.x,o.y,rr,a1-sd*.5,a1+sd*.12,sd<0);cx.lineWidth=10;cx.strokeStyle='rgba(255,170,60,'+(al*.35).toFixed(2)+')';cx.stroke();cx.lineWidth=3.4;cx.strokeStyle='rgba(255,246,214,'+(al*.95).toFixed(2)+')';cx.stroke();break;}}}
@@ -3046,6 +3198,7 @@ function draw(){
   cx.setTransform(DPR,0,0,DPR,0,0);
   cx.fillStyle='#11131a';cx.fillRect(0,0,W,H);
   if(!S)return;
+  if(S.w.eom)EX.eomWarm();
   let sx=0,sy=0;if(state==='play'){if(S.shake>0){sx=(EX.rn()-.5)*6;sy=(EX.rn()-.5)*6;}if(EX.shk>0){sx+=(EX.rn()-.5)*2*EX.shk;sy+=(EX.rn()-.5)*2*EX.shk;}}   // 🎨 흔들림: 기존 고정 세기 + 폭발·피격 세기(EX.shk) — 일시정지·레벨업 화면 뒤에선 흔들지 않는다
   cx.setTransform(DPR*SC,0,0,DPR*SC,DPR*(W/2+sx),DPR*(H/2+sy));
   cx.translate(-p.x,-p.y);
@@ -3112,7 +3265,7 @@ function draw(){
   drawW2g();drawW3g();   // 🗡 [2026-09-30 사장님 지시] 🧊 얼음 파동 · 🌀 블랙홀(적 아래)
   // 적 — ✨ 발밑 그림자 먼저(잡몹은 가벼운 단계에서만 · 붐빌 땐 큰 놈만)
   if(FX.lv){const all=FX.lv>1&&!S.lite;for(const e of enemies.a)if(e.on&&e.eg!==1&&!(e.boss&&e.b.img)&&(all||e.boss||e.el||e.bg))FX.shadow(e.x,e.y,e.r);}
-  for(const e of enemies.a)if(e.on)drawChamp(e,e.r);
+  EX.flinchBegin();for(const e of enemies.a)if(e.on){if(e.fa>0&&EX.flinch(e))continue;drawChamp(e,e.r);}   // 📢 엄! 맞은 적은 번쩍이며 잠깐 움찔(그리는 위치만)
   // 🪪 🕷 신림의 스탭 — 🎨 아군은 하늘색: 발밑 하늘색 고리 + 푸른 몸
   for(const a of allies.a){if(!a.on)continue;cx.globalAlpha=Math.min(1,a.life/.6);
     cx.fillStyle='rgba(0,0,0,.3)';cx.beginPath();cx.ellipse(a.x,a.y+10,10,3.5,0,0,7);cx.fill();
@@ -3123,7 +3276,7 @@ function draw(){
     cx.font='bold 10px sans-serif';cx.fillStyle='#bff3ff';cx.fillText('스탭',a.x,a.y+24);}
   cx.globalAlpha=1;
   drawW2(p);drawW3(p);   // 🗡 [2026-09-30 사장님 지시] 새 무기(얼어붙은 적·병아리·뚜껑·프라이팬·낚싯줄·저격·폭죽·박자)
-  EX.fx();   // 💥 충격 링·번쩍임·입자(적 위 · 내 캐릭터 아래)
+  EX.fx();EX.eomText();   // 💥 충격 링·번쩍임·입자(적 위 · 내 캐릭터 아래) + 📢 큰 글자(적 투사체·함정·내 몸 아래)
   // 🔥 드래곤 브레스(🌙 자정의 용숨은 앞뒤) — 🎨 내 것: 푸른 흰 불(각성은 흰빛 + 진한 파랑) + 실선 가장자리
   if(S.br.t>0){const c=S.br,k=c.t/.32;
     for(let i=0;i<(c.ev?2:1);i++){const a=c.a+(i?Math.PI:0),g=cx.createRadialGradient(p.x,p.y,6,p.x,p.y,c.R);
