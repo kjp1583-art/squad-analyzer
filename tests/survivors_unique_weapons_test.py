@@ -15,7 +15,7 @@ def check(name, cond, extra=''):
 # 캐릭터 키 → (고유 무기 키, 시작 레벨)
 UNIQ = {'brj': ('quill', 1), 'jjg': ('tempo', 2), 'mms': ('fuse', 1), 'hrb': ('slime', 1), 'ssu': ('cart', 1), 'amd': ('heart', 1), 'ildj': ('jhin', 1),
         'kyo': ('whop', 1), 'ddmj': ('bash', 1), 'psg': ('twin', 1), 'sr': ('stamp', 1), 'ddo': ('chain', 2), 'tw': ('ram', 2),
-        'yumi': ('snack', 1), 'eom': ('eom', 1), 'bgb': ('pcards', 1)}   # yumi·eom 은 맛동산 상점(서버 구매) 캐릭터
+        'yumi': ('snack', 1), 'eom': ('eom', 1), 'bgb': ('pcards', 1), 'bbb': ('sing', 1)}   # yumi·eom 은 맛동산 상점(서버 구매) 캐릭터
 COMMON_OLD = ['feed', 'egg', 'fryer', 'can', 'sushi', 'pan', 'kbd', 'spk', 'shrimp']   # 예전에 시작 무기로 쓰이던 공용 무기
 
 # 장면 한 판을 돌린다: 무적 봇이 돌아다니며(레벨업 카드는 첫 장) update + 가끔 draw — 그림 코드까지 같이 밟는다
@@ -40,16 +40,16 @@ async def main():
           o.locked=['yumi','eom'].map(k=>x.canPick(x.CHARS.find(c=>c.k===k),pg));
           x.CH_set('yumi');x.start();o.fallback=x.CH.k;x.S&&0;
           x.srvUnl(['yumi']);o.yumi=x.canPick(x.CHARS.find(c=>c.k==='yumi'),pg);o.eom=x.canPick(x.CHARS.find(c=>c.k==='eom'),pg);
-          x.srvUnl(['yumi','eom']);o.both=['yumi','eom'].map(k=>x.canPick(x.CHARS.find(c=>c.k===k),pg));
+          x.srvUnl(['yumi','eom','bbb']);o.both=['yumi','eom'].map(k=>x.canPick(x.CHARS.find(c=>c.k===k),pg));
           x.CH_set('eom');x.start();o.start=x.CH.k+':'+Object.keys(x.S.w);return o}""")
         check('상점 캐릭터: 서버 목록 없으면 잠김(로컬 저장소를 고쳐도) · 시작해도 브장신으로 되돌아감', r['locked'] == [False, False] and r['fallback'] == 'brj', r)
         check('서버 unlocks 에 있는 캐릭터만 열림', r['yumi'] and not r['eom'] and r['both'] == [True, True] and r['start'] == 'eom:eom', r)
         # ── 0. 13명 · 서로 겹치지 않는 고유 무기 · 용조련사 breath 는 그대로
         r = await pg.evaluate("""()=>{const x=__p6x;return x.CHARS.map(c=>({k:c.k,w:c.w,wl:c.wl||1,only:x.WEAP[c.w]&&x.WEAP[c.w].only,ds:c.ds}))}""")
         byk = {c['k']: c for c in r}
-        check('캐릭터 17명(용조련사 포함)', len(r) == 17, len(r))
+        check('캐릭터 18명(용조련사 포함)', len(r) == 18, len(r))
         ws = [c['w'] for c in r]
-        check('시작 무기 17종이 서로 다름', len(set(ws)) == 17, ws)
+        check('시작 무기 18종이 서로 다름', len(set(ws)) == 18, ws)
         check('시작 무기 중 공용(예전 시작 무기)이 하나도 없음', not any(w in COMMON_OLD or w in ('wifi', 'ping', 'potion', 'gacha', 'rkt', 'chick', 'rod', 'frost', 'lid', 'meteor', 'snipe', 'hole', 'bell') for w in ws))
         for k, (w, wl) in UNIQ.items():
             c = byk[k]

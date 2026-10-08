@@ -91,8 +91,8 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 @supports (height:100dvh){.box{max-height:calc(100dvh - 24px)}}   /* 폰 주소창만큼 잘리지 않게 */
 .rosterH{text-align:left;font-weight:700;color:#ffb089;margin:10px 0 6px;font-size:13px}
 #roster{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.rc{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 4px;color:var(--txt);font:inherit;font-size:11.5px;cursor:pointer;line-height:1.3}
-.rc .e{font-size:20px;display:block}.rc.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset,0 0 10px rgba(255,122,69,.35)}
+.rc{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 4px;color:var(--txt);font:inherit;font-size:11.5px;cursor:pointer;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}   /* 🎤 이름이 단어 중간에서 끊기지 않게(띄어쓰기에서만) — 한 단어가 칸보다 길면 그때만 끊는다 */
+.nb{white-space:nowrap}.rc .e{font-size:20px;display:block}.rc.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset,0 0 10px rgba(255,122,69,.35)}
 .rc.lock{opacity:.5}.rc small{color:var(--mut);display:block;font-size:10.5px}
 #chDesc{text-align:left;min-height:36px;margin-top:6px}
 /* 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 — 그림 카드(잠겨 있으면 실루엣 + 해금 조건) */
@@ -214,7 +214,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>📅 <b>오늘의 도전</b>: 날짜(KST)로 정해진 같은 시드(맵·카드 뽑기·상자·몰이 이벤트) · <b>하루 한 판</b>만 순위표 「오늘」에 올라가요. 두 번째부터는 연습이에요.</li>
     <li>♾ <b>무한 모드</b>: 일반·하드·베리하드 어느 모드든 60분을 클리어하면 「무한 모드로 진입하시겠습니까?」를 물어봐요. 수락하면 이어서 계속 싸워요. 난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 무한 순위표에 따로 올라가요(일반·하드·베리하드 난이도별로 순위표가 나뉘어요).</li>
     <li>⭐ 시그니처 유물: 캐릭터마다 전용 유물이 하나씩 있어요(그 캐릭터로 할 때만 유물 카드에 나와요).</li>
-    <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
+    <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥 · 배불배불 🎤 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
     <li>5분부터는 👹 <b>대형 트롤픽</b>(덩치 2배·체력 8배)이 섞여 나와요. 잡으면 💎·💣·🍗를 떨굴 때가 많아요.</li>
     <li>무기는 6개·패시브는 6개까지. 무기 Lv8 + 짝 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>(한 판에 3개까지)!</li>
     <li>레벨업 카드가 마음에 안 들면 🎲 다시 뽑기(R) · 🚫 봉인(B). 무기 조합을 맞추면 🔗 시너지가 켜져요. 공용 무기는 22종 — 🍳 프라이팬 · 🎆 폭죽 · 🐥 병아리 · 🎣 낚싯대 · 🧊 얼음땡 · 🥏 냄비뚜껑 · ☄️ 운석 · 🔭 저격 · 🌀 블랙홀 · 🎵 리듬도 나와요 <!-- 🗡 [2026-09-30 사장님 지시] --></li>
@@ -421,6 +421,17 @@ const SPX=(()=>{const o={};
     g.beginPath();for(let i=0;i<16;i++){const r=i&1?12:29,a=i*Math.PI/8-Math.PI/2;g.lineTo(Math.cos(a)*r,Math.sin(a)*r);}g.closePath();g.fillStyle='#f2fdff';g.fill();g.lineWidth=4;g.strokeStyle='#38b6ff';g.stroke();
     g.beginPath();for(let i=0;i<16;i++){const r=i&1?6:16,a=i*Math.PI/8-Math.PI/2;g.lineTo(Math.cos(a)*r,Math.sin(a)*r);}g.closePath();g.fillStyle='#6fe6ff';g.fill();});
   o.chick=mk(30,30,g=>{g.font='24px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('🐤',15,16);});   // 병아리 대폭격의 떨어지는 병아리
+  // 🎤 플레이브 노래부르기 — 내 음표(♪ 4색)와 큰 고음(♬). 글자가 아니라 도형으로 그린다: 적 소나의 ♪(글자 + 어두운 테두리 + 붉은 빛)와 헷갈리지 않게 흰 테두리 + 하늘색 후광 · 색은 흰색·하늘·연보라·민트만
+  const noteS=col=>mk(44,44,g=>{g.fillStyle=rg(g,22,[0,'rgba(210,246,255,.5)',.45,'rgba(111,230,255,.22)',1,'rgba(111,230,255,0)']);g.fillRect(0,0,44,44);
+    g.lineJoin='round';g.lineCap='round';g.translate(22,23);g.scale(1.3,1.3);g.translate(-22,-23);
+    g.beginPath();g.moveTo(25,29);g.lineTo(25,10);g.quadraticCurveTo(34,12,31,22);g.lineWidth=4.6;g.strokeStyle='#fff';g.stroke();g.lineWidth=2.2;g.strokeStyle=col;g.stroke();
+    g.save();g.translate(19,30);g.rotate(-.45);g.beginPath();g.ellipse(0,0,7,5,0,0,7);g.fillStyle=col;g.fill();g.lineWidth=1.8;g.strokeStyle='#fff';g.stroke();g.restore();});
+  o.nt=['#f2fdff','#bfeaff','#d9c8ff','#b8ffe6'].map(noteS);
+  o.hn=mk(112,112,g=>{g.fillStyle=rg(g,56,[0,'rgba(235,225,255,.65)',.4,'rgba(185,165,255,.32)',.75,'rgba(111,230,255,.12)',1,'rgba(111,230,255,0)']);g.fillRect(0,0,112,112);
+    g.lineJoin='round';g.lineCap='round';
+    const head=(x,y)=>{g.save();g.translate(x,y);g.rotate(-.45);g.beginPath();g.ellipse(0,0,13,9.4,0,0,7);g.fillStyle='#fff';g.fill();g.lineWidth=3.4;g.strokeStyle='#b9a5ff';g.stroke();g.restore();};
+    g.beginPath();g.moveTo(42,76);g.lineTo(42,32);g.lineTo(80,22);g.lineTo(80,66);g.lineWidth=9;g.strokeStyle='#b9a5ff';g.stroke();g.lineWidth=5;g.strokeStyle='#fff';g.stroke();
+    head(32,78);head(70,68);});
   // 🚀 [속도] 화면 픽셀에 딱 맞춘 그림 — 정수 좌표·1:1 로 찍는 drawImage 는 확대·축소·소수점 좌표로 찍는 것보다 5~9배 싸다(소프트웨어 그리기에서).
   //   draw() 가 매 프레임 카메라(cam)를 적어 두고, 이 함수들은 월드 좌표를 화면 픽셀로 바꿔 미리 맞춰 둔 그림(크기별 캐시)을 정수 위치에 찍는다.
   //   모양은 그대로(크기 오차 ≤ 1 화면 픽셀 · 위치 오차 ≤ 0.5 픽셀) — 부드러운 빛·자국에만 쓴다.
@@ -567,7 +578,7 @@ async function submitRun(won){const u=dcUser();const el=$('rAcct');
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
   if(S.dly&&!S.dly.ranked){el.textContent='🧪 연습 판이라 기록되지 않아요(오늘의 도전은 하루 한 판).';return;}
-  const body={token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.vh?0:S.hard?1:0,vhard:S.vh?1:0,unlocks:[...getUnl()]};
+  const body={token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.vh?0:S.hard?1:0,vhard:S.vh?1:0,unlocks:[...getUnl()].filter(k=>!isShopKey(k))};
   if(S.dly)body.daily=S.dly.date;else if(S.endless){body.endless=1;body.end_d=S.vh?2:S.hard?1:0;}   // 무한은 순위표 하나 — 어떤 난이도로 이어갔는지만 같이 보낸다
   postRun(body,0);}
 async function postRun(body,n){const el=$('rAcct');
@@ -580,8 +591,8 @@ async function postRun(body,n){const el=$('rAcct');
     if(j.ok&&body.daily){try{localStorage.removeItem(UNSENT);}catch(e){}dailySet({date:body.daily,ranked:1,done:1,t:body.t,k:body.kills});if(ME)ME.daily_done=true;
       el.innerHTML=j.daily_dup?`📅 이 날짜 기록은 이미 올라가 있어요 — 하루 한 판만 기록돼요. 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`:`✅ 오늘의 도전 기록 저장! 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`;
       BTAB=4;srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();}
-    else if(j.ok&&body.endless){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 무한 기록 저장! ♾ 무한 순위 <b style="color:var(--gold)">${esc(j.end_rank)}위</b> / ${esc(j.end_total)}명`;BTAB=3;mergeUnl(j.unlocks);loadBoard();renderAcct();}
-    else if(j.ok){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 기록 저장! ${body.vhard&&j.vhard_rank?`💀 베리하드 순위 <b style="color:var(--gold)">${esc(j.vhard_rank)}위</b> / ${esc(j.vhard_total)}명`:body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.vhard)BTAB=2;else if(body.hard)BTAB=1;mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();}
+    else if(j.ok&&body.endless){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 무한 기록 저장! ♾ 무한 순위 <b style="color:var(--gold)">${esc(j.end_rank)}위</b> / ${esc(j.end_total)}명`;BTAB=3;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();}
+    else if(j.ok){try{localStorage.removeItem(UNSENT);}catch(e){}el.innerHTML=`✅ 기록 저장! ${body.vhard&&j.vhard_rank?`💀 베리하드 순위 <b style="color:var(--gold)">${esc(j.vhard_rank)}위</b> / ${esc(j.vhard_total)}명`:body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.vhard)BTAB=2;else if(body.hard)BTAB=1;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();}   // 🛒 그사이 상점에서 산 캐릭터(bbb·yumi·eom)가 기록 응답으로 열린다(목록이 없으면 건드리지 않는다)
     else if(j.code==='rate'&&(body.endless||body.daily))keepUnsent(body,'⏳ 방금 올린 기록과 20초 간격이 필요해요 — 잠시 뒤 아래 버튼으로 다시 저장해 주세요.');
     else if(j.code==='daily_date'){try{localStorage.removeItem(UNSENT);}catch(e){}el.textContent='📅 날짜가 지나 오늘의 도전 기록으로 올릴 수 없어요.';}
     else if(j.code==='rate')el.textContent='⏳ 너무 빨리 끝났어요 — 이번 판은 저장되지 않았어요(20초 간격).';
@@ -600,7 +611,8 @@ function flushUnsent(show){const u=dcUser();let o=null;try{o=JSON.parse(localSto
   const b=Object.assign({},o,{token:u.token});delete b.ts;postRun(b,0);}
 const UK='p6_unl_v1';
 function getUnl(){try{return new Set(JSON.parse(localStorage.getItem(UK)||'[]'));}catch(e){return new Set();}}
-function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>s.add(String(x)));try{localStorage.setItem(UK,JSON.stringify([...s]));}catch(e){}}
+const isShopKey=k=>CHARS.some(c=>c.shop&&c.k===k);   // 🛒 상점 캐릭터 키(yumi·eom·bbb) — 서버 구매로만 열린다: 로컬 해금 목록에 쌓지도, 기록 POST 로 보내지도 않는다(열림 여부는 SRVUNL 만 본다)
+function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>{if(!isShopKey(String(x)))s.add(String(x));});try{localStorage.setItem(UK,JSON.stringify([...s]));}catch(e){}}
 
 // ---------- 저장(내 브라우저에만) ----------
 const BK='p6_best_v1',BKH='p6_best_hard_v1',BKV='p6_best_vhard_v1',VK='p6_vh',PK='p6_prog_v1',CK='p6_char_v1',HK='p6_hard';
@@ -615,6 +627,9 @@ function setProg(p){try{localStorage.setItem(PK,JSON.stringify(p));}catch(e){}}
 const SRVUNL=new Set();
 const srvUnl=a=>{SRVUNL.clear();(a||[]).forEach(k=>SRVUNL.add(String(k)));};
 const SHOPUN={t:'🍘 맛동산 상점에서 1개 — 디스코드 「맛동산상점」',ok:()=>false,pr:()=>dcUser()?'구매하면 열려요':'디스코드 로그인 필요'};
+// 🛒 [2026-10-08 사장님 지시] 흐접새우 상점(봇 「/흐접새우상점」 · 스쿼드 포인트 200P — 내전 1판 1P · 승부예측 · 맛동산과 별개) 캐릭터 — t 는 카드 작은 글씨, dh 는 설명창 문구(고정 마크업 — 명령어가 줄 중간에서 끊기지 않게 nb · 없으면 t)
+const unTxt=c=>c.un.dh||esc(c.un.t);   // 해금 문구(설명창) — dh(고정 마크업)가 있으면 그것, 없으면 t 를 이스케이프해서
+const SHOPUN_SV={t:'흐접새우상점 200P',dh:'🛒 디스코드 <b class="nb">「/흐접새우상점」</b>에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침',ok:()=>false,pr:()=>dcUser()?'구매하면 열려요':'디스코드 로그인 필요'};
 const CHARS=[
   {k:'brj',e:'🐤',nm:'브장신',tag:'스타터',q:'논란이 되겠는걸',ds:'평범하지만 엄. 🪶 엄 깃털 산탄(고유 무기 · 가까운 적에게 깃털을 부채꼴로) 시작.',w:'quill',un:null},
   {k:'jjg',img:1,bdg:[{u:'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',e:'⚡'},{it:6672,e:'🐙'}],e:'🔫',nm:'집중겜',tag:'원딜 · 378판',q:'집중하면 뭐든 벤다',ds:'「치명적 속도 · 크라켄 학살자」 — 미스 포츈 코스프레 선장. 모든 공격 20% 확률 치명타(2배). 🔫 치명적 속도 Lv2(고유 무기 · 쌍권총 연사, 3번째는 크라켄탄) 시작.',w:'tempo',wl:2,crit:.2,un:{t:'처치 누적 300',ok:p=>p.kills>=300,pr:p=>`${Math.min(p.kills,300)}/300`}},
@@ -626,6 +641,10 @@ const CHARS=[
   {k:'kyo',img:1,e:'🍔',nm:'김야옹',tag:'서폿 · 114판',q:'편의점 햄버거로 꺼지쇼',ds:'「버거킹 쿠폰」 — 레벨업마다 HP 25 회복, 획득 범위 +50%. 🍔 와퍼 바운스(고유 무기 · 튕기며 터지는 햄버거) 시작.',w:'whop',lvheal:25,mag:.5,un:{t:'처치 누적 1000',ok:p=>p.kills>=1000,pr:p=>`${Math.min(p.kills,1000)}/1000`}},
   {k:'ddmj',img:1,e:'🧱',nm:'단단묵직',tag:'정글·탑 · 465판',q:'묵직하게 막아선다',ds:'「디펜더」 — 부딪힌 적을 밀쳐 낸다, 받는 피해 -3, 이동속도 -10%. 🛡 방패 밀치기(고유 무기 · 앞의 적을 크게 밀쳐 낸다) 시작.',w:'bash',arm:3,spd:-.1,push:1,un:{t:'최종 보스 처치',ok:p=>p.bossKill>=1,pr:p=>p.bossKill?'완료':'미완'}},
   {k:'psg',img:1,e:'🐲',nm:'프싱',tag:'정글 · 335판',q:'용의 강림',ds:'「쉬바나 코스프레」 — 피해를 주고 적을 처치할수록 🔥 분노 게이지가 찬다. 가득 차면 🐲 용으로 변신(11초): 몸이 커지고 주변 적이 불타며, 이동속도 +20% · 받는 피해 -30% · 무기 피해 +20%. 끝나면 게이지 0부터 다시. 🔥 쌍둥이 이빨(고유 무기 · 이중 베기 + 화염 장판) 시작.',w:'twin',shv:1,un:{t:'하드 모드 10분 생존',ok:p=>hardBest()>=600,pr:p=>`하드 최고 ${fmt(hardBest())}`}},
+  // 🎤 [2026-10-08 사장님 지시] 신캐릭터 「플레이브 코스프레 배불배불」 + 고유 무기 「플레이브 노래부르기」 — 무대 의상 병아리
+  //   🛒 [2026-10-08 사장님 지시 "배불배불 획득조건 봇 흐접새우상점 신설하고 200포인트로 구매가능하게 설정"] 해금 = 진행도가 아니라 봇 「/흐접새우상점」 구매(스쿼드 포인트 200P · 맛동산 아님) — 서버가 내려준 unlocks 의 'bbb' 로만 열린다(shop:1 · SHOPUN_SV)
+  //   능력 「박자 감각」 = 모든 무기 쿨타임 -8%(cdr · cdMul 한 곳). 실존 인물·곡·가사는 쓰지 않는다 — 무대 의상 + 마이크 + 음표 연출만.
+  {k:'bbb',img:1,e:'🎤',nm:'플레이브 코스프레 배불배불',sn:'배불배불',tag:'무대 위의 병아리',q:'한 곡만 더 부르고 갈게요',ds:'「박자 감각」 — 무대 의상에 마이크를 든 병아리. 모든 무기 쿨타임 -8%. 🎤 플레이브 노래부르기(고유 무기 · 4박자 한 소절: 음표를 쏘고 마지막 박엔 큰 고음이 울린다) 시작.',w:'sing',cdr:.08,shop:1,un:SHOPUN_SV},
   // ── 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 "일러스트가 구현되어 있는 신림·또뀨·태웅·용조련사 플레이어블로도 — 해금 조건 알아서"
   //   해금 = 그 보스를 판에서 처치(처치한 순간 저장 · 로그인하면 서버 해금 목록으로 기기 간 이어짐). 그림이 있어 ??? 로 가리지 않는다(REVEAL 과 무관).
   //   k 는 BOSS 키·봇 P6_UNLOCK_KEYS 와 같다. 대사는 봇 RAID_BOSSES 의 spawn(선택 화면 한 줄 = BOSS[k].sp0)·win/dead(결과 말풍선).
@@ -667,7 +686,7 @@ function renderRoster(){const pg=getProg();const box=$('roster'),bx=$('bossRoste
     else{b.className='rc'+(c===CH?' on':'')+(ok?'':' lock');
       if(!hid&&c.img){b.appendChild(artEl(c));if(c.bdg&&ok)b.appendChild(bdgEls(c));b.insertAdjacentHTML('beforeend',`${esc(c.nm)}<small>${ok?c.tag:esc(c.un.t)}</small>`);if(!ok)b.classList.add('art-lock');}
       else b.innerHTML=hid?`<span class="e">🔒</span>???<small>${met?'조건 달성 · 공개 준비 중':esc(c.un.t)}</small>`:`<span class="e">${ok?c.e:'🔒'}</span>${c.nm}<small>${ok?c.tag:c.un.t}</small>`;}
-    b.onclick=()=>{$('chDesc').innerHTML=hid?`🔒 <b>???</b> — ${met?'해금 조건 달성! 캐릭터 공개를 기다려 주세요.':`해금: ${esc(c.un.t)} (${c.un.pr(pg)})`}<br><span class="muted">곧 공개될 클랜원 캐릭터예요.</span>`:ok?chDesc(c):`🔒 <b>${c.e} ${esc(c.nm)}</b> — 해금: ${esc(c.un.t)} (${c.un.pr(pg)})<br>${c.ds}`;
+    b.onclick=()=>{$('chDesc').innerHTML=hid?`🔒 <b>???</b> — ${met?'해금 조건 달성! 캐릭터 공개를 기다려 주세요.':`해금: ${unTxt(c)} (${c.un.pr(pg)})`}<br><span class="muted">곧 공개될 클랜원 캐릭터예요.</span>`:ok?chDesc(c):`🔒 <b>${c.e} ${esc(c.nm)}</b> — 해금: ${unTxt(c)} (${c.un.pr(pg)})<br>${c.ds}`;
       if(ok){CH=c;try{localStorage.setItem(CK,c.k);}catch(e){}if(hasArt(c))charImg(c);renderRoster();}};
     (c.boss?bx:box).appendChild(b);}
   $('chDesc').innerHTML=chDesc(CH);}
@@ -806,6 +825,9 @@ const WEAP={
     ds:['4초마다 \'엄!\' 하고 외친다 — 범위 안의 적이 겁먹고 도망가며(접촉 피해 없음) 약한 피해를 입는다(보스는 느려지기만 · 엄장신 전용)','범위 +15%','피해 +40% · 쿨타임 -10%','범위 +15%','피해 +40% · 쿨타임 -10%','범위 +15%','쿨타임 -10%','범위 +15% · 피해 +50%']},
   pcards:{only:'bgb',rl:'고유 · 회전 부채꼴',ic:'📸',nm:'플레이브 포토카드',pair:'luck',ev:{ic:'✨',nm:'팬싸인회',ds:'뒤쪽으로도 카드가 날아간다 — 카드 +3 · 피해 1.15배 · 더 자주'},
     ds:['가까운 적에게 포토카드 4장을 부채꼴로 날린다 — 빠르게 회전하며 맞은 적을 밀쳐 낸다(보스는 안 밀리고 느려진다 · 배고배고 전용)','카드 +1','피해 +40%','카드 +1 · 쿨타임 -15%','피해 +40%','사거리 +20%','카드 +1','피해 +50% · 쿨타임 -10%']},
+  // 🎤 [2026-10-08 사장님 지시] 배불배불 전용 — 4박자 한 소절(1·2·3박 ♪ 음표 · 4박 ♬ 고음). 짝 패시브 📚 공부(경험치 +8% — 약한 패시브에 칸을 쓰는 게 각성값). 수치는 U3.sing
+  sing:{only:'bbb',rl:'고유 · 박자 나선',ic:'🎤',nm:'플레이브 노래부르기',pair:'study',ev:{ic:'🎶',nm:'앙코르 무대',ds:'반대로 한 번 더 부른다(앙코르 · 피해 75%) · 피해·범위 +15% · 더 자주'},
+    ds:['노래 한 소절은 4박자 — 1·2·3박은 가까운 적에게 음표 2개씩 쏘고, 4박은 가장 센 적에게 큰 고음이 울려 퍼진다 · 음표가 많이 맞을수록 고음이 세지고, 맞은 적은 넋을 잃고 느려진다(배불배불 전용)','음표 +1(박마다 3개)','피해 +35%','나선 — 박자마다 다음으로 가까운 적을 돌아가며 겨냥 · 박자 -15%(더 빠르게) · 쿨타임 -10%','피해 +35%','고음 범위 +25% · 울림 간격 -35% · 음표 사거리 +15%','음표 +1(박마다 4개)','음표 관통 +1 · 넋 잃음 +0.3초 · 쿨타임 -10%']},
 };
 const PASS={
   spd:{ic:'👟',nm:'이동속도',ds:'이동속도 +8%'},
@@ -862,6 +884,7 @@ const SYN=[
   {k:'u_snack',ic:'🍘',nm:'간식 나눠 먹기',req:['snack','chick'],ds:'경험치 +10% · 피해 +6%',fx:{xp:.1,dmg:.06}},
   {k:'u_eom',ic:'📢',nm:'엄 종소리',req:['eom','bell'],ds:'모든 범위 +10% · 피해 +4%',fx:{area:.1,dmg:.04}},
   {k:'u_pcards',ic:'📸',nm:'응원봉 떼창',req:['pcards','spk'],ds:'모든 피해 +6% · 경험치 +6%',fx:{dmg:.06,xp:.06}},
+  {k:'u_sing',ic:'🎤',nm:'병아리 합창단',req:['sing','chick'],ds:'경험치 +10% · 피해 +6%',fx:{xp:.1,dmg:.06}},
 ];
 function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0},on=[];
   for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;}
@@ -922,6 +945,7 @@ const TIERS={
   ram:[['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['충격파 범위 +7%',{a:.07}],['들이받은 적이 0.6초 기절한다',{stun:1}],['0.5초 뒤 한 번 더 돌진',{echo:1}]],
   snack:[['부스러기 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['부스러기 관통 +1',{pc:1}],['0.35초 뒤 부스러기가 한 번 더 튄다',{echo:1}]],
   pcards:[['카드 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['카드 관통 +1',{pc:1}],['맞은 자리에서 카드가 반짝 터진다(피해 40%)',{pop:1}]],
+  sing:[['음표 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['음표 관통 +1 · 피해 +8% · 넋 잃음 +0.2초',{pc:1,d:.08,life:.2}],['고음이 끝나면 음표 6개가 사방으로 흩어진다(피해 50%)',{frag:1}]],
   eom:[['범위 +7%',{a:.07}],['쿨타임 -7%',{c:.07}],['공포 +0.3초',{life:.3}],['0.4초 뒤 한 번 더 외친다(피해 60%)',{echo:1}],['공포 +0.5초 · 범위 +7%',{life:.5,a:.07}]],
 };
 const TCAP=k=>S.ev[k]?5:3;   // 각성한 무기 5단계 · 안 한 Lv8 무기는 마스터 3단계
@@ -1046,8 +1070,8 @@ const AU=(()=>{
     if(!noise.b||noise.b.length<len){noise.b=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=noise.b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
     const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noise.b;f.type='lowpass';f.frequency.setValueAtTime(lp,t);f.frequency.exponentialRampToValueAtTime(80,t+dur);
     g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f);f.connect(g);g.connect(bus||sfxG);s.start(t,0,dur);ends.push(t+dur);}
-  const GAP={shoot:90,hit:70,kill:60,gem:40,boom:120,bigboom:220,hurt:150,pick:80,brk:80,zap:110,wave:200,evo:500,chest:300,fire:180,staff:400,room:500,dash:200,swing:160,rocket:200,peep:150,hook:200,freeze:300,clang:120,meteor:400,snipe:250,hole:400,beat:200,snack:150,eom:120,quill:150,tempo:70,pcards:200,fuse:300,slime:180,cart:400,love:200,jhin:120,hop:150,bash:250,twin:200,stamp:200,chain:250,ram:300};
-  const SPAM={shoot:1,hit:1,kill:1,gem:1,boom:1,brk:1,zap:1,wave:1,fire:1,swing:1,rocket:1,peep:1,hook:1,freeze:1,clang:1,meteor:1,snipe:1,hole:1,beat:1,snack:1,quill:1,tempo:1,pcards:1,fuse:1,slime:1,love:1,jhin:1,hop:1,twin:1,stamp:1};   // 후반엔 쉴 새 없이 겹치는 소리 — 붐빌수록 spamG 로 줄인다(피격음은 제외 → 묻히지 않는다)
+  const GAP={shoot:90,hit:70,kill:60,gem:40,boom:120,bigboom:220,hurt:150,pick:80,brk:80,zap:110,wave:200,evo:500,chest:300,fire:180,staff:400,room:500,dash:200,swing:160,rocket:200,peep:150,hook:200,freeze:300,clang:120,meteor:400,snipe:250,hole:400,beat:200,snack:150,eom:120,quill:150,tempo:70,pcards:200,fuse:300,slime:180,cart:400,love:200,jhin:120,hop:150,bash:250,twin:200,stamp:200,chain:250,ram:300,sing:60};
+  const SPAM={shoot:1,hit:1,kill:1,gem:1,boom:1,brk:1,zap:1,wave:1,fire:1,swing:1,rocket:1,peep:1,hook:1,freeze:1,clang:1,meteor:1,snipe:1,hole:1,beat:1,snack:1,quill:1,tempo:1,pcards:1,fuse:1,slime:1,love:1,jhin:1,hop:1,twin:1,stamp:1,sing:1};   // 후반엔 쉴 새 없이 겹치는 소리 — 붐빌수록 spamG 로 줄인다(피격음은 제외 → 묻히지 않는다)
   function duck(){   // 동시에 울리는 소리 수로 잦은 소리 버스를 낮춘다: 2개까지 그대로 · 4개 -4.6dB · 8개 -9.8dB · 12개 -13dB
     if(!spamG)return;const now=ac.currentTime;let v=0;for(const e of ends)if(e>now)v++;
     const g=1/(1+Math.max(0,v-2)*.35);if(Math.abs(g-spamV)>.03){spamV=g;spamG.gain.setTargetAtTime(g,now,.12);}}
@@ -1056,7 +1080,7 @@ const AU=(()=>{
     const now=ac.currentTime;
     if(now*1000-(last[k]||-1e9)<(GAP[k]||60))return;   // 같은 소리는 몰아서 한 번
     for(let i=ends.length-1;i>=0;i--)if(ends[i]<now)ends.splice(i,1);
-    if(ends.length>=MAXV&&k!=='lv'&&k!=='boss'&&k!=='win'&&k!=='lose'&&k!=='evo'&&k!=='chest'&&k!=='bigboom'&&k!=='eom')return;
+    if(ends.length>=MAXV&&k!=='lv'&&k!=='boss'&&k!=='win'&&k!=='lose'&&k!=='evo'&&k!=='chest'&&k!=='bigboom'&&k!=='eom'&&k!=='sing')return;
     last[k]=now*1000;n[k]=(n[k]||0)+1;bus=SPAM[k]?spamG:sfxG;
     switch(k){
       case 'shoot':tone('square',660,440,.05,.05);break;
@@ -1113,6 +1137,9 @@ const AU=(()=>{
       case 'stamp':tone('square',1500,1500,.04,.07);tone('square',700,700,.07,.07,now+.05);break;
       case 'chain':noise(.08,.1,6500);tone('sawtooth',500,900,.12,.04);break;
       case 'ram':noise(.12,.18,2600);tone('sawtooth',200,520,.14,.06);break;
+      // 🎤 플레이브 노래부르기 — 박마다 음이 오르는 짧은 가락(소절마다 돌아가는 세 가지 · 도·레·미·파·솔·라 안의 짧은 분산화음 · 어떤 곡의 선율도 아니다). a = 박(0~3) + 10 × 가락 번호(0~2) · 4박(고음)은 길고 화음이 얹힌다
+      case 'sing':{const ph=((a|0)/10)|0,b=(a|0)%10,PP=[[0,5,9,12],[2,7,9,14],[-3,2,4,9]][ph]||[0,5,9,12],f=523.25*Math.pow(2,PP[b]/12),hi=b===3;
+        tone('triangle',f,f*1.012,hi?.26:.12,hi?.085:.06);tone('sine',f*2,f*2,hi?.2:.09,hi?.04:.025,now+.01);if(hi)tone('sine',f*1.5,f*1.5,.22,.03,now+.03);break;}
       case 'beat':{const hi=a?1:0;tone('sine',hi?880:440,hi?880:420,hi?.12:.06,hi?.09:.06);if(hi)tone('triangle',1320,1320,.1,.04);break;}
     }
     bus=null;
@@ -1220,7 +1247,7 @@ function newRun(dly){
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
-const cdMul=()=>(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
+const cdMul=()=>(1-(CH.cdr||0))*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
 const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+.15*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*pv('dur');                  // ⏳ 지속시간
@@ -1302,7 +1329,7 @@ function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)r
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');}
 function resume(){if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();}
 $('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
-$('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();show('title');};
+$('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
 $('chestOk').onclick=()=>{if(state==='chest')resume();};
 
 // ---------- 레벨업 ----------
@@ -1944,7 +1971,10 @@ const DL3=L=>lvm(L,[[3,1.4],[5,1.4],[8,1.5]]);
 // 🍘 [2026-10-07 사장님 지시 "맛동산 고유무기 1레벨구간 상향"] 맛동산은 초반(Lv1~4)이 약했다 — 시작 피해를 8→11 로 올리고 대신 단계 폭을 +40%→+20% 로 줄여,
 //   Lv5 이후 상태(스틱 2·부스러기 7·피해 15.8·쿨 1.1초)는 그대로 둔 채 Lv1~4 만 끌어올렸다(부스러기도 Lv1 에 6개 · Lv2 에 7개로 앞당김).
 const DLS=L=>lvm(L,[[3,1.2],[5,1.2],[8,1.5]]);
-const U3={quill:{d:6.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
+// 🎤 플레이브 노래부르기 — d ♪ 피해 · db ♬ 울림 피해 · cd 쿨타임 · iv 박자 간격 · sp ♪ 속도 · life ♪ 수명 · rng 소절 시작·겨냥 사거리 · fan ♪ 부채 간격(rad) · dlt 집중 때 2·3박 비껴 쏘는 각 · hit ♪ 판정 반지름 ·
+//   bsp ♬ 속도 · blife ♬ 수명 · bR 울림 반지름 · btk 울림 간격 · m 박당 ♪ 수 · cr 적중당 크레셴도 · crm 크레셴도 상한 · sl ♪ 넋 잃음 · bsl ♬ 넋 잃음 · reach ♬ 목표 거리
+const U3={sing:{d:4.5,db:1.3,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,cr:.04,crm:.6,sl:.45,bsl:.9,reach:280},
+  quill:{d:6.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:13,bd:7,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:14,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
   snack:{d:11,cd:1.3,rng:320},pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:8,cd:4.2,R:150,fear:1.6},
@@ -1960,7 +1990,7 @@ function shvStart(){const p=S.p;S.dT=SHV.dur+[0,1.5,2.5,3.5][SGN('sg_psg')];S.dN
     hurt(e,d);if(e.on){if(e.boss)e.slow=Math.max(e.slow,1);else knock(e,dx/dd,dy/dd,520,.35);}}
   hitPropsAt(p.x,p.y,SHV.push,d);SRC=sv;}
 function shvEnd(){const p=S.p;S.dT=0;S.rg=0;AU.play('wave');txt(p.x,p.y-40,'🔥 변신 해제','#ffd9a0');}
-function newX3(){return {f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0}};}
+function newX3(){return {sg:{dir:1,ph:0},f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0}};}
 const h3=(e,d,k)=>{const s0=SRC;SRC=k;hurt(e,d);SRC=s0;};   // 무기 키로 피해 통계를 남기며 한 번 때린다
 const aim3=rng=>{const t=nearest();if(t&&(t.x-S.p.x)**2+(t.y-S.p.y)**2<rng*rng)return t;
   let b=null,bd=rng*rng;for(const q of props.a){if(!q.on)continue;const d=(q.x-S.p.x)**2+(q.y-S.p.y)**2;if(d<bd){bd=d;b=q;}}   // 🧺 적이 없으면 사거리 안의 필드 아이템(와드·포대·상자)을 겨눈다
@@ -1997,6 +2027,12 @@ function cardDraw(x,y,rot,ci,bd,sc){const c=CARD_C[ci%5],w=6.5*sc,h=9.5*sc;cx.sa
   cx.fillStyle=g;cx.fill();cx.lineWidth=bd?2.6:1.6;cx.strokeStyle=bd||'#fff';cx.stroke();
   const q=3.4*sc;cx.beginPath();cx.moveTo(0,-q);cx.quadraticCurveTo(0,0,q,0);cx.quadraticCurveTo(0,0,0,q);cx.quadraticCurveTo(0,0,-q,0);cx.quadraticCurveTo(0,0,0,-q);cx.fillStyle='#fff';cx.fill();   // ✦
   cx.restore();}
+// 🎤 플레이브 노래부르기 — ♬ 고음의 울림: 반지름 안의 적 전부에 피해 + 넋 잃음(느려짐) · 필드 아이템도 깬다. 끝 울림(수명이 다했을 때)은 반지름 ×1.3 · 피해 ×1.5 — 각성 5단계면 음표 6개가 사방으로 흩어진다
+function singPulse(o,last){const R=o.R*(last?1.3:1),d=o.d*(last?1.5:1);
+  for(const e of S.live){if(!e.on)continue;const rr=R+e.r;if((e.x-o.x)**2+(e.y-o.y)**2>=rr*rr)continue;h3(e,d,'sing');if(e.on)e.slow=Math.max(e.slow,o.sl*(e.boss?.5:1));}
+  hitPropsAt(o.x,o.y,R,d);o.pu=last?.3:.16;
+  if(last){EX.sing(o.x,o.y,true,R);
+    if(o.fr){const a0=Math.random()*6.2832;for(let i=0;i<6;i++){const a=a0+i*1.0472;f3({k:'nt',x:o.x,y:o.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,life:.42,d:o.nd*.5,pc:0,h:[],c:i&3,v:null,sl:o.sl*.6});}}}}
 function weapons3(dt,cm,MT,AR,AM){
   const p=S.p,X=S.x3,f=X.f;let L,t,ev,tg;
   if(X.hh>0)X.hh-=dt;if(X.cl>0)X.cl-=dt;if(X.ram.fx>0)X.ram.fx-=dt;
@@ -2144,6 +2180,39 @@ function weapons3(dt,cm,MT,AR,AM){
         if((e.x-p.x)**2+(e.y-p.y)**2<rr*rr){e.rm=R.id;h3(e,d,'ram');if(e.on){if(e.boss)e.slow=Math.max(e.slow,.8);else{knock(e,R.ux,R.uy,300,.25);if(t.stun)e.st=Math.max(e.st,.6);}}}}
       for(const q of props.a)if(q.on&&q.rmr!==R.id&&(q.x-p.x)**2+(q.y-p.y)**2<(PROP[q.k].r+p.r+10)**2){q.rmr=R.id;hitProp(q,d);}   // 돌진하며 부딪힌 필드 아이템
       if(R.t<=0){bang(p.x,p.y,60*lvm(L,[[6,1.3]])*(ev?1.4:1)*AR*(1+t.a),d*.5,'ram','mine',ev?1:0);S.shake=Math.max(S.shake,.12);}}}
+  // 🎤 플레이브 노래부르기 → 🎶 앙코르 무대 — 4박자 한 소절. 1·2·3박은 ♪ 음표(Lv4부터는 박마다 다른 적을 돌아가며 겨냥) · 4박은 가장 센 적에게 큰 ♬ 이 천천히 날아가며 울린다
+  //   크레셴도: 이번 소절의 ♪ 가 맞은 수만큼 ♬ 이 세지고 커진다(소절마다 따로 센다) · 맞은 적은 넋을 잃고 느려진다(e.slow · 보스는 절반) · 무적·넉백·새 적 필드 없음
+  //   ※ 소절의 박(S.dq 콜백)은 나중에 돈다 — 공용 변수(L·t·ev·tg)는 콜백 안에서 쓰지 않고 여기서 상수로 복사해 둔다
+  L=S.w.sing||0;
+  if(L&&(S.cd.sing-=dt)<=0){ev=S.ev.sing;t=TK('sing');const U=U3.sing;tg=aim3(U.rng);
+    if(tg){const SG=X.sg,Lv=L,iv=Math.max(.12,U.iv*lvm(L,[[4,.85]])*cm*(1-t.c)),DG=lvm(L,[[3,1.35],[5,1.35]]),
+        dn=U.d*DG*MT*(1+t.d)*(ev?1.15:1),db=U.db*DG*MT*(1+t.d)*(ev?1.15:1),m0=Math.min(6,U.m+(L>=2)+(L>=7)+AM+t.n),pc=t.pc+(L>=8?1:0),frag=t.frag?1:0,
+        sp=U.sp*PS(),life=U.life*(L>=6?1.15:1),sl=U.sl+(L>=8?.3:0)+t.life,bR=U.bR*(L>=6?1.25:1)*AR*(ev?1.15:1),bt=U.btk*(L>=6?.65:1),bsp=U.bsp*PS();
+      const verse=(sgn,mm,tg0)=>{const V={h:0},ph=SG.ph=(SG.ph+1)%3,isE=tg0.sn!==undefined,a0=Math.atan2(tg0.y-p.y,tg0.x-p.x),
+          c=[{e:isE?tg0:null,sn:tg0.sn||0,x:tg0.x,y:tg0.y,o:0}];   // c: 세 박(♪)의 겨냥 {e 적 · sn 확인표 · x,y 마지막 자리 · o 비껴 쏘는 각}
+        if(isE&&Lv>=4){   // 나선 — 가장 가까운 적 다음으로 가까운 둘을, 가장 가까운 적 둘레로 sgn 방향으로 도는 순서(각도 차가 작은 쪽부터)로
+          const nb=[];for(const e of S.live){if(!e.on||e.sv||e===tg0)continue;const d=(e.x-p.x)**2+(e.y-p.y)**2;if(d<U.rng*U.rng)nb.push([d,e]);}
+          nb.sort((u,v)=>u[0]-v[0]);
+          nb.slice(0,2).map(u=>({e:u[1],sn:u[1].sn,x:u[1].x,y:u[1].y,o:0,r:((sgn*(Math.atan2(u[1].y-p.y,u[1].x-p.x)-a0))%6.2832+6.2832)%6.2832})).sort((u,v)=>u.r-v.r).forEach(q=>c.push(q));}
+        while(c.length<3)c.push({e:c[0].e,sn:c[0].sn,x:c[0].x,y:c[0].y,o:(c.length===1?sgn:-sgn)*U.dlt});   // 집중 — 같은 적에게 2박은 +dlt · 3박은 -dlt 비껴 쏜다
+        const beat=i=>{if(!S.w.sing)return;const q=S.p;
+          if(i<3){const w=c[i];
+            if(w.e&&liveOk(w.e,w.sn)){w.x=w.e.x;w.y=w.e.y;}
+            else{const nn=nearest();if(nn&&(nn.x-q.x)**2+(nn.y-q.y)**2<(U.rng*1.2)**2){w.e=nn;w.sn=nn.sn;w.x=nn.x;w.y=nn.y;}}   // 겨눈 적이 죽었으면 그 순간 가장 가까운 적으로 · 없으면 마지막 자리로
+            const a=Math.atan2(w.y-q.y,w.x-q.x)+w.o;
+            for(let j=0;j<m0&&S.x3.f.length<F3CAP-8;j++){const aa=a+(j-(m0-1)/2)*U.fan;   // 풀 상한 앞 8칸은 ♬ 자리로 남긴다
+              f3({k:'nt',x:q.x,y:q.y,vx:Math.cos(aa)*sp,vy:Math.sin(aa)*sp,life,d:dn*mm,pc,h:[],c:(i+j)&3,v:V,sl});}
+            EX.sing(q.x,q.y,false,36);AU.play('sing',i+10*ph);}
+          else{let b=null,bh=-1;   // 4박 — 가장 센 적(보스 > 엘리트·대형 > 현재 체력) · 화면 안 · reach 안
+            for(const e of S.live){if(!e.on||e.sv||!onScr(e,-10)||(e.x-q.x)**2+(e.y-q.y)**2>U.reach*U.reach)continue;const w=e.hp+(e.boss?1e12:(e.bg||e.el)?1e6:0);if(w>bh){bh=w;b=e;}}
+            const a=b?Math.atan2(b.y-q.y,b.x-q.x):Math.atan2(c[0].y-q.y,c[0].x-q.x),cr=1+Math.min(U.crm,U.cr*V.h);
+            f3({k:'hn',x:q.x,y:q.y,vx:Math.cos(a)*bsp,vy:Math.sin(a)*bsp,life:U.blife,tk:bt,bt,d:db*mm*cr,nd:dn*mm,R:bR*(1+(cr-1)*.4),sl:U.bsl,cr,pu:0,fr:frag});
+            EX.sing(q.x,q.y,true,56);AU.play('sing',3+10*ph);}};
+        beat(0);for(let i=1;i<4;i++)S.dq.push({t:i*iv,f:()=>beat(i)});};
+      const sg0=SG.dir;verse(sg0,1,tg);SG.dir=-sg0;
+      if(ev)S.dq.push({t:4*iv,f:()=>{if(!S.w.sing)return;const t1=aim3(U.rng);if(t1)verse(-sg0,.75,t1);}});   // 🎶 앙코르 — 한 박 쉬고 반대 방향으로 한 번 더
+      S.cd.sing=U.cd*lvm(L,[[4,.9],[8,.9]])*cm*(1-t.c)*(ev?.9:1);}
+    else S.cd.sing=0;}
   // ── 엔티티 갱신(뒤에서부터 · 끝난 건 맨 뒤 것과 바꿔 치우기)
   for(let i=f.length-1;i>=0;i--){const o=f[i];let dead=false;
     switch(o.k){
@@ -2221,6 +2290,16 @@ function weapons3(dt,cm,MT,AR,AM){
             if(!hit){const u=Math.max(0,Math.min(1,((q.x-p.x)*dx+(q.y-p.y)*dy)/l2)),rr=q.r+10;hit=(q.x-(p.x+dx*u))**2+(q.y-(p.y+dy*u))**2<rr*rr;if(hit)q.slow=Math.max(q.slow,.2);}
             if(hit)h3(q,o.d,'chain');}}
         if(o.life<=0){if(o.bm)bang(e.x,e.y,60*AR,o.d*3*(o.ev?1.5:1),'chain','mine',o.ev);dead=true;}
+        break;}
+      case 'nt':{o.x+=o.vx*dt;o.y+=o.vy*dt;o.life-=dt;if(o.life<=0){dead=true;break;}   // 🎤 ♪ 음표 — 맞으면 피해 + 넋 잃음(넉백 없음) · 필드 아이템에 닿아도 깬다
+        if(propTouch(o.x,o.y,8,o.d)){dead=true;break;}
+        for(const e of S.live){if(!e.on)continue;const rr=e.r+U3.sing.hit;if((e.x-o.x)**2+(e.y-o.y)**2>=rr*rr||o.h.includes(e))continue;
+          h3(e,o.d,'sing');if(e.on)e.slow=Math.max(e.slow,o.sl*(e.boss?.5:1));if(o.v)o.v.h++;
+          if(o.pc-->0){o.h.push(e);continue;}dead=true;break;}
+        break;}
+      case 'hn':{o.x+=o.vx*dt;o.y+=o.vy*dt;o.life-=dt;o.tk-=dt;if(o.pu>0)o.pu-=dt;   // 🎤 ♬ 고음 — 적을 막지 않고 천천히 지나가며 울린다
+        if(o.life<=0){singPulse(o,true);dead=true;break;}
+        if(o.tk<=0){o.tk+=o.bt;singPulse(o,false);}
         break;}
       case 'sn':{o.life-=dt;
         if(!(o.e&&o.e.on&&o.e.sn===o.sn)){let b=null,bd=260*260;for(const e of S.live){if(!e.on)continue;const q=(e.x-o.x)**2+(e.y-o.y)**2;if(q<bd){bd=q;b=e;}}o.e=b;o.sn=b?b.sn:0;}
@@ -2894,6 +2973,8 @@ const EX=(()=>{
   o.frzCast=function(x,y,R){ring(6,x,y,10,60,.14,0);ring(1,x,y,R*.15,R*.6,.3,3);const n=cnt(10,3);for(let i=0;i<n;i++){const a=i/n*TAU,v=rr(120,260);sp(SP,x,y,0,Math.cos(a)*v,Math.sin(a)*v,0,rr(.2,.34),1,0,2.2,i&1?4:10,0,0);}};
   o.clang=function(x,y){if(!vis(x,y,30))return;ring(0,x,y,4,26,.16,2.4);const n=cnt(5,1);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(120,300);sp(SP,x,y,0,Math.cos(a)*v,Math.sin(a)*v,0,rr(.12,.22),1,0,2.4,i&1?10:4,0,0);}};   // 🥏 뚜껑에 튕기는 불꽃
   o.beat=function(x,y,R,big){ring(big?5:4,x,y,R*.25,R,big?.4:.3,big?6:2.8);if(big){ring(6,x,y,10,70,.14,0);const n=cnt(10,3);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(90,240);sp(CF,x,y,4,Math.cos(a)*v,Math.sin(a)*v,rr(90,200),rr(.6,1),rr(3.4,5),300,1.9,[1,10,7,8,4][i%5],rr(0,TAU),rr(-14,14));}}};   // 🎵 박자 링(4번째는 큰 링 + 색종이)
+  // 🎤 노래 박자 링 — 1·2·3박은 작은 하늘색 링 · 4박과 고음의 끝 울림은 연보라 큰 링 + 흰·하늘·연보라·민트 색종이(빨강·주황·자홍·금색은 안 쓴다)
+  o.sing=function(x,y,big,R){if(!vis(x,y,R+30))return;ring(big?2:1,x,y,R*.3,R,big?.34:.22,big?5:2.4);if(big){ring(6,x,y,10,60,.12,0);const n=cnt(8,3);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(80,220);sp(CF,x,y,4,Math.cos(a)*v,Math.sin(a)*v,rr(90,200),rr(.5,.9),rr(3,4.6),300,1.9,[10,1,8,9][i&3],rr(0,TAU),rr(-14,14));}}};
   // 🎰 전설 — 금색 색종이 비 + 금색 링(금색은 '보상'에만)
   o.legend=function(x,y){ring(3,x,y,20,Math.hypot(VW,VH)*.45,.5,7);ring(6,x,y,10,120,.16,0);
     const n=cnt(36,8);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(80,340);sp(CF,x+Math.cos(a)*10,y+Math.sin(a)*10,10+rr(0,50),Math.cos(a)*v,Math.sin(a)*v,rr(120,300),rr(1,1.5),rr(4.6,6.8),300,1.5,[5,6,10,1,5,4][i%6],rr(0,TAU),rr(-14,14));}};
@@ -3246,6 +3327,13 @@ function drawW3(p){const X=S.x3;if(!X)return;
         cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(e.x,e.y);cx.lineWidth=7;cx.strokeStyle='rgba(150,225,255,.25)';cx.stroke();
         for(let i=1;i<=n;i++){const u=i/(n+1),ox=p.x+dx*u,oy=p.y+dy*u;cx.beginPath();cx.ellipse(ox,oy,i&1?5.5:3.5,i&1?3:5,Math.atan2(dy,dx),0,7);cx.lineWidth=2;cx.strokeStyle='rgba(235,251,255,.95)';cx.stroke();}
         cx.beginPath();cx.arc(e.x,e.y,e.r+5,0,7);cx.lineWidth=2.4;cx.strokeStyle='rgba(235,251,255,.95)';cx.stroke();break;}
+      case 'nt':{if(!inV(o.x,o.y,30))break;SPX.blitRot(SPX.nt[o.c&3],o.x,o.y,13,Math.sin(S.t*11+o.c*1.3)*.28);break;}   // 🎤 ♪ 음표(흰색·하늘·연보라·민트)
+      case 'hn':{if(!inV(o.x,o.y,o.R+24))break;const u=1-Math.max(0,o.tk)/o.bt,sz=1+(o.cr-1)*.7;   // 🎤 ♬ 고음 — 크레셴도가 클수록 크고 링이 넓다(연보라·흰색 · 위험색 없음)
+        if(!LOW){cx.globalAlpha=.8;SPX.blit(SPX.gfr,o.x,o.y,o.R*.8);cx.globalAlpha=1;}
+        cx.beginPath();cx.arc(o.x,o.y,18+(o.R-18)*u,0,7);cx.lineWidth=3.2;cx.strokeStyle='rgba(185,165,255,'+(.8*(1-u)+.08).toFixed(2)+')';cx.stroke();
+        if(!LOW){cx.lineWidth=1.2;cx.strokeStyle='rgba(255,255,255,'+(.9*(1-u)).toFixed(2)+')';cx.stroke();}
+        SPX.blitRot(SPX.hn,o.x,o.y,20*sz,Math.sin(S.t*8+o.x*.01)*.1);
+        if(o.pu>0){cx.beginPath();cx.arc(o.x,o.y,o.R*(1.1-o.pu),0,7);cx.fillStyle='rgba(235,225,255,'+Math.min(.4,o.pu*2.5).toFixed(2)+')';cx.fill();}break;}
       case 'sn':{if(!inV(o.x,o.y,30))break;const a=S.t*22,c=Math.cos(a)*9,sn=Math.sin(a)*9;
         cx.beginPath();cx.moveTo(o.x-c,o.y-sn);cx.lineTo(o.x+c,o.y+sn);cx.lineWidth=8;cx.strokeStyle='rgba(150,225,255,.45)';cx.stroke();cx.lineWidth=4.5;cx.strokeStyle='#fff3d6';cx.stroke();break;}
       case 'pc':{if(!inV(o.x,o.y,30))break;cardDraw(o.x,o.y,o.rot,o.c,null,1.15);break;}

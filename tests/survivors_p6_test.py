@@ -159,7 +159,7 @@ async def main():
         # ───────────────── 4. 시그니처 유물
         ctx, pg, errs = await fresh(b, srv.port, login=False)
         chars = ['brj', 'jjg', 'mms', 'hrb', 'ssu', 'amd', 'ildj', 'kyo', 'ddmj', 'psg', 'sr', 'ddo', 'tw', 'yj', 'bgb']
-        check('상점 캐릭터를 뺀 캐릭터 15종 = 시그니처 유물 15종', await pg.evaluate("(()=>{const x=__p6x;const cs=x.CHARS.filter(c=>!c.shop).map(c=>c.k);const rs=Object.keys(x.REL).filter(k=>x.REL[k].ch).map(k=>x.REL[k].ch);return cs.length===15&&rs.length===15&&cs.every(c=>rs.includes(c));})()"))
+        check('상점 캐릭터·배불배불(유물 없음)을 뺀 캐릭터 15종 = 시그니처 유물 15종', await pg.evaluate("(()=>{const x=__p6x;const cs=x.CHARS.filter(c=>!c.shop&&c.k!=='bbb').map(c=>c.k);const rs=Object.keys(x.REL).filter(k=>x.REL[k].ch).map(k=>x.REL[k].ch);return cs.length===15&&rs.length===15&&cs.every(c=>rs.includes(c));})()"))
         res = {}
         for c in chars:
             r = await pg.evaluate("""c=>{const x=__p6x;x.CH_set(c);x.start();const S=x.S;S.lv=40;const seen={};let own=0,other=0;

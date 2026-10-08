@@ -9,8 +9,8 @@ def check(n, c, x=''):
     print(('PASS ' if c else 'FAIL ') + n + (' ' + str(x)[:220] if x and not c else ''))
     if not c: FAILS.append(n)
 # 캐릭터 키 → 고유 무기 키(brj quill · jjg tempo · hrb slime · amd heart · ildj jhin · kyo whop · ddmj bash · psg twin · tw ram · yumi snack · eom eom)
-CASES = [('brj','quill'),('jjg','tempo'),('hrb','slime'),('amd','heart'),('ildj','jhin'),('kyo','whop'),('ddmj','bash'),('psg','twin'),('tw','ram'),('yumi','snack'),('eom','eom'),('bgb','pcards')]
-RUN = r"""async ([ch,w])=>{ const x=__p6x; x.srvUnl&&x.srvUnl(['yumi','eom']); x.CH_set(ch); x.start(); const S=x.S,p=S.p; S.p.hp=S.p.mhp;
+CASES = [('brj','quill'),('jjg','tempo'),('hrb','slime'),('amd','heart'),('ildj','jhin'),('kyo','whop'),('ddmj','bash'),('psg','twin'),('tw','ram'),('yumi','snack'),('eom','eom'),('bgb','pcards'),('bbb','sing')]
+RUN = r"""async ([ch,w])=>{ const x=__p6x; x.srvUnl&&x.srvUnl(['yumi','eom','bbb']); x.CH_set(ch); x.start(); const S=x.S,p=S.p; S.p.hp=S.p.mhp;
   for(const e of x.enemies.a)e.on=false;
   const L=8; S.w[w]=L; if(x.REL){} 
   // 필드 아이템 하나를 사거리 안에 놓는다(적은 없음) — 오른쪽 90px
