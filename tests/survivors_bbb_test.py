@@ -112,7 +112,7 @@ async def main():
         c = r['c']
         check('CHARS bbb: 고유 무기 sing · 쿨타임 -8%(cdr) · 그림(img) · 짧은 이름', c and c['w'] == 'sing' and c['wl'] == 1 and c['cdr'] == .08 and c['img'] == 1 and c['sn'] == '배불배불' and c['nm'] == '플레이브 코스프레 배불배불' and not c['boss'] and c['shop'], c)
         check('CHARS bbb: 설명에 고유 무기 · 한 줄 대사 · 태그 · 능력 이름 「박자 감각」(패치노트와 같은 이름)', c and '고유 무기' in c['ds'] and '쿨타임 -8%' in c['ds'] and c['ds'].startswith('「박자 감각」') and c['q'] and c['tag'], c)
-        check('해금 = 상점 구매(shop:1): 진행도 조건 함수는 무엇을 줘도 거짓 · 카드 글씨 「흐접새우상점 200P」 · 설명창 문구', c and c['shop'] is True and c['ok0'] is False and c['t'] == '흐접새우상점 200P' and '/흐접새우상점' in c['dh'] and '200P' in c['dh'] and '맛동산 아님' in c['dh'] and '새로고침' in c['dh'] and 'nb' in c['dh'], c)
+        check('해금 = 상점 구매(shop:1): 진행도 조건 함수는 무엇을 줘도 거짓 · 카드 글씨 「디스코드 /흐접새우상점 200P」 · 설명창 문구', c and c['shop'] is True and c['ok0'] is False and c['t'] == '디스코드 /흐접새우상점 200P' and '/흐접새우상점' in c['dh'] and '200P' in c['dh'] and '맛동산 아님' in c['dh'] and '새로고침' in c['dh'] and 'nb' in c['dh'], c)
         src_sh = open(os.path.join(H.ROOT, 'survivors.html'), encoding='utf-8').read()
         i0 = src_sh.index("{k:'bbb'"); line_bbb = src_sh[i0:src_sh.index('\n', i0)]
         check('CHARS bbb 줄에 처치 누적·진행도 해금 코드가 없다(p.kills · 20000 · 20,000)', 'p.kills' not in line_bbb and '20000' not in line_bbb and '20,000' not in line_bbb and 'un:SHOPUN_SV' in line_bbb, line_bbb[-200:])
@@ -322,7 +322,7 @@ async def main():
         r = await pg.evaluate("""()=>{const x=__p6x;x.srvUnl([]);x.show('title');x.renderRoster();const bs=[...document.querySelectorAll('#roster button')];const b=bs.find(e=>e.textContent.includes('배불배불'));
           b&&b.click();return {sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,small:b&&b.querySelector('small').textContent,lock:b&&b.classList.contains('lock'),desc:document.getElementById('chDesc').textContent,n:bs.length,hs:bs.map(e=>Math.round(e.getBoundingClientRect().width))}}""")
         check('선택 화면(412px): 가로 스크롤 없음 · 카드 폭이 모두 같다', r['sw'] <= r['cw'] and len(set(r['hs'])) == 1, (r['sw'], r['cw'], set(r['hs'])))
-        check('잠긴 카드: 작은 글씨 「흐접새우상점 200P」 · 누르면 설명창에 구매 방법(디스코드 /흐접새우상점 · 200P · 맛동산 아님 · 새로고침) + 로그인 안내', r['lock'] and r['small'] == '흐접새우상점 200P' and '디스코드 「/흐접새우상점」에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침' in r['desc'] and '디스코드 로그인 필요' in r['desc'], r)
+        check('잠긴 카드: 작은 글씨 「디스코드 /흐접새우상점 200P」 · 누르면 설명창에 구매 방법(디스코드 /흐접새우상점 · 200P · 맛동산 아님 · 새로고침) + 로그인 안내', r['lock'] and r['small'] == '디스코드 /흐접새우상점 200P' and '디스코드 「/흐접새우상점」에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침' in r['desc'] and '디스코드 로그인 필요' in r['desc'], r)
         hw = await pg.evaluate("()=>document.querySelector('ol.how').textContent")
         check('조작법 도움말(❔): 고유 시작 무기 목록에 「배불배불 🎤」(프싱 다음)', '프싱 🔥 · 배불배불 🎤 · 신림 📋' in hw, hw[hw.find('고유 시작 무기'):][:140])
         await pg.evaluate("__p6x.srvUnl(['brj','bbb'])")
@@ -348,7 +348,7 @@ async def main():
         # (가) 로그아웃: 잠김 + 문구 · 시작 시도해도 기본 캐릭터
         c_, p_, e_ = await open_page(['brj'], login=False)
         r = await p_.evaluate(TILE)
-        check('(가) 로그아웃: 카드 잠김 · 글씨 「흐접새우상점 200P」 · 설명 「디스코드 로그인 필요」 + 구매 방법 · 못 고르고 시작해도 브장신', r['lock'] and not r['can'] and r['small'] == '흐접새우상점 200P' and '디스코드 로그인 필요' in r['desc'] and '/흐접새우상점' in r['desc'] and '200P' in r['desc'] and r['sel'] == 'brj' and r['started'] == 'brj' and 'sing' not in r['weap'], r)
+        check('(가) 로그아웃: 카드 잠김 · 글씨 「디스코드 /흐접새우상점 200P」 · 설명 「디스코드 로그인 필요」 + 구매 방법 · 못 고르고 시작해도 브장신', r['lock'] and not r['can'] and r['small'] == '디스코드 /흐접새우상점 200P' and '디스코드 로그인 필요' in r['desc'] and '/흐접새우상점' in r['desc'] and '200P' in r['desc'] and r['sel'] == 'brj' and r['started'] == 'brj' and 'sing' not in r['weap'], r)
         check('(가) 페이지 오류·콘솔 에러 없음', not e_, e_[:3])
         await c_.close()
         # (나) 로그인했지만 서버 unlocks 에 bbb 없음: 잠김 · 「구매하면 열려요」 · 시작해도 기본 캐릭터
@@ -367,7 +367,7 @@ async def main():
         c_, p_, e_ = await open_page(['brj', 'bbb'])
         r = await p_.evaluate(TILE)
         loc = await p_.evaluate("()=>JSON.parse(localStorage.getItem('p6_unl_v1')||'[]')")
-        check('(다) 서버 unlocks 에 bbb: 카드 열림(글씨 = 태그) · 고르면 bbb · 시작하면 bbb + 고유 무기 sing', not r['lock'] and r['can'] and r['small'] == '무대 위의 병아리' and r['sel'] == 'bbb' and r['started'] == 'bbb' and r['weap'] == ['sing'] and 'bbb' in r['unl'], r)
+        check('(다) 서버 unlocks 에 bbb: 카드 열림(글씨 = 태그) · 고르면 bbb · 시작하면 bbb + 고유 무기 sing', not r['lock'] and r['can'] and r['small'] == '디스코드 /흐접새우상점 200P' and r['sel'] == 'bbb' and r['started'] == 'bbb' and r['weap'] == ['sing'] and 'bbb' in r['unl'], r)
         check('(다) 구매한 키는 로컬 해금 목록(p6_unl_v1)에 쌓지 않는다', 'bbb' not in loc and 'brj' in loc, loc)
         # (마) 기록 POST 의 unlocks 에 bbb(와 다른 상점 키)가 안 실린다 — 로컬에 직접 써넣어도
         await p_.evaluate("()=>{localStorage.setItem('p6_unl_v1',JSON.stringify(['brj','bbb','yumi','eom','jjg']));const x=__p6x;x.CH_set('bbb');x.start();x.S.t=120;x.S.kills=50;x.endRun(false,true)}"); await p_.wait_for_timeout(700)
