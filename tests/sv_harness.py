@@ -8,6 +8,7 @@ HOOK = r"""window.__p6x={get S(){return S},get state(){return state},set state(v
 update,draw,pick,resume,offers,newRun,start,REL,CHARS,WEAP,TIERS,tkCalc,synCalc,SRVUNL,srvUnl,canPick,CH_set(k){CH=CHARS.find(c=>c.k===k)},get CH(){return CH},invGrant,hitP,hpMul,atkMul,bossMul,MIN,endRun,contEndless,
 openChest,SYN,RN,seedOf,kstDate,applyUp,cardOf,get RSEED(){return RSEED},enemies,gems,props,items,shots,eshots,hazards,texts,RIFT_CACHE,gainXp,hurt,spawnEnemy,dailyGet,show,
 LOW,sgThorns,sgTick,relTick,mapTick,WIN_T,END_T,INV_CAP,renderBoard,renderDaily,loadBoard,renderRoster,getProg,setProg,hardBest,
+sgFan:typeof sgFan==='function'?sgFan:null,U3,DL3,PS,dmgMul,   // sgFan 은 시그니처 유물 「한 장씩 줄게」 — 유물이 없는 기준선(main 사본)에서도 훅이 깨지지 않게 typeof 로 받는다
 SHV,rgAdd,shvStart,setCap(v){INV_CAP=v},get BTAB(){return BTAB},set BTAB(v){BTAB=v},get ME(){return ME},set ME(v){ME=v}};
 window.__adv=function(sec,opt){opt=opt||{};const x=window.__p6x,dt=opt.dt||1/30,n=Math.round(sec/dt);let nc=0;
  for(let i=0;i<n;i++){const st=x.state;

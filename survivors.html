@@ -848,7 +848,7 @@ const REL={
   storm:{ic:'⚡',nm:'뇌우 부적',ds:l=>`${[9,8,7][l-1]}초마다 벼락 ${[2,2,3][l-1]}줄기가 내리친다`},
   berserk:{ic:'🔥',nm:'배수의 진',ds:l=>`HP 40% 이하일 때 모든 피해 +${[25,35,45][l-1]}% · 이동 +10%`},
   pulse:{ic:'🔔',nm:'비상 종',ds:l=>`${[90,80,70][l-1]}초마다 화면 펄스 — 잡몹 최대체력의 ${[15,20,25][l-1]}%(보스는 거의 안 아프다)`},
-  // ⭐ [2026-10-07 사장님 승인] 시그니처 유물 — 캐릭터마다 1개(스타터 포함 14종). 그 캐릭터로 시작한 판에서만 후보에 나온다(ch).
+  // ⭐ [2026-10-07 사장님 승인] 시그니처 유물 — 캐릭터마다 1개(상점 캐릭터 제외 15종). 그 캐릭터로 시작한 판에서만 후보에 나온다(ch).
   //   원칙: 무적 없음 · 중첩 없음(타이머·확률·갱신형) · 효과는 그 캐릭터의 컨셉을 한 단계 더하는 수준(다른 유물 3단계와 비슷한 체감)
   sg_brj:{ch:'brj',ic:'🐤',nm:'논란 점화',ds:l=>`적을 처치하면 ${[3,4,5][l-1]}% 확률로 그 자리가 폭발한다(0.5초에 한 번까지)`},
   sg_jjg:{ch:'jjg',ic:'🔫',nm:'한 방 장전',ds:l=>`치명타가 ${[9,8,7][l-1]}번 터질 때마다 다른 적 하나에게 추가 일격(방금 치명타의 75%)`},
@@ -864,6 +864,7 @@ const REL={
   sg_ddo:{ch:'ddo',ic:'☠️',nm:'공개 재판',ds:l=>`진실의 방 범위 +${[10,20,30][l-1]}% · 방 안 지속 피해 +${[25,50,75][l-1]}%`},
   sg_tw:{ch:'tw',ic:'💔',nm:'집착의 불꽃',ds:l=>`「씩씩」 피해 보너스 상한 +${[10,20,30][l-1]}%p (잃은 체력 1%당 +1%는 그대로)`},
   sg_yj:{ch:'yj',ic:'🐲',nm:'쫑의 숨결',ds:l=>`🔥 드래곤 브레스 사거리·피해 +${[8,14,20][l-1]}%`},
+  sg_bgb:{ch:'bgb',ic:'🌪',nm:'한 장씩 줄게',ds:l=>`포토카드를 ${[7,6,5][l-1]}번 던질 때마다, 적이 가까이 있으면 카드 ${[8,12,16][l-1]}장을 사방으로 뿌려 밀쳐 낸다`},
 };
 const SGN=k=>(S&&S.rel&&S.rel[k])||0;   // 시그니처 유물 단계(0=없음)
 // ⚖ 거래 카드 — 얻는 만큼 잃는다(최대 3번)
@@ -1314,6 +1315,14 @@ function sgTick(dt){const p=S.p,R=S.rel,T=S.sgT;
 }
 function sgThorns(dm){const k=[.6,.9,1.2][S.rel.sg_ddmj-1],p=S.p,sv=SRC;let n=0;SRC='rel';   // 🧱 맞으면 받은 피해의 일부를 가까운 적(최대 8)에게 돌려준다
   for(const e of S.live){if(!e.on||(e.x-p.x)**2+(e.y-p.y)**2>130*130)continue;hurt(e,dm*k);if(++n>=8)break;}SRC=sv;}
+const BGB_LINES=['플레이브 한번 잡숴봐!!','한 장씩 줄게!','포카 사러 왔어?','팬서비스 타임!'];   // 보스 대사 — 외칠 때마다 돌아가며
+function sgFan(d,sp,life,base){const R=S.rel.sg_bgb,T=S.sgT,p=S.p;   // 🌪 한 장씩 줄게 — 부채꼴을 N번 던질 때마다, 적이 붙어 있으면 카드를 사방으로(고리)
+  T.bgb=(T.bgb||0)+1;if(T.bgb<[7,6,5][R-1])return;
+  let near=false;for(const e of S.live)if(e.on&&(e.x-p.x)**2+(e.y-p.y)**2<160*160){near=true;break;}
+  if(!near)return;   // 적이 안 붙었으면 카운터를 쥔 채 기다렸다가, 붙는 첫 던지기에 터진다
+  T.bgb=0;T.bgbN=(T.bgbN||0)+1;const m=[8,12,16][R-1],pc=1+TK('pcards').pc,st=Math.PI*2/m;
+  for(let i=0;i<m;i++){const a=base+st/2+i*st;if(!f3({k:'pc',x:p.x,y:p.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:life*.6,d,pc,h:[],c:i%5,rot:Math.random()*6.28,pop:0,rl:1}))break;}
+  txt(p.x,p.y-40,'📸 '+BGB_LINES[(T.bgbN-1)%BGB_LINES.length],'#bff3ff');EX.beat(p.x,p.y,170,true);AU.play('beat',1);}
 function pick(o){
   applyUp(o);
   S.pendingLv--;
@@ -2012,6 +2021,7 @@ function weapons3(dt,cm,MT,AR,AM){
     if(tg){const n=4+(L>=2)+(L>=4)+(L>=7)+AM+t.n+(ev?3:0),d=U3.pcards.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d),base=Math.atan2(tg.y-p.y,tg.x-p.x),sp=U3.pcards.sp*PS(),life=U3.pcards.life*lvm(L,[[6,1.2]]);
       const fan=(a0,m,dd)=>{for(let i=0;i<m;i++){const a=a0+(i-(m-1)/2)*.2;f3({k:'pc',x:p.x,y:p.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life,d:dd,pc:1+t.pc,h:[],c:i%5,rot:Math.random()*6.28,pop:t.pop});}};
       fan(base,n,d);if(ev)fan(base+Math.PI,n>>1,d*.7);   // ✨ 팬싸인회 — 뒤쪽에도 절반
+      if(S.rel.sg_bgb)sgFan(d,sp,life,base);   // 🌪 한 장씩 줄게(시그니처 유물)
       AU.play('pcards');S.cd.pcards=U3.pcards.cd*lvm(L,[[4,.85],[8,.9]])*cm*(ev?.85:1)*(1-t.c);}
     else S.cd.pcards=0;}
   // 🥊 씩씩 박치기 → 💢 씩씩 폭주 — 돌진
@@ -2116,7 +2126,7 @@ function weapons3(dt,cm,MT,AR,AM){
       case 'pc':{o.x+=o.vx*dt;o.y+=o.vy*dt;o.life-=dt;o.rot+=dt*18;if(o.life<=0){dead=true;break;}
         if(propTouch(o.x,o.y,9,o.d)){if(o.pop)bang(o.x,o.y,34*AR,o.d*.4,'pcards','mine',0);dead=true;break;}   // 필드 아이템에 맞아도 깬다
         for(const e of S.live){if(!e.on)continue;const rr=e.r+9;if((e.x-o.x)**2+(e.y-o.y)**2>=rr*rr||o.h.includes(e))continue;
-          const v=Math.hypot(o.vx,o.vy)||1;h3(e,o.d,'pcards');
+          const v=Math.hypot(o.vx,o.vy)||1;h3(e,o.d,o.rl?'rel':'pcards');   // 🌪 한 장씩 줄게 고리(rl)는 유물 몫 — 열 번째 타격 같은 'rel 이 아닌 피해' 훅이 다시 세지 않는다
           if(e.on){if(e.boss)e.slow=Math.max(e.slow,.5);else knock(e,o.vx/v,o.vy/v,230,.22);}
           if(o.pop)bang(o.x,o.y,34*AR,o.d*.4,'pcards','mine',0);
           if(o.pc-->0){o.h.push(e);continue;}

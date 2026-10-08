@@ -158,8 +158,8 @@ async def main():
 
         # ───────────────── 4. 시그니처 유물
         ctx, pg, errs = await fresh(b, srv.port, login=False)
-        chars = ['brj', 'jjg', 'mms', 'hrb', 'ssu', 'amd', 'ildj', 'kyo', 'ddmj', 'psg', 'sr', 'ddo', 'tw', 'yj']
-        check('상점 캐릭터·배고배고(시그니처 유물 미정)를 뺀 캐릭터 14종 = 시그니처 유물 14종', await pg.evaluate("(()=>{const x=__p6x;const cs=x.CHARS.filter(c=>!c.shop&&c.k!=='bgb').map(c=>c.k);const rs=Object.keys(x.REL).filter(k=>x.REL[k].ch).map(k=>x.REL[k].ch);return cs.length===14&&rs.length===14&&cs.every(c=>rs.includes(c));})()"))
+        chars = ['brj', 'jjg', 'mms', 'hrb', 'ssu', 'amd', 'ildj', 'kyo', 'ddmj', 'psg', 'sr', 'ddo', 'tw', 'yj', 'bgb']
+        check('상점 캐릭터를 뺀 캐릭터 15종 = 시그니처 유물 15종', await pg.evaluate("(()=>{const x=__p6x;const cs=x.CHARS.filter(c=>!c.shop).map(c=>c.k);const rs=Object.keys(x.REL).filter(k=>x.REL[k].ch).map(k=>x.REL[k].ch);return cs.length===15&&rs.length===15&&cs.every(c=>rs.includes(c));})()"))
         res = {}
         for c in chars:
             r = await pg.evaluate("""c=>{const x=__p6x;x.CH_set(c);x.start();const S=x.S;S.lv=40;const seen={};let own=0,other=0;
@@ -173,7 +173,7 @@ async def main():
         r = await pg.evaluate("""()=>{const x=__p6x;x.CH_set('brj');x.start();const S=x.S;S.lv=40;let sg=0,all=0;for(let i=0;i<3000;i++){for(const o of x.offers(3)){if(o.t==='rl'){all++;if(x.REL[o.r].ch)sg++;}}}return {sg,all};}""")
         print('   시그니처 유물 후보 비중(전체 유물 카드 중):', round(r['sg'] / r['all'] * 100, 1), '%')
         check('시그니처가 유물 카드 대부분을 차지하지 않음(<35%)', r['sg'] / r['all'] < .35, r)
-        # 효과 훅 — 열네 가지를 1~3단계로 돌려 본다
+        # 효과 훅 — 열다섯 가지를 1~3단계로 돌려 본다(배고배고 「한 장씩 줄게」의 자세한 시험은 survivors_bgb_test.py ⑥)
         r = await pg.evaluate("""()=>{const x=__p6x;const o={};
           const mk=(c)=>{x.CH_set(c);x.start();const S=x.S;S.p.hp=S.p.mhp=200;return S;};
           const dummy=(S,dx,dy,hp)=>{const e=x.spawnEnemy(0,1);e.x=S.p.x+dx;e.y=S.p.y+dy;e.hp=e.mhp=hp||1e6;e.sp=0;return e;};
@@ -195,6 +195,14 @@ async def main():
           {const S=mk('kyo');S.rel.sg_kyo=3;S.p.hp=10;const B={key:'t',nm:'t',r:20,sp:0,d:1,hp:10,xp:1};const e=x.spawnEnemy(0,1,B);e.x=S.p.x+50;e.y=S.p.y;e.hp=1;x.hurt(e,5);o.kyo=S.p.hp-10;}
           // ddmj: 가시 방패
           {const S=mk('ddmj');S.rel.sg_ddmj=3;const es=[];for(let i=0;i<10;i++)es.push(dummy(S,40+i*3,0,1e6));S.live=es;S.p.inv=0;x.hitP(100,'');o.ddmj={hit:es.filter(e=>e.hp<e.mhp).length,dmg:1e6-es[0].hp};}
+          // bgb: 포토카드를 N번(7·6·5) 던질 때마다, 적이 가까이 있으면 카드 8·12·16장을 사방으로 — 멀면 카운터만 쌓고 기다린다 · 피해는 🏺 유물 몫
+          //      (적 12마리가 나를 빙 둘러싼다 — 각도를 일부러 불규칙하게(0.61rad) 둬서 고리 카드 사이 빈틈에만 서는 일이 없게)
+          o.bgb=[1,2,3].map(L=>{const S=mk('bgb');S.rel.sg_bgb=L;S.w.pcards=8;S.cd.pcards=0;S.p.hp=S.p.mhp=1e9;S.p.inv=99;S.nextBoss=S.nextMini=S.nextSp=S.evT=S.bigT=1e9;S.spawnT=-1e9;
+            for(const q of x.enemies.a)q.on=false;S.live.length=0;
+            const es=[];for(let k=0;k<12;k++){const q=x.spawnEnemy(0,1);q.sp=0;q.hp=q.mhp=1e12;es.push(q);}const N=[7,6,5][L-1];
+            const run=(R,n)=>{const out=[];let prev=S.cd.pcards;for(let i=0;i<30*60&&out.length<n;i++){es.forEach((q,k)=>{q.x=S.p.x+Math.cos(k*.61)*R;q.y=S.p.y+Math.sin(k*.61)*R;q.kb=0;q.hp=q.mhp;});S.spawnT=-1e9;x.update(1/30);if(S.cd.pcards>prev+.5)out.push(S.x3.f.filter(q=>q.k==='pc'&&q.rl).length);prev=S.cd.pcards;}return out;};
+            const far=run(250,N+2),cnt=S.sgT.bgb||0,near=run(100,N+1);
+            return {L,N,far,cnt,near,fired:S.sgT.bgbN||0,rel:S.dmgBy.rel||0,pc:S.dmgBy.pcards||0};});
           return o;}""")
         check('🐤 논란 점화: 처치 시 폭발(0.5초 간격)', r['brj'] >= 1, r['brj'])
         check('🔫 한 방 장전: 치명타 7번에 1번 추가 일격 후 카운터 리셋', r['jjg']['c'] == 0 and r['jjg']['rel'] > 0, r['jjg'])
@@ -205,6 +213,9 @@ async def main():
         check('🎭 아님말고: 확률 발동 시 경험치 2배', r['ildj'] == 20, r['ildj'])
         check('🍔 쿠폰 적립: 보스 처치 회복 +20%(+기본)', r['kyo'] >= 40, r['kyo'])
         check('🧱 가시 방패: 피격 시 최대 8마리에게 반사', r['ddmj']['hit'] == 8 and r['ddmj']['dmg'] > 100, r['ddmj'])
+        want = lambda L: [[8, 12, 16][L - 1]] + [0] * ([7, 6, 5][L - 1] - 1) + [[8, 12, 16][L - 1]]
+        check('🌪 한 장씩 줄게: 적이 멀면(250) 카운터만 쌓고 → 붙으면 곧바로 사방 카드 8/12/16장 · 그 뒤 7/6/5번마다', all(v['far'] == [0] * (v['N'] + 2) and v['cnt'] == v['N'] + 2 and v['near'] == want(v['L']) and v['fired'] == 2 for v in r['bgb']), r['bgb'])
+        check('🌪 한 장씩 줄게: 고리 피해는 🏺 유물 몫 · 평소 포토카드는 포토카드 몫으로 따로 잡힌다', all(v['rel'] > 0 and v['pc'] > 0 for v in r['bgb']), [(v['L'], round(v['rel']), round(v['pc'])) for v in r['bgb']])
         # 캐릭터 고유 능력 확장(psg·sr·ddo·tw·yj)
         r = await pg.evaluate("""()=>{const x=__p6x;const o={};
           {const camp=(lvl)=>{x.CH_set('psg');x.start();const S=x.S;S.rel.sg_psg=lvl;S.rg=100;let mx=0;for(let i=0;i<30*30;i++){if(x.state==='lvup'){x.pick(x.CUR[0]);continue;}if(x.state!=='play'){x.resume();continue;}S.p.hp=S.p.mhp;x.update(1/30);mx=Math.max(mx,S.dT);}return mx;};o.psg=camp(3);o.psg0=camp(0);}
@@ -220,10 +231,10 @@ async def main():
         r = await pg.evaluate("""()=>{const run=(lvl)=>{const x=__p6x;x.CH_set('yj');x.start();const S=x.S;S.rel.sg_yj=lvl;S.w.breath=8;S.p.mdx=1;S.p.mdy=0;const e=x.spawnEnemy(0,1);e.hp=e.mhp=1e12;e.x=S.p.x+90;e.y=S.p.y;e.sp=0;e.kb=0;
           for(let i=0;i<400;i++){e.x=S.p.x+90;e.y=S.p.y;e.hp=e.mhp;S.p.hp=S.p.mhp;x.update(1/30);}return S.dmgBy.breath||0;};return [run(0),run(3)];}""")
         check('🐲 쫑의 숨결 Lv3: 브레스 피해 +20%대', r[0] > 0 and 1.15 <= r[1] / r[0] <= 1.3, r)
-        # 시그니처 14종 × 단계 1~3 짧은 전투에서 예외 없음(전부 끼운 채)
+        # 시그니처 15종 × 단계 1~3 짧은 전투에서 예외 없음(전부 끼운 채)
         r = await pg.evaluate("""()=>{const x=__p6x;const errs=[];for(const c of %s){for(const L of [1,2,3]){try{x.CH_set(c);x.start();const S=x.S;for(const k in x.REL)S.rel[k]=(x.REL[k].ch&&x.REL[k].ch!==c)?0:L;S.rel['sg_'+c]=L;S.t=600;S.p.hp=S.p.mhp;
           const r=window.__adv(25,{god:false,dt:1/30});}catch(e){errs.push(c+L+':'+e.message);}}}return errs;}""" % json.dumps(chars))
-        check('14종 × 3단계 + 기존 유물 전부 끼우고 전투(예외 없음)', r == [], r)
+        check('15종 × 3단계 + 기존 유물 전부 끼우고 전투(예외 없음)', r == [], r)
         check('예외 없음', errs == [], errs)
         await ctx.close()
 
