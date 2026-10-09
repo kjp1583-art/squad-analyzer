@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:,">
+<title>핑 시험 · 레이드 시험실</title>
+<style>
+/* 2026-10-08 레이드 0단계 — 핑 시험(G1). 외부 자원 없음, 동적 글은 전부 textContent */
+:root{--bg:#f4f6f9;--fg:#14181f;--mut:#4a5565;--card:#ffffff;--line:#cfd6e0;--btn:#1d4ed8;--btnfg:#ffffff;--btn2:#e6ebf3;--btn2fg:#14181f;
+  --ok:#0b6b35;--okbg:#e3f5ea;--warn:#8a5200;--warnbg:#fff1d6;--bad:#a8231b;--badbg:#fde6e4;--bar:#c9d3e3;--barfill:#1d4ed8;--link:#1d4ed8}
+@media (prefers-color-scheme:dark){:root{--bg:#10141a;--fg:#eef1f5;--mut:#b4bdca;--card:#1a2029;--line:#323b48;--btn:#3d6fe6;--btnfg:#ffffff;--btn2:#2a3340;--btn2fg:#eef1f5;
+  --ok:#6fdc98;--okbg:#14301f;--warn:#f2bd55;--warnbg:#3a2c0f;--bad:#ff9a92;--badbg:#3d1916;--bar:#2e3846;--barfill:#6b97ff;--link:#8fb0ff}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;overflow-x:hidden;word-break:keep-all;overflow-wrap:anywhere}
+main{max-width:640px;margin:0 auto;padding:16px 16px 28px}
+h1{font-size:24px;line-height:1.3;margin:6px 0}
+h2{font-size:19px;line-height:1.35;margin:0 0 6px}
+p{margin:6px 0}
+a{color:var(--link)}
+.mut{color:var(--mut)}
+.box{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;margin:14px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+button{font:inherit;font-weight:700;min-height:52px;padding:10px 14px;border-radius:12px;border:2px solid transparent;background:var(--btn);color:var(--btnfg);cursor:pointer;max-width:100%}
+button.sec{background:var(--btn2);color:var(--btn2fg);border-color:var(--line)}
+button[disabled]{opacity:.45;cursor:not-allowed}
+button:focus-visible,textarea:focus-visible{outline:3px solid var(--barfill);outline-offset:2px}
+.pick button{background:var(--btn2);color:var(--btn2fg);border-color:var(--line)}
+.pick button[aria-pressed="true"]{background:var(--btn);color:var(--btnfg);border-color:var(--btn)}
+.bar{height:16px;border-radius:8px;background:var(--bar);overflow:hidden;margin:8px 0}
+.bar>i{display:block;height:100%;width:0;background:var(--barfill);transition:width .15s}
+.t{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}
+.t.on{border-color:var(--barfill)}
+.t .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.t .nm{font-weight:700}
+.t .big{font-size:28px;font-weight:800;line-height:1.2}
+.t .st{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px;margin-top:6px}
+.t .st span{display:block}
+.t .st b{display:block}
+.t .note{margin-top:6px;color:var(--mut)}
+.v{border-radius:14px;padding:14px;margin:12px 0;font-weight:700;border:2px solid var(--line)}
+.v.ok{background:var(--okbg);color:var(--ok);border-color:var(--ok)}
+.v.warn{background:var(--warnbg);color:var(--warn);border-color:var(--warn)}
+.v.bad{background:var(--badbg);color:var(--bad);border-color:var(--bad)}
+.v.info{background:var(--card)}
+.v small{display:block;font-weight:400;color:var(--fg);margin-top:6px;font-size:16px}
+textarea{width:100%;min-height:200px;font:16px/1.5 ui-monospace,Menlo,Consolas,"Noto Sans Mono CJK KR",monospace;background:var(--card);color:var(--fg);border:2px solid var(--line);border-radius:12px;padding:10px;resize:vertical}
+.ver{margin:18px 0 0;text-align:center;font-size:16px;color:var(--mut)}   /* 표지는 맨 아래 한 줄(떠 있으면 버튼을 가린다) */
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<p><a href="index.html" id="home">‹ 시험실 처음으로</a></p>
+<h1>📶 핑 시험</h1>
+<p class="mut">폰에서 서버까지 <b>왕복하는 시간</b>(ms = 1000분의 1초)을 재요. 작을수록 좋아요. 약 1~2분, 화면을 켠 채로 이 창에 머물러 주세요.</p>
+
+<div class="box">
+  <h2>1. 지금 폰은 어떤 연결인가요?</h2>
+  <div class="row pick" id="pick">
+    <button type="button" id="b-wifi" data-c="wifi" aria-pressed="false">📶 와이파이</button>
+    <button type="button" id="b-data" data-c="data" aria-pressed="false">📱 데이터 (LTE·5G)</button>
+  </div>
+  <p class="mut" id="conn-auto"></p>
+</div>
+
+<div class="box">
+  <h2>2. 시작</h2>
+  <div class="row">
+    <button type="button" id="b-start" disabled>▶ 시작</button>
+    <button type="button" id="b-stop" class="sec" disabled>⏸ 멈춤</button>
+    <button type="button" id="b-again" class="sec" disabled>↻ 다시</button>
+  </div>
+  <p id="hint" class="mut">먼저 위에서 연결을 골라 주세요.</p>
+  <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+  <p id="prog" role="status" aria-live="polite">대기 중</p>
+  <p id="srvmsg" class="mut hide"></p>
+</div>
+
+<div id="list"></div>
+
+<div id="verdict" class="v info hide" role="status"></div>
+
+<div class="box">
+  <h2>3. 결과 복사</h2>
+  <p class="mut">시험이 끝나면 아래 [복사]를 누르고, 채팅에 붙여넣기 해 주세요.</p>
+  <textarea id="out" readonly aria-label="결과 글" placeholder="시험을 하면 여기에 결과가 나타나요."></textarea>
+  <div class="row" style="margin-top:10px"><button type="button" id="b-copy">📋 복사</button></div>
+  <p id="copymsg" role="status" aria-live="polite"></p>
+</div>
+<div class="ver" id="ver">P0-v2</div>
+</main>
+
+<script>
+(function(){
+'use strict';
+var VER='P0-v2';
+var WARM=3, N=20, TIMEOUT=4000, GAP_MIN=100, GAP_MAX=150, TH=60;   // 연결 데우기 3회(제외) · 측정 20회 · 요청당 4초 · 요청 사이 100~150ms · 제안 기준 60ms
+
+/* ---------- 순수 함수: 통계·판정·글 만들기 (시험에서 직접 부른다) ---------- */
+function median(a){ if(!a.length) return null; var s=a.slice().sort(function(x,y){return x-y}), m=s.length>>1; return s.length%2? s[m] : (s[m-1]+s[m])/2; }
+function pctRank(a,p){ if(!a.length) return null; var s=a.slice().sort(function(x,y){return x-y}); var k=Math.ceil(p/100*s.length)-1; if(k<0)k=0; return s[k]; }   // 순위법(nearest-rank)
+function jitterOf(a){ if(a.length<2) return null; var t=0; for(var i=1;i<a.length;i++) t+=Math.abs(a[i]-a[i-1]); return t/(a.length-1); }
+function stats(samples,fails){
+  var n=samples.length, s={n:n,fails:fails||0,min:null,median:null,mean:null,p95:null,max:null,jitter:null};
+  if(!n) return s;
+  var sum=0, mn=Infinity, mx=-Infinity; samples.forEach(function(v){sum+=v; if(v<mn)mn=v; if(v>mx)mx=v;});
+  s.min=mn; s.max=mx; s.mean=sum/n; s.median=median(samples); s.p95=pctRank(samples,95); s.jitter=jitterOf(samples);   // 지터 = 연속한 값 차이의 평균 절댓값
+  return s;
+}
+function r0(v){ return v==null? '—' : String(Math.round(v)); }
+function r1(v){ return v==null? '—' : (Math.round(v*10)/10).toFixed(1); }
+
+// 판정: 연결 종류·서울/도쿄/독일(봇) 통계 → {level,text,extra[]}
+function verdict(conn,S,T,B,opts){
+  var ex=[], sm=S&&S.median, tm=T&&T.median, bm=B&&B.median, out;
+  if(sm!=null&&tm!=null) ex.push('서울−도쿄: '+(sm-tm>=0?'+':'−')+Math.abs(Math.round(sm-tm))+'ms ('+(sm<tm?'서울이 빠름':sm>tm?'도쿄가 빠름':'같음')+')');
+  if(sm!=null&&bm!=null) ex.push('서울−독일(봇): '+(sm-bm>=0?'+':'−')+Math.abs(Math.round(sm-bm))+'ms ('+(sm<bm?'서울이 빠름':sm>bm?'독일이 빠름':'같음')+')');
+  var tail='※ 60ms 는 「제안 기준」이에요(확정이 아니라 의논용 숫자).';
+  var warnFail='';
+  if(S&&S.fails>0&&S.n+S.fails>0&&S.fails/(S.n+S.fails)>=0.2) warnFail=' (서울에서 실패가 많아 값이 흔들릴 수 있어요)';
+  if(!conn){ out={level:'info',text:'위에서 연결(와이파이/데이터)을 골라 주세요.'}; }
+  else if(conn==='wifi'){ out={level:'info',text:'📶 와이파이 값은 참고만 해 주세요. 데이터(LTE·5G)로 한 번 더 재 주세요.'}; }
+  else if(sm==null){ out={level:'bad',text:'서울 값을 못 쟀어요. 연결을 확인하고 [다시]를 눌러 주세요.'}; }
+  else if(S.n<10&&S.n+S.fails>=N){ out={level:'warn',text:'실패가 많아 판정하기 어려워요 (서울 성공 '+S.n+'회 · 실패 '+S.fails+'회). 연결을 확인하고 [다시]를 눌러 주세요.'}; }
+  else if(S.n<10){ out={level:'info',text:'측정이 덜 끝났어요(서울 '+S.n+'회). 끝까지 돌려야 판정해요.'}; }
+  else if(sm<=TH){ out={level:'ok',text:'✅ 서울 서버로 가도 좋아요 (서울 중앙값 '+Math.round(sm)+'ms ≤ '+TH+'ms)'+warnFail}; }
+  else if(tm!=null&&tm<sm&&tm<=TH){ out={level:'warn',text:'🔁 도쿄가 더 빨라요 (도쿄 '+Math.round(tm)+'ms · 서울 '+Math.round(sm)+'ms)'+warnFail}; }
+  else { out={level:'bad',text:'🗣 의논이 필요해요 (서울 '+Math.round(sm)+'ms'+(tm!=null?' · 도쿄 '+Math.round(tm)+'ms':' · 도쿄 값 없음')+' — 둘 다 '+TH+'ms 를 넘어요)'+warnFail}; }
+  out.extra=ex; out.tail=tail; return out;
+}
+
+function kstNow(ms){ var d=new Date((ms==null?Date.now():ms)+9*3600*1000); return d.toISOString().slice(0,16).replace('T',' '); }
+function uaSummary(){
+  var ua=''; try{ua=navigator.userAgent||''}catch(e){}
+  var a=ua.match(/Android[ \/]?([\d.]+)/), c=ua.match(/(?:Chrome|CriOS)\/(\d+)/), f=ua.match(/Firefox\/(\d+)/), sa=ua.match(/Version\/([\d.]+).*Safari/), sam=/SamsungBrowser\/(\d+)/.exec(ua);
+  var parts=[];
+  parts.push(a?'Android '+a[1]:(/iPhone|iPad/.test(ua)?'iOS':(/Windows|Macintosh|Linux/.test(ua)?'PC':'기기?')));
+  if(sam) parts.push('삼성인터넷 '+sam[1]); else if(c) parts.push('Chrome '+c[1]); else if(f) parts.push('Firefox '+f[1]); else if(sa) parts.push('Safari '+sa[1]);
+  var disc=/Discord/i.test(ua), wv=/; wv\)/.test(ua);
+  parts.push('디스코드 내부창 추정: '+(disc?'예(UA에 Discord)':wv?'WebView 표지(wv) 있음 — 디스코드일 수도':'UA 로는 모름(크롬 Custom Tab 이면 일반 크롬과 똑같이 보여요)'));
+  return parts.join(' · ');
+}
+function connInfo(){
+  try{ var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection; if(!c) return null;
+    return {type:c.type||null,eff:c.effectiveType||null,rtt:(typeof c.rtt==='number')?c.rtt:null,down:(typeof c.downlink==='number')?c.downlink:null}; }catch(e){ return null; }
+}
+function connLine(ci){ if(!ci) return '없음(이 브라우저는 알려 주지 않아요)'; return 'type='+(ci.type||'?')+' effectiveType='+(ci.eff||'?')+' rtt='+(ci.rtt==null?'?':ci.rtt)+'ms downlink='+(ci.down==null?'?':ci.down)+'Mbps'; }
+
+function targetLine(t){
+  var s=t.stats;
+  if(!t.ran) return t.label+': 안 쟀음';
+  if(s.n===0) return t.label+': 값 없음 · 실패 '+s.fails+'/'+(s.fails)+(t.err?' ('+t.err+')':'');
+  return t.label+': 중앙 '+r0(s.median)+' · p95 '+r0(s.p95)+' · 지터 '+r1(s.jitter)+' · 최소 '+r0(s.min)+' · 최대 '+r0(s.max)+' · 실패 '+s.fails+'/'+(s.n+s.fails)+(t.mode==='get'?' · (GET)':'');
+}
+function buildText(st){
+  var L=[]; L.push('[핑시험 '+VER+']');
+  L.push('날짜(KST): '+kstNow());
+  L.push('기기: '+uaSummary());
+  L.push('연결(사용자가 고름): '+(st.conn==='wifi'?'와이파이':st.conn==='data'?'데이터(LTE·5G)':'안 골랐음'));
+  L.push('참고(자동, 믿지 않음): '+connLine(st.ci));
+  L.push('단위 ms · 중앙=중앙값 · p95=순위법 · 지터=연속 차이 평균');
+  st.targets.forEach(function(t){ L.push(targetLine(t)); });
+  var v=st.verdict; if(v){ L.push('판정: '+v.text.replace(/\s+/g,' ')); (v.extra||[]).forEach(function(x){L.push(' · '+x);}); L.push(v.tail); }
+  return L.join('\n');
+}
+
+/* ---------- 주소 검사 ---------- */
+// ?srv=https://HOST — https 로 시작하는 값만. 경로·쿼리·사용자정보는 버리고 origin 만 쓴다.
+function parseSrv(raw){
+  if(raw==null||raw==='') return {none:true};
+  raw=String(raw).trim();
+  if(!/^https:\/\/[^\/\s?#]/i.test(raw)) return {err:'srv 주소는 https:// 로 시작해야 해요'};
+  var u; try{ u=new URL(raw); }catch(e){ return {err:'주소 모양이 이상해요'}; }
+  if(u.protocol!=='https:') return {err:'srv 주소는 https:// 로 시작해야 해요'};
+  if(!u.hostname) return {err:'주소에 서버 이름이 없어요'};
+  if(u.username||u.password) return {err:'주소에 아이디/비밀번호가 들어 있어요'};
+  return {origin:u.origin, host:u.host};
+}
+
+/* ---------- 상태 ---------- */
+var $=function(id){return document.getElementById(id)};
+var state={conn:null,running:false,stop:false,done:false,targets:[],ci:null,verdict:null};
+var cur=null;                     // 지금 진행 중인 요청의 AbortController / 소켓 정리용
+var srv=parseSrv((function(){try{return new URLSearchParams(location.search).get('srv')}catch(e){return null}})());
+
+function mkTargets(){
+  var T=[
+    {id:'seoul',label:'① 서울 (Vultr)',url:'https://sel-kor-ping.vultr.com/',kind:'http'},
+    {id:'tokyo',label:'② 도쿄 (Vultr)',url:'https://hnd-jp-ping.vultr.com/',kind:'http'},
+    {id:'fra',label:'③ 프랑크푸르트·독일 (Vultr, 비교용)',url:'https://fra-de-ping.vultr.com/',kind:'http'},
+    {id:'bot',label:'④ 지금 봇 서버 (독일)',url:'https://hth3thmujs.apps.bot-hosting.cloud/health',kind:'http'}
+  ];
+  if(srv.origin){
+    T.push({id:'srvhttp',label:'⑤ 내 에코 서버 · HTTP (/ping)',url:srv.origin+'/ping',kind:'http'});
+    T.push({id:'srvws',label:'⑤ 내 에코 서버 · WebSocket (hb 왕복)',url:'wss://'+srv.host+'/ws',kind:'ws'});
+  }
+  T.forEach(function(t){ t.samples=[]; t.fails=0; t.ran=false; t.mode='head'; t.err=''; t.stats=stats([],0); t.phase=''; t.cnt=0; });
+  return T;
+}
+
+/* ---------- 측정 ---------- */
+function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+// 화면이 가려진 사이(다른 앱·잠금)에는 브라우저가 타이머를 늦추고 연결을 끊을 수 있어서, 그때 잰 값은 믿을 수 없다 → 버리고 돌아오면 그 대상을 처음부터 다시 잰다
+var hidSeen=false, hidWaiters=[];
+function isHidden(){ try{ return document.visibilityState==='hidden'; }catch(e){ return false; } }
+function onVis(){
+  if(isHidden()){ hidSeen=true; if(state.running) $('prog').textContent='창이 가려져서 잠깐 멈췄어요. 돌아오면 이 대상을 처음부터 다시 재요.'; }
+  else { var w=hidWaiters; hidWaiters=[]; w.forEach(function(f){ f(); }); }
+}
+function waitVisible(){ return new Promise(function(res){ if(!isHidden()||state.stop) return res(); hidWaiters.push(res); }); }
+function cbq(u){ return u+(u.indexOf('?')<0?'?':'&')+'cb='+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+// 한 번 재기 → 숫자(ms) | null(실패·시간초과) | undefined(사용자가 멈춤)
+async function httpProbe(t){
+  async function once(method,mode){
+    var ctl=new AbortController(); cur={abort:function(){ctl.abort()}}; var timedOut=false;
+    var to=setTimeout(function(){ timedOut=true; ctl.abort(); },TIMEOUT);
+    var t0=performance.now();
+    try{
+      await fetch(cbq(t.url),{method:method,mode:mode,cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer',signal:ctl.signal});   // 응답 헤더가 도착하면 끝(본문은 읽지 않는다)
+      var dt=performance.now()-t0; clearTimeout(to); return {ok:true,ms:dt};
+    }catch(e){
+      clearTimeout(to);
+      if(state.stop) return {stopped:true};
+      if(timedOut||(e&&e.name==='AbortError')) return {timeout:true};
+      return {neterr:true};
+    }finally{ cur=null; }
+  }
+  var r;
+  if(t.mode==='head'){
+    r=await once('HEAD','cors');
+    if(r.ok) return r.ms;
+    if(r.stopped) return undefined;
+    if(r.timeout) return null;
+    t.mode='get';          // HEAD 가 막혔으면(CORS·메서드 거절) 이 대상은 GET(no-cors)로 물러난다 — 본문은 읽지 않는다
+  }
+  r=await once('GET','no-cors');
+  if(r.ok) return r.ms;
+  if(r.stopped) return undefined;
+  return null;
+}
+
+// WebSocket hb 왕복: 열고 → hb 보내고 ack/에코가 올 때까지
+function wsOpen(t){
+  return new Promise(function(res){
+    var ws, done=false, to;
+    function fin(ok){ if(done) return; done=true; clearTimeout(to); res(ok); }
+    try{ ws=new WebSocket(t.url+'?sid=ping'+Math.random().toString(36).slice(2,10)); }catch(e){ t.err='열 수 없어요'; return fin(false); }
+    t.ws=ws; t.pend=null;
+    cur={abort:function(){ try{ws.close()}catch(e){} fin(false); }};
+    to=setTimeout(function(){ t.err='4초 안에 안 열렸어요'; try{ws.close()}catch(e){} fin(false); },TIMEOUT);
+    ws.onopen=function(){ fin(true); };
+    ws.onerror=function(){ if(!t.err) t.err='연결 오류'; };
+    ws.onclose=function(){ t.closed=true; if(t.pend){ var p=t.pend; t.pend=null; p.res(null); } fin(false); };
+    ws.onmessage=function(ev){
+      var m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
+      if(!m||typeof m!=='object') return;
+      if(t.pend && m.n===t.pend.n && ((m.t==='ack'&&m.k==='hb')||m.t==='hb')){ var p=t.pend; t.pend=null; p.res(performance.now()-p.t0); }   // 에코 서버면 보낸 hb 가 그대로 돌아온다
+    };
+  });
+}
+function wsProbe(t){
+  return new Promise(function(res){
+    if(t.closed||!t.ws||t.ws.readyState!==1) return res(null);
+    var n=++t.cnt, p={n:n,t0:performance.now(),res:function(v){ clearTimeout(tm); res(state.stop&&v==null? undefined : v); }};
+    var tm=setTimeout(function(){ if(t.pend===p){ t.pend=null; res(state.stop?undefined:null); } },TIMEOUT);
+    t.pend=p;
+    try{ t.ws.send(JSON.stringify({t:'hb',n:n,c:Date.now()})); }catch(e){ t.pend=null; clearTimeout(tm); res(null); }
+  });
+}
+
+function setProg(t,i,total){
+  var txt;
+  if(t.phase==='warm') txt=t.label+' — 연결 데우는 중 ('+(i+1)+'/'+WARM+')';
+  else txt=t.label+' — 재는 중 '+(t.samples.length+t.fails)+'/'+N;
+  $('prog').textContent=txt;
+  var idx=state.targets.indexOf(t), per=1/state.targets.length;
+  var within=(t.phase==='warm')? 0 : (t.samples.length+t.fails)/N;
+  $('bar').style.width=Math.min(100,((idx+within)*per)*100)+'%';
+}
+
+async function runTarget(t){
+  for(var tries=0;tries<5;tries++){
+    hidSeen=false;
+    await runTarget1(t);
+    if(state.stop || !hidSeen) return;
+    t.hiddenRedo=(t.hiddenRedo||0)+1;     // 재는 도중 창이 가려졌다 → 이 대상의 값을 버리고 돌아오면 다시
+    await waitVisible();
+  }
+  if(!state.stop && hidSeen){ state.stop=true; $('prog').textContent='창이 자꾸 가려져서 멈췄어요. 이 창을 켜 둔 채로 [이어서 시작]을 눌러 주세요.'; }
+}
+async function runTarget1(t){
+  t.ran=true; t.samples=[]; t.fails=0; t.err=''; t.phase='warm'; t.closed=false; t.cnt=0;
+  render();
+  if(t.kind==='ws'){
+    var ok=await wsOpen(t);
+    if(state.stop){ t.phase='part'; return; }
+    if(!ok){ t.fails=N; t.stats=stats([],N); t.phase='end'; render(); return; }
+    t.err='';
+  }
+  for(var i=0;i<WARM+N;i++){
+    if(state.stop || hidSeen || isHidden()) break;
+    t.phase=i<WARM?'warm':'meas'; setProg(t,i);
+    var v= t.kind==='ws'? await wsProbe(t) : await httpProbe(t);
+    if(v===undefined) break;            // 멈춤
+    if(hidSeen||isHidden()) break;      // 재는 사이에 가려졌다 → 이 값은 버린다
+    if(i>=WARM){ if(v==null) t.fails++; else t.samples.push(v); }
+    t.stats=stats(t.samples,t.fails); render();
+    await sleep(GAP_MIN+Math.random()*(GAP_MAX-GAP_MIN));
+  }
+  if(t.ws){ try{t.ws.close()}catch(e){} }
+  var finished=(t.samples.length+t.fails)>=N;
+  if(hidSeen||isHidden()){ t.phase='part'; t.samples=[]; t.fails=0; t.stats=stats([],0); return; }       // 가려진 사이가 섞였으니 값을 버림(runTarget 이 다시 잰다)
+  t.phase= (state.stop&&!finished)? 'part':'end'; t.stats=stats(t.samples,t.fails);   // 멈춘 대상은 'part' — 이어서 시작하면 그 대상부터 다시 잰다
+  if(t.kind==='ws'&&t.samples.length===0&&!t.err&&!state.stop) t.err='답이 오지 않았어요';
+}
+
+async function runAll(){
+  if(state.running) return;
+  state.running=true; state.stop=false; state.done=false;
+  setButtons(); $('hint').textContent='재는 중이에요. 이 창을 켜 둔 채로 기다려 주세요. (다른 앱으로 나가면 값을 버리고 다시 재요)';
+  for(var k=0;k<state.targets.length;k++){
+    var t=state.targets[k];
+    if(t.phase==='end') continue;       // 멈췄다가 이어 할 때 이미 끝난 대상은 건너뜀
+    await runTarget(t);
+    if(state.stop) break;
+  }
+  state.running=false;
+  var allDone=state.targets.every(function(t){return t.phase==='end'});
+  state.done=allDone;
+  if(allDone){ $('prog').textContent='끝났어요! 아래 판정과 [복사]를 확인해 주세요.'; $('bar').style.width='100%'; $('hint').textContent='끝났어요. 연결을 바꿔서(와이파이↔데이터) 한 번 더 재려면 [다시]를 눌러 주세요.'; }
+  else { $('prog').textContent='멈췄어요. [시작]을 누르면 이어서 재요. 처음부터 하려면 [다시].'; $('hint').textContent=''; }
+  setButtons(); render();
+}
+
+/* ---------- 화면 ---------- */
+function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+function setButtons(){
+  var picked=!!state.conn;
+  $('b-start').disabled= state.running || !picked || state.done;
+  $('b-stop').disabled= !state.running;
+  $('b-again').disabled= state.running || !state.targets.some(function(t){return t.ran});
+  $('b-wifi').disabled=state.running; $('b-data').disabled=state.running;
+  $('b-start').textContent= state.targets.some(function(t){return t.phase==='part'})? '▶ 이어서 시작':'▶ 시작';
+  if(!state.running&&!picked) $('hint').textContent='먼저 위에서 연결을 골라 주세요.';
+}
+function cardOf(t){
+  var d=el('div','t'+((t.phase==='warm'||t.phase==='meas')&&state.running?' on':'')); d.setAttribute('data-id',t.id);
+  var hd=el('div','hd'); hd.appendChild(el('span','nm',t.label));
+  var s=t.stats;
+  hd.appendChild(el('span','big',!t.ran?'—':(s.n?r0(s.median)+' ms':'—')));
+  d.appendChild(hd);
+  if(!t.ran){ d.appendChild(el('div','note','아직 안 쟀어요')); return d; }
+  var g=el('div','st');
+  [['최소',r0(s.min)],['평균',r0(s.mean)],['p95',r0(s.p95)],['최대',r0(s.max)],['지터',r1(s.jitter)],['실패',s.fails+'/'+(s.n+s.fails)]].forEach(function(p){
+    var c=el('span'); c.appendChild(el('span','mut',p[0])); c.appendChild(el('b',null,p[1])); g.appendChild(c);
+  });
+  d.appendChild(g);
+  var note=[];
+  if(t.mode==='get'&&s.n>0) note.push('이 서버는 HEAD 가 막혀서 GET 으로 쟀어요');
+  if(t.err) note.push(t.err);
+  if(t.phase==='warm') note.push('데우는 중…'); else if(t.phase==='meas') note.push('재는 중…'); else if(t.phase==='part') note.push('멈췄어요(여기까지의 값)');
+  if(note.length) d.appendChild(el('div','note',note.join(' · ')));
+  return d;
+}
+function render(){
+  var list=$('list'); while(list.firstChild) list.removeChild(list.firstChild);
+  state.targets.forEach(function(t){ list.appendChild(cardOf(t)); });
+  var by=function(id){ var t=state.targets.filter(function(x){return x.id===id})[0]; return t&&t.ran? t.stats : null; };
+  var any=state.targets.some(function(t){return t.ran});
+  var v=$('verdict');
+  if(!any){ state.verdict=null; v.className='v info hide'; }
+  else {
+    state.verdict=verdict(state.conn,by('seoul'),by('tokyo'),by('bot'));
+    v.className='v '+state.verdict.level;
+    while(v.firstChild) v.removeChild(v.firstChild);
+    v.appendChild(el('span',null,state.verdict.text));
+    var sm=el('small'); sm.textContent=(state.verdict.extra||[]).concat([state.verdict.tail]).join('\n'); sm.style.whiteSpace='pre-line'; v.appendChild(sm);
+  }
+  $('out').value= any? buildText(state) : '';
+  setButtons();
+}
+
+/* ---------- 복사: clipboard → execCommand → 길게 눌러 복사 안내 ---------- */
+async function copyOut(){
+  var ta=$('out'), msg=$('copymsg'), text=ta.value;
+  if(!text){ msg.textContent='아직 복사할 결과가 없어요. 시험을 먼저 해 주세요.'; return; }
+  var ok=false;
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ await navigator.clipboard.writeText(text); ok=true; } }catch(e){ ok=false; }
+  if(!ok){
+    try{ ta.removeAttribute('readonly'); ta.focus(); ta.select(); ta.setSelectionRange(0,text.length); ok=document.execCommand('copy'); }catch(e){ ok=false; }
+    ta.setAttribute('readonly','');
+  }
+  msg.textContent= ok? '✅ 복사했어요. 채팅에 붙여넣기 해 주세요.' : '복사가 안 됐어요. 위 글을 길게 눌러 전체 선택한 뒤 복사해 주세요.';
+}
+
+/* ---------- 연결 선택·자동 감지(보조) ---------- */
+function pickConn(c){
+  state.conn=c;
+  $('b-wifi').setAttribute('aria-pressed',c==='wifi'?'true':'false');
+  $('b-data').setAttribute('aria-pressed',c==='data'?'true':'false');
+  if(!state.running) $('hint').textContent= c? '[시작]을 눌러 주세요.' : '먼저 위에서 연결을 골라 주세요.';
+  render();
+}
+function resetAll(){
+  state.running=false; state.stop=false; state.done=false;
+  state.targets=mkTargets(); $('bar').style.width='0'; $('prog').textContent='대기 중'; $('copymsg').textContent='';
+  render();
+}
+
+function init(){
+  $('ver').textContent=VER;
+  state.ci=connInfo();
+  $('conn-auto').textContent='자동으로 알아본 값(참고만, 틀릴 수 있어요): '+(state.ci? connLine(state.ci):'이 브라우저는 알려 주지 않아요');
+  if(srv.err){ $('srvmsg').className='mut'; $('srvmsg').textContent='⚠ srv 주소를 쓰지 않았어요: '+srv.err; }
+  else if(srv.origin){ $('srvmsg').className='mut'; $('srvmsg').textContent='내 에코 서버도 함께 재요: '+srv.host; }
+  state.targets=mkTargets();
+  $('b-wifi').addEventListener('click',function(){pickConn('wifi')});
+  $('b-data').addEventListener('click',function(){pickConn('data')});
+  $('b-start').addEventListener('click',function(){ runAll(); });
+  $('b-stop').addEventListener('click',function(){ state.stop=true; if(cur){ try{cur.abort()}catch(e){} } });
+  $('b-again').addEventListener('click',function(){ if(state.running) return; resetAll(); });
+  $('b-copy').addEventListener('click',copyOut);
+  document.addEventListener('visibilitychange',onVis);
+  render();
+}
+// 시험(자동 검사)에서 쓰는 손잡이 — 화면 동작에는 필요 없다
+window.P0PING={stats:stats,median:median,pctRank:pctRank,jitterOf:jitterOf,verdict:verdict,parseSrv:parseSrv,buildText:buildText,
+  setResult:function(id,samples,fails){ var t=state.targets.filter(function(x){return x.id===id})[0]; if(!t) return false; t.ran=true; t.phase='end'; t.samples=samples.slice(); t.fails=fails||0; t.stats=stats(t.samples,t.fails); render(); return true; },
+  pick:pickConn, state:state, VER:VER};
+init();
+})();
+</script>
+</body>
+</html>
