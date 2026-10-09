@@ -1807,7 +1807,7 @@ const holes=new Pool(4,()=>({x:0,y:0,R:0,life:0,T:0,tk:0,dmg:0,ev:0,sl:0,bR:0,pu
 const snps=new Pool(8,()=>({x1:0,y1:0,x2:0,y2:0,life:0,ev:0}));                                        // 🔭 저격 자국(줄)
 function newX2(){const z=[];for(let i=0;i<4;i++)z.push({t:0,T:.22,a:0,R:0,w:0,full:0,ev:0});const lk=[];for(let i=0;i<3;i++)lk.push({on:0,e:null,sn:0,t:0});
   return {swg:z,swi:0,pn:0,fzT:0,fid:0,hid:0,mid:0,lr:[0,0,0,0,0,0,0,0],lb:[0,0,0,0,0,0,0,0],la:0,lp:new Float32Array(16),ln:0,lreg:14,lh:0,ld:10,lev:0,lt:null,lk,bt:0,bn:0,bT:0,bm:0,bs:0};}
-const areaMul=()=>1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale');
+const areaMul=()=>1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale')+S.syn.area;   // 🔗 [2026-10-09 사장님 지시 「시너지 범위 버그 바로 수정」] 시너지의 「범위 +N%」 가 합산만 되고 어디서도 안 읽혀 완성해도 변화가 없었다 — weapons() 의 AR 과 같은 식에 같이 더한다
 const BT={x:0,y:0,R:0,style:'mine',ev:0,ux:0,uy:0},CS={x:0,y:0};
 function bang(x,y,R,d,src,style,ev,bm){const s0=SRC;SRC=src;BT.x=x;BT.y=y;BT.R=R;BT.style=style;BT.ev=ev?1:0;AU.play('boom',R/55);EX.boom(BT);   // 새 무기의 즉시 폭발(예고 없음) — 🎆 폭죽·🌀 블랙홀 끝·🎣 끌어올린 자리 …
   for(const e of enemies.a)if(e.on&&(e.x-x)**2+(e.y-y)**2<(R+e.r)**2)hurt(e,d*(bm&&(e.boss||e.el||e.bg)?bm:1));hitPropsAt(x,y,R,d);SRC=s0;}
@@ -2343,7 +2343,7 @@ function weapons3(dt,cm,MT,AR,AM){
     if(dead){f[i]=f[f.length-1];f.pop();}}
 }
 function weapons(dt){
-  const p=S.p,cm=cdMul(),MT=dmgMul(),AR=1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale'),AM=pv('amt');let L;
+  const p=S.p,cm=cdMul(),MT=dmgMul(),AR=1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale')+S.syn.area,AM=pv('amt');let L;   // 🔗 시너지 범위(areaMul 과 같은 식 — 두 곳이 어긋나지 않게 같이 고친다)
   for(const k in S.w)if(S.cd[k]===undefined)S.cd[k]=0;
   // 🌾 사료 투척 → 🌪 사료 폭풍
   L=S.w.feed||0;SRC='feed';
