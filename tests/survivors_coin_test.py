@@ -148,8 +148,8 @@ def section_a():
     check('[A10] 서버 문자열을 innerHTML 로 넣지 않음(코인 구획)', 'innerHTML' not in sec)
     check('[A11] 토큰을 console 에 안 남김(코인 구획)', 'console.' not in sec)
     pn = json.load(open(os.path.join(ROOT, 'data', 'patch_notes.json'), encoding='utf-8'))['notes']
-    e = pn[0]
-    check('[A12] 패치노트 맨 앞 항목: id·area squad·game sv·tag·날짜 내림차순', e['id'] == '2026-10-09-sv-revive-coin' and e['area'] == 'squad' and e['game'] == 'sv' and e['tag'] in ('신규', '개편', '변경', '밸런스', '수정')
+    e = next((n for n in pn if n.get('id') == '2026-10-09-sv-revive-coin'), pn[0])   # 새 패치노트가 위에 얹혀도 이 항목을 id 로 찾는다
+    check('[A12] 부활 코인 패치노트 항목: id·area squad·game sv·tag·날짜 내림차순', e['id'] == '2026-10-09-sv-revive-coin' and e['area'] == 'squad' and e['game'] == 'sv' and e['tag'] in ('신규', '개편', '변경', '밸런스', '수정')
           and all(pn[k]['date'] >= pn[k + 1]['date'] for k in range(min(8, len(pn) - 1))) and e['lines'] and not any(w in json.dumps(e, ensure_ascii=False) for w in ('Cl' 'aude', '클' '로드', 'G' 'PT', 'Son' 'net', 'Op' 'us')))
     check('[A13] 조작법에 부활 코인 한 줄', '<li>🪙 <b>부활 코인</b>' in s)
     check('[A14] .gitignore 에 임시 사본', 'survivors_cx' in open(os.path.join(ROOT, '.gitignore'), encoding='utf-8').read())
