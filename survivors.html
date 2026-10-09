@@ -985,10 +985,13 @@ const PT={
   pspd:['투사체·캔 속도 +8% 더'],
 };
 const PTV=k=>(S&&S.pt&&S.pt[k])||0;
+// 🩹 [2026-10-09 사장님 지시 "응급처치 상향해주고"] 처치 응급처치 — 쉬는 시간(초)과 한 번에 회복하는 HP(Lv1~3). 카드 문구와 효과(처치 처리 hurt())가 같은 값을 읽는다.
+//   회복량만 올렸다(쉬는 시간 5·4·3.5초는 그대로): 1·1·2 → 2·2·3 — 분당 회복 약 2배(Lv3 1.5배). 측정(무적 봇·독립 재측정): 치킨·고기 반찬·재생 등 다른 회복에 더하는 몫이 작다(10분 일반 +12~17 HP/분).
+const LEECH={cd:[5,4,3.5],hp:[2,2,3]};
 // 🏺 유물 — 유물마다 고유 규칙(3단계)
 const REL={
   tenth:{ic:'🥁',nm:'열 번째 타격',ds:l=>`적을 ${[14,12,10][l-1]}번 때릴 때마다 맞은 자리가 폭발한다`},
-  leech:{ic:'🩹',nm:'처치 응급처치',ds:l=>`적을 처치하면 HP +${[1,1,2][l-1]} (${[5,4,3.5][l-1]}초에 한 번)`},
+  leech:{ic:'🩹',nm:'처치 응급처치',ds:l=>`적을 처치하면 HP +${LEECH.hp[l-1]} (${LEECH.cd[l-1]}초에 한 번)`},
   still:{ic:'🛡',nm:'명상 방어막',ds:l=>`가만히 ${[6,5,4][l-1]}초 서 있으면 방어막 충전 — 다음 한 방을 막는다(막기는 1.2초에 한 번)`},
   sprint:{ic:'💨',nm:'줄행랑',ds:l=>`맞으면 2초간 이동속도 +${[20,30,40][l-1]}%${l>=3?' · 무적 +0.2초':''}`},
   storm:{ic:'⚡',nm:'뇌우 부적',ds:l=>`${[9,8,7][l-1]}초마다 벼락 ${[2,2,3][l-1]}줄기가 내리친다`},
@@ -1782,7 +1785,7 @@ function hurt(e,d){
     e.eg=1;e.hp=e.mhp*.4;e.ft=4;e.ph=0;e.kb=0;const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r-8;t.s='🥚 알이 됐다!';t.life=.9;t.c='#ff9aa8';t.big=0;}return;}
   if(e.hp<=0){e.on=false;S.kills++;AU.play('kill');if(CH.shv)rgAdd(e.boss?SHV.kgB:(e.bg||e.el)?SHV.kgE:SHV.kill);   // 🔥 분노: 처치할 때
     if(pv('vamp')&&++S.vk>=40){S.vk=0;S.p.hp=Math.min(S.p.mhp,S.p.hp+1.5*pv('vamp'));}   // 🥩 고기 반찬 — [2026-10-07 사장님 지시] 하향: 30마리당 +2 → 40마리당 +1.5(레벨당, 회복량 약 44% 감소)
-    if(S.rel.leech&&S.leechT<=0){S.leechT=[5,4,3.5][S.rel.leech-1];S.p.hp=Math.min(S.p.mhp,S.p.hp+[1,1,2][S.rel.leech-1]);}   // 🎲 [2026-09-30 사장님 지시] 🩹 처치 응급처치
+    if(S.rel.leech&&S.leechT<=0){S.leechT=LEECH.cd[S.rel.leech-1];S.p.hp=Math.min(S.p.mhp,S.p.hp+LEECH.hp[S.rel.leech-1]);}   // 🎲 [2026-09-30 사장님 지시] 🩹 처치 응급처치
     if(S.rel.sg_brj&&SRC!=='rel'&&S.t-S.sgK>=.5&&Math.random()<[.03,.04,.05][S.rel.sg_brj-1]&&S.booms.length<40){S.sgK=S.t;S.booms.push({x:e.x,y:e.y,t:0,T:0,R:60*(1+.1*pv('area')),d:18*dmgMul()*[1,1.3,1.6][S.rel.sg_brj-1],done:false,ev:0,src:'rel',style:'mine'});}   // 🐤 논란 점화
     const KK=e.boss?null:KIND[e.ki];
     if(KK&&KK.kog&&e.ph!==3)kogBoom(e);   // 💥 코그모 — 잡아도 그 자리에서 터진다
