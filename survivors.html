@@ -1461,7 +1461,7 @@ function diffHtml(){   // 일시정지 맨 위: 지금 판의 난이도(글자 +
     +`<div class="dfs" id="pMul">지금 몬스터 체력 <b>×${uiHx(hm)}</b> · 공격력 <b>×${uiHx(am)}</b> <span class="muted">(잡몹 기준 · 보스·엘리트 제외 · 시간이 갈수록 올라요)</span></div>`;}
 function statRows(){   // 능력치 표의 행 — 순서·줄 수는 늘 같다(없으면 +0% · —). v 는 게임이 쓰는 값 그대로(data-v) · t 는 보이는 글자 · s 는 작은 설명
   const cc=critChance(),cm=critMul(),dm=dmgMul(),cd=cdMul(),ar=areaMul(),mv=moveMul()*slowMul(),tk=takenMul(),ag=armTotal(),mg=magMul(),xm=xpMul(),ps=PS(),du=DUR(),am=pv('amt'),lk=LK(),va=pv('vamp');
-  const pr=critParts().filter(p=>p[1]).map(p=>`${p[0]} +${uiPcN(p[1])}`).join(' · ');
+  const pr=critParts().filter(p=>p[1]).map(p=>`<span class="nb">${p[0]} +${uiPcN(p[1])}</span>`).join(' · ');   // 한 갈래(「눈 밝히기 +2%」)는 줄 바꿈 때 쪼개지 않는다
   let ds='';if(CH.low)ds=`체력 ${uiPcN(LOWHP_AT)} 이하면 +${uiPcN(CH.low)} 더 — ${lowMul()>1?'지금 켜짐':'지금 꺼짐'}`;   // 망무새: 피해 표(dmgMul)에 안 들어가는 「체력 낮을 때」 몫
   if(CH.rage)ds=`잃은 체력만큼 +${uiPcN(rageMul()-1)} 더(최대 +${uiPcN(rageCap())})`;   // 태웅: 마찬가지로 hurt 가 곱하는 몫
   return [
