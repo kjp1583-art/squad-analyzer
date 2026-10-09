@@ -8,7 +8,7 @@
      · 그 직후 뽑은 다음 난수 값(난수를 한 번이라도 더/덜 썼으면 여기서 갈린다)
    사용 예
      # 기준 커밋과 지금 작업본: 캐릭터 4명 × 시드 2개 × 240초 × 일반·하드·베리하드
-     nice -n 10 python3 tests/survivors_equiv.py --a bfaaf08 --b survivors.html --chars brj,kyo,eom,yj --seeds 1-2 --cap 240 --modes n,h,v
+     nice -n 10 python3 tests/survivors_equiv.py --a <기능 넣기 직전의 main 커밋> --b survivors.html --chars brj,kyo,eom,yj --seeds 1-2 --cap 240 --modes n,h,v
      # 브랜치 둘(합치기 전·후) 견주기:  --a surv-finboss --b merged-branch
    A·B 는 파일 경로이거나 git 리비전(리비전이면 --file 의 파일을 그 시점에서 꺼낸다). 두 판이 같으면 종료코드 0.
    브라우저는 A·B 각각 하나씩(동시에 2개)만 쓴다. 임시 사본은 survivors_cb_<pid>.html(.gitignore 대상) — 끝나면 지운다."""

@@ -24,7 +24,7 @@ ONLY = None
 if '--only' in sys.argv:
     ONLY = set(sys.argv[sys.argv.index('--only') + 1].split(','))
 FAST = '--fast' in sys.argv
-BASE_COMMIT = 'bfaaf08'
+BASE_COMMIT = os.environ.get('INFO_BASE_COMMIT', '4ed2f37')   # 이 기능들을 합치기 직전의 main — 규칙 불변·이어하기 서명 불변을 이 커밋과 견준다(2026-10-10 합칠 때 bfaaf08 → 4ed2f37: 그 사이 최종 보스가 이어하기 서명을 바꿨다). SIG 가 또 바뀌는 커밋이 들어오면 이 값을 그 직전 main 으로 다시 잡는다(INFO_BASE_COMMIT 로도 덮어쓸 수 있다)
 NEW, OLD, OLDSRC = 'survivors_cx_inf.html', 'survivors_cx_infb.html', 'survivors_cx_infb_src.html'
 FAILS = []
 def check(n, c, x=''):
