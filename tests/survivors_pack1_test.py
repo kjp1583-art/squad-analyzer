@@ -19,7 +19,7 @@ window.__relRun=function(S,secs,dt){const x=__p6x;let first=null;const t0=S.t;fo
 """
 
 async def main():
-    H.make_copy(); srv = H.Srv()
+    H.make_copy(extra="Object.defineProperties(window.__p6x,{openLvup:{get(){return openLvup}},cardLv:{get(){return cardLv}}});"); srv = H.Srv()
     async with async_playwright() as p:
         b = await H.launch(p)
         ctx, pg, errs = await H.new_page(b, srv.port)
@@ -69,6 +69,23 @@ async def main():
         check('③ Lv19 에는 부활 카드가 한 번도 안 나온다', r['n19'] == 0, r)
         check('③ Lv20 에는 나온다', r['n20'] > 0, r)
         check('③ 패시브 칸이 꽉 차도(%d칸) Lv20 부활 후보는 남는다' % r['keys'], r['full'] > 0, r)
+
+        # ③-b 한꺼번에 여러 레벨이 쌓여도(Lv17→20, pendingLv 3) Lv18·19 카드에는 부활이 안 나오고 Lv20 카드에는 나온다 (검증자 지적: 지금 레벨 S.lv 기준이면 새던 길)
+        r = await pg.evaluate("""()=>{const x=__p6x,S=__fresh('brj');const cnt={};   // 카드 레벨(cardLv) 별 부활 후보 횟수
+          for(const [lv,pend] of [[20,3],[20,2],[20,1],[25,8],[25,6],[19,1],[30,1]]){S.lv=lv;S.pendingLv=pend;const cl=x.cardLv();let n=0;for(let i=0;i<600;i++)for(const o of x.offers(3))if(o.k==='rev')n++;cnt[lv+'/'+pend]={cl,n};}
+          S.pendingLv=0;S.lv=20;let chest=0;for(let i=0;i<300;i++)for(const o of x.offers(3))if(o.k==='rev')chest++;
+          // 실제 흐름: Lv17 에서 한꺼번에 Lv20 으로 — 고르는 카드 3장(Lv18·19·20)을 차례로 열어 본다
+          S.lv=17;S.xp=0;S.need=1;S.pendingLv=0;S.ps={};x.gainXp(1e9);const tot=S.lv;
+          return {cnt,chest,tot,pend:S.pendingLv};}""")
+        c = r['cnt']
+        check('③-b 카드가 Lv18·19(20/3, 20/2)이면 부활 0번 · Lv20(20/1)이면 나온다', c['20/3']['cl'] == 18 and c['20/3']['n'] == 0 and c['20/2']['cl'] == 19 and c['20/2']['n'] == 0 and c['20/1']['cl'] == 20 and c['20/1']['n'] > 0, c)
+        check('③-b Lv25 에서 Lv18 카드(25/8)·Lv20 카드(25/6) 구분 · Lv19(19/1)는 0 · 상자(쌓인 레벨 없음)는 지금 레벨 기준', c['25/8']['n'] == 0 and c['25/6']['cl'] == 20 and c['25/6']['n'] > 0 and c['19/1']['n'] == 0 and c['30/1']['n'] > 0 and r['chest'] > 0, r)
+
+        # ③-c 표시 문구: 부활 카드 · 도움말 · 토스트 폭 (검증자 지적: 문구 일관·누락)
+        r = await pg.evaluate("""()=>{const x=__p6x;const rev=x.PS?null:null;const html=document.documentElement.outerHTML;const css=[...document.styleSheets].flatMap(s=>{try{return [...s.cssRules]}catch(e){return []}}).find(r=>r.selectorText==='#toast');
+          return {help:html.includes('부활은 칸을 안 써요 · 레벨 20부터 나와요')&&html.includes('Lv10·Lv20 이 되면 1번씩 더 드려요'),toastW:css?css.style.width:'',toastMax:css?css.style.maxWidth:'',old:html.includes('다시뽑기 +1')};}""")
+        check('③-c 조작법 도움말에 부활(칸 면제·Lv20)과 Lv10·Lv20 보너스 안내가 있다', r['help'], r)
+        check('③-c 토스트가 좁은 화면에서 낱말 중간에 꺾이지 않게 폭을 내용에 맞추고 화면 안으로 제한한다', r['toastW'] == 'max-content' and '100vw' in r['toastMax'], r)
 
         # ④ 시너지 범위 · 프싱 충전 배율은 서로 다른 값 — 겹쳐도 각자 값
         r = await pg.evaluate("""()=>{const x=__p6x,S=__fresh('psg');const f0=x.SHV.accMax;

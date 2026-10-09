@@ -195,9 +195,9 @@ async def sec3(pg, errs):
       const before=x.CUR.map(c=>c.k).join('|');rb.click();o.rrAfter=S.rr;o.re=x.CUR.length;o.changed=before!==x.CUR.map(c=>c.k).join('|');
       document.getElementById('banBtn').click();o.mode=S.banMode;
       return o}""")
-    check('Lv10 달성 순간(카드 열기 전): 다시뽑기 +1 · 봉인 +1 · 토스트', r['lv'] == 10 and r['state0'] == 'play' and r['rr0'] == 1 and r['ban0'] == 1 and '보너스' in r['toast'] and '다시뽑기 +1' in r['toast'] and '봉인 +1' in r['toast'], r)
+    check('Lv10 달성 순간(카드 열기 전): 다시뽑기 +1 · 봉인 +1 · 토스트', r['lv'] == 10 and r['state0'] == 'play' and r['rr0'] == 1 and r['ban0'] == 1 and '보너스' in r['toast'] and '다시 뽑기 +1' in r['toast'] and '봉인 +1' in r['toast'], r)
     check('카드 화면: 다시뽑기 (1) · 봉인 (1) 버튼이 켜져 있다', r['state1'] == 'lvup' and not r['rrDis'] and not r['banDis'] and '(1)' in r['rrTxt'] and '(1)' in r['banTxt'], (r['rrTxt'], r['banTxt'], r['rrDis'], r['banDis']))
-    check('카드 화면 한 줄 알림: 「Lv10 보너스 — 다시뽑기 +1 · 봉인 +1 받았어요」', 'Lv10 보너스' in r['hint'] and '받았어요' in r['hint'], r['hint'])
+    check('카드 화면 한 줄 알림: 「Lv10 보너스 — 다시 뽑기 +1 · 봉인 +1 받았어요」', 'Lv10 보너스' in r['hint'] and '받았어요' in r['hint'], r['hint'])
     check('받자마자 다시 뽑기를 쓸 수 있다(0 번 남음 · 카드 3장)', r['rrAfter'] == 0 and r['re'] == 3 and r['changed'], (r['rrAfter'], r['re'], r['changed']))
     check('같은 화면에서 봉인 모드도 켜진다', r['mode'] is True)
     # 3-d. 힌트는 보너스 레벨의 카드에만(여러 레벨이 쌓인 때는 순서대로 — 9, 10, 11 중 10 번째 카드에서만)

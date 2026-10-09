@@ -25,7 +25,7 @@ window.__times=function(lv,mv,secs,dt,hit){const x=__p6x,S=__fresh(lv),p=S.p,out
 """
 
 async def main():
-    H.make_copy(); srv = H.Srv()
+    H.make_copy(extra="Object.defineProperties(window.__p6x,{buildHtml:{get(){return buildHtml}}});"); srv = H.Srv()
     async with async_playwright() as p:
         b = await H.launch(p)
         ctx, pg, errs = await H.new_page(b, srv.port)
@@ -55,11 +55,12 @@ async def main():
           let maxT=0;for(let i=0;i<Math.round(60/dt);i++){t+=dt;S.t+=dt;p.moving=i%2===0;x.relTick(dt);maxT=Math.max(maxT,S.stillT);}   // 60초 들고 있는다
           const held={shield:S.shield,stillT:S.stillT,maxT};
           const tBlock=S.t;p.inv=0;S.lastBlock=-9;const hit=x.hitP(5);   // 맞아서 막는다
-          const after={hit,shield:S.shield,stillT:S.stillT};
+          const after={hit,shield:S.shield,stillT:S.stillT,inv:p.inv};
           let again=null;for(let i=1;i<=Math.round(30/dt);i++){S.t+=dt;p.inv=Math.max(0,p.inv-dt);x.relTick(dt);if(S.shield&&again===null)again=+(S.t-tBlock).toFixed(3);}
           return {has,held,after,again};}""")
         check('③ 20초에 방어막 생김', r['has'] == 1, r)
         check('③ 방어막을 60초 들고 있어도 쌓이는 시간 0 (한 겹 그대로)', r['held'] == {'shield': 1, 'stillT': 0, 'maxT': 0}, r['held'])
+        check('③ 막은 직후 무적은 0.15초 이하(2026-10-03 지시 값 고정 — 0.6 으로 키우면 실패)', r['after']['inv'] <= 0.15 + 1e-9 and r['after']['inv'] > 0, r['after'])
         check('③ 막으면 맞은 피해 0(false) · 방어막 소모', r['after']['hit'] is False and r['after']['shield'] == 0 and r['after']['stillT'] == 0, r['after'])
         check('③ 막은 뒤부터 다시 20초(막은 직후 곧바로 다시 차지 않음)', r['again'] is not None and 19.9 <= r['again'] <= 20.1, r['again'])
         # 맞는 즉시 소모하는 연속 반복: 간격이 정확히 N
@@ -144,12 +145,24 @@ async def main():
 
         # ⑪ 카드 설명 문구
         r = await pg.evaluate("""()=>{const x=__p6x,d=x.REL.still;return {nm:d.nm,ic:d.ic,t:[1,2,3].map(l=>d.ds(l))};}""")
-        want = ['40초마다 방어막이 저절로 생겨 다음 한 방을 막는다(막기는 1.2초에 한 번)', '30초마다 방어막이 저절로 생겨 다음 한 방을 막는다(막기는 1.2초에 한 번)', '20초마다 방어막이 저절로 생겨 다음 한 방을 막는다(막기는 1.2초에 한 번)']
+        want = [f'방어막이 없으면 {n}초 뒤 저절로 1겹 생겨 다음 한 방을 막는다(최대 1겹 · 막은 뒤부터 다시 세요 · 막기는 1.2초에 한 번)' for n in (40, 30, 20)]
         check('⑪ 카드 이름 그대로 「명상 방어막」', r['nm'] == '명상 방어막', r['nm'])
         check('⑪ 카드 설명: Lv1 40초 · Lv2 30초 · Lv3 20초 · 「가만히」 없음', r['t'] == want and not any('가만히' in t for t in r['t']), r['t'])
         # 실제 카드 만들기 경로에서도 같은 문구가 나옴
         r = await pg.evaluate("""()=>{const x=__p6x;const S=__fresh(0);const out={};for(const l of [1,2,3]){try{const c=x.cardOf?x.cardOf('rel:still'):null;out.has=!!c;break;}catch(e){out.err=String(e);break;}}return out;}""")
         print('   (참고) cardOf 호출', r)
+
+        # ⑫ 보이는 표시 — 막았을 때 글자에 다음까지 걸리는 초 · 일시정지 유물 줄 · 캐릭터 둘레 고리
+        r = await pg.evaluate("""()=>{const x=__p6x,out={};for(const l of [1,2,3]){const S=__fresh(l);S.shield=1;S.p.inv=0;S.lastBlock=-9;S.t=100;x.hitP(5);const t=x.texts.a.filter(q=>q.on&&q.s&&q.s.indexOf('막았다')>=0).pop();out['t'+l]=t?t.s:null;}
+          const S=__fresh(2);S.shield=1;const h1=x.buildHtml();S.shield=0;S.stillT=12.3;const h2=x.buildHtml();S.rel={};const h3=x.buildHtml();
+          return {...out,has:h1.includes('명상 방어막 Lv2 · 지금 있음'),wait:h2.includes('명상 방어막 Lv2 · 다음까지 약 18초'),none:!h3.includes('다음까지')&&!h3.includes('지금 있음')};}""")
+        check('⑫ 막았을 때 글자: 「🛡 막았다! (N초 뒤 다시 생겨요)」 Lv1 40 · Lv2 30 · Lv3 20', r['t1'] == '🛡 막았다! (40초 뒤 다시 생겨요)' and r['t2'] == '🛡 막았다! (30초 뒤 다시 생겨요)' and r['t3'] == '🛡 막았다! (20초 뒤 다시 생겨요)', r)
+        check('⑫ 일시정지 유물 줄: 있으면 「지금 있음」 · 없으면 「다음까지 약 N초」 · 유물 없으면 안 붙음', r['has'] and r['wait'] and r['none'], r)
+        r = await pg.evaluate("""()=>{const x=__p6x,S=__fresh(3);S.p.hp=S.p.mhp=1e9;const o=CanvasRenderingContext2D.prototype.stroke;let n=0;
+          CanvasRenderingContext2D.prototype.stroke=function(){if(/^rgba\\(159, ?208, ?255/.test(this.strokeStyle))n++;return o.apply(this,arguments);};
+          const cnt=(sh)=>{S.shield=sh;n=0;for(let i=0;i<5;i++)x.draw();return n;};
+          const on=cnt(1),off=cnt(0);CanvasRenderingContext2D.prototype.stroke=o;return {on,off};}""")
+        check('⑫ 방어막을 들고 있을 때만 캐릭터 둘레 고리를 그린다', r['on'] > 0 and r['off'] == 0, r)
 
         # ⑩ 오늘의 도전 난수열 불변 — 유물 효과는 Math.random 도 RN(daily) 도 부르지 않는다
         r = await pg.evaluate("""()=>{const x=__p6x;x.start({daily:true});const S=x.S;S.p.hp=S.p.mhp=1e9;S.rel={still:3};S.stillT=0;S.shield=0;
