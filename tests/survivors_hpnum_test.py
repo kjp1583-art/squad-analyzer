@@ -286,14 +286,16 @@ async def sec_resume(b, srv):
         check('[바] (옛→새) %s 오류 0' % nm, not e2, e2); await c2.close()
 
 # ── 사 · 오늘의 도전 난수열 불변 ───────────────────────────────
-DET = r"""(a)=>{const x=__p6x;x.CH_set(a.ch);x.start({daily:true});const out=[];let seed=a.seed;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+# 2026-10-09 밸런스 묶음 1 에서 👼 부활이 「패시브 칸 안 씀 · Lv20 부터 등장」으로 바뀌어(사장님 지시) 카드 후보가 일부러 달라졌다.
+# 기준 커밋과 견주려면 둘 다 부활을 봉인(S.banned)해 그 차이만 지운다 — 체력 표시가 난수열을 건드리지 않았는지 보는 이 구획의 목적은 그대로다.
+DET = r"""(a)=>{const x=__p6x;x.CH_set(a.ch);x.start({daily:true});x.S.banned.push('rev');const out=[];let seed=a.seed;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   const dt=1/30,N=Math.round(a.sec/dt);
   for(let i=0;i<N;i++){const st=x.state;if(st==='result')break;
     if(st==='lvup'){out.push(x.CUR.map(o=>o.k||o.t).join(','));x.pick(x.CUR[Math.floor(rnd()*x.CUR.length)]);continue;}
     if(st!=='play'){x.resume();continue;}
     const S=x.S;S.p.hp=Math.max(S.p.hp,S.p.mhp*.5);const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];x.update(dt);}
   const S=x.S;return {offers:out,kills:S.kills,lv:S.lv,t:Math.round(S.t*100)/100,xp:Math.round(S.xp*1000)/1000,mhp:S.p.mhp,w:JSON.stringify(S.w),daily:!!S.dly}}"""
-DET2 = r"""(a)=>{const x=__p6x;x.CH_set(a.ch);x.start({daily:true});const S=x.S;S.lv=a.lv;S.t=1200;const out=[];
+DET2 = r"""(a)=>{const x=__p6x;x.CH_set(a.ch);x.start({daily:true});const S=x.S;S.banned.push('rev');S.lv=a.lv;S.t=1200;const out=[];
   for(let i=0;i<a.n;i++){const c=x.offers(3);out.push(c.map(o=>(o.k||o.t)+(o.l!=null?':'+o.l:'')).join(','));x.applyUp(c[i%c.length]);if(i%7===3){S.rr=3;}}
   return {out,next:[x.RN('card'),x.RN('card'),x.RN('spawn')],mhp:S.p.mhp,ps:JSON.stringify(S.ps),tr:JSON.stringify(S.tr),sm:JSON.stringify(S.sm),daily:!!S.dly,seed:x.RSEED}}"""
 async def sec_det(b, srv):
