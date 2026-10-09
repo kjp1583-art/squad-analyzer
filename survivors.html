@@ -987,7 +987,7 @@ const PTV=k=>(S&&S.pt&&S.pt[k])||0;
 const REL={
   tenth:{ic:'🥁',nm:'열 번째 타격',ds:l=>`적을 ${[14,12,10][l-1]}번 때릴 때마다 맞은 자리가 폭발한다`},
   leech:{ic:'🩹',nm:'처치 응급처치',ds:l=>`적을 처치하면 HP +${[1,1,2][l-1]} (${[5,4,3.5][l-1]}초에 한 번)`},
-  still:{ic:'🛡',nm:'명상 방어막',ds:l=>`가만히 ${[6,5,4][l-1]}초 서 있으면 방어막 충전 — 다음 한 방을 막는다(막기는 1.2초에 한 번)`},
+  still:{ic:'🛡',nm:'명상 방어막',ds:l=>`${[40,30,20][l-1]}초마다 방어막이 저절로 생겨 다음 한 방을 막는다(막기는 1.2초에 한 번)`},   // 🛡 [2026-10-09 사장님 지시 "명상방어막은 정지하는 조건자체를 제거하고, 몇초당한번 얻는 방어막으로 변경"] 주기 40/30/20초 — relTick 의 N 과 같이 고친다
   sprint:{ic:'💨',nm:'줄행랑',ds:l=>`맞으면 2초간 이동속도 +${[20,30,40][l-1]}%${l>=3?' · 무적 +0.2초':''}`},
   storm:{ic:'⚡',nm:'뇌우 부적',ds:l=>`${[9,8,7][l-1]}초마다 벼락 ${[2,2,3][l-1]}줄기가 내리친다`},
   berserk:{ic:'🔥',nm:'배수의 진',ds:l=>`HP 40% 이하일 때 모든 피해 +${[25,35,45][l-1]}% · 이동 +10%`},
@@ -1451,7 +1451,11 @@ function relPulse(frac){const p=S.p;SRC='rel';S.flash=Math.max(S.flash,.18);S.sh
 function relTick(dt){const p=S.p,R=S.rel;
   S.magT-=dt;if(S.spr>0)S.spr-=dt;if(S.leechT>0)S.leechT-=dt;
   for(let i=S.dq.length-1;i>=0;i--){const q=S.dq[i];q.t-=dt;if(q.t<=0){S.dq.splice(i,1);q.f();}}
-  if(R.still){if(p.moving)S.stillT=0;else S.stillT+=dt;if(!S.shield&&S.stillT>=[6,5,4][R.still-1]){S.shield=1;S.stillT=0;txt(p.x,p.y-30,'🛡 방어막 충전','#9fd0ff');}}
+  // 🛡 [2026-10-09 사장님 지시 "명상방어막은 정지하는 조건자체를 제거하고, 몇초당한번 얻는 방어막으로 변경하자 패널티없앤만큼 리젠시간은 좀 하향하고"]
+  //   움직여도 서 있어도 똑같이 흐른다(p.moving 을 보지 않는다). 방어막이 없는 동안만 N초(40/30/20)가 쌓이고, 차면 1겹(최대 1겹) — 막은 뒤부터 다시 센다.
+  //   S.stillT 는 키 이름만 옛것(「가만히 선 시간」→「방어막 없이 쌓인 시간」): 새 S 키를 만들면 이어하기 서명(SIG)이 바뀌어 옛 저장본이 버려진다.
+  //   막기 공통 쿨 1.2초·막은 뒤 무적 0.15초는 hitP 가 그대로 지킨다(2026-10-03 지시) — 여기서는 난수도 막기도 건드리지 않는다.
+  if(R.still){if(S.shield)S.stillT=0;else{S.stillT+=dt;if(S.stillT>=[40,30,20][R.still-1]){S.shield=1;S.stillT=0;txt(p.x,p.y-30,'🛡 방어막 충전','#9fd0ff');}}}
   if(R.storm){S.stT-=dt;if(S.stT<=0){S.stT=[9,8,7][R.storm-1];const n=[2,2,3][R.storm-1],d=40*dmgMul();SRC='rel';let any=false;
     for(let i=0;i<n;i++){const e=randLive();if(!e||!e.on||!onScr(e,20))continue;any=true;const b=bolts.get();if(b){b.x1=e.x;b.y1=e.y-260;b.x2=e.x;b.y2=e.y;b.life=.2;b.ev=1;}hurt(e,d);if(S.booms.length<40)S.booms.push({x:e.x,y:e.y,t:0,T:0,R:40,d:d*.5,done:false,ev:0,src:'rel',style:'mine'});}
     if(any)AU.play('zap');SRC='';}}
