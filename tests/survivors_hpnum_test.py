@@ -128,8 +128,7 @@ async def sec_cards(b, srv):
     check('[다] 카드 %d장 — 미리 보여 준 「→」 값 = 적용 후 실제 최대 체력, 문구가 있어야 할 때만 있다' % len([r for r in rs if not r.get('none')]), not bad, bad)
     check('[다] 안 바뀌는 카드(무기·일회용·치킨·라면·민첩 거래)엔 최대 체력 문구가 없다', not any(r['hasTag'] for r in rs if r.get('none')), [r for r in rs if r.get('none')])
     seq = [(r['k'], r['a'], r['b']) for r in rs if not r.get('none')]
-    check('[다] 든든한 밥 5번 = 100→112→122→131→138→144 (+12·10·9·7·6)', [r['b'] for r in rs if r['k'] == 'sm:hp'] == [x + 0 for x in [r['b'] for r in rs if r['k'] == 'sm:hp']] and
-          [r['b'] - r['a'] for r in rs if r['k'] == 'sm:hp'] == [12, 10, 9, 7, 6], seq)
+    check('[다] 든든한 밥 5번 = 100→112→122→131→138→144 (+12·10·9·7·6)', [r['b'] - r['a'] for r in rs if r['k'] == 'sm:hp'] == [12, 10, 9, 7, 6], seq)
     check('[다] 유리 대포 −12 · 정조준 −10 · 66에서는 60까지만', [r['pre'] for r in rs if r['k'] in ('tr:glassc', 'tr:focus')][-2:] == [-6, 0], seq)
     # 화면: 힌트 줄과 실제 카드 문구
     r = await pg.evaluate("""()=>{const x=__p6x,S=x.S;S.p.mhp=165;S.p.hp=161;S.sm.hp=0;x.state='lvup';__X.setCUR([{t:'p',k:'hp',l:S.ps.hp||0},{t:'sm',k:'sm:hp',r:'hp',l:0},{t:'tr',k:'tr:glassc',r:'glassc',l:0}]);__X.drawCards();x.show('lvup');
