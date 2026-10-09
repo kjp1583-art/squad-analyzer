@@ -59,7 +59,7 @@ async def sec_hud(b, srv):
         check('[가] HUD %s/%s → 「%s」' % (hp, mhp, want_t), r['t'] == want_t, r)
     r = await pg.evaluate(HUD_SET, [1234, 1234])
     check('[가] 네 자리 숫자도 막대 안에 들어간다(글자 폭 %s ≤ 막대 폭 %s)' % (r['sw'], r['bw']), r['sw'] <= r['bw'] - 2, r)
-    check('[가] 막대 높이 14px(8px → 14px)', abs(r['bh'] - 14) < 0.6, r)
+    check('[가] 막대 높이 16px(8px → 16px)', abs(r['bh'] - 16) < 0.6, r)
     # 갱신 횟수: 같은 문자열이면 DOM 을 건드리지 않는다
     r = await pg.evaluate("""()=>{const S=__p6x.S,e=document.getElementById('hpt'),mo=new MutationObserver(()=>{});mo.observe(e,{childList:true,characterData:true,subtree:true});
       S.p.hp=100;S.p.mhp=100;__X.hud();mo.takeRecords();

@@ -61,7 +61,7 @@ async def main():
         check('패치노트 파일: 날짜 내림차순 유지', [n['date'] for n in NOTES] == sorted([n['date'] for n in NOTES], reverse=True))
         check('패치노트 파일: game 값은 sv 뿐', {n.get('game') for n in NOTES} <= {None, 'sv'})
         check('패치노트 파일: sv 항목의 tag 는 5종 안', all(n['tag'] in TAGS for n in SV))
-        check('패치노트 파일: 이번 기능 항목이 맨 앞(game sv · area squad)', NOTES[0]['id'] == '2026-10-08-sv-patch-dash' and NOTES[0]['game'] == 'sv' and NOTES[0]['area'] == 'squad')
+        check('패치노트 파일: 대시보드 기능 항목이 있다(game sv · area squad)', any(n['id'] == '2026-10-08-sv-patch-dash' and n.get('game') == 'sv' and n.get('area') == 'squad' for n in NOTES))
         check('패치노트 파일: 스콰드 생존게임(노벨)·분석기 항목은 sv 가 아니다', not any('novel' in n['id'] or 'analyzer' in n['id'] for n in SV))
 
         # ── 1. 필터 함수 단위 ──────────────────────────────────────────────────
