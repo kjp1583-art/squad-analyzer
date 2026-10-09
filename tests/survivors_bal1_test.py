@@ -16,7 +16,7 @@ def check(name, cond, extra=''):
     print(('PASS ' if cond else 'FAIL ') + name + ((' — ' + str(extra)) if extra != '' else ''), flush=True)
     if not cond: FAILS.append(name)
 # 임시 사본에만 꽂는 추가 훅 — 저장소 파일에는 들어가지 않는다
-EXTRA = "Object.defineProperties(window.__p6x,{areaMul:{get(){return areaMul}},RES:{get(){return RES}},pauseGame:{get(){return pauseGame}},openLvup:{get(){return openLvup}},buildHtml:{get(){return buildHtml}},slotP:{get(){return slotP}},PASS:{get(){return PASS}},TRD:{get(){return TRD}},SM:{get(){return SM}},PT:{get(){return PT}},REV_LV:{get(){return REV_LV}}});"
+EXTRA = "Object.defineProperties(window.__p6x,{areaMul:{get(){return areaMul}},RES:{get(){return RES}},pauseGame:{get(){return pauseGame}},openLvup:{get(){return openLvup}},buildHtml:{get(){return buildHtml}},slotP:{get(){return slotP}},PASS:{get(){return PASS}},charTick:{get(){return charTick}},rgMul:{get(){return rgMul}},shvEnd:{get(){return shvEnd}},TRD:{get(){return TRD}},SM:{get(){return SM}},PT:{get(){return PT}},REV_LV:{get(){return REV_LV}}});"
 WANT = set(int(a) for a in sys.argv[1:]) or {1, 2, 3, 4}
 
 async def sec1(pg, errs):
@@ -244,7 +244,82 @@ async def sec3(pg, errs):
     check('(확인) 이 30번 동안 보너스 2번이 실제로 지급됐다 — rr %d · ban %d' % (r['rr'], r['ban']), r['lv'] >= 30 and r['rr'] >= 5 and r['ban'] >= 5, r)
     check('3구획 콘솔·페이지 에러 0', not errs, errs[:3])
 
-SECS = {1: sec1, 2: sec2, 3: sec3}
+
+# 수요 무한대(매 프레임 rgAdd 로 큰 값) — 변신이 끝난 뒤 다음 변신 시작까지 걸린 시간(초) 목록을 돌려주는 브라우저 쪽 함수
+WAITS_JS = """([t0,relLv,cycles,freeze])=>{const x=__p6x;x.CH_set('psg');x.start();const S=x.S;S.rel={};if(relLv)S.rel.sg_psg=relLv;S.t=t0;S.p.hp=S.p.mhp=1e9;S.rg=0;S.rgB=2.5;
+  const dt=1/30,starts=[],ends=[],durs=[];let was=false,sT=0,clk=0;
+  for(let i=0;i<30*400&&ends.length<cycles+1;i++){if(freeze)S.t=t0;else S.t+=dt;clk+=dt;x.rgAdd(1e9);x.charTick(dt);
+    if(S.dT>0&&!was){starts.push(clk);sT=clk;}
+    if(S.dT<=0&&was){ends.push(clk);durs.push(clk-sT);}
+    was=S.dT>0;}
+  const waits=[];for(let i=0;i<ends.length&&i+1<starts.length;i++)waits.push(starts[i+1]-ends[i]);
+  return {waits,durs,starts:starts.length,mul:x.rgMul()};}"""
+
+async def sec4(pg, errs):
+    print('── 4. 프싱 충전 가속')
+    # 4-a. 상수와 배율표
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('psg');x.start();const S=x.S;const SH=x.SHV;
+      o.c={cap:SH.cap,kgE:SH.kgE,kgB:SH.kgB,acc:SH.acc,accMax:SH.accMax,max:SH.max,dur:SH.dur,hit:SH.hit,kill:SH.kill};
+      o.m={};for(const mn of [0,1,5,10,15,20,26,27,28,30,50,60]){S.t=mn*60;o.m[mn]=x.rgMul();}
+      return o}""")
+    check('상수: cap 3.5 · kgE 4 · kgB 15 · 변신 11초 · 한 대 .25 · 처치 1 은 그대로, 가속은 분당 +3% 최대 1.8배', r['c'] == {'cap': 3.5, 'kgE': 4, 'kgB': 15, 'acc': .03, 'accMax': 1.8, 'max': 100, 'dur': 11, 'hit': .25, 'kill': 1}, r['c'])
+    m = r['m']
+    check('배율: 0분 1.00 · 5분 1.15 · 10분 1.30 · 20분 1.60 · 27분부터 1.80(상한)', abs(m['0'] - 1) < 1e-9 and abs(m['5'] - 1.15) < 1e-9 and abs(m['10'] - 1.3) < 1e-9 and abs(m['20'] - 1.6) < 1e-9 and abs(m['27'] - 1.8) < 1e-9 and m['60'] == 1.8 and abs(m['26'] - 1.78) < 1e-9, m)
+    # 4-b. 변신 사이 대기시간(수요 무한대): 지금(0분 근처) 27.9초 → 5분 24.3 / 10분 21.5 / 20분 17.4 / 27분 이후 15.5 (±1초)
+    exp = {0: 27.9, 5: 24.3, 10: 21.5, 20: 17.4, 27: 15.5, 40: 15.5, 58: 15.5}
+    got = {}
+    for mn, e in exp.items():
+        w = await pg.evaluate(WAITS_JS, [mn * 60, 0, 3, True])   # 그 시각의 배율로 고정해 잰다(시간이 흐르며 배율이 오르는 효과를 뺀 표)
+        got[mn] = w
+        ws = w['waits']
+        check('수요 무한대 %d분(배율 고정): 변신 사이 대기 %.1f초 ±1 (측정 %s)' % (mn, e, ', '.join('%.2f' % v for v in ws)), len(ws) >= 3 and all(abs(v - e) <= 1.0 for v in ws[:3]), w)
+    # 시간이 실제로 흐르는 경우(배율이 오르며): 첫 변신 직후 대기는 그 시각의 정적 값보다 약간 짧다 — 참고로 같이 기록
+    nat = {}
+    for mn in (5, 10, 20):
+        w = await pg.evaluate(WAITS_JS, [mn * 60, 0, 3, False]); nat[mn] = [round(v, 2) for v in w['waits']]
+    print('   (참고) 시간이 흐르는 실측 대기:', nat)
+    check('시간이 흐를 때도 대기는 오래 갈수록 짧아진다(5분 > 10분 > 20분 평균)', sum(nat[5]) / 3 > sum(nat[10]) / 3 > sum(nat[20]) / 3, nat)
+    # 4-c. 가동률(변신 11초 기준): 식과 측정이 일치한다 + 타오르는 비늘(sg_psg) 겹침
+    rows = []
+    for lv in (0, 1, 2, 3):
+        for mn in (5, 10, 20, 30):
+            w = await pg.evaluate(WAITS_JS, [mn * 60, lv, 3, True])
+            wait = sum(w['waits'][:3]) / 3; dur = sum(w['durs'][:3]) / 3
+            rows.append((lv, mn, round(wait, 2), round(dur, 2), round(dur / (wait + dur) * 100, 1)))
+    print('   가동률 표(비늘 레벨, 분, 평균 대기, 평균 변신, 가동률%):')
+    for row in rows: print('   ', row)
+    d0 = {(a, b): c for a, b, c, d, e in rows}
+    dur = {(a, b): d for a, b, c, d, e in rows}
+    check('변신 시간: 비늘 없음 11초 · Lv1 12.5 · Lv2 13.5 · Lv3 14.5', all(abs(dur[(l, 10)] - (11 + [0, 1.5, 2.5, 3.5][l])) < .1 for l in range(4)), {l: dur[(l, 10)] for l in range(4)})
+    check('가동률이 시간이 갈수록 오르고 27분 이후 41~42%(비늘 없음)', rows[0][4] < rows[1][4] < rows[2][4] <= rows[3][4] + .01 and 40.5 <= rows[3][4] <= 42.5, [r_[4] for r_ in rows[:4]])
+    # 4-d. 낮은 수요(약한 판)에도 같은 배율 — 초당 1.5 수요(상한 3.5 아래)에서 게이지 증가 속도가 배율대로
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('psg');
+      const rate=(t0)=>{x.start();const S=x.S;S.t=t0;S.rg=0;S.rgB=2.5;S.p.hp=S.p.mhp=1e9;const dt=1/30;let g=0;
+        for(let i=0;i<30*8;i++){S.t+=dt;x.rgAdd(.05);x.charTick(dt);}return S.rg/8;};
+      o.r0=rate(0);o.r10=rate(600);o.r30=rate(1800);o.r50=rate(3000);return o}""")
+    check('낮은 수요에서도 충전 속도가 배율만큼: 10분 ×1.30 · 30분 ×1.8 · 50분 ×1.8', abs(r['r10'] / r['r0'] - 1.3) < .02 and abs(r['r30'] / r['r0'] - 1.8) < .02 and abs(r['r50'] / r['r0'] - 1.8) < .02, r)
+    # 4-e. 한꺼번에 때려도 버킷(2.5)이 막는다 — 배율 안에서만 (0분 ≤2.5 · 상한 시점 ≤2.5×1.8)
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('psg');
+      const burst=(t0)=>{x.start();const S=x.S;S.t=t0;S.rg=0;S.rgB=2.5;for(let i=0;i<50;i++)x.rgAdd(5);return S.rg;};
+      o.b0=burst(0);o.b50=burst(3000);o.bucket=(()=>{x.start();const S=x.S;S.rgB=0;for(let i=0;i<300;i++)x.charTick(1/30);return S.rgB;})();return o}""")
+    check('버킷 상한 2.5 는 그대로(한꺼번에 때리면 0분 2.5 · 50분 4.5 까지만)', abs(r['b0'] - 2.5) < 1e-9 and abs(r['b50'] - 4.5) < 1e-9 and abs(r['bucket'] - 2.5) < 1e-9, r)
+    # 4-f. 다른 캐릭터는 영향 없음 · 변신 중에는 충전 없음 · 설명 문구
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');x.start();const S=x.S;S.t=3000;S.rg=0;x.rgAdd(1);o.other=S.rg;
+      x.CH_set('psg');x.start();const T=x.S;T.t=3000;T.rg=0;T.dT=5;x.rgAdd(1);o.drg=T.rg;
+      o.ds=x.CHARS.find(c=>c.k==='psg').ds;return o}""")
+    check('프싱이 아닌 캐릭터는 분노가 안 찬다 · 변신 중에도 안 찬다', r['other'] == 0 and r['drg'] == 0, r)
+    check('프싱 설명에 한 줄: 「오래 버틸수록 분노가 빨리 찬다」(분당 +3%, 최대 1.8배)', '오래 버틸수록 분노가 빨리 찬다' in r['ds'] and '분당 +3%' in r['ds'] and '최대 1.8배' in r['ds'], r['ds'][:160])
+    # 4-g. 실제 전투 루프(update)에서도 예외 없이 돌고 변신이 일어난다 — 장비 전부 낀 프싱으로 10초(5분·30분 시점)
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('psg');
+      for(const t0 of [300,1800]){x.start();const S=x.S;S.t=t0;S.p.hp=S.p.mhp=1e9;S.w.twin=8;S.ev.twin=1;S.tier.twin=5;S.rel.sg_psg=3;S.rg=99.9;x.tkCalc();
+        for(let i=0;i<40;i++){const e=x.spawnEnemy(0,1);e.hp=e.mhp=1e9;e.x=S.p.x+60+(i%8)*18;e.y=S.p.y+((i/8|0)-2)*30;e.sp=0;}
+        let ok=true;try{for(let i=0;i<30*10;i++){if(x.state==='lvup'){x.pick(x.CUR[0]);continue;}if(x.state!=='play'){x.resume();continue;}S.p.hp=S.p.mhp;x.update(1/30);if(i%3==0)x.draw();}}catch(er){ok=String(er);}
+        o[t0]={ok,dN:S.dN,rg:S.rg};}
+      return o}""")
+    check('실전 루프 10초(5분·30분 시점, 비늘 Lv3·쌍둥이 각성): 예외 없음 + 변신 발생', all(v['ok'] is True and v['dN'] >= 1 for v in r.values()), r)
+    check('4구획 콘솔·페이지 에러 0', not errs, errs[:3])
+
+SECS = {1: sec1, 2: sec2, 3: sec3, 4: sec4}
 
 async def main():
     H.make_copy(extra=EXTRA); srv = H.Srv()
