@@ -1448,34 +1448,34 @@ function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)r
 //   화면에서 기억할 것(표를 접었나)은 S 가 아니라 UI3 에 둔다 — S 에 새 키를 넣으면 이어하기 저장본과 어긋난다.
 const UI3={pOpen:true,lOpen:false};
 document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('stt'))UI3[t.dataset.sc==='l'?'lOpen':'pOpen']=t.open;},true);   // toggle 은 거품이 안 올라와서 캡처로 받는다
-const hx=v=>v>=100?String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,','):v>=10?String(Math.round(v)):String(Math.round(v*10)/10);   // 배율 글자: 1.4 · 92 · 1,234
-const pcS=v=>{const r=Math.round(v*1000)/10;return (r<0?'−':'+')+Math.abs(r)+'%';};   // 배율−1 → +32% · −8% · +0%
-const pcN=v=>(Math.round(v*1000)/10)+'%';   // 0.18 → 18% · 0.559 → 55.9%
-const m2=v=>'×'+v.toFixed(2);
+const uiHx=v=>v>=100?String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,','):v>=10?String(Math.round(v)):String(Math.round(v*10)/10);   // 배율 글자: 1.4 · 92 · 1,234
+const uiPcS=v=>{const r=Math.round(v*1000)/10;return (r<0?'−':'+')+Math.abs(r)+'%';};   // 배율−1 → +32% · −8% · +0%
+const uiPcN=v=>(Math.round(v*1000)/10)+'%';   // 0.18 → 18% · 0.559 → 55.9%
+const uiM2=v=>'×'+v.toFixed(2);
 function diffHtml(){   // 일시정지 맨 위: 지금 판의 난이도(글자 + 색) · 지금 시각 잡몹 체력·공격력 배율
   const m=MIN(),hm=hpMul(m),am=atkMul(m)*mobX(m),nm=S.vh?'💀 베리하드':S.hard?'🔥 하드':'일반';
   let cls=S.vh?'vh':S.hard?'hard':'',tx=nm,kind=S.vh?'vh':S.hard?'hard':'normal';
   if(S.dly){cls='dly';kind='daily';tx=`📅 오늘의 도전 ${esc(String(S.dly.date||'').slice(5))}<small>${nm==='일반'?'일반 규칙':nm+' 규칙'} · ${S.dly.ranked?'기록되는 판':'연습 판(기록 안 돼요)'}</small>`;}
   else if(S.endless){cls='end';kind='endless';tx=`♾ 무한 모드<small>이어 간 난이도: ${nm} · 난이도는 +30분 치에서 멈춰요</small>`;}
   return `<div class="dfl ${cls}" id="pDiff" data-d="${kind}">🎮 난이도: ${tx}</div>`
-    +`<div class="dfs" id="pMul">지금 몬스터 체력 <b>×${hx(hm)}</b> · 공격력 <b>×${hx(am)}</b> <span class="muted">(잡몹 기준 · 보스·엘리트 제외 · 시간이 갈수록 올라요)</span></div>`;}
+    +`<div class="dfs" id="pMul">지금 몬스터 체력 <b>×${uiHx(hm)}</b> · 공격력 <b>×${uiHx(am)}</b> <span class="muted">(잡몹 기준 · 보스·엘리트 제외 · 시간이 갈수록 올라요)</span></div>`;}
 function statRows(){   // 능력치 표의 행 — 순서·줄 수는 늘 같다(없으면 +0% · —). v 는 게임이 쓰는 값 그대로(data-v) · t 는 보이는 글자 · s 는 작은 설명
   const cc=critChance(),cm=critMul(),dm=dmgMul(),cd=cdMul(),ar=areaMul(),mv=moveMul()*slowMul(),tk=takenMul(),ag=armTotal(),mg=magMul(),xm=xpMul(),ps=PS(),du=DUR(),am=pv('amt'),lk=LK(),va=pv('vamp');
-  const pr=critParts().filter(p=>p[1]).map(p=>`${p[0]} +${pcN(p[1])}`).join(' · ');
-  let ds='';if(CH.low)ds=`체력 ${pcN(LOWHP_AT)} 이하면 +${pcN(CH.low)} 더 — ${lowMul()>1?'지금 켜짐':'지금 꺼짐'}`;   // 망무새: 피해 표(dmgMul)에 안 들어가는 「체력 낮을 때」 몫
-  if(CH.rage)ds=`잃은 체력만큼 +${pcN(rageMul()-1)} 더(최대 +${pcN(rageCap())})`;   // 태웅: 마찬가지로 hurt 가 곱하는 몫
+  const pr=critParts().filter(p=>p[1]).map(p=>`${p[0]} +${uiPcN(p[1])}`).join(' · ');
+  let ds='';if(CH.low)ds=`체력 ${uiPcN(LOWHP_AT)} 이하면 +${uiPcN(CH.low)} 더 — ${lowMul()>1?'지금 켜짐':'지금 꺼짐'}`;   // 망무새: 피해 표(dmgMul)에 안 들어가는 「체력 낮을 때」 몫
+  if(CH.rage)ds=`잃은 체력만큼 +${uiPcN(rageMul()-1)} 더(최대 +${uiPcN(rageCap())})`;   // 태웅: 마찬가지로 hurt 가 곱하는 몫
   return [
-    {k:'dmg',nm:'⚔ 피해',v:dm,t:pcS(dm-1),s:ds},
-    {k:'crit',nm:'🔪 치명타 확률',v:cc,t:cc>1?`100% (초과 +${Math.round((cc-1)*1000)/10}%p)`:pcN(cc),s:pr?'구성: '+pr:'구성: 아직 없어요 — 행운·급소·정조준 등으로 올라요'},
-    {k:'critdmg',nm:'🔪 치명타 피해',v:cm,t:m2(cm)},
-    {k:'cd',nm:'⏱ 쿨타임',v:cd,t:pcS(cd-1)},
-    {k:'area',nm:'📏 범위',v:ar,t:pcS(ar-1)},
-    {k:'move',nm:'👟 이동 속도',v:mv,t:pcS(mv-1)},
-    {k:'taken',nm:'🛡 받는 피해',v:tk,a:ag,t:`−${ag} · ${m2(tk)}`,s:`맞은 피해에 ${m2(tk)} 곱하고, 그다음 ${ag} 깎아요 (그래도 최소 1은 받아요)`},
-    {k:'mag',nm:'🧲 줍는 범위',v:mg,t:pcS(mg-1)},
-    {k:'xp',nm:'📚 경험치',v:xm,t:pcS(xm-1)},
-    {k:'pspd',nm:'🏹 투사체 속도',v:ps,t:pcS(ps-1)},
-    {k:'dur',nm:'⏳ 지속시간',v:du,t:pcS(du-1)},
+    {k:'dmg',nm:'⚔ 피해',v:dm,t:uiPcS(dm-1),s:ds},
+    {k:'crit',nm:'🔪 치명타 확률',v:cc,t:cc>1?`100% (초과 +${Math.round((cc-1)*1000)/10}%p)`:uiPcN(cc),s:pr?'구성: '+pr:'구성: 아직 없어요 — 행운·급소·정조준 등으로 올라요'},
+    {k:'critdmg',nm:'🔪 치명타 피해',v:cm,t:uiM2(cm)},
+    {k:'cd',nm:'⏱ 쿨타임',v:cd,t:uiPcS(cd-1)},
+    {k:'area',nm:'📏 범위',v:ar,t:uiPcS(ar-1)},
+    {k:'move',nm:'👟 이동 속도',v:mv,t:uiPcS(mv-1)},
+    {k:'taken',nm:'🛡 받는 피해',v:tk,a:ag,t:`−${ag} · ${uiM2(tk)}`,s:`맞은 피해에 ${uiM2(tk)} 곱하고, 그다음 ${ag} 깎아요 (그래도 최소 1은 받아요)`},
+    {k:'mag',nm:'🧲 줍는 범위',v:mg,t:uiPcS(mg-1)},
+    {k:'xp',nm:'📚 경험치',v:xm,t:uiPcS(xm-1)},
+    {k:'pspd',nm:'🏹 투사체 속도',v:ps,t:uiPcS(ps-1)},
+    {k:'dur',nm:'⏳ 지속시간',v:du,t:uiPcS(du-1)},
     {k:'amt',nm:'🍱 투사체 추가',v:am,t:'+'+am},
     {k:'luck',nm:'🍀 행운',v:lk,t:lk+'단계'},
     {k:'vamp',nm:'🥩 처치 회복',v:va,t:va?`${VAMP_N}마리마다 +${vampHp()} HP`:'—'},
@@ -1485,12 +1485,12 @@ function statsHtml(sc){   // sc 'p' 일시정지(기본 펼침) · 'l' 레벨업
   return `<details class="stt" id="stt${sc}" data-sc="${sc}"${op?' open':''}><summary>📈 내 능력치 <span class="muted">(눌러서 펼치기·접기)</span></summary>`
     +statRows().map(r=>`<div class="rw" data-k="${r.k}" data-v="${r.v}"${r.a!=null?` data-a="${r.a}"`:''}><span class="l">${r.nm}</span><b class="v">${r.t}</b>${r.s?`<span class="s">${r.s}</span>`:''}</div>`).join('')
     +`<div class="sn">지금 켜진 일시 효과(변신·버프·체력 조건)도 포함해요</div></details>`;}
-function cardKey(o){   // 이 카드가 올려 주는, 이미 가진 항목의 칩 키(새 항목·일회용은 ''). w 무기 · p 패시브 · r 유물 · t 거래 · s 작은 능력치
+function ownCardKey(o){   // 이 카드가 올려 주는, 이미 가진 항목의 칩 키(새 항목·일회용은 ''). w 무기 · p 패시브 · r 유물 · t 거래 · s 작은 능력치
   switch(o.t){case 'w':return o.l?'w:'+o.k:'';case 'wt':return 'w:'+o.w;case 'p':return o.l?'p:'+o.k:'';case 'pt':return 'p:'+o.p;
     case 'rl':return o.l?'r:'+o.r:'';case 'tr':return o.l?'t:'+o.r:'';case 'sm':return smn(o.r)>0?'s:'+o.r:'';}
   return '';}
 function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(없는 갈래는 안 그린다)
-  const up=new Set();for(const o of CUR){const k=cardKey(o);if(k)up.add(k);}
+  const up=new Set();for(const o of CUR){const k=ownCardKey(o);if(k)up.add(k);}
   const chip=(key,b)=>{const u=up.has(key);return `<span class="chip${u?' up':''}" data-ck="${key}">${u?'<i class="upm" title="이번 카드로 올릴 수 있어요" aria-label="이번 카드로 올릴 수 있어요">▲</i>':''}${b}</span>`;};
   const nb=t=>`<span class="nb">${t}</span>`,grp=(t,a)=>a.length?`<div class="gh">${t}</div><div class="chips">${a.join('')}</div>`:'';
   const wk=Object.keys(S.w),pk=Object.keys(S.ps);

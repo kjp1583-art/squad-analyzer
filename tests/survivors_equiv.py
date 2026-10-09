@@ -104,7 +104,7 @@ def main():
     ap.add_argument('--file', default='survivors.html', help='리비전일 때 꺼낼 파일')
     ap.add_argument('--chars', default='brj,kyo,eom,yj'); ap.add_argument('--seeds', default='1-2')
     ap.add_argument('--cap', type=float, default=240); ap.add_argument('--modes', default='n,h,v', help='n 일반 · h 하드 · v 베리하드(쉼표)')
-    ap.add_argument('--view', default='1280x720')
+    ap.add_argument('--view', default='1280x720'); ap.add_argument('--serial', action='store_true', help='A 와 B 를 차례로(브라우저 하나씩) — 기본은 둘을 동시에')
     ap.add_argument('--child', action='store_true', help=argparse.SUPPRESS); ap.add_argument('--html'); ap.add_argument('--mode', default='n'); ap.add_argument('--out')
     a = ap.parse_args()
     if a.child: return child(a)
@@ -116,12 +116,13 @@ def main():
     tot = same = 0
     try:
         for m in modes:
-            outs, ps = {}, {}
+            outs, ps, rc = {}, {}, {}
             for tag, path in (('A', pa), ('B', pb)):
                 outs[tag] = os.path.join(tmp, '%s_%s.jsonl' % (tag, m))
                 ps[tag] = subprocess.Popen([sys.executable, os.path.abspath(__file__), '--child', '--html', path, '--mode', m, '--chars', a.chars, '--seeds', a.seeds, '--cap', str(a.cap), '--view', a.view, '--out', outs[tag]],
                                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            rc = {t: p.wait() for t, p in ps.items()}
+                if a.serial: rc[tag] = ps[tag].wait()      # --serial: 브라우저를 한 번에 하나만(다른 시험과 함께 돌릴 때)
+            rc = {t: (rc[t] if t in rc else p.wait()) for t, p in ps.items()}
             if any(rc.values()):
                 print('✗ [%s] 한쪽이 비정상 종료: %s\n%s' % (MODE_NAME[m], rc, ' / '.join(p.stderr.read().decode('utf-8', 'replace')[-400:] for p in ps.values())), flush=True)
                 tot += 1; continue

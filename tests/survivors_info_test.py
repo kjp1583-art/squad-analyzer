@@ -33,7 +33,7 @@ def check(n, c, x=''):
 def want(sec): return ONLY is None or sec in ONLY
 
 EXTRA_NEW = r"""
-window.__X={RES,pauseGame,openLvup,drawCards,setCUR(v){CUR=v},get CUR(){return CUR},diffHtml,statRows,statsHtml,ownHtml,cardKey,UI3,hx,pcS,pcN,m2,
+window.__X={RES,pauseGame,openLvup,drawCards,setCUR(v){CUR=v},get CUR(){return CUR},diffHtml,statRows,statsHtml,ownHtml,cardKey:ownCardKey,UI3,hx:uiHx,pcS:uiPcS,pcN:uiPcN,m2:uiM2,
   critChance,critMul,critParts,critCh,critLk,critPv,critPt,critTr,critSm,moveMul,slowMul,magMul,xpMul,armTotal,takenMul,VAMP_N,vampHp,lowMul,rageMul,rageCap,LOWHP_AT,
   cdMul,areaMul,dmgMul,PS,DUR,LK,KIND,mobX,XP_X,PASS,PT,TRD,SM,REL,SYN,TCAP,MAXLV,MAXEV,SLOTW,SLOTP,pmax,slotP,smn,hpMul,atkMul,SHV,TZ,
   get CH(){return CH},get RUN(){return RUN}};
@@ -65,6 +65,15 @@ def cleanup():
     for f in (NEW, OLD, OLDSRC):
         try: os.remove(os.path.join(ROOT, f))
         except Exception: pass
+
+async def new_page(*a, **k):
+    """H.new_page + 페이지 안 계산(evaluate)마다 시간 제한 — 부하가 심할 때 브라우저가 말없이 멈추면 영원히 기다리지 말고 눈에 띄게 실패시킨다."""
+    ctx, pg, errs = await H.new_page(*a, **k)
+    ev = pg.evaluate
+    async def guarded(*x, **y):
+        return await asyncio.wait_for(ev(*x, **y), 300)
+    pg.evaluate = guarded
+    return ctx, pg, errs
 
 def js_round(x): return math.floor(x + 0.5)
 def fnum(r):   # 자바스크립트의 String(숫자)와 같은 모양(…0 은 정수처럼)
@@ -114,7 +123,7 @@ async def sec_diff(b, srv):
     EXP = {'normal': ('🎮 난이도: 일반', 'normal', ''), 'hard': ('🎮 난이도: 🔥 하드', 'hard', 'hard'), 'vh': ('🎮 난이도: 💀 베리하드', 'vh', 'vh')}
     for mode in ('normal', 'hard', 'vh'):
         for how, mob in (('esc', False), ('btn', True)):
-            ctx, pg, errs = await H.new_page(b, srv.port, w=412 if mob else 1280, h=860 if mob else 800, page=NEW, mobile=mob)
+            ctx, pg, errs = await new_page(b, srv.port, w=412 if mob else 1280, h=860 if mob else 800, page=NEW, mobile=mob)
             s = await pg.evaluate(START, {'mode': mode})
             await pg.evaluate("()=>__adv(75,{god:true})")
             await open_by(pg, how)
@@ -134,7 +143,7 @@ async def sec_diff(b, srv):
     # 시각 여러 지점 × 난이도 — 표시 = 실제 스폰된 잡몹(엘리트·대형 제외)
     times = [0.5, 120, 480, 900, 1800, 3000, 3550]
     for mode in ('normal', 'hard', 'vh'):
-        ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+        ctx, pg, errs = await new_page(b, srv.port, page=NEW)
         await pg.evaluate(START, {'mode': mode, 'ch': 'brj'})
         bad, nmob, shown = [], 0, []
         for t in times:
@@ -153,7 +162,7 @@ async def sec_diff(b, srv):
         await ctx.close()
     # 오늘의 도전
     for how, mob in (('esc', False), ('btn', True)):
-        ctx, pg, errs = await H.new_page(b, srv.port, w=412 if mob else 1280, h=860 if mob else 800, page=NEW, mobile=mob)
+        ctx, pg, errs = await new_page(b, srv.port, w=412 if mob else 1280, h=860 if mob else 800, page=NEW, mobile=mob)
         s = await pg.evaluate(START, {'mode': 'daily'})
         check('[가] 오늘의 도전이 시작된다(S.dly · 일반 규칙: hard=%s vh=%s)' % (s['hard'], s['vh']), s['dly'] and not s['hard'] and not s['vh'], s)
         await pg.evaluate("()=>__adv(60,{god:true})")
@@ -169,7 +178,7 @@ async def sec_diff(b, srv):
         await ctx.close()
     # 무한 모드 — 일반·하드·베리하드에서 이어 간 것
     for mode in ('normal', 'hard', 'vh'):
-        ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+        ctx, pg, errs = await new_page(b, srv.port, page=NEW)
         await pg.evaluate(START, {'mode': mode})
         await pg.evaluate("""async ()=>{const x=__p6x,S=x.S;S.t=3598;let n=0;while(n<400){if(x.state==='lvup'){x.pick(x.CUR[0]);continue}if(x.state!=='play')break;S.p.hp=S.p.mhp;x.update(0.05);n++;if(S.t>=3601)break}}""")
         st = await pg.evaluate("()=>__p6x.state")
@@ -258,7 +267,7 @@ FIX_CASES = [
 ]
 async def sec_values(b, srv):
     # (1) 도우미 = 기준 커밋의 인라인 식 — 무작위 상태 수천 개, 비트까지(Object.is)
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     N = 600 if FAST else 2400
     r = await pg.evaluate(BITS, {'seed': 20261009, 'N': N})
     check('[나] 새 도우미 함수 = 기준 커밋(%s)의 인라인 식 — 무작위 상태 %d개 × 11식 = %d번 비교, 비트까지 같다(Object.is)' % (BASE_COMMIT, N, r['n']), not r['bad'] and r['n'] >= N * 11, r['bad'])
@@ -267,7 +276,7 @@ async def sec_values(b, srv):
     # (2) 표 행 = 도우미 값, 글자 = 같은 규칙, 순서·줄 수 불변
     orders = []
     for (nm, ch, cfg) in FIX_CASES:
-        ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+        ctx, pg, errs = await new_page(b, srv.port, page=NEW)
         r = await pg.evaluate(FIXED, {'ch': ch, 'cfg': cfg})
         orders.append(r['order'])
         exp = expect_rows(r)
@@ -302,7 +311,7 @@ async def sec_values(b, srv):
         await ctx.close()
     check('[나] 어떤 빌드든 행 순서·줄 수가 같다(켜고 끌 때 화면이 흔들리지 않는다)', all(o == ROW_ORDER for o in orders), orders)
     # (3) 구성이 비어 있어도 줄은 있다
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     r = await pg.evaluate(FIXED, {'ch': 'brj', 'cfg': {}})
     check('[나] 빈 몸 — 치명타 구성 줄이 그래도 있다(「아직 없어요」)', '아직 없어요' in (r['rows']['crit']['s'] or '') and r['rows']['crit']['t'] == '0%', r['rows']['crit'])
     check('[나] 빈 몸 — 값 없는 행은 +0% · +0 · 0단계 · —', r['rows']['dmg']['t'] == '+0%' and r['rows']['amt']['t'] == '+0' and r['rows']['luck']['t'] == '0단계' and r['rows']['vamp']['t'] == '—' and r['rows']['taken']['t'] == '−0 · ×1.00', {k: v['t'] for k, v in r['rows'].items()})
@@ -328,7 +337,7 @@ async def sec_behavior(b, srv):
         ('100% 넘는 집중겜(캐릭터 보정을 키워 시험)', {'ch': 'jjg', 'chcrit': .7, 'ps': {'luck': 5, 'crit': 5}, 'pt': {'luck': 1}, 'tr': {'focus': 3}}),
     ]
     for (nm, cfg) in cases:
-        ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+        ctx, pg, errs = await new_page(b, srv.port, page=NEW)
         r = await pg.evaluate(CRIT, dict(cfg, seed=987654, N=N))
         p = min(1.0, r['cc']); obs = r['crits'] / r['n']
         sig = math.sqrt(max(p * (1 - p), 1e-9) / r['n'])
@@ -338,7 +347,7 @@ async def sec_behavior(b, srv):
         await ctx.close()
     # 이동 거리 · 줍는 범위 · 경험치 · 받는 피해 · 고기 반찬
     # 이동 — 한 프레임 거리 ÷ (p.sp·dt) = moveMul()·slowMul() (update 가 slow 를 깎기 전 상태 기준)
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     MV = r"""(c)=>{const x=__p6x,X=__X;x.CH_set(c.ch);x.start();const S=x.S,p=S.p;x.enemies.clear();S.live.length=0;S.t=1;S.nextBoss=S.nextMini=S.nextSp=1e9;S.evT=1e9;S.bigT=1e9;S.spawnT=-1e9;
         const A=(o)=>x.applyUp(o);for(const k in (c.ps||{}))for(let i=0;i<c.ps[k];i++)A({t:'p',k,l:i});for(const k in (c.tr||{}))for(let i=0;i<c.tr[k];i++)A({t:'tr',k:'tr:'+k,r:k,l:i});for(const k in (c.sm||{}))for(let i=0;i<c.sm[k];i++)A({t:'sm',k:'sm:'+k,r:k,l:i});
         for(const k in (c.rel||{}))S.rel[k]=c.rel[k];if(c.dT)S.dT=c.dT;if(c.bell){S.x2.bT=5;S.x2.bm=.05;S.x2.bs=.06;}if(c.spr)S.spr=1;if(c.slow)p.slow=2;if(c.lowhp)p.hp=p.mhp*.3;
@@ -356,7 +365,7 @@ async def sec_behavior(b, srv):
         check('[다] 이동 — %s: 표 %.4f · 실제 한 프레임 이동 비율 %.4f' % (c['nm'], r['row'], r['real']), abs(r['real'] - r['row']) < 1e-9 and abs(r['shown'] - r['row']) < 1e-12, r)
     check('[다] 이동 오류 0', not errs, errs); await ctx.close()
     # 줍는 범위 · 경험치
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     GEM = r"""(c)=>{const x=__p6x,X=__X;x.CH_set(c.ch);x.start();const S=x.S,p=S.p;x.enemies.clear();S.live.length=0;S.t=1;S.nextBoss=S.nextMini=S.nextSp=1e9;S.evT=1e9;S.bigT=1e9;S.spawnT=-1e9;
         const A=(o)=>x.applyUp(o);for(const k in (c.ps||{}))for(let i=0;i<c.ps[k];i++)A({t:'p',k,l:i});for(const k in (c.sm||{}))for(let i=0;i<c.sm[k];i++)A({t:'sm',k:'sm:'+k,r:k,l:i});if(c.syn)S.syn=c.syn;if(c.pt)for(const k in c.pt)S.pt[k]=c.pt[k];
         __X.pauseGame();const mg=+document.querySelector('#sttp .rw[data-k=mag]').dataset.v,xm=+document.querySelector('#sttp .rw[data-k=xp]').dataset.v;x.resume();
@@ -373,7 +382,7 @@ async def sec_behavior(b, srv):
         check('[다] 경험치 — %s: 표 ×%.4f → 보석 10 → 실제 %.4f (기대 %.4f)' % (c['nm'], r['xm'], r['gained'], r['want']), abs(r['gained'] - r['want']) < 1e-9, r)
     check('[다] 줍기·경험치 오류 0', not errs, errs); await ctx.close()
     # 받는 피해 · 고기 반찬
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     HIT = r"""(c)=>{const x=__p6x,X=__X;x.CH_set(c.ch);x.start();const S=x.S,p=S.p;S.t=1;
         const A=(o)=>x.applyUp(o);for(const k in (c.ps||{}))for(let i=0;i<c.ps[k];i++)A({t:'p',k,l:i});for(const k in (c.tr||{}))for(let i=0;i<c.tr[k];i++)A({t:'tr',k:'tr:'+k,r:k,l:i});if(c.pt)for(const k in c.pt)S.pt[k]=c.pt[k];if(c.dT)S.dT=c.dT;
         p.mhp=p.hp=5000;p.moving=!!c.moving;S.shield=0;S.lastBlock=-99;
@@ -421,7 +430,7 @@ RICH_CASES = {
 }
 async def sec_own(b, srv):
     # (1) 꽉 찬 빌드 — S 와 정확히 일치
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     info = await pg.evaluate(RICH, RICH_CASES['full'])
     await pg.evaluate("()=>{const x=__p6x;x.state='lvup';__X.openLvup()}")
     o = await pg.evaluate(OWN); S = o['S']
@@ -478,7 +487,7 @@ async def sec_own(b, srv):
     check('[라] 꽉 찬 빌드 오류 0', not errs, errs)
     await ctx.close()
     # (2) 초반 빈 빌드 — 무기 하나뿐, 없는 갈래는 안 그린다
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     await pg.evaluate(RICH, RICH_CASES['early'])
     await pg.evaluate("()=>{__p6x.state='lvup';__X.openLvup()}")
     o = await pg.evaluate(OWN)
@@ -487,7 +496,7 @@ async def sec_own(b, srv):
     await ctx.close()
     # (3) 키보드 1·2·3·R·B
     for key in ('1', '2', '3'):
-        ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+        ctx, pg, errs = await new_page(b, srv.port, page=NEW)
         await pg.evaluate(RICH, dict(RICH_CASES['early'], pending=1))
         await pg.evaluate("()=>{__p6x.state='lvup';__X.openLvup();__X.setCUR([{t:'w',k:'kbd',l:0},{t:'p',k:'cd',l:0},{t:'p',k:'mag',l:0}]);__X.drawCards();}")   # 카드를 못 박아 둔다 — 어느 숫자가 어느 카드인지 엄격히 본다
         before = await pg.evaluate("()=>[Object.keys(__p6x.S.w),Object.keys(__p6x.S.ps)]")
@@ -498,7 +507,7 @@ async def sec_own(b, srv):
         check('[라] 키보드 %s → %d번째 카드만 고른다(무기 키보드 · 패시브 공격속도 · 패시브 획득 범위 중 %s)' % (key, int(key), got), got == tuple(i == int(key) - 1 for i in range(3)) and before[1] == [], (before, after))
         check('[라] 키보드 %s 오류 0' % key, not errs, errs)
         await ctx.close()
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     await pg.evaluate(RICH, dict(RICH_CASES['early'], pending=1))
     await pg.evaluate("()=>{__p6x.state='lvup';__X.openLvup()}")
     r0 = await pg.evaluate("()=>({rr:__p6x.S.rr,cur:__X.CUR.map(o=>o.k||o.t),own:document.getElementById('lvOwn').innerHTML.length})")
@@ -514,14 +523,14 @@ async def sec_own(b, srv):
     check('[라] R·B 오류 0', not errs, errs)
     await ctx.close()
     # (4) 이어하기 복구 뒤에도 보인다 (레벨업 저장본 → 새 페이지 → 복구)
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     await pg.evaluate(RICH, RICH_CASES['full'])
     await pg.evaluate("()=>{const x=__p6x;x.state='lvup';__X.openLvup()}")
     blob = await pg.evaluate("()=>localStorage.getItem('p6_resume_v1')")
     pre = await pg.evaluate(OWN)
     await ctx.close()
     check('[라] 레벨업 순간 저장본이 만들어졌다', blob is not None and len(blob) > 100, blob and len(blob))
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     await pg.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob)
     await pg.reload(); await pg.wait_for_function('window.__X!==undefined')
     ok = await pg.evaluate("()=>__X.RES.restore()")
@@ -534,7 +543,7 @@ async def sec_own(b, srv):
 
 # ── 마 · 접이식 ────────────────────────────────────────────────
 async def sec_fold(b, srv):
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     await pg.evaluate(RICH, RICH_CASES['full'])
     await pg.evaluate("()=>__X.pauseGame()")
     st = await pg.evaluate("()=>({tag:document.getElementById('sttp').tagName,open:document.getElementById('sttp').open,rows:document.querySelectorAll('#sttp .rw').length,vis:document.getElementById('sttp').querySelector('.rw').checkVisibility()})")
@@ -604,7 +613,7 @@ async def sec_layout(b, srv):
         tag = '%dx%d' % (w, h)
         # 레벨업 — 꽉 찬 빌드(표 접힘 · 펼침) / 초반
         for nm, case, op in (('꽉 찬 빌드·표 접힘', 'full', False), ('꽉 찬 빌드·표 펼침', 'full', True), ('초반', 'early', False)):
-            ctx, pg, errs = await H.new_page(b, srv.port, w=w, h=h, page=NEW, mobile=(w < 700))
+            ctx, pg, errs = await new_page(b, srv.port, w=w, h=h, page=NEW, mobile=(w < 700))
             await pg.evaluate(RICH, RICH_CASES[case])
             await pg.evaluate("(op)=>{__X.UI3.lOpen=op;__p6x.state='lvup';__X.openLvup();__p6x.S.rr=3;__p6x.S.ban=3;__X.drawCards();}", op)
             r = await pg.evaluate(LAY_LV)
@@ -616,7 +625,7 @@ async def sec_layout(b, srv):
             await ctx.close()
         # 일시정지 — 일반·베리하드(난이도 줄 색 달라도 같은 칸) · 표 펼침 · 꽉 찬 빌드
         for mode in ('normal', 'vh', 'over'):   # over: 치명타 확률이 100% 를 넘어 「100% (초과 +N%p)」 처럼 가장 긴 글자가 나오는 경우
-            ctx, pg, errs = await H.new_page(b, srv.port, w=w, h=h, page=NEW, mobile=(w < 700))
+            ctx, pg, errs = await new_page(b, srv.port, w=w, h=h, page=NEW, mobile=(w < 700))
             await pg.evaluate("(m)=>{document.getElementById('hardChk').checked=false;document.getElementById('vhChk').checked=(m==='vh');}", mode)
             await pg.evaluate(RICH, dict(RICH_CASES['full'], ch='jjg'))
             await pg.evaluate("(m)=>{const x=__p6x;x.S.hard=m==='vh';x.S.vh=m==='vh'?1:0;if(m==='over')x.CH.crit=.95;__X.UI3.pOpen=true;__X.pauseGame();}", mode)
@@ -646,7 +655,7 @@ async def sec_invariant(b, srv):
     # S 키 · 이어하기 서명
     res = {}
     for nm, pgn in (('old', OLD), ('new', NEW)):
-        ctx, pg, errs = await H.new_page(b, srv.port, page=pgn)
+        ctx, pg, errs = await new_page(b, srv.port, page=pgn)
         res[nm] = await pg.evaluate("""()=>{const x=__p6x;x.CH_set('jjg');x.start();const S=x.S;for(let i=0;i<3;i++)x.applyUp({t:'p',k:'crit',l:i});__X.pauseGame();
           return {keys:Object.keys(S).sort(),sig:__X.RES.SIG,st:x.state,saved:localStorage.getItem('p6_resume_v1')!==null}}""")
         res[nm]['errs'] = errs; await ctx.close()
@@ -654,7 +663,7 @@ async def sec_invariant(b, srv):
     check('[사] 이어하기 서명(RES.SIG) 불변 — %s' % res['new']['sig'], res['new']['sig'] == res['old']['sig'] and res['new']['sig'].startswith('1:'), (res['old']['sig'], res['new']['sig']))
     check('[사] 일시정지 저장본이 새 빌드에서도 만들어진다', res['new']['saved'] and res['old']['saved'], res)
     # 표시 함수는 판을 바꾸지 않고 난수를 쓰지 않는다 — 이어하기 직렬화기(RES.build)로 S·풀 전체를 찍어 전후를 견준다
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     await pg.evaluate(RICH, RICH_CASES['full'])
     r = await pg.evaluate("""()=>{const x=__p6x,X=__X;x.S.pendingLv=1;__X.setCUR(x.offers(3));x.state='lvup';
       const snap=()=>{const b=X.RES.build();return b.body||('ERR '+b.why)};
@@ -667,11 +676,11 @@ async def sec_invariant(b, srv):
     check('[사] 순수성 시험 오류 0', not errs, errs)
     await ctx.close()
     # 기준 빌드로 저장한 일시정지 저장본 → 새 빌드에서 복구(옛 저장본이 폐기되지 않는다)
-    ctx, pg, errs = await H.new_page(b, srv.port, page=OLD)
+    ctx, pg, errs = await new_page(b, srv.port, page=OLD)
     await pg.evaluate("()=>{const x=__p6x;x.CH_set('brj');x.start();__adv(40,{god:true});__X.pauseGame();}")
     blob = await pg.evaluate("()=>localStorage.getItem('p6_resume_v1')")
     await ctx.close()
-    ctx, pg, errs = await H.new_page(b, srv.port, page=NEW)
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     await pg.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob)
     await pg.reload(); await pg.wait_for_function('window.__X!==undefined')
     ok = await pg.evaluate("()=>__X.RES.restore()")
@@ -687,7 +696,9 @@ async def main():
             b = await H.launch(p)
             for sec, fn in [('가', sec_diff), ('나', sec_values), ('다', sec_behavior), ('라', sec_own), ('마', sec_fold), ('바', sec_layout), ('사', sec_invariant)]:
                 if want(sec):
-                    print('── %s ──' % sec, flush=True); await fn(b, srv)
+                    print('── %s ──' % sec, flush=True)
+                    try: await fn(b, srv)
+                    except Exception as e: check('[%s] 구획이 끝까지 돌지 못했다(예외·시간 초과)' % sec, False, repr(e))
             await b.close()
     finally:
         srv.close()
