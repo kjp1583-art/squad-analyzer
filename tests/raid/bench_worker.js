@@ -74,7 +74,7 @@ async function main() {
 
   const A = { tick: new Float64Array(total), upd: new Float64Array(total), enc: new Float64Array(total), start: new Float64Array(total), cpu: new Float64Array(total) };
   let cpuTotal = 0;
-  let n = 0, late = 0, lateMax = 0, errors = 0, firstError = null, snapSum = 0, snapMax = 0, heapMax = 0, status = 'ok';
+  let n = 0, over25 = 0, maxAt = 0, late = 0, lateMax = 0, errors = 0, firstError = null, snapSum = 0, snapMax = 0, heapMax = 0, status = 'ok';
   const t0 = hr();
   let anchor = t0;
 
@@ -112,6 +112,8 @@ async function main() {
       status = 'error';
       break;   // 실제 서버도 예외가 난 방은 끝낸다
     }
+    if (p1 - s0 > 25) over25++;
+    if (p1 - s0 > A.tick[maxAt]) maxAt = n;
     A.upd[n] = u1 - u0; A.enc[n] = e1 - u1; A.tick[n] = p1 - s0;
     if (hasCpu) { const dc = cpuMs() - c0; A.cpu[n] = dc; cpuTotal += dc; }
     if (n % 30 === 0) { const h = v8.getHeapStatistics().used_heap_size / 1048576; if (h > heapMax) heapMax = h; }
@@ -130,7 +132,9 @@ async function main() {
     id, chars, ticks: n, status, game_s: r3(n / hz), wall_s: r3(wallMs / 1000),
     tick_ms: summarize(A.tick, n), update_ms: summarize(A.upd, n), encode_ms: summarize(A.enc, n), start_delay_ms: realtime ? summarize(A.start, n) : null,
     tick_cpu_ms: hasCpu ? summarize(A.cpu, n) : null, tick_cpu_ms_total: hasCpu ? r3(cpuTotal) : null,
-    late_ticks: late, late_max_ms: r3(lateMax), errors, first_error: firstError,
+    late_ticks: late, late_max_ms: r3(lateMax),
+    tick_over_25ms: over25, tick_max_at_game_s: r3(maxAt / hz),   // 틱이 25ms(G2' 한도)를 넘은 횟수 / 가장 느린 틱이 나온 게임 시각(초) — 시작 직후 데우기인지 중간인지 구분용
+    errors, first_error: firstError,
     gc: { count: gc.count, total_ms: r3(gc.total_ms), max_ms: r3(gc.max_ms), unsupported: gc.unsupported },
     heap_mb_max: r3(Math.max(heapMax, heapNow.used_heap_size / 1048576)), heap_limit_mb: r3(heapNow.heap_size_limit / 1048576),
     snap_bytes: { mean: n ? Math.round(snapSum / n) : 0, max: snapMax },

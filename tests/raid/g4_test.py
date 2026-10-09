@@ -6,7 +6,7 @@
 파이썬 없는 서버(VPS)에서는 이 파일 없이 Node 명령을 직접 부르면 된다(README 참고).
 
 사용:
-  python3 tests/raid/g4_test.py                    # 기본: 5조합 + 보강 조합 × 900초 + 무기 전종(보통/각성)
+  python3 tests/raid/g4_test.py                    # 기본: 5조합 + 보강 조합 × 900초 + 무기 전종(보통/각성) — 공용 기계 부하에 따라 20분~1시간
   python3 tests/raid/g4_test.py --quick            # 조합 1개 120초 + 무기 확인 60초(CI 점검용)
   python3 tests/raid/g4_test.py --secs 300 --combo "brj,jjg,mms,hrb"   # 조합을 직접(여러 번 쓸 수 있음)
   python3 tests/raid/g4_test.py --lint             # ESLint no-undef 게이트도(전역 eslint 필요)
