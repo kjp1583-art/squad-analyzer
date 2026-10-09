@@ -150,7 +150,7 @@ def section_a():
     pn = json.load(open(os.path.join(ROOT, 'data', 'patch_notes.json'), encoding='utf-8'))['notes']
     e = pn[0]
     check('[A12] 패치노트 맨 앞 항목: id·area squad·game sv·tag·날짜 내림차순', e['id'] == '2026-10-09-sv-revive-coin' and e['area'] == 'squad' and e['game'] == 'sv' and e['tag'] in ('신규', '개편', '변경', '밸런스', '수정')
-          and all(pn[k]['date'] >= pn[k + 1]['date'] for k in range(min(8, len(pn) - 1))) and e['lines'] and not any(w in json.dumps(e, ensure_ascii=False) for w in ('Claude', '클로드', 'GPT', 'Sonnet', 'Opus')))
+          and all(pn[k]['date'] >= pn[k + 1]['date'] for k in range(min(8, len(pn) - 1))) and e['lines'] and not any(w in json.dumps(e, ensure_ascii=False) for w in ('Cl' 'aude', '클' '로드', 'G' 'PT', 'Son' 'net', 'Op' 'us')))
     check('[A13] 조작법에 부활 코인 한 줄', '<li>🪙 <b>부활 코인</b>' in s)
     check('[A14] .gitignore 에 임시 사본', 'survivors_cx' in open(os.path.join(ROOT, '.gitignore'), encoding='utf-8').read())
 
@@ -227,7 +227,7 @@ async def sec_b(b, srv):
     ac = await pg.evaluate("()=>document.activeElement&&document.activeElement.id"); check('[B10] 풀린 뒤 포커스는 「코인 쓰고 부활」', ac == 'rvUse', ac)
     await pg.keyboard.press('Escape'); await pg.keyboard.press('KeyP'); await pg.wait_for_timeout(100)
     check('[B10b] 풀린 뒤에도 Esc·P 는 revive 에서 아무 일도 안 한다', (await pg.evaluate('__p6x.state')) == 'revive')
-    await pg.evaluate(FREEZE); await pg.mouse.click(box[0], box[1]); await wait_state(pg, 'play')
+    await pg.evaluate(FREEZE); await pg.wait_for_timeout(80); await pg.mouse.click(box[0], box[1]); await wait_state(pg, 'play')   # 80ms: 이미 예약된 마지막 rAF 가 부활 뒤에 돌아 무적을 깎는 경쟁 상태를 피한다
     st5 = await pg.evaluate(ST); rid = await pg.evaluate("__rv.RUN.rid")
     check('[B11] 서버에 {op:use,rid,n:1} 한 번 · 토큰 포함 · 부활: HP 50% · 무적 정확히 3초 · cu=1 · 남은 코인 1', len(mk.coin_reqs) == 1 and mk.coin_reqs[0]['rid'] == rid and mk.coin_reqs[0]['n'] == 1 and mk.coin_reqs[0]['op'] == 'use' and mk.coin_reqs[0].get('token') == 'x' * 30
           and abs(st5['hp'] - st5['mhp'] * .5) < 3 and abs(st5['inv'] - 3) < 1e-9 and st5['cu'] == 1 and st5['cuq'] == 0 and st5['coins'] == 1 and st5['on'] == [], (mk.coin_reqs, st5))
@@ -258,7 +258,7 @@ async def sec_c(b, srv):
     r = await kill(pg, {'rev': True})
     check('[C1] 👼 패시브가 있으면 선택창 없이 일어난다 · 코인 요청 0 · 무적 2.5초 · HP 50%', r['r'] is False and r['state'] == 'play' and abs(r['hp'] - 50) < 1 and abs(r['inv'] - 2.5) < 1e-9 and r['revUsed'] == 1 and not mk.coin_reqs, r)
     await pg.evaluate("()=>{__p6x.S.p.inv=0}"); r = await pg.evaluate(HIT); check('[C2] 패시브를 쓴 뒤 두 번째 죽음은 코인 선택창', r['state'] == 'revive', r)
-    await pg.wait_for_function(UNLOCK); await pg.evaluate(FREEZE); await pg.evaluate(CLICK_USE); await wait_state(pg, 'play')
+    await pg.wait_for_function(UNLOCK); await pg.evaluate(FREEZE); await pg.wait_for_timeout(80); await pg.evaluate(CLICK_USE); await wait_state(pg, 'play')
     st = await pg.evaluate(ST); check('[C3] 코인 부활 무적은 정확히 3초(패시브는 2.5초) · 코인 사용 1건', abs(st['inv'] - 3) < 1e-9 and len(mk.coin_reqs) == 1, st)
     check('[C4] 오류 0', not errs, errs); await ctx.close()
 
@@ -283,7 +283,7 @@ async def sec_d(b, srv):
 async def sec_e(b, srv):
     mk = Mock(coins=1); ctx, pg, errs = await fresh(b, srv.port, mk)
     await open_revive(pg)
-    cases = (('net', '닿지'), ('busy', '바빠요'), ('upstream', '디스코드'), ('rate', '너무 빨리'), ('error', '(error)'), ('html', '(http)'), ('hang', '늦어요'))
+    cases = (('net', '닿지'), ('busy', '바빠요'), ('upstream', '디스코드'), ('rate', '너무 빨리'), ('error', '서버가 받지 못했어요.'), ('html', '서버가 받지 못했어요.'), ('hang', '늦어요'))   # 개발자 코드(error·http)를 문구에 붙이지 않는다(2026-10-09 검수)
     for mode, want in cases:
         mk.coin_mode = mode; await pg.evaluate(CLICK_USE)
         if mode == 'hang':
@@ -366,6 +366,8 @@ async def sec_f(b, srv):
     mk = Mock(coins=1); mk.coin_mode = 'hang'; ctx, pg, errs = await fresh(b, srv.port, mk)
     await open_revive(pg); await pg.evaluate(CLICK_USE); await pg.wait_for_timeout(300)
     st = await pg.evaluate(ST); check('[F6] 요청을 보낸 시점 저장본에 쓰던 중(cuq=1) 표시', st['saved'] and st['saved']['st'] == 'revive' and st['cuq'] == 1, st['saved'])
+    raw = await pg.evaluate("()=>localStorage.getItem('p6_resume_v1')||''")      # 보냄 직후(페이지를 닫기 전)의 저장본 글자 그대로 — 닫을 때 저장(pagehide)이 대신 채워 주지 못하는 경우를 막는다
+    check('[F6b] 요청 직후 localStorage 저장본 본문에 "cuq":1', '"cuq":1' in raw, raw[:200])
     rid = await pg.evaluate("__rv.RUN.rid"); mk.charged.add((rid, 1)); mk.coins -= 1; mk.coin_mode = 'ok'   # 서버는 차감했다
     pg2 = await newpage(ctx, srv.port); await pg.close()
     await pg2.evaluate("()=>document.getElementById('resGo').click()"); await pg2.wait_for_function("__p6x.state==='revive'", timeout=5000)
@@ -455,6 +457,28 @@ async def sec_g(b, srv):
     for _ in range(5): await pg.keyboard.down('KeyD')
     await pg.keyboard.up('KeyD'); await pg.wait_for_timeout(100)
     check('[G4] 키보드 자동 반복·이동 키로는 버튼이 눌리지 않는다', len(mk.coin_reqs) == 0 and (await pg.evaluate('__p6x.state')) == 'revive'); await ctx.close()
+    # ⌨ Space·Enter 를 누른 채 죽는다 — 포커스가 「코인 쓰고 부활」로 옮겨진 뒤의 자동 반복·뗌이 클릭이 되면 안 된다(2026-10-09 검수 지적). 그 뒤 새로 누르면 정상으로 쓴다.
+    START = "()=>{const x=__p6x;x.CH_set('brj');x.start();const S=x.S;S.t=100;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.propT=S.chickT=1e12;S.need=1e12;S.xp=0;for(const q of x.enemies.a)q.on=false;}"
+    for key, tag in (('Space', 'G5'), ('Enter', 'G6')):
+        mk = Mock(coins=2); ctx, pg, errs = await fresh(b, srv.port, mk)
+        await pg.evaluate(START); await pg.keyboard.down(key)                                     # 판 도중부터 키를 누르고 있다
+        await pg.evaluate("()=>{const x=__p6x;x.S.p.hp=1;x.S.p.inv=0;x.hitP(500);}"); await wait_state(pg, 'revive', 5000)
+        await pg.wait_for_function(UNLOCK); await pg.wait_for_timeout(150)
+        ae = await pg.evaluate("()=>document.activeElement&&document.activeElement.id")
+        for _ in range(4): await pg.keyboard.down(key); await pg.wait_for_timeout(40)          # 자동 반복(Playwright 는 이미 눌린 키의 down 을 repeat 로 보낸다)
+        await pg.keyboard.up(key); await pg.wait_for_timeout(300)
+        n0 = len(mk.coin_reqs); st0 = await pg.evaluate('__p6x.state')
+        check('[%s] %s 를 누른 채 죽어도(포커스=%s) 자동 반복·뗌으로 코인이 안 쓰인다 · 요청 %d건 · state=%s' % (tag, key, ae, n0, st0), n0 == 0 and st0 == 'revive', (ae, n0, st0))
+        await pg.keyboard.press(key); await pg.wait_for_timeout(600)
+        check('[%s2] 그 뒤 %s 를 새로 누르면 정상으로 쓴다 · 요청 1건 · 부활' % (tag, key), len(mk.coin_reqs) == 1 and (await pg.evaluate('__p6x.state')) == 'play', (len(mk.coin_reqs), await pg.evaluate('__p6x.state')))
+        check('[%s3] 오류 0' % tag, not errs, errs); await ctx.close()
+    # 응답이 앱이 가려진 동안 도착해도 부활은 하되 일시정지로 돌아온다(소리 없이)
+    mk = Mock(coins=2); mk.coin_mode = 'slow'; ctx, pg, errs = await fresh(b, srv.port, mk)
+    await open_revive(pg); await pg.evaluate(CLICK_USE); await pg.wait_for_timeout(200)
+    await pg.evaluate("()=>{Object.defineProperty(document,'hidden',{get:()=>true,configurable:true});}"); await mk.release_slow(); await pg.wait_for_timeout(500)
+    st = await pg.evaluate(ST); await pg.evaluate("()=>{delete document.hidden;}")
+    check('[G7] 가려진 동안 응답이 와도 부활은 적용(코인 1 · cu=1)하고 상태는 pause(일시정지) · 요청 1건', st['state'] == 'pause' and st['cu'] == 1 and st['coins'] == 1 and len(mk.coin_reqs) == 1, st)
+    check('[G7b] 오류 0', not errs, errs); await ctx.close()
 
 # ───────────────────────────── I. 모드
 async def sec_i(b, srv):

@@ -2599,7 +2599,7 @@ function die(){   // 👼 부활 패시브(공짜)가 먼저 → 없고 🪙 코
 //   코인 개수·차감은 서버(봇 /p6/coin)가 유일한 기준 — 쓰기를 고르면 서버가 1개를 뺀 '뒤에만' 부활한다. 같은 (판 rid, 번째 n)은 서버가 두 번 안 빼므로 재시도·이어하기 복구가 안전하다.
 //   이 구획은 Math.random·RN 을 쓰지 않는다 — 코인을 안 쓴 판(오늘의 도전 포함)의 난수 소비 순서는 그대로다. 새 최상위 let 도 만들지 않는다(RV 객체 필드로).
 const COIN_MAX_USE=50,REV_SEC=3,COIN_LOCK=700,COIN_TMO=12000;
-const RV={on:false,mode:'ask',busy:false,n:1,req:0,lockT:0,lockId:0,note:'',refAt:0,pd:0};
+const RV={on:false,mode:'ask',busy:false,n:1,req:0,lockT:0,lockId:0,note:'',refAt:0,pd:0,kd:0};
 const coinsOf=j=>{const c=j&&j.coins;return Number.isInteger(c)&&c>=0&&c<=9999?c:undefined;};
 const coinsHave=()=>ME&&Number.isInteger(ME.coins)&&ME.coins>0?ME.coins:0;
 const ridOk=()=>!!RUN&&/^[A-Za-z0-9_-]{8,40}$/.test(String(RUN.rid));
@@ -2624,7 +2624,7 @@ function rvLock(ms){RV.lockT=performance.now()+ms;clearTimeout(RV.lockId);rvBtns
   RV.lockId=setTimeout(()=>{rvBtns();if(state==='revive'&&!RV.busy){const b=$('rvUse').hidden?$('rvNo'):$('rvUse');try{b.focus({preventScroll:true});}catch(e){}}},ms+30);}
 function reviveOpen(){const p=S.p;
   p.hp=0;p.inv=0;state='revive';EX.hs=0;EX.hurt=0;EX.shk=0;keys={};joy.on=false;joy.dx=joy.dy=0;AU.music(false);hud();
-  RV.on=true;RV.busy=false;RV.pd=0;RV.n=S.cu+1;RV.mode=S.cuq===1?'pending':'ask';RV.note='';RV.req++;
+  RV.on=true;RV.busy=false;RV.pd=0;RV.kd=0;RV.n=S.cu+1;RV.mode=S.cuq===1?'pending':'ask';RV.note='';RV.req++;
   rvRender();show('revive');rvLock(COIN_LOCK);
   const bx=$('revive').firstElementChild;if(bx)try{bx.focus({preventScroll:true});}catch(e){}
   RES.save('revive');refreshCoins(true);}
@@ -2633,7 +2633,8 @@ function reviveApply(j,n){
   S.cu=n;S.cuq=0;RV.on=false;clearTimeout(RV.lockId);++RV.req;
   state='play';show(null);$('hud').style.display='block';last=performance.now();
   reviveFx(REV_SEC,'🪙 코인 부활! 3초 동안은 안 맞아요',c===undefined?'':`남은 코인 ${c}개`);
-  AU.music(true);RES.onResume();renderAcct();}
+  AU.music(true);RES.onResume();renderAcct();
+  if(document.hidden)pauseGame();}   // 앱이 가려진 동안 응답이 와도 게임이 소리 내며 돌지 않게(가릴 때 멈추는 기존 약속)
 async function coinUse(){
   if(state!=='revive'||RV.busy||performance.now()<RV.lockT)return;
   if(RES.stale())return;
@@ -2654,9 +2655,15 @@ async function coinUse(){
   else if(code==='auth'){S.cuq=0;RV.mode='auth';RV.note='';}
   else if(code==='bad'||code==='big'||code==='not_found'){S.cuq=0;RV.mode='nocoin';RV.note=(code==='not_found'||code==='big')?'서버가 아직 코인을 몰라요.':'요청이 잘못돼서 코인을 쓸 수 없어요.';}
   else{RV.mode='fail';
-    RV.note=why==='timeout'?'서버가 늦어요. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.':why==='net'?'서버에 닿지 않았어요. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.':code==='upstream'?'디스코드 확인이 늦어요. 잠시 뒤 다시 눌러 보세요.':code==='rate'?'너무 빨리 눌렀어요. 잠깐 뒤에 다시 눌러 주세요.':code==='busy'?'서버가 잠깐 바빠요. 잠시 뒤 다시 눌러 주세요. 코인은 두 번 빠지지 않아요.':'서버가 받지 못했어요'+(code?'('+code+')':'')+'. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.';
+    RV.note=why==='timeout'?'서버가 늦어요. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.':why==='net'?'서버에 닿지 않았어요. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.':code==='upstream'?'디스코드 확인이 늦어요. 잠시 뒤 다시 눌러 보세요.':code==='rate'?'너무 빨리 눌렀어요. 잠깐 뒤에 다시 눌러 주세요.':code==='busy'?'서버가 잠깐 바빠요. 잠시 뒤 다시 눌러 주세요. 코인은 두 번 빠지지 않아요.':'서버가 받지 못했어요. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.';
     if(code==='rate'||code==='busy')lock=1500;}
   RES.save('revive');rvRender();rvLock(lock);}
+// ⌨ [2026-10-09 검수] Space·Enter 를 누른 채로 죽으면, 창이 열리고 포커스가 「코인 쓰고 부활」로 옮겨진 뒤 키 자동 반복·뗌이 버튼 클릭이 돼 코인이 뜻 없이 쓰였다 —
+//   창 안의 Space·Enter 는 ① 자동 반복(e.repeat) ② 잠금 중 눌림은 버튼 동작으로 안 넘기고 ③ 잠금이 풀린 뒤 '새로' 누른 키로만 클릭이 된다(Space 는 뗄 때 클릭이라 keyup 도 같은 기준으로 거른다)
+const rvKey=e=>{if(e.code!=='Space'&&e.code!=='Enter'&&e.code!=='NumpadEnter')return;
+  if(e.type==='keydown'){if(e.repeat||performance.now()<RV.lockT){e.preventDefault();return;}RV.kd=performance.now();return;}
+  if(!(RV.kd>=RV.lockT))e.preventDefault();};
+$('revive').addEventListener('keydown',rvKey,true);$('revive').addEventListener('keyup',rvKey,true);
 const rvFresh=e=>performance.now()>=RV.lockT&&(!e||e.detail===0||RV.pd>=RV.lockT);   // 선택창이 열린 뒤·잠금이 풀린 뒤에 '새로 누른' 클릭만 인정(열리기 전부터 누르고 있던 손가락이 떼어지며 눌리는 것을 막는다 · 키보드·보조기기 클릭은 detail 0)
 function rvQuit(){if(state!=='revive'||RV.busy||performance.now()<RV.lockT)return;RV.on=false;++RV.req;clearTimeout(RV.lockId);endRun(false);}
 async function refreshCoins(force){const u=dcUser();if(!u)return;
