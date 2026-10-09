@@ -133,6 +133,34 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 /* 🎨 [2026-09-30 사장님 지시] 색 언어 안내 한 줄 — 적의 위험은 빨간 점선·빗금, 내 공격은 하늘색 실선 */
 .lgd{margin:8px 0 2px;padding:5px 8px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:12px;line-height:1.45;color:var(--sub);text-align:center}
 .lgd span{white-space:nowrap}.lgd .rd{color:#ff5a7a;font-weight:700}.lgd .bl{color:#6fe6ff;font-weight:700}
+/* 🎮 [2026-10-09 사장님 지시] 일시정지 난이도 줄 · 내 능력치 표 · 레벨업 「내가 가진 능력」 목록 — 자기완결 구획(.dfl .dfs .stt .own 만 쓴다) */
+.dfl{margin:0 0 4px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--txt);text-align:left;font-size:14px;font-weight:800;line-height:1.4;word-break:keep-all;overflow-wrap:anywhere}
+.dfl small{display:block;font-size:11.5px;font-weight:400;color:var(--sub)}
+.dfl.hard{background:#2a1418;border-color:#6b2a30;color:#ffb4a0}
+.dfl.vh{background:#1d1022;border-color:#7a3aa8;color:#e6b8ff}
+.dfl.dly{background:#10303b;border-color:#2a6f8a;color:#9fe3ff}
+.dfl.end{background:#1b1740;border-color:#6a3fb8;color:#cdb8ff}
+.dfs{margin:0 0 8px;text-align:left;font-size:11.5px;line-height:1.45;color:var(--sub);word-break:keep-all;overflow-wrap:anywhere}
+.dfs b{color:var(--txt)}
+.stt{margin:8px 0;text-align:left;background:var(--card2);border:1px solid var(--line);border-radius:10px;font-size:12.5px;color:var(--txt)}
+.stt>summary{cursor:pointer;padding:10px 12px;min-height:40px;font-weight:700;font-size:13px;color:var(--txt)}
+.stt .rw{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:1px 8px;padding:5px 12px;border-top:1px solid var(--line)}
+.stt .rw .l{color:var(--sub);white-space:nowrap}
+.stt .rw .v{margin-left:auto;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;word-break:keep-all}
+.stt .rw .s{flex:1 0 100%;font-size:11px;line-height:1.4;color:var(--mut);word-break:keep-all;overflow-wrap:anywhere}
+.stt .sn{padding:6px 12px 9px;border-top:1px solid var(--line);font-size:11px;color:var(--mut)}
+#lvOwn{margin-top:10px;text-align:left}
+.own{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0 0 8px}
+.own h3{margin:0 0 2px;font-size:13px;color:#ffb089}
+.own .lg{display:block;font-size:11px;font-weight:400;color:var(--mut)}
+.own .gh{margin:8px 0 4px;font-size:12px;font-weight:700;color:var(--sub)}
+.own .chips{display:flex;flex-wrap:wrap;gap:5px}
+.own .chip{max-width:100%;padding:3px 7px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:12px;line-height:1.35;color:var(--txt);word-break:keep-all;overflow-wrap:anywhere}
+.own .chip small{display:block;font-size:10.5px;line-height:1.3;color:var(--mut)}
+.own .chip .mx{font-size:11px;color:var(--mut)}
+.own .chip.up{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset,0 0 8px rgba(245,192,74,.35)}
+.own .upm{font-style:normal;font-weight:800;color:var(--gold);margin-right:3px}
+@supports (height:100dvh){#lvup .box{max-height:calc(100dvh - 32px)}}   /* 폰 주소창만큼 잘리지 않게(카드 아래 목록까지 스크롤로 닿는다) */
 /* 🗞 [2026-10-08 사장님 지시] 흐접새우 서바이벌 첫 화면 「패치노트」 대시보드 — 자기완결 구획(.pn* 만 쓴다) */
 .pnopen{position:absolute;right:10px;bottom:10px;z-index:2;display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 14px;border-radius:22px;border:1px solid #9a7a30;background:rgba(14,18,36,.88);color:#ffd98a;font:inherit;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);-webkit-appearance:none;appearance:none}
 .pnopen:focus-visible,.pnx:focus-visible,.pnh:focus-visible,.pnchip:focus-visible,.pnretry:focus-visible{outline:2px solid var(--win);outline-offset:2px}
@@ -265,7 +293,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <footer>SQUAD.GG · 만든 사람: 클랜원 맛동산장인 유미</footer>
 </div></div>
 
-<div class="ov" id="lvup"><div class="box"><h2>⬆ 레벨 업! 하나 고르세요</h2><div class="muted" id="lvHint"></div><div id="choices"></div></div></div>
+<div class="ov" id="lvup"><div class="box"><h2>⬆ 레벨 업! 하나 고르세요</h2><div class="muted" id="lvHint"></div><div id="choices"></div><div id="lvOwn"></div></div></div>
 
 <div class="ov" id="pause"><div class="box"><h2>⏸ 일시정지</h2>
   <div class="snd psnd"><div class="ph"><span class="t">⚙ 소리·화면 설정</span><button class="btn g" id="muteBtn">🔇 소리 끄기</button></div>
@@ -1300,6 +1328,21 @@ const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*pv('dur');                  // ⏳ 지속시간
 const PS=()=>1+.12*pv('pspd')+.08*PTV('pspd');                  // 🏹 투사체 속도
+// 🎮 [2026-10-09 사장님 지시 「내 캐릭터의 현재 크리티컬확률과같은 스텟표기 추가」] 능력치 표(statsHtml)가 읽는 값 — 게임 코드(hurt·update·hitP)와 표가 같은 함수를 부른다.
+//   인라인으로 있던 식을 항 순서·연산 순서 그대로 함수로만 뺐다(규칙·수치·난수 불변 — 결합 순서가 같아 결과가 비트까지 같다). 식을 고칠 때는 여기 한 곳만 고치면 표도 따라온다.
+const critCh=()=>CH.crit||0,critLk=()=>.03*LK(),critPv=()=>.05*pv('crit'),critPt=()=>PTV('luck')?.05:0,critTr=()=>.06*trn('focus'),critSm=()=>smv('crit');   // 치명타 확률의 여섯 갈래: 캐릭터 · 행운 · 급소 · 🌟 행운 초월 · 정조준 · 눈 밝히기
+const critChance=()=>critCh()+critLk()+critPv()+critPt()+critTr()+critSm();   // 치명타 확률(1 이상이면 늘 터진다)
+const critMul=()=>2+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);   // 치명타가 터졌을 때의 피해 배율
+const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-.05*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0);   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
+const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
+const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag');   // 경험치 줍는 범위 배율(기본 반경 70)
+const xpMul=()=>1+(CH.xp||0)+.08*pv('study')+S.syn.xp;   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
+const armTotal=()=>pv('arm')+(CH.arm||0)+2*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
+const takenMul=()=>(1+.1*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다)
+const VAMP_N=40,vampHp=()=>1.5*pv('vamp');   // 🥩 고기 반찬: 적 VAMP_N 마리를 처치할 때마다 HP 회복
+const critParts=()=>[['캐릭터',critCh()],['행운',critLk()],['급소',critPv()],['행운 초월',critPt()],['정조준',critTr()],['눈 밝히기',critSm()]];   // 표시용 구성표(화면을 그릴 때만 부른다 — 합은 critChance 와 같다)
+const LOWHP_AT=.3,lowMul=()=>CH.low&&S.p.hp<S.p.mhp*LOWHP_AT?1+CH.low:1;   // 🥲 망무새: 체력이 LOWHP_AT 아래면 피해 +CH.low (hurt 가 곱한다 — dmgMul 에는 안 들어 있다)
+const rageCap=()=>CH.rage+[0,.1,.2,.3][SGN('sg_tw')],rageMul=()=>1+Math.min(rageCap(),Math.max(0,1-S.p.hp/S.p.mhp));   // 💔 태웅 「씩씩」: 잃은 체력 1%당 피해 +1%(상한 rageCap) — hurt 가 곱한다
 let SRC='';                                      // 지금 피해를 넣는 무기(무기별 피해 통계)
 const lvm=(L,ups)=>{let m=1;for(const u of ups)if(L>=u[0])m*=u[1];return m;};
 const MIN=()=>S.endless?60+Math.min(END_CAPM,(S.t-WIN_T)/60*END_SLOPE):S.t/60;   // ♾ 무한 모드는 60분 뒤 난이도가 천천히(분당 0.6분 치) 오르다 +30분 치에서 멈춘다
@@ -1357,7 +1400,7 @@ function contEndless(){   // ♾ 60분 클리어 뒤 이어서 — 일반·하�
   banner('♾ 무한 모드 — 여기서부터 기록이 따로 올라가요','난이도는 +30분 치까지만 오르고 멈춘다 · 180분이 한계',2);}
 function buildHtml(){
   const wk=Object.keys(S.w),pk=Object.keys(S.ps);
-  let h=`<div class="build">`+hpHtml()+`<b>⚔ 무기 ${wk.length}/${SLOTW}</b>`;
+  let h=`<div class="build">`+hpHtml()+statsHtml('p')+`<b>⚔ 무기 ${wk.length}/${SLOTW}</b>`;   // 🎮 [2026-10-09] 체력 바로 아래에 내 능력치 표(일시정지에선 펼침)
   for(const k of wk){const d=WEAP[k],L=S.w[k],pp=PASS[d.pair];
     const tn=S.tier[k]?` <span class="muted">${S.ev[k]?'✨':'🏅'}${S.tier[k]}/${TCAP(k)}</span>`:'';
     h+=S.ev[k]?`<div class="bw ev">${d.ev.ic} <b>${d.ev.nm}</b> <span class="new">✨ 각성</span>${tn}</div>`
@@ -1399,7 +1442,73 @@ const SRCN={drg:'🐲 용 변신',char:'🐲 캐릭터 능력',item:'💣 폭탄
 function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)return '';   // 📊 무기별 피해 비중 — 내 빌드에서 뭐가 일하는지
   const rows=Object.entries(S.dmgBy).sort((a,b)=>b[1]-a[1]).slice(0,6);
   return `<b>📊 피해 비중</b><div class="bw">${rows.map(([k,v])=>`${WEAP[k]?(S.ev[k]?WEAP[k].ev.ic:WEAP[k].ic)+' '+WEAP[k].nm:SRCN[k]||esc(k)} <b>${Math.round(v/t*100)}%</b>`).join(' · ')}</div>`;}
-function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
+// ───────────────────────────────────────────────────────────────────────────────────────────────
+// 🎮 [2026-10-09 사장님 지시 「esc 눌렀을때 현재 진행중인 게임의 난이도가 표시되게 추가 / 내 캐릭터의 현재 크리티컬확률과같은 스텟표기 추가 /
+//    레벨업 이후 능력선택창이 떴을때 내가 이미 가지고있는 능력명단 표기 추가」] 일시정지·레벨업 화면의 정보 표시 — S 를 읽기만 한다(규칙·수치·난수 불변).
+//   ① diffHtml  일시정지 맨 위 「🎮 난이도」 줄 + 지금 시각 잡몹 체력·공격력 배율(스폰이 쓰는 hpMul·atkMul·mobX 와 같은 값)
+//   ② statsHtml 내 능력치 표 — 값은 전부 게임이 쓰는 함수(dmgMul·cdMul·areaMul·critChance·moveMul …)에서 읽는다. 일시정지에선 펼침, 레벨업에선 접힘(카드 고르기가 먼저)
+//   ③ ownHtml   레벨업 카드 아래 「내가 가진 능력」 — 이번에 떠 있는 카드가 올려 주는 칩은 금색 테두리 + ▲
+//   화면에서 기억할 것(표를 접었나)은 S 가 아니라 UI3 에 둔다 — S 에 새 키를 넣으면 이어하기 저장본과 어긋난다.
+const UI3={pOpen:true,lOpen:false};
+document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('stt'))UI3[t.dataset.sc==='l'?'lOpen':'pOpen']=t.open;},true);   // toggle 은 거품이 안 올라와서 캡처로 받는다
+const uiHx=v=>v>=100?String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,','):v>=10?String(Math.round(v)):String(Math.round(v*10)/10);   // 배율 글자: 1.4 · 92 · 1,234
+const uiPcS=v=>{const r=Math.round(v*1000)/10;return (r<0?'−':'+')+Math.abs(r)+'%';};   // 배율−1 → +32% · −8% · +0%
+const uiPcN=v=>(Math.round(v*1000)/10)+'%';   // 0.18 → 18% · 0.559 → 55.9%
+const uiM2=v=>'×'+v.toFixed(2);
+function diffHtml(){   // 일시정지 맨 위: 지금 판의 난이도(글자 + 색) · 지금 시각 잡몹 체력·공격력 배율
+  const m=MIN(),hm=hpMul(m),am=atkMul(m)*mobX(m),nm=S.vh?'💀 베리하드':S.hard?'🔥 하드':'일반';
+  let cls=S.vh?'vh':S.hard?'hard':'',tx=nm,kind=S.vh?'vh':S.hard?'hard':'normal';
+  if(S.dly){cls='dly';kind='daily';tx=`📅 오늘의 도전 ${esc(String(S.dly.date||'').slice(5))}<small>${nm==='일반'?'일반 규칙':nm+' 규칙'} · ${S.dly.ranked?'기록되는 판':'연습 판(기록 안 돼요)'}</small>`;}
+  else if(S.endless){cls='end';kind='endless';tx=`♾ 무한 모드<small>이어 간 난이도: ${nm} · 난이도는 +30분 치에서 멈춰요</small>`;}
+  return `<div class="dfl ${cls}" id="pDiff" data-d="${kind}">🎮 난이도: ${tx}</div>`
+    +`<div class="dfs" id="pMul">지금 몬스터 체력 <b>×${uiHx(hm)}</b> · 공격력 <b>×${uiHx(am)}</b> <span class="muted">(잡몹 기준 · 보스·엘리트 제외 · 시간이 갈수록 올라요)</span></div>`;}
+function statRows(){   // 능력치 표의 행 — 순서·줄 수는 늘 같다(없으면 +0% · —). v 는 게임이 쓰는 값 그대로(data-v) · t 는 보이는 글자 · s 는 작은 설명
+  const cc=critChance(),cm=critMul(),dm=dmgMul(),cd=cdMul(),ar=areaMul(),mv=moveMul()*slowMul(),tk=takenMul(),ag=armTotal(),mg=magMul(),xm=xpMul(),ps=PS(),du=DUR(),am=pv('amt'),lk=LK(),va=pv('vamp');
+  const pr=critParts().filter(p=>p[1]).map(p=>`<span class="nb">${p[0]} +${uiPcN(p[1])}</span>`).join(' · ');   // 한 갈래(「눈 밝히기 +2%」)는 줄 바꿈 때 쪼개지 않는다
+  let ds='';if(CH.low)ds=`체력 ${uiPcN(LOWHP_AT)} 이하면 +${uiPcN(CH.low)} 더 — ${lowMul()>1?'지금 켜짐':'지금 꺼짐'}`;   // 망무새: 피해 표(dmgMul)에 안 들어가는 「체력 낮을 때」 몫
+  if(CH.rage)ds=`잃은 체력만큼 +${uiPcN(rageMul()-1)} 더(최대 +${uiPcN(rageCap())})`;   // 태웅: 마찬가지로 hurt 가 곱하는 몫
+  return [
+    {k:'dmg',nm:'⚔ 피해',v:dm,t:uiPcS(dm-1),s:ds},
+    {k:'crit',nm:'🔪 치명타 확률',v:cc,t:cc>1?`100% (초과 +${Math.round((cc-1)*1000)/10}%p)`:uiPcN(cc),s:pr?'구성: '+pr:'구성: 아직 없어요 — 행운·급소·정조준 등으로 올라요'},
+    {k:'critdmg',nm:'🔪 치명타 피해',v:cm,t:uiM2(cm)},
+    {k:'cd',nm:'⏱ 쿨타임',v:cd,t:uiPcS(cd-1)},
+    {k:'area',nm:'📏 범위',v:ar,t:uiPcS(ar-1)},
+    {k:'move',nm:'👟 이동 속도',v:mv,t:uiPcS(mv-1)},
+    {k:'taken',nm:'🛡 받는 피해',v:tk,a:ag,t:`−${ag} · ${uiM2(tk)}`,s:`맞은 피해에 ${uiM2(tk)} 곱하고, 그다음 ${ag} 깎아요 (그래도 최소 1은 받아요)`},
+    {k:'mag',nm:'🧲 줍는 범위',v:mg,t:uiPcS(mg-1)},
+    {k:'xp',nm:'📚 경험치',v:xm,t:uiPcS(xm-1)},
+    {k:'pspd',nm:'🏹 투사체 속도',v:ps,t:uiPcS(ps-1)},
+    {k:'dur',nm:'⏳ 지속시간',v:du,t:uiPcS(du-1)},
+    {k:'amt',nm:'🍱 투사체 추가',v:am,t:'+'+am},
+    {k:'luck',nm:'🍀 행운',v:lk,t:lk+'단계'},
+    {k:'vamp',nm:'🥩 처치 회복',v:va,t:va?`${VAMP_N}마리마다 +${vampHp()} HP`:'—'},
+  ];}
+function statsHtml(sc){   // sc 'p' 일시정지(기본 펼침) · 'l' 레벨업(기본 접힘) — 같은 표
+  const op=UI3[sc==='l'?'lOpen':'pOpen'];
+  return `<details class="stt" id="stt${sc}" data-sc="${sc}"${op?' open':''}><summary>📈 내 능력치 <span class="muted">(눌러서 펼치기·접기)</span></summary>`
+    +statRows().map(r=>`<div class="rw" data-k="${r.k}" data-v="${r.v}"${r.a!=null?` data-a="${r.a}"`:''}><span class="l">${r.nm}</span><b class="v">${r.t}</b>${r.s?`<span class="s">${r.s}</span>`:''}</div>`).join('')
+    +`<div class="sn">지금 켜진 일시 효과(변신·버프·체력 조건)도 포함해요</div></details>`;}
+function ownCardKey(o){   // 이 카드가 올려 주는, 이미 가진 항목의 칩 키(새 항목·일회용은 ''). w 무기 · p 패시브 · r 유물 · t 거래 · s 작은 능력치
+  switch(o.t){case 'w':return o.l?'w:'+o.k:'';case 'wt':return 'w:'+o.w;case 'p':return o.l?'p:'+o.k:'';case 'pt':return 'p:'+o.p;
+    case 'rl':return o.l?'r:'+o.r:'';case 'tr':return o.l?'t:'+o.r:'';case 'sm':return smn(o.r)>0?'s:'+o.r:'';}
+  return '';}
+function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(없는 갈래는 안 그린다)
+  const up=new Set();for(const o of CUR){const k=ownCardKey(o);if(k)up.add(k);}
+  const chip=(key,b)=>{const u=up.has(key);return `<span class="chip${u?' up':''}" data-ck="${key}">${u?'<i class="upm" title="이번 카드로 올릴 수 있어요" aria-label="이번 카드로 올릴 수 있어요">▲</i>':''}${b}</span>`;};
+  const nb=t=>`<span class="nb">${t}</span>`,grp=(t,a)=>a.length?`<div class="gh">${t}</div><div class="chips">${a.join('')}</div>`:'';
+  const wk=Object.keys(S.w),pk=Object.keys(S.ps);
+  const W=wk.map(k=>{const d=WEAP[k],L=S.w[k],ev=!!S.ev[k],pp=PASS[d.pair],tn=S.tier[k]?' '+nb(`${ev?'✨':'🏅'}${S.tier[k]}/${TCAP(k)}`):'';
+    return chip('w:'+k,ev?`${d.ev.ic} ${esc(d.ev.nm)} ${nb('<span class="new">✨ 각성</span>')}${tn}`
+      :`${d.ic} ${esc(d.nm)} ${nb(`<b>Lv${L}</b><span class="mx">/${MAXLV}</span>`)}${tn}<small>각성: Lv${MAXLV} ${L>=MAXLV?'✔':'✖'} · ${pp.ic} ${esc(pp.nm)} ${pv(d.pair)?'✔':'✖'}</small>`);});
+  const P=pk.map(k=>{const d=PASS[k],t=S.pt[k];return chip('p:'+k,`${d.ic} ${esc(d.nm)} ${nb(`<b>Lv${S.ps[k]}</b><span class="mx">/${pmax(k)}</span>`)}${t?' '+nb(`🌟${t}/${PT[k]?PT[k].length:t}`):''}`);});
+  const R=Object.keys(S.rel).map(k=>chip('r:'+k,`${REL[k].ic} ${esc(REL[k].nm)} ${nb(`<b>Lv${S.rel[k]}</b><span class="mx">/3</span>`)}`));
+  const T=Object.keys(S.tr).map(k=>chip('t:'+k,`${TRD[k].ic} ${esc(TRD[k].nm)} ${nb(`<b>×${S.tr[k]}</b><span class="mx">/${TRD[k].cap||3}</span>`)}`));
+  const M=Object.keys(SM).filter(k=>smn(k)>0).map(k=>chip('s:'+k,`${SM[k].ic} ${esc(SM[k].nm)} ${nb(`<b>×${smn(k)}</b><span class="mx">/${SM[k].cap}</span>`)}`));
+  const Y=S.synOn.map(k=>SYN.find(y=>y.k===k)).filter(Boolean).map(y=>chip('y:'+y.k,`${y.ic} ${esc(y.nm)}<small>${esc(y.ds)}</small>`));
+  return `<div class="own"><h3>📋 내가 가진 능력${up.size?'<span class="lg">▲ 금색 = 이번 카드로 올릴 수 있는 것</span>':''}</h3>`
+    +grp(`⚔ 무기 ${wk.length}/${SLOTW} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}`,W)+grp(`🎒 패시브 ${slotP()}/${SLOTP}${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}`,P)
+    +grp(`🏺 유물 ${R.length}`,R)+grp(`⚖ 거래 ${T.length}`,T)+grp(`🍴 작은 능력치 ${M.length}`,M)+grp(`🔗 켜진 시너지 ${Y.length}`,Y)+`</div>`;}
+function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=diffHtml()+`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
 function resume(){if(state==='revive'||RES.stale()||RES.shopBad())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
 $('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
 $('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');RES.drop();RES.render();};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
@@ -1476,7 +1585,8 @@ function drawCards(){
   box.appendChild(x);
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
   const bl=cardLv(),bonus=BONUS_LV.includes(bl)?`🎁 Lv${bl} 보너스 — 다시 뽑기 +1 · 봉인 +1 받았어요 · `:'';   // 지금 고르는 카드가 보너스 레벨의 것이면 화면에서도 알린다(토스트는 카드 화면 뒤에 가려진다)
-  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;}   // ❤️ 현재/최대는 줄바꿈 때 쪼개지 않는다
+  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;
+  $('lvOwn').innerHTML=ownHtml()+statsHtml('l');}   // ❤️ 현재/최대는 줄바꿈 때 쪼개지 않는다 · 🎮 [2026-10-09 사장님 지시] 카드 아래 「내가 가진 능력」 명단 + 접이식 능력치 표 — #choices 바깥이라 키보드 1~3 은 그대로 앞 세 카드를 누르고, 이어하기 복구도 drawCards 를 거치니 거기서도 보인다
 function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;
   const rep=offers(1,CUR.map(x=>x.k).filter(Boolean))[0];CUR[i]=rep;toast(`🚫 ${cardOf(o).nm} 봉인`);drawCards();RES.save('ban');}
@@ -1807,9 +1917,9 @@ const josa=(s,a,b)=>{const c=String(s).charCodeAt(String(s).length-1);return s+(
 function txt(x,y,s,c){const t=texts.get();if(t){t.x=x;t.y=y;t.s=s;t.life=.9;t.c=c||'#fff';t.big=0;}}
 function say(e,s){if(!s)return;const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r-26;t.s='💬 '+s;t.life=2.2;t.c='#ffe7a8';t.big=1;}}
 function hurt(e,d){
-  let crit=false;const cc=(CH.crit||0)+.03*LK()+.05*pv('crit')+(PTV('luck')?.05:0)+.06*trn('focus')+smv('crit');if(cc&&Math.random()<cc){d*=2+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);crit=true;}
-  if(CH.low&&S.p.hp<S.p.mhp*.3)d*=1+CH.low;
-  if(CH.rage)d*=1+Math.min(CH.rage+[0,.1,.2,.3][SGN('sg_tw')],Math.max(0,1-S.p.hp/S.p.mhp));   // 💔 「씩씩」 잃은 체력 1%당 +1%(최대 +60%)
+  let crit=false;const cc=critChance();if(cc&&Math.random()<cc){d*=critMul();crit=true;}   // 🎮 [2026-10-09] 식은 critChance·critMul 로(일시정지 능력치 표가 같은 함수를 읽는다 · 값은 그대로)
+  if(CH.low)d*=lowMul();   // 🎮 [2026-10-09] 식은 lowMul·rageMul 로(일시정지 능력치 표가 같은 함수를 읽는다 · 값은 그대로)
+  if(CH.rage)d*=rageMul();   // 💔 「씩씩」 잃은 체력 1%당 +1%(최대 +60%)
   let fzx=0;if(e.fz>0){fzx=d*(e.boss?e.fv*.5:e.fv);d+=fzx;}   // 🗡 [2026-09-30 사장님 지시] 🧊 얼어붙은 적은 모든 피해를 더 받는다(늘어난 몫은 얼음땡 피해 비중으로 센다)
   if(SRC&&e.hp>0){const k=SRC,dl=Math.min(d,e.hp);if(fzx>0&&k!=='frost'){const fb=fzx*dl/d;S.dmgBy[k]=(S.dmgBy[k]||0)+dl-fb;S.dmgBy.frost=(S.dmgBy.frost||0)+fb;}else S.dmgBy[k]=(S.dmgBy[k]||0)+dl;}
   if(CH.shv&&SRC!=='drg')rgAdd(SHV.hit);   // 🔥 분노: 피해를 줄 때
@@ -1821,7 +1931,7 @@ function hurt(e,d){
   if(e.hp<=0&&!e.boss&&!e.eg&&KIND[e.ki].egg){   // 🥚 애니비아 — 처음 쓰러지면 알이 된다(4초 안에 깨야 한다)
     e.eg=1;e.hp=e.mhp*.4;e.ft=4;e.ph=0;e.kb=0;const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r-8;t.s='🥚 알이 됐다!';t.life=.9;t.c='#ff9aa8';t.big=0;}return;}
   if(e.hp<=0){e.on=false;S.kills++;AU.play('kill');if(CH.shv)rgAdd(e.boss?SHV.kgB:(e.bg||e.el)?SHV.kgE:SHV.kill);   // 🔥 분노: 처치할 때
-    if(pv('vamp')&&++S.vk>=40){S.vk=0;S.p.hp=Math.min(S.p.mhp,S.p.hp+1.5*pv('vamp'));}   // 🥩 고기 반찬 — [2026-10-07 사장님 지시] 하향: 30마리당 +2 → 40마리당 +1.5(레벨당, 회복량 약 44% 감소)
+    if(pv('vamp')&&++S.vk>=VAMP_N){S.vk=0;S.p.hp=Math.min(S.p.mhp,S.p.hp+vampHp());}   // 🥩 고기 반찬 — [2026-10-07 사장님 지시] 하향: 30마리당 +2 → 40마리당 +1.5(레벨당, 회복량 약 44% 감소)
     if(S.rel.leech&&S.leechT<=0){S.leechT=LEECH.cd[S.rel.leech-1];S.p.hp=Math.min(S.p.mhp,S.p.hp+LEECH.hp[S.rel.leech-1]);}   // 🎲 [2026-09-30 사장님 지시] 🩹 처치 응급처치
     if(S.rel.sg_brj&&SRC!=='rel'&&S.t-S.sgK>=.5&&Math.random()<[.03,.04,.05][S.rel.sg_brj-1]&&S.booms.length<40){S.sgK=S.t;S.booms.push({x:e.x,y:e.y,t:0,T:0,R:60*(1+.1*pv('area')),d:18*dmgMul()*[1,1.3,1.6][S.rel.sg_brj-1],done:false,ev:0,src:'rel',style:'mine'});}   // 🐤 논란 점화
     const KK=e.boss?null:KIND[e.ki];
@@ -2704,7 +2814,8 @@ function hitP(d,msg){const p=S.p;if(p.inv>0)return false;
   const blockOk=S.t-(S.lastBlock||-9)>=1.2;
   if(blockOk&&S.shield){S.shield=0;S.lastBlock=S.t;invGrant('blk',.15);S.shake=Math.max(S.shake,.1);AU.play('hit');txt(p.x,p.y-26,S.rel.still?'🛡 막았다! ('+[40,30,20][S.rel.still-1]+'초 뒤 다시 생겨요)':'🛡 막았다!','#9fd0ff');return false;}   // 🎲 [2026-09-30 사장님 지시] 🛡 명상 방어막
   if(blockOk&&lidTake()){S.lastBlock=S.t;invGrant('blk',.15);S.shake=Math.max(S.shake,.1);txt(p.x,p.y-26,'🥏 막았다!','#9fd0ff');return false;}   // 🗡 [2026-09-30 사장님 지시] 🥏 냄비뚜껑이 한 대를 대신 받는다
-  const arm=pv('arm')+(CH.arm||0)+2*pv('turtle')+trn('iron');d*=(1+.1*pv('glass'))*(p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1);const dm=Math.max(1,d-arm);p.hp-=dm;p.inv=0;invGrant('hit',.45+(PTV('arm')?.12:0)+(S.rel.sprint>=3?.2:0));if(S.rel.sg_ddmj)sgThorns(dm);if(S.rel.sg_amd)S.sgH=3;S.shake=Math.max(S.shake,.12);AU.play('hurt');
+  //   🎮 [2026-10-09] 고정 깎기·받는 피해 배율 식은 armTotal·takenMul 로(일시정지 능력치 표가 같은 함수를 읽는다 · 값은 그대로)
+  const arm=armTotal();d*=takenMul();const dm=Math.max(1,d-arm);p.hp-=dm;p.inv=0;invGrant('hit',.45+(PTV('arm')?.12:0)+(S.rel.sprint>=3?.2:0));if(S.rel.sg_ddmj)sgThorns(dm);if(S.rel.sg_amd)S.sgH=3;S.shake=Math.max(S.shake,.12);AU.play('hurt');
   EX.hurtFx(dm);{const t=texts.get();if(t){t.x=p.x;t.y=p.y-14;t.s='-'+Math.round(dm);t.life=1;t.c=PAL.tHurt;t.k=3;t.num=1;}}   // 🎨 [2026-09-30 사장님 지시] 내가 받은 피해 = 빨간 큰 숫자 + 붉은 화면 가장자리 + 흔들림
   if(S.rel.sprint)S.spr=2;if(PTV('arm')>=2&&p.hp>0){for(const e of S.live)if(e.on&&!e.boss){const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy)||1;if(dd<130){e.kr=0;knock(e,dx/dd,dy/dd,260,.25);}}}
   if(msg){const t=texts.get();if(t){t.x=p.x;t.y=p.y-42;t.s=msg;t.life=.9;t.c='#ff9aa8';t.k=3;}}
@@ -2769,7 +2880,7 @@ function update(dt){
   if(p.stun>0){p.stun-=dt;mx=my=0;p.moving=false;}   // 🪨 에어본 — 잠깐 못 움직인다
   if(p.moving){const l=Math.hypot(mx,my)||1;p.mdx=mx/l;p.mdy=my/l;}   // 🔥 브레스는 마지막으로 움직인 방향
   if(p.slow>0)p.slow-=dt;
-  const sp=p.sp*(1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-.05*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&p.hp<=p.mhp*.4?.1:0))*(p.slow>0?.6:1);   // 🎲 [2026-09-30 사장님 지시] 
+  const sp=p.sp*moveMul()*slowMul();   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영 · 🎮 [2026-10-09] 식은 moveMul·slowMul 로(일시정지 능력치 표가 같은 함수를 읽는다 · 값은 그대로)
   if((CH.regen||0)+(PTV('hp')>=2?.25:0)>0&&p.hp<p.mhp)p.hp=Math.min(p.mhp,p.hp+((CH.regen||0)+(PTV('hp')>=2?.25:0))*dt);p.x+=mx*sp*dt;p.y+=my*sp*dt;if(mx)p.face=mx>0?1:-1;
   if(p.yt>0){const k=Math.min(dt,p.yt);p.yt-=dt;p.x+=p.yvx*k;p.y+=p.yvy*k;}   // 🪝 끌려가거나 🌪 밀려난다
   if(S.room){const R=S.room;R.t-=dt;R.R=Math.max(110,R.R-40*dt);const dx=p.x-R.x,dy=p.y-R.y,d=Math.hypot(dx,dy);   // ☠ 진실의 방 — 밖으로 못 나간다
@@ -2858,11 +2969,11 @@ function update(dt){
     if(d<c.R&&Math.abs(da)<c.w&&hitP(c.d,'🐲 브레스!'))return;}}
   if(S.cardW){const c=S.cardW;c.t-=dt;if(!(c.e.on&&c.e.sn===c.sn))S.cardW=null;else if(c.t<=0){S.cardW=null;AU.play('pcards');
     for(let i=0;i<c.n;i++){const b=eshots.get();if(!b)break;const a=c.a+(i-(c.n-1)/2)*c.sp;b.x=b.ox=c.e.x;b.y=b.oy=c.e.y;b.vx=Math.cos(a)*250;b.vy=Math.sin(a)*250;b.life=c.L/250;b.d=c.e.dmg*.55;b.g='';b.sl=0;b.k=3;b.c=i%5;b.src=c.e;b.sn=c.e.sn;}}}   // 카드 한 장 = 보스 공격력의 55% · 초속 250
-  const mag=(70*(1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag')))**2,am=S.magT<=0&&PTV('mag')>=2;if(am)S.magT=20;
+  const mag=(70*magMul())**2,am=S.magT<=0&&PTV('mag')>=2;if(am)S.magT=20;   // 🎮 [2026-10-09] 줍는 범위 식은 magMul 로(표시와 같은 함수)
   if((gemMT-=dt)<=0){gemMT=.25;gemMerge();}   // 💎 1초에 4번만 합치기 검사
   for(const g of gems.a){if(!g.on)continue;const dx=p.x-g.x,dy=p.y-g.y,d2=dx*dx+dy*dy;
     if(d2<mag||am)g.mag=1;if(g.mag){const d=Math.sqrt(d2)||1;g.x+=dx/d*480*dt;g.y+=dy/d*480*dt;}
-    if(d2<(p.r+6)**2){g.on=false;AU.play('gem');gainXp(g.v*XP_X*(1+(CH.xp||0)+.08*pv('study')+S.syn.xp));}}
+    if(d2<(p.r+6)**2){g.on=false;AU.play('gem');gainXp(g.v*XP_X*xpMul());}}   // 🎮 [2026-10-09] 경험치 배율 식은 xpMul 로(표시와 같은 함수)
   for(const t of texts.a)if(t.on){t.life-=dt;t.y-=(t.big?12:TXR[t.k])*dt;if(t.life<=0)t.on=false;}
   bubTick(dt);
   mapTick(dt);if(state!=='play')return;
