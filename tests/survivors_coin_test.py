@@ -6,7 +6,7 @@
       COIN_SHOTS=<폴더>             스크린샷 저장 폴더(없으면 저장 안 함)
       COIN_ONLY=B,E,F               돌릴 구간만 고른다(기본 전부 · 변이 시험용)
 같은 워크트리에서 다른 survivors 시험과 동시에 돌리지 않는다(임시 사본 survivors_cx*.html 을 쓰고 끝나면 지운다).
-기준(코인 이전) 빌드는 커밋 1972f5f(origin/main) 의 survivors.html 이다 — 난수 비교·이어하기 호환에 쓴다(없으면 그 구간만 「확인 못 함」).
+기준(코인 이전) 빌드는 커밋 cedf7bf(origin/main) 의 survivors.html 이다 — 난수 비교·이어하기 호환에 쓴다(없으면 그 구간만 「확인 못 함」).
 """
 import asyncio, sys, os, json, re, subprocess
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
@@ -21,7 +21,7 @@ from playwright.async_api import async_playwright
 SRC = os.environ.get('SV_SRC', 'survivors.html')
 SHOTS = os.environ.get('COIN_SHOTS')
 NEW = 'survivors_cx.html'; OLD = 'survivors_cxo.html'
-BASE_COMMIT = '1972f5f'
+BASE_COMMIT = 'cedf7bf'
 FAILS = []; N = [0]; SKIPS = []
 ONLY = [x for x in os.environ.get('COIN_ONLY', '').upper().split(',') if x]   # 예: COIN_ONLY=B,E  (변이 시험 때 구간만 골라 돌린다)
 want = lambda k: not ONLY or k in ONLY
