@@ -1,0 +1,67 @@
+name: Raid sim check (manual)
+
+# 레이드 0단계 — 시뮬 이식(G4)·방 부하(G2') 점검. 수동 실행 전용(workflow_dispatch).
+# 이 저장소는 main push 마다 알림이 가므로 push/schedule 트리거는 달지 않는다. 계정 비밀은 쓰지 않는다.
+# 수치는 GitHub 러너(공용 2코어 가상 머신)의 것이라 서울 1 vCPU VPS 합격 근거가 아니다 — 동작 확인용이다.
+on:
+  workflow_dispatch:
+    inputs:
+      quick_secs:
+        description: 'g4 빠른 점검 조합당 게임 시간(초)'
+        required: false
+        default: '120'
+      bench_secs:
+        description: 'bench_rooms --fast 게임 시간(초)'
+        required: false
+        default: '60'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: raid-sim
+  cancel-in-progress: true
+
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 도구 자기 시험 (앵커·퍼센타일·스텁·린트 게이트)
+        run: |
+          npm install --global eslint@10
+          node tests/raid/sim_selftest.js
+
+      - name: 시뮬 빌드 (앵커 검사)
+        run: node tests/raid/build_sim.js
+
+      - name: G4 빠른 점검 (조합 1개 + 무기 전종 + 린트 + 결정성)
+        env:
+          QUICK_SECS: ${{ inputs.quick_secs }}
+        run: |
+          mkdir -p raid-out
+          python3 tests/raid/g4_test.py --quick --secs "$QUICK_SECS" --lint --determinism --out raid-out/g4_quick.json
+
+      - name: 방 부하 점검 (--fast, 3방)
+        env:
+          BENCH_SECS: ${{ inputs.bench_secs }}
+        run: |
+          mkdir -p raid-out
+          node tests/raid/bench_rooms.js --rooms 3 --secs "$BENCH_SECS" --fast --out raid-out/bench_fast.json
+
+      - name: 결과 올리기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raid-sim-results
+          path: |
+            raid-out/
+            tests/raid/.build/manifest.json
+          if-no-files-found: warn
+          retention-days: 14
