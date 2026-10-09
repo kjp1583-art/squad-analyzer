@@ -111,9 +111,10 @@ def _consts_from_src(src_text):
 
 
 async def replay(src, xlsx=None, gviz_dir=None, master=None, now=None, out=None, focus=(), shots=True,
-                 cats=("rift",), viewport=(430, 960), timeout_s=240, chrome=None, quiet=False, evals=()):
+                 cats=("rift",), viewport=(430, 960), timeout_s=240, chrome=None, quiet=False, evals=(), after=None):
     """웹을 열어 평가를 꺼낸다. 반환 dict: {rift:{players,roster,solo,icons,meta,focus}, aram:{…}, evals:[…], meta:{…}}
-    evals: 로딩이 끝난 뒤 협곡 상태에서 평가해 볼 JS 식(전역 let/const 에 접근 가능) — 결과는 result["evals"] 에 JSON 으로."""
+    evals: 로딩이 끝난 뒤 협곡 상태에서 평가해 볼 JS 식(전역 let/const 에 접근 가능) — 결과는 result["evals"] 에 JSON 으로.
+    after: 로딩·evals 가 끝난 뒤 브라우저를 닫기 전에 `await after(page)` 를 한 번 부른다(스크린샷·클릭 같은 화면 작업용) — 반환값은 result["after"]."""
     from playwright.async_api import async_playwright
     src = os.path.abspath(src)
     root = os.path.dirname(src)
@@ -233,6 +234,7 @@ async def replay(src, xlsx=None, gviz_dir=None, master=None, now=None, out=None,
 
         result["rift"] = await dump("rift")
         result["evals"] = [await pg.evaluate(js) for js in evals]
+        if after: result["after"] = await after(pg)
         for cat in cats:
             if cat == "rift": continue
             await pg.evaluate("(c)=>{loadCategory(c)}", cat)

@@ -1001,7 +1001,7 @@ window.SGG_DC_BOOT=(function(){
     .np-people{grid-template-columns:1fr}.np-todo{grid-template-columns:1fr}}
   @media (prefers-reduced-motion: no-preference){.np-tease{transition:box-shadow .18s ease}}
   /* 🤝 [2026-09-22 사장님 지시] 외부 스크림 상대전적(#scrim) */
-  .sx-total{font-size:15px;white-space:nowrap}
+  .sx-total{font-size:15px}@media(min-width:681px){.sx-total{white-space:nowrap}}   /* 📱 [2026-10-10 A-18] 폰에서 「· 마지막 날짜」가 줄바꿈 없이 페이지를 412px 로 밀던 것 — 폰에서만 줄바꿈 허용 */
   .sx-head .ranktbl tr.on td{background:rgba(91,140,255,.12)}
   .sx-head .ranktbl tbody tr:hover td{background:rgba(255,255,255,.04)}
   .sx-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--mut);margin:0 1.5px;vertical-align:middle}
@@ -1287,6 +1287,17 @@ window.SGG_DC_BOOT=(function(){
      자식 슬롯을 flex:1 로 똑같이 늘려 두 자식의 중심이 정확히 25%·75% 에 오게 만든다.
      그래야 가로 연결선(bk-join)을 25%~75% 로 그었을 때 엘보가 어긋나지 않는다. */
   .bkwrap{overflow-x:auto;padding:4px 2px 8px}
+  /* 📱 [2026-10-10 루프 14회차 A-17 전달] 미토 탭 — 폰에서 265화면·옆으로 52px 밀리던 것: 회차·매치는 접어 두고(처음 열 때 그린다) 표는 상자 안에서만 옆으로 민다 */
+  .tblwrap{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+  .mito-rd>summary,.mito-mt>summary,.mito-acc>summary{cursor:pointer;list-style:none;position:relative;padding-left:20px}
+  .mito-rd>summary::-webkit-details-marker,.mito-mt>summary::-webkit-details-marker,.mito-acc>summary::-webkit-details-marker{display:none}
+  .mito-rd>summary::before,.mito-mt>summary::before,.mito-acc>summary::before{content:"▸";position:absolute;left:2px;top:0;color:var(--sub)}
+  .mito-rd[open]>summary::before,.mito-mt[open]>summary::before,.mito-acc[open]>summary::before{content:"▾"}
+  .mito-rt{font-size:18px;font-weight:800}
+  .mito-ms{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:10px}
+  .mito-mt{border:1px solid var(--line);border-radius:11px;padding:11px;background:var(--bg);min-width:0}
+  .mito-mt>summary{display:block}
+  .mito-body{min-width:0}
   .bk-n{display:flex;flex-direction:column;align-items:stretch}
   .bk-kids{display:flex;flex-direction:row;align-items:flex-start}
   .bk-slot{flex:1;display:flex;justify-content:center;position:relative;padding-top:14px}
@@ -7617,28 +7628,29 @@ function mitoTreeOf(games){
 }
 function bkTeamBox(t,cls,top,jump){
   // 매치 박스를 누르면 그 매치업 데이터(선수 기록)로 내려간다
-  const j=(jump==null)?"":` onclick="mitoJump(${jump})" style="cursor:pointer" title="이 매치업 기록 보기"`;
+  const j=(jump==null)?"":` onclick="mitoJump('${jump}')" style="cursor:pointer" title="이 매치업 기록 보기"`;   // jump = "회차_매치" (회차마다 id 가 겹치면 옛 회차의 박스가 최신 회차로 튀었다)
   return `<div class="bk-box ${cls||''}"${j}>
     ${top?`<div class="bk-top">${esc(top)}</div>`:''}
     ${t.members.map(n=>`<div class="bk-mem"><span class="clickname" onclick="go('player','${escAttr(n)}')">${esc(shortName(n))}</span></div>`).join("")}
   </div>`;
 }
-function mitoJump(i){
-  const el=document.getElementById("mmatch"+i); if(!el) return;
+function mitoJump(id){
+  const el=document.getElementById("mmatch"+id); if(!el) return;
+  for(let p=el;p;p=p.parentElement){ if(p.tagName==="DETAILS"&&!p.open){ p.open=true; mitoFill(p); } }   // 접힌 매치·회차는 열고 속을 그린 다음 이동
   el.scrollIntoView({behavior:"smooth",block:"center"});
   el.style.transition="box-shadow .25s"; el.style.boxShadow="0 0 0 2px var(--accent)";
   setTimeout(()=>{el.style.boxShadow="";},1400);
 }
-function bkNode(m,isRoot){
+function bkNode(m,isRoot,rk){
   // 🏅 승리 경로 강조 — 이 매치를 이긴 쪽에서 올라온 선(슬롯 세로선 + 가로선 반쪽 + 박스로 가는 줄기)만
   //    굵고 밝게 그린다. 그러면 우승팀이 처음 붙은 판부터 꼭대기까지 한 줄로 이어져 보인다.
   const won=m.slots.map(sl=>!!(m.winner&&sl.team.key===m.winner.key));
-  const kids=m.slots.map((s,k)=>`<div class="bk-slot${won[k]?' won':''}">${s.child?bkNode(s.child,false):bkTeamBox(s.team,'','시드')}</div>`).join("");
+  const kids=m.slots.map((s,k)=>`<div class="bk-slot${won[k]?' won':''}">${s.child?bkNode(s.child,false,rk):bkTeamBox(s.team,'','시드')}</div>`).join("");
   // 스코어는 항상 '이긴 쪽 : 진 쪽' 순서로 — 팀 정렬 순서를 따르면 0:1 처럼 뒤집혀 보인다
   const score=(m.winner?[m.winner.wins,...m.teamList.filter(t=>t.key!==m.winner.key).map(t=>t.wins)]
                       :m.teamList.map(t=>t.wins)).join(":");
   const top=(m.label?m.label+" ":"")+score+(m.winner?"":" 무승부");
-  const box=m.winner?bkTeamBox(m.winner,isRoot?'bk-champ':'win',(isRoot?"🏆 ":"")+top,m.idx)
+  const box=m.winner?bkTeamBox(m.winner,isRoot?'bk-champ':'win',(isRoot?"🏆 ":"")+top,rk+"_"+m.idx)
                     :`<div class="bk-box"><div class="bk-top">${esc(top)}</div>${
                         m.teamList.map(t=>t.members.map(n=>`<div class="bk-mem">${esc(shortName(n))}</div>`).join("")).join('<div class="bk-mem muted">vs</div>')}</div>`;
   // 위 → 아래 순서로 쌓는다: 승자 박스 / 연결선 / 하위 라운드
@@ -7647,10 +7659,10 @@ function bkNode(m,isRoot){
   </div>`;
   return `<div class="bk-n">${box}${join}<div class="bk-kids">${kids}</div></div>`;
 }
-function mitoTreeHtml(games){
+function mitoTreeHtml(games,rk){
   const {roots}=mitoTreeOf(games);
   if(!roots.length) return "";
-  return `<div class="bkwrap">${roots.map(r=>`<div style="margin-bottom:14px">${bkNode(r,true)}</div>`).join("")}</div>`;
+  return `<div class="bkwrap">${roots.map(r=>`<div style="margin-bottom:14px">${bkNode(r,true,rk)}</div>`).join("")}</div>`;
 }
 /* 🏟 매치업 데이터 — '이 두 팀이 붙은 판'만으로 낸 선수 기록.
    전체 미토 누적과 달리, 이 매치 안에서 누가 실제로 이겼는지를 본다. */
@@ -7695,31 +7707,60 @@ function mitoMatchStatHtml(m){
   }).join("");
   return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">${cols}</div>`;
 }
-function mitoBracketHtml(games){
-  const ms=mitoMatchesOf(games);
-  if(!ms.length) return "";
-  return `<div style="display:grid;gap:12px">`+ms.map((m,i)=>{
-    const tie=!m.winner;
-    const score=(m.winner?[m.winner.wins,...m.teamList.filter(t=>t.key!==m.winner.key).map(t=>t.wins)]
-                        :m.teamList.map(t=>t.wins)).join(" : ");
-    const cards=m.teamList.map(t=>mitoTeamHtml(t,m.winner&&t.key===m.winner.key,tie)).join(
-      `<div style="align-self:center;font-weight:900;color:var(--sub);padding:0 4px">VS</div>`);
-    const rows=m.games.map(e=>logRow(e.g)).join("");
-    return `<div id="mmatch${i}" style="border:1px solid var(--line);border-radius:11px;padding:11px;background:var(--bg)">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <span style="font-weight:800">${esc(m.label||("매치 "+(i+1)))}</span>
-        <span class="muted" style="font-size:12.5px">${esc(String(m.date||"").slice(0,16))} · ${m.games.length}게임 · ${score}${tie?' (무승부)':''}</span>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${cards}</div>
+/* 📱 [2026-10-10 루프 A-17] 매치 카드는 접어 두고 요약 한 줄만 — 팀 카드·선수 기록·세트별 상세는 눌러서(처음 열 때 그린다).
+   회차 9개를 전부 펼쳐 그리던 때는 폰에서 문서 높이가 20만 px(265화면)였다. */
+function mitoMatchScore(m){
+  return (m.winner?[m.winner.wins,...m.teamList.filter(t=>t.key!==m.winner.key).map(t=>t.wins)]
+                  :m.teamList.map(t=>t.wins)).join(" : ");
+}
+function mitoMatchBody(m){
+  const tie=!m.winner;
+  const cards=m.teamList.map(t=>mitoTeamHtml(t,m.winner&&t.key===m.winner.key,tie)).join(
+    `<div style="align-self:center;font-weight:900;color:var(--sub);padding:0 4px">VS</div>`);
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${cards}</div>
       ${mitoMatchStatHtml(m)}
       ${m.games.map((e,k)=>`<details ${k===0?'open':''} style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">
         <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)">
           ${k+1}세트 <span class="muted" style="font-weight:400">· ${esc(String(e.g.date||'').slice(0,16))} · ${esc(e.g.id)}</span>
         </summary>
         <div style="margin-top:8px">${gameDetailHtml(e.g)}</div>
-      </details>`).join("")}
-    </div>`;
+      </details>`).join("")}`;
+}
+function mitoBracketHtml(games,rk){
+  const ms=mitoMatchesOf(games);
+  if(!ms.length) return "";
+  return `<div class="mito-ms">`+ms.map((m,i)=>{
+    const tie=!m.winner;
+    return `<details class="mito-mt" id="mmatch${rk}_${i}" data-rk="${rk}" data-mi="${i}" ontoggle="mitoFill(this)">
+      <summary>
+        <span style="font-weight:800">${esc(m.label||("매치 "+(i+1)))}</span>
+        <span class="muted" style="font-size:12.5px">${esc(String(m.date||"").slice(0,16))} · ${m.games.length}게임 · ${mitoMatchScore(m)}${tie?' (무승부)':''}</span>
+        ${m.winner?`<div style="font-size:12.5px;color:var(--win);margin-top:2px">🏆 ${esc(m.winner.members.map(shortName).join(" · "))}</div>`:""}
+      </summary>
+      <div class="mito-body"></div>
+    </details>`;
   }).join("")+`</div>`;
+}
+let MITO_RD=[];   // 지금 화면의 회차 자료 [{d,gs}] — 접힌 회차·매치는 처음 열 때 그린다(renderMitoLog 가 새로 채운다)
+function mitoRoundBody(rk){
+  const R=MITO_RD[rk]; if(!R) return "";
+  const gs=R.gs, champs=mitoChampionsOf(gs);
+  const champHtml=champs.length?`<div style="margin:8px 0 10px;padding:9px 11px;border-radius:10px;border:1px solid var(--gold);background:rgba(220,180,80,.09)">
+      ${champs.map(c=>`<div style="font-size:13.5px;line-height:1.7"><span style="color:var(--gold);font-weight:800">🏆 우승</span>
+        <span class="muted" style="font-size:12.5px">${esc(c.label)}</span> —
+        ${c.team.members.map(n=>`<span class="clickname" onclick="go('player','${escAttr(n)}')">${esc(shortName(n))}</span>`).join(" · ")}</div>`).join("")}
+    </div>`:"";
+  return `${champHtml}${mitoTreeHtml(gs,rk)}${mitoBracketHtml(gs,rk)||`<div class="loglist">${gs.map(logRow).join("")}</div>`}`;
+}
+function mitoFill(d){   // <details data-rk=회차> 또는 <details data-rk data-mi=매치> 를 처음 열 때 속을 그린다
+  if(!d||!d.open||d.dataset.done) return;
+  const body=d.querySelector(":scope>.mito-body"); if(!body) return;
+  d.dataset.done="1";
+  const rk=+d.dataset.rk;
+  if(d.dataset.mi!=null){
+    const R=MITO_RD[rk], m=R&&mitoMatchesOf(R.gs)[+d.dataset.mi];
+    body.innerHTML=m?mitoMatchBody(m):"";
+  } else body.innerHTML=mitoRoundBody(rk);
 }
 
 // ═══════ ⚔️ 멸망전(제9회) AI 적정가 — [2026-08-18 사장님 지시] 웹 페이지 신설 ═══════
@@ -8501,29 +8542,26 @@ function renderMitoLog(){
     </tr>`;
   }).join("");
   // 회차는 날짜 자체로 최신순 정렬 — 시트 기록 순서에 기대지 않는다(백필로 옛 게임이 늦게 들어올 수 있음)
-  const days=[...byDay.entries()].sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:0).map(([d,gs])=>{
-    const champs=mitoChampionsOf(gs);
-    const champHtml=champs.length?`<div style="margin:-2px 0 10px;padding:9px 11px;border-radius:10px;border:1px solid var(--gold);background:rgba(220,180,80,.09)">
-      ${champs.map(c=>`<div style="font-size:13.5px;line-height:1.7"><span style="color:var(--gold);font-weight:800">🏆 우승</span>
-        <span class="muted" style="font-size:12.5px">${esc(c.label)}</span> —
-        ${c.team.members.map(n=>`<span class="clickname" onclick="go('player','${escAttr(n)}')">${esc(shortName(n))}</span>`).join(" · ")}</div>`).join("")}
-    </div>`:"";
-    return `<div class="card">
-      <h2>🏟 ${esc(d)} <span class="muted" style="font-size:13.5px">(${gs.length}게임 · ${mitoMatchesOf(gs).length}매치)</span></h2>
-      ${champHtml}
-      ${mitoTreeHtml(gs)}
-      ${mitoBracketHtml(gs)||`<div class="loglist">${gs.map(logRow).join("")}</div>`}
-    </div>`;}).join("");
+  // 📱 [2026-10-10 루프 14회차 A-17] 최신 회차만 펼치고 나머지는 접는다 · 속(대진표·매치 카드)은 처음 열 때 그린다 · 누적 전적은 위에서 접어 둔다
+  MITO_RD=[...byDay.entries()].sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:0).map(([d,gs])=>({d,gs}));
+  const days=MITO_RD.map((R,rk)=>{
+    const gs=R.gs, champs=mitoChampionsOf(gs), nm=mitoMatchesOf(gs).length;
+    const champTxt=champs.length?champs.map(c=>esc(c.team.members.map(n=>shortName(n)).join(" · "))).join(" / "):"";
+    return `<details class="card mito-rd" data-rk="${rk}" ${rk===0?'open data-done="1"':''} ontoggle="mitoFill(this)" style="margin-top:10px">
+      <summary><span class="mito-rt">🏟 ${esc(R.d)}</span> <span class="muted" style="font-size:13.5px">(${gs.length}게임 · ${nm}매치)</span>
+        ${champTxt?`<div style="font-size:13px;margin-top:3px;color:var(--gold)">🏆 우승 ${champTxt}</div>`:""}</summary>
+      <div class="mito-body">${rk===0?mitoRoundBody(0):""}</div>
+    </details>`;}).join("");
   view().innerHTML=`${navTabsHtml('mito')}
-    ${days}
-    <div class="card">
-      <h2>🏟 미토 전적 <span class="muted" style="font-size:13.5px">(${games.length}게임 · ${byDay.size}회차)</span></h2>
-      <div class="muted" style="font-size:13px;margin:-2px 0 10px">미토 회차로 등록된 토너먼트코드로 판 게임만 골라낸 기록이야. 일반 내전 집계와는 별개로 본다.</div>
+    <details class="card mito-acc">
+      <summary><span class="mito-rt">📊 미토 누적 전적</span> <span class="muted" style="font-size:13.5px">(${games.length}게임 · ${byDay.size}회차 · 눌러서 보기)</span></summary>
+      <div class="muted" style="font-size:13px;margin:6px 0 10px">미토 회차로 등록된 토너먼트코드로 판 게임만 골라낸 기록이야. 일반 내전 집계와는 별개로 본다.</div>
       <div class="tblwrap"><table>
         <thead><tr><th>소환사</th><th class="num">게임</th><th class="num">전적</th><th class="num">승률</th><th class="num">KDA</th><th class="num">MVP</th><th class="num">역적</th></tr></thead>
         <tbody>${tbl}</tbody>
       </table></div>
-    </div>`;
+    </details>
+    ${days}`;
 }
 
 /* ===== 🪙 거래소 (2026-08-06 사장님 지시) — 유니크 칭호 전량·소유자·최근거래가·주가차트 =====
@@ -10531,7 +10569,7 @@ function gameDetailHtml(g){
   const _bnHeader=(_banStrip||_nbStrip)?`
     <div class="card" style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px">
       ${_banStrip?`<b>⛔ 밴</b>`:''}${_banB||''}
-      ${_nbStrip?`<span style="display:inline-flex;align-items:center;gap:8px" title="로비에서 노밴으로 선언된 챔피언 (1페이즈 밴 금지 약속 — 플레이 의무는 없음)"><b style="color:#8fe3b0">🚫 노밴</b>${_nbStrip}</span>`:''}
+      ${_nbStrip?`<span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px 8px;max-width:100%" title="로비에서 노밴으로 선언된 챔피언 (1페이즈 밴 금지 약속 — 플레이 의무는 없음)"><b style="color:#8fe3b0">🚫 노밴</b>${_nbStrip}</span>`:''}
       ${_banR?`<span style="margin-left:auto">${_banR}</span>`:''}
     </div>`:'';
   // ⏱ [2026-08-19 사장님 지시] 경기 타임라인 — 렌더 후 비동기 로드(없으면 카드 안에서 안내)
@@ -11217,7 +11255,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610091739";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610100846";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
