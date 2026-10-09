@@ -189,6 +189,20 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .resnote .rnb{display:flex;gap:6px;margin-top:6px}.resnote .btn{width:auto;margin:0;padding:6px 12px;font-size:13px;min-height:44px}
 @media (max-width:480px){#title.hasres .key{max-height:36vh}}
 @media (max-height:520px){#title.hasres .key{max-height:26vh;overflow:visible}#title.hasres .pnopen{right:auto;bottom:auto;left:calc(100% + 10px);top:50%;transform:translateY(-50%);white-space:nowrap}}   /* 가로 화면(폰을 눕힘): 키아트를 낮춰 이어하기 카드가 아래 붙은 시작 버튼에 안 가린다 */
+/* 🪙 [2026-10-09 사장님 지시 "죽으면 코인사용할지말지 유저선택창 띄우고"] 쓰러졌을 때 부활 코인 선택창 */
+#revive .box{border-top-color:var(--gold);padding:16px 14px;outline:0}
+#revive h2{color:#ffd98a;font-size:19px}
+.rvd{margin:6px 0 4px;font-size:14px;font-weight:700;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+.rvc{margin:6px 0 2px;padding:6px 8px;border-radius:10px;background:var(--card2);border:1px solid var(--line);font-size:13px;color:var(--gold);font-weight:700}
+.rvc:empty{display:none}
+.rvs{min-height:20px;margin:6px 0 0;font-size:12.5px;color:#ffb0b0;line-height:1.45;word-break:keep-all;overflow-wrap:anywhere}
+.rvb{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+#revive .btn{min-height:48px;margin:0}
+#rvUse{background:linear-gradient(180deg,#ffd36a,#e0a021);color:#2a1d00;text-shadow:none}
+#revive .btn:disabled{opacity:.5;cursor:default}
+#revive .btn:focus-visible{outline:2px solid var(--win);outline-offset:2px}
+.coinln{margin-top:4px}
+@media (max-height:420px){#revive .box{padding:10px 12px}.rvb{flex-direction:row}.rvb .btn{flex:1}.rvd{margin:2px 0}#revive h2{margin-bottom:4px}}
 </style>
 </head>
 <body>
@@ -230,6 +244,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>💎 색이 진하고 클수록 경험치가 커요. (하늘 ◆ → 민트 ■ → 금색 ⬢ → 연보라 ✦ → 흰보라 ✸) <!-- 💎 [2026-09-30 사장님 지시] --></li>
     <li><b>60분 버티면 클리어!</b> 5분마다 보스(흐접새우의 트롤픽 · 브장신 키우기 레이드 보스), 그 사이 2:30·7:30…엔 미니 보스, 55분엔 최종 보스.</li>
     <li>📅 <b>오늘의 도전</b>: 날짜(KST)로 정해진 같은 시드(맵·카드 뽑기·상자·몰이 이벤트) · <b>하루 한 판</b>만 순위표 「오늘」에 올라가요. 두 번째부터는 연습이에요.</li>
+    <li>🪙 <b>부활 코인</b>: 디스코드 로그인하고 코인이 있으면 쓰러질 때 「코인을 쓸까요?」 창이 떠요. 쓰면 체력 절반으로 일어나고 3초 동안 안 맞아요. 코인은 디스코드에서 「맛동산상점」을 열어 맛동산 1개로 3개를 살 수 있어요(최대 99개).</li>
     <li>♾ <b>무한 모드</b>: 일반·하드·베리하드 어느 모드든 60분을 클리어하면 「무한 모드로 진입하시겠습니까?」를 물어봐요. 수락하면 이어서 계속 싸워요. 난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 무한 순위표에 따로 올라가요(일반·하드·베리하드 난이도별로 순위표가 나뉘어요).</li>
     <li>⭐ 시그니처 유물: 캐릭터마다 전용 유물이 하나씩 있어요(그 캐릭터로 할 때만 유물 카드에 나와요).</li>
     <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥 · 배불배불 🎤 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
@@ -262,6 +277,9 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 
 <div class="ov" id="chest"><div class="box"><h2 id="chestT">🎁 보스 상자</h2><div id="chestList"></div><button class="btn" id="chestOk">좋아!</button></div></div>
 
+<div class="ov" id="revive"><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="rvT" aria-describedby="rvD" tabindex="-1">
+  <h2 id="rvT">🪙 코인을 쓸까요?</h2><div class="rvd" id="rvD"></div><div class="rvc" id="rvC"></div><div class="rvs" id="rvS" role="status" aria-live="polite"></div>
+  <div class="rvb"><button class="btn" id="rvUse" type="button">🪙 코인 쓰고 부활</button><button class="btn g" id="rvNo" type="button">그만하기</button></div></div></div>
 <div class="ov" id="endAsk" style="z-index:7"><div class="box"><h2>♾ 무한 모드</h2><p id="endAskTxt" style="font-weight:700;margin:6px 0 4px">60분 클리어! 무한 모드로 진입하시겠습니까?</p><div class="muted" style="margin:0 0 10px">난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 무한 순위표에 따로 올라가요(방금 60분 클리어 기록은 이미 저장됐어요).</div><button class="btn endb" id="endYes">♾ 네, 계속할게요</button><button class="btn g" id="endNo">아니요, 결과 보기</button></div></div>
 <div class="ov" id="result"><div class="box">
   <h2 id="rTitle">결과</h2>
@@ -272,7 +290,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <div><b id="rLv">1</b><span>레벨</span></div>
     <div><b id="rBest">-</b><span>내 최고 기록</span></div>
   </div>
-  <div id="rWeap" class="muted"></div><div id="unlockMsg"></div>
+  <div id="rWeap" class="muted"></div><div id="unlockMsg"></div><div class="muted" id="rCoin" hidden></div>
   <div class="acct" id="rAcct"></div>
   <button class="btn" id="againBtn">🔁 다시하기</button>
   <button class="btn g" id="homeBtn">처음으로</button>
@@ -547,7 +565,7 @@ try{fetch('https://ddragon.leagueoflegends.com/api/versions.json').then(r=>r.jso
 //   일일 도전은 KST 날짜 문자열에서 시드를 만들어 난수 흐름 몇 개(카드·상자·몰이 이벤트·소품·적 출현)를 이름별로 따로 고정한다.
 //   프레임 시간이 사람마다 달라 전투 난수까지 비트 단위로 같지는 않다 — 같은 건 맵 모양·카드 뽑기 순서·상자·이벤트 종류와 방향·소품 위치다.
 const END_T=10800,END_SLOPE=.6,END_CAPM=30;   // ♾ 무한 모드: 180분에서 끝 · 난이도는 60분 뒤 분당 0.6분 치씩, 최대 +30분 치에서 멈춘다
-const INV_CAP=.80;                            // 🛡 피격 무적(소스가 겹쳐도) 한 번에 남아 있을 수 있는 총합(초) — 부활(2.5초)은 한 판에 한 번이라 제외
+const INV_CAP=.80;                            // 🛡 피격 무적(소스가 겹쳐도) 한 번에 남아 있을 수 있는 총합(초) — 부활(👼 2.5초 · 🪙 3초)은 죽을 때마다 한 번이고 부활 무적이 끝나기 전엔 hitP 가 막아 다시 죽을 수 없어서 제외
 const kstDate=()=>new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
 function seedOf(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;}
 function mulberry(a){return function(){a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
@@ -576,7 +594,7 @@ let ME=null,BOARD=null;
 async function api(path,body){const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{};
   const r=await fetch(P6_API+path,o);let j=null;try{j=await r.json();}catch(e){}return j||{ok:false,code:'http'};}
 function renderAcct(){const u=dcUser();
-  const h=u?`🔐 <b>${esc(ME&&ME.name||u.name)}</b> 로그인 중${ME&&ME.runs?` · ${ME.runs}판 · 최고 ${fmt(ME.best_t)}${ME.rank?` · <b style="color:var(--gold)">${ME.rank}위</b>`:''}`:''} <a href="#" id="dcOut" class="muted">로그아웃</a>`
+  const h=u?`🔐 <b>${esc(ME&&ME.name||u.name)}</b> 로그인 중${ME&&ME.runs?` · ${ME.runs}판 · 최고 ${fmt(ME.best_t)}${ME.rank?` · <b style="color:var(--gold)">${ME.rank}위</b>`:''}`:''} <a href="#" id="dcOut" class="muted">로그아웃</a>${coinLine()}`
     :`로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn">디스코드 로그인</button><div class="muted">로그인 없이도 플레이할 수 있어요(이 기기에만 저장·순위표 제외).</div>`;
   $('acct').innerHTML=h;const i=$('dcIn');if(i)i.onclick=dcLogin;const o=$('dcOut');if(o)o.onclick=e=>{e.preventDefault();dcLogout();};}
 let BOARDE=null,BOARDEH=null,BOARDEV=null,BOARDD=null,SRV_END=null,SRV_DLY=null,DLY_DATE='';
@@ -591,12 +609,14 @@ function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순�
   for(const b of el.querySelectorAll('[data-bt]'))b.onclick=()=>{BTAB=+b.dataset.bt;renderBoard();};}
 async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;BOARDEH=Array.isArray(j.endless_h)?j.endless_h:null;BOARDEV=Array.isArray(j.endless_v)?j.endless_v:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);}catch(e){BOARD=null;}renderBoard();renderDaily();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
-  if(j&&j.ok){ME=j;srvUnl(j.unlocks);mergeUnl(j.unlocks);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
+  if(j&&j.ok){const pc=ME&&Number.isInteger(ME.coins)?ME.coins:undefined;ME=j;if(coinsOf(j)===undefined){if(pc!==undefined)ME.coins=pc;else delete ME.coins;}   // coins 칸이 빠진 응답(봇 재시작 직후)은 '모름' — 직전 값을 이어받는다
+    srvUnl(j.unlocks);mergeUnl(j.unlocks);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();if(state==='revive')rvRender();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
 async function submitRun(won){const u=dcUser();const el=$('rAcct');
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
   if(S.dly&&!S.dly.ranked){el.textContent='🧪 연습 판이라 기록되지 않아요(오늘의 도전은 하루 한 판).';return;}
   const body={token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.vh?0:S.hard?1:0,vhard:S.vh?1:0,unlocks:[...getUnl()].filter(k=>!isShopKey(k))};
+  if(S.cu>0)body.cu=S.cu;
   if(S.dly)body.daily=S.dly.date;else if(S.endless){body.endless=1;body.end_d=S.vh?2:S.hard?1:0;}   // 무한은 순위표 하나 — 어떤 난이도로 이어갔는지만 같이 보낸다
   postRun(body,0);}
 async function postRun(body,n){const el=$('rAcct');
@@ -1262,7 +1282,7 @@ function makeS(dly){return {t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
      cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,cardW:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
      sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{},   // tcd 💬 도발 대사 종류별 다음 허용 시각
      newU:[],staffT:5,slowR:0,proomT:6,proom:{x:0,y:0,R:0,t:0,tk:0},dashCd:0,br:{a:0,R:0,w:0,t:0,ev:0},
-     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},mhpBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9};}   // 🔁 [2026-10-08] 새 판의 S 기본값 — 이어하기가 복구할 때 이 위에 저장값을 얹는다(새로 생긴 필드가 기본값을 받는다)
+     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},mhpBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9,cu:0,cuq:0};}   // 🔁 [2026-10-08] 새 판의 S 기본값 — 이어하기가 복구할 때 이 위에 저장값을 얹는다(새로 생긴 필드가 기본값을 받는다)
 function newRun(dly){
   RSEED=dly?dly.seed:0;RIFT_CACHE.clear();RDEV.clear();   // 🗺 일일 도전은 같은 날 같은 맵 — 바닥 조각 난수에 시드를 섞고 캐시를 비운다
   enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
@@ -1306,14 +1326,14 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)return;if(
 addEventListener('blur',()=>{if(state==='play')pauseGame();});
 
 // ---------- 화면 전환 ----------
-const ovs=['title','lvup','pause','result','chest'];
+const ovs=['title','lvup','pause','result','chest','revive'];
 function show(id){for(const o of ovs)$(o).classList.toggle('on',o===id);$('hud').style.display=(id==='title'||id==='result')?'none':'block';}
 let LASTDLY=false;
 function renderDaily(){const el=$('dailyInfo');if(!el)return;const d=kstDate(),ds=dailyGet(),done=(ds.date===d&&ds.done)||(ME&&ME.daily_done&&ME.daily_date===d);
   const u=dcUser();
   el.innerHTML=`📅 ${esc(d.slice(5))} 오늘의 도전 — 날짜로 정해진 같은 시드(맵·카드 뽑기·상자·몰이 이벤트) · 빌드 제한 없음 · <b>하루 한 판</b>만 기록돼요`+(done?` · ✅ 오늘 기록 완료${ds.date===d&&ds.t?' '+fmt(ds.t):''}`:u?'':' · 로그인해야 기록돼요(안 하면 연습)');
   $('dailyBtn').textContent=done?'📅 오늘의 도전 연습하기(기록 안 됨)':'📅 오늘의 도전 시작';}
-function start(o){if(!RES.confirmStart())return;endAskHide();const daily=!!(o&&o.daily===true);
+function start(o){if(!RES.confirmStart())return;endAskHide();refreshCoins(false);const daily=!!(o&&o.daily===true);
   if(CH.shop&&!SRVUNL.has(CH.k))CH=CHARS[0];   // 🍘 서버 구매 없이는 상점 캐릭터로 시작 못 한다
   AU.init();AU.reset();AU.music(true);if(hasArt(CH))charImg(CH);
   if(daily){VH_ON=false;HARD_ON=false;}   // 오늘의 도전은 일반 규칙 한 가지 — 저장해 둔 하드·베리하드 선택은 건드리지 않는다
@@ -1378,10 +1398,11 @@ function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)r
   const rows=Object.entries(S.dmgBy).sort((a,b)=>b[1]-a[1]).slice(0,6);
   return `<b>📊 피해 비중</b><div class="bw">${rows.map(([k,v])=>`${WEAP[k]?(S.ev[k]?WEAP[k].ev.ic:WEAP[k].ic)+' '+WEAP[k].nm:SRCN[k]||esc(k)} <b>${Math.round(v/t*100)}%</b>`).join(' · ')}</div>`;}
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
-function resume(){if(RES.stale()||RES.shopBad())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
+function resume(){if(state==='revive'||RES.stale()||RES.shopBad())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
 $('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
 $('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');RES.drop();RES.render();};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
 $('chestOk').onclick=()=>{if(state==='chest')resume();};
+$('revive').addEventListener('pointerdown',()=>{RV.pd=performance.now();},true);$('rvUse').onclick=e=>{if(rvFresh(e))coinUse();};$('rvNo').onclick=e=>{if(rvFresh(e))rvQuit();};
 
 // ---------- 레벨업 ----------
 function offers(n,excl){
@@ -2562,16 +2583,94 @@ function bossUnlock(k){   // 🐲 보스 캐릭터 해금 — 처치한 그 순�
   const c=CHARS.find(x=>x.boss&&x.k===k);if(!c)return;const pg=getProg(),had=isUnl(c,pg);
   pg.bk[k]=1;setProg(pg);mergeUnl([k]);
   if(!had){S.newU.push(k);banner(`🔓 새 캐릭터 해금 — ${c.e} ${c.nm}`,'첫 화면 🐲 보스 캐릭터에서 고를 수 있어요',1);}}
-function die(){   // 👼 부활이 남아 있으면 일어난다
+function reviveFx(inv,t1,t2){   // 부활 본문 — 👼 패시브와 🪙 코인이 같이 쓴다(문장 순서·내용은 예전 die() 그대로)
+  const p=S.p;p.hp=p.mhp*.5;invGrant('rev',inv);S.flash=.5;AU.play('evo');banner(t1,t2,2);
+  for(const e of enemies.a)if(e.on&&!e.boss&&(e.x-p.x)**2+(e.y-p.y)**2<260*260){const d=Math.hypot(e.x-p.x,e.y-p.y)||1;e.kr=0;knock(e,(e.x-p.x)/d,(e.y-p.y)/d,500/KB(e),.5);}
+  for(const b of eshots.a)b.on=false;S.ebooms.length=0;S.cone=null;S.cardW=null;S.room=null;clouds.clear();EX.reset();
+  for(const b of S.beams)if(srcOk(b)){b.src.ph=0;b.src.ft=3;}S.beams.length=0;p.stun=0;p.yt=0;}
+function die(){   // 👼 부활 패시브(공짜)가 먼저 → 없고 🪙 코인이 있으면 선택창 → 아니면 예전처럼 끝
   const p=S.p;
-  if(pv('rev')>S.revUsed){S.revUsed++;p.hp=p.mhp*.5;invGrant('rev',2.5);S.flash=.5;AU.play('evo');banner('👼 부활! 한 번 더 버텨라','클랜원들: 살았다…',2);
-    for(const e of enemies.a)if(e.on&&!e.boss&&(e.x-p.x)**2+(e.y-p.y)**2<260*260){const d=Math.hypot(e.x-p.x,e.y-p.y)||1;e.kr=0;knock(e,(e.x-p.x)/d,(e.y-p.y)/d,500/KB(e),.5);}
-    for(const b of eshots.a)b.on=false;S.ebooms.length=0;S.cone=null;S.cardW=null;S.room=null;clouds.clear();EX.reset();
-    for(const b of S.beams)if(srcOk(b)){b.src.ph=0;b.src.ft=3;}S.beams.length=0;p.stun=0;p.yt=0;return false;}
+  if(pv('rev')>S.revUsed){S.revUsed++;reviveFx(2.5,'👼 부활! 한 번 더 버텨라','클랜원들: 살았다…');return false;}
+  if(state==='revive')return true;   // (이중 호출 방어) 선택창이 이미 열려 있다
+  if(coinOffer()){reviveOpen();return true;}
   p.hp=0;endRun(false);return true;
 }
+// ---------- 🪙 [2026-10-09 사장님 지시 "죽으면 코인사용할지말지 유저선택창 띄우고"] 부활 코인 ----------
+//   코인 개수·차감은 서버(봇 /p6/coin)가 유일한 기준 — 쓰기를 고르면 서버가 1개를 뺀 '뒤에만' 부활한다. 같은 (판 rid, 번째 n)은 서버가 두 번 안 빼므로 재시도·이어하기 복구가 안전하다.
+//   이 구획은 Math.random·RN 을 쓰지 않는다 — 코인을 안 쓴 판(오늘의 도전 포함)의 난수 소비 순서는 그대로다. 새 최상위 let 도 만들지 않는다(RV 객체 필드로).
+const COIN_MAX_USE=50,REV_SEC=3,COIN_LOCK=700,COIN_TMO=12000;
+const RV={on:false,mode:'ask',busy:false,n:1,req:0,lockT:0,lockId:0,note:'',refAt:0,pd:0};
+const coinsOf=j=>{const c=j&&j.coins;return Number.isInteger(c)&&c>=0&&c<=9999?c:undefined;};
+const coinsHave=()=>ME&&Number.isInteger(ME.coins)&&ME.coins>0?ME.coins:0;
+const ridOk=()=>!!RUN&&/^[A-Za-z0-9_-]{8,40}$/.test(String(RUN.rid));
+const coinOffer=()=>!!dcUser()&&ridOk()&&S.cu<COIN_MAX_USE&&coinsHave()>0;
+function coinLine(){if(!dcUser()||!ME||!Number.isInteger(ME.coins))return '';
+  return ME.coins>0?`<div class="coinln">🪙 부활 코인 <b>${ME.coins}</b>개 — 쓰러졌을 때 쓸 수 있어요</div>`
+    :`<div class="coinln muted">🪙 부활 코인 0개 — 디스코드 「맛동산상점」에서 맛동산 1개로 코인 3개를 살 수 있어요</div>`;}
+function rvBtns(){const lock=performance.now()<RV.lockT,dead=RV.mode==='nocoin'||RV.mode==='auth';
+  $('rvUse').hidden=dead;$('rvUse').disabled=lock||RV.busy;$('rvNo').disabled=lock||RV.busy;}
+function rvRender(){const have=ME&&Number.isInteger(ME.coins)?ME.coins:null;
+  if(RV.mode==='ask'&&have===0&&!RV.busy){RV.mode='nocoin';RV.note='코인이 없어졌어요. 다른 곳에서 썼을 수 있어요.';}   // 열려 있는 사이 개수가 0 으로 갱신됐다
+  const m=RV.mode;
+  const T={ask:'쓰러졌어요! 코인 1개를 쓰면 체력 절반으로 바로 일어나요. 3초 동안은 안 맞아요.',pending:'코인을 쓰던 중에 멈췄어요. 이미 빠졌다면 다시 빠지지 않아요.',nocoin:'코인을 쓸 수 없어요.',auth:'로그인이 만료돼서 코인을 쓸 수 없어요.'};
+  $('rvT').textContent=(m==='nocoin'||m==='auth')?'💫 쓰러졌어요!':'🪙 코인을 쓸까요?';   // 쓸지 묻는 모드(ask·fail·pending)와 못 쓰는 모드(nocoin·auth)의 제목
+  $('rvD').textContent=T[m]||T.ask;
+  $('rvC').textContent=(m==='nocoin'||m==='auth'||m==='pending')?'':have===null?'코인 개수를 확인하고 있어요…':`내 코인 ${have}개 → 쓰면 ${Math.max(0,have-1)}개`;
+  $('rvUse').textContent=RV.busy?'코인 쓰는 중…':m==='pending'?'▶ 이어서 부활하기':m==='fail'?'다시 시도':'🪙 코인 쓰고 부활';
+  $('rvNo').textContent=(m==='nocoin'||m==='auth')?'결과 보기':'그만하기';
+  $('rvS').textContent=RV.busy?'서버에 물어보는 중이에요…':RV.note||(m==='pending'?'그만하기를 누르면 이미 빠진 코인은 돌아오지 않을 수 있어요.':'');
+  rvBtns();}
+function rvLock(ms){RV.lockT=performance.now()+ms;clearTimeout(RV.lockId);rvBtns();
+  RV.lockId=setTimeout(()=>{rvBtns();if(state==='revive'&&!RV.busy){const b=$('rvUse').hidden?$('rvNo'):$('rvUse');try{b.focus({preventScroll:true});}catch(e){}}},ms+30);}
+function reviveOpen(){const p=S.p;
+  p.hp=0;p.inv=0;state='revive';EX.hs=0;EX.hurt=0;EX.shk=0;keys={};joy.on=false;joy.dx=joy.dy=0;AU.music(false);hud();
+  RV.on=true;RV.busy=false;RV.pd=0;RV.n=S.cu+1;RV.mode=S.cuq===1?'pending':'ask';RV.note='';RV.req++;
+  rvRender();show('revive');rvLock(COIN_LOCK);
+  const bx=$('revive').firstElementChild;if(bx)try{bx.focus({preventScroll:true});}catch(e){}
+  RES.save('revive');refreshCoins(true);}
+function reviveApply(j,n){
+  const c=coinsOf(j);if(ME&&c!==undefined)ME.coins=c;
+  S.cu=n;S.cuq=0;RV.on=false;clearTimeout(RV.lockId);++RV.req;
+  state='play';show(null);$('hud').style.display='block';last=performance.now();
+  reviveFx(REV_SEC,'🪙 코인 부활! 3초 동안은 안 맞아요',c===undefined?'':`남은 코인 ${c}개`);
+  AU.music(true);RES.onResume();renderAcct();}
+async function coinUse(){
+  if(state!=='revive'||RV.busy||performance.now()<RV.lockT)return;
+  if(RES.stale())return;
+  const u=dcUser();
+  if(!u){RV.mode='auth';rvRender();return;}
+  if(!ridOk()){RV.mode='nocoin';RV.note='판 번호가 올바르지 않아요.';rvRender();return;}
+  const n=RV.n,my=++RV.req,rid=String(RUN.rid);RV.busy=true;S.cuq=1;RES.save('revive');rvRender();
+  let j=null,why='';const AC=typeof AbortController==='function'?new AbortController():null,tm=setTimeout(()=>{why='timeout';if(AC)AC.abort();},COIN_TMO);
+  try{const r=await fetch(P6_API+'/p6/coin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:u.token,op:'use',rid,n}),signal:AC?AC.signal:undefined});
+    try{j=await r.json();}catch(e){}if(!j)j={ok:false,code:'http'};}
+  catch(e){why=why||'net';}
+  clearTimeout(tm);
+  if(my!==RV.req||state!=='revive')return;
+  RV.busy=false;
+  if(j&&j.ok===true){reviveApply(j,n);return;}
+  const code=j&&j.code?String(j.code).slice(0,16):'';let lock=400;
+  if(code==='no_coin'){S.cuq=0;if(ME)ME.coins=0;RV.mode='nocoin';RV.note='다른 곳에서 썼거나 다 썼을 수 있어요.';}
+  else if(code==='auth'){S.cuq=0;RV.mode='auth';RV.note='';}
+  else if(code==='bad'||code==='big'||code==='not_found'){S.cuq=0;RV.mode='nocoin';RV.note=(code==='not_found'||code==='big')?'서버가 아직 코인을 몰라요.':'요청이 잘못돼서 코인을 쓸 수 없어요.';}
+  else{RV.mode='fail';
+    RV.note=why==='timeout'?'서버가 늦어요. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.':why==='net'?'서버에 닿지 않았어요. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.':code==='upstream'?'디스코드 확인이 늦어요. 잠시 뒤 다시 눌러 보세요.':code==='rate'?'너무 빨리 눌렀어요. 잠깐 뒤에 다시 눌러 주세요.':code==='busy'?'서버가 잠깐 바빠요. 잠시 뒤 다시 눌러 주세요. 코인은 두 번 빠지지 않아요.':'서버가 받지 못했어요'+(code?'('+code+')':'')+'. 다시 눌러 보세요. 코인은 두 번 빠지지 않아요.';
+    if(code==='rate'||code==='busy')lock=1500;}
+  RES.save('revive');rvRender();rvLock(lock);}
+const rvFresh=e=>performance.now()>=RV.lockT&&(!e||e.detail===0||RV.pd>=RV.lockT);   // 선택창이 열린 뒤·잠금이 풀린 뒤에 '새로 누른' 클릭만 인정(열리기 전부터 누르고 있던 손가락이 떼어지며 눌리는 것을 막는다 · 키보드·보조기기 클릭은 detail 0)
+function rvQuit(){if(state!=='revive'||RV.busy||performance.now()<RV.lockT)return;RV.on=false;++RV.req;clearTimeout(RV.lockId);endRun(false);}
+async function refreshCoins(force){const u=dcUser();if(!u)return;
+  const now=Date.now();if(!force&&now-RV.refAt<5000)return;RV.refAt=now;
+  if(!ME){await loadMe();return;}
+  const q=RV.req;
+  try{const j=await api('/p6/me',{token:u.token});
+    if(q!==RV.req||!j||!j.ok||!ME)return;
+    const c=coinsOf(j);if(c!==undefined)ME.coins=c;   // coins 가 없으면 '모름' — 직전 값을 지우지 않는다(봇이 재시작한 직후엔 이 칸이 빠진다)
+    renderAcct();if(state==='revive')rvRender();}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshCoins(false);});
+addEventListener('pageshow',e=>{if(e.persisted)refreshCoins(false);});
 // 🛡 [2026-10-07 사장님 지시] 피격 무적 총합 상한 — 기본 0.45 + 방패계열(+0.12) + 줄행랑3(+0.2) + 태웅 돌진(0.5) + 막기(0.15) + 부활(2.5)이 겹쳐도
-//   남아 있는 무적은 INV_CAP 을 넘지 않는다(소스끼리 더하지 않고 큰 쪽 · 같은 소스는 끝나기 전엔 다시 못 준다). 부활만 한 판 한 번이라 예외.
+//   남아 있는 무적은 INV_CAP 을 넘지 않는다(소스끼리 더하지 않고 큰 쪽 · 같은 소스는 끝나기 전엔 다시 못 준다). 부활(👼 2.5초 · 🪙 3초)만 죽을 때마다 한 번(무적이 끝나기 전엔 hitP 가 막아 다시 죽을 수 없다)이라 예외.
 function invGrant(src,sec){const p=S.p;
   if(src==='rev'){p.inv=Math.max(p.inv,sec);S.invCur=src;return sec;}
   if(p.inv>0&&S.invCur===src)return 0;   // 같은 소스가 아직 켜져 있으면 이어 붙이지 않는다
@@ -2778,6 +2877,7 @@ function endRun(won,quit){
   const bi=hasArt(CH)?BIMG[bkey(CH)]:null,bs=!!(bi&&bi.c),face=document.querySelector('#result .face');
   face.style.backgroundImage=bs?`url(${artUrl(CH)})`:'';face.style.backgroundSize=bs?'contain':'';face.style.backgroundPosition=bs?'50% 45%':'';face.setAttribute('aria-label',bs?CH.nm:'흐접새우');face.querySelectorAll('.bdgs').forEach(x=>x.remove());if(bs&&CH.bdg){face.style.position='relative';face.appendChild(bdgEls(CH));}
   $('rSay').textContent=bs&&CH.boss?pickLine(won?BOSS[CH.k].win:BOSS[CH.k].dead):!won&&!quit&&Math.random()<.5?pickLine(DEATH_SAY):SAY[Math.random()*SAY.length|0];   // 💬 쓰러졌을 땐 절반은 도발 마무리 대사
+  {const el=$('rCoin');if(el){const k=S.cu|0;el.hidden=!k;el.textContent=k?`🪙 부활 코인 ${k}개를 썼어요`+(ME&&Number.isInteger(ME.coins)?` · 남은 코인 ${ME.coins}개`:''):'';}}
   renderRoster();show('result');submitRun(won);
 }
 
@@ -3631,6 +3731,7 @@ requestAnimationFrame(frame);
 //   원인: 폰은 숨겨진 페이지를 메모리가 모자라면 말없이 지운다(그때는 이벤트도 없다). 판은 메모리(S·풀)에만 있었다.
 //   ① 저장: 화면이 숨겨질 때(visibilitychange·pagehide·freeze)와 일시정지·레벨업·보스 상자 순간에 S·풀을 '일반 그래프 직렬화'로 localStorage 한 칸에 동기 저장
 //   ② 복구: 새로 연 제목 화면의 이어하기 카드 → 일시정지 상태로 되살린다(계속하기를 눌러야 시간이 흐른다 · 소리도 그 탭 뒤에)
+//   🪙 [2026-10-09 사장님 지시 "죽으면 코인사용할지말지 유저선택창 띄우고"] 쓰러진 순간(코인 선택창 'revive')도 저장 대상 — 창이 뜬 채 앱이 꺼져도 같은 창으로 돌아온다
 //   ③ 판 도중(play)에는 저장본이 없다 — 복구하면 소모, 계속하기를 누르면 삭제. 사망·클리어·그만두기·새 판에서도 지운다(앱을 강제 종료해 되감기하는 길을 막는다)
 //   필드를 손으로 나열하지 않는다: S 와 풀을 그대로 걸어서 저장하므로 새 필드는 자동으로 들어간다.
 //   저장 못 하는 값(함수·DOM·Image)이 새로 생기면 저장을 거부하고 시험(tests/survivors_resume_test.py)이 실패한다.
@@ -3713,7 +3814,7 @@ const RES=(()=>{
   function slotMap(){const m=new Map();for(const n of PN)POOL[n].a.forEach((o,i)=>m.set(o,[n,i]));return m;}
   function build(){   // {text,body,head,rep,bad} — 저장할 수 없는 상태면 text 가 null
     if(!S||!RUN)return {text:null,why:'no-run'};
-    const stt=state==='play'?'pause':state;if(stt!=='pause'&&stt!=='lvup'&&stt!=='chest')return {text:null,why:'state-'+state};
+    const stt=state==='play'?'pause':state;if(stt!=='pause'&&stt!=='lvup'&&stt!=='chest'&&stt!=='revive')return {text:null,why:'state-'+state};
     if(!STATIC)buildStatic();
     const slot=slotMap(),E=makeEnc(v=>slot.get(v),v=>STATIC.get(v));
     const diffs={},lens={},defs={};
@@ -3786,11 +3887,11 @@ const RES=(()=>{
   function save(why){
     try{
       if(quiet||!S||!RUN||info.ok===false)return false;
-      if(state!=='pause'&&state!=='lvup'&&state!=='chest'&&state!=='play')return false;
+      if(state!=='pause'&&state!=='lvup'&&state!=='chest'&&state!=='revive'&&state!=='play')return false;
       if(stale())return false;
       const cur=peek();
       if(cur&&cur.rid!==RUN.rid&&cur.rs>RUN.rs){info.skipped++;info.why='newer-slot';return false;}   // 더 새 판(다른 창)의 저장본을 덮어쓰지 않는다
-      const key=(state==='play'?'pause':state)+'|'+RUN.rid+'|'+RUN.gen+'|'+S.t+'|'+S.lv+'|'+S.kills+'|'+S.rr+'|'+S.ban+'|'+S.banned.length+'|'+S.banMode+'|'+S.pendingLv+'|'+S.xp+'|'+(state==='lvup'?CUR.map(c=>c.k||c.r||c.t).join(','):'')+'|'+JSON.stringify([S.w,S.ps,S.ev,S.rel,S.tier,S.pt,S.tr,S.sm]);   // 같은 카드 구성이 연달아 나와도 그 사이 고른 것(보유 장비)이 다르면 다른 상태다
+      const key=(state==='play'?'pause':state)+'|'+RUN.rid+'|'+RUN.gen+'|'+S.t+'|'+S.lv+'|'+S.kills+'|'+S.rr+'|'+S.ban+'|'+S.banned.length+'|'+S.banMode+'|'+S.pendingLv+'|'+S.xp+'|'+S.cu+'|'+S.cuq+'|'+(state==='lvup'?CUR.map(c=>c.k||c.r||c.t).join(','):'')+'|'+JSON.stringify([S.w,S.ps,S.ev,S.rel,S.tier,S.pt,S.tr,S.sm]);   // 같은 카드 구성이 연달아 나와도 그 사이 고른 것(보유 장비)이 다르면 다른 상태다
       if(key===lastKey&&cur&&cur.rid===RUN.rid)return true;   // 방금 같은 상태를 이미 저장했다(pauseGame → 숨김 이벤트가 연달아 올 때)
       const t0=performance.now(),b=build();
       if(!b.text){info.why=b.why;info.rep=b.rep||null;
@@ -3808,7 +3909,7 @@ const RES=(()=>{
     if(!h)return 'none';if(h.f!==FMT)return 'ver';if(h.sig!==SIG)return 'sig';
     const age=(now||Date.now())-h.ts;if(!(age>=-10*60*1000)||age>TTL)return 'old';
     if(!CHARS.some(c=>c.k===h.ch))return 'char';
-    if(!['pause','lvup','chest'].includes(h.st))return 'state';
+    if(!['pause','lvup','chest','revive'].includes(h.st))return 'state';
     return '';}
   function parse(text){
     const i=text.indexOf('\n');if(i<2)throw new Error('format');
@@ -3840,6 +3941,7 @@ const RES=(()=>{
     if(S.kills>50+250*Math.max(S.t,1))bad('kills too many');                  // 서버가 어차피 거절하는 값(_p6_max_kills) — 일찍 알린다
     for(const T of [S.w,S.ps,S.ev,S.rel,S.tr,S.sm,S.tier,S.pt])for(const k in T){const v=T[k];if(!(typeof v==='boolean'||(typeof v==='number'&&Number.isFinite(v))))bad('value '+k);}   // 이 값들은 화면 문구에 그대로 들어간다 — 숫자·참거짓이 아니면 거부
     if(S.ramen!=null&&!Number.isFinite(S.ramen))bad('ramen');
+    if(!Number.isInteger(S.cu)||S.cu<0||S.cu>50)bad('cu');if(S.cuq!==0&&S.cuq!==1)bad('cuq');
     if(!isPO(S.dmgBy))bad('dmgBy');for(const k in S.dmgBy){if(!/^[\w\-]{1,24}$/.test(k)||!Number.isFinite(S.dmgBy[k]))bad('dmgBy.'+k);}   // 키는 피해 비중 문구에 들어간다
     if(!isPO(S.mhpBy))bad('mhpBy');for(const k in S.mhpBy){if(!/^[\w\-]{1,24}$/.test(k)||!Number.isFinite(S.mhpBy[k]))bad('mhpBy.'+k);}
     if(!Array.isArray(S.live))bad('live');
@@ -3874,6 +3976,7 @@ const RES=(()=>{
     last=performance.now();hud();   // 일시정지·레벨업·상자 화면 뒤의 HUD 도 저장 당시 값으로(frame 은 play 일 때만 hud 를 부른다)
     if(mod.state==='lvup'){CUR=mod.CUR;state='lvup';keys={};drawCards();show('lvup');}
     else if(mod.state==='chest'){$('chestList').innerHTML=cleanHtml(mod.view.list);$('chestT').textContent=mod.view.title;state='chest';show('chest');}
+    else if(mod.state==='revive'){reviveOpen();}
     else{pauseGame();$('pInfo').insertAdjacentHTML('afterbegin','<div class="hint" style="margin:4px 0 8px">🔄 하던 판을 불러왔어요 — 준비되면 아래 계속하기를 눌러요</div>');}   // 일시정지 화면(소리 정지 포함)
     return mod;}
   function discard(why){console.info('[이어하기] 저장본 폐기:',why);drop(true);}
@@ -3913,7 +4016,7 @@ const RES=(()=>{
     card.hidden=!h;$('title').classList.toggle('hasres',!!h);$('startBtn').textContent=h?'▶ 새로 시작하기':'▶ 시작하기';   // 하던 판이 있으면 '새로' 임을 분명히(눌러도 하던 판이 말없이 사라지지 않게 한 번 더 묻는다)
     if(h){const c=CHARS.find(x=>x.k===h.ch);
       $('resSum').innerHTML=`${esc(c.e||'')} <b>${esc(c.nm)}</b> · ${esc(fmt(h.t))} · Lv ${esc(h.lv)} · 처치 ${esc(h.k)}`+({d:' · 📅 오늘의 도전',e:' · ♾ 무한',v:' · 💀 베리하드',h:' · 🔥 하드'}[h.m]||'');
-      $('resAgo').textContent=(ago(h.ts)==='방금'?'방금 멈췄어요':`${ago(h.ts)}에 멈췄어요`)+({lvup:' · 레벨업 카드 고르는 중',chest:' · 보스 상자 앞'}[h.st]||'');
+      $('resAgo').textContent=(ago(h.ts)==='방금'?'방금 멈췄어요':`${ago(h.ts)}에 멈췄어요`)+({lvup:' · 레벨업 카드 고르는 중',chest:' · 보스 상자 앞',revive:' · 쓰러져서 코인을 고르는 중'}[h.st]||'');
       $('resDel').textContent='버리기';delete $('resDel').dataset.sure;}
     // 안내 한 줄: 저장 불가 > 앱 내장 브라우저(한 번만 · 닫으면 다시 안 보임). 게임을 시작하면 사라진다
     if(state==='title'&&!noteShown){let txt='',kind='';
@@ -3929,7 +4032,7 @@ const RES=(()=>{
   function onLeave(){   // 숨겨짐·페이지 떠남 — 판이 있으면 일시정지 상태로 저장(play 였다면 먼저 멈춘다)
     if(!S||!RUN)return;
     if(state==='play'){pauseGame();return;}   // pauseGame 이 저장한다
-    if(state==='pause'||state==='lvup'||state==='chest')save('leave');}
+    if(state==='pause'||state==='lvup'||state==='chest'||state==='revive')save('leave');}
   function onBack(){if(document.hidden)return;if(stale())return;if(state==='title')render();}
   function init(){
     try{buildStatic();}catch(e){console.warn('[이어하기] 표 서명 실패',e);}
