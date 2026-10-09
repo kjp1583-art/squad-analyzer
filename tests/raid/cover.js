@@ -59,7 +59,11 @@ function pass(o, all, assign, label) {
    솔로 사본(sim.js)에서는 같은 무기가 피해를 남긴다. 즉 1차 누락은 4액터 텍스트 패치의 한계일 수 있어, 모두가 같은 무기를 쥔 2차에서도 못 확인된 것만 실패로 본다. */
 function runCover(o) {
   const probe = loadSimFile(o.simMpPath, { seed: o.seed });
-  const all = Object.keys(probe.__p6x.WEAP);
+  const table = Object.keys(probe.__p6x.WEAP);
+  // 코드가 실제로 읽는 무기 키(S.w.<키>)와 WEAP 표를 맞춰 본다. 표에만 있거나 코드에만 있는 것은 보고하고, 코드에만 있는 것도 시험 대상에 넣는다.
+  const refs = new Set(); for (const m of fs.readFileSync(o.simMpPath, 'utf8').matchAll(/\bS\.w\.([a-z][a-z0-9_]*)/g)) refs.add(m[1]);
+  const codeOnly = [...refs].filter(k => !table.includes(k)), tableOnly = table.filter(k => !refs.has(k));
+  const all = [...table, ...codeOnly];
   const added = all.filter(k => !KNOWN_39.includes(k)), removed = KNOWN_39.filter(k => !all.includes(k));
   const per = Math.ceil(all.length / o.combo.length);
   const p1 = pass(o, all, i => all.slice(i * per, (i + 1) * per), '1차(나눠 쥠)');
@@ -74,7 +78,7 @@ function runCover(o) {
   const err = p1.error || (p2 && p2.error) || null;
   const early = p1.ended_early || (p2 && p2.ended_early) || null;
   return {
-    evo: !!o.evo, combo: o.combo.join(','), secs: o.secs, from: o.from, weapons_now: all.length, known_39: KNOWN_39.length, added, removed,
+    evo: !!o.evo, combo: o.combo.join(','), secs: o.secs, from: o.from, weapons_now: all.length, known_39: KNOWN_39.length, added, removed, code_only: codeOnly, table_only: tableOnly,
     ticks: p1.ticks + (p2 ? p2.ticks : 0), ms_per_tick: p1.ms_per_tick, game_s: p1.game_s,
     error: err, ended_early: early, first_pass_missing: missing1, second_pass_recovered: recovered,
     used: all.filter(k => used.has(k)), missing,
@@ -114,6 +118,8 @@ function main() {
   if (!o.json) {
     console.log(`[cover] 무기 ${r.weapons_now}종(옛 목록 ${r.known_39}종) · ${r.secs}초(S.t ${r.from}부터)${r.evo ? ' · 각성/마스터' : ''}`);
     if (r.added.length || r.removed.length) console.log(`옛 목록과 다른 점 — 추가: ${r.added.join(',') || '없음'} · 삭제: ${r.removed.join(',') || '없음'}  (시험은 현재 WEAP 기준)`);
+    if (r.code_only.length || r.table_only.length) console.log(`코드(S.w.<키>)와 WEAP 표가 다름 — 코드에만: ${r.code_only.join(',') || '없음'} · 표에만: ${r.table_only.join(',') || '없음'}`);
+    else console.log(`코드의 S.w.<키> 참조 ${r.weapons_now}종 = WEAP 표 ${r.weapons_now}종 (일치)`);
     console.log(`ticks ${r.ticks} ms/tick ${r.ms_per_tick} S.t ${r.game_s}`);
     if (r.error) console.log(`ERR t=${r.error.at_game_s}s\n${r.error.stack}`);
     if (r.ended_early) console.log(`FAIL 판이 일찍 끝남 t=${r.ended_early.at_game_s}s`);

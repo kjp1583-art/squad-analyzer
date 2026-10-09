@@ -57,6 +57,10 @@ function encode(x, n) {
   return buf;
 }
 
+// 스레드 CPU 시간(선점·대기 제외) — 공용 기계에서 「일 자체의 크기」와 「CPU 를 못 받아 늦은 것」을 가르는 데 쓴다. Node 22.19+ 에서만 있음.
+const hasCpu = typeof process.threadCpuUsage === 'function';
+const cpuMs = () => { const u = process.threadCpuUsage(); return (u.user + u.system) / 1000; };
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const yieldLoop = () => new Promise(r => setImmediate(r));
 
@@ -68,7 +72,8 @@ async function main() {
   parentPort.postMessage({ t: 'ready', load_ms: r3(hr() - tLoad) });
   try { obs.observe({ entryTypes: ['gc'] }); } catch (e) { gc.unsupported = String(e && e.message); }   // 컨텍스트 로드 뒤부터만 센다(틱 중의 GC 가 대상)
 
-  const A = { tick: new Float64Array(total), upd: new Float64Array(total), enc: new Float64Array(total), start: new Float64Array(total) };
+  const A = { tick: new Float64Array(total), upd: new Float64Array(total), enc: new Float64Array(total), start: new Float64Array(total), cpu: new Float64Array(total) };
+  let cpuTotal = 0;
   let n = 0, late = 0, lateMax = 0, errors = 0, firstError = null, snapSum = 0, snapMax = 0, heapMax = 0, status = 'ok';
   const t0 = hr();
   let anchor = t0;
@@ -88,6 +93,7 @@ async function main() {
       if (fault.kind === 'throw') { fault.kind = null; try { x.update(NaN); throw new Error('시험용 예외(fault=throw)'); } catch (e) { errors++; firstError = firstError || { at_tick: n, message: String(e.message), stack: String(e.stack).split('\n').slice(0, 4).join('\n') }; status = 'error'; break; } }
     }
 
+    const c0 = hasCpu ? cpuMs() : 0;
     const tS = n / hz;
     x.ACT.forEach((a, i) => { a.keys = MOVES[Math.floor((tS + i * 0.7) / 2.5) % 4]; });
     let u0 = s0, u1 = s0, e1 = s0, p1 = s0;
@@ -107,6 +113,7 @@ async function main() {
       break;   // 실제 서버도 예외가 난 방은 끝낸다
     }
     A.upd[n] = u1 - u0; A.enc[n] = e1 - u1; A.tick[n] = p1 - s0;
+    if (hasCpu) { const dc = cpuMs() - c0; A.cpu[n] = dc; cpuTotal += dc; }
     if (n % 30 === 0) { const h = v8.getHeapStatistics().used_heap_size / 1048576; if (h > heapMax) heapMax = h; }
     if (realtime) {
       const next = anchor + (n + 1) * dtMs;
@@ -122,6 +129,7 @@ async function main() {
   parentPort.postMessage({ t: 'done', stats: {
     id, chars, ticks: n, status, game_s: r3(n / hz), wall_s: r3(wallMs / 1000),
     tick_ms: summarize(A.tick, n), update_ms: summarize(A.upd, n), encode_ms: summarize(A.enc, n), start_delay_ms: realtime ? summarize(A.start, n) : null,
+    tick_cpu_ms: hasCpu ? summarize(A.cpu, n) : null, tick_cpu_ms_total: hasCpu ? r3(cpuTotal) : null,
     late_ticks: late, late_max_ms: r3(lateMax), errors, first_error: firstError,
     gc: { count: gc.count, total_ms: r3(gc.total_ms), max_ms: r3(gc.max_ms), unsupported: gc.unsupported },
     heap_mb_max: r3(Math.max(heapMax, heapNow.used_heap_size / 1048576)), heap_limit_mb: r3(heapNow.heap_size_limit / 1048576),

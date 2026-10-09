@@ -42,7 +42,8 @@ function runCombo(opts) {
   const res = { combo: opts.combo.join(','), secs, hz, seed: opts.seed != null ? opts.seed : null, move, ok: false, ticks: 0, error: null, ended_early: null, stuck: null, nonfinite: null, hashes: [], hash_final: null };
   let rs = (opts.seed != null ? opts.seed : 12345) >>> 0;
   const rnd = () => { rs = (rs + 0x6D2B79F5) | 0; let t = Math.imul(rs ^ (rs >>> 15), 1 | rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  x.initMP(opts.combo);
+  try { x.initMP(opts.combo); }
+  catch (e) { res.error = { at_game_s: 0, tick: -1, message: String(e && e.message || e), stack: String(e && e.stack || e).split('\n').slice(0, 4).join('\n'), where: 'initMP' }; res.wall_ms = 0; res.ok = false; res.actors = []; res.weapons_start = []; return res; }
   res.weapons_start = x.ACT.map(a => Object.keys(a.b.w));
   const total = Math.round(secs * hz);
   let maxE = 0, stuckN = 0, lastBad = '';
@@ -135,8 +136,8 @@ function main() {
   r.survivors_sha256 = b.manifest.survivors_sha256;
   if (!o.json) {
     console.log(`[mp_run] 조합 ${r.combo} · ${r.secs}초 · ${r.hz}Hz · move=${r.move}${r.seed != null ? ' · seed=' + r.seed : ''}`);
-    console.log('actors', r.actors.length, 'weapons per actor', JSON.stringify(r.weapons_start));
-    console.log(`ticks ${r.ticks} ms/tick ${r.ms_per_tick}${r.cpu_ms_per_tick != null ? ' CPU ms/tick ' + r.cpu_ms_per_tick : ''} S.t ${r.game_s} maxE ${r.max_enemies} deaths(hits that would kill) ${r.deaths_absorbed}`);
+    if (r.actors.length) console.log('actors', r.actors.length, 'weapons per actor', JSON.stringify(r.weapons_start));
+    if (r.actors.length) console.log(`ticks ${r.ticks} ms/tick ${r.ms_per_tick}${r.cpu_ms_per_tick != null ? ' CPU ms/tick ' + r.cpu_ms_per_tick : ''} S.t ${r.game_s} maxE ${r.max_enemies} deaths(hits that would kill) ${r.deaths_absorbed}`);
     for (const a of r.actors) console.log(` actor ${a.i} ${a.k} lv ${a.lv} dmg ${a.dmg} weapons ${JSON.stringify(a.weapons)}`);
     if (r.error) console.log(`ERR at game t=${r.error.at_game_s}s${r.error.where ? ' (' + r.error.where + ')' : ''}\n${r.error.stack}`);
     if (r.ended_early) console.log(`FAIL 판이 일찍 끝남 t=${r.ended_early.at_game_s}s — ${r.ended_early.why}`);

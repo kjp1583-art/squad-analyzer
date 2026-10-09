@@ -102,6 +102,7 @@ function main() {
       const bad = outRooms.filter(r => r.status !== 'ok' && r.status !== 'stopped');
       const tickP99s = outRooms.map(r => r.tick_ms && r.tick_ms.p99).filter(v => v != null);
       const tickP99max = tickP99s.length ? Math.max(...tickP99s) : null;
+      const roomGameS = outRooms.reduce((a, r) => a + (r.game_s != null ? r.game_s : (r.ticks || 0) / o.hz), 0);   // 방들이 돌린 게임 시간의 합(초)
       const cpuPct = r3(((cu.user + cu.system) / 1000) / (wallS * 1000) * 100);
       const m = 'G2 합격 판정은 목표 사양(서울 1 vCPU VPS)에서만 의미가 있다 — 다른 기계의 값은 참고용.';
       let pass, note = m;
@@ -121,7 +122,10 @@ function main() {
           combos: roomChars.map(c => c.join(',')), heap_mb: o.heapMb, seed: baseSeed, hb_timeout_ms: o.hbMs },
         rooms: outRooms,
         loop_delay_ms: { p50: loop.p50, p99: loop.p99, max: loop.max, resolution_ms: loop.resolution_ms },
-        cpu: { user_ms: r3(cu.user / 1000), system_ms: r3(cu.system / 1000), pct_of_1cpu: cpuPct },
+        cpu: { user_ms: r3(cu.user / 1000), system_ms: r3(cu.system / 1000), pct_of_1cpu: cpuPct,
+          // 방 1개가 게임 1초를 돌리는 데 쓴 CPU(ms) — 공용 기계·--fast 에서도 의미가 있다. 실시간(30Hz)으로 전용 코어에서 돌린다면 필요한 점유율의 추정.
+          ms_per_room_game_s: roomGameS ? r3((cu.user + cu.system) / 1000 / roomGameS) : null,
+          est_realtime_pct_of_1cpu: roomGameS && wallS ? r3(((cu.user + cu.system) / 1000 / roomGameS) * o.rooms / 10) : null },
         rss_mb_max: r3(rssMax / 1048576),
         gates: { G2: { tick_p99_ms_max_over_rooms: tickP99max, limit: LIMIT_TICK_P99, loop_delay_p99_ms: loop.p99, limit2: LIMIT_LOOP_P99, pass, note } },
       };
@@ -185,10 +189,10 @@ function main() {
 function printSummary(res) {
   const f = v => (v == null ? '-' : v);
   console.log(`\n[bench] 결과 — 방 ${res.input.rooms} · ${res.input.secs}s · ${res.input.realtime ? 'realtime' : 'fast'} · wall ${res.wall_s}s · host ${res.host.cpus}cpu(허용 ${res.host.cpus_allowed}) load ${res.host.loadavg.start.join('/')}→${res.host.loadavg.end.join('/')}`);
-  console.log('방  상태       틱수   tick p50/p95/p99/p99.9/max (ms)             update p99  encode p99  late(최대ms)  GC(횟수/합ms/최대ms)  힙max  snap(평균/최대B)');
+  console.log('방  상태       틱수   tick p50/p95/p99/p99.9/max (ms)             update p99  encode p99  CPU시간 p99/max  late(최대ms)  GC(횟수/합ms/최대ms)  힙max  snap(평균/최대B)');
   for (const r of res.rooms) {
     const t = r.tick_ms || {};
-    console.log(`${String(r.id).padEnd(3)} ${String(r.status).padEnd(10)} ${String(r.ticks).padStart(6)}  ${[t.p50, t.p95, t.p99, t.p999, t.max].map(f).join(' / ').padEnd(40)} ${String(f(r.update_ms && r.update_ms.p99)).padStart(8)}  ${String(f(r.encode_ms && r.encode_ms.p99)).padStart(9)}  ${String(f(r.late_ticks)).padStart(4)}(${f(r.late_max_ms)})  ${r.gc ? r.gc.count + '/' + r.gc.total_ms + '/' + r.gc.max_ms : '-'}  ${f(r.heap_mb_max)}  ${r.snap_bytes ? r.snap_bytes.mean + '/' + r.snap_bytes.max : '-'}${r.error ? '  ERR: ' + r.error.message : ''}${r.first_error ? '  EXC: ' + r.first_error.message : ''}`);
+    console.log(`${String(r.id).padEnd(3)} ${String(r.status).padEnd(10)} ${String(r.ticks).padStart(6)}  ${[t.p50, t.p95, t.p99, t.p999, t.max].map(f).join(' / ').padEnd(40)} ${String(f(r.update_ms && r.update_ms.p99)).padStart(8)}  ${String(f(r.encode_ms && r.encode_ms.p99)).padStart(9)}  ${(r.tick_cpu_ms ? r.tick_cpu_ms.p99 + '/' + r.tick_cpu_ms.max : '-').padStart(14)}  ${String(f(r.late_ticks)).padStart(4)}(${f(r.late_max_ms)})  ${r.gc ? r.gc.count + '/' + r.gc.total_ms + '/' + r.gc.max_ms : '-'}  ${f(r.heap_mb_max)}  ${r.snap_bytes ? r.snap_bytes.mean + '/' + r.snap_bytes.max : '-'}${r.error ? '  ERR: ' + r.error.message : ''}${r.first_error ? '  EXC: ' + r.first_error.message : ''}`);
   }
   console.log(`이벤트 루프 지연(부모) p50/p99/max = ${res.loop_delay_ms.p50}/${res.loop_delay_ms.p99}/${res.loop_delay_ms.max} ms · CPU ${res.cpu.pct_of_1cpu}% of 1 CPU (user ${res.cpu.user_ms}ms sys ${res.cpu.system_ms}ms) · rss max ${res.rss_mb_max}MB`);
   const g = res.gates.G2;
