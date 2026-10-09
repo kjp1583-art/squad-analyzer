@@ -250,6 +250,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥 · 배불배불 🎤 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
     <li>5분부터는 👹 <b>대형 트롤픽</b>(덩치 2배·체력 8배)이 섞여 나와요. 잡으면 💎·💣·🍗를 떨굴 때가 많아요.</li>
     <li>무기는 6개·패시브는 6개까지(👼 부활은 칸을 안 써요 · 레벨 20부터 나와요). 무기 Lv8 + 짝 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>(한 판에 3개까지)!</li>
+    <li>🎁 보스 상자는 <b>새 무기·새 유물은 안 줘요</b> — 내가 가진 무기·유물을 키우는 카드(강화·마스터·초월)와 패시브·간식이 나와요. 새 무기·새 유물은 레벨업 카드에서 골라요.</li>
     <li>레벨업 카드가 마음에 안 들면 🎲 다시 뽑기(R) · 🚫 봉인(B) — 처음 3번씩, Lv10·Lv20 이 되면 1번씩 더 드려요(다시 뽑기는 보스 상자에서도 +1). 무기 조합을 맞추면 🔗 시너지가 켜져요. 공용 무기는 22종 — 🍳 프라이팬 · 🎆 폭죽 · 🐥 병아리 · 🎣 낚싯대 · 🧊 얼음땡 · 🥏 냄비뚜껑 · ☄️ 운석 · 🔭 저격 · 🌀 블랙홀 · 🎵 리듬도 나와요 <!-- 🗡 [2026-09-30 사장님 지시] --></li>
     <li>보스는 체력이 많아요 — 66%·33% 아래에서 페이즈가 바뀌고 기술이 빨라져요.</li>
     <li>맵의 🟡 와드·🧺 사료 포대·🎁 포로 간식 상자를 부수면 🍗 치킨(HP 20% 회복)·💎 자석·💣 폭탄이 나와요. 치킨은 귀해요 — 아껴 먹기!</li>
@@ -1406,20 +1407,20 @@ $('chestOk').onclick=()=>{if(state==='chest')resume();};
 $('revive').addEventListener('pointerdown',()=>{RV.pd=performance.now();},true);$('rvUse').onclick=e=>{if(rvFresh(e))coinUse();};$('rvNo').onclick=e=>{if(rvFresh(e))rvQuit();};
 
 // ---------- 레벨업 ----------
-function offers(n,excl){
+function offers(n,excl,own){   // own=true: 🎁 보스 상자 — 안 가진 새 무기·새 유물은 후보에서 뺀다(가진 걸 키우는 카드·패시브·간식만) [2026-10-09 사장님 지시 「보스 보상 상자 획득 시 내가 가지고 있지 않은 무기·유물이 획득되지 않게」]
   // 🎲 [2026-09-30 사장님 지시] 카드 풀 — 기존 무기·패시브 카드(가중치 3)에 ✨ 각성/🏅 마스터·🌟 초월 카드가 함께 섞이고,
   //   🏺 유물(Lv24+)·⚖ 거래·작은 능력치·🎁 일회용(Lv30+)은 기존 카드가 얇아지면 채우고 후반에 섞인다. 늘 서로 다른 카드 n장.
   n=n||3;
   const nw=Object.keys(S.w).length,np=slotP(),ban=new Set(S.banned),ex=new Set(excl||[]);
   const P=[],add=(o,w)=>{if(!ban.has(o.k)&&!ex.has(o.k))P.push({o,w});};
-  for(const k in WEAP){const l=S.w[k]||0;if(l>=MAXLV||!wOk(k))continue;if(!l&&nw>=SLOTW)continue;add({t:'w',k,l},(WEAP[k].nw&&!l)?1.8:3);}   // 🗡 [2026-09-30 사장님 지시] 안 가진 새 무기는 가중치 1.8(23종이어도 초반 카드가 섞이게) — 가진 뒤 레벨업은 3
+  for(const k in WEAP){const l=S.w[k]||0;if(l>=MAXLV||!wOk(k))continue;if(!l&&(own||nw>=SLOTW))continue;add({t:'w',k,l},(WEAP[k].nw&&!l)?1.8:3);}   // 🗡 [2026-09-30 사장님 지시] 안 가진 새 무기는 가중치 1.8(23종이어도 초반 카드가 섞이게) — 가진 뒤 레벨업은 3
   for(const k in PASS){const l=pv(k);if(l>=pmax(k))continue;if(k==='rev'){if(cardLv()<REV_LV)continue;}else if(!l&&np>=SLOTP)continue;add({t:'p',k,l},3);}   // 👼 부활: 칸이 꽉 차도 후보가 될 수 있고(칸 안 씀), Lv20 전에는 어느 카드 길(레벨업·보스 상자·다시 뽑기·봉인 보충)에도 안 나온다
   const thin=P.length<3;   // 기존 카드가 바닥난 상태
   for(const k in S.w){if(S.w[k]<MAXLV||!TIERS[k])continue;const T=S.tier[k]||0;if(T<TCAP(k))add({t:'wt',k:'wt:'+k,w:k,l:T},S.ev[k]?3.4:2.4);}
   for(const k in PT){const l=S.pt[k]||0;if(pv(k)>0&&pv(k)>=pmax(k)&&l<PT[k].length)add({t:'pt',k:'pt:'+k,p:k,l},2.4);}
   const L0=P.length;let Wn=0;for(const x of P)Wn+=x.w;
   const lateP=[],ladd=(o,w)=>{if(!ban.has(o.k)&&!ex.has(o.k))lateP.push({o,w});};
-  if(S.lv>=24||thin)for(const k in REL){if(REL[k].ch&&REL[k].ch!==CH.k)continue;const l=S.rel[k]||0;if(l<3)ladd({t:'rl',k:'rl:'+k,r:k,l},REL[k].ch?(l?1.4:2.2):(l?1.1:1.5));}   // ⭐ 시그니처 유물은 그 캐릭터에게만
+  if(S.lv>=24||thin)for(const k in REL){if(REL[k].ch&&REL[k].ch!==CH.k)continue;const l=S.rel[k]||0;if(own&&!l)continue;if(l<3)ladd({t:'rl',k:'rl:'+k,r:k,l},REL[k].ch?(l?1.4:2.2):(l?1.1:1.5));}   // ⭐ 시그니처 유물은 그 캐릭터에게만
   if(S.lv>=30||thin){
     for(const k in TRD){if(trn(k)<(TRD[k].cap||3)&&(S.p.mhp>70||(k!=='glassc'&&k!=='focus')))ladd({t:'tr',k:'tr:'+k,r:k,l:trn(k)},1);}
     for(const k in SM){if(smn(k)<SM[k].cap)ladd({t:'sm',k:'sm:'+k,r:k,l:smn(k)},k==='ramen'?.3:.9);}
@@ -1553,9 +1554,10 @@ function openChest(){
   const res=[];const ek=evReady()[0];
   if(ek){const d=WEAP[ek];evolve(ek);res.push(`<div class="cr ev">✨ <b>각성!</b> ${d.ic} ${d.nm} → ${d.ev.ic} <b>${d.ev.nm}</b><small>${d.ev.ds}</small></div>`);}
   const r=RN('chest'),lk=.05*LK()+(PTV('luck')>=2?.1:0),n=r<.15+lk?3:r<.5+lk?2:1;
-  for(let i=0;i<n;i++){const o=offers(1)[0];applyUp(o);const c=cardOf(o);res.push(`<div class="cr">${c.ic} <b>${c.nm}</b> ${c.lv}</div>`);}
+  for(let i=0;i<n;i++){const o=offers(1,null,true)[0];applyUp(o);const c=cardOf(o);res.push(`<div class="cr">${c.ic} <b>${c.nm}</b> ${c.lv}</div>`);}
   const nx=evReady();
   S.rr++;res.push(`<div class="cr">🎲 <b>다시 뽑기 +1</b><small>레벨업 카드가 마음에 안 들면 다시 뽑아요 (지금 ${S.rr}번)</small></div>`);
+  res.push(`<div class="muted">🎁 보스 상자는 내가 가진 무기·유물만 키워 줘요 — 새 무기·새 유물은 레벨업 카드에서 골라요.</div>`);
   $('chestList').innerHTML=res.join('')+(ek?'':`<div class="muted">${evLeft()<=0?`✨ 각성 ${MAXEV}개를 다 썼어요 — 이번 판 빌드 완성!`:nx.length?'':`각성: 무기 Lv8 + 짝 패시브를 갖추고 보스 상자를 열면 무기가 각성해요 (한 판에 ${MAXEV}개까지 · 지금 ${Object.keys(S.ev).length}개).`}</div>`);
   $('chestT').textContent=n===3?'🎁 보스 상자 — 대박! 3개':'🎁 보스 상자 — '+n+'개';
   show('chest');RES.save('chest');
