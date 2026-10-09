@@ -271,7 +271,7 @@ async def sec_d(b, srv):
       const inv0=p.inv,hp0=p.hp,dt=1/60;let f=0,firstHit=-1,tt0=S.t;
       for(;f<400;f++){e.x=p.x;e.y=p.y;S.p.hp=Math.min(S.p.hp,hp0);x.update(dt);if(p.hp<hp0-1e-9){firstHit=f;break;}if(x.state!=='play')break;}
       return {inv0,firstHit,expect:Math.ceil(inv0/dt),elapsed:S.t-tt0,state:x.state};}""")
-    check('[D1] 무적이 끝나기 전 프레임엔 피해 0 · 끝난 직후 처음 맞는다(프레임 단위, 약 3초)', r['firstHit'] >= 0 and abs(r['firstHit'] - r['expect']) <= 2 and abs(r['elapsed'] - r['inv0']) < 0.06 and abs(r['inv0'] - 3) < 1e-9, r)
+    check('[D1] 무적이 끝나기 전 프레임엔 피해 0 · 끝난 직후 처음 맞는다(프레임 단위, 약 3초)', r['firstHit'] >= 0 and abs(r['firstHit'] - r['expect']) <= 2 and abs(r['elapsed'] - r['inv0']) < 0.06 and 2.95 <= r['inv0'] <= 3 + 1e-9, r)   # 부활 직후 실제 프레임이 한두 번 먼저 돌 수 있어 시작 값은 3초에서 0.05초까지 모자라도 본다(그 모자란 만큼은 expect 가 이미 반영)
     # 3초 무적 동안 같은 프레임에 여러 번 맞아도(hitP 반복) 두 번째 선택창이 안 열린다
     await pg.evaluate("()=>{const S=__p6x.S;S.p.inv=0;S.p.hp=1;__p6x.hitP(500);}"); await pg.wait_for_function("__p6x.state==='revive'")
     await pg.wait_for_function(UNLOCK); await pg.evaluate(CLICK_USE); await wait_state(pg, 'play')
@@ -405,10 +405,16 @@ async def sec_f(b, srv):
     mk = Mock(coins=2); ctx, pg, errs = await fresh(b, srv.port, mk); await open_revive(pg)
     await pg.evaluate("()=>addEventListener('storage',e=>e.stopImmediatePropagation(),true)")   # 저장소 알림을 못 받은 창(알림이 늦거나 놓친 경우) — 클릭 순간의 stale 검사만이 막아야 한다
     pg2 = await newpage(ctx, srv.port); await pg2.evaluate("()=>document.getElementById('resGo').click()"); await pg2.wait_for_function("__p6x.state==='revive'", timeout=5000)
-    print('  (F12 관찰) 먼저 열린 창 state=%s stale=%s' % (await pg.evaluate('__p6x.state'), await pg.evaluate('__rv.RES.stale()')), flush=True)
+    print('  (F12 관찰) 먼저 열린 창 state=%s' % (await pg.evaluate('__p6x.state')), flush=True)   # RES.stale() 는 부르지 않는다 — 부르면 그 호출이 창을 닫아 버려 클릭 순간의 검사를 시험하지 못한다
     n0 = len(mk.coin_reqs); await pg.evaluate(CLICK_USE); await pg.wait_for_timeout(500)
     check('[F12] 다른 창이 이어받은 판에서 먼저 열려 있던 창은 코인을 쓰지 않는다(요청 0)', len(mk.coin_reqs) == n0 and mk.coins == 2, (n0, len(mk.coin_reqs), mk.coins))
     await pg2.wait_for_function(UNLOCK); await pg2.evaluate(CLICK_USE); await wait_state(pg2, 'play'); check('[F12b] 이어받은 창에서는 정상 부활 · 코인 1개만 빠짐', mk.coins == 1 and len(mk.charged) == 1, (mk.coins, mk.charged)); await ctx.close()
+    # 클릭 순간의 stale 검사만 따로 본다 — 실제 두 창 경로에선 다른 안전장치(복귀·저장 때의 검사)가 먼저 창을 닫을 수 있어서, RES.stale 을 참으로 못박고 coinUse 가 스스로 멈추는지 본다
+    mk = Mock(coins=2); ctx, pg, errs = await fresh(b, srv.port, mk); await open_revive(pg)
+    await pg.evaluate("()=>{__rv.RES.stale=()=>true;}"); n0 = len(mk.coin_reqs)
+    await pg.evaluate(CLICK_USE); await pg.wait_for_timeout(500)
+    st = await pg.evaluate("()=>[__p6x.state,__rv.RV.busy,__p6x.S&&__p6x.S.cuq]")
+    check('[F12c] 낡은 판(stale)이면 coinUse 가 요청을 보내지 않고 cuq 도 안 바꾼다(요청 0 · 코인 그대로 · cuq=0)', len(mk.coin_reqs) == n0 and mk.coins == 2 and st[1] is False and st[2] == 0, (len(mk.coin_reqs) - n0, mk.coins, st)); await ctx.close()
     # 저장소 쓰기가 막혀도 게임은 돈다
     mk = Mock(coins=1); ctx, pg, errs = await H.new_page(b, srv.port, 412, 860, mock=mk, page=NEW); await pg.evaluate(LOGIN)
     await ctx.add_init_script("Storage.prototype.setItem=function(){throw new DOMException('q','QuotaExceededError')}")
