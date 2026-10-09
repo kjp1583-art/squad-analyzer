@@ -656,7 +656,7 @@ const CHARS=[
   {k:'ildj',img:1,e:'🎭',nm:'일단즐겨',tag:'미드 · 323판',q:'아님말고',ds:'「진 코스프레」 — 은빛 가면에 크림색 망토, 경험치 +20%. 아님말고. 🎭 4발 사격(고유 무기 · 3발 + 터지는 4번째 커튼콜탄) 시작.',w:'jhin',xp:.2,un:{t:'레벨 20 달성',ok:p=>p.maxLv>=20,pr:p=>`최고 Lv ${p.maxLv}`}},
   {k:'kyo',img:1,e:'🍔',nm:'김야옹',tag:'서폿 · 114판',q:'편의점 햄버거로 꺼지쇼',ds:'「버거킹 쿠폰」 — 레벨업마다 HP 25 회복, 획득 범위 +50%. 🍔 와퍼 바운스(고유 무기 · 튕기며 터지는 햄버거) 시작.',w:'whop',lvheal:25,mag:.5,un:{t:'처치 누적 1000',ok:p=>p.kills>=1000,pr:p=>`${Math.min(p.kills,1000)}/1000`}},
   {k:'ddmj',img:1,e:'🧱',nm:'단단묵직',tag:'정글·탑 · 465판',q:'묵직하게 막아선다',ds:'「디펜더」 — 부딪힌 적을 밀쳐 낸다, 받는 피해 -3, 이동속도 -10%. 🛡 방패 밀치기(고유 무기 · 앞의 적을 크게 밀쳐 낸다) 시작.',w:'bash',arm:3,spd:-.1,push:1,un:{t:'최종 보스 처치',ok:p=>p.bossKill>=1,pr:p=>p.bossKill?'완료':'미완'}},
-  {k:'psg',img:1,e:'🐲',nm:'프싱',tag:'정글 · 335판',q:'용의 강림',ds:'「쉬바나 코스프레」 — 피해를 주고 적을 처치할수록 🔥 분노 게이지가 찬다. 가득 차면 🐲 용으로 변신(11초): 몸이 커지고 주변 적이 불타며, 이동속도 +20% · 받는 피해 -30% · 무기 피해 +20%. 끝나면 게이지 0부터 다시. 🔥 쌍둥이 이빨(고유 무기 · 이중 베기 + 화염 장판) 시작.',w:'twin',shv:1,un:{t:'하드 모드 10분 생존',ok:p=>hardBest()>=600,pr:p=>`하드 최고 ${fmt(hardBest())}`}},
+  {k:'psg',img:1,e:'🐲',nm:'프싱',tag:'정글 · 335판',q:'용의 강림',ds:'「쉬바나 코스프레」 — 피해를 주고 적을 처치할수록 🔥 분노 게이지가 찬다. 오래 버틸수록 분노가 빨리 찬다(분당 +3%, 최대 1.8배). 가득 차면 🐲 용으로 변신(11초): 몸이 커지고 주변 적이 불타며, 이동속도 +20% · 받는 피해 -30% · 무기 피해 +20%. 끝나면 게이지 0부터 다시. 🔥 쌍둥이 이빨(고유 무기 · 이중 베기 + 화염 장판) 시작.',w:'twin',shv:1,un:{t:'하드 모드 10분 생존',ok:p=>hardBest()>=600,pr:p=>`하드 최고 ${fmt(hardBest())}`}},
   // 🎤 [2026-10-08 사장님 지시] 신캐릭터 「플레이브 코스프레 배불배불」 + 고유 무기 「플레이브 노래부르기」 — 무대 의상 병아리
   //   🛒 [2026-10-08 사장님 지시 "배불배불 획득조건 봇 흐접새우상점 신설하고 200포인트로 구매가능하게 설정"] 해금 = 진행도가 아니라 봇 「/흐접새우상점」 구매(스쿼드 포인트 200P · 맛동산 아님) — 서버가 내려준 unlocks 의 'bbb' 로만 열린다(shop:1 · SHOPUN_SV)
   //   능력 「박자 감각」 = 모든 무기 쿨타임 -8%(cdr · cdMul 한 곳). 실존 인물·곡·가사는 쓰지 않는다 — 무대 의상 + 마이크 + 음표 연출만.
@@ -856,7 +856,7 @@ const PASS={
   area:{ic:'📏',nm:'광역',ds:'모든 범위 +10%'},
   might:{ic:'💪',nm:'근성',ds:'모든 피해 +10%'},
   luck:{ic:'🍀',nm:'행운',ds:'치명타 +3% · 아이템·보스 상자 운 상승'},
-  rev:{ic:'👼',nm:'부활',ds:'쓰러지면 HP 50%로 한 번 일어난다',max:1},
+  rev:{ic:'👼',nm:'부활',ds:'쓰러지면 HP 50%로 한 번 일어난다 — 확률이 아니라 확정 · 패시브 칸을 안 써요',max:1},   // 👼 [2026-10-09 사장님 지시 「3ok」] 패시브 칸 면제(slotP 에서 뺀다) · Lv20 부터 등장(REV_LV) — 초반엔 칸만 먹는 카드였고 후반엔 칸이 차서 못 골랐다
   // 🎲 새 패시브 — 새 무기의 각성 짝 4종 + 양날의 검 2종(얻는 만큼 잃는다) + 흡혈
   dur:{ic:'⏳',nm:'끈기',ds:'지속시간 +15% (물약 웅덩이·핑 지뢰·캔)'},
   crit:{ic:'🔪',nm:'급소',ds:'치명타 확률 +5% · 치명타 피해 +20%'},
@@ -906,7 +906,7 @@ const SYN=[
 function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0},on=[];
   for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;}
 const MAXEV=3;   // ✨ [2026-09-29 사장님] 각성은 한 판에 3개까지 — 무엇을 각성할지가 빌드
-const MAXLV=8,MAXPASS=5,SLOTW=6,SLOTP=6,WIN_T=3600,REROLL=3,BANISH=3;
+const MAXLV=8,MAXPASS=5,SLOTW=6,SLOTP=6,WIN_T=3600,REROLL=3,BANISH=3,REV_LV=20;   // REV_LV: 👼 부활 카드는 이 레벨부터 나온다(이미 가진 건 영향 없음)
 const BRT={R:190,w:.62,d:36,cd:.85,em:30};   // 🔥 드래곤 브레스 기본값 — 사거리·반각(rad)·피해·쿨타임·몸 주변 불씨 반경(봇 시뮬로 맞춤)
 const pmax=k=>PASS[k].max||MAXPASS;
 const wOk=k=>!WEAP[k].only||WEAP[k].only===CH.k||!!(S&&S.w[k]);   // 전용 무기(🔥 브레스)는 그 캐릭터에게만
@@ -1266,6 +1266,7 @@ function newRun(dly){
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
+const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n;};   // 🎒 패시브 칸 수 — 👼 부활은 칸을 안 쓴다(보유 칸·후보 계산·화면 표기 모두 이걸 쓴다)
 const cdMul=()=>(1-(CH.cdr||0))*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
 const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+.15*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
@@ -1334,7 +1335,7 @@ function buildHtml(){
     h+=S.ev[k]?`<div class="bw ev">${d.ev.ic} <b>${d.ev.nm}</b> <span class="new">✨ 각성</span>${tn}</div>`
       :`<div class="bw">${d.ic} ${d.nm} <b>Lv ${L}</b>${tn}<small>각성: Lv ${L}/${MAXLV}${L>=MAXLV?' ✔':''} + ${pp.ic} ${pp.nm} ${pv(d.pair)?'✔':'✖'}${L>=MAXLV&&pv(d.pair)?' → 다음 보스 상자!':''}</small></div>`;}
   h+=`<div class="muted">✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}</div>`;
-  h+=`<b>🎒 패시브 ${pk.length}/${SLOTP}</b><div class="bw">${pk.map(k=>`${PASS[k].ic} ${PASS[k].nm} Lv${S.ps[k]}${S.pt[k]?'🌟'+S.pt[k]:''}`).join(' · ')||'없음'}${S.ramen?` · 🍜 라면 ×${S.ramen}`:''}</div>`;
+  h+=`<b>🎒 패시브 ${slotP()}/${SLOTP}</b>${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}<div class="bw">${pk.map(k=>`${PASS[k].ic} ${PASS[k].nm} Lv${S.ps[k]}${S.pt[k]?'🌟'+S.pt[k]:''}`).join(' · ')||'없음'}${S.ramen?` · 🍜 라면 ×${S.ramen}`:''}</div>`;
   {const rk=Object.keys(S.rel),tk=Object.keys(S.tr);if(rk.length||tk.length)h+=`<b>🏺 유물·거래</b><div class="bw">${rk.map(k=>`${REL[k].ic} ${REL[k].nm} Lv${S.rel[k]}`).concat(tk.map(k=>`${TRD[k].ic} ${TRD[k].nm} ×${S.tr[k]}`)).join(' · ')}</div>`;}
   const sy=SYN.filter(y=>y.req.every(k=>wOk(k)||S.w[k])&&y.req.some(k=>S.w[k]));
   if(sy.length)h+=`<b>🔗 시너지</b>`+sy.map(y=>{const on=S.synOn.includes(y.k);return `<div class="bw${on?' ev':''}">${y.ic} ${y.nm} ${on?'✔':`${y.req.filter(k=>S.w[k]).length}/${y.req.length}`}<small>${y.req.map(k=>WEAP[k].ic).join('+')} — ${y.ds}</small></div>`;}).join('');
@@ -1356,10 +1357,10 @@ function offers(n,excl){
   // 🎲 [2026-09-30 사장님 지시] 카드 풀 — 기존 무기·패시브 카드(가중치 3)에 ✨ 각성/🏅 마스터·🌟 초월 카드가 함께 섞이고,
   //   🏺 유물(Lv24+)·⚖ 거래·작은 능력치·🎁 일회용(Lv30+)은 기존 카드가 얇아지면 채우고 후반에 섞인다. 늘 서로 다른 카드 n장.
   n=n||3;
-  const nw=Object.keys(S.w).length,np=Object.keys(S.ps).length,ban=new Set(S.banned),ex=new Set(excl||[]);
+  const nw=Object.keys(S.w).length,np=slotP(),ban=new Set(S.banned),ex=new Set(excl||[]);
   const P=[],add=(o,w)=>{if(!ban.has(o.k)&&!ex.has(o.k))P.push({o,w});};
   for(const k in WEAP){const l=S.w[k]||0;if(l>=MAXLV||!wOk(k))continue;if(!l&&nw>=SLOTW)continue;add({t:'w',k,l},(WEAP[k].nw&&!l)?1.8:3);}   // 🗡 [2026-09-30 사장님 지시] 안 가진 새 무기는 가중치 1.8(23종이어도 초반 카드가 섞이게) — 가진 뒤 레벨업은 3
-  for(const k in PASS){const l=pv(k);if(l>=pmax(k))continue;if(!l&&np>=SLOTP)continue;add({t:'p',k,l},3);}
+  for(const k in PASS){const l=pv(k);if(l>=pmax(k))continue;if(k==='rev'){if(S.lv<REV_LV)continue;}else if(!l&&np>=SLOTP)continue;add({t:'p',k,l},3);}   // 👼 부활: 칸이 꽉 차도 후보가 될 수 있고(칸 안 씀), Lv20 전에는 어느 카드 길(레벨업·보스 상자·다시 뽑기·봉인 보충)에도 안 나온다
   const thin=P.length<3;   // 기존 카드가 바닥난 상태
   for(const k in S.w){if(S.w[k]<MAXLV||!TIERS[k])continue;const T=S.tier[k]||0;if(T<TCAP(k))add({t:'wt',k:'wt:'+k,w:k,l:T},S.ev[k]?3.4:2.4);}
   for(const k in PT){const l=S.pt[k]||0;if(pv(k)>0&&pv(k)>=pmax(k)&&l<PT[k].length)add({t:'pt',k:'pt:'+k,p:k,l},2.4);}
@@ -1395,7 +1396,7 @@ function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
     return {ic:d.ic,nm:d.nm,ty:o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`,ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
       +`<br><span class="hint">각성 조건: ${d.ic} Lv${MAXLV} + ${pp.ic} ${pp.nm}${pv(d.pair)?' ✔':''} → ${d.ev.ic} ${d.ev.nm}${el>0?` (각성 ${MAXEV-el}/${MAXEV})`:' — ⚠ 각성 3개를 다 썼어요'}</span>`+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
-  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':`🎒 새 패시브 · 슬롯 ${Object.keys(S.ps).length+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+(w.length?`<br><span class="hint">각성 짝: ${w.map(k=>WEAP[k].ic+' '+WEAP[k].nm+(S.w[k]?' (보유)':'')).join(' · ')}</span>`:''),lv:`Lv ${o.l}→${o.l+1}`};}
+  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+(w.length?`<br><span class="hint">각성 짝: ${w.map(k=>WEAP[k].ic+' '+WEAP[k].nm+(S.w[k]?' (보유)':'')).join(' · ')}</span>`:''),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
     return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화`,
@@ -1420,7 +1421,8 @@ function drawCards(){
   x.innerHTML=`<button class="btn g" id="rrBtn" ${S.rr>0?'':'disabled'}>🎲 다시 뽑기 (${S.rr})</button><button class="btn g${S.banMode?' on':''}" id="banBtn" ${S.ban>0?'':'disabled'}>🚫 봉인${S.banMode?' — 카드를 고르세요':''} (${S.ban})</button>`;
   box.appendChild(x);
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
-  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${Object.keys(S.ps).length}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''}`;}
+  const bl=S.lv-S.pendingLv+1,bonus=BONUS_LV.includes(bl)?`🎁 Lv${bl} 보너스 — 다시뽑기 +1 · 봉인 +1 받았어요 · `:'';   // 지금 고르는 카드가 보너스 레벨의 것이면 화면에서도 알린다(토스트는 카드 화면 뒤에 가려진다)
+  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''}`;}
 function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;
   const rep=offers(1,CUR.map(x=>x.k).filter(Boolean))[0];CUR[i]=rep;toast(`🚫 ${cardOf(o).nm} 봉인`);drawCards();RES.save('ban');}
@@ -1481,7 +1483,10 @@ function pick(o){
   S.pendingLv--;
   if(S.pendingLv>0)openLvup();else resume();
 }
-function gainXp(v){if(S.rel.sg_ildj&&Math.random()<[.06,.09,.12][S.rel.sg_ildj-1])v*=2;S.xp+=v;while(S.xp>=S.need){S.xp-=S.need;S.lv++;S.need=Math.floor(5+S.lv*3.2+Math.pow(S.lv,1.35)+Math.max(0,S.lv-25)**2*.5);S.pendingLv++;AU.play('lv');if(CH.lvheal)S.p.hp=Math.min(S.p.mhp,S.p.hp+CH.lvheal);}}
+const BONUS_LV=[10,20];   // 🎁 [2026-10-09 사장님 지시 「4ok」] 이 레벨을 달성하면 다시 뽑기 +1 · 봉인 +1 을 자동으로 준다(봉인은 그동안 보충 길이 거의 없었다)
+function gainXp(v){if(S.rel.sg_ildj&&Math.random()<[.06,.09,.12][S.rel.sg_ildj-1])v*=2;S.xp+=v;while(S.xp>=S.need){S.xp-=S.need;S.lv++;S.need=Math.floor(5+S.lv*3.2+Math.pow(S.lv,1.35)+Math.max(0,S.lv-25)**2*.5);S.pendingLv++;AU.play('lv');
+    if(BONUS_LV.includes(S.lv)){S.rr++;S.ban++;toast(`🎁 Lv${S.lv} 보너스 — 다시뽑기 +1 · 봉인 +1`);}   // 레벨 하나씩 올리는 반복 안이라 한꺼번에 여러 레벨이 올라도 건너뛰지 않는다 · 카드를 열기(update 끝의 openLvup) 전에 주므로 그 레벨 카드 화면에서 바로 쓴다 · 새 저장 키 없음(S.rr·S.ban 그대로)
+   if(CH.lvheal)S.p.hp=Math.min(S.p.mhp,S.p.hp+CH.lvheal);}}
 
 // ---------- 🎁 보스 상자 · ✨ 각성 ----------
 const evReady=()=>evLeft()>0?Object.keys(S.w).filter(k=>!S.ev[k]&&S.w[k]>=MAXLV&&pv(WEAP[k].pair)>0):[];
@@ -1807,7 +1812,7 @@ const holes=new Pool(4,()=>({x:0,y:0,R:0,life:0,T:0,tk:0,dmg:0,ev:0,sl:0,bR:0,pu
 const snps=new Pool(8,()=>({x1:0,y1:0,x2:0,y2:0,life:0,ev:0}));                                        // 🔭 저격 자국(줄)
 function newX2(){const z=[];for(let i=0;i<4;i++)z.push({t:0,T:.22,a:0,R:0,w:0,full:0,ev:0});const lk=[];for(let i=0;i<3;i++)lk.push({on:0,e:null,sn:0,t:0});
   return {swg:z,swi:0,pn:0,fzT:0,fid:0,hid:0,mid:0,lr:[0,0,0,0,0,0,0,0],lb:[0,0,0,0,0,0,0,0],la:0,lp:new Float32Array(16),ln:0,lreg:14,lh:0,ld:10,lev:0,lt:null,lk,bt:0,bn:0,bT:0,bm:0,bs:0};}
-const areaMul=()=>1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale');
+const areaMul=()=>1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale')+S.syn.area;   // 🔗 [2026-10-09 사장님 지시 「시너지 범위 버그 바로 수정」] 시너지의 「범위 +N%」 가 합산만 되고 어디서도 안 읽혀 완성해도 변화가 없었다 — weapons() 의 AR 과 같은 식에 같이 더한다
 const BT={x:0,y:0,R:0,style:'mine',ev:0,ux:0,uy:0},CS={x:0,y:0};
 function bang(x,y,R,d,src,style,ev,bm){const s0=SRC;SRC=src;BT.x=x;BT.y=y;BT.R=R;BT.style=style;BT.ev=ev?1:0;AU.play('boom',R/55);EX.boom(BT);   // 새 무기의 즉시 폭발(예고 없음) — 🎆 폭죽·🌀 블랙홀 끝·🎣 끌어올린 자리 …
   for(const e of enemies.a)if(e.on&&(e.x-x)**2+(e.y-y)**2<(R+e.r)**2)hurt(e,d*(bm&&(e.boss||e.el||e.bg)?bm:1));hitPropsAt(x,y,R,d);SRC=s0;}
@@ -2000,8 +2005,9 @@ const U3={sing:{d:4.5,db:1.3,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
 // 🐲 「쉬바나 코스프레」 — 분노 게이지(rg) → 가득 차면 용 변신(dT). 게이지는 초당 cap 만큼만 차오른다(후반 타수 폭주 방지)
-const SHV={max:100,dur:11,dmg:1.2,spd:.2,red:.3,R:140,aura:9,hit:.25,kill:1,kgE:4,kgB:15,cap:3.5,push:230};
-function rgAdd(v){if(!CH.shv||S.dT>0)return;v=Math.min(v,S.rgB);if(v<=0)return;S.rgB-=v;S.rg=Math.min(SHV.max,S.rg+v);}
+const SHV={max:100,dur:11,dmg:1.2,spd:.2,red:.3,R:140,aura:9,hit:.25,kill:1,kgE:4,kgB:15,cap:3.5,push:230,acc:.03,accMax:1.8};   // acc·accMax: 🔥 [2026-10-09 사장님 지시 「5권장」] 오래 버틸수록 분노가 빨리 찬다 — 분당 +3%, 최대 1.8배(27분에 최대). 초당 cap 이 대기시간(27.9초)을 정해 두었으니 배율이 상한에도 같이 걸린다(cap·kgE·kgB·버킷 2.5 는 그대로)
+const rgMul=()=>Math.min(SHV.accMax,1+SHV.acc*S.t/60);   // 시간 비례 충전 배율(5분 1.15 · 10분 1.3 · 20분 1.6 · 27분부터 1.8)
+function rgAdd(v){if(!CH.shv||S.dT>0)return;v=Math.min(v,S.rgB);if(v<=0)return;S.rgB-=v;S.rg=Math.min(SHV.max,S.rg+v*rgMul());}   // 버킷에서는 v 만 빼고 게이지에는 v×배율을 더한다 → 상한(초당 cap)에 막힌 판의 충전 속도도 cap×배율이 된다
 function shvStart(){const p=S.p;S.dT=SHV.dur+[0,1.5,2.5,3.5][SGN('sg_psg')];S.dN++;S.dA=.2;S.dW={t:.6,T:.6,R:SHV.push,x:p.x,y:p.y};
   AU.play('bigboom');AU.play('fire');S.shake=Math.max(S.shake,.3);S.flash=Math.max(S.flash,.2);banner('🐲 용의 강림!','11초 — 불꽃 오라 · 빠르게 · 덜 아프게');txt(p.x,p.y-40,'🐲 용 변신!','#ffb35a');
   const sv=SRC;SRC='drg';const d=14*dmgMul();
@@ -2343,7 +2349,7 @@ function weapons3(dt,cm,MT,AR,AM){
     if(dead){f[i]=f[f.length-1];f.pop();}}
 }
 function weapons(dt){
-  const p=S.p,cm=cdMul(),MT=dmgMul(),AR=1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale'),AM=pv('amt');let L;
+  const p=S.p,cm=cdMul(),MT=dmgMul(),AR=1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale')+S.syn.area,AM=pv('amt');let L;   // 🔗 시너지 범위(areaMul 과 같은 식 — 두 곳이 어긋나지 않게 같이 고친다)
   for(const k in S.w)if(S.cd[k]===undefined)S.cd[k]=0;
   // 🌾 사료 투척 → 🌪 사료 폭풍
   L=S.w.feed||0;SRC='feed';
