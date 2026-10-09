@@ -35,6 +35,51 @@ def std(xs, mu):
     return math.sqrt(sum((x - mu) ** 2 for x in xs) / (len(xs) - 1))
 
 
+def link_components(pairs):
+    """[(본계, 부계)…] -> {tnorm(닉): 그룹 멤버 리스트(정렬 · 같은 그룹은 같은 리스트)}.
+    🔗 [2026-10-09 사장님 제보 "카무사리 웹에서 언랭으로 뜨는 이유"] 무방향 연결 요소(union-find) — 사슬(A←B←C: 계정 이전 + 닉변)도 한 그룹.
+    예전엔 쌍마다 그룹을 새로 만들어 덮어써서 사슬이 끊겼다. 웹 linkComponents · 분석기 _dep_link_groups 와 같은 규칙."""
+    par = {}
+    def find(x):
+        r = x
+        while par[r] != r: r = par[r]
+        while par[x] != r: par[x], x = r, par[x]
+        return r
+    for a, b in pairs:
+        ka, kb = tnorm(a), tnorm(b)
+        if not ka or not kb: continue
+        par.setdefault(ka, ka); par.setdefault(kb, kb)
+        ra, rb = find(ka), find(kb)
+        if ra != rb: par[rb] = ra
+    comp = {}
+    for k in par: comp.setdefault(find(k), []).append(k)
+    out = {}
+    for m in comp.values():
+        m.sort()
+        for k in m: out[k] = m
+    return out
+
+
+def share_best(solo, grp):
+    """🔗 [2026-10-09] 같은 사람의 계정들은 가장 좋은 솔랭 엔트리를 다 같이 쓴다 — 현시즌 전적(승+패>0) 있는 쪽 우선 → 점수 최고(동점은 닉 순서).
+    SOLO_RANK 행은 분석기가 옛 닉 이름으로 적는 일이 있어 지금 이름 키에는 피크만 남는다. 분석기 _load_solo_ranks v82.50 · 웹 blendSoloRanks 와 같은 규칙.
+    그룹 전원에게 best 의 사본을 준다(현시즌 전적이 하나도 없는 그룹도 점수 최고를 공유)."""
+    seen = set()
+    for m in grp.values():
+        if id(m) in seen: continue
+        seen.add(id(m))
+        best, best_hg = None, False
+        for k in m:
+            c = solo.get(k)
+            if not c: continue
+            hg = (c["wins"] + c["losses"]) > 0
+            if best is None or (hg and not best_hg) or (hg == best_hg and c["score"] > best["score"]):
+                best, best_hg = c, hg
+        if best is None: continue
+        for k in m:
+            if solo.get(k) is not best: solo[k] = dict(best)
+
+
 def read_tab(wb, name):
     if name not in wb.sheetnames: return [], []
     it = wb[name].iter_rows(values_only=True)
@@ -62,6 +107,7 @@ def load(path):
     alt_to_main = {tnorm(r[1]): str(r[0]).strip() for r in lrows if r and len(r) > 1 and r[0] and r[1]}
 
     # 솔랭 + 과거 3시즌 최고 블렌드
+    grp = link_components([(m, s) for s, m in alt_to_main.items()])   # tnorm 닉 -> LINK 그룹(연결 요소)
     h, srows = read_tab(wb, "SOLO_RANK")
     def col(hh, *names):
         for n in names:
@@ -86,10 +132,7 @@ def load(path):
             try: pk = float(r[pp])
             except (TypeError, ValueError): continue
             peak.setdefault(tnorm(r[pn]), pk)
-        # [2026-09-10] 자기 피크 없으면 LINK_ACCOUNT 그룹 최고 피크 (웹·분석기와 동일)
-        grp = {}
-        for sub, main in alt_to_main.items():
-            g = grp.setdefault(tnorm(main), {tnorm(main)}); g.add(sub); grp[sub] = g
+        # [2026-09-10] 자기 피크 없으면 LINK_ACCOUNT 그룹 최고 피크 (웹·분석기와 동일) — [2026-10-09] 그룹 = 사슬까지 합친 연결 요소
         def peak_of(k):
             if k in peak: return peak[k]
             c = [peak[m] for m in grp.get(k, ()) if m in peak]
@@ -99,6 +142,7 @@ def load(path):
             if pk is not None: solo[k]["score"] = (solo[k]["score"] + pk) / 2.0
         for k, pk in peak.items():
             if k not in solo: solo[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}
+    share_best(solo, grp)       # 🔗 블렌드 뒤 — 현시즌 행이 옛 닉(사슬의 뿌리가 아닌 쪽)에 있어도 그룹 전원이 쓴다
     return raw, tier_of_raw, alt_to_main, solo, departed
 
 

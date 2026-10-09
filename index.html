@@ -2863,14 +2863,43 @@ function loadPeakSeasons(){
 }
 // 블렌드 규칙: 둘 다 있으면 평균 / 현시즌만 있으면 현시즌 / 과거만 있으면 과거(솔랭 쉬는 클랜원도 집계됨)
 // cur 필드 = 현시즌 원값 보존(솔랭다이아+ 뱃지 등 '현시즌' 판단용)
+// 🔗 [2026-10-09 사장님 제보 "카무사리 웹에서 언랭으로 뜨는 이유"] LINK_ACCOUNT 그룹 = 쌍들의 '연결 요소'(무방향 union-find).
+//    예전엔 쌍마다 그룹을 새로 만들어 덮어써서 사슬(A←B←C: 계정 이전 + 닉변)이 끊겼다 — 제보된 사람은 {맨 옛 닉, 중간 닉}+{지금 닉, 중간 닉} 두 조각이 돼
+//    현시즌 마스터 기록이 든 행(맨 옛 닉)을 못 찾고 피크만 남아 「언랭」으로 떴다. 분석기 _load_solo_ranks·툴링 sibguiwol.py 와 같은 규칙.
+function linkComponents(pairs){   // [[본계, 부계]…] -> Map(tnorm 닉 -> 그룹 멤버 배열(정렬됨 · 같은 그룹은 같은 배열))
+  const par=new Map();
+  const find=x=>{ let r=x; while(par.get(r)!==r) r=par.get(r); while(par.get(x)!==r){ const n=par.get(x); par.set(x,r); x=n; } return r; };
+  for(const [a,b] of pairs){ const ka=tnorm(a), kb=tnorm(b); if(!ka||!kb) continue; if(!par.has(ka)) par.set(ka,ka); if(!par.has(kb)) par.set(kb,kb); const ra=find(ka), rb=find(kb); if(ra!==rb) par.set(rb,ra); }
+  const comp=new Map();
+  for(const k of par.keys()){ const r=find(k); if(!comp.has(r)) comp.set(r,[]); comp.get(r).push(k); }
+  const out=new Map();
+  for(const m of comp.values()){ m.sort(); for(const k of m) out.set(k,m); }
+  return out;
+}
 function blendSoloRanks(cur, peak){
   // 🔗 [2026-09-10 사장님 지시 '그룹 최고 피크'] 자기 닉의 PEAK 행이 없으면(닉변·계정 이전) LINK_ACCOUNT 그룹의 최고 피크로 블렌드.
   //    ALT_TO_MAIN 이 먼저 대입돼 있어야 한다(init 순서 참고). 분석기 _load_solo_ranks·툴링 sibguiwol.py 와 같은 규칙.
-  const grp=new Map();
-  try{ for(const [sub,main] of ALT_TO_MAIN){ const mk=tnorm(main), sk=tnorm(sub); if(!grp.has(mk)) grp.set(mk,new Set([mk])); const g=grp.get(mk); g.add(sk); grp.set(sk,g); } }catch(e){}
+  let grp=new Map();
+  try{ grp=linkComponents([...ALT_TO_MAIN].map(([sub,main])=>[main,sub])); }catch(e){}
   const peakOf=k=>{ if(peak[k]!=null) return peak[k]; let best=null; const g=grp.get(k); if(g) for(const m of g){ if(peak[m]!=null&&(best==null||peak[m]>best)) best=peak[m]; } return best; };
   for(const k in cur){ cur[k].cur=cur[k].score; const pk=peakOf(k); if(pk!=null) cur[k].score=(cur[k].score+pk)/2; }
   for(const k in peak){ if(!cur[k]) cur[k]={score:peak[k],wins:0,losses:0,wr:null,cur:null}; }
+  // 🔗 [2026-10-09] 같은 사람의 계정들은 가장 좋은 엔트리를 다 같이 쓴다 — 현시즌 전적(승+패>0)이 있는 쪽 우선 → 점수 최고(동점은 닉 순서).
+  //    SOLO_RANK 행은 분석기가 옛 닉 이름으로 적는 일이 있어(맨 옛 닉 행에 지금 이름 사람의 마스터 기록) 지금 이름 키에는 피크만 남는다.
+  //    분석기 _load_solo_ranks 의 v82.50 와 같은 의미 — 그룹 전원에게 best 의 사본을 준다(현시즌 전적이 하나도 없는 그룹도 점수 최고를 공유).
+  for(const m of new Set(grp.values())){
+    let best=null, bk=null, bg=false;
+    for(const k of m){
+      const c=cur[k]; if(!c) continue;
+      const hg=(c.wins+c.losses)>0;
+      if(best==null||(hg&&!bg)||(hg===bg&&c.score>best.score)){ best=c; bk=k; bg=hg; }
+    }
+    if(!best) continue;
+    for(const k of m){ if(cur[k]!==best) cur[k]=Object.assign({},best); }
+    // 🖼 프로필 아이콘·레벨도 자기 행이 없으면 best 행 것을 쓴다(같은 SOLO_RANK 행의 열이라 같이 따라간다)
+    const bi=PROFILE_ICONS[bk];
+    if(bi) for(const k of m){ if(!PROFILE_ICONS[k]) PROFILE_ICONS[k]=Object.assign({},bi); }
+  }
   return cur;
 }
 
@@ -11188,7 +11217,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610072300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610091600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
