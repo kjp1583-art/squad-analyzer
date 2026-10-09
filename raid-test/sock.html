@@ -16,7 +16,7 @@
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;overflow-x:hidden;word-break:keep-all;overflow-wrap:anywhere}
-main{max-width:640px;margin:0 auto;padding:12px 16px 84px}
+main{max-width:640px;margin:0 auto;padding:12px 16px 28px}
 h1{font-size:24px;line-height:1.3;margin:6px 0}
 h2{font-size:19px;line-height:1.35;margin:0 0 6px}
 p{margin:6px 0}
@@ -58,7 +58,9 @@ details{background:var(--card);border:2px solid var(--line);border-radius:14px;p
 summary{min-height:48px;display:flex;align-items:center;font-weight:700;cursor:pointer}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.45 ui-monospace,Menlo,Consolas,monospace;margin:6px 0;max-height:360px;overflow:auto}
 .env{overflow-wrap:anywhere;white-space:pre-wrap;font:16px/1.5 ui-monospace,Menlo,Consolas,monospace}
-.ver{position:fixed;right:8px;bottom:6px;font-size:16px;color:var(--mut);background:var(--bg);padding:0 6px;border-radius:6px}
+.ver{margin:18px 0 0;text-align:center;font-size:16px;color:var(--mut)}   /* 표지는 맨 아래 한 줄(떠 있으면 버튼을 가린다) */
+.big2{font-size:26px;font-weight:800;line-height:1.3}
+.cfm{border:3px solid var(--bad);background:var(--badbg);border-radius:14px;padding:12px;margin:10px 0}
 .hide{display:none!important}
 .tog{display:flex;align-items:center;gap:10px;min-height:52px}
 .tog input{width:28px;height:28px;flex:0 0 auto}
@@ -70,16 +72,24 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.45 ui-monospace,Menl
 <h1>🔌 소켓 시험</h1>
 
 <div id="mode" class="mode pub" role="status"></div>
+<div id="envbox" class="note hide">
+  <b>지금 어디서 열었나요?</b> 열린 창 종류별로 결과를 따로 모아요(섞이면 안 돼서요). 한 번만 눌러 주세요.
+  <div class="row" style="margin-top:8px"><button type="button" id="b-env-d">💬 디스코드 앱 안의 창</button><button type="button" id="b-env-c" class="sec">🌐 크롬(인터넷 앱)</button></div>
+</div>
 <div id="nostore" class="note hide">⚠ 이 창은 저장 공간이 없어요. 결과가 이 창 안에서만 기억되고, 창이 지워지면 사라져요(그 사실도 못 알아채요).</div>
+<div id="halt" class="note hide" role="alert">
+  <div id="halt-t"></div>
+  <div class="row" style="margin-top:8px"><button type="button" id="b-halt">▶ 여기서 다시 붙기</button></div>
+</div>
 
 <div class="box" id="status">
   <div class="big" id="s-state">🟡 준비 중</div>
   <div class="st" style="margin-top:8px">
     <div><div class="k">마지막 수신</div><div class="v" id="s-last">—</div></div>
-    <div><div class="k">왕복 시간(RTT)</div><div class="v" id="s-rtt">—</div></div>
+    <div><div class="k">왕복 시간 (신호가 갔다 오는 시간)</div><div class="v" id="s-rtt">—</div></div>
     <div><div class="k">서버 시각</div><div class="v" id="s-srv">—</div></div>
     <div><div class="k">연결 번호</div><div class="v" id="s-conn">—</div></div>
-    <div class="wide"><div class="k">이 시험의 이름표(sid)</div><div class="v" id="s-sid" style="font-size:18px">—</div></div>
+    <div class="wide"><div class="k">이 시험의 이름표 (창마다 달라요)</div><div class="v" id="s-sid" style="font-size:18px">—</div></div>
     <div class="wide mut" id="s-prev"></div>
   </div>
 </div>
@@ -90,9 +100,10 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.45 ui-monospace,Menl
   <div class="l3 mut" id="arm3"></div>
   <div class="row" style="margin-top:10px"><button type="button" class="danger" id="b-cancel">✖ 이 시험 취소</button></div>
 </div>
+<div id="lastmsg" class="note hide" role="status"></div>
 
 <h2 style="margin-top:18px">시험 카드</h2>
-<p class="mut">카드를 하나 골라 [시작]을 누르고, 안내대로 한 다음 이 창으로 돌아오세요. 돌아오면 결과가 자동으로 쌓여요. 같은 카드를 여러 번 해도 돼요(G5 는 「다른 앱 15초」를 10번).</p>
+<p class="mut">카드를 하나 골라 [시작]을 누르고, 안내대로 한 다음 이 창으로 돌아오세요. 돌아오면 결과가 자동으로 쌓여요. 같은 카드를 여러 번 해도 돼요(합격 기준 G5 는 「다른 앱 15초」 카드 <b>최근 10번</b>을 봐요). 연결이 🟢 일 때만 [시작]이 눌려요.</p>
 <div id="cards"></div>
 
 <div class="box">
@@ -100,38 +111,45 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.45 ui-monospace,Menl
   <div id="results"><p class="mut">아직 없어요.</p></div>
 </div>
 
-<div class="box">
-  <h2>환경 정보</h2>
-  <div class="env" id="env"></div>
-  <label class="tog"><input type="checkbox" id="wl"> <span>화면 켜짐 유지 시험 (선택 · 기본 꺼짐)</span></label>
-  <p class="mut" id="wlst"></p>
-</div>
-
-<div class="box">
+<div class="box" id="copybox">
   <h2>결과 복사</h2>
-  <p class="mut">시험이 끝나면 [요약 복사]를 눌러 채팅에 붙여 주세요. 더 자세한 값이 필요하면 [자세히 복사]도요(디스코드 한 번에 2000자라서 나눠질 수 있어요).</p>
+  <p class="mut">시험이 끝나면 <b>[요약 복사]</b>를 눌러 채팅에 붙여 주세요. 이어서 <b>[자세히 복사]</b>도 눌러 붙여 주세요(버튼이 여러 개면 위에서부터 차례대로, 디스코드는 한 번에 2000자까지라서 나눠져요).</p>
   <div class="row"><button type="button" id="b-sum">📋 요약 복사</button></div>
   <div class="row" style="margin-top:10px" id="det-btns"><button type="button" id="b-det" class="sec">📋 자세히 복사</button></div>
   <p id="copymsg" role="status" aria-live="polite"></p>
-  <textarea id="out" readonly aria-label="복사할 글"></textarea>
+  <textarea id="out" readonly inputmode="none" aria-label="복사할 글"></textarea>
 </div>
+
+<details id="envd"><summary>환경 정보 (기기 정보 · 눌러서 펼치기)</summary>
+  <div class="env" id="env"></div>
+  <label class="tog"><input type="checkbox" id="wl"> <span>화면 켜짐 유지 시험 (Wake Lock · 선택 · 기본 꺼짐)</span></label>
+  <p class="mut" id="wlst"></p>
+</details>
 
 <details id="raw"><summary>원시 이벤트 로그 (최근 300개)</summary><pre id="logpre"></pre></details>
 
-<div class="row">
-  <button type="button" class="sec" id="b-clearlog">로그 지우기</button>
-  <button type="button" class="danger" id="b-reset">초기화 (결과 모두 지우고 새로 시작)</button>
-</div>
+<details id="adv"><summary>고급 (로그 지우기 · 초기화)</summary>
+  <div class="row" style="margin:8px 0">
+    <button type="button" class="sec" id="b-clearlog">로그 지우기</button>
+    <button type="button" class="danger" id="b-reset">초기화 (결과 모두 지우고 새로 시작)</button>
+  </div>
+  <div id="cfm" class="cfm hide" role="alertdialog" aria-live="assertive">
+    <div class="big2" id="cfm-t">정말 지울까요?</div>
+    <p>쌓인 결과가 <b>모두 사라지고 되돌릴 수 없어요.</b> 먼저 [요약 복사]를 하셨나요?</p>
+    <div class="row"><button type="button" class="danger" id="b-reset-yes">네, 모두 지우기</button><button type="button" class="sec" id="b-reset-no">아니요, 취소</button></div>
+  </div>
+</details>
+
+<div class="ver" id="ver">P0-v2</div>
 </main>
-<div class="ver" id="ver">P0-v1</div>
 
 <script>
 (function(){
 'use strict';
-var VER='P0-v1';
+var VER='P0-v2';
 var HB_MS=1000, SILENCE_MS=3500, CLOCK_GAP=2000, LOOP_MS=500, LOG_WAIT=3000, RES_MAX=200, LOG_MAX=300, BACKOFF=[0,500,1000,2000,4000];
+var STABLE_MS=10000, CAP_N=30, CAP_MS=60000, CAP_WAIT=10000, SETTLE_MAX=30000;   // 백오프는 10초 이상 안정일 때만 초기화 · 재접속은 분당 30번까지 · 정리 대기 최대 30초
 var POSTMAN='wss://ws.postman-echo.com/raw', ECHOWS='wss://echo.websocket.org';
-var K_RES='p0sock_results', K_PEND='p0sock_pending', K_SID='p0sock_sid';
 var $=function(id){return document.getElementById(id)};
 function el(tag,cls,txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
 function clear(n){ while(n.firstChild) n.removeChild(n.firstChild); }
@@ -165,6 +183,11 @@ if(wsParam!==null){ if(okWs(wsParam)) MINE=wsParam; else modeMsg='⚠ ?ws= 주�
 var PUB=[okWs(Q.get('pub'))?Q.get('pub'):POSTMAN, okWs(Q.get('pub2'))?Q.get('pub2'):ECHOWS];
 var OPEN_TO=(function(){ var v=parseInt(Q.get('t_open'),10); return (v>=500&&v<=20000)? v : 6000; })();   // 시험 편의: 열림 기다리는 시간(기본 6초)
 var SERVER_MODE=!!MINE;
+// 창 종류 표지(?env=discord|chrome): 디스코드 창과 크롬이 같은 저장소를 나눠 쓸 수 있어서, 표지별로 저장 칸·이름표를 따로 쓴다
+var ENV=(function(){ var v=Q.get('env'); return (v==='discord'||v==='chrome')? v : ''; })();
+var ENV_LABEL={discord:'디스코드 앱 안의 창',chrome:'크롬',all:'표지 없음'}[ENV||'all'];
+var SFX='_v2'+(ENV?'_'+ENV:'');
+var K_RES='p0sock_results'+SFX, K_PEND='p0sock_pending'+SFX, K_SID='p0sock_sid'+SFX, K_WIN='p0sock_win'+SFX;
 function httpBase(){ try{ var u=new URL(MINE); return (u.protocol==='wss:'?'https:':'http:')+'//'+u.host; }catch(e){ return null; } }
 
 /* ---------- 카드 ---------- */
@@ -194,7 +217,10 @@ var visibleSince=Date.now();
 var lastRecv=0, lastTickAt=0, srvTick=null, srvMs=null, srvOff=null, hello=null;
 var rtts=[], hbN=0, hbSent={}, lastHbAt=0, bgN=0;
 var connSeq=0, conns=[];   // 연결 기록(최근 40개)
-var C={ws:null,id:0,rec:null,urlIdx:0,fail:0,timer:null,otimer:null};
+var C={ws:null,id:0,rec:null,urlIdx:0,fail:0,timer:null,otimer:null,halt:null,minDelay:0};
+var connTimes=[];         // 최근 1분의 연결 시도 시각(폭주 상한)
+var leaving=false;        // 시험실 처음으로 링크로 일부러 나가는 중
+var lastMsg='';           // 방금 시도에 대한 안내(제외 사유 등)
 var lastClose=null;
 var wl={on:false,lock:null,st:'off'};
 var nav={type:'?',discarded:null};
@@ -207,6 +233,13 @@ function rsOf(){ return C.ws? C.ws.readyState : -1; }
 function connect(reason){
   if(C.timer){ clearTimeout(C.timer); C.timer=null; }
   if(C.otimer){ clearTimeout(C.otimer); C.otimer=null; }
+  var nowT=Date.now(); connTimes=connTimes.filter(function(t){ return nowT-t<CAP_MS; });
+  if(connTimes.length>=CAP_N){                       // 1분에 30번을 넘게 붙으면 잠깐 쉰다(진짜 서버의 속도 제한에 걸리지 않게)
+    logEv('rate-cap','1분에 '+connTimes.length+'번 붙음 → '+(CAP_WAIT/1000)+'초 쉼');
+    C.timer=setTimeout(function(){ C.timer=null; if(!away&&!C.halt) connect(reason); },CAP_WAIT);
+    return;
+  }
+  connTimes.push(nowT);
   var url=curUrl(), id=++connSeq, rec={id:id,reason:reason,url:url,startAt:Date.now(),openAt:0,firstRecvAt:0,closeAt:0,code:null,clean:null};
   conns.push(rec); if(conns.length>40) conns.shift();
   C.id=id; C.rec=rec; C.fail=C.fail||0;
@@ -238,6 +271,8 @@ function connect(reason){
     lastClose={id:id,t:now,code:ev.code,clean:ev.wasClean,why:san(ev.reason,40),away:!!away};
     logEv('ws-close','#'+id+' code='+ev.code+' clean='+ev.wasClean+(away?' (자리 비운 동안)':'')+' why='+san(ev.reason,30));
     if(C.otimer){ clearTimeout(C.otimer); C.otimer=null; }
+    if(ev.code===4001||ev.code===1008){ C.halt={code:ev.code,why:san(ev.reason,40),at:now}; logEv('halt','코드 '+ev.code+' → 자동 재접속 멈춤'); }   // 다른 창이 가로챘거나(4001) 서버가 거절(1008): 따라 붙으면 서로 쫓아내는 폭주가 된다
+    else if(ev.code===1013) C.minDelay=5000;                // 서버가 "나중에 다시" → 최소 5초 쉼
     if(!rec.openAt && !SERVER_MODE) C.urlIdx++;           // 한 번도 못 열었으면 공용 에코 다음 주소로
     if(trial && trial.phase==='back' && !trial.out && trial.closeInfo==null && id===trial.connAtHide){ trial.closeInfo={where:'복귀 뒤',code:ev.code,clean:ev.wasClean,why:san(ev.reason,40)}; }
     if(C.ws===ws) scheduleReconnect();
@@ -246,13 +281,14 @@ function connect(reason){
 }
 function abandon(ws){ try{ ws.__dead=true; ws.onopen=ws.onmessage=ws.onerror=ws.onclose=null; ws.close(); }catch(e){} }
 function scheduleReconnect(){
-  if(C.timer||away) return;                       // 자리 비운 동안엔 다시 붙지 않는다(돌아오면 바로 붙는다)
+  if(C.timer||away||C.halt) return;               // 자리 비운 동안엔 다시 붙지 않는다(돌아오면 바로 붙는다) · 멈춤 코드를 받았으면 사람이 누를 때까지 안 붙는다
   var d=BACKOFF[Math.min(C.fail,BACKOFF.length-1)]; C.fail++;
+  if(C.minDelay){ d=Math.max(d,C.minDelay); C.minDelay=0; }
   logEv('reconnect-in',d+'ms (시도 '+C.fail+')');
   C.timer=setTimeout(function(){ C.timer=null; if(!away) connect('retry'); },d);
 }
 function ensureConn(reason){
-  if(away) return;
+  if(away||C.halt) return;
   var rs=rsOf();
   if(C.ws && rs<=1) return;
   if(C.ws && rs===2){ abandon(C.ws); }
@@ -273,7 +309,7 @@ function trySendBg(src){
 }
 function onMsg(ev,rec){
   var now=Date.now();
-  lastRecv=now; C.fail=0;
+  lastRecv=now;                                   // 백오프는 여기서 초기화하지 않는다(받자마자 닫는 서버에 초당 수십 번 붙게 된다) → loop 에서 10초 안정일 때만
   if(!rec.firstRecvAt){ rec.firstRecvAt=now; if(document.visibilityState!=='hidden') renderStatus(); logEv('first-recv','#'+rec.id+' +'+(now-rec.startAt)+'ms (열림 후 +'+(rec.openAt?now-rec.openAt:'?')+')'); }
   if(trial && trial.phase==='back' && !trial.firstRecvAt){
     trial.firstRecvAt=now; trial.firstRecvConn=rec.id;
@@ -305,8 +341,13 @@ function onMsg(ev,rec){
 /* ---------- 숨김/복귀 ---------- */
 function wlState(){ return wl.st; }
 function onHide(src){
-  var now=Date.now(); logEv('ev','hide '+src);
-  if(trial && trial.phase==='back'){ trial.intr=true; finalize(trial.out||'fail'); }
+  var now=Date.now();
+  if(leaving){ logEv('ev','hide '+src+' (일부러 나가는 중)'); return; }
+  logEv('ev','hide '+src);
+  if(trial && trial.phase==='back'){
+    if(trial.out) finalize(trial.out);                       // 결과는 이미 나왔고 기록만 기다리던 중 → 그대로 마감
+    else { trial.intr=true; trial.noRearm=true; finalize('fail'); }   // 결과가 나오기 전에 또 나갔다 → 제외(재이탈)
+  }
   if(away) return;                                  // visibilitychange 뒤에 pagehide 가 또 오는 식의 중복
   var rs=rsOf();
   away={hideAt:now,src:src,rsPre:rs,connAtHide:C.id,lastRecvAtHide:lastRecv,lastTickAtHide:lastTickAt,tickAtHide:srvTick,bg:null,wl:wlState(),clock:false};
@@ -318,6 +359,8 @@ function onHide(src){
   if(wl.lock===null && wl.st==='held') wl.st='released';
 }
 function onShow(src,rsOverride){
+  if(/^(resume|pageshow)/.test(src) && document.visibilityState==='hidden'){ logEv('ev','ignored/'+src+' (아직 숨겨진 상태라 복귀로 안 침)'); return; }   // 복귀는 화면이 보이게 된 순간에만
+  leaving=false;
   var rsNow= rsOverride!=null? rsOverride : rsOf();       // 복귀 handler 첫 줄의 값
   var now=Date.now(); logEv('ev','show '+src+' rs='+rsNow);
   visibleSince=now; lastLoopWall=now;
@@ -337,7 +380,7 @@ function onShow(src,rsOverride){
   if(wl.on && wl.lock===null) wlRequest();
   if(rsNow===1) sendHb();                          // 살아 있나 바로 물어본다
   else if(rsNow===0){ /* 열리는 중 — 기다린다 */ }
-  else { if(C.ws) abandon(C.ws); if(C.timer){ clearTimeout(C.timer); C.timer=null; } connect('return'); }
+  else if(!C.halt){ if(C.ws) abandon(C.ws); if(C.timer){ clearTimeout(C.timer); C.timer=null; } connect('return'); }
   renderAll();
 }
 function visHandler(){ if(document.visibilityState==='hidden') onHide('visibilitychange'); else onShow('visibilitychange'); }
@@ -363,7 +406,7 @@ function loop(){
       if(document.visibilityState!=='hidden') onShow('clock',rsNow);     // 숨김 이벤트는 받았는데 복귀 이벤트가 안 온 경우
     } else if(trial && trial.phase==='armed'){
       // 이벤트가 하나도 없었는데 시계만 끊겼다 → 페이지가 멈췄다 돌아온 것으로 본다
-      away={hideAt:lastLoopWall,src:'clock',rsPre:lastRs,connAtHide:C.id,lastRecvAtHide:lastRecv,lastTickAtHide:lastTickAt,tickAtHide:srvTick,bg:{sent:false,rs:-1,src:'clock',err:'숨김 이벤트 없음'},wl:wlState(),clock:true};
+      away={hideAt:lastLoopWall,src:'clock',rsPre:(lastRs>=0? lastRs : rsNow),connAtHide:C.id,lastRecvAtHide:lastRecv,lastTickAtHide:lastTickAt,tickAtHide:srvTick,bg:{sent:false,rs:-1,src:'clock',err:'숨김 이벤트 없음'},wl:wlState(),clock:true};
       trial.phase='away';
       onShow('clock',rsNow);
     }
@@ -373,6 +416,7 @@ function loop(){
     var ws=C.ws;
     if(ws && ws.readyState===1){
       if(Date.now()-lastHbAt>=HB_MS-60) sendHb();
+      if(C.fail && C.rec && C.rec.openAt && Date.now()-C.rec.openAt>=STABLE_MS) C.fail=0;     // 10초 넘게 안정이면 백오프를 처음으로
       var since=Date.now()-Math.max(lastRecv,visibleSince,C.rec?C.rec.openAt:0);
       if(since>SILENCE_MS){
         logEv('silence','무수신 '+since+'ms → 닫고 다시 붙음');
@@ -383,14 +427,20 @@ function loop(){
     }
   }
   trialPoll();
-  if(document.visibilityState!=='hidden') renderStatus();
+  if(document.visibilityState!=='hidden'){ renderStatus(); if(trial&&trial.phase==='back') renderArm(); }
 }
 
 /* ---------- 시도 ---------- */
 function nextN(card){ var n=0; results.forEach(function(r){ if(r.card===card) n++; }); return n+1; }
+function isGreen(){
+  var ws=C.ws;
+  return !!(!away && !C.halt && ws && ws.readyState===1 && lastRecv>0 && (Date.now()-Math.max(lastRecv,visibleSince))<SILENCE_MS);
+}
 function arm(cardKey){
   if(trial) return false;
   var c=CARD_BY[cardKey]; if(!c) return false;
+  if(!isGreen()){ lastMsg='⚠ 연결이 🟢 이 아니에요. 🟢 이 될 때까지 기다린 뒤 [시작]을 눌러 주세요.'; logEv('trial-refuse',cardKey+' 연결 🟢 아님'); renderAll(); return false; }
+  lastMsg='';
   trial={card:cardKey,n:nextN(cardKey),sid:sid,armedAt:Date.now(),phase:'armed',det:{ev:false,clk:false},out:null};
   sset(K_PEND,JSON.stringify({card:cardKey,n:trial.n,sid:sid,armedAt:trial.armedAt,hideAt:null,fin:false}));
   logEv('trial-arm',cardKey+' #'+trial.n);
@@ -401,12 +451,12 @@ function arm(cardKey){
 function cancelTrial(){
   if(!trial) return;
   logEv('trial-cancel',trial.card);
-  trial=null; sdel(K_PEND); renderAll();
+  trial=null; lastMsg=''; sdel(K_PEND); renderAll();
 }
 function trialPoll(){
   var t=trial; if(!t||t.phase!=='back') return;
   var now=Date.now(), since=now-t.backAt;
-  if(!t.out && since>30000){ t.out='fail'; }
+  if(!t.out && since>SETTLE_MAX){ t.out='fail'; }
   var minWait= SERVER_MODE? LOG_WAIT : 1600;
   var logAt= Math.max(t.backAt+LOG_WAIT, t.firstRecvAt? t.firstRecvAt+1500 : 0);
   if(SERVER_MODE && !t.srvTried && (t.out) && now>=logAt){ t.srvTried=true; fetchLog(t); }
@@ -444,17 +494,26 @@ function finalize(out){
   var ov= lastGap && lastGap.to>=(t.hideAt||0)-1500 && lastGap.from<=(t.backAt||Date.now())+1500;
   t.det.clk=!!ov;
   var c=CARD_BY[t.card], short=!!(c&&c.min&&t.away_ms!=null&&t.away_ms<c.min*1000*0.9);
+  var long_=!!(c&&c.min&&t.away_ms!=null&&t.away_ms>c.min*1000*3);
+  // 제외(inv): 이 시도는 시험으로 칠 수 없다 → 집계·합격 기준에서 뺀다. short 목표의 90% 미만 · intr 결과 나오기 전에 또 나감 · notopen 떠날 때 소켓이 열려 있지 않았음
+  var inv= t.intr? 'intr' : short? 'short' : (t.hideAt && t.rsPre!=null && t.rsPre>=0 && t.rsPre!==1)? 'notopen' : null;
   var rec={id:t.armedAt+'-'+Math.random().toString(36).slice(2,6),card:t.card,n:t.n,sid:t.sid,at:t.armedAt,hide_at:t.hideAt||null,hide_src:t.hideSrc||null,back_src:t.backSrc||null,
     away_ms:t.away_ms==null?null:t.away_ms,det:t.det,evs:t.evs,rs_pre:t.rsPre==null?null:t.rsPre,rs_back:t.rsBack==null?null:t.rsBack,close:t.closeInfo||null,bg:t.bg||null,
     out:out,first_ms:t.first_ms==null?null:t.first_ms,reco:t.reco||null,gap_ms:t.gap_ms==null?null:t.gap_ms,
     tick_gap_ms:(SERVER_MODE&&t.tickAfterAt&&t.lastTickAtHide)?t.tickAfterAt-t.lastTickAtHide:null,
     tick_skip:(SERVER_MODE&&t.tickAfterN!=null&&t.tickAtHide!=null&&t.firstRecvConn===t.connAtHide)?t.tickAfterN-t.tickAtHide-1:null,
-    srv:SERVER_MODE?(t.srv||{err:'서버 기록 못 읽음'}):null,short:short,intr:!!t.intr,wl:[t.wlHide||null,t.wlBack||null]};
+    srv:SERVER_MODE?(t.srv||{err:'서버 기록 못 읽음'}):null,short:short,intr:!!t.intr,inv:inv,long:long_,env:ENV||null,wl:[t.wlHide||null,t.wlBack||null]};
   pushResult(rec);
+  var rearm=(inv==='short'&&!t.noRearm), card=t.card;
   trial=null; sdel(K_PEND);
-  logEv('trial-done',rec.card+' #'+rec.n+' '+out);
+  logEv('trial-done',rec.card+' #'+rec.n+' '+out+(inv?' (제외:'+inv+')':''));
+  var armed=false;
+  if(rearm) armed=arm(card);
+  if(inv) lastMsg='⚠ 방금 시도는 집계에서 뺐어요: '+INV_TXT[inv]+(inv==='short'?' (비운 시간 '+fmtS(rec.away_ms)+' · 목표 '+c.min+'초 이상)':'.')+(armed?' 같은 카드를 다시 준비해 뒀어요. 이번엔 '+c.min+'초 이상 채워 주세요.':rearm?' 연결이 🟢 이 되면 [시작]을 다시 눌러 주세요.':'');
+  else lastMsg= long_? '표시: 목표보다 3배 넘게 길어서 합격 기준(G5)에서는 빼요(카드 집계에는 들어가요).' : '';
   renderAll();
 }
+var INV_TXT={short:'너무 일찍 돌아왔어요',intr:'돌아온 직후 또 나가서 결과가 안 나왔어요',notopen:'나가기 전에 연결이 열려 있지 않았어요'};
 function pushResult(rec){
   results.push(rec); if(results.length>RES_MAX) results.splice(0,results.length-RES_MAX);
   saveResults();
@@ -463,8 +522,29 @@ function saveResults(){
   var s=JSON.stringify(results);
   if(!sset(K_RES,s) && store.ok){ results=results.slice(-Math.floor(RES_MAX/2)); sset(K_RES,JSON.stringify(results)); }   // 용량 초과면 반으로 줄여 다시 시도
 }
+// 저장소에서 읽은 기록의 모양을 바로잡는다(손으로 고쳤거나 옛 버전이면 필드가 비어 있을 수 있다) — 못 쓰는 건 버린다
+var OUTS=['alive','reco','fail','disc'];
+function normRec(r){
+  if(!r||typeof r!=='object'||!CARD_BY[r.card]||OUTS.indexOf(r.out)<0) return null;
+  function numOrNull(v){ return (typeof v==='number'&&isFinite(v))? v : null; }
+  r.n=numOrNull(r.n)||1; r.at=numOrNull(r.at)||0; r.away_ms=numOrNull(r.away_ms); r.first_ms=numOrNull(r.first_ms); r.gap_ms=numOrNull(r.gap_ms);
+  r.det=(r.det&&typeof r.det==='object')? r.det : {ev:false,clk:false};
+  r.evs=Array.isArray(r.evs)? r.evs.map(function(x){return san(x,30)}).slice(0,20) : [];
+  r.wl=Array.isArray(r.wl)? r.wl : [null,null];
+  ['close','bg','reco','nav'].forEach(function(k){ if(!r[k]||typeof r[k]!=='object') r[k]=null; });
+  if(r.srv!=null){
+    if(typeof r.srv!=='object') r.srv=null;
+    else {
+      r.srv.closes=(Array.isArray(r.srv.closes)? r.srv.closes : []).filter(function(x){return x&&typeof x==='object'});
+      r.srv.replaced=(Array.isArray(r.srv.replaced)? r.srv.replaced : []).filter(function(x){return x&&typeof x==='object'});
+    }
+  }
+  r.inv= (r.inv==='short'||r.inv==='intr'||r.inv==='notopen')? r.inv : null;
+  r.long=!!r.long;
+  return r;
+}
 function loadResults(){
-  try{ var s=sget(K_RES); if(s){ var a=JSON.parse(s); if(Array.isArray(a)) results=a.filter(function(r){return r&&typeof r==='object'&&CARD_BY[r.card];}).slice(-RES_MAX); } }catch(e){ results=[]; }
+  try{ var s=sget(K_RES); if(s){ var a=JSON.parse(s); if(Array.isArray(a)) results=a.map(normRec).filter(function(r){return r}).slice(-RES_MAX); } }catch(e){ results=[]; }
 }
 // 페이지가 새로 불러와졌는데 진행 중 기록이 남아 있으면 → 「창이 지워져서 새로 불러옴」으로 마감
 function closePending(){
@@ -478,16 +558,21 @@ function closePending(){
   nav={type:type,discarded:disc};
   var rec={id:(p.armedAt||now)+'-'+Math.random().toString(36).slice(2,6),card:p.card,n:p.n||nextN(p.card),sid:p.sid||null,at:p.armedAt||now,hide_at:p.hideAt||null,hide_src:p.src||null,back_src:'새로 불러옴',
     away_ms:now-base,det:{ev:!!p.hideAt&&p.src!=='clock',clk:false},evs:[],rs_pre:p.rsPre==null?null:p.rsPre,rs_back:null,close:null,bg:null,out:'disc',first_ms:null,reco:null,gap_ms:null,tick_gap_ms:null,tick_skip:null,
-    srv:null,short:false,intr:false,wl:[null,null],nav:{type:type,discarded:disc,hid:!!p.hideAt}};
+    srv:null,short:false,intr:false,inv:null,long:false,env:ENV||null,wl:[null,null],nav:{type:type,discarded:disc,hid:!!p.hideAt}};
   pushResult(rec);
   logEv('page-reloaded','창이 새로 불러와짐 nav='+type+' wasDiscarded='+disc+' 경과='+rec.away_ms+'ms');
 }
 
 /* ---------- 집계 ---------- */
+// 제외(inv)된 시도는 카드 집계에서 따로 센다. 합격 기준(G5)은 「다른 앱 15초」 중 제외·너무 긴 것을 뺀 최근 10번만 본다.
+var INV_SHORT={short:'너무 짧음',intr:'재이탈',notopen:'연결 안 열림'};
 function aggCard(card){
-  var a={n:0,alive:0,reco:0,fail:0,disc:0,recoMs:[],aliveMs:[],okMs:[],ev:0,clk:0,det:0};
+  var a={n:0,alive:0,reco:0,fail:0,disc:0,recoMs:[],aliveMs:[],okMs:[],ev:0,clk:0,det:0,inv:0,invBy:{},longN:0};
   results.forEach(function(r){
-    if(r.card!==card) return; a.n++;
+    if(r.card!==card) return;
+    if(r.inv){ a.inv++; a.invBy[r.inv]=(a.invBy[r.inv]||0)+1; return; }
+    a.n++;
+    if(r.long) a.longN++;
     if(a[r.out]!=null) a[r.out]++;
     if(r.out==='reco'&&r.reco&&r.reco.first_ms!=null){ a.recoMs.push(r.reco.first_ms); a.okMs.push(r.reco.first_ms); }
     if(r.out==='alive'&&r.first_ms!=null){ a.aliveMs.push(r.first_ms); a.okMs.push(r.first_ms); }
@@ -496,14 +581,40 @@ function aggCard(card){
   a.recoMed=median(a.recoMs); a.aliveMed=median(a.aliveMs); a.okMed=median(a.okMs); a.ok=a.alive+a.reco;
   return a;
 }
+function invText(a){
+  if(!a.inv) return '';
+  return ' · 제외 '+a.inv+'번('+Object.keys(a.invBy).map(function(k){ return INV_SHORT[k]+' '+a.invBy[k]; }).join(', ')+')';
+}
 function aggLine(a){
-  if(!a.n) return '아직 안 했어요';
-  return a.n+'번 중 · 그대로 '+a.alive+' · 다시 붙음 '+a.reco+' · 못 붙음 '+a.fail+' · 새로 불러옴 '+a.disc+' · 재접속 중앙값 '+fmtS(a.recoMed);
+  if(!a.n) return (a.inv? '집계할 시도 없음' : '아직 안 했어요')+invText(a);
+  return a.n+'번 중 · 그대로 '+a.alive+' · 다시 붙음 '+a.reco+' · 못 붙음 '+a.fail+' · 새로 불러옴 '+a.disc+' · 재접속 중앙값 '+fmtS(a.recoMed)+invText(a);
+}
+// G5: 「다른 앱 15초」 카드의 최근 10번(제외·너무 긴 것 뺌) 중 성공(그대로+다시 붙음) ≥ 9 이고 복귀 뒤 첫 수신 중앙값 ≤ 3초. 10번이 안 되면 판정하지 않는다.
+function g5Calc(){
+  var L=results.filter(function(r){ return r.card==='A15' && !r.inv && !r.long; });
+  var last=L.slice(-10), ok=0, ms=[], am=[], rm=[], silence=0, disc=0;
+  last.forEach(function(r){
+    if(r.out==='alive'||r.out==='reco'){
+      ok++;
+      if(r.out==='alive'&&r.first_ms!=null){ ms.push(r.first_ms); am.push(r.first_ms); }
+      if(r.out==='reco'&&r.reco&&r.reco.first_ms!=null){ ms.push(r.reco.first_ms); rm.push(r.reco.first_ms); if(r.reco.via==='silence') silence++; }
+    }
+    if(r.out==='disc') disc++;
+  });
+  var g={total:L.length,n:last.length,ok:ok,med:median(ms),aliveMed:median(am),recoMed:median(rm),silence:silence,disc:disc,verdict:null};
+  if(g.n>=10) g.verdict= (ok>=9 && g.med!=null && g.med<=3000)? 'pass' : 'fail';
+  return g;
 }
 function g5Line(a){
-  if(!a.n) return 'G5(제안): 아직 안 했어요';
-  var pass= a.n>=10 ? (a.ok>=9 && a.okMed!=null && a.okMed<=3000 ? '통과' : '기준 밖') : '아직 10번을 안 채웠어요';
-  return 'G5(제안: 10번 중 성공 ≥9, 복귀 뒤 첫 수신 중앙값 ≤3초): 성공 '+a.ok+'/'+a.n+' · 중앙값 '+fmtS(a.okMed)+' → '+pass;
+  var g=g5Calc();
+  var head='합격 기준(G5, 제안: 최근 10번 중 성공 9번 이상 + 복귀 뒤 첫 수신 중앙값 3초 이하)';
+  if(!g.total) return head+': 아직 안 했어요';
+  if(g.n<10) return head+': 아직 '+g.n+'/10번이라 판정하지 않아요(제외·너무 긴 시도는 안 세요) · 지금까지 성공 '+g.ok+'/'+g.n+' · 중앙값 '+fmtS(g.med);
+  var res= g.verdict==='pass'? '통과' : (g.ok>=9? '성공 수는 통과, 속도(중앙값)가 3초를 넘어서 기준 밖' : '기준 밖');
+  var s=head+': 최근 10번 중 성공 '+g.ok+'/10 · 중앙값 '+fmtS(g.med)+' → '+res+(g.total>10?' (전체 '+g.total+'번 중 마지막 10번만 봤어요)':'');
+  s+=' · 그대로 중앙값 '+fmtS(g.aliveMed)+' · 다시 붙음 중앙값 '+fmtS(g.recoMed);
+  if(g.silence||(g.verdict==='fail'&&g.ok>=9)) s+=' ※ 죽은 소켓은 3.5초 무수신 규칙을 거쳐야 다시 붙어서 「다시 붙음」은 3초를 넘기 쉬워요(기준을 5초로 할지 의논 필요).';
+  return s;
 }
 function oneLine(r){
   var c=CARD_BY[r.card];
@@ -512,7 +623,9 @@ function oneLine(r){
   else if(r.out==='reco') s+='🔁 다시 붙음('+fmtS(r.reco&&r.reco.first_ms)+', 시도 '+(r.reco&&r.reco.attempts)+')';
   else if(r.out==='disc') s+='🧹 창이 새로 불러와짐';
   else s+='❌ 못 붙음';
-  if(r.short) s+=' · ⚠ 목표('+c.min+'초)보다 짧음';
+  if(r.inv==='short') s+=' · ⚠ 목표('+c.min+'초)보다 짧아서 집계에서 뺌';
+  else if(r.inv) s+=' · ⚠ 집계에서 뺌('+INV_TXT[r.inv]+')';
+  if(r.long&&!r.inv) s+=' · 목표보다 3배↑(G5 제외)';
   return s;
 }
 
@@ -520,6 +633,7 @@ function oneLine(r){
 function stateText(){
   var ws=C.ws, now=Date.now();
   if(away) return '🔴 자리 비움';
+  if(C.halt) return '🔴 멈춤 (코드 '+C.halt.code+')';
   if(!ws) return '🟡 재접속';
   var rs=ws.readyState;
   if(rs===0) return '🟡 연결하는 중';
@@ -536,9 +650,22 @@ function renderStatus(){
   $('s-srv').textContent= srvMs!=null? kstHMS(srvMs)+' KST' : (SERVER_MODE? '—' : '없음(공용 에코)');
   $('s-conn').textContent= C.id? '#'+C.id+(C.rec&&C.rec.reason?' ('+({silence:'무수신 재접속',return:'복귀 재접속',retry:'재시도',first:'처음',online:'온라인',loop:'재시도',show:'복귀',ensure:'재시도'}[C.rec.reason]||C.rec.reason)+')':'') : '—';
   $('s-sid').textContent=sid||'—';
+  renderStartBtns(); renderHalt();
   var pv=$('s-prev');
   if(hello&&hello.prev) pv.textContent='서버가 기억하는 이전 연결: 코드 '+san(hello.prev.code,8)+' · 이유 '+hello.prev.why+' · 끊긴 지 '+san(hello.prev.gap_ms,10)+'ms';
   else pv.textContent='';
+}
+function renderStartBtns(){
+  var g=isGreen(), bs=document.querySelectorAll('[data-start]');
+  for(var i=0;i<bs.length;i++) bs[i].disabled= !!trial || !g;     // 연결이 🟢 일 때만 [시작]
+}
+function renderHalt(){
+  var h=$('halt'); if(!h) return;
+  if(!C.halt){ h.className='note hide'; return; }
+  h.className='note';
+  $('halt-t').textContent= C.halt.code===4001
+    ? '⚠ 다른 창에서 같은 시험을 열어서, 서버가 이 창의 연결을 내보냈어요(코드 4001). 서로 쫓아내며 계속 붙는 걸 막으려고 여기서는 자동으로 다시 붙지 않아요. 이 창에서 계속하려면 아래 버튼을 눌러 주세요(다른 창은 멈춰요).'
+    : '⚠ 서버가 이 연결을 거절했어요(코드 '+C.halt.code+(C.halt.why?' · '+C.halt.why:'')+'). 자동으로 다시 붙지 않아요. 잠시 뒤 아래 버튼을 눌러 보세요.';
 }
 function renderMode(){
   var m=$('mode'); clear(m);
@@ -559,18 +686,30 @@ function renderArm(){
   if(!trial){ b.className='arm hide'; return; }
   var c=CARD_BY[trial.card];
   b.className='arm';
-  $('arm1').textContent='✅ 준비됐어요 — '+c.name+' ('+trial.n+'번째)';
-  if(trial.phase==='armed') { $('arm2').textContent='(지금부터) '+c.how+' (더 길어도 괜찮아요. 시간은 자동으로 재요.)'; $('arm3').textContent='이 창을 벗어나면 시작돼요. 돌아오면 결과가 자동으로 쌓여요.'; }
-  else if(trial.phase==='away') { $('arm2').textContent='자리를 비운 걸 알아챘어요. 이 창으로 돌아와 주세요.'; $('arm3').textContent=''; }
-  else { $('arm2').textContent='돌아왔어요! 결과를 정리하는 중이에요… (몇 초만 이 창에 머물러 주세요)'; $('arm3').textContent=''; }
+  if(trial.phase==='back'){
+    var tooShort= c.min && trial.away_ms!=null && trial.away_ms<c.min*900;
+    $('arm1').textContent='↩ 돌아왔어요 — 비운 시간 '+fmtS(trial.away_ms)+(c.min? (tooShort? '  ⚠ 목표 '+c.min+'초보다 짧아요' : '  ✅ 충분해요') : '');
+    var left=Math.max(0,Math.ceil((SETTLE_MAX-(Date.now()-trial.backAt))/1000));
+    $('arm2').textContent='결과를 정리하는 중이에요. 이 창에 머물러 주세요 (보통 몇 초 · 서버가 조용하면 최대 '+left+'초 더).';
+    $('arm3').textContent= tooShort? '목표보다 짧아서 이번 시도는 집계에서 빼고, 같은 카드를 다시 준비해 드려요.' : '';
+  } else {
+    $('arm1').textContent='✅ 준비됐어요 — '+c.name+' ('+trial.n+'번째)';
+    if(trial.phase==='armed') { $('arm2').textContent='(지금부터) '+c.how+(c.min? ' 시간은 자동으로 재요. 이 화면에서는 시계가 안 보이니, 폰의 스톱워치나 시계로 '+c.min+'초 이상 채워 주세요.' : ' 시간은 자동으로 재요.'); $('arm3').textContent='이 창을 벗어나면 시작돼요. 돌아오면 비운 시간을 크게 보여 드려요.'; }
+    else { $('arm2').textContent='자리를 비운 걸 알아챘어요. 이 창으로 돌아와 주세요.'; $('arm3').textContent=''; }
+  }
   $('b-cancel').disabled = (trial.phase==='back');
+}
+function renderLastMsg(){
+  var m=$('lastmsg'); if(!m) return;
+  if(!lastMsg){ m.className='note hide'; m.textContent=''; return; }
+  m.className='note'; m.textContent=lastMsg;
 }
 function renderCards(){
   var box=$('cards'); clear(box);
   CARDS.forEach(function(c){
     var a=aggCard(c.k), d=el('div','card'+(trial&&trial.card===c.k?' act':'')); d.setAttribute('data-card',c.k);
     var hd=el('div','hd'); hd.appendChild(el('div','nm',c.k+' · '+c.name));
-    var b=el('button','go','▶ 시작'); b.type='button'; b.setAttribute('data-start',c.k); b.disabled=!!trial;
+    var b=el('button','go','▶ 시작'); b.type='button'; b.setAttribute('data-start',c.k); b.disabled=!!trial||!isGreen();
     b.addEventListener('click',function(){ arm(c.k); });
     hd.appendChild(b); d.appendChild(hd);
     d.appendChild(el('div','ag',aggLine(a)));
@@ -582,14 +721,18 @@ function renderResults(){
   var box=$('results'); clear(box);
   if(!results.length){ box.appendChild(el('p','mut','아직 없어요.')); return; }
   results.slice(-8).reverse().forEach(function(r){
-    var d=el('div','res'); d.appendChild(el('div',r.out==='alive'?'ok':r.out==='fail'?'bad':'',oneLine(r)));
+    var d=el('div','res'); d.appendChild(el('div',r.inv?'warn':r.out==='alive'?'ok':r.out==='fail'?'bad':'',oneLine(r)));
     d.appendChild(el('div','mut','감지: 이벤트 '+(r.det&&r.det.ev?'됨':'안 됨')+' · 시계 끊김 '+(r.det&&r.det.clk?'됨':'안 됨')));
     box.appendChild(d);
   });
 }
 function renderEnv(){ $('env').textContent=envLines().join('\n'); }
 function renderLog(){ if($('raw').open){ $('logpre').textContent=LOG.slice(-300).map(function(e){ return kstHMSm(e.t)+' '+e.k+' '+e.d; }).join('\n'); } }
-function renderAll(){ renderMode(); renderStatus(); renderArm(); renderCards(); renderResults(); renderLog(); $('nostore').className= store.ok? 'note hide':'note'; }
+function renderAll(){
+  try{ renderMode(); renderStatus(); renderArm(); renderLastMsg(); renderCards(); renderResults(); renderLog(); }catch(e){ logEv('render-error',e&&e.message); }
+  $('nostore').className= store.ok? 'note hide':'note';
+  $('envbox').className= ENV? 'note hide':'note';
+}
 
 /* ---------- 환경 ---------- */
 function uaParts(){
@@ -615,6 +758,7 @@ function envLines(){
   L.push('화면 '+sw+' · 창 '+iw+' · dpr '+(window.devicePixelRatio||'?'));
   L.push('localStorage: '+(store.ok?'쓸 수 있음':'막힘(메모리로만)')+' · WakeLock 지원: '+(('wakeLock' in navigator)?'예':'아니오')+(wl.on||wl.st!=='off'?' · WakeLock 상태: '+wl.st:''));
   L.push('모드: '+(SERVER_MODE?'내 서버 '+san(MINE,70):'공용 에코 '+san(curUrl(),70)));
+  L.push('창 종류 표지(사용자가 고름): '+ENV_LABEL);
   L.push('이 창 열림: nav='+nav.type+' wasDiscarded='+nav.discarded);
   return L;
 }
@@ -622,27 +766,35 @@ function envLines(){
 /* ---------- 복사 글 ---------- */
 function summaryText(){
   var L=[]; L.push('[소켓시험 '+VER+'] 요약');
-  envLines().filter(function(x){ return /^(날짜|요약|디스코드|모드|connection|localStorage)/.test(x); }).forEach(function(x){ L.push(x); });
+  envLines().filter(function(x){ return /^(날짜|요약|디스코드|모드|창 종류|connection|localStorage)/.test(x); }).forEach(function(x){ L.push(x); });
   L.push('sid: '+(sid||'?'));
-  var evAll=0,clkAll=0,detAll=0;
+  var evAll=0,clkAll=0,detAll=0, nFail=0, nDisc=0, nInv=0, codes={};
   CARDS.forEach(function(c){
-    var a=aggCard(c.k); if(!a.n) return;
+    var a=aggCard(c.k); if(!a.n&&!a.inv) return;
     L.push(c.k+' '+c.name+': '+aggLine(a));
     if(c.k==='A15') L.push('  '+g5Line(a));
-    evAll+=a.ev; clkAll+=a.clk; detAll+=a.det;
+    evAll+=a.ev; clkAll+=a.clk; detAll+=a.det; nFail+=a.fail; nDisc+=a.disc; nInv+=a.inv;
   });
+  results.forEach(function(r){ if(!r.inv&&r.close&&r.close.code!=null){ var k=String(r.close.code); codes[k]=(codes[k]||0)+1; } });
   if(!results.length) L.push('(아직 쌓인 결과가 없어요)');
-  else L.push('감지(창이 안 지워진 시도 '+detAll+'번 중): 이벤트로 알아챔 '+evAll+' · 시계 끊김으로 알아챔 '+clkAll);
+  else {
+    L.push('감지(창이 안 지워진 시도 '+detAll+'번 중): 이벤트로 알아챔 '+evAll+' · 시계 끊김으로 알아챔 '+clkAll);
+    var codeTxt=Object.keys(codes).map(function(k){ return k+'×'+codes[k]; }).join(' ');
+    L.push('눈여겨볼 것: 못 붙음 '+nFail+' · 새로 불러옴 '+nDisc+' · 집계 제외 '+nInv+(codeTxt?' · 닫힘 코드 '+codeTxt:'')+((nFail||nDisc)?'  → 이런 게 있으면 [자세히 복사]도 꼭 붙여 주세요':''));
+    L.push('최근 시도:');
+    results.slice(-3).forEach(function(r){ L.push(' '+oneLine(r)); });
+  }
   return L.join('\n');
 }
-function trialLine(r){
+function trialLine(r){ try{ return trialLine0(r); }catch(e){ return '#'+(r&&r.n)+' '+(r&&r.card)+' (이 기록은 모양이 이상해서 못 읽었어요)'; } }
+function trialLine0(r){
   var s=[]; var c=CARD_BY[r.card];
-  s.push('#'+r.n+' '+r.card+' '+kstHMS(r.at));
+  s.push('#'+r.n+' '+r.card+' '+kstHMS(r.at)+(r.env?' ['+r.env+']':''));
   if(r.out==='disc'){
     s.push('새로불러옴 비운='+fmtS(r.away_ms)+' nav='+(r.nav&&r.nav.type)+' discarded='+(r.nav&&r.nav.discarded)+(r.nav&&r.nav.hid===false?' (숨김이벤트 못 봄)':'')+' 숨김='+(r.hide_src||'?'));
     return s.join(' ');
   }
-  s.push('비운='+fmtS(r.away_ms)+(r.short?'(짧음)':''));
+  s.push('비운='+fmtS(r.away_ms)+(r.short?'(짧음)':'')+(r.inv?' 집계제외='+r.inv:'')+(r.long?' 너무길음':''));
   s.push('감지=이벤트'+(r.det&&r.det.ev?'O':'X')+'/시계'+(r.det&&r.det.clk?'O':'X'));
   s.push('숨김='+(r.hide_src||'?')+' 복귀='+(r.back_src||'?'));
   s.push('rs 숨김전='+r.rs_pre+' 복귀직후='+r.rs_back);
@@ -707,6 +859,7 @@ function wlRequest(){
   if(!('wakeLock' in navigator)){ wl.st='지원 안 함'; logEv('wakelock','지원 안 함'); renderWl(); return; }
   try{
     navigator.wakeLock.request('screen').then(function(lock){
+      if(!wl.on){ try{ lock.release(); }catch(e){} wl.lock=null; wl.st='off'; logEv('wakelock','받았지만 이미 꺼서 바로 풀음'); renderWl(); return; }
       wl.lock=lock; wl.st='held'; logEv('wakelock','받음(granted)'); renderWl();
       lock.addEventListener('release',function(){ wl.lock=null; wl.st='released'; logEv('wakelock','풀림(release)'); renderWl(); });
     },function(e){ wl.lock=null; wl.st='거절:'+san(e&&e.name,20); logEv('wakelock','거절 '+san(e&&e.name,30)+' '+san(e&&e.message,40)); renderWl(); });
@@ -715,33 +868,55 @@ function wlRequest(){
 function renderWl(){ $('wlst').textContent= !('wakeLock' in navigator)? '이 창은 Wake Lock 을 지원하지 않아요.' : (wl.on? '상태: '+wl.st : '꺼져 있어요.'); renderEnv(); }
 
 /* ---------- 시작 ---------- */
-function newSid(){
+function rand(n){
   var a='abcdefghijklmnopqrstuvwxyz0123456789', s='';
-  try{ var b=new Uint8Array(12); crypto.getRandomValues(b); for(var i=0;i<12;i++) s+=a[b[i]%a.length]; }
-  catch(e){ for(var j=0;j<12;j++) s+=a[Math.floor(Math.random()*a.length)]; }
+  try{ var b=new Uint8Array(n); crypto.getRandomValues(b); for(var i=0;i<n;i++) s+=a[b[i]%a.length]; }
+  catch(e){ for(var j=0;j<n;j++) s+=a[Math.floor(Math.random()*a.length)]; }
   return s;
 }
+// 이름표(sid) = 이 폰·이 창 종류의 기본 12자 + '-' + 창마다 다른 4자. 같은 프로필의 두 창이 같은 이름표를 쓰면 서로 쫓아내기 때문에 창(탭)마다 다르게 한다.
+var winTag=null, sidBase=null;
+function getWinTag(){
+  if(winTag) return winTag;
+  try{ var v=sessionStorage.getItem(K_WIN); if(v&&/^[a-z0-9]{4}$/.test(v)){ winTag=v; return v; } v=rand(4); sessionStorage.setItem(K_WIN,v); winTag=v; return v; }
+  catch(e){ winTag=rand(4); return winTag; }
+}
+function makeSid(){ return sidBase+'-'+getWinTag(); }
 function resetAll(){
-  results=[]; trial=null; away=null;
+  results=[]; trial=null; away=null; lastMsg=''; C.halt=null; connTimes=[];
   sdel(K_RES); sdel(K_PEND); sdel(K_SID);
-  sid=newSid(); sset(K_SID,sid);
+  sidBase=rand(12); sset(K_SID,sidBase); sid=makeSid();
   LOG.length=0; logEv('reset','새 sid '+sid);
   if(C.ws) abandon(C.ws); C.ws=null; C.fail=0; hello=null; rtts=[]; lastRecv=0; srvMs=null; srvTick=null;
   connect('first');
   renderAll(); renderDetBtns(); $('copymsg').textContent=''; $('out').value='';
 }
+function goEnv(v){ try{ var p=new URLSearchParams(location.search); p.set('env',v); location.search='?'+p.toString(); }catch(e){} }
+var cfmTimer=null;
+function showCfm(on){
+  $('cfm').className= on? 'cfm' : 'cfm hide';
+  if(cfmTimer){ clearTimeout(cfmTimer); cfmTimer=null; }
+  if(on) cfmTimer=setTimeout(function(){ showCfm(false); },15000);       // 15초 안에 안 누르면 저절로 닫힘
+}
 function init(){
   $('ver').textContent=VER;
   loadResults();
-  sid=sget(K_SID);
-  if(!sid||!/^[A-Za-z0-9_-]{6,40}$/.test(sid)){ sid=newSid(); sset(K_SID,sid); }
+  sidBase=sget(K_SID);
+  if(!sidBase||!/^[a-z0-9]{12}$/.test(sidBase)){ sidBase=rand(12); sset(K_SID,sidBase); }
+  sid=makeSid();
   try{ var e=performance.getEntriesByType('navigation')[0]; if(e) nav.type=e.type; if('wasDiscarded' in document) nav.discarded=!!document.wasDiscarded; }catch(e2){}
   closePending();
-  logEv('boot','P0-v1 '+(SERVER_MODE?'server':'public')+' nav='+nav.type+' store='+store.ok);
+  logEv('boot',VER+' '+(SERVER_MODE?'server':'public')+' nav='+nav.type+' store='+store.ok+' env='+(ENV||'-'));
   $('b-cancel').addEventListener('click',cancelTrial);
   $('b-sum').addEventListener('click',function(){ copyText(summaryText()); });
   $('b-clearlog').addEventListener('click',function(){ LOG.length=0; renderLog(); renderDetBtns(); });
-  $('b-reset').addEventListener('click',function(){ resetAll(); });
+  $('b-reset').addEventListener('click',function(){ showCfm(true); });                 // 바로 지우지 않고 한 번 더 묻는다
+  $('b-reset-no').addEventListener('click',function(){ showCfm(false); });
+  $('b-reset-yes').addEventListener('click',function(){ showCfm(false); resetAll(); });
+  $('b-halt').addEventListener('click',function(){ C.halt=null; C.fail=0; if(C.ws) abandon(C.ws); C.ws=null; if(C.timer){ clearTimeout(C.timer); C.timer=null; } connect('resume-click'); renderAll(); });
+  $('b-env-d').addEventListener('click',function(){ goEnv('discord'); });
+  $('b-env-c').addEventListener('click',function(){ goEnv('chrome'); });
+  $('home').addEventListener('click',function(){ leaving=true; trial=null; sdel(K_PEND); });   // 일부러 나가는 건 「창이 지워짐」으로 세지 않는다
   $('raw').addEventListener('toggle',renderLog);
   $('wl').addEventListener('change',function(){
     wl.on=$('wl').checked;
@@ -751,12 +926,12 @@ function init(){
   renderEnv(); renderWl(); renderAll(); renderDetBtns();
   $('out').value=summaryText();
   setInterval(loop,LOOP_MS);
-  setInterval(function(){ renderEnv(); renderLog(); renderDetBtns(); },3000);
+  setInterval(function(){ try{ renderEnv(); renderLog(); renderDetBtns(); }catch(e){ logEv('render-error',e&&e.message); } },3000);
 }
 // 시험(자동 검사)용 손잡이 — 화면 동작에는 필요 없다
 window.P0SOCK={VER:VER,
   snap:function(){ return JSON.parse(JSON.stringify({results:results,trial:trial,away:away,C:{id:C.id,rs:rsOf(),urlIdx:C.urlIdx,fail:C.fail},conns:conns,hello:hello,srvOff:srvOff,store:store.ok,lastGap:lastGap,nav:nav,rtts:rtts,lastRecv:lastRecv,wl:wl.st,sid:sid,log:LOG.slice(-60)})); },
-  arm:arm, loop:loop, summaryText:summaryText, detailText:detailText, chunk:chunk, oneLine:oneLine, san:san, okWs:okWs};
+  arm:arm, loop:loop, connect:function(r){ if(C.ws) abandon(C.ws); C.ws=null; connect(r||'test'); }, isGreen:isGreen, g5:g5Calc, summaryText:summaryText, detailText:detailText, chunk:chunk, oneLine:oneLine, san:san, okWs:okWs};
 init();
 })();
 </script>

@@ -20,7 +20,7 @@ from playwright.async_api import async_playwright   # noqa: E402
 import tempfile
 SCR = os.environ.get('RP0_SCR') or os.path.join(tempfile.gettempdir(), 'raid_pages_shots')   # 스크린샷 저장 위치(저장소 밖)
 os.makedirs(SCR, exist_ok=True)
-PAGES_DIR = os.path.join(ROOT, 'raid-test')
+PAGES_DIR = os.environ.get('RP0_PAGES') or os.path.join(ROOT, 'raid-test')      # 다른 판(예: 고치기 전 복사본)에 같은 시험을 대 보고 싶을 때 RP0_PAGES=폴더
 
 TESTS = []
 
@@ -182,8 +182,12 @@ def synth_results(n=12):
     return L
 
 
-def seed_init(results):
-    return "try{localStorage.setItem('p0sock_results',%s)}catch(e){}" % json.dumps(json.dumps(results))
+RES_KEY = 'p0sock_results_v2'
+PEND_KEY = 'p0sock_pending_v2'
+
+
+def seed_init(results, env=''):
+    return "try{localStorage.setItem('%s',%s)}catch(e){}" % (RES_KEY + ('_' + env if env else ''), json.dumps(json.dumps(results)))
 
 
 def pstats(a):
@@ -203,7 +207,7 @@ async def t_hub(env):
     ctx, pg, errs = await env.new_page('index.html', '?srv=https://x.example&ws=wss://y.example/ws', w=360, h=740)
     eq(await pg.get_attribute('meta[name=robots]', 'content'), 'noindex,nofollow')
     eq(await pg.get_attribute('html', 'lang'), 'ko')
-    ok('P0-v1' in await pg.inner_text('#ver'), '버전 표기')
+    ok('P0-v2' in await pg.inner_text('#ver'), '버전 표기')
     h1 = await pg.get_attribute('#c-ping', 'href')
     h2 = await pg.get_attribute('#c-sock', 'href')
     ok(h1.startswith('ping.html') and 'srv=https' in h1, '핑 링크에 쿼리 전달: ' + h1)
@@ -417,7 +421,7 @@ async def t_ping_e2e(env):
     ok(len(fl) >= 92 and all(x[1] == 'no-store' and x[3] == 'cors' and x[2] == 'HEAD' and x[4] == 'omit' for x in fl), 'fetch 옵션(no-store·cors·HEAD·omit): %s' % fl[:2])
     # 복사 글
     out = await pgA.input_value('#out')
-    ok(out.startswith('[핑시험 P0-v1]') and '날짜(KST)' in out and '데이터(LTE·5G)' in out, '복사 글 머리: ' + out[:120])
+    ok(out.startswith('[핑시험 P0-v2]') and '날짜(KST)' in out and '데이터(LTE·5G)' in out, '복사 글 머리: ' + out[:120])
     ok(re.search(r'① 서울 \(Vultr\): 중앙 \d+ · p95 \d+ · 지터 [\d.]+ · 최소 \d+ · 최대 \d+ · 실패 0/20', out), '서울 줄: ' + out)
     ok('판정:' in out and '제안 기준' in out, '판정 줄')
     # --- B: HEAD 거절 → GET(no-cors) 로 물러남 ---
@@ -508,7 +512,7 @@ async def t_ping_copy(env):
     await pg.click('#b-data')
     await pg.evaluate('()=>{P0PING.setResult("seoul",[30,31,32,33,34,35,36,37,38,39,40],0)}')
     txt = await pg.input_value('#out')
-    ok(txt.startswith('[핑시험 P0-v1]'), '글 표식')
+    ok(txt.startswith('[핑시험 P0-v2]'), '글 표식')
     await pg.click('#b-copy')
     cp = await pg.evaluate('window.__copied')
     eq(len(cp), 1, 'execCommand 한 번')
@@ -586,8 +590,7 @@ async def t_sock_connect(env):
     await asyncio.sleep(2.2)
     s = await snap(pg)
     eq(s['hello']['conn'], 1)
-    eq(len(s['sid']), 12, 'sid 12자')
-    ok(re.match(r'^[a-z0-9]{12}$', s['sid']))
+    ok(re.match(r'^[a-z0-9]{12}-[a-z0-9]{4}$', s['sid']), 'sid = 기본 12자 + 창 4자: ' + s['sid'])
     ok(s['srvOff'] is not None, '서버 시각 오프셋')
     ok(len(s['rtts']) >= 2 and all(0 <= r < 500 for r in s['rtts']), 'hb RTT: %s' % s['rtts'])
     st = await pg.inner_text('#status')
@@ -677,7 +680,7 @@ async def t_sock_alive(env):
     ok('그대로 열려 있음' in await pg.inner_text('#results'), '결과 줄')
     # 요약 글
     summ = await pg.evaluate('P0SOCK.summaryText()')
-    ok(summ.startswith('[소켓시험 P0-v1] 요약') and 'A15 다른 앱 15초: 1번 중' in summ and '이벤트로 알아챔 1 · 시계 끊김으로 알아챔 1' in summ, summ)
+    ok(summ.startswith('[소켓시험 P0-v2] 요약') and 'A15 다른 앱 15초: 1번 중' in summ and '이벤트로 알아챔 1 · 시계 끊김으로 알아챔 1' in summ, summ)
     no_errs(errs, 'alive')
 
 
@@ -794,8 +797,9 @@ async def t_sock_freeze(env):
     s = await snap(pg)
     r = s['results'][0]
     log = ' '.join(e['k'] + ':' + e['d'] for e in s['log'])
-    ok('hide freeze' in log and 'show resume' in log, 'freeze/resume 이벤트를 받았다: ' + log[-300:])
-    ok(r['hide_src'] == 'freeze' and r['back_src'] == 'resume' and r['det']['ev'] is True, '%s/%s' % (r['hide_src'], r['back_src']))
+    # 실제로 얼렸다 깨우면(화면은 계속 보임) resume 이 곧 복귀. 합성 경로에서는 resume 이 숨김 중에 오므로 복귀로 안 치고 visibilitychange 가 복귀다.
+    ok('hide freeze' in log and ('show resume' in log or 'ignored/resume' in log), 'freeze/resume 이벤트를 받았다: ' + log[-300:])
+    ok(r['hide_src'] == 'freeze' and r['back_src'] in ('resume', 'visibilitychange') and r['det']['ev'] is True, '%s/%s' % (r['hide_src'], r['back_src']))
     ok(r['away_ms'] >= 2800, '얼어 있던 시간 %s' % r['away_ms'])
     ok(r['det']['clk'] is True, '2초 넘는 정지는 시계 끊김도 감지: %s' % r['det'])
     ok(r['out'] in ('alive', 'reco'), r['out'])
@@ -810,8 +814,8 @@ async def t_sock_reload(env):
     sid0 = (await snap(pg))['sid']
     await pg.click('[data-start=A15]')
     await pg.evaluate("__vis('hidden')")
-    ok(await pg.evaluate("localStorage.getItem('p0sock_pending')") is not None, '숨기기 직전 진행 중 기록이 저장됨')
-    p = json.loads(await pg.evaluate("localStorage.getItem('p0sock_pending')"))
+    ok(await pg.evaluate("localStorage.getItem('p0sock_pending_v2')") is not None, '숨기기 직전 진행 중 기록이 저장됨')
+    p = json.loads(await pg.evaluate("localStorage.getItem('p0sock_pending_v2')"))
     ok(p['card'] == 'A15' and p['sid'] == sid0 and p['n'] == 1 and p['hideAt'], 'pending 내용 %s' % p)
     await asyncio.sleep(1.2)
     await pg.reload()
@@ -824,14 +828,14 @@ async def t_sock_reload(env):
     ok(r['nav']['discarded'] is False and r['nav']['hid'] is True, 'nav %s' % r['nav'])
     ok(1000 <= r['away_ms'] <= 15000, '경과 %s' % r['away_ms'])
     eq(s['sid'], sid0, '새로 불러와도 sid 는 유지')
-    eq(await pg.evaluate("localStorage.getItem('p0sock_pending')"), None, '마감 뒤 pending 삭제')
+    eq(await pg.evaluate("localStorage.getItem('p0sock_pending_v2')"), None, '마감 뒤 pending 삭제')
     card = await pg.inner_text('[data-card=A15]')
     ok('새로 불러옴 1' in card, card)
     ok('창이 새로 불러와짐' in await pg.inner_text('#results'))
     ok(not await pg.is_disabled('[data-start=A15]'), '이어서 사용 가능')
     ok(s['trial'] is None)
     # 두 번째: 숨김 이벤트를 못 본 채 지워진 경우(armed 만 저장돼 있음)
-    await pg.evaluate("localStorage.setItem('p0sock_pending', JSON.stringify({card:'A45',n:1,sid:'zzzzzzzz',armedAt:Date.now()-5000,hideAt:null,fin:false}))")
+    await pg.evaluate("localStorage.setItem('p0sock_pending_v2', JSON.stringify({card:'A45',n:1,sid:'zzzzzzzz',armedAt:Date.now()-5000,hideAt:null,fin:false}))")
     await pg.goto(env.page_url('sock.html', '?ws=' + fe.ws_url('/ws')))
     await pg.wait_for_function('window.P0SOCK!==undefined')
     s = await snap(pg)
@@ -858,7 +862,7 @@ async def t_sock_nostore(env):
     ok('저장 공간이 없어요' in await pg.inner_text('#nostore'))
     s = await snap(pg)
     eq(s['store'], False)
-    ok('막힘' in await pg.inner_text('#env'), '환경 블록에 localStorage 막힘')
+    ok('막힘' in await pg.text_content('#env'), '환경 블록에 localStorage 막힘')
     await pg.click('[data-start=A15]')
     await pg.evaluate("__vis('hidden')")
     await pg.clock.fast_forward(15500)
@@ -888,9 +892,9 @@ async def t_sock_copy(env):
     cp = await pg.evaluate('window.__copied')
     eq(len(cp), 1)
     eq(cp[0]['sel'], txt, '요약 전체 선택→복사')
-    ok(txt.startswith('[소켓시험 P0-v1] 요약'), txt[:60])
+    ok(txt.startswith('[소켓시험 P0-v2] 요약'), txt[:60])
     ok(len(txt) <= 2000, '요약은 디스코드 한 메시지(2000자) 안: %d' % len(txt))
-    ok('G5(제안' in txt, 'G5 줄')
+    ok('합격 기준(G5' in txt, 'G5 줄')
     ok('복사했어요' in await pg.inner_text('#copymsg'))
     # 자세히: 2000자를 넘으면 나눠진 버튼이 생긴다
     await asyncio.sleep(0.2)
@@ -898,7 +902,7 @@ async def t_sock_copy(env):
     ok(btns >= 2, '자세히 복사 버튼이 나눠짐: %d' % btns)
     parts = await pg.evaluate('P0SOCK.chunk(P0SOCK.detailText(),1900)')
     ok(all(len(p) <= 1900 for p in parts) and len(parts) == btns, '조각 길이 %s, 버튼 %d' % ([len(p) for p in parts], btns))
-    ok(parts[0].startswith('[소켓시험 P0-v1] 자세히'), '맨 위 표식')
+    ok(parts[0].startswith('[소켓시험 P0-v2] 자세히'), '맨 위 표식')
     joined = '\n'.join(parts)
     ok('--- 환경 ---' in joined and '--- 최근 이벤트 40개 ---' in joined and '--- 시도별' in joined, '세 구역')
     await pg.evaluate('window.__copied.length=0')
@@ -919,7 +923,7 @@ async def t_sock_copy(env):
     await wait_connected(pg2)
     await pg2.click('#b-sum')
     got = await pg2.evaluate('navigator.clipboard.readText()')
-    ok(got.startswith('[소켓시험 P0-v1] 요약'), '실제 클립보드 내용')
+    ok(got.startswith('[소켓시험 P0-v2] 요약'), '실제 클립보드 내용')
     no_errs(errs, 'copy'), no_errs(errs2, 'copy2')
 
 
@@ -945,7 +949,7 @@ async def t_sock_pub(env):
     eq(r['out'], 'alive')
     eq(r['srv'], None, '공용 에코는 서버 기록 없음')
     ok(r['short'] is True, '15초 시험인데 1초만 비웠으니 짧음 표시')
-    ok('목표(15초)보다 짧음' in await pg.inner_text('#results'))
+    ok('목표(15초)보다 짧아서 집계에서 뺌' in await pg.inner_text('#results'))
     ok(fe.log_hits == 0, '공용 모드에선 /log 를 부르지 않는다')
     # 첫 주소가 안 열리면 두 번째 주소로 물러난다(즉시 거절)
     ctx2, pg2, errs2 = await env.new_page('sock.html', '?pub=ws://127.0.0.1:1/raw&pub2=' + raw, w=412, h=915, allow=('WebSocket connection', 'ERR_'))
@@ -1014,7 +1018,7 @@ async def t_sock_xss(env):
     ptxt = await pg.inner_text('#s-prev')
     ok('<img' in ptxt or 'script' in ptxt or 'onerror' in ptxt, '글자 그대로 화면에 보임(실행은 안 됨): ' + ptxt)
     det = await pg.input_value('#out')
-    ok('[소켓시험 P0-v1] 자세히' in det, '자세히 글 생성')
+    ok('[소켓시험 P0-v2] 자세히' in det, '자세히 글 생성')
     logtxt = await pg.inner_text('#logpre')
     ok('onerror' in logtxt or 'script' in logtxt, '원시 로그에도 글자로만')
     # 핑 페이지 쪽도: 악성 srv/쿼리는 DOM 으로 안 들어간다
@@ -1034,7 +1038,7 @@ async def t_sock_repeat(env):
     # 취소해 보기
     await pg.click('#b-cancel')
     ok(await pg.is_visible('#arm.hide') or 'hide' in (await pg.get_attribute('#arm', 'class')), '취소하면 안내 상자 닫힘')
-    eq(await pg.evaluate("localStorage.getItem('p0sock_pending')"), None)
+    eq(await pg.evaluate("localStorage.getItem('p0sock_pending_v2')"), None)
     eq(len((await snap(pg))['results']), 0, '취소는 결과에 안 쌓임')
     for i in range(3):
         await pg.click('[data-start=A15]')
@@ -1052,7 +1056,7 @@ async def t_sock_repeat(env):
     eq([r['out'] for r in s['results']], ['alive', 'reco', 'alive'])
     card = await pg.inner_text('[data-card=A15]')
     ok('3번 중' in card and '그대로 2' in card and '다시 붙음 1' in card and '못 붙음 0' in card and '새로 불러옴 0' in card, card)
-    ok('아직 10번을 안 채웠어요' in card or '아직 10번' in card, 'G5 줄: ' + card)
+    ok('아직 3/10번이라 판정하지 않아요' in card, 'G5 줄: ' + card)
     ok('성공 3/3' in card, 'G5 성공 수: ' + card)
     ok('재접속 중앙값' in card, card)
     # 다른 카드는 영향 없음
@@ -1066,10 +1070,11 @@ async def t_sock_wl(env):
     init = """(function(){var W={request:function(t){if(window.__wlDeny)return Promise.reject(new DOMException('no','NotAllowedError'));var l={released:false,release:function(){this.released=true;(l._h||[]).forEach(function(f){f()});return Promise.resolve()},addEventListener:function(n,f){(l._h=l._h||[]).push(f)}};window.__lock=l;return Promise.resolve(l)}};Object.defineProperty(navigator,'wakeLock',{value:W,configurable:true});})();"""
     ctx, pg, errs = await srv_page(env, init=init, w=412, h=915)
     await wait_connected(pg)
-    ok('꺼져 있어요' in await pg.inner_text('#wlst'), '기본 꺼짐')
+    ok('꺼져 있어요' in await pg.text_content('#wlst'), '기본 꺼짐')
+    await pg.evaluate("document.getElementById('envd').open=true")          # 환경 정보는 접혀 있다
     await pg.check('#wl')
     await poll(pg, "P0SOCK.snap().wl==='held'", 4, msg='받음')
-    ok('held' in await pg.inner_text('#wlst'))
+    ok('held' in await pg.text_content('#wlst'))
     await pg.evaluate('window.__lock.release()')
     await poll(pg, "P0SOCK.snap().wl==='released'", 4, msg='release 이벤트')
     await pg.uncheck('#wl')
@@ -1092,7 +1097,7 @@ async def t_sock_env(env):
     pg.on('pageerror', lambda e: errs.append(str(e)))
     await pg.goto(env.page_url('sock.html', '?ws=' + fe.ws_url('/ws')))
     await wait_connected(pg)
-    t = await pg.inner_text('#env')
+    t = await pg.text_content('#env')
     ok('Android 14' in t and 'Chrome 126' in t, t)
     ok('wv' in t and '추정' in t and ua in t, 'UA 전체와 wv 추정: ' + t)
     ok('connection:' in t and 'localStorage: 쓸 수 있음' in t and 'WakeLock' in t and '화면 ' in t and 'KST' in t, t)
@@ -1145,6 +1150,511 @@ async def t_sock_junk(env):
         ok(await pg.evaluate('window.P0SOCK!==undefined'), q + ' 로 열려야 함')
         no_errs(errs, q)
         await ctx.close()
+
+
+# =====================================================================================
+# 2026-10-09 검증 지적 보완 — 회귀 시험
+# =====================================================================================
+def a15rec(i, out='alive', ms=800, inv=None, long_=False, via='return', away=16000, card='A15'):
+    r = synth_results(1)[0]
+    r.update({'id': 'g%d' % i, 'card': card, 'n': i + 1, 'at': 1700000000000 + i * 1000, 'out': out, 'away_ms': away, 'inv': inv, 'long': long_, 'short': inv == 'short',
+              'first_ms': ms if out == 'alive' else None,
+              'reco': {'via': via, 'attempts': 1, 'open_ms': 300, 'first_ms': ms, 'in_away': False} if out == 'reco' else None,
+              'close': None, 'srv': None})
+    if out == 'disc':
+        r.update({'back_src': '새로 불러옴', 'nav': {'type': 'reload', 'discarded': False, 'hid': True}})
+    return r
+
+
+async def g5_card(env, fe, results):
+    ctx, pg, errs = await srv_page(env, init=seed_init(results), w=412, h=915)
+    await wait_connected(pg)
+    card = await pg.inner_text('[data-card=A15]')
+    g = await pg.evaluate('P0SOCK.g5()')
+    summ = await pg.evaluate('P0SOCK.summaryText()')
+    no_errs(errs, 'g5')
+    await ctx.close()
+    return card, g, summ
+
+
+@test('sock_g5_uses_last10_not_absolute_count')
+async def t_sock_g5(env):
+    fe = await env.start_fe()
+    good = lambda n, off=0: [a15rec(off + i) for i in range(n)]
+    bad = lambda n, off=0: [a15rec(off + i, out='fail') for i in range(n)]
+    # a) 9번만 했으면 판정하지 않는다
+    card, g, _ = await g5_card(env, fe, good(9))
+    ok('아직 9/10번이라 판정하지 않아요' in card and '→ 통과' not in card and g['verdict'] is None, 'a: ' + card)
+    # b) 10번 중 9번 성공(그대로 8 + 다시 붙음 1) → 통과
+    r = good(8) + [a15rec(8, out='reco', ms=1500)] + bad(1, 9)
+    card, g, _ = await g5_card(env, fe, r)
+    ok('최근 10번 중 성공 9/10' in card and '→ 통과' in card and g['verdict'] == 'pass', 'b: ' + card)
+    # c) 10번 중 8번 → 기준 밖
+    card, g, _ = await g5_card(env, fe, good(8) + bad(2, 8))
+    ok('성공 8/10' in card and '→ 기준 밖' in card and '→ 통과' not in card, 'c: ' + card)
+    # d) 20번: 앞 10번 전부 성공 + 최근 10번 중 8번 성공 → 통과하면 안 된다(전체 18/20 이지만 최근 10번이 기준)
+    r = good(10) + good(8, 10) + bad(2, 18)
+    card, g, _ = await g5_card(env, fe, r)
+    ok('성공 8/10' in card and '→ 기준 밖' in card and '→ 통과' not in card and '전체 20번 중 마지막 10번만' in card, 'd: ' + card)
+    # e) 20번: 앞 10번 실패 + 최근 10번 전부 성공 → 통과(옛 시도에 발목 잡히지 않는다)
+    card, g, _ = await g5_card(env, fe, bad(10) + good(10, 10))
+    ok('성공 10/10' in card and '→ 통과' in card, 'e: ' + card)
+    # f) 검증자 재현: 20번 중 9번 성공(최근 10번엔 1번뿐) 이 예전엔 「성공 9/20 → 통과」
+    r = good(8) + bad(11, 8) + [a15rec(19)]
+    card, g, _ = await g5_card(env, fe, r)
+    ok('→ 통과' not in card and '→ 기준 밖' in card, 'f: ' + card)
+    # g) 저장 상한 200번 중 9번 성공
+    r = good(9) + bad(191, 9)
+    card, g, summ = await g5_card(env, fe, r)
+    ok('→ 통과' not in card and '→ 통과' not in summ and g['total'] == 200 and g['ok'] == 0, 'g: ' + card)
+    # h) 성공 9번이어도 속도(중앙값 3초 초과)가 느리면 기준 밖
+    card, g, _ = await g5_card(env, fe, [a15rec(i, ms=4000) for i in range(9)] + bad(1, 9))
+    ok('→ 통과' not in card and '성공 수는 통과, 속도' in card and '→ 성공 수는 통과' in card, 'h: ' + card)
+    # i) 제외(inv)·너무 긴(long) 시도는 분모에서 빠진다
+    r = good(10) + [a15rec(10 + i, out='fail', inv='short', away=400) for i in range(5)] + [a15rec(15 + i, out='fail', long_=True, away=70000) for i in range(3)]
+    card, g, _ = await g5_card(env, fe, r)
+    ok('성공 10/10' in card and '→ 통과' in card and '제외 5번(너무 짧음 5)' in card and g['total'] == 10, 'i: ' + card)
+    # j) 11번째가 실패여도 최근 10번 안의 9번이면 통과 / 새로 불러옴(disc)은 실패로 센다
+    r = bad(1) + good(9, 1) + [a15rec(10, out='disc')]
+    card, g, _ = await g5_card(env, fe, r)
+    ok('성공 9/10' in card and '→ 통과' in card and g['disc'] == 1, 'j: ' + card)
+    # k) 요약에도 같은 줄
+    _, _, summ = await g5_card(env, fe, good(10))
+    ok('합격 기준(G5' in summ and '→ 통과' in summ, 'k: ' + summ)
+
+
+async def opened_total(fe):
+    return sum(s.opened for s in fe.sessions.values())
+
+
+@test('sock_reconnect_storm_guards', retry=True)
+async def t_sock_storm(env):
+    fe = await env.start_fe()
+    # (a) 같은 프로필의 두 창: 창마다 이름표가 달라 서로 쫓아내지 않는다
+    ctx, pg, errs = await srv_page(env, w=412, h=915)
+    await wait_connected(pg)
+    pg2 = await ctx.new_page()
+    errs2 = []
+    pg2.on('pageerror', lambda e: errs2.append(str(e)))
+    await pg2.goto(env.page_url('sock.html', '?ws=' + fe.ws_url('/ws')))
+    await wait_connected(pg2)
+    await asyncio.sleep(6)
+    s1, s2 = await snap(pg), await snap(pg2)
+    ok(s1['sid'] != s2['sid'] and s1['sid'].split('-')[0] == s2['sid'].split('-')[0], '같은 폰 기본 이름표 + 창마다 다른 끝 4자: %s / %s' % (s1['sid'], s2['sid']))
+    n_open = await opened_total(fe)
+    n_repl = sum(len(x.replaced) for x in fe.sessions.values())
+    ok(n_open <= 3 and n_repl == 0, '두 창 6초: 연결 %d번 · 서로 쫓아냄 %d번 (예전엔 초당 30번+)' % (n_open, n_repl))
+    ok(s1['C']['id'] == 1 and s2['C']['id'] == 1, '재접속 없이 유지')
+    # (a2) 그래도 같은 이름표가 되면(탭 복제 등): 4001 을 받은 창은 자동 재접속을 멈추고 버튼만 보인다
+    fe.reset()
+    same = "try{sessionStorage.setItem('p0sock_win_v2','abcd')}catch(e){}"
+    ctxs = await env.br.new_context(viewport={'width': 412, 'height': 915}, locale='ko-KR')
+    env.ctxs.append(ctxs)
+    await ctxs.add_init_script(same)
+    pa = await ctxs.new_page()
+    await pa.goto(env.page_url('sock.html', '?ws=' + fe.ws_url('/ws')))
+    await wait_connected(pa)
+    pb = await ctxs.new_page()
+    await pb.goto(env.page_url('sock.html', '?ws=' + fe.ws_url('/ws')))
+    await wait_connected(pb)
+    sa, sb = await snap(pa), await snap(pb)
+    eq(sa['sid'], sb['sid'], '일부러 같은 이름표')
+    await asyncio.sleep(5)
+    n_open = await opened_total(fe)
+    ok(n_open <= 3, '같은 이름표 두 창 5초: 연결 %d번 (예전엔 초당 39번)' % n_open)
+    ok(await pa.is_visible('#halt') and '4001' in await pa.inner_text('#halt'), '쫓겨난 창에 안내와 버튼')
+    ok('멈춤' in await pa.inner_text('#s-state'), '상태 표시: ' + await pa.inner_text('#s-state'))
+    ok(any(e['k'] == 'halt' for e in (await snap(pa))['log']), '멈춤 로그')
+    await pa.click('#b-halt')
+    await wait_connected(pa)
+    await asyncio.sleep(0.8)
+    ok(not await pa.is_visible('#halt'), '버튼을 누르면 이 창에서 계속')
+    ok(await pb.is_visible('#halt'), '이번엔 다른 창이 멈춤')
+    ok(await opened_total(fe) <= 4, '버튼 한 번에 연결 한 번')
+    await ctxs.close(); await ctx.close()
+    # (b) hello 직후 1008: 한 번 붙고 멈춘다
+    fe.reset()
+    fe.hello_close = 1008
+    ctx3, pg3, errs3 = await srv_page(env, w=412, h=915)
+    await asyncio.sleep(5)
+    n_open = await opened_total(fe)
+    eq(n_open, 1, '1008 은 다시 붙지 않는다(예전엔 5초에 162번)')
+    ok(await pg3.is_visible('#halt') and '1008' in await pg3.inner_text('#halt'), '1008 안내')
+    fe.hello_close = 0
+    await pg3.click('#b-halt')
+    await wait_connected(pg3)
+    ok(not await pg3.is_visible('#halt'), '서버가 풀리면 버튼으로 다시 붙음')
+    await ctx3.close()
+    # (c) hello 직후 1011(멈춤 코드가 아님): 백오프가 늘어난다
+    fe.reset()
+    fe.hello_close = 1011
+    ctx4, pg4, errs4 = await srv_page(env, w=412, h=915)
+    await asyncio.sleep(6)
+    n_open = await opened_total(fe)
+    ok(3 <= n_open <= 8, '받자마자 닫는 서버에 6초 동안 %d번 (백오프 0→0.5→1→2→4초; 예전엔 초당 30번) load %s' % (n_open, load()))
+    fe.hello_close = 0
+    await ctx4.close()
+    # (d) 1013: 최소 5초 쉬었다 붙는다
+    fe.reset()
+    fe.hello_close = 1013
+    ctx5, pg5, errs5 = await srv_page(env, w=412, h=915)
+    await asyncio.sleep(3.5)
+    eq(await opened_total(fe), 1, '1013 뒤 3.5초 안엔 다시 안 붙음')
+    fe.hello_close = 0
+    await poll(pg5, "P0SOCK.snap().C.id>=2", 8, msg='5초쯤 뒤 다시 붙음')
+    await ctx5.close()
+    # (e) 분당 30번 상한
+    fe.reset()
+    ctx6, pg6, errs6 = await srv_page(env, w=412, h=915)
+    await wait_connected(pg6)
+    await pg6.evaluate("for(var i=0;i<40;i++) P0SOCK.connect('burst')")
+    await asyncio.sleep(1.0)
+    n_open = await opened_total(fe)
+    ok(n_open <= 30, '1분 상한 30번: %d' % n_open)
+    ok(any(e['k'] == 'rate-cap' for e in (await snap(pg6))['log']), 'rate-cap 로그')
+    for e_, nm in ((errs, 'a'), (errs2, 'a2'), (errs3, 'b'), (errs4, 'c'), (errs5, 'd'), (errs6, 'e')):
+        no_errs(e_, 'storm ' + nm)
+
+
+@test('sock_invalid_attempts_excluded', retry=True)
+async def t_sock_invalid(env):
+    fe = await env.start_fe()
+    # (a) 0.4초 숨김 3번: 15초 카드의 성공으로 안 센다 + 같은 카드를 다시 준비
+    ctx, pg, errs = await srv_page(env, w=412, h=915)
+    await wait_connected(pg)
+    for i in range(3):
+        await pg.click('[data-start=A15]')
+        await pg.evaluate("__vis('hidden')")
+        await asyncio.sleep(0.4)
+        await pg.evaluate("__vis('visible')")
+        await poll(pg, "P0SOCK.snap().results.length>=%d" % (i + 1), 10, msg='결과 %d' % (i + 1))
+        await poll(pg, "P0SOCK.snap().trial!==null&&P0SOCK.snap().trial.phase==='armed'", 5, msg='자동으로 다시 준비')
+        ok('집계에서 뺐어요' in await pg.inner_text('#lastmsg') and '다시 준비해 뒀어요' in await pg.inner_text('#lastmsg'), '안내: ' + await pg.inner_text('#lastmsg'))
+        await pg.click('#b-cancel')
+        await asyncio.sleep(0.2)
+    s = await snap(pg)
+    ok(all(r['inv'] == 'short' for r in s['results']), '세 번 모두 제외(짧음): %s' % [r['inv'] for r in s['results']])
+    card = await pg.inner_text('[data-card=A15]')
+    ok('집계할 시도 없음' in card and '제외 3번(너무 짧음 3)' in card, '카드: ' + card)
+    ok('→ 통과' not in card and '성공 3' not in card, 'G5 에 안 들어감: ' + card)
+    g = await pg.evaluate('P0SOCK.g5()')
+    eq((g['total'], g['ok'], g['verdict']), (0, 0, None), 'G5 에 안 들어감')
+    ok('목표(15초)보다 짧아서 집계에서 뺌' in await pg.inner_text('#results'), '결과 줄')
+    ok('제외 3' in await pg.evaluate('P0SOCK.summaryText()'), '요약에도 제외 표시')
+    # (b) 복귀 직후(결과 나오기 전) 다시 나가면 「못 붙음」이 아니라 제외
+    ctx2, pg2, errs2 = await srv_page(env, clock=True, w=412, h=915)
+    await wait_connected(pg2)
+    sid = (await snap(pg2))['sid']
+    await pg2.click('[data-start=A15]')
+    await pg2.evaluate("__vis('hidden')")
+    fe.set_silence(True, sid)
+    await pg2.clock.fast_forward(15500)
+    await asyncio.sleep(0.3)
+    await pg2.evaluate("__vis('visible')")
+    await asyncio.sleep(0.5)
+    await pg2.evaluate("__vis('hidden')")
+    await poll(pg2, "P0SOCK.snap().results.length>=1", 8, msg='재이탈 결과')
+    r = (await snap(pg2))['results'][0]
+    eq((r['inv'], r['out'], r['intr']), ('intr', 'fail', True), '재이탈은 제외: %s' % r)
+    fe.set_silence(False, sid)
+    await pg2.evaluate("__vis('visible')")
+    card = await pg2.inner_text('[data-card=A15]')
+    ok('못 붙음 0' in card or '집계할 시도 없음' in card, card)
+    ok('제외 1번(재이탈 1)' in card, card)
+    # (c) 연결이 🟢 이 아니면 [시작]이 안 눌리고 arm 도 거절
+    ctx3, pg3, errs3 = await env.new_page('sock.html', '?ws=ws://127.0.0.1:1/ws', init=VIS_INIT, w=412, h=915, allow=('WebSocket connection', 'ERR_'))
+    await asyncio.sleep(1.2)
+    ok(await pg3.evaluate("[...document.querySelectorAll('[data-start]')].every(b=>b.disabled)"), '연결이 안 되면 [시작] 전부 비활성')
+    eq(await pg3.evaluate("P0SOCK.arm('A15')"), False)
+    ok('🟢' in await pg3.inner_text('#lastmsg'), '안내: ' + await pg3.inner_text('#lastmsg'))
+    eq((await snap(pg3))['trial'], None)
+    # (d) 목표의 3배 넘게 길면 카드엔 세되 G5 에선 뺀다
+    ctx4, pg4, errs4 = await srv_page(env, clock=True, w=412, h=915)
+    await wait_connected(pg4)
+    await pg4.click('[data-start=A15]')
+    await pg4.evaluate("__vis('hidden')")
+    await pg4.clock.fast_forward(60000)
+    await asyncio.sleep(0.4)
+    await pg4.evaluate("__vis('visible')")
+    await poll(pg4, "P0SOCK.snap().results.length>=1", 14, msg='결과')
+    r = (await snap(pg4))['results'][0]
+    ok(r['long'] is True and r['inv'] is None, '길다: %s' % r)
+    g = await pg4.evaluate('P0SOCK.g5()')
+    eq(g['total'], 0, 'G5 에선 뺌')
+    ok('1번 중' in await pg4.inner_text('[data-card=A15]'), '카드 집계엔 들어감')
+    # (e) 복귀 화면에 비운 시간이 크게 나온다
+    ctx5, pg5, errs5 = await srv_page(env, clock=True, w=412, h=915)
+    await wait_connected(pg5)
+    sid5 = (await snap(pg5))['sid']
+    await pg5.click('[data-start=A15]')
+    await pg5.evaluate("__vis('hidden')")
+    fe.set_silence(True, sid5)
+    await pg5.clock.fast_forward(15500)
+    await asyncio.sleep(0.3)
+    await pg5.evaluate("__vis('visible')")
+    await asyncio.sleep(0.9)
+    arm = await pg5.inner_text('#arm')
+    ok('돌아왔어요' in arm and '비운 시간 15' in arm and '충분해요' in arm and '최대' in arm, '복귀 화면: ' + arm)
+    fe.set_silence(False, sid5)
+    for e_, nm in ((errs, 'a'), (errs2, 'b'), (errs3, 'c'), (errs4, 'd'), (errs5, 'e')):
+        no_errs(e_, 'invalid ' + nm)
+
+
+@test('sock_resume_while_hidden_is_not_return')
+async def t_sock_resume_hidden(env):
+    fe = await env.start_fe()
+    ctx, pg, errs = await srv_page(env, clock=True, w=412, h=915)
+    await wait_connected(pg)
+    await pg.click('[data-start=L60]')
+    await pg.evaluate("document.dispatchEvent(new Event('freeze'))")
+    await pg.evaluate("__vis('hidden')")
+    await pg.clock.fast_forward(2000)
+    await pg.evaluate("document.dispatchEvent(new Event('resume'))")        # 아직 숨겨진 채 resume
+    await pg.evaluate("window.dispatchEvent(new Event('pageshow'))")         # pageshow 도 마찬가지
+    await asyncio.sleep(0.4)
+    s = await snap(pg)
+    eq(s['trial']['phase'], 'away', 'resume 만으로는 복귀가 아님')
+    ok(s['away'] is not None)
+    ign = [e['d'] for e in s['log'] if e['k'] == 'ev' and e['d'].startswith('ignored/')]
+    ok(len(ign) >= 2, '무시 로그 2건: %s' % ign)
+    await pg.clock.fast_forward(5000)
+    await asyncio.sleep(0.3)
+    await pg.evaluate("__vis('visible')")
+    await poll(pg, "P0SOCK.snap().results.length>=1", 14, msg='결과')
+    r = (await snap(pg))['results'][0]
+    eq(r['back_src'], 'visibilitychange', '복귀는 화면이 보이게 된 순간')
+    ok(r['away_ms'] >= 6900, '비운 시간은 숨은 내내(검증자 재현에선 2.1초로 잘렸다): %s' % r['away_ms'])
+    # 반대로 보이는 상태에서의 resume 은 복귀로 센다(실제로 얼렸다 깨운 경우)
+    ctx2, pg2, errs2 = await srv_page(env, clock=True, w=412, h=915)
+    await wait_connected(pg2)
+    await pg2.click('[data-start=L15]')
+    await pg2.evaluate("document.dispatchEvent(new Event('freeze'))")
+    await pg2.clock.fast_forward(16000)
+    await pg2.evaluate("document.dispatchEvent(new Event('resume'))")
+    await poll(pg2, "P0SOCK.snap().results.length>=1", 14, msg='결과')
+    ok((await snap(pg2))['results'][0]['back_src'] in ('resume', 'clock'), '보이는 상태의 resume/시계 끊김은 복귀로 센다')
+    no_errs(errs, 'resume-hidden'), no_errs(errs2, 'resume-visible')
+
+
+@test('sock_reset_needs_confirm_and_layout_order')
+async def t_sock_reset(env):
+    fe = await env.start_fe()
+    ctx, pg, errs = await srv_page(env, init=seed_init(synth_results(7)), w=360, h=740, mobile=True)
+    await wait_connected(pg)
+    eq(len((await snap(pg))['results']), 7)
+    ok(not await pg.is_visible('#b-reset'), '초기화 버튼은 접힌 「고급」 안에 있다')
+    top = await pg.evaluate("({sum:document.getElementById('b-sum').getBoundingClientRect().top+scrollY, adv:document.getElementById('adv').getBoundingClientRect().top+scrollY, res:document.getElementById('results').getBoundingClientRect().top+scrollY, env:document.getElementById('envd').getBoundingClientRect().top+scrollY})")
+    ok(top['res'] < top['sum'] < top['env'] < top['adv'], '순서: 결과 → 복사 → 환경 → 고급: %s' % top)
+    await pg.evaluate("document.getElementById('adv').open=true")
+    dialogs = []
+    pg.on('dialog', lambda d: (dialogs.append(d.message), asyncio.ensure_future(d.dismiss())))
+    sid0 = (await snap(pg))['sid']
+    await pg.click('#b-reset')
+    eq(len((await snap(pg))['results']), 7, '한 번 눌러서는 안 지워진다')
+    ok(await pg.is_visible('#cfm') and '정말 지울까요' in await pg.inner_text('#cfm'), '화면 안 확인 상자(인앱 창에서 막힐 수 있는 confirm() 안 씀)')
+    await pg.click('#b-reset-no')
+    eq(len((await snap(pg))['results']), 7)
+    ok(not await pg.is_visible('#cfm'))
+    await pg.click('#b-reset')
+    await pg.click('#b-reset-yes')
+    await asyncio.sleep(0.3)
+    s = await snap(pg)
+    eq(len(s['results']), 0, '확인하면 지워짐')
+    ok(s['sid'] != sid0, '새 이름표')
+    eq(dialogs, [], 'confirm() 같은 브라우저 대화상자를 안 썼다')
+    no_errs(errs, 'reset')
+
+
+@test('sock_env_label_separates_storage')
+async def t_sock_env_label(env):
+    fe = await env.start_fe()
+    ctx = await env.br.new_context(viewport={'width': 412, 'height': 915}, locale='ko-KR')    # 한 프로필(= 같은 localStorage)
+    env.ctxs.append(ctx)
+    await ctx.add_init_script(VIS_INIT)
+    errs = []
+
+    async def open_(q):
+        pg = await ctx.new_page()
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(env.page_url('sock.html', '?ws=' + fe.ws_url('/ws') + q))
+        await wait_connected(pg)
+        return pg
+    pd = await open_('&env=discord')
+    await pd.evaluate("localStorage.setItem('p0sock_results_v2_discord', %s)" % json.dumps(json.dumps(synth_results(5))))
+    await pd.reload()
+    await wait_connected(pd)
+    eq(len((await snap(pd))['results']), 5, '디스코드 창 결과')
+    pc = await open_('&env=chrome')
+    s = await snap(pc)
+    eq(len(s['results']), 0, '같은 프로필의 크롬 표지 창에는 안 섞임')
+    sd = await snap(pd)
+    ok(s['sid'].split('-')[0] != sd['sid'].split('-')[0], '표지가 다르면 이름표도 다르다: %s / %s' % (s['sid'], sd['sid']))
+    ok('디스코드 앱 안의 창' in await pd.evaluate('P0SOCK.summaryText()') and '크롬' in await pc.evaluate('P0SOCK.summaryText()'), '요약에 창 종류')
+    ok(not await pd.is_visible('#envbox') and not await pc.is_visible('#envbox'), '표지가 있으면 고르기 상자는 안 보임')
+    pn = await open_('')
+    ok(await pn.is_visible('#envbox'), '표지가 없으면 한 번 고르게 한다')
+    await pn.click('#b-env-d')
+    await pn.wait_for_function("location.search.indexOf('env=discord')>=0")
+    await wait_connected(pn)
+    eq(len((await snap(pn))['results']), 5, '고른 뒤엔 디스코드 칸을 쓴다')
+    pe = await open_('&env=chrome')
+    await pe.click('[data-start=A15]')
+    await pe.evaluate("__vis('hidden')")
+    await asyncio.sleep(0.4)
+    await pe.evaluate("__vis('visible')")
+    await poll(pe, "P0SOCK.snap().results.length>=1", 10)
+    eq((await snap(pe))['results'][0]['env'], 'chrome')
+    ok('[chrome]' in await pe.evaluate('P0SOCK.detailText()'), '자세히 글에도 표지')
+    ok(not errs, 'pageerror %s' % errs)
+
+
+@test('version_tag_does_not_cover_buttons')
+async def t_ver_tag(env):
+    fe = await env.start_fe()
+    for name, q, wait in (('sock.html', '?ws=' + fe.ws_url('/ws'), True), ('ping.html', '', False), ('index.html', '', False)):
+        ctx, pg, errs = await env.new_page(name, q, w=360, h=740, mobile=True)
+        if wait:
+            await wait_connected(pg)
+        pos = await pg.evaluate("getComputedStyle(document.getElementById('ver')).position")
+        ok(pos not in ('fixed', 'sticky'), '%s 표지가 화면에 떠 있지 않다: %s' % (name, pos))
+        hit = await pg.evaluate("""()=>{const bad=[];document.querySelectorAll('button,a').forEach(b=>{const r=b.getBoundingClientRect();if(!r.width||r.top>innerHeight||r.bottom<0)return;
+          const e=document.elementFromPoint(Math.min(innerWidth-1,Math.max(0,r.right-4)),Math.min(innerHeight-1,Math.max(0,r.top+r.height/2)));if(e&&e.id==='ver')bad.push(b.id)});return bad}""")
+        eq(hit, [], '%s: 표지가 가린 버튼' % name)
+        no_errs(errs, name)
+
+
+@test('sock_leaving_by_home_link_is_not_a_lost_window')
+async def t_sock_home(env):
+    fe = await env.start_fe()
+    ctx, pg, errs = await srv_page(env, w=412, h=915)
+    await wait_connected(pg)
+    await pg.click('[data-start=A15]')
+    await pg.click('#home')
+    await pg.wait_for_url('**/index.html**')
+    await asyncio.sleep(0.3)
+    await pg.goto(env.page_url('sock.html', '?ws=' + fe.ws_url('/ws')))
+    await pg.wait_for_function('window.P0SOCK!==undefined')
+    s = await snap(pg)
+    eq(s['results'], [], '일부러 나간 건 「새로 불러옴」으로 안 센다')
+    eq(await pg.evaluate("localStorage.getItem('p0sock_pending_v2')"), None)
+    no_errs(errs, 'home')
+
+
+@test('sock_stored_results_wrong_shape_do_not_break')
+async def t_sock_shape(env):
+    fe = await env.start_fe()
+    good = a15rec(5)
+    weird = [1, None, 'x', [], {'card': 'A15'}, {'card': 'A15', 'out': 'alive', 'srv': {'closes': 'x', 'replaced': 7}, 'reco': 5, 'det': 7, 'evs': 'zz', 'wl': 3},
+             {'card': 'A15', 'out': 'reco', 'srv': {}, 'reco': {'first_ms': 'a'}}, {'card': 'A15', 'out': 'alive', 'srv': {'closes': [None, 5, {'code': 1}]}},
+             {'card': 'NOPE', 'out': 'alive'}, good]
+    ctx, pg, errs = await srv_page(env, init=seed_init(weird), w=412, h=915)
+    await wait_connected(pg)
+    await asyncio.sleep(3.6)                       # 3초 주기 갱신이 지나도록
+    s = await snap(pg)
+    eq(len(s['results']), 4, '못 쓰는 기록(out 없음·없는 카드·숫자 따위)은 버리고 4개만 남음')
+    ok(await pg.locator('#det-btns button').count() >= 1, '자세히 복사 버튼이 살아 있다')
+    await pg.click('#det-btns button >> nth=0')
+    ok('복사했어요' in await pg.inner_text('#copymsg') or '길게 눌러' in await pg.inner_text('#copymsg'), '자세히 복사 동작')
+    d = await pg.evaluate('P0SOCK.detailText()')
+    ok('--- 시도별' in d, d[:80])
+    ok(not any(e['k'] == 'render-error' for e in s['log']), '렌더 오류 기록 없음: %s' % [e for e in s['log'] if e['k'] == 'render-error'])
+    no_errs(errs, 'shape')
+
+
+@test('sock_summary_fits_one_message_when_full')
+async def t_sock_summary_len(env):
+    fe = await env.start_fe()
+    cards = ['A15', 'A45', 'L15', 'L60', 'L300', 'CALL', 'DC']
+    res = []
+    for i in range(200):
+        c = cards[i % 7]
+        out = ['alive', 'reco', 'fail', 'disc'][i % 4]
+        res.append(a15rec(i, out=out, card=c, inv='short' if i % 9 == 0 else None, away=16000))
+        res[-1]['close'] = {'where': '자리 비운 동안', 'code': [1006, 1001, 4001][i % 3], 'clean': False, 'why': ''} if out == 'reco' else None
+    ctx, pg, errs = await srv_page(env, init=seed_init(res), w=412, h=915)
+    await wait_connected(pg)
+    summ = await pg.evaluate('P0SOCK.summaryText()')
+    print('      · 가득 찬 요약 길이 %d자' % len(summ))
+    ok(len(summ) <= 1900, '요약이 디스코드 한 메시지(2000자) 안: %d' % len(summ))
+    ok('눈여겨볼 것' in summ and '최근 시도' in summ and '[자세히 복사]' in summ, summ[-400:])
+    parts = await pg.evaluate('P0SOCK.chunk(P0SOCK.detailText(),1900)')
+    ok(all(len(p) <= 1900 for p in parts), '자세히 조각 길이 %s' % [len(p) for p in parts])
+    no_errs(errs, 'summary-len')
+
+
+# ---- 핑 페이지 ----
+@test('ping_verdict_many_failures_wording')
+async def t_ping_verdict_fail(env):
+    ctx, pg, errs = await env.new_page('ping.html', w=360, h=740)
+    r = await pg.evaluate("P0PING.verdict('data',{n:8,fails:12,median:40},null,null)")
+    ok('실패가 많아 판정하기 어려워요' in r['text'] and '덜 끝났어요' not in r['text'], '끝났는데 실패가 많음: ' + r['text'])
+    r = await pg.evaluate("P0PING.verdict('data',{n:8,fails:3,median:40},null,null)")
+    ok('덜 끝났어요' in r['text'], '아직 도는 중: ' + r['text'])
+    r = await pg.evaluate("P0PING.verdict('data',{n:20,fails:0,median:40},null,null)")
+    ok('✅' in r['text'])
+    no_errs(errs, 'verdict-fail')
+
+
+PING_FAST = {'seoul': 8, 'tokyo': 8, 'fra': 8, 'bot': 8}
+
+
+@test('ping_hidden_during_measure_discards_samples', retry=True)
+async def t_ping_hidden(env):
+    log = {k: [] for k in VULTR.values()}
+    slow = {'on': False}
+    ctx, pg, errs = await env.new_page('ping.html', '', w=360, h=740, init=VIS_INIT, allow=('ERR_FAILED', 'CORS', 'Failed to load'))
+
+    async def h(route):
+        req = route.request
+        key = VULTR[urlparse(req.url).hostname]
+        log[key].append(req.method)
+        await asyncio.sleep(1.5 if slow['on'] else 0.008)       # 가려진 사이엔 응답이 늦다(브라우저가 타이머를 늦추는 것의 흉내)
+        try:
+            await route.fulfill(status=200, headers=dict(CORS, **{'content-type': 'text/html'}), body='')
+        except Exception:
+            pass
+    for host in VULTR:
+        await ctx.route('https://%s/**' % host, h)
+    await pg.click('#b-data')
+    await pg.click('#b-start')
+    await poll(pg, "P0PING.state.targets[0].samples.length>=6", 20, msg='서울 6회 잼')
+    slow['on'] = True
+    await pg.evaluate("__vis('hidden')")
+    await asyncio.sleep(2.2)
+    ok('가려져서' in await pg.inner_text('#prog'), '숨김 안내: ' + await pg.inner_text('#prog'))
+    slow['on'] = False
+    await pg.evaluate("__vis('visible')")
+    await poll(pg, "document.querySelector('#prog').innerText.startsWith('끝났어요')", 90, msg='끝')
+    st = await pg.evaluate("P0PING.state.targets.map(t=>({id:t.id,n:t.stats.n,fails:t.stats.fails,max:t.stats.max,redo:t.hiddenRedo||0}))")
+    seoul = [x for x in st if x['id'] == 'seoul'][0]
+    ok(seoul['redo'] >= 1, '서울을 다시 쟀다: %s' % st)
+    for x in st:
+        ok(x['n'] == 20 and x['fails'] == 0, '%s 20회·실패 0: %s' % (x['id'], x))
+        ok(x['max'] < 1000, '%s 가려진 사이 값(1.5초)이 안 섞임: max %s' % (x['id'], x['max']))
+    no_errs(errs, 'ping-hidden')
+
+
+@test('ping_stop_right_after_last_sample_keeps_target_done', retry=True)
+async def t_ping_stop_last(env):
+    spy = """window.__n=0;(function(){var f=window.fetch;window.fetch=function(u){var p=f.apply(this,arguments);
+      if(String(u).indexOf('sel-kor-ping')>=0){window.__n++; if(window.__n===23){p.then(function(){setTimeout(function(){document.getElementById('b-stop').click()},30)}).catch(function(){})}}
+      return p}})();"""
+    ctx, pg, errs = await env.new_page('ping.html', '', w=360, h=740, init=spy, allow=('ERR_FAILED', 'CORS', 'Failed to load'))
+    log = {k: [] for k in VULTR.values()}
+    await install_ping_routes(ctx, PING_FAST, True, log)
+    await pg.click('#b-data')
+    await pg.click('#b-start')
+    await poll(pg, "document.querySelector('#prog').innerText.startsWith('멈췄어요')", 40, msg='멈춤')
+    st = await pg.evaluate("P0PING.state.targets.map(t=>({id:t.id,n:t.stats.n,phase:t.phase}))")
+    seoul = [x for x in st if x['id'] == 'seoul'][0]
+    eq((seoul['n'], seoul['phase']), (20, 'end'), '20번을 다 쟀으면 끝난 대상으로 남는다(멈춤 표시 아님): %s' % st)
+    ok('멈췄어요(여기까지의 값)' not in (await card_stats(pg))['seoul'], '카드에 멈춤 표시가 없다')
+    n_before = len(log['seoul'])
+    await pg.click('#b-start')
+    await poll(pg, "document.querySelector('#prog').innerText.startsWith('끝났어요')", 60, msg='이어서 끝')
+    eq(len(log['seoul']), n_before, '이어서 시작해도 서울을 처음부터 다시 재지 않는다')
+    ok(all(len(log[k]) == 23 for k in ('tokyo', 'fra', 'bot')), '나머지는 한 번씩: %s' % {k: len(v) for k, v in log.items()})
+    no_errs(errs, 'ping-stop-last')
 
 
 # =====================================================================================

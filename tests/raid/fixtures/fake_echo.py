@@ -13,6 +13,7 @@
       cmd=close&code=1011[&sid=] 지금 열린 소켓을 닫는다(sid 없으면 전부)
       cmd=delay&ms=300           ack 를 늦춘다
       cmd=evil&on=1              hello/prev/closes 에 HTML·스크립트 문자열을 섞는다
+      cmd=hellokill&code=1008    hello 를 보낸 직후 그 코드로 닫는다(0 이면 끔)
       cmd=idle&s=2 / cmd=lifetime&s=5  (규약의 15분·1시간을 짧게 — 시험 편의)
       cmd=reset                  기록을 전부 지운다
 쓰는 법: 시험에서는 `async with FakeEcho() as srv:` 로 띄우고 srv.port 를 쓴다. 혼자 띄우려면 `python fake_echo.py --port 8765`.
@@ -81,6 +82,7 @@ class FakeEcho:
         self.silence_sid = set()
         self.ack_delay_ms = 0
         self.evil = False
+        self.hello_close = 0     # 0 이 아니면 hello 를 보낸 직후 그 코드로 닫는다(재접속 폭주 시험: 1008·1011·1013)
         self.bench = None
         self.started = time.time()
         self.peak = 0
@@ -160,6 +162,7 @@ class FakeEcho:
         self.silence_sid.clear()
         self.ack_delay_ms = 0
         self.evil = False
+        self.hello_close = 0
 
     def sess(self, sid):
         s = self.sessions.get(sid)
@@ -211,6 +214,8 @@ class FakeEcho:
             self.ack_delay_ms = int(q.get('ms', '0'))
         elif cmd == 'evil':
             self.evil = on
+        elif cmd == 'hellokill':
+            self.hello_close = int(q.get('code', '0'))
         elif cmd == 'idle':
             self.idle_s = float(q.get('s', '900'))
         elif cmd == 'lifetime':
@@ -275,6 +280,13 @@ class FakeEcho:
             await ws.send_str(json.dumps(hello))
         except Exception:
             pass
+        if self.hello_close:
+            code = int(self.hello_close)
+            self._note_close(c, code, 'hello-kill', 'server')
+            try:
+                await ws.close(code=code, message=b'hello-kill')
+            except Exception:
+                pass
         c.tasks = [asyncio.ensure_future(self._tick_loop(c)), asyncio.ensure_future(self._watch_loop(c))]
         try:
             async for msg in ws:
