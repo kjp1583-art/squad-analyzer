@@ -1421,7 +1421,8 @@ function drawCards(){
   x.innerHTML=`<button class="btn g" id="rrBtn" ${S.rr>0?'':'disabled'}>🎲 다시 뽑기 (${S.rr})</button><button class="btn g${S.banMode?' on':''}" id="banBtn" ${S.ban>0?'':'disabled'}>🚫 봉인${S.banMode?' — 카드를 고르세요':''} (${S.ban})</button>`;
   box.appendChild(x);
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
-  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''}`;}
+  const bl=S.lv-S.pendingLv+1,bonus=BONUS_LV.includes(bl)?`🎁 Lv${bl} 보너스 — 다시뽑기 +1 · 봉인 +1 받았어요 · `:'';   // 지금 고르는 카드가 보너스 레벨의 것이면 화면에서도 알린다(토스트는 카드 화면 뒤에 가려진다)
+  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''}`;}
 function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;
   const rep=offers(1,CUR.map(x=>x.k).filter(Boolean))[0];CUR[i]=rep;toast(`🚫 ${cardOf(o).nm} 봉인`);drawCards();RES.save('ban');}
@@ -1482,7 +1483,10 @@ function pick(o){
   S.pendingLv--;
   if(S.pendingLv>0)openLvup();else resume();
 }
-function gainXp(v){if(S.rel.sg_ildj&&Math.random()<[.06,.09,.12][S.rel.sg_ildj-1])v*=2;S.xp+=v;while(S.xp>=S.need){S.xp-=S.need;S.lv++;S.need=Math.floor(5+S.lv*3.2+Math.pow(S.lv,1.35)+Math.max(0,S.lv-25)**2*.5);S.pendingLv++;AU.play('lv');if(CH.lvheal)S.p.hp=Math.min(S.p.mhp,S.p.hp+CH.lvheal);}}
+const BONUS_LV=[10,20];   // 🎁 [2026-10-09 사장님 지시 「4ok」] 이 레벨을 달성하면 다시 뽑기 +1 · 봉인 +1 을 자동으로 준다(봉인은 그동안 보충 길이 거의 없었다)
+function gainXp(v){if(S.rel.sg_ildj&&Math.random()<[.06,.09,.12][S.rel.sg_ildj-1])v*=2;S.xp+=v;while(S.xp>=S.need){S.xp-=S.need;S.lv++;S.need=Math.floor(5+S.lv*3.2+Math.pow(S.lv,1.35)+Math.max(0,S.lv-25)**2*.5);S.pendingLv++;AU.play('lv');
+    if(BONUS_LV.includes(S.lv)){S.rr++;S.ban++;toast(`🎁 Lv${S.lv} 보너스 — 다시뽑기 +1 · 봉인 +1`);}   // 레벨 하나씩 올리는 반복 안이라 한꺼번에 여러 레벨이 올라도 건너뛰지 않는다 · 카드를 열기(update 끝의 openLvup) 전에 주므로 그 레벨 카드 화면에서 바로 쓴다 · 새 저장 키 없음(S.rr·S.ban 그대로)
+   if(CH.lvheal)S.p.hp=Math.min(S.p.mhp,S.p.hp+CH.lvheal);}}
 
 // ---------- 🎁 보스 상자 · ✨ 각성 ----------
 const evReady=()=>evLeft()>0?Object.keys(S.w).filter(k=>!S.ev[k]&&S.w[k]>=MAXLV&&pv(WEAP[k].pair)>0):[];

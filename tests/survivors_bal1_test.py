@@ -159,7 +159,92 @@ async def sec2(pg, errs):
     check('오늘의 도전: 부활만 봉인하면 Lv10 과 Lv19 의 제안 8번이 완전히 같다(바뀐 것은 부활 후보뿐)', r['b'])
     check('2구획 콘솔·페이지 에러 0', not errs, errs[:3])
 
-SECS = {1: sec1, 2: sec2}
+
+async def sec3(pg, errs):
+    print('── 3. Lv10·Lv20 보너스')
+    # 3-a. 레벨마다 한 레벨씩 올리며 다시 뽑기·봉인 변화를 잰다 — 10·20 에서만 +1/+1
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');x.start();const S=x.S;const d={};
+      for(let lv=2;lv<=45;lv++){const a=[S.rr,S.ban];x.gainXp(S.need);d[S.lv]=[S.rr-a[0],S.ban-a[1]];S.pendingLv=0;}
+      o.d=d;o.rr=S.rr;o.ban=S.ban;return o}""")
+    bonus = {k: v for k, v in r['d'].items() if v != [0, 0]}
+    check('Lv2~45 한 레벨씩: +1/+1 은 Lv10·Lv20 에서만', bonus == {'10': [1, 1], '20': [1, 1]}, bonus)
+    check('시작 3+3 에 두 번 받아 5·5', r['rr'] == 5 and r['ban'] == 5, (r['rr'], r['ban']))
+    # 3-b. 한 번에 여러 레벨이 올라도(경험치 폭식) 10·20 을 건너뛰지 않는다
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');
+      const jump=(from,xp)=>{x.start();const S=x.S;S.lv=from;S.need=1;S.xp=0;x.gainXp(xp);return {lv:S.lv,rr:S.rr-3,ban:S.ban-3,pend:S.pendingLv};};
+      o.j8_25=jump(8,3000);o.j9_10=jump(9,3000);return o}""")
+    # 경험치 3000 을 한 번에 넣어 Lv30 대까지 올린다 — 올라간 구간 안의 보너스 레벨 수만큼 받았는지 센다
+    cnt = lambda a, b: sum(1 for v in (10, 20) if a < v <= b)
+    exp25 = cnt(8, r['j8_25']['lv']); exp10 = cnt(9, r['j9_10']['lv'])
+    check('Lv8 → Lv%d 한 번에: 지나간 보너스 레벨 %d개 → +%d/+%d' % (r['j8_25']['lv'], exp25, exp25, exp25), exp25 >= 1 and r['j8_25']['rr'] == exp25 and r['j8_25']['ban'] == exp25 and r['j8_25']['pend'] == r['j8_25']['lv'] - 8, r['j8_25'])
+    check('Lv9 → Lv%d 한 번에도 같은 규칙' % r['j9_10']['lv'], r['j9_10']['rr'] == exp10 and r['j9_10']['ban'] == exp10, r['j9_10'])
+    # 작게 맞춘 한 번에 3레벨 (9→12, 18→21) — 10·20 이 중간에 끼는 경우를 정확히
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');
+      const go=(from,n)=>{x.start();const S=x.S;S.lv=from;S.xp=0;let tot=0;let need=S.need;for(let i=0;i<n;i++){tot+=need;need=Math.floor(5+(from+i+1)*3.2+Math.pow(from+i+1,1.35)+Math.max(0,from+i+1-25)**2*.5);}
+        S.need=Math.floor(5+from*3.2+Math.pow(from,1.35)+Math.max(0,from-25)**2*.5);tot=0;let nd=S.need;for(let i=0;i<n;i++){tot+=nd;nd=Math.floor(5+(from+i+1)*3.2+Math.pow(from+i+1,1.35)+Math.max(0,from+i+1-25)**2*.5);}
+        x.gainXp(tot+.5);return {lv:S.lv,rr:S.rr-3,ban:S.ban-3,pend:S.pendingLv};};
+      o.a=go(9,3);o.b=go(18,4);o.c=go(11,8);return o}""")
+    check('Lv9 → 12 한 번에: 10 을 지나며 +1/+1 한 번', r['a']['lv'] == 12 and r['a']['rr'] == 1 and r['a']['ban'] == 1, r['a'])
+    check('Lv18 → 22 한 번에: 20 을 지나며 +1/+1 한 번', r['b']['lv'] == 22 and r['b']['rr'] == 1 and r['b']['ban'] == 1, r['b'])
+    check('Lv11 → 19 한 번에: 보너스 없음', r['c']['lv'] == 19 and r['c']['rr'] == 0 and r['c']['ban'] == 0, r['c'])
+    # 3-c. 카드를 열기 전에 준다 — 레벨업 카드 화면에서 바로 쓸 수 있다(0 이었어도 버튼이 켜진다) · 힌트에 알림
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');x.start();const S=x.S;S.lv=9;S.rr=0;S.ban=0;S.p.hp=S.p.mhp;
+      x.gainXp(S.need);o.lv=S.lv;o.state0=x.state;o.rr0=S.rr;o.ban0=S.ban;o.toast=document.getElementById('toast').textContent;
+      x.update(1/30);o.state1=x.state;const rb=document.getElementById('rrBtn'),bb=document.getElementById('banBtn');
+      o.rrTxt=rb.textContent;o.rrDis=rb.disabled;o.banTxt=bb.textContent;o.banDis=bb.disabled;o.hint=document.getElementById('lvHint').textContent;
+      const before=x.CUR.map(c=>c.k).join('|');rb.click();o.rrAfter=S.rr;o.re=x.CUR.length;o.changed=before!==x.CUR.map(c=>c.k).join('|');
+      document.getElementById('banBtn').click();o.mode=S.banMode;
+      return o}""")
+    check('Lv10 달성 순간(카드 열기 전): 다시뽑기 +1 · 봉인 +1 · 토스트', r['lv'] == 10 and r['state0'] == 'play' and r['rr0'] == 1 and r['ban0'] == 1 and '보너스' in r['toast'] and '다시뽑기 +1' in r['toast'] and '봉인 +1' in r['toast'], r)
+    check('카드 화면: 다시뽑기 (1) · 봉인 (1) 버튼이 켜져 있다', r['state1'] == 'lvup' and not r['rrDis'] and not r['banDis'] and '(1)' in r['rrTxt'] and '(1)' in r['banTxt'], (r['rrTxt'], r['banTxt'], r['rrDis'], r['banDis']))
+    check('카드 화면 한 줄 알림: 「Lv10 보너스 — 다시뽑기 +1 · 봉인 +1 받았어요」', 'Lv10 보너스' in r['hint'] and '받았어요' in r['hint'], r['hint'])
+    check('받자마자 다시 뽑기를 쓸 수 있다(0 번 남음 · 카드 3장)', r['rrAfter'] == 0 and r['re'] == 3 and r['changed'], (r['rrAfter'], r['re'], r['changed']))
+    check('같은 화면에서 봉인 모드도 켜진다', r['mode'] is True)
+    # 3-d. 힌트는 보너스 레벨의 카드에만(여러 레벨이 쌓인 때는 순서대로 — 9, 10, 11 중 10 번째 카드에서만)
+    r = await pg.evaluate("""()=>{const x=__p6x,o=[];x.CH_set('brj');x.start();const S=x.S;S.lv=8;S.p.hp=S.p.mhp;
+      for(let i=0;i<3;i++){S.pendingLv++;S.lv++;if(S.lv===10||S.lv===20){S.rr++;S.ban++;}}   // 세 레벨이 쌓인 상태를 만든다(보너스 지급은 gainXp 가 하므로 값만 맞춘다)
+      x.openLvup();for(let i=0;i<3;i++){o.push({lv:S.lv,pend:S.pendingLv,hint:document.getElementById('lvHint').textContent.includes('보너스')});x.pick(x.CUR[0]);if(x.state!=='lvup')break;}
+      return o}""")
+    check('9·10·11 이 쌓였을 때 알림은 두 번째 카드(Lv10)에만', [v['hint'] for v in r] == [False, True, False], r)
+    # 3-e. 모든 모드: 일반·하드·베리하드·오늘의 도전·무한 — 같은 규칙
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');
+      const run=(mode)=>{document.getElementById('hardChk').checked=mode==='hard';document.getElementById('vhChk').checked=mode==='vh';
+        x.start(mode==='daily'?{daily:true}:undefined);const S=x.S;if(mode==='endless')S.endless=true;const a=[S.rr,S.ban];
+        for(let i=0;i<22;i++){x.gainXp(S.need);S.pendingLv=0;}
+        return {lv:S.lv,rr:S.rr-a[0],ban:S.ban-a[1],hard:!!S.hard,vh:!!S.vh,dly:!!S.dly};};
+      for(const m of ['normal','hard','vh','daily','endless'])o[m]=run(m);
+      document.getElementById('hardChk').checked=false;document.getElementById('vhChk').checked=false;return o}""")
+    check('모드 5종 모두 Lv23 까지 +2/+2', all(v['rr'] == 2 and v['ban'] == 2 for v in r.values()), r)
+    check('(모드 확인) 하드·베리하드·오늘의 도전 플래그가 실제로 켜졌다', r['hard']['hard'] and r['vh']['vh'] and r['daily']['dly'] and not r['normal']['hard'], {k: (v['hard'], v['vh'], v['dly']) for k, v in r.items()})
+    # 3-f. 이어하기: 보너스 카드 화면에서 저장 → 복구해도 다시 주지 않는다 · 복구 뒤 다음 보너스(Lv20)는 한 번만
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');x.start();const S=x.S;S.lv=9;S.p.hp=S.p.mhp;x.gainXp(S.need);x.update(1/30);
+      o.st=x.state;o.pre=[S.rr,S.ban,S.lv,S.pendingLv];const text=localStorage.getItem(x.RES.KEY);o.saved=!!text;
+      x.state='title';o.ok=x.RES.restore(text);const T=x.S;o.post=[T.rr,T.ban,T.lv,T.pendingLv];o.st2=x.state;o.hint=document.getElementById('lvHint').textContent;
+      x.pick(x.CUR[0]);o.afterPick=[T.rr,T.ban,T.lv,T.pendingLv,x.state];
+      for(let i=0;i<10;i++){x.gainXp(T.need);T.pendingLv=0;}   // 10 → 20
+      o.at20=[T.lv,T.rr,T.ban];
+      // 일시정지 저장도 같은 값
+      x.pauseGame();const t2=localStorage.getItem(x.RES.KEY);x.state='title';x.RES.restore(t2);o.afterPause=[x.S.rr,x.S.ban,x.S.lv];return o}""")
+    check('보너스 카드 화면에서 저장 → 복구: rr·ban·lv·쌓인 레벨 그대로(중복 지급 없음)', r['saved'] and r['ok'] is not False and r['st'] == 'lvup' and r['st2'] == 'lvup' and r['pre'] == r['post'], (r['pre'], r['post']))
+    check('복구한 카드 화면에도 보너스 알림이 그대로', 'Lv10 보너스' in r['hint'], r['hint'])
+    check('복구한 뒤 카드를 고르고 Lv20 까지 가면 그 한 번만 더(총 5·5)', r['at20'][0] == 20 and r['at20'][1] == r['pre'][0] + 1 and r['at20'][2] == r['pre'][1] + 1, (r['pre'], r['at20']))
+    check('일시정지 저장·복구도 같은 값', r['afterPause'] == [r['at20'][1], r['at20'][2], 20], r['afterPause'])
+    # 3-g. 오늘의 도전 카드 난수열: 보너스 지급은 카드 난수를 한 번도 안 쓴다
+    r = await pg.evaluate("""()=>{const x=__p6x,o={};
+      const play=(n,rerollAt)=>{x.CH_set('brj');x.start({daily:true});const S=x.S;S.p.hp=S.p.mhp;const seq=[];
+        for(let i=0;i<n;i++){x.gainXp(S.need);x.openLvup();seq.push(x.CUR.map(c=>c.k).join('|'));x.pick(x.CUR[0]);if(x.state==='lvup')x.resume();S.pendingLv=0;}
+        return {seq,next:[x.RN('card'),x.RN('chest'),x.RN('ev'),x.RN('prop'),x.RN('spawn')],lv:S.lv,rr:S.rr,ban:S.ban};};
+      const a=play(30),b=play(30);
+      x.start({daily:true});const fresh=[];for(let i=0;i<90;i++)fresh.push(x.RN('card'));const f91=x.RN('card');
+      x.start({daily:true});const fr2=[x.RN('card'),x.RN('chest'),x.RN('ev'),x.RN('prop'),x.RN('spawn')];
+      return {same:JSON.stringify(a.seq)===JSON.stringify(b.seq),nextSame:JSON.stringify(a.next)===JSON.stringify(b.next),a1:a.next[0],f91,lv:a.lv,rr:a.rr,ban:a.ban,restSame:a.next.slice(1).every((v,i)=>v===fr2[i+1]),n:a.seq.length}}""")
+    check('오늘의 도전: 30번 레벨업(Lv10·20 보너스 포함) — 같은 시드·같은 선택이면 카드 제안 30번이 똑같다', r['same'] and r['n'] == 30, r['n'])
+    check('카드 난수는 제안 30번 × 3장 = 90번만 썼다(보너스가 난수를 안 썼다)', abs(r['a1'] - r['f91']) < 1e-12, (r['a1'], r['f91']))
+    check('상자·각성·소품·스폰 난수 줄기는 한 번도 안 건드렸다', r['restSame'])
+    check('(확인) 이 30번 동안 보너스 2번이 실제로 지급됐다 — rr %d · ban %d' % (r['rr'], r['ban']), r['lv'] >= 30 and r['rr'] >= 5 and r['ban'] >= 5, r)
+    check('3구획 콘솔·페이지 에러 0', not errs, errs[:3])
+
+SECS = {1: sec1, 2: sec2, 3: sec3}
 
 async def main():
     H.make_copy(extra=EXTRA); srv = H.Srv()
