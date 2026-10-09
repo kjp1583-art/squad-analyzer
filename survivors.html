@@ -109,7 +109,7 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 .bc.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset,0 0 10px rgba(245,192,74,.35)}
 .acct{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:10px 0;font-size:12.5px;text-align:left}
 .acct .btn{width:auto;padding:6px 12px;font-size:13px;margin:6px 0 0}
-.board{text-align:left;margin:8px 0;font-size:12.5px}.board ol{margin:4px 0;padding-left:22px}.board li{padding:1px 0;overflow-wrap:anywhere}.board li b{float:right;color:var(--gold)}
+.board{text-align:left;margin:8px 0;font-size:12.5px}.board ol{margin:4px 0;padding-left:22px}.board li{padding:1px 0;overflow-wrap:anywhere}.board li b{float:right;color:var(--gold)}.board li.me{background:rgba(245,192,74,.12);border-radius:6px}.board .mee{color:var(--gold);font-size:11px}#boardMore{margin:6px 0 0;width:100%}
 .dc{background:#5865f2!important}
 #unlockMsg{color:var(--gold);font-weight:700;margin:6px 0}
 .snd{text-align:left;font-size:12.5px;margin:6px 0}.snd label{display:flex;align-items:center;gap:8px;margin:6px 0}.snd input{flex:1;min-width:0;accent-color:var(--acc)}.snd b{min-width:28px;text-align:right;color:var(--gold);font-size:12px}.snd label span{flex:0 0 64px;white-space:nowrap}
@@ -226,7 +226,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="resmsg" id="resMsg" hidden role="status"></div>
   <div class="resnote" id="resNote" hidden><span id="resNoteTxt"></span> <span class="rnb"><button class="btn g" id="resNoteCopy" hidden>링크 복사</button><button class="btn g" id="resNoteX">닫기</button></span></div>
   <div class="muted" id="bestT">최고 기록 없음</div>
-  <div class="board" id="board"><b style="color:#ffb089">🏆 순위표 TOP10</b><div class="muted">불러오는 중…</div></div>
+  <div class="board" id="board"><b style="color:#ffb089">🏆 순위표</b><div class="muted">불러오는 중…</div></div>
   <div class="acct" id="acct"></div>
   <div class="rosterH">👥 클랜원 캐릭터</div>
   <div id="roster"></div>
@@ -601,15 +601,17 @@ let BOARDH=null,BOARDV=null,SRV_VH=null,BTAB=0;   // 🔥 하드 순위표(서�
 function bchHtml(k){const c=CHARS.find(x=>x.k===k);if(!c)return '';const nm=esc(c.sn||c.nm);   // 🏆 순위표 한 줄의 캐릭터 표기(그림 + 이름) — 빌드는 일부러 안 보여 준다
   return (hasArt(c)?`<img class="bch" src="${artUrl(c)}" alt="" loading="lazy">`:`<span class="bch e">${esc(c.e)}</span>`)+`<small class="bchn">${nm}</small> `;}
 function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순위표</b><div class="muted">순위표를 불러오지 못했어요.</div>';return;}
-  const rows=(BTAB===4?BOARDD||[]:BTAB===5?BOARDEH||[]:BTAB===6?BOARDEV||[]:BTAB===3?BOARDE||[]:BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD).slice(0,10);
-  el.innerHTML=`<b>🏆 순위표 TOP 10</b><span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button><button data-bt="3" class="${BTAB===3?'on':''}">♾ 무한</button><button data-bt="5" class="${BTAB===5?'on':''}">♾🔥 무한 하드</button><button data-bt="6" class="${BTAB===6?'on':''}">♾💀 무한 베리하드</button><button data-bt="4" class="${BTAB===4?'on':''}">📅 오늘</button></span>`
+  // 🏆 [2026-10-09 사장님 지시 「순위표가 top10이 아니라 그냥 전체랭킹 다 볼 수 있게 해줘」] 예전엔 10명만 그렸다 — 서버가 내려준 전원을 그린다(100명씩 「더 보기」, 보이는 개수는 요소 data-lim 에 둔다 — 새 최상위 변수 없음).
+  const all=(BTAB===4?BOARDD||[]:BTAB===5?BOARDEH||[]:BTAB===6?BOARDEV||[]:BTAB===3?BOARDE||[]:BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD),lim=Math.max(100,+el.dataset.lim||0),rows=all.slice(0,lim),mine=ME&&ME.name?String(ME.name):'';
+  el.innerHTML=`<b>🏆 순위표</b>${all.length?` <span class="muted">전체 ${all.length}명</span>`:''}<span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button><button data-bt="3" class="${BTAB===3?'on':''}">♾ 무한</button><button data-bt="5" class="${BTAB===5?'on':''}">♾🔥 무한 하드</button><button data-bt="6" class="${BTAB===6?'on':''}">♾💀 무한 베리하드</button><button data-bt="4" class="${BTAB===4?'on':''}">📅 오늘</button></span>`
     +(BTAB===4&&DLY_DATE?`<div class="muted">📅 ${esc(DLY_DATE)} 오늘의 도전 — 하루 한 판 · 같은 시드</div>`:'')
-    +(rows.length?'<ol>'+rows.map(r=>`<li>${bchHtml(r.ch)}${esc(r.name)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`).join('')+'</ol>':`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===5&&!BOARDEH?'무한 하드 순위표 준비 중이에요.':BTAB===6&&!BOARDEV?'무한 베리하드 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
-  for(const b of el.querySelectorAll('[data-bt]'))b.onclick=()=>{BTAB=+b.dataset.bt;renderBoard();};}
+    +(rows.length?'<ol>'+rows.map(r=>{const me=mine&&String(r.name)===mine;return `<li${me?' class="me"':''}>${bchHtml(r.ch)}${esc(r.name)}${me?' <span class="mee">← 나</span>':''} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`;}).join('')+'</ol>'+(all.length>rows.length?`<button class="btn g" id="boardMore" type="button">▼ 더 보기 (${all.length-rows.length}명 남음)</button>`:''):`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===5&&!BOARDEH?'무한 하드 순위표 준비 중이에요.':BTAB===6&&!BOARDEV?'무한 베리하드 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
+  for(const b of el.querySelectorAll('[data-bt]'))b.onclick=()=>{BTAB=+b.dataset.bt;el.dataset.lim='';renderBoard();};
+  const more=$('boardMore');if(more)more.onclick=()=>{el.dataset.lim=String(lim+100);renderBoard();};}
 async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;BOARDEH=Array.isArray(j.endless_h)?j.endless_h:null;BOARDEV=Array.isArray(j.endless_v)?j.endless_v:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);}catch(e){BOARD=null;}renderBoard();renderDaily();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
   if(j&&j.ok){const pc=ME&&Number.isInteger(ME.coins)?ME.coins:undefined;ME=j;if(coinsOf(j)===undefined){if(pc!==undefined)ME.coins=pc;else delete ME.coins;}   // coins 칸이 빠진 응답(봇 재시작 직후)은 '모름' — 직전 값을 이어받는다
-    srvUnl(j.unlocks);mergeUnl(j.unlocks);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();if(state==='revive')rvRender();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
+    srvUnl(j.unlocks);mergeUnl(j.unlocks);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();renderBoard();if(state==='revive')rvRender();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
 async function submitRun(won){const u=dcUser();const el=$('rAcct');
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
