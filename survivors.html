@@ -512,7 +512,7 @@ const SPX=(()=>{const o={};
   o.crackM=function(v){return CM[v]||(CM[v]=crackMaster(v?23:11,384,v?9:10,v?10.2:7.2));};
   o.crackE=function(v,l,d){const key=(d>>3)*4+v*2+l;let c=CRF.get(key);if(c)return c;   // v 변형 · l 층(0 어두운 · 1 빛나는) · d 장치 지름(8px 단위)
     const m=o.crackM(v);if(CRF.size>=8)CRF.clear();c=mk(d,d,g=>{g.imageSmoothingQuality='high';g.drawImage(m[l],0,0,d,d);});CRF.set(key,c);return c;};
-  const LBL=['엄!','엄엄!','엄엄엄!!!'],EOMT=new Map();
+  const LBL=['엄!','엄엄!','개엄!'],EOMT=new Map();   // [2026-10-09 사장님 지시] 각성 마지막 외침 「엄엄엄!!!」→「개엄!」
   function letterSprite(str,fs,cracked){const pad=Math.round(fs*.3),m=document.createElement('canvas').getContext('2d');m.font='900 '+fs+'px sans-serif';
     const w=Math.ceil(m.measureText(str).width),c=document.createElement('canvas');c.width=w+pad*2;c.height=Math.round(fs*1.3)+pad;
     const g=c.getContext('2d');g.font='900 '+fs+'px sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';g.miterLimit=2;
@@ -531,7 +531,6 @@ const SPX=(()=>{const o={};
   o.lw=function(lb){let v=LWC[lb];if(!v){const w=document.createElement('canvas').getContext('2d');w.font='900 100px sans-serif';const t=w.measureText(LBL[lb]).width/100;if(t>.3)v=LWC[lb]=t+.6;else return 1.6*(lb+1);}return v;};   // 글자 판 폭 ÷ 글자 크기(외곽선 여백 .6 포함) — 기기마다 글꼴이 달라 처음 한 번 재서 둔다(화면 폭 한도 계산용)
   o.eomHas=(lb,fs,cr)=>EOMT.has((lb*1000+fs)*2+(cr?1:0));
   o.eomT=function(lb,fs,cr){const key=(lb*1000+fs)*2+(cr?1:0);let c=EOMT.get(key);if(c)return c;if(EOMT.size>=30)EOMT.clear();c=letterSprite(LBL[lb],fs,cr);EOMT.set(key,c);return c;};
-  o.fear=mk(28,28,g=>{g.font='22px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillStyle='#fff';g.fillText('❕',14,15);});   // 📢 겁먹은 적 머리 위 느낌표(이모지 글자를 매 프레임 찍으면 비싸서 한 번만 그려 둔다)
   return o;})();
 
 // ---------- assets (가볍게: 필요할 때만, 작은 캔버스로 한 번 줄여 둔다) ----------
@@ -672,7 +671,7 @@ const CHARS=[
   {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 잃은 체력 1%당 피해 +1%(최대 +60%), 맞으면 짧게 돌진하며 잠깐 무적(0.5초 · 5초에 한 번). 🥊 씩씩 박치기 Lv2(고유 무기 · 적을 향해 돌진) 시작.',w:'ram',wl:2,rage:.6,dash:1,un:bossUn('tw','40분 보스 태웅')},
   // 🍘 [2026-10-07 사장님 지시] 맛동산 상점(1개=1천원) 캐릭터 2명 — 서버 구매로만 열린다(shop:1)
   {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 경험치 줍는 범위 +40% · 5초마다 가장 가까운 소모 아이템(🍗·💎·💣) 1개를 자동으로 줍는다. 🍘 맛동산 투척(고유 무기 · 던지면 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,auto:5,un:SHOPUN},
-  {k:'eom',img:1,shop:1,e:'📢',nm:'엄장신',tag:'엄!',q:'엄!',ds:'「엄!」 — 특별한 능력 없이 이 무기 하나로 승부. 📢 엄! 외침(고유 무기 · 외칠 때마다 맞은 적이 겁먹고 도망간다) 시작.',w:'eom',un:SHOPUN},
+  {k:'eom',img:1,shop:1,e:'📢',nm:'엄장신',tag:'엄!',q:'엄!',ds:'「엄!」 — 특별한 능력 없이 이 무기 하나로 승부. 📢 엄! 외침(고유 무기 · 외칠 때마다 범위 안의 적이 피해를 입고 뒤로 밀려난다) 시작.',w:'eom',un:SHOPUN},
   {k:'yj',boss:1,e:'🐲',nm:'쫑의 군주 용조련사',sn:'용조련사',tag:'쫑의 군주',ds:'「쫑의 군주」 — 최대 HP +40, 받는 피해 -2, 이동속도 -10%. 🔥 드래곤 브레스 Lv2(전용 무기 · 가까운 적을 자동으로 겨눠 원뿔 불길) 시작.',w:'breath',wl:2,hp:40,arm:2,spd:-.1,un:bossUn('yj','50분 보스 용조련사')},
   // 📸 [2026-10-07 사장님 지시] 신규 보스 배고배고 — 38분에 나오고, 판에서 처치하면 플레이어블로 열린다(sr·ddo·tw·yj 와 같은 경로 · 봇 P6_UNLOCK_KEYS 에 'bgb')
   {k:'bgb',boss:1,e:'🌪',nm:'잔나 코스프레 배고배고',sn:'배고배고',tag:'바람의 대마법사',ds:'「바람의 대마법사 코스프레」 — 이동속도 +10% · 획득 범위 +15%. 📸 플레이브 포토카드(고유 무기 · 외치며 회전하는 포토카드를 부채꼴로 날려 맞은 적을 밀쳐 낸다) 시작.',w:'pcards',spd:.1,mag:.15,un:bossUn('bgb','38분 보스 배고배고')},
@@ -840,8 +839,8 @@ const WEAP={
     ds:['가까운 적을 향해 머리부터 돌진한다 — 지나는 길의 적을 들이받고 도착하면 충격파(돌진 중 아주 잠깐 무적 · 태웅 전용)','돌진 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','돌진 거리 +15% · 충격파 +30%','쿨타임 -15%','피해 +50% · 연속 두 번 돌진']},
   snack:{only:'yumi',rl:'고유 · 유도 파편',ic:'🍘',nm:'맛동산 투척',pair:'mag',ev:{ic:'🍪',nm:'맛동산 대잔치',ds:'스틱 +1 · 부스러기 +4 · 부서질 때 작게 터진다 · 피해 1.15배'},
     ds:['맛동산 스틱을 던진다(적을 살짝 쫓아간다) — 맞으면 부스러기 6개가 사방으로 튄다(맛동산장인 유미 전용)','부스러기 +1','피해 +20% · 스틱 +1','쿨타임 -15%','피해 +20%','스틱 +1','부스러기 +1 · 쿨타임 -15%','피해 +50%']},
-  eom:{only:'eom',rl:'고유 · 공포 파동',ic:'📢',nm:'엄! 외침',pair:'area',ev:{ic:'🗣',nm:'엄엄엄!!!',ds:'연달아 세 번 외친다 — 범위 1.3배 · 공포 1.4배 · 피해 1.2배'},
-    ds:['4초마다 \'엄!\' 하고 외친다 — 범위 안의 적이 겁먹고 도망가며(접촉 피해 없음) 약한 피해를 입는다(보스는 느려지기만 · 엄장신 전용)','범위 +15%','피해 +40% · 쿨타임 -10%','범위 +15%','피해 +40% · 쿨타임 -10%','범위 +15%','쿨타임 -10%','범위 +15% · 피해 +50%']},
+  eom:{only:'eom',rl:'고유 · 충격 파동',ic:'📢',nm:'엄! 외침',pair:'area',ev:{ic:'🗣',nm:'개엄!',ds:'「개엄!」 하고 한 방에 크게 외친다 — 범위 1.2배 · 밀치는 힘 1.2배 · 피해 2배'},
+    ds:['4초마다 \'엄!\' 하고 외친다 — 범위 안의 적이 피해를 입고 뒤로 짧게 밀려난다(보스는 안 밀리고 아주 잠깐 느려지기만 · 엄장신 전용)','범위 +10%','피해 +10% · 쿨타임 -10%','범위 +10%','피해 +10% · 쿨타임 -10%','범위 +10%','쿨타임 -10%','범위 +10% · 피해 +15%']},
   pcards:{only:'bgb',rl:'고유 · 회전 부채꼴',ic:'📸',nm:'플레이브 포토카드',pair:'luck',ev:{ic:'✨',nm:'팬싸인회',ds:'뒤쪽으로도 카드가 날아간다 — 카드 +3 · 피해 1.15배 · 더 자주'},
     ds:['가까운 적에게 포토카드 4장을 부채꼴로 날린다 — 빠르게 회전하며 맞은 적을 밀쳐 낸다(보스는 안 밀리고 느려진다 · 배고배고 전용)','카드 +1','피해 +40%','카드 +1 · 쿨타임 -15%','피해 +40%','사거리 +20%','카드 +1','피해 +50% · 쿨타임 -10%']},
   // 🎤 [2026-10-08 사장님 지시] 배불배불 전용 — 4박자 한 소절(1·2·3박 ♪ 음표 · 4박 ♬ 고음). 짝 패시브 📚 공부(경험치 +8% — 약한 패시브에 칸을 쓰는 게 각성값). 수치는 U3.sing
@@ -965,7 +964,7 @@ const TIERS={
   snack:[['부스러기 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['부스러기 관통 +1',{pc:1}],['0.35초 뒤 부스러기가 한 번 더 튄다',{echo:1}]],
   pcards:[['카드 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['카드 관통 +1',{pc:1}],['맞은 자리에서 카드가 반짝 터진다(피해 40%)',{pop:1}]],
   sing:[['음표 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['음표 관통 +1 · 피해 +8% · 넋 잃음 +0.2초',{pc:1,d:.08,life:.2}],['고음이 끝나면 음표 6개가 사방으로 흩어진다(피해 50%)',{frag:1}]],
-  eom:[['범위 +7%',{a:.07}],['쿨타임 -7%',{c:.07}],['공포 +0.3초',{life:.3}],['0.4초 뒤 한 번 더 외친다(피해 60%)',{echo:1}],['공포 +0.5초 · 범위 +7%',{life:.5,a:.07}]],
+  eom:[['범위 +7%',{a:.07}],['쿨타임 -7%',{c:.07}],['피해 +12%',{d:.12}],['0.4초 뒤 한 번 더 외친다(피해 60%)',{echo:1}],['밀치는 힘 +25% · 범위 +7%',{life:.5,a:.07}]],
 };
 const TCAP=k=>S.ev[k]?5:3;   // 각성한 무기 5단계 · 안 한 Lv8 무기는 마스터 3단계
 const LATE_K=1,LATE_FRAC={a:1,c:1,d:1,s:1,w:1,rare:1,leg:1};   // 한 번에 낮추고 싶으면 LATE_K 만 줄인다(개수·기믹은 그대로, 비율 수치만 곱해진다 — 카드 문구의 % 도 같이 고칠 것)
@@ -1681,7 +1680,7 @@ function spawnEnemy(kind,mult,boss,at){
   const e=enemies.get();if(!e)return null;
   if(at){e.x=at.x+(Math.random()-.5)*20;e.y=at.y+(Math.random()-.5)*20;}
   else{const a=RN('spawn')*Math.PI*2,R=SPAWN_R;e.x=S.p.x+Math.cos(a)*R;e.y=S.p.y+Math.sin(a)*R;}
-  e.ki=kind;e.fear=0;e.fx=0;e.ft=Math.random()*3;e.st=0;e.jl=0;e.slow=0;e.gold=0;e.hb=-9;e.wv=0;e.zp=0;e.el=0;e.pl=0;e.at=null;
+  e.ki=kind;e.fx=0;e.ft=Math.random()*3;e.st=0;e.jl=0;e.slow=0;e.gold=0;e.hb=-9;e.wv=0;e.zp=0;e.el=0;e.pl=0;e.at=null;
   e.bg=0;e.ph=0;e.ax=Math.random()<.5?1:-1;e.ay=0;e.sv=0;e.sh=0;e.eg=0;e.fl=0;e.tn=0;e.kr=0;e.bph=0;e.gen=0;e.wf=-9;e.cn=-9;e.far=0;e.fz=0;e.fv=0;e.fw=0;e.hk=0;e.mt=0;e.lw=-9;e.sn=++SN;
   e.sg3=0;e.ch3=0;e.rm=0;e.hm=0;   // 🧹 [2026-10-08 검증에서 발견] 풀 칸 재사용 — 이전 판이 찍은 신림 도장·또뀨 사슬·태웅 박치기·앙앵 하트 표식을 지운다(안 지우면 새 판 S.t 가 0부터라 그 적을 한참 못 노린다)
   const m=MIN();
@@ -2036,7 +2035,7 @@ const U3={sing:{d:4.5,db:1.3,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   quill:{d:6.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:13,bd:7,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:14,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
-  snack:{d:11,cd:1.3,rng:320},pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:8,cd:4.2,R:150,fear:1.6},
+  snack:{d:11,cd:1.3,rng:320},pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
 // 🐲 「쉬바나 코스프레」 — 분노 게이지(rg) → 가득 차면 용 변신(dT). 게이지는 초당 cap 만큼만 차오른다(후반 타수 폭주 방지)
@@ -2205,19 +2204,22 @@ function weapons3(dt,cm,MT,AR,AM){
       for(let i=0;i<n;i++){const a=base+(i-(n-1)/2)*.4;f3({k:'sn',x:p.x,y:p.y,vx:Math.cos(a)*380,vy:Math.sin(a)*380,life:1.1,d,m,sd:d*.55,pc:t.pc,e:null,sn:0,ev:ev?1:0,echo:t.echo});}
       AU.play('snack');S.cd.snack=U3.snack.cd*lvm(L,[[4,.85],[7,.85]])*cm*(1-t.c);}
     else S.cd.snack=0;}
-  // 📢 엄! 외침 → 🗣 엄엄엄!!! — 파동 안의 적이 겁먹고 도망간다(접촉 피해 없음) · 보스는 느려지기만
+  // 📢 엄! 외침 → 🗣 개엄! — [2026-10-09 사장님 지시 "각성하면 범위·공포 때문에 일반몹이 접근도 못 하는 사기 유틸인데 데미지는 끝내주게 약하다 → 데미지 상향 · 공포 대신 짧은 넉백 · 범위 적당히 하향"]
+  //   파동 안의 적이 피해를 입고 짧게 밀려난다(knock — 엘리트·대형은 KB 배율만큼 덜 밀리고 보스는 안 밀리고 아주 잠깐 느려지기만 한다) · 밀려난 적은 곧 다시 다가온다(접촉 피해 면제 없음)
   L=S.w.eom||0;
   if(L&&(S.cd.eom-=dt)<=0){ev=S.ev.eom;t=TK('eom');
-    const R=U3.eom.R*lvm(L,[[2,1.15],[4,1.15],[6,1.15],[8,1.15]])*AR*(ev?1.3:1)*(1+t.a),fear0=(U3.eom.fear+.25*(L-1)+t.life)*(ev?1.4:1),d0=U3.eom.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*MT*(ev?1.2:1)*(1+t.d);let any=false;
+    const E3=U3.eom,R=E3.R*lvm(L,[[2,E3.Rg],[4,E3.Rg],[6,E3.Rg],[8,E3.Rg]])*AR*(ev?E3.evR:1)*(1+t.a),kd0=E3.kd*(1+.5*t.life)*(ev?E3.evK:1),nF=Math.max(1,Math.ceil(E3.kt/dt)),kf=1/(dt*(1-Math.pow(.9,nF))*10),d0=E3.d*lvm(L,[[3,E3.dg[0]],[5,E3.dg[1]],[8,E3.dg[2]]])*MT*(ev?E3.evD:1)*(1+t.d);let any=false;
     for(const e of S.live)if(e.on&&(e.x-p.x)**2+(e.y-p.y)**2<(R+e.r)**2){any=true;break;}
     if(any){const eo=ev?1:0,Le=L,shout=(mm,st)=>{if(!S.w.eom)return;   // eo·Le: 지연 호출(메아리·마지막)이 나중에 돌 때 ev·L 은 다른 무기가 덮어쓴 값이라 시전 순간 값을 쥐고 간다
         for(const e of S.live){if(!e.on||(e.x-p.x)**2+(e.y-p.y)**2>=(R+e.r)**2)continue;h3(e,d0*mm,'eom');if(!e.on)continue;
-          if(e.boss)e.slow=Math.max(e.slow,e.b&&e.b.mini?fear0*.125:fear0*.25);else if(e.bg||e.el)e.fear=Math.max(e.fear||0,fear0*.25);else e.fear=Math.max(e.fear||0,fear0);
+          if(e.boss)e.slow=Math.max(e.slow,e.b&&e.b.mini?E3.bs*.5:E3.bs);
+          else{const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy)||1;knock(e,dx/dd,dy/dd,kd0*mm*kf,E3.kt);}   // 나에게서 멀어지는 쪽으로 — 지연 외침(메아리·마지막)은 mm 만큼 약하게 · kf: knock 은 프레임마다 속도가 ×.9 로 줄어 프레임이 짧을수록 덜 밀리므로, 프레임 수와 상관없이 kd(px)만큼 밀리게 힘을 맞춘다
           if(!e.boss)EX.eomHit(e,p.x,p.y,R,st,eo);}
         hitPropsAt(p.x,p.y,R,d0*mm);   // 외침은 필드 아이템도 깬다
-        EX.eom(p.x,p.y,R,st,eo,Le);AU.play('eom',st===2?2:st===1?(eo?4:1):(eo?3:0));};   // 🎨 연출·소리 전용(위에서 피해·공포는 끝났다)
-      shout(1,0);if(t.echo)S.dq.push({t:.4,f:()=>shout(.6,1)});if(ev)S.dq.push({t:.6,f:()=>shout(.8,2)});
-      S.cd.eom=U3.eom.cd*lvm(L,[[3,.9],[5,.9],[7,.9]])*cm*(1-t.c);}
+        EX.eom(p.x,p.y,R,st,eo,Le);AU.play('eom',st===2?2:st===1?(eo?4:1):(eo?3:0));};   // 🎨 연출·소리 전용(위에서 피해·밀치기는 끝났다)
+      shout(1,ev?2:0);   // 각성하면 첫 외침이 곧 큰 「개엄!」 한 방(연출 단계 2 — 예전엔 「엄!」 뒤 0.6초에 「엄엄엄!!!」 두 번이었다)
+      if(t.echo)S.dq.push({t:.4,f:()=>shout(.6,1)});
+      S.cd.eom=E3.cd*lvm(L,[[3,.9],[5,.9],[7,.9]])*cm*(1-t.c);}
     else S.cd.eom=.3;}
   // 📸 플레이브 포토카드 → ✨ 팬싸인회 — 가까운 적에게 회전하는 카드를 부채꼴로(맞은 적은 밀려난다 · 필드 아이템도 깬다)
   L=S.w.pcards||0;
@@ -2710,12 +2712,11 @@ function update(dt){
         if(e.ft<=0){e.ft=.45;const c=clouds.get();if(c){c.x=e.x;c.y=e.y;c.life=3;c.d=e.dmg*.35;c.own=e;c.osn=e.sn;}}}
       }}
     else if(e.boss){spm=bossAct(e,dt,d,dx,dy);if(state!=='play')return;}
-    if(e.fear>0){e.fear-=dt;ux=-ux;uy=-uy;spm=Math.abs(spm)||1;}   // 📢 겁먹은 적 — 나에게서 도망간다
     if(e.slow>0){e.slow-=dt;spm*=.55;}
     if(S.slowR&&d<S.slowR+e.r)spm*=.8;   // 🕷 신림 「스탭 임명」 주변 적 -20%
     if(e.st>0){e.st-=dt;spm=0;}
     if(!(e.kb>0&&!e.boss)){e.x+=ux*e.sp*spm*dt;e.y+=uy*e.sp*spm*dt;}
-    if(d<e.r+p.r&&e.eg!==1&&!(e.fear>0)){if(CH.push&&!e.boss&&e.kb<=0)knock(e,-dx/d,-dy/d,260,.3);
+    if(d<e.r+p.r&&e.eg!==1){if(CH.push&&!e.boss&&e.kb<=0)knock(e,-dx/d,-dy/d,260,.3);
       if(p.inv<=0){const k=bumpKey(e);if(k)taunt(k,e);}   // 💬 박치기가 실제로 들어갈 때
       if(!(e.jl>S.t&&e.st>0)&&hitP(e.dmg))return;}}   // ☠ 진실의 방에 묶인 적은 몸통 박치기도 못 한다(내 곁에 묶어 두면 벽이 돼서 오히려 갇혔다)
   for(const h of hazards.a){if(!h.on)continue;h.life-=dt;if(h.life<=0){h.on=false;continue;}
@@ -3161,7 +3162,7 @@ const EX=(()=>{
 
   // ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // 📢 [2026-10-07 사장님 지시 "엄장신의 엄 이펙트 파괴적인 이펙트로 변경"] 엄! 외침 연출 — 쾅 내리찍는 글자 · 갈라지는 바닥 · 겹겹 충격파 · 부서지는 글자 · 번쩍이며 움찔하는 적
-  //   연출 전용: 피해·공포·쿨타임·범위·보스 규칙은 weapons3 의 원래 줄 그대로. 적은 그리는 위치만 잠깐 움직인다(논리 좌표·knock·kb·kr 안 건드림).
+  //   연출 전용: 피해·밀치기·쿨타임·범위·보스 규칙은 weapons3 의 원래 줄 그대로. 적은 그리는 위치만 잠깐 움직인다(논리 좌표·knock·kb·kr 안 건드림).
   //   단계 st 0 첫 외침 · 1 메아리(+.4초) · 2 마지막(+.6초) — ev 각성이면 규모가 점점 커진다(코드 ci 0 M0 · 1 M1 · 2 E0 · 3 E1 · 4 F)
   const EK=[1,1.15,.55,1.25,1.65],EKT=[1,1.12,.5,1.2,1.45],ESH=[.22,.24,0,0,.34],EKI=[5.5,6.5,2.4,4.5,9],EHS=[.05,.05,0,0,.08],EFL=[0,.1,0,0,.14],ECT=[.27,.27,.22,.22,.36],EAM=[12,14,6,9,18],ELB=[0,0,0,1,2];
   const EOM_CRACK_LOW=1;   // 폰(품질 1)에서 균열을 어두운 층 1장으로 단순화해 남길지(1) 완전히 생략할지(0)
@@ -3175,7 +3176,7 @@ const EX=(()=>{
     const lw=SPX.lw(lb);if(lw*fs*1.45>.92*wd)fs=.92*wd/(lw*1.45);if(lw*fs>.66*wd)fs=.66*wd/lw;return Math.min(150,Math.max(24,Math.round(fs/4)*4));}
   function shatter(i){const ci=ltD[i],lb=ltK[i],q=ltQ[i],x=ltx[i],y=lty[i],fs=lsz(ci,lb),s=Math.max(.3,SPX.cam.s),fsW=fs/s,cy=y-56-.62*fsW;
     ring(6,x,cy,10,ci===4?48:34,.08,0);
-    if(q===2){const cols=lb===2?5:3,rows=2,bw=SPX.lw(lb)*fsW,bh=1.6*fsW,FF=ci===4?1.25:1;   // 금 간 글자 판을 격자로 잘라 흩뿌린다(조각은 글자 그림의 일부)
+    if(q===2){const cols=3,rows=2,bw=SPX.lw(lb)*fsW,bh=1.6*fsW,FF=ci===4?1.25:1;   // 금 간 글자 판을 격자로 잘라 흩뿌린다(조각은 글자 그림의 일부)
       for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const k=fgi;fgi=(fgi+1)%WPMAX;if(fgl[k]<=0)fgAct++;
         let ox=((c+.5)/cols-.5)*bw,oy=((r+.5)/rows-.5)*bh*.8-bh*.1;const d=Math.hypot(ox,oy)||1,v=rr(110,260)*FF;
         fgpx[k]=x;fgpy[k]=cy;fgx[k]=0;fgy[k]=0;fgvx[k]=ox/d*v+rr(-30,30);fgvy[k]=oy/d*v-rr(40,110);fgr[k]=rr(0,6.28);fgvr[k]=rr(-9,9);fgl[k]=fgm[k]=.55;fgF[k]=fs;fgK[k]=lb;fgC[k]=cols;fgR[k]=rows;fgI[k]=r*cols+c;}}
@@ -3357,7 +3358,6 @@ function drawW3(p){const X=S.x3;if(!X)return;
   if(R.fx>0){const k=Math.min(1,R.fx/.3);cx.lineCap='round';   // 🥊 박치기 — 돌진 자국(하늘색 세 줄)
     for(let i=-1;i<=1;i++){const ox=-R.uy*i*7,oy=R.ux*i*7;cx.beginPath();cx.moveTo(R.x0+ox,R.y0+oy);cx.lineTo(p.x+ox,p.y+oy);cx.lineWidth=i?3:6;cx.strokeStyle='rgba('+(i?'150,240,255':'235,251,255')+','+(k*.7).toFixed(2)+')';cx.stroke();}
     cx.lineCap='butt';}
-  if(S.w.eom)for(const e of S.live)if(e.on&&e.fear>0&&inV(e.x,e.y,30))SPX.blit(SPX.fear,e.x+e.r*.6,e.y-e.r-12+Math.sin(S.t*18)*2,10,2);   // 📢 겁먹은 적 — 머리 위 느낌표(예전엔 이모지 글자를 매 프레임 찍었다 — 한 번 그려 둔 그림을 정수 위치에 찍는다)
   if(!X.f.length)return;
   cx.lineCap='round';
   for(const o of X.f){

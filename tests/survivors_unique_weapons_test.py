@@ -106,16 +106,15 @@ async def main():
         for k, (w, wl) in UNIQ.items():
             r = await pg.evaluate("a=>{const x=__p6x;x.CH_set(a.k);x.start();const S=x.S;S.t=90;S.ps={amt:3,area:5,might:5,cd:5,pspd:5,glass:3,luck:5,dur:5};S.w[a.w]=8;x.tkCalc();x.synCalc();S.dmgBy={};const r=(" + RUN + ")(a);return {r,d:S.dmgBy[a.w]||0}}", {'k': k, 'w': w, 'sec': 20, 'keep': {w: 8}})
             check(f'{k}: 패시브 풀세트로 20초', r['d'] > 0, round(r['d']))
-        # ── 5b. 엄! 외침 — 겁먹은 적은 나에게서 멀어지고 접촉 피해가 없다 · 보스는 도망 안 가고 느려지기만
-        r = await pg.evaluate("""()=>{const x=__p6x;x.CH_set('eom');x.start();const S=x.S;S.t=120;const p=S.p;S.w.eom=5;S.cd.eom=0;
-          const mk=(boss)=>{const e=x.spawnEnemy(0,1,boss?'fin':null,{x:p.x+60,y:p.y});return e;};
-          for(let i=0;i<4;i++)x.update(1/30);
-          const es=[];for(let i=0;i<6;i++){const e=x.spawnEnemy(0,1,null,{x:p.x+50+i*5,y:p.y+i*6});if(e)es.push(e);}
-          S.cd.eom=0;const d0=es.map(e=>Math.hypot(e.x-p.x,e.y-p.y));S.p.keys=0;
-          let hits=0;const hp0=p.hp;for(let i=0;i<20;i++){x.update(1/30);}
+        # ── 5b. 엄! 외침 — [2026-10-09 사장님 지시] 공포 대신 짧은 넉백: 범위 안의 적이 나에게서 멀어지고 피해를 입는다 · 보스는 안 밀리고 느려지기만 · 접촉 피해는 면제되지 않는다
+        r = await pg.evaluate("""()=>{const x=__p6x;x.srvUnl&&x.srvUnl(['eom']);x.CH_set('eom');x.start();const S=x.S;S.t=120;const p=S.p;S.w.eom=5;S.cd.eom=1e9;S.nextBoss=S.nextMini=1e9;
+          for(const e of x.enemies.a)e.on=false;
+          const es=[];for(let i=0;i<6;i++){const e=x.spawnEnemy(0,1,null,{x:p.x+50+i*5,y:p.y+i*6});if(e){e.hp=e.mhp=1e9;e.sp=0;es.push(e);}}
+          const d0=es.map(e=>Math.hypot(e.x-p.x,e.y-p.y)),h0=es.map(e=>e.hp);S.cd.eom=0;S.dmgBy={};
+          for(let i=0;i<40;i++){S.p.inv=99;x.update(1/30);}
           const d1=es.map(e=>e.on?Math.hypot(e.x-p.x,e.y-p.y):999);
-          return {fear:es.filter(e=>e.fear>0).length,n:es.length,far:d1.filter((d,i)=>d>d0[i]).length,hp:p.hp>=hp0-.01}}""")
-        check('엄! 외침: 범위 안의 적이 겁먹어 멀어짐 + 접촉 피해 없음', r['fear'] >= 3 and r['far'] >= 3 and r['hp'], r)
+          return {n:es.length,far:d1.filter((d,i)=>d>d0[i]+20).length,hurt:es.filter((e,i)=>e.hp<h0[i]).length,fear:es.filter(e=>e.fear>0).length,dmg:S.dmgBy.eom||0}}""")
+        check('엄! 외침: 범위 안의 적이 피해를 입고 나에게서 멀어진다(공포 없음)', r['n'] >= 5 and r['far'] >= 5 and r['hurt'] >= 5 and r['fear'] == 0 and r['dmg'] > 0, r)
         # ── 6. 보스·미니 보스가 있을 때(보스는 안 밀림·기절 면역) 예외 없이
         r = await pg.evaluate("""a=>{const x=__p6x,out={};for(const [k,[w]] of Object.entries(a)){x.CH_set(k);x.start();const S=x.S;S.t=300;S.w[w]=8;S.nextBoss=301;
             const r=(%s)({sec:25,keep:{[w]:8}});out[k]=r.res?'result':'ok';}return out}""" % RUN, {k: [v[0]] for k, v in UNIQ.items()})

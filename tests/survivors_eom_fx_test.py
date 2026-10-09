@@ -81,14 +81,14 @@ async def main():
         check('후반(적 175)·배경 효과 줄임/끔: 예외 없이 · 상한 안', ok and not errs, (res, errs[:3]))
         check('배경 효과를 줄이거나 끄면 바닥 균열이 안 생김(d 0)', res['fx1']['d'] == 0 and res['fx0']['d'] == 0 and res['lite']['d'] > 0, {k: v['d'] for k, v in res.items()})
         await ctx.close()
-        # ── T13: 단계 호출 수 — 비각성 [n,0,0] · 각성(메아리 없음) [n,0,n] · 각성+메아리 [n,n,n]
+        # ── T13: 단계 호출 수 — 비각성 [n,0,0] · 각성(메아리 없음) [0,0,n] (각성하면 첫 외침이 곧 큰 「개엄!」 · 단계 2) · 각성+메아리 [0,n,n]
         ctx, pg, errs = await ctx_page(b, srv.port, 1280, 720)
         for (L, ev, tier, want) in [(5, 0, 0, 'a'), (8, 1, 3, 'b'), (8, 1, 5, 'c')]:
             await pg.evaluate(SETUP, {'L': L, 'ev': ev, 'tier': tier, 'n': 30, 'R': 120, 'tough': True})
             await pg.evaluate(GRID, {'frames': 90, 'every': 90})
             await pg.evaluate(GRID, {'frames': 45, 'every': 1, 'noCast': True})   # 마지막 시전의 지연 호출(메아리 .4초 · 마지막 .6초)이 끝날 때까지 새 시전 없이 기다린다
             c = await pg.evaluate("__p6x.EX.stats().c")
-            ok = (c[0] >= 1 and c[1] == 0 and c[2] == 0) if want == 'a' else (c[0] >= 1 and c[1] == 0 and c[2] == c[0]) if want == 'b' else (c[0] >= 1 and c[1] == c[0] and c[2] == c[0])
+            ok = (c[0] >= 1 and c[1] == 0 and c[2] == 0) if want == 'a' else (c[0] == 0 and c[1] == 0 and c[2] >= 1) if want == 'b' else (c[0] == 0 and c[1] == c[2] and c[2] >= 1)
             check('시전 단계 호출 수 L%d 각성%d 단계%d: %s' % (L, ev, tier, c), ok, c)
         await ctx.close()
         # ── T14: 지연 호출(메아리·마지막)은 '시전 순간'의 각성 여부·레벨로 연출한다 — weapons3 의 L·ev 는 다른 무기 블록이 계속 덮어쓰는 공용 변수라서
@@ -99,7 +99,7 @@ async def main():
           S.w.pcards=6;S.w.ram=3;S.w.snack=5;S.w.chain=2;S.ev.pcards=0;S.ev.ram=0;   // eom 블록 뒤에 도는 블록들이 L·ev 를 다른 값으로 덮어쓴다
           for(let i=0;i<150;i++){S.p.inv=99;S.p.hp=S.p.mhp;if(i===0)S.cd.eom=0;else if(i>1&&S.cd.eom<1)S.cd.eom=1e9;x.update(1/30);}
           EX.eom=orig;return log}""")
-        check('지연 호출 인자: 첫(0)·메아리(1)·마지막(2) 모두 각성 1 · Lv8 — 다른 무기 블록이 덮어쓴 값이 아님', r == [[0, 1, 8], [1, 1, 8], [2, 1, 8]], r)
+        check('지연 호출 인자: 큰 「개엄!」(2)·메아리(1) 모두 각성 1 · Lv8 — 다른 무기 블록이 덮어쓴 값이 아님', r == [[2, 1, 8], [1, 1, 8]], r)
         check('지연 호출 시험에서 오류 없음', not errs, errs[:3])
         await ctx.close()
         # ── T16: 시전 직후 멀리 달려가도(글자·조각·링·균열이 화면 밖으로 밀려남) 예외 없이 · 풀 상한 안 — 화면 밖 컬링 경로
@@ -154,12 +154,12 @@ async def main():
         # ── T5: 색 규칙 — 새 스프라이트에 빨강·주황·노랑·자홍(채도·명도 높은 것)이 없다
         ctx, pg, errs = await ctx_page(b, srv.port, 1280, 720)
         await pg.evaluate(SETUP, {'L': 8, 'ev': 1, 'tier': 5, 'n': 20, 'R': 100, 'tough': True, 'qo': 2})
-        r = await pg.evaluate("""()=>{const x=__p6x,S=x.SPX;const cvs={a:S.crackE(0,0,400),b:S.crackE(0,1,400),c:S.crackE(1,0,400),d:S.crackE(1,1,400),e:S.eomT(0,124,0),f:S.eomT(0,124,1),g:S.eomT(1,140,0),h:S.eomT(2,160,1),i:S.eomT(2,160,0),j:S.fear};
+        r = await pg.evaluate("""()=>{const x=__p6x,S=x.SPX;const cvs={a:S.crackE(0,0,400),b:S.crackE(0,1,400),c:S.crackE(1,0,400),d:S.crackE(1,1,400),e:S.eomT(0,124,0),f:S.eomT(0,124,1),g:S.eomT(1,140,0),h:S.eomT(2,160,1),i:S.eomT(2,160,0)};
           const out={};for(const [k,c] of Object.entries(cvs)){const g=c.getContext('2d'),d=g.getImageData(0,0,c.width,c.height).data;let bad=0,n=0;
             for(let i=0;i<d.length;i+=4){const a=d[i+3];if(a<=40)continue;n++;const r=d[i]/255,gg=d[i+1]/255,b=d[i+2]/255,mx=Math.max(r,gg,b),mn=Math.min(r,gg,b),v=mx,s=mx?(mx-mn)/mx:0;if(s<=.35||v<=.25)continue;
               let h=0;const dd=mx-mn;if(mx===r)h=60*(((gg-b)/dd)%6);else if(mx===gg)h=60*((b-r)/dd+2);else h=60*((r-gg)/dd+4);if(h<0)h+=360;if(h>=290||h<75)bad++;}
             out[k]=[n,bad];}return out}""")
-        check('색 규칙: 균열·글자·표식 스프라이트에 빨강·주황·노랑·자홍 없음', all(v[1] <= max(3, v[0] * .002) for v in r.values()), r)
+        check('색 규칙: 균열·글자 스프라이트에 빨강·주황·노랑·자홍 없음', all(v[1] <= max(3, v[0] * .002) for v in r.values()), r)
         await ctx.close()
         # ── T6: 위험 표시 가림 — danger 헬퍼 + 글자 알파 상한
         ctx, pg, errs = await ctx_page(b, srv.port, 412, 860, True)
@@ -186,14 +186,41 @@ async def main():
             for(const e of x.enemies.a)if(e.on&&!e.boss&&e.fa>0&&S.t-e.fk>=0&&S.t-e.fk<.22)flinch++;x.update(1/60);}
           const boss=x.enemies.a.find(e=>e.on&&e.boss);return {diff,flinch,bossFa:boss?boss.fa:-1,kr:Math.max(...x.enemies.a.filter(e=>e.on).map(e=>e.kr))}}""")
         check('적 반응: draw 가 논리 상태(x·y·hit·kb·kr·fear·slow)를 안 바꾼다', r['diff'] == 0, r)
-        check('적 반응: 움찔 대상이 있고 · 보스는 없고 · 넉백 저항(kr) 안 쌓임', r['flinch'] > 0 and r['bossFa'] == 0 and r['kr'] == 0, r)
+        check('적 반응: 움찔 대상이 있고 · 보스는 없고 · 넉백 저항(kr)은 외침 자신의 밀치기(.3)보다 안 쌓임(그리기가 knock 을 안 부름)', r['flinch'] > 0 and r['bossFa'] == 0 and r['kr'] <= .31, r)
         await ctx.close()
-        # ── T11: 겁먹은 표식은 겁먹은 적 전부에게(예전처럼 상한 없이) 그린다 — 스프라이트 blit 횟수를 센다
+        # ── T11: 밀치기(공포 대신) — 범위 안 일반 적은 모두 나에게서 kd·KB 만큼 밀리고, 범위 밖은 그대로, 보스는 안 밀리고 느려지기만 한다 (2026-10-09 사장님 지시)
         ctx, pg, errs = await ctx_page(b, srv.port, 1280, 720)
-        await pg.evaluate(SETUP, {'L': 5, 'ev': 0, 'tier': 0, 'n': 100, 'R': 150, 'tough': True, 'qo': 2})
-        r = await pg.evaluate("""()=>{const x=__p6x,S=x.S,SPX=x.SPX;S.cd.eom=0;x.update(1/60);let nf=0;for(const e of S.live)if(e.on&&e.fear>0)nf++;
-          let blits=0;const ob=SPX.blit;SPX.blit=function(im){if(im===SPX.fear)blits++;return ob.apply(this,arguments);};x.draw();SPX.blit=ob;return {nf,blits}}""")
-        check('겁먹은 표식: 화면 안 겁먹은 적 모두에게(상한 없이) — %s' % r, r['nf'] >= 60 and r['blits'] >= r['nf'] - 5, r)
+        await pg.evaluate(SETUP, {'L': 5, 'ev': 0, 'tier': 0, 'n': 60, 'R': 150, 'tough': True, 'qo': 2})
+        r = await pg.evaluate("""()=>{const x=__p6x,S=x.S,p=S.p,E3=x.U3.eom;S.cd.eom=1e9;x.update(1/60);   // 시전은 시험이 정한다
+          for(const e of x.enemies.a)if(e.on)e.sp=0;   // 적이 스스로 움직이지 않게 해야 밀린 거리만 남는다
+          const bo=x.spawnBoss('sr');bo.x=p.x+70;bo.y=p.y;bo.hp=bo.mhp=1e12;bo.sp=0;
+          const R=E3.R*1.1*1.1*(x.AR?x.AR():1);
+          const pos=x.enemies.a.filter(e=>e.on&&!e.boss).map(e=>({e,x0:e.x,y0:e.y,d0:Math.hypot(e.x-p.x,e.y-p.y)}));
+          S.cd.eom=0;x.update(1/60);const slow0=bo.slow;for(let i=0;i<40;i++)x.update(1/60);   // 느려짐은 시전 직후에 읽는다(.5초라 곧 풀린다)
+          const inn=pos.filter(o=>o.d0<R-5),out=pos.filter(o=>o.d0>R+40);
+          const mv=o=>Math.hypot(o.e.x-o.x0,o.e.y-o.y0),away=o=>Math.hypot(o.e.x-p.x,o.e.y-p.y)-o.d0;
+          const kdo=inn.filter(o=>!o.e.bg&&!o.e.el).map(mv);
+          return {nIn:inn.length,nOut:out.length,kdMean:kdo.reduce((a,b)=>a+b,0)/Math.max(1,kdo.length),minAway:Math.min(...inn.filter(o=>!o.e.bg&&!o.e.el).map(away)),outMax:Math.max(0,...out.map(mv)),kd:E3.kd,R,
+            bossMoved:Math.hypot(bo.x-(p.x+70),bo.y-p.y),bossSlow:slow0}}""")
+        check('밀치기: 범위 안 일반 적은 모두 나에게서 멀어진다 · 평균 밀린 거리가 kd(%s)와 같다(±12%%) — %s' % (55, r), r['nIn'] >= 10 and r['minAway'] > 20 and abs(r['kdMean'] - r['kd']) <= r['kd'] * .12, r)
+        check('밀치기: 범위 밖 적은 안 밀린다 · 보스는 안 밀리고(좌표 그대로) 느려지기만 한다', r['nOut'] >= 3 and r['outMax'] < 1 and r['bossMoved'] < 1 and r['bossSlow'] > 0, r)
+        await ctx.close()
+        # ── T11b: 프레임 길이와 상관없이 같은 거리만큼 밀린다(knock 은 프레임마다 ×.9 로 줄어 힘을 맞춰 준다) + 외침으로 접촉 피해가 면제되지 않는다
+        ctx, pg, errs = await ctx_page(b, srv.port, 1280, 720)
+        out = {}
+        for dtn in (60, 30, 120):
+            await pg.evaluate(SETUP, {'L': 3, 'ev': 0, 'tier': 0, 'n': 20, 'R': 100, 'tough': True, 'qo': 2})
+            out[dtn] = await pg.evaluate("""(f)=>{const x=__p6x,S=x.S,p=S.p;S.cd.eom=1e9;x.update(1/60);for(const e of x.enemies.a)if(e.on)e.sp=0;
+              const es=x.enemies.a.filter(e=>e.on&&!e.boss&&!e.bg&&!e.el&&Math.hypot(e.x-p.x,e.y-p.y)<120).map(e=>({e,x0:e.x,y0:e.y}));S.cd.eom=0;
+              for(let i=0;i<Math.round(f*.8);i++){S.p.inv=99;x.update(1/f);}
+              return {n:es.length,mv:es.reduce((a,o)=>a+Math.hypot(o.e.x-o.x0,o.e.y-o.y0),0)/Math.max(1,es.length)}}""", dtn)
+        mvs = [v['mv'] for v in out.values()]
+        check('밀치기 거리는 프레임(30·60·120fps)과 상관없이 같다 — %s' % {k: round(v['mv'], 1) for k, v in out.items()}, all(v['n'] >= 5 for v in out.values()) and max(mvs) - min(mvs) <= .08 * max(mvs), out)
+        await pg.evaluate(SETUP, {'L': 8, 'ev': 0, 'tier': 0, 'n': 1, 'R': 40, 'tough': True, 'qo': 2})
+        r = await pg.evaluate("""()=>{const x=__p6x,S=x.S,p=S.p;const e=x.enemies.a.find(e=>e.on);e.x=p.x+20;e.y=p.y;e.sp=0;e.kb=0;S.cd.eom=1e9;p.inv=0;p.hp=p.mhp=1e9;x.update(1/60);const h0=p.hp;
+          // 밀쳐지기 전 접촉: 같은 프레임에 닿아 있으면 맞는다(공포 때문에 접촉 피해가 면제되던 규칙은 없다)
+          e.kb=0;e.kx=e.ky=0;e.x=p.x+20;e.y=p.y;p.inv=0;x.update(1/60);return {dmg:h0-p.hp,fear:e.fear}}""")
+        check('외침이 접촉 피해를 면제하지 않는다(공포 규칙 삭제) — %s' % r, r['dmg'] > 0 and r.get('fear') is None, r)
         await ctx.close()
         # ── T12: 초기화·반응형 — start() 뒤 전부 0 · 좁은 화면(360)에서도 격자 통과
         ctx, pg, errs = await ctx_page(b, srv.port, 360, 740, True)
