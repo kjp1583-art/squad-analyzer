@@ -13,6 +13,9 @@
   python3 tests/raid/g4_test.py --determinism      # 같은 시드로 두 번 돌려 판이 같은지
   옵션: --src survivors.html  --jobs N  --seed N  --timeout 초  --out 결과.json  --strict-keys  --no-cover
 
+마지막 줄: 「G4 PASS」는 조합당 900초 이상 · 기본 조합 전부 · 무기 전종 확인을 모두 했을 때만 찍힌다.
+  --quick · --secs 900 미만 · --combo · --no-extra · --no-cover 로 돌렸으면 예외 없이 끝나도 「G4 (비공식 — 합격 판정 아님: 사유)」로 찍는다. 실패는 항상 「G4 FAIL」.
+
 종료코드: 0 통과 · 1 예외(어느 조합이든) · 2 빌드(앵커) 실패 · 3 린트 실패 · 4 기준 미달(판 일찍 끝남·무기 미사용·값 이상·결정성 어긋남) · 5 환경 문제(node/eslint 없음, 시간 초과) · 64 옵션 오류
 """
 import argparse, concurrent.futures as cf, json, os, random, shutil, subprocess, sys, time, datetime
@@ -21,9 +24,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, '..', '..'))
 NODE = shutil.which('node')
 
-# 스크래치 runall.sh 의 5조합(R2 스파이크 재현용). 캐릭터가 늘면 아래 「보강 조합」이 빠진 캐릭터를 채운다.
+# 첫 스파이크(2026-10-08)에서 쓰던 5조합(재현용). 캐릭터가 늘면 아래 「보강 조합」이 빠진 캐릭터를 채운다.
 ORIGINAL_COMBOS = ['brj,jjg,mms,hrb', 'ssu,amd,ildj,kyo', 'ddmj,psg,sr,ddo', 'tw,yumi,eom,yj', 'bgb,brj,psg,sr']
-# 보강 조합에서 빈자리를 채우는 순서(스크래치에서 가장 무거웠던 조합의 캐릭터들 — 부하가 큰 쪽으로 보강)
+# 보강 조합에서 빈자리를 채우는 순서(첫 스파이크에서 가장 무거웠던 조합의 캐릭터들 — 부하가 큰 쪽으로 보강)
 PAD = ['eom', 'yj', 'tw', 'yumi', 'sr', 'ddo']
 KNOWN_LINT = {'DOMMatrix'}   # 알려진 항목: try/catch 안에서 쓰는 브라우저 전용 API(설계서 §4.0 「DOMMatrix 1건」)
 
@@ -224,7 +227,27 @@ def main():
     report['loadavg_end'] = uptime_s()
     n_ok = sum(1 for r in runs if r['rc'] == 0 and r['result'].get('ok'))
     print('[g4] 요약: 조합 %d/%d 통과 · 종료 load %s · 종료코드 %d' % (n_ok, len(runs), ' '.join(report['loadavg_end']), code))
-    print('G4 ' + ('PASS' if code == 0 else 'FAIL'))
+    # 「G4 PASS」는 합격 근거가 되는 조건(조합당 900초 이상 · 기본 조합 전부 · 무기 전종 확인)을 채웠을 때만 찍는다.
+    # 짧게 돌렸거나 조합을 골랐으면 예외 없이 끝나도 「비공식」으로 찍는다(요약 한 줄만 보고 합격으로 읽는 일을 막는다).
+    unmet = []
+    if secs < 900: unmet.append('조합당 %g초 < 900초' % secs)
+    if a.quick: unmet.append('--quick')
+    if a.combo: unmet.append('조합을 직접 골랐음')
+    if a.no_extra: unmet.append('--no-extra (보강 조합 생략)')
+    if a.no_cover: unmet.append('--no-cover (무기 전종 확인 생략)')
+    report['qualified'] = not unmet
+    report['qualified_unmet'] = unmet
+    report['key_warnings'] = keys_warn
+    if code != 0:
+        final = 'G4 FAIL'
+    elif unmet:
+        final = 'G4 (비공식 — 합격 판정 아님: %s) 예외 없이 끝남' % ' · '.join(unmet)
+    else:
+        final = 'G4 PASS'
+    if code == 0 and keys_warn:
+        final += ' · 경고 %d건(S 필드 분류 — 위 WARN 확인)' % len(keys_warn)
+    report['verdict'] = final
+    print(final)
     finish(a, report, code)
     return code
 

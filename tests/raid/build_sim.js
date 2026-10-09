@@ -7,15 +7,16 @@
    ※ 이 텍스트 패치는 "가능한가"를 재는 시험용이다. 제품 빌드가 아니다(설계서가 제품에는 텍스트 패치 빌드를 금지).
    ※ survivors.html·index.html·data/* 는 읽기만 한다.
 
-   사용: node tests/raid/build_sim.js [--src survivors.html] [--out tests/raid/.build] [--no-verify] [--quiet]
-   모든 앵커 문자열은 존재·유일성을 검사하고, 하나라도 어긋나면 어느 앵커가 왜 안 맞는지 말하며 종료코드 2 로 실패한다. */
+   사용: node tests/raid/build_sim.js [--src survivors.html] [--out tests/raid/.build] [--no-verify] [--quiet] [--world-pools x4|first]
+   모든 앵커 문자열은 존재·유일성을 검사하고, 하나라도 어긋나면 어느 앵커가 왜 안 맞는지 말하며 종료코드 2 로 실패한다.
+   종료코드: 0 성공 · 2 앵커 어긋남 · 3 로드 시험 실패 · 64 옵션 오류 · 66 입력 파일을 못 읽음 */
 'use strict';
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 
 const REPO = path.resolve(__dirname, '..', '..');
 
 // ── 시험 도구가 쓰는 최소 훅 ────────────────────────────────────────────────
-// (tests/sv_harness.py 의 HOOK 에는 의존하지 않는다 — 이 목록이 이 도구의 계약이다)
+// (다른 시험 도구의 훅 목록에는 의존하지 않는다 — 이 목록이 이 도구의 계약이다)
 const HOOK = `
 // ── 레이드 0단계 시험 훅(build_sim.js 가 꽂는다 · 제품 코드 아님) ──
 window.__p6x={get S(){return S},get state(){return state},set state(v){state=v},get keys(){return keys},set keys(v){keys=v},get CUR(){return CUR},
@@ -25,11 +26,11 @@ CH_set(k){CH=CHARS.find(c=>c.k===k)},get CH(){return CH},set CH(v){CH=v}/*__MP_H
 // 훅이 반드시 내놓아야 하는 이름(로드 뒤 verify 가 확인)
 const HOOK_KEYS = ['S', 'state', 'keys', 'CUR', 'update', 'resume', 'pick', 'newRun', 'start', 'endRun', 'CHARS', 'WEAP', 'PASS', 'TIERS',
   'enemies', 'gems', 'props', 'items', 'shots', 'eshots', 'hazards', 'texts', 'CH_set', 'CH'];
-const MP_HOOK_KEYS = ['initMP', 'use', 'ACT', 'NDEATH', 'ACTI'];
+const MP_HOOK_KEYS = ['initMP', 'use', 'ACT', 'NDEATH', 'ACTI', 'ENDS'];
 
-// ── 액터(플레이어)별로 갈라 갖는 S 필드 — patch.py 의 PKS 그대로 ──
+// ── 액터(플레이어)별로 갈라 갖는 S 필드(2026-10-08 첫 스파이크에서 가져온 목록) ──
 const PKS = 'lv xp need pendingLv p w ps ev revUsed ramen tier tk pt rel tr sm hc leechT stillT shield spr stT pulseT relT magT dq cd aura booms sushi newU staffT slowR proomT proom dashCd br x2 x3 mines wifiA wifiL wifiN wifiEv dmgBy rg rgB dT dS dA dN dW rr ban banned banMode syn synOn vk invCur invPk sgT sgC sgH sgK auT feedN feedA sushiA frP lastBlock auraR'.split(' ');
-// 판(월드) 전체가 같이 쓰는 S 필드 — 스크래치 keys.js 의 WORLD 그대로
+// 판(월드) 전체가 같이 쓰는 S 필드(같은 스파이크의 목록)
 const WORLD = 't,kills,endless,hard,vh,dly,live,kc,ne,lite,nextBoss,nextMini,nextSp,miniN,bossN,bigT,bigSeen,evT,evN,propT,chickT,chkT,spawnT,seen,wvId,zapId,bossRef,room,cone,cardW,ebooms,beams,won,shake,flash,tcd,sayT,midKill,bossKill,canId,rangN,zone'.split(',');
 
 const sha256 = s => crypto.createHash('sha256').update(s).digest('hex');
@@ -42,6 +43,18 @@ class AnchorErr extends Error {
     this.anchors = list;
   }
 }
+
+class SrcError extends Error { constructor(msg) { super(msg); this.code = 66; } }      // 입력 파일을 못 읽음
+class VerifyError extends Error { constructor(list) { super('VERIFY FAIL\n' + list.map(s => '  - ' + s).join('\n')); this.problems = list; this.code = 3; } }
+/* 빌드 계열 오류를 사람 말로 찍고 종료코드를 돌려준다. 모르는 오류면 null(호출한 쪽이 다시 던진다). */
+function buildErrorCode(e) {
+  if (e instanceof AnchorErr) { console.error('BUILD FAIL\n' + e.message); return 2; }
+  if (e instanceof VerifyError) { console.error(e.message); return 3; }
+  if (e instanceof SrcError) { console.error(e.message); return 66; }
+  return null;
+}
+// 이 파일 자신의 해시 — 패치 규칙(앵커·PKS·치환)을 고치면 .build 의 낡은 사본을 다시 만들게 한다
+const BUILDER_SHA = crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
 
 /* hay 안에서 needle 이 정확히 want 번 나오는지 본다. 틀리면 fails 에 이유를 쌓고 -1 을 돌려준다. */
 function need(fails, where, name, hay, needle, want = 1) {
@@ -104,15 +117,22 @@ const REP_ANCHORS = {
 };
 const FIRE = 'function fire(x,y,a,v,life,dmg,pc,r,c){const s=shots.get();if(!s)return;';
 const DIE = 'function die(){';
-const WHOLE_ANCHORS = ['function update(dt){', 'function endRun(won,quit){', FIRE, DIE];
+const ENDRUN = 'function endRun(won,quit){';
+const WHOLE_ANCHORS = ['function update(dt){', ENDRUN, FIRE, DIE];
 // 자기 시험(sim_selftest.js)이 앵커마다 「없애기/겹치기」를 시험하는 데 쓴다
 const ANCHOR_STRINGS = [...Object.values(SEG_ANCHORS), ...Object.values(REP_ANCHORS), ...WHOLE_ANCHORS];
 
-/* 2) sim_mp.js: patch.py 를 옮긴 4액터 패치 */
-function makeSimMp(sim) {
+/* 2) sim_mp.js: 4액터 패치.
+   opts.worldPools — 판 전체가 같이 쓰는 풀(적 투사체·위험 지대·구름·시한폭탄·부채꼴·카드)을 어떻게 돌릴지
+     'x4'    (기본) 액터마다 한 번씩 → 풀이 틱당 4번 진행된다(이동·수명이 4배 빠름). 옛 스파이크가 재던 방식이라 기본으로 둔다
+     'first' 첫 액터 차례에서만 한 번 → 풀은 1배로 진행하지만 다른 액터는 이 풀에 맞지 않는다(CPU 영향을 재는 비교용) */
+const WORLD_POOL_MODES = ['x4', 'first'];
+function makeSimMp(sim, opts = {}) {
+  const worldPools = opts.worldPools || 'x4';
+  if (!WORLD_POOL_MODES.includes(worldPools)) throw new AnchorErr(['알 수 없는 worldPools 값: ' + worldPools + ' (x4|first)']);
   const fails = [];
   const a = need(fails, 'sim.js', 'update 시작', sim, 'function update(dt){');
-  const b = need(fails, 'sim.js', 'endRun 시작', sim, 'function endRun(won,quit){');
+  const b = need(fails, 'sim.js', 'endRun 시작', sim, ENDRUN);
   if (a >= 0 && b >= 0 && a > b) fails.push('[update/endRun] update() 가 endRun() 뒤에 있습니다(순서가 바뀜)');
   if (a < 0 || b < 0) throw new AnchorErr(fails);
   const U = sim.slice(a, b);
@@ -126,7 +146,7 @@ function makeSimMp(sim) {
   // 패치가 버리는 구간(앵커 사이의 짧은 연결부)이 예상한 모양 그대로인지 — 그 사이에 새 문장이 끼면 조용히 지워지므로 여기서 잡는다
   if (!fails.length) {
     const drops = [
-      ['update 머리', U.slice(0, I.move), /^function update\(dt\)\{\s*S\.t\+=dt;const p=S\.p;EX\.tick\(dt\);[^\n]*\n\s*$/],
+      ['update 머리', U.slice(0, I.move), /^function update\(dt\)\{\s*S\.t\+=dt;const p=S\.p;EX\.tick\(dt\);[ \t]*(\/\/[^\n]*)?\n\s*$/],
       ['waveTick~weapons 사이', U.slice(I.wave, I.wpn), /^waveTick\(dt\);if\(state!=='play'\)return;\s*$/],
       ['beamTick 줄', U.slice(I.beam, I.ebm), /^if\(beamTick\(dt\)\)return;\s*$/],
     ];
@@ -155,10 +175,12 @@ function makeSimMp(sim) {
   shots = R(shots, REP_ANCHORS.vxS, 's.vx*(ACT[s.own|0].b.p.x-e.x)+s.vy*(ACT[s.own|0].b.p.y-e.y)');
   en = R(en, REP_ANCHORS.target, 'let ti=0,bd=1e18;for(let q=0;q<ACT.length;q++){const a=ACT[q].b.p;const d2=(a.x-e.x)**2+(a.y-e.y)**2;if(d2<bd){bd=d2;ti=q;}}use(ti);const p=S.p;const dx=p.x-e.x,dy=p.y-e.y,d=Math.hypot(dx,dy)||1;');
   mag = R(mag, REP_ANCHORS.gemMerge, '');
-  tail = R(tail, REP_ANCHORS.mapTail, "bubTick(dt);\n  for(let ai=0;ai<ACT.length;ai++){use(ai);mapTick(dt);if(state!=='play')state='play';}");
+  // mapTick 이 판을 끝냈으면(state==='result') 되돌리지 않는다 — 되돌리면 「판이 일찍 끝남」 검출이 눈이 먼다(2026-10-09)
+  tail = R(tail, REP_ANCHORS.mapTail, "bubTick(dt);\n  for(let ai=0;ai<ACT.length;ai++){use(ai);mapTick(dt);if(state!=='play'&&state!=='result')state='play';}");
   tail = R(tail, REP_ANCHORS.lvup, 'for(let ai=0;ai<ACT.length;ai++){use(ai);while(S.pendingLv>0){S.pendingLv--;const c=offers(3);applyUp(c[ai%c.length]);}}');
 
   const wrap = t => 'for(let ai=0;ai<ACT.length;ai++){use(ai);const p=S.p;\n  ' + t + '}\n  ';
+  const wrapWorld = worldPools === 'first' ? (t => '{use(0);const p=S.p;\n  ' + t + '}\n  ') : wrap;   // 월드 풀 구간(haz·ebm)에만 쓴다
   const moveLoop = 'for(let ai=0;ai<ACT.length;ai++){use(ai);const p=S.p,keys=ACT[ai].keys,joy=ACT[ai].joy;\n  ' + move + '}\n  ';
   const wpnLoop = 'for(let ai=0;ai<ACT.length;ai++){use(ai);' + wpn + '}\n  ';
   const beamLoop = 'for(let ai=0;ai<ACT.length;ai++){use(ai);beamTick(dt);}\n  ';
@@ -166,12 +188,12 @@ function makeSimMp(sim) {
 
   const infra = `
 // ── 4액터 시험 인프라(build_sim.js 가 만든다 · 액터별 필드는 use(i) 로 S 에 끼워 넣는다) ──
-const ACT=[];let ACTI=-1,NDEATH=0;const PKS=${JSON.stringify(PKS)};
+const ACT=[];let ACTI=-1,NDEATH=0,ENDS=0;const PKS=${JSON.stringify(PKS)};
 function use(i){if(i===ACTI)return;if(ACTI>=0){const a=ACT[ACTI];for(const k of PKS)a.b[k]=S[k];}
   const n=ACT[i];for(const k of PKS)S[k]=n.b[k];CH=n.ch;ACTI=i;}
 function addActor(chk){CH=CHARS.find(c=>c.k===chk);if(!CH)throw new Error('알 수 없는 캐릭터 키: '+chk);newRun();const b={};for(const k of PKS)b[k]=S[k];
   ACT.push({b,ch:CH,keys:{},joy:{on:false,dx:0,dy:0}});ACTI=-1;}
-function initMP(chs){ACT.length=0;ACTI=-1;NDEATH=0;for(const c of chs)addActor(c);
+function initMP(chs){ACT.length=0;ACTI=-1;NDEATH=0;ENDS=0;for(const c of chs)addActor(c);
   // 월드 S 는 마지막 newRun 의 것 — 판 상태 초기화 후 첫 액터를 끼운다
   newRun();ACTI=-1;
   // 각 액터 시작 위치를 흩어 둔다
@@ -179,25 +201,27 @@ function initMP(chs){ACT.length=0;ACTI=-1;NDEATH=0;for(const c of chs)addActor(c
 `;
   const header = 'function update(dt){\n  S.t+=dt;EX.tick(dt);\n  ';
   const newUpdate = infra + header + moveLoop + live + 'use(Math.random()*ACT.length|0);waveTick(dt);\n  ' + wpnLoop + shots + en +
-    wrap(haz) + beamLoop + wrap(ebm) + magLoop + tail;
+    wrapWorld(haz) + beamLoop + wrapWorld(ebm) + magLoop + tail;
   let js = sim.slice(0, a) + newUpdate + sim.slice(b);
   js = R(js, FIRE, FIRE + 's.own=ACTI;');
   js = R(js, DIE, 'function die(){const p=S.p;p.hp=p.mhp;p.inv=Math.max(p.inv,1.5);NDEATH++;return false;}\nfunction die_old(){');
-  js = R(js, '/*__MP_HOOK__*/', ',initMP,use,ACT,get NDEATH(){return NDEATH},get ACTI(){return ACTI}');
+  js = R(js, ENDRUN, ENDRUN + 'ENDS++;');   // 판이 끝났다는 신호를 센다(하네스가 state 가 아니라 이 숫자로도 본다)
+  js = R(js, '/*__MP_HOOK__*/', ',initMP,use,ACT,get NDEATH(){return NDEATH},get ACTI(){return ACTI},get ENDS(){return ENDS}');
   if (js.includes('/*__MP_HOOK__*/')) throw new AnchorErr(['[훅 마커] 치환이 끝나지 않았습니다']);
   return js;
 }
 
 /* 소스 한 번에: 입력 html → {sim, simMp, manifest} */
-function buildFromHtml(html, srcLabel) {
+function buildFromHtml(html, srcLabel, opts = {}) {
   const { main, idx, sizes } = extractMain(html);
   const sim = makeSim(main);
-  const simMp = makeSimMp(sim);
+  const simMp = makeSimMp(sim, opts);
   const sha = sha256(html);
   const tag = `/* GENERATED by tests/raid/build_sim.js — src=${srcLabel || 'survivors.html'} sha256=${sha} — 시험용 사본(제품 아님) */\n`;
   return {
     sim: tag + sim, simMp: tag + simMp,
     manifest: { v: 1, kind: 'sim-build', src: srcLabel || 'survivors.html', survivors_sha256: sha, survivors_bytes: Buffer.byteLength(html),
+      builder_sha256: BUILDER_SHA, world_pools: opts.worldPools || 'x4',
       script_blocks: sizes, main_block_index: idx, sim_bytes: sim.length, sim_mp_bytes: simMp.length,
       sim_sha256: sha256(tag + sim), sim_mp_sha256: sha256(tag + simMp), PKS_count: PKS.length, WORLD_count: WORLD.length },
   };
@@ -224,6 +248,14 @@ function verify(built) {
       const unclassified = keys.filter(k => !known.has(k));
       const missingPKS = PKS.filter(k => !keys.includes(k));
       classify = { S_keys: keys.length, unclassified, pks_missing_in_S: missingPKS };
+      // 정적 스캔: 코드에 적힌 S.<이름> 전부 — 60틱 안에 아직 안 생기는(지연 생성) 필드도 잡는다
+      const known2 = new Set([...PKS, ...WORLD]);
+      const seen = new Set();
+      for (const m of built.sim.matchAll(/(?<![\w$.])S\.([A-Za-z_$][\w$]*)/g)) seen.add(m[1]);
+      const staticUnclassified = [...seen].filter(k => !known2.has(k) && !unclassified.includes(k));
+      classify.static_names = seen.size; classify.static_unclassified = staticUnclassified;
+      if (staticUnclassified.length) warns.push('정적 스캔(코드의 S.<이름>)에서 분류 안 된 필드: ' + staticUnclassified.join(' ') +
+        ' — 60틱 안에는 안 생기는 지연 생성 필드일 수 있다. 위와 같이 PKS/WORLD 에 넣을지 정하세요');
       if (unclassified.length) warns.push('S 에 PKS(액터별)/WORLD(월드) 어디에도 분류되지 않은 필드: ' + unclassified.join(' ') +
         ' — 액터별로 갈라야 하는 필드면 build_sim.js 의 PKS 에, 월드 공용이면 WORLD 에 넣으세요(안 하면 4액터 시험에서 액터끼리 값을 공유)');
       if (missingPKS.length) warns.push('PKS 에 있으나 S 에 없는 필드: ' + missingPKS.join(' ') + ' — 이름이 바뀌었을 수 있습니다');
@@ -233,38 +265,45 @@ function verify(built) {
 }
 
 function parseArgs(argv) {
-  const o = { src: path.join(REPO, 'survivors.html'), out: path.join(__dirname, '.build'), verify: true, quiet: false };
+  const o = { src: path.join(REPO, 'survivors.html'), out: path.join(__dirname, '.build'), verify: true, quiet: false, worldPools: 'x4' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--src') o.src = path.resolve(argv[++i]);
     else if (a === '--out') o.out = path.resolve(argv[++i]);
     else if (a === '--no-verify') o.verify = false;
     else if (a === '--quiet') o.quiet = true;
+    else if (a === '--world-pools') { o.worldPools = argv[++i]; if (!WORLD_POOL_MODES.includes(o.worldPools)) { console.error('--world-pools 는 ' + WORLD_POOL_MODES.join('|')); process.exit(64); } }
     else if (a === '-h' || a === '--help') { o.help = true; }
     else { console.error('알 수 없는 옵션: ' + a); process.exit(64); }
   }
   return o;
 }
 
+/* 빌드 폴더에 쓴다 — 파일마다 임시 이름으로 쓴 뒤 바꿔치기해서, 동시에 도는 다른 시험이 반쯤 쓴 파일을 읽지 않게 한다(manifest 가 마지막) */
+function writeBuild(outDir, built) {
+  fs.mkdirSync(outDir, { recursive: true });
+  built.manifest.built_at = new Date().toISOString();
+  const put = (name, text) => { const f = path.join(outDir, name), tmp = f + '.tmp-' + process.pid; fs.writeFileSync(tmp, text); fs.renameSync(tmp, f); };
+  put('sim.js', built.sim);
+  put('sim_mp.js', built.simMp);
+  put('manifest.json', JSON.stringify(built.manifest, null, 2) + '\n');
+}
+
 function main() {
   const o = parseArgs(process.argv.slice(2));
-  if (o.help) { console.log('node tests/raid/build_sim.js [--src survivors.html] [--out tests/raid/.build] [--no-verify] [--quiet]'); return 0; }
+  if (o.help) { console.log('node tests/raid/build_sim.js [--src survivors.html] [--out tests/raid/.build] [--no-verify] [--quiet] [--world-pools x4|first]'); return 0; }
   const log = o.quiet ? () => {} : console.log;
   let html;
   try { html = fs.readFileSync(o.src, 'utf8'); } catch (e) { console.error('입력을 읽지 못했습니다: ' + o.src + ' — ' + e.message); return 66; }
   let built;
-  try { built = buildFromHtml(html, path.relative(REPO, o.src) || o.src); }
-  catch (e) { if (e instanceof AnchorErr) { console.error('BUILD FAIL\n' + e.message); return 2; } throw e; }
-  fs.mkdirSync(o.out, { recursive: true });
-  fs.writeFileSync(path.join(o.out, 'sim.js'), built.sim);
-  fs.writeFileSync(path.join(o.out, 'sim_mp.js'), built.simMp);
+  try { built = buildFromHtml(html, path.relative(REPO, o.src) || o.src, { worldPools: o.worldPools }); }
+  catch (e) { const c = buildErrorCode(e); if (c != null) return c; throw e; }
   let ver = null;
   if (o.verify) {
     ver = verify(built);
     built.manifest.verify = { ok: !ver.problems.length, classify: ver.classify, warns: ver.warns };
   }
-  built.manifest.built_at = new Date().toISOString();
-  fs.writeFileSync(path.join(o.out, 'manifest.json'), JSON.stringify(built.manifest, null, 2) + '\n');
+  writeBuild(o.out, built);
   log(`build ok — survivors sha256=${built.manifest.survivors_sha256.slice(0, 12)}… blocks=${built.manifest.script_blocks.join('/')} sim=${built.sim.length}B sim_mp=${built.simMp.length}B → ${path.relative(process.cwd(), o.out) || '.'}`);
   if (ver) {
     for (const w of ver.warns) console.warn('WARN ' + w);
@@ -274,28 +313,32 @@ function main() {
   return 0;
 }
 
-/* 다른 도구(mp_run·cover·bench)가 쓴다: 빌드 폴더의 사본이 지금 survivors.html 과 같은 것인지 sha256 으로 확인하고,
-   없거나 낡았으면 새로 만든다. 낡은 사본으로 조용히 시험하는 일을 막는다. */
+/* 다른 도구(mp_run·cover·bench)가 쓴다: 빌드 폴더의 사본이 「지금 survivors.html + 지금 이 build_sim.js + 같은 옵션」으로 만든 것인지
+   sha256 으로 확인하고, 없거나 낡았으면 새로 만든다(만들 때 로드 시험도 한다). 낡은 사본으로 조용히 시험하는 일을 막는다.
+   S 필드 분류 경고는 사본을 새로 만들 때뿐 아니라 재사용할 때도 stderr 로 다시 알린다(opts.quiet 면 생략). */
 function ensureBuilt(src, outDir, opts = {}) {
   src = path.resolve(src || path.join(REPO, 'survivors.html'));
   outDir = path.resolve(outDir || path.join(__dirname, '.build'));
-  const html = fs.readFileSync(src, 'utf8');
+  const worldPools = opts.worldPools || 'x4';
+  let html;
+  try { html = fs.readFileSync(src, 'utf8'); } catch (e) { throw new SrcError('입력을 읽지 못했습니다: ' + src + ' — ' + e.message); }
   const sha = sha256(html);
   const mf = path.join(outDir, 'manifest.json');
   let m = null;
   try { m = JSON.parse(fs.readFileSync(mf, 'utf8')); } catch (e) { /* 없음 */ }
-  const ok = m && m.survivors_sha256 === sha && fs.existsSync(path.join(outDir, 'sim.js')) && fs.existsSync(path.join(outDir, 'sim_mp.js'));
+  const ok = m && m.survivors_sha256 === sha && m.builder_sha256 === BUILDER_SHA && (m.world_pools || 'x4') === worldPools &&
+    fs.existsSync(path.join(outDir, 'sim.js')) && fs.existsSync(path.join(outDir, 'sim_mp.js'));
   if (!ok || opts.force) {
-    const built = buildFromHtml(html, path.relative(REPO, src) || src);   // 앵커가 어긋나면 AnchorErr 로 멈춘다
-    fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(path.join(outDir, 'sim.js'), built.sim);
-    fs.writeFileSync(path.join(outDir, 'sim_mp.js'), built.simMp);
-    built.manifest.built_at = new Date().toISOString();
-    fs.writeFileSync(mf, JSON.stringify(built.manifest, null, 2) + '\n');
+    const built = buildFromHtml(html, path.relative(REPO, src) || src, { worldPools });   // 앵커가 어긋나면 AnchorErr 로 멈춘다
+    const ver = verify(built);
+    built.manifest.verify = { ok: !ver.problems.length, classify: ver.classify, warns: ver.warns };
+    if (ver.problems.length) throw new VerifyError(ver.problems);
+    writeBuild(outDir, built);
     m = built.manifest;
   }
+  if (!opts.quiet && m.verify && m.verify.warns && m.verify.warns.length) for (const w of m.verify.warns) console.error('WARN ' + w);
   return { simPath: path.join(outDir, 'sim.js'), simMpPath: path.join(outDir, 'sim_mp.js'), manifest: m, sha256: sha, src };
 }
 
-module.exports = { ensureBuilt, ANCHOR_STRINGS, SEG_ANCHORS, REP_ANCHORS, buildFromHtml, verify, extractMain, makeSim, makeSimMp, AnchorErr, PKS, WORLD, HOOK_KEYS, MP_HOOK_KEYS, sha256, REPO };
+module.exports = { ensureBuilt, buildErrorCode, writeBuild, SrcError, VerifyError, WORLD_POOL_MODES, BUILDER_SHA, ANCHOR_STRINGS, SEG_ANCHORS, REP_ANCHORS, buildFromHtml, verify, extractMain, makeSim, makeSimMp, AnchorErr, PKS, WORLD, HOOK_KEYS, MP_HOOK_KEYS, sha256, REPO };
 if (require.main === module) process.exit(main());

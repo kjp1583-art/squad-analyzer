@@ -5,17 +5,19 @@
    예외가 나면 게임 시각·스택을 찍고 종료코드 1. 판이 중간에 끝나거나(결과 화면), 상태가 풀리지 않거나, 값이 NaN/Infinity 가 되어도 실패다.
 
    사용: node tests/raid/mp_run.js [--combo brj,jjg,mms,hrb] [--secs 900] [--hz 30] [--seed 1] [--move circle|stand|random]
-                                    [--src survivors.html] [--build-dir DIR] [--json] [--out FILE.json] [--cpu]
-   종료코드: 0 통과 · 1 예외 · 4 판이 일찍 끝남/상태 멈춤/비정상 값 · 2 빌드(앵커) 실패 · 64 옵션 오류 */
+                                    [--src survivors.html] [--build-dir DIR] [--json] [--out FILE.json] [--cpu] [--world-pools x4|first]
+   종료코드: 0 통과 · 1 예외 · 4 판이 일찍 끝남/상태 멈춤/비정상 값/게임 시각이 N초가 아님 · 2 빌드(앵커) 실패 · 3 로드 시험 실패 · 64 옵션 오류 · 66 입력 파일을 못 읽음 */
 'use strict';
 const fs = require('fs'), path = require('path');
-const { ensureBuilt, AnchorErr } = require('./build_sim.js');
+const { ensureBuilt, buildErrorCode } = require('./build_sim.js');
 const { loadSimFile } = require('./run_stub.js');
 
-// 기본 5조합: 2026-10-08 스크래치 runall.sh 의 것(R2 스파이크 재현용). g4_test.py·bench_rooms.js 가 같은 목록을 쓴다.
+// 기본 5조합: 2026-10-08 첫 스파이크에서 쓰던 것(재현용). g4_test.py·bench_rooms.js 가 같은 목록을 쓴다.
 const DEFAULT_COMBOS = ['brj,jjg,mms,hrb', 'ssu,amd,ildj,kyo', 'ddmj,psg,sr,ddo', 'tw,yumi,eom,yj', 'bgb,brj,psg,sr'];
-// 기본 조합에 없는 캐릭터를 채우는 「보강 조합」의 빈자리 채움 순서(스크래치에서 가장 무거웠던 조합의 캐릭터부터)
+// 기본 조합에 없는 캐릭터를 채우는 「보강 조합」의 빈자리 채움 순서(첫 스파이크에서 가장 무거웠던 조합의 캐릭터부터)
 const PAD = ['eom', 'yj', 'tw', 'yumi', 'sr', 'ddo'];
+// 가장 무거운 조합들(900초 CPU 실측 기준 틱당 평균이 큰 쪽: 3.9ms 안팎) — 합격 판정은 이쪽으로도 재 보라고 bench_rooms.js --combos heavy 가 쓴다
+const HEAVY_COMBOS = ['ssu,amd,ildj,kyo', 'bbb,eom,yj,tw', 'ssu,amd,ildj,kyo'];
 const MOVES = [{ KeyD: true }, { KeyS: true }, { KeyA: true }, { KeyW: true }];
 
 /* 상태 해시: 같은 시드로 두 번 돌렸을 때 판이 같은지 보는 용도(액터 위치·체력·레벨·살아 있는 적). */
@@ -31,7 +33,7 @@ function stateHash(x) {
 function pickKeys(move, t, i, rnd) {
   if (move === 'stand') return {};
   if (move === 'random') return MOVES[Math.floor(rnd() * 4)];
-  return MOVES[Math.floor((t + i * 0.7) / 2.5) % 4];   // circle: 스크래치 mp.js 와 같은 사각형 도는 봇
+  return MOVES[Math.floor((t + i * 0.7) / 2.5) % 4];   // circle: 사각형으로 도는 봇(첫 스파이크와 같은 움직임)
 }
 
 /* 한 조합을 돌린다. opts: {combo:[키…], secs, hz, seed, move, simMpPath, cpu, onTick} → 결과 객체(예외도 담는다) */
@@ -39,7 +41,7 @@ function runCombo(opts) {
   const hz = opts.hz || 30, secs = opts.secs || 300, dt = 1 / hz, move = opts.move || 'circle';
   const win = loadSimFile(opts.simMpPath, { seed: opts.seed != null ? opts.seed : undefined, trace: !!opts.trace });
   const x = win.__p6x;
-  const res = { combo: opts.combo.join(','), secs, hz, seed: opts.seed != null ? opts.seed : null, move, ok: false, ticks: 0, error: null, ended_early: null, stuck: null, nonfinite: null, hashes: [], hash_final: null };
+  const res = { combo: opts.combo.join(','), secs, hz, seed: opts.seed != null ? opts.seed : null, move, ok: false, ticks: 0, error: null, ended_early: null, stuck: null, nonfinite: null, time_mismatch: null, hashes: [], hash_final: null };
   let rs = (opts.seed != null ? opts.seed : 12345) >>> 0;
   const rnd = () => { rs = (rs + 0x6D2B79F5) | 0; let t = Math.imul(rs ^ (rs >>> 15), 1 | rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   try { x.initMP(opts.combo); }
@@ -54,8 +56,8 @@ function runCombo(opts) {
     try { x.update(dt); }
     catch (e) { res.error = { at_game_s: +(s * dt).toFixed(2), tick: s, message: String(e && e.message || e), stack: String(e && e.stack || e).split('\n').slice(0, 6).join('\n') }; break; }
     res.ticks++;
+    if (x.ENDS > 0 || x.state === 'result') { res.ended_early = { at_game_s: +(s * dt).toFixed(2), why: x.ENDS > 0 ? 'endRun() 이 불렸다(판 종료)' : '결과 화면(result)으로 넘어갔다' }; break; }
     if (x.state !== 'play') {
-      if (x.state === 'result') { res.ended_early = { at_game_s: +(s * dt).toFixed(2), why: '결과 화면(result)으로 넘어갔다' }; break; }
       const was = x.state;
       try { x.resume(); }
       catch (e) { res.error = { at_game_s: +(s * dt).toFixed(2), tick: s, message: String(e && e.message || e), stack: String(e && e.stack || e).split('\n').slice(0, 6).join('\n'), where: 'resume()' }; break; }
@@ -92,13 +94,15 @@ function runCombo(opts) {
   // 무기별 피해 기록(전 액터 합) — g4/cover 가 "무기 사용"을 판정할 때 쓴다
   const used = {}; x.ACT.forEach(a => { for (const k in (a.b.dmgBy || {})) used[k] = (used[k] || 0) + a.b.dmgBy[k]; });
   res.dmg_by = used;
-  res.ok = !res.error && !res.ended_early && !res.stuck && !res.nonfinite && res.ticks === total;
+  // 틱 수만 맞고 게임 시각이 다르면(고정 dt 가 어긋난 경우 등) 「N초를 돌렸다」는 말이 거짓이다
+  if (!res.error && res.ticks === total && Math.abs(res.game_s - secs) >= 1) res.time_mismatch = { game_s: res.game_s, secs };
+  res.ok = !res.error && !res.ended_early && !res.stuck && !res.nonfinite && !res.time_mismatch && res.ticks === total;
   if (opts.trace) res.stub = require('./run_stub.js').stubReport(win);
   return res;
 }
 
 function parseArgs(argv) {
-  const o = { combo: 'brj,jjg,mms,hrb', secs: 900, hz: 30, seed: null, move: 'circle', src: null, buildDir: null, json: false, out: null, cpu: false, trace: false };
+  const o = { combo: 'brj,jjg,mms,hrb', secs: 900, hz: 30, seed: null, move: 'circle', src: null, buildDir: null, json: false, out: null, cpu: false, trace: false, worldPools: 'x4' };
   const num = (k, v) => { const n = Number(v); if (!Number.isFinite(n) || n <= 0) { console.error(`${k} 값이 숫자가 아닙니다: ${v}`); process.exit(64); } return n; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], nx = () => argv[++i];
@@ -113,6 +117,7 @@ function parseArgs(argv) {
     else if (a === '--out') o.out = nx();
     else if (a === '--cpu') o.cpu = true;
     else if (a === '--trace') o.trace = true;
+    else if (a === '--world-pools') { o.worldPools = nx(); if (!['x4', 'first'].includes(o.worldPools)) { console.error('--world-pools 는 x4|first'); process.exit(64); } }
     else if (a === '--list') o.list = true;
     else if (a === '-h' || a === '--help') { o.help = true; }
     else { console.error('알 수 없는 옵션: ' + a); process.exit(64); }
@@ -124,7 +129,7 @@ function main() {
   const o = parseArgs(process.argv.slice(2));
   if (o.help) { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); return 0; }
   let b;
-  try { b = ensureBuilt(o.src, o.buildDir); } catch (e) { if (e instanceof AnchorErr) { console.error('BUILD FAIL\n' + e.message); return 2; } throw e; }
+  try { b = ensureBuilt(o.src, o.buildDir, { worldPools: o.worldPools }); } catch (e) { const c = buildErrorCode(e); if (c != null) return c; throw e; }
   if (o.list) {   // 캐릭터·무기 목록(g4_test.py 가 조합을 검사할 때 쓴다)
     const w = loadSimFile(b.simMpPath), x = w.__p6x;
     console.log(JSON.stringify({ chars: x.CHARS.map(c => c.k), weapons: Object.keys(x.WEAP), default_combos: DEFAULT_COMBOS, pad: PAD, survivors_sha256: b.manifest.survivors_sha256 }));
@@ -142,6 +147,7 @@ function main() {
     if (r.error) console.log(`ERR at game t=${r.error.at_game_s}s${r.error.where ? ' (' + r.error.where + ')' : ''}\n${r.error.stack}`);
     if (r.ended_early) console.log(`FAIL 판이 일찍 끝남 t=${r.ended_early.at_game_s}s — ${r.ended_early.why}`);
     if (r.stuck) console.log(`FAIL 상태가 풀리지 않음 t=${r.stuck.at_game_s}s state=${r.stuck.state} — resume() 이 상태를 못 바꿈(이어하기 모듈 stale/상점 판정이 막고 있을 수 있음)`);
+    if (r.time_mismatch) console.log(`FAIL 게임 시각이 요청과 다름 — S.t=${r.time_mismatch.game_s}s, 요청 ${r.time_mismatch.secs}s`);
     if (r.nonfinite) console.log(`FAIL 값이 유한하지 않음 t=${r.nonfinite.at_game_s}s — ${r.nonfinite.what}`);
     if (r.stub) console.log('stub:', JSON.stringify(r.stub));
     console.log(r.ok ? 'RESULT PASS' : 'RESULT FAIL');
@@ -152,5 +158,5 @@ function main() {
   return r.ok ? 0 : 4;
 }
 
-module.exports = { runCombo, pickKeys, stateHash, DEFAULT_COMBOS, PAD };
+module.exports = { runCombo, pickKeys, stateHash, DEFAULT_COMBOS, HEAVY_COMBOS, PAD };
 if (require.main === module) process.exit(main());

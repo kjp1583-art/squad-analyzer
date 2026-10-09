@@ -6,6 +6,7 @@
 
    일정 정책(--realtime): 틱 n 의 마감 = 기준시각 + n × (1000/hz) ms. 틱이 끝난 시각이 「다음 틱의 마감」을 넘기면 late 로 기록한다.
    따라잡지 않는다 — 밀린 틱을 연달아 몰아서 돌리지 않고(죽음의 나선 방지) 기준시각을 밀린 만큼 뒤로 옮긴다(게임이 실시간보다 느려진다).
+   ※ 설계서 §2.4 의 「따라잡기 최대 3틱」과 다른 점이다. 밀린 총량은 slip_s(= 벽시계 − 게임 시간)로 결과에 남긴다 — 과부하 때 게임이 조용히 느려져 스트레스가 덜어지는 정도를 읽는 용도.
    --fast: 기다리지 않고 최대한 빨리(점검용) — late 는 세지 않는다. */
 'use strict';
 const { parentPort, workerData, isMainThread } = require('worker_threads');
@@ -69,12 +70,12 @@ async function main() {
   const win = loadSimCode(code, { seed });
   const x = win.__p6x;
   x.initMP(chars);
-  parentPort.postMessage({ t: 'ready', load_ms: r3(hr() - tLoad) });
+  parentPort.postMessage({ t: 'ready', load_ms: r3(hr() - tLoad), heap_limit_mb: r3(v8.getHeapStatistics().heap_size_limit / 1048576) });   // 부모가 resourceLimits 가 실제로 적용됐는지 대조한다
   try { obs.observe({ entryTypes: ['gc'] }); } catch (e) { gc.unsupported = String(e && e.message); }   // 컨텍스트 로드 뒤부터만 센다(틱 중의 GC 가 대상)
 
-  const A = { tick: new Float64Array(total), upd: new Float64Array(total), enc: new Float64Array(total), start: new Float64Array(total), cpu: new Float64Array(total) };
+  const A = { tick: new Float64Array(total), upd: new Float64Array(total), enc: new Float64Array(total), start: new Float64Array(total), cpu: new Float64Array(total), dl: new Float64Array(total) };
   let cpuTotal = 0;
-  let n = 0, over25 = 0, maxAt = 0, late = 0, lateMax = 0, errors = 0, firstError = null, snapSum = 0, snapMax = 0, heapMax = 0, status = 'ok';
+  let n = 0, over25 = 0, maxAt = 0, late = 0, lateMax = 0, slipMs = 0, errors = 0, firstError = null, snapSum = 0, snapMax = 0, heapMax = 0, status = 'ok';
   const t0 = hr();
   let anchor = t0;
 
@@ -100,7 +101,8 @@ async function main() {
     try {
       u0 = hr();
       x.update(dt);
-      if (x.state !== 'play') { if (x.state === 'result') { status = 'ended_early'; n++; break; } x.resume(); }
+      if (x.ENDS > 0 || x.state === 'result') { status = 'ended_early'; n++; break; }
+      if (x.state !== 'play') x.resume();
       u1 = hr();
       const buf = encode(x, n);
       e1 = hr();
@@ -114,12 +116,12 @@ async function main() {
     }
     if (p1 - s0 > 25) over25++;
     if (p1 - s0 > A.tick[maxAt]) maxAt = n;
-    A.upd[n] = u1 - u0; A.enc[n] = e1 - u1; A.tick[n] = p1 - s0;
+    A.upd[n] = u1 - u0; A.enc[n] = e1 - u1; A.tick[n] = p1 - s0; A.dl[n] = A.start[n] + (p1 - s0);   // dl = 마감 대비 완료 지연(시작이 늦은 만큼 + 틱 시간)
     if (hasCpu) { const dc = cpuMs() - c0; A.cpu[n] = dc; cpuTotal += dc; }
     if (n % 30 === 0) { const h = v8.getHeapStatistics().used_heap_size / 1048576; if (h > heapMax) heapMax = h; }
     if (realtime) {
       const next = anchor + (n + 1) * dtMs;
-      if (p1 > next) { late++; const l = p1 - next; if (l > lateMax) lateMax = l; anchor += l; }   // 따라잡지 않고 일정을 뒤로 민다
+      if (p1 > next) { late++; const l = p1 - next; if (l > lateMax) lateMax = l; anchor += l; slipMs += l; }   // 따라잡지 않고 일정을 뒤로 민다
     }
   }
   const wallMs = hr() - t0;
@@ -132,7 +134,8 @@ async function main() {
     id, chars, ticks: n, status, game_s: r3(n / hz), wall_s: r3(wallMs / 1000),
     tick_ms: summarize(A.tick, n), update_ms: summarize(A.upd, n), encode_ms: summarize(A.enc, n), start_delay_ms: realtime ? summarize(A.start, n) : null,
     tick_cpu_ms: hasCpu ? summarize(A.cpu, n) : null, tick_cpu_ms_total: hasCpu ? r3(cpuTotal) : null,
-    late_ticks: late, late_max_ms: r3(lateMax),
+    late_ticks: late, late_max_ms: r3(lateMax), slip_s: realtime ? r3(slipMs / 1000) : null,
+    deadline_ms: realtime ? summarize(A.dl, n) : null,   // 마감 대비 완료 지연(start_delay + tick) — 합격 지표(tick_ms)가 못 보는 「시작이 늦은 정지」를 함께 본다
     tick_over_25ms: over25, tick_max_at_game_s: r3(maxAt / hz),   // 틱이 25ms(G2' 한도)를 넘은 횟수 / 가장 느린 틱이 나온 게임 시각(초) — 시작 직후 데우기인지 중간인지 구분용
     errors, first_error: firstError,
     gc: { count: gc.count, total_ms: r3(gc.total_ms), max_ms: r3(gc.max_ms), unsupported: gc.unsupported },

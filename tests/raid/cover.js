@@ -3,19 +3,20 @@
 
    4액터에게 무기 전부를 나눠 쥐여 주고(레벨 8) 보스 직전(S.t=290)부터 N초 돌려,
    각 무기가 실제로 피해 기록(dmgBy)을 남겼는지 본다(1차로 나눠 쥐고, 빠진 무기는 2차로 모두가 쥐고 다시).
-   스크래치 cover.js 는 무기 이름 39개를 손으로 적어 두었다 — 지금은 WEAP 표에서 동적으로 구하고,
+   첫 스파이크의 확인 스크립트는 무기 이름 39개를 손으로 적어 두었다 — 지금은 WEAP 표에서 동적으로 구하고,
    옛 목록(KNOWN_39)과 달라진 점(추가/삭제)을 보고한다. 목록이 어긋나도 시험은 현재 WEAP 기준으로 한다.
 
    사용: node tests/raid/cover.js [--secs 240] [--from 290] [--evo] [--combo brj,jjg,mms,hrb] [--seed 1] [--src …] [--json] [--out FILE]
      --evo : 각성(S.ev)·마스터 단계(S.tier)까지 올린 상태로 돈다(각성 분기 경로)
-   종료코드: 0 전종 사용 확인 · 1 예외 · 4 사용 안 된 무기 있음 · 2 빌드 실패 · 64 옵션 오류 */
+   종료코드: 0 전종 사용 확인 · 1 예외 · 4 사용 안 된 무기 있음/판이 일찍 끝남 · 2 빌드 실패 · 3 로드 시험 실패 · 64 옵션 오류 · 66 입력 파일을 못 읽음
+   (--world-pools x4|first 로 월드 풀 처리 방식을 고를 수 있다 — build_sim.js 설명 참고) */
 'use strict';
 const fs = require('fs');
-const { ensureBuilt, AnchorErr } = require('./build_sim.js');
+const { ensureBuilt, buildErrorCode } = require('./build_sim.js');
 const { loadSimFile } = require('./run_stub.js');
 const { pickKeys } = require('./mp_run.js');
 
-// 2026-10-08 스크래치 cover.js 의 하드코딩 목록(39종). 지금 WEAP 과 비교해 달라진 점을 알리는 용도로만 남긴다.
+// 2026-10-08 첫 스파이크의 하드코딩 목록(39종). 지금 WEAP 과 비교해 달라진 점을 알리는 용도로만 남긴다.
 const KNOWN_39 = 'bash bell breath can cart chain chick egg eom feed frost fryer fuse gacha heart hole jhin kbd lid meteor pan pcards ping potion quill ram rkt rod shrimp slime snack snipe spk stamp sushi tempo twin whop wifi'.split(' ');
 
 /* 한 판을 돌려 무기별 피해 기록을 모은다. assign(i) = i 번 액터에게 줄 무기 키 목록. */
@@ -43,7 +44,8 @@ function pass(o, all, assign, label) {
     try { x.update(1 / 30); }
     catch (e) { r.error = { at_game_s: +(x.S.t).toFixed(1), message: String(e && e.message || e), stack: String(e && e.stack || e).split('\n').slice(0, 6).join('\n') }; break; }
     r.ticks++;
-    if (x.state !== 'play') { if (x.state === 'result') { r.ended_early = { at_game_s: +x.S.t.toFixed(1) }; break; } x.resume(); }
+    if (x.ENDS > 0 || x.state === 'result') { r.ended_early = { at_game_s: +x.S.t.toFixed(1) }; break; }
+    if (x.state !== 'play') x.resume();
   }
   r.ms_per_tick = r.ticks ? +(Number(process.hrtime.bigint() - t0) / 1e6 / r.ticks).toFixed(2) : null;
   r.game_s = +x.S.t.toFixed(1);
@@ -87,7 +89,7 @@ function runCover(o) {
 }
 
 function parseArgs(argv) {
-  const o = { secs: 240, from: 290, evo: false, combo: 'brj,jjg,mms,hrb', seed: undefined, src: null, buildDir: null, json: false, out: null };
+  const o = { secs: 240, from: 290, evo: false, combo: 'brj,jjg,mms,hrb', seed: undefined, src: null, buildDir: null, json: false, out: null, worldPools: 'x4' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], nx = () => argv[++i];
     if (a === '--secs') o.secs = Number(nx());
@@ -99,6 +101,7 @@ function parseArgs(argv) {
     else if (a === '--build-dir') o.buildDir = nx();
     else if (a === '--json') o.json = true;
     else if (a === '--out') o.out = nx();
+    else if (a === '--world-pools') { o.worldPools = nx(); if (!['x4', 'first'].includes(o.worldPools)) { console.error('--world-pools 는 x4|first'); process.exit(64); } }
     else if (a === '-h' || a === '--help') o.help = true;
     else { console.error('알 수 없는 옵션: ' + a); process.exit(64); }
   }
@@ -110,7 +113,7 @@ function main() {
   const o = parseArgs(process.argv.slice(2));
   if (o.help) { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); return 0; }
   let b;
-  try { b = ensureBuilt(o.src, o.buildDir); } catch (e) { if (e instanceof AnchorErr) { console.error('BUILD FAIL\n' + e.message); return 2; } throw e; }
+  try { b = ensureBuilt(o.src, o.buildDir, { worldPools: o.worldPools }); } catch (e) { const c = buildErrorCode(e); if (c != null) return c; throw e; }
   const combo = o.combo.split(',').map(s => s.trim()).filter(Boolean);
   if (combo.length !== 4) { console.error('--combo 는 캐릭터 키 4개'); return 64; }
   const r = runCover({ ...o, combo, simMpPath: b.simMpPath });

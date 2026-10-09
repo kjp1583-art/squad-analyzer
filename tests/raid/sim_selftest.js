@@ -8,13 +8,14 @@
    4) 스텁: 저장소(length/key)·이벤트 등록·fetch 거절·시드 결정성
    5) ESLint 게이트가 4액터 패치 안의 미정의 이름(예: 패치로 사라진 지역 변수)을 실제로 잡는가
    6) 이벤트 루프 지연 측정이 실제 막힘을 보는가
+   7) (2026-10-09 보완) 연결부 같은 줄 구멍 · 판 종료(endRun) 검출 · 낡은 사본 재사용 · 지연 생성 S 필드 · 월드 풀 처리 방식 · 게임 시각 대조
    사용: node tests/raid/sim_selftest.js [--no-lint]      종료코드: 0 전부 통과 · 1 실패 있음 */
 'use strict';
 const fs = require('fs'), path = require('path'), os = require('os'), cp = require('child_process');
 const B = require('./build_sim.js');
 const { summarize, pct } = require('./bench_stats.js');
 const { loadSimCode, makeWindow } = require('./run_stub.js');
-const { stateHash } = require('./mp_run.js');
+const { stateHash, runCombo } = require('./mp_run.js');
 
 const html = fs.readFileSync(path.join(B.REPO, 'survivors.html'), 'utf8');
 let pass = 0, fail = 0;
@@ -63,6 +64,14 @@ t('메인 블록 못 찾음 → 실패', !!throwsAnchor('<html><script>var a=1;<
   const h2 = mutate('if(beamTick(dt))return;', 'if(beamTick(dt))return;newBeam(dt);');
   const msg2 = throwsAnchor(h2);
   t('beamTick 줄 뒤에 새 문장 → 실패', !!msg2 && msg2.includes('버려지는 연결부'), String(msg2).slice(0, 120));
+  // (2026-10-09) update() 머리 줄의 EX.tick(dt); 뒤 같은 줄에 새 문장을 붙이면 조용히 사라지던 구멍
+  const h4 = swapMain(m => m.replace('S.t+=dt;const p=S.p;EX.tick(dt);', () => 'S.t+=dt;const p=S.p;EX.tick(dt);NEWHEAD(dt);'));
+  const msg4 = throwsAnchor(h4);
+  t('update() 머리 줄 EX.tick(dt); 뒤 같은 줄에 새 문장 → 실패(구멍 막음)', !!msg4 && msg4.includes('버려지는 연결부'), String(msg4).slice(0, 120));
+  const h5 = swapMain(m => m.replace('S.t+=dt;const p=S.p;EX.tick(dt);', () => 'S.t+=dt;const p=S.p;EX.tick(dt);   /* 블록 주석 뒤 */ NEWHEAD(dt);'));
+  t('같은 줄 블록 주석 뒤 새 문장 → 실패', !!throwsAnchor(h5));
+  const h6 = swapMain(m => m.replace('S.t+=dt;const p=S.p;EX.tick(dt);', () => 'S.t+=dt;const p=S.p;EX.tick(dt);   // 줄 끝 주석은 허용'));
+  t('같은 줄 「//」 줄 끝 주석은 여전히 허용(원본에 있는 모양)', throwsAnchor(h6) === null);
   const h3 = mutate('function update(dt){', 'function update(dt){newFirst(dt);');
   const msg3 = throwsAnchor(h3);
   t('update() 맨 앞에 새 문장 → 실패', !!msg3 && msg3.includes('버려지는 연결부'), String(msg3).slice(0, 120));
@@ -153,8 +162,90 @@ function eldTest() {
   });
 }
 
+
+// 7) 2026-10-09 보완 — 검증에서 나온 지적마다 재현 → 수정 → 회귀 시험
+function section7() {
+  const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'raid-selftest-'));
+  const write = (name, text) => { const f = path.join(TMP, name); fs.writeFileSync(f, text); return f; };
+  try {
+    // 7a) 판 종료(endRun) 검출 — 패치된 꼬리가 state 를 'play' 로 되돌려도(되돌리지 않게 고쳤고, 되돌려도) ENDS 가 센다
+    {
+      const inj = swapMain(m => m.replace('weapons(dt);charTick(dt);relTick(dt);', () => 'weapons(dt);charTick(dt);relTick(dt);if(S.t>1)endRun(false);'));
+      const built = B.buildFromHtml(inj, 'inj');
+      const f = write('end_sim_mp.js', built.simMp);
+      const r = runCombo({ combo: ['brj', 'jjg', 'mms', 'hrb'], secs: 5, hz: 30, seed: 1, move: 'circle', simMpPath: f });
+      t('endRun 주입: mp_run 이 「판이 일찍 끝남」으로 잡는다(ended_early, ok=false)', !!r.ended_early && r.ok === false, JSON.stringify(r.ended_early));
+      const x = loadSimCode(built.simMp, { seed: 1 }).__p6x; x.initMP(['brj', 'jjg', 'mms', 'hrb']);
+      for (let i = 0; i < 60 && x.state === 'play'; i++) x.update(1 / 30);
+      t('endRun 주입: update() 가 끝난 뒤 state 가 result 로 남음(꼬리가 play 로 덮어쓰지 않음) · ENDS ≥ 1', x.state === 'result' && x.ENDS >= 1, `state=${x.state} ENDS=${x.ENDS}`);
+      // 원본은 900초 안에 endRun 이 안 불린다(여기서는 20초)
+      const ok = runCombo({ combo: ['brj', 'jjg', 'mms', 'hrb'], secs: 20, hz: 30, seed: 1, move: 'circle', simMpPath: write('ok_sim_mp.js', B.buildFromHtml(html, 'x').simMp) });
+      t('원본: 20초 통과(ENDS 오검출 없음)', ok.ok === true, JSON.stringify(ok.ended_early || ok.error));
+    }
+    // 7b) 게임 시각 대조: 틱 수가 맞아도 S.t 가 다르면 실패
+    {
+      const mp = B.buildFromHtml(html, 'x').simMp;
+      const bad = mp.replace('S.t+=dt;EX.tick(dt);', 'S.t+=dt*0.5;EX.tick(dt);');
+      t('(시험 준비) 시각 어긋남 주입이 적용됨', bad !== mp);
+      const r = runCombo({ combo: ['brj', 'jjg', 'mms', 'hrb'], secs: 10, hz: 30, seed: 1, move: 'circle', simMpPath: write('tm_sim_mp.js', bad) });
+      t('S.t 가 요청한 초와 1초 이상 다르면 time_mismatch · ok=false', !!r.time_mismatch && r.ok === false, JSON.stringify({ g: r.game_s, tm: r.time_mismatch, ok: r.ok }));
+    }
+    // 7c) 낡은 사본 재사용 방지: build_sim.js 를 고치면 ensureBuilt 가 다시 만든다
+    {
+      const dir = path.join(TMP, 'raid'); fs.mkdirSync(dir);
+      for (const f of fs.readdirSync(__dirname)) if (/\.(js|py)$/.test(f)) fs.copyFileSync(path.join(__dirname, f), path.join(dir, f));
+      const srcCopy = write('surv.html', html), bdir = path.join(TMP, 'b');
+      const run = (args) => cp.spawnSync(process.execPath, [path.join(dir, 'mp_run.js'), '--src', srcCopy, '--build-dir', bdir, '--secs', '2', '--json', ...args], { encoding: 'utf8' });
+      const r1 = run([]);
+      const before = fs.readFileSync(path.join(bdir, 'sim_mp.js'), 'utf8');
+      t('(시험 준비) 첫 빌드 성공 · die() 의 무적 상수 1.5 가 들어 있음', r1.status === 0 && before.includes('p.inv=Math.max(p.inv,1.5)'), `rc=${r1.status} ${r1.stderr.slice(0, 120)}`);
+      const bs = path.join(dir, 'build_sim.js');
+      fs.writeFileSync(bs, fs.readFileSync(bs, 'utf8').replace('p.inv=Math.max(p.inv,1.5)', 'p.inv=Math.max(p.inv,9.9)'));
+      const r2 = run([]);
+      const after = fs.readFileSync(path.join(bdir, 'sim_mp.js'), 'utf8');
+      t('build_sim.js 만 고쳐도 mp_run 이 낡은 사본을 버리고 다시 만든다(9.9 반영)', r2.status === 0 && after.includes('Math.max(p.inv,9.9)') && !after.includes('Math.max(p.inv,1.5)'), `rc=${r2.status}`);
+      const mtime = fs.statSync(path.join(bdir, 'sim_mp.js')).mtimeMs;
+      const r3 = run([]);
+      t('바뀐 게 없으면 다시 만들지 않는다(재사용)', r3.status === 0 && fs.statSync(path.join(bdir, 'sim_mp.js')).mtimeMs === mtime);
+      // --world-pools 가 다르면 다른 사본이어야 한다
+      const r4 = run(['--world-pools', 'first']);
+      t('--world-pools 를 바꾸면 사본을 다시 만든다(first 는 월드 풀을 한 번만 돌림)', r4.status === 0 && JSON.parse(fs.readFileSync(path.join(bdir, 'manifest.json'), 'utf8')).world_pools === 'first');
+      const miss = cp.spawnSync(process.execPath, [path.join(dir, 'mp_run.js'), '--src', path.join(TMP, 'nope.html'), '--build-dir', bdir, '--secs', '1'], { encoding: 'utf8' });
+      t('--src 가 없는 파일이면 스택이 아니라 한 줄 안내 + 종료코드 66', miss.status === 66 && !/at .*\(.*:\d+:\d+\)/.test(miss.stderr) && /읽지 못했습니다/.test(miss.stderr), `rc=${miss.status} ${miss.stderr.slice(0, 200)}`);
+    }
+    // 7d) 지연 생성 S 필드: 60틱 안에는 안 생기지만 코드에 S.<이름> 으로 적힌 것은 정적 스캔이 잡는다
+    {
+      const inj = swapMain(m => m.replace('window.__p6=', () => 'function zzLazy(){S.lazyThing=1;}\nwindow.__p6='));
+      const built = B.buildFromHtml(inj, 'inj');
+      const v = B.verify(built);
+      t('정적 스캔: 60틱 안엔 안 생기는 S.lazyThing 을 미분류로 경고', v.classify.static_unclassified.includes('lazyThing') && !v.classify.unclassified.includes('lazyThing') && v.warns.some(w => w.includes('lazyThing')), JSON.stringify(v.classify));
+      const base = B.verify(B.buildFromHtml(html, 'x'));
+      t('원본: 정적 스캔이 런타임 S 키 수 이상을 찾고(놓치는 게 없다) 미분류가 런타임과 같은 수', base.classify.static_names >= base.classify.S_keys && base.classify.static_unclassified.length === 0, JSON.stringify(base.classify));
+    }
+    // 7e) 월드 풀 처리: x4(기본)는 틱당 4번 진행, first 는 1번 — README 한계 문구의 근거
+    {
+      const mv = mode => {
+        const built = B.buildFromHtml(html, 'x', { worldPools: mode });
+        const x = loadSimCode(built.simMp, { seed: 1 }).__p6x; x.initMP(['brj', 'jjg', 'mms', 'hrb']);
+        x.use(0);
+        for (let i = 0; i < 3; i++) x.update(1 / 30);   // 데우기
+        const b = x.eshots.get(); b.x = b.ox = 5000; b.y = b.oy = 5000; b.vx = 100; b.vy = 0; b.life = 2; b.d = 1; b.g = '♪'; b.sl = 0; b.k = 0; b.src = null; b.sn = 0;
+        x.update(1 / 30);
+        return { dx: b.x - 5000, life: b.life };
+      };
+      const a = mv('x4'), f = mv('first');
+      t('월드 풀(적 투사체) x4: 틱당 4배 진행(이동 13.33, 수명 −0.133)', Math.abs(a.dx - 13.3333) < 0.01 && Math.abs((2 - a.life) - 0.1333) < 0.001, JSON.stringify(a));
+      t('월드 풀(적 투사체) first: 1배 진행(이동 3.33, 수명 −0.033)', Math.abs(f.dx - 3.3333) < 0.01 && Math.abs((2 - f.life) - 0.0333) < 0.001, JSON.stringify(f));
+      // first 도 900초가 아니라 짧게나마 예외 없이 도는지
+      const r = runCombo({ combo: ['brj', 'jjg', 'mms', 'hrb'], secs: 30, hz: 30, seed: 1, move: 'circle', simMpPath: write('first_sim_mp.js', B.buildFromHtml(html, 'x', { worldPools: 'first' }).simMp) });
+      t('--world-pools first 사본이 30초 예외 없이 돈다', r.ok === true, JSON.stringify(r.error || r.ended_early));
+    }
+  } finally { fs.rmSync(TMP, { recursive: true, force: true }); }
+}
+
 (async () => {
   main5();
+  section7();
   await eldTest();
   await new Promise(r => setTimeout(r, 50));
   console.log(`\n${fail ? 'FAIL' : 'PASS'} — 통과 ${pass} · 실패 ${fail}`);

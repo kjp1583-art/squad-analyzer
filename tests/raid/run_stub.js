@@ -3,7 +3,7 @@
    build_sim.js 가 만든 sim.js / sim_mp.js 를 Node 의 vm 컨텍스트에서 "브라우저 없이" 올린다.
    스텁은 화면 그리기·소리·네트워크를 전부 삼키되, 시뮬이 실제로 쓰는 것(저장소·시계·난수)은 진짜처럼 동작시킨다.
 
-   스크래치 run.js 와 달라진 점
+   이 스텁이 지키는 것(첫 스파이크의 단순 스텁이 놓치던 부분)
    - localStorage 를 진짜 저장소처럼(length·key·clear 포함) 만든다. 예전 스텁은 length/key 가 없어
      이어하기(RES) 모듈의 저장본 훑기가 조용히 아무것도 안 했다.
    - document.hidden·visibilityState·addEventListener 를 기록한다 → 시험이 visibilitychange/pagehide 를 직접 쏴 볼 수 있다.
