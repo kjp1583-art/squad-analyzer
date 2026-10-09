@@ -930,7 +930,7 @@ function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0},on=[];
   for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;}
 const MAXEV=3;   // ✨ [2026-09-29 사장님] 각성은 한 판에 3개까지 — 무엇을 각성할지가 빌드
 const MAXLV=8,MAXPASS=5,SLOTW=6,SLOTP=6,WIN_T=3600,REROLL=3,BANISH=3,REV_LV=20;   // REV_LV: 👼 부활 카드는 이 레벨부터 나온다(이미 가진 건 영향 없음)
-const BRT={R:190,w:.62,d:36,cd:.85,em:30};   // 🔥 드래곤 브레스 기본값 — 사거리·반각(rad)·피해·쿨타임·몸 주변 불씨 반경(봇 시뮬로 맞춤)
+const BRT={R:190,w:.62,d:29,cd:.85,em:30};   // 🔥 드래곤 브레스 기본값 — 사거리·반각(rad)·피해·쿨타임·몸 주변 불씨 반경(봇 시뮬로 맞춤) · 🐲 [2026-10-09 사장님 지시 「용조련사 고유무기 데미지가 너무 쎄니까 하향조정」] 피해 36 → 29(약 −20%, 모든 레벨·각성·단계 카드가 이 값에 곱해진다) — 하드·베리하드 클리어 기록이 용조련사에 몰려 있었다
 const pmax=k=>PASS[k].max||MAXPASS;
 const wOk=k=>!WEAP[k].only||WEAP[k].only===CH.k||!!(S&&S.w[k]);   // 전용 무기(🔥 브레스)는 그 캐릭터에게만
 const pairOf=k=>Object.keys(WEAP).find(w=>WEAP[w].pair===k&&wOk(w));
