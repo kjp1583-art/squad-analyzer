@@ -5470,11 +5470,10 @@ def _load_solo_ranks():
             _PEAK_SEASONS_CACHE = cache
         # 🔗 [2026-09-10 사장님 지시 '그룹 최고 피크'] 자기 닉으로 PEAK 행이 없으면(닉변·계정 이전) LINK_ACCOUNT 그룹의
         #    최고 피크로 블렌드 — 카무사리(현시즌 3423, 피크 없음)가 귤갓입니다(3127)·귤 갓(2938) 중 3127 을 받아 3275.
-        _grp = {}
-        try:
-            for _sub, _main in (global_alt_map or {}).items():
-                _g = _grp.setdefault(tnorm(_main), {tnorm(_main)}); _g.add(tnorm(_sub)); _grp[tnorm(_sub)] = _g
-        except Exception: pass
+        #    [2026-10-09 사장님 제보 "카무사리 웹에서 언랭으로 뜨는 이유"] 그룹 = LINK 쌍의 연결 요소(union-find) — 쌍마다 새 그룹을 덮어써서
+        #    사슬(A←B←C)이 끊기던 것을 고쳤다. 웹 linkComponents · 툴링 sibguiwol.py link_components 와 같은 규칙.
+        try: _grp = _dep_link_groups(global_alt_map)
+        except Exception: _grp = {}
         def _peak_of(k):
             if k in _PEAK_SEASONS_CACHE: return _PEAK_SEASONS_CACHE[k]
             _c = [_PEAK_SEASONS_CACHE[m] for m in _grp.get(k, ()) if m in _PEAK_SEASONS_CACHE]
@@ -5493,16 +5492,19 @@ def _load_solo_ranks():
     #    웹(index.html)은 SOLO_RANK 조회 시 LINK_ACCOUNT 별칭 후보까지 훑어 본계·부계 중 데이터가 있는 쪽을 쓰는데,
     #    분석기는 PUUID 닉변 별칭만 봐서 '계정 이전 통합' 케이스(예: 귤 갓 ← 귤갓입니다)의 솔랭·PEAK를 못 찾았다.
     #    → 웹과 같은 판단이 되도록, 통합 그룹 안에서 현시즌 데이터가 있는 엔트리를 그룹 전원에게 공유한다.
+    # 🔗 [2026-10-09 사장님 제보 "카무사리 웹에서 언랭으로 뜨는 이유"] 그룹 = 연결 요소(사슬 A←B←C 포함) · 순서에 기대지 않는다.
+    #    예전엔 {본계: {본계, 부계…}} 를 쌍마다 만들어(사슬을 합치지 못함) global_alt_map 삽입 순서 덕에 우연히 풀렸다 —
+    #    제보된 그룹이 {맨 옛 닉, 중간 닉} 다음에 {지금 닉, 중간 닉} 순으로 돌 때만 마스터 기록이 닿았다. 웹 blendSoloRanks·툴링 share_best 와 같은 규칙.
     try:
-        groups = {}
-        for _sub, _main in (global_alt_map or {}).items():
-            g = groups.setdefault(tnorm(_main), {tnorm(_main)})
-            g.add(tnorm(_sub))
-        for _mk, keys in groups.items():
+        _seen_g = set()
+        for _members in _dep_link_groups(global_alt_map).values():
+            if id(_members) in _seen_g: continue
+            _seen_g.add(id(_members))
+            keys = sorted(_members)                     # 동점은 닉 순서 — 집합 순회 순서(해시)에 기대지 않는다
             cands = [out[k] for k in keys if k in out]
             if not cands: continue
             # 현시즌 전적(승+패)이 있는 엔트리 우선 → 없으면 점수 최고값
-            best = max(cands, key=lambda d: ((d.get("wins", 0) + d.get("losses", 0)) > 0, d.get("score") or -1e9))
+            best = max(cands, key=lambda d: ((d.get("wins", 0) + d.get("losses", 0)) > 0, d.get("score") if d.get("score") is not None else -1e9))
             for k in keys:
                 if out.get(k) is not best: out[k] = dict(best)
     except Exception: pass

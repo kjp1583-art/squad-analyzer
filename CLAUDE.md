@@ -82,6 +82,12 @@
 - LINK_ACCOUNT 는 **본계정 = 지금 이름** 규약이다. 본계정에 옛 닉을 두면(귤 갓#Gyul ← 카무사리#귤 갓) 웹의 해당 탭에
   옛 닉 행이 없을 때 대표닉이 옛 닉으로 되돌아가 옛 티어·피크 전용 솔랭으로 계산된다. `link_nickchange.py` 가 요약에
   "⚠ 방향 역전" 으로 알려 준다.
+- **솔랭(🏅)도 같은 사람 단위로 묶는다** (2026-10-09 "카무사리 웹에서 언랭으로 뜨는 이유"): 계정 이전 + 닉변이 겹친 **3단 사슬**
+  (귤갓입니다 → 귤 갓 → 카무사리)을 웹이 중간에서 끊어, 현시즌 기록이 적힌 옛 닉 행을 못 찾고 「언랭」으로 떴다.
+  LINK_ACCOUNT 는 **연결 요소 전체가 한 그룹**이고, 현시즌 솔랭은 그 그룹에서 실제로 돌린 행의 것, 피크는 그룹 best 를 모두가 공유한다
+  — 웹 `linkComponents`·`blendSoloRanks` / 분석기 `_load_solo_ranks`(LINK 행 순서에 기대면 안 된다) / 툴링 `link_components`·`share_best`.
+  한 단계만 푸는 코드(`resolveAlt`·`get_main_name`·`link_group`)를 새로 쓰지 말 것. 세 구현이 같은 솔랭 지도·명단을 내는지는
+  `python3 tests/web_replay/parity.py --xlsx <시트 스냅샷>` 으로(합성 시험: `tests/web_replay/chain_test.py` · `desktop/solo_link_chain_test.py`).
 
 ## 📰 주간스쿼드(주간평)는 파일 하나를 셋이 읽는다 (2026-09-19 · 2026-09-21 이름 변경)
 `data/weekly_review.json` 이 단일 출처다. **필드명을 바꾸면 세 곳을 같은 커밋에서 고친다.**
