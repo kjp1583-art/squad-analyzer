@@ -206,6 +206,63 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .tg0{--tc:#4CAF50}.tg1{--tc:#FFB347}.tg2{--tc:#64B5F6}.tg3{--tc:#BA68C8}.tg4{--tc:#EF5350}
 @media (max-height:480px){.pnsum{position:static}.pnbox{max-height:calc(100vh - 12px)}.pnov{padding:6px}}
 @media (prefers-reduced-motion:reduce){.pnchev{transition:none}}
+/* 📖 [2026-10-09 사장님 지시] 흐접새우 서바이벌 첫 화면 「스킬 도감」 — 자기완결 구획(.cx* 만 쓴다) */
+.cxopen{position:absolute;left:10px;bottom:10px;z-index:2;display:inline-flex;align-items:center;gap:5px;min-height:44px;min-width:44px;padding:0 13px;border-radius:22px;border:1px solid #3f86b3;background:rgba(14,18,36,.88);color:#bfe6ff;font:inherit;font-weight:800;font-size:14px;white-space:nowrap;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);-webkit-appearance:none;appearance:none}   /* 패치노트 버튼의 왼쪽 짝 — 키아트 폭은 화면 높이에 따라 238px 까지 줄어서(.key 의 max-height 가 폭으로 옮겨 간다) 좁으면 「스킬」을 빼고(.cxs) 키아트 폭이 넉넉하면(JS 가 .cxw 를 단다) 「스킬 도감」 */
+.cxopen .cxs{display:none}
+.key.cxw .cxopen .cxs{display:inline}
+.cxn{position:absolute;top:-8px;right:-6px;min-width:22px;padding:0 6px;border-radius:11px;background:#1d5a8a;border:2px solid #0e1224;color:#d6efff;font-size:11.5px;font-weight:800;line-height:18px;text-align:center;font-variant-numeric:tabular-nums}
+.cxn:empty{display:none}
+@media (max-height:520px){#title.hasres .cxopen{left:calc(100% + 130px);bottom:auto;top:50%;transform:translateY(-50%)}}   /* 가로 화면 + 이어하기 카드: 패치노트 버튼이 키아트 옆으로 나가므로(위 .pnopen 규칙) 그 오른쪽에 나란히 */
+.cxopen:focus-visible,.cxx:focus-visible{outline:2px solid var(--win);outline-offset:2px}
+.cxtab:focus-visible,.cxt:focus-visible{outline:2px solid var(--win);outline-offset:-3px}
+.cxov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:12px;background:rgba(9,12,28,.84);z-index:9;touch-action:manipulation}
+.cxov.on{display:flex}
+.cxbox{word-break:keep-all;overflow-wrap:anywhere;width:100%;max-width:560px;max-height:calc(100vh - 24px);display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-top:3px solid var(--acc);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:left;overflow:hidden}
+@supports (height:100dvh){.cxbox{max-height:calc(100dvh - 24px)}}
+.cxhead{display:flex;align-items:center;gap:8px;flex:none;padding:4px 4px 4px 16px;border-bottom:1px solid var(--line)}
+.cxhead h2{flex:1;margin:0;font-size:17px;line-height:1.3;color:#ffb089}
+.cxx{flex:none;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--txt);font:inherit;font-size:18px;cursor:pointer}
+.cxbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 12px 16px}
+.cxsum{position:sticky;top:0;z-index:2;margin:0 -12px;padding:10px 12px 8px;background:var(--card);box-shadow:0 1px 0 var(--line)}   /* 몸통 좌우 여백(12px)까지 덮어서 밑으로 지나가는 칸의 테두리가 가장자리에 비치지 않게 */
+.cxprog{display:flex;align-items:baseline;gap:6px;font-size:13px;color:var(--sub)}
+.cxprog b{font-size:18px;color:var(--txt);font-variant-numeric:tabular-nums}
+.cxprog .cxpct{margin-left:auto;font-variant-numeric:tabular-nums}
+.cxbar{height:8px;margin:5px 0 9px;border-radius:5px;background:var(--card2);border:1px solid var(--line);overflow:hidden}
+.cxbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3f86b3,#6fe6ff)}
+.cxtabs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.cxtab{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:58px;padding:3px 1px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--sub);font:inherit;font-size:12px;line-height:1.2;cursor:pointer}
+.cxtab .cxti{font-size:18px;line-height:1.15}
+.cxtab .cxtc{font-size:11.5px;font-variant-numeric:tabular-nums}
+.cxtab[aria-selected="true"]{border-color:var(--win);background:#262d52;color:var(--txt);box-shadow:inset 0 0 0 1px var(--win)}
+.cxnote{margin:10px 0 0;padding:7px 10px;border-radius:9px;background:#2a2110;border:1px solid #6b5420;color:#f5d58a;font-size:12.5px;line-height:1.5}
+.cxsync,.cxtip{margin:8px 0 0;font-size:12px;line-height:1.5;color:var(--mut)}
+.cxtip{color:var(--sub);margin-top:10px}
+.cxh3{margin:12px 0 2px;font-size:13px;font-weight:800;color:var(--gold)}
+.cxh3 span{margin-left:6px;font-size:12px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
+.cxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));grid-auto-flow:row dense;gap:6px;margin:6px 0 4px}
+.cxt{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;min-width:0;min-height:78px;padding:7px 3px 6px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--txt);font:inherit;font-size:12px;line-height:1.25;text-align:center;cursor:pointer}
+.cxt .cxic{font-size:26px;line-height:1.1}
+.cxt .cxnm{display:block;max-width:100%;font-weight:700}
+.cxt .cxwho{position:absolute;top:2px;right:3px;font-size:13px;line-height:1}
+.cxt.lock{border-style:dashed;background:#151a33;color:var(--mut)}
+.cxt.lock .cxic{filter:grayscale(1);opacity:.5}   /* ❓ 이모지는 빨강 — 이 게임에서 빨강은 적의 위험 표시라 잠긴 칸은 회색으로 */
+.cxt[aria-expanded="true"]{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.cxd{grid-column:1/-1;margin:2px 0;padding:10px 12px 12px;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;background:#1a2040;font-size:13px;line-height:1.55;color:var(--txt)}
+.cxd p{margin:5px 0}
+.cxd h4{margin:12px 0 4px;font-size:12.5px;font-weight:800;color:var(--gold)}
+.cxdh{display:flex;align-items:center;gap:10px}
+.cxdh .cxic{flex:none;font-size:30px;line-height:1.1}
+.cxdh b{display:block;font-size:15px}
+.cxsm{font-size:12px;color:var(--sub)}
+.cxlk{color:var(--mut)}
+.cxwho2{padding:5px 9px;border-radius:8px;background:rgba(245,192,74,.12);border:1px solid #6b5420;color:#f5d58a;font-size:12.5px}
+.cxlv{margin:0;padding:0;list-style:none}
+.cxlv li{display:flex;gap:8px;padding:4px 0;border-top:1px dashed rgba(255,255,255,.1)}
+.cxlv li:first-child{border-top:0}
+.cxlv li b{flex:none;min-width:36px;color:#ffb089;font-variant-numeric:tabular-nums}
+.cxlv li span{min-width:0}
+.cxev{padding:7px 10px;border-radius:8px;background:rgba(111,230,255,.08);border:1px solid #3f86b3}
+@media (max-height:480px){.cxsum{position:static}.cxbox{max-height:calc(100vh - 12px)}.cxov{padding:6px}}
 /* 🔁 [2026-10-08 사장님 지시] 이어하기 카드·안내 */
 .rescard{text-align:left;background:linear-gradient(180deg,#24305a,#1a2142);border:1px solid #4a6ad0;border-radius:12px;padding:10px 12px;margin:6px 0 8px;box-shadow:0 0 0 1px rgba(79,179,255,.18)}
 .rescard[hidden],.resmsg[hidden],.resnote[hidden],.resnote [hidden]{display:none}
@@ -246,7 +303,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 <div id="toast"></div>
 
 <div class="ov on" id="title"><div class="box">
-  <div class="key"><a class="lab" href="./" style="text-decoration:none">← SQUAD.GG</a><img src="img/survivors_key.webp" width="1254" height="1254" alt="흐접새우 서바이벌 — 안경 쓴 흐접새우가 PC 앞에서 '크큭.. 오늘은 어떤 트롤픽을 해볼까나?'" decoding="async" fetchpriority="high"><button type="button" class="pnopen" id="pnOpen" aria-haspopup="dialog" aria-label="패치노트 열기">🗞 패치노트<span class="pnbadge" id="pnBadge" hidden aria-hidden="true"></span></button></div>
+  <div class="key"><a class="lab" href="./" style="text-decoration:none">← SQUAD.GG</a><img src="img/survivors_key.webp" width="1254" height="1254" alt="흐접새우 서바이벌 — 안경 쓴 흐접새우가 PC 앞에서 '크큭.. 오늘은 어떤 트롤픽을 해볼까나?'" decoding="async" fetchpriority="high"><button type="button" class="cxopen" id="cxOpen" aria-haspopup="dialog" aria-label="스킬 도감 열기">📖 <span class="cxs">스킬 </span>도감<span class="cxn" id="cxN" aria-hidden="true"></span></button><button type="button" class="pnopen" id="pnOpen" aria-haspopup="dialog" aria-label="패치노트 열기">🗞 패치노트<span class="pnbadge" id="pnBadge" hidden aria-hidden="true"></span></button></div>
   <h1 class="sr">🦐 흐접새우 서바이벌</h1><div class="tag">흐접새우가 또 트롤픽을 잡았다. 클랜원들은 버텨야 한다.</div>
   <!-- 🔁 [2026-10-08 사장님 지시] 이어하기 — 하던 판이 남아 있으면 카드로 보여 준다(다른 앱에 다녀오며 브라우저가 페이지를 지운 경우) -->
   <div class="rescard" id="resCard" hidden><div class="rt">🦐 하던 판이 남아 있어요</div><div class="rs" id="resSum"></div><div class="muted" id="resAgo"></div>
@@ -330,6 +387,12 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 <div class="pnov" id="pnOv"><div class="pnbox" role="dialog" aria-modal="true" aria-label="흐접새우 서바이벌 패치노트">
   <div class="pnhead"><h2>🗞 흐접새우 서바이벌 패치노트</h2><button type="button" class="pnx" id="pnX" aria-label="패치노트 닫기">✕</button></div>
   <div class="pnbody" id="pnBody"></div>
+</div></div>
+
+<!-- 📖 [2026-10-09 사장님 지시] 스킬 도감 겹창 — 첫 화면에서만 열린다(게임 상태와 무관). 안쪽은 열 때 그린다(첫 화면 로드 비용 0) -->
+<div class="cxov" id="cxOv"><div class="cxbox" role="dialog" aria-modal="true" aria-labelledby="cxT">
+  <div class="cxhead"><h2 id="cxT">📖 스킬 도감</h2><button type="button" class="cxx" id="cxX" aria-label="스킬 도감 닫기">✕</button></div>
+  <div class="cxbody" id="cxBody"></div>
 </div></div>
 
 <script>
@@ -640,7 +703,7 @@ function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순�
 async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;BOARDEH=Array.isArray(j.endless_h)?j.endless_h:null;BOARDEV=Array.isArray(j.endless_v)?j.endless_v:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);}catch(e){BOARD=null;}renderBoard();renderDaily();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
   if(j&&j.ok){const pc=ME&&Number.isInteger(ME.coins)?ME.coins:undefined;ME=j;if(coinsOf(j)===undefined){if(pc!==undefined)ME.coins=pc;else delete ME.coins;}   // coins 칸이 빠진 응답(봇 재시작 직후)은 '모름' — 직전 값을 이어받는다
-    srvUnl(j.unlocks);mergeUnl(j.unlocks);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();renderBoard();if(state==='revive')rvRender();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
+    srvUnl(j.unlocks);mergeUnl(j.unlocks);cdxMerge(j.codex);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();renderBoard();if(state==='revive')rvRender();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
 async function submitRun(won){const u=dcUser();const el=$('rAcct');
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
@@ -654,7 +717,7 @@ async function postRun(body,n){const el=$('rAcct');
   if(body.endless){if(SRV_END===null)await loadBoard();if(!SRV_END){keepUnsent(body,'⚠ 순위 서버가 아직 무한 모드를 몰라 이번 기록은 이 기기에 남겨 뒀어요.');return;}}
   if(body.daily){if(SRV_DLY===null)await loadBoard();if(!SRV_DLY){keepUnsent(body,'⚠ 순위 서버가 아직 오늘의 도전을 몰라 이번 기록은 이 기기에 남겨 뒀어요.');return;}}
    // 판 결과는 보낼 때 한 번 찍어 둔다(다시 보내는 사이 새 판이 시작돼도 그대로)
-  try{const j=await api('/p6/run',body);
+  try{cdxAttach(body);const j=await api('/p6/run',body);   // 📖 스킬 도감: 로그인한 기록에는 내 발견 전체를 싣는다(서버는 합집합으로만 합친다 · 다시 보낼 때마다 최신으로)
     if(j.code==='upstream'&&n<2){el.textContent='📡 디스코드 확인이 늦어요 — 잠시 뒤 다시 올려 볼게요…';setTimeout(()=>postRun(body,n+1),4000*(n+1));return;}   // 서버가 저장 안 했다고 확답한 경우만 재시도
     if(j.ok&&body.daily){try{localStorage.removeItem(UNSENT);}catch(e){}dailySet({date:body.daily,ranked:1,done:1,t:body.t,k:body.kills});if(ME)ME.daily_done=true;
       el.innerHTML=j.daily_dup?`📅 이 날짜 기록은 이미 올라가 있어요 — 하루 한 판만 기록돼요. 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`:`✅ 오늘의 도전 기록 저장! 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`;
@@ -670,7 +733,7 @@ async function postRun(body,n){const el=$('rAcct');
   }catch(e){keepUnsent(body,'⚠ 서버에 닿지 않아 이번 기록은 이 기기에 남겨 뒀어요.');}}
 // 🩹 [2026-10-01] 저장이 안 된 판은 이 기기에 남겨 두고 '🔁 다시 저장' 으로 다시 올린다(60분 클리어가 서버 상한 때문에 거절돼 기록이 사라지던 일)
 const UNSENT='p6_unsent';
-function keepUnsent(body,msg){const el=$('rAcct');const o=Object.assign({},body);delete o.token;o.ts=Date.now();
+function keepUnsent(body,msg){const el=$('rAcct');const o=Object.assign({},body);delete o.token;delete o.codex;o.ts=Date.now();   // 📖 도감 목록은 보관본에 넣지 않는다(다시 올릴 때 postRun 이 최신으로 싣는다)
   try{localStorage.setItem(UNSENT,JSON.stringify(o));}catch(e){}
   if(!el)return;el.innerHTML=msg+'<br><button class="btn" id="rRetry" style="margin-top:6px">🔁 다시 저장</button>';const b=$('rRetry');if(b)b.onclick=()=>flushUnsent(true);}
 function flushUnsent(show){const u=dcUser();let o=null;try{o=JSON.parse(localStorage.getItem(UNSENT)||'null');}catch(e){}
@@ -956,7 +1019,7 @@ const SYN=[
   {k:'u_sing',ic:'🎤',nm:'병아리 합창단',req:['sing','chick'],ds:'경험치 +10% · 피해 +6%',fx:{xp:.1,dmg:.06}},
 ];
 function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0},on=[];
-  for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;}
+  for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;for(const k of on)cdxSee('sy:'+k);cdxOwn();}   // 📖 시너지가 처음 켜지면 도감에 실린다 · 이어하기로 옛 판을 되살릴 때도 여기를 지나므로 가진 것을 함께 적는다
 const MAXEV=3;   // ✨ [2026-09-29 사장님] 각성은 한 판에 3개까지 — 무엇을 각성할지가 빌드
 const MAXLV=8,MAXPASS=5,SLOTW=6,SLOTP=6,WIN_T=3600,REROLL=3,BANISH=3,REV_LV=20;   // REV_LV: 👼 부활 카드는 이 레벨부터 나온다(이미 가진 건 영향 없음)
 const BRT={R:190,w:.62,d:29,cd:.85,em:30};   // 🔥 드래곤 브레스 기본값 — 사거리·반각(rad)·피해·쿨타임·몸 주변 불씨 반경(봇 시뮬로 맞춤) · 🐲 [2026-10-09 사장님 지시 「용조련사 고유무기 데미지가 너무 쎄니까 하향조정」] 피해 36 → 29(약 −20%, 모든 레벨·각성·단계 카드가 이 값에 곱해진다) — 하드·베리하드 클리어 기록이 용조련사에 몰려 있었다
@@ -1095,6 +1158,107 @@ const CO={
   dice:{ic:'🎲',nm:'주사위 세트',ds:'다시 뽑기 +2 · 봉인 +1'},
 };
 const trn=k=>(S&&S.tr&&S.tr[k])||0;
+
+// ============================================================================================================
+// 📖 [2026-10-09 사장님 지시 "게임내 존재하는 모든 스킬들에 대한 도감을 게임시작전 메인화면에 추가해주고, 그 도감열람은 스킬을 한번씩 인게임에서 골라본것만 열람가능하게 추가"]
+//   스킬 도감 — 이 덩어리는 「발견 기록」과 「도감 항목 만들기」. 그리는 쪽은 맨 아래 <script> 의 도감 구획(마크업 #cxOv · CSS .cx*)이다.
+//   · 항목은 위의 표(WEAP·PASS·REL·TRD·SM·CO·SYN, 단계표 TIERS, 초월 PT)를 읽어 만든다 — 숫자·문구를 복사해 두지 않으므로 스킬이 늘거나 수치가 바뀌어도 도감이 따라간다.
+//     새 카드 종류(offers 의 t)를 만들면 cdxKeyOf 에 키를 정해야 한다 — tests/survivors_codex_test.py 가 빠진 종류를 잡는다.
+//   · 발견 = 인게임에서 그 카드를 골라 봤다(applyUp 를 지난 카드) / 시작 무기(newRun) / 시너지가 처음 켜짐(synCalc) / 실제 각성(evolve).
+//     키: w:무기 p:패시브 wt:무기(마스터·각성 단계 카드) pt:패시브(초월) rl:유물 tr:거래 sm:작은 능력치 co:일회용 · ev:무기(각성 형태) sy:시너지 — 서버 계약 ^[a-z]{1,3}:[a-z0-9_]{1,24}$ · 최대 400개.
+//   · 게임 규칙과 무관한 별도 저장소다 — S 에 쓰지 않고(이어하기 서명 그대로) Math.random·RN 을 쓰지 않는다. 새 키일 때만 저장소를 건드리고, 이미 있으면 Set 조회 한 번뿐이다.
+//   · 저장: localStorage p6_codex_v1 = {v:1,k:[정렬된 키]} — 쓰기 직전에 다시 읽어 합집합으로 쓴다(두 탭이 동시에 열려 있어도 서로의 발견을 잃지 않는다).
+//     저장이 막힌 환경(사생활 보호 모드 등)이면 이번 방문 동안만 메모리에 두고(CDX.mem) 도감 첫머리에서 알린다. 읽을 수 없는 값(깨짐·너무 큼)은 빈 도감으로 시작하고(CDX.bad)
+//     원본은 다음 발견을 저장할 때 새로 쓸 때까지 건드리지 않는다. 표에 없는 키는 화면·서버 전송에서 빼되 저장소에는 그대로 남겨 둔다(다른 버전이 남긴 발견을 지우지 않게).
+//   · 서버: 로그인 중이면 판 기록(/p6/run)에 codex 를 싣고, 계정 정보(/p6/me)의 codex 를 합친다 — 서버도 기기도 합집합으로만 합쳐 줄이지 않는다.
+// ============================================================================================================
+const CDX={K:'p6_codex_v1',MAX:400,RE:/^[a-z]{1,3}:[a-z0-9_]{1,24}$/,BODY:3800,tab:{w:'w',p:'p',rl:'r',tr:'x',sm:'x',co:'x',sy:'s'},s:new Set(),x:new Set(),kk:null,cat:null,on:[],mem:false,bad:false};
+function cdxKeys(){   // 표를 읽어 만든 유효 키 — t: 도감 칸(항목) · sub: 칸 안의 세부 발견(마스터 단계 wt · 초월 pt · 각성 형태 ev)
+  if(CDX.kk)return CDX.kk;const t=[],sub=[];
+  for(const k in WEAP){t.push('w:'+k);if(TIERS[k])sub.push('wt:'+k);if(WEAP[k].ev)sub.push('ev:'+k);}
+  for(const k in PASS){t.push('p:'+k);if(PT[k])sub.push('pt:'+k);}
+  for(const k in REL)t.push('rl:'+k);for(const k in TRD)t.push('tr:'+k);for(const k in SM)t.push('sm:'+k);for(const k in CO)t.push('co:'+k);
+  for(const y of SYN)t.push('sy:'+y.k);
+  return CDX.kk={t,sub,tile:new Set(t),all:new Set(t.concat(sub))};}
+function cdxKeyOf(o){   // applyUp 에 들어오는 카드 → 발견 키 (치킨 'heal' 과 모르는 종류는 null)
+  if(!o)return null;
+  switch(o.t){case 'w':return 'w:'+o.k;case 'p':return 'p:'+o.k;case 'wt':return 'wt:'+o.w;case 'pt':return 'pt:'+o.p;
+    case 'rl':return 'rl:'+o.r;case 'tr':return 'tr:'+o.r;case 'sm':return 'sm:'+o.r;case 'co':return 'co:'+o.r;}
+  return null;}
+function cdxAdd(a){   // 읽은 목록을 메모리에 합친다 → 새로 늘어난 (표에 있는) 키 수. 모양이 틀린 것은 버리고, 표에 없는 키는 x 에 들고만 있는다
+  if(!Array.isArray(a))return 0;const K=cdxKeys();let n=0;
+  for(let i=0;i<a.length&&i<2000;i++){const v=a[i];if(typeof v!=='string'||!CDX.RE.test(v))continue;
+    if(K.all.has(v)){if(!CDX.s.has(v)&&CDX.s.size<CDX.MAX){CDX.s.add(v);n++;}}
+    else if(CDX.x.size<CDX.MAX)CDX.x.add(v);}
+  return n;}
+function cdxRead(){   // 저장소의 목록 — 막혀 있으면 null(메모리 모드) · 값이 없으면 [] · 읽을 수 없는 값(깨짐·너무 큼)이면 [] 로 하고 bad 를 켠다
+  let raw;try{raw=localStorage.getItem(CDX.K);}catch(e){CDX.mem=true;return null;}
+  if(raw==null)return [];
+  if(typeof raw!=='string'||raw.length>30000){CDX.bad=true;return [];}
+  try{const o=JSON.parse(raw);if(o&&typeof o==='object'&&Array.isArray(o.k))return o.k;}catch(e){}
+  CDX.bad=true;return [];}
+function cdxSave(){   // 새 키가 생겼을 때만 부른다 — 쓰기 직전에 저장값을 다시 읽어 합집합으로 쓴다
+  try{const cur=cdxRead();if(cur)cdxAdd(cur);
+    const k=[...CDX.s].sort().concat([...CDX.x].sort()).slice(0,CDX.MAX);
+    localStorage.setItem(CDX.K,JSON.stringify({v:1,k}));CDX.mem=false;CDX.bad=false;}
+  catch(e){CDX.mem=true;}}
+function cdxFire(){for(const f of CDX.on){try{f();}catch(e){}}}
+function cdxNote(k){   // 키 하나를 발견으로 적는다 → 새로 적었으면 true. 모르는 키는 적지 않는다
+  if(CDX.s.has(k)||!cdxKeys().all.has(k)||CDX.s.size>=CDX.MAX)return false;
+  CDX.s.add(k);cdxSave();cdxFire();return true;}
+function cdxSee(k){try{cdxNote(k);}catch(e){}}                                    // 판 도중 예외가 나도 게임이 멈추지 않게 — 기록 쪽 문제는 삼킨다
+function cdxPick(o){try{const k=cdxKeyOf(o);if(k)cdxNote(k);}catch(e){}}
+function cdxOwn(){   // 지금 들고 있는 것을 전부 적는다 — 도감이 생기기 전에 시작한 판(이어하기로 되살린 옛 저장본)도 쓰던 무기·패시브가 도감에서 빠지지 않게. 새 판에서는 이미 다 적혀 있어 조회만 한다
+  const o=S;if(!o)return;
+  for(const k in o.w)cdxSee('w:'+k);for(const k in o.ps)cdxSee('p:'+k);for(const k in o.ev)cdxSee('ev:'+k);for(const k in o.tier)cdxSee('wt:'+k);for(const k in o.pt)cdxSee('pt:'+k);
+  for(const k in o.rel)cdxSee('rl:'+k);for(const k in o.tr)cdxSee('tr:'+k);for(const k in o.sm)cdxSee('sm:'+k);if(o.ramen)cdxSee('sm:ramen');}
+function cdxMerge(a){   // 서버가 준 목록을 합친다(형식이 틀리면 조용히 무시) → 새로 늘어난 키 수
+  let n=0;try{n=cdxAdd(a);if(n){cdxSave();cdxFire();}}catch(e){}return n;}
+function cdxAttach(body){   // 로그인해서 올리는 판 기록에 내 발견 전체를 싣는다 — 본문 한도(4096바이트)를 넘기지 않게, 넘치면 가장 새로 발견한 것부터 싣는다
+  try{delete body.codex;if(!CDX.s.size)return;
+    const sz=s=>typeof TextEncoder==='function'?new TextEncoder().encode(s).length:s.length*3;
+    let room=CDX.BODY-sz(JSON.stringify(Object.assign({},body,{codex:[]})));const out=[];
+    for(const k of [...CDX.s].reverse()){const c=sz(k)+3;if(room<c||out.length>=CDX.MAX)break;room-=c;out.push(k);}
+    if(out.length)body.codex=out.sort();}catch(e){}}
+function cdxStat(){   // 칸 기준 진행(세부 발견 wt·pt·ev 는 칸 안의 내용이라 세지 않는다) — 전체 n/m 과 탭별 [n,m]
+  const K=cdxKeys(),by={w:[0,0],p:[0,0],r:[0,0],x:[0,0],s:[0,0]};let n=0;
+  for(const k of K.t){const b=by[CDX.tab[k.slice(0,k.indexOf(':'))]];b[1]++;if(CDX.s.has(k)){b[0]++;n++;}}
+  return {n,m:K.t.length,by};}
+function cdxEntries(){   // 도감 항목 전부 — 표를 읽은 그대로(잠금과 무관). 화면은 cdxView() 로 잠긴 칸을 가린 것만 받는다
+  if(CDX.cat)return CDX.cat;
+  const L=[],who=k=>{const c=CHARS.find(x=>x.k===k);return c?{k:c.k,e:c.e,nm:c.sn||c.nm}:null;},
+    wref=w=>({key:'w:'+w,ic:WEAP[w].ic,nm:WEAP[w].nm,who:WEAP[w].only?who(WEAP[w].only):null});
+  for(const k in WEAP){const d=WEAP[k],pp=PASS[d.pair],T=TIERS[k],c=d.only?CHARS.find(x=>x.k===d.only):null;
+    L.push({key:'w:'+k,cat:'w',ic:d.ic,nm:d.nm,rl:d.rl||'',who:d.only?who(d.only):null,startLv:c&&c.w===k?(c.wl||1):0,lv:d.ds.slice(),
+      pair:pp?{key:'p:'+d.pair,ic:pp.ic,nm:pp.nm}:null,ev:d.ev?{key:'ev:'+k,ic:d.ev.ic,nm:d.ev.nm,ds:d.ev.ds}:null,
+      ms:T?{key:'wt:'+k,m:T.slice(0,3).map(x=>x[0]),e:T.slice(3).map(x=>x[0])}:null});}
+  for(const k in PASS){const d=PASS[k];
+    L.push({key:'p:'+k,cat:'p',ic:d.ic,nm:d.nm,ds:d.ds,max:pmax(k),pairs:Object.keys(WEAP).filter(w=>WEAP[w].pair===k).map(wref),pt:PT[k]?{key:'pt:'+k,lv:PT[k].slice()}:null});}
+  for(const k in REL){const d=REL[k];L.push({key:'rl:'+k,cat:'r',ic:d.ic,nm:d.nm,who:d.ch?who(d.ch):null,lv:[1,2,3].map(l=>d.ds(l))});}
+  for(const k in TRD){const d=TRD[k];L.push({key:'tr:'+k,cat:'x',sub:'tr',ic:d.ic,nm:d.nm,ds:d.ds,cap:d.cap||3});}
+  for(const k in SM){const m=SM[k],f=x=>m.pct?(Math.round(x*1000)/10)+'%':String(Math.round(x));let tot=0,v=m.base;
+    for(let i=0;i<m.cap;i++){tot+=m.pct?v:Math.round(v);v*=m.dec;}   // 게임이 실제로 올리는 값과 같게 — 최대 HP 는 한 번마다 반올림(smHpGain)
+    L.push({key:'sm:'+k,cat:'x',sub:'sm',ic:m.ic,nm:m.nm,unit:m.unit,first:f(m.base),total:f(tot),cap:m.cap,dec:m.dec});}
+  for(const k in CO){const d=CO[k];L.push({key:'co:'+k,cat:'x',sub:'co',ic:d.ic,nm:d.nm,ds:d.ds});}
+  for(const y of SYN)L.push({key:'sy:'+y.k,cat:'s',ic:y.ic,nm:y.nm,ds:y.ds,req:y.req.map(wref)});
+  return CDX.cat=L;}
+function cdxView(){   // 화면용 — 잠긴 칸은 키·종류만(이름·설명·아이콘 없음). 발견한 칸 안에서 다른 칸을 가리키는 이름(짝 패시브·짝 무기·시너지 재료)은 그 칸도 발견했을 때만 담는다
+  const has=k=>CDX.s.has(k),out=[];
+  for(const e of cdxEntries()){
+    if(!has(e.key)){out.push({key:e.key,cat:e.cat,sub:e.sub||'',locked:true});continue;}
+    const v=Object.assign({},e);
+    if(e.cat==='w'){v.pair=e.pair?(has(e.pair.key)?e.pair:{hid:true}):null;v.ev=e.ev?(has(e.ev.key)?e.ev:{hid:true}):null;
+      v.ms=e.ms?(has(e.ms.key)?{m:e.ms.m,e:e.ev&&has(e.ev.key)?e.ms.e:null}:{hid:true}):null;}
+    else if(e.cat==='p'){const sn=e.pairs.filter(w=>has(w.key));v.pairs={seen:sn,hid:e.pairs.length-sn.length};v.pt=e.pt?(has(e.pt.key)?e.pt:{hid:true}):null;}
+    else if(e.cat==='s')v.req=e.req.map(w=>has(w.key)?w:{hid:true});
+    out.push(v);}
+  return out;}
+try{const a=cdxRead();if(a)cdxAdd(a);}catch(e){}
+addEventListener('storage',e=>{if(e.key!==CDX.K&&e.key!==null)return;   // 다른 탭이 쓴 발견도 바로 반영
+  try{const a=cdxRead();if(!a)return;const n=cdxAdd(a);
+    if(e.key===CDX.K&&CDX.s.size>a.reduce((c,k)=>c+(CDX.s.has(k)?1:0),0))cdxSave();   // 두 탭이 같은 순간에 써서 한쪽이 덮였으면(저장소는 원자적이지 않다) 이 탭이 가진 발견을 합집합으로 다시 써 맞춘다
+    if(n)cdxFire();}catch(x){}});
+window.__cdx={view:cdxView,stat:cdxStat,on:f=>{CDX.on.push(f);},sync:()=>{try{const a=cdxRead();if(a&&cdxAdd(a))cdxFire();}catch(e){}},get mem(){return CDX.mem;},get bad(){return CDX.bad;},get login(){return !!dcUser();},get maxEv(){return MAXEV;}};   // 맨 아래 도감 구획이 쓰는 다리 — 잠긴 칸은 view() 가 가려서 준다
 
 // ---------- 🔊 소리 — 효과음은 WebAudio 로 즉석 합성(파일 없음), 음악은 survivors_boss.mp3 한 곡 무한반복(사장님 지시) ----------
 const AU=(()=>{
@@ -1317,7 +1481,7 @@ function newRun(dly){
   RSEED=dly?dly.seed:0;RIFT_CACHE.clear();RDEV.clear();   // 🗺 일일 도전은 같은 날 같은 맵 — 바닥 조각 난수에 시드를 섞고 캐시를 비운다
   enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
   rangs.clear();rkts.clear();pets.clear();hooks.clear();frs.clear();holes.clear();snps.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();allies.clear();cans.clear();FX.reset();EX.reset();for(const a of allies.a)a.tg=null;bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
-  S=makeS(dly);   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인
+  S=makeS(dly);cdxSee('w:'+CH.w);   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인 · 📖 시작 무기도 도감에 실린다
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
@@ -1595,7 +1759,7 @@ function openLvup(){
   CUR=offers(3);drawCards();
   show('lvup');RES.save('lvup');
 }
-function applyUp(o){
+function applyUp(o){cdxPick(o);   // 📖 인게임에서 골라 본 카드는 도감에 실린다(레벨업 카드·보스 상자 모두 이 함수를 지난다 · 치킨은 제외)
   if(o.t==='w'){S.w[o.k]=(S.w[o.k]||0)+1;synCalc();}
   else if(o.t==='p'){S.ps[o.k]=pv(o.k)+1;if(o.k==='hp'){mhpAdd('hp',25);S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
   else if(o.t==='wt'){S.tier[o.w]=(S.tier[o.w]||0)+1;tkCalc();const d=WEAP[o.w];txt(S.p.x,S.p.y-34,`${S.ev[o.w]?'✨':'🏅'} ${d.nm} ${S.tier[o.w]}`,'#ffd36a');}
@@ -1658,7 +1822,8 @@ function gainXp(v){if(S.rel.sg_ildj&&Math.random()<[.06,.09,.12][S.rel.sg_ildj-1
 
 // ---------- 🎁 보스 상자 · ✨ 각성 ----------
 const evReady=()=>evLeft()>0?Object.keys(S.w).filter(k=>!S.ev[k]&&S.w[k]>=MAXLV&&pv(WEAP[k].pair)>0):[];
-function evolve(k){const d=WEAP[k];S.ev[k]=1;AU.play('evo');S.flash=.45;S.shake=.3;banner(`✨ 각성! ${d.ev.ic} ${d.ev.nm}`,d.ev.ds,1);}
+function evolve(k){const d=WEAP[k];S.ev[k]=1;cdxSee('ev:'+k);   // 📖 실제로 각성시켜 본 무기만 각성 형태가 도감에 실린다
+AU.play('evo');S.flash=.45;S.shake=.3;banner(`✨ 각성! ${d.ev.ic} ${d.ev.nm}`,d.ev.ds,1);}
 function openChest(){
   state='chest';keys={};joy.on=false;joy.dx=joy.dy=0;AU.play('chest');
   const res=[];const ek=evReady()[0];
@@ -4350,6 +4515,210 @@ function init(){
 }
 window.__pn={isSvPatch:isSvPatch,open:openDash,close:closeDash,get st(){return P.st;},get count(){return P.notes?P.notes.length:-1;}};
 init();
+})();
+</script>
+
+<script>
+/* 📖 [2026-10-09 사장님 지시 "게임내 존재하는 모든 스킬들에 대한 도감을 게임시작전 메인화면에 추가해주고, 그 도감열람은 스킬을 한번씩 인게임에서 골라본것만 열람가능하게 추가"]
+   흐접새우 서바이벌 첫 화면 「스킬 도감」 — 자기완결 구획(패치노트 대시보드와 같은 구조 · 게임 본체는 건드리지 않는다)
+   · 항목·발견 기록은 위 게임 스크립트의 window.__cdx(표 WEAP·PASS·REL·TRD·SM·CO·SYN 을 읽어 만든다). 여기서는 그리기와 겹창 규칙만 맡는다.
+   · 아직 못 만난 칸은 이름·설명·아이콘을 DOM 에 넣지 않는다 — __cdx.view() 가 잠긴 칸에는 종류만 돌려주고, 칸을 가리키는 것도 키가 아니라 순번(data-i)으로 한다.
+   · 열 때만 그린다(첫 화면 로드 비용은 배지 숫자 하나뿐). */
+(function(){
+  'use strict';
+  var C=window.__cdx;if(!C)return;
+  var $=function(i){return document.getElementById(i);};
+  var cxEsc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+  var TABS=[['w','⚔','무기'],['p','🎒','패시브'],['r','🏺','유물'],['x','⚖','기타','기타(거래 카드·작은 능력치·일회용)'],['s','🔗','시너지']];
+  var SUBS=[['tr','⚖ 거래 카드'],['sm','🍴 작은 능력치'],['co','🎁 일회용']];
+  var TIP={w:'무기 카드를 한 번 골라 보면 이름과 설명이 열려요. 캐릭터 전용 무기는 그 캐릭터로 판을 시작하면 열려요.',
+    p:'패시브 카드를 한 번 골라 보면 열려요. 초월은 패시브를 끝까지 키운 뒤 초월 카드를 골라 보면 그 패시브 안에서 열려요.',
+    r:'유물 카드는 판이 길어진 뒤에 나와요. ⭐ 시그니처 유물은 그 캐릭터로 할 때만 나와요.',
+    x:'거래·작은 능력치·일회용 카드는 판이 한참 길어진 뒤에 나와요.',
+    s:'무기를 알맞게 조합해서 시너지가 처음 켜지면 도감에 실려요.'};
+  var LOCK='아직 못 만났어요 — 레벨업 카드나 보스 상자에서 한 번 골라 보세요';
+  var LOCKS='아직 못 만났어요 — 무기를 알맞게 조합해서 한 번 켜 보세요';
+  var U={opened:false,tab:'w',view:[],list:[],open:-1,focusBack:null,bd:null};
+  function titleOn(){var t=$('title');return !!t&&t.classList.contains('on');}
+  function badge(){
+    var n=$('cxN'),o=$('cxOpen');if(!n||!o)return;
+    try{var s=C.stat();n.textContent=s.n+'/'+s.m;o.setAttribute('aria-label','스킬 도감 열기, 발견 '+s.n+' / '+s.m);}catch(e){}
+  }
+  /* ---- 그리기 ---- */
+  function noteHtml(){
+    var h='',lg=C.login;
+    if(C.mem)h+='<p class="cxnote" role="status">⚠ 이 브라우저는 기록을 저장하지 못해요. 이번 방문 동안만 도감이 채워지고, 창을 닫으면 사라져요.'+(lg?' (로그인 중이라 판이 끝나면 서버에는 남아요)':' (디스코드에 로그인하면 판이 끝날 때 서버에 남아요)')+'</p>';
+    if(C.bad)h+='<p class="cxnote" role="status">⚠ 저장돼 있던 도감 기록을 읽지 못해 새로 시작했어요. '+(lg?'로그인 중이라 서버에 남은 기록이 있으면 곧 채워져요.':'다음에 발견하는 것부터 다시 저장돼요.')+'</p>';
+    return h;
+  }
+  function syncHtml(){
+    if(C.mem)return '';
+    return '<p class="cxsync">'+(C.login?'🔐 로그인 중이에요 — 판이 끝날 때 도감도 서버에 저장돼서, 다른 기기에서도 같은 도감이 보여요.':'💾 이 기기에 저장돼요. 디스코드로 로그인하면 판이 끝날 때 서버에도 저장돼서 다른 기기에서도 보여요.')+'</p>';
+  }
+  function sumHtml(s){
+    var pct=s.m?Math.floor(s.n*100/s.m):0;
+    var h='<div class="cxprog"><b>'+s.n+' / '+s.m+'</b><span>발견했어요</span><span class="cxpct">'+pct+'%</span></div>'+
+      '<div class="cxbar" role="progressbar" aria-label="도감 진행" aria-valuemin="0" aria-valuemax="'+s.m+'" aria-valuenow="'+s.n+'"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="cxtabs" role="tablist" aria-label="스킬 종류">';
+    TABS.forEach(function(t){var b=s.by[t[0]],on=U.tab===t[0];
+      h+='<button type="button" role="tab" class="cxtab" id="cxTab_'+t[0]+'" data-t="'+t[0]+'" aria-selected="'+on+'" aria-controls="cxPanel" tabindex="'+(on?'0':'-1')+'" aria-label="'+(t[3]||t[2])+' '+b[0]+' / '+b[1]+'">'+
+        '<span class="cxti" aria-hidden="true">'+t[1]+'</span><span>'+t[2]+'</span><span class="cxtc">'+b[0]+'/'+b[1]+'</span></button>';});
+    return h+'</div>';
+  }
+  function tileHtml(v,i){
+    if(v.locked)return '<button type="button" class="cxt lock" data-i="'+i+'" aria-expanded="false" aria-label="아직 못 만난 스킬"><span class="cxic" aria-hidden="true">❓</span><span class="cxnm">???</span></button>';
+    return '<button type="button" class="cxt" data-i="'+i+'" aria-expanded="false" aria-label="'+cxEsc(v.nm+(v.who?' — '+v.who.nm+' 전용':''))+'"><span class="cxic" aria-hidden="true">'+cxEsc(v.ic)+'</span><span class="cxnm">'+cxEsc(v.nm)+'</span>'+
+      (v.who?'<span class="cxwho" aria-hidden="true">'+cxEsc(v.who.e)+'</span>':'')+'</button>';
+  }
+  function panelHtml(){
+    var list=U.list=U.view.filter(function(v){return v.cat===U.tab;});
+    var h='<p class="cxtip">'+TIP[U.tab]+'</p>';
+    if(U.tab==='x'){
+      SUBS.forEach(function(sb){var tl='',n=0,m=0;
+        list.forEach(function(v,i){if(v.sub!==sb[0])return;m++;if(!v.locked)n++;tl+=tileHtml(v,i);});
+        h+='<h3 class="cxh3">'+sb[1]+'<span>'+n+'/'+m+'</span></h3><div class="cxgrid" role="group" aria-label="'+cxEsc(sb[1])+'">'+tl+'</div>';});
+    }else h+='<div class="cxgrid">'+list.map(tileHtml).join('')+'</div>';
+    return h;
+  }
+  function lis(arr,lab){var h='<ol class="cxlv">';for(var i=0;i<arr.length;i++)h+='<li><b>'+cxEsc(lab(i))+'</b><span>'+cxEsc(arr[i])+'</span></li>';return h+'</ol>';}
+  function head(v,sub){return '<div class="cxdh"><span class="cxic" aria-hidden="true">'+cxEsc(v.ic)+'</span><div><b>'+cxEsc(v.nm)+'</b><span class="cxsm">'+cxEsc(sub)+'</span></div></div>';}
+  function who2(v,tail){return v.who?'<p class="cxwho2">'+cxEsc(v.who.e)+' <b>'+cxEsc(v.who.nm)+' 전용</b>'+cxEsc(tail)+'</p>':'';}
+  function wDetail(v){
+    var n=v.lv.length,h=head(v,v.who?(v.rl||'고유 무기'):'공용 무기'+(v.rl?' · '+v.rl:''))+who2(v,' — 이 캐릭터로 판을 시작하면 처음부터 들고 있어요'+(v.startLv>1?' (Lv'+v.startLv+' 로 시작)':''));
+    h+='<h4>레벨별 효과</h4>'+lis(v.lv,function(i){return 'Lv'+(i+1);});
+    if(v.ev){   // 각성 형태가 없는 무기가 생기면 이 칸은 통째로 뺀다
+      h+='<h4>✨ 각성</h4><p class="cxsm">각성 조건: 무기 Lv'+n+' + '+(!v.pair?'짝 패시브':v.pair.hid?'짝 패시브 ❓(아직 못 만난 패시브)':'짝 패시브 '+cxEsc(v.pair.ic+' '+v.pair.nm))+' → 보스 상자에서 각성'+(C.maxEv?'(한 판에 '+C.maxEv+'개까지)':'')+'</p>';
+      h+=v.ev.hid?'<p class="cxlk">✨ 각성: ??? (아직 각성시켜 본 적 없어요)</p>':'<p class="cxev"><b>'+cxEsc(v.ev.ic+' '+v.ev.nm)+'</b><br>'+cxEsc(v.ev.ds)+'</p>';
+    }
+    if(v.ms){
+      if(v.ms.hid)h+='<h4>🏅 마스터 단계</h4><p class="cxlk">??? (아직 마스터 카드를 골라 본 적 없어요)</p>';
+      else{
+        h+='<h4>🏅 마스터 단계</h4>'+lis(v.ms.m,function(i){return (i+1)+'단계';});
+        if(v.ms.e)h+='<h4>✨ 각성 단계</h4>'+lis(v.ms.e,function(i){return (v.ms.m.length+i+1)+'단계';});
+        else h+='<p class="cxsm">✨ 각성시키면 '+(v.ms.m.length+1)+'단계부터 더 이어져요.</p>';
+      }
+    }
+    return h;
+  }
+  function pDetail(v){
+    var h=head(v,'최대 Lv'+v.max)+'<p>'+cxEsc(v.ds)+'</p>',P=v.pairs;
+    if(P.seen.length||P.hid)h+='<h4>🤝 각성 짝 무기</h4><p>'+P.seen.map(function(w){return cxEsc(w.ic+' '+w.nm);}).join(' · ')+(P.hid?(P.seen.length?' · ':'')+'❓ ×'+P.hid+' (아직 못 만난 무기)':'')+'</p><p class="cxsm">그 무기를 Lv8 까지 키우고 이 패시브를 갖추면 보스 상자에서 각성해요.</p>';
+    if(v.pt)h+='<h4>🌟 초월</h4>'+(v.pt.hid?'<p class="cxlk">??? (아직 초월시켜 본 적 없어요)</p>':lis(v.pt.lv,function(i){return '초월 '+(i+1);}));
+    return h;
+  }
+  function detailHtml(v){
+    if(v.locked)return '<p class="cxlk">'+(v.cat==='s'?LOCKS:LOCK)+'</p>';
+    if(v.cat==='w')return wDetail(v);
+    if(v.cat==='p')return pDetail(v);
+    if(v.cat==='r')return head(v,v.who?'⭐ 시그니처 유물':'🏺 유물')+who2(v,' — 그 캐릭터로 할 때만 나와요')+'<h4>단계별 효과</h4>'+lis(v.lv,function(i){return 'Lv'+(i+1);});
+    if(v.cat==='s'){
+      var q=v.req.map(function(w){return w.hid?'❓ ???':cxEsc(w.ic+' '+w.nm)+(w.who?' ('+cxEsc(w.who.e+' '+w.who.nm)+' 전용)':'');}).join(' + ');
+      return head(v,'🔗 시너지')+'<p>'+cxEsc(v.ds)+'</p><h4>필요한 무기</h4><p>'+q+'</p><p class="cxsm">이 무기들을 한 판에 모두 갖고 있으면 저절로 켜져요.</p>';
+    }
+    if(v.sub==='tr')return head(v,'⚖ 거래 카드')+'<p>'+cxEsc(v.ds)+'</p><p class="cxsm">얻는 만큼 잃어요 · 최대 '+v.cap+'번</p>';
+    if(v.sub==='sm')return head(v,'🍴 작은 능력치')+'<p>'+cxEsc(v.unit)+' +'+cxEsc(v.first)+'</p><p class="cxsm">먹을수록 효과가 '+cxEsc(v.dec)+'배씩 줄어요 · 최대 '+v.cap+'번 · 다 먹으면 합계 +'+cxEsc(v.total)+'</p>';
+    return head(v,'🎁 일회용')+'<p>'+cxEsc(v.ds)+'</p><p class="cxsm">한 번 쓰면 사라지는 카드예요.</p>';
+  }
+  function reveal(d){   // 펼친 칸의 위쪽이 요약줄에 가리지 않게, 아래가 잘리면 필요한 만큼만 스크롤한다(칸이 화면보다 길면 위쪽부터 읽게)
+    var b=$('cxBody'),s=$('cxSum');if(!b||!d)return;
+    var br=b.getBoundingClientRect(),dr=d.getBoundingClientRect(),top=br.top+((s&&window.getComputedStyle(s).position==='sticky')?s.offsetHeight:0)+4,dy=0;
+    if(dr.top<top)dy=dr.top-top;else if(dr.bottom>br.bottom-4)dy=Math.min(dr.bottom-br.bottom+4,dr.top-top);
+    if(dy)b.scrollTop+=dy;
+  }
+  function renderAll(){
+    var b=$('cxBody');
+    try{
+      var s=C.stat();U.view=C.view();
+      b.innerHTML=noteHtml()+'<div class="cxsum" id="cxSum">'+sumHtml(s)+'</div>'+syncHtml()+'<div id="cxPanel" role="tabpanel" aria-labelledby="cxTab_'+U.tab+'" tabindex="-1">'+panelHtml()+'</div>';
+    }catch(e){   // 표가 바뀌다 어긋나는 따위로 그리지 못해도 게임은 그대로 — 빈 창 대신 안내를 둔다
+      U.view=[];U.list=[];b.innerHTML='<p class="cxnote" role="alert">도감을 그리지 못했어요. 페이지를 새로고침해 주세요.</p>';
+    }
+  }
+  function closeDetail(){
+    var d=$('cxD');if(d&&d.parentNode)d.parentNode.removeChild(d);
+    var ex=document.querySelectorAll('#cxPanel .cxt[aria-expanded="true"]');
+    for(var i=0;i<ex.length;i++){ex[i].setAttribute('aria-expanded','false');ex[i].removeAttribute('aria-controls');}
+    U.open=-1;
+  }
+  function openDetail(btn,quiet){
+    var i=+btn.getAttribute('data-i'),v=U.list[i];if(!v)return;
+    var d=document.createElement('div');d.id='cxD';d.className='cxd';d.setAttribute('role','region');
+    d.setAttribute('aria-label',v.locked?'아직 못 만난 스킬 설명':v.nm+' 설명');
+    d.innerHTML=detailHtml(v);
+    btn.parentNode.insertBefore(d,btn.nextSibling);   // 격자가 dense 라서 이 칸이 있는 줄 바로 아래에 펼쳐진다
+    btn.setAttribute('aria-expanded','true');btn.setAttribute('aria-controls','cxD');U.open=i;
+    if(!quiet)reveal(d);
+  }
+  function onTile(btn){var i=+btn.getAttribute('data-i'),was=U.open;closeDetail();if(was!==i)openDetail(btn);}
+  function setTab(t,focus){
+    if(U.tab===t)return;
+    U.tab=t;U.open=-1;
+    var tabs=document.querySelectorAll('#cxBody .cxtab');
+    for(var i=0;i<tabs.length;i++){var on=tabs[i].getAttribute('data-t')===t;tabs[i].setAttribute('aria-selected',String(on));tabs[i].setAttribute('tabindex',on?'0':'-1');if(on&&focus)tabs[i].focus();}
+    var p=$('cxPanel');p.setAttribute('aria-labelledby','cxTab_'+t);p.innerHTML=panelHtml();
+    $('cxBody').scrollTop=0;
+  }
+  /* 열려 있는 동안 발견이 늘면(서버에서 합쳐 오거나 다른 탭이 저장) 지금 보던 탭·펼친 칸·스크롤을 지킨 채 다시 그린다 */
+  function refresh(){
+    var b=$('cxBody'),top=b.scrollTop,keep=U.open,a=document.activeElement,ft=a&&a.getAttribute&&a.getAttribute('data-t'),fi=a&&a.getAttribute&&a.getAttribute('data-i');
+    renderAll();
+    if(keep>=0){var t=document.querySelector('#cxPanel .cxt[data-i="'+keep+'"]');if(t)openDetail(t,true);}
+    b.scrollTop=top;
+    var f=ft?document.getElementById('cxTab_'+ft):fi?document.querySelector('#cxPanel .cxt[data-i="'+fi+'"]'):null;if(f){try{f.focus({preventScroll:true});}catch(e){}}
+  }
+  /* ---- 열기 · 닫기 ---- */
+  function openDex(){
+    if(U.opened||!titleOn())return;
+    U.opened=true;U.focusBack=document.activeElement;
+    try{C.sync();}catch(e){}
+    U.open=-1;renderAll();
+    $('cxOv').classList.add('on');$('cxBody').scrollTop=0;
+    var x=$('cxX');if(x)x.focus();
+  }
+  function closeDex(noFocus){
+    if(!U.opened)return;
+    U.opened=false;$('cxOv').classList.remove('on');
+    var f=U.focusBack;U.focusBack=null;
+    if(!noFocus&&f&&f.focus&&document.contains(f)){try{f.focus();}catch(e){}}
+  }
+  function init(){
+    var ov=$('cxOv'),btn=$('cxOpen'),body=$('cxBody');if(!ov||!btn||!body)return;
+    btn.addEventListener('click',openDex);
+    $('cxX').addEventListener('click',function(){closeDex();});
+    ov.addEventListener('pointerdown',function(e){U.bd=(e.target===ov);});
+    ov.addEventListener('click',function(e){if(e.target===ov&&U.bd!==false)closeDex();U.bd=null;});
+    body.addEventListener('click',function(e){
+      var t=e.target;if(!t||!t.closest)return;
+      var tb=t.closest('.cxtab');if(tb){setTab(tb.getAttribute('data-t'),false);return;}
+      var c=t.closest('.cxt');if(c)onTile(c);
+    });
+    document.addEventListener('keydown',function(e){
+      if(!U.opened)return;
+      if(e.key==='Escape'||e.code==='Escape'){e.preventDefault();e.stopPropagation();closeDex();return;}
+      var tb=e.target&&e.target.closest?e.target.closest('.cxtab'):null;
+      if(tb&&(e.key==='ArrowRight'||e.key==='ArrowLeft'||e.key==='Home'||e.key==='End')){   // 탭 목록: 화살표로 옮기면 바로 그 탭이 열린다
+        var k=TABS.map(function(t){return t[0];}),i=k.indexOf(tb.getAttribute('data-t'));
+        i=e.key==='Home'?0:e.key==='End'?k.length-1:(i+(e.key==='ArrowRight'?1:-1)+k.length)%k.length;
+        e.preventDefault();setTab(k[i],true);return;
+      }
+      if(e.key==='Tab'){
+        var all=ov.querySelectorAll('button:not([disabled])'),f=[];for(var j=0;j<all.length;j++)if(all[j].getAttribute('tabindex')!=='-1'&&all[j].offsetParent!==null)f.push(all[j]);
+        if(!f.length)return;var a=f[0],z=f[f.length-1],cur=document.activeElement;
+        if(!ov.contains(cur)){e.preventDefault();a.focus();}else if(e.shiftKey&&cur===a){e.preventDefault();z.focus();}else if(!e.shiftKey&&cur===z){e.preventDefault();a.focus();}
+      }
+    },true);
+    /* 키아트 폭이 넉넉하면(≥262px) 버튼 글자를 「스킬 도감」 으로, 좁으면 「도감」 으로 — 폭은 화면 높이에도 따라 달라져서(.key 의 max-height) CSS 만으로는 못 가른다 */
+    var key=document.querySelector('#title .key');
+    if(key){var fit=function(){key.classList.toggle('cxw',key.clientWidth>=262);};fit();
+      if(typeof ResizeObserver==='function')new ResizeObserver(fit).observe(key);else addEventListener('resize',fit);}
+    /* 첫 화면이 사라지면(= 게임 시작·이어하기) 겹창도 닫고, 첫 화면으로 돌아오면 배지를 다시 센다 */
+    var tt=$('title');
+    if(tt&&typeof MutationObserver==='function')new MutationObserver(function(){if(tt.classList.contains('on'))badge();else closeDex(true);}).observe(tt,{attributes:true,attributeFilter:['class']});
+    C.on(function(){if(U.opened)refresh();if(titleOn())badge();});   // 판 도중의 발견은 첫 화면이 돌아올 때 센다
+    badge();
+  }
+  window.__cxui={open:openDex,close:closeDex,get opened(){return U.opened;},get tab(){return U.tab;}};
+  init();
 })();
 </script>
 </body>
