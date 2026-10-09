@@ -52,6 +52,8 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 #rgb i{background:linear-gradient(90deg,#c4551f,#ff9a3c)}
 #xpb i{background:linear-gradient(90deg,var(--acc2),var(--acc),#ffb27a)} #hpb i{background:var(--lose)}
 .hrow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;font-size:13px;font-weight:700;text-shadow:0 1px 2px #000}
+#hpb{position:relative;height:14px}#hpt{position:absolute;left:0;right:0;top:0;line-height:12px;font-size:11px;font-weight:700;text-align:center;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums;text-shadow:0 0 2px #000,0 1px 2px #000,0 0 3px #000;pointer-events:none}   /* ❤️ [2026-10-09 사장님 지시 "체력슛자표기 해주고"] 체력 막대 안에 「현재 / 최대」 — 막대 8→14px */
+#mhpSrc{margin:4px 0}#mhpSrc summary{cursor:pointer;padding:2px 0;color:var(--sub);font-size:12px}#mhpSrc .mr{display:flex;justify-content:space-between;gap:8px;padding:1px 0}#mhpSrc .mr b{white-space:nowrap}   /* 일시정지의 최대 체력 출처표(접이식) */
 #pauseBtn,#sndBtn{pointer-events:auto;background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:2px 10px;font:inherit}
 #bossb{margin-top:6px;display:none}#bossb .bar i{background:var(--gold)}
 .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(9,12,28,.8);z-index:5}
@@ -195,7 +197,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 <div id="hud">
   <div class="bar" id="xpb"><i></i></div>
   <div class="hrow"><span id="hLv">Lv 1</span><span id="hTime">00:00</span><span id="hKill">💀 0</span><span><button id="sndBtn" aria-label="소리 켜기/끄기">🔊</button> <button id="pauseBtn">⏸</button></span></div>
-  <div class="bar" id="hpb" style="margin-top:6px;max-width:220px"><i></i></div>
+  <div class="bar" id="hpb" style="margin-top:6px;max-width:220px"><i></i><span id="hpt"></span></div>
   <div id="rgw" style="display:none;margin-top:4px;max-width:220px"><div class="bar" id="rgb" style="height:9px"><i></i></div><div id="rgt" style="font-size:11px;color:#ffd9a0;margin-top:1px;text-shadow:0 1px 2px #000"></div></div>
   <div id="bossb"><div class="muted" id="bossName" style="color:var(--gold)"></div><div class="bar"><i></i></div></div>
 </div>
@@ -1257,7 +1259,7 @@ function makeS(dly){return {t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
      cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,cardW:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
      sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{},   // tcd 💬 도발 대사 종류별 다음 허용 시각
      newU:[],staffT:5,slowR:0,proomT:6,proom:{x:0,y:0,R:0,t:0,tk:0},dashCd:0,br:{a:0,R:0,w:0,t:0,ev:0},
-     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9};}   // 🔁 [2026-10-08] 새 판의 S 기본값 — 이어하기가 복구할 때 이 위에 저장값을 얹는다(새로 생긴 필드가 기본값을 받는다)
+     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},mhpBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9};}   // 🔁 [2026-10-08] 새 판의 S 기본값 — 이어하기가 복구할 때 이 위에 저장값을 얹는다(새로 생긴 필드가 기본값을 받는다)
 function newRun(dly){
   RSEED=dly?dly.seed:0;RIFT_CACHE.clear();RDEV.clear();   // 🗺 일일 도전은 같은 날 같은 맵 — 바닥 조각 난수에 시드를 섞고 캐시를 비운다
   enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
@@ -1328,7 +1330,7 @@ function contEndless(){   // ♾ 60분 클리어 뒤 이어서 — 일반·하�
   banner('♾ 무한 모드 — 여기서부터 기록이 따로 올라가요','난이도는 +30분 치까지만 오르고 멈춘다 · 180분이 한계',2);}
 function buildHtml(){
   const wk=Object.keys(S.w),pk=Object.keys(S.ps);
-  let h=`<div class="build"><b>⚔ 무기 ${wk.length}/${SLOTW}</b>`;
+  let h=`<div class="build">`+hpHtml()+`<b>⚔ 무기 ${wk.length}/${SLOTW}</b>`;
   for(const k of wk){const d=WEAP[k],L=S.w[k],pp=PASS[d.pair];
     const tn=S.tier[k]?` <span class="muted">${S.ev[k]?'✨':'🏅'}${S.tier[k]}/${TCAP(k)}</span>`:'';
     h+=S.ev[k]?`<div class="bw ev">${d.ev.ic} <b>${d.ev.nm}</b> <span class="new">✨ 각성</span>${tn}</div>`
@@ -1341,6 +1343,31 @@ function buildHtml(){
   h+=dmgHtml();
   const nb=Math.min(S.nextBoss,S.nextMini);
   h+=`<div class="muted">다음 보스 ${nb<(S.endless?1e9:WIN_T)?fmt(nb):'—'} · ${S.endless?'♾ 무한 모드 — 난이도는 +30분 치에서 멈춰요 · 180:00 이 한계':'60:00 까지 버티면 클리어'}</div></div>`;return h;}
+// ❤️ [2026-10-09 사장님 지시 "체력슛자표기 해주고"] 최대 체력 숫자 — 최대 체력을 바꾸는 곳은 applyUp 의 네 군데뿐이고 전부 mhpAdd 로 모은다(S.mhpBy = 출처별 합).
+//   표시만 바꾼다(난수·규칙 불변). 새 경로가 생기면 mhpAdd 를 쓸 것 — 안 쓰면 일시정지 표에 「⚠ 기타」가 뜨고 tests/survivors_hpnum_test.py 가 잡는다.
+function mhpAdd(k,v){S.p.mhp+=v;S.mhpBy[k]=(S.mhpBy[k]||0)+v;}
+const MHPN={hp:'❤️ 최대 HP 패시브',pt:'🌟 초월',sm:'🍚 든든한 밥',glassc:'🗡 유리 대포',focus:'🎯 정조준',tr:'⚖ 거래 카드'};   // tr: 옛 저장분 복구 때 유리 대포·정조준을 가를 수 없을 때만 쓰는 합산 칸
+function smHpGain(n){return Math.round(SM.hp.base*Math.pow(SM.hp.dec,n+1)/SM.hp.dec);}   // 🍚 n번 먹은 뒤 다음 한 입이 올리는 최대 HP(applyUp 과 같은 식)
+function mhpCut(r){return Math.min(r==='glassc'?12:10,S.p.mhp-60);}   // 거래 카드가 깎는 최대 HP(60 아래로는 안 내려간다)
+function mhpPre(o){   // 이 카드를 고르면 최대 HP 가 얼마나 바뀌나(applyUp 과 같은 규칙) — 안 바뀌면 0
+  if(o.t==='p'&&o.k==='hp')return 25;
+  if(o.t==='pt'&&o.p==='hp'&&!S.pt.hp)return 25;
+  if(o.t==='tr'&&(o.r==='glassc'||o.r==='focus'))return -Math.max(0,mhpCut(o.r));
+  if(o.t==='sm'&&o.r==='hp')return smHpGain(smn('hp'));
+  return 0;}
+function mhpTag(o){const d=mhpPre(o);return d?` <span style="font-weight:700;white-space:nowrap">(최대 체력 ${Math.round(S.p.mhp)} → ${Math.round(S.p.mhp+d)})</span>`:'';}   // b 태그는 카드 안에서 줄을 바꿔 버린다 — 글줄 끝에 이어 붙는 굵은 글씨로
+function hpText(){const mh=Math.round(S.p.mhp);return Math.min(mh,Math.max(0,Math.ceil(S.p.hp)))+' / '+mh;}   // 현재는 올림(살아 있으면 최소 1) · 최대는 반올림
+function mhpSrc(){const mh=Math.round(S.p.mhp),ch=CH.hp||0,rows=[];let sum=100+ch;
+  for(const k in MHPN){const v=Math.round(S.mhpBy[k]||0);if(v){rows.push([k,v]);sum+=v;}}
+  return {mh,base:100,ch,rows,etc:mh-sum};}   // etc = 출처로 설명 안 되는 몫(0 이어야 한다)
+function mhpGuess(){   // 옛 저장본(mhpBy 가 없던 빌드)을 불러올 때 현재 상태에서 출처를 다시 짠다 — 거래 카드 몫은 나머지로 추정
+  const by={},mh=Math.round(S.p.mhp);let s=100+(CH.hp||0);const add=(k,v)=>{if(v){by[k]=v;s+=v;}};
+  add('hp',25*pv('hp'));add('pt',S.pt.hp>0?25:0);let g=0;for(let i=0;i<smn('hp');i++)g+=smHpGain(i);add('sm',g);
+  const r=mh-s,a=trn('glassc'),b=trn('focus');if(r&&a&&!b)by.glassc=r;else if(r&&b&&!a)by.focus=r;else if(r&&a&&b)by.tr=r;
+  return by;}
+function hpHtml(){const m=mhpSrc(),f=v=>(v>0?'+':'−')+Math.abs(v),row=(n,v,k)=>`<div class="mr"${k?` data-mk="${k}"`:''}><span>${n}</span><b>${v}</b></div>`;
+  let r=row('기본',100,'base');if(m.ch)r+=row(`${CH.e} ${esc(CH.sn||CH.nm)}`,f(m.ch),'ch');for(const [k,v] of m.rows)r+=row(MHPN[k],f(v),k);if(m.etc)r+=row('⚠ 기타',f(m.etc),'etc');
+  return `<b>❤️ 체력 <span id="pHp">${hpText()}</span></b><details id="mhpSrc" class="bw"><summary>최대 체력 <b>${m.mh}</b> — 어디서 왔나요? (눌러서 보기)</summary>${r}</details>`;}
 const SRCN={drg:'🐲 용 변신',char:'🐲 캐릭터 능력',item:'💣 폭탄',kog:'💥 코그모 역이용',rel:'🏺 유물'};
 function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)return '';   // 📊 무기별 피해 비중 — 내 빌드에서 뭐가 일하는지
   const rows=Object.entries(S.dmgBy).sort((a,b)=>b[1]-a[1]).slice(0,6);
@@ -1395,18 +1422,18 @@ function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
     return {ic:d.ic,nm:d.nm,ty:o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`,ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
       +`<br><span class="hint">각성 조건: ${d.ic} Lv${MAXLV} + ${pp.ic} ${pp.nm}${pv(d.pair)?' ✔':''} → ${d.ev.ic} ${d.ev.nm}${el>0?` (각성 ${MAXEV-el}/${MAXEV})`:' — ⚠ 각성 3개를 다 썼어요'}</span>`+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
-  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':`🎒 새 패시브 · 슬롯 ${Object.keys(S.ps).length+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+(w.length?`<br><span class="hint">각성 짝: ${w.map(k=>WEAP[k].ic+' '+WEAP[k].nm+(S.w[k]?' (보유)':'')).join(' · ')}</span>`:''),lv:`Lv ${o.l}→${o.l+1}`};}
+  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':`🎒 새 패시브 · 슬롯 ${Object.keys(S.ps).length+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+(w.length?`<br><span class="hint">각성 짝: ${w.map(k=>WEAP[k].ic+' '+WEAP[k].nm+(S.w[k]?' (보유)':'')).join(' · ')}</span>`:''),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
     return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화`,
       ds:`<b>${nm} Lv${l} → ${l+1}:</b> ${T[l][0]}<br><span class="hint">지금 Lv${l}/${cap}${have?' — '+have:''}${ev?'':' · 각성하면 5단계까지'}</span>`,lv:`${ev?'✨':'🏅'} ${l}→${l+1}`};}
   if(o.t==='pt'){const d=PASS[o.p],T=PT[o.p],l=o.l;
-    return {ic:d.ic,nm:d.nm+' 초월',ty:'🌟 패시브 초월',ds:`<b>🌟 초월 Lv${l} → ${l+1}:</b> ${T[l]}<span class="muted"> (초월 ${T.length}단계까지)</span>`,lv:`🌟 ${l}→${l+1}`};}
+    return {ic:d.ic,nm:d.nm+' 초월',ty:'🌟 패시브 초월',ds:`<b>🌟 초월 Lv${l} → ${l+1}:</b> ${T[l]}<span class="muted"> (초월 ${T.length}단계까지)</span>`+mhpTag(o),lv:`🌟 ${l}→${l+1}`};}
   if(o.t==='rl'){const d=REL[o.r],l=o.l;
     return {ic:d.ic,nm:d.nm,ty:d.ch?(l?'⭐ 시그니처 유물 강화':'⭐ 새 시그니처 유물 · 이 캐릭터 전용'):l?'🏺 유물 강화':'🏺 새 유물 · 고유 규칙',ds:(l?`<b>Lv${l} → ${l+1}:</b> `:'')+d.ds(l+1)+`<span class="muted"> (최대 Lv3)</span>`,lv:l?`🏺 ${l}→${l+1}`:'새 유물'};}
-  if(o.t==='tr'){const d=TRD[o.r],l=o.l;return {ic:d.ic,nm:d.nm,ty:'⚖ 거래 — 얻는 만큼 잃어요',ds:`${d.ds}<span class="muted"> (최대 ${d.cap||3}번 · 지금 ${l}번)</span>`,lv:`⚖ ${l}→${l+1}`};}
+  if(o.t==='tr'){const d=TRD[o.r],l=o.l;return {ic:d.ic,nm:d.nm,ty:'⚖ 거래 — 얻는 만큼 잃어요',ds:`${d.ds}<span class="muted"> (최대 ${d.cap||3}번 · 지금 ${l}번)</span>`+mhpTag(o),lv:`⚖ ${l}→${l+1}`};}
   if(o.t==='sm'){const m=SM[o.r],v=smNext(o.r),tot=smv(o.r),n=smn(o.r),f=x=>m.pct?Math.round(x*1000)/10+'%':Math.round(x);
-    return {ic:m.ic,nm:m.nm,ty:o.r==='ramen'?'🍴 간식 — 드물고 먹을수록 약해져요':'🍴 작은 능력치 — 먹을수록 약해져요',ds:`${m.unit} +${f(v)}<span class="muted"> (지금까지 +${f(tot)} · ${n}/${m.cap}번)</span>`,lv:o.r==='ramen'?'':`${n}→${n+1}`};}
+    return {ic:m.ic,nm:m.nm,ty:o.r==='ramen'?'🍴 간식 — 드물고 먹을수록 약해져요':'🍴 작은 능력치 — 먹을수록 약해져요',ds:`${m.unit} +${f(v)}<span class="muted"> (지금까지 +${f(tot)} · ${n}/${m.cap}번)</span>`+mhpTag(o),lv:o.r==='ramen'?'':`${n}→${n+1}`};}
   if(o.t==='co'){const d=CO[o.r];return {ic:d.ic,nm:d.nm,ty:'🎁 일회용',ds:d.ds,lv:''};}
   return {ic:'🍗',nm:'치킨 한 조각',ty:'🍴 간식',ds:`HP ${Math.round(chkHeal()*100)}% 회복`,lv:''};
 }
@@ -1420,7 +1447,7 @@ function drawCards(){
   x.innerHTML=`<button class="btn g" id="rrBtn" ${S.rr>0?'':'disabled'}>🎲 다시 뽑기 (${S.rr})</button><button class="btn g${S.banMode?' on':''}" id="banBtn" ${S.ban>0?'':'disabled'}>🚫 봉인${S.banMode?' — 카드를 고르세요':''} (${S.ban})</button>`;
   box.appendChild(x);
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
-  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${Object.keys(S.ps).length}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''}`;}
+  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${Object.keys(S.ps).length}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;}   // ❤️ 현재/최대는 줄바꿈 때 쪼개지 않는다
 function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;
   const rep=offers(1,CUR.map(x=>x.k).filter(Boolean))[0];CUR[i]=rep;toast(`🚫 ${cardOf(o).nm} 봉인`);drawCards();RES.save('ban');}
@@ -1431,13 +1458,13 @@ function openLvup(){
 }
 function applyUp(o){
   if(o.t==='w'){S.w[o.k]=(S.w[o.k]||0)+1;synCalc();}
-  else if(o.t==='p'){S.ps[o.k]=pv(o.k)+1;if(o.k==='hp'){S.p.mhp+=25;S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
+  else if(o.t==='p'){S.ps[o.k]=pv(o.k)+1;if(o.k==='hp'){mhpAdd('hp',25);S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
   else if(o.t==='wt'){S.tier[o.w]=(S.tier[o.w]||0)+1;tkCalc();const d=WEAP[o.w];txt(S.p.x,S.p.y-34,`${S.ev[o.w]?'✨':'🏅'} ${d.nm} ${S.tier[o.w]}`,'#ffd36a');}
-  else if(o.t==='pt'){S.pt[o.p]=(S.pt[o.p]||0)+1;if(o.p==='hp'&&S.pt.hp===1){S.p.mhp+=25;S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
+  else if(o.t==='pt'){S.pt[o.p]=(S.pt[o.p]||0)+1;if(o.p==='hp'&&S.pt.hp===1){mhpAdd('pt',25);S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
   else if(o.t==='rl')S.rel[o.r]=(S.rel[o.r]||0)+1;
-  else if(o.t==='tr'){S.tr[o.r]=trn(o.r)+1;if(o.r==='glassc'||o.r==='focus'){const c=Math.min(o.r==='glassc'?12:10,S.p.mhp-60);if(c>0){S.p.mhp-=c;S.p.hp=Math.min(S.p.hp,S.p.mhp);}}}
+  else if(o.t==='tr'){S.tr[o.r]=trn(o.r)+1;if(o.r==='glassc'||o.r==='focus'){const c=mhpCut(o.r);if(c>0){mhpAdd(o.r,-c);S.p.hp=Math.min(S.p.hp,S.p.mhp);}}}
   else if(o.t==='sm'){if(o.r==='ramen')S.ramen++;else S.sm[o.r]=(S.sm[o.r]||0)+1;
-    if(o.r==='hp'){const v=Math.round(smNext(o.r)/SM.hp.dec);S.p.mhp+=v;S.p.hp=Math.min(S.p.mhp,S.p.hp+v);}}
+    if(o.r==='hp'){const v=Math.round(smNext(o.r)/SM.hp.dec);mhpAdd('sm',v);S.p.hp=Math.min(S.p.mhp,S.p.hp+v);}}
   else if(o.t==='co'){
     if(o.r==='feast')S.p.hp=S.p.mhp;
     else if(o.r==='pulse'){S.pulseT=S.t;relPulse(.3);}
@@ -3563,6 +3590,7 @@ function fitFont(pre,px,s){cx.font=pre+px+'px sans-serif';const w=cx.measureText
 function hud(){
   $('xpb').firstElementChild.style.width=(S.xp/S.need*100)+'%';
   $('hpb').firstElementChild.style.width=(S.p.hp/S.p.mhp*100)+'%';
+  {const t=hpText(),e=$('hpt');if(e._s!==t){e._s=t;e.textContent=t;}}   // ❤️ 숫자는 문자열이 바뀔 때만 DOM 에 쓴다(요소에 마지막 글자를 기억 — 새 최상위 변수를 만들지 않는다)
   $('hLv').textContent='Lv '+S.lv;$('hTime').textContent=(S.endless?'♾ ':S.dly?'📅 ':S.vh?'💀 ':S.hard?'🔥 ':'')+fmt(S.t)+(S.endless?'':' / 60:00');$('hKill').textContent='💀 '+S.kills;{const w=$('rgw');w.style.display=CH.shv?'block':'none';
     if(CH.shv){const dr=S.dT>0,tot=SHV.dur+[0,1.5,2.5,3.5][SGN('sg_psg')];const i=$('rgb').firstElementChild;i.style.width=(dr?S.dT/tot*100:S.rg/SHV.max*100)+'%';i.style.background=dr?'linear-gradient(90deg,#ff5a1f,#ffd36a)':'';
       $('rgt').textContent=dr?'🐲 용 변신 '+Math.ceil(S.dT)+'초':'🔥 분노 '+Math.floor(S.rg)+'%';}}
@@ -3798,6 +3826,7 @@ const RES=(()=>{
     for(const T of [S.w,S.ps,S.ev,S.rel,S.tr,S.sm,S.tier,S.pt])for(const k in T){const v=T[k];if(!(typeof v==='boolean'||(typeof v==='number'&&Number.isFinite(v))))bad('value '+k);}   // 이 값들은 화면 문구에 그대로 들어간다 — 숫자·참거짓이 아니면 거부
     if(S.ramen!=null&&!Number.isFinite(S.ramen))bad('ramen');
     if(!isPO(S.dmgBy))bad('dmgBy');for(const k in S.dmgBy){if(!/^[\w\-]{1,24}$/.test(k)||!Number.isFinite(S.dmgBy[k]))bad('dmgBy.'+k);}   // 키는 피해 비중 문구에 들어간다
+    if(!isPO(S.mhpBy))bad('mhpBy');for(const k in S.mhpBy){if(!/^[\w\-]{1,24}$/.test(k)||!Number.isFinite(S.mhpBy[k]))bad('mhpBy.'+k);}
     if(!Array.isArray(S.live))bad('live');
     for(const e of S.live){if(!Number.isFinite(e.x)||!Number.isFinite(e.y)||!Number.isFinite(e.hp))bad('enemy');if(!e.boss&&!KIND[e.ki])bad('kind '+e.ki);}
     if(S.dly&&(!isPO(S.dly)||!isPO(S.dly.rq)||typeof S.dly.date!=='string'))bad('dly');
@@ -3815,6 +3844,7 @@ const RES=(()=>{
     const L=load(o),mod=L.mod;cl=cl||{gen:(+h.gen||0)+1,nonce:newNonce()};
     CH=CHARS.find(c=>c.k===mod.ch);                                           // makeS 가 CH(시작 무기·체력)를 읽으므로 먼저 맞춘다
     S=mergeFresh(makeS(L.sN.dly||null),L.sN);for(const k of REPLACE_S)if(k in L.sN)S[k]=L.sN[k];
+    if(!('mhpBy' in L.sN))S.mhpBy=mhpGuess();                                 // ❤️ 최대 체력 출처표가 없던 옛 저장본 — 지금 상태에서 다시 짠다(거래 카드 몫은 추정)
     S.live=enemies.a.filter(e=>e.on);
     if(CH.shop&&SRVLOAD&&!SRVUNL.has(CH.k))throw new Error('invalid: shop');  // 구매 목록을 이미 받은 뒤라면 사지 않은 상점 캐릭터 판은 되살리지 않는다(목록 전이면 계속하기 때 한 번 더 본다)
     validate(mod);                                                            // 알 수 없는 키·유한하지 않은 수가 있으면 거부(배포로 무기가 사라진 경우·깨진 저장값)
