@@ -3963,42 +3963,49 @@ def _coach_outcome_tick(s_json, my_cell, kor):
 
 # 🗺️ [2026-10-09 사장님 지시 "고스트밴픽왕이 소환사의협곡이 아닌 다른 맵에서 발동되지않도록"]
 #    고스트밴픽왕은 「커스텀 게임 + 소환사의 협곡(mapId 11)」에서만 작동한다. 종전엔 칼바람(12)만 막아서
-#    칼바람 변형(14)·아레나(30)·스웜(33) 등의 사설 게임에서도 추천 카드가 떴다.
-#    LCU 맵 ID(커뮤니티 문서 기준): 11 소환사의 협곡 · 12 칼바람 나락 · 14 푸주한의 다리 · 21 넥서스 블리츠 ·
-#    22 TFT · 30 아레나 · 33 스웜. (Riot 정적 데이터 maps.json 의 mapId 와 같은 번호)
-#    규칙: 맵 소스(gameData.map.id · gameData.queue.mapId)가 하나라도 11 이 아닌 값을 보고하면 막는다.
-#    소스가 모두 침묵(None)이면 11 로 본다 — 종전 동작을 유지해 협곡 내전이 조용히 꺼지는 회귀를 막기 위한 선택이다.
-#    (위험: 맵 정보가 아예 안 오는 비-협곡 방에서는 계속 뜬다. 그런 응답은 지금까지 관측된 적이 없다 — 실기기 확인 못 함)
+#    칼바람 변형(14)·아레나(30) 등의 사설 게임에서도 추천 카드가 떴다.
+#    맵 번호: 11 소환사의 협곡 · 12 칼바람 나락 · 14 푸주한의 다리 · 21 넥서스 블리츠 · 22 TFT · 30 아레나
+#    (Riot 정적 데이터 https://static.developer.riotgames.com/docs/lol/maps.json 으로 확인. 스웜은 번호를 확인 못 함)
+#    LCU 스키마상 지도는 gameflow 세션 **최상위 map**(id) 에 있고 gameData 안에는 map 이 없다(gameData.queue.mapId 는 있음).
+#    그래서 맵 소스는 ① 세션 최상위 map.id ② gameData.map.id(옛 형태, 보험) ③ gameData.queue.mapId ④ 로비 gameConfig.mapId(마지막 값).
+#    규칙: 소스가 하나라도 11 이 아닌 값을 보고하면 막는다. **0 이하·숫자 아님은 「모름」(침묵)** — 정수 필드의 0 은 값이 없다는 뜻일 수 있어
+#    협곡 내전이 조용히 꺼지지 않게 한다. 소스가 모두 침묵이면 11 로 본다(종전 동작 유지).
+#    (위험: 맵 정보가 아예 안 오는 비-협곡 방에서는 계속 뜬다. 그런 응답은 관측된 적 없음 — 실기기 확인 못 함.
+#     실제 값은 [coach-map] 로그 한 줄(통과·차단 모두)로 남으니 릴리스 뒤 첫 협곡·칼바람 내전 로그로 확인한다)
 COACH_MAP_ID = 11
-_COACH_MAP_GATE = [None]    # 마지막 판정 상태 — 바뀔 때만 로그/카드 정리(폴링마다 반복 출력 금지)
+_COACH_MAP_GATE = [None]    # 마지막 판정 상태 — 바뀔 때만 로그/카드 정리(폴링마다 반복 출력 금지). 챔프셀렉트를 벗어나면 초기화
 
 def _coach_map_int(v):
     try:
         if v is None or isinstance(v, bool): return None
-        return int(v)
+        n = int(v)
+        return n if n > 0 else None      # 0 이하는 「모름」
     except Exception:
         return None
 
-def coach_map_ok(is_custom, map_id, queue_map_id=None):
+def coach_map_ok(is_custom, *map_ids):
     """고스트밴픽왕 작동 조건(순수 함수): 커스텀 게임이고 맵이 소환사의 협곡(11)일 때만 True.
-       map_id·queue_map_id 는 LCU 가 준 원값(없으면 None). 읽을 수 없는 값도 '침묵'으로 본다."""
+       map_ids 는 LCU 가 준 원값들(없으면 None). 읽을 수 없는 값·0 이하는 '침묵'으로 본다."""
     if not is_custom: return False
-    seen = [m for m in (_coach_map_int(map_id), _coach_map_int(queue_map_id)) if m is not None]
+    seen = [m for m in (_coach_map_int(x) for x in map_ids) if m is not None]
     if not seen: return True            # 전부 침묵 → 종전 기본값(11)
     return all(m == COACH_MAP_ID for m in seen)
 
-def _coach_map_gate(is_custom, map_id, queue_map_id=None):
-    """coach_map_ok + 막혔을 때 부수 동작(상태가 바뀔 때 한 번만): 로그 1줄, 남은 추천 카드 정리."""
-    ok = coach_map_ok(is_custom, map_id, queue_map_id)
-    state = ("skip", _coach_map_int(map_id), _coach_map_int(queue_map_id)) if (is_custom and not ok) else None
+def _coach_map_gate(is_custom, top_map=None, gd_map=None, queue_map=None, lobby_map=None):
+    """coach_map_ok + 부수 동작(판정 상태가 바뀔 때 한 번만): 로그 1줄(통과·차단), 막히면 남은 추천 카드 정리."""
+    ok = coach_map_ok(is_custom, top_map, gd_map, queue_map, lobby_map)
+    seen = tuple(_coach_map_int(x) for x in (top_map, gd_map, queue_map, lobby_map))
+    state = (("pass" if ok else "skip"),) + seen if is_custom else None
     if state != _COACH_MAP_GATE[0]:
         _COACH_MAP_GATE[0] = state
         if state is not None:
-            print(f"[coach-map] 소환사의 협곡이 아니라 건너뜀 — gameData.map={state[1]} queue.mapId={state[2]}", flush=True)
-            try:
-                with gui_lock:
-                    gui_data["draft_advice"] = ""; gui_data["draft_advice_ts"] = 0
-            except Exception: pass
+            print(f"[coach-map] {'통과 — 협곡 내전' if ok else '소환사의 협곡이 아니라 건너뜀'} — "
+                  f"session.map={seen[0]} gameData.map={seen[1]} queue.mapId={seen[2]} lobby.mapId={seen[3]}", flush=True)
+            if not ok:
+                try:
+                    with gui_lock:
+                        gui_data["draft_advice"] = ""; gui_data["draft_advice_ts"] = 0
+                except Exception: pass
     return ok
 
 def _draft_coach_tick(s_json, headers, base_url):
@@ -8152,6 +8159,7 @@ def lcu_core_backend_loop():
     global_cached_blue = []
     global_cached_red = []
     global_pos_map = {}
+    coach_lobby_map = [None]     # 로비 gameConfig.mapId 마지막 값 — 고스트밴픽왕 맵 판정의 보조 소스
 
     while True:
         try:
@@ -8348,6 +8356,7 @@ def lcu_core_backend_loop():
                         gui_data["draft_advice"] = ""; gui_data["draft_advice_ts"] = 0
                 except Exception: pass
             was_in_prog = _in_prog_now
+            if current_phase != "ChampSelect": _COACH_MAP_GATE[0] = None   # 다음 챔프셀렉트에서 맵 판정 로그를 다시 한 번 남긴다
             # 🛡️ [v81.67] 자동 업데이트 재시작 게이트용 미러 — 게임/기록 중이면 업데이터가 재시작을 연기.
             _now_live = bool(_in_prog_now or active_recording_id or current_phase == "ChampSelect")
             if _now_live and not _LIVE_GAME[0]: _LIVE_SINCE[0] = time.time(); _LIVE_STUCK_LOGGED[0] = False   # 라이브 시작 시각
@@ -8359,7 +8368,7 @@ def lcu_core_backend_loop():
             queue_id = -1
             map_id = 11
             is_custom_game_flag = False
-            gd_map_raw, gd_qmap_raw = None, None   # 고스트밴픽왕용 맵 원값(없으면 None) — map_id 의 기본값 11 과 구분
+            top_map_raw, gd_map_raw, gd_qmap_raw = None, None, None   # 고스트밴픽왕용 맵 원값(없으면 None) — map_id 의 기본값 11 과 구분
 
             try:
                 gf_res = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=3)
@@ -8368,6 +8377,7 @@ def lcu_core_backend_loop():
                     gd = gf_json.get('gameData') or {}
                     
                     try:
+                        top_map_raw = (gf_json.get('map') or {}).get('id')   # LCU 스키마상 지도는 세션 최상위 map
                         gd_map_raw = (gd.get('map') or {}).get('id')
                         gd_qmap_raw = (gd.get('queue') or {}).get('mapId')
                     except Exception: pass
@@ -8396,7 +8406,7 @@ def lcu_core_backend_loop():
                     # 🧠 [v81.74] 내 픽 차례면 고스트밴픽왕(키 없으면 즉시 return, 비동기라 폴링 지연 없음)
                     # [v82.20 사장님 지시] 내전(커스텀·소환사의 협곡)에서만 작동 — 일반 매칭·칼바람(맵12)에선 비활성
                     # [2026-10-09 사장님 지시] 협곡(맵 11)이 아닌 모든 맵에서 비활성 — 판정은 coach_map_ok 한 곳
-                    if _coach_map_gate(is_custom_game_flag, gd_map_raw, gd_qmap_raw):
+                    if _coach_map_gate(is_custom_game_flag, top_map_raw, gd_map_raw, gd_qmap_raw, coach_lobby_map[0]):
                         try: _draft_coach_tick(s_json, headers, base_url)
                         except Exception: pass
 
@@ -8512,6 +8522,7 @@ def lcu_core_backend_loop():
                         if 'queueId' in gc: queue_id = gc['queueId']
                         if gc.get('isCustom'): is_custom_game_flag = True
                         map_id = gc.get('mapId', map_id)
+                        coach_lobby_map[0] = gc.get('mapId')     # 고스트밴픽왕 맵 판정의 보조 소스(마지막 값 유지)
                         
                         dict_text = str(gc).upper()
                         # 🧭 [2026-08-01 사장님 제보] 칼바람 매치게임 방에 있다가 커스텀 방으로 옮겨도
@@ -8559,6 +8570,8 @@ def lcu_core_backend_loop():
                                 elif t_id in ["200", "2", "CHAOS", "TEAM2", "RED"]: c200_temp.append(m)
                                     
                         c100, c200 = c100_temp, c200_temp
+                    else:
+                        coach_lobby_map[0] = None     # 로비 밖이면 옛 방의 맵값을 버린다(남은 값이 다음 방을 막지 않게)
                 except Exception: pass
             
             if multi_id and multi_id != "0" and multi_id != last_chat_game_id:
