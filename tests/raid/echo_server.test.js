@@ -21,6 +21,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const LOAD = os.loadavg()[0];
 // 시스템이 바쁘면 시간 허용 폭을 넓힌다(측정이 아니라 동작 확인이므로)
 const SLACK = LOAD > 6 ? 3 : 1;
+// 2026-10-08: 극단적으로 바쁜 공용 박스(load 수십)에서는 서버가 밀리면 tick 을 건너뛰는 설계 때문에
+// "연속 tick 간격" 같은 엄격한 시간 판정은 서버 버그가 아니어도 깨진다. 그런 판정은 건너뛰고 사유를 찍는다.
+const BUSY = LOAD > 10;
+if (BUSY) console.log(`# 참고: load ${LOAD.toFixed(1)} — 엄격한 tick 간격 판정은 건너뛰고 격자(100ms 배수) 정렬만 본다`);
 
 async function retry(fn, times = 2) {
   let last;
@@ -162,14 +166,21 @@ test('tick: 주기·번호·드리프트 보정(서버 시각 기준 누적 오�
       const a = await connect(srv, sidN());
       await sleep(2300 * SLACK);
       const ticks = a.msgs.filter((m) => m.t === 'tick');
-      assert.ok(ticks.length >= 18, 'tick 수 ' + ticks.length);
+      assert.ok(ticks.length >= (BUSY ? 8 : 18), 'tick 수 ' + ticks.length);
       ticks.forEach((t, i) => assert.equal(t.n, i + 1, 'n 이 1부터 연속'));
       const span = ticks[ticks.length - 1].srv_ms - ticks[0].srv_ms;
       const expect = (ticks.length - 1) * 100;
-      // 드리프트 보정이라 setInterval 처럼 지연이 쌓이지 않는다
-      assert.ok(Math.abs(span - expect) <= 60 * SLACK, `span=${span} expect=${expect}`);
-      const gaps = ticks.slice(1).map((t, i) => t.srv_ms - ticks[i].srv_ms);
-      assert.ok(Math.max(...gaps) < 100 + 80 * SLACK, 'max gap ' + Math.max(...gaps));
+      // 드리프트 보정이라 tick 시각이 처음 tick 을 기준으로 한 100ms 격자에서 벗어나지 않는다(밀렸다면 건너뛸 뿐 격자는 유지)
+      for (const tk of ticks) {
+        const off = (tk.srv_ms - ticks[0].srv_ms) % 100;
+        assert.ok(Math.min(off, 100 - off) <= 60 * SLACK, `격자 이탈 ${off}ms (n=${tk.n})`);
+      }
+      if (!BUSY) {
+        // 한가할 때는 건너뛴 tick 도 없다
+        assert.ok(Math.abs(span - expect) <= 60 * SLACK, `span=${span} expect=${expect}`);
+        const gaps = ticks.slice(1).map((t, i) => t.srv_ms - ticks[i].srv_ms);
+        assert.ok(Math.max(...gaps) < 100 + 80 * SLACK, 'max gap ' + Math.max(...gaps));
+      }
       a.ws.close();
     } finally { await srv.stop(); }
   });
@@ -576,6 +587,8 @@ test('HTTP: /health 형식 · /ping · / 안내 · CORS 헤더 · no-store · OP
     for (const k of ['ok', 'v', 'now', 'up_s', 'conns', 'peak', 'errors', 'rej', 'bench']) assert.ok(k in h.json, k);
     assert.equal(h.json.ok, true); assert.equal(h.json.v, 1); assert.equal(h.json.errors, 0);
     assert.deepEqual(Object.keys(h.json.rej).sort(), ['limit', 'origin', 'sid']);
+    assert.deepEqual(Object.keys(h.json.drop).sort(), ['flood', 'http_rate']);
+    assert.equal(h.json.act, 0); assert.equal(h.json.act_ago_ms, null, '폰 활동이 아직 없음');
     const p = await srv.get('/ping');
     assert.ok(Math.abs(p.json.t - Date.now()) < 2000); assert.ok(p.text.length < 40);
     assert.equal(p.headers.get('access-control-allow-origin'), '*');
@@ -798,5 +811,188 @@ test('환경변수 잘못된 값은 기본값으로 돌아가고 경고만 한�
     const a = await connect(srv, sidN());
     assert.equal(a.helloMsg.ping_s, 5);     // 빈 값 → 기본값 5
     a.ws.close();
+  } finally { await srv.stop(); }
+});
+
+
+// ───────────── 2026-10-08 보완: 검증에서 나온 결함의 회귀 시험 ─────────────
+// 원시 TCP 로 WebSocket 에 붙는 공격 클라(마스크된 프레임을 직접 만든다)
+function rawWs(srv, sid) {
+  return new Promise((resolve, reject) => {
+    const key = require('node:crypto').randomBytes(16).toString('base64');
+    const s = net.connect(srv.port, '127.0.0.1');
+    let buf = '';
+    const st = { s, closed: false, bytesBack: 0, frames: [] };
+    s.on('error', () => {});
+    s.on('close', () => { st.closed = true; });
+    s.on('data', (d) => {
+      st.bytesBack += d.length;
+      if (st.ready) { st.frames.push(d); return; }
+      buf += d.toString('latin1');
+      if (buf.includes('\r\n\r\n')) { st.ready = true; resolve(st); }
+    });
+    s.on('connect', () => s.write(`GET /ws?sid=${sid} HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n\r\n`));
+    setTimeout(() => reject(new Error('핸드셰이크 시간 초과')), 4000);
+  });
+}
+function maskedFrame(op, payload = Buffer.alloc(0)) {
+  const mk = Buffer.from([1, 2, 3, 4]);
+  const m = Buffer.alloc(payload.length);
+  for (let i = 0; i < payload.length; i++) m[i] = payload[i] ^ mk[i & 3];
+  return Buffer.concat([Buffer.from([0x80 | op, 0x80 | payload.length]), mk, m]);
+}
+const rssMb = (pid) => Number(fs.readFileSync(`/proc/${pid}/status`, 'utf8').match(/VmRSS:\s+(\d+)/)[1]) / 1024;
+const cpuTicks = (pid) => { const f = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' '); return Number(f[13]) + Number(f[14]); };
+
+test('빈 pong 프레임 폭주: 연결이 곧 끊기고 서버 CPU·/ping 이 멀쩡하다 (검증 지적: pong 은 속도 한도에 안 셌음)', async () => {
+  await retry(async () => {
+    const srv = await startServer({ MAX_MSG_PER_S: '30' });
+    try {
+      const sid = sidN('pongflood');
+      const atk = await rawWs(srv, sid);
+      const chunk = Buffer.concat(Array(10000).fill(maskedFrame(0xA)));   // 빈 pong 1만 개(60KB)
+      const cpu0 = cpuTicks(srv.proc.pid);
+      const t0 = Date.now();
+      let sent = 0;
+      while (!atk.closed && Date.now() - t0 < 5000 && sent < 400) { atk.s.write(chunk); sent++; await sleep(5); }
+      await sleep(300);
+      assert.equal(atk.closed, true, '서버가 폭주 연결을 끊어야 한다 (보낸 묶음 ' + sent + ')');
+      assert.ok(sent < 200, '끊기기 전까지 보낸 묶음이 너무 많다: ' + sent);
+      const used = cpuTicks(srv.proc.pid) - cpu0;
+      assert.ok(used < 150, '서버 CPU 사용 ' + used + ' ticks (100=1초)');
+      const t1 = Date.now();
+      assert.equal((await srv.get('/ping')).status, 200);
+      assert.ok(Date.now() - t1 < 1000 * SLACK, '/ping 지연');
+      const h = (await srv.get('/health')).json;
+      assert.equal(h.conns, 0); assert.equal(h.errors, 0);
+      const lg = (await srv.get('/log?sid=' + sid)).json;
+      assert.equal(lg.summary.closes[0].code, 1008); assert.equal(lg.summary.closes[0].by, 'server');
+    } finally { await srv.stop(); }
+  });
+});
+
+test('pong 을 한도 이상 보내는 정상 모양 클라도 1008 로 정중히 닫힌다 · 한도 안의 pong 은 괜찮다', async () => {
+  const srv = await startServer({ MAX_MSG_PER_S: '10', PING_S: '60' });
+  try {
+    const ok = await connect(srv, sidN());
+    for (let i = 0; i < 6; i++) { ok.ws.pong(); await sleep(60); }
+    await sleep(150);
+    assert.equal(ok.closed, null);
+    ok.ws.close();
+    const a = await connect(srv, sidN());
+    for (let i = 0; i < 40; i++) { try { a.ws.pong(); } catch { break; } }
+    const cl = await a.waitClose();
+    assert.equal(cl.code, 1008); assert.equal(cl.reason, 'rate-limit');
+  } finally { await srv.stop(); }
+});
+
+test('초당 받은 바이트 상한(MAX_BYTES_PER_S): 메시지 수는 한도 안이어도 용량이 크면 1008', async () => {
+  const srv = await startServer({ MAX_BYTES_PER_S: '4000', MAX_MSG_BYTES: '4096', MAX_MSG_PER_S: '100', TICK_MS: '100' });
+  try {
+    const a = await connect(srv, sidN());
+    const big = JSON.stringify({ t: 'custom', pad: 'x'.repeat(1500) });
+    for (let i = 0; i < 40; i++) { try { a.send(big); } catch { break; } await sleep(40); }
+    const cl = await a.waitClose(4000 * SLACK);
+    assert.equal(cl.code === 1008 || cl.code === 1006, true, '코드 ' + cl.code);
+    const lg = (await srv.get('/log?sid=' + a.helloMsg.sid)).json;
+    assert.equal(lg.summary.closes[0].code, 1008); assert.equal(lg.summary.closes[0].why, 'rate-limit');
+    // 가벼운 정상 사용은 괜찮다
+    const b = await connect(srv, sidN());
+    for (let i = 0; i < 25; i++) { b.send({ t: 'hb', n: i, c: i }); await sleep(100); }
+    assert.equal(b.closed, null); b.ws.close();
+  } finally { await srv.stop(); }
+});
+
+test('/bench 요청 폭주(응답을 안 읽는 파이프라인): 큰 파일이어도 서버 메모리가 요청 수만큼 늘지 않는다 (검증 지적: 요청마다 파일 전체를 읽어 955MB)', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'raid-benchmem-'));
+  fs.writeFileSync(path.join(dir, 'bench_3rooms.json'), JSON.stringify({ pad: 'x'.repeat(450 * 1024) }));
+  const srv = await startServer({ DATA_DIR: dir, HTTP_PER_S: '100000' });   // 속도 한도는 풀고 메모리 방어만 본다
+  try {
+    const rss0 = rssMb(srv.proc.pid);
+    const socks = [];
+    for (let c = 0; c < 20; c++) {
+      const s = net.connect(srv.port, '127.0.0.1'); s.on('error', () => {}); s.pause();
+      s.write('GET /bench HTTP/1.1\r\nHost: x\r\n\r\n'.repeat(300));
+      socks.push(s);
+    }
+    await sleep(2500);
+    const grow = rssMb(srv.proc.pid) - rss0;
+    assert.ok(grow < 120, `서버 RSS 증가 ${grow.toFixed(0)}MB (6000개 요청 x 450KB = 2.7GB 였다면 폭주)`);
+    const r = await fetch(srv.http + '/ping', { signal: AbortSignal.timeout(5000 * SLACK) });
+    assert.equal(r.status, 200);
+    socks.forEach((s) => s.destroy());
+    assert.equal((await srv.get('/health')).json.errors, 0);
+  } finally { await srv.stop(); }
+});
+
+test('/bench 캐시: 파일이 바뀌면(mtime·크기) 새 내용을 내보내고, 깨진 파일은 캐시하지 않는다', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'raid-benchcache-'));
+  const f = path.join(dir, 'bench_3rooms.json');
+  fs.writeFileSync(f, JSON.stringify({ rooms: 3, v: 1 }));
+  const srv = await startServer({ DATA_DIR: dir });
+  try {
+    assert.equal((await srv.get('/bench')).json.v, 1);
+    assert.equal((await srv.get('/bench')).json.v, 1);
+    fs.writeFileSync(f, JSON.stringify({ rooms: 3, v: 2, longer: 'yes' }));
+    assert.equal((await srv.get('/bench')).json.v, 2);
+    fs.writeFileSync(f, '{"truncated":');
+    assert.equal((await srv.get('/bench')).json.found, false);
+    fs.writeFileSync(f, JSON.stringify({ rooms: 3, v: 3 }));
+    assert.equal((await srv.get('/bench')).json.v, 3);
+  } finally { await srv.stop(); }
+});
+
+test('HTTP 요청 속도 한도: IP 당 초당 HTTP_PER_S 넘으면 429 + Retry-After, 1초 뒤 다시 된다 · 평소 측정(20번 연속 /ping)은 안 걸린다', async () => {
+  const srv = await startServer({ HTTP_PER_S: '8' });
+  try {
+    const sts = [];
+    for (let i = 0; i < 14; i++) sts.push((await fetch(srv.http + '/ping')).status);
+    assert.ok(sts.includes(429), '429 가 나와야 한다: ' + sts.join(','));
+    assert.equal(sts[0], 200);
+    const r = await fetch(srv.http + '/ping');
+    if (r.status === 429) assert.equal(r.headers.get('retry-after'), '1');
+    await sleep(1100);
+    assert.equal((await fetch(srv.http + '/ping')).status, 200);
+    assert.ok((await srv.get('/health')).json.drop.http_rate >= 1);
+  } finally { await srv.stop(); }
+  const def = await startServer();   // 기본값(60/초)
+  try {
+    for (let i = 0; i < 20; i++) { assert.equal((await fetch(def.http + '/ping')).status, 200); await sleep(30); }
+  } finally { await def.stop(); }
+});
+
+test('세션 기록 보존: 앱 메시지를 받은 세션(진짜 시험)은 접속만 하고 간 sid 수백 개에 밀려 지워지지 않는다 (검증 지적: 300개면 폰 기록 소실)', async () => {
+  const srv = await startServer({ SESSION_MAX: '6', MAX_MSG_PER_S: '1000' });
+  try {
+    const phone = sidN('phone');
+    const p = await connect(srv, phone);
+    p.send({ t: 'hb', n: 1, c: Date.now() });
+    await p.next((m) => m.t === 'ack');
+    p.ws.close(); await p.waitClose();
+    for (let i = 0; i < 25; i++) { const c = await connect(srv, sidN('scan' + i)); c.ws.close(); await c.waitClose(); }
+    const lg = (await srv.get('/log?sid=' + phone)).json;
+    assert.equal(lg.found, true, '폰 시험 기록이 남아 있어야 한다');
+    assert.equal(lg.summary.opened, 1);
+    // 진짜 세션끼리는 여전히 오래된 것부터 버려진다(상한 유지)
+    for (let i = 0; i < 8; i++) { const c = await connect(srv, sidN('real' + i)); c.send({ t: 'hb', n: i, c: i }); await c.next((m) => m.t === 'ack'); c.ws.close(); await c.waitClose(); }
+    assert.equal((await srv.get('/log?sid=' + phone)).json.found, false, '진짜 세션도 상한을 넘으면 가장 오래된 것부터 버림');
+  } finally { await srv.stop(); }
+});
+
+test('폰 활동 표시(act): WS 접속 시도·/ping·/log 만 올라가고 /health·/bench 는 안 올라간다 (부하 시험이 짧은 접속·HTTP 도 알아채게)', async () => {
+  const srv = await startServer();
+  try {
+    let h = (await srv.get('/health')).json;
+    assert.equal(h.act, 0); assert.equal(h.act_ago_ms, null);
+    await srv.get('/health'); await srv.get('/bench'); await srv.get('/bench?list=1'); await srv.get('/');
+    assert.equal((await srv.get('/health')).json.act, 0, '/health·/bench·/ 는 활동이 아니다');
+    await srv.get('/ping');
+    assert.equal((await srv.get('/health')).json.act, 1);
+    await srv.get('/log?sid=zzzzzzzz');
+    assert.equal((await srv.get('/health')).json.act, 2);
+    const a = await connect(srv, sidN()); a.ws.close(); await a.waitClose();   // 5초보다 훨씬 짧은 접속
+    h = (await srv.get('/health')).json;
+    assert.equal(h.act, 3); assert.equal(h.conns <= 1, true);
+    assert.ok(h.act_ago_ms >= 0 && h.act_ago_ms < 5000);
   } finally { await srv.stop(); }
 });

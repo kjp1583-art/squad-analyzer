@@ -34,6 +34,10 @@ const CFG = {
   PER_IP: envNum('PER_IP', 30, 1, 100000),
   MAX_MSG_BYTES: envNum('MAX_MSG_BYTES', 4096, 16, 1 << 20),
   MAX_MSG_PER_S: envNum('MAX_MSG_PER_S', 30, 1, 10000),
+  // 2026-10-08: 연결 하나가 받는 바이트 상한(초당). 앱 메시지·ping·pong·조각 프레임 모두 센다(정상 클라는 수 KB/s).
+  MAX_BYTES_PER_S: envNum('MAX_BYTES_PER_S', 512 * 1024, 1024, 1 << 30),
+  // 2026-10-08: HTTP 요청 상한(IP 당 초당). /ping 20번 연속 측정이 걸리지 않는 넉넉한 값.
+  HTTP_PER_S: envNum('HTTP_PER_S', 60, 1, 100000),
   MAX_LIFE_S: envNum('MAX_LIFE_S', 3600, 0.1, 86400),
   APP_IDLE_S: envNum('APP_IDLE_S', 900, 0.1, 86400),
   PING_S: envNum('PING_S', 5, 0.05, 600),
@@ -43,7 +47,7 @@ const CFG = {
   TICK_MS: envNum('TICK_MS', 1000, 10, 60000),
   GAP_EVENT_MS: envNum('GAP_EVENT_MS', 2500, 10, 600000),
   HEADERS_TIMEOUT_MS: envNum('HEADERS_TIMEOUT_MS', 10000, 100, 120000),
-  SESSION_MAX: envNum('SESSION_MAX', 300, 1, 100000),
+  SESSION_MAX: envNum('SESSION_MAX', 1000, 1, 100000),
   EVENT_MAX: envNum('EVENT_MAX', 300, 1, 10000),
   SESSION_TTL_S: envNum('SESSION_TTL_S', 6 * 3600, 1, 7 * 86400),
   SWEEP_S: envNum('SWEEP_S', 60, 0.1, 3600),
@@ -51,7 +55,7 @@ const CFG = {
 const V = 1;
 const SID_RE = /^[A-Za-z0-9_-]{6,40}$/;
 const BENCH_RE = /^bench_[A-Za-z0-9_-]{1,40}\.json$/;
-const BENCH_MAX_BYTES = 1024 * 1024;
+const BENCH_MAX_BYTES = 512 * 1024;
 const LOG_MAX_BYTES = 64 * 1024;
 const LIST_CAP = 50; // closes / replaced / bg_hints 길이 상한
 const SLOW_WARN_BYTES = 64 * 1024;
@@ -131,6 +135,7 @@ function newSession(sid) {
   return {
     sid, created: Date.now(), last_used: Date.now(), cur: null, lastClose: null, lastIp: null,
     nconn: 0, open: 0, closed: 0,
+    real: false, // 앱 메시지를 한 번이라도 받았으면 true(= 진짜 시험 세션). 상한을 넘을 때 나중에 버린다.
     events: new Ring(CFG.EVENT_MAX),
     sum: { last_msg_ms: null, last_pong_ms: null, max_msg_gap_ms: 0, max_pong_gap_ms: 0, bg_hints: [], closes: [], replaced: [] },
   };
@@ -140,12 +145,15 @@ function getSession(sid) {
   if (s) { sessions.delete(sid); sessions.set(sid, s); s.last_used = Date.now(); return s; }
   s = newSession(sid);
   sessions.set(sid, s);
-  // 상한을 넘으면 가장 오래 안 쓴 것부터 버린다(접속 중인 세션은 건너뜀)
+  // 상한을 넘으면 버린다(접속 중인 세션은 건너뜀). 2026-10-08: 앱 메시지를 받은 적 없는 세션(접속만 하고 간 것 —
+  // 스캐너·끊긴 시도)을 먼저, 그다음에 가장 오래 안 쓴 진짜 세션을. 그래야 남이 sid 를 수백 개 만들어도 폰 시험 기록이 남는다.
   if (sessions.size > CFG.SESSION_MAX) {
-    for (const [k, v] of sessions) {
-      if (sessions.size <= CFG.SESSION_MAX) break;
-      if (v.cur || k === sid) continue;
-      sessions.delete(k);
+    for (const wantReal of [false, true]) {
+      for (const [k, v] of sessions) {
+        if (sessions.size <= CFG.SESSION_MAX) break;
+        if (v.cur || k === sid || v.real !== wantReal) continue;
+        sessions.delete(k);
+      }
     }
   }
   return s;
@@ -171,7 +179,11 @@ function sweepSessions() {
 }
 
 // ───────────── 통계·상태 ─────────────
-const stats = { errors: 0, last_error: '', rej: { origin: 0, sid: 0, limit: 0 }, peak: 0 };
+const stats = { errors: 0, last_error: '', rej: { origin: 0, sid: 0, limit: 0 }, drop: { http_rate: 0, flood: 0 }, peak: 0 };
+// 2026-10-08: "폰이 서버를 쓰고 있나" 표시. 부하 시험(bench_when_idle.sh)이 이걸 보고 물러난다.
+// WebSocket 접속 시도와 /ping·/log 요청마다 올라간다. /health·/bench 는 세지 않는다(부하 시험 자신이 /health 를 읽음).
+const act = { n: 0, last: 0 };
+function noteAct() { act.n++; act.last = Date.now(); }
 const live = new Set(); // 열려 있는(닫는 중 아닌) 연결
 let slotsUsed = 0;      // MAX_CONN 계산용(닫는 중인 것은 즉시 반납)
 const perIp = new Map();
@@ -238,12 +250,30 @@ function closeConn(c, code, why, by = 'server') {
   c.termTimer.unref();
 }
 
+// 받은 프레임 하나(앱 메시지·ping·pong 모두)를 초당 창에 센다. 한도를 넘은 프레임이면 true(= 버린다).
+// 2026-10-08: pong 은 세지 않았더니 빈 pong 프레임을 쏟아 붓는 연결 하나가 CPU 를 거의 다 먹었다(그리고 pong 이
+// 'lastPong' 을 갱신해 no-response 로도 안 끊겼다). 정상 클라는 pong 이 5초에 하나다.
+// 처음 넘었을 때는 1008 로 정중히 닫고, 닫기 인사 뒤에도 계속 쏟아지면(한도의 10배 넘게) 소켓을 바로 끊는다.
+function rateGate(c) {
+  const t = Date.now();
+  if (t - c.winStart >= 1000) { c.winStart = t; c.winCount = 0; }
+  if (++c.winCount <= CFG.MAX_MSG_PER_S) return false;
+  if (!c.closing) closeConn(c, 1008, 'rate-limit');
+  else if (c.winCount > CFG.MAX_MSG_PER_S * 10 + 100) hardKill(c);
+  return true;
+}
+function hardKill(c) {
+  if (c.hardKilled) return;
+  c.hardKilled = true;
+  stats.drop.flood++;
+  try { c.ws.terminate(); } catch { /* 이미 끊김 */ }
+}
+
 function onAppMessage(c, data) {
   const s = c.s;
   const now = Date.now();
   // 속도 한도(초당)
-  if (now - c.winStart >= 1000) { c.winStart = now; c.winCount = 0; }
-  if (++c.winCount > CFG.MAX_MSG_PER_S) { closeConn(c, 1008, 'rate-limit'); return; }
+  s.real = true;
 
   const gap = now - c.lastApp;
   if (c.nApp > 0 && gap > s.sum.max_msg_gap_ms) s.sum.max_msg_gap_ms = gap;
@@ -292,7 +322,7 @@ function attach(ws, req, sid, ip) {
   const c = {
     ws, s, ip, ipKey: ipKey(ip), idx: ++s.nconn, openedAt: now,
     lastApp: now, lastPong: now, lastPing: now, nApp: 0, nHb: 0, nPong: 0, tickN: 0,
-    winStart: now, winCount: 0, closing: false, recorded: false, released: false, closeBy: null,
+    winStart: now, winCount: 0, sock: req.socket, bytes0: req.socket ? req.socket.bytesRead : 0, closing: false, recorded: false, released: false, closeBy: null,
   };
   // 같은 sid 의 옛 연결은 4001 로 닫는다 — 이때 옛 연결을 서버가 얼마나 "살아 있다"고 믿었는지를 남긴다.
   const old = s.cur;
@@ -321,17 +351,15 @@ function attach(ws, req, sid, ip) {
 
   ws.on('message', (data, isBinary) => {
     try {
-      if (c.closing) return;
+      if (rateGate(c) || c.closing) return;
       if (isBinary) { closeConn(c, 1003, 'binary-not-supported'); return; }
       if (data.length > CFG.MAX_MSG_BYTES) { closeConn(c, 1009, 'too-big'); return; }
       onAppMessage(c, data);
     } catch (e) { noteError('message', e); }
   });
-  ws.on('pong', () => { try { if (!c.closing) onPong(c); } catch (e) { noteError('pong', e); } });
+  ws.on('pong', () => { try { if (!rateGate(c) && !c.closing) onPong(c); } catch (e) { noteError('pong', e); } });
   ws.on('ping', () => { // 클라가 먼저 ping 을 보내도 속도 한도에 센다(ws 가 pong 은 알아서 보냄)
-    const t = Date.now();
-    if (t - c.winStart >= 1000) { c.winStart = t; c.winCount = 0; }
-    if (++c.winCount > CFG.MAX_MSG_PER_S) closeConn(c, 1008, 'rate-limit');
+    rateGate(c);
   });
   ws.on('error', (err) => {
     try {
@@ -377,6 +405,15 @@ function runTick() {
   for (const c of live) {
     try {
       if (c.closing) continue;
+      if (c.sock) { // 초당 받은 바이트 상한(작은 프레임을 끝없이 보내는 연결 방어). 1초 이상 모아서 잰다.
+        const since = now - (c.bytesAt || c.openedAt);
+        if (since >= 1000) {
+          const br = c.sock.bytesRead;
+          const rate = (br - c.bytes0) * 1000 / since;
+          c.bytes0 = br; c.bytesAt = now;
+          if (rate > CFG.MAX_BYTES_PER_S) { closeConn(c, 1008, 'rate-limit'); hardKill(c); continue; }
+        }
+      }
       if (now - c.openedAt > CFG.MAX_LIFE_S * 1000) { closeConn(c, 1001, 'max-life'); continue; }
       if (now - c.lastApp > CFG.APP_IDLE_S * 1000) { closeConn(c, 1001, 'app-idle'); continue; }
       if (now - Math.max(c.lastApp, c.lastPong) > CFG.PONG_TO_S * 1000) { closeConn(c, 1001, 'no-response'); continue; }
@@ -401,7 +438,7 @@ const BASE_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
 };
 function reply(req, res, status, body, type) {
-  const buf = Buffer.from(body, 'utf8');
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(body, 'utf8');
   res.writeHead(status, Object.assign({ 'Content-Type': type, 'Content-Length': buf.length }, BASE_HEADERS));
   res.end(req.method === 'HEAD' ? undefined : buf);
 }
@@ -444,6 +481,31 @@ async function listBench() {
 let benchPresent = false;
 async function refreshBenchFlag() { try { benchPresent = (await listBench()).length > 0; } catch { /* 무시 */ } }
 
+// 2026-10-08: 요청마다 파일을 읽고 JSON.parse 하던 것을 (이름·mtime·크기) 기준 캐시 한 번으로 바꿨다.
+// 같은 Buffer 를 여러 응답이 나눠 쓰므로 요청이 몰려도 메모리가 요청 수만큼 늘지 않는다. 읽는 중인 파일은 하나씩만 읽는다.
+const benchCache = new Map(); // name -> {key, buf}
+const benchLoading = new Map(); // key -> Promise<Buffer|null>
+async function loadBench(f) {
+  const key = `${f.name}:${f.mtime_ms}:${f.size}`;
+  const hit = benchCache.get(f.name);
+  if (hit && hit.key === key) return hit.buf;
+  let p = benchLoading.get(key);
+  if (!p) {
+    p = (async () => {
+      try {
+        const txt = await fs.promises.readFile(path.join(CFG.DATA_DIR, f.name), 'utf8');
+        JSON.parse(txt); // 깨진 파일(쓰는 중)은 건너뛴다 — 캐시하지 않음
+        const buf = Buffer.from(txt, 'utf8');
+        benchCache.set(f.name, { key, buf });
+        if (benchCache.size > 20) benchCache.delete(benchCache.keys().next().value);
+        return buf;
+      } catch { return null; } finally { benchLoading.delete(key); }
+    })();
+    benchLoading.set(key, p);
+  }
+  return p;
+}
+
 async function benchHandler(req, res, url) {
   const list = await listBench();
   if (url.searchParams.get('list') === '1') {
@@ -457,11 +519,8 @@ async function benchHandler(req, res, url) {
   }
   for (const f of cands) {
     if (f.size > BENCH_MAX_BYTES) { return json(req, res, 200, { found: false, error: 'too_large', file: f.name }); }
-    try {
-      const txt = await fs.promises.readFile(path.join(CFG.DATA_DIR, f.name), 'utf8');
-      JSON.parse(txt); // 깨진 파일(쓰는 중)은 건너뛴다
-      return reply(req, res, 200, txt, 'application/json; charset=utf-8');
-    } catch { /* 다음 후보 */ }
+    const buf = await loadBench(f);
+    if (buf) return reply(req, res, 200, buf, 'application/json; charset=utf-8');
   }
   return json(req, res, 200, { found: false });
 }
@@ -477,6 +536,20 @@ const HOME_TEXT = [
   '',
 ].join('\n');
 
+// HTTP 요청도 IP 당 초당 상한을 둔다(한 연결에 요청을 줄줄이 보내는 파이프라인 포함).
+const httpWin = new Map(); // ipKey -> {t, n}
+function httpOver(req) {
+  const k = ipKey(clientIp(req));
+  const t = Date.now();
+  let w = httpWin.get(k);
+  if (!w || t - w.t >= 1000) {
+    w = { t, n: 0 };
+    httpWin.set(k, w);
+    if (httpWin.size > 5000) { for (const [kk, v] of httpWin) { if (t - v.t >= 1000) httpWin.delete(kk); } }
+  }
+  return ++w.n > CFG.HTTP_PER_S;
+}
+
 function handleHttp(req, res) {
   let url;
   try { url = new URL(req.url, 'http://x'); } catch { return json(req, res, 400, { error: 'bad_url' }); }
@@ -484,15 +557,22 @@ function handleHttp(req, res) {
   if (m === 'OPTIONS') { res.writeHead(204, BASE_HEADERS); return res.end(); }
   if (m !== 'GET' && m !== 'HEAD') { res.setHeader('Allow', 'GET, HEAD, OPTIONS'); return json(req, res, 405, { error: 'method' }); }
   const p = url.pathname;
+  if (httpOver(req)) {
+    stats.drop.http_rate++;
+    res.setHeader('Retry-After', '1');
+    return json(req, res, 429, { error: 'rate' });
+  }
   if (p === '/health') {
     return json(req, res, 200, {
       ok: true, v: V, now: Date.now(), up_s: Math.floor((Date.now() - startedAt) / 1000),
-      conns: live.size, peak: stats.peak, errors: stats.errors, rej: stats.rej, bench: benchPresent,
+      conns: live.size, peak: stats.peak, errors: stats.errors, rej: stats.rej, drop: stats.drop, bench: benchPresent,
+      act: act.n, act_ago_ms: act.n ? Date.now() - act.last : null, // 폰 시험 활동(WS 접속 시도·/ping·/log) 횟수와 마지막으로부터 지난 ms
       setup: readSetup(),
     });
   }
-  if (p === '/ping') return json(req, res, 200, { t: Date.now() });
+  if (p === '/ping') { noteAct(); return json(req, res, 200, { t: Date.now() }); }
   if (p === '/log') {
+    noteAct();
     const sid = url.searchParams.get('sid') || '';
     if (!SID_RE.test(sid)) return json(req, res, 400, { error: 'bad_sid' });
     const s = sessions.get(sid); // 읽기만 — 세션을 만들거나 "최근 사용"으로 올리지 않는다
@@ -524,6 +604,7 @@ const server = http.createServer({ maxHeaderSize: 8192 }, (req, res) => {
 server.headersTimeout = CFG.HEADERS_TIMEOUT_MS;
 server.requestTimeout = Math.round(CFG.HEADERS_TIMEOUT_MS * 1.5);
 server.keepAliveTimeout = 5000;
+server.maxRequestsPerSocket = 100; // 한 연결로 보낼 수 있는 요청 수(파이프라인 폭주 완화)
 server.timeout = Math.round(CFG.HEADERS_TIMEOUT_MS * 1.5); // 아무 바이트도 안 보내는 연결(업그레이드된 소켓은 ws 가 0 으로 풀어 줌)
 server.connectionsCheckingInterval = Math.min(2000, CFG.HEADERS_TIMEOUT_MS);
 server.maxConnections = CFG.MAX_CONN * 2 + 100;
@@ -552,6 +633,7 @@ server.on('upgrade', (req, socket, head) => {
     let url;
     try { url = new URL(req.url, 'http://x'); } catch { return rejectUpgrade(socket, 400, 'Bad Request'); }
     if (url.pathname !== '/ws' && url.pathname !== '/wstest') return rejectUpgrade(socket, 404, 'Not Found');
+    noteAct();
     if (req.method !== 'GET') return rejectUpgrade(socket, 405, 'Method Not Allowed');
     if (!originAllowed(req.headers.origin)) { stats.rej.origin++; return rejectUpgrade(socket, 403, 'Forbidden'); }
     let sid = url.searchParams.get('sid');

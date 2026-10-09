@@ -1,15 +1,19 @@
 #!/bin/bash
 # 레이드 0단계 — 서울 임시 서버 자동 설치 스크립트 (2026-10-08)
 #
-# 쓰는 법: Vultr 에서 서버(Ubuntu 24.04, 가장 싼 $5)를 만들 때 "Startup Script" 칸에
-#          이 파일 전체를 그대로 붙여 넣는다. 서버가 처음 켜질 때 root 로 한 번 실행된다.
-#          (cloud-init 의 user-data 로 넣어도 같은 동작 — 첫 줄이 #!/bin/bash 이기 때문)
+# 쓰는 법(권장): Vultr 에서 서버(Ubuntu 24.04 LTS x64, 서울, 가장 싼 $5)를 만들 때 배포 화면의
+#          「Additional Features」→「Enable Cloud-Init User-Data」 칸에 이 파일 전체(또는 짧은 bootstrap.sh)를 붙여 넣는다.
+#          서버가 처음 켜질 때 root 로 한 번 실행된다. (리눅스는 cloud-init user-data 가 Vultr 공식 권장 방법이다 —
+#          「Startup Script」 칸의 Boot 종류는 Vultr 문서가 Windows/*BSD 용으로 적고 있어 우분투에서 도는지 확인 못 했다.)
+#          줄바꿈은 LF 여야 한다(윈도우식 CRLF 면 첫 줄 #!/bin/bash 가 깨진다).
 # 끝나면: /root/RAID_SETUP_STATUS.txt (OK/FAIL) · /var/log/raid-provision.log · https://HOST/health 의 setup 필드
-# 다시 실행해도 안전하다(이미 된 것은 건너뛰거나 같은 값으로 덮어쓴다).
+# 다시 실행하는 방법: cloud-init 은 첫 부팅에 한 번만 돈다. 가장 쉬운 복구는 서버를 삭제하고 다시 만드는 것(몇 센트).
+#          서버 안에서 손으로 다시 돌려도 안전하게 만들어져 있다(이미 된 것은 건너뛰거나 같은 값으로 덮어씀).
 #
 # 이 스크립트는 임시 측정용이다. 시험이 끝나면 서버를 삭제한다(꺼 두기만 해도 과금).
 
 set -euo pipefail
+umask 022   # 실행 환경의 umask 가 0077 이어도 /opt/raid/src 가 서비스 사용자(raid)에게 읽히게
 
 # ───────────── 설정: 필요하면 아래 값을 고쳐서 붙여 넣는다 (환경변수로도 덮어쓸 수 있음) ─────────────
 HOST="${HOST:-}"                          # 비우면 이 서버 공인 IP 로 만든 <a-b-c-d>.sslip.io. 도메인을 샀다면 여기에 적는다
@@ -59,8 +63,8 @@ step() { CURRENT_STEP="$1"; log "=== 단계: $1"; write_status RUNNING "진행 �
 warn() { WARNINGS="$WARNINGS
  - $*"; log "경고: $*"; }
 
-# JSON 문자열에 안전하게 넣을 값(따옴표·역슬래시·줄바꿈 제거)
-jsafe() { printf '%s' "$1" | tr -d '\042\134' | tr '\n\r\t' '   ' | cut -c1-300; }
+# JSON 문자열에 안전하게 넣을 값(따옴표·역슬래시·줄바꿈·ESC 같은 제어문자 제거)
+jsafe() { printf '%s' "$1" | tr '\n\r\t' '   ' | tr -d '\042\134\000-\037\177' | cut -c1-300; }
 
 write_setup_json() { # write_setup_json <ok true|false> <단계> <메시지>
   [ -d "$DATA_DIR" ] || return 0
@@ -83,7 +87,7 @@ write_status() { # write_status <RUNNING|OK|FAIL> <한 줄 설명> [자세한 �
       echo "  서버 상태  : https://$HOST/health"
       echo "  WebSocket  : wss://$HOST/ws"
       echo "  시험 페이지: https://kjp1583-art.github.io/squad-analyzer/raid-test/sock.html?ws=wss://$HOST/ws"
-      echo "  부하 시험  : https://$HOST/bench"
+      echo "  부하 시험  : https://$HOST/bench?name=3rooms (합격 기준) · https://$HOST/bench?list=1 (목록)"
     fi
     [ -n "$COMMIT" ] && { echo; echo "받은 소스: $REPO @ $REF ($COMMIT)"; }
     [ -n "$detail" ] && { echo; printf '%s\n' "$detail"; }
@@ -128,6 +132,36 @@ retry() { # retry <횟수> <대기초> 명령...
 CURL=(curl --fail --silent --show-error --location --retry 4 --retry-delay 3 --retry-all-errors --connect-timeout 10 --max-time 300)
 APT=(apt-get -o DPkg::Lock::Timeout=300 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold -y)
 
+# 2026-10-08: DPkg::Lock::Timeout 은 dpkg 잠금에만 듣고, apt-get update 의 lists 잠금·install 의 archives 잠금에는 안 듣는다
+# (우분투 24.04 의 apt 2.8.3 으로 실측: 잠금을 다른 프로세스가 쥐면 0.4초 만에 E: Could not get lock). 첫 부팅의
+# apt-daily / unattended-upgrades 와 겹치면 영구 실패하므로, 잠금 파일 4개를 누가 열고 있는 동안은 직접 기다린다.
+APT_WAIT_S="${APT_WAIT_S:-600}"
+apt_locks_busy() {
+  local f
+  for f in "$ROOT/var/lib/dpkg/lock-frontend" "$ROOT/var/lib/dpkg/lock" "$ROOT/var/lib/apt/lists/lock" "$ROOT/var/cache/apt/archives/lock"; do
+    [ -e "$f" ] || continue
+    if command -v fuser >/dev/null 2>&1; then
+      fuser -s "$f" 2>/dev/null && return 0
+    elif pgrep -x 'apt|apt-get|dpkg|unattended-upgr|apt.systemd.dai|aptitude' >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
+}
+apt_wait() {
+  local t0 now logged=0
+  t0="$(date +%s)"
+  while apt_locks_busy; do
+    now="$(date +%s)"
+    if [ $((now - t0)) -ge "$APT_WAIT_S" ]; then warn "apt 잠금이 ${APT_WAIT_S}초 넘게 안 풀림 — 그냥 시도함"; return 0; fi
+    [ "$logged" -eq 0 ] && { log "다른 apt/dpkg 작업이 끝나길 기다리는 중(첫 부팅의 자동 업데이트일 수 있음)"; logged=1; }
+    sleep 5
+  done
+  [ "$logged" -eq 0 ] || log "apt 잠금 풀림 ($(( $(date +%s) - t0 ))초 기다림)"
+  return 0
+}
+aptq() { apt_wait; "${APT[@]}" "$@"; }
+
 # 한 번에 하나만 돌게 한다(cloud-init 과 손으로 실행이 겹치지 않게)
 mkdir -p "$ROOT/run"
 exec 9>"$ROOT/run/raid-provision.lock"
@@ -139,8 +173,8 @@ log "설치 시작: REF=$REF REPO=$REPO RUN_BENCH=$RUN_BENCH ROOT='${ROOT}'"
 
 # ───────────── 1. 기본 패키지 ─────────────
 step "기본 패키지 설치 (apt)"
-retry 5 10 "${APT[@]}" update
-retry 3 10 "${APT[@]}" install git curl ca-certificates ufw xz-utils gnupg apt-transport-https debian-keyring debian-archive-keyring
+retry 6 10 aptq update
+retry 4 10 aptq install git curl ca-certificates ufw xz-utils gnupg apt-transport-https debian-keyring debian-archive-keyring
 
 # ───────────── 2. 이 서버의 주소(HOST) ─────────────
 step "서버 주소 정하기"
@@ -215,9 +249,9 @@ if [ ! -s "$KEYRING" ] || [ ! -s "$CADDY_LIST" ]; then
   "${CURL[@]}" https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o "$KEYRING"
   "${CURL[@]}" https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o "$CADDY_LIST"
   chmod o+r "$KEYRING" "$CADDY_LIST"
-  retry 5 10 "${APT[@]}" update
+  retry 6 10 aptq update
 fi
-retry 3 10 "${APT[@]}" install caddy
+retry 4 10 aptq install caddy
 
 # ───────────── 5. 소스 받기 ─────────────
 step "소스 받기 (git)"
@@ -308,8 +342,16 @@ Environment=DATA_DIR=$DATA_DIR_REAL
 Environment=HEALTH_URL=http://127.0.0.1:$APP_PORT/health
 Environment=NODE=/opt/node/bin/node
 Environment=BENCH_JS=/opt/raid/src/tests/raid/bench_rooms.js
+Environment=BUILD_DIR=$DATA_DIR_REAL/build
 ExecStart=/bin/bash /opt/raid/src/raid/echo/bench_when_idle.sh
+ExecStopPost=/bin/bash /opt/raid/src/raid/echo/bench_when_idle.sh --post
 TimeoutStartSec=infinity
+# 폰 시험(에코 서버)이 항상 먼저: CPU 를 다툴 때 거의 안 받는다
+Nice=19
+CPUWeight=1
+IOWeight=1
+# 메모리 한도로 일부가 죽어도 유닛 전체를 끝내지 않는다(스크립트가 실패를 기록할 수 있게)
+OOMPolicy=continue
 MemoryMax=550M
 NoNewPrivileges=yes
 ProtectSystem=strict
@@ -330,29 +372,13 @@ systemctl enable raid-echo.service
 systemctl restart raid-echo.service
 
 step "에코 서버가 로컬에서 뜨는지 확인"
-retry 20 1 "${CURL[@]}" -m 3 "http://127.0.0.1:$APP_PORT/health" -o "$OPT/.local-health.json" || {
+retry 20 1 "${CURL[@]}" --retry 0 -m 3 "http://127.0.0.1:$APP_PORT/health" -o "$OPT/.local-health.json" || {
   journalctl -u raid-echo --no-pager -n 20 2>&1 | tail -n 20 || true
   die "raid-echo 가 127.0.0.1:$APP_PORT 에서 응답하지 않음"
 }
 log "로컬 /health: $(head -c 300 "$OPT/.local-health.json")"
 
-# ───────────── 7. Caddy 설정 (HTTPS 자동 발급 + 프록시) ─────────────
-step "Caddy 설정"
-CADDYFILE="$ROOT/etc/caddy/Caddyfile"
-mkdir -p "$(dirname "$CADDYFILE")"
-cat > "$CADDYFILE" <<EOF
-# 레이드 0단계 임시 서버 — raid/echo/provision.sh 가 만든 파일
-$HOST {
-	reverse_proxy 127.0.0.1:$APP_PORT
-}
-EOF
-if command -v caddy >/dev/null 2>&1; then
-  caddy validate --config "$CADDYFILE" --adapter caddyfile
-fi
-systemctl enable caddy
-systemctl restart caddy
-
-# ───────────── 8. 방화벽 ─────────────
+# ───────────── 7. 방화벽 (Caddy 를 띄우기 전에 80/443 을 열어 둔다 — 첫 인증서 발급이 막히지 않게) ─────────────
 # 허용 규칙을 먼저 넣고 마지막에 켠다(SSH 가 막히는 순서가 되지 않게)
 step "방화벽 (ufw)"
 ufw limit 22/tcp
@@ -364,10 +390,36 @@ ufw default allow outgoing
 ufw --force enable
 ufw status verbose || true
 
+# ───────────── 8. Caddy 설정 (HTTPS 자동 발급 + 프록시) ─────────────
+step "Caddy 설정"
+CADDYFILE="$ROOT/etc/caddy/Caddyfile"
+mkdir -p "$(dirname "$CADDYFILE")"
+cat > "$CADDYFILE" <<EOF
+# 레이드 0단계 임시 서버 — raid/echo/provision.sh 가 만든 파일
+{
+	servers {
+		timeouts {
+			read_header 10s
+			idle 2m
+		}
+	}
+}
+
+$HOST {
+	reverse_proxy 127.0.0.1:$APP_PORT
+}
+EOF
+if command -v caddy >/dev/null 2>&1; then
+  caddy validate --config "$CADDYFILE" --adapter caddyfile
+fi
+systemctl enable caddy
+systemctl restart caddy
+
 # ───────────── 9. 밖에서 보이는지 스스로 확인 ─────────────
 step "https://$HOST/health 확인"
-# 인증서 발급에 몇 분 걸릴 수 있어 최대 약 4분 기다린다
-if ! retry 48 5 "${CURL[@]}" -m 8 "https://$HOST/health" -o "$OPT/.public-health.json"; then
+# 인증서 발급에 몇 분 걸릴 수 있어 기다린다. curl 자체 재시도(--retry)는 꺼서(한 번 실패에 12초가 더 걸렸다)
+# 48번 x (5초 + 응답 대기 최대 8초) = 보통 약 4분, 아주 느리면 최대 약 10분.
+if ! retry 48 5 "${CURL[@]}" --retry 0 -m 8 "https://$HOST/health" -o "$OPT/.public-health.json"; then
   journalctl -u caddy --no-pager -n 30 2>&1 | tail -n 30 || true
   die "https://$HOST/health 가 열리지 않음 — 80/443 이 막혔거나 인증서 발급 실패일 수 있음(README 문제 해결 참고)"
 fi
@@ -380,7 +432,7 @@ if [ "$RUN_BENCH" = "1" ]; then
   if [ -f "$SRC/tests/raid/bench_rooms.js" ]; then
     systemctl daemon-reload
     if systemctl start --no-block raid-bench.service; then
-      BENCH_NOTE="부하 시험(raid-bench)을 예약했습니다. 에코 서버에 접속자가 2분 동안 0명이면 시작하고(3방 15분 → 8방 5분), 접속자가 생기면 멈추고 기다립니다. 진행: https://$HOST/health 의 setup.bench · 결과: https://$HOST/bench"
+      BENCH_NOTE="부하 시험(raid-bench)을 예약했습니다. 에코 서버에 접속자가 2분 동안 0명이면 시작하고(3방 15분 → 8방 5분), 접속자가 생기면 멈추고 기다립니다. 진행: https://$HOST/health 의 setup.bench · 결과: 목록 https://$HOST/bench?list=1 · 합격 기준인 3방 결과 https://$HOST/bench?name=3rooms (8방은 기록용)"
     else
       warn "raid-bench 를 시작하지 못함 (journalctl -u raid-bench 확인)"
       BENCH_NOTE="부하 시험 시작 실패"
