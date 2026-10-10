@@ -445,7 +445,7 @@ async def sec_own(b, srv):
             if '✨ 각성' not in t: bad.append(('각성 표시', k, t))
         else:
             if 'Lv%d/8' % L not in t.replace(' ', ''): bad.append(('Lv', k, t))
-            if '각성 열쇠: Lv8 %s' % ('✔' if L >= 8 else '✖') not in t: bad.append(('Lv8 조건', k, t))
+            if '각성 열쇠: Lv8 %s' % ('(달성)' if L >= 8 else '(아직)') not in t: bad.append(('Lv8 조건', k, t))
         if S['tier'].get(k) and ('%s%d/%d' % ('✨' if k in S['ev'] else '🏅', S['tier'][k], 5 if k in S['ev'] else 3)) not in t: bad.append(('단계', k, t))
     for k in S['ps']:
         t = byk['p:' + k]

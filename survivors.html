@@ -166,6 +166,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .fxl.y{color:#8fe3a6}.fxl.p{color:#ffd37a}.fxl.n{color:#b3bad6}.fxl.w{color:#ffb4a8;font-weight:700}
 .fxi{white-space:nowrap}.fxt2{white-space:normal}.fxw{color:#ffb4a8;font-weight:700}
 .fxtb tbody th .fxi{white-space:normal}
+@media(max-width:340px){.ch .fxl{font-size:10.5px;line-height:1.3;margin-top:1px}.ch .hint{font-size:10.5px}}
 .fxl+br{display:none}   /* 블록 줄 뒤의 <br> 이 빈 줄을 만들지 않게 */
 .fxtb td.p{font-size:17px}
 .fxd{margin:8px 0;text-align:left;background:var(--card2);border:1px solid var(--line);border-radius:10px;font-size:12.5px;color:var(--txt)}
@@ -1105,16 +1106,13 @@ function fxList(a,ch,max,notes){max=max||3;let h=a.slice(0,max).map(k=>{const t=
 function fxPassHtml(pk){   // 패시브 카드 아래 「내 무기 기준」 요약 — 내가 가진 무기만 보여 준다(O(무기수))
   if(!S)return '';
   const ch=PFXPS[pk],sp=t=>`<span class="fxl ${t[0]}">${t[1]}</span>`;
-  if(pk==='luck'){const m=fxMine('luck'),g=[sp(['y','✔ 모든 무기: 치명타 확률 +3%'])];
-    g.push(m.y.length?sp(['y','✔ 등급 확률도: '+fxList(m.y,'luck')]):m.p.length?sp(['p','◐ 등급 확률은 일부만: '+fxList(m.p,'luck',3,1)]):sp(['n','🎰 가챠 캡슐이 있어야 등급 확률이 올라요']));return g.join('');}
+  if(pk==='luck'){const m=fxMine('luck'),g=[sp(['y','✔ 모든 무기: 치명타 확률 +3%'+(m.y.length||m.p.length?' · 🎰 가챠 등급 확률도':' · 🎰 등급 확률은 가챠 캡슐만')])];
+    return g.join('');}
   if(PFXALL[pk])return sp(['y','✔ 모든 무기에 적용돼요']);
   if(!ch)return sp(['n','무기를 직접 강하게 하지는 않아요']);
   const m=fxMine(ch),g=[];
   if(!m.y.length&&!m.p.length)return sp(['w','⚠ 지금 가진 무기엔 효과가 없어요']);
-  if(m.y.length)g.push(sp(['y','✔ 내 무기: '+fxList(m.y,ch)]));
-  if(m.p.length)g.push(sp(['p','◐ 일부만: '+fxList(m.p,ch,3,1)]));
-  if(m.n.length)g.push(sp(['n','✖ 영향 없음: '+fxList(m.n,ch)]));
-  return g.join('');}
+  return sp(['y',`✔ 내 무기 ${m.y.length}개`+(m.p.length?` · ◐ 일부만 ${m.p.length}개`:'')+(m.n.length?` · ✖ 영향 없음 ${m.n.length}개`:'')+'']);}
 function fxKeyTail(k){   // 무기 카드의 「각성 열쇠」 꼬리말 — 열쇠 패시브가 이 무기를 실제로 강하게 하는지 사실대로
   const p=WEAP[k].pair,ch=PFXPS[p];
   if(PFXALL[p])return '';   // 근성·광분·급소는 모든 무기를 강하게 한다
@@ -1147,10 +1145,10 @@ function fxWeapHtml(k){   // 무기 카드 아래 「받는 강화」 한 줄 �
   const nm=(c,n)=>{const t=n?fxNote(k,c.k,ev):'';return `<span class="fxi">${c.ic}${c.nm}</span>`+(t?`<span class="fxt2">(${esc(t)})</span>`:'');},parts=[];
   if(g.y.length)parts.push('✔ '+g.y.map(c=>nm(c)).join(' · '));
   if(g.p.length)parts.push('◐ '+g.p.map(c=>nm(c,1)).join(' · '));
-  if(g.n.length)parts.push('✖ '+g.n.map(c=>nm(c)).join(' · '));
-  let h=`<span class="fxl">🔧 받는 강화 — ${parts.join(' &nbsp;')}</span>`;
+  if(g.n.length)parts.push('✖ '+g.n.map(c=>`<span class="fxi">${c.ic}${c.nm}</span>`).join(' · '));
+  let h=`<span class="fxl">🔧 받는 강화 ${parts.join(' ')}</span>`;
   if(!ev){const df=PFXCH.filter(c=>fxState(k,c.k,false)!==fxState(k,c.k,true)&&fxState(k,c.k,true)!=='?').map(c=>`<span class="fxi">${c.ic}${c.nm} ${FXSYM[fxState(k,c.k,false)]}→${FXSYM[fxState(k,c.k,true)]}</span>`);
-    if(df.length)h+=`<span class="fxl p">✨ 각성하면 달라져요: ${df.join(' · ')}</span>`;}
+    if(df.length)h+=`<span class="fxl p">✨ 각성하면: ${df.join(' · ')}</span>`;}
   return h;}
 // 🔗 시너지 — 무기 조합을 갖추면 켜진다(레벨업 카드·일시정지 화면에 표시). fx: dmg 피해 · cd 쿨타임 감소 · area 범위 · xp 경험치 · luck 행운 단계
 const SYN=[
@@ -1746,7 +1744,7 @@ function buildHtml(){
   for(const k of wk){const d=WEAP[k],L=S.w[k],pp=PASS[d.pair];
     const tn=S.tier[k]?` <span class="muted">${S.ev[k]?'✨':'🏅'}${S.tier[k]}/${TCAP(k)}</span>`:'';
     h+=S.ev[k]?`<div class="bw ev">${d.ev.ic} <b>${d.ev.nm}</b> <span class="new">✨ 각성</span>${tn}</div>`
-      :`<div class="bw">${d.ic} ${d.nm} <b>Lv ${L}</b>${tn}<small>🗝 각성 열쇠: Lv ${L}/${MAXLV}${L>=MAXLV?' ✔':''} + ${pp.ic} ${pp.nm} ${pv(d.pair)?'✔':'✖'}${L>=MAXLV&&pv(d.pair)?' → 다음 보스 상자!':''}</small></div>`;}
+      :`<div class="bw">${d.ic} ${d.nm} <b>Lv ${L}</b>${tn}<small>🗝 각성 열쇠: Lv ${L}/${MAXLV}${L>=MAXLV?' (달성)':''} + ${pp.ic} ${pp.nm} ${pv(d.pair)?'(보유)':'(아직 없음)'}${L>=MAXLV&&pv(d.pair)?' → 다음 보스 상자!':''}</small></div>`;}
   h+=`<div class="muted">✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}</div>`;
   h+=`<b>🎒 패시브 ${slotP()}/${SLOTP}</b>${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}`+(pk.length?pk.map(fxPassRow).join(''):'<div class="bw">없음</div>')+(S.ramen?`<div class="bw">🍜 라면 ×${S.ramen}</div>`:'')+fxTableHtml();   // 🧩 [2026-10-10] 패시브마다 「효과 한 줄 + 내 무기 N개 적용」 · 접이식 「내 무기 × 패시브」 표
   {const rk=Object.keys(S.rel),tk=Object.keys(S.tr);if(rk.length||tk.length)h+=`<b>🏺 유물·거래</b><div class="bw">${rk.map(k=>`${REL[k].ic} ${REL[k].nm} Lv${S.rel[k]}${k==='still'?(S.shield?' · 지금 있음':' · 다음까지 약 '+Math.max(1,Math.ceil([40,30,20][S.rel.still-1]-S.stillT))+'초'):''}`).concat(tk.map(k=>`${TRD[k].ic} ${TRD[k].nm} ×${S.tr[k]}`)).join(' · ')}</div>`;}
@@ -1841,7 +1839,7 @@ function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(�
   const wk=Object.keys(S.w),pk=Object.keys(S.ps);
   const W=wk.map(k=>{const d=WEAP[k],L=S.w[k],ev=!!S.ev[k],pp=PASS[d.pair],tn=S.tier[k]?' '+nb(`${ev?'✨':'🏅'}${S.tier[k]}/${TCAP(k)}`):'';
     return chip('w:'+k,ev?`${d.ev.ic} ${esc(d.ev.nm)} ${nb('<span class="new">✨ 각성</span>')}${tn}`
-      :`${d.ic} ${esc(d.nm)} ${nb(`<b>Lv${L}</b><span class="mx">/${MAXLV}</span>`)}${tn}<small>🗝 각성 열쇠: Lv${MAXLV} ${L>=MAXLV?'✔':'✖'} · ${pp.ic} ${esc(pp.nm)} ${pv(d.pair)?'✔':'✖'}</small>`);});
+      :`${d.ic} ${esc(d.nm)} ${nb(`<b>Lv${L}</b><span class="mx">/${MAXLV}</span>`)}${tn}<small>🗝 각성 열쇠: Lv${MAXLV} ${L>=MAXLV?'(달성)':'(아직)'} · ${pp.ic} ${esc(pp.nm)} ${pv(d.pair)?'(보유)':'(아직 없음)'}</small>`);});
   const P=pk.map(k=>{const d=PASS[k],t=S.pt[k];return chip('p:'+k,`${d.ic} ${esc(d.nm)} ${nb(`<b>Lv${S.ps[k]}</b><span class="mx">/${pmax(k)}</span>`)}${t?' '+nb(`🌟${t}/${PT[k]?PT[k].length:t}`):''}`);});
   const R=Object.keys(S.rel).map(k=>chip('r:'+k,`${REL[k].ic} ${esc(REL[k].nm)} ${nb(`<b>Lv${S.rel[k]}</b><span class="mx">/3</span>`)}`));
   const T=Object.keys(S.tr).map(k=>chip('t:'+k,`${TRD[k].ic} ${esc(TRD[k].nm)} ${nb(`<b>×${S.tr[k]}</b><span class="mx">/${TRD[k].cap||3}</span>`)}`));
@@ -1900,8 +1898,8 @@ function synHint(k){   // 이 무기를 고르면 가까워지는/완성되는 �
 function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
     return {ic:d.ic,nm:d.nm,ty:o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`,ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
-      +`<br><span class="hint">🗝 각성 열쇠: ${d.ic} Lv${MAXLV} + ${pp.ic} ${pp.nm}${pv(d.pair)?' ✔':''} → ${d.ev.ic} ${d.ev.nm}${el>0?` (각성 ${MAXEV-el}/${MAXEV})`:' — ⚠ 각성 3개를 다 썼어요'}${fxKeyTail(o.k)}</span>`+fxWeapHtml(o.k)+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
-  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k)+(w.length?`<br><span class="hint">🗝 각성 열쇠(각성 조건용): ${w.slice(0,3).map(k=>WEAP[k].ic+' '+WEAP[k].nm+(S.w[k]?' (보유)':'')).join(' · ')}${w.length>3?` 외 ${w.length-3}개`:''}</span>`:''),lv:`Lv ${o.l}→${o.l+1}`};}
+      +`<br><span class="hint">🗝 각성 열쇠: ${d.ic} Lv${MAXLV} + ${pp.ic} ${pp.nm}${pv(d.pair)?' (보유)':' (아직 없음)'} → ${d.ev.ic} ${d.ev.nm}${el>0?` (각성 ${MAXEV-el}/${MAXEV})`:' — ⚠ 각성 3개를 다 썼어요'}${fxKeyTail(o.k)}</span>`+fxWeapHtml(o.k)+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
+  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
     return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화`,

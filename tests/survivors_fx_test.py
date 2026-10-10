@@ -356,6 +356,22 @@ async def main():
                     check('[%d px] 18캐릭터 × 레벨업·카드 전부·일시정지 — 이름 전부 실제 이름 · 이상한 글자 0 · 표 행 수 · 접이식 기본 접힘 · 요약줄 ≥ 40px' % w, R['chars'] == len(F['chars']) and not R['bad'], R['bad'])
                     check('[%d px] 가로 넘침 0' % w, not R['over'], R['over'])
                     check('[%d px] 페이지 오류·콘솔 오류 0' % w, not e2, e2[:3])
+                # 레벨업 카드 3장(광역·공격속도 패시브 + 사료 투척 Lv3, 무기 6·패시브 8)이 작은 폰 한 화면에 들어오고, ✔/✖ 는 「받는 강화」에만 쓴다
+                for (w, h) in [(320, 568), (360, 640)]:
+                    ctx3, pg3, e3 = await H.new_page(b, srv.port, w=w, h=h, page=NEW, mobile=True)
+                    R3 = await pg3.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;
+                      S.w={feed:3,shrimp:2,pan:2,sushi:2,egg:2,can:1};S.ps={area:1,cd:1,amt:1,pspd:1,dur:1,hp:1,might:1,luck:1};
+                      const o=[{t:'p',k:'area',l:1},{t:'p',k:'cd',l:1},{t:'w',k:'feed',l:3}];
+                      F.state='lvup';const box=document.getElementById('choices');
+                      box.innerHTML=o.map(q=>{const c=x.cardOf(q);return '<button class="ch"><span class="ic">'+c.ic+'</span><span><small class="ty">'+c.ty+'</small><b>'+c.nm+'</b><small>'+c.ds+'</small></span><span class="lv">'+c.lv+'</span></button>';}).join('');
+                      document.getElementById('lvup').classList.remove('hidden');document.getElementById('lvup').style.display='flex';
+                      const bs=[...box.querySelectorAll('button')].map(b=>Math.round(b.getBoundingClientRect().height));
+                      const key=x.cardOf({t:'w',k:'feed',l:3}).ds.replace(/<[^>]+>/g,'');
+                      return {bs,tot:bs.reduce((a,b)=>a+b,0),key};}""")
+                    keyline = [t for t in R3['key'].split('🔧')[0].split('🗝')[1:]]
+                    check('[%d x %d] 레벨업 카드 3장 높이 합이 화면 높이 이내' % (w, h), R3['tot'] <= h - 40, R3)
+                    check('[%d] 각성 열쇠 줄은 ✔/✖ 대신 (보유)/(아직 없음)' % w, keyline and not re.search('[✔✖]', keyline[0].split('🔧')[0]) and '(보유)' in R3['key'] or '(아직 없음)' in R3['key'], R3['key'])
+                    await ctx3.close()
                 # 문구 규칙 몇 개를 구체 빌드로
                 r = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;const o={};
                   S.w={feed:5,shrimp:3,pan:2,sushi:8};S.ps={pspd:2,amt:1,area:1,hp:1,luck:1};
@@ -365,12 +381,12 @@ async def main():
                   o.shrimp=x.cardOf({t:'w',k:'shrimp',l:0}).ds;o.sushi=x.cardOf({t:'w',k:'sushi',l:0}).ds;o.rkt=x.cardOf({t:'w',k:'rkt',l:0}).ds;
                   S.w={feed:8};S.ps={amt:1};x.openChest&&0;return o;}""")
                 strip = lambda s: re.sub('<[^>]+>', '', s)
-                check('속사 카드: 「✔ 내 무기」에 사료 투척 · 「◐ 일부만」에 새우깡 부메랑(던질 때만) · 「✖ 영향 없음」에 프라이팬·초밥', '✔ 내 무기: 🌾 사료 투척' in strip(r['pspd']) and '◐ 일부만: 🍤 새우깡 부메랑(던질 때만)' in strip(r['pspd']) and '✖ 영향 없음: 🍳 프라이팬 · 🍣 아카보시 초밥' in strip(r['pspd']), strip(r['pspd']))
+                check('속사 카드: 한 줄 개수 요약 「✔ 내 무기 1개 · ◐ 일부만 1개 · ✖ 영향 없음 2개」 (이름 목록은 일시정지 표로)', '✔ 내 무기 1개 · ◐ 일부만 1개 · ✖ 영향 없음 2개' in strip(r['pspd']) and '새우깡' not in strip(r['pspd']), strip(r['pspd']))
                 check('받는 무기가 하나도 없으면 눈에 띄는 경고 「⚠ 지금 가진 무기엔 효과가 없어요」', '⚠ 지금 가진 무기엔 효과가 없어요' in strip(r['warn']) and 'fxl w' in r['warn'], strip(r['warn']))
                 check('무기를 강하게 하지 않는 패시브(최대 HP)는 그렇다고 적는다 · 근성은 「모든 무기에 적용돼요」', '무기를 직접 강하게 하지는 않아요' in strip(r['hp']) and '모든 무기에 적용돼요' in strip(r['might']), (strip(r['hp']), strip(r['might'])))
-                check('행운 카드: 「모든 무기: 치명타 확률 +3%」 + 가챠 캡슐이 없으면 등급 확률은 해당 없다고 적는다', '모든 무기: 치명타 확률 +3%' in strip(r['luck']) and '가챠 캡슐이 있어야' in strip(r['luck']), strip(r['luck']))
-                check('무기 카드(사료 투척): 「받는 강화」 한 줄 + 각성하면 속사 ✔→✖ 를 미리 알려 준다', '받는 강화' in strip(r['feedc']) and '각성하면 달라져요' in strip(r['feedc']) and '속사 ✔→✖' in strip(r['feedc']), strip(r['feedc']))
-                check('각성한 사료 폭풍 카드는 지금 폼(속사 ✖)을 따르고 「각성하면」 줄은 없다', '✖ ' in strip(r['feedev']) and '각성하면 달라져요' not in strip(r['feedev']) and re.search('✖[^✔◐]*🏹속사', strip(r['feedev'])), strip(r['feedev']))
+                check('행운 카드: 「모든 무기: 치명타 확률 +3%」 + 가챠 캡슐이 없으면 등급 확률은 해당 없다고 적는다', '모든 무기: 치명타 확률 +3%' in strip(r['luck']) and '가챠 캡슐만' in strip(r['luck']), strip(r['luck']))
+                check('무기 카드(사료 투척): 「받는 강화」 한 줄 + 각성하면 속사 ✔→✖ 를 미리 알려 준다', '받는 강화' in strip(r['feedc']) and '각성하면: ' in strip(r['feedc']) and '속사 ✔→✖' in strip(r['feedc']), strip(r['feedc']))
+                check('각성한 사료 폭풍 카드는 지금 폼(속사 ✖)을 따르고 「각성하면」 줄은 없다', '✖ ' in strip(r['feedev']) and '각성하면: ' not in strip(r['feedev']) and re.search('✖[^✔◐]*🏹속사', strip(r['feedev'])), strip(r['feedev']))
                 check('새우깡 카드: 열쇠(이동속도)는 강화가 아니라고 적는다 · 각성하면 ⏱·🏹 ✔→✖', '열쇠일 뿐 이 무기를 강하게 하진 않아요' in strip(r['shrimp']) and '⏱공격속도 ✔→✖' in strip(r['shrimp']), strip(r['shrimp']))
                 check('폭죽 카드: 열쇠(속사)가 실제로 강화하니 꼬리말 없음 · 초밥 카드: 열쇠(공격속도)가 일부만 도움 → 안내', '열쇠일 뿐' not in strip(r['rkt']) and '일부만 도움돼요' in strip(r['sushi']), (strip(r['rkt'])[-200:], strip(r['sushi'])[-200:]))
                 # 일시정지 표 — 구체 빌드
