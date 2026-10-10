@@ -367,7 +367,7 @@ async def main():
         d = await detail_of('w', 'w:breath')
         e = idx['w:breath']
         check('상세(드래곤 브레스·각성 형태·마스터 발견): Lv1~8 설명이 표와 같다', all(s in d for s in e['lv']), [s for s in e['lv'] if s not in d])
-        check('상세: 전용 캐릭터 「용조련사 전용」 + 시작 무기 안내(Lv2 로 시작)', '용조련사 전용' in d and '처음부터 들고' in d and 'Lv2 로 시작' in d, d[:200])
+        check('상세: 전용 캐릭터 「용조련사 전용」 + 시작 무기 안내(Lv2로 시작)', '용조련사 전용' in d and '처음부터 들고' in d and 'Lv2로 시작' in d, d[:200])
         check('상세: 각성 형태 이름·설명(발견)', e['ev']['nm'] in d and e['ev']['ds'] in d)
         check('상세: 마스터 3단계 + 각성 단계 2개 문구(ev·wt 모두 발견)', all(s in d for s in e['ms']['m'] + e['ms']['e']), [s for s in e['ms']['m'] + e['ms']['e'] if s not in d])
         check('상세: 짝 패시브(획득 범위 p:mag 발견)가 보인다', idx['p:mag']['nm'] in d)
@@ -868,6 +868,44 @@ async def main():
         check('실제로 한 판 해 보고 돌아오면 고른 카드만큼 도감이 열려 있다(칸 %d개 · 판 도중 %d)' % (st['n'], n_play), st['n'] >= 3 and await pg.evaluate("document.querySelectorAll('#cxPanel .cxt:not(.lock)').length") >= 1, st)
         await shot(pg, '3_after_run_412x860.png')
         check('[실제 한 판] 오류 없음', not errs, errs)
+        await ctx.close()
+
+        # ═════════════ ⑩ 통합 검수 보완 (2026-10-10) ═════════════
+        print('\n── ⑩ 통합 검수 보완 — 창 높이 고정 · 아래쪽 닫기 · 저장 되읽기 · 새 형식 보존 · 1% ──', flush=True)
+        ctx, pg, errs = await mk(b, srv.port, 390, 844, init=seed_init(['w:feed']))
+        await pg.click('#cxOpen')
+        ys = []
+        hs = []
+        for t in ('w', 'p', 'r', 'x', 's'):
+            await pg.evaluate("(t)=>document.querySelector('#cxBody .cxtab[data-t=\"'+t+'\"]').click()", t)
+            r = await pg.evaluate("()=>({y:document.querySelector('#cxBody .cxtab').getBoundingClientRect().top,h:document.querySelector('.cxbox').getBoundingClientRect().height})")
+            ys.append(round(r['y'])); hs.append(round(r['h']))
+        check('탭을 바꿔도 탭 줄 위치·창 높이가 안 변한다 %s %s' % (ys, hs), len(set(ys)) == 1 and len(set(hs)) == 1, (ys, hs))
+        pct = await pg.evaluate("()=>document.querySelector('.cxpct').textContent")
+        check('한 칸만 발견해도 진행 퍼센트가 0%% 가 아니다(%s)' % pct, pct == '1%', pct)
+        bx = await pg.evaluate("()=>{const r=document.getElementById('cxX2').getBoundingClientRect(),b=document.querySelector('.cxbox').getBoundingClientRect();return {h:r.height,inBox:r.bottom<=b.bottom+.5&&r.top>=b.top}}")
+        check('아래쪽 「닫기」 버튼이 높이 44px 이상이고 창 안에 있다 %s' % bx, bx['h'] >= 44 and bx['inBox'], bx)
+        await pg.click('#cxX2')
+        check('아래쪽 「닫기」 로 닫힌다', not await opened(pg))
+        check('오류 0', not errs, errs)
+        await ctx.close()
+        # 가로 화면에서도 dvh 규칙이 이긴다
+        ctx, pg, errs = await mk(b, srv.port, 844, 390)
+        await pg.click('#cxOpen')
+        r = await pg.evaluate("()=>{const e=document.querySelector('.cxbox');return {h:e.getBoundingClientRect().height,css:CSS.supports('height','100dvh')}}")
+        check('가로 화면 창 높이 = 보이는 높이 − 12 %s' % r, abs(r['h'] - 378) <= 1, r)
+        await ctx.close()
+        # setItem 이 에러 없이 아무것도 안 하면 메모리 모드로 알린다
+        ctx, pg, errs = await mk(b, srv.port, 390, 844, init="try{Storage.prototype.setItem=function(){};}catch(e){}")
+        await pg.evaluate("__cx.cdxNote('w:feed')")
+        check('저장이 조용히 무시되면 메모리 모드(mem=true)로 알린다', await pg.evaluate("__cdx.mem") is True)
+        await ctx.close()
+        # 더 새 형식(v:2)은 덮어쓰지 않는다
+        v2 = "try{if(!sessionStorage.getItem('__s2')){localStorage.setItem('p6_codex_v1',JSON.stringify({v:2,k:['w:feed']}));sessionStorage.setItem('__s2','1');}}catch(e){}"
+        ctx, pg, errs = await mk(b, srv.port, 390, 844, init=v2)
+        await pg.evaluate("__cx.cdxNote('p:spd')")
+        raw = await pg.evaluate("localStorage.getItem('p6_codex_v1')")
+        check('v:2 저장값은 v:1 로 덮어쓰지 않고(메모리 모드) 읽은 칸도 보인다 %s' % raw, json.loads(raw)['v'] == 2 and await pg.evaluate("__cdx.mem") is True and await pg.evaluate("__cx.CDX.s.has('w:feed')"), raw)
         await ctx.close()
 
         await b.close()
