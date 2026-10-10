@@ -13,7 +13,9 @@
      라  표류 방지 — 표를 실제 게임으로 증명한다: 한 무기만 든 판을 패시브 끔/켬(3겹)·같은 시드로 돌려(update() 그대로) 차이를 잰다.
          y = 눈에 띄게 세진다 · n = 판 전체가 비트까지 같다(아무것도 안 읽는다) · p = 달라지긴 한다. 기본은 p 칸 전부 + 대표 y/n 칸, --full 은 전 칸
      마  변이 — 표의 한 칸을 일부러 틀리게 한 변형으로 라 단계가 빨갛게 되는지(시험이 이빨이 있는지) 확인
-     바  불변 — 새 S 키 0 · 이어하기 서명(RES.SIG)이 기준 커밋과 같다
+     다2 카드 이름 — 패시브 카드(속사·곱빼기 …)의 ✔/◐/✖ 무기 이름 목록 = PFX 표에서 계산한 기대값(5채널 × 18캐릭터 풀 빌드) · 무기 카드의 받는 강화 이름 목록 = 기대값(40무기 × 기본/각성) ·
+         이모지만 나열하는 모드 없음 · 「열쇠일 뿐」「짝 패시브」 화면 문구 0 · 변이(fxMine 채널·PFX 한 칸·PFXSN 한 칸을 틀리게 → 빨강)
+   바  불변 — 새 S 키 0 · 이어하기 서명(RES.SIG)이 기준 커밋과 같다
    임시 사본 survivors_fx_t.html · survivors_fx_tb.html(기준 커밋)에 훅을 꽂아 쓴다(끝나면 지운다 · 커밋하지 않는다)."""
 import asyncio, sys, os, json, re, subprocess, time, hashlib, statistics
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -34,7 +36,7 @@ def check(n, c, x=''):
 def want(sec): return ONLY is None or sec in ONLY
 
 EXTRA_NEW = r"""
-window.__F={PFX,PFXN,PFXCH,PFXPS,PFXALL,FXSYM,fxState,fxNote,fxWeapons,fxMine,fxPassHtml,fxWeapHtml,fxTableHtml,fxPassRow,fxKeyHtml,fxKeyBoosts,
+window.__F={PFX,PFXN,PFXCH,PFXPS,PFXALL,PFXSN,FXSYM,setMine(f){fxMine=f},getMine(){return fxMine},fxState,fxNote,fxWeapons,fxMine,fxPassHtml,fxWeapHtml,fxTableHtml,fxPassRow,fxKeyHtml,fxKeyBoosts,
   pauseGame,drawCards,openLvup,buildHtml,openChest,cardOf,cdxEntries,cdxView,PASS,PT,TRD,SYN,TIERS,WEAP,CHARS,TCAP,MAXLV,UI3,
   cdMul,areaMul,dmgMul,PS,DUR,LK,critChance,critMul,pv,PTV,trn,RES,setCUR(v){CUR=v},get CUR(){return CUR},get CH(){return CH},get S(){return S},
   CDX,cdxAdd,cdxKeys};
@@ -232,10 +234,11 @@ async def main():
         async with async_playwright() as pw:
             b = await H.launch(pw)
             ctx, pg, errs = await H.new_page(b, srv.port, w=1280, h=800, page=NEW)   # 재는 판은 가로 화면에서 — 화면 안에 있는 적만 겨누는 무기(키보드 난타 …)가 허수아비를 다 보게
-            F = await pg.evaluate("""()=>{const F=window.__F;return {PFX:F.PFX,PFXN:F.PFXN,PFXCH:F.PFXCH,PFXPS:F.PFXPS,PFXALL:F.PFXALL,wk:Object.keys(F.WEAP),
+            F = await pg.evaluate("""()=>{const F=window.__F;return {PFX:F.PFX,PFXN:F.PFXN,PFXCH:F.PFXCH,PFXSN:F.PFXSN,PFXPS:F.PFXPS,PFXALL:F.PFXALL,wk:Object.keys(F.WEAP),
                 pass:Object.keys(F.PASS),pair:Object.fromEntries(Object.entries(F.WEAP).map(([k,v])=>[k,v.pair])),
                 wnm:Object.fromEntries(Object.entries(F.WEAP).map(([k,v])=>[k,[v.ic,v.nm,v.ev&&v.ev.ic,v.ev&&v.ev.nm]])),chars:F.CHARS.map(c=>[c.k,c.w,c.nm])}}""")
             PFX, PFXN, PFXCH = F['PFX'], F['PFXN'], F['PFXCH']
+            PFXSN = F['PFXSN']
             WK = F['wk']
 
             # ───── 가 정적 ─────
@@ -257,6 +260,12 @@ async def main():
                 check('설명 키는 모두 실제 「무기.채널」', all(k.split('.')[0] in PFX and k.split('.')[1] in CHAN for k in PFXN), [k for k in PFXN if k.split('.')[0] not in PFX])
                 notes = []
                 for n in PFXN.values(): notes += [n] if isinstance(n, str) else [x for x in n if x]
+                SN_WANT = {'feed': '사료', 'fryer': '튀김기', 'sushi': '초밥', 'egg': '달걀', 'shrimp': '새우깡', 'kbd': '난타', 'spk': '스피커', 'potion': '물약', 'breath': '브레스', 'ping': '핑', 'wifi': '와이파이', 'can': '캔', 'gacha': '가챠',
+                           'pan': '팬', 'rkt': '폭죽', 'chick': '병아리', 'rod': '낚싯대', 'frost': '얼음땡', 'lid': '뚜껑', 'meteor': '운석', 'snipe': '저격', 'hole': '블랙홀', 'bell': '리듬', 'quill': '깃털', 'tempo': '치명속도', 'fuse': '폭탄',
+                           'slime': '슬라임', 'cart': '카트', 'heart': '하트', 'jhin': '4발', 'whop': '와퍼', 'bash': '방패', 'twin': '쌍둥이', 'stamp': '도장', 'chain': '사슬', 'ram': '박치기', 'snack': '맛동산', 'eom': '엄외침', 'pcards': '포토카드', 'sing': '노래'}
+                check('PFXSN(짧은 무기 이름) = WEAP 40개와 1:1 · 1~4글자 · 겹치지 않는다 · 정한 이름과 같다', sorted(PFXSN) == sorted(WK) and len(PFXSN) == 40 and all(1 <= len(v) <= 4 for v in PFXSN.values()) and len(set(PFXSN.values())) == 40 and PFXSN == SN_WANT, (set(PFXSN) ^ set(WK), {k: v for k, v in PFXSN.items() if SN_WANT.get(k) != v}))
+                _src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
+                check('PFXSN 은 WEAP 표 바깥의 별도 최상위 const(이어하기 서명 대상 아님)', re.search(r'^const PFXSN=\{', _src, re.M) is not None and 'PFXSN' not in _src[_src.index('const WEAP={'):_src.index('const WEAP={') + 40000].split('const PFX={')[0], '')
                 check('p 설명은 짧다(30자 이하) · 한글/기호만 · 영어 약어 없음', all(len(t) <= 30 and not re.search('[A-Za-z]{3,}', t) for t in notes), [t for t in notes if len(t) > 30])
                 check('행운 채널은 가챠 캡슐만 받는다(y/p) — 나머지 39개는 nn', all((PFX[w]['luck'] == 'nn') == (w != 'gacha') for w in PFX) and PFX['gacha']['luck'] == 'yp', PFX['gacha']['luck'])
                 check('채널 표 PFXCH 여섯 줄 · 패시브 연결이 실제 패시브', [c['k'] for c in PFXCH] == CHAN and all(c['ps'] in F['pass'] for c in PFXCH), PFXCH)
@@ -324,7 +333,7 @@ async def main():
                     R = await pg2.evaluate("""()=>{
                       const x=window.__p6x,F=window.__F,out={chars:[],bad:[],over:[],names:new Set()};
                       const known=new Set();for(const k in F.WEAP){const d=F.WEAP[k];known.add(d.ic+' '+d.nm);}
-                      const chNames=new Set(F.PFXCH.flatMap(c=>[c.ic+c.nm,c.ic+c.sn]));
+                      const chNames=new Set(F.PFXCH.flatMap(c=>[c.ic+c.nm,c.ic+c.sn,c.sn]));for(const k in F.WEAP)chNames.add(F.WEAP[k].ic+F.PFXSN[k]);
                       const scan=(root,tag)=>{for(const el of root.querySelectorAll('.fxi')){const t=el.textContent.replace(/✨$/,'').trim();if(!known.has(t)&&!chNames.has(t)&&!/[✔◐✖]/.test(t)&&!/→/.test(t))out.bad.push([tag,t]);}
                         const txt=root.textContent;for(const s of ['undefined','NaN','[object','null'])if(txt.includes(s))out.bad.push([tag,s]);};
                       const wide=tag=>{const d=document.documentElement;if(d.scrollWidth>d.clientWidth+1)out.over.push([tag,d.scrollWidth,d.clientWidth]);
@@ -381,20 +390,25 @@ async def main():
                   o.shrimp=x.cardOf({t:'w',k:'shrimp',l:0}).ds;o.sushi=x.cardOf({t:'w',k:'sushi',l:0}).ds;o.rkt=x.cardOf({t:'w',k:'rkt',l:0}).ds;
                   S.w={feed:8};S.ps={amt:1};x.openChest&&0;return o;}""")
                 strip = lambda s: re.sub('<[^>]+>', '', s)
-                check('속사 카드: 한 줄 개수 요약 「✔ 내 무기 1개 · ◐ 일부만 1개 · ✖ 영향 없음 2개」 (이름 목록은 일시정지 표로)', '✔ 내 무기 1개 · ◐ 일부만 1개 · ✖ 영향 없음 2개' in strip(r['pspd']) and '새우깡' not in strip(r['pspd']), strip(r['pspd']))
+                check('속사 카드: 내 무기를 이름으로 「✔ 🌾사료 ◐ 🍤새우깡 ✖ 🍳팬·🍣초밥」(◐ 이유 설명은 카드에 없다)', re.sub(r'\s+', ' ', strip(r['pspd'])).endswith('✔ 🌾사료 ◐ 🍤새우깡 ✖ 🍳팬·🍣초밥') and '던질 때만' not in strip(r['pspd']) and '내 무기' not in strip(r['pspd']), strip(r['pspd']))
                 check('받는 무기가 하나도 없으면 눈에 띄는 경고 「⚠ 지금 가진 무기엔 효과가 없어요」', '⚠ 지금 가진 무기엔 효과가 없어요' in strip(r['warn']) and 'fxl w' in r['warn'], strip(r['warn']))
                 check('무기를 강하게 하지 않는 패시브(최대 HP)는 그렇다고 적는다 · 근성은 「모든 무기에 적용돼요」', '무기를 직접 강하게 하지는 않아요' in strip(r['hp']) and '모든 무기에 적용돼요' in strip(r['might']), (strip(r['hp']), strip(r['might'])))
                 check('행운 카드: 「모든 무기: 치명타 확률 +3%」 + 가챠 캡슐이 없으면 등급 확률은 해당 없다고 적는다', '모든 무기: 치명타 확률 +3%' in strip(r['luck']) and '가챠 캡슐만' in strip(r['luck']), strip(r['luck']))
-                check('무기 카드(사료 투척): 「🔧 받는 강화」 한 줄 + 「각성 후 🏹✖」(속사 ✔→✖)를 미리 알려 준다', '🔧 ⏱🍱🏹 ✔' in strip(r['feedc']) and '각성 후 🏹✖' in strip(r['feedc']), strip(r['feedc']))
-                check('각성한 사료 폭풍 카드는 지금 폼(속사 ✖)을 따르고 「각성하면」 줄은 없다', '그 외 ✖' in strip(r['feedev']) and '각성 후' not in strip(r['feedev']) and '🏹' not in strip(r['feedev']), strip(r['feedev']))
-                check('새우깡 카드: 열쇠(이동속도)는 강화가 아니라고 적는다 · 각성하면 ⏱·🏹 ✔→✖', '열쇠일 뿐' in strip(r['shrimp']) and '각성 후 ⏱✖ 🏹✖' in strip(r['shrimp']), strip(r['shrimp']))
-                check('폭죽 카드: 열쇠(속사)가 실제로 강화하니 「열쇠일 뿐」 없음(열쇠가 있으면 한마디로) · 초밥 카드: 공격속도 ◐', '열쇠일 뿐' not in strip(r['rkt']) and '🗝 🏹속사 보유' in strip(r['rkt']) and '⏱공속 ◐' in strip(r['sushi']), (strip(r['rkt'])[-200:], strip(r['sushi'])[-200:]))
+                check('무기 카드(사료 투척): 「🔧 받는 강화」 한 줄 + 「각성 후 🏹✖」(속사 ✔→✖)를 미리 알려 준다', '🔧 받는 강화 ✔ 공속·곱빼기·속사 ✖ 끈기' in re.sub(r'\s+', ' ', strip(r['feedc'])) and '✨각성 후 속사✖' in strip(r['feedc']), strip(r['feedc']))
+                check('각성한 사료 폭풍 카드는 지금 폼(속사 ✖)을 따르고 「각성하면」 줄은 없다', '받는 강화 ✔ 공속·곱빼기 ✖ 속사·끈기' in re.sub(r'\s+', ' ', strip(r['feedev'])) and '각성 후' not in strip(r['feedev']), strip(r['feedev']))
+                sh = re.sub(r'\s+', ' ', strip(r['shrimp']))
+                check('새우깡 카드: 각성 열쇠 줄은 「🗝 각성 열쇠: 이동속도 (없음) → …」 · 개발자 말투 「열쇠일 뿐」 0 · 각성하면 공속✖ 속사✖', re.search('🗝 각성 열쇠: 👟이동속도 \\(없음\\) → ', sh) and '열쇠일 뿐' not in sh and '✨각성 후 공속✖ 속사✖' in sh, sh)
+                rk = re.sub(r'\s+', ' ', strip(r['rkt'])); su = re.sub(r'\s+', ' ', strip(r['sushi']))
+                check('폭죽 카드: 열쇠(속사)가 실제로 강화하니 별도 줄 없이 받는 강화 줄 끝에 「🗝 각성 열쇠 보유」만(패시브 이름 없음) · 초밥 카드: 공속 ◐', '🗝 각성 열쇠 보유' in rk and '🗝 각성 열쇠:' not in rk and '속사 보유' not in rk and '◐ 공속' in su, (rk[-200:], su[-200:]))
                 r0 = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;S.w={};S.ps={pspd:1};
                   const o={zero:x.cardOf({t:'p',k:'pspd',l:1}).ds};S.w={can:1};S.ps={dur:1};o.dur=x.cardOf({t:'p',k:'dur',l:1}).ds;
                   o.song=Object.values(F.WEAP).map(w=>w.ds.join?w.ds.join(' '):String(w.ds)).join(' ');return o;}""")
                 check('무기가 0개일 때 패시브 카드는 경고 대신 「무기를 얻으면 적용돼요」', '무기를 얻으면 적용돼요' in strip(r0['zero']) and '⚠' not in strip(r0['zero']), strip(r0['zero']))
                 check('끈기 카드에는 긴 괄호 목록이 없다(도감·일시정지로)', '웅덩이' not in strip(r0['dur']) and '설치물이 남아 있는 시간 +15%' in strip(r0['dur']), strip(r0['dur']))
                 check('무기 설명에 「짝 패시브」 0(전부 「각성 열쇠」)', '짝 패시브' not in r0['song'], '')
+                _src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
+                _code = '\n'.join(l for l in _src.split('\n') if not re.match(r'\s*//', l) and not re.search(r'\s//\s', l))
+                check('화면 문구 소스에 「열쇠일 뿐」 0 · 「짝 패시브」 0(주석 제외)', '열쇠일 뿐' not in _src and '짝 패시브' not in _code, [l[:80] for l in _code.split('\n') if '짝 패시브' in l][:3])
                 # 일시정지 표 — 구체 빌드
                 r = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;
                   S.w={shrimp:3,pan:2,feed:5,lid:4};S.ps={pspd:2,dur:1,cd:1};F.pauseGame();const h=document.getElementById('pInfo').innerHTML;const det=document.getElementById('fxTab');
@@ -412,6 +426,95 @@ async def main():
                 bg = (0x1e, 0x24, 0x42)
                 cs = {k: contrast(rgb(cc[k]), bg) for k in 'ypnw'}
                 check('글자 대비 4.5 이상(카드 바탕 #1e2442 위 ✔ 초록 · ◐ 노랑 · ✖ 회색 · ⚠ 분홍)', all(v >= 4.5 for v in cs.values()), cs)
+
+                # ───── 카드 이름 목록 = 표(PFX)에서 계산한 기대값 ─────
+                print('  ·· 카드 이름 목록(패시브 5채널 × 18캐릭터 · 무기 40 × 기본/각성) = PFX 기대값')
+                WIC = {k: v[0] for k, v in F['wnm'].items()}
+                SNC = {c['k']: c['sn'] for c in PFXCH}
+                PASS_CH = [('cd', 'cd'), ('amt', 'cnt'), ('pspd', 'spd'), ('dur', 'dur'), ('area', 'area')]   # (패시브 키, 채널)
+                CHR = [c[0] for c in F['chars']]; CHW = {c[0]: c[1] for c in F['chars']}
+                def builds():
+                    for i, ck in enumerate(CHR):
+                        ws = ([CHW[ck]] if CHW[ck] else [])
+                        j = 0
+                        while len(ws) < 6:
+                            k = WK[(i * 7 + j * 5) % len(WK)]; j += 1
+                            if k not in ws: ws.append(k)
+                        ev = {k: 1 for jj, k in enumerate(ws) if (i + jj) % 3 == 0}
+                        yield ck, ws, ev
+                PASS_JS = """(bl)=>{const x=window.__p6x,F=window.__F,out={};
+                  for(const [ck,ws,ev] of bl){x.CH_set(ck);x.newRun();x.state='play';const S=x.S;S.w={};ws.forEach((k,i)=>S.w[k]=1+i%3);S.ev=Object.assign({},ev);S.ps={cd:1,amt:1,pspd:1,dur:1,area:1};
+                    for(const pk of ['cd','amt','pspd','dur','area']){const t=document.createElement('div');t.innerHTML=x.cardOf({t:'p',k:pk,l:1}).ds;
+                      out[ck+'|'+pk]={warn:!!t.querySelector('.fxl.w'),groups:[...t.querySelectorAll('.fxl .fxg')].map(g=>[g.className.split(' ')[1],[...g.querySelectorAll('.fxi')].map(e=>e.textContent)]),txt:t.textContent};}}
+                  return out;}"""
+                async def pass_mismatch():
+                    got = await pg.evaluate(PASS_JS, [list(b3) for b3 in builds()])
+                    bad = []
+                    for ck, ws, ev in builds():
+                        for pk, ch in PASS_CH:
+                            exp = {'y': [], 'p': [], 'n': []}
+                            for k in ws:
+                                exp[PFX[k][ch][1 if ev.get(k) else 0]].append(WIC[k] + PFXSN[k] + ('✨' if ev.get(k) else ''))
+                            g = got[ck + '|' + pk]
+                            if not exp['y'] and not exp['p']:
+                                if not g['warn'] or g['groups']: bad.append((ck, pk, '경고여야 함', g['txt'][-60:]))
+                            else:
+                                eg = [[t, exp[t]] for t in 'ypn' if exp[t]]
+                                if g['warn'] or g['groups'] != eg: bad.append((ck, pk, eg, g['groups']))
+                    return bad
+                b0 = await pass_mismatch()
+                check('패시브 카드 5채널(공속·곱빼기·속사·끈기·광역) × 18캐릭터 풀 빌드(무기 6개): ✔/◐/✖ 무기 이름 목록 = PFX 표의 기대값 (%d칸)' % (len(CHR) * 5), not b0, b0[:4])
+                WEAP_JS = """(a)=>{const x=window.__p6x,F=window.__F,out={};x.CH_set('brj');x.newRun();x.state='play';const S=x.S;
+                  for(const k of Object.keys(F.WEAP))for(const ev of [0,1]){S.w={};S.w[k]=3;S.ev={};if(ev)S.ev[k]=1;S.ps={};
+                    const t=document.createElement('div');t.innerHTML=x.cardOf({t:'w',k,l:3}).ds;const L=t.querySelector('.fxl');
+                    out[k+'|'+ev]={txt:L?L.textContent.replace(/\\s+/g,' '):'',groups:L?[...L.querySelectorAll('.fxg')].map(g=>[g.className.split(' ')[1],[...g.querySelectorAll('.fxi')].map(e=>e.textContent)]):[],after:L?[...L.querySelectorAll('.fxa .fxi')].map(e=>e.textContent):[],hint:t.textContent};}
+                  return out;}"""
+                SYMS = {'y': '✔', 'p': '◐', 'n': '✖'}
+                async def weap_mismatch():
+                    got = await pg.evaluate(WEAP_JS, 0); bad = []
+                    for k in WK:
+                        for ev in (0, 1):
+                            st = lambda ch, e: PFX[k][ch][1 if e else 0]
+                            exp = {'y': [], 'p': [], 'n': []}
+                            for c in PFXCH:
+                                s_ = st(c['k'], ev)
+                                if c['k'] == 'luck' and s_ == 'n': continue
+                                exp[s_].append(c['sn'])
+                            eg = [[t, exp[t]] for t in 'ypn' if exp[t]]
+                            aft = [] if ev else [c['sn'] + SYMS[st(c['k'], 1)] for c in PFXCH if st(c['k'], 0) != st(c['k'], 1) and not (c['k'] == 'luck' and st('luck', 1) == 'n')]
+                            g = got['%s|%d' % (k, ev)]
+                            none = not exp['y'] and not exp['p']
+                            okline = ('받는 강화 없음 ✖' in g['txt'] and not g['groups']) if none else (g['groups'] == eg)
+                            if not okline or g['after'] != aft or (aft and ('✨각성 후 ' not in g['txt'])) or (not ev and not aft and '각성 후' in g['txt']) or (ev and '각성 후' in g['txt']):
+                                bad.append((k, ev, eg, g['groups'], aft, g['after']))
+                    return bad
+                w0 = await weap_mismatch()
+                check('무기 카드 「🔧 받는 강화」 ✔/◐/✖ 이름 목록 + 「✨각성 후」 이름 = PFX 표의 기대값 (40무기 × 기본/각성 = 80칸)', not w0, w0[:3])
+                allw = await pg.evaluate(WEAP_JS, 0)
+                emo = [k for k, v in allw.items() if not v['txt'].startswith('🔧 받는 강화 ') or any(not re.search('[가-힣]', t) for gg in v['groups'] for t in gg[1])]
+                check('이모지만 나열하는 모드 없음 — 80장 모두 「🔧 받는 강화」 + 한글 패시브 이름 (아이콘만인 칸 0)', not emo, emo[:4])
+                nk = [k for k, v in allw.items() if '열쇠일 뿐' in v['hint'] or '짝 패시브' in v['hint']]
+                check('무기 카드 80장에 「열쇠일 뿐」「짝 패시브」 0', not nk, nk[:4])
+                # 변이 — 틀리게 만들면 위 비교가 빨개져야 한다
+                orig_pfx = {'feed.cd': PFX['feed']['cd'], 'sushi.cd': PFX['sushi']['cd']}
+                MUT = []
+                for pk, ch in PASS_CH:
+                    MUT.append(('fxMine(%s 채널이 빈 값)' % ch, "window.__om=F.getMine();F.setMine(c=>c==='%s'?{y:[],p:[],n:[]}:window.__om(c))" % ch, "F.setMine(window.__om)", 'pass'))
+                MUT.append(('fxMine(속사 채널이 y 를 n 으로)', "window.__om=F.getMine();F.setMine(c=>{const o=window.__om(c);return c==='spd'?{y:[],p:o.p,n:o.y.concat(o.n)}:o})", "F.setMine(window.__om)", 'pass'))
+                MUT.append(('PFX 한 칸(사료 공속 기본 y→n)', "F.PFX.feed.cd='n'+F.PFX.feed.cd[1]", "F.PFX.feed.cd='%s'" % PFX['feed']['cd'], 'both'))
+                MUT.append(('PFX 한 칸(초밥 공속 각성 p→y)', "F.PFX.sushi.cd=F.PFX.sushi.cd[0]+'y'", "F.PFX.sushi.cd='%s'" % PFX['sushi']['cd'], 'both'))
+                MUT.append(('PFXSN 한 칸(새우깡 → 새우)', "F.PFXSN.shrimp='새우'", "F.PFXSN.shrimp='새우깡'", 'pass'))
+                MUT.append(('PFXSN 한 칸(사료 → 사로)', "F.PFXSN.feed='사로'", "F.PFXSN.feed='사료'", 'pass'))
+                miss = []
+                for nm, up, down, kind in MUT:
+                    await pg.evaluate("()=>{const F=window.__F;" + up + "}")
+                    try:
+                        red = bool(await pass_mismatch()) or (kind == 'both' and bool(await weap_mismatch()))
+                    finally:
+                        await pg.evaluate("()=>{const F=window.__F;" + down + "}")
+                    if not red: miss.append(nm)
+                check('변이 시험: fxMine 5채널 · PFX 두 칸 · PFXSN 두 칸을 일부러 틀리게 하면 이름 목록 시험이 전부 빨강 (%d개)' % len(MUT), not miss, miss)
+                check('변이를 되돌리면 다시 초록(되돌림 확인)', not await pass_mismatch() and not await weap_mismatch(), '')
 
                 # 도감
                 print('  ·· 도감')
@@ -520,15 +623,19 @@ async def main():
                         hres[(w, h, nm)] = (rn, ro, kinds, sc)
                     check('[%d x %d] 카드 높이 합 시험 중 페이지 오류 0' % (w, h), not en and not eo, (en + eo)[:3])
                     await cn.close(); await co.close()
+                _mx = {'w': (-999, ''), 'p': (-999, '')}
                 for (w, h, nm), (rn, ro, kinds, sc) in hres.items():
                     inc = []
                     for q, a, o_ in zip(sc['o'], rn['h'], ro['h']):
                         inc.append((a - o_, 45 if q['t'] == 'w' else 60))
+                        if a - o_ > _mx[q['t']][0]: _mx[q['t']] = (a - o_, '%dx%d %s' % (w, h, nm))
                     check('[%d x %d] %s — 카드마다 기준 대비 증가(무기 ≤ +45px · 패시브 ≤ +60px) %s' % (w, h, nm, [i[0] for i in inc]), all(d <= m for d, m in inc), (rn['h'], ro['h']))
                     check('[%d x %d] %s — 가로 넘침 0' % (w, h, nm), not rn['over'])
                     if (w, h) == (360, 640):
                         fit_old = ro['bottom'] <= ro['boxBottom']
                         check('[360 x 640] %s — 기준에서 들어오던 조합은 세 번째 카드가 박스 안에 (아래끝 %d / 박스 %d · 기준 %d)' % (nm, rn['bottom'], rn['boxBottom'], ro['bottom']), (not fit_old) or rn['bottom'] <= rn['boxBottom'], (rn, ro))
+
+                print('  카드 높이 최대 증가: 무기 +%dpx (%s) · 패시브 +%dpx (%s)' % (_mx['w'][0], _mx['w'][1], _mx['p'][0], _mx['p'][1]))
 
             if want('바'):
                 print('── 바 불변 ──')
