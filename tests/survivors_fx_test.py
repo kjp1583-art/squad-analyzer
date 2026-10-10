@@ -34,7 +34,7 @@ def check(n, c, x=''):
 def want(sec): return ONLY is None or sec in ONLY
 
 EXTRA_NEW = r"""
-window.__F={PFX,PFXN,PFXCH,PFXPS,PFXALL,FXSYM,fxState,fxNote,fxWeapons,fxMine,fxPassHtml,fxWeapHtml,fxTableHtml,fxPassRow,fxKeyTail,
+window.__F={PFX,PFXN,PFXCH,PFXPS,PFXALL,FXSYM,fxState,fxNote,fxWeapons,fxMine,fxPassHtml,fxWeapHtml,fxTableHtml,fxPassRow,fxKeyHtml,fxKeyBoosts,
   pauseGame,drawCards,openLvup,buildHtml,openChest,cardOf,cdxEntries,cdxView,PASS,PT,TRD,SYN,TIERS,WEAP,CHARS,TCAP,MAXLV,UI3,
   cdMul,areaMul,dmgMul,PS,DUR,LK,critChance,critMul,pv,PTV,trn,RES,setCUR(v){CUR=v},get CUR(){return CUR},get CH(){return CH},get S(){return S},
   CDX,cdxAdd,cdxKeys};
@@ -306,7 +306,7 @@ async def main():
                 bad = []
                 for k, ds, fx in tx['syn']:
                     if fx.get('cd') and ('쿨타임 -%d%%' % round(fx['cd'] * 100)) not in ds: bad.append((k, ds, fx))
-                    if fx.get('area') and ('범위 +%d%%' % round(fx['area'] * 100)) not in ds: bad.append((k, ds, fx))
+                    if fx.get('area') and ('광역 +%d%%' % round(fx['area'] * 100)) not in ds: bad.append((k, ds, fx))
                     if (fx.get('cd') or fx.get('area')) and '모든 쿨타임' in ds + '모든 범위': bad.append((k, ds))
                 check('시너지 설명의 쿨타임·범위 숫자 = fx 값 (전 %d개)' % len(tx['syn']), not bad, bad[:4])
                 check('리듬 게임 5단계 「강화 중 쿨타임 -8%」는 「모든」이 아니라 공격속도와 같은 규칙', '-8%' in tx['bell'] and '모든' not in tx['bell'], tx['bell'])
@@ -324,7 +324,7 @@ async def main():
                     R = await pg2.evaluate("""()=>{
                       const x=window.__p6x,F=window.__F,out={chars:[],bad:[],over:[],names:new Set()};
                       const known=new Set();for(const k in F.WEAP){const d=F.WEAP[k];known.add(d.ic+' '+d.nm);}
-                      const chNames=new Set(F.PFXCH.map(c=>c.ic+c.nm));
+                      const chNames=new Set(F.PFXCH.flatMap(c=>[c.ic+c.nm,c.ic+c.sn]));
                       const scan=(root,tag)=>{for(const el of root.querySelectorAll('.fxi')){const t=el.textContent.replace(/✨$/,'').trim();if(!known.has(t)&&!chNames.has(t)&&!/[✔◐✖]/.test(t)&&!/→/.test(t))out.bad.push([tag,t]);}
                         const txt=root.textContent;for(const s of ['undefined','NaN','[object','null'])if(txt.includes(s))out.bad.push([tag,s]);};
                       const wide=tag=>{const d=document.documentElement;if(d.scrollWidth>d.clientWidth+1)out.over.push([tag,d.scrollWidth,d.clientWidth]);
@@ -366,11 +366,11 @@ async def main():
                       box.innerHTML=o.map(q=>{const c=x.cardOf(q);return '<button class="ch"><span class="ic">'+c.ic+'</span><span><small class="ty">'+c.ty+'</small><b>'+c.nm+'</b><small>'+c.ds+'</small></span><span class="lv">'+c.lv+'</span></button>';}).join('');
                       document.getElementById('lvup').classList.remove('hidden');document.getElementById('lvup').style.display='flex';
                       const bs=[...box.querySelectorAll('button')].map(b=>Math.round(b.getBoundingClientRect().height));
-                      const key=x.cardOf({t:'w',k:'feed',l:3}).ds.replace(/<[^>]+>/g,'');
+                      delete S.ps.amt;const key=x.cardOf({t:'w',k:'feed',l:3}).ds.replace(/<[^>]+>/g,'');
                       return {bs,tot:bs.reduce((a,b)=>a+b,0),key};}""")
                     keyline = [t for t in R3['key'].split('🔧')[0].split('🗝')[1:]]
                     check('[%d x %d] 레벨업 카드 3장 높이 합이 화면 높이 이내' % (w, h), R3['tot'] <= h - 40, R3)
-                    check('[%d] 각성 열쇠 줄은 ✔/✖ 대신 (보유)/(아직 없음)' % w, keyline and not re.search('[✔✖]', keyline[0].split('🔧')[0]) and '(보유)' in R3['key'] or '(아직 없음)' in R3['key'], R3['key'])
+                    check('[%d] 각성 열쇠 줄(열쇠가 없을 때)은 ✔/✖ 대신 (없음)' % w, keyline and not re.search('[✔◐✖]', keyline[0].split('🔧')[0]) and '(없음)' in R3['key'], R3['key'])
                     await ctx3.close()
                 # 문구 규칙 몇 개를 구체 빌드로
                 r = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;const o={};
@@ -385,10 +385,16 @@ async def main():
                 check('받는 무기가 하나도 없으면 눈에 띄는 경고 「⚠ 지금 가진 무기엔 효과가 없어요」', '⚠ 지금 가진 무기엔 효과가 없어요' in strip(r['warn']) and 'fxl w' in r['warn'], strip(r['warn']))
                 check('무기를 강하게 하지 않는 패시브(최대 HP)는 그렇다고 적는다 · 근성은 「모든 무기에 적용돼요」', '무기를 직접 강하게 하지는 않아요' in strip(r['hp']) and '모든 무기에 적용돼요' in strip(r['might']), (strip(r['hp']), strip(r['might'])))
                 check('행운 카드: 「모든 무기: 치명타 확률 +3%」 + 가챠 캡슐이 없으면 등급 확률은 해당 없다고 적는다', '모든 무기: 치명타 확률 +3%' in strip(r['luck']) and '가챠 캡슐만' in strip(r['luck']), strip(r['luck']))
-                check('무기 카드(사료 투척): 「받는 강화」 한 줄 + 각성하면 속사 ✔→✖ 를 미리 알려 준다', '받는 강화' in strip(r['feedc']) and '각성하면: ' in strip(r['feedc']) and '속사 ✔→✖' in strip(r['feedc']), strip(r['feedc']))
-                check('각성한 사료 폭풍 카드는 지금 폼(속사 ✖)을 따르고 「각성하면」 줄은 없다', '✖ ' in strip(r['feedev']) and '각성하면: ' not in strip(r['feedev']) and re.search('✖[^✔◐]*🏹속사', strip(r['feedev'])), strip(r['feedev']))
-                check('새우깡 카드: 열쇠(이동속도)는 강화가 아니라고 적는다 · 각성하면 ⏱·🏹 ✔→✖', '열쇠일 뿐 이 무기를 강하게 하진 않아요' in strip(r['shrimp']) and '⏱공격속도 ✔→✖' in strip(r['shrimp']), strip(r['shrimp']))
-                check('폭죽 카드: 열쇠(속사)가 실제로 강화하니 꼬리말 없음 · 초밥 카드: 열쇠(공격속도)가 일부만 도움 → 안내', '열쇠일 뿐' not in strip(r['rkt']) and '일부만 도움돼요' in strip(r['sushi']), (strip(r['rkt'])[-200:], strip(r['sushi'])[-200:]))
+                check('무기 카드(사료 투척): 「🔧 받는 강화」 한 줄 + 「각성 후 🏹✖」(속사 ✔→✖)를 미리 알려 준다', '🔧 ⏱🍱🏹 ✔' in strip(r['feedc']) and '각성 후 🏹✖' in strip(r['feedc']), strip(r['feedc']))
+                check('각성한 사료 폭풍 카드는 지금 폼(속사 ✖)을 따르고 「각성하면」 줄은 없다', '그 외 ✖' in strip(r['feedev']) and '각성 후' not in strip(r['feedev']) and '🏹' not in strip(r['feedev']), strip(r['feedev']))
+                check('새우깡 카드: 열쇠(이동속도)는 강화가 아니라고 적는다 · 각성하면 ⏱·🏹 ✔→✖', '열쇠일 뿐' in strip(r['shrimp']) and '각성 후 ⏱✖ 🏹✖' in strip(r['shrimp']), strip(r['shrimp']))
+                check('폭죽 카드: 열쇠(속사)가 실제로 강화하니 「열쇠일 뿐」 없음(열쇠가 있으면 한마디로) · 초밥 카드: 공격속도 ◐', '열쇠일 뿐' not in strip(r['rkt']) and '🗝 🏹속사 보유' in strip(r['rkt']) and '⏱공속 ◐' in strip(r['sushi']), (strip(r['rkt'])[-200:], strip(r['sushi'])[-200:]))
+                r0 = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;S.w={};S.ps={pspd:1};
+                  const o={zero:x.cardOf({t:'p',k:'pspd',l:1}).ds};S.w={can:1};S.ps={dur:1};o.dur=x.cardOf({t:'p',k:'dur',l:1}).ds;
+                  o.song=Object.values(F.WEAP).map(w=>w.ds.join?w.ds.join(' '):String(w.ds)).join(' ');return o;}""")
+                check('무기가 0개일 때 패시브 카드는 경고 대신 「무기를 얻으면 적용돼요」', '무기를 얻으면 적용돼요' in strip(r0['zero']) and '⚠' not in strip(r0['zero']), strip(r0['zero']))
+                check('끈기 카드에는 긴 괄호 목록이 없다(도감·일시정지로)', '웅덩이' not in strip(r0['dur']) and '설치물이 남아 있는 시간 +15%' in strip(r0['dur']), strip(r0['dur']))
+                check('무기 설명에 「짝 패시브」 0(전부 「각성 열쇠」)', '짝 패시브' not in r0['song'], '')
                 # 일시정지 표 — 구체 빌드
                 r = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;
                   S.w={shrimp:3,pan:2,feed:5,lid:4};S.ps={pspd:2,dur:1,cd:1};F.pauseGame();const h=document.getElementById('pInfo').innerHTML;const det=document.getElementById('fxTab');
@@ -396,7 +402,7 @@ async def main():
                 check('일시정지: 「🧩 내 무기 × 패시브」 기본 접힘 · 행 = 내 무기 4개 · 열 = 가진 영향 패시브 3개(⏱ 🏹 ⏳)', not r['open'] and len(r['rows']) == 4 and all(len(x) == 4 for x in r['rows']), r['rows'])
                 check('표 칸: 사료 투척 = ✔(공격속도) ✔(속사) ✖(끈기) · 새우깡 = ✔ ◐ ✖ · 프라이팬 = ✔ ✖ ✖', ['✔', '✔', '✖'] == r['rows'][2][1:] and ['✔', '◐', '✖'] == r['rows'][0][1:] and ['✔', '✖', '✖'] == r['rows'][1][1:], r['rows'])
                 check('◐ 설명 목록(새우깡 — 속사: 던질 때만 · 냄비뚜껑 — 공격속도: 복구 시간만 줄어요)', '던질 때만' in r['t'] and '복구 시간만' in r['t'], r['t'][-300:])
-                check('패시브 줄: 효과 한 줄 + 「내 무기 N개 적용」/「⚠ 지금 무기엔 효과 없음」', any('내 무기 3개 적용' in p for p in r['passrows']) or any('내 무기 2개 적용' in p for p in r['passrows']), r['passrows'])
+                check('패시브 줄: 효과 한 줄 + 「✔ N개 · ◐ M개」(카드와 같은 형식)/「⚠ 지금 무기엔 효과 없음」', any(re.search('✔ \\d+개', p) for p in r['passrows']) and not any('내 무기' in p and '개 적용' in p for p in r['passrows']), r['passrows'])
                 check('일시정지 무기 줄이 「각성 열쇠」로 바뀌었다(「각성:」 옛 문구 0)', '🗝 각성 열쇠: Lv' in r['h'] and '<small>각성: Lv' not in r['h'], '')
                 # 글자 대비 4.5
                 cc = await pg.evaluate("""()=>{const cs=getComputedStyle(document.documentElement);const mk=(cls,bg)=>{const d=document.createElement('div');d.className=cls;d.style.cssText='position:fixed;left:-999px';d.textContent='x';document.body.appendChild(d);const c=getComputedStyle(d).color;d.remove();return c;};
@@ -485,6 +491,45 @@ async def main():
                 for n in notes: print('    ', n)
 
             # ───── 바 불변 ─────
+            if want('사'):
+                # 카드 높이 합 — 기준 커밋 사본과 같은 카드를 같은 상태로 그려 견준다(무기 카드 +45px · 패시브 카드 +60px 이하 · 360x640 에서 세 번째 카드가 박스 안)
+                print('  ·· 카드 높이 합')
+                JS = """(sc)=>{const x=window.__p6x;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;S.w=sc.w;S.ps=sc.ps;S.ev=sc.ev||{};
+                  const lv=document.getElementById('lvup');lv.classList.remove('hidden');lv.style.display='flex';
+                  const box=document.getElementById('choices');
+                  box.innerHTML=sc.o.map(q=>{const c=x.cardOf(q);return '<button class="ch"><span class="ic">'+c.ic+'</span><span><small class="ty">'+c.ty+'</small><b>'+c.nm+'</b><small>'+c.ds+'</small></span><span class="lv">'+c.lv+'</span></button>';}).join('');
+                  const bs=[...box.querySelectorAll('button')].map(b=>b.getBoundingClientRect());const bx=document.querySelector('#lvup .box').getBoundingClientRect();
+                  return {h:bs.map(r=>Math.round(r.height)),bottom:Math.round(bs[bs.length-1].bottom),boxBottom:Math.round(Math.min(bx.bottom,innerHeight)),over:document.documentElement.scrollWidth>document.documentElement.clientWidth+1};}"""
+                W4 = {'shrimp': 3, 'can': 2, 'pan': 2, 'feed': 3}; P4 = {'pspd': 2, 'cd': 1, 'amt': 1, 'dur': 1}
+                SC = {
+                  '무기3 · 초반(1개 보유)': (dict(w={'feed': 2}, ps={'hp': 1}, o=[{'t': 'w', 'k': 'can', 'l': 0}, {'t': 'w', 'k': 'egg', 'l': 0}, {'t': 'w', 'k': 'rkt', 'l': 0}]), 'w'),
+                  '무기3 · 열쇠가 강화 안 하는 무기': (dict(w={'feed': 2}, ps={'hp': 1}, o=[{'t': 'w', 'k': 'shrimp', 'l': 0}, {'t': 'w', 'k': 'sushi', 'l': 0}, {'t': 'w', 'k': 'lid', 'l': 0}]), 'w'),
+                  '무기 레벨업3 · 후반(4개 보유)': (dict(w=W4, ps=P4, o=[{'t': 'w', 'k': 'shrimp', 'l': 3}, {'t': 'w', 'k': 'can', 'l': 2}, {'t': 'w', 'k': 'pan', 'l': 2}]), 'w'),
+                  '무기 레벨업3 · 사료 Lv7': (dict(w={'feed': 7, 'can': 2, 'pan': 2, 'egg': 1}, ps={'pspd': 2, 'cd': 1, 'amt': 1}, o=[{'t': 'w', 'k': 'feed', 'l': 7}, {'t': 'w', 'k': 'egg', 'l': 1}, {'t': 'w', 'k': 'pan', 'l': 2}]), 'w'),
+                  '패시브3': (dict(w={'feed': 3, 'shrimp': 2, 'pan': 2, 'can': 1}, ps={'pspd': 1, 'cd': 1, 'dur': 1}, o=[{'t': 'p', 'k': 'pspd', 'l': 1}, {'t': 'p', 'k': 'dur', 'l': 1}, {'t': 'p', 'k': 'cd', 'l': 1}]), 'p'),
+                  '패시브3 · 무기 0개': (dict(w={}, ps={'pspd': 1}, o=[{'t': 'p', 'k': 'pspd', 'l': 1}, {'t': 'p', 'k': 'dur', 'l': 0}, {'t': 'p', 'k': 'area', 'l': 0}]), 'p'),
+                  '섞임 · 초반(무기1+패시브2)': (dict(w={'feed': 2}, ps={'area': 1}, o=[{'t': 'w', 'k': 'can', 'l': 0}, {'t': 'p', 'k': 'area', 'l': 1}, {'t': 'p', 'k': 'cd', 'l': 0}]), 'wp'),
+                  '섞임 · 후반(무기4개 보유)': (dict(w=W4, ps=P4, o=[{'t': 'w', 'k': 'feed', 'l': 3}, {'t': 'p', 'k': 'pspd', 'l': 2}, {'t': 'p', 'k': 'dur', 'l': 1}]), 'wp'),
+                }
+                hres = {}
+                for (w, h) in [(320, 568), (360, 640), (412, 915)]:
+                    cn, pn, en = await H.new_page(b, srv.port, w=w, h=h, page=NEW, mobile=True)
+                    co, po, eo = await H.new_page(b, srv.port, w=w, h=h, page=OLD, mobile=True)
+                    for nm, (sc, kinds) in SC.items():
+                        rn = await pn.evaluate(JS, sc); ro = await po.evaluate(JS, sc)
+                        hres[(w, h, nm)] = (rn, ro, kinds, sc)
+                    check('[%d x %d] 카드 높이 합 시험 중 페이지 오류 0' % (w, h), not en and not eo, (en + eo)[:3])
+                    await cn.close(); await co.close()
+                for (w, h, nm), (rn, ro, kinds, sc) in hres.items():
+                    inc = []
+                    for q, a, o_ in zip(sc['o'], rn['h'], ro['h']):
+                        inc.append((a - o_, 45 if q['t'] == 'w' else 60))
+                    check('[%d x %d] %s — 카드마다 기준 대비 증가(무기 ≤ +45px · 패시브 ≤ +60px) %s' % (w, h, nm, [i[0] for i in inc]), all(d <= m for d, m in inc), (rn['h'], ro['h']))
+                    check('[%d x %d] %s — 가로 넘침 0' % (w, h, nm), not rn['over'])
+                    if (w, h) == (360, 640):
+                        fit_old = ro['bottom'] <= ro['boxBottom']
+                        check('[360 x 640] %s — 기준에서 들어오던 조합은 세 번째 카드가 박스 안에 (아래끝 %d / 박스 %d · 기준 %d)' % (nm, rn['bottom'], rn['boxBottom'], ro['bottom']), (not fit_old) or rn['bottom'] <= rn['boxBottom'], (rn, ro))
+
             if want('바'):
                 print('── 바 불변 ──')
                 ctxb, pgb, errsb = await H.new_page(b, srv.port, w=412, h=860, page=OLD, ready='__X')
