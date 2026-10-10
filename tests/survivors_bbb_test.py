@@ -324,7 +324,7 @@ async def main():
         check('선택 화면(412px): 가로 스크롤 없음 · 카드 폭이 모두 같다', r['sw'] <= r['cw'] and len(set(r['hs'])) == 1, (r['sw'], r['cw'], set(r['hs'])))
         check('잠긴 카드: 작은 글씨 「디스코드 /흐접새우상점 200P」 · 누르면 설명창에 구매 방법(디스코드 /흐접새우상점 · 200P · 맛동산 아님 · 새로고침) + 로그인 안내', r['lock'] and r['small'] == '디스코드 /흐접새우상점 200P' and '디스코드 「/흐접새우상점」에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침' in r['desc'] and '디스코드 로그인 필요' in r['desc'], r)
         hw = await pg.evaluate("()=>document.querySelector('ol.how').textContent")
-        check('조작법 도움말(❔): 고유 시작 무기 목록에 「배불배불 🎤」(프싱 다음)', '프싱 🔥 · 배불배불 🎤 · 신림 📋' in hw, hw[hw.find('고유 시작 무기'):][:140])
+        check('조작법 도움말(❔): 고유 시작 무기 목록에 「배불배불 🎤」(프싱 다음)', '프싱 🔥쌍둥이 이빨 · 배불배불 🎤 · 신림 📋' in hw, hw[hw.find('고유 시작 무기'):][:140])
         await pg.evaluate("__p6x.srvUnl(['brj','bbb'])")
         # ───────────────── N. 해금 = 봇 흐접새우 상점 구매(200P) — 서버 응답(/p6/me · /p6/run)은 page.route 로 가짜를 주입한다
         ST = {'unl': ['brj']}; POSTS = []

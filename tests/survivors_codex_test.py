@@ -334,8 +334,13 @@ async def main():
                 if e['ms'] and e['ms']['key'] in D:
                     out += e['ms']['m']
                     if e['ev'] and e['ev']['key'] in D: out += e['ms']['e']
+                evs = bool(e['ev'] and e['ev']['key'] in D)   # 🧩 받는 강화 칩: 발견한 패시브만 이름 · 쉬운 말 설명(nb)은 그 칸이 열려 있을 때, 각성 뒤 설명(ne)은 각성 형태도 봤을 때
+                for x in e.get('fx', []):
+                    if x['key'] in D: out += [x['nm'], x['nb']] + ([x['ne']] if evs else [])
             elif c == 'p':
                 out += [e['ds']] + [w['nm'] for w in e['pairs'] if w['key'] in D]
+                for x in (e.get('fx') or {}).get('ws', []):   # 🧩 받는 무기: 발견한 무기의 설명만
+                    if x['key'] in D: out += [x['nb']] + ([x['ne']] if 'ev:' + x['key'][2:] in D else [])
                 if e['pt'] and e['pt']['key'] in D: out += e['pt']['lv']
             elif c == 'r':
                 out += e['lv'] + ([e['who']['nm']] if e['who'] else [])
@@ -376,7 +381,7 @@ async def main():
         d = await detail_of('w', 'w:feed')
         e = idx['w:feed']
         check('상세(사료 투척 · 마스터만 발견 · 짝 패시브 곱빼기·각성 형태 미발견): 레벨 8줄 + 마스터 3단계', all(s in d for s in e['lv'] + e['ms']['m']))
-        check('상세: 못 만난 짝 패시브 이름은 안 보이고 ❓ 안내만', '곱빼기' not in d and '짝 패시브 ❓' in d, d[:300])
+        check('상세: 못 만난 각성 열쇠 패시브 이름은 안 보이고 ❓ 안내만', '곱빼기' not in d and '각성 열쇠 패시브 ❓' in d, d[:300])
         check('상세: 각성 형태 미발견 — 「✨ 각성: ??? (아직 각성시켜 본 적 없어요)」 + 각성 조건 한 줄', '✨ 각성: ??? (아직 각성시켜 본 적 없어요)' in d and '각성 조건: 무기 Lv8' in d and e['ev']['nm'] not in d and e['ev']['ds'] not in d)
         check('상세: 각성 단계(4~5)는 각성을 해 봐야 열린다 · 안내만', all(s not in d for s in e['ms']['e']) and '각성시키면 4단계부터' in d)
         d = await detail_of('w', 'w:egg')

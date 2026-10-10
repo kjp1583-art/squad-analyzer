@@ -445,7 +445,7 @@ async def sec_own(b, srv):
             if '✨ 각성' not in t: bad.append(('각성 표시', k, t))
         else:
             if 'Lv%d/8' % L not in t.replace(' ', ''): bad.append(('Lv', k, t))
-            if '각성: Lv8 %s' % ('✔' if L >= 8 else '✖') not in t: bad.append(('Lv8 조건', k, t))
+            if '각성 열쇠: Lv8 %s' % ('✔' if L >= 8 else '✖') not in t: bad.append(('Lv8 조건', k, t))
         if S['tier'].get(k) and ('%s%d/%d' % ('✨' if k in S['ev'] else '🏅', S['tier'][k], 5 if k in S['ev'] else 3)) not in t: bad.append(('단계', k, t))
     for k in S['ps']:
         t = byk['p:' + k]
@@ -583,7 +583,7 @@ LAY_LV = r"""()=>{const R=e=>{const r=e.getBoundingClientRect();return {l:r.left
   const box=document.querySelector('#lvup .box'),de=document.documentElement;
   const q=s=>[...document.querySelectorAll(s)];
   const cards=q('#choices .ch'),rr=document.getElementById('rrBtn'),ban=document.getElementById('banBtn'),own=document.querySelector('#lvOwn .own'),st=document.getElementById('sttl'),hint=document.getElementById('lvHint');
-  const reach=e=>{e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect(),cx=Math.min(innerWidth-1,Math.max(0,r.left+r.width/2)),cy=Math.min(r.bottom-1,Math.max(r.top+1,Math.min(innerHeight-1,r.top+r.height/2)));const h=document.elementFromPoint(cx,cy);return !!h&&(e===h||e.contains(h))&&cy>=0&&cy<=innerHeight&&cx>=0&&cx<=innerWidth;};
+  const reach=e=>{e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect(),bb=box.getBoundingClientRect(),cx=Math.min(innerWidth-1,Math.max(0,r.left+r.width/2)),lo=Math.max(r.top+1,bb.top+1),hi=Math.min(r.bottom-1,bb.bottom-1,innerHeight-1),cy=Math.max(lo,Math.min(hi,(lo+hi)/2));   /* 칸이 스크롤 상자보다 길면 상자 안에 보이는 부분의 한가운데를 누른다(상자 밖 바탕을 누르면 안 된다) */const h=document.elementFromPoint(cx,cy);return !!h&&(e===h||e.contains(h))&&cy>=0&&cy<=innerHeight&&cx>=0&&cx<=innerWidth;};
   const out={iw:innerWidth,ih:innerHeight,sx:de.scrollWidth-innerWidth,bsx:box.scrollWidth-box.clientWidth,boxh:R(box).h,boxch:box.scrollHeight};
   out.reach={cards:cards.map(reach),rr:reach(rr),ban:reach(ban),own:reach(own),st:reach(st)};
   box.scrollTop=0;
