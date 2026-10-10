@@ -27,7 +27,7 @@ if '--only' in sys.argv:
     ONLY = set(sys.argv[sys.argv.index('--only') + 1].split(','))
 FULL = '--full' in sys.argv
 NOMUT = '--no-mutation' in sys.argv
-BASE_COMMIT = os.environ.get('FX_BASE_COMMIT', '6513a72')
+BASE_COMMIT = os.environ.get('FX_BASE_COMMIT', 'edf2155')   # 2026-10-10 「받다가 못 받는 것 고치기」 직전(표시 묶음 배포 커밋)
 NEW, OLD, OLDSRC = 'survivors_fx_t.html', 'survivors_fx_tb.html', 'survivors_fx_tb_src.html'
 FAILS = []
 def check(n, c, x=''):
@@ -72,7 +72,8 @@ return {run(cfg){
   const DUM=[];let fxi=0;
   const mkd=(kind,hx,hy,cls)=>{const e=x.spawnEnemy(kind,1,null,{x:hx,y:hy});if(!e)return null;e.x=e.hx=hx;e.y=e.hy=hy;e.sp=0;e.kb=0;e.hp=e.mhp=1e12+fxi;e.fxi=fxi++;e.fxc=cls;
     if(cls==='e'){e.el=1;e.r*=1.5;}else if(cls==='g'){e.bg=1;e.r*=2.2;}DUM.push(e);return e;};
-  if(cfg.arena==='rays'){for(let a=0;a<6;a++)for(let i=0;i<24;i++){const th=a*Math.PI/3;mkd(0,Math.cos(th)*(40+i*24),Math.sin(th)*(40+i*24),'n');}}   // 여섯 줄 × 24마리 — 연쇄가 줄을 따라 길게 이어질 수 있게
+  if(cfg.arena==='boss'){const B=Object.assign({key:'sr'},x.BOSS.sr,{atk:[],hit:null,dead:null});const b=x.spawnEnemy(0,1,B);b.x=b.hx=(cfg.bx||120);b.y=b.hy=0;b.sp=0;b.kb=0;b.hp=b.mhp=5e7;b.fxi=fxi++;b.fxc='b';DUM.push(b);}   // 보스 한 마리뿐(대상 잠금이 걸리는 장면)
+  else if(cfg.arena==='rays'){for(let a=0;a<6;a++)for(let i=0;i<24;i++){const th=a*Math.PI/3;mkd(0,Math.cos(th)*(40+i*24),Math.sin(th)*(40+i*24),'n');}}   // 여섯 줄 × 24마리 — 연쇄가 줄을 따라 길게 이어질 수 있게
   else if(cfg.arena==='hop'){for(let i=0;i<5;i++)mkd(0,60+i*160,0,'n');}   // 160px 간격 한 줄 — 연쇄(키보드 난타)가 이어질 수 있느냐는 건너뛰는 반경에 달렸다
   else{
   const RAD=[42,64,88,114,142,172,205,240,280,325,375,430];let c=0;
@@ -81,7 +82,7 @@ return {run(cfg){
   const B=Object.assign({key:'sr'},x.BOSS.sr,{atk:[],hit:null,dead:null});
   const b=x.spawnEnemy(0,1,B);b.x=b.hx=Math.cos(Math.PI*11/6)*260;b.y=b.hy=Math.sin(Math.PI*11/6)*260;b.sp=0;b.kb=0;b.hp=b.mhp=5e7;b.fxi=fxi++;b.fxc='b';DUM.push(b);}
   LOG={step:0,h:[],b:[]};const BIR=[],LIVE=[],SEEN=new WeakSet();
-  const arrs=[['mines',S_.mines],['booms',S_.booms]];const CM={};let srad=null,cds=0;
+  let CS=0,CSN=0;const arrs=[['mines',S_.mines],['booms',S_.booms]];const CM={};let srad=null,cds=0;
   const cnt=()=>{const c={sushi:S_.sushi.length,mines:S_.mines.length,lid:S_.x2?S_.x2.ln|0:0};for(const nm in POOLS){let n=0;for(const o of POOLS[nm].a)if(o.on)n++;c[nm]=n;}
     for(const o of S_.x3.f)c['x3:'+o.k]=(c['x3:'+o.k]||0)+1;for(const k in c)if(!(CM[k]>=c[k]))CM[k]=c[k];};
   for(let step=1;step<=N;step++){
@@ -93,9 +94,9 @@ return {run(cfg){
     for(let i=0;i<NEWQ.length;i++){if(BIR.length<900){const f=snap(NEWQ[i][1]);f.spm=f.sp||0;BIR.push([NEWQ[i][0],step,f]);LIVE.push([NEWQ[i][1],BIR.length-1,step+30]);}}
     NEWQ.length=0;
     for(const [nm,arr] of arrs)for(const o of arr)if(!SEEN.has(o)){SEEN.add(o);if(BIR.length<900){BIR.push([nm,step,snap(o)]);}}   // 쌓아 두는 배열(지뢰·폭발)의 새 항목도 「태어남」으로 센다
-    cds+=S_.cd[k]||0;if(step%10===0)cnt();if(step===3&&S_.sushi.length)srad=r4(S_.sushi.reduce((a,u)=>a+Math.hypot(u.x-P.x,u.y-P.y),0)/S_.sushi.length);
-    for(let i=LIVE.length-1;i>=0;i--){const l=LIVE[i],o=l[0];if(step>l[2]){LIVE.splice(i,1);continue;}if(typeof o.vx==='number'){const s=Math.hypot(o.vx,o.vy);if(s>BIR[l[1]][2].spm)BIR[l[1]][2].spm=r4(s);}}}   // 태어난 뒤 1초 동안의 최고 속도(폭죽처럼 가속하는 탄도 속사 배율이 그대로 보이게)
-  const out={h:LOG.h,b:LOG.b,bir:BIR,cmax:CM,srad,cdmean:r4(cds/N)};LOG=null;return out;}};
+    cds+=S_.cd[k]||0;if(step%10===0){cnt();CS+=S_.x3.f.filter(o=>o.k==='c').length;CSN++;}if(step===3&&S_.sushi.length)srad=r4(S_.sushi.reduce((a,u)=>a+Math.hypot(u.x-P.x,u.y-P.y),0)/S_.sushi.length);
+    for(let i=LIVE.length-1;i>=0;i--){const l=LIVE[i],o=l[0];if(step>l[2]){LIVE.splice(i,1);continue;}if(o.orb!==undefined){const px=l[3];if(px){const s=Math.hypot(o.x-px[0],o.y-px[1])/dt;if(s>BIR[l[1]][2].spm)BIR[l[1]][2].spm=r4(s);}l[3]=[o.x,o.y];}if(!o.orb&&typeof o.vx==='number'){const s=Math.hypot(o.vx,o.vy);if(s>BIR[l[1]][2].spm)BIR[l[1]][2].spm=r4(s);}}}   // 태어난 뒤 1초 동안의 최고 속도(폭죽처럼 가속하는 탄도 속사 배율이 그대로 보이게)
+  const out={cartAvg:CS/Math.max(1,CSN),h:LOG.h,b:LOG.b,bir:BIR,cmax:CM,srad,cdmean:r4(cds/N)};LOG=null;return out;}};
 })();
 """
 
@@ -228,7 +229,7 @@ async def main():
     # 기준 커밋(비교용)
     old_src = subprocess.run(['git', 'show', BASE_COMMIT + ':survivors.html'], cwd=ROOT, capture_output=True, text=True, encoding='utf-8').stdout
     open(os.path.join(ROOT, OLDSRC), 'w', encoding='utf-8').write(old_src)
-    H.make_copy(src=OLDSRC, dst=OLD, extra='window.__X={RES,pauseGame,get S(){return S},get state(){return state}};')
+    H.make_copy(src=OLDSRC, dst=OLD, extra='window.__X={RES,pauseGame,PFX,get S(){return S},get state(){return state}};' + HOOK_JS)
     srv = H.Srv()
     try:
         async with async_playwright() as pw:
@@ -267,7 +268,7 @@ async def main():
                 _src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
                 check('PFXSN 은 WEAP 표 바깥의 별도 최상위 const(이어하기 서명 대상 아님)', re.search(r'^const PFXSN=\{', _src, re.M) is not None and 'PFXSN' not in _src[_src.index('const WEAP={'):_src.index('const WEAP={') + 40000].split('const PFX={')[0], '')
                 check('p 설명은 짧다(30자 이하) · 한글/기호만 · 영어 약어 없음', all(len(t) <= 30 and not re.search('[A-Za-z]{3,}', t) for t in notes), [t for t in notes if len(t) > 30])
-                check('행운 채널은 가챠 캡슐만 받는다(y/p) — 나머지 39개는 nn', all((PFX[w]['luck'] == 'nn') == (w != 'gacha') for w in PFX) and PFX['gacha']['luck'] == 'yp', PFX['gacha']['luck'])
+                check('행운 채널은 가챠 캡슐만 받는다(기본·각성 모두 y) — 나머지 39개는 nn', all((PFX[w]['luck'] == 'nn') == (w != 'gacha') for w in PFX) and PFX['gacha']['luck'] == 'yy', PFX['gacha']['luck'])
                 check('채널 표 PFXCH 여섯 줄 · 패시브 연결이 실제 패시브', [c['k'] for c in PFXCH] == CHAN and all(c['ps'] in F['pass'] for c in PFXCH), PFXCH)
                 check('근성·광분·급소는 전 무기(PFXALL) · 채널 패시브와 겹치지 않는다', set(F['PFXALL']) == {'might', 'glass', 'crit'} and not (set(F['PFXALL']) & set(F['PFXPS'])))
                 ps_all = set(F['PFXPS']) | set(F['PFXALL']) | NONWEAPON
@@ -282,8 +283,8 @@ async def main():
                 check('금지 문구 0건 — 「모든 쿨타임·범위」「투사체」「짝 패시브」「각성 짝」「카트 2대」「사료 사거리」', not bad, bad[:8])
                 tails = await pg.evaluate("""()=>{const F=window.__F;return Object.keys(F.WEAP).map(k=>[k,F.WEAP[k].rl,F.WEAP[k].ev.ds])}""")
                 d = {t[0]: t for t in tails}
-                check('틀린 설명문 바로잡기: 병아리 「단일 · 아군」 · 운석 「보스 킬러 · 광역」 · 기내식 카트 3대 · 사료 폭풍 속사 안 받음 · 새우깡 대회전 쿨타임 없음',
-                      d['chick'][1] == '단일 · 아군' and d['meteor'][1] == '보스 킬러 · 광역' and '카트 3대' in d['cart'][2] and '속사 효과 없음' in d['feed'][2] and '쿨타임이 없어서' in d['shrimp'][2], [d['chick'][1], d['meteor'][1]])
+                check('틀린 설명문 바로잡기: 병아리 「단일 · 아군」 · 운석 「보스 킬러 · 광역」 · 기내식 카트 3대(수명 18초) · 사료 폭풍 속사를 받음 · 새우깡 대회전 공격속도·속사를 받음',
+                      d['chick'][1] == '단일 · 아군' and d['meteor'][1] == '보스 킬러 · 광역' and '카트 3대' in d['cart'][2] and '18초' in d['cart'][2] and '속사를 받아' in d['feed'][2] and '공격속도·🏹 속사를 받는다' in d['shrimp'][2] and '효과 없음' not in (d['feed'][2] + d['shrimp'][2] + d['cart'][2]) and '쿨타임이 없어서' not in d['shrimp'][2], [d['chick'][1], d['meteor'][1]])
                 nm = await pg.evaluate("""()=>{const F=window.__F;return F.SYN.find(y=>y.k==='u_quill').nm+'|'+F.PASS.cd.ds+'|'+F.PASS.pspd.ds+'|'+F.PASS.amt.ds}""")
                 check('시너지 이름이 곱빼기 패시브와 안 겹친다(엄 모이 한 상)', nm.split('|')[0] == '엄 모이 한 상', nm)
                 helps = await pg.evaluate("[...document.querySelectorAll('#title li')].map(x=>x.textContent).join('\\n')")
@@ -390,16 +391,16 @@ async def main():
                   o.shrimp=x.cardOf({t:'w',k:'shrimp',l:0}).ds;o.sushi=x.cardOf({t:'w',k:'sushi',l:0}).ds;o.rkt=x.cardOf({t:'w',k:'rkt',l:0}).ds;
                   S.w={feed:8};S.ps={amt:1};x.openChest&&0;return o;}""")
                 strip = lambda s: re.sub('<[^>]+>', '', s)
-                check('속사 카드: 내 무기를 이름으로 「✔ 🌾사료 ◐ 🍤새우깡 ✖ 🍳팬·🍣초밥」(◐ 이유 설명은 카드에 없다)', re.sub(r'\s+', ' ', strip(r['pspd'])).endswith('✔ 🌾사료 ◐ 🍤새우깡 ✖ 🍳팬·🍣초밥') and '던질 때만' not in strip(r['pspd']) and '내 무기' not in strip(r['pspd']), strip(r['pspd']))
+                check('속사 카드: 내 무기를 이름으로 「✔ 🌾사료·🍤새우깡 ✖ 🍳팬·🍣초밥」(새우깡도 이제 ✔ · ◐ 이유 설명은 카드에 없다)', re.sub(r'\s+', ' ', strip(r['pspd'])).endswith('✔ 🌾사료·🍤새우깡 ✖ 🍳팬·🍣초밥') and '던질 때만' not in strip(r['pspd']) and '내 무기' not in strip(r['pspd']), strip(r['pspd']))
                 check('받는 무기가 하나도 없으면 눈에 띄는 경고 「⚠ 지금 가진 무기엔 효과가 없어요」', '⚠ 지금 가진 무기엔 효과가 없어요' in strip(r['warn']) and 'fxl w' in r['warn'], strip(r['warn']))
                 check('무기를 강하게 하지 않는 패시브(최대 HP)는 그렇다고 적는다 · 근성은 「모든 무기에 적용돼요」', '무기를 직접 강하게 하지는 않아요' in strip(r['hp']) and '모든 무기에 적용돼요' in strip(r['might']), (strip(r['hp']), strip(r['might'])))
                 check('행운 카드: 「모든 무기: 치명타 확률 +3%」 + 가챠 캡슐이 없으면 등급 확률은 해당 없다고 적는다', '모든 무기: 치명타 확률 +3%' in strip(r['luck']) and '가챠 캡슐만' in strip(r['luck']), strip(r['luck']))
-                check('무기 카드(사료 투척): 「🔧 받는 강화」 한 줄 + 「각성 후 🏹✖」(속사 ✔→✖)를 미리 알려 준다', '🔧 받는 강화 ✔ 공속·곱빼기·속사 ✖ 끈기' in re.sub(r'\s+', ' ', strip(r['feedc'])) and '✨각성 후 속사✖' in strip(r['feedc']), strip(r['feedc']))
-                check('각성한 사료 폭풍 카드는 지금 폼(속사 ✖)을 따르고 「각성하면」 줄은 없다', '받는 강화 ✔ 공속·곱빼기 ✖ 속사·끈기' in re.sub(r'\s+', ' ', strip(r['feedev'])) and '각성 후' not in strip(r['feedev']), strip(r['feedev']))
+                check('무기 카드(사료 투척): 「🔧 받는 강화」 한 줄 — 각성해도 달라지는 것이 없어 「각성 후」 줄이 없다(속사 ✔→✔)', '🔧 받는 강화 ✔ 공속·곱빼기·속사 ✖ 끈기·광역' in re.sub(r'\s+', ' ', strip(r['feedc'])) and '각성 후' not in strip(r['feedc']), strip(r['feedc']))
+                check('각성한 사료 폭풍 카드는 지금 폼(속사 ✔)을 따르고 「각성하면」 줄은 없다', '받는 강화 ✔ 공속·곱빼기·속사 ✖ 끈기·광역' in re.sub(r'\s+', ' ', strip(r['feedev'])) and '각성 후' not in strip(r['feedev']), strip(r['feedev']))
                 sh = re.sub(r'\s+', ' ', strip(r['shrimp']))
-                check('새우깡 카드: 각성 열쇠 줄은 「🗝 각성 열쇠: 이동속도 (없음) → …」 · 개발자 말투 「열쇠일 뿐」 0 · 각성하면 공속✖ 속사✖', re.search('🗝 각성 열쇠: 👟이동속도 \\(없음\\) → ', sh) and '열쇠일 뿐' not in sh and '✨각성 후 공속✖ 속사✖' in sh, sh)
+                check('새우깡 카드: 각성 열쇠 줄은 「🗝 각성 열쇠: 이동속도 (없음) → …」 · 개발자 말투 「열쇠일 뿐」 0 · 각성해도 바뀌는 것 없음(공속·속사 ✔ 그대로)', re.search('🗝 각성 열쇠: 👟이동속도 \\(없음\\) → ', sh) and '열쇠일 뿐' not in sh and '받는 강화 ✔ 공속·곱빼기·속사·광역 ✖ 끈기' in sh and '각성 후' not in sh, sh)
                 rk = re.sub(r'\s+', ' ', strip(r['rkt'])); su = re.sub(r'\s+', ' ', strip(r['sushi']))
-                check('폭죽 카드: 열쇠(속사)가 실제로 강화하니 별도 줄 없이 받는 강화 줄 끝에 「🗝 각성 열쇠 보유」만(패시브 이름 없음) · 초밥 카드: 공속 ◐', '🗝 각성 열쇠 보유' in rk and '🗝 각성 열쇠:' not in rk and '속사 보유' not in rk and '◐ 공속' in su, (rk[-200:], su[-200:]))
+                check('폭죽 카드: 열쇠(속사)가 실제로 강화하니 별도 줄 없이 받는 강화 줄 끝에 「🗝 각성 열쇠 보유」만(패시브 이름 없음) · 초밥 카드: 공속 ✔(이제 회전·잠금이 같이 빨라진다)', '🗝 각성 열쇠 보유' in rk and '🗝 각성 열쇠:' not in rk and '속사 보유' not in rk and '✔ 공속' in su and '◐' not in su, (rk[-200:], su[-200:]))
                 r0 = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;S.w={};S.ps={pspd:1};
                   const o={zero:x.cardOf({t:'p',k:'pspd',l:1}).ds};S.w={can:1};S.ps={dur:1};o.dur=x.cardOf({t:'p',k:'dur',l:1}).ds;
                   o.song=Object.values(F.WEAP).map(w=>w.ds.join?w.ds.join(' '):String(w.ds)).join(' ');return o;}""")
@@ -411,11 +412,11 @@ async def main():
                 check('화면 문구 소스에 「열쇠일 뿐」 0 · 「짝 패시브」 0(주석 제외)', '열쇠일 뿐' not in _src and '짝 패시브' not in _code, [l[:80] for l in _code.split('\n') if '짝 패시브' in l][:3])
                 # 일시정지 표 — 구체 빌드
                 r = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();x.state='play';const S=x.S;
-                  S.w={shrimp:3,pan:2,feed:5,lid:4};S.ps={pspd:2,dur:1,cd:1};F.pauseGame();const h=document.getElementById('pInfo').innerHTML;const det=document.getElementById('fxTab');
+                  S.w={shrimp:3,pan:2,feed:5,jhin:4};S.ps={pspd:2,dur:1,area:1};F.pauseGame();const h=document.getElementById('pInfo').innerHTML;const det=document.getElementById('fxTab');
                   const t=det.textContent;const rows=[...det.querySelectorAll('tbody tr')].map(r=>[...r.children].map(c=>c.textContent.trim()));x.resume();return {open:det.open,rows,t,h,passrows:[...document.querySelectorAll('#pInfo .bw')].map(e=>e.textContent)};}""")
-                check('일시정지: 「🧩 내 무기 × 패시브」 기본 접힘 · 행 = 내 무기 4개 · 열 = 가진 영향 패시브 3개(⏱ 🏹 ⏳)', not r['open'] and len(r['rows']) == 4 and all(len(x) == 4 for x in r['rows']), r['rows'])
-                check('표 칸: 사료 투척 = ✔(공격속도) ✔(속사) ✖(끈기) · 새우깡 = ✔ ◐ ✖ · 프라이팬 = ✔ ✖ ✖', ['✔', '✔', '✖'] == r['rows'][2][1:] and ['✔', '◐', '✖'] == r['rows'][0][1:] and ['✔', '✖', '✖'] == r['rows'][1][1:], r['rows'])
-                check('◐ 설명 목록(새우깡 — 속사: 던질 때만 · 냄비뚜껑 — 공격속도: 복구 시간만 줄어요)', '던질 때만' in r['t'] and '복구 시간만' in r['t'], r['t'][-300:])
+                check('일시정지: 「🧩 내 무기 × 패시브」 기본 접힘 · 행 = 내 무기 4개 · 열 = 가진 영향 패시브 3개(🏹 ⏳ 📏)', not r['open'] and len(r['rows']) == 4 and all(len(x) == 4 for x in r['rows']), r['rows'])
+                check('표 칸(🏹 속사·⏳ 끈기·📏 광역): 새우깡 = ✔ ✖ ✔ · 프라이팬 = ✖ ✖ ✔ · 사료 투척 = ✔ ✖ ✖ · 4발 사격 = ✔ ✖ ◐', ['✔', '✖', '✔'] == r['rows'][0][1:] and ['✖', '✖', '✔'] == r['rows'][1][1:] and ['✔', '✖', '✖'] == r['rows'][2][1:] and ['✔', '✖', '◐'] == r['rows'][3][1:], r['rows'])
+                check('◐ 설명 목록(4발 사격 — 광역: 큰 탄만) · 고쳐진 칸의 옛 설명(던질 때만·복구 시간만)은 사라졌다', '큰 탄만' in r['t'] and '던질 때만' not in r['t'] and '복구 시간만' not in r['t'], r['t'][-300:])
                 check('패시브 줄: 효과 한 줄 + 「✔ N개 · ◐ M개」(카드와 같은 형식)/「⚠ 지금 무기엔 효과 없음」', any(re.search('✔ \\d+개', p) for p in r['passrows']) and not any('내 무기' in p and '개 적용' in p for p in r['passrows']), r['passrows'])
                 check('일시정지 무기 줄이 「각성 열쇠」로 바뀌었다(「각성:」 옛 문구 0)', '🗝 각성 열쇠: Lv' in r['h'] and '<small>각성: Lv' not in r['h'], '')
                 # 글자 대비 4.5
@@ -502,7 +503,7 @@ async def main():
                     MUT.append(('fxMine(%s 채널이 빈 값)' % ch, "window.__om=F.getMine();F.setMine(c=>c==='%s'?{y:[],p:[],n:[]}:window.__om(c))" % ch, "F.setMine(window.__om)", 'pass'))
                 MUT.append(('fxMine(속사 채널이 y 를 n 으로)', "window.__om=F.getMine();F.setMine(c=>{const o=window.__om(c);return c==='spd'?{y:[],p:o.p,n:o.y.concat(o.n)}:o})", "F.setMine(window.__om)", 'pass'))
                 MUT.append(('PFX 한 칸(사료 공속 기본 y→n)', "F.PFX.feed.cd='n'+F.PFX.feed.cd[1]", "F.PFX.feed.cd='%s'" % PFX['feed']['cd'], 'both'))
-                MUT.append(('PFX 한 칸(초밥 공속 각성 p→y)', "F.PFX.sushi.cd=F.PFX.sushi.cd[0]+'y'", "F.PFX.sushi.cd='%s'" % PFX['sushi']['cd'], 'both'))
+                MUT.append(('PFX 한 칸(초밥 공속 각성 y→p)', "F.PFX.sushi.cd=F.PFX.sushi.cd[0]+'p'", "F.PFX.sushi.cd='%s'" % PFX['sushi']['cd'], 'both'))
                 MUT.append(('PFXSN 한 칸(새우깡 → 새우)', "F.PFXSN.shrimp='새우'", "F.PFXSN.shrimp='새우깡'", 'pass'))
                 MUT.append(('PFXSN 한 칸(사료 → 사로)', "F.PFXSN.feed='사로'", "F.PFXSN.feed='사료'", 'pass'))
                 miss = []
@@ -544,7 +545,7 @@ async def main():
                 pi = [i for i, lock, t in idx if not lock and '속사' in t]
                 await pg3.locator('#cxPanel .cxt').nth(pi[0]).click()
                 d = await pg3.evaluate("document.getElementById('cxD').textContent")
-                check('도감 화면(패시브 속사): 「받는 무기」에 사료 투척 ✔ · 새우깡(던질 때만) ◐ · ❓ ×N · 각성 열쇠 안내', '받는 무기' in d and '✔ 🌾 사료 투척' in d and '◐ 🍤 새우깡 부메랑' in d and '던질 때만' in d and '❓ ×' in d and '각성 열쇠로 쓰이는 무기' in d, d[:400])
+                check('도감 화면(패시브 속사): 「받는 무기」에 사료 투척 ✔ · 새우깡 ✔(◐ 설명 없음) · ❓ ×N · 각성 열쇠 안내', '받는 무기' in d and '✔ 🌾 사료 투척' in d and '✔ 🍤 새우깡 부메랑' in d and '던질 때만' not in d and '◐ 🍤' not in d and '❓ ×' in d and '각성 열쇠로 쓰이는 무기' in d, d[:400])
                 await pg3.click('#cxTab_w')
                 idx = await pg3.evaluate("[...document.querySelectorAll('#cxPanel .cxt')].map((e,i)=>[i,e.classList.contains('lock'),e.textContent.trim()])")
                 wi = [i for i, lock, t in idx if not lock and '사료' in t]
@@ -578,7 +579,8 @@ async def main():
             if want('마') and not NOMUT and res is not None:
                 print('── 마 변이(표의 한 칸을 일부러 틀리게 → 시험이 빨개져야 한다) ──')
                 import copy
-                muts = [('feed', 'spd', 1, 'y'), ('shrimp', 'cd', 1, 'p'), ('potion', 'luck', 0, 'p'), ('can', 'spd', 0, 'n'), ('ram', 'area', 0, 'n'), ('twin', 'dur', 1, 'y'), ('lid', 'cd', 0, 'n'), ('tempo', 'cnt', 0, 'y')]
+                muts = [('feed', 'spd', 1, 'n'), ('shrimp', 'cd', 1, 'p'), ('potion', 'luck', 0, 'p'), ('can', 'spd', 0, 'n'), ('ram', 'area', 0, 'n'), ('twin', 'dur', 1, 'n'), ('lid', 'cd', 0, 'n'), ('tempo', 'cnt', 0, 'y'),
+                        ('cart', 'dur', 1, 'n'), ('wifi', 'cd', 1, 'n'), ('sing', 'cnt', 0, 'n'), ('stamp', 'cd', 0, 'n'), ('chain', 'cd', 1, 'n'), ('quill', 'cnt', 1, 'n'), ('sushi', 'cd', 0, 'n'), ('gacha', 'luck', 1, 'n')]
                 caught = 0; notes = []
                 for (w, ch, fi, to) in muts:
                     key = (w, ch, 'be'[fi])
@@ -592,6 +594,137 @@ async def main():
                     notes.append((w, ch, 'be'[fi], orig + '→' + to, '빨강' if bad else '안 잡힘'))
                 check('변이 시험: 틀리게 바꾼 %d칸 중 %d칸을 시험이 잡았다 (n↔y·p↔n 은 반드시, p→y 만 못 잡는 약점 허용)' % (len(muts), caught), caught >= len(muts) - 1, notes)
                 for n in notes: print('    ', n)
+
+            # ───── 아 받다가 못 받던 칸 고치기(2026-10-10 「그대로 적용받을 수 있게」) ─────
+            if want('아'):
+                print('── 아 받다가 못 받던 칸 고치기 — 바뀐 칸 · 패시브 0 동일성 · 효과 크기 ──')
+                ctxo, pgo, erro = await H.new_page(b, srv.port, w=1280, h=800, page=OLD)
+                OLDPFX = await pgo.evaluate("()=>window.__X.PFX")
+                # (1) 표에서 바뀐 칸 = 지시서가 말한 칸뿐(나머지 칸은 글자 하나도 안 바뀐다)
+                flips = {}
+                for w in PFX:
+                    for c in CHAN:
+                        for fi in (0, 1):
+                            o_, n_ = OLDPFX[w][c][fi], PFX[w][c][fi]
+                            if o_ != n_: flips[(w, c, 'be'[fi])] = (o_, n_)
+                EXPECT = {('feed', 'spd', 'e'): ('n', 'y'), ('fryer', 'cd', 'e'): ('p', 'y'), ('sushi', 'cd', 'b'): ('p', 'y'), ('sushi', 'cd', 'e'): ('p', 'y'),
+                          ('shrimp', 'cd', 'e'): ('n', 'y'), ('shrimp', 'spd', 'b'): ('p', 'y'), ('shrimp', 'spd', 'e'): ('n', 'y'),
+                          ('wifi', 'cd', 'b'): ('p', 'y'), ('wifi', 'cd', 'e'): ('p', 'y'), ('lid', 'cd', 'b'): ('p', 'y'), ('lid', 'cd', 'e'): ('p', 'y'),
+                          ('gacha', 'luck', 'e'): ('p', 'y'), ('quill', 'cnt', 'e'): ('p', 'y'), ('cart', 'cd', 'e'): ('p', 'y'), ('cart', 'dur', 'e'): ('n', 'y'),
+                          ('twin', 'dur', 'b'): ('p', 'y'), ('twin', 'dur', 'e'): ('p', 'y'), ('sing', 'cnt', 'b'): ('p', 'y'), ('sing', 'cnt', 'e'): ('p', 'y'),
+                          ('stamp', 'cd', 'b'): ('p', 'y'), ('stamp', 'cd', 'e'): ('p', 'y'), ('chain', 'cd', 'b'): ('p', 'y'), ('chain', 'cd', 'e'): ('p', 'y')}
+                print('  바뀐 칸 %d개: %s' % (len(flips), ', '.join('%s/%s/%s %s→%s' % (w, c, f, a, b_) for (w, c, f), (a, b_) in sorted(flips.items()))))
+                check('표에서 바뀐 칸 = 지시서가 말한 %d칸뿐(전부 n/p → y) · 다른 칸은 글자 하나도 안 바뀌었다' % len(EXPECT), flips == EXPECT, (set(flips) ^ set(EXPECT)))
+                # (2) 패시브가 0 일 때 동작은 기준 커밋과 비트까지 같다 (카트 각성만 의도적으로 달라진다 — 아래 따로)
+                async def both(cfg):
+                    ra = await pgo.evaluate('(c)=>window.__fxm.run(c)', cfg); rb = await pg.evaluate('(c)=>window.__fxm.run(c)', cfg); return ra, rb
+                dg2 = lambda r: hashlib.md5(json.dumps([r['h'], r['b']], sort_keys=True).encode()).hexdigest()   # 새 객체 필드가 느는 건 상관없다 — 맞힌 기록·폭발 기록이 같으면 된다
+                ZERO = [('feed', 0, 3), ('feed', 1, 0), ('fryer', 0, 3), ('fryer', 1, 4), ('sushi', 0, 3), ('sushi', 1, 0), ('shrimp', 0, 3), ('shrimp', 1, 0), ('wifi', 0, 3), ('wifi', 1, 0),
+                        ('lid', 0, 3), ('lid', 1, 0), ('gacha', 0, 3), ('gacha', 1, 0), ('quill', 0, 3), ('quill', 1, 0), ('cart', 0, 3), ('twin', 0, 3), ('twin', 1, 0), ('sing', 0, 3), ('sing', 1, 0),
+                        ('stamp', 0, 3), ('stamp', 1, 0), ('chain', 0, 3), ('chain', 1, 0)]
+                bad0 = []
+                for (w, e_, tier) in ZERO:
+                    for ar in (None, 'boss'):
+                        cfg = dict(w=w, L=8, tier=tier, ev=bool(e_), N=600 if w in ('cart', 'gacha', 'twin', 'chain', 'stamp') else 420, seed=2, ps={})
+                        if ar: cfg['arena'] = ar
+                        if w == 'lid': cfg['probe'] = 10
+                        ra, rb = await both(cfg)
+                        if dg2(ra) != dg2(rb): bad0.append((w, 'e' if e_ else 'b', ar))
+                check('패시브 0 · 마스터 단계 같음: 고친 13무기 × 기본·각성(%d조합) × 허수아비 밭·보스 한 마리 — 맞힌 기록·폭발 기록이 기준 커밋과 비트까지 같다 (카트 각성 제외)' % (len(ZERO) * 2), not bad0, bad0)
+                # 카트 각성: 패시브 0 일 때 「늘 3대」 — 평균 카트 수·구역 DPS 가 ±3% 안(처음 쌓일 때 포함 60초)
+                cfg = dict(w='cart', L=8, tier=0, ev=True, N=1800, seed=1, ps={})
+                ra, rb = await both(cfg)
+                ca, cb = ra['cartAvg'], rb['cartAvg']; da, db_ = sum(x[2] for x in ra['h']), sum(x[2] for x in rb['h'])
+                print('  카트 각성(패시브 0, 60초): 평균 %.2f대 → %.2f대 · 구역 피해 %.0f → %.0f (%+.1f%%)' % (ca, cb, da, db_, 100.0 * (db_ / da - 1)))
+                check('카트 각성 패시브 0: 평균 카트 수·구역 DPS 가 기준과 ±3% 안', abs(cb / ca - 1) <= .03 and abs(db_ / da - 1) <= .03, (ca, cb, da, db_))
+                late = await pg.evaluate("""()=>{const o=window.__fxm.run({w:'cart',L:8,ev:true,tier:0,N:1800,seed:3,ps:{}});return o.cmax['x3:c']||0;}""")
+                check('카트 각성 패시브 0: 동시에 떠 있는 카트 최대 3~4대(예전과 같은 3대 · 교체 순간에만 잠깐 4)', 3 <= late <= 4, late)
+                # (3) 효과 크기 — 새 판에서 패시브 Lv3/Lv5(곱빼기는 Lv3 까지)를 켰을 때의 배율. 기준 커밋과 나란히 찍는다.
+                async def eff(w, e_, key, lvs, field='dps', arena=None, tier=None, seeds=(1,), N=420, probe=None):
+                    out = {}
+                    for ver, pgv in (('old', pgo), ('new', pg)):
+                        row = {}
+                        for lv in [0] + list(lvs):
+                            acc = []
+                            for sd in seeds:
+                                cfg = dict(w=w, L=8, tier=(tier if tier is not None else (0 if e_ else 3)), ev=bool(e_), N=N, seed=sd, ps=({key: lv} if lv else {}))
+                                if arena: cfg['arena'] = arena
+                                if probe: cfg['probe'] = probe
+                                r = await pgv.evaluate('(c)=>window.__fxm.run(c)', cfg)
+                                acc.append(r['cartAvg'] if field == 'cart' else (sum(x[2] for x in r['h']) if field == 'dps' else len(r['h'])))
+                            row[lv] = statistics.mean(acc)
+                        out[ver] = {lv: (row[lv] / row[0] if row[0] else float('nan')) for lv in lvs}
+                    return out
+                tab = []
+                def rec(name, o_, lv, lo, hi=None):
+                    v = o_['new'][lv]; ov = o_['old'][lv]
+                    tab.append('%-30s Lv%d 기준 ×%.2f → 새 ×%.2f' % (name, lv, ov, v))
+                    return (v >= lo) and (hi is None or v <= hi)
+                oks = {}
+                specs = [('튀김기 ✨(마스터4)', 'fryer', 1, 'cd', (3, 5), dict(tier=4), 1.30, None),
+                         ('와이파이 기본', 'wifi', 0, 'cd', (3, 5), {}, 1.40, None), ('와이파이 ✨', 'wifi', 1, 'cd', (3, 5), {}, 1.40, None),
+                         ('아카보시 초밥 기본', 'sushi', 0, 'cd', (3, 5), {}, 1.40, None), ('아카보시 초밥 ✨', 'sushi', 1, 'cd', (3, 5), {}, 1.40, None),
+                         ('냄비뚜껑 기본', 'lid', 0, 'cd', (3, 5), dict(probe=10), 1.20, None), ('냄비뚜껑 ✨', 'lid', 1, 'cd', (3, 5), dict(probe=10), 1.20, None),
+                         ('새우깡 대회전 ✨ 공격속도', 'shrimp', 1, 'cd', (3, 5), {}, 1.40, None), ('새우깡 대회전 ✨ 속사', 'shrimp', 1, 'pspd', (3, 5), {}, 1.20, None),
+                         ('깃털 산탄 ✨ 곱빼기', 'quill', 1, 'amt', (3,), {}, 1.45, None), ('노래부르기 기본 곱빼기', 'sing', 0, 'amt', (3,), {}, 1.40, None), ('노래부르기 ✨ 곱빼기', 'sing', 1, 'amt', (3,), {}, 1.40, None),
+                         ('쌍둥이 이빨 기본 끈기', 'twin', 0, 'dur', (3, 5), dict(N=900), 1.10, None), ('쌍둥이 이빨 ✨ 끈기', 'twin', 1, 'dur', (3, 5), dict(N=900), 1.08, None)]
+                for (nm, w, e_, key, lvs, kw, lo, hi) in specs:
+                    o_ = await eff(w, e_, key, lvs, **dict(kw))
+                    oks[nm] = rec(nm, o_, lvs[-1], lo, hi)
+                bad_eff = [k for k, v in oks.items() if not v]
+                for t in tab: print('   ', t)
+                check('효과 크기(Lv5 · 곱빼기는 Lv3): 고친 14칸 모두 같은 채널의 다른 무기급으로 먹는다', not bad_eff, bad_eff)
+                over = [ln_ for ln_ in tab if re.search(r'새 ×([\d.]+)', ln_) and float(re.search(r'새 ×([\d.]+)', ln_).group(1)) > 2.0]
+                check('너무 세지지 않았다: 어느 칸도 Lv5 배율 2.0 초과 없음(같은 채널 다른 무기 ×1.4~1.6)', not over, over)
+                # 보스 한 마리 상대: 도장·사슬 공격속도 Lv5 가 +30% 이상(기준은 거의 0), 허수아비 밭에서는 기준과 똑같다(새로 찍을 적이 있으면 예전 그대로)
+                lone = []; tabl = []
+                for w, e_ in (('stamp', 0), ('stamp', 1), ('chain', 0), ('chain', 1)):
+                    o_ = await eff(w, e_, 'cd', (5,), arena='boss', N=600)
+                    tabl.append('%s%s 보스 1마리 공속 Lv5: 기준 ×%.2f → 새 ×%.2f' % (w, '✨' if e_ else '', o_['old'][5], o_['new'][5]))
+                    if not o_['new'][5] >= 1.30: lone.append((w, e_, o_))
+                    oc = await eff(w, e_, 'cd', (3, 5), N=600)
+                    if any(abs(oc['new'][lv] / oc['old'][lv] - 1) > .005 for lv in (3, 5)): lone.append(('밭', w, e_, oc))
+                for t in tabl: print('   ', t)
+                check('도장·사슬: 보스 한 마리 상대 공속 Lv5 ≥ +30% · 적이 많은 밭에서는 기준과 똑같다(±0.5%)', not lone, lone)
+                # 가챠: 각성 행운 Lv5 — 기본형과 같은 급
+                og = await eff('gacha', 1, 'luck', (3, 5), seeds=tuple(range(1, 13)), N=900); ogb = await eff('gacha', 0, 'luck', (3, 5), seeds=tuple(range(1, 13)), N=900)
+                print('    가챠 ✨ 행운: 기준 Lv3 ×%.2f Lv5 ×%.2f → 새 Lv3 ×%.2f Lv5 ×%.2f · 기본형(그대로) Lv5 ×%.2f' % (og['old'][3], og['old'][5], og['new'][3], og['new'][5], ogb['new'][5]))
+                check('가챠 각성 행운 Lv5: 기준 ×1.2 대 → 새 ×1.3~1.6(기본형 ×%.2f 와 같은 급) · 기본형은 기준과 똑같다' % ogb['new'][5], 1.30 <= og['new'][5] <= 1.60 and og['new'][5] > og['old'][5] + .08 and abs(ogb['new'][5] - ogb['old'][5]) < 1e-9, (og, ogb))
+                # 카트 각성: 끈기 Lv5 → 구역 가동(평균 카트 수) +20% 이상 · 공격속도 Lv5 → +15% 이상
+                oc1 = await eff('cart', 1, 'dur', (3, 5), field='cart', N=1800); oc2 = await eff('cart', 1, 'cd', (3, 5), field='cart', N=1800)
+                oc3 = await eff('cart', 1, 'dur', (5,), N=1800); oc4 = await eff('cart', 1, 'cd', (5,), N=1800)
+                print('    카트 각성 구역 가동(평균 카트 수, 60초 · 처음 쌓이는 시간 포함): 끈기 Lv3 ×%.2f Lv5 ×%.2f (기준 ×%.2f) · 공속 Lv3 ×%.2f Lv5 ×%.2f (기준 ×%.2f) · 구역 피해 끈기5 ×%.2f 공속5 ×%.2f' % (oc1['new'][3], oc1['new'][5], oc1['old'][5], oc2['new'][3], oc2['new'][5], oc2['old'][5], oc3['new'][5], oc4['new'][5]))
+                check('카트 각성: 끈기 Lv5 → 구역 가동 +20%↑ · 공격속도 Lv5 → +15%↑ (기준은 둘 다 +10% 미만)', oc1['new'][5] >= 1.20 and oc2['new'][5] >= 1.15 and oc1['old'][5] < 1.10 and oc2['old'][5] < 1.10, (oc1, oc2))
+                # 속사·곱빼기·끈기 직접 확인
+                SP = """()=>{const run=(c)=>window.__fxm.run(c);const out={};
+                  const spm=(r,kinds)=>{const a=r.bir.filter(b=>kinds.includes(b[0])).map(b=>b[2].spm||0).filter(v=>v>0);return a.length?Math.max(...a):0;};
+                  for(const [nm,w,ev,key,kinds] of [['feed','feed',1,'pspd',['shots']],['shrimpOrb','shrimp',1,'pspd',['rangs']],['shrimpFly','shrimp',0,'pspd',['rangs']]]){
+                    const a=run({w,L:8,tier:ev?0:3,ev:!!ev,N:210,seed:1,ps:{}}),b=run({w,L:8,tier:ev?0:3,ev:!!ev,N:210,seed:1,ps:{[key]:3}});out[nm]=[spm(a,kinds),spm(b,kinds)];}
+                  const cnt=(w,ev,amt,kind)=>{const r=run({w,L:8,tier:ev?0:3,ev:!!ev,N:3,seed:1,ps:amt?{amt}:{}});return r.bir.filter(b=>kind.includes(b[0])&&b[1]<=1).length;};
+                  const all=r=>r.bir.filter(b=>b[1]<=1).length;
+                  out.quill0=all(run({w:'quill',L:8,tier:0,ev:true,N:3,seed:1,ps:{}}));out.quill3=all(run({w:'quill',L:8,tier:0,ev:true,N:3,seed:1,ps:{amt:3}}));
+                  out.sing0=cnt('sing',0,0,['x3:nt']);out.sing3=cnt('sing',0,3,['x3:nt']);
+                  return out;}"""
+                R_ = {}
+                for ver, pgv in (('old', pgo), ('new', pg)):
+                    R_[ver] = await pgv.evaluate(SP)
+                    r_ = R_[ver]
+                    print('    [%s] 최고 속도 사료✨ %s · 새우깡✨ 공전 %s · 새우깡 기본 날아감 %s · 깃털✨ 첫 발사 개수 %s→%s · 노래 기본 첫 박 음표 %s→%s' % (ver, r_['feed'], r_['shrimpOrb'], r_['shrimpFly'], r_['quill0'], r_['quill3'], r_['sing0'], r_['sing3']))
+                Rn, Ro = R_['new'], R_['old']
+                check('사료 폭풍: 속사 3겹 → 탄 속도 ×1.36(기준은 ×1.00) · 새우깡 대회전: 공전 속도 ×1.3↑(기준 ×1.0) · 새우깡 기본: 날아감·돌아옴 최고 속도 560×1.36(기준은 던질 때 520×1.36 이 최고)',
+                      abs(Rn['feed'][1] / Rn['feed'][0] - 1.36) < .02 and abs(Ro['feed'][1] / Ro['feed'][0] - 1) < .01 and Rn['shrimpOrb'][1] / Rn['shrimpOrb'][0] >= 1.3 and Ro['shrimpOrb'][1] / Ro['shrimpOrb'][0] < 1.05
+                      and abs(Rn['shrimpFly'][1] - 560 * 1.36) < 560 * 1.36 * .03 and Ro['shrimpFly'][1] < Rn['shrimpFly'][1] * .96, (Ro, Rn))
+                check('깃털 산탄 ✨ 곱빼기 3겹: 첫 발사 (부채 + 8장 고리) 개수 16 → 22(기준은 19 = 고리 8장 그대로) · 곱빼기 0 이면 16 그대로', Rn['quill0'] == Ro['quill0'] == 16 and Rn['quill3'] == 22 and Ro['quill3'] == 19, (Ro['quill0'], Ro['quill3'], Rn['quill0'], Rn['quill3']))
+                check('노래부르기(마스터 음표 +1 포함) 곱빼기 3겹: 한 박 음표 6 → 8개(기준은 6개에서 막힘 — 곱빼기 3겹 중 2겹이 낭비) · 곱빼기 0 이면 5개 그대로', Rn['sing0'] == Ro['sing0'] == 5 and Rn['sing3'] == 8 and Ro['sing3'] == 6, (Ro['sing0'], Ro['sing3'], Rn['sing0'], Rn['sing3']))
+                # 쌍둥이 장판 상한 = 6 × 끈기 (끈기 0 이면 6)
+                tw = await pg.evaluate("""()=>{const o={};for(const [nm,d] of [['d0',0],['d5',5]]){const r=window.__fxm.run({w:'twin',L:8,tier:0,ev:true,N:900,seed:1,ps:d?{dur:d}:{}});o[nm]=r.cmax['x3:fl']||0;}return o;}""")
+                check('쌍둥이 이빨 장판 동시 최대: 끈기 0 이면 6 · 끈기 Lv5 이면 round(6×1.75)=11 까지 늘어난다', tw['d0'] == 6 and 9 <= tw['d5'] <= 11, tw)
+                # 와이파이·초밥: 같은 적을 다시 맞히는 간격이 쿨타임에 비례(공속 0 이면 0.3 / 0.25 초 그대로)
+                gp = await pg.evaluate("""()=>{const o={};const gaps=(w,ev,ps)=>{const r=window.__fxm.run({w,L:8,tier:0,ev:!!ev,N:420,seed:1,ps,arena:'boss'});const t=r.h.filter(h=>h[1]===w).map(h=>h[0]/30);const d=[];for(let i=1;i<t.length;i++)if(t[i]-t[i-1]>1e-6)d.push(t[i]-t[i-1]);d.sort((a,b)=>a-b);return d.length?d[0]:null;};
+                  o.wifi0=gaps('wifi',0,{});o.wifi5=gaps('wifi',0,{cd:5});o.sushi0=gaps('sushi',0,{});o.sushi5=gaps('sushi',0,{cd:5});return o;}""")
+                print('    같은 적을 다시 맞히는 최소 간격(보스 한 마리): 와이파이 0겹 %s초 → 공속5 %s초 · 초밥 0겹 %s → %s' % (gp['wifi0'], gp['wifi5'], gp['sushi0'], gp['sushi5']))
+                check('와이파이·초밥: 같은 적을 다시 맞히는 최소 간격이 공속 Lv5 에서 짧아진다(0겹: 0.30초 / 0.25초 이상 그대로)', gp['wifi0'] is not None and gp['wifi5'] is not None and gp['wifi0'] >= .29 and gp['wifi5'] < gp['wifi0'] * .8 and gp['sushi5'] < gp['sushi0'] * .85 and gp['sushi0'] >= .24, gp)
+                await ctxo.close()
 
             # ───── 바 불변 ─────
             if want('사'):

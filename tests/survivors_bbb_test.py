@@ -156,7 +156,7 @@ async def main():
                   (len(g[0]), len(g[1]), round(g[1][0]['t'] - t0, 3), r['cd0'], g[1][0]['d'], hn['d'] / hn['cr'], g[1][0]['pc'], hn['bt'], g[1][0]['sl'], hn['R'], hn['cr']))
         # 곱빼기(amt 3) + 마스터 1(음표 +1) → 상한 6 · 곱빼기만 → 5
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': .5, 'ps': {'amt': 3}, 'tier': 1})
-        check('음표는 박당 최대 6개(Lv8 + 곱빼기 3 + 마스터 +1)', len(groups(r['log'])[0]) == 6, len(groups(r['log'])[0]))
+        check('음표는 박당 곱빼기 3겹이 모두 먹는다(Lv8 4 + 곱빼기 3 + 마스터 +1 = 8개 · 2026-10-10 전엔 6개에서 막혔다)', len(groups(r['log'])[0]) == 8, len(groups(r['log'])[0]))
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': ES3, 'sec': .5, 'ps': {'amt': 3}})
         check('곱빼기 3 → Lv1 박당 5개', len(groups(r['log'])[0]) == 5, len(groups(r['log'])[0]))
 

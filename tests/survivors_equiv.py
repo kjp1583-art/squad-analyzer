@@ -73,10 +73,10 @@ def child(a):
     sim.INIT_JS = sim.INIT_JS.replace("try{localStorage.setItem('p6_fx','0');}catch(e){}", "try{localStorage.setItem('p6_fx','0');}catch(e){}" + MODE_JS[a.mode])
     assert MODE_JS[a.mode] in sim.INIT_JS, '측정기의 초기화 스크립트가 바뀌었다 — 난이도 주입 자리를 못 찾음'
     sim.run_one = run_one
-    ns = argparse.Namespace(cap=a.cap, dt=1 / 30, view=a.view, low=False, html=a.html, policy='full', param=[], trace=False)
+    ns = argparse.Namespace(cap=a.cap, dt=1 / 30, view=a.view, low=False, html=a.html, policy=a.policy, param=[], trace=False)
     conf = sim.Conf(ns)
     chars, seeds = sim.parse_chars(a.chars, a.html), sim.parse_seeds(a.seeds)
-    jobs = [(c, s, 'full') for s in seeds for c in chars]
+    jobs = [(c, s, a.policy) for s in seeds for c in chars]
     rows = asyncio.run(sim._one_off(conf, jobs, None))
     with open(a.out, 'w', encoding='utf-8') as f:
         for r in rows: f.write(json.dumps(r, ensure_ascii=False, sort_keys=True) + '\n')
@@ -103,7 +103,7 @@ def main():
     ap.add_argument('--a'); ap.add_argument('--b')
     ap.add_argument('--file', default='survivors.html', help='리비전일 때 꺼낼 파일')
     ap.add_argument('--chars', default='brj,kyo,eom,yj'); ap.add_argument('--seeds', default='1-2')
-    ap.add_argument('--cap', type=float, default=240); ap.add_argument('--modes', default='n,h,v', help='n 일반 · h 하드 · v 베리하드(쉼표)')
+    ap.add_argument('--policy', default='full', help='full(기본) · nopass(패시브 카드 전부 봉인 = 패시브 0 인 판) · sigonly'); ap.add_argument('--cap', type=float, default=240); ap.add_argument('--modes', default='n,h,v', help='n 일반 · h 하드 · v 베리하드(쉼표)')
     ap.add_argument('--view', default='1280x720'); ap.add_argument('--serial', action='store_true', help='A 와 B 를 차례로(브라우저 하나씩) — 기본은 둘을 동시에')
     ap.add_argument('--child', action='store_true', help=argparse.SUPPRESS); ap.add_argument('--html'); ap.add_argument('--mode', default='n'); ap.add_argument('--out')
     a = ap.parse_args()
@@ -119,7 +119,7 @@ def main():
             outs, ps, rc = {}, {}, {}
             for tag, path in (('A', pa), ('B', pb)):
                 outs[tag] = os.path.join(tmp, '%s_%s.jsonl' % (tag, m))
-                ps[tag] = subprocess.Popen([sys.executable, os.path.abspath(__file__), '--child', '--html', path, '--mode', m, '--chars', a.chars, '--seeds', a.seeds, '--cap', str(a.cap), '--view', a.view, '--out', outs[tag]],
+                ps[tag] = subprocess.Popen([sys.executable, os.path.abspath(__file__), '--child', '--html', path, '--mode', m, '--chars', a.chars, '--seeds', a.seeds, '--cap', str(a.cap), '--policy', a.policy, '--view', a.view, '--out', outs[tag]],
                                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
                 if a.serial: rc[tag] = ps[tag].wait()      # --serial: 브라우저를 한 번에 하나만(다른 시험과 함께 돌릴 때)
             rc = {t: (rc[t] if t in rc else p.wait()) for t, p in ps.items()}

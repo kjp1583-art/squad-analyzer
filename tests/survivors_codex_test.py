@@ -916,7 +916,7 @@ async def main():
         await b.close()
 
     # ═════════════ ⑥ 규칙 불변 — 정책 봇 측정기 ═════════════
-    print('\n── ⑥ 규칙 불변 — 정책 봇 측정기로 기준 커밋과 같은 시드·같은 조건의 결과 줄이 비트까지 같다 ──', flush=True)
+    print('\n── ⑥ 규칙 불변 — 정책 봇 측정기(패시브 카드 봉인 = nopass)로 기준 커밋과 같은 시드·같은 조건의 결과 줄이 비트까지 같다 ──', flush=True)   # 2026-10-10 「받다가 못 받던 칸 고치기」 뒤로는 패시브를 쓰는 판이 일부러 달라져서(패시브 0 인 판만 비트 동일) 패시브 봉인 정책으로 견준다
     if os.environ.get('CDX_NOSIM'):
         print('(CDX_NOSIM 지정 — 건너뜀: 확인 못 함)')
     elif not base_ok:
@@ -928,7 +928,7 @@ async def main():
         r = subprocess.run(['git', '-C', H.ROOT, 'show', BASE_COMMIT + ':survivors.html'], capture_output=True, timeout=30)
         base_clean = os.path.join(H.ROOT, 'survivors_cxbase_clean.html'); open(base_clean, 'wb').write(r.stdout)
         def run_sim(out, html):
-            cmd = ['nice', '-n', '10', sys.executable, os.path.join(H.ROOT, 'tests', 'survivors_charbal_sim.py'), 'run', '--out', out, '--chars', chars, '--seeds', seeds, '--policy', 'full', '--cap', cap, '--procs', '1', '--html', html, '--quiet']
+            cmd = ['nice', '-n', '10', sys.executable, os.path.join(H.ROOT, 'tests', 'survivors_charbal_sim.py'), 'run', '--out', out, '--chars', chars, '--seeds', seeds, '--policy', 'nopass', '--cap', cap, '--procs', '1', '--html', html, '--quiet']
             p = subprocess.run(cmd, cwd=H.ROOT, capture_output=True, text=True, timeout=3000)
             return p.returncode, p.stdout[-400:] + p.stderr[-400:]
         rc1, o1 = run_sim(outA, 'survivors.html'); rc2, o2 = run_sim(outB, os.path.basename(base_clean))

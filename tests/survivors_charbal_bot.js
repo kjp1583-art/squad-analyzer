@@ -461,6 +461,7 @@ function init(cfg) {
   X.start();
   if (X.state !== 'play') throw new Error('시작이 안 됨: ' + X.state);
   const S = X.S;
+  if (CFG.policy === 'nopass') S.banned = Object.keys(XX.PASS);      // 패시브 카드를 전부 봉인 — 패시브 0 인 판(규칙 불변 증명용)
   if (CFG.policy === 'sigonly') {                                   // 시작 무기 말고 다른 무기는 카드 풀에서 뺀다(게임의 봉인 장치 사용)
     S.banned = Object.keys(X.WEAP).filter(w => w !== X.CH.w);
   }

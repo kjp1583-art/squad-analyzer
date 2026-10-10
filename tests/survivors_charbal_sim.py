@@ -30,7 +30,7 @@ import sv_harness as H
 TOOL_VERSION = 1
 ROOT = H.ROOT
 BOT_JS = os.path.join(HERE, 'survivors_charbal_bot.js')
-POLICIES = ('full', 'sigonly')
+POLICIES = ('full', 'sigonly', 'nopass')   # nopass: full 과 같되 패시브 카드를 전부 봉인(패시브 0 인 판 — 규칙 불변 증명용 · 상대 비교용 아님)
 
 # 페이지 스크립트 범위 안에 꽂는 훅(임시 사본에만). 게임 로직은 안 바꾼다 — hitP 를 감싸 「받은 피해」를 정확히 센다.
 EXTRA_HOOK = r"""
