@@ -138,7 +138,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .dfl small{display:block;font-size:11.5px;font-weight:400;color:var(--sub)}
 .dfl.hard{background:#2a1418;border-color:#6b2a30;color:#ffb4a0}
 .dfl.vh{background:#1d1022;border-color:#7a3aa8;color:#e6b8ff}
-.dfl.dly{background:#10303b;border-color:#2a6f8a;color:#9fe3ff}
+.dfl.dfdl{background:#10303b;border-color:#2a6f8a;color:#9fe3ff}
 .dfl.end{background:#1b1740;border-color:#6a3fb8;color:#cdb8ff}
 .dfs{margin:0 0 8px;text-align:left;font-size:11.5px;line-height:1.45;color:var(--sub);word-break:keep-all;overflow-wrap:anywhere}
 .dfs b{color:var(--txt)}
@@ -147,16 +147,17 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .stt .rw{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:1px 8px;padding:5px 12px;border-top:1px solid var(--line)}
 .stt .rw .l{color:var(--sub);white-space:nowrap}
 .stt .rw .v{margin-left:auto;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;word-break:keep-all}
-.stt .rw .s{flex:1 0 100%;font-size:11px;line-height:1.4;color:var(--mut);word-break:keep-all;overflow-wrap:anywhere}
-.stt .sn{padding:6px 12px 9px;border-top:1px solid var(--line);font-size:11px;color:var(--mut)}
+.stt .rw .s{flex:1 0 100%;font-size:11.5px;line-height:1.4;color:var(--sub);word-break:keep-all;overflow-wrap:anywhere}
+.stt .sn{padding:6px 12px 9px;border-top:1px solid var(--line);font-size:11.5px;color:var(--sub);word-break:keep-all}
+.stt>summary,.dfs{word-break:keep-all}
 #lvOwn{margin-top:10px;text-align:left}
 .own{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0 0 8px}
 .own h3{margin:0 0 2px;font-size:13px;color:#ffb089}
-.own .lg{display:block;font-size:11px;font-weight:400;color:var(--mut)}
+.own .lg{display:block;font-size:11.5px;font-weight:400;color:var(--sub)}
 .own .gh{margin:8px 0 4px;font-size:12px;font-weight:700;color:var(--sub)}
 .own .chips{display:flex;flex-wrap:wrap;gap:5px}
 .own .chip{max-width:100%;padding:3px 7px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:12px;line-height:1.35;color:var(--txt);word-break:keep-all;overflow-wrap:anywhere}
-.own .chip small{display:block;font-size:10.5px;line-height:1.3;color:var(--mut)}
+.own .chip small{display:block;font-size:11.5px;line-height:1.3;color:var(--sub)}
 .own .chip .mx{font-size:11px;color:var(--mut)}
 .own .chip.up{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset,0 0 8px rgba(245,192,74,.35)}
 .own .upm{font-style:normal;font-weight:800;color:var(--gold);margin-right:3px}
@@ -352,7 +353,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 
 <div class="ov" id="lvup"><div class="box"><h2>⬆ 레벨 업! 하나 고르세요</h2><div class="muted" id="lvHint"></div><div id="choices"></div><div id="lvOwn"></div></div></div>
 
-<div class="ov" id="pause"><div class="box"><h2>⏸ 일시정지</h2>
+<div class="ov" id="pause"><div class="box"><h2>⏸ 일시정지</h2><div id="pTop"></div>
   <div class="snd psnd"><div class="ph"><span class="t">⚙ 소리·화면 설정</span><button class="btn g" id="muteBtn">🔇 소리 끄기</button></div>
     <label><span>🔊 효과음</span><input type="range" id="sfxV2" min="0" max="100" data-k="sfx" aria-label="효과음 크기"><b data-v="sfx"></b></label>
     <label><span>🎵 음악</span><input type="range" id="musV2" min="0" max="100" data-k="mus" aria-label="음악 크기"><b data-v="mus"></b></label>
@@ -1622,8 +1623,8 @@ const uiM2=v=>'×'+v.toFixed(2);
 function diffHtml(){   // 일시정지 맨 위: 지금 판의 난이도(글자 + 색) · 지금 시각 잡몹 체력·공격력 배율
   const m=MIN(),hm=hpMul(m),am=atkMul(m)*mobX(m),nm=S.vh?'💀 베리하드':S.hard?'🔥 하드':'일반';
   let cls=S.vh?'vh':S.hard?'hard':'',tx=nm,kind=S.vh?'vh':S.hard?'hard':'normal';
-  if(S.dly){cls='dly';kind='daily';tx=`📅 오늘의 도전 ${esc(String(S.dly.date||'').slice(5))}<small>${nm==='일반'?'일반 규칙':nm+' 규칙'} · ${S.dly.ranked?'기록되는 판':'연습 판(기록 안 돼요)'}</small>`;}
-  else if(S.endless){cls='end';kind='endless';tx=`♾ 무한 모드<small>이어 간 난이도: ${nm} · 난이도는 +30분 치에서 멈춰요</small>`;}
+  if(S.dly){cls='dfdl';kind='daily';tx=`📅 오늘의 도전 ${esc(String(S.dly.date||'').slice(5))}<small>${nm==='일반'?'일반 규칙':nm+' 규칙'} · ${S.dly.ranked?'기록되는 판':'연습 판(기록 안 돼요)'}</small>`;}
+  else if(S.endless){cls='end';kind='endless';tx=`♾ 무한 모드<small>이어 간 난이도: ${nm} · 무한 모드 30분 뒤부터는 더 안 어려워져요</small>`;}
   return `<div class="dfl ${cls}" id="pDiff" data-d="${kind}">🎮 난이도: ${tx}</div>`
     +`<div class="dfs" id="pMul">지금 몬스터 체력 <b>×${uiHx(hm)}</b> · 공격력 <b>×${uiHx(am)}</b> <span class="muted">(잡몹 기준 · 보스·엘리트 제외 · 시간이 갈수록 올라요)</span></div>`;}
 function statRows(){   // 능력치 표의 행 — 순서·줄 수는 늘 같다(없으면 +0% · —). v 는 게임이 쓰는 값 그대로(data-v) · t 는 보이는 글자 · s 는 작은 설명
@@ -1638,7 +1639,7 @@ function statRows(){   // 능력치 표의 행 — 순서·줄 수는 늘 같다
     {k:'cd',nm:'⏱ 쿨타임',v:cd,t:uiPcS(cd-1)},
     {k:'area',nm:'📏 범위',v:ar,t:uiPcS(ar-1)},
     {k:'move',nm:'👟 이동 속도',v:mv,t:uiPcS(mv-1)},
-    {k:'taken',nm:'🛡 받는 피해',v:tk,a:ag,t:`−${ag} · ${uiM2(tk)}`,s:`맞은 피해에 ${uiM2(tk)} 곱하고, 그다음 ${ag} 깎아요 (그래도 최소 1은 받아요)`},
+    {k:'taken',nm:'🛡 받는 피해',v:tk,a:ag,t:(ag===0&&tk===1)?'—':`−${ag} · ${uiM2(tk)}`,s:(ag===0&&tk===1)?'아직 줄여 주는 효과가 없어요':`맞은 피해에 ${uiM2(tk)} 곱하고, 그다음 ${ag} 깎아요 (그래도 최소 1은 받아요)`},
     {k:'mag',nm:'🧲 줍는 범위',v:mg,t:uiPcS(mg-1)},
     {k:'xp',nm:'📚 경험치',v:xm,t:uiPcS(xm-1)},
     {k:'pspd',nm:'🏹 투사체 속도',v:ps,t:uiPcS(ps-1)},
@@ -1651,7 +1652,7 @@ function statsHtml(sc){   // sc 'p' 일시정지(기본 펼침) · 'l' 레벨업
   const op=UI3[sc==='l'?'lOpen':'pOpen'];
   return `<details class="stt" id="stt${sc}" data-sc="${sc}"${op?' open':''}><summary>📈 내 능력치 <span class="muted">(눌러서 펼치기·접기)</span></summary>`
     +statRows().map(r=>`<div class="rw" data-k="${r.k}" data-v="${r.v}"${r.a!=null?` data-a="${r.a}"`:''}><span class="l">${r.nm}</span><b class="v">${r.t}</b>${r.s?`<span class="s">${r.s}</span>`:''}</div>`).join('')
-    +`<div class="sn">지금 켜진 일시 효과(변신·버프·체력 조건)도 포함해요</div></details>`;}
+    +`<div class="sn">지금 켜진 일시 효과(변신·버프·체력 조건·움직이는 중 효과)도 포함해요</div></details>`;}
 function ownCardKey(o){   // 이 카드가 올려 주는, 이미 가진 항목의 칩 키(새 항목·일회용은 ''). w 무기 · p 패시브 · r 유물 · t 거래 · s 작은 능력치
   switch(o.t){case 'w':return o.l?'w:'+o.k:'';case 'wt':return 'w:'+o.w;case 'p':return o.l?'p:'+o.k:'';case 'pt':return 'p:'+o.p;
     case 'rl':return o.l?'r:'+o.r:'';case 'tr':return o.l?'t:'+o.r:'';case 'sm':return smn(o.r)>0?'s:'+o.r:'';}
@@ -1672,7 +1673,7 @@ function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(�
   return `<div class="own"><h3>📋 내가 가진 능력${up.size?'<span class="lg">▲ 금색 = 이번 카드로 올릴 수 있는 것</span>':''}</h3>`
     +grp(`⚔ 무기 ${wk.length}/${SLOTW} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}`,W)+grp(`🎒 패시브 ${slotP()}/${SLOTP}${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}`,P)
     +grp(`🏺 유물 ${R.length}`,R)+grp(`⚖ 거래 ${T.length}`,T)+grp(`🍴 작은 능력치 ${M.length}`,M)+grp(`🔗 켜진 시너지 ${Y.length}`,Y)+`</div>`;}
-function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pInfo').innerHTML=diffHtml()+`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
+function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pTop').innerHTML=diffHtml();$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
 function resume(){if(state==='revive'||RES.stale()||RES.shopBad())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
 $('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
 $('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');RES.drop();RES.render();};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
@@ -1750,7 +1751,7 @@ function drawCards(){
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
   const bl=cardLv(),bonus=BONUS_LV.includes(bl)?`🎁 Lv${bl} 보너스 — 다시 뽑기 +1 · 봉인 +1 받았어요 · `:'';   // 지금 고르는 카드가 보너스 레벨의 것이면 화면에서도 알린다(토스트는 카드 화면 뒤에 가려진다)
   $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;
-  $('lvOwn').innerHTML=ownHtml()+statsHtml('l');}   // ❤️ 현재/최대는 줄바꿈 때 쪼개지 않는다 · 🎮 [2026-10-09 사장님 지시] 카드 아래 「내가 가진 능력」 명단 + 접이식 능력치 표 — #choices 바깥이라 키보드 1~3 은 그대로 앞 세 카드를 누르고, 이어하기 복구도 drawCards 를 거치니 거기서도 보인다
+  $('lvOwn').innerHTML=statsHtml('l')+ownHtml();}   // ❤️ 현재/최대는 줄바꿈 때 쪼개지 않는다 · 🎮 [2026-10-09 사장님 지시] 카드 아래 「내가 가진 능력」 명단 + 접이식 능력치 표 — #choices 바깥이라 키보드 1~3 은 그대로 앞 세 카드를 누르고, 이어하기 복구도 drawCards 를 거치니 거기서도 보인다
 function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;
   const rep=offers(1,CUR.map(x=>x.k).filter(Boolean))[0];CUR[i]=rep;toast(`🚫 ${cardOf(o).nm} 봉인`);drawCards();RES.save('ban');}
@@ -1758,6 +1759,7 @@ function openLvup(){
   state='lvup';keys={};joy.on=false;joy.dx=joy.dy=0;S.banMode=false;
   CUR=offers(3);drawCards();
   show('lvup');RES.save('lvup');
+  {const bx=document.querySelector('#lvup .box');if(bx)bx.scrollTop=0;}   // 🎮 [2026-10-10 검수] 레벨업이 연달아 열려도 늘 맨 위(카드)에서 시작
 }
 function applyUp(o){cdxPick(o);   // 📖 인게임에서 골라 본 카드는 도감에 실린다(레벨업 카드·보스 상자 모두 이 함수를 지난다 · 치킨은 제외)
   if(o.t==='w'){S.w[o.k]=(S.w[o.k]||0)+1;synCalc();}

@@ -91,11 +91,11 @@ def hx(v):
 # 판 시작 · 일시정지 열기
 START = r"""(a)=>{const x=__p6x;document.getElementById('hardChk').checked=(a.mode==='hard');document.getElementById('vhChk').checked=(a.mode==='vh');
   x.CH_set(a.ch||'brj');x.start(a.mode==='daily'?{daily:true}:undefined);return {st:x.state,hard:!!x.S.hard,vh:x.S.vh||0,dly:!!x.S.dly}}"""
-READ = r"""()=>{const x=__p6x,S=x.S,d=document.getElementById('pDiff'),m=document.getElementById('pMul'),pi=document.getElementById('pInfo');
+READ = r"""()=>{const x=__p6x,S=x.S,d=document.getElementById('pDiff'),m=document.getElementById('pMul'),pi=document.getElementById('pInfo'),pt=document.getElementById('pTop');
   const m1=x.MIN();
   return {st:x.state,pauseOn:document.getElementById('pause').classList.contains('on'),diff:d?d.innerText.replace(/\s+/g,' ').trim():null,cls:d?d.className:null,kind:d?d.dataset.d:null,
-    mul:m?m.innerText.replace(/\s+/g,' ').trim():null,bold:m?[...m.querySelectorAll('b')].map(b=>b.textContent):[],first:pi.firstElementChild?pi.firstElementChild.id:null,
-    next:pi.children[1]?pi.children[1].id:null,t:S.t,m:m1,hm:x.hpMul(m1),am:x.atkMul(m1)*__X.mobX(m1),hard:!!S.hard,vh:S.vh||0,endless:S.endless||0,dly:S.dly?{date:S.dly.date,ranked:S.dly.ranked}:null,
+    mul:m?m.innerText.replace(/\s+/g,' ').trim():null,bold:m?[...m.querySelectorAll('b')].map(b=>b.textContent):[],first:pt.firstElementChild?pt.firstElementChild.id:null,
+    next:pt.children[1]?pt.children[1].id:null,t:S.t,m:m1,hm:x.hpMul(m1),am:x.atkMul(m1)*__X.mobX(m1),hard:!!S.hard,vh:S.vh||0,endless:S.endless||0,dly:S.dly?{date:S.dly.date,ranked:S.dly.ranked}:null,
     pinfo:pi.innerText.slice(0,200)}}"""
 # 시간을 옮겨 놓고 실제 잡몹을 스폰시켜 본다(보스·몰이·대형은 막고 잡몹만) → 표시와 비교
 SPAWN = r"""(t)=>{const x=__p6x,S=x.S;S.t=t;S.evT=1e9;S.bigT=1e9;S.nextBoss=1e9;S.nextMini=1e9;S.nextSp=1e9;S.won=true;S.p.hp=S.p.mhp=1e6;
@@ -130,7 +130,7 @@ async def sec_diff(b, srv):
             r = await pg.evaluate(READ)
             txt, kind, cls = EXP[mode]
             check('[가] %s · %s 로 열면 「%s」' % (mode, 'Esc' if how == 'esc' else '⏸ 버튼', txt), r['diff'] == txt and r['kind'] == kind and r['cls'].split()[-1] == (cls or 'dfl') and r['pauseOn'], r)
-            check('[가] %s · %s #pInfo 맨 위가 난이도 줄 · 바로 다음이 배율 줄' % (mode, how), r['first'] == 'pDiff' and r['next'] == 'pMul', (r['first'], r['next']))
+            check('[가] %s · %s #pTop(제목 바로 아래)가 난이도 줄 · 바로 다음이 배율 줄' % (mode, how), r['first'] == 'pDiff' and r['next'] == 'pMul', (r['first'], r['next']))
             e_hm, e_am = hx(r['hm']), hx(r['am'])
             check('[가] %s · %s 배율 글자 = 지금 시각(%.0f초)의 hpMul·atkMul×mobX (체력 ×%s · 공격력 ×%s)' % (mode, how, r['t'], e_hm, e_am),
                   r['bold'] == ['×' + e_hm, '×' + e_am] and '잡몹 기준' in r['mul'] and '보스·엘리트 제외' in r['mul'], r)
@@ -169,7 +169,7 @@ async def sec_diff(b, srv):
         await open_by(pg, how)
         r = await pg.evaluate(READ)
         md = r['dly']['date'][5:]
-        check('[가] 오늘의 도전 · %s 「📅 오늘의 도전 %s」· 일반 규칙 · 연습 판(로그인 안 한 시험 환경)' % (how, md), r['kind'] == 'daily' and ('📅 오늘의 도전 ' + md) in r['diff'] and '일반 규칙' in r['diff'] and '연습 판(기록 안 돼요)' in r['diff'] and 'dly' in r['cls'], r)
+        check('[가] 오늘의 도전 · %s 「📅 오늘의 도전 %s」· 일반 규칙 · 연습 판(로그인 안 한 시험 환경)' % (how, md), r['kind'] == 'daily' and ('📅 오늘의 도전 ' + md) in r['diff'] and '일반 규칙' in r['diff'] and '연습 판(기록 안 돼요)' in r['diff'] and 'dfdl' in r['cls'], r)
         await pg.evaluate("()=>{__p6x.resume();__p6x.S.dly.ranked=1;__X.pauseGame()}")
         r = await pg.evaluate(READ)
         check('[가] 오늘의 도전 · 기록되는 판이면 「기록되는 판」', '기록되는 판' in r['diff'] and '연습 판' not in r['diff'], r['diff'])
@@ -250,7 +250,7 @@ def expect_rows(r):
     e['crit'] = ('100% (초과 +%s%%p)' % fnum(js_round((cc - 1) * 1000) / 10)) if cc > 1 else pcN(cc)
     e['critdmg'] = '×%.2f' % H_['critdmg']
     e['cd'] = pcS(H_['cd'] - 1); e['area'] = pcS(H_['area'] - 1); e['move'] = pcS(H_['move'] - 1)
-    e['taken'] = '−%s · ×%.2f' % (fnum(H_['arm']), H_['taken'])
+    e['taken'] = '—' if (H_['arm'] == 0 and H_['taken'] == 1) else '−%s · ×%.2f' % (fnum(H_['arm']), H_['taken'])   # 2026-10-10 검수: 줄여 주는 효과가 하나도 없으면 「—」
     e['mag'] = pcS(H_['mag'] - 1); e['xp'] = pcS(H_['xp'] - 1); e['pspd'] = pcS(H_['pspd'] - 1); e['dur'] = pcS(H_['dur'] - 1)
     e['amt'] = '+%d' % H_['amt']; e['luck'] = '%d단계' % H_['luck']
     e['vamp'] = ('%d마리마다 +%s HP' % (r['VAMP_N'], fnum(r['vampHp']))) if H_['vamp'] else '—'
@@ -288,8 +288,8 @@ async def sec_values(b, srv):
         check('[나] %s — 14행 · 순서 고정 · data-v = 도우미 값' % nm, r['order'] == ROW_ORDER and not badv, (r['order'], badv))
         check('[나] %s — 보이는 글자 = 같은 규칙(독립 계산) %s' % (nm, {k: r['rows'][k]['t'] for k in ('dmg', 'crit', 'taken', 'move')}), not badt, badt)
         tk_s = r['rows']['taken']['s'] or ''
-        check('[나] %s — 받는 피해 행 아래 쉬운 설명 「맞은 피해에 ×N 곱하고, 그다음 N 깎아요(최소 1)」 숫자가 값과 같다' % nm, tk_s == '맞은 피해에 ×%.2f 곱하고, 그다음 %s 깎아요 (그래도 최소 1은 받아요)' % (r['H']['taken'], fnum(r['H']['arm'])), tk_s)
-        check('[나] %s — 표 맨 아래 「지금 켜진 일시 효과(변신·버프·체력 조건)도 포함해요」' % nm, r['note'] == '지금 켜진 일시 효과(변신·버프·체력 조건)도 포함해요', r['note'])
+        check('[나] %s — 받는 피해 행 아래 쉬운 설명 「맞은 피해에 ×N 곱하고, 그다음 N 깎아요(최소 1)」 숫자가 값과 같다' % nm, tk_s == ('아직 줄여 주는 효과가 없어요' if (r['H']['arm'] == 0 and r['H']['taken'] == 1) else '맞은 피해에 ×%.2f 곱하고, 그다음 %s 깎아요 (그래도 최소 1은 받아요)' % (r['H']['taken'], fnum(r['H']['arm']))), tk_s)
+        check('[나] %s — 표 맨 아래 「지금 켜진 일시 효과(변신·버프·체력 조건·움직이는 중 효과)도 포함해요」' % nm, r['note'] == '지금 켜진 일시 효과(변신·버프·체력 조건·움직이는 중 효과)도 포함해요', r['note'])
         # 치명타 구성
         sub = r['rows']['crit']['s'] or ''
         got = re.findall(r'([가-힣 ]+?) \+([0-9.]+)%', sub.replace('구성: ', '').replace(' · ', ' · '))
@@ -314,7 +314,7 @@ async def sec_values(b, srv):
     ctx, pg, errs = await new_page(b, srv.port, page=NEW)
     r = await pg.evaluate(FIXED, {'ch': 'brj', 'cfg': {}})
     check('[나] 빈 몸 — 치명타 구성 줄이 그래도 있다(「아직 없어요」)', '아직 없어요' in (r['rows']['crit']['s'] or '') and r['rows']['crit']['t'] == '0%', r['rows']['crit'])
-    check('[나] 빈 몸 — 값 없는 행은 +0% · +0 · 0단계 · —', r['rows']['dmg']['t'] == '+0%' and r['rows']['amt']['t'] == '+0' and r['rows']['luck']['t'] == '0단계' and r['rows']['vamp']['t'] == '—' and r['rows']['taken']['t'] == '−0 · ×1.00', {k: v['t'] for k, v in r['rows'].items()})
+    check('[나] 빈 몸 — 값 없는 행은 +0% · +0 · 0단계 · —', r['rows']['dmg']['t'] == '+0%' and r['rows']['amt']['t'] == '+0' and r['rows']['luck']['t'] == '0단계' and r['rows']['vamp']['t'] == '—' and r['rows']['taken']['t'] == '—', {k: v['t'] for k, v in r['rows'].items()})
     await ctx.close()
 
 # ── 다 · 표시 = 실제 동작 ──────────────────────────────────────
@@ -684,9 +684,40 @@ async def sec_invariant(b, srv):
     await pg.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", blob)
     await pg.reload(); await pg.wait_for_function('window.__X!==undefined')
     ok = await pg.evaluate("()=>__X.RES.restore()")
-    r = await pg.evaluate("()=>({st:__p6x.state,diff:document.getElementById('pDiff')&&document.getElementById('pDiff').innerText,stt:!!document.getElementById('sttp'),first:document.getElementById('pInfo').firstElementChild.className})")
+    r = await pg.evaluate("()=>({st:__p6x.state,diff:document.getElementById('pDiff')&&document.getElementById('pDiff').innerText,stt:!!document.getElementById('sttp'),first:document.getElementById('pTop').firstElementChild.className})")
     check('[사] 옛 빌드 저장본 → 새 빌드 복구(폐기 안 됨) · 일시정지 화면에 난이도·표가 보인다 %s' % r, ok is True and r['st'] == 'pause' and r['diff'] == '🎮 난이도: 일반' and r['stt'], (ok, r))
     check('[사] 복구 오류 0', not errs, errs)
+    await ctx.close()
+
+# ── 아 · 통합 검수 보완 (2026-10-10) ───────────────────────────
+async def sec_review(b, srv):
+    # (1) 난이도 줄은 일시정지 제목 바로 아래 · 낮은 가로 창(640x300)에서도 「계속하기」 고정 버튼에 안 가려진다
+    for (w, h) in ((640, 300), (360, 640)):
+        ctx, pg, errs = await new_page(b, srv.port, w=w, h=h, page=NEW, mobile=True)
+        await pg.evaluate(RICH, dict(RICH_CASES['full'], ch='jjg'))
+        await pg.evaluate("()=>{__p6x.S.hard=true;__X.UI3.pOpen=true;__X.pauseGame();}")
+        r = await pg.evaluate("""()=>{const R=id=>document.getElementById(id).getBoundingClientRect(),h2=document.querySelector('#pause h2').getBoundingClientRect(),d=R('pDiff'),m=R('pMul'),s=document.querySelector('#pause .snd').getBoundingClientRect(),btn=R('resumeBtn');
+          return {afterH2:d.top>=h2.bottom-1&&d.top-h2.bottom<30,aboveSettings:m.bottom<=s.top+1,clear:m.bottom<=btn.top+1,dTop:d.top,mBot:m.bottom,bTop:btn.top}}""")
+        check('[아] %dx%d 일시정지 — 난이도 줄·배율 줄이 제목 바로 아래(소리 설정 위)이고 계속하기 버튼에 안 가려진다 %s' % (w, h, r), r['afterH2'] and r['aboveSettings'] and r['clear'], r)
+        check('[아] %dx%d 오류 0' % (w, h), not errs, errs)
+        await ctx.close()
+    # (2) 오늘의 도전 줄 배경은 전역 .dly(!important 그라데이션)에 안 먹힌다
+    ctx, pg, errs = await new_page(b, srv.port, w=360, h=640, page=NEW, mobile=True)
+    await pg.evaluate("()=>{const x=__p6x;x.CH_set('brj');x.start({daily:true});__X.pauseGame();}")
+    r = await pg.evaluate("()=>{const d=document.getElementById('pDiff'),c=getComputedStyle(d);return {bg:c.backgroundImage,col:c.backgroundColor,cls:d.className}}")
+    check('[아] 오늘의 도전 난이도 줄은 그라데이션(전역 .dly) 없이 의도한 배경색 %s' % r, r['bg'] == 'none' and r['col'] == 'rgb(16, 48, 59)', r)
+    await ctx.close()
+    # (3) 레벨업: 능력치 접이식 줄이 보유 명단 위 · 연달아 열리는 레벨업은 맨 위에서 시작
+    ctx, pg, errs = await new_page(b, srv.port, w=360, h=640, page=NEW, mobile=True)
+    await pg.evaluate(RICH, RICH_CASES['full'])
+    r = await pg.evaluate("""()=>{__p6x.state='lvup';__X.openLvup();const bx=document.querySelector('#lvup .box'),st=document.getElementById('sttl'),ow=document.querySelector('#lvOwn .own');
+      const before=st.compareDocumentPosition(ow)&4;bx.scrollTop=800;__X.openLvup();return {before:!!before,top:bx.scrollTop}}""")
+    check('[아] 레벨업 — 「내 능력치」 줄이 보유 명단 위에 있고, 다시 열리면 스크롤이 맨 위로 돌아온다 %s' % r, r['before'] and r['top'] == 0, r)
+    await ctx.close()
+    # (4) 받는 피해 줄: 모든 줄이는 효과가 없으면 「—」
+    ctx, pg, errs = await new_page(b, srv.port, page=NEW)
+    r = await pg.evaluate("()=>{__p6x.CH_set('brj');__p6x.start();const t=__X.statRows().find(r=>r.k==='taken');return {t:t.t,s:t.s}}")
+    check('[아] 빈 몸의 받는 피해 줄은 「—」· 「아직 줄여 주는 효과가 없어요」 %s' % r, r['t'] == '—' and r['s'] == '아직 줄여 주는 효과가 없어요', r)
     await ctx.close()
 
 async def main():
@@ -694,7 +725,7 @@ async def main():
     try:
         async with async_playwright() as p:
             b = await H.launch(p)
-            for sec, fn in [('가', sec_diff), ('나', sec_values), ('다', sec_behavior), ('라', sec_own), ('마', sec_fold), ('바', sec_layout), ('사', sec_invariant)]:
+            for sec, fn in [('가', sec_diff), ('나', sec_values), ('다', sec_behavior), ('라', sec_own), ('마', sec_fold), ('바', sec_layout), ('사', sec_invariant), ('아', sec_review)]:
                 if want(sec):
                     print('── %s ──' % sec, flush=True)
                     try: await fn(b, srv)
