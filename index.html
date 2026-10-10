@@ -10931,6 +10931,12 @@ function parseMetrics(r){
   //    실제로는 2026-08 구버전 기록기가 vs·op·tk·hs·dr·br·sk 를 아예 안 쓰고 kp 를 '킬관여 %'(실수)로
   //    기록했을 뿐, m 은 처음부터 정상이었다. 오진의 원인은 gviz 를 headers=1 없이 읽어 헤더가 1,196행을
   //    삼킨 CSV로 측정한 것이었다. 지표 원문은 시트를 그대로 믿는다.
+  // 🩹 [2026-10-10 사장님 제보 「일단즐겨 서포터 DPM 이 명예의 전당 2위」] 단, 값이 말이 안 되는 행은 되돌린다 — 2026-09-19·09-22 의 다섯 판(#8387155519 #8387222960
+  //    #8387316403 #8390902575 #8391010034, 50행)은 m 칸에 게임 시간(분)이 아니라 **분당 CS** 가 들어가 있었다(선수마다 m 이 0.86 · 6.6 · 9.45 …로 달랐고, cs÷m 은 판마다
+  //    같은 값 26.67 · 24.2 · 31.43 · 37.42 · 35.42 = 진짜 게임 시간). 서폿 딜량 17,444 를 0.86분으로 나눠 DPM 20,284 가 찍혔고 평균이 1,286 으로 부풀어 2위가 됐다.
+  //    진짜 분당 CS 는 12.4 를 넘을 수 없다(정상 행 14,947개 중 최대) — 그래서 **값으로** 가린다: cs÷m > 14 면 m=cs÷m. (9/8 사고는 「vs 가 없는 행」이라는 **서식**으로 골라 멀쩡한 140행을
+  //    망가뜨린 것 — 여기는 서식이 아니라 불가능한 값만 건드리고, 되돌린 값이 8~90분이 아니면 그 행의 지표를 버린다.)
+  if(o.cs>0&&o.m>0&&o.cs/o.m>14){ const fx=o.cs/o.m; o.m=(fx>=8&&fx<=90)?fx:0; }
   return (o.m&&o.m>0)?o:null;
 }
 function computeHofRecords(rows, nameOf){   // nameOf: 사람 키 함수(없으면 rows 안 PUUID 최신 닉) — 🏅 내 기록실은 canonOfRow
@@ -11255,7 +11261,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610100846";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610100922";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

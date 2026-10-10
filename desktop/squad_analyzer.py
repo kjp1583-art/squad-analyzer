@@ -2542,6 +2542,7 @@ def _clan_index(force=False):
                         for _t in str(r[c_gp] or "").split("|"):
                             _m = re.match(r"^([a-z]+)(-?\d+(?:\.\d+)?)$", _t.strip())
                             if _m: _o[_m.group(1)] = float(_m.group(2))
+                        _fix_pack_minutes(_o)   # 🩹 m 이 분당 CS 로 들어간 행 되돌림(2026-10-10) — 0 이면 아래 if 가 건너뛴다
                         if _o.get("m"):
                             if _o.get("cs") is not None: rd["csS"] += _o["cs"] / _o["m"]; rd["csN"] += 1
                             if _o.get("vs") is not None: rd["vsS"] += _o["vs"]; rd["vsN"] += 1
@@ -6180,6 +6181,22 @@ def rebuild_stat_aggregate():
     except Exception as e:
         print(f"[stat_agg] 재계산 실패(무시): {type(e).__name__}: {e}", flush=True)
 
+def _fix_pack_minutes(o):
+    """🩹 [2026-10-10 사장님 제보 「일단즐겨 서포터 웹 명예의 전당 DPM 이 이상하다」] '지표' 팩의 m 이 게임 시간(분)이 아니라 분당 CS 로 들어간 행을 되돌린다.
+    2026-09-19·09-22 다섯 판(#8387155519 #8387222960 #8387316403 #8390902575 #8391010034, 50행)이 그랬다 — 선수마다 m 이 0.86·6.6·9.45 로 달랐고 cs÷m 은 판마다
+    같은 값(26.67 …)이 진짜 게임 시간이다. 분당 CS 는 12.4 를 넘을 수 없으니(정상 행 14,947개 중 최대) **값으로** 가린다: cs÷m > 14 면 m = cs÷m
+    (되돌린 값이 8~90분이 아니면 m=0 으로 버린다). 서식(vs 없음 등)으로 고르면 안 된다 — 9/8 에 그렇게 골라 멀쩡한 140행을 망가뜨렸다.
+    웹 index.html parseMetrics 와 같은 규칙 — 한쪽만 고치지 말 것. o: {키: float} — 제자리에서 고쳐 같은 dict 를 돌려준다."""
+    try:
+        cs, m = o.get("cs"), o.get("m")
+        if cs and m and cs > 0 and m > 0 and cs / m > 14:
+            fx = cs / m
+            o["m"] = fx if 8 <= fx <= 90 else 0.0
+    except Exception:
+        pass
+    return o
+
+
 def update_hof_stats(force=False):
     global gui_data, global_spreadsheet
     if not global_spreadsheet: return
@@ -6194,7 +6211,7 @@ def update_hof_stats(force=False):
                     m2 = re.match(r"([a-z]+)(-?[\d.]+)$", tok.strip())
                     if m2: out[m2.group(1)] = float(m2.group(2))
             except Exception: return {}
-            return out
+            return _fix_pack_minutes(out)   # 🩹 m 이 분당 CS 로 들어간 행 되돌림(2026-10-10)
         c_rec, a_rec = {}, {}   # 🏅 [v82.22] 기록실 — p_key별 킬/데스/어시/딜량/AI점수 기록(단일게임 최고 + 누적)
         c_patches, a_patches = set(), set()
         c_aliases, a_aliases = {}, {}   # p_key(PUUID) -> {그 사람의 모든 닉} : 닉변 시 티어 복원용
