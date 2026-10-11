@@ -198,6 +198,23 @@ async def run_synth(src, tmp):
                 t = await pg.evaluate("async([r,a])=>{go(r,a);await new Promise(x=>setTimeout(x,600));return document.querySelector('#view').innerText}", [route, arg])
                 txt.setdefault(route, {})[rnd] = t
         o['tongsan'] = {k: (v['R30'] == v['ALL'] == v['LATEST']) for k, v in txt.items()}
+        # S11 보완: GPTI 누적 · 일찍 return 하는 화면 · 30일 0판 선수 자동 전환
+        await pg.evaluate("()=>{PATCH_USER=false;PATCH_AUTO=false;PATCH_SEL=null;build();renderPatchbar();go('home')}"); await pg.wait_for_timeout(300)
+        await pg.evaluate("()=>{window.parseMetrics=()=>({kp:1,dt:1,vs:1,g:1,cs:1,m:30});window.parseKDA=()=>({k:1,d:1,a:1});GPTI_ROWS={base:[{b:1}]};build();}")
+        TOT = "()=>Object.values(GPTI_ROWS||{}).reduce((a,v)=>a+v.length,0)"
+        o['gpti0'] = await pg.evaluate(TOT)
+        for r_ in ('champ', 'home', 'champ', 'home', 'mastery'):
+            await pg.evaluate(GO, [r_, None])
+        o['gpti1'] = await pg.evaluate(TOT)
+        await pg.evaluate(GO, ['champ', None]); await pg.evaluate(GO, ['gpti', None]); o['champ_gpti'] = await pg.evaluate(STATE)
+        for r_ in ('champ', 'report'):
+            await pg.evaluate(GO, [r_, None])
+        o['champ_report'] = await pg.evaluate(STATE)
+        await pg.evaluate(GO, ['champ', None]); await pg.evaluate(GO, ['player', _nm(12)])
+        o['fell'] = await pg.evaluate(STATE)
+        o['fell_txt'] = await pg.evaluate("()=>document.querySelector('#view').innerText")
+        await pg.evaluate(GO, ['champ', None]); o['fell_champ'] = await pg.evaluate(STATE)
+        await pg.evaluate(GO, ['home', None]); o['fell_home'] = await pg.evaluate(STATE)
         # S10 폰 넘침
         o['overflow'] = []
         await pg.evaluate("()=>{PATCH_USER=false;PATCH_SEL=null;build();renderPatchbar();}")
@@ -235,6 +252,12 @@ async def run_synth(src, tmp):
     ok(o['link_p']['sel'] == 'ALL' and o['link_then_home']['sel'] == 'ALL', 'S6b #p/ 링크는 전체 기간으로 열고 그 뒤 탭을 옮겨도 전체 기간 (%s → %s)' % (o['link_p']['sel'], o['link_then_home']['sel']))
     ok(o['link_g']['sel'] == 'ALL' and o['link_g_open'] == 'game', 'S6c #g/ 링크(30일 밖 판)도 전체 기간으로 열려 판이 열린다 (%s · %s)' % (o['link_g']['sel'], o['link_g_open']))
     ok(all(o['tongsan'].values()), 'S9 통산인 화면 글자가 최근 30일·전체·최신 패치에서 같다: %s' % {k: v for k, v in o['tongsan'].items()})
+    ok(o['gpti0'] == o['gpti1'] and o['gpti0'] > 1, 'S11a 탭을 왕복해도 GPTI_ROWS 총 행수가 그대로 (%s → %s)' % (o['gpti0'], o['gpti1']))
+    cg, cr = o['champ_gpti'], o['champ_report']
+    ok(cg['sel'] == 'R30' and not cg['meta'] and '최신 패치' not in cg['note'] and cr['sel'] == 'R30' and not cr['meta'], 'S11b 챔피언 티어 → 성향유형·리포트(일찍 return 하는 화면)도 최근 30일로 돌아오고 안내가 사라진다 (%s · %s)' % (cg['sel'], cr['sel']))
+    f = o['fell']
+    ok(f['sel'] == 'ALL' and not f['user'] and '최근 30일에는 기록이 없어' in o['fell_txt'] and '전체 기간(' not in o['fell_txt'].split('기록이 없어')[0][-30:], 'S11c 30일 0판 선수를 열면 전체 기간으로 풀리고 문구는 「최근 30일에는 …」 (sel=%s user=%s)' % (f['sel'], f['user']))
+    ok(o['fell_champ']['sel'] == '16.20' and o['fell_home']['sel'] == 'R30', 'S11d 자동 전환은 직접 고른 게 아니다 — 그 뒤 티어 탭은 최신 패치 · 홈은 최근 30일 (%s · %s)' % (o['fell_champ']['sel'], o['fell_home']['sel']))
     bad = [x for x in o['overflow'] if x['sw'] > x['cw'] + 1]
     ok(not bad, 'S10a 폰 360 가로 넘침 0 %s' % ([(x['route'], x['sw'], x['cw']) for x in o['overflow']]))
     ok(not res['meta']['log']['pageerror'], 'S10b 페이지 오류 0 %s' % res['meta']['log']['pageerror'][:3])
