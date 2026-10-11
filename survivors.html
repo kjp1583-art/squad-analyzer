@@ -4496,7 +4496,7 @@ const RES=(()=>{
     for(const e of enemies.a){if(!e.on)continue;if(!fin(e.x)||!fin(e.y)||!fin(e.hp)||!fin(e.mhp)||!fin(e.r)||e.r<0||e.r>600||Math.abs(e.x)>1e7||Math.abs(e.y)>1e7)bad('enemy');if(!fin(e.xp)||e.xp<0||e.xp>1e6)bad('enemy.xp');}
     let gv=0;for(const g of gems.a){if(!g.on)continue;if(!fin(g.x)||!fin(g.y)||!fin(g.v)||g.v<=0||g.v>1e6||Math.abs(g.x)>1e7||Math.abs(g.y)>1e7)bad('gem');gv+=g.v;}
     if(gv>5e7)bad('gems total');
-    for(const it of items.a){if(!it.on)continue;if(!PICK[it.k]||!fin(it.x)||!fin(it.y)||!fin(it.life)||it.life>1e5)bad('item');}
+    for(const it of items.a){if(!it.on)continue;if(!PICK[it.k]||!fin(it.x)||!fin(it.y)||!fin(it.life)||it.life>(it.k==='chest'?1e10:1e5))bad('item');}
     for(const n of PN){if(COSMETIC.has(n))continue;for(const o of POOL[n].a){if(!o.on)continue;if('x' in o&&!fin(o.x))bad(n+'.x');if('y' in o&&!fin(o.y))bad(n+'.y');}}}
   function cleanHtml(s){   // 상자 화면 문구(우리가 만든 div·b·small·span·br 뿐) — 저장소가 손댄 값이 스크립트가 되지 못하게 걸러서 쓴다
     const t=document.createElement('template');t.innerHTML=String(s);const OK=new Set(['DIV','B','SMALL','BR','SPAN','I','EM','STRONG']);
@@ -4520,7 +4520,7 @@ const RES=(()=>{
     RSEED=S.dly?S.dly.seed:0;LASTDLY=!!S.dly;RIFT_CACHE.clear();RDEV.clear();gemGrid.clear();FX.reset();EX.reset();
     toastT=0;$('toast').classList.remove('on');keys={};joy.on=false;joy.dx=joy.dy=0;SRC='';
     if(hasArt(CH))charImg(CH);for(const e of enemies.a)if(e.on&&e.b&&e.b.img)bossImg(e.b.img);
-    endAskHide();RUN={rid:String(h.rid),rs:+h.rs,gen:cl.gen,nonce:cl.nonce,cn:census(),cnT:S.t};   // (같은 판을 아직 들고 있는 다른 창은 claim 이 남긴 LIVEK·표로 '낡았음'을 알아챈다)
+    endAskHide();RUN={rid:String(h.rid),rs:+h.rs,gen:cl.gen,nonce:cl.nonce,cn:L.cn||census(),cnT:S.t};   // (같은 판을 아직 들고 있는 다른 창은 claim 이 남긴 LIVEK·표로 '낡았음'을 알아챈다)
     last=performance.now();hud();   // 일시정지·레벨업·상자 화면 뒤의 HUD 도 저장 당시 값으로(frame 은 play 일 때만 hud 를 부른다)
     if(mod.state==='lvup'){CUR=mod.CUR;state='lvup';keys={};drawCards();show('lvup');}
     else if(mod.state==='chest'){$('chestList').innerHTML=cleanHtml(mod.view.list);$('chestT').textContent=mod.view.title;state='chest';show('chest');}

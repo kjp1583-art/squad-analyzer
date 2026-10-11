@@ -54,6 +54,7 @@ window.__stuff=(opt)=>{const x=__W,P=x.pools,S=x.S,p=S.p,rnd=(a,b)=>a+Math.rando
  if(opt&&opt.boss){const ks=Object.keys(x.BOSS).filter(k=>x.BOSS[k].hp);for(let i=0;i<2&&i<ks.length;i++)x.spawnBoss(ks[i]);}
  for(let i=0;i<P.gems.a.length;i++){const g=P.gems.get();if(!g)break;g.x=p.x+rnd(-700,700);g.y=p.y+rnd(-700,700);g.v=1+Math.floor(Math.random()*40);g.mag=Math.random()<.1?1:0;}
  const ik=Object.keys(x.PICK).filter(k=>k!=='chest');for(let i=0;i<P.items.a.length;i++){const o=P.items.get();if(!o)break;o.x=p.x+rnd(-500,500);o.y=p.y+rnd(-500,500);o.k=ik[i%ik.length];o.life=60;o.t=0;}
+ {const c=P.items.a.find(o=>o.on);if(c){c.k='chest';c.life=1e9;}}   // 보스 상자(수명 1e9) — 먹기 전에 닫아도 복구돼야 한다
  for(let i=0;i<P.eshots.a.length;i++){const o=P.eshots.get();if(!o)break;o.x=p.x+rnd(-600,600);o.y=p.y+rnd(-600,600);o.vx=rnd(-80,80);o.vy=rnd(-80,80);o.life=5;o.d=8;}
  for(let i=0;i<P.hazards.a.length;i++){const o=P.hazards.get();if(!o)break;o.x=p.x+rnd(-600,600);o.y=p.y+rnd(-600,600);o.life=60;}
  for(let i=0;i<P.shots.a.length;i++){const o=P.shots.get();if(!o)break;o.x=p.x+rnd(-300,300);o.y=p.y+rnd(-300,300);o.vx=rnd(-200,200);o.vy=rnd(-200,200);o.life=3;o.dmg=5;}
@@ -67,7 +68,7 @@ window.__world=()=>{const x=__W,P=x.pools,slot=new Map();for(const n in P)P[n].a
  const out={};for(const n in P){if(COS.has(n))continue;out[n]=[];P[n].a.forEach((o,i)=>{if(o.on){const e={};for(const k of Object.keys(o).sort())e[k]=w(o[k],0);out[n].push([i,e]);}});}
  const E=P.enemies.a.filter(e=>e.on),G=P.gems.a.filter(g=>g.on);
  return {pools:out,sum:{e:E.length,boss:E.filter(e=>e.boss).length,el:E.filter(e=>e.el).length,g:G.length,gv:G.reduce((a,g)=>a+g.v,0),i:P.items.a.filter(o=>o.on).length,es:P.eshots.a.filter(o=>o.on).length,hz:P.hazards.a.filter(o=>o.on).length,kinds:E.map(e=>e.boss?'B:'+e.boss:'k'+e.ki).sort().join(',')},
-   S:{t:x.S.t,lv:x.S.lv,xp:x.S.xp,kills:x.S.kills,hp:x.S.p.hp,px:x.S.p.x,py:x.S.p.y}};};
+   S:x.S?{t:x.S.t,lv:x.S.lv,xp:x.S.xp,kills:x.S.kills,hp:x.S.p.hp,px:x.S.p.x,py:x.S.p.y}:null};};
 window.__empty=()=>{const P=__W.pools;let n=0;for(const k in P){if(COS.has(k))continue;for(const o of P[k].a)if(o.on)n++;}return n;};
 """
 
@@ -414,6 +415,7 @@ SECS = [('가', sec_fidelity), ('나', sec_census), ('다', sec_limits), ('라',
 MUT = {
     'census-load': ("    if(o.cn){const df=censusDiff(o.cn,census());if(df.length)throw new Error('census '+df.slice(0,4).join(','));}", "", {'나'}),
     'validate-pools': ("    validatePools();}\n  function validatePools()", "    }\n  function validatePools()", {'다'}),
+    'chest-life': ("it.life>(it.k==='chest'?1e10:1e5))bad('item')", "it.life>1e5)bad('item')", {'가', '다'}),
     'maxlen': ("    if(body.length>MAXLEN)return {text:null,why:'too-big',rep};", "", {'다'}),
     'resume-guard': ("||RES.shopBad()||RES.broken())return;", "||RES.shopBad())return;", {'라'}),
     'stale-quit': ("$('quitBtn').onclick=()=>{if(RES.stale())return;endRun(false,true);};", "$('quitBtn').onclick=()=>{endRun(false,true);};", {'마'}),
@@ -422,7 +424,11 @@ MUT = {
 
 async def run_sections(b, srv, secs):
     for name, fn in SECS:
-        if name in secs and want(name): await fn(b, srv)
+        if name in secs and want(name):
+            if not MUTANTS: await fn(b, srv); continue
+            try: await fn(b, srv)
+            except Exception as ex:   # 돌연변이 사본은 복구가 실패해 이후 단계가 터질 수 있다 — 터진 것도 빨강으로 센다
+                FAILS.append('구간 %s 중단(%s)' % (name, str(ex).splitlines()[0][:80]))
 
 async def main():
     global DST
