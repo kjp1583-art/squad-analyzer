@@ -156,7 +156,8 @@ window.SGG_DC_BOOT=(function(){
   .hof-metric{margin-left:auto;text-align:right;white-space:nowrap;font-weight:700}
   /* 패치 버전 필터 (신버전/구버전) */
   .patchbar{display:flex;align-items:center;gap:8px;margin:12px 0 0;flex-wrap:wrap}
-  .pb-label{color:var(--mut);font-size:14.5px;font-weight:700}
+  .pb-label{color:var(--mut);font-size:14.5px;font-weight:700;white-space:nowrap;flex:0 0 auto}
+  .patchnote{margin:6px 2px 0;color:var(--mut);font-size:12.5px;line-height:1.5}
   .pb-sep{display:inline-block;width:1px;height:16px;background:var(--line);margin:0 3px;vertical-align:middle}
   .pchip{padding:7px 14px;border-radius:9px;background:var(--card);border:1px solid var(--line);color:var(--sub);font-weight:700;font-size:14.5px;cursor:pointer}
   .pchip:hover{color:var(--txt)}
@@ -1251,6 +1252,7 @@ window.SGG_DC_BOOT=(function(){
   .radar-lg .lg-me{color:#ff8a3d;font-weight:700}
   .radar-lg .lg-avg{color:#9aa0b0}
   .side-rec{font-size:13px;color:var(--sub);margin-top:2px}
+  .side-scope{font-size:11.5px;color:var(--mut);line-height:1.35;text-align:center}.side-scope span{white-space:nowrap}
   /* [2026-07-30] 왼쪽 정보 블록을 아래로 내려 오른쪽(레이더+승률) 끝라인에 맞춘다. */
   .prof .profmain{align-self:flex-end}
   @media(max-width:760px){.prof .profmain{align-self:auto}}
@@ -1406,6 +1408,7 @@ window.SGG_DC_BOOT=(function(){
   <div id="megaboard" class="hidden"></div>   <!-- 📢 고성능확성기 — 포인트로 1일간 메시지 게시(2026-08-06 사장님 지시) -->
   <div class="catbar" id="catbar"></div>
   <div class="patchbar hidden" id="patchbar"></div>
+  <div class="patchnote hidden" id="patchnote"></div>
   <div id="view"></div>
   <div id="pcard"></div>   <!-- 🪟 플레이어 카드 팝업(화면 전환과 무관하게 이 자리에 그린다) -->
 
@@ -3972,8 +3975,13 @@ function _gptiAgg4(rows){    // Match-V5 리치스탯 집계(주포지션·분�
 // 🧬 [2026-07-28 사장님 지시] GPTI 데이터 이원화 대응 — GPTI_STATS 탭(회사PC 파이프라인, 7/20 중단)의
 //    리치스탯을 7/21+ 메인 경기록의 인라인 지표(킬관여·시야·받은딜·골드·CS·게임시간)로 이어붙인다.
 //    같은 게임이 양쪽에 있을 수 있으므로 게임ID 기준으로 중복 제거(탭 우선).
+let _GPTI_ADDED=new Set();   // 이전 build() 가 GPTI_ROWS 에 얹은 행 — 다시 build() 할 때 먼저 걷어 낸다(안 걷으면 탭만 옮겨도 같은 판이 계속 쌓인다)
 function supplementGptiFromMainLog(){
   try{
+    if(_GPTI_ADDED.size&&GPTI_ROWS){
+      for(const k in GPTI_ROWS){ const a=GPTI_ROWS[k]; if(a&&a.some(x=>_GPTI_ADDED.has(x))) GPTI_ROWS[k]=a.filter(x=>!_GPTI_ADDED.has(x)); }
+    }
+    _GPTI_ADDED=new Set();
     const seen=new Set();   // GPTI_STATS에 이미 있는 게임ID(중복 방지용) — 탭엔 게임ID가 행에 없으므로 근사: 탭 마지막 수집 이후(7/21+)만 합류
     const CUTOFF="2026-07-21";
     const add={};
@@ -3992,7 +4000,7 @@ function supplementGptiFromMainLog(){
     }
     if(!Object.keys(add).length)return;
     if(!GPTI_ROWS)GPTI_ROWS={};
-    for(const k in add)(GPTI_ROWS[k]=GPTI_ROWS[k]||[]).push(...add[k]);
+    for(const k in add){ (GPTI_ROWS[k]=GPTI_ROWS[k]||[]).push(...add[k]); for(const x of add[k])_GPTI_ADDED.add(x); }
   }catch(e){}
 }
 /* 🏆 [2026-08-03 사장님 지시] LCK 프로 GPTI — gol.gg 공개 지표를 주 1회 모아둔 파일(ai-eval-data).
@@ -4429,7 +4437,20 @@ let DUPLICATES=0;
 let LATEST_PATCH="";            // 데이터에서 감지한 최신 패치 (정규화 후, 예: "16.13")
 let ALL_PATCHES=[];             // 감지된 모든 패치 (최신순)
 let ALL_YEARS=[];               // 감지된 모든 년도 (최신순, 예: ["2026","2025"])
-let PATCH_SEL=null;             // 선택 필터: null=자동(최신패치) / "ALL"=전체 / 패치("16.13") / 년도("Y2025")
+let PATCH_SEL=null;             // 선택 필터: null=자동(기본: 「최근 30일」 · 챔피언 티어 탭만 최신 패치) / "R30"=최근 30일 / "ALL"=전체 / 패치("16.13") / 년도("Y2025")
+// 📅 [2026-10-11 사장님 "P20 진행시켜줘"] 기본 보기를 '최신 패치'에서 '최근 30일'로. 패치가 바뀐 첫 주엔 최신 패치 판이 몇 판 안 돼
+//   프로필이 '1전 1승 100%' 로 뜨고 홈 목록에서 사람이 빠졌다. 기준일은 오늘이 아니라 '데이터의 마지막 기록일'(클랜이 쉬어도 화면이 비지 않게).
+let PATCH_AUTO=false;           // 검색·프로필 열기 때문에 자동으로 '전체 기간'이 된 상태 — 직접 고른 게 아니므로 프로필을 벗어나면 기본 범위로 돌아간다
+let PATCH_USER=false;           // 사용자가 범위 칩을 직접 눌렀는가 — 눌렀으면 탭을 옮겨도 그 선택을 유지한다(2026-07-19·07-31 지시)
+let META_VIEW=false;            // 지금 챔피언 티어 탭(메타 보는 화면)인가 — 칩을 안 골랐으면 이 탭만 기본이 '이번 패치'
+const R30_DAYS=30;
+let R30={from:"",to:""};        // 최근 30일 창 'YYYY-MM-DD' (마지막 기록일 포함 30일). build() 가 채운다
+function ymdOf(d){ const m=String(d||"").match(/^(\d{4})-(\d{2})-(\d{2})/); return m?m[1]+"-"+m[2]+"-"+m[3]:""; }
+function ymdAdd(ymd,n){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd||""); if(!m) return ""; return new Date(Date.UTC(+m[1],+m[2]-1,+m[3]+n)).toISOString().slice(0,10); }
+function r30Range(){   // '9/12~10/11'
+  const f=s=>s?(+s.slice(5,7))+"/"+(+s.slice(8,10)):"";
+  return R30.to?`${f(R30.from)}~${f(R30.to)}`:"";
+}
 // 패치 정규화: 데스크톱이 'v16.13'으로 기록(구글시트 날짜변환 방지)하므로 앞의 v를 떼어 '16.13'과 동일 취급
 function normPatch(p){ let s=String(p||"").trim().replace(/^[vV]/,"").trim(); return s||"16.13"; }
 function patchNum(p){const a=normPatch(p).split(".");return (parseInt(a[0],10)||0)*1000+(parseInt(a[1],10)||0);}
@@ -4441,6 +4462,7 @@ function selYear(sel){ return (typeof sel==="string" && sel[0]==="Y") ? sel.slic
 //   통산) 나와 헷갈린다는 제보. 위쪽 전적이 어느 범위인지 작게 붙여준다.
 function patchScopeLabel(){
   if(PATCH_SEL==="ALL") return "전체 기간";
+  if(PATCH_SEL==="R30") return "최근 30일";
   const y=selYear(PATCH_SEL); if(y) return `${y}년`;
   const p=PATCH_SEL||LATEST_PATCH;
   return p?`${p} 버전`:"전체 기간";
@@ -4592,13 +4614,24 @@ function build(){
   const yset=new Set();
   for(const r of RAW){ if(r["게임ID"]){ const y=yearOf(r["날짜"]); if(y) yset.add(y); } }
   ALL_YEARS=[...yset].sort((a,b)=>b.localeCompare(a));
-  // 선택값: null(자동)이거나 더 이상 없는 패치면 최신 패치로. (년도 필터 "Y…"·전체는 그대로 유지)
-  if(PATCH_SEL!=="ALL" && !selYear(PATCH_SEL) && !pset.has(PATCH_SEL)) PATCH_SEL=LATEST_PATCH;
+  // 📅 최근 30일 창 — 기준일 = 데이터의 마지막 기록일(오늘 날짜가 아니다). 시계가 잘못돼 미래로 찍힌 날짜(내일 모레 이후)는 기준에서 뺀다.
+  {
+    const _lim=new Date(Date.now()+(9+48)*3600e3).toISOString().slice(0,10);   // 한국 시각 기준 모레까지만 인정
+    let _last="";
+    for(const r of RAW){ if(!r["게임ID"])continue; const d=ymdOf(r["날짜"]); if(d&&d<=_lim&&d>_last)_last=d; }
+    R30={from:_last?ymdAdd(_last,-(R30_DAYS-1)):"", to:_last};
+  }
+  // 선택값: null(자동)이면 기본 — 최근 30일(챔피언 티어 탭만 최신 패치). 더 이상 없는 패치면 최신 패치로. (년도 필터 "Y…"·전체는 그대로 유지)
+  if(PATCH_SEL==null) PATCH_SEL=(META_VIEW&&LATEST_PATCH)?LATEST_PATCH:"R30";
+  if(PATCH_SEL==="R30"&&!R30.to) PATCH_SEL="ALL";   // 날짜가 하나도 없으면 걸러 낼 기준이 없다
+  if(PATCH_SEL!=="ALL" && PATCH_SEL!=="R30" && !selYear(PATCH_SEL) && !pset.has(PATCH_SEL)) PATCH_SEL=LATEST_PATCH;
   const seen=new Set(); // 게임 내 동일 참가자 중복 기록 제거용
   for(const r of RAW){
     const gid=r["게임ID"]; if(!gid||_DUP_DROP.has(gid))continue;
-    // 필터: '전체'=모두 / 년도("Y2025")=그 해만 / 그 외=선택한 패치만
-    if(PATCH_SEL!=="ALL"){
+    // 필터: '전체'=모두 / 최근 30일("R30")=마지막 기록일 포함 30일 / 년도("Y2025")=그 해만 / 그 외=선택한 패치만
+    if(PATCH_SEL==="R30"){
+      const _d=ymdOf(r["날짜"]); if(!_d||_d<R30.from||_d>R30.to) continue;
+    }else if(PATCH_SEL!=="ALL"){
       const _ysel=selYear(PATCH_SEL);
       if(_ysel){ if(yearOf(r["날짜"])!==_ysel) continue; }
       else if(LATEST_PATCH && (r["패치버전"]||"")!==PATCH_SEL) continue;
@@ -4962,7 +4995,7 @@ window.addEventListener("popstate",e=>{
   try{
     if(st.cat&&st.cat!==CURRENT_CAT){
       if(CAT_CACHE[st.cat]){                                                 // 카테고리까지 복원(캐시 있으면 동기 복원)
-        CURRENT_CAT=st.cat; RAW=CAT_CACHE[st.cat]; PATCH_SEL=null; build(); renderCatbar(); renderPatchbar();
+        CURRENT_CAT=st.cat; RAW=CAT_CACHE[st.cat]; PATCH_SEL=null; PATCH_USER=false; PATCH_AUTO=false; build(); renderCatbar(); renderPatchbar();
       }else{ switchCat(st.cat); return; }                                    // 캐시 미스 → 그 카테고리 로드(엉뚱한 데이터로 상세 렌더 방지)
     }
     go(st.route,st.arg);
@@ -5031,7 +5064,7 @@ function _openRoute(r,final){
   if(!r||!GAMES.size) return false;
   const miss=msg=>{ if(!final) return false; _routeHashClear(); go('home'); _snapBanner(msg,true); setTimeout(()=>_snapBanner(null),4000); return true; };
   if(r.bad) return miss(r.k==='p'?"🔗 링크 속 닉을 읽지 못했어요 — 링크가 잘렸으면 검색창에 닉을 쳐 보세요":"🔗 링크가 잘려서 열지 못했어요");
-  PATCH_SEL="ALL"; build(); renderPatchbar();   // 링크는 '전체 기간'으로 연다(복사 요약 줄의 통산 숫자와 맞춤)
+  PATCH_SEL="ALL"; PATCH_USER=true; PATCH_AUTO=false; build(); renderPatchbar();   // 링크는 '전체 기간'으로 연다(복사 요약 줄의 통산 숫자와 맞춤)
   if(r.k==='p'){
     let nm=canonOfName(r.arg);
     if(PLAYERS.has(nm)){ go('player',nm); return true; }
@@ -5067,9 +5100,20 @@ window.addEventListener("hashchange",async()=>{
   _openRoute(r, !!CAT_CACHE[CURRENT_CAT]);
 });
 function goBack(){ if(history.state&&history.state.depth>0)history.back(); else go('home'); }
+/* 📅 [P-20] 기본 범위는 화면이 정한다 — 사용자가 범위 칩을 직접 누르기 전까지는 '최근 30일', 챔피언 티어 탭(메타)만 '최신 패치'.
+   직접 누른 뒤에는 어느 탭으로 가든 그 선택을 그대로 둔다. 챔피언 티어 → 챔피언 상세로 들어가면 같은 범위를 이어 본다(숫자가 안 어긋나게). */
+function syncDefaultScope(route){
+  META_VIEW = route==='champ' || (route==='champlog' && META_VIEW);
+  if(PATCH_AUTO){ if(route==='player') return; PATCH_AUTO=false; }
+  if(PATCH_USER) return;
+  const want=(META_VIEW&&LATEST_PATCH)?LATEST_PATCH:"R30";
+  if(PATCH_SEL===want) return;
+  PATCH_SEL=want; build(); renderPatchbar();
+}
 function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
   if(route!=='news') _routeHashClear();   // 🔗 p/g/c/news 공유 해시는 맨 앞에서 한 번에 정리(guide·scrim 조기 return 보다 먼저)
+  if(GAMES.size) syncDefaultScope(route);  // 📅 일찍 return 하는 화면(성향유형·리포트·전당 …)도 범위·안내가 티어 탭 것으로 남지 않게 맨 앞에서
   if(route==='guide'){navPush(route,arg);renderGuide(arg);return;}  // 📖 가이드북 — 내전 데이터와 무관하게 바로 열린다
   if(route==='news'){navPush(route,arg);renderNews(arg);try{ history.replaceState(history.state,"",location.pathname+location.search+"#news"+(arg?"/"+encodeURIComponent(String(arg)):"")); }catch(e){} return;}   // 📰 주간스쿼드 — 자체 JSON(데이터 로딩 전에도 열림) · 공유 링크 #news[/종료일]
   if(route==='brjang'){ if(!GAMES.size){renderEmpty();return;} arg=_brjTabOf(arg); navPush(route,arg); renderBrjang(arg);   // 🍗 브키도감 — 하위 탭 주소 #brj/<탭>
@@ -9737,7 +9781,7 @@ function submitComment(target,sfx){
 }
 let MOST_EXPANDED=false;   // 🏅 모스트 챔피언 전체 펼침 여부(프로필 이동 시 초기화)
 function toggleMost(){ MOST_EXPANDED=!MOST_EXPANDED; const y=window.scrollY; renderPlayer(CUR_PLAYER); window.scrollTo(0,y); }
-let PLAYER_PATCH_FELL=null;   // 그 패치에 기록이 없어 전체 기간으로 자동 전환한 선수
+let PLAYER_PATCH_FELL=null, PLAYER_PATCH_FELL_LBL="";   // 그 패치에 기록이 없어 전체 기간으로 자동 전환한 선수
 // 📛 [2026-08-28 사장님 지시] 프로필 닉네임 변천사 — 같은 사람(PUUID 통합·부계 등록)으로 합쳐진
 //   기록을 '소환사명'별로 묶어 사용 기간·판수를 보여준다. 이름이 2개 이상일 때만 카드가 뜬다.
 function nickHistHtml(name){
@@ -9929,6 +9973,15 @@ function renderStyle(name){
 }
 function selStylePos(p){ PROF_POS=(PROF_POS===p?null:p); const y=window.scrollY; renderStyle(CUR_PLAYER||history.state?.arg); window.scrollTo(0,y); }
 
+// 📅 [P-20 · 2026-08-03 '승률이 두 개라 헷갈림' 정리] 승률 링이 어느 범위인지 + 통산 전적을 링 밑 한 줄로
+function ringScopeHtml(name){
+  const lab=patchScopeLabel();
+  if(PATCH_SEL==="ALL") return `<div class="side-scope" title="링의 승률은 전체 기간(통산)입니다">${esc(lab)}(통산)</div>`;
+  let n=0,wn=0;
+  for(const r of ((typeof PLAYERS_ALL!=="undefined"&&PLAYERS_ALL.get(name))||[])){ if(r["결과"]==="승리"){n++;wn++;} else if(r["결과"]==="패배")n++; }
+  const tip=(PATCH_SEL==="R30"&&R30.to?`링의 승률은 최근 30일(${r30Range()}) 기록입니다. `:`링의 승률은 ${lab} 기록입니다. `)+`통산은 전체 기간 합계예요.`;
+  return `<div class="side-scope" title="${escAttr(tip)}"><span>${esc(lab)}</span> · <span>통산 ${n}전 ${wn}승</span></div>`;
+}
 function renderPlayer(name){
   name=canonOfName(name);                 // 옛 닉으로 들어와도 최신 닉 프로필로 통합
   if(CUR_PLAYER!==name){ MOST_EXPANDED=false; PROF_POS=null; }   // 다른 선수로 이동 시 펼침·포지션 선택 초기화
@@ -9939,12 +9992,12 @@ function renderPlayer(name){
        그 패치에 기록이 없고 통산에는 있으면 전체 기간으로 돌려 바로 전적을 보여준다.
        (패치가 새로 나온 날엔 통산 213명 중 20명만 그 버전 기록이 있다 — 2026-08-12 실측) */
     if(PATCH_SEL!=="ALL"&&PATCH_SEL!=null&&typeof PLAYERS_ALL!=='undefined'&&PLAYERS_ALL.has(name)){
-      PLAYER_PATCH_FELL=name;            // 안내 문구용 — 왜 필터가 풀렸는지 알려준다
-      switchPatch("ALL"); return;
+      PLAYER_PATCH_FELL=name; PLAYER_PATCH_FELL_LBL=patchScopeLabel();   // 안내 문구용 — 왜 필터가 풀렸는지(풀기 전 범위 이름과 함께)
+      switchPatch("ALL",true); return;   // 자동 전환은 '직접 고른 선택'이 아니다 — 티어 탭 기본이 깨지지 않게
     }
     // 패치 필터를 좁혀서 그 기간에 이 선수 기록이 없는 경우가 대부분 — 빠져나갈 길을 같이 준다.
     const _lbl = (PATCH_SEL==="ALL"||PATCH_SEL==null) ? "" :
-      (selYear(PATCH_SEL) ? `${selYear(PATCH_SEL)}년` : `패치 ${PATCH_SEL}`);
+      (PATCH_SEL==="R30" ? "최근 30일" : selYear(PATCH_SEL) ? `${selYear(PATCH_SEL)}년` : `패치 ${PATCH_SEL}`);
     view().innerHTML=`
       <div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>
       <div class="card" style="margin-top:10px;text-align:center;padding:30px 16px">
@@ -9956,7 +10009,7 @@ function renderPlayer(name){
   }
   const _fellMsg = (PLAYER_PATCH_FELL===name)
     ? `<div class="card" style="margin:10px 0 0;padding:9px 12px;border-color:rgba(122,162,255,.4);background:rgba(122,162,255,.07);font-size:13px">
-         🔎 이 선수는 선택한 패치에 기록이 없어 <b>전체 기간</b>으로 바꿔 보여드립니다.
+         🔎 이 선수는 <b>${esc(PLAYER_PATCH_FELL_LBL||"지금 보는 기간")}</b>에는 기록이 없어 <b>전체 기간</b>으로 바꿔 보여드립니다.
        </div>` : '';
   PLAYER_PATCH_FELL=null;
   // 최신순 (게임 등장 순서 역순)
@@ -10257,6 +10310,7 @@ function renderPlayer(name){
         <div class="sidecol">${brjSpriteHtml(name)}${radarHtml}
           <div class="ring" style="--p:${wr}"><div class="inner"><b>${wr}%</b><span>승률</span></div></div>
           <div class="side-rec">${w+l}전 <b style="color:var(--win)">${w}승</b> <b style="color:var(--lose)">${l}패</b></div>
+          ${ringScopeHtml(name)}
         </div>
       </div>
     </div>
@@ -10683,7 +10737,7 @@ let LOAD_SEQ=0;   // 진행 중이던 로드를 무효화하는 세대 번호 �
 async function loadCategory(key, preP, keep){
   const cat=CATEGORIES.find(c=>c.key===key); if(!cat)return;
   const my=++LOAD_SEQ, _prevRaw=RAW;
-  CURRENT_CAT=key; PATCH_SEL=null; renderCatbar();
+  CURRENT_CAT=key; PATCH_SEL=null; PATCH_USER=false; PATCH_AUTO=false; renderCatbar();
   SORT={key:null,dir:-1};
   $("#q").value=""; hideSuggest();
   if(!keep){ renderLoading(); setStatus("불러오는 중…"); }
@@ -10734,6 +10788,7 @@ function renderPatchbar(){
   if(!ALL_PATCHES.length && !ALL_YEARS.length){ bar.innerHTML=""; bar.classList.add("hidden"); return; }
   bar.classList.remove("hidden");
   let html=`<span class="pb-label">패치</span>`;
+  html += `<button class="pchip ${PATCH_SEL==="R30"?"on":""}" onclick="switchPatch('R30')" title="${escAttr(R30.to?`마지막 기록일(${R30.to}) 포함 30일 · ${r30Range()}`:"최근 30일")}">최근 30일</button>`;
   ALL_PATCHES.forEach((pv,i)=>{
     const on = PATCH_SEL!=="ALL" && !selYear(PATCH_SEL) && PATCH_SEL===pv;
     html += `<button class="pchip ${on?"on":""}" onclick="switchPatch('${escAttr(pv)}')">${esc(pv)}</button>`;
@@ -10748,9 +10803,26 @@ function renderPatchbar(){
     });
   }
   bar.innerHTML=html;
+  renderPatchNote();
 }
-function switchPatch(sel){
-  if(sel===PATCH_SEL)return;
+// 📅 범위 칩 줄 밑의 한 줄 안내 — 지금 칩이 무엇을 가리키는지(기준일은 마지막 기록일 · 챔피언 티어 탭은 왜 이번 패치인지)
+function renderPatchNote(){
+  const n=$("#patchnote"); if(!n)return;
+  let t="";
+  if(PATCH_SEL==="R30"&&R30.to){
+    const lag=Math.round((Date.parse(new Date(Date.now()+9*3600e3).toISOString().slice(0,10))-Date.parse(R30.to))/864e5);
+    t=`📅 최근 30일은 ${r30Range()} 기록이에요`+(lag>=3?` · 마지막 내전이 ${lag}일 전이라 그 날을 기준으로 잡았어요`:"");
+  }else if(PATCH_AUTO&&PATCH_SEL==="ALL"){
+    t="🔎 검색한 선수가 최근 30일에 기록이 없어 전체 기간으로 바꿨어요 · 다른 화면으로 가면 원래대로 돌아와요";
+  }else if(META_VIEW&&!PATCH_USER&&PATCH_SEL===LATEST_PATCH&&LATEST_PATCH){
+    t=`🏆 챔피언 티어는 메타를 보는 화면이라 기본이 최신 패치(${LATEST_PATCH})예요 · 다른 탭은 최근 30일`;
+  }
+  n.textContent=t; n.classList.toggle("hidden",!t);
+}
+function switchPatch(sel,auto){
+  PATCH_AUTO=!!auto;
+  if(!auto) PATCH_USER=true;                       // 직접 고른 범위 — 탭을 옮겨도 유지
+  if(sel===PATCH_SEL){ renderPatchbar(); return; }
   PATCH_SEL=sel;
   build(); renderPatchbar();
   SORT={key:null,dir:-1};
@@ -11059,7 +11131,7 @@ function _rrData(){
 const RR_KEYS=["mxK","mxA","mxDmg","mxSc2","mxSt","mxLong"];
 function nextMilestone(n){ const ms=[50,100,150,200]; for(const m of ms) if(n<m) return m; return (Math.floor(n/100)+1)*100; }
 function rrGo(gid){   // 통산 기록이라 지금 패치 필터에 없는 판일 수 있다 — 그땐 전체 기간으로 풀고 연다
-  if(!GAMES.has(gid)&&GAMES_ALL.has(gid)&&PATCH_SEL!=="ALL"){ PATCH_SEL="ALL"; build(); renderPatchbar(); }
+  if(!GAMES.has(gid)&&GAMES_ALL.has(gid)&&PATCH_SEL!=="ALL"){ PATCH_SEL="ALL"; PATCH_USER=true; build(); renderPatchbar(); }
   go('game',gid);
 }
 function recordRoomHtml(name){
@@ -11269,7 +11341,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610110204";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610111115";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
