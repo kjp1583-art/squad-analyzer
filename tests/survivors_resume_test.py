@@ -726,6 +726,7 @@ CLASSIFIED = {
  'CUR': 'MOD', 'BUMP': 'CACHE', 'BIMG': 'CACHE', 'bannerT': 'MOD', 'bannerS': 'MOD', 'bannerS2': 'MOD', 'bannerA': 'MOD', 'bannerQ': 'MOD',
  'RDEV': 'DERIVE', 'RDEV_S': 'DERIVE', 'RDEV_MAX': 'DERIVE', 'RDEV_BUD': 'DERIVE', 'last': 'RESET', 'RIFT_CACHE': 'DERIVE', 'RIFT_MAX': 'DERIVE', 'RIFT_BUD': 'DERIVE',
  'enemies': 'POOL', 'shots': 'POOL', 'gems': 'POOL', 'texts': 'POOL', 'rangs': 'POOL', 'bolts': 'POOL', 'waves': 'POOL', 'puds': 'POOL', 'clouds': 'POOL', 'cans': 'POOL', 'allies': 'POOL', 'items': 'POOL', 'props': 'POOL', 'bubs': 'POOL', 'hazards': 'POOL', 'eshots': 'POOL',
+ 'FLUSHING': 'UI', 'FLUSH_GAP': 'UI', 'QMEM': 'UI', 'QSEQ': 'UI',   # A-24 미전송 기록 큐 — 판 상태가 아니라 업로드 보조 변수(이어하기와 무관)
  'rkts': 'POOL', 'pets': 'POOL', 'hooks': 'POOL', 'frs': 'POOL', 'holes': 'POOL', 'snps': 'POOL',
 }
 
@@ -808,8 +809,8 @@ async def sec_misc(b, srv):
             d2 = await B.evaluate("()=>[__R.S.dly.ranked,__R.S.dly.date,__R.dailyGet()]")
             check('[오늘의 도전] 복구해도 기록 판 그대로 · 하루 한 판 기록(p6_daily_v1)은 건드리지 않는다', d2[0] is True and json.dumps(d2[2], sort_keys=True) == json.dumps(json.loads(dg), sort_keys=True), (d2, dg))
             await B.close()
-    u1 = json.loads(await A.evaluate("()=>localStorage.getItem('p6_unsent')") or 'null'); u0 = json.loads(unsent0)   # (게임의 flushUnsent 가 2.5초 뒤 ts 를 새로 찍을 수 있어 내용만 본다)
-    check('미전송 기록(p6_unsent)은 저장·복구와 무관하게 그대로', u1 and (u1['t'], u1['kills']) == (u0['t'], u0['kills']), (u0, u1))
+    u1 = json.loads(await A.evaluate("()=>localStorage.getItem('p6_unsent_q')") or 'null'); u1 = u1[0] if u1 else None; u0 = json.loads(unsent0)   # (게임의 flushUnsent 가 2.5초 뒤 ts 를 새로 찍을 수 있어 내용만 본다)
+    check('미전송 기록(p6_unsent → p6_unsent_q 큐)은 저장·복구와 무관하게 그대로', u1 and (u1['t'], u1['kills']) == (u0['t'], u0['kills']), (u0, u1))
     check('로그인 정보(sgg_dc)는 이어하기가 지우지 않는다', await A.evaluate("()=>localStorage.getItem('sgg_dc')!==null"))
     check('스크립트 오류 없음', not C.errs, C.errs[:4]); await C.close()
     # 저장 시간(후반 판 · CPU 4배 느리게) — 상대 비교: 업데이트 1스텝과 견준다

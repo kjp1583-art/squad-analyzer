@@ -111,7 +111,7 @@ async def main():
         POSTS.clear()
         ctx, pg, errs = await fresh(b, srv.port, state={'new': False})
         await pg.evaluate("__p6x.start({daily:true});__adv(20,{god:true});__p6x.endRun(false,true)"); await pg.wait_for_timeout(600)
-        keep = await pg.evaluate("localStorage.getItem('p6_unsent')")
+        keep = await pg.evaluate("localStorage.getItem('p6_unsent_q')")
         check('서버가 일일을 모르면 올리지 않고 기기에 보관', len(POSTS) == 0 and keep and '"daily"' in keep, keep)
         await ctx.close()
 

@@ -668,7 +668,7 @@ async def main():
         stt = {'run_code': 'upstream_down'}
         ctx, pg, errs = await logged(stt)
         await pg.evaluate("__p6x.start();__adv(20,{god:true});__p6x.endRun(false,true)"); await pg.wait_for_timeout(800)
-        keep = await pg.evaluate("localStorage.getItem('p6_unsent')")
+        keep = await pg.evaluate("localStorage.getItem('p6_unsent_q')")
         check('서버가 기록을 못 받으면 기기에 보관한다 — 보관본에는 도감 목록을 넣지 않는다', keep and 'codex' not in keep, keep)
         stt.pop('run_code'); await pg.evaluate("__cx.cdxNote('w:fryer')")
         n_before = len(POSTS)
