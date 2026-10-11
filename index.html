@@ -3372,6 +3372,8 @@ function loadBrjPatch(){
 // 🗂 [2026-09-28 사장님 지시] 패치노트 area — "brj"(브장신 키우기·레이드·브장신 아이템) | "squad"(내전·웹·분석기). area 없는 옛 항목은 제목·본문 키워드로 가른다(봇 _brj_patch_is_brj 와 같은 규칙)
 const BRJ_PATCH_KW=/브장신|레이드|월드보스|사료|가챠|뽑기|장터|스킨|꾸미기|강화|장비|아카보시|합정점|맛동산/;
 function isBrjPatch(n){ if(!n||typeof n!=="object") return false; if(n.area) return n.area==="brj"; return BRJ_PATCH_KW.test(String(n.title||"")+" "+(n.lines||[]).join(" ")); }
+/* 📱 [2026-10-11 A-28] 패치노트 전부를 한꺼번에 펼치면 폰에서 22화면이었다 — 최근 8개만 보이고 「더 보기」로 나머지를 펼친다(데이터·내용 그대로) */
+let BRJ_PATCH_OPEN=false; const BRJ_PATCH_SHOW=8;
 const PATCH_TAG_C={"신규":"#4CAF50","개편":"#FFB347","변경":"#64B5F6","밸런스":"#BA68C8","수정":"#EF5350"};
 function brjPatchHtml(limit){
   if(BRJ_PATCH===null) return `<div class="muted">패치노트 불러오는 중…</div>`;
@@ -7419,6 +7421,17 @@ function closePlayerCard(e){
 }
 function pcardGo(n){ closePlayerCard(); go('player', n); }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&PCARD) closePlayerCard(); });
+/* 📱 [2026-10-11 A-28] 내부티어 평가 카드 하나가 폰(360px)에서 10화면이었다 — 티어표 아래 「재미 지수」 여섯 카드(억울·항노화·뒷심·CS강박·몇 판째·세대)는 한 줄 머리글 뒤로 접는다.
+   내용·계산은 그대로, 눌러서 펼친다. 펼침 상태는 renderTiers 가 다시 그려져도(각 카드의 전체 보기 버튼) 유지한다. */
+let TFUN_OPEN=false;
+function tierFunHtml(){
+  const parts=[["😤 억울지수",grudgeHtml()],["🧬 항노화지수",antiAgingHtml()],["🔥 뒷심지수",gritHtml()],["🐢 CS강박지수",csObsHtml()],["🌙 몇 판째에 강한가",nightHtml()],["🍶 세대대결",generationHtml()]].filter(x=>x[1]);
+  if(!parts.length) return '';
+  return `<details class="tfun" ${TFUN_OPEN?'open':''} ontoggle="TFUN_OPEN=this.open" style="margin:14px 0 6px">
+    <summary style="cursor:pointer;font-size:14px;font-weight:700;padding:8px 2px">🎲 재미 지수 ${parts.length}가지 보기 <span class="muted" style="font-size:12px;font-weight:400">— ${parts.map(x=>x[0]).join(" · ")}</span></summary>
+    ${parts.map(x=>x[1]).join("")}
+  </details>`;
+}
 function renderTiers(){
   const r1=v=>v!=null?Math.round(v):'—';
   const byTier={};
@@ -7472,12 +7485,7 @@ function renderTiers(){
       </div>
       ${boards}
       <div style="font-size:13px;margin:14px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑+최근 30일 5판↑ 대상)</span></div>
-      ${grudgeHtml()}
-      ${antiAgingHtml()}
-      ${gritHtml()}
-      ${csObsHtml()}
-      ${nightHtml()}
-      ${generationHtml()}
+      ${tierFunHtml()}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
         ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 클랜 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
         <span style="opacity:.75">· 각 지표 뒤 <b>(동티어)</b>는 <b>같은 내부티어</b> 동료들의 평균(참고용) — 판정 자체는 위의 클랜 전체 기준입니다.</span><br>
@@ -9187,7 +9195,7 @@ function renderBrjang(tab){
   const guideCard=`<div class="card" style="margin-top:10px"><h2>📖 가이드북 <span class="muted" style="font-size:12.5px;font-weight:400">— 항목별로 정리한 사용설명서. 글을 열면 주소에 제목이 붙어서 그대로 복사해 클랜원에게 보낼 수 있어요</span></h2>
     ${_gl.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${_gl.map(guideCardHtml).join("")}</div>`
       :`<div class="muted">가이드북 불러오는 중…</div>`}</div>`;
-  const patchCard=`<div class="card" style="margin-top:10px"><h2>🗞 패치노트 <span class="muted" style="font-size:12.5px;font-weight:400">— 브장신 키우기에 뭐가 바뀌었는지. 디스코드 #브장신키우기 채널에도 같은 내용이 올라가고, 채널에 <b>"패치노트"</b> 라고 치면 최근 것을 다시 볼 수 있어요</span></h2>${brjPatchHtml(0)}</div>`;
+  const patchCard=`<div class="card" style="margin-top:10px"><h2>🗞 패치노트 <span class="muted" style="font-size:12.5px;font-weight:400">— 브장신 키우기에 뭐가 바뀌었는지. 디스코드 #브장신키우기 채널에도 같은 내용이 올라가고, 채널에 <b>"패치노트"</b> 라고 치면 최근 것을 다시 볼 수 있어요</span></h2>${brjPatchHtml(BRJ_PATCH_OPEN?0:BRJ_PATCH_SHOW)}${(BRJ_PATCH&&!BRJ_PATCH_OPEN&&BRJ_PATCH.length>BRJ_PATCH_SHOW)?`<div style="text-align:center;margin-top:10px"><button class="btn" style="font-size:12.5px;padding:5px 16px" onclick="BRJ_PATCH_OPEN=true;var y=scrollY;renderBrjang();scrollTo(0,y)">▼ 지난 패치노트 더 보기 (${BRJ_PATCH.length-BRJ_PATCH_SHOW}개 남음)</button></div>`:''}</div>`;
   const _sec={
     intro:()=>`${guideBtn}<div class="card"><h2>🍗 브장신 키우기 <span class="muted" style="font-size:12.5px;font-weight:400">— 클랜 마스코트 육성 미니게임 · 전설(Lv.7) 위로 초월 5단계(Lv.12)까지 · 디스코드 <b>/브장신</b> 으로 플레이 · <a href="brjang.html" style="color:#ffb347;font-weight:800">📖 게임 소개 · 후원 안내 · 🍘 맛동산 상점 →</a></span></h2>
       <div style="margin:6px 0 10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,179,71,.45);background:rgba(255,179,71,.08)"><span style="font-size:22px">🍗</span> <b>브장신:</b> "${esc(line)}"</div>
@@ -11261,7 +11269,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610100922";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610110204";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
