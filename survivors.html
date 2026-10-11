@@ -1890,9 +1890,9 @@ function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(�
     +grp(`⚔ 무기 ${wk.length}/${SLOTW} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}`,W)+grp(`🎒 패시브 ${slotP()}/${SLOTP}${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}${keyRsv()?' <span class="muted">(마지막 한 칸은 🗝 열쇠 자리)</span>':''}`,P)
     +grp(`🏺 유물 ${R.length}`,R)+grp(`⚖ 거래 ${T.length}`,T)+grp(`🍴 작은 능력치 ${M.length}`,M)+grp(`🔗 켜진 시너지 ${Y.length}`,Y)+`</div>`;}
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pTop').innerHTML=diffHtml();$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
-function resume(){if(state==='revive'||RES.stale()||RES.shopBad())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
+function resume(){if(state==='revive'||RES.stale()||RES.shopBad()||RES.broken())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
 $('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
-$('quitBtn').onclick=()=>endRun(false,true);$('homeBtn').onclick=()=>{state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');RES.drop();RES.render();};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
+$('quitBtn').onclick=()=>{if(RES.stale())return;endRun(false,true);};$('homeBtn').onclick=()=>{if(RES.stale())return;state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');RES.drop();RES.render();};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
 $('chestOk').onclick=()=>{if(state==='chest')resume();};
 $('revive').addEventListener('pointerdown',()=>{RV.pd=performance.now();},true);$('rvUse').onclick=e=>{if(rvFresh(e))coinUse();};$('rvNo').onclick=e=>{if(rvFresh(e))rvQuit();};
 
@@ -3183,7 +3183,7 @@ const rvKey=e=>{if(e.code!=='Space'&&e.code!=='Enter'&&e.code!=='NumpadEnter')re
   if(!(RV.kd>=RV.lockT))e.preventDefault();};
 $('revive').addEventListener('keydown',rvKey,true);$('revive').addEventListener('keyup',rvKey,true);
 const rvFresh=e=>performance.now()>=RV.lockT&&(!e||e.detail===0||RV.pd>=RV.lockT);   // 선택창이 열린 뒤·잠금이 풀린 뒤에 '새로 누른' 클릭만 인정(열리기 전부터 누르고 있던 손가락이 떼어지며 눌리는 것을 막는다 · 키보드·보조기기 클릭은 detail 0)
-function rvQuit(){if(state!=='revive'||RV.busy||performance.now()<RV.lockT)return;RV.on=false;++RV.req;clearTimeout(RV.lockId);endRun(false);}
+function rvQuit(){if(state!=='revive'||RV.busy||performance.now()<RV.lockT)return;if(RES.stale())return;RV.on=false;++RV.req;clearTimeout(RV.lockId);endRun(false);}
 async function refreshCoins(force){const u=dcUser();if(!u)return;
   const now=Date.now();if(!force&&now-RV.refAt<5000)return;RV.refAt=now;
   if(!ME){await loadMe();return;}
@@ -3375,7 +3375,7 @@ function update(dt){
 }
 
 function endRun(won,quit){
-  if(state==='result')return;
+  if(state==='result'||!S)return;   // (판이 이미 닫힌 창 — 다른 창이 이어받아 닫혔을 때 — 에서는 결과를 만들지도 기록을 올리지도 않는다)
   RES.drop();   // 🔁 끝난 판의 저장본은 지운다(되살리면 진행도·처치 수가 두 번 쌓인다)
   state='result';AU.stop();AU.play(won?'win':'lose');S.t=Math.min(S.t,S.endless?END_T:WIN_T);
   const pg=getProg();const before=CHARS.filter(c=>isUnl(c,pg)).map(c=>c.k);
@@ -4261,7 +4261,7 @@ requestAnimationFrame(frame);
 //   저장 못 하는 값(함수·DOM·Image)이 새로 생기면 저장을 거부하고 시험(tests/survivors_resume_test.py)이 실패한다.
 //   잃는 것(일부러): S.dq(0.3~0.6초 뒤에 나갈 지연 타격 — 함수라 저장 불가) · 떠오르는 피해 숫자·말풍선·번개/저격 자국·입자(눈요기)
 const RES=(()=>{
-  const FMT=1,KEY='p6_resume_v1',LIVEK='p6_resume_live',TIPK='p6_iab_tip',TTL=12*3600*1000;
+  const FMT=1,KEY='p6_resume_v1',LIVEK='p6_resume_live',TIPK='p6_iab_tip',TTL=12*3600*1000,MAXLEN=2500000;   // MAXLEN: 저장본 한도(글자 수) — 넘으면 일부만 저장하지 않고 통째로 저장하지 않는다(적은 빠지고 보석만 남는 반쪽 저장본을 만들지 않는다)
   const POOL={enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,snps,bolts,waves,puds,clouds,allies,cans,bubs},PN=Object.keys(POOL);
   const COSMETIC=new Set(['texts','bubs','bolts','snps']);                 // 눈요기뿐인 풀 — 저장하지 않고 복구 때 비운다
   const SKIP_S=new Set(['live','tk','syn','synOn','sushi','auraR']);       // 다시 계산하는 파생값(복구 때 tkCalc·synCalc·update 가 채운다)
@@ -4336,6 +4336,14 @@ const RES=(()=>{
   // ③ 판 → 문자열
   const poolsCheck=()=>Pool.all.length===PN.length&&Pool.all.every(p=>PN.some(n=>POOL[n]===p));
   function slotMap(){const m=new Map();for(const n of PN)POOL[n].a.forEach((o,i)=>m.set(o,[n,i]));return m;}
+  // 🧮 [2026-10-11 제보 「몹이 많을 때 창을 닫았다 열면 몹만 사라지고 바닥 경험치는 남는다」] 세계 장부 — 저장하는 순간 풀마다 켜진 칸 수·적 종류별 수·보석 값 합을 적어 두고(본문 cn),
+  //   되살린 직후 같은 방식으로 다시 세어 하나라도 다르면 판 전체를 버린다. 적·보석·아이템·소환물은 '같이 복구되거나 같이 버려진다' — 한쪽만 남은 판으로는 절대 시작하지 않는다.
+  function census(){const c={};for(const n of PN){if(COSMETIC.has(n))continue;let k=0;for(const o of POOL[n].a)if(o.on)k++;c[n]=k;}
+    let boss=0,el=0,bg=0,hp=0;for(const e of enemies.a)if(e.on){if(e.boss)boss++;if(e.el)el++;if(e.bg)bg++;hp+=e.hp;}
+    let gv=0;for(const g of gems.a)if(g.on)gv+=g.v;
+    c.boss=boss;c.elite=el;c.big=bg;c.hp=Math.round(hp*100)/100;c.gv=Math.round(gv*1000)/1000;return c;}
+  const censusDiff=(a,b)=>{const out=[];const ks=new Set([...Object.keys(a||{}),...Object.keys(b||{})]);for(const k of ks){const x=a&&a[k],y=b&&b[k];
+    if(typeof x==='number'&&typeof y==='number'){if(!(x!==x&&y!==y)&&!(Math.abs(x-y)<=1e-6*Math.max(1,Math.abs(x),Math.abs(y))))out.push(k+':'+x+'/'+y);}else if(x!==y)out.push(k+':'+x+'/'+y);}return out;};
   function build(){   // {text,body,head,rep,bad} — 저장할 수 없는 상태면 text 가 null
     if(!S||!RUN)return {text:null,why:'no-run'};
     const stt=state==='play'?'pause':state;if(stt!=='pause'&&stt!=='lvup'&&stt!=='chest'&&stt!=='revive')return {text:null,why:'state-'+state};
@@ -4352,12 +4360,13 @@ const RES=(()=>{
     E.count(sObj);E.count(mod);
     const o={v:FMT,lens,defs};o.S=E.enc(sObj,'S');o.pools={};   // 읽는 순서(S → 풀 → mod)와 같은 순서로 내보내야 $r 이 항상 $id 뒤에 온다
     for(const n of PN){if(COSMETIC.has(n))continue;o.pools[n]=diffs[n].map(([i,e])=>[i,E.enc(e,n+'[]')]);}
-    o.mod=E.enc(mod,'mod');
+    o.mod=E.enc(mod,'mod');o.cn=census();
     const rep=E.rep;rep.dqDropped=dqN;
     const bad=rep.fn.filter(p=>p!==EXPECT_FN).concat(rep.dom.map(p=>'dom:'+p),rep.proto.map(p=>'proto:'+p));
     info.poolsOk=poolsCheck();if(!info.poolsOk)bad.push('pool-list');          // 분류 안 된 새 풀이 생기면 저장을 거부한다(그 풀의 상태를 조용히 잃지 않게)
     if(bad.length)return {text:null,why:'unsupported',bad,rep};
     const body=JSON.stringify(o);
+    if(body.length>MAXLEN)return {text:null,why:'too-big',rep};   // 한도를 넘으면 통째로 저장하지 않는다(save 가 옛 저장본도 지운다)
     const head={f:FMT,sig:SIG,rid:RUN.rid,rs:RUN.rs,gen:RUN.gen,ts:Date.now(),st:stt,ch:CH.k,t:Math.floor(S.t),lv:S.lv,k:S.kills,
       m:S.dly?'d':S.endless?'e':S.vh?'v':S.hard?'h':'n',len:body.length,ck:seedOf(body)};
     return {text:JSON.stringify(head)+'\n'+body,body,head,rep};}
@@ -4403,6 +4412,11 @@ const RES=(()=>{
     console.info('[이어하기] 다른 창에서 이 판을 이어받았어요 — 이 창의 판은 닫습니다');
     closeRun('다른 창에서 이어하기를 해서 이 창의 판은 닫혔어요.');
     return true;}
+  function broken(){   // 되살린 직후(시간이 한 번도 안 흐른 일시정지)에 세계가 장부와 어긋나 있으면 계속하지 않고 닫는다 — 적만 빠진 채 보석이 남은 판으로 이어 가지 않게
+    if(!S||!RUN||!RUN.cn||state!=='pause')return false;
+    if(S.t!==RUN.cnT){RUN.cn=null;return false;}
+    const df=censusDiff(RUN.cn,census());if(!df.length)return false;
+    console.warn('[이어하기] 복구한 판이 장부와 달라요 — 닫습니다:',df.slice(0,4));info.why='broken:'+df[0];drop(true);closeRun('복구한 판이 어긋나서 닫았어요. 새 판으로 시작해 주세요.');return true;}
   function closeRun(msg){S=null;RUN=null;for(const n of PN)POOL[n].clear();state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();show('title');render();say(msg,6000);}
   function shopBad(){   // 이어받은 판이 상점 캐릭터인데 구매 목록(서버)에 없으면 계속하기에서 막는다 — 목록을 받기 전에 이어하기를 눌렀을 때의 마지막 확인
     if(!S||!RUN||!(RUN.gen>0)||!CH.shop||!SRVLOAD||SRVUNL.has(CH.k))return false;
@@ -4420,6 +4434,7 @@ const RES=(()=>{
       const t0=performance.now(),b=build();
       if(!b.text){info.why=b.why;info.rep=b.rep||null;
         if(b.why==='unsupported'&&!warned){warned=true;console.error('[이어하기] 판 상태에 저장할 수 없는 값이 생겼어요 — 저장을 건너뜁니다(시험이 잡아야 하는 일):',b.bad);}
+        if(b.why==='too-big')noteFail();
         lastKey='';drop();   // 저장을 못 했으면 같은 판의 옛 저장본도 지운다 — 낡은 쪽으로 열려(다시 뽑기 환불 같은) 되감기가 되는 것을 막는다
         return false;}
       const ok=write(b.text);info.ms=performance.now()-t0;info.len=b.text.length;info.rep=b.rep;
@@ -4439,7 +4454,7 @@ const RES=(()=>{
     const i=text.indexOf('\n');if(i<2)throw new Error('format');
     let h;try{h=JSON.parse(text.slice(0,i));}catch(e){throw new Error('header');}
     const why=usableHead(h);if(why)throw new Error(why);
-    const body=text.slice(i+1);if(body.length!==h.len)throw new Error('len');if(seedOf(body)!==h.ck)throw new Error('ck');
+    const body=text.slice(i+1);if(body.length!==h.len||body.length>MAXLEN)throw new Error('len');if(seedOf(body)!==h.ck)throw new Error('ck');
     return {h,o:JSON.parse(body)};}
   // ⑥ 문자열 → 판(풀 칸의 정체성·번호를 그대로 둔다: 칸 번호와 sn 이 맞아야 모든 '같은 적인가' 참조가 원래 뜻을 지킨다)
   const REFILL=n=>{const P=POOL[n];for(const s of P.a){for(const k of Object.keys(s))delete s[k];Object.assign(s,P.mk());s.on=false;}};
@@ -4454,7 +4469,8 @@ const RES=(()=>{
     const sN=dec(o.S);                                                       // 같은 순서(S → 풀 → mod)로 읽어 $r 이 항상 $id 뒤에 오게 한다
     for(const n in o.pools)for(const [i,e] of o.pools[n]){const s=POOL[n].a[i],d=dec(e);for(const k in d)s[k]=d[k];}
     const mod=dec(o.mod);
-    return {sN,mod};}
+    if(o.cn){const df=censusDiff(o.cn,census());if(df.length)throw new Error('census '+df.slice(0,4).join(','));}   // 저장 순간의 세계 장부와 되살린 세계가 다르면(적만 빠졌거나 보석만 남았거나) 판 전체를 버린다
+    return {sN,mod,cn:o.cn||null};}
   function validate(mod){
     const bad=m=>{throw new Error('invalid: '+m);};
     const keys=(o,T,nm)=>{if(!isPO(o))bad(nm);for(const k in o)if(!(k in T))bad(nm+'.'+k);};
@@ -4473,7 +4489,15 @@ const RES=(()=>{
     if(S.dly&&(!isPO(S.dly)||!isPO(S.dly.rq)||typeof S.dly.date!=='string'))bad('dly');
     if(!mod||!CHARS.some(c=>c.k===mod.ch))bad('ch');
     if(mod.state==='lvup'){if(!Array.isArray(mod.CUR)||!mod.CUR.length||mod.CUR.length>4)bad('CUR');for(const c of mod.CUR){cardOf(c);if(c.l!=null&&!Number.isFinite(c.l))bad('CUR.l');}}
-    if(mod.state==='chest'&&!(mod.view&&typeof mod.view.list==='string'&&typeof mod.view.title==='string'))bad('chest');}
+    if(mod.state==='chest'&&!(mod.view&&typeof mod.view.list==='string'&&typeof mod.view.title==='string'))bad('chest');
+    validatePools();}
+  function validatePools(){   // 풀 칸의 값도 범위를 본다(저장소가 손댄 값 — 유한하지 않은 좌표·터무니없는 경험치 값·모르는 아이템 — 은 판 전체를 버린다)
+    const bad=m=>{throw new Error('invalid: '+m);},fin=Number.isFinite;
+    for(const e of enemies.a){if(!e.on)continue;if(!fin(e.x)||!fin(e.y)||!fin(e.hp)||!fin(e.mhp)||!fin(e.r)||e.r<0||e.r>600||Math.abs(e.x)>1e7||Math.abs(e.y)>1e7)bad('enemy');if(!fin(e.xp)||e.xp<0||e.xp>1e6)bad('enemy.xp');}
+    let gv=0;for(const g of gems.a){if(!g.on)continue;if(!fin(g.x)||!fin(g.y)||!fin(g.v)||g.v<=0||g.v>1e6||Math.abs(g.x)>1e7||Math.abs(g.y)>1e7)bad('gem');gv+=g.v;}
+    if(gv>5e7)bad('gems total');
+    for(const it of items.a){if(!it.on)continue;if(!PICK[it.k]||!fin(it.x)||!fin(it.y)||!fin(it.life)||it.life>1e5)bad('item');}
+    for(const n of PN){if(COSMETIC.has(n))continue;for(const o of POOL[n].a){if(!o.on)continue;if('x' in o&&!fin(o.x))bad(n+'.x');if('y' in o&&!fin(o.y))bad(n+'.y');}}}
   function cleanHtml(s){   // 상자 화면 문구(우리가 만든 div·b·small·span·br 뿐) — 저장소가 손댄 값이 스크립트가 되지 못하게 걸러서 쓴다
     const t=document.createElement('template');t.innerHTML=String(s);const OK=new Set(['DIV','B','SMALL','BR','SPAN','I','EM','STRONG']);
     (function walk(n){for(const c of Array.from(n.childNodes)){if(c.nodeType===3)continue;if(c.nodeType!==1||!OK.has(c.tagName)){c.remove();continue;}
@@ -4496,7 +4520,7 @@ const RES=(()=>{
     RSEED=S.dly?S.dly.seed:0;LASTDLY=!!S.dly;RIFT_CACHE.clear();RDEV.clear();gemGrid.clear();FX.reset();EX.reset();
     toastT=0;$('toast').classList.remove('on');keys={};joy.on=false;joy.dx=joy.dy=0;SRC='';
     if(hasArt(CH))charImg(CH);for(const e of enemies.a)if(e.on&&e.b&&e.b.img)bossImg(e.b.img);
-    endAskHide();RUN={rid:String(h.rid),rs:+h.rs,gen:cl.gen,nonce:cl.nonce};   // (같은 판을 아직 들고 있는 다른 창은 claim 이 남긴 LIVEK·표로 '낡았음'을 알아챈다)
+    endAskHide();RUN={rid:String(h.rid),rs:+h.rs,gen:cl.gen,nonce:cl.nonce,cn:census(),cnT:S.t};   // (같은 판을 아직 들고 있는 다른 창은 claim 이 남긴 LIVEK·표로 '낡았음'을 알아챈다)
     last=performance.now();hud();   // 일시정지·레벨업·상자 화면 뒤의 HUD 도 저장 당시 값으로(frame 은 play 일 때만 hud 를 부른다)
     if(mod.state==='lvup'){CUR=mod.CUR;state='lvup';keys={};drawCards();show('lvup');}
     else if(mod.state==='chest'){$('chestList').innerHTML=cleanHtml(mod.view.list);$('chestT').textContent=mod.view.title;state='chest';show('chest');}
@@ -4577,7 +4601,7 @@ const RES=(()=>{
     const h=peek();if(h&&!usableHead(h)&&state==='title'){$('resCard').classList.add('flash');say(ago(h.ts)==='방금'?'👆 방금 하던 판이에요. 이어하기를 눌러 보세요!':'👆 하던 판이 남아 있어요. 이어하기를 눌러 보세요!',7000);}   // 로드 직후 자동 안내
   }
   return {init,save,build,peek,drop,restore,render,stale,say,parse,load,validate,cleanHtml,makeEnc,makeDec,buildStatic,usableHead,info,POOL,PN,COSMETIC,SKIP_S,EXPECT_FN,KEY,LIVEK,TTL,FMT,
-    shopBad,claim,claimsOf,isIab,CLAIMP,get SIG(){return SIG;},get STATIC(){return STATIC;},get quiet(){return quiet;},set quiet(v){quiet=v;},
+    shopBad,broken,census,censusDiff,claim,claimsOf,isIab,CLAIMP,MAXLEN,get SIG(){return SIG;},get STATIC(){return STATIC;},get quiet(){return quiet;},set quiet(v){quiet=v;},
     confirmStart(){   // 하던 판(2분 넘게 한 것)이 남아 있는데 시작 버튼을 누르면 한 번 더 확인한다 — 반사적으로 눌러 판을 잃지 않게(오늘의 도전 기록 기회도 마찬가지)
       if(state!=='title')return true;const h=peek();if(!h||usableHead(h)||!(h.t>=120))return true;
       if(armedAt&&Date.now()-armedAt<6000){armedAt=0;return true;}
