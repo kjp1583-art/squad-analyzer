@@ -7465,9 +7465,9 @@ function closePlayerCard(e){
 }
 function pcardGo(n){ closePlayerCard(); go('player', n); }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&PCARD) closePlayerCard(); });
-/* 📱 [2026-10-11 A-28] 내부티어 평가 카드 하나가 폰(360px)에서 10화면이었다 — 티어표 아래 「재미 지수」 여섯 카드(억울·항노화·뒷심·CS강박·몇 판째·세대)는 한 줄 머리글 뒤로 접는다.
-   내용·계산은 그대로, 눌러서 펼친다. 펼침 상태는 renderTiers 가 다시 그려져도(각 카드의 전체 보기 버튼) 유지한다. */
-let TFUN_OPEN=false;
+/* 📱 [2026-10-11 A-28] 내부티어 평가 카드 하나가 폰(360px)에서 10화면이었다 — 티어표 아래 「재미 지수」 여섯 카드(억울·항노화·뒷심·CS강박·몇 판째·세대)를 한 줄 머리글로 접고 펴게 했다.
+   [2026-10-11 사장님 「펼치자」] 처음엔 접혀 있었는데 재미 지수가 안 보인다고 해서 기본값을 펼침으로 되돌렸다. 접는 단추는 그대로 — 접어 두면 다시 그려져도(각 카드의 전체 보기 버튼) 접힌 채 유지한다. */
+let TFUN_OPEN=true;
 function tierFunHtml(){
   const parts=[["😤 억울지수",grudgeHtml()],["🧬 항노화지수",antiAgingHtml()],["🔥 뒷심지수",gritHtml()],["🐢 CS강박지수",csObsHtml()],["🌙 몇 판째에 강한가",nightHtml()],["🍶 세대대결",generationHtml()]].filter(x=>x[1]);
   if(!parts.length) return '';
@@ -11341,7 +11341,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610111115";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610111530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
