@@ -127,6 +127,9 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .ch.banm{border-color:var(--lose);border-style:dashed}
 .hardt{display:flex;align-items:center;gap:8px;text-align:left;background:#2a1418;border:1px solid #6b2a30;border-radius:10px;padding:8px 10px;margin:8px 0 0;cursor:pointer;font-size:13px}
 .vht{background:#1d1022;border-color:#5a2a78}.dly{background:linear-gradient(180deg,#2a6f8a,#1d4f66)!important;margin-top:8px}#dailyInfo{margin:3px 0 2px}.endb{background:linear-gradient(180deg,#6a3fb8,#47288a)!important}.hardt input{width:18px;height:18px;accent-color:var(--lose);margin:0}.hardt small{display:block;color:var(--sub);font-size:11px}
+/* ⏩ [2026-10-11 사장님 지시 "흐접새우 2배속 모드 on/off 토글추가"] 2배속 단추 · HUD 칩 */
+.spdt{background:#231d10;border-color:#7a5f1c;min-height:44px}.spdt input{accent-color:var(--gold)}.snd .spdl{min-height:44px}.snd .spdl input{width:22px;height:22px}
+.spdc{display:none;margin-top:4px;padding:2px 9px;font-size:12px;font-weight:800;border-radius:999px;background:rgba(40,30,8,.72);border:1px solid #ffcf5a;color:#ffe08a;text-shadow:0 1px 2px #000;pointer-events:none}
 .bch{width:20px;height:20px;vertical-align:-5px;margin-right:3px;border-radius:50%;object-fit:contain}.bch.e{display:inline-block;text-align:center;line-height:20px;font-size:15px;vertical-align:-3px}.bchn{color:var(--sub);margin-right:3px;font-size:11px}
 .btabs{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px}.btabs button{background:var(--card2);border:1px solid var(--line);color:var(--sub);border-radius:6px;font:inherit;font-size:11.5px;padding:0 8px;cursor:pointer}.btabs button.on{color:var(--txt);border-color:var(--acc)}
 .hb{color:#ff8a8a;font-size:11px}
@@ -326,6 +329,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="bar" id="xpb"><i></i></div>
   <div class="hrow"><span id="hLv">Lv 1</span><span id="hTime">00:00</span><span id="hKill">💀 0</span><span><button id="sndBtn" aria-label="소리 켜기/끄기">🔊</button> <button id="pauseBtn">⏸</button></span></div>
   <div class="bar" id="hpb" style="margin-top:6px;max-width:220px"><i></i><span id="hpt"></span></div>
+  <div id="spdChip" class="spdc" aria-live="off">⏩ 2배속</div>
   <div id="rgw" style="display:none;margin-top:4px;max-width:220px"><div class="bar" id="rgb" style="height:9px"><i></i></div><div id="rgt" style="font-size:11px;color:#ffd9a0;margin-top:1px;text-shadow:0 1px 2px #000"></div></div>
   <div id="bossb"><div class="muted" id="bossName" style="color:var(--gold)"></div><div class="bar"><i></i></div></div>
 </div>
@@ -350,6 +354,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="lgd" id="lgdT"><span class="rd">🔴 빨간 표시(점선·빗금)</span> = 위험(적) · <span class="bl">🔵 파란/하늘색</span> = 내 공격</div>
   <label class="hardt"><input type="checkbox" id="hardChk"><span><b>🔥 하드 모드</b><small>몬스터 체력 또 ×2 · 더 아프고 더 많이 몰려온다 · 순위표 따로</small></span></label>
   <label class="hardt vht"><input type="checkbox" id="vhChk"><span><b>💀 베리하드 모드</b><small>하드보다 몬스터 체력 ×2 더 · 훨씬 더 아프고 훨씬 더 많이 몰려온다 · 순위표 따로</small></span></label>
+  <label class="hardt spdt"><input type="checkbox" id="spdChk" data-spd><span><b>⏩ 2배속</b><small>게임이 두 배로 빨리 흘러가요 — 조작도 그만큼 바빠져요 · 기록은 게임 시간 그대로예요</small></span></label>
   <button class="btn" id="startBtn">▶ 시작하기</button>
   <button class="btn dly" id="dailyBtn">📅 오늘의 도전</button><div class="muted" id="dailyInfo"></div>
   <details class="howd"><summary>❔ 조작법</summary><ol class="how">
@@ -386,7 +391,8 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <label><span>🔊 효과음</span><input type="range" id="sfxV2" min="0" max="100" data-k="sfx" aria-label="효과음 크기"><b data-v="sfx"></b></label>
     <label><span>🎵 음악</span><input type="range" id="musV2" min="0" max="100" data-k="mus" aria-label="음악 크기"><b data-v="mus"></b></label>
     <label class="fxl"><span>✨ 배경 효과</span><input type="checkbox" data-fx aria-label="배경 효과"><b data-fxv></b></label>
-    <label class="fxl"><span>🎨 위험 강조</span><input type="checkbox" data-hz aria-label="위험 표시 강조"><b data-hzv></b></label></div>
+    <label class="fxl"><span>🎨 위험 강조</span><input type="checkbox" data-hz aria-label="위험 표시 강조"><b data-hzv></b></label>
+    <label class="fxl spdl"><span>⏩ 2배속</span><input type="checkbox" data-spd aria-label="2배속"><b data-spdv></b><small>게임이 두 배로 빨리 흘러가요</small></label></div>
   <div class="lgd"><span class="rd">🔴 빨간 표시(점선·빗금)</span> = 위험(적) · <span class="bl">🔵 파란/하늘색</span> = 내 공격</div>
   <div id="pInfo" class="muted"></div><button class="btn" id="resumeBtn">계속하기</button><button class="btn g" id="quitBtn">🏳 포기하고 결과 보기</button></div></div>
 
@@ -1637,6 +1643,24 @@ const PROP=[{ic:'🟡',nm:'와드',hp:12,r:12},{ic:'🧺',nm:'사료 포대',hp:
 const items=new Pool(30,()=>({x:0,y:0,k:'chicken',life:0,t:0}));
 const props=new Pool(12,()=>({x:0,y:0,k:0,hp:0,hit:0}));
 let toastT=0;function toast(m){const el=$('toast');el.textContent=m;el.classList.add('on');toastT=1.8;}
+// ⏩ [2026-10-11 사장님 지시 "흐접새우 2배속 모드 on/off 토글추가"] 2배속 — dt 를 키우지 않고 같은 dt 로 update 를 프레임당 두 번 돌린다(물리·충돌이 1배속과 같은 걸음으로 가서 터널링이 없다)
+//   · 켜졌을 때만 두 번째 update 를 돈다(히트스톱·play 가 아닌 상태 — 레벨업·상자·사망·결과 — 를 두 번째 호출 직전에 다시 확인). draw·hud·AU.tick 은 프레임당 한 번
+//   · 판 시간 S.t 는 게임 시간 그대로(기록·순위·포인트는 게임 시간 기준) · 저장 키 p6_spd2 하나(기본 꺼짐) · S 에는 아무것도 안 넣는다(이어하기 서명 불변)
+//   · 읽어야 하는 글(배너·말풍선·토스트·화면 번쩍임)은 실시간으로 둔다 — 두 번째 호출(SPD.sub)에서는 그 타이머를 줄이지 않는다. 입자·비네팅(FX.dt)은 원래 실시간
+//   · 느린 폰: 최근 4초 평균 프레임이 33ms(30fps 미만)를 넘으면 한 번만 「끄는 게 좋아요」 안내(update 두 번 = CPU 두 배)
+const SPD=(()=>{
+  const K='p6_spd2';let on=0;try{on=localStorage.getItem(K)==='1'?1:0;}catch(e){}
+  const o={on,sub:0,n:0,ms:0,warned:0};
+  o.ui=function(){for(const el of document.querySelectorAll('input[data-spd]'))el.checked=!!o.on;for(const el of document.querySelectorAll('[data-spdv]'))el.textContent=o.on?'켜짐':'꺼짐';
+    const c=$('spdChip');if(c)c.style.display=o.on?'inline-block':'none';};
+  o.set=function(v){o.on=v?1:0;o.n=0;o.ms=0;try{localStorage.setItem(K,o.on?'1':'0');}catch(e){}o.ui();};
+  o.watch=function(raw){   // 판이 도는 프레임마다 실제 간격(ms)을 받는다
+    if(!o.on||o.warned){o.n=0;o.ms=0;return;}
+    if(raw>250)return;   // 탭을 떠났다 온 큰 간격은 폰 성능이 아니다
+    o.n++;o.ms+=raw;
+    if(o.ms>=4000){const avg=o.ms/o.n;o.n=0;o.ms=0;if(avg>33){o.warned=1;toast('🐢 폰이 힘들어해요 — 2배속을 끄는 게 좋아요');toastT=3.6;}}};
+  for(const el of document.querySelectorAll('input[data-spd]'))el.onchange=e=>o.set(e.target.checked);
+  o.ui();return o;})();
 function dropItem(k,x,y){let it=items.get();if(!it&&k==='chest'){it=items.a.find(o=>o.k!=='chest');if(it)it.on=true;}if(!it)return;it.k=k;it.x=x;it.y=y;it.life=k==='chest'?1e9:60;it.t=Math.random()*6;}
 // 🍗 치킨 경제(2026-09-29 사장님 "치킨 드랍율이 너무 높아 hp 관리가 너무 잘돼") — 주워 먹는 양을 예전의 약 1/3 로:
 //   오브젝트 치킨 53%→25%(오브젝트도 4초→6초마다) · 맵 치킨 40~65초→100~150초 · 잡몹 1.2%→0.6%(첫 10분은 1.1%에서 서서히, 행운 보정 절반) ·
@@ -1657,7 +1681,7 @@ function mapTick(dt){
     if(nb){S.auT=0;nb.on=false;usePick(nb.k);}else S.auT=CH.auto;}}
   for(const it of items.a){if(!it.on)continue;it.life-=dt;it.t+=dt;if(it.life<=0){it.on=false;continue;}
     if((it.x-p.x)**2+(it.y-p.y)**2<(p.r+14)**2){it.on=false;usePick(it.k);if(state!=='play')break;}}   // 🎁 상자가 열렸으면 나머지는 다음 프레임에(상자 두 개가 한 화면에 섞이지 않게)
-  if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on');}
+  if(toastT>0&&!SPD.sub){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on');}
 }
 function usePick(k){const p=S.p;if(k==='chest'){openChest();return;}AU.play('pick');toast(PICK[k].msg);
   if(k==='chicken'){const h=Math.round(p.mhp*chkHeal());p.hp=Math.min(p.mhp,p.hp+h);const t=texts.get();if(t){t.x=p.x;t.y=p.y-26;t.s='+'+h;t.life=.9;t.c=PAL.tHeal;t.k=4;}}
@@ -3368,9 +3392,9 @@ function update(dt){
     if(d2<mag||am)g.mag=1;if(g.mag){const d=Math.sqrt(d2)||1;g.x+=dx/d*480*dt;g.y+=dy/d*480*dt;}
     if(d2<(p.r+6)**2){g.on=false;AU.play('gem');gainXp(g.v*XP_X*xpMul());}}   // 🎮 [2026-10-09] 경험치 배율 식은 xpMul 로(표시와 같은 함수)
   for(const t of texts.a)if(t.on){t.life-=dt;t.y-=(t.big?12:TXR[t.k])*dt;if(t.life<=0)t.on=false;}
-  bubTick(dt);
+  if(!SPD.sub)bubTick(dt);   // ⏩ 말풍선·배너·번쩍임은 읽는 글/눈에 보이는 시간 — 2배속의 두 번째 호출에서는 줄이지 않는다
   mapTick(dt);if(state!=='play')return;
-  bannerTick(dt);if(S.shake>0)S.shake-=dt;if(S.flash>0)S.flash-=dt;
+  if(!SPD.sub){bannerTick(dt);if(S.shake>0)S.shake-=dt;if(S.flash>0)S.flash-=dt;}
   if(S.pendingLv>0)openLvup();
 }
 
@@ -4241,8 +4265,8 @@ function hud(){
 let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
-  let dt=(now-last)/1000;last=now;dt=Math.min(.05,Math.max(0,dt));   // 재개 직후 rAF 시각이 last 보다 앞설 수 있다(음수면 타이머가 거꾸로 감)
-  FX.dt=dt;if(state==='play'){if(EX.hs>0)EX.hs=Math.max(0,EX.hs-dt);else update(dt);FX.perf(dt);if(S){hud();if(state!=='result')AU.boss(!!(S.bossRef&&S.bossRef.on&&S.bossRef.boss));}}   // 💣 히트스톱: 폭탄 아이템을 먹은 직후 ~70ms 시간이 멈춘다(EX.hs)
+  const raw=now-last;let dt=raw/1000;last=now;dt=Math.min(.05,Math.max(0,dt));   // 재개 직후 rAF 시각이 last 보다 앞설 수 있다(음수면 타이머가 거꾸로 감)
+  FX.dt=dt;if(state==='play'){if(EX.hs>0)EX.hs=Math.max(0,EX.hs-dt);else{update(dt);if(SPD.on&&state==='play'&&EX.hs<=0){SPD.sub=1;try{update(dt);}finally{SPD.sub=0;}}}FX.perf(dt);SPD.watch(raw);if(S){hud();if(state!=='result')AU.boss(!!(S.bossRef&&S.bossRef.on&&S.bossRef.boss));}}   // 💣 히트스톱: 폭탄 아이템을 먹은 직후 ~70ms 시간이 멈춘다(EX.hs)
   AU.tick();
   draw();
 }
