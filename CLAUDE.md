@@ -62,10 +62,10 @@
 ## 🩸 십이귀월은 세 군데가 같이 움직인다 (2026-09-17 사고)
 > "웹엔 칼바람 상현1인데 웹훅은 2로 떴다 — 저번에 동기화했는데 왜 또"
 
-명단을 뽑는 구현이 **셋**이다. 하나만 고치면 반드시 갈라진다.
+명단을 뽑는 구현이 **셋**이다(웹이 화면, 나머지 둘은 일치 검증용). 하나만 고치면 반드시 갈라진다.
 - 웹 `index.html` `computeAssessments` (화면)
-- 분석기 `desktop/squad_analyzer.py` `compute_tier_assessment` · `_sibguiwol_aram_roster` (09시 웹훅)
-- 툴링 `tooling/sibguiwol.py` (호스트 꺼졌을 때 CI 웹훅)
+- 분석기 `desktop/squad_analyzer.py` `compute_tier_assessment` · `_sibguiwol_aram_roster` (일치 검증용 계산 — 🔕 2026-10-11 사장님 지시 「십이귀월 디스코드 웹훅 제거 · 웹으로만 보게」 로 디스코드 발송은 없앴다. 다시 만들지 말 것)
+- 툴링 `tooling/sibguiwol.py` (같은 계산의 파이썬 이식 — 발송 기능·`.github/workflows/sibguiwol.yml` 삭제)
 
 산식(가중치·shrink·ACE 0.5·피크 블렌드)만 맞추면 안 된다. **분모(elig)** 도 같아야 한다:
 10판↑ · **DEPARTED 탈퇴자 제외** · **마지막 기록일 기준 90일 유령 제외** · 협곡만 최근 30일 5판(칼바람은 통산).

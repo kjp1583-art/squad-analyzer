@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """십이귀월(상현/하현) 로스터를 시트 스냅샷에서 계산한다 — index.html computeAssessments의 파이썬 이식.
 
-분석기 호스트가 꺼져 있어도 클라우드에서 명단을 뽑고 웹훅을 쏠 수 있게 한다.
+웹·분석기와 같은 명단이 나오는지 검증(parity)하는 계산기다. 🔕 [2026-10-11 사장님 지시] 디스코드 웹훅 발송은 없앴다 — 명단은 웹으로만 본다.
 산식·가중치·정렬·리그 분할은 웹과 동일하게 유지할 것 (한쪽만 고치면 명단이 갈라진다).
 """
 import argparse, json, math, os, re, sys, urllib.request
@@ -312,37 +312,13 @@ def compute(path, today=None):
     return out
 
 
-def post(roster, url):
-    sangs = [r for r in roster if r["rank"] == "상현"]
-    hahas = [r for r in roster if r["rank"] == "하현"]
-    sang = "\n".join(f"`{i+1}` **{m['name'].split('#')[0]}**" for i, m in enumerate(sangs)) or "—"
-    haha = "\n".join(f"`{i+1}` **{m['name'].split('#')[0]}**" for i, m in enumerate(hahas)) or "—"
-    embeds = [{"title": "⚔️　십이귀월 ( 十二鬼月 )　현황　⚔️", "color": 0x9B1B1B,
-               "fields": [{"name": "🗡　상현 ( 上弦 )", "value": sang, "inline": True},
-                          {"name": "🌙　하현 ( 下弦 )", "value": haha, "inline": True}],
-               "footer": {"text": "스쿼드해체분석기 · squad.gg — 상현=0·1티어 상위 6 · 하현=2·3티어 상위 6"}}]
-    payload = {"content": "🩸🩸　**십이귀월 현재 명단**　🩸🩸", "embeds": embeds}
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
-                                 headers={"Content-Type": "application/json", "User-Agent": "squad-ci"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        print("발송 완료:", r.status)
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("xlsx")
-    ap.add_argument("--post", action="store_true", help="웹훅 발송(미지정 시 출력만)")
     a = ap.parse_args()
     roster = compute(a.xlsx)
     for r in roster:
         print(f"{r['title']:<12} {r['name']:<22} power={r['power']:+.3f} solo={r['solo']:.0f} tier={r['tier']}")
-    if a.post:
-        raw = os.environ.get("APP_SECRETS_B64", "")
-        import base64
-        src = base64.b64decode(re.sub(r"\s", "", raw)).decode("utf-8", "replace")
-        m = re.search(r'^\s*RESULT_WEBHOOK_URL\s*=\s*["\']([^"\']+)["\']', src, re.M)
-        if not m: sys.exit("RESULT_WEBHOOK_URL 없음")
-        post(roster, m.group(1))
 
 
 if __name__ == "__main__":
