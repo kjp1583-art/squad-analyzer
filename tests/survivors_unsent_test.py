@@ -23,6 +23,7 @@ def mk_mock(st):
             b = json.loads(r.request.post_data or '{}'); POSTS.append(b)
             codes = st.get('codes')
             c = codes.pop(0) if codes else st.get('code')
+            if st.get('rejt') == b.get('t'): c = 'bad_run'   # 이 판은 언제나 거절(영구 거절 재현)
             if c == 'NET': await r.abort(); return
             if c: await js({'ok': False, 'code': c})
             else: await js({'ok': True, 'rank': 3, 'total': 9, 'unlocks': [], 'best_t': b['t']})
@@ -68,7 +69,7 @@ async def main():
         for t in (35, 36, 37): await run(pg, t)
         qs = await q(pg); check('실패 3판 → 큐 3칸(같은 판은 중복 없음)', [x['t'] for x in qs] == sorted(x['t'] for x in qs) and len(qs) == 3, [x['t'] for x in qs])
         POSTS.clear(); await pg.evaluate("__uq.flushUnsent(true)"); await pg.wait_for_timeout(500)
-        check('여전히 실패면 첫 판에서 멈춘다(서버를 두드리지 않는다)', len(POSTS) == 1 and len(await q(pg)) == 3, len(POSTS))
+        check('계속 거절되면 두 판째에서 멈춘다(서버를 두드리지 않는다)', len(POSTS) == 2 and len(await q(pg)) == 3, len(POSTS))
         st['code'] = None; POSTS.clear(); order = [x['t'] for x in qs]
         await pg.evaluate("__uq.flushUnsent(true)"); await pg.wait_for_timeout(900)
         check('성공하면 3판이 보관 순서대로 올라가고 큐가 빈다', [x['t'] for x in POSTS] == order and await q(pg) == [], ([x['t'] for x in POSTS], order))
@@ -122,6 +123,24 @@ async def main():
         check('[저장소 막힘] 실패해도 오류 없이 다시 저장 버튼', has and errs == [], errs)
         await pg.evaluate("__uq.flushUnsent(true)"); await pg.wait_for_timeout(500)
         check('[저장소 막힘] 같은 탭 안에서는 다시 저장이 된다', len(POSTS) == 2 and POSTS[-1]['t'] == POSTS[0]['t'], [x['t'] for x in POSTS]); await ctx.close()
+        # 9. 영구 거절 판이 앞에 있어도 뒤 판은 올라간다 · 보관 시각 유지
+        POSTS.clear(); st = {'codes': ['bad_run', 'bad_run']}
+        ctx, pg, errs = await fresh(b, srv.port, st); await run(pg, 39); await run(pg, 60)
+        q0 = await q(pg); T1, T2 = q0[0]['t'], q0[1]['t']; ts0 = q0[0]['ts']; await pg.wait_for_timeout(50)
+        st['codes'] = []; st['rejt'] = T1   # 첫 판만 언제나 거절, 뒤 판은 성공
+        await pg.evaluate("__uq.flushUnsent(true)"); await pg.wait_for_timeout(900)
+        qq = await q(pg)
+        check('[영구 거절] 앞 판이 거절돼도 뒤 판(40)은 올라간다', T2 in [x['t'] for x in POSTS[2:]] and T1 != T2, [x['t'] for x in POSTS])
+        check('[영구 거절] 거절된 판만 남는다', [x['t'] for x in qq] == [T1], [x['t'] for x in qq])
+        check('[영구 거절] 실패한 재시도가 보관 시각을 새로 찍지 않는다', qq and qq[0]['ts'] == ts0, (ts0, qq and qq[0]['ts'])); await ctx.close()
+        # 10. setItem 만 막힌 환경 — 메모리 보관이 쓰인다
+        POSTS.clear(); st = {'codes': ['error']}
+        ctx, pg, errs = await fresh(b, srv.port, st)
+        await pg.evaluate("(()=>{const s=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(String(k).startsWith('p6_unsent'))throw new Error('quota');return s.apply(this,arguments)}})()")
+        await run(pg, 39)
+        await pg.evaluate("__uq.flushUnsent(true)"); await pg.wait_for_timeout(500)
+        check('[setItem 만 막힘] 다시 저장이 재전송한다', len(POSTS) == 2 and POSTS[-1]['t'] == POSTS[0]['t'], [x['t'] for x in POSTS])
+        check('[setItem 만 막힘] 성공하면 큐에서 빠진다', await pg.evaluate("__uq.qLoad().length") == 0); await ctx.close()
         await b.close()
     srv.close()
     try: os.remove(os.path.join(H.ROOT, 'survivors_x.html'))

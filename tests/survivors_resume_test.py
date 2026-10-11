@@ -726,7 +726,7 @@ CLASSIFIED = {
  'CUR': 'MOD', 'BUMP': 'CACHE', 'BIMG': 'CACHE', 'bannerT': 'MOD', 'bannerS': 'MOD', 'bannerS2': 'MOD', 'bannerA': 'MOD', 'bannerQ': 'MOD',
  'RDEV': 'DERIVE', 'RDEV_S': 'DERIVE', 'RDEV_MAX': 'DERIVE', 'RDEV_BUD': 'DERIVE', 'last': 'RESET', 'RIFT_CACHE': 'DERIVE', 'RIFT_MAX': 'DERIVE', 'RIFT_BUD': 'DERIVE',
  'enemies': 'POOL', 'shots': 'POOL', 'gems': 'POOL', 'texts': 'POOL', 'rangs': 'POOL', 'bolts': 'POOL', 'waves': 'POOL', 'puds': 'POOL', 'clouds': 'POOL', 'cans': 'POOL', 'allies': 'POOL', 'items': 'POOL', 'props': 'POOL', 'bubs': 'POOL', 'hazards': 'POOL', 'eshots': 'POOL',
- 'FLUSHING': 'UI', 'FLUSH_GAP': 'UI', 'QMEM': 'UI', 'QSEQ': 'UI',   # A-24 미전송 기록 큐 — 판 상태가 아니라 업로드 보조 변수(이어하기와 무관)
+ 'FLUSHING': 'UI', 'FLUSH_GAP': 'UI', 'QMEM': 'UI', 'QSEQ': 'UI', 'QLSFAIL': 'UI',   # A-24 미전송 기록 큐 — 판 상태가 아니라 업로드 보조 변수(이어하기와 무관)
  'rkts': 'POOL', 'pets': 'POOL', 'hooks': 'POOL', 'frs': 'POOL', 'holes': 'POOL', 'snps': 'POOL',
 }
 
