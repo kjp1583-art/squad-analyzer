@@ -734,12 +734,17 @@ async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArra
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
   if(j&&j.ok){const pc=ME&&Number.isInteger(ME.coins)?ME.coins:undefined;ME=j;if(coinsOf(j)===undefined){if(pc!==undefined)ME.coins=pc;else delete ME.coins;}   // coins 칸이 빠진 응답(봇 재시작 직후)은 '모름' — 직전 값을 이어받는다
     srvUnl(j.unlocks);mergeUnl(j.unlocks);cdxMerge(j.codex);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();renderBoard();if(state==='revive')rvRender();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
+// 🔑 [2026-10-11 B-11] 기록 멱등 키 — 이어하기가 판 번호(RUN.rid)를 그대로 되살리므로 같은 판은 늘 같은 번호다(새 S 키 없음 → 이어하기 서명 불변).
+//    60분 클리어 뒤 이어가는 무한 기록은 같은 판의 두 번째 기록이라 끝에 e 를 붙여 따로 센다. 보관 큐에는 rid 가 body 와 함께 들어가 다시 올릴 때 그대로 간다.
+function runRid(){let b=RUN&&/^[A-Za-z0-9_-]{8,30}$/.test(String(RUN.rid))?String(RUN.rid):Date.now().toString(36)+Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,6);
+  return 's'+b+(S&&S.endless&&!S.dly?'e':'');}
 async function submitRun(won){const u=dcUser();const el=$('rAcct');
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
   if(S.dly&&!S.dly.ranked){el.textContent='🧪 연습 판이라 기록되지 않아요(오늘의 도전은 하루 한 판).';return;}
   const body={token:u.token,t:Math.floor(S.t),kills:S.kills,lv:S.lv,ch:CH.k,won:!!won,hard:S.vh?0:S.hard?1:0,vhard:S.vh?1:0,unlocks:[...getUnl()].filter(k=>!isShopKey(k))};
   if(S.cu>0)body.cu=S.cu;
+  body.rid=runRid();   // 🔑 판마다 고유 번호 — 같은 판을 다시 올려도 서버가 한 번만 센다
   if(S.dly)body.daily=S.dly.date;else if(S.endless){body.endless=1;body.end_d=S.vh?2:S.hard?1:0;}   // 무한은 순위표 하나 — 어떤 난이도로 이어갔는지만 같이 보낸다
   postRun(body,0);}
 async function postRun(body,n){const el=$('rAcct');   // 반환: 'ok'(저장됨) · 'drop'(더는 못 올려서 버림) · 'keep'(이 기기에 남김) — 「다시 저장」이 순서대로 올릴 때 본다
@@ -749,7 +754,12 @@ async function postRun(body,n){const el=$('rAcct');   // 반환: 'ok'(저장됨)
    // 판 결과는 보낼 때 한 번 찍어 둔다(다시 보내는 사이 새 판이 시작돼도 그대로)
   try{const sent=Object.assign({},body);delete sent._q;cdxAttach(sent);const j=await api('/p6/run',sent);   // 📖 스킬 도감: 로그인한 기록에는 내 발견 전체를 싣는다(서버는 합집합으로만 합친다 · 다시 보낼 때마다 최신으로)
     if(j.code==='upstream'&&n<2){el.textContent='📡 디스코드 확인이 늦어요 — 잠시 뒤 다시 올려 볼게요…';await new Promise(r=>setTimeout(r,4000*(n+1)));return postRun(body,n+1);}   // 서버가 저장 안 했다고 확답한 경우만 재시도
-    if(j.ok&&body.daily){qDel(body._q);dailySet({date:body.daily,ranked:1,done:1,t:body.t,k:body.kills});if(ME)ME.daily_done=true;
+    if(j.ok&&j.dup&&!j.daily_dup){qDel(body._q);   // 🔑 서버엔 이미 저장돼 있었다(응답만 못 받은 판) — 성공과 같게 치우고, 이중으로 세지 않았다고 알린다
+      if(body.daily){dailySet({date:body.daily,ranked:1,done:1,t:body.t,k:body.kills});if(ME)ME.daily_done=true;}
+      el.textContent='✅ 이 기록은 이미 올라가 있었어요 — 한 번만 기록돼요.';if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();return 'ok';}
+    else if(j.code==='busy'){if(!postRun.bt)postRun.bt=setTimeout(()=>{postRun.bt=0;try{flushUnsent(false);}catch(e){}},30000);   // (새 최상위 let 을 만들지 않는다 — 이어하기 분류표 시험)   // 🚦 IP 가 몰려 잠시 막힘 — 버리지 않고 보관, 조금 뒤 저절로 다시 올린다
+      return keepUnsent(body,'🚦 지금 접속이 몰려 잠시 막혔어요 — 기록은 이 기기에 남겨 뒀어요. 조금 뒤 저절로 다시 올려요(아래 버튼으로 바로 시도할 수도 있어요).');}
+    else if(j.ok&&body.daily){qDel(body._q);dailySet({date:body.daily,ranked:1,done:1,t:body.t,k:body.kills});if(ME)ME.daily_done=true;
       el.innerHTML=j.daily_dup?`📅 이 날짜 기록은 이미 올라가 있어요 — 하루 한 판만 기록돼요. 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`:`✅ 오늘의 도전 기록 저장! 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`;
       BTAB=4;srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();return 'ok';}
     else if(j.ok&&body.endless){qDel(body._q);el.innerHTML=`✅ 무한 기록 저장! ♾ 무한 순위 <b style="color:var(--gold)">${esc(j.end_rank)}위</b> / ${esc(j.end_total)}명`;BTAB=3;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();return 'ok';}
