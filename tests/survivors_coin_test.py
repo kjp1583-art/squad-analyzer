@@ -127,12 +127,12 @@ def section_a():
     check('[A2] hitP 의 마지막 줄은 return p.hp<=0&&die();', 'return p.hp<=0&&die();}' in s[i:j])
     calls = [m.start() for m in re.finditer(r'hitP\(', s) if m.start() != s.index('function hitP(') + len('function ')]
     bad = []
-    for c in calls:                                                   # 호출 10곳 전부 「if(...hitP(...))return」 꼴 — true 면 그 update 에서 바로 끝낸다
+    for c in calls:                                                   # 호출 12곳 전부(⚔ 2026-10-12 최종 보스 1:1 이 둘 더했다 — 구역이 터질 때·집게 돌진이 닿을 때, 둘 다 true 면 바로 return) 「if(...hitP(...))return」 꼴 — true 면 그 update 에서 바로 끝낸다
         k = c + len('hitP('); depth = 1
         while depth and k < len(s):
             depth += {'(': 1, ')': -1}.get(s[k], 0); k += 1
         if not re.match(r'\)\s*return', s[k:k + 12]): bad.append(s[c - 30:c + 40])
-    check('[A3] hitP 호출 %d곳 모두 true 면 바로 return' % len(calls), len(calls) == 10 and not bad, (len(calls), bad))
+    check('[A3] hitP 호출 %d곳 모두 true 면 바로 return' % len(calls), len(calls) == 12 and not bad, (len(calls), bad))
     a = s.index('// ---------- 🪙 [2026-10-09'); b = s.index("addEventListener('pageshow'")
     sec = '\n'.join(re.sub(r'//.*$', '', l) for l in s[a:b + 200].split('\n'))   # 주석은 빼고 코드만 본다
     check('[A4] 코인 구획에 Math.random·RN( 없음', 'Math.random' not in sec and not re.search(r'\bRN\(', sec))
