@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """⏩ 흐접새우 서바이벌 「2배속 on/off」 시험 — 2026-10-11 사장님 지시 "흐접새우 2배속 모드 on/off 토글추가"
-   사용: python3 tests/survivors_speed2_test.py [--only 가,나,...] [--equiv] [--mutant nosecond|ignore|norecheck]
+   사용: python3 tests/survivors_speed2_test.py [--only 가,나,...] [--equiv] [--mutant nosecond|ignore|norecheck|nolock|noframe]
          python3 tests/survivors_speed2_test.py --mutants      (변이 3종을 돌려 가·나·다 가운데 빨강이 나는지 확인 — 전부 죽어야 종료코드 0)
    구성
      가  끈 상태 불변 — 기준 커밋(2bb6eaf) 빌드와 같은 시드·같은 입력으로 frame 을 직접 구동해 상태 해시가 비트까지 같다(--equiv 는 tests/survivors_equiv.py 도 돌린다)
@@ -10,6 +10,7 @@
      마  화면 — 첫 화면·일시정지 단추·HUD 칩(켰을 때만) · 폰 폭 320/360/412 가로 넘침 0 · 터치 대상 40px↑
      바  이어하기 — 서명(SIG)·S 키 불변 · 켠 채 저장 → 복구 → 이어서 진행 · 옛 빌드 저장본 호환
      사  페이지 오류 0
+     아  구매자만 — 미구매·로그아웃은 잠김(저장값이 켜짐이어도 1배속) · 구매면 2배속 · 판 도중 권한 상실 시 1배속 복귀+안내 · 안내 문구 · 폰 폭
    임시 사본 survivors_sp2.html · survivors_sp2o.html(기준) · survivors_sp2_src.html 을 쓴다(끝나면 지운다 · 커밋하지 않는다)."""
 import asyncio, sys, os, json, re, subprocess, shutil
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -28,10 +29,13 @@ def want(sec): return ONLY is None or sec in ONLY
 
 MUTANTS = {   # (바꿀 글, 바뀐 글) — 시험이 정말 이 실수를 잡는지 본다
     'nosecond': ("SPD.sub=1;try{update(dt);}finally{SPD.sub=0;}", ";"),                   # 두 번째 update 호출 제거
-    'ignore': ("o.set=function(v){o.on=v?1:0;o.n=0;", "o.set=function(v){o.on=0;o.n=0;"),                # 토글 무시
+    'ignore': ("pref=v?1:0;try{localStorage.setItem(K,pref?'1':'0');}catch(e){}o.sync();", "pref=0;try{localStorage.setItem(K,'0');}catch(e){}o.sync();"),   # 토글 무시
+    'nolock': ("const v=pref&&can()?1:0;", "const v=pref?1:0;"),                                 # 구매 검사 제거
+    'lostall': ("const lost=o.on&&pref&&!can();", "const lost=o.on&&!v;"),                   # 직접 끈 것도 권한 상실로 안내
+    'noframe': ("if(SPD.on&&!SRVUNL.has('spd2'))SPD.sync();", ""),                        # frame 의 권한 재검사 제거
     'norecheck': ("if(SPD.on&&state==='play'&&EX.hs<=0){", "if(SPD.on){"),                  # 상태 전환 재확인 제거
 }
-EXTRA_NEW = "window.__X={RES,frame,SPD,pauseGame,get bannerT(){return bannerT},banner,setLast(v){last=v},hookUpdate(){if(window.__uw)return;window.__uw=1;window.__uc=0;const o=update;update=function(d){window.__uc++;const r=o(d);if(window.__hook){const h=window.__hook;window.__hook=null;h();}return r;};},hookToast(){window.__tc=0;const o=toast;toast=function(m){if(String(m).indexOf('폰이 힘들어해요')>=0)window.__tc++;return o(m);};}};\n"
+EXTRA_NEW = "window.__X={RES,frame,SPD,SRVUNL,buy(on){srvUnl(on?['spd2']:[])},logout(){dcLogout()},pauseGame,get bannerT(){return bannerT},banner,setLast(v){last=v},hookUpdate(){if(window.__uw)return;window.__uw=1;window.__uc=0;const o=update;update=function(d){window.__uc++;const r=o(d);if(window.__hook){const h=window.__hook;window.__hook=null;h();}return r;};},hookToast(){window.__tc=0;const o=toast;toast=function(m){if(String(m).indexOf('폰이 힘들어해요')>=0)window.__tc++;return o(m);};}};\n"
 EXTRA_OLD = "window.__X={RES,frame,pauseGame,setLast(v){last=v},hookUpdate(){if(window.__uw)return;window.__uw=1;window.__uc=0;const o=update;update=function(d){window.__uc++;const r=o(d);if(window.__hook){const h=window.__hook;window.__hook=null;h();}return r;};},hookToast(){window.__tc=0;const o=toast;toast=function(m){if(String(m).indexOf('폰이 힘들어해요')>=0)window.__tc++;return o(m);};}};\n"
 def prep():
     src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
@@ -49,7 +53,7 @@ def cleanup():
 
 DRIVEN = """(()=>{let s=12345;Math.random=function(){s=(s*1664525+1013904223)>>>0;return s/4294967296;};window.requestAnimationFrame=function(){return 0};})();"""   # rAF 를 막고 시험이 frame 을 직접 부른다 · 난수도 고정
 NOLS = """Object.defineProperty(window,'localStorage',{get(){throw new Error('blocked')}});Object.defineProperty(window,'sessionStorage',{get(){throw new Error('blocked')}});"""
-async def mk(b, srv, page, w=412, h=860, init=None, ls=None, mobile=False):
+async def mk(b, srv, page, w=412, h=860, init=None, ls=None, mobile=False, buy=True):   # buy: 2배속 구매자로 시작(서버 목록에 spd2) — 잠금 시험은 buy=False
     ctx = await b.new_context(viewport={'width': w, 'height': h}, is_mobile=mobile, has_touch=mobile)
     errs = []
     async def route(r):
@@ -64,6 +68,7 @@ async def mk(b, srv, page, w=412, h=860, init=None, ls=None, mobile=False):
     pg.on('console', lambda m: errs.append('CONSOLE ' + m.text[:300]) if m.type == 'error' and 'Failed to load resource' not in m.text and 'ERR_FAILED' not in m.text else None)
     await pg.goto('http://127.0.0.1:%d/%s' % (srv.port, page))
     await pg.wait_for_function('window.__X!==undefined', timeout=30000)
+    if buy: await pg.evaluate("()=>{if(window.__X.buy)__X.buy(1)}")
     return ctx, pg, errs
 
 # frame 을 직접 구동 — 레벨업은 첫 카드, 그 밖의 비-play 는 resume. 매번 last 를 합성 시각에 맞춘다. 히트스톱은 사실상 시험이 따로 본다.
@@ -179,7 +184,7 @@ async def sec_d(b, srv):   # 라 · 토글 저장·유지·불가
     await pg.check('#spdChk')
     r = await pg.evaluate("()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2')})")
     check('[라] 첫 화면 체크 → 켜짐 · p6_spd2=1 저장', r['on'] == 1 and r['ls'] == '1', r)
-    await pg.reload(); await pg.wait_for_function('window.__X!==undefined')
+    await pg.reload(); await pg.wait_for_function('window.__X!==undefined'); await pg.evaluate('()=>__X.buy(1)')   # 구매 목록은 메모리 — 새로고침 뒤 서버가 다시 내려준 셈
     r = await pg.evaluate("()=>({on:__X.SPD.on,chk:document.getElementById('spdChk').checked})")
     check('[라] 새로고침 뒤에도 켜짐 유지', r['on'] == 1 and r['chk'] is True, r)
     # 판 시작 → 다음 판에도 유지, 일시정지 토글과 동기
@@ -264,13 +269,82 @@ async def sec_f(b, srv):   # 바 · 이어하기
         await ctx.close()
         ctx, pg, errs = await mk(b, srv, NEW, ls={'p6_spd2': '1'})
         await pg.evaluate("(b)=>localStorage.setItem('p6_resume_v1',b)", pre['blob'])
-        await pg.reload(); await pg.wait_for_function('window.__X!==undefined')
+        await pg.reload(); await pg.wait_for_function('window.__X!==undefined'); await pg.evaluate('()=>__X.buy(1)')
         ok = await pg.evaluate("()=>__X.RES.restore()")
         s1 = await pg.evaluate("()=>({state:__p6x.state,t:__p6x.S.t,on:__X.SPD.on})")
         check('[바] %s → 새 빌드(2배속 켠 채) 복구됨 · 일시정지 · S.t 같음' % nm, ok is True and s1['state'] == 'pause' and abs(s1['t'] - pre['t']) < 1e-6 and s1['on'] == 1, (ok, s1, pre['t']))
         r = await pg.evaluate("""()=>{const x=__p6x;x.resume();const S=x.S;S.need=1e9;let t=1000;__X.setLast(t);const t0=S.t;for(let i=0;i<60;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);}return {st:x.state,dt:S.t-t0}}""")
         check('[바] %s: 복구 뒤 계속하기 → 60프레임에 게임 시간 %.3f초(≈2.0)' % (nm, r['dt']), r['st'] == 'play' and abs(r['dt'] - 2.0) < 0.01, r)
         check('[바] %s 오류 0' % nm, not errs, errs); await ctx.close()
+
+LOGIN = json.dumps({'id': '1', 'name': '시험', 'token': 't', 'exp': 4102444800000})   # 로그인한 척(서버는 막혀 있다)
+LOCK_CLICK = "()=>{const e=document.querySelector('#spdChk');e.checked=true;e.dispatchEvent(new Event('change',{bubbles:true}));}"
+async def sec_g(b, srv):   # 아 · 구매자만
+    DT = 1 / 60
+    RUN = """(a)=>{const x=__p6x;x.CH_set('brj');x.start({daily:true});if(a.set)__X.SPD.set(1);const S=x.S;S.need=1e9;let t=1000;__X.setLast(t);__X.hookUpdate();window.__uc=0;const t0=S.t;
+      for(let i=0;i<a.n;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);}return {calls:window.__uc,dt:S.t-t0,on:__X.SPD.on}}"""
+    ST = "()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),chk:document.getElementById('spdChk').checked,ad:document.getElementById('spdChk').getAttribute('aria-disabled'),sm:document.querySelector('#title [data-spdsm]').textContent,v:document.querySelector('#pause [data-spdv]').textContent,chip:getComputedStyle(document.getElementById('spdChip')).display,toast:document.getElementById('toast').textContent})"
+    # 1) 로그아웃 — 저장값이 켜짐이어도 잠김·1배속
+    ctx, pg, errs = await mk(b, srv, NEW, init=DRIVEN, ls={'p6_spd2': '1'}, buy=False)
+    r = await pg.evaluate(ST)
+    check('[아] 로그아웃: 저장값이 켜짐이어도 꺼짐 · 체크 해제 · 🔒 · 칩 숨김', r['on'] == 0 and r['chk'] is False and r['ad'] == 'true' and r['v'] == '🔒' and r['chip'] == 'none', r)
+    check('[아] 로그아웃 안내 「디스코드 로그인 필요」', '디스코드 로그인 필요' in r['sm'], r['sm'])
+    await pg.evaluate(LOCK_CLICK)
+    r2 = await pg.evaluate(ST)
+    check('[아] 로그아웃: 눌러도 안 켜진다 · 저장값 그대로(1) · 안내 토스트', r2['on'] == 0 and r2['chk'] is False and r2['ls'] == '1' and '로그인' in r2['toast'], r2)
+    run = await pg.evaluate(RUN, {'n': 300, 'set': True})
+    check('[아] 로그아웃: 300프레임 = update 300회 · S.t = 300×dt (1배속) — 저장값 켜짐·SPD.set(1) 시도에도', run['calls'] == 300 and abs(run['dt'] - 300 * DT) < 1e-6 and run['on'] == 0, run)
+    check('[아] 로그아웃 오류 0', not errs, errs); await ctx.close()
+    # 2) 로그인했지만 미구매 — 목록 받기 전엔 「확인 중」, 받은 뒤엔 상점 안내
+    ctx, pg, errs = await mk(b, srv, NEW, init=DRIVEN, ls={'p6_spd2': '1', 'sgg_dc': LOGIN}, buy=False)
+    r = await pg.evaluate("()=>{const a=__X.SPD.lockMsg();__X.buy(0);return {pre:a,post:__X.SPD.lockMsg(),on:__X.SPD.on,sm:document.querySelector('#title [data-spdsm]').textContent}}")
+    check('[아] 로그인·목록 전: 「확인 중」 (%s)' % r['pre'], '확인 중' in r['pre'], r)
+    check('[아] 로그인·미구매: 「맛동산상점에서 3맛동산으로 사면 열려요」 (%s)' % r['post'], '맛동산상점' in r['post'] and '3맛동산' in r['post'] and '사면 열려요' in r['post'] and r['sm'] == r['post'], r)
+    run = await pg.evaluate(RUN, {'n': 300, 'set': False})
+    check('[아] 로그인·미구매: 저장값 켜짐인데도 300프레임 = update 300회 (1배속)', run['calls'] == 300 and abs(run['dt'] - 300 * DT) < 1e-6 and run['on'] == 0, run)
+    check('[아] 로그인·미구매 오류 0', not errs, errs); await ctx.close()
+    # 3) 구매자 — 지금처럼 켜지고 2배속, 저장·유지
+    ctx, pg, errs = await mk(b, srv, NEW, init=DRIVEN, ls={'sgg_dc': LOGIN}, buy=False)
+    await pg.evaluate("()=>__X.buy(1)")
+    r = await pg.evaluate(ST)
+    check('[아] 구매자: 기본 꺼짐 · 안내는 원래 설명 · 🔒 없음', r['on'] == 0 and r['ad'] == 'false' and '두 배로' in r['sm'] and r['v'] == '꺼짐', r)
+    await pg.evaluate(LOCK_CLICK)
+    r = await pg.evaluate(ST)
+    check('[아] 구매자: 체크 → 켜짐 · 저장 1 · 칩 보임', r['on'] == 1 and r['ls'] == '1' and r['chip'] != 'none', r)
+    # 구매자가 직접 끄면 「권한 잃음」 안내가 뜨면 안 된다
+    r = await pg.evaluate("()=>{document.getElementById('toast').textContent='';const e=document.querySelector('#spdChk');e.checked=false;e.dispatchEvent(new Event('change',{bubbles:true}));return {on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),toast:document.getElementById('toast').textContent}}")
+    check('[아] 구매자가 직접 끄면: 꺼짐 · 저장 0 · 토스트에 「돌아왔어요」 없음', r['on'] == 0 and r['ls'] == '0' and '돌아왔어요' not in r['toast'], r)
+    await pg.evaluate(LOCK_CLICK)
+    run = await pg.evaluate(RUN, {'n': 300, 'set': False})
+    check('[아] 구매자: 300프레임 = update 600회 · S.t = 600×dt', run['calls'] == 600 and abs(run['dt'] - 600 * DT) < 1e-6, run)
+    # 4) 판 도중 권한 상실 — 서버 목록 갱신(srvUnl) · 목록에서 직접 빠짐(frame 재검사) · 로그아웃, 모두 그 프레임부터 1배속 + 안내 한 번
+    for how, js in [('서버 목록이 spd2 없이 갱신', "__X.buy(0)"), ('목록에서 spd2 만 빠짐(frame 재검사)', "__X.SRVUNL.delete('spd2')"), ('로그아웃', "__X.logout()")]:
+        ctx2, pg2, e2 = await mk(b, srv, NEW, init=DRIVEN, ls={'sgg_dc': LOGIN, 'p6_spd2': '1'}, buy=True)
+        r = await pg2.evaluate("""(js)=>{const x=__p6x;x.CH_set('brj');x.start({daily:true});const S=x.S;S.need=1e9;let t=1000;__X.setLast(t);__X.hookUpdate();__X.hookToast2=0;
+          const lost=[];const o=toast;
+          window.__uc=0;const on0=__X.SPD.on;for(let i=0;i<30;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);}const c1=window.__uc;
+          window.__tx=[];const tt=document.getElementById('toast');
+          eval(js);window.__uc=0;const t0=S.t;for(let i=0;i<100;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);if(i===0)window.__tx.push(tt.textContent);}
+          return {on0,c1,c2:window.__uc,dt:S.t-t0,on:__X.SPD.on,tx:window.__tx[0],ls:localStorage.getItem('p6_spd2')}}""", js)
+        check('[아] 구매 후 권한 상실 (%s): 상실 전 2배속(30프레임=update %d회) → 상실 뒤 100프레임 = update 100회 · 1배속' % (how, r['c1']), r['on0'] == 1 and r['c1'] == 60 and r['c2'] == 100 and abs(r['dt'] - 100 * DT) < 1e-6 and r['on'] == 0, r)
+        check('[아] 권한 상실 안내 (%s): 「1배속으로 돌아왔어요」 (%s)' % (how, r['tx']), '1배속으로 돌아왔어요' in (r['tx'] or ''), r)
+        check('[아] 권한 상실 (%s) 오류 0' % how, not e2, e2); await ctx2.close()
+    # 상실 뒤 다시 구매 목록이 오면(저장값 1) 되살아난다
+    r = await pg.evaluate("()=>{__X.buy(0);const a=__X.SPD.on;__X.buy(1);return {a,b:__X.SPD.on}}")
+    check('[아] 목록이 사라졌다 돌아오면 저장값대로 다시 켜진다', r['a'] == 0 and r['b'] == 1, r)
+    check('[아] 구매자 오류 0', not errs, errs); await ctx.close()
+    # 5) 폰 폭 — 잠긴 안내 문구(가장 긴 쪽)가 넘치지 않는다
+    for (w, h) in [(320, 640), (360, 740), (412, 860)]:
+        ctx, pg, errs = await mk(b, srv, NEW, w=w, h=h, mobile=True, ls={'sgg_dc': LOGIN}, buy=False)
+        await pg.evaluate("()=>__X.buy(0)")
+        r = await pg.evaluate("""()=>{const l=document.getElementById('spdChk').closest('label'),R=l.getBoundingClientRect(),d=document.documentElement,bx=document.querySelector('#title .box');
+          return {h:R.height,l:R.left,r:R.right,vw:innerWidth,sw:d.scrollWidth,cw:d.clientWidth,bsw:bx.scrollWidth,bcw:bx.clientWidth,txt:l.textContent.replace(/\\s+/g,' ')}}""")
+        check('[아] 잠긴 첫 화면 %dpx: 높이 %.0fpx(≥40) · 화면 안 · 가로 넘침 0 · 안내 보임' % (w, r['h']), r['h'] >= 40 and r['l'] >= 0 and r['r'] <= r['vw'] and r['sw'] <= r['cw'] and r['bsw'] <= r['bcw'] and '맛동산상점' in r['txt'], r)
+        await pg.evaluate("()=>{__p6x.CH_set('brj');__p6x.start();__X.pauseGame();}")
+        p = await pg.evaluate("""()=>{const l=document.querySelector('#pause label.spdl'),R=l.getBoundingClientRect(),d=document.documentElement,bx=document.querySelector('#pause .box');
+          return {h:R.height,l:R.left,r:R.right,vw:innerWidth,sw:d.scrollWidth,cw:d.clientWidth,bsw:bx.scrollWidth,bcw:bx.clientWidth,txt:l.textContent.replace(/\\s+/g,' ')}}""")
+        check('[아] 잠긴 일시정지 %dpx: 높이 %.0fpx(≥40) · 화면 안 · 가로 넘침 0 · 안내 보임' % (w, p['h']), p['h'] >= 40 and p['l'] >= 0 and p['r'] <= p['vw'] and p['sw'] <= p['cw'] and p['bsw'] <= p['bcw'] and '맛동산상점' in p['txt'], p)
+        check('[아] 잠긴 %dpx 오류 0' % w, not errs, errs); await ctx.close()
 
 async def main():
     prep()
@@ -279,7 +353,7 @@ async def main():
         async with async_playwright() as pw:
             b = await H.launch(pw)
             try:
-                for sec, fn in [('가', sec_a), ('나', sec_b), ('다', sec_c), ('라', sec_d), ('마', sec_e), ('바', sec_f)]:
+                for sec, fn in [('가', sec_a), ('나', sec_b), ('다', sec_c), ('라', sec_d), ('마', sec_e), ('바', sec_f), ('아', sec_g)]:
                     if want(sec):
                         print('── %s ──' % sec, flush=True)
                         await fn(b, srv)
@@ -294,9 +368,9 @@ if __name__ == '__main__':
     if '--mutants' in sys.argv:
         bad = 0
         for m in MUTANTS:
-            p = subprocess.run(['nice', '-n', '10', sys.executable, os.path.abspath(__file__), '--mutant', m, '--only', '나,다,라'], capture_output=True, text=True)
+            p = subprocess.run(['nice', '-n', '10', sys.executable, os.path.abspath(__file__), '--mutant', m, '--only', '나,다,라,아'], capture_output=True, text=True)
             fails = [l for l in p.stdout.splitlines() if l.startswith('FAIL')]
-            print('변이 %-10s → 빨강 %d건 %s' % (m, len(fails), '(잡았다)' if p.returncode else '(★ 못 잡았다)')); bad += 0 if p.returncode else 1
+            print('변이 %-10s → 빨강 %d건 %s' % (m, len(fails), '(잡았다)' if fails else '(★ 못 잡았다)')); bad += 0 if fails else 1
         sys.exit(1 if bad else 0)
     try:
         asyncio.run(main())

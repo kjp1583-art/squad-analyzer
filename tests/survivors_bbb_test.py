@@ -104,16 +104,16 @@ async def main():
         # ───────────────── A. 데이터
         r = await pg.evaluate("""()=>{const x=__p6x,y=__p6y;const c=x.CHARS.find(c=>c.k==='bbb'),w=x.WEAP.sing,T=x.TIERS.sing,sy=x.SYN.find(s=>s.k==='u_sing'),i=x.CHARS.findIndex(c=>c.k==='bbb');
           const names=x.CHARS.map(c=>c.k);
-          return {c:c&&{w:c.w,cdr:c.cdr,img:c.img,sn:c.sn,nm:c.nm,q:c.q,ds:c.ds,tag:c.tag,boss:!!c.boss,shop:!!c.shop,t:c.un&&c.un.t,dh:c.un&&c.un.dh,ok0:c.un.ok({kills:99999,deaths:99,maxLv:99,best:99999}),wl:c.wl||1},
+          return {c:c&&{w:c.w,cdr:c.cdr,img:c.img,sn:c.sn,nm:c.nm,q:c.q,ds:c.ds,tag:c.tag,boss:!!c.boss,shop:!!c.shop,t:c.un&&c.un.t,dh:c.un&&c.un.dh,ok0:c.un.ok({kills:99999,deaths:99,maxLv:99,best:99999}),wl:c.wl||1,cs:x.cstat(c).rows.map(r=>r.nm+' '+r.ds).join(' | ')},
             order:names.slice(names.indexOf('psg'),names.indexOf('psg')+3),
             w:w&&{only:w.only,pair:w.pair,pairOk:!!y.PASS[w.pair],ds:w.ds.length,evnm:w.ev&&w.ev.nm,evic:w.ev&&w.ev.ic,ic:w.ic,nm:w.nm,rl:w.rl},
             T:T&&T.map(t=>t[1]),Ttx:T&&T.map(t=>t[0]),sy:sy&&{req:sy.req,fx:sy.fx,nm:sy.nm},
             u3:y.U3.sing,syn:x.SYN.length,uSyn:x.SYN.filter(s=>s.k.startsWith('u_')).length,
             chick:!!x.WEAP.chick&&!x.WEAP.chick.only,sg:x.SYN.filter(s=>s.k==='u_sing').length,
             bbbPair:Object.keys(x.WEAP).filter(k=>x.WEAP[k].pair==='study')}}""")
-        c = r['c']
+        c = r['c']; cs = c['cs'] if c else ''   # 2026-10-12 능력 문장(쿨타임 -8%)은 설명(ds)이 아니라 「✨ 고유스텟」 구획(cstat)에 있다
         check('CHARS bbb: 고유 무기 sing · 쿨타임 -8%(cdr) · 그림(img) · 짧은 이름', c and c['w'] == 'sing' and c['wl'] == 1 and c['cdr'] == .08 and c['img'] == 1 and c['sn'] == '배불배불' and c['nm'] == '플레이브 코스프레 배불배불' and not c['boss'] and c['shop'], c)
-        check('CHARS bbb: 설명에 고유 무기 · 한 줄 대사 · 태그 · 능력 이름 「박자 감각」(패치노트와 같은 이름)', c and '고유 무기' in c['ds'] and '쿨타임 -8%' in c['ds'] and c['ds'].startswith('「박자 감각」') and c['q'] and c['tag'], c)
+        check('CHARS bbb: 설명에 고유 무기 · 한 줄 대사 · 태그 · 능력 이름 「박자 감각」(패치노트와 같은 이름)', c and '고유 무기' in c['ds'] and c['ds'].startswith('「박자 감각」') and c['q'] and c['tag'] and '쿨타임이 8%' in cs and '「박자 감각」' in cs, c)
         check('해금 = 상점 구매(shop:1): 진행도 조건 함수는 무엇을 줘도 거짓 · 카드 글씨 「디스코드 /흐접새우상점 200P」 · 설명창 문구', c and c['shop'] is True and c['ok0'] is False and c['t'] == '디스코드 /흐접새우상점 200P' and '/흐접새우상점' in c['dh'] and '200P' in c['dh'] and '맛동산 아님' in c['dh'] and '새로고침' in c['dh'] and 'nb' in c['dh'], c)
         src_sh = open(os.path.join(H.ROOT, 'survivors.html'), encoding='utf-8').read()
         i0 = src_sh.index("{k:'bbb'"); line_bbb = src_sh[i0:src_sh.index('\n', i0)]

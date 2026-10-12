@@ -6,6 +6,7 @@
   C. 나오는 순간: 배너 「🔥 최종 보스 — 👑 흐접새우 본체」 + 「대사」 · 55분 25초 전부터 그림을 미리 불러온다 · 그림이 그려진다(캔버스에 드로우 오류 0)
   D. 체력 = 3600 × bossMul × 1.6(최종 보스 배율) 그대로 · 처치하면 bossKill · 처치 배너에 dead 대사
   E. 소스에 「마스터 이」「MasterYi」가 남아 있지 않다(그림 요청 · 결과 말풍선 포함)
+  (2026-10-12) 보스가 나오는 순간 1:1 대결이 켜진다 — 등장 연출 1.6초는 보스 무적이라 D 의 처치는 그 뒤에 한다. 1:1 자체는 tests/survivors_finduel_test.py
 사용: python3 tests/survivors_finboss_test.py
 """
 import asyncio, json, os, sys, re
@@ -67,7 +68,7 @@ async def main():
         ok(r['on'] and r['boss'] == 'fin', 'C3 spawnBoss(fin) 로 나온다')
         ok(cap[0] == '🔥 최종 보스 — 👑 흐접새우 본체', 'C4 배너 제목 「🔥 최종 보스 — 👑 흐접새우 본체」 (%s)' % cap[0])
         ok(cap[1].startswith('「') and cap[1].endswith('」') and cap[1][1:-1] in info['sp0'], 'C5 배너 대사가 sp0 중 하나 (%s)' % cap[1])
-        ok(abs(r['mhp'] - 3600 * r['bossMul'] * 1.6) < 1e-6 * r['mhp'], 'D1 체력 = 3600 × bossMul × 1.6 (%.2f vs %.2f)' % (r['mhp'], 3600 * r['bossMul'] * 1.6))
+        ok(abs(r['mhp'] - 3600 * r['bossMul'] * 1.6 * 0.25) < 1e-6 * r['mhp'], 'D1 체력 = 3600 × bossMul × 1.6 × 0.25(1:1 체력 조정 FIN_DUEL.hpMul) (%.2f vs %.2f)' % (r['mhp'], 3600 * r['bossMul'] * 1.6 * 0.25))
         # 그리기: 보스를 플레이어 옆에 두고 몇 프레임 돌린 뒤 그린다(오류 0) + 스크린샷
         r = await pg.evaluate("""()=>{const X=window.__p6x,S=X.S;const e=S.bossRef;e.x=S.p.x+170;e.y=S.p.y-20;
           let err=null;try{for(let i=0;i<20;i++){X.update(1/30);}X.draw();}catch(x){err=String(x)}
@@ -77,8 +78,11 @@ async def main():
             os.makedirs(SHOT, exist_ok=True)
             await pg.screenshot(path=os.path.join(SHOT, 'fin_boss_1280.png'))
         # 처치
-        r = await pg.evaluate("""()=>{const X=window.__p6x,S=X.S,F=window.__fin;F.hook();
-          const e=S.bossRef;X.hurt(e,1e15);F.unhook();return {kill:S.bossKill,cap:F.cap.map(c=>[c[0],c[1]])}}""")
+        # ⚔ 1:1 연출(1.6초) 동안 보스는 무적이다 — 연출이 끝난 뒤에 처치한다(연출 중 피해는 0 이라는 것도 같이 확인)
+        r = await pg.evaluate("""()=>{const X=window.__p6x,S=X.S,F=window.__fin;const e=S.bossRef;const h0=e.hp;X.hurt(e,1e15);const inv=e.hp===h0;
+          for(let i=0;i<60;i++)X.update(1/30);F.hook();
+          X.hurt(e,1e15);F.unhook();return {inv,kill:S.bossKill,cap:F.cap.map(c=>[c[0],c[1]])}}""")
+        ok(r['inv'], 'D0 1:1 등장 연출(1.6초) 동안은 보스가 무적이다')
         ok(r['kill'] == 1, 'D2 처치하면 bossKill = 1')
         dead = [c for c in r['cap'] if '처치' in c[0]]
         ok(dead and dead[0][0] == '🏆 👑 흐접새우 본체 처치!' and dead[0][1][1:-1] in info['dead'], 'D3 처치 배너 + dead 대사 (%s)' % (dead[:1],))

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""🎁 보스 상자 — 안 가진 새 무기·새 유물은 나오지 않는다(가진 걸 키우는 카드·패시브·간식만).
+"""🎁 보스 상자 — 안 가진 새 무기·새 패시브·새 유물·새 거래/작은 능력치는 나오지 않는다(내가 가진 능력을 키우는 카드만).
+[2026-10-12 사장님 「보스상자에서 내가 가지고있는 능력만 획득되게 패치하라고 했던거같은데 반영안된거같은데」 — 10/09 에는 새 무기·새 유물만 막아 새 패시브·거래·작은 능력치·일회용이 남아 있었다]
 [2026-10-09 사장님 지시 「보스 보상 상자 획득 시 내가 가지고 있지 않은 무기·유물이 획득되지 않게 변경」]
   A. offers(1, null, true) — 캐릭터 전원 × 무작위 빌드(무기 0~6종·유물·패시브·봉인·레벨 5~64) 수만 번: 새 무기(t:'w' l:0)·새 유물(t:'rl' l:0 · 시그니처 포함) 0번 · 항상 카드 1장
   B. 레벨업 카드(offers(3))는 그대로 — 같은 빌드에서 새 무기·새 유물이 여전히 나온다(규칙은 보스 상자 한정)
@@ -57,6 +58,9 @@ A_JS = r"""
         const o=c[0];out.kinds[o.t]=(out.kinds[o.t]||0)+1;
         if(o.t==='w'&&!o.l)out.bad.push(['w',ch,o.k]);
         if(o.t==='rl'&&!o.l)out.bad.push(['rl',ch,o.k]);
+        if(o.t==='p'&&!(x.S.ps[o.k]>0))out.bad.push(['p-new',ch,o.k]);
+        if(o.t==='tr'&&!(x.S.tr&&x.S.tr[o.r]>0))out.bad.push(['tr-new',ch,o.k]);
+        if(o.t==='sm'&&o.r!=='ramen'&&!(x.S.sm&&x.S.sm[o.r]>0))out.bad.push(['sm-new',ch,o.k]);   // 야식 라면은 후보가 하나도 없을 때(무기·패시브 0 같은 빈 빌드)의 마지막 안전망이다
         if(o.t==='w'&&!x.S.w[o.k])out.bad.push(['w-notowned',ch,o.k]);
         if(o.t==='rl'&&!x.S.rel[o.r])out.bad.push(['rl-notowned',ch,o.k]);
       }
@@ -69,13 +73,14 @@ A_JS = r"""
 B_JS = r"""
 ([chars,N,perBuild])=>{
   const x=window.__p6x,B=window.__cb;B.seed(777);
-  const out={newW:0,newRl:0,newSg:0,draws:0};
+  const out={newW:0,newRl:0,newSg:0,newP:0,draws:0};
   for(const ch of chars){
     x.CH_set(ch);x.start();
     for(let it=0;it<N;it++){
       B.build(ch,{lv:30});
       for(let d=0;d<perBuild;d++)for(const o of x.offers(3)){out.draws++;
         if(o.t==='w'&&!o.l)out.newW++;
+        if(o.t==='p'&&!(x.S.ps[o.k]>0))out.newP++;
         if(o.t==='rl'&&!o.l){out.newRl++;if(x.REL[o.r].ch)out.newSg++;}}
     }
   }
@@ -91,11 +96,11 @@ C_JS = r"""
     for(let it=0;it<N;it++){
       x.CH_set(ch);x.start();const S=x.S;B.build(ch);
       const w0=Object.keys(S.w).sort().join(','),r0=Object.keys(S.rel).sort().join(','),rr0=S.rr;
-      x.openChest();out.runs++;
+      x.openChest();if(x.state==='evpick')x.resume();out.runs++;   // ✨ 각성 후보가 둘 이상이면 선택창 — 시험은 첫 후보로 진행
       const w1=Object.keys(S.w).sort().join(','),r1=Object.keys(S.rel).sort().join(',');
       if(w0!==w1||r0!==r1)out.grew.push([ch,w0,w1,r0,r1]);
       const el=document.getElementById('chestList'),txt=el.textContent;
-      if(!txt.includes('내가 가진 무기·유물만'))out.noHint++;
+      if(!txt.includes('내가 가진 능력'))out.noHint++;
       if(S.rr<rr0+1)out.noRr++;   // 상자는 늘 다시 뽑기 +1 (🎲 주사위 세트 카드가 같이 나오면 +2 가 더 붙는다)
       const cr=el.querySelectorAll('.cr');if(cr.length<2)out.noCard++;   // 카드 1장 이상 + 다시 뽑기 줄
       out.lines+=cr.length;
@@ -153,7 +158,7 @@ async def main():
     calls = re.findall(r"offers\(([^()]*)\)", src)
     own_calls = [c for c in calls if c.replace(' ', '').endswith(',true')]
     ok(len(own_calls) == 1 and own_calls[0].replace(' ', '') == '1,null,true', 'F1 own(세 번째 인자 true) 호출은 보스 상자 한 곳뿐이다 (%s)' % own_calls)
-    ok(re.search(r"function openChest\(\)\{[\s\S]{0,900}offers\(1,null,true\)", src) is not None, 'F2 openChest 가 offers(1,null,true) 를 부른다')
+    ok(re.search(r"function openChest\([a-z]*\)\{[\s\S]{0,1400}offers\(1,null,true\)", src) is not None, 'F2 openChest 가 offers(1,null,true) 를 부른다')
     ok(src.count('offers(3') >= 1 and 'offers(3,' in src or 'offers()' in src or 'offers(' in src, 'F3 레벨업 쪽 offers 호출이 남아 있다')
     async with async_playwright() as pw:
         b = await H.launch(pw)
@@ -163,17 +168,18 @@ async def main():
         print('캐릭터', len(chars), chars)
         a = await pg.evaluate(A_JS, [chars, 40, 25])
         print('A', json.dumps(a, ensure_ascii=False)[:500])
-        ok(not a['bad'], 'A1 상자 후보에 새 무기·새 유물 0건 (%d판 · 카드 %d장) %s' % (a['builds'], a['draws'], a['bad'][:3]))
+        ok(not a['bad'], 'A1 상자 후보에 새 무기·새 패시브·새 유물·새 거래/작은 능력치 0건 (%d판 · 카드 %d장) %s' % (a['builds'], a['draws'], a['bad'][:3]))
         ok(a['empty'] == 0 and a['draws'] == len(chars) * 40 * 25, 'A2 항상 카드 한 장이 나온다 (빈 뽑기 %d)' % a['empty'])
         ok(a['kinds'].get('w', 0) > 0 and a['kinds'].get('p', 0) > 0, 'A3 가진 무기 강화·패시브는 계속 나온다 (%s)' % a['kinds'])
         bb = await pg.evaluate(B_JS, [chars, 20, 15])
         print('B', json.dumps(bb, ensure_ascii=False))
+        ok(bb['newP'] > 0, 'B0 레벨업 카드에는 새 패시브가 그대로 나온다 (%d)' % bb['newP'])
         ok(bb['newW'] > 0, 'B1 레벨업 카드에는 새 무기가 그대로 나온다 (%d)' % bb['newW'])
         ok(bb['newRl'] > 0 and bb['newSg'] > 0, 'B2 레벨업 카드에는 새 유물(시그니처 포함)이 그대로 나온다 (%d · 시그니처 %d)' % (bb['newRl'], bb['newSg']))
         c = await pg.evaluate(C_JS, [chars, 15])
         print('C', json.dumps(c, ensure_ascii=False)[:400])
         ok(not c['grew'], 'C1 상자를 열어도 무기·유물 이름이 늘지 않는다 (%d번) %s' % (c['runs'], c['grew'][:2]))
-        ok(c['noHint'] == 0, 'C2 상자 화면에 「내가 가진 무기·유물만」 안내가 있다 (없는 곳 %d)' % c['noHint'])
+        ok(c['noHint'] == 0, 'C2 상자 화면에 「내가 가진 능력」 안내가 있다 (없는 곳 %d)' % c['noHint'])
         ok(c['noRr'] == 0 and c['noCard'] == 0, 'C3 다시 뽑기 +1 이상 · 카드 1장 이상 · 상자 상태 (이상 %d / %d)' % (c['noRr'], c['noCard']))
         d = await pg.evaluate(D_JS)
         print('D', d)
