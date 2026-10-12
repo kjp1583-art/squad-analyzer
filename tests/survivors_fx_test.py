@@ -628,6 +628,9 @@ async def main():
                 ZERO = [('feed', 0, 3), ('feed', 1, 0), ('fryer', 0, 3), ('fryer', 1, 4), ('sushi', 0, 3), ('sushi', 1, 0), ('shrimp', 0, 3), ('shrimp', 1, 0), ('wifi', 0, 3), ('wifi', 1, 0),
                         ('lid', 0, 3), ('lid', 1, 0), ('gacha', 0, 3), ('gacha', 1, 0), ('quill', 0, 3), ('quill', 1, 0), ('cart', 0, 3), ('twin', 0, 3), ('twin', 1, 0), ('sing', 0, 3), ('sing', 1, 0),
                         ('stamp', 0, 3), ('stamp', 1, 0), ('chain', 0, 3), ('chain', 1, 0)]
+                # ⚖️ 2026-10-12 노래부르기·깃털 산탄의 피해 값을 올렸다(밸런스) — 맞힌 기록에 피해 숫자가 들어 있어 기준 커밋과 숫자만 달라진다. 이 비교는 「패시브·단계 규칙이 같다」를 보는 시험이라
+                #   새 쪽 페이지의 피해 값(U3)만 옛 값으로 잠깐 되돌려 비교하고, 끝나면 새 값으로 돌려 놓는다(피해 값 자체는 tests/survivors_barrage_up_test.py 가 지킨다)
+                U3NEW = await pg.evaluate("()=>{const u=__p6x.U3;const o={q:u.quill.d,s:u.sing.d,sb:u.sing.db};u.quill.d=6.5;u.sing.d=4.5;u.sing.db=1.3;return o}")
                 bad0 = []
                 for (w, e_, tier) in ZERO:
                     for ar in (None, 'boss'):
@@ -636,6 +639,7 @@ async def main():
                         if w == 'lid': cfg['probe'] = 10
                         ra, rb = await both(cfg)
                         if dg2(ra) != dg2(rb): bad0.append((w, 'e' if e_ else 'b', ar))
+                await pg.evaluate("(o)=>{const u=__p6x.U3;u.quill.d=o.q;u.sing.d=o.s;u.sing.db=o.sb}", U3NEW)
                 check('패시브 0 · 마스터 단계 같음: 고친 13무기 × 기본·각성(%d조합) × 허수아비 밭·보스 한 마리 — 맞힌 기록·폭발 기록이 기준 커밋과 비트까지 같다 (카트 각성 제외)' % (len(ZERO) * 2), not bad0, bad0)
                 # 카트 각성: 패시브 0 일 때 「늘 3대」 — 평균 카트 수·구역 DPS 가 ±3% 안(처음 쌓일 때 포함 60초)
                 cfg = dict(w='cart', L=8, tier=0, ev=True, N=1800, seed=1, ps={})

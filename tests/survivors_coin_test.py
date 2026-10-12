@@ -592,8 +592,9 @@ def mk_rng_mock(coins):
         elif '/p6/coin' in u: await J({'ok': True, 'coins': 1, 'dup': False})
         else: await r.fulfill(status=404, headers=hdr, body='{}')
     return mock
+# 2026-10-12 H1 의 규칙 불변 비교는 브장신(brj) → 집중겜(jjg): 브장신의 시작 무기(깃털 산탄) 피해를 올려 옛 기준 커밋과 일부러 달라졌다 — 시작 무기를 안 건드린 캐릭터로 비교한다
 RUNJS = r"""(a)=>{let sd=a.seed>>>0,cnt=0;Math.random=()=>{cnt++;sd=(sd+0x6D2B79F5)|0;let t=Math.imul(sd^(sd>>>15),1|sd);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};
- const x=__p6x,v=__rv;x.CH_set('brj');x.start({daily:true});const S=x.S;const dt=1/30;
+ const x=__p6x,v=__rv;x.CH_set('jjg');x.start({daily:true});const S=x.S;const dt=1/30;
  for(let i=0;i<a.frames;i++){if(x.state==='lvup'){x.pick(x.CUR[0]);continue;}if(x.state!=='play'){x.resume();continue;}
    S.p.hp=Math.max(S.p.hp,S.p.mhp*.9);const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];x.update(dt);}
  S.p.hp=1;S.p.inv=0;const e=x.spawnEnemy(0,2.5,null,{x:S.p.x,y:S.p.y});e.dmg=500;

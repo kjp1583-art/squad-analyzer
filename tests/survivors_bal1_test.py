@@ -77,7 +77,7 @@ async def sec1(pg, errs):
 
 
 # 칸을 채우는 패시브 6종(부활 제외) — 이름은 PASS 표에서 뽑는다
-PICK6 = "Object.keys(__p6x.PASS).filter(k=>k!=='rev').slice(0,6)"
+PICK6 = "Object.keys(__p6x.PASS).filter(k=>k!=='rev'&&k!==__p6x.WEAP[__p6x.CHARS.find(c=>c.k==='brj').w].pair).slice(0,6)"   # 2026-10-12: 시작 무기의 짝 패시브(열쇠)는 열쇠 칸으로 가 일반 칸을 안 채운다 — 일반 칸 시험은 열쇠 아닌 패시브로 채운다
 
 async def sec2(pg, errs):
     print('── 2. 부활')
@@ -89,9 +89,9 @@ async def sec2(pg, errs):
       S.pendingLv=1;x.openLvup();o.hint=document.getElementById('lvHint').textContent;o.cards=x.CUR.map(c=>x.cardOf(c).nm);
       // 5칸 + 부활: 새 패시브 카드는 「슬롯 6/6」
       x.resume();x.start();const T=x.S;for(const k of six.slice(0,5))T.ps[k]=1;T.ps.rev=1;
-      const np=Object.keys(x.PASS).find(k=>!T.ps[k]&&k!=='rev');
+      const np=Object.keys(x.PASS).find(k=>!T.ps[k]&&k!=='rev'&&k!==x.WEAP[x.CH.w].pair);
       o.card5=x.cardOf({t:'p',k:np,l:0});o.cardRev=x.cardOf({t:'p',k:'rev',l:0});o.slot5=x.slotP();
-      x.start();const U=x.S;for(const k of six.slice(0,3))U.ps[k]=1;const np2=Object.keys(x.PASS).find(k=>!U.ps[k]&&k!=='rev');o.card3=x.cardOf({t:'p',k:np2,l:0});
+      x.start();const U=x.S;for(const k of six.slice(0,3))U.ps[k]=1;const np2=Object.keys(x.PASS).find(k=>!U.ps[k]&&k!=='rev'&&k!==x.WEAP[x.CH.w].pair);o.card3=x.cardOf({t:'p',k:np2,l:0});
       return o}""" % PICK6)
     check('패시브 6 + 부활: 칸 수는 6(부활 안 셈) · 보유 종류는 7', r['slotP'] == 6 and r['keys'] == 7, (r['slotP'], r['keys']))
     check('표기 ① 일시정지: 「패시브 6/6」 + 부활은 칸 안 씀 안내', '패시브 6/6' in r['pause'] and '부활은 칸 안 씀' in r['pause'], r['pause'][:120])
@@ -101,7 +101,7 @@ async def sec2(pg, errs):
     # 2-b. 후보: 칸이 꽉 차도(Lv20 이후) 부활은 후보가 될 수 있다 · 새 일반 패시브는 못 나온다
     r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');x.start();const S=x.S;const six=%s;
       const sample=(lv,ps,n)=>{S.ps=Object.assign({},ps);S.lv=lv;S.banned=[];let rev=0,newp=0,tot=0;
-        for(let i=0;i<n;i++){const c=x.offers(3);tot+=c.length;for(const q of c){if(q.t==='p'&&q.k==='rev')rev++;if(q.t==='p'&&!S.ps[q.k]&&q.k!=='rev')newp++;}}return {rev,newp,tot};};
+        for(let i=0;i<n;i++){const c=x.offers(3);tot+=c.length;for(const q of c){if(q.t==='p'&&q.k==='rev')rev++;if(q.t==='p'&&!S.ps[q.k]&&q.k!=='rev'&&q.k!==x.WEAP[x.CH.w].pair)newp++;}}return {rev,newp,tot};};
       const full={};for(const k of six)full[k]=1;
       o.full20=sample(20,full,400);o.full19=sample(19,full,400);o.full40=sample(40,full,400);o.full60=sample(60,full,400);
       o.empty20=sample(20,{},400);o.empty19=sample(19,{},400);
@@ -144,7 +144,7 @@ async def sec2(pg, errs):
       x.pauseGame();const text=localStorage.getItem(x.RES.KEY);o.saved=!!text;
       x.state='title';o.ok=x.RES.restore(text);const T=x.S;
       o.ps=Object.keys(T.ps).length;o.slot=x.slotP();o.lv=T.lv;o.state=x.state;o.html=x.buildHtml();
-      T.banned=[];let rev=0,np=0;for(let i=0;i<300;i++)for(const q of x.offers(3)){if(q.k==='rev')rev++;if(q.t==='p'&&!T.ps[q.k])np++;}o.rev=rev;o.np=np;
+      T.banned=[];let rev=0,np=0;for(let i=0;i<300;i++)for(const q of x.offers(3)){if(q.k==='rev')rev++;if(q.t==='p'&&!T.ps[q.k]&&q.k!==x.WEAP[x.CH.w].pair)np++;}o.rev=rev;o.np=np;
       // 복원한 판이 Lv19 로 보이는 저장본이면 후보 0 — 저장된 레벨이 그대로 쓰인다
       return o}""" % PICK6)
     check('복원: 보유 7종 · 칸 6 · 일시정지 문구 「패시브 6/6」', r['saved'] and r['ok'] is not False and r['ps'] == 7 and r['slot'] == 6 and '패시브 6/6' in r['html'], {k: r[k] for k in ('saved', 'ok', 'ps', 'slot')})

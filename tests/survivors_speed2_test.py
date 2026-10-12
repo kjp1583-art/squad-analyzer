@@ -93,11 +93,11 @@ DIGEST = r"""()=>{const x=__p6x,S=x.S,p=S.p;const parts=[S.t,S.kills,S.lv,S.xp,S
 
 async def sec_a(b, srv):   # 가 · 끈 상태 불변
     hs = {}
-    for ch in ('brj', 'yj'):
+    for ch in ('jjg', 'yj'):   # 2026-10-12 brj → jjg: 브장신의 시작 무기(깃털 산탄) 피해를 올려서 옛 기준 커밋과는 일부러 달라졌다 — 규칙 불변 증명은 시작 무기를 안 건드린 집중겜으로
         out = []
         for page in (OLD, NEW):
             ctx, pg, errs = await mk(b, srv, page, init=DRIVEN)
-            r = await pg.evaluate(DRIVE, {'ch': ch, 'n': 900, 'ms': 1000 / 60, 'god': True, 'daily': ch == 'brj'})
+            r = await pg.evaluate(DRIVE, {'ch': ch, 'n': 900, 'ms': 1000 / 60, 'god': True, 'daily': ch == 'jjg'})
             d = await pg.evaluate(DIGEST)
             out.append((r, d, errs)); await ctx.close()
         (r0, d0, e0), (r1, d1, e1) = out
@@ -107,7 +107,7 @@ async def sec_a(b, srv):   # 가 · 끈 상태 불변
         hs[ch] = d1['h']
     check('[가] 시험이 캐릭터를 가린다(두 캐릭터 해시가 다르다)', len(set(hs.values())) == 2, hs)
     if '--equiv' in sys.argv:
-        p = subprocess.run(['nice', '-n', '10', sys.executable, os.path.join(ROOT, 'tests', 'survivors_equiv.py'), '--a', BASE_COMMIT, '--b', 'survivors.html', '--chars', 'brj,eom', '--seeds', '1', '--cap', '120', '--modes', 'n,h'], capture_output=True, text=True)
+        p = subprocess.run(['nice', '-n', '10', sys.executable, os.path.join(ROOT, 'tests', 'survivors_equiv.py'), '--a', BASE_COMMIT, '--b', 'survivors.html', '--chars', 'jjg,eom', '--seeds', '1', '--cap', '120', '--modes', 'n,h'], capture_output=True, text=True)
         print(p.stdout[-1500:])
         check('[가] survivors_equiv.py (기준 커밋 vs 지금) 종료코드 0', p.returncode == 0, p.stdout[-600:] + p.stderr[-300:])
 

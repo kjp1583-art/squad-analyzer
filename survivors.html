@@ -416,7 +416,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>⭐ 시그니처 유물: 캐릭터마다 전용 유물이 하나씩 있어요(그 캐릭터로 할 때만 유물 카드에 나와요).</li>
     <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥쌍둥이 이빨 · 배불배불 🎤 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥드래곤 브레스 · 유미 🍘 · 엄장신 📢 · 배고배고 📸). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
     <li>5분부터는 👹 <b>대형 트롤픽</b>(덩치 2배·체력 8배)이 섞여 나와요. 잡으면 💎·💣·🍗를 떨굴 때가 많아요.</li>
-    <li>무기는 6개·패시브는 6개까지(👼 부활은 칸을 안 써요 · 레벨 20부터 나와요). 패시브 6칸 중 <b>마지막 한 칸은 내 무기의 🗝 각성 열쇠 패시브(아직 없을 때)를 위해 남겨 둬요</b>. 무기 Lv8 + 그 무기의 <b>🗝 각성 열쇠</b> 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>(한 판에 3개까지)! 어떤 패시브가 어떤 무기를 강하게 하는지는 카드의 「✔ 받아요 · ◐ 일부만 · ✖ 안 받아요」 줄과 일시정지의 「🧩 내 무기 × 패시브」 표에서 봐요.</li>
+    <li>무기는 6개·패시브는 6개까지(👼 부활은 칸을 안 써요 · 레벨 20부터 나와요). <b>🗝 각성 열쇠 패시브는 패시브 6칸 밖의 열쇠 칸(3칸)에 따로 들어가요</b> — 일반 칸이 꽉 차도 열쇠는 받을 수 있어요. 무기 Lv8 + 그 무기의 <b>🗝 각성 열쇠</b> 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>(한 판에 3개까지)! 어떤 패시브가 어떤 무기를 강하게 하는지는 카드의 「✔ 받아요 · ◐ 일부만 · ✖ 안 받아요」 줄과 일시정지의 「🧩 내 무기 × 패시브」 표에서 봐요.</li>
     <li>🎁 보스 상자는 <b>내가 가진 능력만</b> 키워 줘요 — 가진 무기·패시브·유물·거래를 올리는 카드(강화·마스터·각성·초월)만 나와요. 새 무기·새 패시브·새 유물은 레벨업 카드에서 골라요.</li>
     <li>레벨업 카드가 마음에 안 들면 🎲 다시 뽑기(R) · 🚫 봉인(B) — 처음 3번씩, Lv10·Lv20 이 되면 1번씩 더 드려요(다시 뽑기는 보스 상자에서도 +1). 무기 조합을 맞추면 🔗 시너지가 켜져요. 공용 무기는 22종 — 🍳 프라이팬 · 🎆 폭죽 · 🐥 병아리 · 🎣 낚싯대 · 🧊 얼음땡 · 🥏 냄비뚜껑 · ☄️ 운석 · 🔭 저격 · 🌀 블랙홀 · 🎵 리듬도 나와요 <!-- 🗡 [2026-09-30 사장님 지시] --></li>
     <li>보스는 체력이 많아요 — 66%·33% 아래에서 페이즈가 바뀌고 기술이 빨라져요.</li>
@@ -1872,12 +1872,16 @@ function newRun(dly){
 }
 const pv=k=>S.ps[k]||0;
 const cardLv=()=>S.pendingLv>0?S.lv-S.pendingLv+1:S.lv;   // 🎁 지금 고르는 카드가 몇 레벨의 것인가 — 한꺼번에 여러 레벨이 쌓여도 Lv18·19 카드에는 부활이 안 나오게 하는 기준(상자·다시 뽑기처럼 쌓인 레벨이 없으면 지금 레벨)
-const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n;};   // 🎒 패시브 칸 수 — 👼 부활은 칸을 안 쓴다(보유 칸·후보 계산·화면 표기 모두 이걸 쓴다)
-// 🗝 [2026-10-10 사장님 지시 「운은 A」] 패시브 칸 예약 — 6칸 중 마지막 한 칸은 내 무기(시작 무기)의 각성 열쇠 패시브를 아직 안 가졌을 때 그 패시브만 들어올 수 있다
-//   (열쇠 패시브가 칸이 꽉 찬 뒤엔 영영 못 나와 각성이 막히던 일을 없앤다 — 측정: 잠김 20.8% → 0%, 준비 속도는 그대로). 열쇠를 이미 가졌거나 봉인했거나 부활(칸을 안 쓴다)이면 예약 없음
-const keyPassOf=()=>{const w=typeof CH!=='undefined'&&CH&&CH.w&&WEAP[CH.w],k=w&&w.pair;return k&&k!=='rev'&&PASS[k]?k:null;};
-const keyRsv=ban=>{const k=keyPassOf();return k&&!pv(k)&&pmax(k)>0&&!(ban||S.banned).includes(k)?k:null;};
-const KEY_RSV_NOTE=`패시브 ${SLOTP}칸 중 마지막 한 칸은 내 무기의 🗝 각성 열쇠 패시브(아직 없을 때)를 위해 남겨 둬요`;
+// 🗝 [2026-10-12 사장님 지시 「A로 가자」] 각성 열쇠 칸 — 열쇠 패시브(= 내가 가진 무기의 짝 패시브 WEAP[k].pair)는 패시브 6칸 밖의 「🗝 열쇠 칸」(MAXEV=3 과 같은 3칸)에 먼저 들어간다.
+//   열쇠 칸이 가득 찼거나 열쇠가 아닌 패시브면 일반 칸(SLOTP=6)으로 간다. 칸 소속은 저장하지 않고 S.ps(얻은 순서)·S.w 에서 매번 계산한다 — 이어하기 SIG·저장 모양은 그대로.
+//   각성한 무기도 S.w 에 남아 있으니 그 열쇠는 계속 열쇠 칸에 있다(각성 3번이 한도라 열쇠 칸 3개와 딱 맞는다) · 👼 부활은 어느 칸도 안 쓴다.
+//   일반 칸 수 = (부활 뺀 패시브 수) − min(3, 열쇠 패시브 수) — 무기를 얻어 열쇠가 늘면 일반 칸은 줄거나 그대로(절대 늘지 않는다 → 6칸 초과가 안 생긴다).
+const keyList=()=>{const o=[];for(const w in S.w){const k=WEAP[w]&&WEAP[w].pair;if(k&&k!=='rev'&&PASS[k]&&!o.includes(k))o.push(k);}return o;};   // 내 무기들의 열쇠 패시브(중복 없이 · 가졌든 아니든)
+const keyN=()=>{const kl=keyList();let n=0;for(const k in S.ps)if(kl.includes(k))n++;return Math.min(MAXEV,n);};   // 🗝 열쇠 칸 사용량 0~3
+const keyHeld=()=>{const kl=keyList(),o=[];for(const k in S.ps)if(kl.includes(k))o.push(k);return o.slice(0,MAXEV);};   // 열쇠 칸에 있는 패시브(얻은 순서 앞에서 3개)
+const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n-keyN();};   // 🎒 일반 패시브 칸 수 — 👼 부활과 🗝 열쇠 칸에 든 것은 안 센다(보유 칸·후보 계산·화면 표기 모두 이걸 쓴다)
+const isKeyNew=k=>k!=='rev'&&!pv(k)&&keyN()<MAXEV&&keyList().includes(k);   // 지금 새로 얻으면 열쇠 칸으로 가는가
+const KEY_NOTE=`🗝 각성 열쇠 패시브는 패시브 ${SLOTP}칸 밖의 열쇠 칸(${MAXEV}칸)에 따로 들어가요 — 일반 칸이 꽉 차도 받을 수 있어요`;
 const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
 const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+.15*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
@@ -1961,7 +1965,7 @@ function buildHtml(){
     h+=S.ev[k]?`<div class="bw ev">${d.ev.ic} <b>${d.ev.nm}</b> <span class="new">✨ 각성</span>${tn}</div>`
       :`<div class="bw">${d.ic} ${d.nm} <b>Lv ${L}</b>${tn}<small>🗝 각성 열쇠: Lv ${L}/${MAXLV}${L>=MAXLV?' (달성)':''} + ${pp.ic} ${pp.nm} ${pv(d.pair)?'(보유)':'(아직 없음)'}${L>=MAXLV&&pv(d.pair)?' → 다음 보스 상자!':''}</small></div>`;}
   h+=`<div class="muted">✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}</div>`;
-  h+=`<b>🎒 패시브 ${slotP()}/${SLOTP}</b>${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}${keyRsv()?' <span class="muted">(마지막 한 칸은 🗝 열쇠 자리)</span>':''}`+(pk.length?pk.map(fxPassRow).join(''):'<div class="bw">없음</div>')+(S.ramen?`<div class="bw">🍜 라면 ×${S.ramen}</div>`:'')+fxTableHtml();   // 🧩 [2026-10-10] 패시브마다 「효과 한 줄 + 내 무기 N개 적용」 · 접이식 「내 무기 × 패시브」 표
+  h+=`<b>🎒 패시브 ${slotP()}/${SLOTP} · 🗝 열쇠 ${keyN()}/${MAXEV}</b>${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}`+(pk.length?pk.map(fxPassRow).join(''):'<div class="bw">없음</div>')+(S.ramen?`<div class="bw">🍜 라면 ×${S.ramen}</div>`:'')+fxTableHtml();   // 🧩 [2026-10-10] 패시브마다 「효과 한 줄 + 내 무기 N개 적용」 · 접이식 「내 무기 × 패시브」 표
   {const rk=Object.keys(S.rel),tk=Object.keys(S.tr);if(rk.length||tk.length)h+=`<b>🏺 유물·거래</b><div class="bw">${rk.map(k=>`${REL[k].ic} ${REL[k].nm} Lv${S.rel[k]}${k==='still'?(S.shield?' · 지금 있음':' · 다음까지 약 '+Math.max(1,Math.ceil([40,30,20][S.rel.still-1]-S.stillT))+'초'):''}`).concat(tk.map(k=>`${TRD[k].ic} ${TRD[k].nm} ×${S.tr[k]}`)).join(' · ')}</div>`;}
   const sy=SYN.filter(y=>y.req.every(k=>wOk(k)||S.w[k])&&y.req.some(k=>S.w[k]));
   if(sy.length)h+=`<b>🔗 시너지</b>`+sy.map(y=>{const on=S.synOn.includes(y.k);return `<div class="bw${on?' ev':''}">${y.ic} ${y.nm} ${on?'✔':`${y.req.filter(k=>S.w[k]).length}/${y.req.length}`}<small>${y.req.map(k=>WEAP[k].ic).join('+')} — ${y.ds}</small></div>`;}).join('');
@@ -2062,7 +2066,7 @@ function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(�
   const M=Object.keys(SM).filter(k=>smn(k)>0).map(k=>chip('s:'+k,`${SM[k].ic} ${esc(SM[k].nm)} ${nb(`<b>×${smn(k)}</b><span class="mx">/${SM[k].cap}</span>`)}`));
   const Y=S.synOn.map(k=>SYN.find(y=>y.k===k)).filter(Boolean).map(y=>chip('y:'+y.k,`${y.ic} ${esc(y.nm)}<small>${esc(y.ds)}</small>`));
   return `<div class="own"><h3>📋 내가 가진 능력${up.size?'<span class="lg">▲ 금색 = 이번 카드로 올릴 수 있는 것</span>':''}</h3>`
-    +grp(`⚔ 무기 ${wk.length}/${SLOTW} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}`,W)+grp(`🎒 패시브 ${slotP()}/${SLOTP}${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}${keyRsv()?' <span class="muted">(마지막 한 칸은 🗝 열쇠 자리)</span>':''}`,P)
+    +grp(`⚔ 무기 ${wk.length}/${SLOTW} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}`,W)+grp(`🎒 패시브 ${slotP()}/${SLOTP} · 🗝 열쇠 ${keyN()}/${MAXEV}${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}`,P)
     +grp(`🏺 유물 ${R.length}`,R)+grp(`⚖ 거래 ${T.length}`,T)+grp(`🍴 작은 능력치 ${M.length}`,M)+grp(`🔗 켜진 시너지 ${Y.length}`,Y)+`</div>`;}
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pTop').innerHTML=diffHtml();$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
 function resume(){if(state==='evpick'){const rd=evReady();if(rd.length){openChest(rd[0]);return;}}   // ✨ 각성 선택창에서 resume() 가 불리면(자동 시험 봇 등) 첫 후보로 각성한다 — 사람은 버튼으로 고른다
@@ -2077,10 +2081,10 @@ function offers(n,excl,own){   // own=true: 🎁 보스 상자 — 안 가진 �
   // 🎲 [2026-09-30 사장님 지시] 카드 풀 — 기존 무기·패시브 카드(가중치 3)에 ✨ 각성/🏅 마스터·🌟 초월 카드가 함께 섞이고,
   //   🏺 유물(Lv24+)·⚖ 거래·작은 능력치·🎁 일회용(Lv30+)은 기존 카드가 얇아지면 채우고 후반에 섞인다. 늘 서로 다른 카드 n장.
   n=n||3;
-  const nw=Object.keys(S.w).length,np=slotP(),ban=new Set(S.banned),ex=new Set(excl||[]),rsv=keyRsv();   // rsv: 마지막 패시브 칸을 비워 둘 열쇠 패시브(없으면 null) — 다시 뽑기로 잠깐 빠진 것은 예약을 풀지 않는다
+  const nw=Object.keys(S.w).length,np=slotP(),ban=new Set(S.banned),ex=new Set(excl||[]);
   const P=[],add=(o,w)=>{if(!ban.has(o.k)&&!ex.has(o.k))P.push({o,w});};
   for(const k in WEAP){const l=S.w[k]||0;if(l>=MAXLV||!wOk(k))continue;if(!l&&(own||nw>=SLOTW))continue;add({t:'w',k,l},(WEAP[k].nw&&!l)?1.8:3);}   // 🗡 [2026-09-30 사장님 지시] 안 가진 새 무기는 가중치 1.8(23종이어도 초반 카드가 섞이게) — 가진 뒤 레벨업은 3
-  for(const k in PASS){const l=pv(k);if(l>=pmax(k))continue;if(own&&!l)continue;if(k==='rev'){if(cardLv()<REV_LV)continue;}else if(!l&&np>=SLOTP-(rsv&&k!==rsv?1:0))continue;add({t:'p',k,l},3);}   // 👼 부활: 칸이 꽉 차도 후보가 될 수 있고(칸 안 씀), Lv20 전에는 어느 카드 길(레벨업·보스 상자·다시 뽑기·봉인 보충)에도 안 나온다
+  for(const k in PASS){const l=pv(k);if(l>=pmax(k))continue;if(own&&!l)continue;if(k==='rev'){if(cardLv()<REV_LV)continue;}else if(!l&&np>=SLOTP&&!isKeyNew(k))continue;add({t:'p',k,l},3);}   // 👼 부활: 칸이 꽉 차도 후보가 될 수 있고(칸 안 씀), Lv20 전에는 어느 카드 길(레벨업·보스 상자·다시 뽑기·봉인 보충)에도 안 나온다
   const thin=P.length<3;   // 기존 카드가 바닥난 상태
   for(const k in S.w){if(S.w[k]<MAXLV||!TIERS[k])continue;const T=S.tier[k]||0;if(T<TCAP(k))add({t:'wt',k:'wt:'+k,w:k,l:T},S.ev[k]?3.4:2.4);}
   for(const k in PT){const l=S.pt[k]||0;if(pv(k)>0&&pv(k)>=pmax(k)&&l<PT[k].length)add({t:'pt',k:'pt:'+k,p:k,l},2.4);}
@@ -2117,7 +2121,7 @@ function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
     return {ic:d.ic,nm:d.nm,ty:o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`,ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
       +fxKeyHtml(o.k,el)+fxWeapHtml(o.k,el)+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
-  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
+  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':isKeyNew(o.k)?`🗝 새 열쇠 패시브 · 열쇠 칸 ${keyN()+1}/${MAXEV}`:`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
     return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화`,
@@ -2143,8 +2147,8 @@ function drawCards(){
   box.appendChild(x);
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
   const bl=cardLv(),bonus=BONUS_LV.includes(bl)?`🎁 Lv${bl} 보너스 — 다시 뽑기 +1 · 봉인 +1 받았어요 · `:'';   // 지금 고르는 카드가 보너스 레벨의 것이면 화면에서도 알린다(토스트는 카드 화면 뒤에 가려진다)
-  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;
-  {const kn=$('lvKey');if(kn){const on=!S.banMode&&!!keyRsv()&&slotP()>=SLOTP-2;kn.hidden=!on;kn.textContent=on?'🗝 '+KEY_RSV_NOTE:'';}}   // 🗝 칸이 거의 찼을 때(4칸~)만 한 줄 — 마지막 칸이 왜 비어 있는지 미리 알린다
+  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · 🗝 열쇠 ${keyN()}/${MAXEV} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;
+  {const kn=$('lvKey');if(kn){const on=!S.banMode&&keyN()<MAXEV&&keyList().some(k=>!pv(k)&&!S.banned.includes(k))&&slotP()>=SLOTP-2;kn.hidden=!on;kn.textContent=on?KEY_NOTE:'';}}   // 🗝 일반 칸이 거의 찼을 때(4칸~)만 한 줄 — 아직 못 얻은 열쇠가 있으면 따로 칸이 있다고 알린다
   $('lvOwn').innerHTML=statsHtml('l')+ownHtml();}   // ❤️ 현재/최대는 줄바꿈 때 쪼개지 않는다 · 🎮 [2026-10-09 사장님 지시] 카드 아래 「내가 가진 능력」 명단 + 접이식 능력치 표 — #choices 바깥이라 키보드 1~3 은 그대로 앞 세 카드를 누르고, 이어하기 복구도 drawCards 를 거치니 거기서도 보인다
 function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;
@@ -2420,6 +2424,8 @@ const FIN_DUEL={
   chase:.55,enr:[1,1.1,1.25],      // 쉬는 동안 따라오는 속도(보스 속도 배수) · 광폭 단계 배수
   dmg:{tail:1.15,claw:1.3,snack:.95,safe:1.25,bub:.5},   // 보스 공격력(e.dmg) 배수
   cap:.4,                          // 한 번에 최대 체력의 40% 를 넘지 않는다
+  hpMul:.25,                       // 🥵 [2026-10-12 사장님 「본체 체력이 너무 많아 60분 넘도록 못 잡는다 → 1+2 로」] 1:1 이 시작될 때 보스 체력에 곱한다(예전 약 563만 → 약 141만). 빌드마다 100초~25분+ 로 벌어지던 것을 줄인다
+  tire:{t0:150,every:30,step:.6,cap:5},   // 지친 보스 — 1:1 이 시작된 지 150초가 지나면 30초마다 받는 피해가 +60% 씩 쌓인다(최대 ×5) · 화력이 약한 빌드도 끝낼 수 있게(강한 빌드는 150초 안에 끝나 영향 없음)
   phaseHp:[.66,.33],               // 체력 66%·33% 아래에서 단계가 오른다
   phaseSec:100,                    // …그리고 1:1 이 시작된 지 100초·200초가 지나면 체력과 상관없이 그 단계로(0 이면 체력만) — 실측: 평범한 빌드는 5분에 보스 체력을 20% 남짓 깎아 체력만으로는 1단계만 보게 된다
   tail:{n:[1,2,3],R:250,w:.46},    // 부채꼴 반지름·반각(rad) · 연속 횟수(매번 그때의 내 쪽으로 새로 겨눈다)
@@ -2431,7 +2437,10 @@ const FIN_DUEL={
   deck:[['tail','claw','snack','bub'],['tail','claw','snack','shell','safe'],['tail','claw','snack','shell','safe','bub']]};
 const duelBoss=()=>{const b=S&&S.bossRef;return b&&b.on&&b.du&&!S.won?b:null;};   // 1:1 이 한창인 보스(없으면 null) — S 에 따로 표시를 두지 않는다(새 S 키 금지)
 const capHit=(e,k)=>Math.min(e.dmg*k,S.p.mhp*FIN_DUEL.cap);
-const duelDmg=(e,d)=>{const D=e.du,F=FIN_DUEL.shell;return D.iv>0?0:d*(D.sh?F.mul:D.wk>0?F.wmul:1);};   // 연출·단계 컷 무적 · 껍질 · 약점
+const tireN=D=>{const T=FIN_DUEL.tire,o=S.t-D.t0-T.t0;return o>0?1+Math.floor(o/T.every):0;};   // 지친 단계(0 = 아직)
+const tireMulN=n=>{const T=FIN_DUEL.tire;return n>0?Math.min(T.cap,1+T.step*n):1;};
+const tireMul=D=>tireMulN(tireN(D));   // 받는 피해 배수
+const duelDmg=(e,d)=>{const D=e.du,F=FIN_DUEL.shell;return D.iv>0?0:d*(D.sh?F.mul:D.wk>0?F.wmul:1)*tireMul(D);};   // 연출·단계 컷 무적 · 껍질 · 약점
 function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기장 + 연출
   const p=S.p,F=FIN_DUEL;let n=0;
   for(const x of enemies.a){if(!x.on||x===e)continue;x.on=false;if(n<24&&inV(x.x,x.y,20)){n++;EX.puff(x.x,x.y);}}   // 킬이 아니다: 처치 수·보석·드롭·경험치 없음(분열·소환 같은 쓰러질 때 코드도 안 돈다)
@@ -2443,6 +2452,7 @@ function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기�
   const R=Math.max(F.arena[0],Math.min(F.arena[1],Math.min(VW,VH)*F.arena[2]));
   let ux=e.x-p.x,uy=e.y-p.y;const ul=Math.hypot(ux,uy)||1;ux/=ul;uy/=ul;
   const cx0=p.x+ux*R*.2,cy0=p.y+uy*R*.2;e.x=cx0+ux*R*.45;e.y=cy0+uy*R*.45;   // 보스는 나와 마주 서는 자리로(옛 자리는 화면 밖)
+  e.hp*=F.hpMul;e.mhp*=F.hpMul;   // 체력 낮추기(위 hpMul)
   e.du={cx:cx0,cy:cy0,R,t0:S.t,in:F.intro,iv:F.intro,ph:0,cd:.6,cur:null,bag:[],last:'',z:[],sh:0,wk:0};e.bph=0;
   if(SPD.on)toast('⏩ 1:1 동안은 2배속이 잠시 꺼져요 — 예고를 또렷이 보세요');   // 예고(0.8초↑)는 게임 시간이라 2배속이면 사람 눈에 절반 — 1:1 동안만 1배속(끝나면 다시 2배속)
   invGrant('rev',F.intro);S.shake=.6;S.flash=.5;FX.glow=2.4;AU.play('bigboom');EX.dz(e.x,e.y,170);
@@ -2494,6 +2504,7 @@ function duelAct(e,dt,d,dx,dy){   // 1:1 보스 한 틱 — 돌려받는 값: �
   const rt=!SPD.sub;   // ⏩ 연출 시간(등장 연출·단계 컷의 무적)은 눈으로 읽는 시간이라 2배속의 두 번째 호출에서는 줄이지 않는다(배너·번쩍임과 같은 규칙) — 예고·패턴·껍질·약점·기절은 게임 시간(2배속이면 두 배 빨리)
   if(D.iv>0&&rt)D.iv-=dt;if(D.wk>0)D.wk-=dt;
   {const bx=e.x-D.cx,by=e.y-D.cy,bd=Math.hypot(bx,by),lim=D.R-e.r*.8;if(bd>lim){e.x=D.cx+bx/bd*lim;e.y=D.cy+by/bd*lim;}}   // 보스도 경기장 밖으로 못 나간다
+  {const tn=tireN(D),n0=D.tn|0;if(tn>n0){D.tn=tn;const m=tireMulN(tn);if(m>tireMulN(n0)+.001)toast('🥵 보스가 지쳐 간다 — 받는 피해 +'+Math.round((m-1)*100)+'%');}}
   if(D.in>0){if(rt)D.in-=dt;return 0;}
   if(dzTick(e,D,dt)||state!=='play')return 0;
   let c=D.cur;
@@ -2702,8 +2713,9 @@ function randLive(){const L=S.live;return L.length?L[Math.random()*L.length|0]:n
 //   🥏 냄비뚜껑 · ☄️ 운석 · 🔭 저격 · 🌀 블랙홀 · 🎵 리듬. 설계·수치표는 tooling/improve/ideas/P-6-weapons-v4.md.
 //   튜닝은 아래 W4 한 표에서만(개선 루프는 이 수치를 다시 만지지 않는다). 풀은 전부 상한이 있고 매 프레임 새로 만들지 않는다.
 // ============================================================================================================
-const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:6,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:48,len:260,cd:3},frost:{d:44,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
-  meteor:{d:5,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:78,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:5.5,R:90,iv:.75}};   // 🎵 리듬 너프(2026-10-02 · 무기 밸런스 점검) — 솔로 DPS 가 중앙값의 4~10배였다(적 전원 타격 · 쿨타임 없음 · 큰 박자 ×3 · 전체 버프까지): d 26→5.5 · R 100→90 · 큰 박자 ×3→×2.5 · 강화 피해 +8/12/16→+5/8/10%   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
+// ⚖️ [2026-10-12] 단일 대상 공용 무기 피해 상향: 낚싯대 48→60 · 망원경 저격 78→105(보스 최대 체력 비율 bp 는 그대로). 키보드 난타·사료·병아리는 실전 측정에서 이미 센 편이라 안 올렸다.
+const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:6,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:60,len:260,cd:3},frost:{d:44,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
+  meteor:{d:5,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:105,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:5.5,R:90,iv:.75}};   // 🎵 리듬 너프(2026-10-02 · 무기 밸런스 점검) — 솔로 DPS 가 중앙값의 4~10배였다(적 전원 타격 · 쿨타임 없음 · 큰 박자 ×3 · 전체 버프까지): d 26→5.5 · R 100→90 · 큰 박자 ×3→×2.5 · 강화 피해 +8/12/16→+5/8/10%   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
 const rkts=new Pool(24,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,R:46,tg:null,tsn:0,ev:0,t:0,fr:0}));      // 🎆 폭죽 로켓
 const pets=new Pool(8,()=>({x:0,y:0,a:0,tg:null,tsn:0,hit:0,ph:0,rt:0,big:0}));                        // 🐥 병아리 친구들(아군)
 const hooks=new Pool(4,()=>({x:0,y:0,ux:0,uy:0,d:0,len:0,ph:0,dmg:0,n:0,cap:0,c:new Array(12).fill(null),cs:new Array(12).fill(0),ev:0,id:0,stn:0,bm:0}));   // 🎣 낚싯줄
@@ -2897,12 +2909,15 @@ const DL3=L=>lvm(L,[[3,1.4],[5,1.4],[8,1.5]]);
 const DLS=L=>lvm(L,[[3,1.2],[5,1.2],[8,1.5]]);
 // 🎤 플레이브 노래부르기 — d ♪ 피해 · db ♬ 울림 피해 · cd 쿨타임 · iv 박자 간격 · sp ♪ 속도 · life ♪ 수명 · rng 소절 시작·겨냥 사거리 · fan ♪ 부채 간격(rad) · dlt 집중 때 2·3박 비껴 쏘는 각 · hit ♪ 판정 반지름 ·
 //   bsp ♬ 속도 · blife ♬ 수명 · bR 울림 반지름 · btk 울림 간격 · m 박당 ♪ 수 · cr 적중당 크레셴도 · crm 크레셴도 상한 · sl ♪ 넋 잃음 · bsl ♬ 넋 잃음 · reach ♬ 목표 거리
-const U3={sing:{d:4.5,db:1.3,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,cr:.04,crm:.6,sl:.45,bsl:.9,reach:280},
-  quill:{d:6.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
-  slime:{d:13,bd:7,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:14,cd:1.1,life:2.6,stun:.7},
-  jhin:{d:7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
+// ⚖️ [2026-10-12 사장님 지시 "배불배불 · 범위 좁은 탄막형 · 단일 무기 데미지라도 쎄야"] 피해(d · db · bd)만 올렸다 — 범위·쿨·개수·사거리는 그대로.
+//   노래부르기 4.5→5.9(울림 1.3→1.7) · 깃털 산탄 6.5→11.5 · 4발 사격 7→7.7 · 자크 슬라임 13→17(조각 7→9.1) · 포토카드 8→13 · 화해의 하트 14→18.
+//   근거: 무기 한 자루만 든 허수아비 밭(밀집·성김·보스) · 움직이는 아레나(실전 체력) · 정책 봇 측정 — 한 가지 지표만 보지 않았다. 집중겜·유미·카트 …는 약하지 않아서 그대로.
+const U3={sing:{d:5.9,db:1.7,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,cr:.04,crm:.6,sl:.45,bsl:.9,reach:280},
+  quill:{d:11.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
+  slime:{d:17,bd:9.1,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:16,cd:1.1,life:2.6,stun:.7},
+  jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
   snack:{d:11,cd:1.3,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.3,evKd:1.4,kd:.34,big:28,cs:260,cl:.36,cr:4,cap:80,frame:48,comp:2.5},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
-  pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
+  pcards:{d:13,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
 // 🛒 [2026-10-10 사장님 지시] 각성 카트(퍼스트클래스 서비스)도 수명이 있다 — 18초 동안 따라다니다 사라지고, 쿨타임(약 6초)마다 새 카트가 나온다.
