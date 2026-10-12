@@ -416,7 +416,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>⭐ 시그니처 유물: 캐릭터마다 전용 유물이 하나씩 있어요(그 캐릭터로 할 때만 유물 카드에 나와요).</li>
     <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥쌍둥이 이빨 · 배불배불 🎤 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥드래곤 브레스 · 유미 🍘 · 엄장신 📢 · 배고배고 📸). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
     <li>5분부터는 👹 <b>대형 트롤픽</b>(덩치 2배·체력 8배)이 섞여 나와요. 잡으면 💎·💣·🍗를 떨굴 때가 많아요.</li>
-    <li>무기는 6개·패시브는 6개까지(👼 부활은 칸을 안 써요 · 레벨 20부터 나와요). 패시브 6칸 중 <b>마지막 한 칸은 내 무기의 🗝 각성 열쇠 패시브(아직 없을 때)를 위해 남겨 둬요</b>. 무기 Lv8 + 그 무기의 <b>🗝 각성 열쇠</b> 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>(한 판에 3개까지)! 어떤 패시브가 어떤 무기를 강하게 하는지는 카드의 「✔ 받아요 · ◐ 일부만 · ✖ 안 받아요」 줄과 일시정지의 「🧩 내 무기 × 패시브」 표에서 봐요.</li>
+    <li>무기는 6개·패시브는 6개까지(👼 부활은 칸을 안 써요 · 레벨 20부터 나와요). <b>🗝 각성 열쇠 패시브는 패시브 6칸 밖의 열쇠 칸(3칸)에 따로 들어가요</b> — 일반 칸이 꽉 차도 열쇠는 받을 수 있어요. 무기 Lv8 + 그 무기의 <b>🗝 각성 열쇠</b> 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>(한 판에 3개까지)! 어떤 패시브가 어떤 무기를 강하게 하는지는 카드의 「✔ 받아요 · ◐ 일부만 · ✖ 안 받아요」 줄과 일시정지의 「🧩 내 무기 × 패시브」 표에서 봐요.</li>
     <li>🎁 보스 상자는 <b>내가 가진 능력만</b> 키워 줘요 — 가진 무기·패시브·유물·거래를 올리는 카드(강화·마스터·각성·초월)만 나와요. 새 무기·새 패시브·새 유물은 레벨업 카드에서 골라요.</li>
     <li>레벨업 카드가 마음에 안 들면 🎲 다시 뽑기(R) · 🚫 봉인(B) — 처음 3번씩, Lv10·Lv20 이 되면 1번씩 더 드려요(다시 뽑기는 보스 상자에서도 +1). 무기 조합을 맞추면 🔗 시너지가 켜져요. 공용 무기는 22종 — 🍳 프라이팬 · 🎆 폭죽 · 🐥 병아리 · 🎣 낚싯대 · 🧊 얼음땡 · 🥏 냄비뚜껑 · ☄️ 운석 · 🔭 저격 · 🌀 블랙홀 · 🎵 리듬도 나와요 <!-- 🗡 [2026-09-30 사장님 지시] --></li>
     <li>보스는 체력이 많아요 — 66%·33% 아래에서 페이즈가 바뀌고 기술이 빨라져요.</li>
@@ -1855,12 +1855,16 @@ function newRun(dly){
 }
 const pv=k=>S.ps[k]||0;
 const cardLv=()=>S.pendingLv>0?S.lv-S.pendingLv+1:S.lv;   // 🎁 지금 고르는 카드가 몇 레벨의 것인가 — 한꺼번에 여러 레벨이 쌓여도 Lv18·19 카드에는 부활이 안 나오게 하는 기준(상자·다시 뽑기처럼 쌓인 레벨이 없으면 지금 레벨)
-const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n;};   // 🎒 패시브 칸 수 — 👼 부활은 칸을 안 쓴다(보유 칸·후보 계산·화면 표기 모두 이걸 쓴다)
-// 🗝 [2026-10-10 사장님 지시 「운은 A」] 패시브 칸 예약 — 6칸 중 마지막 한 칸은 내 무기(시작 무기)의 각성 열쇠 패시브를 아직 안 가졌을 때 그 패시브만 들어올 수 있다
-//   (열쇠 패시브가 칸이 꽉 찬 뒤엔 영영 못 나와 각성이 막히던 일을 없앤다 — 측정: 잠김 20.8% → 0%, 준비 속도는 그대로). 열쇠를 이미 가졌거나 봉인했거나 부활(칸을 안 쓴다)이면 예약 없음
-const keyPassOf=()=>{const w=typeof CH!=='undefined'&&CH&&CH.w&&WEAP[CH.w],k=w&&w.pair;return k&&k!=='rev'&&PASS[k]?k:null;};
-const keyRsv=ban=>{const k=keyPassOf();return k&&!pv(k)&&pmax(k)>0&&!(ban||S.banned).includes(k)?k:null;};
-const KEY_RSV_NOTE=`패시브 ${SLOTP}칸 중 마지막 한 칸은 내 무기의 🗝 각성 열쇠 패시브(아직 없을 때)를 위해 남겨 둬요`;
+// 🗝 [2026-10-12 사장님 지시 「A로 가자」] 각성 열쇠 칸 — 열쇠 패시브(= 내가 가진 무기의 짝 패시브 WEAP[k].pair)는 패시브 6칸 밖의 「🗝 열쇠 칸」(MAXEV=3 과 같은 3칸)에 먼저 들어간다.
+//   열쇠 칸이 가득 찼거나 열쇠가 아닌 패시브면 일반 칸(SLOTP=6)으로 간다. 칸 소속은 저장하지 않고 S.ps(얻은 순서)·S.w 에서 매번 계산한다 — 이어하기 SIG·저장 모양은 그대로.
+//   각성한 무기도 S.w 에 남아 있으니 그 열쇠는 계속 열쇠 칸에 있다(각성 3번이 한도라 열쇠 칸 3개와 딱 맞는다) · 👼 부활은 어느 칸도 안 쓴다.
+//   일반 칸 수 = (부활 뺀 패시브 수) − min(3, 열쇠 패시브 수) — 무기를 얻어 열쇠가 늘면 일반 칸은 줄거나 그대로(절대 늘지 않는다 → 6칸 초과가 안 생긴다).
+const keyList=()=>{const o=[];for(const w in S.w){const k=WEAP[w]&&WEAP[w].pair;if(k&&k!=='rev'&&PASS[k]&&!o.includes(k))o.push(k);}return o;};   // 내 무기들의 열쇠 패시브(중복 없이 · 가졌든 아니든)
+const keyN=()=>{const kl=keyList();let n=0;for(const k in S.ps)if(kl.includes(k))n++;return Math.min(MAXEV,n);};   // 🗝 열쇠 칸 사용량 0~3
+const keyHeld=()=>{const kl=keyList(),o=[];for(const k in S.ps)if(kl.includes(k))o.push(k);return o.slice(0,MAXEV);};   // 열쇠 칸에 있는 패시브(얻은 순서 앞에서 3개)
+const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n-keyN();};   // 🎒 일반 패시브 칸 수 — 👼 부활과 🗝 열쇠 칸에 든 것은 안 센다(보유 칸·후보 계산·화면 표기 모두 이걸 쓴다)
+const isKeyNew=k=>k!=='rev'&&!pv(k)&&keyN()<MAXEV&&keyList().includes(k);   // 지금 새로 얻으면 열쇠 칸으로 가는가
+const KEY_NOTE=`🗝 각성 열쇠 패시브는 패시브 ${SLOTP}칸 밖의 열쇠 칸(${MAXEV}칸)에 따로 들어가요 — 일반 칸이 꽉 차도 받을 수 있어요`;
 const cdMul=()=>(1-(CH.cdr||0))*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
 const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+.15*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
@@ -1944,7 +1948,7 @@ function buildHtml(){
     h+=S.ev[k]?`<div class="bw ev">${d.ev.ic} <b>${d.ev.nm}</b> <span class="new">✨ 각성</span>${tn}</div>`
       :`<div class="bw">${d.ic} ${d.nm} <b>Lv ${L}</b>${tn}<small>🗝 각성 열쇠: Lv ${L}/${MAXLV}${L>=MAXLV?' (달성)':''} + ${pp.ic} ${pp.nm} ${pv(d.pair)?'(보유)':'(아직 없음)'}${L>=MAXLV&&pv(d.pair)?' → 다음 보스 상자!':''}</small></div>`;}
   h+=`<div class="muted">✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}</div>`;
-  h+=`<b>🎒 패시브 ${slotP()}/${SLOTP}</b>${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}${keyRsv()?' <span class="muted">(마지막 한 칸은 🗝 열쇠 자리)</span>':''}`+(pk.length?pk.map(fxPassRow).join(''):'<div class="bw">없음</div>')+(S.ramen?`<div class="bw">🍜 라면 ×${S.ramen}</div>`:'')+fxTableHtml();   // 🧩 [2026-10-10] 패시브마다 「효과 한 줄 + 내 무기 N개 적용」 · 접이식 「내 무기 × 패시브」 표
+  h+=`<b>🎒 패시브 ${slotP()}/${SLOTP} · 🗝 열쇠 ${keyN()}/${MAXEV}</b>${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}`+(pk.length?pk.map(fxPassRow).join(''):'<div class="bw">없음</div>')+(S.ramen?`<div class="bw">🍜 라면 ×${S.ramen}</div>`:'')+fxTableHtml();   // 🧩 [2026-10-10] 패시브마다 「효과 한 줄 + 내 무기 N개 적용」 · 접이식 「내 무기 × 패시브」 표
   {const rk=Object.keys(S.rel),tk=Object.keys(S.tr);if(rk.length||tk.length)h+=`<b>🏺 유물·거래</b><div class="bw">${rk.map(k=>`${REL[k].ic} ${REL[k].nm} Lv${S.rel[k]}${k==='still'?(S.shield?' · 지금 있음':' · 다음까지 약 '+Math.max(1,Math.ceil([40,30,20][S.rel.still-1]-S.stillT))+'초'):''}`).concat(tk.map(k=>`${TRD[k].ic} ${TRD[k].nm} ×${S.tr[k]}`)).join(' · ')}</div>`;}
   const sy=SYN.filter(y=>y.req.every(k=>wOk(k)||S.w[k])&&y.req.some(k=>S.w[k]));
   if(sy.length)h+=`<b>🔗 시너지</b>`+sy.map(y=>{const on=S.synOn.includes(y.k);return `<div class="bw${on?' ev':''}">${y.ic} ${y.nm} ${on?'✔':`${y.req.filter(k=>S.w[k]).length}/${y.req.length}`}<small>${y.req.map(k=>WEAP[k].ic).join('+')} — ${y.ds}</small></div>`;}).join('');
@@ -2044,7 +2048,7 @@ function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(�
   const M=Object.keys(SM).filter(k=>smn(k)>0).map(k=>chip('s:'+k,`${SM[k].ic} ${esc(SM[k].nm)} ${nb(`<b>×${smn(k)}</b><span class="mx">/${SM[k].cap}</span>`)}`));
   const Y=S.synOn.map(k=>SYN.find(y=>y.k===k)).filter(Boolean).map(y=>chip('y:'+y.k,`${y.ic} ${esc(y.nm)}<small>${esc(y.ds)}</small>`));
   return `<div class="own"><h3>📋 내가 가진 능력${up.size?'<span class="lg">▲ 금색 = 이번 카드로 올릴 수 있는 것</span>':''}</h3>`
-    +grp(`⚔ 무기 ${wk.length}/${SLOTW} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}`,W)+grp(`🎒 패시브 ${slotP()}/${SLOTP}${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}${keyRsv()?' <span class="muted">(마지막 한 칸은 🗝 열쇠 자리)</span>':''}`,P)
+    +grp(`⚔ 무기 ${wk.length}/${SLOTW} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}`,W)+grp(`🎒 패시브 ${slotP()}/${SLOTP} · 🗝 열쇠 ${keyN()}/${MAXEV}${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}`,P)
     +grp(`🏺 유물 ${R.length}`,R)+grp(`⚖ 거래 ${T.length}`,T)+grp(`🍴 작은 능력치 ${M.length}`,M)+grp(`🔗 켜진 시너지 ${Y.length}`,Y)+`</div>`;}
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pTop').innerHTML=diffHtml();$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
 function resume(){if(state==='evpick'){const rd=evReady();if(rd.length){openChest(rd[0]);return;}}   // ✨ 각성 선택창에서 resume() 가 불리면(자동 시험 봇 등) 첫 후보로 각성한다 — 사람은 버튼으로 고른다
@@ -2059,10 +2063,10 @@ function offers(n,excl,own){   // own=true: 🎁 보스 상자 — 안 가진 �
   // 🎲 [2026-09-30 사장님 지시] 카드 풀 — 기존 무기·패시브 카드(가중치 3)에 ✨ 각성/🏅 마스터·🌟 초월 카드가 함께 섞이고,
   //   🏺 유물(Lv24+)·⚖ 거래·작은 능력치·🎁 일회용(Lv30+)은 기존 카드가 얇아지면 채우고 후반에 섞인다. 늘 서로 다른 카드 n장.
   n=n||3;
-  const nw=Object.keys(S.w).length,np=slotP(),ban=new Set(S.banned),ex=new Set(excl||[]),rsv=keyRsv();   // rsv: 마지막 패시브 칸을 비워 둘 열쇠 패시브(없으면 null) — 다시 뽑기로 잠깐 빠진 것은 예약을 풀지 않는다
+  const nw=Object.keys(S.w).length,np=slotP(),ban=new Set(S.banned),ex=new Set(excl||[]);
   const P=[],add=(o,w)=>{if(!ban.has(o.k)&&!ex.has(o.k))P.push({o,w});};
   for(const k in WEAP){const l=S.w[k]||0;if(l>=MAXLV||!wOk(k))continue;if(!l&&(own||nw>=SLOTW))continue;add({t:'w',k,l},(WEAP[k].nw&&!l)?1.8:3);}   // 🗡 [2026-09-30 사장님 지시] 안 가진 새 무기는 가중치 1.8(23종이어도 초반 카드가 섞이게) — 가진 뒤 레벨업은 3
-  for(const k in PASS){const l=pv(k);if(l>=pmax(k))continue;if(own&&!l)continue;if(k==='rev'){if(cardLv()<REV_LV)continue;}else if(!l&&np>=SLOTP-(rsv&&k!==rsv?1:0))continue;add({t:'p',k,l},3);}   // 👼 부활: 칸이 꽉 차도 후보가 될 수 있고(칸 안 씀), Lv20 전에는 어느 카드 길(레벨업·보스 상자·다시 뽑기·봉인 보충)에도 안 나온다
+  for(const k in PASS){const l=pv(k);if(l>=pmax(k))continue;if(own&&!l)continue;if(k==='rev'){if(cardLv()<REV_LV)continue;}else if(!l&&np>=SLOTP&&!isKeyNew(k))continue;add({t:'p',k,l},3);}   // 👼 부활: 칸이 꽉 차도 후보가 될 수 있고(칸 안 씀), Lv20 전에는 어느 카드 길(레벨업·보스 상자·다시 뽑기·봉인 보충)에도 안 나온다
   const thin=P.length<3;   // 기존 카드가 바닥난 상태
   for(const k in S.w){if(S.w[k]<MAXLV||!TIERS[k])continue;const T=S.tier[k]||0;if(T<TCAP(k))add({t:'wt',k:'wt:'+k,w:k,l:T},S.ev[k]?3.4:2.4);}
   for(const k in PT){const l=S.pt[k]||0;if(pv(k)>0&&pv(k)>=pmax(k)&&l<PT[k].length)add({t:'pt',k:'pt:'+k,p:k,l},2.4);}
@@ -2099,7 +2103,7 @@ function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
     return {ic:d.ic,nm:d.nm,ty:o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`,ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
       +fxKeyHtml(o.k,el)+fxWeapHtml(o.k,el)+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
-  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
+  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':isKeyNew(o.k)?`🗝 새 열쇠 패시브 · 열쇠 칸 ${keyN()+1}/${MAXEV}`:`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
     return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화`,
@@ -2125,8 +2129,8 @@ function drawCards(){
   box.appendChild(x);
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
   const bl=cardLv(),bonus=BONUS_LV.includes(bl)?`🎁 Lv${bl} 보너스 — 다시 뽑기 +1 · 봉인 +1 받았어요 · `:'';   // 지금 고르는 카드가 보너스 레벨의 것이면 화면에서도 알린다(토스트는 카드 화면 뒤에 가려진다)
-  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;
-  {const kn=$('lvKey');if(kn){const on=!S.banMode&&!!keyRsv()&&slotP()>=SLOTP-2;kn.hidden=!on;kn.textContent=on?'🗝 '+KEY_RSV_NOTE:'';}}   // 🗝 칸이 거의 찼을 때(4칸~)만 한 줄 — 마지막 칸이 왜 비어 있는지 미리 알린다
+  $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · 🗝 열쇠 ${keyN()}/${MAXEV} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;
+  {const kn=$('lvKey');if(kn){const on=!S.banMode&&keyN()<MAXEV&&keyList().some(k=>!pv(k))&&slotP()>=SLOTP-2;kn.hidden=!on;kn.textContent=on?KEY_NOTE:'';}}   // 🗝 일반 칸이 거의 찼을 때(4칸~)만 한 줄 — 아직 못 얻은 열쇠가 있으면 따로 칸이 있다고 알린다
   $('lvOwn').innerHTML=statsHtml('l')+ownHtml();}   // ❤️ 현재/최대는 줄바꿈 때 쪼개지 않는다 · 🎮 [2026-10-09 사장님 지시] 카드 아래 「내가 가진 능력」 명단 + 접이식 능력치 표 — #choices 바깥이라 키보드 1~3 은 그대로 앞 세 카드를 누르고, 이어하기 복구도 drawCards 를 거치니 거기서도 보인다
 function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;

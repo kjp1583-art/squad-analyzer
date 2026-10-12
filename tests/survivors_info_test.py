@@ -435,7 +435,7 @@ async def sec_own(b, srv):
     await pg.evaluate("()=>{const x=__p6x;x.state='lvup';__X.openLvup()}")
     o = await pg.evaluate(OWN); S = o['S']
     check('[라] 꽉 찬 빌드 — 칩 키 목록(순서까지) = S 의 무기·패시브·유물·거래·작은 능력치·시너지 %d개' % len(o['chips']), [c['k'] for c in o['chips']] == expect_keys(S) and len(o['chips']) >= 20, ([c['k'] for c in o['chips']], expect_keys(S)))
-    check('[라] 갈래 제목: ⚔ 무기 6/6 · 각성 · 🎒 패시브 6/6 · 🏺 유물 · ⚖ 거래 · 🍴 작은 능력치 · 🔗 켜진 시너지', o['heads'][0].startswith('⚔ 무기 6/6 · ✨ 각성 1/3') and o['heads'][1].startswith('🎒 패시브 6/6')
+    check('[라] 갈래 제목: ⚔ 무기 6/6 · 각성 · 🎒 패시브 n/6 · 🗝 열쇠 n/3 · 🏺 유물 · ⚖ 거래 · 🍴 작은 능력치 · 🔗 켜진 시너지', o['heads'][0].startswith('⚔ 무기 6/6 · ✨ 각성 1/3') and re.match(r'🎒 패시브 \d/6 · 🗝 열쇠 \d/3', o['heads'][1])
           and any(h.startswith('🏺 유물 3') for h in o['heads']) and any(h.startswith('⚖ 거래 3') for h in o['heads']) and any(h.startswith('🍴 작은 능력치 3') for h in o['heads']) and any(h.startswith('🔗 켜진 시너지 %d' % len(S['syn'])) for h in o['heads']), o['heads'])
     byk = {c['k']: c['t'] for c in o['chips']}
     bad = []
