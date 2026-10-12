@@ -108,10 +108,11 @@ NONWEAPON = {'spd', 'hp', 'mag', 'arm', 'study', 'vamp', 'turtle', 'rev'}   # �
 # 표류 방지 — 어느 칸을 재나(w, 채널, 폼). 기본은 p 칸 전부 + 아래 대표 y/n 칸.
 REP_Y = [('feed', 'cd', 'b'), ('egg', 'cnt', 'b'), ('kbd', 'cnt', 'b'), ('shrimp', 'cnt', 'e'), ('can', 'spd', 'b'), ('rkt', 'spd', 'b'), ('tempo', 'spd', 'e'),
          ('potion', 'dur', 'b'), ('hole', 'dur', 'b'), ('ping', 'dur', 'e'), ('pan', 'area', 'b'), ('egg', 'area', 'b'), ('gacha', 'luck', 'b'), ('feed', 'spd', 'b'),
-         ('bash', 'cd', 'e'), ('spk', 'area', 'e'), ('quill', 'spd', 'e')]
+         ('bash', 'cd', 'e'), ('spk', 'area', 'e'), ('quill', 'spd', 'e'),
+         ('snack', 'cnt', 'b'), ('snack', 'cnt', 'e'), ('snack', 'spd', 'b'), ('snack', 'dur', 'b'), ('snack', 'dur', 'e')]   # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기·속사·끈기를 받는다
 REP_N = [('feed', 'spd', 'e'), ('feed', 'area', 'b'), ('feed', 'dur', 'b'), ('shrimp', 'cd', 'e'), ('shrimp', 'spd', 'e'), ('cart', 'dur', 'e'), ('tempo', 'cnt', 'b'),
-         ('jhin', 'cnt', 'b'), ('snack', 'cnt', 'b'), ('slime', 'cnt', 'b'), ('heart', 'cnt', 'b'), ('whop', 'cnt', 'b'), ('quill', 'area', 'b'), ('tempo', 'area', 'b'),
-         ('potion', 'luck', 'b'), ('whop', 'luck', 'b'), ('pcards', 'luck', 'e'), ('snack', 'spd', 'b'), ('chick', 'spd', 'b'), ('sushi', 'spd', 'b'), ('fryer', 'dur', 'b'),
+         ('jhin', 'cnt', 'b'), ('slime', 'cnt', 'b'), ('heart', 'cnt', 'b'), ('whop', 'cnt', 'b'), ('quill', 'area', 'b'), ('tempo', 'area', 'b'),
+         ('potion', 'luck', 'b'), ('whop', 'luck', 'b'), ('pcards', 'luck', 'e'), ('chick', 'spd', 'b'), ('sushi', 'spd', 'b'), ('fryer', 'dur', 'b'),
          ('chick', 'area', 'b'), ('snipe', 'area', 'b'), ('gacha', 'cnt', 'b'), ('kbd', 'spd', 'b')]
 # 칸마다 특별한 장면이 필요한 경우(칸 설명에 적힌 조건): 용 변신 · 마스터 단계 · 한 대 맞기
 OVERRIDE = {('kbd', 'cnt', 'e'): dict(arena='rays'), ('kbd', 'cnt', 'b'): dict(arena='rays'),
@@ -184,7 +185,7 @@ def cell_list(fx):
     return cells
 def pick_cells(fx):
     allc = cell_list(fx)
-    if FULL: return [c for c in allc]
+    if FULL: return [c for c in allc if not os.environ.get('FX_WEAP') or c[0] in os.environ['FX_WEAP'].split(',')]   # FX_WEAP=snack,chick 처럼 무기를 좁혀 전 칸을 잴 수 있다(한 무기만 고쳤을 때)
     sel = {(w, ch, f) for (w, ch, f, s) in allc if s == 'p'} | set(REP_Y) | set(REP_N)
     return [c for c in allc if (c[0], c[1], c[2]) in sel]
 
@@ -612,9 +613,12 @@ async def main():
                           ('wifi', 'cd', 'b'): ('p', 'y'), ('wifi', 'cd', 'e'): ('p', 'y'), ('lid', 'cd', 'b'): ('p', 'y'), ('lid', 'cd', 'e'): ('p', 'y'),
                           ('gacha', 'luck', 'e'): ('p', 'y'), ('quill', 'cnt', 'e'): ('p', 'y'), ('cart', 'cd', 'e'): ('p', 'y'), ('cart', 'dur', 'e'): ('n', 'y'),
                           ('twin', 'dur', 'b'): ('p', 'y'), ('twin', 'dur', 'e'): ('p', 'y'), ('sing', 'cnt', 'b'): ('p', 'y'), ('sing', 'cnt', 'e'): ('p', 'y'),
-                          ('stamp', 'cd', 'b'): ('p', 'y'), ('stamp', 'cd', 'e'): ('p', 'y'), ('chain', 'cd', 'b'): ('p', 'y'), ('chain', 'cd', 'e'): ('p', 'y')}
+                          ('stamp', 'cd', 'b'): ('p', 'y'), ('stamp', 'cd', 'e'): ('p', 'y'), ('chain', 'cd', 'b'): ('p', 'y'), ('chain', 'cd', 'e'): ('p', 'y'),
+                          # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기(부스러기 +1/겹) · 속사(스틱·부스러기 속도) · 끈기(부스러기 수명) · 광역(부스러기 크기)를 받는다. 각성의 곱빼기는 부스러기 상한(56발)에 막혀 p
+                          ('snack', 'cnt', 'b'): ('n', 'y'), ('snack', 'cnt', 'e'): ('n', 'p'), ('snack', 'spd', 'b'): ('n', 'y'), ('snack', 'spd', 'e'): ('n', 'y'),
+                          ('snack', 'dur', 'b'): ('n', 'y'), ('snack', 'dur', 'e'): ('n', 'y'), ('snack', 'area', 'b'): ('n', 'p')}
                 print('  바뀐 칸 %d개: %s' % (len(flips), ', '.join('%s/%s/%s %s→%s' % (w, c, f, a, b_) for (w, c, f), (a, b_) in sorted(flips.items()))))
-                check('표에서 바뀐 칸 = 지시서가 말한 %d칸뿐(전부 n/p → y) · 다른 칸은 글자 하나도 안 바뀌었다' % len(EXPECT), flips == EXPECT, (set(flips) ^ set(EXPECT)))
+                check('표에서 바뀐 칸 = 지시서가 말한 %d칸뿐(n/p → y, 맛동산 개편 2칸은 → p) · 다른 칸은 글자 하나도 안 바뀌었다' % len(EXPECT), flips == EXPECT, (set(flips) ^ set(EXPECT)))
                 # (2) 패시브가 0 일 때 동작은 기준 커밋과 비트까지 같다 (카트 각성만 의도적으로 달라진다 — 아래 따로)
                 async def both(cfg):
                     ra = await pgo.evaluate('(c)=>window.__fxm.run(c)', cfg); rb = await pg.evaluate('(c)=>window.__fxm.run(c)', cfg); return ra, rb

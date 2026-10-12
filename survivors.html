@@ -854,7 +854,7 @@ const CHARS=[
   {k:'ddo',boss:1,e:'☠️',nm:'클랜마스터 또뀨',sn:'또뀨',tag:'진실의 방',ds:'「진실의 방」 — 10초마다 내 주위에 원형 감옥: 안에 든 적을 3초 묶고 지속 피해(보스는 묶이지 않고 느려진다). ⛓ 진실의 사슬 Lv2(고유 무기 · 적을 묶고 사슬 위 전부 지속 피해) 시작.',w:'chain',wl:2,room:1,un:bossUn('ddo','30분 보스 또뀨')},
   {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 잃은 체력 1%당 피해 +1%(최대 +60%), 맞으면 짧게 돌진하며 잠깐 무적(0.5초 · 5초에 한 번). 🥊 씩씩 박치기 Lv2(고유 무기 · 적을 향해 돌진) 시작.',w:'ram',wl:2,rage:.6,dash:1,un:bossUn('tw','40분 보스 태웅')},
   // 🍘 [2026-10-07 사장님 지시] 맛동산 상점(1개=1천원) 캐릭터 2명 — 서버 구매로만 열린다(shop:1)
-  {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 경험치 줍는 범위 +40% · 5초마다 가장 가까운 소모 아이템(🍗·💎·💣) 1개를 자동으로 줍는다. 🍘 맛동산 투척(고유 무기 · 던지면 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,auto:5,un:SHOPUN},
+  {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 경험치 줍는 범위 +40% · 5초마다 가장 가까운 소모 아이템(🍗·💎·💣) 1개를 자동으로 줍는다. 🍘 맛동산 투척(고유 무기 · 스틱이 적을 꿰뚫고 날아가며 맞을 때마다 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,auto:5,un:SHOPUN},
   {k:'eom',img:1,shop:1,e:'📢',nm:'엄장신',tag:'엄!',q:'엄!',ds:'「엄!」 — 특별한 능력 없이 이 무기 하나로 승부. 📢 엄! 외침(고유 무기 · 외칠 때마다 범위 안의 적이 피해를 입고 뒤로 밀려난다) 시작.',w:'eom',un:SHOPUN},
   {k:'yj',boss:1,e:'🐲',nm:'쫑의 군주 용조련사',sn:'용조련사',tag:'쫑의 군주',ds:'「쫑의 군주」 — 최대 HP +40, 받는 피해 -2, 이동속도 -10%. 🔥 드래곤 브레스 Lv2(전용 무기 · 가까운 적을 자동으로 겨눠 원뿔 불길) 시작.',w:'breath',wl:2,hp:40,arm:2,spd:-.1,un:bossUn('yj','50분 보스 용조련사')},
   // 📸 [2026-10-07 사장님 지시] 신규 보스 배고배고 — 38분에 나오고, 판에서 처치하면 플레이어블로 열린다(sr·ddo·tw·yj 와 같은 경로 · 봇 P6_UNLOCK_KEYS 에 'bgb')
@@ -1021,8 +1021,8 @@ const WEAP={
     ds:['사슬이 가까운 적에게 뻗어 묶는다(2.6초) — 사슬이 지나는 적 전부 지속 피해, 묶인 적은 느려진다(또뀨 전용)','사슬 길이 +15%','피해 +40%','사슬 +1','피해 +40% · 쿨타임 -15%','지속 +0.6초','사슬 +1','피해 +50% · 쿨타임 -15%']},
   ram:{only:'tw',rl:'고유 · 돌진',ic:'🥊',nm:'씩씩 박치기',pair:'arm',ev:{ic:'💢',nm:'씩씩 폭주',ds:'쿨타임 0.7배 · 항상 두 번 돌진 · 충격파 1.4배 · 피해 1.15배'},
     ds:['가까운 적을 향해 머리부터 돌진한다 — 지나는 길의 적을 들이받고 도착하면 충격파(돌진 중 아주 잠깐 무적 · 태웅 전용)','돌진 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','돌진 거리 +15% · 충격파 +30%','쿨타임 -15%','피해 +50% · 연속 두 번 돌진']},
-  snack:{only:'yumi',rl:'고유 · 유도 파편',ic:'🍘',nm:'맛동산 투척',pair:'mag',ev:{ic:'🍪',nm:'맛동산 대잔치',ds:'스틱 +1 · 부스러기 +4 · 부서질 때 작게 터진다 · 피해 1.15배'},
-    ds:['맛동산 스틱을 던진다(적을 살짝 쫓아간다) — 맞으면 부스러기 6개가 사방으로 튄다(맛동산장인 유미 전용)','부스러기 +1','피해 +20% · 스틱 +1','쿨타임 -15%','피해 +20%','스틱 +1','부스러기 +1 · 쿨타임 -15%','피해 +50%']},
+  snack:{only:'yumi',rl:'고유 · 관통 · 연쇄 파편',ic:'🍘',nm:'맛동산 투척',pair:'mag',ev:{ic:'🍪',nm:'맛동산 대잔치',ds:'스틱 +1 · 관통 무제한 · 맞을 때마다 부스러기 +6(부스러기 피해 1.4배) · 끝에서 크게 터진다 · 피해 1.3배'},
+    ds:['맛동산 스틱을 던진다 — 적을 꿰뚫고 5마리까지 날아가며, 맞을 때마다 부스러기 3개가 사방으로 튄다(맛동산장인 유미 전용)','부스러기 +1','피해 +20% · 스틱 +1','쿨타임 -15% · 부스러기 +1','피해 +20%','스틱 +1 · 부스러기 +1','부스러기 +1 · 쿨타임 -15%','피해 +50% · 부스러기 +1']},
   eom:{only:'eom',rl:'고유 · 충격 파동',ic:'📢',nm:'엄! 외침',pair:'area',ev:{ic:'🗣',nm:'개엄!',ds:'「개엄!」 하고 한 방에 크게 외친다 — 범위 1.2배 · 밀치는 힘 1.2배 · 피해 2배'},
     ds:['4초마다 \'엄!\' 하고 외친다 — 범위 안의 적이 피해를 입고 뒤로 짧게 밀려난다(보스는 안 밀리고 아주 잠깐 느려지기만 · 엄장신 전용)','범위 +10%','피해 +10% · 쿨타임 -10%','범위 +10%','피해 +10% · 쿨타임 -10%','범위 +10%','쿨타임 -10%','범위 +10% · 피해 +15%']},
   pcards:{only:'bgb',rl:'고유 · 회전 부채꼴',ic:'📸',nm:'플레이브 포토카드',pair:'luck',ev:{ic:'✨',nm:'팬싸인회',ds:'뒤쪽으로도 카드가 날아간다 — 카드 +3 · 피해 1.15배 · 더 자주'},
@@ -1094,7 +1094,7 @@ const PFX={
   stamp:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
   chain:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'np',luck:'nn'},
   ram:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'pp',luck:'nn'},
-  snack:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'np',luck:'nn'},
+  snack:{cd:'yy',cnt:'yp',spd:'yy',dur:'yy',area:'pp',luck:'nn'},
   eom:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
   pcards:{cd:'yy',cnt:'yy',spd:'yy',dur:'nn',area:'np',luck:'nn'},
   sing:{cd:'yy',cnt:'yy',spd:'yy',dur:'nn',area:'pp',luck:'nn'},
@@ -1110,7 +1110,8 @@ const PFXN={
   'jhin.area':'큰 탄만',
   'chain.area':['','끊길 때 폭발만'],
   'ram.area':'도착 충격파만',
-  'snack.area':['','각성 때 터지는 폭발만'],
+  'snack.cnt':['','부스러기가 한꺼번에 56발에 닿으면 덜 늘어요'],
+  'snack.area':'부스러기 크기·각성 폭발만',
   'pcards.area':['','각성 5단계 반짝 폭발만'],
   'sing.area':'고음(♬)만',
   'lid.area':'절반 효과',
@@ -1286,7 +1287,7 @@ const TIERS={
   stamp:[['폭발 범위 +7%',{a:.07}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['터진 뒤 0.5초에 여진(피해 50%)',{echo:1}],['도장 +1',{n:1}]],
   chain:[['사슬 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['지속 +1초',{life:1}],['끊길 때 폭발 (각성이 이미 가진 효과 — 추가 효과 없음)',{boom:1}]],
   ram:[['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['충격파 범위 +7%',{a:.07}],['들이받은 적이 0.6초 기절한다',{stun:1}],['0.5초 뒤 한 번 더 돌진',{echo:1}]],
-  snack:[['부스러기 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['부스러기 관통 +1',{pc:1}],['0.35초 뒤 부스러기가 한 번 더 튄다',{echo:1}]],
+  snack:[['맞을 때마다 부스러기 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['부스러기 관통 +1',{pc:1}],['스틱이 끝에서 한 번 더 크게 터진다(부스러기 2배)',{echo:1}]],
   pcards:[['카드 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['카드 관통 +1',{pc:1}],['맞은 자리에서 카드가 반짝 터진다(피해 40%)',{pop:1}]],
   sing:[['음표 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['음표 관통 +1 · 피해 +8% · 넋 잃음 +0.2초',{pc:1,d:.08,life:.2}],['고음이 끝나면 음표 6개가 사방으로 흩어진다(피해 50%)',{frag:1}]],
   eom:[['범위 +7%',{a:.07}],['쿨타임 -7%',{c:.07}],['피해 +12%',{d:.12}],['0.4초 뒤 한 번 더 외친다(피해 60%)',{echo:1}],['밀치는 힘 +25% · 범위 +7%',{life:.5,a:.07}]],
@@ -2587,7 +2588,8 @@ const U3={sing:{d:4.5,db:1.3,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   quill:{d:6.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:13,bd:7,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:14,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
-  snack:{d:11,cd:1.3,rng:320},pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
+  snack:{d:11,cd:1.3,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.3,evKd:1.4,kd:.34,big:28,cs:260,cl:.36,cr:4,cap:56,frame:24},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
+  pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
 // 🛒 [2026-10-10 사장님 지시] 각성 카트(퍼스트클래스 서비스)도 수명이 있다 — 18초 동안 따라다니다 사라지고, 쿨타임(약 6초)마다 새 카트가 나온다.
@@ -2613,6 +2615,10 @@ const aim3=rng=>{const t=nearest();if(t&&(t.x-S.p.x)**2+(t.y-S.p.y)**2<rng*rng)r
 // 🧺 [2026-10-07 제보] 고유 무기가 필드 아이템(와드·사료 포대·포로 간식 상자)을 못 때리던 곳 — 닿은 아이템을 때리고 true
 function propTouch(x,y,r,d){for(const q of props.a)if(q.on&&(q.x-x)**2+(q.y-y)**2<(PROP[q.k].r+r)**2){hitProp(q,d);return true;}return false;}
 function f3(o){const f=S.x3.f;if(f.length>=F3CAP)return null;f.push(o);return o;}
+const SNK={n:0,f:0};   // 🍘 맛동산 부스러기 — 지금 떠 있는 수(n) · 이번 프레임에 새로 만든 수(f): 매 프레임 weapons3 가 다시 센다(파생값 · 저장하지 않는다)
+function snkPop(o,x,y,mul){const U=U3.snack;let m=Math.round(o.m*mul);const room=Math.min(U.cap-SNK.n,U.frame-SNK.f);if(room<=0)return;if(m>room)m=room;   // 상한을 넘으면 개수를 줄이거나 안 만든다(풀이 꽉 차 f3 가 null 을 줘도 조용히 멈춘다)
+  const a0=Math.random()*6.2832,st=6.2832/m;
+  for(let j=0;j<m;j++){if(!blt('snack',x,y,a0+j*st,o.cs||U.cs,o.cl||U.cl,o.sd,o.pc,o.cr||U.cr,'#fff6df','rgba(190,230,255,.5)'))break;SNK.n++;SNK.f++;}}   // 스틱이 맞은 그 자리(적의 겉면)에서 사방으로 — 안쪽으로 튄 것은 맞은 적(보스 포함)도 때린다
 function blt(src,x,y,a,v,life,d,pc,r,c,g,o){const b={k:'b',src,x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life,l0:life,d,pc,r,c,g,fall:0,ex:0,exd:0,h:null,big:0};if(o)Object.assign(b,o);return f3(b);}
 // 🛡 방패 밀치기 — 앞쪽 직사각형(길이 len · 반폭 hw) 안의 적을 u 방향으로 밀쳐 낸다
 function bashHit(ux,uy,len,hw,d,stn){const p=S.p;
@@ -2755,11 +2761,12 @@ function weapons3(dt,cm,MT,AR,AM){
       if(!b&&!got&&cm<1){for(const e of S.live){if(!e.on)continue;const q=(e.x-p.x)**2+(e.y-p.y)**2;if(q<bd){bd=q;b=e;}}}   // 🍀 [2026-10-10 사장님 지시] 공격속도가 붙었는데 새로 묶을 적이 하나도 없으면 이미 묶인 가장 가까운 적을 한 번 더 — 안 그러면 쿨타임이 줄어도 사슬이 끊길 때까지 기다려 이득이 없었다(공격속도가 없으면 예전 그대로)
       if(!b)break;b.ch3=S.t+life;got++;f3({k:'ch',e:b,sn:b.sn,life,T:life,tk:.1,d,rng,bm:(t.boom||ev)?1:0,ev:ev?1:0,lx:b.x,ly:b.y});}
     if(got){AU.play('chain');S.cd.chain=U3.chain.cd*lvm(L,[[5,.85],[8,.85]])*cm*(1-t.c);}else S.cd.chain=.4;}
-  // 🍘 맛동산 투척 → 🍪 맛동산 대잔치 — 스틱이 적을 살짝 쫓아가 맞으면 부스러기 파편이 사방으로
+  // 🍘 맛동산 투척 → 🍪 맛동산 대잔치 — [2026-10-12 사장님 지시 "1차투사체가 관통능력을 가지게끔, 맞으면서 2차투사체가 왕창 튀어나오는 구조(디아블로2 라이트닝 퓨리 같은)"]
+  //   스틱은 맞아도 사라지지 않고 적을 꿰뚫고 날아간다(적 5마리 · 각성은 무제한 · 같은 적은 한 번만 — 맞은 적의 sn 을 hs 에 적는다) · 맞는 순간마다 그 적 자리에서 부스러기가 사방으로 튄다(부스러기는 다시 튀지 않는다 — 1세대만)
   L=S.w.snack||0;
   if(L&&(S.cd.snack-=dt)<=0){ev=S.ev.snack;t=TK('snack');tg=aim3(U3.snack.rng);
-    if(tg){const n=1+(L>=3)+(L>=6)+(ev?1:0),d=U3.snack.d*DLS(L)*MT*(ev?1.15:1)*(1+t.d),m=6+(L>=2)+(L>=7)+t.n+(ev?4:0),base=Math.atan2(tg.y-p.y,tg.x-p.x);
-      for(let i=0;i<n;i++){const a=base+(i-(n-1)/2)*.4;f3({k:'sn',x:p.x,y:p.y,vx:Math.cos(a)*380,vy:Math.sin(a)*380,life:1.1,d,m,sd:d*.55,pc:t.pc,e:null,sn:0,ev:ev?1:0,echo:t.echo});}
+    if(tg){const U=U3.snack,n=1+(L>=3)+(L>=6)+(ev?1:0),d=U.d*DLS(L)*MT*(ev?U.evD:1)*(1+t.d),m=U.kL[L-1]+AM+t.n+(ev?U.evK:0),base=Math.atan2(tg.y-p.y,tg.x-p.x),sp=U.sp*PS(),cs=U.cs*PS(),cl=U.cl*DUR(),cr=U.cr*AR;
+      for(let i=0;i<n;i++){const a=base+(i-(n-1)/2)*.35;f3({k:'sn',x:p.x,y:p.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:U.life,d,m,sd:d*U.kd*(ev?U.evKd:1),pc:t.pc,ps:ev?999:U.pierce,hs:[],fl:0,cs,cl,cr,ev:ev?1:0,echo:t.echo});}
       AU.play('snack');S.cd.snack=U3.snack.cd*lvm(L,[[4,.85],[7,.85]])*cm*(1-t.c);}
     else S.cd.snack=0;}
   // 📢 엄! 외침 → 🗣 개엄! — [2026-10-09 사장님 지시 "각성하면 범위·공포 때문에 일반몹이 접근도 못 하는 사기 유틸인데 데미지는 끝내주게 약하다 → 데미지 상향 · 공포 대신 짧은 넉백 · 범위 적당히 하향"]
@@ -2834,6 +2841,7 @@ function weapons3(dt,cm,MT,AR,AM){
       S.cd.sing=U.cd*lvm(L,[[4,.9],[8,.9]])*cm*(1-t.c)*(ev?.9:1);}
     else S.cd.sing=0;}
   // ── 엔티티 갱신(뒤에서부터 · 끝난 건 맨 뒤 것과 바꿔 치우기)
+  if(S.w.snack){let c=0;for(const q of f)if(q.k==='b'&&q.src==='snack')c++;SNK.n=c;SNK.f=0;}   // 🍘 부스러기 상한용 — 맛동산을 든 판에서만 센다
   for(let i=f.length-1;i>=0;i--){const o=f[i];let dead=false;
     switch(o.k){
       case 'b':{o.x+=o.vx*dt;o.y+=o.vy*dt;o.life-=dt;
@@ -2921,14 +2929,14 @@ function weapons3(dt,cm,MT,AR,AM){
         if(o.life<=0){singPulse(o,true);dead=true;break;}
         if(o.tk<=0){o.tk+=o.bt;singPulse(o,false);}
         break;}
-      case 'sn':{o.life-=dt;
-        if(!(o.e&&o.e.on&&o.e.sn===o.sn)){let b=null,bd=260*260;for(const e of S.live){if(!e.on)continue;const q=(e.x-o.x)**2+(e.y-o.y)**2;if(q<bd){bd=q;b=e;}}o.e=b;o.sn=b?b.sn:0;}
-        if(o.e){const dx=o.e.x-o.x,dy=o.e.y-o.y,dd=Math.hypot(dx,dy)||1,k=Math.min(1,4*dt);o.vx+=(dx/dd*380-o.vx)*k;o.vy+=(dy/dd*380-o.vy)*k;}
-        o.x+=o.vx*dt;o.y+=o.vy*dt;let hit=o.life<=0;
-        if(!hit)for(const e of S.live)if(e.on&&(e.x-o.x)**2+(e.y-o.y)**2<(e.r+8)**2){h3(e,o.d,'snack');hit=true;break;}
-        if(!hit&&propTouch(o.x,o.y,8,o.d))hit=true;   // 필드 아이템에 맞아도 부스러기가 튄다
-        if(hit){const burst=()=>{for(let j=0;j<o.m;j++)blt('snack',o.x,o.y,j*6.2832/o.m+Math.random()*.4,300,.4,o.sd,o.pc,4,'#fff6df','rgba(190,230,255,.5)');};
-          burst();if(o.ev)bang(o.x,o.y,50*AR,o.d*.6,'snack','mine',0);if(o.echo)S.dq.push({t:.35,f:()=>{if(S.w.snack)burst();}});dead=true;}
+      case 'sn':{o.life-=dt;o.x+=o.vx*dt;o.y+=o.vy*dt;if(o.fl>0)o.fl-=dt;let end=o.life<=0;   // 🍘 관통 스틱 — 적마다 한 번씩 때리고 그 자리에서 부스러기를 터뜨린다
+        const hs=o.hs||(o.hs=[]);
+        if(!end)for(const e of S.live){if(!e.on||(e.x-o.x)**2+(e.y-o.y)**2>=(e.r+8)**2||hs.includes(e.sn))continue;
+          hs.push(e.sn);h3(e,o.d,'snack');if(e.r>=U3.snack.big)snkPop(o,o.x+(e.x-o.x)*.6,o.y+(e.y-o.y)*.6,1);else snkPop(o,o.x,o.y,1);o.fl=.12;AU.play('snack');   // 덩치 큰 적(보스·엘리트)은 속에서 터져 부스러기가 그 적도 때린다 · 작은 적은 맞은 자리에서 사방으로
+          
+          o.ps=(o.ps===undefined?1:o.ps)-1;if(o.ps<=0){end=true;break;}}
+        if(!end&&propTouch(o.x,o.y,8,o.d)){snkPop(o,o.x,o.y,1);end=true;}   // 필드 아이템에 맞아도 부스러기가 튄다
+        if(end){if(o.echo||o.ev)snkPop(o,o.x,o.y,2);if(o.ev)bang(o.x,o.y,60*AR,o.d*.8,'snack','mine',0);dead=true;}   // 끝에서 한 번 더 크게(마스터 5단계) · 각성은 작은 폭발도
         break;}
       case 'pc':{o.x+=o.vx*dt;o.y+=o.vy*dt;o.life-=dt;o.rot+=dt*18;if(o.life<=0){dead=true;break;}
         if(propTouch(o.x,o.y,9,o.d)){if(o.pop)bang(o.x,o.y,34*AR,o.d*.4,'pcards','mine',0);dead=true;break;}   // 필드 아이템에 맞아도 깬다
@@ -4043,8 +4051,10 @@ function drawW3(p){const X=S.x3;if(!X)return;
         if(!LOW){cx.lineWidth=1.2;cx.strokeStyle='rgba(255,255,255,'+(.9*(1-u)).toFixed(2)+')';cx.stroke();}
         SPX.blitRot(SPX.hn,o.x,o.y,20*sz,Math.sin(S.t*8+o.x*.01)*.1);
         if(o.pu>0){cx.beginPath();cx.arc(o.x,o.y,o.R*(1.1-o.pu),0,7);cx.fillStyle='rgba(235,225,255,'+Math.min(.4,o.pu*2.5).toFixed(2)+')';cx.fill();}break;}
-      case 'sn':{if(!inV(o.x,o.y,30))break;const a=S.t*22,c=Math.cos(a)*9,sn=Math.sin(a)*9;
-        cx.beginPath();cx.moveTo(o.x-c,o.y-sn);cx.lineTo(o.x+c,o.y+sn);cx.lineWidth=8;cx.strokeStyle='rgba(150,225,255,.45)';cx.stroke();cx.lineWidth=4.5;cx.strokeStyle='#fff3d6';cx.stroke();break;}
+      case 'sn':{if(!inV(o.x,o.y,60))break;const v=Math.hypot(o.vx,o.vy)||1,ux=o.vx/v,uy=o.vy/v;   // 길게 꿰뚫는 궤적 + 맛동산 막대
+        cx.beginPath();cx.moveTo(o.x-ux*64,o.y-uy*64);cx.lineTo(o.x,o.y);cx.lineWidth=7;cx.strokeStyle='rgba(150,225,255,.26)';cx.stroke();
+        cx.beginPath();cx.moveTo(o.x-ux*13,o.y-uy*13);cx.lineTo(o.x+ux*13,o.y+uy*13);cx.lineWidth=8;cx.strokeStyle='rgba(150,225,255,.45)';cx.stroke();cx.lineWidth=4.5;cx.strokeStyle='#fff3d6';cx.stroke();
+        if(o.fl>0){cx.beginPath();cx.arc(o.x,o.y,10+o.fl*90,0,7);cx.fillStyle='rgba(255,246,223,'+(o.fl*5).toFixed(2)+')';cx.fill();}break;}   // 맞는 순간 작은 번쩍임
       case 'pc':{if(!inV(o.x,o.y,30))break;cardDraw(o.x,o.y,o.rot,o.c,null,1.15);break;}
       case 'bs':{const u=1-o.life/o.T,pr=Math.min(1,u*2.2);em3('🛡',o.x+o.ux*o.len*pr,o.y+o.uy*o.len*pr,32);break;}
       case 'tw':{if(!inV(o.x,o.y,o.len))break;const u=1-o.life/o.T,al=Math.min(1,o.life/o.T*1.6),a0=Math.atan2(o.uy,o.ux),sd=o.side?-1:1,a1=a0-sd*.95+sd*1.9*Math.min(1,u*2),rr=o.len*(.55+.45*Math.min(1,u*2.2));
