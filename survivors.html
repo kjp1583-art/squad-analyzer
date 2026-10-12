@@ -442,6 +442,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="lgd"><span class="rd">🔴 빨간 표시(점선·빗금)</span> = 위험(적) · <span class="bl">🔵 파란/하늘색</span> = 내 공격</div>
   <div id="pInfo" class="muted"></div><button class="btn" id="resumeBtn">계속하기</button><button class="btn g" id="quitBtn">🏳 포기하고 결과 보기</button></div></div>
 
+<div class="ov" id="evpick"><div class="box"><h2>✨ 각성할 무기를 골라요</h2><div class="muted" style="margin-bottom:6px">각성은 한 판에 3개까지 — 무엇을 각성할지가 빌드예요. 아래 중 하나를 고르면 상자가 열려요.</div><div id="evpickList"></div></div></div>
 <div class="ov" id="chest"><div class="box"><h2 id="chestT">🎁 보스 상자</h2><div id="chestList"></div><button class="btn" id="chestOk">좋아!</button></div></div>
 
 <div class="ov" id="revive"><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="rvT" aria-describedby="rvD" tabindex="-1">
@@ -1859,7 +1860,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)return;if(
 addEventListener('blur',()=>{if(state==='play')pauseGame();});
 
 // ---------- 화면 전환 ----------
-const ovs=['title','lvup','pause','result','chest','revive'];
+const ovs=['title','lvup','pause','result','chest','revive','evpick'];
 function show(id){for(const o of ovs)$(o).classList.toggle('on',o===id);$('hud').style.display=(id==='title'||id==='result')?'none':'block';}
 let LASTDLY=false;
 function renderDaily(){const el=$('dailyInfo');if(!el)return;const d=kstDate(),ds=dailyGet(),done=(ds.date===d&&ds.done)||(ME&&ME.daily_done&&ME.daily_date===d);
@@ -1997,7 +1998,8 @@ function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(�
     +grp(`⚔ 무기 ${wk.length}/${SLOTW} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}`,W)+grp(`🎒 패시브 ${slotP()}/${SLOTP}${S.ps.rev?' <span class="muted">(👼 부활은 칸 안 씀)</span>':''}${keyRsv()?' <span class="muted">(마지막 한 칸은 🗝 열쇠 자리)</span>':''}`,P)
     +grp(`🏺 유물 ${R.length}`,R)+grp(`⚖ 거래 ${T.length}`,T)+grp(`🍴 작은 능력치 ${M.length}`,M)+grp(`🔗 켜진 시너지 ${Y.length}`,Y)+`</div>`;}
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pTop').innerHTML=diffHtml();$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
-function resume(){if(state==='revive'||RES.stale()||RES.shopBad()||RES.broken())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
+function resume(){if(state==='evpick'){const rd=evReady();if(rd.length){openChest(rd[0]);return;}}   // ✨ 각성 선택창에서 resume() 가 불리면(자동 시험 봇 등) 첫 후보로 각성한다 — 사람은 버튼으로 고른다
+  if(state==='revive'||RES.stale()||RES.shopBad()||RES.broken())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
 $('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
 $('quitBtn').onclick=()=>{if(RES.stale())return;endRun(false,true);};$('homeBtn').onclick=()=>{if(RES.stale())return;state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');RES.drop();RES.render();};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
 $('chestOk').onclick=()=>{if(state==='chest')resume();};
@@ -2151,9 +2153,15 @@ function gainXp(v){if(S.rel.sg_ildj&&Math.random()<[.06,.09,.12][S.rel.sg_ildj-1
 const evReady=()=>evLeft()>0?Object.keys(S.w).filter(k=>!S.ev[k]&&S.w[k]>=MAXLV&&pv(WEAP[k].pair)>0):[];
 function evolve(k){const d=WEAP[k];S.ev[k]=1;cdxSee('ev:'+k);   // 📖 실제로 각성시켜 본 무기만 각성 형태가 도감에 실린다
 AU.play('evo');S.flash=.45;S.shake=.3;banner(`✨ 각성! ${d.ev.ic} ${d.ev.nm}`,d.ev.ds,1);}
-function openChest(){
+function evPickShow(rd){   // ✨ [2026-10-12 사장님 지시] 각성할 수 있는 무기가 둘 이상이면 어느 것을 각성할지 직접 고른다(하나뿐이면 그대로 각성) — 고를 때까지 상자는 안 열리고 판은 멈춰 있다(이 화면은 이어하기 저장 대상이 아니다)
+  state='evpick';keys={};joy.on=false;joy.dx=joy.dy=0;AU.play('chest');
+  $('evpickList').innerHTML=rd.map(k=>{const d=WEAP[k];return `<button class="btn evb" data-k="${esc(k)}" style="display:block;width:100%;text-align:left;margin:6px 0">${d.ic} ${esc(d.nm)} Lv${S.w[k]} → ${d.ev.ic} <b>${esc(d.ev.nm)}</b><small style="display:block;opacity:.85;white-space:normal">${esc(d.ev.ds)}</small></button>`;}).join('');
+  for(const b of $('evpickList').querySelectorAll('.evb'))b.onclick=()=>{if(state!=='evpick')return;const k=b.dataset.k;if(!evReady().includes(k))return;openChest(k);};
+  show('evpick');}
+function openChest(pick){
+  const rd=evReady();if(!pick&&rd.length>=2){evPickShow(rd);return;}
   state='chest';keys={};joy.on=false;joy.dx=joy.dy=0;AU.play('chest');
-  const res=[];const ek=evReady()[0];
+  const res=[];const ek=pick||rd[0];
   if(ek){const d=WEAP[ek];evolve(ek);res.push(`<div class="cr ev">✨ <b>각성!</b> ${d.ic} ${d.nm} → ${d.ev.ic} <b>${d.ev.nm}</b><small>${d.ev.ds}</small></div>`);}
   const r=RN('chest'),lk=.05*LK()+(PTV('luck')>=2?.1:0),n=r<.15+lk?3:r<.5+lk?2:1;
   for(let i=0;i<n;i++){const o=offers(1,null,true)[0];applyUp(o);const c=cardOf(o);res.push(`<div class="cr">${c.ic} <b>${c.nm}</b> ${c.lv}</div>`);}
