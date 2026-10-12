@@ -96,7 +96,7 @@ async def main():
             r = await ev(pg, "([cs,N])=>cs.map((ck,i)=>{const s=window.__setup(ck,{fill:5,psLv:2});const K=window.__K;K.seed(17+i);const t=window.__tally(3,N);t.ck=ck;return t;})", [S3, 1200])
             check('가진 패시브는 레벨업 카드로 계속 나온다', all(t['pUp'] > 0 for t in r), [(t['ck'], t['pUp']) for t in r])
             r = await ev(pg, "([cs,N])=>cs.map((ck,i)=>{const s=window.__setup(ck,{fill:5});const K=window.__K;K.seed(19+i);const t=window.__tally(3,N,null,true);t.ck=ck;return t;})", [S3, 1200])
-            check('보스 상자(own=true)도 같은 규칙 — 새 비열쇠 패시브 0 · 열쇠는 나온다', all(t['newNonKey'] == 0 and t['key'] > 0 for t in r), [(t['ck'], t['newNonKey'], t['key']) for t in r])
+            check('보스 상자(own=true)는 가진 능력만 — 새 패시브 0 · 안 가진 열쇠도 안 나온다', all(t['newNonKey'] == 0 and t['key'] == 0 for t in r), [(t['ck'], t['newNonKey'], t['key']) for t in r])
             r = await ev(pg, """([cs,N])=>cs.map((ck,i)=>{const s=window.__setup(ck,{fill:5});const K=window.__K,S=window.__p6x.S;S.rr=1e9;S.ban=1e9;K.seed(21+i);let bad=0,seenKey=0,n=0;const key=s.key;
                 for(let j=0;j<N;j++){K.openLvup&&0;K.CUR=K.offers(3);
                   K.reroll();for(const o of K.CUR){if(o.t==='p'&&!S.ps[o.k]&&o.k!=='rev'){if(o.k===key)seenKey++;else bad++;}}
@@ -120,11 +120,11 @@ async def main():
             print('── 다 예약이 안 걸리는 상황은 기준과 비트까지 같다 ──')
             states = [dict(fill=0), dict(fill=2), dict(fill=4), dict(fill=4, key=1), dict(fill=5, key=1), dict(fill=5, key=3, lv=30), dict(fill=5, rev=1, key=1, lv=30)]
             JS_SEQ = """([cs,states,N])=>{const out=[];cs.forEach((ck,i)=>states.forEach((st,j)=>{const s=window.__setup(ck,Object.assign({off:i*3+j},st));window.__K.seed(4242+i*31+j);
-                const seq=[];for(let r=0;r<N;r++){const cs2=window.__K.offers(3,r%7===0?[window.__K.CH.w]:null,r%5===0);seq.push(cs2.map(o=>o.t+':'+(o.k||o.r||'')+':'+(o.l===undefined?'':o.l)).join(','));}
+                const seq=[];for(let r=0;r<N;r++){const cs2=window.__K.offers(3,r%7===0?[window.__K.CH.w]:null,false);seq.push(cs2.map(o=>o.t+':'+(o.k||o.r||'')+':'+(o.l===undefined?'':o.l)).join(','));}
                 out.push([ck,j,window.__rn,seq.join('|')]);}));return out;}"""
             A = await ev(pg, JS_SEQ, [CH, states, 60]); B = await ev(pgo, JS_SEQ, [CH, states, 60])
             diff = [(a[0], a[1]) for a, b_ in zip(A, B) if a[3] != b_[3] or a[2] != b_[2]]
-            check('예약이 안 걸리는 7가지 상태 × 18캐릭터 × 60번(보스 상자 섞음): 카드 열 · Math.random 호출 횟수가 기준 커밋과 같다 (%d 조합)' % len(A), not diff and len(A) == 18 * len(states), diff[:5])
+            check('예약이 안 걸리는 7가지 상태 × 18캐릭터 × 60번: 카드 열 · Math.random 호출 횟수가 기준 커밋과 같다 (%d 조합)' % len(A), not diff and len(A) == 18 * len(states), diff[:5])
             # 예약이 걸리는 상태에서는 달라야 한다(비교 장치에 이빨이 있다)
             C1 = await ev(pg, JS_SEQ, [CH[:6], [dict(fill=5)], 60]); C2 = await ev(pgo, JS_SEQ, [CH[:6], [dict(fill=5)], 60])
             check('(대조) 5칸 · 열쇠 없음에서는 기준과 카드 열이 갈린다', sum(1 for a, b_ in zip(C1, C2) if a[3] != b_[3]) >= 5, '')
