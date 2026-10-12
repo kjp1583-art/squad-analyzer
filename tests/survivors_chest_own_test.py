@@ -96,7 +96,7 @@ C_JS = r"""
     for(let it=0;it<N;it++){
       x.CH_set(ch);x.start();const S=x.S;B.build(ch);
       const w0=Object.keys(S.w).sort().join(','),r0=Object.keys(S.rel).sort().join(','),rr0=S.rr;
-      x.openChest();out.runs++;
+      x.openChest();if(x.state==='evpick')x.resume();out.runs++;   // ✨ 각성 후보가 둘 이상이면 선택창 — 시험은 첫 후보로 진행
       const w1=Object.keys(S.w).sort().join(','),r1=Object.keys(S.rel).sort().join(',');
       if(w0!==w1||r0!==r1)out.grew.push([ch,w0,w1,r0,r1]);
       const el=document.getElementById('chestList'),txt=el.textContent;
@@ -158,7 +158,7 @@ async def main():
     calls = re.findall(r"offers\(([^()]*)\)", src)
     own_calls = [c for c in calls if c.replace(' ', '').endswith(',true')]
     ok(len(own_calls) == 1 and own_calls[0].replace(' ', '') == '1,null,true', 'F1 own(세 번째 인자 true) 호출은 보스 상자 한 곳뿐이다 (%s)' % own_calls)
-    ok(re.search(r"function openChest\(\)\{[\s\S]{0,900}offers\(1,null,true\)", src) is not None, 'F2 openChest 가 offers(1,null,true) 를 부른다')
+    ok(re.search(r"function openChest\([a-z]*\)\{[\s\S]{0,1400}offers\(1,null,true\)", src) is not None, 'F2 openChest 가 offers(1,null,true) 를 부른다')
     ok(src.count('offers(3') >= 1 and 'offers(3,' in src or 'offers()' in src or 'offers(' in src, 'F3 레벨업 쪽 offers 호출이 남아 있다')
     async with async_playwright() as pw:
         b = await H.launch(pw)
