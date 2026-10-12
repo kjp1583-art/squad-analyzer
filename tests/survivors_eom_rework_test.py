@@ -39,7 +39,7 @@ async def main():
         # ── A. 소스·문구
         print('── A. 소스·문구')
         check('A1 소스에 공포(fear) 흔적 없음 — e.fear·SPX.fear·「공포」「겁먹」 글자', not re.search(r'\.fear\b|o\.fear|fear0|공포|겁먹', re.sub(r'//[^\n]*', '', SRC)), re.findall(r'[^\n]{0,40}(?:\.fear\b|fear0|공포|겁먹)[^\n]{0,20}', SRC)[:2])
-        r = await pg.evaluate("()=>{const x=__p6x,W=x.WEAP.eom,C=x.CHARS.find(c=>c.k==='eom'),T=x.TIERS.eom;return {ds:W.ds,ev:W.ev,rl:W.rl,cds:C.ds,tiers:T.map(t=>[t[0],t[1]])}}")
+        r = await pg.evaluate("()=>{const x=__p6x,W=x.WEAP.eom,C=x.CHARS.find(c=>c.k==='eom'),T=x.TIERS.eom;return {ds:W.ds,ev:W.ev,rl:W.rl,cds:C.ds+' '+x.cstat(C).none,tiers:T.map(t=>[t[0],t[1]])}}")
         check('A2 각성 이름 「개엄!」 · 옛 이름 「엄엄엄」 없음', r['ev']['nm'] == '개엄!' and '엄엄엄' not in json.dumps(r, ensure_ascii=False) and "'개엄!'" in SRC, r['ev'])
         check('A3 마지막 외침 글자 LBL[2] = 「개엄!」', re.search(r"const LBL=\['엄!','엄엄!','개엄!'\]", SRC) is not None)
         want_pct = lambda v: '+%d%%' % round((v - 1) * 100)

@@ -301,7 +301,7 @@ async def main():
                   set({},{cd:1});o.cd_pt=F.cdMul();set({},{cd:2});o.cd_pt2=F.cdMul();set({},{area:1});o.ar_pt=F.areaMul();set({},{pspd:1});o.ps_pt=F.PS();
                   set({spd:5},{spd:2});S.p.moving=true;o.cd_mv=F.cdMul();S.p.moving=false;set({},{},{wide:1});o.cd_wide=F.cdMul();o.ar_wide=F.areaMul();set({},{},{gale:1});o.ar_gale=F.areaMul();
                   set({},{},{swift:1});o.cd_sw=F.cdMul();o.dm_sw=F.dmgMul();set();o.tx={cd:F.PASS.cd.ds,amt:F.PASS.amt.ds,pspd:F.PASS.pspd.ds,dur:F.PASS.dur.ds,area:F.PASS.area.ds,luck:F.PASS.luck.ds,crit:F.PASS.crit.ds,might:F.PASS.might.ds,glass:F.PASS.glass.ds,
-                    ptcd:F.PT.cd,ptarea:F.PT.area,ptpspd:F.PT.pspd,ptspd:F.PT.spd,wide:F.TRD.wide.ds,gale:F.TRD.gale.ds,swift:F.TRD.swift.ds,bbb:F.CHARS.find(c=>c.k==='bbb').ds,bbbcdr:F.CHARS.find(c=>c.k==='bbb').cdr,
+                    ptcd:F.PT.cd,ptarea:F.PT.area,ptpspd:F.PT.pspd,ptspd:F.PT.spd,wide:F.TRD.wide.ds,gale:F.TRD.gale.ds,swift:F.TRD.swift.ds,bbb:F.CHARS.find(c=>c.k==='bbb').ds+' '+window.__p6x.cstat(F.CHARS.find(c=>c.k==='bbb')).rows.map(r=>r.nm+' '+r.v).join(' '),bbbcdr:F.CHARS.find(c=>c.k==='bbb').cdr,
                     bell:F.TIERS.bell[4][0],syn:F.SYN.map(y=>[y.k,y.ds,y.fx])};
                   o.glassMax=F.PASS.glass.max;return o;}""")
                 tx = r['tx']; rd = lambda v: round(v, 4)

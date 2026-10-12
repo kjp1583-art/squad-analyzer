@@ -306,7 +306,7 @@ async def sec4(pg, errs):
     # 4-f. 다른 캐릭터는 영향 없음 · 변신 중에는 충전 없음 · 설명 문구
     r = await pg.evaluate("""()=>{const x=__p6x,o={};x.CH_set('brj');x.start();const S=x.S;S.t=3000;S.rg=0;x.rgAdd(1);o.other=S.rg;
       x.CH_set('psg');x.start();const T=x.S;T.t=3000;T.rg=0;T.dT=5;x.rgAdd(1);o.drg=T.rg;
-      o.ds=x.CHARS.find(c=>c.k==='psg').ds;return o}""")
+      const pc=x.CHARS.find(c=>c.k==='psg');o.ds=pc.ds+' '+x.cstat(pc).rows.map(r=>r.ds).join(' ');return o}   // 2026-10-12 능력 문장은 설명(ds)이 아니라 「✨ 고유스텟」 구획(cstat)으로 옮겼다""")
     check('프싱이 아닌 캐릭터는 분노가 안 찬다 · 변신 중에도 안 찬다', r['other'] == 0 and r['drg'] == 0, r)
     check('프싱 설명에 한 줄: 「오래 버틸수록 분노가 빨리 찬다」(분당 +3%, 최대 1.8배)', '오래 버틸수록 분노가 빨리 찬다' in r['ds'] and '분당 +3%' in r['ds'] and '최대 1.8배' in r['ds'], r['ds'][:160])
     # 4-g. 실제 전투 루프(update)에서도 예외 없이 돌고 변신이 일어난다 — 장비 전부 낀 프싱으로 10초(5분·30분 시점)

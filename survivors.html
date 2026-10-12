@@ -95,7 +95,9 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 #roster{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .rc{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 4px;color:var(--txt);font:inherit;font-size:11.5px;cursor:pointer;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere}   /* 🎤 이름이 단어 중간에서 끊기지 않게(띄어쓰기에서만) — 한 단어가 칸보다 길면 그때만 끊는다 */
 .nb{white-space:nowrap}.rc .e{font-size:20px;display:block}.rc.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset,0 0 10px rgba(255,122,69,.35)}
-.rc.lock{opacity:.5}.rc small{color:var(--mut);display:block;font-size:10.5px}
+.rc.lock{color:var(--sub)}.rc.lock .e,.rc.lock .art{opacity:.5}.rc small{color:var(--mut);display:block;font-size:10.5px}   /* 잠긴 카드: 통째로 흐리게(opacity .5) 하면 고유스텟 칩 글씨가 대비 4.5 아래로 떨어진다 — 그림·이모지만 흐리게 */
+.cs{display:block;margin:2px 0 0;padding:1px 2px;border-radius:6px;background:#3a3014;border:1px solid #8a6d1f;color:#ffe3a1;font-size:10.5px;font-weight:700;line-height:1.2;word-break:keep-all;overflow-wrap:anywhere}.cs i{display:block;font-style:normal;font-size:9px;color:var(--gold)}.cs.none{background:transparent;border-color:var(--line);color:var(--sub);font-weight:400}.cs.none i{color:var(--sub)}.bc .cs{align-self:stretch;margin:2px 0 0}
+.cstat{margin:8px 0 2px;padding:8px 10px;border-radius:10px;background:#2a2410;border:1px solid #8a6d1f;color:var(--txt);text-align:left;word-break:keep-all;overflow-wrap:anywhere}.cstat .cst{display:block;color:var(--gold);font-size:13px;margin-bottom:4px}.cstat .csr{display:flex;gap:6px;align-items:flex-start;padding:3px 0;font-size:12.5px;line-height:1.45}.cstat .csr+.csr{border-top:1px dashed #5a4a1a}.cstat .ic{flex:none;width:20px;text-align:center}.cstat .tx>b{color:#ffe3a1}.cstat .cv{color:var(--gold)}.cstat .csr.none{color:var(--sub);display:block}
 #chDesc{text-align:left;min-height:36px;margin-top:6px}
 /* 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 — 그림 카드(잠겨 있으면 실루엣 + 해금 조건) */
 #bossRoster{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
@@ -346,7 +348,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="muted" id="bestT">최고 기록 없음</div>
   <div class="board" id="board"><b style="color:#ffb089">🏆 순위표</b><div class="muted">불러오는 중…</div></div>
   <div class="acct" id="acct"></div>
-  <div class="rosterH">👥 클랜원 캐릭터</div>
+  <div class="rosterH">👥 클랜원 캐릭터 <span class="muted">— ✨ 고유스텟 = 타고난 능력</span></div>
   <div id="roster"></div>
   <div class="rosterH">🐲 보스 캐릭터 <span class="muted">— 판에서 그 보스를 쓰러뜨리면 해금</span></div>
   <div id="bossRoster"></div>
@@ -833,34 +835,77 @@ const unTxt=c=>c.un.dh||esc(c.un.t);   // 해금 문구(설명창) — dh(고정
 const SHOPUN_SV={t:'디스코드 /흐접새우상점 200P',dh:'🛒 디스코드 <b class="nb">「/흐접새우상점」</b>에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침',ok:()=>false,pr:()=>dcUser()?'구매하면 열려요':'디스코드 로그인 필요'};
 const CHARS=[
   {k:'brj',e:'🐤',nm:'브장신',tag:'스타터',q:'논란이 되겠는걸',ds:'평범하지만 엄. 🪶 엄 깃털 산탄(고유 무기 · 가까운 적에게 깃털을 부채꼴로) 시작.',w:'quill',un:null},
-  {k:'jjg',img:1,bdg:[{u:'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',e:'⚡'},{it:6672,e:'🐙'}],e:'🔫',nm:'집중겜',tag:'원딜 · 378판',q:'집중하면 뭐든 벤다',ds:'「치명적 속도 · 크라켄 학살자」 — 미스 포츈 코스프레 선장. 모든 공격 20% 확률 치명타(2배). 🔫 치명적 속도 Lv2(고유 무기 · 쌍권총 연사, 3번째는 크라켄탄) 시작.',w:'tempo',wl:2,crit:.2,un:{t:'처치 누적 300',ok:p=>p.kills>=300,pr:p=>`${Math.min(p.kills,300)}/300`}},
-  {k:'mms',img:1,e:'🥲',nm:'망무새',tag:'미드 · 232판',q:'난 망했어',ds:'「난 망했어」 — HP 30% 이하에서 피해 +60%. 💣 막무가내 폭탄(고유 무기 · 발밑 설치, HP 낮을수록 세다) 시작.',w:'fuse',low:.6,un:{t:'쓰러지기 3회',ok:p=>p.deaths>=3,pr:p=>`${Math.min(p.deaths,3)}/3`}},
-  {k:'hrb',img:1,e:'🏄',nm:'조선제일하리보',tag:'정글 · 137판',q:'집집집집집집',ds:'「자크 코스프레」 — 끈적끈적 슬라임 옷으로 이동속도 +20%. 🟢 자크 슬라임(고유 무기 · 갈라지는 끈적 덩이) 시작.',w:'slime',spd:.2,un:{t:'5분 생존',ok:p=>p.best>=300,pr:p=>`최고 ${fmt(p.best)}`}},
-  {k:'ssu',img:1,e:'✈️',nm:'승수',tag:'기내 서비스',q:'승객 여러분, 안전벨트를 매 주세요.',ds:'「기내 서비스」 — 초당 HP 0.8 회복, 받는 피해 -1. 🛒 기내식 카트(고유 무기 · 밀치고 회복시키는 구역) 시작.',w:'cart',regen:.8,arm:1,un:{t:'🌾 사료 투척 Lv5',ok:p=>p.w5.feed,pr:p=>p.w5.feed?'완료':'미완'}},
-  {k:'amd',img:1,e:'🪧',nm:'앙앵모르딱',tag:'서폿 · 115판',q:'팀원과 싸우지 말자',ds:'「팀원과싸우지말자」 — 초당 HP 1.5 회복. 💙 화해의 하트(고유 무기 · 쫓아가 기절시키는 유도 하트) 시작.',w:'heart',regen:1.5,un:{t:'🍟 튀김기 오라 Lv5',ok:p=>p.w5.fryer,pr:p=>p.w5.fryer?'완료':'미완'}},
-  {k:'ildj',img:1,e:'🎭',nm:'일단즐겨',tag:'미드 · 323판',q:'아님말고',ds:'「진 코스프레」 — 은빛 가면에 크림색 망토, 경험치 +20%. 아님말고. 🎭 4발 사격(고유 무기 · 3발 + 터지는 4번째 커튼콜탄) 시작.',w:'jhin',xp:.2,un:{t:'레벨 20 달성',ok:p=>p.maxLv>=20,pr:p=>`최고 Lv ${p.maxLv}`}},
-  {k:'kyo',img:1,e:'🍔',nm:'김야옹',tag:'서폿 · 114판',q:'편의점 햄버거로 꺼지쇼',ds:'「버거킹 쿠폰」 — 레벨업마다 HP 25 회복, 획득 범위 +50%. 🍔 와퍼 바운스(고유 무기 · 튕기며 터지는 햄버거) 시작.',w:'whop',lvheal:25,mag:.5,un:{t:'처치 누적 1000',ok:p=>p.kills>=1000,pr:p=>`${Math.min(p.kills,1000)}/1000`}},
-  {k:'ddmj',img:1,e:'🧱',nm:'단단묵직',tag:'정글·탑 · 465판',q:'묵직하게 막아선다',ds:'「디펜더」 — 부딪힌 적을 밀쳐 낸다, 받는 피해 -3, 이동속도 -10%. 🛡 방패 밀치기(고유 무기 · 앞의 적을 크게 밀쳐 낸다) 시작.',w:'bash',arm:3,spd:-.1,push:1,un:{t:'최종 보스 처치',ok:p=>p.bossKill>=1,pr:p=>p.bossKill?'완료':'미완'}},
-  {k:'psg',img:1,e:'🐲',nm:'프싱',tag:'정글 · 335판',q:'용의 강림',ds:'「쉬바나 코스프레」 — 피해를 주고 적을 처치할수록 🔥 분노 게이지가 찬다. 오래 버틸수록 분노가 빨리 찬다(분당 +3%, 최대 1.8배). 가득 차면 🐲 용으로 변신(11초): 몸이 커지고 주변 적이 불타며, 이동속도 +20% · 받는 피해 -30% · 무기 피해 +20%. 끝나면 게이지 0부터 다시. 🔥 쌍둥이 이빨(고유 무기 · 이중 베기 + 화염 장판) 시작.',w:'twin',shv:1,un:{t:'하드 모드 10분 생존',ok:p=>hardBest()>=600,pr:p=>`하드 최고 ${fmt(hardBest())}`}},
+  {k:'jjg',img:1,bdg:[{u:'https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Precision/LethalTempo/LethalTempoTemp.png',e:'⚡'},{it:6672,e:'🐙'}],e:'🔫',nm:'집중겜',tag:'원딜 · 378판',q:'집중하면 뭐든 벤다',ds:'「치명적 속도 · 크라켄 학살자」 — 미스 포츈 코스프레 선장. 🔫 치명적 속도 Lv2(고유 무기 · 쌍권총 연사, 3번째는 크라켄탄) 시작.',w:'tempo',wl:2,crit:.2,un:{t:'처치 누적 300',ok:p=>p.kills>=300,pr:p=>`${Math.min(p.kills,300)}/300`}},
+  {k:'mms',img:1,e:'🥲',nm:'망무새',tag:'미드 · 232판',q:'난 망했어',ds:'「난 망했어」 — 망했을 때가 제일 무섭다. 💣 막무가내 폭탄(고유 무기 · 발밑 설치, HP 낮을수록 세다) 시작.',w:'fuse',low:.6,un:{t:'쓰러지기 3회',ok:p=>p.deaths>=3,pr:p=>`${Math.min(p.deaths,3)}/3`}},
+  {k:'hrb',img:1,e:'🏄',nm:'조선제일하리보',tag:'정글 · 137판',q:'집집집집집집',ds:'「자크 코스프레」 — 끈적끈적 슬라임 옷을 입었다. 🟢 자크 슬라임(고유 무기 · 갈라지는 끈적 덩이) 시작.',w:'slime',spd:.2,un:{t:'5분 생존',ok:p=>p.best>=300,pr:p=>`최고 ${fmt(p.best)}`}},
+  {k:'ssu',img:1,e:'✈️',nm:'승수',tag:'기내 서비스',q:'승객 여러분, 안전벨트를 매 주세요.',ds:'「기내 서비스」 — 승객 여러분, 안전하게 모시겠습니다. 🛒 기내식 카트(고유 무기 · 밀치고 회복시키는 구역) 시작.',w:'cart',regen:.8,arm:1,un:{t:'🌾 사료 투척 Lv5',ok:p=>p.w5.feed,pr:p=>p.w5.feed?'완료':'미완'}},
+  {k:'amd',img:1,e:'🪧',nm:'앙앵모르딱',tag:'서폿 · 115판',q:'팀원과 싸우지 말자',ds:'「팀원과싸우지말자」 — 싸우지 말고 서로 챙기자. 💙 화해의 하트(고유 무기 · 쫓아가 기절시키는 유도 하트) 시작.',w:'heart',regen:1.5,un:{t:'🍟 튀김기 오라 Lv5',ok:p=>p.w5.fryer,pr:p=>p.w5.fryer?'완료':'미완'}},
+  {k:'ildj',img:1,e:'🎭',nm:'일단즐겨',tag:'미드 · 323판',q:'아님말고',ds:'「진 코스프레」 — 은빛 가면에 크림색 망토. 아님말고. 🎭 4발 사격(고유 무기 · 3발 + 터지는 4번째 커튼콜탄) 시작.',w:'jhin',xp:.2,un:{t:'레벨 20 달성',ok:p=>p.maxLv>=20,pr:p=>`최고 Lv ${p.maxLv}`}},
+  {k:'kyo',img:1,e:'🍔',nm:'김야옹',tag:'서폿 · 114판',q:'편의점 햄버거로 꺼지쇼',ds:'「버거킹 쿠폰」 — 쿠폰 쓰러 편의점에 왔다. 🍔 와퍼 바운스(고유 무기 · 튕기며 터지는 햄버거) 시작.',w:'whop',lvheal:25,mag:.5,un:{t:'처치 누적 1000',ok:p=>p.kills>=1000,pr:p=>`${Math.min(p.kills,1000)}/1000`}},
+  {k:'ddmj',img:1,e:'🧱',nm:'단단묵직',tag:'정글·탑 · 465판',q:'묵직하게 막아선다',ds:'「디펜더」 — 묵직하게 막아선 방패 디펜더. 🛡 방패 밀치기(고유 무기 · 앞의 적을 크게 밀쳐 낸다) 시작.',w:'bash',arm:3,spd:-.1,push:1,un:{t:'최종 보스 처치',ok:p=>p.bossKill>=1,pr:p=>p.bossKill?'완료':'미완'}},
+  {k:'psg',img:1,e:'🐲',nm:'프싱',tag:'정글 · 335판',q:'용의 강림',ds:'「쉬바나 코스프레」 — 분노를 모아 용이 되는 정글러. 🔥 쌍둥이 이빨(고유 무기 · 이중 베기 + 화염 장판) 시작.',w:'twin',shv:1,un:{t:'하드 모드 10분 생존',ok:p=>hardBest()>=600,pr:p=>`하드 최고 ${fmt(hardBest())}`}},
   // 🎤 [2026-10-08 사장님 지시] 신캐릭터 「플레이브 코스프레 배불배불」 + 고유 무기 「플레이브 노래부르기」 — 무대 의상 병아리
   //   🛒 [2026-10-08 사장님 지시 "배불배불 획득조건 봇 흐접새우상점 신설하고 200포인트로 구매가능하게 설정"] 해금 = 진행도가 아니라 봇 「/흐접새우상점」 구매(스쿼드 포인트 200P · 맛동산 아님) — 서버가 내려준 unlocks 의 'bbb' 로만 열린다(shop:1 · SHOPUN_SV)
   //   능력 「박자 감각」 = 모든 무기 쿨타임 -8%(cdr · cdMul 한 곳). 실존 인물·곡·가사는 쓰지 않는다 — 무대 의상 + 마이크 + 음표 연출만.
-  {k:'bbb',img:1,e:'🎤',nm:'플레이브 코스프레 배불배불',sn:'배불배불',tag:'디스코드 /흐접새우상점 200P',q:'한 곡만 더 부르고 갈게요',ds:'「박자 감각」 — 무대 의상에 마이크를 든 병아리. 무기 쿨타임 -8%(⏱ 공격속도와 같은 규칙 — 새우깡 대회전 등 일부 무기는 제외). 🎤 플레이브 노래부르기(고유 무기 · 4박자 한 소절: 음표를 쏘고 마지막 박엔 큰 고음이 울린다) 시작.',w:'sing',cdr:.08,shop:1,un:SHOPUN_SV},
+  {k:'bbb',img:1,e:'🎤',nm:'플레이브 코스프레 배불배불',sn:'배불배불',tag:'디스코드 /흐접새우상점 200P',q:'한 곡만 더 부르고 갈게요',ds:'「박자 감각」 — 무대 의상에 마이크를 든 병아리. 🎤 플레이브 노래부르기(고유 무기 · 4박자 한 소절: 음표를 쏘고 마지막 박엔 큰 고음이 울린다) 시작.',w:'sing',cdr:.08,shop:1,un:SHOPUN_SV},
   // ── 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 "일러스트가 구현되어 있는 신림·또뀨·태웅·용조련사 플레이어블로도 — 해금 조건 알아서"
   //   해금 = 그 보스를 판에서 처치(처치한 순간 저장 · 로그인하면 서버 해금 목록으로 기기 간 이어짐). 그림이 있어 ??? 로 가리지 않는다(REVEAL 과 무관).
   //   k 는 BOSS 키·봇 P6_UNLOCK_KEYS 와 같다. 대사는 봇 RAID_BOSSES 의 spawn(선택 화면 한 줄 = BOSS[k].sp0)·win/dead(결과 말풍선).
   //   밸런스: 브장신보다 조금 센 해금 보상 — 60분 클리어가 쉬워지지 않게(봇 시뮬로 확인한 수치는 커밋 설명에)
-  {k:'sr',boss:1,e:'🕷️',nm:'클랜마스터 신림',sn:'신림',tag:'스탭 임명',ds:'「스탭 임명」 — 주변 적 이동속도 -20%, 20초마다 🪪 스탭 2명이 10초 동안 같이 싸운다. 📋 임명 도장(고유 무기 · 찍힌 적이 2초 뒤 터진다) 시작.',w:'stamp',staff:1,slowR:140,un:bossUn('sr','15분 보스 신림')},
-  {k:'ddo',boss:1,e:'☠️',nm:'클랜마스터 또뀨',sn:'또뀨',tag:'진실의 방',ds:'「진실의 방」 — 10초마다 내 주위에 원형 감옥: 안에 든 적을 3초 묶고 지속 피해(보스는 묶이지 않고 느려진다). ⛓ 진실의 사슬 Lv2(고유 무기 · 적을 묶고 사슬 위 전부 지속 피해) 시작.',w:'chain',wl:2,room:1,un:bossUn('ddo','30분 보스 또뀨')},
-  {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 잃은 체력 1%당 피해 +1%(최대 +60%), 맞으면 짧게 돌진하며 잠깐 무적(0.5초 · 5초에 한 번). 🥊 씩씩 박치기 Lv2(고유 무기 · 적을 향해 돌진) 시작.',w:'ram',wl:2,rage:.6,dash:1,un:bossUn('tw','40분 보스 태웅')},
+  {k:'sr',boss:1,e:'🕷️',nm:'클랜마스터 신림',sn:'신림',tag:'스탭 임명',ds:'「스탭 임명」 — 클랜마스터의 권한으로 사람을 부린다. 📋 임명 도장(고유 무기 · 찍힌 적이 2초 뒤 터진다) 시작.',w:'stamp',staff:1,slowR:140,un:bossUn('sr','15분 보스 신림')},
+  {k:'ddo',boss:1,e:'☠️',nm:'클랜마스터 또뀨',sn:'또뀨',tag:'진실의 방',ds:'「진실의 방」 — 진실을 말할 때까지 못 나간다. ⛓ 진실의 사슬 Lv2(고유 무기 · 적을 묶고 사슬 위 전부 지속 피해) 시작.',w:'chain',wl:2,room:1,un:bossUn('ddo','30분 보스 또뀨')},
+  {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 아파도 씩씩하게 돌진한다. 🥊 씩씩 박치기 Lv2(고유 무기 · 적을 향해 돌진) 시작.',w:'ram',wl:2,rage:.6,dash:1,un:bossUn('tw','40분 보스 태웅')},
   // 🍘 [2026-10-07 사장님 지시] 맛동산 상점(1개=1천원) 캐릭터 2명 — 서버 구매로만 열린다(shop:1)
-  {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 경험치 줍는 범위 +40% · 5초마다 가장 가까운 소모 아이템(🍗·💎·💣) 1개를 자동으로 줍는다. 🍘 맛동산 투척(고유 무기 · 던지면 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,auto:5,un:SHOPUN},
-  {k:'eom',img:1,shop:1,e:'📢',nm:'엄장신',tag:'엄!',q:'엄!',ds:'「엄!」 — 특별한 능력 없이 이 무기 하나로 승부. 📢 엄! 외침(고유 무기 · 외칠 때마다 범위 안의 적이 피해를 입고 뒤로 밀려난다) 시작.',w:'eom',un:SHOPUN},
-  {k:'yj',boss:1,e:'🐲',nm:'쫑의 군주 용조련사',sn:'용조련사',tag:'쫑의 군주',ds:'「쫑의 군주」 — 최대 HP +40, 받는 피해 -2, 이동속도 -10%. 🔥 드래곤 브레스 Lv2(전용 무기 · 가까운 적을 자동으로 겨눠 원뿔 불길) 시작.',w:'breath',wl:2,hp:40,arm:2,spd:-.1,un:bossUn('yj','50분 보스 용조련사')},
+  {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 🍘 맛동산 투척(고유 무기 · 던지면 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,auto:5,un:SHOPUN},
+  {k:'eom',img:1,shop:1,e:'📢',nm:'엄장신',tag:'엄!',q:'엄!',ds:'「엄!」 — 이 무기 하나로 승부. 📢 엄! 외침(고유 무기 · 외칠 때마다 범위 안의 적이 피해를 입고 뒤로 밀려난다) 시작.',w:'eom',un:SHOPUN},
+  {k:'yj',boss:1,e:'🐲',nm:'쫑의 군주 용조련사',sn:'용조련사',tag:'쫑의 군주',ds:'「쫑의 군주」 — 쫑을 거느린 묵직한 용조련사. 🔥 드래곤 브레스 Lv2(전용 무기 · 가까운 적을 자동으로 겨눠 원뿔 불길) 시작.',w:'breath',wl:2,hp:40,arm:2,spd:-.1,un:bossUn('yj','50분 보스 용조련사')},
   // 📸 [2026-10-07 사장님 지시] 신규 보스 배고배고 — 38분에 나오고, 판에서 처치하면 플레이어블로 열린다(sr·ddo·tw·yj 와 같은 경로 · 봇 P6_UNLOCK_KEYS 에 'bgb')
-  {k:'bgb',boss:1,e:'🌪',nm:'잔나 코스프레 배고배고',sn:'배고배고',tag:'바람의 대마법사',ds:'「바람의 대마법사 코스프레」 — 이동속도 +10% · 획득 범위 +15%. 📸 플레이브 포토카드(고유 무기 · 외치며 회전하는 포토카드를 부채꼴로 날려 맞은 적을 밀쳐 낸다) 시작.',w:'pcards',spd:.1,mag:.15,un:bossUn('bgb','38분 보스 배고배고')},
+  {k:'bgb',boss:1,e:'🌪',nm:'잔나 코스프레 배고배고',sn:'배고배고',tag:'바람의 대마법사',ds:'「바람의 대마법사 코스프레」 — 바람처럼 가볍게 다닌다. 📸 플레이브 포토카드(고유 무기 · 외치며 회전하는 포토카드를 부채꼴로 날려 맞은 적을 밀쳐 낸다) 시작.',w:'pcards',spd:.1,mag:.15,un:bossUn('bgb','38분 보스 배고배고')},
 ];
 function bossUn(k,nm){return {t:nm+' 처치',ok:p=>!!(p.bk&&p.bk[k]),pr:p=>p.bk&&p.bk[k]?'완료':'미완'};}
+// ✨ [2026-10-12 사장님 지시 「집중겜의 치명타20%처럼 캐릭터마다 가지고있는 고유한 스텟을 고유스텟 이라고 명명하고 캐릭터선택창에서 잘 확인할수있도록」]
+//   고유스텟 = 캐릭터가 무기와 별개로 타고나는 상시·조건부 능력(치명타·이동속도·회복·변신 …). 고유 무기·시작 무기·해금 보상은 「고유스텟」이 아니라 「고유 무기」다(ds 에 따로 적는다).
+//   보스 캐릭터(신림·또뀨·태웅·용조련사·배고배고)의 변신·패시브도 캐릭터가 판 내내 갖는 능력이라 포함한다.
+//   값은 CHARS 의 필드(c.crit …)와 상수(SHV·LOWHP_AT·CSK·CRIT_BASE)를 **읽어서** 문장을 만든다 — 게임이 쓰는 값과 어긋날 수 없다. 표시 전용: 규칙·난수·저장 형식은 그대로.
+//   CHARS 안에 새 필드를 넣으면 이어하기 서명(SIG)이 바뀌어 옛 저장본이 버려지므로 별도 최상위 const 로 둔다(CHARS 의 k 로 연결 · 서명 표에 안 들어간다).
+//   행 모양 {ic, nm 이름, v 짧은 값(카드 칩에 쓴다 · 없을 수도), ds 쉬운 설명}. none 은 「고유스텟 없음」 + 한 줄 이유.
+const CRIT_BASE=2;   // 치명타가 터졌을 때의 기본 피해 배율(critMul 이 여기에 패시브를 더한다)
+const CSK={staff:{every:20,n:2,life:10,slow:.8},room:{every:10,hold:3},dash:{inv:.5,cd:5}};   // 보스 캐릭터의 주기·시간·감속 — charTick·taeDash·적 이동이 같은 값을 읽는다 · staff.n 은 allies 풀 크기(2)를 넘기지 못한다
+const csPc=v=>(Math.round(v*1000)/10)+'%';
+const csNum=v=>String(Math.round(v*100)/100);
+const CSR={   // 여러 캐릭터가 같이 쓰는 행 만들기
+  regen:c=>({ic:'💚',nm:'HP 회복',sh:'회복 '+csNum(c.regen)+'/초',v:'초당 '+csNum(c.regen),ds:`가만히 있어도 1초마다 HP가 ${csNum(c.regen)}씩 차올라요`}),
+  arm:c=>({ic:'🛡',nm:'받는 피해',sh:'방어 '+(c.arm>0?'-':'+')+Math.abs(c.arm),v:(c.arm>0?'-':'+')+Math.abs(c.arm),ds:c.arm>0?`맞을 때마다 피해가 ${c.arm} 줄어요 (그래도 최소 1은 받아요)`:`맞을 때마다 피해가 ${-c.arm} 늘어요`}),
+  spd:c=>({ic:'👟',nm:'이동속도',v:(c.spd>0?'+':'-')+csPc(Math.abs(c.spd)),ds:c.spd>0?'항상 더 빨리 달려요':'묵직해서 항상 조금 느려요'}),
+  mag:c=>({ic:'🧲',nm:'줍는 범위',sh:'범위 +'+csPc(c.mag),v:'+'+csPc(c.mag),ds:'경험치 보석 같은 걸 더 멀리서 끌어와요'}),
+  xp:c=>({ic:'📚',nm:'경험치',v:'+'+csPc(c.xp),ds:'경험치 보석에서 얻는 경험치가 더 많아요'}),
+  hp:c=>({ic:'❤️',nm:'최대 HP',v:'+'+c.hp,ds:`시작할 때부터 최대 HP가 ${c.hp} 더 많아요`}),
+};
+const CSTAT={
+  brj:{none:'평범한 스타터 — 능력치 보정 없이 깃털 산탄 하나로 승부'},
+  jjg:{rows:c=>[{ic:'🔪',nm:'치명타',v:'+'+csPc(c.crit),ds:`모든 공격이 ${csPc(c.crit)} 확률로 치명타 — 터지면 피해가 ${CRIT_BASE}배(패시브로 더 커져요)`}]},
+  mms:{rows:c=>[{ic:'🥲',nm:'위기 피해',sh:'저체력 +'+csPc(c.low),v:'+'+csPc(c.low),ds:`체력이 ${csPc(LOWHP_AT)} 이하로 떨어지면 내 모든 공격 피해가 ${csPc(c.low)} 더 세져요 (체력이 차면 원래대로)`}]},
+  hrb:{rows:c=>[CSR.spd(c)]},
+  ssu:{rows:c=>[CSR.regen(c),CSR.arm(c)]},
+  amd:{rows:c=>[CSR.regen(c)]},
+  ildj:{rows:c=>[CSR.xp(c)]},
+  kyo:{rows:c=>[{ic:'🍔',nm:'레벨업 회복',sh:'렙업 회복 +'+c.lvheal,v:'+'+c.lvheal,ds:`레벨이 오를 때마다 HP가 ${c.lvheal} 회복돼요`},CSR.mag(c)]},
+  ddmj:{rows:c=>[CSR.arm(c),{ic:'💥',nm:'밀쳐 내기',v:'',ds:'내게 부딪힌 적은 뒤로 밀려나요 (보스는 못 밀어요)'},CSR.spd(c)]},
+  psg:{rows:c=>[{ic:'🐲',nm:'용 변신',v:'',ds:`피해를 주고 적을 처치하면 🔥 분노 게이지가 차고, 가득 차면 ${SHV.dur}초 동안 용으로 변신해요 — 몸이 커지고 주변 적이 불타며, 이동속도 +${csPc(SHV.spd)} · 받는 피해 -${csPc(SHV.red)} · 무기 피해 +${csPc(SHV.dmg-1)}. 끝나면 게이지는 0부터 다시`},
+    {ic:'⏳',nm:'분노 가속',v:'',ds:`오래 버틸수록 분노가 빨리 찬다 (분당 +${csPc(SHV.acc)}, 최대 ${csNum(SHV.accMax)}배)`}]},
+  bbb:{rows:c=>[{ic:'⏱',nm:'쿨타임',v:'-'+csPc(c.cdr),ds:`「박자 감각」 — 모든 무기의 쿨타임이 ${csPc(c.cdr)} 줄어요 (⏱ 공격속도와 같은 규칙이라 새우깡 대회전 등 일부 무기는 빠져요)`}]},
+  sr:{rows:c=>[{ic:'🪪',nm:'스탭 임명',sh:'스탭 임명',v:'',ds:`${CSK.staff.every}초마다 스탭 ${CSK.staff.n}명이 ${CSK.staff.life}초 동안 곁에서 같이 싸워요`},{ic:'🐌',nm:'주변 적 감속',v:'-'+csPc(1-CSK.staff.slow),ds:`내 주변에 들어온 적은 이동속도가 ${csPc(1-CSK.staff.slow)} 느려져요`}]},
+  ddo:{rows:c=>[{ic:'⛓',nm:'진실의 방',v:'',ds:`${CSK.room.every}초마다 내 주위에 원형 감옥이 생겨요 — 안에 든 적을 ${CSK.room.hold}초 묶고 지속 피해를 줘요 (보스는 묶이지 않고 느려져요)`}]},
+  tw:{rows:c=>[{ic:'💢',nm:'씩씩 피해',sh:'씩씩 +'+csPc(c.rage),v:'최대 +'+csPc(c.rage),ds:`잃은 체력 1%당 피해가 +1%씩 올라요 (최대 +${csPc(c.rage)})`},{ic:'💨',nm:'돌진 무적',v:'',ds:`맞으면 짧게 돌진하며 ${csNum(CSK.dash.inv)}초 동안 무적이에요 (${CSK.dash.cd}초에 한 번)`}]},
+  yumi:{rows:c=>[CSR.mag(c),{ic:'🍗',nm:'자동 줍기',v:'',ds:`${c.auto}초마다 가장 가까운 소모 아이템(🍗·💎·💣) 1개를 저절로 주워요`}]},
+  eom:{none:'특별한 능력 없이 📢 엄! 외침 하나로 승부'},
+  yj:{rows:c=>[CSR.hp(c),CSR.arm(c),CSR.spd(c)]},
+  bgb:{rows:c=>[CSR.spd(c),CSR.mag(c)]},
+};
+const cstat=c=>{const d=CSTAT[c.k]||{none:'—'};return d.rows?{rows:d.rows(c),none:''}:{rows:[],none:d.none};};   // 캐릭터 → {rows, none}
+const cstatChip=c=>{const d=cstat(c);if(!d.rows.length)return {n:0,txt:'없음'};const r=d.rows[0];return {n:d.rows.length,txt:(r.sh||r.nm+(r.v?' '+r.v:''))+(d.rows.length>1?' 외'+(d.rows.length-1):'')};};   // 로스터 카드 칩 글자
+const cstatHtml=c=>{const d=cstat(c);   // 선택 설명창 「✨ 고유스텟」 구획 — 고유 무기(ds 의 🔫·🛡 …)와 따로 보여 준다
+  return `<div class="cstat"><b class="cst">✨ 고유스텟</b>`+(d.rows.length?d.rows.map(r=>`<div class="csr"><span class="ic">${r.ic}</span><span class="tx"><b>${esc(r.nm)}${r.v?` <span class="cv">${esc(r.v)}</span>`:''}</b> ${esc(r.ds)}</span></div>`).join(''):`<div class="csr none">고유스텟 없음 — ${esc(d.none)}</div>`)+`</div>`;};
 const REVEAL=true;   // 🔓 사장님 지시(2026-09-30): 클랜원 캐릭터 그림 완성 — 공개(예전엔 그림이 나오기 전까지 ??? 로 잠가 뒀다)
 const shown=c=>!c.un||REVEAL||!!c.boss;   // 🐲 보스 캐릭터는 그림이 있어 늘 공개
 const isUnl=(c,pg)=>c.shop?SRVUNL.has(c.k):(!c.un||c.un.ok(pg)||getUnl().has(c.k));
@@ -876,18 +921,19 @@ function bdgEls(c){const w=document.createElement('span');w.className='bdgs';for
   if(u){const im=new Image();im.alt='';im.onload=()=>{s.textContent='';s.appendChild(im);};im.src=u;}w.appendChild(s);}return w;}
 const bkey=c=>c.boss?c.k:'c:'+c.k;
 const chLine=c=>c.boss?pickLine(BOSS[c.k].sp0):c.q;   // 🐲 보스 캐릭터의 한 줄 = 봇 레이드 출현 대사
-const chDesc=c=>`<b>${c.e} ${esc(c.nm)}</b> “${esc(chLine(c))}” · ${c.ds}`;
+const chDesc=c=>`<b>${c.e} ${esc(c.nm)}</b> “${esc(chLine(c))}” · ${c.ds}${cstatHtml(c)}`;
 const ART={};   // 🐲 카드 그림 — 한 번 만든 <img> 를 다시 쓴다(고를 때마다 새로 만들면 깜빡인다) · 못 불러오면 이모지로
 function artEl(c){if(ART[c.k])return ART[c.k];const im=new Image();im.className='art';im.alt='';im.loading='lazy';im.decoding='async';im.width=im.height=96;
   im.onerror=()=>{const f=document.createElement('span');f.className='fb';f.textContent=c.e;ART[c.k]=f;im.replaceWith(f);};im.src=artUrl(c);return ART[c.k]=im;}
+const csChip=c=>{const k=cstatChip(c);return `<span class="cs${k.n?'':' none'}" aria-label="고유스텟: ${esc(k.txt)}"><i>✨ 고유스텟</i>${esc(k.txt)}</span>`;};   // 로스터 카드의 고유스텟 칩(핵심 한 줄 + 외 N)
 function renderRoster(){const pg=getProg();const box=$('roster'),bx=$('bossRoster');box.innerHTML='';bx.innerHTML='';
   for(const c of CHARS){const ok=canPick(c,pg),hid=!shown(c),met=isUnl(c,pg);const b=document.createElement('button');
     if(c.boss){b.className='bc'+(c===CH?' on':'')+(ok?'':' lock');b.setAttribute('aria-label',c.nm+(ok?'':' — 잠김, 해금: '+c.un.t));
-      b.appendChild(artEl(c));b.insertAdjacentHTML('beforeend',`${esc(c.sn)}<small>${ok?c.tag:'🔒 '+esc(c.un.t)}</small>`);}
+      b.appendChild(artEl(c));b.insertAdjacentHTML('beforeend',`${esc(c.sn)}<small>${ok?c.tag:'🔒 '+esc(c.un.t)}</small>${csChip(c)}`);}
     else{b.className='rc'+(c===CH?' on':'')+(ok?'':' lock');
-      if(!hid&&c.img){b.appendChild(artEl(c));if(c.bdg&&ok)b.appendChild(bdgEls(c));b.insertAdjacentHTML('beforeend',`${esc(c.nm)}<small>${ok?c.tag:esc(c.un.t)}</small>`);if(!ok)b.classList.add('art-lock');}
-      else b.innerHTML=hid?`<span class="e">🔒</span>???<small>${met?'조건 달성 · 공개 준비 중':esc(c.un.t)}</small>`:`<span class="e">${ok?c.e:'🔒'}</span>${c.nm}<small>${ok?c.tag:c.un.t}</small>`;}
-    b.onclick=()=>{$('chDesc').innerHTML=hid?`🔒 <b>???</b> — ${met?'해금 조건 달성! 캐릭터 공개를 기다려 주세요.':`해금: ${unTxt(c)} (${c.un.pr(pg)})`}<br><span class="muted">곧 공개될 클랜원 캐릭터예요.</span>`:ok?chDesc(c):`🔒 <b>${c.e} ${esc(c.nm)}</b> — 해금: ${unTxt(c)} (${c.un.pr(pg)})<br>${c.ds}`;
+      if(!hid&&c.img){b.appendChild(artEl(c));if(c.bdg&&ok)b.appendChild(bdgEls(c));b.insertAdjacentHTML('beforeend',`${esc(c.nm)}<small>${ok?c.tag:esc(c.un.t)}</small>${csChip(c)}`);if(!ok)b.classList.add('art-lock');}
+      else b.innerHTML=hid?`<span class="e">🔒</span>???<small>${met?'조건 달성 · 공개 준비 중':esc(c.un.t)}</small>`:`<span class="e">${ok?c.e:'🔒'}</span>${c.nm}<small>${ok?c.tag:c.un.t}</small>${csChip(c)}`;}
+    b.onclick=()=>{$('chDesc').innerHTML=hid?`🔒 <b>???</b> — ${met?'해금 조건 달성! 캐릭터 공개를 기다려 주세요.':`해금: ${unTxt(c)} (${c.un.pr(pg)})`}<br><span class="muted">곧 공개될 클랜원 캐릭터예요.</span>`:ok?chDesc(c):`🔒 <b>${c.e} ${esc(c.nm)}</b> — 해금: ${unTxt(c)} (${c.un.pr(pg)})<br>${c.ds}${cstatHtml(c)}`;
       if(ok){CH=c;try{localStorage.setItem(CK,c.k);}catch(e){}if(hasArt(c))charImg(c);renderRoster();}};
     (c.boss?bx:box).appendChild(b);}
   $('chDesc').innerHTML=chDesc(CH);}
@@ -1737,7 +1783,7 @@ const PS=()=>1+.12*pv('pspd')+.08*PTV('pspd');                  // 🏹 투사�
 //   인라인으로 있던 식을 항 순서·연산 순서 그대로 함수로만 뺐다(규칙·수치·난수 불변 — 결합 순서가 같아 결과가 비트까지 같다). 식을 고칠 때는 여기 한 곳만 고치면 표도 따라온다.
 const critCh=()=>CH.crit||0,critLk=()=>.03*LK(),critPv=()=>.05*pv('crit'),critPt=()=>PTV('luck')?.05:0,critTr=()=>.06*trn('focus'),critSm=()=>smv('crit');   // 치명타 확률의 여섯 갈래: 캐릭터 · 행운 · 급소 · 🌟 행운 초월 · 정조준 · 눈 밝히기
 const critChance=()=>critCh()+critLk()+critPv()+critPt()+critTr()+critSm();   // 치명타 확률(1 이상이면 늘 터진다)
-const critMul=()=>2+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);   // 치명타가 터졌을 때의 피해 배율
+const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);   // 치명타가 터졌을 때의 피해 배율
 const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-.05*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0);   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
 const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
 const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag');   // 경험치 줍는 범위 배율(기본 반경 70)
@@ -3081,7 +3127,7 @@ function weapons(dt){
   if(S.br.t>0)S.br.t-=dt;
   for(const b of bolts.a)if(b.on){b.life-=dt;if(b.life<=0)b.on=false;}
 }
-// 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 고유 능력(용조련사 「쫑의 군주」는 CH.hp·arm·spd 숫자만이라 여기 없다)
+// 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터의 변신·패시브 — 지금 말로는 고유스텟(용조련사 「쫑의 군주」는 CH.hp·arm·spd 숫자만이라 여기 없다)
 function charTick(dt){const p=S.p;SRC='char';
   if(CH.shv){   // 🐲 「쉬바나 코스프레」 — 분노 게이지 → 용 변신(일시정지·레벨업 중엔 이 함수가 안 돌아 시간도 멈춘다)
     S.rgB=Math.min(2.5,S.rgB+dt*SHV.cap);S.dS+=((S.dT>0?1.5:1)-S.dS)*Math.min(1,6*dt);
@@ -3095,8 +3141,8 @@ function charTick(dt){const p=S.p;SRC='char';
   S.slowR=CH.slowR?CH.slowR*(1+.1*pv('area')):0;   // 🕷 「스탭 임명」 감속 오라 — 적 이동은 update 의 적 루프에서 ×0.8
   if(CH.staff){   // 🕷 「스탭 임명」 — 20초마다 🪪 스탭 2명이 10초 동안 가까운 적(내 곁 300 안)을 찾아가 주변을 후려친다
     S.staffT-=dt;
-    if(S.staffT<=0){S.staffT=20-SGN('sg_sr');AU.play('staff');txt(p.x,p.y-30,'🪪 스탭 임명!','#bff3ff');
-      for(let i=0;i<2;i++){const a=allies.get();if(!a)break;const an=Math.random()*6.283;a.x=p.x+Math.cos(an)*36;a.y=p.y+Math.sin(an)*36;a.life=10+SGN('sg_sr');a.cd=.2;a.tg=null;a.rt=0;a.side=i?1:-1;a.hit=0;}}
+    if(S.staffT<=0){S.staffT=CSK.staff.every-SGN('sg_sr');AU.play('staff');txt(p.x,p.y-30,'🪪 스탭 임명!','#bff3ff');
+      for(let i=0;i<CSK.staff.n;i++){const a=allies.get();if(!a)break;const an=Math.random()*6.283;a.x=p.x+Math.cos(an)*36;a.y=p.y+Math.sin(an)*36;a.life=CSK.staff.life+SGN('sg_sr');a.cd=.2;a.tg=null;a.rt=0;a.side=i?1:-1;a.hit=0;}}
     const dmg=12*(1+S.lv/15)*dmgMul();let taken=null;
     for(const a of allies.a){if(!a.on)continue;a.life-=dt;if(a.life<=0){a.on=false;a.tg=null;continue;}
       if(a.hit>0)a.hit-=dt;a.cd-=dt;a.rt-=dt;
@@ -3111,13 +3157,13 @@ function charTick(dt){const p=S.p;SRC='char';
       if(t&&d<t.r+22&&a.cd<=0){a.cd=.35;a.hit=.14;for(const e of S.live)if(e.on&&(e.x-a.x)**2+(e.y-a.y)**2<(e.r+34)**2)hurt(e,dmg);}}}
   if(CH.room){   // ☠ 「진실의 방」 — 10초마다 내 주위 원형 감옥: 안의 잡몹은 3초 묶임(보스는 느려지기만) · 방 안은 0.5초마다 지속 피해
     S.proomT-=dt;const o=S.proom;
-    if(S.proomT<=0){S.proomT=10;o.x=p.x;o.y=p.y;o.R=160*(1+.1*pv('area'))*(1+[0,.1,.2,.3][SGN('sg_ddo')]);o.t=3;o.tk=0;AU.play('room');txt(p.x,p.y-30,'☠ 진실의 방!','#9cc8ff');
-      for(const e of S.live)if(e.on&&(e.x-o.x)**2+(e.y-o.y)**2<(o.R+e.r)**2){if(e.boss)e.slow=Math.max(e.slow,3);else{e.st=Math.max(e.st,3);e.jl=S.t+3;e.kb=0;}}}
+    if(S.proomT<=0){S.proomT=CSK.room.every;o.x=p.x;o.y=p.y;o.R=160*(1+.1*pv('area'))*(1+[0,.1,.2,.3][SGN('sg_ddo')]);o.t=CSK.room.hold;o.tk=0;AU.play('room');txt(p.x,p.y-30,'☠ 진실의 방!','#9cc8ff');
+      for(const e of S.live)if(e.on&&(e.x-o.x)**2+(e.y-o.y)**2<(o.R+e.r)**2){if(e.boss)e.slow=Math.max(e.slow,CSK.room.hold);else{e.st=Math.max(e.st,CSK.room.hold);e.jl=S.t+CSK.room.hold;e.kb=0;}}}
     if(o.t>0){o.t-=dt;o.tk-=dt;if(o.tk<=0){o.tk=.5;const d=12*(1+S.lv/15)*dmgMul()*(1+[0,.25,.5,.75][SGN('sg_ddo')]);
       for(const e of S.live)if(e.on&&(e.x-o.x)**2+(e.y-o.y)**2<(o.R+e.r)**2)hurt(e,d);hitPropsAt(o.x,o.y,o.R,d);}}}
 }
 function taeDash(){   // 💔 태웅 「씩씩」 — 맞으면 짧게 돌진(움직이던 쪽 · 서 있으면 가까운 적 반대쪽) + 0.5초 무적 · 5초에 한 번
-  const p=S.p;S.dashCd=5;invGrant('dash',.5);AU.play('dash');let dx=p.mdx,dy=p.mdy;
+  const p=S.p;S.dashCd=CSK.dash.cd;invGrant('dash',CSK.dash.inv);AU.play('dash');let dx=p.mdx,dy=p.mdy;
   if(!p.moving){const e=nearest();if(e){const l=Math.hypot(p.x-e.x,p.y-e.y)||1;dx=(p.x-e.x)/l;dy=(p.y-e.y)/l;}}
   if(p.yt<=0&&p.stun<=0)yank(dx*120,dy*120,.16);   // 🪝 갈고리·🌪 회오리에 끌려가는 중이거나 🪨 에어본이면 무적만
   txt(p.x,p.y-26,'💨 씩씩!','#bff3ff');}
@@ -3360,7 +3406,7 @@ function update(dt){
       }}
     else if(e.boss){spm=bossAct(e,dt,d,dx,dy);if(state!=='play')return;}
     if(e.slow>0){e.slow-=dt;spm*=.55;}
-    if(S.slowR&&d<S.slowR+e.r)spm*=.8;   // 🕷 신림 「스탭 임명」 주변 적 -20%
+    if(S.slowR&&d<S.slowR+e.r)spm*=CSK.staff.slow;   // 🕷 신림 「스탭 임명」 주변 적 -20%
     if(e.st>0){e.st-=dt;spm=0;}
     if(!(e.kb>0&&!e.boss)){e.x+=ux*e.sp*spm*dt;e.y+=uy*e.sp*spm*dt;}
     if(d<e.r+p.r&&e.eg!==1){if(CH.push&&!e.boss&&e.kb<=0)knock(e,-dx/d,-dy/d,260,.3);
