@@ -25,7 +25,7 @@ window.__adv=function(sec,opt){opt=opt||{};const x=window.__p6x,dt=opt.dt||1/30,
 #   옛 시험은 브장신을 「아무 능력 없는 기준 캐릭터」로 쓰는 것이 많다 — 그 시험이 보려던 다른 규칙을 계속 지키게 한다. 능력 자체는 survivors_cabil_test.py 가 켠 채로 시험한다.
 CSX_OFF_JS = r"""
 (function(){if(typeof CSX==='undefined')return;
- CSX.brj.full=0;CSX.mms.tk=0;CSX.hrb.run=0;CSX.hrb.tk=0;CSX.amd.x=1;CSX.ildj.cc=0;CSX.ddmj.cd=1e9;CSX.eom.n=1e9;CSX.bbb.every=1e9;CSX.yj.dmg=0;CSX.bgb.k=0;CSX.bgb.dodge=0;
+ CSX.brj.full=0;CSX.mms.tk=0;CSX.mms.base=0;CSX.tw.tk=0;CSK.dash.cd=5;CSX.hrb.run=0;CSX.hrb.tk=0;CSX.amd.x=1;CSX.ildj.cc=0;CSX.ddmj.cd=1e9;CSX.eom.n=1e9;CSX.bbb.every=1e9;CSX.yj.dmg=0;CSX.bgb.k=0;CSX.bgb.dodge=0;
  const b=CHARS.find(c=>c.k==='brj');delete b.hp;CHARS.find(c=>c.k==='tw').rage=.6;CSK.room.R=160;})();
 """
 def make_copy(src='survivors.html', dst='survivors_x.html', root=ROOT, extra=''):

@@ -42,14 +42,14 @@ async def main():
             r = await pg.evaluate("""()=>{const x=__ca;const rows={};for(const c of x.CHARS)rows[c.k]=x.cstat(c);
               return {csx:Object.keys(x.CSX),ks:x.CHARS.map(c=>c.k),rows:Object.fromEntries(Object.entries(rows).map(([k,d])=>[k,{n:d.rows.length,none:d.none,nm:d.rows.map(r=>r.nm)}]))}}""")
             check('[가] 고유스텟 없음 0명 — 18명 전원 1줄 이상', all(d['n'] >= 1 for d in r['rows'].values()) and len(r['rows']) == 18, {k: d['n'] for k, d in r['rows'].items()})
-            check('[가] 고유능력이 새로 붙은 10명이 CSX 한 표에 있다', sorted(r['csx']) == sorted(['brj', 'mms', 'hrb', 'amd', 'ildj', 'ddmj', 'eom', 'bbb', 'yj', 'bgb']), r['csx'])
+            check('[가] 고유능력이 새로 붙은 11명이 CSX 한 표에 있다', sorted(r['csx']) == sorted(['brj', 'mms', 'hrb', 'amd', 'ildj', 'ddmj', 'eom', 'bbb', 'yj', 'bgb', 'tw']), r['csx'])
             allnm = [n for d in r['rows'].values() for n in d['nm']]
             dup = sorted({n for n in allnm if allnm.count(n) > 1 and n not in ('이동속도', '받는 피해', 'HP 회복', '줍는 범위', '경험치', '쿨타임', '최대 HP')})
             check('[가] 능력 이름 겹침 0(공용 수치 행 제외)', not dup, dup)
 
             # ── 나 문구 = 값 (변이)
-            MUT = [('brj', 'brj.full', .3), ('hrb', 'hrb.run', .12), ('amd', 'amd.x', 2), ('amd', 'amd.at', .5), ('ildj', 'ildj.cc', .35), ('ildj', 'ildj.T', 10),
-                   ('ddmj', 'ddmj.cd', 1.5), ('eom', 'eom.n', 12), ('bbb', 'bbb.every', 14), ('bbb', 'bbb.T', 4), ('bbb', 'bbb.cd', .6), ('yj', 'yj.at', .8), ('yj', 'yj.dmg', .15), ('mms', 'mms.tk', .45), ('hrb', 'hrb.tk', .15), ('bgb', 'bgb.dodge', .15)]
+            MUT = [('brj', 'brj.full', .3), ('hrb', 'hrb.run', .12), ('amd', 'amd.x', 2), ('amd', 'amd.at', .5), ('ildj', 'ildj.cc', .3), ('ildj', 'ildj.T', 9),
+                   ('ddmj', 'ddmj.cd', 1.5), ('eom', 'eom.n', 12), ('bbb', 'bbb.every', 14), ('bbb', 'bbb.T', 4), ('bbb', 'bbb.cd', .6), ('yj', 'yj.at', .8), ('yj', 'yj.dmg', .15), ('mms', 'mms.tk', .45), ('mms', 'mms.base', .18), ('tw', 'tw.tk', .15), ('hrb', 'hrb.tk', .15), ('bgb', 'bgb.dodge', .15)]
             res = await pg.evaluate("""(MUT)=>{const x=__ca,out=[];
               const pc=v=>(Math.round(v*1000)/10)+'%',nm=v=>String(Math.round(v*100)/100);
               const text=k=>{const c=x.CHARS.find(c=>c.k===k);const d=x.cstat(c);return d.rows.map(r=>r.nm+' '+r.v+' '+r.ds).join(' | ')+' | '+x.cstatChip(c).txt};
@@ -124,14 +124,14 @@ async def main():
             check('[다] 용조련사 위엄 — 체력 100%·80% 딱 ×1.15 · 79.99%·50% ×1(경계)', abs(y[0] - 11.5) < 1e-6 and abs(y[1] - 11.5) < 1e-6 and abs(y[2] - 10) < 1e-6 and abs(y[3] - 10) < 1e-6, y)
             check('[다] 배고배고 바람 힘 — 피해 = 1 + 이동속도 증가분(%d%%)' % round(b_['bgb']['mm'] * 100), b_['bgb']['mm'] > 0 and abs(b_['bgb']['dmg'] - 10 * (1 + b_['bgb']['mm'])) < 1e-6, b_['bgb'])
             tk = b_['mms']
-            check('[다] 망무새 막다른 길 — 체력 30% 미만만 받는 피해 ×0.55 (29%·10% ×0.55 · 50% ×1)', abs(tk[0] - 1) < 1e-9 and abs(tk[2] - .55) < 1e-9 and abs(tk[3] - .55) < 1e-9 and tk[1] in (1, .55), tk)
+            check('[다] 망무새 막다른 길 — 항상 ×0.82 · 체력 30% 미만이면 ×0.55 (29%·10% ×0.55 · 50% ×0.82)', abs(tk[0] - .82) < 1e-9 and abs(tk[2] - .55) < 1e-9 and abs(tk[3] - .55) < 1e-9 and (abs(tk[1] - .82) < 1e-9 or abs(tk[1] - .55) < 1e-9), tk)
             check('[다] 하리보 — 움직일 때 받는 피해 ×0.85 · 멈추면 ×1', abs(b_['hrbTk'][0] - .85) < 1e-9 and abs(b_['hrbTk'][1] - 1) < 1e-9, b_['hrbTk'])
             check('[다] 배고배고 바람 회피 — 굴림이 이기면 피해 0 + 무적 · 지면 피해를 받는다', b_['dodge']['dodged'] and b_['dodge']['hurtd'], b_['dodge'])
             bb = b_['bbb']
             check('[다] 배불배불 후렴 — 14초 뒤 켜져 4초 지속 · 켜진 동안 쿨타임 배율 ×0.6', bb['on'] is not None and bb['off'] is not None and abs(bb['on'] - 14) < .2 and abs((bb['off'] - bb['on']) - 4) < .2, bb)
             ib = b_['ildj']
-            check('[다] 일단즐겨 커튼콜 — 레벨업 직후 치명타 +35% · 9.5초 뒤도 켜짐 · 10.5초 뒤 꺼짐 · 다시 레벨업하면 채워짐',
-                  abs(ib['ch1'] - ib['ch0'] - ib['cc']) < 1e-9 and abs(ib['chMid'] - ib['ch0'] - ib['cc']) < 1e-9 and abs(ib['ch2'] - ib['ch0']) < 1e-9 and abs(ib['ch3'] - ib['ch0'] - ib['cc']) < 1e-9 and abs(ib['cc'] - .35) < 1e-9, ib)
+            check('[다] 일단즐겨 커튼콜 — 레벨업 직후 치명타 +30% · 8.5초 뒤도 켜짐 · 9.5초 뒤 꺼짐 · 다시 레벨업하면 채워짐',
+                  abs(ib['ch1'] - ib['ch0'] - ib['cc']) < 1e-9 and abs(ib['chMid'] - ib['ch0'] - ib['cc']) < 1e-9 and abs(ib['ch2'] - ib['ch0']) < 1e-9 and abs(ib['ch3'] - ib['ch0'] - ib['cc']) < 1e-9 and abs(ib['cc'] - .3) < 1e-9, ib)
             ab = b_['amd']
             check('[다] 앙앵모르딱 가호 — 체력 90%% 초당 %.2f · 50%% 딱·30%% 초당 %.2f(×2)' % (ab['hi'], ab['lo']), abs(ab['hi'] - 1.5) < .06 and abs(ab['edge'] - 3) < .01 and abs(ab['lo'] - 3) < .1, ab)
             dm = b_['ddmj']
@@ -149,7 +149,7 @@ async def main():
             check('[다] 일시정지 능력치 표 — 브장신/하리보/용조련사/배고배고 「피해」 줄에 능력 설명', all(tb[k]['dmg'] for k in ('brj', 'hrb', 'yj', 'bgb')), tb)
             check('[다] 하리보 표 — 움직이면 「지금 켜짐」 · 멈추면 「지금 꺼짐」', '켜짐' in tb['hrbOn'] and '꺼짐' in tb['hrbOff'], (tb['hrbOn'], tb['hrbOff']))
             check('[다] 배불배불 표 — 쿨타임 줄에 후렴 설명', '후렴' in tb['bbb']['cd'], tb['bbb'])
-            check('[다] 일단즐겨 표 — 치명타 구성에 캐릭터 +35%', '캐릭터 +35%' in tb['ildjCrit'], tb['ildjCrit'])
+            check('[다] 일단즐겨 표 — 치명타 구성에 캐릭터 +30%', '캐릭터 +30%' in tb['ildjCrit'], tb['ildjCrit'])
 
             # ── 라 이어하기: 능력 상태가 저장 본에 실리고(S.x3.cs) 옛 저장본(칸 없음)도 안전
             rs = await pg.evaluate("""async (BEGIN)=>{const x=__ca,P=window.__p6x,out={};const begin=eval(BEGIN);

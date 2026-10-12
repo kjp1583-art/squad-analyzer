@@ -156,7 +156,7 @@ async def main():
             check('[다] 프싱 용 변신 시간·이동속도·받는 피해·무기 피해 = SHV(문구 값)', abs(sk['psg']['dur'] - 11) < 1e-9 and abs(sk['psg']['spd'] - .2) < 1e-9 and abs(sk['psg']['red'] - .3) < 1e-9 and abs(sk['psg']['dmg'] - .2) < 1e-9, sk['psg'])
             check('[다] 신림 스탭 = 2명 · 10초 · 다음 임명 20초 뒤 · 감속 오라 켜짐', sk['sr']['n'] == 2 and 9.9 < sk['sr']['life'] <= 10 and 19.9 < sk['sr']['next'] <= 20 and sk['sr']['slowR'] > 0, sk['sr'])
             check('[다] 또뀨 진실의 방 = 3초 · 다음 방 10초 뒤', 2.9 < sk['ddo']['hold'] <= 3 and 9.9 < sk['ddo']['next'] <= 10, sk['ddo'])
-            check('[다] 태웅 돌진 = 5초에 한 번 · 0.5초 무적', sk['tw']['cd'] == 5 and .4 <= sk['tw']['inv'] <= .5, sk['tw'])
+            check('[다] 태웅 돌진 = 2.5초에 한 번 · 0.5초 무적', sk['tw']['cd'] == 2.5 and .4 <= sk['tw']['inv'] <= .5, sk['tw'])
             src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
             check('[다] 게임 코드가 고유스텟 숫자를 CSK 에서 읽는다(옛 글자 상수 0)',
                   all(t in src for t in ['S.staffT=CSK.staff.every', 'i<CSK.staff.n', 'a.life=CSK.staff.life', 'spm*=CSK.staff.slow', 'S.proomT=CSK.room.every', 'o.t=CSK.room.hold', 'S.dashCd=CSK.dash.cd', "invGrant('dash',CSK.dash.inv)", 'critMul=()=>CRIT_BASE+'])

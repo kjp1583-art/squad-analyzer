@@ -932,7 +932,7 @@ const CHARS=[
   //   밸런스: 브장신보다 조금 센 해금 보상 — 60분 클리어가 쉬워지지 않게(봇 시뮬로 확인한 수치는 커밋 설명에)
   {k:'sr',boss:1,e:'🕷️',nm:'클랜마스터 신림',sn:'신림',tag:'스탭 임명',ds:'「스탭 임명」 — 클랜마스터의 권한으로 사람을 부린다. 📋 임명 도장(고유 무기 · 찍힌 적이 2초 뒤 터진다) 시작.',w:'stamp',staff:1,slowR:140,un:bossUn('sr','15분 보스 신림')},
   {k:'ddo',boss:1,e:'☠️',nm:'클랜마스터 또뀨',sn:'또뀨',tag:'진실의 방',ds:'「진실의 방」 — 진실을 말할 때까지 못 나간다. ⛓ 진실의 사슬 Lv2(고유 무기 · 적을 묶고 사슬 위 전부 지속 피해) 시작.',w:'chain',wl:2,room:1,un:bossUn('ddo','30분 보스 또뀨')},
-  {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 아파도 씩씩하게 돌진한다. 🥊 씩씩 박치기 Lv2(고유 무기 · 적을 향해 돌진) 시작.',w:'ram',wl:2,rage:.7,dash:1,un:bossUn('tw','40분 보스 태웅')},
+  {k:'tw',boss:1,e:'💔',nm:'멘헤라 태웅',sn:'태웅',tag:'씩씩',ds:'「씩씩」 — 아파도 씩씩하게 돌진한다. 🥊 씩씩 박치기 Lv2(고유 무기 · 적을 향해 돌진) 시작.',w:'ram',wl:2,rage:1,dash:1,un:bossUn('tw','40분 보스 태웅')},
   // 🍘 [2026-10-07 사장님 지시] 맛동산 상점(1개=1천원) 캐릭터 2명 — 서버 구매로만 열린다(shop:1)
   {k:'yumi',img:1,shop:1,e:'🍘',nm:'맛동산장인 유미',tag:'롤 유미 코스프레',q:'맛동산 드실래요?',ds:'「롤 유미 코스프레」 — 보라 고양이 후드를 쓰고 맛동산 봉지를 안았다. 🍘 맛동산 투척(고유 무기 · 스틱이 적을 꿰뚫고 날아가며 맞을 때마다 부스러기가 사방으로 튄다) 시작.',w:'snack',mag:.4,auto:5,un:SHOPUN},
   {k:'eom',img:1,shop:1,e:'📢',nm:'엄장신',tag:'엄!',q:'엄!',ds:'「엄!」 — 이 무기 하나로 승부. 📢 엄! 외침(고유 무기 · 외칠 때마다 범위 안의 적이 피해를 입고 뒤로 밀려난다) 시작.',w:'eom',un:SHOPUN},
@@ -948,19 +948,20 @@ function bossUn(k,nm){return {t:nm+' 처치',ok:p=>!!(p.bk&&p.bk[k]),pr:p=>p.bk&
 //   CHARS 안에 새 필드를 넣으면 이어하기 서명(SIG)이 바뀌어 옛 저장본이 버려지므로 별도 최상위 const 로 둔다(CHARS 의 k 로 연결 · 서명 표에 안 들어간다).
 //   행 모양 {ic, nm 이름, v 짧은 값(카드 칩에 쓴다 · 없을 수도), ds 쉬운 설명}. none 은 「고유스텟 없음」 + 한 줄 이유.
 const CRIT_BASE=2;   // 치명타가 터졌을 때의 기본 피해 배율(critMul 이 여기에 패시브를 더한다)
-const CSK={staff:{every:20,n:2,life:10,slow:.8},room:{every:10,hold:3,R:190},dash:{inv:.5,cd:5}};   // 보스 캐릭터의 주기·시간·감속 — charTick·taeDash·적 이동이 같은 값을 읽는다 · staff.n 은 allies 풀 크기(2)를 넘기지 못한다
+const CSK={staff:{every:20,n:2,life:10,slow:.8},room:{every:10,hold:3,R:190},dash:{inv:.5,cd:2.5}};   // 보스 캐릭터의 주기·시간·감속 — charTick·taeDash·적 이동이 같은 값을 읽는다 · staff.n 은 allies 풀 크기(2)를 넘기지 못한다
 // ✨ [2026-10-12 사장님 지시 「모든 캐릭터에게 개성에 맞는 고유스텟을 · 아이템 자동 획득 같은 스텟이 아닌 능력형도 좋아」] 캐릭터마다 개성에 맞는 능력(스텟형 + 조건·주기형)을 한 표에 모은다.
 //   CSX 가 값의 단일 출처 — 게임 코드(csMul·csTaken·csTick·csShock …)와 CSTAT 문구가 같은 값을 읽는다(S·CHARS 의 모양은 건드리지 않는다 → 이어하기 서명 불변).
 //   런타임 상태는 S.x3.cs 한 칸(숫자만 · 없으면 그때 만든다 — 옛 저장본·다른 캐릭터는 이 칸이 없어도 된다). 같은 효과를 둘이 갖지 않는다.
 const CSX={
   brj:{full:.3},                       // 🐤 엄 선빵 — 체력이 가득 찬 적에게 첫 타 피해 +30% (+ CHARS.hp 20)
-  mms:{tk:.45},                        // 🥲 막다른 길 — 체력이 LOWHP_AT(30%) 이하면 받는 피해 -45% (위기 피해 +60% 는 CHARS.low)
+  mms:{tk:.45,base:.18},               // 🥲 막다른 길 — 항상 받는 피해 -18% · 체력이 LOWHP_AT(30%) 이하면 -45% (위기 피해 +60% 는 CHARS.low)
   hrb:{run:.12,tk:.15},                // 🏄 달리며 쏘기 — 움직이는 동안 피해 +12% · 받는 피해 -15%
   amd:{at:.5,x:2},                     // 🪧 화해의 가호 — 체력이 절반 이하면 HP 회복 ×2
-  ildj:{cc:.35,T:10},                  // 🎭 커튼콜 — 레벨이 오르면 10초간 치명타 확률 +35%
+  ildj:{cc:.3,T:9},                    // 🎭 커튼콜 — 레벨이 오르면 9초간 치명타 확률 +30%
   ddmj:{R:120,dmg:30,cd:1.5,kb:300},   // 🧱 반격 — 맞으면 반경 120 충격파(피해 30×(1+Lv/15)×피해배율 · 1.5초에 한 번)
   eom:{n:12,R:150,dmg:30,kb:380},      // 📢 엄 연쇄 — 12마리 처치마다 반경 150 외침 충격파(피해 30×(1+Lv/15)×피해배율)
   bbb:{every:14,T:4,cd:.6},            // 🎤 후렴 — 14초마다 4초간 쿨타임 ×0.6(-40%)
+  tw:{tk:.15},                         // 💔 씩씩한 맷집 — 항상 받는 피해 -15% (씩씩 피해·돌진 무적은 CHARS.rage·CSK.dash)
   yj:{at:.8,dmg:.15},                  // 🐲 군주의 위엄 — 체력 80% 이상이면 피해 +15%
   bgb:{k:1,dodge:.15},                 // 🌪 바람 힘 — 이동속도가 오른 만큼(1:1) 피해도 오른다 · 💨 바람 회피 — 맞을 때 15% 확률로 피함(0.3초 무적)
 };
@@ -978,7 +979,7 @@ const CSR={   // 여러 캐릭터가 같이 쓰는 행 만들기
 const CSTAT={
   brj:{rows:c=>[{ic:'🐤',nm:'엄 선빵',sh:'선빵 +'+csPc(CSX.brj.full),v:'+'+csPc(CSX.brj.full),ds:`체력이 가득 찬 적에게 주는 첫 타 피해가 ${csPc(CSX.brj.full)} 더 세요 (한 대 맞고 나면 원래대로)`},CSR.hp(c)]},
   jjg:{rows:c=>[{ic:'🔪',nm:'치명타',v:'+'+csPc(c.crit),ds:`모든 공격이 ${csPc(c.crit)} 확률로 치명타 — 터지면 피해가 ${CRIT_BASE}배(패시브로 더 커져요)`}]},
-  mms:{rows:c=>[{ic:'🥲',nm:'위기 피해',sh:'저체력 +'+csPc(c.low),v:'+'+csPc(c.low),ds:`체력이 ${csPc(LOWHP_AT)} 이하로 떨어지면 내 모든 공격 피해가 ${csPc(c.low)} 더 세져요 (체력이 차면 원래대로)`},{ic:'🕯',nm:'막다른 길',v:'받는 피해 -'+csPc(CSX.mms.tk),ds:`체력이 ${csPc(LOWHP_AT)} 이하로 떨어지면 받는 피해가 ${csPc(CSX.mms.tk)} 줄어요 — 망했을 때가 제일 질겨요`}]},
+  mms:{rows:c=>[{ic:'🥲',nm:'위기 피해',sh:'저체력 +'+csPc(c.low),v:'+'+csPc(c.low),ds:`체력이 ${csPc(LOWHP_AT)} 이하로 떨어지면 내 모든 공격 피해가 ${csPc(c.low)} 더 세져요 (체력이 차면 원래대로)`},{ic:'🕯',nm:'막다른 길',v:'받는 피해 -'+csPc(CSX.mms.base)+'~'+csPc(CSX.mms.tk),ds:`받는 피해가 항상 ${csPc(CSX.mms.base)} 줄고, 체력이 ${csPc(LOWHP_AT)} 이하로 떨어지면 ${csPc(CSX.mms.tk)} 줄어요 — 망했을 때가 제일 질겨요`}]},
   hrb:{rows:c=>[CSR.spd(c),{ic:'🏃',nm:'달리며 쏘기',v:'+'+csPc(CSX.hrb.run),ds:`움직이는 동안 내 모든 공격 피해가 ${csPc(CSX.hrb.run)} 더 세지고 받는 피해는 ${csPc(CSX.hrb.tk)} 줄어요 (멈추면 원래대로)`}]},
   ssu:{rows:c=>[CSR.regen(c),CSR.arm(c)]},
   amd:{rows:c=>[CSR.regen(c),{ic:'🤝',nm:'화해의 가호',v:'회복 ×'+CSX.amd.x,ds:`체력이 ${csPc(CSX.amd.at)} 이하로 떨어지면 HP 회복이 ${CSX.amd.x}배로 빨라져요`}]},
@@ -990,7 +991,7 @@ const CSTAT={
   bbb:{rows:c=>[{ic:'⏱',nm:'쿨타임',v:'-'+csPc(c.cdr),ds:`「박자 감각」 — 모든 무기의 쿨타임이 ${csPc(c.cdr)} 줄어요 (⏱ 공격속도와 같은 규칙이라 새우깡 대회전 등 일부 무기는 빠져요)`},{ic:'🎶',nm:'후렴',v:'',ds:`${CSX.bbb.every}초마다 ${CSX.bbb.T}초 동안 쿨타임이 ${csPc(1-CSX.bbb.cd)} 더 줄어요 (같은 규칙)`}]},
   sr:{rows:c=>[{ic:'🪪',nm:'스탭 임명',sh:'스탭 임명',v:'',ds:`${CSK.staff.every}초마다 스탭 ${CSK.staff.n}명이 ${CSK.staff.life}초 동안 곁에서 같이 싸워요`},{ic:'🐌',nm:'주변 적 감속',v:'-'+csPc(1-CSK.staff.slow),ds:`내 주변에 들어온 적은 이동속도가 ${csPc(1-CSK.staff.slow)} 느려져요`}]},
   ddo:{rows:c=>[{ic:'⛓',nm:'진실의 방',v:'',ds:`${CSK.room.every}초마다 내 주위에 원형 감옥이 생겨요 — 안에 든 적을 ${CSK.room.hold}초 묶고 지속 피해를 줘요 (보스는 묶이지 않고 느려져요)`}]},
-  tw:{rows:c=>[{ic:'💢',nm:'씩씩 피해',sh:'씩씩 +'+csPc(c.rage),v:'최대 +'+csPc(c.rage),ds:`잃은 체력 1%당 피해가 +1%씩 올라요 (최대 +${csPc(c.rage)})`},{ic:'💨',nm:'돌진 무적',v:'',ds:`맞으면 짧게 돌진하며 ${csNum(CSK.dash.inv)}초 동안 무적이에요 (${CSK.dash.cd}초에 한 번)`}]},
+  tw:{rows:c=>[{ic:'💢',nm:'씩씩 피해',sh:'씩씩 +'+csPc(c.rage),v:'최대 +'+csPc(c.rage),ds:`잃은 체력 1%당 피해가 +1%씩 올라요 (최대 +${csPc(c.rage)})`},{ic:'💨',nm:'돌진 무적',v:'',ds:`맞으면 짧게 돌진하며 ${csNum(CSK.dash.inv)}초 동안 무적이에요 (${CSK.dash.cd}초에 한 번)`},{ic:'🧱',nm:'씩씩한 맷집',v:'-'+csPc(CSX.tw.tk),ds:`아파도 씩씩해서 받는 피해가 항상 ${csPc(CSX.tw.tk)} 줄어요`}]},
   yumi:{rows:c=>[CSR.mag(c),{ic:'🍗',nm:'자동 줍기',v:'',ds:`${c.auto}초마다 가장 가까운 소모 아이템(🍗·💎·💣) 1개를 저절로 주워요`}]},
   eom:{rows:c=>[{ic:'📢',nm:'엄 연쇄',sh:'엄 연쇄 '+CSX.eom.n+'킬',v:CSX.eom.n+'마리마다',ds:`적을 ${CSX.eom.n}마리 처치할 때마다 내 주변에 외침 충격파가 터져 피해를 주고 밀쳐 내요 (레벨이 오를수록 세져요 · 충격파로 잡은 건 세지 않아요)`}]},
   yj:{rows:c=>[CSR.hp(c),CSR.arm(c),CSR.spd(c),{ic:'👑',nm:'군주의 위엄',v:'+'+csPc(CSX.yj.dmg),ds:`체력이 ${csPc(CSX.yj.at)} 이상이면 내 모든 공격 피해가 ${csPc(CSX.yj.dmg)} 더 세요 (다치면 꺼져요)`}]},
@@ -3414,7 +3415,7 @@ const csNow=()=>{const k=CH.k,X=CSX[k],p=S.p;   // 일시정지 능력치 표 �
   if(k==='yj')return `체력 ${uiPcN(X.at)} 이상이면 +${uiPcN(X.dmg)} 더 — ${p.hp>=p.mhp*X.at?'지금 켜짐':'지금 꺼짐'}`;
   if(k==='bgb')return `이동속도가 오른 만큼 피해도 +${uiPcN(X.k*Math.max(0,moveMul()-1))} 더`;
   return '';};
-const csTaken=()=>{const k=CH.k;if(k==='mms')return S.p.hp<S.p.mhp*LOWHP_AT?1-CSX.mms.tk:1;if(k==='hrb')return S.p.moving?1-CSX.hrb.tk:1;return 1;};
+const csTaken=()=>{const k=CH.k;if(k==='mms')return 1-(S.p.hp<S.p.mhp*LOWHP_AT?CSX.mms.tk:CSX.mms.base);if(k==='hrb')return S.p.moving?1-CSX.hrb.tk:1;if(k==='tw')return 1-CSX.tw.tk;return 1;};
 const csCrit=()=>CH.k==='ildj'&&S&&S.x3&&S.x3.cs&&S.x3.cs.cc>0?CSX.ildj.cc:0;
 const csCd=()=>CH.k==='bbb'&&S&&S.x3&&S.x3.cs&&S.x3.cs.enc>0?CSX.bbb.cd:1;
 const csRegen=()=>{const r=CH.regen||0;return r&&CH.k==='amd'&&S.p.hp<=S.p.mhp*CSX.amd.at?r*CSX.amd.x:r;};
