@@ -519,12 +519,14 @@ const HZ=(()=>{
     cx.beginPath();cx.moveTo(x,y);cx.arc(x,y,R,a-w,a+w);cx.closePath();cx.lineWidth=lw+3.5;cx.strokeStyle=PAL.dzDark;cx.stroke();
     cx.setLineDash(D1);cx.lineDashOffset=-t*46;cx.lineWidth=lw;cx.strokeStyle=k>.72?PAL.dzCore:PAL.dz;cx.stroke();cx.setLineDash(D0);cx.lineDashOffset=0;};
   // 적의 진실의 방(가두는 벽) — 바깥쪽 빗금 띠(벽) + 굵은 점선 경계 + 남은 시간 호. 내 진실의 방(둥근 하늘색 실선 빛)과 다르게 그린다
-  o.room=function(x,y,R,tl,T){const t=S.t;
+  o.room=function(x,y,R,tl,T,g,gw,pre){const t=S.t;
+    if(pre>0){cx.fillStyle='rgba(90,0,24,.07)';cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();cx.beginPath();cx.arc(x,y,R,0,7);cx.lineWidth=3;cx.setLineDash(D1);cx.lineDashOffset=-t*30;cx.strokeStyle=PAL.dz;cx.stroke();cx.setLineDash(D0);cx.lineDashOffset=0;cx.font='bold 12px sans-serif';cx.textAlign='center';cx.fillStyle='#ffe1a8';cx.fillText('⚠ 벽이 선다 — 밖으로!',x,y-R-12);return;}
     cx.fillStyle='rgba(90,0,24,.11)';cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();
     cx.save();cx.lineWidth=32;cx.strokeStyle=o.on?o.patS:o.pat;cx.beginPath();cx.arc(x,y,R+16,0,7);cx.stroke();cx.restore();
     cx.beginPath();cx.arc(x,y,R,0,7);cx.lineWidth=o.on?8.5:7;cx.strokeStyle=PAL.dzDark;cx.stroke();
     cx.setLineDash(D1);cx.lineDashOffset=-t*30;cx.lineWidth=o.on?5.5:4.2;cx.strokeStyle=PAL.dz;cx.stroke();cx.setLineDash(D0);cx.lineDashOffset=0;
     cx.beginPath();cx.arc(x,y,R-9,-1.5708,-1.5708+6.2832*cl(tl/T));cx.lineWidth=3.5;cx.strokeStyle='rgba(255,241,194,.85)';cx.stroke();
+    if(gw>0){cx.save();cx.lineCap='butt';cx.beginPath();cx.arc(x,y,R+8,g-gw/2,g+gw/2);cx.lineWidth=46;cx.strokeStyle='rgba(8,34,20,.9)';cx.stroke();cx.beginPath();cx.arc(x,y,R+8,g-gw/2,g+gw/2);cx.lineWidth=34;cx.strokeStyle='rgba(80,230,140,.55)';cx.stroke();cx.restore();cx.font='bold 11px sans-serif';cx.fillStyle='#b9ffd2';cx.fillText('🚪 문',x+Math.cos(g)*(R+8),y+Math.sin(g)*(R+8)-24);}
     cx.font='bold 12px sans-serif';cx.textAlign='center';cx.lineWidth=3;cx.strokeStyle=PAL.dzDark;cx.strokeText('☠ 진실의 방 (적의 함정)',x,y-R-38);cx.fillStyle='#ffb0bd';cx.fillText('☠ 진실의 방 (적의 함정)',x,y-R-38);};
   // 독가스·함정 무더기 — 🚀 [속도] 원 하나 = 채우기·빗금·어두운 밑선·돌아가는 점선을 한 장에 미리 그려 두고(반지름 화면 픽셀 × 점선 위상 11칸) 정수 위치에 1:1 로 찍는다.
   //   예전엔 원이 많으면 경로 하나로 4번 그렸어도 원 하나에 100µs 가까이 들었다(스무 개면 2ms). 점선이 흐르는 모양은 그대로(위상을 시간으로 고른다).
@@ -3273,7 +3275,7 @@ function bossAct(e,dt,d,dx,dy){   // 보스 패턴 — 돌려받는 값: 속도 
   if(has('pull')&&at.pull<=0){at.pull=8;e.pl=.8;taunt(B.key==='naut'?'Nautilus':B.key==='morde'?'Mordekaiser':'',e);}   // 💬 닻·영역으로 끌어당김
   if(e.pl>0){e.pl-=dt;p.x+=dx/d*-150*dt;p.y+=dy/d*-150*dt;}
   if(has('staff')&&at.staff<=0){at.staff=3;for(let i=-2;i<=2;i++)shot(aim+i*.3,200,'📜',1);if(Math.random()<.4)say(e,'스탭 임명장 받으세요.');}   // 📜 맞으면 느려진다
-  if(has('room')&&at.room<=0&&!S.room){at.room=12;S.room={x:p.x,y:p.y,R:300,t:6};say(e,'자, 앉으세요. 문은 잠갔습니다.');banner('☠ 진실의 방','방이 좁아진다 — 안에서 버텨라!',1);}
+  if(has('room')&&at.room<=0&&!S.room){at.room=12;S.room={x:p.x,y:p.y,R:300,t:6,pre:1.3,g:Math.random()*6.283,gw:1.0};say(e,'자, 앉으세요. 문은… 어, 열려 있네?');banner('☠ 진실의 방','벽이 닫히기 전에 — 초록 문으로 빠져나가라!',1);}   // 🚪 [2026-10-12 사장님 지시 「컨트롤로 극복 불가·무조건 갇힘」] 1.3초 예고 뒤 벽이 서고, 벽 한쪽에 천천히 도는 초록 문(약 57°)이 있다 — 문으로 나가면 방이 풀린다. 안에 남으면 예전처럼 좁아진다(최소 140·초당 30)
   if(has('rage')&&e.hp<e.mhp*.4&&at.rage<=0){at.rage=3;S.ebooms.push({x:e.x,y:e.y,R:190,t:.9,T:.9,d:e.dmg*1.2});say(e,'나와 같은 기분을 느껴봐라!!');}
   if(has('breath')&&at.breath<=0&&!S.cone){at.breath=5;S.cone={e,sn:e.sn,a:aim,t:.9,R:340,w:.5,d:e.dmg*1.4,hit:0};}
   if(has('cards')&&at.cards<=0&&!S.cardW){at.cards=7;S.cardW={e,sn:e.sn,a:aim,t:.8,T:.8,n:5+2*e.bph,sp:.26,L:560};say(e,'플레이브 한번 잡숴봐!!');AU.play('pcards');}   // 📸 외침 → 0.8초 예고(진홍 빗금 띠) → 카드 부채꼴(체력이 줄면 5→7→9장)
@@ -3308,8 +3310,13 @@ function update(dt){
   const sp=p.sp*moveMul()*slowMul();   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영 · 🎮 [2026-10-09] 식은 moveMul·slowMul 로(일시정지 능력치 표가 같은 함수를 읽는다 · 값은 그대로)
   if((CH.regen||0)+(PTV('hp')>=2?.25:0)>0&&p.hp<p.mhp)p.hp=Math.min(p.mhp,p.hp+((CH.regen||0)+(PTV('hp')>=2?.25:0))*dt);p.x+=mx*sp*dt;p.y+=my*sp*dt;if(mx)p.face=mx>0?1:-1;
   if(p.yt>0){const k=Math.min(dt,p.yt);p.yt-=dt;p.x+=p.yvx*k;p.y+=p.yvy*k;}   // 🪝 끌려가거나 🌪 밀려난다
-  if(S.room){const R=S.room;R.t-=dt;R.R=Math.max(110,R.R-40*dt);const dx=p.x-R.x,dy=p.y-R.y,d=Math.hypot(dx,dy);   // ☠ 진실의 방 — 밖으로 못 나간다
-    if(d>R.R-p.r){p.x=R.x+dx/d*(R.R-p.r);p.y=R.y+dy/d*(R.R-p.r);}if(R.t<=0)S.room=null;}
+  if(S.room){const R=S.room;const dx=p.x-R.x,dy=p.y-R.y,d=Math.hypot(dx,dy);   // ☠ 진실의 방 — 예고(pre) 동안은 벽이 없다 · 벽이 선 뒤엔 초록 문(g±gw/2)으로만 나간다 · 나가면 풀린다
+    if(R.pre>0){R.pre-=dt;}
+    else{R.t-=dt;R.R=Math.max(140,R.R-30*dt);R.g=(R.g||0)+.55*dt;
+      let da=Math.atan2(dy,dx)-(R.g||0);da=Math.abs(Math.atan2(Math.sin(da),Math.cos(da)));const inDoor=da<(R.gw||1)/2;
+      if(d>R.R+p.r+6&&inDoor)S.room=null;   // 문으로 빠져나옴
+      else if(d>R.R-p.r&&!(inDoor&&d>R.R-p.r*2-14)){p.x=R.x+dx/d*(R.R-p.r);p.y=R.y+dy/d*(R.R-p.r);}
+      if(S.room&&R.t<=0)S.room=null;}}
   if(p.inv>0)p.inv-=dt;
   S.live.length=0;S.kc.fill(0);for(const e of enemies.a)if(e.on){S.live.push(e);if(!e.boss)S.kc[e.ki]++;}S.ne=S.live.length;S.lite=S.ne>150||S.t>1500;
   waveTick(dt);if(state!=='play')return;
@@ -4097,7 +4104,7 @@ function draw(){
     if(u.ev){cx.fillStyle=PAL.pk2;for(let k=0;k<3;k++){const a=S.t*1.3+k*2.1+u.x,tw=.5+.5*Math.sin(S.t*7+k*2+u.y);cx.globalAlpha=tw;cx.fillRect(u.x+Math.cos(a)*u.R*.55-1.3,u.y+Math.sin(a)*u.R*.55-1.3,2.6,2.6);}cx.globalAlpha=1;}}   // 💰 황금 비약: 금빛 반짝임(경험치 2배)
   EX.booms();   // 🥚 달걀·🐣 병아리·🎰 캡슐 착탄 표시와 낙하 + 터진 자리
   // ─── 🔴 적의 위험(바닥층) — 어두운 밑선 + 진홍 점선 + 사선 빗금 + 안쪽이 차오르는 시간. 내 바닥 효과 위에 그려 항상 보이게 ───
-  if(S.room)HZ.room(S.room.x,S.room.y,S.room.R,S.room.t,6);   // ☠ 보스의 진실의 방(가두는 벽)
+  if(S.room)HZ.room(S.room.x,S.room.y,S.room.R,S.room.t,6,S.room.g,S.room.gw,S.room.pre);   // ☠ 보스의 진실의 방(가두는 벽)
   for(const b of S.ebooms)HZ.disc(b.x,b.y,b.R,1-b.t/(b.T||.9),b.g);   // 💔 멘탈 폭발 · ⏰ 시한폭탄 · 💥 코그모 · 💢 보스 충격파
   HZ.clouds();   // ☁ 독가스
   for(const b of S.beams){const x2=b.x+b.ax*b.L,y2=b.y+b.ay*b.L;   // 🌈 레이저(예고 띠 → 번쩍)
