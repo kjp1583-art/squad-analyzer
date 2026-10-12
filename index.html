@@ -3223,7 +3223,14 @@ function loadTitles(){
 // 🔁 닉변·부계 추적. 반환은 항상 배열(유니크 먼저 — 세상에 하나뿐인 게 앞에 와야 한다).
 function titlesOf(name){
   const a=aliasLookup(TITLES, name); if(!a||!a.length) return [];
-  return a.filter(t=>t&&t.title).slice().sort((x,y)=>(y.tier==="유니크")-(x.tier==="유니크"));
+  return a.filter(t=>t&&t.title).slice().sort((x,y)=>(y.tier==="유니크"&&!isSeasonTitle(y))-(x.tier==="유니크"&&!isSeasonTitle(x)) || (isSeasonTitle(x)-isSeasonTitle(y)));   // 유니크 → 상점 칭호 → 시즌 칭호(맨 뒤)
+}
+// 🏛 [2026-10-12 사장님 지시] 흐접새우 서바이벌 시즌 메달 보상 칭호 — 봇이 TITLES 탭에 「등급=시즌」 으로 미러(예: 「🥇 흐접새우 시즌2 일반 챔피언」).
+//    구매·거래가 안 되는 기념 칭호라 상점 칭호 설명을 쓰면 안 된다. 등급이 안 맞아도 이름이 「흐접새우 시즌N …」 이면 같은 칭호로 본다.
+function isSeasonTitle(t){ return !!t&&(t.tier==="시즌"||/^흐접새우 시즌\s*\d+/.test(String(t.title||""))); }
+function _seasonTitleKey(t){   // 정렬: 최신 시즌 먼저 → 🥇🥈🥉 → 일반·하드·베리하드
+  const m=/시즌\s*(\d+)/.exec(String(t.title||"")), n=m?+m[1]:0, md=/베리하드/.test(t.title)?2:/하드/.test(t.title)?1:0;
+  return [n, "🥇🥈🥉".indexOf(String(t.emoji||"").slice(0,2)), md];
 }
 function titleOf(name){ return titlesOf(name)[0]||null; }
 const _TITLE_TIER_CSS={
@@ -3233,12 +3240,27 @@ const _TITLE_TIER_CSS={
   "레어":{bg:"rgba(90,170,255,.12)",bd:"rgba(90,170,255,.5)",fg:"#8ec6ff"},
   "일반":{bg:"rgba(255,255,255,.07)",bd:"var(--line)",fg:"var(--sub)"}
 };
-function titleChip(name){   // 보유한 칭호 전부 (유니크 → 상점 칭호 순)
-  return titlesOf(name).map(t=>{
+const _SEASON_CSS={"🥇":{bg:"linear-gradient(90deg,rgba(255,200,60,.22),rgba(255,160,40,.12))",bd:"rgba(255,200,60,.7)",fg:"#ffe08a"},
+  "🥈":{bg:"rgba(200,210,230,.14)",bd:"rgba(200,210,230,.6)",fg:"#dfe6f3"},"🥉":{bg:"rgba(210,140,80,.15)",bd:"rgba(210,140,80,.6)",fg:"#f0b98a"}};
+const SEASON_CHIP_SHOW=3;   // 시즌 칭호가 많아지면 최신 3개만 먼저 — 나머지는 「외 N개」 로 펼친다
+function _seasonChip(t,hid){
+  const cs=_SEASON_CSS[String(t.emoji||"").slice(0,2)]||_SEASON_CSS["🥇"];
+  return `<span${hid?' class="stt-x"':''} title="흐접새우 서바이벌 시즌 메달 보상 칭호 — 시즌 마감 때 1~3위에게 주는 기념 칭호(구매·거래 불가)" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:normal;overflow-wrap:anywhere;max-width:100%;box-sizing:border-box${hid?';display:none':''}">${esc(t.emoji||'🏅')} ${esc(t.title)}</span>`;
+}
+function seasonTitleChips(list){
+  if(!list.length) return '';
+  const L=list.slice().sort((a,b)=>{const x=_seasonTitleKey(a),y=_seasonTitleKey(b);return (y[0]-x[0])||(x[1]-y[1])||(x[2]-y[2]);});
+  const vis=L.slice(0,SEASON_CHIP_SHOW), rest=L.slice(SEASON_CHIP_SHOW);
+  const more=rest.length?`<button type="button" class="stt-more" onclick="this.parentNode.querySelectorAll('.stt-x').forEach(function(e){e.style.display='inline-block'});this.remove()" aria-label="시즌 칭호 ${rest.length}개 더 보기" style="background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--sub);font:inherit;font-size:12.5px;font-weight:700;padding:3px 10px;min-height:28px;border-radius:9px;cursor:pointer">외 ${rest.length}개</button>`:'';
+  return `<span class="stt-grp">${vis.map(t=>_seasonChip(t,false)).join(" ")}${rest.length?" "+rest.map(t=>_seasonChip(t,true)).join(" ")+" "+more:""}</span>`;
+}
+function titleChip(name){   // 보유한 칭호 전부 (유니크 → 상점 칭호 → 시즌 보상 칭호 순)
+  const all=titlesOf(name), seas=all.filter(isSeasonTitle);
+  return all.filter(t=>!isSeasonTitle(t)).map(t=>{
     const cs=_TITLE_TIER_CSS[t.tier]||_TITLE_TIER_CSS["일반"];
     const tip=t.tier==="유니크"?"세상에 단 하나뿐인 칭호 — 경매·거래소에서만 구할 수 있습니다":`포인트 상점에서 구매한 칭호 (${escAttr(t.tier||'일반')})`;
     return `<span title="${tip}" style="background:${cs.bg};border:1px solid ${cs.bd};color:${cs.fg};font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:9px;white-space:nowrap">${esc(t.emoji||'🏷️')} ${esc(t.title)}</span>`;
-  }).join(" ");
+  }).join(" ")+(seas.length?" "+seasonTitleChips(seas):"");
 }
 // 🪙 [2026-09-03 사장님 지시] 스쿼드코인 수집 뱃지 시리즈 — 보유한 유니크 '스쿼드코인 No.N' 개수로 등급이 오른다.
 //    특별 발행(고추바사삭·엄 등)은 코인이 아니라 제외. 데이터는 TITLES 탭(봇이 보유 칭호 전부 미러) 그대로.
@@ -11341,7 +11363,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610111530";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610121700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

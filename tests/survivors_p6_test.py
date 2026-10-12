@@ -277,7 +277,7 @@ async def main():
         r = await pg.evaluate("""()=>{const bs=[...document.querySelectorAll('#board .btabs button')].map(b=>b.textContent);const w=document.documentElement.scrollWidth;
           document.querySelector('#board [data-bt="4"]').click();const t4=document.getElementById('board').textContent;document.querySelector('#board [data-bt="3"]').click();const t3=document.getElementById('board').textContent;
           return {bs,w,iw:innerWidth,t4,t3};}""")
-        check('순위표 탭 7개(일반·하드·베리하드·무한·무한 하드·무한 베리하드·오늘) · 가로 스크롤 없음', len(r['bs']) == 7 and r['w'] <= r['iw'] + 1, r)
+        check('순위표 탭 8개(일반·하드·베리하드·총랭킹·무한·무한 하드·무한 베리하드·오늘) · 가로 스크롤 없음', len(r['bs']) == 8 and r['w'] <= r['iw'] + 1, r)
         check('오늘·무한 탭에 서버 보드 표시', '700' not in r['t4'] and 'd' in r['t4'] and '11:40' in r['t4'] and '66:40' in r['t3'], (r['t4'], r['t3']))
         check('예외 없음', errs == [], errs)
         await ctx.close()

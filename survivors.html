@@ -110,6 +110,7 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 .acct{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:10px 0;font-size:12.5px;text-align:left}
 .acct .btn{width:auto;padding:6px 12px;font-size:13px;margin:6px 0 0}
 .board{text-align:left;margin:8px 0;font-size:12.5px}.board ol{margin:4px 0;padding-left:22px}.board li{padding:1px 0;overflow-wrap:anywhere}.board li b{float:right;color:var(--gold)}.board li.me{background:rgba(245,192,74,.12);border-radius:6px}.board .mee{color:var(--gold);font-size:11px}#boardMore{margin:6px 0 0;width:100%}
+.board li small.clr{color:var(--sub);font-size:10.5px;white-space:nowrap}.board .mdl{font-size:11px;white-space:nowrap}.board .seasHd{margin:3px 0 1px;font-size:12.5px;color:var(--gold)}.board li .tsub{display:block;clear:both;color:var(--sub);font-size:10.5px;line-height:1.35}
 .dc{background:#5865f2!important}
 #unlockMsg{color:var(--gold);font-weight:700;margin:6px 0}
 .snd{text-align:left;font-size:12.5px;margin:6px 0}.snd label{display:flex;align-items:center;gap:8px;margin:6px 0}.snd input{flex:1;min-width:0;accent-color:var(--acc)}.snd b{min-width:28px;text-align:right;color:var(--gold);font-size:12px}.snd label span{flex:0 0 64px;white-space:nowrap}
@@ -189,6 +190,49 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .fxn{padding:5px 12px;border-top:1px solid var(--line);font-size:11.5px;line-height:1.45;color:var(--sub);word-break:keep-all;overflow-wrap:anywhere}
 .fxn.p{color:#ffd37a}.fxn.w{color:#ffb4a8;font-weight:700}
 @supports (height:100dvh){#lvup .box{max-height:calc(100dvh - 32px)}}   /* 폰 주소창만큼 잘리지 않게(카드 아래 목록까지 스크롤로 닿는다) */
+/* 🏛 [2026-10-12 사장님 지시] 명예의 전당 대시보드 — 자기완결 구획(.hl* 만 쓴다) */
+.hlopen{display:block;width:100%;min-height:44px;margin:8px 0 0;padding:0 14px;border-radius:12px;border:1px solid #9a7a30;background:var(--card2);color:#ffd98a;font:inherit;font-weight:800;font-size:14px;cursor:pointer;-webkit-appearance:none;appearance:none}
+.hlopen:focus-visible,.hlx:focus-visible,.hltab:focus-visible,.hlchip:focus-visible,.hlmore:focus-visible,.hlretry:focus-visible,.hlgo:focus-visible,.hlmb:focus-visible{outline:2px solid var(--win);outline-offset:2px}
+.hlov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:12px;background:rgba(9,12,28,.84);z-index:9;touch-action:manipulation}
+.hlov.on{display:flex}
+.hlbox{word-break:keep-all;overflow-wrap:anywhere;width:100%;max-width:520px;max-height:calc(100vh - 24px);display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:left;overflow:hidden}
+@supports (height:100dvh){.hlbox{max-height:calc(100dvh - 24px)}}
+.hlhead{display:flex;align-items:center;gap:8px;flex:none;padding:4px 4px 4px 16px;border-bottom:1px solid var(--line)}
+.hlhead h2{flex:1;min-width:0;margin:0;font-size:17px;line-height:1.3;color:#ffd98a}
+.hlx{flex:none;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--txt);font:inherit;font-size:18px;cursor:pointer}
+.hlbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 12px 14px}
+.hlrule{margin:10px 0 6px;font-size:12.5px;line-height:1.55;color:var(--sub)}.hlrule b{color:var(--txt)}
+.hltabs{display:flex;gap:6px;margin:6px 0}
+.hltab{flex:1;min-width:0;min-height:40px;padding:0 6px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--sub);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.hltab.on{color:var(--txt);border-color:var(--gold)}
+.hlsel,.hlchips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.hlchip{min-height:36px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--card2);color:var(--sub);font:inherit;font-size:12.5px;cursor:pointer}
+.hlchip.on{color:var(--txt);border-color:var(--acc);background:#262d52}
+.hlsh{margin:10px 0 2px;font-size:15px;font-weight:800;color:var(--gold)}.hlsd{font-size:12px;font-weight:400;color:var(--sub)}
+.hlpods{display:grid;gap:8px;margin:8px 0}
+.hlpd{border:1px solid var(--line);border-radius:10px;background:var(--card2);padding:6px 10px 8px}
+.hlpd h4{margin:2px 0 4px;font-size:12.5px;color:var(--sub);font-weight:700}
+.hlpl{display:flex;align-items:center;gap:8px;min-width:0;padding:2px 0}
+.hlpl .hlmd{flex:none;font-size:18px}.hlpl.r1 .hlmd{font-size:30px}
+.hlpl .hlpn{min-width:0;display:flex;flex-direction:column}.hlpl .hlpn b{font-size:14px}.hlpl.r1 .hlpn b{font-size:18px;color:var(--gold)}
+.hlpl .hlps{font-size:11.5px;color:var(--sub)}
+.hlcap{margin:4px 0;font-size:12px;color:var(--sub)}
+.hlol{list-style:none;margin:4px 0;padding:0}
+.hlr{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:6px;align-items:start;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}
+.hlr.top1{background:rgba(245,192,74,.12);border-radius:8px;border-bottom-color:transparent}.hlr.top1 .hln{color:var(--gold)}
+.hlk{text-align:center;color:var(--sub);font-size:12.5px}
+.hlm{min-width:0;overflow-wrap:anywhere}.hlm .bch{vertical-align:middle}
+.hlc{margin-left:4px;font-size:10.5px;color:var(--sub);white-space:nowrap}
+.hlsub{display:block;font-size:10.5px;color:var(--sub);line-height:1.35}
+.hlv{text-align:right;font-weight:800;color:var(--gold);white-space:nowrap}.hlv small{display:block;font-size:10.5px;font-weight:400;color:var(--sub)}
+.hlmore{display:block;width:100%;min-height:44px;margin:8px 0 0;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--txt);font:inherit;cursor:pointer}
+.hlmsg{margin:14px 0;padding:14px 12px;border:1px dashed var(--line);border-radius:10px;font-size:13.5px;line-height:1.6;color:var(--sub);text-align:center}
+.hlretry,.hlgo{min-height:44px;margin-top:8px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--txt);font:inherit;cursor:pointer}
+.hlcur{margin:10px 0;padding:14px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card2);text-align:center;font-size:13.5px;line-height:1.7}
+.hlmb{display:block;width:100%;min-height:36px;padding:0;border:0;background:none;color:var(--txt);font:inherit;font-size:13px;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.hlmc{white-space:nowrap;color:var(--gold)}
+.hldet{margin:2px 0 4px;padding-left:16px;font-size:12px;color:var(--sub)}
+.hlnote{margin:10px 0 0;font-size:11.5px;color:var(--sub);line-height:1.5}
 /* 🗞 [2026-10-08 사장님 지시] 흐접새우 서바이벌 첫 화면 「패치노트」 대시보드 — 자기완결 구획(.pn* 만 쓴다) */
 .pnopen{position:absolute;right:10px;bottom:10px;z-index:2;display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 14px;border-radius:22px;border:1px solid #9a7a30;background:rgba(14,18,36,.88);color:#ffd98a;font:inherit;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);-webkit-appearance:none;appearance:none}
 .pnopen:focus-visible,.pnx:focus-visible,.pnh:focus-visible,.pnchip:focus-visible,.pnretry:focus-visible{outline:2px solid var(--win);outline-offset:2px}
@@ -344,6 +388,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="resmsg" id="resMsg" hidden role="status"></div>
   <div class="resnote" id="resNote" hidden><span id="resNoteTxt"></span> <span class="rnb"><button class="btn g" id="resNoteCopy" hidden>링크 복사</button><button class="btn g" id="resNoteX">닫기</button></span></div>
   <div class="muted" id="bestT">최고 기록 없음</div>
+  <div class="hallrow"><button type="button" class="hlopen" id="hallOpen" aria-haspopup="dialog">🏛 명예의 전당 <span class="muted">지난 시즌 기록·메달</span></button></div>
   <div class="board" id="board"><b style="color:#ffb089">🏆 순위표</b><div class="muted">불러오는 중…</div></div>
   <div class="acct" id="acct"></div>
   <div class="rosterH">👥 클랜원 캐릭터</div>
@@ -422,6 +467,13 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 <div class="pnov" id="pnOv"><div class="pnbox" role="dialog" aria-modal="true" aria-label="흐접새우 서바이벌 패치노트">
   <div class="pnhead"><h2>🗞 흐접새우 서바이벌 패치노트</h2><button type="button" class="pnx" id="pnX" aria-label="패치노트 닫기">✕</button></div>
   <div class="pnbody" id="pnBody"></div>
+</div></div>
+
+<!-- 🏛 [2026-10-12 사장님 지시] 명예의 전당 겹창 — 첫 화면에서만 열린다(게임 상태와 무관). 안쪽은 열 때 그린다 -->
+<div class="hlov" id="hlOv"><div class="hlbox" role="dialog" aria-modal="true" aria-labelledby="hlT">
+  <div class="hlhead"><h2 id="hlT">🏛 명예의 전당</h2><button type="button" class="hlx" id="hlX" aria-label="명예의 전당 닫기">✕</button></div>
+  <div class="hlbody" id="hlBody"></div>
+  <div class="cxfoot"><button type="button" class="btn g" id="hlX2">닫기</button></div>
 </div></div>
 
 <!-- 📖 [2026-10-09 사장님 지시] 스킬 도감 겹창 — 첫 화면에서만 열린다(게임 상태와 무관). 안쪽은 열 때 그린다(첫 화면 로드 비용 0) -->
@@ -731,15 +783,36 @@ let BOARDE=null,BOARDEH=null,BOARDEV=null,BOARDD=null,SRV_END=null,SRV_DLY=null,
 let BOARDH=null,BOARDV=null,SRV_VH=null,BTAB=0;   // 🔥 하드 순위표(서버가 아직 모르면 null — 탭은 '준비 중')
 function bchHtml(k){const c=CHARS.find(x=>x.k===k);if(!c)return '';const nm=esc(c.sn||c.nm);   // 🏆 순위표 한 줄의 캐릭터 표기(그림 + 이름) — 빌드는 일부러 안 보여 준다
   return (hasArt(c)?`<img class="bch" src="${artUrl(c)}" alt="" loading="lazy">`:`<span class="bch e">${esc(c.e)}</span>`)+`<small class="bchn">${nm}</small> `;}
+/* 🏆 [2026-10-12 사장님 지시] 시즌제 — 순위표 머리말·클리어 수·메달·총랭킹. 서버(봇)가 season/clears/medals/total 을 안 주는 옛 응답에서는 그 칸만 조용히 빠진다.
+   새 S 키·최상위 let 을 만들지 않으려고 값은 이 const 객체 하나에 둔다(이어하기 서명과 무관). */
+const SEAS={n:0,start:'',end:'',left:null,tot:null};
+const seasNum=v=>{v=+v;return Number.isInteger(v)&&v>0&&v<10000?v:0;};
+const seasDay=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v||''));return m?m[1]+'-'+m[2]+'-'+m[3]:'';};
+function seasHead(){if(!SEAS.n)return '';const m=/^\d{4}-(\d{2})-(\d{2})$/.exec(SEAS.end),l=SEAS.left;
+  return `<div class="seasHd" id="seasHd">🏆 <b>시즌 ${SEAS.n}</b>${m?` · ${+m[1]}/${+m[2]}까지${Number.isInteger(l)&&l>=0?(l===0?' (오늘 마감)':` ${l}일`):''}`:''}</div>`;}
+function seasEnd(j){const n=seasNum(j&&j.season)||SEAS.n,t=j&&Number.isInteger(+j.total_rank)&&+j.total_rank>0?` · 🏆 총랭킹 <b style="color:var(--gold)">${+j.total_rank}위</b>`:'';
+  return n||t?` <span class="muted">${n?'· 시즌 '+n+' 기준':''}${t}</span>`:'';}   // 판 끝 문구 꼬리 — 순위가 시즌 기록 기준임을 알린다(서버가 시즌을 모르면 생략)
+const cnt0=v=>{const n=Math.floor(+v);return Number.isFinite(n)&&n>0&&n<1e6?n:0;};
+function medalHtml(m){if(!m||typeof m!=='object')return '';const g=cnt0(m.g),s=cnt0(m.s),b=cnt0(m.b);
+  return g||s||b?` <span class="mdl">${g?'🥇'+g:''}${s?(g?' ':'')+'🥈'+s:''}${b?(g||s?' ':'')+'🥉'+b:''}</span>`:'';}
+const clrHtml=r=>r&&r.clears!=null&&r.clears!==''&&Number.isFinite(+r.clears)&&+r.clears>=0?` <small class="clr">클리어 ${Math.floor(+r.clears)}</small>`:'';
+const totT=(r,a)=>{for(const k of a)if(r&&Number.isFinite(+r[k]))return +r[k];return 0;};
+function totRowHtml(r,me){const n=totT(r,['t_n','tn','n']),h=totT(r,['t_h','th','h']),v=totT(r,['t_v','tv','v']),c=r&&r.clears!=null&&Number.isFinite(+r.clears)?` · 클리어 ${Math.floor(+r.clears)}`:'';
+  return `<li${me?' class="me"':''}>${esc(r.name)}${medalHtml(r.medals)}${me?' <span class="mee">← 나</span>':''} <b>${fmt(totT(r,['pts','t','total'])||n+h+v)}</b><span class="tsub">일반 ${fmt(n)} · 하드 ${fmt(h)} · 베리 ${fmt(v)}${c}</span></li>`;}
+window.__svBch=bchHtml;   // 🏛 명예의 전당(별도 구획)이 캐릭터 칩을 같은 모양으로 그리게
 function renderBoard(){const el=$('board');if(!BOARD){el.innerHTML='<b>🏆 순위표</b><div class="muted">순위표를 불러오지 못했어요.</div>';return;}
   // 🏆 [2026-10-09 사장님 지시 「순위표가 top10이 아니라 그냥 전체랭킹 다 볼 수 있게 해줘」] 예전엔 10명만 그렸다 — 서버가 내려준 전원을 그린다(100명씩 「더 보기」, 보이는 개수는 요소 data-lim 에 둔다 — 새 최상위 변수 없음).
-  const all=(BTAB===4?BOARDD||[]:BTAB===5?BOARDEH||[]:BTAB===6?BOARDEV||[]:BTAB===3?BOARDE||[]:BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD),lim=Math.max(100,+el.dataset.lim||0),rows=all.slice(0,lim),mine=ME&&ME.name?String(ME.name):'';
-  el.innerHTML=`<b>🏆 순위표</b>${all.length?` <span class="muted">전체 ${all.length}명</span>`:''}<span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button><button data-bt="3" class="${BTAB===3?'on':''}">♾ 무한</button><button data-bt="5" class="${BTAB===5?'on':''}">♾🔥 무한 하드</button><button data-bt="6" class="${BTAB===6?'on':''}">♾💀 무한 베리하드</button><button data-bt="4" class="${BTAB===4?'on':''}">📅 오늘</button></span>`
+  const all=(BTAB===7?SEAS.tot||[]:BTAB===4?BOARDD||[]:BTAB===5?BOARDEH||[]:BTAB===6?BOARDEV||[]:BTAB===3?BOARDE||[]:BTAB===2?BOARDV||[]:BTAB?BOARDH||[]:BOARD),lim=Math.max(100,+el.dataset.lim||0),rows=all.slice(0,lim),mine=ME&&ME.name?String(ME.name):'';
+  const mr=BTAB===7&&ME&&Number.isInteger(+ME.total_rank)&&+ME.total_rank>0?`<div class="muted">내 총랭킹 <b style="color:var(--gold)">${+ME.total_rank}위</b>${Number.isFinite(+ME.total_pts)?` · 총점 ${fmt(+ME.total_pts)}`:''}</div>`:'';
+  el.innerHTML=`<b>🏆 순위표</b>${all.length?` <span class="muted">전체 ${all.length}명</span>`:''}${seasHead()}<span class="btabs"><button data-bt="0" class="${BTAB?'':'on'}">일반</button><button data-bt="1" class="${BTAB===1?'on':''}">🔥 하드</button><button data-bt="2" class="${BTAB===2?'on':''}">💀 베리하드</button><button data-bt="7" class="${BTAB===7?'on':''}">🏆 총랭킹</button><button data-bt="3" class="${BTAB===3?'on':''}">♾ 무한</button><button data-bt="5" class="${BTAB===5?'on':''}">♾🔥 무한 하드</button><button data-bt="6" class="${BTAB===6?'on':''}">♾💀 무한 베리하드</button><button data-bt="4" class="${BTAB===4?'on':''}">📅 오늘</button></span>`
     +(BTAB===4&&DLY_DATE?`<div class="muted">📅 ${esc(DLY_DATE)} 오늘의 도전 — 하루 한 판 · 같은 시드</div>`:'')
-    +(rows.length?'<ol>'+rows.map(r=>{const me=mine&&String(r.name)===mine;return `<li${me?' class="me"':''}>${bchHtml(r.ch)}${esc(r.name)}${me?' <span class="mee">← 나</span>':''} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`;}).join('')+'</ol>'+(all.length>rows.length?`<button class="btn g" id="boardMore" type="button">▼ 더 보기 (${all.length-rows.length}명 남음)</button>`:''):`<div class="muted">${BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===5&&!BOARDEH?'무한 하드 순위표 준비 중이에요.':BTAB===6&&!BOARDEV?'무한 베리하드 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
+    +(BTAB===7?`<div class="muted">일반·하드·베리하드 최고 생존 시간을 모두 더한 점수예요(안 해 본 난이도는 0).</div>${mr}`:'')
+    +(rows.length?'<ol>'+rows.map(r=>{const me=mine&&String(r.name)===mine;if(BTAB===7)return totRowHtml(r,me);return `<li${me?' class="me"':''}>${bchHtml(r.ch)}${esc(r.name)}${medalHtml(r.medals)}${me?' <span class="mee">← 나</span>':''}${clrHtml(r)} <b>${fmt(+r.t||0)} · ${esc(r.kills)}킬</b></li>`;}).join('')+'</ol>'+(all.length>rows.length?`<button class="btn g" id="boardMore" type="button">▼ 더 보기 (${all.length-rows.length}명 남음)</button>`:''):`<div class="muted">${BTAB===7&&!SEAS.tot?'총랭킹 준비 중이에요.':BTAB===4&&!BOARDD?'오늘의 도전 순위표 준비 중이에요.':BTAB===5&&!BOARDEH?'무한 하드 순위표 준비 중이에요.':BTAB===6&&!BOARDEV?'무한 베리하드 순위표 준비 중이에요.':BTAB===3&&!BOARDE?'무한 모드 순위표 준비 중이에요.':BTAB===2&&!BOARDV?'베리하드 순위표 준비 중이에요.':BTAB===1&&!BOARDH?'하드 모드 순위표 준비 중이에요.':'아직 기록이 없어요 — 첫 1등이 되어 보세요!'}</div>`);
   for(const b of el.querySelectorAll('[data-bt]'))b.onclick=()=>{BTAB=+b.dataset.bt;el.dataset.lim='';renderBoard();};
   const more=$('boardMore');if(more)more.onclick=()=>{el.dataset.lim=String(lim+100);renderBoard();};}
-async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;BOARDEH=Array.isArray(j.endless_h)?j.endless_h:null;BOARDEV=Array.isArray(j.endless_v)?j.endless_v:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);}catch(e){BOARD=null;}renderBoard();renderDaily();}
+async function loadBoard(){try{const j=await api('/p6/board');BOARD=Array.isArray(j.board)?j.board:null;BOARDH=Array.isArray(j.hard)?j.hard:null;BOARDV=Array.isArray(j.vhard)?j.vhard:null;SRV_VH=!!BOARDV;BOARDE=Array.isArray(j.endless)?j.endless:null;BOARDEH=Array.isArray(j.endless_h)?j.endless_h:null;BOARDEV=Array.isArray(j.endless_v)?j.endless_v:null;SRV_END=!!BOARDE;BOARDD=Array.isArray(j.daily)?j.daily:null;SRV_DLY=!!BOARDD;DLY_DATE=String(j.daily_date||'').slice(0,10);
+    SEAS.n=seasNum(j.season);SEAS.start=seasDay(j.season_start);SEAS.end=seasDay(j.season_end);SEAS.left=Number.isInteger(j.days_left)?j.days_left:null;SEAS.tot=Array.isArray(j.total)?j.total:null;   // 🏆 시즌제: 옛 서버는 이 칸들이 없다 → 머리말·총랭킹만 빠진다
+    try{window.__svSeason={n:SEAS.n,start:SEAS.start,end:SEAS.end,left:SEAS.left};document.dispatchEvent(new Event('svseason'));}catch(e){}}catch(e){BOARD=null;}renderBoard();renderDaily();}
 async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6/me',{token:u.token});
   if(j&&j.ok){const pc=ME&&Number.isInteger(ME.coins)?ME.coins:undefined;ME=j;if(coinsOf(j)===undefined){if(pc!==undefined)ME.coins=pc;else delete ME.coins;}   // coins 칸이 빠진 응답(봇 재시작 직후)은 '모름' — 직전 값을 이어받는다
     srvUnl(j.unlocks);mergeUnl(j.unlocks);cdxMerge(j.codex);renderRoster();renderDaily();}else if(j&&j.code==='auth'){ME=null;}}catch(e){}renderAcct();renderBoard();if(state==='revive')rvRender();}   // 저장된 로그인은 지우지 않는다(진짜 만료면 다음 방문의 조용한 갱신이 새 토큰을 받는다)
@@ -771,8 +844,8 @@ async function postRun(body,n){const el=$('rAcct');   // 반환: 'ok'(저장됨)
     else if(j.ok&&body.daily){qDel(body._q);dailySet({date:body.daily,ranked:1,done:1,t:body.t,k:body.kills});if(ME)ME.daily_done=true;
       el.innerHTML=j.daily_dup?`📅 이 날짜 기록은 이미 올라가 있어요 — 하루 한 판만 기록돼요. 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`:`✅ 오늘의 도전 기록 저장! 오늘 순위 <b style="color:var(--gold)">${esc(j.daily_rank)}위</b> / ${esc(j.daily_total)}명`;
       BTAB=4;srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();return 'ok';}
-    else if(j.ok&&body.endless){qDel(body._q);el.innerHTML=`✅ 무한 기록 저장! ♾ 무한 순위 <b style="color:var(--gold)">${esc(j.end_rank)}위</b> / ${esc(j.end_total)}명`;BTAB=3;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();return 'ok';}
-    else if(j.ok){qDel(body._q);el.innerHTML=`✅ 기록 저장! ${body.vhard&&j.vhard_rank?`💀 베리하드 순위 <b style="color:var(--gold)">${esc(j.vhard_rank)}위</b> / ${esc(j.vhard_total)}명`:body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}`;if(body.vhard)BTAB=2;else if(body.hard)BTAB=1;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();return 'ok';}   // 🛒 그사이 상점에서 산 캐릭터(bbb·yumi·eom)가 기록 응답으로 열린다(목록이 없으면 건드리지 않는다)
+    else if(j.ok&&body.endless){qDel(body._q);el.innerHTML=`✅ 무한 기록 저장! ♾ 무한 순위 <b style="color:var(--gold)">${esc(j.end_rank)}위</b> / ${esc(j.end_total)}명${seasEnd(j)}`;BTAB=3;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);loadBoard();renderAcct();return 'ok';}
+    else if(j.ok){qDel(body._q);el.innerHTML=`✅ 기록 저장! ${body.vhard&&j.vhard_rank?`💀 베리하드 순위 <b style="color:var(--gold)">${esc(j.vhard_rank)}위</b> / ${esc(j.vhard_total)}명`:body.hard&&j.hard_rank?`🔥 하드 순위 <b style="color:var(--gold)">${esc(j.hard_rank)}위</b> / ${esc(j.hard_total)}명`:`지금 순위 <b style="color:var(--gold)">${esc(j.rank)}위</b> / ${esc(j.total)}명`}${seasEnd(j)}`;if(body.vhard)BTAB=2;else if(body.hard)BTAB=1;if(Array.isArray(j.unlocks))srvUnl(j.unlocks);mergeUnl(j.unlocks);ME=Object.assign(ME||{},{best_t:j.best_t,rank:j.rank,runs:(ME&&ME.runs||0)+1});loadBoard();renderAcct();return 'ok';}   // 🛒 그사이 상점에서 산 캐릭터(bbb·yumi·eom)가 기록 응답으로 열린다(목록이 없으면 건드리지 않는다)
     else if(j.code==='daily_date'){qDel(body._q);el.textContent='📅 날짜가 지나 오늘의 도전 기록으로 올릴 수 없어요.';return 'drop';}
     else if(j.code==='rate'&&(body.endless||body.daily||(+body.t||0)>=QRATE_MIN_T))return keepUnsent(body,'⏳ 방금 올린 기록과 20초 간격이 필요해요(또는 잠시 요청이 몰렸어요) — 기록은 이 기기에 남겨 뒀어요. 잠시 뒤 아래 버튼으로 다시 저장해 주세요.');   // 429 는 「너무 빨리 끝남」과 「요청 몰림」이 같은 코드 — 짧은 연습 판이 아니면 버리지 않는다
     else if(j.code==='rate'){qDel(body._q);el.textContent='⏳ 너무 빨리 끝났어요 — 이번 판은 저장되지 않았어요(20초 간격).';return 'drop';}
@@ -5038,6 +5111,199 @@ init();
   }
   window.__cxui={open:openDex,close:closeDex,get opened(){return U.opened;},get tab(){return U.tab;}};
   init();
+})();
+</script>
+<script>
+/* 🏛 [2026-10-12 사장님 지시] 흐접새우 서바이벌 첫 화면 「명예의 전당」 대시보드 — 자기완결 구획(.hl* 만 쓴다)
+   · 출처: data/sv_seasons/index.json + season{N}.json (봇이 시즌 마감 때 올리는 사람이 못 지우는 사본). 게임 본체(상태머신·입력)는 건드리지 않는다.
+   · 모든 문자열은 esc 한다. 큰 표는 50줄씩 「더 보기」. 새 S 키·최상위 let 없음(전부 이 함수 안). */
+(function(){
+'use strict';
+  var BASE='data/sv_seasons/';
+  var MODES=[['normal','일반',['normal','board']],['hard','🔥 하드',['hard']],['vhard','💀 베리하드',['vhard']],['total','🏆 총랭킹',['total']],['endless','♾ 무한',['endless']],['endless_h','♾🔥 무한 하드',['endless_h']],['endless_v','♾💀 무한 베리하드',['endless_v']]];
+  var MEDAL3=[['normal','일반'],['hard','하드'],['vhard','베리하드']], MIC=['','🥇','🥈','🥉'], PAGE=50;
+  var $=function(i){return document.getElementById(i);};
+  var hEsc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+  var num=function(v){v=+v;return isFinite(v)&&v>0?Math.floor(v):0;};
+  var tm=function(s){s=num(s);return String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0');};
+  var H={idx:null,st:'idle',pr:null,files:{},fst:{},tab:'s',sel:0,mode:'normal',lim:PAGE,opened:false,focusBack:null,bd:null,med:null,mst:'idle',mopen:{},mlim:PAGE};
+function dayOk(v){var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v||''));return m?m[1]+'-'+m[2]+'-'+m[3]:'';}
+function span(a,b){var x=/^\d{4}-(\d{2})-(\d{2})$/.exec(a),y=/^\d{4}-(\d{2})-(\d{2})$/.exec(b);return (x?(+x[1])+'/'+(+x[2]):'')+(x||y?' ~ ':'')+(y?(+y[1])+'/'+(+y[2]):'');}
+function cb(){return '?cb='+Math.floor(Date.now()/60000);}
+function getJson(url){
+  var ctl=(typeof AbortController==='function')?new AbortController():null,to=setTimeout(function(){if(ctl)ctl.abort();},12000);
+  return fetch(url+cb(),{cache:'no-store',signal:ctl?ctl.signal:undefined}).then(function(r){clearTimeout(to);if(r.status===404){var e=new Error('404');e.nf=1;throw e;}if(!r.ok)throw new Error('http '+r.status);return r.json().catch(function(){var e=new Error('shape');e.nf=1;throw e;});},function(e){clearTimeout(to);throw e;});
+}
+/* ---- 정규화 ---- */
+function normIdx(j){
+  var a=Array.isArray(j)?j:(j&&Array.isArray(j.seasons)?j.seasons:null);if(!a)return null;
+  var L=[],seen={};a.forEach(function(x){var n=typeof x==='object'&&x?num(x.season!=null?x.season:x.n!=null?x.n:x.id):num(x);if(!n||seen[n])return;seen[n]=1;L.push({n:n,start:dayOk(x&&x.start||x&&x.season_start),end:dayOk(x&&x.end||x&&x.season_end)});});
+  L.sort(function(p,q){return q.n-p.n;});return L;
+}
+function normRow(r){
+  if(!r||typeof r!=='object')return null;
+  var o={name:String(r.name==null?'?':r.name).slice(0,40),t:num(r.t),kills:num(r.kills),ch:String(r.ch||'').slice(0,24),lv:num(r.lv),clears:(r.clears!=null&&r.clears!==''&&isFinite(+r.clears)&&+r.clears>=0)?Math.floor(+r.clears):null,uid:r.uid!=null?String(r.uid).slice(0,40):''};
+  var g=function(a){for(var i=0;i<a.length;i++)if(isFinite(+r[a[i]])&&r[a[i]]!==null&&r[a[i]]!=='')return num(r[a[i]]);return 0;};
+  o.tn=g(['t_n','tn','n']);o.th=g(['t_h','th','h']);o.tv=g(['t_v','tv','v']);o.pts=g(['pts','total','t'])||o.tn+o.th+o.tv;
+  return o;
+}
+function medalRank(e,i){
+  var r=num(e&&e.rank);if(r>=1&&r<=3)return r;
+  var m=String(e&&(e.medal||e.m)||'').toLowerCase();
+  if(m==='gold'||m==='g'||m==='🥇'||m==='1')return 1;if(m==='silver'||m==='s'||m==='🥈'||m==='2')return 2;if(m==='bronze'||m==='b'||m==='🥉'||m==='3')return 3;
+  return i<3?i+1:0;
+}
+function normFile(j,n,info){
+  if(!j||typeof j!=='object')return null;
+  var f={n:n,start:dayOk(j.start||j.season_start)||info&&info.start||'',end:dayOk(j.end||j.season_end)||info&&info.end||'',modes:{},medals:{}};
+  MODES.forEach(function(m){var a=null;for(var i=0;i<m[2].length;i++)if(Array.isArray(j[m[2][i]])){a=j[m[2][i]];break;}
+    if(!a&&j.modes&&typeof j.modes==='object')for(var k=0;k<m[2].length;k++)if(Array.isArray(j.modes[m[2][k]])){a=j.modes[m[2][k]];break;}
+    f.modes[m[0]]=a?a.map(normRow).filter(Boolean):null;});
+  var md=j.medals&&typeof j.medals==='object'&&!Array.isArray(j.medals)?j.medals:null;
+  MEDAL3.forEach(function(m){var rows=f.modes[m[0]],list=[];
+    if(md&&Array.isArray(md[m[0]]))md[m[0]].forEach(function(e,i){var r=medalRank(e,i);if(!r||!e||typeof e!=='object')return;list.push({rank:r,name:String(e.name==null?'?':e.name).slice(0,40),uid:e.uid!=null?String(e.uid).slice(0,40):''});});
+    else if(rows)rows.filter(function(r){return r.t>0;}).slice(0,3).forEach(function(r,i){list.push({rank:i+1,name:r.name,uid:r.uid});});   // 메달 목록이 없는 보관본은 표 1~3위로 다시 계산
+    list.sort(function(p,q){return p.rank-q.rank;});f.medals[m[0]]=list.slice(0,3);});
+  return f;
+}
+/* ---- 읽기 ---- */
+function loadIdx(){
+  if(H.st==='ok')return Promise.resolve(H.idx);if(H.pr)return H.pr;H.st='loading';
+  H.pr=getJson(BASE+'index.json').then(function(j){var L=normIdx(j);H.pr=null;if(!L||!L.length){H.st='prep';H.idx=[];return H.idx;}H.idx=L;H.st='ok';return L;},
+    function(e){H.pr=null;H.st=e&&e.nf?'prep':'err';throw e;});
+  return H.pr;
+}
+function loadFile(n){
+  if(H.fst[n]==='ok')return Promise.resolve(H.files[n]);if(H.fst[n]==='loading'&&H.files['p'+n])return H.files['p'+n];
+  H.fst[n]='loading';var info=(H.idx||[]).filter(function(x){return x.n===n;})[0];
+  H.files['p'+n]=getJson(BASE+'season'+n+'.json').then(function(j){delete H.files['p'+n];var f=normFile(j,n,info);if(!f){H.fst[n]='prep';throw new Error('shape');}H.files[n]=f;H.fst[n]='ok';return f;},
+    function(e){delete H.files['p'+n];H.fst[n]=e&&e.nf?'prep':'err';throw e;});
+  return H.files['p'+n];
+}
+/* ---- 그리기 ---- */
+function curSeason(){var c=window.__svSeason;return c&&num(c.n)?c:null;}
+function chHtml(k){try{return typeof window.__svBch==='function'?window.__svBch(k):'';}catch(e){return '';}}
+function clr(r){return r.clears!=null?'<span class="hlc">클리어 '+r.clears+'</span>':'';}
+function rowHtml(r,i,mode){
+  var top=i<3?MIC[i+1]:String(i+1),cls='hlr'+(i===0?' top1':'');
+  if(mode==='total')return '<li class="'+cls+'"><span class="hlk">'+top+'</span><span class="hlm"><b class="hln">'+hEsc(r.name)+'</b>'+clr(r)+'<span class="hlsub">일반 '+tm(r.tn)+' · 하드 '+tm(r.th)+' · 베리 '+tm(r.tv)+'</span></span><span class="hlv">'+tm(r.pts)+'</span></li>';
+  return '<li class="'+cls+'"><span class="hlk">'+top+'</span><span class="hlm">'+chHtml(r.ch)+'<b class="hln">'+hEsc(r.name)+'</b>'+clr(r)+'</span><span class="hlv">'+tm(r.t)+'<small>'+r.kills+'킬'+(r.lv?' · Lv'+r.lv:'')+'</small></span></li>';
+}
+function podiumHtml(f){
+  var h='';
+  MEDAL3.forEach(function(m){var list=f.medals[m[0]]||[],rows=f.modes[m[0]]||[];if(!list.length)return;
+    h+='<div class="hlpd"><h4>'+hEsc(m[1])+' 챔피언</h4>'+list.map(function(e){
+      var r=null;for(var i=0;i<rows.length;i++)if((e.uid&&rows[i].uid===e.uid)||rows[i].name===e.name){r=rows[i];break;}
+      var big=e.rank===1;
+      return '<div class="hlpl r'+e.rank+'"><span class="hlmd">'+MIC[e.rank]+'</span><span class="hlpn"><b>'+hEsc(e.name)+'</b>'+(r?'<span class="hlps">'+chHtml(r.ch)+tm(r.t)+' · '+r.kills+'킬'+(r.clears!=null?' · 클리어 '+r.clears:'')+'</span>':'')+'</span></div>';}).join('')+'</div>';});
+  return h?'<div class="hlpods">'+h+'</div>':'';
+}
+function seasonHtml(f){
+  var h='<div class="hlsh">시즌 '+f.n+(f.start||f.end?' <span class="hlsd">'+hEsc(span(f.start,f.end))+'</span>':'')+'</div>'+podiumHtml(f);
+  h+='<div class="hlchips" role="group" aria-label="표 고르기">'+MODES.map(function(m){return '<button type="button" class="hlchip'+(H.mode===m[0]?' on':'')+'" data-m="'+m[0]+'" aria-pressed="'+(H.mode===m[0])+'">'+hEsc(m[1])+'</button>';}).join('')+'</div>';
+  var rows=f.modes[H.mode];
+  if(!rows)h+='<div class="hlmsg">이 시즌에는 이 표 기록이 없어요.</div>';
+  else if(!rows.length)h+='<div class="hlmsg">이 표에는 기록이 없어요.</div>';
+  else{var vis=rows.slice(0,H.lim);h+='<p class="hlcap">전체 '+rows.length+'명</p><ol class="hlol">'+vis.map(function(r,i){return rowHtml(r,i,H.mode);}).join('')+'</ol>'+(rows.length>vis.length?'<button type="button" class="hlmore" id="hlMore">▼ 더 보기 ('+(rows.length-vis.length)+'명 남음)</button>':'');}
+  return h;
+}
+function medalAgg(){
+  var by={},order=[];
+  (H.idx||[]).forEach(function(x){var f=H.files[x.n];if(!f)return;MEDAL3.forEach(function(m){(f.medals[m[0]]||[]).forEach(function(e){
+    var k=e.uid?'u'+e.uid:'n'+e.name,a=by[k];if(!a){a=by[k]={name:e.name,g:0,s:0,b:0,det:[]};order.push(a);}
+    if(e.rank===1)a.g++;else if(e.rank===2)a.s++;else a.b++;a.name=e.name;a.det.push({n:f.n,m:m[1],r:e.rank});});});});
+  order.sort(function(p,q){return q.g-p.g||q.s-p.s||q.b-p.b||(p.name<q.name?-1:p.name>q.name?1:0);});return order;
+}
+function medalHtmlTab(){
+  var L=medalAgg();if(!L.length)return '<div class="hlmsg">아직 메달을 받은 사람이 없어요.</div>';
+  var vis=L.slice(0,H.mlim);
+  return '<p class="hlcap">메달을 받은 사람 '+L.length+'명 · 금 → 은 → 동 순</p><ol class="hlol">'+vis.map(function(a,i){var on=!!H.mopen[a.name+'|'+i];
+    return '<li class="hlr'+(i===0?' top1':'')+(on?' on':'')+'"><span class="hlk">'+(i<3?MIC[i+1]:i+1)+'</span><span class="hlm"><button type="button" class="hlmb" data-k="'+i+'" aria-expanded="'+on+'"><b class="hln">'+hEsc(a.name)+'</b> <span class="hlmc">🥇'+a.g+' 🥈'+a.s+' 🥉'+a.b+'</span></button>'+
+      (on?'<ul class="hldet">'+a.det.slice().sort(function(p,q){return q.n-p.n||p.r-q.r;}).map(function(d){return '<li>시즌 '+d.n+' · '+hEsc(d.m)+' '+MIC[d.r]+'</li>';}).join('')+'</ul>':'')+'</span></li>';}).join('')+'</ol>'+
+    (L.length>vis.length?'<button type="button" class="hlmore" id="hlMore">▼ 더 보기 ('+(L.length-vis.length)+'명 남음)</button>':'')+
+    '<p class="hlnote">※ 이 화면은 보관된 시즌 기록의 이름으로 합산해요. 닉네임을 바꾼 사람은 이름별로 나뉘어 보일 수 있어요.</p>';
+}
+function rulesHtml(){return '<p class="hlrule">📜 <b>매달 1일 마감</b> · 일반·하드·베리하드 <b>1~3위에게 🥇🥈🥉 메달</b>(칭호도 프로필에 붙어요). 마감하면 순위표는 새로 시작하고, 지난 시즌 기록과 메달은 여기에 영원히 남아요.</p>';}
+function tabsHtml(){return '<div class="hltabs" role="tablist"><button type="button" role="tab" class="hltab'+(H.tab==='s'?' on':'')+'" data-t="s" aria-selected="'+(H.tab==='s')+'">🏛 시즌 기록</button><button type="button" role="tab" class="hltab'+(H.tab==='m'?' on':'')+'" data-t="m" aria-selected="'+(H.tab==='m')+'">🏅 메달 순위</button></div>';}
+function chipsHtml(items){return '<div class="hlsel" role="group" aria-label="시즌 고르기">'+items.map(function(x){return '<button type="button" class="hlchip'+(x.n===H.sel?' on':'')+'" data-s="'+x.n+'" aria-pressed="'+(x.n===H.sel)+'">시즌 '+x.n+(x.cur?' · 진행 중':'')+'</button>';}).join('')+'</div>';}
+function items(){
+  var L=(H.idx||[]).map(function(x){return {n:x.n,cur:false};}),c=curSeason();
+  if(c&&!L.some(function(x){return x.n===c.n;}))L.unshift({n:c.n,cur:true});
+  L.sort(function(p,q){return q.n-p.n;});return L;
+}
+function defSel(){return H.idx&&H.idx.length?H.idx[0].n:(items()[0]||{n:0}).n;}   // 처음엔 가장 최근에 마감된 시즌(진행 중인 시즌은 칩으로만)
+function body(){return $('hlBody');}
+function msg(t,retry){return '<div class="hlmsg" role="'+(retry?'alert':'status')+'">'+t+(retry?'<br><button type="button" class="hlretry" id="hlRetry">🔄 다시 불러오기</button>':'')+'</div>';}
+function render(){
+  var b=body();if(!b)return;var h=rulesHtml()+tabsHtml();
+  if(H.st==='loading'||H.st==='idle'){b.innerHTML=h+msg('⏳ 명예의 전당을 불러오는 중이에요…');return;}
+  if(H.st==='err'){b.innerHTML=h+msg('명예의 전당을 못 불러왔어요 — 잠시 뒤 다시 눌러 주세요.',1);return;}
+  var c=curSeason();
+  if(H.st==='prep'){b.innerHTML=h+msg('🏛 시즌1 기록 준비 중이에요 — 곧 여기에 지난 기록이 올라와요.')+(c?'<div class="hlcur">'+curHtml(c)+'</div>':'');wireCur();return;}
+  if(H.tab==='m'){
+    if(H.mst==='loading'){b.innerHTML=h+msg('⏳ 메달 기록을 모으는 중이에요…');return;}
+    if(H.mst==='err'){b.innerHTML=h+msg('메달 기록을 못 불러왔어요.',1);return;}
+    b.innerHTML=h+medalHtmlTab();return;
+  }
+  var it=items();if(!it.some(function(x){return x.n===H.sel;}))H.sel=it.length?it[0].n:0;
+  var cur=it.filter(function(x){return x.n===H.sel;})[0];
+  h+=chipsHtml(it);
+  if(cur&&cur.cur)h+='<div class="hlcur">'+curHtml(c)+'</div>';
+  else if(H.fst[H.sel]==='ok')h+=seasonHtml(H.files[H.sel]);
+  else if(H.fst[H.sel]==='prep')h+=msg('시즌 '+H.sel+' 기록 준비 중이에요 — 조금 뒤에 다시 와 주세요.');
+  else if(H.fst[H.sel]==='err')h+=msg('시즌 '+H.sel+' 기록을 못 불러왔어요.',1);
+  else h+=msg('⏳ 시즌 '+H.sel+' 기록을 불러오는 중이에요…');
+  b.innerHTML=h;wireCur();
+}
+function curHtml(c){return '<b>시즌 '+c.n+'</b>는 아직 진행 중이에요'+(c.end?' ('+hEsc(span(c.start,c.end))+')':'')+'.<br>진행 중 — 순위표 탭 참고<br><button type="button" class="hlgo" id="hlGo">🏆 순위표 보러 가기</button>';}
+function wireCur(){var g=$('hlGo');if(g)g.onclick=function(){close(true);var bd=$('board');if(bd&&bd.scrollIntoView)try{bd.scrollIntoView({block:'start'});}catch(e){}};}
+function ensureSel(){var it=items();if(!it.some(function(x){return x.n===H.sel;}))H.sel=it.length?it[0].n:0;var cur=it.filter(function(x){return x.n===H.sel;})[0];if(H.sel&&cur&&!cur.cur&&H.fst[H.sel]!=='ok'&&H.fst[H.sel]!=='loading'){loadFile(H.sel).then(settle,settle);}}
+function settle(){if(H.opened)render();}
+function loadMedals(){
+  if(H.mst==='ok'||H.mst==='loading')return;H.mst='loading';render();
+  var L=H.idx||[];Promise.all(L.map(function(x){return loadFile(x.n).catch(function(e){if(e&&e.nf)return null;throw e;});})).then(function(){H.mst='ok';settle();},function(){H.mst='err';settle();});
+}
+function enter(){render();if(H.tab==='m')loadMedals();else{ensureSel();}}
+/* ---- 열기 · 닫기 ---- */
+function open(){
+  if(H.opened)return;var tt=$('title');if(tt&&!tt.classList.contains('on'))return;
+  H.opened=true;H.focusBack=document.activeElement;$('hlOv').classList.add('on');
+  var c=curSeason();H.tab='s';H.lim=PAGE;H.mlim=PAGE;H.mopen={};
+  if(H.st==='ok'||H.st==='prep'){if(H.st==='ok'&&!H.sel){H.sel=defSel();}enter();}
+  else{if(H.st==='err')H.st='idle';render();loadIdx().then(function(){H.sel=defSel();if(H.opened)enter();},function(){if(H.opened)render();});}
+  var x=$('hlX');if(x)x.focus();
+}
+function close(noFocus){
+  if(!H.opened)return;H.opened=false;$('hlOv').classList.remove('on');
+  var f=H.focusBack;H.focusBack=null;if(!noFocus&&f&&f.focus&&document.contains(f)){try{f.focus();}catch(e){}}
+}
+function init(){
+  var ov=$('hlOv'),btn=$('hallOpen'),b=body();if(!ov||!btn||!b)return;
+  btn.addEventListener('click',open);$('hlX').addEventListener('click',function(){close();});$('hlX2').addEventListener('click',function(){close();});
+  ov.addEventListener('pointerdown',function(e){H.bd=(e.target===ov);});
+  ov.addEventListener('click',function(e){if(e.target===ov&&H.bd!==false)close();H.bd=null;});
+  b.addEventListener('click',function(e){
+    var t=e.target;if(!t||!t.closest)return;
+    if(t.closest('#hlRetry')){if(H.st==='err'){H.st='idle';render();loadIdx().then(function(){if(!H.sel)H.sel=defSel();if(H.opened)enter();},function(){if(H.opened)render();});}
+      else if(H.tab==='m'){H.mst='idle';loadMedals();}else{H.fst[H.sel]=null;ensureSel();render();}return;}
+    var tab=t.closest('.hltab');if(tab){H.tab=tab.getAttribute('data-t')==='m'?'m':'s';H.lim=PAGE;H.mlim=PAGE;b.scrollTop=0;if(H.st==='ok'){enter();}else render();return;}
+    var s=t.closest('[data-s]');if(s){H.sel=+s.getAttribute('data-s');H.lim=PAGE;ensureSel();render();return;}
+    var m=t.closest('[data-m]');if(m){H.mode=m.getAttribute('data-m');H.lim=PAGE;render();return;}
+    var mb=t.closest('.hlmb');if(mb){var L=medalAgg(),a=L[+mb.getAttribute('data-k')];if(a){var key=a.name+'|'+mb.getAttribute('data-k');if(H.mopen[key])delete H.mopen[key];else H.mopen[key]=1;render();}return;}
+    if(t.closest('#hlMore')){if(H.tab==='m')H.mlim+=PAGE;else H.lim+=PAGE;render();}
+  });
+  document.addEventListener('keydown',function(e){
+    if(!H.opened)return;
+    if(e.key==='Escape'||e.code==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+    if(e.key==='Tab'){var f=ov.querySelectorAll('button:not([disabled])');if(!f.length)return;var a=f[0],z=f[f.length-1],cur=document.activeElement;
+      if(!ov.contains(cur)){e.preventDefault();a.focus();}else if(e.shiftKey&&cur===a){e.preventDefault();z.focus();}else if(!e.shiftKey&&cur===z){e.preventDefault();a.focus();}}
+  },true);
+  var tt=$('title');
+  if(tt&&typeof MutationObserver==='function')new MutationObserver(function(){if(!tt.classList.contains('on'))close(true);}).observe(tt,{attributes:true,attributeFilter:['class']});
+  document.addEventListener('svseason',function(){if(H.opened)render();});
+}
+window.__hall={open:open,close:close,get st(){return H.st;},get opened(){return H.opened;},get sel(){return H.sel;},get tab(){return H.tab;}};
+init();
 })();
 </script>
 </body>
