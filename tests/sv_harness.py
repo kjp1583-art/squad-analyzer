@@ -20,11 +20,19 @@ window.__adv=function(sec,opt){opt=opt||{};const x=window.__p6x,dt=opt.dt||1/30,
   x.update(dt);}
  return x.state;};
 """
+# 캐릭터 고유 능력(CSX · 2026-10-12)이 없던 때와 똑같은 판을 만들고 싶은 옛 시험용 — 환경변수 SV_CSX_OFF=1 이면 사본에서 능력 값을 중립으로 돌린다
+#   (브장신 선빵·하리보·망무새·용조련사·배고배고 피해 몫/방어, 일단즐겨 커튼콜, 단단묵직 반격, 엄장신 연쇄, 배불배불 후렴, 앙앵 가호, 브장신 HP +20, 태웅 씩씩 상한, 또뀨 방 반경).
+#   옛 시험은 브장신을 「아무 능력 없는 기준 캐릭터」로 쓰는 것이 많다 — 그 시험이 보려던 다른 규칙을 계속 지키게 한다. 능력 자체는 survivors_cabil_test.py 가 켠 채로 시험한다.
+CSX_OFF_JS = r"""
+(function(){if(typeof CSX==='undefined')return;
+ CSX.brj.full=0;CSX.mms.tk=0;CSX.hrb.run=0;CSX.hrb.tk=0;CSX.amd.x=1;CSX.ildj.cc=0;CSX.ddmj.cd=1e9;CSX.eom.n=1e9;CSX.bbb.every=1e9;CSX.yj.dmg=0;CSX.bgb.k=0;CSX.bgb.dodge=0;
+ const b=CHARS.find(c=>c.k==='brj');delete b.hp;CHARS.find(c=>c.k==='tw').rage=.6;CSK.room.R=160;})();
+"""
 def make_copy(src='survivors.html', dst='survivors_x.html', root=ROOT, extra=''):
     s = open(os.path.join(root, src), encoding='utf-8').read()
     m = re.search(r"window\.__p6=\{[^\n]*\};", s)
     assert m, '기존 __p6 훅을 못 찾음'
-    s = s.replace(m.group(0), m.group(0) + '\n' + HOOK + extra).replace('const INV_CAP=.80;', 'let INV_CAP=.80;')   # 임시 사본에서만 상한을 바꿔 볼 수 있게
+    s = s.replace(m.group(0), m.group(0) + '\n' + HOOK + (CSX_OFF_JS if os.environ.get('SV_CSX_OFF') == '1' else '') + extra).replace('const INV_CAP=.80;', 'let INV_CAP=.80;')   # 임시 사본에서만 상한을 바꿔 볼 수 있게
     p = os.path.join(root, dst); open(p, 'w', encoding='utf-8').write(s); return p
 class Srv:
     def __init__(self, root=ROOT, port=0):

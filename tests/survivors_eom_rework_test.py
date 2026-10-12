@@ -39,7 +39,7 @@ async def main():
         # ── A. 소스·문구
         print('── A. 소스·문구')
         check('A1 소스에 공포(fear) 흔적 없음 — e.fear·SPX.fear·「공포」「겁먹」 글자', not re.search(r'\.fear\b|o\.fear|fear0|공포|겁먹', re.sub(r'//[^\n]*', '', SRC)), re.findall(r'[^\n]{0,40}(?:\.fear\b|fear0|공포|겁먹)[^\n]{0,20}', SRC)[:2])
-        r = await pg.evaluate("()=>{const x=__p6x,W=x.WEAP.eom,C=x.CHARS.find(c=>c.k==='eom'),T=x.TIERS.eom;return {ds:W.ds,ev:W.ev,rl:W.rl,cds:C.ds+' '+x.cstat(C).none,tiers:T.map(t=>[t[0],t[1]])}}")
+        r = await pg.evaluate("()=>{const x=__p6x,W=x.WEAP.eom,C=x.CHARS.find(c=>c.k==='eom'),T=x.TIERS.eom;return {ds:W.ds,ev:W.ev,rl:W.rl,cds:C.ds+' '+x.cstat(C).rows.map(r=>r.nm+' '+r.ds).join(' '),tiers:T.map(t=>[t[0],t[1]])}}")
         check('A2 각성 이름 「개엄!」 · 옛 이름 「엄엄엄」 없음', r['ev']['nm'] == '개엄!' and '엄엄엄' not in json.dumps(r, ensure_ascii=False) and "'개엄!'" in SRC, r['ev'])
         check('A3 마지막 외침 글자 LBL[2] = 「개엄!」', re.search(r"const LBL=\['엄!','엄엄!','개엄!'\]", SRC) is not None)
         want_pct = lambda v: '+%d%%' % round((v - 1) * 100)
@@ -50,7 +50,7 @@ async def main():
         check('A6 각성 문구의 배율 = U3 (범위 %g배 · 밀치는 힘 %g배 · 피해 %g배)' % (U['evR'], U['evK'], U['evD']), ('범위 %g배' % U['evR']) in r['ev']['ds'] and ('밀치는 힘 %g배' % U['evK']) in r['ev']['ds'] and ('피해 %g배' % U['evD']) in r['ev']['ds'], r['ev']['ds'])
         t3, t5 = r['tiers'][2], r['tiers'][4]
         check('A7 마스터 단계: 3번째 「피해 +12%」(d .12) · 5번째 「밀치는 힘 +25% · 범위 +7%」(life .5 · a .07)', t3[0] == '피해 +12%' and t3[1] == {'d': .12} and t5[0] == '밀치는 힘 +25% · 범위 +7%' and t5[1] == {'life': .5, 'a': .07}, r['tiers'])
-        check('A8 캐릭터 카드 문구가 밀치기를 말한다 · 겁먹음 없음', '밀려난다' in r['cds'] and '겁먹' not in r['cds'] and '특별한 능력 없이' in r['cds'], r['cds'])
+        check('A8 캐릭터 카드 문구가 밀치기를 말한다 · 겁먹음 없음', '밀려난다' in r['cds'] and '겁먹' not in r['cds'] and '엄 연쇄' in r['cds'], r['cds'])   # 2026-10-12: 엄장신도 고유스텟(엄 연쇄)이 생겼다 — 예전 「특별한 능력 없이」 문구는 사라졌다
         # ── B. 값
         print('── B. 레벨별 값')
         dt = 1 / 60

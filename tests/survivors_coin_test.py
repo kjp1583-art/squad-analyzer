@@ -12,6 +12,7 @@ import asyncio, sys, os, json, re, subprocess
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.insert(0, os.path.join(ROOT, 'tests'))
 import sv_harness as H
+os.environ.setdefault('SV_CSX_OFF', '1')   # 2026-10-12: 캐릭터 고유 능력(CSX)을 중립으로 — 이 시험은 브장신/용조련사 등을 「능력 없는 기준」으로 쓴다(능력 자체는 survivors_cabil_test.py)
 BASE_HOOK = H.HOOK
 OLD_RV = "\nwindow.__rv={RV:null,die,hitP,endRun,spawnEnemy,enemies,update,pauseGame,RES,get RUN(){return RUN},get ME(){return ME}};\n"
 H.HOOK += ("\nwindow.__rv={die,reviveOpen,coinUse,rvQuit,RV,reviveFx,coinOffer,refreshCoins,rvRender,rvLock,RES,endRun,dcUser,loadMe,renderAcct,coinsOf,"

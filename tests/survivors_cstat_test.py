@@ -16,7 +16,10 @@ import sv_harness as H
 from playwright.async_api import async_playwright
 ROOT = H.ROOT
 FAST = '--fast' in sys.argv
-BASE_COMMIT = os.environ.get('CSTAT_BASE_COMMIT', '62dd5e7')   # 이 기능을 넣기 직전의 main
+BASE_COMMIT = os.environ.get('CSTAT_BASE_COMMIT', 'bf755af')   # 전 캐릭터 고유능력(2026-10-12 사장님 지시)을 넣기 직전의 main — 서명·높이 비교와 「안 바뀐 캐릭터는 비트 동일」의 기준
+CHANGED = ['brj', 'mms', 'hrb', 'amd', 'ildj', 'ddmj', 'eom', 'bbb', 'yj', 'bgb', 'tw', 'ddo']   # 이번에 능력이 새로 붙었거나 값이 달라진 캐릭터(앞 10명은 CSX 표 키, tw=씩씩 +70%, ddo=방 반경 190)
+LOWHP_ONLY = ['mms', 'amd', 'tw']   # 저체력 조건에서만 켜지는 능력(태웅 씩씩 상한은 체력을 70% 넘게 잃어야 닿는다) — 150초 판에선 그 조건을 안 밟아 판이 같을 수 있다(조건을 밟는 동작은 survivors_cabil_test.py 가 직접 확인)
+SAME = ['jjg', 'psg', 'sr', 'yumi', 'ssu', 'kyo']                      # 안 바뀐 캐릭터 — 기준과 비트까지 같아야 한다
 NEW, OLD = 'survivors_cb_cstat.html', 'survivors_cb_cstat_base.html'
 HEIGHT_LIMIT = 1.35      # 로스터 두 목록(클랜원+보스) 높이가 기준의 이 배수를 넘으면 빨강(칩 두 줄 = 카드마다 +30px 안팎 → 폰 360 폭에서 약 1.25배)
 FAILS = []
@@ -49,8 +52,8 @@ async def main():
             check('[가] CHARS 18명 = CSTAT 18키 1:1(순서 무관)', len(r['ks']) == 18 and sorted(r['ks']) == sorted(r['cs']), (r['ks'], r['cs']))
             check('[가] 모든 행이 {ic,nm,v,ds} · 없음 캐릭터는 이유 한 줄', r['shape'])
             none = sorted(k for k, d in r['rows'].items() if not d['rows'])
-            check('[가] 고유스텟 없음 = 브장신·엄장신뿐', none == ['brj', 'eom'], none)
-            check('[가] 나머지 16명은 1줄 이상', all(len(d['rows']) >= 1 for k, d in r['rows'].items() if k not in ('brj', 'eom')))
+            check('[가] 고유스텟 없음 0명 — 브장신·엄장신도 능력이 생겼다(2026-10-12)', none == [], none)
+            check('[가] 18명 전원 1줄 이상', all(len(d['rows']) >= 1 for d in r['rows'].values()))
             check('[가] 고유 무기·시작 무기는 고유스텟 행에 안 들어간다(「고유 무기」「시작」 낱말 0)',
                   not any(re.search('고유 무기|시작 무기|해금', row['nm'] + row['ds']) for d in r['rows'].values() for row in d['rows']))
 
@@ -172,7 +175,7 @@ async def main():
               return {n:cards.length,chips,lockedWithChip,lockN,desc,head:document.querySelector('.rosterH').textContent}}""")
             check('[라] 로스터 카드 18장 전부에 고유스텟 칩', ui['n'] == 18 and all(c and '고유스텟' in c for c in ui['chips']), ui['chips'])
             check('[라] 잠긴 카드(%d장)에도 칩이 보인다' % ui['lockN'], ui['lockN'] >= 10 and ui['lockedWithChip'] == ui['lockN'], (ui['lockN'], ui['lockedWithChip']))
-            check('[라] 없음 칩 = 브장신·엄장신 2장뿐', sum('없음' in c for c in ui['chips']) == 2, ui['chips'])
+            check('[라] 「없음」 칩 0장 — 18명 전원 능력이 있다', sum('없음' in c for c in ui['chips']) == 0, ui['chips'])
             check('[라] 칩 글자 = 「✨ 고유스텟」 + 핵심 한 줄(예: 치명타 +20%, 외 N)', any('치명타 +20%' in c for c in ui['chips']) and any(re.search(r'외\d', c) for c in ui['chips']), ui['chips'])
             check('[라] 첫 화면 클랜원 머리글에 용어 설명', '고유스텟' in ui['head'], ui['head'])
             # 설명창: 18명 모두 「✨ 고유스텟」 구획 · 고유 무기 문구는 그대로
@@ -181,7 +184,7 @@ async def main():
                 if '✨ 고유스텟' not in html or 'class="cstat"' not in html: bad.append(('구획없음', name))
             check('[라] 선택 설명창 18개 모두 「✨ 고유스텟」 구획(잠긴 캐릭터 포함)', len(ui['desc']) == 18 and not bad, (len(ui['desc']), bad))
             allhtml = ' '.join(ui['desc'].values())
-            check('[라] 설명창: 고유스텟 없음 문구 2곳(브장신·엄장신)', len(re.findall('고유스텟 없음 —', allhtml)) == 2, allhtml.count('고유스텟 없음'))
+            check('[라] 설명창: 「고유스텟 없음」 문구 0곳', len(re.findall('고유스텟 없음 —', allhtml)) == 0, allhtml.count('고유스텟 없음'))
             check('[라] 고유 무기는 「고유 무기」로 따로 — 설명 문장(ds)에는 고유 무기 표기가 남고 고유스텟 구획 안에는 없다',
                   all(('고유 무기' in re.sub(r'<div class="cstat">.*', '', h, flags=re.S) or '전용 무기' in h) for k, h in ui['desc'].items() if k[:2] not in ('브장', '엄장')) and not re.search(r'class="cstat">[^"]*고유 무기', allhtml.replace('\n', '')) and '고유 무기' not in ''.join(re.findall(r'<div class="cstat">.*?</div></div>', allhtml, flags=re.S)))
             # 용어 통일 — 소스 전체에서 변형 표기 0
@@ -264,11 +267,17 @@ async def main():
         except OSError: pass
     if not FAST:
         # 규칙 불변 — 비트 비교(정책 봇 · 같은 시드). 브라우저는 A·B 하나씩(동시 2개)
-        cmd = [sys.executable, os.path.join(ROOT, 'tests', 'survivors_equiv.py'), '--a', BASE_COMMIT, '--b', 'survivors.html',
-               '--chars', 'brj,jjg,mms,psg,sr,ddo,tw,yumi,eom,yj,bgb,bbb', '--seeds', '1', '--cap', '150', '--modes', 'n']
-        out = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
-        tail = (out.stdout + out.stderr).strip().splitlines()[-6:]
-        check('[바] 규칙 불변 — tests/survivors_equiv.py 비트 동일(12명 · 150초 · 일반)', out.returncode == 0, '\n'.join(tail))
+        def equiv(chars):
+            cmd = [sys.executable, os.path.join(ROOT, 'tests', 'survivors_equiv.py'), '--a', BASE_COMMIT, '--b', 'survivors.html',
+                   '--chars', ','.join(chars), '--seeds', '1', '--cap', '150', '--modes', 'n']
+            out = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+            return out.returncode, (out.stdout + out.stderr).strip().splitlines()
+        rc, lines = equiv(SAME)
+        check('[바] 규칙 불변 — 안 바뀐 %d명(%s)은 기준 %s 와 비트 동일(150초 · 일반)' % (len(SAME), ','.join(SAME), BASE_COMMIT), rc == 0, '\n'.join(lines[-6:]))
+        rc, lines = equiv(CHANGED)
+        diff = {c: any(l.startswith('✗') and ('] %s ' % c) in l for l in lines) for c in CHANGED}
+        same = [c for c, d in diff.items() if not d and c not in LOWHP_ONLY]
+        check('[바] 바뀐 %d명 중 저체력 전용(%s) 말고는 판이 실제로 달라진다(능력이 정말 켜진다) — 안 달라진 캐릭터: %s' % (len(CHANGED), ','.join(LOWHP_ONLY), same or '없음'), not same, '\n'.join(lines[-12:]))
     print('\n%s — 실패 %d건' % ('통과' if not FAILS else '실패', len(FAILS)))
     for f in FAILS: print(' ·', f)
     sys.exit(1 if FAILS else 0)

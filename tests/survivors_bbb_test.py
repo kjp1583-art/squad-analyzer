@@ -7,6 +7,7 @@
 import asyncio, sys, os, re, json, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sv_harness as H
+os.environ.setdefault('SV_CSX_OFF', '1')   # 2026-10-12: 캐릭터 고유 능력(CSX)을 중립으로 — 이 시험은 브장신/용조련사 등을 「능력 없는 기준」으로 쓴다(능력 자체는 survivors_cabil_test.py)
 H.HOOK += "\nwindow.__p6y={U3,F3CAP,AU,PASS,SPX,EX,TK,aim3,liveOk,spawnBoss};\n"   # 이 시험만 쓰는 훅(sv_harness.py 는 고치지 않는다)
 from playwright.async_api import async_playwright
 FAILS = []; N = [0]
