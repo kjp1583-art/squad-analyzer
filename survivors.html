@@ -1214,7 +1214,7 @@ const PFX={
   jhin:{cd:'yy',cnt:'nn',spd:'yy',dur:'nn',area:'pp',luck:'nn'},
   whop:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
   bash:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'pp',luck:'nn'},
-  twin:{cd:'yy',cnt:'nn',spd:'py',dur:'yy',area:'pp',luck:'nn'},
+  twin:{cd:'yy',cnt:'pp',spd:'py',dur:'yy',area:'pp',luck:'nn'},
   stamp:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
   chain:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'np',luck:'nn'},
   ram:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'pp',luck:'nn'},
@@ -1242,6 +1242,7 @@ const PFXN={
   'lid.area':'절반 효과',
   'bash.area':'절반 효과',
   'twin.area':'절반 효과',
+  'twin.cnt':'화염 장판 개수만(베기·화염구는 그대로)',
 };
 const PFXCH=[   // 채널 이름·이모지·한 줄 설명은 여기 한 곳에서만 정한다(ps = 이 채널을 올리는 패시브)
   {k:'cd',ps:'cd',ic:'⏱',nm:'공격속도',sn:'공속',ln:'쿨타임이 짧아져요'},
@@ -2928,7 +2929,7 @@ function twinSlash(ux,uy,len,hw,d,side){const p=S.p;
     h3(e,d,'twin');if(e.on&&!e.boss)knock(e,ux,uy,140,.12);}
   hitPropsAt(p.x+ux*len*.5,p.y+uy*len*.5,len*.6,d*.5);
   f3({k:'tw',x:p.x,y:p.y,ux,uy,len,hw,life:.22,T:.22,side});}
-function twinFire(ux,uy,len,n,R,life,d){const p=S.p;let c=0;const cap=Math.round(6*DUR());for(const o of S.x3.f)if(o.k==='fl')c++;   // 🔥 [2026-10-10 사장님 지시] 장판 최대 개수도 끈기에 비례(끈기가 없으면 예전 그대로 6개) — 오래 남는 만큼 같이 더 깔려야 끈기가 끝까지 이득이다
+function twinFire(ux,uy,len,n,R,life,d,am){const p=S.p;let c=0;const cap=Math.round(6*DUR())+(am|0);for(const o of S.x3.f)if(o.k==='fl')c++;   // 🔥 [2026-10-10 사장님 지시] 장판 최대 개수도 끈기에 비례(끈기가 없으면 예전 그대로 6개) — 오래 남는 만큼 같이 더 깔려야 끈기가 끝까지 이득이다
   for(let i=0;i<n&&c<cap;i++,c++){const k=(i-(n-1)/2)*R*1.5;f3({k:'fl',x:p.x+ux*len*.75-uy*k,y:p.y+uy*len*.75+ux*k,life,L0:life,R,tk:.1,d});}}
 const SHVT={src:null,c:null};   // 🐲 변신 중 몸에 덧씌우는 불꽃색 사본(그림이 바뀔 때만 다시 만든다)
 function shvTint(spr){if(SHVT.src!==spr){const c=document.createElement('canvas');c.width=spr.width;c.height=spr.height;const g=c.getContext('2d');g.drawImage(spr,0,0);g.globalCompositeOperation='source-atop';g.fillStyle='rgb(255,110,20)';g.fillRect(0,0,c.width,c.height);SHVT.src=spr;SHVT.c=c;}return SHVT.c;}
@@ -3027,9 +3028,9 @@ function weapons3(dt,cm,MT,AR,AM){
   // 🔥 쌍둥이 이빨 → 🐲 용의 강림 대폭발 — 앞쪽 이중 베기 + 화염 장판(변신 중엔 베기마다 화염구)
   L=S.w.twin||0;
   if(L&&(S.cd.twin-=dt)<=0){ev=S.ev.twin;t=TK('twin');const drg=S.dT>0&&CH.shv,len=U3.twin.len*lvm(L,[[2,1.15]])*(1+.5*(AR-1))*(1+t.a)*(drg?1.25:1),hw=U3.twin.hw*(1+.5*(AR-1));tg=aim3(len+hw+30);
-    if(tg){const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,d=U3.twin.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d),nf=1+(L>=6)+(ev?2:0),fl=U3.twin.life+t.life,R=U3.twin.R*AR*(1+.15*(L>=6)),fb=drg||ev;
+    if(tg){const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,d=U3.twin.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d),nf=1+(L>=6)+(ev?2:0)+AM,fl=U3.twin.life+t.life,R=U3.twin.R*AR*(1+.15*(L>=6)),fb=drg||ev;
       const slash=(side,last)=>{if(!S.w.twin)return;const q=S.p,ex=ux,ey=uy;twinSlash(ex,ey,len,hw,d,side);
-        if(last){twinFire(ex,ey,len,nf,R,fl*DUR(),d*.3);if(ev)bang(q.x+ex*len*.85,q.y+ey*len*.85,70*AR,d*1.2,'twin','mine',1);}
+        if(last){twinFire(ex,ey,len,nf,R,fl*DUR(),d*.3,AM);if(ev)bang(q.x+ex*len*.85,q.y+ey*len*.85,70*AR,d*1.2,'twin','mine',1);}
         if(fb&&(side===0||last)){const n=1+(L>=5&&drg)+t.n,base=Math.atan2(ey,ex);
           for(let i=0;i<n;i++)blt('twin',q.x,q.y-6,base+(i-(n-1)/2)*.24,430*PS(),.9,d*.8,0,7,'#fff1c9','rgba(255,170,60,.6)',{ex:46*AR*(ev?1.4:1),exd:d*.7});}};
       slash(0,false);S.dq.push({t:.17,f:()=>slash(1,L<8)});if(L>=8)S.dq.push({t:.34,f:()=>slash(0,true)});

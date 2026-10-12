@@ -616,7 +616,9 @@ async def main():
                           ('stamp', 'cd', 'b'): ('p', 'y'), ('stamp', 'cd', 'e'): ('p', 'y'), ('chain', 'cd', 'b'): ('p', 'y'), ('chain', 'cd', 'e'): ('p', 'y'),
                           # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기(부스러기 +1/겹) · 속사(스틱·부스러기 속도) · 끈기(부스러기 수명) · 광역(부스러기 크기)를 받는다. 각성의 곱빼기는 부스러기 상한(56발)에 막혀 p
                           ('snack', 'cnt', 'b'): ('n', 'y'), ('snack', 'cnt', 'e'): ('n', 'p'), ('snack', 'spd', 'b'): ('n', 'y'), ('snack', 'spd', 'e'): ('n', 'y'),
-                          ('snack', 'dur', 'b'): ('n', 'y'), ('snack', 'dur', 'e'): ('n', 'p'), ('snack', 'area', 'b'): ('n', 'p')}
+                          ('snack', 'dur', 'b'): ('n', 'y'), ('snack', 'dur', 'e'): ('n', 'p'), ('snack', 'area', 'b'): ('n', 'p'),
+                          # 🔥 [2026-10-12 사장님] 프싱 쌍둥이 이빨 — 곱빼기가 화염 장판 개수(+1/겹)를 늘린다(베기·화염구는 그대로 → p)
+                          ('twin', 'cnt', 'b'): ('n', 'p'), ('twin', 'cnt', 'e'): ('n', 'p')}
                 print('  바뀐 칸 %d개: %s' % (len(flips), ', '.join('%s/%s/%s %s→%s' % (w, c, f, a, b_) for (w, c, f), (a, b_) in sorted(flips.items()))))
                 check('표에서 바뀐 칸 = 지시서가 말한 %d칸뿐(n/p → y, 맛동산 개편 2칸은 → p) · 다른 칸은 글자 하나도 안 바뀌었다' % len(EXPECT), flips == EXPECT, (set(flips) ^ set(EXPECT)))
                 # (2) 패시브가 0 일 때 동작은 기준 커밋과 비트까지 같다 (카트 각성만 의도적으로 달라진다 — 아래 따로)
