@@ -4,7 +4,8 @@ import asyncio, sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sv_harness as H
 from playwright.async_api import async_playwright
-R = r"""async ()=>{const x=__p6x; x.CH_set('yj'); x.start(); const S=x.S; const c=x.CHARS.find(c=>c.k==='yj'); return {hp:c.hp,arm:c.arm,spd:c.spd,mhp:S.p.mhp,ds:c.ds.slice(0,40)}}"""
+# 2026-10-12 능력 숫자는 설명(ds)이 아니라 「✨ 고유스텟」 구획(cstat)에 있다
+R = r"""async ()=>{const x=__p6x; x.CH_set('yj'); x.start(); const S=x.S; const c=x.CHARS.find(c=>c.k==='yj'); return {hp:c.hp,arm:c.arm,spd:c.spd,mhp:S.p.mhp,ds:x.cstat(c).rows.map(r=>r.nm+' '+r.v).join(' ')}}"""
 async def main():
     H.make_copy(); srv = H.Srv()
     async with async_playwright() as p:
