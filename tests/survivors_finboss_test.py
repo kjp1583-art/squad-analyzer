@@ -68,7 +68,7 @@ async def main():
         ok(r['on'] and r['boss'] == 'fin', 'C3 spawnBoss(fin) 로 나온다')
         ok(cap[0] == '🔥 최종 보스 — 👑 흐접새우 본체', 'C4 배너 제목 「🔥 최종 보스 — 👑 흐접새우 본체」 (%s)' % cap[0])
         ok(cap[1].startswith('「') and cap[1].endswith('」') and cap[1][1:-1] in info['sp0'], 'C5 배너 대사가 sp0 중 하나 (%s)' % cap[1])
-        ok(abs(r['mhp'] - 3600 * r['bossMul'] * 1.6) < 1e-6 * r['mhp'], 'D1 체력 = 3600 × bossMul × 1.6 (%.2f vs %.2f)' % (r['mhp'], 3600 * r['bossMul'] * 1.6))
+        ok(abs(r['mhp'] - 3600 * r['bossMul'] * 1.6 * 0.25) < 1e-6 * r['mhp'], 'D1 체력 = 3600 × bossMul × 1.6 × 0.25(1:1 체력 조정 FIN_DUEL.hpMul) (%.2f vs %.2f)' % (r['mhp'], 3600 * r['bossMul'] * 1.6 * 0.25))
         # 그리기: 보스를 플레이어 옆에 두고 몇 프레임 돌린 뒤 그린다(오류 0) + 스크린샷
         r = await pg.evaluate("""()=>{const X=window.__p6x,S=X.S;const e=S.bossRef;e.x=S.p.x+170;e.y=S.p.y-20;
           let err=null;try{for(let i=0;i<20;i++){X.update(1/30);}X.draw();}catch(x){err=String(x)}
