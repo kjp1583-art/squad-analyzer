@@ -2405,6 +2405,8 @@ const FIN_DUEL={
   chase:.55,enr:[1,1.1,1.25],      // 쉬는 동안 따라오는 속도(보스 속도 배수) · 광폭 단계 배수
   dmg:{tail:1.15,claw:1.3,snack:.95,safe:1.25,bub:.5},   // 보스 공격력(e.dmg) 배수
   cap:.4,                          // 한 번에 최대 체력의 40% 를 넘지 않는다
+  hpMul:.25,                       // 🥵 [2026-10-12 사장님 「본체 체력이 너무 많아 60분 넘도록 못 잡는다 → 1+2 로」] 1:1 이 시작될 때 보스 체력에 곱한다(예전 약 563만 → 약 141만). 빌드마다 100초~25분+ 로 벌어지던 것을 줄인다
+  tire:{t0:150,every:30,step:.6,cap:5},   // 지친 보스 — 1:1 이 시작된 지 150초가 지나면 30초마다 받는 피해가 +60% 씩 쌓인다(최대 ×5) · 화력이 약한 빌드도 끝낼 수 있게(강한 빌드는 150초 안에 끝나 영향 없음)
   phaseHp:[.66,.33],               // 체력 66%·33% 아래에서 단계가 오른다
   phaseSec:100,                    // …그리고 1:1 이 시작된 지 100초·200초가 지나면 체력과 상관없이 그 단계로(0 이면 체력만) — 실측: 평범한 빌드는 5분에 보스 체력을 20% 남짓 깎아 체력만으로는 1단계만 보게 된다
   tail:{n:[1,2,3],R:250,w:.46},    // 부채꼴 반지름·반각(rad) · 연속 횟수(매번 그때의 내 쪽으로 새로 겨눈다)
@@ -2416,7 +2418,10 @@ const FIN_DUEL={
   deck:[['tail','claw','snack','bub'],['tail','claw','snack','shell','safe'],['tail','claw','snack','shell','safe','bub']]};
 const duelBoss=()=>{const b=S&&S.bossRef;return b&&b.on&&b.du&&!S.won?b:null;};   // 1:1 이 한창인 보스(없으면 null) — S 에 따로 표시를 두지 않는다(새 S 키 금지)
 const capHit=(e,k)=>Math.min(e.dmg*k,S.p.mhp*FIN_DUEL.cap);
-const duelDmg=(e,d)=>{const D=e.du,F=FIN_DUEL.shell;return D.iv>0?0:d*(D.sh?F.mul:D.wk>0?F.wmul:1);};   // 연출·단계 컷 무적 · 껍질 · 약점
+const tireN=D=>{const T=FIN_DUEL.tire,o=S.t-D.t0-T.t0;return o>0?1+Math.floor(o/T.every):0;};   // 지친 단계(0 = 아직)
+const tireMulN=n=>{const T=FIN_DUEL.tire;return n>0?Math.min(T.cap,1+T.step*n):1;};
+const tireMul=D=>tireMulN(tireN(D));   // 받는 피해 배수
+const duelDmg=(e,d)=>{const D=e.du,F=FIN_DUEL.shell;return D.iv>0?0:d*(D.sh?F.mul:D.wk>0?F.wmul:1)*tireMul(D);};   // 연출·단계 컷 무적 · 껍질 · 약점
 function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기장 + 연출
   const p=S.p,F=FIN_DUEL;let n=0;
   for(const x of enemies.a){if(!x.on||x===e)continue;x.on=false;if(n<24&&inV(x.x,x.y,20)){n++;EX.puff(x.x,x.y);}}   // 킬이 아니다: 처치 수·보석·드롭·경험치 없음(분열·소환 같은 쓰러질 때 코드도 안 돈다)
@@ -2428,6 +2433,7 @@ function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기�
   const R=Math.max(F.arena[0],Math.min(F.arena[1],Math.min(VW,VH)*F.arena[2]));
   let ux=e.x-p.x,uy=e.y-p.y;const ul=Math.hypot(ux,uy)||1;ux/=ul;uy/=ul;
   const cx0=p.x+ux*R*.2,cy0=p.y+uy*R*.2;e.x=cx0+ux*R*.45;e.y=cy0+uy*R*.45;   // 보스는 나와 마주 서는 자리로(옛 자리는 화면 밖)
+  e.hp*=F.hpMul;e.mhp*=F.hpMul;   // 체력 낮추기(위 hpMul)
   e.du={cx:cx0,cy:cy0,R,t0:S.t,in:F.intro,iv:F.intro,ph:0,cd:.6,cur:null,bag:[],last:'',z:[],sh:0,wk:0};e.bph=0;
   if(SPD.on)toast('⏩ 1:1 동안은 2배속이 잠시 꺼져요 — 예고를 또렷이 보세요');   // 예고(0.8초↑)는 게임 시간이라 2배속이면 사람 눈에 절반 — 1:1 동안만 1배속(끝나면 다시 2배속)
   invGrant('rev',F.intro);S.shake=.6;S.flash=.5;FX.glow=2.4;AU.play('bigboom');EX.dz(e.x,e.y,170);
@@ -2479,6 +2485,7 @@ function duelAct(e,dt,d,dx,dy){   // 1:1 보스 한 틱 — 돌려받는 값: �
   const rt=!SPD.sub;   // ⏩ 연출 시간(등장 연출·단계 컷의 무적)은 눈으로 읽는 시간이라 2배속의 두 번째 호출에서는 줄이지 않는다(배너·번쩍임과 같은 규칙) — 예고·패턴·껍질·약점·기절은 게임 시간(2배속이면 두 배 빨리)
   if(D.iv>0&&rt)D.iv-=dt;if(D.wk>0)D.wk-=dt;
   {const bx=e.x-D.cx,by=e.y-D.cy,bd=Math.hypot(bx,by),lim=D.R-e.r*.8;if(bd>lim){e.x=D.cx+bx/bd*lim;e.y=D.cy+by/bd*lim;}}   // 보스도 경기장 밖으로 못 나간다
+  {const tn=tireN(D),n0=D.tn|0;if(tn>n0){D.tn=tn;const m=tireMulN(tn);if(m>tireMulN(n0)+.001)toast('🥵 보스가 지쳐 간다 — 받는 피해 +'+Math.round((m-1)*100)+'%');}}
   if(D.in>0){if(rt)D.in-=dt;return 0;}
   if(dzTick(e,D,dt)||state!=='play')return 0;
   let c=D.cur;
@@ -2686,8 +2693,9 @@ function randLive(){const L=S.live;return L.length?L[Math.random()*L.length|0]:n
 //   🥏 냄비뚜껑 · ☄️ 운석 · 🔭 저격 · 🌀 블랙홀 · 🎵 리듬. 설계·수치표는 tooling/improve/ideas/P-6-weapons-v4.md.
 //   튜닝은 아래 W4 한 표에서만(개선 루프는 이 수치를 다시 만지지 않는다). 풀은 전부 상한이 있고 매 프레임 새로 만들지 않는다.
 // ============================================================================================================
-const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:6,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:48,len:260,cd:3},frost:{d:44,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
-  meteor:{d:5,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:78,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:5.5,R:90,iv:.75}};   // 🎵 리듬 너프(2026-10-02 · 무기 밸런스 점검) — 솔로 DPS 가 중앙값의 4~10배였다(적 전원 타격 · 쿨타임 없음 · 큰 박자 ×3 · 전체 버프까지): d 26→5.5 · R 100→90 · 큰 박자 ×3→×2.5 · 강화 피해 +8/12/16→+5/8/10%   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
+// ⚖️ [2026-10-12] 단일 대상 공용 무기 피해 상향: 낚싯대 48→60 · 망원경 저격 78→105(보스 최대 체력 비율 bp 는 그대로). 키보드 난타·사료·병아리는 실전 측정에서 이미 센 편이라 안 올렸다.
+const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:6,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:60,len:260,cd:3},frost:{d:44,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
+  meteor:{d:5,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:105,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:5.5,R:90,iv:.75}};   // 🎵 리듬 너프(2026-10-02 · 무기 밸런스 점검) — 솔로 DPS 가 중앙값의 4~10배였다(적 전원 타격 · 쿨타임 없음 · 큰 박자 ×3 · 전체 버프까지): d 26→5.5 · R 100→90 · 큰 박자 ×3→×2.5 · 강화 피해 +8/12/16→+5/8/10%   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
 const rkts=new Pool(24,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,R:46,tg:null,tsn:0,ev:0,t:0,fr:0}));      // 🎆 폭죽 로켓
 const pets=new Pool(8,()=>({x:0,y:0,a:0,tg:null,tsn:0,hit:0,ph:0,rt:0,big:0}));                        // 🐥 병아리 친구들(아군)
 const hooks=new Pool(4,()=>({x:0,y:0,ux:0,uy:0,d:0,len:0,ph:0,dmg:0,n:0,cap:0,c:new Array(12).fill(null),cs:new Array(12).fill(0),ev:0,id:0,stn:0,bm:0}));   // 🎣 낚싯줄
@@ -2881,12 +2889,15 @@ const DL3=L=>lvm(L,[[3,1.4],[5,1.4],[8,1.5]]);
 const DLS=L=>lvm(L,[[3,1.2],[5,1.2],[8,1.5]]);
 // 🎤 플레이브 노래부르기 — d ♪ 피해 · db ♬ 울림 피해 · cd 쿨타임 · iv 박자 간격 · sp ♪ 속도 · life ♪ 수명 · rng 소절 시작·겨냥 사거리 · fan ♪ 부채 간격(rad) · dlt 집중 때 2·3박 비껴 쏘는 각 · hit ♪ 판정 반지름 ·
 //   bsp ♬ 속도 · blife ♬ 수명 · bR 울림 반지름 · btk 울림 간격 · m 박당 ♪ 수 · cr 적중당 크레셴도 · crm 크레셴도 상한 · sl ♪ 넋 잃음 · bsl ♬ 넋 잃음 · reach ♬ 목표 거리
-const U3={sing:{d:4.5,db:1.3,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,cr:.04,crm:.6,sl:.45,bsl:.9,reach:280},
-  quill:{d:6.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
-  slime:{d:13,bd:7,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:14,cd:1.1,life:2.6,stun:.7},
-  jhin:{d:7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
+// ⚖️ [2026-10-12 사장님 지시 "배불배불 · 범위 좁은 탄막형 · 단일 무기 데미지라도 쎄야"] 피해(d · db · bd)만 올렸다 — 범위·쿨·개수·사거리는 그대로.
+//   노래부르기 4.5→5.9(울림 1.3→1.7) · 깃털 산탄 6.5→11.5 · 4발 사격 7→7.7 · 자크 슬라임 13→17(조각 7→9.1) · 포토카드 8→13 · 화해의 하트 14→18.
+//   근거: 무기 한 자루만 든 허수아비 밭(밀집·성김·보스) · 움직이는 아레나(실전 체력) · 정책 봇 측정 — 한 가지 지표만 보지 않았다. 집중겜·유미·카트 …는 약하지 않아서 그대로.
+const U3={sing:{d:5.9,db:1.7,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,cr:.04,crm:.6,sl:.45,bsl:.9,reach:280},
+  quill:{d:11.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
+  slime:{d:17,bd:9.1,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:16,cd:1.1,life:2.6,stun:.7},
+  jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
   snack:{d:11,cd:1.3,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.3,evKd:1.4,kd:.34,big:28,cs:260,cl:.36,cr:4,cap:80,frame:48,comp:2.5},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
-  pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
+  pcards:{d:13,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
 // 🛒 [2026-10-10 사장님 지시] 각성 카트(퍼스트클래스 서비스)도 수명이 있다 — 18초 동안 따라다니다 사라지고, 쿨타임(약 6초)마다 새 카트가 나온다.
