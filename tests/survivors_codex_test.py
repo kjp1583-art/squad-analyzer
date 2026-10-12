@@ -923,7 +923,7 @@ async def main():
         check('기준 커밋 사본이 없어 정책 봇 비교를 못 했다', False)
     else:
         tmp = tempfile.mkdtemp(prefix='cxsim_'); outA = os.path.join(tmp, 'new'); outB = os.path.join(tmp, 'base')   # 저장소 밖 임시 폴더(중단돼도 저장소가 더러워지지 않게)
-        chars = os.environ.get('CDX_SIM_CHARS', 'brj,jjg,yj,eom,psg'); seeds = os.environ.get('CDX_SIM_SEEDS', '1-2'); cap = os.environ.get('CDX_SIM_CAP', '300')
+        chars = os.environ.get('CDX_SIM_CHARS', 'ddo,mms,sr,yj'); seeds = os.environ.get('CDX_SIM_SEEDS', '1-2'); cap = os.environ.get('CDX_SIM_CAP', '300')   # 2026-10-12 brj·jjg·eom·psg → 시작 무기·공용 낚싯대/망원경 피해를 올려(밸런스) 옛 기준 커밋과 일부러 달라질 수 있는 캐릭터를 뺐다 — 규칙 불변 증명은 안 건드린 4명으로
         base_src = os.path.join(H.ROOT, BASE_PAGE)   # 훅이 꽂힌 사본이 아니라 원본 기준 사본을 따로 만든다
         r = subprocess.run(['git', '-C', H.ROOT, 'show', BASE_COMMIT + ':survivors.html'], capture_output=True, timeout=30)
         base_clean = os.path.join(H.ROOT, 'survivors_cxbase_clean.html'); open(base_clean, 'wb').write(r.stdout)
