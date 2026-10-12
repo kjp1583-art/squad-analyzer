@@ -5148,7 +5148,7 @@ function normRow(r){
   return o;
 }
 function medalRank(e,i){
-  var r=num(e&&e.rank);if(r>=1&&r<=3)return r;
+  var r=num(e&&(e.rank||e.place));if(r>=1&&r<=3)return r;
   var m=String(e&&(e.medal||e.m)||'').toLowerCase();
   if(m==='gold'||m==='g'||m==='🥇'||m==='1')return 1;if(m==='silver'||m==='s'||m==='🥈'||m==='2')return 2;if(m==='bronze'||m==='b'||m==='🥉'||m==='3')return 3;
   return i<3?i+1:0;
@@ -5157,11 +5157,12 @@ function normFile(j,n,info){
   if(!j||typeof j!=='object')return null;
   var f={n:n,start:dayOk(j.start||j.season_start)||info&&info.start||'',end:dayOk(j.end||j.season_end)||info&&info.end||'',modes:{},medals:{}};
   MODES.forEach(function(m){var a=null;for(var i=0;i<m[2].length;i++)if(Array.isArray(j[m[2][i]])){a=j[m[2][i]];break;}
-    if(!a&&j.modes&&typeof j.modes==='object')for(var k=0;k<m[2].length;k++)if(Array.isArray(j.modes[m[2][k]])){a=j.modes[m[2][k]];break;}
+    [j.boards,j.modes].forEach(function(box){if(a||!box||typeof box!=='object')return;for(var k=0;k<m[2].length;k++)if(Array.isArray(box[m[2][k]])){a=box[m[2][k]];break;}});   // 봇은 표를 boards 안에 올린다
     f.modes[m[0]]=a?a.map(normRow).filter(Boolean):null;});
   var md=j.medals&&typeof j.medals==='object'&&!Array.isArray(j.medals)?j.medals:null;
   MEDAL3.forEach(function(m){var rows=f.modes[m[0]],list=[];
-    if(md&&Array.isArray(md[m[0]]))md[m[0]].forEach(function(e,i){var r=medalRank(e,i);if(!r||!e||typeof e!=='object')return;list.push({rank:r,name:String(e.name==null?'?':e.name).slice(0,40),uid:e.uid!=null?String(e.uid).slice(0,40):''});});
+    var ml=md&&(Array.isArray(md[m[0]])?md[m[0]]:(m[0]==='normal'&&Array.isArray(md.board)?md.board:null));   // 봇은 일반 표 메달을 board 키로 올린다
+    if(ml)ml.forEach(function(e,i){var r=medalRank(e,i);if(!r||!e||typeof e!=='object')return;list.push({rank:r,name:String(e.name==null?'?':e.name).slice(0,40),uid:e.uid!=null?String(e.uid).slice(0,40):''});});
     else if(rows)rows.filter(function(r){return r.t>0;}).slice(0,3).forEach(function(r,i){list.push({rank:i+1,name:r.name,uid:r.uid});});   // 메달 목록이 없는 보관본은 표 1~3위로 다시 계산
     list.sort(function(p,q){return p.rank-q.rank;});f.medals[m[0]]=list.slice(0,3);});
   return f;

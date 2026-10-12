@@ -193,6 +193,20 @@ async def main():
         check('medals 없는 보관본: 일반·하드·베리하드 상위 3명으로 계산', names[:1] == ['u0 🥇3 🥈0 🥉0'] and len(names) == 3, names)
         await ctx.close()
 
+        # 봇이 실제로 올리는 모양: boards 중첩 + medals.board + place
+        sb = season(1); bt = {k: sb.pop(k) for k in ('normal', 'hard', 'vhard', 'total', 'endless', 'endless_h', 'endless_v')}
+        sb['boards'] = {'board': bt['normal'], 'hard': bt['hard'], 'vhard': bt['vhard'], 'total': bt['total'], 'endless': bt['endless'], 'endless_h': [], 'endless_v': []}
+        sb['medals'] = {'board': [{'place': 1, 'name': 'bm1'}, {'place': 2, 'name': 'bm2'}, {'place': 3, 'name': 'bm3'}], 'hard': [{'place': 1, 'name': 'bm2'}], 'vhard': []}
+        ctx, pg, errs, reqs = await mk(b, srv.port, {'index.json': js(IDX), 'season1.json': js(sb)})
+        await opn(pg); await settle(pg)
+        t = await txt(pg)
+        check('봇 모양(boards): 표 행이 보인다', 'u0' in t and 'T0' not in t.split('기록이 없어요')[0] and '이 시즌에는 이 표 기록이 없어요' not in t, t[:200])
+        await pg.evaluate("document.querySelector('.hltab[data-t=m]').click()")
+        await pg.wait_for_function("document.querySelectorAll('#hlBody .hlmb').length>0", timeout=10000)
+        names = await pg.evaluate("[...document.querySelectorAll('.hlmb')].map(e=>e.innerText.replace(/\\s+/g,' ').trim())")
+        check('봇 모양: 일반 메달(board 키·place)이 메달 순위에 들어간다', any(n.startswith('bm1 🥇1') for n in names) and any(n.startswith('bm2 🥇1 🥈1') for n in names), names)
+        await ctx.close()
+
         # ── 5. 폰 폭 가로 넘침 ───────────────────────────────────────────────────
         sw = season(1); sw['normal'][0]['name'] = LONG; sw['normal'][1]['name'] = 'W' * 80
         sw['medals']['normal'][0]['name'] = LONG; sw['medals']['normal'][1]['name'] = 'W' * 80
