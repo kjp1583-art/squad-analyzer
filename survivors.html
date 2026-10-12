@@ -128,7 +128,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 .hardt{display:flex;align-items:center;gap:8px;text-align:left;background:#2a1418;border:1px solid #6b2a30;border-radius:10px;padding:8px 10px;margin:8px 0 0;cursor:pointer;font-size:13px}
 .vht{background:#1d1022;border-color:#5a2a78}.dly{background:linear-gradient(180deg,#2a6f8a,#1d4f66)!important;margin-top:8px}#dailyInfo{margin:3px 0 2px}.endb{background:linear-gradient(180deg,#6a3fb8,#47288a)!important}.hardt input{width:18px;height:18px;accent-color:var(--lose);margin:0}.hardt small{display:block;color:var(--sub);font-size:11px}
 /* ⏩ [2026-10-11 사장님 지시 "흐접새우 2배속 모드 on/off 토글추가"] 2배속 단추 · HUD 칩 */
-.spdt{background:#231d10;border-color:#7a5f1c;min-height:44px}.spdt input{accent-color:var(--gold)}.snd .spdl{min-height:44px}.snd .spdl input{width:22px;height:22px}
+.spdt{background:#231d10;border-color:#7a5f1c;min-height:44px}.spdt input{accent-color:var(--gold)}.snd .spdl{min-height:44px}.snd .spdl input{width:22px;height:22px}.spdt.lk,.spdl.lk{opacity:.78}.spdt.lk small,.spdl.lk small{color:#ffd37a}.spdl small{flex-basis:100%}
 .spdc{display:none;margin-top:4px;padding:2px 9px;font-size:12px;font-weight:800;border-radius:999px;background:rgba(40,30,8,.72);border:1px solid #ffcf5a;color:#ffe08a;text-shadow:0 1px 2px #000;pointer-events:none}
 .bch{width:20px;height:20px;vertical-align:-5px;margin-right:3px;border-radius:50%;object-fit:contain}.bch.e{display:inline-block;text-align:center;line-height:20px;font-size:15px;vertical-align:-3px}.bchn{color:var(--sub);margin-right:3px;font-size:11px}
 .btabs{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px}.btabs button{background:var(--card2);border:1px solid var(--line);color:var(--sub);border-radius:6px;font:inherit;font-size:11.5px;padding:0 8px;cursor:pointer}.btabs button.on{color:var(--txt);border-color:var(--acc)}
@@ -354,7 +354,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="lgd" id="lgdT"><span class="rd">🔴 빨간 표시(점선·빗금)</span> = 위험(적) · <span class="bl">🔵 파란/하늘색</span> = 내 공격</div>
   <label class="hardt"><input type="checkbox" id="hardChk"><span><b>🔥 하드 모드</b><small>몬스터 체력 또 ×2 · 더 아프고 더 많이 몰려온다 · 순위표 따로</small></span></label>
   <label class="hardt vht"><input type="checkbox" id="vhChk"><span><b>💀 베리하드 모드</b><small>하드보다 몬스터 체력 ×2 더 · 훨씬 더 아프고 훨씬 더 많이 몰려온다 · 순위표 따로</small></span></label>
-  <label class="hardt spdt"><input type="checkbox" id="spdChk" data-spd><span><b>⏩ 2배속</b><small>게임이 두 배로 빨리 흘러가요 — 조작도 그만큼 바빠져요 · 기록은 게임 시간 그대로예요</small></span></label>
+  <label class="hardt spdt"><input type="checkbox" id="spdChk" data-spd><span><b>⏩ 2배속</b><small data-spdsm>게임이 두 배로 빨리 흘러가요 — 조작도 그만큼 바빠져요 · 기록은 게임 시간 그대로예요</small></span></label>
   <button class="btn" id="startBtn">▶ 시작하기</button>
   <button class="btn dly" id="dailyBtn">📅 오늘의 도전</button><div class="muted" id="dailyInfo"></div>
   <details class="howd"><summary>❔ 조작법</summary><ol class="how">
@@ -392,7 +392,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <label><span>🎵 음악</span><input type="range" id="musV2" min="0" max="100" data-k="mus" aria-label="음악 크기"><b data-v="mus"></b></label>
     <label class="fxl"><span>✨ 배경 효과</span><input type="checkbox" data-fx aria-label="배경 효과"><b data-fxv></b></label>
     <label class="fxl"><span>🎨 위험 강조</span><input type="checkbox" data-hz aria-label="위험 표시 강조"><b data-hzv></b></label>
-    <label class="fxl spdl"><span>⏩ 2배속</span><input type="checkbox" data-spd aria-label="2배속"><b data-spdv></b><small>게임이 두 배로 빨리 흘러가요</small></label></div>
+    <label class="fxl spdl"><span>⏩ 2배속</span><input type="checkbox" data-spd aria-label="2배속"><b data-spdv></b><small data-spdsm>게임이 두 배로 빨리 흘러가요</small></label></div>
   <div class="lgd"><span class="rd">🔴 빨간 표시(점선·빗금)</span> = 위험(적) · <span class="bl">🔵 파란/하늘색</span> = 내 공격</div>
   <div id="pInfo" class="muted"></div><button class="btn" id="resumeBtn">계속하기</button><button class="btn g" id="quitBtn">🏳 포기하고 결과 보기</button></div></div>
 
@@ -716,11 +716,12 @@ function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페�
   location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(DISCORD_CLIENT_ID)
     +'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
 }
-function dcLogout(){SRVUNL.clear();SRVLOAD=false;try{localStorage.removeItem('sgg_dc');localStorage.removeItem('sgg_dc_auto');localStorage.removeItem('sgg_dc_try');}catch(e){}ME=null;renderAcct();}
+function dcLogout(){SRVUNL.clear();SRVLOAD=false;try{SPD.sync();}catch(e){}try{localStorage.removeItem('sgg_dc');localStorage.removeItem('sgg_dc_auto');localStorage.removeItem('sgg_dc_try');}catch(e){}ME=null;renderAcct();}
 let ME=null,BOARD=null;
 async function api(path,body){const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{};
   const r=await fetch(P6_API+path,o);let j=null;try{j=await r.json();}catch(e){}return j||{ok:false,code:'http'};}
-function renderAcct(){const u=dcUser();
+function renderAcct(){try{SPD.ui();}catch(e){}
+  const u=dcUser();
   const h=u?`🔐 <b>${esc(ME&&ME.name||u.name)}</b> 로그인 중${ME&&ME.runs?` · ${ME.runs}판 · 최고 ${fmt(ME.best_t)}${ME.rank?` · <b style="color:var(--gold)">${ME.rank}위</b>`:''}`:''} <a href="#" id="dcOut" class="muted">로그아웃</a>${coinLine()}`
     :`로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn">디스코드 로그인</button><div class="muted">로그인 없이도 플레이할 수 있어요(이 기기에만 저장·순위표 제외).</div>`;
   $('acct').innerHTML=h;const i=$('dcIn');if(i)i.onclick=dcLogin;const o=$('dcOut');if(o)o.onclick=e=>{e.preventDefault();dcLogout();};}
@@ -826,7 +827,7 @@ function setProg(p){try{localStorage.setItem(PK,JSON.stringify(p));}catch(e){}}
 // 🍘 [2026-10-07 사장님 지시] 맛동산 상점 캐릭터 — 진행도로는 안 열리고, 서버가 내려준 unlocks(/p6/me · 기록 응답)에 키가 있을 때만 열린다.
 //   SRVUNL 은 메모리에만 둔다(로컬 저장소 getUnl 은 서버 없이도 고칠 수 있으므로 믿지 않는다) — 로그인 안 했거나 서버 목록이 없으면 닫혀 있다.
 const SRVUNL=new Set();let SRVLOAD=false;   // SRVLOAD: 서버 구매 목록을 받았는가(이어하기가 상점 캐릭터 판을 되살릴 때 '아직 모름'과 '안 샀음'을 가른다)
-const srvUnl=a=>{SRVUNL.clear();SRVLOAD=true;(a||[]).forEach(k=>SRVUNL.add(String(k)));};
+const srvUnl=a=>{SRVUNL.clear();SRVLOAD=true;(a||[]).forEach(k=>SRVUNL.add(String(k)));try{SPD.sync();}catch(e){}};   // ⏩ 2배속 구매('spd2')도 같은 목록으로 온다
 const SHOPUN={t:'🍘 맛동산 상점에서 1개 — 디스코드 「맛동산상점」',ok:()=>false,pr:()=>dcUser()?'구매하면 열려요':'디스코드 로그인 필요'};
 // 🛒 [2026-10-08 사장님 지시] 흐접새우 상점(봇 「/흐접새우상점」 · 스쿼드 포인트 200P — 내전 1판 1P · 승부예측 · 맛동산과 별개) 캐릭터 — t 는 카드 작은 글씨, dh 는 설명창 문구(고정 마크업 — 명령어가 줄 중간에서 끊기지 않게 nb · 없으면 t)
 const unTxt=c=>c.un.dh||esc(c.un.t);   // 해금 문구(설명창) — dh(고정 마크업)가 있으면 그것, 없으면 t 를 이스케이프해서
@@ -1649,18 +1650,24 @@ let toastT=0;function toast(m){const el=$('toast');el.textContent=m;el.classList
 //   · 읽어야 하는 글(배너·말풍선·토스트·화면 번쩍임)은 실시간으로 둔다 — 두 번째 호출(SPD.sub)에서는 그 타이머를 줄이지 않는다. 입자·비네팅(FX.dt)은 원래 실시간
 //   · 느린 폰: 최근 4초 평균 프레임이 33ms(30fps 미만)를 넘으면 한 번만 「끄는 게 좋아요」 안내(update 두 번 = CPU 두 배)
 const SPD=(()=>{
-  const K='p6_spd2';let on=0;try{on=localStorage.getItem(K)==='1'?1:0;}catch(e){}
-  const o={on,sub:0,n:0,ms:0,warned:0};
-  o.ui=function(){for(const el of document.querySelectorAll('input[data-spd]'))el.checked=!!o.on;for(const el of document.querySelectorAll('[data-spdv]'))el.textContent=o.on?'켜짐':'꺼짐';
+  const K='p6_spd2';let pref=0;try{pref=localStorage.getItem(K)==='1'?1:0;}catch(e){}   // pref = 저장된 바람(켜 두고 싶다) · o.on = 실제로 도는 값 — 서버가 준 구매 목록(SRVUNL)에 'spd2' 가 있을 때만 켜진다
+  const can=()=>SRVUNL.has('spd2');
+  const o={on:0,sub:0,n:0,ms:0,warned:0};
+  o.can=can;
+  o.lockMsg=function(){return can()?'':!dcUser()?'🔒 디스코드 로그인 필요':!SRVLOAD?'🔒 구매 확인 중이에요 — 잠시만요':'🔒 🍘 디스코드 맛동산상점에서 3맛동산으로 사면 열려요';};   // 구매자만 — 이 문구는 첫 화면·일시정지 설명 줄과 눌렀을 때 안내로 쓴다
+  o.ui=function(){const lk=o.lockMsg();for(const el of document.querySelectorAll('input[data-spd]')){el.checked=!!o.on;el.setAttribute('aria-disabled',lk?'true':'false');const l=el.closest('label');if(l)l.classList.toggle('lk',!!lk);}
+    for(const el of document.querySelectorAll('[data-spdv]'))el.textContent=lk?'🔒':o.on?'켜짐':'꺼짐';
+    for(const el of document.querySelectorAll('[data-spdsm]')){if(el.dataset.d===undefined)el.dataset.d=el.textContent;el.textContent=lk||el.dataset.d;}
     const c=$('spdChip');if(c)c.style.display=o.on?'inline-block':'none';};
-  o.set=function(v){o.on=v?1:0;o.n=0;o.ms=0;try{localStorage.setItem(K,o.on?'1':'0');}catch(e){}o.ui();};
+  o.sync=function(){const v=pref&&can()?1:0;const lost=o.on&&!v;o.on=v;o.n=0;o.ms=0;o.ui();if(lost){toast('🔒 2배속 권한을 확인할 수 없어서 1배속으로 돌아왔어요');toastT=3.6;}};   // 판 도중 로그인이 풀리면 그 프레임부터 1배속 + 쉬운 안내 한 번
+  o.set=function(v){if(v&&!can()){o.ui();toast(o.lockMsg());toastT=3.6;return;}pref=v?1:0;try{localStorage.setItem(K,pref?'1':'0');}catch(e){}o.sync();};
   o.watch=function(raw){   // 판이 도는 프레임마다 실제 간격(ms)을 받는다
     if(!o.on||o.warned){o.n=0;o.ms=0;return;}
     if(raw>250)return;   // 탭을 떠났다 온 큰 간격은 폰 성능이 아니다
     o.n++;o.ms+=raw;
     if(o.ms>=4000){const avg=o.ms/o.n;o.n=0;o.ms=0;if(avg>33){o.warned=1;toast('🐢 폰이 힘들어해요 — 2배속을 끄는 게 좋아요');toastT=3.6;}}};
   for(const el of document.querySelectorAll('input[data-spd]'))el.onchange=e=>o.set(e.target.checked);
-  o.ui();return o;})();
+  o.sync();return o;})();
 function dropItem(k,x,y){let it=items.get();if(!it&&k==='chest'){it=items.a.find(o=>o.k!=='chest');if(it)it.on=true;}if(!it)return;it.k=k;it.x=x;it.y=y;it.life=k==='chest'?1e9:60;it.t=Math.random()*6;}
 // 🍗 치킨 경제(2026-09-29 사장님 "치킨 드랍율이 너무 높아 hp 관리가 너무 잘돼") — 주워 먹는 양을 예전의 약 1/3 로:
 //   오브젝트 치킨 53%→25%(오브젝트도 4초→6초마다) · 맵 치킨 40~65초→100~150초 · 잡몹 1.2%→0.6%(첫 10분은 1.1%에서 서서히, 행운 보정 절반) ·
@@ -4266,7 +4273,7 @@ let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
   const raw=now-last;let dt=raw/1000;last=now;dt=Math.min(.05,Math.max(0,dt));   // 재개 직후 rAF 시각이 last 보다 앞설 수 있다(음수면 타이머가 거꾸로 감)
-  FX.dt=dt;if(state==='play'){if(EX.hs>0)EX.hs=Math.max(0,EX.hs-dt);else{update(dt);if(SPD.on&&state==='play'&&EX.hs<=0){SPD.sub=1;try{update(dt);}finally{SPD.sub=0;}}}FX.perf(dt);SPD.watch(raw);if(S){hud();if(state!=='result')AU.boss(!!(S.bossRef&&S.bossRef.on&&S.bossRef.boss));}}   // 💣 히트스톱: 폭탄 아이템을 먹은 직후 ~70ms 시간이 멈춘다(EX.hs)
+  FX.dt=dt;if(state==='play'){if(SPD.on&&!SRVUNL.has('spd2'))SPD.sync();if(EX.hs>0)EX.hs=Math.max(0,EX.hs-dt);else{update(dt);if(SPD.on&&state==='play'&&EX.hs<=0){SPD.sub=1;try{update(dt);}finally{SPD.sub=0;}}}FX.perf(dt);SPD.watch(raw);if(S){hud();if(state!=='result')AU.boss(!!(S.bossRef&&S.bossRef.on&&S.bossRef.boss));}}   // 💣 히트스톱: 폭탄 아이템을 먹은 직후 ~70ms 시간이 멈춘다(EX.hs)
   AU.tick();
   draw();
 }
