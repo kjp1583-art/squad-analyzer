@@ -2401,6 +2401,8 @@ const FIN_DUEL={
   chase:.55,enr:[1,1.1,1.25],      // 쉬는 동안 따라오는 속도(보스 속도 배수) · 광폭 단계 배수
   dmg:{tail:1.15,claw:1.3,snack:.95,safe:1.25,bub:.5},   // 보스 공격력(e.dmg) 배수
   cap:.4,                          // 한 번에 최대 체력의 40% 를 넘지 않는다
+  hpMul:.25,                       // 🥵 [2026-10-12 사장님 「본체 체력이 너무 많아 60분 넘도록 못 잡는다 → 1+2 로」] 1:1 이 시작될 때 보스 체력에 곱한다(예전 약 563만 → 약 141만). 빌드마다 100초~25분+ 로 벌어지던 것을 줄인다
+  tire:{t0:150,every:30,step:.6,cap:5},   // 지친 보스 — 1:1 이 시작된 지 150초가 지나면 30초마다 받는 피해가 +60% 씩 쌓인다(최대 ×5) · 화력이 약한 빌드도 끝낼 수 있게(강한 빌드는 150초 안에 끝나 영향 없음)
   phaseHp:[.66,.33],               // 체력 66%·33% 아래에서 단계가 오른다
   phaseSec:100,                    // …그리고 1:1 이 시작된 지 100초·200초가 지나면 체력과 상관없이 그 단계로(0 이면 체력만) — 실측: 평범한 빌드는 5분에 보스 체력을 20% 남짓 깎아 체력만으로는 1단계만 보게 된다
   tail:{n:[1,2,3],R:250,w:.46},    // 부채꼴 반지름·반각(rad) · 연속 횟수(매번 그때의 내 쪽으로 새로 겨눈다)
@@ -2412,7 +2414,10 @@ const FIN_DUEL={
   deck:[['tail','claw','snack','bub'],['tail','claw','snack','shell','safe'],['tail','claw','snack','shell','safe','bub']]};
 const duelBoss=()=>{const b=S&&S.bossRef;return b&&b.on&&b.du&&!S.won?b:null;};   // 1:1 이 한창인 보스(없으면 null) — S 에 따로 표시를 두지 않는다(새 S 키 금지)
 const capHit=(e,k)=>Math.min(e.dmg*k,S.p.mhp*FIN_DUEL.cap);
-const duelDmg=(e,d)=>{const D=e.du,F=FIN_DUEL.shell;return D.iv>0?0:d*(D.sh?F.mul:D.wk>0?F.wmul:1);};   // 연출·단계 컷 무적 · 껍질 · 약점
+const tireN=D=>{const T=FIN_DUEL.tire,o=S.t-D.t0-T.t0;return o>0?1+Math.floor(o/T.every):0;};   // 지친 단계(0 = 아직)
+const tireMulN=n=>{const T=FIN_DUEL.tire;return n>0?Math.min(T.cap,1+T.step*n):1;};
+const tireMul=D=>tireMulN(tireN(D));   // 받는 피해 배수
+const duelDmg=(e,d)=>{const D=e.du,F=FIN_DUEL.shell;return D.iv>0?0:d*(D.sh?F.mul:D.wk>0?F.wmul:1)*tireMul(D);};   // 연출·단계 컷 무적 · 껍질 · 약점
 function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기장 + 연출
   const p=S.p,F=FIN_DUEL;let n=0;
   for(const x of enemies.a){if(!x.on||x===e)continue;x.on=false;if(n<24&&inV(x.x,x.y,20)){n++;EX.puff(x.x,x.y);}}   // 킬이 아니다: 처치 수·보석·드롭·경험치 없음(분열·소환 같은 쓰러질 때 코드도 안 돈다)
@@ -2424,6 +2429,7 @@ function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기�
   const R=Math.max(F.arena[0],Math.min(F.arena[1],Math.min(VW,VH)*F.arena[2]));
   let ux=e.x-p.x,uy=e.y-p.y;const ul=Math.hypot(ux,uy)||1;ux/=ul;uy/=ul;
   const cx0=p.x+ux*R*.2,cy0=p.y+uy*R*.2;e.x=cx0+ux*R*.45;e.y=cy0+uy*R*.45;   // 보스는 나와 마주 서는 자리로(옛 자리는 화면 밖)
+  e.hp*=F.hpMul;e.mhp*=F.hpMul;   // 체력 낮추기(위 hpMul)
   e.du={cx:cx0,cy:cy0,R,t0:S.t,in:F.intro,iv:F.intro,ph:0,cd:.6,cur:null,bag:[],last:'',z:[],sh:0,wk:0};e.bph=0;
   if(SPD.on)toast('⏩ 1:1 동안은 2배속이 잠시 꺼져요 — 예고를 또렷이 보세요');   // 예고(0.8초↑)는 게임 시간이라 2배속이면 사람 눈에 절반 — 1:1 동안만 1배속(끝나면 다시 2배속)
   invGrant('rev',F.intro);S.shake=.6;S.flash=.5;FX.glow=2.4;AU.play('bigboom');EX.dz(e.x,e.y,170);
@@ -2475,6 +2481,7 @@ function duelAct(e,dt,d,dx,dy){   // 1:1 보스 한 틱 — 돌려받는 값: �
   const rt=!SPD.sub;   // ⏩ 연출 시간(등장 연출·단계 컷의 무적)은 눈으로 읽는 시간이라 2배속의 두 번째 호출에서는 줄이지 않는다(배너·번쩍임과 같은 규칙) — 예고·패턴·껍질·약점·기절은 게임 시간(2배속이면 두 배 빨리)
   if(D.iv>0&&rt)D.iv-=dt;if(D.wk>0)D.wk-=dt;
   {const bx=e.x-D.cx,by=e.y-D.cy,bd=Math.hypot(bx,by),lim=D.R-e.r*.8;if(bd>lim){e.x=D.cx+bx/bd*lim;e.y=D.cy+by/bd*lim;}}   // 보스도 경기장 밖으로 못 나간다
+  {const tn=tireN(D),n0=D.tn|0;if(tn>n0){D.tn=tn;const m=tireMulN(tn);if(m>tireMulN(n0)+.001)toast('🥵 보스가 지쳐 간다 — 받는 피해 +'+Math.round((m-1)*100)+'%');}}
   if(D.in>0){if(rt)D.in-=dt;return 0;}
   if(dzTick(e,D,dt)||state!=='play')return 0;
   let c=D.cur;
