@@ -406,7 +406,7 @@ async def main():
                   const o={zero:x.cardOf({t:'p',k:'pspd',l:1}).ds};S.w={can:1};S.ps={dur:1};o.dur=x.cardOf({t:'p',k:'dur',l:1}).ds;
                   o.song=Object.values(F.WEAP).map(w=>w.ds.join?w.ds.join(' '):String(w.ds)).join(' ');return o;}""")
                 check('무기가 0개일 때 패시브 카드는 경고 대신 「무기를 얻으면 적용돼요」', '무기를 얻으면 적용돼요' in strip(r0['zero']) and '⚠' not in strip(r0['zero']), strip(r0['zero']))
-                check('끈기 카드에는 긴 괄호 목록이 없다(도감·일시정지로)', '웅덩이' not in strip(r0['dur']) and '설치물이 남아 있는 시간 +15%' in strip(r0['dur']), strip(r0['dur']))
+                check('끈기 카드에는 긴 괄호 목록이 없다(도감·일시정지로)', '웅덩이' not in strip(r0['dur']) and '설치물·부스러기가 남아 있는 시간 +15%' in strip(r0['dur']), strip(r0['dur']))
                 check('무기 설명에 「짝 패시브」 0(전부 「각성 열쇠」)', '짝 패시브' not in r0['song'], '')
                 _src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
                 _code = '\n'.join(l for l in _src.split('\n') if not re.match(r'\s*//', l) and not re.search(r'\s//\s', l))
@@ -616,7 +616,7 @@ async def main():
                           ('stamp', 'cd', 'b'): ('p', 'y'), ('stamp', 'cd', 'e'): ('p', 'y'), ('chain', 'cd', 'b'): ('p', 'y'), ('chain', 'cd', 'e'): ('p', 'y'),
                           # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기(부스러기 +1/겹) · 속사(스틱·부스러기 속도) · 끈기(부스러기 수명) · 광역(부스러기 크기)를 받는다. 각성의 곱빼기는 부스러기 상한(56발)에 막혀 p
                           ('snack', 'cnt', 'b'): ('n', 'y'), ('snack', 'cnt', 'e'): ('n', 'p'), ('snack', 'spd', 'b'): ('n', 'y'), ('snack', 'spd', 'e'): ('n', 'y'),
-                          ('snack', 'dur', 'b'): ('n', 'y'), ('snack', 'dur', 'e'): ('n', 'y'), ('snack', 'area', 'b'): ('n', 'p')}
+                          ('snack', 'dur', 'b'): ('n', 'y'), ('snack', 'dur', 'e'): ('n', 'p'), ('snack', 'area', 'b'): ('n', 'p')}
                 print('  바뀐 칸 %d개: %s' % (len(flips), ', '.join('%s/%s/%s %s→%s' % (w, c, f, a, b_) for (w, c, f), (a, b_) in sorted(flips.items()))))
                 check('표에서 바뀐 칸 = 지시서가 말한 %d칸뿐(n/p → y, 맛동산 개편 2칸은 → p) · 다른 칸은 글자 하나도 안 바뀌었다' % len(EXPECT), flips == EXPECT, (set(flips) ^ set(EXPECT)))
                 # (2) 패시브가 0 일 때 동작은 기준 커밋과 비트까지 같다 (카트 각성만 의도적으로 달라진다 — 아래 따로)

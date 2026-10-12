@@ -1043,7 +1043,7 @@ const PASS={
   luck:{ic:'🍀',nm:'행운',ds:'치명타 +3% · 보스 상자 카드 수와 치킨 확률 · 가챠 캡슐 등급 확률'},
   rev:{ic:'👼',nm:'부활',ds:'쓰러지면 HP 50%로 한 번 일어나요 — 확률이 아니라 확정 · 패시브 칸을 안 써요',max:1},   // 👼 [2026-10-09 사장님 지시 「3ok」] 패시브 칸 면제(slotP 에서 뺀다) · Lv20 부터 등장(REV_LV) — 초반엔 칸만 먹는 카드였고 후반엔 칸이 차서 못 골랐다
   // 🎲 새 패시브 — 새 무기의 각성 짝 4종 + 양날의 검 2종(얻는 만큼 잃는다) + 흡혈
-  dur:{ic:'⏳',nm:'끈기',ds:'설치물이 남아 있는 시간 +15%'},
+  dur:{ic:'⏳',nm:'끈기',ds:'설치물·부스러기가 남아 있는 시간 +15%'},
   crit:{ic:'🔪',nm:'급소',ds:'치명타 확률 +5% · 치명타 배율 +0.2배 (기본 2배 → Lv1 2.2배 … Lv5 3배)'},
   pspd:{ic:'🏹',nm:'속사',ds:'탄이 날아가는 속도 +12% (날아가는 거리도 같이 늘어요) — 받는 무기만'},
   study:{ic:'📚',nm:'공부',ds:'경험치 +8%'},
@@ -1094,7 +1094,7 @@ const PFX={
   stamp:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
   chain:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'np',luck:'nn'},
   ram:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'pp',luck:'nn'},
-  snack:{cd:'yy',cnt:'yp',spd:'yy',dur:'yy',area:'pp',luck:'nn'},
+  snack:{cd:'yy',cnt:'yp',spd:'yy',dur:'yp',area:'pp',luck:'nn'},
   eom:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
   pcards:{cd:'yy',cnt:'yy',spd:'yy',dur:'nn',area:'np',luck:'nn'},
   sing:{cd:'yy',cnt:'yy',spd:'yy',dur:'nn',area:'pp',luck:'nn'},
@@ -1110,7 +1110,8 @@ const PFXN={
   'jhin.area':'큰 탄만',
   'chain.area':['','끊길 때 폭발만'],
   'ram.area':'도착 충격파만',
-  'snack.cnt':['','부스러기가 한꺼번에 56발에 닿으면 덜 늘어요'],
+  'snack.cnt':['','부스러기가 한꺼번에 80발에 닿으면 덜 늘어요'],
+  'snack.dur':['','부스러기가 한꺼번에 80발에 닿으면 각성에선 덜 늘어요'],
   'snack.area':'부스러기 크기·각성 폭발만',
   'pcards.area':['','각성 5단계 반짝 폭발만'],
   'sing.area':'고음(♬)만',
@@ -1884,7 +1885,7 @@ function statRows(){   // 능력치 표의 행 — 순서·줄 수는 늘 같다
     {k:'mag',nm:'🧲 줍는 범위',v:mg,t:uiPcS(mg-1)},
     {k:'xp',nm:'📚 경험치',v:xm,t:uiPcS(xm-1)},
     {k:'pspd',nm:'🏹 탄 속도 (속사)',v:ps,t:uiPcS(ps-1)},
-    {k:'dur',nm:'⏳ 설치물 시간 (끈기)',v:du,t:uiPcS(du-1)},
+    {k:'dur',nm:'⏳ 설치물·부스러기 시간 (끈기)',v:du,t:uiPcS(du-1)},
     {k:'amt',nm:'🍱 개수 추가 (곱빼기)',v:am,t:'+'+am},
     {k:'luck',nm:'🍀 행운',v:lk,t:lk+'단계'},
     {k:'vamp',nm:'🥩 처치 회복',v:va,t:va?`${VAMP_N}마리마다 +${vampHp()} HP`:'—'},
@@ -2588,7 +2589,7 @@ const U3={sing:{d:4.5,db:1.3,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   quill:{d:6.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:13,bd:7,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:14,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
-  snack:{d:11,cd:1.3,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.3,evKd:1.4,kd:.34,big:28,cs:260,cl:.36,cr:4,cap:56,frame:24},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
+  snack:{d:11,cd:1.3,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.3,evKd:1.4,kd:.34,big:28,cs:260,cl:.36,cr:4,cap:80,frame:48,comp:2.5},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
   pcards:{d:8,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
@@ -2616,9 +2617,9 @@ const aim3=rng=>{const t=nearest();if(t&&(t.x-S.p.x)**2+(t.y-S.p.y)**2<rng*rng)r
 function propTouch(x,y,r,d){for(const q of props.a)if(q.on&&(q.x-x)**2+(q.y-y)**2<(PROP[q.k].r+r)**2){hitProp(q,d);return true;}return false;}
 function f3(o){const f=S.x3.f;if(f.length>=F3CAP)return null;f.push(o);return o;}
 const SNK={n:0,f:0};   // 🍘 맛동산 부스러기 — 지금 떠 있는 수(n) · 이번 프레임에 새로 만든 수(f): 매 프레임 weapons3 가 다시 센다(파생값 · 저장하지 않는다)
-function snkPop(o,x,y,mul){const U=U3.snack;let m=Math.round(o.m*mul);const room=Math.min(U.cap-SNK.n,U.frame-SNK.f);if(room<=0)return;if(m>room)m=room;   // 상한을 넘으면 개수를 줄이거나 안 만든다(풀이 꽉 차 f3 가 null 을 줘도 조용히 멈춘다)
+function snkPop(o,x,y,mul){const U=U3.snack;let m=Math.round(o.m*mul);const m0=m,room=Math.min(U.cap-SNK.n,U.frame-SNK.f);if(room<=0)return;if(m>room)m=room;const sdm=m<m0?Math.min(U.comp||2.5,m0/m):1;   // [보완] 상한에 걸려 개수가 깎이면 발당 피해를 올려 총량을 지킨다(풀빌드가 오히려 약해지던 문제)   // 상한을 넘으면 개수를 줄이거나 안 만든다(풀이 꽉 차 f3 가 null 을 줘도 조용히 멈춘다)
   const a0=Math.random()*6.2832,st=6.2832/m;
-  for(let j=0;j<m;j++){if(!blt('snack',x,y,a0+j*st,o.cs||U.cs,o.cl||U.cl,o.sd,o.pc,o.cr||U.cr,'#fff6df','rgba(190,230,255,.5)'))break;SNK.n++;SNK.f++;}}   // 스틱이 맞은 그 자리(적의 겉면)에서 사방으로 — 안쪽으로 튄 것은 맞은 적(보스 포함)도 때린다
+  for(let j=0;j<m;j++){if(!blt('snack',x,y,a0+j*st,o.cs||U.cs,o.cl||U.cl,o.sd*sdm,o.pc,o.cr||U.cr,'#fff6df','rgba(190,230,255,.5)'))break;SNK.n++;SNK.f++;}}   // 스틱이 맞은 그 자리(적의 겉면)에서 사방으로 — 안쪽으로 튄 것은 맞은 적(보스 포함)도 때린다
 function blt(src,x,y,a,v,life,d,pc,r,c,g,o){const b={k:'b',src,x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life,l0:life,d,pc,r,c,g,fall:0,ex:0,exd:0,h:null,big:0};if(o)Object.assign(b,o);return f3(b);}
 // 🛡 방패 밀치기 — 앞쪽 직사각형(길이 len · 반폭 hw) 안의 적을 u 방향으로 밀쳐 낸다
 function bashHit(ux,uy,len,hw,d,stn){const p=S.p;
