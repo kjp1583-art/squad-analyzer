@@ -2130,7 +2130,7 @@ function drawCards(){
   $('rrBtn').onclick=reroll;$('banBtn').onclick=()=>{if(S.ban>0){S.banMode=!S.banMode;drawCards();}};
   const bl=cardLv(),bonus=BONUS_LV.includes(bl)?`🎁 Lv${bl} 보너스 — 다시 뽑기 +1 · 봉인 +1 받았어요 · `:'';   // 지금 고르는 카드가 보너스 레벨의 것이면 화면에서도 알린다(토스트는 카드 화면 뒤에 가려진다)
   $('lvHint').textContent=S.banMode?'🚫 봉인한 카드는 이번 판에 다시 나오지 않아요':bonus+`⚔ 무기 ${Object.keys(S.w).length}/${SLOTW} · 🎒 패시브 ${slotP()}/${SLOTP} · 🗝 열쇠 ${keyN()}/${MAXEV} · ✨ 각성 ${Object.keys(S.ev).length}/${MAXEV}${S.synOn.length?' · 🔗 '+S.synOn.length:''} · ❤️\u00a0${hpText().replace(/ /g,'\u00a0')}`;
-  {const kn=$('lvKey');if(kn){const on=!S.banMode&&keyN()<MAXEV&&keyList().some(k=>!pv(k))&&slotP()>=SLOTP-2;kn.hidden=!on;kn.textContent=on?KEY_NOTE:'';}}   // 🗝 일반 칸이 거의 찼을 때(4칸~)만 한 줄 — 아직 못 얻은 열쇠가 있으면 따로 칸이 있다고 알린다
+  {const kn=$('lvKey');if(kn){const on=!S.banMode&&keyN()<MAXEV&&keyList().some(k=>!pv(k)&&!S.banned.includes(k))&&slotP()>=SLOTP-2;kn.hidden=!on;kn.textContent=on?KEY_NOTE:'';}}   // 🗝 일반 칸이 거의 찼을 때(4칸~)만 한 줄 — 아직 못 얻은 열쇠가 있으면 따로 칸이 있다고 알린다
   $('lvOwn').innerHTML=statsHtml('l')+ownHtml();}   // ❤️ 현재/최대는 줄바꿈 때 쪼개지 않는다 · 🎮 [2026-10-09 사장님 지시] 카드 아래 「내가 가진 능력」 명단 + 접이식 능력치 표 — #choices 바깥이라 키보드 1~3 은 그대로 앞 세 카드를 누르고, 이어하기 복구도 drawCards 를 거치니 거기서도 보인다
 function reroll(){if(S.rr<=0)return;S.rr--;S.banMode=false;CUR=offers(3,CUR.map(o=>o.k).filter(Boolean));drawCards();RES.save('reroll');}
 function banCard(i){const o=CUR[i];if(!o||!o.k||S.ban<=0)return;S.ban--;S.banned.push(o.k);S.banMode=false;
