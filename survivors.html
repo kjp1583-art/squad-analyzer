@@ -1659,7 +1659,7 @@ const SPD=(()=>{
     for(const el of document.querySelectorAll('[data-spdv]'))el.textContent=lk?'🔒':o.on?'켜짐':'꺼짐';
     for(const el of document.querySelectorAll('[data-spdsm]')){if(el.dataset.d===undefined)el.dataset.d=el.textContent;el.textContent=lk||el.dataset.d;}
     const c=$('spdChip');if(c)c.style.display=o.on?'inline-block':'none';};
-  o.sync=function(){const v=pref&&can()?1:0;const lost=o.on&&!v;o.on=v;o.n=0;o.ms=0;o.ui();if(lost){toast('🔒 2배속 권한을 확인할 수 없어서 1배속으로 돌아왔어요');toastT=3.6;}};   // 판 도중 로그인이 풀리면 그 프레임부터 1배속 + 쉬운 안내 한 번
+  o.sync=function(){const v=pref&&can()?1:0;const lost=o.on&&pref&&!can();o.on=v;o.n=0;o.ms=0;o.ui();if(lost){toast('🔒 2배속 권한을 확인할 수 없어서 1배속으로 돌아왔어요');toastT=3.6;}};   // 판 도중 로그인이 풀리면 그 프레임부터 1배속 + 쉬운 안내 한 번
   o.set=function(v){if(v&&!can()){o.ui();toast(o.lockMsg());toastT=3.6;return;}pref=v?1:0;try{localStorage.setItem(K,pref?'1':'0');}catch(e){}o.sync();};
   o.watch=function(raw){   // 판이 도는 프레임마다 실제 간격(ms)을 받는다
     if(!o.on||o.warned){o.n=0;o.ms=0;return;}

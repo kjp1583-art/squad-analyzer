@@ -31,6 +31,7 @@ MUTANTS = {   # (바꿀 글, 바뀐 글) — 시험이 정말 이 실수를 잡�
     'nosecond': ("SPD.sub=1;try{update(dt);}finally{SPD.sub=0;}", ";"),                   # 두 번째 update 호출 제거
     'ignore': ("pref=v?1:0;try{localStorage.setItem(K,pref?'1':'0');}catch(e){}o.sync();", "pref=0;try{localStorage.setItem(K,'0');}catch(e){}o.sync();"),   # 토글 무시
     'nolock': ("const v=pref&&can()?1:0;", "const v=pref?1:0;"),                                 # 구매 검사 제거
+    'lostall': ("const lost=o.on&&pref&&!can();", "const lost=o.on&&!v;"),                   # 직접 끈 것도 권한 상실로 안내
     'noframe': ("if(SPD.on&&!SRVUNL.has('spd2'))SPD.sync();", ""),                        # frame 의 권한 재검사 제거
     'norecheck': ("if(SPD.on&&state==='play'&&EX.hs<=0){", "if(SPD.on){"),                  # 상태 전환 재확인 제거
 }
@@ -310,6 +311,10 @@ async def sec_g(b, srv):   # 아 · 구매자만
     await pg.evaluate(LOCK_CLICK)
     r = await pg.evaluate(ST)
     check('[아] 구매자: 체크 → 켜짐 · 저장 1 · 칩 보임', r['on'] == 1 and r['ls'] == '1' and r['chip'] != 'none', r)
+    # 구매자가 직접 끄면 「권한 잃음」 안내가 뜨면 안 된다
+    r = await pg.evaluate("()=>{document.getElementById('toast').textContent='';const e=document.querySelector('#spdChk');e.checked=false;e.dispatchEvent(new Event('change',{bubbles:true}));return {on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),toast:document.getElementById('toast').textContent}}")
+    check('[아] 구매자가 직접 끄면: 꺼짐 · 저장 0 · 토스트에 「돌아왔어요」 없음', r['on'] == 0 and r['ls'] == '0' and '돌아왔어요' not in r['toast'], r)
+    await pg.evaluate(LOCK_CLICK)
     run = await pg.evaluate(RUN, {'n': 300, 'set': False})
     check('[아] 구매자: 300프레임 = update 600회 · S.t = 600×dt', run['calls'] == 600 and abs(run['dt'] - 600 * DT) < 1e-6, run)
     # 4) 판 도중 권한 상실 — 서버 목록 갱신(srvUnl) · 목록에서 직접 빠짐(frame 재검사) · 로그아웃, 모두 그 프레임부터 1배속 + 안내 한 번
