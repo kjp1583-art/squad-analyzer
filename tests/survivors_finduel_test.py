@@ -23,6 +23,7 @@ from playwright.async_api import async_playwright
 
 ROOT = H.ROOT
 SRC = os.environ.get('FD_SRC', 'survivors.html')
+HTML = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), SRC) if not os.path.isabs(SRC) else SRC, encoding='utf-8').read()
 ONLY = None
 if '--only' in sys.argv:
     ONLY = set(sys.argv[sys.argv.index('--only') + 1].split(','))
@@ -55,7 +56,7 @@ window.__fd={get F(){return FIN_DUEL},get D(){return duelBoss()},dzHit,duelBoss,
 window.__step=(n,o)=>{o=o||{};const X=window.__p6x,dt=1/30;for(let i=0;i<n;i++){const st=X.state;if(st==='result')return 'result';
   if(st==='lvup'){X.pick(X.CUR[0]);continue;}if(st!=='play'){X.resume();continue;}
   const S=X.S;if(window.__keep){S.p.hp=S.p.mhp;if(window.__keep===2)S.p.inv=0;}
-  if(window.__fd.SPD.on){X.update(dt);if(X.state==='play'){window.__fd.SPD.sub=1;try{X.update(dt);}finally{window.__fd.SPD.sub=0;}}}else X.update(dt);
+  if(window.__fd.SPD.on&&!window.__fd.duelBoss()){X.update(dt);if(X.state==='play'){window.__fd.SPD.sub=1;try{X.update(dt);}finally{window.__fd.SPD.sub=0;}}}else X.update(dt);
   if(o.fn&&o.fn())return 'fn';}
  return window.__p6x.state;};
 // 판 시작(55분 직전) — 1:1 이 곧 시작된다
@@ -89,7 +90,7 @@ window.__reset=(ph,bx,by,px,py,mhp)=>{const X=window.__p6x,S=X.S,FD=window.__fd,
 # 안전한 곳이 있나(해석) — 같은 순간에 뜬 구역 묶음 zs 와 내 자리 p0 로, 반응 시간(react) 뒤에 예고 시간 안에 닿는 곳 중 구역에 안 걸리고 경기장 안인 곳이 있는가
 REACH_JS = r"""
 window.__reach=(zs,p0,sp,react,du,pr)=>{
-  const FD=window.__fd,T=Math.min(...zs.map(z=>z.T)),R0=Math.max(0,sp*(T-react)),inB=(z,x,y)=>{const dx=x-z.x,dy=y-z.y,al=dx*z.ax+dy*z.ay,pe=Math.abs(-dx*z.ay+dy*z.ax);return al>-z.w*.5&&al<z.L+10&&pe<z.w/2+pr+8;};
+  const FD=window.__fd,T=Math.min(...zs.map(z=>z.T)),R0=Math.max(0,sp*(T-react)),inB=(z,x,y)=>{const dx=x-z.x,dy=y-z.y,al=dx*z.ax+dy*z.ay,pe=Math.abs(-dx*z.ay+dy*z.ax);return al>-z.w*.5&&al<z.L+10&&pe<z.w/2+8;/* 길 폭 z.w 에 이미 내 몸 반지름이 들어 있다 */};
   const hit=(x,y)=>{for(const z of zs){if(z.k==='s')continue;if(z.k==='b'){if(inB(z,x,y))return true;continue;}
       for(const [ox,oy] of [[0,0],[8,0],[-8,0],[0,8],[0,-8]])if(FD.dzHit(z,x+ox,y+oy))return true;}return false;};
   let best=null;
@@ -287,6 +288,19 @@ async def sec_c(b, srv):
         # 겹침: 한 번에 한 패턴(D.cur 하나) + 구역 ≤ 24 — 구조상 하나지만 구역 동시 개수도 본다
         r = await pg.evaluate("""()=>{const FD=window.__fd,X=window.__p6x;__reset(2,0,0,200,0);window.__keep=2;const du=FD.D.du;let mz=0,cur=0;for(let i=0;i<30*60;i++){__step(1);mz=Math.max(mz,du.z.length);if(du.cur&&du.cur.k!=='cut')cur=Math.max(cur,1);}return {mz,cur}}""")
         check('다7 60초 동안 구역 동시 최대 %d ≤ 11(새우깡 10 + 틈 1) · 패턴은 한 번에 하나' % r['mz'], r['mz'] <= 11 and r['cur'] == 1, r)
+        # 다9 집게 돌진 예고 길 = 실제 닿는 범위(폭 = 보스 몸 + 내 몸 + 2 의 두 배). 길 안쪽 끝자락은 맞고, 길 밖 바로 옆은 안 맞는다
+        for off_in, nm9 in ((-3, '안쪽 끝자락'), (4, '길 밖 바로 옆')):
+            r = await pg.evaluate("""(off_in)=>{const FD=window.__fd,X=window.__p6x;__reset(0,0,0,200,0,1e9);window.__keep=0;const du=FD.D.du,S=X.S,p=S.p;du.cur=FD.duelStart(du,'claw');__step(1);
+              const z=du.z.find(q=>q.k==='b');if(!z)return {fail:'길 없음'};const half=z.w/2,need=FD.D.r+p.r+2;
+              const px=FD.D.x+z.ax*150,py=FD.D.y+z.ay*150;const off=half+off_in;p.x=px-z.ay*off;p.y=py+z.ax*off;p.inv=0;const hp0=p.hp=p.mhp;
+              FD.hits.length=0;let i=0;while(du.cur&&i++<30*6){__step(1);p.x=px-z.ay*off;p.y=py+z.ax*off;p.inv=0;}
+              return {half,need,hits:FD.hits.filter(h=>h.m.indexOf('집게')>=0).length}}""", off_in)
+            if off_in < 0:
+                check('다9a 집게 돌진 예고 길 반폭(%.1f) = 실제 닿는 거리(%.1f)' % (r.get('half', 0), r.get('need', 0)), not r.get('fail') and abs(r['half'] - r['need']) < 0.01, r)
+                check('다9b 예고 길 %s(가운데에서 반폭-3): 돌진에 맞는다' % nm9, not r.get('fail') and r['hits'] >= 1, r)
+            else:
+                check('다9c 예고 길 %s(반폭+4): 돌진에 안 맞는다' % nm9, not r.get('fail') and r['hits'] == 0, r)
+        check('다10 안내가 정직하다: 체력바 눈금(::after) 없음 · 「지금 공격」 문구 없음 · 이름 줄에 다음 단계까지 남은 초', ('.bar::after' not in HTML.split('#bossb.duel')[1].split('{')[0]) and '지금 공격' not in HTML and '다음 단계' in HTML, '')
         check('다8 콘솔·페이지 오류 0', not errs, errs[:3])
     finally:
         await ctx.close()
@@ -493,7 +507,7 @@ async def sec_g(b, srv):
           S.p.hp=1;S.p.inv=0;S.p.mhp=100;for(let i=0;i<3&&X.state==='play';i++)X.update(1/30);
           return {state:X.state,rev:S.revUsed,hp:S.p.hp,z:du.z.length,es:FD.eshots.a.filter(q=>q.on).length,cur:du.cur,cd:du.cd,duel:!!FD.D}}""")
         check('사7 부활: 살아나고(HP %.0f) 떠 있던 예고 %d · 탄 %d 이 치워지고 패턴이 끊긴다(숨 돌릴 틈 %.1f초)' % (r['hp'], r['z'], r['es'], r['cd']), r['rev'] == 1 and r['state'] == 'play' and r['z'] == 0 and r['es'] == 0 and r['cur'] is None and r['cd'] >= 1.4 and r['duel'], r)
-        # 2배속: 같은 패턴이 두 배 빨리 진행(시간 기준 동일 · 구역 예고 시간이 게임 시간으로 흐른다)
+        # 2배속: 1:1 동안은 자동으로 1배속(예고 0.8초↑ 가 사람 눈에 절반이 되지 않게)
         await pg.evaluate("()=>{__fresh({keep:1});__begin();window.__fd.SPD.on=1;return 1}")
         r = await pg.evaluate("""()=>{const X=window.__p6x,S=X.S,FD=window.__fd;const t0=S.t;__step(30*10);const dt=S.t-t0;const o={dt,hits:FD.hits.length,mx:0};let mx=0;for(let i=0;i<30*5;i++){__step(1);mx=Math.max(mx,X.enemies.a.filter(e=>e.on&&e!==FD.D).length);}
           FD.SPD.on=0;return {dt,mx,state:X.state,duel:!!FD.D}}""")
@@ -503,8 +517,9 @@ async def sec_g(b, srv):
           const D=FD.D;D.du.iv=0;D.hp=D.mhp*.3;D.du.cur=null;D.du.cd=0;   // 연출이 끝난 뒤 체력을 깎아 단계 컷을 일으킨다
           let m=0;while(m<200){__step(1);m++;if(D.du.cur&&D.du.cur.k==='cut')break;}
           let k=0;while(D.du.cur&&D.du.cur.k==='cut'&&k<200){__step(1);k++;}o.cut=k;FD.SPD.on=0;return o}""")
-        check('사8b 2배속: 등장 연출은 실제 시간(약 %d프레임 ≈ 1.6초 · 그동안 게임 시간 %.1f초) · 단계 컷도 실제 시간(%d프레임 ≈ 1.3초)' % (r2['n'], r2['dt'], r2['cut']), 45 <= r2['n'] <= 52 and 36 <= r2['cut'] <= 42, r2)
-        check('사8 2배속: 10초(프레임)에 게임 시간이 %.1f초 흐르고 1:1 이 정상(몹 %d)' % (r['dt'], r['mx']), abs(r['dt'] - 20) < 1.5 and r['mx'] == 0 and r['duel'], r)
+        check('사8b 2배속: 등장 연출은 실제 시간(약 %d프레임 ≈ 1.6초 · 그동안 게임 시간 %.1f초) · 단계 컷도 실제 시간(%d프레임 ≈ 1.3초)' % (r2['n'], r2['dt'], r2['cut']), 45 <= r2['n'] <= 52 and 36 <= r2['cut'] <= 42 and r2['dt'] < 2.2, r2)
+        check('사8c 실제 프레임 루프가 1:1 중엔 두 번째 update 를 안 돈다(SPD.on&&!duelBoss())', "if(SPD.on&&!duelBoss()&&state==='play'&&EX.hs<=0){SPD.sub=1;" in HTML, '')
+        check('사8 1:1 동안은 2배속이 꺼진다: 10초(프레임)에 게임 시간이 %.1f초(1배속과 같다) 흐르고 1:1 이 정상(몹 %d) · 예고는 실제 시간 그대로' % (r['dt'], r['mx']), abs(r['dt'] - 10) < 1.0 and r['mx'] == 0 and r['duel'], r)
         # 오늘의 도전(시드 고정 모드): 1:1 이 똑같이 돈다 — 패턴 난수는 일일 시드 스트림(RN)을 쓰지 않는다
         await pg.evaluate("()=>{__fresh({keep:1,daily:true});return window.__p6x.S.dly?1:0}")
         r = await pg.evaluate("""()=>{const X=window.__p6x,S=X.S,FD=window.__fd;const rq0=JSON.stringify(S.dly&&S.dly.rq);__fill();__begin();FD.sp=0;const k={};let mx=0;for(let i=0;i<30*40;i++){__step(1);const D=FD.D;if(!D)break;mx=Math.max(mx,X.enemies.a.filter(e=>e.on&&e!==D).length);if(D.du.cur)k[D.du.cur.k]=1;}
@@ -620,6 +635,8 @@ MUTS = [
     ('마', '처치 뒤 복귀 안 함(1:1 종료 처리 제거)', "if(e.du&&!S.won)duelEnd(e);", ""),
     ('바', '1:1 상태에 함수가 끼어 이어하기가 거부된다', "z:[],sh:0,wk:0};e.bph=0;", "z:[],sh:0,wk:0,fn:function(){}};e.bph=0;"),
     ('사', '부활 정리 제거', "{const DB=duelBoss();if(DB)duelRevive(DB);}   // ⚔ 1:1 — 떠 있던 예고·돌진·껍질도 치운다", ""),
+    ('다', '집게 예고 길이 실제보다 좁다(옛 폭)', "L:L+rr,w:rr*2,t:T,d:0", "L:L,w:e.r*2,t:T,d:0"),
+    ('사', '1:1 동안에도 2배속이 켜진다', "if(SPD.on&&!duelBoss()&&state==='play'", "if(SPD.on&&state==='play'"),
     ('마', '경기장 벽 제거(밖으로 나가도 안 밀어낸다)', "if(d>lim){const over=d-lim,k=Math.min(over,(140+7*over)*dt)/d;p.x-=dx*k;p.y-=dy*k;}", ""),
 ]
 
@@ -636,7 +653,7 @@ def mutants():
 
 
 async def mutant_run():
-    global SRC
+    global SRC, HTML
     ms = mutants()
     res = []
     for sec, name, html, why in ms:
@@ -647,6 +664,7 @@ async def mutant_run():
         mp = os.path.join(ROOT, 'survivors_fdtm.html')
         open(mp, 'w', encoding='utf-8').write(html)
         SRC = 'survivors_fdtm.html'
+        HTML = html
         before = len(FAILS)
         TAG['v'] = '[변이 ' + name + '] '
         print('\n#### 변이: %s (구간 %s)' % (name, sec), flush=True)

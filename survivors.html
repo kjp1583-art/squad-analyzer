@@ -56,7 +56,7 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 #mhpSrc{margin:4px 0}#mhpSrc summary{cursor:pointer;padding:9px 0;color:var(--sub);font-size:12px}#mhpSrc .mr{display:flex;justify-content:space-between;gap:8px;padding:1px 0}#mhpSrc .mr b{white-space:nowrap}   /* 일시정지의 최대 체력 출처표(접이식) */
 #pauseBtn,#sndBtn{pointer-events:auto;background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:2px 10px;font:inherit}
 #bossb{margin-top:6px;display:none}#bossb .bar i{background:var(--gold)}
-#bossb.duel .bar{height:13px;border-color:#b894ff;box-shadow:0 0 10px rgba(184,148,255,.6);position:relative}#bossb.duel .bar::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent calc(33.3% - 1px),rgba(255,255,255,.75) calc(33.3% - 1px),rgba(255,255,255,.75) calc(33.3% + 1px),transparent calc(33.3% + 1px),transparent calc(66.6% - 1px),rgba(255,255,255,.75) calc(66.6% - 1px),rgba(255,255,255,.75) calc(66.6% + 1px),transparent calc(66.6% + 1px))}#bossb.duel #bossName{font-weight:700;color:#e4d6ff!important}   /* ⚔ 1:1 — 보스 체력바를 굵게 · 66%·33% 단계 눈금 */
+#bossb.duel .bar{height:13px;border-color:#b894ff;box-shadow:0 0 10px rgba(184,148,255,.6);position:relative}#bossb.duel #bossName{font-weight:700;color:#e4d6ff!important}   /* ⚔ 1:1 — 보스 체력바를 굵게 · 단계는 시간·체력으로 오른다(이름 줄에 다음 단계까지 남은 초) */
 .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(9,12,28,.8);z-index:5}
 .ov.on{display:flex}
 #lvup .box{max-height:calc(100vh - 32px);overflow-y:auto}   /* 🗡 [2026-09-30 사장님 지시] 카드가 길어도(새 무기 설명·시너지) 화면 밖으로 잘리지 않게 스크롤 */
@@ -2285,8 +2285,9 @@ function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기�
   let ux=e.x-p.x,uy=e.y-p.y;const ul=Math.hypot(ux,uy)||1;ux/=ul;uy/=ul;
   const cx0=p.x+ux*R*.2,cy0=p.y+uy*R*.2;e.x=cx0+ux*R*.45;e.y=cy0+uy*R*.45;   // 보스는 나와 마주 서는 자리로(옛 자리는 화면 밖)
   e.du={cx:cx0,cy:cy0,R,t0:S.t,in:F.intro,iv:F.intro,ph:0,cd:.6,cur:null,bag:[],last:'',z:[],sh:0,wk:0};e.bph=0;
+  if(SPD.on)toast('⏩ 1:1 동안은 2배속이 잠시 꺼져요 — 예고를 또렷이 보세요');   // 예고(0.8초↑)는 게임 시간이라 2배속이면 사람 눈에 절반 — 1:1 동안만 1배속(끝나면 다시 2배속)
   invGrant('rev',F.intro);S.shake=.6;S.flash=.5;FX.glow=2.4;AU.play('bigboom');EX.dz(e.x,e.y,170);
-  banner('⚔ 1:1 — 흐접새우와 마주 섰다','흐접새우의 압도적인 기운에 모두 물러났다 — 예고를 보고 피하고, 틈에 때려라!',2);
+  banner('⚔ 1:1 — 흐접새우와 마주 섰다','흐접새우의 압도적인 기운에 모두 물러났다 — 붉은 예고를 보고 피하며 60분까지 버텨라!',2);
   say(e,'다들 물러나라. 이 녀석은 내가 직접 상대한다.');}
 function duelEnd(e){   // 보스가 쓰러졌다 — 남은 탄을 치우고, 일반 전투가 다시 돈다
   for(const b of eshots.a)b.on=false;for(const g of gems.a)if(g.on)g.mag=1;
@@ -2327,7 +2328,7 @@ function duelCut(e,D,want){   // 단계 전환 컷 — 짧은 무적 + 배너 + 
   D.ph=want;e.bph=want;D.cur={k:'cut',s:0,t:1.3};D.iv=1.3;D.sh=0;D.wk=0;D.z.length=0;D.bag=[];   // 새 단계의 패턴 묶음으로 다시 섞는다
  
   for(const b of eshots.a)b.on=false;S.shake=.5;S.flash=Math.max(S.flash,.25);AU.play('boss');FX.glow=1.8;EX.dz(e.x,e.y,210);
-  if(want===1){banner('🔥 2페이즈 — 🐚 껍질을 두른다!','껍질이 단단하다 — 깨질 때까지 피하고, 깨지면 💥 약점!',1);say(e,'이제부터 진짜다.');}
+  if(want===1){banner('🔥 2페이즈 — 🐚 껍질을 두른다!','껍질이 단단하다 — 깨질 때까지 피하며 기다려라',1);say(e,'이제부터 진짜다.');}
   else{banner('💢 3페이즈 — 광폭!','더 빠르게 몰아친다 — 침착하게 예고를 봐라',1);say(e,'크큭.. 어디까지 피하나 보자!');}}
 function duelAct(e,dt,d,dx,dy){   // 1:1 보스 한 틱 — 돌려받는 값: 속도 배수
   const D=e.du,F=FIN_DUEL;
@@ -2352,15 +2353,15 @@ function duelPat(e,D,c,dt){   // 패턴 한 틱 — 돌려받는 값: 속도 배
     else{c.t-=dt;if(c.t<=0){if(--c.n>0)c.s=0;else done();}}
     break;
   case 'claw':   // 🦞 집게 돌진 — 직선 길 예고 → 돌진 → 벽에 쾅 → 기절(반격 기회)
-    if(c.s===0){const dd=Math.hypot(p.x-e.x,p.y-e.y)||1,ux=(p.x-e.x)/dd,uy=(p.y-e.y)/dd,ox=e.x-D.cx,oy=e.y-D.cy,Rb=D.R-e.r*.85,b=ox*ux+oy*uy,cc=ox*ox+oy*oy-Rb*Rb,L=Math.max(160,-b+Math.sqrt(Math.max(0,b*b-cc))),T=tl('claw');
-      c.ux=ux;c.uy=uy;c.L=L;c.tr=0;c.h=0;dzNew(D,{k:'b',x:e.x,y:e.y,ax:ux,ay:uy,L,w:e.r*2,t:T,d:0});c.s=1;c.t=T;if(c.n===F.claw.n[ph])say(e,'집게 돌진!');}
+    if(c.s===0){const dd=Math.hypot(p.x-e.x,p.y-e.y)||1,ux=(p.x-e.x)/dd,uy=(p.y-e.y)/dd,ox=e.x-D.cx,oy=e.y-D.cy,Rb=D.R-e.r*.85,b=ox*ux+oy*uy,cc=ox*ox+oy*oy-Rb*Rb,L=Math.max(160,-b+Math.sqrt(Math.max(0,b*b-cc))),T=tl('claw'),rr=e.r+p.r+2;   // 예고 길의 폭·끝 = 실제로 닿는 범위(보스 몸 + 내 몸 + 2) — 길 밖은 안전
+      c.ux=ux;c.uy=uy;c.L=L;c.tr=0;c.h=0;dzNew(D,{k:'b',x:e.x,y:e.y,ax:ux,ay:uy,L:L+rr,w:rr*2,t:T,d:0});c.s=1;c.t=T;if(c.n===F.claw.n[ph])say(e,'집게 돌진!');}
     else if(c.s===1){c.t-=dt;if(c.t<=0){c.s=2;AU.play('dash');}}
     else if(c.s===2){const st=Math.min(F.claw.speed*dt,c.L-c.tr);e.x+=c.ux*st;e.y+=c.uy*st;c.tr+=st;
       if(!c.h&&(p.x-e.x)**2+(p.y-e.y)**2<(e.r+p.r+2)**2){c.h=1;const sg=(c.ux*(p.y-e.y)-c.uy*(p.x-e.x))>=0?1:-1;
         if(p.inv<=0){if(hitP(capHit(e,F.dmg.claw),'🦞 집게 돌진!'))return 0;if(D.cur!==c)return 0;}
         yank(-c.uy*sg*110,c.ux*sg*110,.22);}   // 부딪히면 옆으로 튕겨 나간다(같은 돌진에 두 번 맞지 않게)
       if(c.tr>=c.L-.01){for(const z of D.z)if(z.k==='b')z.kill=1;S.shake=.55;AU.play('boom');EX.dz(e.x,e.y,170);
-        const sn=F.claw.stun[ph][F.claw.n[ph]-c.n];D.wk=sn;c.s=3;c.t=sn;txt(e.x,e.y-e.r-22,'💫 벽에 쾅! 지금 공격!','#bff3ff');}}
+        const sn=F.claw.stun[ph][F.claw.n[ph]-c.n];D.wk=sn;c.s=3;c.t=sn;txt(e.x,e.y-e.r-22,'💫 벽에 쾅! 기절','#bff3ff');}}
     else{c.t-=dt;if(c.t<=0){if(--c.n>0)c.s=0;else done();}}
     break;
   case 'bub':case 'shell':   // 🫧 거품 탄막 — 틈이 있는 링이 한 칸씩 돌며 나간다 · 🐚 껍질은 같은 탄막을 치는 동안 받는 피해가 줄고, 깨지면 약점
@@ -2373,7 +2374,7 @@ function duelPat(e,D,c,dt){   // 패턴 한 틱 — 돌려받는 값: 속도 배
         for(let k=0;k<N;k++){const a=g+(k+.5)*6.2832/N;let da=Math.atan2(Math.sin(a-g),Math.cos(a-g));if(Math.abs(da)<gw)continue;
           const b=eshots.get();if(!b)break;b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=Math.cos(a)*B.v;b.vy=Math.sin(a)*B.v;b.life=B.life;b.d=dm;b.g='🫧';b.sl=0;b.k=0;b.src=e;b.sn=e.sn;}
         AU.play('wave');c.i++;c.t=B.dt[ph];if(c.i>=c.n){c.s=3;c.t=1.0;}}}
-    else if(c.s===3){c.t-=dt;if(c.t<=0){if(c.k==='shell'){D.sh=0;D.wk=F.shell.weak[ph];c.s=4;c.t=D.wk;S.shake=.4;AU.play('boom');EX.dz(e.x,e.y,130);txt(e.x,e.y-e.r-22,'💥 껍질이 깨졌다! 지금 공격!','#bff3ff');}else done();}}
+    else if(c.s===3){c.t-=dt;if(c.t<=0){if(c.k==='shell'){D.sh=0;D.wk=F.shell.weak[ph];c.s=4;c.t=D.wk;S.shake=.4;AU.play('boom');EX.dz(e.x,e.y,130);txt(e.x,e.y-e.r-22,'💥 껍질이 깨졌다! 약점 노출','#bff3ff');}else done();}}
     else{c.t-=dt;if(c.t<=0)done();}
     break;
   case 'snack':   // 🍤 새우깡 비 — 하나는 내 발밑, 나머지는 경기장 곳곳 · 원이 차오르면 떨어진다
@@ -4239,7 +4240,7 @@ function duelDrawBoss(e,r){const D=e.du,t=S.t;   // 보스 몸 위: 껍질 · �
     cx.lineWidth=2.4;cx.strokeStyle='rgba(235,225,255,.8)';cx.beginPath();for(let i=0;i<6;i++){const a=i*1.0472+t*.6;cx.moveTo(e.x+Math.cos(a)*r*.35,e.y+Math.sin(a)*r*.35);cx.lineTo(e.x+Math.cos(a)*r*1.15,e.y+Math.sin(a)*r*1.15);}cx.stroke();
     cx.font='bold 14px sans-serif';cx.textAlign='center';cx.fillStyle='#e4d6ff';cx.fillText('🐚 껍질 · 피해 감소',e.x,e.y-r*1.45);}
   else if(D.wk>0){const pu=.5+.5*Math.sin(t*14);cx.beginPath();cx.arc(e.x,e.y,r*1.2,0,7);cx.lineWidth=5;cx.strokeStyle='rgba(190,244,255,'+(.6+.35*pu).toFixed(2)+')';cx.stroke();
-    cx.font='bold 14px sans-serif';cx.textAlign='center';cx.fillStyle='#bff3ff';cx.fillText('💥 약점! 피해 증가',e.x,e.y-r*1.45);}
+    cx.font='bold 14px sans-serif';cx.textAlign='center';cx.fillStyle='#bff3ff';cx.fillText('💥 약점 노출',e.x,e.y-r*1.45);}
   if(D.iv>0){cx.beginPath();cx.arc(e.x,e.y,r*1.1,0,7);cx.lineWidth=4;cx.strokeStyle='rgba(255,236,160,'+(.5+.4*Math.sin(t*16)).toFixed(2)+')';cx.stroke();}}
 function draw(){
   const p=S?S.p:{x:0,y:0};
@@ -4451,14 +4452,14 @@ function hud(){
       $('rgt').textContent=dr?'🐲 용 변신 '+Math.ceil(S.dT)+'초':'🔥 분노 '+Math.floor(S.rg)+'%';}}
   const b=S.bossRef;const bb=$('bossb');
   if(b&&!(b.on&&b.boss))S.bossRef=null;
-  if(b&&b.on&&b.boss){bb.style.display='block';let nb=0;for(const x of S.live)if(x.on&&x.boss)nb++;const DB=duelBoss();bb.classList.toggle('duel',!!DB);$('bossName').textContent=(DB?'⚔ 1:1 · ':'')+(b.b.brj?'':'🦐 흐접새우의 ')+b.b.nm+(b.bph?` · ${b.bph+1}페이즈`:'')+(DB?(DB.du.sh?' · 🐚 껍질(피해 감소)':DB.du.wk>0?' · 💥 약점!':DB.du.iv>0?' · 무적':''):'')+(nb>1?` (+${nb-1})`:'');bb.querySelector('i').style.width=(b.hp/b.mhp*100)+'%';}else{bb.style.display='none';bb.classList.remove('duel');}
+  if(b&&b.on&&b.boss){bb.style.display='block';let nb=0;for(const x of S.live)if(x.on&&x.boss)nb++;const DB=duelBoss();bb.classList.toggle('duel',!!DB);$('bossName').textContent=(DB?'⚔ 1:1 · ':'')+(b.b.brj?'':'🦐 흐접새우의 ')+b.b.nm+(b.bph?` · ${b.bph+1}페이즈`:'')+(DB?(DB.du.sh?' · 🐚 껍질(피해 감소)':DB.du.wk>0?' · 💥 약점 노출':DB.du.iv>0?' · 무적':'')+(DB.du.ph<2&&FIN_DUEL.phaseSec>0?` · 다음 단계 ${Math.max(0,Math.ceil(FIN_DUEL.phaseSec*(DB.du.ph+1)-(S.t-DB.du.t0)))}초`:''):'')+(nb>1?` (+${nb-1})`:'');bb.querySelector('i').style.width=(b.hp/b.mhp*100)+'%';}else{bb.style.display='none';bb.classList.remove('duel');}
 }
 
 let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
   const raw=now-last;let dt=raw/1000;last=now;dt=Math.min(.05,Math.max(0,dt));   // 재개 직후 rAF 시각이 last 보다 앞설 수 있다(음수면 타이머가 거꾸로 감)
-  FX.dt=dt;if(state==='play'){if(EX.hs>0)EX.hs=Math.max(0,EX.hs-dt);else{update(dt);if(SPD.on&&state==='play'&&EX.hs<=0){SPD.sub=1;try{update(dt);}finally{SPD.sub=0;}}}FX.perf(dt);SPD.watch(raw);if(S){hud();if(state!=='result')AU.boss(!!(S.bossRef&&S.bossRef.on&&S.bossRef.boss));}}   // 💣 히트스톱: 폭탄 아이템을 먹은 직후 ~70ms 시간이 멈춘다(EX.hs)
+  FX.dt=dt;if(state==='play'){if(EX.hs>0)EX.hs=Math.max(0,EX.hs-dt);else{update(dt);if(SPD.on&&!duelBoss()&&state==='play'&&EX.hs<=0){SPD.sub=1;try{update(dt);}finally{SPD.sub=0;}}}FX.perf(dt);SPD.watch(raw);if(S){hud();if(state!=='result')AU.boss(!!(S.bossRef&&S.bossRef.on&&S.bossRef.boss));}}   // 💣 히트스톱: 폭탄 아이템을 먹은 직후 ~70ms 시간이 멈춘다(EX.hs)
   AU.tick();
   draw();
 }
