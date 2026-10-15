@@ -25,7 +25,7 @@ DS_TOKENS = {0: ['부스러기 3개', '5마리'], 1: ['부스러기 +1'], 2: ['�
              6: ['부스러기 +1', '쿨타임 -15%'], 7: ['피해 +50%', '부스러기 +1']}
 # 아레나 10초 누적 피해 — 같은 아레나 · 같은 시드 24개 평균 (Lv1~8 · 각성). OLD = 관통 개편 직전(2026-10-12 이전) 값, NEWV = 개편 뒤 기준값(밸런스 조정 때 다시 적는다)
 OLD = {1: 165.3, 2: 184.0, 3: 412.3, 4: 507.6, 5: 620.0, 6: 924.8, 7: 1172.1, 8: 1577.0, 'ev': 3230.5}
-NEWV = {1: 479.4, 2: 528.3, 3: 1084.4, 4: 1333.0, 5: 1489.4, 6: 2153.3, 7: 2649.2, 8: 3038.3, 'ev': 4746.3}   # 2026-10-15 부스러기 조준 개편(주변 적 겨냥 · kd .228 · evKd .55 로 낮춰 옛 값 ±8% 안) 뒤 측정값
+NEWV = {1: 479.4, 2: 528.3, 3: 1044.7, 4: 1280.8, 5: 1474.3, 6: 1823.3, 7: 1975.2, 8: 2404.3, 'ev': 3441.0}   # 2026-10-15 일직선 연발(스틱 여럿은 한 방향으로 .10초 간격) 뒤 측정값 — 부채꼴보다 한 번에 맞는 적이 줄어 Lv6~8 이 옛 값의 약 -20%·각성 -27%(의도된 변경 · evD 1.3→1.7 로 일부 보전)
 SEEDS = 24
 BAND = 0.08   # 기준값 ±8%
 
@@ -38,10 +38,11 @@ LADDER_JS = r"""(a)=>{const x=__p6x;""" + SEED + r"""
  S.t=90;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.propT=S.chickT=1e12;S.need=1e12;S.xp=0;
  for(const q of x.enemies.a)q.on=false;x.props.clear();
  const e=x.spawnEnemy(0,2.5,null,{x:p.x+150,y:p.y});e.hp=e.mhp=1e9;e.sp=0;e.r=70;   // 큰 샌드백(반지름 70) — 부채꼴로 벌어진 스틱 2~3개가 모두 맞는다
- const o={n:0,d:0,m:0,sdr:0,cd:0,crumbs:0,hits:0};let first=true;
+ const o={n:0,d:0,m:0,sdr:0,cd:0,crumbs:0,hits:0};let first=true,fi=-1;
  for(let i=0;i<75;i++){S.p.hp=S.p.mhp;S.spawnT=-1e12;S.xp=0;S.need=1e12;x.keys={};e.x=p.x+150;e.y=p.y;e.hp=e.mhp=1e9;
    const b0=new Set(S.x3.f);x.update(dt);const f=S.x3.f,nw=f.filter(q=>!b0.has(q)),sn=nw.filter(q=>q.k==='sn');
-   if(first){if(sn.length){first=false;o.n=sn.length;o.d=sn[0].d;o.m=sn[0].m;o.sdr=sn[0].sd/sn[0].d;o.cd=S.cd.snack;S.cd.snack=1e9;}continue;}   // 던진 프레임: 스틱·쿨타임을 읽는다(둘째 던짐은 막는다)
+   if(!first&&i-fi<=14)o.n+=sn.length;   // 🍘 [2026-10-15] 스틱이 여럿이면 일직선 연발(.10초 간격) — 첫 던짐 뒤 0.23초 안에 더 나온 스틱도 센다
+   if(first){if(sn.length){first=false;fi=i;o.n=sn.length;o.d=sn[0].d;o.m=sn[0].m;o.sdr=sn[0].sd/sn[0].d;o.cd=S.cd.snack;S.cd.snack=1e9;}continue;}   // 던진 프레임: 스틱·쿨타임을 읽는다(둘째 던짐은 막는다)
    o.crumbs+=nw.filter(q=>q.k==='b'&&q.src==='snack').length;   // 이번 프레임에 막 생긴 부스러기
    if(!f.some(q=>q.k==='sn'))break;}
  o.hits=o.m?o.crumbs/o.m:0;   // 맞은 횟수 = 만든 부스러기 ÷ 한 번에 튀는 수
@@ -118,7 +119,7 @@ async def main():
         print('\n아레나 10초 누적 피해(시드 %d개 평균):' % SEEDS)
         for key in res: print('  %-3s 지금 %7.1f   관통 개편 전 %7.1f   (%+.0f%%)%s' % (key, res[key], OLD[key], 100 * (res[key] / OLD[key] - 1), ('   기준 %.1f' % NEWV[key]) if key in NEWV else ''))
         check('레벨이 오를수록 세진다 (Lv1<Lv2<…<Lv8)', all(res[L] < res[L + 1] for L in range(1, 8)), [round(res[L]) for L in range(1, 9)])
-        check('각성(Lv8)은 일반 Lv8 보다 강하다', res['ev'] > res[8] * 1.5, (round(res['ev']), round(res[8])))
+        check('각성(Lv8)은 일반 Lv8 보다 강하다', res['ev'] > res[8] * 1.35, (round(res['ev']), round(res[8])))
         for key in NEWV:
             lo, hi = NEWV[key] * (1 - BAND), NEWV[key] * (1 + BAND)
             check('%s 은 개편 뒤 기준값 ±%d%%: %.0f ~ %.0f' % ('Lv%d' % key if key != 'ev' else 'Lv8 각성', BAND * 100, lo, hi), lo <= res[key] <= hi, round(res[key], 1))

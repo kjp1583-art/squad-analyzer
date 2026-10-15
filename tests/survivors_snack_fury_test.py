@@ -50,7 +50,7 @@ LINE_JS = r"""(a)=>{""" + STAGE + r"""
    const before=new Set(S.x3.f);x.update(dt);S.p.hp=S.p.mhp;
    const nw=S.x3.f.filter(o=>!before.has(o));const nc=nw.filter(o=>o.k==='b'&&o.src==='snack').length;created+=nc;maxNew=Math.max(maxNew,nc);
    const sn=nw.filter(o=>o.k==='sn');if(sn.length&&!thrown){thrown=1;sticks0=sn.length;
-     if(a.one){const v=Math.hypot(sn[0].vx,sn[0].vy);sn[0].vx=v;sn[0].vy=0;for(const q of sn.slice(1))S.x3.f.splice(S.x3.f.indexOf(q),1);}}   // a.one: 스틱 하나만 정면으로(여러 개면 부채꼴로 벌어진다)
+     if(a.one){S.dq.length=0;const v=Math.hypot(sn[0].vx,sn[0].vy);sn[0].vx=v;sn[0].vy=0;for(const q of sn.slice(1))S.x3.f.splice(S.x3.f.indexOf(q),1);}}   // a.one: 스틱 하나만 정면으로(여러 개면 부채꼴로 벌어진다)
    if(thrown&&!S.x3.f.some(o=>o.k==='sn')&&i>5)break;}
  const hits={};let stick=0;for(const h of F.hl){if(h[0]!=='snack')continue;if(Math.abs(h[1]-a.sd)<a.sd*.02){stick++;hits[h[2]]=(hits[h[2]]||0)+1;}}
  F.hl=null;
@@ -59,7 +59,7 @@ LINE_JS = r"""(a)=>{""" + STAGE + r"""
 NOREPOP_JS = r"""(a)=>{""" + STAGE + r"""
  const e=mk(70,0,14);
  for(let i=0;i<40;i++){e.hp=e.mhp=1e12;x.update(dt);S.p.hp=S.p.mhp;}
- for(let i=0;i<30;i++){e.hp=e.mhp=1e12;e.x=1e6;x.update(dt);S.p.hp=S.p.mhp;}   // 적을 멀리 치우고 이미 던진 것들이 다 끝나게
+ for(let i=0;i<60;i++){e.hp=e.mhp=1e12;e.x=1e6;x.update(dt);S.p.hp=S.p.mhp;}   // 적을 멀리 치우고 이미 던진 것들이 다 끝나게
  const sticks=S.x3.f.filter(o=>o.k==='sn').length;
  S.cd.snack=1e9;let nb=0;for(let i=0;i<30;i++){const n0=new Set(S.x3.f);x.update(dt);S.p.hp=S.p.mhp;nb+=S.x3.f.filter(o=>!n0.has(o)&&o.k==='b').length;}
  return {sticks,newAfter:nb};}"""

@@ -18,6 +18,9 @@ window.__st={
    let first=null;const hp0=es.map(e=>e.hp);
    for(let i=0;i<60;i++){X.update(1/30);if(!first){const cr=window.__sa.f.filter(o=>o.k==='b'&&o.src==='snack');if(cr.length)first=cr.map(o=>({x:o.x,y:o.y,vx:o.vx,vy:o.vy}));}}
    const dmg=es.map((e,i)=>hp0[i]-e.hp);return {first,dmg,pos:es.map(e=>[e.x-S.p.x,e.y-S.p.y,e.r])};},
+ volley(){const S=begin();S.w.snack=6;const e=X.spawnEnemy(1,1);e.hp=e.mhp=1e12;e.sp=0;e.x=S.p.x+200;e.y=S.p.y;const seen=new Map();
+   for(let i=0;i<30;i++){X.update(1/30);for(const o of window.__sa.f)if(o.k==='sn'&&!seen.has(o))seen.set(o,{i,a:Math.atan2(o.vy,o.vx)});}
+   return [...seen.values()];},
  alone(){const S=begin();const e=X.spawnEnemy(1,1);e.hp=e.mhp=1e12;e.sp=0;e.x=S.p.x+90;e.y=S.p.y;let first=null;
    for(let i=0;i<30&&!first;i++){X.update(1/30);const cr=window.__sa.f.filter(o=>o.k==='b'&&o.src==='snack');if(cr.length)first=cr.map(o=>Math.atan2(o.vy,o.vx));}
    return {first};}
@@ -48,6 +51,8 @@ async def main():
         d = L['dmg']; ok(d[0] > 0 and d[1] > 0 and d[2] > 0, 'B 가운데·끝 적도 맞는다 %s' % [round(x) for x in d])
         stick = 11.0
         ok(d[1] > stick * 1.8 and d[2] > stick * 1.5, 'B2 다단히트: 가운데 %.0f · 끝 %.0f — 스틱 한 대(%.0f)보다 부스러기 몫만큼 더 맞는다' % (d[1], d[2], stick))
+        V = await pg.evaluate('__st.volley()'); print('volley', V)
+        ok(len(V) == 3 and max(v['a'] for v in V) - min(v['a'] for v in V) < 1e-6 and V[0]['i'] < V[1]['i'] < V[2]['i'], 'E 스틱 3개는 한 방향 일직선으로 시간차를 두고 연달아 나간다(부채꼴 아님) — %s' % [(v['i'], round(v['a'], 3)) for v in V])
         A = await pg.evaluate('__st.alone()'); ang = A['first'] or []
         R2 = math.hypot(sum(math.cos(a) for a in ang), sum(math.sin(a) for a in ang)) / max(1, len(ang))
         ok(len(ang) >= 3 and R2 < 0.35, 'C 적이 스틱에 맞은 한 마리뿐이면 사방으로 나간다(몰림도 %.2f · %d발)' % (R2, len(ang)))
