@@ -34,7 +34,7 @@ MUTANTS = {   # (바꿀 글, 바뀐 글) — 시험이 정말 이 실수를 잡�
     'nolock': ("const v=pref&&can()?1:0;", "const v=pref?1:0;"),                                 # 구매 검사 제거
     'lostall': ("const lost=o.on&&pref&&!can();", "const lost=o.on&&!v;"),                   # 직접 끈 것도 권한 상실로 안내
     'noframe': ("if(SPD.on&&!SRVUNL.has('spd2'))SPD.sync();", ""),                        # frame 의 권한 재검사 제거
-    'norecheck': ("if(SPD.on&&state==='play'&&EX.hs<=0){", "if(SPD.on){"),                  # 상태 전환 재확인 제거
+    'norecheck': ("if(SPD.on&&!duelBoss()&&state==='play'&&EX.hs<=0&&SPD.take()){", "if(SPD.on){"),                  # 상태 전환 재확인 제거
 }
 EXTRA_NEW = "window.__X={RES,frame,SPD,SRVUNL,buy(on){srvUnl(on?['spd2']:[])},logout(){dcLogout()},pauseGame,get bannerT(){return bannerT},banner,setLast(v){last=v},hookUpdate(){if(window.__uw)return;window.__uw=1;window.__uc=0;const o=update;update=function(d){window.__uc++;const r=o(d);if(window.__hook){const h=window.__hook;window.__hook=null;h();}return r;};},hookToast(){window.__tc=0;const o=toast;toast=function(m){if(String(m).indexOf('폰이 힘들어해요')>=0)window.__tc++;return o(m);};}};\n"
 EXTRA_OLD = "window.__X={RES,frame,pauseGame,setLast(v){last=v},hookUpdate(){if(window.__uw)return;window.__uw=1;window.__uc=0;const o=update;update=function(d){window.__uc++;const r=o(d);if(window.__hook){const h=window.__hook;window.__hook=null;h();}return r;};},hookToast(){window.__tc=0;const o=toast;toast=function(m){if(String(m).indexOf('폰이 힘들어해요')>=0)window.__tc++;return o(m);};}};\n"
@@ -125,6 +125,22 @@ async def sec_b(b, srv):   # 나 · 켠 상태
     check('[나] 켠 상태: S.t = 600×dt = %.4f (dt 를 키우지 않았다) · 끈 상태의 정확히 2배' % r2['st'], abs(r2['st'] - 600 * DT) < 1e-6 and abs(r2['st'] / r1['st'] - 2) < 1e-6, (r1, r2))
     check('[나] 켠 상태 HUD 칩이 보인다', chip != 'none', chip)
     check('[나] 오류 0', not errs and not e2, (errs, e2))
+    # ⏩ [2026-10-15 사장님] 1.5배속 — 두 프레임에 한 번 두 번째 update (평균 1.5배) · 같은 구매(spd2)로 열린다
+    ctx, pg, e3 = await mk(b, srv, NEW, init=DRIVEN)
+    r3 = await pg.evaluate(DRIVE, {'ch': 'brj', 'n': 300, 'ms': 1000 * DT, 'god': True, 'noxp': True, 'spd': 1.5})
+    st = await pg.evaluate("()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),chip:document.getElementById('spdChip').textContent})")
+    await ctx.close()
+    check('[나] 1.5배속: 300프레임 = update 450회 · S.t = 450×dt (%d회 · %.4f)' % (r3['calls'], r3['st']), r3['calls'] == 450 and abs(r3['st'] - 450 * DT) < 1e-6, r3)
+    check('[나] 1.5배속: 저장값 1.5 · HUD 칩 「1.5배속」', st['on'] == 1.5 and st['ls'] == '1.5' and '1.5배속' in st['chip'], st)
+    check('[나] 1.5배속 오류 0', not e3, e3)
+    ctx, pg, e4 = await mk(b, srv, NEW, init=DRIVEN, buy=False)
+    r4 = await pg.evaluate("()=>{__X.SPD.set(1.5);return {on:__X.SPD.on,ls:localStorage.getItem('p6_spd2')}}")
+    await ctx.close()
+    check('[나] 1.5배속도 미구매자는 못 켠다(같은 구매 필요)', r4['on'] == 0 and r4['ls'] in (None, '0'), r4)
+    ctx, pg, e5 = await mk(b, srv, NEW, init=DRIVEN, ls={'p6_spd2': '1'})
+    r5 = await pg.evaluate("()=>({on:__X.SPD.on})")
+    await ctx.close()
+    check('[나] 옛 저장값 p6_spd2=1 은 2배속으로 읽는다', r5['on'] == 2, r5)
     # 읽는 글(배너)은 실시간 — 켜 두고 30프레임(0.5초)을 돌려도 bannerT 는 0.5 만 줄어든다
     for spd in (0, 1):
         ctx, pg, er = await mk(b, srv, NEW, init=DRIVEN)
@@ -143,7 +159,7 @@ async def sec_b(b, srv):   # 나 · 켠 상태
           setTimeout(()=>{clearInterval(iv);res({dt:S.t-t0,ms:performance.now()-w0,on:__X.SPD.on});},3000);})""")
         check('[나] 실제 rAF (%s) 오류 0' % ('켬' if spd else '끔'), not er, er); await ctx.close()
     r0, r1_ = rate[0]['dt'] / rate[0]['ms'] * 1000, rate[1]['dt'] / rate[1]['ms'] * 1000
-    check('[나] 실제 rAF: 초당 게임 시간 끔 %.2f → 켬 %.2f (비율 %.2f, 1.6~2.4 기대 · 느린 기계면 dt 상한 때문에 낮을 수 있다)' % (r0, r1_, r1_ / max(r0, 1e-9)), rate[1]['on'] == 1 and 1.6 <= r1_ / max(r0, 1e-9) <= 2.4, rate)
+    check('[나] 실제 rAF: 초당 게임 시간 끔 %.2f → 켬 %.2f (비율 %.2f, 1.6~2.4 기대 · 느린 기계면 dt 상한 때문에 낮을 수 있다)' % (r0, r1_, r1_ / max(r0, 1e-9)), rate[1]['on'] == 2 and 1.6 <= r1_ / max(r0, 1e-9) <= 2.4, rate)
 
 async def sec_c(b, srv):   # 다 · 전환
     async def one(name, pre, hook, want_calls, want_state, ms_calls=None):
@@ -180,28 +196,28 @@ async def sec_c(b, srv):   # 다 · 전환
 
 async def sec_d(b, srv):   # 라 · 토글 저장·유지·불가
     ctx, pg, errs = await mk(b, srv, NEW)
-    r = await pg.evaluate("()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),chk:document.getElementById('spdChk').checked,chip:getComputedStyle(document.getElementById('spdChip')).display})")
+    r = await pg.evaluate("()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),chk:(document.getElementById('spdChk').value==='2'),chip:getComputedStyle(document.getElementById('spdChip')).display})")
     check('[라] 기본값: 꺼짐 · 저장값 없음 · 체크 해제 · 칩 숨김', r['on'] == 0 and r['ls'] is None and r['chk'] is False and r['chip'] == 'none', r)
-    await pg.check('#spdChk')
+    await pg.select_option('#spdChk','2')
     r = await pg.evaluate("()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2')})")
-    check('[라] 첫 화면 체크 → 켜짐 · p6_spd2=1 저장', r['on'] == 1 and r['ls'] == '1', r)
+    check('[라] 첫 화면 체크 → 켜짐 · p6_spd2=2 저장', r['on'] == 2 and r['ls'] == '2', r)
     await pg.reload(); await pg.wait_for_function('window.__X!==undefined'); await pg.evaluate('()=>__X.buy(1)')   # 구매 목록은 메모리 — 새로고침 뒤 서버가 다시 내려준 셈
-    r = await pg.evaluate("()=>({on:__X.SPD.on,chk:document.getElementById('spdChk').checked})")
-    check('[라] 새로고침 뒤에도 켜짐 유지', r['on'] == 1 and r['chk'] is True, r)
+    r = await pg.evaluate("()=>({on:__X.SPD.on,chk:(document.getElementById('spdChk').value==='2')})")
+    check('[라] 새로고침 뒤에도 켜짐 유지', r['on'] == 2 and r['chk'] is True, r)
     # 판 시작 → 다음 판에도 유지, 일시정지 토글과 동기
     await pg.evaluate("()=>{__p6x.CH_set('brj');__p6x.start();__X.pauseGame();}")
-    r = await pg.evaluate("()=>({state:__p6x.state,chk:[...document.querySelectorAll('#pause input[data-spd]')].map(e=>e.checked)})")
+    r = await pg.evaluate("()=>({state:__p6x.state,chk:[...document.querySelectorAll('#pause select[data-spd]')].map(e=>e.value==='2')})")
     check('[라] 일시정지 화면 토글이 켜진 상태로 보인다', r['state'] == 'pause' and r['chk'] == [True], r)
-    await pg.uncheck('#pause input[data-spd]')
-    r = await pg.evaluate("()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),title:document.getElementById('spdChk').checked,chip:getComputedStyle(document.getElementById('spdChip')).display})")
+    await pg.select_option('#pause select[data-spd]','0')
+    r = await pg.evaluate("()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),title:(document.getElementById('spdChk').value==='2'),chip:getComputedStyle(document.getElementById('spdChip')).display})")
     check('[라] 일시정지에서 끔 → 즉시 꺼짐 · 저장 0 · 첫 화면 단추와 동기 · 칩 숨김', r['on'] == 0 and r['ls'] == '0' and r['title'] is False and r['chip'] == 'none', r)
-    await pg.check('#pause input[data-spd]')
+    await pg.select_option('#pause select[data-spd]','2')
     r = await pg.evaluate("()=>{__p6x.resume();const S=__p6x.S;return {on:__X.SPD.on,state:__p6x.state,chip:getComputedStyle(document.getElementById('spdChip')).display}}")
-    check('[라] 일시정지에서 켜고 계속하기 → 켜짐 · 칩 보임', r['on'] == 1 and r['state'] == 'play' and r['chip'] != 'none', r)
+    check('[라] 일시정지에서 켜고 계속하기 → 켜짐 · 칩 보임', r['on'] == 2 and r['state'] == 'play' and r['chip'] != 'none', r)
     await pg.evaluate("()=>{__p6x.endRun(false);}")
     await pg.evaluate("()=>{__p6x.start();}")
     r = await pg.evaluate("()=>({on:__X.SPD.on,state:__p6x.state})")
-    check('[라] 다음 판에도 켜짐 유지', r['on'] == 1 and r['state'] == 'play', r)
+    check('[라] 다음 판에도 켜짐 유지', r['on'] == 2 and r['state'] == 'play', r)
     check('[라] 오류 0', not errs, errs); await ctx.close()
     # 일반·하드·베리하드·오늘의 도전·무한 — 켜 둔 채 모두 시작·진행
     for nm, ls in [('일반', {'p6_hard': '0', 'p6_vh': '0'}), ('하드', {'p6_hard': '1', 'p6_vh': '0'}), ('베리하드', {'p6_hard': '0', 'p6_vh': '1'}), ('오늘의 도전', {}), ('무한', {})]:
@@ -213,14 +229,14 @@ async def sec_d(b, srv):   # 라 · 토글 저장·유지·불가
           let t=1000;__X.setLast(t);S.need=1e9;const t0=S.t;for(let i=0;i<120;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);}
           return {on:__X.SPD.on,state:x.state,dt:S.t-t0,hard:!!S.hard,vh:!!S.vh,dly:!!S.dly,endless:!!S.endless};}""", nm)
         okm = (nm != '하드' or r['hard']) and (nm != '베리하드' or r['vh']) and (nm != '오늘의 도전' or r['dly']) and (nm != '무한' or r['endless'])
-        check('[라] %s 모드 + 2배속: 120프레임에 게임 시간 %.3f초 (=4.0 · 모드 적용 %s)' % (nm, r['dt'], okm), okm and r['on'] == 1 and abs(r['dt'] - 4.0) < 0.01 and r['state'] == 'play', r)
+        check('[라] %s 모드 + 2배속: 120프레임에 게임 시간 %.3f초 (=4.0 · 모드 적용 %s)' % (nm, r['dt'], okm), okm and r['on'] == 2 and abs(r['dt'] - 4.0) < 0.01 and r['state'] == 'play', r)
         check('[라] %s 오류 0' % nm, not errs, errs); await ctx.close()
     # localStorage 불가
     ctx, pg, errs = await mk(b, srv, NEW, init=NOLS)
     r = await pg.evaluate("()=>({on:__X.SPD.on})")
-    await pg.check('#spdChk')
+    await pg.select_option('#spdChk','2')
     r2 = await pg.evaluate("()=>{const x=__p6x;x.CH_set('brj');x.start();const S=x.S;S.need=1e9;let t=1000;__X.setLast(t);window.__n=0;const t0=S.t;for(let i=0;i<60;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);}return {on:__X.SPD.on,dt:S.t-t0}}")
-    check('[라] localStorage 불가: 기본 꺼짐 → 켜면 메모리로 동작 (게임 시간 %.3f초 ≈ 2.0) · 오류 0' % r2['dt'], r['on'] == 0 and r2['on'] == 1 and abs(r2['dt'] - 2.0) < 0.01 and not errs, (r, r2, errs)); await ctx.close()
+    check('[라] localStorage 불가: 기본 꺼짐 → 켜면 메모리로 동작 (게임 시간 %.3f초 ≈ 2.0) · 오류 0' % r2['dt'], r['on'] == 0 and r2['on'] == 2 and abs(r2['dt'] - 2.0) < 0.01 and not errs, (r, r2, errs)); await ctx.close()
     # 느린 폰 안내
     for nm, ms, spd, exp in [('느린 폰(40ms) · 켬', 40, 1, 1), ('빠른 폰(16.7ms) · 켬', 1000 / 60, 1, 0), ('느린 폰(40ms) · 끔', 40, 0, 0)]:
         ctx, pg, errs = await mk(b, srv, NEW, init=DRIVEN)
@@ -235,7 +251,7 @@ async def sec_e(b, srv):   # 마 · 화면
         r = await pg.evaluate("""()=>{const l=document.getElementById('spdChk').closest('label'),R=l.getBoundingClientRect(),d=document.documentElement;
           const bx=document.querySelector('#title .box');return {h:R.height,w:R.width,l:R.left,r:R.right,sw:d.scrollWidth,cw:d.clientWidth,bsw:bx.scrollWidth,bcw:bx.clientWidth,vw:innerWidth,txt:l.textContent.replace(/\\s+/g,' ')}}""")
         check('[마] 첫 화면 %dpx: 2배속 단추 높이 %.0fpx(≥40) · 화면 안 · 가로 넘침 0' % (w, r['h']), r['h'] >= 40 and r['l'] >= 0 and r['r'] <= r['vw'] and r['sw'] <= r['cw'] and r['bsw'] <= r['bcw'], r)
-        check('[마] 첫 화면 %dpx: 설명 글 「두 배로 빨리」' % w, '두 배로 빨리' in r['txt'], r['txt'])
+        check('[마] 첫 화면 %dpx: 설명 글 「더 빨리」' % w, '더 빨리' in r['txt'], r['txt'])
         await pg.evaluate("()=>{__p6x.CH_set('brj');__p6x.start();}")
         c = await pg.evaluate("""()=>{const c=document.getElementById('spdChip'),R=c.getBoundingClientRect(),hp=document.getElementById('hpb').getBoundingClientRect(),d=document.documentElement;
           return {disp:getComputedStyle(c).display,l:R.left,r:R.right,t:R.top,b:R.bottom,hpb:hp.bottom,vw:innerWidth,sw:d.scrollWidth,cw:d.clientWidth,txt:c.textContent,pe:getComputedStyle(c).pointerEvents}}""")
@@ -244,7 +260,7 @@ async def sec_e(b, srv):   # 마 · 화면
         p = await pg.evaluate("""()=>{const l=document.querySelector('#pause label.spdl'),R=l.getBoundingClientRect(),d=document.documentElement,bx=document.querySelector('#pause .box');
           return {h:R.height,l:R.left,r:R.right,vw:innerWidth,sw:d.scrollWidth,cw:d.clientWidth,bsw:bx.scrollWidth,bcw:bx.clientWidth,vis:getComputedStyle(document.getElementById('pause')).display}}""")
         check('[마] 일시정지 %dpx: 2배속 칸 높이 %.0fpx(≥40) · 화면 안 · 가로 넘침 0' % (w, p['h']), p['h'] >= 40 and p['l'] >= 0 and p['r'] <= p['vw'] and p['sw'] <= p['cw'] and p['bsw'] <= p['bcw'], p)
-        await pg.uncheck('#pause input[data-spd]')
+        await pg.select_option('#pause select[data-spd]','0')
         await pg.evaluate("()=>__p6x.resume()")
         c = await pg.evaluate("()=>getComputedStyle(document.getElementById('spdChip')).display")
         check('[마] HUD 칩 %dpx: 끄면 사라진다' % w, c == 'none', c)
@@ -273,18 +289,18 @@ async def sec_f(b, srv):   # 바 · 이어하기
         await pg.reload(); await pg.wait_for_function('window.__X!==undefined'); await pg.evaluate('()=>__X.buy(1)')
         ok = await pg.evaluate("()=>__X.RES.restore()")
         s1 = await pg.evaluate("()=>({state:__p6x.state,t:__p6x.S.t,on:__X.SPD.on})")
-        check('[바] %s → 새 빌드(2배속 켠 채) 복구됨 · 일시정지 · S.t 같음' % nm, ok is True and s1['state'] == 'pause' and abs(s1['t'] - pre['t']) < 1e-6 and s1['on'] == 1, (ok, s1, pre['t']))
+        check('[바] %s → 새 빌드(2배속 켠 채) 복구됨 · 일시정지 · S.t 같음' % nm, ok is True and s1['state'] == 'pause' and abs(s1['t'] - pre['t']) < 1e-6 and s1['on'] == 2, (ok, s1, pre['t']))
         r = await pg.evaluate("""()=>{const x=__p6x;x.resume();const S=x.S;S.need=1e9;let t=1000;__X.setLast(t);const t0=S.t;for(let i=0;i<60;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);}return {st:x.state,dt:S.t-t0}}""")
         check('[바] %s: 복구 뒤 계속하기 → 60프레임에 게임 시간 %.3f초(≈2.0)' % (nm, r['dt']), r['st'] == 'play' and abs(r['dt'] - 2.0) < 0.01, r)
         check('[바] %s 오류 0' % nm, not errs, errs); await ctx.close()
 
 LOGIN = json.dumps({'id': '1', 'name': '시험', 'token': 't', 'exp': 4102444800000})   # 로그인한 척(서버는 막혀 있다)
-LOCK_CLICK = "()=>{const e=document.querySelector('#spdChk');e.checked=true;e.dispatchEvent(new Event('change',{bubbles:true}));}"
+LOCK_CLICK = "()=>{const e=document.querySelector('#spdChk');e.value='2';e.dispatchEvent(new Event('change',{bubbles:true}));}"
 async def sec_g(b, srv):   # 아 · 구매자만
     DT = 1 / 60
     RUN = """(a)=>{const x=__p6x;x.CH_set('brj');x.start({daily:true});if(a.set)__X.SPD.set(1);const S=x.S;S.need=1e9;let t=1000;__X.setLast(t);__X.hookUpdate();window.__uc=0;const t0=S.t;
       for(let i=0;i<a.n;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);}return {calls:window.__uc,dt:S.t-t0,on:__X.SPD.on}}"""
-    ST = "()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),chk:document.getElementById('spdChk').checked,ad:document.getElementById('spdChk').getAttribute('aria-disabled'),sm:document.querySelector('#title [data-spdsm]').textContent,v:document.querySelector('#pause [data-spdv]').textContent,chip:getComputedStyle(document.getElementById('spdChip')).display,toast:document.getElementById('toast').textContent})"
+    ST = "()=>({on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),chk:(document.getElementById('spdChk').value==='2'),ad:document.getElementById('spdChk').getAttribute('aria-disabled'),sm:document.querySelector('#title [data-spdsm]').textContent,v:document.querySelector('#pause [data-spdv]').textContent,chip:getComputedStyle(document.getElementById('spdChip')).display,toast:document.getElementById('toast').textContent})"
     # 1) 로그아웃 — 저장값이 켜짐이어도 잠김·1배속
     ctx, pg, errs = await mk(b, srv, NEW, init=DRIVEN, ls={'p6_spd2': '1'}, buy=False)
     r = await pg.evaluate(ST)
@@ -308,12 +324,12 @@ async def sec_g(b, srv):   # 아 · 구매자만
     ctx, pg, errs = await mk(b, srv, NEW, init=DRIVEN, ls={'sgg_dc': LOGIN}, buy=False)
     await pg.evaluate("()=>__X.buy(1)")
     r = await pg.evaluate(ST)
-    check('[아] 구매자: 기본 꺼짐 · 안내는 원래 설명 · 🔒 없음', r['on'] == 0 and r['ad'] == 'false' and '두 배로' in r['sm'] and r['v'] == '꺼짐', r)
+    check('[아] 구매자: 기본 꺼짐 · 안내는 원래 설명 · 🔒 없음', r['on'] == 0 and r['ad'] == 'false' and '더 빨리' in r['sm'] and r['v'] == '1배속', r)
     await pg.evaluate(LOCK_CLICK)
     r = await pg.evaluate(ST)
-    check('[아] 구매자: 체크 → 켜짐 · 저장 1 · 칩 보임', r['on'] == 1 and r['ls'] == '1' and r['chip'] != 'none', r)
+    check('[아] 구매자: 체크 → 켜짐 · 저장 1 · 칩 보임', r['on'] == 2 and r['ls'] == '2' and r['chip'] != 'none', r)
     # 구매자가 직접 끄면 「권한 잃음」 안내가 뜨면 안 된다
-    r = await pg.evaluate("()=>{document.getElementById('toast').textContent='';const e=document.querySelector('#spdChk');e.checked=false;e.dispatchEvent(new Event('change',{bubbles:true}));return {on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),toast:document.getElementById('toast').textContent}}")
+    r = await pg.evaluate("()=>{document.getElementById('toast').textContent='';const e=document.querySelector('#spdChk');e.value='0';e.dispatchEvent(new Event('change',{bubbles:true}));return {on:__X.SPD.on,ls:localStorage.getItem('p6_spd2'),toast:document.getElementById('toast').textContent}}")
     check('[아] 구매자가 직접 끄면: 꺼짐 · 저장 0 · 토스트에 「돌아왔어요」 없음', r['on'] == 0 and r['ls'] == '0' and '돌아왔어요' not in r['toast'], r)
     await pg.evaluate(LOCK_CLICK)
     run = await pg.evaluate(RUN, {'n': 300, 'set': False})
@@ -327,12 +343,12 @@ async def sec_g(b, srv):   # 아 · 구매자만
           window.__tx=[];const tt=document.getElementById('toast');
           eval(js);window.__uc=0;const t0=S.t;for(let i=0;i<100;i++){S.p.hp=S.p.mhp;t+=1000/60;__X.frame(t);if(i===0)window.__tx.push(tt.textContent);}
           return {on0,c1,c2:window.__uc,dt:S.t-t0,on:__X.SPD.on,tx:window.__tx[0],ls:localStorage.getItem('p6_spd2')}}""", js)
-        check('[아] 구매 후 권한 상실 (%s): 상실 전 2배속(30프레임=update %d회) → 상실 뒤 100프레임 = update 100회 · 1배속' % (how, r['c1']), r['on0'] == 1 and r['c1'] == 60 and r['c2'] == 100 and abs(r['dt'] - 100 * DT) < 1e-6 and r['on'] == 0, r)
+        check('[아] 구매 후 권한 상실 (%s): 상실 전 2배속(30프레임=update %d회) → 상실 뒤 100프레임 = update 100회 · 1배속' % (how, r['c1']), r['on0'] == 2 and r['c1'] == 60 and r['c2'] == 100 and abs(r['dt'] - 100 * DT) < 1e-6 and r['on'] == 0, r)
         check('[아] 권한 상실 안내 (%s): 「1배속으로 돌아왔어요」 (%s)' % (how, r['tx']), '1배속으로 돌아왔어요' in (r['tx'] or ''), r)
         check('[아] 권한 상실 (%s) 오류 0' % how, not e2, e2); await ctx2.close()
     # 상실 뒤 다시 구매 목록이 오면(저장값 1) 되살아난다
     r = await pg.evaluate("()=>{__X.buy(0);const a=__X.SPD.on;__X.buy(1);return {a,b:__X.SPD.on}}")
-    check('[아] 목록이 사라졌다 돌아오면 저장값대로 다시 켜진다', r['a'] == 0 and r['b'] == 1, r)
+    check('[아] 목록이 사라졌다 돌아오면 저장값대로 다시 켜진다', r['a'] == 0 and r['b'] == 2, r)
     check('[아] 구매자 오류 0', not errs, errs); await ctx.close()
     # 5) 폰 폭 — 잠긴 안내 문구(가장 긴 쪽)가 넘치지 않는다
     for (w, h) in [(320, 640), (360, 740), (412, 860)]:
