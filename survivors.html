@@ -1162,7 +1162,7 @@ const WEAP={
     ds:['사슬이 가까운 적에게 뻗어 묶는다(2.6초) — 사슬이 지나는 적 전부 지속 피해, 묶인 적은 느려진다(또뀨 전용)','사슬 길이 +15%','피해 +40%','사슬 +1','피해 +40% · 쿨타임 -15%','지속 +0.6초','사슬 +1','피해 +50% · 쿨타임 -15%']},
   ram:{only:'tw',rl:'고유 · 돌진',ic:'🥊',nm:'씩씩 박치기',pair:'arm',ev:{ic:'💢',nm:'씩씩 폭주',ds:'쿨타임 0.7배 · 항상 두 번 돌진 · 충격파 1.4배 · 피해 1.15배'},
     ds:['가까운 적을 향해 머리부터 돌진한다 — 지나는 길의 적을 들이받고 도착하면 충격파(돌진 중 아주 잠깐 무적 · 태웅 전용)','돌진 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','돌진 거리 +15% · 충격파 +30%','쿨타임 -15%','피해 +50% · 연속 두 번 돌진']},
-  snack:{only:'yumi',rl:'고유 · 관통 · 연쇄 파편',ic:'🍘',nm:'맛동산 투척',pair:'mag',ev:{ic:'🍪',nm:'맛동산 대잔치',ds:'스틱 +1 · 관통 무제한 · 맞을 때마다 부스러기 +6(부스러기 피해 1.4배) · 끝에서 크게 터진다 · 피해 1.3배'},
+  snack:{only:'yumi',rl:'고유 · 관통 · 연쇄 파편',ic:'🍘',nm:'맛동산 투척',pair:'mag',ev:{ic:'🍪',nm:'맛동산 대잔치',ds:'스틱 +1 · 관통 무제한 · 맞을 때마다 부스러기 +6(부스러기 한 발 피해는 0.55배) · 끝에서 크게 터진다 · 피해 1.3배'},
     ds:['맛동산 스틱을 던진다 — 적을 꿰뚫고 5마리까지 날아가며, 맞을 때마다 그 자리 주변 적들에게 부스러기 3개가 날아간다(맛동산장인 유미 전용)','부스러기 +1','피해 +20% · 스틱 +1','쿨타임 -15% · 부스러기 +1','피해 +20%','스틱 +1 · 부스러기 +1','부스러기 +1 · 쿨타임 -15%','피해 +50% · 부스러기 +1']},
   eom:{only:'eom',rl:'고유 · 충격 파동',ic:'📢',nm:'엄! 외침',pair:'area',ev:{ic:'🗣',nm:'개엄!',ds:'「개엄!」 하고 한 방에 크게 외친다 — 범위 1.2배 · 밀치는 힘 1.2배 · 피해 2배'},
     ds:['4초마다 \'엄!\' 하고 외친다 — 범위 안의 적이 피해를 입고 뒤로 짧게 밀려난다(보스는 안 밀리고 아주 잠깐 느려지기만 · 엄장신 전용)','범위 +10%','피해 +10% · 쿨타임 -10%','범위 +10%','피해 +10% · 쿨타임 -10%','범위 +10%','쿨타임 -10%','범위 +10% · 피해 +15%']},
@@ -2950,7 +2950,7 @@ function snkPop(o,x,y,mul,hit){const U=U3.snack;let m=Math.round(o.m*mul);const 
   const tr=U.tr||260,cand=[];for(const e of S.live){if(!e.on||(e===hit&&e.r<U.big))continue;const dx=e.x-x,dy=e.y-y,dd=dx*dx+dy*dy;if(dd<(tr+e.r)*(tr+e.r))cand.push([dd,e]);}
   cand.sort((u,v)=>u[0]-v[0]);const a0=Math.random()*6.2832,st=6.2832/m,cs=o.cs||U.cs,cl0=o.cl||U.cl;
   for(let j=0;j<m;j++){let a,life=cl0;
-    if(cand.length){const e=cand[j%cand.length][1],dx=e.x-x,dy=e.y-y,dd=Math.hypot(dx,dy);a=Math.atan2(dy,dx)+(Math.floor(j/cand.length)?((j&1)?.07:-.07)*Math.floor(j/cand.length):0);life=Math.min(.8,Math.max(cl0*.6,(dd+e.r)/cs+.05));}   // 같은 적을 두 번째로 겨누는 발은 살짝 비켜 각도를 벌린다
+    if(cand.length){const e=cand[j%cand.length][1],dx=e.x-x,dy=e.y-y,dd=Math.hypot(dx,dy);a=Math.atan2(dy,dx)+(Math.floor(j/cand.length)?((j&1)?.07:-.07)*Math.floor(j/cand.length):0);life=Math.min(.8,Math.max(cl0*.6,(dd+e.r)/cs+.05))*(cl0/U.cl);}   // 끈기(DUR)는 날아가는 시간을 늘린다 — 겨냥이 빗나간 부스러기·덩치 큰 적을 지나친 부스러기가 더 멀리 간다   // 같은 적을 두 번째로 겨누는 발은 살짝 비켜 각도를 벌린다
     else a=a0+j*st;
     if(!blt('snack',x,y,a,cs,life,o.sd*sdm,o.pc,o.cr||U.cr,'#fff6df','rgba(190,230,255,.5)'))break;SNK.n++;SNK.f++;}}   // 스틱이 맞은 그 자리(적의 겉면)에서 사방으로 — 안쪽으로 튄 것은 맞은 적(보스 포함)도 때린다
 function blt(src,x,y,a,v,life,d,pc,r,c,g,o){const b={k:'b',src,x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life,l0:life,d,pc,r,c,g,fall:0,ex:0,exd:0,h:null,big:0};if(o)Object.assign(b,o);return f3(b);}

@@ -168,7 +168,7 @@ async def main():
             check('라 부스러기 +1 이 오르는 레벨(%s)과 설명문 ds 가 같다' % [i + 1 for i in inc],
                   all(U['kL'][i] - U['kL'][i - 1] == 1 for i in inc) and set(i for i in range(1, 8) if '부스러기 +1' in ds[i]) == set(inc), [(i, ds[i]) for i in range(1, 8)])
             check('라 Lv1 %d발 → Lv8 %d발, 각성 덤 +%d 가 각성 설명에 적혀 있다' % (U['kL'][0], U['kL'][7], U['evK']), ('부스러기 +%d' % U['evK']) in ws['ev']['ds'], (U['kL'], ws['ev']['ds']))
-            check('라 각성 설명: 관통 무제한 · 끝에서 크게 터진다 · 피해 %s배' % U['evD'], '관통 무제한' in ws['ev']['ds'] and '끝에서' in ws['ev']['ds'] and ('피해 %s배' % U['evD']) in ws['ev']['ds'] and ('부스러기 피해 %s배' % U['evKd']) in ws['ev']['ds'], ws['ev']['ds'])
+            check('라 각성 설명: 관통 무제한 · 끝에서 크게 터진다 · 피해 %s배' % U['evD'], '관통 무제한' in ws['ev']['ds'] and '끝에서' in ws['ev']['ds'] and ('피해 %s배' % U['evD']) in ws['ev']['ds'] and ('부스러기 한 발 피해는 %s배' % U['evKd']) in ws['ev']['ds'], ws['ev']['ds'])
             check('라 마스터 문구: 맞을 때마다 부스러기 +1 · 부스러기 관통 +1 · 끝에서 한 번 더 크게', '맞을 때마다' in tiers[0][0] and '관통' in tiers[3][0] and '끝에서' in tiers[4][0], [t[0] for t in tiers])
             check('라 역할 라벨이 새 구조(관통)를 말한다', '관통' in ws['rl'] and '유도' not in ws['rl'], ws['rl'])
             for L in (1, 3, 5, 8):
