@@ -2956,8 +2956,9 @@ function bashHit(ux,uy,len,hw,d,stn){const p=S.p;
   S.x3.f.length<F3CAP&&S.x3.f.push({k:'bs',x:p.x,y:p.y,ux,uy,len,hw,life:.26,T:.26});}
 // 🥊 씩씩 박치기 — 가까운 적 쪽으로 짧게 돌진(🪝 yank 와 같은 이동 장치) · 돌진 중 아주 잠깐 무적
 function ramGo(){const p=S.p,L=S.w.ram||0,X=S.x3,R=X.ram;if(!L||R.t>0||p.yt>0||p.stun>0)return false;const tg=aim3(360);if(!tg)return false;
-  const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,mx=U3.ram.dist*lvm(L,[[2,1.15],[6,1.15]]),len=Math.max(mx*.7,Math.min(mx,dd+60));
-  yank(ux*len,uy*len,U3.ram.T);invGrant('ram',.3);R.t=U3.ram.T;R.id=++X.rid;R.x0=p.x;R.y0=p.y;R.ux=ux;R.uy=uy;R.fx=.35;AU.play('ram');return true;}
+  const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,mx=U3.ram.dist*lvm(L,[[2,1.15],[6,1.15]]),len0=Math.max(mx*.7,Math.min(mx,dd+60)),bs=!!tg.boss,len=bs?Math.max(0,Math.min(len0,dd-(tg.r+p.r+9))):len0;   // 💔 [2026-10-15 사장님 「태웅 씩씩 박치기는 쓸 때 무조건 맞아서 보스전이 불가능」] 보스 쪽으로 돌진할 땐 몸통에 박히지 않고 바로 앞(닿는 거리 밖)에서 멈춘다 — 박치기 피해는 그대로 들어가고(맞히는 반경이 더 넓다) 착지 직후 몸 박치기를 안 맞는다
+  if(len>=1)yank(ux*len,uy*len,U3.ram.T);   // 이미 보스 코앞이면 제자리에서 박치기만(움직임 없이 맞히는 반경 안의 보스를 때린다)
+  invGrant('ram',bs?.55:.3);R.t=U3.ram.T;R.id=++X.rid;R.x0=p.x;R.y0=p.y;R.ux=ux;R.uy=uy;R.fx=.35;AU.play('ram');return true;}
 // 🔥 쌍둥이 이빨 — 앞쪽 직사각형 베기(길이 len · 반폭 hw) · 화염 장판(최대 6 × 끈기)
 function twinSlash(ux,uy,len,hw,d,side){const p=S.p;
   for(const e of S.live){if(!e.on)continue;const dx=e.x-p.x,dy=e.y-p.y,al=dx*ux+dy*uy;if(al<-e.r||al>len+e.r)continue;if(Math.abs(dx*uy-dy*ux)>hw+e.r)continue;
