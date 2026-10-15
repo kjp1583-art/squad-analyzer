@@ -519,7 +519,7 @@ async def sec_g(b, srv):
           let m=0;while(m<200){__step(1);m++;if(D.du.cur&&D.du.cur.k==='cut')break;}
           let k=0;while(D.du.cur&&D.du.cur.k==='cut'&&k<200){__step(1);k++;}o.cut=k;FD.SPD.on=0;return o}""")
         check('사8b 2배속: 등장 연출은 실제 시간(약 %d프레임 ≈ 1.6초 · 그동안 게임 시간 %.1f초) · 단계 컷도 실제 시간(%d프레임 ≈ 1.3초)' % (r2['n'], r2['dt'], r2['cut']), 45 <= r2['n'] <= 52 and 36 <= r2['cut'] <= 42 and r2['dt'] < 2.2, r2)
-        check('사8c 실제 프레임 루프가 1:1 중엔 두 번째 update 를 안 돈다(SPD.on&&!duelBoss())', "if(SPD.on&&!duelBoss()&&state==='play'&&EX.hs<=0){SPD.sub=1;" in HTML, '')
+        check('사8c 실제 프레임 루프가 1:1 중엔 두 번째 update 를 안 돈다(SPD.on&&!duelBoss())', "if(SPD.on&&!duelBoss()&&state==='play'&&EX.hs<=0&&SPD.take()){SPD.sub=1;" in HTML, '')
         check('사8 1:1 동안은 2배속이 꺼진다: 10초(프레임)에 게임 시간이 %.1f초(1배속과 같다) 흐르고 1:1 이 정상(몹 %d) · 예고는 실제 시간 그대로' % (r['dt'], r['mx']), abs(r['dt'] - 10) < 1.0 and r['mx'] == 0 and r['duel'], r)
         # 오늘의 도전(시드 고정 모드): 1:1 이 똑같이 돈다 — 패턴 난수는 일일 시드 스트림(RN)을 쓰지 않는다
         await pg.evaluate("()=>{__fresh({keep:1,daily:true});return window.__p6x.S.dly?1:0}")
