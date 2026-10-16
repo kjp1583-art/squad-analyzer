@@ -16,7 +16,7 @@ function begin(){X.CH_set('yumi');X.start();const S=X.S;S.t=300;S.p.hp=S.p.mhp=1
 window.__st={
  line(){const S=begin();const es=[];for(let i=0;i<3;i++){const e=X.spawnEnemy(1,1);e.hp=e.mhp=1e12;e.sp=0;e.x=S.p.x+90+i*55;e.y=S.p.y;es.push(e);}
    let first=null;const hp0=es.map(e=>e.hp);
-   for(let i=0;i<60;i++){X.update(1/30);if(!first){const cr=window.__sa.f.filter(o=>o.k==='b'&&o.src==='snack');if(cr.length)first=cr.map(o=>({x:o.x,y:o.y,vx:o.vx,vy:o.vy}));}}
+   for(let i=0;i<60;i++){X.update(1/30);if(!first){const cr=window.__sa.f.filter(o=>o.k==='b'&&o.src==='snack');if(cr.length)first=cr.map(o=>({x:o.x,y:o.y,vx:o.vx,vy:o.vy,pc:o.pc}));}}
    const dmg=es.map((e,i)=>hp0[i]-e.hp);return {first,dmg,pos:es.map(e=>[e.x-S.p.x,e.y-S.p.y,e.r])};},
  volley(){const S=begin();S.w.snack=6;const e=X.spawnEnemy(1,1);e.hp=e.mhp=1e12;e.sp=0;e.x=S.p.x+200;e.y=S.p.y;const seen=new Map();
    for(let i=0;i<30;i++){X.update(1/30);for(const o of window.__sa.f)if(o.k==='sn'&&!seen.has(o))seen.set(o,{i,a:Math.atan2(o.vy,o.vx)});}
@@ -48,6 +48,7 @@ async def main():
         # 부스러기가 한 방향으로 몰려 있는지(조준) vs 균등 분산(사방): 분산(원형 분산)이 작을수록 몰림
         R = math.hypot(sum(math.cos(a) for a in ang), sum(math.sin(a) for a in ang)) / max(1, len(ang))
         ok(len(ang) >= 3 and R > 0.35, 'A 부스러기가 주변 적 쪽으로 몰린다(원형 몰림도 %.2f > 0.35 · %d발)' % (R, len(ang)))
+        ok(len(cr) >= 3 and all(c.get('pc', 0) >= 50 for c in cr), 'A2 부스러기는 관통(모든 적 관통) — 관통 수 %s' % [c.get('pc') for c in cr][:3])
         d = L['dmg']; ok(d[0] > 0 and d[1] > 0 and d[2] > 0, 'B 가운데·끝 적도 맞는다 %s' % [round(x) for x in d])
         stick = 11.0
         ok(d[1] > stick * 1.8 and d[2] > stick * 1.5, 'B2 다단히트: 가운데 %.0f · 끝 %.0f — 스틱 한 대(%.0f)보다 부스러기 몫만큼 더 맞는다' % (d[1], d[2], stick))
