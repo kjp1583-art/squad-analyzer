@@ -1377,7 +1377,7 @@ function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0},on=[];
   for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;for(const k of on)cdxSee('sy:'+k);cdxOwn();}   // 📖 시너지가 처음 켜지면 도감에 실린다 · 이어하기로 옛 판을 되살릴 때도 여기를 지나므로 가진 것을 함께 적는다
 const MAXEV=3;   // ✨ [2026-09-29 사장님] 각성은 한 판에 3개까지 — 무엇을 각성할지가 빌드
 const MAXLV=8,MAXPASS=5,SLOTW=6,SLOTP=6,WIN_T=3600,REROLL=3,BANISH=3,REV_LV=20;   // REV_LV: 👼 부활 카드는 이 레벨부터 나온다(이미 가진 건 영향 없음)
-const BRT={R:190,w:.62,d:29,cd:.85,em:30};   // 🔥 드래곤 브레스 기본값 — 사거리·반각(rad)·피해·쿨타임·몸 주변 불씨 반경(봇 시뮬로 맞춤) · 🐲 [2026-10-09 사장님 지시 「용조련사 고유무기 데미지가 너무 쎄니까 하향조정」] 피해 36 → 29(약 −20%, 모든 레벨·각성·단계 카드가 이 값에 곱해진다) — 하드·베리하드 클리어 기록이 용조련사에 몰려 있었다
+const BRT={R:190,w:.62,d:11,cd:.85,em:30};   // 🔥 드래곤 브레스 기본값 — 사거리·반각(rad)·피해·쿨타임·몸 주변 불씨 반경(봇 시뮬로 맞춤) · 🐲 [2026-10-09 사장님 지시 「용조련사 고유무기 데미지가 너무 쎄니까 하향조정」] 피해 36 → 29(약 −20%, 모든 레벨·각성·단계 카드가 이 값에 곱해진다) — 하드·베리하드 클리어 기록이 용조련사에 몰려 있었다 · ⚖️ [2026-10-15 사장님 지시 「브레스는 하향, 다른 무기는 상향해서 평균값으로」] 무기 40여 종을 같은 아레나(적 45마리 · 10~20분차 체력 · 10초)에서 재니 브레스가 중앙값의 약 5배였다 → 피해 29 → 11(약 −62%) 로 상위권(중앙값의 2~3배)이되 압도하지 않게
 const pmax=k=>PASS[k].max||MAXPASS;
 const wOk=k=>!WEAP[k].only||WEAP[k].only===CH.k||!!(S&&S.w[k]);   // 전용 무기(🔥 브레스)는 그 캐릭터에게만
 const pairOf=k=>Object.keys(WEAP).find(w=>WEAP[w].pair===k&&wOk(w));
@@ -2715,8 +2715,10 @@ function randLive(){const L=S.live;return L.length?L[Math.random()*L.length|0]:n
 //   튜닝은 아래 W4 한 표에서만(개선 루프는 이 수치를 다시 만지지 않는다). 풀은 전부 상한이 있고 매 프레임 새로 만들지 않는다.
 // ============================================================================================================
 // ⚖️ [2026-10-12] 단일 대상 공용 무기 피해 상향: 낚싯대 48→60 · 망원경 저격 78→105(보스 최대 체력 비율 bp 는 그대로). 키보드 난타·사료·병아리는 실전 측정에서 이미 센 편이라 안 올렸다.
-const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:6,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:60,len:260,cd:3},frost:{d:44,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
-  meteor:{d:5,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:105,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:5.5,R:90,iv:.75}};   // 🎵 리듬 너프(2026-10-02 · 무기 밸런스 점검) — 솔로 DPS 가 중앙값의 4~10배였다(적 전원 타격 · 쿨타임 없음 · 큰 박자 ×3 · 전체 버프까지): d 26→5.5 · R 100→90 · 큰 박자 ×3→×2.5 · 강화 피해 +8/12/16→+5/8/10%   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
+const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:7.5,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:60,len:260,cd:3},frost:{d:50,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
+  meteor:{d:14,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:105,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:7,R:90,iv:.75},
+  fryer:{d:15},sushi:{d:34},shrimp:{d:28},spk:{d:16}};   // 🍟 튀김기 · 🍣 초밥 · 🍤 새우깡 · 🎧 스피커 피해(Lv1) — 예전엔 코드 안의 5 · 12 · 14 · 8 이었다(⚖️ 2026-10-15 평균 맞추기: 5→15 · 12→34 · 14→28 · 8→16)
+// ⚖️ [2026-10-15 사장님 지시 「브레스는 하향, 다른 무기는 상향해서 평균값으로」] 같은 아레나(적 체력 10~20분차)에서 중앙값의 0.8배 아래였던 무기의 피해만 올렸다: 튀김기 5→15 · 초밥 12→34 · 새우깡 14→28 · 스피커 8→16 · 운석 5→14 · 폭죽 6→7.5 · 포토카드 13→19.5 · 깃털 11.5→16 · 하트 16→21 · 리듬 5.5→7 · 슬라임 17→24(조각 9.1→12.8) · 얼음땡 44→50 · 카트 5→20 · 엄! 외침 48→54 · 노래부르기 5.9→6.6(울림 1.7→1.9)   // 🎵 리듬 너프(2026-10-02 · 무기 밸런스 점검) — 솔로 DPS 가 중앙값의 4~10배였다(적 전원 타격 · 쿨타임 없음 · 큰 박자 ×3 · 전체 버프까지): d 26→5.5 · R 100→90 · 큰 박자 ×3→×2.5 · 강화 피해 +8/12/16→+5/8/10%   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
 const rkts=new Pool(24,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,R:46,tg:null,tsn:0,ev:0,t:0,fr:0}));      // 🎆 폭죽 로켓
 const pets=new Pool(8,()=>({x:0,y:0,a:0,tg:null,tsn:0,hit:0,ph:0,rt:0,big:0}));                        // 🐥 병아리 친구들(아군)
 const hooks=new Pool(4,()=>({x:0,y:0,ux:0,uy:0,d:0,len:0,ph:0,dmg:0,n:0,cap:0,c:new Array(12).fill(null),cs:new Array(12).fill(0),ev:0,id:0,stn:0,bm:0}));   // 🎣 낚싯줄
@@ -2913,12 +2915,12 @@ const DLS=L=>lvm(L,[[3,1.2],[5,1.2],[8,1.5]]);
 // ⚖️ [2026-10-12 사장님 지시 "배불배불 · 범위 좁은 탄막형 · 단일 무기 데미지라도 쎄야"] 피해(d · db · bd)만 올렸다 — 범위·쿨·개수·사거리는 그대로.
 //   노래부르기 4.5→5.9(울림 1.3→1.7) · 깃털 산탄 6.5→11.5 · 4발 사격 7→7.7 · 자크 슬라임 13→17(조각 7→9.1) · 포토카드 8→13 · 화해의 하트 14→18.
 //   근거: 무기 한 자루만 든 허수아비 밭(밀집·성김·보스) · 움직이는 아레나(실전 체력) · 정책 봇 측정 — 한 가지 지표만 보지 않았다. 집중겜·유미·카트 …는 약하지 않아서 그대로.
-const U3={sing:{d:5.9,db:1.7,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,cr:.04,crm:.6,sl:.45,bsl:.9,reach:280},
-  quill:{d:11.5,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
-  slime:{d:17,bd:9.1,cd:1.5,sp:310,rng:330,R:40},cart:{d:5,cd:7,R:70,life:5,heal:1.5},heart:{d:16,cd:1.1,life:2.6,stun:.7},
+const U3={sing:{d:6.6,db:1.9,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,cr:.04,crm:.6,sl:.45,bsl:.9,reach:280},
+  quill:{d:16,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
+  slime:{d:24,bd:12.8,cd:1.5,sp:310,rng:330,R:40},cart:{d:20,cd:7,R:70,life:5,heal:1.5},heart:{d:21,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
   snack:{d:11,cd:1.3,tr:260,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.7,evKd:.55,kd:.228,big:28,cs:260,cl:.36,cr:4,cap:80,frame:48,comp:2.5},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
-  pcards:{d:13,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
+  pcards:{d:19.5,cd:1.7,sp:430,life:.7,rng:290},eom:{d:54,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
 // 🛒 [2026-10-10 사장님 지시] 각성 카트(퍼스트클래스 서비스)도 수명이 있다 — 18초 동안 따라다니다 사라지고, 쿨타임(약 6초)마다 새 카트가 나온다.
@@ -3304,13 +3306,13 @@ function weapons(dt){
   // 🍟 튀김기 오라 → 🔥 합정점 대화재
   L=S.w.fryer||0;SRC='fryer';S.auraR=0;
   if(L){S.aura+=dt;const ev=S.ev.fryer,t=TK('fryer');const R=(ev?150:60*(1+.15*((L>=2)+(L>=4)+(L>=6)+(L>=8))))*AR*(1+(CH.aura||0))*(1+t.a);S.auraR=R;
-    if(t.pulse){S.frP=(S.frP||0)-dt;if(S.frP<=0){S.frP=(t.slow?2.2:3)*Math.min(1,cm);if(S.booms.length<40)S.booms.push({x:p.x,y:p.y,t:0,T:0,R:R*1.8,d:5*lvm(L,[[3,1.4],[5,1.4],[7,1.4],[8,1.4]])*MT*(ev?1.3:1)*(1+t.d)*3,done:false,ev:1,src:'fryer',style:'mine'});}}
-    if(S.aura>=(ev?.25:.4)*cm*(1-t.c)){S.aura=0;const dmg=5*lvm(L,[[3,1.4],[5,1.4],[7,1.4],[8,1.4]])*MT*(ev?1.3:1)*(1+t.d);let h=0;
+    if(t.pulse){S.frP=(S.frP||0)-dt;if(S.frP<=0){S.frP=(t.slow?2.2:3)*Math.min(1,cm);if(S.booms.length<40)S.booms.push({x:p.x,y:p.y,t:0,T:0,R:R*1.8,d:W4.fryer.d*lvm(L,[[3,1.4],[5,1.4],[7,1.4],[8,1.4]])*MT*(ev?1.3:1)*(1+t.d)*3,done:false,ev:1,src:'fryer',style:'mine'});}}
+    if(S.aura>=(ev?.25:.4)*cm*(1-t.c)){S.aura=0;const dmg=W4.fryer.d*lvm(L,[[3,1.4],[5,1.4],[7,1.4],[8,1.4]])*MT*(ev?1.3:1)*(1+t.d);let h=0;
       for(const e of enemies.a)if(e.on&&(e.x-p.x)**2+(e.y-p.y)**2<(R+e.r)**2){hurt(e,dmg);if(ev){e.slow=.5;h++;}else if(t.slow)e.slow=.4;}
       hitPropsAt(p.x,p.y,R,dmg);if(h)p.hp=Math.min(p.mhp,p.hp+Math.min(1,h*.12));}}   // 대화재 흡혈: 0.25초마다 최대 1(예전 2) — 초당 4
   // 🍣 아카보시 초밥 → 🍱 오마카세 회전초밥 벨트
   L=S.w.sushi||0;SRC='sushi';S.sushi.length=0;
-  if(L){const ev=S.ev.sushi,t=TK('sushi'),n=1+(L>=2)+(L>=4)+(L>=6)+(L>=8)+AM+t.n,R=70*lvm(L,[[4,1.15],[8,1.15]])*AR*(1+t.a),spd=(2.6+(L>=3)*.6+(L>=7)*.6)/Math.max(.6,cm),dmg=12*lvm(L,[[3,1.3],[5,1.3],[7,1.3]])*MT*(ev?1.2:1)*(1+t.d),gk=Math.min(1,Math.max(.6,cm)),kl=.25*gk;   // kl: 같은 적을 다시 맞히기까지의 간격 — 회전이 빨라진 만큼 같이 짧아진다(공격속도가 회전을 빠르게 해도 0.25초 잠금이 지우던 것을 막는다 · 쿨타임 1배 이하에선 예전 그대로 0.25초)
+  if(L){const ev=S.ev.sushi,t=TK('sushi'),n=1+(L>=2)+(L>=4)+(L>=6)+(L>=8)+AM+t.n,R=70*lvm(L,[[4,1.15],[8,1.15]])*AR*(1+t.a),spd=(2.6+(L>=3)*.6+(L>=7)*.6)/Math.max(.6,cm),dmg=W4.sushi.d*lvm(L,[[3,1.3],[5,1.3],[7,1.3]])*MT*(ev?1.2:1)*(1+t.d),gk=Math.min(1,Math.max(.6,cm)),kl=.25*gk;   // kl: 같은 적을 다시 맞히기까지의 간격 — 회전이 빨라진 만큼 같이 짧아진다(공격속도가 회전을 빠르게 해도 0.25초 잠금이 지우던 것을 막는다 · 쿨타임 1배 이하에선 예전 그대로 0.25초)
     S.sushiA=(S.sushiA||0)+dt*spd;
     const ring=(c,rad,dir)=>{for(let i=0;i<c;i++){const a=dir*S.sushiA+i*6.283/c;S.sushi.push({x:p.x+Math.cos(a)*rad,y:p.y+Math.sin(a)*rad});}};
     ring(n,R,1);if(ev)ring(n+2+3*t.ring,R*1.8,-1);else if(t.ring)ring(n,R*1.8,-1);
@@ -3328,7 +3330,7 @@ function weapons(dt){
     if(b.t<-.25)S.booms.splice(i,1);}
   // 🍤 새우깡 부메랑 → 🦐 새우깡 대회전
   L=S.w.shrimp||0;SRC='shrimp';
-  if(L){const ev=S.ev.shrimp,t=TK('shrimp'),dmg=14*lvm(L,[[2,1.3],[4,1.3],[7,1.3]])*MT*(ev?1.25:1)*(1+t.d)*(ev&&t.ret?1.25:1),rr=(L>=7?16:12)*AR*(ev?1.8:1)*(1+t.a);
+  if(L){const ev=S.ev.shrimp,t=TK('shrimp'),dmg=W4.shrimp.d*lvm(L,[[2,1.3],[4,1.3],[7,1.3]])*MT*(ev?1.25:1)*(1+t.d)*(ev&&t.ret?1.25:1),rr=(L>=7?16:12)*AR*(ev?1.8:1)*(1+t.a);
     if(ev){const n=4+AM+t.n+t.rev;if(S.rangN!==n){for(const r of rangs.a)r.on=false;for(let i=0;i<n;i++){const r=rangs.get();if(!r)break;r.orb=1;r.a=i*6.283/n;r.t=0;}S.rangN=n;}
       for(const r of rangs.a)if(r.on){r.dmg=dmg;r.r=rr;}}
     else{S.cd.shrimp-=dt;if(S.cd.shrimp<=0){const n=1+(L>=3)+(L>=6)+(L>=8)+AM+t.n,tg=nearest(),base=tg?Math.atan2(tg.y-p.y,tg.x-p.x):(p.face>0?0:Math.PI);
@@ -3354,7 +3356,7 @@ function weapons(dt){
   // 🎧 증바람 스피커 → 📢 증바람 콘서트
   L=S.w.spk||0;SRC='spk';
   if(L){S.cd.spk-=dt;if(S.cd.spk<=0){const ev=S.ev.spk,t=TK('spk'),sw=()=>{const w=waves.get();
-    if(w){w.x=p.x;w.y=p.y;w.r=10;w.R=120*lvm(L,[[2,1.15],[5,1.15],[8,1.2]])*AR*(ev?1.8:1)*(1+t.a);w.dmg=8*lvm(L,[[3,1.4],[6,1.4],[8,1.4]])*MT*(ev?2.4:1)*(1+t.d);w.id=++S.wvId;w.ev=ev?1:0;w.sn=t.stun;AU.play('wave');}};sw();if(t.echo)S.dq.push({t:.35,f:sw});
+    if(w){w.x=p.x;w.y=p.y;w.r=10;w.R=120*lvm(L,[[2,1.15],[5,1.15],[8,1.2]])*AR*(ev?1.8:1)*(1+t.a);w.dmg=W4.spk.d*lvm(L,[[3,1.4],[6,1.4],[8,1.4]])*MT*(ev?2.4:1)*(1+t.d);w.id=++S.wvId;w.ev=ev?1:0;w.sn=t.stun;AU.play('wave');}};sw();if(t.echo)S.dq.push({t:.35,f:sw});
     S.cd.spk=(ev?3:3*lvm(L,[[4,.75],[7,.8]]))*cm*(1-t.c);}}   // 📢 각성은 예전 1초 → 3초(한 방 2.4배 · 범위 1.8배) — 넉백 저항과 함께 적이 다가올 틈이 생긴다
   SRC='spk';for(const w of waves.a){if(!w.on)continue;w.r+=w.R*2.4*dt;if(w.r>=w.R){w.on=false;continue;}
     for(const e of enemies.a){if(!e.on||e.wv===w.id)continue;const d=Math.hypot(e.x-w.x,e.y-w.y);

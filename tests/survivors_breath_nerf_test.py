@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""🐲 용조련사 고유 무기 「🔥 드래곤 브레스」 피해 하향 — 기본 피해 36 → 29(약 −20%).
-[2026-10-09 사장님 지시 「용조련사 고유무기 데미지가 너무 쎄니까 하향조정」]
+"""🐲 용조련사 고유 무기 「🔥 드래곤 브레스」 피해 하향 — 기본 피해 36 → 29(10/09) → 11(10/15).
+[2026-10-09 사장님 지시 「용조련사 고유무기 데미지가 너무 쎄니까 하향조정」 · 2026-10-15 「브레스는 하향, 다른 무기는 상향해서 평균값으로」: 29 → 11]
 실제 게임 코드로 브레스를 쏴서 한 번 맞는 피해를 잰다(더미 적 하나·치명타 없음·다른 무기 없음):
-  Lv2(시작) 29 · Lv3 29×1.4 · Lv5 29×1.4×1.4 · Lv8 29×1.4×1.4×1.5 · 🌙 각성 ×1.2 — 올림·내림 없이 상수 BRT.d 에 레벨 배율이 그대로 곱해진다.
+  Lv2(시작) 11 · Lv3 11×1.4 · Lv5 11×1.4×1.4 · Lv8 11×1.4×1.4×1.5 · 🌙 각성 ×1.2 — 올림·내림 없이 상수 BRT.d 에 레벨 배율이 그대로 곱해진다.
 사용: python3 tests/survivors_breath_nerf_test.py
 """
 import asyncio, os, sys
@@ -36,11 +36,11 @@ async def main():
         b = await H.launch(pw)
         ctx, pg, errs = await H.new_page(b, srv.port, w=1280, h=720, page='survivors_bnx.html')
         r0 = await pg.evaluate(JS, [2, False])
-        ok(r0['d'] == 29, 'A1 기본 피해 상수 BRT.d = 29 (실제 %s)' % r0['d'])
+        ok(r0['d'] == 11, 'A1 기본 피해 상수 BRT.d = 11 (실제 %s)' % r0['d'])
         for L, ev in ((1, False), (2, False), (3, False), (4, False), (5, False), (6, False), (7, False), (8, False), (8, True)):
             r = await pg.evaluate(JS, [L, ev])
-            want = 29 * LV(L) * (1.2 if ev else 1)
-            ok(r['hit'] and abs(r['dmg'] - want) < 1e-6 * max(1, want) + 1e-6, 'B Lv%d%s 한 번 맞는 피해 %.3f (기대 %.3f)' % (L, ' 🌙각성' if ev else '', r['dmg'], want))
+            want = 11 * LV(L) * (1.2 if ev else 1)
+            ok(r['hit'] and abs(r['dmg'] - want) < 1e-5 * max(1, want) + 1e-6, 'B Lv%d%s 한 번 맞는 피해 %.3f (기대 %.3f)' % (L, ' 🌙각성' if ev else '', r['dmg'], want))
         ok(not [e for e in errs if 'bnx' not in e], 'C 콘솔·페이지 오류 0')
         await b.close()
     srv.close()
