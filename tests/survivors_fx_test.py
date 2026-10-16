@@ -312,7 +312,7 @@ async def main():
                 check('광역 「+10%」= areaMul() +0.1 · 초월 「+6% 더」= +0.06', '+10%' in tx['area'] and rd(r['ar1'] - r['ar0']) == .1 and '+6% 더' in tx['ptarea'][0] and rd(r['ar_pt'] - r['ar0']) == .06, (r['ar1'], r['ar_pt']))
                 check('끈기 「+15%」= DUR() ×1.15', '+15%' in tx['dur'] and rd(r['du1'] / r['du0']) == 1.15, r['du1'])
                 check('급소 「+5% · +0.2배」= critChance +0.05 · critMul +0.2 (Lv5 3배) · 행운 「+3%」= critChance +0.03', '+5%' in tx['crit'] and '+0.2배' in tx['crit'] and rd(r['cc_c'] - r['cc0']) == .05 and rd(r['cm_c'] - r['cm0']) == .2 and rd(r['cm_c5']) == 3 and '+3%' in tx['luck'] and rd(r['cc_l'] - r['cc0']) == .03, (r['cc_c'], r['cm_c'], r['cm_c5'], r['cc_l']))
-                check('근성 「+10%」= dmgMul ×1.1 · 광분 「+15%」= ×1.15', '+10%' in tx['might'] and rd(r['dm1']) == 1.1 and '+15%' in tx['glass'] and rd(r['dm_g']) == 1.15, (r['dm1'], r['dm_g']))
+                check('근성 「+10%」= dmgMul ×1.1 · 광분 「+25%」= ×1.25 (PASSV.glass.dmg 를 읽는다)', '+10%' in tx['might'] and rd(r['dm1']) == 1.1 and '+25%' in tx['glass'] and rd(r['dm_g']) == 1.25, (r['dm1'], r['dm_g']))
                 check('광역 확장 「범위 +10% · 쿨타임 5% 느려짐」= 실제 areaMul +0.1 · cdMul ×1.05 · 질풍 「-5%」· 속전속결 「-7% · 피해 -4%」', '+10%' in tx['wide'] and '5% 느려짐' in tx['wide'] and rd(r['ar_wide'] - r['ar0']) == .1 and rd(r['cd_wide']) == 1.05 and '-5%' in tx['gale'] and rd(r['ar_gale'] - r['ar0']) == -.05 and '-7%' in tx['swift'] and '-4%' in tx['swift'] and rd(r['cd_sw']) == .93 and rd(r['dm_sw']) == .96, r)
                 bad = []
                 for k, ds, fx in tx['syn']:

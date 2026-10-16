@@ -127,15 +127,18 @@ class Conf:
             k, v = kv.split('=', 1)
             self.params[k.strip()] = float(v)
         self.trace = bool(getattr(a, 'trace', False))
+        self.preset = json.loads(getattr(a, 'preset', None) or 'null')   # 패시브 고정 빌드 — 예: '{"ps":{"glass":3},"pt":{}}' (policy nopass 와 함께 쓴다 · 같은 칸 비교용)
         self.html_hash = md5(os.path.join(ROOT, a.html))
         self.bot_hash = md5(BOT_JS)
-        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items()), SIM_MODE, SIM_TAKEN])), text=True)
+        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items()), SIM_MODE, SIM_TAKEN, json.dumps(self.preset, sort_keys=True)])), text=True)
 
     def public(self):
         o = {'tool': TOOL_VERSION, 'cap': self.cap, 'dt': round(self.dt, 6), 'view': '%dx%d' % self.view, 'low': self.low,
              'html': self.html_hash, 'bot': self.bot_hash, 'sig': self.sig}
         if self.params:
             o['params'] = self.params
+        if self.preset:
+            o['preset'] = self.preset
         return o
 
 
@@ -168,7 +171,7 @@ async def run_one(browser, srv, page_name, conf, char, seed, policy, say=None):
         await pg.goto(base + page_name)
         await pg.wait_for_function('window.__p6x!==undefined&&window.__cbx!==undefined', polling=50, timeout=20000)   # rAF 를 멈춰 뒀으니 기본 polling(raf)을 쓰면 안 된다
         await pg.add_script_tag(content=open(BOT_JS, encoding='utf-8').read())
-        info = await pg.evaluate('c=>__cb.init(c)', {'char': char, 'seed': seed, 'policy': policy, 'cap': conf.cap, 'dt': conf.dt, 'params': conf.params, 'trace': conf.trace})
+        info = await pg.evaluate('c=>__cb.init(c)', {'char': char, 'seed': seed, 'policy': policy, 'cap': conf.cap, 'dt': conf.dt, 'params': conf.params, 'trace': conf.trace, 'preset': conf.preset})
         row['info'] = info
         last_print = -1
         while True:
@@ -296,6 +299,8 @@ def cmd_run(a):
             base.append('--quiet')
         if a.trace:
             base.append('--trace')
+        if a.preset:
+            base += ['--preset', a.preset]
         for kv in a.param:
             base += ['--param', kv]
         ps = [subprocess.Popen(base + ['--wid', str(i)], cwd=ROOT) for i in range(a.procs)]
@@ -638,6 +643,7 @@ def main():
         p.add_argument('--policy', default='full', help='full | sigonly (run 은 both 도 가능)')
         p.add_argument('--quiet', action='store_true', help='진행 줄을 줄인다')
         p.add_argument('--param', action='append', default=[], metavar='KEY=VAL', help='정책 상수 덮어쓰기(민감도 점검). 예: --param MOVE.nearMargin=60 --param CARD.passive.arm=90')
+        p.add_argument('--preset', default=None, help='패시브 고정 빌드 JSON (S.ps / S.pt 를 시작 직후 채운다)')
         p.add_argument('--trace', action='store_true', help='결과 줄에 2초마다 궤적·피격 기록을 붙인다(디버깅용 · 줄이 커진다)')
 
     r = sub.add_parser('run', help='측정 돌리기(중단 후 이어서 가능)')
