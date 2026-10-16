@@ -109,7 +109,7 @@ NONWEAPON = {'spd', 'hp', 'mag', 'arm', 'study', 'vamp', 'turtle', 'rev'}   # �
 REP_Y = [('feed', 'cd', 'b'), ('egg', 'cnt', 'b'), ('kbd', 'cnt', 'b'), ('shrimp', 'cnt', 'e'), ('can', 'spd', 'b'), ('rkt', 'spd', 'b'), ('tempo', 'spd', 'e'),
          ('potion', 'dur', 'b'), ('hole', 'dur', 'b'), ('ping', 'dur', 'e'), ('pan', 'area', 'b'), ('egg', 'area', 'b'), ('gacha', 'luck', 'b'), ('feed', 'spd', 'b'),
          ('bash', 'cd', 'e'), ('spk', 'area', 'e'), ('quill', 'spd', 'e'),
-         ('snack', 'cnt', 'b'), ('snack', 'cnt', 'e'), ('snack', 'spd', 'b'), ('snack', 'dur', 'b'), ('snack', 'dur', 'e')]   # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기·속사·끈기를 받는다
+         ('snack', 'spd', 'b'), ('snack', 'dur', 'b'), ('snack', 'dur', 'e')]   # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기·속사·끈기를 받는다
 REP_N = [('feed', 'spd', 'e'), ('feed', 'area', 'b'), ('feed', 'dur', 'b'), ('shrimp', 'cd', 'e'), ('shrimp', 'spd', 'e'), ('cart', 'dur', 'e'), ('tempo', 'cnt', 'b'),
          ('jhin', 'cnt', 'b'), ('slime', 'cnt', 'b'), ('heart', 'cnt', 'b'), ('whop', 'cnt', 'b'), ('quill', 'area', 'b'), ('tempo', 'area', 'b'),
          ('potion', 'luck', 'b'), ('whop', 'luck', 'b'), ('pcards', 'luck', 'e'), ('chick', 'spd', 'b'), ('sushi', 'spd', 'b'), ('fryer', 'dur', 'b'),
@@ -615,7 +615,7 @@ async def main():
                           ('twin', 'dur', 'b'): ('p', 'y'), ('twin', 'dur', 'e'): ('p', 'y'), ('sing', 'cnt', 'b'): ('p', 'y'), ('sing', 'cnt', 'e'): ('p', 'y'),
                           ('stamp', 'cd', 'b'): ('p', 'y'), ('stamp', 'cd', 'e'): ('p', 'y'), ('chain', 'cd', 'b'): ('p', 'y'), ('chain', 'cd', 'e'): ('p', 'y'),
                           # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기(부스러기 +1/겹) · 속사(스틱·부스러기 속도) · 끈기(부스러기 수명) · 광역(부스러기 크기)를 받는다. 각성의 곱빼기는 부스러기 상한(56발)에 막혀 p
-                          ('snack', 'cnt', 'b'): ('n', 'y'), ('snack', 'cnt', 'e'): ('n', 'p'), ('snack', 'spd', 'b'): ('n', 'y'), ('snack', 'spd', 'e'): ('n', 'y'),
+                          ('snack', 'cnt', 'b'): ('n', 'p'), ('snack', 'cnt', 'e'): ('n', 'p'), ('snack', 'spd', 'b'): ('n', 'y'), ('snack', 'spd', 'e'): ('n', 'y'),
                           ('snack', 'dur', 'b'): ('n', 'y'), ('snack', 'dur', 'e'): ('n', 'p'), ('snack', 'area', 'b'): ('n', 'p'),
                           # 🔥 [2026-10-12 사장님] 프싱 쌍둥이 이빨 — 곱빼기가 화염 장판 개수(+1/겹)를 늘린다(베기·화염구는 그대로 → p)
                           ('twin', 'cnt', 'b'): ('n', 'p'), ('twin', 'cnt', 'e'): ('n', 'p')}
