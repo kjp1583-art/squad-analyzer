@@ -19,7 +19,7 @@
   python3 tests/survivors_charbal_sim.py determinism
 
 조건(기본): 일반 모드 · dt=1/30 · 창 1280x720(PC · LOW 꺼짐: 적 상한 220) · 소리·화면 효과 끔 · 이어하기 저장 끔 · 정책 full.
-  --view 412x860 --low 로 폰 조건(적 상한 140)도 잴 수 있다. --html 로 다른 survivors 사본(상향안)을 재면 결과 줄에 html 해시가 남아 섞이지 않는다.
+  --view 412x860 --low 로 폰 조건(LOW — 이제 적 상한은 기기 무관 220, 그리기만 가벼워진다)도 잴 수 있다. --html 로 다른 survivors 사본(상향안)을 재면 결과 줄에 html 해시가 남아 섞이지 않는다.
 """
 import argparse, asyncio, atexit, glob, hashlib, json, math, os, random, re, shutil, statistics, subprocess, sys, time
 
@@ -633,7 +633,7 @@ def main():
         p.add_argument('--cap', type=float, default=None, help='판 상한(초). 기본 900 = 15분')
         p.add_argument('--dt', type=float, default=1 / 30, help='update 한 번의 시간(초). 기본 1/30')
         p.add_argument('--view', default='1280x720', help='창 크기. 기본 1280x720(PC)')
-        p.add_argument('--low', action='store_true', help='폰/약한 기기 조건(LOW: 적 상한 140)')
+        p.add_argument('--low', action='store_true', help='폰/약한 기기 조건(LOW: 그리기 비용만 줄임 — 적 상한은 220 으로 같다)')
         p.add_argument('--html', default='survivors.html', help='측정할 survivors 파일(저장소 루트 기준). 기본 survivors.html')
         p.add_argument('--policy', default='full', help='full | sigonly (run 은 both 도 가능)')
         p.add_argument('--quiet', action='store_true', help='진행 줄을 줄인다')
