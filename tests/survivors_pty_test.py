@@ -61,7 +61,7 @@ async def main():
         T = r['T']
         check('TIERS.panty: 마스터 3 + 각성 2 (팬티 +1 · 피해 +12% · 쿨 -7% · 줄+1·지속+1·피해+8% · 흩어짐)', T == [{'n': 1}, {'d': .12}, {'c': .07}, {'ring': 1, 'life': 1, 'd': .08}, {'frag': 1}], T)
         check('콤보 u_panty: 🧺 + 🥏 냄비뚜껑(공용) · 모든 피해 +8% · 광역 +6%', r['sy'] and r['sy']['req'] == ['panty', 'lid'] and r['sy']['fx'] == {'dmg': .08, 'area': .06} and r['lid'], r['sy'])
-        check('PFX 표에 panty 가 있고 모든 무기가 PFX 를 가진다', r['pfx'] == {'cd': 'yy', 'cnt': 'pp', 'spd': 'yy', 'dur': 'ny', 'area': 'pp', 'luck': 'nn'} and r['noPfx'] == [], (r['pfx'], r['noPfx']))
+        check('PFX 표에 panty 가 있고 모든 무기가 PFX 를 가진다', r['pfx'] == {'cd': 'yy', 'cnt': 'pp', 'spd': 'yy', 'dur': 'ny', 'area': 'ny', 'luck': 'nn'} and r['noPfx'] == [], (r['pfx'], r['noPfx']))
         check('고유 무기 panty 는 U3 수치표를 가진다(다른 전용 무기의 U3 유무는 이 시험의 몫이 아니다)', 'panty' not in r['noU3'], r['noU3'])
         check('mag 짝 무기에 팬티 투척이 들어 있다(획득 범위는 전리품 줍기도 넓힌다)', 'panty' in r['midPair'] and 'snack' in r['midPair'], r['midPair'])
         U = r['u3']

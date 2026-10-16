@@ -246,7 +246,7 @@ async def main():
             # ───── 가 정적 ─────
             if want('가'):
                 print('── 가 정적 ──')
-                check('PFX 의 무기 = WEAP 의 무기(41개 · 같은 순서)', list(PFX.keys()) == WK and len(WK) == 40, (set(PFX) ^ set(WK)))
+                check('PFX 의 무기 = WEAP 의 무기(41개 · 같은 순서)', list(PFX.keys()) == WK and len(WK) == 41, (set(PFX) ^ set(WK)))
                 okv = all(set(r.keys()) == set(CHAN) and all(re.fullmatch('[ypn]{2}', r[c]) for c in CHAN) for r in PFX.values())
                 check('칸마다 여섯 채널(cd cnt spd dur area luck) · 두 글자(기본·각성) · y/p/n 만', okv)
                 miss, extra = [], []
@@ -265,7 +265,7 @@ async def main():
                 SN_WANT = {'feed': '사료', 'fryer': '튀김기', 'sushi': '초밥', 'egg': '달걀', 'shrimp': '새우깡', 'kbd': '난타', 'spk': '스피커', 'potion': '물약', 'breath': '브레스', 'ping': '핑', 'wifi': '와이파이', 'can': '캔', 'gacha': '가챠',
                            'pan': '팬', 'rkt': '폭죽', 'chick': '병아리', 'rod': '낚싯대', 'frost': '얼음땡', 'lid': '뚜껑', 'meteor': '운석', 'snipe': '저격', 'hole': '블랙홀', 'bell': '리듬', 'quill': '깃털', 'tempo': '치명속도', 'fuse': '폭탄',
                            'slime': '슬라임', 'cart': '카트', 'heart': '하트', 'jhin': '4발', 'whop': '와퍼', 'bash': '방패', 'twin': '쌍둥이', 'stamp': '도장', 'chain': '사슬', 'ram': '박치기', 'snack': '맛동산', 'eom': '엄외침', 'pcards': '포토카드', 'sing': '노래', 'panty': '팬티'}
-                check('PFXSN(짧은 무기 이름) = WEAP 41개와 1:1 · 1~4글자 · 겹치지 않는다 · 정한 이름과 같다', sorted(PFXSN) == sorted(WK) and len(PFXSN) == 41 and all(1 <= len(v) <= 4 for v in PFXSN.values()) and len(set(PFXSN.values())) == 40 and PFXSN == SN_WANT, (set(PFXSN) ^ set(WK), {k: v for k, v in PFXSN.items() if SN_WANT.get(k) != v}))
+                check('PFXSN(짧은 무기 이름) = WEAP 41개와 1:1 · 1~4글자 · 겹치지 않는다 · 정한 이름과 같다', sorted(PFXSN) == sorted(WK) and len(PFXSN) == 41 and all(1 <= len(v) <= 4 for v in PFXSN.values()) and len(set(PFXSN.values())) == 41 and PFXSN == SN_WANT, (set(PFXSN) ^ set(WK), {k: v for k, v in PFXSN.items() if SN_WANT.get(k) != v}))
                 _src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
                 check('PFXSN 은 WEAP 표 바깥의 별도 최상위 const(이어하기 서명 대상 아님)', re.search(r'^const PFXSN=\{', _src, re.M) is not None and 'PFXSN' not in _src[_src.index('const WEAP={'):_src.index('const WEAP={') + 40000].split('const PFX={')[0], '')
                 check('p 설명은 짧다(30자 이하) · 한글/기호만 · 영어 약어 없음', all(len(t) <= 30 and not re.search('[A-Za-z]{3,}', t) for t in notes), [t for t in notes if len(t) > 30])
