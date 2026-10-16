@@ -500,11 +500,11 @@ let W=0,H=0,DPR=1,SC=1; // SC: world->screen scale
 //   ③ 캔버스 백버퍼가 화면 픽셀 그대로(4K 830만 픽셀).
 //   → 보이는 월드 넓이를 화면과 상관없이 거의 일정하게(VIEW_A · 한 변 최대 VIEW_MAX) 고정하고, 스폰·정리 반경과 조각 캐시를 그 시야에서 계산, 백버퍼는 MAXPX 픽셀까지만.
 const VIEW_A=1.25e6,VIEW_MAX=1750,MAXPX=2.8e6;
-let VW=0,VH=0,SPAWN_R=900,DESP_R=1400;
+let VW=0,VH=0,SPAWN_R=905,DESP_R=1425;   // SPAWN_R·DESP_R 는 resize 가 바꾸지 않는다(기기 무관 고정)
 function resize(){W=innerWidth;H=innerHeight;
   DPR=Math.max(.5,Math.min(window.devicePixelRatio||1,(navigator.hardwareConcurrency||4)<=4?1.5:2,Math.sqrt(MAXPX/Math.max(1,W*H))));cv.width=W*DPR|0;cv.height=H*DPR|0;   // 약한 기기(코어 4개 이하)는 백버퍼 1.5배까지
   SC=Math.max(.7,Math.sqrt(W*H/VIEW_A),W/VIEW_MAX,H/VIEW_MAX);   // 폰(짧은 변 360)은 예전과 같은 0.7
-  VW=W/SC;VH=H/SC;SPAWN_R=Math.hypot(VW,VH)/2+50;DESP_R=Math.max(1400,SPAWN_R+520);
+  VW=W/SC;VH=H/SC;   // 🖥 [2026-10-16 사장님 "해상도 같은 시점에 의해 몬스터 젠이 변경되는 건 아닌지"] 스폰·정리 거리는 화면과 무관한 고정값(SPAWN_R 905 · DESP_R 1425) — 예전 PC(16:9 시야 1491×839)가 쓰던 값이라 기존 순위 기록과 같은 기준이다(폰은 예전 677 → 905). 폰 시야(대각선/2≈627)·PC 시야(≈855)는 이 밖이다. 시야 대각선이 가장 큰 극단 비율(21:9 이상)에선 가장자리 일부 각도에서 몇십 px 안쪽에 나타날 수 있다
   try{riftResize();}catch(e){}}   // 첫 호출 땐 아래 바닥 코드가 아직 준비 전(아래에서 한 번 더 부른다)
 addEventListener('resize',resize);resize();
 
@@ -1047,12 +1047,12 @@ Pool.all=[];   // 🔁 이어하기: 풀 목록이 RES 의 분류와 맞는지 �
 Pool.prototype.get=function(){for(const o of this.a)if(!o.on){o.on=true;return o;}return null;};
 Pool.prototype.clear=function(){for(const o of this.a)o.on=false;};
 const LOW=(navigator.hardwareConcurrency||4)<=4||Math.min(screen.width,screen.height)<420;
-const MAXE=LOW?140:220;   // 적 수 상한은 그대로 — 후반엔 숫자 대신 체력·공격력이 오른다
+const MAXE=220;   // 적 수 상한은 그대로 — 후반엔 숫자 대신 체력·공격력이 오른다 · 🖥 [2026-10-16] 기기와 무관한 단일 값(순위 싸움이 기기 사양으로 갈리지 않게) — LOW 는 그리는 비용만 줄인다
 const enemies=new Pool(MAXE,()=>({x:0,y:0,hp:0,mhp:0,r:10,sp:0,dmg:0,t:0,hit:0,boss:0,xp:1,kb:0,kx:0,ky:0,st:0,slow:0,gold:0,hb:-9,wv:0,zp:0,el:0,fx:0,ft:0,pl:0,at:null,
   bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0,tn:0,kr:0,bph:0,gen:0,wf:-9,cn:-9,far:0,fz:0,fv:0,fw:0,hk:0,mt:0,mc:0,lw:-9,sw:-9,fk:0,fa:0,fux:0,fuy:0,ff:0,du:null}));   // du ⚔ 최종 보스 1:1 상태(보스 칸만 · 그 밖은 null)   // fz·fv 🧊 얼음 · fw 얼음 파동 번호 · hk 🎣 줄 번호 · mt 운석·저격 지정 번호 · lw 🥏 뚜껑 마지막 접촉 · sw 🍣 초밥 마지막 적중   // wf 📶 전파 · cn 🥫 캔 마지막 적중 시각   // kr 넉백 저항(연달아 밀릴수록 덜 밀린다) · bph 보스 페이즈 · gen 분열 세대(자크)   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호 · tn 등장 대사 대기(기한)
 let SN=0;   // 적 출생 번호 — 풀 칸은 재사용되므로 '같은 적인가'는 on 이 아니라 sn 으로 본다(갈고리·레이저·브레스의 주인)
 const srcOk=b=>!!(b.src&&b.src.on&&b.src.sn===b.sn);
-const shots=new Pool(LOW?160:220,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,pierce:0,r:6,c:'#e8c46a'}));
+const shots=new Pool(220,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,pierce:0,r:6,c:'#e8c46a'}));
 const gems=new Pool(200,()=>({x:0,y:0,v:1,mag:0}));   // 💎 [2026-09-30 사장님 지시] 처치 1마리 = 보석 1개(보스도 1개) · 값에 따라 색·크기가 티어로 갈린다 · 바닥에 60개 넘게 쌓이면 가까운 것끼리 합친다
 const gemTier=v=>v<3?0:v<8?1:v<20?2:v<50?3:4;   // 💎 T0 하늘 ◆ 1~2 · T1 민트 ■ 3~7 · T2 금색 ⬢ 8~19 · T3 연보라 ✦ 20~49 · T4 흰보라 ✸ 50+ (빨강 계열은 적 위험 표시 전용이라 안 쓴다)
 const GEM_SOFT=60,GEM_COL=['#5bd1ff','#5ff2b4','#ffd95a','#c3a8ff','#f4eeff'],GEM_R=[4,6,7,9,11];
@@ -1826,7 +1826,7 @@ function mapTick(dt){
   const p=S.p;S.propT-=dt;S.chickT-=dt;
   for(const o of props.a)if(o.on){if(o.hit>0)o.hit-=dt;if((o.x-p.x)**2+(o.y-p.y)**2>1600*1600)o.on=false;}
   if(S.propT<=0){S.propT=6;let c=0;for(const o of props.a)if(o.on)c++;   // 오브젝트는 6초마다(예전 4초) — 💎·💣가 넘치면 레벨이 너무 빨리 오른다
-    if(c<(LOW?6:8)){const o=props.get();if(o){const a=RN('prop')*6.283,R=450+RN('prop')*450;o.x=p.x+Math.cos(a)*R;o.y=p.y+Math.sin(a)*R;const r=RN('prop');o.k=r<.5?0:r<.82?1:2;o.hp=PROP[o.k].hp;o.hit=0;}}}
+    if(c<8){const o=props.get();if(o){const a=RN('prop')*6.283,R=450+RN('prop')*450;o.x=p.x+Math.cos(a)*R;o.y=p.y+Math.sin(a)*R;const r=RN('prop');o.k=r<.5?0:r<.82?1:2;o.hp=PROP[o.k].hp;o.hit=0;}}}
   if(S.chickT<=0){S.chickT=100+RN('prop')*50;const a=RN('prop')*6.283,R=350+RN('prop')*350;dropItem('chicken',p.x+Math.cos(a)*R,p.y+Math.sin(a)*R);}
   if(CH.auto){S.auT=(S.auT||0)+dt;if(S.auT>=CH.auto){let nb=null,nd=1e18;for(const it of items.a){if(!it.on||it.k==='chest')continue;const d=(it.x-p.x)**2+(it.y-p.y)**2;if(d<nd){nd=d;nb=it;}}   // 🍘 유미: 5초마다 가장 가까운 소모 아이템(치킨·자석·폭탄) 1개를 자동으로 줍는다(보스 상자는 제외) — 줄 게 없으면 시간을 모아 두지 않고 곧 다시 찾는다
     if(nb){S.auT=0;nb.on=false;usePick(nb.k);}else S.auT=CH.auto;}}
@@ -2382,7 +2382,7 @@ function bumpKey(e){   // 몸에 부딪혀 피해가 들어갈 때 말할 트롤
   if(K.stealth)return e.sv||e.ft>2.6?'Twitch':'';     // 은신 중이거나 막 튀어나왔을 때
   return BUMP.has(K.id)?K.id:'';}
 const hazards=new Pool(60,()=>({x:0,y:0,life:0,d:8,own:null,osn:0}));   // 🍄 버섯(own/osn 심은 티모 — 도발 말풍선)
-const eshots=new Pool(LOW?100:140,()=>({x:0,y:0,vx:0,vy:0,life:0,d:0,g:'',sl:0,k:0,src:null,sn:0,ox:0,oy:0,c:0}));   // k 1 🪝 갈고리(끌어당김) · 2 🌪 회오리(밀쳐냄) · 3 📸 포토카드(c 색 번호)
+const eshots=new Pool(140,()=>({x:0,y:0,vx:0,vy:0,life:0,d:0,g:'',sl:0,k:0,src:null,sn:0,ox:0,oy:0,c:0}));   // k 1 🪝 갈고리(끌어당김) · 2 🌪 회오리(밀쳐냄) · 3 📸 포토카드(c 색 번호)
 const BIMG={};function bossImg(k){if(!BIMG[k])BIMG[k]=sprite('img/survivors/boss_'+k+'.webp',200);return BIMG[k];}
 function charImg(c){for(const b of c.bdg||[])bdgSpr(b);const k=bkey(c);if(!BIMG[k])BIMG[k]=sprite(artUrl(c),200);if(c.shv&&!BIMG.psg_drg)BIMG.psg_drg=sprite('img/survivors/char_psg_drg.webp?v=1',256);return BIMG[k];}   // 🐲 프싱은 용 변신용 그림도 같이 불러온다
 const pickLine=a=>a&&a.length?a[Math.random()*a.length|0]:'';
@@ -2431,7 +2431,7 @@ const FIN_DUEL={
   phaseSec:100,                    // …그리고 1:1 이 시작된 지 100초·200초가 지나면 체력과 상관없이 그 단계로(0 이면 체력만) — 실측: 평범한 빌드는 5분에 보스 체력을 20% 남짓 깎아 체력만으로는 1단계만 보게 된다
   tail:{n:[1,2,3],R:250,w:.46},    // 부채꼴 반지름·반각(rad) · 연속 횟수(매번 그때의 내 쪽으로 새로 겨눈다)
   claw:{n:[1,2,2],speed:640,stun:[[2.4],[.9,2.0],[.7,1.5]]},   // 돌진 횟수 · 벽에 쾅 한 뒤 기절 시간(반격 기회)
-  bub:{rings:[4,5,6],gap:[.62,.55,.5],step:[.18,.2,.22],dt:[.8,.7,.6],n:20,nLow:16,v:175,life:2.4},   // 링 수 · 틈 반각 · 링마다 틈이 도는 각 · 링 간격
+  bub:{rings:[4,5,6],gap:[.62,.55,.5],step:[.18,.2,.22],dt:[.8,.7,.6],n:20,v:175,life:2.4},   // 링 수 · 틈 반각 · 링마다 틈이 도는 각 · 링 간격
   snack:{n:[6,8,10],R:[62,66,70],waves:[1,1,2]},
   safe:{R:[105,95,85]},
   shell:{t:[0,2.8,2.1],weak:[0,3.0,2.4],mul:.12,wmul:1.6},   // 껍질: 받는 피해 ×.12 · 깨진 뒤 약점: ×1.6
@@ -2541,7 +2541,7 @@ function duelPat(e,D,c,dt){   // 패턴 한 틱 — 돌려받는 값: 속도 배
       if(c.k==='shell'){D.sh=1;say(e,'껍질 속에서 맞아 보시지!');txt(e.x,e.y-e.r-22,'🐚 껍질 — 피해 감소','#d9c8ff');}else say(e,'거품 간다!');}
     else if(c.s===1){c.t-=dt;if(c.t<=0){c.s=2;c.t=0;}}
     else if(c.s===2){c.t-=dt;
-      if(c.t<=0){const B=F.bub,N=LOW?B.nLow:B.n,g=c.g0+c.dir*B.step[ph]*c.i,gw=B.gap[ph],dm=capHit(e,F.dmg.bub);
+      if(c.t<=0){const B=F.bub,N=B.n,g=c.g0+c.dir*B.step[ph]*c.i,gw=B.gap[ph],dm=capHit(e,F.dmg.bub);
         for(let k=0;k<N;k++){const a=g+(k+.5)*6.2832/N;let da=Math.atan2(Math.sin(a-g),Math.cos(a-g));if(Math.abs(da)<gw)continue;
           const b=eshots.get();if(!b)break;b.x=b.ox=e.x;b.y=b.oy=e.y;b.vx=Math.cos(a)*B.v;b.vy=Math.sin(a)*B.v;b.life=B.life;b.d=dm;b.g='🫧';b.sl=0;b.k=0;b.src=e;b.sn=e.sn;}
         AU.play('wave');c.i++;c.t=B.dt[ph];if(c.i>=c.n){c.s=3;c.t=1.0;}}}
@@ -2581,7 +2581,7 @@ function spawnBig(hm){   // 👹 대형 흐접새우 트롤픽 — 덩치 2.2배
 // 🌊 몰이 이벤트 — [2026-09-29 사장님 "xxx가 몰려온다 이벤트를 훨씬 자주"] 예전 3분마다 → 1:15 부터 약 80초 → 후반 45초마다.
 //   종류: 포위 · 티모 러시 · 구울 떼 · (8분~) 💥 자폭 코그모 떼 · (12분~) 🐎 헤카림 기마대 · (15분~) 🌀 협공(양쪽에서 동시에)
 function eventTick(){
-  const m=MIN(),n=Math.min(freeSlots()-10,LOW?30:44,14+m*1.5|0);if(n<=0)return;   // 초반 몰이는 작게(1분 15마리 → 20분부터 최대)
+  const m=MIN(),n=Math.min(freeSlots()-10,44,14+m*1.5|0);if(n<=0)return;   // 초반 몰이는 작게(1분 15마리 → 20분부터 최대)
   const types=[0,1,2];if(S.t>=480)types.push(3);if(S.t>=720)types.push(4);if(S.t>=900)types.push(5);
   let typ=types[S.evN++%types.length];if(S.evN>types.length&&RN('ev')<.35)typ=types[RN('ev')*types.length|0];
   const R=SPAWN_R-10,hm=hpMul(m),P=S.p,at=a=>({x:P.x+Math.cos(a)*R,y:P.y+Math.sin(a)*R});
@@ -2592,9 +2592,9 @@ function eventTick(){
   else if(typ===2){banner('🌊 구울 떼 — 요릭의 구울이 쏟아진다!','클랜원들: 제발…');
     for(let i=0;i<n;i++){const e=spawnEnemy(1,hm*.6,null,at(RN('ev')*6.283));if(e){e.id='Yorick';e.r=8;e.sp=95;e.c='#7a7f9a';e.xp=1;}}}
   else if(typ===3){banner('💥 자폭 코그모 떼가 몰려온다!','흐접새우: 원딜 코그모는 터지라고 있는 거임');
-    const a=RN('ev')*6.283,c=Math.min(n,LOW?10:14);for(let i=0;i<c;i++){const e=spawnEnemy(KI.KogMaw,hm,null,at(a+(i/c-.5)*1.2));if(e)e.sp*=1.15;}}
+    const a=RN('ev')*6.283,c=Math.min(n,14);for(let i=0;i<c;i++){const e=spawnEnemy(KI.KogMaw,hm,null,at(a+(i/c-.5)*1.2));if(e)e.sp*=1.15;}}
   else if(typ===4){banner('🐎 헤카림 기마대가 몰려온다!','흐접새우: 미드 헤카림 로밍 간다~');
-    const a=RN('ev')*6.283,c=Math.min(n,LOW?8:10);for(let i=0;i<c;i++){const e=spawnEnemy(KI.Hecarim,hm,null,at(a+(i/c-.5)*.9));if(e)e.ft=.6+i*.25;}}
+    const a=RN('ev')*6.283,c=Math.min(n,10);for(let i=0;i<c;i++){const e=spawnEnemy(KI.Hecarim,hm,null,at(a+(i/c-.5)*.9));if(e)e.ft=.6+i*.25;}}
   else{banner('🌀 협공 — 양쪽에서 동시에 몰려온다!','클랜원들: 앞도 뒤도 막혔어…');
     const a=RN('ev')*6.283,k=S.t>=1500?8:S.t>=720?7:2;for(let i=0;i<n;i++){const side=i&1?Math.PI:0;const e=spawnEnemy(i%5===0?KI.Caitlyn:k,hm,null,at(a+side+((i>>1)/(n/2)-.5)*1.1));if(e)e.sp*=1.1;}}
 }
@@ -2606,7 +2606,7 @@ function waveTick(dt){
 }
 function waveSpawn(dt){
   const m=MIN();
-  const rate=Math.min(LOW?16:22,1.2+1.3*m+.05*m*m)*.85*(S.hard?hv().rate:1);   // 몰이 이벤트가 잦아진 만큼 평소 스폰은 15% 덜 // 초당 마릿수 — 상한 이후엔 체력·공격력만 오른다
+  const rate=Math.min(22,1.2+1.3*m+.05*m*m)*.85*(S.hard?hv().rate:1);   // 몰이 이벤트가 잦아진 만큼 평소 스폰은 15% 덜 // 초당 마릿수 — 상한 이후엔 체력·공격력만 오른다
   S.spawnT+=dt*rate;
   const hm=hpMul(m),elP=S.t<180?0:Math.min(.065,.008+m*.0012);   // ⭐ 엘리트 — 3분부터(예전 10분) 조금씩 → 10분 2% · 30분 4.4% · 48분~ 6.5%
   while(S.spawnT>=1){S.spawnT--;
@@ -3620,7 +3620,7 @@ function bossAct(e,dt,d,dx,dy){   // 보스 패턴 — 돌려받는 값: 속도 
   const f=e.hp/e.mhp;
   if(e.bph<2&&f<(e.bph?.33:.66)){e.bph++;e.fl=.5;AU.play('boss');FX.glow=1.2;
     banner(`🔥 ${B.nm} — ${e.bph+1}페이즈!`,B.brj&&B.hit?'「'+pickLine(B.hit)+'」':pickLine(TAUNT.bossP),1);
-    if(e.bph===1){const k=S.t>=720?7:2;for(let i=0;i<(LOW?4:6);i++){const a=i/6*6.283,x=spawnEnemy(k,hpMul(m)*1.2,null,{x:e.x+Math.cos(a)*90,y:e.y+Math.sin(a)*90});if(x)x.el=1;}}
+    if(e.bph===1){const k=S.t>=720?7:2;for(let i=0;i<6;i++){const a=i/6*6.283,x=spawnEnemy(k,hpMul(m)*1.2,null,{x:e.x+Math.cos(a)*90,y:e.y+Math.sin(a)*90});if(x)x.el=1;}}
     else at.nova=1.5;}
   const tm=1+.35*e.bph;
   for(const k of B.atk)at[k]-=dt*tm;
@@ -3632,7 +3632,7 @@ function bossAct(e,dt,d,dx,dy){   // 보스 패턴 — 돌려받는 값: 속도 
   if(has('charge')&&at.charge<=0){at.charge=5.5;e.fx=.8;if(B.key==='yj')say(e,'탑 주세요. 탑만.');}
   if(e.fx>0){e.fx-=dt;spm=has('charge')?4:3.4;}
   if(has('shots')&&at.shots<=0){at.shots=2.2;for(let i=-1;i<=1;i++)shot(aim+i*.22,220);}
-  if(has('ring')&&at.ring<=0){at.ring=4.5;const n=LOW?10:14,o=Math.random();for(let i=0;i<n;i++)shot(o+i*6.283/n,170);}
+  if(has('ring')&&at.ring<=0){at.ring=4.5;const n=14,o=Math.random();for(let i=0;i<n;i++)shot(o+i*6.283/n,170);}
   if(has('summon')&&at.summon<=0){at.summon=7;const k=B.key==='yorick'||B.key==='mao'?(B.key==='mao'?0:1):S.t>=720?7:2;
     for(let i=0;i<(B.sum||4);i++){const x=spawnEnemy(k,hpMul(m)*.8,null,{x:e.x+(Math.random()-.5)*120,y:e.y+(Math.random()-.5)*120});if(x&&B.key==='yorick'){x.id='Yorick';x.r=8;x.sp=90;}}
     if(B.key==='yorick')taunt('Yorick',e);}
