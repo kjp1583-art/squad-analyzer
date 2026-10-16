@@ -3313,6 +3313,7 @@ function weapons3(dt,cm,MT,AR,AM){
       S.cd.panty=U.cd*lvm(L,[[6,.9]])*cm*(1-t.c)*(ev?.9:1);}
     else S.cd.panty=0;}
   // ── 엔티티 갱신(뒤에서부터 · 끝난 건 맨 뒤 것과 바꿔 치우기)
+  const L9=S.w.panty||1;   // 🧺 보따리 칸 수(ptyNeed)용 — 팬티 레벨
   if(S.w.snack){let c=0;for(const q of f)if(q.k==='b'&&q.src==='snack')c++;SNK.n=c;SNK.f=0;}   // 🍘 부스러기 상한용 — 맛동산을 든 판에서만 센다
   for(let i=f.length-1;i>=0;i--){const o=f[i];let dead=false;
     switch(o.k){
@@ -3428,6 +3429,7 @@ function weapons3(dt,cm,MT,AR,AM){
         if(end){if(o.big)ptyBurst(o);dead=true;}
         break;}
       case 'pl':{o.t+=dt;o.life-=dt;if(o.life<=0){dead=true;break;}   // 🩲 전리품 팬티 — 가까이 가면 끌려오고 닿으면 보따리가 찬다(줍는 범위 = 경험치 보석과 같은 magMul)
+        if((X.cs&&X.cs.bg||0)>=ptyNeed(L9))break;   // 보따리가 가득이면 바닥에 그대로 둔다(폭죽을 던진 뒤에 주울 수 있게 — 헛되이 사라지지 않는다)
         const dx=p.x-o.x,dy=p.y-o.y,d2=dx*dx+dy*dy,mr=70*magMul();
         if(d2<mr*mr){const dd=Math.sqrt(d2)||1,v=240*(1+(1-dd/mr));o.x+=dx/dd*v*dt;o.y+=dy/dd*v*dt;}
         if(d2<(p.r+12)**2){ptyFill(o.v);AU.play('ptyg');EX.panty(p.x,p.y-8);dead=true;}
