@@ -1920,8 +1920,9 @@ const CURVE={hp:[[0,.6],[3,.65],[6,.78],[9,.95],[12,1.06],[16,1.12],[22,1.08],[3
   atk:[[0,.7],[4,.78],[8,.92],[11,1.03],[15,1.08],[22,1.05],[30,1]],
   rate:[[0,.75],[3,.8],[6,.88],[9,1],[12,1.03],[20,1.03],[30,1]]};
 const curve=(k,m)=>{const a=CURVE[k];if(m<=a[0][0])return a[0][1];for(let i=1;i<a.length;i++)if(m<a[i][0]){const p=a[i-1],q=a[i];return p[1]+(q[1]-p[1])*(m-p[0])/(q[0]-p[0]);}return a[a.length-1][1];};
-const hpMul=m=>curve('hp',m)*(1+.4*m+.018*m*m+(m>10?.0035*(m-10)*(m-10):0))*(1+(MOB_HP-1)*Math.min(1,.4+m/12))*(S&&S.hard?hv().hp:1);   // 잡몹 체력(+100% 는 입문 구간을 지나 12분부터 온전히: 0분 +40%) — 8분 ×5 · 30분 ×32 · 55분 ×92 (그 위에 ×2 · 하드 또 ×2)
-const atkMul=m=>curve('atk',m)*(1+m/14)*(S&&S.hard?hv().atk:1);   // 공격력 기본 곡선(하드 ×1.25)
+const hpMul=m=>curve('hp',m)*(1+.4*m+.018*m*m+(m>10?.0035*(m-10)*(m-10):0))*(1+(MOB_HP-1)*Math.min(1,.4+m/12))*(S&&S.hard?hv().hp:1);   // 잡몹 체력(+100% 는 입문 구간을 지나 12분부터 온전히: 0분 +40%) — 30분 ×32 · 55분 ×9(30분 뒤는 곡선 ×1 — 그 앞은 CURVE 가 0.6~1.12배)2 (그 위에 ×2 · 하드 또 ×2)
+const atkBase=m=>(1+m/14)*(S&&S.hard?hv().atk:1);   // 곡선 없는 공격력(보스 쪽은 이걸 쓴다 — 보스 공격력은 그대로)
+const atkMul=m=>curve('atk',m)*atkBase(m);   // 공격력 기본 곡선(하드 ×1.25)
 const mobX=m=>1+.25*Math.min(1,m/10),DMG_BOSS=.7;   // 보스 피해 ×0.7 — 체력 ×10 으로 훨씬 오래 맞서니 한 방은 덜 아프게
 const bossMul=m=>(1+.22*m+.028*m*m)*Math.min(BOSS_HP,Math.max(1,(m-2)*.6))*(S&&S.hard?hv().bhp:1);   // 보스 체력 ×10 — 초반 보스는 예전에도 1~4분 걸려서 그대로 두고 점점 늘린다(5분 ×1.8 · 10분 ×4.8 · 15분 ×7.8 · 20분부터 ×10) · 하드 ×1.5
 // ⚖ [2026-09-29 사장님 "너무 쉽다"] 잡몹 체력 +100% · 보스(미니·최종 포함) 체력 ×10 · 각성 피해 보너스 대폭 삭감(각성 효과 자체는 그대로)
@@ -2406,7 +2407,7 @@ function spawnEnemy(kind,mult,boss,at){
   e.bg=0;e.ph=0;e.ax=Math.random()<.5?1:-1;e.ay=0;e.sv=0;e.sh=0;e.eg=0;e.fl=0;e.tn=0;e.kr=0;e.bph=0;e.gen=0;e.wf=-9;e.cn=-9;e.far=0;e.fz=0;e.fv=0;e.fw=0;e.hk=0;e.mt=0;e.lw=-9;e.sw=-9;e.sn=++SN;
   e.sg3=0;e.ch3=0;e.rm=0;e.hm=0;e.du=null;   // 🧹 [2026-10-08 검증에서 발견] 풀 칸 재사용 — 이전 판이 찍은 신림 도장·또뀨 사슬·태웅 박치기·앙앵 하트 표식을 지운다(안 지우면 새 판 S.t 가 0부터라 그 적을 한참 못 노린다)
   const m=MIN();
-  if(boss){e.boss=boss.key;e.b=boss;e.r=boss.r;e.sp=boss.sp*(1+Math.min(.35,m/120));e.dmg=boss.d*atkMul(m)*DMG_BOSS;e.xp=boss.xp;e.c='#f5c04a';e.id=boss.id||null;e.acc=boss.acc||null;
+  if(boss){e.boss=boss.key;e.b=boss;e.r=boss.r;e.sp=boss.sp*(1+Math.min(.35,m/120));e.dmg=boss.d*atkBase(m)*DMG_BOSS;e.xp=boss.xp;e.c='#f5c04a';e.id=boss.id||null;e.acc=boss.acc||null;
     e.mhp=e.hp=boss.hp*bossMul(m)*(boss.fin?1.6:1)*(boss.mini?Math.min(1,.55+m/25):1);   // 2:30 미니 보스는 조금 여리게(×0.65) → 11분부터 제 체력
     e.at={cards:3,dash:2,shots:1.5,ring:3,summon:4,shroom:1,pull:5,room:2.5,rage:3,breath:3,charge:4,staff:2,hook:2.5,beam:2,nova:9};}
   else{const k=KIND[kind];e.boss=0;e.b=null;e.id=k.id;e.r=k.r;e.sp=k.sp*(1+Math.min(.55,S.t/900));e.mhp=e.hp=k.hp*mult;e.dmg=k.d*atkMul(m)*mobX(m);e.xp=k.xp;e.c=k.c;e.acc=k.acc||null;
@@ -3674,7 +3675,7 @@ function bossAct(e,dt,d,dx,dy){   // 보스 패턴 — 돌려받는 값: 속도 
   if(has('summon')&&at.summon<=0){at.summon=7;const k=B.key==='yorick'||B.key==='mao'?(B.key==='mao'?0:1):S.t>=720?7:2;
     for(let i=0;i<(B.sum||4);i++){const x=spawnEnemy(k,hpMul(m)*.8,null,{x:e.x+(Math.random()-.5)*120,y:e.y+(Math.random()-.5)*120});if(x&&B.key==='yorick'){x.id='Yorick';x.r=8;x.sp=90;}}
     if(B.key==='yorick')taunt('Yorick',e);}
-  if(has('shroom')&&at.shroom<=0){at.shroom=1.4;const h=hazards.get();if(h){const a=Math.random()*6.283,r=80+Math.random()*160;h.x=p.x+Math.cos(a)*r;h.y=p.y+Math.sin(a)*r;h.life=14;h.d=8*atkMul(m)*DMG_BOSS;h.own=B.id==='Teemo'?e:null;h.osn=e.sn;}}
+  if(has('shroom')&&at.shroom<=0){at.shroom=1.4;const h=hazards.get();if(h){const a=Math.random()*6.283,r=80+Math.random()*160;h.x=p.x+Math.cos(a)*r;h.y=p.y+Math.sin(a)*r;h.life=14;h.d=8*atkBase(m)*DMG_BOSS;h.own=B.id==='Teemo'?e:null;h.osn=e.sn;}}
   if(has('pull')&&at.pull<=0){at.pull=8;e.pl=.8;taunt(B.key==='naut'?'Nautilus':B.key==='morde'?'Mordekaiser':'',e);}   // 💬 닻·영역으로 끌어당김
   if(e.pl>0){e.pl-=dt;p.x+=dx/d*-150*dt;p.y+=dy/d*-150*dt;}
   if(has('staff')&&at.staff<=0){at.staff=3;for(let i=-2;i<=2;i++)shot(aim+i*.3,200,'📜',1);if(Math.random()<.4)say(e,'스탭 임명장 받으세요.');}   // 📜 맞으면 느려진다
