@@ -2461,7 +2461,7 @@ function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기�
   say(e,'다들 물러나라. 이 녀석은 내가 직접 상대한다.');}
 function duelEnd(e){   // 보스가 쓰러졌다 — 남은 탄을 치우고, 일반 전투가 다시 돈다
   for(const b of eshots.a)b.on=false;for(const g of gems.a)if(g.on)g.mag=1;
-  S.spawnT=Math.min(S.spawnT,0)-30;S.flash=Math.max(S.flash,.3);   // 돌아오는 몬스터는 2초쯤 있다가 슬슬
+  RGN.s=null;S.spawnT=Math.min(S.spawnT,0)-30;S.flash=Math.max(S.flash,.3);   // 돌아오는 몬스터는 2초쯤 있다가 슬슬
   if(S.t<WIN_T-5)banner('⚔ 1:1 종료','남은 시간 동안 몬스터가 다시 몰려온다 — 60분까지 버텨라!',1);}
 function duelRevive(e){   // 부활 직후 — 떠 있던 예고·돌진·껍질을 치우고 숨 돌릴 틈을 준다
   const D=e.du;D.z.length=0;D.cur=null;D.sh=0;D.wk=0;D.cd=Math.max(D.cd,1.6);}
@@ -2613,6 +2613,7 @@ function waveTick(dt){
 const REGEN={on:1,tau:20,cap:2,sparse:.4,full:.2,k:1.1,t0:600,ramp:300};   // cap 최대 배율 · sparse/full: 살아 있는 적이 풀 상한의 40% 아래면 온전히, 60% 에선 0 (사이는 비례) · k: 처치 속도의 몇 배까지 공급할지
 const RGN={s:null,k0:0,ema:0,ne:0,m:1};
 function regenMul(dt,r0){
+  if(!(dt>0)||!(r0>0))return 1;   // dt 0(재개 직후 등)이면 평균이 NaN 으로 오염돼 스폰이 영영 멈춘다
   if(RGN.s!==S){RGN.s=S;RGN.k0=S.kills;RGN.ema=0;RGN.ne=S.ne||0;RGN.m=1;}
   const a=Math.min(1,dt/REGEN.tau),dk=S.kills-RGN.k0;RGN.k0=S.kills;
   RGN.ema+=(dk/dt-RGN.ema)*a;RGN.ne+=((S.ne||0)-RGN.ne)*Math.min(1,dt/6);   // 처치 속도(마리/초) · 살아 있는 적 수(6초 평균)
