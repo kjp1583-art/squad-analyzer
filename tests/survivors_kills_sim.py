@@ -70,5 +70,5 @@ async def main():
     for mode in A.mode.split(','):
         for d in A.dmg.split(','):
             res['%s/%s' % (mode, d)] = await run(mode, float(d))
-    json.dump(res, open('/tmp/claude-0/kills/last.json', 'w'))
+    os.makedirs('/tmp/claude-0/kills', exist_ok=True); json.dump(res, open('/tmp/claude-0/kills/last.json', 'w'))
 asyncio.run(main())
