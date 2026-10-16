@@ -125,7 +125,8 @@ async def main():
         r = await pg6.evaluate("""()=>{const x=__p6x,R=x.REL.sg_bgb;return {ch:R.ch,ic:R.ic,nm:R.nm,ds:[1,2,3].map(l=>R.ds(l)),non:x.CHARS.filter(c=>!c.shop).map(c=>c.k),rel:Object.keys(x.REL).filter(k=>x.REL[k].ch).map(k=>x.REL[k].ch),
           icons:x.CHARS.filter(c=>!c.shop).every(c=>x.REL['sg_'+c.k]&&x.REL['sg_'+c.k].ic===c.e)}}""")
         check('⑥ REL.sg_bgb: ch bgb · 이름 「한 장씩 줄게」 · 아이콘 = 캐릭터 이모지 🌪', r['ch'] == 'bgb' and r['nm'] == '한 장씩 줄게' and r['ic'] == '🌪' and r['icons'], r)
-        check('⑥ ds 3줄: 던진 횟수 7/6/5 · 카드 8/12/16장 · 사방', all((['7번', '6번', '5번'][i] in r['ds'][i]) and (['8장', '12장', '16장'][i] in r['ds'][i]) and '사방' in r['ds'][i] and '포토카드' in r['ds'][i] for i in range(3)), r['ds'])
+        SGB = await pg6.evaluate('()=>__p6x.SGV.bgb')   # 수치는 SGV 한 곳 — 문구와 동작이 이 값을 읽는다
+        check('⑥ ds 3줄: 던진 횟수(SGV.bgb.n) · 카드 장수(SGV.bgb.m) · 사방', all((f"{SGB['n'][i]}번" in r['ds'][i]) and (f"{SGB['m'][i]}장" in r['ds'][i]) and '사방' in r['ds'][i] and '포토카드' in r['ds'][i] for i in range(3)), r['ds'])
         check('⑥ 상점 캐릭터를 뺀 캐릭터 15종 = 시그니처 유물 15종', len(r['non']) == 15 and len(r['rel']) == 15 and set(r['non']) == set(r['rel']), (len(r['non']), len(r['rel'])))
         r = await pg6.evaluate("""()=>{const x=__p6x;x.CH_set('bgb');x.start();const S=x.S;S.lv=40;let own=0,other=0,ty='';
           for(let i=0;i<400;i++)for(const o of x.offers(3))if(o.t==='rl'&&x.REL[o.r].ch){if(x.REL[o.r].ch==='bgb'){own++;ty=x.cardOf(o).ty;}else other++;}
@@ -139,7 +140,7 @@ async def main():
         check('⑥ 3단계면 더 안 나옴 · 강화 카드 1→2 · 브장신은 600번 뽑아도 못 봄', r['l3'] == 0 and r['lv2'] == 2 and '강화' in (r['cardTy'] or '') and r['leak'] == 0, r)
         for L in (1, 2, 3):
             await pg6.evaluate(SETUP6, {'L': L, 'cd': 0})
-            r = await pg6.evaluate("""(L)=>{const x=__p6x,S=x.S,p=S.p;const N=[7,6,5][L-1];
+            r = await pg6.evaluate("""(L)=>{const x=__p6x,S=x.S,p=S.p;const N=x.SGV.bgb.n[L-1];
               const e=x.spawnEnemy(1,1);e.sp=0;e.hp=e.mhp=1e12;
               let vol=0,prev=S.cd.pcards;const ev=[],lines=[];let sample=null;
               for(let i=0;i<30*40&&vol<2*N+2;i++){e.x=p.x+100;e.y=p.y;e.kb=0;e.hp=e.mhp;S.spawnT=-1e9;
@@ -149,7 +150,7 @@ async def main():
                     sample={n:ring.length,d:ring[0].d,fd:fan.length?fan[0].d:null,pc:ring[0].pc,pop:ring[0].pop,life:ring[0].life,flife:fan.length?fan[0].life:null,sp:Math.hypot(ring[0].vx,ring[0].vy),fsp:fan.length?Math.hypot(fan[0].vx,fan[0].vy):null,
                       stepMin:Math.min(...df),stepMax:Math.max(...df),aimOff:Math.min(...ring.map(o=>Math.abs(Math.atan2(Math.sin(Math.atan2(o.vy,o.vx)),Math.cos(Math.atan2(o.vy,o.vx))))))};}}}
               return {ev,lines,sample,cnt:S.sgT.bgb,fired:S.sgT.bgbN}}""", L)
-            n = [8, 12, 16][L - 1]; NN = [7, 6, 5][L - 1]
+            n = SGB['m'][L - 1]; NN = SGB['n'][L - 1]
             rings = [v for v, c in r['ev'] if c > 0]
             check(f'⑥ L{L}: {NN}번째·{2*NN}번째 던지기에 정확히 카드 {n}장 고리(그 사이엔 없음)', rings == [NN, 2 * NN] and all(c == n for v, c in r['ev'] if c > 0), r['ev'])
             s = r['sample']
@@ -158,10 +159,10 @@ async def main():
             check(f'⑥ L{L}: 각도 {n}등분 균등 · 조준선에서 반 칸 비켜 시작', s and abs(s['stepMin'] - 2 * math.pi / n) < 1e-4 and abs(s['stepMax'] - 2 * math.pi / n) < 1e-4 and abs(s['aimOff'] - math.pi / n) < 1e-4, s)
         for up in (False, True):
             await pg6.evaluate(SETUP6, {'L': 1, 'cd': 0})
-            r = await pg6.evaluate("""(up)=>{const x=__p6x,S=x.S,p=S.p;const e=x.spawnEnemy(1,1);e.sp=0;e.hp=e.mhp=1e12;S.sgT.bgb=5;if(up)S.rel.sg_bgb=2;
+            r = await pg6.evaluate("""([up,c0])=>{const x=__p6x,S=x.S,p=S.p;const e=x.spawnEnemy(1,1);e.sp=0;e.hp=e.mhp=1e12;S.sgT.bgb=c0;if(up)S.rel.sg_bgb=2;
               let vol=0,prev=S.cd.pcards,n=0;for(let i=0;i<30*3&&vol<1;i++){e.x=p.x+100;e.y=p.y;e.kb=0;x.update(1/30);if(S.cd.pcards>prev+.5)vol++;prev=S.cd.pcards;n=Math.max(n,S.x3.f.filter(o=>o.rl).length);}
-              return {vol,n,cnt:S.sgT.bgb}}""", up)
-            check('⑥ ' + ('단계가 오르면(1→2) N 이 바로 6 으로 바뀌고 카운터(5)는 유지 → 다음 던지기에 터진다' if up else '1단계(N=7)에서 카운터 5 + 1 = 6 은 아직 안 터진다'), (r['n'] == 12 and r['cnt'] == 0) if up else (r['n'] == 0 and r['cnt'] == 6), r)
+              return {vol,n,cnt:S.sgT.bgb}}""", [up, SGB['n'][0] - 2])   # 카운터 = 1단계 N−2: 1단계는 N−1 번째라 아직, 2단계(N 이 1 줄어든다)는 바로 터진다
+            check('⑥ ' + ('단계가 오르면(1→2) N 이 바로 줄어들고 카운터(N1−2)는 유지 → 다음 던지기에 터진다' if up else '1단계에서 카운터 N−2 + 1 = N−1 은 아직 안 터진다'), (r['n'] == SGB['m'][1] and r['cnt'] == 0) if up else (r['n'] == 0 and r['cnt'] == SGB['n'][0] - 1), r)
         await pg6.evaluate(SETUP6, {'L': 1, 'cd': 0})
         r = await pg6.evaluate("""()=>{const x=__p6x,S=x.S,p=S.p;const e=x.spawnEnemy(1,1);e.sp=0;e.hp=e.mhp=1e12;let vol=0,prev=S.cd.pcards,rings0=0;
           for(let i=0;i<30*16;i++){e.x=p.x+250;e.y=p.y;e.kb=0;x.update(1/30);const v=S.cd.pcards>prev+.5;prev=S.cd.pcards;if(v)vol++;rings0=Math.max(rings0,S.x3.f.filter(o=>o.rl).length);}

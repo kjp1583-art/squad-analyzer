@@ -159,7 +159,7 @@ async def main():
             check('[다] 태웅 돌진 = 2.5초에 한 번 · 0.5초 무적', sk['tw']['cd'] == 2.5 and .4 <= sk['tw']['inv'] <= .5, sk['tw'])
             src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
             check('[다] 게임 코드가 고유스텟 숫자를 CSK 에서 읽는다(옛 글자 상수 0)',
-                  all(t in src for t in ['S.staffT=CSK.staff.every', 'i<CSK.staff.n', 'a.life=CSK.staff.life', 'spm*=CSK.staff.slow', 'S.proomT=CSK.room.every', 'o.t=CSK.room.hold', 'S.dashCd=CSK.dash.cd', "invGrant('dash',CSK.dash.inv)", 'critMul=()=>CRIT_BASE+'])
+                  all(t in src for t in ['S.staffT=(CSK.staff.every', 'i<CSK.staff.n', 'a.life=(CSK.staff.life', 'spm*=CSK.staff.slow', 'S.proomT=CSK.room.every', 'CSK.room.hold*DUR()', 'S.dashCd=CSK.dash.cd', "invGrant('dash',CSK.dash.inv)", 'critMul=()=>CRIT_BASE+'])
                   and 'S.staffT=20-' not in src and 'S.proomT=10;' not in src and 'S.dashCd=5;' not in src)
 
             # ── 라 선택 화면

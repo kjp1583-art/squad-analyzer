@@ -43,6 +43,15 @@ window.__cbx={get SPAWN_R(){return SPAWN_R},get VW(){return VW},get VH(){return 
     if(msg===undefined){let bd=1e9,bk='?';for(const e of enemies.a){if(!e.on)continue;const dd=Math.hypot(e.x-p.x,e.y-p.y)-e.r-p.r;if(dd<bd){bd=dd;bk=e.boss?'B:'+e.boss:(KIND[e.ki]&&KIND[e.ki].id)||'?';}}src='c:'+bk;}
     D.by[src]=(D.by[src]||0)+dm;D.n[src]=(D.n[src]||0)+1;if(D.logOn&&D.log.length<600)D.log.push([+S.t.toFixed(2),+dm.toFixed(1),src,+(p.hp/p.mhp).toFixed(2)]);}
   return r;};}
+// 🏺 유물 활동 계수(측정 전용 · 게임 규칙은 안 건드린다): 펄스·가시·사방 카드 횟수, 정예·대형·보스 처치 수, 느려진 적 평균 수, 저체력 시간
+window.__cbx.rc={pulse:0,thorn:0,fan:0,el:0,boss:0,slowSum:0,slowN:0,low50:0,low30:0,tick:0};
+{const R=window.__cbx.rc;
+ const hu=hurt;hurt=function(e,d){const on=e.on;const r=hu.apply(this,arguments);if(on&&!e.on){if(e.boss)R.boss++;else if(e.el||e.bg)R.el++;}return r;};
+ const rp=relPulse;relPulse=function(f){R.pulse++;return rp.apply(this,arguments);};
+ const st=sgThorns;sgThorns=function(){R.thorn++;return st.apply(this,arguments);};
+ const sf=sgFan;sgFan=function(){const b=S.sgT.bgbN||0;const r=sf.apply(this,arguments);if((S.sgT.bgbN||0)>b)R.fan++;return r;};
+ const sk=sgTick;sgTick=function(dt){const r=sk.apply(this,arguments);R.tick+=dt;const p=S.p;if(p.hp<=p.mhp*.5)R.low50+=dt;if(p.hp<=p.mhp*.3)R.low30+=dt;
+   if(S.rel.sg_hrb){let c=0;for(const e of S.live)if(e.on&&e.slow>0)c++;R.slowSum+=c;R.slowN++;}return r;};}
 """
 # 페이지가 뜨기 전에 실행: 시드 난수 · 애니메이션 루프 정지(게임 루프를 우리가 돌린다) · 소리 없음 · 화면 효과 끔 · CPU 코어 수 고정(LOW 판정)
 INIT_JS = r"""(()=>{
@@ -114,15 +123,21 @@ class Conf:
             k, v = kv.split('=', 1)
             self.params[k.strip()] = float(v)
         self.trace = bool(getattr(a, 'trace', False))
+        self.rel = {}   # 🏺 판 시작 때 강제로 끼울 유물 단계(예: sg_psg=3) — 유물 체감 측정용. 비어 있으면 기존 측정과 같다
+        for kv in (getattr(a, 'rel', None) or []):
+            k, v = kv.split('=', 1)
+            self.rel[k.strip()] = int(v)
         self.html_hash = md5(os.path.join(ROOT, a.html))
         self.bot_hash = md5(BOT_JS)
-        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items())])), text=True)
+        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items())] + ([sorted(self.rel.items())] if self.rel else []))), text=True)
 
     def public(self):
         o = {'tool': TOOL_VERSION, 'cap': self.cap, 'dt': round(self.dt, 6), 'view': '%dx%d' % self.view, 'low': self.low,
              'html': self.html_hash, 'bot': self.bot_hash, 'sig': self.sig}
         if self.params:
             o['params'] = self.params
+        if self.rel:
+            o['rel'] = self.rel
         return o
 
 
@@ -155,7 +170,7 @@ async def run_one(browser, srv, page_name, conf, char, seed, policy, say=None):
         await pg.goto(base + page_name)
         await pg.wait_for_function('window.__p6x!==undefined&&window.__cbx!==undefined', polling=50, timeout=20000)   # rAF 를 멈춰 뒀으니 기본 polling(raf)을 쓰면 안 된다
         await pg.add_script_tag(content=open(BOT_JS, encoding='utf-8').read())
-        info = await pg.evaluate('c=>__cb.init(c)', {'char': char, 'seed': seed, 'policy': policy, 'cap': conf.cap, 'dt': conf.dt, 'params': conf.params, 'trace': conf.trace})
+        info = await pg.evaluate('c=>__cb.init(c)', {'char': char, 'seed': seed, 'policy': policy, 'cap': conf.cap, 'dt': conf.dt, 'params': conf.params, 'trace': conf.trace, 'rel': conf.rel})
         row['info'] = info
         last_print = -1
         while True:
@@ -285,6 +300,8 @@ def cmd_run(a):
             base.append('--trace')
         for kv in a.param:
             base += ['--param', kv]
+        for kv in a.rel:
+            base += ['--rel', kv]
         ps = [subprocess.Popen(base + ['--wid', str(i)], cwd=ROOT) for i in range(a.procs)]
         rc = [p.wait() for p in ps]
         n = len(load_rows(a.out))
@@ -625,6 +642,7 @@ def main():
         p.add_argument('--policy', default='full', help='full | sigonly (run 은 both 도 가능)')
         p.add_argument('--quiet', action='store_true', help='진행 줄을 줄인다')
         p.add_argument('--param', action='append', default=[], metavar='KEY=VAL', help='정책 상수 덮어쓰기(민감도 점검). 예: --param MOVE.nearMargin=60 --param CARD.passive.arm=90')
+        p.add_argument('--rel', action='append', default=[], metavar='KEY=LV', help='시작부터 끼울 유물 단계(예: --rel sg_hrb=3). 유물 체감 측정용')
         p.add_argument('--trace', action='store_true', help='결과 줄에 2초마다 궤적·피격 기록을 붙인다(디버깅용 · 줄이 커진다)')
 
     r = sub.add_parser('run', help='측정 돌리기(중단 후 이어서 가능)')

@@ -49,7 +49,7 @@ window.__O={
  tk:(p,d)=>{d*=(1+.1*pv('glass'))*(p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1);return d;},
  vamp:()=>S.p.hp+1.5*pv('vamp'),
  low:(d)=>{if(CH.low&&S.p.hp<S.p.mhp*.3)d*=1+CH.low;return d;},
- rage:(d)=>{if(CH.rage)d*=1+Math.min(CH.rage+[0,.1,.2,.3][SGN('sg_tw')],Math.max(0,1-S.p.hp/S.p.mhp));return d;},
+ rage:(d)=>{if(CH.rage){const L=SGN('sg_tw');d*=1+Math.min(CH.rage+(L?SGV.tw.cap[L-1]:0),Math.max(0,1-S.p.hp/S.p.mhp)*(1+(L?SGV.tw.sl[L-1]:0)));}return d;},
  newcc:()=>critChance(),newcm:()=>critMul(),newsp:(p)=>p.sp*moveMul()*slowMul(),newmag:()=>(70*magMul())**2,newxp:(v)=>v*XP_X*xpMul(),newarm:()=>armTotal(),
  newtk:(p,d)=>{d*=takenMul();return d;},newvamp:()=>S.p.hp+vampHp(),newlow:(d)=>{if(CH.low)d*=lowMul();return d;},newrage:(d)=>{if(CH.rage)d*=rageMul();return d;}};
 window.__mb=a=>()=>{a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};

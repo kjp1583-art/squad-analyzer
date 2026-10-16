@@ -163,7 +163,8 @@ function scoreSig(o) {
 function chooseCard(cards) {
   const f = CFG.policy === 'sigonly' ? scoreSig : scoreFull;
   let best = null, bs = -1e9;
-  for (const o of cards) { const s = f(o) + PRNG() * 0.01; if (s > bs) { bs = s; best = o; } }   // 같은 점수면 정책 난수로(결정론)
+  for (const o of cards) { const s = (CFG.rel && o.t === 'rl' && o.r in CFG.rel ? -1e6 : f(o)) + PRNG() * 0.01;   // 🏺 --rel 로 고정한 유물은 카드로 안 뽑는다(0 단계 기준선도 같은 조건)
+    if (s > bs) { bs = s; best = o; } }   // 같은 점수면 정책 난수로(결정론)
   return best;
 }
 
@@ -424,6 +425,7 @@ function finalRow() {
     hit_n: Object.fromEntries(Object.entries(XX.dmg.n).sort((a, b) => b[1] - a[1]).slice(0, 8)),
     t_lv5: M.lv5, t_lv10: M.lv10,
     weapons, ps: Object.assign({}, S.ps), rel: Object.assign({}, S.rel), tr: Object.assign({}, S.tr), sm: Object.assign({}, S.sm), syn: S.synOn.slice(), pt: Object.assign({}, S.pt),
+    rc: XX.rc ? Object.assign({}, XX.rc) : undefined,
     rev_used: S.revUsed > 0, evolved: Object.keys(S.ev),
     dealt: Math.round(dealt), sig_share: dealt > 0 ? R2(sigDealt / dealt) : null, dmg_by: dmgBy,
     bosses: M.bossRefs.map(r => ({ k: r.key, t0: r.t0, t1: r.t1, fate: r.fate || (r.done ? 'gone' : 'alive'), hpf: R2(r.hpf), mhp: r.mhp })),
@@ -461,6 +463,7 @@ function init(cfg) {
   X.start();
   if (X.state !== 'play') throw new Error('시작이 안 됨: ' + X.state);
   const S = X.S;
+  for (const rk in (CFG.rel || {})) S.rel[rk] = CFG.rel[rk];          // 🏺 유물 체감 측정: 시작부터 끼운다(0 이면 기준선)
   if (CFG.policy === 'nopass') S.banned = Object.keys(XX.PASS);      // 패시브 카드를 전부 봉인 — 패시브 0 인 판(규칙 불변 증명용)
   if (CFG.policy === 'sigonly') {                                   // 시작 무기 말고 다른 무기는 카드 풀에서 뺀다(게임의 봉인 장치 사용)
     S.banned = Object.keys(X.WEAP).filter(w => w !== X.CH.w);

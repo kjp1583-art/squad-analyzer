@@ -181,7 +181,7 @@ async def main():
           // brj: 처치 → 폭발(확률)
           {const S=mk('brj');S.rel.sg_brj=3;const rn=Math.random;Math.random=()=>0;let b0=S.booms.length;for(let i=0;i<5;i++){const e=dummy(S,50+i,0,1);S.t+=.6;x.hurt(e,99);}Math.random=rn;o.brj=S.booms.filter(b=>b.src==='rel').length;}
           // jjg: 치명타 n번마다 추가 일격
-          {const S=mk('jjg');S.rel.sg_jjg=3;const cr=x.CH.crit;x.CH.crit=1;const es=[];for(let i=0;i<10;i++)es.push(dummy(S,40+i*5,10));S.live=[es[1]];for(let i=0;i<7;i++)x.hurt(es[0],10);o.jjg={c:S.sgC,rel:S.dmgBy.rel||0};x.CH.crit=cr;}
+          {const S=mk('jjg');S.rel.sg_jjg=3;const cr=x.CH.crit;x.CH.crit=1;const es=[];for(let i=0;i<10;i++)es.push(dummy(S,40+i*5,10));S.live=[es[1]];for(let i=0;i<x.SGV.jjg.n[2];i++)x.hurt(es[0],10);o.jjg={c:S.sgC,rel:S.dmgBy.rel||0};x.CH.crit=cr;}
           // mms: 저체력 펄스
           {const S=mk('mms');S.rel.sg_mms=3;S.p.hp=10;const e=dummy(S,60,0,1000);S.live=[e];for(let i=0;i<150;i++)x.sgTick(.1);o.mms=1000-e.hp;const S2=mk('mms');S2.rel.sg_mms=3;const e2=dummy(S2,60,0,1000);S2.live=[e2];for(let i=0;i<150;i++)x.sgTick(.1);o.mmsFull=1000-e2.hp;}
           // hrb: 이동 중 슬로
@@ -200,21 +200,22 @@ async def main():
           //      (적 12마리가 나를 빙 둘러싼다 — 각도를 일부러 불규칙하게(0.61rad) 둬서 고리 카드 사이 빈틈에만 서는 일이 없게)
           o.bgb=[1,2,3].map(L=>{const S=mk('bgb');S.rel.sg_bgb=L;S.w.pcards=8;S.cd.pcards=0;S.p.hp=S.p.mhp=1e9;S.p.inv=99;S.nextBoss=S.nextMini=S.nextSp=S.evT=S.bigT=1e9;S.spawnT=-1e9;
             for(const q of x.enemies.a)q.on=false;S.live.length=0;
-            const es=[];for(let k=0;k<12;k++){const q=x.spawnEnemy(0,1);q.sp=0;q.hp=q.mhp=1e12;es.push(q);}const N=[7,6,5][L-1];
+            const es=[];for(let k=0;k<12;k++){const q=x.spawnEnemy(0,1);q.sp=0;q.hp=q.mhp=1e12;es.push(q);}const N=x.SGV.bgb.n[L-1];
             const run=(R,n)=>{const out=[];let prev=S.cd.pcards;for(let i=0;i<30*60&&out.length<n;i++){es.forEach((q,k)=>{q.x=S.p.x+Math.cos(k*.61)*R;q.y=S.p.y+Math.sin(k*.61)*R;q.kb=0;q.hp=q.mhp;});S.spawnT=-1e9;x.update(1/30);if(S.cd.pcards>prev+.5)out.push(S.x3.f.filter(q=>q.k==='pc'&&q.rl).length);prev=S.cd.pcards;}return out;};
             const far=run(250,N+2),cnt=S.sgT.bgb||0,near=run(100,N+1);
             return {L,N,far,cnt,near,fired:S.sgT.bgbN||0,rel:S.dmgBy.rel||0,pc:S.dmgBy.pcards||0};});
           return o;}""")
         check('🐤 논란 점화: 처치 시 폭발(0.5초 간격)', r['brj'] >= 1, r['brj'])
-        check('🔫 한 방 장전: 치명타 7번에 1번 추가 일격 후 카운터 리셋', r['jjg']['c'] == 0 and r['jjg']['rel'] > 0, r['jjg'])
-        check('🥲 절망 파동: HP 30% 이하에서만 펄스', r['mms'] > 0 and r['mmsFull'] == 0, (r['mms'], r['mmsFull']))
-        check('🏄 끈적 발자국: 이동 중에만 4마리까지 슬로', r['hrb'] == 4 and r['hrbStill'] == 0, (r['hrb'], r['hrbStill']))
+        check('🔫 한 방 장전: 치명타 n번(SGV)마다 1번 추가 일격 후 카운터 리셋', r['jjg']['c'] == 0 and r['jjg']['rel'] > 0, r['jjg'])
+        check('🥲 절망 파동: HP 절반(SGV) 이하에서만 펄스', r['mms'] > 0 and r['mmsFull'] == 0, (r['mms'], r['mmsFull']))
+        check('🏄 끈적 발자국: 이동 중에만 반경 안 적 전부 슬로(5마리 모두)', r['hrb'] == 5 and r['hrbStill'] == 0, (r['hrb'], r['hrbStill']))
         check('✈️ 기내식: 60초에 12~18% 회복(Lv2 15%=30)', 28 <= r['ssu'] <= 70, r['ssu'])
         check('🪧 상처 치료: 맞은 뒤 3초 동안만 · 두 번 맞아도 겹치지 않음(≤ 2.5×3)', 0 < r['amd']['gain'] <= 7.7, r['amd'])
         check('🎭 아님말고: 확률 발동 시 경험치 2배', r['ildj'] == 20, r['ildj'])
         check('🍔 쿠폰 적립: 보스 처치 회복 +20%(+기본)', r['kyo'] >= 40, r['kyo'])
         check('🧱 가시 방패: 피격 시 최대 8마리에게 반사', r['ddmj']['hit'] == 8 and r['ddmj']['dmg'] > 100, r['ddmj'])
-        want = lambda L: [[8, 12, 16][L - 1]] + [0] * ([7, 6, 5][L - 1] - 1) + [[8, 12, 16][L - 1]]
+        SG = await pg.evaluate('()=>__p6x.SGV.bgb')
+        want = lambda L: [SG['m'][L - 1]] + [0] * (SG['n'][L - 1] - 1) + [SG['m'][L - 1]]
         check('🌪 한 장씩 줄게: 적이 멀면(250) 카운터만 쌓고 → 붙으면 곧바로 사방 카드 8/12/16장 · 그 뒤 7/6/5번마다', all(v['far'] == [0] * (v['N'] + 2) and v['cnt'] == v['N'] + 2 and v['near'] == want(v['L']) and v['fired'] == 2 for v in r['bgb']), r['bgb'])
         check('🌪 한 장씩 줄게: 고리 피해는 🏺 유물 몫 · 평소 포토카드는 포토카드 몫으로 따로 잡힌다', all(v['rel'] > 0 and v['pc'] > 0 for v in r['bgb']), [(v['L'], round(v['rel']), round(v['pc'])) for v in r['bgb']])
         # 캐릭터 고유 능력 확장(psg·sr·ddo·tw·yj)
