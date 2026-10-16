@@ -19,7 +19,7 @@
   python3 tests/survivors_charbal_sim.py determinism
 
 조건(기본): 일반 모드 · dt=1/30 · 창 1280x720(PC · LOW 꺼짐: 적 상한 220) · 소리·화면 효과 끔 · 이어하기 저장 끔 · 정책 full.
-  --view 412x860 --low 로 폰 조건(적 상한 140)도 잴 수 있다. --html 로 다른 survivors 사본(상향안)을 재면 결과 줄에 html 해시가 남아 섞이지 않는다.
+  --view 412x860 --low 로 폰 조건(LOW — 이제 적 상한은 기기 무관 220, 그리기만 가벼워진다)도 잴 수 있다. --html 로 다른 survivors 사본(상향안)을 재면 결과 줄에 html 해시가 남아 섞이지 않는다.
 """
 import argparse, asyncio, atexit, glob, hashlib, json, math, os, random, re, shutil, statistics, subprocess, sys, time
 
@@ -37,7 +37,7 @@ EXTRA_HOOK = r"""
 window.__cbx={get SPAWN_R(){return SPAWN_R},get VW(){return VW},get VH(){return VH},get SC(){return SC},
  PASS,PT,TRD,SM,CO,PICK,PROP,KIND,evReady,evLeft,MAXEV,MAXLV,SLOTW,SLOTP,REV_LV,pv,slotP,cardLv,wOk,TCAP,RES,pmax,
  dmg:{taken:0,hits:0,t5:0,by:{},n:{},log:[],logOn:false}};
-{const h0=hitP;hitP=function(d,msg){const p=S.p,b=p.hp,r0=S.revUsed;const r=h0(d,msg);let dm=b-p.hp;if(S.revUsed>r0)dm=b;
+{const h0=hitP;hitP=function(d,msg){const p=S.p,b=p.hp,r0=S.revUsed;const r=h0(d*(window.__takenMul||1),msg);let dm=b-p.hp;if(S.revUsed>r0)dm=b;
   if(dm>0){const D=window.__cbx.dmg;D.taken+=dm;D.hits++;if(S.t<300)D.t5+=dm;
     let src=msg===undefined?'':msg===''?'shot':msg;   // 몸 박치기는 msg 가 없다 → 가장 가까운 적으로 이름을 붙인다
     if(msg===undefined){let bd=1e9,bk='?';for(const e of enemies.a){if(!e.on)continue;const dd=Math.hypot(e.x-p.x,e.y-p.y)-e.r-p.r;if(dd<bd){bd=dd;bk=e.boss?'B:'+e.boss:(KIND[e.ki]&&KIND[e.ki].id)||'?';}}src='c:'+bk;}
@@ -53,6 +53,19 @@ INIT_JS = r"""(()=>{
  Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>%(hc)d});
  try{localStorage.setItem('p6_fx','0');}catch(e){}
 })();"""
+
+
+# 난이도 고르기 — 환경변수 SV_SIM_MODE=n|h|v (일반·하드·베리하드). 판 시작 코드는 그대로이고 첫 화면 체크박스가 읽는 저장 키만 바꾼다(자식 프로세스도 환경변수를 물려받는다).
+SIM_MODE = os.environ.get('SV_SIM_MODE', '')
+_MODE_JS = {'n': "try{localStorage.setItem('p6_hard','0');localStorage.setItem('p6_vh','0');}catch(e){}",
+            'h': "try{localStorage.setItem('p6_hard','1');localStorage.setItem('p6_vh','0');}catch(e){}",
+            'v': "try{localStorage.setItem('p6_hard','0');localStorage.setItem('p6_vh','1');}catch(e){}"}
+# SV_SIM_TAKEN=0.25 — 받는 피해 배율(사람은 봇보다 훨씬 잘 피한다 — 베리하드처럼 봇이 몇 분 만에 전멸하는 난이도에서 「누가 더 오래·덜 아프게 버티나」를 가르려는 보정 · 기본 1 = 보정 없음)
+SIM_TAKEN = float(os.environ.get('SV_SIM_TAKEN', '1'))
+if SIM_TAKEN != 1:
+    INIT_JS = INIT_JS.replace("try{localStorage.setItem('p6_fx','0');}catch(e){}", "try{localStorage.setItem('p6_fx','0');}catch(e){}window.__takenMul=%r;" % SIM_TAKEN)
+if SIM_MODE:
+    INIT_JS = INIT_JS.replace("try{localStorage.setItem('p6_fx','0');}catch(e){}", "try{localStorage.setItem('p6_fx','0');}catch(e){}" + _MODE_JS[SIM_MODE])
 
 
 def md5(path_or_text, text=False):
@@ -114,15 +127,18 @@ class Conf:
             k, v = kv.split('=', 1)
             self.params[k.strip()] = float(v)
         self.trace = bool(getattr(a, 'trace', False))
+        self.preset = json.loads(getattr(a, 'preset', None) or 'null')   # 패시브 고정 빌드 — 예: '{"ps":{"glass":3},"pt":{}}' (policy nopass 와 함께 쓴다 · 같은 칸 비교용)
         self.html_hash = md5(os.path.join(ROOT, a.html))
         self.bot_hash = md5(BOT_JS)
-        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items())])), text=True)
+        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items()), SIM_MODE, SIM_TAKEN, json.dumps(self.preset, sort_keys=True)])), text=True)
 
     def public(self):
         o = {'tool': TOOL_VERSION, 'cap': self.cap, 'dt': round(self.dt, 6), 'view': '%dx%d' % self.view, 'low': self.low,
              'html': self.html_hash, 'bot': self.bot_hash, 'sig': self.sig}
         if self.params:
             o['params'] = self.params
+        if self.preset:
+            o['preset'] = self.preset
         return o
 
 
@@ -155,7 +171,7 @@ async def run_one(browser, srv, page_name, conf, char, seed, policy, say=None):
         await pg.goto(base + page_name)
         await pg.wait_for_function('window.__p6x!==undefined&&window.__cbx!==undefined', polling=50, timeout=20000)   # rAF 를 멈춰 뒀으니 기본 polling(raf)을 쓰면 안 된다
         await pg.add_script_tag(content=open(BOT_JS, encoding='utf-8').read())
-        info = await pg.evaluate('c=>__cb.init(c)', {'char': char, 'seed': seed, 'policy': policy, 'cap': conf.cap, 'dt': conf.dt, 'params': conf.params, 'trace': conf.trace})
+        info = await pg.evaluate('c=>__cb.init(c)', {'char': char, 'seed': seed, 'policy': policy, 'cap': conf.cap, 'dt': conf.dt, 'params': conf.params, 'trace': conf.trace, 'preset': conf.preset})
         row['info'] = info
         last_print = -1
         while True:
@@ -283,6 +299,8 @@ def cmd_run(a):
             base.append('--quiet')
         if a.trace:
             base.append('--trace')
+        if a.preset:
+            base += ['--preset', a.preset]
         for kv in a.param:
             base += ['--param', kv]
         ps = [subprocess.Popen(base + ['--wid', str(i)], cwd=ROOT) for i in range(a.procs)]
@@ -620,11 +638,12 @@ def main():
         p.add_argument('--cap', type=float, default=None, help='판 상한(초). 기본 900 = 15분')
         p.add_argument('--dt', type=float, default=1 / 30, help='update 한 번의 시간(초). 기본 1/30')
         p.add_argument('--view', default='1280x720', help='창 크기. 기본 1280x720(PC)')
-        p.add_argument('--low', action='store_true', help='폰/약한 기기 조건(LOW: 적 상한 140)')
+        p.add_argument('--low', action='store_true', help='폰/약한 기기 조건(LOW: 그리기 비용만 줄임 — 적 상한은 220 으로 같다)')
         p.add_argument('--html', default='survivors.html', help='측정할 survivors 파일(저장소 루트 기준). 기본 survivors.html')
         p.add_argument('--policy', default='full', help='full | sigonly (run 은 both 도 가능)')
         p.add_argument('--quiet', action='store_true', help='진행 줄을 줄인다')
         p.add_argument('--param', action='append', default=[], metavar='KEY=VAL', help='정책 상수 덮어쓰기(민감도 점검). 예: --param MOVE.nearMargin=60 --param CARD.passive.arm=90')
+        p.add_argument('--preset', default=None, help='패시브 고정 빌드 JSON (S.ps / S.pt 를 시작 직후 채운다)')
         p.add_argument('--trace', action='store_true', help='결과 줄에 2초마다 궤적·피격 기록을 붙인다(디버깅용 · 줄이 커진다)')
 
     r = sub.add_parser('run', help='측정 돌리기(중단 후 이어서 가능)')

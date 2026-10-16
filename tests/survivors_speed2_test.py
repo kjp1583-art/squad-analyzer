@@ -93,7 +93,7 @@ DIGEST = r"""()=>{const x=__p6x,S=x.S,p=S.p;const parts=[S.t,S.kills,S.lv,S.xp,S
 
 async def sec_a(b, srv):   # 가 · 끈 상태 불변
     hs = {}
-    for ch in ('jjg', 'yj'):   # 2026-10-12 brj → jjg: 브장신의 시작 무기(깃털 산탄) 피해를 올려서 옛 기준 커밋과는 일부러 달라졌다 — 규칙 불변 증명은 시작 무기를 안 건드린 집중겜으로
+    for ch in ('jjg', 'ddmj'):   # 2026-10-15 yj → ddmj: 용조련사의 브레스 피해를 내려서 옛 기준 커밋과는 일부러 달라졌다(방패 밀치기는 그대로) · 2026-10-12 brj → jjg: 브장신의 시작 무기(깃털 산탄) 피해를 올려서 옛 기준 커밋과는 일부러 달라졌다 — 규칙 불변 증명은 시작 무기를 안 건드린 집중겜으로
         out = []
         for page in (OLD, NEW):
             ctx, pg, errs = await mk(b, srv, page, init=DRIVEN)

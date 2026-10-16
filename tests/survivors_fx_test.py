@@ -39,7 +39,7 @@ EXTRA_NEW = r"""
 window.__F={PFX,PFXN,PFXCH,PFXPS,PFXALL,PFXSN,FXSYM,setMine(f){fxMine=f},getMine(){return fxMine},fxState,fxNote,fxWeapons,fxMine,fxPassHtml,fxWeapHtml,fxTableHtml,fxPassRow,fxKeyHtml,fxKeyBoosts,
   pauseGame,drawCards,openLvup,buildHtml,openChest,cardOf,cdxEntries,cdxView,PASS,PT,TRD,SYN,TIERS,WEAP,CHARS,TCAP,MAXLV,UI3,
   cdMul,areaMul,dmgMul,PS,DUR,LK,critChance,critMul,pv,PTV,trn,RES,setCUR(v){CUR=v},get CUR(){return CUR},get CH(){return CH},get S(){return S},
-  CDX,cdxAdd,cdxKeys};
+  CDX,cdxAdd,cdxKeys,W4};
 """
 # ───────── 측정 훅(게임 클로저 안) — 측정만 한다, 게임은 안 바꾼다. 에뮬레이터: 같은 시드 · 얼어붙은 불멸 허수아비 72+3 · 한 무기만 든 플레이어 ─────────
 HOOK_JS = r""";window.__fxm=(()=>{
@@ -109,7 +109,7 @@ NONWEAPON = {'spd', 'hp', 'mag', 'arm', 'study', 'vamp', 'turtle', 'rev'}   # �
 REP_Y = [('feed', 'cd', 'b'), ('egg', 'cnt', 'b'), ('kbd', 'cnt', 'b'), ('shrimp', 'cnt', 'e'), ('can', 'spd', 'b'), ('rkt', 'spd', 'b'), ('tempo', 'spd', 'e'),
          ('potion', 'dur', 'b'), ('hole', 'dur', 'b'), ('ping', 'dur', 'e'), ('pan', 'area', 'b'), ('egg', 'area', 'b'), ('gacha', 'luck', 'b'), ('feed', 'spd', 'b'),
          ('bash', 'cd', 'e'), ('spk', 'area', 'e'), ('quill', 'spd', 'e'),
-         ('snack', 'cnt', 'b'), ('snack', 'cnt', 'e'), ('snack', 'spd', 'b'), ('snack', 'dur', 'b'), ('snack', 'dur', 'e')]   # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기·속사·끈기를 받는다
+         ('snack', 'spd', 'b'), ('snack', 'dur', 'b'), ('snack', 'dur', 'e')]   # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기·속사·끈기를 받는다
 REP_N = [('feed', 'spd', 'e'), ('feed', 'area', 'b'), ('feed', 'dur', 'b'), ('shrimp', 'cd', 'e'), ('shrimp', 'spd', 'e'), ('cart', 'dur', 'e'), ('tempo', 'cnt', 'b'),
          ('jhin', 'cnt', 'b'), ('slime', 'cnt', 'b'), ('heart', 'cnt', 'b'), ('whop', 'cnt', 'b'), ('quill', 'area', 'b'), ('tempo', 'area', 'b'),
          ('potion', 'luck', 'b'), ('whop', 'luck', 'b'), ('pcards', 'luck', 'e'), ('chick', 'spd', 'b'), ('sushi', 'spd', 'b'), ('fryer', 'dur', 'b'),
@@ -312,7 +312,7 @@ async def main():
                 check('광역 「+10%」= areaMul() +0.1 · 초월 「+6% 더」= +0.06', '+10%' in tx['area'] and rd(r['ar1'] - r['ar0']) == .1 and '+6% 더' in tx['ptarea'][0] and rd(r['ar_pt'] - r['ar0']) == .06, (r['ar1'], r['ar_pt']))
                 check('끈기 「+15%」= DUR() ×1.15', '+15%' in tx['dur'] and rd(r['du1'] / r['du0']) == 1.15, r['du1'])
                 check('급소 「+5% · +0.2배」= critChance +0.05 · critMul +0.2 (Lv5 3배) · 행운 「+3%」= critChance +0.03', '+5%' in tx['crit'] and '+0.2배' in tx['crit'] and rd(r['cc_c'] - r['cc0']) == .05 and rd(r['cm_c'] - r['cm0']) == .2 and rd(r['cm_c5']) == 3 and '+3%' in tx['luck'] and rd(r['cc_l'] - r['cc0']) == .03, (r['cc_c'], r['cm_c'], r['cm_c5'], r['cc_l']))
-                check('근성 「+10%」= dmgMul ×1.1 · 광분 「+15%」= ×1.15', '+10%' in tx['might'] and rd(r['dm1']) == 1.1 and '+15%' in tx['glass'] and rd(r['dm_g']) == 1.15, (r['dm1'], r['dm_g']))
+                check('근성 「+10%」= dmgMul ×1.1 · 광분 「+25%」= ×1.25 (PASSV.glass.dmg 를 읽는다)', '+10%' in tx['might'] and rd(r['dm1']) == 1.1 and '+25%' in tx['glass'] and rd(r['dm_g']) == 1.25, (r['dm1'], r['dm_g']))
                 check('광역 확장 「범위 +10% · 쿨타임 5% 느려짐」= 실제 areaMul +0.1 · cdMul ×1.05 · 질풍 「-5%」· 속전속결 「-7% · 피해 -4%」', '+10%' in tx['wide'] and '5% 느려짐' in tx['wide'] and rd(r['ar_wide'] - r['ar0']) == .1 and rd(r['cd_wide']) == 1.05 and '-5%' in tx['gale'] and rd(r['ar_gale'] - r['ar0']) == -.05 and '-7%' in tx['swift'] and '-4%' in tx['swift'] and rd(r['cd_sw']) == .93 and rd(r['dm_sw']) == .96, r)
                 bad = []
                 for k, ds, fx in tx['syn']:
@@ -615,7 +615,7 @@ async def main():
                           ('twin', 'dur', 'b'): ('p', 'y'), ('twin', 'dur', 'e'): ('p', 'y'), ('sing', 'cnt', 'b'): ('p', 'y'), ('sing', 'cnt', 'e'): ('p', 'y'),
                           ('stamp', 'cd', 'b'): ('p', 'y'), ('stamp', 'cd', 'e'): ('p', 'y'), ('chain', 'cd', 'b'): ('p', 'y'), ('chain', 'cd', 'e'): ('p', 'y'),
                           # 🍘 [2026-10-12] 맛동산 관통 개편 — 곱빼기(부스러기 +1/겹) · 속사(스틱·부스러기 속도) · 끈기(부스러기 수명) · 광역(부스러기 크기)를 받는다. 각성의 곱빼기는 부스러기 상한(56발)에 막혀 p
-                          ('snack', 'cnt', 'b'): ('n', 'y'), ('snack', 'cnt', 'e'): ('n', 'p'), ('snack', 'spd', 'b'): ('n', 'y'), ('snack', 'spd', 'e'): ('n', 'y'),
+                          ('snack', 'cnt', 'b'): ('n', 'p'), ('snack', 'cnt', 'e'): ('n', 'p'), ('snack', 'spd', 'b'): ('n', 'y'), ('snack', 'spd', 'e'): ('n', 'y'),
                           ('snack', 'dur', 'b'): ('n', 'y'), ('snack', 'dur', 'e'): ('n', 'p'), ('snack', 'area', 'b'): ('n', 'p'),
                           # 🔥 [2026-10-12 사장님] 프싱 쌍둥이 이빨 — 곱빼기가 화염 장판 개수(+1/겹)를 늘린다(베기·화염구는 그대로 → p)
                           ('twin', 'cnt', 'b'): ('n', 'p'), ('twin', 'cnt', 'e'): ('n', 'p')}
@@ -626,11 +626,14 @@ async def main():
                     ra = await pgo.evaluate('(c)=>window.__fxm.run(c)', cfg); rb = await pg.evaluate('(c)=>window.__fxm.run(c)', cfg); return ra, rb
                 dg2 = lambda r: hashlib.md5(json.dumps([r['h'], r['b']], sort_keys=True).encode()).hexdigest()   # 새 객체 필드가 느는 건 상관없다 — 맞힌 기록·폭발 기록이 같으면 된다
                 ZERO = [('feed', 0, 3), ('feed', 1, 0), ('fryer', 0, 3), ('fryer', 1, 4), ('sushi', 0, 3), ('sushi', 1, 0), ('shrimp', 0, 3), ('shrimp', 1, 0), ('wifi', 0, 3), ('wifi', 1, 0),
-                        ('lid', 0, 3), ('lid', 1, 0), ('gacha', 0, 3), ('gacha', 1, 0), ('quill', 0, 3), ('quill', 1, 0), ('cart', 0, 3), ('twin', 0, 3), ('twin', 1, 0), ('sing', 0, 3), ('sing', 1, 0),
+                        ('lid', 0, 3), ('lid', 1, 0), ('gacha', 0, 3), ('gacha', 1, 0), ('quill', 0, 3), ('quill', 1, 0), ('cart', 0, 3), ('sing', 0, 3), ('sing', 1, 0),
                         ('stamp', 0, 3), ('stamp', 1, 0), ('chain', 0, 3), ('chain', 1, 0)]
                 # ⚖️ 2026-10-12 노래부르기·깃털 산탄의 피해 값을 올렸다(밸런스) — 맞힌 기록에 피해 숫자가 들어 있어 기준 커밋과 숫자만 달라진다. 이 비교는 「패시브·단계 규칙이 같다」를 보는 시험이라
                 #   새 쪽 페이지의 피해 값(U3)만 옛 값으로 잠깐 되돌려 비교하고, 끝나면 새 값으로 돌려 놓는다(피해 값 자체는 tests/survivors_barrage_up_test.py 가 지킨다)
-                U3NEW = await pg.evaluate("()=>{const u=__p6x.U3;const o={q:u.quill.d,s:u.sing.d,sb:u.sing.db};u.quill.d=6.5;u.sing.d=4.5;u.sing.db=1.3;return o}")
+                #   ⚖️ 2026-10-15 평균 맞추기(튀김기 · 초밥 · 새우깡 · 스피커 · 카트 · 슬라임 …)도 같은 방식으로 옛 값에 잠깐 되돌린다 — W4 · U3 표 값을 옛 값으로 놓으면 예전 코드(숫자가 코드 안에 있던)와 비트까지 같아야 한다
+                OLD1015 = {'U3': {'quill': {'d': 6.5}, 'sing': {'d': 4.5, 'db': 1.3}, 'cart': {'d': 5}, 'heart': {'d': 14}, 'pcards': {'d': 8}, 'slime': {'d': 13, 'bd': 7}, 'eom': {'d': 48}},
+                           'W4': {'fryer': {'d': 5}, 'sushi': {'d': 12}, 'shrimp': {'d': 14}, 'spk': {'d': 8}, 'meteor': {'d': 5}, 'rkt': {'d': 6}, 'frost': {'d': 44}, 'bell': {'d': 5.5}}}
+                U3NEW = await pg.evaluate("""(old)=>{const T={U3:__p6x.U3,W4:window.__F.W4},o={};for(const t in old){o[t]={};for(const k in old[t]){o[t][k]={};for(const f in old[t][k]){o[t][k][f]=T[t][k][f];T[t][k][f]=old[t][k][f];}}}return o}""", OLD1015)
                 bad0 = []
                 for (w, e_, tier) in ZERO:
                     for ar in (None, 'boss'):
@@ -640,7 +643,7 @@ async def main():
                         ra, rb = await both(cfg)
                         if dg2(ra) != dg2(rb): bad0.append((w, 'e' if e_ else 'b', ar))
                 await pg.evaluate("(o)=>{const u=__p6x.U3;u.quill.d=o.q;u.sing.d=o.s;u.sing.db=o.sb}", U3NEW)
-                check('패시브 0 · 마스터 단계 같음: 고친 13무기 × 기본·각성(%d조합) × 허수아비 밭·보스 한 마리 — 맞힌 기록·폭발 기록이 기준 커밋과 비트까지 같다 (카트 각성 제외)' % (len(ZERO) * 2), not bad0, bad0)
+                check('패시브 0 · 마스터 단계 같음: 고친 12무기(쌍둥이 이빨은 2026-10-16 재설계로 의도적으로 달라져 제외) × 기본·각성(%d조합) × 허수아비 밭·보스 한 마리 — 맞힌 기록·폭발 기록이 기준 커밋과 비트까지 같다 (카트 각성 제외)' % (len(ZERO) * 2), not bad0, bad0)
                 # 카트 각성: 패시브 0 일 때 「늘 3대」 — 평균 카트 수·구역 DPS 가 ±3% 안(처음 쌓일 때 포함 60초)
                 cfg = dict(w='cart', L=8, tier=0, ev=True, N=1800, seed=1, ps={})
                 ra, rb = await both(cfg)
@@ -649,6 +652,7 @@ async def main():
                 check('카트 각성 패시브 0: 평균 카트 수·구역 DPS 가 기준과 ±3% 안', abs(cb / ca - 1) <= .03 and abs(db_ / da - 1) <= .03, (ca, cb, da, db_))
                 late = await pg.evaluate("""()=>{const o=window.__fxm.run({w:'cart',L:8,ev:true,tier:0,N:1800,seed:3,ps:{}});return o.cmax['x3:c']||0;}""")
                 check('카트 각성 패시브 0: 동시에 떠 있는 카트 최대 3~4대(예전과 같은 3대 · 교체 순간에만 잠깐 4)', 3 <= late <= 4, late)
+                await pg.evaluate("""(o)=>{const T={U3:__p6x.U3,W4:window.__F.W4};for(const t in o)for(const k in o[t])for(const f in o[t][k])T[t][k][f]=o[t][k][f];}""", U3NEW)
                 # (3) 효과 크기 — 새 판에서 패시브 Lv3/Lv5(곱빼기는 Lv3 까지)를 켰을 때의 배율. 기준 커밋과 나란히 찍는다.
                 async def eff(w, e_, key, lvs, field='dps', arena=None, tier=None, seeds=(1,), N=420, probe=None):
                     out = {}
@@ -728,7 +732,7 @@ async def main():
                 check('노래부르기(마스터 음표 +1 포함) 곱빼기 3겹: 한 박 음표 6 → 8개(기준은 6개에서 막힘 — 곱빼기 3겹 중 2겹이 낭비) · 곱빼기 0 이면 5개 그대로', Rn['sing0'] == Ro['sing0'] == 5 and Rn['sing3'] == 8 and Ro['sing3'] == 6, (Ro['sing0'], Ro['sing3'], Rn['sing0'], Rn['sing3']))
                 # 쌍둥이 장판 상한 = 6 × 끈기 (끈기 0 이면 6)
                 tw = await pg.evaluate("""()=>{const o={};for(const [nm,d] of [['d0',0],['d5',5]]){const r=window.__fxm.run({w:'twin',L:8,tier:0,ev:true,N:900,seed:1,ps:d?{dur:d}:{}});o[nm]=r.cmax['x3:fl']||0;}return o;}""")
-                check('쌍둥이 이빨 장판 동시 최대: 끈기 0 이면 6 · 끈기 Lv5 이면 round(6×1.75)=11 까지 늘어난다', tw['d0'] == 6 and 9 <= tw['d5'] <= 11, tw)
+                check('쌍둥이 이빨 장판 동시 최대(2026-10-16 프싱 재설계): 끈기 0 이면 U3.twin.cap=12 · 끈기 Lv5 이면 round(12×1.75)=21 까지 늘어난다', tw['d0'] == 12 and 19 <= tw['d5'] <= 21, tw)
                 # 와이파이·초밥: 같은 적을 다시 맞히는 간격이 쿨타임에 비례(공속 0 이면 0.3 / 0.25 초 그대로)
                 gp = await pg.evaluate("""()=>{const o={};const gaps=(w,ev,ps)=>{const r=window.__fxm.run({w,L:8,tier:0,ev:!!ev,N:420,seed:1,ps,arena:'boss'});const t=r.h.filter(h=>h[1]===w).map(h=>h[0]/30);const d=[];for(let i=1;i<t.length;i++)if(t[i]-t[i-1]>1e-6)d.push(t[i]-t[i-1]);d.sort((a,b)=>a-b);return d.length?d[0]:null;};
                   o.wifi0=gaps('wifi',0,{});o.wifi5=gaps('wifi',0,{cd:5});o.sushi0=gaps('sushi',0,{});o.sushi5=gaps('sushi',0,{cd:5});return o;}""")

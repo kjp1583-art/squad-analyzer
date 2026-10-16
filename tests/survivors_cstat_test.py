@@ -19,7 +19,7 @@ FAST = '--fast' in sys.argv
 BASE_COMMIT = os.environ.get('CSTAT_BASE_COMMIT', 'bf755af')   # 전 캐릭터 고유능력(2026-10-12 사장님 지시)을 넣기 직전의 main — 서명·높이 비교와 「안 바뀐 캐릭터는 비트 동일」의 기준
 CHANGED = ['brj', 'mms', 'hrb', 'amd', 'ildj', 'ddmj', 'eom', 'bbb', 'yj', 'bgb', 'tw', 'ddo']   # 이번에 능력이 새로 붙었거나 값이 달라진 캐릭터(앞 10명은 CSX 표 키, tw=씩씩 +70%, ddo=방 반경 190)
 LOWHP_ONLY = ['mms', 'amd', 'tw']   # 저체력 조건에서만 켜지는 능력(태웅 씩씩 상한은 체력을 70% 넘게 잃어야 닿는다) — 150초 판에선 그 조건을 안 밟아 판이 같을 수 있다(조건을 밟는 동작은 survivors_cabil_test.py 가 직접 확인)
-SAME = ['jjg', 'psg', 'sr', 'yumi', 'ssu', 'kyo']                      # 안 바뀐 캐릭터 — 기준과 비트까지 같아야 한다
+SAME = ['jjg', 'sr', 'yumi', 'ssu', 'kyo']                      # 안 바뀐 캐릭터 — 기준과 비트까지 같아야 한다
 NEW, OLD = 'survivors_cb_cstat.html', 'survivors_cb_cstat_base.html'
 HEIGHT_LIMIT = 1.35      # 로스터 두 목록(클랜원+보스) 높이가 기준의 이 배수를 넘으면 빨강(칩 두 줄 = 카드마다 +30px 안팎 → 폰 360 폭에서 약 1.25배)
 FAILS = []

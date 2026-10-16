@@ -4,7 +4,7 @@
    원칙: 이어한 판은 닫기 직전과 같은 위험(적·엘리트·보스·적 탄·함정)·같은 보상(바닥 보석·아이템)이어야 한다.
          크기·용량·복구 실패로 완전히 못 되살리는 경우에도 「적은 비우고 보석만 남김」 은 없다 — 적과 보석은 같이 돌아오거나 같이 버려진다.
    사용: python3 tests/survivors_resume_world_test.py [--only 가,나,..] [--mutants]
-     가  몹 많은 판 복구 전/후 동일 — 데스크톱(적 220칸)·폰(적 140칸) × 캐릭터 × (일시정지 · pagehide · 실제 탭 닫기), 풀을 가득 채운 최악 판 · 저장 크기·시간
+     가  몹 많은 판 복구 전/후 동일 — 데스크톱(적 220칸)·폰(코어 4 · 적 220칸으로 통일) × 캐릭터 × (일시정지 · pagehide · 실제 탭 닫기), 풀을 가득 채운 최악 판 · 저장 크기·시간
      나  세계 장부(census) — 적만 지워진 저장본·보석만 지워진 저장본·아이템만 지워진 저장본은 판 전체가 버려진다(풀이 하나도 안 남는다)
      다  풀 값 검증(유한하지 않은 좌표·터무니없는 보석 값·모르는 아이템) · 저장 한도 초과 · 저장 실패 시 옛 저장본이 남아 되감기가 되지 않는다
      라  옛 저장본(장부 없음) 복구 호환 + 복구 직후 일관성 가드 · 서명(SIG) 불변
@@ -137,12 +137,12 @@ def first_diff(a, b):
 # ───────────── 가. 몹 많은 판 복구 전/후 동일 ─────────────
 async def sec_fidelity(b, srv):
     print('\n── 가. 몹 많은 판: 닫기 직전 ↔ 복구 직후(적·엘리트·보스·보석·아이템·적 탄·함정을 칸 번호째) ──', flush=True)
-    for label, kw in (('데스크톱 220칸', dict(w=1280, h=720, hc=8)), ('폰 140칸', dict(w=412, h=860, hc=4))):
+    for label, kw in (('데스크톱 220칸', dict(w=1280, h=720, hc=8)), ('폰 220칸(기기 무관 통일)', dict(w=412, h=860, hc=4))):
         C = await Ctx(b, srv.port, **kw).open()
         A = await C.page()
         chs = await A.evaluate("__W.CHARS.map(c=>c.k)")
         cap = await A.evaluate("__W.MAXE")
-        check('[%s] 적 풀 크기 %d' % (label, cap), cap == (140 if kw['hc'] == 4 else 220), cap)
+        check('[%s] 적 풀 크기 %d' % (label, cap), cap == 220, cap)
         sample = chs if kw['hc'] == 8 else chs[:6]
         worst = None
         for ci, ch in enumerate(sample):

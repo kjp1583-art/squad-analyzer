@@ -932,8 +932,11 @@ async def main():
             cmd = ['nice', '-n', '10', sys.executable, os.path.join(H.ROOT, 'tests', 'survivors_charbal_sim.py'), 'run', '--out', out, '--chars', chars, '--seeds', seeds, '--policy', 'nopass', '--cap', cap, '--procs', '1', '--html', html, '--quiet']
             p = subprocess.run(cmd, cwd=H.ROOT, capture_output=True, text=True, timeout=3000)
             return p.returncode, p.stdout[-400:] + p.stderr[-400:]
-        rc1, o1 = run_sim(outA, 'survivors.html'); rc2, o2 = run_sim(outB, os.path.basename(base_clean))
-        os.remove(base_clean)
+        # ⚖️ 2026-10-15 평균 맞추기로 일부러 바꾼 피해 값(tests/sv_old1015.py)만 옛 값으로 되돌린 새 사본으로 견준다 — 정책 봇이 어떤 무기를 집을지 모르니 값이 바뀐 무기가 한 번이라도 걸리면 달라진다
+        import sv_old1015
+        new_old = os.path.join(H.ROOT, 'survivors_cxnewold.html'); open(new_old, 'w', encoding='utf-8').write(sv_old1015.revert(open(os.path.join(H.ROOT, 'survivors.html'), encoding='utf-8').read()))
+        rc1, o1 = run_sim(outA, os.path.basename(new_old)); rc2, o2 = run_sim(outB, os.path.basename(base_clean))
+        os.remove(base_clean); os.remove(new_old)
         def rows(out):
             R = {}
             for fn in glob.glob(os.path.join(out, 'runs.*.jsonl')):
