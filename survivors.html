@@ -2461,7 +2461,7 @@ function duelBegin(e){   // 최종 보스가 나온 순간 — 정리 + 경기�
   say(e,'다들 물러나라. 이 녀석은 내가 직접 상대한다.');}
 function duelEnd(e){   // 보스가 쓰러졌다 — 남은 탄을 치우고, 일반 전투가 다시 돈다
   for(const b of eshots.a)b.on=false;for(const g of gems.a)if(g.on)g.mag=1;
-  S.spawnT=Math.min(S.spawnT,0)-30;S.flash=Math.max(S.flash,.3);   // 돌아오는 몬스터는 2초쯤 있다가 슬슬
+  RGN.s=null;S.spawnT=Math.min(S.spawnT,0)-30;S.flash=Math.max(S.flash,.3);   // 돌아오는 몬스터는 2초쯤 있다가 슬슬
   if(S.t<WIN_T-5)banner('⚔ 1:1 종료','남은 시간 동안 몬스터가 다시 몰려온다 — 60분까지 버텨라!',1);}
 function duelRevive(e){   // 부활 직후 — 떠 있던 예고·돌진·껍질을 치우고 숨 돌릴 틈을 준다
   const D=e.du;D.z.length=0;D.cur=null;D.sh=0;D.wk=0;D.cd=Math.max(D.cd,1.6);}
@@ -2604,10 +2604,28 @@ function waveTick(dt){
   if(S.t>=WIN_T&&!S.won){S.won=true;endRun(true);endAskShow();}   // ♾ 60분 클리어 기록을 올린 뒤 '무한 모드로 이어갈까요?' 를 묻는다(모든 모드 공통 · 오늘의 도전 제외)
   if(S.endless&&S.t>=END_T)endRun(true);   // ♾ 무한 모드 한계(180분) — 성능·메모리를 위해 여기서 마무리
 }
+// 🔁 [2026-10-16 사장님 지시 「킬 수로 겨루는데 화력이 높을수록 오히려 손해」 — 클랜원 제보 「노말 8만 킬 용조련사가 하드·베리하드보다 킬이 낮다 · 처치 속도에 맞춰서 리젠」]
+//   원인(실측 tests/survivors_kills_sim.py): 잡몹 공급(스폰)이 시간 공식 하나뿐이라, 화력이 일정 선을 넘으면 몹이 나오는 족족 사라져 처치 수가 「공급 천장」에 붙는다
+//   (일반 60분 약 8만 · 하드는 스폰 ×1.15, 베리하드 ×1.3 라 천장이 더 높다) — 그래서 센 빌드가 일반에서 오히려 킬이 적었다. 보스를 늦게 잡아서 이득 보는 경로는 따로 없었다(실측 ±1%).
+//   처치 속도 적응 리젠: 최근 REGEN.tau 초의 처치 속도(지수이동평균)가 기본 스폰 속도를 넘고 화면이 한산할 때(살아 있는 적이 상한의 REGEN.sparse 아래)만 스폰을 늘린다.
+//   약한 빌드(화면이 이미 붐빔)는 기존 스폰 그대로 — 난이도를 올리지 않는다. 상한 REGEN.cap 배 · 난이도 곱(hv().rate)은 그 위에 그대로 곱해져 일반<하드<베리하드 순서가 유지된다.
+//   상태는 S 에 두지 않는다(이어하기 서명 불변): 판이 바뀌거나 이어하기로 S 가 새 객체가 되면 처음부터 다시 잰다(약 REGEN.tau 초 동안 기본 스폰).
+const REGEN={on:1,tau:20,cap:2,sparse:.7,full:.2,k:1.1,t0:600,ramp:300,hp0:.4,hp1:.8};   // cap 최대 배율 · sparse/full: 살아 있는 적이 풀 상한의 70% 아래면 온전히, 90% 에선 0 (사이는 비례 — 체력 높은 난이도도 화면이 덜 비어 보일 뿐 같은 규칙) · k: 처치 속도의 몇 배까지 공급할지 · hp0/hp1: 내 체력이 80% 아래로 떨어지면 줄여 40% 에서 0(위험하면 더 안 보탠다)
+const RGN={s:null,k0:0,ema:0,ne:0,m:1};
+function regenMul(dt,r0){
+  if(!(dt>0)||!(r0>0))return 1;   // dt 0(재개 직후 등)이면 평균이 NaN 으로 오염돼 스폰이 영영 멈춘다
+  if(RGN.s!==S){RGN.s=S;RGN.k0=S.kills;RGN.ema=0;RGN.ne=S.ne||0;RGN.m=1;}
+  const a=Math.min(1,dt/REGEN.tau),dk=S.kills-RGN.k0;RGN.k0=S.kills;
+  RGN.ema+=(dk/dt-RGN.ema)*a;RGN.ne+=((S.ne||0)-RGN.ne)*Math.min(1,dt/6);   // 처치 속도(마리/초) · 살아 있는 적 수(6초 평균)
+  if(!REGEN.on||S.t<REGEN.t0)return RGN.m=1;                                  // 처음 10분은 그대로(레벨·처치 속도가 서버 허용 범위에 바짝 붙는 구간 + 입문 구간) — 그 뒤 ramp 초에 걸쳐 서서히
+  const want=Math.max(1,Math.min(REGEN.cap,RGN.ema*REGEN.k/Math.max(.1,r0)));    // 처치 속도에 비례(기본 스폰 속도 이하면 1)
+  const thin=Math.max(0,Math.min(1,(MAXE*(REGEN.sparse+REGEN.full)-RGN.ne)/(MAXE*REGEN.full)));   // 화면이 한산한 정도 0~1
+  const safe=Math.max(0,Math.min(1,(S.p.hp/S.p.mhp-REGEN.hp0)/(REGEN.hp1-REGEN.hp0)));   // 체력이 깎이는 중이면 공급을 늘리지 않는다
+  return RGN.m=1+(want-1)*thin*safe*Math.min(1,(S.t-REGEN.t0)/REGEN.ramp);}
 function waveSpawn(dt){
   const m=MIN();
   const rate=Math.min(22,1.2+1.3*m+.05*m*m)*.85*(S.hard?hv().rate:1);   // 몰이 이벤트가 잦아진 만큼 평소 스폰은 15% 덜 // 초당 마릿수 — 상한 이후엔 체력·공격력만 오른다
-  S.spawnT+=dt*rate;
+  S.spawnT+=dt*rate*regenMul(dt,rate);
   const hm=hpMul(m),elP=S.t<180?0:Math.min(.065,.008+m*.0012);   // ⭐ 엘리트 — 3분부터(예전 10분) 조금씩 → 10분 2% · 30분 4.4% · 48분~ 6.5%
   while(S.spawnT>=1){S.spawnT--;
     const k=pickKind();if(k<0)break;
