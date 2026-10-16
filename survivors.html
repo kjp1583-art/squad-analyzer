@@ -1172,6 +1172,11 @@ const WEAP={
   sing:{only:'bbb',rl:'고유 · 박자 나선',ic:'🎤',nm:'플레이브 노래부르기',pair:'study',ev:{ic:'🎶',nm:'앙코르 무대',ds:'반대로 한 번 더 부른다(앙코르 · 피해 75%) · 피해·범위 +15% · 더 자주'},
     ds:['노래 한 소절은 4박자 — 1·2·3박은 가까운 적에게 음표 2개씩 쏘고, 4박은 가장 센 적에게 큰 고음이 울려 퍼진다 · 음표가 많이 맞을수록 고음이 세지고, 맞은 적은 넋을 잃고 느려진다(배불배불 전용)','음표 +1(박마다 3개)','피해 +35%','나선 — 박자마다 다음으로 가까운 적을 돌아가며 겨냥 · 박자 -15%(더 빠르게) · 쿨타임 -10%','피해 +35%','고음 범위 +25% · 울림 간격 -35% · 음표 사거리 +15%','음표 +1(박마다 4개)','음표 관통 +1 · 넋 잃음 +0.3초 · 쿨타임 -10%']},
 };
+// ⚖ [2026-10-16 클랜원 건의 「초월 있는 패시브 vs 없는 패시브 균형」] 양날의 검 두 패시브(🩸 광분 · 🐢 거북 등껍질)의 수치는 여기 한 곳. 문구(PASS.ds)·식(dmgMul·takenMul·moveMul·armTotal)이 같은 값을 읽는다.
+//   두 패시브는 🌟 초월 칸(PT)이 없다 — PT 에 항목을 더하면 이어하기 서명(SIG)이 바뀌어 진행 중인 판이 사라지므로, 초월 대신 레벨당 효과를 키워 패널티를 갚는다.
+//   기준 = 같은 계열 초월 있는 짝: 💪 근성(5레벨 +50%, 초월 2번 +14% → 약 +71%) · 🛡 깃털 갑옷(5레벨 -5, 초월: 무적 +0.12초 · 밀쳐내기). 광분은 3칸으로 근성에 맞서고 거북은 3칸으로 깃털 갑옷의 두 배 가까이 깎는다.
+const PASSV={glass:{dmg:.25,tk:.10},turtle:{arm:3,mv:.05}};   // glass: 레벨당 피해 +dmg · 받는 피해 +tk / turtle: 레벨당 고정 깎기 arm · 이동속도 -mv
+const pct=x=>Math.round(x*100);
 const PASS={
   spd:{ic:'👟',nm:'이동속도',ds:'이동속도 +8%'},
   hp:{ic:'❤️',nm:'최대 HP',ds:'최대 HP +25 (그만큼 회복)'},
@@ -1188,8 +1193,8 @@ const PASS={
   crit:{ic:'🔪',nm:'급소',ds:'치명타 확률 +5% · 치명타 배율 +0.2배 (기본 2배 → Lv1 2.2배 … Lv5 3배)'},
   pspd:{ic:'🏹',nm:'속사',ds:'탄이 날아가는 속도 +12% (날아가는 거리도 같이 늘어요) — 받는 무기만'},
   study:{ic:'📚',nm:'공부',ds:'경험치 +8%'},
-  glass:{ic:'🩸',nm:'광분',ds:'모든 피해 +15% · 대신 받는 피해 +10% (양날의 검)',max:3},
-  turtle:{ic:'🐢',nm:'거북 등껍질',ds:'받는 피해 -2 · 대신 이동속도 -5% (양날의 검)',max:3},
+  glass:{ic:'🩸',nm:'광분',ds:`모든 피해 +${pct(PASSV.glass.dmg)}% · 대신 받는 피해 +${pct(PASSV.glass.tk)}% (양날의 검)`,max:3},
+  turtle:{ic:'🐢',nm:'거북 등껍질',ds:`받는 피해 -${PASSV.turtle.arm} · 대신 이동속도 -${pct(PASSV.turtle.mv)}% (양날의 검)`,max:3},
   vamp:{ic:'🥩',nm:'고기 반찬',ds:'적 40마리 처치마다 HP +1.5 회복',max:4},
 };
 // ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -1884,7 +1889,7 @@ const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n-keyN();};
 const isKeyNew=k=>k!=='rev'&&!pv(k)&&keyN()<MAXEV&&keyList().includes(k);   // 지금 새로 얻으면 열쇠 칸으로 가는가
 const KEY_NOTE=`🗝 각성 열쇠 패시브는 패시브 ${SLOTP}칸 밖의 열쇠 칸(${MAXEV}칸)에 따로 들어가요 — 일반 칸이 꽉 차도 받을 수 있어요`;
 const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
-const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+.15*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
+const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*pv('dur');                  // ⏳ 지속시간
 const PS=()=>1+.12*pv('pspd')+.08*PTV('pspd');                  // 🏹 투사체 속도
@@ -1893,12 +1898,12 @@ const PS=()=>1+.12*pv('pspd')+.08*PTV('pspd');                  // 🏹 투사�
 const critCh=()=>(CH.crit||0)+csCrit(),critLk=()=>.03*LK(),critPv=()=>.05*pv('crit'),critPt=()=>PTV('luck')?.05:0,critTr=()=>.06*trn('focus'),critSm=()=>smv('crit');   // 치명타 확률의 여섯 갈래: 캐릭터 · 행운 · 급소 · 🌟 행운 초월 · 정조준 · 눈 밝히기
 const critChance=()=>critCh()+critLk()+critPv()+critPt()+critTr()+critSm();   // 치명타 확률(1 이상이면 늘 터진다)
 const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);   // 치명타가 터졌을 때의 피해 배율
-const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-.05*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0);   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
+const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0);   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
 const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
 const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag');   // 경험치 줍는 범위 배율(기본 반경 70)
 const xpMul=()=>1+(CH.xp||0)+.08*pv('study')+S.syn.xp;   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
-const armTotal=()=>pv('arm')+(CH.arm||0)+2*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
-const takenMul=()=>csTaken()*(1+.1*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다)
+const armTotal=()=>pv('arm')+(CH.arm||0)+PASSV.turtle.arm*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
+const takenMul=()=>csTaken()*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다)
 const VAMP_N=40,vampHp=()=>1.5*pv('vamp');   // 🥩 고기 반찬: 적 VAMP_N 마리를 처치할 때마다 HP 회복
 const critParts=()=>[['캐릭터',critCh()],['행운',critLk()],['급소',critPv()],['행운 초월',critPt()],['정조준',critTr()],['눈 밝히기',critSm()]];   // 표시용 구성표(화면을 그릴 때만 부른다 — 합은 critChance 와 같다)
 const LOWHP_AT=.3,lowMul=()=>CH.low&&S.p.hp<S.p.mhp*LOWHP_AT?1+CH.low:1;   // 🥲 망무새: 체력이 LOWHP_AT 아래면 피해 +CH.low (hurt 가 곱한다 — dmgMul 에는 안 들어 있다)
