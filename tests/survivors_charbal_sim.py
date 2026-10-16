@@ -37,7 +37,7 @@ EXTRA_HOOK = r"""
 window.__cbx={get SPAWN_R(){return SPAWN_R},get VW(){return VW},get VH(){return VH},get SC(){return SC},
  PASS,PT,TRD,SM,CO,PICK,PROP,KIND,evReady,evLeft,MAXEV,MAXLV,SLOTW,SLOTP,REV_LV,pv,slotP,cardLv,wOk,TCAP,RES,pmax,
  dmg:{taken:0,hits:0,t5:0,by:{},n:{},log:[],logOn:false}};
-{const h0=hitP;hitP=function(d,msg){const p=S.p,b=p.hp,r0=S.revUsed;const r=h0(d,msg);let dm=b-p.hp;if(S.revUsed>r0)dm=b;
+{const h0=hitP;hitP=function(d,msg){const p=S.p,b=p.hp,r0=S.revUsed;const r=h0(d*(window.__takenMul||1),msg);let dm=b-p.hp;if(S.revUsed>r0)dm=b;
   if(dm>0){const D=window.__cbx.dmg;D.taken+=dm;D.hits++;if(S.t<300)D.t5+=dm;
     let src=msg===undefined?'':msg===''?'shot':msg;   // 몸 박치기는 msg 가 없다 → 가장 가까운 적으로 이름을 붙인다
     if(msg===undefined){let bd=1e9,bk='?';for(const e of enemies.a){if(!e.on)continue;const dd=Math.hypot(e.x-p.x,e.y-p.y)-e.r-p.r;if(dd<bd){bd=dd;bk=e.boss?'B:'+e.boss:(KIND[e.ki]&&KIND[e.ki].id)||'?';}}src='c:'+bk;}
@@ -53,6 +53,19 @@ INIT_JS = r"""(()=>{
  Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>%(hc)d});
  try{localStorage.setItem('p6_fx','0');}catch(e){}
 })();"""
+
+
+# 난이도 고르기 — 환경변수 SV_SIM_MODE=n|h|v (일반·하드·베리하드). 판 시작 코드는 그대로이고 첫 화면 체크박스가 읽는 저장 키만 바꾼다(자식 프로세스도 환경변수를 물려받는다).
+SIM_MODE = os.environ.get('SV_SIM_MODE', '')
+_MODE_JS = {'n': "try{localStorage.setItem('p6_hard','0');localStorage.setItem('p6_vh','0');}catch(e){}",
+            'h': "try{localStorage.setItem('p6_hard','1');localStorage.setItem('p6_vh','0');}catch(e){}",
+            'v': "try{localStorage.setItem('p6_hard','0');localStorage.setItem('p6_vh','1');}catch(e){}"}
+# SV_SIM_TAKEN=0.25 — 받는 피해 배율(사람은 봇보다 훨씬 잘 피한다 — 베리하드처럼 봇이 몇 분 만에 전멸하는 난이도에서 「누가 더 오래·덜 아프게 버티나」를 가르려는 보정 · 기본 1 = 보정 없음)
+SIM_TAKEN = float(os.environ.get('SV_SIM_TAKEN', '1'))
+if SIM_TAKEN != 1:
+    INIT_JS = INIT_JS.replace("try{localStorage.setItem('p6_fx','0');}catch(e){}", "try{localStorage.setItem('p6_fx','0');}catch(e){}window.__takenMul=%r;" % SIM_TAKEN)
+if SIM_MODE:
+    INIT_JS = INIT_JS.replace("try{localStorage.setItem('p6_fx','0');}catch(e){}", "try{localStorage.setItem('p6_fx','0');}catch(e){}" + _MODE_JS[SIM_MODE])
 
 
 def md5(path_or_text, text=False):
@@ -116,7 +129,7 @@ class Conf:
         self.trace = bool(getattr(a, 'trace', False))
         self.html_hash = md5(os.path.join(ROOT, a.html))
         self.bot_hash = md5(BOT_JS)
-        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items())])), text=True)
+        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items()), SIM_MODE, SIM_TAKEN])), text=True)
 
     def public(self):
         o = {'tool': TOOL_VERSION, 'cap': self.cap, 'dt': round(self.dt, 6), 'view': '%dx%d' % self.view, 'low': self.low,
