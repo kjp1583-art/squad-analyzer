@@ -1190,7 +1190,7 @@ const WEAP={
   sing:{only:'bbb',rl:'고유 · 박자 나선',ic:'🎤',nm:'플레이브 노래부르기',pair:'study',ev:{ic:'🎶',nm:'앙코르 무대',ds:'반대로 한 번 더 부른다(앙코르 · 피해 75%) · 피해·범위 +15% · 더 자주'},
     ds:['노래 한 소절은 4박자 — 1·2·3박은 가까운 적에게 음표 2개씩 쏘고, 4박은 가장 센 적에게 큰 고음이 울려 퍼진다 · 음표가 많이 맞을수록 고음이 세지고, 맞은 적은 넋을 잃고 느려진다(배불배불 전용)','음표 +1(박마다 3개)','피해 +35%','나선 — 박자마다 다음으로 가까운 적을 돌아가며 겨냥 · 박자 -15%(더 빠르게) · 쿨타임 -10%','피해 +35%','고음 범위 +25% · 울림 간격 -35% · 음표 사거리 +15%','음표 +1(박마다 4개)','음표 관통 +1 · 넋 잃음 +0.3초 · 쿨타임 -10%']},
   // 🧺 [2026-10-16 사장님 지시] 맨해라공원팬티도둑 전용 — 팬티를 던져 멈칫하게 하고, 쓰러진 적이 떨어뜨린 전리품 팬티를 주워 보따리를 채운다. 가득 차면 다음 투척이 🎆 팬티 폭죽. 각성 열쇠 패시브 🧲 획득 범위(줍기 범위도 넓어진다). 수치는 U3.panty
-  panty:{only:'pty',rl:'고유 · 줍기 · 폭죽',ic:'🧺',nm:'팬티 투척',pair:'mag',ev:{ic:'🧵',nm:'빨랫줄 대잔치',ds:'던질 때마다 빨랫줄이 걸린다 — 줄 위의 적은 계속 피해 · 피해·폭죽 범위 +15~25%'},
+  panty:{only:'pty',rl:'고유 · 줍기 · 폭죽',ic:'🧺',nm:'팬티 투척',pair:'mag',ev:{ic:'🧵',nm:'빨랫줄 대잔치',ds:'던질 때마다 빨랫줄이 걸린다 — 줄 위 적은 계속 피해 · 쿨타임 -10% · 피해 +15% · 폭죽 범위 +25%'},
     ds:['가장 가까운 적에게 팬티를 던진다 — 맞은 적은 0.4초 멈칫(보스는 느려질 뿐). 적이 쓰러지면 가끔 전리품 팬티가 떨어지고, 주워 보따리가 가득 차면 다음 투척이 큰 🎆 팬티 폭죽으로 터진다(맨해라공원팬티도둑 전용)','팬티 +1(한 번에 2장)','피해 +40%','보따리 한 칸 줄어듦 · 폭죽 범위 +15%','피해 +40%','팬티 +1(한 번에 3장) · 쿨타임 -10%','폭죽 범위 +15% · 전리품이 더 자주 떨어진다','피해 +50% · 팬티 관통 +1']},
 };
 // ⚖ [2026-10-16 클랜원 건의 「초월 있는 패시브 vs 없는 패시브 균형」] 양날의 검 두 패시브(🩸 광분 · 🐢 거북 등껍질)의 수치는 여기 한 곳. 문구(PASS.ds)·식(dmgMul·takenMul·moveMul·armTotal)이 같은 값을 읽는다.
@@ -1503,8 +1503,8 @@ const SGV={
   sr:{d:[1,2,3],e:[1,2,3]},                                                   // 🕷️ 스탭 시간 +초 · 주기 -초
   ddo:{R:[.1,.2,.3],d:[.25,.5,.75]},                                          // ☠️ 방 범위 · 방 안 지속 피해
   tw:{cap:[.1,.2,.3],sl:[.15,.3,.45]},                                        // 💔 「씩씩」 상한 +%p · 잃은 체력 1%당 피해 기울기 +
-  bgb:{n:[6,5,4],m:[8,12,16],near:160},
-  pty:{f:[2,3,4],cd:2},                                                        // 🌙 정예·대형·보스를 잡으면 보따리가 한꺼번에 차는 칸 수 · 그 최소 간격(초 · 겹쳐 쌓이지 않는다)                                       // 🌪 던진 횟수 · 사방 카드 수 · 적이 붙었다고 보는 거리
+  bgb:{n:[6,5,4],m:[8,12,16],near:160},                                       // 🌪 던진 횟수 · 사방 카드 수 · 적이 붙었다고 보는 거리
+  pty:{f:[2,3,4],cd:2},   // 🌙 정예·대형·보스를 잡으면 보따리가 한꺼번에 차는 칸 수 · 그 최소 간격(초 · 겹쳐 쌓이지 않는다)
 };
 // 🏺 유물 — 유물마다 고유 규칙(3단계)
 const REL={
@@ -1515,7 +1515,7 @@ const REL={
   storm:{ic:'⚡',nm:'뇌우 부적',ds:l=>`${[9,8,7][l-1]}초마다 벼락 ${[2,2,3][l-1]}줄기가 내리친다`},
   berserk:{ic:'🔥',nm:'배수의 진',ds:l=>`HP 40% 이하일 때 모든 피해 +${[25,35,45][l-1]}% · 이동 +10%`},
   pulse:{ic:'🔔',nm:'비상 종',ds:l=>`${[90,80,70][l-1]}초마다 화면 펄스 — 잡몹 최대체력의 ${[15,20,25][l-1]}%(보스는 거의 안 아프다)`},
-  // ⭐ [2026-10-07 사장님 승인] 시그니처 유물 — 캐릭터마다 1개(상점 캐릭터 제외 15종). 그 캐릭터로 시작한 판에서만 후보에 나온다(ch).
+  // ⭐ [2026-10-07 사장님 승인] 시그니처 유물 — 캐릭터마다 1개(상점 캐릭터는 없음 — 단 맨해라공원팬티도둑은 예외로 16번째). 그 캐릭터로 시작한 판에서만 후보에 나온다(ch).
   //   원칙: 무적 없음 · 중첩 없음(타이머·확률·갱신형) · 효과는 그 캐릭터의 컨셉을 한 단계 더하는 수준(다른 유물 3단계와 비슷한 체감)
   sg_brj:{ch:'brj',ic:'🐤',nm:'논란 점화',ds:l=>`적을 처치하면 ${csPc(SGV.brj.p[l-1])} 확률로 그 자리가 폭발한다(${SGV.brj.cd}초에 한 번까지 · 📏 광역·💥 피해 패시브를 받고 레벨이 오를수록 세진다)`},
   sg_jjg:{ch:'jjg',ic:'🔫',nm:'한 방 장전',ds:l=>`치명타가 ${SGV.jjg.n[l-1]}번 터질 때마다 다른 적 하나에게 추가 일격(방금 치명타의 ${csPc(SGV.jjg.f)})`},
@@ -3097,10 +3097,11 @@ function singPulse(o,last){const R=o.R*(last?1.3:1),d=o.d*(last?1.5:1);
     if(o.fr){const a0=Math.random()*6.2832;for(let i=0;i<6;i++){const a=a0+i*1.0472;f3({k:'nt',x:o.x,y:o.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,life:.42,d:o.nd*.5,pc:0,h:[],c:i&3,v:null,sl:o.sl*.6});}}}}
 // 🧺 [2026-10-16 사장님 지시] 맨해라공원팬티도둑 — 팬티 투척. 보따리 게이지(S.x3.cs.bg · 숫자 하나)를 전리품 팬티(f3 'pl')로 채우고, 가득 차면 다음 투척이 🎆 팬티 폭죽('py' big).
 //   각성 「빨랫줄 대잔치」는 던질 때마다 빨랫줄('ln')을 걸어 줄 위의 적에게 계속 피해. 새 S 키·표 경로를 만들지 않는다(이어하기 서명 불변) — 수치는 U3.panty · SGV.pty.
+const PTYLN=new WeakMap();   // 🧵 적마다 마지막 줄 피해 시각 — 줄이 겹쳐도 한 적은 간격(iv)마다 한 번만(저장하지 않는다 · 복구되면 비어 있어도 무해)
 const ptyNeed=L=>U3.panty.need-(L>=4?1:0);
 function ptyFill(v){const cs=csS(),n=ptyNeed(S.w.panty||1);if((cs.bg||0)>=n)return;cs.bg=Math.min(n,(cs.bg||0)+v);txt(S.p.x,S.p.y-28,'🧺 '+cs.bg+'/'+n,cs.bg>=n?'#ffffff':'#bfeaff');}
 function ptyLoot(e){const U=U3.panty,X=S.x3,sure=e.boss||e.bg||e.el,Ls=SGN('sg_pty');   // 쓰러진 적 자리에 전리품 팬티 — 정예·대형·보스는 확정
-  if(Ls&&sure&&S.t-(S.sgT.pty===undefined?-9:S.sgT.pty)>=SGV.pty.cd){S.sgT.pty=S.t;ptyFill(SGV.pty.f[Ls-1]);}   // 🌙 공원 야간 순찰(시그니처 유물)
+  if(Ls&&sure&&(S.x3.cs&&S.x3.cs.bg||0)<ptyNeed(S.w.panty)&&S.t-(S.sgT.pty===undefined?-9:S.sgT.pty)>=SGV.pty.cd){S.sgT.pty=S.t;ptyFill(SGV.pty.f[Ls-1]);}   // 🌙 공원 야간 순찰(시그니처 유물)
   let n=0;for(const o of X.f)if(o.k==='pl')n++;if(n>=U.cap||X.f.length>=F3CAP-10)return;   // 전리품이 풀을 다 먹지 않게 상한 + 투사체 몫 10칸은 남긴다
   if(!sure&&Math.random()>=U.drop*(S.w.panty>=7?U.dr7:1))return;
   f3({k:'pl',x:e.x,y:e.y,life:U.ll,t:Math.random()*6,v:U.v[e.boss?2:sure?1:0]});}
@@ -3303,7 +3304,8 @@ function weapons3(dt,cm,MT,AR,AM){
   if(L&&(S.cd.panty-=dt)<=0){ev=S.ev.panty;t=TK('panty');const U=U3.panty;tg=aim3(U.rng);
     if(tg){const cs=csS(),full=(cs.bg||0)>=ptyNeed(L),a0=Math.atan2(tg.y-p.y,tg.x-p.x),sp=U.sp*PS(),
         d=U.d*DL3(L)*MT*(1+t.d)*(ev?1.15:1),n=Math.min(1+(L>=2)+(L>=6)+AM+t.n,7);
-      if(full){cs.bg=0;const R=U.bR*lvm(L,[[4,1.15],[7,1.15]])*AR*(ev?1.25:1);
+      const pre=S.x3.f.length<F3CAP;   // 풀이 꽉 찼으면 폭죽을 만들 수 없다 — 보따리를 비우지 않고 일반 투척으로
+      if(full&&pre){cs.bg=0;const R=U.bR*lvm(L,[[4,1.15],[7,1.15]])*AR*(ev?1.25:1);
         f3({k:'py',big:1,x:p.x,y:p.y,vx:Math.cos(a0)*sp*U.bsp,vy:Math.sin(a0)*sp*U.bsp,life:U.life*1.5,d:U.bd*DL3(L)*MT*(1+t.d)*(ev?1.15:1),nd:d,R,pc:0,h:[],c:0,rot:0,ev:ev?1:0,fr:t.frag?1:0,st:U.st});
         txt(p.x,p.y-34,'🎆 팬티 폭죽!','#ffffff');AU.play('panty',1);}
       else{const pc=L>=8?1:0;
@@ -3436,7 +3438,7 @@ function weapons3(dt,cm,MT,AR,AM){
         break;}
       case 'ln':{o.life-=dt;o.tk-=dt;if(o.life<=0){dead=true;break;}   // 🧵 빨랫줄 — 줄에 걸린 적은 간격마다 피해 + 느려진다(줄이 걸려 있는 동안 계속)
         if(o.tk<=0){o.tk+=U3.panty.iv;for(const e of S.live){if(!e.on)continue;const dx=e.x-o.x,dy=e.y-o.y,al=dx*o.ux+dy*o.uy;if(al<-o.hl-e.r||al>o.hl+e.r)continue;
-          if(Math.abs(dx*o.uy-dy*o.ux)>e.r+U3.panty.lw)continue;h3(e,o.d,'panty');if(e.on)e.slow=Math.max(e.slow,e.boss?.15:.35);}}
+          if(Math.abs(dx*o.uy-dy*o.ux)>e.r+U3.panty.lw)continue;const lt=PTYLN.get(e);if(lt&&lt.sn===e.sn&&S.t-lt.t<U3.panty.iv*.9)continue;PTYLN.set(e,{sn:e.sn,t:S.t});h3(e,o.d,'panty');if(e.on)e.slow=Math.max(e.slow,e.boss?.4:.35);}}
         break;}
       case 'bs':{o.life-=dt;if(o.life<=0)dead=true;break;}
       default:dead=true;}
