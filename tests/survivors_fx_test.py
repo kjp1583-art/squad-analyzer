@@ -604,6 +604,7 @@ async def main():
                 # (1) 표에서 바뀐 칸 = 지시서가 말한 칸뿐(나머지 칸은 글자 하나도 안 바뀐다)
                 flips = {}
                 for w in PFX:
+                    if w not in OLDPFX: continue   # 기준 이후에 새로 생긴 무기(팬티 투척)는 비교 대상이 아니다
                     for c in CHAN:
                         for fi in (0, 1):
                             o_, n_ = OLDPFX[w][c][fi], PFX[w][c][fi]
