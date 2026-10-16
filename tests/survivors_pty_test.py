@@ -65,7 +65,7 @@ async def main():
         check('고유 무기 panty 는 U3 수치표를 가진다(다른 전용 무기의 U3 유무는 이 시험의 몫이 아니다)', 'panty' not in r['noU3'], r['noU3'])
         check('mag 짝 무기에 팬티 투척이 들어 있다(획득 범위는 전리품 줍기도 넓힌다)', 'panty' in r['midPair'] and 'snack' in r['midPair'], r['midPair'])
         U = r['u3']
-        check('U3.panty 수치표(밸런스 측정으로 맞춘 값 — 바꾸면 RESULT.md 의 측정표를 다시 잴 것)', U == {'d': 15, 'cd': 1.35, 'sp': 520, 'life': .55, 'rng': 300, 'hit': 11, 'fan': .2, 'st': .4, 'drop': .08, 'cap': 12, 'll': 14, 'need': 6, 'bd': 46, 'bR': 92, 'bsp': .8, 'iv': .4, 'hl': 170, 'lw': 11, 'lk': .55, 'lt': 5, 'lmax': 2, 'dr7': 1.25, 'v': [1, 2, 3]}, U)
+        check('U3.panty 수치표(밸런스 측정으로 맞춘 값 — 바꾸면 RESULT.md 의 측정표를 다시 잴 것)', U == {'d': 17, 'cd': 1.35, 'sp': 520, 'life': .55, 'rng': 300, 'hit': 11, 'fan': .2, 'st': .4, 'drop': .10, 'cap': 12, 'll': 14, 'need': 6, 'bd': 60, 'bR': 92, 'bsp': .8, 'iv': .4, 'hl': 170, 'lw': 11, 'lk': .55, 'lt': 5, 'lmax': 2, 'dr7': 1.25, 'v': [1, 2, 3]}, U)
         wds = await pg.evaluate("()=>__p6x.WEAP.panty.ds")
         U = r['u3']
         check('카드 문구가 값을 읽는다: Lv1 문구의 멈칫 시간 · Lv2 팬티 +1 · Lv4 보따리 한 칸 · 폭죽 범위 +15% · Lv8 관통 +1(코드 값과 같다)', f"{U['st']}초 멈칫" in wds[0] and '팬티 +1' in wds[1] and '보따리 한 칸 줄어듦' in wds[3] and '폭죽 범위 +15%' in wds[3] and '관통 +1' in wds[7] and '3장' in wds[5], wds)
