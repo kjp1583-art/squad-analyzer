@@ -986,7 +986,7 @@ const CSTAT={
   ildj:{rows:c=>[CSR.xp(c),{ic:'🎭',nm:'커튼콜',v:'치명타 +'+csPc(CSX.ildj.cc),ds:`레벨이 오르면 ${CSX.ildj.T}초 동안 치명타 확률이 ${csPc(CSX.ildj.cc)} 더 올라요 (레벨업마다 다시 채워져요)`}]},
   kyo:{rows:c=>[{ic:'🍔',nm:'레벨업 회복',sh:'렙업 회복 +'+c.lvheal,v:'+'+c.lvheal,ds:`레벨이 오를 때마다 HP가 ${c.lvheal} 회복돼요`},CSR.mag(c)]},
   ddmj:{rows:c=>[CSR.arm(c),{ic:'💥',nm:'밀쳐 내기',v:'',ds:'내게 부딪힌 적은 뒤로 밀려나요 (보스는 못 밀어요)'},CSR.spd(c),{ic:'🔰',nm:'반격',v:'',ds:`맞으면 내 주변 적에게 충격파가 터져 피해를 주고 밀쳐 내요 (${csNum(CSX.ddmj.cd)}초에 한 번 · 레벨이 오를수록 세져요)`}]},
-  psg:{rows:c=>[{ic:'🐲',nm:'용 변신',v:'',ds:`피해를 주고 적을 처치하면 🔥 분노 게이지가 차고, 가득 차면 ${SHV.dur}초 동안 용으로 변신해요 — 몸이 커지고 주변 적이 불타며, 이동속도 +${csPc(SHV.spd)} · 받는 피해 -${csPc(SHV.red)} · 무기 피해 +${csPc(SHV.dmg-1)}. 끝나면 게이지는 0부터 다시`},
+  psg:{rows:c=>[{ic:'🐲',nm:'용 변신',v:'',ds:`피해를 주고 적을 처치하면 🔥 분노 게이지가 차고, 가득 차면 ${SHV.dur}초 동안 용으로 변신해요 — 몸이 커지고 주변 적이 불타며(불꽃 오라는 📏 광역·⏳ 끈기·곱빼기와 쌍둥이 이빨 레벨을 따라 세져요), 이동속도 +${csPc(SHV.spd)} · 받는 피해 -${csPc(SHV.red)} · 무기 피해 +${csPc(SHV.dmg-1)} · 베기마다 화염 장판 +${SHV.padN}. 끝나면 게이지는 0부터 다시`},
     {ic:'⏳',nm:'분노 가속',v:'',ds:`오래 버틸수록 분노가 빨리 찬다 (분당 +${csPc(SHV.acc)}, 최대 ${csNum(SHV.accMax)}배)`}]},
   bbb:{rows:c=>[{ic:'⏱',nm:'쿨타임',v:'-'+csPc(c.cdr),ds:`「박자 감각」 — 모든 무기의 쿨타임이 ${csPc(c.cdr)} 줄어요 (⏱ 공격속도와 같은 규칙이라 새우깡 대회전 등 일부 무기는 빠져요)`},{ic:'🎶',nm:'후렴',v:'',ds:`${CSX.bbb.every}초마다 ${CSX.bbb.T}초 동안 쿨타임이 ${csPc(1-CSX.bbb.cd)} 더 줄어요 (같은 규칙)`}]},
   sr:{rows:c=>[{ic:'🪪',nm:'스탭 임명',sh:'스탭 임명',v:'',ds:`${CSK.staff.every}초마다 스탭 ${CSK.staff.n}명이 ${CSK.staff.life}초 동안 곁에서 같이 싸워요`},{ic:'🐌',nm:'주변 적 감속',v:'-'+csPc(1-CSK.staff.slow),ds:`내 주변에 들어온 적은 이동속도가 ${csPc(1-CSK.staff.slow)} 느려져요`}]},
@@ -1154,8 +1154,8 @@ const WEAP={
     ds:['햄버거를 던진다 — 땅에 3번 튕기며 착지마다 터진다. 4번째 던짐은 🎟 쿠폰: 마지막 착지에서 HP 회복(김야옹 전용)','폭발 범위 +15%','피해 +40%','튕김 +1 · 쿨타임 -15%','피해 +40% · 햄버거 +1(부채꼴)','폭발 범위 +15%','튕김 +1','피해 +50% · 쿨타임 -15%']},
   bash:{only:'ddmj',rl:'고유 · 밀치기',ic:'🛡',nm:'방패 밀치기',pair:'turtle',ev:{ic:'🧱',nm:'철옹성 밀어내기',ds:'앞뿐 아니라 사방으로 밀쳐 낸다 — 길이 1.2배 · 피해 1.15배'},
     ds:['방패를 앞으로 힘껏 밀어 직사각형 안의 적을 크게 밀쳐 낸다(보스는 안 밀리고 느려진다 · 단단묵직 전용)','길이 +15%','피해 +40%','쿨타임 -15%','피해 +40%','폭 +20% · 길이 +15%','쿨타임 -15%','피해 +50% · 뒤쪽도 60% 위력으로 밀친다']},
-  twin:{only:'psg',rl:'고유 · 이중 베기',ic:'🔥',nm:'쌍둥이 이빨',pair:'dur',ev:{ic:'🐲',nm:'용의 강림 대폭발',ds:'평소에도 화염구 발사 · 장판 +2 · 둘째 베기마다 용의 불꽃 폭발 · 피해 1.15배'},
-    ds:['가까운 적 쪽으로 앞을 두 번 연달아 벤다 — 둘째 베기 끝에 화염 장판이 남아 지속 피해. 🐲 변신 중엔 베기마다 화염구까지(프싱 전용)','베기 길이 +15%','피해 +40%','쿨타임 -15%','피해 +40% · 변신 중 화염구 +1','화염 장판 +1','쿨타임 -15%','피해 +50% · 세 번째 베기']},
+  twin:{only:'psg',rl:'고유 · 이중 베기',ic:'🔥',nm:'쌍둥이 이빨',pair:'dur',ev:{ic:'🐲',nm:'용의 강림 대폭발',ds:'평소에도 화염구 발사 · 베기마다 장판 +2 · 둘째 베기마다 용의 불꽃 폭발 · 피해 1.15배'},
+    ds:['가까운 적 쪽으로 앞을 두 번 연달아 벤다 — 베기마다 화염 장판이 앞쪽 여기저기에 깔려 겹쳐도 각자 지속 피해(최대 개수는 ⏳ 끈기에 비례). 🐲 변신 중엔 베기마다 화염구와 장판 +1(프싱 전용)','베기 길이 +15%','피해 +40%','쿨타임 -15%','피해 +40% · 변신 중 화염구 +1','베기마다 화염 장판 +1','쿨타임 -15%','피해 +50% · 세 번째 베기']},
   stamp:{only:'sr',rl:'고유 · 표식 폭발',ic:'📋',nm:'임명 도장',pair:'might',ev:{ic:'🗂',nm:'전원 스탭 임명',ds:'도장 +3 · 폭발까지 1.4초 · 피해 1.1배'},
     ds:['가장 튼튼한 적들에게 임명 도장을 찍는다 — 2초 뒤 터지고, 도장이 찍힌 동안은 느려진다(보스·엘리트에겐 피해 2배 · 신림 전용)','폭발 범위 +15%','피해 +40%','도장 +1','피해 +40%','쿨타임 -15%','도장 +1','피해 +50% · 폭발 범위 +15%']},
   chain:{only:'ddo',rl:'고유 · 묶는 사슬',ic:'⛓',nm:'진실의 사슬',pair:'cd',ev:{ic:'⚖️',nm:'진실의 판결',ds:'사슬 +2 · 더 오래 · 끊길 때 큰 폭발'},
@@ -1258,7 +1258,7 @@ const PFXN={
   'sing.area':'고음(♬)만',
   'lid.area':'절반 효과',
   'bash.area':'절반 효과',
-  'twin.area':'절반 효과',
+  'twin.area':'베기는 절반 · 화염 장판 범위는 전부',
   'twin.cnt':'화염 장판 개수만(베기·화염구는 그대로)',
 };
 const PFXCH=[   // 채널 이름·이모지·한 줄 설명은 여기 한 곳에서만 정한다(ps = 이 채널을 올리는 패시브)
@@ -1476,7 +1476,7 @@ const REL={
   sg_ildj:{ch:'ildj',ic:'🎭',nm:'아님말고',ds:l=>`경험치 보석을 주울 때 ${[6,9,12][l-1]}% 확률로 경험치 2배`},
   sg_kyo:{ch:'kyo',ic:'🍔',nm:'쿠폰 적립',ds:l=>`보스를 처치하면 최대 HP의 ${[10,15,20][l-1]}%를 추가로 회복`},
   sg_ddmj:{ch:'ddmj',ic:'🧱',nm:'가시 방패',ds:l=>`맞으면 주변 130 안의 적(최대 8)에게 받은 피해의 ${[60,90,120][l-1]}%를 돌려준다`},
-  sg_psg:{ch:'psg',ic:'🐲',nm:'타오르는 비늘',ds:l=>`🐲 용 변신 지속 +${[1.5,2.5,3.5][l-1]}초`},
+  sg_psg:{ch:'psg',ic:'🐲',nm:'타오르는 비늘',ds:l=>`🐲 용 변신 지속 +${SHV.rel[l]}초 · 변신 중 불꽃 오라·화염 장판 피해 +${csPc(SHV.relD[l])} · 화염 장판 범위 +${csPc(SHV.relR[l])} · 장판 최대 +${SHV.relN[l]}개`},
   sg_sr:{ch:'sr',ic:'🕷️',nm:'공지 도배',ds:l=>`스탭이 ${l}초 더 오래 싸우고 ${l}초 더 자주 온다`},
   sg_ddo:{ch:'ddo',ic:'☠️',nm:'공개 재판',ds:l=>`진실의 방 범위 +${[10,20,30][l-1]}% · 방 안 지속 피해 +${[25,50,75][l-1]}%`},
   sg_tw:{ch:'tw',ic:'💔',nm:'집착의 불꽃',ds:l=>`「씩씩」 피해 보너스 상한 +${[10,20,30][l-1]}%p (잃은 체력 1%당 +1%는 그대로)`},
@@ -2919,18 +2919,22 @@ const U3={sing:{d:5.9,db:1.7,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
   snack:{d:11,cd:1.3,tr:260,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.7,evKd:.55,kd:.228,big:28,cs:260,cl:.36,cr:4,cap:80,frame:48,comp:2.5},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
   pcards:{d:13,cd:1.7,sp:430,life:.7,rng:290},eom:{d:48,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
-  twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44},stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
+  twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44,cap:12,pad:.22},   // 🔥 [2026-10-16 프싱 재설계] cap 동시에 깔려 있는 장판 상한(끈기 비례 · 곱빼기당 +2) · pad 장판 한 칸의 0.5초 피해(베기 피해 대비) — 베기마다 깔리는 만큼 한 칸을 가볍게
+  stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
 const F3CAP=100;
 // 🛒 [2026-10-10 사장님 지시] 각성 카트(퍼스트클래스 서비스)도 수명이 있다 — 18초 동안 따라다니다 사라지고, 쿨타임(약 6초)마다 새 카트가 나온다.
 //   패시브가 없으면 6초마다 하나씩 나와 18초 살아 늘 3대가 유지된다(예전과 같은 3대) · 끈기는 수명을, 공격속도는 나오는 간격을 바꿔 같이 있는 카트 수가 는다(최대 CART_EVMAX 대)
 const CART_EVLIFE=18,CART_EVMAX=5;
 const GACHA_EVK=.5;   // 🎰 각성 가챠: 행운이 올리던 「레어 확률」 몫(레벨당 3%p · 마스터 1단계 4%p)이 전설 확률로 넘어가는 비율 — 절반(레벨당 +1.5%p). 측정: 전설은 레어보다 훨씬 세서 1 이면 행운 Lv5 가 피해 ×1.68 로 다른 패시브(×1.4~1.5)보다 튄다 · 0.5 면 ×1.44 로 기본형 가챠(×1.37)와 같은 급
 // 🐲 「쉬바나 코스프레」 — 분노 게이지(rg) → 가득 차면 용 변신(dT). 게이지는 초당 cap 만큼만 차오른다(후반 타수 폭주 방지)
-const SHV={max:100,dur:11,dmg:1.2,spd:.2,red:.3,R:140,aura:9,hit:.25,kill:1,kgE:4,kgB:15,cap:3.5,push:230,acc:.03,accMax:1.8};   // acc·accMax: 🔥 [2026-10-09 사장님 지시 「5권장」] 오래 버틸수록 분노가 빨리 찬다 — 분당 +3%, 최대 1.8배(27분에 최대). 초당 cap 이 대기시간(27.9초)을 정해 두었으니 배율이 상한에도 같이 걸린다(cap·kgE·kgB·버킷 2.5 는 그대로)
+const SHV={max:100,dur:11,dmg:1.2,spd:.2,red:.3,R:140,aura:9,hit:.25,kill:1,kgE:4,kgB:15,cap:3.5,push:230,acc:.03,accMax:1.8,padN:1,aLv:.15,aAm:.12,rel:[0,1.5,2.5,3.5],relD:[0,.25,.4,.6],relR:[0,.1,.15,.2],relN:[0,1,2,3]};   // 🐲 [2026-10-16 프싱 재설계] padN 변신 중 베기마다 장판 +N · aLv 불꽃 오라 피해가 쌍둥이 이빨 레벨당 +15% · aAm 곱빼기 1당 오라 피해 +12% · rel/relD/relR/relN 🐲 타오르는 비늘 단계별(변신 지속 초 · 오라·장판 피해 + · 장판 범위 + · 장판 상한 +)
+//   // acc·accMax: 🔥 [2026-10-09 사장님 지시 「5권장」] 오래 버틸수록 분노가 빨리 찬다 — 분당 +3%, 최대 1.8배(27분에 최대). 초당 cap 이 대기시간(27.9초)을 정해 두었으니 배율이 상한에도 같이 걸린다(cap·kgE·kgB·버킷 2.5 는 그대로)
 const rgMul=()=>Math.min(SHV.accMax,1+SHV.acc*S.t/60);   // 시간 비례 충전 배율(5분 1.15 · 10분 1.3 · 20분 1.6 · 27분부터 1.8)
 function rgAdd(v){if(!CH.shv||S.dT>0)return;v=Math.min(v,S.rgB);if(v<=0)return;S.rgB-=v;S.rg=Math.min(SHV.max,S.rg+v*rgMul());}   // 버킷에서는 v 만 빼고 게이지에는 v×배율을 더한다 → 상한(초당 cap)에 막힌 판의 충전 속도도 cap×배율이 된다
-function shvStart(){const p=S.p;S.dT=SHV.dur+[0,1.5,2.5,3.5][SGN('sg_psg')];S.dN++;S.dA=.2;S.dW={t:.6,T:.6,R:SHV.push,x:p.x,y:p.y};
-  AU.play('bigboom');AU.play('fire');S.shake=Math.max(S.shake,.3);S.flash=Math.max(S.flash,.2);banner('🐲 용의 강림!','11초 — 불꽃 오라 · 빠르게 · 덜 아프게');txt(p.x,p.y-40,'🐲 용 변신!','#ffb35a');
+const shvTot=()=>(SHV.dur+SHV.rel[SGN('sg_psg')])*DUR();   // 변신 지속(초) — ⏳ 끈기도 받는다
+const shvAuraK=()=>{const L=S.w.twin||0,t=TK('twin');return(1+SHV.aLv*Math.max(0,L-1))*(1+t.d)*(1+SHV.aAm*pv('amt'))*(1+SHV.relD[SGN('sg_psg')]);};   // 🔥 불꽃 오라 피해 배율: 쌍둥이 이빨 레벨·등급 · 곱빼기 · 유물
+function shvStart(){const p=S.p;S.dT=shvTot();S.dN++;S.dA=.2;S.dW={t:.6,T:.6,R:SHV.push,x:p.x,y:p.y};
+  AU.play('bigboom');AU.play('fire');S.shake=Math.max(S.shake,.3);S.flash=Math.max(S.flash,.2);banner('🐲 용의 강림!',Math.round(S.dT)+'초 — 불꽃 오라 · 빠르게 · 덜 아프게');txt(p.x,p.y-40,'🐲 용 변신!','#ffb35a');
   const sv=SRC;SRC='drg';const d=14*dmgMul();
   for(const e of S.live){if(!e.on)continue;const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy)||1;if(dd>SHV.push+e.r)continue;
     hurt(e,d);if(e.on){if(e.boss)e.slow=Math.max(e.slow,1);else knock(e,dx/dd,dy/dd,520,.35);}}
@@ -2972,8 +2976,9 @@ function twinSlash(ux,uy,len,hw,d,side){const p=S.p;
     h3(e,d,'twin');if(e.on&&!e.boss)knock(e,ux,uy,140,.12);}
   hitPropsAt(p.x+ux*len*.5,p.y+uy*len*.5,len*.6,d*.5);
   f3({k:'tw',x:p.x,y:p.y,ux,uy,len,hw,life:.22,T:.22,side});}
-function twinFire(ux,uy,len,n,R,life,d,am){const p=S.p;let c=0;const cap=Math.round(6*DUR())+(am|0);for(const o of S.x3.f)if(o.k==='fl')c++;   // 🔥 [2026-10-10 사장님 지시] 장판 최대 개수도 끈기에 비례(끈기가 없으면 예전 그대로 6개) — 오래 남는 만큼 같이 더 깔려야 끈기가 끝까지 이득이다
-  for(let i=0;i<n&&c<cap;i++,c++){const k=(i-(n-1)/2)*R*1.5;f3({k:'fl',x:p.x+ux*len*.75-uy*k,y:p.y+uy*len*.75+ux*k,life,L0:life,R,tk:.1,d});}}
+function twinFire(ux,uy,len,n,R,life,d,am,xcap,hw){const p=S.p;let c=0;const cap=Math.round(U3.twin.cap*DUR())+2*(am|0)+(xcap|0);for(const o of S.x3.f)if(o.k==='fl')c++;   // 🔥 [2026-10-16 프싱 재설계] 장판은 베기마다 새로 깔린다 — 한 줄로 나란히가 아니라 베기 앞쪽 부채꼴 안에 골고루 흩뿌려 서로 겹쳐도 된다(겹친 곳은 각자 따로 때린다). 최대 개수는 끈기에 비례(곱빼기당 +2)하고 풀 상한(F3CAP) 안에서만 깔린다
+  for(let i=0;i<n&&c<cap;i++,c++){const g=Math.round(S.t*60)*7+i,fa=.32+.68*((g*.618034)%1),lat=(((g*.381966+.17)%1)-.5)*2*(hw+R*.5);
+    f3({k:'fl',x:p.x+ux*len*fa-uy*lat,y:p.y+uy*len*fa+ux*lat,life,L0:life,R,tk:.1+.07*(g%4),d});}}
 const SHVT={src:null,c:null};   // 🐲 변신 중 몸에 덧씌우는 불꽃색 사본(그림이 바뀔 때만 다시 만든다)
 function shvTint(spr){if(SHVT.src!==spr){const c=document.createElement('canvas');c.width=spr.width;c.height=spr.height;const g=c.getContext('2d');g.drawImage(spr,0,0);g.globalCompositeOperation='source-atop';g.fillStyle='rgb(255,110,20)';g.fillRect(0,0,c.width,c.height);SHVT.src=spr;SHVT.c=c;}return SHVT.c;}
 // 📸 포토카드 그림 — 얼굴·글자 없는 파스텔 그라데이션 직사각형 + ✦ 반짝이(bd 가 있으면 진홍 테두리 = 적의 위험 · 없으면 흰 테두리 = 내 카드)
@@ -3071,9 +3076,10 @@ function weapons3(dt,cm,MT,AR,AM){
   // 🔥 쌍둥이 이빨 → 🐲 용의 강림 대폭발 — 앞쪽 이중 베기 + 화염 장판(변신 중엔 베기마다 화염구)
   L=S.w.twin||0;
   if(L&&(S.cd.twin-=dt)<=0){ev=S.ev.twin;t=TK('twin');const drg=S.dT>0&&CH.shv,len=U3.twin.len*lvm(L,[[2,1.15]])*(1+.5*(AR-1))*(1+t.a)*(drg?1.25:1),hw=U3.twin.hw*(1+.5*(AR-1));tg=aim3(len+hw+30);
-    if(tg){const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,d=U3.twin.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d),nf=1+(L>=6)+(ev?2:0)+AM,fl=U3.twin.life+t.life,R=U3.twin.R*AR*(1+.15*(L>=6)),fb=drg||ev;
+    if(tg){const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,d=U3.twin.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d),nf=1+(L>=6)+(ev?2:0)+AM+(drg?SHV.padN:0),fl=U3.twin.life+t.life,rl=drg?SGN('sg_psg'):0,R=U3.twin.R*AR*(1+.15*(L>=6))*(1+SHV.relR[rl]),pd=d*U3.twin.pad*(1+SHV.relD[rl]),fb=drg||ev;
       const slash=(side,last)=>{if(!S.w.twin)return;const q=S.p,ex=ux,ey=uy;twinSlash(ex,ey,len,hw,d,side);
-        if(last){twinFire(ex,ey,len,nf,R,fl*DUR(),d*.3,AM);if(ev)bang(q.x+ex*len*.85,q.y+ey*len*.85,70*AR,d*1.2,'twin','mine',1);}
+        twinFire(ex,ey,len,nf,R,fl*DUR(),pd,AM,SHV.relN[rl],hw);
+        if(last){if(ev)bang(q.x+ex*len*.85,q.y+ey*len*.85,70*AR,d*1.2,'twin','mine',1);}
         if(fb&&(side===0||last)){const n=1+(L>=5&&drg)+t.n,base=Math.atan2(ey,ex);
           for(let i=0;i<n;i++)blt('twin',q.x,q.y-6,base+(i-(n-1)/2)*.24,430*PS(),.9,d*.8,0,7,'#fff1c9','rgba(255,170,60,.6)',{ex:46*AR*(ev?1.4:1),exd:d*.7});}};
       slash(0,false);S.dq.push({t:.17,f:()=>slash(1,L<8)});if(L>=8)S.dq.push({t:.34,f:()=>slash(0,true)});
@@ -3459,7 +3465,7 @@ function charTick(dt){const p=S.p;SRC='char';
     S.rgB=Math.min(2.5,S.rgB+dt*SHV.cap);S.dS+=((S.dT>0?1.5:1)-S.dS)*Math.min(1,6*dt);
     if(S.dW){S.dW.t-=dt;if(S.dW.t<=0)S.dW=null;}
     if(S.dT>0){S.dT-=dt;S.dA-=dt;
-      if(S.dA<=0){S.dA=.5;const R=SHV.R*areaMul(),d=SHV.aura*dmgMul();SRC='drg';
+      if(S.dA<=0){S.dA=.5;const R=SHV.R*areaMul()*(1+SHV.relR[SGN('sg_psg')]),d=SHV.aura*dmgMul()*shvAuraK();SRC='drg';
         for(const e of S.live)if(e.on&&(e.x-p.x)**2+(e.y-p.y)**2<(R+e.r)**2)hurt(e,d);hitPropsAt(p.x,p.y,R,d);SRC='char';}
       if(S.dT<=0)shvEnd();}
     else if(S.rg>=SHV.max)shvStart();}
@@ -4489,7 +4495,7 @@ function draw(){
     cx.beginPath();cx.arc(p.x,p.y,R,0,7);cx.lineWidth=ev?3.4:2.2;cx.strokeStyle=ev?'rgba(214,236,255,'+(.72+.2*Math.sin(S.t*8)).toFixed(2)+')':'rgba(111,230,255,.6)';cx.stroke();
     if(ev){cx.beginPath();cx.arc(p.x,p.y,R*.72,0,7);cx.lineWidth=1.4;cx.strokeStyle='rgba(106,140,255,.42)';cx.stroke();}}
   // 🐲 보스 캐릭터 — 🕷 감속 오라 고리 · ☠ 진실의 방(내 것: 둥근 하늘색 실선 빛 — 보스의 함정(빨간 점선·빗금 벽)과 다르게)
-  if(CH.shv&&S.dT>0){const R=SHV.R*areaMul(),pu=.5+.5*Math.sin(S.t*9);   // 🐲 용 변신 — 불꽃 오라(호박색)
+  if(CH.shv&&S.dT>0){const R=SHV.R*areaMul()*(1+SHV.relR[SGN('sg_psg')]),pu=.5+.5*Math.sin(S.t*9);   // 🐲 용 변신 — 불꽃 오라(호박색)
     cx.beginPath();cx.arc(p.x,p.y,R,0,7);cx.fillStyle='rgba(255,150,40,'+(.1+.05*pu).toFixed(2)+')';cx.fill();cx.lineWidth=2.4;cx.strokeStyle='rgba(255,200,110,.75)';cx.stroke();
     cx.beginPath();cx.arc(p.x,p.y,R*.7,S.t*2,S.t*2+4.2);cx.lineWidth=1.6;cx.strokeStyle='rgba(255,236,190,.55)';cx.stroke();}
   if(CH.shv&&S.dW){const w=S.dW,u=1-w.t/w.T,rr=w.R*Math.min(1,u*2.4),al=Math.min(1,w.t/w.T*1.6);
@@ -4675,7 +4681,7 @@ function hud(){
   $('hpb').firstElementChild.style.width=(S.p.hp/S.p.mhp*100)+'%';
   {const t=hpText(),e=$('hpt');if(e._s!==t){e._s=t;e.textContent=t;}}   // ❤️ 숫자는 문자열이 바뀔 때만 DOM 에 쓴다(요소에 마지막 글자를 기억 — 새 최상위 변수를 만들지 않는다)
   $('hLv').textContent='Lv '+S.lv;$('hTime').textContent=(S.endless?'♾ ':S.dly?'📅 ':S.vh?'💀 ':S.hard?'🔥 ':'')+fmt(S.t)+(S.endless?'':' / 60:00');$('hKill').textContent='💀 '+S.kills;{const w=$('rgw');w.style.display=CH.shv?'block':'none';
-    if(CH.shv){const dr=S.dT>0,tot=SHV.dur+[0,1.5,2.5,3.5][SGN('sg_psg')];const i=$('rgb').firstElementChild;i.style.width=(dr?S.dT/tot*100:S.rg/SHV.max*100)+'%';i.style.background=dr?'linear-gradient(90deg,#ff5a1f,#ffd36a)':'';
+    if(CH.shv){const dr=S.dT>0,tot=shvTot();const i=$('rgb').firstElementChild;i.style.width=(dr?S.dT/tot*100:S.rg/SHV.max*100)+'%';i.style.background=dr?'linear-gradient(90deg,#ff5a1f,#ffd36a)':'';
       $('rgt').textContent=dr?'🐲 용 변신 '+Math.ceil(S.dT)+'초':'🔥 분노 '+Math.floor(S.rg)+'%';}}
   const b=S.bossRef;const bb=$('bossb');
   if(b&&!(b.on&&b.boss))S.bossRef=null;

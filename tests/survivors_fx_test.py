@@ -626,7 +626,7 @@ async def main():
                     ra = await pgo.evaluate('(c)=>window.__fxm.run(c)', cfg); rb = await pg.evaluate('(c)=>window.__fxm.run(c)', cfg); return ra, rb
                 dg2 = lambda r: hashlib.md5(json.dumps([r['h'], r['b']], sort_keys=True).encode()).hexdigest()   # 새 객체 필드가 느는 건 상관없다 — 맞힌 기록·폭발 기록이 같으면 된다
                 ZERO = [('feed', 0, 3), ('feed', 1, 0), ('fryer', 0, 3), ('fryer', 1, 4), ('sushi', 0, 3), ('sushi', 1, 0), ('shrimp', 0, 3), ('shrimp', 1, 0), ('wifi', 0, 3), ('wifi', 1, 0),
-                        ('lid', 0, 3), ('lid', 1, 0), ('gacha', 0, 3), ('gacha', 1, 0), ('quill', 0, 3), ('quill', 1, 0), ('cart', 0, 3), ('twin', 0, 3), ('twin', 1, 0), ('sing', 0, 3), ('sing', 1, 0),
+                        ('lid', 0, 3), ('lid', 1, 0), ('gacha', 0, 3), ('gacha', 1, 0), ('quill', 0, 3), ('quill', 1, 0), ('cart', 0, 3), ('sing', 0, 3), ('sing', 1, 0),
                         ('stamp', 0, 3), ('stamp', 1, 0), ('chain', 0, 3), ('chain', 1, 0)]
                 # ⚖️ 2026-10-12 노래부르기·깃털 산탄의 피해 값을 올렸다(밸런스) — 맞힌 기록에 피해 숫자가 들어 있어 기준 커밋과 숫자만 달라진다. 이 비교는 「패시브·단계 규칙이 같다」를 보는 시험이라
                 #   새 쪽 페이지의 피해 값(U3)만 옛 값으로 잠깐 되돌려 비교하고, 끝나면 새 값으로 돌려 놓는다(피해 값 자체는 tests/survivors_barrage_up_test.py 가 지킨다)
@@ -640,7 +640,7 @@ async def main():
                         ra, rb = await both(cfg)
                         if dg2(ra) != dg2(rb): bad0.append((w, 'e' if e_ else 'b', ar))
                 await pg.evaluate("(o)=>{const u=__p6x.U3;u.quill.d=o.q;u.sing.d=o.s;u.sing.db=o.sb}", U3NEW)
-                check('패시브 0 · 마스터 단계 같음: 고친 13무기 × 기본·각성(%d조합) × 허수아비 밭·보스 한 마리 — 맞힌 기록·폭발 기록이 기준 커밋과 비트까지 같다 (카트 각성 제외)' % (len(ZERO) * 2), not bad0, bad0)
+                check('패시브 0 · 마스터 단계 같음: 고친 12무기(쌍둥이 이빨은 2026-10-16 재설계로 의도적으로 달라져 제외) × 기본·각성(%d조합) × 허수아비 밭·보스 한 마리 — 맞힌 기록·폭발 기록이 기준 커밋과 비트까지 같다 (카트 각성 제외)' % (len(ZERO) * 2), not bad0, bad0)
                 # 카트 각성: 패시브 0 일 때 「늘 3대」 — 평균 카트 수·구역 DPS 가 ±3% 안(처음 쌓일 때 포함 60초)
                 cfg = dict(w='cart', L=8, tier=0, ev=True, N=1800, seed=1, ps={})
                 ra, rb = await both(cfg)
@@ -728,7 +728,7 @@ async def main():
                 check('노래부르기(마스터 음표 +1 포함) 곱빼기 3겹: 한 박 음표 6 → 8개(기준은 6개에서 막힘 — 곱빼기 3겹 중 2겹이 낭비) · 곱빼기 0 이면 5개 그대로', Rn['sing0'] == Ro['sing0'] == 5 and Rn['sing3'] == 8 and Ro['sing3'] == 6, (Ro['sing0'], Ro['sing3'], Rn['sing0'], Rn['sing3']))
                 # 쌍둥이 장판 상한 = 6 × 끈기 (끈기 0 이면 6)
                 tw = await pg.evaluate("""()=>{const o={};for(const [nm,d] of [['d0',0],['d5',5]]){const r=window.__fxm.run({w:'twin',L:8,tier:0,ev:true,N:900,seed:1,ps:d?{dur:d}:{}});o[nm]=r.cmax['x3:fl']||0;}return o;}""")
-                check('쌍둥이 이빨 장판 동시 최대: 끈기 0 이면 6 · 끈기 Lv5 이면 round(6×1.75)=11 까지 늘어난다', tw['d0'] == 6 and 9 <= tw['d5'] <= 11, tw)
+                check('쌍둥이 이빨 장판 동시 최대(2026-10-16 프싱 재설계): 끈기 0 이면 U3.twin.cap=12 · 끈기 Lv5 이면 round(12×1.75)=21 까지 늘어난다', tw['d0'] == 12 and 19 <= tw['d5'] <= 21, tw)
                 # 와이파이·초밥: 같은 적을 다시 맞히는 간격이 쿨타임에 비례(공속 0 이면 0.3 / 0.25 초 그대로)
                 gp = await pg.evaluate("""()=>{const o={};const gaps=(w,ev,ps)=>{const r=window.__fxm.run({w,L:8,tier:0,ev:!!ev,N:420,seed:1,ps,arena:'boss'});const t=r.h.filter(h=>h[1]===w).map(h=>h[0]/30);const d=[];for(let i=1;i<t.length;i++)if(t[i]-t[i-1]>1e-6)d.push(t[i]-t[i-1]);d.sort((a,b)=>a-b);return d.length?d[0]:null;};
                   o.wifi0=gaps('wifi',0,{});o.wifi5=gaps('wifi',0,{cd:5});o.sushi0=gaps('sushi',0,{});o.sushi5=gaps('sushi',0,{cd:5});return o;}""")
