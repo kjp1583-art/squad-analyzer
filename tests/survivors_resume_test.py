@@ -33,6 +33,7 @@ def load_avg():
     except Exception: return -1
 
 HOOK_R = r"""
+REGEN.on=0;   // 적응 리젠은 이어하기 뒤 처치 속도를 처음부터 다시 재도록 일부러 만들었다(S 밖 상태) — 10분 뒤 저장한 판은 스폰 타이머가 달라지므로 이 충실도 시험에서만 끈다
 window.__R={RES,get S(){return S},set S(v){S=v},get state(){return state},set state(v){state=v},get CUR(){return CUR},get RUN(){return RUN},
  pools:{enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,snps,bolts,waves,puds,clouds,allies,cans,bubs},
  CHARS,WEAP,PASS,REL,TRD,SM,KIND,BOSS,TIERS,PT,WIN_T,END_T,SRVUNL,srvUnl,get SRVLOAD(){return SRVLOAD},getProg,setProg,
@@ -192,7 +193,7 @@ async def roundtrip(C, A, sp, label, warm=8, cmp_sec=8, more_sec=0, draw=False):
     first = next((i for i in range(min(len(cpsA), len(cpsB))) if cpsA[i] != cpsB[i]), -1)
     detail = ''
     if not ok_imm: detail = diff_first(r['d0'], imm[0])
-    elif first >= 0: detail = 'cp%d ' % first + diff_first(cpsA[first], cpsB[first])
+    elif first >= 0: detail = 'cp%d ' % first + str(diff_first(cpsA[first], cpsB[first]))
     elif not ok_core: detail = diff_first(r['core'], imm[1])
     extra_ok = True
     if more_sec:
@@ -365,7 +366,7 @@ async def sec_fidelity(b, srv):
         try:
             r = await roundtrip(C, A, sp, label, warm=8 if idx % 3 else 14, cmp_sec=8, more_sec=(180 if FULL else 60) if long else 0, draw=False)
         except Exception as ex:
-            check('[%s] 예외 없이 끝남' % label, False, repr(ex)[:300]); continue
+            import traceback; traceback.print_exc(); check("[%s] 예외 없이 끝남" % label, False, repr(ex)[:300]); continue
         n += 1
         if r and r['dqN']: DQN.append(r['dqN'])
         if r and r['rep']: REPS.append(r['rep'])
