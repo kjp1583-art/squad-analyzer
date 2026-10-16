@@ -904,7 +904,7 @@ async function flushUnsent(show){const u=dcUser();if(!u||FLUSHING)return;FLUSHIN
   finally{FLUSHING=false;}}
 const UK='p6_unl_v1';
 function getUnl(){try{return new Set(JSON.parse(localStorage.getItem(UK)||'[]'));}catch(e){return new Set();}}
-const isShopKey=k=>CHARS.some(c=>c.shop&&c.k===k);   // 🛒 상점 캐릭터 키(yumi·eom·bbb) — 서버 구매로만 열린다: 로컬 해금 목록에 쌓지도, 기록 POST 로 보내지도 않는다(열림 여부는 SRVUNL 만 본다)
+const isShopKey=k=>CHARS.some(c=>c.shop&&c.k===k);   // 🛒 상점 캐릭터 키(yumi·eom·bbb·pty) — 서버 구매로만 열린다: 로컬 해금 목록에 쌓지도, 기록 POST 로 보내지도 않는다(열림 여부는 SRVUNL 만 본다)
 function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>{if(!isShopKey(String(x)))s.add(String(x));});try{localStorage.setItem(UK,JSON.stringify([...s]));}catch(e){}}
 
 // ---------- 저장(내 브라우저에만) ----------
@@ -1006,7 +1006,7 @@ const CSTAT={
   psg:{rows:c=>[{ic:'🐲',nm:'용 변신',v:'',ds:`피해를 주고 적을 처치하면 🔥 분노 게이지가 차고, 가득 차면 ${SHV.dur}초 동안 용으로 변신해요 — 몸이 커지고 주변 적이 불타며(불꽃 오라는 📏 광역·⏳ 끈기·곱빼기와 쌍둥이 이빨 레벨을 따라 세져요), 이동속도 +${csPc(SHV.spd)} · 받는 피해 -${csPc(SHV.red)} · 무기 피해 +${csPc(SHV.dmg-1)} · 베기마다 화염 장판 +${SHV.padN}. 끝나면 게이지는 0부터 다시`},
     {ic:'⏳',nm:'분노 가속',v:'',ds:`오래 버틸수록 분노가 빨리 찬다 (분당 +${csPc(SHV.acc)}, 최대 ${csNum(SHV.accMax)}배)`}]},
   bbb:{rows:c=>[{ic:'⏱',nm:'쿨타임',v:'-'+csPc(c.cdr),ds:`「박자 감각」 — 모든 무기의 쿨타임이 ${csPc(c.cdr)} 줄어요 (⏱ 공격속도와 같은 규칙이라 새우깡 대회전 등 일부 무기는 빠져요)`},{ic:'🎶',nm:'후렴',v:'',ds:`${CSX.bbb.every}초마다 ${CSX.bbb.T}초 동안 쿨타임이 ${csPc(1-CSX.bbb.cd)} 더 줄어요 (같은 규칙 · ⏳ 끈기로 시간이 늘어요)`}]},
-  pty:{rows:c=>[CSR.spd(c),{ic:'🧲',nm:'줍는 범위',sh:'줍기 +'+csPc(c.mag),v:'+'+csPc(c.mag),ds:'경험치 보석과 전리품 팬티를 더 멀리서 끌어와요'},{ic:'🏃',nm:'야간 도주',v:'+'+csPc(CSX.pty.mv),ds:`체력이 ${csPc(CSX.pty.at)} 아래로 떨어지면 ${CSX.pty.T}초 동안 이동속도가 ${csPc(CSX.pty.mv)} 더 빨라져요 (${CSX.pty.cd}초에 한 번 · 무적도 피해 감소도 아니에요 — 도망칠 틈만 줘요)`},{ic:'💎',nm:'도둑의 눈썰미',v:csPc(CSX.pty.gem),ds:`적을 처치할 때 ${csPc(CSX.pty.gem)} 확률로 경험치 보석이 2배로 나와요`},{ic:'🪶',nm:'가벼운 몸',v:'−'+(-c.hp),ds:`몸이 가벼운 대신 시작할 때부터 최대 HP가 ${-c.hp} 적어요`}]},
+  pty:{rows:c=>[{ic:'🏃',nm:'야간 도주',sh:'야간 도주 +'+csPc(CSX.pty.mv),v:'+'+csPc(CSX.pty.mv),ds:`체력이 ${csPc(CSX.pty.at)} 아래로 떨어지면 ${CSX.pty.T}초 동안 이동속도가 ${csPc(CSX.pty.mv)} 더 빨라져요 (${CSX.pty.cd}초에 한 번 · 무적도 피해 감소도 아니에요 — 도망칠 틈만 줘요)`},CSR.spd(c),{ic:'🧲',nm:'줍는 범위',sh:'줍기 +'+csPc(c.mag),v:'+'+csPc(c.mag),ds:'경험치 보석과 전리품 팬티를 더 멀리서 끌어와요'},{ic:'💎',nm:'도둑의 눈썰미',v:csPc(CSX.pty.gem),ds:`적을 처치할 때 ${csPc(CSX.pty.gem)} 확률로 경험치 보석이 2배로 나와요`},{ic:'🪶',nm:'가벼운 몸',v:'−'+(-c.hp),ds:`몸이 가벼운 대신 시작할 때부터 최대 HP가 ${-c.hp} 적어요`}]},
   sr:{rows:c=>[{ic:'🪪',nm:'스탭 임명',sh:'스탭 임명',v:'',ds:`${CSK.staff.every}초마다 스탭 ${CSK.staff.n}명이 ${CSK.staff.life}초 동안 곁에서 같이 싸워요 (💥 피해 · ⏱ 공격속도 · ⏳ 끈기 · 📏 광역 패시브를 받아요)`},{ic:'🐌',nm:'주변 적 감속',v:'-'+csPc(1-CSK.staff.slow),ds:`내 주변에 들어온 적은 이동속도가 ${csPc(1-CSK.staff.slow)} 느려져요 (📏 광역으로 범위가 넓어져요)`}]},
   ddo:{rows:c=>[{ic:'⛓',nm:'진실의 방',v:'',ds:`${CSK.room.every}초마다 내 주위에 원형 감옥이 생겨요 — 안에 든 적을 ${CSK.room.hold}초 묶고 지속 피해를 줘요 (보스는 묶이지 않고 느려져요 · 💥 피해 · ⏱ 공격속도 · ⏳ 끈기 · 📏 광역 패시브를 받아요)`}]},
   tw:{rows:c=>[{ic:'💢',nm:'씩씩 피해',sh:'씩씩 +'+csPc(c.rage),v:'최대 +'+csPc(c.rage),ds:`잃은 체력 1%당 피해가 +1%씩 올라요 (최대 +${csPc(c.rage)})`},{ic:'💨',nm:'돌진 무적',v:'',ds:`맞으면 짧게 돌진하며 ${csNum(CSK.dash.inv)}초 동안 무적이에요 (${CSK.dash.cd}초에 한 번)`},{ic:'🧱',nm:'씩씩한 맷집',v:'-'+csPc(CSX.tw.tk),ds:`아파도 씩씩해서 받는 피해가 항상 ${csPc(CSX.tw.tk)} 줄어요`}]},
@@ -1899,7 +1899,7 @@ function usePick(k){const p=S.p;if(k==='chest'){openChest();return;}AU.play('pic
 // 🩲 [2026-10-16 사장님 지시] 맨해라공원팬티도둑 — 인게임 몸을 캔버스 도형으로(복면 · 등 뒤 보따리 · 손에 든 팬티 한 장). 일러스트가 들어오면(img:1) 이 함수는 안 불린다. 표시 전용 — 상태·난수에 손대지 않는다.
 //   cx 는 이미 (p.x,p.y) 로 옮겨져 있고 왼쪽을 볼 때 좌우가 뒤집혀 있다.
 function ptyBody(p){const bob=p.moving?Math.sin(S.t*16)*1.6:0,w=p.moving?Math.sin(S.t*16)*3:0;
-  cx.fillStyle='rgba(0,0,0,.32)';cx.beginPath();cx.ellipse(0,p.r+4,16,5,0,0,7);cx.fill();
+  if(!FX.lv){cx.fillStyle='rgba(0,0,0,.32)';cx.beginPath();cx.ellipse(0,p.r+4,16,5,0,0,7);cx.fill();}   // ✨ 효과가 켜져 있으면 그림자는 FX.shadow 가 이미 그렸다
   cx.save();cx.translate(-13,-1+bob*.5);cx.rotate(-.2+w*.02);   // 등 뒤 보따리(연보라 물방울 무늬 · 위에 매듭)
   cx.beginPath();cx.arc(0,3,10.5,0,7);cx.fillStyle='#d9c8ff';cx.fill();cx.lineWidth=2;cx.strokeStyle='#8f7bd6';cx.stroke();
   cx.fillStyle='rgba(255,255,255,.9)';for(const q of [[-4,0],[3,4],[-2,8],[5,-1]]){cx.beginPath();cx.arc(q[0],q[1],1.5,0,7);cx.fill();}
