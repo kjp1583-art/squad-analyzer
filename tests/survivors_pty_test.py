@@ -65,7 +65,7 @@ async def main():
         check('고유 무기 panty 는 U3 수치표를 가진다(다른 전용 무기의 U3 유무는 이 시험의 몫이 아니다)', 'panty' not in r['noU3'], r['noU3'])
         check('mag 짝 무기에 팬티 투척이 들어 있다(획득 범위는 전리품 줍기도 넓힌다)', 'panty' in r['midPair'] and 'snack' in r['midPair'], r['midPair'])
         U = r['u3']
-        check('U3.panty 수치표(밸런스 측정으로 맞춘 값 — 바꾸면 RESULT.md 의 측정표를 다시 잴 것)', U == {'d': 17, 'cd': 1.35, 'sp': 520, 'life': .55, 'rng': 300, 'hit': 11, 'fan': .2, 'st': .4, 'drop': .10, 'cap': 12, 'll': 14, 'need': 6, 'bd': 60, 'bR': 92, 'bsp': .8, 'iv': .4, 'hl': 170, 'lw': 11, 'lk': .55, 'lt': 5, 'lmax': 2, 'dr7': 1.25, 'v': [1, 2, 3]}, U)
+        check('U3.panty 수치표(밸런스 측정으로 맞춘 값 — 바꾸면 RESULT.md 의 측정표를 다시 잴 것)', U == {'d': 24, 'cd': 1.25, 'sp': 520, 'life': .55, 'rng': 300, 'hit': 11, 'fan': .2, 'st': .4, 'drop': .14, 'cap': 12, 'll': 14, 'need': 6, 'bd': 85, 'bR': 92, 'bsp': .8, 'iv': .4, 'hl': 170, 'lw': 11, 'lk': .55, 'lt': 5, 'lmax': 2, 'dr7': 1.25, 'v': [1, 2, 3]}, U)
         wds = await pg.evaluate("()=>__p6x.WEAP.panty.ds")
         U = r['u3']
         check('카드 문구가 값을 읽는다: Lv1 문구의 멈칫 시간 · Lv2 팬티 +1 · Lv4 보따리 한 칸 · 폭죽 범위 +15% · Lv8 관통 +1(코드 값과 같다)', f"{U['st']}초 멈칫" in wds[0] and '팬티 +1' in wds[1] and '보따리 한 칸 줄어듦' in wds[3] and '폭죽 범위 +15%' in wds[3] and '관통 +1' in wds[7] and '3장' in wds[5], wds)
@@ -87,7 +87,7 @@ async def main():
             mid = (r['n'] - 1) / 2
             ok = r['n'] == want and all(near(r['deg'][i], (i - mid) * math.degrees(.2), .6) for i in range(r['n'])) and all(near(s_, 520, .5) for s_ in r['sp']) and not r['big']
             check('Lv%d 마스터%d 곱빼기%d: 첫 프레임에 팬티 %d장 · 가장 가까운 적(0°)을 가운데로 부채 간격 11.5° · 속도 520' % (L, tier, amt, want), ok, r)
-        for L, want in [(1, 1.35), (5, 1.35), (6, 1.35 * .9), (8, 1.35 * .9)]:
+        for L, want in [(1, 1.25), (5, 1.25), (6, 1.25 * .9), (8, 1.25 * .9)]:
             r = await ev("""const e=x.spawnEnemy(0,2.5,null,{x:p.x+150,y:p.y});e.sp=0;e.hp=e.mhp=1e9;E.push({e,x:e.x,y:e.y,hp:1e9,pin:true});step();return {cd:S.cd.panty}""", L=L)
             check('Lv%d 쿨타임 %.4f (Lv6 부터 ×0.9)' % (L, want), near(r['cd'], want, .002), r)
         r = await ev("""for(let i=0;i<12;i++)step();return {cd:S.cd.panty,n:S.x3.f.filter(o=>o.k==='py').length}""", L=3, es=[])
@@ -116,7 +116,7 @@ async def main():
             let boss=null;if(a.kind==='boss'){boss=y.spawnBoss('mao');boss.x=p.x+300;boss.y=p.y+200;boss.hp=1;boss.mhp=1e9;}
             Math.random=()=>a.rnd;x.hurt(boss||e,1e9);return {pl:S.x3.f.filter(o=>o.k==='pl').map(o=>({v:o.v,x:o.x-p.x,y:o.y-p.y,life:o.life}))}"""
         for kind, rnd, L, want, why in [('n', .05, 1, 1, '일반 몹 · 난수 .05 < 10%'), ('n', .5, 1, 0, '일반 몹 · 난수 .5'), ('el', .99, 1, 2, '정예는 확정(2칸)'), ('bg', .99, 1, 2, '대형은 확정(2칸)'), ('boss', .99, 1, 3, '보스는 확정(3칸)'),
-                                         ('n', .11, 6, 0, 'Lv6 은 확률 10% 그대로(난수 .11 → 없음)'), ('n', .11, 7, 1, 'Lv7 은 전리품 확률 ×1.25 = 12.5%(난수 .11 → 있음)')]:
+                                         ('n', .15, 6, 0, 'Lv6 은 확률 14% 그대로(난수 .15 → 없음)'), ('n', .16, 7, 1, 'Lv7 은 전리품 확률 ×1.25 = 17.5%(난수 .16 → 있음)')]:
             r = await pg.evaluate("(a)=>{" + PRE + drop + "}", {'L': L, 'kind': kind, 'rnd': rnd, 'es': []})
             ok = (len(r['pl']) == (1 if want else 0)) and (not want or (r['pl'][0]['v'] == want and near(r['pl'][0]['x'], 300, 1) and near(r['pl'][0]['life'], 14, .1)))
             check('전리품: ' + why, ok, r)
@@ -155,7 +155,7 @@ async def main():
             check('Lv%d%s 폭죽: 피해 bd×단계×각성(%.1f) · 반지름 bR×(Lv4·7 +15%%)×각성 1.25(%.1f) · 속도 ×0.8 · 수명 ×1.5' % (L, ' 각성+5단계' if ev_ else '', dd, RR), near(r['d'], dd, .05) and near(r['R'], RR, .05) and near(r['sp'], 520 * U['bsp'], .5) and near(r['life'], U['life'] * 1.5, .02) and r['ev'] == ev_, (r, dd, RR))
         # 터지는 모습: 맞은 적 + 반경 안의 적 피해 · 반경 밖은 무사 · 폭발 반경 안 일반 적은 멈칫 · 보스는 멈칫 없음
         r = await ev("""y.csS().bg=6;let hp={};for(let i=0;i<70;i++){step();}return {hp:E.map(q=>q.e.hp<q.e.mhp?(q.e.mhp-q.e.hp):0),st:E.map(q=>q.e.st),R:y.U3.panty.bR,dm:S.dmgBy.panty,bg:y.csS().bg}""", L=1, keepHp=1, es=[{'a': 0, 'd': 150}, {'a': 0, 'd': 185}, {'a': 90, 'd': 160}, {'a': 0, 'd': 290}])
-        check('폭죽 폭발: 맞은 적(150)·반경 안(185)은 피해 60 · 먼 적(옆 160px · 290)은 무사', near(r['hp'][0], 60, 1) and near(r['hp'][1], 60, 1) and r['hp'][2] == 0 and r['hp'][3] == 0, r)
+        check('폭죽 폭발: 맞은 적(150)·반경 안(185)은 피해 85 · 먼 적(옆 160px · 290)은 무사', near(r['hp'][0], 85, 1) and near(r['hp'][1], 85, 1) and r['hp'][2] == 0 and r['hp'][3] == 0, r)
         r = await ev("""y.csS().bg=6;let st=[0,0];for(let i=0;i<70;i++){step();for(let k=0;k<2;k++)st[k]=Math.max(st[k],E[k].e.st);}return {st}""", L=1, keepHp=1, es=[{'a': 0, 'd': 150}, {'a': 0, 'd': 185}])
         check('폭죽에 맞은 일반 적은 0.4초 멈칫', near(r['st'][0], .4, .03) and near(r['st'][1], .4, .03), r)
         r = await ev("""y.csS().bg=6;let st=0,sl=0;for(let i=0;i<90;i++){step();st=Math.max(st,E[0].e.st);}return {st,hp:E[0].e.mhp-E[0].e.hp}""", L=1, keepHp=1, es=[{'a': 0, 'd': 150, 'boss': 1}])
@@ -191,11 +191,11 @@ async def main():
 
         # ───────────────── F. 패시브
         r = await ev("""const e=x.spawnEnemy(0,2.5,null,{x:p.x+150,y:p.y});e.sp=0;e.hp=e.mhp=1e9;E.push({e,x:e.x,y:e.y,hp:1e9,pin:true});step();return {cd:S.cd.panty,sp:Math.hypot(S.x3.f[0].vx,S.x3.f[0].vy)}""", L=1, ps={'cd': 5, 'pspd': 5})
-        check('⏱ 공격속도 Lv5 → 쿨타임 1.35 × 0.92^5 · 🏹 속사 Lv5 → 탄 속도 520 × 1.6', near(r['cd'], 1.35 * .92 ** 5, .003) and near(r['sp'], 520 * 1.6, .5), r)
+        check('⏱ 공격속도 Lv5 → 쿨타임 1.25 × 0.92^5 · 🏹 속사 Lv5 → 탄 속도 520 × 1.6', near(r['cd'], 1.25 * .92 ** 5, .003) and near(r['sp'], 520 * 1.6, .5), r)
         r = await ev("""y.csS().bg=y.ptyNeed(8);const e=x.spawnEnemy(0,2.5,null,{x:p.x+150,y:p.y});e.sp=0;e.hp=e.mhp=1e9;E.push({e,x:e.x,y:e.y,hp:1e9,pin:true});step();const o=S.x3.f.find(o=>o.big);return {R:o.R,d:o.d}""", L=8, ps={'area': 5, 'might': 5})
-        check('📏 광역 Lv5 는 폭죽 반지름을 ×1.5 · 💪 근성 Lv5 는 피해를 ×1.5', near(r['R'], 92 * 1.15 * 1.15 * 1.5, .1) and near(r['d'], 60 * 1.4 * 1.4 * 1.5 * 1.5, .2), r)
-        r = await pg.evaluate("(a)=>{" + PRE + """Math.random=()=>.11;const e=x.spawnEnemy(0,2.5,null,{x:p.x+300,y:p.y+200});e.hp=e.mhp=5;x.hurt(e,1e9);return {pl:S.x3.f.filter(o=>o.k==='pl').length}}""", {'L': 6, 'ps': {'luck': 5}, 'es': []})
-        check('🍀 행운은 전리품 확률에 영향이 없다(PFX luck:nn — 난수 .09 · Lv6 → 없음)', r['pl'] == 0, r)
+        check('📏 광역 Lv5 는 폭죽 반지름을 ×1.5 · 💪 근성 Lv5 는 피해를 ×1.5', near(r['R'], 92 * 1.15 * 1.15 * 1.5, .1) and near(r['d'], 85 * 1.4 * 1.4 * 1.5 * 1.5, .3), r)
+        r = await pg.evaluate("(a)=>{" + PRE + """Math.random=()=>.15;const e=x.spawnEnemy(0,2.5,null,{x:p.x+300,y:p.y+200});e.hp=e.mhp=5;x.hurt(e,1e9);return {pl:S.x3.f.filter(o=>o.k==='pl').length}}""", {'L': 6, 'ps': {'luck': 5}, 'es': []})
+        check('🍀 행운은 전리품 확률에 영향이 없다(PFX luck:nn — 난수 .15 · Lv6 → 없음)', r['pl'] == 0, r)
         r = await ev("""const e=x.spawnEnemy(0,2.5,null,{x:p.x+150,y:p.y});e.sp=0;e.hp=e.mhp=1e9;E.push({e,x:e.x,y:e.y,hp:1e9,pin:true});step();return {sy:S.synOn,dmg:S.syn.dmg,area:S.syn.area}""", L=1, w={'lid': 1})
         check('콤보 「뚜껑 덮은 보따리」: 🧺 + 🥏 를 같이 들면 켜진다(피해 +8% · 광역 +6%)', 'u_panty' in r['sy'] and near(r['dmg'], .08, 1e-9) and near(r['area'], .06, 1e-9), r)
 

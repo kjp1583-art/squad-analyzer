@@ -2478,7 +2478,7 @@ function spawnEnemy(kind,mult,boss,at){
   if(boss){e.boss=boss.key;e.b=boss;e.r=boss.r;e.sp=boss.sp*(1+Math.min(.35,m/120));e.dmg=boss.d*atkBase(m)*DMG_BOSS;e.xp=boss.xp;e.c='#f5c04a';e.id=boss.id||null;e.acc=boss.acc||null;
     e.mhp=e.hp=boss.hp*bossMul(m)*(boss.fin?1.6:1)*(boss.mini?Math.min(1,.55+m/25):1);   // 2:30 미니 보스는 조금 여리게(×0.65) → 11분부터 제 체력
     e.at={cards:3,dash:2,shots:1.5,ring:3,summon:4,shroom:1,pull:5,room:2.5,rage:3,breath:3,charge:4,staff:2,hook:2.5,beam:2,nova:9};}
-  else{const k=KIND[kind];e.boss=0;e.b=null;e.id=k.id;e.r=k.r;e.sp=k.sp*(1+Math.min(.55,S.t/900));e.mhp=e.hp=k.hp*mult;e.dmg=k.d*atkMul(m)*mobX(m);e.xp=k.xp;e.c=k.c;e.acc=k.acc||null;
+  else{const k=KIND[kind];e.boss=0;e.b=null;e.id=k.id;e.r=k.r;e.sp=k.sp*(1+Math.min(.55,S.t/900))*MOB_SPD;e.mhp=e.hp=k.hp*mult;e.dmg=k.d*atkMul(m)*mobX(m);e.xp=k.xp;e.c=k.c;e.acc=k.acc||null;
     e.sh=k.shield||0;S.kc[kind]++;}
   e.hit=0;e.kb=0;e.fa=0;e.fk=0;e.ff=0;e.t=Math.random()*6;return e;
 }
@@ -2691,6 +2691,8 @@ function waveTick(dt){
 //   처치 속도 적응 리젠: 최근 REGEN.tau 초의 처치 속도(지수이동평균)가 기본 스폰 속도를 넘고 화면이 한산할 때(살아 있는 적이 상한의 REGEN.sparse 아래)만 스폰을 늘린다.
 //   약한 빌드(화면이 이미 붐빔)는 기존 스폰 그대로 — 난이도를 올리지 않는다. 상한 REGEN.cap 배 · 난이도 곱(hv().rate)은 그 위에 그대로 곱해져 일반<하드<베리하드 순서가 유지된다.
 //   상태는 S 에 두지 않는다(이어하기 서명 불변): 판이 바뀌거나 이어하기로 S 가 새 객체가 되면 처음부터 다시 잰다(약 REGEN.tau 초 동안 기본 스폰).
+// 🐢 [2026-10-17 사장님 지시 "몬스터가 너무 많이 나오거든? 많이 나오는 건 괜찮으니까 몹의 기본 이동속도를 -20% 정도"] 일반 몹(보스·미니보스 제외)의 이동속도 배율 — 적 수·체력·공격은 그대로, 따라붙는 속도만 줄인다. 이어하기 서명과 무관한 최상위 const.
+const MOB_SPD=.8;
 const REGEN={on:1,tau:20,cap:2,sparse:.7,full:.2,k:1.1,t0:600,ramp:300,hp0:.4,hp1:.8};   // cap 최대 배율 · sparse/full: 살아 있는 적이 풀 상한의 70% 아래면 온전히, 90% 에선 0 (사이는 비례 — 체력 높은 난이도도 화면이 덜 비어 보일 뿐 같은 규칙) · k: 처치 속도의 몇 배까지 공급할지 · hp0/hp1: 내 체력이 80% 아래로 떨어지면 줄여 40% 에서 0(위험하면 더 안 보탠다)
 const RGN={s:null,k0:0,ema:0,ne:0,m:1};
 function regenMul(dt,r0){
@@ -3019,7 +3021,7 @@ const U3={sing:{d:6.6,db:1.9,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   // 🧺 [2026-10-16 사장님 지시] 팬티 투척 — d 팬티 한 장 피해 · cd 쿨타임 · sp 속도 · life 날아가는 시간 · rng 조준 거리 · hit 판정 반지름 · fan 팬티 부채 간격(rad) · st 맞은 적이 멈칫하는 시간 ·
   //   drop 일반 몹 전리품 확률(정예·대형·보스는 확정) · cap 바닥에 동시에 떠 있는 전리품 상한 · ll 전리품 수명(초) · need 보따리가 차는 칸 · bd 폭죽 피해 · bR 폭죽 반지름 · bsp 폭죽 팬티 속도 배율 ·
   //   iv 빨랫줄 피해 간격 · hl 빨랫줄 반길이 · lw 줄에 걸리는 두께 · lk 줄 한 번 피해(팬티 한 장 대비) · lt 빨랫줄 지속(초) · lmax 동시에 걸리는 줄 수 · dr7 Lv7 부터 전리품 확률 배율 · v 보스·정예·일반 전리품이 채우는 칸
-  panty:{d:17,cd:1.35,sp:520,life:.55,rng:300,hit:11,fan:.2,st:.4,drop:.10,cap:12,ll:14,need:6,bd:60,bR:92,bsp:.8,iv:.4,hl:170,lw:11,lk:.55,lt:5,lmax:2,dr7:1.25,v:[1,2,3]},
+  panty:{d:24,cd:1.25,sp:520,life:.55,rng:300,hit:11,fan:.2,st:.4,drop:.14,cap:12,ll:14,need:6,bd:85,bR:92,bsp:.8,iv:.4,hl:170,lw:11,lk:.55,lt:5,lmax:2,dr7:1.25,v:[1,2,3]},
   quill:{d:16,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:24,bd:12.8,cd:1.5,sp:310,rng:330,R:40},cart:{d:20,cd:7,R:70,life:5,heal:1.5},heart:{d:21,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
