@@ -127,6 +127,17 @@
 - **방법**: 일마다 브랜치(`rs-<이름>`)를 만들고 저장소 루트에 `TASK.md`(공통 맥락 + 그 갈래의 일 + 진행 규칙: main 에 push 금지·직접 적대적 검수·끝나면 `RESULT.md` 작성·push)를 커밋해 push → `mcp__Claude_Code_Remote__create_session`(source_url=이 저장소, source_revision=outcome_branch=그 브랜치, 프롬프트는 「TASK.md 를 읽고 끝까지 해라」)로 세션을 연다. 조율은 이 세션이 한다: `get_session`/브랜치 커밋으로 진행을 보고, 끝난 갈래부터 `origin/main` 병합(같은 파일 충돌 정리) → 시험 → 패치노트 → 배포 → 사장님께 보고. 사장님께는 나누기 전에 한 줄로 알리고(무엇을 몇 개로), 나눈 뒤 어느 일이 어디서 도는지 진행 보고에 적는다.
 - **하지 않는 것**: 서로 같은 코드를 크게 고치는 일을 쪼개 놓고 병합을 미루지 않는다(충돌이 쌓인다) · 비밀 값을 TASK.md 에 적지 않는다 · 사장님이 「이 세션에서만」이라 하면 따른다.
 
+## 🎨 그림(일러스트)이 필요하면 OpenAI 이미지 API 로 만든다 — 사장님이 이미 연결해 둠 (2026-10-17)
+> "아니 오픈ai api 줬잖아 그걸로 만들어와 / 세션 초기화될 때마다 이런 거 설명해야 해?" — 코드로 직접 그린 그림을 먼저 내밀었다가 지적받았다. **캐릭터·아이템 그림 요청은 코드로 그리지 말고 아래 방법으로 뽑는다.**
+- **키는 환경에 없다**(`env` 에 `OPENAI_API_KEY` 가 안 보이는 게 정상) — 세션 프록시가 `https://api.openai.com` 호출에 인증을 붙여 준다. 그냥 부르면 된다. 키를 채팅·코드·저장소에 쓰지 않는다.
+- 호출: `POST https://api.openai.com/v1/images/edits` 멀티파트(`model=gpt-image-2`, `image=@원본.png`, `quality=low`, `size=1024x1024`, `output_format=png`, `prompt`). 결과는 `data[0].b64_json`(base64).
+  - 프록시가 ~30초 이상 걸리면 끊는다 → `quality=low`(~20초). medium 은 실패. 분당 입력 이미지 5장 제한 → 동시 4개 이하, 429 는 재시도.
+  - **`background=transparent` 는 이 모델이 지원하지 않는다**(오류 invalid_value) → 프롬프트에 「단색 연두/마젠타 배경」을 적어 뽑고 배경을 지워 투명으로 만든다(PIL 로 가장자리부터 flood-fill · 외곽선 안쪽은 건드리지 않게).
+- 원본은 브장신 병아리: `img/brjang/parts/body_chick/front.png`(정면, 1024²) 등. 프롬프트 틀과 8종 캐릭터 소품 문구는 `tooling/improve/ideas/P-6-brj-survivors.md` 「그림 제작 완료」에 있다:
+  `Keep this yellow chick character exactly as it is — same head shape, face, cheeks, beak, feet, outline and art style — and it is <소품>. Front view, full body, centered, ... same art style as the original, no text, no letters, no numbers.`
+- 결과는 **눈으로 확인**(어두운 배경에 합성한 contact sheet) 후, 256px WebP(`img/survivors/char_<키>.webp`, 10~25KB)로 줄여 쓴다. 틀리면 프롬프트를 고쳐 다시. 여러 장 뽑아 제일 나은 것을 고른다.
+- 팬티도둑(`pty`) 그림은 처음에 PIL 로 직접 합성해 올렸다 — 사장님이 API 로 다시 뽑으라고 해서 교체 중(`img/survivors/char_pty.webp`).
+
 ## 배포
 - 두 저장소 모두 `claude/project-cloud-migration-0qtorl` 에서 작업 → main 으로 fast-forward
 - 웹을 고쳤으면 `index.html` 의 `BUILD_ID` 를 올린다(안 올리면 캐시 때문에 안 바뀐 것처럼 보인다)
