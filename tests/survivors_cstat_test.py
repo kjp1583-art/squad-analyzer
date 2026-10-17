@@ -3,10 +3,10 @@
    「집중겜의 치명타20%처럼 캐릭터마다 가지고있는 고유한 스텟을 고유스텟 이라고 명명하고 캐릭터선택창에서 잘 확인할수있도록」
    사용: python3 tests/survivors_cstat_test.py [--fast]   (종료코드 0 = 전부 통과 · --fast 는 규칙 불변(비트 비교)을 건너뛴다)
    구성
-     가  정답표 — CSTAT 키 = CHARS 키(18명 1:1) · 행 모양 · 없음 캐릭터(브장신·엄장신)는 이유 한 줄
+     가  정답표 — CSTAT 키 = CHARS 키(19명 1:1) · 행 모양 · 없음 캐릭터(브장신·엄장신)는 이유 한 줄
      나  표시 = 코드 값 — 문구의 숫자가 CHARS 필드·상수(SHV·CSK·LOWHP_AT)에서 나온다: 값을 일부러 바꾸면(변이) 문구가 따라 바뀐다
      다  표시 = 실제 동작 — 판을 시작해 치명타·이동속도·방어·경험치·줍는 범위·쿨타임·최대 HP·회복·용 변신·스탭·진실의 방·돌진이 문구와 같은 값으로 움직인다
-     라  선택 화면 — 로스터 카드 18장(잠긴 카드 포함)에 칩 · 설명창 「✨ 고유스텟」 구획 · 용어 통일 · 고유 무기와 구분
+     라  선택 화면 — 로스터 카드 19장(잠긴 카드 포함)에 칩 · 설명창 「✨ 고유스텟」 구획 · 용어 통일 · 고유 무기와 구분
      마  폰·PC 화면 — 가로 넘침 0 · 칩 글자 넘침 0 · 카드 높이 증가 한도 · 대비 4.5 · 터치 대상 · 페이지 오류 0
      바  규칙 불변 — 이어하기 서명(SIG) 같음 · 새 최상위 let 0 · 새 S 키 0 · tests/survivors_equiv.py 비트 동일(--fast 면 건너뜀)
    임시 사본 survivors_cb_cstat.html · survivors_cb_cstat_base.html(기준 커밋)에 훅을 꽂아 쓴다(끝나면 지운다 · 커밋하지 않는다)."""
@@ -49,11 +49,11 @@ async def main():
             r = await pg.evaluate("""()=>{const x=__cs;const ks=x.CHARS.map(c=>c.k),cs=Object.keys(x.CSTAT);
               const rows={};for(const c of x.CHARS)rows[c.k]=x.cstat(c);
               return {ks,cs,rows,shape:x.CHARS.every(c=>{const d=x.cstat(c);return d.rows.every(r=>r.ic&&r.nm&&r.ds&&typeof r.v==='string')&&(d.rows.length>0||d.none.length>=6)})}}""")
-            check('[가] CHARS 18명 = CSTAT 18키 1:1(순서 무관)', len(r['ks']) == 18 and sorted(r['ks']) == sorted(r['cs']), (r['ks'], r['cs']))
+            check('[가] CHARS 19명 = CSTAT 19키 1:1(순서 무관)', len(r['ks']) == 19 and sorted(r['ks']) == sorted(r['cs']), (r['ks'], r['cs']))
             check('[가] 모든 행이 {ic,nm,v,ds} · 없음 캐릭터는 이유 한 줄', r['shape'])
             none = sorted(k for k, d in r['rows'].items() if not d['rows'])
             check('[가] 고유스텟 없음 0명 — 브장신·엄장신도 능력이 생겼다(2026-10-12)', none == [], none)
-            check('[가] 18명 전원 1줄 이상', all(len(d['rows']) >= 1 for d in r['rows'].values()))
+            check('[가] 19명 전원 1줄 이상', all(len(d['rows']) >= 1 for d in r['rows'].values()))
             check('[가] 고유 무기·시작 무기는 고유스텟 행에 안 들어간다(「고유 무기」「시작」 낱말 0)',
                   not any(re.search('고유 무기|시작 무기|해금', row['nm'] + row['ds']) for d in r['rows'].values() for row in d['rows']))
 
@@ -173,16 +173,16 @@ async def main():
               for(const b of btn){b.click();desc[b.textContent.slice(0,12)]=document.getElementById('chDesc').innerHTML;}
               document.getElementById('roster').querySelector('.rc').click();
               return {n:cards.length,chips,lockedWithChip,lockN,desc,head:document.querySelector('.rosterH').textContent}}""")
-            check('[라] 로스터 카드 18장 전부에 고유스텟 칩', ui['n'] == 18 and all(c and '고유스텟' in c for c in ui['chips']), ui['chips'])
+            check('[라] 로스터 카드 19장 전부에 고유스텟 칩', ui['n'] == 19 and all(c and '고유스텟' in c for c in ui['chips']), ui['chips'])
             check('[라] 잠긴 카드(%d장)에도 칩이 보인다' % ui['lockN'], ui['lockN'] >= 10 and ui['lockedWithChip'] == ui['lockN'], (ui['lockN'], ui['lockedWithChip']))
-            check('[라] 「없음」 칩 0장 — 18명 전원 능력이 있다', sum('없음' in c for c in ui['chips']) == 0, ui['chips'])
+            check('[라] 「없음」 칩 0장 — 19명 전원 능력이 있다', sum('없음' in c for c in ui['chips']) == 0, ui['chips'])
             check('[라] 칩 글자 = 「✨ 고유스텟」 + 핵심 한 줄(예: 치명타 +20%, 외 N)', any('치명타 +20%' in c for c in ui['chips']) and any(re.search(r'외\d', c) for c in ui['chips']), ui['chips'])
             check('[라] 첫 화면 클랜원 머리글에 용어 설명', '고유스텟' in ui['head'], ui['head'])
-            # 설명창: 18명 모두 「✨ 고유스텟」 구획 · 고유 무기 문구는 그대로
+            # 설명창: 19명 모두 「✨ 고유스텟」 구획 · 고유 무기 문구는 그대로
             bad = []
             for name, html in ui['desc'].items():
                 if '✨ 고유스텟' not in html or 'class="cstat"' not in html: bad.append(('구획없음', name))
-            check('[라] 선택 설명창 18개 모두 「✨ 고유스텟」 구획(잠긴 캐릭터 포함)', len(ui['desc']) == 18 and not bad, (len(ui['desc']), bad))
+            check('[라] 선택 설명창 19개 모두 「✨ 고유스텟」 구획(잠긴 캐릭터 포함)', len(ui['desc']) == 19 and not bad, (len(ui['desc']), bad))
             allhtml = ' '.join(ui['desc'].values())
             check('[라] 설명창: 「고유스텟 없음」 문구 0곳', len(re.findall('고유스텟 없음 —', allhtml)) == 0, allhtml.count('고유스텟 없음'))
             check('[라] 고유 무기는 「고유 무기」로 따로 — 설명 문장(ds)에는 고유 무기 표기가 남고 고유스텟 구획 안에는 없다',
@@ -226,7 +226,7 @@ async def main():
                 tag = '%dx%d' % (w, h)
                 ratio = mn['tot'] / mb['tot']
                 check('[마] %s 가로 넘침 0(페이지 폭 = 화면 폭)' % tag, mn['sw'] <= mn['iw'], (mn['sw'], mn['iw']))
-                check('[마] %s 칩 18개 · 글자 넘침 0 · 카드 밖으로 안 나감 · keep-all' % tag, mn['nchips'] == 18 and mn['over'] == 0 and mn['out'] == 0 and mn['ks'] == 0, mn)
+                check('[마] %s 칩 19개 · 글자 넘침 0 · 카드 밖으로 안 나감 · keep-all' % tag, mn['nchips'] == 19 and mn['over'] == 0 and mn['out'] == 0 and mn['ks'] == 0, mn)
                 check('[마] %s 목록 높이 증가 %.0f → %.0f px (×%.2f, 한도 ×%.2f)' % (tag, mb['tot'], mn['tot'], ratio, HEIGHT_LIMIT), ratio <= HEIGHT_LIMIT, (mb['tot'], mn['tot']))
                 check('[마] %s 가장 큰 카드 %dpx (기준 %dpx 의 1.7배 이내)' % (tag, mn['maxCard'], mb['maxCard']), mn['maxCard'] <= mb['maxCard'] * 1.7, (mn['maxCard'], mb['maxCard']))
                 check('[마] %s 칩 글자 대비 %.1f ≥ 4.5 (잠긴 카드 포함)' % (tag, mn['minCr']), mn['minCr'] >= 4.5, (mn['minCr'], mn['minWho']))
