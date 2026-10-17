@@ -136,7 +136,7 @@
 - 원본은 브장신 병아리: `img/brjang/parts/body_chick/front.png`(정면, 1024²) 등. 프롬프트 틀과 8종 캐릭터 소품 문구는 `tooling/improve/ideas/P-6-brj-survivors.md` 「그림 제작 완료」에 있다:
   `Keep this yellow chick character exactly as it is — same head shape, face, cheeks, beak, feet, outline and art style — and it is <소품>. Front view, full body, centered, ... same art style as the original, no text, no letters, no numbers.`
 - 결과는 **눈으로 확인**(어두운 배경에 합성한 contact sheet) 후, 256px WebP(`img/survivors/char_<키>.webp`, 10~25KB)로 줄여 쓴다. 틀리면 프롬프트를 고쳐 다시. 여러 장 뽑아 제일 나은 것을 고른다.
-- 팬티도둑(`pty`) 그림은 처음에 PIL 로 직접 합성해 올렸다 — 사장님이 API 로 다시 뽑으라고 해서 교체 중(`img/survivors/char_pty.webp`).
+- **스크립트가 있다: `tooling/openai_chick_art.py`**(생성 N장 → 초록 배경 제거 → 256px WebP). 사용법은 파일 머리 주석. 팬티도둑(`pty`)이 이걸로 만든 첫 결과(처음엔 PIL 로 직접 그려 올렸다가 사장님이 API 로 다시 뽑으라고 해서 교체).
 
 ## 🧠 사장님이 "남겨 놔 / 기억해 / 초기화되기 전에" 라고 하면 — 바로 CLAUDE.md 에 쓴다 (2026-10-17)
 > "세션 초기화될 때마다 이런 거 설명해야 해?" → "초기화되기 전에 남겨놔" → "이 남겨두라는 내용조차 남겨놔"
