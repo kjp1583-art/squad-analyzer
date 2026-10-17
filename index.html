@@ -1260,20 +1260,21 @@ window.SGG_DC_BOOT=(function(){
   .pt{display:contents}
   .ptabs{display:flex;gap:6px;margin:12px 0 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .ptabs::-webkit-scrollbar{display:none}
-  .ptabs .segbtn{flex:1 1 0;min-width:0;padding:9px 4px;text-align:center}
+  .ptabs .segbtn{flex:1 0 auto;min-width:52px;min-height:44px;padding:9px 6px;text-align:center}
   .pt-on .pt-cols,.pt-on .pt-cols>div{display:contents}
   .pt-on[data-ptab="sum"] .pt:not([data-pt="sum"]),.pt-on[data-ptab="log"] .pt:not([data-pt="log"]),.pt-on[data-ptab="champ"] .pt:not([data-pt="champ"]),
   .pt-on[data-ptab="ana"] .pt:not([data-pt="ana"]),.pt-on[data-ptab="cmt"] .pt:not([data-pt="cmt"]){display:none}
   .pt-sumcard{margin-top:10px}
+  .pt-on[data-ptab="champ"] .pt>.card:first-child,.pt-on[data-ptab="log"] .pt>.card:first-child{margin-top:10px!important}
   .pt-sumcard .sidecol{width:100%;order:0}
   .cmp-fold:not(.cmp-open) .cmp:not(.cmp-core){display:none}
-  .cmp-morebtn{background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 16px;border-radius:8px;cursor:pointer;font-family:inherit}
+  .cmp-morebtn{min-height:40px;background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 16px;border-radius:8px;cursor:pointer;font-family:inherit}
   .pt-recent{margin-top:12px;padding:10px 12px}
   .pt-rrow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-  .pt-r{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer;min-width:0;font-size:12px}
-  .pt-r.w{border-color:rgba(126,224,129,.45)}.pt-r.w b{color:var(--win)}
-  .pt-r.l{border-color:rgba(232,64,87,.45)}.pt-r.l b{color:var(--lose)}
-  .pt-r span{color:var(--sub);white-space:nowrap;font-size:11.5px}
+  .pt-r{font-family:inherit;color:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer;min-width:0;font-size:12px}
+  .pt-r.w{border-color:var(--win)}.pt-r.w b{color:var(--win)}
+  .pt-r.l{border-color:var(--lose)}.pt-r.l b{color:var(--lose)}
+  .pt-r span{color:var(--sub);white-space:nowrap;font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .cmp.cmp-good{background:linear-gradient(135deg,rgba(126,224,129,.15),rgba(126,224,129,.03)),rgba(16,20,28,.78);border-color:rgba(126,224,129,.45)}
   .cmp.cmp-good .cmp-v{color:#7ee081}
   .cmp.cmp-bad{background:linear-gradient(135deg,rgba(232,64,87,.14),rgba(232,64,87,.03)),rgba(16,20,28,.78);border-color:rgba(232,64,87,.45)}
@@ -7606,7 +7607,7 @@ function setProfTab(t){
   const root=document.querySelector(".pt-root"); if(root) root.dataset.ptab=t;
   document.querySelectorAll(".ptabs [data-ptb]").forEach(b=>{ const on=b.dataset.ptb===t; b.classList.toggle("on",on); b.setAttribute("aria-selected",on); });
   if(CUR_PLAYER) _routeHashSet("p",CUR_PLAYER,profHashTab());
-  const tb=document.querySelector(".ptabs"); if(tb){ const y=tb.getBoundingClientRect().top; if(y<0) window.scrollBy(0,y-8); }   // 긴 탭에서 옮기면 탭 줄이 보이게
+  const tb=document.querySelector(".ptabs"); if(tb){ const hd=document.querySelector("header"), hh=hd?hd.offsetHeight:0, y=tb.getBoundingClientRect().top-hh; if(y<0) window.scrollBy(0,y-8); }   // 긴 탭에서 옮기면 탭 줄이 보이게
 }
 function profHashTab(){ return (profPhone()&&PROF_TAB!==PROF_TAB_DEFAULT)?PROF_TAB:""; }
 function togglePcmp(btn){ const box=btn.closest(".cmpbox"); if(!box) return; const o=box.classList.toggle("cmp-open"); btn.textContent=o?"접기 ▲":btn.dataset.more; }
@@ -10395,7 +10396,7 @@ function renderPlayer(name){
     const rc=list.slice(0,5); if(!rc.length) return '';
     return `<div class="card sect pt-recent"><h2>🕒 최근 5판 <span class="muted" style="font-size:13px;font-weight:400">· 누르면 게임 상세</span></h2><div class="pt-rrow">`+rc.map(r=>{
       const dec=r["결과"]==="승리"||r["결과"]==="패배", win=r["결과"]==="승리", ko=parseKDA(r["KDA"]);
-      return `<div class="pt-r ${!dec?'p':win?'w':'l'}" onclick="go('game','${escAttr(r["게임ID"])}')" title="${escAttr((r["챔피언"]||"")+" "+(r["KDA"]||""))}">${champImg(r["챔피언"],"")}<b>${dec?(win?'승':'패'):esc(r["결과"]||'대기')}</b><span>${ko?ko.k+'/'+ko.d+'/'+ko.a:'-'}</span></div>`;
+      return `<button type="button" class="pt-r ${!dec?'p':win?'w':'l'}" onclick="go('game','${escAttr(r["게임ID"])}')" aria-label="${escAttr((r["챔피언"]||"")+" "+(dec?(win?'승':'패'):'')+" "+(r["KDA"]||""))}">${champImg(r["챔피언"],"")}<b>${dec?(win?'승':'패'):esc(r["결과"]||'대기')}</b><span>${ko?ko.k+'/'+ko.d+'/'+ko.a:'-'}</span></button>`;
     }).join("")+`</div></div>`;
   })();
   const sumCardHtml=_ph?`<div class="card pt-sumcard"><div class="sidecol">${ringBlock}</div>${statBox}${recent5Html}${ctaHtml}${nightHtml}<div class="sidecol">${brjSpriteHtml(name)}${radarHtml}</div></div>`:'';
