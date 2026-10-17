@@ -7611,7 +7611,7 @@ function setProfTab(t){
 }
 function profHashTab(){ return (profPhone()&&PROF_TAB!==PROF_TAB_DEFAULT)?PROF_TAB:""; }
 function togglePcmp(btn){ const box=btn.closest(".cmpbox"); if(!box) return; const o=box.classList.toggle("cmp-open"); btn.textContent=o?"접기 ▲":btn.dataset.more; }
-if(PROF_MQ&&PROF_MQ.addEventListener) PROF_MQ.addEventListener("change",()=>{ try{ if(CUR_PLAYER&&document.querySelector(".pt-root, .prof")&&history.state&&history.state.route==="player") renderPlayer(CUR_PLAYER); }catch(e){} });   // 폰↔PC 폭을 넘나들면 배치를 다시 그린다
+if(PROF_MQ&&PROF_MQ.addEventListener) PROF_MQ.addEventListener("change",()=>{ try{ if(CUR_PLAYER&&document.querySelector(".pt-root, .prof")&&history.state&&history.state.route==="player") { const ta=document.getElementById("cmtContent"); if(ta&&ta.value.trim()) return; renderPlayer(CUR_PLAYER); _routeHashSet("p",CUR_PLAYER,profHashTab()); } }catch(e){} });   // 폰↔PC 폭을 넘나들면 배치를 다시 그린다
 function moreLog(){LOG_LIMIT+=60;renderLog();}
 let COUNTS_CLANONLY=true;   // 기본=티어표 등재 클랜원만 (외부인 제외)
 function toggleCountsScope(v){COUNTS_CLANONLY=v;renderCounts();}
