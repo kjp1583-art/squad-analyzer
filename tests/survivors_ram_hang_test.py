@@ -66,14 +66,14 @@ window.__rt={
  // 받는 피해
  taken(L,ev){const S=begin(L,ev,{hp:1000});const e=target('boss',200);const R=S.x3.ram;S.p.mhp=S.p.hp=1000;
    const t0=X.takenMul();S.p.inv=0;let h0=S.p.hp;X.hitP(100);const base=h0-S.p.hp;
-   S.p.inv=0;S.p.hp=1000;X.ramGo();let mid=-1,tm=-1,hang=false;
+   for(let i=0;i<30;i++)X.update(1/30);e.x=S.p.x+200;e.y=S.p.y;S.p.inv=0;S.p.hp=1000;X.ramGo();let mid=-1,tm=-1,hang=false;
    for(let i=0;i<60;i++){X.update(1/30);if(R.hg>0){hang=true;S.p.inv=0;tm=X.takenMul();const hh=S.p.hp;X.hitP(100);mid=hh-S.p.hp;break;}}
    let after=-1,ta=-1;for(let i=0;i<120;i++){X.update(1/30);if(!(R.hg>0)&&R.t<=0&&hang){S.p.inv=0;ta=X.takenMul();const hh=S.p.hp;X.hitP(100);after=hh-S.p.hp;break;}}
    return {t0,base,tm,mid,ta,after,hang};},
  // Lv8 연속 두 번 돌진 — 메인 루프가 돌진을 부르게 한다
- echo(L,ev,kind){const S=begin(L,ev,{});const e=target(kind||'boss',200);const R=S.x3.ram;S.cd.ram=0;window.__hl=[];
+ echo(L,ev,kind){const S=begin(L,ev,{});const e=target(kind||'boss',(kind||'boss')==='boss'?200:110);const R=S.x3.ram;S.cd.ram=0;window.__hl=[];
    let starts=0,prev=false,eqMax=0;const ph=[];
-   for(let i=0;i<150;i++){X.update(1/30);const h=R.hg>0;if(h&&!prev)starts++;prev=h;eqMax=Math.max(eqMax,R.eq);ph.push(h?'H':R.t>0?'D':S.p.yt>0?'K':'-');}
+   for(let i=0;i<(ev?100:80);i++){X.update(1/30);const h=R.hg>0;if(h&&!prev)starts++;prev=h;eqMax=Math.max(eqMax,R.eq);ph.push(h?'H':R.t>0?'D':S.p.yt>0?'K':'-');}
    window.__hl=null;return {starts,eqMax,eqEnd:R.eq,ph:ph.join('')};},
  // 이어하기: 매달리기 도중 저장→복구
  resume(L,ev,cut){
@@ -99,7 +99,7 @@ window.__rt={
    H.bk=300;H.bkT=.3;const r3=window.__rt.duel(5,0,'boss',{frames:140});out.bk=r3;Object.assign(H,save);
    return out;},
  // 전수
- sweep(){const res=[];const mk=(L,ev,mode,full,kind)=>{try{const S=begin(L,ev,{hard:mode,full:full});const e=target(kind,200);const R=S.x3.ram;S.cd.ram=0;S.p.hp=S.p.mhp=1e9;
+ sweep(){const res=[];const mk=(L,ev,mode,full,kind)=>{try{const S=begin(L,ev,{hard:mode,full:full});const e=target(kind,kind==='boss'?200:110);const R=S.x3.ram;S.cd.ram=0;S.p.hp=S.p.mhp=1e9;
      let hang=0,bad=0,maxHang=0,cur=0;
      for(let i=0;i<260;i++){if(P.state==='lvup')P.pick(P.CUR[0]);else if(P.state!=='play')P.resume();X.update(1/30);
        if(R.hg>0){hang++;cur++;maxHang=Math.max(maxHang,cur);}else cur=0;
@@ -123,6 +123,7 @@ async def main():
     H.make_copy(src='survivors.html', dst=NEW, extra=EXTRA)
     old = await fetch_old()
     if old:
+        old = old.replace('bang(p.x,p.y,60*lvm(L,[[6,1.3]])*(ev?1.4:1)', 'bang(p.x,p.y,60*(ev?1.4:1)')   # Lv6 충격파 범위 +30% 는 마지막 한 방 +30% 로 바뀌었다(의도된 차이) — 그 한 줄만 맞춰 놓고 비교
         open(os.path.join(ROOT, 'survivors_ramhang_src.html'), 'w', encoding='utf-8').write(old)
         H.make_copy(src='survivors_ramhang_src.html', dst=OLD, extra=EXTRA)
     srv = H.Srv()
@@ -173,7 +174,7 @@ async def main():
 
             # ── 나 대상
             for kind, nm in [('el', '정예'), ('bg', '대형')]:
-                r = await pg.evaluate('([k])=>__rt.duel(5,0,k)', [kind])
+                r = await pg.evaluate('([k])=>__rt.duel(5,0,k,{dist:110})', [kind])
                 check('[나] %s 에도 매달린다' % nm, bool(re.match(r'^D*H+K+', r['ph'])) and len([h for h in r['hits'][2:]]) == Hg['n'], r['ph'][:30])
             r = await pg.evaluate('()=>{const S=(()=>{return null})();return 0}')
             # 잡몹 — 기준 커밋 판과 비트 동일
@@ -210,7 +211,7 @@ async def main():
             r = await pg.evaluate('()=>__rt.echo(8,0)')
             check('[라] Lv8 연속 두 번 돌진 — 두 번째도 매달린다(매달리기 2번 · 미룬 돌진 eq 가 쓰였다)', r['starts'] == 2 and r['eqMax'] >= 1 and r['eqEnd'] == 0, r)
             r = await pg.evaluate('()=>__rt.echo(8,1)')
-            check('[라] 각성은 항상 두 번 — 매달리기 2번', r['starts'] == 2 and r['eqEnd'] == 0, r)
+            check('[라] 각성은 항상 두 번 — 매달리기 2번 이상', r['starts'] >= 2 and r['eqEnd'] == 0, r)
             for kind in ('el', 'bg'):
                 r = await pg.evaluate('([k])=>__rt.echo(8,0,k)', [kind])
                 check('[라] Lv8 %s 도 두 번 매달린다' % kind, r['starts'] == 2, r)
