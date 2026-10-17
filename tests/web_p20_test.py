@@ -213,6 +213,11 @@ async def run_synth(src, tmp):
         await pg.evaluate(GO, ['champ', None]); await pg.evaluate(GO, ['player', _nm(12)])
         o['fell'] = await pg.evaluate(STATE)
         o['fell_txt'] = await pg.evaluate("()=>document.querySelector('#view').innerText")
+        # [A-32] 자동 전체 기간으로 열린 상태에서 곧바로 다른 선수(30일 안 기록 있음)를 열면 기본 범위(최근 30일)로 돌아오고 거짓 안내가 안 남는다
+        await pg.evaluate(GO, ['home', None]); await pg.evaluate(GO, ['player', _nm(12)])
+        o['a32_first'] = await pg.evaluate("()=>({sel:PATCH_SEL,auto:PATCH_AUTO,note:(document.querySelector('#patchnote')||{}).textContent||''})")
+        await pg.evaluate(GO, ['player', _nm(1)])
+        o['a32_next'] = await pg.evaluate("()=>({sel:PATCH_SEL,auto:PATCH_AUTO,note:(document.querySelector('#patchnote')||{}).textContent||''})")
         await pg.evaluate(GO, ['champ', None]); o['fell_champ'] = await pg.evaluate(STATE)
         await pg.evaluate(GO, ['home', None]); o['fell_home'] = await pg.evaluate(STATE)
         # S10 폰 넘침
@@ -257,6 +262,8 @@ async def run_synth(src, tmp):
     ok(cg['sel'] == 'R30' and not cg['meta'] and '최신 패치' not in cg['note'] and cr['sel'] == 'R30' and not cr['meta'], 'S11b 챔피언 티어 → 성향유형·리포트(일찍 return 하는 화면)도 최근 30일로 돌아오고 안내가 사라진다 (%s · %s)' % (cg['sel'], cr['sel']))
     f = o['fell']
     ok(f['sel'] == 'ALL' and not f['user'] and '최근 30일에는 기록이 없어' in o['fell_txt'] and '전체 기간(' not in o['fell_txt'].split('기록이 없어')[0][-30:], 'S11c 30일 0판 선수를 열면 전체 기간으로 풀리고 문구는 「최근 30일에는 …」 (sel=%s user=%s)' % (f['sel'], f['user']))
+    ok(o['a32_first']['sel'] == 'ALL' and o['a32_first']['auto'] and '검색한 선수가' in o['a32_first']['note'], 'A32a 0판 선수를 열면 자동 전체 기간 + 안내 (%s)' % o['a32_first'])
+    ok(o['a32_next']['sel'] == 'R30' and not o['a32_next']['auto'] and '검색한 선수가' not in o['a32_next']['note'], 'A32b 곧바로 다른 선수를 열면 최근 30일로 돌아오고 거짓 안내가 사라진다 (%s)' % o['a32_next'])
     ok(o['fell_champ']['sel'] == '16.20' and o['fell_home']['sel'] == 'R30', 'S11d 자동 전환은 직접 고른 게 아니다 — 그 뒤 티어 탭은 최신 패치 · 홈은 최근 30일 (%s · %s)' % (o['fell_champ']['sel'], o['fell_home']['sel']))
     bad = [x for x in o['overflow'] if x['sw'] > x['cw'] + 1]
     ok(not bad, 'S10a 폰 360 가로 넘침 0 %s' % ([(x['route'], x['sw'], x['cw']) for x in o['overflow']]))

@@ -63,7 +63,7 @@ async def main():
         n0 = len(POSTS)
         await pg.evaluate("document.getElementById('rAcct').innerHTML='x<button id=\"rRetry\"></button>'"); await pg.evaluate("__uq.flushUnsent(true)"); await pg.wait_for_timeout(500)
         check('다시 저장: 앞 판이 올라가고 큐가 비워진다', len(POSTS) == n0 + 1 and POSTS[-1]['t'] == ta and await q(pg) == [], (len(POSTS), n0))
-        check('서버로 가는 본문에 내부 표식(_q)이 없다', all('_q' not in x for x in POSTS))
+        check('서버로 가는 본문에 내부 표식(_q·_u)이 없다', all('_q' not in x and '_u' not in x for x in POSTS))
         # 2. 큐 여러 판 → 순서대로, 막히면 멈춘다
         POSTS.clear(); st['codes'] = None; st['code'] = 'error'
         for t in (35, 36, 37): await run(pg, t)
@@ -141,6 +141,22 @@ async def main():
         await pg.evaluate("__uq.flushUnsent(true)"); await pg.wait_for_timeout(500)
         check('[setItem 만 막힘] 다시 저장이 재전송한다', len(POSTS) == 2 and POSTS[-1]['t'] == POSTS[0]['t'], [x['t'] for x in POSTS])
         check('[setItem 만 막힘] 성공하면 큐에서 빠진다', await pg.evaluate("__uq.qLoad().length") == 0); await ctx.close()
+        # 3. [A-31] 공용 PC — 다른 계정으로 보관된 판은 지금 로그인한 계정의 토큰으로 올리지 않는다
+        POSTS.clear(); st = {'code': 'error'}
+        ctx, pg, errs = await fresh(b, srv.port, st)
+        await run(pg, 40)
+        qa = await q(pg)
+        check('[A-31] 보관본에 올린 사람 표시(_u)가 붙는다 · 토큰은 없다', len(qa) == 1 and qa[0].get('_u') and 'token' not in json.dumps(qa), qa)
+        me = qa[0]['_u']
+        await pg.evaluate("(me)=>{const now=Date.now();__uq.qSave([{t:61,kills:5,lv:2,ts:now,_q:'qa',_u:'zzz_other'},{t:62,kills:6,lv:2,ts:now,_q:'qb'},{t:63,kills:7,lv:2,ts:now,_q:'qc',_u:me}])}", me)
+        st['code'] = None; POSTS.clear()
+        await pg.evaluate("document.getElementById('rAcct').innerHTML='x'"); await pg.evaluate("__uq.flushUnsent(true)"); await pg.wait_for_timeout(1500)
+        sent = sorted(x['t'] for x in POSTS)
+        check('[A-31] 다른 계정 판(t=61)은 올리지 않고, 표시 없는 옛 판(62)·내 판(63)만 올린다', sent == [62, 63] and 61 not in sent, sent)
+        left = await q(pg)
+        check('[A-31] 다른 계정 판은 큐에 그대로 남는다(그 계정으로 로그인하면 올라감)', [x['t'] for x in left] == [61], left)
+        check('[A-31] 서버로 간 본문에 _u 가 없다', all('_u' not in x for x in POSTS))
+        await ctx.close()
         await b.close()
     srv.close()
     try: os.remove(os.path.join(H.ROOT, 'survivors_x.html'))

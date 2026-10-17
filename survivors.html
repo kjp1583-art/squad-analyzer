@@ -851,7 +851,7 @@ async function postRun(body,n){const el=$('rAcct');   // 반환: 'ok'(저장됨)
   if(body.endless){if(SRV_END===null)await loadBoard();if(!SRV_END){keepUnsent(body,'⚠ 순위 서버가 아직 무한 모드를 몰라 이번 기록은 이 기기에 남겨 뒀어요.');return 'keep';}}
   if(body.daily){if(SRV_DLY===null)await loadBoard();if(!SRV_DLY){keepUnsent(body,'⚠ 순위 서버가 아직 오늘의 도전을 몰라 이번 기록은 이 기기에 남겨 뒀어요.');return 'keep';}}
    // 판 결과는 보낼 때 한 번 찍어 둔다(다시 보내는 사이 새 판이 시작돼도 그대로)
-  try{const sent=Object.assign({},body);delete sent._q;cdxAttach(sent);const j=await api('/p6/run',sent);   // 📖 스킬 도감: 로그인한 기록에는 내 발견 전체를 싣는다(서버는 합집합으로만 합친다 · 다시 보낼 때마다 최신으로)
+  try{const sent=Object.assign({},body);delete sent._q;delete sent._u;cdxAttach(sent);const j=await api('/p6/run',sent);   // 📖 스킬 도감: 로그인한 기록에는 내 발견 전체를 싣는다(서버는 합집합으로만 합친다 · 다시 보낼 때마다 최신으로)
     if(j.code==='upstream'&&n<2){el.textContent='📡 디스코드 확인이 늦어요 — 잠시 뒤 다시 올려 볼게요…';await new Promise(r=>setTimeout(r,4000*(n+1)));return postRun(body,n+1);}   // 서버가 저장 안 했다고 확답한 경우만 재시도
     if(j.ok&&j.dup&&!j.daily_dup){qDel(body._q);   // 🔑 서버엔 이미 저장돼 있었다(응답만 못 받은 판) — 성공과 같게 치우고, 이중으로 세지 않았다고 알린다
       if(body.daily){dailySet({date:body.daily,ranked:1,done:1,t:body.t,k:body.kills});if(ME)ME.daily_done=true;}
@@ -887,7 +887,8 @@ function qLoad(){let a=null,ok=true;
 function qSave(a){a=a.slice(-QMAX);let t=JSON.stringify(a);while(a.length>1&&t.length>QBYTES){a.shift();t=JSON.stringify(a);}   // 개수·크기 상한 — 넘치면 가장 오래된 판부터 버린다
   QMEM=a;QLSFAIL=false;try{localStorage.setItem(UNSENTQ,t);}catch(e){QLSFAIL=true;}return a;}
 function qDel(id){if(!id)return;const a=qLoad(),b=a.filter(o=>o._q!==id);if(b.length!==a.length)qSave(b);else QMEM=QMEM?QMEM.filter(o=>o._q!==id):QMEM;}
-function keepUnsent(body,msg,relogin){const el=$('rAcct');const o=Object.assign({},body);delete o.token;delete o.codex;o.ts=o.ts||Date.now();   // 📖 도감 목록은 보관본에 넣지 않는다(다시 올릴 때 postRun 이 최신으로 싣는다)
+const acctTag=u=>{const t=String((u&&u.id)||'');let h=5381;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))>>>0;return t?h.toString(36):'';};   // 🔐 [A-31] 올린 사람 표시(디스코드 id 의 짧은 해시 — 원래 id 는 못 되돌린다) · 공용 PC 에서 다른 사람 기록이 내 토큰으로 올라가지 않게
+function keepUnsent(body,msg,relogin){const el=$('rAcct');const o=Object.assign({},body);delete o.token;delete o.codex;o.ts=o.ts||Date.now();if(!o._u){const _t=acctTag(dcUser());if(_t)o._u=_t;}   // 📖 도감 목록은 보관본에 넣지 않는다(다시 올릴 때 postRun 이 최신으로 싣는다)
   const a=qLoad();if(!o._q)o._q=body._q='q'+Date.now()+'_'+(++QSEQ);   // 같은 판을 다시 시도하다 또 실패하면 새 칸을 만들지 않고 그 자리를 갱신
   const k=a.findIndex(x=>x._q===o._q);if(k>=0){const ts0=a[k].ts;a[k]=Object.assign({},a[k],o);if(ts0)a[k].ts=ts0;}   // 다시 시도하다 또 실패해도 처음 보관한 시각을 지킨다(3일 만료가 늘어나지 않게)
   else a.push(o);
@@ -896,11 +897,11 @@ function keepUnsent(body,msg,relogin){const el=$('rAcct');const o=Object.assign(
   return 'keep';}
 async function flushUnsent(show){const u=dcUser();if(!u||FLUSHING)return;FLUSHING=true;
   try{let a=qLoad();const now=Date.now(),old=a.filter(o=>now-(o.ts||0)>QTTL);if(old.length){a=a.filter(o=>now-(o.ts||0)<=QTTL);qSave(a);}   // 3일 지난 판은 버린다(옛 규칙 그대로)
-    const el=$('rAcct');let first=true,skips=0;
+    const el=$('rAcct');let first=true,skips=0;const me=acctTag(u),others=a.filter(o=>o._u&&o._u!==me).length;if(others)a=a.filter(o=>!o._u||o._u===me);   // 🔐 [A-31] 다른 계정으로 보관된 기록은 이 토큰으로 올리지 않는다(저장소에는 그대로 남는다 — 그 계정으로 로그인하면 올라간다)
     for(const o of a){if(!first){if(el)el.textContent='⏳ 다음 기록 올리기 전에 잠시 기다려요(20초 간격)…';await new Promise(r=>setTimeout(r,FLUSH_GAP));}
       first=false;if(show&&el)el.textContent='📡 기록 다시 올리는 중…';
       const b=Object.assign({},o,{token:u.token});delete b.ts;const r=await postRun(b,0);
-      if(r==='keep')break;if(r==='skip'){if(++skips>=2)break;}else skips=0;}}   // 연달아 두 판이 거절되면 서버 쪽 문제로 보고 멈춘다   // 'skip' 은 이 판만 거절된 것 — 건너뛰고 다음 판으로(영구 거절 판이 뒤를 막지 않게)
+      if(r==='keep')break;if(r==='skip'){if(++skips>=2)break;}else skips=0;}if(others&&show&&el&&!a.length)el.textContent='ℹ️ 이 기기에는 다른 계정으로 보관된 기록 '+others+'판이 있어요 — 그 계정으로 로그인하면 올라가요';}   // 연달아 두 판이 거절되면 서버 쪽 문제로 보고 멈춘다   // 'skip' 은 이 판만 거절된 것 — 건너뛰고 다음 판으로(영구 거절 판이 뒤를 막지 않게)
      // 한 판이 막히면 거기서 멈춘다(순서 유지 · 서버를 두드리지 않는다) — 나머지는 그대로 남아 있다
   finally{FLUSHING=false;}}
 const UK='p6_unl_v1';
