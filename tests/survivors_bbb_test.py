@@ -132,7 +132,7 @@ async def main():
         D0, DB0 = r['u3']['d'], r['u3']['db']   # 음표·고음 피해는 표(U3.sing)에서 읽는다 — 수치를 올려도 시험의 기대값이 같이 움직인다
         T = r['T']
         check('TIERS.sing: 마스터 3 + 각성 2 (음표 +1 · 피해 +12% · 쿨 -7% · 관통/피해/넋 · 흩어지는 음표)', T == [{'n': 1}, {'d': .12}, {'c': .07}, {'pc': 1, 'd': .08, 'life': .2}, {'frag': 1}], T)
-        check('콤보 u_sing: 🎤 + 🐥 병아리 친구들(공용) · 경험치 +10% · 피해 +6%', r['sy'] and r['sy']['req'] == ['sing', 'chick'] and r['sy']['fx'] == {'xp': .1, 'dmg': .06} and r['chick'] and r['sg'] == 1 and r['uSyn'] == 17, r['sy'])
+        check('콤보 u_sing: 🎤 + 🐥 병아리 친구들(공용) · 경험치 +10% · 피해 +6%', r['sy'] and r['sy']['req'] == ['sing', 'chick'] and r['sy']['fx'] == {'xp': .1, 'dmg': .06} and r['chick'] and r['sg'] == 1 and r['uSyn'] == 18, r['sy'])
         check('U3.sing 수치표', r['u3'] == {'d': 6.6, 'db': 1.9, 'cd': 1.6, 'iv': .24, 'sp': 380, 'life': .8, 'rng': 300, 'fan': .22, 'dlt': .06, 'hit': 12, 'bsp': 280, 'blife': .9, 'bR': 44, 'btk': .45, 'm': 2, 'cr': .04, 'crm': .6, 'sl': .45, 'bsl': .9, 'reach': 280}, r['u3'])
         check('study 짝 무기: 가챠 · 4발 사격 · 노래부르기', sorted(r['bbbPair']) == ['gacha', 'jhin', 'sing'], r['bbbPair'])
 
@@ -329,7 +329,7 @@ async def main():
         check('선택 화면(412px): 가로 스크롤 없음 · 카드 폭이 모두 같다', r['sw'] <= r['cw'] and len(set(r['hs'])) == 1, (r['sw'], r['cw'], set(r['hs'])))
         check('잠긴 카드: 작은 글씨 「디스코드 /흐접새우상점 200P」 · 누르면 설명창에 구매 방법(디스코드 /흐접새우상점 · 200P · 맛동산 아님 · 새로고침) + 로그인 안내', r['lock'] and r['small'] == '디스코드 /흐접새우상점 200P' and '디스코드 「/흐접새우상점」에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침' in r['desc'] and '디스코드 로그인 필요' in r['desc'], r)
         hw = await pg.evaluate("()=>document.querySelector('ol.how').textContent")
-        check('조작법 도움말(❔): 고유 시작 무기 목록에 「배불배불 🎤」(프싱 다음)', '프싱 🔥쌍둥이 이빨 · 배불배불 🎤 · 신림 📋' in hw, hw[hw.find('고유 시작 무기'):][:140])
+        check('조작법 도움말(❔): 고유 시작 무기 목록에 「배불배불 🎤」(프싱 다음)', '프싱 🔥쌍둥이 이빨 · 배불배불 🎤 · 팬티도둑 🧺 · 신림 📋' in hw, hw[hw.find('고유 시작 무기'):][:140])
         await pg.evaluate("__p6x.srvUnl(['brj','bbb'])")
         # ───────────────── N. 해금 = 봇 흐접새우 상점 구매(200P) — 서버 응답(/p6/me · /p6/run)은 page.route 로 가짜를 주입한다
         ST = {'unl': ['brj']}; POSTS = []

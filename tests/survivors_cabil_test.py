@@ -3,7 +3,7 @@
    「모든 캐릭터에게 개성에 맞는 고유스텟을 상호밸런스를 유지해서, 아이템 자동획득 같은 스텟이 아닌 고유능력도 좋아」
    사용: python3 tests/survivors_cabil_test.py     (종료코드 0 = 전부 통과)
    구성
-     가  표 — CSX 값이 한 곳에 있고, 18명 전원이 고유스텟 1줄 이상(없음 0명) · 같은 효과를 둘이 갖지 않는다
+     가  표 — CSX 값이 한 곳에 있고, 19명 전원이 고유스텟 1줄 이상(없음 0명) · 같은 효과를 둘이 갖지 않는다
      나  문구 = 값 — 값(CSX)을 바꾸면(변이) 카드 칩·설명 문구·일시정지 표의 숫자가 따라 바뀐다
      다  동작 = 문구 — 캐릭터마다 새 능력이 문구와 같은 크기로, 조건을 밟았을 때만 켜진다(경계값 포함) · 다른 캐릭터는 그대로
      라  이어하기 — 능력 상태(S.x3.cs)가 저장·복구 뒤에도 이어지고 옛 저장본(칸 없음)도 안전하다
@@ -41,8 +41,8 @@ async def main():
             # ── 가 표
             r = await pg.evaluate("""()=>{const x=__ca;const rows={};for(const c of x.CHARS)rows[c.k]=x.cstat(c);
               return {csx:Object.keys(x.CSX),ks:x.CHARS.map(c=>c.k),rows:Object.fromEntries(Object.entries(rows).map(([k,d])=>[k,{n:d.rows.length,none:d.none,nm:d.rows.map(r=>r.nm)}]))}}""")
-            check('[가] 고유스텟 없음 0명 — 18명 전원 1줄 이상', all(d['n'] >= 1 for d in r['rows'].values()) and len(r['rows']) == 18, {k: d['n'] for k, d in r['rows'].items()})
-            check('[가] 고유능력이 새로 붙은 11명이 CSX 한 표에 있다', sorted(r['csx']) == sorted(['brj', 'mms', 'hrb', 'amd', 'ildj', 'ddmj', 'eom', 'bbb', 'yj', 'bgb', 'tw']), r['csx'])
+            check('[가] 고유스텟 없음 0명 — 19명 전원 1줄 이상', all(d['n'] >= 1 for d in r['rows'].values()) and len(r['rows']) == 19, {k: d['n'] for k, d in r['rows'].items()})
+            check('[가] 고유능력이 새로 붙은 12명이 CSX 한 표에 있다', sorted(r['csx']) == sorted(['brj', 'mms', 'hrb', 'amd', 'ildj', 'ddmj', 'eom', 'bbb', 'pty', 'yj', 'bgb', 'tw']), r['csx'])
             allnm = [n for d in r['rows'].values() for n in d['nm']]
             dup = sorted({n for n in allnm if allnm.count(n) > 1 and n not in ('이동속도', '받는 피해', 'HP 회복', '줍는 범위', '경험치', '쿨타임', '최대 HP')})
             check('[가] 능력 이름 겹침 0(공용 수치 행 제외)', not dup, dup)
@@ -189,7 +189,7 @@ async def main():
                 const sr=x.statRows();if(sr.some(r=>typeof r.t!=='string'||/NaN|undefined|Infinity/.test(r.t+(r.s||''))))out.bad.push('표:'+k+mode);
                 const cs=S.x3.cs;if(cs)for(const f in cs)if(typeof cs[f]!=='number'||!Number.isFinite(cs[f]))out.bad.push('cs.'+f+':'+k+mode);}
               return out}""")
-            check('[마] 18명 × 일반/하드/베리하드 × 보스 상태 — NaN·오류 0', not sweep['bad'], sweep['bad'])
+            check('[마] 19명 × 일반/하드/베리하드 × 보스 상태 — NaN·오류 0', not sweep['bad'], sweep['bad'])
             ms = sweep['ms']
             def avg(chars): return sum(ms[k + m + t] for k in chars for m in 'nhv' for t in '01') / (len(chars) * 6)
             new9 = ['brj', 'mms', 'hrb', 'amd', 'ildj', 'ddmj', 'eom', 'bbb', 'yj', 'bgb']

@@ -414,7 +414,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
     <li>🪙 <b>부활 코인</b>: 디스코드 로그인하고 코인이 있으면 쓰러질 때 「코인을 쓸까요?」 창이 떠요. 쓰면 체력 절반으로 일어나고 3초 동안 안 맞아요. 코인은 디스코드에서 「맛동산상점」을 열어 맛동산 1개로 3개를 살 수 있어요(최대 99개).</li>
     <li>♾ <b>무한 모드</b>: 일반·하드·베리하드 어느 모드든 60분을 클리어하면 「무한 모드로 진입하시겠습니까?」를 물어봐요. 수락하면 이어서 계속 싸워요. 난이도는 +30분 치까지만 오르고 멈추며, 180분이 한계예요. 기록은 무한 순위표에 따로 올라가요(일반·하드·베리하드 난이도별로 순위표가 나뉘어요).</li>
     <li>⭐ 시그니처 유물: 캐릭터마다 전용 유물이 하나씩 있어요(그 캐릭터로 할 때만 유물 카드에 나와요).</li>
-    <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥쌍둥이 이빨 · 배불배불 🎤 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥드래곤 브레스 · 유미 🍘 · 엄장신 📢 · 배고배고 📸). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
+    <li>🎒 <b>캐릭터마다 고유 시작 무기</b>가 있어요(브장신 🪶 · 집중겜 🔫 · 망무새 💣 · 조선제일하리보 🟢 · 승수 🛒 · 앙앵모르딱 💙 · 일단즐겨 🎭 · 김야옹 🍔 · 단단묵직 🛡 · 프싱 🔥쌍둥이 이빨 · 배불배불 🎤 · 팬티도둑 🧺 · 신림 📋 · 또뀨 ⛓ · 태웅 🥊 · 용조련사 🔥드래곤 브레스 · 유미 🍘 · 엄장신 📢 · 배고배고 📸). 그 캐릭터만 얻고 Lv8 까지 키울 수 있어요. 사료·달걀 같은 공용 무기는 레벨업 카드에서 누구나 얻어요.</li>
     <li>5분부터는 👹 <b>대형 트롤픽</b>(덩치 2배·체력 8배)이 섞여 나와요. 잡으면 💎·💣·🍗를 떨굴 때가 많아요.</li>
     <li>무기는 6개·패시브는 6개까지(👼 부활은 칸을 안 써요 · 레벨 20부터 나와요). <b>🗝 각성 열쇠 패시브는 패시브 6칸 밖의 열쇠 칸(3칸)에 따로 들어가요</b> — 일반 칸이 꽉 차도 열쇠는 받을 수 있어요. 무기 Lv8 + 그 무기의 <b>🗝 각성 열쇠</b> 패시브를 갖추고 🎁 보스 상자를 열면 <b>✨ 각성</b>(한 판에 3개까지)! 어떤 패시브가 어떤 무기를 강하게 하는지는 카드의 「✔ 받아요 · ◐ 일부만 · ✖ 안 받아요」 줄과 일시정지의 「🧩 내 무기 × 패시브」 표에서 봐요.</li>
     <li>🎁 보스 상자는 <b>내가 가진 능력만</b> 키워 줘요 — 가진 무기·패시브·유물·거래를 올리는 카드(강화·마스터·각성·초월)만 나와요. 새 무기·새 패시브·새 유물은 레벨업 카드에서 골라요.</li>
@@ -654,6 +654,18 @@ const SPX=(()=>{const o={};
     const head=(x,y)=>{g.save();g.translate(x,y);g.rotate(-.45);g.beginPath();g.ellipse(0,0,13,9.4,0,0,7);g.fillStyle='#fff';g.fill();g.lineWidth=3.4;g.strokeStyle='#b9a5ff';g.stroke();g.restore();};
     g.beginPath();g.moveTo(42,76);g.lineTo(42,32);g.lineTo(80,22);g.lineTo(80,66);g.lineWidth=9;g.strokeStyle='#b9a5ff';g.stroke();g.lineWidth=5;g.strokeStyle='#fff';g.stroke();
     head(32,78);head(70,68);});
+  // 🩲 [2026-10-16 사장님 지시] 맨해라공원팬티도둑 — 팬티 소품: 빨랫줄에 널린 만화풍 속옷 모양 + 하늘색 후광. 색은 흰색·하늘·연보라·민트만(빨강·주황·분홍·금색은 적의 위험·보상 색이라 안 쓴다 · 금빛은 줍는 전리품 후광에만)
+  const pantyS=(col,edge,k)=>mk(Math.round(44*k),Math.round(44*k),g=>{g.scale(k,k);g.fillStyle=rg(g,22,[0,'rgba(210,246,255,.5)',.45,'rgba(111,230,255,.22)',1,'rgba(111,230,255,0)']);g.fillRect(0,0,44,44);
+    g.lineJoin='round';g.lineCap='round';g.beginPath();g.moveTo(8,14);g.lineTo(36,14);g.lineTo(34,25);g.quadraticCurveTo(29,27,26,35);g.lineTo(18,35);g.quadraticCurveTo(15,27,10,25);g.closePath();
+    g.fillStyle=col;g.fill();g.lineWidth=4.4;g.strokeStyle='#fff';g.stroke();g.lineWidth=2;g.strokeStyle=edge;g.stroke();
+    g.fillStyle=edge;g.globalAlpha=.55;g.fillRect(8.5,14.5,27,3.6);g.globalAlpha=1;   // 허리 밴드
+    g.fillStyle='rgba(255,255,255,.85)';for(const [x,y] of [[15,22],[22,26.5],[29,22],[22,20]]){g.beginPath();g.arc(x,y,1.5,0,7);g.fill();}});   // 물방울 무늬
+  o.py=[['#f2fdff','#8fc7ff'],['#bfeaff','#4fb7ff'],['#d9c8ff','#9b82e8'],['#b8ffe6','#43c9a0']].map(c=>pantyS(c[0],c[1],1));
+  o.pyB=pantyS('#f2fdff','#9b82e8',1.7);   // 🎆 폭죽 — 큰 한 장
+  o.pl=mk(44,44,g=>{g.lineJoin='round';g.lineCap='round';g.beginPath();g.moveTo(8,14);g.lineTo(36,14);g.lineTo(34,25);g.quadraticCurveTo(29,27,26,35);g.lineTo(18,35);g.quadraticCurveTo(15,27,10,25);g.closePath();
+    g.fillStyle='#b8ffe6';g.fill();g.lineWidth=4.4;g.strokeStyle='#fff';g.stroke();g.lineWidth=2;g.strokeStyle='#43c9a0';g.stroke();
+    g.fillStyle='#43c9a0';g.globalAlpha=.55;g.fillRect(8.5,14.5,27,3.6);g.globalAlpha=1;
+    g.fillStyle='#fff';g.beginPath();for(let i=0;i<8;i++){const r=i&1?2:5,a=i*Math.PI/4;g.lineTo(34+Math.cos(a)*r,9+Math.sin(a)*r);}g.closePath();g.fill();});   // 🩲 전리품 팬티 — 민트 한 장 + 반짝이 별
   // 🚀 [속도] 화면 픽셀에 딱 맞춘 그림 — 정수 좌표·1:1 로 찍는 drawImage 는 확대·축소·소수점 좌표로 찍는 것보다 5~9배 싸다(소프트웨어 그리기에서).
   //   draw() 가 매 프레임 카메라(cam)를 적어 두고, 이 함수들은 월드 좌표를 화면 픽셀로 바꿔 미리 맞춰 둔 그림(크기별 캐시)을 정수 위치에 찍는다.
   //   모양은 그대로(크기 오차 ≤ 1 화면 픽셀 · 위치 오차 ≤ 0.5 픽셀) — 부드러운 빛·자국에만 쓴다.
@@ -892,7 +904,7 @@ async function flushUnsent(show){const u=dcUser();if(!u||FLUSHING)return;FLUSHIN
   finally{FLUSHING=false;}}
 const UK='p6_unl_v1';
 function getUnl(){try{return new Set(JSON.parse(localStorage.getItem(UK)||'[]'));}catch(e){return new Set();}}
-const isShopKey=k=>CHARS.some(c=>c.shop&&c.k===k);   // 🛒 상점 캐릭터 키(yumi·eom·bbb) — 서버 구매로만 열린다: 로컬 해금 목록에 쌓지도, 기록 POST 로 보내지도 않는다(열림 여부는 SRVUNL 만 본다)
+const isShopKey=k=>CHARS.some(c=>c.shop&&c.k===k);   // 🛒 상점 캐릭터 키(yumi·eom·bbb·pty) — 서버 구매로만 열린다: 로컬 해금 목록에 쌓지도, 기록 POST 로 보내지도 않는다(열림 여부는 SRVUNL 만 본다)
 function mergeUnl(a){const s=getUnl();(a||[]).forEach(x=>{if(!isShopKey(String(x)))s.add(String(x));});try{localStorage.setItem(UK,JSON.stringify([...s]));}catch(e){}}
 
 // ---------- 저장(내 브라우저에만) ----------
@@ -926,6 +938,10 @@ const CHARS=[
   //   🛒 [2026-10-08 사장님 지시 "배불배불 획득조건 봇 흐접새우상점 신설하고 200포인트로 구매가능하게 설정"] 해금 = 진행도가 아니라 봇 「/흐접새우상점」 구매(스쿼드 포인트 200P · 맛동산 아님) — 서버가 내려준 unlocks 의 'bbb' 로만 열린다(shop:1 · SHOPUN_SV)
   //   능력 「박자 감각」 = 모든 무기 쿨타임 -8%(cdr · cdMul 한 곳). 실존 인물·곡·가사는 쓰지 않는다 — 무대 의상 + 마이크 + 음표 연출만.
   {k:'bbb',img:1,e:'🎤',nm:'플레이브 코스프레 배불배불',sn:'배불배불',tag:'디스코드 /흐접새우상점 200P',q:'한 곡만 더 부르고 갈게요',ds:'「박자 감각」 — 무대 의상에 마이크를 든 병아리. 🎤 플레이브 노래부르기(고유 무기 · 4박자 한 소절: 음표를 쏘고 마지막 박엔 큰 고음이 울린다) 시작.',w:'sing',cdr:.08,shop:1,un:SHOPUN_SV},
+  // 🩲 [2026-10-16 사장님 지시] 신캐릭터 「맨해라공원팬티도둑」(클랜 내부 농담 캐릭터) + 고유 무기 🧺 팬티 투척 — 판매 방식은 배불배불과 같다(봇 「/흐접새우상점」 200P · shop:1 · SHOPUN_SV)
+  //   일러스트는 사장님이 새로 그려 준다 → 지금은 img:0(이모지 카드 + 캔버스 도형 몸). 그림 파일 img/survivors/char_pty.webp 가 들어오면 이 줄의 img:0 을 img:1 로 한 줄만 바꾼다.
+  //   고유스텟 「야간 도주」 = 이동속도 +12%(spd) · 줍기 범위 +25%(mag) · 체력 40% 아래에서 3초간 이동속도 대폭↑(CSX.pty — 무적·피해감소 없음) · 처치한 적의 보석이 가끔 2배 · 시작 체력은 낮다(hp -16 → 84). 팬티는 빨랫줄에 널린 소품으로만 그린다.
+  {k:'pty',img:0,e:'🩲',nm:'맨해라공원팬티도둑',sn:'팬티도둑',tag:'디스코드 /흐접새우상점 200P',q:'달 밝은 밤엔 빨래가 잘 마르죠',ds:'「야간 도주」 — 복면에 보따리를 멘 공원의 밤손님. 🧺 팬티 투척(고유 무기 · 빨랫줄에서 슬쩍한 팬티를 던져 멈칫하게 하고, 떨어진 전리품을 모아 터뜨린다) 시작.',w:'panty',hp:-16,spd:.12,mag:.25,shop:1,un:SHOPUN_SV},
   // ── 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터 "일러스트가 구현되어 있는 신림·또뀨·태웅·용조련사 플레이어블로도 — 해금 조건 알아서"
   //   해금 = 그 보스를 판에서 처치(처치한 순간 저장 · 로그인하면 서버 해금 목록으로 기기 간 이어짐). 그림이 있어 ??? 로 가리지 않는다(REVEAL 과 무관).
   //   k 는 BOSS 키·봇 P6_UNLOCK_KEYS 와 같다. 대사는 봇 RAID_BOSSES 의 spawn(선택 화면 한 줄 = BOSS[k].sp0)·win/dead(결과 말풍선).
@@ -960,6 +976,7 @@ const CSX={
   ildj:{cc:.3,T:9},                    // 🎭 커튼콜 — 레벨이 오르면 9초간 치명타 확률 +30%
   ddmj:{R:120,dmg:30,cd:1.5,kb:300},   // 🧱 반격 — 맞으면 반경 120 충격파(피해 30×(1+Lv/15)×피해배율 · 1.5초에 한 번)
   eom:{n:12,R:150,dmg:30,kb:380},      // 📢 엄 연쇄 — 12마리 처치마다 반경 150 외침 충격파(피해 30×(1+Lv/15)×피해배율)
+  pty:{at:.4,T:3,mv:.45,cd:30,gem:.08},  // 🩲 야간 도주 — 체력이 40% 아래로 떨어지면 3초간 이동속도 +45%(쿨 30초 · 무적·피해감소 없음) · 💎 도둑의 눈썰미 — 처치한 적의 경험치 보석이 8% 확률로 2배(이동속도 +12%·줍기 +25%·HP -16 은 CHARS.pty)
   bbb:{every:14,T:4,cd:.6},            // 🎤 후렴 — 14초마다 4초간 쿨타임 ×0.6(-40%)
   tw:{tk:.15},                         // 💔 씩씩한 맷집 — 항상 받는 피해 -15% (씩씩 피해·돌진 무적은 CHARS.rage·CSK.dash)
   yj:{at:.8,dmg:.15},                  // 🐲 군주의 위엄 — 체력 80% 이상이면 피해 +15%
@@ -989,6 +1006,7 @@ const CSTAT={
   psg:{rows:c=>[{ic:'🐲',nm:'용 변신',v:'',ds:`피해를 주고 적을 처치하면 🔥 분노 게이지가 차고, 가득 차면 ${SHV.dur}초 동안 용으로 변신해요 — 몸이 커지고 주변 적이 불타며(불꽃 오라는 📏 광역·⏳ 끈기·곱빼기와 쌍둥이 이빨 레벨을 따라 세져요), 이동속도 +${csPc(SHV.spd)} · 받는 피해 -${csPc(SHV.red)} · 무기 피해 +${csPc(SHV.dmg-1)} · 베기마다 화염 장판 +${SHV.padN}. 끝나면 게이지는 0부터 다시`},
     {ic:'⏳',nm:'분노 가속',v:'',ds:`오래 버틸수록 분노가 빨리 찬다 (분당 +${csPc(SHV.acc)}, 최대 ${csNum(SHV.accMax)}배)`}]},
   bbb:{rows:c=>[{ic:'⏱',nm:'쿨타임',v:'-'+csPc(c.cdr),ds:`「박자 감각」 — 모든 무기의 쿨타임이 ${csPc(c.cdr)} 줄어요 (⏱ 공격속도와 같은 규칙이라 새우깡 대회전 등 일부 무기는 빠져요)`},{ic:'🎶',nm:'후렴',v:'',ds:`${CSX.bbb.every}초마다 ${CSX.bbb.T}초 동안 쿨타임이 ${csPc(1-CSX.bbb.cd)} 더 줄어요 (같은 규칙 · ⏳ 끈기로 시간이 늘어요)`}]},
+  pty:{rows:c=>[{ic:'🏃',nm:'야간 도주',sh:'야간 도주 +'+csPc(CSX.pty.mv),v:'+'+csPc(CSX.pty.mv),ds:`체력이 ${csPc(CSX.pty.at)} 아래로 떨어지면 ${CSX.pty.T}초 동안 이동속도가 ${csPc(CSX.pty.mv)} 더 빨라져요 (${CSX.pty.cd}초에 한 번 · 무적도 피해 감소도 아니에요 — 도망칠 틈만 줘요)`},CSR.spd(c),{ic:'🧲',nm:'줍는 범위',sh:'줍기 +'+csPc(c.mag),v:'+'+csPc(c.mag),ds:'경험치 보석과 전리품 팬티를 더 멀리서 끌어와요'},{ic:'💎',nm:'도둑의 눈썰미',v:csPc(CSX.pty.gem),ds:`적을 처치할 때 ${csPc(CSX.pty.gem)} 확률로 경험치 보석이 2배로 나와요`},{ic:'🪶',nm:'가벼운 몸',v:'−'+(-c.hp),ds:`몸이 가벼운 대신 시작할 때부터 최대 HP가 ${-c.hp} 적어요`}]},
   sr:{rows:c=>[{ic:'🪪',nm:'스탭 임명',sh:'스탭 임명',v:'',ds:`${CSK.staff.every}초마다 스탭 ${CSK.staff.n}명이 ${CSK.staff.life}초 동안 곁에서 같이 싸워요 (💥 피해 · ⏱ 공격속도 · ⏳ 끈기 · 📏 광역 패시브를 받아요)`},{ic:'🐌',nm:'주변 적 감속',v:'-'+csPc(1-CSK.staff.slow),ds:`내 주변에 들어온 적은 이동속도가 ${csPc(1-CSK.staff.slow)} 느려져요 (📏 광역으로 범위가 넓어져요)`}]},
   ddo:{rows:c=>[{ic:'⛓',nm:'진실의 방',v:'',ds:`${CSK.room.every}초마다 내 주위에 원형 감옥이 생겨요 — 안에 든 적을 ${CSK.room.hold}초 묶고 지속 피해를 줘요 (보스는 묶이지 않고 느려져요 · 💥 피해 · ⏱ 공격속도 · ⏳ 끈기 · 📏 광역 패시브를 받아요)`}]},
   tw:{rows:c=>[{ic:'💢',nm:'씩씩 피해',sh:'씩씩 +'+csPc(c.rage),v:'최대 +'+csPc(c.rage),ds:`잃은 체력 1%당 피해가 +1%씩 올라요 (최대 +${csPc(c.rage)})`},{ic:'💨',nm:'돌진 무적',v:'',ds:`맞으면 짧게 돌진하며 ${csNum(CSK.dash.inv)}초 동안 무적이에요 (${CSK.dash.cd}초에 한 번)`},{ic:'🧱',nm:'씩씩한 맷집',v:'-'+csPc(CSX.tw.tk),ds:`아파도 씩씩해서 받는 피해가 항상 ${csPc(CSX.tw.tk)} 줄어요`}]},
@@ -1171,6 +1189,9 @@ const WEAP={
   // 🎤 [2026-10-08 사장님 지시] 배불배불 전용 — 4박자 한 소절(1·2·3박 ♪ 음표 · 4박 ♬ 고음). 각성 열쇠 패시브 📚 공부(경험치 +8% — 약한 패시브에 칸을 쓰는 게 각성값). 수치는 U3.sing
   sing:{only:'bbb',rl:'고유 · 박자 나선',ic:'🎤',nm:'플레이브 노래부르기',pair:'study',ev:{ic:'🎶',nm:'앙코르 무대',ds:'반대로 한 번 더 부른다(앙코르 · 피해 75%) · 피해·범위 +15% · 더 자주'},
     ds:['노래 한 소절은 4박자 — 1·2·3박은 가까운 적에게 음표 2개씩 쏘고, 4박은 가장 센 적에게 큰 고음이 울려 퍼진다 · 음표가 많이 맞을수록 고음이 세지고, 맞은 적은 넋을 잃고 느려진다(배불배불 전용)','음표 +1(박마다 3개)','피해 +35%','나선 — 박자마다 다음으로 가까운 적을 돌아가며 겨냥 · 박자 -15%(더 빠르게) · 쿨타임 -10%','피해 +35%','고음 범위 +25% · 울림 간격 -35% · 음표 사거리 +15%','음표 +1(박마다 4개)','음표 관통 +1 · 넋 잃음 +0.3초 · 쿨타임 -10%']},
+  // 🧺 [2026-10-16 사장님 지시] 맨해라공원팬티도둑 전용 — 팬티를 던져 멈칫하게 하고, 쓰러진 적이 떨어뜨린 전리품 팬티를 주워 보따리를 채운다. 가득 차면 다음 투척이 🎆 팬티 폭죽. 각성 열쇠 패시브 🧲 획득 범위(줍기 범위도 넓어진다). 수치는 U3.panty
+  panty:{only:'pty',rl:'고유 · 줍기 · 폭죽',ic:'🧺',nm:'팬티 투척',pair:'mag',ev:{ic:'🧵',nm:'빨랫줄 대잔치',ds:'빨랫줄이 걸려 줄 위 적은 계속 피해 · 쿨 -10% · 피해 +15% · 폭죽 +25%'},
+    ds:['가장 가까운 적에게 팬티를 던진다 — 맞은 적은 0.4초 멈칫(보스는 느려질 뿐). 적이 쓰러지면 가끔 전리품 팬티가 떨어지고, 주워 보따리가 가득 차면 다음 투척이 큰 🎆 팬티 폭죽으로 터진다(맨해라공원팬티도둑 전용)','팬티 +1(한 번에 2장)','피해 +40%','보따리 한 칸 줄어듦 · 폭죽 범위 +15%','피해 +40%','팬티 +1(한 번에 3장) · 쿨타임 -10%','폭죽 범위 +15% · 전리품이 더 자주 떨어진다','피해 +50% · 팬티 관통 +1']},
 };
 // ⚖ [2026-10-16 클랜원 건의 「초월 있는 패시브 vs 없는 패시브 균형」] 양날의 검 두 패시브(🩸 광분 · 🐢 거북 등껍질)의 수치는 여기 한 곳. 문구(PASS.ds)·식(dmgMul·takenMul·moveMul·armTotal)이 같은 값을 읽는다.
 //   두 패시브는 🌟 초월 칸(PT)이 없다 — PT 에 항목을 더하면 이어하기 서명(SIG)이 바뀌어 진행 중인 판이 사라지므로, 초월 대신 레벨당 효과를 키워 패널티를 갚는다.
@@ -1244,6 +1265,7 @@ const PFX={
   eom:{cd:'yy',cnt:'nn',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
   pcards:{cd:'yy',cnt:'yy',spd:'yy',dur:'nn',area:'np',luck:'nn'},
   sing:{cd:'yy',cnt:'yy',spd:'yy',dur:'nn',area:'pp',luck:'nn'},
+  panty:{cd:'yy',cnt:'pp',spd:'yy',dur:'ny',area:'ny',luck:'nn'},
 };
 //   p 칸의 쉬운 말 설명 — 문자열이면 기본·각성 둘 다, [기본,각성] 이면 p 인 쪽만 채운다
 const PFXN={
@@ -1261,6 +1283,7 @@ const PFXN={
   'snack.area':'부스러기 크기·각성 폭발만',
   'pcards.area':['','각성 5단계 반짝 폭발만'],
   'sing.area':'고음(♬)만',
+  'panty.cnt':'던지는 팬티 개수만(폭죽은 그대로)',
   'lid.area':'절반 효과',
   'bash.area':'절반 효과',
   'twin.area':'베기는 절반 · 화염 장판 범위는 전부',
@@ -1281,7 +1304,7 @@ const fxSym=s=>`<span class="fxy ${s}">${FXSYM[s]}</span>`;   // ✔ ◐ ✖ —
 // 카드·표에서 쓰는 무기 짧은 이름(1~4글자) — WEAP 40개와 1:1. 정적 표(WEAP …)가 아니라서 이어하기 서명(SIG)에 안 들어간다.
 const PFXSN={feed:'사료',fryer:'튀김기',sushi:'초밥',egg:'달걀',shrimp:'새우깡',kbd:'난타',spk:'스피커',potion:'물약',breath:'브레스',ping:'핑',wifi:'와이파이',can:'캔',gacha:'가챠',
   pan:'팬',rkt:'폭죽',chick:'병아리',rod:'낚싯대',frost:'얼음땡',lid:'뚜껑',meteor:'운석',snipe:'저격',hole:'블랙홀',bell:'리듬',quill:'깃털',tempo:'치명속도',fuse:'폭탄',
-  slime:'슬라임',cart:'카트',heart:'하트',jhin:'4발',whop:'와퍼',bash:'방패',twin:'쌍둥이',stamp:'도장',chain:'사슬',ram:'박치기',snack:'맛동산',eom:'엄외침',pcards:'포토카드',sing:'노래'};
+  slime:'슬라임',cart:'카트',heart:'하트',jhin:'4발',whop:'와퍼',bash:'방패',twin:'쌍둥이',stamp:'도장',chain:'사슬',ram:'박치기',snack:'맛동산',eom:'엄외침',pcards:'포토카드',sing:'노래',panty:'팬티'};
 const fxEv=(w,ev)=>ev===undefined?!!(typeof S!=='undefined'&&S&&S.ev&&S.ev[w]):!!ev;   // ev 를 안 주면 지금 내 폼(S.ev)을 따른다
 function fxState(w,ch,ev){const r=PFX[w],s=r&&r[ch];return s?s.charAt(fxEv(w,ev)?1:0):'?';}   // 'y'|'p'|'n' · 표에 없으면 '?'(화면에서 숨긴다)
 function fxNote(w,ch,ev){const n=PFXN[w+'.'+ch];if(!n)return '';return typeof n==='string'?n:(n[fxEv(w,ev)?1:0]||'');}
@@ -1377,6 +1400,7 @@ const SYN=[
   {k:'u_eom',ic:'📢',nm:'엄 종소리',req:['eom','bell'],ds:'광역 +10% · 피해 +4%',fx:{area:.1,dmg:.04}},
   {k:'u_pcards',ic:'📸',nm:'응원봉 떼창',req:['pcards','spk'],ds:'모든 피해 +6% · 경험치 +6%',fx:{dmg:.06,xp:.06}},
   {k:'u_sing',ic:'🎤',nm:'병아리 합창단',req:['sing','chick'],ds:'경험치 +10% · 피해 +6%',fx:{xp:.1,dmg:.06}},
+  {k:'u_panty',ic:'🧺',nm:'뚜껑 덮은 보따리',req:['panty','lid'],ds:'모든 피해 +8% · 광역 +6%',fx:{dmg:.08,area:.06}},
 ];
 function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0},on=[];
   for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;for(const k of on)cdxSee('sy:'+k);cdxOwn();}   // 📖 시너지가 처음 켜지면 도감에 실린다 · 이어하기로 옛 판을 되살릴 때도 여기를 지나므로 가진 것을 함께 적는다
@@ -1439,6 +1463,7 @@ const TIERS={
   pcards:[['카드 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['카드 관통 +1',{pc:1}],['맞은 자리에서 카드가 반짝 터진다(피해 40%)',{pop:1}]],
   sing:[['음표 +1',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['음표 관통 +1 · 피해 +8% · 넋 잃음 +0.2초',{pc:1,d:.08,life:.2}],['고음이 끝나면 음표 6개가 사방으로 흩어진다(피해 50%)',{frag:1}]],
   eom:[['범위 +7%',{a:.07}],['쿨타임 -7%',{c:.07}],['피해 +12%',{d:.12}],['0.4초 뒤 한 번 더 외친다(피해 60%)',{echo:1}],['밀치는 힘 +25% · 범위 +7%',{life:.5,a:.07}]],
+  panty:[['팬티 +1(한 번에 던지는 개수)',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['빨랫줄 +1줄 · 줄이 1초 더 걸려 있다 · 피해 +8%',{ring:1,life:1,d:.08}],['폭죽이 터진 자리에 팬티 6장이 사방으로 흩어진다(피해 50%)',{frag:1}]],
 };
 const TCAP=k=>S.ev[k]?5:3;   // 각성한 무기 5단계 · 안 한 Lv8 무기는 마스터 3단계
 const LATE_K=1,LATE_FRAC={a:1,c:1,d:1,s:1,w:1,rare:1,leg:1};   // 한 번에 낮추고 싶으면 LATE_K 만 줄인다(개수·기믹은 그대로, 비율 수치만 곱해진다 — 카드 문구의 % 도 같이 고칠 것)
@@ -1477,6 +1502,7 @@ const SGV={
   ddo:{R:[.1,.2,.3],d:[.25,.5,.75]},                                          // ☠️ 방 범위 · 방 안 지속 피해
   tw:{cap:[.1,.2,.3],sl:[.15,.3,.45]},                                        // 💔 「씩씩」 상한 +%p · 잃은 체력 1%당 피해 기울기 +
   bgb:{n:[6,5,4],m:[8,12,16],near:160},                                       // 🌪 던진 횟수 · 사방 카드 수 · 적이 붙었다고 보는 거리
+  pty:{f:[2,3,4],cd:2},   // 🌙 정예·대형·보스를 잡으면 보따리가 한꺼번에 차는 칸 수 · 그 최소 간격(초 · 겹쳐 쌓이지 않는다)
 };
 // 🏺 유물 — 유물마다 고유 규칙(3단계)
 const REL={
@@ -1487,7 +1513,7 @@ const REL={
   storm:{ic:'⚡',nm:'뇌우 부적',ds:l=>`${[9,8,7][l-1]}초마다 벼락 ${[2,2,3][l-1]}줄기가 내리친다`},
   berserk:{ic:'🔥',nm:'배수의 진',ds:l=>`HP 40% 이하일 때 모든 피해 +${[25,35,45][l-1]}% · 이동 +10%`},
   pulse:{ic:'🔔',nm:'비상 종',ds:l=>`${[90,80,70][l-1]}초마다 화면 펄스 — 잡몹 최대체력의 ${[15,20,25][l-1]}%(보스는 거의 안 아프다)`},
-  // ⭐ [2026-10-07 사장님 승인] 시그니처 유물 — 캐릭터마다 1개(상점 캐릭터 제외 15종). 그 캐릭터로 시작한 판에서만 후보에 나온다(ch).
+  // ⭐ [2026-10-07 사장님 승인] 시그니처 유물 — 캐릭터마다 1개(상점 캐릭터는 없음 — 단 맨해라공원팬티도둑은 예외로 16번째). 그 캐릭터로 시작한 판에서만 후보에 나온다(ch).
   //   원칙: 무적 없음 · 중첩 없음(타이머·확률·갱신형) · 효과는 그 캐릭터의 컨셉을 한 단계 더하는 수준(다른 유물 3단계와 비슷한 체감)
   sg_brj:{ch:'brj',ic:'🐤',nm:'논란 점화',ds:l=>`적을 처치하면 ${csPc(SGV.brj.p[l-1])} 확률로 그 자리가 폭발한다(${SGV.brj.cd}초에 한 번까지 · 📏 광역·💥 피해 패시브를 받고 레벨이 오를수록 세진다)`},
   sg_jjg:{ch:'jjg',ic:'🔫',nm:'한 방 장전',ds:l=>`치명타가 ${SGV.jjg.n[l-1]}번 터질 때마다 다른 적 하나에게 추가 일격(방금 치명타의 ${csPc(SGV.jjg.f)})`},
@@ -1503,6 +1529,7 @@ const REL={
   sg_ddo:{ch:'ddo',ic:'☠️',nm:'공개 재판',ds:l=>`진실의 방 범위 +${csPc(SGV.ddo.R[l-1])} · 방 안 지속 피해 +${csPc(SGV.ddo.d[l-1])}`},
   sg_tw:{ch:'tw',ic:'💔',nm:'집착의 불꽃',ds:l=>`「씩씩」 — 잃은 체력 1%당 피해가 +${csNum(1+SGV.tw.sl[l-1])}%씩 올라가고(기본 +1%) 보너스 상한도 +${csPc(SGV.tw.cap[l-1])}p 늘어난다`},
   sg_yj:{ch:'yj',ic:'🐲',nm:'쫑의 숨결',ds:l=>`🔥 드래곤 브레스 사거리·피해 +${[8,14,20][l-1]}%`},
+  sg_pty:{ch:'pty',ic:'🌙',nm:'공원 야간 순찰',ds:l=>`정예·대형 몹이나 보스를 처치하면 보따리 게이지가 한꺼번에 ${SGV.pty.f[l-1]}칸 찬다(${SGV.pty.cd}초에 한 번까지)`},
   sg_bgb:{ch:'bgb',ic:'🌪',nm:'한 장씩 줄게',ds:l=>`포토카드를 ${SGV.bgb.n[l-1]}번 던질 때마다, 적이 가까이 있으면 카드 ${SGV.bgb.m[l-1]}장을 사방으로 뿌려 밀쳐 낸다`},
 };
 const SGN=k=>(S&&S.rel&&S.rel[k])||0;   // 시그니처 유물 단계(0=없음)
@@ -1690,8 +1717,8 @@ const AU=(()=>{
     if(!noise.b||noise.b.length<len){noise.b=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=noise.b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
     const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noise.b;f.type='lowpass';f.frequency.setValueAtTime(lp,t);f.frequency.exponentialRampToValueAtTime(80,t+dur);
     g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f);f.connect(g);g.connect(bus||sfxG);s.start(t,0,dur);ends.push(t+dur);}
-  const GAP={shoot:90,hit:70,kill:60,gem:40,boom:120,bigboom:220,hurt:150,pick:80,brk:80,zap:110,wave:200,evo:500,chest:300,fire:180,staff:400,room:500,dash:200,swing:160,rocket:200,peep:150,hook:200,freeze:300,clang:120,meteor:400,snipe:250,hole:400,beat:200,snack:150,eom:120,quill:150,tempo:70,pcards:200,fuse:300,slime:180,cart:400,love:200,jhin:120,hop:150,bash:250,twin:200,stamp:200,chain:250,ram:300,sing:60};
-  const SPAM={shoot:1,hit:1,kill:1,gem:1,boom:1,brk:1,zap:1,wave:1,fire:1,swing:1,rocket:1,peep:1,hook:1,freeze:1,clang:1,meteor:1,snipe:1,hole:1,beat:1,snack:1,quill:1,tempo:1,pcards:1,fuse:1,slime:1,love:1,jhin:1,hop:1,twin:1,stamp:1,sing:1};   // 후반엔 쉴 새 없이 겹치는 소리 — 붐빌수록 spamG 로 줄인다(피격음은 제외 → 묻히지 않는다)
+  const GAP={shoot:90,hit:70,kill:60,gem:40,boom:120,bigboom:220,hurt:150,pick:80,brk:80,zap:110,wave:200,evo:500,chest:300,fire:180,staff:400,room:500,dash:200,swing:160,rocket:200,peep:150,hook:200,freeze:300,clang:120,meteor:400,snipe:250,hole:400,beat:200,snack:150,eom:120,quill:150,tempo:70,pcards:200,fuse:300,slime:180,cart:400,love:200,jhin:120,hop:150,bash:250,twin:200,stamp:200,chain:250,ram:300,sing:60,panty:90,ptyg:60};
+  const SPAM={shoot:1,hit:1,kill:1,gem:1,boom:1,brk:1,zap:1,wave:1,fire:1,swing:1,rocket:1,peep:1,hook:1,freeze:1,clang:1,meteor:1,snipe:1,hole:1,beat:1,snack:1,quill:1,tempo:1,pcards:1,fuse:1,slime:1,love:1,jhin:1,hop:1,twin:1,stamp:1,sing:1,panty:1,ptyg:1};   // 후반엔 쉴 새 없이 겹치는 소리 — 붐빌수록 spamG 로 줄인다(피격음은 제외 → 묻히지 않는다)
   function duck(){   // 동시에 울리는 소리 수로 잦은 소리 버스를 낮춘다: 2개까지 그대로 · 4개 -4.6dB · 8개 -9.8dB · 12개 -13dB
     if(!spamG)return;const now=ac.currentTime;let v=0;for(const e of ends)if(e>now)v++;
     const g=1/(1+Math.max(0,v-2)*.35);if(Math.abs(g-spamV)>.03){spamV=g;spamG.gain.setTargetAtTime(g,now,.12);}}
@@ -1760,6 +1787,9 @@ const AU=(()=>{
       // 🎤 플레이브 노래부르기 — 박마다 음이 오르는 짧은 가락(소절마다 돌아가는 세 가지 · 도·레·미·파·솔·라 안의 짧은 분산화음 · 어떤 곡의 선율도 아니다). a = 박(0~3) + 10 × 가락 번호(0~2) · 4박(고음)은 길고 화음이 얹힌다
       case 'sing':{const ph=((a|0)/10)|0,b=(a|0)%10,PP=[[0,5,9,12],[2,7,9,14],[-3,2,4,9]][ph]||[0,5,9,12],f=523.25*Math.pow(2,PP[b]/12),hi=b===3;
         tone('triangle',f,f*1.012,hi?.26:.12,hi?.085:.06);tone('sine',f*2,f*2,hi?.2:.09,hi?.04:.025,now+.01);if(hi)tone('sine',f*1.5,f*1.5,.22,.03,now+.03);break;}
+      // 🧺 팬티 투척 — 0 던지기(휙 + 통통) · 1 폭죽 던지기(길게 올라가는 휘파람) · ptyg 전리품 줍기(짧은 두 음)
+      case 'panty':{if(a===1){noise(.16,.14,2600);tone('triangle',330,990,.22,.08);tone('sine',660,1320,.16,.04,now+.05);}else{noise(.07,.1,3400);tone('triangle',640,400,.08,.05);}break;}
+      case 'ptyg':tone('triangle',880,1175,.07,.06);tone('sine',1320,1760,.09,.04,now+.05);break;
       case 'beat':{const hi=a?1:0;tone('sine',hi?880:440,hi?880:420,hi?.12:.06,hi?.09:.06);if(hi)tone('triangle',1320,1320,.1,.04);break;}
     }
     bus=null;
@@ -1864,6 +1894,25 @@ function usePick(k){const p=S.p;if(k==='chest'){openChest();return;}AU.play('pic
       e.hit=Math.max(e.hit,.18);if(sk<36){sk++;EX.streak(e.x,e.y,p.x,p.y);}}   // 잡힌 적: 흰 번쩍임 + 밀려나는 줄(최대 36개 — 적마다 무거운 일은 안 한다)
     hitPropsAt(p.x,p.y,hw,999);}
 }
+// 🩲 [2026-10-16 사장님 지시] 맨해라공원팬티도둑 — 인게임 몸을 캔버스 도형으로(복면 · 등 뒤 보따리 · 손에 든 팬티 한 장). 일러스트가 들어오면(img:1) 이 함수는 안 불린다. 표시 전용 — 상태·난수에 손대지 않는다.
+//   cx 는 이미 (p.x,p.y) 로 옮겨져 있고 왼쪽을 볼 때 좌우가 뒤집혀 있다.
+function ptyBody(p){const bob=p.moving?Math.sin(S.t*16)*1.6:0,w=p.moving?Math.sin(S.t*16)*3:0;
+  if(!FX.lv){cx.fillStyle='rgba(0,0,0,.32)';cx.beginPath();cx.ellipse(0,p.r+4,16,5,0,0,7);cx.fill();}   // ✨ 효과가 켜져 있으면 그림자는 FX.shadow 가 이미 그렸다
+  cx.save();cx.translate(-13,-1+bob*.5);cx.rotate(-.2+w*.02);   // 등 뒤 보따리(연보라 물방울 무늬 · 위에 매듭)
+  cx.beginPath();cx.arc(0,3,10.5,0,7);cx.fillStyle='#d9c8ff';cx.fill();cx.lineWidth=2;cx.strokeStyle='#8f7bd6';cx.stroke();
+  cx.fillStyle='rgba(255,255,255,.9)';for(const q of [[-4,0],[3,4],[-2,8],[5,-1]]){cx.beginPath();cx.arc(q[0],q[1],1.5,0,7);cx.fill();}
+  cx.beginPath();cx.moveTo(-3,-6);cx.quadraticCurveTo(0,-13,3,-6);cx.lineWidth=2.6;cx.strokeStyle='#8f7bd6';cx.stroke();cx.restore();
+  cx.fillStyle='#1b2236';cx.fillRect(-7,10+bob*.3,5,8+w*.3);cx.fillRect(2,10+bob*.3,5,8-w*.3);   // 다리
+  cx.beginPath();cx.ellipse(0,1+bob,12,13,0,0,7);cx.fillStyle='#2a3558';cx.fill();cx.lineWidth=2;cx.strokeStyle='#aebfe8';cx.stroke();   // 몸(남색 망토)
+  cx.beginPath();cx.arc(2,-14+bob,10,0,7);cx.fillStyle='#222a45';cx.fill();cx.lineWidth=2;cx.strokeStyle='#aebfe8';cx.stroke();   // 머리(복면)
+  cx.fillStyle='#f1e9d8';cx.beginPath();if(cx.roundRect)cx.roundRect(-4,-18+bob,15,7,3);else cx.rect(-4,-18+bob,15,7);cx.fill();   // 눈 가리개 틈
+  cx.fillStyle='#222a45';cx.beginPath();cx.arc(1,-14.5+bob,1.7,0,7);cx.arc(7,-14.5+bob,1.7,0,7);cx.fill();
+  cx.beginPath();cx.arc(2,-18+bob,10,Math.PI*1.05,Math.PI*1.95);cx.fillStyle='#4a5a9a';cx.fill();   // 밤 모자 + 방울
+  cx.beginPath();cx.arc(11,-24+bob,3,0,7);cx.fillStyle='#fff';cx.fill();
+  cx.save();cx.translate(14,3+bob);cx.rotate(.35);cx.beginPath();cx.moveTo(-5,-4);cx.lineTo(5,-4);cx.lineTo(4,1);cx.quadraticCurveTo(2,2,1.5,6);cx.lineTo(-1.5,6);cx.quadraticCurveTo(-2,2,-4,1);cx.closePath();cx.fillStyle='#bfeaff';cx.fill();cx.lineWidth=1.4;cx.strokeStyle='#fff';cx.stroke();cx.restore();}   // 손에 든 팬티 한 장
+function ptyGauge(p){const L=S.w.panty||0;if(!L)return;const n=ptyNeed(L),v=Math.min(n,(S.x3.cs&&S.x3.cs.bg)||0),full=v>=n,w=7,x0=p.x-(n-1)*w/2,y=p.y+p.r+13;   // 몸 아래 점 N개 — 보따리가 찬 만큼 채운다(가득이면 흰색 + 둘레 고리)
+  for(let i=0;i<n;i++){cx.beginPath();cx.arc(x0+i*w,y,2.6,0,7);if(i<v){cx.fillStyle=full?'#fff':'#bfeaff';cx.fill();}else{cx.lineWidth=1;cx.strokeStyle='rgba(191,234,255,.6)';cx.stroke();}}
+  if(full){cx.beginPath();cx.arc(p.x,p.y-4,p.r+10+Math.sin(S.t*8)*2,0,7);cx.lineWidth=1.8;cx.strokeStyle='rgba(235,225,255,.8)';cx.stroke();}}
 function drawMap(){
   cx.textAlign='center';cx.textBaseline='middle';cx.font='22px sans-serif';
   for(const o of props.a){if(!o.on)continue;const P=PROP[o.k];
@@ -1915,7 +1964,7 @@ const PS=()=>1+.12*pv('pspd')+.08*PTV('pspd');                  // 🏹 투사�
 const critCh=()=>(CH.crit||0)+csCrit(),critLk=()=>.03*LK(),critPv=()=>.05*pv('crit'),critPt=()=>PTV('luck')?.05:0,critTr=()=>.06*trn('focus'),critSm=()=>smv('crit');   // 치명타 확률의 여섯 갈래: 캐릭터 · 행운 · 급소 · 🌟 행운 초월 · 정조준 · 눈 밝히기
 const critChance=()=>critCh()+critLk()+critPv()+critPt()+critTr()+critSm();   // 치명타 확률(1 이상이면 늘 터진다)
 const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);   // 치명타가 터졌을 때의 피해 배율
-const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0);   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
+const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove();   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
 const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
 const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag');   // 경험치 줍는 범위 배율(기본 반경 70)
 const xpMul=()=>1+(CH.xp||0)+.08*pv('study')+S.syn.xp;   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
@@ -2714,7 +2763,7 @@ function hurt(e,d){
   if(e.boss&&e.b.hit&&S.t-S.sayT>6){S.sayT=S.t;say(e,pickLine(e.b.hit));}
   if(e.hp<=0&&!e.boss&&!e.eg&&KIND[e.ki].egg){   // 🥚 애니비아 — 처음 쓰러지면 알이 된다(4초 안에 깨야 한다)
     e.eg=1;e.hp=e.mhp*.4;e.ft=4;e.ph=0;e.kb=0;const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r-8;t.s='🥚 알이 됐다!';t.life=.9;t.c='#ff9aa8';t.big=0;}return;}
-  if(e.hp<=0){e.on=false;S.kills++;if(CH.k==='eom'&&SRC!=='char')csS().n++;AU.play('kill');if(CH.shv)rgAdd(e.boss?SHV.kgB:(e.bg||e.el)?SHV.kgE:SHV.kill);   // 🔥 분노: 처치할 때
+  if(e.hp<=0){e.on=false;S.kills++;if(CH.k==='eom'&&SRC!=='char')csS().n++;if(S.w.panty)ptyLoot(e);AU.play('kill');if(CH.shv)rgAdd(e.boss?SHV.kgB:(e.bg||e.el)?SHV.kgE:SHV.kill);   // 🔥 분노: 처치할 때
     if(pv('vamp')&&++S.vk>=VAMP_N){S.vk=0;S.p.hp=Math.min(S.p.mhp,S.p.hp+vampHp());}   // 🥩 고기 반찬 — [2026-10-07 사장님 지시] 하향: 30마리당 +2 → 40마리당 +1.5(레벨당, 회복량 약 44% 감소)
     if(S.rel.leech&&S.leechT<=0){S.leechT=LEECH.cd[S.rel.leech-1];S.p.hp=Math.min(S.p.mhp,S.p.hp+LEECH.hp[S.rel.leech-1]);}   // 🎲 [2026-09-30 사장님 지시] 🩹 처치 응급처치
     if(S.rel.sg_brj&&SRC!=='rel'&&S.t-S.sgK>=SGV.brj.cd&&Math.random()<SGV.brj.p[S.rel.sg_brj-1]&&S.booms.length<40){S.sgK=S.t;S.booms.push({x:e.x,y:e.y,t:0,T:0,R:SGV.brj.R*areaMul(),d:SGV.brj.d*(1+S.lv/SGV.brj.lv)*dmgMul()*SGV.brj.dm[S.rel.sg_brj-1],done:false,ev:0,src:'rel',style:'mine'});}   // 🐤 논란 점화
@@ -2727,7 +2776,7 @@ function hurt(e,d){
       if(e.bg){if(can&&r<.2*lk)chick();else if(r<.85)dropItem(r<.62?'magnet':'bomb',e.x,e.y);}   // 👹 대형 — 🍗20% · 💎 · 💣(후반 화면 청소가 너무 잦지 않게 💣는 23%)
       else if(e.el){if(can&&r<.12*lk)chick();else if(r<.18)dropItem('magnet',e.x,e.y);}   // ⭐ 엘리트 🍗12% · 💎6%
       else if(can&&r<.006*lk*(1+.8*Math.max(0,1-S.t/600)))chick();}   // 잡몹 0.6%(첫 10분은 조금 더 — 0분 1.1% → 10분 0.6%)
-    {const v=e.xp*(e.gold>0?2:1),g=gems.get();   // 💎 [2026-09-30 사장님 지시] 보스도 큰 보석 하나(예전 8개) — 경험치 총량은 그대로
+    {const v=e.xp*(e.gold>0?2:1)*csGem(),g=gems.get();   // 💎 [2026-09-30 사장님 지시] 보스도 큰 보석 하나(예전 8개) — 경험치 총량은 그대로
       if(!g){const o=gems.a[Math.random()*gems.a.length|0];o.v+=v;}   // 보석이 넘치면 기존 보석에 합친다
       else{g.x=e.x;g.y=e.y;g.v=v;g.mag=0;}}
     if(!e.boss&&KIND[e.ki]&&KIND[e.ki].split&&e.id==='Yorick'&&e.r>9){let g=null;for(let i=0;i<2;i++){const m=spawnEnemy(1,.6*hpMul(MIN()),null,e);if(m){m.id='Yorick';m.r=8;m.sp=85;m.c='#7a7f9a';m.xp=.5;g=g||m;}}
@@ -2967,6 +3016,10 @@ const DLS=L=>lvm(L,[[3,1.2],[5,1.2],[8,1.5]]);
 //   노래부르기 4.5→5.9(울림 1.3→1.7) · 깃털 산탄 6.5→11.5 · 4발 사격 7→7.7 · 자크 슬라임 13→17(조각 7→9.1) · 포토카드 8→13 · 화해의 하트 14→18.
 //   근거: 무기 한 자루만 든 허수아비 밭(밀집·성김·보스) · 움직이는 아레나(실전 체력) · 정책 봇 측정 — 한 가지 지표만 보지 않았다. 집중겜·유미·카트 …는 약하지 않아서 그대로.
 const U3={sing:{d:6.6,db:1.9,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,cr:.04,crm:.6,sl:.45,bsl:.9,reach:280},
+  // 🧺 [2026-10-16 사장님 지시] 팬티 투척 — d 팬티 한 장 피해 · cd 쿨타임 · sp 속도 · life 날아가는 시간 · rng 조준 거리 · hit 판정 반지름 · fan 팬티 부채 간격(rad) · st 맞은 적이 멈칫하는 시간 ·
+  //   drop 일반 몹 전리품 확률(정예·대형·보스는 확정) · cap 바닥에 동시에 떠 있는 전리품 상한 · ll 전리품 수명(초) · need 보따리가 차는 칸 · bd 폭죽 피해 · bR 폭죽 반지름 · bsp 폭죽 팬티 속도 배율 ·
+  //   iv 빨랫줄 피해 간격 · hl 빨랫줄 반길이 · lw 줄에 걸리는 두께 · lk 줄 한 번 피해(팬티 한 장 대비) · lt 빨랫줄 지속(초) · lmax 동시에 걸리는 줄 수 · dr7 Lv7 부터 전리품 확률 배율 · v 보스·정예·일반 전리품이 채우는 칸
+  panty:{d:17,cd:1.35,sp:520,life:.55,rng:300,hit:11,fan:.2,st:.4,drop:.10,cap:12,ll:14,need:6,bd:60,bR:92,bsp:.8,iv:.4,hl:170,lw:11,lk:.55,lt:5,lmax:2,dr7:1.25,v:[1,2,3]},
   quill:{d:16,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:24,bd:12.8,cd:1.5,sp:310,rng:330,R:40},cart:{d:20,cd:7,R:70,life:5,heal:1.5},heart:{d:21,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
@@ -3048,6 +3101,22 @@ function singPulse(o,last){const R=o.R*(last?1.3:1),d=o.d*(last?1.5:1);
   hitPropsAt(o.x,o.y,R,d);o.pu=last?.3:.16;
   if(last){EX.sing(o.x,o.y,true,R);
     if(o.fr){const a0=Math.random()*6.2832;for(let i=0;i<6;i++){const a=a0+i*1.0472;f3({k:'nt',x:o.x,y:o.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,life:.42,d:o.nd*.5,pc:0,h:[],c:i&3,v:null,sl:o.sl*.6});}}}}
+// 🧺 [2026-10-16 사장님 지시] 맨해라공원팬티도둑 — 팬티 투척. 보따리 게이지(S.x3.cs.bg · 숫자 하나)를 전리품 팬티(f3 'pl')로 채우고, 가득 차면 다음 투척이 🎆 팬티 폭죽('py' big).
+//   각성 「빨랫줄 대잔치」는 던질 때마다 빨랫줄('ln')을 걸어 줄 위의 적에게 계속 피해. 새 S 키·표 경로를 만들지 않는다(이어하기 서명 불변) — 수치는 U3.panty · SGV.pty.
+const PTYLN=new WeakMap();   // 🧵 적마다 마지막 줄 피해 시각 — 줄이 겹쳐도 한 적은 간격(iv)마다 한 번만(저장하지 않는다 · 복구되면 비어 있어도 무해)
+const ptyNeed=L=>U3.panty.need-(L>=4?1:0);
+function ptyFill(v){const cs=csS(),n=ptyNeed(S.w.panty||1);if((cs.bg||0)>=n)return;cs.bg=Math.min(n,(cs.bg||0)+v);txt(S.p.x,S.p.y-28,'🧺 '+cs.bg+'/'+n,cs.bg>=n?'#ffffff':'#bfeaff');}
+function ptyLoot(e){const U=U3.panty,X=S.x3,sure=e.boss||e.bg||e.el,Ls=SGN('sg_pty');   // 쓰러진 적 자리에 전리품 팬티 — 정예·대형·보스는 확정
+  if(Ls&&sure&&(S.x3.cs&&S.x3.cs.bg||0)<ptyNeed(S.w.panty)&&S.t-(S.sgT.pty===undefined?-9:S.sgT.pty)>=SGV.pty.cd){S.sgT.pty=S.t;ptyFill(SGV.pty.f[Ls-1]);}   // 🌙 공원 야간 순찰(시그니처 유물)
+  let n=0;for(const o of X.f)if(o.k==='pl')n++;if(n>=U.cap||X.f.length>=F3CAP-10)return;   // 전리품이 풀을 다 먹지 않게 상한 + 투사체 몫 10칸은 남긴다
+  if(!sure&&Math.random()>=U.drop*(S.w.panty>=7?U.dr7:1))return;
+  f3({k:'pl',x:e.x,y:e.y,life:U.ll,t:Math.random()*6,v:U.v[e.boss?2:sure?1:0]});}
+function ptyBurst(o){const U=U3.panty;bang(o.x,o.y,o.R,o.d,'panty','fw',o.ev);S.shake=Math.max(S.shake,.1);   // 🎆 팬티 폭죽 — 터진 자리 주변 적도 멈칫
+  for(const e of S.live)if(e.on&&!e.boss&&(e.x-o.x)**2+(e.y-o.y)**2<(o.R+e.r)**2)e.st=Math.max(e.st,o.st);
+  if(o.fr){const a0=Math.random()*6.2832;for(let i=0;i<6;i++){const a=a0+i*1.0472;f3({k:'py',big:0,x:o.x,y:o.y,vx:Math.cos(a)*U.sp*.6,vy:Math.sin(a)*U.sp*.6,life:.42,d:o.nd*.5,pc:0,h:[],c:i&3,rot:0,st:o.st});}}}
+function ptyLine(x,y,ux,uy,hl,life,d,max){const X=S.x3,U=U3.panty;let n=0,old=null;for(const q of X.f)if(q.k==='ln'){n++;if(!old||q.life<old.life)old=q;}
+  if(n>=max&&old){old.x=x;old.y=y;old.ux=ux;old.uy=uy;old.hl=hl;old.T=old.life=life;old.d=d;old.tk=U.iv*.5;return;}   // 가득 찼으면 가장 오래된 줄을 새 자리로 옮긴다
+  f3({k:'ln',x,y,ux,uy,hl,T:life,life,tk:U.iv*.5,d,sw:Math.random()*6});}
 function weapons3(dt,cm,MT,AR,AM){
   const p=S.p,X=S.x3,f=X.f;let L,t,ev,tg;
   if(X.hh>0)X.hh-=dt;if(X.cl>0)X.cl-=dt;if(X.ram.fx>0)X.ram.fx-=dt;
@@ -3236,7 +3305,23 @@ function weapons3(dt,cm,MT,AR,AM){
       if(ev)S.dq.push({t:4*iv,f:()=>{if(!S.w.sing)return;const t1=aim3(U.rng);if(t1)verse(-sg0,.75,t1);}});   // 🎶 앙코르 — 한 박 쉬고 반대 방향으로 한 번 더
       S.cd.sing=U.cd*lvm(L,[[4,.9],[8,.9]])*cm*(1-t.c)*(ev?.9:1);}
     else S.cd.sing=0;}
+  // 🧺 팬티 투척 → 🧵 빨랫줄 대잔치 — 가장 가까운 적에게 팬티(맞으면 0.4초 멈칫). 보따리가 가득 차 있으면 이번 투척이 🎆 팬티 폭죽(한 발 · 맞거나 끝에서 크게 터진다). 각성이면 던질 때마다 목표 자리에 빨랫줄
+  L=S.w.panty||0;
+  if(L&&(S.cd.panty-=dt)<=0){ev=S.ev.panty;t=TK('panty');const U=U3.panty;tg=aim3(U.rng);
+    if(tg){const cs=csS(),full=(cs.bg||0)>=ptyNeed(L),a0=Math.atan2(tg.y-p.y,tg.x-p.x),sp=U.sp*PS(),
+        d=U.d*DL3(L)*MT*(1+t.d)*(ev?1.15:1),n=Math.min(1+(L>=2)+(L>=6)+AM+t.n,7);
+      const pre=S.x3.f.length<F3CAP;   // 풀이 꽉 찼으면 폭죽을 만들 수 없다 — 보따리를 비우지 않고 일반 투척으로
+      if(full&&pre){cs.bg=0;const R=U.bR*lvm(L,[[4,1.15],[7,1.15]])*AR*(ev?1.25:1);
+        f3({k:'py',big:1,x:p.x,y:p.y,vx:Math.cos(a0)*sp*U.bsp,vy:Math.sin(a0)*sp*U.bsp,life:U.life*1.5,d:U.bd*DL3(L)*MT*(1+t.d)*(ev?1.15:1),nd:d,R,pc:0,h:[],c:0,rot:0,ev:ev?1:0,fr:t.frag?1:0,st:U.st});
+        txt(p.x,p.y-34,'🎆 팬티 폭죽!','#ffffff');AU.play('panty',1);}
+      else{const pc=L>=8?1:0;
+        for(let i=0;i<n;i++){const a=a0+(i-(n-1)/2)*U.fan;f3({k:'py',big:0,x:p.x,y:p.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:U.life,d,pc,h:[],c:(Math.random()*4)|0,rot:0,st:U.st});}
+        AU.play('panty',0);}
+      if(ev)ptyLine(tg.x,tg.y,-Math.sin(a0),Math.cos(a0),U.hl*AR,(U.lt+t.life)*DUR(),d*U.lk,U.lmax+t.ring);
+      S.cd.panty=U.cd*lvm(L,[[6,.9]])*cm*(1-t.c)*(ev?.9:1);}
+    else S.cd.panty=0;}
   // ── 엔티티 갱신(뒤에서부터 · 끝난 건 맨 뒤 것과 바꿔 치우기)
+  const L9=S.w.panty||1;   // 🧺 보따리 칸 수(ptyNeed)용 — 팬티 레벨
   if(S.w.snack){let c=0;for(const q of f)if(q.k==='b'&&q.src==='snack')c++;SNK.n=c;SNK.f=0;}   // 🍘 부스러기 상한용 — 맛동산을 든 판에서만 센다
   for(let i=f.length-1;i>=0;i--){const o=f[i];let dead=false;
     switch(o.k){
@@ -3342,6 +3427,24 @@ function weapons3(dt,cm,MT,AR,AM){
           if(o.pop)bang(o.x,o.y,34*AR,o.d*.4,'pcards','mine',0);
           if(o.pc-->0){o.h.push(e);continue;}
           dead=true;break;}
+        break;}
+      case 'py':{o.x+=o.vx*dt;o.y+=o.vy*dt;o.life-=dt;o.rot+=dt*(o.big?9:16);let end=o.life<=0;   // 🧺 팬티 — 맞으면 피해 + 멈칫(보스는 느려질 뿐) · 폭죽(big)은 맞거나 끝에서 터진다 · 필드 아이템에 닿아도 깬다
+        if(!end&&propTouch(o.x,o.y,o.big?12:8,o.d))end=true;
+        if(!end)for(const e of S.live){if(!e.on)continue;const rr=e.r+(o.big?14:U3.panty.hit);if((e.x-o.x)**2+(e.y-o.y)**2>=rr*rr||(o.h&&o.h.includes(e)))continue;
+          if(o.big){end=true;break;}
+          h3(e,o.d,'panty');if(e.on){if(e.boss)e.slow=Math.max(e.slow,o.st*1.25);else e.st=Math.max(e.st,o.st);}
+          if(o.pc-->0){o.h.push(e);continue;}end=true;break;}
+        if(end){if(o.big)ptyBurst(o);dead=true;}
+        break;}
+      case 'pl':{o.t+=dt;o.life-=dt;if(o.life<=0){dead=true;break;}   // 🩲 전리품 팬티 — 가까이 가면 끌려오고 닿으면 보따리가 찬다(줍는 범위 = 경험치 보석과 같은 magMul)
+        if((X.cs&&X.cs.bg||0)>=ptyNeed(L9))break;   // 보따리가 가득이면 바닥에 그대로 둔다(폭죽을 던진 뒤에 주울 수 있게 — 헛되이 사라지지 않는다)
+        const dx=p.x-o.x,dy=p.y-o.y,d2=dx*dx+dy*dy,mr=70*magMul();
+        if(d2<mr*mr){const dd=Math.sqrt(d2)||1,v=240*(1+(1-dd/mr));o.x+=dx/dd*v*dt;o.y+=dy/dd*v*dt;}
+        if(d2<(p.r+12)**2){ptyFill(o.v);AU.play('ptyg');EX.panty(p.x,p.y-8);dead=true;}
+        break;}
+      case 'ln':{o.life-=dt;o.tk-=dt;if(o.life<=0){dead=true;break;}   // 🧵 빨랫줄 — 줄에 걸린 적은 간격마다 피해 + 느려진다(줄이 걸려 있는 동안 계속)
+        if(o.tk<=0){o.tk+=U3.panty.iv;for(const e of S.live){if(!e.on)continue;const dx=e.x-o.x,dy=e.y-o.y,al=dx*o.ux+dy*o.uy;if(al<-o.hl-e.r||al>o.hl+e.r)continue;
+          if(Math.abs(dx*o.uy-dy*o.ux)>e.r+U3.panty.lw)continue;const lt=PTYLN.get(e);if(lt&&lt.sn===e.sn&&S.t-lt.t<U3.panty.iv*.9)continue;PTYLN.set(e,{sn:e.sn,t:S.t});h3(e,o.d,'panty');if(e.on)e.slow=Math.max(e.slow,e.boss?.4:.35);}}
         break;}
       case 'bs':{o.life-=dt;if(o.life<=0)dead=true;break;}
       default:dead=true;}
@@ -3501,6 +3604,8 @@ const csNow=()=>{const k=CH.k,X=CSX[k],p=S.p;   // 일시정지 능력치 표 �
 const csTaken=()=>{const k=CH.k;if(k==='mms')return 1-(S.p.hp<S.p.mhp*LOWHP_AT?CSX.mms.tk:CSX.mms.base);if(k==='hrb')return S.p.moving?1-CSX.hrb.tk:1;if(k==='tw')return 1-CSX.tw.tk;return 1;};
 const csCrit=()=>CH.k==='ildj'&&S&&S.x3&&S.x3.cs&&S.x3.cs.cc>0?CSX.ildj.cc:0;
 const csCd=()=>CH.k==='bbb'&&S&&S.x3&&S.x3.cs&&S.x3.cs.enc>0?CSX.bbb.cd:1;
+const csMove=()=>CH.k==='pty'&&S&&S.x3&&S.x3.cs&&S.x3.cs.fl>0?CSX.pty.mv:0;   // 🏃 야간 도주 중이면 이동속도 +mv (moveMul 이 읽는다)
+const csGem=()=>CH.k==='pty'&&Math.random()<CSX.pty.gem?2:1;   // 💎 도둑의 눈썰미 — 처치한 적의 보석 경험치 2배 확률
 const csRegen=()=>{const r=CH.regen||0;return r&&CH.k==='amd'&&S.p.hp<=S.p.mhp*CSX.amd.at?r*CSX.amd.x:r;};
 function csShock(R,d,kb){const p=S.p,sv=SRC;SRC='char';R*=areaMul();   // 📏 광역은 한 곳(areaMul) — 초월·넓게·시너지 몫까지 받는다(예전엔 패시브 단계만)
   for(const e of S.live){if(!e.on)continue;const dx=e.x-p.x,dy=e.y-p.y;if(dx*dx+dy*dy<(R+e.r)**2){hurt(e,d);if(e.on&&!e.boss){const l=Math.hypot(dx,dy)||1;e.kr=0;knock(e,dx/l,dy/l,kb,.25);}}}
@@ -3509,6 +3614,7 @@ function csTick(dt){const c=csS(),k=CH.k,X=CSX[k];
   if(k==='ildj'&&c.cc>0)c.cc-=dt;
   else if(k==='bgb')c.bw=moveMul()-1;
   else if(k==='bbb'){if(c.enc>0)c.enc-=dt;else{c.bt+=dt;if(c.bt>=X.every){c.bt=0;c.enc=X.T*DUR();txt(S.p.x,S.p.y-34,'🎤 후렴!','#ffe28a');}}}
+  else if(k==='pty'){if(c.fl>0)c.fl-=dt;if(c.fc>0)c.fc-=dt;else if(S.p.hp<S.p.mhp*X.at){c.fl=X.T;c.fc=X.cd;txt(S.p.x,S.p.y-34,'🏃 야간 도주!','#bfeaff');}}   // 🩲 체력 40% 아래 → 3초 빠르게(쿨 30초 · 쿨은 발동한 순간부터)
   else if(k==='ddmj'&&c.pend){c.pend=0;csShock(X.R,X.dmg*(1+S.lv/15)*dmgMul(),X.kb);}
   else if(k==='eom'&&c.n>=X.n){c.n-=X.n;csShock(X.R,X.dmg*(1+S.lv/15)*dmgMul(),X.kb);txt(S.p.x,S.p.y-34,'📢 엄!','#ffe28a');}}
 // 🐲 🦐 [2026-09-29 사장님 지시] 보스 캐릭터의 변신·패시브 — 지금 말로는 고유스텟(용조련사 「쫑의 군주」는 CH.hp·arm·spd 숫자만이라 여기 없다)
@@ -4125,6 +4231,8 @@ const EX=(()=>{
   o.beat=function(x,y,R,big){ring(big?5:4,x,y,R*.25,R,big?.4:.3,big?6:2.8);if(big){ring(6,x,y,10,70,.14,0);const n=cnt(10,3);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(90,240);sp(CF,x,y,4,Math.cos(a)*v,Math.sin(a)*v,rr(90,200),rr(.6,1),rr(3.4,5),300,1.9,[1,10,7,8,4][i%5],rr(0,TAU),rr(-14,14));}}};   // 🎵 박자 링(4번째는 큰 링 + 색종이)
   // 🎤 노래 박자 링 — 1·2·3박은 작은 하늘색 링 · 4박과 고음의 끝 울림은 연보라 큰 링 + 흰·하늘·연보라·민트 색종이(빨강·주황·자홍·금색은 안 쓴다)
   o.sing=function(x,y,big,R){if(!vis(x,y,R+30))return;ring(big?2:1,x,y,R*.3,R,big?.34:.22,big?5:2.4);if(big){ring(6,x,y,10,60,.12,0);const n=cnt(8,3);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(80,220);sp(CF,x,y,4,Math.cos(a)*v,Math.sin(a)*v,rr(90,200),rr(.5,.9),rr(3,4.6),300,1.9,[10,1,8,9][i&3],rr(0,TAU),rr(-14,14));}}};
+  // 🩲 전리품 팬티를 주울 때 — 작은 링 + 흰·하늘·연보라·민트 반짝이(금색은 쓰지 않는다)
+  o.panty=function(x,y){if(!vis(x,y,40))return;ring(0,x,y,4,30,.18,2.4);const n=cnt(6,2);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(60,170);sp(CF,x,y,4,Math.cos(a)*v,Math.sin(a)*v,rr(70,150),rr(.4,.7),rr(3,4.4),300,1.9,[10,1,8,4][i&3],rr(0,TAU),rr(-14,14));}};
   // 🎰 전설 — 금색 색종이 비 + 금색 링(금색은 '보상'에만)
   o.legend=function(x,y){ring(3,x,y,20,Math.hypot(VW,VH)*.45,.5,7);ring(6,x,y,10,120,.16,0);
     const n=cnt(36,8);for(let i=0;i<n;i++){const a=rr(0,TAU),v=rr(80,340);sp(CF,x+Math.cos(a)*10,y+Math.sin(a)*10,10+rr(0,50),Math.cos(a)*v,Math.sin(a)*v,rr(120,300),rr(1,1.5),rr(4.6,6.8),300,1.5,[5,6,10,1,5,4][i%6],rr(0,TAU),rr(-14,14));}};
@@ -4477,6 +4585,16 @@ function drawW3(p){const X=S.x3;if(!X)return;
         cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(e.x,e.y);cx.lineWidth=7;cx.strokeStyle='rgba(150,225,255,.25)';cx.stroke();
         for(let i=1;i<=n;i++){const u=i/(n+1),ox=p.x+dx*u,oy=p.y+dy*u;cx.beginPath();cx.ellipse(ox,oy,i&1?5.5:3.5,i&1?3:5,Math.atan2(dy,dx),0,7);cx.lineWidth=2;cx.strokeStyle='rgba(235,251,255,.95)';cx.stroke();}
         cx.beginPath();cx.arc(e.x,e.y,e.r+5,0,7);cx.lineWidth=2.4;cx.strokeStyle='rgba(235,251,255,.95)';cx.stroke();break;}
+      case 'py':{if(!inV(o.x,o.y,40))break;SPX.blitRot(o.big?SPX.pyB:SPX.py[o.c&3],o.x,o.y,o.big?22:13,o.rot);break;}   // 🧺 팬티(흰색·하늘·연보라·민트) · 폭죽은 큰 한 장
+      case 'pl':{if(!inV(o.x,o.y,30))break;if(o.life<4&&((o.life*6|0)%2))break;const b=Math.sin(o.t*5)*2.5;   // 🩲 전리품 팬티 — 줍는 것이라 금빛 후광(내 공격 색과 구분)
+        if(!LOW){cx.globalAlpha=.85;SPX.blit(SPX.gpk,o.x,o.y+b,20,2);cx.globalAlpha=1;}SPX.blitRot(SPX.pl,o.x,o.y+b,o.v>1?15:12,Math.sin(o.t*3)*.3);break;}
+      case 'ln':{const hl=o.hl;if(!inV(o.x,o.y,hl+30))break;const u=o.life/o.T,al=Math.min(1,o.life*2.5)*(u<.2?.55+.45*Math.sin(S.t*22):1);   // 🧵 빨랫줄 — 처진 줄에 팬티가 널려 있다(끝나기 직전엔 깜빡)
+        const ax=o.x-o.ux*hl,ay=o.y-o.uy*hl,bx=o.x+o.ux*hl,by=o.y+o.uy*hl,cxx=o.x,cyy=o.y+26;
+        cx.globalAlpha=al;cx.beginPath();cx.moveTo(ax,ay);cx.quadraticCurveTo(cxx,cyy,bx,by);cx.lineWidth=6;cx.strokeStyle='rgba(150,225,255,.25)';cx.stroke();cx.lineWidth=1.8;cx.strokeStyle='rgba(235,251,255,.95)';cx.stroke();
+        const m=Math.max(3,Math.floor(hl/(LOW?64:44)));cx.globalAlpha=1;
+        for(let i=0;i<=m;i++){const q=i/m,x=(1-q)*(1-q)*ax+2*q*(1-q)*cxx+q*q*bx,y=(1-q)*(1-q)*ay+2*q*(1-q)*cyy+q*q*by;
+          cx.globalAlpha=al;SPX.blitRot(SPX.py[(i+(o.sw|0))&3],x,y+9,10,Math.sin(S.t*3+i+o.sw)*.22);}
+        cx.globalAlpha=1;break;}
       case 'nt':{if(!inV(o.x,o.y,30))break;SPX.blitRot(SPX.nt[o.c&3],o.x,o.y,13,Math.sin(S.t*11+o.c*1.3)*.28);break;}   // 🎤 ♪ 음표(흰색·하늘·연보라·민트)
       case 'hn':{if(!inV(o.x,o.y,o.R+24))break;const u=1-Math.max(0,o.tk)/o.bt,sz=1+(o.cr-1)*.7;   // 🎤 ♬ 고음 — 크레셴도가 클수록 크고 링이 넓다(연보라·흰색 · 위험색 없음)
         if(!LOW){cx.globalAlpha=.8;SPX.blit(SPX.gfr,o.x,o.y,o.R*.8);cx.globalAlpha=1;}
@@ -4668,8 +4786,10 @@ function draw(){
       if(CH.bdg){const n=CH.bdg.length,bs=17,gp=3,x0=-(n*bs+(n-1)*gp)/2;CH.bdg.forEach((b,i)=>{const bx=x0+i*(bs+gp),by2=by-bs-2,im=bdgSpr(b);cx.save();cx.scale(p.face<0?-1:1,1);cx.fillStyle='rgba(10,12,24,.85)';cx.strokeStyle='#c8a24a';cx.lineWidth=1;cx.beginPath();cx.roundRect?cx.roundRect(bx,by2,bs,bs,5):cx.rect(bx,by2,bs,bs);cx.fill();cx.stroke();
         if(im&&im.c)cx.drawImage(im.c,bx+1,by2+1,bs-2,bs-2);else{cx.font='11px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillStyle='#fff';cx.fillText(b.e,bx+bs/2,by2+bs/2+1);cx.textBaseline='alphabetic';}cx.restore();});}}
     else if(spr){const s=52,h=s*spr.height/spr.width;cx.drawImage(spr,-s/2,-h/2-4+(p.moving?Math.sin(S.t*18)*2:0),s,h);}
+    else if(CH.k==='pty')ptyBody(p);   // 🩲 그림 파일(char_pty.webp)이 들어오면 CHARS 의 img:0 → img:1 로 바꿔 이 도형 몸 대신 그림이 나온다
     else{cx.fillStyle='#212636';cx.strokeStyle='#f5c04a';cx.lineWidth=2;cx.beginPath();cx.arc(0,0,p.r+4,0,7);cx.fill();cx.stroke();cx.scale(p.face<0?-1:1,1);cx.font='22px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(CH.e,0,1);cx.textBaseline='alphabetic';cx.font='bold 11px sans-serif';cx.fillStyle='#e7eaf3';cx.fillText(CH.nm,0,p.r+18);}
     cx.restore();}
+  if(S.w.panty)ptyGauge(p);   // 🧺 보따리 게이지 점(표시 전용)
   if(CH.shv&&S.dT>0&&!LOW){for(let i=0;i<8;i++){const ph=(S.t*1.7+i/8)%1,x=p.x+Math.sin(i*2.3+S.t*3)*24*S.dS,y=p.y+8-ph*78*S.dS,r=(1-ph)*7;cx.beginPath();cx.arc(x,y,r,0,7);cx.fillStyle='rgba(255,'+(200-ph*110|0)+',50,'+((1-ph)*.85).toFixed(2)+')';cx.fill();}}   // 🐲 몸에서 피어오르는 불꽃
   if(S.shield){cx.beginPath();cx.arc(p.x,p.y-4,p.r+16,0,7);cx.lineWidth=2.5;cx.strokeStyle='rgba(159,208,255,'+(.55+.3*Math.sin(S.t*5)).toFixed(2)+')';cx.stroke();cx.lineWidth=1;}   // 🛡 [2026-10-09] 방어막을 들고 있는 동안 캐릭터 둘레에 하늘색 고리(표시 전용 · 상태·난수에 손대지 않는다) — 주기형이 돼 「지금 있나」가 궁금해져서
   if(p.slow>0){cx.font='14px sans-serif';cx.textAlign='center';cx.fillText(p.slowG||'📜',p.x+18,p.y-22);}

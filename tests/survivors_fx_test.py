@@ -5,7 +5,7 @@
    사용: nice -n 10 python3 tests/survivors_fx_test.py [--full] [--only 가,나,...] [--no-mutation]
          (종료코드 0 = 전부 통과 · 기본 약 2~4분 · --full = 표의 모든 칸을 게임으로 다시 잰다, 15분 안팎)
    구성
-     가  정적 — 정답표 PFX 가 WEAP 40개와 1:1 · 글자 값 유효 · p 칸마다 쉬운 말 설명(없는 칸엔 설명도 없다) · 채널 표(PFXCH)·패시브 연결 ·
+     가  정적 — 정답표 PFX 가 WEAP 41개와 1:1 · 글자 값 유효 · p 칸마다 쉬운 말 설명(없는 칸엔 설명도 없다) · 채널 표(PFXCH)·패시브 연결 ·
          행운은 가챠 캡슐만 · 금지 문구(「모든 쿨타임」「모든 범위」「투사체」「짝 패시브」「카트 2대」…)가 표 어디에도 없다
      나  숫자 묶기 — 설명문의 숫자는 게임이 쓰는 값(PS()·cdMul()·areaMul()·DUR()·critChance()·critMul() …)을 읽는 시험으로 묶는다
      다  화면 — 18캐릭터 × 대표 빌드로 패시브 카드·무기 카드·보스 상자·일시정지 표·도감 상세를 그려 본다: 쓰인 무기 이름은 모두 실제 이름 ·
@@ -246,7 +246,7 @@ async def main():
             # ───── 가 정적 ─────
             if want('가'):
                 print('── 가 정적 ──')
-                check('PFX 의 무기 = WEAP 의 무기(40개 · 같은 순서)', list(PFX.keys()) == WK and len(WK) == 40, (set(PFX) ^ set(WK)))
+                check('PFX 의 무기 = WEAP 의 무기(41개 · 같은 순서)', list(PFX.keys()) == WK and len(WK) == 41, (set(PFX) ^ set(WK)))
                 okv = all(set(r.keys()) == set(CHAN) and all(re.fullmatch('[ypn]{2}', r[c]) for c in CHAN) for r in PFX.values())
                 check('칸마다 여섯 채널(cd cnt spd dur area luck) · 두 글자(기본·각성) · y/p/n 만', okv)
                 miss, extra = [], []
@@ -264,8 +264,8 @@ async def main():
                 for n in PFXN.values(): notes += [n] if isinstance(n, str) else [x for x in n if x]
                 SN_WANT = {'feed': '사료', 'fryer': '튀김기', 'sushi': '초밥', 'egg': '달걀', 'shrimp': '새우깡', 'kbd': '난타', 'spk': '스피커', 'potion': '물약', 'breath': '브레스', 'ping': '핑', 'wifi': '와이파이', 'can': '캔', 'gacha': '가챠',
                            'pan': '팬', 'rkt': '폭죽', 'chick': '병아리', 'rod': '낚싯대', 'frost': '얼음땡', 'lid': '뚜껑', 'meteor': '운석', 'snipe': '저격', 'hole': '블랙홀', 'bell': '리듬', 'quill': '깃털', 'tempo': '치명속도', 'fuse': '폭탄',
-                           'slime': '슬라임', 'cart': '카트', 'heart': '하트', 'jhin': '4발', 'whop': '와퍼', 'bash': '방패', 'twin': '쌍둥이', 'stamp': '도장', 'chain': '사슬', 'ram': '박치기', 'snack': '맛동산', 'eom': '엄외침', 'pcards': '포토카드', 'sing': '노래'}
-                check('PFXSN(짧은 무기 이름) = WEAP 40개와 1:1 · 1~4글자 · 겹치지 않는다 · 정한 이름과 같다', sorted(PFXSN) == sorted(WK) and len(PFXSN) == 40 and all(1 <= len(v) <= 4 for v in PFXSN.values()) and len(set(PFXSN.values())) == 40 and PFXSN == SN_WANT, (set(PFXSN) ^ set(WK), {k: v for k, v in PFXSN.items() if SN_WANT.get(k) != v}))
+                           'slime': '슬라임', 'cart': '카트', 'heart': '하트', 'jhin': '4발', 'whop': '와퍼', 'bash': '방패', 'twin': '쌍둥이', 'stamp': '도장', 'chain': '사슬', 'ram': '박치기', 'snack': '맛동산', 'eom': '엄외침', 'pcards': '포토카드', 'sing': '노래', 'panty': '팬티'}
+                check('PFXSN(짧은 무기 이름) = WEAP 41개와 1:1 · 1~4글자 · 겹치지 않는다 · 정한 이름과 같다', sorted(PFXSN) == sorted(WK) and len(PFXSN) == 41 and all(1 <= len(v) <= 4 for v in PFXSN.values()) and len(set(PFXSN.values())) == 41 and PFXSN == SN_WANT, (set(PFXSN) ^ set(WK), {k: v for k, v in PFXSN.items() if SN_WANT.get(k) != v}))
                 _src = open(os.path.join(ROOT, 'survivors.html'), encoding='utf-8').read()
                 check('PFXSN 은 WEAP 표 바깥의 별도 최상위 const(이어하기 서명 대상 아님)', re.search(r'^const PFXSN=\{', _src, re.M) is not None and 'PFXSN' not in _src[_src.index('const WEAP={'):_src.index('const WEAP={') + 40000].split('const PFX={')[0], '')
                 check('p 설명은 짧다(30자 이하) · 한글/기호만 · 영어 약어 없음', all(len(t) <= 30 and not re.search('[A-Za-z]{3,}', t) for t in notes), [t for t in notes if len(t) > 30])
@@ -604,6 +604,7 @@ async def main():
                 # (1) 표에서 바뀐 칸 = 지시서가 말한 칸뿐(나머지 칸은 글자 하나도 안 바뀐다)
                 flips = {}
                 for w in PFX:
+                    if w not in OLDPFX: continue   # 기준 이후에 새로 생긴 무기(팬티 투척)는 비교 대상이 아니다
                     for c in CHAN:
                         for fi in (0, 1):
                             o_, n_ = OLDPFX[w][c][fi], PFX[w][c][fi]

@@ -127,7 +127,7 @@ async def main():
         check('⑥ REL.sg_bgb: ch bgb · 이름 「한 장씩 줄게」 · 아이콘 = 캐릭터 이모지 🌪', r['ch'] == 'bgb' and r['nm'] == '한 장씩 줄게' and r['ic'] == '🌪' and r['icons'], r)
         SGB = await pg6.evaluate('()=>__p6x.SGV.bgb')   # 수치는 SGV 한 곳 — 문구와 동작이 이 값을 읽는다
         check('⑥ ds 3줄: 던진 횟수(SGV.bgb.n) · 카드 장수(SGV.bgb.m) · 사방', all((f"{SGB['n'][i]}번" in r['ds'][i]) and (f"{SGB['m'][i]}장" in r['ds'][i]) and '사방' in r['ds'][i] and '포토카드' in r['ds'][i] for i in range(3)), r['ds'])
-        check('⑥ 상점 캐릭터를 뺀 캐릭터 15종 = 시그니처 유물 15종', len(r['non']) == 15 and len(r['rel']) == 15 and set(r['non']) == set(r['rel']), (len(r['non']), len(r['rel'])))
+        check('⑥ 상점 캐릭터를 뺀 캐릭터 15종 = 시그니처 유물 15종(+ 상점 캐릭터 팬티도둑 1종 = 16)', len(r['non']) == 15 and len(r['rel']) == 16 and set(r['non']) | {'pty'} == set(r['rel']), (len(r['non']), len(r['rel'])))
         r = await pg6.evaluate("""()=>{const x=__p6x;x.CH_set('bgb');x.start();const S=x.S;S.lv=40;let own=0,other=0,ty='';
           for(let i=0;i<400;i++)for(const o of x.offers(3))if(o.t==='rl'&&x.REL[o.r].ch){if(x.REL[o.r].ch==='bgb'){own++;ty=x.cardOf(o).ty;}else other++;}
           S.lv=10;let early=0;for(let i=0;i<200;i++)for(const o of x.offers(3))if(o.t==='rl'&&x.REL[o.r].ch)early++;
