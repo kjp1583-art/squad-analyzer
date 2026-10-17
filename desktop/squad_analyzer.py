@@ -12201,6 +12201,7 @@ class ClanSettingsWindow(tk.Toplevel):
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
         self.var_syn = tk.BooleanVar(value=APP_CONFIG.get("show_synergy", True))   # 🧩 우측 시너지 3칸
         self.var_lb = tk.BooleanVar(value=APP_CONFIG.get("lobby_balance", True))   # ⚖️ [P-12] 대기실 전력차 한 줄
+        self.var_li = tk.BooleanVar(value=APP_CONFIG.get("lobby_intro", True))   # 💬 [2026-10-17 사장님 지시] 로비 채팅 안내 멘트(스쿼드해체분석기 사용중) 켜기/끄기
         
         # 체크박스를 먼저(오른쪽) 배치해 공간을 확보 → 긴 설명이 밀어내지 않음. 설명은 wraplength로 줄바꿈.
         opt_f1 = tk.Frame(body_frame, bg=theme.BG); opt_f1.pack(fill="x", pady=10)
@@ -12276,6 +12277,14 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Label(txt_lb, text="10명이 차면 '예상 승률 블루 44% : 레드 56%'를 한 줄 보여주고, 많이 기울었으면 한 쌍 맞바꾸기를 안내합니다. 결과 리포트에 '시작 전 예상' 한 줄도 붙습니다. (개인 점수는 보이지 않아요)",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
+        # 💬 [2026-10-17 사장님 지시 "해체분석기 로비에서 사용중 안내 멘트 채팅 쳐지는 거 off 할 수 있는 설정 옵션"] 로비 안내 채팅 — 끄기(기본 켬)
+        opt_li = tk.Frame(body_frame, bg=theme.BG); opt_li.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_li, variable=self.var_li, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_li = tk.Frame(opt_li, bg=theme.BG); txt_li.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_li, text="로비 채팅에 '스쿼드해체분석기 사용중' 안내 보내기", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_li, text="클랜원이 모인 사설게임 방에서 방마다 한 번, 분석기 소개 한 줄을 로비 채팅에 올립니다. 끄면 내 분석기는 로비 채팅에 아무것도 올리지 않아요. (내 기록·분석 기능은 그대로 동작합니다)",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
         opt_f4 = tk.Frame(body_frame, bg=theme.BG); opt_f4.pack(fill="x", pady=10)
         _cur_key = APP_CONFIG.get("win_preset", "auto")
@@ -12316,6 +12325,7 @@ class ClanSettingsWindow(tk.Toplevel):
         APP_CONFIG["pos_view_default"] = _pv
         APP_CONFIG["show_synergy"] = bool(self.var_syn.get())   # 🧩 우측 시너지 3칸
         APP_CONFIG["lobby_balance"] = bool(self.var_lb.get())   # ⚖️ [P-12] 대기실 전력차 한 줄
+        APP_CONFIG["lobby_intro"] = bool(self.var_li.get())   # 💬 로비 안내 채팅 — 저장 즉시 반영(루프가 매번 이 값을 읽는다)
         try:
             if _SYNERGY_SYNC[0]: _SYNERGY_SYNC[0](APP_CONFIG["show_synergy"])   # 재시작 없이 즉시 반영
         except Exception: pass
