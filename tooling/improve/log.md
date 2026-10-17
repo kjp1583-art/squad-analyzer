@@ -1,5 +1,7 @@
 # 🔁 개선 루프 회차 기록 (맨 위가 최신)
 
+- 🛠 2026-10-17 (다른 세션) **P-23 프로필 탭 배포** — 폰(≤820px) 프로필을 [요약][전적][챔피언][분석][한마디] 탭으로(`#p/닉/탭` · 옛 링크 호환 · 첫 탭 `PROF_TAB_DEFAULT`="sum") · 챔피언 상세 20개씩 · 합성 시트 시험 tests/web_profile_tabs_test.py(전적 머리글 4,898px→725px) · 실제 시트로는 미측정
+
 - 🛠 2026-10-17 (다른 세션) **A-30 수정 배포** — index.html 프로필 전적을 20판씩(`pmListHtml`·`morePm` 「20판 더」) + BUILD_ID 올림 · 시험 tests/web_profile_more_test.py · 패치노트 2026-10-17-profile-match-more
 
 ## 2026-10-17 08:00 KST · epoch 1792190920 — 18회차
