@@ -1179,8 +1179,8 @@ const WEAP={
     ds:['가장 튼튼한 적들에게 임명 도장을 찍는다 — 2초 뒤 터지고, 도장이 찍힌 동안은 느려진다(보스·엘리트에겐 피해 2배 · 신림 전용)','폭발 범위 +15%','피해 +40%','도장 +1','피해 +40%','쿨타임 -15%','도장 +1','피해 +50% · 폭발 범위 +15%']},
   chain:{only:'ddo',rl:'고유 · 묶는 사슬',ic:'⛓',nm:'진실의 사슬',pair:'cd',ev:{ic:'⚖️',nm:'진실의 판결',ds:'사슬 +2 · 더 오래 · 끊길 때 큰 폭발'},
     ds:['사슬이 가까운 적에게 뻗어 묶는다(2.6초) — 사슬이 지나는 적 전부 지속 피해, 묶인 적은 느려진다(또뀨 전용)','사슬 길이 +15%','피해 +40%','사슬 +1','피해 +40% · 쿨타임 -15%','지속 +0.6초','사슬 +1','피해 +50% · 쿨타임 -15%']},
-  ram:{only:'tw',rl:'고유 · 돌진',ic:'🥊',nm:'씩씩 박치기',pair:'arm',ev:{ic:'💢',nm:'씩씩 폭주',ds:'쿨타임 0.7배 · 항상 두 번 돌진 · 충격파 1.4배 · 피해 1.15배'},
-    ds:['가까운 적을 향해 머리부터 돌진한다 — 지나는 길의 적을 들이받고 도착하면 충격파(돌진 중 아주 잠깐 무적 · 태웅 전용)','돌진 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','돌진 거리 +15% · 충격파 +30%','쿨타임 -15%','피해 +50% · 연속 두 번 돌진']},
+  ram:{only:'tw',rl:'고유 · 돌진',ic:'🥊',nm:'씩씩 박치기',pair:'arm',ev:{ic:'💢',nm:'씩씩 폭주',ds:'쿨타임 0.7배 · 항상 두 번 돌진 · 충격파 1.4배 · 피해 1.15배 · 매달리기 1.3배 길게, 연타 6번'},
+    ds:['가까운 적을 향해 머리부터 돌진한다 — 지나는 길의 잡몹을 들이받고 도착하면 충격파(돌진 중 아주 잠깐 무적). 보스·정예·대형에 닿으면 0.9초 매달려 4번 연타하고 뒤로 튕겨 난다(매달린 동안 받는 피해 절반 · 태웅 전용)','돌진 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','돌진 거리 +15% · 매달린 마지막 한 방 +30%','쿨타임 -15%','피해 +50% · 연속 두 번 돌진(두 번째도 매달린다)']},
   snack:{only:'yumi',rl:'고유 · 관통 · 연쇄 파편',ic:'🍘',nm:'맛동산 투척',pair:'mag',ev:{ic:'🍪',nm:'맛동산 대잔치',ds:'스틱 +1 · 관통 무제한 · 맞을 때마다 부스러기 +6(부스러기 한 발 피해는 0.9배) · 끝에서 크게 터진다 · 피해 1.7배'},
     ds:['맛동산 스틱을 던진다 — 적을 꿰뚫고 5마리까지 날아가며, 맞을 때마다 그 자리 주변 적들에게 부스러기 3개가 날아간다(맛동산장인 유미 전용)','부스러기 +1','피해 +20% · 스틱 +1','쿨타임 -15% · 부스러기 +1','피해 +20%','스틱 +1 · 부스러기 +1','부스러기 +1 · 쿨타임 -15%','피해 +50% · 부스러기 +1']},
   eom:{only:'eom',rl:'고유 · 충격 파동',ic:'📢',nm:'엄! 외침',pair:'area',ev:{ic:'🗣',nm:'개엄!',ds:'「개엄!」 하고 한 방에 크게 외친다 — 범위 1.2배 · 밀치는 힘 1.2배 · 피해 2배'},
@@ -1972,7 +1972,7 @@ const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
 const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag');   // 경험치 줍는 범위 배율(기본 반경 70)
 const xpMul=()=>1+(CH.xp||0)+.08*pv('study')+S.syn.xp;   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
 const armTotal=()=>pv('arm')+(CH.arm||0)+PASSV.turtle.arm*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
-const takenMul=()=>csTaken()*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다)
+const takenMul=()=>csTaken()*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1)*(CH.k==='tw'&&S.x3.ram.hg>0?1-U3.ram.hg.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다) · 🥊 태웅이 보스에 매달린 동안은 절반
 const VAMP_N=40,vampHp=()=>1.5*pv('vamp');   // 🥩 고기 반찬: 적 VAMP_N 마리를 처치할 때마다 HP 회복
 const critParts=()=>[['캐릭터',critCh()],['행운',critLk()],['급소',critPv()],['행운 초월',critPt()],['정조준',critTr()],['눈 밝히기',critSm()]];   // 표시용 구성표(화면을 그릴 때만 부른다 — 합은 critChance 와 같다)
 const LOWHP_AT=.3,lowMul=()=>CH.low&&S.p.hp<S.p.mhp*LOWHP_AT?1+CH.low:1;   // 🥲 망무새: 체력이 LOWHP_AT 아래면 피해 +CH.low (hurt 가 곱한다 — dmgMul 에는 안 들어 있다)
@@ -3031,7 +3031,8 @@ const U3={sing:{d:6.6,db:1.9,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   snack:{d:11,cd:1.3,tr:260,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.7,evKd:.9,kd:.07,big:28,cs:260,cl:.36,cr:4,cap:80,frame:48,comp:2.5},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
   pcards:{d:19.5,cd:1.7,sp:430,life:.7,rng:290},eom:{d:54,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44,cap:12,pad:.22},   // 🔥 [2026-10-16 프싱 재설계] cap 동시에 깔려 있는 장판 상한(끈기 비례 · 곱빼기당 +2) · pad 장판 한 칸의 0.5초 피해(베기 피해 대비) — 베기마다 깔리는 만큼 한 칸을 가볍게
-  stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22}};
+  stamp:{d:40,cd:2.6,R:62,fz:2},chain:{d:8,cd:5,rng:330,life:2.6,iv:.35},ram:{d:46,cd:3.8,dist:140,T:.22,
+    hg:{t:.9,n:4,p:.6,last:1.3,red:.5,evT:1.3,evN:6,bk:150,bkT:.2}}};   // 🥊 매달리기 — 보스·정예·대형에 닿으면 t초 매달려 n번 연타(한 번에 박치기 피해의 p배 · Lv6 부터 마지막 한 방 ×last) · 그동안 받는 피해 ×(1-red) · 끝나면 bk 만큼 bkT초 동안 뒤로 튕긴다 · 각성은 시간 ×evT · 연타 evN번
 const F3CAP=100;
 // 🛒 [2026-10-10 사장님 지시] 각성 카트(퍼스트클래스 서비스)도 수명이 있다 — 18초 동안 따라다니다 사라지고, 쿨타임(약 6초)마다 새 카트가 나온다.
 //   패시브가 없으면 6초마다 하나씩 나와 18초 살아 늘 3대가 유지된다(예전과 같은 3대) · 끈기는 수명을, 공격속도는 나오는 간격을 바꿔 같이 있는 카트 수가 는다(최대 CART_EVMAX 대)
@@ -3051,7 +3052,7 @@ function shvStart(){const p=S.p;S.dT=shvTot();S.dN++;S.dA=.2;S.dW={t:.6,T:.6,R:S
     hurt(e,d);if(e.on){if(e.boss)e.slow=Math.max(e.slow,1);else knock(e,dx/dd,dy/dd,520,.35);}}
   hitPropsAt(p.x,p.y,SHV.push,d);SRC=sv;}
 function shvEnd(){const p=S.p;S.dT=0;S.rg=0;AU.play('wave');txt(p.x,p.y-40,'🔥 변신 해제','#ffd9a0');}
-function newX3(){return {sg:{dir:1,ph:0},f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0}};}
+function newX3(){return {sg:{dir:1,ph:0},f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0,hg:0,hs:0,hk:0,hn:0,hi:0,iv:0,ox:0,oy:0,eq:0}};}   // 🥊 hg 매달리기 남은 시간 · hs 매달린 적의 sn · hk 때린 횟수 · hn 총 횟수 · hi 다음 타까지 · iv 간격 · ox,oy 적 기준 내 자리 · eq 매달리느라 미룬 두 번째 돌진 수(숫자만 — 이어하기 왕복에서 안 깨진다)
 const h3=(e,d,k)=>{const s0=SRC;SRC=k;hurt(e,d);SRC=s0;};   // 무기 키로 피해 통계를 남기며 한 번 때린다
 const aim3=rng=>{const t=nearest();if(t&&(t.x-S.p.x)**2+(t.y-S.p.y)**2<rng*rng)return t;
   let b=null,bd=rng*rng;for(const q of props.a){if(!q.on)continue;const d=(q.x-S.p.x)**2+(q.y-S.p.y)**2;if(d<bd){bd=d;b=q;}}   // 🧺 적이 없으면 사거리 안의 필드 아이템(와드·포대·상자)을 겨눈다
@@ -3076,8 +3077,20 @@ function bashHit(ux,uy,len,hw,d,stn){const p=S.p;
     h3(e,d,'bash');if(e.on){if(e.boss)e.slow=Math.max(e.slow,.8);else{knock(e,ux,uy,430,.3);e.st=Math.max(e.st,stn);}}}
   hitPropsAt(p.x+ux*len*.5,p.y+uy*len*.5,len*.6,d*.5);
   S.x3.f.length<F3CAP&&S.x3.f.push({k:'bs',x:p.x,y:p.y,ux,uy,len,hw,life:.26,T:.26});}
+// 🥊 매달리기 — 돌진이 보스·정예·대형에 닿으면 그 적에게 붙어 t초 동안 n번 연타하고(한 번에 박치기 피해의 p배) 뒤로 튕겨 나온다. 그동안 받는 피해는 절반(takenMul) · 이동 입력은 무시(몸이 적에게 붙어 따라간다).
+//   상태는 S.x3.ram 의 숫자뿐(hs=매달린 적의 sn) → 이어하기가 그대로 저장·복구한다. 잡몹은 해당 없음(관통 돌진 + 충격파 그대로).
+function ramHangStart(e,ev){const p=S.p,R=S.x3.ram,H=U3.ram.hg;R.t=0;p.yt=0;   // 돌진은 여기서 끝(도착 충격파는 같은 틱에 터진다)
+  R.hg=H.t*(ev?H.evT:1);R.hn=ev?H.evN:H.n;R.hk=0;R.iv=R.hg/(R.hn+.5);R.hi=R.iv;R.hs=e.sn;R.ox=p.x-e.x;R.oy=p.y-e.y;}
+function ramHang(L,ev,t,dt,d){const p=S.p,R=S.x3.ram,H=U3.ram.hg;let e=null;
+  for(const q of S.live)if(q.on&&q.sn===R.hs){e=q;break;}
+  if(!e||p.stun>0){R.hg=0;R.hk=R.hn=0;return;}   // 매달린 적이 쓰러졌거나 내가 기절하면 바로 푼다
+  R.hg-=dt;p.x=e.x+R.ox;p.y=e.y+R.oy;
+  R.hi-=dt;
+  while(R.hi<=0&&R.hk<R.hn&&e.on){R.hk++;R.hi+=R.iv;
+    h3(e,d*H.p*(R.hk===R.hn&&L>=6?H.last:1),'ram');if(e.on&&e.boss)e.slow=Math.max(e.slow,.8);S.shake=Math.max(S.shake,.06);}
+  if(R.hg<=0||!e.on){R.hg=0;R.hk=R.hn=0;if(e.on){const dd=Math.hypot(R.ox,R.oy)||1;yank(R.ox/dd*H.bk,R.oy/dd*H.bk,H.bkT);}}}   // 끝나면 뒤로 튕겨 나와 반격 범위를 벗어난다
 // 🥊 씩씩 박치기 — 가까운 적 쪽으로 짧게 돌진(🪝 yank 와 같은 이동 장치) · 돌진 중 아주 잠깐 무적
-function ramGo(){const p=S.p,L=S.w.ram||0,X=S.x3,R=X.ram;if(!L||R.t>0||p.yt>0||p.stun>0)return false;const tg=aim3(360);if(!tg)return false;
+function ramGo(){const p=S.p,L=S.w.ram||0,X=S.x3,R=X.ram;if(!L||R.t>0||R.hg>0||p.yt>0||p.stun>0)return false;const tg=aim3(360);if(!tg)return false;
   const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,mx=U3.ram.dist*lvm(L,[[2,1.15],[6,1.15]]),len0=Math.max(mx*.7,Math.min(mx,dd+60)),bs=!!tg.boss,len=bs?Math.max(0,Math.min(len0,dd-(tg.r+p.r+9))):len0;   // 💔 [2026-10-15 사장님 「태웅 씩씩 박치기는 쓸 때 무조건 맞아서 보스전이 불가능」] 보스 쪽으로 돌진할 땐 몸통에 박히지 않고 바로 앞(닿는 거리 밖)에서 멈춘다 — 박치기 피해는 그대로 들어가고(맞히는 반경이 더 넓다) 착지 직후 몸 박치기를 안 맞는다
   if(len>=1)yank(ux*len,uy*len,U3.ram.T);   // 이미 보스 코앞이면 제자리에서 박치기만(움직임 없이 맞히는 반경 안의 보스를 때린다)
   invGrant('ram',bs?.55:.3);R.t=U3.ram.T;R.id=++X.rid;R.x0=p.x;R.y0=p.y;R.ux=ux;R.uy=uy;R.fx=.35;AU.play('ram');return true;}
@@ -3269,14 +3282,17 @@ function weapons3(dt,cm,MT,AR,AM){
   L=S.w.ram||0;
   if(L){ev=S.ev.ram;t=TK('ram');
     if((S.cd.ram-=dt)<=0){if(ramGo()){S.cd.ram=U3.ram.cd*lvm(L,[[4,.85],[7,.85]])*cm*(ev?.7:1)*(1-t.c);
-        const ex=((L>=8||ev)?1:0)+t.echo;for(let j=1;j<=ex;j++)S.dq.push({t:.55*j,f:()=>ramGo()});}
+        const ex=((L>=8||ev)?1:0)+t.echo;for(let j=1;j<=ex;j++)S.dq.push({t:.55*j,f:()=>{if(S.x3.ram.hg>0)S.x3.ram.eq++;else ramGo();}});}   // 매달리는 중에 온 두 번째 돌진은 매달리기가 끝나고 튕겨 난 뒤로 미룬다(eq)
       else S.cd.ram=0;}
     const R=X.ram;
     if(R.t>0){R.t-=dt;const d=U3.ram.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d);
       for(const e of S.live){if(!e.on||e.rm===R.id)continue;const rr=e.r+p.r+10;
-        if((e.x-p.x)**2+(e.y-p.y)**2<rr*rr){e.rm=R.id;h3(e,d,'ram');if(e.on){if(e.boss)e.slow=Math.max(e.slow,.8);else{knock(e,R.ux,R.uy,300,.25);if(t.stun)e.st=Math.max(e.st,.6);}}}}
+        if((e.x-p.x)**2+(e.y-p.y)**2<rr*rr){e.rm=R.id;h3(e,d,'ram');if(e.on){if(e.boss)e.slow=Math.max(e.slow,.8);else{knock(e,R.ux,R.uy,300,.25);if(t.stun)e.st=Math.max(e.st,.6);}
+          if(!(R.hg>0)&&(e.boss||e.el||e.bg))ramHangStart(e,ev);}}}   // 🥊 보스·정예·대형에 닿으면 매달린다(잡몹은 예전 그대로 뚫고 지나간다)
       for(const q of props.a)if(q.on&&q.rmr!==R.id&&(q.x-p.x)**2+(q.y-p.y)**2<(PROP[q.k].r+p.r+10)**2){q.rmr=R.id;hitProp(q,d);}   // 돌진하며 부딪힌 필드 아이템
-      if(R.t<=0){bang(p.x,p.y,60*lvm(L,[[6,1.3]])*(ev?1.4:1)*AR*(1+t.a),d*.5,'ram','mine',ev?1:0);S.shake=Math.max(S.shake,.12);}}}
+      if(R.t<=0){bang(p.x,p.y,60*lvm(L,[[6,1.3]])*(ev?1.4:1)*AR*(1+t.a),d*.5,'ram','mine',ev?1:0);S.shake=Math.max(S.shake,.12);}}
+    if(R.hg>0)ramHang(L,ev,t,dt,U3.ram.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d));
+    else if(R.eq>0&&R.t<=0&&p.yt<=0){R.eq--;ramGo();}}
   // 🎤 플레이브 노래부르기 → 🎶 앙코르 무대 — 4박자 한 소절. 1·2·3박은 ♪ 음표(Lv4부터는 박마다 다른 적을 돌아가며 겨냥) · 4박은 가장 센 적에게 큰 ♬ 이 천천히 날아가며 울린다
   //   크레셴도: 이번 소절의 ♪ 가 맞은 수만큼 ♬ 이 세지고 커진다(소절마다 따로 센다) · 맞은 적은 넋을 잃고 느려진다(e.slow · 보스는 절반) · 무적·넉백·새 적 필드 없음
   //   ※ 소절의 박(S.dq 콜백)은 나중에 돈다 — 공용 변수(L·t·ev·tg)는 콜백 안에서 쓰지 않고 여기서 상수로 복사해 둔다
