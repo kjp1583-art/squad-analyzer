@@ -123,7 +123,6 @@ async def main():
     H.make_copy(src='survivors.html', dst=NEW, extra=EXTRA)
     old = await fetch_old()
     if old:
-        old = old.replace('bang(p.x,p.y,60*lvm(L,[[6,1.3]])*(ev?1.4:1)', 'bang(p.x,p.y,60*(ev?1.4:1)')   # Lv6 충격파 범위 +30% 는 마지막 한 방 +30% 로 바뀌었다(의도된 차이) — 그 한 줄만 맞춰 놓고 비교
         open(os.path.join(ROOT, 'survivors_ramhang_src.html'), 'w', encoding='utf-8').write(old)
         H.make_copy(src='survivors_ramhang_src.html', dst=OLD, extra=EXTRA)
     srv = H.Srv()
