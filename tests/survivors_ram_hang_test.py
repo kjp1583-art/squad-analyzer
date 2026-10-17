@@ -174,7 +174,8 @@ async def main():
             # ── 나 대상
             for kind, nm in [('el', '정예'), ('bg', '대형')]:
                 r = await pg.evaluate('([k])=>__rt.duel(5,0,k,{dist:110})', [kind])
-                check('[나] %s 에도 매달린다' % nm, bool(re.match(r'^D*H+K+', r['ph'])) and len([h for h in r['hits'][2:]]) == Hg['n'], r['ph'][:30])
+                check('[나] %s 에도 매달린다' % nm, bool(re.match(r'^D*H+K+', r['ph'])) and len([h for h in r['hits'][2:]]) == max(1, round(Hg['n'] * Hg['sm'])), r['ph'][:30])
+                check('[나] %s 는 보스의 %d%% 만큼만 매달린다(시간 %.2f초)' % (nm, round(Hg['sm'] * 100), Hg['t'] * Hg['sm']), abs(r['ph'].count('H') / 30 - Hg['t'] * Hg['sm']) <= 2 / 30 + 1e-6, r['ph'])
             r = await pg.evaluate('()=>{const S=(()=>{return null})();return 0}')
             # 잡몹 — 기준 커밋 판과 비트 동일
             new = []
