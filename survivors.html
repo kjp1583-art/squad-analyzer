@@ -54,7 +54,8 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 .hrow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;font-size:13px;font-weight:700;text-shadow:0 1px 2px #000}
 #hpb{position:relative;height:16px}#hpt{position:absolute;left:0;right:0;top:0;line-height:14px;font-size:12px;font-weight:700;text-align:center;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums;text-shadow:0 0 2px #000,0 1px 2px #000,0 0 3px #000;pointer-events:none}   /* ❤️ [2026-10-09 사장님 지시 "체력슛자표기 해주고"] 체력 막대 안에 「현재 / 최대」 — 막대 8→16px · 글자 12px */
 #mhpSrc{margin:4px 0}#mhpSrc summary{cursor:pointer;padding:9px 0;color:var(--sub);font-size:12px}#mhpSrc .mr{display:flex;justify-content:space-between;gap:8px;padding:1px 0}#mhpSrc .mr b{white-space:nowrap}   /* 일시정지의 최대 체력 출처표(접이식) */
-#pauseBtn,#sndBtn{pointer-events:auto;background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:2px 10px;font:inherit}
+#pauseBtn,#sndBtn,#spdBtn{pointer-events:auto;background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:2px 10px;font:inherit}
+#spdBtn{padding:2px 7px;font-size:12px;min-width:46px}#spdBtn.on{border-color:var(--acc);color:var(--acc)}
 #bossb{margin-top:6px;display:none}#bossb .bar i{background:var(--gold)}
 #bossb.duel .bar{height:13px;border-color:#b894ff;box-shadow:0 0 10px rgba(184,148,255,.6);position:relative}#bossb.duel #bossName{font-weight:700;color:#e4d6ff!important}   /* ⚔ 1:1 — 보스 체력바를 굵게 · 단계는 시간·체력으로 오른다(이름 줄에 다음 단계까지 남은 초) */
 .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(9,12,28,.8);z-index:5}
@@ -374,7 +375,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 <div id="fxv" class="fxo"></div><div id="fxr" class="fxo"></div><div id="fxf" class="fxo"></div>
 <div id="hud">
   <div class="bar" id="xpb"><i></i></div>
-  <div class="hrow"><span id="hLv">Lv 1</span><span id="hTime">00:00</span><span id="hKill">💀 0</span><span><button id="sndBtn" aria-label="소리 켜기/끄기">🔊</button> <button id="pauseBtn">⏸</button></span></div>
+  <div class="hrow"><span id="hLv">Lv 1</span><span id="hTime">00:00</span><span id="hKill">💀 0</span><span><button id="spdBtn" aria-label="배속 바꾸기">⏩1x</button> <button id="sndBtn" aria-label="소리 켜기/끄기">🔊</button> <button id="pauseBtn">⏸</button></span></div>
   <div class="bar" id="hpb" style="margin-top:6px;max-width:220px"><i></i><span id="hpt"></span></div>
   <div id="spdChip" class="spdc" aria-live="off">⏩ 2배속</div>
   <div id="rgw" style="display:none;margin-top:4px;max-width:220px"><div class="bar" id="rgb" style="height:9px"><i></i></div><div id="rgt" style="font-size:11px;color:#ffd9a0;margin-top:1px;text-shadow:0 1px 2px #000"></div></div>
@@ -1854,7 +1855,8 @@ const SPD=(()=>{
   o.ui=function(){const lk=o.lockMsg();for(const el of document.querySelectorAll('[data-spd]')){el.value=String(o.on||0);el.setAttribute('aria-disabled',lk?'true':'false');const l=el.closest('label');if(l)l.classList.toggle('lk',!!lk);}
     for(const el of document.querySelectorAll('[data-spdv]'))el.textContent=lk?'🔒':o.on?o.on+'배속':'1배속';
     for(const el of document.querySelectorAll('[data-spdsm]')){if(el.dataset.d===undefined)el.dataset.d=el.textContent;el.textContent=lk||el.dataset.d;}
-    const c=$('spdChip');if(c){c.style.display=o.on?'inline-block':'none';c.textContent='⏩ '+(o.on||2)+'배속';}};
+    const c=$('spdChip');if(c){c.style.display=o.on?'inline-block':'none';c.textContent='⏩ '+(o.on||2)+'배속';}
+    const hb=$('spdBtn');if(hb){hb.textContent=lk?'🔒1x':'⏩'+(o.on||1)+'x';hb.classList.toggle('on',!!o.on);hb.setAttribute('aria-label','배속 바꾸기 — 지금 '+(o.on?o.on+'배속':'1배속'));}};   // 🎮 [2026-10-17 사장님 지시] 인게임 HUD 배속 버튼 — ESC 를 안 눌러도 판 도중 바로 바꾼다
   o.sync=function(){const v=pref&&can()?pref:0;const lost=o.on&&pref&&!can();o.on=v;o.f=v===2?1:v===1.5?.5:0;o.acc=0;o.n=0;o.ms=0;o.ui();if(lost){toast('🔒 배속 권한을 확인할 수 없어서 1배속으로 돌아왔어요');toastT=3.6;}};   // 판 도중 로그인이 풀리면 그 프레임부터 1배속 + 쉬운 안내 한 번
   o.set=function(v){v=v===1.5||v==='1.5'?1.5:(v===2||v==='2'||v===1||v==='1'||v===true)?2:0;if(v&&!can()){o.ui();toast(o.lockMsg());toastT=3.6;return;}pref=v;try{localStorage.setItem(K,v?String(v):'0');}catch(e){}o.sync();};
   o.watch=function(raw){   // 판이 도는 프레임마다 실제 간격(ms)을 받는다
@@ -1863,6 +1865,7 @@ const SPD=(()=>{
     o.n++;o.ms+=raw;
     if(o.ms>=4000){const avg=o.ms/o.n;o.n=0;o.ms=0;if(avg>33){o.warned=1;toast('🐢 폰이 힘들어해요 — 배속을 끄는 게 좋아요');toastT=3.6;}}};
   for(const el of document.querySelectorAll('[data-spd]'))el.onchange=e=>o.set(e.target.value);
+  {const hb=$('spdBtn');if(hb)hb.onclick=()=>o.set(o.on===0?1.5:o.on===1.5?2:0);}   // 1x → 1.5x → 2x → 1x (잠겨 있으면 안내 문구만 · 1.5 로 시도해 o.set 이 막는다)
   o.sync();return o;})();
 function dropItem(k,x,y){let it=items.get();if(!it&&k==='chest'){it=items.a.find(o=>o.k!=='chest');if(it)it.on=true;}if(!it)return;it.k=k;it.x=x;it.y=y;it.life=k==='chest'?1e9:60;it.t=Math.random()*6;}
 // 🍗 치킨 경제(2026-09-29 사장님 "치킨 드랍율이 너무 높아 hp 관리가 너무 잘돼") — 주워 먹는 양을 예전의 약 1/3 로:
