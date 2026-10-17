@@ -50,7 +50,7 @@ async def main():
             midPair:ctab.filter(k=>x.WEAP[k].pair==='mag')}}""")
         c = r['c']
         check('CHARS pty: 고유 무기 panty · 이동속도 +12% · 줍기 +25% · 체력 -16(84로 시작) · 짧은 이름 팬티도둑 · 이름 맨해라공원팬티도둑', c and c['w'] == 'panty' and c['wl'] == 1 and c['spd'] == .12 and c['mag'] == .25 and c['hp'] == -16 and c['sn'] == '팬티도둑' and c['nm'] == '맨해라공원팬티도둑' and c['e'] == '🩲', c)
-        check('그림 없음: img 는 0(이모지 카드) — 파일이 들어오면 img:1 한 줄만 바꾸면 된다 · 보스 아님', c and not c['img'] and not c['boss'] and 'img' in c['keys'], c)
+        check('그림 있음: img 1 + img/survivors/char_pty.webp 파일이 있다(256×256 RGBA) · 보스 아님', c and c['img'] == 1 and not c['boss'] and 'img' in c['keys'] and os.path.exists(os.path.join(H.ROOT, 'img', 'survivors', 'char_pty.webp')), c)
         check('판매 = 상점 구매(shop:1) · 카드 글씨 「디스코드 /흐접새우상점 200P」 · 설명창 구매 방법(배불배불과 같은 문구) · 진행도 조건 함수는 무엇을 줘도 거짓', c and c['shop'] and c['tag'] == '디스코드 /흐접새우상점 200P' and c['t'] == '디스코드 /흐접새우상점 200P' and '「/흐접새우상점」' in c['dh'] and '200P' in c['dh'] and c['ok0'] is False, c)
         line = re.search(r"\{k:'pty',.*?\},\n", src).group(0)
         check('CHARS pty 줄에 처치 누적·진행도 해금 코드가 없다', 'p.kills' not in line and 'p.best' not in line and 'SHOPUN_SV' in line, line[:200])
@@ -255,7 +255,7 @@ async def main():
         r = await pg.evaluate("""()=>{const x=__p6x;x.srvUnl([]);x.show('title');x.renderRoster();const bs=[...document.querySelectorAll('#roster button')];const b=bs.find(e=>e.textContent.includes('맨해라공원팬티도둑'));
           b&&b.click();return {sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,small:b&&b.querySelector('small').textContent,lock:b&&b.classList.contains('lock'),desc:document.getElementById('chDesc').textContent,n:bs.length,hs:bs.map(e=>Math.round(e.getBoundingClientRect().width)),emoji:b&&b.querySelector('.e')&&b.querySelector('.e').textContent,img:!!(b&&b.querySelector('img'))}}""")
         check('선택 화면(412px): 가로 스크롤 없음 · 카드 폭이 모두 같다', r['sw'] <= r['cw'] and len(set(r['hs'])) == 1, (r['sw'], r['cw'], set(r['hs'])))
-        check('잠긴 카드: 작은 글씨 「디스코드 /흐접새우상점 200P」 · 누르면 설명창에 구매 방법 + 로그인 안내 · 그림 대신 이모지 카드', r['lock'] and r['small'] == '디스코드 /흐접새우상점 200P' and '디스코드 「/흐접새우상점」에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침' in r['desc'] and '디스코드 로그인 필요' in r['desc'] and not r['img'], r)
+        check('잠긴 카드: 작은 글씨 「디스코드 /흐접새우상점 200P」 · 누르면 설명창에 구매 방법 + 로그인 안내 · 그림 카드(img)', r['lock'] and r['small'] == '디스코드 /흐접새우상점 200P' and '디스코드 「/흐접새우상점」에서 200P(내전 1판 1P · 맛동산 아님)로 구매 — 산 뒤 이 화면을 새로고침' in r['desc'] and '디스코드 로그인 필요' in r['desc'] and r['img'], r)
         hw = await pg.evaluate("()=>document.querySelector('ol.how').textContent")
         check('조작법 도움말(❔): 고유 시작 무기 목록에 「팬티도둑 🧺」(배불배불 다음)', '배불배불 🎤 · 팬티도둑 🧺 · 신림 📋' in hw, hw[hw.find('고유 시작 무기'):][:160])
         await pg.evaluate("__p6x.srvUnl(['brj','pty'])")
