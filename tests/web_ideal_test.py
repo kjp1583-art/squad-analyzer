@@ -306,6 +306,7 @@ def check(S, strict_extra=True):
     ok('이번 월드컵 결과' in S['res_text'], '⑥ 「이번 월드컵 결과」 톤')
     ok(S['ov_res']['sw'] <= S['ov_res']['iw'], '⑥ 결과 화면 가로 넘침 0')
     ok(S['res2_rows'] == 0, '⑥ 서폿 풀: 표본이 없으면 행 0 · 안내 문구 (%s)' % S['res2_empty'][:20])
+    ok('3명 이상' in S['res2_empty'] and '모이는 중' in S['res2_empty'], '⑥ 참여자 3명 미만(2명)이면 결과를 가리고 「3명 이상 모이면 열려요」 안내  %s' % S['res2_empty'][:40])
     # ⑦ 실패 처리
     e, r = S['r429']
     ok(r['win'] and r['sent'] == 3 and r['failed'] == 0, '⑦ 429(rate) 한 번은 재시도해서 3번 모두 들어간다  %s' % {k: r[k] for k in ('sent', 'failed')})
