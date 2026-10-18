@@ -132,7 +132,7 @@ async def main():
         D0, DB0 = r['u3']['d'], r['u3']['db']   # 음표·고음 피해는 표(U3.sing)에서 읽는다 — 수치를 올려도 시험의 기대값이 같이 움직인다
         T = r['T']
         check('TIERS.sing: 마스터 3 + 각성 2 (음표 +1 · 피해 +12% · 쿨 -7% · 관통/피해/넋 · 흩어지는 음표)', T == [{'n': 1}, {'d': .12}, {'c': .07}, {'pc': 1, 'd': .08, 'life': .2}, {'frag': 1}], T)
-        check('콤보 u_sing: 🎤 + 🐥 병아리 친구들(공용) · 경험치 +10% · 피해 +6%', r['sy'] and r['sy']['req'] == ['sing', 'chick'] and r['sy']['fx'] == {'xp': .1, 'dmg': .06} and r['chick'] and r['sg'] == 1 and r['uSyn'] == 18, r['sy'])
+        check('콤보 u_sing: 🎤 + 🐥 병아리 친구들(공용) · 경험치 +10% · 피해 +6%', r['sy'] and r['sy']['req'] == ['sing', 'chick'] and r['sy']['fx'] == {'xp': .1, 'dmg': .06} and r['chick'] and r['sg'] == 1 and r['uSyn'] == 19, r['sy'])
         check('U3.sing 수치표', r['u3'] == {'d': 6.6, 'db': 1.9, 'cd': 1.6, 'iv': .24, 'sp': 380, 'life': .8, 'rng': 300, 'fan': .22, 'dlt': .06, 'hit': 12, 'bsp': 280, 'blife': .9, 'bR': 44, 'btk': .45, 'm': 2, 'cr': .04, 'crm': .6, 'sl': .45, 'bsl': .9, 'reach': 280}, r['u3'])
         check('study 짝 무기: 가챠 · 4발 사격 · 노래부르기', sorted(r['bbbPair']) == ['gacha', 'jhin', 'sing'], r['bbbPair'])
 

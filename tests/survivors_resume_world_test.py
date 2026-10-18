@@ -19,7 +19,7 @@ from playwright.async_api import async_playwright
 
 DST = 'survivors_rw.html'
 KEY = 'p6_resume_v1'
-BASE_SIG = '1:4252474655:970'          # 2026-10-16 팬티도둑 추가 뒤의 저장 서명(캐릭터·무기·단계표·콤보·유물 표가 늘어 한 번 바뀐다 — 배포 순간 진행 중이던 판 1회 폐기, 배불배불 때와 같다). 그 뒤로는 표 노드를 건드리면 달라진다
+BASE_SIG = '1:2617675641:988'          # 2026-10-18 탐지견 추가 뒤의 저장 서명(캐릭터·무기·단계표·콤보·유물 표가 늘어 한 번 바뀐다 — 배포 순간 진행 중이던 판 1회 폐기, 배불배불 때와 같다). 그 뒤로는 표 노드를 건드리면 달라진다
 ONLY = None
 if '--only' in sys.argv:
     ONLY = set(sys.argv[sys.argv.index('--only') + 1].split(','))

@@ -60,7 +60,7 @@ async def main():
         check('PFX·PFXSN 표에 maul 이 있고 모든 무기가 PFX·짧은 이름을 가진다', r['pfx'] == {'cd': 'yy', 'cnt': 'nn', 'spd': 'nn', 'dur': 'nn', 'area': 'pp', 'luck': 'nn'} and r['noPfx'] == [] and r['sn'] == '찢기' and r['noSn'] == [], (r['pfx'], r['noPfx'], r['noSn']))
         check('시그니처 유물 없음(배불배불처럼) — REL 에 sg_tjg 도, ch 가 tjg 인 유물도 없다', r['relNone'])
         U = r['u3']
-        check('U3.maul 수치표(밸런스 측정으로 맞춘 값 — 바꾸면 RESULT.md 의 측정표를 다시 잴 것)', U == {'d': 60, 'cd': 1.6, 'dist': 110, 'T': .14, 'pad': 60, 'sp': .6, 'spR': 60, 'heal': 2, 'kcd': .5, 'kcap': 1.0, 'hg': {'rng': 480, 'dist': 440, 'T': .3, 't': 1.2, 'n': 6, 'p': .4, 'sm': .6, 'red': .25, 'ls': 1}}, U)
+        check('U3.maul 수치표(밸런스 측정으로 맞춘 값 — 바꾸면 RESULT.md 의 측정표를 다시 잴 것)', U == {'d': 66, 'cd': 1.6, 'dist': 110, 'T': .14, 'pad': 60, 'sp': .6, 'spR': 60, 'heal': 2, 'kcd': .5, 'kcap': 1.0, 'hg': {'rng': 480, 'dist': 440, 'T': .3, 't': 1.2, 'n': 6, 'p': .4, 'sm': .6, 'red': .25, 'ls': 1}}, U)
         check('CSX.tjg 수치(체력 50% 이하 · 때리면 0.5 · 잡으면 2.5 · 잃은 체력만큼 최대 ×3 · 초당 5 · 통 1.5초치)', r['csx'] == {'at': .5, 'hit': .5, 'kill': 2.5, 'mx': 2, 'cap': 5, 'bk': 1.5}, r['csx'])
         ds = w['ds']; U = r['u3']
         check('카드 문구가 값을 읽는다: Lv1 처치당 0.5초·최대 1.0초 · 주변 60% 위력 · Lv2 거리 +15% · Lv3 피해 +40% · Lv4 쿨 -15% · Lv5 +40% · Lv6 거리 +15% 범위 +30% · Lv7 쿨 -15% · Lv8 +50% 한 번 더 · 주변 절반 위력',
@@ -97,7 +97,7 @@ async def main():
 
         # ───────────────── D. 물어뜯기 — 피해 · 주변 휩쓸림 · 쿨 감소
         r = await ev("""const e=E[0].e;for(let i=0;i<30;i++)step(true);const d=e.mhp-e.hp;return {d,by:S.dmgBy.maul,mt:y.U3.maul.d*x.DL3(1)}""", L=1, keepHp=1, es=[{'a': 0, 'd': 40, 'f': 1, 'm': 1e6}])
-        check('물어뜯기 한 번 = U3.maul.d(34) × DL3(Lv1) 정도(통계 maul 에 잡힌다)', r['by'] > 0 and near(r['d'], r['mt'], r['mt'] * .06), r)
+        check('물어뜯기 한 번 = U3.maul.d(66) × DL3(Lv1) 정도(통계 maul 에 잡힌다)', r['by'] > 0 and near(r['d'], r['mt'], r['mt'] * .06), r)
         r = await ev("""const t=E[0].e,n1=E[1].e,n2=E[2].e;for(let i=0;i<30;i++)step(true);const d=t.mhp-t.hp;return {d,n1:(n1.mhp-n1.hp)/d,n2:n2.mhp-n2.hp}""", L=1, keepHp=1, es=[{'a': 0, 'd': 40, 'f': 1, 'm': 1e6}, {'a': 0, 'd': 70, 'f': 1, 'm': 1e6}, {'a': 0, 'd': 200, 'f': 1, 'm': 1e6}])
         check('주변 휩쓸림: 문 자리 반경 60 안의 적은 60% 위력으로 맞고 밖의 적은 안 맞는다', near(r['n1'], .6, .03) and r['n2'] == 0, r)
         r = await ev("""const e=E[0].e;e.hp=1;e.mhp=10;E[0].f=.1;const c=S.cd.maul;for(let i=0;i<20;i++)step(true);return {on:e.on,cd:S.cd.maul,kc:y.mauS().kc,kills:S.kills}""", L=1, keepHp=1, es=[{'a': 0, 'd': 40, 'f': 1}])
@@ -139,6 +139,10 @@ async def main():
         check('탐지견이 아니면(브장신) 같은 일이 있어도 회복 없음', r['dh'] == 0, r)
         r = await ev("""const e=E[0].e;S.p.hp=40;const hp0=p.hp;let tot=0;const c=y.csS();c.hb=9;for(let i=0;i<600;i++){const h=p.hp;x.keys={};S.spawnT=-1e12;e.x=p.x+300;e.y=p.y;e.hp=e.mhp*.45;x.update(1/60);}return {hpDelta:p.hp-hp0,hb:c.hb}""", es=[{'a': 0, 'd': 300, 'f': .45, 'm': 1e6, 'pin': False}], hurtMe=1)
         check('통(hb)은 cap×bk(7.5)를 넘게 모이지 않는다', r['hb'] <= 7.5001, r)
+
+        r = await ev("""S.p.hp=50;y.csS().hb=9;const e=E[0].e;y.maulBite(1,y.TK('maul'),e.sn,1,1,1);return {full:p.hp,}""", L=1, hurtMe=1, keepHp=1, es=[{'a': 0, 'd': 30, 'f': 1, 'm': 1e9}])
+        r2 = await ev("""S.p.hp=50;y.csS().hb=9;const e=E[0].e;y.maulBite(1,y.TK('maul'),e.sn,1,1,1);return {low:p.hp}""", L=1, hurtMe=1, keepHp=1, es=[{'a': 0, 'd': 30, 'f': .3, 'm': 1e9}])
+        check('물어뜯기 회복도 「적 체력 50% 이하」일 때만: 가득 찬 적 → 0 · 30% 적 → 회복(내 체력 50% 라 물기 2×2=4 + 때려서 0.5×2=1)', r['full'] == 50 and near(r2['low'], 55, .1), (r, r2))
 
         # ───────────────── F. 각성 「무한한 속박」 — 가장 센 적(보스 우선)에게 크게 도약해 붙잡고 연타
         r = await ev("""const t=E.map(q=>q.e.sn);step();const M=y.mauS();return {sn:M.sn,t,lp:M.lp,boss:E[0].e.boss?1:0}""", L=8, ev=1, es=[{'a': 0, 'd': 400, 'boss': 1, 'f': 1, 'm': 8000}, {'a': 90, 'd': 50, 'f': .1, 'm': 100}, {'a': 180, 'd': 80, 'bg': 1, 'f': 1, 'm': 500}])
