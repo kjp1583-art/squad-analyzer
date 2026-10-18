@@ -35,6 +35,8 @@ ACTIVE = [(n, '1中', '미드') for n in MID] + [(n, '1中', '서폿') for n in 
     ('선언탑#T', '2上', '미드'),        # 실제로는 미드를 뛰지만 선언 주포지션이 탑 → 2上·탑 풀
     ('탈퇴미드#T', '1中', '미드'),      # DEPARTED
     ('미드01부#T', '1中', '미드'),      # 미드01 의 부계(LINK_ACCOUNT) → 같은 사람, 후보는 한 명
+    ('부탈본#T', '1中', '미드'),        # 본계는 멀쩡하지만 부계(부탈부)가 DEPARTED → 사람 단위로 같이 제외
+    ('부탈부#T', '1中', '미드'),
 ]
 GHOST = ('유령미드#T', '1中', '미드')                      # 마지막 기록이 100일 전
 NEWB = ('신입미드#T', '1中', '미드')                       # 4판
@@ -67,8 +69,8 @@ def build_xlsx(path):
         game(g % 20, base)
     tiers = [[n.split('#')[0], t] for n, t, _ in ACTIVE + [GHOST, NEWB]]
     for name, rows in (('CLAN_TIERS', [['닉네임', '티어']] + tiers),
-                       ('LINK_ACCOUNT', [['본계정', '부계정 롤닉 (#태그 있어도 됨)', '메모 (선택)'], ['미드01#T', '미드01부#T', '']]),
-                       ('DEPARTED', [['닉네임', '갱신시각'], ['탈퇴미드', '2026-10-17 09:00']]),
+                       ('LINK_ACCOUNT', [['본계정', '부계정 롤닉 (#태그 있어도 됨)', '메모 (선택)'], ['미드01#T', '미드01부#T', ''], ['부탈본#T', '부탈부#T', '']]),
+                       ('DEPARTED', [['닉네임', '갱신시각'], ['탈퇴미드', '2026-10-17 09:00'], ['부탈부', '2026-10-17 09:00']]),
                        ('CLAN_POSITIONS', [['닉네임', '주포지션', '부포지션'], ['선언탑', '탑', '']])):
         w = wb.create_sheet(name)
         for r in rows: w.append(r)
@@ -336,7 +338,7 @@ MUTANTS = [
     ('탈퇴자 제외 빼기', "if(pe.keys.some(k=>isDeparted(k))) continue;", ""),
     ('유령 제외 빼기', "if(lastGameDate(rows)<gcut) continue;", ""),
     ('10판 미만 제외 빼기', "if(w+l<TIER_MIN_GAMES) continue;", ""),
-    ('LINK 사람 단위 합치기 빼기', 'if(g&&g.length) k="g:"+g[0];', ""),
+    ('LINK 그룹 탈퇴 대조 빼기', "if([...gset].some(m=>DEPARTED_SET.has(m))) continue;", ""),
     ('내 자신 제외 빼기', "if(me&&(c.keys.has(me))) continue;", ""),
     ('승자를 항상 왼쪽으로 보냄', "idealSend(R.pool,a.vname,b.vname,win.vname);", "idealSend(R.pool,a.vname,b.vname,a.vname);"),
     ('승률 오름차순', "b.wr-a.wr||b.n-a.n||(a.c.name<b.c.name?-1:1));\n  const few", "a.wr-b.wr||b.n-a.n||(a.c.name<b.c.name?-1:1));\n  const few"),
