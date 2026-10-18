@@ -368,6 +368,7 @@ function resetMetrics() {
     series: { k: [], lv: [], hp: [] }, cp: {}, lv5: null, lv10: null, minHp: 1, minHpT: 0, bosses: [], bossRefs: [], nextMin: 1,
     steps: 0, ended: null, endT: null, nextTrace: 0,
   });
+  if (XX.pk) for (const k in XX.pk) XX.pk[k] = 0;
   const D = XX.dmg; D.taken = 0; D.hits = 0; D.t5 = 0; D.by = {}; D.n = {}; D.log = []; D.logOn = !!(CFG && CFG.trace); M.trace = [];
 }
 function snap() { const S = X.S; return { t: R2(S.t), k: S.kills, lv: S.lv, hp: R2(hpRatio()) }; }
@@ -426,6 +427,8 @@ function finalRow() {
     t_lv5: M.lv5, t_lv10: M.lv10,
     weapons, ps: Object.assign({}, S.ps), rel: Object.assign({}, S.rel), tr: Object.assign({}, S.tr), sm: Object.assign({}, S.sm), syn: S.synOn.slice(), pt: Object.assign({}, S.pt),
     rc: XX.rc ? Object.assign({}, XX.rc) : undefined,
+    d_study: Math.round(S.dmgBy.study || 0),
+    pk: XX.pk ? Object.assign({}, XX.pk) : undefined,
     rev_used: S.revUsed > 0, evolved: Object.keys(S.ev),
     dealt: Math.round(dealt), sig_share: dealt > 0 ? R2(sigDealt / dealt) : null, dmg_by: dmgBy,
     bosses: M.bossRefs.map(r => ({ k: r.key, t0: r.t0, t1: r.t1, fate: r.fate || (r.done ? 'gone' : 'alive'), hpf: R2(r.hpf), mhp: r.mhp })),
