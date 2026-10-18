@@ -327,6 +327,10 @@ def cmd_run(a):
             base += ['--param', kv]
         for kv in a.rel:
             base += ['--rel', kv]
+        if getattr(a, 'lin', ''):
+            base += ['--lin', a.lin]
+        if getattr(a, 'linoff', False):
+            base.append('--linoff')
         ps = [subprocess.Popen(base + ['--wid', str(i)], cwd=ROOT) for i in range(a.procs)]
         rc = [p.wait() for p in ps]
         n = len(load_rows(a.out))

@@ -17,7 +17,7 @@ import survivors_charbal_sim as C
 LINS = ['bar', 'aoe', 'zone', 'mel', 'one']
 LNAME = {'bar': '🔫탄막', 'aoe': '💥광역', 'zone': '🧱설치', 'mel': '⚔근접', 'one': '🎯단일', 'free': '자유'}
 CHARS = 'brj,eom,ssu,ddmj,sr'
-KEYS = ['surv', 'k5', 'k10', 'k15', 'lv10', 't_lv10', 'dmg5', 'min_hp', 'dealt']   # 보는 지표(survivors_charbal_sim.METRICS 키)
+KEYS = ['surv', 'k5', 'k10', 'lv10', 't_lv10', 'dmg5', 'min_hp', 'dealt']   # 보는 지표(survivors_charbal_sim.METRICS 키)
 
 
 def conds():
@@ -42,7 +42,7 @@ def cmd_run(a):
         d = os.path.join(a.out, cname(l, on))
         os.makedirs(d, exist_ok=True)
         cmd = ['nice', '-n', '10', sys.executable, os.path.join(HERE, 'survivors_charbal_sim.py'), 'run', '--out', d, '--chars', a.chars, '--seeds', a.seeds,
-               '--procs', str(a.procs), '--html', a.html, '--quiet']
+               '--procs', str(a.procs), '--html', a.html, '--cap', str(a.cap), '--quiet']
         if l != 'free':
             cmd += ['--lin', l]
         if not on:
@@ -119,6 +119,7 @@ def main():
     r.add_argument('--out', required=True)
     r.add_argument('--mode', default='h', help='n|h|v (일반·하드·베리하드). 기본 h')
     r.add_argument('--seeds', default='1-8')
+    r.add_argument('--cap', type=float, default=600, help='판 상한(초). 기본 600 = 10분(k15 는 없다)')
     r.add_argument('--procs', type=int, default=2)
     r.add_argument('--chars', default=CHARS)
     r.add_argument('--html', default='survivors.html')
