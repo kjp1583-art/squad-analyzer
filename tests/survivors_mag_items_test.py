@@ -90,6 +90,8 @@ window.__mt={
     // 초월 1단계는 20초 끌어오기가 없다
     const S4=scene({ps:{mag:5},pt:{mag:1},magT:0});const f4=put(S4,'chicken',T.W/2/T.SC-60,0);const fx4=f4.x;X.mapTick(DT);o.pt1={magT:S4.magT,moved:f4.x!==fx4};
     o.mag1={pt0:(()=>{const a=scene({ps:{mag:5}});const m0=T.magMul();const b=scene({ps:{mag:5},pt:{mag:1}});return +(T.magMul()-m0).toFixed(3);})()};
+    {const S5=scene({ps:{mag:5},pt:{mag:2},magT:0});S5.spawnT=-1e12;const g5=T.gems.get();g5.x=S5.p.x+400;g5.y=S5.p.y;g5.v=1;g5.mag=0;const gx=g5.x;   // 진짜 update 로 — 범위(약 203) 밖 보석은 초월 20초 창에도 그대로
+      for(let i=0;i<12;i++){S5.p.hp=S5.p.mhp;X.update(DT);}o.gemUpd={mag:!!g5.mag,moved:g5.x!==gx,magT:+S5.magT.toFixed(2)};}
     return o;},
   E(){const o={};{const S=scene({ps:{mag:5}});S.p.hp=S.p.mhp=1000;for(const q of X.enemies.a)q.on=false;const p=S.p,mg=T.magMul(),R=p.r+14+T.MAGV.K*70*(mg-1);
       const bomb=put(S,'bomb',R-4,0);const n0=X.enemies.a.filter(e=>e.on).length;let f=0;while(bomb.on&&f<300){X.mapTick(DT);f++;}
@@ -175,7 +177,7 @@ async def run_suite(src, tag=''):
                 t = D['trigger']
                 ok(t['magT'] > 19 and t['inMoved'] and t['bmMoved'] and t['magMoved'], 'D 초월 2단계: 20초 시계가 돌고 화면 안 치킨·폭탄·다이아가 끌려온다 (%s)' % t)
                 ok(not t['farMoved'] and D['farStill'], 'D 화면 밖 아이템은 안 끌려온다')
-                ok(not D['gemPulled'], 'D 경험치 보석은 더 이상 통째로 끌어오지 않는다(범위 밖 보석 그대로)')
+                ok(not D['gemPulled'] and not D['gemUpd']['mag'] and not D['gemUpd']['moved'] and D['gemUpd']['magT'] > 17, 'D 경험치 보석은 더 이상 통째로 끌어오지 않는다(범위 밖 보석 그대로 · 실제 update 로도) %s' % D['gemUpd'])
                 ok(D['pickedAll'] and sorted(set(D['picks'])) == ['bomb', 'chicken', 'magnet'], 'D 끌려온 아이템은 결국 전부 주워진다 (%d프레임 · %s)' % (D['frames'], D['picks']))
                 ok(not D['lateMoved'] and D['magT2'] < 20 - M['tpT'], 'D 창(%s초)이 닫힌 뒤에는 범위 밖 아이템이 안 끌려온다 (시계 %s)' % (M['tpT'], D['magT2']))
                 ok(D['again']['reset'] and D['again']['moved'], 'D 20초가 지나면 다시 열린다 %s' % D['again'])
@@ -244,7 +246,7 @@ MUT = [
     ('반경 식 K 무시', "const ex=mg>1?MAGV.K*70*(mg-1):0,", "const ex=mg>1?70*(mg-1):0,"),
     ('항상 끌려옴(배율 1 에서도)', "const ex=mg>1?MAGV.K*70*(mg-1):0,", "const ex=mg>=1?MAGV.K*70*(mg-1)+40:0,"),
     ('초월 창 항상 열림', "pa=PTV('mag')>=2&&S.magT>20-MAGV.tpT", "pa=PTV('mag')>=2"),
-    ('초월 1단계도 20초', "pa=PTV('mag')>=2&&S.magT>20-MAGV.tpT", "pa=PTV('mag')>=1&&S.magT>20-MAGV.tpT"),
+    ('초월 1단계도 20초', ("pa0=S.magT<=0&&PTV('mag')>=2;", "pa=PTV('mag')>=2&&S.magT>20-MAGV.tpT"), ("pa0=S.magT<=0&&PTV('mag')>=1;", "pa=PTV('mag')>=1&&S.magT>20-MAGV.tpT")),
     ('화면 밖도 끌어옴', "(pa&&Math.abs(dx)<phw&&Math.abs(dy)<phh)", "(pa)"),
     ('보석 통째 끌어오기 부활', "if(d2<mag)g.mag=1;", "if(d2<mag||(S.magT>20-MAGV.tpT&&PTV('mag')>=2))g.mag=1;"),
     ('끌림 속도 2배', "st=Math.min(MAGV.spd*dt,d);", "st=Math.min(MAGV.spd*dt*2,d);"),
@@ -262,10 +264,14 @@ async def main():
     s = open(os.path.join(H.ROOT, SRC), encoding='utf-8').read()
     miss = []
     for i, (nm, a, c) in enumerate(MUT):
-        if s.count(a) != 1:
-            print('변이 %s: 원본에서 줄을 못 찾음(%d)' % (nm, s.count(a))); miss.append(nm); continue
+        pairs = list(zip(a, c)) if isinstance(a, tuple) else [(a, c)]
+        bad = [x for x, _ in pairs if s.count(x) != 1]
+        if bad:
+            print('변이 %s: 원본에서 줄을 못 찾음(%s)' % (nm, bad[0][:40])); miss.append(nm); continue
         dst = 'survivors_msm_%d.html' % i
-        open(os.path.join(H.ROOT, dst), 'w', encoding='utf-8').write(s.replace(a, c))
+        t = s
+        for x, y in pairs: t = t.replace(x, y)
+        open(os.path.join(H.ROOT, dst), 'w', encoding='utf-8').write(t)
         try:
             f = await run_suite(dst, 'm%d' % i)
         finally:

@@ -90,7 +90,8 @@ window.__xt={
     X.state='title';const okr=T.RES.restore(b.text);const S2=X.S;o.restored=okr;o.lw=S2&&S2.x3.lw?{...S2.x3.lw}:null;o.sig1=T.RES.SIG;o.ps=S2&&S2.ps.study;
     // 옛 저장본(lw 없음): 지운 채로 저장 → 복구 → 판이 계속 돈다
     const S3=scene({ps:{study:5},lv:12});delete S3.x3.lw;const b3=T.RES.build();o.oldBuilt=!!b3.text;X.state='title';o.oldRestored=T.RES.restore(b3.text);
-    const S4=X.S;o.oldHasLw=!!(S4&&S4.x3.lw);let err='';try{if(S4){X.state='play';for(let i=0;i<30;i++)X.update(1/30);T.studyLv();T.studyFlush();T.studyTick(1);}}catch(e){err=String(e);}o.oldErr=err;o.oldLwAfter=!!(S4&&S4.x3.lw);
+    const S4=X.S;o.oldHasLw=!!(S4&&S4.x3.lw);if(S4)delete S4.x3.lw;   // 복구가 기본값을 채워 줘도 「lw 가 아예 없는 판」으로 되돌려 방어 코드를 직접 밟는다
+    let err='';try{if(S4){X.state='play';for(let i=0;i<30;i++)X.update(1/30);T.studyLv();T.studyFlush();T.studyTick(1);}}catch(e){err=String(e);}o.oldErr=err;o.oldLwAfter=!!(S4&&S4.x3.lw);
     return o;},
   H(){const S=scene({ps:{study:5},lv:5,need:6});Math.random=mb(99);const w=S.x3.lw;const e=[];for(let i=0;i<10;i++){const q=foe(S,40+i*12,{});q.hp=q.mhp=1e12;e.push(q);}
     for(let i=0;i<40;i++){const g=X.gems.get();if(g){g.x=S.p.x+5+i;g.y=S.p.y;g.v=3;g.mag=1;}}
@@ -120,7 +121,7 @@ async def run_suite(src, tag=''):
         print(('  ok   ' if c else '  FAIL ') + msg, flush=True)
         if not c:
             fails.append(msg)
-    def want(s): return ONLY is None or s in ONLY
+    def want(s): return (ONLY is None and not (MUTANTS and s == 'I')) or (ONLY is not None and s in ONLY)   # 변이 점검은 느린 I(장비 전 종목)를 건너뛴다
     try:
         async with async_playwright() as pw:
             b = await H.launch(pw)
