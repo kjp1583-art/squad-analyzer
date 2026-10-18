@@ -1207,7 +1207,7 @@ const pct=x=>Math.round(x*100);
 //   획득 범위: 치킨·다이아·폭탄은 「몸이 닿는 거리(p.r+14) + K×70×(magMul−1)」 안에서 spd 속도로 끌려온다(magMul=1 이면 옛 동작과 같다 · 상자 제외). 초월 2단계는 tpT 초 동안 화면의 그 셋을 끌어온다.
 const STUDYV={xp:.08,R:[96,132],d0:10,dLv:1.4,cap:50,boss:.5,kb:40,buffT:3,buffD:.08,buffC:.05,w2dt:.35,heal:.02,xcP:.08,xcCd:30,maxW:3};
 STUDYV.st=['레벨업 때 내 주변에 「지혜의 파동」이 터져 적에게 피해를 주고 살짝 밀쳐요',`파동이 더 넓어지고, 파동 피해가 내 레벨에 비례해 세져요 (보스에게는 ${pct(STUDYV.boss)}%)`,`레벨업 후 ${STUDYV.buffT}초 동안 모든 피해 +${pct(STUDYV.buffD)}% · 공격속도 +${pct(STUDYV.buffC)}% (「깨달음」 — 겹치지 않고 갱신만)`,`레벨업 때 파동이 한 번 더 터지고 HP ${pct(STUDYV.heal)}%를 회복해요`,`레벨업할 때 ${pct(STUDYV.xcP)}% 확률로 카드를 한 장 더 골라요 (${STUDYV.xcCd}초에 한 번)`];
-const MAGV={K:.3,spd:420,tpT:2.5};
+const MAGV={K:.3,spd:420,tpT:2.5,chk:.7};   // chk: 치킨은 HP가 이 비율 이하일 때만 끌려온다(가득 찬 채 낭비되지 않게 · 필요할 때 챙겨 주는 쪽으로)
 const PASS={
   spd:{ic:'👟',nm:'이동속도',ds:'이동속도 +8%'},
   hp:{ic:'❤️',nm:'최대 HP',ds:'최대 HP +25 (그만큼 회복)'},
@@ -1898,7 +1898,7 @@ function mapTick(dt){
   const mg=magMul(),pa0=S.magT<=0&&PTV('mag')>=2;if(pa0)S.magT=20;   // 초월 2단계: 20초마다 tpT 초 동안 화면의 치킨·폭탄·다이아를 끌어온다
   const ex=mg>1?MAGV.K*70*(mg-1):0,pa=PTV('mag')>=2&&S.magT>20-MAGV.tpT,phw=W/2/SC+40,phh=H/2/SC+40;
   for(const it of items.a){if(!it.on)continue;it.life-=dt;it.t+=dt;if(it.life<=0){it.on=false;continue;}
-    if((ex>0||pa)&&it.k!=='chest'){const dx=p.x-it.x,dy=p.y-it.y,d2=dx*dx+dy*dy;
+    if((ex>0||pa)&&it.k!=='chest'&&(it.k!=='chicken'||p.hp<=p.mhp*MAGV.chk)){const dx=p.x-it.x,dy=p.y-it.y,d2=dx*dx+dy*dy;
       if((ex>0&&d2<(p.r+14+ex)**2)||(pa&&Math.abs(dx)<phw&&Math.abs(dy)<phh)){const d=Math.sqrt(d2)||1,st=Math.min(MAGV.spd*dt,d);it.x+=dx/d*st;it.y+=dy/d*st;}}
     if((it.x-p.x)**2+(it.y-p.y)**2<(p.r+14)**2){it.on=false;usePick(it.k);if(state!=='play')break;}}   // 🎁 상자가 열렸으면 나머지는 다음 프레임에(상자 두 개가 한 화면에 섞이지 않게)
   if(toastT>0&&!SPD.sub){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on');}
