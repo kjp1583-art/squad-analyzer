@@ -468,7 +468,7 @@ function init(cfg) {
   if (CFG.preset) { Object.assign(S.ps, CFG.preset.ps || {}); Object.assign(S.pt, CFG.preset.pt || {}); if (X.synCalc) X.synCalc(); }   // 패시브 고정 빌드(같은 칸 비교용)
   if (CFG.linoff && XX.LINCFG) { XX.LINCFG.on = 0; X.synCalc(); }   // 🧬 계열 보너스 끄기(전/후 비교의 「전」)
   if (CFG.lin && XX.LINEAGE) {                                      // 🧬 계열 대표 빌드: 그 계열 밖 무기는 카드 풀에서 빼고(내 시작 무기는 그대로), 무기 칸이 찰 때까지 새 무기를 먼저 고른다
-    S.banned = Object.keys(X.WEAP).filter(w => w !== X.CH.w && !XX.LINEAGE[w].includes(CFG.lin));
+    S.banned = Object.keys(X.WEAP).filter(w => w !== X.CH.w && !(XX.LINEAGE[w] || []).includes(CFG.lin));
     CARD.NEW_FIRST_N = XX.SLOTW;
   }
   if (CFG.policy === 'sigonly') {                                   // 시작 무기 말고 다른 무기는 카드 풀에서 뺀다(게임의 봉인 장치 사용)

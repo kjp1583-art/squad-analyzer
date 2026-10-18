@@ -56,7 +56,7 @@ async def sec1(pg, errs):
     # 1-d. areaMul 과 weapons() AR 이 같은 값 — 용조련사 불꽃 오라(areaMul 사용)와 초밥(AR)이 같은 배수로 움직인다
     r = await pg.evaluate("""()=>{const x=__p6x;x.CH_set('brj');x.start();const S=x.S;S.w={sushi:1,shrimp:1,egg:1,ping:1};S.ps={area:1};x.synCalc();
       S.p.hp=S.p.mhp=1e9;x.keys={};x.update(1/30);const u=S.sushi[0];const R1=Math.hypot(u.x-S.p.x,u.y-S.p.y);
-      const S0=S.w;S.w={sushi:1};S.ps={};S.syn={dmg:0,cd:0,area:0,xp:0,luck:0};x.update(1/30);const v=S.sushi[0];const R0=Math.hypot(v.x-S.p.x,v.y-S.p.y);
+      const S0=S.w;S.w={sushi:1};S.ps={};S.syn={dmg:0,cd:0,area:0,xp:0,luck:0,pspd:0,amt:0,dur:0,crit:0,crm:0,tk:0,mv:0};x.update(1/30);const v=S.sushi[0];const R0=Math.hypot(v.x-S.p.x,v.y-S.p.y);
       return {ratio:R1/R0,am:(1+.1+.22)}}""")
     check('초밥 고리 배수 = 1 + 광역 Lv1(0.1) + 시너지(0.22)', abs(r['ratio'] - r['am']) < 1e-3, r)
     # 1-e. 오늘의 도전: 시너지 범위가 켜져도 카드 제안 난수열은 같다(offers 는 S.syn.area 를 읽지 않고 RN('card') 호출 횟수도 같다)

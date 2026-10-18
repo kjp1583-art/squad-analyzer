@@ -212,7 +212,7 @@ async def main():
               const a={lt:JSON.stringify(S.syn.lt),ps:L.PS(),amt:S.syn.amt,cc:L.critChance()};
               L.pauseGame();const text=localStorage.getItem(L.RES.KEY);
               if(!text)return {err:'no-save'};
-              S.syn={dmg:0,cd:0,area:0,xp:0,luck:0};__L.state='title';const ok=L.RES.restore(text);
+              S.syn={dmg:0,cd:0,area:0,xp:0,luck:0,pspd:0,amt:0,dur:0,crit:0,crm:0,tk:0,mv:0};__L.state='title';const ok=L.RES.restore(text);
               const S2=__L.S;const b={lt:JSON.stringify(S2.syn.lt),ps:L.PS(),amt:S2.syn.amt,cc:L.critChance(),ok};return {a,b};}""")
             check('사1 저장 → 복구 뒤에도 계열 단계·식 값이 같다', 'err' not in r and r['b']['ok'] and r['a'] == {k: v for k, v in r['b'].items() if k != 'ok'}, r)
         # ── 아 ──

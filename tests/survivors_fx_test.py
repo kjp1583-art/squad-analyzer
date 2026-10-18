@@ -295,7 +295,7 @@ async def main():
             if want('나'):
                 print('── 나 숫자 묶기(설명문의 숫자 = 게임이 쓰는 값) ──')
                 r = await pg.evaluate("""()=>{const x=window.__p6x,F=window.__F;x.CH_set('brj');x.newRun();const S=x.S;S.state='play';const o={};
-                  const set=(ps,pt,tr,syn)=>{S.ps=Object.assign({},ps||{});S.pt=Object.assign({},pt||{});S.tr=Object.assign({},tr||{});S.syn={dmg:0,cd:0,area:0,xp:0,luck:0};if(syn)Object.assign(S.syn,syn);S.p.moving=false;};
+                  const set=(ps,pt,tr,syn)=>{S.ps=Object.assign({},ps||{});S.pt=Object.assign({},pt||{});S.tr=Object.assign({},tr||{});S.syn={dmg:0,cd:0,area:0,xp:0,luck:0,pspd:0,amt:0,dur:0,crit:0,crm:0,tk:0,mv:0};if(syn)Object.assign(S.syn,syn);S.p.moving=false;};
                   set();o.cd0=F.cdMul();o.ar0=F.areaMul();o.ps0=F.PS();o.du0=F.DUR();o.cc0=F.critChance();o.cm0=F.critMul();
                   set({cd:1});o.cd1=F.cdMul();set({area:1});o.ar1=F.areaMul();set({pspd:1});o.ps1=F.PS();set({dur:1});o.du1=F.DUR();set({crit:1});o.cc_c=F.critChance();o.cm_c=F.critMul();
                   set({crit:5});o.cm_c5=F.critMul();set({luck:1});o.cc_l=F.critChance();set({might:1});o.dm1=F.dmgMul();set({glass:1});o.dm_g=F.dmgMul();

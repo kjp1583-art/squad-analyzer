@@ -275,12 +275,12 @@ async def main():
         prog = await pg.evaluate("document.querySelector('.cxprog').textContent")
         check('처음 상태: 진행 「0 / 130」', '0 / 130' in prog and '0%' in prog, prog)
         tabs0 = await tabs(pg)
-        check('처음 상태: 탭 5개 · 무기 0/41 · 패시브 0/17 · 유물 0/23 · 기타 0/16 · 시너지 0/33', [(t['t'], t['c']) for t in tabs0] == [('w', '0/41'), ('p', '0/17'), ('r', '0/23'), ('x', '0/16'), ('s', '0/33')], tabs0)
+        check('처음 상태: 탭 5개 · 무기 0/41 · 패시브 0/17 · 유물 0/23 · 기타 0/16 · 시너지 0/36', [(t['t'], t['c']) for t in tabs0] == [('w', '0/41'), ('p', '0/17'), ('r', '0/23'), ('x', '0/16'), ('s', '0/33')], tabs0)
         check('탭은 role=tablist/tab · 선택된 탭만 tabindex 0(로빙)', await pg.evaluate("(()=>{const tl=document.querySelector('[role=tablist]'),t=[...tl.querySelectorAll('[role=tab]')];return t.length===5&&t.filter(x=>x.getAttribute('aria-selected')==='true').length===1&&t.filter(x=>x.tabIndex===0).length===1&&!!document.querySelector('[role=tabpanel]')})()"))
         for t in 'wprxs':
             await pg.click('#cxTab_' + t)
             r = await pg.evaluate("({n:document.querySelectorAll('#cxPanel .cxt').length,l:document.querySelectorAll('#cxPanel .cxt.lock').length,q:[...document.querySelectorAll('#cxPanel .cxt')].every(e=>e.textContent.replace(/\\s/g,'')==='❓???')})")
-            exp = {'w': 41, 'p': 17, 'r': 23, 'x': 16, 's': 33}[t]
+            exp = {'w': 41, 'p': 17, 'r': 23, 'x': 16, 's': 36}[t]
             check('처음 상태 [%s 탭]: 칸 %d개 전부 잠김(❓ + ???)' % (t, exp), r['n'] == exp and r['l'] == exp and r['q'], r)
         names_all = [s for s in flat(ent) if re.search(r'[가-힣]', s)]   # 이름·설명 문구(숫자만인 값은 뺀다)
         blob = await pg.evaluate(DOM_TEXT)
@@ -309,7 +309,7 @@ async def main():
         check('저장된 발견으로 시작: 진행 %d/130 · 배지 같은 숫자' % len(tile_d), st['n'] == len(tile_d) and await pg.evaluate("document.getElementById('cxN').textContent") == '%d/130' % len(tile_d), st)
         await open_dex(pg)
         tabs1 = await tabs(pg)
-        exp_tabs = [('w', '%d/41' % by.get('w', 0)), ('p', '%d/17' % by.get('p', 0)), ('r', '%d/23' % by.get('r', 0)), ('x', '%d/16' % by.get('x', 0)), ('s', '%d/33' % by.get('s', 0))]
+        exp_tabs = [('w', '%d/41' % by.get('w', 0)), ('p', '%d/17' % by.get('p', 0)), ('r', '%d/23' % by.get('r', 0)), ('x', '%d/16' % by.get('x', 0)), ('s', '%d/36' % by.get('s', 0))]
         check('탭별 발견 N/M 이 정확하다 %s' % exp_tabs, [(t['t'], t['c']) for t in tabs1] == exp_tabs, tabs1)
         check('진행 줄·막대 숫자가 칸 수와 같다', await pg.evaluate("(()=>{const p=document.querySelector('.cxprog b').textContent,b=document.querySelector('.cxbar');return p==='%d / 130'&&b.getAttribute('aria-valuenow')==='%d'&&b.getAttribute('aria-valuemax')==='130'})()" % (len(tile_d), len(tile_d))))
         idx = {e['key']: e for e in ent}
@@ -442,7 +442,7 @@ async def main():
         st = await stat(pg)
         check('전부 발견 상태: 130/130 · 배지', st['n'] == 130 and st['m'] == 130 and await pg.evaluate("document.getElementById('cxN').textContent") == '130/130', st)
         await open_dex(pg)
-        check('전부 발견: 탭 합계가 칸 수와 같다 · 100%', [t['c'] for t in await tabs(pg)] == ['41/41', '17/17', '23/23', '16/16', '33/33'] and '100%' in await pg.evaluate("document.querySelector('.cxprog').textContent"))
+        check('전부 발견: 탭 합계가 칸 수와 같다 · 100%', [t['c'] for t in await tabs(pg)] == ['41/41', '17/17', '23/23', '16/16', '36/36'] and '100%' in await pg.evaluate("document.querySelector('.cxprog').textContent"))
         # 모든 상세가 열린다(오류 없이) · 문구가 표와 같다 — 칸 130개 전부
         r = await pg.evaluate("""async ()=>{const out=[];const E=__cx.cdxEntries();let n=0;
           for(const t of ['w','p','r','x','s']){document.getElementById('cxTab_'+t).click();const tiles=[...document.querySelectorAll('#cxPanel .cxt')];
