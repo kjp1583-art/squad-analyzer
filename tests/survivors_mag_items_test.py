@@ -43,7 +43,7 @@ const X=window.__p6x,T=window.__ms;
 const mb=a=>()=>{a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};
 function scene(o){o=o||{};Math.random=mb(o.seed||5);X.CH_set(o.ch||'brj');X.start();const S=X.S;
   S.ps=Object.assign({},o.ps||{});S.pt=Object.assign({},o.pt||{});S.t=90;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.propT=S.chickT=1e12;S.spawnT=-1e12;S.need=1e12;S.xp=0;S.pendingLv=0;
-  S.p.hp=S.p.mhp=1000;S.p.inv=0;S.magT=o.magT===undefined?5:o.magT;for(const q of X.enemies.a)q.on=false;X.props.clear();for(const g of X.gems.a)g.on=false;for(const it of X.items.a)it.on=false;T.resetP();return S;}
+  S.p.mhp=1000;S.p.hp=500;S.p.inv=0;/* HP 50% — 치킨은 HP 가 낮을 때만 끌려온다 */S.magT=o.magT===undefined?5:o.magT;for(const q of X.enemies.a)q.on=false;X.props.clear();for(const g of X.gems.a)g.on=false;for(const it of X.items.a)it.on=false;T.resetP();return S;}
 function put(S,k,dx,dy){T.dropItem(k,S.p.x+dx,S.p.y+(dy||0));const it=X.items.a.filter(o=>o.on).pop();it.life=1e6;return it;}
 const DT=1/30;
 function steps(S,n){for(let i=0;i<n;i++)X.mapTick(DT);}
@@ -79,7 +79,7 @@ window.__mt={
     const x0=inS.x,fx=far.x,by=bm.y,mx=mag.x;X.mapTick(DT);o.trigger={magT:+S.magT.toFixed(3),inMoved:inS.x!==x0,bmMoved:bm.y!==by,magMoved:mag.x!==mx,farMoved:far.x!==fx};
     o.gemPulled=!!g.mag;
     // 창(2.5초)이 열려 있는 동안은 계속 끌려와 결국 주워진다
-    let f=0;while((inS.on||bm.on||mag.on)&&f<200){X.mapTick(DT);S.p.hp=S.p.mhp;f++;}
+    let f=0;while((inS.on||bm.on||mag.on)&&f<200){X.mapTick(DT);f++;}
     o.pickedAll=!inS.on&&!bm.on&&!mag.on;o.frames=f;o.farStill=far.x===fx&&far.on;o.picks=T.picks.slice();
     // 창이 닫힌 뒤(2.5초 이후)에 새로 놓은 아이템은 다음 20초 전까지 안 끌려온다
     const S2=scene({ps:{mag:1},pt:{mag:2},magT:0});const hw2=T.W/2/T.SC+40;X.mapTick(DT);for(let i=0;i<Math.ceil(T.MAGV.tpT/DT)+3;i++){S2.magT-=DT;X.mapTick(DT);}
@@ -107,6 +107,9 @@ window.__mt={
       const k=Math.floor(S.t/2.5)%4;X.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];X.update(1/30);
       if(i%150===0)out.push([+S.t.toFixed(2),S.kills,S.lv,+S.p.hp.toFixed(3),+S.p.x.toFixed(2),+S.p.y.toFixed(2),X.items.a.filter(o=>o.on).length,X.gems.a.filter(o=>o.on).length,T.picks.length]);}
     return {out,end:[S.kills,S.lv,S.t,S.p.hp,S.p.x,S.p.y],mg:T.magMul(),ps:S.ps,pt:S.pt};},
+  J(){const o={};const V=T.MAGV;for(const [nm,hpf] of [['full',1],['edgeLow',V.chk],['low',.3],['justAbove',V.chk+.02]]){const S=scene({ps:{mag:5}});S.p.mhp=1000;S.p.hp=Math.round(1000*hpf);const p=S.p,mg=T.magMul(),R=p.r+14+V.K*70*(mg-1);
+      const c=put(S,'chicken',R-4,0),b=put(S,'bomb',-(R-4),0);const cx=c.x,bx=b.x;X.mapTick(DT);o[nm]={chickenMoved:c.x!==cx||!c.on,bombMoved:b.x!==bx||!b.on,hp:S.p.hp};}
+    o.chk=V.chk;return o;},
   H(){return {mag:T.PASS.mag.ds,pt:T.PT.mag,K:T.MAGV.K,spd:T.MAGV.spd,tpT:T.MAGV.tpT};},
   I(chars,Ls,pts){const o={n:0,bad:[]};for(const ch of chars)for(const L of Ls)for(const pt of pts){
       const S=scene({ch,ps:{mag:L},pt:pt?{mag:pt}:{},lv:20,seed:3,magT:0});S.p.hp=S.p.mhp=300;
@@ -192,6 +195,11 @@ async def run_suite(src, tag=''):
                 F = await ev('__mt.F()')
                 print('F', json.dumps(F), flush=True)
                 ok(F['kyo']['mg'] > 1 and F['kyo']['moved'] and (F['brj']['mg'] == 1 and not F['brj']['moved']), 'F 김야옹(고유 줍기 +50%%)은 패시브 없이도 아이템이 끌려온다 · 브장신은 안 끌린다 %s' % F)
+            if want('J'):
+                J = await ev('__mt.J()')
+                print('J', json.dumps(J), flush=True)
+                ok(not J['full']['chickenMoved'] and J['full']['bombMoved'], 'J HP 가득이면 치킨은 안 끌려오고(낭비 방지) 폭탄은 끌려온다 %s' % J['full'])
+                ok(J['edgeLow']['chickenMoved'] and J['low']['chickenMoved'] and not J['justAbove']['chickenMoved'], 'J HP %d%% 이하부터 치킨이 끌려온다 (경계 %s · 낮음 %s · 바로 위 %s)' % (J['chk'] * 100, J['edgeLow']['chickenMoved'], J['low']['chickenMoved'], J['justAbove']['chickenMoved']))
             if want('H'):
                 Hh = await ev('__mt.H()')
                 print('H', json.dumps(Hh, ensure_ascii=False), flush=True)
@@ -242,7 +250,7 @@ async def run_suite(src, tag=''):
 
 
 MUT = [
-    ('상자도 끌려옴', "if((ex>0||pa)&&it.k!=='chest'){", "if((ex>0||pa)){"),
+    ('상자도 끌려옴', "&&it.k!=='chest'&&(it.k!=='chicken'", "&&(it.k!=='chicken'"),
     ('반경 식 K 무시', "const ex=mg>1?MAGV.K*70*(mg-1):0,", "const ex=mg>1?70*(mg-1):0,"),
     ('항상 끌려옴(배율 1 에서도)', "const ex=mg>1?MAGV.K*70*(mg-1):0,", "const ex=mg>=1?MAGV.K*70*(mg-1)+40:0,"),
     ('초월 창 항상 열림', "pa=PTV('mag')>=2&&S.magT>20-MAGV.tpT", "pa=PTV('mag')>=2"),
@@ -251,7 +259,8 @@ MUT = [
     ('보석 통째 끌어오기 부활', "if(d2<mag)g.mag=1;", "if(d2<mag||(S.magT>20-MAGV.tpT&&PTV('mag')>=2))g.mag=1;"),
     ('끌림 속도 2배', "st=Math.min(MAGV.spd*dt,d);", "st=Math.min(MAGV.spd*dt*2,d);"),
     ('20초 시계 안 돌림', "const mg=magMul(),pa0=S.magT<=0&&PTV('mag')>=2;if(pa0)S.magT=20;", "const mg=magMul(),pa0=false;"),
-    ('치킨만(폭탄 제외)', "if((ex>0||pa)&&it.k!=='chest'){", "if((ex>0||pa)&&it.k!=='chest'&&it.k!=='bomb'){"),
+    ('치킨만(폭탄 제외)', "&&it.k!=='chest'&&(it.k!=='chicken'", "&&it.k!=='chest'&&it.k!=='bomb'&&(it.k!=='chicken'"),
+    ('치킨 HP 조건 제거', "&&(it.k!=='chicken'||p.hp<=p.mhp*MAGV.chk)", ""),
     ('캐릭터 보너스 무시', "const mg=magMul(),pa0", "const mg=1+.3*pv('mag')+.4*(PTV('mag')?1:0),pa0"),
 ]
 
