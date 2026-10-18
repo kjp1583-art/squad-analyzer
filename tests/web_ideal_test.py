@@ -341,7 +341,7 @@ MUTANTS = [
     ('승자를 항상 왼쪽으로 보냄', "idealSend(R.pool,a.vname,b.vname,win.vname);", "idealSend(R.pool,a.vname,b.vname,a.vname);"),
     ('승률 오름차순', "b.wr-a.wr||b.n-a.n||(a.c.name<b.c.name?-1:1));\n  const few", "a.wr-b.wr||b.n-a.n||(a.c.name<b.c.name?-1:1));\n  const few"),
     ('401 에도 로그인 유지', "if(r.status===401){ idealAuthLost(); IDEAL.stop=\"auth\"; }", "if(false){}"),
-    ('로그아웃에도 투표 전송', "if(!dcValid()||IDEAL.stop) return;\n  const body", "if(IDEAL.stop) return;\n  const body"),
+    ('로그아웃에도 투표 전송', "function idealSend(pool,a,b,w){\n  if(!dcValid()||IDEAL.stop) return;\n  const body={token:idealTok(),pool,a,b,w};\n  IDEAL.q=IDEAL.q.then(async()=>{\n    if(!dcValid()||IDEAL.stop) return;", "function idealSend(pool,a,b,w){\n  const body={token:idealTok(),pool,a,b,w};\n  IDEAL.q=IDEAL.q.then(async()=>{\n    if(IDEAL.stop) return;"),
     ('선언 포지션 무시', "if(d&&POS_LIST.includes(d.main)){ pos=d.main; break; }", "if(false){}"),
 ]
 
