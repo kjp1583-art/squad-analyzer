@@ -982,7 +982,7 @@ const CSX={
   ddmj:{R:120,dmg:30,cd:1.5,kb:300},   // 🧱 반격 — 맞으면 반경 120 충격파(피해 30×(1+Lv/15)×피해배율 · 1.5초에 한 번)
   eom:{n:12,R:150,dmg:30,kb:380},      // 📢 엄 연쇄 — 12마리 처치마다 반경 150 외침 충격파(피해 30×(1+Lv/15)×피해배율)
   pty:{at:.4,T:3,mv:.45,cd:30,gem:.08},  // 🩲 야간 도주 — 체력이 40% 아래로 떨어지면 3초간 이동속도 +45%(쿨 30초 · 무적·피해감소 없음) · 💎 도둑의 눈썰미 — 처치한 적의 경험치 보석이 8% 확률로 2배(이동속도 +12%·줍기 +25%·HP -16 은 CHARS.pty)
-  tjg:{at:.5,hit:.3,kill:1.2,mx:2,cap:3,bk:1.5},   // 🐺 영원한 굶주림 — 체력이 at(50%) 이하인 적을 때리면 hit · 잡으면 kill HP 회복 · 내 체력이 낮을수록 ×(1+mx×잃은 비율)(최대 ×3) · 초당 cap HP 까지만(통에 bk 초 치까지 모아 둔다) — 잡몹전에서 안 죽게 되지 않도록
+  tjg:{at:.5,hit:.5,kill:2.5,mx:2,cap:5,bk:1.5},   // 🐺 영원한 굶주림 — 체력이 at(50%) 이하인 적을 때리면 hit · 잡으면 kill HP 회복 · 내 체력이 낮을수록 ×(1+mx×잃은 비율)(최대 ×3) · 초당 cap HP 까지만(통에 bk 초 치까지 모아 둔다) — 잡몹전에서 안 죽게 되지 않도록
   bbb:{every:14,T:4,cd:.6},            // 🎤 후렴 — 14초마다 4초간 쿨타임 ×0.6(-40%)
   tw:{tk:.15},                         // 💔 씩씩한 맷집 — 항상 받는 피해 -15% (씩씩 피해·돌진 무적은 CHARS.rage·CSK.dash)
   yj:{at:.8,dmg:.15},                  // 🐲 군주의 위엄 — 체력 80% 이상이면 피해 +15%
@@ -1201,7 +1201,7 @@ const WEAP={
     ds:['가장 가까운 적에게 팬티를 던진다 — 맞은 적은 0.4초 멈칫(보스는 느려질 뿐). 적이 쓰러지면 가끔 전리품 팬티가 떨어지고, 주워 보따리가 가득 차면 다음 투척이 큰 🎆 팬티 폭죽으로 터진다(맨해라공원팬티도둑 전용)','팬티 +1(한 번에 2장)','피해 +40%','보따리 한 칸 줄어듦 · 폭죽 범위 +15%','피해 +40%','팬티 +1(한 번에 3장) · 쿨타임 -10%','폭죽 범위 +15% · 전리품이 더 자주 떨어진다','피해 +50% · 팬티 관통 +1']},
   // 🐺 [2026-10-18 사장님 지시] 탐지견 전용 — 체력이 낮은(비율) 적을 우선 노려 짧게 달려들어 물어뜯는다. 처치하면 쿨타임이 줄고(상한), 물어뜯으면 HP 가 조금 회복된다. 각성 열쇠 패시브 💪 근성(모든 피해). 수치는 U3.maul
   maul:{only:'tjg',rl:'고유 · 약한 적 사냥',ic:'🐺',nm:'갈가리 찢기',pair:'might',ev:{ic:'⛓',nm:'무한한 속박',ds:'가장 센 적(보스 우선)에게 도약해 붙잡고 연타 — 보스는 느려질 뿐 · 피해 1.15배'},
-    ds:['체력 비율이 가장 낮은 적에게 짧게 달려들어 물어뜯는다 — 주변 적도 절반 위력으로 휩쓸린다. 처치하면 쿨타임이 줄고(최대 1.2초), 물어뜯을 때마다 HP 가 조금 회복된다(탐지견 전용)','달려드는 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','달려드는 거리 +15% · 휩쓸림 범위 +30%','쿨타임 -15%','피해 +50% · 한 번 더 문다(피해 60%)']},
+    ds:['체력 비율이 가장 낮은 적에게 짧게 달려들어 물어뜯는다 — 주변 적도 60% 위력으로 휩쓸린다. 쓰러뜨린 적 한 마리마다 쿨타임이 0.5초 줄고(한 번에 최대 1.0초), 물어뜯을 때마다 HP 가 조금 회복된다(탐지견 전용)','달려드는 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','달려드는 거리 +15% · 휩쓸림 범위 +30%','쿨타임 -15%','피해 +50% · 한 번 더 문다(피해 60%)']},
 };
 // ⚖ [2026-10-16 클랜원 건의 「초월 있는 패시브 vs 없는 패시브 균형」] 양날의 검 두 패시브(🩸 광분 · 🐢 거북 등껍질)의 수치는 여기 한 곳. 문구(PASS.ds)·식(dmgMul·takenMul·moveMul·armTotal)이 같은 값을 읽는다.
 //   두 패시브는 🌟 초월 칸(PT)이 없다 — PT 에 항목을 더하면 이어하기 서명(SIG)이 바뀌어 진행 중인 판이 사라지므로, 초월 대신 레벨당 효과를 키워 패널티를 갚는다.
@@ -3043,7 +3043,7 @@ const U3={sing:{d:6.6,db:1.9,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   panty:{d:24,cd:1.25,sp:520,life:.55,rng:300,hit:11,fan:.2,st:.4,drop:.14,cap:12,ll:14,need:6,bd:85,bR:92,bsp:.8,iv:.4,hl:170,lw:11,lk:.55,lt:5,lmax:2,dr7:1.25,v:[1,2,3]},
   // 🐺 [2026-10-18 사장님 지시] 갈가리 찢기 — d 물어뜯기 피해 · cd 쿨타임 · dist 달려드는 거리 · T 달려드는 시간 · pad 겨냥 여유(거리 + pad 안의 적만 노린다) · sp 주변 휩쓸림 피해 배율 · spR 휩쓸림 반지름 · heal 물어뜯을 때 회복 ·
   //   kcd 처치당 쿨 감소(초) · kcap 한 번의 쿨타임 동안 줄일 수 있는 총량 · hg 각성(무한한 속박): rng 겨냥 거리 · dist 도약 거리 · T 도약 시간 · t 붙잡는 시간 · n 연타 수 · p 연타 한 번 피해(물어뜯기 대비) · sm 정예·대형은 시간·연타 ×sm · red 붙잡은 동안 받는 피해 감소 · ls 도약 착지 때 물어뜯기 배율
-  maul:{d:34,cd:2.2,dist:110,T:.14,pad:60,sp:.5,spR:48,heal:1.2,kcd:.8,kcap:1.2,hg:{rng:560,dist:440,T:.3,t:1.2,n:6,p:.4,sm:.6,red:.25,ls:1}},
+  maul:{d:60,cd:1.6,dist:110,T:.14,pad:60,sp:.6,spR:60,heal:2,kcd:.5,kcap:1.0,hg:{rng:480,dist:440,T:.3,t:1.2,n:6,p:.4,sm:.6,red:.25,ls:1}},
   quill:{d:16,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:24,bd:12.8,cd:1.5,sp:310,rng:330,R:40},cart:{d:20,cd:7,R:70,life:5,heal:1.5},heart:{d:21,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
@@ -3125,15 +3125,15 @@ function maulNear(mx){const p=S.p;let b=null,bs=1e9;   // 체력 비율이 가�
     const sc=Math.max(0,e.hp)/Math.max(1,e.mhp)+.2*dd/(mx+e.r);if(sc<bs){bs=sc;b=e;}}
   return b;}
 function maulPick(L,ev){const p=S.p,U=U3.maul;
-  if(ev){let b=null,bs=-1;   // 각성 — 가장 센 적: 보스 > 대형 > 엘리트 > 최대 체력이 큰 적
-    for(const e of S.live){if(!e.on||e.sv)continue;const dd=Math.hypot(e.x-p.x,e.y-p.y);if(dd>U.hg.rng+e.r)continue;
-      const sc=(e.boss?3e6:e.bg?2e6:e.el?1e6:0)+e.mhp-dd*.01;if(sc>bs){bs=sc;b=e;}}
+  if(ev){let b=null,bs=-1;   // 각성 — 가장 센 적: 보스 > 대형 > 엘리트(그 안에서는 최대 체력이 큰 적). 이런 적이 없으면 평소처럼 약한 적 사냥
+    for(const e of S.live){if(!e.on||e.sv||!(e.boss||e.bg||e.el))continue;const dd=Math.hypot(e.x-p.x,e.y-p.y);if(dd>U.hg.rng+e.r)continue;
+      const sc=(e.boss?3e6:e.bg?2e6:1e6)+e.mhp-dd*.01;if(sc>bs){bs=sc;b=e;}}
     if(b)return b;}
   return maulNear(maulReach(L)+U.pad);}
 const mauFind=sn=>{for(const q of S.live)if(q.on&&q.sn===sn)return q;return null;};
 function maulGo(L,ev){const p=S.p,M=mauS(),U=U3.maul;if(M.t>0||M.hg>0||p.yt>0||p.stun>0)return false;
   const tg=maulPick(L,ev);if(!tg)return false;
-  const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,lp=ev&&dd>maulReach(L)*.6?1:0,mx=lp?U.hg.dist:maulReach(L),T=lp?U.hg.T:U.T,
+  const dx=tg.x-p.x,dy=tg.y-p.y,dd=Math.hypot(dx,dy)||1,ux=dx/dd,uy=dy/dd,lp=ev&&(tg.boss||tg.bg||tg.el)?1:0,mx=lp?U.hg.dist:maulReach(L),T=lp?U.hg.T:U.T,
     len=Math.max(0,Math.min(mx,dd-(tg.r+p.r+6)));   // 코앞이면 제자리에서 문다 — 몸통에 박히지 않고 바로 앞에서 멈춘다
   if(len>=1)yank(ux*len,uy*len,T);
   M.t=T;M.sn=tg.sn;M.ux=ux;M.uy=uy;M.lp=lp;M.kc=0;M.bn=0;AU.play('maul',lp);EX.maul(p.x,p.y,lp);return true;}
@@ -3142,11 +3142,11 @@ function maulBite(L,t,sn,mul,d,AR){const p=S.p,U=U3.maul;let e=mauFind(sn);
   if(!e||Math.hypot(e.x-p.x,e.y-p.y)>e.r+p.r+U.pad)e=maulNear(p.r+U.pad);
   if(!e)return false;
   const dm=d*mul,R=U.spR*lvm(L,[[6,1.3]])*AR*(1+t.a),ex=e.x,ey=e.y,er=e.r;
-  h3(e,dm,'maul');const killed=!e.on;
-  for(const o of S.live){if(!o.on||o===e)continue;if((o.x-ex)**2+(o.y-ey)**2<(R+o.r)**2)h3(o,dm*U.sp,'maul');}
+  h3(e,dm,'maul');const killed=!e.on;let kills=killed?1:0;
+  for(const o of S.live){if(!o.on||o===e)continue;if((o.x-ex)**2+(o.y-ey)**2<(R+o.r)**2){h3(o,dm*U.sp,'maul');if(!o.on)kills++;}}
   hitPropsAt(ex,ey,R,dm*U.sp);
   tjgHeal(U.heal);
-  if(killed){const M=mauS(),r=Math.min(U.kcd,U.kcap-M.kc);if(r>0){M.kc+=r;S.cd.maul=Math.max(0,(S.cd.maul||0)-r);}}
+  if(kills){const M=mauS(),r=Math.min(U.kcd*kills,U.kcap-M.kc);if(r>0){M.kc+=r;S.cd.maul=Math.max(0,(S.cd.maul||0)-r);}}   // 물어뜯어 쓰러뜨린 적(휩쓸려 쓰러진 적 포함) 한 마리당 kcd 만큼 — 한 번의 쿨타임에 kcap 까지만
   f3({k:'mw',x:ex,y:ey,ux:S.p.x<ex?1:-1,uy:.35,life:.3,T:.3});AU.play('maul',0);S.shake=Math.max(S.shake,.05);
   return killed;}
 function maulHangStart(e,t){const p=S.p,M=mauS(),H=U3.maul.hg,k=e.boss?1:H.sm;   // 붙잡기 — 정예·대형은 시간·연타 ×sm
