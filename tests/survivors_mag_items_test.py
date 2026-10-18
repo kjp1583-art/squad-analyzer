@@ -99,7 +99,7 @@ window.__mt={
     {const S=scene({ps:{mag:5}});S.p.hp=100;S.p.mhp=1000;const p=S.p,mg=T.magMul(),R=p.r+14+T.MAGV.K*70*(mg-1);const ch=put(S,'chicken',R-4,0);let f=0;while(ch.on&&f<300){X.mapTick(DT);f++;}
       for(let i=0;i<30;i++)X.mapTick(DT);o.chicken={picked:T.picks.filter(k=>k==='chicken').length,hp:S.p.hp,heal:Math.round(1000*0.2)};}
     return o;},
-  F(){const out={};for(const ch of ['kyo','brj']){const S=scene({ch});const p=S.p,mg=T.magMul(),R=p.r+14+T.MAGV.K*70*(mg-1);const it=put(S,'chicken',(p.r+14)+30,0);const x0=it.x;X.mapTick(DT);
+  F(){const out={};for(const ch of ['kyo','brj']){const S=scene({ch});const p=S.p,mg=T.magMul(),R=p.r+14+T.MAGV.K*70*(mg-1);const it=put(S,'chicken',38,0);/* 몸이 닿는 거리(30) 밖 · 김야옹 반경(40.5) 안 */const x0=it.x;X.mapTick(DT);
       out[ch]={mg:+mg.toFixed(3),R:+R.toFixed(1),moved:it.x!==x0||!it.on};}
     return out;},
   fp(ch,secs,ban){Math.random=mb(321);X.CH_set(ch);X.start();const S=X.S;S.banned=ban||[];const out=[];let lastLv=0;

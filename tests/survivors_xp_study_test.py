@@ -30,7 +30,7 @@ SRC = os.environ.get('XS_HTML', 'survivors.html')
 ONLY = set(sys.argv[sys.argv.index('--only') + 1].split(',')) if '--only' in sys.argv else None
 MUTANTS = '--mutants' in sys.argv
 
-EXTRA = r"""window.__xs={studyLv,studyWave,studyFlush,studyTick,LW,STUDYV,MAGV,xpMul,cdMul,dmgMul,magMul,areaMul,knock,RES,relTick,mapTick,dropItem,usePick,PICK,items,gems,
+EXTRA = r"""window.__xs={cardLv,studyLv,studyWave,studyFlush,studyTick,LW,STUDYV,MAGV,xpMul,cdMul,dmgMul,magMul,areaMul,knock,RES,relTick,mapTick,dropItem,usePick,PICK,items,gems,
   get SIG(){return RES.SIG},WEAP,PASS,PT,MAXLV,MAXPASS,get waves(){return window.__xw},resetW(){window.__xw=0}};
 window.__xw=0;{const sw=studyWave;studyWave=function(){window.__xw++;return sw.apply(this,arguments);};}
 """
@@ -45,7 +45,7 @@ function scene(o){o=o||{};Math.random=mb(o.seed||7);X.CH_set(o.ch||'brj');X.star
   S.t=o.t||90;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.propT=S.chickT=1e12;S.spawnT=-1e12;
   S.lv=o.lv||10;S.xp=0;S.need=o.need===undefined?1e12:o.need;S.pendingLv=0;
   for(const q of X.enemies.a)q.on=false;X.props.clear();for(const g of X.gems.a)g.on=false;for(const it of X.items.a)it.on=false;
-  const w=S.x3.lw;w.bT=w.xc=w.w2=w.p2=w.pw=0;T.resetW();S.p.hp=S.p.mhp=o.hp||1000;S.p.inv=0;
+  const w=S.x3.lw;w.bT=w.xc=w.w2=w.p2=w.pw=w.ex=0;T.resetW();S.p.hp=S.p.mhp=o.hp||1000;S.p.inv=0;
   return S;}
 function foe(S,d,o){o=o||{};let e;if(o.boss)e=X.spawnBoss('mao');else e=X.spawnEnemy(0,2.5,null,{x:S.p.x+d,y:S.p.y});
   e.x=S.p.x+d;e.y=S.p.y;e.sp=0;e.hp=e.mhp=1e12;e.sh=0;e.kb=0;e.kr=0;if(o.el)e.el=1;return e;}
@@ -79,11 +79,11 @@ window.__xt={
     {const S=scene({ps:{study:4},need:10});S.xp=0;const lv0=S.lv;lvOnce(S);T.resetW();T.studyFlush();const a=T.waves;T.studyTick(.34);const b=T.waves;T.studyTick(.02);o.single={first:a,early:b,second:T.waves};}
     return o;},
   F(){const o={};
-    {const S=scene({ps:{study:5}});Math.random=()=>.01;lvOnce(S);o.first=S.pendingLv;o.xc=S.x3.lw.xc;lvOnce(S);o.second=S.pendingLv;T.studyTick(19.9);lvOnce(S);o.stillCd=S.pendingLv;T.studyTick(.2);lvOnce(S);o.afterCd=S.pendingLv;}
+    {const S=scene({ps:{study:5}});Math.random=()=>.01;lvOnce(S);o.first=S.pendingLv;o.xc=S.x3.lw.xc;lvOnce(S);o.second=S.pendingLv;T.studyTick(T.STUDYV.xcCd-.1);lvOnce(S);o.stillCd=S.pendingLv;T.studyTick(.2);lvOnce(S);o.afterCd=S.pendingLv;}
     {const S=scene({ps:{study:5}});Math.random=()=>.9;for(let i=0;i<5;i++)lvOnce(S);o.noRoll=S.pendingLv;}
     {const S=scene({ps:{study:4}});Math.random=()=>.01;lvOnce(S);o.lv4=S.pendingLv;}
-    {const S=scene({ps:{study:5}});Math.random=()=>.149;lvOnce(S);o.edgeIn=S.pendingLv;const S2=scene({ps:{study:5}});Math.random=()=>.151;lvOnce(S2);o.edgeOut=S2.pendingLv;}
-    o.P=T.STUDYV.xcP;return o;},
+    {const S=scene({ps:{study:5}});Math.random=()=>T.STUDYV.xcP-.001;lvOnce(S);o.edgeIn=S.pendingLv;const S2=scene({ps:{study:5}});Math.random=()=>T.STUDYV.xcP+.001;lvOnce(S2);o.edgeOut=S2.pendingLv;}
+    o.P=T.STUDYV.xcP;{const S=scene({ps:{study:5},lv:20});Math.random=()=>.01;S.need=10;S.xp=0;X.gainXp(10);const a=T.cardLv();S.pendingLv--;const b=T.cardLv();S.pendingLv--;o.cl={pend:2,lv:S.lv,first:a,second:b,ex:S.x3.lw.ex};}return o;},
   async G(){const o={};
     const S=scene({ps:{study:5},lv:12});const w=S.x3.lw;w.bT=2.1;w.xc=13;w.w2=.2;w.p2=2;w.pw=1;o.sig0=T.RES.SIG;
     S.t=130;const b=T.RES.build();o.built=!!b.text;o.why=b.why||'';
@@ -186,13 +186,14 @@ async def run_suite(src, tag=''):
                 ok(F['second'] == 3 and F['stillCd'] == 4, 'F 쿨 중에는 또 안 나온다 (레벨 +1씩만: %s → %s)' % (F['second'], F['stillCd']))
                 ok(F['afterCd'] == 6, 'F 쿨 %s초가 끝나면 다시 나온다 (%s)' % (V['xcCd'], F['afterCd']))
                 ok(F['noRoll'] == 5, 'F 15%% 굴림에 지면 없다 (레벨업 5번 → 대기 %s)' % F['noRoll'])
+                ok(F['cl']['first'] == F['cl']['lv'] and F['cl']['second'] == F['cl']['lv'], 'F 추가 카드는 레벨이 안 오르므로 카드 레벨(cardLv)이 현재 레벨과 같다 %s' % F['cl'])
                 ok(F['lv4'] == 1, 'F Lv4 는 추가 카드가 없다')
-                ok(F['edgeIn'] == 2 and F['edgeOut'] == 1 and F['P'] == 0.15, 'F 확률 경계 15%% (난수 .149 → %s · .151 → %s)' % (F['edgeIn'], F['edgeOut']))
+                ok(F['edgeIn'] == 2 and F['edgeOut'] == 1 and abs(F['P'] - V['xcP']) < 1e-9, 'F 확률 경계 15%% (난수 .149 → %s · .151 → %s)' % (F['edgeIn'], F['edgeOut']))
             if want('G'):
                 G = await ev('__xt.G()')
                 print('G', json.dumps(G), flush=True)
                 ok(G['built'] and G['restored'], 'G 저장 → 복구가 된다 (%s)' % G.get('why'))
-                ok(G['lw'] == {'bT': 2.1, 'xc': 13, 'w2': .2, 'p2': 2, 'pw': 1} and G['ps'] == 5, 'G 이어하기: 깨달음 상태가 그대로 (%s)' % G['lw'])
+                ok(G['lw'] == {'bT': 2.1, 'xc': 13, 'w2': .2, 'p2': 2, 'pw': 1, 'ex': 0} and G['ps'] == 5, 'G 이어하기: 깨달음 상태가 그대로 (%s)' % G['lw'])
                 ok(G['sig0'] == G['sig1'] and G['sig0'].startswith('1:'), 'G 저장 서명(SIG) 불변 %s' % G['sig0'])
                 ok(G['oldBuilt'] and G['oldRestored'] and not G['oldErr'], 'G 옛 저장본(lw 없음)도 복구되고 판이 돈다 (%s)' % G['oldErr'])
             if want('H'):

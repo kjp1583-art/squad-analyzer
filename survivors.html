@@ -1960,7 +1960,7 @@ function newRun(dly){
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
-const cardLv=()=>S.pendingLv>0?S.lv-S.pendingLv+1:S.lv;   // 🎁 지금 고르는 카드가 몇 레벨의 것인가 — 한꺼번에 여러 레벨이 쌓여도 Lv18·19 카드에는 부활이 안 나오게 하는 기준(상자·다시 뽑기처럼 쌓인 레벨이 없으면 지금 레벨)
+const cardLv=()=>{const ex=(S.x3&&S.x3.lw&&S.x3.lw.ex)||0;return S.pendingLv>ex?S.lv-(S.pendingLv-ex)+1:S.lv;};   // 📚 깨달음의 추가 카드(ex)는 레벨이 안 오르므로 몫에서 뺀다 ·   // 🎁 지금 고르는 카드가 몇 레벨의 것인가 — 한꺼번에 여러 레벨이 쌓여도 Lv18·19 카드에는 부활이 안 나오게 하는 기준(상자·다시 뽑기처럼 쌓인 레벨이 없으면 지금 레벨)
 // 🗝 [2026-10-12 사장님 지시 「A로 가자」] 각성 열쇠 칸 — 열쇠 패시브(= 내가 가진 무기의 짝 패시브 WEAP[k].pair)는 패시브 6칸 밖의 「🗝 열쇠 칸」(MAXEV=3 과 같은 3칸)에 먼저 들어간다.
 //   열쇠 칸이 가득 찼거나 열쇠가 아닌 패시브면 일반 칸(SLOTP=6)으로 간다. 칸 소속은 저장하지 않고 S.ps(얻은 순서)·S.w 에서 매번 계산한다 — 이어하기 SIG·저장 모양은 그대로.
 //   각성한 무기도 S.w 에 남아 있으니 그 열쇠는 계속 열쇠 칸에 있다(각성 3번이 한도라 열쇠 칸 3개와 딱 맞는다) · 👼 부활은 어느 칸도 안 쓴다.
@@ -2219,7 +2219,7 @@ function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
     return {ic:d.ic,nm:d.nm,ty:o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`,ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
       +fxKeyHtml(o.k,el)+fxWeapHtml(o.k,el)+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
-  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':isKeyNew(o.k)?`🗝 새 열쇠 패시브 · 열쇠 칸 ${keyN()+1}/${MAXEV}`:`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
+  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':isKeyNew(o.k)?`🗝 새 열쇠 패시브 · 열쇠 칸 ${keyN()+1}/${MAXEV}`:`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:(o.k==='study'?`경험치 +${pct(STUDYV.xp)}% · 레벨업할 때마다 「깨달음」 — <b>Lv${o.l+1}:</b> ${STUDYV.st[o.l]}`:d.ds)+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
     return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화`,
@@ -2313,7 +2313,7 @@ function sgFan(d,sp,life,base){const R=S.rel.sg_bgb,T=S.sgT,p=S.p;   // 🌪 한
   txt(p.x,p.y-40,'📸 '+BGB_LINES[(T.bgbN-1)%BGB_LINES.length],'#bff3ff');EX.beat(p.x,p.y,170,true);AU.play('beat',1);}
 function pick(o){
   applyUp(o);
-  S.pendingLv--;
+  S.pendingLv--;if(S.pendingLv<=0&&S.x3.lw)S.x3.lw.ex=0;
   if(S.pendingLv>0)openLvup();else resume();
 }
 const BONUS_LV=[10,20];   // 🎁 [2026-10-09 사장님 지시 「4ok」] 이 레벨을 달성하면 다시 뽑기 +1 · 봉인 +1 을 자동으로 준다(봉인은 그동안 보충 길이 거의 없었다)
@@ -2325,12 +2325,12 @@ function gainXp(v){if(S.rel.sg_ildj&&Math.random()<SGV.ildj.p[S.rel.sg_ildj-1])v
 
 // 📚 공부 「깨달음」 — 레벨업 한 번마다 gainXp 가 studyLv() 를 부르고, 파동은 줄(S.x3.lw.pw)에 쌓았다가 프레임 끝(studyFlush)에 터뜨린다
 //   (gainXp 는 보석 줍기 루프 안이라 거기서 적을 쓰러뜨리면 보석 풀을 건드리게 된다). 지연 콜백(S.dq)은 이어하기에 저장되지 않아 쓰지 않는다 — 두 번째 파동·버프·쿨은 전부 S.x3.lw 의 숫자.
-function LW(){return S.x3.lw||(S.x3.lw={bT:0,xc:0,w2:0,p2:0,pw:0});}   // 옛 저장본(lw 없음)도 안전하게
+function LW(){return S.x3.lw||(S.x3.lw={bT:0,xc:0,w2:0,p2:0,pw:0,ex:0});}   // 옛 저장본(lw 없음)도 안전하게
 function studyLv(){const L=pv('study'),w=LW(),V=STUDYV;if(L<1)return;
   if(w.pw<V.maxW)w.pw++;
   if(L>=3)w.bT=V.buffT;
   if(L>=4){const h=Math.round(S.p.mhp*V.heal);S.p.hp=Math.min(S.p.mhp,S.p.hp+h);if(w.p2<V.maxW)w.p2++;if(w.w2<=0)w.w2=V.w2dt;}
-  if(L>=5&&w.xc<=0&&Math.random()<V.xcP){w.xc=V.xcCd;S.pendingLv++;toast('📚 깨달음! 카드를 한 장 더 골라요');}}
+  if(L>=5&&w.xc<=0&&Math.random()<V.xcP){w.xc=V.xcCd;S.pendingLv++;w.ex=(w.ex||0)+1;toast('📚 깨달음! 카드를 한 장 더 골라요');}}
 function studyWave(){const L=pv('study'),p=S.p,V=STUDYV;if(L<1)return;
   const R=V.R[L>=2?1:0]*areaMul(),d=(L>=2?Math.min(V.cap,V.d0+V.dLv*S.lv):V.d0)*dmgMul(),s0=SRC;SRC='study';
   AU.play('wave');BT.x=p.x;BT.y=p.y;BT.R=R;BT.style='echo';BT.ev=0;EX.boom(BT);
@@ -3087,7 +3087,7 @@ function shvStart(){const p=S.p;S.dT=shvTot();S.dN++;S.dA=.2;S.dW={t:.6,T:.6,R:S
     hurt(e,d);if(e.on){if(e.boss)e.slow=Math.max(e.slow,1);else knock(e,dx/dd,dy/dd,520,.35);}}
   hitPropsAt(p.x,p.y,SHV.push,d);SRC=sv;}
 function shvEnd(){const p=S.p;S.dT=0;S.rg=0;AU.play('wave');txt(p.x,p.y-40,'🔥 변신 해제','#ffd9a0');}
-function newX3(){return {lw:{bT:0,xc:0,w2:0,p2:0,pw:0},sg:{dir:1,ph:0},f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0,hg:0,hs:0,hk:0,hn:0,hi:0,iv:0,ox:0,oy:0,eq:0,tl:0,hl:-9}};}   // 🥊 hg 매달리기 남은 시간 · hs 매달린 적의 sn · hk 때린 횟수 · hn 총 횟수 · hi 다음 타까지 · iv 간격 · ox,oy 적 기준 내 자리 · tl 돌진 끝에 한 번 더 닿았는지 볼 차례 · hl 마지막으로 매달리기가 풀린 때(S.t) · eq 매달리느라 미룬 두 번째 돌진 수(숫자만 — 이어하기 왕복에서 안 깨진다)
+function newX3(){return {lw:{bT:0,xc:0,w2:0,p2:0,pw:0,ex:0},sg:{dir:1,ph:0},f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0,hg:0,hs:0,hk:0,hn:0,hi:0,iv:0,ox:0,oy:0,eq:0,tl:0,hl:-9}};}   // 🥊 hg 매달리기 남은 시간 · hs 매달린 적의 sn · hk 때린 횟수 · hn 총 횟수 · hi 다음 타까지 · iv 간격 · ox,oy 적 기준 내 자리 · tl 돌진 끝에 한 번 더 닿았는지 볼 차례 · hl 마지막으로 매달리기가 풀린 때(S.t) · eq 매달리느라 미룬 두 번째 돌진 수(숫자만 — 이어하기 왕복에서 안 깨진다)
 const h3=(e,d,k)=>{const s0=SRC;SRC=k;hurt(e,d);SRC=s0;};   // 무기 키로 피해 통계를 남기며 한 번 때린다
 const aim3=rng=>{const t=nearest();if(t&&(t.x-S.p.x)**2+(t.y-S.p.y)**2<rng*rng)return t;
   let b=null,bd=rng*rng;for(const q of props.a){if(!q.on)continue;const d=(q.x-S.p.x)**2+(q.y-S.p.y)**2;if(d<bd){bd=d;b=q;}}   // 🧺 적이 없으면 사거리 안의 필드 아이템(와드·포대·상자)을 겨눈다
