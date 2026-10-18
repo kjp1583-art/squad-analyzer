@@ -22,6 +22,7 @@ WANT = set(int(a) for a in sys.argv[1:]) or {1, 2, 3, 4}
 
 async def sec1(pg, errs):
     print('── 1. 시너지 범위')
+    await pg.evaluate("()=>{if(__p6x.LINCFG)__p6x.LINCFG.on=0;}")   # 🧬 계열 보너스(범위 +%)는 따로 시험한다(survivors_lineage_test.py) — 여기서는 주제 세트만 본다
     # 1-a. 정적: SYN 효과 키마다 S.syn.<키> 를 읽는 곳이 있다(없는 키는 설명문만 있고 효과가 없는 키)
     keys = await pg.evaluate("[...new Set(__p6x.SYN.flatMap(y=>Object.keys(y.fx)))]")
     missing = [k for k in keys if not re.search(r'S\.syn\.' + k + r'\b', SRC)]
