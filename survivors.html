@@ -982,7 +982,7 @@ const CSX={
   ddmj:{R:120,dmg:30,cd:1.5,kb:300},   // 🧱 반격 — 맞으면 반경 120 충격파(피해 30×(1+Lv/15)×피해배율 · 1.5초에 한 번)
   eom:{n:12,R:150,dmg:30,kb:380},      // 📢 엄 연쇄 — 12마리 처치마다 반경 150 외침 충격파(피해 30×(1+Lv/15)×피해배율)
   pty:{at:.4,T:3,mv:.45,cd:30,gem:.08},  // 🩲 야간 도주 — 체력이 40% 아래로 떨어지면 3초간 이동속도 +45%(쿨 30초 · 무적·피해감소 없음) · 💎 도둑의 눈썰미 — 처치한 적의 경험치 보석이 8% 확률로 2배(이동속도 +12%·줍기 +25%·HP -16 은 CHARS.pty)
-  tjg:{at:.5,hit:.5,kill:2.5,mx:2,cap:5,bk:1.5},   // 🐺 영원한 굶주림 — 체력이 at(50%) 이하인 적을 때리면 hit · 잡으면 kill HP 회복 · 내 체력이 낮을수록 ×(1+mx×잃은 비율)(최대 ×3) · 초당 cap HP 까지만(통에 bk 초 치까지 모아 둔다) — 잡몹전에서 안 죽게 되지 않도록
+  tjg:{at:.5,hit:.3,kill:1.5,mx:1.5,cap:3,bk:1.5},   // 🐺 영원한 굶주림 — 체력이 at(50%) 이하인 적을 때리면 hit · 잡으면 kill HP 회복 · 내 체력이 낮을수록 ×(1+mx×잃은 비율)(최대 ×3) · 초당 cap HP 까지만(통에 bk 초 치까지 모아 둔다) — 잡몹전에서 안 죽게 되지 않도록
   bbb:{every:14,T:4,cd:.6},            // 🎤 후렴 — 14초마다 4초간 쿨타임 ×0.6(-40%)
   tw:{tk:.15},                         // 💔 씩씩한 맷집 — 항상 받는 피해 -15% (씩씩 피해·돌진 무적은 CHARS.rage·CSK.dash)
   yj:{at:.8,dmg:.15},                  // 🐲 군주의 위엄 — 체력 80% 이상이면 피해 +15%
@@ -995,7 +995,7 @@ const CSR={   // 여러 캐릭터가 같이 쓰는 행 만들기
   regen:c=>({ic:'💚',nm:'HP 회복',sh:'회복 '+csNum(c.regen)+'/초',v:'초당 '+csNum(c.regen),ds:`가만히 있어도 1초마다 HP가 ${csNum(c.regen)}씩 차올라요`}),
   arm:c=>({ic:'🛡',nm:'받는 피해',sh:'받는 피해 '+(c.arm>0?'-':'+')+Math.abs(c.arm),v:(c.arm>0?'-':'+')+Math.abs(c.arm),ds:c.arm>0?`맞을 때마다 피해가 ${c.arm} 줄어요 (그래도 최소 1은 받아요)`:`맞을 때마다 피해가 ${-c.arm} 늘어요`}),
   spd:c=>({ic:'👟',nm:'이동속도',v:(c.spd>0?'+':'-')+csPc(Math.abs(c.spd)),ds:c.spd>0?'항상 더 빨리 달려요':'묵직해서 항상 조금 느려요'}),
-  mag:c=>({ic:'🧲',nm:'줍는 범위',sh:'줍기 +'+csPc(c.mag),v:'+'+csPc(c.mag),ds:'경험치 보석은 물론 치킨·폭탄·다이아 같은 걸 더 멀리서 끌어와요'}),
+  mag:c=>({ic:'🧲',nm:'줍는 범위',sh:'줍기 +'+csPc(c.mag),v:'+'+csPc(c.mag),ds:'경험치 보석은 물론 치킨·폭탄·다이아 같은 걸 더 멀리서 주워요'}),
   xp:c=>({ic:'📚',nm:'경험치',v:'+'+csPc(c.xp),ds:'경험치 보석에서 얻는 경험치가 더 많아요'}),
   hp:c=>({ic:'❤️',nm:'최대 HP',v:'+'+c.hp,ds:`시작할 때부터 최대 HP가 ${c.hp} 더 많아요`}),
 };
@@ -1212,7 +1212,7 @@ const pct=x=>Math.round(x*100);
 //   카드 문구(PASS.ds)·식(xpMul·dmgMul·cdMul·gainXp·studyWave·mapTick)이 같은 값을 읽는다. 정적 표(WEAP·PASS …)가 아니라서 이어하기 서명(SIG)에 안 들어간다(상태는 S.x3.lw 한 곳 · 숫자 필드뿐).
 //   공부: 레벨업할 때마다 깨달음이 터진다(경험치 +xp/단계는 그대로). 단계 1 지혜의 파동 · 2 범위·내 레벨 비례 피해 · 3 buffT 초 피해/공속 · 4 두 번째 파동+HP 회복 · 5 확률로 카드 한 장 더(쿨 xcCd 초).
 //   파동 피해 = (d0 + dLv×내 레벨, 2단계부터)에 상한 cap 을 씌운 뒤 dmgMul — 보스에게는 boss 배. maxW = 한 프레임에 터지는 파동 상한(경험치 큰 보석으로 레벨이 한꺼번에 올라도).
-//   획득 범위: 치킨·다이아·폭탄은 「몸이 닿는 거리(p.r+14) + K×70×(magMul−1)」 안에서 spd 속도로 끌려온다(magMul=1 이면 옛 동작과 같다 · 상자 제외). 초월 2단계는 tpT 초 동안 화면의 그 셋을 끌어온다.
+//   획득 범위: 치킨·다이아·폭탄은 「몸이 닿는 거리(p.r+14) + K×70×(magMul−1)」 안 안에 들어오면 줍는다(끌려오지 않는다)(magMul=1 이면 옛 동작과 같다 · 상자 제외). 초월 2단계는 tpT 초 동안 화면의 그 셋을 끌어온다.
 const STUDYV={xp:.08,R:[96,132],d0:10,dLv:1.4,cap:50,boss:.5,kb:40,buffT:3,buffD:.08,buffC:.05,w2dt:.35,heal:.02,xcP:.08,xcCd:30,maxW:3};
 STUDYV.st=['레벨업 때 내 주변에 「지혜의 파동」이 터져 적에게 피해를 주고 살짝 밀쳐요',`파동이 더 넓어지고, 파동 피해가 내 레벨에 비례해 세져요 (보스에게는 ${pct(STUDYV.boss)}%)`,`레벨업 후 ${STUDYV.buffT}초 동안 모든 피해 +${pct(STUDYV.buffD)}% · 공격속도 +${pct(STUDYV.buffC)}% (「깨달음」 — 겹치지 않고 갱신만)`,`레벨업 때 파동이 한 번 더 터지고 HP ${pct(STUDYV.heal)}%를 회복해요`,`레벨업할 때 ${pct(STUDYV.xcP)}% 확률로 카드를 한 장 더 골라요 (${STUDYV.xcCd}초에 한 번)`];
 const MAGV={K:.3,spd:420,tpT:2.5,chk:.7};   // chk: 치킨은 HP가 이 비율 이하일 때만 끌려온다(가득 찬 채 낭비되지 않게 · 필요할 때 챙겨 주는 쪽으로)
@@ -1220,7 +1220,7 @@ const PASS={
   spd:{ic:'👟',nm:'이동속도',ds:'이동속도 +8%'},
   hp:{ic:'❤️',nm:'최대 HP',ds:'최대 HP +25 (그만큼 회복)'},
   cd:{ic:'⏱',nm:'공격속도',ds:'무기 쿨타임 -8% (쿨타임이 없는 무기는 돌아가는 속도·틱이 빨라져요)'},
-  mag:{ic:'🧲',nm:'획득 범위',ds:'줍는 범위 +30% — 경험치 보석은 물론 💎 다이아·💣 폭탄·🍗 치킨(HP가 낮을 때만)도 그만큼 멀리서 끌려와요 (🎁 상자는 직접 가서 열어요)'},
+  mag:{ic:'🧲',nm:'획득 범위',ds:'줍는 범위 +30% — 경험치 보석은 물론 💎 다이아·💣 폭탄·🍗 치킨(HP가 낮을 때만)도 그만큼 멀리서 주워요 (🎁 상자는 직접 가서 열어요)'},
   arm:{ic:'🛡',nm:'깃털 갑옷',ds:'받는 피해 -1'},
   amt:{ic:'🍱',nm:'곱빼기',ds:'날리거나 설치하는 개수 +1 (받는 무기만 늘어요)',max:3},
   area:{ic:'📏',nm:'광역',ds:'공격 범위 +10% (폭발·오라·파동·부채꼴 — 줍는 범위·조준 거리는 해당 없음)'},
@@ -1965,9 +1965,10 @@ function mapTick(dt){
   const mg=magMul(),pa0=S.magT<=0&&PTV('mag')>=2;if(pa0)S.magT=20;   // 초월 2단계: 20초마다 tpT 초 동안 화면의 치킨·폭탄·다이아를 끌어온다
   const ex=mg>1?MAGV.K*70*(mg-1):0,pa=PTV('mag')>=2&&S.magT>20-MAGV.tpT,phw=W/2/SC+40,phh=H/2/SC+40;
   for(const it of items.a){if(!it.on)continue;it.life-=dt;it.t+=dt;if(it.life<=0){it.on=false;continue;}
-    if((ex>0||pa)&&it.k!=='chest'&&(it.k!=='chicken'||p.hp<=p.mhp*MAGV.chk)){const dx=p.x-it.x,dy=p.y-it.y,d2=dx*dx+dy*dy;
-      if((ex>0&&d2<(p.r+14+ex)**2)||(pa&&Math.abs(dx)<phw&&Math.abs(dy)<phh)){const d=Math.sqrt(d2)||1,st=Math.min(MAGV.spd*dt,d);it.x+=dx/d*st;it.y+=dy/d*st;}}
-    if((it.x-p.x)**2+(it.y-p.y)**2<(p.r+14)**2){it.on=false;usePick(it.k);if(state!=='play')break;}}   // 🎁 상자가 열렸으면 나머지는 다음 프레임에(상자 두 개가 한 화면에 섞이지 않게)
+    const wide=ex>0&&it.k!=='chest'&&(it.k!=='chicken'||p.hp<=p.mhp*MAGV.chk);   // 🧲 [2026-10-18 사장님 지시 「끌어당기지 말고 범위만 늘려」] 치킨·폭탄·다이아는 끌려오지 않고 줍는 거리만 넓어진다
+    if(pa&&it.k!=='chest'&&(it.k!=='chicken'||p.hp<=p.mhp*MAGV.chk)){const dx=p.x-it.x,dy=p.y-it.y;
+      if(Math.abs(dx)<phw&&Math.abs(dy)<phh){const d=Math.sqrt(dx*dx+dy*dy)||1,st=Math.min(MAGV.spd*dt,d);it.x+=dx/d*st;it.y+=dy/d*st;}}   // 초월 2단계의 20초 끌어오기만 남는다
+    if((it.x-p.x)**2+(it.y-p.y)**2<(p.r+14+(wide?ex:0))**2){it.on=false;usePick(it.k);if(state!=='play')break;}}   // 🎁 상자가 열렸으면 나머지는 다음 프레임에(상자 두 개가 한 화면에 섞이지 않게)
   if(toastT>0&&!SPD.sub){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on');}
 }
 function usePick(k){const p=S.p;if(k==='chest'){openChest();return;}AU.play('pick');toast(PICK[k].msg);
@@ -3131,7 +3132,7 @@ const U3={sing:{d:6.6,db:1.9,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.0
   panty:{d:24,cd:1.25,sp:520,life:.55,rng:300,hit:11,fan:.2,st:.4,drop:.14,cap:12,ll:14,need:6,bd:85,bR:92,bsp:.8,iv:.4,hl:170,lw:11,lk:.55,lt:5,lmax:2,dr7:1.25,v:[1,2,3]},
   // 🐺 [2026-10-18 사장님 지시] 갈가리 찢기 — d 물어뜯기 피해 · cd 쿨타임 · dist 달려드는 거리 · T 달려드는 시간 · pad 겨냥 여유(거리 + pad 안의 적만 노린다) · sp 주변 휩쓸림 피해 배율 · spR 휩쓸림 반지름 · heal 물어뜯을 때 회복 ·
   //   kcd 처치당 쿨 감소(초) · kcap 한 번의 쿨타임 동안 줄일 수 있는 총량 · hg 각성(무한한 속박): rng 겨냥 거리 · dist 도약 거리 · T 도약 시간 · t 붙잡는 시간 · n 연타 수 · p 연타 한 번 피해(물어뜯기 대비) · sm 정예·대형은 시간·연타 ×sm · red 붙잡은 동안 받는 피해 감소 · ls 도약 착지 때 물어뜯기 배율
-  maul:{d:66,cd:1.6,dist:110,T:.14,pad:60,sp:.6,spR:60,heal:2,kcd:.5,kcap:1.0,hg:{rng:480,dist:440,T:.3,t:1.2,n:6,p:.4,sm:.6,red:.25,ls:1}},
+  maul:{d:66,cd:1.6,dist:110,T:.14,pad:60,sp:.6,spR:60,heal:1.2,kcd:.5,kcap:1.0,hg:{rng:480,dist:440,T:.3,t:1.2,n:6,p:.4,sm:.6,red:.25,ls:1}},
   quill:{d:16,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:24,bd:12.8,cd:1.5,sp:310,rng:330,R:40},cart:{d:20,cd:7,R:70,life:5,heal:1.5},heart:{d:21,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
