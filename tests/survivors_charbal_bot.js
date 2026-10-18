@@ -507,5 +507,5 @@ function run(opts) {
   }
 }
 
-window.__cb = { init, run, CARD, SIG, MOVE, decide, chooseCard, snap: () => snap(), dbg: () => DBG };
+window.__cb = { init, run, CARD, SIG, MOVE, decide, chooseCard, KEYS, snap: () => snap(), dbg: () => DBG };
 })();
