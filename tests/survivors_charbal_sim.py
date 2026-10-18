@@ -36,6 +36,7 @@ POLICIES = ('full', 'sigonly', 'nopass')   # nopass: full 과 같되 패시브 �
 EXTRA_HOOK = r"""
 window.__cbx={get SPAWN_R(){return SPAWN_R},get VW(){return VW},get VH(){return VH},get SC(){return SC},
  PASS,PT,TRD,SM,CO,PICK,PROP,KIND,evReady,evLeft,MAXEV,MAXLV,SLOTW,SLOTP,REV_LV,pv,slotP,cardLv,wOk,TCAP,RES,pmax,
+ LINCFG:typeof LINCFG==='object'?LINCFG:null,LINEAGE:typeof LINEAGE==='object'?LINEAGE:null,
  dmg:{taken:0,hits:0,t5:0,by:{},n:{},log:[],logOn:false}};
 {const h0=hitP;hitP=function(d,msg){const p=S.p,b=p.hp,r0=S.revUsed;const r=h0(d*(window.__takenMul||1),msg);let dm=b-p.hp;if(S.revUsed>r0)dm=b;
   if(dm>0){const D=window.__cbx.dmg;D.taken+=dm;D.hits++;if(S.t<300)D.t5+=dm;
@@ -141,9 +142,11 @@ class Conf:
             k, v = kv.split('=', 1)
             self.rel[k.strip()] = int(v)
         self.preset = json.loads(getattr(a, 'preset', None) or 'null')   # 패시브 고정 빌드 — 예: '{"ps":{"glass":3},"pt":{}}' (policy nopass 와 함께 쓴다 · 같은 칸 비교용)
+        self.lin = getattr(a, 'lin', None) or ''          # 🧬 계열 대표 빌드 — bar|aoe|zone|mel|one (그 계열 밖 무기는 카드 풀에서 뺀다 · 무기는 6칸 먼저 채운다). 비면 기존 측정과 같다
+        self.linoff = bool(getattr(a, 'linoff', False))   # 🧬 계열 보너스를 끈다(전/후 비교의 「전」)
         self.html_hash = md5(os.path.join(ROOT, a.html))
         self.bot_hash = md5(BOT_JS)
-        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items()), SIM_MODE, SIM_TAKEN, json.dumps(self.preset, sort_keys=True)] + ([sorted(self.rel.items())] if self.rel else []))), text=True)
+        self.sig = md5('|'.join(map(str, [TOOL_VERSION, self.cap, '%.6f' % self.dt, self.view, self.low, self.html_hash, self.bot_hash, sorted(self.params.items()), SIM_MODE, SIM_TAKEN, json.dumps(self.preset, sort_keys=True)] + ([sorted(self.rel.items())] if self.rel else []) + ([('lin', self.lin, self.linoff)] if (self.lin or self.linoff) else []))), text=True)
 
     def public(self):
         o = {'tool': TOOL_VERSION, 'cap': self.cap, 'dt': round(self.dt, 6), 'view': '%dx%d' % self.view, 'low': self.low,
@@ -154,6 +157,10 @@ class Conf:
             o['rel'] = self.rel
         if self.preset:
             o['preset'] = self.preset
+        if self.lin:
+            o['lin'] = self.lin
+        if self.linoff:
+            o['linoff'] = True
         return o
 
 
@@ -186,7 +193,7 @@ async def run_one(browser, srv, page_name, conf, char, seed, policy, say=None):
         await pg.goto(base + page_name)
         await pg.wait_for_function('window.__p6x!==undefined&&window.__cbx!==undefined', polling=50, timeout=20000)   # rAF 를 멈춰 뒀으니 기본 polling(raf)을 쓰면 안 된다
         await pg.add_script_tag(content=open(BOT_JS, encoding='utf-8').read())
-        info = await pg.evaluate('c=>__cb.init(c)', {'char': char, 'seed': seed, 'policy': policy, 'cap': conf.cap, 'dt': conf.dt, 'params': conf.params, 'trace': conf.trace, 'rel': conf.rel, 'preset': conf.preset})
+        info = await pg.evaluate('c=>__cb.init(c)', {'char': char, 'seed': seed, 'policy': policy, 'cap': conf.cap, 'dt': conf.dt, 'params': conf.params, 'trace': conf.trace, 'rel': conf.rel, 'preset': conf.preset, 'lin': conf.lin, 'linoff': conf.linoff})
         row['info'] = info
         last_print = -1
         while True:
@@ -661,6 +668,8 @@ def main():
         p.add_argument('--quiet', action='store_true', help='진행 줄을 줄인다')
         p.add_argument('--param', action='append', default=[], metavar='KEY=VAL', help='정책 상수 덮어쓰기(민감도 점검). 예: --param MOVE.nearMargin=60 --param CARD.passive.arm=90')
         p.add_argument('--rel', action='append', default=[], metavar='KEY=LV', help='시작부터 끼울 유물 단계(예: --rel sg_hrb=3). 유물 체감 측정용')
+        p.add_argument('--lin', default='', help='🧬 계열 대표 빌드(bar|aoe|zone|mel|one). 그 계열 밖 무기는 카드 풀에서 빼고 무기 6칸을 먼저 채운다')
+        p.add_argument('--linoff', action='store_true', help='🧬 계열 보너스를 끈다(전/후 비교의 「전」)')
         p.add_argument('--preset', default=None, help='패시브 고정 빌드 JSON (S.ps / S.pt 를 시작 직후 채운다)')
         p.add_argument('--trace', action='store_true', help='결과 줄에 2초마다 궤적·피격 기록을 붙인다(디버깅용 · 줄이 커진다)')
 

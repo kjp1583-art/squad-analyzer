@@ -424,7 +424,7 @@ function finalRow() {
     hit_src: Object.fromEntries(Object.entries(XX.dmg.by).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => [k, R2(v)])),
     hit_n: Object.fromEntries(Object.entries(XX.dmg.n).sort((a, b) => b[1] - a[1]).slice(0, 8)),
     t_lv5: M.lv5, t_lv10: M.lv10,
-    weapons, ps: Object.assign({}, S.ps), rel: Object.assign({}, S.rel), tr: Object.assign({}, S.tr), sm: Object.assign({}, S.sm), syn: S.synOn.slice(), pt: Object.assign({}, S.pt),
+    weapons, ps: Object.assign({}, S.ps), rel: Object.assign({}, S.rel), tr: Object.assign({}, S.tr), sm: Object.assign({}, S.sm), syn: S.synOn.slice(), lt: S.syn.lt ? Object.assign({}, S.syn.lt) : undefined, lc: S.syn.lc ? Object.assign({}, S.syn.lc) : undefined, pt: Object.assign({}, S.pt),
     rc: XX.rc ? Object.assign({}, XX.rc) : undefined,
     rev_used: S.revUsed > 0, evolved: Object.keys(S.ev),
     dealt: Math.round(dealt), sig_share: dealt > 0 ? R2(sigDealt / dealt) : null, dmg_by: dmgBy,
@@ -466,6 +466,11 @@ function init(cfg) {
   for (const rk in (CFG.rel || {})) S.rel[rk] = CFG.rel[rk];          // 🏺 유물 체감 측정: 시작부터 끼운다(0 이면 기준선)
   if (CFG.policy === 'nopass') S.banned = Object.keys(XX.PASS);      // 패시브 카드를 전부 봉인 — 패시브 0 인 판(규칙 불변 증명용)
   if (CFG.preset) { Object.assign(S.ps, CFG.preset.ps || {}); Object.assign(S.pt, CFG.preset.pt || {}); if (X.synCalc) X.synCalc(); }   // 패시브 고정 빌드(같은 칸 비교용)
+  if (CFG.linoff && XX.LINCFG) { XX.LINCFG.on = 0; X.synCalc(); }   // 🧬 계열 보너스 끄기(전/후 비교의 「전」)
+  if (CFG.lin && XX.LINEAGE) {                                      // 🧬 계열 대표 빌드: 그 계열 밖 무기는 카드 풀에서 빼고(내 시작 무기는 그대로), 무기 칸이 찰 때까지 새 무기를 먼저 고른다
+    S.banned = Object.keys(X.WEAP).filter(w => w !== X.CH.w && !XX.LINEAGE[w].includes(CFG.lin));
+    CARD.NEW_FIRST_N = XX.SLOTW;
+  }
   if (CFG.policy === 'sigonly') {                                   // 시작 무기 말고 다른 무기는 카드 풀에서 뺀다(게임의 봉인 장치 사용)
     S.banned = Object.keys(X.WEAP).filter(w => w !== X.CH.w);
   }
