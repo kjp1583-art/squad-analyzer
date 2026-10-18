@@ -6860,7 +6860,7 @@ function idealPeople(){
   const rootOf=nm=>{ let x=nm; for(let i=0;i<6;i++){ const y=resolveAlt(x); if(!y||y===x) break; x=y; } return x; };   // 한 단계만 푸는 resolveAlt 를 사슬 끝까지
   const people=new Map();   // 사람 키 → {keys:[PLAYERS_ALL 닉…]}
   for(const [nm] of PLAYERS_ALL){
-    let k=norm(rootOf(nm)); const g=grp.get(tnorm(nm));
+    let k=norm(rootOf(nm)); const g=AMBIG_BASE.has(tnorm(nm))?null:grp.get(tnorm(nm));   // 동명이인 베이스닉은 LINK 그룹으로 합치지 않는다(남의 기록이 섞임)
     if(g&&g.length) k="g:"+g[0];   // LINK_ACCOUNT 연결 요소 전체가 한 사람
     if(!people.has(k)) people.set(k,{keys:[]});
     people.get(k).keys.push(nm);
@@ -6915,7 +6915,7 @@ async function idealApi(method,path,body){
 }
 const _idealSleep=ms=>new Promise(r=>setTimeout(r,ms));
 function idealTok(){ return dcValid()?DISCORD_USER.token:""; }
-function idealAuthLost(){ IDEAL.mine={}; try{ localStorage.removeItem("sgg_ideal_mine"); }catch(e){} DISCORD_USER=null; try{ localStorage.removeItem("sgg_dc"); }catch(e){} IDEAL.stat={state:"idle",pools:{},at:0}; IDEAL.notice="auth"; }
+function idealAuthLost(){ IDEAL.pools=null; IDEAL.mine={}; try{ localStorage.removeItem("sgg_ideal_mine"); }catch(e){} DISCORD_USER=null; try{ localStorage.removeItem("sgg_dc"); }catch(e){} IDEAL.stat={state:"idle",pools:{},at:0}; IDEAL.notice="auth"; }
 async function idealLoadStats(force){
   if(!dcValid()){ IDEAL.stat={state:"idle",pools:{},at:0}; return; }
   if(!force&&IDEAL.stat.state==="ok"&&Date.now()-IDEAL.stat.at<30000) return;
@@ -6923,6 +6923,7 @@ async function idealLoadStats(force){
   const r=await idealApi("GET","/ideal/stats?token="+encodeURIComponent(idealTok()));
   if(seq!==IDEAL.seq) return;
   if(r.status===401){ idealAuthLost(); }
+  else if(r.status===403){ IDEAL.stat={state:"ok",pools:{},at:Date.now()}; IDEAL.stop="member"; }
   else if(r.status===200&&r.j&&r.j.ok){ IDEAL.stat=r.j.on===false?{state:"off",pools:{},at:Date.now()}:{state:"ok",pools:r.j.pools||{},at:Date.now()}; }
   else IDEAL.stat={state:"down",pools:{},at:Date.now()};
   if(history.state&&history.state.route==='ideal'&&!IDEAL.run) idealPaint();
@@ -7058,11 +7059,13 @@ function idealResultHtml(){
 }
 function idealPaint(){
   if(!(history.state&&history.state.route==='ideal')) return;
-  IDEAL.pools=idealPools();
+  if(!IDEAL.pools) IDEAL.pools=idealPools();   // 클릭마다 전원을 다시 훑지 않는다(renderIdeal·로그인 변화 때만 새로)
   const body=IDEAL.run?idealPlayHtml():IDEAL.resPool?idealResultHtml():idealListHtml(IDEAL.pools);
   view().innerHTML=`${navTabsHtml('ideal')}<div class="iw"><h2 class="iw-h">💘 이상형월드컵</h2>${body}</div>`;
 }
 function renderIdeal(){
+  IDEAL.pools=null;
+  if(CURRENT_CAT!=="rift"){ view().innerHTML=`${navTabsHtml('ideal')}<div class="iw"><h2 class="iw-h">💘 이상형월드컵</h2><div class="iw-rest">이상형월드컵은 협곡 내전 기준이에요<br><button class="iw-go" onclick="switchCat('rift')">협곡으로 돌아가기</button></div></div>`; return; }
   IDEAL.run=null; IDEAL.resPool=null; IDEAL.notice=""; IDEAL.failed=0; IDEAL.stop="";
   idealPaint(); idealLoadStats(true);
 }
@@ -10042,7 +10045,7 @@ function _dcRefreshView(){   // 🔐 로그인 상태가 바뀌었을 때 — �
   if(st.route==='player'&&CUR_PLAYER) renderPlayer(CUR_PLAYER);
   else if(st.route==='news'&&NEWS_CUR!==null) renderNews(NEWS_CUR,true);
   else if(st.route==='army') renderArmy();
-  else if(st.route==='ideal'){ idealPaint(); idealLoadStats(true); }   // 💘 로그인 직후 참여자 수·결과를 다시
+  else if(st.route==='ideal'){ IDEAL.pools=null; idealPaint(); idealLoadStats(true); }   // 💘 로그인 직후 참여자 수·결과를 다시
   else return;
   window.scrollTo(0,y);
 }
