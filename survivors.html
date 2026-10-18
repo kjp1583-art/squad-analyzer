@@ -1402,6 +1402,10 @@ const SYN=[
   {k:'precise',ic:'🎯',nm:'정밀 폭격',req:['snipe','meteor'],ds:'모든 피해 +10%',fx:{dmg:.1}},
   {k:'space',ic:'🌌',nm:'우주 쇼',req:['hole','meteor','rkt'],ds:'광역 +12% · 피해 +6%',fx:{area:.12,dmg:.06}},
   {k:'disco',ic:'🪩',nm:'디스코',req:['bell','wifi','spk'],ds:'쿨타임 -10% (⏱ 공격속도와 동일)',fx:{cd:.1}},
+  // 🧬 [2026-10-18 사장님 지시 「계열 시너지로 진행해」] 세트가 1개뿐이던 얼음땡·망원경 저격·블랙홀에 하나씩 더 — 공용 무기 시너지 세트 수의 불균형을 줄인다
+  {k:'coolcan',ic:'🧊',nm:'시원한 한 캔',req:['frost','can'],ds:'경험치 +10% · 피해 +6%',fx:{xp:.1,dmg:.06}},
+  {k:'aimfix',ic:'🎯',nm:'에임 보정',req:['snipe','kbd'],ds:'쿨타임 -8% (⏱ 공격속도와 동일)',fx:{cd:.08}},
+  {k:'bhgamble',ic:'🕳️',nm:'블랙홀 도박',req:['hole','gacha'],ds:'행운 +1단계 · 피해 +6%',fx:{luck:1,dmg:.06}},
   // 🔗 [2026-10-07 사장님 지시] 고유 무기 × 공용 무기 콤보 15개(용조련사는 위의 '용의 식탁') — 고유 무기 주인이 레벨업으로 공용 무기를 골라 맞추는 재미
   {k:'u_quill',ic:'🪶',nm:'엄 모이 한 상',req:['quill','feed'],ds:'경험치 +8% · 피해 +6%',fx:{xp:.08,dmg:.06}},
   {k:'u_tempo',ic:'🔫',nm:'손 빠른 APM',req:['tempo','kbd'],ds:'쿨타임 -8% (⏱ 공격속도와 동일)',fx:{cd:.08}},
@@ -1423,8 +1427,57 @@ const SYN=[
   {k:'u_panty',ic:'🧺',nm:'뚜껑 덮은 보따리',req:['panty','lid'],ds:'모든 피해 +8% · 광역 +6%',fx:{dmg:.08,area:.06}},
   {k:'u_maul',ic:'🐺',nm:'피 맛 한 모금',req:['maul','potion'],ds:'모든 피해 +8% · 광역 +6%',fx:{dmg:.08,area:.06}},
 ];
-function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0},on=[];
-  for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}S.syn=f;S.synOn=on;for(const k of on)cdxSee('sy:'+k);cdxOwn();}   // 📖 시너지가 처음 켜지면 도감에 실린다 · 이어하기로 옛 판을 되살릴 때도 여기를 지나므로 가진 것을 함께 적는다
+// ───────────────────────────────────────────────────────────────────────────────────────────────
+// 🧬 [2026-10-18 사장님 지시 「계열 시너지로 진행해」] 빌드 계열 시너지 — 「이번엔 탄막빌드로 / 광역빌드로」 처럼 한 계열 무기를 모으면 단계별(2·4·6개) 보너스.
+//   분류는 LINEAGE 한 곳에서만 정한다(새 무기는 한 줄만 더하면 된다 · 앞 칸이 주 계열, 뒤 칸이 부 계열). 정적 표(WEAP …)가 아니라서 이어하기 서명(SIG)에 안 들어간다.
+//   보너스는 S.syn 의 기존 합산 경로에 더한다(키 pspd·amt·dur·crit·crm·tk·mv 는 0 이면 식이 예전과 비트 단위로 같다). 수치는 LINT 한 곳 — 카드·일시정지·도감 문구가 그 값을 읽는다.
+//   2026-10-18: 무기는 41종(공용 23 + 고유 18)이라 「6~8개씩」 은 수학적으로 안 맞는다(40종 전부 1계열 이상 → 5계열 × 8 = 40 이면 부 계열이 0) — 부 계열 포함 9~12개로 잡았다.
+const LINEAGE={
+  feed:['bar'],fryer:['aoe','zone'],sushi:['mel'],egg:['aoe'],shrimp:['bar'],kbd:['bar','one'],spk:['aoe'],potion:['zone'],breath:['mel','aoe'],ping:['zone'],wifi:['mel','aoe'],can:['bar'],gacha:['one','aoe'],
+  pan:['mel'],rkt:['bar','aoe'],chick:['one','mel'],rod:['mel','one'],frost:['aoe'],lid:['mel'],meteor:['one','zone'],snipe:['one'],hole:['zone','aoe'],bell:['aoe'],
+  quill:['bar'],tempo:['bar','one'],fuse:['zone','aoe'],slime:['bar','zone'],cart:['zone'],heart:['one','bar'],jhin:['one','bar'],whop:['bar','aoe'],bash:['mel'],twin:['mel','zone'],stamp:['one'],chain:['one','mel'],ram:['mel'],
+  snack:['bar'],eom:['aoe','mel'],pcards:['bar','mel'],sing:['bar'],panty:['zone','bar'],maul:['mel','one'],
+};
+const LIN={   // 계열 이름·그림·한 줄 설명(아이콘은 위험색(빨강)을 피한다)
+  bar:{ic:'🔫',nm:'탄막',ln:'투사체를 많이 쏘는 무기'},
+  aoe:{ic:'💥',nm:'광역',ln:'폭발·오라·파동으로 넓게 쓸어 담는 무기'},
+  zone:{ic:'🧱',nm:'설치·장판',ln:'바닥에 깔아 두고 기다리는 무기'},
+  mel:{ic:'⚔️',nm:'근접·돌진',ln:'달려들거나 몸 가까이에서 때리는 무기'},
+  one:{ic:'🎯',nm:'단일·저격',ln:'한 놈을 정확히 노리는 무기'},
+};
+const LINN=[2,4,6];   // 같은 계열 무기가 이만큼이면 1·2·3단계(각성한 무기도 한 개로 센다)
+//   단계별 보너스는 「그 단계에서 합계」(누적 아님). 키: dmg 모든 피해 · cd 쿨타임 감소 · area 범위 · pspd 투사체 속도(🏹 속사 단계처럼) · amt 곱빼기(+1 = 🍱 한 단계 · 받는 무기만) · dur 끈기 단계 ·
+//   crit 치명타 확률 · crm 치명타 배율 · tk 받는 피해 감소 · mv 이동속도
+const LINT={
+  bar:[{pspd:1,cd:.03},{pspd:2,cd:.05,amt:1},{pspd:3,cd:.08,amt:1}],
+  aoe:[{area:.04,dmg:.02},{area:.07,dmg:.04},{area:.10,dmg:.06}],
+  zone:[{dur:1,dmg:.03},{dur:2,dmg:.06},{dur:3,dmg:.09}],
+  mel:[{tk:.03,mv:.02},{tk:.05,mv:.04},{tk:.07,mv:.06}],
+  one:[{crit:.05,crm:.1,dmg:.03},{crit:.08,crm:.2,dmg:.06},{crit:.12,crm:.3,dmg:.09}],
+};
+const LINCFG={on:1};   // 측정용 스위치(0 이면 계열 보너스를 켜지 않는다 — 전/후 비교·시험이 쓴다)
+const LINL={dmg:['모든 피해','+','%',100],cd:['쿨타임','-','%',100],area:['범위','+','%',100],pspd:['투사체 속도','+','단계',1],amt:['곱빼기','+','개',1],dur:['지속시간','+','단계',1],
+  crit:['치명타 확률','+','%p',100],crm:['치명타 배율','+','배',1],tk:['받는 피해','-','%',100],mv:['이동속도','+','%',100]};
+const linFxText=fx=>Object.keys(fx).map(k=>{const l=LINL[k];return `${l[0]} ${l[1]}${Math.round(fx[k]*l[3]*10)/10}${l[2]}`;}).join(' · ');
+const linOf=w=>LINEAGE[w]||[];
+const linCnt=()=>{const c={bar:0,aoe:0,zone:0,mel:0,one:0};for(const w in S.w)for(const k of linOf(w))c[k]++;return c;};
+const linTier=n=>n>=LINN[2]?3:n>=LINN[1]?2:n>=LINN[0]?1:0;   // 0 = 꺼짐 · 1~3 단계
+const linTag=w=>linOf(w).map(k=>LIN[k].ic).join('');
+function linHint(w){   // 🧬 레벨업 카드 한 줄 — 「🔫 탄막 계열 (내가 2→3/4)」 · 새 무기가 단계를 켜 주면 효과도 같이
+  const L=linOf(w);if(!L.length)return '';const c=linCnt(),own=!!S.w[w];
+  return '<br><span class="syn">'+L.map(q=>{const n=c[q]+(own?0:1),t=linTier(n),nx=LINN.find(x=>x>n)||LINN[2];
+    return `${LIN[q].ic} ${LIN[q].nm} 계열 (내가 ${own?n:c[q]+'→'+n}/${nx})${!own&&t>linTier(c[q])?` — <b>${t}단계 켜짐!</b> ${linFxText(LINT[q][t-1])}`:''}`;}).join('<br>')+'</span>';}
+function linHtml(){   // 🧬 일시정지 화면 — 내가 가진 무기가 속한 계열별 진행도
+  const c=S.syn.lc||linCnt(),ks=Object.keys(LIN).filter(k=>c[k]>0);if(!ks.length)return '';
+  return '<b>🧬 빌드 계열</b>'+ks.map(k=>{const n=c[k],t=linTier(n),nx=LINN.find(x=>x>n);
+    return `<div class="bw${t?' ev':''}">${LIN[k].ic} ${LIN[k].nm} ${n}/${nx||LINN[2]}${t?` · ${t}단계`:''}<small>${t?'지금: '+linFxText(LINT[k][t-1]):'2개부터 켜져요'}${nx?` · 다음 단계 ${nx}개 → ${linFxText(LINT[k][t])}`:' · 최고 단계'}${LINCFG.on?'':' (꺼짐)'}</small></div>`;}).join('');}
+function synCalc(){const f={dmg:0,cd:0,area:0,xp:0,luck:0,pspd:0,amt:0,dur:0,crit:0,crm:0,tk:0,mv:0},on=[];
+  for(const y of SYN)if(y.req.every(k=>S.w[k])){on.push(y.k);for(const k in y.fx)f[k]+=y.fx[k];}
+  const old=S.syn&&S.syn.lt,lc=linCnt(),lt={};   // 🧬 계열 단계(LINCFG.on=0 이면 전부 0)
+  for(const k in LIN){const t=LINCFG.on?linTier(lc[k]):0;lt[k]=t;if(t){const fx=LINT[k][t-1];for(const q in fx)f[q]+=fx[q];}}
+  f.lc=lc;f.lt=lt;
+  if(old&&typeof toast==='function')for(const k in LIN)if(lt[k]>(old[k]||0)){toast(`${LIN[k].ic} ${LIN[k].nm} 계열 ${lt[k]}단계! — ${linFxText(LINT[k][lt[k]-1])}`);toastT=3.2;}
+  S.syn=f;S.synOn=on;for(const k of on)cdxSee('sy:'+k);cdxOwn();}   // 📖 시너지가 처음 켜지면 도감에 실린다 · 이어하기로 옛 판을 되살릴 때도 여기를 지나므로 가진 것을 함께 적는다
 const MAXEV=3;   // ✨ [2026-09-29 사장님] 각성은 한 판에 3개까지 — 무엇을 각성할지가 빌드
 const MAXLV=8,MAXPASS=5,SLOTW=6,SLOTP=6,WIN_T=3600,REROLL=3,BANISH=3,REV_LV=20;   // REV_LV: 👼 부활 카드는 이 레벨부터 나온다(이미 가진 건 영향 없음)
 const BRT={R:190,w:.62,d:11,cd:.85,em:30};   // 🔥 드래곤 브레스 기본값 — 사거리·반각(rad)·피해·쿨타임·몸 주변 불씨 반경(봇 시뮬로 맞춤) · 🐲 [2026-10-09 사장님 지시 「용조련사 고유무기 데미지가 너무 쎄니까 하향조정」] 피해 36 → 29(약 −20%, 모든 레벨·각성·단계 카드가 이 값에 곱해진다) — 하드·베리하드 클리어 기록이 용조련사에 몰려 있었다 · ⚖️ [2026-10-15 사장님 지시 「브레스는 하향, 다른 무기는 상향해서 평균값으로」] 무기 40여 종을 같은 아레나(적 45마리 · 10~20분차 체력 · 10초)에서 재니 브레스가 중앙값의 약 5배였다 → 피해 29 → 11(약 −62%) 로 상위권(중앙값의 2~3배)이되 압도하지 않게
@@ -1660,7 +1713,7 @@ function cdxEntries(){   // 도감 항목 전부 — 표를 읽은 그대로(잠
   for(const k in WEAP){const d=WEAP[k],pp=PASS[d.pair],T=TIERS[k],c=d.only?CHARS.find(x=>x.k===d.only):null;
     L.push({key:'w:'+k,cat:'w',ic:d.ic,nm:d.nm,rl:d.rl||'',who:d.only?who(d.only):null,startLv:c&&c.w===k?(c.wl||1):0,lv:d.ds.slice(),
       pair:pp?{key:'p:'+d.pair,ic:pp.ic,nm:pp.nm}:null,ev:d.ev?{key:'ev:'+k,ic:d.ev.ic,nm:d.ev.nm,ds:d.ev.ds}:null,
-      fx:!PFX[k]?[]:PFXCH.filter(c=>c.k!=='luck'||PFX[k].luck!=='nn').map(c=>({key:'p:'+c.ps,ic:c.ic,nm:c.nm,b:fxState(k,c.k,false),e:fxState(k,c.k,true),nb:fxNote(k,c.k,false),ne:fxNote(k,c.k,true)})),   // 🧩 받는 강화(⏱🍱🏹⏳📏🍀) — 표시용 · 발견 규칙은 cdxView 가 건다
+      lin:linOf(k).map(q=>({ic:LIN[q].ic,nm:LIN[q].nm})),fx:!PFX[k]?[]:PFXCH.filter(c=>c.k!=='luck'||PFX[k].luck!=='nn').map(c=>({key:'p:'+c.ps,ic:c.ic,nm:c.nm,b:fxState(k,c.k,false),e:fxState(k,c.k,true),nb:fxNote(k,c.k,false),ne:fxNote(k,c.k,true)})),   // 🧩 받는 강화(⏱🍱🏹⏳📏🍀) — 표시용 · 발견 규칙은 cdxView 가 건다
       ms:T?{key:'wt:'+k,m:T.slice(0,3).map(x=>x[0]),e:T.slice(3).map(x=>x[0])}:null});}
   for(const k in PASS){const d=PASS[k];
     L.push({key:'p:'+k,cat:'p',ic:d.ic,nm:d.nm,ds:d.ds,max:pmax(k),pairs:Object.keys(WEAP).filter(w=>WEAP[w].pair===k).map(wref),pt:PT[k]?{key:'pt:'+k,lv:PT[k].slice()}:null,
@@ -1691,7 +1744,7 @@ addEventListener('storage',e=>{if(e.key!==CDX.K&&e.key!==null)return;   // 다�
   try{const a=cdxRead();if(!a)return;const n=cdxAdd(a);
     if(e.key===CDX.K&&CDX.s.size>a.reduce((c,k)=>c+(CDX.s.has(k)?1:0),0))cdxSave();   // 두 탭이 같은 순간에 써서 한쪽이 덮였으면(저장소는 원자적이지 않다) 이 탭이 가진 발견을 합집합으로 다시 써 맞춘다
     if(n)cdxFire();}catch(x){}});
-window.__cdx={view:cdxView,stat:cdxStat,on:f=>{CDX.on.push(f);},sync:()=>{try{const a=cdxRead();if(a&&cdxAdd(a))cdxFire();}catch(e){}},get mem(){return CDX.mem;},get bad(){return CDX.bad;},get login(){return !!dcUser();},get maxEv(){return MAXEV;}};   // 맨 아래 도감 구획이 쓰는 다리 — 잠긴 칸은 view() 가 가려서 준다
+window.__cdx={view:cdxView,stat:cdxStat,on:f=>{CDX.on.push(f);},sync:()=>{try{const a=cdxRead();if(a&&cdxAdd(a))cdxFire();}catch(e){}},get mem(){return CDX.mem;},get bad(){return CDX.bad;},get login(){return !!dcUser();},get maxEv(){return MAXEV;},lin:()=>Object.keys(LIN).map(k=>({k,ic:LIN[k].ic,nm:LIN[k].nm,ln:LIN[k].ln,n:Object.keys(LINEAGE).filter(w=>LINEAGE[w].includes(k)).length,tiers:LINT[k].map((fx,i)=>({n:LINN[i],ds:linFxText(fx)}))}))};   // 맨 아래 도감 구획이 쓰는 다리 — 잠긴 칸은 view() 가 가려서 준다
 
 // ---------- 🔊 소리 — 효과음은 WebAudio 로 즉석 합성(파일 없음), 음악은 survivors_boss.mp3 한 곡 무한반복(사장님 지시) ----------
 const AU=(()=>{
@@ -1965,7 +2018,7 @@ function makeS(dly){return {t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
      cd:{},aura:0,spawnT:0,won:false,bossRef:null,booms:[],ebooms:[],beams:[],room:null,cone:null,cardW:null,shake:0,propT:0,chickT:75,chkT:-99,flash:0,
      sushi:[],live:[],kc:new Array(KIND.length).fill(0),ne:0,lite:false,wvId:0,zapId:0,rangN:0,sayT:0,tcd:{},   // tcd 💬 도발 대사 종류별 다음 허용 시각
      newU:[],staffT:5,slowR:0,proomT:6,proom:{x:0,y:0,R:0,t:0,tk:0},dashCd:0,br:{a:0,R:0,w:0,t:0,ev:0},
-     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},mhpBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9,cu:0,cuq:0};}   // 🔁 [2026-10-08] 새 판의 S 기본값 — 이어하기가 복구할 때 이 위에 저장값을 얹는다(새로 생긴 필드가 기본값을 받는다)
+     x2:newX2(),x3:newX3(),hard:HARD_ON||VH_ON,vh:VH_ON?1:0,mines:[],canId:0,wifiA:0,wifiL:0,wifiN:0,wifiEv:0,dmgBy:{},mhpBy:{},rg:0,rgB:2.5,dT:0,dS:1,dA:0,dN:0,dW:null,rr:REROLL,ban:BANISH,banned:[],banMode:false,syn:{dmg:0,cd:0,area:0,xp:0,luck:0,pspd:0,amt:0,dur:0,crit:0,crm:0,tk:0,mv:0},synOn:[],vk:0,dly:dly||null,endless:0,invCur:'',invPk:0,sgT:{},sgC:0,sgH:0,sgK:-9,cu:0,cuq:0};}   // 🔁 [2026-10-08] 새 판의 S 기본값 — 이어하기가 복구할 때 이 위에 저장값을 얹는다(새로 생긴 필드가 기본값을 받는다)
 function newRun(dly){
   RSEED=dly?dly.seed:0;RIFT_CACHE.clear();RDEV.clear();   // 🗺 일일 도전은 같은 날 같은 맵 — 바닥 조각 난수에 시드를 섞고 캐시를 비운다
   enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
@@ -1989,21 +2042,21 @@ const lwOn=()=>{const w=S.x3&&S.x3.lw;return !!(w&&w.bT>0);};   // 📚 깨달�
 const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1)*(lwOn()?1-STUDYV.buffC:1);   // 📚 깨달음 버프 · 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
 const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1)*(lwOn()?1+STUDYV.buffD:1);   // 📚 깨달음 버프(공부 Lv3~) · 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
-const DUR=()=>1+.15*pv('dur');                  // ⏳ 지속시간
-const PS=()=>1+.12*pv('pspd')+.08*PTV('pspd');                  // 🏹 투사체 속도
+const DUR=()=>1+.15*(pv('dur')+S.syn.dur);                  // ⏳ 지속시간
+const PS=()=>1+.12*(pv('pspd')+S.syn.pspd)+.08*PTV('pspd');                  // 🏹 투사체 속도
 // 🎮 [2026-10-09 사장님 지시 「내 캐릭터의 현재 크리티컬확률과같은 스텟표기 추가」] 능력치 표(statsHtml)가 읽는 값 — 게임 코드(hurt·update·hitP)와 표가 같은 함수를 부른다.
 //   인라인으로 있던 식을 항 순서·연산 순서 그대로 함수로만 뺐다(규칙·수치·난수 불변 — 결합 순서가 같아 결과가 비트까지 같다). 식을 고칠 때는 여기 한 곳만 고치면 표도 따라온다.
 const critCh=()=>(CH.crit||0)+csCrit(),critLk=()=>.03*LK(),critPv=()=>.05*pv('crit'),critPt=()=>PTV('luck')?.05:0,critTr=()=>.06*trn('focus'),critSm=()=>smv('crit');   // 치명타 확률의 여섯 갈래: 캐릭터 · 행운 · 급소 · 🌟 행운 초월 · 정조준 · 눈 밝히기
-const critChance=()=>critCh()+critLk()+critPv()+critPt()+critTr()+critSm();   // 치명타 확률(1 이상이면 늘 터진다)
-const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);   // 치명타가 터졌을 때의 피해 배율
-const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove();   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
+const critChance=()=>critCh()+critLk()+critPv()+critPt()+critTr()+critSm()+S.syn.crit;   // 치명타 확률(1 이상이면 늘 터진다)
+const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0)+S.syn.crm;   // 치명타가 터졌을 때의 피해 배율
+const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove()+S.syn.mv;   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
 const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
 const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag');   // 경험치 줍는 범위 배율(기본 반경 70)
 const xpMul=()=>1+(CH.xp||0)+STUDYV.xp*pv('study')+S.syn.xp;   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
 const armTotal=()=>pv('arm')+(CH.arm||0)+PASSV.turtle.arm*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
 const takenMul=()=>csTaken()*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1)*(S.x3.ram.hg>0?1-U3.ram.hg.red:1)*(S.x3.mau&&S.x3.mau.hg>0?1-U3.maul.hg.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다) · 🥊 태웅이 보스에 매달린 동안은 절반
 const VAMP_N=40,vampHp=()=>1.5*pv('vamp');   // 🥩 고기 반찬: 적 VAMP_N 마리를 처치할 때마다 HP 회복
-const critParts=()=>[['캐릭터',critCh()],['행운',critLk()],['급소',critPv()],['행운 초월',critPt()],['정조준',critTr()],['눈 밝히기',critSm()]];   // 표시용 구성표(화면을 그릴 때만 부른다 — 합은 critChance 와 같다)
+const critParts=()=>[['캐릭터',critCh()],['행운',critLk()],['급소',critPv()],['행운 초월',critPt()],['정조준',critTr()],['눈 밝히기',critSm()],['빌드 계열',S.syn.crit]];   // 표시용 구성표(화면을 그릴 때만 부른다 — 합은 critChance 와 같다)
 const LOWHP_AT=.3,lowMul=()=>CH.low&&S.p.hp<S.p.mhp*LOWHP_AT?1+CH.low:1;   // 🥲 망무새: 체력이 LOWHP_AT 아래면 피해 +CH.low (hurt 가 곱한다 — dmgMul 에는 안 들어 있다)
 const rageCap=()=>CH.rage+(SGN('sg_tw')?SGV.tw.cap[SGN('sg_tw')-1]:0),rageMul=()=>1+Math.min(rageCap(),Math.max(0,1-S.p.hp/S.p.mhp)*(1+(SGN('sg_tw')?SGV.tw.sl[SGN('sg_tw')-1]:0)));   // 💔 태웅 「씩씩」: 잃은 체력 1%당 피해 +1%(상한 rageCap) — hurt 가 곱한다
 let SRC='';                                      // 지금 피해를 넣는 무기(무기별 피해 통계)
@@ -2081,6 +2134,7 @@ function buildHtml(){
   {const rk=Object.keys(S.rel),tk=Object.keys(S.tr);if(rk.length||tk.length)h+=`<b>🏺 유물·거래</b><div class="bw">${rk.map(k=>`${REL[k].ic} ${REL[k].nm} Lv${S.rel[k]}${k==='still'?(S.shield?' · 지금 있음':' · 다음까지 약 '+Math.max(1,Math.ceil([40,30,20][S.rel.still-1]-S.stillT))+'초'):''}`).concat(tk.map(k=>`${TRD[k].ic} ${TRD[k].nm} ×${S.tr[k]}`)).join(' · ')}</div>`;}
   const sy=SYN.filter(y=>y.req.every(k=>wOk(k)||S.w[k])&&y.req.some(k=>S.w[k]));
   if(sy.length)h+=`<b>🔗 시너지</b>`+sy.map(y=>{const on=S.synOn.includes(y.k);return `<div class="bw${on?' ev':''}">${y.ic} ${y.nm} ${on?'✔':`${y.req.filter(k=>S.w[k]).length}/${y.req.length}`}<small>${y.req.map(k=>WEAP[k].ic).join('+')} — ${y.ds}</small></div>`;}).join('');
+  h+=linHtml();
   h+=dmgHtml();
   const nb=Math.min(S.nextBoss,S.nextMini);
   h+=`<div class="muted">다음 보스 ${nb<(S.endless?1e9:WIN_T)?fmt(nb):'—'} · ${S.endless?'♾ 무한 모드 — 난이도는 +30분 치에서 멈춰요 · 180:00 이 한계':'60:00 까지 버티면 클리어'}</div></div>`;return h;}
@@ -2134,7 +2188,7 @@ function diffHtml(){   // 일시정지 맨 위: 지금 판의 난이도(글자 +
   return `<div class="dfl ${cls}" id="pDiff" data-d="${kind}">🎮 난이도: ${tx}</div>`
     +`<div class="dfs" id="pMul">지금 몬스터 체력 <b>×${uiHx(hm)}</b> · 공격력 <b>×${uiHx(am)}</b> <span class="muted">(잡몹 기준 · 보스·엘리트 제외 · 시간이 갈수록 올라요)</span></div>`;}
 function statRows(){   // 능력치 표의 행 — 순서·줄 수는 늘 같다(없으면 +0% · —). v 는 게임이 쓰는 값 그대로(data-v) · t 는 보이는 글자 · s 는 작은 설명
-  const cc=critChance(),cm=critMul(),dm=dmgMul(),cd=cdMul(),ar=areaMul(),mv=moveMul()*slowMul(),tk=takenMul(),ag=armTotal(),mg=magMul(),xm=xpMul(),ps=PS(),du=DUR(),am=pv('amt'),lk=LK(),va=pv('vamp');
+  const cc=critChance(),cm=critMul(),dm=dmgMul(),cd=cdMul(),ar=areaMul(),mv=moveMul()*slowMul(),tk=takenMul(),ag=armTotal(),mg=magMul(),xm=xpMul(),ps=PS(),du=DUR(),am=pv('amt')+S.syn.amt,lk=LK(),va=pv('vamp');
   const pr=critParts().filter(p=>p[1]).map(p=>`<span class="nb">${p[0]} +${uiPcN(p[1])}</span>`).join(' · ');   // 한 갈래(「눈 밝히기 +2%」)는 줄 바꿈 때 쪼개지 않는다
   let ds='';if(CH.low)ds=`체력 ${uiPcN(LOWHP_AT)} 이하면 +${uiPcN(CH.low)} 더 — ${lowMul()>1?'지금 켜짐':'지금 꺼짐'}`;   // 망무새: 피해 표(dmgMul)에 안 들어가는 「체력 낮을 때」 몫
   if(CH.rage)ds=`잃은 체력만큼 +${uiPcN(rageMul()-1)} 더(최대 +${uiPcN(rageCap())})`;   // 태웅: 마찬가지로 hurt 가 곱하는 몫
@@ -2231,8 +2285,8 @@ function synHint(k){   // 이 무기를 고르면 가까워지는/완성되는 �
   return out.length?'<br><span class="syn">'+out.join('<br>')+'</span>':'';}
 function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
-    return {ic:d.ic,nm:d.nm,ty:o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`,ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
-      +fxKeyHtml(o.k,el)+fxWeapHtml(o.k,el)+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
+    return {ic:d.ic,nm:d.nm,ty:(o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`)+' '+linTag(o.k),ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
+      +fxKeyHtml(o.k,el)+fxWeapHtml(o.k,el)+(o.l?'':synHint(o.k))+linHint(o.k),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
   if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':isKeyNew(o.k)?`🗝 새 열쇠 패시브 · 열쇠 칸 ${keyN()+1}/${MAXEV}`:`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:(o.k==='study'?`경험치 +${pct(STUDYV.xp)}% · 레벨업할 때마다 「깨달음」 — <b>Lv${o.l+1}:</b> ${STUDYV.st[o.l]}`:d.ds)+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
@@ -3097,7 +3151,7 @@ const SHV={max:100,dur:11,dmg:1.2,spd:.2,red:.3,R:140,aura:9,hit:.25,kill:1,kgE:
 const rgMul=()=>Math.min(SHV.accMax,1+SHV.acc*S.t/60);   // 시간 비례 충전 배율(5분 1.15 · 10분 1.3 · 20분 1.6 · 27분부터 1.8)
 function rgAdd(v){if(!CH.shv||S.dT>0)return;v=Math.min(v,S.rgB);if(v<=0)return;S.rgB-=v;S.rg=Math.min(SHV.max,S.rg+v*rgMul());}   // 버킷에서는 v 만 빼고 게이지에는 v×배율을 더한다 → 상한(초당 cap)에 막힌 판의 충전 속도도 cap×배율이 된다
 const shvTot=()=>(SHV.dur+SHV.rel[SGN('sg_psg')])*DUR();   // 변신 지속(초) — ⏳ 끈기도 받는다
-const shvAuraK=()=>{const L=S.w.twin||0,t=TK('twin');return(1+SHV.aLv*Math.max(0,L-1))*(1+t.d)*(1+SHV.aAm*pv('amt'))*(1+SHV.relD[SGN('sg_psg')]);};   // 🔥 불꽃 오라 피해 배율: 쌍둥이 이빨 레벨·등급 · 곱빼기 · 유물
+const shvAuraK=()=>{const L=S.w.twin||0,t=TK('twin');return(1+SHV.aLv*Math.max(0,L-1))*(1+t.d)*(1+SHV.aAm*(pv('amt')+S.syn.amt))*(1+SHV.relD[SGN('sg_psg')]);};   // 🔥 불꽃 오라 피해 배율: 쌍둥이 이빨 레벨·등급 · 곱빼기 · 유물
 function shvStart(){const p=S.p;S.dT=shvTot();S.dN++;S.dA=.2;S.dW={t:.6,T:.6,R:SHV.push,x:p.x,y:p.y};
   AU.play('bigboom');AU.play('fire');S.shake=Math.max(S.shake,.3);S.flash=Math.max(S.flash,.2);banner('🐲 용의 강림!',Math.round(S.dT)+'초 — 불꽃 오라 · 빠르게 · 덜 아프게');txt(p.x,p.y-40,'🐲 용 변신!','#ffb35a');
   const sv=SRC;SRC='drg';const d=14*dmgMul();
@@ -3589,7 +3643,7 @@ function weapons3(dt,cm,MT,AR,AM){
     if(dead){f[i]=f[f.length-1];f.pop();}}
 }
 function weapons(dt){
-  const p=S.p,cm=cdMul(),MT=dmgMul(),AR=1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale')+S.syn.area,AM=pv('amt');let L;   // 🔗 시너지 범위(areaMul 과 같은 식 — 두 곳이 어긋나지 않게 같이 고친다)
+  const p=S.p,cm=cdMul(),MT=dmgMul(),AR=1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale')+S.syn.area,AM=pv('amt')+S.syn.amt;let L;   // 🔗 시너지 범위(areaMul 과 같은 식 — 두 곳이 어긋나지 않게 같이 고친다)
   for(const k in S.w)if(S.cd[k]===undefined)S.cd[k]=0;
   // 🌾 사료 투척 → 🌪 사료 폭풍
   L=S.w.feed||0;SRC='feed';
@@ -5593,12 +5647,19 @@ init();
   function panelHtml(){
     var list=U.list=U.view.filter(function(v){return v.cat===U.tab;});
     var h='<p class="cxtip">'+TIP[U.tab]+'</p>';
+    if(U.tab==='s')h+=linGuide();
     if(U.tab==='x'){
       SUBS.forEach(function(sb){var tl='',n=0,m=0;
         list.forEach(function(v,i){if(v.sub!==sb[0])return;m++;if(!v.locked)n++;tl+=tileHtml(v,i);});
         h+='<h3 class="cxh3">'+sb[1]+'<span>'+n+'/'+m+'</span></h3><div class="cxgrid" role="group" aria-label="'+cxEsc(sb[1])+'">'+tl+'</div>';});
     }else h+='<div class="cxgrid">'+list.map(tileHtml).join('')+'</div>';
     return h;
+  }
+  function linGuide(){   // 🧬 빌드 계열 안내 — 게임 표(LIN·LINT)를 그대로 읽는다
+    var L=[];try{L=C.lin();}catch(e){}
+    if(!L.length)return '';
+    return '<div class="cxd" style="margin:6px 0 10px"><b>🧬 빌드 계열 시너지</b><p class="cxsm">무기마다 계열이 있어요. 같은 계열 무기를 한 판에 2·4·6개 가지면 단계별 보너스가 켜져요(각성한 무기도 한 개로 세요).</p>'+
+      L.map(function(l){return '<p><b>'+cxEsc(l.ic+' '+l.nm)+'</b> <span class="cxsm">'+cxEsc(l.ln)+' · 무기 '+l.n+'종</span><br>'+l.tiers.map(function(t){return '<span class="cxsm">'+t.n+'개: '+cxEsc(t.ds)+'</span>';}).join('<br>')+'</p>';}).join('')+'</div>';
   }
   function lis(arr,lab){var h='<ol class="cxlv">';for(var i=0;i<arr.length;i++)h+='<li><b>'+cxEsc(lab(i))+'</b><span>'+cxEsc(arr[i])+'</span></li>';return h+'</ol>';}
   function head(v,sub){return '<div class="cxdh"><span class="cxic" aria-hidden="true">'+cxEsc(v.ic)+'</span><div><b>'+cxEsc(v.nm)+'</b><span class="cxsm">'+cxEsc(sub)+'</span></div></div>';}
@@ -5620,6 +5681,7 @@ init();
   function wDetail(v){
     var n=v.lv.length,h=head(v,v.who?(v.rl||'고유 무기'):'공용 무기'+(v.rl?' · '+v.rl:''))+who2(v,' — 이 캐릭터로 판을 시작하면 처음부터 들고 있어요'+(v.startLv>1?' (Lv'+v.startLv+'로 시작)':''));
     h+='<h4>레벨별 효과</h4>'+lis(v.lv,function(i){return 'Lv'+(i+1);});
+    if(v.lin&&v.lin.length)h+='<p class="cxsm">🧬 빌드 계열: '+v.lin.map(function(l){return cxEsc(l.ic+' '+l.nm);}).join(' · ')+' — 같은 계열 무기를 2·4·6개 모으면 보너스가 켜져요(시너지 칸 위쪽 참고)</p>';
     h+=fxChips(v);
     if(v.ev){   // 각성 형태가 없는 무기가 생기면 이 칸은 통째로 뺀다
       h+='<h4>✨ 각성</h4><p class="cxsm">각성 조건: 무기 Lv'+n+' + '+(!v.pair?'각성 열쇠 패시브':v.pair.hid?'각성 열쇠 패시브 ❓(아직 못 만난 패시브)':'각성 열쇠 패시브 '+cxEsc(v.pair.ic+' '+v.pair.nm))+' → 보스 상자에서 각성'+(C.maxEv?'(한 판에 '+C.maxEv+'개까지)':'')+'</p>';

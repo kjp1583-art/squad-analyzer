@@ -220,7 +220,7 @@ BITS = r"""(a)=>{const x=__p6x,O=window.__O,mb=window.__mb(a.seed),chars=x.CHARS
     for(const k in X.SM){if(k==='ramen')continue;if(mb()<.5)S.sm[k]=1+Math.floor(mb()*X.SM[k].cap);}
     S.ramen=mb()<.5?Math.floor(mb()*9):0;
     for(const k in X.REL){if(mb()<.3)S.rel[k]=1+Math.floor(mb()*3);}
-    S.syn={dmg:mb()*.3,cd:mb()*.2,area:mb()*.3,xp:mb()*.3,luck:Math.floor(mb()*4)};
+    S.syn={dmg:mb()*.3,cd:mb()*.2,area:mb()*.3,xp:mb()*.3,luck:Math.floor(mb()*4),pspd:0,amt:0,dur:0,crit:0,crm:0,tk:0,mv:0};
     S.x2.bT=mb()<.3?3:0;S.x2.bm=mb()*.2;S.x2.bs=mb()*.2;S.dT=mb()<.3?4:0;S.spr=mb()<.3?1:0;if(S.spr>0&&!S.rel.sprint)S.rel.sprint=1+Math.floor(mb()*3);
     const p=S.p;p.mhp=60+Math.floor(mb()*300);p.hp=Math.max(1,Math.floor(mb()*p.mhp));if(mb()<.4)p.hp=p.mhp;p.moving=mb()<.5;p.slow=mb()<.3?1:0;p.sp=180;
     const d=1+Math.floor(mb()*400)+mb(),v=.5+mb()*30;
