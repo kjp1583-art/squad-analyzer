@@ -121,7 +121,7 @@ async def main():
         got_tiles = [e['key'] for e in ent]
         check('도감 칸 = 표의 모든 키(무기 %d · 패시브 %d · 유물 %d · 거래 %d · 작은 능력치 %d · 일회용 %d · 시너지 %d)' % (len(tb['W']), len(tb['P']), len(tb['R']), len(tb['D']), len(tb['M']), len(tb['C']), len(tb['Y'])), sorted(got_tiles) == sorted(want_tiles), (set(want_tiles) ^ set(got_tiles)))
         check('도감 칸 키가 서로 겹치지 않는다 · 총 %d칸' % len(got_tiles), len(set(got_tiles)) == len(got_tiles) == len(want_tiles))
-        check('무기 42종(공용 22 + 고유 20) · 패시브 17 · 유물 23 · 거래 6 · 작은 능력치 6 · 일회용 4', (len(tb['W']), len(tb['P']), len(tb['R']), len(tb['D']), len(tb['M']), len(tb['C'])) == (42, 17, 23, 6, 6, 4) and len([1 for k, o in tb['only']]) == 19, (len(tb['W']), len(tb['only'])))
+        check('무기 42종(공용 22 + 고유 20) · 패시브 17 · 유물 23 · 거래 6 · 작은 능력치 6 · 일회용 4', (len(tb['W']), len(tb['P']), len(tb['R']), len(tb['D']), len(tb['M']), len(tb['C'])) == (42, 17, 23, 6, 6, 4) and len([1 for k, o in tb['only']]) == 20, (len(tb['W']), len(tb['only'])))
         check('PT(초월) 키는 모두 패시브 칸 안에 들어 있다', all(any(e['key'] == 'p:' + k and e['pt'] and e['pt']['key'] == 'pt:' + k and len(e['pt']['lv']) >= 1 for e in ent) for k in tb['PT']) and set(tb['PT']) <= set(tb['P']))
         check('TIERS(마스터·각성 단계) 키는 모두 무기 칸 안에 들어 있다 · 무기 42종 모두 단계표가 있다', all(any(e['key'] == 'w:' + k and e['ms'] and e['ms']['key'] == 'wt:' + k and len(e['ms']['m']) == 3 and len(e['ms']['e']) == 2 for e in ent) for k in tb['T']) and set(tb['T']) == set(tb['W']), set(tb['W']) - set(tb['T']))
         check('각성 형태(ev)는 무기마다 있다', all(any(e['key'] == 'w:' + k and e['ev'] and e['ev']['key'] == 'ev:' + k and e['ev']['nm'] and e['ev']['ds'] for e in ent) for k in tb['ev']) and set(tb['ev']) == set(tb['W']))
@@ -769,7 +769,7 @@ async def main():
             await open_dex(pg)
             o = await pg.evaluate(OVL)
             check('[%s] 겹창: 화면 안 · 가로 넘침 0 · 탭 5개 모두 안(터치 ≥ 40px %d) · 겹침 0' % (tag, o['tabMin']), o['boxIn'] and o['noScrollX'] and o['tabsIn'] and o['tabMin'] >= 40 and not o['tabHit'], o)
-            check('[%s] 겹창: 닫기 버튼 ≥ 40px · 격자 %d칸 모두 안 · 열 %d개 · 칸 겹침 0 · 칸 터치 ≥ 40px(%d)' % (tag, o['nt'], o['cols'], o['tileMin']), o['xMin'] >= 40 and o['xIn'] and o['tileIn'] and not o['tileHit'] and o['tileMin'] >= 40 and o['nt'] == 40, o)
+            check('[%s] 겹창: 닫기 버튼 ≥ 40px · 격자 %d칸 모두 안 · 열 %d개 · 칸 겹침 0 · 칸 터치 ≥ 40px(%d)' % (tag, o['nt'], o['cols'], o['tileMin']), o['xMin'] >= 40 and o['xIn'] and o['tileIn'] and not o['tileHit'] and o['tileMin'] >= 40 and o['nt'] == 42, o)
             if w <= 412 and w > h * 0.0: check('[%s] 폰 세로 폭에서 격자는 3~4열' % tag, 3 <= o['cols'] <= 4, o['cols'])
             check('[%s] 겹창: 칸 이름 글자가 칸 밖으로 안 넘친다 · 글자 ≥ 11.5px' % tag, o['tileTxt'] and not o['smallFont'], o['smallFont'])
             await shot(pg, '8_grid_%s.png' % tag)
