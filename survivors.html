@@ -46,6 +46,7 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-actio
 #fxv{background:radial-gradient(circle at 50% 50%,rgba(190,240,255,.1) 0,rgba(190,240,255,0) 32vmin),radial-gradient(ellipse farthest-corner at 50% 50%,rgba(4,6,14,0) 42%,rgba(4,6,14,.3) 70%,rgba(4,6,14,.62) 100%)}
 #fxr{background:radial-gradient(ellipse farthest-corner at 50% 50%,rgba(200,20,40,0) 38%,rgba(200,20,40,.22) 68%,rgba(200,20,40,.62) 100%);will-change:opacity}
 #fxf{background:radial-gradient(circle at 18% 38%,rgba(210,220,235,.55),rgba(210,220,235,0) 34%),radial-gradient(circle at 78% 30%,rgba(210,220,235,.5),rgba(210,220,235,0) 36%),radial-gradient(circle at 40% 72%,rgba(210,220,235,.5),rgba(210,220,235,0) 38%),radial-gradient(circle at 85% 80%,rgba(210,220,235,.45),rgba(210,220,235,0) 30%),rgba(200,210,228,.35);will-change:opacity,transform}
+#mm{position:fixed;left:auto;bottom:auto;right:10px;top:112px;width:104px;height:104px;border-radius:50%;pointer-events:none;display:none;background:rgba(10,12,20,.55);border:1px solid rgba(255,255,255,.28);z-index:3}
 #hud{position:fixed;left:0;right:0;top:0;padding:8px 12px;pointer-events:none;display:none}
 .bar{height:8px;background:var(--card2);border-radius:6px;overflow:hidden;border:1px solid #3a2a3a}
 .bar i{display:block;height:100%;width:0}
@@ -381,6 +382,7 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div id="rgw" style="display:none;margin-top:4px;max-width:220px"><div class="bar" id="rgb" style="height:9px"><i></i></div><div id="rgt" style="font-size:11px;color:#ffd9a0;margin-top:1px;text-shadow:0 1px 2px #000"></div></div>
   <div id="bossb"><div class="muted" id="bossName" style="color:var(--gold)"></div><div class="bar"><i></i></div></div>
 </div>
+<canvas id="mm" width="208" height="208" aria-hidden="true"></canvas>
 <div id="toast"></div>
 
 <div class="ov on" id="title"><div class="box">
@@ -2574,10 +2576,19 @@ const eshots=new Pool(140,()=>({x:0,y:0,vx:0,vy:0,life:0,d:0,g:'',sl:0,k:0,src:n
 const BIMG={};function bossImg(k){if(!BIMG[k])BIMG[k]=sprite('img/survivors/boss_'+k+'.webp',200);return BIMG[k];}
 function charImg(c){for(const b of c.bdg||[])bdgSpr(b);const k=bkey(c);if(!BIMG[k])BIMG[k]=sprite(artUrl(c),200);if(c.shv&&!BIMG.psg_drg)BIMG.psg_drg=sprite('img/survivors/char_psg_drg.webp?v=1',256);return BIMG[k];}   // 🐲 프싱은 용 변신용 그림도 같이 불러온다
 const pickLine=a=>a&&a.length?a[Math.random()*a.length|0]:'';
+// 🧭 [2026-10-18 사장님 지시 「몬스터가 360도 전부 출몰해 도망갈 구멍이 없다 — 리젠 위치를 랜덤하게 분포」] 평소 스폰은 둘레 전체가 아니라
+//   「출현 방향」 두 곳(각 SPDIR.w 라디안 폭)에서만 나온다. 방향은 SPDIR.every 초마다 새로 뽑는다 → 항상 한쪽엔 빈 틈(도망갈 길)이 있고 그 틈이 자리를 바꾼다.
+//   stray 비율은 아무 데서나 나오는 낙오(완전히 안전한 쪽이 없게 하진 않는다). 몰이 이벤트(포위 등)는 이 규칙을 안 쓴다 — 일부러 둘러싸는 연출.
+const SPDIR={w:1.3,every:14,stray:.05,t:-1e9,c:[0,0],g:null};
+function spawnAng(){
+  if(SPDIR.g!==S||S.t<SPDIR.t){SPDIR.g=S;SPDIR.t=-1e9;}
+  if(S.t-SPDIR.t>=SPDIR.every*(.7+RN('sdir')*.6)){SPDIR.t=S.t;const a=RN('sdir')*6.283;SPDIR.c[0]=a;SPDIR.c[1]=a+1.6+RN('sdir')*2.6;}   // 두 방향 사이 간격 92°~240°
+  if(RN('spawn')<SPDIR.stray)return RN('spawn')*6.283;
+  return SPDIR.c[RN('spawn')<.5?0:1]+(RN('spawn')-.5)*SPDIR.w;}
 function spawnEnemy(kind,mult,boss,at){
   const e=enemies.get();if(!e)return null;
   if(at){e.x=at.x+(Math.random()-.5)*20;e.y=at.y+(Math.random()-.5)*20;}
-  else{const a=RN('spawn')*Math.PI*2,R=SPAWN_R;e.x=S.p.x+Math.cos(a)*R;e.y=S.p.y+Math.sin(a)*R;}
+  else{const a=spawnAng(),R=SPAWN_R;e.x=S.p.x+Math.cos(a)*R;e.y=S.p.y+Math.sin(a)*R;}
   e.ki=kind;e.fx=0;e.ft=Math.random()*3;e.st=0;e.jl=0;e.slow=0;e.gold=0;e.hb=-9;e.wv=0;e.zp=0;e.el=0;e.pl=0;e.at=null;
   e.bg=0;e.ph=0;e.ax=Math.random()<.5?1:-1;e.ay=0;e.sv=0;e.sh=0;e.eg=0;e.fl=0;e.tn=0;e.kr=0;e.bph=0;e.gen=0;e.wf=-9;e.cn=-9;e.far=0;e.fz=0;e.fv=0;e.fw=0;e.hk=0;e.mt=0;e.lw=-9;e.sw=-9;e.sn=++SN;
   e.sg3=0;e.ch3=0;e.rm=0;e.hm=0;e.du=null;   // 🧹 [2026-10-08 검증에서 발견] 풀 칸 재사용 — 이전 판이 찍은 신림 도장·또뀨 사슬·태웅 박치기·앙앵 하트 표식을 지운다(안 지우면 새 판 S.t 가 0부터라 그 적을 한참 못 노린다)
@@ -4845,6 +4856,15 @@ function duelDrawBoss(e,r){const D=e.du,t=S.t;   // 보스 몸 위: 껍질 · �
   else if(D.wk>0){const pu=.5+.5*Math.sin(t*14);cx.beginPath();cx.arc(e.x,e.y,r*1.2,0,7);cx.lineWidth=5;cx.strokeStyle='rgba(190,244,255,'+(.6+.35*pu).toFixed(2)+')';cx.stroke();
     cx.font='bold 14px sans-serif';cx.textAlign='center';cx.fillStyle='#bff3ff';cx.fillText('💥 약점 노출',e.x,e.y-r*1.45);}
   if(D.iv>0){cx.beginPath();cx.arc(e.x,e.y,r*1.1,0,7);cx.lineWidth=4;cx.strokeStyle='rgba(255,236,160,'+(.5+.4*Math.sin(t*16)).toFixed(2)+')';cx.stroke();}}
+// 🗺 [2026-10-18 사장님 지시 「실시간 미니맵으로 몬스터 위치 파악」] 오른쪽 위 원형 레이더 — 내 둘레 MM_R 안의 몬스터(빨강)·엘리트(주황)·보스(노랑 큰 점)·아이템을 보여 준다
+const MM_R=1300;
+function mmDraw(){const c=$('mm');if(!c||!S)return;const g=c.getContext('2d'),N=c.width,h=N/2,k=(h-6)/MM_R,p=S.p;
+  g.clearRect(0,0,N,N);g.strokeStyle='rgba(255,255,255,.14)';g.lineWidth=1;g.beginPath();g.arc(h,h,(h-6)*.5,0,6.283);g.stroke();
+  const dot=(x,y,r,col)=>{const dx=(x-p.x)*k,dy=(y-p.y)*k,d=Math.hypot(dx,dy),L=h-5;let X=h+dx,Y=h+dy;if(d>L){X=h+dx/d*L;Y=h+dy/d*L;}g.fillStyle=col;g.beginPath();g.arc(X,Y,r,0,6.283);g.fill();};
+  for(const it of items.a)if(it.on)dot(it.x,it.y,3,it.k==='chicken'?'#7be37b':it.k==='chest'?'#ffd24a':'#7bc4ff');
+  for(const e of enemies.a){if(!e.on)continue;if(e.boss)continue;dot(e.x,e.y,e.bg?5:e.el?4:2.6,e.bg?'#ff7a3a':e.el?'#ffa94a':'#ff4d4d');}
+  for(const e of enemies.a)if(e.on&&e.boss)dot(e.x,e.y,7,'#ffe14a');
+  g.fillStyle='#fff';g.beginPath();g.arc(h,h,4,0,6.283);g.fill();g.strokeStyle='#4dd2ff';g.lineWidth=2;g.stroke();}
 function draw(){
   const p=S?S.p:{x:0,y:0};
   cx.setTransform(DPR,0,0,DPR,0,0);
@@ -5053,6 +5073,7 @@ function hud(){
   $('xpb').firstElementChild.style.width=(S.xp/S.need*100)+'%';
   $('hpb').firstElementChild.style.width=(S.p.hp/S.p.mhp*100)+'%';
   {const t=hpText(),e=$('hpt');if(e._s!==t){e._s=t;e.textContent=t;}}   // ❤️ 숫자는 문자열이 바뀔 때만 DOM 에 쓴다(요소에 마지막 글자를 기억 — 새 최상위 변수를 만들지 않는다)
+  {const m=$('mm');if(m){m.style.display=state==='play'||state==='pause'?'block':'none';if(m.style.display==='block')mmDraw();}}
   $('hLv').textContent='Lv '+S.lv;$('hTime').textContent=(S.endless?'♾ ':S.dly?'📅 ':S.vh?'💀 ':S.hard?'🔥 ':'')+fmt(S.t)+(S.endless?'':' / 60:00');$('hKill').textContent='💀 '+S.kills;{const w=$('rgw');w.style.display=CH.shv?'block':'none';
     if(CH.shv){const dr=S.dT>0,tot=shvTot();const i=$('rgb').firstElementChild;i.style.width=(dr?S.dT/tot*100:S.rg/SHV.max*100)+'%';i.style.background=dr?'linear-gradient(90deg,#ff5a1f,#ffd36a)':'';
       $('rgt').textContent=dr?'🐲 용 변신 '+Math.ceil(S.dT)+'초':'🔥 분노 '+Math.floor(S.rg)+'%';}}
