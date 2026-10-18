@@ -47,9 +47,9 @@ async def main():
         # ── 0. 13명 · 서로 겹치지 않는 고유 무기 · 용조련사 breath 는 그대로
         r = await pg.evaluate("""()=>{const x=__p6x;return x.CHARS.map(c=>({k:c.k,w:c.w,wl:c.wl||1,only:x.WEAP[c.w]&&x.WEAP[c.w].only,ds:c.ds}))}""")
         byk = {c['k']: c for c in r}
-        check('캐릭터 19명(용조련사 포함)', len(r) == 19, len(r))
+        check('캐릭터 20명(용조련사 포함)', len(r) == 20, len(r))
         ws = [c['w'] for c in r]
-        check('시작 무기 19종이 서로 다름', len(set(ws)) == 19, ws)
+        check('시작 무기 20종이 서로 다름', len(set(ws)) == 20, ws)
         check('시작 무기 중 공용(예전 시작 무기)이 하나도 없음', not any(w in COMMON_OLD or w in ('wifi', 'ping', 'potion', 'gacha', 'rkt', 'chick', 'rod', 'frost', 'lid', 'meteor', 'snipe', 'hole', 'bell') for w in ws))
         for k, (w, wl) in UNIQ.items():
             c = byk[k]
