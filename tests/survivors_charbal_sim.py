@@ -44,6 +44,8 @@ window.__cbx={get SPAWN_R(){return SPAWN_R},get VW(){return VW},get VH(){return 
     D.by[src]=(D.by[src]||0)+dm;D.n[src]=(D.n[src]||0)+1;if(D.logOn&&D.log.length<600)D.log.push([+S.t.toFixed(2),+dm.toFixed(1),src,+(p.hp/p.mhp).toFixed(2)]);}
   return r;};}
 // 🏺 유물 활동 계수(측정 전용 · 게임 규칙은 안 건드린다): 펄스·가시·사방 카드 횟수, 정예·대형·보스 처치 수, 느려진 적 평균 수, 저체력 시간
+window.__cbx.pk={chicken:0,magnet:0,bomb:0,chest:0};   // 🍗 아이템 줍기 횟수(측정 전용) — 획득 범위가 아이템까지 닿는지 보려고
+{const up=usePick;usePick=function(k){const P=window.__cbx.pk;if(P[k]!==undefined)P[k]++;return up.apply(this,arguments);};}
 window.__cbx.rc={pulse:0,thorn:0,fan:0,el:0,boss:0,slowSum:0,slowN:0,low50:0,low30:0,tick:0};
 {const R=window.__cbx.rc;
  const hu=hurt;hurt=function(e,d){const on=e.on;const r=hu.apply(this,arguments);if(on&&!e.on){if(e.boss)R.boss++;else if(e.el||e.bg)R.el++;}return r;};
@@ -383,6 +385,10 @@ METRICS = [
     ('dmg5', '첫 5분 받은 피해', False, lambda r: r['dmg5']),
     ('min_hp', '최저 HP비율', True, lambda r: r['min_hp']),
     ('dealt', '준 피해 합(유효)', True, lambda r: r['dealt']),
+    ('pk_chk', '🍗 치킨 줍기 수', True, lambda r: (r.get('pk') or {}).get('chicken', 0)),
+    ('pk_bomb', '💣 폭탄 줍기 수', True, lambda r: (r.get('pk') or {}).get('bomb', 0)),
+    ('pk_mag', '💎 다이아 줍기 수', True, lambda r: (r.get('pk') or {}).get('magnet', 0)),
+    ('d_study', '📚 깨달음 파동 피해', True, lambda r: r.get('d_study', 0)),
 ]
 
 

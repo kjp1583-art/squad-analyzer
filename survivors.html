@@ -991,7 +991,7 @@ const CSR={   // 여러 캐릭터가 같이 쓰는 행 만들기
   regen:c=>({ic:'💚',nm:'HP 회복',sh:'회복 '+csNum(c.regen)+'/초',v:'초당 '+csNum(c.regen),ds:`가만히 있어도 1초마다 HP가 ${csNum(c.regen)}씩 차올라요`}),
   arm:c=>({ic:'🛡',nm:'받는 피해',sh:'받는 피해 '+(c.arm>0?'-':'+')+Math.abs(c.arm),v:(c.arm>0?'-':'+')+Math.abs(c.arm),ds:c.arm>0?`맞을 때마다 피해가 ${c.arm} 줄어요 (그래도 최소 1은 받아요)`:`맞을 때마다 피해가 ${-c.arm} 늘어요`}),
   spd:c=>({ic:'👟',nm:'이동속도',v:(c.spd>0?'+':'-')+csPc(Math.abs(c.spd)),ds:c.spd>0?'항상 더 빨리 달려요':'묵직해서 항상 조금 느려요'}),
-  mag:c=>({ic:'🧲',nm:'줍는 범위',sh:'줍기 +'+csPc(c.mag),v:'+'+csPc(c.mag),ds:'경험치 보석 같은 걸 더 멀리서 끌어와요'}),
+  mag:c=>({ic:'🧲',nm:'줍는 범위',sh:'줍기 +'+csPc(c.mag),v:'+'+csPc(c.mag),ds:'경험치 보석은 물론 치킨·폭탄·다이아 같은 걸 더 멀리서 끌어와요'}),
   xp:c=>({ic:'📚',nm:'경험치',v:'+'+csPc(c.xp),ds:'경험치 보석에서 얻는 경험치가 더 많아요'}),
   hp:c=>({ic:'❤️',nm:'최대 HP',v:'+'+c.hp,ds:`시작할 때부터 최대 HP가 ${c.hp} 더 많아요`}),
 };
@@ -1200,11 +1200,19 @@ const WEAP={
 //   기준 = 같은 계열 초월 있는 짝: 💪 근성(5레벨 +50%, 초월 2번 +14% → 약 +71%) · 🛡 깃털 갑옷(5레벨 -5, 초월: 무적 +0.12초 · 밀쳐내기). 광분은 3칸으로 근성에 맞서고 거북은 3칸으로 깃털 갑옷의 두 배 가까이 깎는다.
 const PASSV={glass:{dmg:.25,tk:.10},turtle:{arm:3,mv:.05}};   // glass: 레벨당 피해 +dmg · 받는 피해 +tk / turtle: 레벨당 고정 깎기 arm · 이동속도 -mv
 const pct=x=>Math.round(x*100);
+// 📚 [2026-10-18 사장님 지시 「경험치·획득범위 패시브가 슬롯을 차지하는데 최종 밸류에 영향이 없다」] 공부 「깨달음」 · 🧲 획득 범위의 아이템 끌어오기 — 수치는 여기 한 곳.
+//   카드 문구(PASS.ds)·식(xpMul·dmgMul·cdMul·gainXp·studyWave·mapTick)이 같은 값을 읽는다. 정적 표(WEAP·PASS …)가 아니라서 이어하기 서명(SIG)에 안 들어간다(상태는 S.x3.lw 한 곳 · 숫자 필드뿐).
+//   공부: 레벨업할 때마다 깨달음이 터진다(경험치 +xp/단계는 그대로). 단계 1 지혜의 파동 · 2 범위·내 레벨 비례 피해 · 3 buffT 초 피해/공속 · 4 두 번째 파동+HP 회복 · 5 확률로 카드 한 장 더(쿨 xcCd 초).
+//   파동 피해 = (d0 + dLv×내 레벨, 2단계부터)에 상한 cap 을 씌운 뒤 dmgMul — 보스에게는 boss 배. maxW = 한 프레임에 터지는 파동 상한(경험치 큰 보석으로 레벨이 한꺼번에 올라도).
+//   획득 범위: 치킨·다이아·폭탄은 「몸이 닿는 거리(p.r+14) + K×70×(magMul−1)」 안에서 spd 속도로 끌려온다(magMul=1 이면 옛 동작과 같다 · 상자 제외). 초월 2단계는 tpT 초 동안 화면의 그 셋을 끌어온다.
+const STUDYV={xp:.08,R:[96,132],d0:10,dLv:1.4,cap:50,boss:.5,kb:40,buffT:3,buffD:.08,buffC:.05,w2dt:.35,heal:.02,xcP:.08,xcCd:30,maxW:3};
+STUDYV.st=['레벨업 때 내 주변에 「지혜의 파동」이 터져 적에게 피해를 주고 살짝 밀쳐요',`파동이 더 넓어지고, 파동 피해가 내 레벨에 비례해 세져요 (보스에게는 ${pct(STUDYV.boss)}%)`,`레벨업 후 ${STUDYV.buffT}초 동안 모든 피해 +${pct(STUDYV.buffD)}% · 공격속도 +${pct(STUDYV.buffC)}% (「깨달음」 — 겹치지 않고 갱신만)`,`레벨업 때 파동이 한 번 더 터지고 HP ${pct(STUDYV.heal)}%를 회복해요`,`레벨업할 때 ${pct(STUDYV.xcP)}% 확률로 카드를 한 장 더 골라요 (${STUDYV.xcCd}초에 한 번)`];
+const MAGV={K:.3,spd:420,tpT:2.5,chk:.7};   // chk: 치킨은 HP가 이 비율 이하일 때만 끌려온다(가득 찬 채 낭비되지 않게 · 필요할 때 챙겨 주는 쪽으로)
 const PASS={
   spd:{ic:'👟',nm:'이동속도',ds:'이동속도 +8%'},
   hp:{ic:'❤️',nm:'최대 HP',ds:'최대 HP +25 (그만큼 회복)'},
   cd:{ic:'⏱',nm:'공격속도',ds:'무기 쿨타임 -8% (쿨타임이 없는 무기는 돌아가는 속도·틱이 빨라져요)'},
-  mag:{ic:'🧲',nm:'획득 범위',ds:'경험치 줍는 범위 +30%'},
+  mag:{ic:'🧲',nm:'획득 범위',ds:'줍는 범위 +30% — 경험치 보석은 물론 💎 다이아·💣 폭탄·🍗 치킨(HP가 낮을 때만)도 그만큼 멀리서 끌려와요 (🎁 상자는 직접 가서 열어요)'},
   arm:{ic:'🛡',nm:'깃털 갑옷',ds:'받는 피해 -1'},
   amt:{ic:'🍱',nm:'곱빼기',ds:'날리거나 설치하는 개수 +1 (받는 무기만 늘어요)',max:3},
   area:{ic:'📏',nm:'광역',ds:'공격 범위 +10% (폭발·오라·파동·부채꼴 — 줍는 범위·조준 거리는 해당 없음)'},
@@ -1215,7 +1223,7 @@ const PASS={
   dur:{ic:'⏳',nm:'끈기',ds:'설치물·부스러기가 남아 있는 시간 +15%'},
   crit:{ic:'🔪',nm:'급소',ds:'치명타 확률 +5% · 치명타 배율 +0.2배 (기본 2배 → Lv1 2.2배 … Lv5 3배)'},
   pspd:{ic:'🏹',nm:'속사',ds:'탄이 날아가는 속도 +12% (날아가는 거리도 같이 늘어요) — 받는 무기만'},
-  study:{ic:'📚',nm:'공부',ds:'경험치 +8%'},
+  study:{ic:'📚',nm:'공부',ds:`경험치 +${pct(STUDYV.xp)}% · 레벨업할 때마다 「깨달음」이 터져요 — `+STUDYV.st.map((s,i)=>`Lv${i+1}: ${s}`).join(' / ')},
   glass:{ic:'🩸',nm:'광분',ds:`모든 피해 +${pct(PASSV.glass.dmg)}% · 대신 받는 피해 +${pct(PASSV.glass.tk)}% (양날의 검)`,max:3},
   turtle:{ic:'🐢',nm:'거북 등껍질',ds:`받는 피해 -${PASSV.turtle.arm} · 대신 이동속도 -${pct(PASSV.turtle.mv)}% (양날의 검)`,max:3},
   vamp:{ic:'🥩',nm:'고기 반찬',ds:'적 40마리 처치마다 HP +1.5 회복',max:4},
@@ -1476,7 +1484,7 @@ const PT={
   spd:['이동 중 받는 피해 -6%','이동 중 무기 쿨타임 -4% (⏱ 공격속도와 같은 규칙)'],
   hp:['최대 HP +25 · 치킨 회복량 +25%','가만히 있어도 HP 0.25/초 회복'],
   cd:['무기 쿨타임 -4% 더 (⏱ 공격속도와 같은 규칙)','무기 쿨타임 -4% 더 (⏱ 공격속도와 같은 규칙)'],
-  mag:['획득 범위 +40%','20초마다 화면의 경험치 보석을 전부 빨아들인다'],
+  mag:['획득 범위 +40%','20초마다 화면의 치킨·폭탄·다이아를 끌어온다 (치킨은 HP가 낮을 때만 · 상자는 제외)'],
   arm:['맞은 뒤 무적 +0.12초','맞으면 주변 적을 밀쳐낸다'],
   area:['공격 범위 +6% 더 (📏 광역과 같은 규칙)'],
   might:['HP가 80% 이상이면 모든 피해 +7%','HP가 80% 이상이면 모든 피해 +7% 더'],
@@ -1886,7 +1894,12 @@ function mapTick(dt){
   if(S.chickT<=0){S.chickT=100+RN('prop')*50;const a=RN('prop')*6.283,R=350+RN('prop')*350;dropItem('chicken',p.x+Math.cos(a)*R,p.y+Math.sin(a)*R);}
   if(CH.auto){S.auT=(S.auT||0)+dt;if(S.auT>=CH.auto){let nb=null,nd=1e18;for(const it of items.a){if(!it.on||it.k==='chest')continue;const d=(it.x-p.x)**2+(it.y-p.y)**2;if(d<nd){nd=d;nb=it;}}   // 🍘 유미: 5초마다 가장 가까운 소모 아이템(치킨·자석·폭탄) 1개를 자동으로 줍는다(보스 상자는 제외) — 줄 게 없으면 시간을 모아 두지 않고 곧 다시 찾는다
     if(nb){S.auT=0;nb.on=false;usePick(nb.k);}else S.auT=CH.auto;}}
+  // 🧲 [2026-10-18 사장님 지시] 획득 범위가 치킨·다이아·폭탄까지 — magMul=1(패시브·캐릭터 보너스 없음)이면 아래 ex·pa 가 0·false 라 옛 동작과 같다. 상자(🎁)는 일부러 가서 연다.
+  const mg=magMul(),pa0=S.magT<=0&&PTV('mag')>=2;if(pa0)S.magT=20;   // 초월 2단계: 20초마다 tpT 초 동안 화면의 치킨·폭탄·다이아를 끌어온다
+  const ex=mg>1?MAGV.K*70*(mg-1):0,pa=PTV('mag')>=2&&S.magT>20-MAGV.tpT,phw=W/2/SC+40,phh=H/2/SC+40;
   for(const it of items.a){if(!it.on)continue;it.life-=dt;it.t+=dt;if(it.life<=0){it.on=false;continue;}
+    if((ex>0||pa)&&it.k!=='chest'&&(it.k!=='chicken'||p.hp<=p.mhp*MAGV.chk)){const dx=p.x-it.x,dy=p.y-it.y,d2=dx*dx+dy*dy;
+      if((ex>0&&d2<(p.r+14+ex)**2)||(pa&&Math.abs(dx)<phw&&Math.abs(dy)<phh)){const d=Math.sqrt(d2)||1,st=Math.min(MAGV.spd*dt,d);it.x+=dx/d*st;it.y+=dy/d*st;}}
     if((it.x-p.x)**2+(it.y-p.y)**2<(p.r+14)**2){it.on=false;usePick(it.k);if(state!=='play')break;}}   // 🎁 상자가 열렸으면 나머지는 다음 프레임에(상자 두 개가 한 화면에 섞이지 않게)
   if(toastT>0&&!SPD.sub){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on');}
 }
@@ -1947,7 +1960,7 @@ function newRun(dly){
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
 const pv=k=>S.ps[k]||0;
-const cardLv=()=>S.pendingLv>0?S.lv-S.pendingLv+1:S.lv;   // 🎁 지금 고르는 카드가 몇 레벨의 것인가 — 한꺼번에 여러 레벨이 쌓여도 Lv18·19 카드에는 부활이 안 나오게 하는 기준(상자·다시 뽑기처럼 쌓인 레벨이 없으면 지금 레벨)
+const cardLv=()=>{const ex=(S.x3&&S.x3.lw&&S.x3.lw.ex)||0;return S.pendingLv>ex?S.lv-(S.pendingLv-ex)+1:S.lv;};   // 📚 깨달음의 추가 카드(ex)는 레벨이 안 오르므로 몫에서 뺀다 ·   // 🎁 지금 고르는 카드가 몇 레벨의 것인가 — 한꺼번에 여러 레벨이 쌓여도 Lv18·19 카드에는 부활이 안 나오게 하는 기준(상자·다시 뽑기처럼 쌓인 레벨이 없으면 지금 레벨)
 // 🗝 [2026-10-12 사장님 지시 「A로 가자」] 각성 열쇠 칸 — 열쇠 패시브(= 내가 가진 무기의 짝 패시브 WEAP[k].pair)는 패시브 6칸 밖의 「🗝 열쇠 칸」(MAXEV=3 과 같은 3칸)에 먼저 들어간다.
 //   열쇠 칸이 가득 찼거나 열쇠가 아닌 패시브면 일반 칸(SLOTP=6)으로 간다. 칸 소속은 저장하지 않고 S.ps(얻은 순서)·S.w 에서 매번 계산한다 — 이어하기 SIG·저장 모양은 그대로.
 //   각성한 무기도 S.w 에 남아 있으니 그 열쇠는 계속 열쇠 칸에 있다(각성 3번이 한도라 열쇠 칸 3개와 딱 맞는다) · 👼 부활은 어느 칸도 안 쓴다.
@@ -1958,8 +1971,9 @@ const keyHeld=()=>{const kl=keyList(),o=[];for(const k in S.ps)if(kl.includes(k)
 const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n-keyN();};   // 🎒 일반 패시브 칸 수 — 👼 부활과 🗝 열쇠 칸에 든 것은 안 센다(보유 칸·후보 계산·화면 표기 모두 이걸 쓴다)
 const isKeyNew=k=>k!=='rev'&&!pv(k)&&keyN()<MAXEV&&keyList().includes(k);   // 지금 새로 얻으면 열쇠 칸으로 가는가
 const KEY_NOTE=`🗝 각성 열쇠 패시브는 패시브 ${SLOTP}칸 밖의 열쇠 칸(${MAXEV}칸)에 따로 들어가요 — 일반 칸이 꽉 차도 받을 수 있어요`;
-const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1);   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
-const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1);   // 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
+const lwOn=()=>{const w=S.x3&&S.x3.lw;return !!(w&&w.bT>0);};   // 📚 깨달음 버프가 켜져 있는가
+const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1)*(lwOn()?1-STUDYV.buffC:1);   // 📚 깨달음 버프 · 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
+const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1)*(lwOn()?1+STUDYV.buffD:1);   // 📚 깨달음 버프(공부 Lv3~) · 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*pv('dur');                  // ⏳ 지속시간
 const PS=()=>1+.12*pv('pspd')+.08*PTV('pspd');                  // 🏹 투사체 속도
@@ -1971,7 +1985,7 @@ const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0);
 const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove();   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
 const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
 const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag');   // 경험치 줍는 범위 배율(기본 반경 70)
-const xpMul=()=>1+(CH.xp||0)+.08*pv('study')+S.syn.xp;   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
+const xpMul=()=>1+(CH.xp||0)+STUDYV.xp*pv('study')+S.syn.xp;   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
 const armTotal=()=>pv('arm')+(CH.arm||0)+PASSV.turtle.arm*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
 const takenMul=()=>csTaken()*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1)*(S.x3.ram.hg>0?1-U3.ram.hg.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다) · 🥊 태웅이 보스에 매달린 동안은 절반
 const VAMP_N=40,vampHp=()=>1.5*pv('vamp');   // 🥩 고기 반찬: 적 VAMP_N 마리를 처치할 때마다 HP 회복
@@ -2081,7 +2095,7 @@ function mhpGuess(){   // 옛 저장본(mhpBy 가 없던 빌드)을 불러올 �
 function hpHtml(){const m=mhpSrc(),f=v=>(v>0?'+':'−')+Math.abs(v),row=(n,v,k)=>`<div class="mr"${k?` data-mk="${k}"`:''}><span>${n}</span><b>${v}</b></div>`;
   let r=row('기본',100,'base');if(m.ch)r+=row(`${CH.e} ${esc(CH.sn||CH.nm)}`,f(m.ch),'ch');for(const [k,v] of m.rows)r+=row(MHPN[k],f(v),k);if(m.etc)r+=row('⚠ 기타',f(m.etc),'etc');
   return `<b>❤️ 체력 <span id="pHp">${hpText()}</span></b><details id="mhpSrc" class="bw"><summary>최대 체력 <b>${m.mh}</b> — 어디서 왔나요? (눌러서 보기)</summary>${r}</details>`;}
-const SRCN={drg:'🐲 용 변신',char:'🐲 캐릭터 능력',item:'💣 폭탄',kog:'💥 코그모 역이용',rel:'🏺 유물'};
+const SRCN={study:'📚 깨달음 파동',drg:'🐲 용 변신',char:'🐲 캐릭터 능력',item:'💣 폭탄',kog:'💥 코그모 역이용',rel:'🏺 유물'};
 function dmgHtml(){const t=Object.values(S.dmgBy).reduce((a,b)=>a+b,0);if(t<=0)return '';   // 📊 무기별 피해 비중 — 내 빌드에서 뭐가 일하는지
   const rows=Object.entries(S.dmgBy).sort((a,b)=>b[1]-a[1]).slice(0,6);
   return `<b>📊 피해 비중</b><div class="bw">${rows.map(([k,v])=>`${WEAP[k]?(S.ev[k]?WEAP[k].ev.ic:WEAP[k].ic)+' '+WEAP[k].nm:SRCN[k]||esc(k)} <b>${Math.round(v/t*100)}%</b>`).join(' · ')}</div>`;}
@@ -2205,7 +2219,7 @@ function cardOf(o){
   if(o.t==='w'){const d=WEAP[o.k],pp=PASS[d.pair],el=evLeft();
     return {ic:d.ic,nm:d.nm,ty:o.l?'⚔ 무기 강화':`⚔ 새 무기 · 슬롯 ${Object.keys(S.w).length+1}/${SLOTW}${d.rl?' · '+d.rl:''}`,ds:(o.l?`<b>Lv${o.l+1}:</b> `:'')+d.ds[o.l]+(o.l?'':` <span class="muted">(Lv${MAXLV}까지)</span>`)
       +fxKeyHtml(o.k,el)+fxWeapHtml(o.k,el)+(o.l?'':synHint(o.k)),lv:o.l?`Lv ${o.l}→${o.l+1}`:'새 무기'};}
-  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':isKeyNew(o.k)?`🗝 새 열쇠 패시브 · 열쇠 칸 ${keyN()+1}/${MAXEV}`:`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:d.ds+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
+  if(o.t==='p'){const d=PASS[o.k],w=pairsOf(o.k);return {ic:d.ic,nm:d.nm,ty:o.l?'🎒 패시브 강화':o.k==='rev'?'🎒 새 패시브 · 칸 안 씀':isKeyNew(o.k)?`🗝 새 열쇠 패시브 · 열쇠 칸 ${keyN()+1}/${MAXEV}`:`🎒 새 패시브 · 슬롯 ${slotP()+1}/${SLOTP}`,ds:(o.k==='study'?`경험치 +${pct(STUDYV.xp)}% · 레벨업할 때마다 「깨달음」 — <b>Lv${o.l+1}:</b> ${STUDYV.st[o.l]}`:d.ds)+` <span class="muted">(최대 Lv${pmax(o.k)})</span>`+mhpTag(o)+fxPassHtml(o.k),lv:`Lv ${o.l}→${o.l+1}`};}
   if(o.t==='wt'){const d=WEAP[o.w],T=TIERS[o.w],ev=!!S.ev[o.w],cap=TCAP(o.w),l=o.l,nm=ev?'✨ 각성':'🏅 마스터';
     const have=T.slice(0,l).map(x=>x[0]).join(' · ');
     return {ic:ev?d.ev.ic:d.ic,nm:ev?d.ev.nm:d.nm,ty:`${nm} 강화`,
@@ -2264,6 +2278,7 @@ function relPulse(frac){const p=S.p;SRC='rel';S.flash=Math.max(S.flash,.18);S.sh
   for(const e of S.live){if(!e.on||!onScr(e,20))continue;hurt(e,Math.max(1,e.mhp*(e.boss?.012:(e.bg||e.el)?frac*.4:frac)));}SRC='';}
 function relTick(dt){const p=S.p,R=S.rel;
   S.magT-=dt;if(S.spr>0)S.spr-=dt;if(S.leechT>0)S.leechT-=dt;
+  studyTick(dt);
   for(let i=S.dq.length-1;i>=0;i--){const q=S.dq[i];q.t-=dt;if(q.t<=0){S.dq.splice(i,1);q.f();}}
   // 🛡 [2026-10-09 사장님 지시 "명상방어막은 정지하는 조건자체를 제거하고, 몇초당한번 얻는 방어막으로 변경하자 패널티없앤만큼 리젠시간은 좀 하향하고"]
   //   움직여도 서 있어도 똑같이 흐른다(p.moving 을 보지 않는다). 방어막이 없는 동안만 N초(40/30/20)가 쌓이고, 차면 1겹(최대 1겹) — 막은 뒤부터 다시 센다.
@@ -2298,14 +2313,33 @@ function sgFan(d,sp,life,base){const R=S.rel.sg_bgb,T=S.sgT,p=S.p;   // 🌪 한
   txt(p.x,p.y-40,'📸 '+BGB_LINES[(T.bgbN-1)%BGB_LINES.length],'#bff3ff');EX.beat(p.x,p.y,170,true);AU.play('beat',1);}
 function pick(o){
   applyUp(o);
-  S.pendingLv--;
+  S.pendingLv--;if(S.pendingLv<=0&&S.x3.lw)S.x3.lw.ex=0;
   if(S.pendingLv>0)openLvup();else resume();
 }
 const BONUS_LV=[10,20];   // 🎁 [2026-10-09 사장님 지시 「4ok」] 이 레벨을 달성하면 다시 뽑기 +1 · 봉인 +1 을 자동으로 준다(봉인은 그동안 보충 길이 거의 없었다)
 function gainXp(v){if(S.rel.sg_ildj&&Math.random()<SGV.ildj.p[S.rel.sg_ildj-1])v*=2;S.xp+=v;while(S.xp>=S.need){S.xp-=S.need;S.lv++;S.need=Math.floor(5+S.lv*3.2+Math.pow(S.lv,1.35)+Math.max(0,S.lv-25)**2*.5);S.pendingLv++;AU.play('lv');
     if(BONUS_LV.includes(S.lv)){S.rr++;S.ban++;toast(`🎁 Lv${S.lv} 보너스 — 다시 뽑기 +1 · 봉인 +1`);}   // 레벨 하나씩 올리는 반복 안이라 한꺼번에 여러 레벨이 올라도 건너뛰지 않는다 · 카드를 열기(update 끝의 openLvup) 전에 주므로 그 레벨 카드 화면에서 바로 쓴다 · 새 저장 키 없음(S.rr·S.ban 그대로)
    if(CH.lvheal)S.p.hp=Math.min(S.p.mhp,S.p.hp+CH.lvheal);
+   if(S.ps.study)studyLv();
    if(CH.k==='ildj')csS().cc=CSX.ildj.T*DUR();}}   // 🎭 커튼콜 — 레벨이 오를 때마다 치명타 시간 다시 채움
+
+// 📚 공부 「깨달음」 — 레벨업 한 번마다 gainXp 가 studyLv() 를 부르고, 파동은 줄(S.x3.lw.pw)에 쌓았다가 프레임 끝(studyFlush)에 터뜨린다
+//   (gainXp 는 보석 줍기 루프 안이라 거기서 적을 쓰러뜨리면 보석 풀을 건드리게 된다). 지연 콜백(S.dq)은 이어하기에 저장되지 않아 쓰지 않는다 — 두 번째 파동·버프·쿨은 전부 S.x3.lw 의 숫자.
+function LW(){return S.x3.lw||(S.x3.lw={bT:0,xc:0,w2:0,p2:0,pw:0,ex:0});}   // 옛 저장본(lw 없음)도 안전하게
+function studyLv(){const L=pv('study'),w=LW(),V=STUDYV;if(L<1)return;
+  if(w.pw<V.maxW)w.pw++;
+  if(L>=3)w.bT=V.buffT;
+  if(L>=4){const h=Math.round(S.p.mhp*V.heal);S.p.hp=Math.min(S.p.mhp,S.p.hp+h);if(w.p2<V.maxW)w.p2++;if(w.w2<=0)w.w2=V.w2dt;}
+  if(L>=5&&w.xc<=0&&Math.random()<V.xcP){w.xc=V.xcCd;S.pendingLv++;w.ex=(w.ex||0)+1;toast('📚 깨달음! 카드를 한 장 더 골라요');}}
+function studyWave(){const L=pv('study'),p=S.p,V=STUDYV;if(L<1)return;
+  const R=V.R[L>=2?1:0]*areaMul(),d=(L>=2?Math.min(V.cap,V.d0+V.dLv*S.lv):V.d0)*dmgMul(),s0=SRC;SRC='study';
+  AU.play('wave');BT.x=p.x;BT.y=p.y;BT.R=R;BT.style='echo';BT.ev=0;EX.boom(BT);
+  for(const e of enemies.a){if(!e.on)continue;const dx=e.x-p.x,dy=e.y-p.y;if(dx*dx+dy*dy>=(R+e.r)**2)continue;
+    hurt(e,e.boss?d*V.boss:d);if(e.on){const dd=Math.hypot(dx,dy)||1;knock(e,dx/dd,dy/dd,V.kb,.22);}}
+  hitPropsAt(p.x,p.y,R,d);SRC=s0;}
+function studyFlush(){const w=S.x3.lw;if(!w||w.pw<=0)return;const n=Math.min(w.pw,STUDYV.maxW);w.pw=0;for(let i=0;i<n;i++)studyWave();}
+function studyTick(dt){const w=S.x3.lw;if(!w)return;if(w.bT>0)w.bT-=dt;if(w.xc>0)w.xc-=dt;
+  if(w.w2>0){w.w2-=dt;if(w.w2<=0){w.w2=0;const n=Math.min(w.p2,STUDYV.maxW);w.p2=0;for(let i=0;i<n;i++)studyWave();}}}
 
 // ---------- 🎁 보스 상자 · ✨ 각성 ----------
 const evReady=()=>evLeft()>0?Object.keys(S.w).filter(k=>!S.ev[k]&&S.w[k]>=MAXLV&&pv(WEAP[k].pair)>0):[];
@@ -3053,7 +3087,7 @@ function shvStart(){const p=S.p;S.dT=shvTot();S.dN++;S.dA=.2;S.dW={t:.6,T:.6,R:S
     hurt(e,d);if(e.on){if(e.boss)e.slow=Math.max(e.slow,1);else knock(e,dx/dd,dy/dd,520,.35);}}
   hitPropsAt(p.x,p.y,SHV.push,d);SRC=sv;}
 function shvEnd(){const p=S.p;S.dT=0;S.rg=0;AU.play('wave');txt(p.x,p.y-40,'🔥 변신 해제','#ffd9a0');}
-function newX3(){return {sg:{dir:1,ph:0},f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0,hg:0,hs:0,hk:0,hn:0,hi:0,iv:0,ox:0,oy:0,eq:0,tl:0,hl:-9}};}   // 🥊 hg 매달리기 남은 시간 · hs 매달린 적의 sn · hk 때린 횟수 · hn 총 횟수 · hi 다음 타까지 · iv 간격 · ox,oy 적 기준 내 자리 · tl 돌진 끝에 한 번 더 닿았는지 볼 차례 · hl 마지막으로 매달리기가 풀린 때(S.t) · eq 매달리느라 미룬 두 번째 돌진 수(숫자만 — 이어하기 왕복에서 안 깨진다)
+function newX3(){return {lw:{bT:0,xc:0,w2:0,p2:0,pw:0,ex:0},sg:{dir:1,ph:0},f:[],P:{},hh:0,cl:0,vid:0,qn:0,wn:0,jn:0,rid:0,ram:{t:0,id:0,x0:0,y0:0,ux:0,uy:0,fx:0,hg:0,hs:0,hk:0,hn:0,hi:0,iv:0,ox:0,oy:0,eq:0,tl:0,hl:-9}};}   // 🥊 hg 매달리기 남은 시간 · hs 매달린 적의 sn · hk 때린 횟수 · hn 총 횟수 · hi 다음 타까지 · iv 간격 · ox,oy 적 기준 내 자리 · tl 돌진 끝에 한 번 더 닿았는지 볼 차례 · hl 마지막으로 매달리기가 풀린 때(S.t) · eq 매달리느라 미룬 두 번째 돌진 수(숫자만 — 이어하기 왕복에서 안 깨진다)
 const h3=(e,d,k)=>{const s0=SRC;SRC=k;hurt(e,d);SRC=s0;};   // 무기 키로 피해 통계를 남기며 한 번 때린다
 const aim3=rng=>{const t=nearest();if(t&&(t.x-S.p.x)**2+(t.y-S.p.y)**2<rng*rng)return t;
   let b=null,bd=rng*rng;for(const q of props.a){if(!q.on)continue;const d=(q.x-S.p.x)**2+(q.y-S.p.y)**2;if(d<bd){bd=d;b=q;}}   // 🧺 적이 없으면 사거리 안의 필드 아이템(와드·포대·상자)을 겨눈다
@@ -3958,15 +3992,16 @@ function update(dt){
     if(d<c.R&&Math.abs(da)<c.w&&hitP(c.d,'🐲 브레스!'))return;}}
   if(S.cardW){const c=S.cardW;c.t-=dt;if(!(c.e.on&&c.e.sn===c.sn))S.cardW=null;else if(c.t<=0){S.cardW=null;AU.play('pcards');
     for(let i=0;i<c.n;i++){const b=eshots.get();if(!b)break;const a=c.a+(i-(c.n-1)/2)*c.sp;b.x=b.ox=c.e.x;b.y=b.oy=c.e.y;b.vx=Math.cos(a)*250;b.vy=Math.sin(a)*250;b.life=c.L/250;b.d=c.e.dmg*.55;b.g='';b.sl=0;b.k=3;b.c=i%5;b.src=c.e;b.sn=c.e.sn;}}}   // 카드 한 장 = 보스 공격력의 55% · 초속 250
-  const mag=(70*magMul())**2,am=S.magT<=0&&PTV('mag')>=2;if(am)S.magT=20;   // 🎮 [2026-10-09] 줍는 범위 식은 magMul 로(표시와 같은 함수)
+  const mag=(70*magMul())**2;   // 🎮 [2026-10-09] 줍는 범위 식은 magMul 로(표시와 같은 함수) · 🧲 [2026-10-18] 초월의 20초 끌어오기는 보석이 아니라 아이템(mapTick)
   if((gemMT-=dt)<=0){gemMT=.25;gemMerge();}   // 💎 1초에 4번만 합치기 검사
   for(const g of gems.a){if(!g.on)continue;const dx=p.x-g.x,dy=p.y-g.y,d2=dx*dx+dy*dy;
-    if(d2<mag||am)g.mag=1;if(g.mag){const d=Math.sqrt(d2)||1;g.x+=dx/d*480*dt;g.y+=dy/d*480*dt;}
+    if(d2<mag)g.mag=1;if(g.mag){const d=Math.sqrt(d2)||1;g.x+=dx/d*480*dt;g.y+=dy/d*480*dt;}
     if(d2<(p.r+6)**2){g.on=false;AU.play('gem');gainXp(g.v*XP_X*xpMul());}}   // 🎮 [2026-10-09] 경험치 배율 식은 xpMul 로(표시와 같은 함수)
   for(const t of texts.a)if(t.on){t.life-=dt;t.y-=(t.big?12:TXR[t.k])*dt;if(t.life<=0)t.on=false;}
   if(!SPD.sub)bubTick(dt);   // ⏩ 말풍선·배너·번쩍임은 읽는 글/눈에 보이는 시간 — 2배속의 두 번째 호출에서는 줄이지 않는다
   mapTick(dt);if(state!=='play')return;
   if(!SPD.sub){bannerTick(dt);if(S.shake>0)S.shake-=dt;if(S.flash>0)S.flash-=dt;}
+  studyFlush();
   if(S.pendingLv>0)openLvup();
 }
 
