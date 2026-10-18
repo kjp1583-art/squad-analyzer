@@ -213,7 +213,7 @@ async def run_suite(src, tag=''):
             real = [e for e in errs if 'survivors_ms' not in e]
             ok(not real, '콘솔·페이지 오류 0 %s' % real[:3])
             await b.close()
-        if want('G') and src == 'survivors.html':
+        if want('G') and src == 'survivors.html' and ONLY is not None:   # 병합 뒤엔 옛 코드와 비트 비교가 성립하지 않는다(계열 시너지·몹 속도 등) — --only G 로만
             bh = base_html()
             if not bh:
                 print('  (G: 기준 사본을 git 에서 못 꺼내 건너뜀)')

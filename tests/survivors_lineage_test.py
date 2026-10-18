@@ -149,7 +149,7 @@ async def main():
             await c3.close()
             nb = {y['k']: y for y in sn}
             check('마1 기존 세트 %d개가 그대로(키·재료·효과)' % len(sb), all(y['k'] in nb and nb[y['k']] == y for y in sb), [y['k'] for y in sb if y['k'] not in nb or nb[y['k']] != y])
-            new = [y for y in sn if y['k'] not in {z['k'] for z in sb}]
+            new = [y for y in sn if y['k'] not in {z['k'] for z in sb} and y['k'] != 'u_maul']   # 탐지견 고유 콤보는 이 작업의 것이 아니다
             want_new = {('frost', 'can'): {'xp': .1, 'dmg': .06}, ('snipe', 'kbd'): {'cd': .08}, ('hole', 'gacha'): {'luck': 1, 'dmg': .06}}
             check('마2 새 세트 3개(얼음·저격·블랙홀) 재료·효과', len(new) == 3 and all(want_new.get(tuple(y['req'])) == y['fx'] for y in new), new)
             r = await pg.evaluate("""()=>{const L=__L,x=__p6x;x.start();const S=L.S;L.LINCFG.on=0;const bad=[];
@@ -176,6 +176,8 @@ async def main():
                 open(os.path.join(ROOT, 'survivors_lt_base_src.html'), 'w', encoding='utf-8').write(base)
                 mk('survivors_lt_b.html', 'survivors_lt_base_src.html')
             chars = await pg.evaluate("()=>__L.CHARS.map(c=>({k:c.k,boss:!!c.boss,shop:!!c.shop}))")
+            _bs = open(os.path.join(ROOT, 'survivors_lt_base_src.html'), encoding='utf-8').read() if os.path.exists(os.path.join(ROOT, 'survivors_lt_base_src.html')) else ''
+            chars = [c for c in chars if not _bs or ("k:'%s'" % c['k']) in _bs]   # BASE 이후에 생긴 캐릭터는 비교 대상이 아니다
             same = 0; diffs = []
             for c in chars:
                 fps = []
