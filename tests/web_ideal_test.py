@@ -288,10 +288,14 @@ def check(S, strict_extra=True):
     rows = S['rows']
     exp_order = sorted([(n, v) for n, v in zip(MID, [(5, 5), (4, 5), (3, 5), (2, 4), (1, 4), (9, 10), (0, 3), (1, 2), (2, 2)]) if v[1] >= 3 and n != SELF + '#T'], key=lambda x: (-x[1][0] / x[1][1], -x[1][1]))
     shown = [r['n'] for r in rows]
-    ok(shown == [n.split('#')[0] for n, _ in exp_order], '⑥ 승률 내림차순 · 표본 3 미만은 빠짐  %s' % shown)
+    topn = min(10, max(3, -(-len(exp_order) // 2)))
+    want = [n.split('#')[0] for n, _ in exp_order][:topn]
+    mine_n = S['winner'].split('#')[0] if S['winner'] else None
+    if mine_n and mine_n in [n.split('#')[0] for n, _ in exp_order] and mine_n not in want: want.append(mine_n)
+    ok(shown == want, '⑥ 승률 내림차순 · 상위 절반만(하위권은 접음) · 표본 3 미만은 빠짐 · 내 우승자는 항상  %s' % shown)
     ok(rows and rows[0]['v'].startswith('100%'), '⑥ 1위 승률 100%%  (%s)' % (rows[0]['v'] if rows else ''))
     ok(all(re.fullmatch(r'\d+%', r['bar']) for r in rows) and rows and rows[0]['bar'] == '100%', '⑥ 막대 그래프 폭 = 승률')
-    ok(any(r['me'] for r in rows) == (S['winner'] in [n for n, _ in exp_order]) , '⑥ 내가 고른 우승자는 강조(순위표에 있을 때)')
+    ok(any(r['me'] for r in rows) == (S['winner'] in [n for n, _ in exp_order]), '⑥ 내가 고른 우승자는 강조(순위표에 있을 때)')
     few = ' '.join(S['few'])
     ok('미드08' in few and '미드09' in few and '미드07' not in few and '미드06' not in few, '⑥ 표본 부족 칸: 붙은 수 3 미만(미드08·09)만 — 3판은 순위표  %s' % few)
     ok('탈퇴미드' not in S['res_text'], '⑥ 서버가 풀 밖(탈퇴자) 이름을 줘도 안 보인다')

@@ -1354,6 +1354,7 @@ window.SGG_DC_BOOT=(function(){
   .bk-slot .bk-box:not(.win):not(.bk-champ){border-style:dashed;border-color:#262d40;opacity:.92}
   .empty{text-align:center;color:var(--mut);padding:60px 20px}
   /* 💘 이상형월드컵 — 양옆 카드는 폰에서도 좌우 50% 유지 */
+  .iw button{touch-action:manipulation}.iw-go,.iw-ghost{min-height:44px}
   .iw{padding:6px 0 40px}.iw-h{margin:14px 0 8px;font-size:20px}
   .iw-intro{color:var(--sub);font-size:13.5px;line-height:1.5;margin:0 0 10px}
   .iw-pools{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
@@ -6906,7 +6907,7 @@ function idealPools(){
 async function idealApi(method,path,body){
   const ac=typeof AbortController!=="undefined"?new AbortController():null; const to=setTimeout(()=>{ try{ac&&ac.abort();}catch(e){} },9000);
   try{
-    const o={method,headers:{"Content-Type":"application/json"},signal:ac?ac.signal:undefined}; if(body) o.body=JSON.stringify(body);
+    const o={method,headers:{"Content-Type":"application/json"},signal:ac?ac.signal:undefined,cache:"no-store",referrerPolicy:"no-referrer"}; if(body) o.body=JSON.stringify(body);
     const r=await fetch(IDEAL_API+path,o); let j=null; try{ j=await r.json(); }catch(e){}
     return {status:r.status,j:j||{}};
   }catch(e){ return {status:0,j:{}}; }
@@ -6914,7 +6915,7 @@ async function idealApi(method,path,body){
 }
 const _idealSleep=ms=>new Promise(r=>setTimeout(r,ms));
 function idealTok(){ return dcValid()?DISCORD_USER.token:""; }
-function idealAuthLost(){ DISCORD_USER=null; try{ localStorage.removeItem("sgg_dc"); }catch(e){} IDEAL.stat={state:"idle",pools:{},at:0}; IDEAL.notice="auth"; }
+function idealAuthLost(){ IDEAL.mine={}; try{ localStorage.removeItem("sgg_ideal_mine"); }catch(e){} DISCORD_USER=null; try{ localStorage.removeItem("sgg_dc"); }catch(e){} IDEAL.stat={state:"idle",pools:{},at:0}; IDEAL.notice="auth"; }
 async function idealLoadStats(force){
   if(!dcValid()){ IDEAL.stat={state:"idle",pools:{},at:0}; return; }
   if(!force&&IDEAL.stat.state==="ok"&&Date.now()-IDEAL.stat.at<30000) return;
@@ -6963,15 +6964,18 @@ function idealNoteHtml(){
 }
 // ---- 진행 ----
 function idealShuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-function idealStart(pool){
+function idealPoolAt(i){ return [...(IDEAL.pools||idealPools()).keys()][i|0]; }
+function idealStart(pool){   // 숫자 = 목록 순번(시트 값이 onclick 안으로 들어가지 않게) · 없으면 지금 보던 풀
+  if(typeof pool==='number') pool=idealPoolAt(pool); else if(pool==null) pool=IDEAL.run?IDEAL.run.pool:IDEAL.resPool;
   const p=(IDEAL.pools||idealPools()).get(pool); if(!p||p.cands.length<IDEAL_MIN_POOL) return;
   const n=p.cands.length>=IDEAL_FULL?IDEAL_FULL:IDEAL_MIN_POOL;
   const pick=idealShuffle(p.cands).slice(0,n);
   IDEAL.run={pool,cur:pick,next:[],mi:0,done:false,winner:null,round:n}; IDEAL.resPool=null; IDEAL.notice=""; IDEAL.stop=""; IDEAL.failed=0; IDEAL.sent=0;
   idealPaint(); window.scrollTo(0,0);
 }
-function idealPick(side){
+function idealPick(side,round,mi){
   const R=IDEAL.run; if(!R||R.done) return;
+  if(round!==R.round||mi!==R.mi) return;   // 더블탭이 다음 대진까지 눌러 버리는 것 방지(카드가 가리킨 대진만 받는다)
   const a=R.cur[R.mi*2], b=R.cur[R.mi*2+1]; if(!a||!b) return;
   const win=side===0?a:b;
   idealSend(R.pool,a.vname,b.vname,win.vname);   // 라운드마다 한 번
@@ -6984,12 +6988,12 @@ function idealPick(side){
 }
 function idealRoundName(n){ return n>=8?"8강":n===4?"4강":"결승"; }
 function idealQuit(){ IDEAL.run=null; IDEAL.resPool=null; idealPaint(); idealLoadStats(true); }
-function idealShowResult(pool){ IDEAL.run=null; IDEAL.resPool=pool; idealPaint(); idealLoadResult(pool); window.scrollTo(0,0); }
+function idealShowResult(pool){ if(typeof pool==='number') pool=idealPoolAt(pool); else if(pool==null) pool=IDEAL.run?IDEAL.run.pool:IDEAL.resPool; if(!pool) return; IDEAL.run=null; IDEAL.resPool=pool; idealPaint(); idealLoadResult(pool); window.scrollTo(0,0); }
 // ---- 화면 ----
 function idealCardHtml(c,side,clickable){
   const ico=c.champs[0]?champImg(c.champs[0],"iw-ch"):`<span class="champ iw-ch">?</span>`;
   const kda=c.kda!=null?` · KDA ${c.kda.toFixed(2)}`:"";
-  return `<${clickable?`button type="button" onclick="idealPick(${side})"`:"div"} class="iw-card ${side===0?"l":"r"}" title="${escAttr(c.name)}">
+  return `<${clickable?`button type="button" onclick="idealPick(${side},${IDEAL.run.round},${IDEAL.run.mi})"`:"div"} class="iw-card ${side===0?"l":"r"}" title="${escAttr(c.name)}">
     <div class="iw-ico">${ico}</div>
     <div class="iw-nm">${esc(String(c.name).split("#")[0])}</div>
     <div class="iw-meta"><span class="tier ${tierGroupCls(c.tier)}">${esc(c.tier)}</span> ${esc(c.pos)}</div>
@@ -7000,18 +7004,18 @@ function idealCardHtml(c,side,clickable){
 function idealListHtml(pools){
   const st=IDEAL.stat;
   if(st.state==="off"||st.state==="down") return `<div class="iw-rest">😴 지금은 쉬는 중이에요<br><span>${st.state==="off"?"이상형월드컵이 잠시 꺼져 있어요":"투표 서버가 응답하지 않아요"} — 조금 있다가 다시 들러 주세요</span></div>`;
-  const rows=[...pools.values()].map(p=>{
+  const rows=[...pools.values()].map((p,pi)=>{
     const s=st.pools&&st.pools[p.name], ok=p.cands.length>=IDEAL_MIN_POOL;
     const part=!dcValid()?"로그인하면 참여자 수가 보여요":st.state==="ok"?`참여 ${(s&&s.voters)|0}명`:"…";
     const mine=IDEAL.mine[p.name];
     return `<div class="iw-pool ${ok?"":"off"}">
       <div class="iw-ph"><b>${esc(p.name)}</b><span class="iw-pn">후보 ${p.cands.length}명 · ${part}</span></div>
-      ${ok?`<div class="iw-pb"><button class="iw-go" onclick="idealStart('${escAttr(p.name)}')">⚔️ 월드컵 시작</button><button class="iw-ghost" onclick="idealShowResult('${escAttr(p.name)}')">결과 보기</button></div>
+      ${ok?`<div class="iw-pb"><button class="iw-go" onclick="idealStart(${pi})">⚔️ 월드컵 시작</button><button class="iw-ghost" onclick="idealShowResult(${pi})">결과 보기</button></div>
         ${mine?`<div class="iw-pm">내 우승자: ${esc(String(mine).split("#")[0])}</div>`:""}`
         :`<div class="iw-pb"><span class="iw-lack">후보가 모자라요 (${IDEAL_MIN_POOL}명부터)</span></div>`}
     </div>`;
   }).join("");
-  return `<div class="iw-intro">같은 내부티어 · 같은 포지션 클랜원 둘을 놓고 마음에 드는 쪽을 골라요. 누가 누굴 골랐는지는 아무에게도 보이지 않아요.</div>
+  return `<div class="iw-intro">같은 내부티어 · 같은 포지션 클랜원 둘을 놓고 마음에 드는 쪽을 골라요. 누가 누굴 골랐는지는 다른 클랜원에게 보이지 않아요.</div>
     <div id="iw-note">${idealNoteHtml()}</div>
     <div class="iw-pools">${rows||`<div class="iw-rest">풀을 만들 클랜원이 아직 없어요</div>`}</div>`;
 }
@@ -7022,7 +7026,7 @@ function idealPlayHtml(){
     return `<div class="iw-top"><button class="iw-ghost" onclick="idealQuit()">← 풀 고르기</button><b>${esc(R.pool)}</b></div>
       <div class="iw-win"><div class="iw-crown">🏆 내 이상형 우승</div><div class="iw-wc">${idealCardHtml(w,0,false)}</div></div>
       <div id="iw-note">${idealNoteHtml()}</div>
-      <div class="iw-act"><button class="iw-go" onclick="idealShowResult('${escAttr(R.pool)}')">이번 월드컵 결과 보기</button><button class="iw-ghost" onclick="idealStart('${escAttr(R.pool)}')">다시 하기</button></div>`;
+      <div class="iw-act"><button class="iw-go" onclick="idealShowResult()">이번 월드컵 결과 보기</button><button class="iw-ghost" onclick="idealStart()">다시 하기</button></div>`;
   }
   const a=R.cur[R.mi*2], b=R.cur[R.mi*2+1];
   return `<div class="iw-top"><button class="iw-ghost" onclick="idealQuit()">← 그만하기</button><b>${esc(R.pool)}</b></div>
@@ -7044,12 +7048,13 @@ function idealResultHtml(){
   const few=list.filter(x=>x.n<IDEAL_MIN_SAMPLE).sort((a,b)=>b.n-a.n||(a.c.name<b.c.name?-1:1));
   const row=(x,i)=>`<div class="iw-row ${x.c.vname===mine?"me":""}"><span class="iw-rk">${i<3?["🥇","🥈","🥉"][i]:i+1}</span><span class="iw-rn">${esc(String(x.c.name).split("#")[0])}${x.c.vname===mine?` <i>내 우승자</i>`:""}</span>
     <span class="iw-bar"><span style="width:${Math.round(x.wr*100)}%"></span></span><span class="iw-rv">${Math.round(x.wr*100)}% <small>${x.w}/${x.n}</small></span></div>`;
-  const shown=ok.slice(0,IDEAL_TOP);
+  const topN=Math.min(IDEAL_TOP,Math.max(3,Math.ceil(ok.length/2)));   // 하위권은 접어 둔다(꼴찌가 보이지 않게)
+  let shown=ok.slice(0,topN); const mi=ok.findIndex(x=>x.c.vname===mine); if(mi>=topN) shown=shown.concat(ok[mi]);
   return head+`<div class="iw-voters">참여 ${r.voters}명</div><div id="iw-note">${idealNoteHtml()}</div>
     <div class="iw-rows">${shown.length?shown.map(row).join(""):`<div class="iw-rest"><span>아직 결과가 모이는 중이에요</span></div>`}</div>
-    ${ok.length>shown.length?`<div class="iw-hint">상위 ${IDEAL_TOP}명만 보여 줘요</div>`:""}
-    ${few.length?`<div class="iw-few"><div class="iw-fh">표본 부족 (붙은 수 ${IDEAL_MIN_SAMPLE} 미만)</div>${few.map(x=>`<span class="iw-chip ${x.c.vname===mine?"me":""}">${esc(String(x.c.name).split("#")[0])} <small>${x.w}/${x.n}</small></span>`).join("")}</div>`:""}
-    <div class="iw-act"><button class="iw-go" onclick="idealStart('${escAttr(pool)}')">⚔️ 월드컵 시작</button></div>`;
+    ${ok.length>topN?`<div class="iw-hint">상위 ${topN}명만 보여 줘요</div>`:""}
+    ${few.length?`<div class="iw-few"><div class="iw-fh">표본 부족 (붙은 수 ${IDEAL_MIN_SAMPLE} 미만)</div>${few.map(x=>`<span class="iw-chip ${x.c.vname===mine?"me":""}">${esc(String(x.c.name).split("#")[0])}</span>`).join("")}</div>`:""}
+    <div class="iw-act"><button class="iw-go" onclick="idealStart()">⚔️ 월드컵 시작</button></div>`;
 }
 function idealPaint(){
   if(!(history.state&&history.state.route==='ideal')) return;
@@ -9977,6 +9982,7 @@ function _dcForget(){ _DC_OUT=true; try{ localStorage.removeItem("sgg_dc_auto");
 function _dcAutoOff(){ try{ localStorage.setItem("sgg_dc_auto","0"); }catch(e){ _dcForget(); } try{ localStorage.removeItem("sgg_dc_try"); }catch(e){} }   // 갱신 실패 → '꺼짐' 표시(남은 sgg_dc 에서 다시 옮겨 켜지지 않게)
 function dcLogout(){
   DISCORD_USER=null;
+  try{ IDEAL.mine={}; localStorage.removeItem("sgg_ideal_mine"); }catch(e){}   // 💘 공용 PC 에서 다음 사람에게 내 우승자가 보이지 않게
   try{ localStorage.removeItem("sgg_dc"); }catch(e){}
   _dcForget();   // 🔐 로그아웃하면 자동 로그인도 끈다
   if(CUR_PLAYER) renderPlayer(CUR_PLAYER);
