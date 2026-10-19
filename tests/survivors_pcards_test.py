@@ -40,8 +40,8 @@ async def main():
         # ───────────────── A. 데이터 · 문구
         r = await pg.evaluate("()=>({u:__p6y.U3.pcards,ds:__p6x.WEAP.pcards.ds,rl:__p6x.WEAP.pcards.rl,cd:__p6x.CHARS.find(c=>c.k==='bgb').ds})")
         U = r['u']
-        check('U3.pcards 수치표(밀치기 720 · 부딪침 ×.55 · 연쇄 3 · 장판 1.8초/46px)', all(k in U for k in ('kn', 'kt', 'bd', 'bc', 'bcap', 'zl', 'zr', 'zp', 'zc', 'sr', 'sm', 'sx', 'bsl')) and U['kn'] >= 600 and U['zl'] == 1.8 and U['zc'] >= 3, U)
-        check('카드 문구(Lv1)가 값을 읽는다: 장판 지속 %s초' % U['zl'], ('%s초' % U['zl']) in r['ds'][0] and '부딪' in r['ds'][0] and '장판' in r['ds'][0] and '많을수록' in r['ds'][0], r['ds'][0])
+        check('U3.pcards 수치표(밀치기 720 · 부딪침 ×bd · 연쇄 3 · 장판 1.8초/46px)', all(k in U for k in ('kn', 'kt', 'bd', 'bc', 'bcap', 'zl', 'zr', 'zp', 'zc', 'sr', 'sm', 'sx', 'bsl')) and U['kn'] >= 600 and U['zl'] == 1.8 and U['zc'] >= 3, U)
+        check('카드 문구(Lv1)가 값을 읽는다: 장판 지속 %s초' % U['zl'], ('%s초' % U['zl']) in r['ds'][0] and '부딪' in r['ds'][0] and '장판' in r['ds'][0] and '많을수록' in r['ds'][0] and ('최대 +%d%%' % round(U['sx'] * 100)) in r['ds'][0], r['ds'][0])
         check('고유 무기 줄(rl) · 캐릭터 설명이 몰이꾼 컨셉', '몰이' in r['rl'] and '밀쳐' in r['cd'] and '부딪' in r['cd'], (r['rl'], r['cd']))
 
         # ───────────────── B. 밀치기 — 맞은 적은 확실히 멀리 밀려난다
@@ -84,8 +84,9 @@ async def main():
         # ───────────────── F. 포위 보너스 — 내 주변 sr px 안의 적이 많을수록 카드 피해 증가 (sm 씩 · sx 상한)
         async def cardd(n):
             return await ev("""S.cd.pcards=0;step(2);const c=S.x3.f.filter(o=>o.k==='pc');return c.length?c[0].d:0""", es=[{'a': 20 * i + 5, 'd': 70 + (i % 3) * 10} for i in range(n)], L=1)
-        d1, d9, d30 = await cardd(1), await cardd(9), await cardd(30)
-        check('포위 보너스: 둘러싼 적이 1 → 9 → 30마리일 때 카드 피해 ×(1+.05n) → 상한 ×1.5', d1 > 0 and near(d9 / d1, (1 + U['sm'] * 9) / (1 + U['sm'] * 1), .02) and near(d30 / d1, (1 + U['sx']) / (1 + U['sm'] * 1), .02), (d1, d9, d30))
+        d1, d5, d30 = await cardd(1), await cardd(5), await cardd(30)
+        m = lambda n: 1 + min(U['sx'], U['sm'] * n)
+        check('포위 보너스: 둘러싼 적 n마리면 카드 피해 ×(1+min(sx, sm×n)) — 1 → 5 → 30마리(상한)', d1 > 0 and near(d5 / d1, m(5) / m(1), .02) and near(d30 / d1, m(30) / m(1), .02) and d30 > d5 > d1, (d1, d5, d30))
 
         # ───────────────── G. 풀 칸 재사용 — 밀려나다 쓰러진 적의 칸에 새 적이 들어와도 낡은 목록이 건드리지 않는다
         r = await ev("""const A=E[0];y.pcPush(A,1,0,100,0,'pcards');const n0=y.PCB.length;A.on=false;

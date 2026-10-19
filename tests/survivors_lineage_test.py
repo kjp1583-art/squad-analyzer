@@ -178,7 +178,7 @@ async def main():
                 mk('survivors_lt_b.html', 'survivors_lt_base_src.html')
             chars = await pg.evaluate("()=>__L.CHARS.map(c=>({k:c.k,boss:!!c.boss,shop:!!c.shop}))")
             _bs = open(os.path.join(ROOT, 'survivors_lt_base_src.html'), encoding='utf-8').read() if os.path.exists(os.path.join(ROOT, 'survivors_lt_base_src.html')) else ''
-            chars = [c for c in chars if not _bs or ("k:'%s'" % c['k']) in _bs and c['k'] != 'yj']   # yj: 브레스 피해가 BASE 이후 바뀌었다(10/19)   # BASE 이후에 생긴 캐릭터는 비교 대상이 아니다
+            chars = [c for c in chars if not _bs or ("k:'%s'" % c['k']) in _bs and c['k'] not in ('yj', 'bbb', 'bgb')]   # yj: 브레스 피해가 BASE 이후 바뀌었다(10/19) · bbb·bgb: 고유 무기를 개편했다(10/19 리듬 콤보 · 몰이꾼)   # BASE 이후에 생긴 캐릭터는 비교 대상이 아니다
             same = 0; diffs = []
             for c in chars:
                 fps = []

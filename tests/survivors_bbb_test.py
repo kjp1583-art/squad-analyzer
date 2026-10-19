@@ -74,7 +74,7 @@ ARENA = r"""(a)=>{const x=__p6x;let s=(a.seed*2654435761)>>>0;Math.random=()=>{s
  const W=Math.round((3+8*Math.random())/dt);for(let i=0;i<W;i++)step();S.dmgBy={};for(let i=0;i<300;i++)step();
  return {d:S.dmgBy.sing||0,state:x.state};}"""
 # 아레나 기준표(10초 누적 피해 · 무기만 · 시드 평균) — 설계 시제품 실측. 기존 고유 무기 15종(카트 제외) 중앙값은 ref15
-BASE = {'L1': 484, 'L2': 574, 'L3': 742, 'L4': 789, 'L5': 951, 'L6': 1266, 'L7': 1397, 'L8': 2044, 'M3': 2543, 'EV': 3480, 'EV5': 4835}
+BASE = {'L1': 464, 'L2': 519, 'L3': 616, 'L4': 793, 'L5': 1063, 'L6': 1282, 'L7': 1364, 'L8': 2227, 'M3': 2697, 'EV': 3611, 'EV5': 4768}   # 2026-10-19 리듬 콤보 개편 후 재측정(옛 표: L1 484 … EV5 4835 — 설계 시제품 실측)
 REF15 = {'L1': 466, 'L2': 540, 'L3': 733, 'L4': 925, 'L5': 1023, 'L6': 1307, 'L7': 1307, 'L8': 1952, 'M3': 2517, 'EV': 3172, 'EV5': 4186}
 # ⚖️ [2026-10-15 사장님 지시 「브레스는 하향, 다른 무기는 상향해서 평균값으로」] 노래부르기 5.9→6.6(울림 1.7→1.9) · 다른 고유 무기 일부도 올라 두 표를 다시 쟀다(옛 표: BASE L1 437 … EV5 4391 · REF15 L1 413 … EV5 4108).
 # ⚖️ [2026-10-12 사장님 지시 「데미지라도 쎄야」] 노래부르기·깃털·4발·슬라임·포토카드·하트의 피해를 올렸다 → 위 두 표를 새 값으로 다시 쟀다
@@ -130,11 +130,15 @@ async def main():
         check('WEAP.sing: only bbb · 짝 패시브 study(실제 패시브) · 8줄 · 각성 「앙코르 무대」', w and w['only'] == 'bbb' and w['pair'] == 'study' and w['pairOk'] and w['ds'] == 8 and w['evnm'] == '앙코르 무대' and w['evic'] == '🎶' and w['ic'] == '🎤' and w['nm'] == '플레이브 노래부르기', w)
         evds = await pg.evaluate("()=>{const d=__p6x.WEAP.sing.ev.ds;const c=document.createElement('canvas').getContext('2d');c.font='12px sans-serif';return {ds:d,len:d.length,w:c.measureText(d).width}}")
         check('각성 알림 글씨(ev.ds): 폰 412px 배너(12px · 폭 392) 안에 들어간다 · 75자 → 50자 이하 · 의미 숫자 유지(피해 75% · +15%)', evds['w'] <= 392 and evds['len'] <= 50 and '75%' in evds['ds'] and '+15%' in evds['ds'] and '앙코르' in evds['ds'], evds)
+        U0 = r['u3']; wd0 = await pg.evaluate("()=>__p6x.WEAP.sing.ds")
+        check('카드 문구가 U3.sing 값을 읽는다: 음표 콤보 +%d%% · 최대 +%d%% · 고음 +%d%% · 최대 +%d%% · ×%s · %s초 · Lv4 +0.5초 · Lv8 상한 +4칸(최대 +%d%%)' % (round(U0['cs'] * 100), round(U0['cs'] * U0['cm'] * 100), round(U0['fs'] * 100), round(U0['fm'] * 100), U0['bx'], U0['ct'], round(U0['cs'] * (U0['cm'] + 4) * 100)),
+              ('+%d%%씩(최대 +%d%%)' % (round(U0['cs'] * 100), round(U0['cs'] * U0['cm'] * 100))) in wd0[0] and ('콤보당 +%d%%(최대 +%d%%)' % (round(U0['fs'] * 100), round(U0['fm'] * 100))) in wd0[0] and ('×%s' % U0['bx']) in wd0[0] and ('%s초' % U0['ct']) in wd0[0]
+              and '콤보 유지 +0.5초' in wd0[3] and ('콤보 상한 +4칸(최대 +%d%%)' % round(U0['cs'] * (U0['cm'] + 4) * 100)) in wd0[7], wd0)
         D0, DB0 = r['u3']['d'], r['u3']['db']   # 음표·고음 피해는 표(U3.sing)에서 읽는다 — 수치를 올려도 시험의 기대값이 같이 움직인다
         T = r['T']
         check('TIERS.sing: 마스터 3 + 각성 2 (음표 +1 · 피해 +12% · 쿨 -7% · 관통/피해/넋 · 흩어지는 음표)', T == [{'n': 1}, {'d': .12}, {'c': .07}, {'pc': 1, 'd': .08, 'life': .2}, {'frag': 1}], T)
         check('콤보 u_sing: 🎤 + 🐥 병아리 친구들(공용) · 경험치 +10% · 피해 +6%', r['sy'] and r['sy']['req'] == ['sing', 'chick'] and r['sy']['fx'] == {'xp': .1, 'dmg': .06} and r['chick'] and r['sg'] == 1 and r['uSyn'] == 19, r['sy'])
-        check('U3.sing 수치표', r['u3'] == {'d': 6.6, 'db': 1.9, 'cd': 1.6, 'iv': .24, 'sp': 380, 'life': .8, 'rng': 300, 'fan': .22, 'dlt': .06, 'hit': 12, 'bsp': 280, 'blife': .9, 'bR': 44, 'btk': .45, 'm': 2, 'ct': 1.5, 'cs': .07, 'cm': 8, 'fs': .13, 'fm': 1.3, 'bx': 1.3, 'sl': .45, 'bsl': .9, 'reach': 280}, r['u3'])
+        check('U3.sing 수치표', r['u3'] == {'d': 7, 'db': 2, 'cd': 1.6, 'iv': .24, 'sp': 380, 'life': .8, 'rng': 300, 'fan': .22, 'dlt': .06, 'hit': 12, 'bsp': 280, 'blife': .9, 'bR': 44, 'btk': .45, 'm': 2, 'ct': 1.5, 'cs': .07, 'cm': 8, 'fs': .13, 'fm': 1.3, 'bx': 1.3, 'sl': .45, 'bsl': .9, 'reach': 280}, r['u3'])
         check('study 짝 무기: 가챠 · 4발 사격 · 노래부르기', sorted(r['bbbPair']) == ['gacha', 'jhin', 'sing'], r['bbbPair'])
 
         # ───────────────── B. 박 시간표
@@ -151,7 +155,7 @@ async def main():
         # 레벨별 박당 음표 수 · 박자 간격 · 쿨타임 · 관통 · 고음 규격
         EXP_M = [2, 3, 3, 3, 4, 4, 5, 6];   # 2026-10-18 곱빼기 패시브 제거 — Lv5·Lv8 에 음표 +1
         EXP_IV = [.24, .24, .24, .204, .204, .204, .204, .204]; EXP_CD = [1.6, 1.6, 1.6, 1.44, 1.44, 1.44, 1.44, 1.296]
-        K1, K2 = 1.35, 1.35 ** 2; EXP_D = [D0 * k for k in (1, 1, K1, K1, K2, K2, K2, K2)]; EXP_DB = [DB0 * k for k in (1, 1, K1, K1, K2, K2, K2, K2)]
+        K1, K15, K2 = 1.35, 1.35 * 1.15, 1.35 * 1.15 * 1.2; EXP_D = [D0 * k for k in (1, 1, K1, K15, K2, K2, K2, K2)]; EXP_DB = [DB0 * k for k in (1, 1, K1, K15, K2, K2, K2, K2)]   # Lv3 +35% · Lv4 +15% · Lv5 +20% (2026-10-19)
         for Lv in range(1, 9):
             r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': Lv, 'es': ES3, 'sec': 1.0})
             g = groups(r['log']); t0 = g[0][0]['t']; hn = [e for e in r['log'] if e['k'] == 'hn'][0]
@@ -288,7 +292,7 @@ async def main():
         check('마스터3 쿨타임 -7% → 1.296 × .93', near(r['cd0'], 1.296 * .93, .002), r['cd0'])
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 4, 'es': ES3, 'sec': .5, 'tier': 4, 'ev': 1})
         n4 = groups(r['log'])[1][0]
-        check('각성4 음표 관통 +1 · 피해 +8%(마스터2 +12% 와 합쳐 +20%) · 넋 잃음 +0.2초', n4['pc'] == 1 and near(n4['d'], D0 * K1 * 1.15 * 1.2, .02) and near(n4['sl'], .65, .001), n4)
+        check('각성4 음표 관통 +1 · 피해 +8%(마스터2 +12% 와 합쳐 +20%) · 넋 잃음 +0.2초', n4['pc'] == 1 and near(n4['d'], D0 * K15 * 1.15 * 1.2, .02) and near(n4['sl'], .65, .001), n4)
         # 각성5 — 끝 울림에서 음표 6개(피해 50%)가 사방으로, 크레셴도에는 안 센다
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 250}], 'sec': 1.8, 'ev': 0, 'tier': 5})
         fr = [e for e in r['log'] if e['k'] == 'nt' and e['v'] == -1]
