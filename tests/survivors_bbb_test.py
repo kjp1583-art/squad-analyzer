@@ -8,7 +8,7 @@ import asyncio, sys, os, re, json, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sv_harness as H
 os.environ.setdefault('SV_CSX_OFF', '1')   # 2026-10-12: 캐릭터 고유 능력(CSX)을 중립으로 — 이 시험은 브장신/용조련사 등을 「능력 없는 기준」으로 쓴다(능력 자체는 survivors_cabil_test.py)
-H.HOOK += "\nwindow.__p6y={U3,F3CAP,AU,PASS,SPX,EX,TK,aim3,liveOk,spawnBoss};\n"   # 이 시험만 쓰는 훅(sv_harness.py 는 고치지 않는다)
+H.HOOK += "\nwindow.__p6y={U3,F3CAP,AU,PASS,SPX,EX,TK,aim3,liveOk,spawnBoss,SGC,sgCombo,singPulse};\n"   # 이 시험만 쓰는 훅(sv_harness.py 는 고치지 않는다)
 from playwright.async_api import async_playwright
 FAILS = []; N = [0]
 def check(name, cond, extra=''):
@@ -18,7 +18,7 @@ def check(name, cond, extra=''):
 def near(a, b, tol): return a is not None and abs(a - b) <= tol
 
 # ── 장면: 가만히 선 적들 앞에서 무기 하나만 돌린다. 새로 생긴 엔티티(음표 nt · 고음 hn)를 시각·각도와 함께 기록한다
-SCENE = r"""(a)=>{const x=__p6x,y=__p6y;x.CH_set(a.ch||'brj');x.start();const S=x.S,p=S.p,dt=a.dt||1/60;
+SCENE = r"""(a)=>{const x=__p6x,y=__p6y;x.CH_set(a.ch||'brj');x.start();const S=x.S,p=S.p,dt=a.dt||1/60;y.SGC.t=0;y.SGC.n=0;y.SGC.e=null;
  S.w=Object.assign({sing:a.L},a.w||{});S.cd={};S.ev=a.ev?{sing:1}:{};S.tier=a.tier?{sing:a.tier}:{};S.ps=a.ps||{};x.tkCalc();x.synCalc();
  S.t=90;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.propT=S.chickT=1e12;S.need=1e12;S.xp=0;
  for(const q of x.enemies.a)q.on=false;x.props.clear();
@@ -27,7 +27,8 @@ SCENE = r"""(a)=>{const x=__p6x,y=__p6y;x.CH_set(a.ch||'brj');x.start();const S=
    e.x=ex;e.y=ey;e.sp=0;e.hp=e.mhp=o.hp||1e9;if(o.el)e.el=1;if(o.r)e.r=o.r;E.push({e,x:ex,y:ey,hp:o.hp||1e9,pin:o.pin!==false});}
  if(a.props)for(const o of a.props){let q=null;for(const c of x.props.a)if(!c.on){q=c;break;}q.on=true;q.k=1;q.x=p.x+o.x;q.y=p.y+o.y;q.hp=22;q.hit=0;}
  const log=[],seen=new WeakSet(),vid=new Map(),hits={};let cd0,maxSlow=0,slowLog=[],dm=[],f0=null,prevN=[];const steps=Math.round(a.sec/dt);
- for(let i=0;i<steps;i++){S.p.hp=S.p.mhp;S.spawnT=-1e12;S.xp=0;S.need=1e12;x.keys={};
+ for(let i=0;i<steps;i++){if(a.nocb)y.SGC.t=0;if(a.mv&&i*dt>=a.mv.t&&!a.mv.done){a.mv.done=1;const q=E[a.mv.i];q.x=p.x+Math.cos(a.mv.a*Math.PI/180)*a.mv.d;q.y=p.y+Math.sin(a.mv.a*Math.PI/180)*a.mv.d;}
+   S.p.hp=S.p.mhp;S.spawnT=-1e12;S.xp=0;S.need=1e12;x.keys={};
    for(const q of E){if(!q.pin)continue;q.e.x=q.x;q.e.y=q.y;q.e.hp=q.e.mhp=q.hp;if(!a.keepSlow)q.e.slow=0;}
    if(a.kill&&i*dt>=a.kill.t&&E[a.kill.i].e.on){E[a.kill.i].e.on=false;}
    if(a.pre){S.x3.f.length=0;for(let j=0;j<a.pre;j++)S.x3.f.push({k:'bs',x:1e9,y:1e9,ux:1,uy:0,len:0,hw:0,life:50,T:50});a.pre=0;}   // 채우개는 'bs'(방패 그림 · 수명만 줄어드는 종류) — 옛 'sh' 는 main 에서 없어져 매 프레임 치워진다
@@ -133,7 +134,7 @@ async def main():
         T = r['T']
         check('TIERS.sing: 마스터 3 + 각성 2 (음표 +1 · 피해 +12% · 쿨 -7% · 관통/피해/넋 · 흩어지는 음표)', T == [{'n': 1}, {'d': .12}, {'c': .07}, {'pc': 1, 'd': .08, 'life': .2}, {'frag': 1}], T)
         check('콤보 u_sing: 🎤 + 🐥 병아리 친구들(공용) · 경험치 +10% · 피해 +6%', r['sy'] and r['sy']['req'] == ['sing', 'chick'] and r['sy']['fx'] == {'xp': .1, 'dmg': .06} and r['chick'] and r['sg'] == 1 and r['uSyn'] == 19, r['sy'])
-        check('U3.sing 수치표', r['u3'] == {'d': 6.6, 'db': 1.9, 'cd': 1.6, 'iv': .24, 'sp': 380, 'life': .8, 'rng': 300, 'fan': .22, 'dlt': .06, 'hit': 12, 'bsp': 280, 'blife': .9, 'bR': 44, 'btk': .45, 'm': 2, 'cr': .04, 'crm': .6, 'sl': .45, 'bsl': .9, 'reach': 280}, r['u3'])
+        check('U3.sing 수치표', r['u3'] == {'d': 6.6, 'db': 1.9, 'cd': 1.6, 'iv': .24, 'sp': 380, 'life': .8, 'rng': 300, 'fan': .22, 'dlt': .06, 'hit': 12, 'bsp': 280, 'blife': .9, 'bR': 44, 'btk': .45, 'm': 2, 'ct': 1.5, 'cs': .07, 'cm': 8, 'fs': .13, 'fm': 1.3, 'bx': 1.3, 'sl': .45, 'bsl': .9, 'reach': 280}, r['u3'])
         check('study 짝 무기: 가챠 · 4발 사격 · 노래부르기', sorted(r['bbbPair']) == ['gacha', 'jhin', 'sing'], r['bbbPair'])
 
         # ───────────────── B. 박 시간표
@@ -163,57 +164,80 @@ async def main():
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': .5, 'tier': 1})
         check('Lv8 6 + 마스터 +1 = 박당 음표 7개', len(groups(r['log'])[0]) == 7, len(groups(r['log'])[0]))
 
-        # ───────────────── C. 겨냥
+        # ───────────────── C. 겨냥 (2026-10-19 리듬 콤보 — 세 박 모두 한 놈에게 · 콤보 중이면 그 적을 계속 겨눈다)
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': ES3, 'sec': 3.4})
         g = groups(r['log']); hn = [e for e in r['log'] if e['k'] == 'hn']
         m = [cmean([e['deg'] for e in x]) for x in g[:3]]
         check('Lv1(집중): 세 박 모두 가장 가까운 적(0°) — 2박 +3.4° · 3박 -3.4°', near(m[0], 0, 1.5) and near(m[1], DL, 1.5) and near(m[2], -DL, 1.5), [round(v, 1) for v in m])
-        check('고음 ♬ 은 가장 센 적(250°=-110°) 쪽으로', angd(hn[0]['deg'], -110) < 2.5, hn[0]['deg'])
+        check('콤보가 쌓인 적(0°)이 고음 거리 안이면 가장 센 적(250°) 대신 콤보 중인 적에게 ♬ 이 간다', angd(hn[0]['deg'], 0) < 2.5, hn[0]['deg'])
         v2 = [x for x in g if x[0]['t'] - g[0][0]['t'] > 1.2]
         m2 = [cmean([e['deg'] for e in x]) for x in v2[:3]]
         check('다음 소절은 비껴 쏘는 방향이 반대(2박 -3.4° · 3박 +3.4°)', len(m2) == 3 and near(m2[0], 0, 1.5) and near(m2[1], -DL, 1.5) and near(m2[2], DL, 1.5), [round(v, 1) for v in m2])
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 4, 'es': ES3, 'sec': 3.2})
         g = groups(r['log']); hn = [e for e in r['log'] if e['k'] == 'hn']; t0 = g[0][0]['t']
         m = [cmean([e['deg'] for e in x]) for x in g[:3]]
-        check('Lv4(나선) 첫 소절: 가까운 적(0°) → 100° → 250°(-110°) 순서로 돌며 겨냥', near(m[0], 0, 1.5) and near(m[1], 100, 2) and near(wrap(m[2] + 110), 0, 2), [round(v, 1) for v in m])
-        v2 = [x for x in g if x[0]['t'] - t0 > 1.2]
-        m2 = [cmean([e['deg'] for e in x]) for x in v2[:3]]
-        check('Lv4 다음 소절은 반대로 돈다: 0° → 250° → 100°', len(m2) == 3 and near(m2[0], 0, 1.5) and near(wrap(m2[1] + 110), 0, 2) and near(m2[2], 100, 2), [round(v, 1) for v in m2])
-        check('Lv4: 박자 간격 .204 · ♬ 은 가장 센 적(-110°)', near(g[1][0]['t'] - t0, .204, .04) and angd(hn[0]['deg'], -110) < 2.5, (g[1][0]['t'] - t0, hn[0]['deg']))
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 4, 'es': ES3[:2], 'sec': 1.0})
-        m = [cmean([e['deg'] for e in x]) for x in groups(r['log'])[:3]]
-        check('Lv4 적이 둘뿐이면 3박은 가장 가까운 적을 다시(비껴)', near(m[0], 0, 1.5) and near(m[1], 100, 2) and near(m[2], -DL, 1.5), [round(v, 1) for v in m])
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 4, 'es': ES3[:1], 'sec': 1.0})
-        m = [cmean([e['deg'] for e in x]) for x in groups(r['log'])[:3]]
-        check('Lv4 적이 하나뿐이면 나선 대신 집중(0° · +3.4° · -3.4°)', near(m[0], 0, 1.5) and near(m[1], DL, 1.5) and near(m[2], -DL, 1.5), [round(v, 1) for v in m])
+        check('Lv4: 나선은 없다 — 적이 셋이어도 세 박 모두 가장 가까운 적(0°) 하나에게(0° · +3.4° · -3.4°)', near(m[0], 0, 1.5) and near(m[1], DL, 1.5) and near(m[2], -DL, 1.5), [round(v, 1) for v in m])
+        check('Lv4: 박자 간격 .204 · 콤보가 쌓인 적에게 ♬', near(g[1][0]['t'] - t0, .204, .04) and angd(hn[0]['deg'], 0) < 2.5, (g[1][0]['t'] - t0, hn[0]['deg']))
         # 겨눈 적이 박 사이에 죽으면 그 순간 가장 가까운 적으로 바꾼다
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 120}, {'a': 180, 'd': 250}], 'sec': 1.0, 'kill': {'t': .1, 'i': 0}})
         m = [cmean([e['deg'] for e in x]) for x in groups(r['log'])[:3]]
         check('겨눈 적이 죽으면 다음 박은 가장 가까운 적(180°)으로', near(m[0], 0, 1.5) and angd(m[1], 180 + DL) < 2.5 and angd(m[2], 180 - DL) < 2.5, [round(v, 1) for v in m])
-        # ♬ 목표: 보스 > 엘리트·대형 > 현재 체력 · 사거리(280) 밖은 제외
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 100, 'hp': 100}, {'a': 90, 'd': 200, 'hp': 50, 'el': 1}, {'a': 200, 'd': 250, 'hp': 1e6}], 'sec': 1.0})
+        # 콤보가 없을 때(nocb) ♬ 목표: 보스 > 엘리트·대형 > 현재 체력 · 사거리(280) 밖은 제외
+        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 140}, {'a': 100, 'd': 170}, {'a': 250, 'd': 200, 'hp': 5e9}], 'sec': 1.0, 'nocb': 1})   # 140px: 3박 음표는 4박(.72초) 뒤에 닿는다 — 같은 프레임에 닿으면 콤보가 막 쌓인 것
         hn = [e for e in r['log'] if e['k'] == 'hn']
-        check('♬ 목표: 엘리트(90°)가 체력 많은 일반 적(200°)보다 먼저', hn and angd(hn[0]['deg'], 90) < 2.5, hn and hn[0]['deg'])
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 100, 'hp': 100}, {'a': 90, 'd': 200, 'hp': 50, 'el': 1}, {'a': 300, 'd': 220, 'boss': 1}], 'sec': 1.0})
+        check('콤보가 없으면 ♬ 은 가장 센 적(250°=-110°) 쪽으로', hn and angd(hn[0]['deg'], -110) < 2.5, (hn and hn[0]['deg'], hn and hn[0]['t']))
+        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 100, 'hp': 100}, {'a': 90, 'd': 200, 'hp': 50, 'el': 1}, {'a': 200, 'd': 250, 'hp': 1e6}], 'sec': 1.0, 'nocb': 1})
         hn = [e for e in r['log'] if e['k'] == 'hn']
-        check('♬ 목표: 보스(300°=-60°)가 엘리트보다 먼저', hn and angd(hn[0]['deg'], -60) < 2.5, hn and hn[0]['deg'])
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 100, 'hp': 100}, {'a': 180, 'd': 290, 'hp': 1e9}], 'sec': 1.0})
+        check('♬ 목표(콤보 없음): 엘리트(90°)가 체력 많은 일반 적(200°)보다 먼저', hn and angd(hn[0]['deg'], 90) < 2.5, hn and hn[0]['deg'])
+        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 100, 'hp': 100}, {'a': 90, 'd': 200, 'hp': 50, 'el': 1}, {'a': 300, 'd': 220, 'boss': 1}], 'sec': 1.0, 'nocb': 1})
         hn = [e for e in r['log'] if e['k'] == 'hn']
-        check('♬ 목표: 사거리(280) 밖의 센 적은 제외 → 가까운 적(0°)', hn and angd(hn[0]['deg'], 0) < 2.5, hn and hn[0]['deg'])
+        check('♬ 목표(콤보 없음): 보스(300°=-60°)가 엘리트보다 먼저', hn and angd(hn[0]['deg'], -60) < 2.5, hn and hn[0]['deg'])
+        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 100, 'hp': 100}, {'a': 180, 'd': 290, 'hp': 1e9}], 'sec': 1.0, 'nocb': 1})
+        hn = [e for e in r['log'] if e['k'] == 'hn']
+        check('♬ 목표(콤보 없음): 사거리(280) 밖의 센 적은 제외 → 가까운 적(0°)', hn and angd(hn[0]['deg'], 0) < 2.5, hn and hn[0]['deg'])
+        # 콤보 락온: 첫 소절은 가까운 A(0° 110px) → 0.9초에 B 가 더 가까이(180° 60px) 와도 콤보가 남은 A 를 계속 겨눈다
+        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 110}, {'a': 180, 'd': 250}], 'sec': 3.0, 'mv': {'t': .9, 'i': 1, 'a': 180, 'd': 60}})
+        v2 = [x for x in groups(r['log']) if x[0]['t'] > 1.4][:3]
+        m2 = [cmean([e['deg'] for e in x]) for x in v2]
+        check('콤보 락온: 더 가까운 적이 생겨도 콤보 중인 적(0°)을 계속 겨눈다(2소절째 세 박 모두 0° 근처)', len(m2) == 3 and all(angd(v, 0) < 5 for v in m2), [round(v, 1) for v in m2])
 
-        # ───────────────── D. 크레셴도(박자 적중 보너스)
+        # ───────────────── D. 리듬 콤보
+        U = r0u = await pg.evaluate("()=>__p6y.U3.sing")
+        r = await pg.evaluate("""()=>{const x=__p6x,y=__p6y,U=y.U3.sing;x.CH_set('brj');x.start();const S=x.S;const mk=(px)=>{const e=x.spawnEnemy(0,2.5,null,{x:S.p.x+px,y:S.p.y});e.sp=0;e.hp=e.mhp=1e9;return e;};
+          const A=mk(100),B=mk(-100),C=y.SGC;C.sn=0;C.n=0;C.t=0;C.e=null;C.ct=U.ct;C.cx=U.cs*U.cm;const out={};
+          out.t0=y.sgCombo(A,undefined);out.n0=C.n;                                         // 겨눈 적 표시(ts)가 없는 음표(흩어진 음표)는 콤보에 안 센다
+          out.m=[];for(let i=0;i<12;i++)out.m.push(+y.sgCombo(A,A.sn).toFixed(4));out.n12=C.n;  // 같은 적에게 12번
+          out.other=y.sgCombo(A,B.sn);out.nOther=C.n;                                       // A 콤보 중에 B 를 겨눈 음표가 맞으면 → 그 음표의 소유 적이 아니라 e.sn!==ts 라 배율 1(콤보에 안 셈)
+          out.swap=y.sgCombo(B,B.sn);out.nSwap=C.n;out.snSwap=C.sn===B.sn;                  // 겨눈 적이 바뀌면 콤보 새로 시작(n=1)
+          for(let i=0;i<4;i++)y.sgCombo(B,B.sn);const nb=C.n;C.t=0;out.exp=y.sgCombo(B,B.sn);out.nExp=C.n;out.nb=nb;   // 시간이 다 되면(t=0) 끊긴다
+          out.ct=C.t;return out}""")
+        exp = [round(1 + min(U['cs'] * U['cm'], U['cs'] * (k - 1)), 4) for k in range(1, 13)]
+        check('겨눈 표시가 없는 음표(흩어진 음표)는 콤보에 세지도 않고 배율도 1', r['t0'] == 1 and r['n0'] == 0, (r['t0'], r['n0']))
+        check('콤보 배율 = 1 + min(cs×cm, cs×(n-1)) — 1번째 1.0 · 2번째 1.07 … 9번째부터 상한 1.56', r['m'] == exp and near(r['m'][8], 1.56, .001) and r['m'][11] == r['m'][8] and r['n12'] == 12, (r['m'], exp))
+        check('다른 적을 겨눈 음표가 맞아도 콤보는 그대로(배율 1 · 콤보 수 불변)', r['other'] == 1 and r['nOther'] == 12, (r['other'], r['nOther']))
+        check('겨눈 적이 바뀌면 콤보가 새로 시작(n=1 · 배율 1)', r['swap'] == 1 and r['nSwap'] == 1 and r['snSwap'], r)
+        check('유지 시간(ct)이 다 되면 콤보가 끊긴다(다시 1부터) · 맞을 때마다 유지 시간이 다시 찬다', r['exp'] == 1 and r['nExp'] == 1 and r['nb'] == 5 and near(r['ct'], U['ct'], 1e-6), r)
+        # 소절 통합: 한 놈(110px)만 두고 5초 — 콤보는 소절 사이에 이어지고 ♬ 은 콤보만큼 세다
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 110}], 'sec': 5.0})
-        L = r['log']; hns = [e for e in L if e['k'] == 'hn']
+        hns = [e for e in r['log'] if e['k'] == 'hn']
         ok = len(hns) >= 3; ex = []
-        for i, h in enumerate(hns[:3]):
-            ex.append((h['hh'], round((h['cr'] - 1) / .04, 2)))
-            ok = ok and near(h['cr'], 1 + min(.6, .04 * h['hh']), 1e-6) and h['hh'] >= 2
-        check('♬ 크레셴도 = 1 + min(0.6, 0.04 × 그 소절에서 맞은 ♪ 수) — 소절마다 새로 센다(앞 소절 것을 이어받지 않는다)', ok, ex)
-        check('첫 소절 크레셴도는 4박 때까지 맞은 음표 수(4~6개) × 0.04', 4 <= hns[0]['hh'] <= 6 and near(hns[0]['cr'], 1 + .04 * hns[0]['hh'], 1e-6), (hns[0]['hh'], hns[0]['cr']))
+        for h in hns[:3]:
+            n = round((h['cr'] - 1) / U['fs'], 2) if h['cr'] < 1 + U['fm'] - 1e-9 else None
+            ex.append((round(h['cr'], 3), n)); ok = ok and h['cr'] > 1.2
+        check('♬ 고음 배율 cr = 1 + min(fm, fs × 콤보) — 소절마다 1.2 이상(첫 소절 콤보 6 → 1.78)', ok and near(hns[0]['cr'], 1 + U['fs'] * 6, 1e-6), ex)
+        check('고음이 터지면 콤보의 절반만 남아 다음 소절로 이어진다(둘째 소절 ♬ 은 3 + 새로 쌓은 만큼 더 센 콤보)', len(hns) >= 2 and hns[1]['cr'] > hns[0]['cr'] * 0.95 and hns[1]['cr'] <= 1 + U['fm'] + 1e-9, [h['cr'] for h in hns[:4]])
         r8 = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': [{'a': 0, 'd': 110}, {'a': 100, 'd': 120}, {'a': 250, 'd': 130}], 'sec': 6.0, 'ev': 1, 'tier': 5})
         h8 = [e for e in r8['log'] if e['k'] == 'hn']
-        check('각성(소절이 겹쳐도) 모든 ♬ 에 크레셴도가 붙는다(소절마다 따로 센다)', len(h8) >= 5 and all(h['cr'] > 1.0 for h in h8), [h['cr'] for h in h8])
-        check('크레셴도가 클수록 ♬ 반지름도 커진다(상승분의 40%)', all(near(h['R'], 44 * 1.25 * 1.15 * (1 + (h['cr'] - 1) * .4), .01) for h in h8), [(h['cr'], h['R']) for h in h8[:3]])
+        check('각성(소절이 겹쳐도) 모든 ♬ 에 콤보 배율이 붙는다', len(h8) >= 5 and all(h['cr'] > 1.0 for h in h8), [h['cr'] for h in h8])
+        check('콤보 배율이 클수록 ♬ 반지름도 커진다(상승분의 40%)', all(near(h['R'], 44 * 1.25 * 1.15 * (1 + (h['cr'] - 1) * .4), .01) for h in h8), [(h['cr'], h['R']) for h in h8[:3]])
+        # 보스·정예·대형 보너스(bx) — 콤보가 있을 때(cr>1)만, 같은 자리의 일반 적과 비교
+        r = await pg.evaluate("""()=>{const x=__p6x,y=__p6y,U=y.U3.sing;x.CH_set('brj');x.start();const S=x.S,p=S.p;for(const q of x.enemies.a)q.on=false;
+          const mk=(ang,el)=>{const e=x.spawnEnemy(0,2.5,null,{x:p.x+Math.cos(ang)*60,y:p.y+Math.sin(ang)*60});e.sp=0;e.hp=e.mhp=1e9;if(el)e.el=1;return e;};
+          const a=mk(0,0),b=mk(2.1,1),c=mk(4.2,0);S.live=[a,b,c];const h0=[a,b,c].map(e=>e.hp);
+          y.singPulse({x:p.x,y:p.y,R:200,d:100,sl:.1,cr:1.5,fr:0,nd:0},false);const d1=[a,b,c].map((e,i)=>h0[i]-e.hp);
+          const h1=[a,b,c].map(e=>e.hp);y.singPulse({x:p.x,y:p.y,R:200,d:100,sl:.1,cr:1,fr:0,nd:0},false);const d2=[a,b,c].map((e,i)=>h1[i]-e.hp);
+          return {d1,d2,bx:U.bx}}""")
+        check('울림 보너스: 콤보가 있으면(cr>1) 정예가 일반 적보다 ×1.3 — 콤보가 없으면(cr=1) 똑같다', r['d1'][0] > 0 and near(r['d1'][1] / r['d1'][0], r['bx'], .02) and near(r['d1'][2], r['d1'][0], .01) and near(r['d2'][1], r['d2'][0], .01), r)
 
         # ───────────────── E. 넋 잃음 · 울림 · 끝 울림 · 보스
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 120}], 'sec': .68, 'keepSlow': True, 'slowIdx': 0})
@@ -229,17 +253,17 @@ async def main():
         ms = max(v for t, v in r['slowLog'])
         check('보스는 넋 잃음이 절반(.225)', near(ms, .225, .03), ms)
         # 끝 울림 — ♬ 이 가는 끝자리(252px)에 서 있는 적만 끝 울림(반지름 ×1.3 · 피해 ×1.5)에 맞는다
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 250}], 'sec': 1.75})
+        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 250}], 'sec': 1.75, 'nocb': 1})
         dm = r['dm']; dts = [round(dm[i] - dm[i - 1], 3) for i in range(1, len(dm))]
         hn = [e for e in r['log'] if e['k'] == 'hn'][0]
         odd = [(round(i / 60, 2), d) for i, d in enumerate(dts, 1) if d > 0 and not near(d / D0, round(d / D0), .004)]
-        check('끝 울림: ♬ 이 끝(수명 .9초)에서 한 번 — 피해 = 1.3 × 크레셴도 × 1.5(보통 울림은 안 닿는 자리)', len(odd) == 1 and near(odd[0][1], DB0 * hn['cr'] * 1.5, .01) and near(odd[0][0] - hn['t'], .9, .06), (odd, hn['cr'], hn['t']))
+        check('끝 울림: ♬ 이 끝(수명 .9초)에서 한 번 — 피해 = 1.3 × 고음 배율(콤보 없음 → 1) × 1.5(보통 울림은 안 닿는 자리)', len(odd) == 1 and near(odd[0][1], DB0 * hn['cr'] * 1.5, .01) and near(odd[0][0] - hn['t'], .9, .06), (odd, hn['cr'], hn['t']))
         # 보통 울림 — 가는 길 위(126px 근처)의 적은 .45초 지점 울림에 맞는다
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 130}], 'sec': 1.75})
+        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': [{'a': 0, 'd': 130}], 'sec': 1.75, 'nocb': 1})
         dm = r['dm']; dts = [round(dm[i] - dm[i - 1], 3) for i in range(1, len(dm))]
         hn = [e for e in r['log'] if e['k'] == 'hn'][0]
         odd = [(round(i / 60 - hn['t'], 2), d) for i, d in enumerate(dts, 1) if d > 0 and not near(d / D0, round(d / D0), .004) and i / 60 > hn['t']]
-        check('울림은 ♬ 이 0.45초 날아간 자리(≈126px)에서 한 번 — 피해 = 1.3 × 크레셴도', len(odd) >= 1 and near(odd[0][0], .45, .07) and near(odd[0][1], DB0 * hn['cr'], .01), (odd, hn['cr']))
+        check('울림은 ♬ 이 0.45초 날아간 자리(≈126px)에서 한 번 — 피해 = 1.3 × 고음 배율(콤보 없음 → 1)', len(odd) >= 1 and near(odd[0][0], .45, .07) and near(odd[0][1], DB0 * hn['cr'], .01), (odd, hn['cr']))
 
         # ───────────────── F. 각성 · 단계표 · 앙코르
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': 3.0, 'ev': 1})
@@ -253,7 +277,7 @@ async def main():
         check('각성: 앙코르 피해는 75% · 첫 소절 ♪ 피해 = D0×1.35² × 1.15', near(order[0][0]['d'], D0 * K2 * 1.15, .02) and near(enc[0]['d'], D0 * K2 * 1.15 * .75, .02), (order[0][0]['d'], enc[0]['d']))
         eg = groups(enc)[:3]
         me = [cmean([e['deg'] for e in x]) for x in eg]
-        check('각성: 앙코르 소절은 앞 소절의 반대로 돈다(0° → 250° → 100°)', len(me) == 3 and near(me[0], 0, 2) and near(wrap(me[1] + 110), 0, 2) and near(me[2], 100, 2), [round(v, 1) for v in me])
+        check('각성: 앙코르 소절은 앞 소절의 반대로 비껴 쏜다(0° → -3.4° → +3.4°)', len(me) == 3 and near(me[0], 0, 2) and near(me[1], -DL, 2) and near(me[2], DL, 2), [round(v, 1) for v in me])
         check('각성: ♬ 반지름 ×1.15 · 피해 ×1.15 · 쿨타임 ×.9(1.296 × .9 = 1.1664)', near(hn[0]['R'] / (1 + (hn[0]['cr'] - 1) * .4), 55 * 1.15, .02) and near(hn[0]['d'] / hn[0]['cr'], DB0 * K2 * 1.15, .01) and near(r['cd0'], 1.1664, .002), (hn[0], r['cd0']))
         # 단계표
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': .5, 'tier': 1})
