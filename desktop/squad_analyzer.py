@@ -7237,8 +7237,112 @@ _INTRO_SEEN = {}                                             # 방 → 처음 �
 _INTRO_WHY = {}                                              # 방 → 마지막으로 로그에 남긴 보류 이유
 
 # 🖥 [2026-09-29 사장님 지시] 롤 채팅창은 어떤 주소도 눌리게 만들지 않는다 — 주소 대신 링크가 눌리는 디스코드 채널로 안내한다.
-def _lobby_intro_text():
-    return f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · 전적 보기·분석기 받기: 디스코드 #squad_gg · 개발자: 맛동산장인 유미"
+def _lobby_intro_text(extra=""):
+    base = f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · 전적 보기·분석기 받기: 디스코드 #squad_gg · 개발자: 맛동산장인 유미"
+    return base + (f" · {extra}" if extra else "")
+
+# 🎲 [2026-10-19 사장님 지시 「로비 채팅 메시지에 간단한 클랜 정보를 랜덤하게 — 이번 주가 아니라 지난 주(첫날엔 깡통 데이터) · 1234 전부 포함해서 랜덤」]
+#   안내 문장 뒤에 한 줄을 덧붙인다(별도 메시지 아님 · 방마다 한 번). 네 갈래에서 갈래부터 무작위로 고른 뒤 그 안에서 하나:
+#   ① 지난주 클랜 소식(최다 출전·MVP·최장 연승·인기 픽·바쁜 요일…)  ② 클랜 기록(누적 판수·가장 많이 나온 챔피언)  ③ 사용법 한 줄 팁
+#   ④ 지금 방에 있는 클랜원 맞춤(그 사람이 지난주 판수 상위에 있으면 칭찬 한 줄). 출처 = data/weekly_review.json(웹 저장소, 월요일 아침 갱신) · clan_meta.json.
+#   못 받아 오면 ②③ 만으로 — 한 줄이 비어도 안내 문장은 그대로 나간다. 설정 lobby_fun=false 로 끈다.
+_WEEKLY_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/data/weekly_review.json"
+_WEEKLY = {"d": None, "at": 0.0}
+LOBBY_FUN_MAX = 70
+LOBBY_TIPS = [
+    "💡 웹 squad_gg 에서 내 전적·티어·전투력을 볼 수 있어요",
+    "💡 디스코드 #squad_gg 에서 오늘의 밴픽퀴즈에 참여해 보세요",
+    "💡 웹의 이상형월드컵 탭에서 전투력이 비슷한 클랜원끼리 골라 볼 수 있어요",
+    "💡 웹 흐접새우 서바이벌에서 내 기록을 순위표에 올려 보세요",
+    "💡 웹 브키도감에서 브장신 키우기 아이템을 한눈에 볼 수 있어요",
+    "💡 매주 월요일 아침 웹 주간스쿼드에 지난주 클랜 소식이 올라와요",
+    "💡 분석기가 밴픽 때 클랜 내전 통계로 픽 추천을 해 줘요",
+    "💡 내전이 끝나면 결과 리포트가 자동으로 기록돼요",
+]
+def _weekly_data():
+    """지난주 주간스쿼드 JSON(1시간 캐시) — 못 받으면 None."""
+    now = time.time()
+    if _WEEKLY["d"] is not None and now - _WEEKLY["at"] < 3600: return _WEEKLY["d"]
+    if now - _WEEKLY["at"] < 300: return _WEEKLY["d"]
+    _WEEKLY["at"] = now
+    try:
+        rr = requests.get(_WEEKLY_URL, timeout=4)
+        if rr.status_code == 200:
+            d = rr.json()
+            if isinstance(d, dict) and not d.get("placeholder") and isinstance(d.get("stats"), dict): _WEEKLY["d"] = d
+    except Exception as e:
+        print(f"[lobby-fun] 주간 데이터 로드 실패(무시): {type(e).__name__}", flush=True)
+    return _WEEKLY["d"]
+
+def _lf_first(txt):
+    return str(txt or "").split(" / ")[0].strip()
+
+def _lobby_fun_week_lines(d):
+    """① 지난주 클랜 소식 후보들."""
+    out = []
+    st = (d or {}).get("stats") or {}
+    sr = st.get("sr") or {}
+    try:
+        if sr.get("games") and sr.get("players"): out.append(f"📅 지난주 협곡 내전 {int(sr['games'])}판 · {int(sr['players'])}명이 뛰었어요")
+        days = sr.get("days") or []
+        if len(days) == 7 and max(days) > 0:
+            dn = "월화수목금토일"[days.index(max(days))]; out.append(f"📅 지난주 협곡은 {dn}요일에 {max(days)}판으로 제일 붐볐어요")
+        if sr.get("top"): n, g, w = sr["top"][0][:3]; out.append(f"🏅 지난주 협곡 출석왕: {n} ({g}판 {w}승)")
+        if sr.get("picks"): out.append(f"🎯 지난주 협곡 인기 픽: {sr['picks'][0][0]} ({sr['picks'][0][1]}번)")
+        if sr.get("bans"): out.append(f"🚫 지난주 협곡 단골 밴: {sr['bans'][0][0]} ({sr['bans'][0][1]}번)")
+        al = st.get("aram") or {}
+        if al.get("top"): n, g, w = al["top"][0][:3]; out.append(f"❄️ 지난주 칼바람 출석왕: {n} ({g}판)")
+        rd = st.get("raid") or {}
+        if rd.get("n"): out.append(f"🍗 지난주 레이드 공격 {int(rd['n'])}회 · {int(rd.get('w', 0))}승")
+    except Exception: pass
+    for f in (d or {}).get("facts") or []:
+        f = str(f)
+        for key, fmt in (("협곡 내전 MVP 최다:", "🌟 지난주 협곡 MVP 최다: {}"), ("협곡 내전 이번 주 최장 연승:", "🔥 지난주 협곡 최장 연승: {}")):
+            if f.startswith(key): out.append(fmt.format(_lf_first(f[len(key):])))
+    for a in (d or {}).get("awards") or []:
+        try: out.append(f"🏆 지난주 {a['title']}: {a['name']}")
+        except Exception: pass
+    return [x for x in out if x and len(x) <= LOBBY_FUN_MAX]
+
+def _lobby_fun_clan_lines():
+    """② 클랜 기록 후보들(clan_meta.json — 누적)."""
+    out = []
+    try:
+        M = _clanstat_meta()
+        if M:
+            if M.get("n_games"): out.append(f"📚 지금까지 클랜 내전 {int(M['n_games']):,}판이 기록됐어요")
+            ch = [c for c in (M.get("champions") or []) if c.get("n")]
+            if ch:
+                top = max(ch, key=lambda c: c["n"]); out.append(f"📚 클랜 내전 최다 등장 챔피언: {top['name']} ({int(top['n'])}판)")
+    except Exception: pass
+    return [x for x in out if len(x) <= LOBBY_FUN_MAX]
+
+def _lobby_fun_member_lines(d, names):
+    """④ 지금 방에 있는 클랜원 중 지난주 판수 상위인 사람 칭찬 한 줄."""
+    out = []
+    try:
+        here = {str(n).split("#")[0].replace(" ", "").lower() for n in (names or []) if n}
+        sr = ((d or {}).get("stats") or {}).get("sr") or {}
+        for n, g, w in (sr.get("top") or []):
+            if str(n).replace(" ", "").lower() in here: out.append(f"👋 {n}님, 지난주 협곡 {int(g)}판 {int(w)}승 — 열심히 하셨어요")
+        al = ((d or {}).get("stats") or {}).get("aram") or {}
+        for n, g, w in (al.get("top") or []):
+            if str(n).replace(" ", "").lower() in here: out.append(f"👋 {n}님, 지난주 칼바람 {int(g)}판 — 부지런하셨어요")
+    except Exception: pass
+    return [x for x in out if len(x) <= LOBBY_FUN_MAX]
+
+def _lobby_fun_line(names=None, rnd=None):
+    """안내 문장 뒤에 붙일 한 줄 — ①~④ 중 갈래를 무작위로(비어 있으면 다른 갈래), 못 만들면 ''."""
+    rnd = rnd or random
+    try:
+        d = _weekly_data()
+        pools = [("소식", _lobby_fun_week_lines(d)), ("기록", _lobby_fun_clan_lines()), ("팁", list(LOBBY_TIPS)), ("맞춤", _lobby_fun_member_lines(d, names))]
+        pools = [p for p in pools if p[1]]
+        if not pools: return ""
+        return str(rnd.choice(rnd.choice(pools)[1]))[:LOBBY_FUN_MAX + 6]
+    except Exception as e:
+        print(f"[lobby-fun] 한 줄 만들기 실패(생략): {type(e).__name__}", flush=True)
+        return ""
 
 def _lobby_intro_ready(lobby_key, members, gc):
     """지금 이 방에 소개를 올릴 때인가 — (올릴까, 이유). members 는 관전자 뺀 로비 인원."""
@@ -7276,7 +7380,7 @@ def _lobby_chat_conv(headers, base_url, lobby_key, allow_type=True):
         if c.get("type") in ("customGame", "lobby"): return c, [c.get("type") for c in convs]
     return None, [c.get("type") for c in convs]
 
-def _lobby_intro(headers, base_url, lobby_key, rank=0):
+def _lobby_intro(headers, base_url, lobby_key, rank=0, names=None):
     done = False
     n_try, _t = _INTRO_TRIES.get(lobby_key, (0, 0.0))
     _INTRO_TRIES[lobby_key] = (n_try + 1, time.time())
@@ -7304,7 +7408,7 @@ def _lobby_intro(headers, base_url, lobby_key, rank=0):
             except Exception: return None
         if _has_intro(log=True):
             print("[lobby-intro] 이 방엔 이미 소개가 있음 — 생략", flush=True); done = True; return
-        r = requests.post(url, headers=headers, json={"body": _lobby_intro_text(), "type": "chat"}, verify=False, timeout=3)
+        r = requests.post(url, headers=headers, json={"body": _lobby_intro_text(_lobby_fun_line(names) if APP_CONFIG.get("lobby_fun", True) else ""), "type": "chat"}, verify=False, timeout=3)
         print(f"[lobby-intro] 소개 보냄 → HTTP {r.status_code}"
               + (f" {str(r.text)[:120]}" if r.status_code >= 400 else "") + f" · 대화 종류 {conv.get('type')}", flush=True)
         if r.status_code >= 400: return                 # 거절·롤 쪽 일시 문제 — 다음 시도로(방마다 최대 3번)
@@ -8541,7 +8645,7 @@ def lcu_core_backend_loop():
                         _irank = _pus.index(global_my_puuid) if global_my_puuid in _pus else 10 + (int(hashlib.md5(str(global_my_puuid or 'x').encode()).hexdigest(), 16) % 3)
                     except Exception: _irank = 10
                     print(f"[lobby-intro] 올릴 때 — {_why} · 순번 {_irank}", flush=True)
-                    threading.Thread(target=_lobby_intro, args=(headers, base_url, lobby_key, _irank), daemon=True).start()
+                    threading.Thread(target=_lobby_intro, args=(headers, base_url, lobby_key, _irank, [str((x or {}).get('gameName') or (x or {}).get('summonerName') or '') for x in (c100 + c200) if isinstance(x, dict)]), daemon=True).start()
 
             if current_phase in ["Lobby", "Matchmaking"] and not active_recording_id:
                 global_captured_bans.clear()
@@ -12201,6 +12305,7 @@ class ClanSettingsWindow(tk.Toplevel):
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
         self.var_syn = tk.BooleanVar(value=APP_CONFIG.get("show_synergy", True))   # 🧩 우측 시너지 3칸
         self.var_lb = tk.BooleanVar(value=APP_CONFIG.get("lobby_balance", True))   # ⚖️ [P-12] 대기실 전력차 한 줄
+        self.var_lf = tk.BooleanVar(value=APP_CONFIG.get("lobby_fun", True))   # 🎲 [2026-10-19] 안내 뒤에 클랜 정보 한 줄 랜덤
         self.var_li = tk.BooleanVar(value=APP_CONFIG.get("lobby_intro", True))   # 💬 [2026-10-17 사장님 지시] 로비 채팅 안내 멘트(스쿼드해체분석기 사용중) 켜기/끄기
         
         # 체크박스를 먼저(오른쪽) 배치해 공간을 확보 → 긴 설명이 밀어내지 않음. 설명은 wraplength로 줄바꿈.
@@ -12285,6 +12390,14 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Label(txt_li, text="클랜원이 모인 사설게임 방에서 방마다 한 번, 분석기 소개 한 줄을 로비 채팅에 올립니다. 끄면 내 분석기는 로비 채팅에 아무것도 올리지 않아요. (내 기록·분석 기능은 그대로 동작합니다)",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
+        # 🎲 [2026-10-19 사장님 지시] 로비 안내에 간단한 클랜 정보(지난주 소식·기록·팁·방 맞춤) 한 줄 랜덤 — 끄기(기본 켬)
+        opt_lf = tk.Frame(body_frame, bg=theme.BG); opt_lf.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_lf, variable=self.var_lf, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_lf = tk.Frame(opt_lf, bg=theme.BG); txt_lf.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_lf, text="로비 안내 뒤에 클랜 정보 한 줄 랜덤으로 붙이기", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_lf, text="로비 안내 채팅 끝에 지난주 클랜 소식·클랜 기록·사용법 팁·방에 있는 클랜원 한마디 중 하나를 무작위로 덧붙입니다. 끄면 안내 문장만 나갑니다.",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
         opt_f4 = tk.Frame(body_frame, bg=theme.BG); opt_f4.pack(fill="x", pady=10)
         _cur_key = APP_CONFIG.get("win_preset", "auto")
@@ -12325,6 +12438,7 @@ class ClanSettingsWindow(tk.Toplevel):
         APP_CONFIG["pos_view_default"] = _pv
         APP_CONFIG["show_synergy"] = bool(self.var_syn.get())   # 🧩 우측 시너지 3칸
         APP_CONFIG["lobby_balance"] = bool(self.var_lb.get())   # ⚖️ [P-12] 대기실 전력차 한 줄
+        APP_CONFIG["lobby_fun"] = bool(self.var_lf.get())   # 🎲 로비 안내 뒤 클랜 정보 한 줄
         APP_CONFIG["lobby_intro"] = bool(self.var_li.get())   # 💬 로비 안내 채팅 — 저장 즉시 반영(루프가 매번 이 값을 읽는다)
         try:
             if _SYNERGY_SYNC[0]: _SYNERGY_SYNC[0](APP_CONFIG["show_synergy"])   # 재시작 없이 즉시 반영
