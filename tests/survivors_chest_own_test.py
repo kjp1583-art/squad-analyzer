@@ -33,7 +33,7 @@ BUILD_JS = r"""
       S.w={};S.ev={};S.tier={};S.pt={};S.ps={};S.rel={};S.banned=[];
       const nw=Math.floor(r()*7);const pool=wk.slice();
       for(let i=0;i<nw&&pool.length;i++){const k=pool.splice(Math.floor(r()*pool.length),1)[0];S.w[k]=1+Math.floor(r()*8);}
-      const pk=['spd','hp','cd','mag','arm','amt','area','might','luck','dur','crit','pspd','study','glass','turtle','vamp'];
+      const pk=['spd','hp','cd','mag','arm','area','might','luck','dur','crit','pspd','study','glass','turtle','vamp'];
       const np=Math.floor(r()*7);for(let i=0;i<np;i++){const k=pk.splice(Math.floor(r()*pk.length),1)[0];S.ps[k]=1+Math.floor(r()*3);}
       if(S.lv>=18){for(const k of rk)if(r()<.45)S.rel[k]=1+Math.floor(r()*3);}
       const nb=Math.floor(r()*4);for(let i=0;i<nb;i++)S.banned.push(wk[Math.floor(r()*wk.length)]);

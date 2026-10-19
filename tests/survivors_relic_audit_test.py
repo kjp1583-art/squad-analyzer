@@ -158,7 +158,7 @@ async def main():
             # 마 연기 — 13명 × 유물 3단계 × 일반/하드
             r = await pg.evaluate("""async ()=>{const P=window.__p6x,x=__ra;const RK={brj:'sg_brj',jjg:'sg_jjg',mms:'sg_mms',hrb:'sg_hrb',ssu:'sg_ssu',amd:'sg_amd',ildj:'sg_ildj',kyo:'sg_kyo',ddmj:'sg_ddmj',sr:'sg_sr',ddo:'sg_ddo',tw:'sg_tw',bgb:'sg_bgb'};const bad=[];let runs=0;
               for(const ch in RK)for(let L=1;L<=3;L++)for(const hard of [0,1]){
-                P.srvUnl&&P.srvUnl(['yumi','bbb','eom']);P.CH_set(ch);P.start();const S=P.S;S.rel[RK[ch]]=L;S.p.mhp=S.p.hp=Math.max(S.p.mhp,200);S.ps.area=2;S.ps.dur=2;S.ps.cd=2;S.ps.amt=1;if(hard)S.t=900;runs++;
+                P.srvUnl&&P.srvUnl(['yumi','bbb','eom']);P.CH_set(ch);P.start();const S=P.S;S.rel[RK[ch]]=L;S.p.mhp=S.p.hp=Math.max(S.p.mhp,200);S.ps.area=2;S.ps.dur=2;S.ps.cd=2;if(hard)S.t=900;runs++;
                 try{for(let i=0;i<30*30;i++){if(P.state==='lvup'){P.pick(P.CUR[0]);continue;}if(P.state!=='play'){P.resume();continue;}if(i%7==0)S.p.hp=Math.max(S.p.hp,S.p.mhp*(i%3?.25:.9));P.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][(i/60|0)%4];P.update(1/30);
                   if(!Number.isFinite(S.p.hp)||!Number.isFinite(S.p.x)){bad.push(ch+L+' NaN');break;}}}catch(e){bad.push(ch+L+' '+e)}}
               return {bad,runs}}""")

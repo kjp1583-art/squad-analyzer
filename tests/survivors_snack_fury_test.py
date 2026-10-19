@@ -124,9 +124,9 @@ async def run_core(pg, U, tag=''):
         o = await pg.evaluate(LINE_JS, {'L': 1, 'ev': 1, 'one': 1, 'off': 60, 'N': 9, 'gap': 36, 'r': 14, 'seed': 3, 'frames': 90, 'sd': d0 * U['evD']})
         check(tag + '가 각성은 관통 무제한: 촘촘한 9마리 전부 한 번씩 (서로 다른 적 %d · 같은 적 최대 %d번)' % (o['distinct'], o['maxPer']), o['distinct'] == 9 and o['maxPer'] == 1, o)
     if want('나'):
-        cases = [(L, 0, 0, {}) for L in range(1, 9)] + [(8, 0, 5, {}), (1, 0, 1, {}), (1, 0, 0, {'amt': 2}), (1, 1, 0, {}), (4, 0, 3, {'amt': 1})]
+        cases = [(L, 0, 0, {}) for L in range(1, 9)] + [(8, 0, 5, {}), (1, 0, 1, {}), (1, 1, 0, {}), (4, 0, 3, {})]
         for (L, ev, tier, ps) in cases:
-            K = U['kL'][L - 1] + (1 if tier >= 1 else 0) + ps.get('amt', 0) + (U['evK'] if ev else 0)
+            K = U['kL'][L - 1] + (1 if tier >= 1 else 0) + (1 if L >= 5 else 0) + (1 if L >= 8 else 0) + (U['evK'] if ev else 0)   # 2026-10-18 곱빼기 패시브 제거 — Lv5·Lv8 에 부스러기 +1
             sd = d0 * dls(L) * (U['evD'] if ev else 1) * (1 + (.12 if tier >= 2 else 0))
             o = await pg.evaluate(LINE_JS, {'L': L, 'ev': ev, 'tier': tier, 'ps': ps, 'N': 3, 'gap': 70, 'r': 14, 'seed': 5, 'frames': 90, 'sd': sd})
             if tier >= 5 or ev:   # 끝에서 한 번 더 크게 — 맞을 때마다 K 에 끝 터짐이 더해진다(상한 안에서)
@@ -142,12 +142,12 @@ async def run_core(pg, U, tag=''):
         o = await pg.evaluate(BOSS_JS, {'L': 1, 'seed': 4, 'dist': 120, 'r': 14})
         check(tag + '나 작은 적 한 마리(반지름 14): 스틱 1번 · 부스러기는 K발 이하 (스틱 %d · 부스러기 %d)' % (o['stick'], o['crumb']), o['stick'] == 1 and o['crumb'] <= U['kL'][0], o)
     if want('다'):
-        o = await pg.evaluate(WORST_JS, {'L': 8, 'ev': 1, 'tier': 5, 'ps': {'amt': 5, 'dur': 3, 'pspd': 3}, 'N': 200, 'seed': 2, 'frames': 240})
+        o = await pg.evaluate(WORST_JS, {'L': 8, 'ev': 1, 'tier': 5, 'ps': {'dur': 3, 'pspd': 3}, 'N': 200, 'seed': 2, 'frames': 240})
         check(tag + '다 최악 빌드(각성·Lv8·마스터5·곱빼기5·적 250마리 8초): 떠 있는 부스러기 최대 %d ≤ 상한 %d · 한 프레임 새로 %d ≤ %d · 오류 없음' % (o['maxAlive'], o['cap'], o['maxNew'], o['frame']),
               o['maxAlive'] <= o['cap'] and o['maxNew'] <= o['frame'] and not o['err'] and o['total'] > 100, o)
-        o = await pg.evaluate(WORST_JS, {'L': 8, 'ev': 1, 'tier': 5, 'ps': {'amt': 5}, 'N': 200, 'seed': 2, 'frames': 120, 'fill': 70})
+        o = await pg.evaluate(WORST_JS, {'L': 8, 'ev': 1, 'tier': 5, 'ps': {}, 'N': 200, 'seed': 2, 'frames': 120, 'fill': 70})
         check(tag + '다 풀에 다른 것 70개: 전체 %d ≤ F3CAP %d · 오류 없음' % (o['maxF3'], o['F3CAP']), o['maxF3'] <= o['F3CAP'] and not o['err'], o)
-        o = await pg.evaluate(WORST_JS, {'L': 8, 'ev': 1, 'tier': 5, 'ps': {'amt': 5}, 'N': 200, 'seed': 2, 'frames': 120, 'fill': 100})
+        o = await pg.evaluate(WORST_JS, {'L': 8, 'ev': 1, 'tier': 5, 'ps': {}, 'N': 200, 'seed': 2, 'frames': 120, 'fill': 100})
         check(tag + '다 풀이 꽉 참(100/100): 던지기·부스러기 생성이 조용히 실패하고 오류 없음', o['maxF3'] <= o['F3CAP'] and not o['err'], o)
 
 async def main():
@@ -164,9 +164,10 @@ async def main():
             ds = ws['ds']
             check('라 설명문 8줄 · 마스터 5칸 (표 모양 불변)', len(ds) == 8 and len(tiers) == 5, (len(ds), len(tiers)))
             check('라 ds[0]: 관통 %d마리 · 부스러기 %d개가 U3 값' % (U['pierce'], U['kL'][0]), ('%d마리' % U['pierce']) in ds[0] and ('부스러기 %d개' % U['kL'][0]) in ds[0], ds[0])
-            inc = [i for i in range(1, 8) if U['kL'][i] > U['kL'][i - 1]]
+            KS = [U['kL'][i] + (1 if i + 1 >= 5 else 0) + (1 if i + 1 >= 8 else 0) for i in range(8)]   # 레벨 L 의 부스러기 수 = kL + 개수 보너스(Lv5·Lv8)
+            inc = [i for i in range(1, 8) if KS[i] > KS[i - 1]]
             check('라 부스러기 +1 이 오르는 레벨(%s)과 설명문 ds 가 같다' % [i + 1 for i in inc],
-                  all(U['kL'][i] - U['kL'][i - 1] == 1 for i in inc) and set(i for i in range(1, 8) if '부스러기 +1' in ds[i]) == set(inc), [(i, ds[i]) for i in range(1, 8)])
+                  all(KS[i] - KS[i - 1] in (1, 2) for i in inc) and set(i for i in range(1, 8) if '부스러기 +1' in ds[i]) == set(inc), [(i, ds[i]) for i in range(1, 8)])
             check('라 Lv1 %d발 → Lv8 %d발, 각성 덤 +%d 가 각성 설명에 적혀 있다' % (U['kL'][0], U['kL'][7], U['evK']), ('부스러기 +%d' % U['evK']) in ws['ev']['ds'], (U['kL'], ws['ev']['ds']))
             check('라 각성 설명: 관통 무제한 · 끝에서 크게 터진다 · 피해 %s배' % U['evD'], '관통 무제한' in ws['ev']['ds'] and '끝에서' in ws['ev']['ds'] and ('피해 %s배' % U['evD']) in ws['ev']['ds'] and ('부스러기 한 발 피해는 %s배' % U['evKd']) in ws['ev']['ds'], ws['ev']['ds'])
             check('라 마스터 문구: 맞을 때마다 부스러기 +1 · 부스러기 관통 +1 · 끝에서 한 번 더 크게', '맞을 때마다' in tiers[0][0] and '관통' in tiers[3][0] and '끝에서' in tiers[4][0], [t[0] for t in tiers])
@@ -179,8 +180,8 @@ async def main():
             base = await pg.evaluate(PASSIVE_JS, {'L': 3, 'seed': 8})
             check('마 패시브 없음: 스틱 속도 %.0f=U3.sp(%d) · 부스러기 속도 %.0f · 수명 %.2f · 반지름 %.1f 가 U3 기본' % (base['ps'], U['sp'], base['cs'], base['cl'], base['cr']),
                   abs(base['ps'] - U['sp']) < 1 and abs(base['cs'] - U['cs']) < .5 and abs(base['cl'] - U['cl']) < .001 and abs(base['cr'] - U['cr']) < .001, base)
-            amt = await pg.evaluate(PASSIVE_JS, {'L': 3, 'seed': 8, 'ps': {'amt': 3}})
-            check('마 곱빼기 3겹: 맞을 때마다 부스러기 +3 (%d → %d)' % (base['K'], amt['K']), amt['K'] == base['K'] + 3, amt)
+            amt = await pg.evaluate(PASSIVE_JS, {'L': 5, 'seed': 8})
+            check('마 Lv5: 맞을 때마다 부스러기 +2 = 표 +1 · 개수 보너스 +1 (%d → %d)' % (base['K'], amt['K']), amt['K'] == base['K'] + 2, amt)
             sp = await pg.evaluate(PASSIVE_JS, {'L': 3, 'seed': 8, 'ps': {'pspd': 3}})
             check('마 속사 3겹: 스틱 속도 ×PS() · 부스러기 속도 ×PS() (PS=%.2f)' % sp['PS'], abs(sp['ps'] / base['ps'] - sp['PS']) < .01 and abs(sp['cs'] / base['cs'] - sp['PS']) < .01 and sp['PS'] > 1.3, sp)
             du = await pg.evaluate(PASSIVE_JS, {'L': 3, 'seed': 8, 'ps': {'dur': 3}})
@@ -193,7 +194,7 @@ async def main():
                 check('바 이어하기: 날아가는 스틱 %s · 부스러기 %s 가 저장→복구 뒤 똑같다 (Lv%d%s)' % (o.get('nS'), o.get('nB'), L, ' 각성' if ev else ''),
                       not o.get('err') and o['same'] and o['nS'] >= 1 and o['nB'] >= 1, o)
         if want('사'):
-            for (name, cfg) in [('Lv8 각성 마스터5 곱빼기3 적 220', {'L': 8, 'ev': 1, 'tier': 5, 'ps': {'amt': 3}, 'N': 220}), ('Lv1 적 220', {'L': 1, 'N': 220})]:
+            for (name, cfg) in [('Lv8 각성 마스터5 곱빼기3 적 220', {'L': 8, 'ev': 1, 'tier': 5, 'ps': {}, 'N': 220}), ('Lv1 적 220', {'L': 1, 'N': 220})]:
                 cfg.update({'seed': 21, 'warm': 60, 'frames': 240})
                 o = await pg.evaluate(PERF_JS, cfg)
                 print('  성능 %s: update %.2f ms + draw %.2f ms (합 p95 %.2f · 최대 %.2f)' % (name, o['upd'], o['drw'], o['p95'], o['max']))
