@@ -36,10 +36,10 @@ async def main():
         b = await H.launch(pw)
         ctx, pg, errs = await H.new_page(b, srv.port, w=1280, h=720, page='survivors_bnx.html')
         r0 = await pg.evaluate(JS, [2, False])
-        ok(r0['d'] == 11, 'A1 기본 피해 상수 BRT.d = 11 (실제 %s)' % r0['d'])
+        ok(r0['d'] == 5.5, 'A1 기본 피해 상수 BRT.d = 5.5 (실제 %s)' % r0['d'])
         for L, ev in ((1, False), (2, False), (3, False), (4, False), (5, False), (6, False), (7, False), (8, False), (8, True)):
             r = await pg.evaluate(JS, [L, ev])
-            want = 11 * LV(L) * (1.2 if ev else 1)
+            want = 5.5 * LV(L) * (1.2 if ev else 1)
             ok(r['hit'] and abs(r['dmg'] - want) < 1e-5 * max(1, want) + 1e-6, 'B Lv%d%s 한 번 맞는 피해 %.3f (기대 %.3f)' % (L, ' 🌙각성' if ev else '', r['dmg'], want))
         ok(not [e for e in errs if 'bnx' not in e], 'C 콘솔·페이지 오류 0')
         await b.close()

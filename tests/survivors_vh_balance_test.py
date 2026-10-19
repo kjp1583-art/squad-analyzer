@@ -29,7 +29,7 @@ UP = [('W4', 'fryer', 'd', 5, 15), ('W4', 'sushi', 'd', 12, 34), ('W4', 'shrimp'
       ('U3', 'sing', 'd', 5.9, 6.6), ('U3', 'sing', 'db', 1.7, 1.9), ('U3', 'quill', 'd', 11.5, 16), ('U3', 'heart', 'd', 16, 21), ('U3', 'pcards', 'd', 13, 19.5),
       ('U3', 'slime', 'd', 17, 24), ('U3', 'slime', 'bd', 9.1, 12.8)]
 # 브레스 (옛 → 새): 피해만 29 → 11. 나머지(사거리 · 반각 · 쿨 · 각성 배율)는 그대로
-BRT_NEW = {'d': 11}
+BRT_NEW = {'d': 5.5}
 BRT_SAME = {'R': 190, 'w': .62, 'cd': .85, 'em': 30}
 # 손대지 않은 이웃 (옛 값 그대로 — 평균 이상이거나 평균 근처인 무기)
 SAME = [('U3', 'tempo', 'd', 3.2), ('U3', 'fuse', 'd', 30), ('U3', 'jhin', 'd', 7.7), ('U3', 'whop', 'd', 12), ('U3', 'bash', 'd', 36), ('U3', 'snack', 'd', 11),
@@ -77,7 +77,7 @@ async def main():
         check('A1 올린 무기 17개 값이 새 값이다(튀김기 · 초밥 · 새우깡 · 스피커 · 운석 · 폭죽 · 얼음땡 · 리듬 · 카트 · 엄! 외침 · 노래부르기 · 깃털 · 하트 · 포토카드 · 슬라임)', not bad, bad)
         check('A2 올린 값은 전부 옛 값보다 크다(올리기만 했다)', all(new > old for t, k, f, old, new in UP))
         bad = {k: tab['BRT'].get(k) for k, v in BRT_NEW.items() if abs(tab['BRT'].get(k, -9) - v) > 1e-9}
-        check('A3 브레스 BRT.d = 11', not bad, bad)
+        check('A3 브레스 BRT.d = 5.5', not bad, bad)
         check('A4 브레스는 내렸다(d 29 → 11)', tab['BRT']['d'] < 29)
         bad = {k: tab['BRT'].get(k) for k, v in BRT_SAME.items() if abs(tab['BRT'].get(k, -9) - v) > 1e-9}
         if sorted(tab['BRT']) != sorted(list(BRT_SAME) + list(BRT_NEW)): bad['keys'] = sorted(tab['BRT'])
@@ -90,7 +90,7 @@ async def main():
         # ───────────────── B. 브레스
         for L, ev in ((2, False), (3, False), (5, False), (8, False), (8, True)):
             r = await pg.evaluate(BREATH, [L, ev])
-            want = 11 * LV(L) * (1.2 if ev else 1)
+            want = 5.5 * LV(L) * (1.2 if ev else 1)
             check('B Lv%d%s 한 번 맞는 피해 %.3f (기대 %.3f)' % (L, ' 🌙각성' if ev else '', r['dmg'], want), r['dmg'] > 0 and abs(r['dmg'] - want) < 1e-5 * max(1, want) + 1e-6, r)
         a = await pg.evaluate(BREATH, [8, False]); c = await pg.evaluate(BREATH, [8, True])
         check('B 각성 사거리 비율 1.4배 그대로 (%.4f)' % (c['R'] / a['R']), abs(c['R'] / a['R'] - 1.4) < 1e-6, (a, c))
