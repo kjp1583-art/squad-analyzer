@@ -1582,6 +1582,9 @@ const SGV={
   pty:{f:[2,3,4],cd:2},   // 🌙 정예·대형·보스를 잡으면 보따리가 한꺼번에 차는 칸 수 · 그 최소 간격(초 · 겹쳐 쌓이지 않는다)
 };
 // 🏺 유물 — 유물마다 고유 규칙(3단계)
+// 🥁 [2026-10-19 사장님 지시 「다단히트 폭발 유물 데미지가 절반 이상이고 무기 자체 데미지는 너무 적다」] 열 번째 타격 폭발은 「타격 횟수」만 세서, 작은 타격을 많이 하는 무기(키보드 난타·맛동산 부스러기·폭죽 파편)일수록 폭발이 무기보다 세졌다.
+//   이제 폭발 한 번은 옛 고정값과 「그 폭발을 부른 타격 피해 × 필요 타수 × share」 중 작은 쪽 — 큰 타격 무기는 옛 값 그대로, 잔타 무기는 자기 피해의 일부(share)만큼만 폭발한다.
+const TENTH={share:.06};
 const REL={
   tenth:{ic:'🥁',nm:'열 번째 타격',ds:l=>`적을 ${[14,12,10][l-1]}번 때릴 때마다 맞은 자리가 폭발한다`},
   leech:{ic:'🩹',nm:'처치 응급처치',ds:l=>`적을 처치하면 HP +${LEECH.hp[l-1]} (${LEECH.cd[l-1]}초에 한 번)`},
@@ -2880,7 +2883,7 @@ function hurt(e,d){
   e.hp-=d;e.hit=.08;if(e.hp>0)AU.play('hit');
   if(CH.k==='tjg'&&e.hp<=e.mhp*CSX.tjg.at&&!(e.hp<=0&&!e.boss&&!e.eg&&KIND[e.ki]&&KIND[e.ki].egg))tjgEat(e.hp<=0);   // 🐺 영원한 굶주림 — 체력 50% 이하인 적을 때리거나 잡으면 HP 회복(초당 상한 · tjgHeal)
   if(crit&&S.rel.sg_jjg&&SRC!=='rel'&&++S.sgC>=SGV.jjg.n[S.rel.sg_jjg-1]){S.sgC=0;const t=randLive();if(t&&t!==e&&t.on){const sv=SRC;SRC='rel';hurt(t,d*SGV.jjg.f);SRC=sv;}}   // 🔫 한 방 장전
-  if(S.rel.tenth&&SRC!=='rel'&&++S.hc>=[14,12,10][S.rel.tenth-1]){S.hc=0;if(S.booms.length<40)S.booms.push({x:e.x,y:e.y,t:0,T:0,R:70*areaMul(),d:22*dmgMul()*[1,1.3,1.6][S.rel.tenth-1],done:false,ev:0,src:'rel',style:'mine'});}   // 🎲 [2026-09-30 사장님 지시] 🥁 열 번째 타격(유물 폭발은 다시 세지 않는다)
+  if(S.rel.tenth&&SRC!=='rel'&&++S.hc>=[14,12,10][S.rel.tenth-1]){S.hc=0;if(S.booms.length<40)S.booms.push({x:e.x,y:e.y,t:0,T:0,R:70*areaMul(),d:Math.min(22*dmgMul()*[1,1.3,1.6][S.rel.tenth-1],TENTH.share*[14,12,10][S.rel.tenth-1]*d),done:false,ev:0,src:'rel',style:'mine'});}   // 🎲 [2026-09-30 사장님 지시] 🥁 열 번째 타격(유물 폭발은 다시 세지 않는다)
   if(!S.lite||crit||e.boss||e.el){const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r;t.s=String(Math.round(d));t.life=.5;t.c=crit||e.boss?PAL.tCrit:PAL.tHit;t.k=crit||e.boss?2:1;}}   // 🎨 예전엔 치명타가 빨강 — 빨강은 '내가 받은 피해'만
   if(e.boss&&e.b.hit&&S.t-S.sayT>6){S.sayT=S.t;say(e,pickLine(e.b.hit));}
   if(e.hp<=0&&!e.boss&&!e.eg&&KIND[e.ki].egg){   // 🥚 애니비아 — 처음 쓰러지면 알이 된다(4초 안에 깨야 한다)
@@ -2937,7 +2940,7 @@ function randLive(){const L=S.live;return L.length?L[Math.random()*L.length|0]:n
 //   튜닝은 아래 W4 한 표에서만(개선 루프는 이 수치를 다시 만지지 않는다). 풀은 전부 상한이 있고 매 프레임 새로 만들지 않는다.
 // ============================================================================================================
 // ⚖️ [2026-10-12] 단일 대상 공용 무기 피해 상향: 낚싯대 48→60 · 망원경 저격 78→105(보스 최대 체력 비율 bp 는 그대로). 키보드 난타·사료·병아리는 실전 측정에서 이미 센 편이라 안 올렸다.
-const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:7.5,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:60,len:260,cd:3},frost:{d:50,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
+const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:13,R:46,cd:1.7,sp:250},chick:{d:12,sp:300,gap:.45},rod:{d:60,len:260,cd:3},frost:{d:50,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
   meteor:{d:14,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:105,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:7,R:90,iv:.75},
   fryer:{d:15},sushi:{d:34},shrimp:{d:28},spk:{d:16}};   // 🍟 튀김기 · 🍣 초밥 · 🍤 새우깡 · 🎧 스피커 피해(Lv1) — 예전엔 코드 안의 5 · 12 · 14 · 8 이었다(⚖️ 2026-10-15 평균 맞추기: 5→15 · 12→34 · 14→28 · 8→16)
 // ⚖️ [2026-10-15 사장님 지시 「브레스는 하향, 다른 무기는 상향해서 평균값으로」] 같은 아레나(적 체력 10~20분차)에서 중앙값의 0.8배 아래였던 무기의 피해만 올렸다: 튀김기 5→15 · 초밥 12→34 · 새우깡 14→28 · 스피커 8→16 · 운석 5→14 · 폭죽 6→7.5 · 포토카드 13→19.5 · 깃털 11.5→16 · 하트 16→21 · 리듬 5.5→7 · 슬라임 17→24(조각 9.1→12.8) · 얼음땡 44→50 · 카트 5→20 · 엄! 외침 48→54 · 노래부르기 5.9→6.6(울림 1.7→1.9)   // 🎵 리듬 너프(2026-10-02 · 무기 밸런스 점검) — 솔로 DPS 가 중앙값의 4~10배였다(적 전원 타격 · 쿨타임 없음 · 큰 박자 ×3 · 전체 버프까지): d 26→5.5 · R 100→90 · 큰 박자 ×3→×2.5 · 강화 피해 +8/12/16→+5/8/10%   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
@@ -3148,7 +3151,7 @@ const U3={sing:{d:7,db:2,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hi
   quill:{d:16,cd:1,sp:520,life:.45,rng:270},tempo:{d:3.2,iv:.2,sp:720,life:.55,rng:380},fuse:{d:30,cd:2.4,R:75},
   slime:{d:24,bd:12.8,cd:1.5,sp:310,rng:330,R:40},cart:{d:20,cd:7,R:70,life:5,heal:1.5},heart:{d:21,cd:1.1,life:2.6,stun:.7},
   jhin:{d:7.7,iv:.55,rl:.6,sp:660,rng:420},whop:{d:12,cd:1.7,R:38,hop:.34,step:105},bash:{d:36,cd:2.6,len:120,hw:62},
-  snack:{d:11,cd:1.3,tr:260,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.7,evKd:.9,kd:.07,big:28,cs:260,cl:.36,cr:4,cap:80,frame:48,comp:2.5},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
+  snack:{d:15,cd:1.3,tr:260,rng:320,sp:420,life:1.05,pierce:5,kL:[3,4,4,5,5,6,7,8],evK:6,evD:1.7,evKd:.9,kd:.07,big:28,cs:700,cl:.27,cr:4,cap:80,frame:48,comp:2.5},   // 🍘 [2026-10-12 사장님 지시] 관통 스틱(sp 속도·life 날아가는 시간·pierce 꿰뚫는 적 수) + 맞을 때마다 튀는 부스러기(kL 레벨별 개수·evK 각성 덤·evD 각성 피해 배율·evKd 각성 부스러기 피해 추가 배율·kd 스틱 피해 대비 부스러기 피해·cs 속도·cl 수명·cr 반지름) · cap 동시에 떠 있는 부스러기 상한 · frame 한 프레임에 새로 만드는 상한
   pcards:{d:19.5,cd:1.7,sp:430,life:.7,rng:290,kn:720,kt:.3,bd:.45,bc:3,bcap:14,zl:1.8,zr:46,zp:150,zc:5,sr:110,sm:.04,sx:.3,bsl:.8},   // 📸 [2026-10-19 사장님 지시] 몰이꾼 — kn 밀치는 힘 · kt 밀려나는 시간 · bd 부딪친 적에게 카드 피해의 몇 배 · bc 연쇄 부딪침 깊이 · bcap 동시에 날아가는 적 상한 · zl 접근 불가 장판 지속 · zr 장판 반지름 · zp 장판이 일반 적을 밀어내는 속도 · zc 장판 동시 상한 · sr 포위 판정 거리(내 주변) · sm 포위한 적 한 마리당 카드 피해 증가 · sx 그 상한 · bsl 보스가 느려지는 시간
   eom:{d:54,dg:[1.1,1.1,1.15],cd:4,R:135,Rg:1.10,kd:55,kt:.3,evR:1.2,evK:1.2,evD:2,bs:.5},   // 📢 [2026-10-09 사장님 지시] d 피해(Lv1) · dg 피해 단계 배율(Lv3·5·8) · cd 쿨 · R 반지름(짝수 레벨마다 ×Rg) · kd 밀리는 거리(px · 보통 적 기준, 마스터 단계에서만 늘어난다) · kt 밀려나 못 움직이는 시간 · ev* 각성(개엄!) 배율 · bs 보스 느려지는 시간
   twin:{d:15,cd:1.7,len:115,hw:56,life:3,R:44,cap:12,pad:.22},   // 🔥 [2026-10-16 프싱 재설계] cap 동시에 깔려 있는 장판 상한(끈기 비례 · 개수 1개당 +2) · pad 장판 한 칸의 0.5초 피해(베기 피해 대비) — 베기마다 깔리는 만큼 한 칸을 가볍게
@@ -3734,7 +3737,7 @@ function weapons(dt){
     hitPropsAt(r.x,r.y,r.r,r.dmg*dt*3);}
   // ⌨ 키보드 난타 → ⚡ 기계식 광클 폭풍
   L=S.w.kbd||0;SRC='kbd';
-  if(L){S.cd.kbd-=dt;if(S.cd.kbd<=0){const ev=S.ev.kbd,t=TK('kbd'),ch=(ev?12:2+(L>=2)+(L>=5)*2+(L>=8)*2)+(AM+AL(L))+t.n,dmg=16*lvm(L,[[3,1.3],[6,1.3],[8,1.3]])*MT*(ev?1.1:1)*(1+t.d);
+  if(L){S.cd.kbd-=dt;if(S.cd.kbd<=0){const ev=S.ev.kbd,t=TK('kbd'),ch=(ev?12:2+(L>=2)+(L>=5)*2+(L>=8)*2)+(AM+AL(L))+t.n,dmg=24*lvm(L,[[3,1.3],[6,1.3],[8,1.3]])*MT*(ev?1.1:1)*(1+t.d);   // ⌨️ [2026-10-19 사장님 「폭죽·맛동산·키보드 난타 데미지가 비정상적으로 약하다」] 16 → 24(같은 아레나 측정: 단일 대상·허수아비 밭에서 중앙값의 절반 아래였다)
     const id=++S.zapId;let any=false;
     for(let s=0;s<(ev?3:1)+t.sx;s++){let fx=p.x,fy=p.y,cur=nearTo(p.x,p.y,340,id);
       for(let c=0;c<=ch&&cur;c++){any=true;cur.zp=id;const b=bolts.get();if(b){b.x1=fx;b.y1=fy;b.x2=cur.x;b.y2=cur.y;b.life=.16;b.ev=ev?1:0;}
