@@ -6850,6 +6850,7 @@ function navTabsHtml(active){
    후보 = 십이귀월 명단과 같은 사람 단위·같은 제외 규칙(탈퇴자 DEPARTED·90일 유령·10판 미만) + LINK_ACCOUNT 사슬로 한 사람은 한 후보. */
 const IDEAL_API="https://hth3thmujs.apps.bot-hosting.cloud";
 const IDEAL_MIN_POOL=4, IDEAL_FULL=8, IDEAL_MIN_SAMPLE=3, IDEAL_TOP=10;
+const IDEAL_BAND=1.0;   // ⚖️ [2026-10-19 사장님 지시 「내부티어가 아니라 비슷한 전투력으로 매칭」] 같은 포지션에서 전투력 차이가 이 안(±)인 사람끼리만 붙는다
 const IDEAL_MIN_VOTERS=3;   // 🔒 결과를 열 최소 참여자 수
 const IDEAL={run:null, resPool:null, pools:null, stat:{state:"idle",pools:{},at:0}, res:{}, mine:{}, notice:"", sent:0, failed:0, stop:"", lastSendAt:0, q:Promise.resolve(), seq:0};
 try{ const m=JSON.parse(localStorage.getItem("sgg_ideal_mine")||"{}"); if(m&&typeof m==="object") IDEAL.mine=m; }catch(e){}
@@ -6886,7 +6887,9 @@ function idealPeople(){
     let K=0,D=0,A=0,kn=0; const ch=new Map();
     for(const r of rows){ const ko=parseKDA(r["KDA"]); if(ko){ K+=ko.k; D+=ko.d; A+=ko.a; kn++; } const c=r["챔피언"]; if(c&&c!=="?"&&(r["결과"]==="승리"||r["결과"]==="패배")) ch.set(c,(ch.get(c)||0)+1); }
     const champs=[...ch.entries()].sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1)).slice(0,3).map(x=>x[0]);
-    out.push({name:disp, vname:idealVoteName(disp), tier, pos, g:w+l, w, l, wr:Math.round(w/(w+l)*100), kda:kn?(K+A)/Math.max(1,D):null, champs,
+    const _ts=tierScore(tier), pw=_ts==null?null:Math.round((_ts+((w+0.5*8)/(w+l+8))*10)/2*10)/10;   // 전투력 = 사람 프로필·멸망전과 같은 산식(내부티어 + 통산 승률 수축)
+    if(pw==null) continue;
+    out.push({name:disp, vname:idealVoteName(disp), tier, pos, pw, g:w+l, w, l, wr:Math.round(w/(w+l)*100), kda:kn?(K+A)/Math.max(1,D):null, champs,
       keys:new Set([norm(disp),...pe.keys.map(norm),...pe.keys.map(k=>norm(String(k).split("#")[0]))])});
   }
   return out;
@@ -6896,13 +6899,12 @@ function idealPools(){
   const pools=new Map();
   for(const c of idealPeople()){
     if(me&&(c.keys.has(me))) continue;   // 내 자신 — 디스코드 이름과 닉이 같은 경우만 가려진다(사이트에 디스코드↔닉 연결이 없다)
-    const key=`${c.tier}·${c.pos}`;
-    if(!pools.has(key)) pools.set(key,{name:key,tier:c.tier,pos:c.pos,cands:[]});
+    const key=`전투력·${c.pos}`;   // 투표 묶음 이름(봇은 이름을 그대로 쓴다) — 포지션당 하나, 실제 대진은 시작할 때 비슷한 전투력으로 짠다
+    if(!pools.has(key)) pools.set(key,{name:key,pos:c.pos,cands:[]});
     pools.get(key).cands.push(c);
   }
   for(const p of pools.values()){ const seen=new Set(); p.cands=p.cands.filter(c=>{ if(seen.has(c.vname)) return false; seen.add(c.vname); return true; }).sort((a,b)=>a.name<b.name?-1:1); }
-  const TO=['0','1上','1中','1下','2上','2中','2下','3上','3中','3下'];
-  return new Map([...pools.entries()].sort((a,b)=>{ const ta=TO.indexOf(a[1].tier), tb=TO.indexOf(b[1].tier); return (ta<0?99:ta)-(tb<0?99:tb)||POS_LIST.indexOf(a[1].pos)-POS_LIST.indexOf(b[1].pos); }));
+  return new Map([...pools.entries()].sort((a,b)=>POS_LIST.indexOf(a[1].pos)-POS_LIST.indexOf(b[1].pos)));
 }
 // ---- 봇 통신 ----
 async function idealApi(method,path,body){
@@ -6970,10 +6972,23 @@ function idealPoolAt(i){ return [...(IDEAL.pools||idealPools()).keys()][i|0]; }
 function idealStart(pool){   // 숫자 = 목록 순번(시트 값이 onclick 안으로 들어가지 않게) · 없으면 지금 보던 풀
   if(typeof pool==='number') pool=idealPoolAt(pool); else if(pool==null) pool=IDEAL.run?IDEAL.run.pool:IDEAL.resPool;
   const p=(IDEAL.pools||idealPools()).get(pool); if(!p||p.cands.length<IDEAL_MIN_POOL) return;
-  const n=p.cands.length>=IDEAL_FULL?IDEAL_FULL:IDEAL_MIN_POOL;
-  const pick=idealShuffle(p.cands).slice(0,n);
+  const pick=idealBracket(p.cands); if(!pick) return;
+  const n=pick.length;
   IDEAL.run={pool,cur:pick,next:[],mi:0,done:false,winner:null,round:n}; IDEAL.resPool=null; IDEAL.notice=""; IDEAL.stop=""; IDEAL.failed=0; IDEAL.sent=0;
   idealPaint(); window.scrollTo(0,0);
+}
+// ⚖️ 대진 짜기 — 아무나 한 명(기준)을 잡고, 같은 포지션에서 전투력 차이가 ±IDEAL_BAND 안인 사람들 중에서 뽑는다.
+//   기준 근처가 4명이 안 되면 다른 기준을 찾고, 어느 기준도 안 되면 기준에 가장 가까운 4명으로 짠다(풀이 너무 작은 포지션도 열리게).
+function idealBracket(cands){
+  const order=idealShuffle(cands);
+  for(const need of [IDEAL_FULL,IDEAL_MIN_POOL]){   // 먼저 8강이 되는 기준을, 없으면 4강이 되는 기준을
+    for(const a of order){
+      const near=cands.filter(c=>c!==a&&Math.abs(c.pw-a.pw)<=IDEAL_BAND+1e-9);
+      if(near.length+1>=need) return idealShuffle([a,...idealShuffle(near).slice(0,need-1)]);
+    }
+  }
+  if(cands.length<IDEAL_MIN_POOL) return null;
+  const a=order[0]; return idealShuffle(cands.slice().sort((x,y)=>Math.abs(x.pw-a.pw)-Math.abs(y.pw-a.pw)||(x.name<y.name?-1:1)).slice(0,IDEAL_MIN_POOL));
 }
 function idealPick(side,round,mi){
   const R=IDEAL.run; if(!R||R.done) return;
@@ -6998,7 +7013,7 @@ function idealCardHtml(c,side,clickable){
   return `<${clickable?`button type="button" onclick="idealPick(${side},${IDEAL.run.round},${IDEAL.run.mi})"`:"div"} class="iw-card ${side===0?"l":"r"}" title="${escAttr(c.name)}">
     <div class="iw-ico">${ico}</div>
     <div class="iw-nm">${esc(String(c.name).split("#")[0])}</div>
-    <div class="iw-meta"><span class="tier ${tierGroupCls(c.tier)}">${esc(c.tier)}</span> ${esc(c.pos)}</div>
+    <div class="iw-meta"><span class="tier ${tierGroupCls(c.tier)}">${esc(c.tier)}</span> ${esc(c.pos)} · ⚔${c.pw.toFixed(1)}</div>
     <div class="iw-st">내전 ${c.g}판 · 승률 ${c.wr}%${kda}</div>
     <div class="iw-chs">${c.champs.map(x=>esc(x)).join(" · ")}</div>
   </${clickable?"button":"div"}>`;
@@ -7017,7 +7032,7 @@ function idealListHtml(pools){
         :`<div class="iw-pb"><span class="iw-lack">후보가 모자라요 (${IDEAL_MIN_POOL}명부터)</span></div>`}
     </div>`;
   }).join("");
-  return `<div class="iw-intro">같은 내부티어 · 같은 포지션 클랜원 둘을 놓고 마음에 드는 쪽을 골라요. 누가 누굴 골랐는지는 다른 클랜원에게 보이지 않아요.</div>
+  return `<div class="iw-intro">같은 포지션에서 <b>전투력이 비슷한</b> 클랜원 둘(차이 ±1.0 안)을 놓고 마음에 드는 쪽을 골라요. 누가 누굴 골랐는지는 다른 클랜원에게 보이지 않아요.</div>
     <div id="iw-note">${idealNoteHtml()}</div>
     <div class="iw-pools">${rows||`<div class="iw-rest">풀을 만들 클랜원이 아직 없어요</div>`}</div>`;
 }
@@ -11722,7 +11737,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610181600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610190900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

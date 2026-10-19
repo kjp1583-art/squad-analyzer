@@ -3,7 +3,7 @@
 합성 시트(가짜 닉네임·PUUID) + 봇 API 모의(Playwright route). 실제 닉네임·키는 쓰지 않는다.
 
   ① 탭 존재 · 폰 360 가로 넘침 0           ② 풀 목록(4명 미만 비활성 · 인원/참여자 수)
-  ③ 후보 = 같은 티어·같은 포지션만 · 자기 자신/탈퇴자/유령/10판 미만/같은 사람 두 닉 제외 · 선언 포지션 우선
+  ③ 후보 = 같은 포지션만 · 자기 자신/탈퇴자/유령/10판 미만/같은 사람 두 닉 제외 · 선언 포지션 우선
   ④ 8강→4강→결승, 라운드마다 /ideal/vote 가 올바른 a·b·w 로 · 양옆 카드(폭 50%)
   ⑤ 로그아웃이면 투표를 안 보내고 안내 · 로그인 버튼
   ⑥ 결과 화면 정렬(승률순) · 표본 부족 분리 · 내 우승자 강조 · 풀 밖 이름 무시
@@ -27,12 +27,12 @@ CHAMPS = ['가렌', '아리', '이즈리얼', '쓰레쉬', '리신', '제드', '
 LAST = dt.date(2026, 10, 17)
 
 # ---- 합성 인원: (닉, 티어, 주 포지션, 비고) ----
-MID = ['미드%02d#T' % i for i in range(1, 10)]           # 1中·미드 후보 9명
-SUP = ['서폿%02d#T' % i for i in range(1, 5)]            # 1中·서폿 4명
-TOP = ['탑%02d#T' % i for i in range(1, 6)]              # 2上·탑 5명 (+선언탑 1명 = 6)
-JUG = ['정글%02d#T' % i for i in range(1, 4)]            # 3下·정글 3명 → 비활성
+MID = ['미드%02d#T' % i for i in range(1, 10)]           # 전투력·미드 후보 9명
+SUP = ['서폿%02d#T' % i for i in range(1, 5)]            # 전투력·서폿 4명
+TOP = ['탑%02d#T' % i for i in range(1, 6)]              # 전투력·탑 5명 (+선언탑 1명 = 6)
+JUG = ['정글%02d#T' % i for i in range(1, 4)]            # 전투력·정글 3명 → 비활성
 ACTIVE = [(n, '1中', '미드') for n in MID] + [(n, '1中', '서폿') for n in SUP] + [(n, '2上', '탑') for n in TOP] + [(n, '3下', '정글') for n in JUG] + [
-    ('선언탑#T', '2上', '미드'),        # 실제로는 미드를 뛰지만 선언 주포지션이 탑 → 2上·탑 풀
+    ('선언탑#T', '2上', '미드'),        # 실제로는 미드를 뛰지만 선언 주포지션이 탑 → 전투력·탑 풀
     ('탈퇴미드#T', '1中', '미드'),      # DEPARTED
     ('미드01부#T', '1中', '미드'),      # 미드01 의 부계(LINK_ACCOUNT) → 같은 사람, 후보는 한 명
     ('부탈본#T', '1中', '미드'),        # 본계는 멀쩡하지만 부계(부탈부)가 DEPARTED → 사람 단위로 같이 제외
@@ -148,11 +148,11 @@ async def scenarios(pg, bot, label=''):
     await pg.route(API + '/**', bot.handler)
     # 대표 후보 풀 결과(서버 쪽 집계) — 정렬·표본 부족 시험용
     names = [n for n in MID if n != SELF + '#T']
-    bot.cand = {'1中·미드': {}, '1中·서폿': {}}
+    bot.cand = {'전투력·미드': {}, '전투력·서폿': {}}
     wr = [(5, 5), (4, 5), (3, 5), (2, 4), (1, 4), (9, 10), (0, 3), (1, 2), (2, 2)]
-    for n, v in zip(MID, wr): bot.cand['1中·미드'][n] = list(v)
-    bot.cand['1中·미드']['탈퇴미드#T'] = [50, 50]            # 풀 밖(탈퇴자) 이름 — 결과에 나오면 안 된다
-    bot.voters = {'1中·미드': 7, '1中·서폿': 2}
+    for n, v in zip(MID, wr): bot.cand['전투력·미드'][n] = list(v)
+    bot.cand['전투력·미드']['탈퇴미드#T'] = [50, 50]            # 풀 밖(탈퇴자) 이름 — 결과에 나오면 안 된다
+    bot.voters = {'전투력·미드': 7, '전투력·서폿': 2}
     # ---------------- ① 탭 · 폰 가로 넘침
     await pg.evaluate(LOGOUT)
     S['tab'] = await pg.evaluate("()=>[...document.querySelectorAll('.tabs .tab')].some(t=>t.textContent.includes('이상형월드컵'))")
@@ -165,7 +165,7 @@ async def scenarios(pg, bot, label=''):
     S['cands_out'] = await pg.evaluate("()=>{const o={}; for(const [k,p] of idealPools()) o[k]=p.cands.map(c=>c.name); return o}")
     S['gets_out'] = len(bot.gets)
     # ---------------- ④ ⑤ 로그아웃 상태로 서폿 풀(4명 → 4강)
-    await pg.evaluate("()=>idealStart('1中·서폿')")
+    await pg.evaluate("()=>idealStart('전투력·서폿')")
     await pg.wait_for_timeout(100)
     box = await pg.evaluate("()=>[...document.querySelectorAll('.iw-duel .iw-card')].map(e=>{const r=e.getBoundingClientRect(); return {x:r.x,w:r.width,y:r.y}})")
     S['duel_out'] = box; S['duel_ov'] = await pg.evaluate(OVERFLOW)
@@ -185,7 +185,7 @@ async def scenarios(pg, bot, label=''):
     S['gets_in'] = len(bot.gets)
     # ---------------- ④ 미드 풀 8강 → 결승, 라운드마다 투표
     bot.posts.clear()
-    await pg.evaluate("()=>idealStart('1中·미드')")
+    await pg.evaluate("()=>idealStart('전투력·미드')")
     S['run_cur'] = await pg.evaluate("()=>IDEAL.run.cur.map(c=>c.name)")
     S['rounds_seen'] = []
     exp = await play(pg, bot)
@@ -206,12 +206,12 @@ async def scenarios(pg, bot, label=''):
     # ---------------- ⑥ 풀 카드의 「결과 보기」
     await open_ideal(pg)
     await pg.wait_for_timeout(300)
-    await pg.evaluate("()=>idealShowResult('1中·서폿')")
+    await pg.evaluate("()=>idealShowResult('전투력·서폿')")
     await pg.wait_for_timeout(500)
     S['res2_rows'] = await pg.evaluate("()=>document.querySelectorAll('.iw-row').length")
     S['res2_empty'] = await pg.evaluate("()=>document.querySelector('.iw-rest')?document.querySelector('.iw-rest').textContent:''")
     # ---------------- ⑦ 429(재시도) · 503 · 네트워크 실패 · 403 · 401
-    async def run_with(codes, pool='1中·서폿'):
+    async def run_with(codes, pool='전투력·서폿'):
         await open_ideal(pg); await pg.evaluate(LOGIN, SELF)
         bot.posts.clear(); bot.vote_codes[:] = codes
         await pg.evaluate("(p)=>idealStart(p)", pool)
@@ -246,15 +246,15 @@ def check(S, strict_extra=True):
     ok(S['hash'] == '#ideal', '① 주소가 #ideal  (%s)' % S['hash'])
     ok(S['ov_list']['sw'] <= S['ov_list']['iw'] and S['ov_list']['bw'] <= S['ov_list']['iw'], '① 폰 360 목록 가로 넘침 0 %s' % S['ov_list'])
     p = {x['n']: x for x in S['pools_out']}
-    ok(set(p) == {'1中·미드', '1中·서폿', '2上·탑', '3下·정글'}, '② 풀은 (티어·포지션)별: %s' % sorted(p))
-    ok(p.get('3下·정글', {}).get('off') and '후보가 모자라요' in p['3下·정글']['t'], '② 후보 3명 풀은 「후보가 모자라요」로 비활성')
-    ok(not p.get('1中·서폿', {}).get('off') and not p.get('2上·탑', {}).get('off'), '② 4명·6명 풀은 활성')
-    ok('후보 9명' in p.get('1中·미드', {}).get('t', ''), '② 인원 수 표시(미드 9명)  (%s)' % p.get('1中·미드', {}).get('t', '')[:40])
-    ok('로그인하면 참여자 수' in p.get('1中·미드', {}).get('t', ''), '② 로그아웃이면 참여자 수 자리에 로그인 안내')
+    ok(set(p) == {'전투력·미드', '전투력·서폿', '전투력·탑', '전투력·정글'}, '② 풀은 포지션별: %s' % sorted(p))
+    ok(p.get('전투력·정글', {}).get('off') and '후보가 모자라요' in p['전투력·정글']['t'], '② 후보 3명 풀은 「후보가 모자라요」로 비활성')
+    ok(not p.get('전투력·서폿', {}).get('off') and not p.get('전투력·탑', {}).get('off'), '② 4명·6명 풀은 활성')
+    ok('후보 9명' in p.get('전투력·미드', {}).get('t', ''), '② 인원 수 표시(미드 9명)  (%s)' % p.get('전투력·미드', {}).get('t', '')[:40])
+    ok('로그인하면 참여자 수' in p.get('전투력·미드', {}).get('t', ''), '② 로그아웃이면 참여자 수 자리에 로그인 안내')
     c = S['cands_out']
-    ok(sorted(c.get('1中·미드', [])) == sorted(MID), '③ 미드 풀 = 미드01~09 (탈퇴자·유령·신입·부계 중복·선언탑 제외)  %s' % sorted(c.get('1中·미드', [])))
-    ok(sorted(c.get('2上·탑', [])) == sorted(TOP + ['선언탑#T']), '③ 탑 풀 = 탑01~05 + 선언 주포지션 탑  %s' % sorted(c.get('2上·탑', [])))
-    ok(sorted(c.get('1中·서폿', [])) == sorted(SUP), '③ 같은 티어라도 포지션이 다르면 다른 풀(서폿 4명)')
+    ok(sorted(c.get('전투력·미드', [])) == sorted(MID), '③ 미드 풀 = 미드01~09 (탈퇴자·유령·신입·부계 중복·선언탑 제외)  %s' % sorted(c.get('전투력·미드', [])))
+    ok(sorted(c.get('전투력·탑', [])) == sorted(TOP + ['선언탑#T']), '③ 탑 풀 = 탑01~05 + 선언 주포지션 탑  %s' % sorted(c.get('전투력·탑', [])))
+    ok(sorted(c.get('전투력·서폿', [])) == sorted(SUP), '③ 포지션이 다르면 다른 풀(서폿 4명)')
     ok(all(len(v) == len(set(v)) for v in c.values()), '③ 한 풀에 같은 후보가 두 번 나오지 않는다')
     ok(S['gets_out'] == 0, '⑤ 로그아웃이면 봇에 아무것도 묻지 않는다 (stats 요청 %d)' % S['gets_out'])
     # ④ ⑤ 로그아웃 월드컵
@@ -269,19 +269,19 @@ def check(S, strict_extra=True):
     ok(S['out_win'], '⑤ 그래도 월드컵은 끝까지 간다(우승 화면)')
     # 로그인 후
     p = {x['n']: x for x in S['pools_in']}
-    ok('후보 8명' in p.get('1中·미드', {}).get('t', ''), '③ 로그인하면 내 자신(미드02)이 후보에서 빠진다  (%s)' % p.get('1中·미드', {}).get('t', '')[:30])
-    ok('미드02#T' not in S['cands_in'].get('1中·미드', []), '③ 후보 목록에 미드02 없음')
-    ok('참여 7명' in p.get('1中·미드', {}).get('t', ''), '② 참여자 수 표시(7명)  (%s)' % p.get('1中·미드', {}).get('t', ''))
+    ok('후보 8명' in p.get('전투력·미드', {}).get('t', ''), '③ 로그인하면 내 자신(미드02)이 후보에서 빠진다  (%s)' % p.get('전투력·미드', {}).get('t', '')[:30])
+    ok('미드02#T' not in S['cands_in'].get('전투력·미드', []), '③ 후보 목록에 미드02 없음')
+    ok('참여 7명' in p.get('전투력·미드', {}).get('t', ''), '② 참여자 수 표시(7명)  (%s)' % p.get('전투력·미드', {}).get('t', ''))
     ok(S['gets_in'] >= 1, '⑤ 로그인하면 stats 를 묻는다')
     # ④ 8강
     run = S['run_cur']
-    ok(len(run) == 8 and len(set(run)) == 8 and set(run) <= set(S['cands_in']['1中·미드']), '④ 후보 8명을 풀에서 뽑는다(중복 없음)')
+    ok(len(run) == 8 and len(set(run)) == 8 and set(run) <= set(S['cands_in']['전투력·미드']), '④ 후보 8명을 풀에서 뽑는다(중복 없음)')
     ex = S['in_exp']
     ok([e[3] for e in ex] == [8, 8, 8, 8, 4, 4, 2], '④ 8강 4경기 → 4강 2경기 → 결승 1경기  %s' % [e[3] for e in ex])
     po = S['in_posts']
     ok(len(po) == 7, '④ 라운드마다 한 번씩 7번 투표 (%d)' % len(po))
     ok([(x['a'], x['b'], x['w']) for x in po] == [(e[0], e[1], e[2]) for e in ex], '④ 투표 a·b·w 가 눈앞 대진과 정확히 같다')
-    ok(all(x['pool'] == '1中·미드' and len(x['token']) > 10 and x['w'] in (x['a'], x['b']) for x in po), '④ pool·token 포함 · 승자는 a 또는 b')
+    ok(all(x['pool'] == '전투력·미드' and len(x['token']) > 10 and x['w'] in (x['a'], x['b']) for x in po), '④ pool·token 포함 · 승자는 a 또는 b')
     ok(not any('|' in x['a'] + x['b'] + x['pool'] for x in po), '④ a·b·pool 에 | 없음')
     ok(S['in_win'] and S['winner'] == ex[-1][2], '④ 우승자 = 결승에서 고른 쪽')
     ok(S['ov_win']['sw'] <= S['ov_win']['iw'], '④ 우승 화면 가로 넘침 0')
