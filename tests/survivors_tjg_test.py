@@ -57,7 +57,7 @@ async def main():
         check('각성 알림 글씨(ev.ds): 폰 배너 안에 들어간다(50자 이하)', w and len(w['evds']) <= 50, w and len(w['evds']))
         check('TIERS.maul: 마스터 3 + 각성 2 (피해 +12% · 쿨 -7% · 범위 +15% · 연타 +2 · 시간 +0.4초·피해 +8%)', r['T'] == [{'d': .12}, {'c': .07}, {'a': .15}, {'n': 2}, {'life': .4, 'd': .08}], r['T'])
         check('콤보 u_maul: 🐺 + 🧪 재물획득 물약(공용) · 모든 피해 +8% · 광역 +6%', r['sy'] and r['sy']['req'] == ['maul', 'potion'] and r['sy']['fx'] == {'dmg': .08, 'area': .06} and r['potion'], r['sy'])
-        check('PFX·PFXSN 표에 maul 이 있고 모든 무기가 PFX·짧은 이름을 가진다', r['pfx'] == {'cd': 'yy', 'cnt': 'nn', 'spd': 'nn', 'dur': 'nn', 'area': 'pp', 'luck': 'nn'} and r['noPfx'] == [] and r['sn'] == '찢기' and r['noSn'] == [], (r['pfx'], r['noPfx'], r['noSn']))
+        check('PFX·PFXSN 표에 maul 이 있고 모든 무기가 PFX·짧은 이름을 가진다', r['pfx'] == {'cd': 'yy', 'spd': 'nn', 'dur': 'nn', 'area': 'pp', 'luck': 'nn'} and r['noPfx'] == [] and r['sn'] == '찢기' and r['noSn'] == [], (r['pfx'], r['noPfx'], r['noSn']))
         check('시그니처 유물 없음(배불배불처럼) — REL 에 sg_tjg 도, ch 가 tjg 인 유물도 없다', r['relNone'])
         U = r['u3']
         check('U3.maul 수치표(밸런스 측정으로 맞춘 값 — 바꾸면 RESULT.md 의 측정표를 다시 잴 것)', U == {'d': 66, 'cd': 1.6, 'dist': 110, 'T': .14, 'pad': 60, 'sp': .6, 'spR': 60, 'heal': 1.2, 'kcd': .5, 'kcap': 1.0, 'hg': {'rng': 480, 'dist': 440, 'T': .3, 't': 1.2, 'n': 6, 'p': .4, 'sm': .6, 'red': .25, 'ls': 1}}, U)
@@ -174,7 +174,7 @@ async def main():
             for evf in (0, 1):
                 for tier in (0, 3, 5):
                     if tier == 5 and not evf: continue
-                    for ps in ({}, {'amt': 3, 'area': 5, 'cd': 5, 'dur': 5, 'might': 5, 'spd': 5, 'luck': 5}):
+                    for ps in ({}, {'area': 5, 'cd': 5, 'dur': 5, 'might': 5, 'spd': 5, 'luck': 5}):
                         for mode in ('n', 'h', 'v'):
                             cases += 1
                             r = await pg.evaluate("""(a)=>{Math.random=window.__rnd0;const x=__p6x,y=__p6y;x.CH_set('tjg');x.start();const S=x.S;S.w={maul:a.L};S.ev=a.ev?{maul:1}:{};S.tier=a.tier?{maul:a.tier}:{};S.ps=a.ps;
@@ -186,7 +186,7 @@ async def main():
         check('Lv 1·2·4·6·8 × 각성 × 마스터 단계 × 패시브 최대 × 일반·하드·베리하드 %d 가지: 예외·NaN·풀 초과 없음' % cases, not bad, bad[:2])
 
         # ───────────────── H. 풀 상한 · 이어하기
-        r = await pg.evaluate("""()=>{const x=__p6x,y=__p6y;Math.random=window.__rnd0;x.CH_set('tjg');x.start();const S=x.S;S.w={maul:8};S.ev={maul:1};S.tier={maul:5};S.ps={amt:3,area:5,cd:5,dur:5,mag:5,might:5};x.tkCalc();S.t=900;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
+        r = await pg.evaluate("""()=>{const x=__p6x,y=__p6y;Math.random=window.__rnd0;x.CH_set('tjg');x.start();const S=x.S;S.w={maul:8};S.ev={maul:1};S.tier={maul:5};S.ps={area:5,cd:5,dur:5,mag:5,might:5};x.tkCalc();S.t=900;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
           let errs=0,mx=0;for(let i=0;i<1800;i++){S.p.hp=S.p.mhp;S.xp=0;S.need=1e12;const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];
             try{x.update(1/30);}catch(e){errs++;if(errs<2)return {err:String(e),st:e.stack.slice(0,300)};}
             mx=Math.max(mx,S.x3.f.length);}

@@ -35,7 +35,7 @@ async def ctx_page(b, port, w, h, mobile=False, init=None, reduced=None, cores=0
     await pg.wait_for_timeout(120)
     return ctx, pg, errs
 SETUP = r"""(a)=>{const x=__p6x;x.srvUnl&&x.srvUnl(['yumi','eom']);x.CH_set('eom');x.start();const S=x.S,p=S.p;S.t=a.t||120;S.w.eom=a.L;
-  if(a.ev)S.ev.eom=1;S.tier={eom:a.tier||0};if(a.full){S.ps={amt:3,area:5,might:5,cd:5,pspd:5,glass:3,luck:5,dur:5};x.synCalc&&x.synCalc();}x.tkCalc();
+  if(a.ev)S.ev.eom=1;S.tier={eom:a.tier||0};if(a.full){S.ps={area:5,might:5,cd:5,pspd:5,glass:3,luck:5,dur:5};x.synCalc&&x.synCalc();}x.tkCalc();
   S.nextBoss=S.nextMini=1e9;   // 시각을 건너뛰어도 보스가 나와 붉은 가장자리가 번지지 않게
   if(a.qo!=null)x.EX.qo=a.qo;if(a.off!=null)x.EX.eomOff=a.off;if(a.lv!=null)x.FX.lv=a.lv;
   for(const e of x.enemies.a)e.on=false;

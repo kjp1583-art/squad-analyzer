@@ -14,7 +14,7 @@ import sv_harness as H
 from playwright.async_api import async_playwright
 VP = {'phone': (412, 860, True), 'phone430': (430, 932, True), 'desk': (1280, 800, False)}
 SETUP = r"""(a)=>{const x=__p6x;x.srvUnl&&x.srvUnl(['yumi','eom']);x.CH_set('eom');x.start();const S=x.S,p=S.p;S.t=a.t0;S.w.eom=a.L;if(a.ev)S.ev.eom=1;S.tier={eom:a.tier||0};
-  if(a.full){S.ps={amt:3,area:5,might:5,cd:5,pspd:5,glass:3,luck:5,dur:5};x.synCalc&&x.synCalc();}x.tkCalc();
+  if(a.full){S.ps={area:5,might:5,cd:5,pspd:5,glass:3,luck:5,dur:5};x.synCalc&&x.synCalc();}x.tkCalc();
   S.nextBoss=S.nextMini=1e9;if(a.q>=0)x.EX.qo=a.q;if(a.off)x.EX.eomOff=1;
   const nt=(a.L>=2)+(a.L>=4)+(a.L>=6)+(a.L>=8),R=150*Math.pow(1.15,nt)*(a.ev?1.3:1);
   for(const e of x.enemies.a)e.on=false;

@@ -148,7 +148,8 @@ async def main():
         v1 = [x for x in g if x[0]['t'] - t0 > 1.2]
         check('다음 소절은 쿨타임 1.6초 뒤', len(v1) >= 1 and near(v1[0][0]['t'] - t0, 1.6, .05) and near(r['cd0'], 1.6, .001), (r['cd0'], v1 and v1[0][0]['t'] - t0))
         # 레벨별 박당 음표 수 · 박자 간격 · 쿨타임 · 관통 · 고음 규격
-        EXP_M = [2, 3, 3, 3, 3, 3, 4, 4]; EXP_IV = [.24, .24, .24, .204, .204, .204, .204, .204]; EXP_CD = [1.6, 1.6, 1.6, 1.44, 1.44, 1.44, 1.44, 1.296]
+        EXP_M = [2, 3, 3, 3, 4, 4, 5, 6];   # 2026-10-18 곱빼기 패시브 제거 — Lv5·Lv8 에 음표 +1
+        EXP_IV = [.24, .24, .24, .204, .204, .204, .204, .204]; EXP_CD = [1.6, 1.6, 1.6, 1.44, 1.44, 1.44, 1.44, 1.296]
         K1, K2 = 1.35, 1.35 ** 2; EXP_D = [D0 * k for k in (1, 1, K1, K1, K2, K2, K2, K2)]; EXP_DB = [DB0 * k for k in (1, 1, K1, K1, K2, K2, K2, K2)]
         for Lv in range(1, 9):
             r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': Lv, 'es': ES3, 'sec': 1.0})
@@ -159,11 +160,8 @@ async def main():
                   and near(hn['R'] / (1 + (hn['cr'] - 1) * .4), 55 if Lv >= 6 else 44, .01))
             check('Lv%d: 박당 음표 %d · 박자 %.3f · 쿨타임 %.3f · ♪ %.3f · ♬ %.3f · 관통 · 울림 간격·반지름·넋 잃음 단계' % (Lv, EXP_M[Lv - 1], EXP_IV[Lv - 1], EXP_CD[Lv - 1], EXP_D[Lv - 1], EXP_DB[Lv - 1]), ok,
                   (len(g[0]), len(g[1]), round(g[1][0]['t'] - t0, 3), r['cd0'], g[1][0]['d'], hn['d'] / hn['cr'], g[1][0]['pc'], hn['bt'], g[1][0]['sl'], hn['R'], hn['cr']))
-        # 곱빼기(amt 3) + 마스터 1(음표 +1) → 상한 6 · 곱빼기만 → 5
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': .5, 'ps': {'amt': 3}, 'tier': 1})
-        check('음표는 박당 곱빼기 3겹이 모두 먹는다(Lv8 4 + 곱빼기 3 + 마스터 +1 = 8개 · 2026-10-10 전엔 6개에서 막혔다)', len(groups(r['log'])[0]) == 8, len(groups(r['log'])[0]))
-        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': ES3, 'sec': .5, 'ps': {'amt': 3}})
-        check('곱빼기 3 → Lv1 박당 5개', len(groups(r['log'])[0]) == 5, len(groups(r['log'])[0]))
+        r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': .5, 'tier': 1})
+        check('Lv8 6 + 마스터 +1 = 박당 음표 7개', len(groups(r['log'])[0]) == 7, len(groups(r['log'])[0]))
 
         # ───────────────── C. 겨냥
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 1, 'es': ES3, 'sec': 3.4})
@@ -259,7 +257,7 @@ async def main():
         check('각성: ♬ 반지름 ×1.15 · 피해 ×1.15 · 쿨타임 ×.9(1.296 × .9 = 1.1664)', near(hn[0]['R'] / (1 + (hn[0]['cr'] - 1) * .4), 55 * 1.15, .02) and near(hn[0]['d'] / hn[0]['cr'], DB0 * K2 * 1.15, .01) and near(r['cd0'], 1.1664, .002), (hn[0], r['cd0']))
         # 단계표
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': .5, 'tier': 1})
-        check('마스터1 음표 +1 → 박당 5개', len(groups(r['log'])[0]) == 5, len(groups(r['log'])[0]))
+        check('마스터1 음표 +1 → 박당 7개(Lv8 6 + 1)', len(groups(r['log'])[0]) == 7, len(groups(r['log'])[0]))
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': .5, 'tier': 2})
         check('마스터2 피해 +12% (+ 음표 +1 은 이미 있음)', near(groups(r['log'])[1][0]['d'], D0 * K2 * 1.12, .02), groups(r['log'])[1][0]['d'])
         r = await pg.evaluate(SCENE, {'ch': 'brj', 'L': 8, 'es': ES3, 'sec': .5, 'tier': 3})
@@ -392,7 +390,7 @@ async def main():
         await c_.close()
 
         # ───────────────── L. 그리기(LOW · 비 LOW) · 소리
-        r = await pg.evaluate("""()=>{const x=__p6x;x.CH_set('bbb');x.start();const S=x.S;S.w={sing:8};S.ev={sing:1};S.tier={sing:5};S.ps={amt:3,area:5,cd:5};x.tkCalc();S.t=300;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
+        r = await pg.evaluate("""()=>{const x=__p6x;x.CH_set('bbb');x.start();const S=x.S;S.w={sing:8};S.ev={sing:1};S.tier={sing:5};S.ps={area:5,cd:5};x.tkCalc();S.t=300;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
           let errs=0,mx=0,hn=0,nt=0;for(let i=0;i<900;i++){S.p.hp=S.p.mhp;S.xp=0;S.need=1e12;const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];
             try{x.update(1/30);if(i%2===0)x.draw();}catch(e){errs++;if(errs<2)return {err:String(e),st:e.stack.slice(0,300)};}
             mx=Math.max(mx,S.x3.f.length);for(const o of S.x3.f){if(o.k==='hn')hn++;if(o.k==='nt')nt++;}}
@@ -407,7 +405,7 @@ async def main():
         pg3 = await ctx3.new_page(); pg3.on('pageerror', lambda e: e3.append(str(e)))
         await pg3.goto('http://127.0.0.1:%d/survivors_x.html' % srv.port); await pg3.wait_for_function('window.__p6x!==undefined')
         await pg3.evaluate("__p6x.srvUnl(['brj','bbb'])")   # 상점 캐릭터는 서버가 열어 줘야 시작된다 — 구매한 사람(서버 unlocks 에 bbb) 흉내
-        r = await pg3.evaluate("""()=>{const x=__p6x;x.CH_set('bbb');x.start();const S=x.S;S.w={sing:8};S.ev={sing:1};S.tier={sing:5};S.ps={amt:3,area:5,cd:5};x.tkCalc();S.t=300;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
+        r = await pg3.evaluate("""()=>{const x=__p6x;x.CH_set('bbb');x.start();const S=x.S;S.w={sing:8};S.ev={sing:1};S.tier={sing:5};S.ps={area:5,cd:5};x.tkCalc();S.t=300;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
           let errs=0;for(let i=0;i<600;i++){S.p.hp=S.p.mhp;S.xp=0;S.need=1e12;const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];try{x.update(1/30);x.draw();}catch(e){errs++;if(errs<2)return {err:String(e)};}}
           return {errs,LOW:x.LOW}}""")
         check('비 LOW(데스크톱) 모드 그리기 20초: 예외 없음', r.get('errs') == 0 and r['LOW'] is False and not e3, (r, e3[:2]))

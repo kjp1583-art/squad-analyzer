@@ -61,7 +61,7 @@ async def main():
         T = r['T']
         check('TIERS.panty: 마스터 3 + 각성 2 (팬티 +1 · 피해 +12% · 쿨 -7% · 줄+1·지속+1·피해+8% · 흩어짐)', T == [{'n': 1}, {'d': .12}, {'c': .07}, {'ring': 1, 'life': 1, 'd': .08}, {'frag': 1}], T)
         check('콤보 u_panty: 🧺 + 🥏 냄비뚜껑(공용) · 모든 피해 +8% · 광역 +6%', r['sy'] and r['sy']['req'] == ['panty', 'lid'] and r['sy']['fx'] == {'dmg': .08, 'area': .06} and r['lid'], r['sy'])
-        check('PFX 표에 panty 가 있고 모든 무기가 PFX 를 가진다', r['pfx'] == {'cd': 'yy', 'cnt': 'pp', 'spd': 'yy', 'dur': 'ny', 'area': 'ny', 'luck': 'nn'} and r['noPfx'] == [], (r['pfx'], r['noPfx']))
+        check('PFX 표에 panty 가 있고 모든 무기가 PFX 를 가진다', r['pfx'] == {'cd': 'yy', 'spd': 'yy', 'dur': 'ny', 'area': 'ny', 'luck': 'nn'} and r['noPfx'] == [], (r['pfx'], r['noPfx']))
         check('고유 무기 panty 는 U3 수치표를 가진다(다른 전용 무기의 U3 유무는 이 시험의 몫이 아니다)', 'panty' not in r['noU3'], r['noU3'])
         check('mag 짝 무기에 팬티 투척이 들어 있다(획득 범위는 전리품 줍기도 넓힌다)', 'panty' in r['midPair'] and 'snack' in r['midPair'], r['midPair'])
         U = r['u3']
@@ -80,8 +80,8 @@ async def main():
         check('고유스텟 문장은 CSX 값을 읽는다(.45→.7 · .08→.5 로 바꾸면 70% · 50% 로 나온다)', '70%' in cs['b'] and '50%' in cs['b'], cs['b'])
 
         # ───────────────── B. 투척 — 개수·각도·속도·쿨타임·멈칫
-        for L, tier, amt, want in [(1, 0, 0, 1), (2, 0, 0, 2), (5, 0, 0, 2), (6, 0, 0, 3), (8, 0, 0, 3), (1, 0, 3, 4), (6, 0, 3, 6), (8, 3, 3, 7)]:
-            r = await ev("""const es=[{a:0,d:150}];const E0=a.es;S.ps=a.amt?{amt:a.amt}:{};x.tkCalc();
+        for L, tier, amt, want in [(1, 0, 0, 1), (2, 0, 0, 2), (4, 0, 0, 2), (5, 0, 0, 3), (6, 0, 0, 4), (8, 0, 0, 5), (8, 3, 0, 6)]   # 2026-10-18 곱빼기 패시브 제거 — Lv5·Lv8 에 각자 +1:
+            r = await ev("""const es=[{a:0,d:150}];const E0=a.es;S.ps={};x.tkCalc();
                 for(const o of es){const ex=p.x+o.d,ey=p.y;const e=x.spawnEnemy(0,2.5,null,{x:ex,y:ey});e.sp=0;e.hp=e.mhp=1e9;E.push({e,x:ex,y:ey,hp:1e9,pin:true});}
                 step();const f=S.x3.f.filter(o=>o.k==='py');return {n:f.length,deg:f.map(o=>Math.atan2(o.vy,o.vx)*180/Math.PI),sp:f.map(o=>Math.hypot(o.vx,o.vy)),cd:S.cd.panty,d:f.map(o=>o.d),pc:f.map(o=>o.pc),big:f.some(o=>o.big)}""", L=L, tier=tier, amt=amt, es=[])
             mid = (r['n'] - 1) / 2
@@ -163,7 +163,7 @@ async def main():
         r = await ev("""y.csS().bg=y.ptyNeed(5);let seen=0,mx=0;for(let i=0;i<80;i++){step();const f=S.x3.f.filter(o=>o.k==='py'&&!o.big);mx=Math.max(mx,f.length);}return {mx,d:(S.x3.f.find(o=>o.k==='py')||{}).d}""", L=8, ev=1, tier=5, es=[{'a': 0, 'd': 150}])
         check('각성 5단계(흩어짐): 폭죽이 터지면 팬티 6장이 사방으로(일반 투척 3장 + 흩어짐 6장 이상이 동시에 떠 있었다)', r['mx'] >= 6, r)
         r = await ev("""y.csS().bg=y.ptyNeed(5);let mx=0;for(let i=0;i<80;i++){step();const f=S.x3.f.filter(o=>o.k==='py'&&!o.big);mx=Math.max(mx,f.length);}return {mx}""", L=8, ev=1, tier=4, es=[{'a': 0, 'd': 150}])
-        check('각성 4단계까지는 흩어짐 없음(일반 투척은 마스터 1단계 +1 로 4장까지)', r['mx'] <= 4, r)
+        check('각성 4단계까지는 흩어짐 없음(일반 투척은 Lv8 5장 + 마스터 1단계 +1 로 6장까지)', r['mx'] <= 6, r)
         r = await ev("""y.csS().bg=6;for(let i=0;i<60;i++){step();}return {n:S.x3.f.filter(o=>o.k==='py').length,hit:E[0].e.mhp-E[0].e.hp}""", L=1, es=[{'a': 0, 'd': 280}])
         check('폭죽이 아무것도 못 맞히고 수명이 다해도 그 자리에서 터진다(피해는 반경 안 적에게)', r['hit'] > 0 or r['n'] >= 0, r)
 
@@ -180,7 +180,7 @@ async def main():
         # E2 = (150,100): 줄 위(x=150 에서 세로 100 < 반길이 170) · 팬티 경로(0°)에서 멀다. E3 = 반대편.
         check('줄 위의 적(150,100)만 줄 피해를 입는다 — 반대편(-150,0)의 적은 무사', r['on'] > 0 and r['off'] == 0, r)
         r = await ev("""let ticks=[];let last=E[1].e.hp;for(let i=0;i<57;i++){step();const e=E[1].e;if(e.hp<last){ticks.push(+(i*dt).toFixed(2));last=e.hp;}}return {ticks}""", L=8, ev=1, tier=3, es=[{'a': 0, 'd': 150}, {'a': 33.69, 'd': 180.3}], keepHp=1)
-        check('줄 피해 간격: 첫 한 대 0.2초 뒤, 그 다음 0.4초 간격(0.6초) — 두 번째 줄이 걸리기 전(0.95초)까지', len(r['ticks']) == 2 and near(r['ticks'][0], .2, .03) and near(r['ticks'][1], .6, .03), r)
+        check('줄 피해 간격: 첫 한 대 0.2초 뒤, 그 다음 0.4초 간격(0.6초) — 두 번째 줄이 걸리기 전(0.95초)까지', len(r['ticks']) >= 2 and near(r['ticks'][0], .2, .03) and near(r['ticks'][-1], .6, .03), r)   # 2026-10-18 Lv8 팬티가 5장이라 팬티 한 장이 중간(0.3초)에 맞을 수 있다
         r = await ev("""let mx=0,sl=0;for(let i=0;i<60;i++){step();mx=Math.max(mx,E[1].e.slow);}return {sl:mx}""", L=8, ev=1, tier=3, es=[{'a': 0, 'd': 150}, {'a': 33.69, 'd': 180.3}])
         check('줄에 걸린 적은 느려진다(0.35초)', near(r['sl'], .35, .04), r)
         for tier, mxl in [(3, 2), (4, 3)]:
@@ -234,7 +234,7 @@ async def main():
         check('유물 후보: 팬티도둑에겐 나오고(600번 중 1번 이상) 다른 캐릭터(브장신)에겐 안 나온다', r['pty'] >= 1 and r['brj'] == 0, r)
 
         # ───────────────── I. 풀 상한 · 이어하기
-        r = await pg.evaluate("""()=>{const x=__p6x,y=__p6y;Math.random=window.__rnd0;x.CH_set('pty');x.start();const S=x.S;S.w={panty:8};S.ev={panty:1};S.tier={panty:5};S.ps={amt:3,area:5,cd:5,dur:5,mag:5};x.tkCalc();S.t=900;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
+        r = await pg.evaluate("""()=>{const x=__p6x,y=__p6y;Math.random=window.__rnd0;x.CH_set('pty');x.start();const S=x.S;S.w={panty:8};S.ev={panty:1};S.tier={panty:5};S.ps={area:5,cd:5,dur:5,mag:5};x.tkCalc();S.t=900;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
           let errs=0,mx=0,pl=0,ln=0;for(let i=0;i<1800;i++){S.p.hp=S.p.mhp;S.xp=0;S.need=1e12;const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];
             try{x.update(1/30);}catch(e){errs++;if(errs<2)return {err:String(e),st:e.stack.slice(0,300)};}
             mx=Math.max(mx,S.x3.f.length);pl=Math.max(pl,S.x3.f.filter(o=>o.k==='pl').length);ln=Math.max(ln,S.x3.f.filter(o=>o.k==='ln').length);}
@@ -309,7 +309,7 @@ async def main():
         await c_.close()
 
         # ───────────────── K. 그리기(LOW · 비 LOW) · 소리 · 색
-        r = await pg.evaluate("""()=>{const x=__p6x;Math.random=window.__rnd0;x.CH_set('pty');x.start();const S=x.S;S.w={panty:8};S.ev={panty:1};S.tier={panty:5};S.ps={amt:3,area:5,cd:5,mag:5};x.tkCalc();S.t=60;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
+        r = await pg.evaluate("""()=>{const x=__p6x;Math.random=window.__rnd0;x.CH_set('pty');x.start();const S=x.S;S.w={panty:8};S.ev={panty:1};S.tier={panty:5};S.ps={area:5,cd:5,mag:5};x.tkCalc();S.t=60;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
           let errs=0,mx=0,py=0,pl=0,ln=0;for(let i=0;i<900;i++){S.p.hp=S.p.mhp;S.xp=0;S.need=1e12;const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];
             try{x.update(1/30);if(i%2===0)x.draw();}catch(e){errs++;if(errs<2)return {err:String(e),st:e.stack.slice(0,300)};}
             mx=Math.max(mx,S.x3.f.length);for(const o of S.x3.f){if(o.k==='py')py++;if(o.k==='pl')pl++;if(o.k==='ln')ln++;}}
@@ -324,7 +324,7 @@ async def main():
         pg3 = await ctx3.new_page(); pg3.on('pageerror', lambda e: e3.append(str(e)))
         await pg3.goto('http://127.0.0.1:%d/survivors_x.html' % srv.port); await pg3.wait_for_function('window.__p6x!==undefined')
         await pg3.evaluate("window.__rnd0=Math.random;__p6x.srvUnl(['brj','pty'])")
-        r = await pg3.evaluate("""()=>{const x=__p6x;Math.random=window.__rnd0;x.CH_set('pty');x.start();const S=x.S;S.w={panty:8};S.ev={panty:1};S.tier={panty:5};S.ps={amt:3,area:5,cd:5};x.tkCalc();S.t=300;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
+        r = await pg3.evaluate("""()=>{const x=__p6x;Math.random=window.__rnd0;x.CH_set('pty');x.start();const S=x.S;S.w={panty:8};S.ev={panty:1};S.tier={panty:5};S.ps={area:5,cd:5};x.tkCalc();S.t=300;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.need=1e12;
           let errs=0;for(let i=0;i<600;i++){S.p.hp=S.p.mhp;S.xp=0;S.need=1e12;const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];try{x.update(1/30);x.draw();}catch(e){errs++;if(errs<2)return {err:String(e)};}}
           return {errs,LOW:x.LOW}}""")
         check('비 LOW(데스크톱) 모드 그리기 20초: 예외 없음', r.get('errs') == 0 and r['LOW'] is False and not e3, (r, e3[:2]))

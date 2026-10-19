@@ -232,7 +232,7 @@ async def main():
                               const com=Object.keys(L.LINEAGE).filter(w=>L.LINEAGE[w].includes(a.lin)&&!L.WEAP[w].only);
                               S.w={};S.w[a.ch.w]=a.lv;for(const w of com){if(Object.keys(S.w).length>=L.SLOTW)break;S.w[w]=a.lv;}
                               if(a.ev){let n=0;for(const w in S.w){if(n>=3)break;if(L.WEAP[w].ev){S.ev[w]=1;n++;}}}
-                              S.ps.amt=a.am;S.ps.pspd=a.am;S.ps.dur=a.am;x.synCalc();
+                              S.ps.pspd=a.am;S.ps.dur=a.am;x.synCalc();
                               const lt=Object.assign({},S.syn.lt);__go(240);
                               const ok=Number.isFinite(S.p.hp)&&Number.isFinite(S.p.x)&&Number.isFinite(S.t);
                               const sy=Object.values(S.syn).every(v=>typeof v!=='number'||Number.isFinite(v));
@@ -250,7 +250,7 @@ async def main():
               'critMul 이 syn.crm 을 안 읽음': ("+.15*(PTV('luck')?1:0)+S.syn.crm;", "+.15*(PTV('luck')?1:0);"),
               'takenMul 이 syn.tk 를 안 읽음': ("csTaken()*(1-S.syn.tk)*", "csTaken()*"),
               'moveMul 이 syn.mv 를 안 읽음': ("+csMove()+S.syn.mv;", "+csMove();"),
-              '무기 발사가 syn.amt 를 안 읽음': ("AM=pv('amt')+S.syn.amt;", "AM=pv('amt');"),
+              '무기 발사가 syn.amt 를 안 읽음': ("AM=S.syn.amt;let L;", "AM=0;let L;"),
               '단계표 합산을 빼먹음': ("if(t){const fx=LINT[k][t-1];for(const q in fx)f[q]+=fx[q];}", ""),
             }
             for nm, (a, bq) in muts.items():

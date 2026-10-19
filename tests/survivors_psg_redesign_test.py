@@ -32,30 +32,30 @@ async def main():
           return o}""")
         check('Lv6 에서 장판이 5개 이상 동시에 깔린다(예전 최대 2~4)', r['max'] >= 5, r)
         check('장판이 한 줄이 아니라 앞뒤·좌우로 퍼진다', r['sx'] > 60 and r['sy'] > 40, (r['sx'], r['sy']))
+        # (2026-10-18 곱빼기 패시브 제거 — 아래 amt 칸은 이제 쌍둥이 레벨: Lv4 → Lv8 은 개수 보너스 +2)
         # 2. 상한: 끈기·곱빼기에 따라 최대, 풀 상한 안
         r = await pg.evaluate("""()=>{const x=__p6x,o={};
-          for(const [dur,amt,L,ev] of [[0,0,8,1],[5,0,8,1],[0,5,8,1],[5,5,8,1]]){
-            x.CH_set('psg');x.start();const S=x.S;S.p.hp=S.p.mhp=1e9;S.w.twin=L;if(ev)S.ev.twin=1;x.tkCalc();S.ps.dur=dur;S.ps.amt=amt;
+          for(const [dur,amt,L,ev] of [[0,0,4,1],[5,0,4,1],[0,5,8,1],[5,5,8,1]]){
+            x.CH_set('psg');x.start();const S=x.S;S.p.hp=S.p.mhp=1e9;S.w.twin=L;if(ev)S.ev.twin=1;x.tkCalc();S.ps.dur=dur;
             const e=x.spawnEnemy(0,1);e.hp=e.mhp=1e12;e.x=S.p.x+60;e.y=S.p.y;e.sp=0;let mx=0,pool=0;
             for(let i=0;i<30*20;i++){if(x.state!=='play')break;S.p.hp=S.p.mhp;e.x=S.p.x+60;e.y=S.p.y;x.update(1/30);mx=Math.max(mx,S.x3.f.filter(q=>q.k==='fl').length);pool=Math.max(pool,S.x3.f.length);}
             o[dur+'_'+amt]=[mx,pool];}
           return o}""")
         print(r)
         a, bb, c, d = r['0_0'], r['5_0'], r['0_5'], r['5_5']
-        check('장판 최대 개수가 끈기·곱빼기로 늘어난다', bb[0] > a[0] and c[0] > a[0] and d[0] >= max(bb[0], c[0]), (a, bb, c, d))
+        check('장판 최대 개수가 끈기·쌍둥이 레벨(개수 보너스)로 늘어난다', bb[0] > a[0] and c[0] > a[0] and d[0] >= max(bb[0], c[0]), (a, bb, c, d))
         check('장판 때문에 엔티티 풀 상한(100)을 넘지 않는다', all(v[1] <= 100 for v in r.values()), r)
         # 3. 불꽃 오라: 쌍둥이 레벨·곱빼기·유물·끈기를 받는다
         r = await pg.evaluate("""()=>{const x=__p6x,o={};
           const aura=(L,rel,amtv,durv)=>{x.CH_set('psg');x.start();const S=x.S;S.p.hp=S.p.mhp=1e9;S.w={};if(L)S.w.twin=L;S.cd.twin=1e9;S.rel.sg_psg=rel;x.tkCalc();
-            S.ps.amt=amtv;S.ps.dur=durv;
+            S.ps.dur=durv;
             S.rg=100;x.update(1/30);const dT=S.dT;
             const e=x.spawnEnemy(0,1);e.hp=e.mhp=1e12;e.x=S.p.x+50;e.y=S.p.y;e.sp=0;S.live=[e];S.dA=0;
             const h=e.hp;S.cd.twin=1e9;x.update(1/30);return {dmg:h-e.hp,dT};};
-          o.base=aura(1,0,0,0);o.lv8=aura(8,0,0,0);o.rel3=aura(1,3,0,0);o.amt=aura(1,0,3,0);o.dur=aura(1,0,0,4);return o}""")
+          o.base=aura(1,0,0,0);o.lv8=aura(8,0,0,0);o.rel3=aura(1,3,0,0);o.dur=aura(1,0,0,4);return o}""")
         print(r)
         check('불꽃 오라 피해가 쌍둥이 이빨 레벨을 따라 는다', r['lv8']['dmg'] > r['base']['dmg'] * 1.5, (r['base'], r['lv8']))
         check('불꽃 오라 피해가 유물 3단계로 는다', r['rel3']['dmg'] > r['base']['dmg'] * 1.4, (r['base'], r['rel3']))
-        check('불꽃 오라 피해가 곱빼기로 는다', r['amt']['dmg'] > r['base']['dmg'] * 1.2, (r['base'], r['amt']))
         check('변신 지속이 끈기로 는다', r['dur']['dT'] > r['base']['dT'] * 1.2, (r['base']['dT'], r['dur']['dT']))
         check('유물 3단계는 지속 +3.5초가 그대로', abs((r['rel3']['dT'] - r['base']['dT']) - 3.5) < .1, (r['base']['dT'], r['rel3']['dT']))
         # 4. 문구의 숫자는 SHV/U3 표 값을 읽는다

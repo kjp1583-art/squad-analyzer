@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sv_harness as H
 from playwright.async_api import async_playwright
 SETUP = r"""(a)=>{const x=__p6x;x.srvUnl&&x.srvUnl(['yumi','eom']);x.CH_set('eom');x.start();const S=x.S,p=S.p;S.t=a.t;S.w.eom=a.L;if(a.ev)S.ev.eom=1;S.tier={eom:a.tier};
-  if(a.full){S.ps={amt:3,area:5,might:5,cd:5,pspd:5,glass:3,luck:5,dur:5};x.synCalc&&x.synCalc();}x.tkCalc();S.nextBoss=S.nextMini=1e9;
+  if(a.full){S.ps={area:5,might:5,cd:5,pspd:5,glass:3,luck:5,dur:5};x.synCalc&&x.synCalc();}x.tkCalc();S.nextBoss=S.nextMini=1e9;
   const nt=(a.L>=2)+(a.L>=4)+(a.L>=6)+(a.L>=8),R=150*Math.pow(1.15,nt)*(a.ev?1.3:1);
   for(const e of x.enemies.a)e.on=false;let n=0,s=5;const rnd=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
   while(n<a.n){const r0=Math.max(36,R*Math.sqrt(rnd())*.97),an=rnd()*6.2832;const e=x.spawnEnemy(0,1,null,{x:p.x+Math.cos(an)*r0,y:p.y+Math.sin(an)*r0});if(!e)break;e.sp=0;e.hp=e.mhp=1e9;e.dmg=0;n++;}

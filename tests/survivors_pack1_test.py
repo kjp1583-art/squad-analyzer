@@ -63,7 +63,7 @@ async def main():
           S.lv=19;for(let i=0;i<400;i++)for(const o of x.offers(3))if(o.k==='rev')n19++;
           S.lv=20;for(let i=0;i<400;i++)for(const o of x.offers(3))if(o.k==='rev')n20++;
           // 패시브 칸 6개를 다른 것으로 가득 채워도 부활은 후보
-          S.ps={};for(const k of ['spd','hp','cd','mag','arm','amt'])S.ps[k]=1;   // 부활 아닌 패시브 6종 = 칸 6/6
+          S.ps={};for(const k of ['spd','hp','cd','mag','arm','area'])S.ps[k]=1;   // 부활 아닌 패시브 6종 = 칸 6/6
           for(let i=0;i<600;i++)for(const o of x.offers(3))if(o.k==='rev')full++;
           return {n19,n20,full,keys:Object.keys(S.ps).length};}""")
         check('③ Lv19 에는 부활 카드가 한 번도 안 나온다', r['n19'] == 0, r)

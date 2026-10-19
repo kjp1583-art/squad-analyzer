@@ -121,12 +121,12 @@ async def main():
         got_tiles = [e['key'] for e in ent]
         check('도감 칸 = 표의 모든 키(무기 %d · 패시브 %d · 유물 %d · 거래 %d · 작은 능력치 %d · 일회용 %d · 시너지 %d)' % (len(tb['W']), len(tb['P']), len(tb['R']), len(tb['D']), len(tb['M']), len(tb['C']), len(tb['Y'])), sorted(got_tiles) == sorted(want_tiles), (set(want_tiles) ^ set(got_tiles)))
         check('도감 칸 키가 서로 겹치지 않는다 · 총 %d칸' % len(got_tiles), len(set(got_tiles)) == len(got_tiles) == len(want_tiles))
-        check('무기 42종(공용 22 + 고유 20) · 패시브 17 · 유물 23 · 거래 6 · 작은 능력치 6 · 일회용 4', (len(tb['W']), len(tb['P']), len(tb['R']), len(tb['D']), len(tb['M']), len(tb['C'])) == (42, 17, 23, 6, 6, 4) and len([1 for k, o in tb['only']]) == 20, (len(tb['W']), len(tb['only'])))
+        check('무기 42종(공용 22 + 고유 20) · 패시브 16 · 유물 23 · 거래 6 · 작은 능력치 6 · 일회용 4', (len(tb['W']), len(tb['P']), len(tb['R']), len(tb['D']), len(tb['M']), len(tb['C'])) == (42, 16, 23, 6, 6, 4) and len([1 for k, o in tb['only']]) == 20, (len(tb['W']), len(tb['only'])))
         check('PT(초월) 키는 모두 패시브 칸 안에 들어 있다', all(any(e['key'] == 'p:' + k and e['pt'] and e['pt']['key'] == 'pt:' + k and len(e['pt']['lv']) >= 1 for e in ent) for k in tb['PT']) and set(tb['PT']) <= set(tb['P']))
         check('TIERS(마스터·각성 단계) 키는 모두 무기 칸 안에 들어 있다 · 무기 42종 모두 단계표가 있다', all(any(e['key'] == 'w:' + k and e['ms'] and e['ms']['key'] == 'wt:' + k and len(e['ms']['m']) == 3 and len(e['ms']['e']) == 2 for e in ent) for k in tb['T']) and set(tb['T']) == set(tb['W']), set(tb['W']) - set(tb['T']))
         check('각성 형태(ev)는 무기마다 있다', all(any(e['key'] == 'w:' + k and e['ev'] and e['ev']['key'] == 'ev:' + k and e['ev']['nm'] and e['ev']['ds'] for e in ent) for k in tb['ev']) and set(tb['ev']) == set(tb['W']))
         keys = await pg.evaluate("(()=>{const K=__cx.cdxKeys();return {t:K.t,sub:K.sub,all:[...K.all]}})()")
-        check('유효 키 목록에 칸 %d + 세부(wt·pt·ev) %d 개' % (len(keys['t']), len(keys['sub'])), len(keys['t']) == 135 and len(keys['sub']) == 42 + 10 + 42, (len(keys['t']), len(keys['sub'])))
+        check('유효 키 목록에 칸 %d + 세부(wt·pt·ev) %d 개' % (len(keys['t']), len(keys['sub'])), len(keys['t']) == 134 and len(keys['sub']) == 42 + 10 + 42, (len(keys['t']), len(keys['sub'])))
         check('모든 키가 서버 계약 정규식 ^[a-z]{1,3}:[a-z0-9_]{1,24}$ 를 지킨다(서버가 거절하지 않게)', all(KEYRE.match(k) for k in keys['all']), [k for k in keys['all'] if not KEYRE.match(k)])
         check('키가 400개 상한 안(%d개)' % len(keys['all']), len(keys['all']) <= 400)
         check('모든 칸에 이름과 아이콘이 있다', all(e['nm'] and e['ic'] for e in ent), [e['key'] for e in ent if not (e['nm'] and e['ic'])])
@@ -177,7 +177,7 @@ async def main():
         check('offers() 4000번(약 %d장) — 모든 카드가 발견 키로 바뀐다(키 없는 카드 0 · 치킨만 키 없음)' % sw['cards'], sw['nbad'] == 0 and sw['cards'] > 10000, sw['bad'])
         check('나온 카드 종류 = w p wt pt rl tr sm co heal 전부', set(sw['types']) == {'w', 'p', 'wt', 'pt', 'rl', 'tr', 'sm', 'co', 'heal'}, sw['types'])
         tile_seen = [k for k in sw['seen'] if k in set(keys['t'])]
-        check('나온 카드로 닿은 칸 %d/135 — 무기·패시브·유물·거래·능력치·일회용 전 범주에 걸친다' % len(tile_seen), len(tile_seen) >= 80 and {k.split(':')[0] for k in tile_seen} >= {'w', 'p', 'rl', 'tr', 'sm', 'co'}, sorted({k.split(':')[0] for k in tile_seen}))
+        check('나온 카드로 닿은 칸 %d/134 — 무기·패시브·유물·거래·능력치·일회용 전 범주에 걸친다' % len(tile_seen), len(tile_seen) >= 80 and {k.split(':')[0] for k in tile_seen} >= {'w', 'p', 'rl', 'tr', 'sm', 'co'}, sorted({k.split(':')[0] for k in tile_seen}))
         sw2 = await pg.evaluate(sweep_js, [600, True])
         check('[자체 점검] 도감에 없는 새 카드 종류가 offers() 에 생기면 이 시험이 실패한다', sw2['nbad'] > 0 and any(x[0] == 'zz' for x in sw2['bad']), sw2['bad'])
         # 표가 늘면 도감이 저절로 늘어난다 — 표를 읽어 만든다는 증거
@@ -186,7 +186,7 @@ async def main():
           c.CDX.kk=null;c.CDX.cat=null;const m1=c.cdxStat().m,keys=c.cdxEntries().map(e=>e.key);
           const r={m0,m1,has:['w:zzz','p:zzp','tr:zzt','co:zzc'].every(k=>keys.includes(k)),sub:c.cdxKeys().all.has('wt:zzz')&&c.cdxKeys().all.has('ev:zzz')};
           delete c.WEAP.zzz;delete c.TIERS.zzz;delete c.PASS.zzp;delete c.TRD.zzt;delete c.CO.zzc;c.CDX.kk=null;c.CDX.cat=null;r.back=c.cdxStat().m;return r;}""")
-        check('[자체 점검] 표에 스킬을 더하면 도감 칸 수가 따라 늘어난다(135 → 139 → 되돌리면 135)', r['m0'] == 135 and r['m1'] == 139 and r['has'] and r['sub'] and r['back'] == 135, r)
+        check('[자체 점검] 표에 스킬을 더하면 도감 칸 수가 따라 늘어난다(134 → 138 → 되돌리면 134)', r['m0'] == 134 and r['m1'] == 138 and r['has'] and r['sub'] and r['back'] == 134, r)
         r = await pg.evaluate("""()=>{const c=__cx;const o={};c.WEAP.feed.ds[0]='시험용 첫 문구';const w0=c.PASS.spd.ds;c.PASS.spd.ds='시험용 패시브 문구';c.SM.ramen.base=.05;c.CDX.cat=null;
           for(const k of ['w:feed','p:spd','sm:ramen'])c.cdxNote(k);
           const v=c.cdxView();o.w=v.find(e=>e.key==='w:feed').lv[0];o.p=v.find(e=>e.key==='p:spd').ds;o.s=v.find(e=>e.key==='sm:ramen').first;
@@ -237,7 +237,7 @@ async def main():
           return out;}""")
         check('실제 레벨업 화면에서 고른 카드의 키가 기록된다(12번)', all(o[3] for o in r) and any(not o[2] for o in r), r[:4])
         # 보스 상자 — 각성 + 카드
-        r = await pg.evaluate("""()=>{const x=__p6x,c=__cx;x.start();window.__reset();const S=x.S;S.w.feed=8;S.ps.amt=1;const k0=new Set(c.CDX.s);
+        r = await pg.evaluate("""()=>{const x=__p6x,c=__cx;x.start();window.__reset();const S=x.S;S.w.feed=8;S.ps.pspd=1;const k0=new Set(c.CDX.s);
           c.openLvup&&0;x.openChest();const nk=[...c.CDX.s].filter(k=>!k0.has(k));return {nk,ev:!!S.ev.feed,st:x.state};}""")
         check('보스 상자 — 각성(ev:feed)과 상자 카드가 함께 기록된다', 'ev:feed' in r['nk'] and r['ev'] and len(r['nk']) >= 2, r)
         # 보유한 것은 전부 도감에 있다(빌드 ⊆ 발견) — 여러 캐릭터로 길게
@@ -250,7 +250,7 @@ async def main():
             for(const k in S.sm)own.push('sm:'+k);if(S.ramen)own.push('sm:ramen');for(const k in S.pt)own.push('pt:'+k);for(const k in S.tier)own.push('wt:'+k);for(const k in S.ev)own.push('ev:'+k);for(const k of S.synOn)own.push('sy:'+k);
             for(const k of own)if(!c.CDX.s.has(k))miss.push(ch.k+':'+k);}}finally{Math.random=mr;}
           return {miss,picks,chests,n:c.cdxStat().n};}""")
-        check('[빌드 ⊆ 도감] %d캐릭터 × 90번 선택 + 상자 %d번 — 가진 무기·패시브·유물·거래·능력치·초월·마스터·각성·시너지가 하나도 빠지지 않는다 (칸 %d/135 발견)' % (len(tb['chars']), r['chests'], r['n']), not r['miss'] and r['picks'] == 90 * len(tb['chars']), r['miss'][:5])
+        check('[빌드 ⊆ 도감] %d캐릭터 × 90번 선택 + 상자 %d번 — 가진 무기·패시브·유물·거래·능력치·초월·마스터·각성·시너지가 하나도 빠지지 않는다 (칸 %d/134 발견)' % (len(tb['chars']), r['chests'], r['n']), not r['miss'] and r['picks'] == 90 * len(tb['chars']), r['miss'][:5])
         check('모든 캐릭터로 시작해 보면 고유 무기가 전부 실린다(시작 무기 w:)', await pg.evaluate("""()=>{const x=__p6x,c=__cx;const miss=[];for(const ch of c.CHARS){if(ch.shop)x.SRVUNL.add(ch.k);x.CH_set(ch.k);x.start();if(!c.CDX.s.has('w:'+ch.w))miss.push(ch.k);}return miss;}""") == [])
         # 시너지 — 켜질 때
         r = await pg.evaluate("""()=>{const x=__p6x,c=__cx;window.__reset();x.CH_set('brj');x.start();const o=[];
@@ -268,19 +268,19 @@ async def main():
         print('\n── ③ 화면 — 처음엔 전부 미발견 · 발견한 칸만 열림 · 잠긴 칸 DOM 에 이름·설명 없음 · 탭 N/M · 상세 = 표 문구 · 전용 캐릭터 ──', flush=True)
         ctx, pg, errs = await mk(b, srv.port, 390, 844)
         pill = await pg.evaluate("(()=>{const e=document.getElementById('cxOpen'),r=e.getBoundingClientRect();return {t:e.textContent,w:r.width,h:r.height,al:e.getAttribute('aria-label'),pop:e.getAttribute('aria-haspopup'),cat:window.__cx.CDX.cat,body:document.getElementById('cxBody').childElementCount,txt:document.getElementById('cxN').textContent}})()")
-        check('첫 화면에 「📖 스킬 도감」 버튼 + 진행 배지 0/135', '스킬 도감' in pill['t'] and pill['txt'] == '0/135' and pill['pop'] == 'dialog' and '0 / 135' in pill['al'], pill)
+        check('첫 화면에 「📖 스킬 도감」 버튼 + 진행 배지 0/134', '스킬 도감' in pill['t'] and pill['txt'] == '0/134' and pill['pop'] == 'dialog' and '0 / 134' in pill['al'], pill)
         check('열기 전에는 도감 칸·항목 데이터를 만들지 않는다(첫 화면 로드 비용 0)', pill['body'] == 0 and pill['cat'] is None, (pill['body'], pill['cat']))
         await open_dex(pg)
         check('열면 겹창이 뜬다(role=dialog · aria-modal · aria-labelledby)', await pg.evaluate("(()=>{const d=document.querySelector('#cxOv [role=dialog]');return d.getAttribute('aria-modal')==='true'&&document.getElementById(d.getAttribute('aria-labelledby')).textContent.includes('스킬 도감')})()"))
         prog = await pg.evaluate("document.querySelector('.cxprog').textContent")
-        check('처음 상태: 진행 「0 / 135」', '0 / 135' in prog and '0%' in prog, prog)
+        check('처음 상태: 진행 「0 / 134」', '0 / 134' in prog and '0%' in prog, prog)
         tabs0 = await tabs(pg)
-        check('처음 상태: 탭 5개 · 무기 0/42 · 패시브 0/17 · 유물 0/23 · 기타 0/16 · 시너지 0/37', [(t['t'], t['c']) for t in tabs0] == [('w', '0/42'), ('p', '0/17'), ('r', '0/23'), ('x', '0/16'), ('s', '0/37')], tabs0)
+        check('처음 상태: 탭 5개 · 무기 0/42 · 패시브 0/16 · 유물 0/23 · 기타 0/16 · 시너지 0/37', [(t['t'], t['c']) for t in tabs0] == [('w', '0/42'), ('p', '0/16'), ('r', '0/23'), ('x', '0/16'), ('s', '0/37')], tabs0)
         check('탭은 role=tablist/tab · 선택된 탭만 tabindex 0(로빙)', await pg.evaluate("(()=>{const tl=document.querySelector('[role=tablist]'),t=[...tl.querySelectorAll('[role=tab]')];return t.length===5&&t.filter(x=>x.getAttribute('aria-selected')==='true').length===1&&t.filter(x=>x.tabIndex===0).length===1&&!!document.querySelector('[role=tabpanel]')})()"))
         for t in 'wprxs':
             await pg.click('#cxTab_' + t)
             r = await pg.evaluate("({n:document.querySelectorAll('#cxPanel .cxt').length,l:document.querySelectorAll('#cxPanel .cxt.lock').length,q:[...document.querySelectorAll('#cxPanel .cxt')].every(e=>e.textContent.replace(/\\s/g,'')==='❓???')})")
-            exp = {'w': 42, 'p': 17, 'r': 23, 'x': 16, 's': 37}[t]
+            exp = {'w': 42, 'p': 16, 'r': 23, 'x': 16, 's': 37}[t]
             check('처음 상태 [%s 탭]: 칸 %d개 전부 잠김(❓ + ???)' % (t, exp), r['n'] == exp and r['l'] == exp and r['q'], r)
         names_all = [s for s in flat(ent) if re.search(r'[가-힣]', s)]   # 이름·설명 문구(숫자만인 값은 뺀다)
         blob = await pg.evaluate(DOM_TEXT)
@@ -300,18 +300,18 @@ async def main():
 
         # 일부 발견 — 교차 참조(짝 패시브·짝 무기·시너지 재료) 가림까지
         D1 = ['w:feed', 'w:egg', 'w:breath', 'ev:breath', 'wt:breath', 'wt:feed', 'w:sing', 'w:eom', 'p:cd', 'p:mag', 'pt:mag', 'p:spd', 'rl:tenth', 'rl:sg_yj', 'tr:glassc', 'sm:ramen', 'sm:hp', 'co:feast', 'sy:dragon', 'w:fryer', 'sy:kitchen', 'w:sushi', 'w:quill', 'p:amt']
-        D1 = [k for k in D1 if k != 'p:amt']   # 곱빼기(사료 투척의 짝)는 일부러 못 만난 것으로 둔다
+        D1 = [k for k in D1 if k != 'p:pspd']   # 속사(사료 투척의 짝)는 일부러 못 만난 것으로 둔다
         ctx, pg, errs = await mk(b, srv.port, 390, 844, init=seed_init(D1))
         st = await stat(pg)
         tile_d = [k for k in D1 if k in set(keys['t'])]
         by = {}
         for k in tile_d: by[{'w': 'w', 'p': 'p', 'rl': 'r', 'tr': 'x', 'sm': 'x', 'co': 'x', 'sy': 's'}[k.split(':')[0]]] = by.get({'w': 'w', 'p': 'p', 'rl': 'r', 'tr': 'x', 'sm': 'x', 'co': 'x', 'sy': 's'}[k.split(':')[0]], 0) + 1
-        check('저장된 발견으로 시작: 진행 %d/135 · 배지 같은 숫자' % len(tile_d), st['n'] == len(tile_d) and await pg.evaluate("document.getElementById('cxN').textContent") == '%d/135' % len(tile_d), st)
+        check('저장된 발견으로 시작: 진행 %d/134 · 배지 같은 숫자' % len(tile_d), st['n'] == len(tile_d) and await pg.evaluate("document.getElementById('cxN').textContent") == '%d/134' % len(tile_d), st)
         await open_dex(pg)
         tabs1 = await tabs(pg)
-        exp_tabs = [('w', '%d/42' % by.get('w', 0)), ('p', '%d/17' % by.get('p', 0)), ('r', '%d/23' % by.get('r', 0)), ('x', '%d/16' % by.get('x', 0)), ('s', '%d/37' % by.get('s', 0))]
+        exp_tabs = [('w', '%d/42' % by.get('w', 0)), ('p', '%d/16' % by.get('p', 0)), ('r', '%d/23' % by.get('r', 0)), ('x', '%d/16' % by.get('x', 0)), ('s', '%d/37' % by.get('s', 0))]
         check('탭별 발견 N/M 이 정확하다 %s' % exp_tabs, [(t['t'], t['c']) for t in tabs1] == exp_tabs, tabs1)
-        check('진행 줄·막대 숫자가 칸 수와 같다', await pg.evaluate("(()=>{const p=document.querySelector('.cxprog b').textContent,b=document.querySelector('.cxbar');return p==='%d / 135'&&b.getAttribute('aria-valuenow')==='%d'&&b.getAttribute('aria-valuemax')==='135'})()" % (len(tile_d), len(tile_d))))
+        check('진행 줄·막대 숫자가 칸 수와 같다', await pg.evaluate("(()=>{const p=document.querySelector('.cxprog b').textContent,b=document.querySelector('.cxbar');return p==='%d / 134'&&b.getAttribute('aria-valuenow')==='%d'&&b.getAttribute('aria-valuemax')==='134'})()" % (len(tile_d), len(tile_d))))
         idx = {e['key']: e for e in ent}
         for t, cat in zip('wprxs', 'wprxs'):
             await pg.click('#cxTab_' + t)
@@ -358,11 +358,11 @@ async def main():
             for(let i=0;i<tiles.length;i++){const cur=[...document.querySelectorAll('#cxPanel .cxt')][i];cur.click();n++;const b=T();for(const s of forbid)if(b.includes(s))out.push([t,i,s]);
               if(out.length>5)return {out,n};cur.click();}}
           return {out,n};}""", forbid)
-        check('[누출 검사] 모든 칸(135개)을 하나씩 열어 봐도 못 만난 것의 이름·설명이 DOM·속성 어디에도 없다 — 가린 문구 %d개 × 칸 %d번' % (len(forbid), r['n']), not r['out'] and r['n'] == 135, r['out'][:6])
+        check('[누출 검사] 모든 칸(134개)을 하나씩 열어 봐도 못 만난 것의 이름·설명이 DOM·속성 어디에도 없다 — 가린 문구 %d개 × 칸 %d번' % (len(forbid), r['n']), not r['out'] and r['n'] == 134, r['out'][:6])
         doc_part = await pg.evaluate(DOC_TEXT)
         forbid_doc = [x for x in forbid if x not in doc_locked]
         check('[누출 검사] 문서 전체(겹창 밖 포함 모든 글자·속성)에도 못 만난 것의 문구가 새로 생기지 않는다 — 검사한 문구 %d개' % len(forbid_doc), not [x for x in forbid_doc if x in doc_part] and len(forbid_doc) > 30, [x for x in forbid_doc if x in doc_part][:5])
-        check('[누출 검사] 가린 문구에 교차 참조(짝 패시브 곱빼기·낚싯대·튀김기 오라 …)가 들어 있다(검사가 비어 있지 않다)', all(any(w in s for s in forbid) for w in ['곱빼기', '낚싯대', '병아리 대폭격']), [w for w in ['곱빼기', '낚싯대', '병아리 대폭격'] if not any(w in s for s in forbid)])
+        check('[누출 검사] 가린 문구에 교차 참조(짝 패시브 속사·낚싯대·튀김기 오라 …)가 들어 있다(검사가 비어 있지 않다)', all(any(w in s for s in forbid) for w in ['속사', '낚싯대', '병아리 대폭격']), [w for w in ['속사', '낚싯대', '병아리 대폭격'] if not any(w in s for s in forbid)])
         # 발견한 칸 상세 = 표 문구
         async def detail_of(t, key):
             await pg.click('#cxTab_' + t)
@@ -381,8 +381,8 @@ async def main():
         check('고유 무기 칸에 전용 캐릭터가 보인다(칸 이름표·🐲 표식)', tile_lbl == ['드래곤 브레스 — 용조련사 전용'] and await pg.evaluate("[...document.querySelectorAll('#cxPanel .cxt .cxwho')].map(e=>e.textContent).includes('🐲')"), tile_lbl)
         d = await detail_of('w', 'w:feed')
         e = idx['w:feed']
-        check('상세(사료 투척 · 마스터만 발견 · 짝 패시브 곱빼기·각성 형태 미발견): 레벨 8줄 + 마스터 3단계', all(s in d for s in e['lv'] + e['ms']['m']))
-        check('상세: 못 만난 각성 열쇠 패시브 이름은 안 보이고 ❓ 안내만', '곱빼기' not in d and '각성 열쇠 패시브 ❓' in d, d[:300])
+        check('상세(사료 투척 · 마스터만 발견 · 짝 패시브 속사·각성 형태 미발견): 레벨 8줄 + 마스터 3단계', all(s in d for s in e['lv'] + e['ms']['m']))
+        check('상세: 못 만난 각성 열쇠 패시브 이름은 안 보이고 ❓ 안내만', '속사' not in d and '각성 열쇠 패시브 ❓' in d, d[:300])
         check('상세: 각성 형태 미발견 — 「✨ 각성: ??? (아직 각성시켜 본 적 없어요)」 + 각성 조건 한 줄', '✨ 각성: ??? (아직 각성시켜 본 적 없어요)' in d and '각성 조건: 무기 Lv8' in d and e['ev']['nm'] not in d and e['ev']['ds'] not in d)
         check('상세: 각성 단계(4~5)는 각성을 해 봐야 열린다 · 안내만', all(s not in d for s in e['ms']['e']) and '각성시키면 4단계부터' in d)
         d = await detail_of('w', 'w:egg')
@@ -440,10 +440,10 @@ async def main():
         # 전부 발견
         ctx, pg, errs = await mk(b, srv.port, 360, 640, init=seed_init(keys['all']))
         st = await stat(pg)
-        check('전부 발견 상태: 135/135 · 배지', st['n'] == 135 and st['m'] == 135 and await pg.evaluate("document.getElementById('cxN').textContent") == '135/135', st)
+        check('전부 발견 상태: 134/134 · 배지', st['n'] == 134 and st['m'] == 134 and await pg.evaluate("document.getElementById('cxN').textContent") == '134/134', st)
         await open_dex(pg)
-        check('전부 발견: 탭 합계가 칸 수와 같다 · 100%', [t['c'] for t in await tabs(pg)] == ['42/42', '17/17', '23/23', '16/16', '37/37'] and '100%' in await pg.evaluate("document.querySelector('.cxprog').textContent"))
-        # 모든 상세가 열린다(오류 없이) · 문구가 표와 같다 — 칸 135개 전부
+        check('전부 발견: 탭 합계가 칸 수와 같다 · 100%', [t['c'] for t in await tabs(pg)] == ['42/42', '16/16', '23/23', '16/16', '37/37'] and '100%' in await pg.evaluate("document.querySelector('.cxprog').textContent"))
+        # 모든 상세가 열린다(오류 없이) · 문구가 표와 같다 — 칸 134개 전부
         r = await pg.evaluate("""async ()=>{const out=[];const E=__cx.cdxEntries();let n=0;
           for(const t of ['w','p','r','x','s']){document.getElementById('cxTab_'+t).click();const tiles=[...document.querySelectorAll('#cxPanel .cxt')];
             for(let i=0;i<tiles.length;i++){tiles[i].click();const d=document.getElementById('cxD');n++;if(!d||!d.textContent.trim()||d.querySelector('.cxlk')&&0)out.push([t,i,'빈 상세']);
@@ -451,7 +451,7 @@ async def main():
               const need=[e.nm];if(e.lv)need.push(...e.lv);if(e.ds)need.push(e.ds);if(e.ev)need.push(e.ev.nm,e.ev.ds);if(e.ms)need.push(...e.ms.m,...e.ms.e);if(e.pt)need.push(...e.pt.lv);if(e.who)need.push(e.who.nm);if(e.req)need.push(...e.req.map(w=>w.nm));if(e.pairs)need.push(...e.pairs.map(w=>w.nm));if(e.pair)need.push(e.pair.nm);
               for(const s of need)if(!txt.includes(s))out.push([e.key,s]);tiles[i].click();}}
           return {out:out.slice(0,6),n};}""")
-        check('전부 발견: 135칸 상세에 이름·설명·단계·각성·초월·짝·전용 캐릭터가 모두 있다', not r['out'] and r['n'] == 135, r['out'])
+        check('전부 발견: 134칸 상세에 이름·설명·단계·각성·초월·짝·전용 캐릭터가 모두 있다', not r['out'] and r['n'] == 134, r['out'])
         await shot(pg, '3_all_found_360x640.png')
         await ctx.close()
 
@@ -464,7 +464,7 @@ async def main():
         await pg.click('#cxX'); await pg.click('#startBtn'); await pg.wait_for_timeout(100)
         check('그리기가 고장 나도 판 시작·진행은 정상', await pg.evaluate("__p6x.state") == 'play' and (await stat(pg))['n'] >= 1)
         await ctx.close()
-        ctx, pg, errs = await mk(b, srv.port, 390, 844, init=seed_init(['w:feed', 'p:amt']))
+        ctx, pg, errs = await mk(b, srv.port, 390, 844, init=seed_init(['w:feed', 'p:pspd']))
         await pg.evaluate("()=>{__cx.WEAP.feed.ev=null;__cx.CDX.kk=null;__cx.CDX.cat=null;}")
         await open_dex(pg); await pg.locator('#cxPanel .cxt').nth(0).click()
         d = await pg.evaluate("document.getElementById('cxD').textContent")
@@ -484,7 +484,7 @@ async def main():
         j = json.loads(raw)
         check('저장 형식 {v:1,k:[…]} · 정렬됨 · 키 5개', j == {'v': 1, 'k': sorted(['w:egg', 'p:spd', 'co:feast', 'rl:tenth', 'w:feed'])}, raw)
         await pg.reload(); await pg.wait_for_function("window.__cdx!==undefined&&window.__cx!==undefined")
-        check('새로고침 뒤에도 그대로(진행 5/135)', (await stat(pg))['n'] == 5)
+        check('새로고침 뒤에도 그대로(진행 5/134)', (await stat(pg))['n'] == 5)
         await ctx.close()
         # 손상·조작
         junk_cases = {
@@ -501,7 +501,7 @@ async def main():
             await open_dex(pg)
             note = await pg.evaluate("[...document.querySelectorAll('#cxBody .cxnote')].map(e=>e.textContent)")
             ok_sz = (await pg.evaluate("document.getElementById('cxPanel').querySelectorAll('.cxt').length")) == 42
-            check('[%s] 진행 %d/135 · 읽을 수 없는 값 표시(%s) · 도감이 멀쩡히 열린다 · 오류 없음' % (nm, want_n, '알림' if want_bad else '없음'), st['n'] == want_n and st['m'] == 135 and bool(bad) == want_bad and ok_sz and (bool(note) == want_bad) and not errs, (st, bad, note, errs))
+            check('[%s] 진행 %d/134 · 읽을 수 없는 값 표시(%s) · 도감이 멀쩡히 열린다 · 오류 없음' % (nm, want_n, '알림' if want_bad else '없음'), st['n'] == want_n and st['m'] == 134 and bool(bad) == want_bad and ok_sz and (bool(note) == want_bad) and not errs, (st, bad, note, errs))
             if want_bad: check('[%s] 안내 문구가 도감 첫머리에 있다' % nm, bool(note) and '읽지 못해' in note[0], note)
             # 값이 손상된 채 새 발견을 저장하면 그때 새로 쓴다
             await pg.evaluate("__cx.cdxNote('w:egg')")
@@ -521,7 +521,7 @@ async def main():
           try{Object.defineProperty(window,'localStorage',{get:th,configurable:true});}catch(e){}
           try{Object.defineProperty(window,'sessionStorage',{get:th,configurable:true});}catch(e){}})();"""
         ctx, pg, errs = await mk(b, srv.port, init=block)
-        check('저장소 차단(읽기·쓰기 모두 예외): 페이지가 뜨고 배지 0/135', await pg.evaluate("document.getElementById('cxN').textContent") == '0/135' and await pg.evaluate("(()=>{try{localStorage.getItem('x');return false}catch(e){return true}})()"))
+        check('저장소 차단(읽기·쓰기 모두 예외): 페이지가 뜨고 배지 0/134', await pg.evaluate("document.getElementById('cxN').textContent") == '0/134' and await pg.evaluate("(()=>{try{localStorage.getItem('x');return false}catch(e){return true}})()"))
         await pg.evaluate("__p6x.start();__p6x.applyUp({t:'w',k:'pan',l:0});__p6x.applyUp({t:'p',k:'spd',l:0})")
         check('저장소 차단: 판을 시작하고 카드를 골라도 게임이 멈추지 않는다(이번 방문 동안은 메모리에 기록)', await pg.evaluate("__p6x.state") == 'play' and (await stat(pg))['n'] == 3)
         await pg.evaluate("__p6x.endRun(false,true)"); await pg.evaluate("document.getElementById('homeBtn').click()")
@@ -529,7 +529,7 @@ async def main():
         note = await pg.evaluate("[...document.querySelectorAll('#cxBody .cxnote')].map(e=>e.textContent)")
         first = await pg.evaluate("document.getElementById('cxBody').firstElementChild.className")
         check('저장소 차단: 도감 첫머리에 한 줄로 알린다(이번 방문 동안만)', len(note) == 1 and '저장하지 못해요' in note[0] and '이번 방문 동안만' in note[0] and first == 'cxnote', (note, first))
-        check('저장소 차단: 이번 방문 동안 발견한 3칸은 열려 있다', await pg.evaluate("document.querySelector('.cxprog b').textContent") == '3 / 135' and await pg.evaluate("document.querySelectorAll('#cxPanel .cxt:not(.lock)').length") == 2)
+        check('저장소 차단: 이번 방문 동안 발견한 3칸은 열려 있다', await pg.evaluate("document.querySelector('.cxprog b').textContent") == '3 / 134' and await pg.evaluate("document.querySelectorAll('#cxPanel .cxt:not(.lock)').length") == 2)
         check('저장소 차단: 오류 없음', not errs, errs)
         await shot(pg, '4_storage_blocked_390x844.png')
         await ctx.close()
@@ -556,7 +556,7 @@ async def main():
         sa = await A.evaluate("[...__cx.CDX.s].sort()"); sb = await Bp.evaluate("[...__cx.CDX.s].sort()")
         ls = json.loads(await A.evaluate("localStorage.getItem('p6_codex_v1')"))['k']
         check('두 탭이 따로 발견해도 저장소에 합집합이 남는다', ls == ['w:egg', 'w:feed'], ls)
-        check('다른 탭의 발견이 storage 이벤트로 이 탭에도 반영된다(배지까지)', sa == ['w:egg', 'w:feed'] and sb == ['w:egg', 'w:feed'] and await A.evaluate("document.getElementById('cxN').textContent") == '2/135', (sa, sb))
+        check('다른 탭의 발견이 storage 이벤트로 이 탭에도 반영된다(배지까지)', sa == ['w:egg', 'w:feed'] and sb == ['w:egg', 'w:feed'] and await A.evaluate("document.getElementById('cxN').textContent") == '2/134', (sa, sb))
         # 이벤트 없이 낡은 메모리로 쓰는 경쟁 — 쓰기 직전에 다시 읽어 합친다
         await A.evaluate("localStorage.setItem('p6_codex_v1',JSON.stringify({v:1,k:['w:egg','p:cd','tr:iron']}))")   # 같은 탭에서 쓰면 storage 이벤트가 안 온다 = 이 탭의 메모리가 낡은 상태
         await A.evaluate("__cx.cdxNote('co:dice')")
@@ -574,7 +574,7 @@ async def main():
         await A.click('#cxOpen'); await A.click('#cxTab_p'); await A.locator('#cxPanel .cxt').nth(0).click()
         await Bp.evaluate("__cx.cdxNote('p:hp')"); await A.wait_for_timeout(300)
         r = await A.evaluate("({tab:document.querySelector('.cxtab[aria-selected=true]').dataset.t,n:document.querySelector('.cxprog b').textContent,open:document.querySelectorAll('#cxD').length,ex:document.querySelector('#cxPanel .cxt[aria-expanded=true]')&&document.querySelector('#cxPanel .cxt[aria-expanded=true]').dataset.i,un:document.querySelectorAll('#cxPanel .cxt:not(.lock)').length})")
-        check('겹창이 열려 있는 동안 다른 탭이 발견해도 갱신되고 보던 탭·펼친 칸이 유지된다', r == {'tab': 'p', 'n': '2 / 135', 'open': 1, 'ex': '0', 'un': 2}, r)
+        check('겹창이 열려 있는 동안 다른 탭이 발견해도 갱신되고 보던 탭·펼친 칸이 유지된다', r == {'tab': 'p', 'n': '2 / 134', 'open': 1, 'ex': '0', 'un': 2}, r)
         await ctx.close()
 
         # ═════════════ ⑤ 서버 동기화(봇 모의) ═════════════
@@ -635,7 +635,7 @@ async def main():
         have = sorted(await pg.evaluate("[...__cx.CDX.s]")); ls = json.loads(await pg.evaluate("localStorage.getItem('p6_codex_v1')"))['k']
         check('/p6/me 의 codex 가 기기 발견과 합집합으로 합쳐진다', set(have) == {'w:sushi', 'tr:iron', 'w:feed', 'p:spd', 'rl:sg_yj', 'sy:kitchen', 'ev:egg', 'w:egg'}, have)
         check('합친 결과가 기기(localStorage)에도 저장된다(표에 없는 키도 보존)', set(ls) >= set(have) and 'zz:future' in ls and ls == sorted(ls), ls)
-        check('배지도 새 숫자로(칸만 센다: w:sushi tr:iron w:feed p:spd rl:sg_yj sy:kitchen w:egg = 7)', await pg.evaluate("document.getElementById('cxN').textContent") == '7/135')
+        check('배지도 새 숫자로(칸만 센다: w:sushi tr:iron w:feed p:spd rl:sg_yj sy:kitchen w:egg = 7)', await pg.evaluate("document.getElementById('cxN').textContent") == '7/134')
         await pg.reload(); await pg.wait_for_function("window.__cdx!==undefined"); await pg.wait_for_timeout(300)
         check('[me 합치기] 오류 없음', not errs, errs)
         await ctx.close()
@@ -653,8 +653,8 @@ async def main():
         ctx, pg, errs = await mk(b, srv.port, 390, 844, mock=slow_me, init=LOGIN)
         await open_dex(pg)
         t0 = (await pg.evaluate("document.querySelector('.cxprog b').textContent"))
-        await pg.wait_for_function("document.querySelector('.cxprog b').textContent==='3 / 135'", timeout=8000)
-        check('겹창을 연 채 서버 응답이 늦게 와도 숫자·칸이 바로 갱신된다(%s → 3 / 135)' % t0, await pg.evaluate("document.querySelectorAll('#cxPanel .cxt:not(.lock)').length") == 2)
+        await pg.wait_for_function("document.querySelector('.cxprog b').textContent==='3 / 134'", timeout=8000)
+        check('겹창을 연 채 서버 응답이 늦게 와도 숫자·칸이 바로 갱신된다(%s → 3 / 134)' % t0, await pg.evaluate("document.querySelectorAll('#cxPanel .cxt:not(.lock)').length") == 2)
         await ctx.close()
         # 구버전 봇 — 필드 없음 / 형식 틀림
         for nm, val in [('필드 없음', None), ('문자열', 'w:feed'), ('객체', {'a': 1}), ('숫자', 7), ('null', 'NULL'), ('배열 안 쓰레기', [1, None, {}, 'BAD', 'zz:x', 'w:Feed', ['w:feed']]), ('빈 배열', [])]:
@@ -832,7 +832,7 @@ async def main():
         await pg.evaluate("__p6x.start()"); await pg.wait_for_timeout(100)
         check('겹창을 연 채 판이 시작되면(첫 화면이 사라지면) 저절로 닫힌다 · 상태 play', not await opened(pg) and await pg.evaluate("__p6x.state") == 'play')
         await pg.evaluate("__p6x.applyUp({t:'w',k:'pan',l:0});__p6x.endRun(false,true)"); await pg.evaluate("document.getElementById('homeBtn').click()"); await pg.wait_for_timeout(100)
-        check('처음으로 돌아오면 배지가 새 숫자로 센다(판 중 발견 반영)', await pg.evaluate("document.getElementById('cxN').textContent") == '%d/135' % (await stat(pg))['n'] and (await stat(pg))['n'] > len([k for k in D1 if k in set(keys['t'])]))
+        check('처음으로 돌아오면 배지가 새 숫자로 센다(판 중 발견 반영)', await pg.evaluate("document.getElementById('cxN').textContent") == '%d/134' % (await stat(pg))['n'] and (await stat(pg))['n'] > len([k for k in D1 if k in set(keys['t'])]))
         await pg.click('#cxOpen'); check('돌아온 첫 화면에서 다시 열린다', await opened(pg))
         await pg.keyboard.press('Escape')
         # 겹창이 열려 있을 때 게임 단축키가 새지 않는다
