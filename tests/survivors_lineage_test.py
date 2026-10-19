@@ -25,7 +25,8 @@ def check(n, c, x=''):
     if not c: FAILS.append(n)
 def want(s): return ONLY is None or s in ONLY
 HOOK = r"""
-const T_=f=>{try{return f();}catch(e){return null;}};   // BASE(계열 이전 커밋) 사본에도 같은 훅을 꽂는다 — 없는 이름은 null
+const T_=f=>{try{return f();}catch(e){return null;}};
+T_(()=>{SPDIR.on=0;});   // 출현 방향(2026-10-18)은 이 시험의 대상이 아니다 — 옛 균등 출현으로 맞춰 BASE 와 지문을 견준다   // BASE(계열 이전 커밋) 사본에도 같은 훅을 꽂는다 — 없는 이름은 null
 window.__L={LINEAGE:T_(()=>LINEAGE),LIN:T_(()=>LIN),LINT:T_(()=>LINT),LINN:T_(()=>LINN),LINCFG:T_(()=>LINCFG),linCnt:T_(()=>linCnt),linTier:T_(()=>linTier),linHint:T_(()=>linHint),linHtml:T_(()=>linHtml),linFxText:T_(()=>linFxText),PS,DUR,critChance,critMul,takenMul,moveMul,areaMul,dmgMul,cdMul,RES,pauseGame,buildHtml,cdxEntries,cdxView,SYN,WEAP,PASS,CHARS,
  get S(){return S},get state(){return state},set state(v){state=v},get keys(){return keys},set keys(v){keys=v},shots,enemies,pv,xpMul,LK,
  setCH(k){CH=CHARS.find(c=>c.k===k)}};
@@ -177,7 +178,7 @@ async def main():
                 mk('survivors_lt_b.html', 'survivors_lt_base_src.html')
             chars = await pg.evaluate("()=>__L.CHARS.map(c=>({k:c.k,boss:!!c.boss,shop:!!c.shop}))")
             _bs = open(os.path.join(ROOT, 'survivors_lt_base_src.html'), encoding='utf-8').read() if os.path.exists(os.path.join(ROOT, 'survivors_lt_base_src.html')) else ''
-            chars = [c for c in chars if not _bs or ("k:'%s'" % c['k']) in _bs]   # BASE 이후에 생긴 캐릭터는 비교 대상이 아니다
+            chars = [c for c in chars if not _bs or ("k:'%s'" % c['k']) in _bs and c['k'] != 'yj']   # yj: 브레스 피해가 BASE 이후 바뀌었다(10/19)   # BASE 이후에 생긴 캐릭터는 비교 대상이 아니다
             same = 0; diffs = []
             for c in chars:
                 fps = []

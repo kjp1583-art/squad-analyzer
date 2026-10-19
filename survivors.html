@@ -2579,8 +2579,9 @@ const pickLine=a=>a&&a.length?a[Math.random()*a.length|0]:'';
 // 🧭 [2026-10-18 사장님 지시 「몬스터가 360도 전부 출몰해 도망갈 구멍이 없다 — 리젠 위치를 랜덤하게 분포」] 평소 스폰은 둘레 전체가 아니라
 //   「출현 방향」 두 곳(각 SPDIR.w 라디안 폭)에서만 나온다. 방향은 SPDIR.every 초마다 새로 뽑는다 → 항상 한쪽엔 빈 틈(도망갈 길)이 있고 그 틈이 자리를 바꾼다.
 //   stray 비율은 아무 데서나 나오는 낙오(완전히 안전한 쪽이 없게 하진 않는다). 몰이 이벤트(포위 등)는 이 규칙을 안 쓴다 — 일부러 둘러싸는 연출.
-const SPDIR={w:1.3,every:14,stray:.05,t:-1e9,c:[0,0],g:null};
+const SPDIR={on:1,w:1.3,every:14,stray:.05,t:-1e9,c:[0,0],g:null};   // on:0 이면 옛 동작(둘레 전체 균등) — 전/후 비교 시험이 쓴다
 function spawnAng(){
+  if(!SPDIR.on)return RN('spawn')*Math.PI*2;
   if(SPDIR.g!==S||S.t<SPDIR.t){SPDIR.g=S;SPDIR.t=-1e9;}
   if(S.t-SPDIR.t>=SPDIR.every*(.7+RN('sdir')*.6)){SPDIR.t=S.t;const a=RN('sdir')*6.283;SPDIR.c[0]=a;SPDIR.c[1]=a+1.6+RN('sdir')*2.6;}   // 두 방향 사이 간격 92°~240°
   if(RN('spawn')<SPDIR.stray)return RN('spawn')*6.283;
