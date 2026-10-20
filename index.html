@@ -981,6 +981,14 @@ window.SGG_DC_BOOT=(function(){
   .np-arch .g{flex:none;font-weight:900;color:var(--acc)}
   .np-cmt{margin-top:18px;border-top:4px double var(--rule);padding-top:12px}
   /* 🍗 [2026-09-28 사장님 지시] 브장신 키우기 코너 — 내전 지면과 떨어진 별지 */
+  .np-roster{margin-top:22px;border:1px solid var(--soft);padding:8px 12px}
+  .np-roster>summary{cursor:pointer;font-weight:900;font-size:15px;letter-spacing:1px;list-style:none}
+  .np-roster>summary::-webkit-details-marker{display:none}
+  .np-roster .sub{font-size:12px;color:var(--ink3);margin:6px 0 8px}
+  .np-roster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:3px 14px;font-size:13px;line-height:1.5}
+  .np-roster-grid>div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .np-roster-grid .rs{color:var(--ink3);font-size:12px}
+  .np-roster-grid .rt{color:var(--ink2);font-size:12px}
   .np-brj{margin-top:22px;border:1px dashed var(--soft);background:rgba(0,0,0,.025);padding:10px 12px 12px}
   .np-brj>h3{margin:0 0 4px;font-size:15px;font-weight:900;letter-spacing:1px}
   .np-brj .sub{font-size:12px;color:var(--ink3);margin-bottom:8px}
@@ -5658,6 +5666,15 @@ function _npMarketInner(){   // 브장신 코너 — 장터(BRJ_MARKET) 실제 �
 }
 const NP_BRJ_SECS=["레이드","브장신"];
 function _npIsBrjEv(e){ return !!(e&&NP_BRJ_SECS.includes(String(e.section||""))); }
+function _npRoster(W){   // 📋 [2026-10-21 P-27] 이번 주 출석부 — 협곡 참가자 전원 한 줄(봇이 숫자로만 만든 roster 칸 · 모델 미경유). 없거나 비면 칸을 숨긴다
+  const R=(W&&Array.isArray(W.roster))?W.roster:[];
+  const N=v=>{ const n=parseInt(v,10); return isNaN(n)||n<0?0:n; };
+  const rows=R.filter(x=>x&&x.n&&N(x.g)>0&&N(x.w)<=N(x.g)).slice(0,250);
+  if(!rows.length) return "";
+  const items=rows.map(x=>`<div>${_npName(String(x.n))} <span class="rs">${N(x.g)}판 ${N(x.w)}승</span>${x.t?` <span class="rt">· ${esc(String(x.t).slice(0,30))}</span>`:""}</div>`).join("");
+  return `<details class="np-roster"><summary>📋 이번 주 출석부 (${rows.length}명) <span style="font-weight:400;font-size:12px;color:var(--ink3)">— 누르면 펼쳐져요</span></summary>
+    <div class="sub">협곡 내전에 뛴 분 전원이에요 · 이름을 누르면 프로필로 가요</div><div class="np-roster-grid">${items}</div></details>`;
+}
 function _npBrjCorner(W){   // 🍗 [2026-09-28 사장님 지시 "브장신 뉴스는 따로 분리, 내전 내용에 연관시키지 말 것"] 지면 맨 아래 별지
   const items=[...(Array.isArray(W.brj)?W.brj:[]),...(W.events||[]).filter(_npIsBrjEv)].filter(e=>e&&(e.title||e.body)).slice(0,3);
   const st=(W&&W.stats)||{}, rd=st.raid, bt=st.brj;
@@ -5805,6 +5822,7 @@ function newsPageHtml(W,opt){
       ${people?`<div class="np-sec"><h3 class="np-serif">📋 인물 동정 <span class="cnt">${(W.students||[]).length}명 · 이름을 누르면 프로필로</span></h3><div class="np-people">${people}</div></div>`:""}
       ${todo?`<div class="np-sec"><h3 class="np-serif">📌 다음 주 예고 — 담임의 숙제</h3><div class="np-todo">${todo}</div></div>`:""}
       <div id="npPatch">${_npPatchInner(W)}</div></div>${side}</div>
+    ${_npRoster(W)}
     ${_npBrjCorner(W)}
     ${facts.length?`<details><summary>🔍 취재 근거 — 편집국이 참고한 사실 ${facts.length}줄</summary><ul>${facts.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></details>`:""}
     ${hist?`<details${opt.old?" open":""}><summary>🗂 지난 호 ${(W.history||[]).length}개</summary><div style="margin-top:6px">${hist}</div></details>`:""}
@@ -11737,7 +11755,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610190900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610211000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

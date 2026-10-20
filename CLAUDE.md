@@ -94,6 +94,7 @@
 - 봇 `bot.py` `_weekly_clean`(검수·필드 확정) · `_weekly_push`(호수 `issue`·`history`·`data/weekly_archive/{to}.json` 사본)
 - 프롬프트 `tooling/weekly_review_prompt.md`(첫 `---` 아래가 system · 사장님이 톤을 고치는 파일) — user 메시지는 `<week>…</week>` + `<facts>…</facts>` 만
 - 웹 `index.html` `newsPageHtml` / `newsTeaserHtml`(#news 라우트 · 홈 1면 미리보기)
+**`roster`(이번 주 출석부 · 2026-10-21 P-27)는 모델을 거치지 않는다** — 봇 `_wk_roster_rows` 가 협곡 내전 참가자 전원의 {n 이름·g 판·w 승·t 좋은 사실 한 줄}을 숫자로만 만들고(나쁜 기록은 규칙에 없다 · LINK 그룹은 한 사람으로) `_weekly_clean` 이 파일에 싣는다. 웹 `newsPageHtml` 이 지면 아래 접힌 「📋 출석부」(`_npRoster`)로 그린다(없으면 칸을 숨긴다). 프롬프트·모델은 이 칸을 보지 않는다.
 규칙: 모델이 낸 이름·사진(`photo.key`)은 **사실 목록에 있는 것만** 통과(봇이 걸러 낸다). 웹은 모든 문자열을 `esc/mdLite`, 종료일은 `_npTo` 로 검증한 뒤에만 링크·댓글 target(`뉴스:{종료일}`) 을 만든다.
 독자 댓글은 기존 댓글 시스템(디스코드 로그인 + Apps Script + COMMENTS 시트) 그대로 — 별도 채널·스레드로 나누지 않는다(사장님 지시 "웹으로 가야 해").
 **브장신은 별도 코너(`brj` 필드)에만** (2026-09-28 사장님 지시 "브장신키우기에 관련된 뉴스는 따로 분리시키고 굳이 내전내용에 연관시키지 말아줘, 브장신키우기를 플레이하는 클랜원은 극소수야").

@@ -2,6 +2,8 @@
 
 - ✅ **A-36 수정(스해분 세션, 10/21)**: `tier_dossier.py` 가 `sibguiwol.load()` 5값(마지막=DEPARTED)을 4값으로 받던 것을 5값으로 고치고, 억울지수 순위에서 탈퇴자(현재닉·별칭·LINK 그룹 — 십이귀월과 같은 사람 단위)를 뺐다. 시험 `tests/tier_dossier_load_test.py`(옛 코드에선 빨강). 웹 억울지수 화면은 시트 GRUDGE 탭을 읽는다(웹 직접 계산 아님) → 낡았던 쪽은 시트. 워크플로 한 번 돌려 GRUDGE 갱신 확인 예정.
 
+- ✅ **P-27 이번 주 출석부 구현(스해분 세션, 10/21 사장님 「p27해줘」)**: 봇 `_wk_roster_rows`(협곡 참가자 전원 {이름·판·승·좋은 사실 한 줄} · 모델 미경유 · LINK 합침 · 나쁜 기록 규칙에 없음) → `weekly_review.json` `roster` 칸 · 웹 `_npRoster` 접힌 칸(지면 아래, 브장신 코너 위). 시험: 봇 `tests/weekly_roster_test.py`(15) · 웹 `tests/web_roster_test.py`. **첫 실물은 10/26(월) 09시 제6호** — 그 호 파일에 roster 가 실렸는지 · 이름 수(참가자 ≈ 80~100) 확인 부탁.
+
 ## 2026-10-21 08:20 KST · epoch 1792536551 — 22회차
 - 신호: 봇 배포 일치 · 새 오류 0 · 분석기 83.59 22대 중 17대 · CLASSIC 7일 95판 · 중복·고착 0 · Actions 실패 2 → **QnA question poll** 1건(10/19 23:43Z · 이후 5회 연속 성공 — 일시) · **Grudge index** ← 아래
 - 🔴 **A-36 「Grudge index」 5주 연속 실패**(9/21~10/19, 마지막 성공 9/14) — 로컬 재현 성공: `tier_dossier.py:48` 가 `sibguiwol.load()` 의 5값 반환(departed 추가)을 4개로 받아 ValueError → GRUDGE 탭(억울지수 랭킹)이 5주 낡음 → 스해분 프로젝트 세션에 전달. **A-37**: 루프 Actions 점검이 24시간 창만 봐서 주 1회 워크플로를 5주간 놓침 — 이번 회차부터 워크플로별 최근 성공 시각도 본다(signals.py 보강은 A-35 와 함께 대기)
