@@ -23,7 +23,7 @@ from collections import defaultdict
 import openpyxl
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
-from sibguiwol import (TIER_MIN_GAMES, build_identity, compute, load, mean, norm,  # noqa: E402
+from sibguiwol import (TIER_MIN_GAMES, build_identity, compute, link_components, load, mean, norm,  # noqa: E402
                        read_tab, tnorm)
 
 TIER_ORDER = ["0", "1上", "1中", "1下", "2上", "2中", "2下", "3上", "3中", "3下"]
@@ -45,7 +45,8 @@ def _date(s):
 
 class Dossier:
     def __init__(self, path):
-        self.raw, self.tier_raw, self.alt, self.solo = load(path)
+        # load() 는 5값 — 마지막이 DEPARTED(탈퇴자) 집합이다. 4개만 받다가 2026-09-17 이후 매주 ValueError 로 억울지수 갱신이 멈췄다(A-36).
+        self.raw, self.tier_raw, self.alt, self.solo, self.departed = load(path)
         self.canon_of_row, self.aliases, _ = build_identity(self.raw, self.alt)
 
         seen, self.games = set(), defaultdict(list)
@@ -64,6 +65,15 @@ class Dossier:
 
         wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
         self.wb = wb
+
+    def is_departed(self, name):
+        """사람 단위 탈퇴 판정 — 현재닉·과거닉(별칭)·LINK 그룹 중 하나라도 DEPARTED 에 있으면 탈퇴(sibguiwol.compute 와 같은 집합)."""
+        if not self.departed: return False
+        if not hasattr(self, "_link_group"):
+            self._link_group = link_components([(m, s) for s, m in self.alt.items()])
+        grp = {tnorm(name)} | {tnorm(a) for a in self.aliases.get(name, ())}
+        for k in list(grp): grp |= set(self._link_group.get(k, ()))
+        return bool(grp & self.departed)
 
     def tier_of(self, name):
         t = self.tier_raw.get(tnorm(name))
@@ -163,6 +173,7 @@ class Dossier:
         out = []
         for k, lst in duels.items():
             if len(lst) < MIN_DUELS: continue
+            if self.is_departed(k): continue   # 👥 탈퇴자는 순위에서 뺀다(십이귀월과 같은 사람 단위 규칙)
             exp = sum(base(g) for g, _ in lst) / len(lst) * 100
             act = sum(w for _, w in lst) / len(lst) * 100
             out.append({"name": k, "tier": self.tier_of(k), "exp": exp, "act": act,
