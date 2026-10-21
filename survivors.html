@@ -2801,9 +2801,95 @@ function eventTick(){
   else{banner('🌀 협공 — 양쪽에서 동시에 몰려온다!','클랜원들: 앞도 뒤도 막혔어…');
     const a=RN('ev')*6.283,k=S.t>=1500?8:S.t>=720?7:2;for(let i=0;i<n;i++){const side=i&1?Math.PI:0;const e=spawnEnemy(i%5===0?KI.Caitlyn:k,hm,null,at(a+side+((i>>1)/(n/2)-.5)*1.1));if(e)e.sp*=1.1;}}
 }
+// 🔥 [S-4 위기 이벤트] [2026-10-21 사장님 지시 「흐접새우 컨텐츠 추가요소 — 1,2,4,5 진행」 · 컨셉 「예고를 보고 피한다」]
+//   5분마다(첫 위기 5:00) 큰 위협이 예고(화면 배너 + 오른쪽 위 미니맵 경고 + 바닥 표시)와 함께 온다. 예고 동안 게임은 멈추지 않는다 — 읽고, 움직이고, 피한다.
+//   ① 🐎 질주 떼 — 폭 150px 레인 하나를 따라 헤카림 기마대가 직선으로 질주(레인 밖이면 안전) ② 💣 폭탄 비 — 내 주변에 원형 예고 12~24개, 1.5초 뒤 폭발(원 밖이면 안전)
+//   ③ ⭕ 포위 링 — 군단이 둘레를 링으로 조여 오는데 한쪽(60°)에 구멍이 있다(바닥·미니맵에 초록으로 표시) — 「도망갈 구멍」
+//   그 위기가 끝날 때까지 피해를 한 번도 안 받으면 🎁 위기 보상(치킨 + 자석 + 경험치 약간). 못 피해도 불이익은 받은 피해뿐이다.
+//   몰이 이벤트(eventTick)와 독립 · 보스가 살아 있거나 1:1·진실의 방이면 최대 CRV.wait 초 기다렸다가 이번 차례를 건너뛴다 · 최종 보스 직전 1분도 건너뜀.
+//   상태는 S 에 두지 않는다(이어하기 서명 불변): 판이 바뀌거나 이어하기로 S 가 새 객체가 되면 다음 5분 칸부터 다시 센다(진행 중이던 위기는 버린다).
+//   일일 도전: 난수는 RN('crisis') 한 줄기만 쓴다 — 같은 시드면 같은 위기 순서(건너뛴 차례는 난수를 쓰지 않는다). 몹은 헤카림·일반 몹을 재사용(새 KIND 없음).
+//   풀 칸: 위기가 몹을 만들기 전에 먼 잡몹을 비워 자리를 만든다(보스 등장과 같은 방식 · 처치로 세지 않는다). 쓰러지며 만드는 코드는 없다.
+const CRV={first:300,every:300,wait:90,pre:2,sc:[1,1.2,1.4],   // sc: 일반 · 하드 · 베리하드 규모 배율
+  lane:{w:150,half:1500,run:900,spd:640,rows:4,gap:38,n0:10,nm:.5,nmax:36,hp:.8,dur:2.9,cover:34},   // cover: 몹이 레인 중심에서 흩어지는 폭(레인 반폭 − 몹 15 − 내 몸 16 − 흔들림 10) → 닿는 폭이 그린 레인과 같다
+  bomb:{R:64,t:1.5,spread:480,sep:96,n0:12,nm:.2,nmax:24,dm:2.2},
+  ring:{R:320,hole:Math.PI/3,sp:1.25,gap:54,gmin:40,gm:.3,dur:6,hp:1.1},
+  rew:{xp:.4}};
+const CRI={s:null,nx:0,ph:0,t:0,age:0,k:-1,pk:-1,h:0,h0:0,n:0,ok:0,skip:0,L:null,C:null,ha:0,seq:[]};   // ph 0 쉼 · 1 예고 · 2 발동 · h 받은 피해 횟수(hitP 가 센다) · seq 시작한 위기 종류 순서
+function crisisBlocked(){
+  if(duelBoss()||S.room)return true;
+  for(const e of enemies.a)if(e.on&&e.boss)return true;   // S.live 는 프레임 처음에 만든 것이라 이번 프레임에 나온 보스가 빠져 있다
+  return !S.endless&&S.nextBoss===3300&&S.nextBoss-S.t<60;}
+function crisisRoom(n){   // 자리가 모자라면 가장 먼 잡몹부터 비운다(보스·정예·대형은 그대로) — 처치로 세지 않는다
+  const P=S.p;let g=0;while(freeSlots()<n&&g++<n+30){let b=null,bd=-1;
+    for(const e of enemies.a){if(!e.on||e.boss||e.el||e.bg)continue;const d=(e.x-P.x)**2+(e.y-P.y)**2;if(d>bd){bd=d;b=e;}}
+    if(!b)break;b.on=false;}}
+function crisisStart(){
+  const P=S.p;let k=RN('crisis')*3|0;if(k===CRI.pk)k=(k+1+(RN('crisis')*2|0))%3;
+  CRI.pk=CRI.k=k;CRI.ph=1;CRI.t=CRV.pre;CRI.age=0;CRI.h0=CRI.h;CRI.n++;CRI.seq.push(k);
+  if(k===0){const a=RN('crisis')*6.283,off=(RN('crisis')-.5)*80;CRI.L={x:P.x-Math.sin(a)*off,y:P.y+Math.cos(a)*off,ax:Math.cos(a),ay:Math.sin(a)};
+    banner('⚠ 위기! 🐎 질주 떼가 온다','붉은 줄 안에 있으면 짓밟힌다 — 레인 밖으로!',1);}
+  else if(k===1){banner('⚠ 위기! 💣 폭탄 비가 온다','붉은 원 밖으로 — 계속 움직여!',1);}
+  else{CRI.ha=RN('crisis')*6.283;CRI.C={x:P.x,y:P.y};banner('⚠ 위기! ⭕ 포위 링이 조여 온다','초록 구멍으로 빠져나가!',1);}}
+function crisisFire(){
+  const P=S.p,m=MIN(),sc=CRV.sc[S.vh?2:S.hard?1:0],hm=hpMul(m);CRI.ph=2;CRI.age=0;
+  if(CRI.k===0){const V=CRV.lane,L=CRI.L,n=Math.min(V.nmax,Math.round((V.n0+V.nm*m)*sc));crisisRoom(n+4);
+    const pr=(P.x-L.x)*L.ax+(P.y-L.y)*L.ay,s0=pr-V.run;   // 레인을 따라 내 앞 V.run 에서 출발 — 내가 레인에서 멀리 걸어 나갔어도 컬링 거리(DESP_R) 안
+    for(let i=0;i<n;i++){const u=((i%V.rows)/(V.rows-1)-.5)*2*V.cover,s=s0-((i/V.rows)|0)*V.gap;
+      const e=spawnEnemy(KI.Hecarim,hm*V.hp,null,{x:L.x+L.ax*s-L.ay*u,y:L.y+L.ay*s+L.ax*u});
+      if(e){e.ph=2;e.ax=L.ax;e.ay=L.ay;e.fx=V.dur;e.pl=0;}}   // 헤카림의 「관통 돌진」 상태로 바로 출발
+    CRI.t=V.dur+.5;}
+  else if(CRI.k===1){const V=CRV.bomb,n=Math.min(V.nmax,Math.round((V.n0+V.nm*m)*sc)),d=KIND[0].d*atkMul(m)*mobX(m)*V.dm,at=[];
+    for(let i=0;i<n&&S.ebooms.length<40;i++){let x=0,y=0,ok=0;
+      for(let q=0;q<30&&!ok;q++){const a=RN('crisis')*6.283,r=Math.sqrt(RN('crisis'))*V.spread;x=P.x+Math.cos(a)*r;y=P.y+Math.sin(a)*r;ok=1;
+        for(const o of at)if((o.x-x)**2+(o.y-y)**2<V.sep*V.sep){ok=0;break;}}
+      if(!ok)continue;at.push({x,y});S.ebooms.push({x,y,R:V.R,t:V.t,T:V.t,d,m:'💣 폭탄 비!',g:'💣',cr:1});}
+    CRI.t=V.t+.4;}
+  else{const V=CRV.ring,C=CRI.C=CRI.C||{x:P.x,y:P.y};C.x=P.x;C.y=P.y;   // 링은 발동 순간의 내 자리를 중심으로 굳는다
+    const arc=6.283-V.hole,n0=Math.round(6.283*V.R/Math.max(V.gmin,V.gap-V.gm*m)*arc/6.283*sc);crisisRoom(n0+4);const n=Math.min(n0,Math.max(0,freeSlots()-4)),k=S.t>=720?7:0;
+    for(let i=0;i<n;i++){const a=CRI.ha+V.hole/2+(i+.5)/n*arc,e=spawnEnemy(k,hm*V.hp,null,{x:C.x+Math.cos(a)*V.R,y:C.y+Math.sin(a)*V.R});if(e)e.sp*=V.sp;}
+    CRI.t=V.dur;}}
+function crisisEnd(){
+  CRI.ph=0;if(CRI.h!==CRI.h0)return;   // 한 번이라도 맞았으면 보상 없음(불이익도 없다)
+  const P=S.p;CRI.ok++;dropItem('chicken',P.x+34,P.y);dropItem('magnet',P.x-34,P.y);gainXp(Math.max(3,Math.round(S.need*CRV.rew.xp)));
+  banner('🎁 위기 극복! 무피해 보상','치킨 · 자석 · 경험치를 드립니다',1);}
+function crisisTick(dt){
+  if(CRI.s!==S){CRI.s=S;CRI.ph=0;CRI.h=CRI.h0=0;CRI.L=CRI.C=null;CRI.pk=CRI.k=-1;CRI.n=CRI.ok=CRI.skip=0;CRI.seq=[];CRI.nx=Math.max(CRV.first,Math.ceil((S.t+.001)/CRV.every)*CRV.every);}   // 이어하기 · 새 판: 지금 시각 다음 5분 칸부터
+  if(CRI.ph&&duelBoss()){CRI.ph=0;return;}   // 1:1 이 시작되면 진행 중이던 위기는 버린다(몹·탄은 duelBegin 이 이미 치웠다)
+  if(!CRI.ph){if(S.t<CRI.nx)return;
+    if(crisisBlocked()){if(S.t>=CRI.nx+CRV.wait){CRI.skip++;CRI.nx+=CRV.every;}return;}
+    CRI.nx+=CRV.every;crisisStart();return;}
+  CRI.t-=dt;if(CRI.ph===2)CRI.age+=dt;
+  if(CRI.ph===1){if(CRI.k===2&&CRI.C){CRI.C.x=S.p.x;CRI.C.y=S.p.y;}if(CRI.t<=0)crisisFire();}
+  else if(CRI.t<=0)crisisEnd();}
+function crisisDraw(){   // 바닥 예고 — 질주 레인 · 링과 구멍(폭탄 원은 S.ebooms 가 HZ.disc 로 그린다)
+  if(CRI.s!==S||!CRI.ph)return;
+  if(CRI.k===0&&CRI.L&&(CRI.ph===1||CRI.age<.8)){const L=CRI.L,V=CRV.lane;HZ.band(L.x-L.ax*V.half,L.y-L.ay*V.half,L.ax,L.ay,V.half*2,V.w,CRI.ph===1?1-CRI.t/CRV.pre:1,false);}
+  else if(CRI.k===2&&CRI.ph===1&&CRI.C){const C=CRI.C,V=CRV.ring,ha=CRI.ha,pu=.5+.5*Math.sin(S.t*10);cx.save();cx.lineCap='butt';
+    cx.beginPath();cx.arc(C.x,C.y,V.R,ha+V.hole/2,ha+6.283-V.hole/2);cx.lineWidth=12;cx.strokeStyle='rgba(255,45,85,.5)';cx.stroke();
+    cx.setLineDash([14,10]);cx.lineWidth=3;cx.strokeStyle='rgba(255,236,160,.9)';cx.stroke();cx.setLineDash([]);
+    cx.beginPath();cx.arc(C.x,C.y,V.R,ha-V.hole/2,ha+V.hole/2);cx.lineWidth=12;cx.strokeStyle='rgba(120,255,160,'+(.45+.4*pu).toFixed(2)+')';cx.stroke();
+    cx.font='bold 18px sans-serif';cx.textAlign='center';cx.fillStyle='#bfffd0';cx.fillText('⬇ 도망갈 구멍',C.x+Math.cos(ha)*(V.R-34),C.y+Math.sin(ha)*(V.R-34));
+    const P=S.p,ux=Math.cos(ha),uy=Math.sin(ha),a0=64+(S.t*60)%24;   // 폰 화면엔 링의 구멍이 화면 밖일 수 있다 — 내 곁에서 구멍 쪽을 가리키는 초록 화살표
+    cx.lineJoin='round';cx.lineCap='round';cx.beginPath();cx.moveTo(P.x+ux*a0-uy*9-ux*10,P.y+uy*a0+ux*9-uy*10);cx.lineTo(P.x+ux*a0+ux*8,P.y+uy*a0+uy*8);cx.lineTo(P.x+ux*a0+uy*9-ux*10,P.y+uy*a0-ux*9-uy*10);
+    cx.strokeStyle='rgba(0,0,0,.55)';cx.lineWidth=8;cx.stroke();cx.strokeStyle='#7bffa0';cx.lineWidth=4;cx.stroke();cx.restore();}}
+function crisisMM(g,h,k,p){   // 미니맵 경고 — 레인(노란 띠) · 폭탄(원) · 링(구멍 방향 초록 화살표) + 왼쪽 위 「⚠ 위기 n초」
+  if(CRI.s!==S||!CRI.ph)return;
+  const X=x=>h+(x-p.x)*k,Y=y=>h+(y-p.y)*k,pu=.5+.5*Math.sin(S.t*9);g.save();g.beginPath();g.arc(h,h,h-3,0,6.283);g.clip();
+  if(CRI.k===0&&CRI.L){const L=CRI.L,V=CRV.lane;g.lineCap='butt';g.beginPath();g.moveTo(X(L.x-L.ax*V.half),Y(L.y-L.ay*V.half));g.lineTo(X(L.x+L.ax*V.half),Y(L.y+L.ay*V.half));
+    g.lineWidth=V.w*k;g.strokeStyle='rgba(255,214,74,'+(.28+.22*pu).toFixed(2)+')';g.stroke();g.lineWidth=1.5;g.strokeStyle='#ffe14a';g.stroke();
+    g.fillStyle='#ffe14a';const hx=X(L.x+L.ax*V.half*.4),hy=Y(L.y+L.ay*V.half*.4);g.beginPath();g.arc(hx,hy,3.5,0,6.283);g.fill();}   // 진행 방향 쪽 끝에 점
+  else if(CRI.k===1){if(CRI.ph===1){g.setLineDash([5,4]);g.lineWidth=2;g.strokeStyle='rgba(255,120,80,'+(.5+.4*pu).toFixed(2)+')';g.beginPath();g.arc(h,h,CRV.bomb.spread*k,0,6.283);g.stroke();g.setLineDash([]);}
+    for(const b of S.ebooms)if(b.cr){g.fillStyle='rgba(255,90,60,'+(.35+.3*(1-b.t/(b.T||1))).toFixed(2)+')';g.beginPath();g.arc(X(b.x),Y(b.y),Math.max(2,b.R*k),0,6.283);g.fill();}}
+  else if(CRI.k===2&&CRI.C){const C=CRI.C,V=CRV.ring,cx0=X(C.x),cy0=Y(C.y),R=V.R*k,ha=CRI.ha;g.lineWidth=3;
+    g.strokeStyle='rgba(255,70,90,.8)';g.beginPath();g.arc(cx0,cy0,R,ha+V.hole/2,ha+6.283-V.hole/2);g.stroke();
+    g.strokeStyle='rgba(120,255,160,'+(.6+.4*pu).toFixed(2)+')';g.lineWidth=4;g.beginPath();g.arc(cx0,cy0,R,ha-V.hole/2,ha+V.hole/2);g.stroke();
+    const ax=cx0+Math.cos(ha)*(R+2),ay=cy0+Math.sin(ha)*(R+2);g.fillStyle='#7bffa0';g.beginPath();g.moveTo(ax+Math.cos(ha)*6,ay+Math.sin(ha)*6);g.lineTo(ax-Math.cos(ha)*4+Math.sin(ha)*5,ay-Math.sin(ha)*4-Math.cos(ha)*5);g.lineTo(ax-Math.cos(ha)*4-Math.sin(ha)*5,ay-Math.sin(ha)*4+Math.cos(ha)*5);g.closePath();g.fill();}
+  g.restore();g.font='bold 13px sans-serif';g.textAlign='left';g.fillStyle='rgba(255,'+(120+(pu*110|0))+',80,1)';g.fillText('⚠ 위기'+(CRI.ph===1?' '+Math.ceil(CRI.t)+'초':''),12,20);}
 function waveTick(dt){
   if(duelBoss()){S.evT+=dt;S.bigT+=dt;if(S.nextMini<Infinity)S.nextMini+=dt;}   // ⚔ 1:1 — 일반 소환(평소 스폰·몰이·대형·미니 보스)은 멈추고 다음 시각도 같이 미룬다(끝난 뒤 한꺼번에 쏟아지지 않게)
   else waveSpawn(dt);
+  crisisTick(dt);   // 🔥 [S-4] 위기 이벤트
   if(S.t>=WIN_T&&!S.won){S.won=true;endRun(true);endAskShow();}   // ♾ 60분 클리어 기록을 올린 뒤 '무한 모드로 이어갈까요?' 를 묻는다(모든 모드 공통 · 오늘의 도전 제외)
   if(S.endless&&S.t>=END_T)endRun(true);   // ♾ 무한 모드 한계(180분) — 성능·메모리를 위해 여기서 마무리
 }
@@ -4004,7 +4090,7 @@ function hitP(d,msg){const p=S.p;if(p.inv>0)return false;
   if(blockOk&&S.shield){S.shield=0;S.lastBlock=S.t;invGrant('blk',.15);S.shake=Math.max(S.shake,.1);AU.play('hit');txt(p.x,p.y-26,S.rel.still?'🛡 막았다! ('+[40,30,20][S.rel.still-1]+'초 뒤 다시 생겨요)':'🛡 막았다!','#9fd0ff');return false;}   // 🎲 [2026-09-30 사장님 지시] 🛡 명상 방어막
   if(blockOk&&lidTake()){S.lastBlock=S.t;invGrant('blk',.15);S.shake=Math.max(S.shake,.1);txt(p.x,p.y-26,'🥏 막았다!','#9fd0ff');return false;}   // 🗡 [2026-09-30 사장님 지시] 🥏 냄비뚜껑이 한 대를 대신 받는다
   //   🎮 [2026-10-09] 고정 깎기·받는 피해 배율 식은 armTotal·takenMul 로(일시정지 능력치 표가 같은 함수를 읽는다 · 값은 그대로)
-  const arm=armTotal();d*=takenMul();const dm=Math.max(1,d-arm);p.hp-=dm;p.inv=0;invGrant('hit',.45+(PTV('arm')?.12:0)+(S.rel.sprint>=3?.2:0));if(S.rel.sg_ddmj)sgThorns(dm);if(S.rel.sg_amd)S.sgH=SGV.amd.t;S.shake=Math.max(S.shake,.12);AU.play('hurt');
+  const arm=armTotal();d*=takenMul();const dm=Math.max(1,d-arm);p.hp-=dm;CRI.h++;p.inv=0;invGrant('hit',.45+(PTV('arm')?.12:0)+(S.rel.sprint>=3?.2:0));if(S.rel.sg_ddmj)sgThorns(dm);if(S.rel.sg_amd)S.sgH=SGV.amd.t;S.shake=Math.max(S.shake,.12);AU.play('hurt');
   EX.hurtFx(dm);{const t=texts.get();if(t){t.x=p.x;t.y=p.y-14;t.s='-'+Math.round(dm);t.life=1;t.c=PAL.tHurt;t.k=3;t.num=1;}}   // 🎨 [2026-09-30 사장님 지시] 내가 받은 피해 = 빨간 큰 숫자 + 붉은 화면 가장자리 + 흔들림
   if(S.rel.sprint)S.spr=2;if(PTV('arm')>=2&&p.hp>0){for(const e of S.live)if(e.on&&!e.boss){const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy)||1;if(dd<130){e.kr=0;knock(e,dx/dd,dy/dd,260,.25);}}}
   if(msg){const t=texts.get();if(t){t.x=p.x;t.y=p.y-42;t.s=msg;t.life=.9;t.c='#ff9aa8';t.k=3;}}
@@ -4894,6 +4980,7 @@ function mmDraw(){const c=$('mm');if(!c||!S)return;const g=c.getContext('2d'),N=
   for(const it of items.a)if(it.on)dot(it.x,it.y,3,it.k==='chicken'?'#7be37b':it.k==='chest'?'#ffd24a':'#7bc4ff');
   for(const e of enemies.a){if(!e.on)continue;if(e.boss)continue;dot(e.x,e.y,e.bg?5:e.el?4:2.6,e.bg?'#ff7a3a':e.el?'#ffa94a':'#ff4d4d');}
   for(const e of enemies.a)if(e.on&&e.boss)dot(e.x,e.y,7,'#ffe14a');
+  crisisMM(g,h,k,p);   // 🔥 [S-4] 위기 경고
   g.fillStyle='#fff';g.beginPath();g.arc(h,h,4,0,6.283);g.fill();g.strokeStyle='#4dd2ff';g.lineWidth=2;g.stroke();}
 function draw(){
   const p=S?S.p:{x:0,y:0};
@@ -4935,6 +5022,7 @@ function draw(){
   // ─── 🔴 적의 위험(바닥층) — 어두운 밑선 + 진홍 점선 + 사선 빗금 + 안쪽이 차오르는 시간. 내 바닥 효과 위에 그려 항상 보이게 ───
   if(S.room)HZ.room(S.room.x,S.room.y,S.room.R,S.room.t,6,S.room.g,S.room.gw,S.room.pre);   // ☠ 보스의 진실의 방(가두는 벽)
   {const DB=duelBoss();if(DB)duelDrawWorld(DB);}   // ⚔ 최종 보스 1:1 — 경기장 벽 · 꼬리·돌진·새우깡·안전지대 예고
+  crisisDraw();   // 🔥 [S-4] 위기 예고(질주 레인 · 포위 링)
   for(const b of S.ebooms)HZ.disc(b.x,b.y,b.R,1-b.t/(b.T||.9),b.g);   // 💔 멘탈 폭발 · ⏰ 시한폭탄 · 💥 코그모 · 💢 보스 충격파
   HZ.clouds();   // ☁ 독가스
   for(const b of S.beams){const x2=b.x+b.ax*b.L,y2=b.y+b.ay*b.L;   // 🌈 레이저(예고 띠 → 번쩍)
