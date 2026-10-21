@@ -437,6 +437,8 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
 
 <div class="ov" id="lvup"><div class="box"><h2>⬆ 레벨 업! 하나 고르세요</h2><div class="muted" id="lvHint"></div><div class="muted" id="lvKey" hidden></div><div id="choices"></div><div id="lvOwn"></div></div></div>
 
+<div class="ov" id="stpick"><div class="box"><h2>🎒 출발 보너스 — 하나 고르세요</h2><div class="muted" id="stHint"></div><div id="stChoices"></div></div></div>   <!-- [S-5] 판 시작 3택 1 -->
+
 <div class="ov" id="pause"><div class="box"><h2>⏸ 일시정지</h2><div id="pTop"></div>
   <div class="snd psnd"><div class="ph"><span class="t">⚙ 소리·화면 설정</span><button class="btn g" id="muteBtn">🔇 소리 끄기</button></div>
     <label><span>🔊 효과음</span><input type="range" id="sfxV2" min="0" max="100" data-k="sfx" aria-label="효과음 크기"><b data-v="sfx"></b></label>
@@ -2045,7 +2047,7 @@ const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n-keyN();};
 const isKeyNew=k=>k!=='rev'&&!pv(k)&&keyN()<MAXEV&&keyList().includes(k);   // 지금 새로 얻으면 열쇠 칸으로 가는가
 const KEY_NOTE=`🗝 각성 열쇠 패시브는 패시브 ${SLOTP}칸 밖의 열쇠 칸(${MAXEV}칸)에 따로 들어가요 — 일반 칸이 꽉 차도 받을 수 있어요`;
 const lwOn=()=>{const w=S.x3&&S.x3.lw;return !!(w&&w.bT>0);};   // 📚 깨달음 버프가 켜져 있는가
-const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1)*(lwOn()?1-STUDYV.buffC:1);   // 📚 깨달음 버프 · 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
+const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1)*(lwOn()?1-STUDYV.buffC:1)*(1-svB('cd'));   // [S-5] 출발 보너스 · 📚 깨달음 버프 · 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
 const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1)*(lwOn()?1+STUDYV.buffD:1);   // 📚 깨달음 버프(공부 Lv3~) · 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*(pv('dur')+S.syn.dur);                  // ⏳ 지속시간
@@ -2055,10 +2057,10 @@ const PS=()=>1+.12*(pv('pspd')+S.syn.pspd)+.08*PTV('pspd');                  // 
 const critCh=()=>(CH.crit||0)+csCrit(),critLk=()=>.03*LK(),critPv=()=>.05*pv('crit'),critPt=()=>PTV('luck')?.05:0,critTr=()=>.06*trn('focus'),critSm=()=>smv('crit');   // 치명타 확률의 여섯 갈래: 캐릭터 · 행운 · 급소 · 🌟 행운 초월 · 정조준 · 눈 밝히기
 const critChance=()=>critCh()+critLk()+critPv()+critPt()+critTr()+critSm()+S.syn.crit;   // 치명타 확률(1 이상이면 늘 터진다)
 const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0)+S.syn.crm;   // 치명타가 터졌을 때의 피해 배율
-const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove()+S.syn.mv;   // 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
+const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove()+S.syn.mv+svB('mv');   // [S-5] 출발 보너스 · 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
 const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
-const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag');   // 경험치 줍는 범위 배율(기본 반경 70)
-const xpMul=()=>1+(CH.xp||0)+STUDYV.xp*pv('study')+S.syn.xp;   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
+const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag')+svB('mag');   // [S-5]   // 경험치 줍는 범위 배율(기본 반경 70)
+const xpMul=()=>1+(CH.xp||0)+STUDYV.xp*pv('study')+S.syn.xp+(S.t<STARTV_XT?svB('xp'):0);   // [S-5] 출발 보너스(처음 5분만)   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
 const armTotal=()=>pv('arm')+(CH.arm||0)+PASSV.turtle.arm*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
 const takenMul=()=>csTaken()*(1-S.syn.tk)*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1)*(S.x3.ram.hg>0?1-U3.ram.hg.red:1)*(S.x3.mau&&S.x3.mau.hg>0?1-U3.maul.hg.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다) · 🥊 태웅이 보스에 매달린 동안은 절반
 const VAMP_N=40,vampHp=()=>1.5*pv('vamp');   // 🥩 고기 반찬: 적 VAMP_N 마리를 처치할 때마다 HP 회복
@@ -2091,6 +2093,7 @@ const HARD_V={hp:3.6,bhp:2.1,atk:1.55,rate:1.3,chk:.08,ev:.72},HARD_EV=.85;const
 // ---------- 입력 ----------
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Escape'||e.code==='KeyP'){if(state==='play')pauseGame();else if(state==='pause')resume();}
   if(state==='lvup'&&/^Digit[123]$/.test(e.code)){const b=$('choices').children[+e.code[5]-1];b&&b.click();}
+  if(state==='stpick'&&/^Digit[123]$/.test(e.code)){const b=$('stChoices').children[+e.code[5]-1];b&&b.click();}   // [S-5]
   if(state==='lvup'&&e.code==='KeyR')reroll();if(state==='lvup'&&e.code==='KeyB'&&S.ban>0){S.banMode=!S.banMode;drawCards();}});
 addEventListener('keyup',e=>{keys[e.code]=false;});
 cv.addEventListener('pointerdown',e=>{if(state!=='play')return;joy.on=true;joy.id=e.pointerId;joy.ox=e.clientX;joy.oy=e.clientY;joy.dx=joy.dy=0;try{cv.setPointerCapture(e.pointerId);}catch(_){}});
@@ -2101,13 +2104,72 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)return;if(
 addEventListener('blur',()=>{if(state==='play')pauseGame();});
 
 // ---------- 화면 전환 ----------
-const ovs=['title','lvup','pause','result','chest','revive','evpick'];
+const ovs=['title','lvup','pause','result','chest','revive','evpick','stpick'];
 function show(id){for(const o of ovs)$(o).classList.toggle('on',o===id);$('hud').style.display=(id==='title'||id==='result')?'none':'block';}
 let LASTDLY=false;
 function renderDaily(){const el=$('dailyInfo');if(!el)return;const d=kstDate(),ds=dailyGet(),done=(ds.date===d&&ds.done)||(ME&&ME.daily_done&&ME.daily_date===d);
   const u=dcUser();
   el.innerHTML=`📅 ${esc(d.slice(5))} 오늘의 도전 — 날짜로 정해진 같은 시드(맵·카드 뽑기·상자·몰이 이벤트) · 빌드 제한 없음 · <b>하루 한 판</b>만 기록돼요`+(done?` · ✅ 오늘 기록 완료${ds.date===d&&ds.t?' '+fmt(ds.t):''}`:u?'':' · 로그인해야 기록돼요(안 하면 연습)');
   $('dailyBtn').textContent=done?'📅 오늘의 도전 연습하기(기록 안 됨)':'📅 오늘의 도전 시작';}
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// 🎒 [S-5 · 2026-10-21 사장님 「흐접새우 컨텐츠 추가요소」] 시작 선택(출발 보너스) — 판이 시작되면 3장 중 1장. 컨셉: 「출발부터 빌드가 갈린다」
+//   이 구획에 새 코드를 모았다. 기존 줄에 건 훅: start()(오버레이 열기) · moveMul/magMul/cdMul/xpMul(svB 한 항씩) · openChest(첫 상자 +1) · MHPN.st · ovs·키 1~3.
+//   · 정지 보상 없음(전부 움직이는 판에서 값을 하는 보너스). 새 S 키·최상위 let 없음 — 지속 효과는 S.x3.sv(숫자 몇 개)에 두어 이어하기가 그대로 복구한다.
+//   · 오늘의 도전은 RN('start') 로 3장(과 무작위 패시브·유물)이 같은 날 같다. 일반 판은 Math.random.
+//   · 자동 시험(navigator.webdriver)에서는 오버레이를 건너뛴다 — 옛 시험 69개가 start() 직후 state==='play' 를 믿는다. 켜려면 STARTCFG.force=1, 자동 선택은 STARTCFG.auto=칸 번호.
+//   · 사장님 메모의 「치킨 1개 즉시」는 0초에 HP가 가득이라 값이 없어 「다시 뽑기 +2 · 봉인 +1」로 바꿨고, 「첫 보스 상자 확정」은 보스가 늘 상자를 떨궈서 「첫 상자 카드 +1장」으로 바꿨다.
+const STARTV_XT=300;   // 「초반 경험치 ×1.3」은 처음 5분(S.t) 동안만
+const stPsPool=()=>Object.keys(PASS).filter(k=>k!=='rev'&&!pv(k)),stRelPool=()=>Object.keys(REL).filter(k=>!REL[k].ch&&!S.rel[k]);
+const STARTV={   // 후보 표 — ic · nm · w 기본 가중치 · ok 지금 뽑을 수 있나 · pool 무작위 인자 후보(뽑힌 카드만 굴린다) · ds 카드 설명
+  wlv:{ic:'⚔',nm:'시작 무기 강화',w:1,ok:()=>(S.w[CH.w]||0)<MAXLV,ds:()=>{const d=WEAP[CH.w],l=S.w[CH.w]||1;return `${d.ic} ${d.nm} <b>Lv${l} → ${l+1}</b>`;}},
+  ps:{ic:'🎒',nm:'패시브 하나',w:1,pool:stPsPool,ds:a=>`${PASS[a].ic} <b>${PASS[a].nm}</b> Lv1 — ${PASS[a].ds}`},
+  rel:{ic:'🏺',nm:'유물 하나',w:.9,pool:stRelPool,ds:a=>`${REL[a].ic} <b>${REL[a].nm}</b> Lv1 — ${REL[a].ds(1)}`},
+  mv:{ic:'👟',nm:'발걸음 가볍게',w:1,ds:()=>'이동속도 <b>+10%</b>'},
+  hp:{ic:'❤️',nm:'든든한 출발',w:1,ds:()=>`최대 HP <b>+20%</b> (+${Math.round(S.p.mhp*.2)})`},
+  xp:{ic:'📚',nm:'초반 속성 과외',w:.9,ds:()=>'처음 5분 경험치 <b>×1.3</b>'},
+  ch:{ic:'🎁',nm:'첫 상자 한 번 더',w:.8,ds:()=>'첫 보스 상자에서 카드 <b>+1장</b>'},
+  rr:{ic:'🎲',nm:'뽑기 여유',w:.8,ds:()=>'다시 뽑기 <b>+2</b> · 봉인 <b>+1</b>'},
+  mag:{ic:'🧲',nm:'자석 장갑',w:1,ds:()=>'획득 범위 <b>+30%</b>'},
+  cd:{ic:'⏱',nm:'손이 빨라진다',w:1,ds:()=>'쿨타임 <b>−8%</b>'},
+};
+const STARTW={   // 캐릭터 성향 가산 — 근접(HP·이속) · 원거리(쿨·범위). 표에 없으면 0
+  ddmj:{hp:.8,mv:.5},kyo:{hp:.8,mv:.5},tw:{hp:.8,mv:.5},sr:{hp:.5,mv:.5},ddo:{hp:.5,mv:.5},tjg:{hp:.8,mv:.5},hrb:{mv:.6},
+  ildj:{cd:.8,mag:.5},jjg:{cd:.8,mag:.5},bbb:{cd:.6,mag:.5},yj:{cd:.5,mag:.5},bgb:{cd:.5,mag:.5},mms:{cd:.6,mag:.4},amd:{cd:.5,mag:.5},brj:{cd:.4,mag:.4},
+};
+const STARTCFG={force:0,auto:-1};   // 시험용 — force 1: 자동 시험에서도 오버레이를 연다 · auto n: 오버레이 없이 n번째 칸을 자동 선택(charbal 시뮬은 0)
+const svB=k=>{const v=S&&S.x3&&S.x3.sv;return v&&v[k]||0;};
+const startWeight=id=>STARTV[id].w+((STARTW[CH.k]||{})[id]||0);
+function startDraw(){   // 서로 다른 3장 — 가중치 추첨(RN('start')) · 무작위 인자(패시브·유물)는 뽑힌 카드만 그 뒤에 굴린다
+  const P=[];for(const id in STARTV){const v=STARTV[id];if(v.ok&&!v.ok())continue;if(v.pool&&!v.pool().length)continue;P.push({id,w:startWeight(id)});}
+  const r=[];while(r.length<3&&P.length){let tot=0;for(const x of P)tot+=x.w;let v=RN('start')*tot,i=0;for(;i<P.length-1;i++){v-=P[i].w;if(v<=0)break;}
+    const id=P[i].id,c={id},pl=STARTV[id].pool;if(pl){const a=pl();c.a=a[Math.floor(RN('start')*a.length)];}r.push(c);P.splice(i,1);}
+  return r;}
+function startApply(c){const sv=S.x3.sv||(S.x3.sv={});
+  switch(c.id){
+    case 'wlv':S.w[CH.w]=(S.w[CH.w]||1)+1;synCalc();break;
+    case 'ps':S.ps[c.a]=1;if(c.a==='hp'){mhpAdd('hp',25);S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}break;
+    case 'rel':S.rel[c.a]=1;break;
+    case 'mv':sv.mv=.10;break;
+    case 'hp':{const v=Math.round(S.p.mhp*.2);mhpAdd('st',v);S.p.hp=Math.min(S.p.mhp,S.p.hp+v);break;}
+    case 'xp':sv.xp=.3;break;
+    case 'ch':sv.ch=1;break;
+    case 'rr':S.rr+=2;S.ban+=1;break;
+    case 'mag':sv.mag=.30;break;
+    case 'cd':sv.cd=.08;break;}
+  sv.id=c.id;}   // 어떤 카드를 골랐는가(기록용 · 이어하기가 그대로 복구)
+const startCardHtml=c=>{const v=STARTV[c.id];return `<span class="ic">${v.ic}</span><span><small class="ty">🎒 출발 보너스</small><b>${v.nm}</b><small>${v.ds(c.a)}</small></span>`;};
+let STCUR=[];
+function startPickDone(c){startApply(c);STCUR=[];state='play';show(null);$('hud').style.display='block';last=performance.now();toast(`🎒 출발 보너스 — ${STARTV[c.id].ic} ${STARTV[c.id].nm}`);}
+function startPickOpen(){   // 오버레이를 열었으면 true(start() 가 판을 멈춰 둔다) — 건너뛰면 false
+  if(typeof navigator!=='undefined'&&navigator.webdriver&&!STARTCFG.force&&STARTCFG.auto<0)return false;
+  STCUR=startDraw();if(!STCUR.length)return false;
+  if(STARTCFG.auto>=0){startApply(STCUR[Math.min(STARTCFG.auto,STCUR.length-1)]);STCUR=[];return false;}
+  state='stpick';keys={};joy.on=false;joy.dx=joy.dy=0;
+  const box=$('stChoices');box.innerHTML='';
+  STCUR.forEach(c=>{const b=document.createElement('button');b.className='ch';b.innerHTML=startCardHtml(c);b.onclick=()=>{if(state==='stpick')startPickDone(c);};box.appendChild(b);});
+  $('stHint').textContent='판이 시작되기 전에 한 번만 — 키보드 1·2·3도 돼요';
+  show('stpick');return true;}
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
 function start(o){if(!RES.confirmStart())return;endAskHide();refreshCoins(false);const daily=!!(o&&o.daily===true);
   if(CH.shop&&!SRVUNL.has(CH.k))CH=CHARS[0];   // 🍘 서버 구매 없이는 상점 캐릭터로 시작 못 한다
   AU.init();AU.reset();AU.music(true);if(hasArt(CH))charImg(CH);
@@ -2119,6 +2181,7 @@ function start(o){if(!RES.confirmStart())return;endAskHide();refreshCoins(false)
     dly={date,seed:seedOf('p6-daily-'+date),ranked,rq:{}};}
   LASTDLY=daily;newRun(dly);RES.begin();
   if(dly)banner(dly.ranked?`📅 오늘의 도전 ${dly.date.slice(5)} — 이 판이 기록돼요`:`📅 오늘의 도전 ${dly.date.slice(5)} — 연습 판(기록 안 됨)`,dly.ranked?'하루 한 판 · 같은 시드':'로그인 전이거나 오늘 이미 도전했어요',1);
+  if(startPickOpen())return;   // [S-5] 🎒 출발 보너스 3택 1 — 고르면 startPickDone 이 판을 시작한다
   state='play';show(null);$('hud').style.display='block';last=performance.now();}
 function endAskShow(){if(!S||S.dly||S.endless||!S.won)return;$('endAskTxt').textContent=(S.vh?'💀 베리하드 ':S.hard?'🔥 하드 ':'')+'60분 클리어! 무한 모드로 진입하시겠습니까?';$('endAsk').classList.add('on');}
 function endAskHide(){$('endAsk').classList.remove('on');}
@@ -2147,7 +2210,7 @@ function buildHtml(){
 // ❤️ [2026-10-09 사장님 지시 "체력슛자표기 해주고"] 최대 체력 숫자 — 최대 체력을 바꾸는 곳은 applyUp 의 네 군데뿐이고 전부 mhpAdd 로 모은다(S.mhpBy = 출처별 합).
 //   표시만 바꾼다(난수·규칙 불변). 새 경로가 생기면 mhpAdd 를 쓸 것 — 안 쓰면 일시정지 표에 「⚠ 기타」가 뜨고 tests/survivors_hpnum_test.py 가 잡는다.
 function mhpAdd(k,v){S.p.mhp+=v;S.mhpBy[k]=(S.mhpBy[k]||0)+v;}
-const MHPN={hp:'❤️ 최대 HP 패시브',pt:'🌟 초월',sm:'🍚 든든한 밥',glassc:'🗡 유리 대포',focus:'🎯 정조준',tr:'⚖ 거래 카드'};   // tr: 옛 저장분 복구 때 유리 대포·정조준을 가를 수 없을 때만 쓰는 합산 칸
+const MHPN={hp:'❤️ 최대 HP 패시브',pt:'🌟 초월',sm:'🍚 든든한 밥',glassc:'🗡 유리 대포',focus:'🎯 정조준',tr:'⚖ 거래 카드',st:'🎒 출발 보너스'};   // tr: 옛 저장분 복구 때 유리 대포·정조준을 가를 수 없을 때만 쓰는 합산 칸
 function smHpGain(n){return Math.round(SM.hp.base*Math.pow(SM.hp.dec,n+1)/SM.hp.dec);}   // 🍚 n번 먹은 뒤 다음 한 입이 올리는 최대 HP(applyUp 과 같은 식)
 function mhpCut(r){return Math.min(r==='glassc'?12:10,S.p.mhp-60);}   // 거래 카드가 깎는 최대 HP(60 아래로는 안 내려간다)
 function mhpPre(o){   // 이 카드를 고르면 최대 HP 가 얼마나 바뀌나(applyUp 과 같은 규칙) — 안 바뀌면 0
@@ -2430,12 +2493,13 @@ function openChest(pick){
   const res=[];const ek=pick||rd[0];
   if(ek){const d=WEAP[ek];evolve(ek);res.push(`<div class="cr ev">✨ <b>각성!</b> ${d.ic} ${d.nm} → ${d.ev.ic} <b>${d.ev.nm}</b><small>${d.ev.ds}</small></div>`);}
   const r=RN('chest'),lk=.05*LK()+(PTV('luck')>=2?.1:0),n=r<.15+lk?3:r<.5+lk?2:1;
-  for(let i=0;i<n;i++){const o=offers(1,null,true)[0];applyUp(o);const c=cardOf(o);res.push(`<div class="cr">${c.ic} <b>${c.nm}</b> ${c.lv}</div>`);}
+  const svc=S.x3.sv&&S.x3.sv.ch?1:0;if(svc)S.x3.sv.ch=0;   // [S-5] 출발 보너스 「첫 보스 상자 +1」 — 한 번만
+  for(let i=0;i<n+svc;i++){const o=offers(1,null,true)[0];applyUp(o);const c=cardOf(o);res.push(`<div class="cr">${c.ic} <b>${c.nm}</b> ${c.lv}</div>`);}
   const nx=evReady();
   S.rr++;res.push(`<div class="cr">🎲 <b>다시 뽑기 +1</b><small>레벨업 카드가 마음에 안 들면 다시 뽑아요 (지금 ${S.rr}번)</small></div>`);
   res.push(`<div class="muted">🎁 보스 상자는 내가 가진 능력(무기·패시브·유물·거래)만 키워 줘요 — 새 능력은 레벨업 카드에서 골라요.</div>`);
   $('chestList').innerHTML=res.join('')+(ek?'':`<div class="muted">${evLeft()<=0?`✨ 각성 ${MAXEV}개를 다 썼어요 — 이번 판 빌드 완성!`:nx.length?'':`각성: 무기 Lv8 + 그 무기의 🗝 각성 열쇠 패시브를 갖추고 보스 상자를 열면 무기가 각성해요 (한 판에 ${MAXEV}개까지 · 지금 ${Object.keys(S.ev).length}개).`}</div>`);
-  $('chestT').textContent=n===3?'🎁 보스 상자 — 대박! 3개':'🎁 보스 상자 — '+n+'개';
+  $('chestT').textContent=n===3?'🎁 보스 상자 — 대박! '+(3+svc)+'개':'🎁 보스 상자 — '+(n+svc)+'개';
   show('chest');RES.save('chest');
 }
 

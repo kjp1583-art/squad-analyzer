@@ -463,6 +463,7 @@ function init(cfg) {
   X.CH_set(k);
   XX.RES.quiet = true;                                              // 이어하기 저장 끔(측정에 쓸모없고 느리다)
   resetMetrics(); prevDir = -1; frame = 0; stall = 0;
+  if (CFG.startpick >= 0 && XX.STARTCFG) XX.STARTCFG.auto = CFG.startpick;   // 🎒 [S-5] 출발 보너스 — 오버레이 없이 그 칸을 고른다(결정론은 RN/Math.random 시드로)
   X.start();
   if (X.state !== 'play') throw new Error('시작이 안 됨: ' + X.state);
   const S = X.S;
