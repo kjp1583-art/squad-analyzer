@@ -6,7 +6,7 @@
 import asyncio, sys, os, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sv_harness as H
-H.HOOK += "\nwindow.__sp={pauseGame,STARTV,STARTW,STARTCFG,startDraw,startApply,startPickOpen,svB,get STCUR(){return STCUR},RES,moveMul,magMul,cdMul,xpMul,PASS,REL,MAXLV,hpText,mhpSrc};\n"
+H.HOOK += "\nwindow.__sp={pauseGame,STARTV,STARTW,STARTCFG,startDraw,startApply,startPickOpen,svB,get STCUR(){return STPK.cur},RES,moveMul,magMul,cdMul,xpMul,PASS,REL,MAXLV,hpText,mhpSrc};\n"
 from playwright.async_api import async_playwright
 FAILS = []; N = [0]
 def check(name, cond, extra=''):

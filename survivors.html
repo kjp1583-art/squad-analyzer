@@ -2196,15 +2196,15 @@ function startApply(c){const sv=S.x3.sv||(S.x3.sv={});
     case 'cd':sv.cd=.08;break;}
   sv.id=c.id;}   // 어떤 카드를 골랐는가(기록용 · 이어하기가 그대로 복구)
 const startCardHtml=c=>{const v=STARTV[c.id];return `<span class="ic">${v.ic}</span><span><small class="ty">🎒 출발 보너스</small><b>${v.nm}</b><small>${v.ds(c.a)}</small></span>`;};
-let STCUR=[];
-function startPickDone(c){startApply(c);STCUR=[];state='play';show(null);$('hud').style.display='block';last=performance.now();toast(`🎒 출발 보너스 — ${STARTV[c.id].ic} ${STARTV[c.id].nm}`);}
+const STPK={cur:[]};   // [S-5] 출발 보너스 후보(최상위 let 을 새로 만들지 않는다 — 코덱스 시험의 기준)
+function startPickDone(c){startApply(c);STPK.cur=[];state='play';show(null);$('hud').style.display='block';last=performance.now();toast(`🎒 출발 보너스 — ${STARTV[c.id].ic} ${STARTV[c.id].nm}`);}
 function startPickOpen(){   // 오버레이를 열었으면 true(start() 가 판을 멈춰 둔다) — 건너뛰면 false
   if(typeof navigator!=='undefined'&&navigator.webdriver&&!STARTCFG.force&&STARTCFG.auto<0)return false;
-  STCUR=startDraw();if(!STCUR.length)return false;
-  if(STARTCFG.auto>=0){startApply(STCUR[Math.min(STARTCFG.auto,STCUR.length-1)]);STCUR=[];return false;}
+  STPK.cur=startDraw();if(!STPK.cur.length)return false;
+  if(STARTCFG.auto>=0){startApply(STPK.cur[Math.min(STARTCFG.auto,STPK.cur.length-1)]);STPK.cur=[];return false;}
   state='stpick';keys={};joy.on=false;joy.dx=joy.dy=0;
   const box=$('stChoices');box.innerHTML='';
-  STCUR.forEach(c=>{const b=document.createElement('button');b.className='ch';b.innerHTML=startCardHtml(c);b.onclick=()=>{if(state==='stpick')startPickDone(c);};box.appendChild(b);});
+  STPK.cur.forEach(c=>{const b=document.createElement('button');b.className='ch';b.innerHTML=startCardHtml(c);b.onclick=()=>{if(state==='stpick')startPickDone(c);};box.appendChild(b);});
   $('stHint').textContent='판이 시작되기 전에 한 번만 — 키보드 1·2·3도 돼요';
   show('stpick');return true;}
 // ═══════════════════════════════════════════════════════════════════════════════════════════════

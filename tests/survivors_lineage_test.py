@@ -178,7 +178,7 @@ async def main():
                 mk('survivors_lt_b.html', 'survivors_lt_base_src.html')
             chars = await pg.evaluate("()=>__L.CHARS.map(c=>({k:c.k,boss:!!c.boss,shop:!!c.shop}))")
             _bs = open(os.path.join(ROOT, 'survivors_lt_base_src.html'), encoding='utf-8').read() if os.path.exists(os.path.join(ROOT, 'survivors_lt_base_src.html')) else ''
-            chars = [c for c in chars if not _bs or ("k:'%s'" % c['k']) in _bs and c['k'] not in ('yj', 'bbb', 'bgb')]   # yj: 브레스 피해가 BASE 이후 바뀌었다(10/19) · bbb·bgb: 고유 무기를 개편했다(10/19 리듬 콤보 · 몰이꾼)   # BASE 이후에 생긴 캐릭터는 비교 대상이 아니다
+            chars = [c for c in chars if not _bs or ("k:'%s'" % c['k']) in _bs and c['k'] not in ('yj', 'bbb', 'bgb', 'yumi')]   # yj: 브레스 피해가 BASE 이후 바뀌었다(10/19) · yumi: 맛동산 피해·부스러기 개편(10/19~20) · bbb·bgb: 고유 무기를 개편했다(10/19 리듬 콤보 · 몰이꾼)   # BASE 이후에 생긴 캐릭터는 비교 대상이 아니다
             same = 0; diffs = []
             for c in chars:
                 fps = []
@@ -250,7 +250,7 @@ async def main():
               'critChance 가 syn.crit 를 안 읽음': ("+critSm()+S.syn.crit;", "+critSm();"),
               'critMul 이 syn.crm 을 안 읽음': ("+.15*(PTV('luck')?1:0)+S.syn.crm;", "+.15*(PTV('luck')?1:0);"),
               'takenMul 이 syn.tk 를 안 읽음': ("csTaken()*(1-S.syn.tk)*", "csTaken()*"),
-              'moveMul 이 syn.mv 를 안 읽음': ("+csMove()+S.syn.mv;", "+csMove();"),
+              'moveMul 이 syn.mv 를 안 읽음': ("+csMove()+S.syn.mv+svB('mv');", "+csMove()+svB('mv');"),
               '무기 발사가 syn.amt 를 안 읽음': ("AM=S.syn.amt;let L;", "AM=0;let L;"),
               '단계표 합산을 빼먹음': ("if(t){const fx=LINT[k][t-1];for(const q in fx)f[q]+=fx[q];}", ""),
             }
