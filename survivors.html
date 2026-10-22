@@ -1114,7 +1114,7 @@ Pool.prototype.clear=function(){for(const o of this.a)o.on=false;};
 const LOW=(navigator.hardwareConcurrency||4)<=4||Math.min(screen.width,screen.height)<420;
 const MAXE=220;   // 적 수 상한은 그대로 — 후반엔 숫자 대신 체력·공격력이 오른다 · 🖥 [2026-10-16] 기기와 무관한 단일 값(순위 싸움이 기기 사양으로 갈리지 않게) — LOW 는 그리는 비용만 줄인다
 const enemies=new Pool(MAXE,()=>({x:0,y:0,hp:0,mhp:0,r:10,sp:0,dmg:0,t:0,hit:0,boss:0,xp:1,kb:0,kx:0,ky:0,st:0,slow:0,gold:0,hb:-9,wv:0,zp:0,el:0,fx:0,ft:0,pl:0,at:null,
-  bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0,tn:0,kr:0,bph:0,gen:0,wf:-9,cn:-9,far:0,fz:0,fv:0,fw:0,hk:0,mt:0,mc:0,lw:-9,sw:-9,fk:0,fa:0,fux:0,fuy:0,ff:0,du:null}));   // du ⚔ 최종 보스 1:1 상태(보스 칸만 · 그 밖은 null)   // fz·fv 🧊 얼음 · fw 얼음 파동 번호 · hk 🎣 줄 번호 · mt 운석·저격 지정 번호 · lw 🥏 뚜껑 마지막 접촉 · sw 🍣 초밥 마지막 적중   // wf 📶 전파 · cn 🥫 캔 마지막 적중 시각   // kr 넉백 저항(연달아 밀릴수록 덜 밀린다) · bph 보스 페이즈 · gen 분열 세대(자크)   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호 · tn 등장 대사 대기(기한)
+  bg:0,ph:0,ax:0,ay:0,sv:0,sh:0,eg:0,fl:0,sn:0,tn:0,kr:0,bph:0,gen:0,wf:-9,cn:-9,far:0,fz:0,fv:0,fw:0,hk:0,nt:-9,mt:0,mc:0,lw:-9,sw:-9,fk:0,fa:0,fux:0,fuy:0,ff:0,du:null}));   // du ⚔ 최종 보스 1:1 상태(보스 칸만 · 그 밖은 null)   // fz·fv 🧊 얼음 · fw 얼음 파동 번호 · hk 🎣 줄 번호 · mt 운석·저격 지정 번호 · lw 🥏 뚜껑 마지막 접촉 · sw 🍣 초밥 마지막 적중   // wf 📶 전파 · cn 🥫 캔 마지막 적중 시각   // kr 넉백 저항(연달아 밀릴수록 덜 밀린다) · bph 보스 페이즈 · gen 분열 세대(자크)   // bg 👹 대형 · ph 기술 단계 · ax/ay 조준 방향 · sv 은신 · sh 방패 · eg 알(애니비아) · fl 번쩍임 · sn 출생 번호 · tn 등장 대사 대기(기한)
 let SN=0;   // 적 출생 번호 — 풀 칸은 재사용되므로 '같은 적인가'는 on 이 아니라 sn 으로 본다(갈고리·레이저·브레스의 주인)
 const srcOk=b=>!!(b.src&&b.src.on&&b.src.sn===b.sn);
 const shots=new Pool(220,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,pierce:0,r:6,c:'#e8c46a'}));
@@ -1199,6 +1199,11 @@ const WEAP={
     ds:['적이 제일 많이 몰린 곳에 블랙홀 — 주변 적을 빨아들이며 지속 피해, 끝나면 폭발(보스는 안 끌려온다)','흡입 범위 +20%','피해 +40%','지속 +0.5초','쿨타임 -15% · 피해 +40%','흡입 범위 +20%','블랙홀 +1(동시에 둘)','피해 +50% · 폭발 범위 +20%']},
   bell:{nw:1,rl:'유틸 · 버프',ic:'🎵',nm:'리듬 게임',pair:'spd',ev:{ic:'🪩',nm:'클럽 사운드',ds:'매 박자 큰 파동 · 4번째는 더 크게 — 강화가 훨씬 세고(피해 +12% · 이동 +10%) 거의 항상 켜져 있다'},
     ds:['박자마다 내 주위에 파동 — 4번째 박자는 큰 파동과 함께 잠깐 내 피해·이동속도가 오른다(피해 +5% · 이동 +6%)','파동 범위 +15%','피해 +40%','강화 시간 +0.6초 · 강화 효과 +3%p','박자 -10%(더 빠르게)','피해 +40%','파동 범위 +20%','피해 +50% · 강화 효과 +2%p']},
+  // 🌂 [2026-10-22 사장님 승인 「신규 무기 6종」 W-2 · W-6] 기획안: tooling/improve/ideas/SV-weapons-passives-2026-10-22.md — 수치는 W4.umb · W4.net 한 곳
+  umb:{nw:1,rl:'후방 · 군중 제어',ic:'🌂',nm:'투명 우산',pair:'turtle',ev:{ic:'🌈',nm:'무지개 우산',ds:'뒤쪽으로 두 번 연달아 활짝 펴지고 쐐기도 훨씬 넓다 — 범위 1.2배 · 피해 1.25배'},
+    ds:['달리는 방향의 반대편(뒤쪽)으로 우산이 휙 펴져 쐐기 안의 적을 때리고 밀쳐 낸다 — 도망치며 뒤따라오는 무리를 쓸어낸다(가만히 서 있으면 펴지지 않는다)','범위 +15%','피해 +40%','쿨타임 -15%','피해 +40%','범위 +15%','쐐기 폭 +25%','피해 +50% · 쿨타임 -15%']},
+  net:{nw:1,rl:'군중 제어 · 몰이',ic:'🕸',nm:'부메랑 그물',pair:'dur',ev:{ic:'🪢',nm:'대어망',ds:'그물이 앞뒤로 두 장 — 크기 1.3배 · 피해 1.3배 · 더 오래 느려진다'},
+    ds:['그물을 던졌다가 되돌아온다 — 닿은 적을 느리게 만든다(피해는 약하다 · 보스도 느려진다)','크기 +15%','피해 +40%','쿨타임 -15%','피해 +40% · 느려지는 시간 +0.5초','크기 +15%','쿨타임 -15%','피해 +50% · 그물 +1(부채꼴)']},
   // 🎒 [2026-10-07 사장님 지시 "각 캐릭터별로 스타트무기가 공용무기가 아닌, 용조련사처럼 각 캐릭터별 고유무기로"] 고유 시작 무기 13종 — only: 그 캐릭터만 얻는다(레벨업 카드에도 안 나옴).
   //   코드는 weapons3(아래 U3 표가 수치) · 단계표 TIERS · 각성 짝은 캐릭터 성격에 맞는 패시브. 내 공격은 하늘·푸른 흰색·민트 계열(빨강은 적 위험 전용)로 그린다.
   quill:{only:'brj',rl:'고유 · 산탄',ic:'🪶',nm:'엄 깃털 산탄',pair:'cd',ev:{ic:'🪽',nm:'깃털 폭풍',ds:'앞으로 깃털을 쏟아내고 몸 둘레로도 깃털 고리가 퍼진다 — 깃털 +2 · 피해 1.15배 · 더 자주'},
@@ -1256,6 +1261,17 @@ const pct=x=>Math.round(x*100);
 const STUDYV={xp:.08,R:[96,132],d0:10,dLv:1.4,cap:50,boss:.5,kb:40,buffT:3,buffD:.08,buffC:.05,w2dt:.35,heal:.02,xcP:.08,xcCd:30,maxW:3};
 STUDYV.st=['레벨업 때 내 주변에 「지혜의 파동」이 터져 적에게 피해를 주고 살짝 밀쳐요',`파동이 더 넓어지고, 파동 피해가 내 레벨에 비례해 세져요 (보스에게는 ${pct(STUDYV.boss)}%)`,`레벨업 후 ${STUDYV.buffT}초 동안 모든 피해 +${pct(STUDYV.buffD)}% · 공격속도 +${pct(STUDYV.buffC)}% (「깨달음」 — 겹치지 않고 갱신만)`,`레벨업 때 파동이 한 번 더 터지고 HP ${pct(STUDYV.heal)}%를 회복해요`,`레벨업할 때 ${pct(STUDYV.xcP)}% 확률로 카드를 한 장 더 골라요 (${STUDYV.xcCd}초에 한 번)`];
 const MAGV={K:.3,spd:420,tpT:2.5,chk:.7};   // chk: 치킨은 HP가 이 비율 이하일 때만 끌려온다(가득 찬 채 낭비되지 않게 · 필요할 때 챙겨 주는 쪽으로)
+// 🪙🧿🔗 [2026-10-22 사장님 승인 「패시브 P-2 동전 지갑 · P-4 부적 · P-5 연쇄」] 수치는 여기 한 곳 — 카드 문구(PASS.ds)·식(xpMul·hitP·dmgMul)이 같은 값을 읽는다. 기획안: tooling/improve/ideas/SV-weapons-passives-2026-10-22.md
+//   정적 표(WEAP·PASS …)가 아니라 이어하기 서명(SIG)에 안 들어간다. 상태는 S.x3.cg(부적 마지막으로 쓴 때) · S.x3.cc(연쇄 개수·마지막 처치·버프 끝) — 숫자 필드뿐.
+//   🪙 동전 지갑: 경험치 구슬 +xp/Lv · 대신 최대 HP -hp/Lv(고른 순간 그때 최대 HP 의 비율로 깎고, 60 아래로는 안 내려간다). 양날의 검 — 초월 칸 없음.
+//   🧿 부적: 치명적인 한 방(맞으면 HP 0 이하)을 cd[Lv-1] 초에 한 번 통째로 막는다(맞은 뒤 inv 초 무적) — 👼 부활과 별개로 먼저 쓰이고, 부활보다 약하다(HP 회복 없음).
+//   🔗 연쇄: gap 초 안에 이어서 need[Lv-1] 마리를 쓰러뜨리면 dur 초 동안 모든 피해 +dmg[Lv-1] — 버프 중에 다시 채우면 시간이 갱신된다. 움직이며 싸울수록 이어진다(서 있는 보상 아님).
+const WALV={xp:.10,hp:.03,minHp:60},CHARMV={cd:[180,150,120],inv:1},COMBOV={need:[10,9,8],gap:2,dur:5,dmg:[.15,.18,.21]};
+const charmS=()=>S.x3.cg||(S.x3.cg={lu:-1e9}),comboS=()=>S.x3.cc||(S.x3.cc={n:0,lk:-9,u:-1});
+const charmReady=()=>pv('charm')>0&&S.t-charmS().lu>=CHARMV.cd[pv('charm')-1];
+const comboOn=()=>pv('combo')>0&&S.t<comboS().u;
+function comboKill(){const c=comboS(),L=pv('combo');if(S.t-c.lk>COMBOV.gap)c.n=0;c.lk=S.t;
+  if(++c.n>=COMBOV.need[L-1]){c.n=0;if(S.t>=c.u)txt(S.p.x,S.p.y-34,'🔗 연쇄! 피해 +'+pct(COMBOV.dmg[L-1])+'%','#ffe08a');c.u=S.t+COMBOV.dur;}}
 const PASS={
   spd:{ic:'👟',nm:'이동속도',ds:'이동속도 +8%'},
   hp:{ic:'❤️',nm:'최대 HP',ds:'최대 HP +25 (그만큼 회복)'},
@@ -1274,6 +1290,9 @@ const PASS={
   glass:{ic:'🩸',nm:'광분',ds:`모든 피해 +${pct(PASSV.glass.dmg)}% · 대신 받는 피해 +${pct(PASSV.glass.tk)}% (양날의 검)`,max:3},
   turtle:{ic:'🐢',nm:'거북 등껍질',ds:`받는 피해 -${PASSV.turtle.arm} · 대신 이동속도 -${pct(PASSV.turtle.mv)}% (양날의 검)`,max:3},
   vamp:{ic:'🥩',nm:'고기 반찬',ds:'적 40마리 처치마다 HP +1.5 회복',max:4},
+  wal:{ic:'🪙',nm:'동전 지갑',ds:`경험치 구슬 +${pct(WALV.xp)}% · 대신 최대 HP -${pct(WALV.hp)}% (양날의 검 · 고를 때마다)`,max:3},
+  charm:{ic:'🧿',nm:'부적',ds:`치명적인 한 방을 ${CHARMV.cd.join('→')}초(Lv1→3)에 한 번 막아 줘요 — 👼 부활과 별개 · HP는 안 차요`,max:3},
+  combo:{ic:'🔗',nm:'연쇄',ds:`${COMBOV.gap}초 안에 이어서 ${COMBOV.need.join('→')}마리(Lv1→3)를 쓰러뜨리면 ${COMBOV.dur}초 동안 모든 피해 +${COMBOV.dmg.map(pct).join('→')}% — 계속 움직이며 싸울수록 이어져요`,max:3},
 };
 // ───────────────────────────────────────────────────────────────────────────────────────────────
 // 🧩 [2026-10-10 사장님 지시 「속사같은 패시브스킬에 스킬구분을 명확하게 해서 어떤스킬이 강화되고안되고 헷갈릴 여지를 제거해줘」] 패시브 × 무기 정답표
@@ -1293,6 +1312,8 @@ const PFX={
   breath:{cd:'yy',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
   ping:{cd:'yy',spd:'nn',dur:'yy',area:'yy',luck:'nn'},
   wifi:{cd:'yy',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
+  umb:{cd:'yy',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
+  net:{cd:'yy',spd:'yy',dur:'yy',area:'yy',luck:'nn'},
   can:{cd:'yy',spd:'yy',dur:'yy',area:'yy',luck:'nn'},
   gacha:{cd:'yy',spd:'nn',dur:'nn',area:'pp',luck:'yy'},
   pan:{cd:'yy',spd:'nn',dur:'nn',area:'yy',luck:'nn'},
@@ -1359,7 +1380,7 @@ const fxSym=s=>`<span class="fxy ${s}">${FXSYM[s]}</span>`;   // ✔ ◐ ✖ —
 // 카드·표에서 쓰는 무기 짧은 이름(1~4글자) — WEAP 40개와 1:1. 정적 표(WEAP …)가 아니라서 이어하기 서명(SIG)에 안 들어간다.
 const PFXSN={feed:'사료',fryer:'튀김기',sushi:'초밥',egg:'달걀',shrimp:'새우깡',kbd:'난타',spk:'스피커',potion:'물약',breath:'브레스',ping:'핑',wifi:'와이파이',can:'캔',gacha:'가챠',
   pan:'팬',rkt:'폭죽',chick:'병아리',rod:'낚싯대',frost:'얼음땡',lid:'뚜껑',meteor:'운석',snipe:'저격',hole:'블랙홀',bell:'리듬',quill:'깃털',tempo:'치명속도',fuse:'폭탄',
-  slime:'슬라임',cart:'카트',heart:'하트',jhin:'4발',whop:'와퍼',bash:'방패',twin:'쌍둥이',stamp:'도장',chain:'사슬',ram:'박치기',snack:'맛동산',eom:'엄외침',pcards:'포토카드',sing:'노래',panty:'팬티',maul:'찢기'};
+  slime:'슬라임',cart:'카트',heart:'하트',jhin:'4발',whop:'와퍼',bash:'방패',twin:'쌍둥이',stamp:'도장',chain:'사슬',ram:'박치기',snack:'맛동산',eom:'엄외침',pcards:'포토카드',sing:'노래',panty:'팬티',maul:'찢기',umb:'우산',net:'그물'};
 const fxEv=(w,ev)=>ev===undefined?!!(typeof S!=='undefined'&&S&&S.ev&&S.ev[w]):!!ev;   // ev 를 안 주면 지금 내 폼(S.ev)을 따른다
 function fxState(w,ch,ev){const r=PFX[w],s=r&&r[ch];return s?s.charAt(fxEv(w,ev)?1:0):'?';}   // 'y'|'p'|'n' · 표에 없으면 '?'(화면에서 숨긴다)
 function fxNote(w,ch,ev){const n=PFXN[w+'.'+ch];if(!n)return '';return typeof n==='string'?n:(n[fxEv(w,ev)?1:0]||'');}
@@ -1472,6 +1493,7 @@ const LINEAGE={
   pan:['mel'],rkt:['bar','aoe'],chick:['one','mel'],rod:['mel','one'],frost:['aoe'],lid:['mel'],meteor:['one','zone'],snipe:['one'],hole:['zone','aoe'],bell:['aoe'],
   quill:['bar'],tempo:['bar','one'],fuse:['zone','aoe'],slime:['bar','zone'],cart:['zone'],heart:['one','bar'],jhin:['one','bar'],whop:['bar','aoe'],bash:['mel'],twin:['mel','zone'],stamp:['one'],chain:['one','mel'],ram:['mel'],
   snack:['bar'],eom:['aoe','mel'],pcards:['bar','mel'],sing:['bar'],panty:['zone','bar'],maul:['mel','one'],
+  umb:['mel'],net:['bar','zone'],
 };
 const LIN={   // 계열 이름·그림·한 줄 설명(아이콘은 위험색(빨강)을 피한다)
   bar:{ic:'🔫',nm:'탄막',ln:'투사체를 많이 쏘는 무기'},
@@ -1554,6 +1576,8 @@ const TIERS={
   chick:[['병아리 +1',{n:1}],['피해 +12%',{d:.12}],['병아리 이동속도 +10%',{s:.1}],['쫄 때 가끔 깃털 폭발(작은 광역)',{pop:1}],['붙은 적이 느려진다',{slow:1}]],
   rod:[['낚는 수 +1',{n:1}],['줄 길이 +8%',{a:.08}],['쿨타임 -7%',{c:.07}],['끌려온 적이 0.4초 더 멈춘다',{stun:1}],['끌어올린 자리에 폭발(피해 ×1.5)',{boom:1}]],
   frost:[['범위 +7%',{a:.07}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['얼음 +0.3초',{life:.3}],['얼어붙은 적이 받는 피해 +10%p 더',{tk:1}]],
+  umb:[['범위 +7%',{a:.07}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['맞은 적이 잠깐 멈춘다',{stun:1}],['0.3초 뒤 한 번 더 펴진다 (각성은 이미 두 번 펴져서 한 번 더)',{echo:1}]],
+  net:[['크기 +8%',{a:.08}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['느려지는 시간 +0.6초',{life:.6}],['돌아오는 길에 맞은 적은 피해 ×1.6',{ret:1}]],
   lid:[['뚜껑 +1',{n:1}],['돌아오는 시간 -8%',{c:.08}],['피해 +12%',{d:.12}],['막을 때 주변 적을 밀쳐 낸다',{stun:1}],['막을 때 HP +1(2초에 한 번)',{pop:1}]],
   meteor:[['폭발 범위 +7%',{a:.07}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['떨어진 자리에 0.6초 뒤 여진(피해 50%)',{echo:1}],['운석 +1',{n:1}]],
   snipe:[['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['관통 +1',{pc:1}],['보스·엘리트에게 피해 +25% 더',{big:1}],['맞힌 자리가 작게 터진다',{boom:1}]],
@@ -2041,6 +2065,11 @@ function ptyBody(p){const bob=p.moving?Math.sin(S.t*16)*1.6:0,w=p.moving?Math.si
 function ptyGauge(p){const L=S.w.panty||0;if(!L)return;const n=ptyNeed(L),v=Math.min(n,(S.x3.cs&&S.x3.cs.bg)||0),full=v>=n,w=7,x0=p.x-(n-1)*w/2,y=p.y+p.r+13;   // 몸 아래 점 N개 — 보따리가 찬 만큼 채운다(가득이면 흰색 + 둘레 고리)
   for(let i=0;i<n;i++){cx.beginPath();cx.arc(x0+i*w,y,2.6,0,7);if(i<v){cx.fillStyle=full?'#fff':'#bfeaff';cx.fill();}else{cx.lineWidth=1;cx.strokeStyle='rgba(191,234,255,.6)';cx.stroke();}}
   if(full){cx.beginPath();cx.arc(p.x,p.y-4,p.r+10+Math.sin(S.t*8)*2,0,7);cx.lineWidth=1.8;cx.strokeStyle='rgba(235,225,255,.8)';cx.stroke();}}
+function passGauge(p){   // 🧿 부적이 준비된 동안 몸 둘레 푸른 고리(다시 차는 중엔 안 그린다) · 🔗 연쇄 버프 중엔 위쪽에 남은 시간 막대 · 쌓인 수 점 — 표시 전용
+  if(charmReady()){cx.beginPath();cx.arc(p.x,p.y-4,p.r+7+Math.sin(S.t*5)*1.2,0,7);cx.lineWidth=1.8;cx.strokeStyle='rgba(150,240,255,.75)';cx.stroke();}
+  if(pv('combo')){const c=comboS(),on=S.t<c.u,L=pv('combo'),need=COMBOV.need[L-1],y=p.y-p.r-14;
+    if(on){const k=Math.max(0,Math.min(1,(c.u-S.t)/COMBOV.dur));cx.fillStyle='rgba(0,0,0,.4)';cx.fillRect(p.x-14,y,28,4);cx.fillStyle='#ffe08a';cx.fillRect(p.x-14,y,28*k,4);}
+    else if(c.n>0&&S.t-c.lk<=COMBOV.gap){for(let i=0;i<need;i++){cx.beginPath();cx.arc(p.x-(need-1)*3+i*6,y+2,2,0,7);if(i<c.n){cx.fillStyle='#ffe08a';cx.fill();}else{cx.lineWidth=.8;cx.strokeStyle='rgba(255,224,138,.5)';cx.stroke();}}}}}
 function drawMap(){
   cx.textAlign='center';cx.textBaseline='middle';cx.font='22px sans-serif';
   for(const o of props.a){if(!o.on)continue;const P=PROP[o.k];
@@ -2066,7 +2095,7 @@ function makeS(dly){return {t:0,kills:0,lv:1,xp:0,need:4,pendingLv:0,
 function newRun(dly){
   RSEED=dly?dly.seed:0;RIFT_CACHE.clear();RDEV.clear();   // 🗺 일일 도전은 같은 날 같은 맵 — 바닥 조각 난수에 시드를 섞고 캐시를 비운다
   enemies.clear();shots.clear();gems.clear();items.clear();props.clear();toastT=0;$('toast').classList.remove('on');texts.clear();hazards.clear();eshots.clear();
-  rangs.clear();rkts.clear();pets.clear();hooks.clear();frs.clear();holes.clear();snps.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();allies.clear();cans.clear();FX.reset();EX.reset();for(const a of allies.a)a.tg=null;bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
+  rangs.clear();rkts.clear();pets.clear();hooks.clear();nets.clear();frs.clear();holes.clear();snps.clear();bolts.clear();waves.clear();puds.clear();clouds.clear();allies.clear();cans.clear();FX.reset();EX.reset();for(const a of allies.a)a.tg=null;bannerT=0;bannerQ.length=0;for(const b of bubs.a){b.on=false;b.e=null;}
   S=makeS(dly);cdxSee('w:'+CH.w);   // 🔥 하드 · 🎲 새 무기 상태 · dmgBy 무기별 피해(빌드 찾기용) · 🎲 다시 뽑기/🚫 봉인 · 📖 시작 무기도 도감에 실린다
   synCalc();   // 🐲 보스 캐릭터: newU 이번 판에 해금 · 스탭 · 감속 오라 · 진실의 방 · 씩씩 돌진 쿨 · 🔥 브레스 그림
 }
@@ -2084,7 +2113,7 @@ const isKeyNew=k=>k!=='rev'&&!pv(k)&&keyN()<MAXEV&&keyList().includes(k);   // �
 const KEY_NOTE=`🗝 각성 열쇠 패시브는 패시브 ${SLOTP}칸 밖의 열쇠 칸(${MAXEV}칸)에 따로 들어가요 — 일반 칸이 꽉 차도 받을 수 있어요`;
 const lwOn=()=>{const w=S.x3&&S.x3.lw;return !!(w&&w.bT>0);};   // 📚 깨달음 버프가 켜져 있는가
 const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1)*(lwOn()?1-STUDYV.buffC:1)*(1-svB('cd'));   // [S-5] 출발 보너스 · 📚 깨달음 버프 · 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
-const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1)*(lwOn()?1+STUDYV.buffD:1);   // 📚 깨달음 버프(공부 Lv3~) · 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
+const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1)*(lwOn()?1+STUDYV.buffD:1)*(comboOn()?1+COMBOV.dmg[pv('combo')-1]:1);   // 📚 깨달음 버프(공부 Lv3~) · 🔗 연쇄 버프 · 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*(pv('dur')+S.syn.dur);                  // ⏳ 지속시간
 const PS=()=>1+.12*(pv('pspd')+S.syn.pspd)+.08*PTV('pspd');                  // 🏹 투사체 속도
@@ -2096,7 +2125,7 @@ const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0)+
 const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove()+S.syn.mv+svB('mv');   // [S-5] 출발 보너스 · 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
 const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
 const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag')+svB('mag');   // [S-5]   // 경험치 줍는 범위 배율(기본 반경 70)
-const xpMul=()=>1+(CH.xp||0)+STUDYV.xp*pv('study')+S.syn.xp+(S.t<STARTV_XT?svB('xp'):0);   // [S-5] 출발 보너스(처음 5분만)   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
+const xpMul=()=>1+(CH.xp||0)+STUDYV.xp*pv('study')+WALV.xp*pv('wal')+S.syn.xp+(S.t<STARTV_XT?svB('xp'):0);   // [S-5] 출발 보너스(처음 5분만)   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
 const armTotal=()=>pv('arm')+(CH.arm||0)+PASSV.turtle.arm*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
 const takenMul=()=>csTaken()*(1-S.syn.tk)*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1)*(S.x3.ram.hg>0?1-U3.ram.hg.red:1)*(S.x3.mau&&S.x3.mau.hg>0?1-U3.maul.hg.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다) · 🥊 태웅이 보스에 매달린 동안은 절반
 const VAMP_N=40,vampHp=()=>1.5*pv('vamp');   // 🥩 고기 반찬: 적 VAMP_N 마리를 처치할 때마다 HP 회복
@@ -2247,11 +2276,13 @@ function buildHtml(){
 // ❤️ [2026-10-09 사장님 지시 "체력슛자표기 해주고"] 최대 체력 숫자 — 최대 체력을 바꾸는 곳은 applyUp 의 네 군데뿐이고 전부 mhpAdd 로 모은다(S.mhpBy = 출처별 합).
 //   표시만 바꾼다(난수·규칙 불변). 새 경로가 생기면 mhpAdd 를 쓸 것 — 안 쓰면 일시정지 표에 「⚠ 기타」가 뜨고 tests/survivors_hpnum_test.py 가 잡는다.
 function mhpAdd(k,v){S.p.mhp+=v;S.mhpBy[k]=(S.mhpBy[k]||0)+v;}
-const MHPN={hp:'❤️ 최대 HP 패시브',pt:'🌟 초월',sm:'🍚 든든한 밥',glassc:'🗡 유리 대포',focus:'🎯 정조준',tr:'⚖ 거래 카드',st:'🎒 출발 보너스'};   // tr: 옛 저장분 복구 때 유리 대포·정조준을 가를 수 없을 때만 쓰는 합산 칸
+const MHPN={hp:'❤️ 최대 HP 패시브',wal:'🪙 동전 지갑',pt:'🌟 초월',sm:'🍚 든든한 밥',glassc:'🗡 유리 대포',focus:'🎯 정조준',tr:'⚖ 거래 카드',st:'🎒 출발 보너스'};   // tr: 옛 저장분 복구 때 유리 대포·정조준을 가를 수 없을 때만 쓰는 합산 칸
 function smHpGain(n){return Math.round(SM.hp.base*Math.pow(SM.hp.dec,n+1)/SM.hp.dec);}   // 🍚 n번 먹은 뒤 다음 한 입이 올리는 최대 HP(applyUp 과 같은 식)
+const walCut=()=>Math.max(0,Math.min(Math.round(S.p.mhp*WALV.hp),S.p.mhp-WALV.minHp));   // 🪙 동전 지갑이 한 번 깎는 최대 HP
 function mhpCut(r){return Math.min(r==='glassc'?12:10,S.p.mhp-60);}   // 거래 카드가 깎는 최대 HP(60 아래로는 안 내려간다)
 function mhpPre(o){   // 이 카드를 고르면 최대 HP 가 얼마나 바뀌나(applyUp 과 같은 규칙) — 안 바뀌면 0
   if(o.t==='p'&&o.k==='hp')return 25;
+  if(o.t==='p'&&o.k==='wal')return -walCut();
   if(o.t==='pt'&&o.p==='hp'&&!S.pt.hp)return 25;
   if(o.t==='tr'&&(o.r==='glassc'||o.r==='focus'))return -Math.max(0,mhpCut(o.r));
   if(o.t==='sm'&&o.r==='hp')return smHpGain(smn('hp'));
@@ -2314,6 +2345,7 @@ function statRows(){   // 능력치 표의 행 — 순서·줄 수는 늘 같다
     {k:'amt',nm:'🔗 개수 추가 (시너지)',v:am,t:'+'+am},
     {k:'luck',nm:'🍀 행운',v:lk,t:lk+'단계'},
     {k:'vamp',nm:'🥩 처치 회복',v:va,t:va?`${VAMP_N}마리마다 +${vampHp()} HP`:'—'},
+    ...(pv('charm')?[{k:'charm',nm:'🧿 부적',v:charmReady()?1:0,t:charmReady()?'준비됨':`다시 차는 중 — ${Math.max(1,Math.ceil(CHARMV.cd[pv('charm')-1]-(S.t-charmS().lu)))}초`}]:[]),
   ];}
 function statsHtml(sc){   // sc 'p' 일시정지(기본 펼침) · 'l' 레벨업(기본 접힘) — 같은 표
   const op=UI3[sc==='l'?'lOpen':'pOpen'];
@@ -2483,7 +2515,8 @@ function openLvup(){
 }
 function applyUp(o){cdxPick(o);   // 📖 인게임에서 골라 본 카드는 도감에 실린다(레벨업 카드·보스 상자 모두 이 함수를 지난다 · 치킨은 제외)
   if(o.t==='w'){S.w[o.k]=(S.w[o.k]||0)+1;synCalc();}
-  else if(o.t==='p'){S.ps[o.k]=pv(o.k)+1;if(o.k==='hp'){mhpAdd('hp',25);S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
+  else if(o.t==='p'){S.ps[o.k]=pv(o.k)+1;if(o.k==='hp'){mhpAdd('hp',25);S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}
+    else if(o.k==='wal'){const c=walCut();if(c>0){mhpAdd('wal',-c);S.p.hp=Math.min(S.p.hp,S.p.mhp);}}}   // 🪙 동전 지갑 — 경험치 구슬을 더 받는 대신 최대 HP 가 깎인다
   else if(o.t==='wt'){S.tier[o.w]=(S.tier[o.w]||0)+1;tkCalc();const d=WEAP[o.w];txt(S.p.x,S.p.y-34,`${S.ev[o.w]?'✨':'🏅'} ${d.nm} ${S.tier[o.w]}`,'#ffd36a');}
   else if(o.t==='pt'){S.pt[o.p]=(S.pt[o.p]||0)+1;if(o.p==='hp'&&S.pt.hp===1){mhpAdd('pt',25);S.p.hp=Math.min(S.p.mhp,S.p.hp+25);}}
   else if(o.t==='rl')S.rel[o.r]=(S.rel[o.r]||0)+1;
@@ -2745,7 +2778,7 @@ function spawnEnemy(kind,mult,boss,at){
   if(at){e.x=at.x+(Math.random()-.5)*20;e.y=at.y+(Math.random()-.5)*20;}
   else{const a=spawnAng(),R=SPAWN_R;e.x=S.p.x+Math.cos(a)*R;e.y=S.p.y+Math.sin(a)*R;}
   e.ki=kind;e.fx=0;e.ft=Math.random()*3;e.st=0;e.jl=0;e.slow=0;e.gold=0;e.hb=-9;e.wv=0;e.zp=0;e.el=0;e.pl=0;e.at=null;
-  e.bg=0;e.ph=0;e.ax=Math.random()<.5?1:-1;e.ay=0;e.sv=0;e.sh=0;e.eg=0;e.fl=0;e.tn=0;e.kr=0;e.bph=0;e.gen=0;e.wf=-9;e.cn=-9;e.far=0;e.fz=0;e.fv=0;e.fw=0;e.hk=0;e.mt=0;e.lw=-9;e.sw=-9;e.sn=++SN;
+  e.bg=0;e.ph=0;e.ax=Math.random()<.5?1:-1;e.ay=0;e.sv=0;e.sh=0;e.eg=0;e.fl=0;e.tn=0;e.kr=0;e.bph=0;e.gen=0;e.wf=-9;e.cn=-9;e.far=0;e.fz=0;e.fv=0;e.fw=0;e.hk=0;e.nt=-9;e.mt=0;e.lw=-9;e.sw=-9;e.sn=++SN;
   e.sg3=0;e.ch3=0;e.rm=0;e.hm=0;e.du=null;   // 🧹 [2026-10-08 검증에서 발견] 풀 칸 재사용 — 이전 판이 찍은 신림 도장·또뀨 사슬·태웅 박치기·앙앵 하트 표식을 지운다(안 지우면 새 판 S.t 가 0부터라 그 적을 한참 못 노린다)
   const m=MIN();
   if(boss){e.boss=boss.key;e.b=boss;e.r=boss.r;e.sp=boss.sp*(1+Math.min(.35,m/120));e.dmg=boss.d*atkBase(m)*DMG_BOSS;e.xp=boss.xp;e.c='#f5c04a';e.id=boss.id||null;e.acc=boss.acc||null;
@@ -3126,6 +3159,7 @@ function hurt(e,d){
   if(e.hp<=0&&!e.boss&&!e.eg&&KIND[e.ki].egg){   // 🥚 애니비아 — 처음 쓰러지면 알이 된다(4초 안에 깨야 한다)
     e.eg=1;e.hp=e.mhp*.4;e.ft=4;e.ph=0;e.kb=0;const t=texts.get();if(t){t.x=e.x;t.y=e.y-e.r-8;t.s='🥚 알이 됐다!';t.life=.9;t.c='#ff9aa8';t.big=0;}return;}
   if(e.hp<=0){e.on=false;S.kills++;if(CH.k==='eom'&&SRC!=='char')csS().n++;if(S.w.panty)ptyLoot(e);AU.play('kill');if(CH.shv)rgAdd(e.boss?SHV.kgB:(e.bg||e.el)?SHV.kgE:SHV.kill);   // 🔥 분노: 처치할 때
+    if(pv('combo'))comboKill();   // 🔗 연쇄 — 이어서 쓰러뜨린 수
     if(pv('vamp')&&++S.vk>=VAMP_N){S.vk=0;S.p.hp=Math.min(S.p.mhp,S.p.hp+vampHp());}   // 🥩 고기 반찬 — [2026-10-07 사장님 지시] 하향: 30마리당 +2 → 40마리당 +1.5(레벨당, 회복량 약 44% 감소)
     if(S.rel.leech&&S.leechT<=0){S.leechT=LEECH.cd[S.rel.leech-1];S.p.hp=Math.min(S.p.mhp,S.p.hp+LEECH.hp[S.rel.leech-1]);}   // 🎲 [2026-09-30 사장님 지시] 🩹 처치 응급처치
     if(S.rel.sg_brj&&SRC!=='rel'&&S.t-S.sgK>=SGV.brj.cd&&Math.random()<SGV.brj.p[S.rel.sg_brj-1]&&S.booms.length<40){S.sgK=S.t;S.booms.push({x:e.x,y:e.y,t:0,T:0,R:SGV.brj.R*areaMul(),d:SGV.brj.d*(1+S.lv/SGV.brj.lv)*dmgMul()*SGV.brj.dm[S.rel.sg_brj-1],done:false,ev:0,src:'rel',style:'mine'});}   // 🐤 논란 점화
@@ -3178,7 +3212,7 @@ function randLive(){const L=S.live;return L.length?L[Math.random()*L.length|0]:n
 // ============================================================================================================
 // ⚖️ [2026-10-12] 단일 대상 공용 무기 피해 상향: 낚싯대 48→60 · 망원경 저격 78→105(보스 최대 체력 비율 bp 는 그대로). 키보드 난타·사료·병아리는 실전 측정에서 이미 센 편이라 안 올렸다.
 const W4={pan:{d:52,R:88,cd:1.1},rkt:{d:18,R:46,cd:1.7,sp:750},chick:{d:12,sp:300,gap:.45},rod:{d:60,len:260,cd:3},frost:{d:50,R:110,cd:4.5},lid:{d:110,reg:14,R:60},
-  meteor:{d:14,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:105,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:7,R:90,iv:.75},
+  meteor:{d:14,bp:.0036,R:70,cd:6.5,dl:1.1},snipe:{d:105,bp:.0034,cd:3.4},hole:{d:1.3,R:130,cd:7,life:2.2,pull:130},bell:{d:7,R:90,iv:.75},umb:{d:50,R:104,hw:.78,cd:1.15,kb:300},net:{d:15,len:250,R:30,cd:2.6,sp:430,sl:1.6,gap:.35},
   fryer:{d:15},sushi:{d:34},shrimp:{d:28},spk:{d:16}};   // 🍟 튀김기 · 🍣 초밥 · 🍤 새우깡 · 🎧 스피커 피해(Lv1) — 예전엔 코드 안의 5 · 12 · 14 · 8 이었다(⚖️ 2026-10-15 평균 맞추기: 5→15 · 12→34 · 14→28 · 8→16)
 // ⚖️ [2026-10-15 사장님 지시 「브레스는 하향, 다른 무기는 상향해서 평균값으로」] 같은 아레나(적 체력 10~20분차)에서 중앙값의 0.8배 아래였던 무기의 피해만 올렸다: 튀김기 5→15 · 초밥 12→34 · 새우깡 14→28 · 스피커 8→16 · 운석 5→14 · 폭죽 6→7.5 · 포토카드 13→19.5 · 깃털 11.5→16 · 하트 16→21 · 리듬 5.5→7 · 슬라임 17→24(조각 9.1→12.8) · 얼음땡 44→50 · 카트 5→20 · 엄! 외침 48→54 · 노래부르기 5.9→6.6(울림 1.7→1.9)   // 🎵 리듬 너프(2026-10-02 · 무기 밸런스 점검) — 솔로 DPS 가 중앙값의 4~10배였다(적 전원 타격 · 쿨타임 없음 · 큰 박자 ×3 · 전체 버프까지): d 26→5.5 · R 100→90 · 큰 박자 ×3→×2.5 · 강화 피해 +8/12/16→+5/8/10%   // v4 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로(보스 킬러는 보스전에서 앞서게)   // v3 튜닝(2026-09-30) — 솔로 DPS(20분 · 70마리 아레나)를 기존 12종 중앙값의 0.5~1.6배 안쪽으로   // v2 튜닝(2026-09-30) — 솔로 DPS 를 기존 무기 중앙값의 0.5~1.6배 안쪽으로
 const rkts=new Pool(24,()=>({x:0,y:0,vx:0,vy:0,life:0,dmg:0,R:46,tg:null,tsn:0,ev:0,t:0,fr:0}));      // 🎆 폭죽 로켓
@@ -3186,9 +3220,10 @@ const pets=new Pool(8,()=>({x:0,y:0,a:0,tg:null,tsn:0,hit:0,ph:0,rt:0,big:0})); 
 const hooks=new Pool(4,()=>({x:0,y:0,ux:0,uy:0,d:0,len:0,ph:0,dmg:0,n:0,cap:0,c:new Array(12).fill(null),cs:new Array(12).fill(0),ev:0,id:0,stn:0,bm:0}));   // 🎣 낚싯줄
 const frs=new Pool(6,()=>({x:0,y:0,r:0,R:0,dmg:0,id:0,ev:0,fz:0,vm:0}));                               // 🧊 얼음 파동
 const holes=new Pool(4,()=>({x:0,y:0,R:0,life:0,T:0,tk:0,dmg:0,ev:0,sl:0,bR:0,pull:0}));               // 🌀 블랙홀
+const nets=new Pool(8,()=>({x:0,y:0,ux:0,uy:0,d:0,ph:0,len:0,dmg:0,R:0,sl:0,id:0,ev:0,rt:0,a:0}));      // 🕸 부메랑 그물
 const snps=new Pool(8,()=>({x1:0,y1:0,x2:0,y2:0,life:0,ev:0}));                                        // 🔭 저격 자국(줄)
 function newX2(){const z=[];for(let i=0;i<4;i++)z.push({t:0,T:.22,a:0,R:0,w:0,full:0,ev:0});const lk=[];for(let i=0;i<3;i++)lk.push({on:0,e:null,sn:0,t:0});
-  return {swg:z,swi:0,pn:0,fzT:0,fid:0,hid:0,mid:0,lr:[0,0,0,0,0,0,0,0],lb:[0,0,0,0,0,0,0,0],la:0,lp:new Float32Array(16),ln:0,lreg:14,lh:0,ld:10,lev:0,lt:null,lk,bt:0,bn:0,bT:0,bm:0,bs:0};}
+  return {swg:z,swi:0,um:[0,0,0,0].map(()=>({t:0,T:.26,a:0,R:0,w:0,ev:0})),umi:0,nid:0,pn:0,fzT:0,fid:0,hid:0,mid:0,lr:[0,0,0,0,0,0,0,0],lb:[0,0,0,0,0,0,0,0],la:0,lp:new Float32Array(16),ln:0,lreg:14,lh:0,ld:10,lev:0,lt:null,lk,bt:0,bn:0,bT:0,bm:0,bs:0};}
 const areaMul=()=>1+.1*pv('area')+.06*PTV('area')+.1*trn('wide')-.05*trn('gale')+S.syn.area;   // 🔗 [2026-10-09 사장님 지시 「시너지 범위 버그 바로 수정」] 시너지의 「범위 +N%」 가 합산만 되고 어디서도 안 읽혀 완성해도 변화가 없었다 — weapons() 의 AR 과 같은 식에 같이 더한다
 const BT={x:0,y:0,R:0,style:'mine',ev:0,ux:0,uy:0},CS={x:0,y:0};
 function bang(x,y,R,d,src,style,ev,bm){const s0=SRC;SRC=src;BT.x=x;BT.y=y;BT.R=R;BT.style=style;BT.ev=ev?1:0;AU.play('boom',R/55);EX.boom(BT);   // 새 무기의 즉시 폭발(예고 없음) — 🎆 폭죽·🌀 블랙홀 끝·🎣 끌어올린 자리 …
@@ -3204,6 +3239,18 @@ function panSwing(a,full,mm){const p=S.p,L=S.w.pan||0;if(!L)return;const ev=S.ev
     hurt(e,d);if(e.on&&!e.boss){knock(e,dx/(dd||1),dy/(dd||1),full?260:190,.22);if(t.stun)e.st=Math.max(e.st,.45);}}
   hitPropsAt(p.x+Math.cos(a)*R*.5,p.y+Math.sin(a)*R*.5,R*.6,d*.5);
   const s=X.swg[X.swi=(X.swi+1)&3];s.t=s.T=.22;s.a=a;s.R=R;s.w=hw;s.full=full?1:0;s.ev=ev?1:0;AU.play(full?'clang':'swing');if(full)S.shake=Math.max(S.shake,.1);SRC=s0;}
+// 🌂 투명 우산 — 달리는 방향의 반대편(뒤쪽) 쐐기 한 번. 맞힌 수를 돌려준다(0 이면 쿨타임을 쓰지 않는다)
+function umbSwing(a,ev,mm,full){const p=S.p,L=S.w.umb||0;if(!L)return 0;const t=TK('umb'),X=S.x2,s0=SRC,U=W4.umb;
+  const R=U.R*lvm(L,[[2,1.15],[6,1.15]])*areaMul()*(ev?1.2:1)*(1+t.a),hw=U.hw*(L>=7?1.25:1)*(ev?1.3:1),
+    d=U.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*dmgMul()*(ev?1.25:1)*(1+t.d)*mm;let n=0;SRC='umb';
+  for(const e of S.live){if(!e.on)continue;const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy);if(dd>R+e.r)continue;
+    if(dd>e.r+p.r+10){let da=Math.atan2(dy,dx)-a;da=Math.atan2(Math.sin(da),Math.cos(da));if(Math.abs(da)>hw)continue;}
+    n++;hurt(e,d);if(e.on){if(e.boss)e.slow=Math.max(e.slow,.5);else{knock(e,dx/(dd||1),dy/(dd||1),U.kb,.24);if(t.stun)e.st=Math.max(e.st,.4);}}}
+  if(n||full){hitPropsAt(p.x+Math.cos(a)*R*.5,p.y+Math.sin(a)*R*.5,R*.6,d*.5);
+    const s=X.um[X.umi=(X.umi+1)&3];s.t=s.T=.26;s.a=a;s.R=R;s.w=hw;s.ev=ev?1:0;AU.play('swing');}
+  SRC=s0;return n;}
+// 🕸 부메랑 그물 던지기 — a 방향으로 len 만큼 날아갔다가 내게 돌아온다
+function netThrow(a,len,dmg,R,sl,ev,rt){const n=nets.get();if(!n)return;const p=S.p;n.x=p.x;n.y=p.y;n.ux=Math.cos(a);n.uy=Math.sin(a);n.d=0;n.ph=0;n.len=len;n.dmg=dmg;n.R=R;n.sl=sl;n.id=++S.x2.nid;n.ev=ev?1:0;n.rt=rt;n.a=0;AU.play('hook');}
 // 🎣 낚싯줄 던지기
 function castHook(e,len,cap,dmg,ev,stn,bm){const p=S.p,h=hooks.get();if(!h)return;const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy)||1;
   h.ux=dx/dd;h.uy=dy/dd;h.d=0;h.len=len;h.ph=0;h.n=0;h.cap=Math.min(12,cap);h.dmg=dmg;h.ev=ev?1:0;h.id=++S.x2.hid;h.stn=stn;h.bm=bm;h.x=p.x;h.y=p.y;for(let i=0;i<12;i++)h.c[i]=null;AU.play('hook');}
@@ -3308,6 +3355,33 @@ function weapons2(dt,cm,MT,AR,AM){
   for(const f of frs.a){if(!f.on)continue;f.r+=f.R*2.6*dt;if(f.r>=f.R){f.on=false;continue;}
     for(const e of S.live){if(!e.on||e.fw===f.id)continue;if((e.x-f.x)**2+(e.y-f.y)**2<(f.r+e.r)**2){e.fw=f.id;hurt(e,f.dmg);if(!e.on)continue;
       e.fz=f.fz;e.fv=f.vm;if(e.boss)e.slow=Math.max(e.slow,f.fz);else{e.st=Math.max(e.st,f.fz);e.kb=0;}X.fzT=S.t+f.fz;EX.frz(e.x,e.y);}}}
+  // 🌂 투명 우산 → 🌈 무지개 우산 — 달리는 방향의 뒤쪽 쐐기로 휙 펴져 때리고 밀친다(서 있으면 안 펴진다 · 맞힐 적이 없으면 쿨타임을 쓰지 않는다)
+  L=S.w.umb||0;SRC='umb';
+  if(L&&(S.cd.umb-=dt)<=0){ev=S.ev.umb;t=TK('umb');
+    if(p.moving){const a=Math.atan2(-p.mdy,-p.mdx);
+      if(umbSwing(a,ev,1,false)>0){
+        if(ev)S.dq.push({t:.24,f:()=>{if(S.w.umb)umbSwing(a,1,.7,true);}});
+        if(t.echo)S.dq.push({t:.3,f:()=>{if(S.w.umb)umbSwing(a,S.ev.umb,.6,true);}});
+        S.cd.umb=W4.umb.cd*lvm(L,[[4,.85],[8,.85]])*cm*(1-t.c);}
+      else S.cd.umb=0;}
+    else S.cd.umb=0;}
+  // 🕸 부메랑 그물 → 🪢 대어망 — 던졌다 돌아오는 그물: 닿은 적이 느려진다(몰이용 · 피해는 낮다)
+  L=S.w.net||0;SRC='net';
+  if(L&&(S.cd.net-=dt)<=0){ev=S.ev.net;t=TK('net');const tg=nearest();
+    if(tg&&(tg.x-p.x)**2+(tg.y-p.y)**2<(W4.net.len*1.15*AR+tg.r)**2){
+      const U=W4.net,len=U.len*AR*(ev?1.1:1),R=U.R*lvm(L,[[2,1.15],[6,1.15]])*AR*(ev?1.3:1)*(1+t.a),dmg=U.d*lvm(L,[[3,1.4],[5,1.4],[8,1.5]])*MT*(ev?1.3:1)*(1+t.d),
+        sl=(U.sl+.5*(L>=5)+t.life+(ev?.6:0))*DUR(),a=Math.atan2(tg.y-p.y,tg.x-p.x),rt=t.ret?1.6:1;   // rt: 돌아오는 길에 맞은 적의 피해 배수(단계 5)
+      netThrow(a,len,dmg,R,sl,ev,rt);
+      if(L>=8)netThrow(a+.5,len,dmg,R,sl,ev,rt);
+      if(ev)netThrow(a+Math.PI,len,dmg,R,sl,ev,rt);
+      S.cd.net=U.cd*lvm(L,[[4,.85],[7,.85]])*cm*(1-t.c);}
+    else S.cd.net=0;}
+  {const U=W4.net,v=U.sp*PS()*(1+TK('net').s);SRC='net';
+    for(const n of nets.a){if(!n.on)continue;
+      if(n.ph===0){n.d+=v*dt;n.x=p.x+n.ux*n.d;n.y=p.y+n.uy*n.d;if(n.d>=n.len){n.ph=1;n.x=p.x+n.ux*n.len;n.y=p.y+n.uy*n.len;}}
+      else{const dx=p.x-n.x,dy=p.y-n.y,dd=Math.hypot(dx,dy)||1;if(dd<p.r+16){n.on=false;continue;}n.x+=dx/dd*v*1.15*dt;n.y+=dy/dd*v*1.15*dt;}
+      n.a+=dt*6;
+      for(const e of S.live){if(!e.on||S.t-e.nt<U.gap||e.sv)continue;if((e.x-n.x)**2+(e.y-n.y)**2<(e.r+n.R)**2){e.nt=S.t;hurt(e,n.ph?n.dmg*n.rt:n.dmg);if(!e.on)continue;e.slow=Math.max(e.slow,n.sl*(e.boss?.6:1));}}}}
   // 🥏 냄비뚜껑 → 🍲 불멸의 냄비 — 주위를 도는 뚜껑: 적 투사체를 막고, 내가 맞을 때 한 대를 대신 받는다
   L=S.w.lid||0;SRC='lid';X.ln=0;
   if(L){ev=S.ev.lid;t=TK('lid');const n=1+(L>=2)+(L>=5)+(L>=8)+(ev?2:0)+t.n,R=W4.lid.R*lvm(L,[[4,1.2]])*(1+.5*(AR-1)),dmg=W4.lid.d*lvm(L,[[3,1.4],[6,1.4],[8,1.5]])*MT*(1+t.d);
@@ -4241,7 +4315,9 @@ function hitP(d,msg){const p=S.p;if(p.inv>0)return false;
   if(blockOk&&S.shield){S.shield=0;S.lastBlock=S.t;invGrant('blk',.15);S.shake=Math.max(S.shake,.1);AU.play('hit');txt(p.x,p.y-26,S.rel.still?'🛡 막았다! ('+[40,30,20][S.rel.still-1]+'초 뒤 다시 생겨요)':'🛡 막았다!','#9fd0ff');return false;}   // 🎲 [2026-09-30 사장님 지시] 🛡 명상 방어막
   if(blockOk&&lidTake()){S.lastBlock=S.t;invGrant('blk',.15);S.shake=Math.max(S.shake,.1);txt(p.x,p.y-26,'🥏 막았다!','#9fd0ff');return false;}   // 🗡 [2026-09-30 사장님 지시] 🥏 냄비뚜껑이 한 대를 대신 받는다
   //   🎮 [2026-10-09] 고정 깎기·받는 피해 배율 식은 armTotal·takenMul 로(일시정지 능력치 표가 같은 함수를 읽는다 · 값은 그대로)
-  const arm=armTotal();d*=takenMul();const dm=Math.max(1,d-arm);p.hp-=dm;achHit();/* 🏆 [S-1] */CRI.h++;/* 🔥 [S-4] */p.inv=0;invGrant('hit',.45+(PTV('arm')?.12:0)+(S.rel.sprint>=3?.2:0));if(S.rel.sg_ddmj)sgThorns(dm);if(S.rel.sg_amd)S.sgH=SGV.amd.t;S.shake=Math.max(S.shake,.12);AU.play('hurt');
+  const arm=armTotal();d*=takenMul();const dm=Math.max(1,d-arm);
+  if(p.hp-dm<=0&&charmReady()){charmS().lu=S.t;invGrant('charm',CHARMV.inv);S.shake=Math.max(S.shake,.14);AU.play('clang');txt(p.x,p.y-30,'🧿 부적이 막았다!','#bff3ff');return false;}   // 🧿 부적 — 치명적인 한 방은 통째로 막는다(👼 부활보다 먼저 · 맞은 것으로 치지 않는다)
+  p.hp-=dm;achHit();/* 🏆 [S-1] */CRI.h++;/* 🔥 [S-4] */p.inv=0;invGrant('hit',.45+(PTV('arm')?.12:0)+(S.rel.sprint>=3?.2:0));if(S.rel.sg_ddmj)sgThorns(dm);if(S.rel.sg_amd)S.sgH=SGV.amd.t;S.shake=Math.max(S.shake,.12);AU.play('hurt');
   EX.hurtFx(dm);{const t=texts.get();if(t){t.x=p.x;t.y=p.y-14;t.s='-'+Math.round(dm);t.life=1;t.c=PAL.tHurt;t.k=3;t.num=1;}}   // 🎨 [2026-09-30 사장님 지시] 내가 받은 피해 = 빨간 큰 숫자 + 붉은 화면 가장자리 + 흔들림
   if(S.rel.sprint)S.spr=2;if(PTV('arm')>=2&&p.hp>0){for(const e of S.live)if(e.on&&!e.boss){const dx=e.x-p.x,dy=e.y-p.y,dd=Math.hypot(dx,dy)||1;if(dd<130){e.kr=0;knock(e,dx/dd,dy/dd,260,.25);}}}
   if(msg){const t=texts.get();if(t){t.x=p.x;t.y=p.y-42;t.s=msg;t.life=.9;t.c='#ff9aa8';t.k=3;}}
@@ -5083,6 +5159,16 @@ function drawW2(p){   // 적·아군 위
     cx.beginPath();cx.arc(h.x,h.y,5.5,0,7);cx.fillStyle=h.ev?'#d6ecff':'#6fe6ff';cx.fill();cx.lineWidth=1.6;cx.strokeStyle='#fff';cx.stroke();
     cx.beginPath();cx.arc(h.x+h.uy*7,h.y-h.ux*7,5,Math.atan2(-h.ux,h.uy)+.8,Math.atan2(-h.ux,h.uy)+4.6);cx.lineWidth=2;cx.strokeStyle='#eafaff';cx.stroke();
     cx.lineWidth=1.6;cx.strokeStyle='rgba(214,244,255,.85)';for(let i=0;i<h.n;i++){const e=h.c[i];if(!liveOk(e,h.cs[i]))continue;cx.beginPath();cx.arc(e.x,e.y,e.r+5,0,7);cx.stroke();}}
+  for(const s of X.um){if(s.t<=0)continue;const u=1-s.t/s.T,al=Math.min(1,s.t/s.T*2),R=s.R*(.5+.5*Math.min(1,u*2.2)),a0=s.a-s.w,a1=s.a+s.w;   // 🌂 투명 우산 — 뒤쪽으로 펴지는 부채꼴 + 우산살 + 물결 테두리
+    cx.beginPath();cx.moveTo(p.x,p.y);cx.arc(p.x,p.y,R,a0,a1);cx.closePath();cx.fillStyle=(s.ev?'rgba(160,180,255,':'rgba(120,214,255,')+(al*.2).toFixed(2)+')';cx.fill();
+    cx.beginPath();cx.arc(p.x,p.y,R,a0,a1);cx.lineWidth=5;cx.strokeStyle=(s.ev?'rgba(214,236,255,':'rgba(190,244,255,')+(al*.9).toFixed(2)+')';cx.stroke();
+    cx.beginPath();for(let i=0;i<=4;i++){const an=a0+(a1-a0)*i/4;cx.moveTo(p.x,p.y);cx.lineTo(p.x+Math.cos(an)*R,p.y+Math.sin(an)*R);}
+    cx.lineWidth=1.6;cx.strokeStyle='rgba(255,255,255,'+al.toFixed(2)+')';cx.stroke();}
+  for(const n of nets.a){if(!n.on)continue;   // 🕸 부메랑 그물 — 나와 이어진 가는 줄 + 도는 그물(방사선 + 동심원)
+    cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(n.x,n.y);cx.lineWidth=1.4;cx.strokeStyle='rgba(150,240,255,.35)';cx.stroke();
+    cx.beginPath();cx.arc(n.x,n.y,n.R,0,7);cx.fillStyle=n.ev?'rgba(160,180,255,.16)':'rgba(120,214,255,.16)';cx.fill();cx.lineWidth=2.4;cx.strokeStyle=n.ev?'rgba(214,236,255,.95)':'rgba(190,244,255,.95)';cx.stroke();
+    cx.beginPath();for(let i=0;i<6;i++){const an=n.a+i*1.0472;cx.moveTo(n.x,n.y);cx.lineTo(n.x+Math.cos(an)*n.R,n.y+Math.sin(an)*n.R);}
+    cx.arc(n.x,n.y,n.R*.55,0,7);cx.lineWidth=1.3;cx.strokeStyle='rgba(255,255,255,.8)';cx.stroke();}
   for(const s of snps.a){if(!s.on)continue;const k=s.life/.22;   // 🔭 저격 — 곧게 뻗는 흰 광선
     cx.beginPath();cx.moveTo(s.x1,s.y1);cx.lineTo(s.x2,s.y2);cx.lineWidth=10*k+2;cx.strokeStyle='rgba(111,230,255,'+(.35*k).toFixed(2)+')';cx.stroke();cx.lineWidth=2.6*k+.6;cx.strokeStyle=s.ev?'rgba(214,236,255,.95)':'rgba(242,253,255,.95)';cx.stroke();}
   for(const z of X.lk){if(!z.on||!z.e)continue;const e=z.e,k=z.t/.4,r=e.r+8+16*k;   // 🔭 조준선 — 실선 동그라미 + 십자 + 나와 잇는 가는 선(점선·빗금은 적 위험 전용)
@@ -5370,6 +5456,7 @@ function draw(){
     else{cx.fillStyle='#212636';cx.strokeStyle='#f5c04a';cx.lineWidth=2;cx.beginPath();cx.arc(0,0,p.r+4,0,7);cx.fill();cx.stroke();cx.scale(p.face<0?-1:1,1);cx.font='22px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(CH.e,0,1);cx.textBaseline='alphabetic';cx.font='bold 11px sans-serif';cx.fillStyle='#e7eaf3';cx.fillText(CH.nm,0,p.r+18);}
     cx.restore();}
   if(S.w.panty)ptyGauge(p);   // 🧺 보따리 게이지 점(표시 전용)
+  if(pv('charm')||pv('combo'))passGauge(p);   // 🧿 부적 준비 고리 · 🔗 연쇄 표시(표시 전용)
   if(S.w.maul)maulMark(p);   // 🐺 노리는 약한 적 표식(표시 전용)
   if(CH.shv&&S.dT>0&&!LOW){for(let i=0;i<8;i++){const ph=(S.t*1.7+i/8)%1,x=p.x+Math.sin(i*2.3+S.t*3)*24*S.dS,y=p.y+8-ph*78*S.dS,r=(1-ph)*7;cx.beginPath();cx.arc(x,y,r,0,7);cx.fillStyle='rgba(255,'+(200-ph*110|0)+',50,'+((1-ph)*.85).toFixed(2)+')';cx.fill();}}   // 🐲 몸에서 피어오르는 불꽃
   if(S.shield){cx.beginPath();cx.arc(p.x,p.y-4,p.r+16,0,7);cx.lineWidth=2.5;cx.strokeStyle='rgba(159,208,255,'+(.55+.3*Math.sin(S.t*5)).toFixed(2)+')';cx.stroke();cx.lineWidth=1;}   // 🛡 [2026-10-09] 방어막을 들고 있는 동안 캐릭터 둘레에 하늘색 고리(표시 전용 · 상태·난수에 손대지 않는다) — 주기형이 돼 「지금 있나」가 궁금해져서
@@ -5467,7 +5554,7 @@ requestAnimationFrame(frame);
 //   잃는 것(일부러): S.dq(0.3~0.6초 뒤에 나갈 지연 타격 — 함수라 저장 불가) · 떠오르는 피해 숫자·말풍선·번개/저격 자국·입자(눈요기)
 const RES=(()=>{
   const FMT=1,KEY='p6_resume_v1',LIVEK='p6_resume_live',TIPK='p6_iab_tip',TTL=12*3600*1000,MAXLEN=2500000;   // MAXLEN: 저장본 한도(글자 수) — 넘으면 일부만 저장하지 않고 통째로 저장하지 않는다(적은 빠지고 보석만 남는 반쪽 저장본을 만들지 않는다)
-  const POOL={enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,snps,bolts,waves,puds,clouds,allies,cans,bubs},PN=Object.keys(POOL);
+  const POOL={enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,nets,frs,holes,snps,bolts,waves,puds,clouds,allies,cans,bubs},PN=Object.keys(POOL);
   const COSMETIC=new Set(['texts','bubs','bolts','snps']);                 // 눈요기뿐인 풀 — 저장하지 않고 복구 때 비운다
   const SKIP_S=new Set(['live','tk','syn','synOn','sushi','auraR']);       // 다시 계산하는 파생값(복구 때 tkCalc·synCalc·update 가 채운다)
   const REPLACE_S=['w'];                                                   // 기본값 위에 합치지 않고 저장본으로 통째로 바꾸는 필드(보유 무기: 기본값이 캐릭터마다 다르다)
