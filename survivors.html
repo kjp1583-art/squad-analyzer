@@ -431,7 +431,6 @@ footer{margin-top:12px;color:var(--mut);font-size:11.5px}
   <div class="rosterH">🐲 보스 캐릭터 <span class="muted">— 판에서 그 보스를 쓰러뜨리면 해금</span></div>
   <div id="bossRoster"></div>
   <div class="muted" id="chDesc"></div>
-  <div id="mapSel"></div>   <!-- 🗺 [S-2] 맵 3택 -->
   <div class="lgd" id="lgdT"><span class="rd">🔴 빨간 표시(점선·빗금)</span> = 위험(적) · <span class="bl">🔵 파란/하늘색</span> = 내 공격</div>
   <label class="hardt"><input type="checkbox" id="hardChk"><span><b>🔥 하드 모드</b><small>몬스터 체력 또 ×2 · 더 아프고 더 많이 몰려온다 · 순위표 따로</small></span></label>
   <label class="hardt vht"><input type="checkbox" id="vhChk"><span><b>💀 베리하드 모드</b><small>하드보다 몬스터 체력 ×2 더 · 훨씬 더 아프고 훨씬 더 많이 몰려온다 · 순위표 따로</small></span></label>
@@ -879,7 +878,6 @@ async function loadMe(){const u=dcUser();if(!u)return;try{const j=await api('/p6
 function runRid(){let b=RUN&&/^[A-Za-z0-9_-]{8,30}$/.test(String(RUN.rid))?String(RUN.rid):Date.now().toString(36)+Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,6);
   return 's'+b+(S&&S.endless&&!S.dly?'e':'');}
 async function submitRun(won){const u=dcUser();const el=$('rAcct');
-  if(MAPS.cur!=='forest'){el.textContent='🗺 이 맵은 순위표에 안 올라가요 — 연습 판이라 기록되지 않아요(🌲 숲에서만 기록).';return;}   // [S-2]
   if(!u){el.innerHTML='로그인하면 기록이 저장되고 순위표에 올라가요.<br><button class="btn dc" id="dcIn2">디스코드 로그인</button>';$('dcIn2').onclick=dcLogin;return;}
   el.textContent='📡 기록 올리는 중…';
   if(S.dly&&!S.dly.ranked){el.textContent='🧪 연습 판이라 기록되지 않아요(오늘의 도전은 하루 한 판).';return;}
@@ -2211,7 +2209,7 @@ function startPickOpen(){   // 오버레이를 열었으면 true(start() 가 판
 function start(o){if(!RES.confirmStart())return;endAskHide();refreshCoins(false);const daily=!!(o&&o.daily===true);
   if(CH.shop&&!SRVUNL.has(CH.k))CH=CHARS[0];   // 🍘 서버 구매 없이는 상점 캐릭터로 시작 못 한다
   AU.init();AU.reset();AU.music(true);if(hasArt(CH))charImg(CH);
-  MAPS.cur=daily?'forest':MAPS.pick;   // 🗺 [S-2] 오늘의 도전은 숲(시드 호환)
+  MAPS.cur='forest';   // 🗺 [S-2] 맵은 판 시간으로 바뀐다(MAPS.stage) — 시작은 숲
   if(daily){VH_ON=false;HARD_ON=false;}   // 오늘의 도전은 일반 규칙 한 가지 — 저장해 둔 하드·베리하드 선택은 건드리지 않는다
   else{VH_ON=$('vhChk').checked;HARD_ON=!VH_ON&&$('hardChk').checked;try{localStorage.setItem(HK,HARD_ON?'1':'0');localStorage.setItem(VK,VH_ON?'1':'0');}catch(e){}}
   let dly=null;
@@ -2220,7 +2218,6 @@ function start(o){if(!RES.confirmStart())return;endAskHide();refreshCoins(false)
     dly={date,seed:seedOf('p6-daily-'+date),ranked,rq:{}};}
   LASTDLY=daily;newRun(dly);RES.begin();
   if(dly)banner(dly.ranked?`📅 오늘의 도전 ${dly.date.slice(5)} — 이 판이 기록돼요`:`📅 오늘의 도전 ${dly.date.slice(5)} — 연습 판(기록 안 됨)`,dly.ranked?'하루 한 판 · 같은 시드':'로그인 전이거나 오늘 이미 도전했어요',1);
-  if(MAPS.cur!=='forest')banner(MAPV.nm[MAPS.cur]+' 맵 — 연습 판(순위표 안 올라가요)',MAPS.cur==='lava'?'바닥의 붉은 선은 곧 갈라져요 — 장판 쪽으로 적을 몰아요':'미끄러워요 — 멈추려 해도 조금 밀려가요',1);   // 🗺 [S-2]
   if(startPickOpen())return;   // [S-5] 🎒 출발 보너스 3택 1 — 고르면 startPickDone 이 판을 시작한다
   state='play';show(null);$('hud').style.display='block';last=performance.now();}
 function endAskShow(){if(!S||S.dly||S.endless||!S.won)return;$('endAskTxt').textContent=(S.vh?'💀 베리하드 ':S.hard?'🔥 하드 ':'')+'60분 클리어! 무한 모드로 진입하시겠습니까?';$('endAsk').classList.add('on');}
@@ -2346,21 +2343,22 @@ function ownHtml(){   // 레벨업 카드 아래: 내가 가진 능력 명단(�
 function pauseGame(){state='pause';EX.hs=0;EX.hurt=0;EX.shk=0;AU.suspend();keys={};joy.on=false;joy.dx=joy.dy=0;$('pTop').innerHTML=diffHtml();$('pInfo').innerHTML=`${fmt(S.t)}${S.endless?' (♾ 무한)':' / 60:00'} · Lv ${S.lv} · 처치 ${S.kills}`+buildHtml();show('pause');RES.save('pause');}
 function resume(){if(state==='evpick'){const rd=evReady();if(rd.length){openChest(rd[0]);return;}}   // ✨ 각성 선택창에서 resume() 가 불리면(자동 시험 봇 등) 첫 후보로 각성한다 — 사람은 버튼으로 고른다
   if(state==='revive'||RES.stale()||RES.shopBad()||RES.broken())return;if(state==='pause')AU.resume();EX.hs=0;state='play';show(null);$('hud').style.display='block';last=performance.now();RES.onResume();}
-// ---------- 🗺 [S-2] 맵(지형) 3종 — 숲(기본 · 옛 판 그대로) · 🌋 용암 · 🧊 얼음 (2026-10-21 사장님 「흐접새우 컨텐츠 추가요소」) ----------
+// ---------- 🗺 [S-2] 맵(지형) 3종 — 숲 · 🌋 용암 · 🧊 얼음 · 판 중간에 스테이지처럼 바뀐다 (2026-10-22 사장님 「맵이 게임 중간중간 바뀌는 스테이지식으로」) ----------
+//   🔁 스테이지: MAPV.stage.len(600초=10분)마다 숲→용암→얼음→숲… 순서로 바뀐다(첫 10분은 숲 = 옛 판과 같다). 바뀌기 MAPV.stage.warn(6)초 전에 예고 배너 · 최종 보스 1:1 대결 중엔 숲. 맵은 시간으로 정해져 일일 도전 시드·이어하기가 그대로 맞는다(선택 UI 없음 · 모든 맵이 순위표에 올라간다).
 //   컨셉: 「지형이 움직임을 바꾼다」. 숲은 이 구획의 코드를 한 줄도 타지 않는다(MAPS.cur==='forest' 이면 전부 건너뜀 → 옛 판과 비트 동일).
 //   🌋 용암: MAPV.lava.every 초마다 내 근처 바닥에 균열이 번진다 — 예고(붉은 선 pre초) → 장판(life초). 장판은 나에게도 적에게도 닿는다(적을 장판 쪽으로 몰면 이득).
 //   🧊 얼음: 이동에 관성 — 방향키를 놓아도 미끄러지고 방향 전환이 느리다(최고 속도는 그대로 · 몹은 그대로).
 //   판 상태는 S 에 두지 않는다(S 키 추가 = 이어하기 서명 변경) — 모듈 객체 MAPS 가 S 정체성(SPDIR 과 같은 방식)으로 판마다 리셋한다.
-//   이어하기: 저장본 머리(head.mp)에 맵 종류만 싣는다 · 장판은 비워서 복구. 숲만 순위표·최고 기록에 오른다(용암·얼음은 연습 판).
+//   이어하기: 맵은 판 시간으로 다시 정해진다(저장 불필요) · 장판은 비워서 복구.
 const MAPV={lava:{every:5.5,pre:1.2,life:3.6,w:44,len:460,near:150,dmg:4.5,tk:.5,ed:.12,eb:.006,cap:12,first:4},   // 장판 폭 w · 길이 len · 내 주변 near 안에 중심 · 내 피해 dmg×난이도 · 적 피해 ed(일반) eb(보스)=최대 체력 비율/틱
   ice:{acc:4,dec:1.8},   // 가속(초당 따라잡는 비율) · 감속 — 손을 떼면 약 0.5초 미끄러진다
   tint:{lava:'rgba(150,28,0,.30)',ice:'rgba(90,160,255,.30)'},
   nm:{forest:'🌲 숲',lava:'🌋 용암',ice:'🧊 얼음'},
-  ds:{forest:'기본 · 순위표에 올라요',lava:'바닥이 갈라져 장판이 번져요 · 연습',ice:'미끄러워요 · 연습'}};
-const MAPS={cur:'forest',pick:'forest',z:[],g:null,t:0,nx:0,vx:0,vy:0};
-try{const m=localStorage.getItem('p6_map');if(m==='lava'||m==='ice')MAPS.pick=m;}catch(e){}
+  ds:{forest:'평범한 숲',lava:'바닥이 갈라져요 — 장판 쪽으로 적을 몰아요',ice:'미끄러워요 — 멈추려 해도 조금 밀려가요'},
+  stage:{len:600,order:['forest','lava','ice'],warn:6}};   // 스테이지 길이(초) · 순서 · 예고(초)
+const MAPS={cur:'forest',z:[],g:null,t:0,nx:0,vx:0,vy:0,wn:-1};
 SRCN.lava='🌋 용암 장판';
-MAPS.sync=function(){if(MAPS.g!==S||S.t<MAPS.t){MAPS.g=S;MAPS.z.length=0;MAPS.nx=S.t+MAPV.lava.first;MAPS.vx=MAPS.vy=0;}MAPS.t=S.t;};
+MAPS.sync=function(){if(MAPS.g!==S||S.t<MAPS.t){MAPS.g=S;MAPS.cur='forest';MAPS.wn=-1;MAPS.z.length=0;MAPS.nx=S.t+MAPV.lava.first;MAPS.vx=MAPS.vy=0;}MAPS.t=S.t;};
 MAPS.segD=function(x,y,q){const dx=q.x2-q.x1,dy=q.y2-q.y1,l=dx*dx+dy*dy;let u=l>0?((x-q.x1)*dx+(y-q.y1)*dy)/l:0;u=u<0?0:u>1?1:u;return Math.hypot(x-(q.x1+u*dx),y-(q.y1+u*dy));};
 MAPS.crack=function(){const L=MAPV.lava;if(MAPS.z.length>=L.cap)return;const p=S.p,a=RN('lava')*6.283,r=RN('lava')*L.near,b=RN('lava')*3.1416,mx=p.x+Math.cos(a)*r,my=p.y+Math.sin(a)*r,ux=Math.cos(b)*L.len/2,uy=Math.sin(b)*L.len/2;
   MAPS.z.push({x1:mx-ux,y1:my-uy,x2:mx+ux,y2:my+uy,w:L.w,a:0,tk:0});};
@@ -2391,12 +2389,10 @@ MAPS.draw=function(p){const c=MAPS.cur;if(c==='forest')return;
     cx.strokeStyle='rgba(255,170,44,'+(.85*f).toFixed(2)+')';cx.lineWidth=q.w*(.5+.08*Math.sin(S.t*14));cx.stroke();
     cx.strokeStyle='rgba(255,240,176,'+f.toFixed(2)+')';cx.lineWidth=q.w*.18;cx.stroke();}
   cx.restore();};
-MAPS.set=function(k){MAPS.pick=(k==='lava'||k==='ice')?k:'forest';try{localStorage.setItem('p6_map',MAPS.pick);}catch(e){}MAPS.ui();};
-MAPS.ui=function(){const el=$('mapSel');if(!el)return;
-  el.innerHTML='<div class="rosterH">🗺 맵 <span class="muted">— 지형이 움직임을 바꿔요 · 숲만 순위표에 올라가요</span></div><div class="mapbtns">'
-    +['forest','lava','ice'].map(k=>`<button type="button" class="mapb${MAPS.pick===k?' on':''}" data-map="${k}" aria-pressed="${MAPS.pick===k}"><b>${MAPV.nm[k]}</b><small>${MAPV.ds[k]}</small></button>`).join('')+'</div>';};
-{const el=$('mapSel');if(el)el.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-map]');if(b)MAPS.set(b.dataset.map);});}
-MAPS.ui();
+MAPS.stage=function(){MAPS.sync();   // 🔁 판 시간으로 지금 맵을 정한다(update 맨 앞에서 한 번) — 바뀌면 장판을 비우고 배너
+  const V=MAPV.stage,duel=!!(S.bossRef&&S.bossRef.on&&S.bossRef.du),n=Math.floor(S.t/V.len),want=duel?'forest':V.order[n%V.order.length];
+  if(!duel&&MAPS.wn!==n&&S.t%V.len>=V.len-V.warn){const nx=V.order[(n+1)%V.order.length];MAPS.wn=n;if(nx!==want)banner(`⚠ ${V.warn}초 뒤 ${MAPV.nm[nx]} 지대로 바뀝니다`,MAPV.ds[nx],2);}
+  if(want!==MAPS.cur){const first=S.t<1&&want==='forest';MAPS.cur=want;MAPS.z.length=0;MAPS.nx=S.t+MAPV.lava.first;if(!first)banner(`${MAPV.nm[want]} 지대 — ${MAPV.ds[want]}`,'',2);}};
 $('hardChk').checked=HARD_ON;$('vhChk').checked=VH_ON;$('hardChk').onchange=()=>{if($('hardChk').checked){$('vhChk').checked=false;}};$('vhChk').onchange=()=>{if($('vhChk').checked){$('hardChk').checked=false;}};$('startBtn').onclick=()=>start();$('dailyBtn').onclick=()=>start({daily:true});$('againBtn').onclick=()=>start(LASTDLY?{daily:true}:undefined);$('endYes').onclick=contEndless;$('endNo').onclick=endAskHide;$('resumeBtn').onclick=resume;$('pauseBtn').onclick=()=>state==='play'&&pauseGame();
 $('quitBtn').onclick=()=>{if(RES.stale())return;endRun(false,true);};$('homeBtn').onclick=()=>{if(RES.stale())return;state='title';AU.stop();showBest();renderAcct();renderBoard();renderDaily();renderRoster();show('title');RES.drop();RES.render();};   // 🛒 [2026-10-08] 판 중 상점에서 산 캐릭터가 기록 응답으로 열렸으면 새로고침 없이 카드도 열린다
 $('chestOk').onclick=()=>{if(state==='chest')resume();};
@@ -4309,7 +4305,8 @@ function update(dt){
   const ml=Math.hypot(mx,my);p.moving=ml>.1;
   if(ml>1){mx/=ml;my/=ml;}
   if(p.stun>0){p.stun-=dt;mx=my=0;p.moving=false;}   // 🪨 에어본 — 잠깐 못 움직인다
-  if(MAPS.cur==='ice'){MAPS.sync();MAPS.slide(mx,my,dt);mx=MAPS.vx;my=MAPS.vy;}   // 🧊 [S-2] 얼음 — 입력을 관성으로 걸러서 움직인다(p.moving·p.mdx 는 입력 그대로)
+  MAPS.stage();   // 🔁 [S-2] 지금 맵(시간으로 결정)
+  if(MAPS.cur==='ice'){MAPS.slide(mx,my,dt);mx=MAPS.vx;my=MAPS.vy;}   // 🧊 [S-2] 얼음 — 입력을 관성으로 걸러서 움직인다(p.moving·p.mdx 는 입력 그대로)
   if(p.moving){const l=Math.hypot(mx,my)||1;p.mdx=mx/l;p.mdy=my/l;}   // 🔥 브레스는 마지막으로 움직인 방향
   if(p.slow>0)p.slow-=dt;
   const sp=p.sp*moveMul()*slowMul();   // 🎲 [2026-09-30 사장님 지시] 초월·거래 반영 · 🎮 [2026-10-09] 식은 moveMul·slowMul 로(일시정지 능력치 표가 같은 함수를 읽는다 · 값은 그대로)
@@ -4432,7 +4429,7 @@ function endRun(won,quit){
   const nu=CHARS.filter(c=>c.un&&c.un.ok(pg)&&!before.includes(c.k));mergeUnl(CHARS.filter(c=>isUnl(c,pg)).map(c=>c.k));
   // ♾ 무한은 자기 키 · 📅 일일은 기기 최고 기록과 섞지 않는다
   const b=S.endless?getBestK(bke()):S.dly?null:getBest(S.hard&&!S.vh,S.vh);const cur={t:S.t,k:S.kills,lv:S.lv};let nb=false;
-  if(!S.dly&&MAPS.cur==='forest'&&(!b||cur.t>b.t||(cur.t===b.t&&cur.k>b.k))){if(S.endless)setBestK(bke(),cur);else setBest(cur,S.hard&&!S.vh,S.vh);nb=true;}
+  if(!S.dly&&(!b||cur.t>b.t||(cur.t===b.t&&cur.k>b.k))){if(S.endless)setBestK(bke(),cur);else setBest(cur,S.hard&&!S.vh,S.vh);nb=true;}
   $('againBtn').textContent=S.dly?'🔁 같은 판 연습(기록 안 됨)':'🔁 다시하기';
   $('rTitle').innerHTML=(S.dly?`<span class="hb">📅 오늘의 도전 ${esc(S.dly.date.slice(5))}${S.dly.ranked?'':' · 연습'}</span><br>`:S.endless?'<span class="hb">♾ 무한 모드</span><br>':S.vh?'<span class="hb">💀 베리하드 모드</span><br>':S.hard?'<span class="hb">🔥 하드 모드</span><br>':'')+(won&&S.endless?`🏁 무한 모드 ${fmt(END_T)} 완주 — 한계까지 버텼다! ${esc(CH.nm)}`:S.endless&&!quit?`♾ ${fmt(S.t)} 까지 버텼다 — ${esc(CH.nm)}이(가) 쓰러졌다…`:S.endless?`🏳 무한 모드 ${fmt(S.t)} 에서 마무리`:won?`🎉 60분 생존 — 클리어! ${esc(CH.nm)}이(가) 흐접새우의 트롤픽을 끝까지 막아냈다`:quit?`🏳 ${fmt(S.t)} 에서 포기 — 흐접새우는 아쉬워한다`:`💫 ${esc(CH.nm)}이(가) 쓰러졌다… 흐접새우는 즐거워한다`);
   $('rTime').textContent=fmt(S.t);$('rKill').textContent=S.kills;$('rLv').textContent=S.lv;
@@ -4450,7 +4447,7 @@ function endRun(won,quit){
   face.style.backgroundImage=bs?`url(${artUrl(CH)})`:'';face.style.backgroundSize=bs?'contain':'';face.style.backgroundPosition=bs?'50% 45%':'';face.setAttribute('aria-label',bs?CH.nm:'흐접새우');face.querySelectorAll('.bdgs').forEach(x=>x.remove());if(bs&&CH.bdg){face.style.position='relative';face.appendChild(bdgEls(CH));}
   $('rSay').textContent=bs&&CH.boss?pickLine(won?BOSS[CH.k].win:BOSS[CH.k].dead):!won&&!quit&&Math.random()<.5?pickLine(DEATH_SAY):SAY[Math.random()*SAY.length|0];   // 💬 쓰러졌을 땐 절반은 도발 마무리 대사
   {const el=$('rCoin');if(el){const k=S.cu|0;el.hidden=!k;el.textContent=k?`🪙 부활 코인 ${k}개를 썼어요`+(ME&&Number.isInteger(ME.coins)?` · 남은 코인 ${ME.coins}개`:''):'';}}
-  achEnd(won);/* 🏆 [S-1] 이번 판 달성 목록(#rAch) */renderRoster();show('result');if(MAPS.cur!=='forest')$('rTitle').insertAdjacentHTML('afterbegin',`<span class="hb">${MAPV.nm[MAPS.cur]} 맵 · 연습</span><br>`);submitRun(won);   // 🗺 [S-2]
+  achEnd(won);/* 🏆 [S-1] 이번 판 달성 목록(#rAch) */renderRoster();show('result');submitRun(won);   // 🗺 [S-2]
 }
 
 
@@ -5576,7 +5573,7 @@ const RES=(()=>{
     const body=JSON.stringify(o);
     if(body.length>MAXLEN)return {text:null,why:'too-big',rep};   // 한도를 넘으면 통째로 저장하지 않는다(save 가 옛 저장본도 지운다)
     const head={f:FMT,sig:SIG,rid:RUN.rid,rs:RUN.rs,gen:RUN.gen,ts:Date.now(),st:stt,ch:CH.k,t:Math.floor(S.t),lv:S.lv,k:S.kills,
-      m:S.dly?'d':S.endless?'e':S.vh?'v':S.hard?'h':'n',mp:MAPS.cur==='forest'?undefined:MAPS.cur,len:body.length,ck:seedOf(body)};
+      m:S.dly?'d':S.endless?'e':S.vh?'v':S.hard?'h':'n',len:body.length,ck:seedOf(body)};
     return {text:JSON.stringify(head)+'\n'+body,body,head,rep};}
   // ④ 저장소 읽기·쓰기(전부 try/catch — 저장이 안 돼도 게임은 평소처럼 돈다)
   function probe(){try{const k='p6_resume_probe',v='x'.repeat(2048);localStorage.setItem(k,v);const r=localStorage.getItem(k)===v;localStorage.removeItem(k);return r;}catch(e){return false;}}
@@ -5725,7 +5722,7 @@ const RES=(()=>{
     S.sushi=[];S.auraR=0;tkCalc();synCalc();S.x2.lt=S.w.lid?TK('lid'):null;    // 파생값 다시 계산(S.x2.lt 는 S.tk.lid 와 같은 객체의 별칭)
     if(S.dly&&S.dly.ranked&&S.dly.date<kstYesterday())S.dly.ranked=false;    // 서버는 오늘·어제 날짜만 받는다 — 더 지났으면 연습 판으로
     SN=mod.SN;gemMT=mod.gemMT;bannerT=mod.ban.T;bannerS=mod.ban.S;bannerS2=mod.ban.S2;bannerA=mod.ban.A;bannerQ.length=0;for(const q of mod.ban.Q)bannerQ.push(q);
-    MAPS.cur=(h.mp==='lava'||h.mp==='ice')&&!S.dly?h.mp:'forest';MAPS.g=null;   // 🗺 [S-2] 맵 종류만 복원(장판은 비운다)
+    MAPS.g=null;   // 🗺 [S-2] 맵은 판 시간으로 다시 정해진다(장판은 비운다)
     RSEED=S.dly?S.dly.seed:0;LASTDLY=!!S.dly;RIFT_CACHE.clear();RDEV.clear();gemGrid.clear();FX.reset();EX.reset();
     toastT=0;$('toast').classList.remove('on');keys={};joy.on=false;joy.dx=joy.dy=0;SRC='';
     if(hasArt(CH))charImg(CH);for(const e of enemies.a)if(e.on&&e.b&&e.b.img)bossImg(e.b.img);
