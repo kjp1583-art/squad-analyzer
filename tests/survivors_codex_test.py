@@ -769,7 +769,7 @@ async def main():
             await open_dex(pg)
             o = await pg.evaluate(OVL)
             check('[%s] 겹창: 화면 안 · 가로 넘침 0 · 탭 5개 모두 안(터치 ≥ 40px %d) · 겹침 0' % (tag, o['tabMin']), o['boxIn'] and o['noScrollX'] and o['tabsIn'] and o['tabMin'] >= 40 and not o['tabHit'], o)
-            check('[%s] 겹창: 닫기 버튼 ≥ 40px · 격자 %d칸 모두 안 · 열 %d개 · 칸 겹침 0 · 칸 터치 ≥ 40px(%d)' % (tag, o['nt'], o['cols'], o['tileMin']), o['xMin'] >= 40 and o['xIn'] and o['tileIn'] and not o['tileHit'] and o['tileMin'] >= 40 and o['nt'] == 42, o)
+            check('[%s] 겹창: 닫기 버튼 ≥ 40px · 격자 %d칸 모두 안 · 열 %d개 · 칸 겹침 0 · 칸 터치 ≥ 40px(%d)' % (tag, o['nt'], o['cols'], o['tileMin']), o['xMin'] >= 40 and o['xIn'] and o['tileIn'] and not o['tileHit'] and o['tileMin'] >= 40 and o['nt'] == 44, o)
             if w <= 412 and w > h * 0.0: check('[%s] 폰 세로 폭에서 격자는 3~4열' % tag, 3 <= o['cols'] <= 4, o['cols'])
             check('[%s] 겹창: 칸 이름 글자가 칸 밖으로 안 넘친다 · 글자 ≥ 11.5px' % tag, o['tileTxt'] and not o['smallFont'], o['smallFont'])
             await shot(pg, '8_grid_%s.png' % tag)
