@@ -2083,8 +2083,8 @@ const slotP=()=>{let n=0;for(const k in S.ps)if(k!=='rev')n++;return n-keyN();};
 const isKeyNew=k=>k!=='rev'&&!pv(k)&&keyN()<MAXEV&&keyList().includes(k);   // 지금 새로 얻으면 열쇠 칸으로 가는가
 const KEY_NOTE=`🗝 각성 열쇠 패시브는 패시브 ${SLOTP}칸 밖의 열쇠 칸(${MAXEV}칸)에 따로 들어가요 — 일반 칸이 꽉 차도 받을 수 있어요`;
 const lwOn=()=>{const w=S.x3&&S.x3.lw;return !!(w&&w.bT>0);};   // 📚 깨달음 버프가 켜져 있는가
-const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1)*(lwOn()?1-STUDYV.buffC:1)*(1-svB('cd'));   // [S-5] 출발 보너스 · 📚 깨달음 버프 · 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
-const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1)*(lwOn()?1+STUDYV.buffD:1);   // 📚 깨달음 버프(공부 Lv3~) · 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
+const cdMul=()=>(1-(CH.cdr||0))*csCd()*(S.x2.bT>0&&TK('bell').tk?.92:1)*Math.pow(.92,pv('cd'))*(1-S.syn.cd)*Math.pow(.96,PTV('cd'))*Math.pow(1.05,trn('wide'))*Math.pow(.93,trn('swift'))*(S.p.moving&&PTV('spd')>=2?.96:1)*(lwOn()?1-STUDYV.buffC:1)*(1-svB('cd'))*(1-shrB('cd'));   // [S-5] 출발 보너스 · 📚 깨달음 버프 · 🎲 [2026-09-30 사장님 지시] 초월·거래 반영
+const dmgMul=()=>(S.dT>0?SHV.dmg:1)*(S.x2.bT>0?1+S.x2.bm:1)*(1+.1*pv('might'))*(1+smv('ramen'))*(1+PASSV.glass.dmg*pv('glass'))*(1+S.syn.dmg)*(1+.12*trn('glassc'))*(1-.04*trn('swift'))*(PTV('might')&&S.p.hp>=S.p.mhp*.8?1+.07*PTV('might'):1)*(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?1+[.25,.35,.45][S.rel.berserk-1]:1)*(lwOn()?1+STUDYV.buffD:1)*(1+shrB('dm'));   // 📚 깨달음 버프(공부 Lv3~) · 🎲 [2026-09-30 사장님 지시] 라면은 체감 · 유물/거래/초월 반영
 const LK=()=>pv('luck')+S.syn.luck;            // 🍀 행운 단계(🎲 도박 중독 시너지 +2)
 const DUR=()=>1+.15*(pv('dur')+S.syn.dur);                  // ⏳ 지속시간
 const PS=()=>1+.12*(pv('pspd')+S.syn.pspd)+.08*PTV('pspd');                  // 🏹 투사체 속도
@@ -2093,12 +2093,12 @@ const PS=()=>1+.12*(pv('pspd')+S.syn.pspd)+.08*PTV('pspd');                  // 
 const critCh=()=>(CH.crit||0)+csCrit(),critLk=()=>.03*LK(),critPv=()=>.05*pv('crit'),critPt=()=>PTV('luck')?.05:0,critTr=()=>.06*trn('focus'),critSm=()=>smv('crit');   // 치명타 확률의 여섯 갈래: 캐릭터 · 행운 · 급소 · 🌟 행운 초월 · 정조준 · 눈 밝히기
 const critChance=()=>critCh()+critLk()+critPv()+critPt()+critTr()+critSm()+S.syn.crit;   // 치명타 확률(1 이상이면 늘 터진다)
 const critMul=()=>CRIT_BASE+.2*pv('crit')+.25*PTV('crit')+.15*(PTV('luck')?1:0)+S.syn.crm;   // 치명타가 터졌을 때의 피해 배율
-const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove()+S.syn.mv+svB('mv');   // [S-5] 출발 보너스 · 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
+const moveMul=()=>1+.08*pv('spd')+(CH.spd||0)+(CH.shv&&S.dT>0?SHV.spd:0)-PASSV.turtle.mv*pv('turtle')+(S.spr>0?[.2,.3,.4][S.rel.sprint-1]:0)+.1*trn('gale')-.05*trn('iron')+smv('spd')+(S.x2.bT>0?S.x2.bs:0)+(S.rel.berserk&&S.p.hp<=S.p.mhp*.4?.1:0)+csMove()+S.syn.mv+svB('mv')+shrB('mv');   // [S-5] 출발 보너스 · 이동 속도 배율(p.sp 에 곱한다 · 느려짐은 따로 slowMul)
 const slowMul=()=>S.p.slow>0?.6:1;   // 📜 감속에 걸리면 이동 ×0.6
-const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag')+svB('mag');   // [S-5]   // 경험치 줍는 범위 배율(기본 반경 70)
-const xpMul=()=>1+(CH.xp||0)+STUDYV.xp*pv('study')+S.syn.xp+(S.t<STARTV_XT?svB('xp'):0);   // [S-5] 출발 보너스(처음 5분만)   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
+const magMul=()=>1+.3*pv('mag')+(CH.mag||0)+.4*(PTV('mag')?1:0)+smv('mag')+svB('mag')+shrB('mag');   // [S-5]   // 경험치 줍는 범위 배율(기본 반경 70)
+const xpMul=()=>1+(CH.xp||0)+STUDYV.xp*pv('study')+S.syn.xp+(S.t<STARTV_XT?svB('xp'):0)+shrB('xp');   // [S-5] 출발 보너스(처음 5분만)   // 경험치 보석 하나에서 얻는 경험치 배율(그 위에 XP_X)
 const armTotal=()=>pv('arm')+(CH.arm||0)+PASSV.turtle.arm*pv('turtle')+trn('iron');   // 맞을 때마다 깎는 고정 피해(깎고도 최소 1은 맞는다)
-const takenMul=()=>csTaken()*(1-S.syn.tk)*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1)*(S.x3.ram.hg>0?1-U3.ram.hg.red:1)*(S.x3.mau&&S.x3.mau.hg>0?1-U3.maul.hg.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다) · 🥊 태웅이 보스에 매달린 동안은 절반
+const takenMul=()=>csTaken()*(1-shrB('tk'))*(1-S.syn.tk)*(1+PASSV.glass.tk*pv('glass'))*(S.p.moving&&PTV('spd')?.94:1)*(CH.shv&&S.dT>0?1-SHV.red:1)*(S.x3.ram.hg>0?1-U3.ram.hg.red:1)*(S.x3.mau&&S.x3.mau.hg>0?1-U3.maul.hg.red:1);   // 받는 피해 배율(고정 깎기 전에 곱한다) · 🥊 태웅이 보스에 매달린 동안은 절반
 const VAMP_N=40,vampHp=()=>1.5*pv('vamp');   // 🥩 고기 반찬: 적 VAMP_N 마리를 처치할 때마다 HP 회복
 const critParts=()=>[['캐릭터',critCh()],['행운',critLk()],['급소',critPv()],['행운 초월',critPt()],['정조준',critTr()],['눈 밝히기',critSm()],['빌드 계열',S.syn.crit]];   // 표시용 구성표(화면을 그릴 때만 부른다 — 합은 critChance 와 같다)
 const LOWHP_AT=.3,lowMul=()=>CH.low&&S.p.hp<S.p.mhp*LOWHP_AT?1+CH.low:1;   // 🥲 망무새: 체력이 LOWHP_AT 아래면 피해 +CH.low (hurt 가 곱한다 — dmgMul 에는 안 들어 있다)
@@ -3013,6 +3013,38 @@ function crisisTick(dt){
   CRI.t-=dt;if(CRI.ph===2)CRI.age+=dt;
   if(CRI.ph===1){if(CRI.k===2&&CRI.C){CRI.C.x=S.p.x;CRI.C.y=S.p.y;}if(CRI.t<=0)crisisFire();}
   else if(CRI.t<=0)crisisEnd();}
+// 🛕 [2026-10-22 사장님 지시 「랜덤한 위치에 5분에 1번꼴로 성소 · 가까이 가면 랜덤 버프 · 지속 3분」] — 가서 닿으면 되는 목표라 멈춰 서 있을 이유가 없다
+const SHRV={first:[150,270],every:[270,330],dist:[600,900],R:64,life:180,dur:180,
+  buffs:[{k:'dm',ic:'🔥',nm:'분노',v:.25,ds:'피해 +25%'},{k:'mv',ic:'💨',nm:'질풍',v:.20,ds:'이동속도 +20%'},{k:'cd',ic:'⚡',nm:'가속',v:.15,ds:'공격속도 +15%'},
+    {k:'mag',ic:'🧲',nm:'자석',v:.60,ds:'획득 범위 +60%'},{k:'xp',ic:'📚',nm:'깨달음',v:.40,ds:'경험치 +40%'},{k:'tk',ic:'🛡',nm:'수호',v:.20,ds:'받는 피해 -20%'},
+    {k:'rg',ic:'💚',nm:'재생',v:.005,ds:'초당 최대 HP 0.5% 회복'}]};
+const SHR={s:null,nx:0,on:0,x:0,y:0,age:0,b:null,t:0};   // b: 지금 받은 버프(SHRV.buffs 항목) · t: 남은 시간 · 판마다 리셋(SHR.s!==S)
+const SHRR={a:0};   // 일일 도전이 아닌 판은 Math.random 을 건드리지 않는다(다른 난수 순서를 그대로 둔다) — 자체 xorshift
+const SR=k=>{if(S&&S.dly)return RN(k);let a=SHRR.a|0;if(!a)a=(performance.now()*1000|0)||7;a^=a<<13;a^=a>>>17;a^=a<<5;SHRR.a=a;return (a>>>0)/4294967296;};
+const shrB=k=>SHR.s===S&&SHR.t>0&&SHR.b&&SHR.b.k===k?SHR.b.v:0;
+function shrineTick(dt){
+  if(SHR.s!==S){SHR.s=S;SHR.on=0;SHR.b=null;SHR.t=0;SHR.age=0;SHR.nx=SHRV.first[0]+SR('shrine')*(SHRV.first[1]-SHRV.first[0]);}
+  const P=S.p;
+  if(SHR.t>0){SHR.t-=dt;if(SHR.b&&SHR.b.k==='rg'&&S.p.hp>0)P.hp=Math.min(P.mhp,P.hp+P.mhp*SHR.b.v*dt);if(SHR.t<=0){SHR.t=0;banner('🛕 '+(SHR.b?SHR.b.nm:'')+' 버프가 끝났어요','다음 성소를 찾아보세요',1);SHR.b=null;}}
+  if(duelBoss()){SHR.on=0;return;}   // ⚔ 1:1 에서는 성소를 치운다
+  if(SHR.on){SHR.age+=dt;
+    if(Math.hypot(P.x-SHR.x,P.y-SHR.y)<=SHRV.R+(P.r||14)){const B=SHRV.buffs[Math.floor(SR('shrineb')*SHRV.buffs.length)%SHRV.buffs.length];
+      SHR.b=B;SHR.t=SHRV.dur;SHR.on=0;SHR.nx=S.t+SHRV.every[0]+SR('shrine')*(SHRV.every[1]-SHRV.every[0]);banner('🛕 성소의 축복 — '+B.ic+' '+B.nm,B.ds+' · 3분',2);}
+    else if(SHR.age>=SHRV.life){SHR.on=0;SHR.nx=S.t+SHRV.every[0]+SR('shrine')*(SHRV.every[1]-SHRV.every[0]);banner('🛕 성소가 사라졌어요','다음엔 놓치지 마세요',0);}}
+  else if(S.t>=SHR.nx){const a=SR('shrinea')*6.283,d=SHRV.dist[0]+SR('shrined')*(SHRV.dist[1]-SHRV.dist[0]);
+    SHR.on=1;SHR.age=0;SHR.x=P.x+Math.cos(a)*d;SHR.y=P.y+Math.sin(a)*d;banner('🛕 성소 출현!','미니맵의 보라색 표시로 달려가세요 — 3분 버프',2);}
+}
+function shrineDraw(){
+  if(SHR.s!==S||!SHR.on)return;const pu=.5+.5*Math.sin(S.t*4),late=SHR.age>SHRV.life-30&&((S.t*4|0)%2);
+  cx.save();cx.globalAlpha=late?.35:1;
+  cx.beginPath();cx.arc(SHR.x,SHR.y,SHRV.R,0,6.283);cx.fillStyle='rgba(170,120,255,'+(.16+.1*pu).toFixed(2)+')';cx.fill();cx.lineWidth=3;cx.setLineDash([10,8]);cx.strokeStyle='rgba(215,190,255,.9)';cx.stroke();cx.setLineDash([]);
+  cx.font='34px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText('🛕',SHR.x,SHR.y-4+Math.sin(S.t*3)*3);cx.restore();}
+function shrineMM(g,h,k,p){   // 미니맵 — 성소(보라 마름모) + 아래쪽 버프 남은 시간
+  if(SHR.s!==S)return;
+  if(SHR.on){const dx=(SHR.x-p.x)*k,dy=(SHR.y-p.y)*k,d=Math.hypot(dx,dy),L=h-8;let X=h+dx,Y=h+dy;if(d>L){X=h+dx/d*L;Y=h+dy/d*L;}
+    g.fillStyle='#c9a4ff';g.strokeStyle='#fff';g.lineWidth=1.5;g.beginPath();g.moveTo(X,Y-6);g.lineTo(X+5,Y);g.lineTo(X,Y+6);g.lineTo(X-5,Y);g.closePath();g.fill();g.stroke();}
+  if(SHR.t>0&&SHR.b){const N=h*2,m=Math.floor(SHR.t/60),sc=Math.floor(SHR.t%60);g.font='bold 11px sans-serif';g.textAlign='center';g.fillStyle='#e6d6ff';g.strokeStyle='rgba(0,0,0,.8)';g.lineWidth=3;
+    const tx=SHR.b.ic+SHR.b.nm+' '+m+':'+(sc<10?'0':'')+sc;g.strokeText(tx,h,N-6);g.fillText(tx,h,N-6);g.textAlign='left';}}
 function crisisDraw(){   // 바닥 예고 — 질주 레인 · 링과 구멍(폭탄 원은 S.ebooms 가 HZ.disc 로 그린다)
   if(CRI.s!==S||!CRI.ph)return;
   if(CRI.k===0&&CRI.L&&(CRI.ph===1||CRI.age<.8)){const L=CRI.L,V=CRV.lane;HZ.band(L.x-L.ax*V.half,L.y-L.ay*V.half,L.ax,L.ay,V.half*2,V.w,CRI.ph===1?1-CRI.t/CRV.pre:1,false);}
@@ -3041,6 +3073,7 @@ function waveTick(dt){
   if(duelBoss()){S.evT+=dt;S.bigT+=dt;if(S.nextMini<Infinity)S.nextMini+=dt;}   // ⚔ 1:1 — 일반 소환(평소 스폰·몰이·대형·미니 보스)은 멈추고 다음 시각도 같이 미룬다(끝난 뒤 한꺼번에 쏟아지지 않게)
   else waveSpawn(dt);
   crisisTick(dt);   // 🔥 [S-4] 위기 이벤트
+  shrineTick(dt);   // 🛕 성소
   if(S.t>=WIN_T&&!S.won){S.won=true;endRun(true);endAskShow();}   // ♾ 60분 클리어 기록을 올린 뒤 '무한 모드로 이어갈까요?' 를 묻는다(모든 모드 공통 · 오늘의 도전 제외)
   if(S.endless&&S.t>=END_T)endRun(true);   // ♾ 무한 모드 한계(180분) — 성능·메모리를 위해 여기서 마무리
 }
@@ -5223,6 +5256,7 @@ function mmDraw(){const c=$('mm');if(!c||!S)return;const g=c.getContext('2d'),N=
   for(const e of enemies.a){if(!e.on)continue;if(e.boss)continue;dot(e.x,e.y,e.bg?5:e.el?4:2.6,e.bg?'#ff7a3a':e.el?'#ffa94a':'#ff4d4d');}
   for(const e of enemies.a)if(e.on&&e.boss)dot(e.x,e.y,7,'#ffe14a');
   crisisMM(g,h,k,p);   // 🔥 [S-4] 위기 경고
+  shrineMM(g,h,k,p);   // 🛕 성소
   g.fillStyle='#fff';g.beginPath();g.arc(h,h,4,0,6.283);g.fill();g.strokeStyle='#4dd2ff';g.lineWidth=2;g.stroke();}
 function draw(){
   const p=S?S.p:{x:0,y:0};
@@ -5266,6 +5300,7 @@ function draw(){
   if(S.room)HZ.room(S.room.x,S.room.y,S.room.R,S.room.t,6,S.room.g,S.room.gw,S.room.pre);   // ☠ 보스의 진실의 방(가두는 벽)
   {const DB=duelBoss();if(DB)duelDrawWorld(DB);}   // ⚔ 최종 보스 1:1 — 경기장 벽 · 꼬리·돌진·새우깡·안전지대 예고
   crisisDraw();   // 🔥 [S-4] 위기 예고(질주 레인 · 포위 링)
+  shrineDraw();   // 🛕 성소
   for(const b of S.ebooms)HZ.disc(b.x,b.y,b.R,1-b.t/(b.T||.9),b.g);   // 💔 멘탈 폭발 · ⏰ 시한폭탄 · 💥 코그모 · 💢 보스 충격파
   HZ.clouds();   // ☁ 독가스
   for(const b of S.beams){const x2=b.x+b.ax*b.L,y2=b.y+b.ay*b.L;   // 🌈 레이저(예고 띠 → 번쩍)
