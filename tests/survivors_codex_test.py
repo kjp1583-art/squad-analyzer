@@ -186,7 +186,7 @@ async def main():
           c.CDX.kk=null;c.CDX.cat=null;const m1=c.cdxStat().m,keys=c.cdxEntries().map(e=>e.key);
           const r={m0,m1,has:['w:zzz','p:zzp','tr:zzt','co:zzc'].every(k=>keys.includes(k)),sub:c.cdxKeys().all.has('wt:zzz')&&c.cdxKeys().all.has('ev:zzz')};
           delete c.WEAP.zzz;delete c.TIERS.zzz;delete c.PASS.zzp;delete c.TRD.zzt;delete c.CO.zzc;c.CDX.kk=null;c.CDX.cat=null;r.back=c.cdxStat().m;return r;}""")
-        check('[자체 점검] 표에 스킬을 더하면 도감 칸 수가 따라 늘어난다(143 → 143 → 되돌리면 143)', r['m0'] == 143 and r['m1'] == 143 and r['has'] and r['sub'] and r['back'] == 143, r)
+        check('[자체 점검] 표에 스킬을 더하면 도감 칸 수가 따라 늘어난다(143 → 147 → 되돌리면 143)', r['m0'] == 143 and r['m1'] == 147 and r['has'] and r['sub'] and r['back'] == 143, r)
         r = await pg.evaluate("""()=>{const c=__cx;const o={};c.WEAP.feed.ds[0]='시험용 첫 문구';const w0=c.PASS.spd.ds;c.PASS.spd.ds='시험용 패시브 문구';c.SM.ramen.base=.05;c.CDX.cat=null;
           for(const k of ['w:feed','p:spd','sm:ramen'])c.cdxNote(k);
           const v=c.cdxView();o.w=v.find(e=>e.key==='w:feed').lv[0];o.p=v.find(e=>e.key==='p:spd').ds;o.s=v.find(e=>e.key==='sm:ramen').first;
