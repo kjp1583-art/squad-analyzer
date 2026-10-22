@@ -35,7 +35,7 @@ def load_avg():
 HOOK_R = r"""
 REGEN.on=0;   // 적응 리젠은 이어하기 뒤 처치 속도를 처음부터 다시 재도록 일부러 만들었다(S 밖 상태) — 10분 뒤 저장한 판은 스폰 타이머가 달라지므로 이 충실도 시험에서만 끈다
 window.__R={RES,get S(){return S},set S(v){S=v},get state(){return state},set state(v){state=v},get CUR(){return CUR},get RUN(){return RUN},
- pools:{enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,snps,bolts,waves,puds,clouds,allies,cans,bubs},
+ pools:{enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,trls,snps,bolts,waves,puds,clouds,allies,cans,bubs},
  CHARS,WEAP,PASS,REL,TRD,SM,KIND,BOSS,TIERS,PT,WIN_T,END_T,SRVUNL,srvUnl,get SRVLOAD(){return SRVLOAD},getProg,setProg,
  synCalc,tkCalc,update,resume,pauseGame,pick,openLvup,openChest,endRun,contEndless,start,show,draw,offers,reroll,banCard,drawCards,cardOf,dailyGet,dailySet,
  CH_set(k){CH=CHARS.find(c=>c.k===k)},get CH(){return CH},get SN(){return SN},set SN(v){SN=v},RN,seedOf,mulberry,kstDate,get LOW(){return LOW},get bannerQ(){return bannerQ},get keys(){return keys},set keys(v){keys=v}};
@@ -728,7 +728,7 @@ CLASSIFIED = {
  'RDEV': 'DERIVE', 'RDEV_S': 'DERIVE', 'RDEV_MAX': 'DERIVE', 'RDEV_BUD': 'DERIVE', 'last': 'RESET', 'RIFT_CACHE': 'DERIVE', 'RIFT_MAX': 'DERIVE', 'RIFT_BUD': 'DERIVE',
  'enemies': 'POOL', 'shots': 'POOL', 'gems': 'POOL', 'texts': 'POOL', 'rangs': 'POOL', 'bolts': 'POOL', 'waves': 'POOL', 'puds': 'POOL', 'clouds': 'POOL', 'cans': 'POOL', 'allies': 'POOL', 'items': 'POOL', 'props': 'POOL', 'bubs': 'POOL', 'hazards': 'POOL', 'eshots': 'POOL',
  'FLUSHING': 'UI', 'FLUSH_GAP': 'UI', 'QMEM': 'UI', 'QSEQ': 'UI', 'QLSFAIL': 'UI',   # A-24 미전송 기록 큐 — 판 상태가 아니라 업로드 보조 변수(이어하기와 무관)
- 'rkts': 'POOL', 'pets': 'POOL', 'hooks': 'POOL', 'frs': 'POOL', 'holes': 'POOL', 'snps': 'POOL',
+ 'rkts': 'POOL', 'pets': 'POOL', 'hooks': 'POOL', 'frs': 'POOL', 'holes': 'POOL', 'trls': 'POOL', 'snps': 'POOL',
 }
 
 # ═════════════ 사. 두 창 · 저장 시점 · 시간 · 비밀 · 오늘의 도전 · UI ═════════════

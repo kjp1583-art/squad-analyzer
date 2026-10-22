@@ -44,12 +44,15 @@ async def page(b, port, name, seed=7, w=1000, h=700, seeded=True):
     await pg.goto('http://127.0.0.1:%d/%s' % (port, name))
     await pg.wait_for_function('window.__M!==undefined&&window.__p6x!==undefined', polling=50, timeout=20000)
     return ctx, pg, errs
-def mk(dst, src='survivors.html', root=ROOT):
-    return H.make_copy(src=src, dst=dst, root=root, extra='\n' + HOOK)
+def mk(dst, src='survivors.html', root=ROOT, extra=''):
+    return H.make_copy(src=src, dst=dst, root=root, extra='\n' + HOOK + extra)
+# BASE 이후에 더해진 공용 무기 — A(숲 비트 동일)는 「지도 코드가 숲 판을 안 건드렸나」를 보는 시험이라, 카드 뽑기 풀이 달라지지 않게 A 용 사본에서만 뺀다
+ADDED_WEAP = ['roll', 'box']
 
 async def main():
     srv = H.Srv()
     mk('survivors_mt_new.html')
+    mk('survivors_mt_newA.html', extra='\n' + ''.join('delete WEAP.%s;' % k for k in ADDED_WEAP))
     base_src = subprocess.run(['git', 'show', BASE + ':survivors.html'], cwd=ROOT, capture_output=True).stdout.decode('utf-8')
     open(os.path.join(ROOT, 'survivors_mt_base.html'), 'w', encoding='utf-8').write(base_src)
     mk('survivors_mt_base.html', src='survivors_mt_base.html')
@@ -59,7 +62,7 @@ async def main():
             # ── A 숲 비트 동일 ───────────────────────────────────────────────────────────────
             chars = None
             fps = {}
-            for tag, name in (('new', 'survivors_mt_new.html'), ('base', 'survivors_mt_base.html')):
+            for tag, name in (('new', 'survivors_mt_newA.html'), ('base', 'survivors_mt_base.html')):
                 ctx, pg, errs = await page(b, srv.port, name)
                 if chars is None: chars = await pg.evaluate("()=>__p6x.CHARS.filter(c=>!c.shop).map(c=>c.k)")
                 out = []
@@ -183,7 +186,7 @@ async def main():
             await ctx.close()
         finally:
             await b.close()
-    for n in ('survivors_mt_new.html', 'survivors_mt_base.html'):
+    for n in ('survivors_mt_new.html', 'survivors_mt_newA.html', 'survivors_mt_base.html'):
         try: os.remove(os.path.join(ROOT, n))
         except Exception: pass
     print('\n' + ('전부 통과' if not FAILS else 'FAIL %d: %s' % (len(FAILS), FAILS)))
