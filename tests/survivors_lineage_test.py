@@ -249,8 +249,8 @@ async def main():
               'DUR 가 syn.dur 를 안 읽음': ("(pv('dur')+S.syn.dur)", "pv('dur')"),
               'critChance 가 syn.crit 를 안 읽음': ("+critSm()+S.syn.crit;", "+critSm();"),
               'critMul 이 syn.crm 을 안 읽음': ("+.15*(PTV('luck')?1:0)+S.syn.crm;", "+.15*(PTV('luck')?1:0);"),
-              'takenMul 이 syn.tk 를 안 읽음': ("csTaken()*(1-S.syn.tk)*", "csTaken()*"),
-              'moveMul 이 syn.mv 를 안 읽음': ("+csMove()+S.syn.mv+svB('mv');", "+csMove()+svB('mv');"),
+              'takenMul 이 syn.tk 를 안 읽음': ("csTaken()*(1-shrB('tk'))*(1-S.syn.tk)*", "csTaken()*(1-shrB('tk'))*"),
+              'moveMul 이 syn.mv 를 안 읽음': ("+csMove()+S.syn.mv+svB('mv')+shrB('mv');", "+csMove()+svB('mv')+shrB('mv');"),
               '무기 발사가 syn.amt 를 안 읽음': ("AM=S.syn.amt;let L;", "AM=0;let L;"),
               '단계표 합산을 빼먹음': ("if(t){const fx=LINT[k][t-1];for(const q in fx)f[q]+=fx[q];}", ""),
             }
