@@ -1242,6 +1242,11 @@ const WEAP={
   // 🐺 [2026-10-18 사장님 지시] 탐지견 전용 — 체력이 낮은(비율) 적을 우선 노려 제자리에서 물어뜯는다(돌진 삭제). 처치하면 쿨타임이 줄고(상한), 물어뜯으면 HP 가 조금 회복된다. 각성 열쇠 패시브 💪 근성(모든 피해). 수치는 U3.maul
   maul:{only:'tjg',rl:'고유 · 약한 적 사냥',ic:'🐺',nm:'갈가리 찢기',pair:'might',ev:{ic:'⛓',nm:'무한한 속박',ds:'가장 센 적(보스 우선)을 붙잡고 연타 — 보스는 느려질 뿐 · 피해 1.15배'},
     ds:['체력 비율이 가장 낮은 적을 제자리에서 물어뜯는다 — 주변 적도 60% 위력으로 휩쓸린다. 쓰러뜨린 적 한 마리마다 쿨타임이 0.5초 줄고(한 번에 최대 1.0초), 물어뜯을 때마다 HP 가 조금 회복된다(탐지견 전용)','물어뜯는 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','물어뜯는 거리 +15% · 휩쓸림 범위 +30%','쿨타임 -15%','피해 +50% · 한 번 더 문다(피해 60%)']},
+  // 🧲⚡ [2026-10-22 사장님 승인 「신규 무기 6종」 W-3 · W-5] 설계: tooling/improve/ideas/SV-weapons-passives-2026-10-22.md. 수치는 U3.magn · U3.slide 한 곳.
+  magn:{nw:1,rl:'몰이 · 한 방',ic:'🧲',nm:'자석 낚시',pair:'mag',ev:{ic:'🛰',nm:'초강력 전자석',ds:'자석 +1 · 끌어당김 범위 1.3배 · 폭발 범위 1.3배 · 피해 1.25배 · 더 자주'},
+    ds:['적이 가장 많이 모인 곳에 자석을 던진다 — 주변 적을 한 점으로 확 끌어모은 뒤 크게 터진다(많이 모일수록 더 아프다 · 보스는 안 끌려온다)','끌어당김 범위 +15%','피해 +40%','끌어당기는 시간 +0.2초 · 쿨타임 -15%','피해 +40%','끌어당김 범위 +15%','자석 +1(동시에 둘)','피해 +50% · 폭발 범위 +20%']},
+  slide:{nw:1,rl:'이동기 · 히트앤런',ic:'⚡',nm:'슬라이딩',pair:'cd',ev:{ic:'🌠',nm:'초음속 슬라이딩',ds:'쿨타임 0.65배 · 미끄러지는 거리 1.3배 · 폭 1.3배 · 피해 1.4배'},
+    ds:['달리는 방향으로 쭉 미끄러지며 지나간 길의 적을 벤다 — 잠깐 무적이고, 길에는 자국이 1.4초 남아 쫓아오는 적이 밟는다(움직이는 동안에만 나간다)','미끄러지는 거리 +15%','피해 +40%','쿨타임 -15%','피해 +40%','미끄러지는 거리 +15%','쿨타임 -15%','피해 +50% · 폭 +20%']},
 };
 // ⚖ [2026-10-16 클랜원 건의 「초월 있는 패시브 vs 없는 패시브 균형」] 양날의 검 두 패시브(🩸 광분 · 🐢 거북 등껍질)의 수치는 여기 한 곳. 문구(PASS.ds)·식(dmgMul·takenMul·moveMul·armTotal)이 같은 값을 읽는다.
 //   두 패시브는 🌟 초월 칸(PT)이 없다 — PT 에 항목을 더하면 이어하기 서명(SIG)이 바뀌어 진행 중인 판이 사라지므로, 초월 대신 레벨당 효과를 키워 패널티를 갚는다.
@@ -1324,6 +1329,8 @@ const PFX={
   sing:{cd:'yy',spd:'yy',dur:'nn',area:'pp',luck:'nn'},
   panty:{cd:'yy',spd:'yy',dur:'ny',area:'ny',luck:'nn'},
   maul:{cd:'yy',spd:'nn',dur:'nn',area:'pp',luck:'nn'},
+  magn:{cd:'yy',spd:'nn',dur:'yy',area:'yy',luck:'nn'},
+  slide:{cd:'yy',spd:'nn',dur:'nn',area:'pp',luck:'nn'},
 };
 //   p 칸의 쉬운 말 설명 — 문자열이면 기본·각성 둘 다, [기본,각성] 이면 p 인 쪽만 채운다
 const PFXN={
@@ -1341,6 +1348,7 @@ const PFXN={
   'pcards.area':['','각성 5단계 반짝 폭발만'],
   'sing.area':'고음(♬)만',
   'maul.area':'휩쓸림 범위만',
+  'slide.area':'미끄러지는 폭만',
   'lid.area':'절반 효과',
   'bash.area':'절반 효과',
   'twin.area':'베기는 절반 · 화염 장판 범위는 전부',
@@ -1359,7 +1367,7 @@ const fxSym=s=>`<span class="fxy ${s}">${FXSYM[s]}</span>`;   // ✔ ◐ ✖ —
 // 카드·표에서 쓰는 무기 짧은 이름(1~4글자) — WEAP 40개와 1:1. 정적 표(WEAP …)가 아니라서 이어하기 서명(SIG)에 안 들어간다.
 const PFXSN={feed:'사료',fryer:'튀김기',sushi:'초밥',egg:'달걀',shrimp:'새우깡',kbd:'난타',spk:'스피커',potion:'물약',breath:'브레스',ping:'핑',wifi:'와이파이',can:'캔',gacha:'가챠',
   pan:'팬',rkt:'폭죽',chick:'병아리',rod:'낚싯대',frost:'얼음땡',lid:'뚜껑',meteor:'운석',snipe:'저격',hole:'블랙홀',bell:'리듬',quill:'깃털',tempo:'치명속도',fuse:'폭탄',
-  slime:'슬라임',cart:'카트',heart:'하트',jhin:'4발',whop:'와퍼',bash:'방패',twin:'쌍둥이',stamp:'도장',chain:'사슬',ram:'박치기',snack:'맛동산',eom:'엄외침',pcards:'포토카드',sing:'노래',panty:'팬티',maul:'찢기'};
+  slime:'슬라임',cart:'카트',heart:'하트',jhin:'4발',whop:'와퍼',bash:'방패',twin:'쌍둥이',stamp:'도장',chain:'사슬',ram:'박치기',snack:'맛동산',eom:'엄외침',pcards:'포토카드',sing:'노래',panty:'팬티',maul:'찢기',magn:'자석',slide:'슬라이딩'};
 const fxEv=(w,ev)=>ev===undefined?!!(typeof S!=='undefined'&&S&&S.ev&&S.ev[w]):!!ev;   // ev 를 안 주면 지금 내 폼(S.ev)을 따른다
 function fxState(w,ch,ev){const r=PFX[w],s=r&&r[ch];return s?s.charAt(fxEv(w,ev)?1:0):'?';}   // 'y'|'p'|'n' · 표에 없으면 '?'(화면에서 숨긴다)
 function fxNote(w,ch,ev){const n=PFXN[w+'.'+ch];if(!n)return '';return typeof n==='string'?n:(n[fxEv(w,ev)?1:0]||'');}
@@ -1472,6 +1480,7 @@ const LINEAGE={
   pan:['mel'],rkt:['bar','aoe'],chick:['one','mel'],rod:['mel','one'],frost:['aoe'],lid:['mel'],meteor:['one','zone'],snipe:['one'],hole:['zone','aoe'],bell:['aoe'],
   quill:['bar'],tempo:['bar','one'],fuse:['zone','aoe'],slime:['bar','zone'],cart:['zone'],heart:['one','bar'],jhin:['one','bar'],whop:['bar','aoe'],bash:['mel'],twin:['mel','zone'],stamp:['one'],chain:['one','mel'],ram:['mel'],
   snack:['bar'],eom:['aoe','mel'],pcards:['bar','mel'],sing:['bar'],panty:['zone','bar'],maul:['mel','one'],
+  magn:['zone','aoe'],slide:['mel'],
 };
 const LIN={   // 계열 이름·그림·한 줄 설명(아이콘은 위험색(빨강)을 피한다)
   bar:{ic:'🔫',nm:'탄막',ln:'투사체를 많이 쏘는 무기'},
@@ -1579,6 +1588,8 @@ const TIERS={
   eom:[['범위 +7%',{a:.07}],['쿨타임 -7%',{c:.07}],['피해 +12%',{d:.12}],['0.4초 뒤 한 번 더 외친다(피해 60%)',{echo:1}],['밀치는 힘 +25% · 범위 +7%',{life:.5,a:.07}]],
   panty:[['팬티 +1(한 번에 던지는 개수)',{n:1}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['빨랫줄 +1줄 · 줄이 1초 더 걸려 있다 · 피해 +8%',{ring:1,life:1,d:.08}],['폭죽이 터진 자리에 팬티 6장이 사방으로 흩어진다(피해 50%)',{frag:1}]],
   maul:[['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['휩쓸림 범위 +15%',{a:.15}],['붙잡는 동안 연타 +2번',{n:2}],['붙잡는 시간 +0.4초 · 피해 +8%',{life:.4,d:.08}]],
+  magn:[['끌어당김 범위 +7%',{a:.07}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['터진 뒤 모인 적이 0.6초 멈춘다',{stun:1}],['0.45초 뒤 한 번 더 터진다(피해 60%)',{echo:1}]],
+  slide:[['미끄러지는 거리 +8%',{a:.08}],['피해 +12%',{d:.12}],['쿨타임 -7%',{c:.07}],['지나친 적이 0.6초 멈칫',{stun:1}],['출발한 자리에서 충격파(피해 60%)',{boom:1}]],
 };
 const TCAP=k=>S.ev[k]?5:3;   // 각성한 무기 5단계 · 안 한 Lv8 무기는 마스터 3단계
 const LATE_K=1,LATE_FRAC={a:1,c:1,d:1,s:1,w:1,rare:1,leg:1};   // 한 번에 낮추고 싶으면 LATE_K 만 줄인다(개수·기믹은 그대로, 비율 수치만 곱해진다 — 카드 문구의 % 도 같이 고칠 것)
@@ -1909,6 +1920,9 @@ const AU=(()=>{
       case 'panty':{if(a===1){noise(.16,.14,2600);tone('triangle',330,990,.22,.08);tone('sine',660,1320,.16,.04,now+.05);}else{noise(.07,.1,3400);tone('triangle',640,400,.08,.05);}break;}
       case 'ptyg':tone('triangle',880,1175,.07,.06);tone('sine',1320,1760,.09,.04,now+.05);break;
       // 🐺 갈가리 찢기 — 0 물어뜯기(짧은 쉭 + 낮은 으르렁) · 1 크게 도약(길게 훑는 소리)
+      // 🧲 자석 낚시 — 0 던지기(휙) · 1 철컥 붙는 소리 / ⚡ 슬라이딩 — 짧게 쉭
+      case 'magn':{if(a===1){tone('square',220,880,.12,.05);noise(.05,.08,2400);}else{noise(.1,.1,2000);tone('triangle',330,660,.1,.05);}break;}
+      case 'slide':{noise(.14,.14,3200);tone('sawtooth',520,200,.12,.05);break;}
       case 'maul':{if(a===1){noise(.2,.15,1800);tone('sawtooth',170,720,.22,.06);tone('triangle',90,48,.3,.05,now+.07);}else{noise(.06,.13,3600);tone('sawtooth',300,140,.1,.05);}break;}
       case 'beat':{const hi=a?1:0;tone('sine',hi?880:440,hi?880:420,hi?.12:.06,hi?.09:.06);if(hi)tone('triangle',1320,1320,.1,.04);break;}
     }
@@ -3378,7 +3392,12 @@ const DLS=L=>lvm(L,[[3,1.2],[5,1.2],[8,1.5]]);
 // ⚖️ [2026-10-12 사장님 지시 "배불배불 · 범위 좁은 탄막형 · 단일 무기 데미지라도 쎄야"] 피해(d · db · bd)만 올렸다 — 범위·쿨·개수·사거리는 그대로.
 //   노래부르기 4.5→5.9(울림 1.3→1.7) · 깃털 산탄 6.5→11.5 · 4발 사격 7→7.7 · 자크 슬라임 13→17(조각 7→9.1) · 포토카드 8→13 · 화해의 하트 14→18.
 //   근거: 무기 한 자루만 든 허수아비 밭(밀집·성김·보스) · 움직이는 아레나(실전 체력) · 정책 봇 측정 — 한 가지 지표만 보지 않았다. 집중겜·유미·카트 …는 약하지 않아서 그대로.
-const U3={sing:{d:7,db:2,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,ct:1.5,cs:.07,cm:8,fs:.13,fm:1.3,bx:1.3,sl:.45,bsl:.9,reach:280},
+const U3={
+  // 🧲 [2026-10-22] 자석 낚시 — d 끌어당기는 동안 0.3초마다 주는 피해 · cd 쿨타임 · R 끌어당김 반지름 · pull 끌어당기는 속도(px/s) · fl 날아가는 시간 · T 끌어당기는 시간 · bR 폭발 반지름 · bm 폭발이 d 의 몇 배 · gm 끌려온 적 한 마리당 폭발 증가 · gx 그 상한 · bb 보스·정예·대형에게 폭발 배율
+  magn:{d:1.2,cd:6,R:165,pull:640,fl:.3,T:.9,bR:105,bm:6,gm:.04,gx:.5,bb:10},
+  // ⚡ [2026-10-22] 슬라이딩 — d 피해 · cd 쿨타임 · dist 미끄러지는 거리 · T 미끄러지는 시간 · hw 길 반폭 · inv 무적(초) · kn 밀치는 힘 · sl 지나간 길에 남는 불꽃 자국이 머무는 시간 · sd 자국이 한 번 주는 피해(미끄러질 때 피해 대비) · sk 자국이 피해를 주는 간격
+  slide:{d:190,cd:1.9,dist:190,T:.16,hw:42,inv:.3,kn:240,sl:1.4,sd:.28,sk:.35},
+  sing:{d:7,db:2,cd:1.6,iv:.24,sp:380,life:.8,rng:300,fan:.22,dlt:.06,hit:12,bsp:280,blife:.9,bR:44,btk:.45,m:2,ct:1.5,cs:.07,cm:8,fs:.13,fm:1.3,bx:1.3,sl:.45,bsl:.9,reach:280},
   // 🧺 [2026-10-16 사장님 지시] 팬티 투척 — d 팬티 한 장 피해 · cd 쿨타임 · sp 속도 · life 날아가는 시간 · rng 조준 거리 · hit 판정 반지름 · fan 팬티 부채 간격(rad) · st 맞은 적이 멈칫하는 시간 ·
   //   drop 일반 몹 전리품 확률(정예·대형·보스는 확정) · cap 바닥에 동시에 떠 있는 전리품 상한 · ll 전리품 수명(초) · need 보따리가 차는 칸 · bd 폭죽 피해 · bR 폭죽 반지름 · bsp 폭죽 팬티 속도 배율 ·
   //   iv 빨랫줄 피해 간격 · hl 빨랫줄 반길이 · lw 줄에 걸리는 두께 · lk 줄 한 번 피해(팬티 한 장 대비) · lt 빨랫줄 지속(초) · lmax 동시에 걸리는 줄 수 · dr7 Lv7 부터 전리품 확률 배율 · v 보스·정예·일반 전리품이 채우는 칸
@@ -3564,6 +3583,42 @@ function ptyBurst(o){const U=U3.panty;bang(o.x,o.y,o.R,o.d,'panty','fw',o.ev);S.
 function ptyLine(x,y,ux,uy,hl,life,d,max){const X=S.x3,U=U3.panty;let n=0,old=null;for(const q of X.f)if(q.k==='ln'){n++;if(!old||q.life<old.life)old=q;}
   if(n>=max&&old){old.x=x;old.y=y;old.ux=ux;old.uy=uy;old.hl=hl;old.T=old.life=life;old.d=d;old.tk=U.iv*.5;return;}   // 가득 찼으면 가장 오래된 줄을 새 자리로 옮긴다
   f3({k:'ln',x,y,ux,uy,hl,T:life,life,tk:U.iv*.5,d,sw:Math.random()*6});}
+// 🧲 자석 낚시 — 적이 가장 몰린 곳(clusterSpot)으로 자석을 던지고, 닿으면 T초 동안 주변을 한 점으로 끌어모은 뒤 터진다. 상태는 f3 개체('mg') 숫자뿐이라 이어하기가 그대로 저장·복구한다.
+function magnThrow(L,ev,t,MT,AR){const p=S.p,U=U3.magn;let px=null,py=null,any=false;
+  const n=1+(L>=7)+(ev?1:0),R=U.R*lvm(L,[[2,1.15],[6,1.15]])*AR*(ev?1.3:1)*(1+t.a),d=U.d*DL3(L)*MT*(ev?1.25:1)*(1+t.d),T=(U.T+.2*(L>=4))*DUR(),bR=U.bR*(L>=8?1.2:1)*AR*(ev?1.3:1)*(1+t.a*.5);
+  for(let i=0;i<n;i++){if(!clusterSpot(px,py))break;px=CS.x;py=CS.y;
+    if(f3({k:'mg',sx:p.x,sy:p.y,x:p.x,y:p.y,tx:px,ty:py,ph:0,t:0,tk:0,fl:U.fl,T,R,d,bR,ev:ev?1:0,st:t.stun?1:0,ec:t.echo?1:0,n:0}))any=true;}
+  if(any)AU.play('magn',0);return any;}
+function magnTick(o,dt){const U=U3.magn;
+  if(o.ph===0){o.t+=dt;const u=Math.min(1,o.t/o.fl);o.x=o.sx+(o.tx-o.sx)*u;o.y=o.sy+(o.ty-o.sy)*u;if(u>=1){o.ph=1;o.t=0;o.tk=0;AU.play('magn',1);}return false;}
+  o.t+=dt;o.tk-=dt;const tick=o.tk<=0;if(tick)o.tk=.3;let c=0;
+  const s0=SRC;SRC='magn';
+  for(const e of S.live){if(!e.on)continue;const dx=o.tx-e.x,dy=o.ty-e.y,dd=Math.hypot(dx,dy);if(dd>o.R+e.r)continue;
+    if(e.boss){e.slow=Math.max(e.slow,.3);}
+    else{c++;if(dd>6){const st=Math.min(dd,U.pull*dt);e.x+=dx/dd*st;e.y+=dy/dd*st;}e.kb=0;e.st=Math.max(e.st,.12);}
+    if(tick)hurt(e,o.d);}
+  if(tick)hitPropsAt(o.tx,o.ty,o.R,o.d);
+  SRC=s0;if(c>o.n)o.n=c;
+  if(o.t<o.T)return false;
+  // 터진다 — 끌려와 모인 적이 많을수록 더 아프다(마지막 틱에 센 수가 아니라 이번 판에서 가장 많이 모였던 수)
+  const k=1+Math.min(U.gx,U.gm*o.n),bd=o.d*U.bm*k;
+  bang(o.tx,o.ty,o.bR,bd,'magn','mine',o.ev,U.bb);S.shake=Math.max(S.shake,.12);
+  if(o.st)for(const e of S.live)if(e.on&&!e.boss&&(e.x-o.tx)**2+(e.y-o.ty)**2<(o.bR+e.r)**2)e.st=Math.max(e.st,.6);
+  if(o.ec){const x=o.tx,y=o.ty,R=o.bR,d=bd*.6,ev=o.ev;S.dq.push({t:.45,f:()=>bang(x,y,R,d,'magn','mine',ev)});}
+  return true;}
+// ⚡ 슬라이딩 — 움직이는 동안(입력이 있는 동안)에만 나간다: 달리는 방향으로 짧게 미끄러지며(yank) 지나간 길의 적을 한 번씩 벤다. 상태는 S.x3.sl 숫자뿐.
+const slS=()=>S.x3.sl||(S.x3.sl={t:0,id:0,ux:0,uy:0,qx:0,qy:0,x0:0,y0:0,fx:0,hw:30});
+function slideGo(L,ev,t,AR,MT){const p=S.p,U=U3.slide,Q=slS();if(Q.t>0||p.yt>0||p.stun>0||Q.fx>.05||!p.moving||S.x3.ram.t>0||S.x3.ram.hg>0)return false;
+  const ux=p.mdx||0,uy=p.mdy||0;if(!ux&&!uy)return false;
+  const len=U.dist*lvm(L,[[2,1.15],[6,1.15]])*(ev?1.3:1)*(1+t.a),hw=U.hw*AR*(L>=8?1.2:1)*(ev?1.3:1);
+  let any=false;for(const e of S.live){if(!e.on)continue;const dx=e.x-p.x,dy=e.y-p.y,al=dx*ux+dy*uy;if(al<-e.r||al>len+80)continue;if(Math.abs(dx*uy-dy*ux)<hw+e.r+30){any=true;break;}}
+  if(!any)for(const q of props.a){if(!q.on)continue;const dx=q.x-p.x,dy=q.y-p.y,al=dx*ux+dy*uy;if(al>=0&&al<len+40&&Math.abs(dx*uy-dy*ux)<hw+PROP[q.k].r){any=true;break;}}
+  if(!any)return false;   // 길 앞에 맞힐 게 없으면 아끼고 다음 프레임에 다시 본다
+  yank(ux*len,uy*len,U.T);invGrant('slide',U.inv);
+  f3({k:'sw',ax:p.x,ay:p.y,bx:p.x+ux*len,by:p.y+uy*len,life:U.sl,T:U.sl,tk:.12,d:U.d*DL3(L)*MT*(ev?1.4:1)*(1+t.d)*U.sd,hw:hw*.8,st:t.stun?1:0});   // 지나간 길에 자국이 남는다 — 쫓아오는 적이 밟는다
+  Q.t=U.T;Q.id=++S.x3.rid;Q.ux=ux;Q.uy=uy;Q.qx=Q.x0=p.x;Q.qy=Q.y0=p.y;Q.fx=.35;Q.hw=hw;AU.play('slide');
+  if(t.boom)bang(p.x,p.y,70*AR,U.d*DL3(L)*MT*.6,'slide','mine',0);   // 출발한 자리에 충격파
+  return true;}
 function weapons3(dt,cm,MT,AR,AM){
   const p=S.p,X=S.x3,f=X.f;let L,t,ev,tg;
   if(X.hh>0)X.hh-=dt;if(X.cl>0)X.cl-=dt;if(X.ram.fx>0)X.ram.fx-=dt;
@@ -3728,6 +3783,20 @@ function weapons3(dt,cm,MT,AR,AM){
           if((e.x-p.x)**2+(e.y-p.y)**2<rr*rr){e.rm=R.id;h3(e,d,'ram');if(e.on){if(e.boss)e.slow=Math.max(e.slow,.8);ramHangStart(e,ev);}break;}}}}
     if(R.hg>0)ramHang(L,ev,t,dt,U3.ram.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d));
     else if(R.eq>0&&R.t<=0&&p.yt<=0){R.eq--;ramGo();}}
+  // 🧲 자석 낚시 → 🛰 초강력 전자석 — 가장 몰린 곳에 던져 한 점으로 끌어모은 뒤 터진다
+  L=S.w.magn||0;
+  if(L&&(S.cd.magn-=dt)<=0){ev=S.ev.magn;t=TK('magn');
+    if(S.live.length&&magnThrow(L,ev,t,MT,AR))S.cd.magn=U3.magn.cd*lvm(L,[[4,.85],[7,.85]])*cm*(ev?.85:1)*(1-t.c);else S.cd.magn=.4;}
+  // ⚡ 슬라이딩 → 🌠 초음속 슬라이딩 — 달리는 방향으로 미끄러지며 지나간 길을 벤다(움직일 때만)
+  L=S.w.slide||0;
+  if(L){ev=S.ev.slide;t=TK('slide');const Q=slS(),U=U3.slide;
+    if(Q.fx>0)Q.fx-=dt;
+    if((S.cd.slide-=dt)<=0){if(slideGo(L,ev,t,AR,MT))S.cd.slide=U.cd*lvm(L,[[4,.85],[7,.85]])*cm*(ev?.65:1)*(1-t.c);else S.cd.slide=0;}
+    if(Q.t>0){Q.t-=dt;const d=U.d*DL3(L)*MT*(ev?1.4:1)*(1+t.d),ax=Q.qx,ay=Q.qy,bx=p.x,by=p.y,vx=bx-ax,vy=by-ay,vv=vx*vx+vy*vy;
+      for(const e of S.live){if(!e.on||e.sl2===Q.id)continue;let u=vv>0?((e.x-ax)*vx+(e.y-ay)*vy)/vv:0;u=u<0?0:u>1?1:u;const cx0=ax+vx*u-e.x,cy0=ay+vy*u-e.y,rr=e.r+Q.hw;
+        if(cx0*cx0+cy0*cy0<rr*rr){e.sl2=Q.id;h3(e,d,'slide');if(e.on){if(e.boss)e.slow=Math.max(e.slow,.5);else{knock(e,Q.ux,Q.uy,U.kn,.2);if(t.stun)e.st=Math.max(e.st,.6);}}}}
+      for(const q of props.a)if(q.on&&q.sl2!==Q.id&&(q.x-bx)**2+(q.y-by)**2<(PROP[q.k].r+Q.hw)**2){q.sl2=Q.id;hitProp(q,d);}
+      Q.qx=bx;Q.qy=by;}}
   // 🐺 갈가리 찢기 → ⛓ 무한한 속박 — 체력 비율이 낮은 적을 제자리에서 문다(Lv8 · 마스터는 한 번 더). 각성은 가장 센 적(보스 우선)에게 크게 도약해 붙잡고 연타(보스는 느려질 뿐). 처치하면 쿨타임이 줄고(최대 kcap) 물 때마다 HP 가 조금 회복
   L=S.w.maul||0;
   if(L){ev=S.ev.maul;t=TK('maul');const M=mauS(),U=U3.maul,dm=U.d*DL3(L)*MT*(ev?1.15:1)*(1+t.d);
@@ -3827,6 +3896,12 @@ function weapons3(dt,cm,MT,AR,AM){
           if(o.ev&&o.gen<1)for(let j=0;j<2;j++){const a=Math.random()*6.2832;f3({k:'sb',x:o.x,y:o.y,vx:Math.cos(a)*220,vy:Math.sin(a)*220,life:.6,d:o.d*.6,r:5,sl:o.sl,gen:1,ev:1,pop:0});}
           dead=true;break;}
         if(!dead&&o.life<=0){if(o.pop)bang(o.x,o.y,34*AR,o.d*.8,'slime','can',0);dead=true;}
+        break;}
+      case 'mg':{if(magnTick(o,dt))dead=true;break;}
+      case 'sw':{o.life-=dt;if(o.life<=0){dead=true;break;}o.tk-=dt;if(o.tk>0)break;o.tk=U3.slide.sk;
+        const vx=o.bx-o.ax,vy=o.by-o.ay,vv=vx*vx+vy*vy||1;
+        for(const e of S.live){if(!e.on)continue;let u=((e.x-o.ax)*vx+(e.y-o.ay)*vy)/vv;u=u<0?0:u>1?1:u;const dx=o.ax+vx*u-e.x,dy=o.ay+vy*u-e.y,rr=e.r+o.hw;
+          if(dx*dx+dy*dy<rr*rr){h3(e,o.d,'slide');if(e.on&&o.st&&!e.boss)e.st=Math.max(e.st,.3);}}
         break;}
       case 'fz':{o.t-=dt;if(o.t>0)break;const dm=1+.6*(1-Math.max(0,p.hp)/p.mhp);
         bang(o.x,o.y,o.R,o.d*dm,'fuse','mine',o.ev);
@@ -4137,7 +4212,7 @@ function reviveFx(inv,t1,t2){   // 부활 본문 — 👼 패시브와 🪙 코�
   for(const e of enemies.a)if(e.on&&!e.boss&&(e.x-p.x)**2+(e.y-p.y)**2<260*260){const d=Math.hypot(e.x-p.x,e.y-p.y)||1;e.kr=0;knock(e,(e.x-p.x)/d,(e.y-p.y)/d,500/KB(e),.5);}
   for(const b of eshots.a)b.on=false;S.ebooms.length=0;S.cone=null;S.cardW=null;S.room=null;clouds.clear();EX.reset();
   {const DB=duelBoss();if(DB)duelRevive(DB);}   // ⚔ 1:1 — 떠 있던 예고·돌진·껍질도 치운다
-  for(const b of S.beams)if(srcOk(b)){b.src.ph=0;b.src.ft=3;}S.beams.length=0;p.stun=0;p.yt=0;S.x3.ram.hg=0;S.x3.ram.hk=S.x3.ram.hn=0;S.x3.ram.hl=-9;if(S.x3.mau){const M=S.x3.mau;M.t=0;M.hg=0;M.hk=M.hn=0;M.bn=0;}}   // 🥊 부활하면 매달리기도 푼다
+  for(const b of S.beams)if(srcOk(b)){b.src.ph=0;b.src.ft=3;}S.beams.length=0;p.stun=0;p.yt=0;S.x3.ram.hg=0;S.x3.ram.hk=S.x3.ram.hn=0;S.x3.ram.hl=-9;if(S.x3.sl)S.x3.sl.t=0;if(S.x3.mau){const M=S.x3.mau;M.t=0;M.hg=0;M.hk=M.hn=0;M.bn=0;}}   // 🥊 부활하면 매달리기도 푼다
 function die(){   // 👼 부활 패시브(공짜)가 먼저 → 없고 🪙 코인이 있으면 선택창 → 아니면 예전처럼 끝
   const p=S.p;
   if(pv('rev')>S.revUsed){S.revUsed++;reviveFx(2.5,'👼 부활! 한 번 더 버텨라','클랜원들: 살았다…');return false;}
@@ -5118,10 +5193,22 @@ function drawW3(p){const X=S.x3;if(!X)return;
   if(R.fx>0){const k=Math.min(1,R.fx/.3);cx.lineCap='round';   // 🥊 박치기 — 돌진 자국(하늘색 세 줄)
     for(let i=-1;i<=1;i++){const ox=-R.uy*i*7,oy=R.ux*i*7;cx.beginPath();cx.moveTo(R.x0+ox,R.y0+oy);cx.lineTo(p.x+ox,p.y+oy);cx.lineWidth=i?3:6;cx.strokeStyle='rgba('+(i?'150,240,255':'235,251,255')+','+(k*.7).toFixed(2)+')';cx.stroke();}
     cx.lineCap='butt';}
+  {const Q=X.sl;if(Q&&Q.fx>0){const k=Math.min(1,Q.fx/.3);cx.lineCap='round';   // ⚡ 슬라이딩 — 미끄러진 자국(하늘색 세 줄)
+    for(let i=-1;i<=1;i++){const ox=-Q.uy*i*9,oy=Q.ux*i*9;cx.beginPath();cx.moveTo(Q.x0+ox,Q.y0+oy);cx.lineTo(p.x+ox,p.y+oy);cx.lineWidth=i?2:5;cx.strokeStyle='rgba('+(i?'111,230,255':'235,251,255')+','+(k*.7).toFixed(2)+')';cx.stroke();}
+    cx.lineCap='butt';}}
   if(!X.f.length)return;
   cx.lineCap='round';
   for(const o of X.f){
     switch(o.k){
+      case 'sw':{if(!inV((o.ax+o.bx)/2,(o.ay+o.by)/2,260))break;const u=o.life/o.T;
+        cx.beginPath();cx.moveTo(o.ax,o.ay);cx.lineTo(o.bx,o.by);cx.lineWidth=o.hw*1.5;cx.strokeStyle='rgba(111,230,255,'+(.12*u).toFixed(2)+')';cx.stroke();
+        cx.lineWidth=3;cx.strokeStyle='rgba(235,251,255,'+(.6*u).toFixed(2)+')';cx.stroke();break;}
+      case 'mg':{if(!inV(o.tx,o.ty,o.R+40)&&!inV(o.x,o.y,40))break;
+        if(o.ph===1){const u=o.t/o.T,r=o.R*(1-.55*u);cx.beginPath();cx.arc(o.tx,o.ty,o.R,0,7);cx.fillStyle='rgba(111,230,255,'+(.05+.08*u).toFixed(2)+')';cx.fill();
+          cx.beginPath();cx.arc(o.tx,o.ty,r,S.t*5,S.t*5+4.2);cx.lineWidth=2.4;cx.strokeStyle='rgba(190,244,255,.85)';cx.stroke();
+          cx.beginPath();cx.arc(o.tx,o.ty,r*.55,-S.t*6,-S.t*6+3.4);cx.lineWidth=1.8;cx.strokeStyle='rgba(235,251,255,.8)';cx.stroke();
+          cx.beginPath();cx.arc(o.tx,o.ty,o.bR*u,0,7);cx.lineWidth=1.6;cx.strokeStyle='rgba(255,255,255,.55)';cx.stroke();}
+        em3('🧲',o.x,o.y-(o.ph===0?Math.sin(Math.PI*Math.min(1,o.t/o.fl))*26:0),o.ph===1?26:22);break;}
       case 'b':{if(!inV(o.x,o.y,40))break;const tl=o.big?.07:.045;
         cx.beginPath();cx.moveTo(o.x,o.y);cx.lineTo(o.x-o.vx*tl,o.y-o.vy*tl);cx.lineWidth=o.r*2.6;cx.strokeStyle=o.g;cx.stroke();
         cx.lineWidth=o.r*1.1;cx.strokeStyle=o.c;cx.stroke();
