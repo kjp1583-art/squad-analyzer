@@ -1153,6 +1153,10 @@ window.SGG_DC_BOOT=(function(){
   .prow .clickname{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
   .prow .pos{min-width:30px;font-size:13px}
   .prow .rk{min-width:32px}
+  /* 📱 [2026-10-23 사장님 「닉네임이 하나도 안 뜬다」] 폰 폭에서는 피해·KDA·점수가 한 줄을 다 차지해 닉네임이 0폭으로 눌렸다 — 닉네임은 줄어들지 않게 하고 모자라면 피해·KDA 줄이 아래로 내려간다 */
+  .prow{flex-wrap:wrap;row-gap:5px}
+  .prow .clickname{flex:0 0 auto;min-width:0;max-width:calc(100% - 190px)}
+  @media(max-width:520px){.prow .clickname{max-width:150px}.prow>span[style*="flex:1"]{flex:1 1 8px!important}}
   .bans{padding:8px 14px;font-size:13.5px;color:var(--mut);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 
   /* ⭐ [2026-07-30] 종합 점수 스트립 — 카드에서 첫눈에 들어오는 숫자 세 개 */
@@ -11793,7 +11797,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610231000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610231100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
