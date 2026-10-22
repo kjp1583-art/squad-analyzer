@@ -53,7 +53,7 @@ async def main():
     # BASE(c5e91c4) 뒤에 생긴 카드(2026-10-22 투명 우산·부메랑 그물·동전 지갑·부적·연쇄)는 후보 풀을 바꿔 난수 소비가 달라지므로, 숲 비트 동일 비교에서만 표에서 뺀다
     #   (그 카드들 말고는 숲 판이 옛 판과 같다는 것을 확인하는 시험이다 — 카드를 더한 쪽의 시험은 survivors_umb/net/pass3_test.py)
     _p = os.path.join(ROOT, 'survivors_mt_new.html'); _t = open(_p, encoding='utf-8').read()
-    _t = _t.replace('window.__p6x=', 'delete WEAP.umb;delete WEAP.net;delete TIERS.umb;delete TIERS.net;delete PFX.umb;delete PFX.net;delete LINEAGE.umb;delete LINEAGE.net;delete PASS.wal;delete PASS.charm;delete PASS.combo;window.__p6x=', 1)
+    _t = _t.replace('window.__p6x=', 'delete WEAP.umb;delete WEAP.net;delete WEAP.roll;delete WEAP.box;delete TIERS.umb;delete TIERS.net;delete PFX.umb;delete PFX.net;delete LINEAGE.umb;delete LINEAGE.net;delete PASS.wal;delete PASS.charm;delete PASS.combo;window.__p6x=', 1)
     open(_p, 'w', encoding='utf-8').write(_t)
     base_src = subprocess.run(['git', 'show', BASE + ':survivors.html'], cwd=ROOT, capture_output=True).stdout.decode('utf-8')
     open(os.path.join(ROOT, 'survivors_mt_base.html'), 'w', encoding='utf-8').write(base_src)

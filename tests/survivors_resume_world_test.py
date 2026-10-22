@@ -34,7 +34,7 @@ def want(sec): return ONLY is None or sec in ONLY
 
 HOOK = r"""
 window.__W={RES,get S(){return S},set S(v){S=v},get state(){return state},set state(v){state=v},get CUR(){return CUR},get RUN(){return RUN},
- pools:{enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,snps,bolts,waves,puds,clouds,allies,cans,bubs},
+ pools:{enemies,shots,gems,items,props,texts,hazards,eshots,rangs,rkts,pets,hooks,frs,holes,trls,snps,bolts,waves,puds,clouds,allies,cans,bubs},
  CHARS,KIND,BOSS,PICK,SRVUNL,getProg,setProg,start,update,resume,pauseGame,pick,openLvup,openChest,endRun,spawnEnemy,spawnBoss,
  CH_set(k){CH=CHARS.find(c=>c.k===k)},get CH(){return CH},get LOW(){return LOW},get MAXE(){return MAXE},synCalc,tkCalc,seedOf,get keys(){return keys},set keys(v){keys=v}};
 const COS=new Set(['texts','bubs','bolts','snps']);

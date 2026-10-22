@@ -43,7 +43,7 @@ window.__F={PFX,PFXN,PFXCH,PFXPS,PFXALL,PFXSN,FXSYM,setMine(f){fxMine=f},getMine
 """
 # ───────── 측정 훅(게임 클로저 안) — 측정만 한다, 게임은 안 바꾼다. 에뮬레이터: 같은 시드 · 얼어붙은 불멸 허수아비 72+3 · 한 무기만 든 플레이어 ─────────
 HOOK_JS = r""";window.__fxm=(()=>{
-const POOLS={shots,rangs,bolts,waves,puds,clouds,cans,rkts,pets,hooks,frs,holes,snps,allies};
+const POOLS={shots,rangs,bolts,waves,puds,clouds,cans,rkts,pets,hooks,frs,holes,trls,snps,allies};
 const mkr=seed=>{let s=seed>>>0;return()=>{s=(s+0x6D2B79F5)|0;let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};};
 let ra=mkr(1),rb=mkr(2),inH=0;
 Math.random=()=>inH?rb():ra();      // 게임용 난수 흐름(A)과 hurt() 안(치명타 굴림·보스 대사)의 흐름(B)을 나눈다 — 치명타 확률이 달라도 게임 진행 난수는 안 밀린다
