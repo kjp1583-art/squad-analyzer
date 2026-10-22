@@ -1,27 +1,8 @@
-# TASK — 배불배불·배고배고 고유 무기를 「컨셉이 분명한」 무기로 개편 (survivors.html)
-
-저장소 루트 CLAUDE.md(특히 새로 쓴 「🎯 한 줄 컨셉」 절 · 패치노트 · SIG · 시험 규칙)를 먼저 읽는다. main 에 push 하지 말고 이 브랜치(rs-fun)에만 push. 끝나면 RESULT.md 작성 후 push.
-
-사장님 평가(2026-10-19): 배불배불·배고배고 고유 무기가 재미없다. 집중겜은 「강력한 단일 데미지로 카이팅」 컨셉이 분명해서 재밌다. 각 캐릭터의 강점이 분명해야 한다. **가만히 서 있는 설계는 싫다(이 게임에서).**
-
-## 갈래 1 — 🎤 배불배불 `sing`(노래부르기) → 「리듬 콤보」 (사장님 선택: 2번)
-컨셉 한 줄: **「한 놈에게 박자를 몰아줘 콤보를 쌓고, 마지막 박(고음)으로 터뜨린다」** — 움직이면서(카이팅하며) 한 대상을 계속 맞히는 재미.
-- 지금: 4박자 한 소절(음표 4발 + 마지막 박 큰 고음, `singPulse`/`verse`/`beat`). 
-- 개편안: 음표가 **같은 대상**에 연속 적중하면 콤보(박자 카운트)가 쌓이고, 콤보가 쌓일수록 다음 음표 피해가 커진다(상한 있음). 마지막 박(고음)은 쌓인 콤보만큼 피해 배율이 붙어 크게 터진다(보스·정예에게 특히 이득 — 단일 대상 몰아치기 보상). 대상을 바꾸거나 일정 시간 못 맞히면 콤보가 끊긴다 → 플레이어는 한 놈을 따라 움직이며 맞히는 게 이득. 콤보 수는 HUD/텍스트로 보이게(예: 적 위 「♪×5」), 기존 각성(앙코르)·레벨표·짝 패시브(study)·시너지와 정합.
-- 레벨 표(`U3.sing`/WEAP ds)·카드 문구에 콤보 수치를 읽어 쓴다(수치는 `U3.sing` 한 곳, 문구는 그 값을 읽는 시험으로 묶는다). 정지 보상 없음.
-
-## 갈래 2 — 📸 배고배고 `pcards`(포토카드) → 「몰이꾼」 (사장님 선택: 1번)
-컨셉 한 줄: **「카드로 적을 밀어내 내 주변에 빈 공간(도망갈 길)을 만들고, 밀려난 적끼리 부딪쳐 터뜨린다」** — 포위당했을 때 길을 여는 캐릭터.
-- 지금: 회전하는 카드를 부채꼴로 던져 맞은 적을 밀쳐 낸다(`pcards`, `kd`/넉백 계열).
-- 개편안: ① 넉백을 확실히 키운다(밀려난 적이 다른 적과 부딪치면 서로 충돌 피해 — 볼링). ② 카드가 맞은 자리에 짧은 시간(~1.5~2초) 「접근 불가 장판」이 남아 그 안에서는 일반 적이 느려지거나 못 들어온다. ③ 보스는 밀리지 않고 짧게 느려진다(밸런스 안전장치). 몹 수에 비례해 가치가 올라가야 한다(포위당할수록 이득).
-- 구현은 기존 적 이동/넉백 코드(`knock`)와 풀 칸 주의(CLAUDE.md 「풀 칸은 쓰러지는 순간…」)를 지킨다. 성능: 충돌 검사는 밀려난 적(N 작게) 위주로 상한을 둔다.
-
-## 공통 규칙
-- 새 S 키·최상위 let 금지, 새 수치는 별도 const(U3.* 등). 표를 바꾸면 SIG 가 변한다 — 정상(진행 중 판 1회 초기화).
-- 측정: `tests/survivors_charbal_sim.py run --out <폴더> --seeds 1-4 --procs 2`(bbb·bgb 가 전체 중앙값 대비 어디인지), 전/후 비교. 목표: 두 캐릭터가 중앙값 근처(너무 약하지도 사기도 아니게). 특히 bgb 는 「몹이 많을수록」 이득인지 확인.
-- 시험 추가: 콤보 누적/끊김, 마지막 박 배율, 같은 대상 규칙, 넉백 충돌 피해, 장판 지속/해제, 보스 예외, 풀 칸 재사용 버그 없음(N세대), 이어하기 저장→복구, 콘솔 오류 0. 도감/카드 문구 시험 갱신(count 기반 시험: codex·cstat·cabil 등). 알려진 기준선 빨강(bal1, coin, hpnum, cstat/resume_world SIG, finduel/fx/info SIG, snack_early, pairslot, speed2, unique_weapons 일부)은 무시.
-- 패치노트 `data/patch_notes.json` 맨 앞에 `"area":"squad","game":"sv"` 2건(배불배불 / 배고배고, 클랜원 말투).
-- 모델 이름을 커밋·주석에 쓰지 않는다. 커밋 꼬리말: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>` / `Claude-Session: https://claude.ai/code/session_018GzTivP446Z4KhefLmvcv5`
-
-## RESULT.md 에
-바뀐 규칙·수치 표, 전/후 charbal(처치@15분·피해·생존), 시험 결과(새 빨강 vs 기준선), 남은 문제.
+# TASK (rs-wp-a) — 흐접새우 신규 무기/패시브 구현
+공통 맥락: 웹 저장소 squad-analyzer 의 survivors.html(흐접새우 서바이벌). 기획안은 tooling/improve/ideas/SV-weapons-passives-2026-10-22.md (사장님이 무기 6종 전부 + 패시브 P-2 동전 지갑·P-4 부적·P-5 연쇄 를 승인). CLAUDE.md 의 🎯(한 줄 컨셉·가만히 서 있는 보상 금지) 를 지킬 것.
+너의 갈래: 무기 W-2 투명 우산, W-6 부메랑 그물 + 패시브 P-2 동전 지갑, P-4 부적, P-5 연쇄. (연쇄는 택배 상자와 시너지 메모만, 코드 의존 없음)
+방법: 기존 무기 하나(예: wifi, can, ping, gacha)가 어디에 어떻게 들어가 있는지 grep 으로 전부 따라가 같은 자리(WEAP·궁합표·PFXSN·계보 LINEAGE·튜닝 카드·그리기·시험)에 똑같이 넣는다. 패시브는 PASS + 배율 훅(svB 등).
+규칙: resume SIG 해시 표(CHARS/WEAP/TIERS/SYN/REL…)는 건드리면 resume 시험이 갈리니 기존 신규 무기 추가 때의 방식(SIG 갱신 관례)을 git log 로 찾아 따른다 · 새 S 키/최상위 let 금지(모듈 const 객체는 판마다 리셋) · 새 난수는 RN('key') · 일일 도전 시드 결정성 유지 · 폰 360px 가로 넘침 없음 · 콘솔 오류 0.
+강도: tests/survivors_weapon_arena.py --seeds 4 --boss --field --only <무기> 로 중앙값(L8 1998 · 보스 872 · 필드 505) 근처에 맞춘다(너무 세도 약해도 안 됨). 새 무기마다 tests/survivors_<이름>_test.py 추가. python3.13 으로 실행. 관련 기존 시험(codex·lineage·startpick·ach·map·crisis) 돌려 새 빨강 없게(원래 빨강 목록: codex #resGo, resume, bal1, coin, hpnum, cstat, finduel/fx/info, snack_early, pairslot, speed2).
+패치노트: data/patch_notes.json 맨 앞에 항목 1개(area squad · game sv · 클랜원 말투). BUILD_ID 는 survivors.html 에는 없음(index.html 만).
+진행 규칙: main 에 push 금지 · 이 브랜치(rs-wp-a)에만 커밋/push · 직접 적대적 검수(장비/조건부 경로) · 끝나면 RESULT.md(무엇을 넣었나·측정값·남은 빨강) 작성 후 push. 커밋 메시지에 모델 이름 금지.
