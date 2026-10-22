@@ -392,7 +392,7 @@ async def main():
         check('고유 무기가 아닌 다른 캐릭터 전용 무기 상세에는 그 캐릭터 이름이 붙는다(엄 깃털 산탄 · 브장신 전용)', '브장신 전용' in d, d[:120])
         d = await detail_of('p', 'p:mag')
         e = idx['p:mag']
-        check('상세(획득 범위): 설명 · 최대 Lv · 초월 단계 문구(pt 발견) · 짝 무기 중 발견한 것만', e['ds'] in d and ('최대 Lv%d' % e['max']) in d and all(s in d for s in e['pt']['lv']) and idx['w:breath']['nm'] in d and '❓ ×3' in d and '낚싯대' not in d and '맛동산 투척' not in d, d[:300])
+        check('상세(획득 범위): 설명 · 최대 Lv · 초월 단계 문구(pt 발견) · 짝 무기 중 발견한 것만', e['ds'] in d and ('최대 Lv%d' % e['max']) in d and all(s in d for s in e['pt']['lv']) and idx['w:breath']['nm'] in d and '❓ ×4' in d and '낚싯대' not in d and '맛동산 투척' not in d, d[:300])
         d = await detail_of('p', 'p:cd')
         e = idx['p:cd']
         check('상세(공격속도): 초월 미발견 → ??? 안내 · 초월 문구는 안 보인다', '🌟 초월' in d and '아직 초월시켜 본 적 없어요' in d and all(s not in d for s in e['pt']['lv']))
