@@ -52,6 +52,8 @@ async def main():
         r = await pg.evaluate("""()=>{const T=__T,c=T.c,H=c.SHR,S=T.x.S,o={};S.p.x=S.p.y=0;S.t=H.nx+.1;H.on=0;T.step(.1);o.on=H.on;
           const x0=H.x;T.step(181);o.gone=H.on;o.nx=H.nx-S.t;return o;}""")
         ok(r['on'] == 1 and r['gone'] == 0 and r['nx'] > 200, 'D 안 가면 180초 뒤 사라지고 다음 예약', r)
+        r = await pg.evaluate("""()=>{const T=__T,c=T.c,H=c.SHR,V=c.SHRV;const S=T.fresh({t:1000});T.step(.3);return {nx:Math.round(H.nx-S.t),on:H.on};}""")
+        ok(r['on'] == 0 and 260 <= r['nx'] <= 340, 'H 1000초에 이어하면 성소는 지금부터 5분 칸(즉시 안 나온다) — %s' % r, r)
         r = await pg.evaluate("""()=>{const T=__T,c=T.c,H=c.SHR,S=T.x.S,o={};H.on=1;H.x=S.p.x+700;H.y=S.p.y;c.duelBegin&&0;
           S.bossRef={on:true,du:true};T.step(.1);o.on=H.on;S.bossRef=null;
           const S2=Object.assign({},S);S2.ebooms=S.ebooms.slice();c.S=S2;T.step(.1);o.reset=H.s===S2;return o;}""")
