@@ -933,6 +933,17 @@ window.SGG_DC_BOOT=(function(){
   .np-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:10.5px;color:var(--ink3);text-align:center}
   .np-notice{padding:6px 0;border-bottom:1px dotted var(--soft);font-size:13px;line-height:1.55;display:flex;gap:8px;align-items:flex-start}
   .np-notice:last-child{border-bottom:0}
+  /* ⓘ 탭 뜻풀이(P-32 · 2026-10-26) — 마우스 올림(title)만 있던 설명을 폰에서도: 터치 기기에서만 ⓘ·점선·시트가 생긴다(PC 는 그대로) */
+  .tt-i{display:none;font-style:normal;font-size:.85em;margin-left:3px;opacity:.7;cursor:pointer;padding:0 2px}
+  @media(hover:none){
+    .tt-i{display:inline-block;min-width:20px;text-align:center}
+    .tt-has{text-decoration:underline dotted;text-decoration-color:rgba(160,170,190,.6);text-underline-offset:3px}
+    [data-tt]{-webkit-tap-highlight-color:transparent}
+  }
+  #ttSheet{position:fixed;left:8px;right:8px;bottom:8px;z-index:100000;max-width:560px;margin:0 auto;background:var(--bg2,#1b2030);color:var(--txt,#e8ecf5);border:1px solid var(--line,#34405a);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.55);padding:14px 14px 10px;font-size:14px;line-height:1.6;display:none}
+  #ttSheet.on{display:block}
+  #ttSheet .tt-b{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;max-height:40vh;overflow:auto}
+  #ttSheet .tt-x{display:block;margin:10px 0 0 auto;min-height:40px;padding:6px 18px;border-radius:10px;border:1px solid var(--line,#34405a);background:transparent;color:inherit;font:inherit;cursor:pointer}
   .np-rx{flex:none;display:inline-flex;gap:4px;margin-left:auto;align-self:center}
   .np-rxb{font:inherit;font-size:12px;line-height:1;padding:3px 7px;border:1px solid var(--soft);border-radius:999px;background:transparent;color:var(--ink2);cursor:pointer;min-height:26px}
   .np-rxb b{font-weight:800;margin-left:2px}
@@ -1453,7 +1464,7 @@ window.SGG_DC_BOOT=(function(){
       <div class="suggest hidden" id="suggest"></div>
     </div>
     <a class="coachlink" href="brjang.html" title="브장신 키우기 — 디스코드 마스코트 육성 미니게임 소개 · 후원 안내 · 맛동산 상점" style="color:#ffb347;border-color:#4a3418;background:#1e1309"><span class="t">브장신 키우기</span></a>
-    <a class="coachlink" href="survivors.html" title="흐접새우 서바이벌 — 8분 버티기 웹 미니게임 · 디스코드 로그인하면 순위표" style="color:#ff9a8a;border-color:#4a2420;background:#1e0f0d"><span class="t">🦐 서바이벌</span></a>
+    <a class="coachlink" href="survivors.html" title="흐접새우 서바이벌 — 60분 버티기 웹 미니게임 · 디스코드 로그인하면 순위표" style="color:#ff9a8a;border-color:#4a2420;background:#1e0f0d"><span class="t">🦐 서바이벌</span></a>
     <a class="coachlink" href="novel.html" title="스콰드 생존게임 — 클랜 이야기 비주얼 노벨 · 디스코드 로그인 필요" style="color:#ffd9a0;border-color:#4a3a20;background:#1e1810"><span class="t">📖 생존게임</span></a>
     <a class="coachlink" href="coach.html" title="고스트밴픽왕 — 내 밴·픽 차례에 AI가 추천해주는 구독 서비스"><span class="t">고스트밴픽왕</span></a>
     <a class="dl" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html" title="스쿼드해체분석기 — 기능 소개와 다운로드">🖥 <span class="t">스쿼드해체분석기</span> <span class="dlver" id="dlver"></span></a>
@@ -7693,7 +7704,7 @@ function playerCardHtml(name){
     const cmpCls=(mine,ref,hiGood)=>{ if(mine==null||ref==null||!ref) return '';
       const dd=(mine-ref)/Math.abs(ref); if(Math.abs(dd)<0.05) return '';
       return (dd>0)===!!hiGood?'cmp-good':'cmp-bad'; };
-    const box=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+    const box=(k,v,ref,cls,tip)=>`<div class="cmp${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}" data-tt="${escAttr(tip)}"`:''}><span class="cmp-k">${k}${tip?'<i class="tt-i" role="button" tabindex="0" aria-label="뜻풀이 보기">ⓘ</i>':''}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
 
     // 카드 상단 요약 — 전적·승률·최근 폼·모스트 챔프(배너용)·육각형(주 포지션 백분위)
     let w=0,l=0,mvpN=0,badN=0,form='',mainChamp='',radar='';
@@ -10514,7 +10525,7 @@ function renderPlayer(name){
   const asmtChip = _asmt ? `<span class="assess ${_asmt.cls}" style="vertical-align:middle;margin-left:5px">${_asmt.urgent?'🚨 ':''}${_asmt.label}</span>` : '';
   const statBox=(()=>{
     const _ph=profPhone(), CORE=["🔥 내전 활약","KDA","AI점수","MVP율","🏅솔랭","⚔️ 전투력"];   // 폰 요약 탭 핵심 6칸
-    const cell=(k,v,ref,cls,tip)=>`<div class="cmp${_ph&&CORE.includes(k)?' cmp-core':''}${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}"`:''}><span class="cmp-k">${k}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
+    const cell=(k,v,ref,cls,tip)=>`<div class="cmp${_ph&&CORE.includes(k)?' cmp-core':''}${cls?' '+cls:''}"${tip?` title="${escAttr(tip)}" data-tt="${escAttr(tip)}"`:''}><span class="cmp-k">${k}${tip?'<i class="tt-i" role="button" tabindex="0" aria-label="뜻풀이 보기">ⓘ</i>':''}</span><b class="cmp-v">${v}</b>${ref?`<span class="cmp-r">${ref}</span>`:''}</div>`;
     const pc=k=>{const p=_pctOf(k);return {cls:_pctCls(p),tip:_pctTip(p),
       band:(p==null?'':bandTag('act',p)+' · ')};};   // 🏷 같은 포지션 백분위를 말로도 한마디
     const it=[];
@@ -11797,7 +11808,39 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
-const BUILD_ID="202610231100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+/* ⓘ 탭 뜻풀이 (P-32 · 2026-10-26 사장님 「p32진행」) — 설명문이 title(마우스 올림)에만 있어 폰에서 못 읽던 것을 탭 시트로.
+   터치 기기((hover:none))에서만 켠다 — PC 는 지금과 같다. data-tt 가 달린 칸(프로필 지표 ⓘ)과, 이동·버튼이 아닌 긴 title(25자↑)을 탭하면 아래 시트가 열리고 다시 탭하면 닫힌다. */
+(function(){
+  let touch=false; try{ touch=window.matchMedia&&matchMedia("(hover:none)").matches; }catch(e){}
+  if(!touch) return;
+  let sh=null;
+  const close=()=>{ if(sh) sh.classList.remove("on"); };
+  const open=(el)=>{ const t=String(el.getAttribute("data-tt")||"").trim(); if(!t) return;
+    if(!sh){ sh=document.createElement("div"); sh.id="ttSheet"; sh.setAttribute("role","dialog"); sh.setAttribute("aria-label","뜻풀이");
+      sh.innerHTML='<div class="tt-b"></div><button type="button" class="tt-x">닫기</button>'; document.body.appendChild(sh);
+      sh.querySelector(".tt-x").addEventListener("click",e=>{ e.stopPropagation(); close(); }); }
+    if(sh.classList.contains("on")&&sh._src===el){ close(); return; }   // 같은 칸을 다시 탭 = 닫기
+    sh.querySelector(".tt-b").textContent=t; sh._src=el; sh.classList.add("on"); };
+  document.addEventListener("click",e=>{
+    const tg=e.target&&e.target.closest?e.target:null; if(!tg) return;
+    if(sh&&sh.contains(tg)) return;
+    const i=tg.closest(".tt-i"), el=tg.closest("[data-tt]");
+    if(i&&el){ e.stopPropagation(); e.preventDefault(); open(el); return; }
+    if(el&&!tg.closest("a,button,input,select,textarea,label,summary,[onclick],[role=button]")){ open(el); return; }
+    close();
+  },true);
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape") close();
+    else if((e.key==="Enter"||e.key===" ")&&e.target&&e.target.classList&&e.target.classList.contains("tt-i")){ e.preventDefault(); const el=e.target.closest("[data-tt]"); if(el) open(el); }
+  });
+  // 설명만 있고 탭 동작이 없는 칸(긴 title)은 자동으로 탭 대상으로 만든다 — 렌더가 끝날 때마다(변경 묶음 0.3초)
+  const SKIP="a,button,input,select,textarea,label,summary,[onclick],[role=button]";
+  const mark=()=>{ document.querySelectorAll("[title]:not([data-tt])").forEach(el=>{ const t=el.getAttribute("title")||""; if(t.length<25||el.closest(SKIP)) return; el.setAttribute("data-tt",t); el.classList.add("tt-has"); }); };
+  let timer=0; const sched=()=>{ clearTimeout(timer); timer=setTimeout(mark,300); };
+  const start=()=>{ mark(); try{ new MutationObserver(sched).observe(document.body,{childList:true,subtree:true}); }catch(e){} };
+  if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
+})();
+const BUILD_ID="202610261100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
