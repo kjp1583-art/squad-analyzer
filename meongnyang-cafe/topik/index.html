@@ -104,6 +104,9 @@ button:focus-visible, input:focus-visible, a:focus-visible, u:focus-visible { ou
 .ranklist .vl { font-family: var(--font-display); font-size: 20px; font-variant-numeric: tabular-nums; }
 .note { color: var(--ink-soft); font-size: 14px; min-height: 18px; }
 @media (prefers-reduced-motion: reduce) { .mascots img { animation: none; } }
+.sets { display: grid; gap: 10px; width: 100%; }
+.sets .btn { flex-direction: column; min-height: 58px; line-height: 1.2; gap: 2px; }
+.sets small { font-family: var(--font-body); font-size: 13px; opacity: .75; }
 </style>
 </head>
 <body>
@@ -119,16 +122,22 @@ button:focus-visible, input:focus-visible, a:focus-visible, u:focus-visible { ou
   <section class="sheet" id="startSheet">
     <div class="mascots" aria-hidden="true"><img src="../img/dog.webp" alt="" width="84" height="84"><img src="../img/capy.webp" alt="" width="84" height="84"><img src="../img/frog.webp" alt="" width="84" height="84"></div>
     <h1>제1회 박상준<br>한국어능력시험</h1>
-    <p class="sub">읽기 12문항 + 어휘·문법 16문항 = 모두 <b id="nQ">28</b>문항<br>시험 범위는 오직 하나, <b>박상준</b>이에요.</p>
+    <p class="sub">읽기 <b id="nRead"></b>문항 + 어휘·문법 <b id="nVocab"></b>문항<br>시험 범위는 오직 하나, <b>박상준</b>이에요.</p>
     <div class="rules">
       ① 지문을 잘 읽고 알맞은 보기를 고르세요.<br>
       ② 문제를 풀면 바로 정답과 해설이 나와요.<br>
-      ③ 문제를 다 풀면 100점 만점으로 급수를 알려 줘요.<br>④ 어휘·문법 영역에는 외국인이 특히 헷갈리는 낱말과 문법이 나와요!
+      ③ 문제를 다 풀면 100점 만점으로 급수를 알려 줘요.<br>④ 어휘·문법 영역에는 외국인이 특히 헷갈리는 낱말과 문법이 나와요!<br>⑤ 점수는 100점 만점으로 바꿔서 랭킹에 올라가요.
     </div>
     <label class="toggle"><input type="checkbox" id="viToggle"> <span>베트남어 도움말 (Trợ giúp tiếng Việt)</span></label>
     <p class="note" style="margin-top:-6px">켜면 어려운 낱말에 밑줄이 생겨요. 밑줄을 누르면 뜻이 나와요.</p>
     <label class="nick"><span>내 이름</span><input id="nick" maxlength="12" placeholder="랭킹에 보여요" autocomplete="off" spellcheck="false"></label>
-    <div class="row"><button class="btn sun" id="btnStart" type="button">시험 시작!</button><button class="btn ghost" id="btnRank1" type="button">랭킹</button></div>
+    <div class="sets">
+      <button class="btn sun" data-set="rand" type="button">랜덤 20문제 <small>가볍게 한 판</small></button>
+      <button class="btn" data-set="all" type="button">전체 시험 <small id="nAll"></small></button>
+      <button class="btn ghost" data-set="read" type="button">1교시 읽기 <small id="nRead2"></small></button>
+      <button class="btn ghost" data-set="vocab" type="button">2교시 어휘·문법 <small id="nVocab2"></small></button>
+    </div>
+    <button class="btn ghost small" id="btnRank1" type="button">랭킹</button>
   </section>
 
   <section id="examView" hidden>
@@ -174,7 +183,15 @@ button:focus-visible, input:focus-visible, a:focus-visible, u:focus-visible { ou
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('ko-KR');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const Q = window.TOPIK_QUESTIONS, N = Q.length, MARK = ['①', '②', '③', '④'];
+const ALLQ = window.TOPIK_QUESTIONS.slice().sort((a, b) => (a.part === b.part ? 0 : a.part === '읽기' ? -1 : 1)), MARK = ['①', '②', '③', '④'];
+let Q = ALLQ, N = Q.length;
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function pickSet(set) {
+  const read = ALLQ.filter(q => q.part === '읽기'), vocab = ALLQ.filter(q => q.part !== '읽기');
+  if (set === 'read') return read; if (set === 'vocab') return vocab;
+  if (set === 'rand') return shuffle(read).slice(0, 6).concat(shuffle(vocab).slice(0, 14));
+  return ALLQ;
+}
 const S = { idx: 0, correct: 0, picked: -1, results: [], vi: false };
 try { S.vi = localStorage.getItem('topik-vi') !== '0'; } catch (_) { S.vi = true; }
 
@@ -230,7 +247,7 @@ function renderDots() {
 }
 function renderQ() {
   const q = Q[S.idx]; S.picked = -1; $('gloss').hidden = true;
-  $('qCount').textContent = `${S.idx + 1} / ${N}`; $('partLab').textContent = '한국어능력시험 TOPIK Ⅱ · ' + (S.idx < 12 ? '읽기' : '어휘·문법'); renderDots();
+  $('qCount').textContent = `${S.idx + 1} / ${N}`; $('partLab').textContent = '한국어능력시험 TOPIK Ⅱ · ' + q.part; renderDots();
   $('qHead').textContent = q.head; fillPassage($('passage'), q);
   const stem = $('stem'); stem.textContent = ''; const qn = document.createElement('span'); qn.className = 'qn'; qn.textContent = (S.idx + 1) + '.'; stem.append(qn, q.stem);
   const box = $('opts'); box.textContent = '';
@@ -265,7 +282,7 @@ function finish() {
   $('endGrade').textContent = g[1] + ' · ' + S.correct + '/' + N + '문제'; $('endMsg').textContent = g[2]; $('endRank').textContent = '';
   show('endSheet'); SFX.end(); buzz([40, 40, 40, 40, 100]); record(score);
 }
-function start() { Object.assign(S, { idx: 0, correct: 0, picked: -1, results: [] }); show('examView'); renderQ(); }
+function start(set) { S.set = set || S.set || 'all'; Q = pickSet(S.set); N = Q.length; Object.assign(S, { idx: 0, correct: 0, picked: -1, results: [] }); show('examView'); renderQ(); }
 
 /* ---------- 랭킹 ---------- */
 const GAME_ID = 'topik'; let SB = null, rows = [];
@@ -276,7 +293,7 @@ async function fetchRanks() {
 }
 function record(score) {
   if (!SB) return;
-  SB.rpc('game_submit', { p_game: GAME_ID, p_pid: MN.pid(), p_nm: MN.nick() || '익명', p_ch: 'frog', p_score: score, p_team: 0, p_stage: S.correct }).then(() => fetchRanks(), () => {});
+  SB.rpc('game_submit', { p_game: GAME_ID, p_pid: MN.pid(), p_nm: MN.nick() || '익명', p_ch: 'frog', p_score: score, p_team: N, p_stage: S.correct }).then(() => fetchRanks(), () => {});
 }
 function updateEndRank() {
   const el = $('endRank'); if (!el || $('endSheet').hidden) return;
@@ -292,15 +309,15 @@ function renderRank() {
     const li = document.createElement('li'); if (d.me) li.className = 'me';
     const no = document.createElement('span'); no.className = 'no'; no.textContent = i + 1;
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (String(d.nm || '').slice(0, 12) || '익명') + (d.me ? ' (나)' : '');
-    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = (d.stage | 0) + '/' + N;
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = (d.stage | 0) + '/' + ((d.team | 0) || '?');
     const vl = document.createElement('span'); vl.className = 'vl'; vl.textContent = fmt(d.best) + '점';
     li.append(no, nm, ct, vl); ol.appendChild(li);
   });
 }
 
 /* ---------- 버튼·시작 ---------- */
-$('btnStart').onclick = () => { ac(); start(); };
-$('btnAgain').onclick = () => { ac(); start(); };
+for (const b of document.querySelectorAll('.sets .btn')) b.onclick = () => { ac(); start(b.dataset.set); };
+$('btnAgain').onclick = () => { ac(); start(S.set); };
 $('btnNext').onclick = next;
 const openRank = from => { fetchRanks(); renderRank(); S.rankFrom = from; show('rankSheet'); };
 $('btnRank1').onclick = () => openRank('startSheet'); $('btnRank2').onclick = () => openRank('endSheet');
@@ -312,7 +329,9 @@ $('nick').addEventListener('input', () => MN.setNick($('nick').value));
 (function boot() {
   $('nick').value = MN.nick(); $('viToggle').checked = S.vi; $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐';
   const flags = ['#FFB3C9', '#FFE08A', '#BDE8D3', '#CDBFF5', '#BFE1F7'], bt = $('bunting'); for (let i = 0; i < 14; i++) { const f = document.createElement('i'); f.style.background = flags[i % 5]; bt.appendChild(f); }
-  $('nQ').textContent = N; initRank();
+  const nr = ALLQ.filter(q => q.part === '읽기').length, nv = ALLQ.length - nr;
+  $('nRead').textContent = nr; $('nVocab').textContent = nv; $('nAll').textContent = `${ALLQ.length}문항`; $('nRead2').textContent = `${nr}문항`; $('nVocab2').textContent = `${nv}문항`;
+  initRank();
 })();
 </script>
 </body>
