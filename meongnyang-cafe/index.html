@@ -86,6 +86,9 @@ a.card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .who { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--card); border: 3px solid #fff; border-radius: 22px; font-family: var(--font-display); }
 .who input { flex: 1; min-width: 0; height: 42px; border-radius: 999px; border: 3px solid #fff; background: #fff; padding: 0 16px; font-family: var(--font-display); font-size: 18px; color: var(--ink); text-align: center; }
 .who input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.btn-music { align-self: center; min-height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--card); font-family: var(--font-display); font-size: 17px; color: var(--ink); box-shadow: 0 5px 0 rgba(133,112,138,.25); cursor: pointer; }
+.btn-music:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(133,112,138,.25); }
+.btn-music:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .foot { text-align: center; font-size: 13px; color: var(--ink-soft); }
 @media (prefers-reduced-motion: reduce) { #deco span, .bunting i, .banner .c, .banner .peek img, .plate::before, .plate::after, .banner .hearts span, .card.soon .q { animation: none !important; } }
 @media (max-width: 360px) { .grid { grid-template-columns: 1fr; } }
@@ -111,6 +114,7 @@ a.card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   </section>
 
   <label class="who"><span>내 이름</span><input id="nick" maxlength="12" placeholder="랭킹에 보여요" autocomplete="off" spellcheck="false"></label>
+  <button class="btn-music" id="btnMusic" type="button">음악 켜짐</button>
   <p class="foot">새 게임이 계속 들어올 예정이에요</p>
 </main>
 <script src="shared.js"></script>
@@ -134,6 +138,8 @@ const soon = document.createElement('div'); soon.className = 'card soon';
 soon.innerHTML = '<span class="q" aria-hidden="true">🎈</span><h3>새 게임 준비 중</h3><p>곧 놀러 와요</p>';
 grid.appendChild(soon);
 
+const bm = document.getElementById('btnMusic'), bmText = () => { bm.textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; };
+bmText(); bm.onclick = () => { MN.bgm.toggle(); bmText(); };
 const nick = document.getElementById('nick'); nick.value = MN.nick();
 nick.addEventListener('input', () => MN.setNick(nick.value));
 
