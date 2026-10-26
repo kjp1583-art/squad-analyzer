@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFF6DA">
+<title>박상준 한국어능력시험 · 상준♡투이 게임천국</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* 시험지 한 장: 위에 머리글, 가운데 지문 상자, 아래에 보기. 색은 게임천국과 같은 파스텔 */
+:root {
+  --bg1: #FFF6DA; --bg2: #FFE0B8; --bg3: #D7ECFA; --ink: #4A3550; --ink-soft: #85708A;
+  --paper: #FFFEF8; --card: rgba(255, 255, 255, .85); --line: #FFFFFF; --pink: #FFB3C9; --pink-deep: #F28CAE;
+  --mint: #BDE8D3; --mint-deep: #8FD0B3; --sun: #FFC93C; --sun-deep: #F2A900; --ok: #2F9E6B; --bad: #D8456A;
+  --font-display: 'Jua', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-body: 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-paper: 'Gowun Batang', 'Batang', 'Noto Serif KR', serif;
+  color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0; background-color: var(--bg1); color: var(--ink); font-family: var(--font-body); font-size: 16px;
+  background-image: radial-gradient(circle at 10% 6%, var(--bg2) 0, transparent 40%), radial-gradient(circle at 92% 94%, var(--bg3) 0, transparent 42%), radial-gradient(circle, rgba(255,255,255,.7) 2px, transparent 2.5px);
+  background-size: auto, auto, 28px 28px; background-attachment: fixed;
+  padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)); padding-block: 30px 28px;
+  -webkit-tap-highlight-color: transparent;
+}
+h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; }
+p { margin: 0; }
+button, a.btn { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, a:focus-visible, u:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.btn {
+  font-family: var(--font-display); font-size: 20px; min-height: 52px; padding: 0 26px; border: 0; border-radius: 999px; background: var(--pink); color: var(--ink);
+  box-shadow: 0 5px 0 var(--pink-deep); transition: transform .08s, box-shadow .08s; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--pink-deep); }
+.btn.sun { background: var(--sun); box-shadow: 0 5px 0 var(--sun-deep); } .btn.sun:active { box-shadow: 0 1px 0 var(--sun-deep); }
+.btn.ghost { background: var(--card); box-shadow: 0 5px 0 rgba(133,112,138,.25); font-size: 16px; }
+.btn.small { min-height: 40px; font-size: 15px; padding: 0 16px; }
+.btn[disabled] { opacity: .5; pointer-events: none; }
+.bunting { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); height: 22px; z-index: 0; pointer-events: none; display: flex; opacity: .9; }
+.bunting i { flex: 1; clip-path: polygon(6% 0, 94% 0, 50% 100%); }
+#app { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bar .sp { flex: 1; }
+
+/* 시험지 */
+.paper { background: var(--paper); border: 3px solid #fff; border-radius: 22px; box-shadow: 0 6px 0 rgba(133,112,138,.2); padding: 14px 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.exam-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 2px solid var(--ink); padding-bottom: 8px; font-family: var(--font-paper); font-weight: 700; font-size: 14px; }
+.exam-head b { font-size: 15px; }
+.dots { display: flex; gap: 4px; flex-wrap: wrap; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; background: #E9DFEE; }
+.dots i.cur { background: var(--sun); outline: 2px solid var(--sun-deep); }
+.dots i.ok { background: var(--mint-deep); } .dots i.no { background: var(--pink-deep); }
+.note-head { font-family: var(--font-paper); font-weight: 700; font-size: 15px; }
+.passage { border: 2px solid var(--ink); border-radius: 6px; padding: 14px 14px; font-family: var(--font-paper); font-size: 17px; line-height: 1.95; background: #fff; word-break: keep-all; }
+.passage p + p { margin-top: 8px; }
+.passage u { text-decoration: none; border-bottom: 3px dotted var(--pink-deep); cursor: pointer; background: linear-gradient(transparent 60%, #FFEFA8 60%); }
+.stem { font-family: var(--font-paper); font-weight: 700; font-size: 17px; line-height: 1.7; white-space: pre-line; word-break: keep-all; }
+.stem .qn { font-family: var(--font-display); font-weight: 400; font-size: 22px; margin-right: 6px; }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt { display: grid; grid-template-columns: 30px 1fr; gap: 6px; text-align: left; width: 100%; padding: 10px 12px; border-radius: 14px; border: 2px solid #E9DFEE; background: #fff; font-family: var(--font-paper); font-size: 16.5px; line-height: 1.6; word-break: keep-all; transition: transform .08s; }
+.opt:active:not([disabled]) { transform: scale(.985); }
+.opt .no { font-family: var(--font-body); font-weight: 700; }
+.opt[disabled] { cursor: default; }
+.opt.right { border-color: var(--ok); background: #E4F6EC; }
+.opt.wrong { border-color: var(--bad); background: #FDE6EC; }
+.gloss { position: sticky; bottom: 8px; z-index: 3; background: var(--ink); color: #fff; border-radius: 14px; padding: 10px 14px; font-size: 15px; line-height: 1.5; box-shadow: 0 6px 0 rgba(0,0,0,.18); }
+.gloss b { color: var(--sun); }
+.fb { display: flex; flex-direction: column; gap: 10px; background: #FFF6DA; border: 3px solid var(--sun); border-radius: 18px; padding: 12px 14px; }
+.fb.ok { background: #E4F6EC; border-color: var(--mint-deep); } .fb.no { background: #FDE6EC; border-color: var(--pink-deep); }
+.fb .top { display: flex; align-items: center; gap: 10px; }
+.fb .top img { width: 56px; height: 56px; flex: none; }
+.fb .top h2 { font-size: 24px; }
+.fb .why { font-size: 15.5px; line-height: 1.65; word-break: keep-all; }
+.fb .vi { font-size: 14.5px; line-height: 1.6; color: var(--ink-soft); border-top: 2px dashed rgba(74,53,80,.2); padding-top: 8px; }
+.fb .vi b { color: var(--ink); }
+
+/* 시트 */
+.sheet { background: #fff; border-radius: 30px; border: 3px solid var(--sun); padding: 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 8px 0 rgba(242,169,0,.4); text-align: center; }
+.sheet h1 { font-size: 34px; text-wrap: balance; } .sheet h2 { font-size: 28px; }
+.sheet .sub { color: var(--ink-soft); font-size: 15px; word-break: keep-all; text-wrap: balance; line-height: 1.5; }
+.sheet .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.mascots { display: flex; gap: 4px; }
+.mascots img { width: 84px; height: 84px; animation: bob 2.4s ease-in-out infinite; }
+.mascots img:nth-child(2) { animation-delay: -.8s; } .mascots img:nth-child(3) { animation-delay: -1.6s; }
+@keyframes bob { 50% { transform: translateY(-8px) rotate(-3deg); } }
+.nick { display: flex; align-items: center; gap: 8px; width: 100%; font-family: var(--font-display); }
+.nick input { flex: 1; min-width: 0; height: 42px; border-radius: 999px; border: 3px solid #FFE9B8; background: #fff; padding: 0 14px; font-family: var(--font-display); font-size: 17px; color: var(--ink); text-align: center; }
+.toggle { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--pink-deep); }
+.rules { text-align: left; font-size: 14.5px; line-height: 1.7; color: var(--ink-soft); width: 100%; word-break: keep-all; background: #FFF6DA; border-radius: 16px; padding: 10px 14px; }
+.big { font-family: var(--font-display); font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+.grade { font-family: var(--font-display); font-size: 26px; padding: 4px 18px; border-radius: 999px; background: var(--sun); }
+.ranklist { list-style: none; margin: 0; padding: 0; width: 100%; max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.ranklist li { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 8px; align-items: center; background: #FFF6DA; border: 3px solid #fff; border-radius: 16px; padding: 6px 12px 6px 8px; text-align: left; }
+.ranklist li.me { border-color: var(--pink-deep); background: #fff; }
+.ranklist .no { font-family: var(--font-display); font-size: 18px; text-align: center; color: var(--ink-soft); }
+.ranklist .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.ranklist .ct { font-size: 13px; color: var(--ink-soft); }
+.ranklist .vl { font-family: var(--font-display); font-size: 20px; font-variant-numeric: tabular-nums; }
+.note { color: var(--ink-soft); font-size: 14px; min-height: 18px; }
+@media (prefers-reduced-motion: reduce) { .mascots img { animation: none; } }
+</style>
+</head>
+<body>
+<div class="bunting" id="bunting" aria-hidden="true"></div>
+<div id="app">
+  <div class="bar">
+    <a class="btn small ghost" href="../">← 게임 선택</a>
+    <span class="sp"></span>
+    <button class="btn small ghost" id="btnMusic" type="button">음악 켜짐</button>
+    <button class="btn small ghost" id="btnSound" type="button">소리 켜짐</button>
+  </div>
+
+  <section class="sheet" id="startSheet">
+    <div class="mascots" aria-hidden="true"><img src="../img/dog.webp" alt="" width="84" height="84"><img src="../img/capy.webp" alt="" width="84" height="84"><img src="../img/frog.webp" alt="" width="84" height="84"></div>
+    <h1>제1회 박상준<br>한국어능력시험</h1>
+    <p class="sub">읽기 영역 · 12문항<br>시험 범위는 오직 하나, <b>박상준</b>이에요.</p>
+    <div class="rules">
+      ① 지문을 잘 읽고 알맞은 보기를 고르세요.<br>
+      ② 문제를 풀면 바로 정답과 해설이 나와요.<br>
+      ③ 12문제를 다 풀면 100점 만점으로 급수를 알려 줘요.
+    </div>
+    <label class="toggle"><input type="checkbox" id="viToggle"> <span>베트남어 도움말 (Trợ giúp tiếng Việt)</span></label>
+    <p class="note" style="margin-top:-6px">켜면 어려운 낱말에 밑줄이 생겨요. 밑줄을 누르면 뜻이 나와요.</p>
+    <label class="nick"><span>내 이름</span><input id="nick" maxlength="12" placeholder="랭킹에 보여요" autocomplete="off" spellcheck="false"></label>
+    <div class="row"><button class="btn sun" id="btnStart" type="button">시험 시작!</button><button class="btn ghost" id="btnRank1" type="button">랭킹</button></div>
+  </section>
+
+  <section id="examView" hidden>
+    <div class="paper">
+      <div class="exam-head"><span>한국어능력시험 TOPIK Ⅱ · 읽기</span><b id="qCount">1 / 12</b></div>
+      <div class="dots" id="dots" aria-hidden="true"></div>
+      <p class="note-head" id="qHead"></p>
+      <div class="passage" id="passage"></div>
+      <p class="stem" id="stem"></p>
+      <div class="opts" id="opts"></div>
+      <div class="fb" id="fb" hidden>
+        <div class="top"><img id="fbImg" alt="" width="56" height="56"><h2 id="fbTitle"></h2></div>
+        <p class="why" id="fbWhy"></p>
+        <p class="vi" id="fbVi" hidden></p>
+        <button class="btn sun" id="btnNext" type="button">다음 문제</button>
+      </div>
+    </div>
+    <div class="gloss" id="gloss" hidden></div>
+  </section>
+
+  <section class="sheet" id="endSheet" hidden>
+    <h2 id="endTitle">시험 끝!</h2>
+    <div class="big"><span id="endScore">0</span><small style="font-size:22px"> / 100</small></div>
+    <div class="grade" id="endGrade"></div>
+    <p class="sub" id="endMsg"></p>
+    <p class="note" id="endRank"></p>
+    <div class="row"><button class="btn sun" id="btnAgain" type="button">다시 보기</button><button class="btn ghost" id="btnRank2" type="button">랭킹</button></div>
+    <a class="btn ghost small" href="../">게임 선택</a>
+  </section>
+
+  <section class="sheet" id="rankSheet" hidden>
+    <h2>시험 랭킹</h2>
+    <ol class="ranklist" id="rankList"></ol>
+    <p class="note" id="rankNote"></p>
+    <button class="btn ghost" id="btnRankBack" type="button">돌아가기</button>
+  </section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../shared.js"></script>
+<script src="questions.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('ko-KR');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const Q = window.TOPIK_QUESTIONS, N = Q.length, MARK = ['①', '②', '③', '④'];
+const S = { idx: 0, correct: 0, picked: -1, results: [], vi: false };
+try { S.vi = localStorage.getItem('topik-vi') !== '0'; } catch (_) { S.vi = true; }
+
+/* ---------- 소리·진동 ---------- */
+let muted = false, AC = null;
+try { muted = localStorage.getItem('mn-mute') === '1'; } catch (_) { /* 무시 */ }
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume().catch(() => {}); return AC; }
+function tone(f, dur, type, vol, when, slide) {
+  if (muted) return; const a = ac(); if (!a) return;
+  const t = a.currentTime + (when || 0), o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + dur);
+  g.gain.setValueAtTime(vol || .12, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .03);
+}
+const buzz = p => { if (muted) return; try { if (navigator.vibrate) navigator.vibrate(p); } catch (_) { /* 무시 */ } };
+const SFX = {
+  pick() { tone(520, .06, 'triangle', .08); },
+  right() { [784, 988, 1319].forEach((f, i) => tone(f, .22, 'triangle', .13, i * .09)); },
+  wrong() { tone(260, .22, 'sawtooth', .08, 0, .7); tone(196, .3, 'sawtooth', .08, .18, .7); },
+  end() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .3, 'triangle', .12, i * .1)); }
+};
+
+/* ---------- 지문 그리기 (베트남어 도움말) ---------- */
+const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function glossTerms(q) { return q.gloss.map(([w, v]) => [w.replace(/^-/, ''), v]); }
+function fillPassage(box, q) {
+  box.textContent = '';
+  const terms = S.vi ? glossTerms(q) : [], map = new Map(terms);
+  const re = terms.length ? new RegExp('(' + terms.map(t => esc(t[0])).sort((a, b) => b.length - a.length).join('|') + ')', 'g') : null;
+  for (const para of q.passage) {
+    const p = document.createElement('p');
+    const parts = re ? para.split(re) : [para];
+    for (const part of parts) {
+      if (map.has(part)) {
+        const u = document.createElement('u'); u.textContent = part; u.tabIndex = 0; u.setAttribute('role', 'button');
+        const open = () => showGloss(part, map.get(part)); u.addEventListener('click', open); u.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+        p.appendChild(u);
+      } else p.appendChild(document.createTextNode(part));
+    }
+    box.appendChild(p);
+  }
+}
+let glossTimer = 0;
+function showGloss(word, vi) {
+  const g = $('gloss'); g.textContent = ''; const b = document.createElement('b'); b.textContent = word; g.append(b, ' — ' + vi); g.hidden = false;
+  clearTimeout(glossTimer); glossTimer = setTimeout(() => { g.hidden = true; }, 6000); SFX.pick();
+}
+
+/* ---------- 문제 흐름 ---------- */
+function show(id) { for (const x of ['startSheet', 'examView', 'endSheet', 'rankSheet']) $(x).hidden = x !== id; window.scrollTo(0, 0); }
+function renderDots() {
+  const d = $('dots'); d.textContent = '';
+  for (let i = 0; i < N; i++) { const el = document.createElement('i'); const r = S.results[i]; el.className = i === S.idx ? 'cur' : r === true ? 'ok' : r === false ? 'no' : ''; d.appendChild(el); }
+}
+function renderQ() {
+  const q = Q[S.idx]; S.picked = -1; $('gloss').hidden = true;
+  $('qCount').textContent = `${S.idx + 1} / ${N}`; renderDots();
+  $('qHead').textContent = q.head; fillPassage($('passage'), q);
+  const stem = $('stem'); stem.textContent = ''; const qn = document.createElement('span'); qn.className = 'qn'; qn.textContent = (S.idx + 1) + '.'; stem.append(qn, q.stem);
+  const box = $('opts'); box.textContent = '';
+  q.opts.forEach((t, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.dataset.i = i;
+    const no = document.createElement('span'); no.className = 'no'; no.textContent = MARK[i]; const tx = document.createElement('span'); tx.textContent = t; b.append(no, tx);
+    b.addEventListener('click', () => answer(i)); box.appendChild(b);
+  });
+  $('fb').hidden = true;
+}
+function answer(i) {
+  if (S.picked >= 0) return; S.picked = i;
+  const q = Q[S.idx], ok = i === q.ans; S.results[S.idx] = ok; if (ok) S.correct++;
+  for (const b of $('opts').children) { b.disabled = true; const k = +b.dataset.i; if (k === q.ans) b.classList.add('right'); else if (k === i) b.classList.add('wrong'); }
+  const fb = $('fb'); fb.className = 'fb ' + (ok ? 'ok' : 'no'); fb.hidden = false;
+  $('fbImg').src = ok ? '../img/frog.webp' : '../img/capy.webp';
+  $('fbTitle').textContent = ok ? '정답입니다! 딩동댕~' : `아쉬워요. 정답은 ${MARK[q.ans]}번이에요.`;
+  $('fbWhy').textContent = q.why;
+  const vi = $('fbVi'); vi.hidden = !S.vi; vi.textContent = ''; if (S.vi) { const b = document.createElement('b'); b.textContent = 'Dịch (번역): '; vi.append(b, q.vi); }
+  $('btnNext').textContent = S.idx === N - 1 ? '결과 보기' : '다음 문제';
+  renderDots(); ok ? SFX.right() : SFX.wrong(); buzz(ok ? 15 : [40, 30, 40]);
+  setTimeout(() => fb.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+}
+function next() { if (S.idx >= N - 1) return finish(); S.idx++; renderQ(); window.scrollTo(0, 0); }
+const GRADES = [
+  [92, '6급', '상준 박사 인정! 상준에 대해서는 모르는 게 없네요.'], [75, '5급', '거의 다 알아요! 상준이 눈빛만 봐도 알겠어요.'], [58, '4급', '꽤 잘 아는 편! 조금만 더 공부하면 5급이에요.'],
+  [42, '3급', '절반쯤은 알아요. 상준이랑 이야기를 더 나눠 봐요.'], [25, '2급', '아직 낯선 부분이 많아요. 지문을 다시 읽어 봐요.'], [0, '1급', '이제 막 알아 가는 중이에요. 처음부터 다시 해 봐요!']
+];
+function finish() {
+  const score = Math.round(S.correct / N * 100), g = GRADES.find(x => score >= x[0]);
+  $('endTitle').textContent = score === 100 ? '만점! 완벽해요!' : '시험 끝!'; $('endScore').textContent = score;
+  $('endGrade').textContent = g[1] + ' · ' + S.correct + '/' + N + '문제'; $('endMsg').textContent = g[2]; $('endRank').textContent = '';
+  show('endSheet'); SFX.end(); buzz([40, 40, 40, 40, 100]); record(score);
+}
+function start() { Object.assign(S, { idx: 0, correct: 0, picked: -1, results: [] }); show('examView'); renderQ(); }
+
+/* ---------- 랭킹 ---------- */
+const GAME_ID = 'topik'; let SB = null, rows = [];
+function initRank() { SB = MN.client(); if (SB) fetchRanks(); }
+async function fetchRanks() {
+  if (SB) { try { const { data, error } = await SB.rpc('game_ranks', { p_game: GAME_ID, p_pid: MN.pid() }); if (!error && Array.isArray(data)) rows = data; } catch (_) { /* 무시 */ } }
+  if (!$('rankSheet').hidden) renderRank(); updateEndRank();
+}
+function record(score) {
+  if (!SB) return;
+  SB.rpc('game_submit', { p_game: GAME_ID, p_pid: MN.pid(), p_nm: MN.nick() || '익명', p_ch: 'frog', p_score: score, p_team: 0, p_stage: S.correct }).then(() => fetchRanks(), () => {});
+}
+function updateEndRank() {
+  const el = $('endRank'); if (!el || $('endSheet').hidden) return;
+  const list = rows.filter(d => d.best > 0).sort((a, b) => b.best - a.best || b.stage - a.stage), i = list.findIndex(d => d.me);
+  el.textContent = SB && i >= 0 ? `내 최고 ${fmt(list[i].best)}점 · 전체 ${i + 1}위` : '';
+}
+function renderRank() {
+  const ol = $('rankList'), note = $('rankNote'); ol.textContent = '';
+  if (!SB) { note.textContent = '랭킹을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; return; }
+  const list = rows.filter(d => d.best > 0).sort((a, b) => b.best - a.best || b.stage - a.stage).slice(0, 30);
+  note.textContent = list.length ? '' : '아직 기록이 없어요. 첫 시험 응시자가 되어 봐요!';
+  list.forEach((d, i) => {
+    const li = document.createElement('li'); if (d.me) li.className = 'me';
+    const no = document.createElement('span'); no.className = 'no'; no.textContent = i + 1;
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (String(d.nm || '').slice(0, 12) || '익명') + (d.me ? ' (나)' : '');
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = (d.stage | 0) + '/' + N;
+    const vl = document.createElement('span'); vl.className = 'vl'; vl.textContent = fmt(d.best) + '점';
+    li.append(no, nm, ct, vl); ol.appendChild(li);
+  });
+}
+
+/* ---------- 버튼·시작 ---------- */
+$('btnStart').onclick = () => { ac(); start(); };
+$('btnAgain').onclick = () => { ac(); start(); };
+$('btnNext').onclick = next;
+const openRank = from => { fetchRanks(); renderRank(); S.rankFrom = from; show('rankSheet'); };
+$('btnRank1').onclick = () => openRank('startSheet'); $('btnRank2').onclick = () => openRank('endSheet');
+$('btnRankBack').onclick = () => show(S.rankFrom || 'startSheet');
+$('viToggle').addEventListener('change', e => { S.vi = e.target.checked; try { localStorage.setItem('topik-vi', S.vi ? '1' : '0'); } catch (_) { /* 무시 */ } });
+$('btnSound').onclick = () => { muted = !muted; try { localStorage.setItem('mn-mute', muted ? '1' : '0'); } catch (_) { /* 무시 */ } $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; if (!muted) { ac(); SFX.pick(); } };
+$('btnMusic').onclick = () => { MN.bgm.toggle(); $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; };
+$('nick').addEventListener('input', () => MN.setNick($('nick').value));
+(function boot() {
+  $('nick').value = MN.nick(); $('viToggle').checked = S.vi; $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐';
+  const flags = ['#FFB3C9', '#FFE08A', '#BDE8D3', '#CDBFF5', '#BFE1F7'], bt = $('bunting'); for (let i = 0; i < 14; i++) { const f = document.createElement('i'); f.style.background = flags[i % 5]; bt.appendChild(f); }
+  initRank();
+})();
+</script>
+</body>
+</html>
