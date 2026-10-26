@@ -320,7 +320,7 @@ body.fever #frame { box-shadow: 0 0 0 4px #FFD84D, 0 0 26px 6px rgba(255,140,200
       <div class="fv" id="fv" aria-label="먹방 게이지"><i id="fvFill"></i><span id="fvTxt">먹방 게이지</span></div>
     </div>
     <div id="boardWrap"><div id="frame"><canvas id="cv" aria-label="게임 보드"></canvas></div><div id="toast" aria-live="polite"></div><div id="late" hidden><div class="lt"><small>⏰ 시간 오버!</small><b>매번 늦어도 이해할게~</b><i>눌러서 넘기기</i></div></div><div id="lucky" hidden><div class="lk"><small>행운 상자!</small><b id="luckyTxt"></b></div></div></div>
-    <div class="foot"><button class="btn small ghost" id="btnSound">소리 켜짐</button><button class="btn small ghost" id="btnQuit">그만하기</button></div>
+    <div class="foot"><button class="btn small ghost" id="btnMusic">음악 켜짐</button><button class="btn small ghost" id="btnSound">소리 켜짐</button><button class="btn small ghost" id="btnQuit">그만하기</button></div>
 
     <div id="result" hidden>
       <div class="sheet">
@@ -1166,6 +1166,9 @@ $('btnSound').onclick = () => {
   if (!muted) { ac(); SFX.swap(); buzz(15); }
 };
 document.addEventListener('pointerdown', () => { if (!muted) ac(); });
+const musicText = () => { $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; };
+$('btnMusic').onclick = () => { MN.bgm.toggle(); musicText(); };
+musicText();
 $('btnNext').onclick = () => {
   if (S.cleared) S.stage++;
   $('result').hidden = true;
