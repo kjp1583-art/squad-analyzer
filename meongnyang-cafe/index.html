@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFE3EE">
+<title>상준♡투이 게임천국</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* 게임 선택창: 위에 배너, 아래에 게임 카드. 새 게임은 아래 GAMES 배열에 한 줄 추가 */
+:root {
+  --bg1: #FFF3EA; --bg2: #FFDDE8; --bg3: #E4DDFB; --ink: #4A3550; --ink-soft: #85708A;
+  --card: rgba(255, 255, 255, .8); --line: #FFFFFF; --pink: #FFB3C9; --pink-deep: #F28CAE;
+  --mint: #BDE8D3; --mint-deep: #8FD0B3; --butter-deep: #F4D35E;
+  --font-display: 'Jua', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-body: 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0; background-color: var(--bg1); color: var(--ink); font-family: var(--font-body); font-size: 16px;
+  background-image: radial-gradient(circle at 12% 8%, var(--bg2) 0, transparent 38%), radial-gradient(circle at 92% 92%, var(--bg3) 0, transparent 42%), radial-gradient(circle, rgba(255,255,255,.7) 2px, transparent 2.5px);
+  background-size: auto, auto, 28px 28px; background-attachment: fixed;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 28px;
+  -webkit-tap-highlight-color: transparent; overflow-x: hidden;
+}
+h1, h2, .num { font-family: var(--font-display); font-weight: 400; margin: 0; }
+p { margin: 0; }
+#deco { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+#deco span { position: absolute; opacity: .42; animation: drift var(--d, 9s) ease-in-out infinite alternate; }
+@keyframes drift { to { transform: translate(var(--dx, 12px), var(--dy, -18px)) rotate(var(--rot, 12deg)); } }
+.bunting { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); height: 34px; z-index: 2; pointer-events: none; display: flex; }
+.bunting::before { content: ""; position: absolute; left: 0; right: 0; top: 2px; border-top: 2px solid rgba(133,112,138,.35); border-radius: 50%; height: 6px; }
+.bunting i { flex: 1; margin-top: 4px; clip-path: polygon(6% 0, 94% 0, 50% 100%); animation: sway 3s ease-in-out infinite alternate; transform-origin: 50% 0; }
+.bunting i:nth-child(even) { animation-delay: -1.5s; }
+@keyframes sway { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+main { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+/* 배너 */
+.banner {
+  position: relative; margin-top: 34px; padding: 44px 12px 30px; text-align: center; border: 4px solid #fff; border-radius: 34px;
+  background-color: #FFC9DA;
+  background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.6) 0 12px, transparent 12px 24px), repeating-linear-gradient(90deg, rgba(255,255,255,.6) 0 12px, transparent 12px 24px);
+  box-shadow: 0 8px 0 rgba(242, 140, 174, .5); outline: 3px dashed rgba(255,255,255,.95); outline-offset: -11px;
+}
+.banner .peek { position: absolute; left: 0; right: 0; top: -42px; display: flex; justify-content: center; gap: 2px; }
+.banner .peek img { width: 74px; height: 74px; margin: 0 -2px; animation: bob 2.4s ease-in-out infinite; }
+.banner .peek img:nth-child(2) { animation-delay: -.6s; } .banner .peek img:nth-child(3) { animation-delay: -1.2s; } .banner .peek img:nth-child(4) { animation-delay: -1.8s; }
+@keyframes bob { 50% { transform: translateY(-8px) rotate(-3deg); } }
+.plate { position: relative; display: inline-flex; flex-direction: column; gap: 4px; padding: 14px 28px 16px; background: rgba(255,255,255,.93); border-radius: 28px; box-shadow: 0 6px 0 rgba(242,140,174,.45); }
+.plate::before, .plate::after { position: absolute; font-size: 26px; animation: twinkle 1.8s ease-in-out infinite alternate; }
+.plate::before { content: "✦"; left: -8px; top: -10px; color: #F4B24D; }
+.plate::after { content: "✦"; right: -6px; bottom: -8px; color: #8F7FE0; animation-delay: -.9s; }
+@keyframes twinkle { from { transform: scale(.7) rotate(0); opacity: .6; } to { transform: scale(1.2) rotate(20deg); opacity: 1; } }
+.line1 { font-family: var(--font-display); font-size: clamp(38px, 11.5vw, 54px); line-height: 1.1; white-space: nowrap; }
+.line2 { font-family: var(--font-display); font-size: clamp(32px, 9.5vw, 44px); line-height: 1.1; letter-spacing: 6px; white-space: nowrap; }
+.banner .c { display: inline-block; animation: bob 2.2s ease-in-out infinite; text-shadow: -2px 0 #fff, 2px 0 #fff, 0 -2px #fff, 0 2px #fff, 0 5px 0 rgba(133,112,138,.22); }
+.c1 { color: #F28CAE; } .c2 { color: #F2A93B; animation-delay: -.2s; } .c3 { color: #E5486F; animation: beat 1.1s ease-in-out infinite; } .c4 { color: #6FBF9A; animation-delay: -.4s; } .c5 { color: #8F7FE0; animation-delay: -.6s; }
+.d1 { color: #F28CAE; animation-delay: -.1s; } .d2 { color: #F2A93B; animation-delay: -.5s; } .d3 { color: #6FBF9A; animation-delay: -.9s; } .d4 { color: #8F7FE0; animation-delay: -1.3s; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 20% { transform: scale(1.3); } 40% { transform: scale(1.05); } 60% { transform: scale(1.25); } }
+.banner .hearts { position: absolute; inset: 0; pointer-events: none; }
+.banner .hearts span { position: absolute; font-size: 18px; color: #fff; opacity: .9; animation: drift 5s ease-in-out infinite alternate; }
+.tag { display: inline-block; margin-top: 16px; padding: 4px 16px; border-radius: 999px; background: #fff; font-family: var(--font-display); font-size: 15px; color: var(--ink); letter-spacing: 1px; box-shadow: 0 3px 0 rgba(242,140,174,.45); }
+
+h2 { font-size: 24px; display: flex; align-items: center; gap: 8px; }
+h2::after { content: ""; flex: 1; border-top: 3px dotted var(--pink-deep); opacity: .6; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.card {
+  position: relative; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 14px; border-radius: 26px; border: 3px solid #fff;
+  background: var(--card); color: inherit; text-decoration: none; box-shadow: 0 6px 0 rgba(133,112,138,.2); transition: transform .1s, box-shadow .1s;
+}
+a.card:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(133,112,138,.2); }
+a.card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.art { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px; border-radius: 18px; background: var(--bg2); }
+.art img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 14px; background: #fff; }
+.card h3 { margin: 2px 0 0; font-family: var(--font-display); font-weight: 400; font-size: 22px; }
+.card p { word-break: keep-all; font-size: 14px; color: var(--ink-soft); line-height: 1.4; text-wrap: balance; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tags b { font-family: var(--font-display); font-weight: 400; font-size: 12px; padding: 2px 10px; border-radius: 999px; background: var(--mint); }
+.tags b:nth-child(2) { background: var(--pink); } .tags b:nth-child(3) { background: #FFE08A; }
+.card.soon { border-style: dashed; border-color: rgba(133,112,138,.4); background: rgba(255,255,255,.5); justify-content: center; align-items: center; text-align: center; min-height: 220px; box-shadow: none; }
+.card.soon .q { font-size: 44px; animation: bob 2.4s ease-in-out infinite; }
+.who { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--card); border: 3px solid #fff; border-radius: 22px; font-family: var(--font-display); }
+.who input { flex: 1; min-width: 0; height: 42px; border-radius: 999px; border: 3px solid #fff; background: #fff; padding: 0 16px; font-family: var(--font-display); font-size: 18px; color: var(--ink); text-align: center; }
+.who input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.foot { text-align: center; font-size: 13px; color: var(--ink-soft); }
+@media (prefers-reduced-motion: reduce) { #deco span, .bunting i, .banner .c, .banner .peek img, .plate::before, .plate::after, .banner .hearts span, .card.soon .q { animation: none !important; } }
+@media (max-width: 360px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="deco" aria-hidden="true"></div>
+<div class="bunting" id="bunting" aria-hidden="true"></div>
+<main>
+  <header class="banner">
+    <div class="peek" aria-hidden="true"><img src="img/dog.webp" alt="" width="74" height="74"><img src="img/capy.webp" alt="" width="74" height="74"><img src="img/frog.webp" alt="" width="74" height="74"><img src="img/cat.webp" alt="" width="74" height="74"></div>
+    <div class="hearts" aria-hidden="true"><span style="left:7%;top:22%">♡</span><span style="left:90%;top:30%;animation-delay:-2s">♡</span><span style="left:12%;top:78%;animation-delay:-1s">★</span><span style="left:86%;top:80%;animation-delay:-3s">♡</span></div>
+    <h1 class="plate" aria-label="상준 하트 투이 게임천국">
+      <span class="line1" aria-hidden="true"><span class="c c1">상</span><span class="c c2">준</span><span class="c c3">♡</span><span class="c c4">투</span><span class="c c5">이</span></span>
+      <span class="line2" aria-hidden="true"><span class="c d1">게</span><span class="c d2">임</span><span class="c d3">천</span><span class="c d4">국</span></span>
+    </h1>
+    <p class="tag">둘이서 놀자 · 오늘도 한 판만 더</p>
+  </header>
+
+  <section aria-labelledby="gt">
+    <h2 id="gt">게임 고르기</h2>
+    <div class="grid" id="games" style="margin-top:14px"></div>
+  </section>
+
+  <label class="who"><span>내 이름</span><input id="nick" maxlength="12" placeholder="랭킹에 보여요" autocomplete="off" spellcheck="false"></label>
+  <p class="foot">새 게임이 계속 들어올 예정이에요</p>
+</main>
+<script src="shared.js"></script>
+<script>
+'use strict';
+/* 새 미니게임은 여기에 한 항목만 추가하면 카드가 생긴다. href 는 게임 폴더. */
+const GAMES = [
+  { id: 'match', name: '카페 매치', href: 'match/', desc: '귀여운 동물을 맞춰서 터뜨려요. 둘이서 점수를 합쳐요.', tags: ['둘이서', '랭킹', '운 좋으면 대박'], art: ['dog', 'capy', 'frog', 'cat'] }
+];
+const grid = document.getElementById('games');
+for (const g of GAMES) {
+  const a = document.createElement('a'); a.className = 'card'; a.href = g.href;
+  const art = document.createElement('div'); art.className = 'art'; art.setAttribute('aria-hidden', 'true');
+  for (const k of g.art) { const im = document.createElement('img'); im.src = 'img/' + k + '.webp'; im.alt = ''; im.width = im.height = 80; art.appendChild(im); }
+  const h = document.createElement('h3'); h.textContent = g.name;
+  const p = document.createElement('p'); p.textContent = g.desc;
+  const tg = document.createElement('div'); tg.className = 'tags'; for (const t of g.tags) { const b = document.createElement('b'); b.textContent = t; tg.appendChild(b); }
+  a.append(art, h, p, tg); grid.appendChild(a);
+}
+const soon = document.createElement('div'); soon.className = 'card soon';
+soon.innerHTML = '<span class="q" aria-hidden="true">🎈</span><h3>새 게임 준비 중</h3><p>곧 놀러 와요</p>';
+grid.appendChild(soon);
+
+const nick = document.getElementById('nick'); nick.value = MN.nick();
+nick.addEventListener('input', () => MN.setNick(nick.value));
+
+const deco = document.getElementById('deco'), icons = ['🐾', '☁️', '⭐', '🧁', '🍩', '☕', '🍓', '🍪', '🌸', '🐾', '🥐', '🍊', '☁️', '⭐'];
+icons.forEach((ic, i) => {
+  const sp = document.createElement('span'); sp.textContent = ic;
+  sp.style.cssText = `left:${(i * 37 + 8) % 92}%;top:${(i * 53 + 6) % 90}%;font-size:${20 + (i * 7) % 18}px;--d:${7 + (i * 3) % 6}s;--dx:${(i % 3 - 1) * 18}px;--dy:${-14 - (i % 4) * 6}px;--rot:${(i % 5 - 2) * 8}deg`;
+  deco.appendChild(sp);
+});
+const flags = ['#FFB3C9', '#FFE08A', '#BDE8D3', '#CDBFF5', '#BFE1F7'], bt = document.getElementById('bunting');
+for (let i = 0; i < 14; i++) { const f = document.createElement('i'); f.style.background = flags[i % 5]; bt.appendChild(f); }
+</script>
+</body>
+</html>
