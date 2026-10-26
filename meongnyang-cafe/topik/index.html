@@ -119,11 +119,11 @@ button:focus-visible, input:focus-visible, a:focus-visible, u:focus-visible { ou
   <section class="sheet" id="startSheet">
     <div class="mascots" aria-hidden="true"><img src="../img/dog.webp" alt="" width="84" height="84"><img src="../img/capy.webp" alt="" width="84" height="84"><img src="../img/frog.webp" alt="" width="84" height="84"></div>
     <h1>제1회 박상준<br>한국어능력시험</h1>
-    <p class="sub">읽기 영역 · 12문항<br>시험 범위는 오직 하나, <b>박상준</b>이에요.</p>
+    <p class="sub">읽기 12문항 + 어휘·문법 16문항 = 모두 <b id="nQ">28</b>문항<br>시험 범위는 오직 하나, <b>박상준</b>이에요.</p>
     <div class="rules">
       ① 지문을 잘 읽고 알맞은 보기를 고르세요.<br>
       ② 문제를 풀면 바로 정답과 해설이 나와요.<br>
-      ③ 12문제를 다 풀면 100점 만점으로 급수를 알려 줘요.
+      ③ 문제를 다 풀면 100점 만점으로 급수를 알려 줘요.<br>④ 어휘·문법 영역에는 외국인이 특히 헷갈리는 낱말과 문법이 나와요!
     </div>
     <label class="toggle"><input type="checkbox" id="viToggle"> <span>베트남어 도움말 (Trợ giúp tiếng Việt)</span></label>
     <p class="note" style="margin-top:-6px">켜면 어려운 낱말에 밑줄이 생겨요. 밑줄을 누르면 뜻이 나와요.</p>
@@ -133,7 +133,7 @@ button:focus-visible, input:focus-visible, a:focus-visible, u:focus-visible { ou
 
   <section id="examView" hidden>
     <div class="paper">
-      <div class="exam-head"><span>한국어능력시험 TOPIK Ⅱ · 읽기</span><b id="qCount">1 / 12</b></div>
+      <div class="exam-head"><span id="partLab">한국어능력시험 TOPIK Ⅱ · 읽기</span><b id="qCount">1 / 28</b></div>
       <div class="dots" id="dots" aria-hidden="true"></div>
       <p class="note-head" id="qHead"></p>
       <div class="passage" id="passage"></div>
@@ -230,7 +230,7 @@ function renderDots() {
 }
 function renderQ() {
   const q = Q[S.idx]; S.picked = -1; $('gloss').hidden = true;
-  $('qCount').textContent = `${S.idx + 1} / ${N}`; renderDots();
+  $('qCount').textContent = `${S.idx + 1} / ${N}`; $('partLab').textContent = '한국어능력시험 TOPIK Ⅱ · ' + (S.idx < 12 ? '읽기' : '어휘·문법'); renderDots();
   $('qHead').textContent = q.head; fillPassage($('passage'), q);
   const stem = $('stem'); stem.textContent = ''; const qn = document.createElement('span'); qn.className = 'qn'; qn.textContent = (S.idx + 1) + '.'; stem.append(qn, q.stem);
   const box = $('opts'); box.textContent = '';
@@ -249,7 +249,7 @@ function answer(i) {
   $('fbImg').src = ok ? '../img/frog.webp' : '../img/capy.webp';
   $('fbTitle').textContent = ok ? '정답입니다! 딩동댕~' : `아쉬워요. 정답은 ${MARK[q.ans]}번이에요.`;
   $('fbWhy').textContent = q.why;
-  const vi = $('fbVi'); vi.hidden = !S.vi; vi.textContent = ''; if (S.vi) { const b = document.createElement('b'); b.textContent = 'Dịch (번역): '; vi.append(b, q.vi); }
+  const vi = $('fbVi'); vi.hidden = !S.vi; vi.textContent = ''; if (S.vi) { const b = document.createElement('b'); b.textContent = 'Dịch (번역): '; vi.append(b, q.vi); if (q.viWhy) { vi.append(document.createElement('br')); const b2 = document.createElement('b'); b2.textContent = 'Giải thích (설명): '; vi.append(b2, q.viWhy); } }
   $('btnNext').textContent = S.idx === N - 1 ? '결과 보기' : '다음 문제';
   renderDots(); ok ? SFX.right() : SFX.wrong(); buzz(ok ? 15 : [40, 30, 40]);
   setTimeout(() => fb.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
@@ -312,7 +312,7 @@ $('nick').addEventListener('input', () => MN.setNick($('nick').value));
 (function boot() {
   $('nick').value = MN.nick(); $('viToggle').checked = S.vi; $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐';
   const flags = ['#FFB3C9', '#FFE08A', '#BDE8D3', '#CDBFF5', '#BFE1F7'], bt = $('bunting'); for (let i = 0; i < 14; i++) { const f = document.createElement('i'); f.style.background = flags[i % 5]; bt.appendChild(f); }
-  initRank();
+  $('nQ').textContent = N; initRank();
 })();
 </script>
 </body>
