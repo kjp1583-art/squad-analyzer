@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFE9B8">
+<title>망고게임 · 상준♡투이 게임천국</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* 한 화면짜리 게임: 위에 점수·다음 과일, 가운데 통, 아래에 도감 */
+:root {
+  --bg1: #FFF6DA; --bg2: #FFE0B8; --bg3: #FFD3E1; --ink: #4A3550; --ink-soft: #85708A;
+  --card: rgba(255, 255, 255, .82); --line: #FFFFFF; --pink: #FFB3C9; --pink-deep: #F28CAE;
+  --mint: #BDE8D3; --mint-deep: #8FD0B3; --sun: #FFC93C; --sun-deep: #F2A900;
+  --font-display: 'Jua', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-body: 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background-color: var(--bg1); color: var(--ink); font-family: var(--font-body); font-size: 16px; overflow: hidden;
+  background-image: radial-gradient(circle at 10% 6%, var(--bg2) 0, transparent 40%), radial-gradient(circle at 92% 94%, var(--bg3) 0, transparent 42%), radial-gradient(circle, rgba(255,255,255,.7) 2px, transparent 2.5px);
+  background-size: auto, auto, 28px 28px;
+  padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)); padding-block: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+h1, h2, .num { font-family: var(--font-display); font-weight: 400; margin: 0; }
+p { margin: 0; }
+button, a.btn { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.btn {
+  font-family: var(--font-display); font-size: 20px; min-height: 52px; padding: 0 26px; border: 0; border-radius: 999px; background: var(--pink); color: var(--ink);
+  box-shadow: 0 5px 0 var(--pink-deep); transition: transform .08s, box-shadow .08s; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--pink-deep); }
+.btn.sun { background: var(--sun); box-shadow: 0 5px 0 var(--sun-deep); } .btn.sun:active { box-shadow: 0 1px 0 var(--sun-deep); }
+.btn.ghost { background: var(--card); box-shadow: 0 5px 0 rgba(133,112,138,.25); font-size: 16px; }
+.btn.small { min-height: 40px; font-size: 15px; padding: 0 16px; }
+#app { height: 100%; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; position: relative; z-index: 1; }
+.bunting { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); height: 22px; z-index: 0; pointer-events: none; display: flex; opacity: .9; }
+.bunting i { flex: 1; clip-path: polygon(6% 0, 94% 0, 50% 100%); }
+.bar { display: flex; gap: 8px; align-items: center; padding-top: 14px; }
+.bar .sp { flex: 1; }
+.hud { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: stretch; }
+.box { background: var(--card); border: 3px solid var(--line); border-radius: 20px; padding: 4px 12px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.box .lab { font-size: 12px; color: var(--ink-soft); line-height: 1.1; }
+.box .num { font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.box.next { align-items: center; min-width: 92px; }
+.box.next img { width: 40px; height: 40px; }
+.chain { display: flex; gap: 3px; justify-content: space-between; background: var(--card); border: 3px solid var(--line); border-radius: 18px; padding: 5px 7px; }
+.chain .ci { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.chain img { width: 100%; max-width: 30px; aspect-ratio: 1; object-fit: contain; filter: grayscale(1) brightness(.75) opacity(.55); transition: filter .3s, transform .3s; }
+.chain .ci.on img { filter: none; }
+.chain .ci.new img { transform: scale(1.35); }
+.chain .ci b { font-family: var(--font-display); font-weight: 400; font-size: 8.5px; color: var(--ink-soft); line-height: 1; white-space: nowrap; }
+.chain .ci:last-child img { max-width: 34px; }
+#stage { flex: 1; min-height: 0; display: grid; place-items: center; position: relative; }
+#frame {
+  padding: 10px; border: 4px solid #fff; border-radius: 30px; background-color: #FFD27A;
+  background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.55) 0 10px, transparent 10px 20px), repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 10px, transparent 10px 20px);
+  box-shadow: 0 8px 0 rgba(242,169,0,.5); outline: 3px dashed rgba(255,255,255,.95); outline-offset: -10px;
+}
+#cv { display: block; border-radius: 20px; touch-action: none; background: rgba(255,255,255,.72); }
+.shake { animation: shake .4s; }
+@keyframes shake { 20% { transform: translate(-6px, 3px); } 40% { transform: translate(6px, -3px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(3px, 2px); } }
+#toast {
+  position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(.6); opacity: 0; pointer-events: none; z-index: 3;
+  font-family: var(--font-display); font-size: 28px; color: var(--ink); background: #fff; padding: 6px 20px; border-radius: 999px; border: 3px solid var(--sun-deep); white-space: nowrap; max-width: 96%;
+}
+#toast.go { animation: pop 1.3s ease-out; }
+@keyframes pop { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.5); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 75% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -85%) scale(1); } }
+.sheetwrap { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 10px; background: rgba(255, 246, 218, .88); border-radius: 26px; overflow-y: auto; }
+.sheet { background: #fff; border-radius: 30px; border: 3px solid var(--sun); padding: 20px 16px; width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 8px 0 rgba(242,169,0,.4); text-align: center; }
+.sheet h1 { font-size: 36px; } .sheet h2 { font-size: 28px; }
+.sheet .sub { color: var(--ink-soft); font-size: 15px; word-break: keep-all; text-wrap: balance; line-height: 1.45; }
+.sheet .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.hero { width: 120px; height: 120px; animation: bob 2.4s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-8px) rotate(-3deg); } }
+.minichain { display: flex; gap: 2px; width: 100%; }
+.minichain img { flex: 1; min-width: 0; aspect-ratio: 1; object-fit: contain; }
+.nick { display: flex; align-items: center; gap: 8px; width: 100%; font-family: var(--font-display); }
+.nick input { flex: 1; min-width: 0; height: 42px; border-radius: 999px; border: 3px solid #FFE9B8; background: #fff; padding: 0 14px; font-family: var(--font-display); font-size: 17px; color: var(--ink); text-align: center; }
+.big { font-family: var(--font-display); font-size: 44px; font-variant-numeric: tabular-nums; line-height: 1; }
+.got { display: flex; align-items: center; gap: 10px; background: #FFF6DA; border-radius: 20px; padding: 6px 14px; }
+.got img { width: 52px; height: 52px; }
+.ranklist { list-style: none; margin: 0; padding: 0; width: 100%; max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.ranklist li { display: grid; grid-template-columns: 28px 38px 1fr auto; gap: 8px; align-items: center; background: #FFF6DA; border: 3px solid #fff; border-radius: 16px; padding: 4px 10px 4px 6px; text-align: left; }
+.ranklist li.me { border-color: var(--pink-deep); background: #fff; }
+.ranklist .no { font-family: var(--font-display); font-size: 18px; text-align: center; color: var(--ink-soft); }
+.ranklist img { width: 36px; height: 36px; object-fit: contain; }
+.ranklist .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.ranklist .vl { font-family: var(--font-display); font-size: 18px; font-variant-numeric: tabular-nums; }
+.note { color: var(--ink-soft); font-size: 14px; min-height: 18px; }
+@media (max-height: 700px) { .hero { width: 80px; height: 80px; } .sheet h1 { font-size: 30px; } .big { font-size: 36px; } }
+@media (prefers-reduced-motion: reduce) { .hero, .shake, #toast.go { animation: none !important; } #toast.go { opacity: 1; transform: translate(-50%, -50%); } }
+</style>
+</head>
+<body>
+<div class="bunting" id="bunting" aria-hidden="true"></div>
+<div id="app">
+  <div class="bar">
+    <a class="btn small ghost" href="../">← 게임 선택</a>
+    <span class="sp"></span>
+    <button class="btn small ghost" id="btnMusic" type="button">음악 켜짐</button>
+    <button class="btn small ghost" id="btnSound" type="button">소리 켜짐</button>
+  </div>
+  <div class="hud">
+    <div class="box"><span class="lab">점수</span><span class="num" id="score">0</span></div>
+    <div class="box"><span class="lab">내 최고</span><span class="num" id="best">0</span></div>
+    <div class="box next"><span class="lab">다음 과일</span><img id="nextImg" alt="" width="40" height="40"></div>
+  </div>
+  <div class="chain" id="chain" aria-label="과일 도감"></div>
+  <div id="stage">
+    <div id="frame"><canvas id="cv" aria-label="망고게임 화면"></canvas></div>
+    <div id="toast" aria-live="polite"></div>
+
+    <div class="sheetwrap" id="startSheet">
+      <div class="sheet">
+        <img class="hero" id="heroImg" alt="" width="120" height="120">
+        <h1>망고게임</h1>
+        <p class="sub">같은 과일끼리 닿으면 합쳐져요.<br>베트남 과일을 키워서 <b>망고</b>를 만들어 봐요!</p>
+        <div class="minichain" id="miniChain" aria-hidden="true"></div>
+        <p class="sub">손가락을 좌우로 움직이고, 떼면 떨어져요.<br>과일이 위 점선을 넘어 쌓이면 끝나요.</p>
+        <label class="nick"><span>내 이름</span><input id="nick" maxlength="12" placeholder="랭킹에 보여요" autocomplete="off" spellcheck="false"></label>
+        <div class="row"><button class="btn sun" id="btnStart" type="button">시작!</button><button class="btn ghost" id="btnRank1" type="button">랭킹</button></div>
+      </div>
+    </div>
+
+    <div class="sheetwrap" id="endSheet" hidden>
+      <div class="sheet">
+        <h2 id="endTitle">게임 끝!</h2>
+        <div class="big" id="endScore">0</div>
+        <div class="got"><img id="endImg" alt="" width="52" height="52"><div><div class="note">가장 큰 과일</div><b id="endName"></b></div></div>
+        <p class="note" id="endRank"></p>
+        <div class="row"><button class="btn sun" id="btnAgain" type="button">한 번 더</button><button class="btn ghost" id="btnRank2" type="button">랭킹</button></div>
+        <a class="btn ghost small" href="../">게임 선택</a>
+      </div>
+    </div>
+
+    <div class="sheetwrap" id="rankSheet" hidden>
+      <div class="sheet">
+        <h2>망고게임 랭킹</h2>
+        <ol class="ranklist" id="rankList"></ol>
+        <p class="note" id="rankNote"></p>
+        <button class="btn ghost" id="btnRankBack" type="button">돌아가기</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../shared.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('ko-KR');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const W = 360, H = 540, LINE = 96;
+const FR = [
+  { ko: '리치', vi: 'Vải', r: 15, c: '#FF5A5F' }, { ko: '람부탄', vi: 'Chôm chôm', r: 21, c: '#FF4B3E' }, { ko: '망고스틴', vi: 'Măng cụt', r: 27, c: '#9B4F9E' },
+  { ko: '용과', vi: 'Thanh long', r: 34, c: '#FF5FA2' }, { ko: '구아바', vi: 'Ổi', r: 41, c: '#B5D957' }, { ko: '스타프루트', vi: 'Khế', r: 50, c: '#F1DB3C' },
+  { ko: '파파야', vi: 'Đu đủ', r: 60, c: '#FF9A2E' }, { ko: '코코넛', vi: 'Dừa', r: 71, c: '#9A6A45' }, { ko: '두리안', vi: 'Sầu riêng', r: 83, c: '#B9C73E' },
+  { ko: '잭프루트', vi: 'Mít', r: 96, c: '#C7D14A' }, { ko: '망고', vi: 'Xoài', r: 112, c: '#FFB41F' }
+];
+const MANGO = FR.length;
+const imgs = FR.map((f, i) => { const im = new Image(); im.src = '../img/fruit/' + String(i + 1).padStart(2, '0') + '.webp'; return im; });
+const src = i => '../img/fruit/' + String(i).padStart(2, '0') + '.webp';
+
+/* ---------- 소리·진동 ---------- */
+let muted = false, AC = null;
+try { muted = localStorage.getItem('mn-mute') === '1'; } catch (_) { /* 무시 */ }
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume().catch(() => {}); return AC; }
+function tone(f, dur, type, vol, when, slide) {
+  if (muted) return; const a = ac(); if (!a) return;
+  const t = a.currentTime + (when || 0), o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + dur);
+  g.gain.setValueAtTime(vol || .12, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .03);
+}
+const buzz = p => { if (muted) return; try { if (navigator.vibrate) navigator.vibrate(p); } catch (_) { /* 무시 */ } };
+const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+const SFX = {
+  drop() { tone(330, .08, 'triangle', .08, 0, .7); },
+  merge(lv, combo) { const f = 392 * Math.pow(1.0595, SCALE[Math.min(lv, 10)] + Math.min(combo - 1, 4)); tone(f, .16, 'sine', .15); tone(f * 1.5, .14, 'triangle', .07, .05); },
+  found() { [659, 784, 988, 1319].forEach((f, i) => tone(f, .2, 'triangle', .1, i * .07)); },
+  mango() { [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, .32, 'triangle', .13, i * .09)); },
+  over() { [440, 392, 349, 294].forEach((f, i) => tone(f, .3, 'triangle', .11, i * .17, .9)); }
+};
+
+/* ---------- 물리 ---------- */
+const { Engine, Bodies, Composite, Events } = Matter;
+let engine = null, mergeQ = [];
+const S = { playing: false, score: 0, best: 0, maxLv: 0, hold: null, next: null, x: W / 2, canDrop: true, t: 0, lastMerge: -9, combo: 0, danger: 0, mangos: 0, scale: 1, dpr: 1 };
+const parts = [], floats = [];
+try { S.best = +localStorage.getItem('mango-best') || 0; } catch (_) { /* 무시 */ }
+
+function roll() { const r = Math.random() * 100; return { lv: r < 34 ? 1 : r < 62 ? 2 : r < 82 ? 3 : r < 94 ? 4 : 5, gold: Math.random() < .06 }; }
+function fruits() { return engine.world.bodies.filter(b => b.label === 'fruit'); }
+function makeFruit(lv, x, y, gold, pop) {
+  const b = Bodies.circle(x, y, FR[lv - 1].r, { restitution: .12, friction: .25, frictionStatic: .5, frictionAir: .012, density: .0015, label: 'fruit' });
+  b.lv = lv; b.gold = !!gold; b.born = S.t; b.popT = pop ? S.t : -9; return b;
+}
+function resetWorld() {
+  engine = Engine.create({ gravity: { x: 0, y: 1.3 } }); mergeQ = [];
+  const T = 60, opt = { isStatic: true, friction: .4, restitution: .05, label: 'wall' };
+  Composite.add(engine.world, [Bodies.rectangle(W / 2, H + T / 2, W + 2 * T, T, opt), Bodies.rectangle(-T / 2, H / 2, T, H * 3, opt), Bodies.rectangle(W + T / 2, H / 2, T, H * 3, opt)]);
+  Events.on(engine, 'collisionStart', ev => {
+    for (const p of ev.pairs) { const a = p.bodyA, b = p.bodyB; if (a.label === 'fruit' && b.label === 'fruit' && a.lv === b.lv && !a.dead && !b.dead) { a.dead = b.dead = true; mergeQ.push([a, b]); } }
+  });
+}
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
+function shake() { const f = $('frame'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
+function burst(x, y, col, n) {
+  const cols = [col, '#FFD84D', '#FF8FB1', '#9ED8C0', '#fff'];
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, v = 60 + Math.random() * 160; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 80, life: 1, col: cols[i % 5], size: 3 + Math.random() * 4, heart: i % 3 === 0 }); }
+}
+function addFloat(x, y, text, col) { floats.push({ x: clamp(x, 70, W - 70), y, text, col, life: 1 }); }
+
+function doMerges() {
+  while (mergeQ.length) {
+    const [a, b] = mergeQ.shift(); const lv = a.lv;
+    Composite.remove(engine.world, a); Composite.remove(engine.world, b);
+    const mx = (a.position.x + b.position.x) / 2, my = (a.position.y + b.position.y) / 2, gold = a.gold || b.gold;
+    S.combo = (S.t - S.lastMerge < 1.2) ? S.combo + 1 : 1; S.lastMerge = S.t;
+    const mult = 1 + .35 * (S.combo - 1) + (gold ? 2 : 0);
+    const nl = lv + 1, base = lv >= MANGO ? 1500 : nl * nl * 3;
+    const pts = Math.round(base * mult); S.score += pts;
+    burst(mx, my, FR[lv - 1].c, 10 + lv * 2); addFloat(mx, my - FR[lv - 1].r, '+' + fmt(pts), gold ? '#E58A00' : '#E0568A');
+    SFX.merge(lv, S.combo); buzz(lv >= 8 ? [30, 20, 50] : 12);
+    if (lv >= MANGO) {
+      S.mangos++; burst(mx, my, '#FFB41F', 90); shake(); SFX.mango(); buzz([40, 40, 40, 40, 120]);
+      toast('망고 두 개가 만났어요! 대박 +' + fmt(pts)); updateHud(); continue;
+    }
+    mergeQ = mergeQ.filter(q => !q.includes(a) && !q.includes(b));
+    const nb = makeFruit(nl, mx, my, false, true); Composite.add(engine.world, nb);
+    let msg = null;
+    if (nl > S.maxLv) {
+      S.maxLv = nl; updateChain(nl); SFX.found();
+      msg = nl === MANGO ? '망고 완성!! 오늘의 망고는 너야~' : `${FR[nl - 1].ko} (${FR[nl - 1].vi}) 발견!`;
+      if (nl === MANGO) { burst(mx, my, '#FFB41F', 120); shake(); SFX.mango(); buzz([40, 40, 40, 40, 120]); S.score += 500; addFloat(W / 2, H / 2, '+500', '#E0568A'); }
+    } else if (S.combo >= 3) msg = `콤보 ×${S.combo}!`;
+    if (gold) msg = '황금 과일 ×3 보너스!';
+    if (msg) toast(msg);
+    if (nl >= 8) shake();
+    updateHud();
+  }
+}
+function updateHud() {
+  $('score').textContent = fmt(S.score); $('best').textContent = fmt(Math.max(S.best, S.score));
+}
+function updatePreview() { $('nextImg').src = src(S.next.lv); }
+function updateChain(newLv) {
+  const els = $('chain').children;
+  for (let i = 0; i < els.length; i++) { els[i].classList.toggle('on', i < S.maxLv); els[i].classList.remove('new'); }
+  if (newLv) { els[newLv - 1].classList.add('new'); setTimeout(() => els[newLv - 1] && els[newLv - 1].classList.remove('new'), 900); }
+}
+
+function drop() {
+  if (!S.playing || !S.canDrop) return;
+  const f = S.hold, r = FR[f.lv - 1].r, x = clamp(S.x, r + 3, W - r - 3);
+  Composite.add(engine.world, makeFruit(f.lv, x, 44, f.gold, false));
+  S.hold = S.next; S.next = roll(); updatePreview(); S.canDrop = false; setTimeout(() => { S.canDrop = true; }, 480); SFX.drop();
+}
+function step(dt) {
+  S.t += dt; Engine.update(engine, dt * 1000); doMerges();
+  let danger = false;
+  for (const b of fruits()) if (S.t - b.born > 1.4 && b.position.y - FR[b.lv - 1].r < LINE && Math.hypot(b.velocity.x, b.velocity.y) < .6) danger = true;
+  S.danger = danger ? S.danger + dt : Math.max(0, S.danger - dt * 2);
+  if (S.danger > 2.2) gameOver();
+}
+
+/* ---------- 그리기 ---------- */
+let last = 0, acc = 0;
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (S.playing && engine) { acc += dt; let n = 0; while (acc >= 1 / 60 && n < 3) { step(1 / 60); acc -= 1 / 60; n++; } if (n === 3) acc = 0; }
+  draw(now, dt); requestAnimationFrame(frame);
+}
+function draw(now, dt) {
+  const cv = $('cv'), c = cv.getContext('2d'); if (!cv.width) return;
+  c.setTransform(S.scale * S.dpr, 0, 0, S.scale * S.dpr, 0, 0); c.clearRect(0, 0, W, H);
+  c.save(); c.setLineDash([8, 7]); c.lineWidth = 3; c.strokeStyle = S.danger > 0 ? `rgba(230,60,80,${.5 + .5 * Math.sin(now / 80)})` : 'rgba(242,140,174,.7)';
+  c.beginPath(); c.moveTo(0, LINE); c.lineTo(W, LINE); c.stroke(); c.restore();
+  if (engine) {
+    for (const b of fruits()) {
+      const f = FR[b.lv - 1], k = 1 + .3 * Math.sin(Math.PI * clamp((S.t - b.popT) / .35, 0, 1)), d = f.r * 2.16 * k;
+      c.save(); c.translate(b.position.x, b.position.y); c.rotate(b.angle);
+      if (b.gold) { c.shadowColor = '#FFC400'; c.shadowBlur = 16; }
+      if (imgs[b.lv - 1].complete) c.drawImage(imgs[b.lv - 1], -d / 2, -d / 2, d, d);
+      c.restore();
+      if (b.gold) { starShape(c, b.position.x + f.r * .55, b.position.y - f.r * .55, Math.max(8, f.r * .3), '#FFC400'); }
+    }
+  }
+  if (S.playing && S.hold) {
+    const f = FR[S.hold.lv - 1], x = clamp(S.x, f.r + 3, W - f.r - 3), d = f.r * 2.16;
+    c.save(); c.setLineDash([3, 8]); c.strokeStyle = 'rgba(133,112,138,.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(x, 44 + f.r); c.lineTo(x, H); c.stroke(); c.restore();
+    c.save(); c.globalAlpha = S.canDrop ? 1 : .35; if (S.hold.gold) { c.shadowColor = '#FFC400'; c.shadowBlur = 16; }
+    if (imgs[S.hold.lv - 1].complete) c.drawImage(imgs[S.hold.lv - 1], x - d / 2, 44 - d / 2, d, d); c.restore();
+  }
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]; p.life -= dt * 1.5; if (p.life <= 0) { parts.splice(i, 1); continue; }
+    p.vy += 360 * dt; p.x += p.vx * dt; p.y += p.vy * dt; c.globalAlpha = Math.max(0, p.life); c.fillStyle = p.col;
+    if (p.heart) heart(c, p.x, p.y, p.size * 1.8); else { c.beginPath(); c.arc(p.x, p.y, p.size * .7, 0, 7); c.fill(); }
+  }
+  c.globalAlpha = 1; c.font = '26px Jua, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (let i = floats.length - 1; i >= 0; i--) {
+    const f = floats[i]; f.life -= dt * .9; if (f.life <= 0) { floats.splice(i, 1); continue; }
+    f.y -= 34 * dt; c.globalAlpha = Math.min(1, f.life * 1.6); c.lineWidth = 6; c.strokeStyle = '#fff'; c.lineJoin = 'round'; c.strokeText(f.text, f.x, f.y); c.fillStyle = f.col; c.fillText(f.text, f.x, f.y);
+  }
+  c.globalAlpha = 1;
+}
+function heart(c, x, y, s) { c.beginPath(); c.moveTo(x, y + s * .35); c.bezierCurveTo(x - s, y - s * .2, x - s * .5, y - s * .8, x, y - s * .35); c.bezierCurveTo(x + s * .5, y - s * .8, x + s, y - s * .2, x, y + s * .35); c.fill(); }
+function starShape(c, x, y, r, col) { c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rad = i % 2 ? r * .45 : r; c.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad); } c.closePath(); c.fillStyle = col; c.fill(); c.lineWidth = 1.5; c.strokeStyle = '#fff'; c.stroke(); }
+function fit() {
+  const st = $('stage'), aw = st.clientWidth - 28, ah = st.clientHeight - 28; if (aw <= 0 || ah <= 0) return;
+  const cw = Math.floor(Math.min(aw, ah * W / H)), cv = $('cv'); S.dpr = Math.min(window.devicePixelRatio || 1, 2); S.scale = cw / W;
+  cv.style.width = cw + 'px'; cv.style.height = Math.round(cw * H / W) + 'px'; cv.width = Math.round(cw * S.dpr); cv.height = Math.round(cw * H / W * S.dpr);
+}
+window.addEventListener('resize', fit);
+
+/* ---------- 입력 ---------- */
+function setX(e) { const r = $('cv').getBoundingClientRect(); S.x = (e.clientX - r.left) / r.width * W; }
+const cvEl = $('cv'); let down = false;
+cvEl.addEventListener('pointerdown', e => { if (!S.playing) return; down = true; setX(e); try { cvEl.setPointerCapture(e.pointerId); } catch (_) { /* 무시 */ } });
+cvEl.addEventListener('pointermove', e => { if (S.playing && (down || e.pointerType === 'mouse')) setX(e); });
+cvEl.addEventListener('pointerup', e => { if (!down) return; down = false; setX(e); drop(); });
+cvEl.addEventListener('pointercancel', () => { down = false; });
+window.addEventListener('keydown', e => { if (!S.playing) return; if (e.key === 'ArrowLeft') S.x -= 14; else if (e.key === 'ArrowRight') S.x += 14; else if (e.key === ' ') { e.preventDefault(); drop(); } });
+
+/* ---------- 흐름 ---------- */
+function start() {
+  resetWorld(); parts.length = 0; floats.length = 0;
+  Object.assign(S, { playing: true, score: 0, maxLv: 0, hold: roll(), next: roll(), x: W / 2, canDrop: true, t: 0, lastMerge: -9, combo: 0, danger: 0, mangos: 0 });
+  updateChain(0); updateHud(); updatePreview();
+  for (const id of ['startSheet', 'endSheet', 'rankSheet']) $(id).hidden = true;
+  fit(); toast('시작!');
+}
+async function gameOver() {
+  if (!S.playing) return; S.playing = false; SFX.over(); buzz([60, 40, 60]);
+  const newBest = S.score > S.best; if (newBest) { S.best = S.score; try { localStorage.setItem('mango-best', String(S.best)); } catch (_) { /* 무시 */ } }
+  record(); await sleep(700);
+  $('endTitle').textContent = S.mangos > 0 || S.maxLv === MANGO ? '망고 완성! 최고예요!' : newBest ? '신기록!' : '게임 끝!';
+  $('endScore').textContent = fmt(S.score);
+  const lv = Math.max(1, S.maxLv || 1); $('endImg').src = src(lv); $('endName').textContent = `${FR[lv - 1].ko} (${FR[lv - 1].vi})`;
+  $('endRank').textContent = ''; updateEndRank(); $('endSheet').hidden = false; updateHud();
+}
+document.addEventListener('visibilitychange', () => { /* 탭이 가려지면 물리 시간이 튀지 않게 */ last = performance.now(); });
+
+/* ---------- 랭킹 ---------- */
+const GAME_ID = 'mango'; let SB = null, rows = [];
+function initRank() { SB = MN.client(); if (SB) fetchRanks(); }
+async function fetchRanks() {
+  if (SB) { try { const { data, error } = await SB.rpc('game_ranks', { p_game: GAME_ID, p_pid: MN.pid() }); if (!error && Array.isArray(data)) rows = data; } catch (_) { /* 무시 */ } }
+  if (!$('rankSheet').hidden) renderRank(); updateEndRank();
+}
+function record() {
+  if (!SB || S.score <= 0) return;
+  SB.rpc('game_submit', { p_game: GAME_ID, p_pid: MN.pid(), p_nm: MN.nick() || '익명', p_ch: 'capy', p_score: Math.min(Math.round(S.score), 300000), p_team: 0, p_stage: Math.max(1, S.maxLv) }).then(() => fetchRanks(), () => {});
+}
+function updateEndRank() {
+  const el = $('endRank'); if (!el || $('endSheet').hidden && S.playing) return;
+  const list = rows.filter(d => d.best > 0).sort((a, b) => b.best - a.best), i = list.findIndex(d => d.me);
+  el.textContent = SB && i >= 0 ? `내 최고 ${fmt(list[i].best)} · 전체 ${i + 1}위` : '';
+}
+function renderRank() {
+  const ol = $('rankList'), note = $('rankNote'); ol.textContent = '';
+  if (!SB) { note.textContent = '랭킹을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; return; }
+  const list = rows.filter(d => d.best > 0).sort((a, b) => b.best - a.best).slice(0, 30);
+  note.textContent = list.length ? '' : '아직 기록이 없어요. 첫 1등이 되어 봐요!';
+  list.forEach((d, i) => {
+    const li = document.createElement('li'); if (d.me) li.className = 'me';
+    const no = document.createElement('span'); no.className = 'no'; no.textContent = i + 1;
+    const im = document.createElement('img'); im.alt = ''; im.width = im.height = 36; im.src = src(clamp(d.stage | 0 || 1, 1, MANGO));
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (String(d.nm || '').slice(0, 12) || '익명') + (d.me ? ' (나)' : '');
+    const vl = document.createElement('span'); vl.className = 'vl'; vl.textContent = fmt(d.best);
+    li.append(no, im, nm, vl); ol.appendChild(li);
+  });
+}
+function openRank(from) { fetchRanks(); renderRank(); $('rankSheet').hidden = false; $('rankSheet').dataset.from = from; }
+$('btnRankBack').onclick = () => { $('rankSheet').hidden = true; };
+
+/* ---------- 버튼·시작 ---------- */
+$('btnStart').onclick = () => { ac(); start(); };
+$('btnAgain').onclick = () => { ac(); start(); };
+$('btnRank1').onclick = () => openRank('start');
+$('btnRank2').onclick = () => openRank('end');
+$('btnSound').onclick = () => { muted = !muted; try { localStorage.setItem('mn-mute', muted ? '1' : '0'); } catch (_) { /* 무시 */ } $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; if (!muted) { ac(); SFX.drop(); } };
+$('btnMusic').onclick = () => { MN.bgm.toggle(); $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; };
+$('nick').addEventListener('input', () => MN.setNick($('nick').value));
+(function boot() {
+  $('nick').value = MN.nick(); $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐';
+  const ch = $('chain'), mc = $('miniChain');
+  FR.forEach((f, i) => {
+    const d = document.createElement('div'); d.className = 'ci'; const im = document.createElement('img'); im.src = src(i + 1); im.alt = f.ko; const b = document.createElement('b'); b.textContent = f.ko === '스타프루트' ? '스타' : f.ko; d.append(im, b); ch.appendChild(d);
+    const m = document.createElement('img'); m.src = src(i + 1); m.alt = ''; mc.appendChild(m);
+  });
+  $('heroImg').src = src(MANGO); $('nextImg').src = src(1); $('best').textContent = fmt(S.best);
+  const flags = ['#FFB3C9', '#FFE08A', '#BDE8D3', '#CDBFF5', '#BFE1F7'], bt = $('bunting'); for (let i = 0; i < 14; i++) { const f = document.createElement('i'); f.style.background = flags[i % 5]; bt.appendChild(f); }
+  resetWorld(); fit(); initRank(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
