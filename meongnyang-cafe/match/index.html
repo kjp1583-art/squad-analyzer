@@ -248,6 +248,12 @@ body.fever #frame { box-shadow: 0 0 0 4px #FFD84D, 0 0 26px 6px rgba(255,140,200
 .nick { display: flex; align-items: center; gap: 10px; width: 100%; font-family: var(--font-display); }
 .nick input { flex: 1; min-width: 0; height: 44px; border-radius: 999px; border: 3px solid var(--line); background: var(--card); padding: 0 18px; font-family: var(--font-display); font-size: 18px; color: var(--ink); text-align: center; }
 #home { padding-top: 0; }
+
+/* 꽃 축제 단계 */
+body.flower { background-color: #FFF0F6; }
+body.flower #frame { background-color: #CDEFD0; box-shadow: 0 8px 0 rgba(111,191,154,.55); }
+#goalTxt { white-space: pre-line; }
+.bq { max-width: 100%; height: auto; }
 </style>
 <style>:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }</style>
 </head>
@@ -325,6 +331,7 @@ body.fever #frame { box-shadow: 0 0 0 4px #FFD84D, 0 0 26px 6px rgba(255,140,200
       <div class="sheet">
         <div class="pals" id="resPals"></div>
         <h2 id="resTitle"></h2>
+        <canvas class="bq" id="bqCv" width="300" height="170" hidden aria-label="꽃다발"></canvas>
         <div class="stars" id="resStars" aria-hidden="true"><span>★</span><span>★</span><span>★</span></div>
         <div class="tally" id="tally"></div>
         <p class="note" id="resNote"></p>
@@ -389,6 +396,7 @@ const SFX = {
   lucky() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, .18, 'square', .06, i * .06)); },
   fever() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .26, 'triangle', .13, i * .08)); },
   turn() { tone(880, .1, 'triangle', .12); tone(1175, .16, 'triangle', .12, .09); },
+  grow() { tone(880, .08, 'sine', .08); tone(1320, .14, 'sine', .08, .06); },
   late() { [440, 392, 349, 311].forEach((f, i) => tone(f, .28, 'triangle', .12, i * .16, .9)); },
   end() { [523, 659, 784, 1047].forEach((f, i) => tone(f, .3, 'triangle', .12, i * .12)); }
 };
@@ -399,11 +407,13 @@ const S = {
   screen: 'home', ch: 'dog', mode: 'solo', code: '', stage: 1, games: 0, readyFor: null,
   room: null, friend: null, friendScore: 0, friendDone: false, friendSeen: false,
   score: 0, moves: MOVES, playing: false, busy: false, sel: null, hint: null, hintTimer: 0,
-  s: 40, dpr: 1, cleared: false, pool: [0, 1, 4, 6, 7], fever: 0, feverLeft: 0, encore: false
+  s: 40, dpr: 1, cleared: false, pool: [0, 1, 4, 6, 7], fever: 0, feverLeft: 0, encore: false,
+  flower: false, mission: null, col: 0, friendCol: 0
 };
+let swapBloomAll = false;
 let g = [];
 const parts = [], floats = [], fx = [];
-let sprites = [], spritesH = [];
+let sprites = [], spritesH = [], spritesF = [];
 let roomNs = null;
 function makeRoomNs() {
   const sb = MN.client(); if (!sb) return null;
@@ -554,9 +564,64 @@ function portrait(t) {
 }
 const CHAR_T = { dog: 0, cat: 1, capy: 6, frog: 7 };
 
+/* ---------- 꽃 축제: 동물이 꽃으로 피어나요 (봉오리 → 반개 → 만개) ---------- */
+const FL = {
+  animal: ['푸들', '고양이', '토끼', '곰', '병아리', '돼지', '카피바라', '개구리'],
+  flower: ['해바라기', '복숭아꽃', '벚꽃', '국화', '매화', '장미', '연꽃', '수련'],
+  vi: ['Hoa hướng dương', 'Hoa đào', 'Hoa anh đào', 'Hoa cúc', 'Hoa mai', 'Hoa hồng', 'Hoa sen', 'Hoa súng'],
+  col: ['#FFD84D', '#FFB3C9', '#FFE1EC', '#FFB36B', '#FFF2A0', '#FF8FB1', '#FF9EC7', '#F2FBEA'],
+  n: [12, 5, 5, 9, 5, 7, 8, 6]
+};
+const missionTarget = (stage, duo) => Math.round((duo ? 20 : 10) * (1 + .1 * (stage - 1)));
+function petalFlower(c, cx, cy, R, n, col, open, pointy) {
+  for (let i = 0; i < n; i++) {
+    c.save(); c.translate(cx, cy); c.rotate(i * 2 * Math.PI / n + (open < 1 ? .3 : 0));
+    const len = R * (.45 + .5 * open), wid = R * (.14 + .12 * open);
+    c.beginPath();
+    if (pointy) { c.moveTo(0, -R * .1); c.quadraticCurveTo(wid * 1.6, -len * .55, 0, -len - R * .12); c.quadraticCurveTo(-wid * 1.6, -len * .55, 0, -R * .1); }
+    else c.ellipse(0, -(R * .12 + len / 2), wid, len / 2, 0, 0, 7);
+    c.fillStyle = col; c.fill(); c.lineWidth = Math.max(1, R * .03); c.strokeStyle = 'rgba(160,80,110,.28)'; c.stroke(); c.restore();
+  }
+}
+function makeFlowerSprite(t, px, bloom) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = px; const c = cv.getContext('2d');
+  const pad = px * .05, tile = () => rr(c, pad, pad, px - 2 * pad, px - 2 * pad, px * .26);
+  tile(); c.fillStyle = '#FFF7FB'; c.fill();
+  c.save(); tile(); c.clip();
+  const cx = px / 2, cy = px * .53, col = FL.col[t], img = IMGS[t], ok = img && img.naturalWidth;
+  const pointy = t === 6 || t === 7;
+  if (bloom >= 1) petalFlower(c, cx, cy, px * (bloom === 2 ? .5 : .4), FL.n[t], col, bloom === 2 ? 1 : .55, pointy);
+  if (bloom === 2) { const g2 = c.createRadialGradient(cx, cy, 0, cx, cy, px * .3); g2.addColorStop(0, 'rgba(255,255,255,.9)'); g2.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g2; c.fillRect(0, 0, px, px); }
+  const sc = bloom === 0 ? .9 : bloom === 1 ? .78 : .62, d = px * sc;
+  if (ok) { c.save(); c.beginPath(); c.arc(cx, cy + px * .02, d * .5, 0, 7); c.clip(); c.drawImage(img, cx - d / 2, cy - d * .48, d, d); c.restore(); c.lineWidth = px * .025; c.strokeStyle = '#fff'; c.beginPath(); c.arc(cx, cy + px * .02, d * .5, 0, 7); c.stroke(); }
+  else paintAnimal(c, t, cx, cy + px * .04, d * .34);
+  if (bloom === 0) {
+    c.strokeStyle = '#6FBF9A'; c.lineWidth = px * .05; c.lineCap = 'round'; c.beginPath(); c.moveTo(px * .78, px * .9); c.quadraticCurveTo(px * .8, px * .7, px * .76, px * .52); c.stroke();
+    ell(c, px * .86, px * .74, px * .09, px * .045, '#8FD0B3', -.6); ell(c, px * .68, px * .8, px * .08, px * .04, '#8FD0B3', .5);
+    ell(c, px * .76, px * .46, px * .07, px * .11, col, 0); ell(c, px * .76, px * .46, px * .035, px * .08, 'rgba(255,255,255,.6)', 0);
+  }
+  c.restore();
+  c.lineWidth = px * .035; c.strokeStyle = 'rgba(255,255,255,.95)'; tile(); c.stroke();
+  if (bloom === 2) starShape(c, px * .84, px * .17, px * .09, '#FFD84D');
+  return cv;
+}
+function drawBouquet(cv, t) {
+  const c = cv.getContext('2d'), W = cv.width, H = cv.height; c.clearRect(0, 0, W, H);
+  c.fillStyle = '#FFB3C9'; c.beginPath(); c.moveTo(W / 2 - 62, H * .56); c.lineTo(W / 2 + 62, H * .56); c.lineTo(W / 2 + 14, H - 6); c.lineTo(W / 2 - 14, H - 6); c.closePath(); c.fill();
+  c.strokeStyle = '#fff'; c.lineWidth = 3; c.stroke();
+  const others = [0, 1, 2, 3, 4, 5, 6, 7].filter(x => x !== t).sort(() => Math.random() - .5);
+  const spots = [[W / 2, H * .3, 40, t], [W / 2 - 70, H * .44, 29, others[0]], [W / 2 + 70, H * .44, 29, others[1]], [W / 2 - 36, H * .5, 25, others[2]], [W / 2 + 36, H * .5, 25, others[3]]];
+  for (const [x, y, R, ty] of spots.sort((a, b) => b[1] - a[1] === 0 ? 0 : a[2] - b[2])) {
+    petalFlower(c, x, y, R * 1.15, FL.n[ty], FL.col[ty], 1, ty === 6 || ty === 7);
+    const im = IMGS[ty]; if (im && im.naturalWidth) { c.save(); c.beginPath(); c.arc(x, y, R * .56, 0, 7); c.clip(); c.drawImage(im, x - R * .6, y - R * .58, R * 1.2, R * 1.2); c.restore(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, R * .56, 0, 7); c.stroke(); }
+  }
+  c.fillStyle = '#E0568A'; c.beginPath(); c.moveTo(W / 2, H * .6); c.lineTo(W / 2 - 24, H * .66); c.lineTo(W / 2 - 18, H * .75); c.closePath(); c.fill(); c.beginPath(); c.moveTo(W / 2, H * .6); c.lineTo(W / 2 + 24, H * .66); c.lineTo(W / 2 + 18, H * .75); c.closePath(); c.fill();
+  c.beginPath(); c.arc(W / 2, H * .62, 7, 0, 7); c.fillStyle = '#C23D6E'; c.fill();
+}
+
 /* ---------- 보드 로직 ---------- */
 const rndType = () => S.pool[Math.floor(Math.random() * S.pool.length)];
-const newTile = (t, x, y) => ({ t, x, y, sc: 1, seed: Math.random() * 100, sp: null, lucky: false });
+const newTile = (t, x, y) => ({ t, x, y, sc: 1, seed: Math.random() * 100, sp: null, lucky: false, bloom: 0 });
 function typeAt(r, c) { const t = g[r] && g[r][c]; return t ? t.t : -1; }
 function findMatches() {
   const set = new Set(), runs = [];
@@ -619,8 +684,11 @@ const PRAISE = ['', '', '좋아요!', '굉장해요!', '대박!!', '전설이에
 
 const idr = id => (id / N) | 0, idc = id => id % N;
 function areaOf(id, tile) {
-  const r = idr(id), c = idc(id), out = [];
-  if (tile.sp === 'cross') { for (let i = 0; i < N; i++) out.push(r * N + i, i * N + c); }
+  const r = idr(id), c = idc(id), out = [], kind = tile.sp || 'petal';
+  if (kind === 'petal') { out.push(id); for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const y = r + dr, x = c + dc; if (y >= 0 && y < N && x >= 0 && x < N) out.push(y * N + x); } }
+  else if (kind === 'butterfly') { const all = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (g[y][x] && y * N + x !== id) all.push(y * N + x); for (let i = 0; i < 6 && all.length; i++) out.push(all.splice(Math.floor(Math.random() * all.length), 1)[0]); }
+  else if (kind === 'bouquet') { const ty = commonType(true); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (g[y][x] && g[y][x].t === ty) out.push(y * N + x); }
+  else if (tile.sp === 'cross') { for (let i = 0; i < N; i++) out.push(r * N + i, i * N + c); }
   else if (tile.sp === 'bomb') { for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) { const y = r + dr, x = c + dc; if (Math.abs(dr) + Math.abs(dc) <= 2 && y >= 0 && y < N && x >= 0 && x < N) out.push(y * N + x); } }
   else if (tile.sp === 'rainbow') { const ty = commonType(true); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (g[y][x] && g[y][x].t === ty) out.push(y * N + x); }
   return out;
@@ -672,9 +740,10 @@ async function doSwap(a, b) {
   await move(false);
   const forced = new Set();
   if (A.sp || B.sp) {
-    const rb = A.sp === 'rainbow' ? A : B.sp === 'rainbow' ? B : null;
+    const isRb = t => t.sp === 'rainbow' || t.sp === 'bouquet', rb = isRb(A) ? A : isRb(B) ? B : null;
     if (rb) {
-      const other = rb === A ? B : A, pos = rb === A ? b : a, all = other.sp === 'rainbow';
+      const other = rb === A ? B : A, pos = rb === A ? b : a, all = isRb(other);
+      if (rb.sp === 'bouquet' || other.sp === 'bouquet') swapBloomAll = true;
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const t = g[r][c]; if (t && (all || t.t === other.t)) forced.add(r * N + c); }
       forced.add(pos.r * N + pos.c); rb.sp = null; fx.push({ k: 'rainbow', life: 1 }); shake();
     } else { forced.add(b.r * N + b.c); forced.add(a.r * N + a.c); }
@@ -709,7 +778,7 @@ async function resolve(hot, forced) {
     const plain = id => !g[idr(id)][idc(id)].sp;
     for (const run of m.runs) if (run.len >= 4) {
       const id = run.cells.find(i => hotIds.has(i)) ?? run.cells[Math.floor(run.cells.length / 2)];
-      if (!keep.has(id) && plain(id)) keep.set(id, run.len >= 5 ? 'rainbow' : 'cross');
+      if (!keep.has(id) && plain(id)) keep.set(id, run.len >= 5 ? (S.flower ? 'bouquet' : 'rainbow') : (S.flower ? 'butterfly' : 'cross'));
     }
     for (const [id, k] of cnt) if (k >= 2 && !keep.has(id) && plain(id)) keep.set(id, 'bomb');
     first = false; forced = new Set();
@@ -718,14 +787,15 @@ async function resolve(hot, forced) {
       again = false;
       for (const id of [...clear]) {
         const t = g[idr(id)][idc(id)];
-        if (t && t.sp && !done.has(id)) { done.add(id); again = true; blasts.push({ id, sp: t.sp }); for (const x of areaOf(id, t)) if (!keep.has(x)) clear.add(x); }
+        const kind = t && (t.sp || (S.flower && t.bloom === 2 ? 'petal' : null));
+        if (kind && !done.has(id)) { done.add(id); again = true; blasts.push({ id, sp: kind }); for (const x of areaOf(id, t)) if (!keep.has(x)) clear.add(x); }
       }
     }
     const cells = [...clear].map(id => ({ r: idr(id), c: idc(id), t: g[idr(id)][idc(id)] })).filter(o => o.t);
     const capy = cells.filter(o => o.t.t === 6), frog = cells.filter(o => o.t.t === 7), lucky = cells.filter(o => o.t.lucky);
     const jackpot = Math.random() < .07;
     const mult = (1 + .5 * (combo - 1)) * (S.feverLeft > 0 ? 2 : 1) * (jackpot ? 3 : 1);
-    let pts = cells.length * 10 * mult + capy.length * 5 + blasts.length * 30;
+    let pts = cells.length * 10 * mult + capy.length * 5 + blasts.length * 30 + (S.flower ? cells.filter(o => o.t.bloom === 2).length * 20 : 0);
     for (const run of m.runs) pts += run.len === 4 ? 20 : run.len >= 5 ? 50 : 0;
     pts = Math.round(pts); S.score += pts;
     let msg = combo >= 2 ? PRAISE[Math.min(combo, 5)] + ' ×' + combo : null;
@@ -742,6 +812,7 @@ async function resolve(hot, forced) {
     addFloat(cx, cy, '+' + pts, jackpot ? '#FF4D8D' : '#E0568A', 24);
     for (const bl of blasts) fx.push({ k: bl.sp, r: idr(bl.id), c: idc(bl.id), life: 1 });
     if (blasts.length || cells.length >= 10) shake();
+    if (S.flower && blasts.some(b => b.sp === 'petal')) addFloat(cx, cy + S.s * .5, '꽃잎 폭죽!', '#D6457A', 26);
     if (capy.length >= 3) {
       const cxp = capy.reduce((q, o) => q + o.c + .5, 0) / capy.length * S.s, cyp = capy.reduce((q, o) => q + o.r + .5, 0) / capy.length * S.s;
       addFloat(cxp, cyp - S.s * .7, '카피바라 같아~', '#E58A00', 24);
@@ -752,13 +823,26 @@ async function resolve(hot, forced) {
       addFloat(fxp, fyp - S.s * .4, '개구리 고기 먹자~', '#3C9B5A', 22);
       setTimeout(() => addFloat(fxp, fyp + S.s * .3, '싫어!!', '#E0568A', 30), 650);
     }
+    let grown = 0;
+    if (S.flower) {
+      const got = cells.filter(o => o.t.t === S.mission.t).length;
+      if (got) { S.col += got; addFloat(cx, cy - S.s * .6, FL.flower[S.mission.t] + ' +' + got, '#D6457A', 22); }
+      const gone = new Set(cells.map(o => o.r * N + o.c)), grow = new Set(), bloomAll = swapBloomAll || blasts.some(b => b.sp === 'bouquet'); swapBloomAll = false;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const t = g[y][x]; if (!t || gone.has(y * N + x) || t.bloom >= 2) continue;
+        if (bloomAll || (cells.some(o => Math.abs(o.r - y) + Math.abs(o.c - x) === 1) && Math.random() < .6)) grow.add(t);
+      }
+      for (const t of grow) { t.bloom++; t.sc = 1.25; grown++; burst((t.x + .5) * S.s, (t.y + .5) * S.s, 5); }
+      if (grown) { SFX.grow(); if (grown >= 4 && !msg) toast('꽃이 쑥쑥 자라요!'); }
+      for (const o of cells) if (o.t.bloom === 2) burst((o.c + .5) * S.s, (o.r + .5) * S.s, 5);
+    }
     SFX.pop(combo); buzz(cells.length >= 8 ? [15, 20, 15] : 12);
     if (blasts.length) { SFX.boom(); buzz([40, 30, 70]); }
     if (keep.size) setTimeout(SFX.special, 160);
     if (jackpot) setTimeout(SFX.lucky, 120);
     updateHud();
     const keepTiles = [...keep].map(([id, sp]) => { const t = g[idr(id)][idc(id)]; t.sp = sp; return t; });
-    await tween(blasts.length ? 320 : 220, p => { for (const o of cells) o.t.sc = 1 - ease(p); for (const t of keepTiles) t.sc = 1 + .35 * Math.sin(Math.PI * p); });
+    await tween(blasts.length ? 320 : 220, p => { for (const o of cells) o.t.sc = 1 - ease(p); for (const t of keepTiles) t.sc = 1 + .35 * Math.sin(Math.PI * p); if (grown) for (const row of g) for (const t of row) if (t && t.sc > 1 && t.sc < 1.3 && !cells.some(o => o.t === t)) t.sc = 1 + .25 * (1 - ease(p)); });
     for (const o of cells) g[o.r][o.c] = null;
     for (const t of keepTiles) t.sc = 1;
     for (const o of lucky) { const k = luckyReward(); if (k) pend.push(k); }
@@ -824,13 +908,16 @@ function updateHud() {
   $('frCard').hidden = !duo;
   $('frScore').textContent = fmt(S.friendScore);
   const team = S.score + (duo ? S.friendScore : 0), goal = goalFor(S.stage, duo);
-  $('barFill').style.width = Math.min(100, team / (goal * 1.6) * 100) + '%';
+  const prog = S.flower ? (S.col + (duo ? S.friendCol : 0)) : team, need = S.flower ? missionTarget(S.stage, duo) : goal;
+  $('barFill').style.width = Math.min(100, prog / (need * 1.6) * 100) + '%';
   [[1, 1], [2, 1.25], [3, 1.5]].forEach(([i, m]) => {
-    const el = $('s' + i); el.style.left = (m / 1.6 * 100) + '%'; el.classList.toggle('on', team >= goal * m);
+    const el = $('s' + i); el.style.left = (m / 1.6 * 100) + '%'; el.classList.toggle('on', prog >= need * m);
   });
   const fvPct = S.feverLeft > 0 ? S.feverLeft / 3 * 100 : S.fever; $('fvFill').style.width = fvPct + '%';
   $('fvTxt').textContent = S.feverLeft > 0 ? `먹방 타임! ×2 · ${S.feverLeft}턴 남음` : '먹방 게이지';
-  $('goalTxt').textContent = `${S.stage}단계 · 목표 ${fmt(goal)}${duo ? ' (둘이 합쳐서)' : ''} · 지금 ${fmt(team)}`;
+  $('goalTxt').textContent = S.flower
+    ? `${S.stage}단계 꽃 축제 · ${FL.animal[S.mission.t]} ${FL.flower[S.mission.t]}(${FL.vi[S.mission.t]}) ${prog}/${need}송이${duo ? ' (둘이 합쳐서)' : ''}\n옆에서 터지면 꽃이 자라고, 만개한 꽃은 꽃잎 폭죽!`
+    : `${S.stage}단계 · 목표 ${fmt(goal)}${duo ? ' (둘이 합쳐서)' : ''} · 지금 ${fmt(team)}`;
 }
 function fit() {
   const wrap = $('boardWrap'); const size = Math.floor(Math.min(wrap.clientWidth - 28, wrap.clientHeight - 28, 520) / N) * N;
@@ -838,6 +925,7 @@ function fit() {
   S.dpr = Math.min(window.devicePixelRatio || 1, 2); S.s = size / N;
   const cv = $('cv'); cv.style.width = cv.style.height = size + 'px'; cv.width = cv.height = Math.round(size * S.dpr);
   const px = Math.ceil(S.s * S.dpr); sprites = ANIMALS.map((_, t) => makeSprite(t, px)); spritesH = ANIMALS.map((_, t) => makeSprite(t, px, true));
+  spritesF = [0, 1, 2].map(b => ANIMALS.map((_, t) => makeFlowerSprite(t, px, b)));
 }
 window.addEventListener('resize', () => { if (S.screen === 'game') fit(); });
 
@@ -857,8 +945,8 @@ function frame(now) {
       const happy = t.sc < .99 || S.feverLeft > 0 || (S.sel && g[S.sel.r][S.sel.c] === t) || ((now + t.seed * 37) % 4200) < 150;
       const d = s * k, bob = Math.sin(now / 520 + t.seed) * s * .012;
       const px0 = (t.x + .5) * s - d / 2, py0 = (t.y + .5) * s - d / 2 + bob;
-      if (t.sp) { c.save(); c.shadowBlur = 14; c.shadowColor = t.sp === 'rainbow' ? `hsl(${now / 5 % 360},95%,60%)` : t.sp === 'bomb' ? '#FF5C7A' : '#FFB400'; }
-      c.drawImage((happy ? spritesH : sprites)[t.t], px0, py0, d, d);
+      if (t.sp) { c.save(); c.shadowBlur = 14; c.shadowColor = t.sp === 'rainbow' ? `hsl(${now / 5 % 360},95%,60%)` : t.sp === 'bomb' ? '#FF5C7A' : t.sp === 'butterfly' ? '#8F7FE0' : t.sp === 'bouquet' ? '#FF8FB1' : '#FFB400'; }
+      c.drawImage(S.flower ? spritesF[Math.min(2, t.bloom || 0)][t.t] : (happy ? spritesH : sprites)[t.t], px0, py0, d, d);
       if (t.sp) c.restore();
       if (t.lucky) {
         c.save(); c.shadowBlur = 12; c.shadowColor = '#FFC400'; c.lineWidth = 3.5; c.strokeStyle = `rgba(255,190,0,${.65 + .35 * Math.sin(now / 160)})`;
@@ -870,11 +958,14 @@ function frame(now) {
       }
     }
     if (S.feverLeft > 0 && Math.random() < .6) parts.push({ x: Math.random() * W, y: -6, vx: (Math.random() - .5) * 60, vy: 20 + Math.random() * 60, life: 1.6, col: ['#FF8FB1', '#FFD84D', '#9ED8C0', '#B9A6F0', '#8FC9F2'][Math.floor(Math.random() * 5)], size: s * .12, heart: Math.random() < .4 });
+    if (S.flower && Math.random() < .18) parts.push({ x: Math.random() * W, y: -6, vx: (Math.random() - .5) * 36, vy: 34 + Math.random() * 34, life: 3, col: ['#FFC2D6', '#FFE1EC', '#FFD84D', '#FFF', '#FFB3C9'][Math.floor(Math.random() * 5)], size: s * .1, petal: true });
     for (let i = fx.length - 1; i >= 0; i--) {
       const f = fx[i]; f.life -= dt * 2.6; if (f.life <= 0) { fx.splice(i, 1); continue; }
       c.globalAlpha = Math.min(1, f.life); const e = 1 - f.life;
       if (f.k === 'cross') { c.fillStyle = '#FFE680'; c.fillRect(0, f.r * s + s * (.5 - .4 * f.life), W, s * .8 * f.life); c.fillRect(f.c * s + s * (.5 - .4 * f.life), 0, s * .8 * f.life, W); }
       else if (f.k === 'bomb') { c.strokeStyle = '#FF7A95'; c.lineWidth = s * .35 * f.life; c.beginPath(); c.arc((f.c + .5) * s, (f.r + .5) * s, s * (.4 + 2.6 * e), 0, 7); c.stroke(); }
+      else if (f.k === 'petal') { c.strokeStyle = '#FF8FB1'; c.lineWidth = s * .3 * f.life; c.beginPath(); c.arc((f.c + .5) * s, (f.r + .5) * s, s * (.3 + 1.4 * e), 0, 7); c.stroke(); }
+      else if (f.k === 'butterfly') { c.strokeStyle = '#8F7FE0'; c.lineWidth = s * .22 * f.life; c.beginPath(); c.arc((f.c + .5) * s, (f.r + .5) * s, s * (.4 + 2 * e), 0, 7); c.stroke(); }
       else if (f.k === 'flash') { c.fillStyle = '#FFF3B0'; c.globalAlpha = f.life * .6; c.fillRect(0, 0, W, W); }
       else { const gr = c.createLinearGradient(0, 0, W, W); ['#FF8FB1', '#FFD84D', '#9ED8C0', '#8FC9F2', '#B9A6F0'].forEach((col, j) => gr.addColorStop(j / 4, col)); c.fillStyle = gr; c.globalAlpha = f.life * .55; c.fillRect(0, 0, W, W); }
       c.globalAlpha = 1;
@@ -884,9 +975,10 @@ function frame(now) {
     }
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i]; p.life -= dt * 1.6; if (p.life <= 0) { parts.splice(i, 1); continue; }
-      p.vy += 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += p.petal ? 0 : 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
       c.globalAlpha = Math.max(0, p.life); c.fillStyle = p.col;
-      if (p.heart) heart(c, p.x, p.y, p.size * 1.6); else { c.beginPath(); c.arc(p.x, p.y, p.size * .6, 0, 7); c.fill(); }
+      if (p.petal) { c.save(); c.translate(p.x, p.y); c.rotate(p.x * .05); c.beginPath(); c.ellipse(0, 0, p.size * .9, p.size * .45, 0, 0, 7); c.fill(); c.restore(); }
+      else if (p.heart) heart(c, p.x, p.y, p.size * 1.6); else { c.beginPath(); c.arc(p.x, p.y, p.size * .6, 0, 7); c.fill(); }
     }
     c.globalAlpha = 1;
     c.font = `${s * .46}px Jua, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -905,11 +997,13 @@ function starShape(c, x, y, r, col) {
 }
 function badge(c, sp, x, y, r, now) {
   c.beginPath(); c.arc(x, y, r, 0, 7);
-  c.fillStyle = sp === 'bomb' ? '#4A3550' : sp === 'cross' ? '#FFB400' : `hsl(${now / 5 % 360},90%,62%)`; c.fill();
+  c.fillStyle = sp === 'bomb' ? '#4A3550' : sp === 'cross' ? '#FFB400' : sp === 'butterfly' ? '#8F7FE0' : sp === 'bouquet' ? '#FF8FB1' : `hsl(${now / 5 % 360},90%,62%)`; c.fill();
   c.lineWidth = 2; c.strokeStyle = '#fff'; c.stroke();
   c.strokeStyle = '#fff'; c.fillStyle = '#fff'; c.lineWidth = r * .28; c.lineCap = 'round';
   if (sp === 'cross') { c.beginPath(); c.moveTo(x - r * .5, y); c.lineTo(x + r * .5, y); c.moveTo(x, y - r * .5); c.lineTo(x, y + r * .5); c.stroke(); }
   else if (sp === 'bomb') { c.beginPath(); c.arc(x + r * .35, y - r * .45, r * .2, 0, 7); c.fillStyle = '#FF6B6B'; c.fill(); }
+  else if (sp === 'butterfly') { c.beginPath(); c.ellipse(x - r * .38, y - r * .12, r * .34, r * .5, -.5, 0, 7); c.ellipse(x + r * .38, y - r * .12, r * .34, r * .5, .5, 0, 7); c.fill(); c.beginPath(); c.ellipse(x - r * .28, y + r * .38, r * .22, r * .3, .6, 0, 7); c.ellipse(x + r * .28, y + r * .38, r * .22, r * .3, -.6, 0, 7); c.fill(); }
+  else if (sp === 'bouquet') { for (let i = 0; i < 5; i++) { const a = i * 1.2566 - 1.57; c.beginPath(); c.arc(x + Math.cos(a) * r * .5, y + Math.sin(a) * r * .5, r * .28, 0, 7); c.fill(); } c.beginPath(); c.arc(x, y, r * .2, 0, 7); c.fillStyle = '#FFD84D'; c.fill(); }
   else { starShape(c, x, y, r * .62, '#fff'); }
 }
 function heart(c, x, y, sz) {
@@ -950,6 +1044,8 @@ function startGame() {
   if (S.mode === 'duo' && S.friend) S.stage = Math.max(S.stage, num(S.friend.presence.stage) | 0 || 1);
   S.score = 0; S.moves = MOVES; S.friendScore = 0; S.friendDone = false; S.friendSeen = false; S.cleared = false; S.recorded = false; S.newRecord = false;
   S.pool = [0, 1, 6, 7, 4].concat(S.stage >= 3 ? [2] : [], S.stage >= 4 ? [3] : [], S.stage >= 6 ? [5] : []);
+  S.flower = S.stage % 3 === 0; S.col = 0; S.friendCol = 0; document.body.classList.toggle('flower', S.flower);
+  S.mission = S.flower ? { t: S.pool[(Math.floor(S.stage / 3) - 1) % S.pool.length] } : null; swapBloomAll = false;
   S.fever = 0; S.feverLeft = 0; S.encore = false; document.body.classList.remove('fever'); fx.length = 0; $('lucky').hidden = true; $('late').hidden = true; S.sel = null; S.playing = true; S.busy = true;
   clearHint(); floats.length = 0; parts.length = 0;
   initBoard();
@@ -962,12 +1058,12 @@ function startGame() {
     for (const row of g) for (const t of row) t.y -= N + 1;
     const from = g.map(row => row.map(t => t.y));
     await tween(650, p => { const e = 1 - Math.pow(1 - p, 3); g.forEach((row, r) => row.forEach((t, c) => { t.y = from[r][c] + (r - from[r][c]) * e; })); });
-    S.busy = false; armHint(); toast('시작!');
+    S.busy = false; armHint(); toast(S.flower ? '꽃 축제! 동물이 꽃으로 피어나요' : '시작!');
   });
 }
 function publish(extra) {
   if (!S.room) return;
-  S.room.presence({ ch: S.ch, stage: S.stage, games: S.games, readyFor: S.readyFor, score: S.score, moves: S.moves, done: !S.playing && S.moves <= 0, ...(extra || {}) }).catch(() => {});
+  S.room.presence({ ch: S.ch, stage: S.stage, games: S.games, readyFor: S.readyFor, score: S.score, col: S.col, moves: S.moves, done: !S.playing && S.moves <= 0, ...(extra || {}) }).catch(() => {});
 }
 async function lateScene() {
   const el = $('late'); el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
@@ -978,7 +1074,7 @@ async function lateScene() {
 async function finish() {
   S.playing = false; S.busy = true; clearHint();
   publish({ done: true });
-  recordResult(S.mode === 'solo' ? S.score : 0, S.mode === 'solo' && S.score >= goalFor(S.stage, false));
+  recordResult(S.mode === 'solo' ? S.score : 0, S.mode === 'solo' && (S.flower ? S.col >= missionTarget(S.stage, false) : S.score >= goalFor(S.stage, false)));
   await lateScene();
   $('result').hidden = false; renderResult(); SFX.end(); buzz([40, 40, 40, 40, 100]);
 }
@@ -986,9 +1082,11 @@ function renderResult() {
   const duo = S.mode === 'duo';
   const fin = !duo || S.friendDone || !S.friend;
   const total = S.score + (duo ? S.friendScore : 0), goal = goalFor(S.stage, duo);
-  const stars = total >= goal * 1.5 ? 3 : total >= goal * 1.25 ? 2 : total >= goal ? 1 : 0;
+  const colTotal = S.col + (duo ? S.friendCol : 0), need = S.flower ? missionTarget(S.stage, duo) : goal, prog = S.flower ? colTotal : total;
+  const stars = prog >= need * 1.5 ? 3 : prog >= need * 1.25 ? 2 : prog >= need ? 1 : 0;
   S.cleared = fin && stars > 0;
-  $('resTitle').textContent = !fin ? '친구를 기다려요…' : stars === 3 ? '완벽해요!' : stars > 0 ? '클리어!' : '조금 아쉬워요';
+  $('resTitle').textContent = !fin ? '친구를 기다려요…' : S.flower && stars > 0 ? '꽃다발 완성!' : stars === 3 ? '완벽해요!' : stars > 0 ? '클리어!' : '조금 아쉬워요';
+  const bq = $('bqCv'); bq.hidden = !(S.flower && S.cleared); if (!bq.hidden && !bq.dataset.s) { drawBouquet(bq, S.mission.t); bq.dataset.s = '1'; } if (!S.flower || !S.cleared) delete bq.dataset.s;
   [...$('resStars').children].forEach((el, i) => el.classList.toggle('on', fin && i < stars));
   const t = $('tally'); t.textContent = '';
   const row = (img, label, val) => {
@@ -1000,9 +1098,9 @@ function renderResult() {
   row(portrait(CHAR_T[S.ch]), '나', S.score);
   if (duo && S.friend) row(portrait(CHAR_T[friendCh()]), '친구', S.friendScore);
   else if (duo) row(portrait(CHAR_T[S.ch === 'dog' ? 'cat' : 'dog']), '친구', S.friendScore);
-  if (duo) {
+  if (duo || S.flower) {
     const tot = document.createElement('div'); tot.className = 'tot';
-    const a = document.createElement('span'); a.textContent = '우리 팀'; const b = document.createElement('span'); b.textContent = `${fmt(total)} / ${fmt(goal)}`;
+    const a = document.createElement('span'); a.textContent = S.flower ? FL.flower[S.mission.t] : '우리 팀'; const b = document.createElement('span'); b.textContent = S.flower ? `${colTotal} / ${need}송이` : `${fmt(total)} / ${fmt(goal)}`;
     tot.append(a, b); t.append(tot);
   }
   if (fin && !S.recorded) { S.recorded = true; if (duo) recordResult(total, S.cleared); }
@@ -1010,7 +1108,7 @@ function renderResult() {
   const pals = $('resPals'); pals.textContent = '';
   const palImg = ch => { const im = document.createElement('img'); im.src = portrait(CHAR_T[ch]); im.alt = ''; pals.appendChild(im); };
   palImg(S.ch); if (duo && S.friend) palImg(friendCh());
-  $('resNote').textContent = !fin ? '친구가 마지막 턴을 하고 있어요.' : stars > 0 ? '목표 달성! 이제 밥 뭐 먹지? "국물 먹고 싶다~"' : `목표까지 ${fmt(goal - total)}점! 한 번 더 해봐요.`;
+  $('resNote').textContent = !fin ? '친구가 마지막 턴을 하고 있어요.' : S.flower ? (stars > 0 ? '모은 꽃으로 꽃다발을 만들었어요. 자기야에게 선물해요!' : `${FL.flower[S.mission.t]}이(가) ${need - colTotal}송이 모자라요. 한 번 더 해봐요.`) : stars > 0 ? '목표 달성! 이제 밥 뭐 먹지? "국물 먹고 싶다~"' : `목표까지 ${fmt(goal - total)}점! 한 번 더 해봐요.`;
   $('btnNext').hidden = !fin;
   $('btnNext').textContent = S.cleared ? '다음 단계로' : '한 번 더';
 }
@@ -1023,7 +1121,7 @@ function refreshFriend() {
   if (f) {
     if (S.screen === 'lobby' && S.readyFor == null) S.games = Math.max(S.games, num(f.presence.games) | 0);
     const same = num(f.presence.games) === S.games && S.games > 0;
-    if (same && S.screen === 'game' && !S.friendDone) { S.friendScore = num(f.presence.score); S.friendDone = !!f.presence.done; S.friendSeen = true; }
+    if (same && S.screen === 'game' && !S.friendDone) { S.friendScore = num(f.presence.score); S.friendCol = num(f.presence.col); S.friendDone = !!f.presence.done; S.friendSeen = true; }
     if (S.screen === 'game') $('frFace').src = portrait(CHAR_T[friendCh()]);
   } else if (S.friendSeen) S.friendDone = true;
   if (S.screen === 'lobby') renderLobby();
