@@ -93,6 +93,24 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .ranklist img { width: 36px; height: 36px; object-fit: contain; }
 .ranklist .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .ranklist .vl { font-family: var(--font-display); font-size: 18px; font-variant-numeric: tabular-nums; }
+.stack { display: flex; flex-direction: column; gap: 10px; width: 100%; align-items: stretch; }
+.join { display: flex; gap: 8px; }
+.join input { flex: 1; min-width: 0; height: 52px; border-radius: 999px; border: 3px solid #FFE9B8; background: #fff; padding: 0 14px; font-family: var(--font-display); font-size: 18px; color: var(--ink); text-align: center; letter-spacing: 4px; text-transform: lowercase; }
+.join input::placeholder { letter-spacing: 0; font-size: 15px; color: var(--ink-soft); font-family: var(--font-body); }
+.btn.mint { background: var(--mint); box-shadow: 0 5px 0 var(--mint-deep); } .btn.mint:active { box-shadow: 0 1px 0 var(--mint-deep); }
+.btn[disabled] { opacity: .5; pointer-events: none; }
+.code { font-family: var(--font-display); font-size: 48px; letter-spacing: 9px; padding: 2px 6px 2px 16px; background: #fff; border-radius: 22px; border: 3px dashed var(--pink-deep); }
+.seats { display: flex; gap: 10px; width: 100%; }
+.seat { flex: 1; min-width: 0; background: #FFF6DA; border: 3px solid #fff; border-radius: 20px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.seat img { width: 48px; height: 48px; } .seat.empty img { opacity: .25; filter: grayscale(1); }
+.seat .who { font-family: var(--font-display); font-size: 16px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat .st { font-size: 13px; color: var(--ink-soft); } .seat.ok { border-color: var(--mint-deep); background: #fff; }
+.vsbar { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; background: var(--card); border: 3px solid var(--line); border-radius: 18px; padding: 3px 10px 3px 6px; }
+.vsbar img { width: 30px; height: 30px; object-fit: contain; }
+.vsbar .who { min-width: 0; font-size: 13px; line-height: 1.15; } .vsbar .who b { font-family: var(--font-display); font-weight: 400; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vsbar .meter { height: 6px; border-radius: 999px; background: #F1E4D0; overflow: hidden; margin-top: 2px; } .vsbar .meter i { display: block; height: 100%; width: 0; background: #7CCBA8; transition: width .25s, background .25s; }
+.vsbar .meter i.hot { background: #E5566B; }
+.vsbar .vl { font-family: var(--font-display); font-size: 20px; font-variant-numeric: tabular-nums; }
 .note { color: var(--ink-soft); font-size: 14px; min-height: 18px; }
 @media (max-height: 700px) { .hero { width: 80px; height: 80px; } .sheet h1 { font-size: 30px; } .big { font-size: 36px; } }
 @media (prefers-reduced-motion: reduce) { .hero, .shake, #toast.go { animation: none !important; } #toast.go { opacity: 1; transform: translate(-50%, -50%); } }
@@ -113,6 +131,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
     <div class="box next"><span class="lab">다음 과일</span><img id="nextImg" alt="" width="40" height="40"></div>
   </div>
   <div class="chain" id="chain" aria-label="과일 도감"></div>
+  <div class="vsbar" id="vsBar" hidden><img id="vsImg" alt="" width="30" height="30"><div class="who"><b id="vsName">상대</b><div class="meter" aria-hidden="true"><i id="vsDg"></i></div></div><span class="vl" id="vsScore">0</span></div>
   <div id="stage">
     <div id="frame"><canvas id="cv" aria-label="망고게임 화면"></canvas></div>
     <div id="toast" aria-live="polite"></div>
@@ -126,6 +145,29 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
         <p class="sub">손가락을 좌우로 움직이고, 떼면 떨어져요.<br>과일이 위 점선을 넘어 쌓이면 끝나요.</p>
         <label class="nick"><span>내 이름</span><input id="nick" maxlength="12" placeholder="랭킹에 보여요" autocomplete="off" spellcheck="false"></label>
         <div class="row"><button class="btn sun" id="btnStart" type="button">시작!</button><button class="btn ghost" id="btnRank1" type="button">랭킹</button></div>
+        <button class="btn mint" id="btnVs" type="button">둘이서 온라인 대결</button>
+      </div>
+    </div>
+
+    <div class="sheetwrap" id="vsSheet" hidden>
+      <div class="sheet">
+        <h2>망고 대결</h2>
+        <p class="sub">과일 순서는 둘이 똑같아요.<br><b>먼저 망고를 완성</b>하거나 <b>상대보다 오래 버티면</b> 이겨요!</p>
+        <div class="stack" id="vsHome">
+          <button class="btn sun" id="btnVsCreate" type="button">방 만들기</button>
+          <div class="join"><input id="vsCodeIn" maxlength="4" placeholder="친구가 알려준 코드" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="방 코드"><button class="btn mint" id="btnVsJoin" type="button">들어가기</button></div>
+        </div>
+        <div class="stack" id="vsLobby" hidden>
+          <div class="code" id="vsCode" aria-live="polite"></div>
+          <div class="row"><button class="btn small ghost" id="btnVsCopy" type="button">코드 복사</button><a class="btn small ghost" id="btnVsSms" href="#">자기야 같이하자</a></div>
+          <div class="seats">
+            <div class="seat" id="seatMe"><img id="seatMeImg" alt="" width="48" height="48"><span class="who" id="whoMe">나</span><span class="st" id="stMe"></span></div>
+            <div class="seat empty" id="seatFr"><img id="seatFrImg" alt="" width="48" height="48"><span class="who" id="whoFr">상대</span><span class="st" id="stFr">기다리는 중…</span></div>
+          </div>
+          <button class="btn sun" id="btnVsReady" type="button">준비 완료!</button>
+        </div>
+        <p class="note" id="vsNote"></p>
+        <button class="btn ghost small" id="btnVsBack" type="button">돌아가기</button>
       </div>
     </div>
 
@@ -193,11 +235,13 @@ const SFX = {
 /* ---------- 물리 ---------- */
 const { Engine, Bodies, Composite, Events } = Matter;
 let engine = null, mergeQ = [];
-const S = { playing: false, score: 0, best: 0, maxLv: 0, hold: null, next: null, x: W / 2, canDrop: true, t: 0, lastMerge: -9, combo: 0, danger: 0, mangos: 0, scale: 1, dpr: 1 };
+const S = { playing: false, score: 0, best: 0, maxLv: 0, hold: null, next: null, x: W / 2, canDrop: true, t: 0, lastMerge: -9, combo: 0, danger: 0, mangos: 0, scale: 1, dpr: 1, vs: false, lock: false };
 const parts = [], floats = [];
 try { S.best = +localStorage.getItem('mango-best') || 0; } catch (_) { /* 무시 */ }
 
-function roll() { const r = Math.random() * 100; return { lv: r < 34 ? 1 : r < 62 ? 2 : r < 82 ? 3 : r < 94 ? 4 : 5, gold: Math.random() < .06 }; }
+let rnd = Math.random; // 대결에서는 두 사람이 같은 씨앗을 써서 과일이 같은 순서로 나온다
+function seedRng(s) { let a = s >>> 0; rnd = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function roll() { const r = rnd() * 100; return { lv: r < 34 ? 1 : r < 62 ? 2 : r < 82 ? 3 : r < 94 ? 4 : 5, gold: rnd() < .06 }; }
 function fruits() { return engine.world.bodies.filter(b => b.label === 'fruit'); }
 function makeFruit(lv, x, y, gold, pop) {
   const b = Bodies.circle(x, y, FR[lv - 1].r, { restitution: .12, friction: .25, frictionStatic: .5, frictionAir: .012, density: .0015, label: 'fruit' });
@@ -240,7 +284,7 @@ function doMerges() {
     if (nl > S.maxLv) {
       S.maxLv = nl; updateChain(nl); SFX.found();
       msg = nl === MANGO ? '망고 완성!! 오늘의 망고는 너야~' : `${FR[nl - 1].ko} (${FR[nl - 1].vi}) 발견!`;
-      if (nl === MANGO) { burst(mx, my, '#FFB41F', 120); shake(); SFX.mango(); buzz([40, 40, 40, 40, 120]); S.score += 500; addFloat(W / 2, H / 2, '+500', '#E0568A'); }
+      if (nl === MANGO) { burst(mx, my, '#FFB41F', 120); shake(); SFX.mango(); buzz([40, 40, 40, 40, 120]); S.score += 500; addFloat(W / 2, H / 2, '+500', '#E0568A'); if (S.vs) vsEvent('mango'); }
     } else if (S.combo >= 3) msg = `콤보 ×${S.combo}!`;
     if (gold) msg = '황금 과일 ×3 보너스!';
     if (msg) toast(msg);
@@ -259,7 +303,7 @@ function updateChain(newLv) {
 }
 
 function drop() {
-  if (!S.playing || !S.canDrop) return;
+  if (!S.playing || !S.canDrop || S.lock) return;
   const f = S.hold, r = FR[f.lv - 1].r, x = clamp(S.x, r + 3, W - r - 3);
   Composite.add(engine.world, makeFruit(f.lv, x, 44, f.gold, false));
   S.hold = S.next; S.next = roll(); updatePreview(); S.canDrop = false; setTimeout(() => { S.canDrop = true; }, 480); SFX.drop();
@@ -331,15 +375,19 @@ cvEl.addEventListener('pointercancel', () => { down = false; });
 window.addEventListener('keydown', e => { if (!S.playing) return; if (e.key === 'ArrowLeft') S.x -= 14; else if (e.key === 'ArrowRight') S.x += 14; else if (e.key === ' ') { e.preventDefault(); drop(); } });
 
 /* ---------- 흐름 ---------- */
-function start() {
+function start(vsSeed) {
+  if (vsSeed != null) seedRng(vsSeed); else rnd = Math.random;
   resetWorld(); parts.length = 0; floats.length = 0;
-  Object.assign(S, { playing: true, score: 0, maxLv: 0, hold: roll(), next: roll(), x: W / 2, canDrop: true, t: 0, lastMerge: -9, combo: 0, danger: 0, mangos: 0 });
+  Object.assign(S, { playing: true, score: 0, maxLv: 0, hold: roll(), next: roll(), x: W / 2, canDrop: true, t: 0, lastMerge: -9, combo: 0, danger: 0, mangos: 0, vs: vsSeed != null, lock: false });
+  $('vsBar').hidden = vsSeed == null;
   updateChain(0); updateHud(); updatePreview();
-  for (const id of ['startSheet', 'endSheet', 'rankSheet']) $(id).hidden = true;
+  for (const id of ['startSheet', 'endSheet', 'rankSheet', 'vsSheet']) $(id).hidden = true;
   fit(); toast('시작!');
 }
 async function gameOver() {
-  if (!S.playing) return; S.playing = false; SFX.over(); buzz([60, 40, 60]);
+  if (!S.playing) return;
+  if (S.vs) { vsEvent('dead'); return; }
+  S.playing = false; SFX.over(); buzz([60, 40, 60]);
   const newBest = S.score > S.best; if (newBest) { S.best = S.score; try { localStorage.setItem('mango-best', String(S.best)); } catch (_) { /* 무시 */ } }
   record(); await sleep(700);
   $('endTitle').textContent = S.mangos > 0 || S.maxLv === MANGO ? '망고 완성! 최고예요!' : newBest ? '신기록!' : '게임 끝!';
@@ -382,9 +430,108 @@ function renderRank() {
 function openRank(from) { fetchRanks(); renderRank(); $('rankSheet').hidden = false; $('rankSheet').dataset.from = from; }
 $('btnRankBack').onclick = () => { $('rankSheet').hidden = true; };
 
+
+/* ---------- 둘이서 온라인 대결 ---------- */
+/* 각자 자기 통에서 물리를 돌리고(씨앗이 같아 과일 순서가 같다), 먼저 망고를 만들거나 먼저 통이 차는 쪽을 서로에게 알려 승패를 낸다. */
+const V = { ns: null, room: null, code: '', games: 0, readyFor: null, friend: null, ev: null, over: false, fin: false, timer: null, sent: '' };
+const CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
+const GAME_URL = location.href.split('#')[0];
+const vsNote = t => { $('vsNote').textContent = t || ''; };
+function hashCode(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function openVs() { $('startSheet').hidden = true; $('endSheet').hidden = true; $('vsSheet').hidden = false; $('vsHome').hidden = !!V.room; $('vsLobby').hidden = !V.room; vsNote(''); if (V.room) renderLobby(); }
+async function enterRoom(code) {
+  if (!V.ns) { vsNote('같이하기를 불러오지 못했어요. 새로고침해 보세요.'); return; }
+  vsNote('방에 들어가는 중…');
+  try { V.room = await V.ns.join('mango-' + code); } catch (e) { V.room = null; vsNote('방에 들어가지 못했어요. 잠시 뒤에 다시 해봐요.'); return; }
+  V.code = code; V.games = 0; V.readyFor = null; V.friend = null; V.ev = null; V.over = false; V.fin = false;
+  V.room.onPeers(onPeers); sendState(true);
+  $('vsHome').hidden = true; $('vsLobby').hidden = false; vsNote(''); onPeers();
+}
+async function leaveRoom() {
+  clearInterval(V.timer); V.timer = null; S.vs = false; S.playing = false; $('vsBar').hidden = true;
+  if (V.room) { try { await V.room.leave(); } catch (_) { /* 무시 */ } }
+  V.room = null; V.friend = null; V.readyFor = null; V.ev = null; V.over = false; V.fin = false; V.sent = '';
+}
+function sendState(force) {
+  if (!V.room) return;
+  const st = { nm: (MN.nick() || '익명').slice(0, 12), readyFor: V.readyFor, ev: V.ev ? V.ev.kind : null, at: V.ev ? V.ev.at : 0, score: Math.round(S.vs ? S.score : 0), mx: S.vs ? S.maxLv : 0, dg: S.vs ? Math.min(1, Math.round(S.danger / 2.2 * 20) / 20) : 0 };
+  const key = JSON.stringify(st); if (!force && key === V.sent) return; V.sent = key; V.room.presence(st).catch(() => {});
+}
+function onPeers() {
+  if (!V.room) return;
+  V.friend = V.room.peers().find(p => !p.isMe) || null;
+  if (!$('vsSheet').hidden) renderLobby();
+  if (S.vs) vsTick();
+  if (V.readyFor != null && V.friend && V.friend.presence.readyFor === V.readyFor && !S.vs) startVs();
+}
+function renderLobby() {
+  const f = V.friend, fp = f ? f.presence : {};
+  $('vsCode').textContent = V.code;
+  $('seatMeImg').src = src(MANGO); $('whoMe').textContent = (MN.nick() || '나').slice(0, 12);
+  $('stMe').textContent = V.readyFor != null ? '준비 완료!' : '준비 중'; $('seatMe').classList.toggle('ok', V.readyFor != null);
+  $('seatFr').classList.toggle('empty', !f); $('seatFrImg').src = src(f ? 11 : 6);
+  $('whoFr').textContent = f ? (String(fp.nm || '').slice(0, 12) || '상대') : '상대';
+  const fr = f && fp.readyFor != null && fp.readyFor >= V.games + 1;
+  $('stFr').textContent = !f ? '기다리는 중…' : fr ? '준비 완료!' : '준비 중'; $('seatFr').classList.toggle('ok', !!fr);
+  $('btnVsReady').disabled = !f || V.readyFor != null; $('btnVsReady').textContent = V.readyFor != null ? '상대를 기다려요…' : '준비 완료!';
+  vsNote(f ? '둘 다 준비하면 바로 시작해요.' : '상대가 같은 링크를 열고 이 코드를 입력하면 들어와요.');
+}
+function ready() { V.readyFor = V.games + 1; V.ev = null; V.over = false; V.fin = false; S.vs = false; S.score = 0; S.maxLv = 0; S.danger = 0; sendState(true); renderLobby(); onPeers(); }
+function vsAgain() { V.over = false; openVs(); ready(); }
+function startVs() {
+  V.games = V.readyFor; V.readyFor = null; V.ev = null; V.over = false; V.fin = false;
+  start(hashCode(V.code) + V.games * 7919); S.lock = true; sendState(true);
+  clearInterval(V.timer); V.timer = setInterval(() => { sendState(false); vsRender(); }, 250);
+  ['3', '2', '1', '시작!'].forEach((t, i) => setTimeout(() => { if (!S.vs) return; toast(t); tone(t === '시작!' ? 880 : 520, .12, 'triangle', .12); if (t === '시작!') S.lock = false; }, i * 900));
+}
+function vsRender() {
+  const fp = V.friend ? V.friend.presence : null; if (!fp) return;
+  $('vsName').textContent = String(fp.nm || '').slice(0, 12) || '상대';
+  $('vsScore').textContent = fmt(fp.score | 0); $('vsImg').src = src(clamp(fp.mx | 0 || 1, 1, MANGO));
+  const d = $('vsDg'); d.style.width = Math.round(clamp(+fp.dg || 0, 0, 1) * 100) + '%'; d.classList.toggle('hot', (+fp.dg || 0) > .45);
+}
+function vsTick() {
+  if (V.over || V.fin) return;
+  vsRender();
+  const fp = V.friend ? V.friend.presence : null;
+  if (!V.friend) { V.fin = true; setTimeout(vsFinish, 1200); return; } // 상대가 나갔다 — 잠깐 기다려 재접속이 아닌지 본다
+  if (fp.ev && !V.ev) { V.fin = true; S.playing = false; setTimeout(vsFinish, 800); }
+}
+function vsEvent(kind) {
+  if (V.ev || V.over) return;
+  V.ev = { kind, at: Date.now() }; S.playing = false; sendState(true);
+  if (kind === 'mango') { SFX.mango(); buzz([40, 40, 40, 40, 120]); } else { SFX.over(); buzz([60, 40, 60]); }
+  V.fin = true; setTimeout(vsFinish, 800);
+}
+async function vsFinish() {
+  if (V.over || !S.vs) return; V.over = true; S.playing = false; S.vs = false; clearInterval(V.timer); V.timer = null;
+  const fp = V.friend ? V.friend.presence : null, evs = [];
+  if (V.ev) evs.push({ me: true, kind: V.ev.kind, at: V.ev.at });
+  if (fp && fp.ev) evs.push({ me: false, kind: fp.ev, at: +fp.at || 0 });
+  evs.sort((a, b) => a.at - b.at);
+  const e = evs[0], left = !e;
+  const win = left ? true : e.kind === 'mango' ? e.me : !e.me;
+  const why = left ? '상대가 나가서 부전승이에요.' : e.kind === 'mango' ? (e.me ? '내가 먼저 망고를 완성했어요! 🥭' : '상대가 먼저 망고를 완성했어요.') : (e.me ? '내 통이 먼저 가득 찼어요. 상대가 더 오래 버텼어요.' : '상대 통이 먼저 가득 찼어요. 내가 더 오래 버텼어요!');
+  if (win) { SFX.found(); buzz([30, 30, 80]); } else SFX.over();
+  await sleep(500);
+  $('endTitle').textContent = win ? '내가 이겼어요!' : '아쉬워요, 졌어요';
+  $('endScore').textContent = fmt(S.score);
+  const lv = Math.max(1, S.maxLv || 1); $('endImg').src = src(lv); $('endName').textContent = `${FR[lv - 1].ko} (${FR[lv - 1].vi})`;
+  $('endRank').textContent = why + (fp ? ` (상대 ${fmt(fp.score | 0)}점)` : '');
+  $('btnAgain').textContent = '다시 대결'; $('btnRank2').hidden = true; $('endSheet').hidden = false;
+}
+$('btnVs').onclick = () => { ac(); openVs(); };
+$('btnVsCreate').onclick = () => { let c = ''; for (let i = 0; i < 4; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; enterRoom(c); };
+$('btnVsJoin').onclick = () => { const c = $('vsCodeIn').value.toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length !== 4) { vsNote('코드는 4글자예요.'); return; } enterRoom(c); };
+$('vsCodeIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnVsJoin').click(); });
+$('btnVsReady').onclick = () => { ac(); ready(); };
+$('btnVsBack').onclick = async () => { await leaveRoom(); $('vsSheet').hidden = true; $('btnAgain').textContent = '한 번 더'; $('btnRank2').hidden = false; $('startSheet').hidden = false; };
+$('btnVsCopy').onclick = () => { const b = $('btnVsCopy'), done = ok => { b.textContent = ok ? '복사했어요!' : '코드를 직접 알려 주세요'; setTimeout(() => { b.textContent = '코드 복사'; }, 1800); }; try { navigator.clipboard.writeText(V.code).then(() => done(true), () => done(false)); } catch (_) { done(false); } };
+$('btnVsSms').addEventListener('click', e => { e.preventDefault(); const msg = `자기야 망고게임 대결하자~ 🥭\n방 코드: ${V.code}\n링크: ${GAME_URL}\n(링크 열고 '둘이서 온라인 대결' → 코드 4글자 입력!)`; location.href = 'sms:?&body=' + encodeURIComponent(msg); });
+
 /* ---------- 버튼·시작 ---------- */
-$('btnStart').onclick = () => { ac(); start(); };
-$('btnAgain').onclick = () => { ac(); start(); };
+$('btnStart').onclick = () => { ac(); $('btnAgain').textContent = '한 번 더'; $('btnRank2').hidden = false; start(); };
+$('btnAgain').onclick = () => { ac(); if (V.over) vsAgain(); else start(); };
 $('btnRank1').onclick = () => openRank('start');
 $('btnRank2').onclick = () => openRank('end');
 $('btnSound').onclick = () => { muted = !muted; try { localStorage.setItem('mn-mute', muted ? '1' : '0'); } catch (_) { /* 무시 */ } $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; if (!muted) { ac(); SFX.drop(); } };
@@ -399,7 +546,7 @@ $('nick').addEventListener('input', () => MN.setNick($('nick').value));
   });
   $('heroImg').src = src(MANGO); $('nextImg').src = src(1); $('best').textContent = fmt(S.best);
   const flags = ['#FFB3C9', '#FFE08A', '#BDE8D3', '#CDBFF5', '#BFE1F7'], bt = $('bunting'); for (let i = 0; i < 14; i++) { const f = document.createElement('i'); f.style.background = flags[i % 5]; bt.appendChild(f); }
-  resetWorld(); fit(); initRank(); requestAnimationFrame(frame);
+  resetWorld(); fit(); initRank(); V.ns = MN.roomNs(); if (!V.ns) $('btnVs').hidden = true; requestAnimationFrame(frame);
 })();
 </script>
 </body>
