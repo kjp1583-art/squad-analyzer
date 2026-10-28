@@ -51,20 +51,20 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 #boardWrap { position: relative; }
 #board { position: relative; width: 100%; aspect-ratio: 1; display: grid; grid-template: repeat(9, 1fr) / repeat(9, 1fr); gap: 2px; background: #fff; border: 3px solid #fff; border-radius: 18px; box-shadow: 0 6px 0 rgba(95,168,232,.28); padding: 2px; touch-action: manipulation; }
 .tile { position: relative; background: #fff; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; padding: 0; border: 2px solid transparent; min-width: 0; cursor: pointer; font-family: var(--font-body); }
-.tile .band { align-self: stretch; height: 22%; min-height: 5px; background: var(--g, #ddd); position: relative; }
+.tile .band { align-self: stretch; height: 14%; min-height: 4px; background: var(--g, #ddd); position: relative; }
 .tile .fl { position: absolute; right: 1px; top: -1px; font-size: 6.5px; line-height: 1; }
-.tile .em { font-size: clamp(11px, 3.4vw, 17px); line-height: 1.05; margin-top: 1px; }
-.tile .tn { font-size: clamp(6.5px, 2vw, 9.5px); line-height: 1.05; font-weight: 700; word-break: keep-all; padding: 0 1px; }
-.tile .pr { font-size: clamp(6px, 1.7vw, 8.5px); color: var(--ink-soft); line-height: 1; }
+.tile .em { display: block; width: 62%; line-height: 0; margin-top: 1px; font-size: clamp(11px, 3.4vw, 17px); } .tile .em img { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; }
+.tile .tn { font-size: clamp(6.5px, 2.05vw, 9.5px); line-height: 1.05; margin-top: 1px; white-space: nowrap; font-weight: 700; word-break: keep-all; padding: 0 1px; }
+.tile .pr { display: none; }
 .tile .lv { position: absolute; left: 1px; bottom: 0; font-size: 8px; line-height: 1; }
-.tile.corner { background: #FFF6DA; justify-content: center; } .tile.corner .em { font-size: clamp(16px, 5vw, 26px); margin: 0; }
+.tile.corner { background: #FFF6DA; justify-content: center; } .tile.corner .em { width: 78%; margin: 0; }
 .tile.key { background: #FFF1B8; justify-content: center; }
 .tile.o0 { border-color: var(--p0); background: color-mix(in srgb, var(--p0) 18%, #fff); }
 .tile.o1 { border-color: var(--p1); background: color-mix(in srgb, var(--p1) 18%, #fff); }
 .tile.sel { outline: 3px solid var(--ink); outline-offset: -3px; z-index: 2; }
 .tile.fly { animation: blink .9s infinite alternate; }
 @keyframes blink { to { background: #FFE9B8; } }
-#center { grid-area: 2 / 2 / 9 / 9; border-radius: 12px; background: linear-gradient(180deg, #F4FBFF, #FFF3F8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px; text-align: center; min-width: 0; overflow: hidden; }
+#center { grid-area: 2 / 2 / 9 / 9; border-radius: 12px; background: linear-gradient(rgba(255,255,255,.6), rgba(255,255,255,.6)), url(../img/trip/board.webp) center / cover; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px; text-align: center; min-width: 0; overflow: hidden; }
 #center .ttl { font-family: var(--font-display); font-size: clamp(15px, 4.6vw, 22px); line-height: 1.1; }
 #center .rnd { font-size: clamp(10px, 3vw, 13px); color: var(--ink-soft); }
 #dice { display: flex; gap: 8px; font-size: clamp(34px, 11vw, 56px); line-height: 1; }
@@ -77,6 +77,12 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .tok img { position: absolute; width: 74%; height: 74%; object-fit: contain; border-radius: 50%; background: #fff; border: 2px solid var(--c); padding: 1px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.25)); }
 .tok.t0 img { left: 2%; top: 2%; } .tok.t1 img { right: 2%; bottom: 2%; }
 .tok.mine::after { content: ''; position: absolute; left: 50%; top: -6%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--c); }
+#info.pic { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: center; }
+#info img.big { width: 76px; height: 76px; object-fit: contain; }
+#postcard { position: absolute; left: 50%; top: 50%; width: 46%; z-index: 4; pointer-events: none; text-align: center; transform: translate(-50%, -50%) scale(0); opacity: 0; }
+#postcard.go { animation: postcard 2s ease-out forwards; }
+#postcard img { width: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,.3)); } #postcard b { display: inline-block; margin-top: -6px; background: #fff; border: 3px solid var(--pink-deep); border-radius: 999px; padding: 2px 14px; font-family: var(--font-display); font-weight: 400; font-size: 16px; white-space: nowrap; }
+@keyframes postcard { 0% { transform: translate(-50%, -50%) scale(.2) rotate(-8deg); opacity: 0; } 18% { transform: translate(-50%, -50%) scale(1.08) rotate(2deg); opacity: 1; } 30% { transform: translate(-50%, -50%) scale(1) rotate(0); } 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -62%) scale(1); } }
 #info { background: var(--card); border: 3px solid var(--line); border-radius: 18px; padding: 8px 12px; font-size: 14px; line-height: 1.45; min-height: 64px; word-break: keep-all; }
 #info b { font-family: var(--font-display); font-weight: 400; font-size: 17px; }
 #info .vi { color: var(--ink-soft); font-size: 12.5px; }
@@ -88,7 +94,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .sheet h1 { font-size: 34px; } .sheet h2 { font-size: 28px; }
 .sheet .sub { color: var(--ink-soft); font-size: 15px; word-break: keep-all; text-wrap: balance; line-height: 1.45; }
 .sheet .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-.hero { display: flex; gap: 6px; font-size: 44px; animation: bob 2.4s ease-in-out infinite; }
+.hero { display: flex; gap: 2px; animation: bob 2.4s ease-in-out infinite; } .hero img { width: 76px; height: 76px; object-fit: contain; }
 @keyframes bob { 50% { transform: translateY(-8px) rotate(-3deg); } }
 .stack { display: flex; flex-direction: column; gap: 10px; width: 100%; align-items: stretch; }
 .nick { display: flex; align-items: center; gap: 8px; width: 100%; font-family: var(--font-display); }
@@ -147,7 +153,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 
 <div class="sheetwrap" id="homeSheet">
   <div class="sheet">
-    <div class="hero" aria-hidden="true"><span>🏯</span><span>🎲</span><span>🛶</span></div>
+    <div class="hero" aria-hidden="true"><img src="../img/trip/gyeongbok.webp" alt="" width="76" height="76"><img src="../img/trip/air.webp" alt="" width="76" height="76"><img src="../img/trip/halong.webp" alt="" width="76" height="76"></div>
     <h1>여행마블</h1>
     <p class="sub">한국과 베트남의 관광 명소를 사고 팔며<br>더 부자가 되는 쪽이 이겨요!</p>
     <label class="nick"><span>내 이름</span><input id="nick" maxlength="12" placeholder="이름을 적어요" autocomplete="off" spellcheck="false"></label>
@@ -250,6 +256,9 @@ const TILES = [
   P('naksan', '낙산공원', 'Công viên Naksan', 'KR', '💗', 450, '서울', { sp: '고백한 곳♡' }),
   P('sapa', '사파', 'Sa Pa', 'VN', '🌾', 400, '사파')
 ];
+const IMG = { '출발': 'start', '무인도': 'island', '공항': 'air', '카페': 'cafe', '황금열쇠': 'key', '경복궁': 'gyeongbok', '남산타워': 'namsan', '롯데타워': 'lotte', '호안끼엠': 'hoan', '문묘': 'munmyo', '하롱베이': 'halong', '해운대': 'haeundae', '감천마을': 'gamcheon', '광안대교': 'gwangan', '바나힐': 'bana', '미케비치': 'mykhe', '호이안': 'hoian', '성산일출봉': 'seongsan', '한라산': 'halla', '협재해변': 'hyeopjae', '벤탄시장': 'benthanh', '노트르담': 'notredame', '메콩델타': 'mekong', '불국사': 'bulguksa', '전주한옥': 'jeonju', '푸꾸옥': 'phuquoc', '달랏': 'dalat', '낙산공원': 'naksan', '사파': 'sapa' };
+TILES.forEach(t => { t.k = IMG[t.n]; });
+const artSrc = t => '../img/trip/' + t.k + '.webp';
 const NT = TILES.length, ROUNDS = 15, START_CASH = 1500, PASS_START = 200, JAIL_FEE = 100;
 const GSIZE = {}; TILES.forEach(t => { if (t.g) GSIZE[t.g] = (GSIZE[t.g] || 0) + 1; });
 const upCost = i => Math.round(TILES[i].p * .5 / 10) * 10;
@@ -539,6 +548,13 @@ function cellOf(i) { // 9×9 판의 둘레를 시계 반대 방향으로: 0 = �
   if (i <= 8) return [8 - i, 8]; if (i <= 16) return [0, 8 - (i - 8)]; if (i <= 24) return [i - 16, 0]; return [8, i - 24];
 }
 let D = [0, 0], animQ = [], animating = false, selTile = -1, lastV = -1, lastMvN = -1;
+function setArt(span, t) { span.textContent = ''; const im = new Image(); im.alt = ''; im.decoding = 'async'; im.src = artSrc(t); im.onerror = () => { span.textContent = t.e; }; span.appendChild(im); }
+let pcT = null;
+function showPostcard(i) {
+  const t = TILES[i], pc = $('postcard'); if (!t || !pc) return;
+  pc.querySelector('img').src = artSrc(t); pc.querySelector('b').textContent = (t.c ? (t.c === 'KR' ? '🇰🇷 ' : '🇻🇳 ') : '') + t.n;
+  pc.hidden = false; pc.classList.remove('go'); void pc.offsetWidth; pc.classList.add('go'); clearTimeout(pcT); pcT = setTimeout(() => { pc.hidden = true; }, 2100);
+}
 function buildBoard() {
   const bd = $('board'); bd.textContent = '';
   TILES.forEach((t, i) => {
@@ -547,12 +563,13 @@ function buildBoard() {
     if (t.t === 'p') {
       el.style.setProperty('--g', GRP[t.g].col);
       el.innerHTML = '<div class="band"><span class="fl"></span></div><span class="em"></span><span class="tn"></span><span class="pr"></span><span class="lv"></span>';
-      el.querySelector('.fl').textContent = t.c === 'KR' ? '🇰🇷' : '🇻🇳'; el.querySelector('.em').textContent = t.e; el.querySelector('.tn').textContent = t.n; el.querySelector('.pr').textContent = t.p;
-    } else { el.innerHTML = '<span class="em"></span><span class="tn"></span>'; el.querySelector('.em').textContent = t.e; el.querySelector('.tn').textContent = t.n; }
+      el.querySelector('.fl').textContent = t.c === 'KR' ? '🇰🇷' : '🇻🇳'; setArt(el.querySelector('.em'), t); el.querySelector('.tn').textContent = t.n; el.querySelector('.pr').textContent = t.p;
+    } else { el.innerHTML = '<span class="em"></span><span class="tn"></span>'; setArt(el.querySelector('.em'), t); el.querySelector('.tn').textContent = t.n; }
     el.onclick = () => pickTile(i); bd.appendChild(el);
   });
   const ctr = document.createElement('div'); ctr.id = 'center';
   ctr.innerHTML = '<div class="ttl" id="cTtl">여행마블</div><div class="rnd" id="cRnd"></div><div id="dice" aria-label="주사위"><span>🎲</span><span>🎲</span></div><div id="logbox"></div>'; bd.appendChild(ctr);
+  const pcd = document.createElement('div'); pcd.id = 'postcard'; pcd.hidden = true; pcd.innerHTML = '<img alt="" width="120" height="120"><b></b>'; bd.appendChild(pcd);
   for (let k = 0; k < 2; k++) { const t = document.createElement('div'); t.className = 'tok t' + k; t.id = 'tok' + k; t.style.setProperty('--c', k ? 'var(--p1)' : 'var(--p0)'); t.innerHTML = '<img alt="" width="40" height="40">'; bd.appendChild(t); }
 }
 function placeTok(k) {
@@ -572,9 +589,9 @@ function tileInfoHtml(i) {
   return d;
 }
 function renderInfo() {
-  const el = $('info'); el.textContent = '';
+  const el = $('info'); el.textContent = ''; el.className = '';
   if (!S) { el.textContent = '칸을 누르면 설명이 나와요.'; return; }
-  const i = selTile >= 0 ? selTile : S.pl[S.turn].pos; el.appendChild(tileInfoHtml(i));
+  const i = selTile >= 0 ? selTile : S.pl[S.turn].pos; el.className = 'pic'; const im = new Image(); im.className = 'big'; im.alt = ''; im.src = artSrc(TILES[i]); el.append(im, tileInfoHtml(i));
 }
 function renderActs() {
   const box = $('acts'); box.textContent = ''; if (!S || S.over) return;
@@ -633,7 +650,7 @@ function syncTokens() {
   for (let k = 0; k < 2; k++) {
     const target = S.pl[k].pos; if (D[k] === target) { placeTok(k); continue; }
     const tp = S.mv && S.mv.p === k && S.mv.tp;
-    if (tp) { D[k] = target; placeTok(k); continue; }
+    if (tp) { D[k] = target; placeTok(k); showPostcard(target); continue; }
     if (animQ.some(q => q.k === k)) continue;
     animQ.push({ k, to: target }); runAnim();
   }
@@ -641,7 +658,7 @@ function syncTokens() {
 function runAnim() {
   if (animating) return; const q = animQ[0]; if (!q) return; animating = true;
   const step = () => {
-    if (D[q.k] === q.to) { animQ.shift(); animating = false; if (animQ.length) runAnim(); else { renderActs(); renderInfo(); } return; }
+    if (D[q.k] === q.to) { animQ.shift(); animating = false; showPostcard(q.to); if (animQ.length) runAnim(); else { renderActs(); renderInfo(); } return; }
     D[q.k] = (D[q.k] + 1) % NT; placeTok(q.k); SFX.step(); setTimeout(step, 170);
   };
   renderActs(); step();
