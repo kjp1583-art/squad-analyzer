@@ -63,6 +63,9 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.55) 0 10px, transparent 10px 20px), repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 10px, transparent 10px 20px);
   box-shadow: 0 8px 0 rgba(242,169,0,.5); outline: 3px dashed rgba(255,255,255,.95); outline-offset: -10px;
 }
+#stage.vs { display: flex; gap: 8px; justify-content: center; align-items: flex-end; padding-bottom: 6px; }
+#oppFrame { padding: 5px; border: 3px solid #fff; border-radius: 18px; background: #FFD27A; box-shadow: 0 5px 0 rgba(242,169,0,.5); flex: none; }
+#oppCv { display: block; border-radius: 12px; background: rgba(255,255,255,.72); }
 #cv { display: block; border-radius: 20px; touch-action: none; background: rgba(255,255,255,.72); }
 .shake { animation: shake .4s; }
 @keyframes shake { 20% { transform: translate(-6px, 3px); } 40% { transform: translate(6px, -3px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(3px, 2px); } }
@@ -134,6 +137,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   <div class="vsbar" id="vsBar" hidden><img id="vsImg" alt="" width="30" height="30"><div class="who"><b id="vsName">상대</b><div class="meter" aria-hidden="true"><i id="vsDg"></i></div></div><span class="vl" id="vsScore">0</span></div>
   <div id="stage">
     <div id="frame"><canvas id="cv" aria-label="망고게임 화면"></canvas></div>
+    <div id="oppFrame" hidden><canvas id="oppCv" aria-label="상대 화면"></canvas></div>
     <div id="toast" aria-live="polite"></div>
 
     <div class="sheetwrap" id="startSheet">
@@ -321,7 +325,7 @@ let last = 0, acc = 0;
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   if (S.playing && engine) { acc += dt; let n = 0; while (acc >= 1 / 60 && n < 3) { step(1 / 60); acc -= 1 / 60; n++; } if (n === 3) acc = 0; }
-  draw(now, dt); requestAnimationFrame(frame);
+  draw(now, dt); drawOpp(now); requestAnimationFrame(frame);
 }
 function draw(now, dt) {
   const cv = $('cv'), c = cv.getContext('2d'); if (!cv.width) return;
@@ -356,10 +360,25 @@ function draw(now, dt) {
   }
   c.globalAlpha = 1;
 }
+function drawOpp(now) {
+  const cv = $('oppCv'); if ($('oppFrame').hidden || !cv.width) return;
+  const c = cv.getContext('2d'), k = cv.width / W; c.setTransform(k, 0, 0, k, 0, 0); c.clearRect(0, 0, W, H);
+  c.save(); c.setLineDash([8, 7]); c.lineWidth = 3; c.strokeStyle = 'rgba(242,140,174,.7)'; c.beginPath(); c.moveTo(0, LINE); c.lineTo(W, LINE); c.stroke(); c.restore();
+  const cur = V.cur; if (!cur) return;
+  const u = clamp((now - cur.t) / 160, 0, 1), prev = V.prev && V.prev.m;
+  for (const f of cur.m.values()) {
+    const g = f[1] >= 20, lv = clamp(g ? f[1] - 20 : f[1], 1, MANGO), p = prev && prev.get(f[0]);
+    const x = p ? p[2] + (f[2] - p[2]) * u : f[2], y = p ? p[3] + (f[3] - p[3]) * u : f[3], d = FR[lv - 1].r * 2.16;
+    c.save(); c.translate(x, y); c.rotate(f[4] / 57.3); if (g) { c.shadowColor = '#FFC400'; c.shadowBlur = 16; }
+    if (imgs[lv - 1].complete) c.drawImage(imgs[lv - 1], -d / 2, -d / 2, d, d); c.restore();
+  }
+}
 function heart(c, x, y, s) { c.beginPath(); c.moveTo(x, y + s * .35); c.bezierCurveTo(x - s, y - s * .2, x - s * .5, y - s * .8, x, y - s * .35); c.bezierCurveTo(x + s * .5, y - s * .8, x + s, y - s * .2, x, y + s * .35); c.fill(); }
 function starShape(c, x, y, r, col) { c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rad = i % 2 ? r * .45 : r; c.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad); } c.closePath(); c.fillStyle = col; c.fill(); c.lineWidth = 1.5; c.strokeStyle = '#fff'; c.stroke(); }
 function fit() {
-  const st = $('stage'), aw = st.clientWidth - 28, ah = st.clientHeight - 28; if (aw <= 0 || ah <= 0) return;
+  const st = $('stage'), vsOn = st.classList.contains('vs'), ow = vsOn ? Math.round(Math.min(130, st.clientWidth * .32)) : 0;
+  const aw = st.clientWidth - 28 - (vsOn ? ow + 16 + 8 : 0), ah = st.clientHeight - 28; if (aw <= 0 || ah <= 0) return;
+  if (vsOn) { const oc = $('oppCv'), od = Math.min(window.devicePixelRatio || 1, 2); oc.style.width = ow + 'px'; oc.style.height = Math.round(ow * H / W) + 'px'; oc.width = Math.round(ow * od); oc.height = Math.round(ow * H / W * od); }
   const cw = Math.floor(Math.min(aw, ah * W / H)), cv = $('cv'); S.dpr = Math.min(window.devicePixelRatio || 1, 2); S.scale = cw / W;
   cv.style.width = cw + 'px'; cv.style.height = Math.round(cw * H / W) + 'px'; cv.width = Math.round(cw * S.dpr); cv.height = Math.round(cw * H / W * S.dpr);
 }
@@ -382,6 +401,7 @@ function start(vsSeed) {
   $('vsBar').hidden = vsSeed == null;
   updateChain(0); updateHud(); updatePreview();
   for (const id of ['startSheet', 'endSheet', 'rankSheet', 'vsSheet']) $(id).hidden = true;
+  $('stage').classList.toggle('vs', vsSeed != null); $('oppFrame').hidden = vsSeed == null; V.prev = null; V.cur = null; V.lastBd = null;
   fit(); toast('시작!');
 }
 async function gameOver() {
@@ -433,7 +453,7 @@ $('btnRankBack').onclick = () => { $('rankSheet').hidden = true; };
 
 /* ---------- 둘이서 온라인 대결 ---------- */
 /* 각자 자기 통에서 물리를 돌리고(씨앗이 같아 과일 순서가 같다), 먼저 망고를 만들거나 먼저 통이 차는 쪽을 서로에게 알려 승패를 낸다. */
-const V = { ns: null, room: null, code: '', games: 0, readyFor: null, friend: null, ev: null, over: false, fin: false, timer: null, sent: '' };
+const V = { ns: null, room: null, code: '', games: 0, readyFor: null, friend: null, ev: null, over: false, fin: false, timer: null, sent: '', prev: null, cur: null, lastBd: null };
 const CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
 const GAME_URL = location.href.split('#')[0];
 const vsNote = t => { $('vsNote').textContent = t || ''; };
@@ -454,12 +474,14 @@ async function leaveRoom() {
 }
 function sendState(force) {
   if (!V.room) return;
-  const st = { nm: (MN.nick() || '익명').slice(0, 12), readyFor: V.readyFor, ev: V.ev ? V.ev.kind : null, at: V.ev ? V.ev.at : 0, score: Math.round(S.vs ? S.score : 0), mx: S.vs ? S.maxLv : 0, dg: S.vs ? Math.min(1, Math.round(S.danger / 2.2 * 20) / 20) : 0 };
+  const st = { nm: (MN.nick() || '익명').slice(0, 12), readyFor: V.readyFor, ev: V.ev ? V.ev.kind : null, at: V.ev ? V.ev.at : 0, score: Math.round(S.vs ? S.score : 0), mx: S.vs ? S.maxLv : 0, dg: S.vs ? Math.min(1, Math.round(S.danger / 2.2 * 20) / 20) : 0, bd: S.vs && engine ? fruits().map(b => [b.id, b.lv + (b.gold ? 20 : 0), Math.round(b.position.x), Math.round(b.position.y), Math.round(b.angle * 57.3)]) : [] };
   const key = JSON.stringify(st); if (!force && key === V.sent) return; V.sent = key; V.room.presence(st).catch(() => {});
 }
 function onPeers() {
   if (!V.room) return;
   V.friend = V.room.peers().find(p => !p.isMe) || null;
+  const bd = V.friend && V.friend.presence.bd;
+  if (Array.isArray(bd) && bd !== V.lastBd) { V.lastBd = bd; V.prev = V.cur; const m = new Map(); for (const f of bd.slice(0, 80)) if (Array.isArray(f) && f.length === 5) m.set(f[0], f); V.cur = { t: performance.now(), m }; }
   if (!$('vsSheet').hidden) renderLobby();
   if (S.vs) vsTick();
   if (V.readyFor != null && V.friend && V.friend.presence.readyFor === V.readyFor && !S.vs) startVs();
@@ -481,7 +503,7 @@ function vsAgain() { V.over = false; openVs(); ready(); }
 function startVs() {
   V.games = V.readyFor; V.readyFor = null; V.ev = null; V.over = false; V.fin = false;
   start(hashCode(V.code) + V.games * 7919); S.lock = true; sendState(true);
-  clearInterval(V.timer); V.timer = setInterval(() => { sendState(false); vsRender(); }, 250);
+  clearInterval(V.timer); V.timer = setInterval(() => { sendState(false); vsRender(); }, 150);
   ['3', '2', '1', '시작!'].forEach((t, i) => setTimeout(() => { if (!S.vs) return; toast(t); tone(t === '시작!' ? 880 : 520, .12, 'triangle', .12); if (t === '시작!') S.lock = false; }, i * 900));
 }
 function vsRender() {
