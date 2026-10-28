@@ -181,6 +181,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
         <div class="big" id="endScore">0</div>
         <div class="got"><img id="endImg" alt="" width="52" height="52"><div><div class="note">가장 큰 과일</div><b id="endName"></b></div></div>
         <p class="note" id="endRank"></p>
+        <p class="note" id="endQuote"></p>
         <div class="row"><button class="btn sun" id="btnAgain" type="button">한 번 더</button><button class="btn ghost" id="btnRank2" type="button">랭킹</button></div>
         <a class="btn ghost small" href="../">게임 선택</a>
       </div>
@@ -413,11 +414,12 @@ async function gameOver() {
   $('endTitle').textContent = S.mangos > 0 || S.maxLv === MANGO ? '망고 완성! 최고예요!' : newBest ? '신기록!' : '게임 끝!';
   $('endScore').textContent = fmt(S.score);
   const lv = Math.max(1, S.maxLv || 1); $('endImg').src = src(lv); $('endName').textContent = `${FR[lv - 1].ko} (${FR[lv - 1].vi})`;
-  $('endRank').textContent = ''; updateEndRank(); $('endSheet').hidden = false; updateHud();
+  $('endRank').textContent = ''; $('endQuote').textContent = QUOTES[Math.floor(Math.random() * QUOTES.length)]; updateEndRank(); $('endSheet').hidden = false; updateHud();
 }
 document.addEventListener('visibilitychange', () => { /* 탭이 가려지면 물리 시간이 튀지 않게 */ last = performance.now(); });
 
 /* ---------- 랭킹 ---------- */
+const QUOTES = ['다음 판엔 소금 찍어 먹을 만큼 딱 익은 망고를 만들자 🧂', '괜찮아~ 자기야 한 판 더! 이따~만큼 잘할 수 있어 💗', '자기가 만든 겜인데 왜 이렇게 못해? ㅋㅋ (장난!) 🥭', '완전 마싯당~ 한 판 더 하면 더 달콤해져요 😋', '망고는 말린 것도 맛있어요. 우리 천천히 해요 🥭', '에궁, 아깝다! 자기랑 하면 져도 행복해 💞'];
 const GAME_ID = 'mango'; let SB = null, rows = [];
 function initRank() { SB = MN.client(); if (SB) fetchRanks(); }
 async function fetchRanks() {
@@ -540,6 +542,7 @@ async function vsFinish() {
   $('endScore').textContent = fmt(S.score);
   const lv = Math.max(1, S.maxLv || 1); $('endImg').src = src(lv); $('endName').textContent = `${FR[lv - 1].ko} (${FR[lv - 1].vi})`;
   $('endRank').textContent = why + (fp ? ` (상대 ${fmt(fp.score | 0)}점)` : '');
+  $('endQuote').textContent = win ? '🎁 이긴 사람의 소원 하나! 낙산공원에서 고백 다시 받기, 한복 입고 사진 찍기… 💗' : '알겠오~ 소원은 꼭 들어줄게! 다음 판엔 내가 이길 거야 🥭';
   $('btnAgain').textContent = '다시 대결'; $('btnRank2').hidden = true; $('endSheet').hidden = false;
 }
 $('btnVs').onclick = () => { ac(); openVs(); };
