@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """십이귀월(상현/하현) 로스터를 시트 스냅샷에서 계산한다 — index.html computeAssessments의 파이썬 이식.
 
-분석기 호스트가 꺼져 있어도 클라우드에서 명단을 뽑고 웹훅을 쏠 수 있게 한다.
+웹·분석기와 같은 명단이 나오는지 검증(parity)하는 계산기다. 🔕 [2026-10-11 사장님 지시] 디스코드 웹훅 발송은 없앴다 — 명단은 웹으로만 본다.
 산식·가중치·정렬·리그 분할은 웹과 동일하게 유지할 것 (한쪽만 고치면 명단이 갈라진다).
 """
 import argparse, json, math, os, re, sys, urllib.request
@@ -13,6 +13,7 @@ TIER_MIN_GAMES, TIER_MIN_EVAL = 10, 5
 SHRINK_WR, SHRINK_AI, SHRINK_EVAL, SHRINK_SOLOWR = 10, 10, 5, 20
 W_SOLO, W_AI, W_WR, W_SOLOWR, W_MVP, W_TROLL = 0.35, 0.20, 0.15, 0.10, 0.10, 0.10
 RECENT_DAYS, RECENT_MIN = 30, 5
+GHOST_DAYS = 90            # 👻 데이터 마지막 기록일 기준 90일 무기록 = 유령 → 분모 제외(웹 computeAssessments 와 동일)
 
 
 def norm(s):
@@ -34,6 +35,51 @@ def std(xs, mu):
     return math.sqrt(sum((x - mu) ** 2 for x in xs) / (len(xs) - 1))
 
 
+def link_components(pairs):
+    """[(본계, 부계)…] -> {tnorm(닉): 그룹 멤버 리스트(정렬 · 같은 그룹은 같은 리스트)}.
+    🔗 [2026-10-09 사장님 제보 "카무사리 웹에서 언랭으로 뜨는 이유"] 무방향 연결 요소(union-find) — 사슬(A←B←C: 계정 이전 + 닉변)도 한 그룹.
+    예전엔 쌍마다 그룹을 새로 만들어 덮어써서 사슬이 끊겼다. 웹 linkComponents · 분석기 _dep_link_groups 와 같은 규칙."""
+    par = {}
+    def find(x):
+        r = x
+        while par[r] != r: r = par[r]
+        while par[x] != r: par[x], x = r, par[x]
+        return r
+    for a, b in pairs:
+        ka, kb = tnorm(a), tnorm(b)
+        if not ka or not kb: continue
+        par.setdefault(ka, ka); par.setdefault(kb, kb)
+        ra, rb = find(ka), find(kb)
+        if ra != rb: par[rb] = ra
+    comp = {}
+    for k in par: comp.setdefault(find(k), []).append(k)
+    out = {}
+    for m in comp.values():
+        m.sort()
+        for k in m: out[k] = m
+    return out
+
+
+def share_best(solo, grp):
+    """🔗 [2026-10-09] 같은 사람의 계정들은 가장 좋은 솔랭 엔트리를 다 같이 쓴다 — 현시즌 전적(승+패>0) 있는 쪽 우선 → 점수 최고(동점은 닉 순서).
+    SOLO_RANK 행은 분석기가 옛 닉 이름으로 적는 일이 있어 지금 이름 키에는 피크만 남는다. 분석기 _load_solo_ranks v82.50 · 웹 blendSoloRanks 와 같은 규칙.
+    그룹 전원에게 best 의 사본을 준다(현시즌 전적이 하나도 없는 그룹도 점수 최고를 공유)."""
+    seen = set()
+    for m in grp.values():
+        if id(m) in seen: continue
+        seen.add(id(m))
+        best, best_hg = None, False
+        for k in m:
+            c = solo.get(k)
+            if not c: continue
+            hg = (c["wins"] + c["losses"]) > 0
+            if best is None or (hg and not best_hg) or (hg == best_hg and c["score"] > best["score"]):
+                best, best_hg = c, hg
+        if best is None: continue
+        for k in m:
+            if solo.get(k) is not best: solo[k] = dict(best)
+
+
 def read_tab(wb, name):
     if name not in wb.sheetnames: return [], []
     it = wb[name].iter_rows(values_only=True)
@@ -53,11 +99,15 @@ def load(path):
     _h, trows = read_tab(wb, "CLAN_TIERS")
     tier_of_raw = {tnorm(r[0]): str(r[1]).strip() for r in trows if r and r[0] and len(r) > 1 and r[1]}
 
+    # 👥 탈퇴자(DEPARTED 탭) — 분모·명단에서 제외 [2026-09-17: 분석기와 함께 누락돼 있던 것을 세 구현 동시에 맞춤]
+    _h, drows = read_tab(wb, "DEPARTED")
+    departed = {tnorm(r[0]) for r in drows if r and r[0]}
     # 부계정 통합
     _h, lrows = read_tab(wb, "LINK_ACCOUNT")
     alt_to_main = {tnorm(r[1]): str(r[0]).strip() for r in lrows if r and len(r) > 1 and r[0] and r[1]}
 
     # 솔랭 + 과거 3시즌 최고 블렌드
+    grp = link_components([(m, s) for s, m in alt_to_main.items()])   # tnorm 닉 -> LINK 그룹(연결 요소)
     h, srows = read_tab(wb, "SOLO_RANK")
     def col(hh, *names):
         for n in names:
@@ -76,14 +126,24 @@ def load(path):
     h, prows = read_tab(wb, "PEAK_SEASONS")
     pn, pp = col(h, "닉네임"), col(h, "점수")
     if pn >= 0 and pp >= 0:
+        peak = {}
         for r in prows:
             if len(r) <= max(pn, pp) or not r[pn]: continue
             try: pk = float(r[pp])
             except (TypeError, ValueError): continue
-            k = tnorm(r[pn])
-            if k in solo: solo[k]["score"] = (solo[k]["score"] + pk) / 2.0
-            else: solo[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}
-    return raw, tier_of_raw, alt_to_main, solo
+            peak.setdefault(tnorm(r[pn]), pk)
+        # [2026-09-10] 자기 피크 없으면 LINK_ACCOUNT 그룹 최고 피크 (웹·분석기와 동일) — [2026-10-09] 그룹 = 사슬까지 합친 연결 요소
+        def peak_of(k):
+            if k in peak: return peak[k]
+            c = [peak[m] for m in grp.get(k, ()) if m in peak]
+            return max(c) if c else None
+        for k in list(solo):
+            pk = peak_of(k)
+            if pk is not None: solo[k]["score"] = (solo[k]["score"] + pk) / 2.0
+        for k, pk in peak.items():
+            if k not in solo: solo[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}
+    share_best(solo, grp)       # 🔗 블렌드 뒤 — 현시즌 행이 옛 닉(사슬의 뿌리가 아닌 쪽)에 있어도 그룹 전원이 쓴다
+    return raw, tier_of_raw, alt_to_main, solo, departed
 
 
 def build_identity(raw, alt_to_main):
@@ -125,8 +185,11 @@ def build_identity(raw, alt_to_main):
 
 
 def compute(path, today=None):
-    raw, tier_of_raw, alt_to_main, solo = load(path)
+    raw, tier_of_raw, alt_to_main, solo, departed = load(path)
     canon_of_row, canon_aliases, resolve_alt = build_identity(raw, alt_to_main)
+    link_group = {}                                                      # tnorm 닉 → LINK 그룹 전체(본계↔부계 양방향)
+    for sub, main in alt_to_main.items():
+        g = link_group.setdefault(tnorm(main), {tnorm(main)}); g.add(sub); link_group[sub] = g
 
     # 게임 단위 중복 제거 후 대표닉으로 묶기
     seen, games = set(), defaultdict(list)
@@ -160,7 +223,7 @@ def compute(path, today=None):
         t = tier_of(name)
         if not t: continue
         w = l = mvp = ace = troll = 0
-        ai_sum = 0.0; ai_n = 0; eg = set(); recent = 0
+        ai_sum = 0.0; ai_n = 0; eg = set(); recent = 0; last = None
         for r in parts:
             res = str(r.get("결과") or "")
             if res == "승리": w += 1
@@ -175,11 +238,18 @@ def compute(path, today=None):
             if res in ("승리", "패배"):
                 m = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})", str(r.get("날짜") or ""))
                 if m and datetime.date(int(m[1]), int(m[2]), int(m[3])) >= cut: recent += 1
+            _dm = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})", str(r.get("날짜") or ""))
+            if _dm:
+                _d = datetime.date(int(_dm[1]), int(_dm[2]), int(_dm[3]))
+                if last is None or _d > last: last = _d
         g, eval_g = w + l, len(eg)
         cands = [solo.get(tnorm(name))] + [solo.get(tnorm(a)) for a in canon_aliases.get(name, ())]
         cands = [c for c in cands if c]
         sr = next((c for c in cands if c.get("wr") is not None), cands[0] if cands else None)
-        members.append({"name": name, "tier": t, "recent": recent, "g": g, "w": w, "evalG": eval_g,
+        _grp = {tnorm(name)} | {tnorm(a) for a in canon_aliases.get(name, ())}
+        for _k in list(_grp): _grp |= link_group.get(_k, set())          # LINK 그룹(양방향)까지 — 분석기 _sibgui_excluded 와 같은 집합
+        members.append({"name": name, "tier": t, "recent": recent, "g": g, "w": w, "evalG": eval_g, "last": last,
+                        "departed": bool(_grp & departed),
                         "mvp": mvp, "ace": ace, "troll": troll, "aiSum": ai_sum, "aiN": ai_n,
                         "wr": (w / g * 100) if g else None,
                         "mvpRate": ((mvp + 0.5 * ace) / eval_g * 100) if eval_g else None,
@@ -189,7 +259,11 @@ def compute(path, today=None):
                         "soloWR": sr["wr"] if sr else None,
                         "soloW": sr["wins"] if sr else 0, "soloL": sr["losses"] if sr else 0})
 
-    elig = [m for m in members if m["g"] >= TIER_MIN_GAMES]
+    # 👥👻 분모 = 10판↑ · 탈퇴자 제외 · 유령(마지막 기록일−90일 이전) 제외 — 웹 elig 와 동일
+    max_last = max((m["last"] for m in members if m["last"]), default=None)
+    ghost_cut = (max_last - datetime.timedelta(days=GHOST_DAYS)) if max_last else None
+    elig = [m for m in members if m["g"] >= TIER_MIN_GAMES and not m["departed"]
+            and not (ghost_cut and (m["last"] is None or m["last"] < ghost_cut))]
     if not elig: return []
     g_wr = mean([m["wr"] for m in elig]) or 50
     g_ai = mean([m["avgAI"] for m in elig if m["avgAI"] is not None]) or 0
@@ -238,37 +312,13 @@ def compute(path, today=None):
     return out
 
 
-def post(roster, url):
-    sangs = [r for r in roster if r["rank"] == "상현"]
-    hahas = [r for r in roster if r["rank"] == "하현"]
-    sang = "\n".join(f"`{i+1}` **{m['name'].split('#')[0]}**" for i, m in enumerate(sangs)) or "—"
-    haha = "\n".join(f"`{i+1}` **{m['name'].split('#')[0]}**" for i, m in enumerate(hahas)) or "—"
-    embeds = [{"title": "⚔️　십이귀월 ( 十二鬼月 )　현황　⚔️", "color": 0x9B1B1B,
-               "fields": [{"name": "🗡　상현 ( 上弦 )", "value": sang, "inline": True},
-                          {"name": "🌙　하현 ( 下弦 )", "value": haha, "inline": True}],
-               "footer": {"text": "스쿼드해체분석기 · squad.gg — 상현=0·1티어 상위 6 · 하현=2·3티어 상위 6"}}]
-    payload = {"content": "🩸🩸　**십이귀월 현재 명단**　🩸🩸", "embeds": embeds}
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
-                                 headers={"Content-Type": "application/json", "User-Agent": "squad-ci"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        print("발송 완료:", r.status)
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("xlsx")
-    ap.add_argument("--post", action="store_true", help="웹훅 발송(미지정 시 출력만)")
     a = ap.parse_args()
     roster = compute(a.xlsx)
     for r in roster:
         print(f"{r['title']:<12} {r['name']:<22} power={r['power']:+.3f} solo={r['solo']:.0f} tier={r['tier']}")
-    if a.post:
-        raw = os.environ.get("APP_SECRETS_B64", "")
-        import base64
-        src = base64.b64decode(re.sub(r"\s", "", raw)).decode("utf-8", "replace")
-        m = re.search(r'^\s*RESULT_WEBHOOK_URL\s*=\s*["\']([^"\']+)["\']', src, re.M)
-        if not m: sys.exit("RESULT_WEBHOOK_URL 없음")
-        post(roster, m.group(1))
 
 
 if __name__ == "__main__":

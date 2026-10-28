@@ -217,7 +217,9 @@ def invalidate_sheet_cache(title):
         global_cache_time[title] = 0
 
 def load_config():
-    default_cfg = {"windows_startup": False, "lol_auto_show": True, "minimize_to_tray": False,
+    # [2026-09-27 사장님 지시] 부팅 숨김 대기(windows_startup) 기본 켜짐 — 이게 켜져 있어야 롤을 켤 때(lol_auto_show) 분석기가 같이 뜬다.
+    #   설정에서 직접 끈 사람은 config.json 에 false 가 남아 그대로 유지된다.
+    default_cfg = {"windows_startup": True, "lol_auto_show": True, "minimize_to_tray": False,
                    "pos_view_default": True,   # [v82.37] 대기실 모스트 표시 기본값(True=현재포지션)
                    "show_synergy": True}       # 🧩 우측 시너지 3칸(고승률·역시너지·천적) 표시
     # [v82.30] lol_auto_show 기본값을 설정 UI(True)와 일치시킴
@@ -395,6 +397,43 @@ def _rotation_label(seq):
 
 _NB_TEAMS = {"blue": [], "red": []}   # 🚫 [v82.46] 노밴 진영 판정용 — 리포트 발송 직전 루프가 팀 로스터를 복사해 둠
 
+def sheet_report_block(sheet_rows, this_gid, mine=None):
+    """[2026-09-25] 이미 마감된 게임의 MVP/ACE/역적 블록을 시트 값으로 만든다.
+       다른 분석기가 먼저 마감한 판은 그쪽 판정이 시트·웹훅에 나간 '정답'이다. 내 파스(mine={"MVP","ACE","역적": puuid})와
+       사람이 같으면 ""(내 리포트 그대로 써도 됨), 다르거나 비교가 안 되면 시트 기준 블록을 돌려준다. 시트에 MVP가 없으면 ""."""
+    try:
+        if not sheet_rows or len(sheet_rows) < 2: return ""
+        H = sheet_rows[0]
+        ci = lambda n: H.index(n) if n in H else -1
+        c_gid, c_name, c_ev = ci("게임ID"), ci("소환사명"), ci("매치평가")
+        c_pu, c_ch, c_sc = ci("PUUID"), ci("챔피언"), ci("점수")
+        if min(c_gid, c_name, c_ev) < 0: return ""
+        got = {}
+        for r in sheet_rows[1:]:
+            if len(r) > max(c_gid, c_ev) and str(r[c_gid]).strip() == str(this_gid).strip():
+                ev = str(r[c_ev]).strip()
+                if ev in ("MVP", "ACE", "역적") and ev not in got: got[ev] = r
+        if "MVP" not in got: return ""
+        cell = lambda r, c: str(r[c]).strip() if c >= 0 and len(r) > c else ""
+        if mine is not None and c_pu >= 0:
+            a = {k: cell(v, c_pu).lower() for k, v in got.items()}
+            b = {k: str(v or "").strip().lower() for k, v in mine.items() if str(v or "").strip()}
+            if a == b: return ""
+        def _ln(icon, tag, r):
+            s = f"{icon} [{tag}] {cell(r, c_name).split('#')[0].strip()}"
+            if cell(r, c_ch): s += f" ({cell(r, c_ch)})"
+            try: s += f" (AI점수 {float(cell(r, c_sc)):.1f}점)"
+            except Exception: pass
+            return s
+        lines = [_ln("🏆", "MVP", got["MVP"])]
+        if "ACE" in got: lines.append(_ln("🔥", "ACE", got["ACE"]))
+        if "역적" in got: lines.append(_ln("💀", "역적", got["역적"]))
+        else: lines.append("✨ 이번 경기는 역적 없이 다들 제 몫을 했어요!")
+        return "\n".join(lines) + "\n"
+    except Exception as _e:
+        print(f"[report] 시트 기준 리포트 생략: {type(_e).__name__}", flush=True)
+        return ""
+
 # 🏅 [v82.48 사장님 지시] 시트 전체 기록 기반 '게임 간' 타이틀 자동판정 —
 #   한 게임 데이터만으로는 못 잡던 것들(하루 판수·연승·당일 전 라인 승리·연속 맞라이너 전승)을
 #   결과 리포트 직전에 시트에서 계산해 덧붙인다. 판정 실패는 무해(빈 리스트 반환).
@@ -413,13 +452,16 @@ def cross_game_titles(sheet_rows, this_gid):
         disp = lambda r: str(r[c_name]).split("#")[0].strip()
 
         # 이 게임 참가자 · 게임 순서(시트 기록 순 = 시간순)
-        gids = []
+        gids, _gs = [], set()   # [2026-09-25] 같은 판이 두 덩어리로 갈려 있어도(늦은 중복 append) 한 판으로 센다
         for r in rows:
             g = str(r[c_gid]).strip()
-            if g and (not gids or gids[-1] != g): gids.append(g)
+            if g and g not in _gs: _gs.add(g); gids.append(g)
         try: gi_now = gids.index(str(this_gid).strip())
         except ValueError: gi_now = len(gids) - 1
-        cur = [r for r in rows if str(r[c_gid]).strip() == str(this_gid).strip()]
+        cur, _ck = [], set()
+        for r in rows:   # 중복행이 있어도 사람당 한 줄(타이틀 두 번 출력 방지)
+            if str(r[c_gid]).strip() == str(this_gid).strip() and key(r) not in _ck:
+                _ck.add(key(r)); cur.append(r)
         if not cur: return out
         today = str(cur[0][c_date])[:10]
 
@@ -431,14 +473,21 @@ def cross_game_titles(sheet_rows, this_gid):
         for r in cur:
             k, nm = key(r), disp(r)
             mine = by_player_today.get(k, [])
-            played = [x for x in mine if str(x[c_res]) in ("승리", "패배")]
+            played, _pg = [], set()
+            for x in mine:   # 판(게임ID)당 한 번
+                if str(x[c_res]) in ("승리", "패배") and str(x[c_gid]).strip() not in _pg:
+                    _pg.add(str(x[c_gid]).strip()); played.append(x)
             # ① 하루 종일 할 수 있어 — 당일 내전 20판 달성(달성 판에서 1회)
             if len(played) == 20 and str(r[c_res]) in ("승리", "패배"):
                 out.append(f"🕛 [하루 종일 할 수 있어] 하루 내전 20판 달성 ({nm})")
             # ② 다재다능 — 당일 5개 라인 각각 1승 이상
+            #    [2026-09-25] 완성시킨 그 판에서 한 번만(이후 승리마다 반복되지 않게 — ①③과 같은 '달성 판 1회')
             if c_pos >= 0 and str(r[c_res]) == "승리":
+                _lanes = {"탑", "정글", "미드", "원딜", "서폿"}
+                _gnow = str(r[c_gid]).strip()
                 wins_pos = {str(x[c_pos]).strip() for x in played if str(x[c_res]) == "승리"}
-                if {"탑", "정글", "미드", "원딜", "서폿"} <= wins_pos:
+                wins_before = {str(x[c_pos]).strip() for x in played if str(x[c_res]) == "승리" and str(x[c_gid]).strip() != _gnow}
+                if _lanes <= wins_pos and not (_lanes <= wins_before):
                     out.append(f"🎭 [다재다능] 하루 안에 모든 라인에서 1승씩 달성 ({nm})")
             # ③ 모두가 내 발아래 — 10연승(이번 판 포함, 시트 전체 기준)
             if str(r[c_res]) == "승리":
@@ -452,17 +501,21 @@ def cross_game_titles(sheet_rows, this_gid):
                 if streak == 10:
                     out.append(f"👑 [모두가 내 발아래] 내전 10연승 달성 ({nm})")
             # ④ 스토커 — 최근 3게임 연속 같은 맞라이너와 붙어 전승
+            #    [2026-09-25] 실제 라인(탑~서폿)끼리만 맞라이너 — 칼바람·'선택안함' 행은 아무 상대나 잡혀 이긴 팀 5명이 다 받았다.
+            #    연속 4·5판째엔 다시 주지 않는다(딱 3판째 1회).
+            def _vs(g):
+                me = next((x for x in rows if str(x[c_gid]).strip() == g and key(x) == k), None)
+                if me is None or str(me[c_res]) != "승리": return None
+                if str(me[c_pos]).strip() not in {"탑", "정글", "미드", "원딜", "서폿"}: return None
+                o = next((x for x in rows if str(x[c_gid]).strip() == g
+                          and str(x[c_pos]).strip() == str(me[c_pos]).strip()
+                          and str(x[c_side]).strip() != str(me[c_side]).strip()), None)
+                return key(o) if o is not None else None
             if c_pos >= 0 and c_side >= 0 and str(r[c_res]) == "승리" and gi_now >= 2:
-                opps, ok = [], True
-                for g in gids[gi_now - 2: gi_now + 1]:
-                    me = next((x for x in rows if str(x[c_gid]).strip() == g and key(x) == k), None)
-                    if me is None or str(me[c_res]) != "승리": ok = False; break
-                    o = next((x for x in rows if str(x[c_gid]).strip() == g
-                              and str(x[c_pos]).strip() == str(me[c_pos]).strip()
-                              and str(x[c_side]).strip() != str(me[c_side]).strip()), None)
-                    if o is None: ok = False; break
-                    opps.append(key(o))
-                if ok and len(opps) == 3 and len(set(opps)) == 1:
+                opps = [_vs(g) for g in gids[gi_now - 2: gi_now + 1]]
+                ok = all(opps) and len(set(opps)) == 1
+                if ok and gi_now >= 3 and _vs(gids[gi_now - 3]) == opps[0]: ok = False   # 이미 3연속을 넘긴 흐름
+                if ok and len(opps) == 3:
                     o_nm = next((disp(x) for x in rows if key(x) == opps[0]), "상대")
                     out.append(f"🕵 [스토커] 3판 연속 같은 맞라이너({o_nm})와 만나 전부 승리 ({nm})")
     except Exception as _e:
@@ -991,6 +1044,15 @@ if %w% GEQ 60 goto gone
 ping -n 2 127.0.0.1 >nul
 goto waitpid
 :gone
+set /a w=0
+:waitothers
+tasklist /FI "IMAGENAME eq __EXE__" 2>nul | find /I "__EXE__" >nul
+if errorlevel 1 goto gone2
+set /a w+=1
+if %w% GEQ 30 goto gone2
+ping -n 2 127.0.0.1 >nul
+goto waitothers
+:gone2
 set /a b=0
 :bkexe
 if not exist "__APP__\__EXE__" goto bkint
@@ -1008,9 +1070,12 @@ if exist "__APP__\_sqa_old_internal" rmdir /s /q "__APP__\_sqa_old_internal" >nu
 move /y "__APP__\_internal" "__APP__\_sqa_old_internal" >nul 2>&1
 if not exist "__APP__\_internal" goto putnew
 set /a b+=1
-if %b% GEQ 20 goto rollback
+if %b% GEQ 20 goto restore_exe
 ping -n 2 127.0.0.1 >nul
 goto bkintloop
+:restore_exe
+if not exist "__APP__\__EXE__" if exist "__APP__\_sqa_old_exe" move /y "__APP__\_sqa_old_exe" "__APP__\__EXE__" >nul 2>&1
+goto safe_relaunch
 :putnew
 move /y "__NEW__\__EXE__" "__APP__\__EXE__" >nul 2>&1
 move /y "__NEW__\_internal" "__APP__\_internal" >nul 2>&1
@@ -1023,8 +1088,12 @@ start "" "__APP__\__EXE__"
 del "%~f0" >nul 2>&1
 goto :eof
 :rollback
+if not exist "__APP__\_sqa_old_exe" goto rb_int
 if exist "__APP__\__EXE__" del /f /q "__APP__\__EXE__" >nul 2>&1
+:rb_int
+if not exist "__APP__\_sqa_old_internal" goto rb_exe
 if exist "__APP__\_internal" rmdir /s /q "__APP__\_internal" >nul 2>&1
+:rb_exe
 if exist "__APP__\_sqa_old_exe" move /y "__APP__\_sqa_old_exe" "__APP__\__EXE__" >nul 2>&1
 if exist "__APP__\_sqa_old_internal" move /y "__APP__\_sqa_old_internal" "__APP__\_internal" >nul 2>&1
 :safe_relaunch
@@ -1043,6 +1112,21 @@ _UPDATE_EXIT_REQUESTED = False   # 🔄 업데이터가 교체 준비 완료 →
 _OUTDATED = False   # 🛑 [v81.65 원격 킬스위치] 신버전 감지 시 True → 모든 웹훅 발송 즉시 중단(구버전 마비).
                     #    자동 업데이트 성공 시 재시작으로 해소, 다운로드 실패해도 발송 중단은 유지(10분 주기 재시도).
 _LIVE_GAME = [False]   # 🛡️ [v81.67] 폴링 루프가 매 주기 갱신 — 게임(챔슬렉~종료)·기록 중 여부.
+_LIVE_SINCE = [0.0]    # 🕒 [2026-09-18] 라이브 상태가 시작된 시각 — 걸린 상태(4시간↑) 판정용
+_LIVE_STUCK_LOGGED = [False]
+LIVE_GATE_MAX_SEC = 4 * 3600
+def _live_gate_blocking():
+    """게임·기록 중이라 업데이트(버전 확인·재시작)를 미뤄야 하나.
+       🐛 [2026-09-18 사장님 PC] 호스트가 83.41 로 21시간을 버텼다 — 두 릴리스를 못 받았다. 롤 클라가 게임 중에 죽거나
+       기록이 끝맺지 못하면 _LIVE_GAME 이 참인 채 굳고, 이 게이트가 버전 확인 자체를 영원히 건너뛴다.
+       내전 한 판 + 기록은 길어도 두 시간이다. 4시간 넘게 이어진 '라이브' 는 걸린 것으로 보고 막지 않는다."""
+    if not _LIVE_GAME[0]: return False
+    if _LIVE_SINCE[0] and time.time() - _LIVE_SINCE[0] > LIVE_GATE_MAX_SEC:
+        if not _LIVE_STUCK_LOGGED[0]:
+            print(f"[update] 게임/기록 상태가 {int((time.time() - _LIVE_SINCE[0]) // 3600)}시간 이어짐 — 걸린 것으로 보고 업데이트 게이트를 연다", flush=True)
+            _LIVE_STUCK_LOGGED[0] = True
+        return False
+    return True
 _HDR_MIG_DONE = set()  # 🧱 [v81.72] 시트별 헤더 자동생성 시도 1회 제한 — 실패 반복이 쓰기쿼터 소진하던 사고 방지.
                        #    라이브 중 신버전이 릴리스돼도 업데이터가 재시작을 연기(게임 중 재시작=종료신호 유실 방지).
 
@@ -1050,7 +1134,7 @@ def _auto_update_once():
     # [V81.28] onedir 자동 업데이트: 새 버전 zip 다운로드 → 압축해제 → 폴더(exe+_internal) 교체(백업+롤백).
     #   구 onefile(단일 exe) 업데이터는 이 함수로 대체됨. 온디렉토리는 임시추출이 없어 'python DLL 로드실패' 원천 제거.
     global _OUTDATED
-    if _LIVE_GAME[0] and not _OUTDATED:
+    if _live_gate_blocking() and not _OUTDATED:
         return   # 🛡️ [v81.67] 게임·기록 중엔 버전 확인/킬스위치/재시작 전부 연기(종료신호 유실 방지) — 게임 끝나면 다음 주기에 진행
     try:
         v_res = requests.get(VERSION_URL, timeout=5)
@@ -1095,9 +1179,9 @@ def _auto_update_once():
                        for fn in os.listdir(os.path.join(new_root, "_internal"))): return
         except Exception: return
 
-        if _LIVE_GAME[0]:      # 🛡️ [v81.67] 다운로드 중 게임이 시작된 경우 — 게임 끝날 때까지 교체·재시작 연기.
-            _OUTDATED = False  #    연기 동안은 발송 재개(이번 게임 종료신호 보전 — 어차피 직후 신버전으로 재시작).
-            while _LIVE_GAME[0]:
+        if _live_gate_blocking():   # 🛡️ [v81.67] 다운로드 중 게임이 시작된 경우 — 게임 끝날 때까지 교체·재시작 연기.
+            _OUTDATED = False       #    연기 동안은 발송 재개(이번 게임 종료신호 보전 — 어차피 직후 신버전으로 재시작).
+            while _live_gate_blocking():   # 걸린 라이브(4시간↑)면 여기서도 빠져나온다
                 time.sleep(30)
             _OUTDATED = True
         with open(bat_path, "w", encoding="cp949") as f:
@@ -1207,6 +1291,51 @@ def _cosmetics_loop():
             pass
         time.sleep(60)
 
+# ===== 🌱 [2026-09-24 사장님 지시] 뉴비 새싹 — "클랜 가입한 지 일주일까지 아이디 옆에 새싹, 뉴비인 걸 알아보게" =====
+#   가입일은 두 가지로 본다(사장님: "디스코드 서버 가입일이 떠오르고, 분석기에 최초로 기록되는 것도 될 수 있을 것 같고").
+#   ① 디스코드 클랜 서버 가입 시각(봇 /joined · 10분 폴링) — 1순위.
+#   ② 디스코드에서 못 찾은 사람만: 첫 내전 기록일(STAT_PLAYER '첫기록' = 협곡·칼바람 중 이른 날짜).
+#      단 **클랜원(내부티어 등록, 부계면 본계)** 일 때만 — 외부 스크림 상대·게스트도 협곡 시트에 기록되므로(2026-09-24 리뷰).
+#   재가입 가드: 디스코드 가입은 최근이어도 30일보다 오래된 내전 기록이 있으면 새싹을 달지 않는다(돌아온 고참).
+#   디스코드엔 오래 있었는데 첫 기록만 최근(새 롤 계정·늦게 첫 내전)이면 ①이 이겨 새싹 없음.
+JOINED_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/joined"
+NEWBIE_DAYS = 7
+NEWBIE_REJOIN_DAYS = 30
+JOINED = {}             # {tnorm(롤닉·표시명): 클랜 서버 가입 unix 시각}
+
+def _joined_loop():
+    """봇 /joined 10분 폴링(모든 PC). 실패하면 이전 값 유지 — 새싹은 없어도 게임엔 지장 없다."""
+    global JOINED
+    while True:
+        try:
+            d = (requests.get(JOINED_BRIDGE_URL, timeout=8).json() or {}).get("players") or {}
+            if len(d) >= 50: JOINED = {tnorm(k): int(v) for k, v in d.items() if k and v}
+        except Exception:
+            pass
+        time.sleep(600 if JOINED else 60)   # 봇이 막 재시작해 아직 비어 있으면 1분 뒤 다시
+
+def _date_ts(s):
+    """'2026-09-20' / '2026-09-20 21:08' → 그날 00:00 로컬 unix 시각. 못 읽으면 None."""
+    try:
+        y, m, d = (int(x) for x in str(s or "").strip()[:10].split("-"))
+        return time.mktime((y, m, d, 0, 0, 0, 0, 0, -1))
+    except Exception: return None
+
+def _is_newbie(name, first_date=None, now=None, joined=None):
+    """🌱 뉴비 판정 — 위 주석의 규칙. name 은 LCU 롤닉(태그 있어도 됨), first_date 는 첫 내전 기록일(없으면 None)."""
+    now = time.time() if now is None else now
+    jm = JOINED if joined is None else joined
+    keys = {tnorm(name)}
+    try: keys.add(tnorm(get_main_name(name)))           # 부계 → 본계 이름(LINK_ACCOUNT)으로도 찾는다
+    except Exception: pass
+    js = [jm[k] for k in keys if k and k in jm]
+    f = _date_ts(first_date)
+    f_age = (now - f) / 86400.0 if f else None
+    if js:
+        d_age = (now - min(js)) / 86400.0                  # 동명이인은 고참 쪽(봇이 이미 최솟값을 준다)
+        return d_age <= NEWBIE_DAYS and (f_age is None or f_age <= NEWBIE_REJOIN_DAYS)
+    return f_age is not None and f_age <= NEWBIE_DAYS and bool(tier_of(name))
+
 TIER_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/tiers"   # 🎖 봇 내부티어 역할 엔드포인트
 def _tier_role_sync_loop():
     """🎖 [2026-07-13 사장님 지시] 디스코드 내부티어 역할 → CLAN_TIERS '신규 인원만' 추가(호스트·15분).
@@ -1245,6 +1374,94 @@ def _tier_role_sync_loop():
 #    평균을 내는 소비처(웹 동티어 평균·멸망전 적정가)가 이 목록을 빼고 계산한다.
 ROSTER_BRIDGE_URL = INVITE_BRIDGE_URL.rsplit("/", 1)[0] + "/roster"
 _DEP_SIG = [None]
+# 👥 [2026-09-17 사장님 제보 "웹은 칼바람 상현1인데 웹훅은 2(카무사리, 귤갓 닉변)"] 탈퇴 판정이 **이름 한 개**만 대조했다.
+#    CLAN_TIERS 의 옛 닉 '귤 갓' 은 디스코드 명단(이미 '카무사리')에 없으니 탈퇴로 찍혔고, 같은 사람의 다른 닉은
+#    보지도 않았다(get_main_name 은 부계→본계 한 방향 · 공백 표기 차이로 LINK 도 못 탐). 게다가 40% 절대 상한에
+#    막혀 DEPARTED 탭은 9/3 이후 한 번도 다시 쓰이지 않았다(보류 분기에 로그도 없었다).
+#    이제 한 행 = 한 사람: LINK_ACCOUNT 그룹(양방향·사슬) ∪ 같은 PUUID 로 기록된 닉 전부 중 **하나라도** 명단에
+#    있으면 재직. 애매하면 재직 쪽 — 재직자를 탈퇴로 찍는 쪽이 십이귀월 타이틀을 빼앗는 눈에 보이는 피해다.
+DEP_CAP_SHARE = 0.60       # 절대 상한 — 이 비율 넘게 탈퇴 판정이면 명단 스캔 오작동으로 보고 보류
+DEP_CAP_DELTA = 10         # 직전 탭 대비 한 번에 늘어날 수 있는 신규 탈퇴(절대) …
+DEP_CAP_DELTA_PCT = 0.10   # … 또는 비율. 둘 중 큰 값
+DEP_STALE_DAYS = 3         # 직전 탭이 이보다 오래됐으면 증가 상한을 안 건다(동결 뒤 따라잡기)
+DEP_ROSTER_DROP = 0.85     # roster n 이 직전 기록 대비 이 비율 아래면 봇 캐시 미적재로 보고 보류
+DEP_ACTIVE_DAYS = 14       # 최근 2주 안에 클랜 내전을 뛴 사람은 이름이 하나도 안 맞아도 탈퇴로 찍지 않는다
+                           #   (디스코드 표시명 ≠ 롤닉 · LINK 미등록인 재직자 방어. 진짜 탈퇴자는 최대 2주 늦게 잡힌다)
+
+def _dep_link_groups(alt_map, link_rows=()):
+    """LINK_ACCOUNT → {tnorm(닉): 그룹 전체(tnorm 집합)}. 본계↔부계 양방향, 사슬(A←B, B←C)도 한 그룹.
+       메모리의 global_alt_map(부팅 때 1회) 과 방금 읽은 공개 CSV 행을 둘 다 흡수한다."""
+    parent = {}
+    def _find(x):
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]; x = parent[x]
+        return x
+    def _union(a, b):
+        if a and b: parent[_find(a)] = _find(b)
+    for alt, main in (alt_map or {}).items(): _union(tnorm(alt), tnorm(main))
+    for r in link_rows or ():
+        if len(r) >= 2 and str(r[0]).strip() and str(r[1]).strip(): _union(tnorm(r[0]), tnorm(r[1]))
+    groups = {}
+    for k in list(parent): groups.setdefault(_find(k), set()).add(k)
+    return {k: groups[_find(k)] for k in parent}
+
+def _dep_puuid_names():
+    """HOF 집계(협곡+칼바람)에서 같은 PUUID(그룹) 로 기록된 닉 집합 — ({tnorm(닉): {tnorm(닉)…}}, {tnorm(닉): 마지막 기록일}).
+       집계 전이면 None."""
+    out, last, ready = {}, {}, False
+    with gui_lock:
+        hs = [dict(gui_data.get("hof_classic") or {}), dict(gui_data.get("hof_aram") or {})]
+    for h in hs:
+        gs = (h.get("global_stats") or {}).get("전체 (ALL)") or {}
+        al = h.get("aliases") or {}
+        if gs: ready = True
+        for pk, st in gs.items():
+            names = {tnorm(st.get("name", ""))} | {tnorm(a) for a in al.get(pk, ())}
+            names.discard("")
+            ld = str((st.get("ALL") or {}).get("last") or "")
+            for nm in names:
+                out.setdefault(nm, set()).update(names)
+                if ld > last.get(nm, ""): last[nm] = ld
+    return (out, last) if ready else None
+
+def _dep_person_keys(nm, link_groups, puuid_names):
+    """CLAN_TIERS 한 행 → 그 사람일 수 있는 닉 전부(tnorm). LINK 그룹 → PUUID 별칭 → 다시 LINK 로 사슬을 닫는다.
+       동명이인(태그만 다른 두 PUUID)은 합집합으로 — 후하게 본다."""
+    keys = {tnorm(nm)}
+    for _ in range(2):
+        for x in list(keys): keys |= link_groups.get(x, set())
+        for x in list(keys): keys |= puuid_names.get(x, set())
+    keys.discard("")
+    return keys
+
+def _departed_compute(keys, tier_names, link_groups, puuid_names, last=None, active_cut=""):
+    """roster 키에 그 사람의 어떤 닉도 없고, 최근(active_cut 이후) 클랜 내전 기록도 없을 때만 탈퇴."""
+    dep = []
+    for nm in tier_names:
+        pk = _dep_person_keys(nm, link_groups, puuid_names)
+        if pk & keys: continue
+        if active_cut and last and max((last.get(x, "") for x in pk), default="") >= active_cut: continue
+        dep.append(nm)
+    return dep
+
+def _departed_guard(dep, tier_names, n, prev_rows, cfg):
+    """기록해도 되나 → (ok, 사유). 절대 상한 · roster 급감 · 신규 탈퇴 급증(직전 탭이 신선할 때만)."""
+    if len(dep) > int(len(tier_names) * DEP_CAP_SHARE):
+        return False, f"절대 상한 초과 {len(dep)}/{len(tier_names)}"
+    prev_n = int(cfg.get("departed_roster_n") or 0)
+    if prev_n and n < prev_n * DEP_ROSTER_DROP:
+        return False, f"roster 급감 {prev_n}→{n}"
+    prev = {tnorm(r[0]) for r in prev_rows if r and str(r[0]).strip()}
+    ts = max((str(r[1]).strip() for r in prev_rows if len(r) > 1 and str(r[1]).strip()), default="")
+    stale = True
+    if ts:
+        try: stale = (time.time() - time.mktime(time.strptime(ts[:16], "%Y-%m-%d %H:%M"))) > DEP_STALE_DAYS * 86400
+        except Exception: stale = True
+    if prev and not stale:
+        added = [x for x in dep if tnorm(x) not in prev]
+        if len(added) > max(DEP_CAP_DELTA, int(len(prev) * DEP_CAP_DELTA_PCT)):
+            return False, f"신규 탈퇴 급증 +{len(added)} (직전 {len(prev)}): {', '.join(added[:8])}"
+    return True, ""
 def _write_departed(names):
     try:
         try: ws = global_spreadsheet.worksheet("DEPARTED")
@@ -1260,34 +1477,56 @@ def _write_departed(names):
 def _departed_sync_loop():
     time.sleep(300)
     while True:
+        wait = 1800
         try:
             if load_bot_token() and global_spreadsheet is not None:
                 try: j = requests.get(ROSTER_BRIDGE_URL, timeout=8).json() or {}
                 except Exception: j = {}
                 keys = set(j.get("keys") or [])
-                if int(j.get("n") or 0) >= 50 and keys:      # 안전판: 봇 캐시 미적재로 인원 급감 시 보류
+                n = int(j.get("n") or 0)
+                if n >= 50 and keys:                          # 안전판: 봇 캐시 미적재로 인원 급감 시 보류
                     import csv as _csv, io as _io
-                    tier_names = []
+                    tier_names, link_rows = [], []
                     try:
                         rows = list(_csv.reader(_io.StringIO(_fetch_public_csv(DOCUMENT_ID, CLAN_TIERS_GID))))
                         if rows and (rows[0][0] if rows[0] else "").strip() == "닉네임":
                             tier_names = [r[0].strip() for r in rows[1:] if r and r[0].strip()]
                     except Exception: tier_names = []
-                    if tier_names:
-                        dep = []
-                        for nm in tier_names:
-                            k = tnorm(nm)
-                            try: k2 = tnorm(get_main_name(nm) or "")
-                            except Exception: k2 = ""
-                            if k in keys or (k2 and k2 in keys): continue
-                            dep.append(nm)
-                        # 안전판: 40% 넘게 탈퇴 판정이면 명단 스캔 오류 의심 → 기록 보류
-                        if len(dep) <= max(5, int(len(tier_names) * 0.4)):
+                    try: link_rows = list(_csv.reader(_io.StringIO(_fetch_public_csv(DOCUMENT_ID, sheet="LINK_ACCOUNT", headers=1))))[1:]
+                    except Exception: link_rows = []       # 못 읽으면 부팅 때의 global_alt_map 만으로
+                    _pn = _dep_puuid_names()
+                    puuid_names, last_seen = (_pn if _pn else (None, {}))
+                    if tier_names and puuid_names is None:
+                        print("[departed] HOF 집계 전 — 5분 뒤 재시도(PUUID 별칭 없이 판정하면 닉변자가 탈퇴로 찍힌다)", flush=True)
+                        wait = 300
+                    elif tier_names:
+                        link_groups = _dep_link_groups(global_alt_map, link_rows)
+                        _cut = time.strftime("%Y-%m-%d", time.localtime(time.time() - DEP_ACTIVE_DAYS * 86400))
+                        dep = _departed_compute(keys, tier_names, link_groups, puuid_names, last_seen, _cut)
+                        try: prev_rows = global_spreadsheet.worksheet("DEPARTED").get_all_values()[1:]
+                        except Exception: prev_rows = []
+                        cfg = APP_CONFIG                                  # 메모리 설정을 그대로 갱신(다른 스레드의 미저장 변경을 덮어쓰지 않게)
+                        ok, why = _departed_guard(dep, tier_names, n, prev_rows, cfg)
+                        if not ok:
+                            print(f"[departed] 기록 보류 — {why} (roster n={n} keys={len(keys)} · 티어표 {len(tier_names)}행)", flush=True)
+                        else:
                             sig = "|".join(sorted(tnorm(x) for x in dep))
-                            if sig != _DEP_SIG[0] and _write_departed(sorted(dep)):
+                            prev = {tnorm(r[0]) for r in prev_rows if r and str(r[0]).strip()}
+                            cur = {tnorm(x) for x in dep}
+                            if sig == cfg.get("departed_sig") and prev == cur:
+                                pass                                              # 그대로 — 쓰지 않는다
+                            elif _write_departed(sorted(dep)):
                                 _DEP_SIG[0] = sig
-        except Exception: pass
-        time.sleep(1800)
+                                added = sorted(x for x in dep if tnorm(x) not in prev)
+                                gone = sorted(str(r[0]).strip() for r in prev_rows if r and str(r[0]).strip() and tnorm(r[0]) not in cur)   # 원문 표기로
+                                print(f"[departed] {len(dep)}명 기록 (+{len(added)} −{len(gone)}) · 신규 {', '.join(added[:8])}{' …' if len(added) > 8 else ''}"
+                                      f" · 복귀/구제 {', '.join(gone[:8])}{' …' if len(gone) > 8 else ''}", flush=True)
+                            cfg["departed_sig"] = sig; cfg["departed_roster_n"] = n; save_config(cfg)
+                else:
+                    print(f"[departed] 기록 보류 — roster 응답 부족(n={n}, keys={len(keys)})", flush=True)
+        except Exception as e:
+            print(f"[departed] 루프 예외: {type(e).__name__} {e}", flush=True)
+        time.sleep(wait)
 
 # 🎯 [2026-07-16 사장님 지시] 클랜포지션 자동화 — 봇 /positions 폴링 → CLAN_POSITIONS 전량 재작성(호스트·1h).
 #   (기존 sync_positions.py 예약작업이 7/5 이후 멈춤 → 봇 상시 스캔+분석기 폴링으로 대체, 티어와 동일 파이프라인)
@@ -2303,6 +2542,7 @@ def _clan_index(force=False):
                         for _t in str(r[c_gp] or "").split("|"):
                             _m = re.match(r"^([a-z]+)(-?\d+(?:\.\d+)?)$", _t.strip())
                             if _m: _o[_m.group(1)] = float(_m.group(2))
+                        _fix_pack_minutes(_o)   # 🩹 m 이 분당 CS 로 들어간 행 되돌림(2026-10-10) — 0 이면 아래 if 가 건너뛴다
                         if _o.get("m"):
                             if _o.get("cs") is not None: rd["csS"] += _o["cs"] / _o["m"]; rd["csN"] += 1
                             if _o.get("vs") is not None: rd["vsS"] += _o["vs"]; rd["vsN"] += 1
@@ -2541,37 +2781,6 @@ def _pair_txt(my_pu, other_pu, idx, kind, min_g):
     my_w = d[1] if k[0] == a else d[0] - d[1]
     return f"{d[0]}판 {my_w}승 {d[0]-my_w}패 ({round(my_w/d[0]*100)}%)"
 
-_QUIZ_PREF_CACHE = {"at": 0.0, "map": {}}
-
-
-def _quiz_pref(force=False):
-    """🗳️ [2026-07-30 사장님 지시] 밴픽 퀴즈에서 클랜원들이 직접 적어낸 '이 사람 상대면 이걸 자른다'.
-       {상대닉: [(챔프, 표, 적중), ...]} — 코치 추천 순위의 근거로 쓴다. 실패하면 빈 값(무해)."""
-    if not force and _QUIZ_PREF_CACHE["map"] and time.time() - _QUIZ_PREF_CACHE["at"] < 1800:
-        return _QUIZ_PREF_CACHE["map"]
-    out = {}
-    try:
-        import urllib.request as _u, csv as _csv, io as _io
-        url = (f"https://docs.google.com/spreadsheets/d/{DOCUMENT_ID}/gviz/tq?tqx=out:csv"
-               f"&sheet=QUIZ_PREF&headers=1")
-        rows = list(_csv.reader(_io.StringIO(
-            _u.urlopen(_u.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=8)
-            .read().decode("utf-8"))))
-        if rows and len(rows) > 1:
-            h = rows[0]
-            ci = {c: i for i, c in enumerate(h)}
-            for r in rows[1:]:
-                try:
-                    nm = r[ci["상대"]].strip(); ch = r[ci["챔피언"]].strip()
-                    v = int(float(r[ci["표"]] or 0)); hit = int(float(r[ci["적중"]] or 0))
-                except Exception: continue
-                if nm and ch and v > 0: out.setdefault(nm, []).append((ch, v, hit))
-            for nm in out: out[nm].sort(key=lambda x: -x[1])
-    except Exception: pass
-    _QUIZ_PREF_CACHE.update({"at": time.time(), "map": out})
-    return out
-
-
 def _pool_by_puuid(puuid, limit=6, pos=""):
     """[v81.77] PUUID로 그 사람의 챔피언별 (판수, 승) 상위 N — 밴 추천의 '상대 장인' 판단용.
 
@@ -2678,12 +2887,18 @@ def _enemy_ban_pool(pu, ep, cidx, limit=6):
     return (hdr, [f"※ {ep} 전적 0판 — 이 사람 저격 밴은 값이 없다"
                   + (f" (다른 자리 주력 {off} 은 이번 판에 못 씀)" if off else " (내전 전적 자체가 없음)")])
 
-def _my_champ_pool(my_name, limit=12):
-    """시트 전적에서 '내' 챔피언별 (판수, 승) 상위 N개. 라이브 중 서비스계정 호출 없이 gviz 캐시만 사용."""
+def _my_champ_pool(my_name, limit=12, pos=""):
+    """시트 전적에서 '내' 챔피언별 (판수, 승) 상위 N개. 라이브 중 서비스계정 호출 없이 gviz 캐시만 사용.
+       [2026-09-09 사장님 제보 '정글 갔는데 서폿 챔프를 추천'] pos 를 주면 [챔프, 판수, 승, 그 포지션 판수]
+       4열로 돌려주고, 그 포지션 전적이 있는 챔프를 먼저(그 포지션 판수순) 싼다 — 전적이 한 라인에 몰린
+       사람이 다른 라인을 갔을 때 챔프풀 전체가 그 라인으로 읽히는 것을 데이터에서부터 막는다."""
     key = tnorm(my_name or "")
     if not key: return []
-    if key in _DRAFT_POOL_CACHE: return _DRAFT_POOL_CACHE[key]
-    agg = {}
+    pos = str(pos or "")
+    if pos == "선택안함": pos = ""
+    ck = key + ("|" + pos if pos else "")
+    if ck in _DRAFT_POOL_CACHE: return _DRAFT_POOL_CACHE[ck]
+    agg = {}; posg = {}
     try:
         if not global_spreadsheet: return []
         # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람 숙련을 협곡 챔프폭으로 세면 안 된다.
@@ -2694,7 +2909,7 @@ def _my_champ_pool(my_name, limit=12):
             if not rows: continue
             h = rows[0]
             ci = lambda n: h.index(n) if n in h else -1
-            c_nm, c_ch, c_rs = ci("소환사명"), ci("챔피언"), ci("결과")
+            c_nm, c_ch, c_rs, c_ps = ci("소환사명"), ci("챔피언"), ci("결과"), ci("포지션")
             if min(c_nm, c_ch) < 0: continue
             for r in rows[1:]:
                 if len(r) <= max(c_nm, c_ch, c_rs): continue
@@ -2703,9 +2918,17 @@ def _my_champ_pool(my_name, limit=12):
                 if not ch: continue
                 g, w = agg.get(ch, (0, 0))
                 agg[ch] = (g + 1, w + (1 if (c_rs >= 0 and str(r[c_rs]).strip() == "승리") else 0))
+                if pos and c_ps >= 0 and c_ps < len(r) and str(r[c_ps]).strip() == pos:
+                    posg[ch] = posg.get(ch, 0) + 1
     except Exception: pass
-    out = sorted(([c, g, w] for c, (g, w) in agg.items()), key=lambda x: -x[1])[:limit]
-    _DRAFT_POOL_CACHE[key] = out
+    if not pos:
+        out = sorted(([c, g, w] for c, (g, w) in agg.items()), key=lambda x: -x[1])[:limit]
+    else:
+        # 그 포지션 전적 있는 챔프 전부(포지션 판수순) + 나머지 상위(총판수순)로 limit 채움
+        _in = sorted(([c, g, w, posg[c]] for c, (g, w) in agg.items() if posg.get(c)), key=lambda x: (-x[3], -x[1]))
+        _out = sorted(([c, g, w, 0] for c, (g, w) in agg.items() if not posg.get(c)), key=lambda x: -x[1])
+        out = _in[:limit] + _out[:max(0, limit - len(_in[:limit])) + 4]
+    _DRAFT_POOL_CACHE[ck] = out
     return out
 
 def _clan_meta_lines(limit=25):
@@ -2866,10 +3089,14 @@ _DRAFT_RULES = (
     "6-2) ⚔️**[내 챔프폭 × 이 라인 상대]**가 주어지면, 같은 매치업을 클랜에서 실제로 겪은 기록이다.\n"
     "   후보 둘이 비슷할 때 이걸로 가르되, 표본이 4~10판이라 오차가 크니 **조합·상성 판단을 뒤집지는 마라.**\n"
     "   인용할 땐 '레넥톤으로 나르 상대 7판 2승 29%'처럼 **판수를 반드시 함께** 말하라.\n"
-    "7) 동급 후보면 **클랜 내전에서 실제로 성적이 좋았던 쪽**을 우선하라(판수 5판 이상). 판수를 함께 밝혀라.\n\n"
+    "7) 동급 후보면 **클랜 내전에서 실제로 성적이 좋았던 쪽**을 우선하라(판수 5판 이상). 판수를 함께 밝혀라.\n"
+    "7-2) [클랜 픽 퀴즈]가 있으면 동급 후보의 순서를 가르는 참고 신호다 — 클랜원들이 같은 자리에서 직접 뽑겠다고 적어낸 답.\n"
+    "   표 2개 미만은 무시하고, 인용할 땐 '퀴즈 N표'. 이것만으로 상성·조합 판단을 뒤집지는 마라.\n\n"
     "【절대 규칙】\n"
     "- 이미 밴되었거나 이미 픽된 챔피언은 추천 금지.\n"
-    "- 사용자 라인이 아닌 포지션의 챔프를 추천하지 마라.\n"
+    "- ★★사용자 라인이 아닌 포지션의 챔프를 추천하지 마라. [내 포지션]이 확정이면 그 자리에서 실제로 쓰이는\n"
+    "  챔프만 후보다 — 내 내전 전적이 서폿에 몰려 있어도 지금 정글이면 정글 챔프를 추천한다(전적 없으면 프로 통계·\n"
+    "  일반 지식으로). '다른 라인 전적' 챔프는 그 포지션으로 통용되는 플렉스픽일 때만, 근거를 밝히고 올려라.\n"
     "- 상성상 불리한 픽을 '무난하다'는 이유로 추천하지 마라.\n"
     "- ★포지션을 지어내지 마라. 5명이 다 나오기 전에는 어떤 픽의 포지션도 확정이 아니다.\n"
     "  '서폿 럭스'처럼 단정하지 말고 '미드 유저가 고른 럭스'처럼 근거를 밝혀라. 근거가 없으면 포지션을 언급하지 마라.\n"
@@ -2947,9 +3174,13 @@ _DRAFT_BAN_RULES = (
     "  '서폿 럭스', '탑 뽀삐' 같이 단정하지 말고, 필요하면 '미드 유저가 고른 럭스'처럼 근거를 밝혀 말하라.\n"
     "  근거가 없으면 포지션을 아예 언급하지 마라. 한 답변 안에서 같은 픽의 포지션을 다르게 말하면 절대 안 된다.\n\n"
     "【출력 형식 — 한국어·★최대한 짧게(오버레이 작은 창이라 시인성이 생명)】\n"
-    "- 밴 개수는 사용자 메시지가 지정(1페이즈 3 / 2페이즈 2). '1. 챔프 — 이유(★20자 이내)' 우선순위대로.\n"
+    "- 밴 개수는 사용자 메시지가 지정(1페이즈 후보 5 / 2페이즈 후보 5). '1. 챔프 — 이유(★20자 이내)' 우선순위대로.\n"
     "- [프로경기 통계] 표는 참고 신호다 — 개인 숙련도(내전 판수·승률)가 항상 우선이고, 통계는 동급 후보의 우선순위를 가를 때만 써라.\n"
     "- [클랜 밴픽퀴즈 표]가 있으면 강한 참고 신호다 — 표가 많고 적중 이력이 있는 챔프는 우선순위를 올려라.\n"
+    "- [클랜 밴픽퀴즈 집계]는 상대와 무관한 클랜 전체의 밴 성향이다. 상대 데이터가 없을 때는 그 상위가 1순위 근거이고\n"
+    "  ('클랜 데이터 없음' 대신 '퀴즈 N표'를 붙여라), 상대 데이터가 있을 때는 동급 후보의 순서만 가른다.\n"
+    "  '출제 N회'는 그 챔프가 퀴즈 판에 실제로 나온 횟수 — 출제는 많은데 표가 0인 챔프는 클랜이 위협으로 안 본 것이니\n"
+    "  다른 근거가 없으면 후순위로 미뤄라. 표 2개 미만은 인용하지 마라.\n"
     "  예: '1. 레넥톤 — 레멍이 43판·견제압력 1위' / '2. 세라핀 — 상대 포킹 완성 차단'. 이 밀도로.\n"
     "- 픽 방향/내 픽 설계를 요구받으면 밴 아래 '→'로 시작해 **픽당 한 줄**(챔프 — 20자 근거).\n"
     "- 서술형 문장·접속사·배경 설명 금지. 경고(⚠️)는 꼭 필요한 것 하나만 한 줄.\n"
@@ -2966,7 +3197,21 @@ def _draft_advise(ctx, my_pool):
     tok = _coach_token()
     if not key and not tok: return None
     is_ban = ctx.get("mode") == "ban"
-    pool_txt = "\n".join(f"- {c}: {g}판 {round(w/g*100) if g else 0}%" for c, g, w in my_pool) or "(내전 기록 없음)"
+    _pk = ctx.get("pos") if ctx.get("pos_known") else ""
+    if _pk and my_pool and len(my_pool[0]) >= 4:
+        # [2026-09-09] 포지션 확정 → '이 포지션 전적' / '다른 라인 전적'을 갈라 싼다(서폿 장인이 정글 간 판 방지)
+        _pin = [x for x in my_pool if x[3] > 0]; _pout = [x for x in my_pool if x[3] <= 0]
+        pool_txt = (f"(★{_pk} 전적 — 지금 자리와 같은 라인. 여기서 우선 고른다)\n"
+                    + ("\n".join(f"- {c}: {_pk} {pg}판 · 통산 {g}판 {round(w/g*100) if g else 0}%" for c, g, w, pg in _pin)
+                       or f"- (내전 {_pk} 기록 없음 — 프로 통계·일반 지식으로 {_pk} 챔프를 추천하라)")
+                    + (f"\n(다른 라인 전적 — {_pk}(으)로도 실제 통용되는 챔프일 때만 참고, 아니면 추천 금지)\n"
+                       + "\n".join(f"- {c}: {g}판 {round(w/g*100) if g else 0}% [{_pk} 0판]" for c, g, w, pg in _pout[:8])
+                       if _pout else ""))
+    else:
+        pool_txt = "\n".join(f"- {c}: {g}판 {round(w/g*100) if g else 0}%" for c, g, w, *_x in my_pool) or "(내전 기록 없음)"
+    if not is_ban and not ctx.get("pos_known"):
+        pool_txt += ("\n★내 포지션이 미확정이다. **내 전적이 어느 라인에 몰려 있는지로 내 포지션을 추측하지 마라**"
+                     " — 라인별로 후보를 나눠 제시하거나, 미확정임을 첫 줄에 밝혀라.")
     # [v81.77] 라인 매치업을 최상단에 명시 — '사일러스 상대 알리스타' 같은 상성 무시 방지의 핵심
     _lane = ctx.get("lane_enemy") or ""
     # [v82.34] 픽은 '누가 골랐는지'까지 붙여 제시 — 포지션 환각(예: 근거 없이 '서폿 럭스' 단정) 방지
@@ -3118,20 +3363,7 @@ def _draft_advise(ctx, my_pool):
                                                   " 이 경우 [클랜 내전 챔피언 메타]와 우리 팀 데이터만으로 추천하고,\n"
                                                   " 맨 앞줄에 '상대 데이터 없음 — 클랜 내전 통계만으로 판단'이라고 반드시 밝혀라.\n"
                                                   " 솔랭 메타·티어리스트를 근거로 지어내지 마라)")
-        # 🗳️ 클랜 집단 판단 — 밴픽 퀴즈에서 실제로 적어낸 표(상대 선수별 상위 3)
-        _qp = _quiz_pref()
-        _qp_lines = []
-        if _qp:
-            for _nm in (ctx.get("enemy_names") or []):
-                _hit = _qp.get(_nm) or _qp.get(str(_nm).split("#")[0])
-                if not _hit: continue
-                _qp_lines.append(f"- {_nm}: " + ", ".join(f"{c} {v}표(적중 {h})" for c, v, h in _hit[:3]))
-        if _qp_lines:
-            opp_txt += ("\n\n[🗳️ 클랜 집단 판단 — 밴픽 퀴즈 표(클랜원이 직접 적어낸 밴 후보)]\n"
-                        + "\n".join(_qp_lines)
-                        + "\n★이건 클랜원 여러 명이 같은 상대를 두고 '무엇을 자를까'를 직접 적어낸 결과다.\n"
-                          "  동급 후보면 표가 많은 쪽을 우선하고, 이유에 '클랜 다수 의견(N표)'임을 밝혀라.\n"
-                          "  단 표가 3표 미만이면 참고만 하라. 적중 수는 그 답이 실제로 상대가 꺼낸 픽이었던 횟수다.")
+        # 🗳️ 상대별 밴픽 퀴즈 표는 ctx["quiz"](아래 블록)로만 넣는다 — [2026-09-08] 같은 표를 두 번 넣던 중복 제거.
         _ef = ctx.get("enemy_filled_pos") or []
         _eo = ctx.get("enemy_open_pos") or []
         if _ef:
@@ -3144,11 +3376,11 @@ def _draft_advise(ctx, my_pool):
                           "★이미 챔피언을 확정한 상대 선수는 [상대 팀원들의 내전 챔프폭]에서 아예 빠져 있다.\n"
                           "  거기 없는 사람의 장인챔을 기억으로 되살려 밴 후보에 올리지 마라 — 그 사람은 이미 픽이 끝났다.")
         if _bphase == 1:
-            _task = ("★**1페이즈 밴**. ① 우리 팀 밴 **3개** 우선순위로(챔피언 자체가 위험한 것: 현 패치 OP·상대\n"
+            _task = ("★**1페이즈 밴**. ① 우리 팀 밴 후보 **5개** 우선순위로(챔피언 자체가 위험한 것: 현 패치 OP·상대\n"
                      "장인·견제압력). ② 픽 방향 **딱 한 줄**(단정 금지). 전체 출력 극도로 짧게 — 근거는 판수%·핵심 단어만.")
         else:
             _picked = ctx.get("already_picked")
-            _task = ("★**2페이즈 밴**. ① 우리 팀 밴 **2개** 우선순위로(우리 윈컨을 깨는 카운터·상대 조합 마지막 퍼즐).\n"
+            _task = ("★**2페이즈 밴**. ① 우리 팀 밴 후보 **5개** 우선순위로(우리 윈컨을 깨는 카운터·상대 조합 마지막 퍼즐).\n"
                      + ("② 나는 이미 픽함 — 밴만."
                         if _picked else
                         "② 나는 후픽 — 이 밴과 동시에 내 픽 후보 **1~2개, 각 한 줄**(챔프 — 20자 근거).")
@@ -3166,14 +3398,17 @@ def _draft_advise(ctx, my_pool):
             + _bp_blk
             + _wk_blk
             + clan_blk_ban   # [v82.44] 밴 모드엔 아군 챔프폭 미주입(아군 픽 밴 추천 사고 방지)
-            + ((chr(10) + chr(10) + "[클랜 밴픽퀴즈 표 — 클랜원들이 '이 상대에게 밴할 챔프'로 투표한 집단 학습]" + chr(10)
-                + chr(10).join(ctx.get("quiz") or [])) if ctx.get("quiz") else "")
+            + ((chr(10) + chr(10) + "[🗳️ 클랜 밴픽퀴즈 표 — 클랜원들이 '이 상대에게 밴할 챔프'로 직접 적어낸 집단 판단]" + chr(10)
+                + chr(10).join(ctx.get("quiz") or [])
+                + chr(10) + "★같은 상대를 두고 여러 명이 적어낸 답이다. 동급 후보면 표 많은 쪽을 우선하고 이유에 '퀴즈 N표'를 밝혀라."
+                + chr(10) + "  적중 = 그 답이 실제로 상대가 꺼낸 픽이었던 횟수. 표 3개 미만은 참고만. 따옴표 안은 적어낸 이유다.") if ctx.get("quiz") else "")
             + _ldg_blk
         )
     else:
         _mt2 = ctx.get("my_tier")
         user_txt = (
-            f"[내 포지션] {ctx['pos']}" + (f" · 내 내부티어 {_mt2}티어(0=최상위)" if _mt2 not in (None, "") else "") + "\n"
+            f"[내 포지션] {ctx['pos']}" + (" (★확정 — 이 포지션의 챔프만 추천)" if ctx.get("pos_known") else " (미확정)")
+            + (f" · 내 내부티어 {_mt2}티어(0=최상위)" if _mt2 not in (None, "") else "") + "\n"
             f"[★내 라인 상대] {_lane or '아직 확정 안 됨'}\n"
             f"[우리 팀 확정 픽] {_ally_txt}\n"
             f"[상대 팀 확정 픽] {_enemy_txt}\n"
@@ -3185,6 +3420,7 @@ def _draft_advise(ctx, my_pool):
             + _loff_blk
             + _mu_blk
             + clan_blk
+            + _quiz_pick_blk(ctx.get("pos"))   # 🗳️ [2026-09-08] 이 자리에서 클랜원들이 뽑겠다고 적어낸 챔프(픽 퀴즈)
             + _ldg_blk
         )
     # 시스템 프롬프트(코칭 규칙 + 현 패치 메타 + 클랜 메타) — 호스트·구독자 공통
@@ -3192,6 +3428,11 @@ def _draft_advise(ctx, my_pool):
     #   일반론은 클랜원 누구나 아는 얘기라 조언의 값이 없었고, 근거 없는 단정의 출처이기도 했다.
     system_text = ((_DRAFT_BAN_RULES if is_ban else _DRAFT_RULES)
                    + "\n\n[클랜 내전 챔피언 메타(판수순)]\n" + _clan_meta_lines())
+    if is_ban:
+        # 🗳️ [2026-09-08 사장님 지시 '쌓인 데이터 갱신'] 상대 무관 챔피언 단위 퀴즈 집계(QUIZ_CHAMP) — 하루 3번 바뀌는
+        #    정도라 고정 파트(캐시)에 둔다. 상대 데이터가 없는 판(실측 다수)에서 '클랜 데이터 없음' 대신 쓸 근거.
+        _qc = _quiz_champ_lines()
+        if _qc: system_text += "\n\n[🗳️ 클랜 밴픽퀴즈 집계 — 상대 무관, 클랜원들이 '자르겠다'고 적어낸 챔프(표 많은 순)]\n" + _qc
     # 🌐 [v82.33] 구독자(로컬 키 없음) → 봇 프록시로 호출(사장님 키는 서버에만, 유출 방지)
     if not key:
         return _draft_advise_via_proxy(tok, system_text, user_txt, ctx.get("me"))
@@ -3284,7 +3525,25 @@ def _draft_advise_via_proxy(token, system_text, user_txt, who=""):
         return "⚠️ 고스트밴픽왕: 서버 연결 실패(인터넷 확인)"
 
 _BANS_SHOWN = [None]   # 🚫 [v81.77] 10밴 아이콘 재렌더 캐시(매초 이미지 재생성 방지)
-_DRAFT_OVL = {"win": None, "lbl": None, "shown": "", "expanded": False, "btn_more": None, "dock_rect": None}
+_DRAFT_OVL = {"win": None, "lbl": None, "shown": "", "expanded": False, "btn_more": None, "dock_rect": None,
+              "gid": "", "pos": ""}
+# 🧭 [2026-09-09 사장님 제보] 이 판 내 포지션 수동 지정 — {"gid": 게임식별자, "pos": "정글"}. 카드의 포지션 칩으로 설정.
+_COACH_POS = {"gid": "", "pos": ""}
+_COACH_POS_LIST = ("탑", "정글", "미드", "원딜", "서폿")
+
+def _coach_set_pos(pos):
+    """카드 포지션 칩 클릭 → 이 판의 내 포지션 확정. 픽 서명(포지션 포함)을 풀어 다음 폴링에서 재추천."""
+    try:
+        _COACH_POS["gid"] = str(_DRAFT_OVL.get("gid") or ""); _COACH_POS["pos"] = pos
+        _DRAFT_OVL["pos"] = pos
+        for _k in [k for k in list(_DRAFT_SEEN) if "|pick|" in k]:
+            _DRAFT_SEEN.discard(_k); _DRAFT_TRY_TS.pop(_k, None)
+        _DRAFT_POOL_CACHE.clear()
+        print(f"[coach] 내 포지션 수동 지정 → {pos} (게임 {_COACH_POS['gid'] or '?'})", flush=True)
+        _r = _DRAFT_OVL.get("_render")
+        if _r: _r()
+    except Exception as e:
+        print(f"[coach] 포지션 지정 실패: {type(e).__name__} {e}", flush=True)
 
 def _lol_client_rect():
     """🧲 롤 클라이언트(LeagueClientUx, 클래스 RCLIENT) 창 좌표. 없거나 최소화면 None."""
@@ -3301,24 +3560,51 @@ def _lol_client_rect():
     except Exception:
         return None
 
+def _virtual_screen(w):
+    """모든 모니터를 합친 가상 데스크톱 영역 (x, y, 폭, 높이).
+       winfo_screenwidth() 는 **주 모니터**만 알려준다 — 롤을 보조 모니터에 띄워 두면
+       클라 좌표(가상 데스크톱 기준, 음수일 수도 있다)와 어긋나 오버레이가 엉뚱한 데로 끌려간다."""
+    try:
+        import ctypes
+        g = ctypes.windll.user32.GetSystemMetrics
+        vx, vy, vw, vh = g(76), g(77), g(78), g(79)      # SM_(XY|CXCY)VIRTUALSCREEN
+        if vw > 0 and vh > 0: return (int(vx), int(vy), int(vw), int(vh))
+    except Exception: pass
+    return (0, 0, w.winfo_screenwidth(), w.winfo_screenheight())
+
+def _ovl_clamp(w, x, y):
+    """창이 화면 밖으로 완전히 나가지 않게 가상 데스크톱 안으로 물린다."""
+    vx, vy, vw, vh = _virtual_screen(w)
+    ow = max(w.winfo_width(), DRAFT_OVL_WRAP + 60)
+    oh = max(w.winfo_height(), 200)
+    return (max(vx, min(int(x), vx + vw - ow - 5)),
+            max(vy, min(int(y), vy + vh - oh - 5)))
+
 def _dock_overlay(w):
     """🧲 [2026-07-25 사장님 지시] 오버레이를 롤 클라 우측에 자석처럼 부착.
-       클라가 움직였을 때만 재배치(그 외엔 사용자가 끌어놓은 위치 존중). 클라 못 찾으면 화면 우측 기본 위치."""
+
+    🐛 [2026-09-16 사장님 제보 "이상한 위치로 고정되어 있고 옮겨지지가 않는다"]
+       손으로 끌면 dock_rect 에 "manual" 을 적어 뒀지만, 바로 다음 tick 의
+       `rect == dock_rect` 비교에 "manual" 은 당연히 걸리지 않아 그 자리에서
+       다시 도킹 좌표로 되돌려 놨다. 끄는 동안 창이 사용자와 싸우는 셈이라
+       사실상 못 옮겼다. 이제 **한 번이라도 손으로 옮기면 그 뒤로는 건드리지 않는다.**
+    """
     try:
+        if _DRAFT_OVL.get("manual"): return               # 사람이 정한 자리가 언제나 이긴다
         rect = _lol_client_rect()
         if rect is None:
-            if _DRAFT_OVL.get("dock_rect") is None:   # 최초 1회만 기본 위치
+            if _DRAFT_OVL.get("dock_rect") is None:       # 최초 1회만 기본 위치
                 _DRAFT_OVL["dock_rect"] = "fallback"
-                w.geometry("+%d+%d" % (max(0, w.winfo_screenwidth() - (DRAFT_OVL_WRAP + 70)), 90))
+                vx, vy, vw, vh = _virtual_screen(w)
+                w.geometry("+%d+%d" % _ovl_clamp(w, vx + vw - (DRAFT_OVL_WRAP + 130), vy + 90))
             return
-        if rect == _DRAFT_OVL.get("dock_rect"): return   # 클라 안 움직임 → 그대로
+        if rect == _DRAFT_OVL.get("dock_rect"): return     # 클라 안 움직임 → 그대로
         _DRAFT_OVL["dock_rect"] = rect
-        sw = w.winfo_screenwidth()
-        x = rect[2] + 6                                   # 클라 오른쪽 모서리 +6px
-        _ow = DRAFT_OVL_WRAP + 60                         # 창이 커졌으니 폭도 같이 계산(안 그러면 화면 밖으로 나간다)
-        if x + _ow > sw: x = max(0, sw - _ow - 5)         # 화면 밖이면 우측 끝에 겹쳐 부착
-        y = max(0, rect[1] + 60)
-        w.geometry("+%d+%d" % (x, y))
+        vx, vy, vw, vh = _virtual_screen(w)
+        ow = max(w.winfo_width(), DRAFT_OVL_WRAP + 60)
+        x = rect[2] + 6                                    # 클라 오른쪽 모서리 +6px
+        if x + ow > vx + vw: x = rect[0] - ow - 6          # 안 들어가면 클라 왼쪽에 붙인다
+        w.geometry("+%d+%d" % _ovl_clamp(w, x, rect[1] + 60))   # 양쪽 다 안 되면 화면 끝에 겹친다
     except Exception: pass
 # 💝 후원 계좌 — squad.gg 고스트밴픽왕 소개 페이지(coach.html)에 이미 공개된 것과 같은 계좌.
 #   바뀌면 여기 세 줄만 고치면 된다(설정 파일로 덮어쓸 수도 있게 load_config 값을 우선한다).
@@ -3425,8 +3711,9 @@ def _draft_build_card(root):
     badge = tk.Label(hd, text=" 밴 ", bg=C["ban"], fg="#12141a",
                      font=UF(10, "bold"), padx=7, pady=2)
     badge.pack(side="left")
-    tk.Label(hd, text="고스트밴픽왕", bg=C["card"], fg=C["text"],
-             font=UF(13, "bold")).pack(side="left", padx=(9, 0))
+    title_lb = tk.Label(hd, text="고스트밴픽왕", bg=C["card"], fg=C["text"],
+                        font=UF(13, "bold"))
+    title_lb.pack(side="left", padx=(9, 0))
     sub = tk.Label(hd, text="", bg=C["card"], fg=C["dim"], font=UF(9))
     sub.pack(side="left", padx=(8, 0))
     close = tk.Label(hd, text="✕", bg=C["card"], fg=C["dim"], font=UF(12), cursor="hand2")
@@ -3438,6 +3725,26 @@ def _draft_build_card(root):
     rule = tk.Frame(body, bg=C["ban"], height=2)
     rule.pack(fill="x", padx=16, pady=(9, 0))
 
+    # 🧭 [2026-09-09] 내 포지션 칩 — 내전은 배정이 없어 자동 인식이 비거나 틀린다. 눌러서 이 판 포지션 확정.
+    posf = tk.Frame(body, bg=C["card"]); posf.pack(fill="x", padx=16, pady=(8, 0))
+    tk.Label(posf, text="내 포지션", bg=C["card"], fg=C["dim"], font=UF(9)).pack(side="left", padx=(0, 6))
+    pos_chips = {}
+    for _pn in _COACH_POS_LIST:
+        _cl = tk.Label(posf, text=_pn, bg=C["surface"], fg=C["sub"], font=UF(10, "bold"),
+                       padx=8, pady=2, cursor="hand2")
+        _cl.pack(side="left", padx=(0, 4))
+        _cl.bind("<Button-1>", lambda e, _p=_pn: _coach_set_pos(_p))
+        pos_chips[_pn] = _cl
+    pos_hint = tk.Label(posf, text="", bg=C["card"], fg=C["warn"], font=UF(9))
+    pos_hint.pack(side="left", padx=(6, 0))
+    def _paint_pos():
+        _cur = str(_DRAFT_OVL.get("pos") or "")
+        _man = (_COACH_POS.get("pos") and _COACH_POS.get("gid") == str(_DRAFT_OVL.get("gid") or ""))
+        for _pn, _cl in pos_chips.items():
+            if _pn == _cur: _cl.config(bg=_DRAFT_OVL.get("accent") or C["gold"], fg="#12141a")
+            else: _cl.config(bg=C["surface"], fg=C["sub"])
+        pos_hint.config(text=("직접 지정" if _man else ("자동 인식" if _cur and _cur != "선택안함" else "← 눌러서 지정")))
+
     rows = tk.Frame(body, bg=C["card"]); rows.pack(fill="x", padx=16, pady=(10, 0))
 
     # ── 푸터 ──
@@ -3447,20 +3754,41 @@ def _draft_build_card(root):
     more.pack(side="left")
     more.bind("<Enter>", lambda e: more.config(fg=C["text"]))
     more.bind("<Leave>", lambda e: more.config(fg=C["sub"]))
-    tk.Label(ft, text="⠿ 끌어서 이동", bg=C["card"], fg=C["dim"],
+    tk.Label(ft, text="⠿ 아무 데나 끌어서 이동 · 제목 더블클릭=자동 위치", bg=C["card"], fg=C["dim"],
              font=UF(9)).pack(side="right")
 
-    # ── 제목줄을 잡고 창 이동(프레임리스라 OS 가 안 해준다) ──
+    # ── 창을 잡고 이동(프레임리스라 OS 가 안 해준다) ──
+    #   🐛 [2026-09-16] 예전엔 (hd, body, rows) 세 **프레임**에만 걸었다. Tk 는 자식 위젯이 먹은
+    #      클릭을 부모 프레임으로 올려 주지 않으므로, 제목 글자·추천 줄·여백 아닌 곳은 전부
+    #      눌리지 않았다 — 아래에 "⠿ 끌어서 이동" 이라 써 놓고 잡을 데가 사실상 없었던 것.
+    #      Toplevel 은 모든 자손의 bindtag 에 들어 있으니 여기 한 번만 걸면 카드 전체가 손잡이가 된다.
     drag = {"x": 0, "y": 0}
     def _dn(e): drag["x"], drag["y"] = e.x_root, e.y_root
     def _mv(e):
         try:
-            w.geometry("+%d+%d" % (w.winfo_x() + e.x_root - drag["x"], w.winfo_y() + e.y_root - drag["y"]))
+            _x, _y = _ovl_clamp(w, w.winfo_x() + e.x_root - drag["x"], w.winfo_y() + e.y_root - drag["y"])
+            w.geometry("+%d+%d" % (_x, _y))
             drag["x"], drag["y"] = e.x_root, e.y_root
-            _DRAFT_OVL["dock_rect"] = "manual"      # 손으로 옮겼으면 자동 도킹이 되돌리지 않게
+            _DRAFT_OVL["manual"] = True             # 손으로 옮겼으면 자동 도킹이 다시는 되돌리지 않는다
         except Exception: pass
-    for _wg in (hd, body, rows):
-        _wg.bind("<Button-1>", _dn); _wg.bind("<B1-Motion>", _mv)
+    def _up(_e=None):
+        try:
+            if not _DRAFT_OVL.get("manual"): return
+            APP_CONFIG["coach_ovl_pos"] = [w.winfo_x(), w.winfo_y()]   # 다음에 켜도 그 자리
+            save_config(APP_CONFIG)
+        except Exception: pass
+    w.bind("<Button-1>", _dn, add="+")
+    w.bind("<B1-Motion>", _mv, add="+")
+    w.bind("<ButtonRelease-1>", _up, add="+")
+
+    def _reset_pos(_e=None):
+        """제목줄 더블클릭 — 자동 도킹으로 되돌린다(창을 화면 밖으로 보냈을 때의 탈출구)."""
+        _DRAFT_OVL["manual"] = False
+        _DRAFT_OVL["dock_rect"] = None
+        APP_CONFIG.pop("coach_ovl_pos", None); save_config(APP_CONFIG)
+        _dock_overlay(w)
+    for _wg in (hd, title_lb):
+        _wg.bind("<Double-Button-1>", _reset_pos, add="+")
 
     def _row(parent, kind, a, b=""):
         """추천 한 줄 — kind: num(순위) / ctx(대치·윈컨) / dir(픽 방향) / warn(경고) / plain"""
@@ -3501,6 +3829,8 @@ def _draft_build_card(root):
             badge.config(text=(" 밴 " if is_ban else " 픽 "), bg=_DRAFT_OVL["accent"])
             rule.config(bg=_DRAFT_OVL["accent"])
             sub.config(text=head.replace("🚫", "").replace("🧠", "").strip())
+            try: _paint_pos()
+            except Exception: pass
             summ, reason = _split_reason("\n".join(lines[1:]))
             for ch in rows.winfo_children(): ch.destroy()
             for ln in [x for x in summ.split("\n") if x.strip()]:
@@ -3548,8 +3878,18 @@ def _draft_build_card(root):
         _DRAFT_OVL["expanded"] = not _DRAFT_OVL.get("expanded"); _render()
     more.bind("<Button-1>", _toggle)
 
+    # 창을 새로 만들었으면 도킹 기록도 비운다 — 안 비우면 이전 창 때의 rect 와 같다는 이유로
+    # _dock_overlay 가 곧장 return 해 새 창이 Tk 기본 위치(화면 좌상단)에 그대로 굳는다.
     _DRAFT_OVL.update({"win": w, "lbl": None, "btn_more": more, "_render": _render,
-                       "accent": C["ban"], "ring": None, "cv": cv})
+                       "accent": C["ban"], "ring": None, "cv": cv,
+                       "dock_rect": None, "manual": False})
+    try:                                             # 🧷 지난번에 손으로 잡아 둔 자리 복원
+        _sv = APP_CONFIG.get("coach_ovl_pos")
+        if isinstance(_sv, (list, tuple)) and len(_sv) == 2:
+            w.update_idletasks()
+            w.geometry("+%d+%d" % _ovl_clamp(w, int(_sv[0]), int(_sv[1])))
+            _DRAFT_OVL["manual"] = True
+    except Exception: pass
 
 
 def _draft_flash(w, n=6):
@@ -3621,6 +3961,53 @@ def _coach_outcome_tick(s_json, my_cell, kor):
                 st["sent"] = True
                 _coach_log_send(m, st.get("rec") or [], ch, st.get("who") or "")
     except Exception: pass
+
+# 🗺️ [2026-10-09 사장님 지시 "고스트밴픽왕이 소환사의협곡이 아닌 다른 맵에서 발동되지않도록"]
+#    고스트밴픽왕은 「커스텀 게임 + 소환사의 협곡(mapId 11)」에서만 작동한다. 종전엔 칼바람(12)만 막아서
+#    칼바람 변형(14)·아레나(30) 등의 사설 게임에서도 추천 카드가 떴다.
+#    맵 번호: 11 소환사의 협곡 · 12 칼바람 나락 · 14 푸주한의 다리 · 21 넥서스 블리츠 · 22 TFT · 30 아레나
+#    (Riot 정적 데이터 https://static.developer.riotgames.com/docs/lol/maps.json 으로 확인. 스웜은 번호를 확인 못 함)
+#    LCU 스키마상 지도는 gameflow 세션 **최상위 map**(id) 에 있고 gameData 안에는 map 이 없다(gameData.queue.mapId 는 있음).
+#    그래서 맵 소스는 ① 세션 최상위 map.id ② gameData.map.id(옛 형태, 보험) ③ gameData.queue.mapId ④ 로비 gameConfig.mapId(마지막 값).
+#    규칙: 소스가 하나라도 11 이 아닌 값을 보고하면 막는다. **0 이하·숫자 아님은 「모름」(침묵)** — 정수 필드의 0 은 값이 없다는 뜻일 수 있어
+#    협곡 내전이 조용히 꺼지지 않게 한다. 소스가 모두 침묵이면 11 로 본다(종전 동작 유지).
+#    (위험: 맵 정보가 아예 안 오는 비-협곡 방에서는 계속 뜬다. 그런 응답은 관측된 적 없음 — 실기기 확인 못 함.
+#     실제 값은 [coach-map] 로그 한 줄(통과·차단 모두)로 남으니 릴리스 뒤 첫 협곡·칼바람 내전 로그로 확인한다)
+COACH_MAP_ID = 11
+_COACH_MAP_GATE = [None]    # 마지막 판정 상태 — 바뀔 때만 로그/카드 정리(폴링마다 반복 출력 금지). 챔프셀렉트를 벗어나면 초기화
+
+def _coach_map_int(v):
+    try:
+        if v is None or isinstance(v, bool): return None
+        n = int(v)
+        return n if n > 0 else None      # 0 이하는 「모름」
+    except Exception:
+        return None
+
+def coach_map_ok(is_custom, *map_ids):
+    """고스트밴픽왕 작동 조건(순수 함수): 커스텀 게임이고 맵이 소환사의 협곡(11)일 때만 True.
+       map_ids 는 LCU 가 준 원값들(없으면 None). 읽을 수 없는 값·0 이하는 '침묵'으로 본다."""
+    if not is_custom: return False
+    seen = [m for m in (_coach_map_int(x) for x in map_ids) if m is not None]
+    if not seen: return True            # 전부 침묵 → 종전 기본값(11)
+    return all(m == COACH_MAP_ID for m in seen)
+
+def _coach_map_gate(is_custom, top_map=None, gd_map=None, queue_map=None, lobby_map=None):
+    """coach_map_ok + 부수 동작(판정 상태가 바뀔 때 한 번만): 로그 1줄(통과·차단), 막히면 남은 추천 카드 정리."""
+    ok = coach_map_ok(is_custom, top_map, gd_map, queue_map, lobby_map)
+    seen = tuple(_coach_map_int(x) for x in (top_map, gd_map, queue_map, lobby_map))
+    state = (("pass" if ok else "skip"),) + seen if is_custom else None
+    if state != _COACH_MAP_GATE[0]:
+        _COACH_MAP_GATE[0] = state
+        if state is not None:
+            print(f"[coach-map] {'통과 — 협곡 내전' if ok else '소환사의 협곡이 아니라 건너뜀'} — "
+                  f"session.map={seen[0]} gameData.map={seen[1]} queue.mapId={seen[2]} lobby.mapId={seen[3]}", flush=True)
+            if not ok:
+                try:
+                    with gui_lock:
+                        gui_data["draft_advice"] = ""; gui_data["draft_advice_ts"] = 0
+                except Exception: pass
+    return ok
 
 def _draft_coach_tick(s_json, headers, base_url):
     """밴픽 세션에서 '내 차례'(픽 또는 밴)를 감지 → 비동기로 코칭 요청. 폴링 루프에서 매 주기 호출(가벼움).
@@ -3763,10 +4150,15 @@ def _draft_coach_tick(s_json, headers, base_url):
             _v = _pos_raw(p)
             if _v and _v != "선택안함": return _v
             return _gpos.get(str(_rpu(p) or "").strip().lower(), _v)
+        _sid_now = str(s_json.get("gameId") or "") or f"t{int(time.time() // 600)}"
         for p in s_json.get("myTeam", []) or []:
             _pu = _rpu(p)
             if p.get("cellId") == my_cell:
                 my_pos = _pos(p) or "선택안함"
+                # 🧭 [2026-09-09 사장님 제보] 내전은 포지션 배정이 없어 자동 인식이 틀리거나 빈다 →
+                #    오버레이 카드의 포지션 칩으로 이 판의 내 포지션을 직접 지정(게임 단위, 최우선)
+                if _COACH_POS.get("gid") == _sid_now and _COACH_POS.get("pos"):
+                    my_pos = _COACH_POS["pos"]
                 my_pu = _pu
             c = _kor(p.get("championId"))
             if p.get("cellId") == my_cell and c: my_champ = c
@@ -3976,9 +4368,10 @@ def _draft_coach_tick(s_json, headers, base_url):
                     _e9 = ((_cidx or {}).get("by_pu") or {}).get(_pu9) or {}
                     if _e9.get("name"): _enames.add(str(_e9["name"]).split('#')[0].strip())
                 for _nm9 in sorted(_enames):
-                    for _c9, _v9, _h9 in _qm.get(tnorm(_nm9), [])[:3]:
+                    for _c9, _v9, _h9, _r9, _w9 in _qm.get(tnorm(_nm9), [])[:3]:
                         if _c9 in _dead_ch or _v9 <= 0: continue
-                        quiz_lines.append(f"{_nm9} ← {_c9} {_v9}표" + (f"·적중{_h9}" if _h9 else ""))
+                        quiz_lines.append(f"{_nm9} ← {_c9} {_v9}표" + (f"·적중{_h9}" if _h9 else "")
+                                          + (f"·최근30일 {_r9}표" if _r9 else "") + (f' — "{_w9}"' if _w9 else ""))
             except Exception: pass
         ctx = {"mode": mode, "pos": my_pos, "ally": ally, "enemy": enemy, "bans": bans,
                "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
@@ -4000,7 +4393,8 @@ def _draft_coach_tick(s_json, headers, base_url):
         # 밴은 페이즈당 1회만(팀 밴 통째 추천) / 픽은 판 상태 바뀌면 갱신
         # [2026-07-25 사장님 제보 수정] 서명에 게임 식별자 포함 — 닷지·다음 게임에서 같은 서명("banphase1")으로
         #   오인돼 추천이 안 뜨던 문제 해결(gameId 없으면 10분 창 폴백으로라도 게임 간 구분).
-        _sid = str(s_json.get("gameId") or "") or f"t{int(time.time() // 600)}"
+        _sid = _sid_now
+        _DRAFT_OVL["gid"] = _sid; _DRAFT_OVL["pos"] = my_pos   # 오버레이 포지션 칩 표시·클릭용
         if mode == "ban":
             sig = f"{_sid}|banphase{ban_phase}"
         else:
@@ -4025,7 +4419,13 @@ def _draft_coach_tick(s_json, headers, base_url):
                 with gui_lock:
                     gui_data["draft_advice"] = "🚫 밴 분석 중…" if mode == "ban" else "🧠 픽 분석 중…"
                     gui_data["draft_advice_ts"] = time.time()
-                txt = _draft_advise(ctx, _my_champ_pool(MY_RIOT_NAME[0]))
+                txt = _draft_advise(ctx, _my_champ_pool(MY_RIOT_NAME[0], pos=(ctx.get("pos") if ctx.get("pos_known") else "")))
+                # 🧭 [2026-09-09] 픽 추천인데 내 포지션을 못 잡았으면 카드 첫 줄에 안내(칩을 눌러 지정)
+                try:
+                    if mode == "pick" and txt and not ctx.get("pos_known") and not str(txt).lstrip().startswith(("⚠️", "⏳", "🔐", "✅")):
+                        _l0, _r0 = (str(txt).split("\n", 1) + [""])[:2]
+                        txt = _l0 + "\n⚠️ 내 포지션 미확정 — 카드 위 포지션 버튼을 눌러 주세요\n" + _r0
+                except Exception: pass
                 # 🚫 [2026-08-06 사장님 제보] 데이터에서 빼도 모델이 일반 지식으로 죽은 챔프(이미 밴·픽)를
                 #    추천할 수 있다 — 응답에서 해당 줄을 잘라내는 최종 방어. 요약부의 "N. 챔프 — 이유" 줄만 손댄다.
                 try:
@@ -4113,6 +4513,23 @@ def _prev_season_from_ranked(rj):
             if sc is not None: return (f"{t} {d}".strip(), sc)
     return None, None
 
+def _fetch_summoner_profile(base, puuid, headers):
+    """summoner-v4 by-puuid → dict(profileIconId·summonerLevel·id) 또는 None. 429 면 Retry-After(최대 10초) 1회 재시도."""
+    for _att in range(2):
+        try:
+            sr = requests.get(f"{base}/lol/summoner/v4/summoners/by-puuid/{puuid}", headers=headers, timeout=8)
+        except Exception:
+            return None
+        if sr.status_code == 200:
+            try: return sr.json() or None
+            except Exception: return None
+        if sr.status_code == 429 and _att == 0:
+            try: _ra = float(sr.headers.get("Retry-After", 5))
+            except Exception: _ra = 5
+            time.sleep(min(max(_ra, 1), 10)); continue
+        return None
+    return None
+
 def fetch_solo_rank_by_riotid(riot_id, key, region="kr", routing="asia"):
     """롤닉#태그 → account-v1로 진짜 PUUID 해석 → 솔랭. (시트 PUUID는 LCU형식이라 직접 못 씀)"""
     try:
@@ -4126,19 +4543,40 @@ def fetch_solo_rank_by_riotid(riot_id, key, region="kr", routing="asia"):
         puuid = ar.json().get("puuid")
         if not puuid: return None
         b = f"https://{region}.api.riotgames.com"
+        # 🖼 [P-5] 프로필 아이콘·롤 레벨 — 같은 PUUID 로 summoner-v4 1회(실패해도 솔랭은 그대로 진행)
+        prof = {}
+        sj = _fetch_summoner_profile(b, puuid, h)
+        if sj: prof = {"icon": sj.get("profileIconId"), "level": sj.get("summonerLevel")}
         r = requests.get(f"{b}/lol/league/v4/entries/by-puuid/{puuid}", headers=h, timeout=8)
         if r.status_code != 200:   # 폴백: summoner-v4 → by-summoner
-            sr = requests.get(f"{b}/lol/summoner/v4/summoners/by-puuid/{puuid}", headers=h, timeout=8)
-            if sr.status_code != 200: return None
-            r = requests.get(f"{b}/lol/league/v4/entries/by-summoner/{sr.json().get('id')}", headers=h, timeout=8)
+            if not sj or not sj.get("id"): return None
+            r = requests.get(f"{b}/lol/league/v4/entries/by-summoner/{sj.get('id')}", headers=h, timeout=8)
             if r.status_code != 200: return None
         for e in r.json():
             if e.get("queueType") == "RANKED_SOLO_5x5":
                 t, rk, lp = e.get("tier"), e.get("rank"), e.get("leaguePoints", 0)
                 w, l = e.get("wins", 0), e.get("losses", 0)
-                return {"tier": t, "rank": rk, "lp": lp, "wins": w, "losses": l, "score": _rank_score(t, rk, lp)}
-        return {"tier": "UNRANKED", "score": None}
+                return {"tier": t, "rank": rk, "lp": lp, "wins": w, "losses": l, "score": _rank_score(t, rk, lp), **prof}
+        return {"tier": "UNRANKED", "score": None, **prof}
     except Exception: return None
+
+def _carry_profile_icons(out, prev_rows):
+    """🖼 [P-5] out(헤더 포함)의 아이콘·레벨 칸이 비었으면 이전 SOLO_RANK 의 같은 닉 값으로 채운다(제자리 수정)."""
+    try:
+        if not prev_rows: return
+        ph = prev_rows[0]
+        if "아이콘" not in ph: return
+        ii = ph.index("아이콘"); li = ph.index("레벨") if "레벨" in ph else -1
+        prev = {}
+        for r in prev_rows[1:]:
+            if r and len(r) > ii and str(r[ii]).strip():
+                prev[tnorm(r[0])] = (r[ii], r[li] if 0 <= li < len(r) else "")
+        for row in out[1:]:
+            if len(row) >= 9 and str(row[7]).strip() == "":
+                p = prev.get(tnorm(row[0]))
+                if p: row[7] = p[0]; row[8] = row[8] if str(row[8]).strip() else p[1]
+    except Exception:
+        pass
 
 def update_solo_ranks():
     """내부티어 보유 클랜원 솔랭을 롤닉으로 조회해 SOLO_RANK 시트에 저장.
@@ -4146,56 +4584,91 @@ def update_solo_ranks():
     key = load_riot_key()
     if not key or not global_spreadsheet: return
     # 시트에서 {tnorm(게임닉): 롤닉#태그} 맵 (소환사명 = 풀 롤닉#태그)
-    rid_map = {}
+    # 🧭 [2026-09-09 사장님 제보 '카무사리 솔랭이 한 달째 그대로'] 예전엔 닉별 '첫 등장' 롤닉#태그를 잡고
+    #    현재 닉이 없으면 별칭(옛 닉)으로 폴백했다 — 닉변한 사람은 옛 롤닉(귤갓입니다#KR1)으로 계속 조회돼
+    #    옛 기록(에메랄드)에 멈춰 있었다(현재 카무사리#귤갓 마스터). 이제 닉마다 '가장 최근 판'의 롤닉#태그와
+    #    그 날짜를 들고, 현재 닉·별칭 후보를 최근 판 순으로 정렬해 조회한다(실패하면 다음 후보).
+    rid_map = {}      # tnorm(닉) -> (마지막 등장 날짜, 롤닉#태그)
     try:
         rows0 = get_sheet_data_cached(global_spreadsheet.worksheet("CLASSIC_NORMAL"), force=True)
-        h0 = rows0[0]; ni = h0.index("소환사명")
+        h0 = rows0[0]; ni = h0.index("소환사명"); di = h0.index("날짜") if "날짜" in h0 else -1
         for r in rows0[1:]:
             if len(r) > ni:
                 rid = str(r[ni]).strip()
                 if "#" in rid:
                     k = tnorm(rid)
-                    if k and k not in rid_map: rid_map[k] = rid
+                    dt = str(r[di]).strip() if 0 <= di < len(r) else ""
+                    if k and (k not in rid_map or dt >= rid_map[k][0]): rid_map[k] = (dt, rid)
     except Exception: pass
     with gui_lock:
         gstats = dict(gui_data.get("hof_classic", {}).get("global_stats", {}).get("전체 (ALL)", {}))
         aliases = dict(gui_data.get("hof_classic", {}).get("aliases", {}))
-    out = [["닉네임","티어","LP","솔랭승","솔랭패","점수","갱신"]]
+    out = [["닉네임","티어","LP","솔랭승","솔랭패","점수","갱신","아이콘","레벨"]]   # 🖼 [P-5] 아이콘·레벨은 맨 뒤(기존 열 순서 불변)
+    # 🔗 LINK_ACCOUNT(부계·계정 이전·닉변 통합) 그룹 — PUUID 별칭만으론 못 잇는 케이스(닉변 직후 PUUID 가 바뀐
+    #    카무사리#귤 갓 ← 귤갓입니다#KR1 ← 귤 갓#Gyul)를 같은 사람으로 묶어 후보에 넣는다.
+    _grp = {}
+    try:
+        for _sub, _main in (global_alt_map or {}).items():
+            _g = _grp.setdefault(tnorm(_main), {tnorm(_main)}); _g.add(tnorm(_sub)); _grp[tnorm(_sub)] = _g
+    except Exception: pass
+    _renamed = []
     for _pk, s in gstats.items():
         nm = s.get("name", "")
         if not tier_of(nm): continue
-        rid = rid_map.get(tnorm(nm))
-        if not rid:
-            for al in aliases.get(_pk, ()):        # 닉변 시 과거 닉으로도 매칭
-                rid = rid_map.get(tnorm(al))
-                if rid: break
-        if not rid: continue
-        rk = fetch_solo_rank_by_riotid(rid, key)
+        _names = [nm] + list(aliases.get(_pk, ()))            # 현재 닉 + 과거 닉(PUUID 별칭)
+        for _n in list(_names):
+            for _m in _grp.get(tnorm(_n), ()):                  # + LINK_ACCOUNT 그룹 멤버
+                if _m not in [tnorm(x) for x in _names]: _names.append(_m)
+        _cands = []
+        for _n in _names:                                       # 최근 판 순으로 조회
+            _e = rid_map.get(tnorm(_n))
+            if _e and _e[1] not in [c[1] for c in _cands]: _cands.append(_e)
+        _cands.sort(key=lambda x: x[0], reverse=True)
+        if not _cands: continue
+        rk, rid = None, ""
+        for _dt, rid in _cands:
+            rk = fetch_solo_rank_by_riotid(rid, key)
+            if rk: break
+            time.sleep(1.3)
+        if rk and len(_cands) > 1 and tnorm(rid) != tnorm(nm): _renamed.append(f"{nm}→{rid}")
+        _ic = rk.get("icon") if rk else None
+        _lv = rk.get("level") if rk else None
         if rk and rk.get("score") is not None:
             out.append([nm, f"{rk['tier']} {rk.get('rank','')}".strip(), rk.get("lp",0),
                         rk.get("wins",0), rk.get("losses",0), rk["score"],
-                        time.strftime("%Y-%m-%d %H:%M")])
+                        time.strftime("%Y-%m-%d %H:%M"),
+                        "" if _ic is None else _ic, "" if _lv is None else _lv])
+        elif rk and _ic is not None:
+            # 🖼 [P-5] 언랭도 아이콘·레벨은 남긴다 — 점수 칸이 비어 있어 솔랭 소비처(웹·분석기·툴링)는 모두 이 행을 건너뛴다
+            out.append([nm, "UNRANKED", "", "", "", "", time.strftime("%Y-%m-%d %H:%M"), _ic, "" if _lv is None else _lv])
         time.sleep(1.3)   # rate limit
     # 🛡️ [v82.48 사장님 제보 — 시트 전멸 사고 방지] 예전엔 조회 결과와 무관하게 clear+덮어쓰기라,
     #    Riot API 키 만료·네트워크 실패로 전건 조회가 실패하면 SOLO_RANK가 헤더만 남고 통째로 비워졌다.
     #    ① 수집 0건이면 아예 쓰지 않음 ② 기존 대비 절반 미만으로 급감해도 보류(부분 실패 보호).
     try:
         try: ws = global_spreadsheet.worksheet("SOLO_RANK")
-        except Exception: ws = global_spreadsheet.add_worksheet(title="SOLO_RANK", rows="400", cols="7")
-        _new_n = len(out) - 1
+        except Exception: ws = global_spreadsheet.add_worksheet(title="SOLO_RANK", rows="400", cols="9")
+        _new_n = len([r for r in out[1:] if str(r[5]).strip() != ""])   # 솔랭 점수 있는 행만(언랭 아이콘 행 제외)
         if _new_n <= 0:
             print("[solo] 수집 0건 — 기존 SOLO_RANK 보존(덮어쓰기 취소). Riot API 키 만료 여부 확인 필요", flush=True)
             return
         try:
-            _prev_n = max(0, len([r for r in (get_sheet_data_cached(ws, force=True) or [])[1:] if r and str(r[0]).strip()]))
+            _prev_rows = get_sheet_data_cached(ws, force=True) or []
+            _prev_n = max(0, len([r for r in _prev_rows[1:] if r and str(r[0]).strip() and len(r) > 5 and str(r[5]).strip()]))
         except Exception:
-            _prev_n = 0
+            _prev_rows, _prev_n = [], 0
+        _carry_profile_icons(out, _prev_rows)   # 🖼 [P-5] 이번에 못 받은 아이콘·레벨은 이전 값 유지
         if _prev_n >= 10 and _new_n < _prev_n * 0.5:
             print(f"[solo] 수집 급감({_prev_n}→{_new_n}) — 부분 실패로 보고 덮어쓰기 보류", flush=True)
             return
+        try:   # 🖼 [P-5] 기존 탭은 7열 — 9열 쓰기 전에 격자 확장(모자라면 update 가 grid limits 로 실패)
+            if getattr(ws, "col_count", 9) < 9: ws.add_cols(9 - ws.col_count)
+            if getattr(ws, "row_count", len(out)) < len(out): ws.add_rows(len(out) - ws.row_count + 20)
+        except Exception as _ge:
+            print(f"[solo] SOLO_RANK 격자 확장 실패: {type(_ge).__name__}", flush=True)
         ws.clear(); ws.update(out)
         invalidate_sheet_cache("SOLO_RANK")
-        print(f"[solo] SOLO_RANK 갱신 {_new_n}명", flush=True)
+        print(f"[solo] SOLO_RANK 갱신 {_new_n}명" + (f" · 최근 롤닉으로 조회 {len(_renamed)}명: {', '.join(_renamed[:8])}" if _renamed else ""), flush=True)
     except Exception as _se:
         print(f"[solo] SOLO_RANK 기록 실패: {type(_se).__name__}", flush=True)
 
@@ -4996,28 +5469,43 @@ def _load_solo_ranks():
                         k = tnorm(r[ni2])
                         if k not in cache: cache[k] = pk   # 중복행은 첫 값만(이중 평균 방지)
             _PEAK_SEASONS_CACHE = cache
-        for k, pk in _PEAK_SEASONS_CACHE.items():
-            if k in out:
+        # 🔗 [2026-09-10 사장님 지시 '그룹 최고 피크'] 자기 닉으로 PEAK 행이 없으면(닉변·계정 이전) LINK_ACCOUNT 그룹의
+        #    최고 피크로 블렌드 — 카무사리(현시즌 3423, 피크 없음)가 귤갓입니다(3127)·귤 갓(2938) 중 3127 을 받아 3275.
+        #    [2026-10-09 사장님 제보 "카무사리 웹에서 언랭으로 뜨는 이유"] 그룹 = LINK 쌍의 연결 요소(union-find) — 쌍마다 새 그룹을 덮어써서
+        #    사슬(A←B←C)이 끊기던 것을 고쳤다. 웹 linkComponents · 툴링 sibguiwol.py link_components 와 같은 규칙.
+        try: _grp = _dep_link_groups(global_alt_map)
+        except Exception: _grp = {}
+        def _peak_of(k):
+            if k in _PEAK_SEASONS_CACHE: return _PEAK_SEASONS_CACHE[k]
+            _c = [_PEAK_SEASONS_CACHE[m] for m in _grp.get(k, ()) if m in _PEAK_SEASONS_CACHE]
+            return max(_c) if _c else None
+        for k in list(out.keys()):
+            pk = _peak_of(k)
+            if pk is not None:
                 cur = out[k]["score"]
                 out[k]["score"] = (cur + pk) / 2.0
                 out[k]["cur"] = cur                       # 현시즌 원값 보존(뱃지 등 현시즌 판단용)
-            else:
+        for k, pk in _PEAK_SEASONS_CACHE.items():
+            if k not in out:
                 out[k] = {"score": pk, "wins": 0, "losses": 0, "wr": None, "cur": None}   # 과거만 보유(솔랭 쉬는 클랜원)
     except Exception: pass
     # 🔗 [v82.50 사장님 제보 — 귤갓 십이귀월 누락] 부계정 통합(LINK_ACCOUNT) 반영.
     #    웹(index.html)은 SOLO_RANK 조회 시 LINK_ACCOUNT 별칭 후보까지 훑어 본계·부계 중 데이터가 있는 쪽을 쓰는데,
     #    분석기는 PUUID 닉변 별칭만 봐서 '계정 이전 통합' 케이스(예: 귤 갓 ← 귤갓입니다)의 솔랭·PEAK를 못 찾았다.
     #    → 웹과 같은 판단이 되도록, 통합 그룹 안에서 현시즌 데이터가 있는 엔트리를 그룹 전원에게 공유한다.
+    # 🔗 [2026-10-09 사장님 제보 "카무사리 웹에서 언랭으로 뜨는 이유"] 그룹 = 연결 요소(사슬 A←B←C 포함) · 순서에 기대지 않는다.
+    #    예전엔 {본계: {본계, 부계…}} 를 쌍마다 만들어(사슬을 합치지 못함) global_alt_map 삽입 순서 덕에 우연히 풀렸다 —
+    #    제보된 그룹이 {맨 옛 닉, 중간 닉} 다음에 {지금 닉, 중간 닉} 순으로 돌 때만 마스터 기록이 닿았다. 웹 blendSoloRanks·툴링 share_best 와 같은 규칙.
     try:
-        groups = {}
-        for _sub, _main in (global_alt_map or {}).items():
-            g = groups.setdefault(tnorm(_main), {tnorm(_main)})
-            g.add(tnorm(_sub))
-        for _mk, keys in groups.items():
+        _seen_g = set()
+        for _members in _dep_link_groups(global_alt_map).values():
+            if id(_members) in _seen_g: continue
+            _seen_g.add(id(_members))
+            keys = sorted(_members)                     # 동점은 닉 순서 — 집합 순회 순서(해시)에 기대지 않는다
             cands = [out[k] for k in keys if k in out]
             if not cands: continue
             # 현시즌 전적(승+패)이 있는 엔트리 우선 → 없으면 점수 최고값
-            best = max(cands, key=lambda d: ((d.get("wins", 0) + d.get("losses", 0)) > 0, d.get("score") or -1e9))
+            best = max(cands, key=lambda d: ((d.get("wins", 0) + d.get("losses", 0)) > 0, d.get("score") if d.get("score") is not None else -1e9))
             for k in keys:
                 if out.get(k) is not best: out[k] = dict(best)
     except Exception: pass
@@ -5100,7 +5588,45 @@ def _player_metrics_from_stat(s):
         "aceRate": (ace / (g - w) * 100) if (g - w) > 0 else None,    # ACE획득률 = ACE ÷ 패배수(진 판에서만 %)
         "avgAI": (ai_sum / ai_n) if ai_n else None,
         "recent30": a.get("recent30", 0),   # [v82.27] 최근 30일 판수(십이귀월 활동 조건)
+        "last": a.get("last", ""),          # 👻 마지막 기록일(YYYY-MM-DD) — 90일 유령 판정
     }
+
+# 👥👻 십이귀월 분모 — 웹 index.html computeAssessments 의 elig 와 같은 규칙
+#   · DEPARTED 탭(디스코드 탈퇴 간주)에 오른 사람 제외          [2026-08-19 웹 반영 · 분석기 누락]
+#   · 데이터 마지막 기록일 기준 90일 무기록(유령) 제외            [2026-08-18 웹 반영 · 분석기 누락]
+#   🐛 [2026-09-17 사장님 제보 "웹은 칼바람 상현1인데 웹훅은 2"] 분석기는 이 둘을 안 빼서 탈퇴자(귤 갓)가
+#      후보에 남아 사장님 바로 아래 0.02 차이로 붙어 있었다. 산식을 아무리 맞춰도 분모가 다르면 명단이 갈린다.
+SIBGUI_GHOST_DAYS = 90
+_DEPARTED_CACHE = {"t": 0.0, "set": set()}
+def _departed_set():
+    """DEPARTED 탭 → {tnorm(닉)}. 30분 캐시. 실패하면 마지막 값(없으면 빈 집합 — 제외 없이 진행)."""
+    if time.time() - _DEPARTED_CACHE["t"] < 1800: return _DEPARTED_CACHE["set"]
+    try:
+        import csv as _csv, io as _io
+        rows = list(_csv.reader(_io.StringIO(_fetch_public_csv(DOCUMENT_ID, sheet="DEPARTED", headers=1, timeout=8))))
+        if rows and rows[0] and str(rows[0][0]).strip() == "닉네임":
+            _DEPARTED_CACHE["set"] = {tnorm(r[0]) for r in rows[1:] if r and str(r[0]).strip()}
+            _DEPARTED_CACHE["t"] = time.time()
+    except Exception as e:
+        print(f"[sibguiwol] DEPARTED 읽기 실패(이전 값 유지): {type(e).__name__} {e}", flush=True)
+        _DEPARTED_CACHE["t"] = time.time() - 1800 + 300      # 5분 뒤 재시도
+    return _DEPARTED_CACHE["set"]
+
+def _sibgui_ghost_cut(metrics_list):
+    """유령 기준일 — '오늘'이 아니라 데이터의 마지막 기록일에서 90일 전(수집이 멈춰도 전원 유령화 방지, 웹과 동일)."""
+    mx = max((str(m.get("last") or "") for m in metrics_list), default="")
+    if not mx: return ""
+    try:
+        import datetime as _dt
+        d = _dt.date.fromisoformat(mx) - _dt.timedelta(days=SIBGUI_GHOST_DAYS)
+        return d.isoformat()
+    except Exception: return ""
+
+def _sibgui_excluded(nm, m, aliases, ghost_cut, departed):
+    """십이귀월 분모에서 빼야 하나 — 탈퇴자(현재닉·과거닉 모두 대조) 또는 유령."""
+    if departed and (tnorm(nm) in departed or any(tnorm(a) in departed for a in (aliases or ()))): return True
+    if ghost_cut and str(m.get("last") or "") < ghost_cut: return True
+    return False
 
 def compute_tier_assessment():
     """동티어 평균 대비 고/저평가 판정 — 신뢰도 강화판.
@@ -5132,9 +5658,13 @@ def compute_tier_assessment():
         m["soloWR"] = sr.get("wr") if sr else None
         m["soloW"] = sr.get("wins", 0) if sr else 0
         m["soloL"] = sr.get("losses", 0) if sr else 0
+        m["_aliases"] = list(aliases.get(_pk, ()))
         members.append((t, nm, m))
 
-    elig = [(t, nm, m) for (t, nm, m) in members if m["games"] >= TIER_MIN_GAMES]
+    # 👥👻 분모(elig) = 10판↑ 이고 탈퇴자·유령이 아닌 사람 — 웹 computeAssessments 와 동일. 카드(out)는 전원 나온다.
+    _dep = _departed_set(); _gcut = _sibgui_ghost_cut([m for _, _, m in members])
+    elig = [(t, nm, m) for (t, nm, m) in members
+            if m["games"] >= TIER_MIN_GAMES and not _sibgui_excluded(nm, m, m.get("_aliases"), _gcut, _dep)]
     # 전체 사전평균(shrinkage prior)
     g_wr  = _mean([m["wr"] for _, _, m in elig]) or 50.0
     g_ai  = _mean([m["avgAI"] for _, _, m in elig if m["avgAI"] is not None]) or 0.0
@@ -5146,7 +5676,7 @@ def compute_tier_assessment():
         wr = (m["wins"] + SHRINK_WR * (g_wr / 100.0)) / (m["games"] + SHRINK_WR) * 100.0
         ai = ((m["ai_sum"] + SHRINK_AI * g_ai) / (m["ai_n"] + SHRINK_AI)) if m["ai_n"] > 0 else None
         if m["eval"] >= TIER_MIN_EVAL:
-            mvp = (m["mvp"] + SHRINK_EVAL * (g_mvp / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0
+            mvp = (m["mvp"] + 0.5 * m.get("ace", 0) + SHRINK_EVAL * (g_mvp / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0   # [2026-09-10] ACE 0.5 — 웹·툴링과 동일
             tr  = (m["troll"] + SHRINK_EVAL * (g_tr / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0
         else:
             mvp = tr = None
@@ -5157,7 +5687,8 @@ def compute_tier_assessment():
             swr = None
         return {"wr": wr, "ai": ai, "mvp": mvp, "tr": tr, "solo": ss, "solowr": swr}
 
-    sh = {id(m): shrunk(m) for _, _, m in elig}
+    # ⚠️ sh 는 '카드가 나올 모든 인원'(10판↑)에 계산 — elig 에서 빠진 탈퇴자·유령 카드가 KeyError 로 죽지 않게(웹 2026-08-19 장애와 같은 함정)
+    sh = {id(m): shrunk(m) for _, _, m in members if m["games"] >= TIER_MIN_GAMES}
     by_tier = {}
     for t, nm, m in elig:
         by_tier.setdefault(t, []).append(m)
@@ -5283,7 +5814,11 @@ def compute_tier_assessment():
 
     return out, tier_avg
 
-# ===== 🩸 십이귀월(상현/하현) 로스터 변동 → 자동내전기록 채널 웹훅 (호스트만) =====
+# ===== 🩸 십이귀월(상현/하현) 로스터 계산 (디스코드 발송은 2026-10-11 제거 — 웹으로만 본다) =====
+#   [2026-09-14 사장님 지시 "변동 실시간 알림 말고 하루에 한 번 — 협곡도 칼바람도"]
+#   원인: 15분마다 HOF 를 갱신하며 명단이 '순서만' 바뀌어도 발송(2026-07-29 규칙)했는데, 칼바람은 표본이 얇아
+#   판 한두 개로 12인 순위가 계속 뒤집혀 활동 많은 날엔 갱신 주기마다 웹훅이 나갔다. 이제는 하루 1회(09시 이후
+#   첫 HOF 갱신 때) '오늘의 십이귀월' 로 협곡·칼바람 각 1장만 — 어제 명단과의 변동을 같은 카드에 적는다.
 def _sibguiwol_roster(league=""):
     """[v82.26] league='서부'/'동부' — 해당 리그 상현1~6·하현1~6 순서 리스트(12개, 빈칸 가능). 없으면 None."""
     try:
@@ -5327,7 +5862,11 @@ def _sibguiwol_aram_roster():
             m["soloWR"] = sr.get("wr") if sr else None
             m["soloW"] = sr.get("wins", 0) if sr else 0
             m["soloL"] = sr.get("losses", 0) if sr else 0
+            m["_aliases"] = list(aliases.get(_pk, ()))
             ms.append((nm, m))
+        # 👥👻 분모 = 탈퇴자·유령 제외(웹 elig 와 동일) — 이 필터가 없어 탈퇴자가 명단에 끼어 웹과 어긋났다(2026-09-17)
+        _dep = _departed_set(); _gcut = _sibgui_ghost_cut([m for _, m in ms])
+        ms = [(nm, m) for nm, m in ms if not _sibgui_excluded(nm, m, m.get("_aliases"), _gcut, _dep)]
         if len(ms) < 2: return None
         g_wr  = _mean([m["wr"] for _, m in ms]) or 50.0
         g_ai  = _mean([m["avgAI"] for _, m in ms if m["avgAI"] is not None]) or 0.0
@@ -5339,7 +5878,7 @@ def _sibguiwol_aram_roster():
             wr = (m["wins"] + SHRINK_WR * (g_wr / 100.0)) / (m["games"] + SHRINK_WR) * 100.0
             ai = ((m["ai_sum"] + SHRINK_AI * g_ai) / (m["ai_n"] + SHRINK_AI)) if m["ai_n"] > 0 else None
             if m["eval"] >= TIER_MIN_EVAL:
-                mvp = (m["mvp"] + SHRINK_EVAL * (g_mvp / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0
+                mvp = (m["mvp"] + 0.5 * m.get("ace", 0) + SHRINK_EVAL * (g_mvp / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0   # [2026-09-10] ACE 0.5 — 웹·툴링과 동일
                 tr  = (m["troll"] + SHRINK_EVAL * (g_tr / 100.0)) / (m["eval"] + SHRINK_EVAL) * 100.0
             else:
                 mvp = tr = None
@@ -5354,7 +5893,8 @@ def _sibguiwol_aram_roster():
         ranked = []
         for nm, m in ms:
             if sh[nm]["solo"] is None: continue      # 웹과 동일: 솔랭 보유자만 후보
-            if m.get("recent30", 0) < 5: continue    # [v82.27] 최근 30일 5판↑(칼바람도 동일 활동 조건)
+            # ⚔️ [2026-08-19 웹 반영 '칼바람은 통산 기준'] 최근 30일 게이트 없음 — 칼바람은 몰아서 하는 모드라
+            #    통산 65판인 사람도 최근 0판이 되어 12자리가 비었다. 유령 방지는 위의 90일 필터가 맡는다.
             tm = []
             for w, k, neg in ((W_SOLO, "solo", 1), (W_AI, "ai", 1), (W_WR, "wr", 1),
                               (W_SOLOWR, "solowr", 1), (W_MVP, "mvp", 1), (W_TROLL, "tr", -1)):
@@ -5370,82 +5910,10 @@ def _sibguiwol_aram_roster():
     except Exception:
         return None
 
-def _post_sibguiwol_webhook(prev, cur, aram=False, league=""):
-    # 2026-07-04: 십이귀월 재편 공지를 내전기록 → 내전결과리포트(RESULT) 채널로 이동(사장님 지시)
-    if not RESULT_WEBHOOK_URL or RESULT_WEBHOOK_URL.startswith("여기에"): return
-    def _nm(x): return str(x).split("#")[0]
-    NUM = ["壱", "弐", "参", "肆", "伍", "陸"]
-    prev = (list(prev) + [""] * 12)[:12]
-    prevset = set(x for x in prev if x); curset = set(x for x in cur if x)
-    prev_top = set(x for x in prev[:6] if x); cur_top = set(x for x in cur[:6] if x)
-    newcomers = [x for x in cur if x and x not in prevset]
-    dropouts  = [x for x in prev if x and x not in curset]
-    promoted  = [x for x in cur[:6] if x and x in prevset and x not in prev_top]   # 하현→상현
-    demoted   = [x for x in cur[6:] if x and x in prev_top]                          # 상현→하현
-    sang = "\n".join(f"`{NUM[i]}`　**{_nm(cur[i])}**" for i in range(6) if cur[i]) or "—"
-    haha = "\n".join(f"`{NUM[i]}`　{_nm(cur[6 + i])}" for i in range(6) if cur[6 + i]) or "—"
-    ch = []
-    if newcomers: ch.append("🆕 **신규 진입** — " + ", ".join(_nm(x) for x in newcomers))
-    if dropouts:  ch.append("💀 **이탈** — " + ", ".join(_nm(x) for x in dropouts))
-    if promoted:  ch.append("⬆️ **상현 승격** — " + ", ".join(_nm(x) for x in promoted))
-    if demoted:   ch.append("⬇️ **하현 강등** — " + ", ".join(_nm(x) for x in demoted))
-    # [2026-07-29 사장님 지시] 조 내 순위만 바뀐 경우에도 공지 — 웹 화면과 웹훅 명단을 완전히 일치시킨다.
-    if not ch:
-        _pi = {x: i for i, x in enumerate(prev) if x}
-        _mv = [(x, _pi[x] - i) for i, x in enumerate(cur) if x and x in _pi and _pi[x] != i]
-        _mv.sort(key=lambda t: -abs(t[1]))
-        if _mv:
-            ch.append("🔄 **순위 변동** — " + ", ".join(
-                f"{_nm(x)} {'▲' if d > 0 else '▼'}{abs(d)}" for x, d in _mv[:6]))
-    if aram:
-        desc = "　**칼바람 파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·칼바람 내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
-        title, color, content = "❄️　칼바람 십이귀월 ( 十二鬼月 ) 　재편성　❄️", 0x2B6E9B, "❄️❄️　**칼바람 십이귀월이 재편성되었다!**　❄️❄️"
-        footer = "스쿼드해체분석기 · 칼바람(KIWI) 파워랭킹 (1~6위 상현 · 7~12위 하현)"
-    elif league:   # [v82.26] 서부(0·1티어)/동부(2·3티어) 리그 분할
-        _tier_txt = "0·1티어" if league == "서부" else "2·3티어"
-        desc = f"　**{league} 리그({_tier_txt}) 파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·AI·내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
-        title = f"⚔️　{league} 십이귀월 ( 十二鬼月 ) 　재편성　⚔️"
-        color = 0x9B1B1B if league == "서부" else 0x1B4A9B
-        content = f"🩸🩸　**{league} 십이귀월이 재편성되었다!**　🩸🩸"
-        footer = f"스쿼드해체분석기 · squad.gg 내부티어 {league} 리그({_tier_txt}) — 파워 1~6위 상현 · 7~12위 하현"
-    else:
-        desc = "　**파워랭킹 최강 12인이 재편성되었다.**\n　_솔로랭크·AI·내전성적 종합_\n\n" + ("\n".join(ch) if ch else "순위 변동")
-        title, color, content = "⚔️　십이귀월 ( 十二鬼月 ) 　재편성　⚔️", 0x9B1B1B, "🩸🩸　**십이귀월이 재편성되었다!**　🩸🩸"
-        footer = "스쿼드해체분석기 · squad.gg — 상현=0·1티어 상위 6 · 하현=2·3티어 상위 6"
-    embed = {
-        "title": title,
-        "description": desc, "color": color,
-        "fields": [
-            {"name": "🗡　상현 ( 上弦 )", "value": sang, "inline": True},
-            {"name": "🌙　하현 ( 下弦 )", "value": haha, "inline": True},
-        ],
-        "footer": {"text": footer},
-    }
-    try:
-        requests.post(RESULT_WEBHOOK_URL, json={"content": content, "embeds": [embed]}, timeout=6)
-    except Exception: pass
+# 🔕 [2026-10-11 사장님 지시 "십이귀월 디스코드 웹훅 보내주는거 제거해줘 웹으로만 보게 하자"]
+#    십이귀월 디스코드 발송(오늘의 십이귀월 · 재편 공지)은 없앴다 — 명단은 웹(내부티어)에서만 본다.
+#    위의 명단 계산(_sibguiwol_roster · _sibguiwol_aram_roster)은 웹·툴링과 일치 검증(parity.py)에 쓰이므로 남긴다.
 
-def announce_sibguiwol_if_changed():
-    """상현/하현 세트가 바뀌면 웹훅 발송(협곡 + 칼바람 각각). 호스트(token.txt)만. 첫 실행은 기준선만 저장(공지 X)."""
-    try:
-        if not load_bot_token(): return
-        for cfg_key, roster_fn, is_aram, _lg in (
-                ("sibguiwol_unified", lambda: _sibguiwol_roster(), False, ""),   # [2026-08-07] 동서 통합 단일 12인
-                ("sibguiwol_roster_aram", _sibguiwol_aram_roster, True, "")):
-            try:
-                cur = roster_fn()
-                if not cur: continue
-                cfg = load_config()
-                prev = cfg.get(cfg_key)
-                if prev is None:                   # 최초 = baseline만 저장, 공지 안 함(스팸 방지)
-                    cfg[cfg_key] = cur; save_config(cfg); continue
-                prev = (list(prev) + [""] * 12)[:12]
-                # [2026-07-29 사장님 지시] 순서만 바뀐 경우도 공지 대상 — 세트만 보면 웹과 명단이 어긋나 보인다.
-                if list(cur) != list(prev):
-                    _post_sibguiwol_webhook(prev, cur, aram=is_aram, league=_lg)
-                    cfg[cfg_key] = cur; save_config(cfg)
-            except Exception: pass
-    except Exception: pass
 
 # ===== 📊 [v81.96] 사전집계 재계산(호스트) — 원본 전량스캔을 '호스트 1대·주기당 1회'로 이동 =====
 #   Phase2a: additive(집계 탭 STAT_CHAMP/STAT_PLAYER만 씀, 어떤 읽기경로도 안 바꿈). 소비자 전환은 Phase2b(crunch)·3(웹).
@@ -5464,6 +5932,8 @@ def rebuild_stat_aggregate():
         if any(c not in _ci for c in _need): return
         G, NM, PU, SD, PO, CH, RS, EV, SC = [_ci[c] for c in _need]
         BN = _ci.get("밴", -1)   # 약점발견(STAT_BAN)용, 없으면 스킵
+        DT = _ci.get("날짜", -1)  # 🌱 첫기록(뉴비 새싹 폴백)용, 없으면 빈칸
+        _first = {}
         SKIP_BAN = {"밴 없음", "밴 안함", "기록 대기", "결과 대기", "평가 대기", "알수없음", ""}
         _seen = set(); _champ = _dd(lambda: [0, 0]); _disp = {}
         _pl = _dd(lambda: [0, 0, 0, 0, 0, 0.0, 0, 0, 0, 0, 0])   # g,w,mvp,tr,ace,ssum,sn,bg,bw,rg,rw
@@ -5504,6 +5974,8 @@ def rebuild_stat_aggregate():
                 if pos: _pchamps_pos[(pk, pos)].add(cc)
             p = _pl[pk]
             p[0] += 1; p[1] += win
+            _d10 = str(r[DT]).strip()[:10] if 0 <= DT < len(r) else ""
+            if len(_d10) == 10 and _d10[4] == "-" and (pk not in _first or _d10 < _first[pk]): _first[pk] = _d10
             ev = str(r[EV]).strip() if EV < len(r) else ""
             if ev == "MVP": p[2] += 1
             elif ev == "역적": p[3] += 1
@@ -5555,9 +6027,24 @@ def rebuild_stat_aggregate():
         champ_vals = [["키", "소환사명", "챔피언", "포지션", "판수", "승"]]
         for (pk, c, pos), e in _champ.items():
             if e[0] > 0: champ_vals.append([pk, _disp.get(pk, ""), c, pos, e[0], e[1]])
-        player_vals = [["키", "소환사명", "총판수", "총승", "MVP", "역적", "ACE", "점수합", "점수판수", "블루판", "블루승", "레드판", "레드승", "연승"]]
+        # 🌱 칼바람(KIWI_KIWI)에서 먼저 뛴 사람도 있다 — 첫기록은 두 모드 중 이른 날짜(협곡 선수 키에만 얹는다)
+        try:
+            _ku = f"https://docs.google.com/spreadsheets/d/{DOCUMENT_ID}/gviz/tq?tqx=out:csv&sheet=KIWI_KIWI&headers=1"
+            _kr = list(_csv.reader(_io.StringIO(_u.urlopen(_u.Request(_ku, headers={"User-Agent": "Mozilla/5.0"}), timeout=25).read().decode("utf-8"))))
+            _kc = {c: i for i, c in enumerate(_kr[0])} if _kr else {}
+            if {"날짜", "소환사명", "결과"} <= set(_kc):
+                _kd, _kn, _kres, _kp = _kc["날짜"], _kc["소환사명"], _kc["결과"], _kc.get("PUUID", -1)
+                for r in _kr[1:]:
+                    if len(r) <= max(_kd, _kn, _kres) or str(r[_kres]).strip() not in ("승리", "패배"): continue
+                    _kpk = (str(r[_kp]).strip().lower() if 0 <= _kp < len(r) else "") or _name_fb.get(get_main_name(str(r[_kn]).strip()), "")
+                    _d10 = str(r[_kd]).strip()[:10]
+                    if _kpk in _pl and len(_d10) == 10 and _d10[4] == "-" and (_kpk not in _first or _d10 < _first[_kpk]): _first[_kpk] = _d10
+        except Exception as _ke:
+            print(f"[stat_agg] 칼바람 첫기록 합산 건너뜀: {type(_ke).__name__}", flush=True)
+        # 🌱 '첫기록' 은 맨 끝 열 — 읽는 쪽이 전부 열 이름으로 찾으므로 구버전 클라이언트는 그냥 무시한다
+        player_vals = [["키", "소환사명", "총판수", "총승", "MVP", "역적", "ACE", "점수합", "점수판수", "블루판", "블루승", "레드판", "레드승", "연승", "첫기록"]]
         for pk, p in _pl.items():
-            player_vals.append([pk, _disp.get(pk, ""), p[0], p[1], p[2], p[3], p[4], round(p[5], 1), p[6], p[7], p[8], p[9], p[10], _streak(pk)])
+            player_vals.append([pk, _disp.get(pk, ""), p[0], p[1], p[2], p[3], p[4], round(p[5], 1), p[6], p[7], p[8], p[9], p[10], _streak(pk), _first.get(pk, "")])
         syn_vals = [["키A", "키B", "진영", "판수", "같은팀승"]] + [[a, b, sd_, e[0], e[1]] for (a, b, sd_), e in _syn.items() if e[0] >= 5]
         nem_vals = [["키A", "키B", "판수", "A측승"]] + [[a, b, e[0], e[1]] for (a, b), e in _nem.items() if e[0] >= 5]
         ban_vals = [["키", "챔피언", "밴판수", "밴판승"]] + [[pk, c, e[0], e[1]] for (pk, c), e in _ban.items() if e[0] >= 3]
@@ -5587,17 +6074,44 @@ def rebuild_stat_aggregate():
                         w.resize(rows=len(_v) + 5000)
                         print(f"[stat_agg] {_t} 탭 행 확장 → {len(_v)+5000}", flush=True)
                     except Exception: pass
+                #   🌱 [2026-09-24] 열도 같다 — STAT_PLAYER 는 14열 탭인데 '첫기록'(15번째)을 더했다. 모자라면 먼저 늘린다.
+                _wd = max((len(r) for r in _v), default=0)
+                if w is not None and getattr(w, "col_count", 0) and w.col_count < _wd:
+                    try:
+                        w.add_cols(_wd - w.col_count)
+                        print(f"[stat_agg] {_t} 탭 열 확장 → {_wd}", flush=True)
+                    except Exception as _ce: print(f"[stat_agg] {_t} 열 확장 실패: {type(_ce).__name__}", flush=True)
         except Exception: pass
         for tab, vals in _tabs:
             base = f"https://sheets.googleapis.com/v4/spreadsheets/{DOCUMENT_ID}/values/{tab}"
             try:
-                requests.post(base + "!A1:Z1000000:clear", headers=H, timeout=30)
-                requests.put(base + "!A1?valueInputOption=RAW", headers=H, data=json.dumps({"values": vals}), timeout=60)
+                #   쓰고 나서 남는 아래 행만 지운다 — 예전엔 먼저 지우고 썼는데, 쓰기가 실패하면(격자 초과 등) 탭이 빈 채로 남아
+                #   모든 PC 가 무거운 원본 경로로 떨어졌다. 이제 쓰기가 실패하면 옛 값이 그대로 남는다.
+                _pr = requests.put(base + "!A1?valueInputOption=RAW", headers=H, data=json.dumps({"values": vals}), timeout=60)
+                if getattr(_pr, "status_code", 200) != 200:
+                    print(f"[stat_agg] {tab} 쓰기 거부 HTTP {_pr.status_code} — 옛 값 유지: {str(getattr(_pr, 'text', ''))[:160]}", flush=True); continue
+                requests.post(base + f"!A{len(vals) + 1}:Z1000000:clear", headers=H, timeout=30)
             except Exception as _we:
                 print(f"[stat_agg] {tab} 쓰기 실패: {type(_we).__name__}", flush=True)
         print(f"[stat_agg] 사전집계 갱신 — CHAMP {len(champ_vals)-1} · PLAYER {len(player_vals)-1} · SYN {len(syn_vals)-1} · NEM {len(nem_vals)-1} · BAN {len(ban_vals)-1} · BANPOS {len(banpos_vals)-1}", flush=True)
     except Exception as e:
         print(f"[stat_agg] 재계산 실패(무시): {type(e).__name__}: {e}", flush=True)
+
+def _fix_pack_minutes(o):
+    """🩹 [2026-10-10 사장님 제보 「일단즐겨 서포터 웹 명예의 전당 DPM 이 이상하다」] '지표' 팩의 m 이 게임 시간(분)이 아니라 분당 CS 로 들어간 행을 되돌린다.
+    2026-09-19·09-22 다섯 판(#8387155519 #8387222960 #8387316403 #8390902575 #8391010034, 50행)이 그랬다 — 선수마다 m 이 0.86·6.6·9.45 로 달랐고 cs÷m 은 판마다
+    같은 값(26.67 …)이 진짜 게임 시간이다. 분당 CS 는 12.4 를 넘을 수 없으니(정상 행 14,947개 중 최대) **값으로** 가린다: cs÷m > 14 면 m = cs÷m
+    (되돌린 값이 8~90분이 아니면 m=0 으로 버린다). 서식(vs 없음 등)으로 고르면 안 된다 — 9/8 에 그렇게 골라 멀쩡한 140행을 망가뜨렸다.
+    웹 index.html parseMetrics 와 같은 규칙 — 한쪽만 고치지 말 것. o: {키: float} — 제자리에서 고쳐 같은 dict 를 돌려준다."""
+    try:
+        cs, m = o.get("cs"), o.get("m")
+        if cs and m and cs > 0 and m > 0 and cs / m > 14:
+            fx = cs / m
+            o["m"] = fx if 8 <= fx <= 90 else 0.0
+    except Exception:
+        pass
+    return o
+
 
 def update_hof_stats(force=False):
     global gui_data, global_spreadsheet
@@ -5606,25 +6120,14 @@ def update_hof_stats(force=False):
         all_ws = global_spreadsheet.worksheets()
         c_g_data, a_g_data = {"전체 (ALL)": {}}, {"전체 (ALL)": {}}
         def _hof_parse_met(s):
-            """📊 '지표' 팩("g8566|cs26|m25.9|kp82|...") → {키: float}. 실패 시 {}.
-               🩹 [2026-09-07 사장님 지시] m↔분당CS 뒤바뀜 방어 — 구버전 LCU 백필 빌드가 m(게임 길이)
-                  자리에 '분당 CS'를 써넣은 판이 실재한다(8/1~8/24 14판, 팀 전원 동일 증상).
-                  그대로 읽으면 cs/m·g/m 이 3~9배로 튀어 분당 랭킹이 통째로 뒤집힌다.
-                  판정: m 이 게임 길이로 보기엔 너무 작고(<12분) cs/m 이 분당 CS로 보기엔 너무 큰(≥14)
-                  경우만 되돌린다 — 실제 짧은 판(분당 CS 12 이하)은 건드리지 않는다."""
+            """📊 '지표' 팩("g8566|cs26|m25.9|kp82|...") → {키: float}. 실패 시 {}."""
             out = {}
             try:
                 for tok in str(s or "").split("|"):
                     m2 = re.match(r"([a-z]+)(-?[\d.]+)$", tok.strip())
                     if m2: out[m2.group(1)] = float(m2.group(2))
             except Exception: return {}
-            try:
-                _m, _cs = out.get("m", 0.0), out.get("cs", 0.0)
-                if 0 < _m < 12 and _cs > 0:
-                    _dur = _cs / _m
-                    if 14 <= _dur <= 90: out["m"] = round(_dur, 1)
-            except Exception: pass
-            return out
+            return _fix_pack_minutes(out)   # 🩹 m 이 분당 CS 로 들어간 행 되돌림(2026-10-10)
         c_rec, a_rec = {}, {}   # 🏅 [v82.22] 기록실 — p_key별 킬/데스/어시/딜량/AI점수 기록(단일게임 최고 + 누적)
         c_patches, a_patches = set(), set()
         c_aliases, a_aliases = {}, {}   # p_key(PUUID) -> {그 사람의 모든 닉} : 닉변 시 티어 복원용
@@ -5677,14 +6180,33 @@ def update_hof_stats(force=False):
                     puuid_to_latest_name[puuid] = name 
                     name_to_puuid_fallback[main_name] = puuid
             
+            # 🔗 [2026-09-10 사장님 지시] 집계 엔티티를 LINK_ACCOUNT 로 정규화 — 본계·부계·닉변 뒤 새 PUUID 를 한 사람으로.
+            #    (웹 canonOfRow/resolveAlt · 툴링 build_identity 와 같은 규칙.) 전엔 raw PUUID 로만 묶어 귤갓입니다(7판)가
+            #    카무사리와 별개로 남았고, 그 7판 차이로 십이귀월 순위가 웹과 어긋났다. 대표 PUUID = 그룹에서 가장 최근 판의 PUUID.
+            _pu_date, _pu_key, _grp_best = {}, {}, {}
+            for r in rows[1:]:
+                _pu9 = str(r[col_puuid]).strip().lower() if col_puuid != -1 and col_puuid < len(r) else ""
+                if not _pu9: continue
+                _d9 = str(r[col_date])[:16] if 0 <= col_date < len(r) else ""
+                if _d9 >= _pu_date.get(_pu9, ""): _pu_date[_pu9] = _d9
+            for _pu9, _nm9 in puuid_to_latest_name.items():
+                _k9 = tnorm(get_main_name(_nm9))
+                if not _k9: continue
+                _pu_key[_pu9] = _k9
+                if _k9 not in _grp_best or _pu_date.get(_pu9, "") >= _pu_date.get(_grp_best[_k9], ""): _grp_best[_k9] = _pu9
+            puuid_canon = {_pu9: _grp_best[_k9] for _pu9, _k9 in _pu_key.items()}
+            for _mn9, _pu9 in list(name_to_puuid_fallback.items()): name_to_puuid_fallback[_mn9] = puuid_canon.get(_pu9, _pu9)
+
             for r in rows[1:]:
                 g_id = r[col_gid] if col_gid != -1 and col_gid < len(r) else ""
                 raw_name = r[col_name].strip() if col_name != -1 and col_name < len(r) else ""
                 main_name = get_main_name(raw_name)
                 
                 raw_puuid = str(r[col_puuid]).strip().lower() if col_puuid != -1 and col_puuid < len(r) else ""
-                p_key = raw_puuid if raw_puuid else name_to_puuid_fallback.get(main_name, main_name)
-                if p_key and main_name: target_aliases.setdefault(p_key, set()).add(main_name)
+                p_key = puuid_canon.get(raw_puuid, raw_puuid) if raw_puuid else name_to_puuid_fallback.get(main_name, main_name)
+                if p_key and main_name:
+                    target_aliases.setdefault(p_key, set()).add(main_name)
+                    if "#" in raw_name: target_aliases[p_key].add(raw_name)   # 원문 닉도(태그 있는 진짜 롤닉만 — 익명화 백필 행의 챔피언명은 제외) — 웹·툴링 별칭 집합과 맞춤
 
                 res = r[col_res] if col_res != -1 and col_res < len(r) else ""
                 
@@ -5798,6 +6320,9 @@ def update_hof_stats(force=False):
                         _dm = re.match(r"(\d{4})-(\d{1,2})-(\d{1,2})", str(r[col_date]) if 0 <= col_date < len(r) else "")
                         if _dm and time.mktime((int(_dm.group(1)), int(_dm.group(2)), int(_dm.group(3)), 0, 0, 0, 0, 0, -1)) >= time.time() - 30 * 86400:
                             target_data[p_ver][p_key]["ALL"]["recent30"] = target_data[p_ver][p_key]["ALL"].get("recent30", 0) + 1
+                        if _dm:   # 👻 마지막 기록일 — 십이귀월 유령(90일 무기록) 판정용(웹 computeAssessments 의 _lastOf 와 동일)
+                            _ds = "%04d-%02d-%02d" % (int(_dm.group(1)), int(_dm.group(2)), int(_dm.group(3)))
+                            if _ds > target_data[p_ver][p_key]["ALL"].get("last", ""): target_data[p_ver][p_key]["ALL"]["last"] = _ds
                     except Exception: pass
                     
                     if g_id in eval_gids:
@@ -5829,8 +6354,6 @@ def update_hof_stats(force=False):
     except Exception: pass
     try:
         if load_bot_token(): sync_master_tier_chart()   # 🎖 마스터 티어표→CLAN_TIERS 자동 동기화(호스트만, 15분 주기)
-    except Exception: pass
-    try: announce_sibguiwol_if_changed()   # 🩸 십이귀월 로스터 변동 시 웹훅(호스트만)
     except Exception: pass
 
 def get_champ_eng_name(kor_name):
@@ -6051,7 +6574,8 @@ _QUIZ_PREF_CACHE = {"ts": 0.0, "map": {}}
 
 def _quiz_pref_map():
     """🔨 [2026-08-07 사장님 지시] 밴픽 퀴즈의 '상대별 밴 표'(QUIZ_PREF 탭)를 밴 추천 근거로.
-    {tnorm(상대): [(챔프, 표, 적중), ...표순]} — 공개 gviz, 10분 캐시."""
+    {tnorm(상대): [(챔프, 표, 적중, 최근30일표, 이유), ...표순]} — 공개 gviz, 10분 캐시.
+    [2026-09-08] 봇이 열을 늘렸다(최근30일·이유). 옛 4열 탭이어도 그대로 읽힌다(없는 열은 0·빈칸)."""
     now = time.time()
     if _QUIZ_PREF_CACHE["ts"] and now - _QUIZ_PREF_CACHE["ts"] < 600: return _QUIZ_PREF_CACHE["map"]
     _QUIZ_PREF_CACHE["ts"] = now
@@ -6059,6 +6583,7 @@ def _quiz_pref_map():
         rows = _gviz_tab_csv("QUIZ_PREF")
         h = {c: i for i, c in enumerate(rows[0])} if rows else {}
         ni, ci, vi, hi = h.get("상대"), h.get("챔피언"), h.get("표"), h.get("적중")
+        ri, wi = h.get("최근30일"), h.get("이유")
         if None not in (ni, ci, vi, hi):
             mp = {}
             for r in rows[1:]:
@@ -6067,12 +6592,72 @@ def _quiz_pref_map():
                 if not k or not str(r[ci]).strip(): continue
                 try: v, ht = int(float(r[vi] or 0)), int(float(r[hi] or 0))
                 except Exception: v, ht = 0, 0
-                mp.setdefault(k, []).append((str(r[ci]).strip(), v, ht))
+                try: rc = int(float(r[ri] or 0)) if ri is not None and ri < len(r) else 0
+                except Exception: rc = 0
+                why = str(r[wi]).strip()[:60] if wi is not None and wi < len(r) else ""
+                mp.setdefault(k, []).append((str(r[ci]).strip(), v, ht, rc, why))
             for k in mp: mp[k].sort(key=lambda x: -x[1])
             _QUIZ_PREF_CACHE["map"] = mp
     except Exception as e:
         print(f"[quiz] QUIZ_PREF 로드 실패(무시): {e}", flush=True)
     return _QUIZ_PREF_CACHE["map"]
+
+_QUIZ_AGG_CACHE = {"ts": 0.0, "champ": [], "pick": {}}
+
+def _quiz_agg():
+    """🗳️ [2026-09-08 사장님 지시 '쌓인 데이터 갱신'] 봇이 문제 로그 전체에서 집계한 두 탭 — 10분 캐시, 실패해도 빈 값(무해).
+    QUIZ_CHAMP: 챔피언별 밴 표(상대 무관) → champ = [{c, v 표, hit 적중, on 출제, react 반응, v30 최근30일표}...] 표순
+    QUIZ_PICK : 픽 문제의 포지션별 표      → pick  = {포지션: [(챔프, 표, 실제픽일치)...] 표순}"""
+    now = time.time()
+    if _QUIZ_AGG_CACHE["ts"] and now - _QUIZ_AGG_CACHE["ts"] < 600: return _QUIZ_AGG_CACHE
+    _QUIZ_AGG_CACHE["ts"] = now
+    def _i(x):
+        try: return int(float(x or 0))
+        except Exception: return 0
+    try:
+        rows = _gviz_tab_csv("QUIZ_CHAMP")
+        h = {c: i for i, c in enumerate(rows[0])} if rows else {}
+        if "챔피언" in h and "표" in h:
+            g = lambda r, k: r[h[k]] if k in h and h[k] < len(r) else ""
+            ch = [{"c": str(g(r, "챔피언")).strip(), "v": _i(g(r, "표")), "hit": _i(g(r, "적중")), "on": _i(g(r, "출제")),
+                   "react": _i(g(r, "반응")), "v30": _i(g(r, "최근30일표"))} for r in rows[1:] if str(g(r, "챔피언")).strip()]
+            ch.sort(key=lambda e: (-e["v"], -e["on"]))
+            _QUIZ_AGG_CACHE["champ"] = ch
+    except Exception as e:
+        print(f"[quiz] QUIZ_CHAMP 로드 실패(무시): {e}", flush=True)
+    try:
+        rows = _gviz_tab_csv("QUIZ_PICK")
+        h = {c: i for i, c in enumerate(rows[0])} if rows else {}
+        if "포지션" in h and "챔피언" in h and "표" in h:
+            mp = {}
+            for r in rows[1:]:
+                if len(r) <= max(h["포지션"], h["챔피언"], h["표"]): continue
+                pos, c = str(r[h["포지션"]]).strip(), str(r[h["챔피언"]]).strip()
+                if not pos or not c: continue
+                mp.setdefault(pos, []).append((c, _i(r[h["표"]]), _i(r[h["실제픽일치"]]) if "실제픽일치" in h and h["실제픽일치"] < len(r) else 0))
+            for k in mp: mp[k].sort(key=lambda x: -x[1])
+            _QUIZ_AGG_CACHE["pick"] = mp
+    except Exception as e:
+        print(f"[quiz] QUIZ_PICK 로드 실패(무시): {e}", flush=True)
+    return _QUIZ_AGG_CACHE
+
+def _quiz_champ_lines(limit=14):
+    """밴 모드 시스템 프롬프트용 — 표 2개 이상인 챔프 상위 + '출제 5회 이상인데 표 0'(클랜 무반응) 목록. 없으면 빈 문자열."""
+    ch = _quiz_agg()["champ"]
+    top = [e for e in ch if e["v"] >= 2][:limit]
+    lines = [f"- {e['c']}: {e['v']}표(적중 {e['hit']}) · 출제 {e['on']}회" + (f" · 최근30일 {e['v30']}표" if e["v30"] else "")
+             for e in top]
+    cold = [f"{e['c']}({e['on']}회)" for e in ch if e["on"] >= 5 and e["v"] == 0][:8]
+    if cold: lines.append("- 출제 5회 이상인데 표 0(클랜이 위협으로 안 본 챔프): " + ", ".join(cold))
+    return "\n".join(lines)
+
+def _quiz_pick_blk(pos, limit=6):
+    """픽 모드 사용자 프롬프트용 — 내 포지션에서 클랜원들이 뽑겠다고 적어낸 챔프(표 2개 이상). 없으면 빈 문자열."""
+    if not pos or pos == "선택안함": return ""
+    rows = [(c, v, m) for c, v, m in (_quiz_agg()["pick"].get(str(pos)) or []) if v >= 2][:limit]
+    if not rows: return ""
+    return ("\n\n[🗳️ 클랜 픽 퀴즈 — " + str(pos) + " 자리에서 클랜원들이 뽑겠다고 적어낸 챔프(표순)]\n"
+            + "\n".join(f"- {c}: 퀴즈 {v}표" + (f"(실제 픽과 일치 {m})" if m else "") for c, v, m in rows))
 
 def _crunch_from_aggregate(blue_players, red_players):
     """[v82.5 시트경량화 2b] crunch를 사전집계탭(STAT_*)에서 계산 — 원본 CLASSIC_NORMAL 전체읽기 제거.
@@ -6091,7 +6676,8 @@ def _crunch_from_aggregate(blue_players, red_players):
         if not k: continue
         P[k] = {"name": r[h["소환사명"]], "g": _i(r[h["총판수"]]), "w": _i(r[h["총승"]]),
                 "bg": _i(r[h["블루판"]]), "bw": _i(r[h["블루승"]]),
-                "rg": _i(r[h["레드판"]]), "rw": _i(r[h["레드승"]]), "stk": _i(r[h.get("연승", -1)] if "연승" in h else 0)}
+                "rg": _i(r[h["레드판"]]), "rw": _i(r[h["레드승"]]), "stk": _i(r[h.get("연승", -1)] if "연승" in h else 0),
+                "first": (str(r[h["첫기록"]]).strip() if "첫기록" in h and h["첫기록"] < len(r) else "")}
         mn = get_main_name(str(r[h["소환사명"]]))
         if mn: name_to_key[mn] = k
     if len(P) < 20: raise RuntimeError("STAT_PLAYER 표본 부족")
@@ -6196,7 +6782,8 @@ def _crunch_from_aggregate(blue_players, red_players):
             "most_list": most_list, "op_list": op_list, "fatal_bans": fatal_bans,
             "fatal_bans_by_pos": fatal_bans_by_pos,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
-            "streak": "", "streak_val": sv, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
+            "streak": "", "streak_val": sv, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str,
+            "first": pd.get("first", "")   # 🌱 첫 내전 기록일(뉴비 새싹 폴백)
         }
 
     blue_advice_list = sorted(red_pool.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -6277,6 +6864,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
         col_champ = headers.index("챔피언") if "챔피언" in headers else -1
         col_bans = headers.index("밴") if "밴" in headers else -1
         col_res = headers.index("결과") if "결과" in headers else -1
+        col_date = headers.index("날짜") if "날짜" in headers else -1   # 🌱 첫기록(뉴비 새싹 폴백)
         
         if col_res == -1: return {}, [], [], []
         data_rows = rows[1:]
@@ -6309,6 +6897,22 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
 
     player_games, player_champ_counts, games_dict = {}, {}, {}
     processed_records = set()
+    player_first = {}   # 🌱 p_key -> 첫 기록일 'YYYY-MM-DD'(이 탭 기준 — 아래에서 요약표 첫기록과 합친다)
+    stat_first, stat_first_nm = {}, {}   # 🌱 STAT_PLAYER 첫기록(협곡+칼바람) — 칼바람 로비에서도 협곡 이력을 알게(2026-09-24 리뷰)
+    try:
+        _sr = _gviz_tab_csv("STAT_PLAYER"); _sh = {c: i for i, c in enumerate(_sr[0])} if _sr else {}
+        if {"키", "소환사명", "첫기록"} <= set(_sh):
+            for _r in _sr[1:]:
+                if len(_r) <= max(_sh.values()): continue
+                _fd = str(_r[_sh["첫기록"]]).strip()[:10]
+                if len(_fd) != 10: continue
+                stat_first[str(_r[_sh["키"]]).strip().lower()] = _fd
+                _mn = get_main_name(str(_r[_sh["소환사명"]]).strip())
+                if _mn and (_mn not in stat_first_nm or _fd < stat_first_nm[_mn]): stat_first_nm[_mn] = _fd
+    except Exception: pass
+    def _first_of(pk, pn):
+        _c = [x for x in (player_first.get(pk), stat_first.get(pk), stat_first_nm.get(pn)) if x]
+        return min(_c) if _c else ""
 
     for r in data_rows:
         g_id = r[col_gid] if col_gid != -1 and col_gid < len(r) else ""
@@ -6330,6 +6934,8 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
         if p_key not in player_games:
             player_games[p_key] = []; player_champ_counts[p_key] = {}
         
+        _d10 = str(r[col_date]).strip()[:10] if col_date != -1 and col_date < len(r) else ""
+        if len(_d10) == 10 and _d10[4] == "-" and (p_key not in player_first or _d10 < player_first[p_key]): player_first[p_key] = _d10
         safe_bans = ", ".join(game_all_bans.get(g_id, set()))
         player_games[p_key].append({'g_id': g_id, 'champ': champ, 'bans': safe_bans, 'result': res, 'pos': matched_pos, 'team': t_name})
         
@@ -6412,6 +7018,7 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
 
         if total == 0:
             stats_dashboard[p_key] = {"summary": "기록 없음", "most_list": [], "op_list": [], "most_by_pos": {}, "op_by_pos": {}, "fatal_bans": [], "fatal_bans_by_pos": {}, "pos1": "선택안함", "pos2": "선택안함", "streak": "", "streak_val": 0, "overall_wr": 0.5, "games": 0, "side_wr_str": ""}
+            stats_dashboard[p_key]["first"] = _first_of(p_key, p_name)   # 🌱 이 탭엔 기록 없어도 다른 모드 첫기록
             continue
         
         wins = sum(1 for m in p_matches if m.get('result') == '승리')
@@ -6503,7 +7110,8 @@ def crunch_sheet_statistics(blue_players, red_players, sheet):
             "most_list": most_list, "op_list": op_list, "fatal_bans": fatal_bans, "ban_pressure": bp_list,
             "fatal_bans_by_pos": fatal_bans_by_pos,
             "most_by_pos": most_by_pos, "op_by_pos": op_by_pos,
-            "streak": "", "streak_val": streak_val, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str
+            "streak": "", "streak_val": streak_val, "overall_wr": overall_wr, "games": total, "side_wr_str": side_wr_str,
+            "first": _first_of(p_key, p_name)   # 🌱 첫 내전 기록일(이 탭 ∪ 요약표 — 뉴비 새싹 폴백·재가입 가드)
         }
 
     # 🚫 [v81.76 사장님 지시] 추천 밴 5 → 10개(GUI는 5개씩 2줄)
@@ -6613,6 +7221,207 @@ def build_translation_map(port, password):
     if not champ_map: champ_map = global_champ_map.copy()
     return champ_map
 
+# 🖥 [2026-09-28 사장님 지시] 로비 소개 — "신규 클랜원이 이 시스템도, 누가 만들었는지도 모른 채 지낸다 / 분석기 킨 채로 사설게임에
+#   입장하면 '스해분 xx.xx 사용중 · 링크' 를 띄우면 내전하는 사람은 무조건 알 수밖에". 그리고 "로비 메시지가 안 떠 지금은" —
+#   예전 '로딩 완료' 줄은 로비 정보의 multiplayerGameId 가 바뀔 때만 나갔는데, 요즘 로비 정보에 그 값이 비어 있어 조건이 안 켜졌다
+#   (실패해도 흔적이 없어 몰랐다). 이제 로비 채팅방 ID(multiUserChatId)로 방을 알아보고, 사설게임 방에서만, 방마다 한 번만 올린다.
+#   · 방이 어느 정도 찼을 때(8명↑, 또는 4명↑로 3분) 올린다 — 텅 빈 방에 올리면 나중에 들어온 사람은 못 본다.
+#   · 클랜원(티어표에 있는 이름)이 2명↑인 방만 — 클랜 밖 친구들끼리 하는 사설게임엔 올리지 않는다.
+#   · 분석기를 켠 사람이 여럿이면 로비 인원 PUUID 순번대로 시차를 둬서 첫 사람만 올리고, 나머지는 채팅에 이미 있으면 멈춘다.
+#   · 실패하면 같은 방에서 최대 3번까지 다시 시도한다. 결과는 전부 로그에 남긴다.
+LOBBY_INTRO_MARK = "스쿼드해체분석기"
+SITE_URL = "https://kjp1583-art.github.io/squad-analyzer/"   # squad-gg.pages.dev 는 6월에 멈춘 옛 사본 — 안내하지 않는다
+SITE_SHORT = "kjp1583-art.github.io/squad-analyzer"
+_INTRO_DONE, _INTRO_BUSY, _INTRO_TRIES = set(), set(), {}   # 방 → 끝남 / 진행 중 / (시도 횟수, 마지막 시각)
+_INTRO_SEEN = {}                                             # 방 → 처음 본 시각(4명↑ 3분 조건용)
+_INTRO_WHY = {}                                              # 방 → 마지막으로 로그에 남긴 보류 이유
+
+# 🖥 [2026-09-29 사장님 지시] 롤 채팅창은 어떤 주소도 눌리게 만들지 않는다 — 주소 대신 링크가 눌리는 디스코드 채널로 안내한다.
+def _lobby_intro_text(extra=""):
+    base = f"[{LOBBY_INTRO_MARK} v{CURRENT_VERSION}] 이 방 내전은 자동으로 기록돼요 · 전적 보기·분석기 받기: 디스코드 #squad_gg · 개발자: 맛동산장인 유미"
+    return base + (f" · {extra}" if extra else "")
+
+# 🎲 [2026-10-19 사장님 지시 「로비 채팅 메시지에 간단한 클랜 정보를 랜덤하게 — 이번 주가 아니라 지난 주(첫날엔 깡통 데이터) · 1234 전부 포함해서 랜덤」]
+#   안내 문장 뒤에 한 줄을 덧붙인다(별도 메시지 아님 · 방마다 한 번). 네 갈래에서 갈래부터 무작위로 고른 뒤 그 안에서 하나:
+#   ① 지난주 클랜 소식(최다 출전·MVP·최장 연승·인기 픽·바쁜 요일…)  ② 클랜 기록(누적 판수·가장 많이 나온 챔피언)  ③ 사용법 한 줄 팁
+#   ④ 지금 방에 있는 클랜원 맞춤(그 사람이 지난주 판수 상위에 있으면 칭찬 한 줄). 출처 = data/weekly_review.json(웹 저장소, 월요일 아침 갱신) · clan_meta.json.
+#   못 받아 오면 ②③ 만으로 — 한 줄이 비어도 안내 문장은 그대로 나간다. 설정 lobby_fun=false 로 끈다.
+_WEEKLY_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/data/weekly_review.json"
+_WEEKLY = {"d": None, "at": 0.0}
+LOBBY_FUN_MAX = 70
+LOBBY_TIPS = [
+    "💡 웹 squad_gg 에서 내 전적·티어·전투력을 볼 수 있어요",
+    "💡 디스코드 #squad_gg 에서 오늘의 밴픽퀴즈에 참여해 보세요",
+    "💡 웹의 이상형월드컵 탭에서 전투력이 비슷한 클랜원끼리 골라 볼 수 있어요",
+    "💡 웹 흐접새우 서바이벌에서 내 기록을 순위표에 올려 보세요",
+    "💡 웹 브키도감에서 브장신 키우기 아이템을 한눈에 볼 수 있어요",
+    "💡 매주 월요일 아침 웹 주간스쿼드에 지난주 클랜 소식이 올라와요",
+    "💡 분석기가 밴픽 때 클랜 내전 통계로 픽 추천을 해 줘요",
+    "💡 내전이 끝나면 결과 리포트가 자동으로 기록돼요",
+]
+def _weekly_data():
+    """지난주 주간스쿼드 JSON(1시간 캐시) — 못 받으면 None."""
+    now = time.time()
+    if _WEEKLY["d"] is not None and now - _WEEKLY["at"] < 3600: return _WEEKLY["d"]
+    if now - _WEEKLY["at"] < 300: return _WEEKLY["d"]
+    _WEEKLY["at"] = now
+    try:
+        rr = requests.get(_WEEKLY_URL, timeout=4)
+        if rr.status_code == 200:
+            d = rr.json()
+            if isinstance(d, dict) and not d.get("placeholder") and isinstance(d.get("stats"), dict): _WEEKLY["d"] = d
+    except Exception as e:
+        print(f"[lobby-fun] 주간 데이터 로드 실패(무시): {type(e).__name__}", flush=True)
+    return _WEEKLY["d"]
+
+def _lf_first(txt):
+    return str(txt or "").split(" / ")[0].strip()
+
+def _lobby_fun_week_lines(d):
+    """① 지난주 클랜 소식 후보들."""
+    out = []
+    st = (d or {}).get("stats") or {}
+    sr = st.get("sr") or {}
+    try:
+        if sr.get("games") and sr.get("players"): out.append(f"📅 지난주 협곡 내전 {int(sr['games'])}판 · {int(sr['players'])}명이 뛰었어요")
+        days = sr.get("days") or []
+        if len(days) == 7 and max(days) > 0:
+            dn = "월화수목금토일"[days.index(max(days))]; out.append(f"📅 지난주 협곡은 {dn}요일에 {max(days)}판으로 제일 붐볐어요")
+        if sr.get("top"): n, g, w = sr["top"][0][:3]; out.append(f"🏅 지난주 협곡 출석왕: {n} ({g}판 {w}승)")
+        if sr.get("picks"): out.append(f"🎯 지난주 협곡 인기 픽: {sr['picks'][0][0]} ({sr['picks'][0][1]}번)")
+        if sr.get("bans"): out.append(f"🚫 지난주 협곡 단골 밴: {sr['bans'][0][0]} ({sr['bans'][0][1]}번)")
+        al = st.get("aram") or {}
+        if al.get("top"): n, g, w = al["top"][0][:3]; out.append(f"❄️ 지난주 칼바람 출석왕: {n} ({g}판)")
+        rd = st.get("raid") or {}
+        if rd.get("n"): out.append(f"🍗 지난주 레이드 공격 {int(rd['n'])}회 · {int(rd.get('w', 0))}승")
+    except Exception: pass
+    for f in (d or {}).get("facts") or []:
+        f = str(f)
+        for key, fmt in (("협곡 내전 MVP 최다:", "🌟 지난주 협곡 MVP 최다: {}"), ("협곡 내전 이번 주 최장 연승:", "🔥 지난주 협곡 최장 연승: {}")):
+            if f.startswith(key): out.append(fmt.format(_lf_first(f[len(key):])))
+    for a in (d or {}).get("awards") or []:
+        try: out.append(f"🏆 지난주 {a['title']}: {a['name']}")
+        except Exception: pass
+    return [x for x in out if x and len(x) <= LOBBY_FUN_MAX]
+
+def _lobby_fun_clan_lines():
+    """② 클랜 기록 후보들(clan_meta.json — 누적)."""
+    out = []
+    try:
+        M = _clanstat_meta()
+        if M:
+            if M.get("n_games"): out.append(f"📚 지금까지 클랜 내전 {int(M['n_games']):,}판이 기록됐어요")
+            ch = [c for c in (M.get("champions") or []) if c.get("n")]
+            if ch:
+                top = max(ch, key=lambda c: c["n"]); out.append(f"📚 클랜 내전 최다 등장 챔피언: {top['name']} ({int(top['n'])}판)")
+    except Exception: pass
+    return [x for x in out if len(x) <= LOBBY_FUN_MAX]
+
+def _lobby_fun_member_lines(d, names):
+    """④ 지금 방에 있는 클랜원 중 지난주 판수 상위인 사람 칭찬 한 줄."""
+    out = []
+    try:
+        here = {str(n).split("#")[0].replace(" ", "").lower() for n in (names or []) if n}
+        sr = ((d or {}).get("stats") or {}).get("sr") or {}
+        for n, g, w in (sr.get("top") or []):
+            if str(n).replace(" ", "").lower() in here: out.append(f"👋 {n}님, 지난주 협곡 {int(g)}판 {int(w)}승 — 열심히 하셨어요")
+        al = ((d or {}).get("stats") or {}).get("aram") or {}
+        for n, g, w in (al.get("top") or []):
+            if str(n).replace(" ", "").lower() in here: out.append(f"👋 {n}님, 지난주 칼바람 {int(g)}판 — 부지런하셨어요")
+    except Exception: pass
+    return [x for x in out if len(x) <= LOBBY_FUN_MAX]
+
+def _lobby_fun_line(names=None, rnd=None):
+    """안내 문장 뒤에 붙일 한 줄 — ①~④ 중 갈래를 무작위로(비어 있으면 다른 갈래), 못 만들면 ''."""
+    rnd = rnd or random
+    try:
+        d = _weekly_data()
+        pools = [("소식", _lobby_fun_week_lines(d)), ("기록", _lobby_fun_clan_lines()), ("팁", list(LOBBY_TIPS)), ("맞춤", _lobby_fun_member_lines(d, names))]
+        pools = [p for p in pools if p[1]]
+        if not pools: return ""
+        return str(rnd.choice(rnd.choice(pools)[1]))[:LOBBY_FUN_MAX + 6]
+    except Exception as e:
+        print(f"[lobby-fun] 한 줄 만들기 실패(생략): {type(e).__name__}", flush=True)
+        return ""
+
+def _lobby_intro_ready(lobby_key, members, gc):
+    """지금 이 방에 소개를 올릴 때인가 — (올릴까, 이유). members 는 관전자 뺀 로비 인원."""
+    if not lobby_key: return False, "방 ID 없음"
+    if lobby_key in _INTRO_DONE or lobby_key in _INTRO_BUSY: return False, "이미 함"
+    n_try, t_last = _INTRO_TRIES.get(lobby_key, (0, 0.0))
+    if n_try >= 3 or (n_try and time.time() - t_last < 20): return False, "재시도 대기"
+    gm = str((gc or {}).get("gameMode", "")).upper()
+    if gm == "PRACTICETOOL": return False, "연습 모드"
+    try:
+        if int((gc or {}).get("maxLobbySize") or 10) <= 1: return False, "1인 방"
+    except (TypeError, ValueError): pass
+    n = len(members)
+    t0 = _INTRO_SEEN.setdefault(lobby_key, time.time())
+    if n < 8 and not (n >= 4 and time.time() - t0 >= 180): return False, f"인원 {n}명"
+    names = [str(m.get("gameName") or m.get("summonerName") or "").strip() for m in members if isinstance(m, dict)]
+    names = [x for x in names if x]
+    if names:                                   # 이름이 하나도 안 보이면(로비 정보 형식 변경) 클랜 확인은 건너뛴다
+        clan = sum(1 for x in names if tier_of(x))
+        if clan < 2: return False, f"클랜원 {clan}명"
+    return True, f"인원 {n}명"
+
+def _lobby_chat_conv(headers, base_url, lobby_key, allow_type=True):
+    """로비 채팅방(대화) — 방 채팅 ID 가 들어간 대화를 먼저, 없으면(마지막 시도에서만) 종류(customGame·lobby)로. (대화, 본 종류 목록)"""
+    try:
+        res = requests.get(str(base_url) + "/lol-chat/v1/conversations", headers=headers, verify=False, timeout=3)
+        convs = res.json() if res.status_code == 200 else []
+    except Exception: convs = []
+    convs = [c for c in (convs if isinstance(convs, list) else []) if isinstance(c, dict)]
+    key = str(lobby_key or "").split("@")[0].lower()
+    for c in convs:
+        if key and key in str(c.get("id", "")).lower(): return c, [c.get("type") for c in convs]
+    if not allow_type: return None, [c.get("type") for c in convs]
+    for c in convs:
+        if c.get("type") in ("customGame", "lobby"): return c, [c.get("type") for c in convs]
+    return None, [c.get("type") for c in convs]
+
+def _lobby_intro(headers, base_url, lobby_key, rank=0, names=None):
+    done = False
+    n_try, _t = _INTRO_TRIES.get(lobby_key, (0, 0.0))
+    _INTRO_TRIES[lobby_key] = (n_try + 1, time.time())
+    try:
+        if _OUTDATED:
+            print("[lobby-intro] 새 버전 받는 중 — 생략", flush=True); done = True; return
+        time.sleep(1.5 + min(int(rank), 12) * 2.5 + random.uniform(0, 0.5))   # 로비 인원 PUUID 순번별 시차(게임 기록과 같은 방식)
+        conv, types = None, []
+        for _a in range(6):                          # 방에 막 들어온 직후엔 채팅방이 아직 안 열렸을 수 있다
+            conv, types = _lobby_chat_conv(headers, base_url, lobby_key, allow_type=(_a >= 4))
+            if conv: break
+            time.sleep(2.0)
+        if not conv:
+            print(f"[lobby-intro] 로비 채팅방을 못 찾음 — 보이는 대화 종류 {types}", flush=True); return
+        url = str(base_url) + "/lol-chat/v1/conversations/" + str(conv.get("id")) + "/messages"
+        def _has_intro(log=False):
+            """방 채팅에 소개가 이미 있나 — True/False, 못 읽으면 None."""
+            try:
+                r = requests.get(url, headers=headers, verify=False, timeout=3)
+                if r.status_code != 200: return None
+                ms = [m for m in (r.json() or []) if isinstance(m, dict)]
+                if log:
+                    print(f"[lobby-intro] 방 채팅 {len(ms)}줄(지난 기록 {sum(1 for m in ms if m.get('isHistorical'))}줄) · 순번 {rank}", flush=True)
+                return any(str(m.get("body", "")).startswith("[" + LOBBY_INTRO_MARK) for m in ms)
+            except Exception: return None
+        if _has_intro(log=True):
+            print("[lobby-intro] 이 방엔 이미 소개가 있음 — 생략", flush=True); done = True; return
+        r = requests.post(url, headers=headers, json={"body": _lobby_intro_text(_lobby_fun_line(names) if APP_CONFIG.get("lobby_fun", True) else ""), "type": "chat"}, verify=False, timeout=3)
+        print(f"[lobby-intro] 소개 보냄 → HTTP {r.status_code}"
+              + (f" {str(r.text)[:120]}" if r.status_code >= 400 else "") + f" · 대화 종류 {conv.get('type')}", flush=True)
+        if r.status_code >= 400: return                 # 거절·롤 쪽 일시 문제 — 다음 시도로(방마다 최대 3번)
+        time.sleep(2.0)
+        seen = _has_intro()
+        if seen or seen is None: done = True; return    # 보였거나 확인할 수 없으면 끝(두 번 올리지 않는다)
+        print("[lobby-intro] 보낸 줄이 채팅에 안 보임 — 다음 시도로", flush=True)
+    except Exception as e:
+        print(f"[lobby-intro] 실패: {type(e).__name__}: {str(e)[:120]}", flush=True)
+    finally:
+        if done: _INTRO_DONE.add(lobby_key)
+        _INTRO_BUSY.discard(lobby_key)
+
 def send_lcu_chat_announcement(message, headers, base_url):
     try:
         res = requests.get(str(base_url) + "/lol-chat/v1/conversations", headers=headers, verify=False, timeout=2)
@@ -6631,6 +7440,9 @@ def send_lcu_chat_announcement(message, headers, base_url):
 #   내전 방 인원 중 전력이 가장 비슷한 2명을 팀장으로 자동 선정해 팀원뽑기를 시킨다.
 #   · 직전 판 팀장은 후보에서 제외(두 판 연속 방지가 관건) — 후보가 모자라면 제외 대신 큰 감점으로 완화
 #   · 주포지션 고려: 두 팀장의 주포지션이 같으면 가산(같을 필요는 없음 — 같으면 남는 포지션 풀이 대칭)
+#   · 👑 [2026-09-13 사장님 지시] 전투력차가 CAPTAIN_GAP_MAX 를 넘는 두 사람은 짝으로 추천하지 않는다 — 주포지션
+#     가산은 그 상한 안의 짝에만 붙이고, 상한 안에 짝이 하나도 없으면 포지션을 보지 않고 전투력 최근접 두 명.
+CAPTAIN_GAP_MAX = 1.0   # 전투력차 1 = 예상승률 4%p(웹 '팽팽한 판' 기준과 같은 값)
 _CAPTAIN_STATE_FILE = os.path.join(CONFIG_DIR, 'captains_recent.json')
 
 def _captain_recent_load():
@@ -6675,18 +7487,23 @@ def _captain_pick(entries, exclude_tnorms, cidx):
     hard = [c for c in cand if c['tn'] not in exclude_tnorms]
     soft = len(hard) < 2      # 직전 팀장을 빼면 2명이 안 남는 극단 상황 — 감점으로 완화(되도록 회피)
     pool = cand if soft else hard
-    best = None
+    pairs = []      # (전투력차, 직전팀장 감점, 주포지션 동일, a, b)
     for i in range(len(pool)):
         for j in range(i + 1, len(pool)):
             a, b = pool[i], pool[j]
-            sc = abs(a['pw'] - b['pw'])
-            if a['pos'] and a['pos'] == b['pos']: sc -= 0.6
-            if soft:
-                sc += 2.5 * ((a['tn'] in exclude_tnorms) + (b['tn'] in exclude_tnorms))
-            if best is None or sc < best[0]: best = (sc, a, b)
-    _, a, b = best
-    why = [f"전투력차 {abs(a['pw'] - b['pw']):.1f}"]
-    if a['pos'] and a['pos'] == b['pos']: why.append(f"주포지션 동일({a['pos']})")
+            gap = abs(a['pw'] - b['pw'])
+            pen = 2.5 * ((a['tn'] in exclude_tnorms) + (b['tn'] in exclude_tnorms)) if soft else 0.0
+            pairs.append((gap, pen, bool(a['pos']) and a['pos'] == b['pos'], a, b))
+    ok = [x for x in pairs if x[0] <= CAPTAIN_GAP_MAX]
+    if ok:          # 1차 — 전투력차 상한 안의 짝만 두고, 그 안에서 주포지션 동일 가산(0.6)
+        gap, _, same, a, b = min(ok, key=lambda x: x[0] - (0.6 if x[2] else 0.0) + x[1])
+        fallback = False
+    else:           # 2차 — 비슷한 짝이 하나도 없다: 포지션은 보지 않고 전투력 최근접 두 명
+        gap, _, same, a, b = min(pairs, key=lambda x: x[0] + x[1])
+        fallback = True
+    why = [f"전투력차 {gap:.1f}"]
+    if fallback: why.append(f"전투력차 {CAPTAIN_GAP_MAX:g} 이내 짝이 없어 포지션 무시·최근접")
+    elif same: why.append(f"주포지션 동일({a['pos']})")
     elif a['pos'] or b['pos']: why.append(f"주포지션 {a['pos'] or '?'}·{b['pos'] or '?'}")
     if exclude_tnorms and not soft: why.append("직전 판 팀장 제외")
     return a, b, " · ".join(why)
@@ -6746,6 +7563,85 @@ def _team_split(entries, cidx, avoid_key=""):
         _ta = sum(1 for c in A if c['tier'] in _TOPT)
         why += f" · 최상위권 {top_n}명 {_ta}:{top_n - _ta} 배분"
     return A, B, why, key
+
+
+# ===== ⚖️ [2026-10-03 사장님 승인 P-12] 대기실 '전력 차' 한 줄 + 1:1 맞바꾸기 제안 =====
+#   10명이 찼을 때 분석기 창 안에 한 줄만(대기실 채팅 전송 없음). 산식은 새로 만들지 않는다 —
+#   개인 전력 = _captain_power(=_unified_power_one), 예상 승률 = 50 + 전력차×4 (15~85, 게임 시작 화면과 동일).
+#   개인 점수는 어디에도 표시하지 않고 팀 합·승률만 보인다. 설정 'lobby_balance'(기본 켬)로 끈다.
+LOBBY_BALANCE_SWAP_MIN = 1.5     # 전력차가 이 이상일 때만 맞바꾸기 제안
+LOBBY_BALANCE_EVEN_MAX = 1.0     # 전력차가 이 이하면 '팽팽해요'
+_LB_POS_KO = {"TOP": "탑", "JUNGLE": "정글", "MIDDLE": "미드", "MID": "미드", "BOTTOM": "원딜", "ADC": "원딜",
+              "UTILITY": "서폿", "SUPPORT": "서폿"}
+
+def _lobby_wr_from_diff(diff):
+    """블루 예상 승률(%) — 게임 시작 화면(blue_win_rate)과 같은 식. diff = 블루 전력합 − 레드 전력합."""
+    return max(15, min(85, int(50 + diff * 4 + 0.5)))
+
+def _lb_pos_label(pos):
+    pos = str(pos or '').strip()
+    return _LB_POS_KO.get(pos.upper(), pos if pos in ("탑", "정글", "미드", "원딜", "서폿") else "")
+
+def _lobby_balance_eval(blue, red):
+    """blue/red = [{'nm','pw','pos'}...] → None(10명 아님·중복·빈 이름) 또는
+       {'bw','rw','gap','swap': None|{'b','r','bw','rw','same_pos'}}. 팀 합·승률만 다룬다."""
+    if len(blue or []) != 5 or len(red or []) != 5: return None
+    names = [tnorm(str(c.get('nm') or '')) for c in list(blue) + list(red)]
+    if not all(names) or len(set(names)) != 10: return None
+    diff = sum(c['pw'] for c in blue) - sum(c['pw'] for c in red)
+    gap = abs(diff); bw = _lobby_wr_from_diff(diff)
+    out = {'bw': bw, 'rw': 100 - bw, 'gap': gap, 'swap': None}
+    if gap < LOBBY_BALANCE_SWAP_MIN: return out
+    best = None
+    for b in blue:
+        for r in red:
+            nd = diff - 2 * (b['pw'] - r['pw'])            # b↔r 맞바꾼 뒤 전력차(부호 포함)
+            if abs(nd) >= gap - 1e-9: continue              # 실제로 줄이는 쌍만
+            same = bool(b.get('pos')) and b.get('pos') == r.get('pos')
+            key = (abs(nd) - (0.5 if same else 0.0), abs(nd), b['nm'], r['nm'])   # 같은 주포지션 우선(0.5 가산), 결정적 타이브레이크
+            if best is None or key < best[0]: best = (key, b, r, nd, same)
+    if best:
+        _, b, r, nd, same = best
+        nbw = _lobby_wr_from_diff(nd)
+        out['swap'] = {'b': b, 'r': r, 'bw': nbw, 'rw': 100 - nbw, 'same_pos': same}
+    return out
+
+def _lobby_balance_lines(ev):
+    """_lobby_balance_eval 결과 → 화면에 보일 줄 목록(개인 점수 없음)."""
+    if not ev: return []
+    if ev['gap'] <= LOBBY_BALANCE_EVEN_MAX: return ["⚖️ 팽팽해요 👍"]
+    lines = [f"⚖️ 예상 승률 블루 {ev['bw']}% : 레드 {ev['rw']}% · 전력차 {ev['gap']:.1f}"]
+    sw = ev.get('swap')
+    if sw:
+        def _t(c, side):
+            pl = _lb_pos_label(c.get('pos'))
+            return f"{str(c['nm']).split('#')[0].strip()}({side}" + (f"·{pl}" if pl else "") + ")"
+        lines.append(f"🔄 {_t(sw['b'], '블루')} ↔ {_t(sw['r'], '레드')} 바꾸면 {sw['bw']}% : {sw['rw']}%")
+    return lines
+
+def _lobby_balance_cands(entries, cidx):
+    """gui_data 의 (player, stats) 목록 → _lobby_balance_eval 입력."""
+    out = []
+    for p, st_ in entries:
+        nm = str((p or {}).get('name') or '').strip()
+        out.append({'nm': nm, 'pw': _captain_power(p, st_), 'pos': _captain_main_pos(p, cidx)})
+    return out
+
+def _lobby_balance_text(blue_entries, red_entries, cidx=None):
+    """대기실 한 줄 문구(여러 줄이면 줄바꿈). 10명이 아니면 빈 문자열."""
+    try:
+        ev = _lobby_balance_eval(_lobby_balance_cands(blue_entries, cidx), _lobby_balance_cands(red_entries, cidx))
+        return "\n".join(_lobby_balance_lines(ev))
+    except Exception: return ""
+
+_PRE_WR = [None, 0.0]    # [시작 전 블루 예상 승률, 기록 시각] — 10명이 찬 화면에서 마지막으로 본 값(결과 리포트용)
+
+def _pre_game_report_line(pre_bw, win_team_id):
+    """결과 리포트 한 줄 — '시작 전 예상 44:56 → 레드 승'. 승리팀 모르면 빈 문자열."""
+    if pre_bw is None or win_team_id not in (100, 200): return ""
+    try: bw = int(pre_bw)
+    except (TypeError, ValueError): return ""
+    return f"⚖️ 시작 전 예상 {bw}:{100 - bw} → {'블루' if win_team_id == 100 else '레드'} 승"
 
 
 def _pos_recommend(A, B, idx):
@@ -6870,6 +7766,75 @@ def resolve_champ_decl(txt, champs, played=None):
             return all(ch in it for ch in small)
         return _pick([c for c, n in norm.items() if _subseq(t, n)])
     return None
+
+# ===== 🧹 [2026-10-04] 같은 판 통째 중복 기록 사후 정리 (check-then-act 경합 보완) =====
+#   append 직전 col_values 재확인과 append 사이엔 잠금이 없어, 동시에 돌던 두 분석기가 둘 다 0을 보고 각자 10줄을 쓰면
+#   한 판이 20줄이 된다(#8401542555 등). 쓴 직후 시트를 다시 읽어, '내 블록보다 앞에 같은 판의 완전한 블록이 이미 있으면'
+#   내 블록만 지운다. 판단은 행 번호 — 가장 앞선 블록은 앞선 블록이 없으니 절대 안 지워서 양쪽 삭제(무기록)가 불가능.
+#   확신이 없으면(읽기 실패·시그니처 불일치·행 밀림) 지우지 않고 로그만(중복 보존 > 무기록).
+def _dup_block_start(append_resp):
+    """gspread append_rows 응답의 updatedRange('시트!A5:Z14')에서 시작 행 번호. 못 읽으면 0."""
+    try:
+        rng = str(((append_resp or {}).get("updates") or {}).get("updatedRange") or (append_resp or {}).get("updatedRange") or "")
+        m = re.search(r"!\$?[A-Za-z]+\$?(\d+)", rng)
+        return int(m.group(1)) if m else 0
+    except Exception:
+        return 0
+
+
+def _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, append_resp, sleep=None, log=print):
+    """gid_col·name_col = 1-기반 열 번호. my_names = 내가 쓴 줄의 소환사명 목록(길이 n).
+    반환 'none'(정상) | 'deleted'(내 블록 삭제) | 'held'(중복 의심이나 보존). 예외는 밖으로 안 던진다."""
+    sleep = sleep or time.sleep
+    n = len(my_names)
+    tag = f"[중복정리] #{game_id}"
+    try:
+        start = _dup_block_start(append_resp)
+        if n < 1 or start < 1:
+            log(f"{tag} 보류 — 내 블록 시작 행을 알 수 없음(append 응답 없음) — 정리 생략"); return 'held'
+        sig = sorted(str(x).strip() for x in my_names)
+
+        def _read():
+            g = sheet.col_values(gid_col); nm = sheet.col_values(name_col)
+            return g, nm
+        def _cell(col, i):   # i = 1-기반 행
+            return str(col[i - 1]).strip() if 0 < i <= len(col) else ""
+        g = nm = None
+        for _t in range(2):
+            sleep(1.0 if _t == 0 else 1.5)   # 시트 반영 지연 대기
+            try:
+                g, nm = _read(); break
+            except Exception as e:
+                log(f"{tag} 읽기 실패({type(e).__name__}) — {'재시도' if _t == 0 else '정리 생략'}")
+        if g is None:
+            return 'held'
+        pos = [i + 1 for i, v in enumerate(g) if str(v).strip() == str(game_id)]
+        if len(pos) <= n:
+            return 'none'                     # 내 블록뿐 — 정상
+        mine = list(range(start, start + n))
+        if not all(_cell(g, r) == str(game_id) for r in mine) or sorted(_cell(nm, r) for r in mine) != sig:
+            log(f"{tag} 보류 — 같은 판 {len(pos)}줄이나 행 {start}~{start + n - 1} 이 내 블록과 안 맞음(행 밀림/시그니처 불일치) — 삭제 안 함"); return 'held'
+        earlier = [p for p in pos if p < start]
+        if len(earlier) < n:
+            log(f"{tag} 유지 — 같은 판 {len(pos)}줄, 내 블록(행 {start})이 가장 앞섬 → 뒤쪽 사본이 지울 몫"); return 'none'
+        first = earlier[:n]
+        if first[-1] - first[0] != n - 1 or sorted(_cell(nm, r) for r in first) != sig:
+            log(f"{tag} 보류 — 앞선 줄 {earlier[:3]}…이 완전한 같은 블록이 아님 — 삭제 안 함"); return 'held'
+        # 삭제 직전 재확인(행 밀림 방지) — 내 블록이 그대로 같은 자리에 있고 앞선 블록도 아직 있을 때만
+        try:
+            g2, nm2 = _read()
+        except Exception as e:
+            log(f"{tag} 보류 — 삭제 직전 재확인 실패({type(e).__name__}) — 삭제 안 함"); return 'held'
+        if (not all(_cell(g2, r) == str(game_id) for r in mine) or sorted(_cell(nm2, r) for r in mine) != sig
+                or not all(_cell(g2, r) == str(game_id) for r in first) or sorted(_cell(nm2, r) for r in first) != sig):
+            log(f"{tag} 보류 — 삭제 직전 재확인에서 행이 바뀜 — 삭제 안 함"); return 'held'
+        sheet.delete_rows(start, start + n - 1)
+        log(f"{tag} 중복 {n}줄 삭제(행 {start}~{start + n - 1}) — 앞선 사본(행 {first[0]}~{first[-1]}) 남김")
+        return 'deleted'
+    except Exception as e:
+        log(f"{tag} 실패 {type(e).__name__}: {e} — 삭제 안 함")
+        return 'held'
+
 
 def _noban_sheet_push(game_id, date_str):
     """🚫 감지된 노밴 선언을 NOBAN 탭에 적재(웹 노밴률·게임 상세 표시용). 기록 append 승자만 호출(중복 방지).
@@ -7231,6 +8196,7 @@ def lcu_core_backend_loop():
     global_cached_blue = []
     global_cached_red = []
     global_pos_map = {}
+    coach_lobby_map = [None]     # 로비 gameConfig.mapId 마지막 값 — 고스트밴픽왕 맵 판정의 보조 소스
 
     while True:
         try:
@@ -7249,7 +8215,7 @@ def lcu_core_backend_loop():
                             threading.Thread(target=update_hof_stats, daemon=True).start()
                     else:
                         reconnect_fail = min(reconnect_fail + 1, 5)
-            # 🩸 십이귀월 자동 감지: 호스트에서 15분마다 HOF 재갱신 → update_hof_stats 끝에서 로스터 변동 체크·웹훅
+            # 🩸 십이귀월: 호스트에서 15분마다 HOF 재갱신 → (십이귀월 디스코드 발송은 2026-10-11 폐지 — 웹으로만 본다)
             # [v82.42 사장님 지시] 인게임 중엔 무거운 집계(시트 전체 파싱) 유예 — 저사양 PC 프레임 드랍 방지(게임 끝나면 다음 주기에 자연 실행)
             if (global_spreadsheet is not None and time.time() - last_hof_refresh > 900 and load_bot_token()
                     and last_known_phase not in ("GameStart", "InProgress", "Reconnect")):
@@ -7427,13 +8393,19 @@ def lcu_core_backend_loop():
                         gui_data["draft_advice"] = ""; gui_data["draft_advice_ts"] = 0
                 except Exception: pass
             was_in_prog = _in_prog_now
+            if current_phase != "ChampSelect": _COACH_MAP_GATE[0] = None   # 다음 챔프셀렉트에서 맵 판정 로그를 다시 한 번 남긴다
             # 🛡️ [v81.67] 자동 업데이트 재시작 게이트용 미러 — 게임/기록 중이면 업데이터가 재시작을 연기.
-            _LIVE_GAME[0] = bool(_in_prog_now or active_recording_id or current_phase == "ChampSelect")
+            _now_live = bool(_in_prog_now or active_recording_id or current_phase == "ChampSelect")
+            if _now_live and not _LIVE_GAME[0]: _LIVE_SINCE[0] = time.time(); _LIVE_STUCK_LOGGED[0] = False   # 라이브 시작 시각
+            elif not _now_live: _LIVE_SINCE[0] = 0.0
+            _LIVE_GAME[0] = _now_live
 
             c100, c200, multi_id = [], [], ""
+            lobby_key, lobby_custom, gc = "", False, {}
             queue_id = -1
             map_id = 11
             is_custom_game_flag = False
+            top_map_raw, gd_map_raw, gd_qmap_raw = None, None, None   # 고스트밴픽왕용 맵 원값(없으면 None) — map_id 의 기본값 11 과 구분
 
             try:
                 gf_res = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=3)
@@ -7441,6 +8413,11 @@ def lcu_core_backend_loop():
                     gf_json = gf_res.json() or {}
                     gd = gf_json.get('gameData') or {}
                     
+                    try:
+                        top_map_raw = (gf_json.get('map') or {}).get('id')   # LCU 스키마상 지도는 세션 최상위 map
+                        gd_map_raw = (gd.get('map') or {}).get('id')
+                        gd_qmap_raw = (gd.get('queue') or {}).get('mapId')
+                    except Exception: pass
                     map_id = gd.get('map', {}).get('id', map_id)
                     
                     if 'queue' in gd and 'id' in gd['queue']:
@@ -7465,7 +8442,8 @@ def lcu_core_backend_loop():
 
                     # 🧠 [v81.74] 내 픽 차례면 고스트밴픽왕(키 없으면 즉시 return, 비동기라 폴링 지연 없음)
                     # [v82.20 사장님 지시] 내전(커스텀·소환사의 협곡)에서만 작동 — 일반 매칭·칼바람(맵12)에선 비활성
-                    if is_custom_game_flag and map_id != 12:
+                    # [2026-10-09 사장님 지시] 협곡(맵 11)이 아닌 모든 맵에서 비활성 — 판정은 coach_map_ok 한 곳
+                    if _coach_map_gate(is_custom_game_flag, top_map_raw, gd_map_raw, gd_qmap_raw, coach_lobby_map[0]):
                         try: _draft_coach_tick(s_json, headers, base_url)
                         except Exception: pass
 
@@ -7574,11 +8552,14 @@ def lcu_core_backend_loop():
                     if lobby_res.status_code == 200:
                         lobby_data = lobby_res.json() or {}
                         multi_id = str(lobby_data.get('multiplayerGameId', ''))
+                        lobby_key = str(lobby_data.get('multiUserChatId') or lobby_data.get('partyId') or '')
                         
                         gc = lobby_data.get('gameConfig') or {}
+                        lobby_custom = bool(gc.get('isCustom'))
                         if 'queueId' in gc: queue_id = gc['queueId']
                         if gc.get('isCustom'): is_custom_game_flag = True
                         map_id = gc.get('mapId', map_id)
+                        coach_lobby_map[0] = gc.get('mapId')     # 고스트밴픽왕 맵 판정의 보조 소스(마지막 값 유지)
                         
                         dict_text = str(gc).upper()
                         # 🧭 [2026-08-01 사장님 제보] 칼바람 매치게임 방에 있다가 커스텀 방으로 옮겨도
@@ -7626,6 +8607,8 @@ def lcu_core_backend_loop():
                                 elif t_id in ["200", "2", "CHAOS", "TEAM2", "RED"]: c200_temp.append(m)
                                     
                         c100, c200 = c100_temp, c200_temp
+                    else:
+                        coach_lobby_map[0] = None     # 로비 밖이면 옛 방의 맵값을 버린다(남은 값이 다음 방을 막지 않게)
                 except Exception: pass
             
             if multi_id and multi_id != "0" and multi_id != last_chat_game_id:
@@ -7647,10 +8630,22 @@ def lcu_core_backend_loop():
                 eog_write_retry = 0          # 새 게임 진입 시 finalize 재시도 예산도 초기화(리뷰반영: 예산 누수 방지)
                 _fin_write_retry = 0
                 last_lobby_fingerprint = ""
-                try:
-                    threading.Timer(1.5, send_lcu_chat_announcement, args=[f"[분석기 정찰 시스템] 스쿼드해체분석기 v{CURRENT_VERSION} 로딩 완료", headers, base_url]).start()
-                    last_chat_game_id = multi_id
-                except Exception: pass
+                last_chat_game_id = multi_id   # (예전 '로딩 완료' 채팅은 아래 로비 소개로 바뀜)
+
+            # 🖥 [2026-09-28] 로비 소개 — 사설게임 방이 찼을 때 방마다 한 번(이미 누가 올렸으면 생략). 설정 lobby_intro=false 로 끈다.
+            if lobby_key and lobby_custom and current_phase == "Lobby" and APP_CONFIG.get("lobby_intro", True):
+                _ok, _why = _lobby_intro_ready(lobby_key, c100 + c200, gc)
+                if not _ok and _why != "이미 함" and _INTRO_WHY.get(lobby_key) != _why:
+                    _INTRO_WHY[lobby_key] = _why                # 보류 이유는 바뀔 때만 한 줄(조용한 보류 금지)
+                    print(f"[lobby-intro] 아직 안 올림 — {_why}", flush=True)
+                if _ok:
+                    _INTRO_BUSY.add(lobby_key)
+                    try:
+                        _pus = sorted({str(x.get('puuid') or '').strip().lower() for x in (c100 + c200) if isinstance(x, dict) and x.get('puuid')})
+                        _irank = _pus.index(global_my_puuid) if global_my_puuid in _pus else 10 + (int(hashlib.md5(str(global_my_puuid or 'x').encode()).hexdigest(), 16) % 3)
+                    except Exception: _irank = 10
+                    print(f"[lobby-intro] 올릴 때 — {_why} · 순번 {_irank}", flush=True)
+                    threading.Thread(target=_lobby_intro, args=(headers, base_url, lobby_key, _irank, [str((x or {}).get('gameName') or (x or {}).get('summonerName') or '') for x in (c100 + c200) if isinstance(x, dict)]), daemon=True).start()
 
             if current_phase in ["Lobby", "Matchmaking"] and not active_recording_id:
                 global_captured_bans.clear()
@@ -8241,6 +9236,9 @@ def lcu_core_backend_loop():
                                     #   단 하위순번 전원 미가동 등으로 35초 넘게 미기록이면 상위 순번도 에스컬레이션해 반드시 기록(단일실패점 방지).
                                     if rows_to_append and not has_bot and _roster_complete and (_my_rank < 4 or _waited > 35):
                                         _appended_ok = False
+                                        _append_resp = None
+                                        if _my_rank >= 4 and _waited > 35:   # [2026-10-04 ③] 에스컬레이션 동시 진입 창 축소 — 순번별 시차+랜덤
+                                            time.sleep(min(_my_rank, 10) * 1.2 + random.uniform(0, 0.8))
                                         try: col_a_now = sheet_target.col_values(gid_idx + 1)   # 🔒 중복방지: append 직전 최신 게임ID열 재확인
                                         except Exception:
                                             col_a_now = []; _dedup_ok = False   # [V81.45] 재확인 실패(429 등) → 이번 루프 기록 보류(중복 원천 차단)
@@ -8261,9 +9259,23 @@ def lcu_core_backend_loop():
                                                         try:
                                                             if sheet_target.col_values(gid_idx + 1).count(game_id_str) > 0: break
                                                         except Exception: break
-                                                    sheet_target.append_rows(rows_to_append); _appended_ok = True; break
+                                                    _append_resp = sheet_target.append_rows(rows_to_append); _appended_ok = True; break
                                                 except Exception:
                                                     if _atry == 0: time.sleep(2.5 + random.uniform(0, 2))
+                                            if _appended_ok:
+                                                # [2026-10-04 ②] 사후 정리 — 동시 append 로 앞선 사본이 이미 있으면 내 블록만 삭제(시작알림·결과웹훅 이중 방지).
+                                                try:
+                                                    _nmc = headers_row.index("소환사명") if "소환사명" in headers_row else -1
+                                                    if _nmc >= 0:
+                                                        _dc = _dup_cleanup_after_append(sheet_target, gid_idx + 1, _nmc + 1, game_id_str,
+                                                                                         [r[_nmc] for r in rows_to_append], _append_resp)
+                                                    else:
+                                                        print(f"[중복정리] #{game_id_str} 보류 — 소환사명 열 없음", flush=True); _dc = 'held'
+                                                except Exception as _e_dc:
+                                                    print(f"[중복정리] 예외 {type(_e_dc).__name__}: {_e_dc}", flush=True); _dc = 'held'
+                                                if _dc == 'deleted':
+                                                    _appended_ok = False            # 내 블록은 지워졌다 → 시작알림·결과웹훅·행 인덱스는 앞선 사본 주인 몫
+                                                    _record_confirmed = True        # 시트엔 앞선 사본이 있으므로 기록은 확정
                                             if _appended_ok:
                                                 appended_game_ids.add(fetched_game_id)   # 이 인스턴스가 기록 주체 → 웹훅 발송 자격
                                                 try: _noban_sheet_push(fetched_game_id, time.strftime("%Y-%m-%d %H:%M"))   # 🚫 노밴 선언 → NOBAN 탭(웹 표시용)
@@ -8521,6 +9533,22 @@ def lcu_core_backend_loop():
                                     if not (res in ("승리", "패배") and ev not in ("", "평가 대기")):
                                         return False
                             return found
+                        def _popup_from_sheet(rows):
+                            """남이 이미 마감한 판 — 쓰기·웹훅 없이 내 화면 리포트만 띄운다. MVP/ACE/역적은 시트에 먼저 적힌
+                               판정과 다르면 시트 쪽으로 맞춘다(웹·디스코드와 같은 이름). 마감된 행이라 게임 간 타이틀도 정확하다."""
+                            try:
+                                _rep = list(achieves_list or [])
+                                _mine = {"MVP": mvp_puuid or (f"cid:{mvp_cid}" if mvp_cid else ""),   # puuid 없이 챔프로 잡은 판정도 '있음'으로 비교
+                                         "ACE": ace_puuid or (f"cid:{ace_cid}" if ace_cid else ""),
+                                         "역적": troll_puuid or (f"cid:{troll_cid}" if troll_cid else "")}
+                                _blk = sheet_report_block(rows, _finalize_gid, _mine)
+                                if _blk:
+                                    if _rep and str(_rep[0]).startswith("🏆 [MVP]"): _rep[0] = _blk
+                                    else: _rep.insert(0, _blk)
+                                _rep += cross_game_titles(rows, _finalize_gid)
+                                if _rep:
+                                    with gui_lock: gui_data["achievements"] = _rep
+                            except Exception: pass
                         # 비주체(append 승자 아님)는 '결정적 순번(rank)' 양보 후 값싼 gviz로 '이미 마감?'만 확인 → 마감이면 스킵(쓰기 0).
                         #   [V81.48] 랜덤 15~30s → rank 계단(12 + rank*6s)으로 변경: 앞 순번이 먼저 마감하면 뒤 순번은 여기서 스킵 →
                         #   여러 비주체가 동시에 몰려 429 충돌·예산소진으로 '결과대기 영구화'되던 문제 해소. 주체 부재 시엔 순차로 반드시 1명이 마감.
@@ -8535,6 +9563,9 @@ def lcu_core_backend_loop():
                             try: _pre = get_sheet_data_cached(sheet_target, force=True)   # gviz-first(할당량0)
                             except Exception: _pre = []
                             if _game_all_finalized(_pre):
+                                # 🏆 [2026-09-25 사장님 제보 '리포트 팝업이 첫 판만 뜬다'] 여기서 바로 continue 하면 아래 팝업까지
+                                #   못 가서, 시트를 직접 마감한 분석기 한 대만 리포트가 떴다(여럿이 켜 둔 방에선 대부분 이쪽).
+                                _popup_from_sheet(_pre)
                                 active_recording_id = None; eog_write_retry = 0; _fin_write_retry = 0   # [리뷰반영] 쓰기예산도 리셋 — 같은 로비 연속게임(multi_id 불변)서 예산 누수로 다음 게임 조기포기 방지
                                 continue
                         # 실제 기입은 항상 authoritative(서비스계정) 행번호 사용 — gviz 행드롭/오시트 리스크 제거(리뷰 #1/#9).
@@ -8565,6 +9596,7 @@ def lcu_core_backend_loop():
                             
                             target_gid = f"#{active_recording_id}"
                             cells_to_update = []
+                            _xt_fill = {}   # 🏅 [2026-09-25] 게임 간 타이틀용 — 방금 정한 이 판 결과·포지션(시트 사본엔 아직 '결과 대기')
 
                             # [모의테스트 HIGH — 잔여 중복 감지] 같은 게임ID + 같은 PUUID가 2회↑면 멀티인스턴스 동시 append 잔재(중복행).
                             #   구글시트는 원자적 락이 없어 100% 방지가 불가 → 남으면 감지해 로그·GUI로 알림(오삭제 위험 때문에 자동삭제 안 함, 수동 정리 유도).
@@ -8598,6 +9630,7 @@ def lcu_core_backend_loop():
                                         
                                         res_str = "승리" if t_id_num == win_id else "패배"
                                         if res_c != -1: cells_to_update.append(gspread.Cell(row=row_num, col=res_c+1, value=res_str))
+                                        if res_c != -1: _xt_fill.setdefault(r_idx, {})[res_c] = res_str
                                         
                                         if ban_c != -1:
                                             existing_ban = r[ban_c] if len(r) > ban_c else ""
@@ -8646,6 +9679,7 @@ def lcu_core_backend_loop():
                                             _pold = r[pos_c] if len(r) > pos_c else ""
                                             if _pv and _pv != _pold:
                                                 cells_to_update.append(gspread.Cell(row=row_num, col=pos_c+1, value=_pv))
+                                                _xt_fill.setdefault(r_idx, {})[pos_c] = _pv
                                                 print(f"[포지션정정] {target_gid} {_pold or '(빈칸)'} → {_pv}", flush=True)
 
                                         # 📊 [v82.26] 상세지표 팩 + 픽순서(드래프트만, pk1~10)
@@ -8679,6 +9713,13 @@ def lcu_core_backend_loop():
                                         # 🔥 [V80.9] 패치 버전을 텍스트로 안전하게 고정
                                         if patch_c != -1: cells_to_update.append(gspread.Cell(row=row_num, col=patch_c+1, value=f"v{PATCH_VERSION_SHORT}"))
 
+                            # 🏆 [2026-09-25] gviz 가 늦어 위 '이미 마감?' 확인을 놓친 비주체 — 서비스 읽기로 보니 전 행이 이미 남이 마감.
+                            #   쓸 게 없는데 아래로 가면 리포트 웹훅이 한 번 더 나가고(봇 타이틀 원장 중복) 팝업은 시트와 다를 수 있다.
+                            #   내가 쓰기를 한 번이라도 시도했으면(_fin_write_retry>0 — 실패로 보였어도 반영됐을 수 있다) 예전대로 간다.
+                            if (not _is_appender) and (not cells_to_update) and _fin_write_retry == 0 and _game_all_finalized(sheet_data_check):
+                                _popup_from_sheet(sheet_data_check)
+                                active_recording_id = None; eog_retry_count = 0; eog_write_retry = 0; _fin_write_retry = 0
+                                continue
                             if cells_to_update:
                                 # [V81.45] '결과 대기 영원' 수정 / [2026-07-07 쓰기429 근본완화] 예전엔 실패 시 최대 20회×3=60번 update_cells를
                                 #   짧은 간격(5s)으로 재시도 → 피크(2~3로비 종료 클러스터)에 분당 쓰기할당량(≈60/분)을 재시도가 스스로 소진하는 악순환.
@@ -8716,7 +9757,16 @@ def lcu_core_backend_loop():
                             #   시트는 마감하지만 _is_appender=False라 리포트를 못 쏴 매 게임 유실됐음. 이제 finalize 지점 도달(=행 가시+마감 수행) 인스턴스가 발송.
                             #   단일발송 유지: 비주체는 rank 스태거(L3012) 후 '이미 마감?' 확인되면 continue(L3017)로 여기 도달 안 함 → 실제 마감 수행한 ~1인스턴스만 도달. posted_game_ids로 인스턴스내 1회.
                             try:   # 🏅 [v82.48] 게임 간 타이틀(하루 판수·연승·다재다능·스토커) 합류
-                                _xt = cross_game_titles(sheet_data_check, _finalize_gid)
+                                #   [2026-09-25] sheet_data_check 는 기입 '전' 사본이라 이 판 행이 '결과 대기'였다 → 판정이
+                                #   이 판을 못 세서 타이틀이 한 번도 안 나왔다. 방금 정한 결과·포지션을 사본에 채워서 판정한다.
+                                _xt_rows = list(sheet_data_check)
+                                for _xi, _xf in _xt_fill.items():
+                                    _xr = list(_xt_rows[_xi])
+                                    for _xc, _xv in _xf.items():
+                                        while len(_xr) <= _xc: _xr.append("")
+                                        _xr[_xc] = _xv
+                                    _xt_rows[_xi] = _xr
+                                _xt = cross_game_titles(_xt_rows, _finalize_gid)
                                 if _xt: achieves_list = list(achieves_list) + _xt
                             except Exception: pass
                             if achieves_list and _game_visible(sheet_data_check) and (active_recording_id not in posted_game_ids):
@@ -8725,6 +9775,11 @@ def lcu_core_backend_loop():
                                     #    지역변수라 웹훅 함수(모듈 스코프)에서 못 읽음 → 발송 직전 모듈 전역에 복사
                                     _NB_TEAMS["blue"] = list(global_cached_blue or [])
                                     _NB_TEAMS["red"] = list(global_cached_red or [])
+                                except Exception: pass
+                                try:   # ⚖️ [P-12] 시작 전 예상 → 결과 한 줄(맞았는지 쌓아 간다)
+                                    if APP_CONFIG.get("lobby_balance", True) and _PRE_WR[0] is not None and time.time() - _PRE_WR[1] < 4 * 3600:
+                                        _pl = _pre_game_report_line(_PRE_WR[0], win_id)
+                                        if _pl: achieves_list = list(achieves_list) + [_pl]
                                 except Exception: pass
                                 try: broadcast_to_discord_webhook(chr(10).join(achieves_list))
                                 except Exception: pass
@@ -8860,6 +9915,7 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
                     _team_obj[_t] = _team_obj.get(_t, 0) + int(_st.get('dragonKills', _st.get('DRAGON_KILLS', 0)) or 0) + int(_st.get('baronKills', _st.get('BARON_KILLS', 0)) or 0)
 
         player_scores = []
+        _win_names = []   # 🔥 [2026-09-26] 팀 타이틀(전투민족) 획득자 — 봇이 이 명단으로 역할을 준다
         for p in participants:
             if not isinstance(p, dict): continue
             t_id = p.get('teamId')
@@ -8912,6 +9968,9 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
                     pos_final_map[f"{t_id}_{c_id}"] = _pk
 
             is_win = teams[t_id]['win']
+            if is_win:
+                _wn = str(name or "").split('#')[0].strip()
+                if _wn and not _wn.startswith("유저") and _wn not in _win_names: _win_names.append(_wn)
             deaths = stats.get('deaths', stats.get('NUM_DEATHS', 0))
             kills = stats.get('kills', stats.get('CHAMPIONS_KILLED', 0))
             assists = stats.get('assists', stats.get('ASSISTS', 0))
@@ -9067,7 +10126,12 @@ def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red
             if total_kills >= 100:
                 for t_id in [100, 200]:
                     if teams[t_id]['win']:
-                        achievements.append(f"🔥 [전투민족] 양팀 도합 100킬 이상 돌파! ({t_id}팀 승리 / 총 {total_kills}킬)")
+                        # [2026-09-26 사장님 제보 '전투민족 떴는데 역할이 안 붙는다'] 팀 타이틀은 괄호가 사람 이름이 아니라
+                        #   봇이 누구에게 줄지 몰랐다 → 승리팀 명단을 다음 줄 '└ 획득: …' 로 싣는다(봇 _parse_title_awards 가 읽음).
+                        _side = "블루팀" if t_id == 100 else "레드팀"
+                        _cl = f"🔥 [전투민족] 양팀 도합 100킬 이상 돌파! ({_side} 승리 / 총 {total_kills}킬)"
+                        if _win_names: _cl += "\n   └ 획득: " + ", ".join(_win_names)
+                        achievements.append(_cl)
                         break
 
         if player_scores:
@@ -9421,6 +10485,68 @@ def create_graphic_ui():
     # [v82.18] 엠블럼 로더 — variant별 로고를 팀 배경색 위에 합성(높이 26px, 원본 비율 유지). 캐시.
     _T1_REG = set()   # 엠블럼이 표시된 슬롯(bf) 레지스트리 — 매 사이클 스윕으로 잔상 원천 차단
     _T1_EMB_CACHE = {}
+    _SPROUT_CACHE = {}
+    _SPROUT_H = {}      # (폰트 이름, 크기) → 새싹 높이(px)
+    def _sprout_photo(bg, h):
+        """🌱 새싹 아이콘 — 흙 한 줌 + 줄기 + 물방울 잎 두 장. 파일 없이 그린다(8배로 그려 줄여 작아도 또렷).
+           라벨 배경색 위에 합성(T1 엠블럼과 같은 이유 — 라벨 투명 불가). (배경, 높이)별 캐시."""
+        if not PILLOW_INSTALLED: return None
+        key = (str(bg), int(h))
+        if key in _SPROUT_CACHE: return _SPROUT_CACHE[key]
+        try:
+            from PIL import ImageDraw as _ID
+            S = 8; W = H = max(10, int(h)); cw, ch = W * S, H * S
+            im = Image.new("RGBA", (cw, ch), (0, 0, 0, 0)); d = _ID.Draw(im)
+            OUT = (18, 60, 26, 255); SOIL = (122, 84, 52, 255); SOIL_O = (60, 38, 22, 255)
+            STEM = (96, 184, 72, 255); VEIN = (205, 248, 170, 255)
+            def _bez(p0, p1, p2, p3, n=24):
+                return [((1-t)**3*p0[0] + 3*(1-t)**2*t*p1[0] + 3*(1-t)*t*t*p2[0] + t**3*p3[0],
+                         (1-t)**3*p0[1] + 3*(1-t)**2*t*p1[1] + 3*(1-t)*t*t*p2[1] + t**3*p3[1]) for t in [i / n for i in range(n + 1)]]
+            def _leaf(base, tip, bulge, fill):
+                bx, by = base; tx, ty = tip; dx, dy = tx - bx, ty - by; L = math.hypot(dx, dy) or 1; nx, ny = -dy / L, dx / L
+                a = _bez(base, (bx+dx*.25+nx*bulge, by+dy*.25+ny*bulge), (bx+dx*.75+nx*bulge*.9, by+dy*.75+ny*bulge*.9), tip)
+                b = _bez(tip, (bx+dx*.75-nx*bulge*.9, by+dy*.75-ny*bulge*.9), (bx+dx*.25-nx*bulge, by+dy*.25-ny*bulge), base)
+                d.polygon(a + b[1:], fill=fill, outline=OUT, width=int(S * 1.1))
+                d.line([base, (bx + dx * .8, by + dy * .8)], fill=VEIN, width=max(1, int(S * .9)))
+            sx = cw * .5; top = (sx, ch * .46)
+            d.ellipse([cw*.16, ch*.80, cw*.84, ch*1.08], fill=SOIL, outline=SOIL_O, width=int(S * 1.2))
+            d.line([sx, ch*.90, sx, top[1]], fill=OUT, width=int(S * 3.8))
+            d.line([sx, ch*.89, sx, top[1] + S*.6], fill=STEM, width=int(S * 2.2))
+            _leaf(top, (cw*.05, ch*.22), ch*.17, (98, 196, 80, 255))
+            _leaf(top, (cw*.97, ch*.06), ch*.21, (128, 220, 92, 255))
+            d.ellipse([sx - S*1.5, top[1] - S*1.5, sx + S*1.5, top[1] + S*1.5], fill=STEM)
+            im = im.resize((W, H), Image.Resampling.LANCZOS)
+            gap = max(2, H // 6)                              # 이름과 붙지 않게 오른쪽 여백(compound 는 간격 옵션이 없다)
+            base = Image.new("RGBA", (W + gap, H), bg)
+            base.alpha_composite(im, (0, 0))
+            ph = ImageTk.PhotoImage(base)
+            _SPROUT_CACHE[key] = ph
+            return ph
+        except Exception: return None
+
+    def _apply_newbie(slot, p, s):
+        """🌱 가입 7일 이내(_is_newbie)면 이름 바로 앞에 새싹. 아니면 지운다. 상태가 그대로면 아무것도 안 한다(1초 주기 리드로우 방지)."""
+        try:
+            lbl = slot[0]
+            on = bool(p) and _is_newbie(str((p or {}).get('name', '')), (s or {}).get("first"))
+            if not on:
+                if getattr(lbl, "_sprout", None) is not None:
+                    lbl.config(image="", compound="none"); lbl._sprout = None
+                return
+            fk = str(lbl.cget("font"))
+            try: _f = tkfont.nametofont(fk); ck = (fk, _f.actual("size"))   # 창 크기 변경(UF 배율)은 같은 이름 폰트의 크기만 바꾼다 → 크기까지 키로
+            except Exception: _f = None; ck = (fk, None)
+            h = _SPROUT_H.get(ck)
+            if h is None:                                   # 폰트·크기별 한 번만 잰다 — 1초마다 Font 를 새로 만들면 Tk 폰트가 쌓인다
+                try: h = max(12, int((_f or tkfont.Font(font=lbl.cget("font"))).metrics("linespace") * 0.92))
+                except Exception: h = 20
+                _SPROUT_H[ck] = h
+            bg = lbl.cget("bg"); key = (bg, h)
+            if getattr(lbl, "_sprout", None) == key: return
+            ph = _sprout_photo(bg, h)
+            if ph is None: return
+            lbl.config(image=ph, compound="left"); lbl.image = ph; lbl._sprout = key
+        except Exception: pass
     def _t1_emblem_photo(ck, soft_bg, target_h=26):
         if not PILLOW_INSTALLED: return None
         key = (ck, soft_bg)
@@ -9481,6 +10607,10 @@ def create_graphic_ui():
     tk.Label(bans_row, textvariable=bans_var, bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=FONT_BANS).pack(side="left", padx=(0, 6))
     bans_icon_frame = tk.Frame(bans_row, bg=theme.BG_BAR)
     bans_icon_frame.pack(side="left")
+    # ⚖️ [P-12] 대기실 전력차 한 줄(10명 찼을 때만 보임 · 설정 'lobby_balance' 로 끔)
+    balance_var = tk.StringVar(value="")
+    tk.Label(mid_header, textvariable=balance_var, bg=theme.BG_BAR, fg="#f5d47a", font=FONT_BANS, justify="right").pack(anchor="e", pady=1)
+    _LB_STATE = {"fp": None}
 
     left_header = tk.Frame(header, bg=theme.BG_BAR)
     left_header.pack(side="left", fill="both", expand=True, padx=15, pady=5)
@@ -9789,7 +10919,7 @@ def create_graphic_ui():
             for wgt in (f, tf2, *f.winfo_children(), *tf2.winfo_children()):
                 try: wgt.bind("<Button-1>", lambda e, fn=fn: _pick(fn))
                 except Exception: pass
-        _big("👑", "팀장 2인 뽑기", "전투력이 가장 비슷한 두 명을 팀장으로 (직전 판 팀장 회피)",
+        _big("👑", "팀장 2인 뽑기", "전투력차 1 이내에서 가장 비슷한 두 명을 팀장으로 (직전 판 팀장 회피)",
              _do_pick_captains, theme.GOLD)
         _big("⚖", "5:5 명단 짜기", "방 전원을 전투력·주포지션 균형으로 두 팀으로 나눔",
              _do_team_split, "#7ec8e3")
@@ -10088,6 +11218,54 @@ def create_graphic_ui():
         finally:
             root.after(140, _burn_tick)
 
+    _REPORT_WIN = {"w": None, "txt": None, "gen": 0, "font": None}
+    def _show_match_report(text):
+        """🏆 매치 결과 리포트 창. [2026-09-25] 윈도우 기본 메시지박스(messagebox.showinfo)는 롤 클라이언트가
+           앞에 있으면 앞으로 못 나오고 뒤에 깔릴 수 있다(작업표시줄만 깜빡임) → 우리 창으로 띄우고 4초간
+           최상단에 뒀다 내린다(다음 판 게임 화면까지 덮지 않게). 이전 리포트 창이 열려 있으면 그 창을 새 내용으로 바꾼다."""
+        try:
+            w, txt = _REPORT_WIN.get("w"), _REPORT_WIN.get("txt")
+            if not (w is not None and w.winfo_exists()):
+                w = tk.Toplevel(root); w.title("🏆 매치 결과 리포트 및 타이틀 획득!")
+                w.configure(bg="#12141a")
+                try: w.iconbitmap(resource_path("icon.ico"))
+                except Exception: pass
+                bar = tk.Frame(w, bg="#12141a"); bar.pack(side="bottom", fill="x")
+                tk.Button(bar, text="확인", command=w.destroy, bg="#232838", fg="#cfd6e4",
+                          relief="flat", padx=18, cursor="hand2").pack(pady=(4, 12))
+                box = tk.Frame(w, bg="#12141a"); box.pack(side="top", fill="both", expand=True, padx=16, pady=(14, 4))
+                sb = tk.Scrollbar(box); sb.pack(side="right", fill="y")
+                if _REPORT_WIN.get("font") is None:   # 전용 폰트 — UF() 공용 폰트는 본체 창 배율을 따라 작은 화면에서 6~7pt로 줄어든다
+                    try: _REPORT_WIN["font"] = tkfont.Font(family="Malgun Gothic", size=10)
+                    except Exception: _REPORT_WIN["font"] = UF(10)
+                txt = tk.Text(box, wrap="word", width=58, bg="#12141a", fg="#e8eaf0", relief="flat",
+                              font=_REPORT_WIN["font"], yscrollcommand=sb.set, highlightthickness=0, bd=0)
+                txt.pack(side="left", fill="both", expand=True)
+                sb.config(command=txt.yview)
+                w.bind("<Return>", lambda e: w.destroy()); w.bind("<Escape>", lambda e: w.destroy())
+                _REPORT_WIN.update({"w": w, "txt": txt})
+            txt.config(state="normal"); txt.delete("1.0", "end"); txt.insert("1.0", str(text).rstrip())
+            _n = int(txt.index("end-1c").split(".")[0])
+            txt.config(height=max(6, min(22, _n + 1)))
+            w.update_idletasks()
+            try:   # 긴 타이틀은 줄바꿈돼 두 줄을 먹는다 → 창이 뜬 뒤 화면상 줄 수로 다시 맞춘다(마지막 줄이 가려지지 않게)
+                _d = txt.count("1.0", "end", "update", "displaylines")
+                _d = int(_d[0] if isinstance(_d, (tuple, list)) else (_d or 0))
+                if _d > _n:
+                    txt.config(height=max(6, min(22, _d + 1))); w.update_idletasks()
+            except Exception: pass
+            txt.config(state="disabled")
+            # 본체가 숨김·최소화여도 보이게 화면 가운데 기준(본체 좌표는 숨김 상태에서 의미 없음)
+            w.geometry("+%d+%d" % (max(0, (w.winfo_screenwidth() - w.winfo_reqwidth()) // 2),
+                                   max(0, (w.winfo_screenheight() - w.winfo_reqheight()) // 3)))
+            _REPORT_WIN["gen"] += 1; _gen = _REPORT_WIN["gen"]
+            w.deiconify(); w.lift(); w.attributes("-topmost", True)
+            root.after(4000, lambda: _REPORT_WIN["gen"] == _gen and w.winfo_exists() and w.attributes("-topmost", False))
+            try: w.bell()
+            except Exception: pass
+        except Exception as _re:
+            print(f"[report] 리포트 창 표시 실패: {type(_re).__name__} {str(_re)[:120]}", flush=True)
+
     def update_gui():
         try:
             with gui_lock:
@@ -10121,13 +11299,7 @@ def create_graphic_ui():
             if local_achievements:
                 ach_text = "아래 유저들이 게임 종료 후 특수 타이틀(업적)을 달성했습니다!\n\n"
                 for a in local_achievements: ach_text += str(a) + "\n"
-                def show_popup():
-                    top_msg = tk.Toplevel(root)
-                    top_msg.withdraw()
-                    top_msg.attributes("-topmost", True)
-                    messagebox.showinfo("🏆 매치 결과 리포트 및 타이틀 획득!", ach_text, parent=top_msg)
-                    top_msg.destroy()
-                root.after(100, show_popup)
+                root.after(100, lambda t=ach_text: _show_match_report(t))
                 
             status_var.set(local_status)
             bans_var.set(local_bans)
@@ -10145,6 +11317,22 @@ def create_graphic_ui():
                         _bl2.pack(side="left", padx=1)
                     # [시인성] 밴 챔피언 이름 텍스트 표기 제거 — 아이콘만(이미지 없으면 생략)
 
+            try:   # ⚖️ [P-12] 대기실 전력차 — 사람이 바뀔 때만 다시 계산(포지션용 클랜 색인은 백그라운드)
+                if APP_CONFIG.get("lobby_balance", True) and len(local_blue) == 5 and len(local_red) == 5:
+                    _fp = "|".join(sorted(tnorm(str((p or {}).get('name') or '')) for p, _s in local_blue + local_red))
+                    _PRE_WR[0], _PRE_WR[1] = local_b_wr, time.time()
+                    if _fp != _LB_STATE["fp"]:
+                        _LB_STATE["fp"] = _fp
+                        def _lb_work(be=list(local_blue), re_=list(local_red), fp=_fp):
+                            try: cx = _clan_index()
+                            except Exception: cx = None
+                            t = _lobby_balance_text(be, re_, cx)
+                            if _LB_STATE["fp"] == fp: root.after(0, lambda: balance_var.set(t))
+                        threading.Thread(target=_lb_work, daemon=True).start()
+                else:
+                    _LB_STATE["fp"] = None
+                    if balance_var.get(): balance_var.set("")
+            except Exception: pass
             blue_title_lbl.config(text=f"🟦 BLUE TEAM (예상 승률: {local_b_wr}%) | 밴 추천: ")
             # 🚫 [v81.76] 추천 밴 10개 → 5개씩 2줄(grid). 가로 한 줄로 늘어지지 않게.
             for widget in blue_ban_frame.winfo_children(): widget.destroy()
@@ -10254,6 +11442,7 @@ def create_graphic_ui():
                     _pre, _suf, _bdg = _apply_cosmetic(blue_slots[i], name_str, theme.TEAM_BLUE_SOFT, theme.TEAM_BLUE_FG)
                     _apply_my_cosmetic(blue_slots[i], p, theme.TEAM_BLUE_SOFT)
                     _apply_burn(blue_slots[i], s.get("streak_val", 0))   # 🔥 5연승 이상이면 닉네임이 탄다
+                    _apply_newbie(blue_slots[i], p, s)                    # 🌱 가입 7일 이내 뉴비 — 이름 앞 새싹
                     name_str = _pre + name_str + _suf + _bdg
                     blue_slots[i][0].config(text=name_str + lp_str)
                     _most_disp, _op_disp, _pos_tag = _display_champ_lists(p, s, local_pos_view)
@@ -10308,6 +11497,7 @@ def create_graphic_ui():
                 else:
                     _apply_my_cosmetic(blue_slots[i], {}, theme.TEAM_BLUE_SOFT)   # [v82.6] 빈 슬롯 꾸미기 잔상 정리(자리이동 시 프레임 남던 것)
                     _apply_burn(blue_slots[i], 0)   # 빈 슬롯이 되면 불도 끈다(잔상 방지)
+                    _apply_newbie(blue_slots[i], None, None)   # 🌱 빈 칸이 되면 새싹도 지운다(잔상 방지)
                     blue_slots[i][0].config(text="대기 중...", fg=theme.TEXT_MUT)
                     blue_slots[i][1].config(text="소환사를 정찰하고 있습니다.")
                     blue_slots[i][8].config(text="")
@@ -10332,6 +11522,7 @@ def create_graphic_ui():
                     _pre, _suf, _bdg = _apply_cosmetic(red_slots[i], name_str, theme.TEAM_RED_SOFT, theme.TEAM_RED_FG)
                     _apply_my_cosmetic(red_slots[i], p, theme.TEAM_RED_SOFT)
                     _apply_burn(red_slots[i], s.get("streak_val", 0))    # 🔥 5연승 이상이면 닉네임이 탄다
+                    _apply_newbie(red_slots[i], p, s)                     # 🌱 가입 7일 이내 뉴비 — 이름 앞 새싹
                     name_str = _pre + name_str + _suf + _bdg
                     red_slots[i][0].config(text=name_str + lp_str)
                     _most_disp, _op_disp, _pos_tag = _display_champ_lists(p, s, local_pos_view)
@@ -10386,6 +11577,7 @@ def create_graphic_ui():
                 else:
                     _apply_my_cosmetic(red_slots[i], {}, theme.TEAM_RED_SOFT)   # [v82.6] 빈 슬롯 꾸미기 잔상 정리
                     _apply_burn(red_slots[i], 0)   # 빈 슬롯이 되면 불도 끈다(잔상 방지)
+                    _apply_newbie(red_slots[i], None, None)    # 🌱 빈 칸이 되면 새싹도 지운다(잔상 방지)
                     red_slots[i][0].config(text="대기 중...", fg=theme.TEXT_MUT)
                     red_slots[i][1].config(text="소환사를 정찰하고 있습니다.")
                     red_slots[i][8].config(text="")
@@ -11086,6 +12278,11 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Button(bot_bar, text="설정 및 저장", font=UF(11, "bold"), bg=theme.TEAM_RED_BG,
                   fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2",
                   command=self.apply_settings).pack(pady=11)
+        # 🖥 [2026-09-28 사장님 지시] 만든 사람 표시 — "시스템은 알아도 누가 만든 건지 모르는 경우가 많다"
+        _cred = tk.Label(self, text=f"만든 사람: 클랜원 맛동산장인 유미  ·  전적·다운로드 {SITE_SHORT}", bg=theme.BG, fg=theme.TEXT_SUB,
+                         font=UF(9), cursor="hand2")
+        _cred.pack(side="bottom", fill="x", pady=(2, 0))
+        _cred.bind("<Button-1>", lambda e: webbrowser.open(SITE_URL))
 
         _scroll_wrap = tk.Frame(self, bg=theme.BG); _scroll_wrap.pack(fill="both", expand=True)
         _cv = tk.Canvas(_scroll_wrap, bg=theme.BG, highlightthickness=0, bd=0)
@@ -11102,11 +12299,14 @@ class ClanSettingsWindow(tk.Toplevel):
         style = ttk.Style()
         style.configure("TCheckbutton", background=theme.BG, foreground=theme.TEXT, font=UF(10))
         
-        self.var_startup = tk.BooleanVar(value=APP_CONFIG.get("windows_startup", False))
+        self.var_startup = tk.BooleanVar(value=APP_CONFIG.get("windows_startup", True))
         self.var_lol_auto = tk.BooleanVar(value=APP_CONFIG.get("lol_auto_show", True))
         self.var_tray = tk.BooleanVar(value=APP_CONFIG.get("minimize_to_tray", False))
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
         self.var_syn = tk.BooleanVar(value=APP_CONFIG.get("show_synergy", True))   # 🧩 우측 시너지 3칸
+        self.var_lb = tk.BooleanVar(value=APP_CONFIG.get("lobby_balance", True))   # ⚖️ [P-12] 대기실 전력차 한 줄
+        self.var_lf = tk.BooleanVar(value=APP_CONFIG.get("lobby_fun", True))   # 🎲 [2026-10-19] 안내 뒤에 클랜 정보 한 줄 랜덤
+        self.var_li = tk.BooleanVar(value=APP_CONFIG.get("lobby_intro", True))   # 💬 [2026-10-17 사장님 지시] 로비 채팅 안내 멘트(스쿼드해체분석기 사용중) 켜기/끄기
         
         # 체크박스를 먼저(오른쪽) 배치해 공간을 확보 → 긴 설명이 밀어내지 않음. 설명은 wraplength로 줄바꿈.
         opt_f1 = tk.Frame(body_frame, bg=theme.BG); opt_f1.pack(fill="x", pady=10)
@@ -11174,6 +12374,30 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Label(txt_pv, text="켜면 각자 선택한 포지션의 모스트·고승률픽만, 끄면 전체 라인 기준으로 보여줍니다. (상단 버튼으로 언제든 전환 가능)",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
+        # ⚖️ [P-12] 대기실 전력차 한 줄 — 끄기(기본 켬)
+        opt_lb = tk.Frame(body_frame, bg=theme.BG); opt_lb.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_lb, variable=self.var_lb, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_lb = tk.Frame(opt_lb, bg=theme.BG); txt_lb.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_lb, text="대기실 전력차 한 줄 보기", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_lb, text="10명이 차면 '예상 승률 블루 44% : 레드 56%'를 한 줄 보여주고, 많이 기울었으면 한 쌍 맞바꾸기를 안내합니다. 결과 리포트에 '시작 전 예상' 한 줄도 붙습니다. (개인 점수는 보이지 않아요)",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
+        # 💬 [2026-10-17 사장님 지시 "해체분석기 로비에서 사용중 안내 멘트 채팅 쳐지는 거 off 할 수 있는 설정 옵션"] 로비 안내 채팅 — 끄기(기본 켬)
+        opt_li = tk.Frame(body_frame, bg=theme.BG); opt_li.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_li, variable=self.var_li, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_li = tk.Frame(opt_li, bg=theme.BG); txt_li.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_li, text="로비 채팅에 '스쿼드해체분석기 사용중' 안내 보내기", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_li, text="클랜원이 모인 사설게임 방에서 방마다 한 번, 분석기 소개 한 줄을 로비 채팅에 올립니다. 끄면 내 분석기는 로비 채팅에 아무것도 올리지 않아요. (내 기록·분석 기능은 그대로 동작합니다)",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
+        # 🎲 [2026-10-19 사장님 지시] 로비 안내에 간단한 클랜 정보(지난주 소식·기록·팁·방 맞춤) 한 줄 랜덤 — 끄기(기본 켬)
+        opt_lf = tk.Frame(body_frame, bg=theme.BG); opt_lf.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_lf, variable=self.var_lf, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_lf = tk.Frame(opt_lf, bg=theme.BG); txt_lf.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_lf, text="로비 안내 뒤에 클랜 정보 한 줄 랜덤으로 붙이기", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_lf, text="로비 안내 채팅 끝에 지난주 클랜 소식·클랜 기록·사용법 팁·방에 있는 클랜원 한마디 중 하나를 무작위로 덧붙입니다. 끄면 안내 문장만 나갑니다.",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
         opt_f4 = tk.Frame(body_frame, bg=theme.BG); opt_f4.pack(fill="x", pady=10)
         _cur_key = APP_CONFIG.get("win_preset", "auto")
@@ -11213,6 +12437,9 @@ class ClanSettingsWindow(tk.Toplevel):
         _pv = bool(self.var_posview.get())
         APP_CONFIG["pos_view_default"] = _pv
         APP_CONFIG["show_synergy"] = bool(self.var_syn.get())   # 🧩 우측 시너지 3칸
+        APP_CONFIG["lobby_balance"] = bool(self.var_lb.get())   # ⚖️ [P-12] 대기실 전력차 한 줄
+        APP_CONFIG["lobby_fun"] = bool(self.var_lf.get())   # 🎲 로비 안내 뒤 클랜 정보 한 줄
+        APP_CONFIG["lobby_intro"] = bool(self.var_li.get())   # 💬 로비 안내 채팅 — 저장 즉시 반영(루프가 매번 이 값을 읽는다)
         try:
             if _SYNERGY_SYNC[0]: _SYNERGY_SYNC[0](APP_CONFIG["show_synergy"])   # 재시작 없이 즉시 반영
         except Exception: pass
@@ -11284,7 +12511,8 @@ class GuideWindow(tk.Toplevel):
         ("🔘 상단 버튼", "화면 위쪽 두 줄 — 사용 안내·음성방 초대·명예의전당·내부티어·모의밴픽·"
                       "SQUAD.GG·AUC.GG / 모스트 전환·설정·로그·팀뽑선정·후원이 바로 눌립니다."),
         ("👑 팀뽑선정", "방에 있는 사람 중 전투력이 가장 비슷한 2인을 팀장으로 뽑습니다(직전 판 팀장은 회피). "
-                      "결과를 로비 채팅에 바로 알릴 수 있습니다."),
+                      "전투력차 1 이내 짝만 추천하고 그 안에서 주포지션이 같은 짝을 우선, 비슷한 짝이 없으면 "
+                      "포지션을 보지 않고 전투력이 가장 가까운 두 명을 고릅니다. 결과를 로비 채팅에 바로 알릴 수 있습니다."),
         ("🎯 모스트 표시 전환", "모스트를 '현재 선택한 포지션' 기준으로 볼지 '전체 라인' 기준으로 볼지 바꿉니다."),
         ("⚙ 설정", "부팅 시 자동 실행(숨김) · 롤 켜질 때 자동 팝업 · 트레이 최소화 · 시너지 3칸 표시 · "
                   "창 크기 · 고스트밴픽왕 구독 토큰. 바꾼 뒤 반드시 [설정 및 저장]을 눌러야 적용됩니다."),
@@ -11430,6 +12658,7 @@ if __name__ == "__main__":
     threading.Thread(target=_position_sync_loop, daemon=True).start()         # 🎯 디스코드 포지션역할 → CLAN_POSITIONS 재작성(호스트만, 1h)
     threading.Thread(target=_departed_sync_loop, daemon=True).start()         # 👥 디스코드 탈퇴자 → DEPARTED 탭(호스트만, 30분)
     threading.Thread(target=_cosmetics_loop, daemon=True).start()             # 🖼️ 상점 장식(모든 PC) → 밴픽 '내 칸' 꾸미기
+    threading.Thread(target=_joined_loop, daemon=True).start()                # 🌱 클랜 서버 가입 시각(모든 PC) → 가입 7일 이내 새싹
     threading.Thread(target=_spellcheck_hotkey_loop, daemon=True).start()    # 🕵️ 스펠체크 헬퍼(사장님 계정 전용·비공개)
     threading.Thread(target=_lcu_backfill_loop, daemon=True).start()        # 🕰️ LCU 전적 백필(분석기 없이 치른 커스텀 회수)
     threading.Thread(target=ad_banner_engine, daemon=True).start()

@@ -1,0 +1,139 @@
+# -*- coding: utf-8 -*-
+"""🍘 맛동산 투척 단계표 · 아레나 시험 — 2026-10-07 초반 상향 → 2026-10-12 사장님 지시로 「관통 스틱 + 맞을 때마다 튀는 부스러기」 구조로 개편(자세한 구조 시험은 survivors_snack_fury_test.py).
+사용: python3 tests/survivors_snack_early_test.py
+ ① 단계표: Lv1~8 의 스틱 수·맞을 때마다 튀는 부스러기 수·스틱 피해·쿨타임이 설명문(WEAP.snack.ds)과 맞고, 부스러기가 정말 맞을 때마다 그 수만큼 튄다
+ ② 아레나(적 밀집 · 고정 시드 · 여러 번 평균 · 10초 누적 피해): 레벨이 오를수록 세지고(단조) · 각성은 일반 Lv8 보다 뚜렷이 세며 · 개편 뒤 기준값(NEWV)에서 ±8% 안(몰래 바뀌는 것 방지)
+ ③ 적이 없어도 필드 아이템에 맞으면 부스러기가 튄다(기존 동작)
+원본 survivors.html 은 건드리지 않고 임시 사본(survivors_x.html)에만 훅을 꽂는다. 수치를 일부러 바꿀 때는 아래 LADDER · NEWV 를 같이 고친다."""
+import asyncio, sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sv_harness as H
+os.environ.setdefault('SV_CSX_OFF', '1')   # 2026-10-12: 캐릭터 고유 능력(CSX)을 중립으로 — 이 시험은 브장신·용조련사를 「능력 없는 기준」으로 쓴다(능력 자체는 survivors_cabil_test.py)
+from playwright.async_api import async_playwright
+
+FAILS = []
+U_KD = .42   # U3.snack.kd — 부스러기 피해 ÷ 스틱 피해
+def check(name, cond, extra=''):
+    print(('PASS ' if cond else 'FAIL ') + name + ((' — ' + str(extra)) if extra != '' else ''), flush=True)
+    if not cond: FAILS.append(name)
+
+# 레벨 → (스틱 수, 맞을 때마다 부스러기 수, 스틱 피해, 쿨타임 초) — 설명문(ds)이 말하는 단계표 그대로 (2026-10-12 관통 개편 뒤의 모양: 스틱은 꿰뚫고 · 부스러기는 맞을 때마다 튄다)
+LADDER = {1: (1, 3, 11.0, 1.3), 2: (1, 4, 11.0, 1.3), 3: (2, 4, 13.2, 1.3), 4: (2, 5, 13.2, 1.105),
+          5: (2, 5, 15.84, 1.105), 6: (3, 6, 15.84, 1.105), 7: (3, 7, 15.84, 0.93925), 8: (3, 8, 23.76, 0.93925)}
+# 설명문 8줄에 꼭 들어 있어야 하는 말
+DS_TOKENS = {0: ['부스러기 3개', '5마리'], 1: ['부스러기 +1'], 2: ['피해 +20%', '스틱 +1'], 3: ['쿨타임 -15%', '부스러기 +1'], 4: ['피해 +20%'], 5: ['스틱 +1', '부스러기 +1'],
+             6: ['부스러기 +1', '쿨타임 -15%'], 7: ['피해 +50%', '부스러기 +1']}
+# 아레나 10초 누적 피해 — 같은 아레나 · 같은 시드 24개 평균 (Lv1~8 · 각성). OLD = 관통 개편 직전(2026-10-12 이전) 값, NEWV = 개편 뒤 기준값(밸런스 조정 때 다시 적는다)
+OLD = {1: 165.3, 2: 184.0, 3: 412.3, 4: 507.6, 5: 620.0, 6: 924.8, 7: 1172.1, 8: 1577.0, 'ev': 3230.5}
+NEWV = {1: 577.6, 2: 642.2, 3: 1153.9, 4: 1326.6, 5: 1439.9, 6: 1814.5, 7: 2171.6, 8: 2335.4, 'ev': 3223.2}   # 2026-10-16 부스러기 전부 관통(kd .07 · evKd .9 로 낮춰 중후반은 옛 값 ±8%, 초반 Lv1~3 은 관통 이득으로 +15~30%) 뒤 측정값 — 앞선 2026-10-15 일직선 연발 값 — 부채꼴보다 한 번에 맞는 적이 줄어 Lv6~8 이 옛 값의 약 -20%·각성 -27%(의도된 변경 · evD 1.3→1.7 로 일부 보전)
+SEEDS = 24
+BAND = 0.08   # 기준값 ±8%
+
+SEED = r"""let s=(a.seed*2654435761)>>>0;Math.random=()=>{s=(s+0x6D2B79F5)|0;let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};"""
+
+# ── ① 단계표: 샌드백 하나(안 움직이고 안 죽음)에게 한 번 던지게 해서 스틱·맞을 때마다 튄 부스러기를 센다
+LADDER_JS = r"""(a)=>{const x=__p6x;""" + SEED + r"""
+ x.CH_set('brj');x.start();const S=x.S,p=S.p,dt=1/30;
+ S.w={snack:a.L};S.cd={};S.ev={};S.tier={};S.ps={};x.tkCalc();
+ S.t=90;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.propT=S.chickT=1e12;S.need=1e12;S.xp=0;
+ for(const q of x.enemies.a)q.on=false;x.props.clear();
+ const e=x.spawnEnemy(0,2.5,null,{x:p.x+150,y:p.y});e.hp=e.mhp=1e9;e.sp=0;e.r=70;   // 큰 샌드백(반지름 70) — 부채꼴로 벌어진 스틱 2~3개가 모두 맞는다
+ const o={n:0,d:0,m:0,sdr:0,cd:0,crumbs:0,hits:0};let first=true,fi=-1;
+ for(let i=0;i<75;i++){S.p.hp=S.p.mhp;S.spawnT=-1e12;S.xp=0;S.need=1e12;x.keys={};e.x=p.x+150;e.y=p.y;e.hp=e.mhp=1e9;
+   const b0=new Set(S.x3.f);x.update(dt);const f=S.x3.f,nw=f.filter(q=>!b0.has(q)),sn=nw.filter(q=>q.k==='sn');
+   if(!first&&i-fi<=14)o.n+=sn.length;   // 🍘 [2026-10-15] 스틱이 여럿이면 일직선 연발(.10초 간격) — 첫 던짐 뒤 0.23초 안에 더 나온 스틱도 센다
+   if(first){if(sn.length){first=false;fi=i;o.n=sn.length;o.d=sn[0].d;o.m=sn[0].m;o.sdr=sn[0].sd/sn[0].d;o.cd=S.cd.snack;S.cd.snack=1e9;}continue;}   // 던진 프레임: 스틱·쿨타임을 읽는다(둘째 던짐은 막는다)
+   o.crumbs+=nw.filter(q=>q.k==='b'&&q.src==='snack').length;   // 이번 프레임에 막 생긴 부스러기
+   if(!f.some(q=>q.k==='sn'))break;}
+ o.hits=o.m?o.crumbs/o.m:0;   // 맞은 횟수 = 만든 부스러기 ÷ 한 번에 튀는 수
+ return o;}"""
+
+# ── ② 아레나: 체력 100% 잡몹 45마리를 계속 채움(자연 스폰 없음) · 무기 하나만 · 불사 · 같은 봇이 사각형으로 움직임 · 예열(3~11초 무작위) 뒤 10초
+ARENA_JS = r"""(a)=>{const x=__p6x;""" + SEED + r"""
+ x.CH_set('brj');x.start();const S=x.S,p=S.p,dt=1/30;
+ S.w={snack:a.L};S.cd={};S.ev=a.ev?{snack:1}:{};S.tier={};S.ps={};x.tkCalc();
+ S.t=90;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.propT=S.chickT=1e12;S.need=1e12;S.xp=0;
+ const fill=()=>{let c=0;for(const q of x.enemies.a)if(q.on)c++;
+   for(;c<45;c++){const g=Math.random()*6.2832,r=140+Math.random()*280;
+     if(!x.spawnEnemy((Math.random()*3)|0,2.5,null,{x:p.x+Math.cos(g)*r,y:p.y+Math.sin(g)*r}))break;}};
+ const step=()=>{if(x.state==='lvup'){x.pick(x.CUR[0]);return;}if(x.state!=='play'){x.resume();return;}
+   S.p.hp=S.p.mhp;S.spawnT=-1e12;S.xp=0;S.need=1e12;const k=Math.floor(S.t/2.5)%4;x.keys=[{KeyD:true},{KeyS:true},{KeyA:true},{KeyW:true}][k];
+   fill();x.update(dt);x.props.clear();};
+ const W=Math.round((3+8*Math.random())/dt);for(let i=0;i<W;i++)step();
+ S.dmgBy={};for(let i=0;i<300;i++)step();
+ return {d:S.dmgBy.snack||0,state:x.state};}"""
+
+# ── ③ 적이 없고 필드 아이템(와드)만 있을 때: 스틱이 아이템에 맞아 부스러기가 튄다
+PROP_JS = r"""(a)=>{const x=__p6x;""" + SEED + r"""
+ x.CH_set('brj');x.start();const S=x.S,p=S.p,dt=1/30;
+ S.w={snack:a.L};S.cd={};S.ev={};S.tier={};S.ps={};x.tkCalc();
+ S.t=90;S.nextBoss=S.nextMini=S.evT=S.bigT=S.nextSp=1e12;S.propT=S.chickT=1e12;S.need=1e12;S.xp=0;
+ for(const q of x.enemies.a)q.on=false;x.props.clear();
+ let q=null;for(const c of x.props.a)if(!c.on){q=c;break;}
+ q.on=true;q.k=1;q.x=p.x+120;q.y=p.y;q.hp=22;q.hit=0;const hp0=q.hp;let crumbs=0,broke=false;
+ for(let i=0;i<60;i++){S.p.hp=S.p.mhp;S.spawnT=-1e12;S.need=1e12;x.keys={};x.update(dt);
+   crumbs+=S.x3.f.filter(o=>o.k==='b'&&o.src==='snack'&&o.life===x.U3.snack.cl).length;if(!q.on||q.hp<hp0)broke=true;}
+ return {hit:broke,crumbs};}"""
+
+def mean(v): return sum(v) / len(v)
+
+async def main():
+    H.make_copy(); srv = H.Srv()
+    async with async_playwright() as p:
+        b = await H.launch(p)
+        ctx, pg, errs = await H.new_page(b, srv.port)
+
+        # ── ① 단계표 · 설명문
+        global U_KD
+        U_KD = await pg.evaluate("()=>__p6x.U3.snack.kd")
+        ds = await pg.evaluate("()=>__p6x.WEAP.snack.ds")
+        check('설명문(ds) 8줄', len(ds) == 8, len(ds))
+        for i, toks in DS_TOKENS.items():
+            check('ds[%d](Lv%d) 문구: %s' % (i, i + 1, ' · '.join(toks)), all(t in ds[i] for t in toks), ds[i])
+        got = {}
+        for L in range(1, 9):
+            o = await pg.evaluate(LADDER_JS, {'L': L, 'seed': 7})
+            got[L] = o
+            n, m, d, cd = LADDER[L]
+            ok = (o['n'] == n and o['m'] == m and abs(o['d'] - d) < d * .005 and abs(o['cd'] - cd) < cd * .005
+                  and abs(o['sdr'] - U_KD) < .001 and o['hits'] == n and o['crumbs'] == n * m)
+            check('Lv%d 단계표: 스틱 %d · 맞을 때마다 부스러기 %d · 스틱 피해 %.2f · 쿨 %.3f초 (스틱 %d개가 한 번씩 맞아 부스러기 %d개 튐)' % (L, n, m, d, cd, n, n * m), ok, o)
+        r = lambda L, k: got[L][k] / got[L - 1][k]
+        check('Lv3: 피해 +20% · 스틱 +1', abs(r(3, 'd') - 1.2) < .005 and got[3]['n'] == got[2]['n'] + 1, (r(3, 'd'), got[3]['n']))
+        check('Lv4: 쿨타임 -15% · 부스러기 +1', abs(r(4, 'cd') - .85) < .005 and got[4]['m'] == got[3]['m'] + 1, (r(4, 'cd'), got[4]['m']))
+        check('Lv5: 피해 +20%', abs(r(5, 'd') - 1.2) < .005, r(5, 'd'))
+        check('Lv6: 스틱 +1 · 부스러기 +1', got[6]['n'] == got[5]['n'] + 1 and got[6]['m'] == got[5]['m'] + 1, (got[6]['n'], got[6]['m']))
+        check('Lv7: 부스러기 +1 · 쿨타임 -15%', got[7]['m'] == got[6]['m'] + 1 and abs(r(7, 'cd') - .85) < .005, (got[7]['m'], r(7, 'cd')))
+        check('Lv8: 피해 +50% · 부스러기 +1', abs(r(8, 'd') - 1.5) < .005 and got[8]['m'] == got[7]['m'] + 1, (r(8, 'd'), got[8]['m']))
+
+        # ── ② 아레나
+        res = {}
+        for key in list(range(1, 9)) + ['ev']:
+            L = 8 if key == 'ev' else key
+            v = []
+            for sd in range(1, SEEDS + 1):
+                o = await pg.evaluate(ARENA_JS, {'L': L, 'seed': sd, 'ev': key == 'ev'})
+                v.append(o['d'])
+                if o['state'] != 'play': check('아레나 도중 판이 끝나지 않음', False, (key, sd, o))
+            res[key] = mean(v)
+        print('\n아레나 10초 누적 피해(시드 %d개 평균):' % SEEDS)
+        for key in res: print('  %-3s 지금 %7.1f   관통 개편 전 %7.1f   (%+.0f%%)%s' % (key, res[key], OLD[key], 100 * (res[key] / OLD[key] - 1), ('   기준 %.1f' % NEWV[key]) if key in NEWV else ''))
+        check('레벨이 오를수록 세진다 (Lv1<Lv2<…<Lv8)', all(res[L] < res[L + 1] for L in range(1, 8)), [round(res[L]) for L in range(1, 9)])
+        check('각성(Lv8)은 일반 Lv8 보다 강하다', res['ev'] > res[8] * 1.35, (round(res['ev']), round(res[8])))
+        for key in NEWV:
+            lo, hi = NEWV[key] * (1 - BAND), NEWV[key] * (1 + BAND)
+            check('%s 은 개편 뒤 기준값 ±%d%%: %.0f ~ %.0f' % ('Lv%d' % key if key != 'ev' else 'Lv8 각성', BAND * 100, lo, hi), lo <= res[key] <= hi, round(res[key], 1))
+
+        # ── ③ 필드 아이템
+        for L in (1, 2, 6, 8):   # 스틱이 1·3개인 레벨 — 가운데 스틱이 정면으로 날아간다(2개면 좌우로 벌어져 아이템 옆을 지날 수 있다)
+            o = await pg.evaluate(PROP_JS, {'L': L, 'seed': 11})
+            check('Lv%d: 적이 없어도 필드 아이템에 맞고 부스러기가 튄다' % L, o['hit'] and o['crumbs'] >= LADDER[L][1], o)
+
+        check('페이지 오류·콘솔 에러 없음', not errs, errs[:5])
+        await b.close()
+    srv.close()
+    print('\n%s' % ('실패 %d: %s' % (len(FAILS), FAILS) if FAILS else '전부 통과'))
+    return 1 if FAILS else 0
+
+if __name__ == '__main__':
+    sys.exit(asyncio.run(main()))

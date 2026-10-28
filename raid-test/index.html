@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:,">
+<title>레이드 시험실</title>
+<style>
+/* 2026-10-08 레이드 0단계 허브 — 외부 자원 없음. 색은 토큰으로 두고 다크는 아래에서 바꾼다 */
+:root{--bg:#f4f6f9;--fg:#14181f;--mut:#4a5565;--card:#ffffff;--line:#cfd6e0;--btn:#1d4ed8;--btnfg:#ffffff;--ok:#0b6b35;--warn:#8a5200}
+@media (prefers-color-scheme:dark){:root{--bg:#10141a;--fg:#eef1f5;--mut:#b4bdca;--card:#1a2029;--line:#323b48;--btn:#3d6fe6;--btnfg:#ffffff;--ok:#6fdc98;--warn:#f2bd55}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;overflow-x:hidden;word-break:keep-all;overflow-wrap:anywhere}
+main{max-width:640px;margin:0 auto;padding:16px 16px 28px}
+h1{font-size:24px;line-height:1.3;margin:8px 0 6px}
+p{margin:6px 0}
+.mut{color:var(--mut)}
+.card{display:block;background:var(--card);border:2px solid var(--line);border-radius:16px;padding:16px;margin:14px 0;color:inherit;text-decoration:none}
+.card h2{font-size:20px;margin:0 0 4px;line-height:1.35}
+.card .go{display:flex;align-items:center;justify-content:center;min-height:52px;margin-top:12px;border-radius:12px;background:var(--btn);color:var(--btnfg);font-weight:700;font-size:18px}
+.card:focus-visible{outline:3px solid var(--btn);outline-offset:2px}
+.tip{border-left:6px solid var(--warn);padding:8px 12px;background:var(--card);border-radius:8px;margin:14px 0}
+.ver{margin:18px 0 0;text-align:center;font-size:16px;color:var(--mut)}
+ol{padding-left:22px;margin:6px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>🧪 레이드 시험실</h1>
+<p class="mut">레이드를 만들기 전에, 사장님 폰으로 두 가지만 재 봅니다. 폰에서만 해 보면 돼요.</p>
+
+<a class="card" id="c-ping" href="ping.html">
+  <h2>📶 핑 시험</h2>
+  <p>폰에서 서버까지 <b>왕복하는 데 걸리는 시간</b>을 재요. 작을수록 좋아요. 서울·도쿄·독일 서버를 차례로 비교합니다.</p>
+  <p class="mut">폰에서만 해 보면 돼요 · 1~2분 · 와이파이와 데이터(LTE·5G) 각각 한 번씩</p>
+  <span class="go">핑 시험 열기 ›</span>
+</a>
+
+<a class="card" id="c-sock" href="sock.html">
+  <h2>🔌 소켓 시험</h2>
+  <p>폰이 앱을 <b>나갔다 오면 서버와의 연결이 어떻게 되는지</b> 재요(연결이 그대로인지, 끊겼다 다시 붙는지). 가장 중요한 시험이에요.</p>
+  <p class="mut">폰에서만 해 보면 돼요 · 카드마다 1~5분 · <b>디스코드 앱 안에서 이 링크를 눌러 연 창</b>에서 꼭 해 주세요</p>
+  <span class="go">소켓 시험 열기 ›</span>
+</a>
+
+<div class="tip">
+  <b>끝나면 이렇게 해 주세요</b>
+  <ol>
+    <li>핑 시험은 페이지 <b>맨 아래</b>의 <b>[복사]</b> 버튼, 소켓 시험은 카드 아래 「결과 복사」 칸의 <b>[요약 복사]</b>와 <b>[자세히 복사]</b> 버튼을 누르세요.</li>
+    <li>채팅에 그대로 <b>붙여넣기</b> 해 주세요.</li>
+  </ol>
+  <p class="mut">복사가 안 되면 글을 길게 눌러 전체 선택한 뒤 복사하면 돼요.</p>
+</div>
+
+<p class="mut">이 페이지는 임시 측정 도구예요. 개인정보는 모으지 않고, 결과는 사장님이 복사해 주실 때만 전해집니다.</p>
+<div class="ver" id="ver">P0-v2</div>
+</main>
+<script>
+// 주소창의 ?srv=… ?ws=… 같은 값을 두 시험 페이지로 그대로 넘긴다(서버 모드로 시험할 때 한 번만 쓰면 되게)
+(function(){
+  try{
+    var q=location.search||'';
+    if(!q)return;
+    document.getElementById('c-ping').setAttribute('href','ping.html'+q);
+    document.getElementById('c-sock').setAttribute('href','sock.html'+q);
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

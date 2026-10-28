@@ -38,7 +38,7 @@ hiddenimports += [
     'oauth2client.client',
     'oauth2client._helpers',
     'pyasn1', 'pyasn1_modules', 'rsa',
-    'PIL.Image', 'PIL.ImageTk',
+    'PIL.Image', 'PIL.ImageTk', 'PIL.ImageDraw',   # 🌱 뉴비 새싹 아이콘(함수 안 import — 명시)
 ]
 
 hiddenimports = sorted(set(hiddenimports))

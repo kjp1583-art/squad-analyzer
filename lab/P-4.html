@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>P-4 시제품 · 공식 타이틀 도감</title>
+<style>
+:root{--bg:#11131a;--bg2:#171a23;--card:#1b1f2b;--card2:#212636;--txt:#e7eaf3;--sub:#9aa3b8;--mut:#717a91;--line:#2a3042;--line-2:#3a4056;--acc:#5b8cff;--gold:#f5c04a;--win:#4fb3ff;--lose:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+.lab{background:#2a2110;border:1px solid #6b5420;color:#f5d58a;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:14px}
+h1{font-size:18px;margin:4px 0 12px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.seg button,.chips button{background:var(--card);color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font:inherit;cursor:pointer}
+.seg button.on,.chips button.on{background:var(--card2);color:var(--txt);border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.muted{color:var(--mut);font-size:12px}
+.sub{color:var(--sub)}
+.row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.rk{width:26px;text-align:center;font-weight:700;color:var(--sub);flex:none}
+.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.val{font-variant-numeric:tabular-nums;color:var(--txt);flex:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.tc{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:11px}
+.tc .t{font-weight:700;display:flex;justify-content:space-between;gap:8px}
+.tc .pt{color:var(--gold);flex:none}
+.tc .how{color:var(--sub);font-size:12.5px;margin:4px 0 6px;word-break:keep-all;overflow-wrap:anywhere}
+.tag{display:inline-block;font-size:11px;border:1px solid var(--line-2);color:var(--sub);border-radius:6px;padding:0 6px;margin-right:4px}
+.own{font-size:12.5px;margin-top:6px}
+.empty{color:var(--mut);font-size:12.5px;margin-top:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.cols{grid-template-columns:1fr}}
+.bar{height:6px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-top:3px}
+.bar i{display:block;height:100%;background:var(--acc)}
+.load{color:var(--mut);padding:30px 0;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lab">🧪 <b>P-4 시제품</b> — 메뉴에 연결되지 않은 미리보기 화면이에요. 실제 시트를 읽어 그립니다.
+    승인되면 이 모양이 <b>업적 도감 탭 맨 위</b>에 들어가요. 레이스는 시제품이라 <b>부계 합산·탈퇴자 제외는 아직 안 했어요</b>(출시본은 봇이 계산한 결과 파일을 읽어요).</div>
+  <h1>🏅 업적 도감</h1>
+  <div class="seg"><button class="on" data-v="official">🎖 공식 타이틀 <span id="nDef"></span>종</button><button data-v="fun">🏅 재미 뱃지 19종</button></div>
+  <div id="app"><div class="load">시트를 읽는 중…</div></div>
+</div>
+<script>
+const SHEET_ID="10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU";
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function gviz(sheet,tq){
+  const u=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheet)}&headers=1&tqx=out:json`+(tq?`&tq=${encodeURIComponent(tq)}`:"");
+  return fetch(u,{cache:"no-store"}).then(r=>r.text()).then(t=>{
+    const j=JSON.parse(t.slice(t.indexOf("(")+1,t.lastIndexOf(")")));
+    const cols=j.table.cols.map(c=>c.label);
+    return (j.table.rows||[]).map(r=>{const o={};r.c.forEach((c,i)=>o[cols[i]]=c?(c.f??c.v??""):"");return o;});
+  });
+}
+// 이름 맞추기 — 원장은 '(탑) 탑 차이' 또는 '탑 차이', 점수표는 '(탑) 탑 차이'. 점수표 '밥아래' 는 분석기·봇의 '발 아래'(A-9)
+const base=t=>String(t||"").replace(/^\([^)]*\)\s*/,"").replace(/\s+/g,"").replace("밥아래","발아래");
+const posOf=t=>(String(t).match(/^\((탑|정글|미드|원딜|서폿)\)/)||[])[1]||"";
+const shown=t=>String(t).replace("밥아래","발 아래");
+const AUTO_EXTRA=new Set(["하루종일할수있어","다재다능","마조히스트","모두가내발아래","스토커"].map(base));   // 분석기가 판정하지만 원장에 아직 없을 수 있는 것
+const BOT_NEW=new Set(["내전에진심이야","내전망령"]);                                       // 이 기획으로 봇이 맡는 것
+function kindOf(d,autoSet){
+  const b=base(d["타이틀"]);
+  if(autoSet.has(b)||AUTO_EXTRA.has(b)||BOT_NEW.has(b)) return "auto";
+  const m=d["인증방법"]||"";
+  if(/타이틀인증|인증/.test(m)&&!/^스탭관리$/.test(m)) return "cert";
+  if(/스탭/.test(m)) return "staff";
+  return "etc";
+}
+const KIND={auto:"🤖 자동 판정",cert:"📝 #타이틀인증 인증",staff:"🛠 스탭 판정(대회·이벤트·연간)",etc:"🐾 기타"};
+const nick=s=>String(s||"").split("#")[0].trim();
+// 하루는 새벽 6시에 끊는다(봇 미토 기록과 같은 규칙) — '2026-09-22 02:10' 은 9/21 밤
+function dayKey(dt){ const m=String(dt).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/); if(!m) return null;
+  const d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5])); d.setUTCHours(d.getUTCHours()-6); return d.toISOString().slice(0,10); }
+let S={v:"official",pos:"",month:null};
+async function main(){
+  const [defs,log,games]=await Promise.all([
+    gviz("TITLE_DEF"), gviz("TITLE_LOG"),
+    gviz("CLASSIC_NORMAL","select A,B,C,D,I")]);
+  document.getElementById("nDef").textContent=defs.length;
+  const defByBase=new Map(defs.map(d=>[base(d["타이틀"]),d]));
+  const yr=new Date().getFullYear()+"";
+  // 원장: 점수표에 있는 이름만(평가 줄·MVP 등 제외) · 같은 판 같은 사람 같은 타이틀은 한 번
+  const seen=new Set(), rows=[];
+  for(const r of log){ const b=base(r["타이틀"]); if(!defByBase.has(b)) continue;
+    if(!String(r["일시"]).startsWith(yr)) continue;
+    const k=[r["근거"],r["닉네임"],b].join("|"); if(seen.has(k)) continue; seen.add(k);
+    rows.push({t:r["일시"],who:String(r["닉네임"]).trim(),b,pos:posOf(r["타이틀"])||posOf(defByBase.get(b)["타이틀"])}); }
+  const autoSet=new Set(rows.map(r=>r.b));
+  // 점수 TOP 20
+  const score=new Map(), cnt=new Map();
+  for(const r of rows){ const p=parseFloat(defByBase.get(r.b)["점수"])||0; score.set(r.who,(score.get(r.who)||0)+p);
+    const m=cnt.get(r.who)||new Map(); m.set(r.b,(m.get(r.b)||0)+1); cnt.set(r.who,m); }
+  const top=[...score].sort((a,b)=>b[1]-a[1]).slice(0,20);
+  // 레이스 — 이번 달(새벽 6시 기준) 협곡 판수·출석일
+  const months=new Set(), per=new Map(), openDays=new Map(), dup=new Set();
+  for(const g of games){ if(!/^(승리|패배)$/.test(g["결과"])) continue; const dk=dayKey(g["날짜"]); if(!dk) continue;
+    const ym=dk.slice(0,7); months.add(ym);
+    const who=g["PUUID"]||g["소환사명"]; const k=g["게임ID"]+"|"+who; if(dup.has(k)) continue; dup.add(k);
+    (openDays.get(ym)||openDays.set(ym,new Set()).get(ym)).add(dk);
+    const key=ym+"|"+who; const o=per.get(key)||{ym,who,name:nick(g["소환사명"]),n:0,days:new Set(),last:""};
+    o.n++; o.days.add(dk); if(g["날짜"]>=o.last){o.last=g["날짜"];o.name=nick(g["소환사명"]);} per.set(key,o); }
+  const ms=[...months].sort().reverse().slice(0,2);
+  S.month=S.month||ms[0];
+  window._D={defs,defByBase,rows,autoSet,top,cnt,per,openDays,ms};
+  render();
+}
+function raceHtml(D){
+  const ym=S.month, open=(D.openDays.get(ym)||new Set()).size;
+  const list=[...D.per.values()].filter(o=>o.ym===ym).sort((a,b)=>b.n-a.n||b.days.size-a.days.size);
+  if(!list.length) return `<div class="card"><h2>🗓 ${esc(ym)} 레이스</h2><div class="empty">이번 달 첫 내전 전이에요 — 오늘 밤 첫 판부터 셉니다</div></div>`;
+  const mx=list[0].n, full=list.filter(o=>o.days.size===open);
+  const bestDays=list.filter(o=>o.days.size<open).sort((a,b)=>b.days.size-a.days.size)[0];
+  const tabs=D.ms.map(m=>`<button class="${m===ym?"on":""}" onclick="S.month='${m}';render()">${m.replace("-","년 ")}월</button>`).join("");
+  return `<div class="card"><h2>🗓 월간 레이스 <span class="muted">협곡 내전 · 하루는 새벽 6시에 끊어요 · 무효판·두 번 기록된 판 제외</span></h2>
+   <div class="chips">${tabs}</div>
+   <div class="cols"><div><div class="sub" style="margin-bottom:4px">🔥 내전에 진심이야 — 판수 TOP 5 <span class="muted">(1~3위가 수상)</span></div>
+   ${list.slice(0,5).map((o,i)=>`<div class="row"><span class="rk">${["🥇","🥈","🥉"][i]||i+1}</span><span class="nm">${esc(o.name)}<div class="bar"><i style="width:${Math.round(o.n/mx*100)}%"></i></div></span><span class="val">${o.n}판 · ${o.days.size}일</span></div>`).join("")}</div>
+   <div><div class="sub" style="margin-bottom:4px">👻 내전 망령 — 내전 열린 ${open}일 개근</div>
+   ${full.length?full.slice(0,5).map(o=>`<div class="row"><span class="rk">👻</span><span class="nm">${esc(o.name)}</span><span class="val">${o.days.size}/${open}일</span></div>`).join(""):`<div class="empty">아직 개근 중인 사람이 없어요${bestDays?` — 최다 출석 ${bestDays.days.size}일 ${esc(bestDays.name)}`:""}</div>`}
+   ${full.length&&bestDays?`<div class="muted" style="margin-top:6px">개근 빼고 최다 출석: ${esc(bestDays.name)} ${bestDays.days.size}일</div>`:""}</div></div></div>`;
+}
+function topHtml(D){
+  return `<div class="card"><h2>🏆 올해 자동 판정 타이틀 점수 TOP 20</h2>
+   ${D.top.map(([w,p],i)=>{const m=[...(D.cnt.get(w)||new Map())].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([b,n])=>`${esc(shown(D.defByBase.get(b)["타이틀"]).replace(/^\([^)]*\)\s*/,""))}×${n}`).join(" · ");
+     return `<div class="row"><span class="rk">${i+1}</span><span class="nm">${esc(w)} <span class="muted">${m}</span></span><span class="val">${Math.round(p)}점</span></div>`}).join("")}
+   <div class="muted" style="margin-top:8px">분석기·봇이 자동으로 판정한 타이틀만 셉니다. 디스코드 인증 점수(/타이틀집계)는 따로예요.</div></div>`;
+}
+function cardsHtml(D){
+  const pos=S.pos, groups={auto:[],cert:[],staff:[],etc:[]};
+  for(const d of D.defs){ const p=posOf(d["타이틀"]); if(pos&&p!==pos) continue; groups[kindOf(d,D.autoSet)].push(d); }
+  const chips=["","탑","정글","미드","원딜","서폿"].map(p=>`<button class="${p===pos?"on":""}" onclick="S.pos='${p}';render()">${p||"전체"}</button>`).join("");
+  const card=(d,k)=>{ const b=base(d["타이틀"]); const rs=D.rows.filter(r=>r.b===b);
+    const ppl=[...new Set(rs.map(r=>r.who))]; const recent=[...new Set(rs.slice().sort((a,b)=>b.t<a.t?-1:1).map(r=>r.who))].slice(0,3);
+    const foot=k==="auto"?(rs.length?`<div class="own">최근 주인 ${recent.map(esc).join(" · ")} <span class="muted">· 올해 ${rs.length}회 · ${ppl.length}명</span></div>`
+                               :`<div class="empty">🔓 아직 아무도 못 땄어요 — 첫 주인이 되어 보세요</div>`)
+             :k==="cert"?`<div class="empty">인증 기록은 디스코드 #타이틀인증 에 있어요</div>`:`<div class="empty">스탭이 판정해요</div>`;
+    return `<div class="tc"><div class="t"><span>${esc(shown(d["타이틀"]))}</span><span class="pt">${esc(d["점수"]||"-")}점</span></div>
+      <div class="how">${esc(d["획득방법"])}</div><span class="tag">${esc(d["유지기간"]||"-")}</span>${BOT_NEW.has(b)?`<span class="tag">봇이 매월 판정 (P-4)</span>`:""}${foot}</div>`; };
+  return `<div class="card"><h2>📖 공식 타이틀 도감</h2><div class="chips">${chips}</div>
+   ${Object.entries(groups).filter(([,a])=>a.length).map(([k,a])=>`<div class="sub" style="margin:10px 0 6px">${KIND[k]} ${a.length}</div><div class="grid">${a.map(d=>card(d,k)).join("")}</div>`).join("")}</div>`;
+}
+function render(){
+  const D=window._D, el=document.getElementById("app");
+  if(S.v==="fun"){ el.innerHTML=`<div class="card"><div class="empty">여기에는 지금 업적 도감 탭의 재미 뱃지 19종이 그대로 들어가요(시제품에서는 생략).</div></div>`; return; }
+  el.innerHTML=raceHtml(D)+topHtml(D)+cardsHtml(D);
+}
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));S.v=b.dataset.v;if(window._D)render();});
+main().catch(e=>{document.getElementById("app").innerHTML=`<div class="card"><div class="empty">시트를 못 읽었어요 — 잠시 뒤 새로고침해 주세요 (${esc(e.message)})</div></div>`;});
+</script>
+</body>
+</html>
