@@ -142,6 +142,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
     <span class="sp"></span>
     <button class="btn small ghost" id="btnMusic" type="button">음악 켜짐</button>
     <button class="btn small ghost" id="btnSound" type="button">소리 켜짐</button>
+    <button class="btn small ghost" id="btnVoice" type="button">음성 안내 켜짐</button>
   </div>
   <div class="pcards" id="pcards"></div>
   <div id="boardWrap"><div id="board"></div></div>
@@ -333,7 +334,8 @@ const animalSrc = ch => '../img/' + (ANIMALS.some(a => a[0] === ch) ? ch : 'dog'
 /* ---------- 소리 ---------- */
 let muted = false, AC = null;
 try { muted = localStorage.getItem('mn-mute') === '1'; } catch (_) { /* 무시 */ }
-function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume().catch(() => {}); return AC; }
+let ttsUnlocked = false;
+function ac() { if (!ttsUnlocked) { ttsUnlocked = true; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (_) { /* 무시 */ } } if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume().catch(() => {}); return AC; }
 function tone(f, dur, type, vol, when, slide) {
   if (muted) return; const a = ac(); if (!a) return;
   const t = a.currentTime + (when || 0), o = a.createOscillator(), g = a.createGain();
@@ -351,10 +353,106 @@ const SFX = {
   lose() { [440, 392, 349, 294].forEach((f, i) => tone(f, .3, 'triangle', .1, i * .17, .9)); }
 };
 
+
+/* ---------- 눈 감고도 알 수 있는 소리 (칸마다 다른 소리 + 말로 안내) ---------- */
+const hz = (f0, semi) => f0 * Math.pow(2, semi / 12);
+function noise(dur, vol, when, f0, f1) {
+  if (muted) return; const a = ac(); if (!a) return; const t = a.currentTime + (when || 0), n = Math.max(1, (a.sampleRate * dur) | 0), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = buf; f.type = 'bandpass'; f.frequency.setValueAtTime(f0 || 2000, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); s.connect(f); f.connect(g); g.connect(a.destination); s.start(t);
+}
+function pluck(f, when, vol) { tone(f, .4, 'triangle', vol, when); tone(f * 2, .16, 'sine', vol * .35, when); noise(.03, vol * .6, when, 3200); }
+function bell(f, when, vol, glide) {
+  if (muted) return; const a = ac(); if (!a) return; const t = a.currentTime + (when || 0);
+  [1, 2.76, 5.4].forEach((m, k) => { const o = a.createOscillator(), g = a.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f * m * (glide ? .93 : 1), t); if (glide) o.frequency.exponentialRampToValueAtTime(f * m, t + .1); g.gain.setValueAtTime(vol / (k + 1), t); g.gain.exponentialRampToValueAtTime(.001, t + .9 - .2 * k); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + 1); });
+}
+const MOT = { // 도시마다 다른 가락. 한국=가야금처럼 튕기는 소리, 베트남=대나무 종처럼 미끄러지는 소리
+  seoul: { c: 'KR', b: 587, s: [0, 7, 9, 12] }, busan: { c: 'KR', b: 440, s: [0, 4, 7, 4, 0] }, jeju: { c: 'KR', b: 659, s: [0, 2, 5, 9] }, gj: { c: 'KR', b: 392, s: [0, 5, 7, 5] },
+  hanoi: { c: 'VN', b: 523, s: [0, 3, 7] }, danang: { c: 'VN', b: 587, s: [0, 4, 7, 9] }, hcm: { c: 'VN', b: 494, s: [0, 5, 3, 7] }, south: { c: 'VN', b: 698, s: [0, 4, 9] }, sapa: { c: 'VN', b: 440, s: [0, 3, 5, 10] }
+};
+const TIDX = []; { const cnt = {}; TILES.forEach((t, i) => { if (t.g) { cnt[t.g] = (cnt[t.g] || 0); TIDX[i] = cnt[t.g]++; } }); }
+function landSound(i) {
+  const t = TILES[i];
+  if (t.t === 'p') {
+    if (t.g === 'naksan') { [0, 4, 7, 11, 14].forEach((s, k) => bell(hz(523, s), k * .12, .1)); tone(70, .14, 'sine', .3, .7); tone(70, .14, 'sine', .3, .86); return 1.1; }
+    const m = MOT[t.g], tr = TIDX[i] * 3; m.s.forEach((s, k) => { if (m.c === 'KR') pluck(hz(m.b, s + tr), k * .13, .14); else bell(hz(m.b, s + tr), k * .15, .1, true); }); return m.s.length * .14 + .35;
+  }
+  if (t.t === 'key') { [1319, 1568, 1976, 2349, 2637].forEach((f, k) => tone(f, .2, 'sine', .07, k * .06)); noise(.5, .05, 0, 6000, 2500); return .6; }
+  if (t.t === 'island') { for (let k = 0; k < 3; k++) noise(.9, .09, k * .7, 500, 1400); [1800, 2300, 1900].forEach((f, k) => tone(f, .12, 'sine', .05, .3 + k * .35, 1.4)); tone(196, .8, 'sine', .1, .2); return 1.6; }
+  if (t.t === 'air') { tone(988, .35, 'sine', .12); tone(784, .55, 'sine', .12, .3); noise(1, .08, .5, 300, 3000); return 1.3; }
+  if (t.t === 'cafe') { bell(2637, 0, .08); bell(3136, .12, .07); noise(.6, .05, .3, 900, 600); tone(262, .5, 'sine', .06, .35); tone(330, .5, 'sine', .05, .35); tone(392, .5, 'sine', .05, .35); return 1; }
+  [523, 659, 784, 1047, 784, 1047].forEach((f, k) => tone(f, .16, 'triangle', .1, k * .09)); return .8;
+}
+const SND = {
+  roll() { for (let k = 0; k < 7; k++) noise(.07, .1, k * .08, 1500 + Math.random() * 2500); tone(180, .08, 'square', .06, .6); tone(150, .08, 'square', .06, .72); return .8; },
+  buyq() { tone(523, .14, 'sine', .1); tone(659, .14, 'sine', .1, .13); tone(880, .3, 'sine', .1, .26); return .6; },
+  own() { [659, 784, 988].forEach((f, k) => tone(f, .25, 'sine', .08, k * .1)); return .5; },
+  rent(amt, pay) { const n = clamp(Math.round(amt / 70), 1, 7); for (let k = 0; k < n; k++) tone(pay ? 2600 - k * 140 : 1700 + k * 160, .09, 'triangle', .07, k * .07); if (pay) { tone(120, .3, 'sine', .18, n * .07, .5); buzz(180); } else buzz([20, 30, 20]); return n * .07 + .45; },
+  buy() { noise(.04, .2, 0, 4000); bell(2093, .03, .12); bell(2637, .1, .12); bell(3136, .2, .1); [523, 659, 784, 1047].forEach((f, k) => tone(f, .16, 'triangle', .08, .25 + k * .06)); buzz([20, 30, 50]); return .8; },
+  up(lv) { for (let k = 0; k < 3; k++) { noise(.08, .25, k * .18, 400, 200); tone(140, .08, 'square', .08, k * .18); } bell(1568, .6, .12); if (lv >= 2) { [784, 988, 1175, 1568].forEach((f, k) => tone(f, .2, 'triangle', .09, .75 + k * .08)); } buzz([30, 30, 30, 30, 60]); return lv >= 2 ? 1.2 : .95; },
+  good() { [988, 1175, 1568, 1976].forEach((f, k) => tone(f, .12, 'triangle', .09, k * .06)); for (let k = 0; k < 4; k++) tone(2400 + k * 200, .08, 'triangle', .05, .25 + k * .05); buzz([15, 20, 15]); return .6; },
+  bad() { tone(440, .35, 'sawtooth', .07, 0, .5); tone(330, .35, 'sawtooth', .07, .22, .5); tone(247, .5, 'sawtooth', .07, .44, .5); buzz(120); return .95; },
+  move() { noise(.5, .12, 0, 400, 3500); tone(300, .45, 'sine', .08, 0, 3); return .55; },
+  jail() { tone(90, .4, 'sine', .3); noise(.15, .2, 0, 300); tone(70, .6, 'square', .08, .25); buzz([60, 40, 120]); return .9; },
+  skip() { [330, 294, 262, 247].forEach((f, k) => tone(f, .28, 'sine', .07, k * .2)); return .9; },
+  air() { return 0; }, cafe() { return 0; },
+  turn(mine) { if (mine) { tone(880, .12, 'sine', .1); tone(1175, .25, 'sine', .1, .13); buzz([30, 50, 30]); return .45; } tone(330, .06, 'triangle', .04); return .1; },
+  end(win) { if (win) { SFX.win(); buzz([40, 40, 40, 40, 150]); } else SFX.lose(); return 1.4; }
+};
+/* 음성 안내: 브라우저에 들어 있는 한국어 음성으로 읽어 준다 */
+let voiceOn = true; try { voiceOn = localStorage.getItem('mn-voice') !== '0'; } catch (_) { /* 무시 */ }
+const cleanTxt = t => String(t).replace(/[ㅋㅎㅠㅜ]+/g, '').replace(/[^\p{L}\p{N}\s.,!?'"()+\-]/gu, ' ').replace(/\s+/g, ' ').trim();
+let koVoice = null; function pickVoice() { try { koVoice = (speechSynthesis.getVoices() || []).find(v => /^ko/i.test(v.lang)) || null; } catch (_) { koVoice = null; } }
+try { speechSynthesis.onvoiceschanged = pickVoice; pickVoice(); } catch (_) { /* 무시 */ }
+function speak(t) {
+  return new Promise(res => {
+    if (!voiceOn || muted || !t || !window.speechSynthesis) return res();
+    try { const u = new SpeechSynthesisUtterance(cleanTxt(t)); u.lang = 'ko-KR'; if (koVoice) u.voice = koVoice; u.rate = 1.08; u.volume = 1; let done = false; const fin = () => { if (!done) { done = true; res(); } }; u.onend = fin; u.onerror = fin; speechSynthesis.speak(u); setTimeout(fin, 6000); } catch (_) { res(); }
+  });
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let cueGen = 0, cueBusy = false, lastCueV = -1, pendingRun = null;
+const who = p => p === ME ? '' : S.pl[p].ai ? '컴퓨터 ' : '상대 ';
+async function playCue(c, gen) {
+  const alive = () => gen === cueGen; let d = 0, say = '';
+  switch (c.k) {
+    case 'sum': say = String(c.n); break;
+    case 'pass': tone(1568, .1, 'triangle', .1); tone(2093, .1, 'triangle', .1, .08); tone(2637, .25, 'triangle', .1, .16); buzz(25); d = .5; say = '출발 지나기. 이백'; break;
+    case 'land': d = landSound(c.i); say = who(c.p) + (TILES[c.i].t === 'p' ? TILES[c.i].n : TILES[c.i].n); break;
+    case 'buyq': d = SND.buyq(); say = `땅값 ${TILES[c.i].p}. 살까요?`; break;
+    case 'upq': d = SND.buyq(); say = `${c.lv === 0 ? '숙소' : '호텔'}를 지을까요? ${upCost(c.i)}`; break;
+    case 'own': d = SND.own(); say = '내 땅이에요'; break;
+    case 'rent': d = SND.rent(c.amt, c.p === ME); say = c.p === ME ? `통행료 ${c.amt} 내요` : c.to === ME ? `통행료 ${c.amt} 받아요` : `통행료 ${c.amt}`; break;
+    case 'buy': d = SND.buy(); say = `${who(c.p)}${TILES[c.i].n} 구입!`; break;
+    case 'up': d = SND.up(c.lv); say = `${TILES[c.i].n} ${c.lv >= 2 ? '호텔' : '숙소'} 완성`; break;
+    case 'card': d = c.g === 'good' ? SND.good() : c.g === 'bad' ? SND.bad() : c.g === 'move' ? SND.move() : c.g === 'jail' ? SND.jail() : SND.skip(); say = c.t; break;
+    case 'jail': d = SND.jail(); say = '무인도! 두 턴 쉬어요'; break;
+    case 'air': d = 0; say = '공항! 다음 턴에 날아가요'; break;
+    case 'cafe': d = SND.good(); say = '카페에서 쉬어가요. 플러스 100'; break;
+    case 'pay': d = SND.rent(100, true); say = '벌금 100'; break;
+    case 'fly': d = SND.move(); say = `${TILES[c.i].n}으로 날아가요`; break;
+    case 'turn': if (c.p === ME) { d = SND.turn(true); say = c.jail ? '무인도예요. 벌금을 내거나 더블에 도전해요' : c.fly ? '공항 이동. 가고 싶은 칸을 눌러요' : '내 차례. 주사위를 굴려요'; } else d = SND.turn(false); break;
+    case 'end': d = SND.end(c.win === ME); say = c.win < 0 ? '무승부' : c.win === ME ? '승리! 축하해요' : '아쉬워요'; break;
+  }
+  if (d) await wait(d * 1000); if (!alive()) return; if (say) await speak(say);
+}
+async function runCues(list, gen) { for (const c of list) { if (gen !== cueGen) return; await playCue(c, gen); } }
+function handleCues() {
+  if (S.v === lastCueV) return; lastCueV = S.v; cueGen++; const gen = cueGen;
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (_) { /* 무시 */ }
+  const cs = S.cues || [], rolls = cs.filter(c => c.k === 'roll'); let turnC = null; const post = cs.filter(c => c.k !== 'roll' && (c.k !== 'turn' || ((turnC = c), false))); if (turnC) post.push(turnC);
+  if (rolls.length) { SND.roll(); }
+  const run = () => { cueBusy = true; runCues(post, gen).then(() => { if (gen === cueGen) cueBusy = false; }); };
+  if (!post.length) { cueBusy = false; return; } cueBusy = true; if (animating || animQ.length) pendingRun = run; else run();
+}
+function flushPending() { if (pendingRun && !animating && !animQ.length) { const r = pendingRun; pendingRun = null; r(); } }
+
 /* ---------- 규칙(방장 쪽에서만 돌린다) ---------- */
 let S = null, HOST = true, ME = 0, SIM = false;
 const mkPl = (nm, ch, ai) => ({ nm: String(nm || '익명').slice(0, 12), ch, ai: !!ai, cash: START_CASH, pos: 0, jail: 0, skip: 0, fly: 0 });
 const rint = n => Math.floor(Math.random() * n);
+function cue(o) { if (S.cues) S.cues.push(o); }
 function log(t) { S.log.push(t); if (S.log.length > 6) S.log.shift(); }
 function say(t) { if (S.say && t) S.say.lines.push(t); }
 function monoOf(i, o) { const g = TILES[i].g; if (!g || GSIZE[g] < 2) return false; for (let k = 0; k < NT; k++) if (TILES[k].g === g && !(S.own[k] && S.own[k][0] === o)) return false; return true; }
@@ -365,7 +463,7 @@ function rentOf(i) {
 function worth(pi) { let w = S.pl[pi].cash; for (const k in S.own) if (S.own[k][0] === pi) w += TILES[k].p * .5 + S.own[k][1] * upCost(+k) * .5; return Math.round(w); }
 function newGame(p0, p1) {
   const q1 = Object.assign({}, p1); if (q1.ch === p0.ch) q1.ch = ANIMALS.map(a => a[0]).find(c => c !== p0.ch);
-  S = { gid: Math.random().toString(36).slice(2, 8), v: 0, round: 1, turn: 0, phase: 'roll', dice: [1, 1], log: [], pl: [p0, q1], own: {}, over: false, win: -1, ev: 'start', mv: null, why: '', say: null, story: null };
+  S = { gid: Math.random().toString(36).slice(2, 8), v: 0, round: 1, turn: 0, phase: 'roll', dice: [1, 1], log: [], pl: [p0, q1], own: {}, over: false, win: -1, ev: 'start', mv: null, why: '', say: null, story: null, cues: [] };
   log('여행을 떠나요! ✈️'); startTurn();
 }
 function startTurn() {
@@ -373,6 +471,7 @@ function startTurn() {
   if (p.skip > 0) { p.skip--; log(`${p.nm}님은 이번 턴 쉬어요`); nextTurn(); return; }
   S.phase = p.jail > 0 ? 'jail' : p.fly ? 'fly' : 'roll';
   log(p.jail > 0 ? `${p.nm}님은 무인도에 있어요` : `${p.nm}님 차례`);
+  cue({ k: 'turn', p: S.turn, jail: p.jail > 0, fly: !!p.fly && !(p.jail > 0) });
 }
 function nextTurn() {
   S.turn = 1 - S.turn; if (S.turn === 0) S.round++;
@@ -382,9 +481,9 @@ function nextTurn() {
 }
 function finish() {
   S.over = true; S.phase = 'over'; S.wish = pick(WISH); S.lose = pick(LOSEL); const a = worth(0), b = worth(1);
-  S.win = a === b ? -1 : a > b ? 0 : 1; S.why = '15라운드가 끝났어요! 재산이 더 많은 쪽이 이겨요.'; S.ev = 'end';
+  S.win = a === b ? -1 : a > b ? 0 : 1; S.why = '15라운드가 끝났어요! 재산이 더 많은 쪽이 이겨요.'; S.ev = 'end'; cue({ k: 'end', win: S.win });
 }
-function bankrupt(fi, ti) { S.over = true; S.phase = 'over'; S.wish = pick(WISH); S.lose = pick(LOSEL); S.win = 1 - fi; S.why = `${S.pl[fi].nm}님이 파산했어요…`; S.ev = 'end'; log(S.why); }
+function bankrupt(fi, ti) { S.over = true; S.phase = 'over'; S.wish = pick(WISH); S.lose = pick(LOSEL); S.win = 1 - fi; S.why = `${S.pl[fi].nm}님이 파산했어요…`; S.ev = 'end'; log(S.why); cue({ k: 'end', win: S.win }); }
 function sellOne(fi) {
   let best = -1; for (const k in S.own) if (S.own[k][0] === fi && (best < 0 || TILES[k].p < TILES[best].p)) best = +k;
   if (best < 0) return false; S.pl[fi].cash += Math.round(TILES[best].p * .6); log(`돈이 모자라 ${TILES[best].n} 땅을 팔았어요`); delete S.own[best]; return true;
@@ -396,30 +495,31 @@ function pay(fi, ti, amt, why) {
 }
 function moveTo(pos, tp) {
   const p = S.pl[S.turn], old = p.pos; p.pos = pos;
-  if (pos < old || (tp && pos === 0 && old !== 0)) { p.cash += PASS_START; log(`출발 지나기 +${PASS_START}`); }
-  S.mv = { p: S.turn, tp: !!tp, n: S.v + 1 }; land(pos);
+  if (pos < old || (tp && pos === 0 && old !== 0)) { p.cash += PASS_START; log(`출발 지나기 +${PASS_START}`); cue({ k: 'pass' }); }
+  S.mv = { p: S.turn, tp: !!tp, n: S.v + 1 }; cue({ k: 'land', i: pos, p: S.turn }); land(pos);
 }
 function land(i) {
   const t = TILES[i], p = S.pl[S.turn]; if (MEM[t.n]) say(MEM[t.n]);
   if (t.t === 'p') {
     const o = S.own[i];
     if (!o) {
-      if (p.cash >= t.p) { S.phase = 'buy'; log(`${t.n} 땅을 살까요? (${fmt(t.p)})`); return; }
+      if (p.cash >= t.p) { S.phase = 'buy'; log(`${t.n} 땅을 살까요? (${fmt(t.p)})`); cue({ k: 'buyq', i }); return; }
       log(`${t.n}: 돈이 모자라서 못 사요`); nextTurn();
     } else if (o[0] === S.turn) {
-      if (o[1] < 2 && p.cash >= upCost(i)) { S.phase = 'upg'; log(`내 땅이에요! ${o[1] === 0 ? '숙소' : '호텔'}를 지을까요? (${fmt(upCost(i))})`); return; }
-      log(`${t.n}은(는) 내 땅이에요 ♡`); nextTurn();
+      if (o[1] < 2 && p.cash >= upCost(i)) { S.phase = 'upg'; log(`내 땅이에요! ${o[1] === 0 ? '숙소' : '호텔'}를 지을까요? (${fmt(upCost(i))})`); cue({ k: 'upq', i, lv: o[1] }); return; }
+      log(`${t.n}은(는) 내 땅이에요 ♡`); cue({ k: 'own', i }); nextTurn();
     } else {
-      S.ev = 'pay'; say(pick(PAYL)); if (pay(S.turn, o[0], rentOf(i), `${t.n} 통행료`)) nextTurn();
+      S.ev = 'pay'; say(pick(PAYL)); const rr = rentOf(i); cue({ k: 'rent', p: S.turn, to: o[0], amt: rr }); if (pay(S.turn, o[0], rr, `${t.n} 통행료`)) nextTurn();
     }
   } else if (t.t === 'key') drawCard();
-  else if (t.t === 'island') { p.jail = 2; S.ev = 'pay'; log('무인도에 도착! 쉬어가요 🏝️'); nextTurn(); }
-  else if (t.t === 'air') { p.fly = 1; log('공항! 다음 턴에 원하는 곳으로 날아가요 ✈️'); nextTurn(); }
-  else if (t.t === 'cafe') { p.cash += 100; log('카페에서 쉬어가요 ☕ +100'); nextTurn(); }
+  else if (t.t === 'island') { p.jail = 2; S.ev = 'pay'; log('무인도에 도착! 쉬어가요 🏝️'); cue({ k: 'jail' }); nextTurn(); }
+  else if (t.t === 'air') { p.fly = 1; log('공항! 다음 턴에 원하는 곳으로 날아가요 ✈️'); cue({ k: 'air' }); nextTurn(); }
+  else if (t.t === 'cafe') { p.cash += 100; log('카페에서 쉬어가요 ☕ +100'); cue({ k: 'cafe' }); nextTurn(); }
   else { log('출발 칸이에요 🏁'); nextTurn(); }
 }
 function drawCard() {
   const c = CARDS[rint(CARDS.length)], p = S.pl[S.turn], q = S.pl[1 - S.turn]; S.ev = 'card'; log('🗝️ ' + c.t);
+  cue({ k: 'card', t: c.t, g: c.cash > 0 || c.steal ? 'good' : c.cash < 0 || c.gift ? 'bad' : c.move != null ? 'move' : c.jail ? 'jail' : 'skip' });
   if (c.cash) { if (c.cash > 0) p.cash += c.cash; else if (!pay(S.turn, -1, -c.cash, '비용')) return; nextTurn(); }
   else if (c.gift) { if (pay(S.turn, 1 - S.turn, c.gift, '선물')) nextTurn(); }
   else if (c.steal) { const n = Math.min(c.steal, q.cash); q.cash -= n; p.cash += n; nextTurn(); }
@@ -428,7 +528,7 @@ function drawCard() {
   else if (c.move != null) moveTo(c.move, true);
 }
 function doRoll() {
-  const p = S.pl[S.turn], a = 1 + rint(6), b = 1 + rint(6); S.dice = [a, b]; S.ev = 'roll';
+  const p = S.pl[S.turn], a = 1 + rint(6), b = 1 + rint(6); S.dice = [a, b]; S.ev = 'roll'; cue({ k: 'roll' }); cue({ k: 'sum', n: a + b });
   if (S.phase === 'jail') {
     if (a === b) { p.jail = 0; log(`더블! ${a}+${b} 무인도 탈출 🎉`); moveTo((p.pos + a + b) % NT, false); }
     else { p.jail--; log(`${a}+${b} 탈출 실패…`); nextTurn(); }
@@ -437,21 +537,21 @@ function doRoll() {
   log(`🎲 ${a} + ${b} = ${a + b}`); say(pick(ROLLL)); moveTo((p.pos + a + b) % NT, false);
 }
 function act(pi, a, x) {
-  if (!S || S.over || pi !== S.turn) return; const p = S.pl[pi], i = p.pos, prevSay = S.say; S.say = { ch: p.ch, lines: [] };
+  if (!S || S.over || pi !== S.turn) return; const p = S.pl[pi], i = p.pos, prevSay = S.say, prevCues = S.cues; S.say = { ch: p.ch, lines: [] }; S.cues = [];
   if (a === 'roll' && (S.phase === 'roll' || S.phase === 'jail')) doRoll();
-  else if (a === 'jailpay' && S.phase === 'jail' && p.cash >= JAIL_FEE) { p.cash -= JAIL_FEE; p.jail = 0; S.phase = 'roll'; S.ev = 'pay'; log(`벌금 ${JAIL_FEE}을 내고 탈출!`); }
-  else if (a === 'buy' && S.phase === 'buy' && p.cash >= TILES[i].p) { p.cash -= TILES[i].p; S.own[i] = [pi, 0]; S.ev = 'buy'; log(`${p.nm}님이 ${TILES[i].n} 땅을 샀어요! 🎉`); say(pick(BUYL)); nextTurn(); }
-  else if (a === 'up' && S.phase === 'upg' && S.own[i] && p.cash >= upCost(i)) { p.cash -= upCost(i); S.own[i][1]++; S.ev = 'buy'; log(`${TILES[i].n}에 ${S.own[i][1] === 1 ? '숙소' : '호텔'}를 지었어요 🏨`); say(pick(UPL)); nextTurn(); }
+  else if (a === 'jailpay' && S.phase === 'jail' && p.cash >= JAIL_FEE) { p.cash -= JAIL_FEE; p.jail = 0; S.phase = 'roll'; S.ev = 'pay'; log(`벌금 ${JAIL_FEE}을 내고 탈출!`); cue({ k: 'pay' }); }
+  else if (a === 'buy' && S.phase === 'buy' && p.cash >= TILES[i].p) { p.cash -= TILES[i].p; S.own[i] = [pi, 0]; S.ev = 'buy'; log(`${p.nm}님이 ${TILES[i].n} 땅을 샀어요! 🎉`); cue({ k: 'buy', i, p: pi }); say(pick(BUYL)); nextTurn(); }
+  else if (a === 'up' && S.phase === 'upg' && S.own[i] && p.cash >= upCost(i)) { p.cash -= upCost(i); S.own[i][1]++; S.ev = 'buy'; log(`${TILES[i].n}에 ${S.own[i][1] === 1 ? '숙소' : '호텔'}를 지었어요 🏨`); cue({ k: 'up', i, lv: S.own[i][1] }); say(pick(UPL)); nextTurn(); }
   else if (a === 'pass' && (S.phase === 'buy' || S.phase === 'upg')) { log('그냥 지나가요'); nextTurn(); }
-  else if (a === 'fly' && S.phase === 'fly' && Number.isInteger(x) && x >= 0 && x < NT && x !== p.pos) { p.fly = 0; log(`✈️ ${TILES[x].n}(으)로 날아갔어요!`); moveTo(x, true); }
-  else { S.say = prevSay; return; }
+  else if (a === 'fly' && S.phase === 'fly' && Number.isInteger(x) && x >= 0 && x < NT && x !== p.pos) { p.fly = 0; log(`✈️ ${TILES[x].n}(으)로 날아갔어요!`); cue({ k: 'fly', i: x }); moveTo(x, true); }
+  else { S.say = prevSay; S.cues = prevCues; return; }
   commit();
 }
 function commit() { S.v++; if (S.mv && S.mv.n === S.v) { /* 이번 갱신의 이동 */ } broadcast(); render(); aiSoon(); }
 
 /* ---------- 컴퓨터 상대 ---------- */
 let aiTimer = null;
-function aiSoon() { if (SIM || !HOST || !S || S.over || !S.pl[S.turn].ai) return; clearTimeout(aiTimer); aiTimer = setTimeout(aiStep, 1500); }
+function aiSoon() { if (SIM || !HOST || !S || S.over || !S.pl[S.turn].ai) return; clearTimeout(aiTimer); let waited = 0; const go = () => { if ((cueBusy || animating || animQ.length) && waited < 9000) { waited += 300; aiTimer = setTimeout(go, 300); return; } aiStep(); }; aiTimer = setTimeout(go, 1100); }
 function aiStep() {
   if (!S || S.over || !S.pl[S.turn].ai) return;
   const p = S.pl[S.turn], i = p.pos;
@@ -628,7 +728,7 @@ function render() {
   $('cRnd').textContent = `라운드 ${Math.min(S.round, ROUNDS)} / ${ROUNDS}`;
   const dc = $('dice'); dc.querySelectorAll('span').forEach((sp, k) => { sp.textContent = '⚀⚁⚂⚃⚄⚅'[clamp(S.dice[k], 1, 6) - 1]; });
   const lb = $('logbox'); lb.textContent = ''; S.log.slice(-3).forEach(t => { const d = document.createElement('div'); d.textContent = t; lb.appendChild(d); });
-  renderPcards(); renderStory(); handleEvents(); syncTokens(); renderInfo(); renderActs();
+  renderPcards(); renderStory(); syncTokens(); handleEvents(); handleCues(); renderInfo(); renderActs();
   if (S.over) showEnd();
 }
 function renderStory() {
@@ -643,8 +743,7 @@ function renderStory() {
 }
 function handleEvents() {
   if (S.v === lastV) return; lastV = S.v;
-  const e = S.ev; if (e === 'roll') { SFX.roll(); buzz(10); const d = $('dice'); d.classList.add('roll'); setTimeout(() => d.classList.remove('roll'), 450); }
-  else if (e === 'buy') { SFX.buy(); buzz([20, 30, 40]); } else if (e === 'pay') { SFX.pay(); buzz(40); } else if (e === 'card') { SFX.card(); buzz(15); }
+  if (S.ev === 'roll') { const d = $('dice'); d.classList.add('roll'); setTimeout(() => d.classList.remove('roll'), 450); }
 }
 function syncTokens() {
   for (let k = 0; k < 2; k++) {
@@ -655,11 +754,13 @@ function syncTokens() {
     animQ.push({ k, to: target }); runAnim();
   }
 }
+let stepN = 0; const PENTA = [0, 2, 4, 7, 9];
+function stepTick() { const k = stepN++; tone(hz(523, PENTA[k % 5] + 12 * Math.floor(k / 5 % 2)), .06, 'triangle', .06); }
 function runAnim() {
   if (animating) return; const q = animQ[0]; if (!q) return; animating = true;
   const step = () => {
-    if (D[q.k] === q.to) { animQ.shift(); animating = false; showPostcard(q.to); if (animQ.length) runAnim(); else { renderActs(); renderInfo(); } return; }
-    D[q.k] = (D[q.k] + 1) % NT; placeTok(q.k); SFX.step(); setTimeout(step, 170);
+    if (D[q.k] === q.to) { animQ.shift(); animating = false; stepN = 0; showPostcard(q.to); if (animQ.length) runAnim(); else { renderActs(); renderInfo(); flushPending(); } return; }
+    D[q.k] = (D[q.k] + 1) % NT; placeTok(q.k); stepTick(); setTimeout(step, 170);
   };
   renderActs(); step();
 }
@@ -673,7 +774,7 @@ function showEnd() {
     const es = $('endStory');
     es.textContent = w < 0 ? '🎁 둘 다 최고! 소원은 서로 하나씩 들어주기로 해요 💞' : `🎁 이긴 사람의 소원: ${S.wish || WISH[0]}  /  ${S.lose || LOSEL[0]}`;
     $('btnAgain').hidden = V.online && !HOST; $('endNote').textContent = V.online && !HOST ? '방장이 한 판 더를 누르면 다시 시작해요.' : '';
-    if (you) SFX.win(); else SFX.lose(); $('endSheet').hidden = false;
+    $('endSheet').hidden = false;
   };
   setTimeout(go, 700);
 }
@@ -695,10 +796,11 @@ $('btnAgain').onclick = () => { ac(); $('endSheet').hidden = true; if (V.online)
 $('btnCopy').onclick = () => { const b = $('btnCopy'), done = ok => { b.textContent = ok ? '복사했어요!' : '코드를 직접 알려 주세요'; setTimeout(() => { b.textContent = '코드 복사'; }, 1800); }; try { navigator.clipboard.writeText(V.code).then(() => done(true), () => done(false)); } catch (_) { done(false); } };
 $('btnSms').addEventListener('click', e => { e.preventDefault(); const msg = `자기야 여행마블 같이하자~ 🎲\n방 코드: ${V.code}\n링크: ${GAME_URL}\n(링크 열고 코드 4글자 입력하면 돼!)`; location.href = 'sms:?&body=' + encodeURIComponent(msg); });
 $('btnSound').onclick = () => { muted = !muted; try { localStorage.setItem('mn-mute', muted ? '1' : '0'); } catch (_) { /* 무시 */ } $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; if (!muted) { ac(); SFX.step(); } };
+$('btnVoice').onclick = () => { voiceOn = !voiceOn; try { localStorage.setItem('mn-voice', voiceOn ? '1' : '0'); } catch (_) { /* 무시 */ } $('btnVoice').textContent = voiceOn ? '음성 안내 켜짐' : '음성 안내 꺼짐'; if (voiceOn) { ac(); speak('음성 안내를 켰어요'); } else { try { speechSynthesis.cancel(); } catch (_) { /* 무시 */ } } };
 $('btnMusic').onclick = () => { MN.bgm.toggle(); $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; };
 $('nick').addEventListener('input', () => MN.setNick($('nick').value));
 (function boot() {
-  $('nick').value = MN.nick(); $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐';
+  $('nick').value = MN.nick(); $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; $('btnVoice').textContent = voiceOn ? '음성 안내 켜짐' : '음성 안내 꺼짐';
   const flags = ['#FFB3C9', '#FFE08A', '#BDE8D3', '#CDBFF5', '#BFE1F7'], bt = $('bunting'); for (let i = 0; i < 14; i++) { const f = document.createElement('i'); f.style.background = flags[i % 5]; bt.appendChild(f); }
   buildBoard(); drawPick('pickHome'); for (let k = 0; k < 2; k++) placeTok(k);
   window.addEventListener('resize', () => { for (let k = 0; k < 2; k++) placeTok(k); });
