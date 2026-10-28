@@ -67,11 +67,44 @@ window.MN = (function () {
     }
     return p;
   }
+  /* 방(실시간 접속) — presence 는 처음 한 번만 올리고, 상태는 broadcast 로 주고받는다 */
+  function roomNs(self) {
+    var sb = self.client(); if (!sb) return null;
+    var myKey = 'p' + pid().slice(0, 8) + Math.random().toString(36).slice(2, 8);
+    return {
+      join: async function (name) {
+        var ch = sb.channel('cafe-' + name, { config: { presence: { key: myKey }, broadcast: { self: false } } });
+        var mine = {}, handlers = [], states = new Map();
+        var peers = function () {
+          var out = [{ peer: myKey, isMe: true, presence: mine }];
+          Object.keys(ch.presenceState()).forEach(function (k) { if (k !== myKey) out.push({ peer: k, isMe: false, presence: states.get(k) || {} }); });
+          return out;
+        };
+        var fire = function () { handlers.forEach(function (f) { f({ peers: peers() }); }); };
+        var send = function () { ch.send({ type: 'broadcast', event: 'st', payload: { k: myKey, s: mine } }).catch(function () {}); };
+        ch.on('broadcast', { event: 'st' }, function (m) {
+          var p = m.payload;
+          if (p && typeof p.k === 'string' && p.k !== myKey && p.s && typeof p.s === 'object') { states.set(p.k, p.s); fire(); }
+        });
+        ch.on('presence', { event: 'join' }, function (e) { if (e.key !== myKey) send(); fire(); });
+        ch.on('presence', { event: 'leave' }, function (e) { states.delete(e.key); fire(); });
+        ch.on('presence', { event: 'sync' }, fire);
+        await new Promise(function (res, rej) { var t = setTimeout(function () { rej(new Error('timeout')); }, 10000); ch.subscribe(function (st) { if (st === 'SUBSCRIBED') { clearTimeout(t); res(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') { clearTimeout(t); rej(new Error(st)); } }); });
+        await ch.track({ k: myKey });
+        return {
+          peers: peers, onPeers: function (f) { handlers.push(f); },
+          presence: async function (patch) { mine = Object.assign({}, mine, patch); send(); },
+          leave: async function () { try { await ch.untrack(); await sb.removeChannel(ch); } catch (e) { /* 무시 */ } }
+        };
+      }
+    };
+  }
   return {
     SB_URL: SB_URL, SB_KEY: SB_KEY, get: get, set: set, pid: pid,
     nick: function () { return (get('mn-nick') || '').slice(0, 12); },
     setNick: function (n) { set('mn-nick', String(n || '').trim().slice(0, 12)); },
     bgm: bgm,
+    roomNs: function () { return roomNs(this); },
     client: function () { if (!client && window.supabase) client = window.supabase.createClient(SB_URL, SB_KEY); return client; }
   };
 })();
