@@ -132,6 +132,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
     <span class="sp"></span>
     <button class="btn small ghost" id="btnMusic" type="button">음악 켜짐</button>
     <button class="btn small ghost" id="btnSound" type="button">소리 켜짐</button>
+    <button class="btn small ghost" id="btnVoice" type="button">음성 켜짐</button>
   </div>
   <div class="who" id="oppBox"><img id="oppImg" alt="" width="38" height="38"><span class="nm" id="oppNm">상대</span><span class="cnt" id="oppCnt">7</span></div>
   <div id="oppHand" aria-hidden="true"></div>
@@ -244,6 +245,28 @@ const SFX = {
   turn() { tone(880, .08, 'sine', .06); }
 };
 
+const VKEYS = (() => { const k = ['f_turn', 'f_turndrawn', 'f_draw', 'f_oppdraw', 'f_pass', 'f_uno', 'f_pick', 'f_start', 'f_win', 'f_lose', 'f_opp', 'f_com']; for (const c of 'rygb') { for (let v = 0; v < 10; v++) k.push('k_' + c + v); for (const s of 'svd') k.push('k_' + c + s); k.push('k_ww_' + c, 'k_wf_' + c); } return k; })();
+const VO = MN.voice('../audio/uno/', () => ac(), () => muted);
+let cueGen = 0, cueBusy = false, lastCueV = -1;
+function cueKeys(c) {
+  const pre = c.p == null || c.p === ME ? [] : [G.pl[c.p].ai ? 'f_com' : 'f_opp'];
+  switch (c.k) {
+    case 'start': return ['f_start'];
+    case 'play': return [...pre, c.card[0] === 'w' ? 'k_w' + c.card[1] + '_' + c.color : 'k_' + c.card];
+    case 'draw': return c.p === ME ? ['f_draw'] : [G.pl[c.p].ai ? 'f_com' : 'f_opp', 'f_oppdraw'];
+    case 'pass': return [...pre, 'f_pass'];
+    case 'uno': return ['f_uno'];
+    case 'turn': return c.p === ME && (c.a !== ME || c.phase === 'drawn') ? [c.phase === 'drawn' ? 'f_turndrawn' : 'f_turn'] : null;
+    case 'end': return [c.win === ME ? 'f_win' : 'f_lose'];
+  }
+  return null;
+}
+async function handleCues() {
+  if (G.v === lastCueV) return; lastCueV = G.v; cueGen++; const gen = cueGen; VO.stop();
+  const cs = (G.cues || []).slice(); cueBusy = cs.length > 0; if (!cs.length) return;
+  for (const c of cs) { if (gen !== cueGen) return; const ks = cueKeys(c); if (ks) await VO.play(ks, { cancelled: () => gen !== cueGen }); }
+  if (gen === cueGen) cueBusy = false;
+}
 /* ---------- 이야기 대사 ---------- */
 const SAY = {
   s: ['건너뛰기! 자기야 한 턴 쉬어~ ㅋㅋ', '잉? 자기 차례가 사라졌당 😆'], v: ['방향 바꾸기! 빙글빙글~ 🔁', '돌아라 돌아라~ 자기야 또 내 차례!'],
@@ -267,7 +290,7 @@ function drawCards(pi, n) {
 }
 function newGame(p0, p1) {
   const q1 = Object.assign({}, p1); if (q1.ch === p0.ch) q1.ch = ANIMALS.map(a => a[0]).find(c => c !== p0.ch);
-  S = { gid: Math.random().toString(36).slice(2, 8), v: 0, turn: rint(2), pl: [p0, q1], deck: shuffle(buildDeck()), disc: [], hands: [[], []], top: '', color: 'r', phase: 'play', drawn: -1, log: [], say: null, ev: 'start', over: false, win: -1, why: '', wish: '', lose: '', hv: 0 };
+  S = { gid: Math.random().toString(36).slice(2, 8), v: 0, turn: rint(2), pl: [p0, q1], deck: shuffle(buildDeck()), disc: [], hands: [[], []], top: '', color: 'r', phase: 'play', drawn: -1, log: [], say: null, ev: 'start', cues: [{ k: 'start' }], over: false, win: -1, why: '', wish: '', lose: '', hv: 0 };
   drawCards(0, 7); drawCards(1, 7);
   const skipped = []; let c; while ((c = S.deck.pop()) && !/^[rygb]\d$/.test(c)) skipped.push(c);
   S.deck.unshift(...skipped); S.top = c; S.color = c[0]; S.disc.push(c); sortHand(0); sortHand(1);
@@ -275,36 +298,37 @@ function newGame(p0, p1) {
 }
 function finishPlay(pi) { S.phase = 'play'; S.drawn = -1; sortHand(0); sortHand(1); }
 function act(pi, a, x, y) {
-  if (!S || S.over || pi !== S.turn) return; const me = S.hands[pi], opp = 1 - pi, p = S.pl[pi];
+  if (!S || S.over || pi !== S.turn) return; const me = S.hands[pi], opp = 1 - pi, p = S.pl[pi], prevCues = S.cues; S.cues = [];
   if (a === 'play' && (S.phase === 'play' || S.phase === 'drawn')) {
     const card = me[x]; if (!card || (S.phase === 'drawn' && x !== S.drawn) || !playable(card)) return;
     if (card[0] === 'w' && !'rygb'.includes(y)) return;
     me.splice(x, 1); S.disc.push(card); S.top = card; S.color = card[0] === 'w' ? y : card[0]; S.ev = 'play';
     const v = card[1]; log(`${p.nm}님: ${card[0] === 'w' ? '와일드' : CN[card[0]]} ${midText(v)}${card[0] === 'w' ? ' → ' + CN[y] : ''}`);
-    let again = false;
+    let again = false; S.cues.push({ k: 'play', p: pi, card, color: S.color });
     if (v === 's' || v === 'v') { again = true; say(pi, v); S.ev = 'hit'; }
     else if (v === 'd') { drawCards(opp, 2); again = true; say(pi, 'd'); S.ev = 'hit'; }
     else if (v === 'f') { drawCards(opp, 4); again = true; say(pi, 'f'); S.ev = 'hit'; }
     else if (v === 'w') say(pi, 'w');
     else S.say = null;
-    if (!me.length) { S.over = true; S.phase = 'over'; S.win = pi; S.why = '카드를 모두 냈어요!'; S.ev = 'end'; log(S.why); }
-    else { if (me.length === 1) { S.ev = 'uno'; say(pi, 'uno'); } if (!again) S.turn = opp; finishPlay(pi); }
+    if (!me.length) { S.over = true; S.phase = 'over'; S.win = pi; S.why = '카드를 모두 냈어요!'; S.ev = 'end'; log(S.why); S.cues.push({ k: 'end', win: pi }); }
+    else { if (me.length === 1) { S.ev = 'uno'; say(pi, 'uno'); S.cues.push({ k: 'uno', p: pi }); } if (!again) S.turn = opp; finishPlay(pi); }
   } else if (a === 'draw' && S.phase === 'play') {
-    drawCards(pi, 1); const c = me[me.length - 1]; S.ev = 'draw';
+    drawCards(pi, 1); const c = me[me.length - 1]; S.ev = 'draw'; S.cues.push({ k: 'draw', p: pi });
     if (c && playable(c)) { S.phase = 'drawn'; S.drawn = me.length - 1; log(`${p.nm}님이 한 장 뽑았어요`); say(pi, 'draw'); }
     else { log(`${p.nm}님은 낼 카드가 없어요`); say(pi, 'pass'); S.turn = opp; finishPlay(pi); }
-  } else if (a === 'pass' && S.phase === 'drawn') { log(`${p.nm}님이 그냥 넘겨요`); S.turn = opp; finishPlay(pi); }
-  else return;
+  } else if (a === 'pass' && S.phase === 'drawn') { S.cues.push({ k: 'pass', p: pi }); log(`${p.nm}님이 그냥 넘겨요`); S.turn = opp; finishPlay(pi); }
+  else { S.cues = prevCues; return; }
+  if (!S.over) S.cues.push({ k: 'turn', p: S.turn, a: pi, phase: S.phase });
   commit();
 }
 function view(pi) { // 내 패만 보이고 상대 패는 장수만 보낸다
-  return { gid: S.gid, v: S.v, turn: S.turn, pl: S.pl, top: S.top, color: S.color, phase: S.phase, drawn: S.drawn, log: S.log, say: S.say, ev: S.ev, over: S.over, win: S.win, why: S.why, deckN: S.deck.length, hands: S.hands.map((h, i) => i === pi ? h : h.length) };
+  return { gid: S.gid, v: S.v, turn: S.turn, pl: S.pl, top: S.top, color: S.color, phase: S.phase, drawn: S.drawn, log: S.log, say: S.say, ev: S.ev, cues: S.cues, over: S.over, win: S.win, why: S.why, deckN: S.deck.length, hands: S.hands.map((h, i) => i === pi ? h : h.length) };
 }
 function commit() { S.v++; G = view(ME); broadcast(); render(); aiSoon(); }
 
 /* ---------- 컴퓨터 상대 ---------- */
 let aiTimer = null;
-function aiSoon() { if (SIM || !HOST || !S || S.over || !S.pl[S.turn].ai) return; clearTimeout(aiTimer); aiTimer = setTimeout(aiStep, 1300); }
+function aiSoon() { if (SIM || !HOST || !S || S.over || !S.pl[S.turn].ai) return; clearTimeout(aiTimer); let waited = 0; const go = () => { if ((cueBusy || VO.busy()) && waited < 9000) { waited += 300; aiTimer = setTimeout(go, 300); return; } aiStep(); }; aiTimer = setTimeout(go, 1000); }
 function bestColor(h) { const n = { r: 0, y: 0, g: 0, b: 0 }; h.forEach(c => { if (c[0] !== 'w') n[c[0]]++; }); return Object.keys(n).sort((a, b) => n[b] - n[a] || rint(3) - 1)[0]; }
 function aiStep() {
   if (!S || S.over || !S.pl[S.turn].ai) return; const pi = S.turn, h = S.hands[pi];
@@ -378,7 +402,7 @@ function drawPick(id, taken) {
     box.appendChild(b);
   }
 }
-function enterGame() { for (const id of ['homeSheet', 'lobbySheet', 'endSheet', 'colorSheet']) $(id).hidden = true; endShown = false; }
+function enterGame() { for (const id of ['homeSheet', 'lobbySheet', 'endSheet', 'colorSheet']) $(id).hidden = true; endShown = false; VO.preload(VKEYS); }
 
 /* ---------- 그리기 ---------- */
 let lastV = -1, endShown = false, pendingIdx = -1;
@@ -410,7 +434,7 @@ function render() {
     el.classList.add(ok ? 'ok' : 'no'); el.dataset.i = i; el.setAttribute('role', 'button'); el.tabIndex = 0;
     const go = () => tapCard(i, c, ok, el); el.onclick = go; el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }; hd.appendChild(el);
   });
-  renderActs(mine); renderBubble(); handleEvents(); lastV = G.v;
+  renderActs(mine); renderBubble(); handleEvents(); handleCues(); lastV = G.v;
   if (G.over) showEnd();
 }
 function renderActs(mine) {
@@ -433,7 +457,7 @@ function handleEvents() {
 }
 function tapCard(i, c, ok, el) {
   ac(); if (!ok) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); return; }
-  if (c[0] === 'w') { pendingIdx = i; $('colorSheet').hidden = false; return; }
+  if (c[0] === 'w') { pendingIdx = i; $('colorSheet').hidden = false; VO.play(['f_pick'], { interrupt: true }); return; }
   sendCmd('play', i);
 }
 function showEnd() {
@@ -462,10 +486,11 @@ $('btnColorCancel').onclick = () => { $('colorSheet').hidden = true; pendingIdx 
 $('btnCopy').onclick = () => { const b = $('btnCopy'), done = ok => { b.textContent = ok ? '복사했어요!' : '코드를 직접 알려 주세요'; setTimeout(() => { b.textContent = '코드 복사'; }, 1800); }; try { navigator.clipboard.writeText(V.code).then(() => done(true), () => done(false)); } catch (_) { done(false); } };
 $('btnSms').addEventListener('click', e => { e.preventDefault(); const msg = `자기야 우노 같이하자~ 🃏\n방 코드: ${V.code}\n링크: ${GAME_URL}\n(링크 열고 코드 4글자 입력하면 돼!)`; location.href = 'sms:?&body=' + encodeURIComponent(msg); });
 $('btnSound').onclick = () => { muted = !muted; try { localStorage.setItem('mn-mute', muted ? '1' : '0'); } catch (_) { /* 무시 */ } $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; if (!muted) { ac(); SFX.play(); } };
+$('btnVoice').onclick = () => { const on = !VO.on(); VO.setOn(on); $('btnVoice').textContent = on ? '음성 켜짐' : '음성 꺼짐'; if (on) ac(); };
 $('btnMusic').onclick = () => { MN.bgm.toggle(); $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; };
 $('nick').addEventListener('input', () => MN.setNick($('nick').value));
 (function boot() {
-  $('nick').value = MN.nick(); $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐';
+  $('nick').value = MN.nick(); $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; $('btnVoice').textContent = VO.on() ? '음성 켜짐' : '음성 꺼짐';
   const flags = ['#FFB3C9', '#FFE08A', '#BDE8D3', '#CDBFF5', '#BFE1F7'], bt = $('bunting'); for (let i = 0; i < 14; i++) { const f = document.createElement('i'); f.style.background = flags[i % 5]; bt.appendChild(f); }
   const cb = $('colorBtns'); for (const c of 'rygb') {
     const b = document.createElement('button'); b.type = 'button'; b.style.background = `var(--c${c})`; const im = document.createElement('img'); im.src = animalSrc(CPET[c]); im.alt = ''; im.width = im.height = 48; b.append(im, document.createTextNode(CN[c]));
