@@ -325,7 +325,7 @@ body.flower #frame { background-color: #CDEFD0; box-shadow: 0 8px 0 rgba(111,191
       <div class="fv" id="fv" aria-label="먹방 게이지"><i id="fvFill"></i><span id="fvTxt">먹방 게이지</span></div>
     </div>
     <div id="boardWrap"><div id="frame"><canvas id="cv" aria-label="게임 보드"></canvas></div><div id="toast" aria-live="polite"></div><div id="late" hidden><div class="lt"><small>⏰ 시간 오버!</small><b>매번 늦어도 이해할게~</b><i>눌러서 넘기기</i></div></div><div id="lucky" hidden><div class="lk"><small>행운 상자!</small><b id="luckyTxt"></b></div></div></div>
-    <div class="foot"><button class="btn small ghost" id="btnMusic">음악 켜짐</button><button class="btn small ghost" id="btnSound">소리 켜짐</button><button class="btn small ghost" id="btnQuit">그만하기</button></div>
+    <div class="foot"><button class="btn small ghost" id="btnMusic">음악 켜짐</button><button class="btn small ghost" id="btnSound">소리 켜짐</button><button class="btn small ghost" id="btnVoice">음성 켜짐</button><button class="btn small ghost" id="btnQuit">그만하기</button></div>
 
     <div id="result" hidden>
       <div class="sheet">
@@ -400,6 +400,9 @@ const SFX = {
   late() { [440, 392, 349, 311].forEach((f, i) => tone(f, .28, 'triangle', .12, i * .16, .9)); },
   end() { [523, 659, 784, 1047].forEach((f, i) => tone(f, .3, 'triangle', .12, i * .12)); }
 };
+const VKEYS = ['f_start','f_flower','f_c2','f_c3','f_c4','f_c5','f_lk_score','f_lk_turn','f_lk_stars','f_lk_rainbow','f_jackpot','f_feverstart','f_soup','f_capyeat','f_feverend','f_bonus','f_encore','f_shuffle','f_special','f_petal','f_grow','f_capy','f_frog','f_hint1','f_late','f_last','f_clear','f_perfect','f_bouquet','f_miss'];
+const VO = MN.voice('../audio/match/', () => ac(), () => muted);
+const vsay = (ks, o) => VO.play(ks, o || {});
 const num = v => (typeof v === 'number' && isFinite(v)) ? Math.max(0, Math.min(1e6, v)) : 0;
 const goalFor = (stage, duo) => Math.round((duo ? 24000 : 12000) * (1 + 0.15 * (stage - 1)) / 100) * 100;
 
@@ -721,11 +724,11 @@ function luckyReward() {
   if (pick.k === 'score') { const v = Math.round((150 + Math.random() * 450) / 10) * 10; S.score += v; addFloat(W / 2, W / 2 + S.s, '+' + v + '!!', '#E0568A', 34); }
   else if (pick.k === 'turn') { S.moves += 2; SFX.turn(); }
   else if (pick.k === 'fever') startFever();
-  toast(pick.name);
+  toast(pick.name); if (pick.k !== 'fever') vsay(['f_lk_' + pick.k], { interrupt: true });
   updateHud();
   return (pick.k === 'stars' || pick.k === 'rainbow') ? pick.k : null;
 }
-function startFever() { if (S.feverLeft > 0) return; addFloat(S.s * N / 2, S.s * N * .3, '국물 먹고 싶다~', '#E58A00', 26); setTimeout(() => addFloat(S.s * N / 2, S.s * N * .45, '먹는 모습이 카피바라 같아~', '#C96B00', 24), 700); SFX.fever(); buzz([30, 40, 30, 40, 90]); S.fever = 100; S.feverLeft = 3; document.body.classList.add('fever'); }
+function startFever() { if (S.feverLeft > 0) return; vsay(['f_feverstart', 'f_capyeat'], { interrupt: true }); addFloat(S.s * N / 2, S.s * N * .3, '국물 먹고 싶다~', '#E58A00', 26); setTimeout(() => addFloat(S.s * N / 2, S.s * N * .45, '먹는 모습이 카피바라 같아~', '#C96B00', 24), 700); SFX.fever(); buzz([30, 40, 30, 40, 90]); S.fever = 100; S.feverLeft = 3; document.body.classList.add('fever'); }
 function shake() { const f = $('frame'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
 
 async function doSwap(a, b) {
@@ -753,13 +756,13 @@ async function doSwap(a, b) {
     await move(true);
     S.busy = false; armHint(); return;
   }
-  S.moves--; updateHud();
+  S.moves--; updateHud(); if (S.moves === 1) vsay(['f_last'], { skipIfBusy: true });
   const wasFever = S.feverLeft > 0;
   const combo = await resolve([a, b], forced);
-  if (combo >= 3) { S.moves++; toast('보너스 턴 +1!'); SFX.turn(); buzz([20, 30, 20]); }
-  if (wasFever) { S.feverLeft--; if (S.feverLeft <= 0) { S.fever = 0; document.body.classList.remove('fever'); toast('먹방 끝~ 배불러요'); } }
-  if (!allMoves().length) { toast('다시 섞을게요~'); await reshuffle(); }
-  if (S.moves <= 0 && !S.encore && Math.random() < .4) { S.encore = true; S.moves += 3; toast('앵콜 찬스! +3턴'); SFX.turn(); buzz([30, 40, 30]); }
+  if (combo >= 3) { S.moves++; toast('보너스 턴 +1!'); SFX.turn(); buzz([20, 30, 20]); vsay(['f_bonus']); }
+  if (wasFever) { S.feverLeft--; if (S.feverLeft <= 0) { S.fever = 0; document.body.classList.remove('fever'); toast('먹방 끝~ 배불러요'); vsay(['f_feverend']); } }
+  if (!allMoves().length) { toast('다시 섞을게요~'); vsay(['f_shuffle'], { skipIfBusy: true }); await reshuffle(); }
+  if (S.moves <= 0 && !S.encore && Math.random() < .4) { S.encore = true; S.moves += 3; toast('앵콜 찬스! +3턴'); vsay(['f_encore'], { interrupt: true }); SFX.turn(); buzz([30, 40, 30]); }
   updateHud(); publish();
   if (S.moves <= 0) { await finish(); return; }
   S.busy = false; armHint();
@@ -799,7 +802,8 @@ async function resolve(hot, forced) {
     for (const run of m.runs) pts += run.len === 4 ? 20 : run.len >= 5 ? 50 : 0;
     pts = Math.round(pts); S.score += pts;
     let msg = combo >= 2 ? PRAISE[Math.min(combo, 5)] + ' ×' + combo : null;
-    if (jackpot) msg = '대박 ×3!!';
+    if (combo >= 2) vsay(['f_c' + Math.min(combo, 5)], { skipIfBusy: true });
+    if (jackpot) { msg = '대박 ×3!!'; vsay(['f_jackpot'], { interrupt: true }); }
     if (S.feverLeft === 0) {
       S.fever = Math.min(100, S.fever + cells.length * 2.5 + (combo >= 2 ? combo * 5 : 0));
       if (S.fever >= 100) { startFever(); msg = '먹방 타임!! 점수 ×2'; }
@@ -815,12 +819,12 @@ async function resolve(hot, forced) {
     if (S.flower && blasts.some(b => b.sp === 'petal')) addFloat(cx, cy + S.s * .5, '꽃잎 폭죽!', '#D6457A', 26);
     if (capy.length >= 3) {
       const cxp = capy.reduce((q, o) => q + o.c + .5, 0) / capy.length * S.s, cyp = capy.reduce((q, o) => q + o.r + .5, 0) / capy.length * S.s;
-      addFloat(cxp, cyp - S.s * .7, '카피바라 같아~', '#E58A00', 24);
+      addFloat(cxp, cyp - S.s * .7, '카피바라 같아~', '#E58A00', 24); vsay(['f_capy'], { skipIfBusy: true });
       const bonus = capy.length * 5; setTimeout(() => addFloat(cxp, cyp + S.s * .1, '냠냠~ +' + bonus, '#C96B00', 22), 550);
     }
     if (frog.length >= 3) {
       const fxp = frog.reduce((q, o) => q + o.c + .5, 0) / frog.length * S.s, fyp = frog.reduce((q, o) => q + o.r + .5, 0) / frog.length * S.s;
-      addFloat(fxp, fyp - S.s * .4, '개구리 고기 먹자~', '#3C9B5A', 22);
+      addFloat(fxp, fyp - S.s * .4, '개구리 고기 먹자~', '#3C9B5A', 22); vsay(['f_frog'], { skipIfBusy: true });
       setTimeout(() => addFloat(fxp, fyp + S.s * .3, '싫어!!', '#E0568A', 30), 650);
     }
     let grown = 0;
@@ -833,12 +837,13 @@ async function resolve(hot, forced) {
         if (bloomAll || (cells.some(o => Math.abs(o.r - y) + Math.abs(o.c - x) === 1) && Math.random() < .6)) grow.add(t);
       }
       for (const t of grow) { t.bloom++; t.sc = 1.25; grown++; burst((t.x + .5) * S.s, (t.y + .5) * S.s, 5); }
-      if (grown) { SFX.grow(); if (grown >= 4 && !msg) toast('꽃이 쑥쑥 자라요!'); }
+      if (grown) { SFX.grow(); if (grown >= 4 && !msg) { toast('꽃이 쑥쑥 자라요!'); vsay(['f_grow'], { skipIfBusy: true }); } }
       for (const o of cells) if (o.t.bloom === 2) burst((o.c + .5) * S.s, (o.r + .5) * S.s, 5);
     }
     SFX.pop(combo); buzz(cells.length >= 8 ? [15, 20, 15] : 12);
     if (blasts.length) { SFX.boom(); buzz([40, 30, 70]); }
-    if (keep.size) setTimeout(SFX.special, 160);
+    if (keep.size) { setTimeout(SFX.special, 160); vsay(['f_special'], { skipIfBusy: true }); }
+    if (S.flower && blasts.some(b => b.sp === 'petal')) vsay(['f_petal'], { skipIfBusy: true });
     if (jackpot) setTimeout(SFX.lucky, 120);
     updateHud();
     const keepTiles = [...keep].map(([id, sp]) => { const t = g[idr(id)][idc(id)]; t.sp = sp; return t; });
@@ -885,7 +890,7 @@ function armHint() {
   S.hintTimer = setTimeout(() => {
     if (S.playing && !S.busy) {
       const m = allMoves(); S.hint = m.length ? m[Math.floor(Math.random() * m.length)] : null;
-      toast('밥 뭐 먹지…?'); setTimeout(() => { if (S.playing && !S.busy && S.hint) toast('국물 먹고 싶다~'); }, 1400);
+      toast('밥 뭐 먹지…?'); vsay(['f_hint1'], { skipIfBusy: true }); setTimeout(() => { if (S.playing && !S.busy && S.hint) { toast('국물 먹고 싶다~'); vsay(['f_soup'], { skipIfBusy: true }); } }, 1400);
     }
   }, 6000);
 }
@@ -1040,6 +1045,7 @@ for (const ev of ['pointerup', 'pointercancel']) $('cv').addEventListener(ev, ()
 
 /* ---------- 게임 흐름 ---------- */
 function startGame() {
+  VO.preload(VKEYS);
   S.games = S.mode === 'duo' ? S.readyFor : S.games + 1;
   if (S.mode === 'duo' && S.friend) S.stage = Math.max(S.stage, num(S.friend.presence.stage) | 0 || 1);
   S.score = 0; S.moves = MOVES; S.friendScore = 0; S.friendDone = false; S.friendSeen = false; S.cleared = false; S.recorded = false; S.newRecord = false;
@@ -1058,7 +1064,7 @@ function startGame() {
     for (const row of g) for (const t of row) t.y -= N + 1;
     const from = g.map(row => row.map(t => t.y));
     await tween(650, p => { const e = 1 - Math.pow(1 - p, 3); g.forEach((row, r) => row.forEach((t, c) => { t.y = from[r][c] + (r - from[r][c]) * e; })); });
-    S.busy = false; armHint(); toast(S.flower ? '꽃 축제! 동물이 꽃으로 피어나요' : '시작!');
+    S.busy = false; armHint(); toast(S.flower ? '꽃 축제! 동물이 꽃으로 피어나요' : '시작!'); vsay([S.flower ? 'f_flower' : 'f_start'], { interrupt: true });
   });
 }
 function publish(extra) {
@@ -1067,7 +1073,7 @@ function publish(extra) {
 }
 async function lateScene() {
   const el = $('late'); el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
-  SFX.late(); buzz([60, 40, 60]);
+  SFX.late(); buzz([60, 40, 60]); vsay(['f_late'], { interrupt: true });
   await Promise.race([sleep(2200), new Promise(r => { el.onclick = r; })]);
   el.hidden = true; el.onclick = null;
 }
@@ -1077,6 +1083,7 @@ async function finish() {
   recordResult(S.mode === 'solo' ? S.score : 0, S.mode === 'solo' && (S.flower ? S.col >= missionTarget(S.stage, false) : S.score >= goalFor(S.stage, false)));
   await lateScene();
   $('result').hidden = false; renderResult(); SFX.end(); buzz([40, 40, 40, 40, 100]);
+  { const k = { '꽃다발 완성!': 'f_bouquet', '완벽해요!': 'f_perfect', '클리어!': 'f_clear', '조금 아쉬워요': 'f_miss' }[$('resTitle').textContent]; if (k) vsay([k], { interrupt: true }); }
 }
 function renderResult() {
   const duo = S.mode === 'duo';
@@ -1263,6 +1270,7 @@ $('btnSound').onclick = () => {
   if (!muted) { ac(); SFX.swap(); buzz(15); }
 };
 document.addEventListener('pointerdown', () => { if (!muted) ac(); });
+$('btnVoice').onclick = () => { const on = !VO.on(); VO.setOn(on); $('btnVoice').textContent = on ? '음성 켜짐' : '음성 꺼짐'; if (on) ac(); };
 const musicText = () => { $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; };
 $('btnMusic').onclick = () => { MN.bgm.toggle(); musicText(); };
 musicText();
@@ -1277,7 +1285,7 @@ $('btnNext').onclick = () => {
 /* ---------- 시작 ---------- */
 (async function boot() {
   try { muted = localStorage.getItem('mn-mute') === '1'; } catch (_) { /* 무시 */ }
-  $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐';
+  $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnVoice').textContent = VO.on() ? '음성 켜짐' : '음성 꺼짐';
   await loadImgs();
   try { const v = localStorage.getItem('mn-ch'); if (v === 'dog' || v === 'cat' || v === 'capy' || v === 'frog') S.ch = v; } catch (_) { /* 무시 */ }
   $('pickDog').querySelector('img').src = portrait(0);

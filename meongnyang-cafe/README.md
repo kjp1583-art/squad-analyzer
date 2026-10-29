@@ -29,4 +29,4 @@
 - 클리어하면 꽃다발 선물 화면이 나온다.
 
 ## 성우 음성
-여행마블·우노·망고게임은 미리 만든 성우 더빙 클립(`audio/<게임>/*.mp3`)을 이어 붙여 말한다. 클립은 `python3 tooling/marble_voice.py --game marble|uno|mango` 로 다시 뽑는다(OpenAI TTS, 키는 환경에 없고 세션 프록시가 붙인다). 공용 재생기는 `shared.js` 의 `MN.voice`, 켜고 끄는 값은 `mn-voice`.
+여행마블·우노·망고게임·멍냥 카페는 미리 만든 성우 더빙 클립(`audio/<게임>/*.mp3`)을 이어 붙여 말한다. 클립은 `python3 tooling/marble_voice.py --game marble|uno|mango|match` 로 다시 뽑는다(OpenAI TTS, 키는 환경에 없고 세션 프록시가 붙인다). 공용 재생기는 `shared.js` 의 `MN.voice`, 켜고 끄는 값은 `mn-voice`.
