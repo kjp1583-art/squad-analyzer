@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """🎙 멍냥 게임천국 성우 더빙 클립 만들기(여행마블·우노·망고게임) — OpenAI TTS(gpt-4o-mini-tts)로 밝고 활기찬 한국어 음성을 미리 뽑아 meongnyang-cafe/audio/marble/*.mp3 로 저장한다.
-사용: python3 tooling/marble_voice.py [--game marble|uno|mango] [--only 접두사] [--force]   (기본 marble)
+사용: python3 tooling/marble_voice.py [--game marble|uno|mango|match] [--only 접두사] [--force]   (기본 marble)
  · 키는 환경에 없다 — 세션 프록시가 api.openai.com 호출에 인증을 붙여 준다(CLAUDE.md 「그림」 절과 같다).
  · 칸 이름·카드 목록은 tooling/marble_voice_data.json (marble/index.html 의 TILES·CARDS 에서 뽑은 것). 칸/카드를 바꾸면 그 파일도 갱신.
  · 뽑은 클립은 받아쓰기(gpt-4o-mini-transcribe)로 되읽어 원문과 비슷한지 보고, 다르면 최대 6번 다시 뽑는다.
@@ -79,6 +79,16 @@ def clips_mango():
          'f_myfull': ('내 통이 먼저 가득 찼어요~ 상대가 더 오래 버텼어요.', 'sad'), 'f_left': ('상대가 나가서 부전승이에요!', 'cute')}
     for k, (t, m) in F.items(): c[k] = (t, m, t)
     return c
+def clips_match():
+    F = {'f_start': ('시작! 맛있게 맞춰봐요!', 'hype'), 'f_flower': ('꽃 축제! 동물이 꽃으로 피어나요!', 'cute'),
+         'f_c2': ('이 콤보! 좋아요!', 'hype'), 'f_c3': ('삼 콤보! 굉장해요!', 'hype'), 'f_c4': ('사 콤보! 대박!!', 'win'), 'f_c5': ('오 콤보! 전설이에요!!', 'win'),
+         'f_lk_score': ('대박 점수!', 'win'), 'f_lk_turn': ('보너스 턴 플러스 투!', 'hype'), 'f_lk_stars': ('별똥별 폭격!', 'hype'), 'f_lk_rainbow': ('무지개 팡!', 'hype'), 'f_jackpot': ('대박 쓰리!!', 'win'),
+         'f_feverstart': ('먹방 타임!! 점수 두 배!', 'win'), 'f_soup': ('국물 먹고 싶다~', 'cute'), 'f_capyeat': ('먹는 모습이 카피바라 같아~', 'cute'), 'f_feverend': ('먹방 끝~ 배불러요', 'cute'),
+         'f_bonus': ('보너스 턴 플러스 원!', 'hype'), 'f_encore': ('앵콜 찬스! 세 턴 추가!', 'win'), 'f_shuffle': ('다시 섞을게요~', 'cute'), 'f_special': ('특수 블록 탄생!', 'hype'),
+         'f_petal': ('꽃잎 폭죽!', 'win'), 'f_grow': ('꽃이 쑥쑥 자라요!', 'cute'), 'f_capy': ('카피바라 같아~ 냠냠!', 'cute'), 'f_frog': ('개구리 고기 먹자~ 싫어!!', 'cute'),
+         'f_hint1': ('밥 뭐 먹지?', 'ask'), 'f_late': ('시간 오버! 매번 늦어도 이해할게~', 'cute'), 'f_last': ('마지막 한 턴이에요!', 'hype'),
+         'f_clear': ('목표 달성! 이제 밥 뭐 먹지? 국물 먹고 싶다~', 'hype'), 'f_perfect': ('완벽해요! 별이 세 개!', 'win'), 'f_bouquet': ('꽃다발 완성! 자기야에게 선물해요!', 'win'), 'f_miss': ('조금 아쉬워요~ 한 번 더 해봐요!', 'sad')}
+    return {k: (t, m, t) for k, (t, m) in F.items()}
 def tts(text, mood, out):
     body = {'model': 'gpt-4o-mini-tts', 'voice': VOICE, 'input': text, 'instructions': BASE + MOOD[mood], 'response_format': 'mp3'}
     r = subprocess.run(['curl', '-sS', '--max-time', '70', '-X', 'POST', 'https://api.openai.com/v1/audio/speech', '-H', 'Content-Type: application/json', '-d', json.dumps(body), '-o', out, '-w', '%{http_code}'], capture_output=True, text=True)
@@ -108,7 +118,7 @@ if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True); args = sys.argv[1:]; only = args[args.index('--only') + 1] if '--only' in args else ''; force = '--force' in args
     game = args[args.index('--game') + 1] if '--game' in args else 'marble'
     OUT = os.path.join(ROOT, 'meongnyang-cafe', 'audio', game); os.makedirs(OUT, exist_ok=True)
-    table = {'marble': clips, 'uno': clips_uno, 'mango': clips_mango}[game]()
+    table = {'marble': clips, 'uno': clips_uno, 'mango': clips_mango, 'match': clips_match}[game]()
     todo = [(k, v) for k, v in table.items() if k.startswith(only) and (force or not os.path.exists(os.path.join(OUT, k + '.mp3')))]
     print(len(todo), 'clips', flush=True); low = []
     with ThreadPoolExecutor(4) as ex:
