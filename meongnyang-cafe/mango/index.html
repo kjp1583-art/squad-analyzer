@@ -127,6 +127,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
     <span class="sp"></span>
     <button class="btn small ghost" id="btnMusic" type="button">음악 켜짐</button>
     <button class="btn small ghost" id="btnSound" type="button">소리 켜짐</button>
+    <button class="btn small ghost" id="btnVoice" type="button">음성 켜짐</button>
   </div>
   <div class="hud">
     <div class="box"><span class="lab">점수</span><span class="num" id="score">0</span></div>
@@ -237,6 +238,10 @@ const SFX = {
   over() { [440, 392, 349, 294].forEach((f, i) => tone(f, .3, 'triangle', .11, i * .17, .9)); }
 };
 
+const VKEYS = ['fr_1','fr_2','fr_3','fr_4','fr_5','fr_6','fr_7','fr_8','fr_9','fr_10','f_mango','f_combo3','f_combo4','f_combo5','f_combo6','f_gold','f_bigmango','f_danger','f_start','f_over','f_best','f_mangodone','f_vswin','f_vslose','f_oppmango','f_mymango','f_oppfull','f_myfull','f_left'];
+const VO = MN.voice('../audio/mango/', () => ac(), () => muted);
+const vsay = (ks, o) => VO.play(ks, o || {});
+let dangerSaid = false;
 /* ---------- 물리 ---------- */
 const { Engine, Bodies, Composite, Events } = Matter;
 let engine = null, mergeQ = [];
@@ -281,17 +286,17 @@ function doMerges() {
     SFX.merge(lv, S.combo); buzz(lv >= 8 ? [30, 20, 50] : 12);
     if (lv >= MANGO) {
       S.mangos++; burst(mx, my, '#FFB41F', 90); shake(); SFX.mango(); buzz([40, 40, 40, 40, 120]);
-      toast('망고 두 개가 만났어요! 대박 +' + fmt(pts)); updateHud(); continue;
+      toast('망고 두 개가 만났어요! 대박 +' + fmt(pts)); vsay(['f_bigmango'], { interrupt: true }); updateHud(); continue;
     }
     mergeQ = mergeQ.filter(q => !q.includes(a) && !q.includes(b));
     const nb = makeFruit(nl, mx, my, false, true); Composite.add(engine.world, nb);
     let msg = null;
     if (nl > S.maxLv) {
-      S.maxLv = nl; updateChain(nl); SFX.found();
+      S.maxLv = nl; updateChain(nl); SFX.found(); vsay([nl === MANGO ? 'f_mango' : 'fr_' + nl], { interrupt: true });
       msg = nl === MANGO ? '망고 완성!! 오늘의 망고는 너야~' : `${FR[nl - 1].ko} (${FR[nl - 1].vi}) 발견!`;
       if (nl === MANGO) { burst(mx, my, '#FFB41F', 120); shake(); SFX.mango(); buzz([40, 40, 40, 40, 120]); S.score += 500; addFloat(W / 2, H / 2, '+500', '#E0568A'); if (S.vs) vsEvent('mango'); }
-    } else if (S.combo >= 3) msg = `콤보 ×${S.combo}!`;
-    if (gold) msg = '황금 과일 ×3 보너스!';
+    } else if (S.combo >= 3) { msg = `콤보 ×${S.combo}!`; vsay(['f_combo' + Math.min(S.combo, 6)], { skipIfBusy: true }); }
+    if (gold) { msg = '황금 과일 ×3 보너스!'; vsay(['f_gold'], { skipIfBusy: true }); }
     if (msg) toast(msg);
     if (nl >= 8) shake();
     updateHud();
@@ -318,6 +323,7 @@ function step(dt) {
   let danger = false;
   for (const b of fruits()) if (S.t - b.born > 1.4 && b.position.y - FR[b.lv - 1].r < LINE && Math.hypot(b.velocity.x, b.velocity.y) < .6) danger = true;
   S.danger = danger ? S.danger + dt : Math.max(0, S.danger - dt * 2);
+  if (S.danger > .8 && !dangerSaid) { dangerSaid = true; vsay(['f_danger'], { skipIfBusy: true }); } else if (S.danger < .2) dangerSaid = false;
   if (S.danger > 2.2) gameOver();
 }
 
@@ -403,7 +409,7 @@ function start(vsSeed) {
   updateChain(0); updateHud(); updatePreview();
   for (const id of ['startSheet', 'endSheet', 'rankSheet', 'vsSheet']) $(id).hidden = true;
   $('stage').classList.toggle('vs', vsSeed != null); $('oppFrame').hidden = vsSeed == null; V.prev = null; V.cur = null; V.lastBd = null;
-  fit(); toast('시작!');
+  dangerSaid = false; VO.preload(VKEYS); fit(); toast('시작!'); if (vsSeed == null) vsay(['f_start'], { interrupt: true });
 }
 async function gameOver() {
   if (!S.playing) return;
@@ -412,6 +418,7 @@ async function gameOver() {
   const newBest = S.score > S.best; if (newBest) { S.best = S.score; try { localStorage.setItem('mango-best', String(S.best)); } catch (_) { /* 무시 */ } }
   record(); await sleep(700);
   $('endTitle').textContent = S.mangos > 0 || S.maxLv === MANGO ? '망고 완성! 최고예요!' : newBest ? '신기록!' : '게임 끝!';
+  vsay([S.mangos > 0 || S.maxLv === MANGO ? 'f_mangodone' : newBest ? 'f_best' : 'f_over'], { interrupt: true });
   $('endScore').textContent = fmt(S.score);
   const lv = Math.max(1, S.maxLv || 1); $('endImg').src = src(lv); $('endName').textContent = `${FR[lv - 1].ko} (${FR[lv - 1].vi})`;
   $('endRank').textContent = ''; $('endQuote').textContent = QUOTES[Math.floor(Math.random() * QUOTES.length)]; updateEndRank(); $('endSheet').hidden = false; updateHud();
@@ -506,7 +513,7 @@ function startVs() {
   V.games = V.readyFor; V.readyFor = null; V.ev = null; V.over = false; V.fin = false;
   start(hashCode(V.code) + V.games * 7919); S.lock = true; sendState(true);
   clearInterval(V.timer); V.timer = setInterval(() => { sendState(false); vsRender(); }, 150);
-  ['3', '2', '1', '시작!'].forEach((t, i) => setTimeout(() => { if (!S.vs) return; toast(t); tone(t === '시작!' ? 880 : 520, .12, 'triangle', .12); if (t === '시작!') S.lock = false; }, i * 900));
+  ['3', '2', '1', '시작!'].forEach((t, i) => setTimeout(() => { if (!S.vs) return; toast(t); if (i === 3) vsay(['f_start'], { interrupt: true }); tone(t === '시작!' ? 880 : 520, .12, 'triangle', .12); if (t === '시작!') S.lock = false; }, i * 900));
 }
 function vsRender() {
   const fp = V.friend ? V.friend.presence : null; if (!fp) return;
@@ -537,6 +544,7 @@ async function vsFinish() {
   const win = left ? true : e.kind === 'mango' ? e.me : !e.me;
   const why = left ? '상대가 나가서 부전승이에요.' : e.kind === 'mango' ? (e.me ? '내가 먼저 망고를 완성했어요! 🥭' : '상대가 먼저 망고를 완성했어요.') : (e.me ? '내 통이 먼저 가득 찼어요. 상대가 더 오래 버텼어요.' : '상대 통이 먼저 가득 찼어요. 내가 더 오래 버텼어요!');
   if (win) { SFX.found(); buzz([30, 30, 80]); } else SFX.over();
+  vsay([win ? 'f_vswin' : 'f_vslose', left ? 'f_left' : e.kind === 'mango' ? (e.me ? 'f_mymango' : 'f_oppmango') : (e.me ? 'f_myfull' : 'f_oppfull')], { interrupt: true });
   await sleep(500);
   $('endTitle').textContent = win ? '내가 이겼어요!' : '아쉬워요, 졌어요';
   $('endScore').textContent = fmt(S.score);
@@ -560,10 +568,11 @@ $('btnAgain').onclick = () => { ac(); if (V.over) vsAgain(); else start(); };
 $('btnRank1').onclick = () => openRank('start');
 $('btnRank2').onclick = () => openRank('end');
 $('btnSound').onclick = () => { muted = !muted; try { localStorage.setItem('mn-mute', muted ? '1' : '0'); } catch (_) { /* 무시 */ } $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; if (!muted) { ac(); SFX.drop(); } };
+$('btnVoice').onclick = () => { const on = !VO.on(); VO.setOn(on); $('btnVoice').textContent = on ? '음성 켜짐' : '음성 꺼짐'; if (on) ac(); };
 $('btnMusic').onclick = () => { MN.bgm.toggle(); $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; };
 $('nick').addEventListener('input', () => MN.setNick($('nick').value));
 (function boot() {
-  $('nick').value = MN.nick(); $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐';
+  $('nick').value = MN.nick(); $('btnSound').textContent = muted ? '소리 꺼짐' : '소리 켜짐'; $('btnMusic').textContent = MN.bgm.isOn() ? '음악 켜짐' : '음악 꺼짐'; $('btnVoice').textContent = VO.on() ? '음성 켜짐' : '음성 꺼짐';
   const ch = $('chain'), mc = $('miniChain');
   FR.forEach((f, i) => {
     const d = document.createElement('div'); d.className = 'ci'; const im = document.createElement('img'); im.src = src(i + 1); im.alt = f.ko; const b = document.createElement('b'); b.textContent = f.ko === '스타프루트' ? '스타' : f.ko; d.append(im, b); ch.appendChild(d);

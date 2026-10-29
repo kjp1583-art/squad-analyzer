@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""🎙 여행마블 성우 더빙 클립 만들기 — OpenAI TTS(gpt-4o-mini-tts)로 밝고 활기찬 한국어 음성을 미리 뽑아 meongnyang-cafe/audio/marble/*.mp3 로 저장한다.
-사용: python3 tooling/marble_voice.py [--only 접두사] [--force]
+"""🎙 멍냥 게임천국 성우 더빙 클립 만들기(여행마블·우노·망고게임) — OpenAI TTS(gpt-4o-mini-tts)로 밝고 활기찬 한국어 음성을 미리 뽑아 meongnyang-cafe/audio/marble/*.mp3 로 저장한다.
+사용: python3 tooling/marble_voice.py [--game marble|uno|mango] [--only 접두사] [--force]   (기본 marble)
  · 키는 환경에 없다 — 세션 프록시가 api.openai.com 호출에 인증을 붙여 준다(CLAUDE.md 「그림」 절과 같다).
  · 칸 이름·카드 목록은 tooling/marble_voice_data.json (marble/index.html 의 TILES·CARDS 에서 뽑은 것). 칸/카드를 바꾸면 그 파일도 갱신.
  · 뽑은 클립은 받아쓰기(gpt-4o-mini-transcribe)로 되읽어 원문과 비슷한지 보고, 다르면 최대 6번 다시 뽑는다.
@@ -8,7 +8,7 @@
 import sys, os, json, subprocess, re, difflib
 from concurrent.futures import ThreadPoolExecutor
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, 'meongnyang-cafe', 'audio', 'marble')
+OUT = os.path.join(ROOT, 'meongnyang-cafe', 'audio', 'marble')  # --game 에 따라 audio/<게임> 으로 바뀐다
 VOICE = 'shimmer'
 BASE = ("Voice: a bright, bubbly, youthful Korean voice actress dubbing a cute animated mobile game for a couple. Very expressive, lively and smiley, quick and bouncy pacing, "
         "pitch slightly high, never flat or robotic. Pronounce the Korean words clearly and naturally. Mood: ")
@@ -54,6 +54,31 @@ def clips():
         t = re.sub(r'[ㅋㅎㅠㅜ]+', '', re.sub(r'[^\w\s.,!?~\'"()+\-]', ' ', cd['t'], flags=re.U)).strip()
         t = re.sub(r'\s+', ' ', t); c['c_%d' % cd['i']] = (t, {'good': 'hype', 'bad': 'sad', 'move': 'hype', 'jail': 'cute', 'skip': 'cute'}[cd['g']], t)
     return c
+CN = {'r': '빨강', 'y': '노랑', 'g': '초록', 'b': '파랑'}
+def clips_uno():
+    c = {}; num = '영일이삼사오육칠팔구'
+    for k, nm in CN.items():
+        for v in range(10): c['k_%s%d' % (k, v)] = ('%s 숫자 %s!' % (nm, num[v]), 'hype', '%s숫자%s' % (nm, num[v]))
+        c['k_%ss' % k] = ('%s 건너뛰기! 한 턴 쉬어요!' % nm, 'hype', nm + '건너뛰기한턴쉬어요')
+        c['k_%sv' % k] = ('%s 방향 바꾸기! 한 번 더!' % nm, 'hype', nm + '방향바꾸기한번더')
+        c['k_%sd' % k] = ('%s 플러스 투! 두 장 받아요!' % nm, 'hype', nm + '플러스투두장받아요')
+        c['k_ww_' + k] = ('와일드! 색은 %s!' % nm, 'hype', '와일드색은' + nm)
+        c['k_wf_' + k] = ('와일드 플러스 포! 색은 %s! 네 장 받아요!' % nm, 'win', '와일드플러스포색은' + nm + '네장받아요')
+    F = {'f_turn': ('내 차례! 카드를 내요!', 'hype'), 'f_turndrawn': ('뽑은 카드를 낼까요?', 'ask'), 'f_draw': ('카드를 한 장 뽑아요~', 'cute'), 'f_oppdraw': ('카드를 한 장 뽑아요~', 'cute'),
+         'f_pass': ('그냥 넘겨요!', 'cute'), 'f_uno': ('우노!! 한 장 남았어요!', 'win'), 'f_pick': ('어떤 색으로 바꿀까요?', 'ask'), 'f_start': ('게임 시작! 카드를 일곱 장씩 받았어요!', 'hype'),
+         'f_win': ('승리! 축하해요!', 'win'), 'f_lose': ('아쉬워요~ 다음엔 이길 거예요!', 'sad'), 'f_opp': ('상대는,', 'plain'), 'f_com': ('컴퓨터는,', 'plain')}
+    for k, (t, m) in F.items(): c[k] = (t, m, t)
+    return c
+def clips_mango():
+    names = ['리치', '람부탄', '망고스틴', '용과', '구아바', '스타프루트', '파파야', '코코넛', '두리안', '잭프루트']; c = {}
+    for i, n in enumerate(names): c['fr_%d' % (i + 1)] = ('%s 발견!' % n, 'hype', n + '발견')
+    F = {'f_mango': ('망고 완성! 오늘의 망고는 너야!', 'win'), 'f_combo3': ('삼 콤보! 좋아요!', 'hype'), 'f_combo4': ('사 콤보! 대단해요!', 'hype'), 'f_combo5': ('오 콤보! 미쳤다!', 'win'), 'f_combo6': ('대박 콤보!!', 'win'),
+         'f_gold': ('황금 과일! 보너스!', 'win'), 'f_bigmango': ('망고 두 개가 만났어요! 대박!', 'win'), 'f_danger': ('위험해요! 과일이 넘쳐요!', 'sad'), 'f_start': ('시작!', 'hype'), 'f_over': ('게임 끝!', 'cute'), 'f_best': ('신기록이에요!', 'win'),
+         'f_mangodone': ('망고 완성! 최고예요!', 'win'), 'f_vswin': ('내가 이겼어요!', 'win'), 'f_vslose': ('아쉬워요, 졌어요~', 'sad'),
+         'f_oppmango': ('상대가 먼저 망고를 완성했어요!', 'sad'), 'f_mymango': ('내가 먼저 망고를 완성했어요!', 'win'), 'f_oppfull': ('상대 통이 먼저 가득 찼어요! 내가 더 오래 버텼어요!', 'win'),
+         'f_myfull': ('내 통이 먼저 가득 찼어요~ 상대가 더 오래 버텼어요.', 'sad'), 'f_left': ('상대가 나가서 부전승이에요!', 'cute')}
+    for k, (t, m) in F.items(): c[k] = (t, m, t)
+    return c
 def tts(text, mood, out):
     body = {'model': 'gpt-4o-mini-tts', 'voice': VOICE, 'input': text, 'instructions': BASE + MOOD[mood], 'response_format': 'mp3'}
     r = subprocess.run(['curl', '-sS', '--max-time', '70', '-X', 'POST', 'https://api.openai.com/v1/audio/speech', '-H', 'Content-Type: application/json', '-d', json.dumps(body), '-o', out, '-w', '%{http_code}'], capture_output=True, text=True)
@@ -81,7 +106,10 @@ def make(item):
     open(tmp, 'wb').write(best[1]); trim(tmp, dst); os.remove(tmp); return key, 'ok', round(best[0], 2)
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True); args = sys.argv[1:]; only = args[args.index('--only') + 1] if '--only' in args else ''; force = '--force' in args
-    todo = [(k, v) for k, v in clips().items() if k.startswith(only) and (force or not os.path.exists(os.path.join(OUT, k + '.mp3')))]
+    game = args[args.index('--game') + 1] if '--game' in args else 'marble'
+    OUT = os.path.join(ROOT, 'meongnyang-cafe', 'audio', game); os.makedirs(OUT, exist_ok=True)
+    table = {'marble': clips, 'uno': clips_uno, 'mango': clips_mango}[game]()
+    todo = [(k, v) for k, v in table.items() if k.startswith(only) and (force or not os.path.exists(os.path.join(OUT, k + '.mp3')))]
     print(len(todo), 'clips', flush=True); low = []
     with ThreadPoolExecutor(4) as ex:
         for k, st, s in ex.map(make, todo):

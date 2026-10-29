@@ -99,11 +99,40 @@ window.MN = (function () {
       }
     };
   }
+  /* 성우 더빙 클립(audio/<게임>/*.mp3, tooling/marble_voice.py 로 만든다)을 이어 붙여 재생한다. 클립이 없으면 false 를 돌려준다. */
+  function voice(dir, getCtx, isMuted) {
+    var cache = {}, srcs = [], endAt = 0;
+    function load(k) {
+      if (!cache[k]) cache[k] = (async function () { var a = getCtx(); if (!a) return null; try { var r = await fetch(dir + k + '.mp3'); if (!r.ok) return null; return await a.decodeAudioData(await r.arrayBuffer()); } catch (e) { return null; } })();
+      return cache[k];
+    }
+    function stop() { srcs.forEach(function (s) { try { s.stop(); } catch (e) { /* 무시 */ } }); srcs = []; endAt = 0; }
+    return {
+      on: function () { return get('mn-voice') !== '0'; },
+      setOn: function (v) { set('mn-voice', v ? '1' : '0'); if (!v) stop(); },
+      preload: function (ks) { ks.forEach(load); }, stop: stop,
+      busy: function () { var a = getCtx(); return !!a && a.currentTime < endAt; },
+      play: async function (keys, opt) {
+        opt = opt || {};
+        if (get('mn-voice') === '0' || (isMuted && isMuted())) return true;
+        var a = getCtx(); if (!a) return false;
+        if (opt.skipIfBusy && a.currentTime < endAt) return true;
+        var bufs = await Promise.all(keys.map(load)); if (bufs.some(function (b) { return !b; })) return false;
+        if (opt.cancelled && opt.cancelled()) return true;
+        if (opt.interrupt) stop();
+        var g = a.createGain(); g.gain.value = 1.2; g.connect(a.destination);
+        var t = Math.max(a.currentTime + .03, endAt), t0 = t;
+        bufs.forEach(function (b) { var s = a.createBufferSource(); s.buffer = b; s.connect(g); s.start(t); srcs.push(s); t += Math.max(.1, b.duration - .05); });
+        endAt = t; await new Promise(function (r) { setTimeout(r, (t - a.currentTime) * 1000 + 80); }); return true;
+      }
+    };
+  }
   return {
     SB_URL: SB_URL, SB_KEY: SB_KEY, get: get, set: set, pid: pid,
     nick: function () { return (get('mn-nick') || '').slice(0, 12); },
     setNick: function (n) { set('mn-nick', String(n || '').trim().slice(0, 12)); },
     bgm: bgm,
+    voice: voice,
     roomNs: function () { return roomNs(this); },
     client: function () { if (!client && window.supabase) client = window.supabase.createClient(SB_URL, SB_KEY); return client; }
   };
