@@ -88,8 +88,8 @@ window.SGG_DC_BOOT=(function(){
 
   /* Header */
   header{background:linear-gradient(180deg,#1a1f2e,#11131a);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
-  .hd{display:flex;align-items:center;gap:18px;padding:14px 16px;max-width:1080px;margin:0 auto;flex-wrap:wrap}
-  .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:22px;letter-spacing:-.5px;cursor:pointer}
+  .hd{display:flex;align-items:center;gap:12px;padding:10px 16px;max-width:1080px;margin:0 auto;flex-wrap:wrap}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:22px;letter-spacing:-.5px;cursor:pointer;margin-right:6px}
   .logo b{color:var(--accent)}
   .logotext{white-space:nowrap}   /* [2026-08-01] flex gap 때문에 SQUAD 와 .GG 가 벌어지던 문제 */
   .logomark{width:34px;height:34px;flex:none;filter:drop-shadow(0 0 6px rgba(124,58,237,.45))}
@@ -111,10 +111,12 @@ window.SGG_DC_BOOT=(function(){
   .dl{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:700;white-space:nowrap}
   .dlver{font-size:11px;font-weight:600;opacity:.85;background:rgba(255,255,255,.18);padding:1px 6px;border-radius:6px}
   .dl:hover{filter:brightness(1.08)}
+  /* 🧹 [2026-10-30 사장님 지시] 머리 줄 정리 — 브장신 링크는 미니게임 탭으로 합침. 폰·좁은 화면: ① 로고+분석기 ② 검색 ③ 링크 둘을 같은 폭으로 한 줄씩 */
+  @media(max-width:860px){.hd{row-gap:8px}.logo{order:1}.dl{order:2;margin-left:auto}.searchwrap{order:3;flex:1 1 100%;min-width:0}.coachlink{order:4;flex:1 1 0;justify-content:center;padding:7px 8px;font-size:13px}}
   /* 💝 후원 — 2026-09-10 사장님 지시: 헤더 버튼 → 둘째 탭 줄(브장신 키우기 오른쪽)로 이동 */
   .tab.don{color:#ff9fbe;border:1px solid #4a2233;background:#1d1016;border-radius:10px;margin-left:6px}
   .tab.don.on,.tab.don:hover{color:#ffc3d6;background:#26141c;border-color:#6b3049}
-  .coachlink{display:inline-flex;align-items:center;gap:6px;color:var(--gold);border:1px solid #4a3c1a;background:#1e1809;border-radius:10px;padding:10px 14px;font-weight:700;white-space:nowrap;margin-right:10px}
+  .coachlink{display:inline-flex;align-items:center;gap:6px;color:var(--gold);border:1px solid #4a3c1a;background:#1e1809;border-radius:10px;padding:10px 14px;font-weight:700;white-space:nowrap;margin:0}
   .coachlink:hover{filter:brightness(1.15)}
   @media(max-width:680px){.dl span.t{display:none}}   /* 고스트밴픽왕은 아이콘 제거(2026-08-06) — 글자 유지 */
   /* 카테고리(협곡/칼바람) 전환바 */
@@ -1527,7 +1529,6 @@ window.SGG_DC_BOOT=(function(){
       </form>
       <div class="suggest hidden" id="suggest"></div>
     </div>
-    <a class="coachlink" href="brjang.html" title="브장신 키우기 — 디스코드 마스코트 육성 미니게임 소개 · 후원 안내 · 맛동산 상점" style="color:#ffb347;border-color:#4a3418;background:#1e1309"><span class="t">브장신 키우기</span></a>
     <a class="coachlink" href="#games" onclick="go('games');return false" title="스쿼드 미니게임 — 흐접새우 서바이벌 · 스콰드 생존게임을 한곳에서 골라서 플레이" style="color:#ff9a8a;border-color:#4a2420;background:#1e0f0d"><span class="t">🎮 미니게임</span></a>
     <a class="coachlink" href="coach.html" title="고스트밴픽왕 — 내 밴·픽 차례에 AI가 추천해주는 구독 서비스"><span class="t">고스트밴픽왕</span></a>
     <a class="dl" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html" title="스쿼드해체분석기 — 기능 소개와 다운로드">🖥 <span class="t">스쿼드해체분석기</span> <span class="dlver" id="dlver"></span></a>
@@ -11992,7 +11993,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   const start=()=>{ mark(); try{ new MutationObserver(sched).observe(document.body,{childList:true,subtree:true}); }catch(e){} };
   if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
 })();
-const BUILD_ID="202610301100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610301500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
