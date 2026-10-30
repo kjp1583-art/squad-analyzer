@@ -124,7 +124,7 @@
     const PMLOW = Math.floor(PMAX * 0.45);   // 저사양 모드 입자 상한(정수여야 한다 — 소수면 parts[소수] 가 undefined 로 터져 필드가 멎는다)
     const parts = [], texts = [], fxs = [];
     for (let i = 0; i < PMAX; i++) parts.push({ on: false, k: '', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 1, r: 2, c: '#fff', rot: 0, vr: 0, b: 0 });
-    for (let i = 0; i < TMAX; i++) texts.push({ on: false, s: '', x: 0, y: 0, vy: 0, t: 0, life: 1, size: 14, col: '#fff', crit: false });
+    for (let i = 0; i < TMAX; i++) texts.push({ on: false, v: null, s: '', x: 0, y: 0, vy: 0, t: 0, life: 1, size: 14, col: '#fff', crit: false });
     for (let i = 0; i < FMAX; i++) fxs.push({ on: false });
     let pCur = 0;
     function newPart(k, x, y, vx, vy, life, r, c) {
@@ -135,13 +135,21 @@
       p.on = true; p.k = k; p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.t = 0; p.life = life; p.r = r; p.c = c; p.rot = rnd() * 6.28; p.vr = (rnd() - 0.5) * 12; p.b = 0;
       return p;
     }
-    function say(s, x, y, size, col, crit) {
-      let t = null, oldest = null;
-      for (let i = 0; i < TMAX; i++) { const q = texts[i]; if (!q.on) { t = q; break; } if (!oldest || q.t > oldest.t) oldest = q; }
-      if (!t) { if (!crit) return; t = oldest; }
-      // 같은 자리에 겹치지 않게 살짝 어긋나게
-      let k = 0; for (let i = 0; i < TMAX; i++) { const q = texts[i]; if (q.on && q.t < 0.35 && Math.abs(q.x - x) < 30 && Math.abs(q.y - y) < 16) k++; }
-      t.on = true; t.s = s; t.x = x + (k ? (k % 2 ? 1 : -1) * 14 : 0); t.y = y - Math.min(k, 4) * 13; t.vy = -46; t.t = 0; t.life = crit ? 1.05 : 0.8; t.size = size; t.col = col; t.crit = !!crit;
+    const TCAP = 8;   // 화면에 동시에 떠 있는 숫자 상한(넘으면 일반 숫자는 버리고 크리티컬만 가장 오래된 것을 대신한다)
+    function say(s, x, y, size, col, crit, val) {
+      let t = null, oldest = null, live = 0;
+      for (let i = 0; i < TMAX; i++) {
+        const q = texts[i];
+        if (!q.on) { if (!t) t = q; continue; }
+        live++; if (!oldest || q.t > oldest.t) oldest = q;
+        // 같은 몹 근처에서 0.15초 안에 또 나온 같은 종류 숫자는 하나로 합산한다
+        if (val != null && q.v != null && q.crit === !!crit && q.t < 0.15 && Math.abs(q.x - x) < 44 && Math.abs(q.y - y) < 26) {
+          q.v += val; q.s = fmtNum(q.v) + (crit ? '!' : ''); q.size = Math.max(q.size, size * (crit ? 1.5 : 1)); q.t = Math.min(q.t, 0.05); return;
+        }
+      }
+      if (live >= TCAP || !t) { if (!crit) return; t = oldest; }
+      const dir = rnd() < 0.5 ? -1 : 1;   // 부채꼴로 퍼진다: 좌우 지터 ±24px + 올라가는 속도 차이
+      t.on = true; t.s = s; t.v = val == null ? null : val; t.x = x + dir * rnd() * 24; t.y = y; t.vy = -(46 + rnd() * 34); t.t = 0; t.life = crit ? 1.05 : 0.8; t.size = crit ? size * 1.5 : size; t.col = col; t.crit = !!crit;
     }
     function addFx(o) {
       for (let i = 0; i < FMAX; i++) if (!fxs[i].on) { const f = fxs[i]; for (const k in f) delete f[k]; Object.assign(f, o); f.on = true; f.t = f.t || 0; f.uid = E.uid++; return f; }
@@ -224,7 +232,7 @@
       const was = B.hp; B.hp = Math.max(B.target, B.hp - B.hpMax * frac);
       B.hit = 0.14; B.kb = crit ? 9 : 5;
       const d = Math.max(1, Math.round(D.unit * (frac / 0.012) * (0.9 + rnd() * 0.2)));
-      say(fmtNum(d) + (crit ? '!' : ''), B.x + (rnd() - 0.5) * 50, B.y - 130, crit ? 24 : 16, crit ? '#ffd23c' : (col || '#fff'), crit);
+      say(fmtNum(d) + (crit ? '!' : ''), B.x + (rnd() - 0.5) * 50, B.y - 130, crit ? 24 : 16, crit ? '#ffd23c' : (col || '#fff'), crit, d);
       poof(B.x - 20, B.y - 60, crit ? '#ffd23c' : '#fff', crit ? 5 : 2);
       if (crit) E.shake = Math.max(E.shake, 3);
       if (B.hp <= B.target) {
@@ -236,7 +244,7 @@
     function hurtMob(m, amt, crit, col, srcX, kn, noText) {
       if (m.dead >= 0 || m.spawnT > 0) return false;
       m.hp -= amt; m.hit = 0.16; m.kb += (m.x >= srcX ? 1 : -1) * (kn == null ? (crit ? 12 : 7) : kn);
-      if (!noText) say(fmtNum(amt) + (crit ? '!' : ''), m.x + (rnd() - 0.5) * 16, m.y - 52 * m.sc, crit ? 22 : (amt > D.unit * 1.5 ? 18 : 15), crit ? '#ffd23c' : (col || '#fff'), crit);
+      if (!noText) say(fmtNum(amt) + (crit ? '!' : ''), m.x + (rnd() - 0.5) * 16, m.y - 52 * m.sc, crit ? 22 : (amt > D.unit * 1.5 ? 18 : 15), crit ? '#ffd23c' : (col || '#fff'), crit, amt);
       if (m.hp <= 0) { killMob(m, srcX); return true; }
       return false;
     }
@@ -631,9 +639,9 @@
       ctx.restore();
     }
     function shadow(x, y, rx, a) { ctx.fillStyle = 'rgba(0,0,0,' + (a || 0.28) + ')'; ctx.beginPath(); ctx.ellipse(x, y + 3, rx, rx * 0.22, 0, 0, 6.3); ctx.fill(); }
-    function outText(s, x, y, size, col, al, sw) {
+    function outText(s, x, y, size, col, al, sw, ol) {
       ctx.font = '900 ' + size + 'px ' + FONT; ctx.textAlign = al || 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-      ctx.lineWidth = sw || Math.max(2.5, size / 4.5); ctx.strokeStyle = 'rgba(14,10,24,.9)'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y);
+      ctx.lineWidth = sw || Math.max(2.5, size / 4.5); ctx.strokeStyle = ol || 'rgba(14,10,24,.9)'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y);
     }
 
     function drawBg() {
@@ -820,7 +828,7 @@
         const t = texts[i]; if (!t.on) continue; const q = t.t / t.life; const x = t.x - cam; if (x < -40 || x > E.VW + 40) continue;
         ctx.globalAlpha = q < 0.7 ? 1 : (1 - q) / 0.3;
         const pop = t.t < 0.12 ? 1 + (1 - t.t / 0.12) * 0.5 : 1;
-        outText(t.s, x, t.y, t.size * pop, t.col, 'center');
+        outText(t.s, x, t.y, t.size * pop, t.col, 'center', t.crit ? Math.max(4, t.size / 3.2) : 0, t.crit ? '#e8601c' : '');
       }
       ctx.globalAlpha = 1;
     }

@@ -102,7 +102,11 @@ body:not(.st-ok) .prof .pn small{display:none}
 .hpill{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;background:rgba(6,8,22,.62);border:1.5px solid rgba(255,255,255,.22);border-radius:999px;padding:2px 10px 2px 8px;font-size:12px;font-weight:900;color:#fff;backdrop-filter:blur(3px);font-variant-numeric:tabular-nums}
 .hpill em{font-style:normal;color:var(--gold);font-size:14px}
 .hpill small{font-size:10.5px;opacity:.8;font-weight:800}
-.mini #hudL .hpill.sec{display:none}
+.mini #hudL .hpill.sec,.mini #hudL .coll{display:none}
+.hpill.coll{pointer-events:auto;cursor:pointer;border-color:var(--gold);background:linear-gradient(180deg,#ffd75e,#f09a12);color:var(--ink);padding:3px 11px 3px 8px;font-size:13px;text-shadow:none;box-shadow:0 2px 0 #8a5a00}
+.hpill.coll img{width:18px;height:18px}.hpill.coll:active{transform:scale(.94)}.hpill.coll.pulse{animation:collpulse 1.2s ease-in-out infinite}.hpill.coll.dis{filter:grayscale(.8);opacity:.6;animation:none}
+@keyframes collpulse{0%,100%{box-shadow:0 2px 0 #8a5a00,0 0 0 rgba(255,204,61,0)}50%{box-shadow:0 2px 0 #8a5a00,0 0 14px 3px var(--glow)}}
+.chip.ready{border-color:var(--gold);box-shadow:0 0 10px var(--glow)}
 #bossTag{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;font-weight:900;font-size:34px;letter-spacing:2px;color:#fff;text-shadow:0 3px 0 #000,0 0 22px var(--glow);white-space:nowrap;z-index:3}
 #bossTag.go{animation:tagpop 1.7s cubic-bezier(.2,.8,.2,1) both}
 #bossTag.win{color:var(--gold)} #bossTag.lose{color:#ff9aaa}
@@ -119,7 +123,7 @@ body:not(.st-ok) .prof .pn small{display:none}
 .sk:active{transform:scale(.92)}
 .sk img{width:100%;height:100%;object-fit:cover;display:block}
 .sk .ring{position:absolute;inset:0;background:conic-gradient(rgba(5,7,20,.72) var(--cd,0deg),transparent 0)}
-.sk .lv{position:absolute;right:1px;bottom:0;font-size:10px;font-weight:900;color:#fff;text-shadow:0 0 3px #000,0 1px 1px #000,0 0 6px #000}
+.sk .lv{position:absolute;right:2px;bottom:2px;min-width:16px;height:16px;padding:0 3px;box-sizing:border-box;border-radius:8px;background:linear-gradient(180deg,#ff8f4a,#e8451f);border:1.5px solid #fff;font-size:12px;line-height:13px;text-align:center;font-weight:900;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.6)}
 .sk.empty{border-style:dashed;color:var(--mut);font-size:20px;font-weight:900;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.18)}
 .sk.pas{width:40px;height:40px;border-radius:50%;border-color:var(--g-rare);margin-right:2px}
 .sk.pas.empty{border-color:var(--line)}
@@ -313,7 +317,7 @@ button.cd:active{transform:scale(.97)}
     <div id="fieldBox">
       <canvas id="fcv" role="img" aria-label="병아리가 넓은 필드에서 자동으로 사냥하는 구경 화면"></canvas>
       <div id="fieldNote">사냥 화면을 불러오지 못했어요.<br>아래 메뉴는 그대로 쓸 수 있어요.</div>
-      <div id="hudL"><span class="hpill" aria-live="off"><em id="hKpm">0</em> 분당 처치</span><span class="hpill sec">처치 <b id="hKills">0</b></span><span class="hpill sec" id="hPer" title="처치 한 번에 쌓이는 골드(표시용 어림)"></span></div>
+      <div id="hudL"><span class="hpill" aria-live="off"><em id="hKpm">0</em> 분당 처치</span><span class="hpill sec">처치 <b id="hKills">0</b></span><span class="hpill sec" id="hPer" title="처치 한 번에 쌓이는 골드(표시용 어림)"></span><button class="hpill coll dis" id="hColl" data-do="collect" aria-label="쌓인 사냥 골드 수령하기"></button></div>
       <div id="bossTag" aria-hidden="true"></div>
     </div>
     <div id="dock"></div>
@@ -346,6 +350,8 @@ const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const N=v=>{v=Number(v);return Number.isFinite(v)?v:0;};
 const fmt=v=>Math.floor(N(v)).toLocaleString('ko-KR');
 const fmtC=v=>{v=Math.floor(N(v)); if(v>=1e8) return (v/1e8).toFixed(1)+'억'; if(v>=1e5) return (v/1e4).toFixed(1)+'만'; return v.toLocaleString('ko-KR');};   // 칩이 좁아서 10만 넘으면 줄여 쓴다(정확한 값은 칩에 마우스/길게 누르기 title)
+const perKill=(rate)=>{ const g=N(rate)/(KPM*60); if(g>=1) return '+'+fmtG(g)+' <small>/처치</small>'; if(g*10>=1) return '+'+fmtG(g*10)+' <small>/10처치</small>'; return '+'+fmtG(g*100)+' <small>/100처치</small>'; };   // 1 미만의 소수 골드는 단위를 올려 보여 준다
+const perKillTxt=(rate)=>{ const g=N(rate)/(KPM*60), u=g>=1?1:g*10>=1?10:100; return (u===1?'처치당':u+'처치당')+' '+I('gold')+'<b>'+fmtG(g*u)+'</b>'; };
 const fmtG=v=>{v=N(v); return v>=100?fmt(v):v>=10?v.toFixed(1):v.toFixed(2);};    // 처치당 골드(소수 가능)
 const $=id=>document.getElementById(id);
 const GR_KO={normal:'노말',rare:'레어',epic:'에픽',unique:'유니크',legend:'레전드'};
@@ -438,7 +444,13 @@ async function act(path,body,onOk){
   if(BUSY) return; BUSY=true; document.body.classList.add('busy');
   try{
     const j=await call(path,body);
-    if(TRANSPORT.includes(j.code)&&!j.view){ const t=failText(j); if(t) say(t,'bad'); }   // 로그인·몰림·연결 문제 — 서버가 일을 처리하지 않았다
+    if(TRANSPORT.includes(j.code)&&!j.view){
+      if(j.code==='net'||j.code==='http'){   // 응답을 못 받았다고 서버가 안 했다는 뜻은 아니다 — 골드·강화석이 이미 빠졌을 수 있으니 실제 상태를 다시 받아 보여 준다(그 동안 버튼은 잠긴 채)
+        say('응답이 늦어서 실제 처리 결과를 다시 확인하고 있어요…','info'); render();
+        await load();
+        if(STATE==='ok'&&V) say('서버 응답이 늦었어요. 화면을 서버의 실제 상태로 새로 고쳤어요. 처리됐는지 수치를 확인해 주세요.','info');
+      } else { const t=failText(j); if(t) say(t,'bad'); }   // 로그인·몰림 문제 — 서버가 일을 처리하지 않았다
+    }
     else{ takeView(j); try{ onOk(j); }catch(e){ console.warn(e); } }   // 성공이든 「소환권 부족」 같은 거절이든 서버가 준 값으로 다시 그린다
   }finally{ BUSY=false; document.body.classList.remove('busy'); render(); }
 }
@@ -501,7 +513,8 @@ function updHud(){
   if(!FIELD||!V) return;
   try{ const s=FIELD.stats(); $('hKpm').textContent=Math.round(s.kpm); }catch(e){}
   $('hKills').textContent=fmt(KILLS);
-  $('hPer').innerHTML=I('gold')+'+'+fmtG(N(V.rate)/(KPM*60))+' <small>/처치</small>';
+  $('hPer').innerHTML=I('gold')+perKill(V.rate);
+  try{ const pn=pendNow(), hc=$('hColl'); hc.innerHTML=I('gold')+fmtC(pn)+' 수령'; hc.classList.toggle('dis',pn<1); hc.classList.toggle('pulse',pn>=1&&!BUSY); const cg=$('chip_gold'); cg&&cg.classList.toggle('ready',pn>=1); }catch(e){}
 }
 // 시험용 관찰 창(화면 동작에는 쓰이지 않는다)
 window.__bt={get party(){return V?fieldState().party.length:0;},get t(){try{return FIELD.stats().t;}catch(e){return 0;}},get kills(){return KILLS;},get boss(){try{return FIELD.stats().boss;}catch(e){return null;}},get stats(){try{return FIELD.stats();}catch(e){return null;}},get field(){return FIELD;},get bgm(){return CURBGM;}};
@@ -648,7 +661,7 @@ function tabHunt(){
   <div class="card">
     <div class="hunthero"><div style="min-width:0"><div class="sub">쌓인 사냥 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
       <button class="btn gold" data-do="collect" style="min-width:118px;font-size:17px;padding:10px 12px" aria-label="쌓인 사냥 골드 수령하기">수령</button></div>
-    <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> · 처치당 ${I('gold')}<b>${fmtG(N(v.rate)/(KPM*60))}</b> <span class="mut">(분당 ${KPM}마리 기준)</span></div>
+    <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> · ${perKillTxt(v.rate)} <span class="mut">(분당 ${KPM}마리 기준)</span></div>
     <div class="bar g" style="margin-top:8px" role="progressbar" aria-label="쌓인 시간" aria-valuemin="0" aria-valuemax="${fmt(v.cap_h)}" aria-valuenow="${N(v.hours).toFixed(1)}"><i style="width:${hpct}%"></i></div>
     <div class="sub" style="margin-top:3px">${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
     ${N(v.boost)>0?`<div class="sub green">⚔ 내전 부스트 ${fmt(v.boost)}시간치가 더해져요 (내전 1판 = 사냥 1시간)</div>`:`<div class="mut">내전을 1판 뛸 때마다 사냥 1시간치가 더 쌓여요 (최대 ${fmt(v.boost_max)}시간)</div>`}

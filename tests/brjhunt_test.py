@@ -155,6 +155,7 @@ async def new_page(b, srv, w=390, h=800, login=True, scheme='dark', mode=None):
         if u.startswith(API):
             if req.method == 'OPTIONS': await r.fulfill(status=204, headers=cors); return
             md = mode or srv.mode
+            if urlpath(u) in getattr(srv, 'abort_paths', ()): await r.abort(); return
             if md == 'net': await r.abort(); return
             if md == 'busy': await r.fulfill(status=429, headers=cors, content_type='application/json', body=json.dumps({'ok': False, 'code': 'busy'})); return
             if md == 'upstream': await r.fulfill(status=503, headers=cors, content_type='application/json', body=json.dumps({'ok': False, 'code': 'upstream'})); return
@@ -210,7 +211,7 @@ async def main():
                 check('상단 HUD: 레벨·스테이지 뱃지·지역', 'Lv.7' in await pg.inner_text('#lvb') and await pg.inner_text('#stbn') == '9' and '홍대' in await pg.inner_text('#preg'))
                 check('HUD 이름은 글자 그대로(HTML 로 안 읽힘)', await pg.evaluate("document.querySelectorAll('img[src=x]').length") == 0 and '<img' in await pg.inner_text('#pname'))
             t = await pg.inner_text('#main')
-            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '0.25' in t and '돌파' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
+            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '10처치당 2.50' in t.replace('\n',' ') and '돌파' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
             check(f'{scheme} 사냥터: 내전 부스트·배율(스킬 포함) 표시', '내전 부스트 2시간' in t and '동료 파티' in t and '스킬 ×' in t)
             check(f'{scheme} 사냥터: 서버 문자열이 HTML 로 안 읽힘', await pg.locator('img[src=x]').count() == 0 and await pg.evaluate('window.__xss')is None)
             check(f'{scheme} 사냥터: 가로 스크롤 없음', await noscroll(pg))
@@ -326,6 +327,11 @@ async def main():
         # 서버가 거절하는 경우
         srv.override['/brj/skill'] = lambda body: (200, {'ok': True, 'result': 'gold', 'cost': {'gold': 777, 'stone': 3}, 'view': make_view()})
         await pg.click('[data-do=skillup][data-id=slash]'); await pg.wait_for_timeout(250); check('강화 골드 부족 문구', '골드가 모자라요' in await msg(pg) and '777' in await msg(pg))
+        # 응답이 끊겨도 서버는 이미 처리했을 수 있다 → 뷰를 다시 받아 실제 상태를 보여 준다
+        srv.override.pop('/brj/skill', None); srv.abort_paths = ['/brj/skill']; n0 = len([1 for p_, _ in srv.hits if p_ == '/brj/idle'])
+        await pg.click('[data-do=skillup][data-id=slash]'); await pg.wait_for_timeout(500)
+        check('스킬 강화 응답 끊김 → /brj/idle 로 다시 받음 + 안내', len([1 for p_, _ in srv.hits if p_ == '/brj/idle']) == n0 + 1 and '실제 상태' in await msg(pg), await msg(pg))
+        srv.abort_paths = []
         check('콘솔 오류 없음', not errs, errs); await ctx.close()
         # 스테이지 부족: 각성 버튼이 꺼지고 이유가 보인다
         srv = Server(); srv.view['stage'] = 3; ctx, pg, errs = await new_page(b, srv); await tab(pg, 'skill')
