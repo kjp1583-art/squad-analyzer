@@ -24,146 +24,345 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="icon" href="data:,">
 <title>브장신 키우기 — 사냥터</title>
-<meta name="description" content="브장신 키우기 웹 사냥터 — 방치해도 골드가 쌓이고, 동료를 모으고, 보스와 던전에 도전해요. SQUAD.GG">
-<meta name="theme-color" content="#14171f">
+<meta name="description" content="브장신 키우기 웹 사냥터 — 넓은 필드에서 병아리가 알아서 사냥하고, 각성하며 새 스킬을 배우고, 동료와 보스·던전에 도전해요. SQUAD.GG">
+<meta name="theme-color" content="#232a5e">
 <style>
 :root{
-  --bg:#14171f; --bg2:#1a1e29; --card:#1f2431; --card2:#262c3c; --line:#313852; --txt:#eceff7; --sub:#a4adc4; --mut:#7a849d;
-  --gold:#f0b43c; --gold-bg:#2c2412; --green:#35c486; --green-bg:#12301f; --red:#ef5a6f; --red-bg:#3a1b24; --blue:#6b9bff; --blue-bg:#17233f;
-  --g-normal:#98a2b8; --g-rare:#4aa3ff; --g-epic:#b678ff; --g-unique:#ffa23a; --g-legend:#ff5c7a;
-  --btn:#3d6cf0; --btn-txt:#fff; --shadow:0 2px 10px rgba(0,0,0,.35);
+  --bg:#0c0f1d; --bg2:#141936; --panel:#1b2146; --panel2:#262e5e; --line:#3b4688; --edge:#070a16; --card:#222a55; --card2:#2b3568;
+  --txt:#f3f5ff; --sub:#c0c8ee; --mut:#8e98c8;
+  --gold:#ffcc3d; --gold-d:#b47a00; --gold-bg:#3a2d0c; --green:#4be08f; --green-d:#168a52; --green-bg:#0f3324; --red:#ff6b82; --red-d:#b32447; --red-bg:#42182a; --blue:#78a4ff; --blue-d:#2c52c4; --blue-bg:#16254f;
+  --g-normal:#a4adc8; --g-rare:#4ea8ff; --g-epic:#bb7dff; --g-unique:#ffa63e; --g-legend:#ff5f80;
+  --hd1:#323d86; --hd2:#1d2456; --hdt:#fff; --nav1:#1a2050; --nav2:#10143a;
+  --b1:#5f8bff; --b2:#3359d8; --bd:#1c3a9e; --bs:#1a2f86; --bt:#fff;
+  --shadow:0 3px 0 var(--edge); --glow:rgba(255,204,61,.55); --ink:#1b1405;
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
-    --bg:#f2f4f9; --bg2:#e9edf5; --card:#ffffff; --card2:#f0f3fa; --line:#d5dbea; --txt:#1c2233; --sub:#4d5873; --mut:#76809a;
-    --gold:#b97a06; --gold-bg:#fff4d8; --green:#118a56; --green-bg:#dcf5e8; --red:#cf2a45; --red-bg:#fde3e8; --blue:#2c5fe0; --blue-bg:#e3ebff;
-    --g-normal:#6b7590; --g-rare:#1d7ce0; --g-epic:#8a3fd6; --g-unique:#d77406; --g-legend:#d6264a; --shadow:0 2px 8px rgba(30,40,70,.12);
+    --bg:#dfe6fb; --bg2:#eaefff; --panel:#ffffff; --panel2:#f1f4ff; --line:#aebbe8; --edge:#8f9ccf; --card:#f4f6ff; --card2:#e6ebfb;
+    --txt:#1b2142; --sub:#3d4776; --mut:#667099;
+    --gold:#c78500; --gold-d:#8d5d00; --gold-bg:#fff0c4; --green:#12834f; --green-d:#0b5c37; --green-bg:#d8f6e6; --red:#d02548; --red-d:#8e1630; --red-bg:#fde0e7; --blue:#2850cf; --blue-d:#1a3694; --blue-bg:#dfe8ff;
+    --g-normal:#6b7592; --g-rare:#1c7be0; --g-epic:#8a3fd6; --g-unique:#d77406; --g-legend:#d6264a;
+    --hd1:#5b7cf5; --hd2:#3d58cf; --nav1:#f8faff; --nav2:#e3e9ff; --glow:rgba(255,150,0,.5); --ink:#1b1405;
   }
 }
 :root[data-theme="light"]{
-  --bg:#f2f4f9; --bg2:#e9edf5; --card:#ffffff; --card2:#f0f3fa; --line:#d5dbea; --txt:#1c2233; --sub:#4d5873; --mut:#76809a;
-  --gold:#b97a06; --gold-bg:#fff4d8; --green:#118a56; --green-bg:#dcf5e8; --red:#cf2a45; --red-bg:#fde3e8; --blue:#2c5fe0; --blue-bg:#e3ebff;
-  --g-normal:#6b7590; --g-rare:#1d7ce0; --g-epic:#8a3fd6; --g-unique:#d77406; --g-legend:#d6264a; --shadow:0 2px 8px rgba(30,40,70,.12);
+  --bg:#dfe6fb; --bg2:#eaefff; --panel:#ffffff; --panel2:#f1f4ff; --line:#aebbe8; --edge:#8f9ccf; --card:#f4f6ff; --card2:#e6ebfb;
+  --txt:#1b2142; --sub:#3d4776; --mut:#667099;
+  --gold:#c78500; --gold-d:#8d5d00; --gold-bg:#fff0c4; --green:#12834f; --green-d:#0b5c37; --green-bg:#d8f6e6; --red:#d02548; --red-d:#8e1630; --red-bg:#fde0e7; --blue:#2850cf; --blue-d:#1a3694; --blue-bg:#dfe8ff;
+  --g-normal:#6b7592; --g-rare:#1c7be0; --g-epic:#8a3fd6; --g-unique:#d77406; --g-legend:#d6264a;
+  --hd1:#5b7cf5; --hd2:#3d58cf; --nav1:#f8faff; --nav2:#e3e9ff; --glow:rgba(255,150,0,.5); --ink:#1b1405;
 }
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--txt);font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;padding-bottom:84px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden}
+body{background:radial-gradient(120% 70% at 50% 0,var(--bg2),var(--bg));color:var(--txt);font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
 a{color:var(--blue);text-decoration:none}
 button{font:inherit;color:inherit}
-.hd{position:sticky;top:0;z-index:20;background:var(--bg2);border-bottom:1px solid var(--line)}
-.hd .row{max-width:720px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:10px}
-.hd .ttl{font-weight:900;font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hd .ttl b{color:var(--gold)}
-.ib{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:13px;cursor:pointer;color:var(--sub)}
-.res{max-width:720px;margin:0 auto;padding:0 16px 8px;display:flex;gap:6px;flex-wrap:wrap}
-.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;white-space:nowrap}
-.wrap{max-width:720px;margin:0 auto;padding:12px 16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px;box-shadow:var(--shadow)}
-.card h2{font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.card h3{font-size:14px;margin:12px 0 6px}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{height:100vh;height:100dvh;max-width:560px;margin:0 auto;display:flex;flex-direction:column;position:relative;background:var(--bg);box-shadow:0 0 0 1px var(--line),0 0 40px rgba(0,0,0,.35)}
+
+/* ---- 상단 HUD ---- */
+#top{flex:none;background:linear-gradient(180deg,var(--hd1),var(--hd2));color:var(--hdt);padding:calc(8px + env(safe-area-inset-top)) 10px 8px;display:flex;align-items:center;gap:8px;border-bottom:2px solid var(--edge);position:relative;z-index:20}
+.tbtn{flex:none;width:36px;height:36px;border-radius:12px;border:2px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;font-size:16px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .08s,background .15s;text-decoration:none;padding:0}
+.tbtn:active{transform:scale(.92);background:rgba(255,255,255,.25)}
+.prof{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.av{position:relative;flex:none;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#fff6c4,#ffd54a 65%,#e89a1c);border:3px solid #fff;box-shadow:0 0 0 2px var(--gold-d),0 3px 8px rgba(0,0,0,.4)}
+.av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.av .lvb{position:absolute;right:-8px;bottom:-5px;background:linear-gradient(180deg,#ff8f4a,#e8451f);border:2px solid #fff;border-radius:9px;font-size:10px;font-weight:900;padding:0 5px;line-height:15px;color:#fff;white-space:nowrap}
+.pn{min-width:0;line-height:1.2}
+.pn b{display:block;font-size:14px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.pn small{display:block;font-size:11px;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stb{flex:none;text-align:center;background:linear-gradient(180deg,#ffd75e,#f09a12);color:var(--ink);border:2px solid #fff;border-radius:12px;padding:2px 10px 3px;box-shadow:0 3px 0 #8a5a00,0 0 14px var(--glow);line-height:1.1}
+.stb small{display:block;font-size:9.5px;font-weight:900;letter-spacing:1.5px;opacity:.75}
+.stb b{display:block;font-size:19px;font-weight:900;font-variant-numeric:tabular-nums}
+#res{flex:none;display:flex;gap:4px;padding:6px 8px;background:linear-gradient(180deg,var(--hd2),var(--bg2));border-bottom:2px solid var(--edge);position:relative;z-index:19}
+.chip{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:3px;background:rgba(6,8,22,.55);border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 7px 2px 3px;font-weight:900;font-size:12.5px;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform .2s}
+.chip img{flex:none;width:22px;height:22px;object-fit:contain;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.chip b{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:900}
+.chip.bump{transform:scale(1.12)}
+#chip_gold{flex:1.6 1 0}#chip_key{flex:1.15 1 0}
+@media (max-width:359px){
+  #top{gap:5px;padding-left:6px;padding-right:6px} .tbtn{width:32px;height:32px} .stb{padding:2px 7px 3px} .stb b{font-size:17px} .av{width:38px;height:38px}
+  #res{gap:3px;padding:5px 5px} .chip{font-size:11px;padding:2px 4px 2px 2px;gap:1px;border-width:1.5px} .chip img{width:17px;height:17px}
+  .sk{width:40px;height:40px} .sk.pas{width:36px;height:36px} .hot{gap:4px} .push{min-width:84px;font-size:14px}
+  #sheet{padding:8px 8px 14px} .card{padding:10px}
+}
+@media (max-height:700px){ #fieldBox{height:clamp(150px,28dvh,300px)} #hudL .hpill.sec{display:none} .big{font-size:26px} }
+body:not(.st-ok) #res{display:none}
+body:not(.st-ok) .stb{display:none}
+body:not(.st-ok) .prof .pn small{display:none}
+
+/* ---- 필드 무대 ---- */
+#stage{flex:none;position:relative;background:#101530;overflow:visible}
+#fieldBox{position:relative;height:clamp(176px,33dvh,300px);transition:height .38s cubic-bezier(.3,.7,.2,1);overflow:hidden;background:#1a2040;border-bottom:2px solid var(--edge)}
+@supports not (height:1dvh){#fieldBox{height:clamp(176px,33vh,300px)}}
+.mini #fieldBox{height:112px}
+#fcv{display:block;width:100%;height:100%;touch-action:pan-y}
+#fieldNote{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#fff;font-weight:800;text-align:center;padding:20px;background:linear-gradient(#26306a,#141a40)}
+#hudL{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;pointer-events:none;z-index:2}
+.hpill{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;background:rgba(6,8,22,.62);border:1.5px solid rgba(255,255,255,.22);border-radius:999px;padding:2px 10px 2px 8px;font-size:12px;font-weight:900;color:#fff;backdrop-filter:blur(3px);font-variant-numeric:tabular-nums}
+.hpill em{font-style:normal;color:var(--gold);font-size:14px}
+.hpill small{font-size:10.5px;opacity:.8;font-weight:800}
+.mini #hudL .hpill.sec{display:none}
+#bossTag{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;font-weight:900;font-size:34px;letter-spacing:2px;color:#fff;text-shadow:0 3px 0 #000,0 0 22px var(--glow);white-space:nowrap;z-index:3}
+#bossTag.go{animation:tagpop 1.7s cubic-bezier(.2,.8,.2,1) both}
+#bossTag.win{color:var(--gold)} #bossTag.lose{color:#ff9aaa}
+@keyframes tagpop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%) scale(1)}}
+/* 진행 바 + 핫바 */
+#dock{position:relative;margin-top:-10px;z-index:4;background:linear-gradient(180deg,var(--panel2),var(--panel));border-radius:18px 18px 0 0;border:2px solid var(--line);border-bottom:0;padding:7px 8px 8px;box-shadow:0 -4px 14px rgba(0,0,0,.28)}
+.mini #dock{display:none}
+.pbar{position:relative;height:17px;border-radius:999px;background:rgba(0,0,0,.4);border:2px solid var(--edge);overflow:hidden;margin-bottom:7px}
+.pbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(180deg,#8dffbb,#26b873);border-radius:999px;transition:width .6s cubic-bezier(.3,.7,.2,1);box-shadow:inset 0 3px 0 rgba(255,255,255,.35)}
+.pbar span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:900;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;letter-spacing:.5px}
+.dockrow{display:flex;align-items:center;gap:6px}
+.hot{display:flex;gap:6px;flex:1;min-width:0;align-items:center}
+.sk{position:relative;flex:none;width:46px;height:46px;padding:0;border-radius:13px;border:2px solid var(--line);background:var(--card);cursor:pointer;overflow:hidden;transition:transform .08s,box-shadow .2s}
+.sk:active{transform:scale(.92)}
+.sk img{width:100%;height:100%;object-fit:cover;display:block}
+.sk .ring{position:absolute;inset:0;background:conic-gradient(rgba(5,7,20,.72) var(--cd,0deg),transparent 0)}
+.sk .lv{position:absolute;right:1px;bottom:0;font-size:10px;font-weight:900;color:#fff;text-shadow:0 0 3px #000,0 1px 1px #000,0 0 6px #000}
+.sk.empty{border-style:dashed;color:var(--mut);font-size:20px;font-weight:900;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.18)}
+.sk.pas{width:40px;height:40px;border-radius:50%;border-color:var(--g-rare);margin-right:2px}
+.sk.pas.empty{border-color:var(--line)}
+.sk.cast{box-shadow:0 0 0 3px var(--gold),0 0 14px 2px var(--glow);transform:scale(1.08)}
+.hsep{flex:none;width:2px;height:30px;background:var(--line);border-radius:2px;opacity:.7}
+.push{flex:none;min-width:104px;padding:6px 10px;min-height:46px;line-height:1.15;font-size:15px}
+.push small{display:block;font-size:11.5px;font-weight:800;opacity:.9}
+.push.ready{animation:readyglow 1.4s ease-in-out infinite}
+@keyframes readyglow{0%,100%{box-shadow:0 4px 0 var(--bs),0 0 0 rgba(255,204,61,0)}50%{box-shadow:0 4px 0 var(--bs),0 0 16px 3px var(--glow)}}
+
+/* ---- 아래에서 올라오는 시트 ---- */
+#sheet{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:linear-gradient(180deg,var(--bg2),var(--bg));padding:10px 10px 18px;position:relative;z-index:3;border-top:2px solid var(--line);margin-top:0}
+.nodock #dock{display:none}
+#main.up{animation:sheetup .3s cubic-bezier(.2,.8,.2,1) both}
+@keyframes sheetup{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:2px solid var(--line);border-radius:16px;padding:12px;margin:0 0 10px;box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.08)}
+.card h2{font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:900}
+.card h2 .hi{width:26px;height:26px;object-fit:contain;flex:none}
+.card h3{font-size:13.5px;margin:12px 0 6px;color:var(--sub)}
 .sub{color:var(--sub);font-size:13px}
 .mut{color:var(--mut);font-size:12px}
-.big{font-size:26px;font-weight:900;line-height:1.2}
+.big{font-size:30px;font-weight:900;line-height:1.15;font-variant-numeric:tabular-nums}
 .gold{color:var(--gold)} .green{color:var(--green)} .red{color:var(--red)}
-.btn{border:0;background:var(--btn);color:var(--btn-txt);border-radius:12px;padding:11px 16px;font-weight:800;font-size:15px;cursor:pointer;min-height:44px}
-.btn.alt{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
-.btn.gold{background:var(--gold);color:#1b1405}
-.btn.red{background:var(--red);color:#fff}
-.btn[disabled],.btn.off{opacity:.45;cursor:not-allowed}
+.ci{width:1.15em;height:1.15em;vertical-align:-.22em;object-fit:contain;margin-right:1px}
+.btn{--b1:#6b95ff;--b2:#3359d8;--bd:#1c3a9e;--bs:#1a2f86;border:2px solid var(--bd);background:linear-gradient(180deg,var(--b1),var(--b2));color:#fff;border-radius:14px;padding:10px 14px;font-weight:900;font-size:15px;cursor:pointer;min-height:46px;box-shadow:0 4px 0 var(--bs),0 6px 10px rgba(0,0,0,.28),inset 0 2px 0 rgba(255,255,255,.35);text-shadow:0 1px 0 rgba(0,0,0,.35);transition:transform .07s,box-shadow .07s,filter .15s;position:relative}
+.btn:active:not([disabled]){transform:translateY(3px);box-shadow:0 1px 0 var(--bs),inset 0 2px 0 rgba(255,255,255,.25)}
+.btn.gold{--b1:#ffe27a;--b2:#f0a41a;--bd:#a86a00;--bs:#8a5600;color:var(--ink);text-shadow:0 1px 0 rgba(255,255,255,.45)}
+.btn.green{--b1:#6ff0a8;--b2:#1fb06a;--bd:#0d6f40;--bs:#0b5a34;color:#06210f;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.btn.red{--b1:#ff8a9c;--b2:#e0345a;--bd:#8e1630;--bs:#74112a}
+.btn.alt{--b1:var(--card2);--b2:var(--card);--bd:var(--line);--bs:var(--edge);color:var(--txt);text-shadow:none;box-shadow:0 4px 0 var(--bs),inset 0 2px 0 rgba(255,255,255,.12)}
+.btn.sm{min-height:44px;padding:6px 12px;font-size:13.5px}
+.btn[disabled]{filter:grayscale(.85) brightness(.75);cursor:not-allowed;box-shadow:0 2px 0 var(--bs)}
+.btn.off{filter:grayscale(.5) brightness(.85)}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .btns .btn{flex:1 1 130px}
-.bar{height:10px;background:var(--card2);border-radius:999px;overflow:hidden;border:1px solid var(--line)}
-.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green))}
-.hero{display:flex;gap:12px;align-items:center}
-.hero img{width:92px;height:92px;object-fit:contain;flex:none}
-.hero .ph{width:92px;height:92px;flex:none;display:flex;align-items:center;justify-content:center;font-size:48px}
-.kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:14px;border-bottom:1px dashed var(--line)}
+.bar{height:12px;background:rgba(0,0,0,.35);border-radius:999px;overflow:hidden;border:2px solid var(--edge)}
+.bar i{display:block;height:100%;background:linear-gradient(180deg,#8bb2ff,#3d6cf0);border-radius:999px;box-shadow:inset 0 2px 0 rgba(255,255,255,.35);transition:width .5s}
+.bar.g i{background:linear-gradient(180deg,#ffe27a,#f0a41a)}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-size:14px;border-bottom:1px dashed var(--line)}
 .kv:last-child{border-bottom:0}
-.msg{border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:14px;font-weight:700;border:1px solid var(--line);background:var(--card2)}
+.msg{border-radius:14px;padding:10px 12px;margin:0 0 10px;font-size:14px;font-weight:800;border:2px solid var(--line);background:var(--card2);animation:msgin .3s both}
+@keyframes msgin{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
 .msg.ok{background:var(--green-bg);border-color:var(--green);color:var(--green)}
 .msg.bad{background:var(--red-bg);border-color:var(--red);color:var(--red)}
 .msg.info{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
-.nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--bg2);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-.nav .in{max-width:720px;margin:0 auto;display:flex}
-.nav button{flex:1;border:0;background:none;padding:8px 2px 7px;font-size:12px;color:var(--mut);font-weight:700;cursor:pointer;min-height:52px}
-.nav button .e{display:block;font-size:20px;line-height:1.1}
-.nav button.on{color:var(--gold)}
-.nav button .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:3px;vertical-align:top}
+.msg b{color:inherit}
 table{border-collapse:collapse;width:100%;font-size:12.5px}
 th,td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 details{margin-top:8px}
-summary{cursor:pointer;font-weight:800;font-size:13px;color:var(--blue);padding:6px 0}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.cd{background:var(--card2);border:2px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;position:relative;text-align:left;min-width:0}
+summary{cursor:pointer;font-weight:900;font-size:13px;color:var(--blue);padding:8px 0;min-height:44px;display:flex;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.cd{background:linear-gradient(180deg,var(--card2),var(--card));border:2px solid var(--line);border-radius:13px;padding:8px;cursor:pointer;position:relative;text-align:left;min-width:0;transition:transform .08s}
+button.cd:active{transform:scale(.97)}
 .cd .nm{font-weight:900;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cd .gr{font-size:11px;font-weight:900}
 .cd .ft{font-size:11.5px;color:var(--sub);margin-top:2px;overflow-wrap:anywhere}
-.cd.sel{outline:3px solid var(--gold);outline-offset:1px}
+.cd.sel{outline:3px solid var(--gold);outline-offset:1px;box-shadow:0 0 14px var(--glow)}
 .cd.gone{opacity:.55}
 .gr-normal{border-color:var(--g-normal)} .gr-rare{border-color:var(--g-rare)} .gr-epic{border-color:var(--g-epic)} .gr-unique{border-color:var(--g-unique)} .gr-legend{border-color:var(--g-legend)}
 .t-normal{color:var(--g-normal)} .t-rare{color:var(--g-rare)} .t-epic{color:var(--g-epic)} .t-unique{color:var(--g-unique)} .t-legend{color:var(--g-legend)}
 .new{background:var(--red);color:#fff;border-radius:6px;font-size:10px;padding:1px 5px;margin-left:4px}
 .party{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
-.slot{flex:1 1 90px;min-width:0;border:2px dashed var(--line);border-radius:10px;padding:6px;font-size:12.5px;text-align:center;min-height:44px;overflow:hidden;text-overflow:ellipsis}
+.slot{flex:1 1 90px;min-width:0;border:2px dashed var(--line);border-radius:12px;padding:6px;font-size:12.5px;text-align:center;min-height:48px;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.12)}
 .row2{display:flex;gap:10px;align-items:center}
 .boss{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
 .boss:last-child{border-bottom:0}
-.boss img{width:64px;height:64px;object-fit:contain;flex:none}
+.boss>img{width:64px;height:64px;object-fit:contain;flex:none}
 .boss .ph{width:64px;height:64px;flex:none;display:flex;align-items:center;justify-content:center;font-size:34px}
 .bimg{width:72px;height:72px;flex:none}.bimg img{width:72px;height:72px;object-fit:contain}.bimg .ph{width:72px;height:72px;display:flex;align-items:center;justify-content:center;font-size:40px}
 .boss .tx{flex:1;min-width:0}
-.task{display:flex;gap:8px;padding:4px 0;font-size:14px}
-.empty{text-align:center;padding:36px 16px}
-.empty .big{font-size:40px}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:76px;background:var(--txt);color:var(--bg);padding:8px 14px;border-radius:999px;font-weight:800;font-size:13px;z-index:50;max-width:90vw}
-.busy .btn{pointer-events:none;opacity:.6}
-.pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:800;background:var(--card2);border:1px solid var(--line);color:var(--sub)}
-.sumres{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;margin-top:8px}
-.sumres .cd{cursor:default;padding:6px}
-.bcard{padding:8px}
-.bwrap{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#2a3040;line-height:0}
-.bcv{display:block;width:100%;height:240px;touch-action:pan-y}
-@keyframes pendpop{0%{transform:scale(1)}40%{transform:scale(1.07)}100%{transform:scale(1)}}
-#pend{transform-origin:left center}
-#pend.pop{animation:pendpop .35s}
-@media (prefers-reduced-motion: reduce){#pend.pop{animation:none}}
+.boss .btn{flex:none;min-width:76px}
+.task{display:flex;gap:8px;padding:5px 0;font-size:14px}
+.empty{text-align:center;padding:28px 14px}
+.empty .big{font-size:46px}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11.5px;font-weight:900;background:rgba(0,0,0,.25);border:1.5px solid var(--line);color:var(--sub)}
+.pill.gold{color:var(--gold);border-color:var(--gold-d);background:var(--gold-bg)}
+.pill.green{color:var(--green);border-color:var(--green-d);background:var(--green-bg)}
+.sumres{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-top:8px}
+.sumres .cd{cursor:default;padding:6px;animation:cardpop .45s cubic-bezier(.2,.9,.3,1.3) both;animation-delay:calc(var(--i,0)*70ms)}
+.sumres .cd.rare{box-shadow:0 0 16px var(--glow)}
+@keyframes cardpop{from{opacity:0;transform:scale(.5) rotate(-6deg)}to{opacity:1;transform:none}}
+.ic{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--card);border:2px solid var(--line);border-radius:12px}
+.hunthero{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mults{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.nav-hint{font-size:11.5px;color:var(--mut)}
+
+/* ---- 스킬 탭 ---- */
+.awk{position:relative;overflow:hidden}
+.pips{display:flex;gap:6px;margin:4px 0 8px}
+.gem{flex:1;height:22px;border-radius:8px;background:rgba(0,0,0,.3);border:2px solid var(--edge);position:relative;overflow:hidden}
+.gem.on{background:linear-gradient(180deg,#d7b6ff,#8a4de0);border-color:#4c2290;box-shadow:0 0 10px rgba(180,120,255,.6)}
+.gem.on::after{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:rgba(255,255,255,.35)}
+.req{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13.5px;border-bottom:1px dashed var(--line)}
+.req:last-of-type{border-bottom:0}
+.req b{margin-left:auto;font-variant-numeric:tabular-nums}
+.req.ok b{color:var(--green)} .req.no b{color:var(--red)}
+.unl{display:flex;gap:6px;align-items:center;margin:8px 0 2px;flex-wrap:wrap}
+.unl img{width:36px;height:36px;border-radius:10px;border:2px solid var(--g-epic)}
+.eqrow{display:flex;gap:6px;margin:6px 0;align-items:stretch}
+.eqs{flex:1 1 0;min-width:0;border:2px dashed var(--line);border-radius:13px;padding:6px 2px 5px;text-align:center;background:rgba(0,0,0,.14);cursor:pointer;font-size:10.5px;font-weight:800;color:var(--sub);min-height:68px}
+.eqs img{display:block;width:40px;height:40px;margin:0 auto 2px;border-radius:10px}
+.eqs .ph{display:block;font-size:22px;line-height:40px;color:var(--mut)}
+.eqs.on{border-style:solid;border-color:var(--gold);box-shadow:0 0 12px var(--glow);color:var(--txt)}
+.eqs.pas{flex:0 0 22%;cursor:default}
+.eqs.sel{outline:3px solid var(--gold);outline-offset:1px}
+.eqs span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:330px){.skg{grid-template-columns:1fr}}
+.skc{background:linear-gradient(180deg,var(--card2),var(--card));border:2px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:5px;min-width:0;position:relative}
+.skc.eqd{border-color:var(--gold);box-shadow:0 0 12px var(--glow)}
+.skc.lock{opacity:.78}
+.skc.lock .sic{filter:grayscale(1) brightness(.6)}
+.skc .top{display:flex;gap:7px;align-items:center}
+.sic{width:50px;height:50px;border-radius:12px;flex:none;border:2px solid var(--edge)}
+.skc .nm{font-weight:900;font-size:13.5px;line-height:1.2}
+.skc .ds{font-size:11.5px;color:var(--sub);line-height:1.3}
+.skc .st{font-size:11.5px;color:var(--mut)}
+.skc .st b{color:var(--gold)}
+.lvbar{display:flex;gap:2px}
+.lvbar i{flex:1;height:6px;border-radius:3px;background:rgba(0,0,0,.35)}
+.lvbar i.on{background:linear-gradient(180deg,#ffe27a,#f0a41a)}
+.skc .btns{margin-top:2px;gap:5px}
+.skc .btns .btn{flex:1 1 60px;padding:5px 6px;font-size:12.5px;min-height:44px;line-height:1.2}
+.lkb{display:inline-block;font-size:11px;font-weight:900;background:rgba(0,0,0,.5);color:#fff;border-radius:999px;padding:1px 8px;margin-top:2px}
+.lkb.on{background:linear-gradient(180deg,#ffe27a,#f0a41a);color:#1b1405}
+.flash{animation:cflash .7s}
+@keyframes cflash{0%{box-shadow:0 0 0 0 var(--glow)}30%{box-shadow:0 0 22px 6px var(--glow);transform:scale(1.03)}100%{box-shadow:none}}
+
+/* ---- 하단 탭바 ---- */
+#nav{flex:none;background:linear-gradient(180deg,var(--nav1),var(--nav2));border-top:2px solid var(--line);padding-bottom:env(safe-area-inset-bottom);position:relative;z-index:30;box-shadow:0 -3px 12px rgba(0,0,0,.3)}
+#nav .in{display:flex}
+#nav button{flex:1;min-width:0;border:0;background:none;padding:5px 0 5px;font-size:11px;color:var(--mut);font-weight:900;cursor:pointer;min-height:58px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px;transition:color .2s}
+#nav button img{width:34px;height:34px;object-fit:contain;transition:transform .25s cubic-bezier(.3,1.6,.5,1),filter .2s;filter:grayscale(.55) brightness(.8)}
+#nav button.on{color:var(--gold)}
+#nav button.on img{transform:translateY(-5px) scale(1.2);filter:drop-shadow(0 3px 5px rgba(0,0,0,.45))}
+#nav button.on::before{content:"";position:absolute;top:-2px;left:22%;right:22%;height:4px;border-radius:0 0 4px 4px;background:var(--gold);box-shadow:0 0 12px var(--glow)}
+#nav .dot{position:absolute;top:6px;right:calc(50% - 24px);width:11px;height:11px;border-radius:50%;background:var(--red);border:2px solid var(--nav2);animation:dotp 1.2s infinite}
+@keyframes dotp{50%{transform:scale(1.25)}}
+
+/* ---- 토스트 · 시트 · 오버레이 ---- */
+#toastBox{position:fixed;left:0;right:0;top:calc(70px + env(safe-area-inset-top));display:flex;flex-direction:column;align-items:center;gap:6px;z-index:60;pointer-events:none}
+.toast{background:rgba(10,12,30,.92);color:#fff;border:2px solid var(--gold);padding:7px 16px;border-radius:999px;font-weight:900;font-size:13px;max-width:90vw;animation:toastin .25s both,toastout .3s 2s both}
+@keyframes toastin{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@keyframes toastout{to{opacity:0;transform:translateY(-8px)}}
+.sbg{position:fixed;inset:0;background:rgba(3,5,16,.62);z-index:80;display:none;align-items:flex-end;justify-content:center}
+.sbg.show{display:flex;animation:fadein .2s both}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.sheet{width:100%;max-width:560px;background:linear-gradient(180deg,var(--panel2),var(--panel));border:2px solid var(--line);border-bottom:0;border-radius:22px 22px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));animation:sheetup .3s cubic-bezier(.2,.8,.2,1) both}
+.sheet h2{margin:0 0 6px;font-size:17px;font-weight:900}
+.sheet::before{content:"";display:block;width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 10px}
+.srow{display:flex;align-items:center;gap:10px;margin:12px 0}
+.srow label{flex:none;width:64px;font-weight:900;font-size:14px}
+.srow input[type=range]{flex:1;min-width:0;height:34px;accent-color:var(--gold)}
+.srow output{flex:none;width:38px;text-align:right;font-weight:900;font-variant-numeric:tabular-nums;color:var(--gold)}
+#awk{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(circle at 50% 45%,rgba(120,60,200,.85),rgba(8,4,28,.95));text-align:center;padding:20px;cursor:pointer}
+#awk.show{display:flex;animation:fadein .25s both}
+#awk::before{content:"";position:absolute;left:50%;top:44%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;background:repeating-conic-gradient(rgba(255,230,140,.2) 0 6deg,transparent 6deg 18deg);animation:spin 14s linear infinite;-webkit-mask:radial-gradient(circle,#000 0,transparent 55%);mask:radial-gradient(circle,#000 0,transparent 55%)}
+@keyframes spin{to{transform:rotate(360deg)}}
+#awk .t1{position:relative;font-size:16px;font-weight:900;color:#e9d4ff;letter-spacing:4px;animation:tagpop2 .6s both}
+#awk .t2{position:relative;font-size:48px;font-weight:900;color:#ffe27a;text-shadow:0 4px 0 #6a3a00,0 0 30px rgba(255,200,60,.8);animation:tagpop2 .7s .1s both}
+#awk .row{position:relative;display:flex;gap:10px;margin:22px 0 10px;justify-content:center;flex-wrap:wrap}
+#awk .row img{width:76px;height:76px;border-radius:18px;border:3px solid #ffe27a;box-shadow:0 0 22px rgba(255,220,100,.8);animation:cardpop .6s both;animation-delay:calc(.45s + var(--i)*.18s)}
+#awk .t3{position:relative;color:#e9d4ff;font-size:14px;font-weight:800;max-width:320px;animation:fadein .5s .9s both}
+#awk .t4{position:relative;margin-top:16px;font-size:12px;color:#b9a3e8}
+@keyframes tagpop2{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+#fly{position:fixed;inset:0;pointer-events:none;z-index:70}
+#fly img{position:absolute;width:26px;height:26px;transition:transform .75s cubic-bezier(.5,0,.8,.4),opacity .75s;will-change:transform}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+  #awk::before{animation:none}
+}
 </style>
 </head>
 <body>
-<div class="hd">
-  <div class="row">
-    <a class="ib" href="index.html#games" title="미니게임 목록">←</a>
-    <div class="ttl">🍗 브장신 <b>키우기</b></div>
-    <button class="ib" id="thBtn" title="화면 밝기 바꾸기" aria-label="화면 밝기 바꾸기">🌓</button>
-    <button class="ib" id="rfBtn" title="새로고침" aria-label="새로고침">↻</button>
-  </div>
-  <div class="res" id="res"></div>
+<div id="app">
+  <header id="top">
+    <a class="tbtn" href="index.html#games" title="미니게임 목록" aria-label="미니게임 목록으로">‹</a>
+    <div class="prof">
+      <div class="av"><img id="avImg" src="img/brjang/parts/body_chick/front.png" alt="" onerror="this.style.display='none'"><span class="lvb" id="lvb">Lv.1</span></div>
+      <div class="pn"><b id="pname">브장신 키우기</b><small id="preg">필드 사냥</small></div>
+    </div>
+    <div class="stb" id="stb" aria-label="현재 스테이지"><small>STAGE</small><b id="stbn">1</b></div>
+    <button class="tbtn" id="sndBtn" title="소리 설정" aria-label="소리 설정 열기">🔊</button>
+    <button class="tbtn" id="thBtn" title="화면 밝기 바꾸기" aria-label="화면 밝기 바꾸기">🌓</button>
+    <button class="tbtn" id="rfBtn" title="새로고침" aria-label="새로고침">↻</button>
+  </header>
+  <div id="res" role="group" aria-label="내 재화"></div>
+  <section id="stage" aria-label="자동 사냥 필드">
+    <div id="fieldBox">
+      <canvas id="fcv" role="img" aria-label="병아리가 넓은 필드에서 자동으로 사냥하는 구경 화면"></canvas>
+      <div id="fieldNote">사냥 화면을 불러오지 못했어요.<br>아래 메뉴는 그대로 쓸 수 있어요.</div>
+      <div id="hudL"><span class="hpill" aria-live="off"><em id="hKpm">0</em> 분당 처치</span><span class="hpill sec">처치 <b id="hKills">0</b></span><span class="hpill sec" id="hPer" title="처치 한 번에 쌓이는 골드(표시용 어림)"></span></div>
+      <div id="bossTag" aria-hidden="true"></div>
+    </div>
+    <div id="dock"></div>
+  </section>
+  <div id="sheet"><div id="main"><div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div></div></div>
+  <nav id="nav" aria-label="메뉴"><div class="in" role="tablist"></div></nav>
 </div>
-<div class="wrap" id="main"><div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div></div>
-<div class="nav" id="nav"><div class="in"></div></div>
-<div id="toastBox"></div>
+<div id="toastBox" aria-live="polite"></div>
+<div id="fly" aria-hidden="true"></div>
+<div class="sbg" id="sndBg"><div class="sheet" role="dialog" aria-modal="true" aria-label="소리 설정">
+  <h2>🔊 소리 설정</h2>
+  <div class="srow"><label for="vM">전체</label><input type="range" id="vM" min="0" max="100" step="1" aria-label="전체 음량"><output id="oM"></output></div>
+  <div class="srow"><label for="vS">효과음</label><input type="range" id="vS" min="0" max="100" step="1" aria-label="효과음 음량"><output id="oS"></output></div>
+  <div class="srow"><label for="vB">배경음</label><input type="range" id="vB" min="0" max="100" step="1" aria-label="배경음악 음량"><output id="oB"></output></div>
+  <div class="btns"><button class="btn alt" id="muteBtn">🔇 모두 끄기</button><button class="btn" id="sndClose">닫기</button></div>
+  <div class="mut" style="margin-top:8px">효과음과 배경음은 이 기기에서 코드로 직접 만들어 내요. 첫 터치 뒤에 소리가 나기 시작해요.</div>
+</div></div>
+<div id="awk" role="alertdialog" aria-label="각성 성공" tabindex="-1"></div>
 
+<script src="brjhunt_audio.js?v=1"></script>
+<script src="brjhunt_field.js?v=1"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
 // 로그인·서버 주소는 survivors.html 과 같은 방식(디스코드 토큰은 메인 사이트와 같은 localStorage 칸 sgg_dc).
 // 서버가 주는 문자열은 전부 esc 를 거쳐 innerHTML 에 넣는다. 숫자는 N() 으로 한 번 걸러 쓴다.
+// 골드·보상·스킬 효과 수치는 서버가 정답이고, 화면 속 필드 전투(brjhunt_field.js)와 소리(brjhunt_audio.js)는 연출이다.
 const P6_API='https://hth3thmujs.apps.bot-hosting.cloud';
 const DISCORD_CLIENT_ID='1520763174675022028';
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const N=v=>{v=Number(v);return Number.isFinite(v)?v:0;};
 const fmt=v=>Math.floor(N(v)).toLocaleString('ko-KR');
+const fmtC=v=>{v=Math.floor(N(v)); if(v>=1e8) return (v/1e8).toFixed(1)+'억'; if(v>=1e5) return (v/1e4).toFixed(1)+'만'; return v.toLocaleString('ko-KR');};   // 칩이 좁아서 10만 넘으면 줄여 쓴다(정확한 값은 칩에 마우스/길게 누르기 title)
+const fmtG=v=>{v=N(v); return v>=100?fmt(v):v>=10?v.toFixed(1):v.toFixed(2);};    // 처치당 골드(소수 가능)
 const $=id=>document.getElementById(id);
 const GR_KO={normal:'노말',rare:'레어',epic:'에픽',unique:'유니크',legend:'레전드'};
 const GR_KEYS=['normal','rare','epic','unique','legend'];
 const grKey=g=>GR_KEYS.includes(g)?g:'normal';     // 서버 값이 이상해도 클래스 이름으로 못 새어 나가게
 const imgKey=k=>/^[a-z0-9_]{1,30}$/.test(String(k||''))?String(k):'';
-const TABS=[['hunt','🏞','사냥터'],['crew','🧑‍🤝‍🧑','동료'],['grow','⚔','성장'],['adv','🗝','모험'],['pres','🌟','환생']];
+const SK_IDS=['slash','peck','spin','bomb','thunder','fire','egg','shield','shrimp','storm'];
+const skIcon=id=>SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:'';
+const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
+const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
+const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','성장'],['adv','adv','모험'],['pres','prestige','환생']];
+const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
+const KPM=100;                       // 화면 분당 처치 목표(필드 엔진이 이 속도로 맞춘다). 처치당 골드 = 시간당 골드 ÷ (KPM×60)
 
 let V=null;              // 서버가 준 전체 화면 값(view)
 let TAB='hunt', MSG=null, STATE='boot';   // STATE: boot · out(로그아웃) · nobrj · err · ok
-let ERR='', BUSY=false, FETCHED=0, PARTY=null, PARTY_DIRTY=false, SUMRES=null, RANK=null, RANK_AT=0, SEL_PRES=false;
+let ERR='', BUSY=false, FETCHED=0, PARTY=null, PARTY_DIRTY=false, SUMRES=null, RANK=null, RANK_AT=0, SEL_PRES=false, SEL_SLOT=null, TAB_FLAG=false;
 
 function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
 function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페이지뿐 → 메인이 받아 로그인 처리 후 이 페이지로 되돌려 준다
@@ -174,6 +373,30 @@ function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페�
   const main=location.origin+new URL('./',location.href).pathname;
   location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(DISCORD_CLIENT_ID)
     +'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
+}
+
+// ---------- 소리 (BrjAudio 가 없거나 막혀도 게임은 그대로 돈다) ----------
+const _last={};
+function snd(name,o,gap){
+  try{
+    if(!window.BrjAudio) return;
+    if(gap){ const t=performance.now(); if(t-(_last[name]||0)<gap) return; _last[name]=t; }
+    BrjAudio.sfx(name,o||{});
+  }catch(e){}
+}
+let CURBGM='';
+function regIdx(){
+  const REG_KEY=['합정 골목','bhc','홍대','상수','망원','한강']; const v=V||{};
+  const rg=String(v.region||'').toLowerCase();
+  for(let i=0;i<6;i++) if(rg.indexOf(REG_KEY[i])>=0) return i;
+  return Math.floor((Math.max(1,N(v.stage))-1)/5)%6;
+}
+function syncBgm(){
+  try{
+    if(!window.BrjAudio) return;
+    const t=(STATE==='ok'&&V)?(BOSS?'boss':'field'+(regIdx()+1)):'menu';
+    if(t!==CURBGM){ CURBGM=t; BrjAudio.bgm(t); }
+  }catch(e){}
 }
 
 // ---------- 서버 부르기 ----------
@@ -210,7 +433,7 @@ async function load(){
   render();
 }
 // 버튼 한 번 = 요청 한 번. 응답 전에는 다른 버튼이 안 눌린다.
-const TRANSPORT=['auth','no_brj','busy','upstream','error','big','http','net','not_found'];
+const TRANSPORT=['auth','no_brj','busy','upstream','error','big','http','net','not_found','bad'];
 async function act(path,body,onOk){
   if(BUSY) return; BUSY=true; document.body.classList.add('busy');
   try{
@@ -219,440 +442,180 @@ async function act(path,body,onOk){
     else{ takeView(j); try{ onOk(j); }catch(e){ console.warn(e); } }   // 성공이든 「소환권 부족」 같은 거절이든 서버가 준 값으로 다시 그린다
   }finally{ BUSY=false; document.body.classList.remove('busy'); render(); }
 }
-function say(t,k){ MSG={t,k:k||'info'}; }
-function toast(t){ const b=$('toastBox'); const d=document.createElement('div'); d.className='toast'; d.textContent=t; b.appendChild(d); setTimeout(()=>d.remove(),2200); }
+function say(t,k){ MSG={t,k:k||'info'}; if(k==='bad') snd('error'); }
+function toast(t){ const b=$('toastBox'); const d=document.createElement('div'); d.className='toast'; d.textContent=t; b.appendChild(d); setTimeout(()=>d.remove(),2400); }
 
-// ---------- 실시간 전투 화면 (연출) ----------
-// 서버 계산(골드·스테이지·보상)이 정답이고, 이 캔버스는 그것을 눈에 보이게 하는 구경용 연출이다.
-// 화면 속 데미지·처치 속도는 뷰의 power·rate 에서 파생하고, 보상은 건드리지 않는다. 보스 승패는 /brj/boss 응답을 그대로 따른다.
-// 그림(img/brjhunt/*.webp)이 없거나 실패하면 이모지·도형으로 그려서 그림이 하나도 없어도 돈다.
-const Battle=(function(){
-  const FONT='"Malgun Gothic","Apple SD Gothic Neo",sans-serif';
-  const CHICK_FB='img/brjang/parts/body_chick/front.png';
-  const MON_EMOJI=['🦐','🥒','💬','🛵','🐟','🦆'];
-  const REG_KEY=['합정 골목','bhc','홍대','상수','망원','한강'];
-  const HUE=[205,28,345,262,140,190];
-  const GR_COL={normal:'#98a2b8',rare:'#4aa3ff',epic:'#b678ff',unique:'#ffa23a',legend:'#ff5c7a'};
-  const GY=196, DH=240, ENG=62, rnd=Math.random;
-  const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-  const S={root:null,cv:null,ctx:null,raf:0,last:0,running:false,attached:false,vis:true,frames:0,
-    cssW:0,dpr:1,sc:1,DW:390,mode:'hunt',t:0,scroll:0,shake:0,walking:true,
-    mons:[],parts:[],texts:[],wait:0,kills:0,
-    chick:{x:130,pose:'idle',poseT:0,lunge:0,atkT:0.4,alt:0,hitIn:0,hurt:0,kbx:0,down:0,skillT:0},
-    skillCd:4,fx:null,party:[],pkey:'',boss:null,low:false,dtAvg:0.016,lowN:0,popAt:0,
-    reg:0,stage:1,power:100,rate:0,hitInt:0.5,htk:4,dmg:20,monHp:80,region:'',
-    rm:false};
-  try{ S.rm=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches); }catch(e){}
-
-  // ----- 그림 -----
-  const cache={};
-  function ld(src){ let c=cache[src]; if(!c){ c=cache[src]={im:new Image(),ok:false}; c.im.onload=()=>{c.ok=true;}; c.im.onerror=()=>{c.ok=false;}; c.im.src=src; } return c.ok?c.im:null; }
-  const art=n=>ld('img/brjhunt/'+n+'.webp');
-  const ec={};
-  function emo(ch,px){   // 이모지는 한 번만 그려 두고 그림처럼 쓴다
-    const k=ch+'|'+px+'|'+S.dpr*S.sc; let c=ec[k];
-    if(!c){ const sz=Math.ceil(px*1.4*S.dpr*S.sc); c=document.createElement('canvas'); c.width=c.height=sz; const x=c.getContext('2d');
-      x.font=Math.round(px*S.dpr*S.sc)+'px '+FONT; x.textAlign='center'; x.textBaseline='middle'; x.fillText(ch,sz/2,sz/2); c.dw=sz/(S.dpr*S.sc); ec[k]=c; }
-    return c;
-  }
-  function spr(x,fy,h,im,o){   // 발 중앙 (x,fy) 에 높이 h 로
-    const c=S.ctx; o=o||{};
-    c.save(); c.translate(x,fy); if(o.rot) c.rotate(o.rot); if(o.a!=null) c.globalAlpha=o.a;
-    c.scale((o.sx||1)*(o.flip?-1:1),o.sy||1);
-    if(im&&im.tagName==='CANVAS') c.drawImage(im,-im.dw/2,-h/2-im.dw/2,im.dw,im.dw);
-    else if(im){ const w=h*im.width/im.height; c.drawImage(im,-w/2,-h,w,h); }
-    c.restore();
-  }
-  function txt(s,x,y,size,col,al,stroke){
-    const c=S.ctx; c.font='900 '+size+'px '+FONT; c.textAlign=al||'center'; c.textBaseline='middle'; c.lineJoin='round';
-    c.lineWidth=Math.max(2,size/5); c.strokeStyle=stroke||'rgba(10,12,20,.85)'; c.strokeText(s,x,y); c.fillStyle=col||'#fff'; c.fillText(s,x,y);
-  }
-
-  // ----- 값 파생 -----
-  function derive(){
-    const v=V||{}, d=v.dungeon||{};
-    S.power=Math.max(5,N(d.power)); S.rate=N(v.rate); S.stage=N(v.stage)||1; S.region=String(v.region||'');
-    S.hitInt=clamp(0.66-Math.log10(S.rate+10)*0.045,0.34,0.6);          // 시간당 골드가 높을수록 손이 빨라진다
-    S.htk=clamp(Math.round(6.2-Math.log10(S.power+10)*0.75),3,5);       // 전투력이 높을수록 몇 대 만에 쓰러뜨린다
-    S.dmg=Math.max(1,Math.round(S.power*0.22)); S.monHp=S.dmg*S.htk;
-    let ri=-1; const rg=S.region.toLowerCase(); for(let i=0;i<6;i++) if(rg.indexOf(REG_KEY[i])>=0){ ri=i; break; }
-    if(ri<0) ri=Math.floor((Math.max(1,S.stage)-1)/5)%6;
-    S.reg=ri; if(S.attached) preload();
-    const sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,3):[], cards=Array.isArray(sm.cards)?sm.cards:[];
-    const key=ids.join(',')+'|'+cards.length;
-    if(key!==S.pkey){ S.pkey=key;
-      S.party=ids.map(id=>cards.find(c=>c&&c.id===id)).filter(Boolean).map((c,i)=>({ini:Array.from(String(c.n||'?'))[0]||'?',gr:grKey(c.gr),t:0.6+i*0.37,hop:0})); }
-  }
-
-  // 지금 지역의 그림만 부른다(병아리 5장 + 몬스터 2장 + 배경 1장 ≈ 150KB). 스테이지가 올라 지역이 바뀌면 그때 그 지역 것만 더 부른다.
-  function preload(){ ['idle','atk1','atk2','hit','skill'].forEach(p=>art('chick_'+p)); art('m'+(S.reg+1)+'_idle'); art('m'+(S.reg+1)+'_hit'); art('bg'+(S.reg+1)); }
-
-  // ----- 시작·멈춤 -----
-  function build(){
-    const w=document.createElement('div'); w.className='bwrap';
-    const cv=document.createElement('canvas'); cv.className='bcv'; cv.setAttribute('role','img'); cv.setAttribute('aria-label','자동 전투 구경 화면');
-    w.appendChild(cv); S.root=w; S.cv=cv; S.ctx=cv.getContext('2d');
-    try{ new IntersectionObserver(es=>{ S.vis=es[es.length-1].isIntersecting; if(S.vis) start(); else stop(); }).observe(cv); }catch(e){}
-    window.addEventListener('resize',()=>{ if(S.attached) measure(); });
-    document.addEventListener('visibilitychange',()=>{ if(document.hidden) stop(); else if(S.attached) start(); });
-  }
-  function measure(){
-    const cw=S.cv.clientWidth||320, dpr=Math.min(2,window.devicePixelRatio||1);
-    if(cw===S.cssW&&dpr===S.dpr) return;
-    S.cssW=cw; S.dpr=dpr; S.sc=1; S.DW=cw;
-    S.cv.width=Math.round(cw*dpr); S.cv.height=Math.round(DH*dpr);
-    if(!S.mons.length&&!S.boss) S.chick.x=S.DW*0.4;
-  }
-  function attach(slot){
-    if(!S.root) build();
-    if(S.root.parentNode!==slot) slot.appendChild(S.root);
-    const first=!S.attached; S.attached=true;
-    measure(); derive();
-    preload(); ld(CHICK_FB);
-    if(first){ S.chick.x=S.DW*0.4; S.mons.length=0; spawnWave(true); }
-    drawFrame(); start();
-  }
-  function detach(){ S.attached=false; stop(); }
-  function start(){ if(S.running||!S.attached||document.hidden||!S.vis) return; S.running=true; S.last=performance.now(); S.raf=requestAnimationFrame(loop); }
-  function stop(){ S.running=false; if(S.raf) cancelAnimationFrame(S.raf); S.raf=0; }
-  function loop(ts){
-    S.raf=0; if(!S.running) return;
-    const dt=Math.min(0.05,Math.max(0.001,(ts-S.last)/1000||0.016)); S.last=ts;
-    S.dtAvg=S.dtAvg*0.95+dt*0.05;
-    if(!S.low&&S.dtAvg>0.032){ if(++S.lowN>120) S.low=true; } else if(S.lowN>0) S.lowN--;
-    if((S.frames&31)===0) measure();
-    update(dt); drawFrame(); S.frames++;
-    S.raf=requestAnimationFrame(loop);
-  }
-
-  // ----- 만들기 -----
-  function spawnWave(first){
-    let n=2+(rnd()<0.4?1:0)+(S.stage>=15&&rnd()<0.3?1:0); n=Math.min(3,n);   // 한 무리 최소 2마리 — 계속 몰아치는 느낌
-    for(let i=0;i<n;i++) S.mons.push({x:first?S.DW*0.7+i*46:S.DW*0.85+i*46,hp:S.monHp,max:S.monHp,hit:0,kb:0,dead:-1,ph:rnd()*6,sp:120+rnd()*20,atk:1+rnd()*1.2,lunge:0});
-  }
-  function pushP(p){ if(S.parts.length<(S.low||S.rm?26:60)) S.parts.push(p); }
-  function say2(s,x,y,size,col,life,alpha){   // 이미 떠 있는 숫자 수만큼 위로 어긋나게, 좌우 번갈아 — 겹쳐서 못 읽는 일 방지
-    if(S.texts.length>=22) S.texts.shift();
-    const k=S.texts.filter(t=>t.t<0.5).length; S.dmgSide=-(S.dmgSide||1);
-    S.texts.push({s,x:x+(k?S.dmgSide*16:0),y:y-Math.min(k,5)*12,vy:-38,t:0,life:life||0.9,size,col,al:alpha==null?1:alpha});
-  }
-  function coins(x,y,n){ for(let i=0;i<n;i++) pushP({k:'coin',x,y,vx:(rnd()-0.5)*90,vy:-130-rnd()*80,t:0,life:1.1,b:0}); }
-  function poof(x,y,col,n){ for(let i=0;i<n;i++){ const a=rnd()*6.28,s=40+rnd()*70; pushP({k:'dot',x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,t:0,life:0.45,c:col,r:2+rnd()*2}); } }
-  function popPend(){
-    const now=performance.now(); if(now-S.popAt<800) return; S.popAt=now;
-    const e=document.getElementById('pend'); if(e){ e.classList.remove('pop'); void e.offsetWidth; e.classList.add('pop'); }
-  }
-
-  // ----- 피해 -----
-  function hitMon(m,dmg,crit,col){
-    if(m.dead>=0) return;
-    m.hp-=dmg; m.hit=0.16; m.kb=crit?14:8;
-    say2(fmt(dmg)+(crit?'!':''),m.x+(rnd()-0.5)*14,GY-68,crit?22:16,crit?'#ffd23c':(col||'#fff'),crit?1.0:0.8,col==='#bfe0ff'?0.8:1);
-    poof(m.x,GY-30,crit?'#ffd23c':'#fff',crit?5:2);
-    if(m.hp<=0){ m.dead=0; S.kills++; coins(m.x,GY-24,S.low?3:5); poof(m.x,GY-30,'#fff6c0',6); popPend(); }
-  }
-  function frontMon(){ for(let i=0;i<S.mons.length;i++) if(S.mons[i].dead<0) return S.mons[i]; return null; }
-  function hitBoss(step,crit,col){
-    const B=S.boss; if(!B||B.state!=='fight') return;
-    const dmg=Math.max(1,Math.round(step*(0.9+rnd()*0.2)*(crit?1.8:1)));
-    const was=B.hp; B.hp=Math.max(B.target,B.hp-dmg); B.hit=0.14; B.kb=crit?9:5;
-    say2(fmt(Math.max(1,was-B.hp))+(crit?'!':''),B.x+(rnd()-0.5)*40,GY-140,crit?24:16,crit?'#ffd23c':(col||'#fff'),1.0,col==='#bfe0ff'?0.8:1);
-    poof(B.x-20,GY-70,crit?'#ffd23c':'#fff',crit?6:3); S.shake=Math.max(S.shake,crit?4:2);
-    if(B.hp<=B.target){
-      if(B.res==='win'){ B.state='dying'; B.t=0; S.shake=9; coins(B.x,GY-60,S.low?8:16); poof(B.x,GY-80,'#fff6c0',14); popPend(); }
-      else { B.state='smash'; B.t=0; }
-    }
-  }
-  function chickHit(){
-    const crit=rnd()<0.18;
-    if(S.boss){ hitBoss(S.boss.hpMax*(0.085+rnd()*0.03),crit); return; }
-    const m=frontMon(); if(m&&m.x<=S.chick.x+ENG+30) hitMon(m,Math.round(S.dmg*(0.88+rnd()*0.24)*(crit?2:1)),crit);
-  }
-  function skillBurst(){
-    const base=S.dmg*2.2;
-    if(S.boss){ hitBoss(S.boss.hpMax*0.16,true,'#ff9a3c'); }
-    else for(const m of S.mons) if(m.dead<0&&m.x<S.DW) hitMon(m,Math.round(base*(0.9+rnd()*0.2)),true,'#ff9a3c');
-    S.shake=Math.max(S.shake,S.rm?0:5);
-  }
-
-  // ----- 보스 (결과는 서버가 정한다) -----
-  function bossStart(b){
-    if(!S.attached||S.boss||!b) return;
-    for(const m of S.mons) if(m.dead<0) m.dead=0.0;
-    const k=imgKey(b.img);
-    S.boss={name:String(b.name||'보스'),img:k,x:S.DW+120,stop:S.DW*0.76,hp:N(b.hp)||1000,hpMax:N(b.hp)||1000,target:0,res:null,state:'intro',t:0,hit:0,kb:0,reward:null};
-    if(k) ld('img/brjang/boss/'+k+'/front.png');
-    S.mode='boss'; S.shake=S.rm?0:5; S.skillCd=3;
-    S.texts.length=0;
-  }
-  function bossResult(j){
-    const B=S.boss; if(!B||B.res) return;
-    const r=j&&j.result;
-    if(r==='win'||r==='lose'){
-      const hp=N(j.hp); if(hp>0&&B.state!=='fight'){ B.hpMax=hp; B.hp=hp; }
-      B.res=r;
-      if(r==='win'){ B.target=0; B.reward={feast:N(j.feast),ticket:N(j.ticket)}; }
-      else { const ratio=clamp(N(j.power)/Math.max(1,B.hpMax),0,0.98); B.target=Math.round(B.hpMax*Math.max(0.12,1-ratio)); }
-      if(B.state==='hold') B.state='fight';
-    } else bossAbort(true);
-  }
-  function bossAbort(force){
-    const B=S.boss; if(!B||(B.res&&!force)) return;
-    B.state='leave'; B.t=0;
-  }
-  function bossFinish(){ S.boss=null; S.mode='hunt'; S.mons.length=0; S.wait=0.5; S.chick.down=0; S.chick.pose='idle'; }
-
-  // ----- 갱신 -----
-  function update(dt){
-    S.t+=dt; const c=S.chick, B=S.boss, DW=S.DW;
-    S.shake=Math.max(0,S.shake-dt*14);
-    const want=B?clamp(B.stop-92,DW*0.4,DW*0.52):DW*0.4;
-    c.x+=(want-c.x)*Math.min(1,dt*4);
-    c.poseT-=dt; if(c.poseT<=0&&c.pose!=='down') c.pose='idle';
-    c.lunge=Math.max(0,c.lunge-dt*5); c.hurt=Math.max(0,c.hurt-dt); c.kbx*=Math.exp(-dt*10); c.skillT=Math.max(0,c.skillT-dt);
-    let engaged=false, front=null;
-    // 보스
-    if(B){
-      B.t+=dt; B.hit=Math.max(0,B.hit-dt); B.kb*=Math.exp(-dt*12);
-      if(B.state==='hold'&&B.t>22&&!B.res) bossAbort(true);   // 판정이 끝내 안 오면 보스가 물러난다
-      if(B.state==='intro'){ B.x=Math.max(B.stop,B.x-150*dt); if(B.x<=B.stop){ B.state=B.res?'fight':'hold'; B.t=0; S.shake=S.rm?0:6; } }
-      else if(B.state==='fight') engaged=!c.down;
-      else if(B.state==='dying'){ if(B.t>3.2) bossFinish(); }
-      else if(B.state==='smash'){
-        if(B.t>0.35&&!c.down){ c.down=1; c.pose='down'; S.shake=S.rm?0:8; poof(c.x,GY-40,'#ff5c7a',10); say2('💥',c.x,GY-90,30,'#fff',1.2); }
-        if(B.t>3.0){ c.down=0; c.pose='idle'; B.state='leave'; B.t=0; }
-      } else if(B.state==='leave'){ if(B.t>0.8) bossFinish(); }
-    } else {
-      // 몬스터
-      let prev=c.x+ENG;
-      for(let i=S.mons.length-1;i>=0;i--) if(S.mons[i].dead>=0.45) S.mons.splice(i,1);
-      for(const m of S.mons){
-        if(m.dead>=0){ m.dead+=dt; continue; }
-        if(m.x>prev) m.x=Math.max(prev,m.x-m.sp*dt);
-        m.hit=Math.max(0,m.hit-dt); m.kb*=Math.exp(-dt*12); m.lunge=Math.max(0,m.lunge-dt*4);
-        if(!front) front=m;
-        prev=Math.max(m.x,prev)+44;
-      }
-      if(front&&front.x<=c.x+ENG+4) engaged=true;
-      const alive=S.mons.filter(m=>m.dead<0);
-      if(!alive.length){ S.wait-=dt; if(S.wait<=0){ spawnWave(false); S.wait=0.3; } }
-      else if(alive.length===1&&alive[0].hp<=alive[0].max*0.3&&S.mons.length<=3){ spawnWave(false); }   // 마지막 한 마리가 거의 쓰러지면 다음 무리가 미리 달려온다
-      if(engaged&&front&&!c.down){
-        front.atk-=dt;
-        if(front.atk<=0){ front.atk=1.8+rnd()*0.9; front.lunge=1; if(c.skillT<=0){ c.pose='hit'; c.poseT=0.26; } c.hurt=0.26; c.kbx=-7; poof(c.x+16,GY-40,'#ff8a8a',3); }
-      }
-    }
-    // 걷는 느낌: 싸우지 않을 때 배경이 흐른다
-    S.walking=!engaged&&!c.down&&(!B||B.state==='intro');
-    if(S.walking) S.scroll+=(B?110:70)*dt;
-    // 병아리 공격
-    if(engaged&&c.skillT<=0){
-      c.atkT-=dt;
-      if(c.atkT<=0){ c.atkT=S.hitInt*(B?1.15:1); c.alt^=1; c.pose=c.alt?'atk2':'atk1'; c.poseT=0.24; c.lunge=1; c.hitIn=0.1; }
-    }
-    if(c.hitIn>0){ c.hitIn-=dt; if(c.hitIn<=0) chickHit(); }
-    // 스킬
-    if(engaged||(!B&&S.mons.length&&frontMon()&&frontMon().x<DW-20)){
-      S.skillCd-=dt;
-      if(S.skillCd<=0&&engaged){ S.skillCd=7; c.skillT=0.8; c.pose='skill'; c.poseT=0.8; S.fx={t:0,done:false}; }
-    }
-    if(S.fx){ S.fx.t+=dt; if(!S.fx.done&&S.fx.t>=0.3){ S.fx.done=true; skillBurst(); const n=S.low?6:14; for(let i=0;i<n;i++) pushP({k:'star',x:c.x+30+rnd()*DW*0.5,y:GY-20-rnd()*90,vx:20+rnd()*60,vy:-20-rnd()*50,t:0,life:0.7}); } if(S.fx.t>0.9) S.fx=null; }
-    // 동료
-    S.party.forEach((p,i)=>{
-      p.hop=Math.max(0,p.hop-dt);
-      if(engaged&&!c.down){ p.t-=dt; if(p.t<=0){ p.t=S.hitInt*2+0.25+i*0.18; p.hop=0.25; const px=c.x-46-34*i;
-        pushP({k:'proj',x:px+8,y:GY-24,t:0,life:1,c:GR_COL[p.gr],i}); } }
+// ---------- 필드 (BrjField) ----------
+let FIELD=null, FIELD_FAIL=false, BOSS=null, KILLS=0, GVIEW=0, CAST={}, BOSS_T=0;
+function skList(){ const s=V&&V.skill; return s&&Array.isArray(s.list)?s.list:[]; }
+function skById(id){ return skList().find(x=>x&&x.id===id)||null; }
+function fieldSkills(){
+  const s=V&&V.skill;
+  if(!s||typeof s!=='object') return {active:[{id:'slash',lv:1,cd_s:2},{id:'peck',lv:1,cd_s:1.5},null,null],passive:null};   // 옛 서버: 기본 스킬만
+  const eq=s.equipped||{}, act=Array.isArray(eq.active)?eq.active:[];
+  const mk=id=>{ const k=skById(id); return (k&&k.unlocked&&k.kind==='active')?{id:k.id,lv:N(k.lv),cd_s:N(k.cd_s)||3,power_pct:0,fx_color:String(k.fx_color||'')}:null; };   // 화면 피해량은 연출 값이라 power_pct(=시간당 골드 %)는 넘기지 않는다
+  const p=eq.passive?skById(eq.passive):null;
+  return {active:[0,1,2,3].map(i=>mk(act[i])),passive:(p&&p.unlocked&&p.kind==='passive')?p.id:null};
+}
+function fieldState(){
+  const v=V||{}, sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,3):[], cards=Array.isArray(sm.cards)?sm.cards:[];
+  return {stage:N(v.stage)||1,region:String(v.region||''),power:Math.max(5,N(R(v.dungeon,'power',0))),rate:N(v.rate),kpm:KPM,
+    party:ids.map(id=>cards.find(c=>c&&c.id===id)).filter(Boolean).map(c=>({id:String(c.id),n:String(c.n||'?'),gr:grKey(c.gr)})),
+    skills:fieldSkills(),boss:BOSS};
+}
+function pushField(){ if(FIELD&&V){ try{ FIELD.setState(fieldState()); }catch(e){ console.warn(e); } } }
+function showTag(txt,cls){ const t=$('bossTag'); t.textContent=txt; t.className=''; void t.offsetWidth; t.className='go '+(cls||''); }
+function initField(){
+  if(FIELD||FIELD_FAIL) return;
+  if(!window.BrjField){ FIELD_FAIL=true; $('fieldNote').style.display='flex'; return; }
+  try{
+    const cv=$('fcv'); cv.style.height='100%';
+    FIELD=BrjField.create(cv,{base:''});
+    FIELD.on('kill',e=>{ KILLS=N(e.n); GVIEW=N(e.gold_view); snd('kill',{vol:.5},90); });
+    FIELD.on('hit',e=>{ if(e&&e.crit) snd('crit',{vol:.55},140); else snd('hit',{vol:.3},120); });
+    FIELD.on('coin',()=>snd('coin',{vol:.45},140));
+    FIELD.on('skill',e=>{ const id=e&&e.id; if(!id) return; CAST[id]=performance.now(); snd('skill_'+id,{},160); flashSlot(id); });
+    FIELD.on('levelup',()=>snd('levelup'));
+    FIELD.on('boss',e=>{
+      const ph=e&&e.phase;
+      if(ph==='in'){ snd('boss_in'); showTag('⚠ BOSS','' ); syncBgm(); }
+      else if(ph==='win'){ snd('boss_win'); showTag('🏆 VICTORY','win'); endBoss(); }
+      else if(ph==='lose'){ snd('boss_lose'); showTag('💥 DEFEAT','lose'); endBoss(); }
     });
-    // 입자
-    for(let i=S.parts.length-1;i>=0;i--){
-      const p=S.parts[i]; p.t+=dt;
-      if(p.k==='proj'){
-        const tx=B?B.x-30:(frontMon()?frontMon().x:DW), ty=GY-34;
-        p.x+=Math.max(180,(tx-p.x)*6+120)*dt; p.y+=(ty-p.y)*Math.min(1,dt*8);
-        if(p.x>=tx-8||p.t>1.4){ if(p.x>=tx-8){ if(B) hitBoss(B.hpMax*0.026,false,'#bfe0ff'); else { const m=frontMon(); if(m) hitMon(m,Math.max(1,Math.round(S.dmg*0.35*(0.8+rnd()*0.4))),false,'#bfe0ff'); } } S.parts.splice(i,1); }
-        continue;
-      }
-      if(p.t>=p.life){ S.parts.splice(i,1); continue; }
-      if(p.k==='coin'){ p.vy+=520*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; if(p.y>GY+6&&p.b<2){ p.y=GY+6; p.vy*=-0.45; p.vx*=0.6; p.b++; } }
-      else { p.x+=p.vx*dt; p.y+=p.vy*dt; if(p.k==='dot') p.vy+=160*dt; }
-    }
-    for(let i=S.texts.length-1;i>=0;i--){ const t=S.texts[i]; t.t+=dt; t.y+=t.vy*dt; t.vy*=Math.exp(-dt*2.4); if(t.t>=t.life) S.texts.splice(i,1); }
-  }
+    try{ let to=0; const ro=new ResizeObserver(()=>{ clearTimeout(to); to=setTimeout(()=>{ try{ FIELD&&FIELD.resize(); }catch(e){} },140); }); ro.observe($('fieldBox')); }catch(e){}
+    pushField();
+  }catch(e){ console.warn(e); FIELD=null; FIELD_FAIL=true; $('fieldNote').style.display='flex'; }
+}
+function endBoss(){ clearTimeout(BOSS_T); BOSS_T=setTimeout(()=>{ BOSS=null; pushField(); syncBgm(); render(); },3200); }
+function flashSlot(id){ document.querySelectorAll('#dock .sk[data-sid="'+id+'"]').forEach(el=>{ el.classList.add('cast'); setTimeout(()=>el.classList.remove('cast'),260); }); }
+// 핫바 쿨다운 링 — 시전 이벤트 시각으로 어림한다(서버 값이 아니다)
+function updRings(){
+  const now=performance.now();
+  document.querySelectorAll('#dock .sk[data-sid]').forEach(el=>{
+    const id=el.dataset.sid, cd=N(el.dataset.cd)*1000, t=CAST[id];
+    const rem=(t&&cd>0)?Math.max(0,1-(now-t)/cd):0;
+    el.firstElementChild&&el.querySelector('.ring')&&el.querySelector('.ring').style.setProperty('--cd',(rem*360).toFixed(0)+'deg');
+  });
+}
+function updHud(){
+  if(!FIELD||!V) return;
+  try{ const s=FIELD.stats(); $('hKpm').textContent=Math.round(s.kpm); }catch(e){}
+  $('hKills').textContent=fmt(KILLS);
+  $('hPer').innerHTML=I('gold')+'+'+fmtG(N(V.rate)/(KPM*60))+' <small>/처치</small>';
+}
+// 시험용 관찰 창(화면 동작에는 쓰이지 않는다)
+window.__bt={get party(){return V?fieldState().party.length:0;},get t(){try{return FIELD.stats().t;}catch(e){return 0;}},get kills(){return KILLS;},get boss(){try{return FIELD.stats().boss;}catch(e){return null;}},get stats(){try{return FIELD.stats();}catch(e){return null;}},get field(){return FIELD;},get bgm(){return CURBGM;}};
+setInterval(updRings,140); setInterval(updHud,500);
 
-  // ----- 그리기 -----
-  const hash=n=>{ n=Math.imul(n^61,0x45d9f3b); n=Math.imul(n^(n>>>16),0x45d9f3b); return ((n^(n>>>16))>>>0)%1000/1000; };
-  function drawBg(){
-    const c=S.ctx, DW=S.DW, im=art('bg'+(S.reg+1));
-    if(im){
-      const w=im.width*(DH/im.height), off=-((S.scroll*0.6)%(w*2));
-      for(let k=0;k<4;k++){ const x0=off+k*w; if(x0>DW||x0+w<0) continue;
-        if(k%2){ c.save(); c.translate(x0+w,0); c.scale(-1,1); c.drawImage(im,0,0,w,DH); c.restore(); } else c.drawImage(im,x0,0,w,DH); }
-      return;
-    }
-    const h=HUE[S.reg], g=c.createLinearGradient(0,0,0,GY);
-    g.addColorStop(0,`hsl(${h},60%,70%)`); g.addColorStop(1,`hsl(${(h+20)%360},70%,88%)`); c.fillStyle=g; c.fillRect(0,0,DW,GY);
-    [[0.3,70,'hsl('+h+',30%,62%)',90],[0.6,56,'hsl('+h+',28%,48%)',70]].forEach(([f,sp,col,mh],li)=>{
-      const wx=S.scroll*f, b0=Math.floor(wx/sp)-1; c.fillStyle=col;
-      for(let b=b0;b<b0+Math.ceil(DW/sp)+3;b++){ const bw=sp*(0.6+hash(b+li*77)*0.4), bh=30+hash(b+99+li*31)*mh; c.fillRect(b*sp-wx,GY-bh,bw,bh); }
-    });
-    const gg=c.createLinearGradient(0,GY-6,0,DH); gg.addColorStop(0,`hsl(${h},25%,40%)`); gg.addColorStop(1,`hsl(${h},25%,26%)`); c.fillStyle=gg; c.fillRect(0,GY-6,DW,DH-GY+6);
-    c.fillStyle='rgba(255,255,255,.14)'; const o=S.scroll%64; for(let x=-o;x<DW;x+=64) c.fillRect(x,GY+16,30,3);
-  }
-  function drawChick(){
-    const c=S.chick, cx=S.ctx; const walk=S.walking?Math.abs(Math.sin(S.t*11))*3.5:Math.sin(S.t*3)*1;
-    let x=c.x+c.lunge*(S.boss?26:16)+c.kbx, y=GY+4-walk, o={}; const p=c.pose;
-    cx.fillStyle='rgba(0,0,0,.28)'; cx.beginPath(); cx.ellipse(c.x,GY+5,26,6,0,0,6.3); cx.fill();
-    let im=art('chick_'+(p==='down'?'hit':p)); const has=!!im;
-    if(!im) im=art('chick_idle');
-    if(!im) im=ld(CHICK_FB);
-    if(!im) im=emo('🐥',74);
-    let hk=1;
-    if(has){   // 그림마다 몸통 크기가 달라서 보이는 몸 높이를 idle 에 맞추고(깜빡임 방지), 공격 순간엔 눌렀다 펴서 움직임으로 보이게 한다
-      hk=CHICK_HK[p]||1;
-      if(p==='atk1'||p==='atk2'){ o.sx=1+0.09*c.lunge; o.sy=1-0.07*c.lunge; o.rot=(p==='atk1'?1:-1)*0.07*c.lunge; }
-      else if(p==='skill'){ o.sy=1+Math.sin(S.t*30)*0.025; o.sx=1.04; }
-    }
-    if(!has){   // 포즈 그림이 없을 땐 같은 그림을 기울이고 눌러서 모션을 낸다
-      if(p==='atk1'||p==='atk2') { o.rot=p==='atk1'?0.12:-0.1; o.sx=1.08; o.sy=0.94; }
-      else if(p==='hit') { o.rot=-0.15; }
-      else if(p==='skill') { o.sy=1.1+Math.sin(S.t*30)*0.03; o.sx=1.08; }
-    }
-    if(p==='down'){ o.rot=-1.4; o.a=0.9; y+=8; x-=10; }
-    if(c.hurt>0&&((S.t*30)|0)%2===0) o.a=0.45;
-    if(c.skillT>0&&!S.low){ cx.save(); cx.globalCompositeOperation='lighter'; const g=cx.createRadialGradient(x,y-40,4,x,y-40,60); g.addColorStop(0,'rgba(255,220,90,.75)'); g.addColorStop(1,'rgba(255,140,40,0)'); cx.fillStyle=g; cx.fillRect(x-70,y-110,140,140); cx.restore(); }
-    spr(x,y,86*hk,im,o);
-  }
-  const CHICK_HK={atk1:1.18,hit:1.18,skill:0.945};   // 그림 알파 bbox 높이(idle 225px 기준): atk1 191 · atk2 224 · hit 191 · skill 238
-  function drawMember(m,x,fy){
-    const c=S.ctx, col=GR_COL[m.gr]||'#98a2b8', bob=Math.sin(S.t*6+x)*(S.walking?2:0.8), hop=m.hop>0?-Math.sin((1-m.hop/0.25)*Math.PI)*8:0; fy+=bob+hop;
-    c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(x,GY+6,12,3.5,0,0,6.3); c.fill();
-    c.strokeStyle=col; c.globalAlpha=0.55; c.lineWidth=2; c.beginPath(); c.ellipse(x,GY+6,14,4.5,0,0,6.3); c.stroke(); c.globalAlpha=1;
-    c.fillStyle=col; c.beginPath(); c.ellipse(x,fy-12,9,12,0,0,6.3); c.fill();
-    c.fillStyle='#ffe3b8'; c.strokeStyle='rgba(10,12,20,.7)'; c.lineWidth=1.5; c.beginPath(); c.arc(x,fy-30,8,0,6.3); c.fill(); c.stroke();
-    c.fillStyle='#222'; c.fillRect(x-4,fy-31,2,3); c.fillRect(x+2,fy-31,2,3);
-    c.fillStyle='#14171f'; c.strokeStyle='#fff'; c.lineWidth=1; c.beginPath(); c.arc(x,fy-12,6.5,0,6.3); c.fill(); c.stroke();
-    txt(m.ini,x,fy-11.5,9,'#fff','center','rgba(0,0,0,.0)');
-  }
-  function drawMon(m){
-    const c=S.ctx, k=S.reg+1, dying=m.dead>=0, hit=m.hit>0;
-    let im=(hit&&art('m'+k+'_hit'))||art('m'+k+'_idle'); const fb=!im; if(!im) im=emo(MON_EMOJI[S.reg],58);
-    const bob=Math.abs(Math.sin(S.t*7+m.ph))*(m.x>S.chick.x+ENG+6?5:1.5);
-    const x=m.x+m.kb-m.lunge*14, y=GY+3-bob;
-    c.fillStyle='rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(m.x,GY+5,24,5.5,0,0,6.3); c.fill();
-    const o={flip:false}; if(dying){ const q=m.dead/0.45; o.a=1-q; o.sx=1+q*0.35; o.sy=1-q*0.5; }
-    else if(hit&&fb&&((S.t*40)|0)%2===0) o.a=0.4;
-    spr(x,y,74,im,o);
-    if(!dying&&m.hp<m.max){ const w=36; c.fillStyle='rgba(0,0,0,.55)'; c.fillRect(x-w/2-1,GY-90,w+2,6); c.fillStyle='#ef5a6f'; c.fillRect(x-w/2,GY-89,w*clamp(m.hp/m.max,0,1),4); }
-  }
-  function drawBoss(){
-    const B=S.boss, c=S.ctx; let im=B.img?ld('img/brjang/boss/'+B.img+'/front.png'):null; if(!im) im=emo('🐲',120);
-    let a=1, rot=0, x=B.x+B.kb, y=GY+6, sx=1, sy=1;
-    if(B.state==='dying'){ const q=Math.min(1,B.t/1.2); a=1-q; rot=q*0.9; y+=q*18; }
-    if(B.state==='leave'){ a=1-Math.min(1,B.t/0.8); }
-    if(B.state==='smash'&&B.t<0.5){ x-=Math.sin(Math.min(1,B.t/0.35)*Math.PI)*60; }
-    if(B.state==='hold'||B.state==='intro'){ sy=1+Math.sin(S.t*4)*0.015; }
-    c.fillStyle='rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(B.x,GY+7,52,9,0,0,6.3); c.fill();
-    const o={a,rot,sx,sy,flip:false}; if(B.hit>0&&((S.t*40)|0)%2===0) o.a=a*0.5;
-    spr(x,y,150,im,o);
-  }
-  function drawFx(){
-    const c=S.ctx, f=S.fx, DW=S.DW; if(!f) return;
-    const q=f.t/0.9, x0=S.chick.x+30;
-    c.save(); c.globalCompositeOperation=S.low?'source-over':'lighter';
-    const reach=Math.min(DW-x0+40,(DW-x0+40)*Math.min(1,f.t/0.35)), g=c.createLinearGradient(x0,0,x0+reach,0);
-    g.addColorStop(0,'rgba(255,230,120,'+(0.8*(1-q))+')'); g.addColorStop(1,'rgba(255,120,40,0)');
-    c.fillStyle=g; c.fillRect(x0,GY-86,reach,80);
-    c.strokeStyle='rgba(255,210,90,'+(0.9*(1-q))+')'; c.lineWidth=5*(1-q)+1;
-    c.beginPath(); c.ellipse(x0,GY-30,30+q*DW*0.9,10+q*34,0,0,6.3); c.stroke();
-    c.restore();
-    if(f.t<0.35){ txt('스킬!',S.chick.x,GY-112,16,'#ffe27a'); }
-  }
-  function drawParts(){
-    const c=S.ctx;
-    for(const p of S.parts){
-      if(p.k==='coin'){ const a=Math.min(1,(p.life-p.t)*3); c.globalAlpha=a; c.fillStyle='#f0b43c'; c.strokeStyle='#8a5d00'; c.lineWidth=1.2; c.beginPath(); c.ellipse(p.x,p.y,4.2,Math.abs(Math.cos(p.t*9))*4.2+0.8,0,0,6.3); c.fill(); c.stroke(); c.globalAlpha=1; }
-      else if(p.k==='dot'){ c.globalAlpha=1-p.t/p.life; c.fillStyle=p.c; c.beginPath(); c.arc(p.x,p.y,p.r,0,6.3); c.fill(); c.globalAlpha=1; }
-      else if(p.k==='star'){ c.globalAlpha=1-p.t/p.life; txt('✦',p.x,p.y,13,'#ffe27a','center','rgba(255,120,40,.7)'); c.globalAlpha=1; }
-      else if(p.k==='proj'){ c.fillStyle=p.c; c.strokeStyle='#fff'; c.lineWidth=1.2; c.beginPath(); c.arc(p.x,p.y,4,0,6.3); c.fill(); c.stroke(); }
-    }
-    for(const t of S.texts){ const q=t.t/t.life; c.globalAlpha=(t.al==null?1:t.al)*(q<0.7?1:1-(q-0.7)/0.3); const sc=q<0.12?0.6+q/0.12*0.4:1; txt(t.s,t.x,t.y,t.size*sc,t.col); }
-    c.globalAlpha=1;
-  }
-  function drawHud(){
-    const c=S.ctx, DW=S.DW, B=S.boss;
-    txt('📍 '+Array.from(S.region).slice(0,10).join('')+' · 스테이지 '+S.stage,8,13,11,'#fff','left');
-    txt('⚔ '+fmt(S.power),DW-8,13,11,'#ffe27a','right');
-    if(B){
-      const w=DW-24; c.fillStyle='rgba(0,0,0,.6)'; c.fillRect(11,26,w+2,14); c.fillStyle=B.hp/B.hpMax>0.3?'#ef5a6f':'#ff9a3c'; c.fillRect(12,27,w*clamp(B.hp/B.hpMax,0,1),12);
-      txt(B.name+'  '+fmt(B.hp)+' / '+fmt(B.hpMax),DW/2,33,10,'#fff');
-      if(B.state==='intro'||(B.state==='hold'&&B.t<5)){ const fl=((S.t*5)|0)%2; txt('⚠ 보스 출현!',DW/2,86,24,fl?'#ff5c7a':'#ffe27a'); if(B.state==='hold') txt('판정 중…',DW/2,112,13,'#fff'); }
-      if(B.state==='hold'&&B.t>=5) txt('판정 중…',DW/2,100,13,'#fff');
-      if(B.state==='dying'&&B.t>0.6){ txt('🏆 승리!',DW/2,84,28,'#ffe27a'); if(B.reward) txt('🍖 +'+fmt(B.reward.feast)+'   🎟 +'+fmt(B.reward.ticket),DW/2,112,15,'#fff'); }
-      if(B.state==='smash'&&B.t>0.5) txt('💥 쓰러졌어요… 다시 도전!',DW/2,64,14,'#ffb0bc');
-    }
-    // 스킬 쿨다운·처치 수
-    const cd=1-clamp(S.skillCd/7,0,1); c.fillStyle='rgba(0,0,0,.5)'; c.fillRect(8,DH-13,70,6); c.fillStyle=cd>=0.99?'#ffe27a':'#6b9bff'; c.fillRect(9,DH-12,68*cd,4);
-    txt('스킬',82,DH-10,9,'#fff','left');
-    txt('처치 '+fmt(S.kills),DW-8,DH-10,10,'#fff','right');
-  }
-  function drawFrame(){
-    const c=S.ctx; if(!c) return; c.setTransform(S.dpr*S.sc,0,0,S.dpr*S.sc,0,0);
-    c.clearRect(0,0,S.DW,DH);
-    c.save();
-    if(S.shake>0&&!S.rm) c.translate((rnd()-0.5)*S.shake,(rnd()-0.5)*S.shake);
-    drawBg();
-    // 보스 등장 때 붉은 기운
-    if(S.boss&&(S.boss.state==='intro'||S.boss.state==='hold')){ c.fillStyle='rgba(180,20,40,'+(0.12+0.08*Math.sin(S.t*8))+')'; c.fillRect(0,0,S.DW,DH); }
-    S.party.forEach((m,i)=>drawMember(m,S.chick.x-46-34*i,GY+3+(i%2)*3));
-    if(S.boss) drawBoss(); else for(let i=S.mons.length-1;i>=0;i--) drawMon(S.mons[i]);
-    drawChick(); drawFx(); drawParts(); drawHud();
-    c.restore();
-  }
-
-  window.__bt={get frames(){return S.frames;},get running(){return S.running;},get mode(){return S.mode;},get kills(){return S.kills;},get boss(){return S.boss?S.boss.state:null;},get party(){return S.party.length;},get attached(){return S.attached;}};
-  return {attach,detach,bossStart,bossResult,bossAbort,sync:derive};
-})();
-
-// ---------- 그리기 ----------
+// ---------- 값 보조 ----------
 function R(o,k,d){ return (o&&typeof o==='object'&&o[k]!=null)?o[k]:d; }
-function resHtml(){
-  if(!V) return '';
-  const rs=R(V.dungeon,'res',{}), kn=R(V.dungeon,'key',{});
-  const g=N(R(rs,'gold',V.gold)), f=N(R(rs,'feast',R(V.growth,'feast',0))), t=N(R(rs,'ticket',R(V.summon,'tickets',0))), s=N(R(rs,'stone',R(V.growth,'stone',0)));
-  return `<span class="chip" title="골드">🪙 ${fmt(g)}</span><span class="chip" title="특식 — 귀한 재화">🍖 ${fmt(f)}</span><span class="chip" title="소환권">🎟 ${fmt(t)}</span><span class="chip" title="강화석">🔩 ${fmt(s)}</span><span class="chip" title="던전 열쇠">🔑 ${fmt(R(kn,'n',0))}/${fmt(R(kn,'max',10))}</span>`;
+function resVals(){
+  const v=V||{}, rs=R(v.dungeon,'res',{}), kn=R(v.dungeon,'key',{});
+  return {gold:N(R(rs,'gold',v.gold)),feast:N(R(rs,'feast',R(v.growth,'feast',0))),ticket:N(R(rs,'ticket',R(v.summon,'tickets',0))),stone:N(R(rs,'stone',R(v.growth,'stone',0))),key:N(R(kn,'n',0)),keymax:N(R(kn,'max',10))};
+}
+// 숫자 롤링
+function rollNum(el,to,f){
+  to=Math.floor(N(to)); f=f||fmt; const from=el._v==null?to:el._v; el._v=to;
+  if(el._raf){ cancelAnimationFrame(el._raf); el._raf=0; }
+  if(from===to||REDUCE||document.hidden){ el.textContent=f(to); return; }
+  const t0=performance.now(), D=700;
+  const step=now=>{ const q=Math.min(1,(now-t0)/D), e=1-Math.pow(1-q,3); el.textContent=f(from+(to-from)*e); if(q<1) el._raf=requestAnimationFrame(step); else{ el._raf=0; el.textContent=f(to); } };
+  el._raf=requestAnimationFrame(step);
+}
+function bump(el){ if(!el||REDUCE) return; el.classList.add('bump'); setTimeout(()=>el.classList.remove('bump'),220); }
+function flyCoins(rect,n){
+  const to=$('chip_gold'); if(!rect||!to||REDUCE) return;
+  const b=to.getBoundingClientRect(), L=$('fly');
+  for(let i=0;i<n;i++){
+    const im=document.createElement('img'); im.src='img/brjhunt/ui/cur_gold.webp'; im.alt='';
+    const sx=rect.left+rect.width/2+(Math.random()-0.5)*70-13, sy=rect.top+rect.height/2+(Math.random()-0.5)*16-13;
+    im.style.left=sx+'px'; im.style.top=sy+'px'; L.appendChild(im);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ im.style.transitionDelay=(i*60)+'ms'; im.style.transform='translate('+(b.left+14-sx)+'px,'+(b.top+b.height/2-13-sy)+'px) scale(.55)'; im.style.opacity='.25'; }));
+    setTimeout(()=>im.remove(),1300+i*60);
+  }
+  setTimeout(()=>bump(to),800);
+}
+
+// 같은 내용이면 건드리지 않는다(그림이 깜빡이지 않고, 쿨다운 링 같은 진행 중인 값이 지워지지 않는다)
+function setHtml(el,h){ if(el._h===h) return false; el._h=h; el.innerHTML=h; return true; }
+
+// ---------- 화면 조각 ----------
+function buildChips(){
+  const el=$('res'); if(el.dataset.built) return; el.dataset.built='1';
+  el.innerHTML=['gold','feast','ticket','stone','key'].map(k=>`<span class="chip" id="chip_${k}" title="${CUR_KO[k]}"><img src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]}"><b id="cv_${k}">0</b></span>`).join('');
+}
+function updateChips(){
+  buildChips(); const r=resVals();
+  ['gold','feast','ticket','stone'].forEach(k=>{
+    const b=$('cv_'+k), c=$('chip_'+k), prev=b._v;
+    rollNum(b,r[k],fmtC); c.title=CUR_KO[k]+' '+fmt(r[k]);
+    if(prev!=null&&r[k]>prev) bump(c);
+  });
+  $('cv_key').textContent=fmt(r.key)+'/'+fmt(r.keymax); $('chip_key').title=CUR_KO.key+' '+fmt(r.key)+'/'+fmt(r.keymax);
+}
+function renderTop(){
+  const v=V||{};
+  $('lvb').textContent='Lv.'+fmt(v.lv||1); $('pname').textContent=String(v.name||'브장신 키우기'); $('preg').textContent='📍 '+String(v.region||'필드 사냥');
+  $('stbn').textContent=fmt(v.stage||1);
+}
+function dockHtml(){
+  const v=V, gate=gateInfo(), bg=bossGate(), cap=N(v.max_stage)||30, st=N(v.stage), nextOk=st<cap;
+  const s=v.skill, eq=(s&&s.equipped)||{}, act=Array.isArray(eq.active)?eq.active:[];
+  const slotBtn=(id,pas)=>{
+    const k=id?skById(id):null;
+    if(!k||!k.unlocked) return `<button class="sk${pas?' pas':''} empty" data-tab="skill" aria-label="${pas?'패시브':'액티브'} 스킬 칸이 비어 있어요. 스킬 탭으로 가기">+</button>`;
+    return `<button class="sk${pas?' pas':''}" data-sid="${esc(k.id)}" data-cd="${N(k.cd_s)}" data-tab="skill" aria-label="${esc(k.name)} 레벨 ${fmt(k.lv)}. 스킬 탭으로 가기"><img src="${skIcon(k.id)}" alt="" onerror="this.style.display='none'"><span class="ring"></span><span class="lv">${fmt(k.lv)}</span></button>`;
+  };
+  let big;
+  if(BOSS) big=`<button class="btn red push" disabled data-do="push">⚔ 보스전<small>진행 중…</small></button>`;
+  else if(bg) big=`<button class="btn red push ready" data-do="boss">🛡 보스 도전<small>${esc(bg.name)}</small></button>`;
+  else if(!nextOk) big=`<button class="btn alt push" disabled data-do="push">구역의 끝<small>환생으로 확장</small></button>`;
+  else{ const can=N(v.gold)>=N(v.cost);
+    big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="push" aria-label="스테이지 돌파, 비용 골드 ${fmt(v.cost)}">⚔ 돌파<small>${I('gold')}${fmtC(v.cost)}</small></button>`; }
+  const pct=Math.max(2,Math.min(100,st/cap*100));
+  return `<div class="pbar" role="progressbar" aria-label="스테이지 진행" aria-valuemin="0" aria-valuemax="${cap}" aria-valuenow="${st}"><i style="width:${pct}%"></i><span>STAGE ${fmt(st)} / ${fmt(cap)}</span></div>
+  <div class="dockrow"><div class="hot">${slotBtn(eq.passive,true)}<span class="hsep" aria-hidden="true"></span>${[0,1,2,3].map(i=>slotBtn(act[i],false)).join('')}</div>${big}</div>`;
 }
 function navHtml(){
   const dn=V&&V.dungeon; const todo=dn&&dn.daily&&!dn.daily.claimed&&dn.daily.all;
   const clan=dn&&dn.clan&&dn.clan.claimable;
   const chest=V&&V.prestige&&V.prestige.chest&&N(V.prestige.chest.stock)>0;
-  const dots={adv:todo||clan,pres:chest};
-  return TABS.map(([k,e,n])=>`<button data-tab="${k}" class="${TAB===k?'on':''}"><span class="e">${e}</span>${n}${dots[k]?'<span class="dot"></span>':''}</button>`).join('');
+  const aw=V&&V.skill&&V.skill.awaken&&V.skill.awaken.next&&V.skill.awaken.next.can;
+  const dots={adv:todo||clan,pres:chest,skill:aw};
+  return TABS.map(([k,ic,n])=>`<button role="tab" aria-selected="${TAB===k}" data-tab="${k}" class="${TAB===k?'on':''}"><img src="img/brjhunt/ui/tab_${ic}.webp" alt="" onerror="this.style.display='none'">${n}${dots[k]?'<span class="dot" title="할 수 있는 일이 있어요"></span>':''}</button>`).join('');
 }
 function msgHtml(){ if(!MSG) return ''; return `<div class="msg ${esc(MSG.k)}" role="status">${MSG.t}</div>`; }   // MSG.t 는 이 파일이 만든 문장(서버 문자열은 만들 때 esc 한다)
 
 function render(){
-  const main=$('main'), nav=$('nav').firstElementChild;
-  if(STATE!=='ok'||TAB!=='hunt') Battle.detach();
-  $('res').innerHTML=STATE==='ok'?resHtml():'';
-  if(STATE==='boot'){ main.innerHTML='<div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div>'; nav.innerHTML=''; return; }
+  const main=$('main'), nav=$('nav').firstElementChild, sheet=$('sheet');
+  const ok=STATE==='ok'&&!!V;
+  document.body.classList.toggle('st-ok',ok);
+  document.body.classList.toggle('mini',ok&&TAB!=='hunt');
+  $('stage').style.display=ok?'':'none';
+  syncBgm();
+  if(!ok&&FIELD){ try{ FIELD.stop(); }catch(e){} }
+  if(STATE==='boot'){ main.innerHTML='<div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div>'; nav.innerHTML=''; nav._h=null; return; }
   if(STATE==='out'){
     main.innerHTML=`<div class="empty card"><div class="big">🔐</div><h2 style="justify-content:center">디스코드로 로그인해 주세요</h2><p class="sub">로그인하면 내 사냥터와 동료를 볼 수 있어요.<br>비밀번호는 묻지 않아요. 디스코드 확인 버튼만 누르면 돼요.</p><div class="btns"><button class="btn" id="loginBtn">디스코드 로그인</button></div></div>`;
-    nav.innerHTML=''; return;
+    nav.innerHTML=''; nav._h=null; return;
   }
   if(STATE==='nobrj'){
     main.innerHTML=`<div class="empty card"><div class="big">🥚</div><h2 style="justify-content:center">아직 브장신이 없어요</h2><p class="sub">디스코드 <b>#브장신키우기</b> 채널에서 먼저 시작하세요.<br>채널에 <b>현황</b> 이라고 치면 알이 생겨요. 그런 뒤에 이 화면으로 오세요.</p><div class="btns"><button class="btn alt" id="retryBtn">다시 확인하기</button></div></div>`;
-    nav.innerHTML=''; return;
+    nav.innerHTML=''; nav._h=null; return;
   }
   if(STATE==='err'||!V){
     main.innerHTML=`<div class="empty card"><div class="big">📡</div><h2 style="justify-content:center">불러오지 못했어요</h2><p class="sub">${esc(ERR||CODE_MSG.net)}</p><div class="btns"><button class="btn" id="retryBtn">다시 불러오기</button></div></div>`;
-    nav.innerHTML=''; return;
+    nav.innerHTML=''; nav._h=null; return;
   }
-  nav.innerHTML=navHtml();
-  const fn={hunt:tabHunt,crew:tabCrew,grow:tabGrow,adv:tabAdv,pres:tabPres}[TAB]||tabHunt;
-  const keep=window.scrollY;
+  renderTop(); updateChips();
+  setHtml($('dock'),dockHtml());
+  setHtml(nav,navHtml());
+  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,adv:tabAdv,pres:tabPres}[TAB]||tabHunt;
+  const keep=sheet.scrollTop;
   main.innerHTML=msgHtml()+fn();
-  { const bs=$('battleSlot'); if(bs) Battle.attach(bs); }
-  window.scrollTo(0,keep);
+  if(TAB_FLAG){ TAB_FLAG=false; main.classList.remove('up'); void main.offsetWidth; main.classList.add('up'); sheet.scrollTop=0; } else sheet.scrollTop=keep;
+  initField();
+  if(FIELD){ pushField(); try{ FIELD.start(); }catch(e){} }
   tick();
 }
 
@@ -670,51 +633,101 @@ function pendNow(){
   const hrs=Math.min(cap,N(V.hours)+dt);
   return Math.floor(N(V.rate)*(hrs+N(V.boost)));
 }
+function multPills(){
+  const out=[];
+  const gm=N(R(V.growth,'mult',1)), sm=N(R(V.summon,'mult',1)), pm=N(R(V.prestige,'gold_mult',1)), km=N(R(V.skill,'mult',1));
+  if(gm>1.0001) out.push(`📈 성장 ×${gm.toFixed(2)}`); if(sm>1.0001) out.push(`👥 동료 파티 ×${sm.toFixed(2)}`); if(km>1.0001) out.push(`⚡ 스킬 ×${km.toFixed(2)}`); if(pm>1.0001) out.push(`🌟 환생 ×${pm.toFixed(2)}`);
+  return out;
+}
 function tabHunt(){
   const v=V, gate=gateInfo(), full=N(v.hours)>=N(v.cap_h)-0.01;
   const cap=N(v.max_stage)||30, st=N(v.stage);
-  const nextOk=st<cap;
-  const pushLabel=!nextOk?'이 구역의 끝이에요':gate?'🛡 보스를 먼저 이겨요':`⚔ 돌파 (🪙 ${fmt(v.cost)})`;
-  const bg=bossGate();
-  const mult=[];
-  const gm=N(R(v.growth,'mult',1)), sm=N(R(v.summon,'mult',1)), pm=N(R(v.prestige,'gold_mult',1));
-  if(gm>1.0001) mult.push(`성장 ×${gm.toFixed(2)}`); if(sm>1.0001) mult.push(`동료 파티 ×${sm.toFixed(2)}`); if(pm>1.0001) mult.push(`환생 ×${pm.toFixed(2)}`);
+  const mult=multPills();
+  const hpct=Math.max(2,Math.min(100,N(v.hours)/Math.max(1,N(v.cap_h))*100));
   return `
-  <div class="card bcard"><div id="battleSlot"></div>
-    ${bg?`<div class="btns"><button class="btn gold" data-do="boss">🛡 보스 도전 — ${esc(bg.name)}</button></div>`:''}
-    <div class="mut" style="margin-top:6px">자동 전투 구경 화면이에요. 골드와 스테이지는 서버가 계산하고, 이 그림은 그걸 눈으로 보여 줘요.</div></div>
   <div class="card">
-    <div class="hero"><img src="img/brjang/parts/body_chick/front.png" alt="브장신" onerror="this.outerHTML='<div class=ph>🐥</div>'">
-      <div style="min-width:0"><div class="sub">${esc(v.name||'')} · 브장신 Lv.${fmt(v.lv)}</div>
-      <div class="big">스테이지 ${fmt(st)}</div><div class="sub">📍 ${esc(v.region||'')}</div></div></div>
-    <div style="margin-top:10px"><div class="bar" aria-label="스테이지 진행"><i style="width:${Math.max(2,Math.min(100,st/cap*100))}%"></i></div>
-      <div class="mut" style="margin-top:3px">끝까지 ${fmt(st)} / ${fmt(cap)} 스테이지${cap>30?' (환생으로 넓힌 상한)':''}</div></div>
-  </div>
-  <div class="card">
-    <h2>🪙 쌓인 사냥 골드</h2>
-    <div class="big gold" id="pend">${fmt(pendNow())}</div>
-    <div class="sub">시간당 🪙 ${fmt(v.rate)} · ${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
+    <div class="hunthero"><div style="min-width:0"><div class="sub">쌓인 사냥 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
+      <button class="btn gold" data-do="collect" style="min-width:118px;font-size:17px;padding:10px 12px" aria-label="쌓인 사냥 골드 수령하기">수령</button></div>
+    <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> · 처치당 ${I('gold')}<b>${fmtG(N(v.rate)/(KPM*60))}</b> <span class="mut">(분당 ${KPM}마리 기준)</span></div>
+    <div class="bar g" style="margin-top:8px" role="progressbar" aria-label="쌓인 시간" aria-valuemin="0" aria-valuemax="${fmt(v.cap_h)}" aria-valuenow="${N(v.hours).toFixed(1)}"><i style="width:${hpct}%"></i></div>
+    <div class="sub" style="margin-top:3px">${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
     ${N(v.boost)>0?`<div class="sub green">⚔ 내전 부스트 ${fmt(v.boost)}시간치가 더해져요 (내전 1판 = 사냥 1시간)</div>`:`<div class="mut">내전을 1판 뛸 때마다 사냥 1시간치가 더 쌓여요 (최대 ${fmt(v.boost_max)}시간)</div>`}
-    ${mult.length?`<div class="mut">시간당 골드 배율 — ${esc(mult.join(' · '))}</div>`:''}
-    <div class="btns"><button class="btn gold" data-do="collect">🪙 수령하기</button></div>
-    <div class="mut" style="margin-top:6px">화면에 보이는 값은 약간의 어림이고, 받을 때 서버가 정확히 계산해 줘요.</div>
+    ${mult.length?`<div class="mults">${mult.map(m=>`<span class="pill gold">${esc(m)}</span>`).join('')}</div><div class="mut" style="margin-top:4px">시간당 골드 배율이에요.</div>`:''}
+    <div class="mut" style="margin-top:6px">화면에 보이는 값은 약간의 어림이고, 받을 때 서버가 정확히 계산해 줘요. 화면 속 사냥은 이 골드를 눈으로 보여 주는 구경거리예요.</div>
   </div>
   <div class="card">
     <h2>⚔ 다음 스테이지로 돌파</h2>
-    <div class="kv"><span>돌파 비용</span><b>🪙 ${fmt(v.cost)}</b></div>
-    <div class="kv"><span>내 골드</span><b>🪙 ${fmt(v.gold)}</b></div>
-    <div class="kv"><span>돌파하면 시간당 골드</span><b>🪙 ${fmt(v.next_rate)} (기본값 기준)</b></div>
-    ${gate?`<div class="msg info" style="margin-top:8px">🛡 스테이지 ${fmt(gate.stage)} 은 보스 관문이에요. <b>${esc(gate.name)}</b> 을(를) 이겨야 넘어갈 수 있어요. 졌다고 손해는 없어요.</div>`:''}
-    <div class="btns"><button class="btn ${(!nextOk||gate)?'alt':''}" data-do="push" ${!nextOk?'disabled':''}>${pushLabel}</button>${gate?'<button class="btn alt" data-tab="adv">🗝 모험 탭으로</button>':''}</div>
+    <div class="kv"><span>돌파 비용</span><b>${I('gold')}${fmt(v.cost)}</b></div>
+    <div class="kv"><span>내 골드</span><b>${I('gold')}${fmt(v.gold)}</b></div>
+    <div class="kv"><span>돌파하면 시간당 골드</span><b>${I('gold')}${fmt(v.next_rate)} <span class="mut">(기본값 기준)</span></b></div>
+    ${gate?`<div class="msg info" style="margin:8px 0 0">🛡 스테이지 ${fmt(gate.stage)} 은 보스 관문이에요. <b>${esc(gate.name)}</b> 을(를) 이겨야 넘어갈 수 있어요. 졌다고 손해는 없어요.</div>`:''}
+    <div class="mut" style="margin-top:6px">돌파 버튼은 필드 아래쪽에 있어요. 스테이지 ${fmt(st)} / ${fmt(cap)}${cap>30?' (환생으로 넓힌 상한)':''}</div>
   </div>
   ${quickCard()}
-  <div class="card"><h2>📖 이렇게 즐겨요</h2><div class="sub">① 접속하면 쌓인 골드를 <b>수령</b> ② 골드로 <b>돌파</b>하거나 <b>성장</b>에 써요 ③ 소환권으로 <b>동료</b>를 모아 파티를 짜면 시간당 골드가 늘어요 ④ 열쇠로 <b>던전</b>, 관문에서는 <b>보스</b>에 도전해요. 앱을 꺼 두어도 골드는 쌓여요(최대 ${fmt(v.cap_h)}시간).</div></div>`;
+  <details class="card"><summary>📖 이렇게 즐겨요</summary><div class="sub">① 접속하면 쌓인 골드를 <b>수령</b> ② 골드로 <b>돌파</b>하거나 <b>성장</b>에 써요 ③ <b>각성</b>하면 새 <b>스킬</b>을 배우고, 스킬을 강화하면 시간당 골드가 더 늘어요 ④ 소환권으로 <b>동료</b>를 모아 파티를 짜요 ⑤ 열쇠로 <b>던전</b>, 관문에서는 <b>보스</b>에 도전해요. 앱을 꺼 두어도 골드는 쌓여요(최대 ${fmt(v.cap_h)}시간).</div></details>`;
 }
 function quickCard(){
   const q=R(V.growth,'quick',null); if(!q) return '';
-  return `<div class="card"><h2>⚡ 퀵사냥</h2><div class="sub">특식 🍖 을 내고 사냥 ${fmt(q.hours)}시간치(🪙 ${fmt(q.gain)})를 바로 받아요. 오늘 ${fmt(q.used)}/${fmt(q.max)}회 사용 · ${esc(q.reset)} 새로 시작</div>
-  <div class="btns"><button class="btn ${q.can?'':'alt'}" data-do="quick" ${q.left<=0?'disabled':''}>⚡ 퀵사냥 ${q.left>0?`(🍖 ${fmt(q.next_cost)})`:'(오늘 끝)'}</button></div>
-  <div class="mut">비용: ${(Array.isArray(q.costs)?q.costs:[]).map((c,i)=>`${i+1}번째 🍖${fmt(c)}`).join(' · ')}</div></div>`;
+  return `<div class="card"><h2>⚡ 퀵사냥</h2><div class="sub">특식 ${I('feast')} 을 내고 사냥 ${fmt(q.hours)}시간치(${I('gold')}${fmt(q.gain)})를 바로 받아요. 오늘 ${fmt(q.used)}/${fmt(q.max)}회 사용 · ${esc(q.reset)} 새로 시작</div>
+  <div class="btns"><button class="btn ${q.can?'green':'alt'}" data-do="quick" ${q.left<=0?'disabled':''}>⚡ 퀵사냥 ${q.left>0?`(${I('feast')}${fmt(q.next_cost)})`:'(오늘 끝)'}</button></div>
+  <div class="mut">비용: ${(Array.isArray(q.costs)?q.costs:[]).map((c,i)=>`${i+1}번째 ${fmt(c)}`).join(' · ')}</div></div>`;
+}
+
+// ----- 스킬 · 각성 -----
+function selSlot(){
+  const s=V&&V.skill, act=(s&&s.equipped&&Array.isArray(s.equipped.active))?s.equipped.active:[];
+  if(SEL_SLOT!=null&&SEL_SLOT>=0&&SEL_SLOT<4) return SEL_SLOT;
+  const e=[0,1,2,3].find(i=>!act[i]); return e==null?0:e;
+}
+function tabSkill(){
+  const s=V.skill;
+  if(!s||typeof s!=='object') return `<div class="card empty"><div class="big">⚡</div><div class="sub">스킬 정보를 아직 받지 못했어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
+  const aw=s.awaken||{}, nx=aw.next, list=skList(), eq=s.equipped||{}, act=Array.isArray(eq.active)?eq.active:[], r=resVals();
+  const lvA=N(aw.lv), mx=N(aw.max)||5, cur=selSlot();
+  const gems=Array.from({length:mx},(_,i)=>`<i class="gem${i<lvA?' on':''}"></i>`).join('');
+  const req=(label,have,need)=>`<div class="req ${have>=need?'ok':'no'}"><span>${label}</span><b>${fmt(have)} / ${fmt(need)} ${have>=need?'✔':'✖'}</b></div>`;
+  let awaken;
+  if(nx){
+    const un=(Array.isArray(aw.unlocks)?aw.unlocks:[]).map(id=>({id,k:skById(id)})).filter(x=>x.k);
+    awaken=`${req('스테이지',N(V.stage),N(nx.need_stage))}${req(I('gold')+' 골드',r.gold,N(nx.gold))}${req(I('stone')+' 강화석',r.stone,N(nx.stone))}${req(I('feast')+' 특식',r.feast,N(nx.feast))}
+    ${un.length?`<div class="unl"><span class="sub">각성하면 배워요</span>${un.map(x=>`<img src="${skIcon(x.id)}" alt="${esc(x.k.name)}" title="${esc(x.k.name)}">`).join('')}</div>`:''}
+    <div class="btns"><button class="btn ${nx.can?'gold':'alt'}" data-do="awaken" ${nx.can?'':'disabled'} style="font-size:17px">✨ ${lvA+1}단계 각성하기</button></div>
+    ${nx.can?'':`<div class="mut" style="margin-top:6px">${esc(nx.why)}</div>`}
+    <div class="mut" style="margin-top:4px">각성은 <b>실패 없이 확정</b>이에요. 되돌릴 수 없고, 환생해도 유지돼요.</div>`;
+  } else awaken=`<div class="msg ok" style="margin:0">🎉 모든 각성을 마쳤어요! 이제 스킬을 키우는 일만 남았어요.</div>`;
+  const slotTile=(id,i,pas)=>{
+    const k=id?skById(id):null, on=k&&k.unlocked;
+    const inner=on?`<img src="${skIcon(id)}" alt=""><span>${esc(k.name)}</span>`:`<span class="ph">+</span><span>${pas?'패시브':'빈 칸'}</span>`;
+    return pas?`<div class="eqs pas${on?' on':''}" aria-label="패시브 칸: ${on?esc(k.name):'비어 있음'}">${inner}</div>`
+      :`<button class="eqs${on?' on':''}${cur===i?' sel':''}" data-do="slotsel" data-i="${i}" aria-pressed="${cur===i}" aria-label="액티브 ${i+1}번 칸: ${on?esc(k.name):'비어 있음'}${cur===i?' (선택됨)':''}">${inner}</button>`;
+  };
+  const card=k=>{
+    const lock=!k.unlocked, lv=N(k.lv), max=N(k.max)||10, act_=k.kind==='active', eqd=!!k.equipped;
+    const bars=Array.from({length:max},(_,i)=>`<i class="${i<lv?'on':''}"></i>`).join('');
+    const c=k.cost||{};
+    const up=lock?'':(lv>=max?`<button class="btn sm alt" disabled>최고 레벨</button>`:`<button class="btn sm ${k.can?'gold':'alt'}" data-do="skillup" data-id="${esc(k.id)}" aria-label="${esc(k.name)} 강화, 골드 ${fmt(c.gold)}, 강화석 ${fmt(c.stone)}">강화<br>${I('gold')}${fmtC(c.gold)} ${I('stone')}${fmt(c.stone)}</button>`);
+    const eqb=lock?'':(eqd?`<button class="btn sm alt" data-do="skillun" data-id="${esc(k.id)}">해제</button>`:`<button class="btn sm green" data-do="skilleq" data-id="${esc(k.id)}" aria-label="${esc(k.name)} 장착${act_?', '+(cur+1)+'번 칸':''}">장착${act_?`<br><small>${cur+1}번 칸</small>`:''}</button>`);
+    return `<div class="skc${eqd?' eqd':''}${lock?' lock':''}" id="sk_${esc(k.id)}">
+      <div class="top"><img class="sic" src="${skIcon(k.id)}" alt="" onerror="this.style.visibility='hidden'"><div style="min-width:0"><div class="nm">${esc(k.name)}</div><span class="pill">${act_?'액티브':'패시브'}</span>${lock?` <span class="lkb">🔒 각성 ${fmt(k.need_awaken)}</span>`:(eqd?' <span class="lkb on">장착중</span>':'')}</div></div>
+      <div class="ds">${esc(k.desc)}</div>
+      <div class="lvbar" role="img" aria-label="레벨 ${lv} / ${max}">${bars}</div>
+      <div class="st">${lock?`각성 ${fmt(k.need_awaken)}단계에서 배워요 · 최대 골드 +${N(k.peak_pct)}%`:`Lv.<b>${lv}</b>/${max} · 골드 +<b>${N(k.power_pct).toFixed(1)}%</b>${lv<max?` → +${N(k.next_power_pct).toFixed(1)}%`:''}${act_?` · 쿨 ${N(k.cd_s)}초`:''}`}</div>
+      ${lock?'':`<div class="btns">${up}${eqb}</div>`}
+    </div>`;
+  };
+  return `
+  <div class="card awk"><h2><img class="hi" src="img/brjhunt/ui/tab_skill.webp" alt="">각성 <span class="pill gold">${fmt(lvA)} / ${fmt(mx)}단계</span></h2>
+    <div class="pips" role="img" aria-label="각성 ${lvA}단계, 최대 ${mx}단계">${gems}</div>
+    ${awaken}
+  </div>
+  <div class="card"><h2>🎯 장착 스킬 <span class="pill gold">시간당 골드 ×${N(s.mult).toFixed(2)}</span></h2>
+    <div class="sub">액티브 4칸은 쿨다운마다 알아서 터져요. 칸을 눌러 고르고, 아래 카드에서 <b>장착</b>을 누르면 그 칸에 들어가요. 패시브는 칸이 하나예요. (최대 ×${N(s.mult_cap).toFixed(1)})</div>
+    <div class="eqrow">${[0,1,2,3].map(i=>slotTile(act[i],i,false)).join('')}${slotTile(eq.passive,0,true)}</div>
+  </div>
+  <div class="card"><h2>📚 스킬 도감 <span class="pill">${fmt(list.filter(k=>k.unlocked).length)} / ${fmt(list.length)}</span></h2>
+    <div class="skg">${list.map(card).join('')}</div>
+    <div class="mut" style="margin-top:8px">${esc(s.note||'')} 스킬 효과는 서버가 계산하고, 필드의 번쩍임은 그걸 눈으로 보여 주는 연출이에요.</div>
+  </div>`;
 }
 
 // ----- 동료·소환 -----
@@ -731,7 +744,7 @@ function tabCrew(){
   <div class="card">
     <h2>🎟 동료 소환</h2>
     ${pool.ready===false?'<div class="msg info">동료 명단을 준비하고 있어요. 조금 뒤에 다시 와 주세요.</div>':''}
-    <div class="kv"><span>내 소환권</span><b>🎟 ${fmt(s.tickets)}</b></div>
+    <div class="kv"><span>내 소환권</span><b>${I('ticket')}${fmt(s.tickets)}</b></div>
     <div class="kv"><span>소환 레벨</span><b>Lv.${fmt(s.slv)} / ${fmt(s.slv_max)} <span class="mut">(지금까지 ${fmt(s.pulls)}번 뽑음${nextAt?` · 다음 레벨까지 ${fmt(N(nextAt)-N(s.pulls))}번`:' · 최고 레벨'})</span></b></div>
     <div class="kv"><span>지금 등급 확률</span><b style="text-align:right">${Object.entries(s.rates||{}).map(([k,p])=>`${esc(k)} ${N(p)}%`).join(' · ')}</b></div>
     <h3>천장 — 이만큼 안 나오면 확정이에요</h3>
@@ -762,7 +775,7 @@ function cardHtml(c,sel){
     <div class="ft">+${N(c.bonus).toFixed(1)}% 골드${c.next_sh?` · 조각 ${fmt(c.sh)}/${fmt(c.next_sh)}`:' · 최고 레벨'}</div><div class="ft">${f}</div></button>`;
 }
 function sumResHtml(res){
-  return `<h3>🎉 소환 결과</h3><div class="sumres">${res.map(x=>{const g=grKey(x.gr);return `<div class="cd gr-${g}"><div class="gr t-${g}">${esc(GR_KO[g])}${x.new?'<span class="new">NEW</span>':''}</div><div class="nm">${esc(x.n)}</div><div class="ft">${x.new?'새 동료!':`동료 Lv.${fmt(x.lv)} · 조각 ${fmt(x.sh)}`}</div></div>`;}).join('')}</div>`;
+  return `<h3>🎉 소환 결과</h3><div class="sumres">${res.map((x,i)=>{const g=grKey(x.gr);return `<div class="cd gr-${g}${['epic','unique','legend'].includes(g)?' rare':''}" style="--i:${i}"><div class="gr t-${g}">${esc(GR_KO[g])}${x.new?'<span class="new">NEW</span>':''}</div><div class="nm">${esc(x.n)}</div><div class="ft">${x.new?'새 동료!':`동료 Lv.${fmt(x.lv)} · 조각 ${fmt(x.sh)}`}</div></div>`;}).join('')}</div>`;
 }
 
 // ----- 성장·강화 -----
@@ -770,17 +783,17 @@ function tabGrow(){
   const g=V.growth||{}; const axes=Array.isArray(g.axes)?g.axes:[], slots=Array.isArray(g.slots)?g.slots:[], tbl=Array.isArray(g.enhance_table)?g.enhance_table:[];
   return `
   <div class="card"><h2>📈 성장 <span class="pill">시간당 골드 ×${N(g.mult||1).toFixed(2)}</span></h2>
-    <div class="sub">골드를 써서 키워요. 올릴수록 시간당 골드가 늘어요. 내 골드 🪙 ${fmt(g.gold)}</div>
-    ${axes.map(a=>`<div class="boss" style="padding:10px 0"><div class="ph" style="font-size:30px;width:44px;height:44px">${esc(a.emoji)}</div><div class="tx"><b>${esc(a.name)}</b> <span class="pill">Lv.${fmt(a.lv)}/${fmt(a.max)}</span><div class="mut">${esc(a.text)} · 지금 +${N(a.bonus_pct)}%</div></div>
-      <button class="btn ${a.can?'':'alt'}" data-do="upgrade" data-axis="${esc(a.key)}" ${N(a.lv)>=N(a.max)?'disabled':''}>${N(a.lv)>=N(a.max)?'최고':`🪙 ${fmt(a.cost)}`}</button></div>`).join('')}
+    <div class="sub">골드를 써서 키워요. 올릴수록 시간당 골드가 늘어요. 내 골드 ${I('gold')}${fmt(g.gold)}</div>
+    ${axes.map(a=>`<div class="boss" style="padding:10px 0"><div class="ic">${esc(a.emoji)}</div><div class="tx"><b>${esc(a.name)}</b> <span class="pill">Lv.${fmt(a.lv)}/${fmt(a.max)}</span><div class="mut">${esc(a.text)} · 지금 +${N(a.bonus_pct)}%</div></div>
+      <button class="btn ${a.can?'':'alt'}" data-do="upgrade" data-axis="${esc(a.key)}" ${N(a.lv)>=N(a.max)?'disabled':''}>${N(a.lv)>=N(a.max)?'최고':`${I('gold')}${fmt(a.cost)}`}</button></div>`).join('')}
   </div>
   <div class="card"><h2>🛠 장비 강화</h2>
-    <div class="sub">🔩 강화석으로 사냥 장비를 +10 까지 키워요. <b>실패해도 장비는 안 깨지고 안 내려가요.</b> 실패하면 강화 포인트가 쌓이고, 정해진 횟수만큼 쌓이면 다음 시도는 반드시 성공해요. 내 강화석 🔩 ${fmt(g.stone)}</div>
-    ${slots.map(s=>`<div class="boss" style="padding:10px 0"><div class="ph" style="font-size:30px;width:44px;height:44px">${esc(s.emoji)}</div><div class="tx"><b>${esc(s.name)}</b> <span class="pill">+${fmt(s.lv)}</span><div class="mut">지금 골드 +${N(s.bonus_pct)}% (강화 1당 +${N(s.per_pct)}%)</div>
-      ${N(s.lv)<N(s.max)?`<div class="mut">다음 +${fmt(s.next)}: 성공 ${N(s.rate_pct)}% · 🔩 ${fmt(s.cost)}${N(s.pity_need)?` · 포인트 ${fmt(s.pity)}/${fmt(s.pity_need)}${s.guaranteed?' <b class="green">(다음은 확정 성공!)</b>':''}`:' · 100% 성공'}</div>`:''}</div>
+    <div class="sub">🔩 강화석으로 사냥 장비를 +10 까지 키워요. <b>실패해도 장비는 안 깨지고 안 내려가요.</b> 실패하면 강화 포인트가 쌓이고, 정해진 횟수만큼 쌓이면 다음 시도는 반드시 성공해요. 내 강화석 ${I('stone')}${fmt(g.stone)}</div>
+    ${slots.map(s=>`<div class="boss" style="padding:10px 0"><div class="ic">${esc(s.emoji)}</div><div class="tx"><b>${esc(s.name)}</b> <span class="pill">+${fmt(s.lv)}</span><div class="mut">지금 골드 +${N(s.bonus_pct)}% (강화 1당 +${N(s.per_pct)}%)</div>
+      ${N(s.lv)<N(s.max)?`<div class="mut">다음 +${fmt(s.next)}: 성공 ${N(s.rate_pct)}% · ${I('stone')}${fmt(s.cost)}${N(s.pity_need)?` · 포인트 ${fmt(s.pity)}/${fmt(s.pity_need)}${s.guaranteed?' <b class="green">(다음은 확정 성공!)</b>':''}`:' · 100% 성공'}</div>`:''}</div>
       <button class="btn ${s.can?'':'alt'}" data-do="enhance" data-slot="${esc(s.key)}" ${N(s.lv)>=N(s.max)?'disabled':''}>${N(s.lv)>=N(s.max)?'최고':`강화 🔩${fmt(s.cost)}`}</button></div>`).join('')}
     <details><summary>📊 강화 확률표 보기</summary><div class="tw"><table><thead><tr><th>강화</th><th>성공률</th><th>강화석</th><th>확정 성공까지</th></tr></thead><tbody>
-      ${tbl.map(t=>`<tr><td>+${fmt(t.to)}</td><td>${N(t.rate_pct)}%</td><td>🔩 ${fmt(t.cost)}</td><td>${N(t.pity_need)?`실패 ${fmt(t.pity_need)}번 쌓이면`:'—'}</td></tr>`).join('')}
+      ${tbl.map(t=>`<tr><td>+${fmt(t.to)}</td><td>${N(t.rate_pct)}%</td><td>${I('stone')}${fmt(t.cost)}</td><td>${N(t.pity_need)?`실패 ${fmt(t.pity_need)}번 쌓이면`:'—'}</td></tr>`).join('')}
     </tbody></table></div><div class="mut">${esc(g.note||'')}</div></details>
   </div>
   ${quickCard()}`;
@@ -799,17 +812,17 @@ function tabAdv(){
   <div class="card"><h2>🛡 보스 관문</h2>
     <div class="sub">스테이지 10·20·30 에서는 보스를 이겨야 돌파할 수 있어요. 전투력이 보스 체력 이상이면 이겨요. 한 번 이기면 그 보스는 끝이에요. 보상은 처음 이길 때 한 번만 받아요.</div>
     ${bosses.map(b=>{const now=gateNow===N(b.stage)&&!b.cleared; const win=N(d.power)>=N(b.hp);
-      return `<div class="boss">${bossImg(b.img)}<div class="tx"><b>${esc(b.name)}</b> <span class="pill">스테이지 ${fmt(b.stage)}</span>${b.cleared?' <span class="pill green">클리어</span>':''}<div class="mut">체력 ${fmt(b.hp)} · 보상 🍖 ${fmt(b.feast)} + 🎟 ${fmt(b.ticket)}</div>
+      return `<div class="boss">${bossImg(b.img)}<div class="tx"><b>${esc(b.name)}</b> <span class="pill">스테이지 ${fmt(b.stage)}</span>${b.cleared?' <span class="pill green">클리어</span>':''}<div class="mut">체력 ${fmt(b.hp)} · 보상 ${I('feast')}${fmt(b.feast)} + ${I('ticket')}${fmt(b.ticket)}</div>
       ${!b.cleared&&now?`<div class="mut ${win?'green':'red'}">${win?'지금 전투력으로 이길 수 있어요!':`전투력이 ${fmt(N(b.hp)-N(d.power))} 모자라요`}</div>`:''}</div>
       ${now?`<button class="btn ${win?'gold':'alt'}" data-do="boss">도전</button>`:''}</div>`;}).join('')}
     ${gateNow?'':'<div class="mut">지금은 막힌 관문이 없어요.</div>'}
   </div>
   <div class="card"><h2>🔑 열쇠 던전 <span class="pill">${fmt(du.cleared)}/${fmt(du.max)}단계</span></h2>
-    <div class="kv"><span>열쇠</span><b>🔑 ${fmt(kn.n)} / ${fmt(kn.max)}</b></div>
+    <div class="kv"><span>열쇠</span><b>${I('key')}${fmt(kn.n)} / ${fmt(kn.max)}</b></div>
     <div class="mut">하루 ${fmt(kn.per_day)}개씩 충전돼요${N(kn.n)>=N(kn.max)?' (가득 참)':` · 다음 열쇠까지 약 ${hh}시간 ${mm}분`}. <b>도전에 실패해도 열쇠는 안 줄어요.</b></div>
     ${du.sweep?`<div class="msg ok" style="margin-top:8px">모든 단계를 깼어요! 이제 열쇠 1개로 <b>소탕</b>해서 보상을 한 번에 받아요. (소탕 ${fmt(du.sweeps)}번 함)</div>`:`<div class="kv"><span>다음 ${fmt(N(du.cleared)+1)}단계 몬스터 체력</span><b>${fmt(du.next_hp)}</b></div>`}
     <div class="btns"><button class="btn ${N(kn.n)>0?'':'alt'}" data-do="dungeon">${du.sweep?'🧹 소탕하기':'🗝 던전 도전'}</button></div>
-    <div class="mut" style="margin-top:6px">클리어 보상: 🔩 강화석 ${fmt(dr.stone_base)}개(10단계마다 +${fmt(dr.stone_per10)}) · 🪙 사냥 ${fmt(dr.gold_hours)}시간치 · ${fmt(dr.ticket_every)}단계마다 🎟 1장<br>소탕 보상: 🔩 ${fmt(sr.stone)}개 · 🪙 사냥 ${fmt(sr.gold_hours)}시간치 · ${fmt(sr.ticket_every_n)}번에 🎟 1장</div>
+    <div class="mut" style="margin-top:6px">클리어 보상: 🔩 강화석 ${fmt(dr.stone_base)}개(10단계마다 +${fmt(dr.stone_per10)}) · 🪙 사냥 ${fmt(dr.gold_hours)}시간치 · ${fmt(dr.ticket_every)}단계마다 🎟 1장<br>소탕 보상: ${I('stone')}${fmt(sr.stone)}개 · 🪙 사냥 ${fmt(sr.gold_hours)}시간치 · ${fmt(sr.ticket_every_n)}번에 🎟 1장</div>
   </div>
   <div class="card"><h2>🐲 이번 주 클랜 보스</h2>
     <div class="row2"><div class="bimg">${bossImg(cl.boss)}</div><div style="min-width:0"><b>${esc(cl.name)}</b><div class="mut">클랜 모두가 하나의 체력을 같이 깎아요 · 월요일 0시(KST)에 새 보스 · ${fmt(cl.days_left)}일 남음</div></div></div>
@@ -819,11 +832,11 @@ function tabAdv(){
     <div class="kv"><span>오늘 남은 공격</span><b>${fmt(cl.left)} / ${fmt(cl.daily_max)}</b></div>
     ${Array.isArray(cl.top)&&cl.top.length?`<h3>이번 주 피해 순위</h3>${cl.top.map((t,i)=>`<div class="kv"><span>${i+1}. ${esc(t.n)}</span><b>${fmt(t.d)}</b></div>`).join('')}`:''}
     <div class="btns"><button class="btn ${N(cl.left)>0?'':'alt'}" data-do="clanatk" ${N(cl.left)>0?'':'disabled'}>⚔ 공격하기</button><button class="btn ${cl.claimable?'gold':'alt'}" data-do="clanclaim" ${cl.claimable?'':'disabled'}>🍖 보상 받기 (+${fmt(cl.feast)})</button></div>
-    <div class="mut">보스를 처치하면 🍖 ${fmt(cl.feast)} 를 받아요. 받으려면 <b>이번 주 ${fmt(cl.min_atk)}번 이상 공격</b>하고 보스 체력의 <b>${fmt(cl.min_share_pct)}% 이상</b> 피해를 줘야 해요. 한 사람이 줄 수 있는 피해는 체력의 ${fmt(Math.round(N(cl.cap)/Math.max(1,N(cl.hp))*100))}% 까지라 <b>모두 같이</b> 잡아야 해요. 보스 체력은 ${fmt(cl.active)}명의 활동 인원과 전투력에 맞춰져요. 내 이번 주 공격 ${fmt(cl.my_atk)}번.</div>
+    <div class="mut">보스를 처치하면 ${I('feast')}${fmt(cl.feast)} 를 받아요. 받으려면 <b>이번 주 ${fmt(cl.min_atk)}번 이상 공격</b>하고 보스 체력의 <b>${fmt(cl.min_share_pct)}% 이상</b> 피해를 줘야 해요. 한 사람이 줄 수 있는 피해는 체력의 ${fmt(Math.round(N(cl.cap)/Math.max(1,N(cl.hp))*100))}% 까지라 <b>모두 같이</b> 잡아야 해요. 보스 체력은 ${fmt(cl.active)}명의 활동 인원과 전투력에 맞춰져요. 내 이번 주 공격 ${fmt(cl.my_atk)}번.</div>
   </div>
   <div class="card"><h2>📋 오늘 할 일</h2>
     ${dailyTasks.map(t=>`<div class="task"><span>${t.done?'✅':'⬜'}</span><span>${esc(t.label)}</span></div>`).join('')}
-    <div class="btns"><button class="btn ${dl.all&&!dl.claimed?'gold':'alt'}" data-do="daily" ${dl.claimed?'disabled':''}>${dl.claimed?'오늘 보상 받았어요':`🎁 다 하면 🍖 ${fmt(dl.feast)} + 상자`}</button></div>
+    <div class="btns"><button class="btn ${dl.all&&!dl.claimed?'gold':'alt'}" data-do="daily" ${dl.claimed?'disabled':''}>${dl.claimed?'오늘 보상 받았어요':`🎁 다 하면 ${I('feast')}${fmt(dl.feast)} + 상자`}</button></div>
     <div class="mut">매일 0시(KST)에 새로 시작해요. 상자 내용: ${(Array.isArray(dl.chest)?dl.chest:[]).map(c=>`${esc(({stone:'🔩 강화석',ticket:'🎟 소환권',gold:'🪙 사냥 2시간치'})[c.kind]||c.kind)}${N(c.n)?' '+fmt(c.n)+'개':''} ${N(c.pct)}%`).join(' · ')}</div>
   </div>`;
 }
@@ -850,7 +863,7 @@ function tabPres(){
       <button class="btn ${u.afford?'':'alt'}" data-do="prestigebuy" data-key="${esc(u.key)}" ${u.cost==null?'disabled':''}>${u.cost==null?'최고':`⭐ ${fmt(u.cost)}`}</button></div>`).join('')}
   </div>
   <div class="card"><h2>🎁 내전 상자 <span class="pill">보관 ${fmt(ch.stock)}개</span></h2>
-    <div class="sub">내전을 1판 뛸 때마다 상자가 1개 생겨요 (하루 ${fmt(ch.daily_cap)}개까지 · 오늘 ${fmt(ch.today)}개 받음 · 최대 ${fmt(ch.store_max)}개 보관). 열면 🍖 ${fmt(ch.feast)} 개는 꼭 나오고, 아래 중 하나가 더 나와요.</div>
+    <div class="sub">내전을 1판 뛸 때마다 상자가 1개 생겨요 (하루 ${fmt(ch.daily_cap)}개까지 · 오늘 ${fmt(ch.today)}개 받음 · 최대 ${fmt(ch.store_max)}개 보관). 열면 ${I('feast')}${fmt(ch.feast)} 개는 꼭 나오고, 아래 중 하나가 더 나와요.</div>
     <div class="tw"><table><thead><tr><th>덤으로 나오는 것</th><th>확률</th></tr></thead><tbody>${(Array.isArray(ch.table)?ch.table:[]).map(t=>`<tr><td>${esc(t.name)}</td><td>${N(t.pct)}%</td></tr>`).join('')}</tbody></table></div>
     <div class="btns"><button class="btn ${N(ch.stock)>0?'gold':'alt'}" data-do="chest" data-n="1" ${N(ch.stock)>0?'':'disabled'}>1개 열기</button><button class="btn ${N(ch.stock)>1?'':'alt'}" data-do="chest" data-n="${Math.max(1,Math.min(N(ch.open_max)||10,N(ch.stock)))}" ${N(ch.stock)>1?'':'disabled'}>한꺼번에 열기 (${Math.max(1,Math.min(N(ch.open_max)||10,N(ch.stock)))}개)</button></div>
   </div>
@@ -864,6 +877,7 @@ function tabPres(){
     <div class="btns"><button class="btn alt" data-do="rank">순위표 새로고침</button></div>
   </div>`;
 }
+
 async function loadRank(){
   RANK_AT=Date.now();
   const j=await call('/brj/rank',{top:20});
@@ -871,72 +885,128 @@ async function loadRank(){
   render();
 }
 
+// ---------- 연출 ----------
+function banner(txt,cls){ showTag(txt,cls); }
+function showAwaken(lv,ids){
+  const el=$('awk');
+  const imgs=(ids||[]).map((id,i)=>`<img style="--i:${i}" src="${skIcon(id)}" alt="${esc((skById(id)||{}).name||id)}">`).join('');
+  el.innerHTML=`<div class="t1">AWAKENING</div><div class="t2">각성 ${fmt(lv)}단계!</div>${imgs?`<div class="row">${imgs}</div><div class="t3">새 스킬을 배웠어요: ${(ids||[]).map(id=>esc((skById(id)||{}).name||id)).join(' · ')}<br>빈 칸에 자동으로 장착했어요.</div>`:''}<div class="t4">화면을 누르면 닫혀요</div>`;
+  el.classList.add('show'); snd('awaken'); clearTimeout(showAwaken._t); showAwaken._t=setTimeout(closeAwaken,6000);
+  try{ el.focus(); }catch(e){}
+}
+function closeAwaken(){ $('awk').classList.remove('show'); }
+$('awk').addEventListener('click',closeAwaken);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeAwaken(); closeSnd(); } });
+
+// ---------- 소리 설정 시트 ----------
+function openSnd(){ syncSnd(); $('sndBg').classList.add('show'); setTimeout(()=>{ try{ $('vM').focus(); }catch(e){} },30); }
+function closeSnd(){ $('sndBg').classList.remove('show'); try{ $('sndBtn').focus(); }catch(e){} }
+function syncSnd(){
+  let s={master:.6,sfx:.8,bgm:.35,muted:false}; try{ if(window.BrjAudio) s=BrjAudio.state(); }catch(e){}
+  [['vM','oM','master'],['vS','oS','sfx'],['vB','oB','bgm']].forEach(([i,o,k])=>{ $(i).value=Math.round(N(s[k])*100); $(o).textContent=Math.round(N(s[k])*100); });
+  $('muteBtn').textContent=s.muted?'🔊 소리 켜기':'🔇 모두 끄기'; $('sndBtn').textContent=s.muted?'🔇':'🔊';
+  $('sndBtn').setAttribute('aria-label',s.muted?'소리 꺼짐. 소리 설정 열기':'소리 설정 열기');
+}
+[['vM','setMaster'],['vS','setSfx'],['vB','setBgm']].forEach(([id,fn])=>{
+  $(id).addEventListener('input',e=>{ try{ if(window.BrjAudio){ BrjAudio[fn](N(e.target.value)/100); if(id==='vS') snd('click',{},180); } }catch(x){} syncSnd(); });
+});
+$('sndBtn').onclick=openSnd; $('sndClose').onclick=closeSnd;
+$('sndBg').addEventListener('click',e=>{ if(e.target===$('sndBg')) closeSnd(); });
+$('muteBtn').onclick=()=>{ try{ if(window.BrjAudio) BrjAudio.muted('toggle'); }catch(e){} syncSnd(); };
+try{ if(window.BrjAudio&&BrjAudio.onChange) BrjAudio.onChange(syncSnd); }catch(e){}
+syncSnd();
+
 // ---------- 동작 ----------
-const PUSH_MSG={gold:j=>`🪙 골드가 모자라요. 돌파에 ${fmt(j.cost)} 필요해요.`,max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',boss:()=>'🛡 보스를 먼저 이겨야 해요. 모험 탭에서 도전해 보세요.'};
+const PUSH_MSG={gold:j=>`🪙 골드가 모자라요. 돌파에 ${fmt(j.cost)} 필요해요.`,max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
+const AWK_MSG={stage:'스테이지가 모자라 아직 각성할 수 없어요.',gold:'🪙 골드가 모자라요.',stone:'🔩 강화석이 모자라요.',feast:'🍖 특식이 모자라요.',max:'이미 마지막 각성까지 마쳤어요.'};
 const DO={
-  collect:()=>act('/brj/collect',{},j=>{ say(N(j.got)>0?`🪙 +${fmt(j.got)} 골드를 받았어요!`:'아직 쌓인 게 없어요. 조금 있다 다시 오세요.',N(j.got)>0?'ok':'info'); }),
+  collect:()=>{ const b=document.querySelector('#main [data-do=collect]'); const rc=b?b.getBoundingClientRect():null; return act('/brj/collect',{},j=>{
+    const g=N(j.got); say(g>0?`🪙 +${fmt(g)} 골드를 받았어요!`:'아직 쌓인 게 없어요. 조금 있다 다시 오세요.',g>0?'ok':'info');
+    if(g>0){ snd('coin'); setTimeout(()=>snd('coin',{rate:1.2}),110); flyCoins(rc,Math.min(10,3+Math.floor(Math.log10(g+1)*1.5))); } }); },
   push:()=>{ const st0=N(V.stage); act('/brj/push',{},j=>{
-    if(j.result==='ok') say(`⚔ 스테이지 ${fmt(st0)} → ${fmt(st0+1)} 돌파! (🪙 ${fmt(j.cost)} 사용)`,'ok');
+    if(j.result==='ok'){ say(`⚔ 스테이지 ${fmt(st0)} → ${fmt(st0+1)} 돌파! (🪙 ${fmt(j.cost)} 사용)`,'ok'); banner('STAGE '+fmt(st0+1),'win'); }
     else say((PUSH_MSG[j.result]||(()=>'돌파하지 못했어요.'))(j),'bad'); }); },
   quick:()=>act('/brj/quick',{},j=>{
-    const m={ok:()=>[`⚡ 퀵사냥! 🪙 +${fmt(j.got)} (🍖 ${fmt(j.cost)} 사용)`,'ok'],limit:()=>['오늘 퀵사냥은 모두 썼어요.','bad'],feast:()=>[`🍖 특식이 모자라요. ${fmt(j.cost)}개 필요해요.`,'bad'],none:()=>['받을 골드가 없어요.','bad']}[j.result]; const x=m?m():['처리하지 못했어요.','bad']; say(x[0],x[1]); }),
+    const m={ok:()=>[`⚡ 퀵사냥! 🪙 +${fmt(j.got)} (🍖 ${fmt(j.cost)} 사용)`,'ok'],limit:()=>['오늘 퀵사냥은 모두 썼어요.','bad'],feast:()=>[`🍖 특식이 모자라요. ${fmt(j.cost)}개 필요해요.`,'bad'],none:()=>['받을 골드가 없어요.','bad']}[j.result]; const x=m?m():['처리하지 못했어요.','bad']; say(x[0],x[1]); if(j.result==='ok') snd('coin'); }),
   summon:el=>{ const n=Number(el.dataset.n); act('/brj/summon',{n},j=>{
-    if(j.ok&&Array.isArray(j.results)){ SUMRES=j.results; const nw=j.results.filter(x=>x.new).length; say(`🎟 ${fmt(j.results.length)}회 소환 완료!${nw?` 새 동료 ${fmt(nw)}명!`:''}`,'ok'); }
+    if(j.ok&&Array.isArray(j.results)){ SUMRES=j.results; const nw=j.results.filter(x=>x.new).length; say(`🎟 ${fmt(j.results.length)}회 소환 완료!${nw?` 새 동료 ${fmt(nw)}명!`:''}`,'ok');
+      snd(j.results.some(x=>['epic','unique','legend'].includes(x.gr))?'summon_rare':'summon'); }
     else{ SUMRES=null; say({bad_n:'소환 횟수가 올바르지 않아요.',no_ticket:'🎟 소환권이 모자라요.',no_pool:'동료 명단을 준비하고 있어요. 조금 뒤에 다시 해 보세요.'}[j.code]||'소환하지 못했어요.','bad'); } }); },
   party:()=>act('/brj/party',{party:curParty().slice()},j=>{
-    if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
+    if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
   upgrade:el=>act('/brj/upgrade',{axis:el.dataset.axis},j=>{
-    say({ok:'📈 성장했어요!',gold:`🪙 골드가 모자라요. ${fmt(j.cost)} 필요해요.`,max:'이미 최고 레벨이에요.'}[j.result]||'처리하지 못했어요.',j.result==='ok'?'ok':'bad'); }),
+    say({ok:'📈 성장했어요!',gold:`🪙 골드가 모자라요. ${fmt(j.cost)} 필요해요.`,max:'이미 최고 레벨이에요.'}[j.result]||'처리하지 못했어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   enhance:el=>act('/brj/enhance',{slot:el.dataset.slot},j=>{
-    const m={success:['✨ 강화 성공!','ok'],pity:['✨ 강화 포인트가 가득 차서 성공했어요!','ok'],fail:['💨 이번엔 실패했어요. 장비는 그대로예요. 강화 포인트가 쌓였어요.','info'],stone:[`🔩 강화석이 모자라요. ${fmt(j.cost)}개 필요해요.`,'bad'],max:['이미 최고 강화예요.','bad']}[j.result]||['처리하지 못했어요.','bad']; say(m[0],m[1]); }),
-  boss:async()=>{ if(BUSY) return; const gb=bossGate(); if(TAB==='hunt'&&gb) Battle.bossStart(gb);
+    const m={success:['✨ 강화 성공!','ok'],pity:['✨ 강화 포인트가 가득 차서 성공했어요!','ok'],fail:['💨 이번엔 실패했어요. 장비는 그대로예요. 강화 포인트가 쌓였어요.','info'],stone:[`🔩 강화석이 모자라요. ${fmt(j.cost)}개 필요해요.`,'bad'],max:['이미 최고 강화예요.','bad']}[j.result]||['처리하지 못했어요.','bad']; say(m[0],m[1]);
+    snd(j.result==='success'||j.result==='pity'?'enhance_ok':j.result==='fail'?'enhance_fail':'error'); }),
+  awaken:()=>act('/brj/awaken',{},j=>{
+    if(j.result==='ok'){ const ids=(Array.isArray(j.unlocked)?j.unlocked:[]).filter(x=>SK_IDS.includes(x)); const lv=N(R(R(V,'skill',{}),'awaken',{}).lv); say(`✨ ${fmt(lv)}단계 각성!${ids.length?' 새 스킬을 배웠어요.':''}`,'ok'); showAwaken(lv,ids); }
+    else say(AWK_MSG[j.result]||'각성하지 못했어요.','bad'); }),
+  skillup:el=>{ const id=el.dataset.id; act('/brj/skill',{action:'upgrade',id},j=>{
+    const k=skById(id)||{};
+    if(j.result==='ok'){ say(`⚡ ${esc(k.name||'스킬')} 이(가) Lv.${fmt(k.lv)} 이 됐어요!`,'ok'); snd('enhance_ok'); setTimeout(()=>{ const c=$('sk_'+id); if(c){ c.classList.add('flash'); } },0); }
+    else say({locked:'아직 배우지 못한 스킬이에요. 각성이 필요해요.',max:'이미 최고 레벨이에요.',gold:`🪙 골드가 모자라요. ${fmt(R(j.cost,'gold',0))} 필요해요.`,stone:`🔩 강화석이 모자라요. ${fmt(R(j.cost,'stone',0))}개 필요해요.`}[j.result]||'강화하지 못했어요.','bad'); }); },
+  skilleq:el=>{ const id=el.dataset.id, k=skById(id)||{}; const body={action:'equip',id}; if(k.kind==='active') body.slot=selSlot();
+    act('/brj/skill',body,j=>{ if(j.result==='ok'){ say(`🎯 ${esc(k.name||'스킬')} 장착!`,'ok'); snd('levelup',{vol:.5}); } else say(j.result==='locked'?'아직 배우지 못한 스킬이에요.':'장착하지 못했어요.','bad'); }); },
+  skillun:el=>{ const id=el.dataset.id, k=skById(id)||{}; act('/brj/skill',{action:'unequip',id},j=>{ say(j.result==='ok'?`${esc(k.name||'스킬')} 을(를) 뺐어요.`:'원래 끼워져 있지 않았어요.',j.result==='ok'?'info':'bad'); }); },
+  slotsel:el=>{ SEL_SLOT=Number(el.dataset.i); render(); },
+  boss:async()=>{
+    if(BUSY||BOSS) return; const gb=bossGate(); if(!gb) return;
+    if(TAB!=='hunt'){ TAB='hunt'; TAB_FLAG=true; }
+    BOSS={img:imgKey(gb.img),name:String(gb.name||'보스'),hp:N(gb.hp)||1000}; MSG=null; syncBgm(); render();
+    let res=null;
     await act('/brj/boss',{},j=>{
-      Battle.bossResult(j);
-    if(j.result==='win') say(`🏆 보스를 쓰러뜨렸어요! 🍖 +${fmt(j.feast)} · 🎟 +${fmt(j.ticket)}. 이제 돌파할 수 있어요.`,'ok');
-    else if(j.result==='lose') say(`💥 졌어요. 내 전투력 ${fmt(j.power)} / 보스 체력 ${fmt(j.hp)}. 더 키워서 다시 도전해요. 잃은 건 없어요.`,'bad');
-    else say('지금 도전할 보스가 없어요.','info'); });
-    Battle.bossAbort(); },
+      res=(j.result==='win'||j.result==='lose')?j.result:null;
+      if(res&&FIELD){ try{ FIELD.bossResult(res); }catch(e){} }
+      if(j.result==='win') say(`🏆 보스를 쓰러뜨렸어요! 🍖 +${fmt(j.feast)} · 🎟 +${fmt(j.ticket)}. 이제 돌파할 수 있어요.`,'ok');
+      else if(j.result==='lose') say(`💥 졌어요. 내 전투력 ${fmt(j.power)} / 보스 체력 ${fmt(j.hp)}. 더 키워서 다시 도전해요. 잃은 건 없어요.`,'bad');
+      else say('지금 도전할 보스가 없어요.','info'); });
+    if(!res){ clearTimeout(BOSS_T); BOSS=null; pushField(); syncBgm(); render(); }   // 판정을 못 받았으면 보스 연출을 접는다
+    else if(!FIELD) endBoss(); },
   dungeon:()=>act('/brj/dungeon',{},j=>{
     const gt=x=>{const g=x||{};return [N(g.stone)?`🔩 ${fmt(g.stone)}`:'',N(g.gold)?`🪙 ${fmt(g.gold)}`:'',N(g.ticket)?`🎟 ${fmt(g.ticket)}`:''].filter(Boolean).join(' · ')||'없음';};
-    if(j.result==='win') say(`🗝 ${fmt(j.level)}단계 클리어! 보상 ${gt(j.got)}`,'ok');
-    else if(j.result==='sweep') say(`🧹 소탕 완료! 보상 ${gt(j.got)}`,'ok');
+    if(j.result==='win'){ say(`🗝 ${fmt(j.level)}단계 클리어! 보상 ${gt(j.got)}`,'ok'); snd('levelup'); }
+    else if(j.result==='sweep'){ say(`🧹 소탕 완료! 보상 ${gt(j.got)}`,'ok'); snd('coin'); }
     else if(j.result==='lose') say(`💥 ${fmt(j.level)}단계에서 졌어요 (내 ${fmt(j.power)} / 몬스터 ${fmt(j.hp)}). 열쇠는 그대로예요.`,'bad');
     else if(j.result==='nokey') say('🔑 열쇠가 없어요. 시간이 지나면 충전돼요.','bad');
     else say('처리하지 못했어요.','bad'); }),
   clanatk:()=>act('/brj/clanboss',{action:'attack'},j=>{
-    if(j.result==='ok') say(`🐲 클랜 보스에게 ${fmt(j.dmg)} 피해를 줬어요!`,'ok'); else if(j.result==='limit') say('오늘 공격은 모두 썼어요. 내일 또 와요.','bad'); else if(j.result==='dead') say('이번 주 보스는 이미 쓰러졌어요. 월요일에 새 보스가 와요.','bad'); else if(j.result==='capped') say('이번 주 내가 줄 수 있는 피해를 다 채웠어요. 나머지는 다른 클랜원 몫이에요.','bad'); else say('처리하지 못했어요.','bad'); }),
+    if(j.result==='ok'){ say(`🐲 클랜 보스에게 ${fmt(j.dmg)} 피해를 줬어요!`,'ok'); snd('crit'); } else if(j.result==='limit') say('오늘 공격은 모두 썼어요. 내일 또 와요.','bad'); else if(j.result==='dead') say('이번 주 보스는 이미 쓰러졌어요. 월요일에 새 보스가 와요.','bad'); else if(j.result==='capped') say('이번 주 내가 줄 수 있는 피해를 다 채웠어요. 나머지는 다른 클랜원 몫이에요.','bad'); else say('처리하지 못했어요.','bad'); }),
   clanclaim:()=>act('/brj/clanboss',{action:'claim'},j=>{
-    if(j.result==='ok') say(`🍖 클랜 보스 보상 +${fmt(j.feast)} 받았어요!`,'ok'); else say('받을 보상이 없어요. 보스가 쓰러졌는지, 내가 이번 주 3번 이상 공격하고 체력의 2% 이상 피해를 줬는지 확인해 보세요.','bad'); }),
+    if(j.result==='ok'){ say(`🍖 클랜 보스 보상 +${fmt(j.feast)} 받았어요!`,'ok'); snd('coin'); } else say('받을 보상이 없어요. 보스가 쓰러졌는지, 내가 이번 주 3번 이상 공격하고 체력의 2% 이상 피해를 줬는지 확인해 보세요.','bad'); }),
   daily:()=>act('/brj/daily',{},j=>{
-    if(j.result==='ok'){ const c=j.chest||{}; const nm=({stone:'🔩 강화석',ticket:'🎟 소환권',gold:'🪙 골드'})[c.kind]||''; say(`🎁 오늘 할 일 완료! 🍖 +${fmt(j.feast)}${nm?` · 상자: ${nm}${N(c.n)?' '+fmt(c.n)+'개':''}`:''}`,'ok'); }
+    if(j.result==='ok'){ const c=j.chest||{}; const nm=({stone:'🔩 강화석',ticket:'🎟 소환권',gold:'🪙 골드'})[c.kind]||''; say(`🎁 오늘 할 일 완료! 🍖 +${fmt(j.feast)}${nm?` · 상자: ${nm}${N(c.n)?' '+fmt(c.n)+'개':''}`:''}`,'ok'); snd('levelup'); }
     else if(j.result==='claimed') say('오늘 보상은 이미 받았어요.','info'); else say('아직 못 끝낸 일이 있어요. 위 목록을 확인해 보세요.','bad'); }),
   prestigeask:()=>{ SEL_PRES=true; render(); },
   prestigecancel:()=>{ SEL_PRES=false; render(); },
   prestige:()=>{ SEL_PRES=false; act('/brj/prestige',{confirm:true},j=>{
-    if(j.ok) say(`🌟 환생했어요! ⭐ +${fmt(j.gain)}. 영구 보너스를 사 보세요.`,'ok'); else say(j.code==='stage'?`스테이지 ${fmt(j.need)} 부터 환생할 수 있어요.`:'환생하지 못했어요.','bad'); }); },
+    if(j.ok){ say(`🌟 환생했어요! ⭐ +${fmt(j.gain)}. 영구 보너스를 사 보세요.`,'ok'); snd('awaken'); } else say(j.code==='stage'?`스테이지 ${fmt(j.need)} 부터 환생할 수 있어요.`:'환생하지 못했어요.','bad'); }); },
   prestigebuy:el=>act('/brj/prestige_buy',{key:el.dataset.key},j=>{
-    if(j.ok) say('🛒 영구 보너스를 샀어요!','ok'); else say({max:'이미 최고 레벨이에요.',points:`⭐ 포인트가 모자라요. ${fmt(j.cost)} 필요해요.`,bad_input:'올바르지 않은 요청이에요.'}[j.code]||'처리하지 못했어요.','bad'); }),
+    if(j.ok){ say('🛒 영구 보너스를 샀어요!','ok'); snd('enhance_ok'); } else say({max:'이미 최고 레벨이에요.',points:`⭐ 포인트가 모자라요. ${fmt(j.cost)} 필요해요.`,bad_input:'올바르지 않은 요청이에요.'}[j.code]||'처리하지 못했어요.','bad'); }),
   chest:el=>act('/brj/chest',{n:Number(el.dataset.n)||1},j=>{
-    if(j.ok){ const g=j.got||{}; say(`🎁 상자 ${fmt(j.opened)}개를 열었어요! 🍖 +${fmt(g.feast)}${N(g.ticket)?` · 🎟 +${fmt(g.ticket)}`:''}${N(g.stone)?` · 🔩 +${fmt(g.stone)}`:''}`,'ok'); }
+    if(j.ok){ const g=j.got||{}; say(`🎁 상자 ${fmt(j.opened)}개를 열었어요! 🍖 +${fmt(g.feast)}${N(g.ticket)?` · 🎟 +${fmt(g.ticket)}`:''}${N(g.stone)?` · 🔩 +${fmt(g.stone)}`:''}`,'ok'); snd('summon'); }
     else say(j.code==='empty'?'열 상자가 없어요. 내전을 뛰면 생겨요.':'처리하지 못했어요.','bad'); }),
   rank:()=>loadRank(),
 };
 
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-tab],[data-do],[data-card],#loginBtn,#retryBtn'); if(!t) return;
-  if(t.id==='loginBtn'){ dcLogin(); return; }
-  if(t.id==='retryBtn'){ STATE='boot'; render(); load(); return; }
-  if(t.dataset.tab){ TAB=t.dataset.tab; MSG=null; render(); window.scrollTo(0,0); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); return; }
+  const t=e.target.closest('[data-tab],[data-do],[data-card],#loginBtn,#retryBtn,summary,.btn'); if(!t) return;
+  try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){}
+  if(t.id==='loginBtn'){ snd('click'); dcLogin(); return; }
+  if(t.id==='retryBtn'){ snd('click'); STATE='boot'; render(); load(); return; }
+  if(t.dataset.tab){ if(TAB!==t.dataset.tab){ snd('tab'); TAB=t.dataset.tab; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); } return; }
   if(t.dataset.card!=null){   // 파티 편성(저장 전까지는 이 화면에서만 바뀐다)
+    snd('click');
     const id=t.dataset.card, p=curParty(), i=p.indexOf(id), mx=N(R(V.summon,'party_max',3))||3;
-    if(i>=0) p.splice(i,1); else if(p.length<mx) p.push(id); else { toast(`파티는 최대 ${mx}명이에요`); return; }
+    if(i>=0) p.splice(i,1); else if(p.length<mx) p.push(id); else { toast(`파티는 최대 ${mx}명이에요`); snd('error'); return; }
     PARTY_DIRTY=true; MSG=null; render(); return;
   }
-  const d=t.dataset.do; if(d&&DO[d]){ if(t.disabled) return; MSG=null; DO[d](t); }
+  snd('click');
+  const d=t.dataset.do; if(d&&DO[d]){ if(t.disabled) return; if(d!=='slotsel') MSG=null; DO[d](t); }
 });
-$('thBtn').onclick=()=>{ const cur=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'); const nx=cur==='light'?'dark':'light'; document.documentElement.dataset.theme=nx; try{localStorage.setItem('brjhunt_theme',nx);}catch(e){} };
-$('rfBtn').onclick=()=>{ if(STATE==='ok'){ MSG=null; load(); } else { STATE='boot'; render(); load(); } };
+$('thBtn').onclick=()=>{ const cur=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'); const nx=cur==='light'?'dark':'light'; document.documentElement.dataset.theme=nx; try{localStorage.setItem('brjhunt_theme',nx);}catch(e){} snd('click'); };
+$('rfBtn').onclick=()=>{ snd('click'); if(STATE==='ok'){ MSG=null; load(); } else { STATE='boot'; render(); load(); } };
 try{ const th=localStorage.getItem('brjhunt_theme'); if(th==='light'||th==='dark') document.documentElement.dataset.theme=th; }catch(e){}
 
 // 쌓이는 골드 숫자만 1초마다 갱신(화면 전체를 다시 그리지 않는다)
@@ -951,6 +1021,7 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&STATE===
   if(!dcUser()){ STATE='out'; render(); return; }
   render(); load();
 })();
+
 </script>
 </body>
 </html>
