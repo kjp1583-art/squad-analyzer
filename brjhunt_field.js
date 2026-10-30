@@ -121,13 +121,14 @@
 
     // 풀: 입자 · 숫자 · 이펙트
     const PMAX = 170, TMAX = 40, FMAX = 40;
+    const PMLOW = Math.floor(PMAX * 0.45);   // 저사양 모드 입자 상한(정수여야 한다 — 소수면 parts[소수] 가 undefined 로 터져 필드가 멎는다)
     const parts = [], texts = [], fxs = [];
     for (let i = 0; i < PMAX; i++) parts.push({ on: false, k: '', x: 0, y: 0, vx: 0, vy: 0, t: 0, life: 1, r: 2, c: '#fff', rot: 0, vr: 0, b: 0 });
     for (let i = 0; i < TMAX; i++) texts.push({ on: false, s: '', x: 0, y: 0, vy: 0, t: 0, life: 1, size: 14, col: '#fff', crit: false });
     for (let i = 0; i < FMAX; i++) fxs.push({ on: false });
     let pCur = 0;
     function newPart(k, x, y, vx, vy, life, r, c) {
-      const lim = E.low ? PMAX * 0.45 : PMAX;
+      const lim = E.low ? PMLOW : PMAX;
       let p = null;
       for (let n = 0; n < lim; n++) { const q = parts[(pCur + n) % lim]; if (!q.on) { p = q; pCur = (pCur + n + 1) % lim; break; } }
       if (!p) { if (k !== 'coin' && k !== 'ring') return null; p = parts[pCur = (pCur + 1) % lim]; }   // 꽉 찼으면 코인·고리만 하나 뺏어 온다
@@ -588,7 +589,7 @@
       // 처치 연쇄: 쓰러진 몹이 폭발해 이웃에게 피해
       for (let i = E.chainQ.length - 1; i >= 0; i--) { const q = E.chainQ[i]; q.t -= dt; if (q.t <= 0) { E.chainQ.splice(i, 1); ring(q.x, q.y - 22, '#ffd9a0', 40, 0.3); aoe(q.x, q.y, 62, 38, D.unit * 0.6, '#ffd9a0', { crit: 0.1, max: 4, kn: 10 }); } }
       // 입자
-      const lim = E.low ? PMAX * 0.45 : PMAX;
+      const lim = E.low ? PMLOW : PMAX;
       for (let i = 0; i < lim; i++) {
         const p = parts[i]; if (!p.on) continue;
         p.t += dt;
@@ -798,7 +799,7 @@
       }
     }
     function drawParts() {
-      const lim = E.low ? PMAX * 0.45 : PMAX, cam = E.cam, c = ctx;
+      const lim = E.low ? PMLOW : PMAX, cam = E.cam, c = ctx;
       for (let i = 0; i < lim; i++) {
         const p = parts[i]; if (!p.on) continue; const q = p.t / p.life, x = p.x - cam;
         if (x < -40 || x > E.VW + 40) continue;
