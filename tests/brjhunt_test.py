@@ -76,6 +76,12 @@ def make_view():
                     'daily': {'tasks': [{'k': 'collect', 'label': '🪙 사냥 골드 수령', 'done': True}, {'k': 'dungeon', 'label': '🔑 열쇠 던전 1회', 'done': False}], 'all': False, 'claimed': False, 'feast': 12,
                               'chest': [{'kind': 'stone', 'n': 3, 'pct': 60}, {'kind': 'ticket', 'n': 1, 'pct': 25}, {'kind': 'gold', 'n': 0, 'pct': 15}]}},
         'skill': make_skill(new_sk()),
+        'rank': {'boards': [
+            {'key': 'stage', 'name': '🏔 스테이지', 'periods': ['week', 'season', 'all'], 'default': 'all', 'labels': {'week': '이번 주 올린 스테이지', 'season': '이번 시즌 최고 스테이지', 'all': '최고 도달 스테이지'}, 'reward': True, 'rank': 2, 'value': 12, 'of': 3},
+            {'key': 'clan', 'name': '🐲 클랜 보스 피해', 'periods': ['week'], 'default': 'week', 'labels': {'week': '이번 주 클랜 보스 피해'}, 'reward': True, 'rank': None, 'value': 0, 'of': 0}],
+          'hidden': False, 'week': 5, 'season': 2, 'reset_in': {'week': 90000, 'season': 900000},
+          'reward': {'boards': ['stage'], 'feast': [10, 6, 3], 'min_gold': 1, 'rule': '지난주 입상 보상 규칙'},
+          'prev': {'wk': 4, 'range': '10/19~10/25', 'boards': {'stage': [{'rank': 1, 'name': EVIL, 'value': 9, 'me': False}, {'rank': 2, 'name': '테스터', 'value': 7, 'me': True}]}, 'mine': [{'board': 'stage', 'rank': 2, 'feast': 6}], 'claimed': False, 'claimable': True, 'reward': [10, 6, 3]}},
         'prestige': {'can': False, 'min_stage': 30, 'stage': 9, 'gain': 0, 'n': 1, 'points': 7,
                      'ups': [{'key': 'gold', 'name': '🪙 황금 손', 'effect': '시간당 골드 +5%', 'lv': 1, 'max': 10, 'cost': 5, 'afford': True},
                              {'key': 'cap', 'name': '🏔 한계 돌파', 'effect': '스테이지 상한 +5', 'lv': 0, 'max': 4, 'cost': 8, 'afford': False},
@@ -125,6 +131,15 @@ class Server:
                 elif self.sk['p'] == i: self.sk['p'] = None
             self.view['skill'] = make_skill(self.sk, self.view['stage']); return 200, {'ok': True, 'result': res, 'cost': {'gold': 150 * lv, 'stone': 2}, 'view': copy.deepcopy(self.view)}
         if path == '/brj/idle': return 200, {'ok': True, 'view': v}
+        if path == '/brj/ranks':
+            return 200, {'ok': True, 'board': body.get('board'), 'period': body.get('period'), 'coerced': False, 'label': '표 이름', 'total': 3,
+                         'rows': [{'rank': 1, 'name': EVIL, 'value': 20, 'me': False, 'tag': '환생 2회'}, {'rank': 2, 'name': '테스터', 'value': 12, 'me': True, 'tag': ''}, {'rank': 3, 'name': '비공개', 'value': 5, 'me': False, 'tag': ''}],
+                         'me': {'rank': 2, 'value': 12, 'of': 3, 'hidden': self.view['rank']['hidden']}, 'around': [], 'reset_in': 100, 'prev': None}
+        if path == '/brj/rank_hide':
+            self.view['rank']['hidden'] = bool(body.get('hide')); return 200, {'ok': True, 'hidden': self.view['rank']['hidden'], 'view': copy.deepcopy(self.view)}
+        if path == '/brj/rank_claim':
+            self.view['rank']['prev']['claimable'] = False; self.view['rank']['prev']['claimed'] = True
+            return 200, {'ok': True, 'got': {'feast': 6}, 'view': copy.deepcopy(self.view)}
         if path == '/brj/rank': return 200, {'ok': True, 'season': 1, 'days_left': 20, 'total': 2, 'me': 2, 'rows': [{'rank': 1, 'name': EVIL, 'prestiges': 3, 'best_stage': 40, 'me': False}, {'rank': 2, 'name': '테스터', 'prestiges': 1, 'best_stage': 12, 'me': True}]}
         if path == '/brj/collect': return 200, {'ok': True, 'got': 6000, 'view': v}
         if path == '/brj/push': return 200, {'ok': True, 'result': 'boss', 'cost': 0, 'view': v}
@@ -199,7 +214,7 @@ async def main():
             check(f'{name}: 가로 스크롤·오류 없음', await noscroll(pg) and not errs, errs)
             if mode in ('net', 'busy', 'upstream'):
                 srv.mode = 'ok'; await pg.click('#retryBtn'); await pg.wait_for_timeout(400)
-                check(f'{name}: 다시 불러오기로 복구', await pg.locator('#nav [data-tab]').count() == 6)
+                check(f'{name}: 다시 불러오기로 복구', await pg.locator('#nav [data-tab]').count() == 7)
             await ctx.close()
         # ---- 정상 ----
         for scheme in ('dark', 'light'):
@@ -292,7 +307,7 @@ async def main():
         srv.override['/brj/summon'] = lambda body: (200, {'ok': False, 'code': 'no_pool', 'results': [], 'view': make_view()})
         await pg.click('[data-do=summon][data-n="1"]'); await pg.wait_for_timeout(250); check('동료 명단 준비 중 문구(no_pool)', '준비' in await msg(pg))
         srv.mode = 'busy'; await pg.click('[data-do=summon][data-n="1"]'); await pg.wait_for_timeout(250)
-        check('행동 중 몰림(busy): 문구 + 화면 유지', '몰려서' in await msg(pg) and await pg.locator('#nav [data-tab]').count() == 6)
+        check('행동 중 몰림(busy): 문구 + 화면 유지', '몰려서' in await msg(pg) and await pg.locator('#nav [data-tab]').count() == 7)
         srv.mode = 'auth'; await pg.click('[data-do=summon][data-n="1"]'); await pg.wait_for_timeout(250)
         check('행동 중 로그인 만료: 로그인 화면으로', await pg.locator('#loginBtn').count() == 1)
         check('가로 스크롤·오류 없음', await noscroll(pg) and not errs, errs); await ctx.close()
@@ -380,18 +395,40 @@ async def main():
             await r.abort()
         await ctx.route('**/*', route2); await ctx.add_init_script("localStorage.setItem('sgg_dc'," + json.dumps(TOKEN) + ")")
         pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e))); await pg.goto(URL); await pg.wait_for_timeout(500)
-        check('폴백: 필드·소리 스크립트가 없어도 탭·버튼이 동작', await pg.locator('#nav [data-tab]').count() == 6 and await pg.is_visible('#fieldNote'))
+        check('폴백: 필드·소리 스크립트가 없어도 탭·버튼이 동작', await pg.locator('#nav [data-tab]').count() == 7 and await pg.is_visible('#fieldNote'))
         await pg.click('[data-do=collect]'); await pg.wait_for_timeout(250); check('폴백: 수령 동작', '6,000' in await msg(pg)); await pg.click('#sndBtn'); await pg.wait_for_timeout(100)
         check('폴백: 소리 시트도 오류 없이 열림', await pg.locator('#sndBg.show').count() == 1 and not errs, errs); await ctx.close()
+        # ---- 랭킹 탭 ----
+        srv = Server(); ctx, pg, errs = await new_page(b, srv); await tab(pg, 'rank'); await pg.wait_for_timeout(300)
+        t = await pg.inner_text('#main')
+        rq = last(srv, '/brj/ranks')
+        check('랭킹: 탭 열면 표 요청(board=stage·period=all·top=20)', rq and rq[-1]['board'] == 'stage' and rq[-1]['period'] == 'all' and rq[-1]['top'] == 20, rq)
+        check('랭킹: 순위표·내 순위·지난주 TOP3·보상 버튼', '← 나' in t and '내 순위 2위 / 3명' in t and '지난주 TOP3' in t and await pg.locator('[data-do=rkclaim]').count() == 1)
+        check('랭킹: 서버 문자열은 이스케이프(img 태그 없음)', await pg.locator('#main img[src=x]').count() == 0)
+        check('랭킹: 보상 점(알림)이 탭에 표시', await pg.locator('#nav [data-tab=rank] .dot').count() == 1)
+        await pg.click('[data-do=rkclaim]'); await pg.wait_for_timeout(300)
+        check('랭킹: 보상 받기 → /brj/rank_claim + 안내 + 버튼 사라짐', len(last(srv, '/brj/rank_claim')) == 1 and '특식 +6' in await msg(pg) and await pg.locator('[data-do=rkclaim]').count() == 0)
+        await pg.click('[data-do=rkboard][data-board=clan]'); await pg.wait_for_timeout(300)
+        check('랭킹: 종목 바꾸면 기간 칩 없음(1개뿐)·board=clan 요청', last(srv, '/brj/ranks')[-1]['board'] == 'clan' and await pg.locator('[data-do=rkperiod]').count() == 0)
+        await pg.click('[data-do=rkboard][data-board=stage]'); await pg.wait_for_timeout(200); await pg.click('[data-do=rkperiod][data-period=week]'); await pg.wait_for_timeout(300)
+        check('랭킹: 기간 바꾸면 period=week 요청', last(srv, '/brj/ranks')[-1]['period'] == 'week')
+        await pg.click('[data-do=rkhide]'); await pg.wait_for_timeout(300)
+        check('랭킹: 이름 숨기기 → {hide:true} + 버튼 문구 바뀜', last(srv, '/brj/rank_hide')[-1]['hide'] is True and '이름 보이기' in await pg.inner_text('#main'))
+        check('랭킹 탭 가로 스크롤·오류 없음', await noscroll(pg) and not errs, errs)
+        if SHOTS: await pg.screenshot(path=f'{SHOTS}/ui_rank_dark.png')
+        await ctx.close()
+        # 옛 서버(랭킹 구역 없음)
+        srv = Server(); srv.view.pop('rank'); ctx, pg, errs = await new_page(b, srv); await tab(pg, 'rank')
+        check('랭킹: 옛 서버면 안내만, 화면 안 깨짐', '서버가 업데이트되면' in await pg.inner_text('#main') and not errs, errs); await ctx.close()
         # ---- 데스크톱 폭 ----
         srv = Server(); ctx, pg, errs = await new_page(b, srv, w=1100, h=800)
-        for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres'):
+        for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres', 'rank'):
             await tab(pg, k); check(f'1100px {k}: 가로 스크롤 없음', await noscroll(pg))
         check('1100px: 오류 없음', not errs, errs); await ctx.close()
         # ---- 탭별 390px 그림 ----
         if SHOTS:
             srv = Server(); ctx, pg, errs = await new_page(b, srv, scheme='light')
-            for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres'):
+            for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres', 'rank'):
                 await tab(pg, k); await pg.wait_for_timeout(250); await pg.screenshot(path=f'{SHOTS}/ui_{k}_light.png', full_page=False)
             await ctx.close()
         await b.close()

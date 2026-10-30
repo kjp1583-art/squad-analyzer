@@ -259,6 +259,9 @@ button.cd:active{transform:scale(.97)}
 #nav .in{display:flex}
 #nav button{flex:1;min-width:0;border:0;background:none;padding:5px 0 5px;font-size:11px;color:var(--mut);font-weight:900;cursor:pointer;min-height:58px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px;transition:color .2s}
 #nav button img{width:34px;height:34px;object-fit:contain;transition:transform .25s cubic-bezier(.3,1.6,.5,1),filter .2s;filter:grayscale(.55) brightness(.8)}
+#nav button .tabem{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:26px;line-height:1;filter:grayscale(.55) brightness(.8);transition:transform .25s cubic-bezier(.3,1.6,.5,1),filter .2s}
+#nav button.on .tabem{transform:translateY(-5px) scale(1.2);filter:drop-shadow(0 3px 5px rgba(0,0,0,.45))}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.chips button{border:1.5px solid var(--line);background:rgba(0,0,0,.2);color:var(--sub);border-radius:999px;padding:6px 11px;font-size:12.5px;font-weight:900;cursor:pointer;min-height:34px}.chips button.on{color:var(--gold);border-color:var(--gold-d);background:var(--gold-bg)}
 #nav button.on{color:var(--gold)}
 #nav button.on img{transform:translateY(-5px) scale(1.2);filter:drop-shadow(0 3px 5px rgba(0,0,0,.45))}
 #nav button.on::before{content:"";position:absolute;top:-2px;left:22%;right:22%;height:4px;border-radius:0 0 4px 4px;background:var(--gold);box-shadow:0 0 12px var(--glow)}
@@ -362,13 +365,13 @@ const SK_IDS=['slash','peck','spin','bomb','thunder','fire','egg','shield','shri
 const skIcon=id=>SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:'';
 const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
-const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','성장'],['adv','adv','모험'],['pres','prestige','환생']];
+const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','성장'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
 const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
 const KPM=100;                       // 화면 분당 처치 목표(필드 엔진이 이 속도로 맞춘다). 처치당 골드 = 시간당 골드 ÷ (KPM×60)
 
 let V=null;              // 서버가 준 전체 화면 값(view)
 let TAB='hunt', MSG=null, STATE='boot';   // STATE: boot · out(로그아웃) · nobrj · err · ok
-let ERR='', BUSY=false, FETCHED=0, PARTY=null, PARTY_DIRTY=false, SUMRES=null, RANK=null, RANK_AT=0, SEL_PRES=false, SEL_SLOT=null, TAB_FLAG=false;
+let ERR='', BUSY=false, FETCHED=0, PARTY=null, PARTY_DIRTY=false, SUMRES=null, RANK=null, RANK_AT=0, SEL_PRES=false, SEL_SLOT=null, TAB_FLAG=false, RK={board:'stage',period:null,data:null,at:0,busy:false};
 
 function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
 function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페이지뿐 → 메인이 받아 로그인 처리 후 이 페이지로 되돌려 준다
@@ -594,8 +597,9 @@ function navHtml(){
   const clan=dn&&dn.clan&&dn.clan.claimable;
   const chest=V&&V.prestige&&V.prestige.chest&&N(V.prestige.chest.stock)>0;
   const aw=V&&V.skill&&V.skill.awaken&&V.skill.awaken.next&&V.skill.awaken.next.can;
-  const dots={adv:todo||clan,pres:chest,skill:aw};
-  return TABS.map(([k,ic,n])=>`<button role="tab" aria-selected="${TAB===k}" data-tab="${k}" class="${TAB===k?'on':''}"><img src="img/brjhunt/ui/tab_${ic}.webp" alt="" onerror="this.style.display='none'">${n}${dots[k]?'<span class="dot" title="할 수 있는 일이 있어요"></span>':''}</button>`).join('');
+  const rkc=V&&V.rank&&V.rank.prev&&V.rank.prev.claimable;
+  const dots={adv:todo||clan,pres:chest,skill:aw,rank:rkc};
+  return TABS.map(([k,ic,n])=>`<button role="tab" aria-selected="${TAB===k}" data-tab="${k}" class="${TAB===k?'on':''}">${ic?`<img src="img/brjhunt/ui/tab_${ic}.webp" alt="" onerror="this.style.display='none'">`:'<span class="tabem" aria-hidden="true">🏆</span>'}${n}${dots[k]?'<span class="dot" title="할 수 있는 일이 있어요"></span>':''}</button>`).join('');
 }
 function msgHtml(){ if(!MSG) return ''; return `<div class="msg ${esc(MSG.k)}" role="status">${MSG.t}</div>`; }   // MSG.t 는 이 파일이 만든 문장(서버 문자열은 만들 때 esc 한다)
 
@@ -623,7 +627,7 @@ function render(){
   renderTop(); updateChips();
   setHtml($('dock'),dockHtml());
   setHtml(nav,navHtml());
-  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,adv:tabAdv,pres:tabPres}[TAB]||tabHunt;
+  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
   const keep=sheet.scrollTop;
   main.innerHTML=msgHtml()+fn();
   if(TAB_FLAG){ TAB_FLAG=false; main.classList.remove('up'); void main.offsetWidth; main.classList.add('up'); sheet.scrollTop=0; } else sheet.scrollTop=keep;
@@ -891,6 +895,46 @@ function tabPres(){
   </div>`;
 }
 
+// ----- 랭킹 (종목별 순위표 · 주간 보상) -----
+function rkBoards(){ const r=V&&V.rank; return r&&Array.isArray(r.boards)?r.boards:[]; }
+function rkWhen(sec){ sec=N(sec); if(sec<=0) return ''; const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600); return d?`${d}일 ${h}시간`:`${h}시간`; }
+function tabRank(){
+  const r=V.rank;
+  if(!r||!Array.isArray(r.boards)) return `<div class="card"><h2>🏆 랭킹</h2><div class="sub">랭킹은 서버가 업데이트되면 열려요. 잠시 뒤에 새로 고침해 보세요.</div></div>`;
+  const bs=rkBoards(), cur=bs.find(b=>b.key===RK.board)||bs[0]; if(!cur) return '';
+  const per=(RK.period&&cur.periods.includes(RK.period))?RK.period:cur.default;
+  const d=RK.data&&RK.data.board===cur.key?RK.data:null;
+  const PN={week:'이번 주',season:'시즌',all:'전체'};
+  const prev=r.prev;
+  const prevHtml=prev&&prev.boards?`<div class="card"><h2>🥇 지난주 TOP3 <span class="pill">${esc(prev.range||'')}</span></h2>
+    ${Object.keys(prev.boards).map(k=>{ const bd=bs.find(b=>b.key===k); const rows=prev.boards[k]||[]; return `<h3>${esc(bd?bd.name:k)}</h3>${rows.length?rows.map(x=>`<div class="kv"><span>${['🥇','🥈','🥉'][N(x.rank)-1]||''} ${esc(x.name)}${x.me?' ← 나':''}</span><b>${fmt(x.value)}</b></div>`).join(''):'<div class="mut">해당자 없음</div>'}`; }).join('')}
+    ${prev.claimable?`<div class="msg ok" style="margin-top:8px">🎉 지난주 입상! ${prev.mine.map(m=>`${esc((bs.find(b=>b.key===m.board)||{}).name||m.board)} ${m.rank}등 ${I('feast')}+${fmt(m.feast)}`).join(' · ')}</div><div class="btns"><button class="btn gold" data-do="rkclaim">${I('feast')} 보상 받기</button></div>`:prev.claimed?'<div class="mut">보상은 이미 받았어요.</div>':'<div class="mut">입상하면 특식을 받아요.</div>'}
+  </div>`:'';
+  const rows=d&&Array.isArray(d.rows)?d.rows:null, me=d&&d.me;
+  const row=x=>`<tr${x.me?' style="font-weight:900;color:var(--gold)"':''}><td>${fmt(x.rank)}</td><td style="text-align:left;white-space:normal;overflow-wrap:anywhere">${esc(x.name)}${x.me?' ← 나':''}${x.tag?` <span class="mut">${esc(x.tag)}</span>`:''}</td><td>${fmt(x.value)}</td></tr>`;
+  const around=d&&Array.isArray(d.around)?d.around.filter(a=>!(rows||[]).some(x=>x.rank===a.rank)):[];
+  return `
+  <div class="card"><h2>🏆 랭킹 <span class="pill">${r.reset_in&&per!=='all'?`${PN[per]} 끝까지 ${esc(rkWhen(r.reset_in[per]))}`:'전체'}</span></h2>
+    <div class="chips" role="tablist" aria-label="종목">${bs.map(b=>`<button class="${b.key===cur.key?'on':''}" data-do="rkboard" data-board="${esc(b.key)}">${esc(b.name)}</button>`).join('')}</div>
+    ${cur.periods.length>1?`<div class="chips" aria-label="기간">${cur.periods.map(p=>`<button class="${p===per?'on':''}" data-do="rkperiod" data-period="${esc(p)}">${PN[p]||p}</button>`).join('')}</div>`:''}
+    <div class="sub">${esc(d?d.label:cur.labels[per]||'')}</div>
+    ${rows===null?'<div class="sub" style="margin:8px 0">순위표를 불러오는 중…</div>':rows.length?`<div class="tw"><table><thead><tr><th>순위</th><th>이름</th><th>기록</th></tr></thead><tbody>${rows.map(row).join('')}${around.length?`<tr><td colspan="3" class="mut">⋯</td></tr>${around.map(row).join('')}`:''}</tbody></table></div>
+      <div class="mut">${me&&me.rank?`내 순위 ${fmt(me.rank)}위 / ${fmt(d.total)}명 · 내 기록 ${fmt(me.value)}`:`아직 순위에 없어요 (${fmt(d.total)}명 참여)`}</div>`:'<div class="sub" style="margin:8px 0">아직 기록이 없어요.</div>'}
+    <div class="btns"><button class="btn alt" data-do="rkrefresh">새로고침</button><button class="btn alt" data-do="rkhide">${r.hidden?'이름 보이기':'이름 숨기기'}</button></div>
+    ${r.hidden?'<div class="mut">지금은 다른 사람에게 이름이 「비공개」로 보여요.</div>':''}
+  </div>
+  ${prevHtml}
+  <div class="card"><h2>🎁 주간 보상</h2><div class="sub">${esc(r.reward&&r.reward.rule||'')}</div><div class="kv"><span>1·2·3등</span><b>${I('feast')} +${((r.reward&&r.reward.feast)||[]).map(fmt).join(' / +')}</b></div></div>`;
+}
+async function loadRankBoard(force){
+  if(RK.busy) return; const r=V&&V.rank; if(!r) return;
+  const cur=rkBoards().find(b=>b.key===RK.board)||rkBoards()[0]; if(!cur) return;
+  const per=(RK.period&&cur.periods.includes(RK.period))?RK.period:cur.default;
+  if(!force&&RK.data&&RK.data.board===cur.key&&RK.data.period===per&&Date.now()-RK.at<30000) return;
+  RK.busy=true; const j=await call('/brj/ranks',{board:cur.key,period:per,top:20}); RK.busy=false;
+  if(j&&j.ok){ RK.data=j; RK.at=Date.now(); } else { const t=failText(j); if(t) say(t,'bad'); RK.data=RK.data||null; }
+  render();
+}
 async function loadRank(){
   RANK_AT=Date.now();
   const j=await call('/brj/rank',{top:20});
@@ -1001,6 +1045,11 @@ const DO={
     if(j.ok){ const g=j.got||{}; say(`🎁 상자 ${fmt(j.opened)}개를 열었어요! 🍖 +${fmt(g.feast)}${N(g.ticket)?` · 🎟 +${fmt(g.ticket)}`:''}${N(g.stone)?` · 🔩 +${fmt(g.stone)}`:''}`,'ok'); snd('summon'); }
     else say(j.code==='empty'?'열 상자가 없어요. 내전을 뛰면 생겨요.':'처리하지 못했어요.','bad'); }),
   rank:()=>loadRank(),
+  rkboard:el=>{ RK.board=el.dataset.board; RK.period=null; RK.data=null; render(); loadRankBoard(true); },
+  rkperiod:el=>{ RK.period=el.dataset.period; RK.data=null; render(); loadRankBoard(true); },
+  rkrefresh:()=>loadRankBoard(true),
+  rkhide:()=>act('/brj/rank_hide',{hide:!(V.rank&&V.rank.hidden)},j=>{ if(j.ok){ say(j.hidden?'이름을 숨겼어요. 다른 사람에게는 「비공개」로 보여요.':'이름을 다시 보여 줘요.','ok'); RK.at=0; loadRankBoard(true); } else say('바꾸지 못했어요.','bad'); }),
+  rkclaim:()=>act('/brj/rank_claim',{},j=>{ if(j.ok){ say(`🎉 특식 +${fmt((j.got||{}).feast)} 을 받았어요!`,'ok'); snd('summon'); } else say({claimed:'이미 받았어요.',none:'받을 보상이 없어요.',no_prev:'아직 확정된 지난주가 없어요.'}[j.code]||'받지 못했어요.','bad'); }),
 };
 
 document.addEventListener('click',e=>{
@@ -1008,7 +1057,7 @@ document.addEventListener('click',e=>{
   try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){}
   if(t.id==='loginBtn'){ snd('click'); dcLogin(); return; }
   if(t.id==='retryBtn'){ snd('click'); STATE='boot'; render(); load(); return; }
-  if(t.dataset.tab){ if(TAB!==t.dataset.tab){ snd('tab'); TAB=t.dataset.tab; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); } return; }
+  if(t.dataset.tab){ if(TAB!==t.dataset.tab){ snd('tab'); TAB=t.dataset.tab; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); } return; }
   if(t.dataset.card!=null){   // 파티 편성(저장 전까지는 이 화면에서만 바뀐다)
     snd('click');
     const id=t.dataset.card, p=curParty(), i=p.indexOf(id), mx=N(R(V.summon,'party_max',3))||3;
