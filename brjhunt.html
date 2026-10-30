@@ -172,7 +172,7 @@ function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페�
 // ---------- 서버 부르기 ----------
 const CODE_MSG={
   auth:'로그인이 끝났어요. 디스코드로 다시 로그인해 주세요.',
-  busy:'지금 사람이 몰려서 잠깐 막혔어요. 몇 초 뒤에 다시 눌러 주세요.',
+  busy:'지금 사람이 몰려서(또는 너무 빨리 눌러서) 잠깐 막혔어요. 몇 초 뒤에 다시 눌러 주세요.',
   upstream:'디스코드 확인이 잠깐 늦어지고 있어요. 로그인은 그대로예요. 조금 뒤에 다시 해 보세요.',
   error:'서버에서 문제가 생겼어요. 잠시 뒤에 다시 해 보세요.',
   big:'요청이 너무 커요.', http:'서버 응답을 읽지 못했어요. 잠시 뒤에 다시 해 보세요.', net:'서버에 연결하지 못했어요. 인터넷을 확인하고 다시 해 보세요.'
@@ -411,7 +411,7 @@ function tabAdv(){
     <div class="kv"><span>오늘 남은 공격</span><b>${fmt(cl.left)} / ${fmt(cl.daily_max)}</b></div>
     ${Array.isArray(cl.top)&&cl.top.length?`<h3>이번 주 피해 순위</h3>${cl.top.map((t,i)=>`<div class="kv"><span>${i+1}. ${esc(t.n)}</span><b>${fmt(t.d)}</b></div>`).join('')}`:''}
     <div class="btns"><button class="btn ${N(cl.left)>0?'':'alt'}" data-do="clanatk" ${N(cl.left)>0?'':'disabled'}>⚔ 공격하기</button><button class="btn ${cl.claimable?'gold':'alt'}" data-do="clanclaim" ${cl.claimable?'':'disabled'}>🍖 보상 받기 (+${fmt(cl.feast)})</button></div>
-    <div class="mut">보스를 처치하면 <b>참여한 사람 모두</b> 🍖 ${fmt(cl.feast)} 를 받아요. 한 번만 공격해도 받아요.</div>
+    <div class="mut">보스를 처치하면 🍖 ${fmt(cl.feast)} 를 받아요. 받으려면 <b>이번 주 ${fmt(cl.min_atk)}번 이상 공격</b>하고 보스 체력의 <b>${fmt(cl.min_share_pct)}% 이상</b> 피해를 줘야 해요. 한 사람이 줄 수 있는 피해는 체력의 ${fmt(Math.round(N(cl.cap)/Math.max(1,N(cl.hp))*100))}% 까지라 <b>모두 같이</b> 잡아야 해요. 보스 체력은 ${fmt(cl.active)}명의 활동 인원과 전투력에 맞춰져요. 내 이번 주 공격 ${fmt(cl.my_atk)}번.</div>
   </div>
   <div class="card"><h2>📋 오늘 할 일</h2>
     ${dailyTasks.map(t=>`<div class="task"><span>${t.done?'✅':'⬜'}</span><span>${esc(t.label)}</span></div>`).join('')}
@@ -494,9 +494,9 @@ const DO={
     else if(j.result==='nokey') say('🔑 열쇠가 없어요. 시간이 지나면 충전돼요.','bad');
     else say('처리하지 못했어요.','bad'); }),
   clanatk:()=>act('/brj/clanboss',{action:'attack'},j=>{
-    if(j.result==='ok') say(`🐲 클랜 보스에게 ${fmt(j.dmg)} 피해를 줬어요!`,'ok'); else if(j.result==='limit') say('오늘 공격은 모두 썼어요. 내일 또 와요.','bad'); else say('처리하지 못했어요.','bad'); }),
+    if(j.result==='ok') say(`🐲 클랜 보스에게 ${fmt(j.dmg)} 피해를 줬어요!`,'ok'); else if(j.result==='limit') say('오늘 공격은 모두 썼어요. 내일 또 와요.','bad'); else if(j.result==='dead') say('이번 주 보스는 이미 쓰러졌어요. 월요일에 새 보스가 와요.','bad'); else if(j.result==='capped') say('이번 주 내가 줄 수 있는 피해를 다 채웠어요. 나머지는 다른 클랜원 몫이에요.','bad'); else say('처리하지 못했어요.','bad'); }),
   clanclaim:()=>act('/brj/clanboss',{action:'claim'},j=>{
-    if(j.result==='ok') say(`🍖 클랜 보스 보상 +${fmt(j.feast)} 받았어요!`,'ok'); else say('받을 보상이 없어요. 보스를 처치했고 내가 피해를 줬는지 확인해 보세요.','bad'); }),
+    if(j.result==='ok') say(`🍖 클랜 보스 보상 +${fmt(j.feast)} 받았어요!`,'ok'); else say('받을 보상이 없어요. 보스가 쓰러졌는지, 내가 이번 주 3번 이상 공격하고 체력의 2% 이상 피해를 줬는지 확인해 보세요.','bad'); }),
   daily:()=>act('/brj/daily',{},j=>{
     if(j.result==='ok'){ const c=j.chest||{}; const nm=({stone:'🔩 강화석',ticket:'🎟 소환권',gold:'🪙 골드'})[c.kind]||''; say(`🎁 오늘 할 일 완료! 🍖 +${fmt(j.feast)}${nm?` · 상자: ${nm}${N(c.n)?' '+fmt(c.n)+'개':''}`:''}`,'ok'); }
     else if(j.result==='claimed') say('오늘 보상은 이미 받았어요.','info'); else say('아직 못 끝낸 일이 있어요. 위 목록을 확인해 보세요.','bad'); }),
