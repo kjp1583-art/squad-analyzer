@@ -186,11 +186,11 @@ const CODE_MSG={
 };
 async function call(path,body){
   const u=dcUser(); if(!u) return {ok:false,code:'auth',local:true};
-  let r,j=null;
+  let r,j=null; const ac=typeof AbortController==='function'?new AbortController():null, to=setTimeout(()=>{ try{ac&&ac.abort();}catch(e){} },18000);   // 서버가 안 답해도 버튼이 영영 죽지 않게
   try{
-    r=await fetch(P6_API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body||{},{token:u.token}))});
+    r=await fetch(P6_API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body||{},{token:u.token})),signal:ac?ac.signal:undefined});
     try{j=await r.json();}catch(e){}
-  }catch(e){return {ok:false,code:'net'};}
+  }catch(e){return {ok:false,code:'net'};}finally{ clearTimeout(to); }
   if(!j||typeof j!=='object') return {ok:false,code:'http'};
   if(r.status===401) j.code='auth';
   return j;
@@ -327,11 +327,15 @@ const Battle=(function(){
 
   // ----- 만들기 -----
   function spawnWave(first){
-    let n=1+(rnd()<0.5?1:0)+(S.stage>=15&&rnd()<0.4?1:0); n=Math.min(3,n);
-    for(let i=0;i<n;i++) S.mons.push({x:first?S.DW*0.7+i*46:S.DW+30+i*52,hp:S.monHp,max:S.monHp,hit:0,kb:0,dead:-1,ph:rnd()*6,sp:62+rnd()*18,atk:1+rnd()*1.2,lunge:0});
+    let n=2+(rnd()<0.4?1:0)+(S.stage>=15&&rnd()<0.3?1:0); n=Math.min(3,n);   // 한 무리 최소 2마리 — 계속 몰아치는 느낌
+    for(let i=0;i<n;i++) S.mons.push({x:first?S.DW*0.7+i*46:S.DW*0.85+i*46,hp:S.monHp,max:S.monHp,hit:0,kb:0,dead:-1,ph:rnd()*6,sp:120+rnd()*20,atk:1+rnd()*1.2,lunge:0});
   }
   function pushP(p){ if(S.parts.length<(S.low||S.rm?26:60)) S.parts.push(p); }
-  function say2(s,x,y,size,col,life){ if(S.texts.length>=22) S.texts.shift(); S.texts.push({s,x,y,vy:-38,t:0,life:life||0.9,size,col}); }
+  function say2(s,x,y,size,col,life,alpha){   // 이미 떠 있는 숫자 수만큼 위로 어긋나게, 좌우 번갈아 — 겹쳐서 못 읽는 일 방지
+    if(S.texts.length>=22) S.texts.shift();
+    const k=S.texts.filter(t=>t.t<0.5).length; S.dmgSide=-(S.dmgSide||1);
+    S.texts.push({s,x:x+(k?S.dmgSide*16:0),y:y-Math.min(k,5)*12,vy:-38,t:0,life:life||0.9,size,col,al:alpha==null?1:alpha});
+  }
   function coins(x,y,n){ for(let i=0;i<n;i++) pushP({k:'coin',x,y,vx:(rnd()-0.5)*90,vy:-130-rnd()*80,t:0,life:1.1,b:0}); }
   function poof(x,y,col,n){ for(let i=0;i<n;i++){ const a=rnd()*6.28,s=40+rnd()*70; pushP({k:'dot',x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,t:0,life:0.45,c:col,r:2+rnd()*2}); } }
   function popPend(){
@@ -343,7 +347,7 @@ const Battle=(function(){
   function hitMon(m,dmg,crit,col){
     if(m.dead>=0) return;
     m.hp-=dmg; m.hit=0.16; m.kb=crit?14:8;
-    say2((crit?'':'')+fmt(dmg)+(crit?'!':''),m.x+(rnd()-0.5)*14,GY-68,crit?22:14,crit?'#ffd23c':(col||'#fff'),crit?1.0:0.8);
+    say2(fmt(dmg)+(crit?'!':''),m.x+(rnd()-0.5)*14,GY-68,crit?22:16,crit?'#ffd23c':(col||'#fff'),crit?1.0:0.8,col==='#bfe0ff'?0.8:1);
     poof(m.x,GY-30,crit?'#ffd23c':'#fff',crit?5:2);
     if(m.hp<=0){ m.dead=0; S.kills++; coins(m.x,GY-24,S.low?3:5); poof(m.x,GY-30,'#fff6c0',6); popPend(); }
   }
@@ -352,7 +356,7 @@ const Battle=(function(){
     const B=S.boss; if(!B||B.state!=='fight') return;
     const dmg=Math.max(1,Math.round(step*(0.9+rnd()*0.2)*(crit?1.8:1)));
     const was=B.hp; B.hp=Math.max(B.target,B.hp-dmg); B.hit=0.14; B.kb=crit?9:5;
-    say2(fmt(Math.max(1,was-B.hp))+(crit?'!':''),B.x+(rnd()-0.5)*40,GY-140,crit?24:16,crit?'#ffd23c':(col||'#fff'),1.0);
+    say2(fmt(Math.max(1,was-B.hp))+(crit?'!':''),B.x+(rnd()-0.5)*40,GY-140,crit?24:16,crit?'#ffd23c':(col||'#fff'),1.0,col==='#bfe0ff'?0.8:1);
     poof(B.x-20,GY-70,crit?'#ffd23c':'#fff',crit?6:3); S.shake=Math.max(S.shake,crit?4:2);
     if(B.hp<=B.target){
       if(B.res==='win'){ B.state='dying'; B.t=0; S.shake=9; coins(B.x,GY-60,S.low?8:16); poof(B.x,GY-80,'#fff6c0',14); popPend(); }
@@ -410,6 +414,7 @@ const Battle=(function(){
     // 보스
     if(B){
       B.t+=dt; B.hit=Math.max(0,B.hit-dt); B.kb*=Math.exp(-dt*12);
+      if(B.state==='hold'&&B.t>22&&!B.res) bossAbort(true);   // 판정이 끝내 안 오면 보스가 물러난다
       if(B.state==='intro'){ B.x=Math.max(B.stop,B.x-150*dt); if(B.x<=B.stop){ B.state=B.res?'fight':'hold'; B.t=0; S.shake=S.rm?0:6; } }
       else if(B.state==='fight') engaged=!c.down;
       else if(B.state==='dying'){ if(B.t>3.2) bossFinish(); }
@@ -429,7 +434,9 @@ const Battle=(function(){
         prev=Math.max(m.x,prev)+44;
       }
       if(front&&front.x<=c.x+ENG+4) engaged=true;
-      if(!S.mons.length){ S.wait-=dt; if(S.wait<=0){ spawnWave(false); S.wait=0.4; } }
+      const alive=S.mons.filter(m=>m.dead<0);
+      if(!alive.length){ S.wait-=dt; if(S.wait<=0){ spawnWave(false); S.wait=0.3; } }
+      else if(alive.length===1&&alive[0].hp<=alive[0].max*0.3&&S.mons.length<=3){ spawnWave(false); }   // 마지막 한 마리가 거의 쓰러지면 다음 무리가 미리 달려온다
       if(engaged&&front&&!c.down){
         front.atk-=dt;
         if(front.atk<=0){ front.atk=1.8+rnd()*0.9; front.lunge=1; if(c.skillT<=0){ c.pose='hit'; c.poseT=0.26; } c.hurt=0.26; c.kbx=-7; poof(c.x+16,GY-40,'#ff8a8a',3); }
@@ -499,6 +506,12 @@ const Battle=(function(){
     if(!im) im=art('chick_idle');
     if(!im) im=ld(CHICK_FB);
     if(!im) im=emo('🐥',74);
+    let hk=1;
+    if(has){   // 그림마다 몸통 크기가 달라서 보이는 몸 높이를 idle 에 맞추고(깜빡임 방지), 공격 순간엔 눌렀다 펴서 움직임으로 보이게 한다
+      hk=CHICK_HK[p]||1;
+      if(p==='atk1'||p==='atk2'){ o.sx=1+0.09*c.lunge; o.sy=1-0.07*c.lunge; o.rot=(p==='atk1'?1:-1)*0.07*c.lunge; }
+      else if(p==='skill'){ o.sy=1+Math.sin(S.t*30)*0.025; o.sx=1.04; }
+    }
     if(!has){   // 포즈 그림이 없을 땐 같은 그림을 기울이고 눌러서 모션을 낸다
       if(p==='atk1'||p==='atk2') { o.rot=p==='atk1'?0.12:-0.1; o.sx=1.08; o.sy=0.94; }
       else if(p==='hit') { o.rot=-0.15; }
@@ -507,8 +520,9 @@ const Battle=(function(){
     if(p==='down'){ o.rot=-1.4; o.a=0.9; y+=8; x-=10; }
     if(c.hurt>0&&((S.t*30)|0)%2===0) o.a=0.45;
     if(c.skillT>0&&!S.low){ cx.save(); cx.globalCompositeOperation='lighter'; const g=cx.createRadialGradient(x,y-40,4,x,y-40,60); g.addColorStop(0,'rgba(255,220,90,.75)'); g.addColorStop(1,'rgba(255,140,40,0)'); cx.fillStyle=g; cx.fillRect(x-70,y-110,140,140); cx.restore(); }
-    spr(x,y,86,im,o);
+    spr(x,y,86*hk,im,o);
   }
+  const CHICK_HK={atk1:1.18,hit:1.18,skill:0.945};   // 그림 알파 bbox 높이(idle 225px 기준): atk1 191 · atk2 224 · hit 191 · skill 238
   function drawMember(m,x,fy){
     const c=S.ctx, col=GR_COL[m.gr]||'#98a2b8', bob=Math.sin(S.t*6+x)*(S.walking?2:0.8), hop=m.hop>0?-Math.sin((1-m.hop/0.25)*Math.PI)*8:0; fy+=bob+hop;
     c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(x,GY+6,12,3.5,0,0,6.3); c.fill();
@@ -561,7 +575,7 @@ const Battle=(function(){
       else if(p.k==='star'){ c.globalAlpha=1-p.t/p.life; txt('✦',p.x,p.y,13,'#ffe27a','center','rgba(255,120,40,.7)'); c.globalAlpha=1; }
       else if(p.k==='proj'){ c.fillStyle=p.c; c.strokeStyle='#fff'; c.lineWidth=1.2; c.beginPath(); c.arc(p.x,p.y,4,0,6.3); c.fill(); c.stroke(); }
     }
-    for(const t of S.texts){ const q=t.t/t.life; c.globalAlpha=q<0.7?1:1-(q-0.7)/0.3; const sc=q<0.12?0.6+q/0.12*0.4:1; txt(t.s,t.x,t.y,t.size*sc,t.col); }
+    for(const t of S.texts){ const q=t.t/t.life; c.globalAlpha=(t.al==null?1:t.al)*(q<0.7?1:1-(q-0.7)/0.3); const sc=q<0.12?0.6+q/0.12*0.4:1; txt(t.s,t.x,t.y,t.size*sc,t.col); }
     c.globalAlpha=1;
   }
   function drawHud(){
