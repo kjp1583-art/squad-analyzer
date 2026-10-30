@@ -277,12 +277,15 @@ const Battle=(function(){
     S.dmg=Math.max(1,Math.round(S.power*0.22)); S.monHp=S.dmg*S.htk;
     let ri=-1; const rg=S.region.toLowerCase(); for(let i=0;i<6;i++) if(rg.indexOf(REG_KEY[i])>=0){ ri=i; break; }
     if(ri<0) ri=Math.floor((Math.max(1,S.stage)-1)/5)%6;
-    S.reg=ri;
+    S.reg=ri; if(S.attached) preload();
     const sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,3):[], cards=Array.isArray(sm.cards)?sm.cards:[];
     const key=ids.join(',')+'|'+cards.length;
     if(key!==S.pkey){ S.pkey=key;
       S.party=ids.map(id=>cards.find(c=>c&&c.id===id)).filter(Boolean).map((c,i)=>({ini:Array.from(String(c.n||'?'))[0]||'?',gr:grKey(c.gr),t:0.6+i*0.37,hop:0})); }
   }
+
+  // 지금 지역의 그림만 부른다(병아리 5장 + 몬스터 2장 + 배경 1장 ≈ 150KB). 스테이지가 올라 지역이 바뀌면 그때 그 지역 것만 더 부른다.
+  function preload(){ ['idle','atk1','atk2','hit','skill'].forEach(p=>art('chick_'+p)); art('m'+(S.reg+1)+'_idle'); art('m'+(S.reg+1)+'_hit'); art('bg'+(S.reg+1)); }
 
   // ----- 시작·멈춤 -----
   function build(){
@@ -305,7 +308,7 @@ const Battle=(function(){
     if(S.root.parentNode!==slot) slot.appendChild(S.root);
     const first=!S.attached; S.attached=true;
     measure(); derive();
-    ['idle','atk1','atk2','hit','skill'].forEach(p=>art('chick_'+p)); art('m'+(S.reg+1)+'_idle'); art('m'+(S.reg+1)+'_hit'); art('bg'+(S.reg+1)); ld(CHICK_FB);
+    preload(); ld(CHICK_FB);
     if(first){ S.chick.x=S.DW*0.4; S.mons.length=0; spawnWave(true); }
     drawFrame(); start();
   }
