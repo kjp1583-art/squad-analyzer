@@ -5867,9 +5867,9 @@ const MG_CATALOG=[
    hook:'5점에 팔린 신입, 첫 멸망전이 시작된다 — 내 닉네임으로 플레이하는 클랜 이야기 비주얼 노벨.',
    tags:['비주얼 노벨','스토리','엔딩 4종','이어하기'], time:'약 100분(언제든 저장)', play:'PC · 폰 · 기기를 바꿔도 이어하기', login:'디스코드 로그인 필요',
    isMine:n=>/스콰드 생존게임/.test(String((n&&n.title)||'')+' '+String((n&&n.how)||''))},
-  {id:'bj', name:'브장신 키우기', ic:'🍗', genre:'육성', url:'brjang.html', img:'img/brjang_promo.png', pos:'center 14%', discord:true,
-   hook:'알에서 병아리, 그리고 합정점 사장까지 — 내전으로 사료를 모아 먹이고 진화·장비·레이드로 멸망전 우승을 노리는 디스코드 마스코트 육성 게임.',
-   tags:['육성','디스코드','레이드','꾸미기'], time:'하루 몇 분씩(내전 뛸 때마다 사료)', play:'디스코드 #브장신키우기 채널 · 웹은 도감·꾸미기', login:'디스코드 계정(채널에서 「현황」 입력)',
+  {id:'bj', name:'브장신 키우기', ic:'🍗', genre:'육성', url:'brjhunt.html', img:'img/brjang_promo.png', pos:'center 14%',
+   hook:'방치해도 골드가 쌓이는 사냥터 — 동료를 소환해 파티를 짜고, 보스·던전·클랜 보스에 도전하고, 환생으로 더 멀리! 내전을 뛰면 더 빨리 큽니다.',
+   tags:['육성','방치형','동료 소환','보스','환생'], time:'하루 몇 분씩(접속해서 수령)', play:'PC · 폰 웹 (먼저 디스코드 #브장신키우기 에서 시작)', login:'디스코드 로그인 필요',
    isMine:n=>!!(n&&n.area==='brj')},
 ];
 let MG_PATCH=null, MG_FILTER='all', MG_HERO=0, _mgTimer=null;
@@ -10276,6 +10276,7 @@ const DC_VERIFY_P=dcHandleRedirect();
 // 게임에서 온 로그인은 데이터 로딩을 기다리지 않고 바로 처리해 게임으로 돌려보낸다(승인을 취소하고 돌아와도 게임으로)
 if(DC_VERIFY_P&&DC_BOOT.ret==="게임:survivors") DC_VERIFY_P.then(()=>_dcReturn("게임:survivors"));
 if(DC_VERIFY_P&&DC_BOOT.ret==="게임:novel") DC_VERIFY_P.then(()=>_dcReturn("게임:novel"));
+if(DC_VERIFY_P&&DC_BOOT.ret==="게임:brjhunt") DC_VERIFY_P.then(()=>_dcReturn("게임:brjhunt"));   // 🍗 브장신 키우기 웹 사냥터
 if(DC_VERIFY_P&&DC_BOOT.ret==="게임:novel_dash") DC_VERIFY_P.then(()=>_dcReturn("게임:novel_dash"));   // 📊 스콰드 진행도 대시보드(운영진)   // 📖 스콰드(비주얼 노벨) — 로그인 뒤 게임 페이지로
 // 🔐 확인이 첫 화면보다 늦게 끝났으면 로그인에 따라 달라지는 화면만 다시 그린다
 if(DC_VERIFY_P) DC_VERIFY_P.then(ok=>{ if(ok&&GAMES.size) _dcRefreshView(); });
@@ -10330,6 +10331,7 @@ function _dcReturn(ret){   // 로그인 복귀 — '@라우트'/'이주의인물
   else if(ret.startsWith('군장병')) go('army');
   else if(ret==='게임:novel'){ location.replace('novel.html'); }
   else if(ret==='게임:novel_dash'){ location.replace('novel_dash.html'); }
+  else if(ret==='게임:brjhunt'){ location.replace('brjhunt.html'); }   // 🍗 브장신 키우기 웹 사냥터
   else if(ret==='게임:survivors'){ location.replace('survivors.html'); }   // 🦐 흐접새우 서바이벌 — 게임 페이지에서 로그인하고 돌아가기
   else if(ret[0]==='#'||ret[0]==='?') _dcReturnRaw(ret);   // 🔐 [2026-09-29 사장님 지시] 자동 로그인 복귀(떠나기 전 주소) — 머리 스크립트가 주소를 못 되돌렸을 때만 여기로
   else go('player',ret);
@@ -11993,7 +11995,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   const start=()=>{ mark(); try{ new MutationObserver(sched).observe(document.body,{childList:true,subtree:true}); }catch(e){} };
   if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
 })();
-const BUILD_ID="202610301500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610301800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -12092,7 +12094,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   try{ if(IDEAL_BOOT_HASH) go('ideal'); }catch(e){}   // 💘 #ideal 새로고침·공유 링크
   try{ if(SUB_BOOT_HASH) go(SUB_BOOT_HASH.route,SUB_BOOT_HASH.tab); }catch(e){}   // 🗂 #ach/#mst 하위 탭 새로고침·공유 링크
   try{ if(BRJ_BOOT_HASH) go('brjang',BRJ_BOOT_HASH.tab); }catch(e){}   // 🍗 #brj/<탭> — 새로고침·공유 링크로 브키도감 하위 탭 다시 열기   // 📰 #news[/종료일] 공유 링크(봇 /주간평생성 안내)
-  try{ if(DC_VERIFY_P){ await DC_VERIFY_P; const _r=DC_BOOT.ret; if(_r&&_r!=="게임:survivors"&&_r!=="게임:novel"&&_r!=="게임:novel_dash") _dcReturn(_r); } }catch(e){}   // 디스코드 로그인 복귀 — 원래 보던 곳으로(확인은 부팅과 동시에 시작해 뒀다)
+  try{ if(DC_VERIFY_P){ await DC_VERIFY_P; const _r=DC_BOOT.ret; if(_r&&_r!=="게임:survivors"&&_r!=="게임:brjhunt"&&_r!=="게임:novel"&&_r!=="게임:novel_dash") _dcReturn(_r); } }catch(e){}   // 디스코드 로그인 복귀 — 원래 보던 곳으로(확인은 부팅과 동시에 시작해 뒀다)
   try{ _cmtDraftRestore(); }catch(e){}   // 🔐 로그인하러 다녀오기 전에 쓰던 댓글·편지 되살리기
   checkNewBuild();                   // 🆕 배포 확인은 부팅이 끝난 뒤에 — 부팅 중엔 시트와 대역폭을 다투지 않게(2026-08-27)
 })();

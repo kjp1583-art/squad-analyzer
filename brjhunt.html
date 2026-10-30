@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<!-- 🔐 자동 로그인 — survivors.html 과 같은 방식. 토큰이 하루 안에 끝나고 한 번 로그인한 적이 있으면 디스코드를 조용히 한 번 다녀온다 -->
+<script>
+(function(){ try{
+  var ls=localStorage, ss=sessionStorage; ls.setItem('sgg_dc_probe','1'); ls.removeItem('sgg_dc_probe'); ss.setItem('sgg_dc_probe','1'); ss.removeItem('sgg_dc_probe');
+  var J=function(k){ try{ return JSON.parse(ls.getItem(k)||'null'); }catch(e){ return null; } };
+  var dc=J('sgg_dc'), auto=J('sgg_dc_auto'), now=Date.now();
+  if(ls.getItem('sgg_dc_auto')===null&&dc&&dc.id){ auto={id:String(dc.id),name:String(dc.name||''),avatar:String(dc.avatar||'')}; ls.setItem('sgg_dc_auto',JSON.stringify(auto)); }
+  if(ls.getItem('sgg_dc_try')!==null){ ls.setItem('sgg_dc_auto','0'); ls.removeItem('sgg_dc_try'); return; }
+  if(!(auto&&auto.id)) return;
+  if(dc&&dc.token&&dc.exp>now+24*3600*1000) return;
+  if(window.top!==window.self||document.prerendering||navigator.onLine===false) return;
+  var a=new Uint8Array(16); crypto.getRandomValues(a); var st=Array.prototype.map.call(a,function(x){return (x<16?'0':'')+x.toString(16);}).join('');
+  ls.setItem('sgg_dc_try',String(now)); ss.setItem('sgg_oauth_state',st); ss.setItem('sgg_oauth_return','게임:brjhunt');
+  window.SGG_DC_BOUNCE=true;
+  location.replace('https://discord.com/api/oauth2/authorize?response_type=token&client_id=1520763174675022028'
+    +'&redirect_uri='+encodeURIComponent(location.origin+new URL('./',location.href).pathname)
+    +'&scope=identify&state='+encodeURIComponent(st)+'&prompt=none');
+}catch(e){} })();
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="data:,">
+<title>브장신 키우기 — 사냥터</title>
+<meta name="description" content="브장신 키우기 웹 사냥터 — 방치해도 골드가 쌓이고, 동료를 모으고, 보스와 던전에 도전해요. SQUAD.GG">
+<meta name="theme-color" content="#14171f">
+<style>
+:root{
+  --bg:#14171f; --bg2:#1a1e29; --card:#1f2431; --card2:#262c3c; --line:#313852; --txt:#eceff7; --sub:#a4adc4; --mut:#7a849d;
+  --gold:#f0b43c; --gold-bg:#2c2412; --green:#35c486; --green-bg:#12301f; --red:#ef5a6f; --red-bg:#3a1b24; --blue:#6b9bff; --blue-bg:#17233f;
+  --g-normal:#98a2b8; --g-rare:#4aa3ff; --g-epic:#b678ff; --g-unique:#ffa23a; --g-legend:#ff5c7a;
+  --btn:#3d6cf0; --btn-txt:#fff; --shadow:0 2px 10px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f2f4f9; --bg2:#e9edf5; --card:#ffffff; --card2:#f0f3fa; --line:#d5dbea; --txt:#1c2233; --sub:#4d5873; --mut:#76809a;
+    --gold:#b97a06; --gold-bg:#fff4d8; --green:#118a56; --green-bg:#dcf5e8; --red:#cf2a45; --red-bg:#fde3e8; --blue:#2c5fe0; --blue-bg:#e3ebff;
+    --g-normal:#6b7590; --g-rare:#1d7ce0; --g-epic:#8a3fd6; --g-unique:#d77406; --g-legend:#d6264a; --shadow:0 2px 8px rgba(30,40,70,.12);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f2f4f9; --bg2:#e9edf5; --card:#ffffff; --card2:#f0f3fa; --line:#d5dbea; --txt:#1c2233; --sub:#4d5873; --mut:#76809a;
+  --gold:#b97a06; --gold-bg:#fff4d8; --green:#118a56; --green-bg:#dcf5e8; --red:#cf2a45; --red-bg:#fde3e8; --blue:#2c5fe0; --blue-bg:#e3ebff;
+  --g-normal:#6b7590; --g-rare:#1d7ce0; --g-epic:#8a3fd6; --g-unique:#d77406; --g-legend:#d6264a; --shadow:0 2px 8px rgba(30,40,70,.12);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;padding-bottom:84px}
+a{color:var(--blue);text-decoration:none}
+button{font:inherit;color:inherit}
+.hd{position:sticky;top:0;z-index:20;background:var(--bg2);border-bottom:1px solid var(--line)}
+.hd .row{max-width:720px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:10px}
+.hd .ttl{font-weight:900;font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd .ttl b{color:var(--gold)}
+.ib{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:13px;cursor:pointer;color:var(--sub)}
+.res{max-width:720px;margin:0 auto;padding:0 16px 8px;display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;white-space:nowrap}
+.wrap{max-width:720px;margin:0 auto;padding:12px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px;box-shadow:var(--shadow)}
+.card h2{font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.card h3{font-size:14px;margin:12px 0 6px}
+.sub{color:var(--sub);font-size:13px}
+.mut{color:var(--mut);font-size:12px}
+.big{font-size:26px;font-weight:900;line-height:1.2}
+.gold{color:var(--gold)} .green{color:var(--green)} .red{color:var(--red)}
+.btn{border:0;background:var(--btn);color:var(--btn-txt);border-radius:12px;padding:11px 16px;font-weight:800;font-size:15px;cursor:pointer;min-height:44px}
+.btn.alt{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+.btn.gold{background:var(--gold);color:#1b1405}
+.btn.red{background:var(--red);color:#fff}
+.btn[disabled],.btn.off{opacity:.45;cursor:not-allowed}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btns .btn{flex:1 1 130px}
+.bar{height:10px;background:var(--card2);border-radius:999px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green))}
+.hero{display:flex;gap:12px;align-items:center}
+.hero img{width:92px;height:92px;object-fit:contain;flex:none}
+.hero .ph{width:92px;height:92px;flex:none;display:flex;align-items:center;justify-content:center;font-size:48px}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:14px;border-bottom:1px dashed var(--line)}
+.kv:last-child{border-bottom:0}
+.msg{border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:14px;font-weight:700;border:1px solid var(--line);background:var(--card2)}
+.msg.ok{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.msg.bad{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.msg.info{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--bg2);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.nav .in{max-width:720px;margin:0 auto;display:flex}
+.nav button{flex:1;border:0;background:none;padding:8px 2px 7px;font-size:12px;color:var(--mut);font-weight:700;cursor:pointer;min-height:52px}
+.nav button .e{display:block;font-size:20px;line-height:1.1}
+.nav button.on{color:var(--gold)}
+.nav button .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:3px;vertical-align:top}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+details{margin-top:8px}
+summary{cursor:pointer;font-weight:800;font-size:13px;color:var(--blue);padding:6px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.cd{background:var(--card2);border:2px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;position:relative;text-align:left;min-width:0}
+.cd .nm{font-weight:900;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd .gr{font-size:11px;font-weight:900}
+.cd .ft{font-size:11.5px;color:var(--sub);margin-top:2px;overflow-wrap:anywhere}
+.cd.sel{outline:3px solid var(--gold);outline-offset:1px}
+.cd.gone{opacity:.55}
+.gr-normal{border-color:var(--g-normal)} .gr-rare{border-color:var(--g-rare)} .gr-epic{border-color:var(--g-epic)} .gr-unique{border-color:var(--g-unique)} .gr-legend{border-color:var(--g-legend)}
+.t-normal{color:var(--g-normal)} .t-rare{color:var(--g-rare)} .t-epic{color:var(--g-epic)} .t-unique{color:var(--g-unique)} .t-legend{color:var(--g-legend)}
+.new{background:var(--red);color:#fff;border-radius:6px;font-size:10px;padding:1px 5px;margin-left:4px}
+.party{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.slot{flex:1 1 90px;min-width:0;border:2px dashed var(--line);border-radius:10px;padding:6px;font-size:12.5px;text-align:center;min-height:44px;overflow:hidden;text-overflow:ellipsis}
+.row2{display:flex;gap:10px;align-items:center}
+.boss{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+.boss:last-child{border-bottom:0}
+.boss img{width:64px;height:64px;object-fit:contain;flex:none}
+.boss .ph{width:64px;height:64px;flex:none;display:flex;align-items:center;justify-content:center;font-size:34px}
+.bimg{width:72px;height:72px;flex:none}.bimg img{width:72px;height:72px;object-fit:contain}.bimg .ph{width:72px;height:72px;display:flex;align-items:center;justify-content:center;font-size:40px}
+.boss .tx{flex:1;min-width:0}
+.task{display:flex;gap:8px;padding:4px 0;font-size:14px}
+.empty{text-align:center;padding:36px 16px}
+.empty .big{font-size:40px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:76px;background:var(--txt);color:var(--bg);padding:8px 14px;border-radius:999px;font-weight:800;font-size:13px;z-index:50;max-width:90vw}
+.busy .btn{pointer-events:none;opacity:.6}
+.pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:800;background:var(--card2);border:1px solid var(--line);color:var(--sub)}
+.sumres{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;margin-top:8px}
+.sumres .cd{cursor:default;padding:6px}
+</style>
+</head>
+<body>
+<div class="hd">
+  <div class="row">
+    <a class="ib" href="index.html#games" title="미니게임 목록">←</a>
+    <div class="ttl">🍗 브장신 <b>키우기</b></div>
+    <button class="ib" id="thBtn" title="화면 밝기 바꾸기" aria-label="화면 밝기 바꾸기">🌓</button>
+    <button class="ib" id="rfBtn" title="새로고침" aria-label="새로고침">↻</button>
+  </div>
+  <div class="res" id="res"></div>
+</div>
+<div class="wrap" id="main"><div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div></div>
+<div class="nav" id="nav"><div class="in"></div></div>
+<div id="toastBox"></div>
+
+<script>
+// ---------- 브장신 키우기 웹 사냥터 ----------
+// 로그인·서버 주소는 survivors.html 과 같은 방식(디스코드 토큰은 메인 사이트와 같은 localStorage 칸 sgg_dc).
+// 서버가 주는 문자열은 전부 esc 를 거쳐 innerHTML 에 넣는다. 숫자는 N() 으로 한 번 걸러 쓴다.
+const P6_API='https://hth3thmujs.apps.bot-hosting.cloud';
+const DISCORD_CLIENT_ID='1520763174675022028';
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const N=v=>{v=Number(v);return Number.isFinite(v)?v:0;};
+const fmt=v=>Math.floor(N(v)).toLocaleString('ko-KR');
+const $=id=>document.getElementById(id);
+const GR_KO={normal:'노말',rare:'레어',epic:'에픽',unique:'유니크',legend:'레전드'};
+const GR_KEYS=['normal','rare','epic','unique','legend'];
+const grKey=g=>GR_KEYS.includes(g)?g:'normal';     // 서버 값이 이상해도 클래스 이름으로 못 새어 나가게
+const imgKey=k=>/^[a-z0-9_]{1,30}$/.test(String(k||''))?String(k):'';
+const TABS=[['hunt','🏞','사냥터'],['crew','🧑‍🤝‍🧑','동료'],['grow','⚔','성장'],['adv','🗝','모험'],['pres','🌟','환생']];
+
+let V=null;              // 서버가 준 전체 화면 값(view)
+let TAB='hunt', MSG=null, STATE='boot';   // STATE: boot · out(로그아웃) · nobrj · err · ok
+let ERR='', BUSY=false, FETCHED=0, PARTY=null, PARTY_DIRTY=false, SUMRES=null, RANK=null, RANK_AT=0, SEL_PRES=false;
+
+function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
+function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페이지뿐 → 메인이 받아 로그인 처리 후 이 페이지로 되돌려 준다
+  const st=Math.random().toString(36).slice(2)+'.'+Math.floor(performance.now());
+  let none=false; try{const a=JSON.parse(localStorage.getItem('sgg_dc_auto')||'null');none=!!(a&&a.id);}catch(e){}
+  try{sessionStorage.setItem('sgg_oauth_state',st);sessionStorage.setItem('sgg_oauth_return','게임:brjhunt');
+      if(none)localStorage.setItem('sgg_dc_try',String(Date.now()));}catch(e){}
+  const main=location.origin+new URL('./',location.href).pathname;
+  location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(DISCORD_CLIENT_ID)
+    +'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
+}
+
+// ---------- 서버 부르기 ----------
+const CODE_MSG={
+  auth:'로그인이 끝났어요. 디스코드로 다시 로그인해 주세요.',
+  busy:'지금 사람이 몰려서 잠깐 막혔어요. 몇 초 뒤에 다시 눌러 주세요.',
+  upstream:'디스코드 확인이 잠깐 늦어지고 있어요. 로그인은 그대로예요. 조금 뒤에 다시 해 보세요.',
+  error:'서버에서 문제가 생겼어요. 잠시 뒤에 다시 해 보세요.',
+  big:'요청이 너무 커요.', http:'서버 응답을 읽지 못했어요. 잠시 뒤에 다시 해 보세요.', net:'서버에 연결하지 못했어요. 인터넷을 확인하고 다시 해 보세요.'
+};
+async function call(path,body){
+  const u=dcUser(); if(!u) return {ok:false,code:'auth',local:true};
+  let r,j=null;
+  try{
+    r=await fetch(P6_API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body||{},{token:u.token}))});
+    try{j=await r.json();}catch(e){}
+  }catch(e){return {ok:false,code:'net'};}
+  if(!j||typeof j!=='object') return {ok:false,code:'http'};
+  if(r.status===401) j.code='auth';
+  return j;
+}
+function takeView(j){ if(j&&j.view&&typeof j.view==='object'){ V=j.view; FETCHED=Date.now(); if(!PARTY_DIRTY) PARTY=null; return true; } return false; }
+// 서버가 거절한 이유를 사람 말로. 로그인 문제는 화면 전체를 로그아웃 상태로 바꾼다.
+function failText(j){
+  if(!j) return CODE_MSG.net;
+  if(j.code==='no_brj'){ STATE='nobrj'; return ''; }
+  if(j.code==='auth'){ STATE='out'; return ''; }
+  return CODE_MSG[j.code]||'요청을 처리하지 못했어요.';
+}
+async function load(){
+  const j=await call('/brj/idle',{});
+  if(j.ok&&takeView(j)){ STATE='ok'; ERR=''; }
+  else { const t=failText(j); if(STATE==='ok'&&V){ say(t||'다시 불러오지 못했어요.','bad'); } else if(!['out','nobrj'].includes(STATE)){ STATE='err'; ERR=t; } }
+  render();
+}
+// 버튼 한 번 = 요청 한 번. 응답 전에는 다른 버튼이 안 눌린다.
+const TRANSPORT=['auth','no_brj','busy','upstream','error','big','http','net','not_found'];
+async function act(path,body,onOk){
+  if(BUSY) return; BUSY=true; document.body.classList.add('busy');
+  try{
+    const j=await call(path,body);
+    if(TRANSPORT.includes(j.code)&&!j.view){ const t=failText(j); if(t) say(t,'bad'); }   // 로그인·몰림·연결 문제 — 서버가 일을 처리하지 않았다
+    else{ takeView(j); try{ onOk(j); }catch(e){ console.warn(e); } }   // 성공이든 「소환권 부족」 같은 거절이든 서버가 준 값으로 다시 그린다
+  }finally{ BUSY=false; document.body.classList.remove('busy'); render(); }
+}
+function say(t,k){ MSG={t,k:k||'info'}; }
+function toast(t){ const b=$('toastBox'); const d=document.createElement('div'); d.className='toast'; d.textContent=t; b.appendChild(d); setTimeout(()=>d.remove(),2200); }
+
+// ---------- 그리기 ----------
+function R(o,k,d){ return (o&&typeof o==='object'&&o[k]!=null)?o[k]:d; }
+function resHtml(){
+  if(!V) return '';
+  const rs=R(V.dungeon,'res',{}), kn=R(V.dungeon,'key',{});
+  const g=N(R(rs,'gold',V.gold)), f=N(R(rs,'feast',R(V.growth,'feast',0))), t=N(R(rs,'ticket',R(V.summon,'tickets',0))), s=N(R(rs,'stone',R(V.growth,'stone',0)));
+  return `<span class="chip" title="골드">🪙 ${fmt(g)}</span><span class="chip" title="특식 — 귀한 재화">🍖 ${fmt(f)}</span><span class="chip" title="소환권">🎟 ${fmt(t)}</span><span class="chip" title="강화석">🔩 ${fmt(s)}</span><span class="chip" title="던전 열쇠">🔑 ${fmt(R(kn,'n',0))}/${fmt(R(kn,'max',10))}</span>`;
+}
+function navHtml(){
+  const dn=V&&V.dungeon; const todo=dn&&dn.daily&&!dn.daily.claimed&&dn.daily.all;
+  const clan=dn&&dn.clan&&dn.clan.claimable;
+  const chest=V&&V.prestige&&V.prestige.chest&&N(V.prestige.chest.stock)>0;
+  const dots={adv:todo||clan,pres:chest};
+  return TABS.map(([k,e,n])=>`<button data-tab="${k}" class="${TAB===k?'on':''}"><span class="e">${e}</span>${n}${dots[k]?'<span class="dot"></span>':''}</button>`).join('');
+}
+function msgHtml(){ if(!MSG) return ''; return `<div class="msg ${esc(MSG.k)}" role="status">${MSG.t}</div>`; }   // MSG.t 는 이 파일이 만든 문장(서버 문자열은 만들 때 esc 한다)
+
+function render(){
+  const main=$('main'), nav=$('nav').firstElementChild;
+  $('res').innerHTML=STATE==='ok'?resHtml():'';
+  if(STATE==='boot'){ main.innerHTML='<div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div>'; nav.innerHTML=''; return; }
+  if(STATE==='out'){
+    main.innerHTML=`<div class="empty card"><div class="big">🔐</div><h2 style="justify-content:center">디스코드로 로그인해 주세요</h2><p class="sub">로그인하면 내 사냥터와 동료를 볼 수 있어요.<br>비밀번호는 묻지 않아요. 디스코드 확인 버튼만 누르면 돼요.</p><div class="btns"><button class="btn" id="loginBtn">디스코드 로그인</button></div></div>`;
+    nav.innerHTML=''; return;
+  }
+  if(STATE==='nobrj'){
+    main.innerHTML=`<div class="empty card"><div class="big">🥚</div><h2 style="justify-content:center">아직 브장신이 없어요</h2><p class="sub">디스코드 <b>#브장신키우기</b> 채널에서 먼저 시작하세요.<br>채널에 <b>현황</b> 이라고 치면 알이 생겨요. 그런 뒤에 이 화면으로 오세요.</p><div class="btns"><button class="btn alt" id="retryBtn">다시 확인하기</button></div></div>`;
+    nav.innerHTML=''; return;
+  }
+  if(STATE==='err'||!V){
+    main.innerHTML=`<div class="empty card"><div class="big">📡</div><h2 style="justify-content:center">불러오지 못했어요</h2><p class="sub">${esc(ERR||CODE_MSG.net)}</p><div class="btns"><button class="btn" id="retryBtn">다시 불러오기</button></div></div>`;
+    nav.innerHTML=''; return;
+  }
+  nav.innerHTML=navHtml();
+  const fn={hunt:tabHunt,crew:tabCrew,grow:tabGrow,adv:tabAdv,pres:tabPres}[TAB]||tabHunt;
+  const keep=window.scrollY;
+  main.innerHTML=msgHtml()+fn();
+  window.scrollTo(0,keep);
+  tick();
+}
+
+// ----- 사냥터 -----
+function gateInfo(){   // 지금 스테이지가 보스 관문이고 아직 못 이겼으면 그 보스
+  const g=R(V.dungeon,'gate',{}); const bs=Array.isArray(g.bosses)?g.bosses:[];
+  return bs.find(b=>N(b.stage)===N(V.stage)&&!b.cleared)||null;
+}
+function pendNow(){
+  const cap=N(V.cap_h)||12, dt=(Date.now()-FETCHED)/3600000;
+  const hrs=Math.min(cap,N(V.hours)+dt);
+  return Math.floor(N(V.rate)*(hrs+N(V.boost)));
+}
+function tabHunt(){
+  const v=V, gate=gateInfo(), full=N(v.hours)>=N(v.cap_h)-0.01;
+  const cap=N(v.max_stage)||30, st=N(v.stage);
+  const nextOk=st<cap;
+  const pushLabel=!nextOk?'이 구역의 끝이에요':gate?'🛡 보스를 먼저 이겨요':`⚔ 돌파 (🪙 ${fmt(v.cost)})`;
+  const mult=[];
+  const gm=N(R(v.growth,'mult',1)), sm=N(R(v.summon,'mult',1)), pm=N(R(v.prestige,'gold_mult',1));
+  if(gm>1.0001) mult.push(`성장 ×${gm.toFixed(2)}`); if(sm>1.0001) mult.push(`동료 파티 ×${sm.toFixed(2)}`); if(pm>1.0001) mult.push(`환생 ×${pm.toFixed(2)}`);
+  return `
+  <div class="card">
+    <div class="hero"><img src="img/brjang/parts/body_chick/front.png" alt="브장신" onerror="this.outerHTML='<div class=ph>🐥</div>'">
+      <div style="min-width:0"><div class="sub">${esc(v.name||'')} · 브장신 Lv.${fmt(v.lv)}</div>
+      <div class="big">스테이지 ${fmt(st)}</div><div class="sub">📍 ${esc(v.region||'')}</div></div></div>
+    <div style="margin-top:10px"><div class="bar" aria-label="스테이지 진행"><i style="width:${Math.max(2,Math.min(100,st/cap*100))}%"></i></div>
+      <div class="mut" style="margin-top:3px">끝까지 ${fmt(st)} / ${fmt(cap)} 스테이지${cap>30?' (환생으로 넓힌 상한)':''}</div></div>
+  </div>
+  <div class="card">
+    <h2>🪙 쌓인 사냥 골드</h2>
+    <div class="big gold" id="pend">${fmt(pendNow())}</div>
+    <div class="sub">시간당 🪙 ${fmt(v.rate)} · ${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
+    ${N(v.boost)>0?`<div class="sub green">⚔ 내전 부스트 ${fmt(v.boost)}시간치가 더해져요 (내전 1판 = 사냥 1시간)</div>`:`<div class="mut">내전을 1판 뛸 때마다 사냥 1시간치가 더 쌓여요 (최대 ${fmt(v.boost_max)}시간)</div>`}
+    ${mult.length?`<div class="mut">시간당 골드 배율 — ${esc(mult.join(' · '))}</div>`:''}
+    <div class="btns"><button class="btn gold" data-do="collect">🪙 수령하기</button></div>
+    <div class="mut" style="margin-top:6px">화면에 보이는 값은 약간의 어림이고, 받을 때 서버가 정확히 계산해 줘요.</div>
+  </div>
+  <div class="card">
+    <h2>⚔ 다음 스테이지로 돌파</h2>
+    <div class="kv"><span>돌파 비용</span><b>🪙 ${fmt(v.cost)}</b></div>
+    <div class="kv"><span>내 골드</span><b>🪙 ${fmt(v.gold)}</b></div>
+    <div class="kv"><span>돌파하면 시간당 골드</span><b>🪙 ${fmt(v.next_rate)} (기본값 기준)</b></div>
+    ${gate?`<div class="msg info" style="margin-top:8px">🛡 스테이지 ${fmt(gate.stage)} 은 보스 관문이에요. <b>${esc(gate.name)}</b> 을(를) 이겨야 넘어갈 수 있어요. 졌다고 손해는 없어요.</div>`:''}
+    <div class="btns"><button class="btn ${(!nextOk||gate)?'alt':''}" data-do="push" ${!nextOk?'disabled':''}>${pushLabel}</button>${gate?'<button class="btn alt" data-tab="adv">🗝 모험 탭으로</button>':''}</div>
+  </div>
+  ${quickCard()}
+  <div class="card"><h2>📖 이렇게 즐겨요</h2><div class="sub">① 접속하면 쌓인 골드를 <b>수령</b> ② 골드로 <b>돌파</b>하거나 <b>성장</b>에 써요 ③ 소환권으로 <b>동료</b>를 모아 파티를 짜면 시간당 골드가 늘어요 ④ 열쇠로 <b>던전</b>, 관문에서는 <b>보스</b>에 도전해요. 앱을 꺼 두어도 골드는 쌓여요(최대 ${fmt(v.cap_h)}시간).</div></div>`;
+}
+function quickCard(){
+  const q=R(V.growth,'quick',null); if(!q) return '';
+  return `<div class="card"><h2>⚡ 퀵사냥</h2><div class="sub">특식 🍖 을 내고 사냥 ${fmt(q.hours)}시간치(🪙 ${fmt(q.gain)})를 바로 받아요. 오늘 ${fmt(q.used)}/${fmt(q.max)}회 사용 · ${esc(q.reset)} 새로 시작</div>
+  <div class="btns"><button class="btn ${q.can?'':'alt'}" data-do="quick" ${q.left<=0?'disabled':''}>⚡ 퀵사냥 ${q.left>0?`(🍖 ${fmt(q.next_cost)})`:'(오늘 끝)'}</button></div>
+  <div class="mut">비용: ${(Array.isArray(q.costs)?q.costs:[]).map((c,i)=>`${i+1}번째 🍖${fmt(c)}`).join(' · ')}</div></div>`;
+}
+
+// ----- 동료·소환 -----
+function curParty(){ if(PARTY===null){ PARTY=(Array.isArray(R(V.summon,'party',[]))?V.summon.party:[]).map(String); } return PARTY; }
+function tabCrew(){
+  const s=V.summon||{}; const cards=Array.isArray(s.cards)?s.cards:[]; const pool=s.pool||{};
+  const party=curParty(); const byId={}; cards.forEach(c=>byId[String(c.id)]=c);
+  const slots=[]; for(let i=0;i<N(s.party_max||3);i++){ const c=byId[party[i]]; slots.push(c?`<div class="slot gr-${grKey(c.gr)}" style="border-style:solid">${esc(c.n)}<br><span class="mut">+${N(c.bonus).toFixed(1)}%</span></div>`:`<div class="slot mut">빈 자리</div>`); }
+  const pend=PARTY_DIRTY;
+  const nextAt=s.slv_next_at;
+  const rt=Array.isArray(s.rate_table)?s.rate_table:[];
+  const pity=s.pity||{};
+  return `
+  <div class="card">
+    <h2>🎟 동료 소환</h2>
+    ${pool.ready===false?'<div class="msg info">동료 명단을 준비하고 있어요. 조금 뒤에 다시 와 주세요.</div>':''}
+    <div class="kv"><span>내 소환권</span><b>🎟 ${fmt(s.tickets)}</b></div>
+    <div class="kv"><span>소환 레벨</span><b>Lv.${fmt(s.slv)} / ${fmt(s.slv_max)} <span class="mut">(지금까지 ${fmt(s.pulls)}번 뽑음${nextAt?` · 다음 레벨까지 ${fmt(N(nextAt)-N(s.pulls))}번`:' · 최고 레벨'})</span></b></div>
+    <div class="kv"><span>지금 등급 확률</span><b style="text-align:right">${Object.entries(s.rates||{}).map(([k,p])=>`${esc(k)} ${N(p)}%`).join(' · ')}</b></div>
+    <h3>천장 — 이만큼 안 나오면 확정이에요</h3>
+    ${Object.entries(pity).map(([k,p])=>`<div class="kv"><span>${esc(k)} 이상 확정</span><b>${fmt(R(p,'now',0))} / ${fmt(R(p,'max',0))}번째 <span class="mut">(${fmt(R(p,'left',0))}번 남음)</span></b></div>`).join('')}
+    <div class="btns"><button class="btn" data-do="summon" data-n="1">1회 소환 (🎟 1)</button><button class="btn gold" data-do="summon" data-n="10">10회 소환 (🎟 10)</button></div>
+    <details><summary>📊 소환 레벨별 확률표 보기</summary><div class="tw"><table><thead><tr><th>소환 Lv</th><th>필요 누적</th>${Object.keys((rt[0]||{}).rates||{}).map(k=>`<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>
+      ${rt.map(x=>`<tr${N(x.lv)===N(s.slv)?' style="font-weight:900;color:var(--gold)"':''}><td>Lv.${fmt(x.lv)}</td><td>${fmt(x.at)}회</td>${Object.values(x.rates||{}).map(p=>`<td>${N(p)}%</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div><div class="mut" style="margin-top:4px">같은 동료가 또 나오면 조각이 되어 동료 레벨이 올라가요. 현재 풀: ${Object.entries(pool.by_grade||{}).map(([k,n])=>`${esc(k)} ${fmt(n)}명`).join(' · ')}</div></details>
+    ${SUMRES?sumResHtml(SUMRES):''}
+  </div>
+  <div class="card">
+    <h2>👥 파티 편성 <span class="pill">시간당 골드 ×${N(s.mult||1).toFixed(2)}</span></h2>
+    <div class="sub">동료를 최대 ${fmt(s.party_max)}명 골라 파티에 넣으면 시간당 골드가 늘어요 (최대 ×${N(s.mult_cap).toFixed(1)}). 아래 카드를 눌러 넣고 빼세요.</div>
+    <div class="party">${slots.join('')}</div>
+    <div class="btns"><button class="btn ${pend?'':'alt'}" data-do="party" ${pend?'':'disabled'}>${pend?'편성 저장':'저장됨'}</button>${pend?'<button class="btn alt" data-do="partyreset">되돌리기</button>':''}</div>
+    <details><summary>등급별 보너스 보기</summary><div class="sub">동료 1명이 주는 시간당 골드 보너스(동료 Lv.1): ${Object.entries(s.grade_bonus||{}).map(([k,p])=>`${esc(k)} +${N(p)}%`).join(' · ')}. 동료 레벨이 1 오를 때마다 그 보너스가 ${fmt(s.lv_bonus_pct)}%씩 커져요.</div></details>
+  </div>
+  <div class="card">
+    <h2>🃏 내 동료 <span class="pill">${fmt(s.own_n)}명</span></h2>
+    ${cards.length?`<div class="grid">${cards.map(c=>cardHtml(c,party.includes(String(c.id)))).join('')}</div>`:'<div class="sub">아직 동료가 없어요. 소환권으로 클랜원 카드를 뽑아 보세요! 소환권은 보스·던전·내전 상자·오늘 할 일에서 얻어요.</div>'}
+  </div>`;
+}
+function cardHtml(c,sel){
+  const g=grKey(c.gr);
+  const f=(Array.isArray(c.f)?c.f:[]).slice(0,2).map(x=>esc(x)).join('<br>');
+  return `<button class="cd gr-${g}${sel?' sel':''}${c.gone?' gone':''}" data-card="${esc(c.id)}" aria-pressed="${sel?'true':'false'}">
+    <div class="gr t-${g}">${esc(GR_KO[g])} · Lv.${fmt(c.lv)}</div><div class="nm">${esc(c.n)}${sel?' ✅':''}</div>
+    <div class="ft">+${N(c.bonus).toFixed(1)}% 골드${c.next_sh?` · 조각 ${fmt(c.sh)}/${fmt(c.next_sh)}`:' · 최고 레벨'}</div><div class="ft">${f}</div></button>`;
+}
+function sumResHtml(res){
+  return `<h3>🎉 소환 결과</h3><div class="sumres">${res.map(x=>{const g=grKey(x.gr);return `<div class="cd gr-${g}"><div class="gr t-${g}">${esc(GR_KO[g])}${x.new?'<span class="new">NEW</span>':''}</div><div class="nm">${esc(x.n)}</div><div class="ft">${x.new?'새 동료!':`동료 Lv.${fmt(x.lv)} · 조각 ${fmt(x.sh)}`}</div></div>`;}).join('')}</div>`;
+}
+
+// ----- 성장·강화 -----
+function tabGrow(){
+  const g=V.growth||{}; const axes=Array.isArray(g.axes)?g.axes:[], slots=Array.isArray(g.slots)?g.slots:[], tbl=Array.isArray(g.enhance_table)?g.enhance_table:[];
+  return `
+  <div class="card"><h2>📈 성장 <span class="pill">시간당 골드 ×${N(g.mult||1).toFixed(2)}</span></h2>
+    <div class="sub">골드를 써서 키워요. 올릴수록 시간당 골드가 늘어요. 내 골드 🪙 ${fmt(g.gold)}</div>
+    ${axes.map(a=>`<div class="boss" style="padding:10px 0"><div class="ph" style="font-size:30px;width:44px;height:44px">${esc(a.emoji)}</div><div class="tx"><b>${esc(a.name)}</b> <span class="pill">Lv.${fmt(a.lv)}/${fmt(a.max)}</span><div class="mut">${esc(a.text)} · 지금 +${N(a.bonus_pct)}%</div></div>
+      <button class="btn ${a.can?'':'alt'}" data-do="upgrade" data-axis="${esc(a.key)}" ${N(a.lv)>=N(a.max)?'disabled':''}>${N(a.lv)>=N(a.max)?'최고':`🪙 ${fmt(a.cost)}`}</button></div>`).join('')}
+  </div>
+  <div class="card"><h2>🛠 장비 강화</h2>
+    <div class="sub">🔩 강화석으로 사냥 장비를 +10 까지 키워요. <b>실패해도 장비는 안 깨지고 안 내려가요.</b> 실패하면 강화 포인트가 쌓이고, 정해진 횟수만큼 쌓이면 다음 시도는 반드시 성공해요. 내 강화석 🔩 ${fmt(g.stone)}</div>
+    ${slots.map(s=>`<div class="boss" style="padding:10px 0"><div class="ph" style="font-size:30px;width:44px;height:44px">${esc(s.emoji)}</div><div class="tx"><b>${esc(s.name)}</b> <span class="pill">+${fmt(s.lv)}</span><div class="mut">지금 골드 +${N(s.bonus_pct)}% (강화 1당 +${N(s.per_pct)}%)</div>
+      ${N(s.lv)<N(s.max)?`<div class="mut">다음 +${fmt(s.next)}: 성공 ${N(s.rate_pct)}% · 🔩 ${fmt(s.cost)}${N(s.pity_need)?` · 포인트 ${fmt(s.pity)}/${fmt(s.pity_need)}${s.guaranteed?' <b class="green">(다음은 확정 성공!)</b>':''}`:' · 100% 성공'}</div>`:''}</div>
+      <button class="btn ${s.can?'':'alt'}" data-do="enhance" data-slot="${esc(s.key)}" ${N(s.lv)>=N(s.max)?'disabled':''}>${N(s.lv)>=N(s.max)?'최고':`강화 🔩${fmt(s.cost)}`}</button></div>`).join('')}
+    <details><summary>📊 강화 확률표 보기</summary><div class="tw"><table><thead><tr><th>강화</th><th>성공률</th><th>강화석</th><th>확정 성공까지</th></tr></thead><tbody>
+      ${tbl.map(t=>`<tr><td>+${fmt(t.to)}</td><td>${N(t.rate_pct)}%</td><td>🔩 ${fmt(t.cost)}</td><td>${N(t.pity_need)?`실패 ${fmt(t.pity_need)}번 쌓이면`:'—'}</td></tr>`).join('')}
+    </tbody></table></div><div class="mut">${esc(g.note||'')}</div></details>
+  </div>
+  ${quickCard()}`;
+}
+
+// ----- 모험: 보스·던전·클랜 보스·오늘 할 일 -----
+function bossImg(k){ const kk=imgKey(k); return kk?`<img src="img/brjang/boss/${kk}/front.png" alt="" loading="lazy" onerror="this.outerHTML='<div class=ph>🐲</div>'">`:'<div class="ph">🐲</div>'; }
+function tabAdv(){
+  const d=V.dungeon||{}; const g=d.gate||{}, du=d.dungeon||{}, cl=d.clan||{}, dl=d.daily||{}, kn=d.key||{};
+  const bosses=Array.isArray(g.bosses)?g.bosses:[]; const gateNow=N(g.stage);
+  const dr=du.reward||{}, sr=du.sweep_reward||{};
+  const nextIn=N(kn.next_in), hh=Math.floor(nextIn/3600), mm=Math.floor(nextIn%3600/60);
+  const dailyTasks=Array.isArray(dl.tasks)?dl.tasks:[];
+  return `
+  <div class="card"><h2>💪 내 사냥 전투력 <span class="pill">${fmt(d.power)}</span></h2><div class="sub">보스와 던전, 클랜 보스는 이 전투력으로 싸워요. 성장·장비·파티가 좋아지면 오르고, 졌다고 잃는 건 없어요.</div></div>
+  <div class="card"><h2>🛡 보스 관문</h2>
+    <div class="sub">스테이지 10·20·30 에서는 보스를 이겨야 돌파할 수 있어요. 전투력이 보스 체력 이상이면 이겨요. 한 번 이기면 그 보스는 끝이에요. 보상은 처음 이길 때 한 번만 받아요.</div>
+    ${bosses.map(b=>{const now=gateNow===N(b.stage)&&!b.cleared; const win=N(d.power)>=N(b.hp);
+      return `<div class="boss">${bossImg(b.img)}<div class="tx"><b>${esc(b.name)}</b> <span class="pill">스테이지 ${fmt(b.stage)}</span>${b.cleared?' <span class="pill green">클리어</span>':''}<div class="mut">체력 ${fmt(b.hp)} · 보상 🍖 ${fmt(b.feast)} + 🎟 ${fmt(b.ticket)}</div>
+      ${!b.cleared&&now?`<div class="mut ${win?'green':'red'}">${win?'지금 전투력으로 이길 수 있어요!':`전투력이 ${fmt(N(b.hp)-N(d.power))} 모자라요`}</div>`:''}</div>
+      ${now?`<button class="btn ${win?'gold':'alt'}" data-do="boss">도전</button>`:''}</div>`;}).join('')}
+    ${gateNow?'':'<div class="mut">지금은 막힌 관문이 없어요.</div>'}
+  </div>
+  <div class="card"><h2>🔑 열쇠 던전 <span class="pill">${fmt(du.cleared)}/${fmt(du.max)}단계</span></h2>
+    <div class="kv"><span>열쇠</span><b>🔑 ${fmt(kn.n)} / ${fmt(kn.max)}</b></div>
+    <div class="mut">하루 ${fmt(kn.per_day)}개씩 충전돼요${N(kn.n)>=N(kn.max)?' (가득 참)':` · 다음 열쇠까지 약 ${hh}시간 ${mm}분`}. <b>도전에 실패해도 열쇠는 안 줄어요.</b></div>
+    ${du.sweep?`<div class="msg ok" style="margin-top:8px">모든 단계를 깼어요! 이제 열쇠 1개로 <b>소탕</b>해서 보상을 한 번에 받아요. (소탕 ${fmt(du.sweeps)}번 함)</div>`:`<div class="kv"><span>다음 ${fmt(N(du.cleared)+1)}단계 몬스터 체력</span><b>${fmt(du.next_hp)}</b></div>`}
+    <div class="btns"><button class="btn ${N(kn.n)>0?'':'alt'}" data-do="dungeon">${du.sweep?'🧹 소탕하기':'🗝 던전 도전'}</button></div>
+    <div class="mut" style="margin-top:6px">클리어 보상: 🔩 강화석 ${fmt(dr.stone_base)}개(10단계마다 +${fmt(dr.stone_per10)}) · 🪙 사냥 ${fmt(dr.gold_hours)}시간치 · ${fmt(dr.ticket_every)}단계마다 🎟 1장<br>소탕 보상: 🔩 ${fmt(sr.stone)}개 · 🪙 사냥 ${fmt(sr.gold_hours)}시간치 · ${fmt(sr.ticket_every_n)}번에 🎟 1장</div>
+  </div>
+  <div class="card"><h2>🐲 이번 주 클랜 보스</h2>
+    <div class="row2"><div class="bimg">${bossImg(cl.boss)}</div><div style="min-width:0"><b>${esc(cl.name)}</b><div class="mut">클랜 모두가 하나의 체력을 같이 깎아요 · 월요일 0시(KST)에 새 보스 · ${fmt(cl.days_left)}일 남음</div></div></div>
+    <div style="margin-top:8px"><div class="bar"><i style="width:${Math.max(1,Math.min(100,N(cl.dmg_total)/Math.max(1,N(cl.hp))*100))}%"></i></div>
+      <div class="sub">${fmt(cl.dmg_total)} / ${fmt(cl.hp)} (${fmt(cl.players)}명 참여)${cl.dead?' <b class="green">처치 완료!</b>':''}</div></div>
+    <div class="kv"><span>내가 준 피해</span><b>${fmt(cl.mine)}</b></div>
+    <div class="kv"><span>오늘 남은 공격</span><b>${fmt(cl.left)} / ${fmt(cl.daily_max)}</b></div>
+    ${Array.isArray(cl.top)&&cl.top.length?`<h3>이번 주 피해 순위</h3>${cl.top.map((t,i)=>`<div class="kv"><span>${i+1}. ${esc(t.n)}</span><b>${fmt(t.d)}</b></div>`).join('')}`:''}
+    <div class="btns"><button class="btn ${N(cl.left)>0?'':'alt'}" data-do="clanatk" ${N(cl.left)>0?'':'disabled'}>⚔ 공격하기</button><button class="btn ${cl.claimable?'gold':'alt'}" data-do="clanclaim" ${cl.claimable?'':'disabled'}>🍖 보상 받기 (+${fmt(cl.feast)})</button></div>
+    <div class="mut">보스를 처치하면 <b>참여한 사람 모두</b> 🍖 ${fmt(cl.feast)} 를 받아요. 한 번만 공격해도 받아요.</div>
+  </div>
+  <div class="card"><h2>📋 오늘 할 일</h2>
+    ${dailyTasks.map(t=>`<div class="task"><span>${t.done?'✅':'⬜'}</span><span>${esc(t.label)}</span></div>`).join('')}
+    <div class="btns"><button class="btn ${dl.all&&!dl.claimed?'gold':'alt'}" data-do="daily" ${dl.claimed?'disabled':''}>${dl.claimed?'오늘 보상 받았어요':`🎁 다 하면 🍖 ${fmt(dl.feast)} + 상자`}</button></div>
+    <div class="mut">매일 0시(KST)에 새로 시작해요. 상자 내용: ${(Array.isArray(dl.chest)?dl.chest:[]).map(c=>`${esc(({stone:'🔩 강화석',ticket:'🎟 소환권',gold:'🪙 사냥 2시간치'})[c.kind]||c.kind)}${N(c.n)?' '+fmt(c.n)+'개':''} ${N(c.pct)}%`).join(' · ')}</div>
+  </div>`;
+}
+
+// ----- 환생·순위·내전 상자 -----
+function tabPres(){
+  const p=V.prestige||{}; const ups=Array.isArray(p.ups)?p.ups:[]; const ss=p.season||{}; const ch=p.chest||{};
+  const hist=Array.isArray(ss.history)?ss.history:[];
+  const rows=RANK&&Array.isArray(RANK.rows)?RANK.rows:null;
+  return `
+  <div class="card"><h2>🌟 환생 <span class="pill">${fmt(p.n)}번 함</span></h2>
+    <div class="sub">스테이지 ${fmt(p.min_stage)} 까지 오면 환생할 수 있어요. 스테이지와 골드는 처음으로 돌아가지만, 환생 포인트로 <b>영구 보너스</b>를 사요.</div>
+    <div class="sub" style="margin-top:4px">${esc(p.warn)}</div>
+    <div class="kv"><span>내 환생 포인트</span><b>⭐ ${fmt(p.points)}</b></div>
+    <div class="kv"><span>지금 환생하면</span><b>${p.can?`⭐ +${fmt(p.gain)}`:`스테이지 ${fmt(p.min_stage)} 부터 가능 (지금 ${fmt(p.stage)})`}</b></div>
+    <div class="mut">${esc(p.pt_rule)}</div>
+    ${SEL_PRES&&p.can?`<div class="msg bad" style="margin-top:8px">정말 환생할까요? 되돌릴 수 없어요. 스테이지 ${fmt(p.stage)} 와 쌓인 골드가 사라지고 ⭐ ${fmt(p.gain)} 을 받아요.</div>
+      <div class="btns"><button class="btn red" data-do="prestige">네, 환생할래요</button><button class="btn alt" data-do="prestigecancel">아니요</button></div>`:
+      `<div class="btns"><button class="btn ${p.can?'gold':'alt'}" data-do="prestigeask" ${p.can?'':'disabled'}>🌟 환생하기</button></div>`}
+  </div>
+  <div class="card"><h2>🛒 영구 보너스</h2>
+    <div class="sub">환생 포인트로 사요. 환생해도 사라지지 않아요. 현재 효과: 시간당 골드 ×${N(p.gold_mult).toFixed(2)} · 스테이지 상한 ${fmt(p.stage_cap)} · 환생 뒤 시작 스테이지 ${fmt(p.start_stage)}</div>
+    ${ups.map(u=>`<div class="boss" style="padding:10px 0"><div class="tx"><b>${esc(u.name)}</b> <span class="pill">Lv.${fmt(u.lv)}/${fmt(u.max)}</span><div class="mut">${esc(u.effect)}</div></div>
+      <button class="btn ${u.afford?'':'alt'}" data-do="prestigebuy" data-key="${esc(u.key)}" ${u.cost==null?'disabled':''}>${u.cost==null?'최고':`⭐ ${fmt(u.cost)}`}</button></div>`).join('')}
+  </div>
+  <div class="card"><h2>🎁 내전 상자 <span class="pill">보관 ${fmt(ch.stock)}개</span></h2>
+    <div class="sub">내전을 1판 뛸 때마다 상자가 1개 생겨요 (하루 ${fmt(ch.daily_cap)}개까지 · 오늘 ${fmt(ch.today)}개 받음 · 최대 ${fmt(ch.store_max)}개 보관). 열면 🍖 ${fmt(ch.feast)} 개는 꼭 나오고, 아래 중 하나가 더 나와요.</div>
+    <div class="tw"><table><thead><tr><th>덤으로 나오는 것</th><th>확률</th></tr></thead><tbody>${(Array.isArray(ch.table)?ch.table:[]).map(t=>`<tr><td>${esc(t.name)}</td><td>${N(t.pct)}%</td></tr>`).join('')}</tbody></table></div>
+    <div class="btns"><button class="btn ${N(ch.stock)>0?'gold':'alt'}" data-do="chest" data-n="1" ${N(ch.stock)>0?'':'disabled'}>1개 열기</button><button class="btn ${N(ch.stock)>1?'':'alt'}" data-do="chest" data-n="${Math.max(1,Math.min(N(ch.open_max)||10,N(ch.stock)))}" ${N(ch.stock)>1?'':'disabled'}>한꺼번에 열기 (${Math.max(1,Math.min(N(ch.open_max)||10,N(ch.stock)))}개)</button></div>
+  </div>
+  <div class="card"><h2>🏆 시즌 ${fmt(ss.no)} <span class="pill">${fmt(ss.days_left)}일 남음</span></h2>
+    <div class="sub">시즌은 ${fmt(ss.length_days)}일(4주)마다 새로 시작해요. 순위는 환생을 많이 한 순서, 같으면 최고 스테이지가 높은 순서예요.</div>
+    <div class="kv"><span>이번 시즌 내 환생</span><b>${fmt(ss.prestiges)}번</b></div><div class="kv"><span>이번 시즌 내 최고 스테이지</span><b>${fmt(ss.best_stage)}</b></div>
+    ${hist.length?`<details><summary>지난 시즌 기록</summary>${hist.map(h=>`<div class="kv"><span>시즌 ${fmt(R(h,'season',0))}</span><b>환생 ${fmt(R(h,'n',0))}번 · 최고 스테이지 ${fmt(R(h,'best',0))}</b></div>`).join('')}</details>`:''}
+    <h3>순위표</h3>
+    ${rows===null?'<div class="sub">순위표를 불러오는 중…</div>':rows.length?`<div class="tw"><table><thead><tr><th>순위</th><th>이름</th><th>환생</th><th>최고 스테이지</th></tr></thead><tbody>${rows.map(x=>`<tr${x.me?' style="font-weight:900;color:var(--gold)"':''}><td>${fmt(x.rank)}</td><td style="text-align:left;white-space:normal;overflow-wrap:anywhere">${esc(x.name)}${x.me?' ← 나':''}</td><td>${fmt(x.prestiges)}</td><td>${fmt(x.best_stage)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="mut">${RANK.me?`내 순위 ${fmt(RANK.me)}위 / ${fmt(RANK.total)}명`:`아직 순위에 없어요 (${fmt(RANK.total)}명 참여)`}</div>`:'<div class="sub">아직 이번 시즌 기록이 없어요.</div>'}
+    <div class="btns"><button class="btn alt" data-do="rank">순위표 새로고침</button></div>
+  </div>`;
+}
+async function loadRank(){
+  RANK_AT=Date.now();
+  const j=await call('/brj/rank',{top:20});
+  if(j&&j.ok){ RANK=j; } else { const t=failText(j); if(t) say(t,'bad'); RANK=RANK||{rows:[],total:0,me:null}; }
+  render();
+}
+
+// ---------- 동작 ----------
+const PUSH_MSG={gold:j=>`🪙 골드가 모자라요. 돌파에 ${fmt(j.cost)} 필요해요.`,max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',boss:()=>'🛡 보스를 먼저 이겨야 해요. 모험 탭에서 도전해 보세요.'};
+const DO={
+  collect:()=>act('/brj/collect',{},j=>{ say(N(j.got)>0?`🪙 +${fmt(j.got)} 골드를 받았어요!`:'아직 쌓인 게 없어요. 조금 있다 다시 오세요.',N(j.got)>0?'ok':'info'); }),
+  push:()=>{ const st0=N(V.stage); act('/brj/push',{},j=>{
+    if(j.result==='ok') say(`⚔ 스테이지 ${fmt(st0)} → ${fmt(st0+1)} 돌파! (🪙 ${fmt(j.cost)} 사용)`,'ok');
+    else say((PUSH_MSG[j.result]||(()=>'돌파하지 못했어요.'))(j),'bad'); }); },
+  quick:()=>act('/brj/quick',{},j=>{
+    const m={ok:()=>[`⚡ 퀵사냥! 🪙 +${fmt(j.got)} (🍖 ${fmt(j.cost)} 사용)`,'ok'],limit:()=>['오늘 퀵사냥은 모두 썼어요.','bad'],feast:()=>[`🍖 특식이 모자라요. ${fmt(j.cost)}개 필요해요.`,'bad'],none:()=>['받을 골드가 없어요.','bad']}[j.result]; const x=m?m():['처리하지 못했어요.','bad']; say(x[0],x[1]); }),
+  summon:el=>{ const n=Number(el.dataset.n); act('/brj/summon',{n},j=>{
+    if(j.ok&&Array.isArray(j.results)){ SUMRES=j.results; const nw=j.results.filter(x=>x.new).length; say(`🎟 ${fmt(j.results.length)}회 소환 완료!${nw?` 새 동료 ${fmt(nw)}명!`:''}`,'ok'); }
+    else{ SUMRES=null; say({bad_n:'소환 횟수가 올바르지 않아요.',no_ticket:'🎟 소환권이 모자라요.',no_pool:'동료 명단을 준비하고 있어요. 조금 뒤에 다시 해 보세요.'}[j.code]||'소환하지 못했어요.','bad'); } }); },
+  party:()=>act('/brj/party',{party:curParty().slice()},j=>{
+    if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
+  partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
+  upgrade:el=>act('/brj/upgrade',{axis:el.dataset.axis},j=>{
+    say({ok:'📈 성장했어요!',gold:`🪙 골드가 모자라요. ${fmt(j.cost)} 필요해요.`,max:'이미 최고 레벨이에요.'}[j.result]||'처리하지 못했어요.',j.result==='ok'?'ok':'bad'); }),
+  enhance:el=>act('/brj/enhance',{slot:el.dataset.slot},j=>{
+    const m={success:['✨ 강화 성공!','ok'],pity:['✨ 강화 포인트가 가득 차서 성공했어요!','ok'],fail:['💨 이번엔 실패했어요. 장비는 그대로예요. 강화 포인트가 쌓였어요.','info'],stone:[`🔩 강화석이 모자라요. ${fmt(j.cost)}개 필요해요.`,'bad'],max:['이미 최고 강화예요.','bad']}[j.result]||['처리하지 못했어요.','bad']; say(m[0],m[1]); }),
+  boss:()=>act('/brj/boss',{},j=>{
+    if(j.result==='win') say(`🏆 보스를 쓰러뜨렸어요! 🍖 +${fmt(j.feast)} · 🎟 +${fmt(j.ticket)}. 이제 돌파할 수 있어요.`,'ok');
+    else if(j.result==='lose') say(`💥 졌어요. 내 전투력 ${fmt(j.power)} / 보스 체력 ${fmt(j.hp)}. 더 키워서 다시 도전해요. 잃은 건 없어요.`,'bad');
+    else say('지금 도전할 보스가 없어요.','info'); }),
+  dungeon:()=>act('/brj/dungeon',{},j=>{
+    const gt=x=>{const g=x||{};return [N(g.stone)?`🔩 ${fmt(g.stone)}`:'',N(g.gold)?`🪙 ${fmt(g.gold)}`:'',N(g.ticket)?`🎟 ${fmt(g.ticket)}`:''].filter(Boolean).join(' · ')||'없음';};
+    if(j.result==='win') say(`🗝 ${fmt(j.level)}단계 클리어! 보상 ${gt(j.got)}`,'ok');
+    else if(j.result==='sweep') say(`🧹 소탕 완료! 보상 ${gt(j.got)}`,'ok');
+    else if(j.result==='lose') say(`💥 ${fmt(j.level)}단계에서 졌어요 (내 ${fmt(j.power)} / 몬스터 ${fmt(j.hp)}). 열쇠는 그대로예요.`,'bad');
+    else if(j.result==='nokey') say('🔑 열쇠가 없어요. 시간이 지나면 충전돼요.','bad');
+    else say('처리하지 못했어요.','bad'); }),
+  clanatk:()=>act('/brj/clanboss',{action:'attack'},j=>{
+    if(j.result==='ok') say(`🐲 클랜 보스에게 ${fmt(j.dmg)} 피해를 줬어요!`,'ok'); else if(j.result==='limit') say('오늘 공격은 모두 썼어요. 내일 또 와요.','bad'); else say('처리하지 못했어요.','bad'); }),
+  clanclaim:()=>act('/brj/clanboss',{action:'claim'},j=>{
+    if(j.result==='ok') say(`🍖 클랜 보스 보상 +${fmt(j.feast)} 받았어요!`,'ok'); else say('받을 보상이 없어요. 보스를 처치했고 내가 피해를 줬는지 확인해 보세요.','bad'); }),
+  daily:()=>act('/brj/daily',{},j=>{
+    if(j.result==='ok'){ const c=j.chest||{}; const nm=({stone:'🔩 강화석',ticket:'🎟 소환권',gold:'🪙 골드'})[c.kind]||''; say(`🎁 오늘 할 일 완료! 🍖 +${fmt(j.feast)}${nm?` · 상자: ${nm}${N(c.n)?' '+fmt(c.n)+'개':''}`:''}`,'ok'); }
+    else if(j.result==='claimed') say('오늘 보상은 이미 받았어요.','info'); else say('아직 못 끝낸 일이 있어요. 위 목록을 확인해 보세요.','bad'); }),
+  prestigeask:()=>{ SEL_PRES=true; render(); },
+  prestigecancel:()=>{ SEL_PRES=false; render(); },
+  prestige:()=>{ SEL_PRES=false; act('/brj/prestige',{confirm:true},j=>{
+    if(j.ok) say(`🌟 환생했어요! ⭐ +${fmt(j.gain)}. 영구 보너스를 사 보세요.`,'ok'); else say(j.code==='stage'?`스테이지 ${fmt(j.need)} 부터 환생할 수 있어요.`:'환생하지 못했어요.','bad'); }); },
+  prestigebuy:el=>act('/brj/prestige_buy',{key:el.dataset.key},j=>{
+    if(j.ok) say('🛒 영구 보너스를 샀어요!','ok'); else say({max:'이미 최고 레벨이에요.',points:`⭐ 포인트가 모자라요. ${fmt(j.cost)} 필요해요.`,bad_input:'올바르지 않은 요청이에요.'}[j.code]||'처리하지 못했어요.','bad'); }),
+  chest:el=>act('/brj/chest',{n:Number(el.dataset.n)||1},j=>{
+    if(j.ok){ const g=j.got||{}; say(`🎁 상자 ${fmt(j.opened)}개를 열었어요! 🍖 +${fmt(g.feast)}${N(g.ticket)?` · 🎟 +${fmt(g.ticket)}`:''}${N(g.stone)?` · 🔩 +${fmt(g.stone)}`:''}`,'ok'); }
+    else say(j.code==='empty'?'열 상자가 없어요. 내전을 뛰면 생겨요.':'처리하지 못했어요.','bad'); }),
+  rank:()=>loadRank(),
+};
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-tab],[data-do],[data-card],#loginBtn,#retryBtn'); if(!t) return;
+  if(t.id==='loginBtn'){ dcLogin(); return; }
+  if(t.id==='retryBtn'){ STATE='boot'; render(); load(); return; }
+  if(t.dataset.tab){ TAB=t.dataset.tab; MSG=null; render(); window.scrollTo(0,0); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); return; }
+  if(t.dataset.card!=null){   // 파티 편성(저장 전까지는 이 화면에서만 바뀐다)
+    const id=t.dataset.card, p=curParty(), i=p.indexOf(id), mx=N(R(V.summon,'party_max',3))||3;
+    if(i>=0) p.splice(i,1); else if(p.length<mx) p.push(id); else { toast(`파티는 최대 ${mx}명이에요`); return; }
+    PARTY_DIRTY=true; MSG=null; render(); return;
+  }
+  const d=t.dataset.do; if(d&&DO[d]){ if(t.disabled) return; MSG=null; DO[d](t); }
+});
+$('thBtn').onclick=()=>{ const cur=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'); const nx=cur==='light'?'dark':'light'; document.documentElement.dataset.theme=nx; try{localStorage.setItem('brjhunt_theme',nx);}catch(e){} };
+$('rfBtn').onclick=()=>{ if(STATE==='ok'){ MSG=null; load(); } else { STATE='boot'; render(); load(); } };
+try{ const th=localStorage.getItem('brjhunt_theme'); if(th==='light'||th==='dark') document.documentElement.dataset.theme=th; }catch(e){}
+
+// 쌓이는 골드 숫자만 1초마다 갱신(화면 전체를 다시 그리지 않는다)
+function tick(){ const el=$('pend'); if(el&&V) el.textContent=fmt(pendNow()); }
+setInterval(tick,1000);
+// 탭으로 돌아왔을 때 오래됐으면 새로 받는다
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&STATE==='ok'&&!BUSY&&Date.now()-FETCHED>60000) load(); });
+
+// ---------- 시작 ----------
+(function boot(){
+  if(window.SGG_DC_BOUNCE) return;     // 디스코드에 조용히 다녀오는 중
+  if(!dcUser()){ STATE='out'; render(); return; }
+  render(); load();
+})();
+</script>
+</body>
+</html>
