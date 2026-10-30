@@ -1065,7 +1065,8 @@ window.SGG_DC_BOOT=(function(){
   @keyframes mega-border{to{background-position:400% 0}}
   @keyframes mega-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
   @media (prefers-reduced-motion: reduce){#megaboard,.mega-horn{animation:none}}
-  @media (max-width:720px){.mega-msg{white-space:normal;font-size:13.5px}}
+  @media (max-width:720px){.mega-msg{font-size:13.5px}}
+  #megaboard{cursor:pointer}#megaboard.open .mega-msg{white-space:normal}.mega-tap{font-size:11.5px;color:var(--sub);white-space:nowrap;margin-left:2px}
   .namefx-neon{color:#7fd8ff;font-weight:800;filter:drop-shadow(0 0 6px rgba(90,190,255,.65))}
   .namefx-blood{color:#ff5a6e;font-weight:800;filter:drop-shadow(0 0 6px rgba(255,60,90,.55))}
   .namefx-aurora{background:linear-gradient(90deg,#59e3c0,#7ba6ff,#b98cff,#59e3c0);background-size:300% 100%;
@@ -1467,6 +1468,25 @@ window.SGG_DC_BOOT=(function(){
   .mg-recent{display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,rgba(91,140,255,.16),transparent);border:1px solid #2c3a63;border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:13.5px}
   .mg-recent a{margin-left:auto;color:#fff;background:var(--accent);border-radius:8px;padding:8px 14px;font-weight:700;text-decoration:none;white-space:nowrap}
   @media (max-width:560px){.mg-hero{min-height:200px}.mg-hero-t{font-size:22px}.mg-grid{grid-template-columns:1fr}.mg-thumb{height:150px}}
+
+  /* 🏠 [2026-10-30 사장님 지시 「1단계만 적용」] 홈 정리 — 홈(.hv2) 안에서만 적용: 제목 3단계 · 섹션 간격 · 카드 모서리 · 섹션마다 버튼 하나 */
+  .hv2>*{margin-top:0;margin-bottom:16px}
+  .hv2 .card{border-radius:14px;padding:14px}
+  .hv2 .card h2,.hv2 .kzhd h2{font-size:18px;margin-bottom:10px;line-height:1.3}
+  .hv2 .kzhd{margin-bottom:4px}.hv2 .kzsub{font-size:12.5px}
+  .hv2 .hsec-k{font-size:18px;font-weight:800;margin:0 0 8px}.hv2 .hsec-k span{font-size:12.5px;font-weight:600;color:var(--sub);margin-left:6px}
+  .hv2 .welcome{padding:0;margin:0 0 16px}
+  .hv2 .welcome summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:13px 16px;min-height:48px}
+  .hv2 .welcome summary::-webkit-details-marker{display:none}
+  .hv2 .welcome summary b{font-size:16px}.hv2 .welcome .wsub{font-size:12.5px;color:var(--sub)}
+  .hv2 .welcome[open] summary .wsub::after{content:" ▴"}.hv2 .welcome:not([open]) summary .wsub::after{content:" ▾"}
+  .hv2 .welcome ul,.hv2 .welcome .row{margin-left:16px;margin-right:16px}.hv2 .welcome .row{padding-bottom:14px}
+  .cta-row{margin-top:12px}
+  .cta{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 18px;border-radius:10px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-weight:800;font-size:14px;cursor:pointer;touch-action:manipulation}
+  .cta:hover{background:rgba(91,140,255,.12)}
+  .hv2 .kzleague .cta{padding:0 8px;font-size:13px;width:100%}
+  .hv2 .showall{min-height:46px;display:flex;align-items:center;justify-content:center;border-color:var(--accent);color:var(--accent);font-weight:800;border-radius:10px;background:transparent}
+  @media (max-width:720px){.hv2 .card h2,.hv2 .kzhd h2,.hv2 .hsec-k{font-size:17px}.cta{width:100%}}
 
 </style>
 </head>
@@ -5825,7 +5845,7 @@ function newsTeaserHtml(){   // 홈 1면 미리보기(자동매칭 자리)
   const top=mainEv[0]||null;
   const lead=top&&top.body?top.body:(W.summary||"");
   const cnt=[`기사 ${mainEv.length}`,(W.notices||[]).length?`알림 ${W.notices.length}`:"",`인물 ${(W.students||[]).length}`,(W.awards||[]).length?`이주의 인물 ${W.awards.length}`:""].filter(Boolean).join(" · ");
-  return `<div class="np-tease" onclick="go('news')" title="지면 펼치기">
+  return `<div class="hsec-k">📰 이번 주 클랜 한눈에 <span>${esc(_npIssueNo(W))}</span></div><div class="np-tease" onclick="go('news')" title="지면 펼치기">
     <div class="np-tmast"><span class="np-tname np-serif">주간스쿼드</span>${meta}</div>
     <div class="np-tbody"><div style="min-width:0"><span class="np-kicker" style="margin-bottom:6px">1면${top&&top.section?` · ${esc(top.section)}`:""}</span><div class="np-thl np-serif">${esc(W.headline||"")}</div><div class="np-tlead">${mdLite(lead)}</div></div>${top?_npPhoto(top,W,120):""}</div>
     <div class="np-tfoot"><span>${esc(cnt)} · 💬 독자 댓글</span><span class="np-tweather" title="이번 주 클랜 날씨 = 등급"><span>${wt.ic} ${esc(wt.t)}</span>${G.letter?`<span class="l">${esc(G.letter)}</span>`:""}</span><button class="np-topen" onclick="event.stopPropagation();go('news')">📰 지면 펼치기</button></div></div>`;
@@ -6236,7 +6256,7 @@ function kizukiBoard(){
               :(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT==="rift")
                 ?'상현=<span class="kzsub-m">내부티어 </span>0·1티어 · 하현=2·3티어 <span class="kzsub-m">각 상위 6인</span>':"전체";
     return `<div class="kzleague">
-      <div class="kzhd"><h2>🩸 ${nm}</h2><span class="kanji">十二鬼月</span></div>
+      <div class="kzhd"><h2>🩸 ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT==="rift")?"이번 달 클랜 최강 12인":"클랜 최강 12인"}</h2><span class="kanji">${nm} · 十二鬼月</span></div>
       <div class="kzsub">${scope} · <span class="kzsub-m">파워랭킹 </span>상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift")?"통산 10판 이상(90일 내 기록)":"최근 30일 5판 이상만"} 편성 · 실시간 변동</span></div>
       <div class="kzrule"></div>
       <div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
@@ -6247,6 +6267,7 @@ function kizukiBoard(){
           <span class="kz-corps-sub">상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들 (10판 이상)</span></div>
         <div class="kz-corps-list">${KISATSU.map((e,i)=>`<span class="kz-corps-chip" title="귀월 상대 ${e.g}판 ${Math.round(e.wr)}%" onclick="event.stopPropagation();openPlayerCard(${JSON.stringify(e.name).replace(/"/g,'&quot;')})"><b>${i+1}</b> ${esc(shortName(e.name))} <span class="kz-corps-wr">${Math.round(e.wr)}%</span></span>`).join("")}</div>
       </div>`:''}
+      <div class="cta-row"><button class="cta" type="button" onclick="go('tiers')">내부티어 전체 보기 →</button></div>
     </div>`;
   };
   // [2026-08-07 사장님 지시] 동부가 빠진 오른쪽 자리에 '다가오는 일정' 패널
@@ -6254,22 +6275,26 @@ function kizukiBoard(){
   marketHomeLoad();
   const evPane=`<div class="kzleague">
     <div style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
-      <div class="kzhd"><h2>📅 다가오는 일정</h2><span class="kanji">日程</span></div>
+      <div class="kzhd"><h2>📅 곧 열리는 내전·대회</h2><span class="kanji">日程</span></div>
       <div class="kzsub">디스코드 이벤트 탭과 자동 동기화 · <span class="kzsub-m">클릭하면 </span>달력으로</div>
       <div class="kzrule"></div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${eventsListHtml(5)||'<div class="muted" style="font-size:12.5px">예정된 일정이 없어요</div>'}</div>
+      <div class="cta-row"><button class="cta" type="button">일정 전체 →</button></div>
     </div>
     ${marketPaneHtml()}
   </div>`;
   return `<div class="card kzboard two">${leagues.map(pane).join("")}${evPane}</div>`;
 }
-function welcomeCardHtml(){   // 👋 [2026-09-28 사장님 지시] "신규 클랜원이 이 시스템이 뭔지, 누가 만든 건지 모른 채 지낸다" — 첫 화면 안내(닫으면 다시 안 뜸)
-  try{ if(localStorage.getItem("sgg_welcome_off")==="1") return ""; }catch(e){}
-  return `<div class="welcome" id="welcomeCard"><h3>👋 처음 오셨나요?</h3><ul>
-    <li><b>스쿼드 클랜 내전 기록</b>을 모아 보는 사이트예요. 위 검색창에 <b>롤 닉네임</b>을 치면 내 전적이 나와요.</li>
+function welcomeCardHtml(){   // 👋 [2026-09-28 사장님 지시] 신규 클랜원 첫 화면 안내 · [2026-10-30 홈 1단계] 접이식 — 처음엔 펼쳐 있고, 한 번 본 뒤로는 제목 한 줄로 접혀 있다
+  let off=false,seen=false;
+  try{ off=localStorage.getItem("sgg_welcome_off")==="1"; seen=localStorage.getItem("sgg_welcome_seen")==="1"; }catch(e){}
+  if(off) return "";
+  setTimeout(()=>{ try{ localStorage.setItem("sgg_welcome_seen","1"); }catch(e){} },8000);   // 화면이 두어 번 다시 그려져도 첫 방문엔 펼친 채로 — 8초 이상 머문 뒤에야 '봤다'로 기록
+  return `<details class="welcome" id="welcomeCard"${seen?"":" open"}><summary><b>👋 닉네임만 치면, 내전 전적이 바로 나와요</b><span class="wsub">처음이라면 눌러서 사용법 보기</span></summary><ul>
+    <li><b>스쿼드 클랜 내전 기록</b>을 모아 보는 사이트예요. 위 검색창에 <b>롤 닉네임</b>을 치면 내 전적이 나와요. 솔랭이 아니라 <b>우리 클랜 내전만</b> 모았어요.</li>
     <li><b>스쿼드해체분석기</b>를 켜 두고 내전하면 판마다 <b>자동으로 기록</b>되고, 밴픽 도우미·게임 후 리포트도 떠요.</li>
     <li>내전은 저녁에 디스코드 스쿼드 서버의 <b>팀 음성방</b>에 모여서 해요. 분석기는 방에 한 명만 켜 둬도 기록돼요.</li></ul>
-    <div class="row"><a class="btn go" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html">🖥 분석기 받기</a><button class="btn" onclick="welcomeClose()">알겠어요, 닫기</button><span class="who">만든 사람: 클랜원 <b>맛동산장인 유미</b></span></div></div>`;
+    <div class="row"><a class="btn go" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html">🖥 분석기 받기</a><button class="btn" onclick="welcomeClose()">알겠어요, 다시 안 보기</button><span class="who">만든 사람: 클랜원 <b>맛동산장인 유미</b></span></div></details>`;
 }
 function welcomeClose(){ try{ localStorage.setItem("sgg_welcome_off","1"); }catch(e){} const el=document.getElementById("welcomeCard"); if(el) el.remove(); }
 /* 📈🌙 [2026-10-02 사장님 승인] 홈 접이식 카드 둘 — 둘 다 읽기 전용, 이미 불러온 경기 기록(GAMES_ALL)만 쓴다(새 저장·새 요청 없음).
@@ -6393,7 +6418,7 @@ function renderHome(){
     </tr>`).join("");
 
   view().innerHTML=`
-    ${navTabsHtml('home')}
+    ${navTabsHtml('home')}<div class="hv2">
     ${welcomeCardHtml()}
     ${SHOW_SCRIM?scrimDashHtml():''}
     <div id="wkrv-wrap">${(()=>{ try{ return newsTeaserHtml(); }catch(e){ console.warn("news teaser",e); return ""; } })()}</div>
@@ -6401,24 +6426,25 @@ function renderHome(){
     ${(()=>{ try{ return regularsCardHtml()+patchShiftCardHtml(); }catch(e){ console.warn("home cards",e); return ""; } })()}
     <div class="home3">
       <div class="card">
-        <h2>👥 플레이어 목록 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
+        <h2>👥 클랜원 전적표 <span class="muted" style="font-size:13px">(머리글을 눌러 정렬)</span></h2>
         <table class="ranktbl"><thead><tr>
           ${pth("소환사","name")}${pth("내전 활약","score")}${pth("게임수","games")}${pth("승률","wr")}${pth("MVP","mvp")}${pth("ACE","ace")}${pth("역적","bad")}
         </tr></thead><tbody>${playerRows}</tbody></table>
         ${pAll?'':`<div class="showall" onclick="homeShowAll('p')">▼ 전체 보기 (${playersOrdered.length}명)</div>`}
       </div>
       <div class="card">
-        <h2>📊 챔피언 통계 <span class="muted" style="font-size:13.5px">(클릭 정렬)</span></h2>
+        <h2>📊 챔피언별 승률·픽률 <span class="muted" style="font-size:13px">(머리글을 눌러 정렬)</span></h2>
         <table class="champtbl"><thead><tr>
           ${th("챔피언","champ")}${th("픽","picks")}${th("승률","wr")}${th("밴픽률","pr")}${th("노밴률","nb")}
         </tr></thead><tbody>${champRows}</tbody></table>
         ${(HOME_ALL.c||champs.length<=15)?'':`<div class="showall" onclick="homeShowAll('c')">▼ 전체 보기 (${champs.length}개)</div>`}
       </div>
       <div class="card">
-        <h2>🕒 최근 게임</h2>
+        <h2>🕒 방금 끝난 내전</h2>
         ${recentGamesHtml(5)}
+        <div class="cta-row"><button class="cta" type="button" onclick="go('log')">내전기록 보기 →</button></div>
       </div>
-    </div>`;
+    </div></div>`;
   kzFitSolo(); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(kzFitSolo);   // 🏅 십이귀월 솔랭 라벨(글꼴이 늦게 오면 한 번 더)
 }
 function recentFinishedGames(n){
@@ -6701,11 +6727,12 @@ function marketPaneHtml(){
   }
   const n=onsale.length+(auc?1:0);
   return `<div id="mkHomePane" style="margin-top:18px;cursor:pointer" onclick="go('market')" title="클릭하면 거래소로">
-    <div class="kzhd"><h2>🏪 거래소</h2><span class="kanji">商店</span>${
+    <div class="kzhd"><h2>🪙 유니크 칭호 시세</h2><span class="kanji">商店</span>${
       n?`<span style="margin-left:auto;font-size:11.5px;font-weight:900;color:#5ad48a">${n}건</span>`:''}</div>
     <div class="kzsub">유니크 칭호 매물 · <span class="kzsub-m">클릭하면 </span>시세 차트로</div>
     <div class="kzrule"></div>
     <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${body}</div>
+    <div class="cta-row"><button class="cta" type="button">거래소 →</button></div>
   </div>`;
 }
 
@@ -6830,8 +6857,9 @@ function renderMega(){
   const draw=()=>{
     const s=ss[_megaIdx%ss.length];
     const tag=s.notice?`<span class="mega-notice">📣 공지</span>`:`<span class="mega-who">📢 ${esc(shortName(s.name||''))}</span>`;
-    el.innerHTML=`<div class="mega-in"><span class="mega-horn">📢</span><div class="mega-msg">${tag}${esc(String(s.msg||''))}</div></div>`;
+    el.innerHTML=`<div class="mega-in"><span class="mega-horn">📢</span><div class="mega-msg">${tag}${esc(String(s.msg||''))}</div><span class="mega-tap">${el.classList.contains('open')?'접기 ▴':'펼치기 ▾'}</span></div>`;
   };
+  el.onclick=()=>{ el.classList.toggle('open'); const t=el.querySelector('.mega-tap'); if(t) t.textContent=el.classList.contains('open')?'접기 ▴':'펼치기 ▾'; };
   draw();
   if(_megaTimer){clearInterval(_megaTimer);_megaTimer=null;}
   { // 슬라이드 1개여도 타이머 유지 — 만료·신규를 회전 시점마다 반영
@@ -11964,7 +11992,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   const start=()=>{ mark(); try{ new MutationObserver(sched).observe(document.body,{childList:true,subtree:true}); }catch(e){} };
   if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
 })();
-const BUILD_ID="202610291830";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610301100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
