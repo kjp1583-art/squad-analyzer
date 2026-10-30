@@ -69,7 +69,8 @@
       uid: 1, coinT: 0, levelT: 0, chainQ: [], pending: 0
     };
     const st = { stage: 1, region: '', power: 100, rate: 0, party: [], skills: { active: [null, null, null, null], passive: null }, boss: null, kpm: 100 };
-    const D = { reg: 0, unit: 20, kpm: 100 };
+    const D = { reg: 0, unit: 20, kpm: 100, ratio: 1 };
+    const CAL = 3.5;   // 전투력 = 권장 전투력일 때 분당 약 100마리가 되는 몹 체력 상수(시험으로 맞춤)
     const listeners = {};
     const emit = (n, p) => { const a = listeners[n]; if (a) for (let i = 0; i < a.length; i++) { try { a[i](p || {}); } catch (e) { } } };
 
@@ -161,7 +162,11 @@
     // ---------- 파생 ----------
     function derive() {
       D.unit = Math.max(1, Math.round(Math.max(5, st.power) * 0.22));
-      D.kpm = clamp(N(st.kpm) || 100, 10, 300);
+      D.kpm = clamp(N(st.kpm) || 100, 10, 300);   // 표시용(서버가 계산한 기대치) — 처치 속도를 맞추는 데는 쓰지 않는다
+      // 인과: 몹 체력은 그 필드의 권장 전투력(rec)에서, 내 피해는 내 전투력(power)에서 나온다. 처치 속도는 그 결과다.
+      // 전투력 = 권장 전투력이면 분당 약 100마리가 나오도록 상수 CAL 하나만 맞춰 두었다(되먹임 없음).
+      D.ratio = clamp(Math.max(5, N(st.power)) / Math.max(5, N(st.rec) || Math.max(5, N(st.power))), 0.05, 40);
+      E.ctl = CAL / D.ratio;
       const rg = String(st.region || '').toLowerCase(); let ri = -1;
       for (let i = 0; i < 6; i++) if (rg.indexOf(REG_KEY[i]) >= 0) { ri = i; break; }
       if (ri < 0) ri = Math.floor((Math.max(1, st.stage) - 1) / 5) % 6;
@@ -229,16 +234,11 @@
     // ---------- 피해 ----------
     function bossHurt(frac, crit, col, x) {
       const B = boss; if (!B || B.state !== 'fight') return;
-      const was = B.hp; B.hp = Math.max(B.target, B.hp - B.hpMax * frac);
-      B.hit = 0.14; B.kb = crit ? 9 : 5;
+            B.hit = 0.14; B.kb = crit ? 9 : 5;
       const d = Math.max(1, Math.round(D.unit * (frac / 0.012) * (0.9 + rnd() * 0.2)));
       say(fmtNum(d) + (crit ? '!' : ''), B.x + (rnd() - 0.5) * 50, B.y - 130, crit ? 24 : 16, crit ? '#ffd23c' : (col || '#fff'), crit, d);
       poof(B.x - 20, B.y - 60, crit ? '#ffd23c' : '#fff', crit ? 5 : 2);
       if (crit) E.shake = Math.max(E.shake, 3);
-      if (B.hp <= B.target) {
-        if (B.res === 'win') { B.state = 'dying'; B.t = 0; E.shake = 9; E.flash = 0.5; for (let i = 0; i < 14; i++) coin(B.x + (rnd() - 0.5) * 60, B.y - 50); poof(B.x, B.y - 70, '#fff6c0', 18, 140); emit('boss', { phase: 'win' }); }
-        else if (B.res === 'lose') { B.state = 'smash'; B.t = 0; }
-      }
     }
     function coin(x, y) { newPart('coin', x, y, (rnd() - 0.5) * 120, -150 - rnd() * 90, 3.2, 4.2, '#ffd23c'); }
     function hurtMob(m, amt, crit, col, srcX, kn, noText) {
@@ -516,41 +516,125 @@
     }
 
     // ---------- 보스 ----------
+    // 보스전 연출(2026-10-30 사장님 「보스전이 인게임 연출이 없는 것 같다」) — 입장(2.4초) → 전투(약 10초, 공격 예고·격노) → 마무리(승: 슬로모션·폭발 / 패: 강타)
+    // 승패는 서버가 정한다. 연출 시간표는 그 결과에 맞춰 보스·병아리 체력이 닳게 짠 것이다(화면 피해량은 서버 계산이 아니다).
+    const BF_INTRO = 2.4, BF_FIGHT = 10;
     function bossStart(b) {
       if (boss || !b) return;
       const key = /^[a-z0-9_]{1,30}$/.test(String(b.img || '')) ? String(b.img) : '';
       const bx = clamp(chick.x + 400, 300, WW - 140);
-      boss = { ty: 4, name: String(b.name || '보스'), img: key, x: bx + 260, y: 214, stop: bx, hp: N(b.hp) || 1000, hpMax: N(b.hp) || 1000, target: 0, res: null, state: 'in', t: 0, hit: 0, kb: 0 };
+      boss = { ty: 4, name: String(b.name || '보스'), img: key, x: bx, y: 214, stop: bx, z: 150, hp: N(b.hp) || 1000, hpMax: N(b.hp) || 1000, target: 0, res: null, state: 'intro', t: 0, ft: 0, hit: 0, kb: 0, phase: 0, atk: null, atkT: 1.6, land: false, php: 1, stage: st.stage };
       if (key) ld('img/brjang/boss/' + key + '/front.png');
       for (const m of mobs) if (m.dead < 0) { m.dead = 0.35; m.dvx = 0; m.dvy = -60; m.drot = 0; if (m.spot) m.spot.n = Math.max(0, m.spot.n - 1); }
       for (const s of spots) s.n = 0;
-      E.shake = 5; chick.target = boss; emit('boss', { phase: 'in' });
+      chick.target = boss; E.tint = 1; E.tintCol = '#ff3050'; emit('boss', { phase: 'in' });
     }
     function bossResult(r) {
       const B = boss; if (!B || B.res || (r !== 'win' && r !== 'lose')) return;
       B.res = r; B.target = r === 'win' ? 0 : B.hpMax * 0.16;
     }
+    // 보스가 정해 둔 시간표대로 닳아야 할 체력 비율
+    function bossWant(B) {
+      const q = clamp(B.ft / BF_FIGHT, 0, 1);
+      if (!B.res) return Math.max(0.2, 1 - q * 0.8);
+      const floor = B.res === 'win' ? 0 : 0.16;
+      return 1 - (1 - floor) * (q < 1 ? 1 - Math.pow(1 - q, 1.6) : 1);
+    }
+    function bossAttack(B, dt) {
+      const a = B.atk;
+      if (!a) {
+        B.atkT -= dt; if (B.atkT > 0 || B.state !== 'fight') return;
+        const rain = B.phase >= 1 && rnd() < 0.5;
+        // 이기는 판은 대부분 피하고(가끔 맞는다), 지는 판은 대부분 맞는다
+        const hitIt = B.res === 'lose' ? rnd() < 0.85 : B.res === 'win' ? rnd() < 0.3 : rnd() < 0.5;
+        B.atk = { kind: rain ? 'rain' : 'slam', t: 0, dur: rain ? 1.0 : 0.85, hit: hitIt, pts: rain ? [chick.x - 70, chick.x + 10, chick.x + 80].map(x => clamp(x, 40, WW - 40)) : [chick.x] };
+        B.sh = 0; return;
+      }
+      a.t += dt;
+      if (a.t >= a.dur && !a.done) {
+        a.done = true; E.shake = 8; E.flash = 0.22; E.flashCol = '#ffd9a0'; emit('boss', { phase: 'slam' });
+        for (const x of a.pts) { ring(x, chick.y + 6, '#ffb070', 70, 0.45); poof(x, chick.y, '#e8c9a0', 10, 130); }
+        if (a.hit) {
+          const dmg = B.res === 'lose' ? 0.2 : 0.1; B.php = Math.max(B.res === 'lose' ? 0.05 : 0.3, B.php - dmg);
+          chick.pose = 'hit'; chick.poseT = 0.35; chick.hurt = 0.3; chick.kbx = -chick.face * 70;
+          say('-' + fmtNum(Math.round(D.unit * 3.2 * (0.9 + rnd() * 0.2))), chick.x, chick.y - 70, 20, '#ff5c7a', true, 1);
+        } else say('회피!', chick.x, chick.y - 70, 18, '#9be7ff', false, 1);
+      }
+      if (a.t >= a.dur + 0.5) { B.atk = null; B.atkT = (2.3 - B.phase * 0.5) * (0.85 + rnd() * 0.3); }
+    }
     function updateBoss(dt) {
       const B = boss; if (!B) return;
       B.t += dt; B.hit = Math.max(0, B.hit - dt); B.kb *= Math.exp(-dt * 12);
       if (st.boss && st.boss.res && !B.res) bossResult(st.boss.res);
-      if (B.state === 'in') { B.x = Math.max(B.stop, B.x - 170 * dt); if (B.x <= B.stop) { B.state = 'fight'; B.t = 0; E.shake = 6; } }
-      else if (B.state === 'fight') {
-        // 판정이 오기 전엔 체력이 바닥(남은 20%)까지만 닳는다
-        if (!B.res) { if (B.hp < B.hpMax * 0.2) B.hp = B.hpMax * 0.2; }
-        else if (B.hp > B.target) {   // 판정이 오면 남은 체력을 시원하게 깎아 마무리한다(스킬 피해가 없어도 2초 안에)
-          B.hp = Math.max(B.target, B.hp - B.hpMax * 0.4 * dt);
-          if (B.hp <= B.target) { B.hp = B.target; if (B.res === 'win') { B.state = 'dying'; B.t = 0; E.shake = 9; E.flash = 0.5; for (let i = 0; i < 14; i++) coin(B.x + (rnd() - 0.5) * 60, B.y - 50); poof(B.x, B.y - 70, '#fff6c0', 18, 140); emit('boss', { phase: 'win' }); } else { B.state = 'smash'; B.t = 0; } }
-        }
-        if (B.t > 40 && !B.res) { B.state = 'leave'; B.t = 0; }
+      E.cin = clamp((E.cin || 0) + ((B.state === 'intro' && B.t < BF_INTRO - 0.3) || B.state === 'dying' || B.state === 'smash' ? dt * 3.5 : -dt * 3.5), 0, 1);
+      if (B.state === 'intro') {
+        // 하늘에서 떨어져 쾅 — 그 뒤 이름표가 지나간다
+        if (B.t < 0.9) { B.z = 150 * Math.pow(1 - B.t / 0.9, 2); }
+        else { B.z = 0; if (!B.land) { B.land = true; E.shake = 11; E.flash = 0.45; E.flashCol = '#fff'; ring(B.x, B.y + 4, '#ffd9a0', 120, 0.6); poof(B.x, B.y, '#d9c3a0', 20, 180); emit('boss', { phase: 'slam' }); } }
+        if (B.t >= BF_INTRO) { B.state = 'fight'; B.t = 0; B.ft = 0; E.tint = 0; }
       }
-      else if (B.state === 'dying') { if (B.t > 2.6) finishBoss(); }
+      else if (B.state === 'fight') {
+        B.ft += dt; B.sh = 0;
+        const want = bossWant(B) * B.hpMax;
+        B.hp += (want - B.hp) * Math.min(1, dt * 5);
+        if (B.res !== 'lose') B.php = Math.max(B.php, 0.3);
+        if (B.res === 'lose') B.php = Math.max(0.05, Math.min(B.php, 1 - 0.8 * clamp(B.ft / BF_FIGHT, 0, 1)));
+        const r = B.hp / B.hpMax;
+        if (B.phase < 1 && r < 0.66) { B.phase = 1; E.flash = 0.5; E.flashCol = '#ff3050'; E.shake = 10; say('격노!', B.x, B.y - 150, 26, '#ff5c7a', true, 1); emit('boss', { phase: 'rage' }); }
+        else if (B.phase < 2 && r < 0.33) { B.phase = 2; E.flash = 0.6; E.flashCol = '#ff3050'; E.shake = 12; say('폭주!', B.x, B.y - 150, 30, '#ff3050', true, 1); emit('boss', { phase: 'rage' }); }
+        bossAttack(B, dt);
+        if (B.ft >= BF_FIGHT && B.res && Math.abs(B.hp - B.target) < B.hpMax * 0.02) {
+          B.hp = B.target; B.atk = null;
+          if (B.res === 'win') { B.state = 'dying'; B.t = 0; E.slow = 1.1; E.shake = 12; E.flash = 0.8; E.flashCol = '#fff'; for (let i = 0; i < 26; i++) coin(B.x + (rnd() - 0.5) * 80, B.y - 50); poof(B.x, B.y - 70, '#fff6c0', 30, 180); ring(B.x, B.y - 60, '#fff6c0', 150, 0.8); emit('boss', { phase: 'win' }); }
+          else { B.state = 'smash'; B.t = 0; }
+        }
+        if (B.ft > 40 && !B.res) { B.state = 'leave'; B.t = 0; }
+      }
+      else if (B.state === 'dying') { if (B.t > 2.8) finishBoss(); }
       else if (B.state === 'smash') {
-        if (B.t > 0.35 && !chick.down) { chick.down = 1; chick.pose = 'down'; E.shake = 8; poof(chick.x, chick.y - 30, '#ff5c7a', 12, 140); emit('boss', { phase: 'lose' }); }
-        if (B.t > 2.6) { chick.down = 0; chick.pose = 'idle'; B.state = 'leave'; B.t = 0; }
+        if (B.t > 0.35 && !chick.down) { chick.down = 1; chick.pose = 'down'; E.shake = 12; E.flash = 0.5; E.flashCol = '#ff3050'; ring(chick.x, chick.y, '#ff5c7a', 100, 0.6); poof(chick.x, chick.y - 30, '#ff5c7a', 16, 160); emit('boss', { phase: 'lose' }); }
+        if (B.t > 2.8) { chick.down = 0; chick.pose = 'idle'; B.state = 'leave'; B.t = 0; }
       } else if (B.state === 'leave') { if (B.t > 0.8) finishBoss(); }
     }
-    function finishBoss() { boss = null; chick.target = null; chick.down = 0; chick.pose = 'idle'; E.spawnT = 0.5; }
+    function finishBoss() { boss = null; E.cin = 0; chick.target = null; chick.down = 0; chick.pose = 'idle'; E.spawnT = 0.5; }
+    // 땅에 깔리는 공격 예고(빨간 원) — 몹·보스 그림보다 아래에 그린다
+    function drawBossGround() {
+      const B = boss; if (!B || !B.atk || B.atk.done) return;
+      const a = B.atk, q = clamp(a.t / a.dur, 0, 1), c = ctx;
+      for (const x of a.pts) {
+        const px = x - E.cam, py = chick.y + 8, r = 62;
+        c.save(); c.globalAlpha = 0.18 + 0.3 * q + 0.1 * Math.sin(E.t * 30); c.fillStyle = '#ff3050';
+        c.beginPath(); c.ellipse(px, py, r, r * 0.3, 0, 0, 6.3); c.fill();
+        c.globalAlpha = 0.9; c.strokeStyle = '#ffd0d8'; c.lineWidth = 2; c.beginPath(); c.ellipse(px, py, r * q, r * 0.3 * q, 0, 0, 6.3); c.stroke(); c.restore();
+      }
+    }
+    // 화면 위에 덧그리는 연출: 레터박스 · 입장 이름표 · 보스 체력(단계 표시) · 병아리 체력
+    function drawBossHud(VW) {
+      const B = boss, c = ctx, cin = E.cin || 0;
+      if (cin > 0) { const h = LH * 0.1 * cin; c.fillStyle = '#000'; c.fillRect(0, 0, VW, h); c.fillRect(0, LH - h, VW, h); }
+      if (!B) return;
+      if (B.state === 'intro' && B.t > 0.9) {
+        const q = clamp((B.t - 0.9) / 0.35, 0, 1), out = clamp((B.t - (BF_INTRO - 0.4)) / 0.4, 0, 1), a = q * (1 - out);
+        const y = LH * 0.5, x0 = (1 - q) * -VW * 0.5;
+        c.save(); c.globalAlpha = a * 0.78; c.fillStyle = '#12020a'; c.fillRect(0, y - 40, VW, 80);
+        c.fillStyle = '#ff3050'; c.fillRect(0, y - 40, VW, 3); c.fillRect(0, y + 37, VW, 3); c.globalAlpha = a;
+        outText('⚠ STAGE ' + B.stage + ' BOSS', VW / 2 + x0, y - 14, 14, '#ff9aaa', 'center', 3);
+        outText(B.name, VW / 2 - x0, y + 18, 30, '#ffffff', 'center', 5);
+        c.restore();
+      }
+      if (B.state === 'intro' || B.state === 'leave') return;
+      const w = Math.min(300, VW - 36), x = VW / 2 - w / 2, y = 8 + 14 * cin + 6, r = clamp(B.hp / B.hpMax, 0, 1);
+      c.fillStyle = 'rgba(0,0,0,.72)'; c.fillRect(x - 3, y - 3, w + 6, 18);
+      c.fillStyle = B.phase >= 2 ? '#ff2a4a' : B.phase === 1 ? '#ff6a3a' : '#ef3c5a'; c.fillRect(x, y, w * r, 12);
+      c.fillStyle = 'rgba(255,255,255,.28)'; c.fillRect(x, y, w * r, 4);
+      c.fillStyle = 'rgba(255,255,255,.55)'; c.fillRect(x + w * 0.33 - 1, y - 1, 2, 14); c.fillRect(x + w * 0.66 - 1, y - 1, 2, 14);
+      outText(B.name + (B.phase ? '  ' + '🔥'.repeat(B.phase) : ''), VW / 2, y + 30, 13, '#fff', 'center', 3);
+      if (B.state === 'fight' || B.state === 'smash' || B.state === 'dying') {   // 병아리 체력
+        const pw = 90, px = 10, py = LH - 22 - 14 * cin;
+        c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(px - 2, py - 2, pw + 4, 10); c.fillStyle = B.php < 0.35 ? '#ff5c7a' : '#6bdc7a'; c.fillRect(px, py, pw * clamp(B.php, 0, 1), 6);
+        outText('🐥', px + 2, py - 5, 11, '#fff', 'left', 2);
+      }
+    }
 
     // ---------- 동료 ----------
     function syncParty() {
@@ -576,6 +660,7 @@
     // ---------- 갱신 ----------
     const rec = [];
     function controller(dt) {
+      return;   // 옛 되먹임 보정은 없앴다 — 처치 속도는 전투력÷권장 전투력의 결과로만 나온다
       E.ctlT += dt; if (E.ctlT < 1) return; E.ctlT = 0;
       // 최근 최대 30초 동안의 처치율과 목표를 견주어 몹 체력 배율을 조금씩 고친다
       const win = Math.min(20, E.t); if (win < 5) return;
@@ -745,11 +830,12 @@
     }
     function drawBoss() {
       const B = boss; let im = B.img ? ld('img/brjang/boss/' + B.img + '/front.png') : null; if (!im) im = emo('🐲', 120);
-      let a = 1, rot = 0, x = B.x - E.cam + B.kb, y = B.y + 6, sy = 1;
-      if (B.state === 'dying') { const q = Math.min(1, B.t / 1.2); a = 1 - q; rot = q * 0.9; y += q * 18; }
+      let a = 1, rot = 0, x = B.x - E.cam + B.kb, y = B.y + 6 - (B.z || 0), sy = 1;
+      if (B.state === 'fight' && B.phase) { y += Math.sin(E.t * 24) * 1.2 * B.phase; }
+      if (B.state === 'dying') { const q = Math.min(1, B.t / 1.6); a = 1 - q; rot = q * 0.9; y += q * 18; }
       if (B.state === 'leave') a = 1 - Math.min(1, B.t / 0.8);
       if (B.state === 'smash' && B.t < 0.5) x -= Math.sin(Math.min(1, B.t / 0.35) * Math.PI) * 60 * (chick.x < B.x ? 1 : -1);
-      if (B.state === 'in' || (B.state === 'fight' && B.t < 1)) sy = 1 + Math.sin(E.t * 4) * 0.015;
+      if (B.state === 'intro' && B.t < 0.9) a = Math.min(1, B.t / 0.3); else sy = 1 + Math.sin(E.t * 4) * 0.015;
       shadow(B.x - E.cam, B.y, 56, 0.3);
       const o = { a, rot, sy, flip: false }; if (B.hit > 0 && ((E.t * 40) | 0) % 2 === 0) o.a = a * 0.5;
       spr(im, x, y, 132, o);
@@ -850,12 +936,6 @@
         const g = ctx.createLinearGradient(0, 0, 0, chick.y); g.addColorStop(0, 'rgba(255,230,120,0)'); g.addColorStop(1, 'rgba(255,230,120,.9)'); ctx.fillStyle = g; ctx.fillRect(x - 26, 0, 52, chick.y); ctx.restore();
         ctx.globalAlpha = Math.min(1, E.levelT * 2); outText('LEVEL UP!', x, chick.y - 120 - q * 30, 24, '#ffe14a', 'center', 5); ctx.globalAlpha = 1;
       }
-      if (boss && boss.state !== 'dying' && boss.state !== 'leave') {
-        const w = Math.min(260, VW - 40), x = VW / 2 - w / 2;
-        ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x - 2, 10, w + 4, 14); ctx.fillStyle = '#ef3c5a'; ctx.fillRect(x, 12, w * clamp(boss.hp / boss.hpMax, 0, 1), 10);
-        ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(x, 12, w * clamp(boss.hp / boss.hpMax, 0, 1), 3);
-        outText(boss.name, VW / 2, 36, 13, '#fff', 'center', 3);
-      }
       if (opts.hudKpm) { const s = statsNow(); outText('분당 ' + s.kpm.toFixed(0) + '마리', 8, 14, 12, '#fff', 'left', 3); }
     }
     function draw() {
@@ -864,7 +944,7 @@
       c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
       const sh = E.shake > 0 && !E.rm ? E.shake : 0;
       c.save(); if (sh) c.translate((rnd() - 0.5) * sh, (rnd() - 0.5) * sh);
-      drawBg();
+      drawBg(); drawBossGround();
       // 깊이 정렬: 소품·몬스터·병아리·동료·보스
       const dr = drawBuf; dr.length = 0; const cam = E.cam;
       for (let i = 0; i < props.length; i++) { const p = props[i]; if (p.x > cam - 60 && p.x < cam + VW + 60) dr.push(p); }
@@ -881,7 +961,7 @@
       if (E.tint > 0) { c.globalAlpha = Math.min(0.22, E.tint * 0.2); c.fillStyle = E.tintCol; c.fillRect(0, 0, VW, LH); c.globalAlpha = 1; }
       if (E.flash > 0) { c.globalAlpha = Math.min(0.5, E.flash); c.fillStyle = E.flashCol; c.fillRect(0, 0, VW, LH); c.globalAlpha = 1; }
       if (vig) { c.fillStyle = vig; c.fillRect(0, 0, VW, LH); }
-      drawHud();
+      drawHud(); drawBossHud(VW);
     }
     const drawBuf = [];
     const byY = (a, b) => a.y - b.y;
@@ -906,6 +986,7 @@
     // ---------- 구동 ----------
     function frame(dt) {
       let left = dt * E.timeScale;
+      if (E.slow > 0) { E.slow -= dt; left *= 0.3; }   // 보스 처치 순간 슬로모션
       while (left > 1e-6) { const s = Math.min(left, 1 / 30); step(s); left -= s; }
     }
     function loop(ts) {
@@ -934,7 +1015,7 @@
     function setState(s) {
       s = s || {};
       const prevStage = st.stage, prevReg = D.reg;
-      st.stage = N(s.stage) || 1; st.region = String(s.region || ''); st.power = Math.max(5, N(s.power)); st.rate = N(s.rate); st.kpm = N(s.kpm) || 100;
+      st.stage = N(s.stage) || 1; st.region = String(s.region || ''); st.power = Math.max(5, N(s.power)); st.rate = N(s.rate); st.kpm = N(s.kpm) || 100; st.rec = N(s.rec) || 0;
       st.party = Array.isArray(s.party) ? s.party : [];
       const sk = s.skills || {}, act = Array.isArray(sk.active) ? sk.active : [];
       for (let i = 0; i < 4; i++) {
@@ -948,7 +1029,7 @@
       E.inited = true;
       if (s.boss && !boss && !st.boss) bossStart(s.boss);   // 새로 나타날 때만(끝난 뒤 같은 값이 남아 있어도 다시 시작하지 않는다)
       st.boss = s.boss || null;
-      if (!s.boss && boss && boss.state === 'in') { boss.state = 'leave'; boss.t = 0; }
+      if (!s.boss && boss && boss.state === 'intro') { boss.state = 'leave'; boss.t = 0; }
       void prevReg;
     }
     function statsNow() {

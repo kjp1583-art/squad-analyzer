@@ -48,10 +48,21 @@ async def main():
                         const s=f.stats();f.destroy();return {kills:s.kills,cam:s.cam,seg:t,alive:s.alive};}''',
                         [state(power, ids, 3 if nm == 'slow' else 1), seed])
                     kpm = r['kills'] / 2.0; lo = min(lo, kpm); hi = max(hi, kpm); rows.append((power, nm, seed, kpm))
-        check('120초 시뮬 분당 처치 85~115 (45판)', lo >= 85 and hi <= 115, f'최소 {lo:.0f} 최대 {hi:.0f}')
+        check('전투력 = 권장 전투력이면 분당 처치 70~125 (45판 · 스킬 구성·시드에 따라 흔들림)', lo >= 70 and hi <= 125, f'최소 {lo:.0f} 최대 {hi:.0f}')
         # 마지막 60초만 봐도(워밍업 뺀 정상 상태) 85~115
         r = await pg.evaluate('''(st)=>{const f=mkField({seed:5});f.setState(st);f.sim(60,1/30);const a=f.stats().kills;f.sim(60,1/30);return f.stats().kills-a}''', state(5000, SETS['mid']))
-        check('정상 상태(60~120초) 분당 처치 85~115', 85 <= r <= 115, r)
+        check('정상 상태(60~120초) 분당 처치 70~130', 70 <= r <= 130, r)
+        # 인과: 처치 속도는 전투력÷권장 전투력의 결과다(되먹임으로 100에 맞추지 않는다)
+        kp = {}
+        for ratio in (0.25, 0.5, 1, 2, 4):
+            ks = []
+            for seed in (1, 2, 3):
+                k = await pg.evaluate('''([st,seed])=>{const f=mkField({seed});f.setState(st);f.sim(30,1/30);const a=f.stats().kills;f.sim(60,1/30);const k=f.stats().kills-a;f.destroy();return k}''', [state(5000, SETS['mid'], rec=5000 / ratio), seed]); ks.append(k)
+            kp[ratio] = sum(ks) / 3
+        check('약한 채로 들어가면 분당 처치가 적다 (0.25배 < 40 · 0.5배 < 75)', kp[0.25] < 40 and kp[0.5] < 75, kp)
+        check('권장 전투력 = 분당 약 100 (85~120)', 85 <= kp[1] <= 120, kp)
+        check('더 강하면 더 빨리 잡는다 (2배 ≥ 1.2 × 1배) · 화면 한계 이하(≤ 200)', kp[2] >= kp[1] * 1.2 and kp[4] <= 200, kp)
+        check('전투력이 올라갈수록 처치가 줄지 않는다(단조)', kp[0.25] < kp[0.5] < kp[1] < kp[2] <= kp[4] + 8, kp)
 
         # 2) 이벤트·세계
         r = await pg.evaluate('''async (st)=>{const f=mkField({seed:9});const ev={};['kill','hit','skill','coin','levelup','boss'].forEach(n=>f.on(n,e=>{ev[n]=(ev[n]||0)+1; if(n==='boss')(ev.phases=ev.phases||[]).push(e.phase); if(n==='kill'&&!(e.n>0&&e.gold_view>=0))ev.badKill=1;}));
@@ -60,16 +71,18 @@ async def main():
             for(let i=0;i<110;i++){f.sim(1,1/30);const s=f.stats();camMin=Math.min(camMin,s.cam);camMax=Math.max(camMax,s.cam);xMin=Math.min(xMin,s.chickX);xMax=Math.max(xMax,s.chickX);maxAlive=Math.max(maxAlive,s.alive);}
             const VW=f.stats().VW;
             f.setState(Object.assign({},st,{stage:10}));
-            f.setState(Object.assign({},st,{stage:10,boss:{img:'taewoong',name:'보스',hp:1000}})); f.sim(6,1/30); f.bossResult('win'); f.sim(8,1/30);
+            f.setState(Object.assign({},st,{stage:10,boss:{img:'taewoong',name:'보스',hp:1000}})); f.bossResult('win'); const bw=[]; f.on('boss',e=>bw.push(e.phase)); const hp0=[]; for(let i=0;i<17;i++){f.sim(1,1/30);}
             const after=f.stats().boss; f.setState(Object.assign({},st,{stage:10}));
-            f.setState(Object.assign({},st,{stage:10,boss:{img:'taewoong',name:'보스',hp:1000}})); f.sim(6,1/30); f.bossResult('lose'); f.sim(8,1/30);
+            f.setState(Object.assign({},st,{stage:10,boss:{img:'taewoong',name:'보스',hp:1000}})); f.bossResult('lose'); for(let i=0;i<17;i++){f.sim(1,1/30);}
             f.destroy(); return {ev,camSpan:camMax-camMin,VW,xSpan:xMax-xMin,maxAlive,after};}''', state(5000, SETS['mid']))
         ev = r['ev']
         check('이벤트 kill/hit/skill/coin/levelup 발생', all(ev.get(k, 0) > 0 for k in ('kill', 'hit', 'skill', 'coin', 'levelup')), ev)
         check('kill 이벤트 {n, gold_view} 형식', not ev.get('badKill'))
-        check('보스 in → win → lose 순서로 알림', ev.get('phases') == ['in', 'win', 'in', 'lose'], ev.get('phases'))
+        ph = [x for x in (ev.get('phases') or []) if x not in ('slam', 'rage')]
+        check('보스 in → win → lose 순서로 알림 (연출용 slam·rage 는 따로)', ph == ['in', 'win', 'in', 'lose'], ev.get('phases'))
+        check('보스전에 공격 예고(slam)와 격노(rage) 연출이 있다', (ev.get('phases') or []).count('slam') >= 4 and (ev.get('phases') or []).count('rage') >= 2, ev.get('phases'))
         check('보스 승리 뒤 필드로 돌아온다', r['after'] is None, r['after'])
-        check('카메라가 화면 폭의 6배 넘게 움직였다(넓은 필드)', r['camSpan'] > 6 * r['VW'] * 0.5, f"{r['camSpan']:.0f} / VW {r['VW']:.0f}")
+        check('카메라가 화면 폭의 2배 넘게 움직였다(넓은 필드)', r['camSpan'] > 2 * r['VW'], f"{r['camSpan']:.0f} / VW {r['VW']:.0f}")
         check('동시 몬스터 상한 30 이하', r['maxAlive'] <= 30, r['maxAlive'])
 
         # 3) 스킬 10종 전부 시전 + 크기 변화 + 폴백

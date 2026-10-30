@@ -53,7 +53,7 @@ def make_view():
     ]
     return {
         'stage': 9, 'max_stage': 30, 'region': '홍대 먹자골목' + EVIL, 'rate': 1500, 'pending': 9000, 'hours': 4.0, 'boost': 2, 'gold': 123456, 'total': 999999,
-        'cost': 6000, 'next_rate': 1770, 'cap_h': 12, 'boost_max': 6, 'lv': 7, 'name': '테스터' + EVIL,
+        'power': 700, 'rec': 400, 'next_rec': 430, 'kpm': 110.0, 'power_ok': True, 'kpm_next': 102.0, 'cost': 6000, 'next_rate': 1770, 'cap_h': 12, 'boost_max': 6, 'lv': 7, 'name': '테스터' + EVIL,
         'summon': {'tickets': 12, 'pulls': 25, 'slv': 2, 'slv_max': 8, 'slv_next_at': 60, 'rates': rates,
                    'rate_table': [{'lv': i + 1, 'at': a, 'rates': rates} for i, a in enumerate([0, 20, 60, 130, 250, 450, 750, 1200])],
                    'pity': {'에픽': {'now': 12, 'max': 50, 'left': 38}, '유니크': {'now': 12, 'max': 150, 'left': 138}, '레전드': {'now': 12, 'max': 400, 'left': 388}},
@@ -226,7 +226,7 @@ async def main():
                 check('상단 HUD: 레벨·스테이지 뱃지·지역', 'Lv.7' in await pg.inner_text('#lvb') and await pg.inner_text('#stbn') == '9' and '홍대' in await pg.inner_text('#preg'))
                 check('HUD 이름은 글자 그대로(HTML 로 안 읽힘)', await pg.evaluate("document.querySelectorAll('img[src=x]').length") == 0 and '<img' in await pg.inner_text('#pname'))
             t = await pg.inner_text('#main')
-            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '10처치당 2.50' in t.replace('\n',' ') and '돌파' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
+            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '10처치당 2.27' in t.replace('\n',' ') and '돌파' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
             check(f'{scheme} 사냥터: 내전 부스트·배율(스킬 포함) 표시', '내전 부스트 2시간' in t and '동료 파티' in t and '스킬 ×' in t)
             check(f'{scheme} 사냥터: 서버 문자열이 HTML 로 안 읽힘', await pg.locator('img[src=x]').count() == 0 and await pg.evaluate('window.__xss')is None)
             check(f'{scheme} 사냥터: 가로 스크롤 없음', await noscroll(pg))
@@ -398,6 +398,15 @@ async def main():
         check('폴백: 필드·소리 스크립트가 없어도 탭·버튼이 동작', await pg.locator('#nav [data-tab]').count() == 7 and await pg.is_visible('#fieldNote'))
         await pg.click('[data-do=collect]'); await pg.wait_for_timeout(250); check('폴백: 수령 동작', '6,000' in await msg(pg)); await pg.click('#sndBtn'); await pg.wait_for_timeout(100)
         check('폴백: 소리 시트도 오류 없이 열림', await pg.locator('#sndBg.show').count() == 1 and not errs, errs); await ctx.close()
+        # ---- 전투력 ↔ 필드 ----
+        srv = Server(); ctx, pg, errs = await new_page(b, srv); t = await pg.inner_text('#main')
+        check('사냥터: 내 전투력·권장 전투력·분당 처치·다음 필드 안내', '내 전투력' in t and '700' in t and '권장 400' in t and '분당 110' in t and '들어갈 수 있어요' in t, t[:300])
+        srv.view['power_ok'] = False; srv.view['power'] = 380; await pg.click('#rfBtn'); await pg.wait_for_timeout(300)
+        check('전투력 부족이면 돌파 버튼이 「전투력 부족」으로 바뀐다', '전투력 부족' in await pg.inner_text('#dock') and '더 강해지면 열려요' in await pg.inner_text('#main'))
+        srv.override['/brj/push'] = lambda body: (200, {'ok': True, 'result': 'power', 'cost': 6000, 'view': copy.deepcopy(srv.view)})
+        await pg.click('[data-do=push]'); await pg.wait_for_timeout(250)
+        check('전투력 부족으로 거절되면 이유 문구', '전투력' in await msg(pg) and '분당 100마리' in await msg(pg), await msg(pg))
+        await ctx.close()
         # ---- 랭킹 탭 ----
         srv = Server(); ctx, pg, errs = await new_page(b, srv); await tab(pg, 'rank'); await pg.wait_for_timeout(300)
         t = await pg.inner_text('#main')

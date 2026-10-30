@@ -7300,7 +7300,11 @@ def _lobby_fun_week_lines(d):
         for key, fmt in (("협곡 내전 MVP 최다:", "🌟 지난주 협곡 MVP 최다: {}"), ("협곡 내전 이번 주 최장 연승:", "🔥 지난주 협곡 최장 연승: {}")):
             if f.startswith(key): out.append(fmt.format(_lf_first(f[len(key):])))
     for a in (d or {}).get("awards") or []:
-        try: out.append(f"🏆 지난주 {a['title']}: {a['name']}")
+        try:
+            t = str(a['title'])
+            # 「이주의 챔피언」 은 사람(미토 우승팀 멤버)에게 주는 상인데 로비 한 줄에서는 롤 챔피언으로 읽힌다 — 우승으로 풀어 쓴다
+            if "챔피언" in t: t = "미토 우승"
+            out.append(f"🏆 지난주 {t}: {a['name']}")
         except Exception: pass
     return [x for x in out if x and len(x) <= LOBBY_FUN_MAX]
 

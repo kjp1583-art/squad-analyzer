@@ -341,7 +341,7 @@ button.cd:active{transform:scale(.97)}
 <div id="awk" role="alertdialog" aria-label="각성 성공" tabindex="-1"></div>
 
 <script src="brjhunt_audio.js?v=1"></script>
-<script src="brjhunt_field.js?v=2"></script>
+<script src="brjhunt_field.js?v=3"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
 // 로그인·서버 주소는 survivors.html 과 같은 방식(디스코드 토큰은 메인 사이트와 같은 localStorage 칸 sgg_dc).
@@ -353,8 +353,8 @@ const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const N=v=>{v=Number(v);return Number.isFinite(v)?v:0;};
 const fmt=v=>Math.floor(N(v)).toLocaleString('ko-KR');
 const fmtC=v=>{v=Math.floor(N(v)); if(v>=1e8) return (v/1e8).toFixed(1)+'억'; if(v>=1e5) return (v/1e4).toFixed(1)+'만'; return v.toLocaleString('ko-KR');};   // 칩이 좁아서 10만 넘으면 줄여 쓴다(정확한 값은 칩에 마우스/길게 누르기 title)
-const perKill=(rate)=>{ const g=N(rate)/(KPM*60); if(g>=1) return '+'+fmtG(g)+' <small>/처치</small>'; if(g*10>=1) return '+'+fmtG(g*10)+' <small>/10처치</small>'; return '+'+fmtG(g*100)+' <small>/100처치</small>'; };   // 1 미만의 소수 골드는 단위를 올려 보여 준다
-const perKillTxt=(rate)=>{ const g=N(rate)/(KPM*60), u=g>=1?1:g*10>=1?10:100; return (u===1?'처치당':u+'처치당')+' '+I('gold')+'<b>'+fmtG(g*u)+'</b>'; };
+const perKill=(rate)=>{ const g=N(rate)/(kpmNow()*60); if(g>=1) return '+'+fmtG(g)+' <small>/처치</small>'; if(g*10>=1) return '+'+fmtG(g*10)+' <small>/10처치</small>'; return '+'+fmtG(g*100)+' <small>/100처치</small>'; };   // 1 미만의 소수 골드는 단위를 올려 보여 준다
+const perKillTxt=(rate)=>{ const g=N(rate)/(kpmNow()*60), u=g>=1?1:g*10>=1?10:100; return (u===1?'처치당':u+'처치당')+' '+I('gold')+'<b>'+fmtG(g*u)+'</b>'; };
 const fmtG=v=>{v=N(v); return v>=100?fmt(v):v>=10?v.toFixed(1):v.toFixed(2);};    // 처치당 골드(소수 가능)
 const $=id=>document.getElementById(id);
 const GR_KO={normal:'노말',rare:'레어',epic:'에픽',unique:'유니크',legend:'레전드'};
@@ -367,7 +367,8 @@ const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
 const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','성장'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
 const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
-const KPM=100;                       // 화면 분당 처치 목표(필드 엔진이 이 속도로 맞춘다). 처치당 골드 = 시간당 골드 ÷ (KPM×60)
+let V_KPM=100;                      // 서버가 내 전투력÷필드 권장 전투력으로 계산한 분당 처치 기대치. 처치당 골드 = 시간당 골드 ÷ (분당 처치×60)
+const kpmNow=()=>Math.max(1,N(V&&V.kpm)||V_KPM);
 
 let V=null;              // 서버가 준 전체 화면 값(view)
 let TAB='hunt', MSG=null, STATE='boot';   // STATE: boot · out(로그아웃) · nobrj · err · ok
@@ -474,7 +475,7 @@ function fieldSkills(){
 }
 function fieldState(){
   const v=V||{}, sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,3):[], cards=Array.isArray(sm.cards)?sm.cards:[];
-  return {stage:N(v.stage)||1,region:String(v.region||''),power:Math.max(5,N(R(v.dungeon,'power',0))),rate:N(v.rate),kpm:KPM,
+  return {stage:N(v.stage)||1,region:String(v.region||''),power:Math.max(5,N(v.power)||N(R(v.dungeon,'power',0))),rec:N(v.rec),rate:N(v.rate),kpm:kpmNow(),
     party:ids.map(id=>cards.find(c=>c&&c.id===id)).filter(Boolean).map(c=>({id:String(c.id),n:String(c.n||'?'),gr:grKey(c.gr)})),
     skills:fieldSkills(),boss:BOSS};
 }
@@ -493,7 +494,9 @@ function initField(){
     FIELD.on('levelup',()=>snd('levelup'));
     FIELD.on('boss',e=>{
       const ph=e&&e.phase;
-      if(ph==='in'){ snd('boss_in'); showTag('⚠ BOSS','' ); syncBgm(); }
+      if(ph==='in'){ snd('boss_in'); syncBgm(); }   // 입장 이름표·레터박스는 필드 엔진이 화면 안에서 그린다
+      else if(ph==='slam'){ snd('crit',{vol:.7},200); }
+      else if(ph==='rage'){ snd('boss_in',{vol:.55},600); }
       else if(ph==='win'){ snd('boss_win'); showTag('🏆 VICTORY','win'); endBoss(); }
       else if(ph==='lose'){ snd('boss_lose'); showTag('💥 DEFEAT','lose'); endBoss(); }
     });
@@ -586,6 +589,7 @@ function dockHtml(){
   if(BOSS) big=`<button class="btn red push" disabled data-do="push">⚔ 보스전<small>진행 중…</small></button>`;
   else if(bg) big=`<button class="btn red push ready" data-do="boss">🛡 보스 도전<small>${esc(bg.name)}</small></button>`;
   else if(!nextOk) big=`<button class="btn alt push" disabled data-do="push">구역의 끝<small>환생으로 확장</small></button>`;
+  else if(v.power_ok===false) big=`<button class="btn alt push" data-do="push" aria-label="전투력이 모자라 다음 필드에 들어갈 수 없어요">🔒 전투력 부족<small>권장 ${fmt(v.next_rec)} · 내 ${fmt(v.power)}</small></button>`;
   else{ const can=N(v.gold)>=N(v.cost);
     big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="push" aria-label="스테이지 돌파, 비용 골드 ${fmt(v.cost)}">⚔ 돌파<small>${I('gold')}${fmtC(v.cost)}</small></button>`; }
   const pct=Math.max(2,Math.min(100,st/cap*100));
@@ -665,7 +669,8 @@ function tabHunt(){
   <div class="card">
     <div class="hunthero"><div style="min-width:0"><div class="sub">쌓인 사냥 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
       <button class="btn gold" data-do="collect" style="min-width:118px;font-size:17px;padding:10px 12px" aria-label="쌓인 사냥 골드 수령하기">수령</button></div>
-    <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> · ${perKillTxt(v.rate)} <span class="mut">(분당 ${KPM}마리 기준)</span></div>
+    <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> · ${perKillTxt(v.rate)} <span class="mut">(분당 약 ${fmt(Math.round(kpmNow()))}마리 기준)</span></div>
+    <div class="sub" style="margin-top:4px">⚔ 내 전투력 <b>${fmt(v.power)}</b> · 이 필드 권장 ${fmt(v.rec)} → 분당 <b>${fmt(Math.round(kpmNow()))}</b>마리 · 다음 필드(스테이지 ${fmt(st+1)}) 권장 <b class="${v.power_ok?'green':'red'}">${fmt(v.next_rec)}</b> ${v.power_ok?'✔ 들어갈 수 있어요':'· 더 강해지면 열려요'}</div>
     <div class="bar g" style="margin-top:8px" role="progressbar" aria-label="쌓인 시간" aria-valuemin="0" aria-valuemax="${fmt(v.cap_h)}" aria-valuenow="${N(v.hours).toFixed(1)}"><i style="width:${hpct}%"></i></div>
     <div class="sub" style="margin-top:3px">${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
     ${N(v.boost)>0?`<div class="sub green">⚔ 내전 부스트 ${fmt(v.boost)}시간치가 더해져요 (내전 1판 = 사냥 1시간)</div>`:`<div class="mut">내전을 1판 뛸 때마다 사냥 1시간치가 더 쌓여요 (최대 ${fmt(v.boost_max)}시간)</div>`}
@@ -974,7 +979,7 @@ try{ if(window.BrjAudio&&BrjAudio.onChange) BrjAudio.onChange(syncSnd); }catch(e
 syncSnd();
 
 // ---------- 동작 ----------
-const PUSH_MSG={gold:j=>`🪙 골드가 모자라요. 돌파에 ${fmt(j.cost)} 필요해요.`,max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
+const PUSH_MSG={gold:j=>`🪙 골드가 모자라요. 돌파에 ${fmt(j.cost)} 필요해요.`,max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',power:j=>`⚔ 다음 필드는 전투력 ${fmt(j&&j.need||N(V&&V.next_rec))} 부터 분당 100마리를 잡을 수 있어요. 성장·동료·스킬로 더 강해진 뒤에 돌파해요.`,boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
 const AWK_MSG={stage:'스테이지가 모자라 아직 각성할 수 없어요.',gold:'🪙 골드가 모자라요.',stone:'🔩 강화석이 모자라요.',feast:'🍖 특식이 모자라요.',max:'이미 마지막 각성까지 마쳤어요.'};
 const DO={
   collect:()=>{ const b=document.querySelector('#main [data-do=collect]'); const rc=b?b.getBoundingClientRect():null; return act('/brj/collect',{},j=>{

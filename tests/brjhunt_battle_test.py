@@ -39,9 +39,9 @@ async def main():
         check('쌓인 골드 숫자는 서버 값 기반', (await pg.inner_text('#pend')).replace(',', '').isdigit())
         # ---- 분당 처치 ~100 (시계를 빨리 돌려 잰다: 엔진의 timeScale) ----
         await pg.evaluate('window.__bt.field.setTimeScale(12)'); await pg.wait_for_timeout(9000); await pg.evaluate('window.__bt.field.setTimeScale(1)')
-        s = await pg.evaluate('window.__bt.stats'); check('분당 처치가 100±25 (화면 연출 목표)', 75 <= s['kpm'] <= 125, s['kpm'])
-        check('HUD 에 분당 처치·처치당 골드가 보임', '분당 처치' in await pg.inner_text('#hudL') and '처치' in await pg.inner_text('#hPer') and '2.50' in await pg.inner_text('#hPer') and '10처치' in await pg.inner_text('#hPer'))
-        check('처치당 골드는 시간당 골드 ÷ 6000 (1,500 → 0.25 → 10처치당 2.5)', '2.50' in await pg.inner_text('#hPer'))
+        s = await pg.evaluate('window.__bt.stats'); check('분당 처치: 전투력 700 / 권장 400(1.75배)이면 100보다 빠르다 (95~160)', 95 <= s['kpm'] <= 160, s['kpm'])
+        check('HUD 에 분당 처치·처치당 골드가 보임', '분당 처치' in await pg.inner_text('#hudL') and '처치' in await pg.inner_text('#hPer') and '2.27' in await pg.inner_text('#hPer') and '10처치' in await pg.inner_text('#hPer'))
+        check('처치당 골드는 시간당 골드 ÷ (분당 처치×60) (1,500 ÷ 6,600 → 10처치당 2.27)', '2.27' in await pg.inner_text('#hPer'))
         check('카메라가 병아리를 따라 필드를 가로지름(세계 폭 ≫ 화면 폭)', s['cam'] >= 0 and s['VW'] < 800)
         # ---- 보스: 응답이 win ----
         await spy(pg); c0 = len(srv.hits)
