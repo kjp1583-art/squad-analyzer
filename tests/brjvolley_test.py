@@ -18,6 +18,7 @@ window.T={
     const rnd=()=>{r=(r*1103515245+12345)&0x7fffffff;return r/0x7fffffff;};
     for(let f=0;f<4000;f++){ const a={l:rnd()<.4,r:rnd()<.4,u:rnd()<.1,d:rnd()<.3,hit:rnd()<.15}, b={l:rnd()<.4,r:rnd()<.4,u:rnd()<.1,d:rnd()<.3,hit:rnd()<.15}; g.step(a,b);
       const s=g.s, B=s.ball; if(![B.x,B.y,B.vx,B.vy].every(Number.isFinite)){bad='NaN f'+f;break;}
+      if(Math.hypot(B.vx,B.vy)>9.3){bad='ball too fast '+Math.hypot(B.vx,B.vy);break;}
       if(B.x<BV.BR-.01||B.x>BV.W-BV.BR+.01||B.y<BV.BR-.01||B.y>BV.GROUND+1){bad='ball out '+JSON.stringify(B);break;}
       if(Math.abs(B.x-BV.NET_X)<4+BV.BR-3 && B.y>BV.NET_TOP+2 && B.y<BV.GROUND){ /* 네트 안쪽 */ bad='in net '+JSON.stringify(B); break; }
       for(const p of s.p){ const lo=p.side?BV.NET_X+4+BV.PR:BV.PR, hi=p.side?BV.W-BV.PR:BV.NET_X-4-BV.PR; if(p.x<lo-.01||p.x>hi+.01||p.y>BV.GROUND+.01){bad='player '+JSON.stringify(p);break;} }
@@ -26,7 +27,7 @@ window.T={
   drop(side){ const g=BV.create({seed:3}); g.s.phase='rally'; const b=g.s.ball; b.x=side?330:100; b.y=60; b.vx=0; b.vy=0; for(let i=0;i<200&&g.s.phase==='rally';i++) g.step({},{}); return {score:g.s.score.slice(),server:g.s.server,phase:g.s.phase}; },
   winAt(side){ const g=BV.create({seed:3,target:15}); g.s.score[side]=14; g.s.phase='rally'; const b=g.s.ball; b.x=side?100:330; b.y=60; b.vx=0; b.vy=0; for(let i=0;i<200&&g.s.phase==='rally';i++) g.step({},{}); return {score:g.s.score.slice(),phase:g.s.phase,winner:g.s.winner}; },
   net(){ const g=BV.create({seed:3}); g.s.phase='rally'; const b=g.s.ball; b.x=150; b.y=BV.GROUND-40; b.vx=12; b.vy=0; let crossed=false; for(let i=0;i<120;i++){ g.step({},{}); if(g.s.phase!=='rally') break; if(b.x>BV.NET_X+4) crossed=true; } return {crossed,x:b.x}; },
-  spike(side){ const g=BV.create({seed:3}); g.s.phase='rally'; const p=g.s.p[side], b=g.s.ball; p.x=side?330:100; p.y=BV.GROUND-60; p.vy=0; b.x=p.x+(side?-18:18); b.y=p.y-BV.PCY-10; b.vx=0; b.vy=0; b.cool=0;
+  spike(side){ const g=BV.create({seed:3}); g.s.phase='rally'; const p=g.s.p[side], b=g.s.ball; p.x=side?330:100; p.y=BV.GROUND-60; p.vy=0; b.x=p.x+(side?-14:14); b.y=p.y-BV.PCY-6; b.vx=0; b.vy=0; b.cool=0;
     const inp={hit:true,d:false}; g.step(side?{}:inp, side?inp:{}); const sp=Math.hypot(b.vx,b.vy); return {sp,toward:side?b.vx<0:b.vx>0,ev:g.s.ev.map(e=>e.t)}; },
   match(l0,l1,seed){ const g=BV.create({seed,target:15}); let f=0; while(g.s.phase!=='over'&&f<60*60*12){ g.step(g.cpuInput(0,l0),g.cpuInput(1,l1)); f++; } return {w:g.s.winner,f,score:g.s.score.slice()}; }
 };
@@ -52,7 +53,7 @@ async def main():
         n = await pg.evaluate('T.net()')
         check('네트를 정면으로 뚫지 못한다(튕겨 나온다)', not n['crossed'], n)
         sp0, sp1 = await pg.evaluate('T.spike(0)'), await pg.evaluate('T.spike(1)')
-        check('공중에서 때리면 강타 — 빠르고 상대 쪽으로 간다 (양쪽 선수)', sp0['sp'] > 14 and sp0['toward'] and sp1['sp'] > 14 and sp1['toward'] and 'spike' in sp0['ev'], (sp0, sp1))
+        check('공중에서 때리면 강타 — 빠르고 상대 쪽으로 간다 (양쪽 선수)', sp0['sp'] > 7.5 and sp0['toward'] and sp1['sp'] > 7.5 and sp1['toward'] and 'spike' in sp0['ev'], (sp0, sp1))
         res = []
         for sd in range(1, 9):
             r1 = await pg.evaluate(f"T.match('hard','easy',{sd * 11})"); r2 = await pg.evaluate(f"T.match('easy','hard',{sd * 13})")

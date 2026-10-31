@@ -10,9 +10,9 @@
  */
 (function (root) {
   'use strict';
-  var W = 432, H = 264, GROUND = 244, NET_X = 216, NET_HW = 4, NET_TOP = GROUND - 112;
-  var BR = 20, PR = 32, PCY = 34;                       // 공 반지름 · 선수 머리 원 반지름 · 발에서 원 중심까지
-  var G_BALL = 0.5, G_P = 0.62, JUMP = 11.6, SPEED = 5.2, VMAX = 17, SPIKE_V = 16.5;
+  var W = 432, H = 264, GROUND = 244, NET_X = 216, NET_HW = 4, NET_TOP = GROUND - 96;
+  var BR = 16, PR = 22, PCY = 24, SUB = 3;                       // 공 반지름 · 선수 머리 원 반지름 · 발에서 원 중심까지
+  var G_BALL = 0.24, G_P = 0.5, JUMP = 9.4, SPEED = 3.7, VMAX = 9.2, SPIKE_V = 9.0, DIG_V = 8.2;   // 원작 느낌: 공이 천천히 떠 있다 떨어진다(1프레임 = 1/60초)
   var POINT_T = 75, READY_T = 45;
   var LV = { easy: { delay: 16, err: 44, spd: 0.72, jump: 0.55, spike: 0.35 }, normal: { delay: 8, err: 24, spd: 0.88, jump: 0.8, spike: 0.6 }, hard: { delay: 3, err: 9, spd: 1.0, jump: 1.0, spike: 0.9 } };
 
@@ -50,42 +50,39 @@
       p.hitLock = Math.max(0, p.hitLock - 1);
     }
     // ---------- 공 ↔ 선수 ----------
-    function collide(p, inp, idx) {
+    function hitCheck(p, inp, idx) {                               // 때리기 버튼(강타·받아치기) — 누른 순간 한 번
       var b = s.ball, cx = p.x, cy = p.y - PCY, dx = b.x - cx, dy = b.y - cy, d = Math.sqrt(dx * dx + dy * dy), R = PR + BR;
-      var wantHit = inp.hit && !p.prevHit && p.hitLock === 0;
-      var near = d < R + 16;
-      if (wantHit && near && b.cool === 0) {
-        // 강타·받아치기: 입력으로 방향을 고른다
-        var fwd = p.side ? -1 : 1, air = p.y < GROUND - 6;
-        var ang;                                                    // 앞쪽 기준 각도(위가 −)
-        if (air) { ang = inp.d ? 42 : inp.u ? -38 : 14; if (inp.d && (p.side ? inp.l : inp.r)) ang = 52; else if (inp.d && (p.side ? inp.r : inp.l)) ang = 34; }
-        else { ang = -62; }
-        var a = ang * Math.PI / 180, v = air ? SPIKE_V : 13.2;
-        b.vx = Math.cos(a) * v * fwd; b.vy = Math.sin(a) * v;
-        if (!air && !(inp.l || inp.r)) b.vx *= 0.8;
-        b.spin = fwd * 0.4; b.cool = 6; p.hitLock = 18; p.pose = 'hit'; p.poseT = 12; s.lastHit = idx; s.rally++; s.shake = air ? 6 : 2;
-        var sd = d > 0.01 ? d : 1; var push = R - sd; if (push > 0) { b.x += dx / sd * push; b.y += dy / sd * push; }
-        emit(air ? 'spike' : 'dig', { x: b.x, y: b.y, side: p.side }); p.prevHit = inp.hit; return;
-      }
-      p.prevHit = !!inp.hit;
-      if (d < R && d > 0.0001) {
-        var nx = dx / d, ny = dy / d, rvx = b.vx - p.vx, rvy = b.vy - p.vy, vn = rvx * nx + rvy * ny;
-        b.x = cx + nx * R; b.y = cy + ny * R;
-        if (vn < 0) {
-          b.vx = p.vx + (rvx - 2 * vn * nx) * 0.92; b.vy = p.vy + (rvy - 2 * vn * ny) * 0.92;
-          if (ny < -0.2 && b.vy > -5.5) b.vy = -5.5 - (p.vy < 0 ? -p.vy * 0.3 : 0);   // 머리로 받으면 뜬다
-          if (s.lastHit !== idx) s.rally++;
-          s.lastHit = idx; emit('hit', { x: b.x, y: b.y, side: p.side }); p.pose = 'hit'; p.poseT = 8;
-        }
+      var wantHit = inp.hit && !p.prevHit && p.hitLock === 0; p.prevHit = !!inp.hit;
+      if (!(wantHit && d < R + 12 && b.cool === 0)) return;
+      var fwd = p.side ? -1 : 1, air = p.y < GROUND - 6, ang;      // 앞쪽 기준 각도(위가 −)
+      if (air) { ang = inp.d ? 40 : inp.u ? -34 : 12; if (inp.d && (p.side ? inp.l : inp.r)) ang = 50; else if (inp.d && (p.side ? inp.r : inp.l)) ang = 32; }
+      else ang = -60;
+      var a = ang * Math.PI / 180, v = air ? SPIKE_V : DIG_V;
+      b.vx = Math.cos(a) * v * fwd; b.vy = Math.sin(a) * v;
+      if (!air && !(inp.l || inp.r)) b.vx *= 0.8;
+      b.spin = fwd * 0.3; b.cool = 8; p.hitLock = 16; p.pose = 'hit'; p.poseT = 12; s.lastHit = idx; s.rally++; s.shake = air ? 6 : 2;
+      var sd = d > 0.01 ? d : 1, push = R - sd; if (push > 0) { b.x += dx / sd * push; b.y += dy / sd * push; }
+      emit(air ? 'spike' : 'dig', { x: b.x, y: b.y, side: p.side });
+    }
+    function resolve(p, idx) {                                     // 몸(머리 원)과의 물리 충돌 — 서브스텝마다
+      var b = s.ball, cx = p.x, cy = p.y - PCY, dx = b.x - cx, dy = b.y - cy, d = Math.sqrt(dx * dx + dy * dy), R = PR + BR;
+      if (d >= R || d < 0.0001) return;
+      var nx = dx / d, ny = dy / d, rvx = b.vx - p.vx, rvy = b.vy - p.vy, vn = rvx * nx + rvy * ny;
+      b.x = cx + nx * R; b.y = cy + ny * R;
+      if (vn < 0 && b.cool === 0) {                                // 상대속도의 법선 성분을 반사(반발 0.9) — 선수 속도가 공에 실린다
+        b.vx = p.vx + (rvx - 1.9 * vn * nx); b.vy = p.vy + (rvy - 1.9 * vn * ny);
+        if (ny < -0.3 && b.vy > -3.6) b.vy = -3.6 + Math.min(0, p.vy * 0.3);   // 머리로 받으면 살짝 뜬다
+        if (s.lastHit !== idx) s.rally++;
+        s.lastHit = idx; b.cool = 3; emit('hit', { x: b.x, y: b.y, side: p.side }); p.pose = 'hit'; p.poseT = 8;
       }
     }
     // ---------- 공 ----------
     function moveBall() {
       var b = s.ball; if (b.cool > 0) b.cool--;
       b.vy += G_BALL; var sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy); if (sp > VMAX) { b.vx *= VMAX / sp; b.vy *= VMAX / sp; }
-      b.x += b.vx; b.y += b.vy; b.spin = b.spin * 0.99 + b.vx * 0.01;
-      bounds();
+      b.spin = b.spin * 0.99 + b.vx * 0.01;
     }
+    function integrate() { var b = s.ball; b.x += b.vx / SUB; b.y += b.vy / SUB; bounds(); }
     function bounds() {
       var b = s.ball;
       if (b.x < BR) { b.x = BR; b.vx = Math.abs(b.vx) * 0.9; emit('wall'); }
@@ -110,7 +107,7 @@
       in1 = in1 || {}; in2 = in2 || {}; s.t++; s.ev.length = 0; s.shake = Math.max(0, s.shake - 0.5);
       if (s.phase === 'over') { movePlayer(s.p[0], {}); movePlayer(s.p[1], {}); return s; }
       if (s.phase === 'point') {
-        moveBall(); var b = s.ball; if (b.y > GROUND - BR) { b.y = GROUND - BR; b.vy = -Math.abs(b.vy) * 0.4; b.vx *= 0.9; }
+        moveBall(); for (var q = 0; q < SUB; q++) integrate(); var b = s.ball; if (b.y > GROUND - BR) { b.y = GROUND - BR; b.vy = -Math.abs(b.vy) * 0.4; b.vx *= 0.9; }
         movePlayer(s.p[0], noHit(in1)); movePlayer(s.p[1], noHit(in2));
         if (--s.timer <= 0) { s.phase = 'ready'; s.timer = READY_T; serveSetup(); emit('serve', { side: s.server }); }
         return s;
@@ -121,9 +118,9 @@
         return s;
       }
       movePlayer(s.p[0], in1); movePlayer(s.p[1], in2);
+      hitCheck(s.p[0], in1, 0); hitCheck(s.p[1], in2, 1);
       moveBall();
-      collide(s.p[0], in1, 0); collide(s.p[1], in2, 1);
-      bounds(); bounds();                                          // 선수가 밀어낸 공이 벽·네트 안으로 들어가지 않게 한 번 더
+      for (var q = 0; q < SUB; q++) { integrate(); resolve(s.p[0], 0); resolve(s.p[1], 1); bounds(); }   // 서브스텝: 빠른 공도 몸·네트를 뚫지 않는다
       var b2 = s.ball;
       if (b2.y + BR >= GROUND) {                                   // 땅에 닿았다 → 닿은 쪽의 상대 점수
         b2.y = GROUND - BR; b2.vy = -Math.abs(b2.vy) * 0.5; emit('bounce', { x: b2.x });
@@ -134,7 +131,7 @@
 
     // ---------- CPU ----------
     function landing(b) {                                           // 공이 선수 머리 높이(땅 − 60)에 올 때의 x, 걸리는 프레임
-      var x = b.x, y = b.y, vx = b.vx, vy = b.vy, t = 0, ty = GROUND - 62;
+      var x = b.x, y = b.y, vx = b.vx, vy = b.vy, t = 0, ty = GROUND - 48;
       for (var i = 0; i < 240; i++) {
         vy += G_BALL; x += vx; y += vy; t++;
         if (x < BR) { x = BR; vx = Math.abs(vx) * 0.9; } if (x > W - BR) { x = W - BR; vx = -Math.abs(vx) * 0.9; }
@@ -156,8 +153,8 @@
         if (--a.ct <= 0) { a.ct = 6; var err = (R() - 0.5) * 2 * lvn.err; a.tx = comingMine ? L.x + (mine ? 20 : -20) * (b.vy > 0 ? 1 : 0.4) + err : home + (R() - 0.5) * 30; }
         // 점프·강타
         var dx = rb.x - p.x, dy = (p.y - PCY) - rb.y;
-        if (comingMine && Math.abs(dx) < 56 && rb.y < GROUND - 70 && rb.y > 60 && p.y >= GROUND && L.t < 22 && R() < lvn.jump * 0.5) out.u = true;
-        if (comingMine && p.y < GROUND - 4 && Math.hypot(dx, rb.y - (p.y - PCY)) < PR + BR + 14 && p.hitLock === 0 && R() < lvn.spike) {
+        if (comingMine && Math.abs(dx) < 40 && rb.y < GROUND - 52 && rb.y > 40 && p.y >= GROUND && L.t < 34 && R() < lvn.jump * 0.9) out.u = true;
+        if (comingMine && p.y < GROUND - 4 && Math.hypot(dx, rb.y - (p.y - PCY)) < PR + BR + 8 && p.hitLock === 0 && R() < lvn.spike) {
           // 네트를 넘기는 각도 중 가장 가파른 것을(어려울수록) 고른다 — 넘기지 못하는 강타는 안 친다
           var fw = mine ? -1 : 1, opts = [[{ u: true }, -38], [{}, 14], [{ d: true }, 42], [{ d: true, fw: true }, 52], [{ d: true, bk: true }, 34]], ok = [];
           for (var k = 0; k < opts.length; k++) { var ang = opts[k][1] * Math.PI / 180, vx = Math.cos(ang) * SPIKE_V * fw, vy = Math.sin(ang) * SPIKE_V; var tt = (NET_X - rb.x) / vx; if (tt <= 0) continue; var yy = rb.y + vy * tt + 0.5 * G_BALL * tt * tt; if (yy < NET_TOP - BR - 4) ok.push(opts[k]); }
@@ -166,7 +163,7 @@
             out.hit = true; var f = pick[0]; out.u = !!f.u; out.d = !!f.d; if (f.fw) { if (mine) out.l = true; else out.r = true; } if (f.bk) { if (mine) out.r = true; else out.l = true; }
           }
         }
-        else if (comingMine && p.y >= GROUND && Math.hypot(dx, rb.y - (p.y - PCY)) < PR + BR + 10 && rb.y > GROUND - 90 && R() < lvn.spike * 0.8) out.hit = true;
+        else if (comingMine && p.y >= GROUND && Math.hypot(dx, rb.y - (p.y - PCY)) < PR + BR + 6 && rb.y > GROUND - 70 && R() < lvn.spike * 0.8) out.hit = true;
       }
       if (a.tx - p.x > 6) out.r = true; else if (a.tx - p.x < -6) out.l = true;
       return out;

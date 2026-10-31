@@ -69,7 +69,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow
   </div>
   <div id="hint">키보드: ←→ 이동 · ↑ 점프 · Space 때리기(공중=강타) · ↓ 같이 누르면 내려찍기 · P 일시정지</div>
 </div>
-<script src="brjvolley.js?v=1"></script>
+<script src="brjvolley.js?v=2"></script>
 <script>
 (function(){
 'use strict';
@@ -179,27 +179,27 @@ function drawBg(dark){
 function drawNet(){
   ctx.fillStyle='#eee'; ctx.fillRect(NET_X-4,NET_TOP,8,GROUND-NET_TOP); ctx.fillStyle='#d7d7e8'; ctx.fillRect(NET_X-4,NET_TOP,3,GROUND-NET_TOP);
   ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=1; for(let y=NET_TOP+8;y<GROUND;y+=10){ ctx.beginPath(); ctx.moveTo(NET_X-14,y); ctx.lineTo(NET_X+14,y); ctx.stroke(); }
-  ctx.fillStyle='#ff5c7a'; ctx.beginPath(); ctx.arc(NET_X,NET_TOP,7,0,6.3); ctx.fill(); ctx.fillStyle='#fff'; ctx.fillRect(NET_X-2,NET_TOP-2,4,4);
+  ctx.fillStyle='#ff5c7a'; ctx.beginPath(); ctx.arc(NET_X,NET_TOP,6,0,6.3); ctx.fill(); ctx.fillStyle='#fff'; ctx.fillRect(NET_X-2,NET_TOP-2,4,4);
 }
 function shadow(x,y,r,a){ ctx.fillStyle=`rgba(0,0,0,${a})`; ctx.beginPath(); ctx.ellipse(x,GROUND+4,r,r*.22,0,0,6.3); ctx.fill(); }
 function drawChick(p,idx){
-  const air=GROUND-p.y, sc=Math.max(.6,1-air/420);
-  shadow(p.x,GROUND,30*sc,.28*sc);
+  const air=GROUND-p.y, sc=Math.max(.6,1-air/360);
+  shadow(p.x,GROUND,22*sc,.28*sc);
   const name=p.pose==='hit'?(air>6?'chick_atk2':'chick_atk1'):p.pose==='jump'?'chick_skill':'chick_idle';
   let im=idx===1?tinted(name):ld(name); const ok=im&&(im.complete===undefined||im.complete)&&(im.naturalWidth||im.width);
-  const size=86, x=p.x, y=p.y+5;
+  const size=64, x=p.x, y=p.y+3;
   ctx.save(); ctx.translate(x,y); ctx.scale(p.face<0?-1:1,1); if(p.pose==='jump'&&p.vy<0) ctx.scale(.94,1.08); else if(p.vy>0&&air>2) ctx.scale(1.04,.96);
-  if(ok) ctx.drawImage(im,-size/2,-size*.97,size,size); else { ctx.font='54px serif'; ctx.textAlign='center'; ctx.fillText('🐥',0,-8); }
+  if(ok) ctx.drawImage(im,-size/2,-size*.97,size,size); else { ctx.font='42px serif'; ctx.textAlign='center'; ctx.fillText('🐥',0,-6); }
   ctx.restore();
-  ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.55)'; const lab=idx===0?(P2?'1P':'나'):(P2?'2P':'CPU'); ctx.strokeText(lab,x,p.y-86); ctx.fillStyle=idx===0?'#9cc6ff':'#ff9fb4'; ctx.fillText(lab,x,p.y-86);
+  ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.55)'; const lab=idx===0?(P2?'1P':'나'):(P2?'2P':'CPU'); ctx.strokeText(lab,x,p.y-64); ctx.fillStyle=idx===0?'#9cc6ff':'#ff9fb4'; ctx.fillText(lab,x,p.y-64);
 }
 function drawBall(b){
-  shadow(b.x,GROUND,16,.22*Math.max(.3,1-(GROUND-b.y)/300));
-  for(let i=0;i<trail.length-1;i++){ const t=trail[i], sp=Math.hypot(b.vx,b.vy); if(sp<12) break; ctx.globalAlpha=.07*(i+1); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(t.x,t.y,16,0,6.3); ctx.fill(); } ctx.globalAlpha=1;
+  shadow(b.x,GROUND,13,.22*Math.max(.3,1-(GROUND-b.y)/300));
+  for(let i=0;i<trail.length-1;i++){ const t=trail[i], sp=Math.hypot(b.vx,b.vy); if(sp<6.5) break; ctx.globalAlpha=.07*(i+1); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(t.x,t.y,BV_R*.8,0,6.3); ctx.fill(); } ctx.globalAlpha=1;
   ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(ballAng);
-  const g=ctx.createRadialGradient(-6,-7,3,0,0,20); g.addColorStop(0,'#ffffff'); g.addColorStop(1,'#e4e8f4'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,BV_R,0,6.3); ctx.fill();
-  ctx.strokeStyle='#ffb81f'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,BV_R-1.5,0,6.3); ctx.stroke();
-  ctx.strokeStyle='#3b7be8'; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(-BV_R+1,0); ctx.bezierCurveTo(-8,-10,8,-10,BV_R-1,0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-BV_R+1); ctx.bezierCurveTo(-11,-6,-11,8,-3,BV_R-1); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-BV_R+1); ctx.bezierCurveTo(11,-6,11,8,3,BV_R-1); ctx.stroke();
+  const g=ctx.createRadialGradient(-BV_R*.3,-BV_R*.35,2,0,0,BV_R); g.addColorStop(0,'#ffffff'); g.addColorStop(1,'#e4e8f4'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,BV_R,0,6.3); ctx.fill();
+  ctx.strokeStyle='#ffb81f'; ctx.lineWidth=2.4; ctx.beginPath(); ctx.arc(0,0,BV_R-1.5,0,6.3); ctx.stroke();
+  ctx.strokeStyle='#3b7be8'; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(-BV_R+1,0); ctx.bezierCurveTo(-BV_R*.4,-BV_R*.5,BV_R*.4,-BV_R*.5,BV_R-1,0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-BV_R+1); ctx.bezierCurveTo(-BV_R*.55,-BV_R*.3,-BV_R*.55,BV_R*.4,-3,BV_R-1); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-BV_R+1); ctx.bezierCurveTo(BV_R*.55,-BV_R*.3,BV_R*.55,BV_R*.4,3,BV_R-1); ctx.stroke();
   ctx.restore();
 }
 const BV_R=BV.BR||20;
