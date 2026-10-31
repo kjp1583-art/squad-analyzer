@@ -53,7 +53,7 @@ def make_view():
     ]
     return {
         'stage': 9, 'max_stage': 30, 'region': '홍대 먹자골목' + EVIL, 'rate': 1500, 'pending': 9000, 'hours': 4.0, 'boost': 2, 'gold': 123456, 'total': 999999,
-        'power': 700, 'rec': 400, 'next_rec': 430, 'kpm': 110.0, 'power_ok': True, 'kpm_next': 102.0, 'cost': 6000, 'next_rate': 1770, 'cap_h': 12, 'boost_max': 6, 'lv': 7, 'name': '테스터' + EVIL,
+        'power': 700, 'rec': 400, 'next_rec': 430, 'kpm': 110.0, 'power_ok': True, 'chal_hp': 430, 'kpm_next': 102.0, 'cost': 6000, 'next_rate': 1770, 'cap_h': 12, 'boost_max': 6, 'lv': 7, 'name': '테스터' + EVIL,
         'summon': {'tickets': 12, 'pulls': 25, 'slv': 2, 'slv_max': 8, 'slv_next_at': 60, 'rates': rates,
                    'rate_table': [{'lv': i + 1, 'at': a, 'rates': rates} for i, a in enumerate([0, 20, 60, 130, 250, 450, 750, 1200])],
                    'pity': {'에픽': {'now': 12, 'max': 50, 'left': 38}, '유니크': {'now': 12, 'max': 150, 'left': 138}, '레전드': {'now': 12, 'max': 400, 'left': 388}},
@@ -226,7 +226,7 @@ async def main():
                 check('상단 HUD: 레벨·스테이지 뱃지·지역', 'Lv.7' in await pg.inner_text('#lvb') and await pg.inner_text('#stbn') == '9' and '홍대' in await pg.inner_text('#preg'))
                 check('HUD 이름은 글자 그대로(HTML 로 안 읽힘)', await pg.evaluate("document.querySelectorAll('img[src=x]').length") == 0 and '<img' in await pg.inner_text('#pname'))
             t = await pg.inner_text('#main')
-            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '10처치당 2.27' in t.replace('\n',' ') and '돌파' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
+            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '10처치당 2.27' in t.replace('\n',' ') and '도전 던전' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
             check(f'{scheme} 사냥터: 내전 부스트·배율(스킬 포함) 표시', '내전 부스트 2시간' in t and '동료 파티' in t and '스킬 ×' in t)
             check(f'{scheme} 사냥터: 서버 문자열이 HTML 로 안 읽힘', await pg.locator('img[src=x]').count() == 0 and await pg.evaluate('window.__xss')is None)
             check(f'{scheme} 사냥터: 가로 스크롤 없음', await noscroll(pg))
@@ -237,7 +237,7 @@ async def main():
                 # 버튼 → 길
                 check('수령 → /brj/collect {}+토큰', (await press(pg, '[data-do=collect]', srv, '/brj/collect')) == [{'token': 'T' * 40}])
                 check('수령 결과 문구', '6,000' in await msg(pg))
-                r = await press(pg, '#dock [data-do=push]', srv, '/brj/push'); check('돌파(필드 아래 버튼) → /brj/push', len(r) == 1); check('보스 막힘 문구', '보스' in await msg(pg))
+                r = await press(pg, '#dock [data-do=chal]', srv, '/brj/push'); check('도전(필드 아래 버튼) → /brj/push', len(r) == 1); check('보스 막힘 문구', '보스' in await msg(pg))
                 r = await press(pg, '#main [data-do=quick]', srv, '/brj/quick'); check('퀵사냥 → /brj/quick', len(r) == 1 and '1,500' in await msg(pg))
                 # 동료 탭
                 await tab(pg, 'crew'); t = await pg.inner_text('#main')
@@ -262,7 +262,7 @@ async def main():
                 r = await press(pg, '[data-do=enhance][data-slot=armor]', srv, '/brj/enhance'); check('강화 → slot=armor', r and r[0]['slot'] == 'armor'); check('강화 실패 문구(안 깨짐)', '그대로' in await msg(pg))
                 # 모험 (스테이지 10 = 보스 관문에 막힌 상태)
                 srv.view['stage'] = 10; srv.view['dungeon']['gate']['stage'] = 10; await pg.click('#rfBtn'); await pg.wait_for_timeout(300)
-                check('관문에서는 필드 아래 큰 버튼이 「보스 도전」', await pg.locator('#dock [data-do=boss]').count() == 1 and await pg.locator('#dock [data-do=push]').count() == 0)
+                check('관문에서는 필드 아래 큰 버튼이 「보스 도전」', await pg.locator('#dock [data-do=boss]').count() == 1 and await pg.locator('#dock [data-do=chal]').count() == 0)
                 await tab(pg, 'adv'); t = await pg.inner_text('#main')
                 check('모험: 보스 3·던전·클랜 보스·할 일', await pg.locator('.boss img').count() >= 3 and '열쇠 던전' in t and '클랜 보스' in t and '오늘 할 일' in t)
                 check('모험: 보스 그림은 저장소 경로', await pg.locator('img[src="img/brjang/boss/ddokkyu/front.png"]').count() >= 1)
@@ -400,12 +400,12 @@ async def main():
         check('폴백: 소리 시트도 오류 없이 열림', await pg.locator('#sndBg.show').count() == 1 and not errs, errs); await ctx.close()
         # ---- 전투력 ↔ 필드 ----
         srv = Server(); ctx, pg, errs = await new_page(b, srv); t = await pg.inner_text('#main')
-        check('사냥터: 내 전투력·권장 전투력·분당 처치·다음 필드 안내', '내 전투력' in t and '700' in t and '권장 400' in t and '분당 110' in t and '들어갈 수 있어요' in t, t[:300])
+        check('사냥터: 내 전투력·권장 전투력·분당 처치·도전 던전 안내', '내 전투력' in t and '700' in t and '권장 400' in t and '분당 110' in t and '도전할 수 있어요' in t, t[:300])
         srv.view['power_ok'] = False; srv.view['power'] = 380; await pg.click('#rfBtn'); await pg.wait_for_timeout(300)
-        check('전투력 부족이면 돌파 버튼이 「전투력 부족」으로 바뀐다', '전투력 부족' in await pg.inner_text('#dock') and '더 강해지면 열려요' in await pg.inner_text('#main'))
-        srv.override['/brj/push'] = lambda body: (200, {'ok': True, 'result': 'power', 'cost': 6000, 'view': copy.deepcopy(srv.view)})
-        await pg.click('[data-do=push]'); await pg.wait_for_timeout(250)
-        check('전투력 부족으로 거절되면 이유 문구', '전투력' in await msg(pg) and '분당 100마리' in await msg(pg), await msg(pg))
+        check('전투력이 모자라면 도전 버튼에 몬스터·내 전투력이 보인다', '몬스터' in await pg.inner_text('#dock') and '더 강해지면 이겨요' in await pg.inner_text('#main'))
+        srv.override['/brj/push'] = lambda body: (200, {'ok': True, 'result': 'lose', 'cost': 0, 'power': 380, 'hp': 430, 'view': copy.deepcopy(srv.view)})
+        await pg.click('[data-do=chal]'); await pg.wait_for_timeout(500)
+        check('도전 던전에서 지면 실패 문구(전투력·몬스터 체력·잃은 것 없음)', '도전 던전 실패' in await msg(pg) and '380' in await msg(pg) and '430' in await msg(pg) and '잃은 건 없어요' in await msg(pg), await msg(pg))
         await ctx.close()
         # ---- 랭킹 탭 ----
         srv = Server(); ctx, pg, errs = await new_page(b, srv); await tab(pg, 'rank'); await pg.wait_for_timeout(300)
@@ -429,6 +429,14 @@ async def main():
         # 옛 서버(랭킹 구역 없음)
         srv = Server(); srv.view.pop('rank'); ctx, pg, errs = await new_page(b, srv); await tab(pg, 'rank')
         check('랭킹: 옛 서버면 안내만, 화면 안 깨짐', '서버가 업데이트되면' in await pg.inner_text('#main') and not errs, errs); await ctx.close()
+        # ---- PC 화면: 왼쪽 큰 필드 + 오른쪽 패널 ----
+        srv = Server(); ctx, pg, errs = await new_page(b, srv, w=1600, h=900); await pg.wait_for_timeout(600)
+        bx = await pg.evaluate('''()=>{const r=id=>document.getElementById(id).getBoundingClientRect();const f=r('fieldBox'),s=r('sheet'),n=r('nav'),d=r('dock');return {fw:f.width,fh:f.height,sx:s.x,sw:s.width,ny:n.y,sy:s.y,nx:n.x,dy:d.y,fy:f.y}}''')
+        check('PC: 필드가 패널보다 넓고 크다(왼쪽 필드 · 오른쪽 패널)', bx['fw'] > bx['sw'] * 1.3 and bx['fh'] > 500 and bx['sx'] >= bx['fw'] - 2, bx)
+        check('PC: 탭은 오른쪽 패널 위쪽 · 핫바는 필드 아래', bx['nx'] >= bx['fw'] - 2 and bx['ny'] < bx['sy'] and bx['dy'] >= bx['fy'] + bx['fh'] - 2, bx)
+        check('PC: 가로 스크롤·오류 없음', await noscroll(pg) and not errs, errs)
+        await tab(pg, 'skill'); check('PC: 다른 탭에서도 필드 크기 그대로(줄어들지 않음)', (await pg.evaluate("document.getElementById('fieldBox').getBoundingClientRect().height")) > 500)
+        await ctx.close()
         # ---- 데스크톱 폭 ----
         srv = Server(); ctx, pg, errs = await new_page(b, srv, w=1100, h=800)
         for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres', 'rank'):

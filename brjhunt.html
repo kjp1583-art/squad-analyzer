@@ -300,6 +300,28 @@ button.cd:active{transform:scale(.97)}
   *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
   #awk::before{animation:none}
 }
+
+/* ---- PC 화면(2026-10-31 사장님 「모바일 기준이라 공간 낭비 — PC 에 걸맞는 UI」) ----
+   넓고 낮지 않은 창에서는 왼쪽에 큰 필드(+핫바), 오른쪽에 탭·내용 패널을 나란히 둔다. 모바일(좁은 폭)은 그대로다. */
+@media (min-width:1000px) and (min-height:540px){
+  #app{max-width:none;width:100%;display:grid;grid-template-columns:minmax(0,1fr) clamp(440px,34vw,620px);grid-template-rows:auto auto auto minmax(0,1fr);grid-template-areas:"top top" "res res" "stage nav" "stage sheet";box-shadow:none}
+  #top{grid-area:top;padding:8px 22px;gap:14px} #top .tbtn{width:40px;height:40px;font-size:18px} #top .av{width:50px;height:50px} .pn b{font-size:16px} .pn small{font-size:12px} .stb b{font-size:22px} .stb{padding:3px 16px 4px}
+  #res{grid-area:res;justify-content:center;gap:10px;padding:7px 22px} .chip,#chip_gold,#chip_key{flex:0 1 190px;font-size:14.5px;padding:3px 12px 3px 5px;gap:6px} .chip img{width:26px;height:26px}
+  #stage{grid-area:stage;display:flex;flex-direction:column;min-height:0;min-width:0;border-right:2px solid var(--edge);background:#0c1028}
+  #fieldBox,.mini #fieldBox{flex:1 1 auto;height:auto;min-height:0;border-bottom:0;transition:none}
+  #dock,.mini #dock,.nodock #dock{display:block;margin-top:0;border-radius:0;border-width:2px 0 0;padding:12px 22px 14px;flex:none}
+  .dockrow{justify-content:center;gap:16px} .hot{flex:0 1 auto;gap:10px} .sk{width:64px;height:64px;border-radius:16px} .sk.pas{width:56px;height:56px} .sk .lv{min-width:20px;height:20px;font-size:13px;line-height:17px}
+  .push{min-width:170px;min-height:64px;font-size:18px;padding:8px 16px} .push small{font-size:12px}
+  .pbar{margin:0 0 10px} 
+  #hudL{left:16px;top:14px;gap:6px} .hpill{font-size:14px;padding:3px 13px 3px 10px} .hpill em{font-size:17px} .mini #hudL .hpill.sec,.mini #hudL .coll{display:inline-flex}
+  #bossTag{font-size:54px}
+  #nav{grid-area:nav;border-top:0;border-bottom:2px solid var(--line);box-shadow:0 3px 12px rgba(0,0,0,.25);padding-bottom:0}
+  #nav button{min-height:62px;font-size:12px;white-space:nowrap;padding:4px 2px 5px} #nav button img,#nav button .tabem{width:30px;height:30px;font-size:22px} #nav button.on img,#nav button.on .tabem{transform:scale(1.12)} #nav button.on::before{top:auto;bottom:-2px;border-radius:4px 4px 0 0}
+  #nav .dot{top:8px;right:6px}
+  #sheet{grid-area:sheet;padding:14px 16px 22px;font-size:15px;border-top:0} .card{padding:14px 16px}
+  .tw table{font-size:13.5px}
+}
+@media (min-width:1500px) and (min-height:700px){ #app{grid-template-columns:minmax(0,1fr) 640px} #sheet{font-size:15.5px} #nav button{flex-direction:row;justify-content:center;gap:6px;min-height:60px;font-size:13px} #nav button img,#nav button .tabem{width:28px;height:28px} }
 </style>
 </head>
 <body>
@@ -586,12 +608,11 @@ function dockHtml(){
     return `<button class="sk${pas?' pas':''}" data-sid="${esc(k.id)}" data-cd="${N(k.cd_s)}" data-tab="skill" aria-label="${esc(k.name)} 레벨 ${fmt(k.lv)}. 스킬 탭으로 가기"><img src="${skIcon(k.id)}" alt="" onerror="this.style.display='none'"><span class="ring"></span><span class="lv">${fmt(k.lv)}</span></button>`;
   };
   let big;
-  if(BOSS) big=`<button class="btn red push" disabled data-do="push">⚔ 보스전<small>진행 중…</small></button>`;
+  if(BOSS) big=`<button class="btn red push" disabled data-do="chal">⚔ 보스전<small>진행 중…</small></button>`;
   else if(bg) big=`<button class="btn red push ready" data-do="boss">🛡 보스 도전<small>${esc(bg.name)}</small></button>`;
-  else if(!nextOk) big=`<button class="btn alt push" disabled data-do="push">구역의 끝<small>환생으로 확장</small></button>`;
-  else if(v.power_ok===false) big=`<button class="btn alt push" data-do="push" aria-label="전투력이 모자라 다음 필드에 들어갈 수 없어요">🔒 전투력 부족<small>권장 ${fmt(v.next_rec)} · 내 ${fmt(v.power)}</small></button>`;
-  else{ const can=N(v.gold)>=N(v.cost);
-    big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="push" aria-label="스테이지 돌파, 비용 골드 ${fmt(v.cost)}">⚔ 돌파<small>${I('gold')}${fmtC(v.cost)}</small></button>`; }
+  else if(!nextOk) big=`<button class="btn alt push" disabled data-do="chal">구역의 끝<small>환생으로 확장</small></button>`;
+  else{ const can=v.power_ok!==false;
+    big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="chal" aria-label="스테이지 ${fmt(st+1)} 도전 던전. 몬스터 체력 ${fmt(v.chal_hp)}, 내 전투력 ${fmt(v.power)}">⚔ 도전 던전<small>${can?'이길 수 있어요':'몬스터 '+fmtC(v.chal_hp)+' · 내 '+fmtC(v.power)}</small></button>`; }
   const pct=Math.max(2,Math.min(100,st/cap*100));
   return `<div class="pbar" role="progressbar" aria-label="스테이지 진행" aria-valuemin="0" aria-valuemax="${cap}" aria-valuenow="${st}"><i style="width:${pct}%"></i><span>STAGE ${fmt(st)} / ${fmt(cap)}</span></div>
   <div class="dockrow"><div class="hot">${slotBtn(eq.passive,true)}<span class="hsep" aria-hidden="true"></span>${[0,1,2,3].map(i=>slotBtn(act[i],false)).join('')}</div>${big}</div>`;
@@ -670,7 +691,7 @@ function tabHunt(){
     <div class="hunthero"><div style="min-width:0"><div class="sub">쌓인 사냥 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
       <button class="btn gold" data-do="collect" style="min-width:118px;font-size:17px;padding:10px 12px" aria-label="쌓인 사냥 골드 수령하기">수령</button></div>
     <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> · ${perKillTxt(v.rate)} <span class="mut">(분당 약 ${fmt(Math.round(kpmNow()))}마리 기준)</span></div>
-    <div class="sub" style="margin-top:4px">⚔ 내 전투력 <b>${fmt(v.power)}</b> · 이 필드 권장 ${fmt(v.rec)} → 분당 <b>${fmt(Math.round(kpmNow()))}</b>마리 · 다음 필드(스테이지 ${fmt(st+1)}) 권장 <b class="${v.power_ok?'green':'red'}">${fmt(v.next_rec)}</b> ${v.power_ok?'✔ 들어갈 수 있어요':'· 더 강해지면 열려요'}</div>
+    <div class="sub" style="margin-top:4px">⚔ 내 전투력 <b>${fmt(v.power)}</b> · 이 필드 권장 ${fmt(v.rec)} → 분당 <b>${fmt(Math.round(kpmNow()))}</b>마리 · 다음 도전 던전 몬스터 <b class="${v.power_ok?'green':'red'}">${fmt(v.chal_hp)}</b> ${v.power_ok?'✔ 도전할 수 있어요':'· 더 강해지면 이겨요'}</div>
     <div class="bar g" style="margin-top:8px" role="progressbar" aria-label="쌓인 시간" aria-valuemin="0" aria-valuemax="${fmt(v.cap_h)}" aria-valuenow="${N(v.hours).toFixed(1)}"><i style="width:${hpct}%"></i></div>
     <div class="sub" style="margin-top:3px">${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
     ${N(v.boost)>0?`<div class="sub green">⚔ 내전 부스트 ${fmt(v.boost)}시간치가 더해져요 (내전 1판 = 사냥 1시간)</div>`:`<div class="mut">내전을 1판 뛸 때마다 사냥 1시간치가 더 쌓여요 (최대 ${fmt(v.boost_max)}시간)</div>`}
@@ -678,15 +699,16 @@ function tabHunt(){
     <div class="mut" style="margin-top:6px">화면에 보이는 값은 약간의 어림이고, 받을 때 서버가 정확히 계산해 줘요. 화면 속 사냥은 이 골드를 눈으로 보여 주는 구경거리예요.</div>
   </div>
   <div class="card">
-    <h2>⚔ 다음 스테이지로 돌파</h2>
-    <div class="kv"><span>돌파 비용</span><b>${I('gold')}${fmt(v.cost)}</b></div>
-    <div class="kv"><span>내 골드</span><b>${I('gold')}${fmt(v.gold)}</b></div>
-    <div class="kv"><span>돌파하면 시간당 골드</span><b>${I('gold')}${fmt(v.next_rate)} <span class="mut">(기본값 기준)</span></b></div>
+    <h2>⚔ 도전 던전 <span class="pill">스테이지 ${fmt(st+1)}</span></h2>
+    <div class="sub">다음 스테이지로 가려면 <b>도전 던전</b>을 클리어해야 해요. 골드는 들지 않아요. 내 전투력이 몬스터 체력 이상이면 이겨요. 져도 잃는 건 없어요.</div>
+    <div class="kv"><span>몬스터 체력</span><b>${fmt(v.chal_hp)}</b></div>
+    <div class="kv"><span>내 전투력</span><b class="${v.power_ok?'green':'red'}">${fmt(v.power)} ${v.power_ok?'✔ 이길 수 있어요':`(${fmt(Math.max(0,N(v.chal_hp)-N(v.power)))} 더 필요)`}</b></div>
+    <div class="kv"><span>클리어하면 시간당 골드</span><b>${I('gold')}${fmt(v.next_rate)} <span class="mut">(기본값 기준)</span></b></div>
     ${gate?`<div class="msg info" style="margin:8px 0 0">🛡 스테이지 ${fmt(gate.stage)} 은 보스 관문이에요. <b>${esc(gate.name)}</b> 을(를) 이겨야 넘어갈 수 있어요. 졌다고 손해는 없어요.</div>`:''}
-    <div class="mut" style="margin-top:6px">돌파 버튼은 필드 아래쪽에 있어요. 스테이지 ${fmt(st)} / ${fmt(cap)}${cap>30?' (환생으로 넓힌 상한)':''}</div>
+    <div class="mut" style="margin-top:6px">도전 버튼은 필드 아래쪽에 있어요. 스테이지 ${fmt(st)} / ${fmt(cap)}${cap>30?' (환생으로 넓힌 상한)':''}</div>
   </div>
   ${quickCard()}
-  <details class="card"><summary>📖 이렇게 즐겨요</summary><div class="sub">① 접속하면 쌓인 골드를 <b>수령</b> ② 골드로 <b>돌파</b>하거나 <b>성장</b>에 써요 ③ <b>각성</b>하면 새 <b>스킬</b>을 배우고, 스킬을 강화하면 시간당 골드가 더 늘어요 ④ 소환권으로 <b>동료</b>를 모아 파티를 짜요 ⑤ 열쇠로 <b>던전</b>, 관문에서는 <b>보스</b>에 도전해요. 앱을 꺼 두어도 골드는 쌓여요(최대 ${fmt(v.cap_h)}시간).</div></details>`;
+  <details class="card"><summary>📖 이렇게 즐겨요</summary><div class="sub">① 접속하면 쌓인 골드를 <b>수령</b> ② 골드는 <b>성장</b>에 써서 전투력을 키워요. 다음 스테이지는 골드가 아니라 <b>도전 던전</b>을 깨서 넘어가요 ③ <b>각성</b>하면 새 <b>스킬</b>을 배우고, 스킬을 강화하면 시간당 골드가 더 늘어요 ④ 소환권으로 <b>동료</b>를 모아 파티를 짜요 ⑤ 열쇠로 <b>던전</b>, 관문에서는 <b>보스</b>에 도전해요. 앱을 꺼 두어도 골드는 쌓여요(최대 ${fmt(v.cap_h)}시간).</div></details>`;
 }
 function quickCard(){
   const q=R(V.growth,'quick',null); if(!q) return '';
@@ -979,15 +1001,26 @@ try{ if(window.BrjAudio&&BrjAudio.onChange) BrjAudio.onChange(syncSnd); }catch(e
 syncSnd();
 
 // ---------- 동작 ----------
-const PUSH_MSG={gold:j=>`🪙 골드가 모자라요. 돌파에 ${fmt(j.cost)} 필요해요.`,max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',power:j=>`⚔ 다음 필드는 전투력 ${fmt(j&&j.need||N(V&&V.next_rec))} 부터 분당 100마리를 잡을 수 있어요. 성장·동료·스킬로 더 강해진 뒤에 돌파해요.`,boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
+const PUSH_MSG={max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
 const AWK_MSG={stage:'스테이지가 모자라 아직 각성할 수 없어요.',gold:'🪙 골드가 모자라요.',stone:'🔩 강화석이 모자라요.',feast:'🍖 특식이 모자라요.',max:'이미 마지막 각성까지 마쳤어요.'};
 const DO={
   collect:()=>{ const b=document.querySelector('#main [data-do=collect]'); const rc=b?b.getBoundingClientRect():null; return act('/brj/collect',{},j=>{
     const g=N(j.got); say(g>0?`🪙 +${fmt(g)} 골드를 받았어요!`:'아직 쌓인 게 없어요. 조금 있다 다시 오세요.',g>0?'ok':'info');
     if(g>0){ snd('coin'); setTimeout(()=>snd('coin',{rate:1.2}),110); flyCoins(rc,Math.min(10,3+Math.floor(Math.log10(g+1)*1.5))); } }); },
-  push:()=>{ const st0=N(V.stage); act('/brj/push',{},j=>{
-    if(j.result==='ok'){ say(`⚔ 스테이지 ${fmt(st0)} → ${fmt(st0+1)} 돌파! (🪙 ${fmt(j.cost)} 사용)`,'ok'); banner('STAGE '+fmt(st0+1),'win'); }
-    else say((PUSH_MSG[j.result]||(()=>'돌파하지 못했어요.'))(j),'bad'); }); },
+  chal:async()=>{   // 도전 던전 — 보스전과 같은 필드 연출. 승패는 서버(/brj/push)가 정한다
+    if(BUSY||BOSS) return; if(bossGate()){ return DO.boss(); }
+    const st0=N(V.stage), keys=['ddokkyu','shinlim','taewoong','yongjo'];
+    if(TAB!=='hunt'){ TAB='hunt'; TAB_FLAG=true; }
+    BOSS={img:keys[(st0)%keys.length],name:`스테이지 ${st0+1} 수문장`,hp:N(V.chal_hp)||1000}; MSG=null; syncBgm(); render();
+    let res=null;
+    await act('/brj/push',{},j=>{
+      res=j.result==='ok'?'win':j.result==='lose'?'lose':null;
+      if(res&&FIELD){ try{ FIELD.bossResult(res); }catch(e){} }
+      if(j.result==='ok'){ say(`⚔ 도전 던전 클리어! 스테이지 ${fmt(st0)} → ${fmt(st0+1)}`,'ok'); }
+      else if(j.result==='lose') say(`💥 도전 던전 실패 — 내 전투력 ${fmt(j.power)} / 몬스터 ${fmt(j.hp)}. 성장·동료·스킬로 더 강해져서 다시 도전해요. 잃은 건 없어요.`,'bad');
+      else say((PUSH_MSG[j.result]||(()=>'도전하지 못했어요.'))(j),'bad'); });
+    if(!res){ clearTimeout(BOSS_T); BOSS=null; pushField(); syncBgm(); render(); }
+    else if(!FIELD) endBoss(); },
   quick:()=>act('/brj/quick',{},j=>{
     const m={ok:()=>[`⚡ 퀵사냥! 🪙 +${fmt(j.got)} (🍖 ${fmt(j.cost)} 사용)`,'ok'],limit:()=>['오늘 퀵사냥은 모두 썼어요.','bad'],feast:()=>[`🍖 특식이 모자라요. ${fmt(j.cost)}개 필요해요.`,'bad'],none:()=>['받을 골드가 없어요.','bad']}[j.result]; const x=m?m():['처리하지 못했어요.','bad']; say(x[0],x[1]); if(j.result==='ok') snd('coin'); }),
   summon:el=>{ const n=Number(el.dataset.n); act('/brj/summon',{n},j=>{

@@ -92,7 +92,7 @@ async def main():
         srv = Server(); v = make_view(); v['summon']['party'] = []; v['dungeon']['gate']['stage'] = 0; srv.view = v
         ctx, pg, errs = await new_page(b, srv, scheme='light')
         check('파티가 비면 동료 0', await pg.evaluate('window.__bt.party') == 0)
-        check('관문이 없으면 보스 도전 버튼 없음 · 돌파 버튼', await pg.locator('#main [data-do=boss], #dock [data-do=boss]').count() == 0 and await pg.locator('#dock [data-do=push]').count() == 1)
+        check('관문이 없으면 보스 도전 버튼 없음 · 도전 던전 버튼', await pg.locator('#main [data-do=boss], #dock [data-do=boss]').count() == 0 and await pg.locator('#dock [data-do=chal]').count() == 1)
         await pg.wait_for_timeout(1500); await shot(pg, 'ui_field_light_solo')
         check('라이트: 가로 스크롤·오류 없음', await noscroll(pg) and not errs, errs); await ctx.close()
         # ---- 파티 3명 ----
