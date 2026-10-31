@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """🎮 스쿼드 미니게임 포털 시험 — `python3.13 tests/web_games_test.py`
   A 상단 탭에 「🎮 미니게임」이 있고 옛 「🦐 서바이벌」 탭은 없다 · 머리 링크도 하나로 합쳐졌다
-  B 탭을 누르면 포털이 열린다(#games · 대표 배너 · 게임 카드 3장(흐접새우·스콰드 생존게임·브장신 키우기) + 준비 중 칸) · 카드의 플레이 링크가 survivors.html / novel.html
+  B 탭을 누르면 포털이 열린다(#games · 대표 배너 · 게임 카드 5장(흐접새우·스콰드 생존게임·브장신 키우기·브장신 배구·라이어 게임) + 준비 중 칸) · 카드의 플레이 링크가 survivors.html / novel.html
   C 장르 필터(액션 → 흐접새우만, 이야기 → 스콰드 생존게임만, 전체 → 둘 다) · 대표 배너 점을 누르면 다른 게임으로
   D 게임 소식에 두 게임의 패치노트가 게임 이름표와 함께 나온다
   E 플레이를 누르면 「마지막으로 한 게임」이 기억되고 다시 열면 「이어서 하기」가 뜬다
@@ -30,6 +30,7 @@ async def scene(pg):
     await pg.click("button.mg-chip:has-text('액션')"); out['f_act'] = await pg.evaluate("()=>[...document.querySelectorAll('.mg-card:not(.soon) .mg-name')].map(e=>e.textContent.trim())")
     await pg.click("button.mg-chip:has-text('이야기')"); out['f_story'] = await pg.evaluate("()=>[...document.querySelectorAll('.mg-card:not(.soon) .mg-name')].map(e=>e.textContent.trim())")
     await pg.click("button.mg-chip:has-text('스포츠')"); out['f_sport'] = await pg.evaluate("()=>[...document.querySelectorAll('.mg-card:not(.soon) .mg-name')].map(e=>e.textContent.trim())")
+    await pg.click("button.mg-chip:has-text('파티')"); out['f_party'] = await pg.evaluate("()=>[...document.querySelectorAll('.mg-card:not(.soon) .mg-name')].map(e=>e.textContent.trim())")
     await pg.click("button.mg-chip:has-text('육성')"); out['f_raise'] = await pg.evaluate("()=>[...document.querySelectorAll('.mg-card:not(.soon) .mg-name')].map(e=>e.textContent.trim())")
     out['bj_btns'] = await pg.evaluate("()=>[...document.querySelectorAll('.mg-card[data-mg=bj] .mg-act > *')].map(e=>e.textContent.trim())")
     await pg.click("button.mg-chip:has-text('전체')"); out['f_all'] = await pg.evaluate("()=>document.querySelectorAll('.mg-card:not(.soon)').length")
@@ -52,11 +53,11 @@ async def main():
         ok(any('미니게임' in t for t in o['tabs']) and not any('서바이벌' in t for t in o['tabs']), 'A 탭: 🎮 미니게임 있음 · 옛 서바이벌 탭 없음 %s' % o['tabs'][-4:])
         ok(sum('미니게임' in t for t in o['head']) == 1 and not any('생존게임' in t for t in o['head']), 'A 머리 링크가 하나로 합쳐짐 %s' % o['head'])
         ok(o['hash'] == '#games' and o['hero'], 'B 포털이 열린다(#games · 대표 배너) %s' % o['hash'])
-        ok([c['href'] for c in o['cards']] == ['survivors.html', 'novel.html', 'brjhunt.html', 'brjvolley.html'] and o['soon'] == 1, 'B 카드 4장 · 링크 맞음 · 준비 중 칸 1 %s' % o['cards'])
-        ok(o['f_act'] == ['🦐 흐접새우 서바이벌'] and o['f_story'] == ['📖 스콰드 생존게임'] and o['f_raise'] == ['🍗 브장신 키우기'] and o['f_sport'] == ['🏐 브장신 배구'] and o['f_all'] == 4, 'C 장르 필터 %s %s %s %s' % (o['f_act'], o['f_story'], o['f_raise'], o['f_all']))
+        ok([c['href'] for c in o['cards']] == ['survivors.html', 'novel.html', 'brjhunt.html', 'brjvolley.html', 'liar.html'] and o['soon'] == 1, 'B 카드 5장 · 링크 맞음 · 준비 중 칸 1 %s' % o['cards'])
+        ok(o['f_act'] == ['🦐 흐접새우 서바이벌'] and o['f_story'] == ['📖 스콰드 생존게임'] and o['f_raise'] == ['🍗 브장신 키우기'] and o['f_sport'] == ['🏐 브장신 배구'] and o['f_party'] == ['🕵 라이어 게임'] and o['f_all'] == 5, 'C 장르 필터 %s %s %s %s %s' % (o['f_act'], o['f_story'], o['f_raise'], o['f_party'], o['f_all']))
         ok(o['bj_btns'] == ['▶ 지금 플레이'], 'B 브장신 카드는 웹 게임(brjhunt.html)이라 「지금 플레이」 버튼 %s' % o['bj_btns'])
         ok(o['hero_changed'], 'C 대표 배너 점으로 게임이 바뀐다')
-        ok('흐접새우 서바이벌' in o['feed'] and '스콰드 생존게임' in o['feed'] and '브장신 키우기' in o['feed'] and '브장신 배구' in o['feed'], 'D 게임 소식에 네 게임이 이름표와 함께 나온다 %s' % o['feed'][:6])
+        ok('흐접새우 서바이벌' in o['feed'] and '스콰드 생존게임' in o['feed'] and '브장신 키우기' in o['feed'] and '브장신 배구' in o['feed'] and '라이어 게임' in o['feed'], 'D 게임 소식에 다섯 게임이 이름표와 함께 나온다 %s' % o['feed'][:6])
         ok('sgg_mg_last' not in (o['last'] or '') and '"id":"sv"' in (o['last'] or ''), 'E 마지막으로 한 게임 기억 %s' % o['last'])
         ok('이어서 하기' in o['recent'] and '흐접새우' in o['recent'], 'E 다시 열면 이어서 하기 %s' % o['recent'])
         ok(o['ov']['sw'] <= o['ov']['cw'] + 1, 'F 가로 넘침 없음 %s' % o['ov'])

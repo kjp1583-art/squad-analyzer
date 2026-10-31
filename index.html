@@ -5875,6 +5875,10 @@ const MG_CATALOG=[
    hook:'병아리 둘이 네트를 사이에 두고 맞붙는다 — 점프하고 강타를 꽂아 15점을 먼저 따라! CPU 3단계, 한 기기 2인 대전.',
    tags:['배구','액션','CPU 대전','2인 대전'], time:'한 판 약 2~4분', play:'PC 키보드 · 폰 터치', login:'로그인 없이 바로 플레이',
    isMine:n=>/브장신 배구/.test(String((n&&n.title)||'')+' '+String((n&&n.how)||''))},
+  {id:'lg', name:'라이어 게임', ic:'🕵', genre:'파티', url:'liar.html', img:'img/liar_promo.webp', pos:'center 40%',
+   hook:'우리 중에 제시어를 모르는 라이어가 숨어 있다 — 한 마디씩 힌트를 주고, 토론하고, 투표로 라이어를 찾아라! 3~10명이 실시간으로.',
+   tags:['파티','실시간 멀티','추리','채팅'], time:'한 판 약 5~8분', play:'PC · 폰 웹 (친구들과 같은 방에 모여서)', login:'디스코드 로그인 필요',
+   isMine:n=>/라이어 게임/.test(String((n&&n.title)||''))},
 ];
 let MG_PATCH=null, MG_FILTER='all', MG_HERO=0, _mgTimer=null;
 function mgLoadPatch(){
@@ -10281,6 +10285,7 @@ const DC_VERIFY_P=dcHandleRedirect();
 if(DC_VERIFY_P&&DC_BOOT.ret==="게임:survivors") DC_VERIFY_P.then(()=>_dcReturn("게임:survivors"));
 if(DC_VERIFY_P&&DC_BOOT.ret==="게임:novel") DC_VERIFY_P.then(()=>_dcReturn("게임:novel"));
 if(DC_VERIFY_P&&DC_BOOT.ret==="게임:brjhunt") DC_VERIFY_P.then(()=>_dcReturn("게임:brjhunt"));   // 🍗 브장신 키우기 웹 사냥터
+if(DC_VERIFY_P&&DC_BOOT.ret==="게임:liar") DC_VERIFY_P.then(()=>_dcReturn("게임:liar"));   // 🕵 라이어 게임
 if(DC_VERIFY_P&&DC_BOOT.ret==="게임:novel_dash") DC_VERIFY_P.then(()=>_dcReturn("게임:novel_dash"));   // 📊 스콰드 진행도 대시보드(운영진)   // 📖 스콰드(비주얼 노벨) — 로그인 뒤 게임 페이지로
 // 🔐 확인이 첫 화면보다 늦게 끝났으면 로그인에 따라 달라지는 화면만 다시 그린다
 if(DC_VERIFY_P) DC_VERIFY_P.then(ok=>{ if(ok&&GAMES.size) _dcRefreshView(); });
@@ -10336,6 +10341,7 @@ function _dcReturn(ret){   // 로그인 복귀 — '@라우트'/'이주의인물
   else if(ret==='게임:novel'){ location.replace('novel.html'); }
   else if(ret==='게임:novel_dash'){ location.replace('novel_dash.html'); }
   else if(ret==='게임:brjhunt'){ location.replace('brjhunt.html'); }   // 🍗 브장신 키우기 웹 사냥터
+  else if(ret==='게임:liar'){ location.replace('liar.html'); }   // 🕵 라이어 게임
   else if(ret==='게임:survivors'){ location.replace('survivors.html'); }   // 🦐 흐접새우 서바이벌 — 게임 페이지에서 로그인하고 돌아가기
   else if(ret[0]==='#'||ret[0]==='?') _dcReturnRaw(ret);   // 🔐 [2026-09-29 사장님 지시] 자동 로그인 복귀(떠나기 전 주소) — 머리 스크립트가 주소를 못 되돌렸을 때만 여기로
   else go('player',ret);
@@ -11999,7 +12005,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   const start=()=>{ mark(); try{ new MutationObserver(sched).observe(document.body,{childList:true,subtree:true}); }catch(e){} };
   if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
 })();
-const BUILD_ID="202610311300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202610311500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -12098,7 +12104,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   try{ if(IDEAL_BOOT_HASH) go('ideal'); }catch(e){}   // 💘 #ideal 새로고침·공유 링크
   try{ if(SUB_BOOT_HASH) go(SUB_BOOT_HASH.route,SUB_BOOT_HASH.tab); }catch(e){}   // 🗂 #ach/#mst 하위 탭 새로고침·공유 링크
   try{ if(BRJ_BOOT_HASH) go('brjang',BRJ_BOOT_HASH.tab); }catch(e){}   // 🍗 #brj/<탭> — 새로고침·공유 링크로 브키도감 하위 탭 다시 열기   // 📰 #news[/종료일] 공유 링크(봇 /주간평생성 안내)
-  try{ if(DC_VERIFY_P){ await DC_VERIFY_P; const _r=DC_BOOT.ret; if(_r&&_r!=="게임:survivors"&&_r!=="게임:brjhunt"&&_r!=="게임:novel"&&_r!=="게임:novel_dash") _dcReturn(_r); } }catch(e){}   // 디스코드 로그인 복귀 — 원래 보던 곳으로(확인은 부팅과 동시에 시작해 뒀다)
+  try{ if(DC_VERIFY_P){ await DC_VERIFY_P; const _r=DC_BOOT.ret; if(_r&&_r!=="게임:survivors"&&_r!=="게임:brjhunt"&&_r!=="게임:liar"&&_r!=="게임:novel"&&_r!=="게임:novel_dash") _dcReturn(_r); } }catch(e){}   // 디스코드 로그인 복귀 — 원래 보던 곳으로(확인은 부팅과 동시에 시작해 뒀다)
   try{ _cmtDraftRestore(); }catch(e){}   // 🔐 로그인하러 다녀오기 전에 쓰던 댓글·편지 되살리기
   checkNewBuild();                   // 🆕 배포 확인은 부팅이 끝난 뒤에 — 부팅 중엔 시트와 대역폭을 다투지 않게(2026-08-27)
 })();
