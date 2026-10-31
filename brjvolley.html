@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="icon" href="data:,">
 <title>브장신 배구</title>
-<meta name="description" content="브장신 병아리 둘이 네트를 사이에 두고 맞붙는 2D 배구 — 점프·강타로 15점을 먼저! CPU 3단계, 한 기기 2인 대전.">
+<meta name="description" content="브장신 병아리 둘이 네트를 사이에 두고 맞붙는 2D 배구 — 점프·강타로 15점을 먼저! CPU 3단계, 한 기기 2인 대전, 클랜원과 온라인 랭크 대전.">
 <meta name="theme-color" content="#4aa8e8">
 <style>
 :root{--sky1:#59b4f0;--sky2:#c9ecff;--bg:#e9f5ff;--panel:#ffffff;--line:#9cc8ee;--txt:#14284a;--sub:#3a557f;--mut:#6a82a8;--gold:#ffb81f;--gold-d:#b06f00;--red:#e8456a;--blue:#3b7be8;--ink:#1b1405;--hd:#2e86d6;--hdt:#fff}
@@ -39,6 +39,37 @@ header h1{margin:0;font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow
 .cl button.big{width:84px;height:84px;font-size:15px}.cl button.act{background:linear-gradient(180deg,#ffd75e,#f09a12);border-color:#fff;color:var(--ink);box-shadow:0 5px 0 #8a5a00}.cl button.down{transform:translateY(3px);filter:brightness(.92)}
 #hint{flex:none;text-align:center;font-size:12.5px;color:var(--mut);padding:0 12px calc(10px + env(safe-area-inset-bottom))}
 @media (pointer:coarse){#hint{display:none}}
+/* ---- 온라인 ---- */
+#netBar{flex:none;display:none;align-items:center;justify-content:center;gap:10px;padding:0 10px;font-size:12px;color:var(--sub);min-height:22px}
+#app.net #netBar{display:flex}#app.net #box{width:min(100%,calc((100dvh - 232px) * 432 / 264))}
+#netBar b{color:var(--txt)}#netBar .ok{color:#1f9d55}#netBar .warn{color:#d9791a}#netBar .bad{color:#d6334f}
+#nbClaim{width:auto;height:auto;padding:3px 10px;border-radius:99px;background:var(--red);color:#fff;font-size:12px;border:0;cursor:pointer;font-weight:900}
+.tb{display:inline-flex;align-items:center;gap:3px;padding:0 8px;border-radius:99px;font-size:12px;font-weight:900;color:#fff;background:var(--tc,#7c8aa8);white-space:nowrap;line-height:1.55;vertical-align:middle}
+.tb.big{font-size:17px;padding:2px 14px}
+.sc small{display:inline-flex;align-items:center;gap:4px;max-width:34vw;min-width:0}.sc small .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#onl{display:none;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px 14px calc(18px + env(safe-area-inset-bottom));-webkit-user-select:text;user-select:text;width:100%;max-width:760px;margin:0 auto}
+#app.onl #onl{display:block}#app.onl #scoreBar,#app.onl #stageWrap,#app.onl #pad,#app.onl #hint,#app.onl #netBar{display:none}
+.oc{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:12px}
+.oc h3{margin:0 0 8px;font-size:15px}.oc p{margin:4px 0;font-size:13px;color:var(--sub);line-height:1.55}
+.me-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.me-card .rt{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+.me-card .nm{font-weight:900;font-size:16px}.stats{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-top:6px}.stats b{color:var(--txt)}
+.bar{height:8px;border-radius:99px;background:rgba(120,140,190,.25);overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:var(--gold)}
+.orow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.obtn{border:2px solid var(--line);background:linear-gradient(180deg,#6aa8ff,#3b6fe0);color:#fff;border-radius:14px;padding:10px 16px;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #1f3fa0;font-family:inherit}
+.obtn:active{transform:translateY(2px);box-shadow:0 1px 0 #1f3fa0}.obtn.gold{background:linear-gradient(180deg,#ffd75e,#f09a12);color:var(--ink);box-shadow:0 3px 0 #8a5a00}.obtn.alt{background:linear-gradient(180deg,#8b98c9,#5b6aa3);box-shadow:0 3px 0 #333f70}.obtn[disabled]{opacity:.5;cursor:default}
+.oin{border:2px solid var(--line);background:var(--bg);color:var(--txt);border-radius:12px;padding:9px 12px;font-size:16px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;width:7.5em;text-align:center;font-family:inherit}
+.otabs{display:flex;gap:6px;margin:0 0 10px}.otabs button{flex:1;border:2px solid var(--line);background:var(--panel);color:var(--sub);border-radius:12px;padding:8px 4px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit}.otabs button.on{background:var(--hd);color:#fff;border-color:var(--hd)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}.tbl th{font-size:11px;color:var(--mut);text-align:left;padding:4px 6px;font-weight:700}.tbl td{padding:6px;border-top:1px solid var(--line);vertical-align:middle}.tbl .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl tr.me td{background:rgba(255,184,31,.18)}.tbl td.nmc{max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.win{color:#1f9d55;font-weight:900}.lose{color:#d6334f;font-weight:900}.dim{color:var(--mut)}
+.note{background:rgba(255,184,31,.18);border:2px solid var(--gold);border-radius:12px;padding:8px 12px;font-size:13px;margin-bottom:10px}
+.search{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.spin{width:18px;height:18px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--blue);animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+.codeBig{font-size:clamp(34px,10vw,56px);font-weight:900;letter-spacing:.25em;text-shadow:0 3px 0 rgba(0,0,0,.4);padding-left:.25em}
+#ovOn{gap:6px;padding:8px}#ovOn h2{font-size:clamp(20px,5vw,32px)}#onBody{display:flex;flex-direction:column;align-items:center;gap:5px;max-width:100%}
+.rrow{display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap}.rbig{font-size:clamp(22px,6vw,34px);font-weight:900;font-variant-numeric:tabular-nums}
+.dl{font-weight:900;font-size:clamp(16px,4vw,22px);padding:1px 10px;border-radius:99px}.dl.up{background:#1f9d55}.dl.dn{background:#d6334f}.dl.zz{background:#6a82a8}
+.promo{font-size:clamp(14px,3.6vw,20px);font-weight:900;animation:pr 1.1s ease-out both}@keyframes pr{0%{transform:scale(.3);opacity:0}55%{transform:scale(1.25);opacity:1}100%{transform:scale(1)}}
+.promo.up{color:#ffe27a}.promo.dn{color:#ffb0c0}
 </style>
 </head>
 <body>
@@ -50,17 +81,21 @@ header h1{margin:0;font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow
     <button id="menuBtn" title="메뉴" aria-label="메뉴로 나가기">☰</button>
   </header>
   <div id="scoreBar" aria-live="polite"><div class="sc me"><small id="n0">나</small><b id="s0">0</b></div><span id="vs">VS</span><div class="sc op"><b id="s1">0</b><small id="n1">CPU</small></div></div>
+  <div id="netBar" aria-live="polite"><span id="nbState">연결 중…</span><span id="nbPing"></span><button id="nbClaim" hidden>기권승 요청</button></div>
+  <div id="onl" aria-label="온라인 대전"></div>
   <div id="stageWrap"><div id="box">
     <canvas id="cv" width="864" height="528" role="img" aria-label="병아리 둘이 네트를 사이에 두고 배구를 하는 화면"></canvas>
     <div class="ov show" id="ovMenu">
       <h2>🏐 브장신 배구</h2>
       <p>병아리를 움직여 공을 상대 땅에 떨어뜨리면 1점!<br><b>15점</b>을 먼저 내면 이겨요.</p>
       <div class="btns"><button class="btn" data-start="cpu" data-level="easy">쉬움</button><button class="btn" data-start="cpu" data-level="normal">보통</button><button class="btn gold" data-start="cpu" data-level="hard">어려움</button></div>
-      <div class="btns"><button class="btn alt" data-start="2p">👥 2인 대전 (한 기기)</button></div>
+      <div class="btns"><button class="btn alt" data-start="2p">👥 2인 대전 (한 기기)</button><button class="btn gold" id="goOnline">🌐 온라인 대전</button></div>
       <p class="rec" id="rec"></p>
       <p class="rec">이동 ←→ / A D · 점프 ↑ / W · 때리기 Space(공중에서 누르면 <b>강타</b>, ↓ 같이 누르면 내려찍기) · 2P는 방향키 + Enter</p>
     </div>
     <div class="ov" id="ovOver"><h2 id="overT">승리!</h2><p id="overP"></p><div class="btns"><button class="btn gold" id="again">한 판 더</button><button class="btn alt" id="toMenu">메뉴</button></div></div>
+    <div class="ov" id="ovWait"><h2 id="waitT">상대를 기다려요</h2><p id="waitP"></p><div class="codeBig" id="waitCode" hidden></div><div class="btns"><button class="btn alt" id="waitBack" hidden>돌아가기</button><button class="btn alt" id="waitCancel">나가기</button></div></div>
+    <div class="ov" id="ovOn"><div id="onBody"></div><div class="btns" id="onBtns"></div></div>
     <div class="ov" id="ovPause" style="background:rgba(10,24,60,.4)"><h2>⏸ 잠깐 멈춤</h2><div class="btns"><button class="btn gold" id="resume">계속하기</button><button class="btn alt" id="toMenu2">메뉴</button></div></div>
   </div></div>
   <div id="pad" aria-label="터치 조작">
@@ -69,7 +104,8 @@ header h1{margin:0;font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow
   </div>
   <div id="hint">키보드: ←→ 이동 · ↑ 점프 · Space 때리기(공중=강타) · ↓ 같이 누르면 내려찍기 · P 일시정지</div>
 </div>
-<script src="brjvolley.js?v=2"></script>
+<script src="brjvolley.js?v=3"></script>
+<script src="brjvolley_net.js?v=1"></script>
 <script>
 (function(){
 'use strict';
@@ -104,7 +140,8 @@ const down=(list)=>list.some(c=>keys[c]||pend[c]);   // 한 프레임보다 짧�
 function in1(){ const K=P2?K1B:K1; return {l:down(K.l)||touch.l||tpend.l,r:down(K.r)||touch.r||tpend.r,u:down(K.u)||touch.u||tpend.u,d:down(K.d),hit:down(K.hit)||touch.hit||tpend.hit}; }
 function in2(){ return {l:down(K2.l),r:down(K2.r),u:down(K2.u),d:down(K2.d),hit:down(K2.hit)}; }
 window.addEventListener('keydown',e=>{
-  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+  if((MODE==='play'||MODE==='net')&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+  if(e.target&&e.target.id==='codeIn') return;
   keys[e.code]=true; pend[e.code]=true;
   if(e.code==='KeyP'||e.code==='Escape'){ if(MODE==='play') setPause(!paused); }
   if(MODE==='menu'&&(e.code==='Enter')) { /* 메뉴에서는 버튼으로 */ }
@@ -119,12 +156,12 @@ if(window.matchMedia&&matchMedia('(pointer:coarse)').matches) $('pad').classList
 // ---------- 흐름 ----------
 function show(id,on){ $(id).classList.toggle('show',!!on); }
 function start(mode,level){
-  P2=mode==='2p'; LEVEL=level||'normal'; G=BV.create({seed:(Date.now()&0xffff)||7,level:P2?null:LEVEL,target:15}); G.reset();
+  $('app').classList.remove('net','onl'); P2=mode==='2p'; LEVEL=level||'normal'; MYSIDE=0; G=BV.create({seed:(Date.now()&0xffff)||7,level:P2?null:LEVEL,target:15}); G.reset();
   MODE='play'; paused=false; parts=[]; texts=[]; trail=[]; banner=null; shake=0; flash=0;
   $('n0').textContent=P2?'1P':'나'; $('n1').textContent=P2?'2P':'CPU·'+({easy:'쉬움',normal:'보통',hard:'어려움'}[LEVEL]);
   show('ovMenu',false); show('ovOver',false); show('ovPause',false); updScore(); banner={t:'서브!',life:60,c:'#fff'}; ac();
 }
-function toMenu(){ MODE='menu'; paused=false; G=null; show('ovOver',false); show('ovPause',false); $('rec').textContent=recText(); show('ovMenu',true); $('s0').textContent='0'; $('s1').textContent='0'; }
+function toMenu(){ $('app').classList.remove('onl','net'); MODE='menu'; paused=false; G=null; show('ovOver',false); show('ovPause',false); $('rec').textContent=recText(); show('ovMenu',true); $('s0').textContent='0'; $('s1').textContent='0'; }
 function setPause(p){ paused=p; show('ovPause',p); }
 function updScore(){ if(!G) return; $('s0').textContent=G.s.score[0]; $('s1').textContent=G.s.score[1]; }
 function finish(){
@@ -144,9 +181,9 @@ function handleEv(){
     else if(e.t==='spike'){ snd('spike'); burst(e.x,e.y,'#ffd23c',18,5); flash=.35; shake=7; say('쾅!',e.x,e.y-30,'#ffd23c',26); }
     else if(e.t==='wall') snd('wall'); else if(e.t==='net'){ snd('net'); burst(NET_X,NET_TOP+20,'#fff',4,1.5); }
     else if(e.t==='bounce') { snd('bounce'); burst(e.x,GROUND,'#e8c27a',8,2.5); }
-    else if(e.t==='point'){ updScore(); const mine=e.side===0; if(P2||mine) snd('point'); else snd('lose'); banner={t:(P2?(mine?'1P':'2P')+' 득점!':mine?'득점! +1':'실점…'),life:70,c:mine?'#ffe27a':'#ffb0c0'}; }
+    else if(e.t==='point'){ updScore(); const mine=e.side===(MODE==='net'?MYSIDE:0); if(P2||mine) snd('point'); else snd('lose'); banner={t:(P2?(mine?'1P':'2P')+' 득점!':mine?'득점! +1':'실점…'),life:70,c:mine?'#ffe27a':'#ffb0c0'}; }
     else if(e.t==='serve'){ snd('serve'); banner={t:'서브!',life:50,c:'#fff'}; }
-    else if(e.t==='win'){ finish(); }
+    else if(e.t==='win'){ if(MODE==='net') resultWaiting(); else finish(); }
   }
 }
 // ---------- 갱신 ----------
@@ -158,7 +195,8 @@ function stepGame(){
 }
 function frame(ts){
   const dt=Math.min(100,ts-(last||ts)); last=ts; tNow=ts;
-  if(MODE==='play'&&!paused){ acc+=dt; let n=0; while(acc>=1000/60&&n<5){ acc-=1000/60; n++; stepGame(); } if(n===5) acc=0; }
+  if(MODE==='net') netFrame(dt);
+  else if(MODE==='play'&&!paused){ acc+=dt; let n=0; while(acc>=1000/60&&n<5){ acc-=1000/60; n++; stepGame(); } if(n===5) acc=0; }
   else{ acc=0; for(const k in pend) delete pend[k]; for(const k in tpend) delete tpend[k]; }
   for(const p of parts){ p.x+=p.vx; p.y+=p.vy; p.vy+=.15; p.l--; } parts=parts.filter(p=>p.l>0);
   for(const t of texts){ t.y-=.5; t.l--; } texts=texts.filter(t=>t.l>0);
@@ -186,12 +224,12 @@ function drawChick(p,idx){
   const air=GROUND-p.y, sc=Math.max(.6,1-air/360);
   shadow(p.x,GROUND,22*sc,.28*sc);
   const name=p.pose==='hit'?(air>6?'chick_atk2':'chick_atk1'):p.pose==='jump'?'chick_skill':'chick_idle';
-  let im=idx===1?tinted(name):ld(name); const ok=im&&(im.complete===undefined||im.complete)&&(im.naturalWidth||im.width);
+  let im=idx===(MODE==='net'?1-MYSIDE:1)?tinted(name):ld(name); const ok=im&&(im.complete===undefined||im.complete)&&(im.naturalWidth||im.width);
   const size=64, x=p.x, y=p.y+3;
   ctx.save(); ctx.translate(x,y); ctx.scale(p.face<0?-1:1,1); if(p.pose==='jump'&&p.vy<0) ctx.scale(.94,1.08); else if(p.vy>0&&air>2) ctx.scale(1.04,.96);
   if(ok) ctx.drawImage(im,-size/2,-size*.97,size,size); else { ctx.font='42px serif'; ctx.textAlign='center'; ctx.fillText('🐥',0,-6); }
   ctx.restore();
-  ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.55)'; const lab=idx===0?(P2?'1P':'나'):(P2?'2P':'CPU'); ctx.strokeText(lab,x,p.y-64); ctx.fillStyle=idx===0?'#9cc6ff':'#ff9fb4'; ctx.fillText(lab,x,p.y-64);
+  ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.55)'; const lab=MODE==='net'?(NAMES[idx]||'').slice(0,8):idx===0?(P2?'1P':'나'):(P2?'2P':'CPU'); ctx.strokeText(lab,x,p.y-64); ctx.fillStyle=idx===0?'#9cc6ff':'#ff9fb4'; ctx.fillText(lab,x,p.y-64);
 }
 function drawBall(b){
   shadow(b.x,GROUND,13,.22*Math.max(.3,1-(GROUND-b.y)/300));
@@ -215,10 +253,273 @@ function draw(){
   for(const t of texts){ ctx.globalAlpha=Math.min(1,t.l/20); ctx.font=`900 ${t.s}px sans-serif`; ctx.textAlign='center'; ctx.lineWidth=4; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.strokeText(t.t,t.x,t.y); ctx.fillStyle=t.c; ctx.fillText(t.t,t.x,t.y); } ctx.globalAlpha=1;
   ctx.restore();
   if(flash>0){ ctx.globalAlpha=flash; ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
-  if(banner&&MODE==='play'){ const q=Math.min(1,banner.life/12), sc=.8+.2*q; ctx.globalAlpha=Math.min(1,banner.life/14); ctx.font=`900 ${Math.round(34*sc)}px sans-serif`; ctx.textAlign='center'; ctx.lineWidth=6; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.strokeText(banner.t,W/2,96); ctx.fillStyle=banner.c; ctx.fillText(banner.t,W/2,96); ctx.globalAlpha=1; }
+  if(MODE==='net'&&CD.phase==='count'){ const left=Math.max(0,CD.end-tNow), n=Math.ceil(left/1000), fr=(left%1000)/1000; ctx.globalAlpha=.5+.5*fr; ctx.font=`900 ${Math.round(70+30*fr)}px sans-serif`; ctx.textAlign='center'; ctx.lineWidth=8; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.strokeText(String(n),W/2,120); ctx.fillStyle='#ffe27a'; ctx.fillText(String(n),W/2,120); ctx.globalAlpha=1; ctx.font='900 16px sans-serif'; ctx.lineWidth=4; ctx.strokeText(MYSIDE?'나는 오른쪽 →':'← 나는 왼쪽',W/2,150); ctx.fillStyle='#fff'; ctx.fillText(MYSIDE?'나는 오른쪽 →':'← 나는 왼쪽',W/2,150); }
+  if(banner&&(MODE==='play'||MODE==='net')){ const q=Math.min(1,banner.life/12), sc=.8+.2*q; ctx.globalAlpha=Math.min(1,banner.life/14); ctx.font=`900 ${Math.round(34*sc)}px sans-serif`; ctx.textAlign='center'; ctx.lineWidth=6; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.strokeText(banner.t,W/2,96); ctx.fillStyle=banner.c; ctx.fillText(banner.t,W/2,96); ctx.globalAlpha=1; }
+}
+// ================= 🌐 온라인 대전 =================
+// 서버는 입력만 중계하고, 두 브라우저가 같은 시드·같은 입력으로 엔진을 똑같이 돌린다(brjvolley_net.js 의 락스텝).
+const NL=window.BrjVolleyNet, API=NL.API, TI=NL.tierInfo, DISCORD_CLIENT_ID='1520763174675022028', ACTIVE_KEY='brjvb_active';
+// 진행 중인 판 표시 — 탭끼리 공유되는 localStorage 라서 값에 탭 id·갱신 시각을 넣는다(다른 탭이 갱신 중인 판은 건드리지 않는다)
+const TABID=Math.random().toString(36).slice(2,10); let ACTIVE_IV=null;
+function activeRead(){ try{ const raw=localStorage.getItem(ACTIVE_KEY); if(!raw) return null; try{ const o=JSON.parse(raw); if(o&&typeof o==='object'&&o.room) return o; }catch(e){} return {room:String(raw),tab:'',t:0}; }catch(e){ return null; } }
+function activeSet(room){ clearInterval(ACTIVE_IV); const w=()=>{ try{ localStorage.setItem(ACTIVE_KEY,JSON.stringify({room,tab:TABID,t:Date.now()})); }catch(e){} }; w(); ACTIVE_IV=setInterval(w,2000); }
+function activeClear(){ clearInterval(ACTIVE_IV); ACTIVE_IV=null; try{ const o=activeRead(); if(o&&o.tab===TABID) localStorage.removeItem(ACTIVE_KEY); }catch(e){} }
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
+function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페이지뿐 → 메인이 받아 로그인 처리 후 이 페이지로 되돌려 준다
+  const st=Math.random().toString(36).slice(2)+'.'+Math.floor(performance.now());
+  let none=false; try{const a=JSON.parse(localStorage.getItem('sgg_dc_auto')||'null');none=!!(a&&a.id);}catch(e){}
+  try{sessionStorage.setItem('sgg_oauth_state',st);sessionStorage.setItem('sgg_oauth_return','게임:brjvolley');
+      if(none)localStorage.setItem('sgg_dc_try',String(Date.now()));}catch(e){}
+  const main=location.origin+new URL('./',location.href).pathname;
+  location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(DISCORD_CLIENT_ID)
+    +'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
+}
+const ON={open:false,state:'boot',tab:'play',me:null,status:null,rec:null,ranks:null,online:null,waiting:null,searching:false,qStart:0,qTimer:null,sTimer:null,wTimer:null,notice:'',code:'',busy:false,seq:0};
+let RESIV=null, NETM=null, MYSIDE=0, CD={phase:'none',end:0}, NAMES=['',''], PEER=[null,null], PRE=null, WAITMODE='', NBTXT='', RESANIM=null, MYINFO=null;
+const vcall=(path,body)=>{ const u=dcUser(); return NL.call(path,Object.assign({token:u?u.token:''},body||{})); };
+const nz=v=>Number.isFinite(Number(v))?Number(v):0;
+function badge(o,big){ const t=TI(o); if(t.idx<0) return `<span class="tb${big?' big':''}" style="--tc:${t.c}">${t.e} 배치 중</span>`; return `<span class="tb${big?' big':''}" style="--tc:${t.c}">${t.e} ${esc(t.n)}${t.step_s?' '+t.step_s:''}</span>`; }
+function badgeS(o){ const t=TI(o); return `<span class="tb" style="--tc:${t.c}">${t.e}${t.step_s?t.step_s:''}</span>`; }
+function ago(t){ t=Number(t); if(!t) return ''; if(t>1e12) t/=1000; const d=Math.max(0,Date.now()/1000-t); return d<60?'방금':d<3600?Math.floor(d/60)+'분 전':d<86400?Math.floor(d/3600)+'시간 전':Math.floor(d/86400)+'일 전'; }
+const fmt=n=>nz(n).toLocaleString('en-US');
+const pct=(w,l)=>(nz(w)+nz(l))?Math.round(nz(w)*100/(nz(w)+nz(l)))+'%':'-';
+const sgn=n=>n>0?'+'+n:String(n);
+// ---------- 패널 ----------
+function onlOpen(){ ON.open=true; ON.tab='play'; $('app').classList.add('onl'); $('app').classList.remove('net'); show('ovMenu',false); renderOnl(); refreshStatus(); clearInterval(ON.sTimer); ON.sTimer=setInterval(()=>{ if(ON.open&&!document.hidden) refreshStatus(true); },6000); clearInterval(ON.wTimer); ON.wTimer=setInterval(tickWait,1000); }
+function onlClose(){ if(ON.searching) cancelSearch(); ON.open=false; clearInterval(ON.sTimer); clearInterval(ON.wTimer); ON.notice=''; $('app').classList.remove('onl'); toMenu(); }
+function tickWait(){ const e=document.getElementById('qWait'); if(e&&ON.searching) e.textContent=Math.floor((Date.now()-ON.qStart)/1000); }
+async function refreshStatus(quiet){
+  const u=dcUser(); if(!u){ ON.state='out'; renderOnl(); return; }
+  const seq=++ON.seq, j=await vcall('/vb/status');
+  if(seq!==ON.seq||!ON.open) return;
+  if(j&&j.ok){ ON.state='ok'; ON.status=j; ON.me=j.me||ON.me; ON.online=j.online; ON.waiting=j.waiting; if(j.me) MYINFO=j.me; }
+  else if(j&&j.code==='auth') ON.state='auth';
+  else if(j&&j.code==='not_member') ON.state='nomember';
+  else if(!ON.me) ON.state='down';       // 서버가 꺼졌거나 아직 구버전
+  else if(!quiet) ON.notice='서버와 잠깐 연결이 안 돼요. 다시 시도하고 있어요.';
+  renderOnl();
+}
+function meCard(){
+  const m=ON.me||{}, u=dcUser(), placed=nz(m.placed), plc=m.placed!=null&&placed<5;
+  return `<div class="oc"><div class="me-card">${plc?`<span class="tb big" style="--tc:#7c8aa8">❔ 배치 중 (${placed}/5)</span>`:badge(m,true)}<div><div class="nm">${esc((u&&u.name)||m.name||'나')}</div><div class="rt">${m.rating!=null?fmt(m.rating):'-'}</div></div></div>
+  <div class="stats"><span><b>${nz(m.w)}</b>승 <b>${nz(m.l)}</b>패 (${pct(m.w,m.l)})</span><span>연승 <b>${nz(m.streak)}</b></span>${m.peak?`<span>최고 <b>${fmt(m.peak)}</b></span>`:''}</div>
+  ${plc?`<div class="bar"><i style="width:${Math.min(100,placed*20)}%"></i></div><p>랭크 대전을 5판 치르면 티어가 정해져요. 지금은 ${placed}/5판.</p>`:''}</div>`;
+}
+function renderOnl(){
+  if(!ON.open) return; const el=$('onl'), u=dcUser(), a=document.activeElement, foc=a&&a.id==='codeIn', sel=foc?a.selectionStart:0;
+  let h=`<div class="orow" style="justify-content:space-between;margin-bottom:10px"><b style="font-size:17px">🌐 온라인 대전</b><button class="obtn alt" data-on="close">← 메뉴</button></div>`;
+  if(ON.notice) h+=`<div class="note">${esc(ON.notice)}</div>`;
+  if(!u||ON.state==='out'||ON.state==='auth'){
+    h+=`<div class="oc"><h3>🔐 로그인이 필요해요</h3><p>${ON.state==='auth'?'로그인이 만료됐어요. 다시 로그인해 주세요.':'온라인 대전은 디스코드로 로그인한 클랜원만 할 수 있어요. 전적과 티어가 내 이름으로 저장돼요.'}</p><p><button class="obtn gold" data-on="login">디스코드로 로그인</button></p></div><div class="oc"><p>1인(CPU)·2인(한 기기) 대전은 로그인 없이 그대로 할 수 있어요.</p></div>`;
+  }else if(ON.state==='boot') h+=`<div class="oc"><div class="search"><span class="spin"></span>서버에 연결하는 중…</div></div>`;
+  else if(ON.state==='down') h+=`<div class="oc"><h3>😴 지금은 온라인 대전을 쓸 수 없어요</h3><p>대전 서버에 연결이 안 돼요. 서버가 점검 중이거나 아직 준비 중일 수 있어요. 1인·2인 대전은 그대로 할 수 있어요.</p><p><button class="obtn" data-on="retry">다시 시도</button></p></div>`;
+  else if(ON.state==='nomember') h+=`<div class="oc"><h3>🔒 클랜원 전용이에요</h3><p>랭크 대전은 클랜 디스코드 서버에 있는 사람만 할 수 있어요.</p></div>`;
+  else{
+    h+=meCard();
+    h+=`<div class="otabs"><button data-on="tab" data-tab="play" class="${ON.tab==='play'?'on':''}">🏐 대전</button><button data-on="tab" data-tab="rec" class="${ON.tab==='rec'?'on':''}">📊 전적</button><button data-on="tab" data-tab="rank" class="${ON.tab==='rank'?'on':''}">🏆 순위표</button></div>`;
+    if(ON.tab==='play') h+=playTab(); else if(ON.tab==='rec') h+=recTab(); else h+=rankTab();
+  }
+  el.innerHTML=h;
+  if(foc){ const i=document.getElementById('codeIn'); if(i){ i.focus(); try{ i.setSelectionRange(sel,sel); }catch(e){} } }
+}
+function playTab(){
+  const cnt=`지금 접속 중 <b>${ON.online==null?'-':ON.online}</b>명 · 대기 중 <b>${ON.waiting==null?'-':ON.waiting}</b>명`;
+  let h=`<div class="oc"><h3>🔎 랭크 대전</h3><p>비슷한 레이팅의 클랜원과 맞붙어요. 이기면 레이팅이 오르고 티어가 바뀌어요.</p><p id="onCnt">${cnt}</p>`;
+  if(ON.searching) h+=`<div class="search"><span class="spin"></span><span>상대를 찾는 중… <b id="qWait">${Math.floor((Date.now()-ON.qStart)/1000)}</b>초</span><button class="obtn alt" data-on="cancel">취소</button></div><p>다른 클랜원이 들어오면 바로 시작해요. 3분 안에 아무도 없으면 자동으로 멈춰요.</p>`;
+  else h+=`<p><button class="obtn gold" data-on="rank"${ON.busy?' disabled':''}>🔎 랭크 대전 찾기</button></p>`;
+  h+=`</div><div class="oc"><h3>🤝 친선방</h3><p>친구에게 방 코드를 알려 주고 같이 해요. 레이팅과 전적에는 반영되지 않아요.</p><div class="orow"><button class="obtn"${ON.busy||ON.searching?' disabled':''} data-on="create">🏠 방 만들기</button><span class="dim">또는</span><input id="codeIn" class="oin" maxlength="4" placeholder="코드" value="${esc(ON.code)}" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="obtn"${ON.busy||ON.searching?' disabled':''} data-on="join">입장</button></div></div>`;
+  return h;
+}
+function recTab(){
+  const R=ON.rec; if(!R) return `<div class="oc"><div class="search"><span class="spin"></span>전적을 불러오는 중…</div></div>`;
+  if(R.err) return `<div class="oc"><p>전적을 불러오지 못했어요.</p><p><button class="obtn" data-on="tab" data-tab="rec">다시 시도</button></p></div>`;
+  const rc=R.record||{}, fr=rc.friendly||{}, hist=(R.hist||[]).slice(0,20);
+  let h=`<div class="oc"><h3>내 기록</h3><div class="stats"><span>총 <b>${nz(rc.matches)||nz(rc.w)+nz(rc.l)}</b>판</span><span>득점 <b>${nz(rc.pf)}</b> · 실점 <b>${nz(rc.pa)}</b></span><span>최고 연승 <b>${nz(rc.best_streak)}</b></span><span>친선 <b>${nz(fr.w)}</b>승 <b>${nz(fr.l)}</b>패</span></div></div>`;
+  h+=`<div class="oc"><h3>최근 ${hist.length||''}판</h3>`;
+  if(!hist.length) h+=`<p>아직 기록이 없어요. 랭크 대전을 한 판 해 보세요!</p>`;
+  else{ h+=`<table class="tbl"><tr><th>상대</th><th class="num">점수</th><th class="num">결과</th><th class="num">레이팅</th></tr>`;
+    for(const x of hist){ const win=!!x.win; h+=`<tr><td class="nmc">${esc(x.opp||'?')}${x.ranked===false?' <span class="dim">· 친선</span>':''}<br><span class="dim" style="font-size:11px">${ago(x.t)}${x.opp_rating!=null&&x.ranked!==false?' · '+fmt(x.opp_rating):''}</span></td><td class="num">${x.ff?'<span class="dim">기권</span>':`${nz(x.ps)} : ${nz(x.os)}`}${x.capped?' <span class="dim" style="font-size:11px">한도</span>':''}</td><td class="num ${win?'win':'lose'}">${win?'승':'패'}</td><td class="num">${x.ranked===false?'<span class="dim">-</span>':`<span class="${nz(x.delta)>0?'win':nz(x.delta)<0?'lose':'dim'}">${sgn(nz(x.delta))}</span>`}</td></tr>`; }
+    h+=`</table>`; }
+  h+=`</div>`;
+  let bo=R.by_opp, rows=[]; const nmOf={}; for(const x of (R.hist||[])) if(x.opp_uid) nmOf[x.opp_uid]=x.opp;
+  if(Array.isArray(bo)) rows=bo.map(x=>({name:x.name||nmOf[x.uid]||'?',w:nz(x.w),l:nz(x.l)}));
+  else if(bo&&typeof bo==='object') rows=Object.keys(bo).map(k=>({name:(bo[k]&&bo[k].name)||nmOf[k]||'?',w:nz(bo[k]&&bo[k].w),l:nz(bo[k]&&bo[k].l)}));
+  rows=rows.filter(r=>r.w+r.l>0).sort((a,b)=>(b.w+b.l)-(a.w+a.l)).slice(0,8);
+  if(rows.length){ h+=`<div class="oc"><h3>상대별 전적</h3><table class="tbl"><tr><th>상대</th><th class="num">전적</th><th class="num">승률</th></tr>`+rows.map(r=>`<tr><td class="nmc">${esc(r.name)}</td><td class="num">${r.w}승 ${r.l}패</td><td class="num">${pct(r.w,r.l)}</td></tr>`).join('')+`</table></div>`; }
+  return h;
+}
+function rankTab(){
+  const R=ON.ranks; if(!R) return `<div class="oc"><div class="search"><span class="spin"></span>순위표를 불러오는 중…</div></div>`;
+  if(R.err) return `<div class="oc"><p>순위표를 불러오지 못했어요.</p><p><button class="obtn" data-on="tab" data-tab="rank">다시 시도</button></p></div>`;
+  const u=dcUser(), rows=R.rows||[], mine=R.me;
+  let h=`<div class="oc"><h3>🏆 순위표 <span class="dim" style="font-size:12px;font-weight:400">배치를 끝낸 사람 · 최근 60일 안에 한 사람${R.total!=null?' · '+R.total+'명':''}</span></h3>`;
+  if(!rows.length) h+=`<p>아직 순위에 오른 사람이 없어요. 랭크 대전을 5판 치르면 이름이 올라가요!</p>`;
+  else{ h+=`<table class="tbl"><tr><th>#</th><th>티어</th><th>이름</th><th class="num">레이팅</th><th class="num">전적</th></tr>`;
+    const isMe=x=>(mine&&x.rank===mine.rank&&x.name===mine.name)||(u&&x.uid&&String(x.uid)===String(u.id));
+    for(const x of rows) h+=`<tr class="${isMe(x)?'me':''}"><td class="num">${nz(x.rank)}</td><td>${badgeS(x)}</td><td class="nmc">${esc(x.name)}</td><td class="num"><b>${fmt(x.rating)}</b></td><td class="num">${nz(x.w)}-${nz(x.l)}</td></tr>`;
+    if(mine&&!rows.some(x=>x.rank===mine.rank)) h+=`<tr class="me"><td class="num">${nz(mine.rank)}</td><td>${badgeS(mine)}</td><td class="nmc">${esc(mine.name||'나')}</td><td class="num"><b>${fmt(mine.rating)}</b></td><td class="num">${nz(mine.w)}-${nz(mine.l)}</td></tr>`;
+    h+=`</table>`; }
+  return h+`</div>`;
+}
+async function loadTab(t){
+  if(t==='rec'){ ON.rec=null; renderOnl(); const j=await vcall('/vb/me'); if(!ON.open) return; ON.rec=j&&j.ok?j:{err:1}; if(j&&j.ok&&j.record){ ON.me=Object.assign({},ON.me,j.record); } }
+  else if(t==='rank'){ ON.ranks=null; renderOnl(); const j=await vcall('/vb/ranks'); if(!ON.open) return; ON.ranks=j&&j.ok?j:{err:1}; }
+  renderOnl();
+}
+// ---------- 매칭 ----------
+const QMSG={in_queue:'랭크 대기 중이에요. 먼저 취소해 주세요.',busy:'요청이 너무 잦아요. 잠깐 뒤에 다시 해 주세요.',not_member:'클랜원만 랭크 대전을 할 수 있어요.',auth:'로그인이 만료됐어요.',bad:'요청이 올바르지 않아요.'};
+const INROOMMSG='다른 창에서 대전 중이에요. 그 창에서 끝내거나 닫은 뒤(20초쯤) 다시 눌러 주세요.';
+async function joinQueue(retry){
+  if(ON.searching||ON.busy) return; ON.busy=true; ON.notice=''; renderOnl();
+  const j=await vcall('/vb/queue',{action:'join',mode:'rank'}); ON.busy=false;
+  if(!j||!j.ok){ ON.notice=(j&&QMSG[j.code])||(j&&j.code==='in_room'?INROOMMSG:'매칭을 시작하지 못했어요. 잠시 뒤에 다시 해 주세요.'); renderOnl(); return; }
+  ON.searching=true; ON.qStart=Date.now(); clearInterval(ON.qTimer); ON.qTimer=setInterval(pollQueue,2000); onQueue(j); renderOnl();
+}
+function onQueue(j){
+  if(!j||!j.ok){ if(j&&j.code==='auth'){ stopSearch(); ON.state='auth'; renderOnl(); } return; }
+  if(j.state==='matched'&&j.room){ stopSearch(); enterMatch({room:j.room,side:j.side,seed:j.seed,opp:j.opp,target:j.target||15,ranked:true}); }
+  else if(j.state==='idle'&&ON.searching&&Date.now()-ON.qStart>3000){ stopSearch(); ON.notice='기다리는 시간이 지나서 찾기를 멈췄어요. 다시 눌러 보세요.'; renderOnl(); }
+}
+function stopSearch(){ ON.searching=false; clearInterval(ON.qTimer); ON.qTimer=null; }
+async function pollQueue(){ if(!ON.searching) return; const j=await vcall('/vb/queue',{action:'poll',mode:'rank'}); if(ON.searching) onQueue(j); }
+async function cancelSearch(){ stopSearch(); renderOnl(); await vcall('/vb/queue',{action:'leave',mode:'rank'}); }
+async function friendly(action){
+  if(ON.busy) return; const code=($('codeIn')?$('codeIn').value:ON.code).trim().toUpperCase(); ON.code=code;
+  if(action==='join'&&!/^[A-Z]{4}$/.test(code)){ ON.notice='방 코드는 영문 4글자예요.'; renderOnl(); return; }
+  ON.busy=true; ON.notice=''; renderOnl();
+  const j=await vcall('/vb/room',action==='join'?{action:'join',code}:{action:'create'}); ON.busy=false;
+  if(j&&j.code==='in_room'){ ON.notice=INROOMMSG; renderOnl(); return; }
+  if(!j||!j.ok){ ON.notice=j&&j.code==='not_found'?'그 코드의 방을 찾을 수 없어요.':j&&j.code==='closed'?'그 방은 이미 닫혔거나 가득 찼어요.':(j&&QMSG[j.code])||'방을 열지 못했어요. 잠시 뒤에 다시 해 주세요.'; renderOnl(); return; }
+  enterMatch({room:j.room,side:j.side,seed:j.seed,opp:j.opp||null,target:j.target||15,ranked:false,code:j.code||code,host:action!=='join'});
+}
+// ---------- 한 판 ----------
+function hud(){
+  const nm=i=>{ const p=PEER[i], n=NAMES[i]||(i===MYSIDE?'나':'상대'); return `${p?badgeS(p):''}<span class="nm">${esc(n)}${i===MYSIDE?' ·나':''}</span>`; };
+  $('n0').innerHTML=nm(0); $('n1').innerHTML=nm(1);
+}
+function enterMatch(o){
+  const u=dcUser(); if(!u) return; ON.open=false; clearInterval(ON.sTimer); clearInterval(ON.wTimer); stopSearch(); $('app').classList.remove('onl'); $('app').classList.add('net');
+  MYSIDE=o.side?1:0; P2=false; PRE=ON.me?Object.assign({},ON.me):null; WAITMODE='';
+  const opp=o.opp||null, myName=(u&&u.name)||(ON.me&&ON.me.name)||'나';
+  NAMES[MYSIDE]=myName; NAMES[1-MYSIDE]=(opp&&opp.name)||'상대'; PEER[MYSIDE]=ON.me||null; PEER[1-MYSIDE]=opp;
+  NETM=new NL.Match({token:u.token,room:o.room,side:MYSIDE,seed:o.seed,target:o.target||15,ranked:!!o.ranked,onEnd:onNetEnd,onLocalOver:()=>{}});
+  NETM.meta={ranked:!!o.ranked,code:o.code||'',host:!!o.host}; G=NETM.G; MODE='net'; paused=false; parts=[]; texts=[]; trail=[]; banner=null; shake=0; flash=0; acc=0;
+  CD={phase:'wait',end:0}; show('ovMenu',false); show('ovOver',false); show('ovPause',false); show('ovOn',false); hud(); updScore(); NBTXT='';
+  activeSet(o.room);
+  showWait(o.host&&!opp?'host':'conn'); NETM.start(); ac();
+}
+function showWait(mode){
+  WAITMODE=mode; const code=NETM&&NETM.meta&&NETM.meta.code;
+  $('waitT').textContent=mode==='host'?'친구를 기다려요':mode==='confirm'?'정말 나갈까요?':'상대에게 연결하는 중…';
+  $('waitP').textContent=mode==='host'?'이 코드를 친구에게 알려 주세요. 친구가 들어오면 바로 시작해요.':mode==='confirm'?(NETM&&NETM.meta.ranked?'지금 나가면 기권패로 처리되고 레이팅이 내려가요.':'친선 대전이라 기록은 없어요.'):'잠깐만 기다려 주세요.';
+  $('waitCode').hidden=mode!=='host'; $('waitCode').textContent=code||''; $('waitBack').hidden=mode!=='confirm'; show('ovWait',true);
+}
+function netMenu(){ if(NETM&&!NETM.finished) showWait('confirm'); else { finishNet(); toMenu(); } }
+function netLeave(){   // 나가기(기권) — 서버에 알리고 온라인 메뉴로
+  const m=NETM; if(m&&!m.finished) m.leave(); finishNet(); onlOpen(); ON.notice=m&&m.meta&&m.meta.ranked&&!m.finished?'기권으로 나갔어요. 랭크 대전은 패배로 기록돼요.':''; renderOnl();
+}
+function finishNet(){ if(NETM){ NETM.stop(); } NETM=null; MODE='menu'; G=null; CD={phase:'none',end:0}; activeClear(); clearInterval(RESIV); $('app').classList.remove('net'); ['ovWait','ovOn','ovOver'].forEach(i=>show(i,false)); $('n0').textContent='나'; $('n1').textContent='CPU'; $('s0').textContent='0'; $('s1').textContent='0'; }
+function netBarText(){
+  const m=NETM; if(!m) return; const st=m.status; let t, cls='ok';
+  if(m.finished) t='대전이 끝났어요';
+  else if(CD.phase==='wait') t='상대 연결 중…';
+  else if(CD.phase==='count') t='곧 시작해요';
+  else if(st.fails>=2){ t=`서버 응답 없음 (${st.fails}회)`; cls='bad'; }
+  else if(st.stalled>400){ t=`연결 대기… ${(st.stalled/1000).toFixed(1)}초`; cls=st.stalled>3000?'bad':'warn'; }
+  else if(m.localOver) t='결과 확인 중…';
+  else t='연결 좋음';
+  const p=st.rtt?` · 지연 ${st.rtt}ms`:'', html=`<span class="${cls}">${esc(t)}</span><span>${p}</span>`;
+  if(html!==NBTXT){ NBTXT=html; $('nbState').innerHTML=`<span class="${cls}">${esc(t)}</span>`; $('nbPing').textContent=p; }
+  const cc=!m.finished&&st.canClaim&&!m.localOver; const b=$('nbClaim'); if(b.hidden===cc) b.hidden=!cc;
+}
+let INJECT=null;
+function sampleBits(){ if(INJECT){ for(const k in pend) delete pend[k]; for(const k in tpend) delete tpend[k]; return INJECT(NETM.G.s.t,MYSIDE)&31; } const b=NL.enc(in1()); for(const k in pend) delete pend[k]; for(const k in tpend) delete tpend[k]; return b; }
+function netFrame(dt){
+  const m=NETM; if(!m) return;
+  if(CD.phase==='wait'&&m.status.state==='play'){
+    CD.phase='count'; const si=m.status.startIn;   /* 서버가 알려 주는 남은 초(없으면 3초) */
+     CD.end=tNow+(typeof si==='number'?Math.max(0,Math.min(8000,si<=30?si*1000:si)):3000); show('ovWait',false); WAITMODE=''; PEER[1-MYSIDE]=PEER[1-MYSIDE]||m.status.peer||null; if(m.status.peer) NAMES[1-MYSIDE]=m.status.peer.name||NAMES[1-MYSIDE]; hud(); }
+  if(m.status.peer&&!PEER[1-MYSIDE]){ PEER[1-MYSIDE]=m.status.peer; if(m.status.peer.name) NAMES[1-MYSIDE]=m.status.peer.name; hud(); }
+  if(CD.phase==='count'&&tNow>=CD.end){ CD.phase='run'; m.begin(); banner={t:'서브!',life:60,c:'#fff'}; snd('serve'); }
+  if(CD.phase==='run'&&!m.finished){
+    acc+=dt; let n=0;
+    while(acc>=1000/60&&n<5){ if(!m.tick(sampleBits)){ acc=Math.min(acc,2000/60); break; } acc-=1000/60; n++; netAfterStep(); }
+    if(n===5) acc=0;
+  } else acc=0;
+  netBarText();
+}
+function netAfterStep(){ handleEv(); const s=G.s; ballAng+=s.ball.spin*0.4+s.ball.vx*0.02; trail.push({x:s.ball.x,y:s.ball.y}); if(trail.length>7) trail.shift(); }
+function resultWaiting(){ $('onBody').innerHTML=`<h2>${NETM&&G&&G.s.winner===MYSIDE?'🏆 승리!':'💥 패배…'}</h2><div class="rbig">${G.s.score[MYSIDE]} : ${G.s.score[1-MYSIDE]}</div><div class="search"><span class="spin"></span><span>결과를 확인하는 중…</span></div>`; $('onBtns').innerHTML=''; show('ovOn',true); }
+const VOIDMSG={desync:'두 화면의 진행이 서로 어긋나서 이 판은 무효예요. 기록과 레이팅은 그대로예요.',timeout:'연결이 끊겨서 이 판은 무효 처리됐어요. 기록과 레이팅은 그대로예요.'};
+async function onNetEnd(info,m){
+  activeClear();
+  const s=m.G.s, side=m.side, ranked=m.meta.ranked, over=s.phase==='over';
+  const btn=(id,label,cls)=>`<button class="btn ${cls||''}" id="${id}">${label}</button>`;
+  const done=(body,again)=>{ $('onBody').innerHTML=body; $('onBtns').innerHTML=(again?btn('onAgain','한 판 더 (재매칭)','gold'):'')+btn('onMenu','온라인 메뉴','alt'); show('ovWait',false); show('ovOn',true); };
+  if(info.kind==='void'){ snd('lose'); return done(`<h2>⚠ 무효 판</h2><p>${esc(VOIDMSG[info.reason]||'이 판은 무효 처리됐어요. 기록과 레이팅은 그대로예요.')}</p>${over?`<p class="rec">화면상 점수 ${s.score[side]} : ${s.score[1-side]}</p>`:''}`,ranked); }
+  if(info.kind==='error'){ return done(`<h2>🔐 로그인이 만료됐어요</h2><p>다시 로그인한 뒤에 해 주세요. 이 판은 기록되지 않을 수 있어요.</p>`,false); }
+  if(info.kind==='closed'){ return done(`<h2>방이 닫혔어요</h2><p>서버에서 이 방이 이미 끝났다고 해요. 전적 탭에서 결과를 확인해 보세요.</p>`,false); }
+  if(info.kind==='lost'){ return done(`<h2>📡 연결이 끊겼어요</h2><p>서버와 20초 넘게 연결이 안 됐어요. 이어서 할 수는 없어요. 랭크 대전이었다면 기권으로 처리될 수 있어요 — 전적 탭에서 확인해 주세요.</p>`,false); }
+  // 정상 종료 / 기권
+  let r=info.result||null; $('onBody').innerHTML=`<div class="search"><span class="spin"></span><span>결과를 확인하는 중…</span></div>`; $('onBtns').innerHTML=''; show('ovWait',false); show('ovOn',true);
+  if(ranked&&(!r||r.rating==null)){ for(let i=0;i<4&&!(r&&r.rating!=null);i++){ const j=await vcall('/vb/me'); if(j&&j.ok&&j.record){ const rc=j.record; r=Object.assign({},r||{},{rating:rc.rating,tier:rc.tier,tier_name:rc.tier_name,tier_step:rc.tier_step,placed:rc.placed,derived:true}); if(PRE&&PRE.rating!=null&&r.delta==null) r.delta=nz(rc.rating)-nz(PRE.rating); break; } await new Promise(z=>setTimeout(z,700)); } }
+  let win=null; if(info.forfeit==='opp') win=true; else if(info.forfeit==='me') win=false; else if(r&&typeof r.win==='boolean') win=r.win; else if(over) win=s.winner===side; else if(r&&nz(r.delta)) win=nz(r.delta)>0;
+  snd(win?'win':'lose');
+  const title=info.forfeit==='opp'?'🏆 기권승!':info.forfeit==='me'?'🏳 기권패':win===true?'🏆 승리!':win===false?'💥 패배…':'대전 종료';
+  const why=String((info.r&&info.r.forfeit_why)||(r&&r.forfeit_why)||'');      // 서버가 준 기권 사유: silent(오래 조용) · leave(나감) · claim(기권승 요청)
+  const SUBS={opp:{leave:'상대가 나가서 이긴 걸로 해요.',silent:'상대 화면이 오래 멈춰 있어서(연결이 끊겼거나 다른 탭·창으로 넘어간 경우) 이긴 걸로 해요.',claim:'상대가 오래 응답이 없어서 기권승으로 처리했어요.',_:'상대가 기권해서 이긴 걸로 해요.'},
+              me:{leave:'나가서 기권패로 처리됐어요.',silent:'내 화면이 오래 멈춰 있어서(연결이 끊겼거나 다른 탭·창으로 넘어간 경우) 기권 처리됐어요. 대전 중에는 이 탭을 계속 열어 두세요.',claim:'내 화면이 오래 응답이 없어서 상대가 기권승을 요청했어요.',_:'기권 처리됐어요.'}};
+  const sub=info.forfeit?(SUBS[info.forfeit]||{})[why]||(SUBS[info.forfeit]||{})._||'':'';
+  let h=`<h2>${title}</h2>`; if(sub) h+=`<p>${sub}</p>`;
+  if(info.forfeit&&r&&nz(r.ps)+nz(r.os)>0&&!over) h+=`<p class="rec">그때까지 점수 ${nz(r.ps)} : ${nz(r.os)}</p>`;
+  if(over) h+=`<div class="rbig">${s.score[side]} : ${s.score[1-side]}</div>`;
+  if(!ranked) h+=`<p>🤝 친선 대전이라 레이팅과 전적은 그대로예요.</p>`;
+  else if(r&&r.rating!=null){
+    // 서버가 주는 값(rating_before · tier_before · promoted · placing …)을 우선 쓰고, 없으면 대전 전에 알던 값과 비교한다
+    const lastTok=String(r.tier_before||'').trim().split(/\s+/).pop(), b=r.rating_before!=null?{rating:r.rating_before,tier_name:r.tier_before,tier_step:lastTok,placing:/배치/.test(String(r.tier_before||''))}:(PRE||{});
+    const bT=TI(b), aT=TI(Object.assign({},r)), d=r.delta!=null?nz(r.delta):nz(r.rating)-nz(b.rating);
+    const plcBefore=bT.idx<0, plcAfter=aT.idx<0, aPlaced=nz(r.placed);
+    const prom=typeof r.promoted==='number'?r.promoted:(!plcBefore&&!plcAfter?Math.sign(aT.key-bT.key):0);
+    h+=`<div class="rrow"><span class="rbig" id="rbigR">${fmt(b.rating!=null?b.rating:r.rating)}</span><span class="dl ${d>0?'up':d<0?'dn':'zz'}">${sgn(d)}</span></div>`;
+    h+=`<div class="rrow">${badge(b)}<span>→</span>${plcAfter?`<span class="tb" style="--tc:#7c8aa8">🎯 배치 중 (${aPlaced}/5)</span>`:badge(r)}</div>`;
+    if(r.capped) h+=`<p>오늘 같은 상대와 여러 판 해서 이번 판은 레이팅이 그대로예요.</p>`;
+    if(plcBefore&&!plcAfter) h+=`<div class="promo up">🎉 배치 끝! ${esc(aT.e)} ${esc(aT.n)}${aT.step_s?' '+aT.step_s:''} 로 시작해요</div>`;
+    else if(prom>0) h+=`<div class="promo up">⬆ 승급! ${esc(aT.e)} ${esc(aT.n)}${aT.step_s?' '+aT.step_s:''}</div>`;
+    else if(prom<0) h+=`<div class="promo dn">⬇ 강등… ${esc(aT.e)} ${esc(aT.n)}${aT.step_s?' '+aT.step_s:''}</div>`;
+    else if(plcAfter) h+=`<p>랭크 대전 ${aPlaced}/5판 — 5판을 채우면 티어가 정해져요.</p>`;
+    RESANIM={from:nz(b.rating!=null?b.rating:r.rating),to:nz(r.rating)};
+  }else if(ranked) h+=`<p>${info.forfeit?'':'결과가 서버에 반영되는 중이에요. '}전적 탭에서 확인해 주세요.</p>`;
+  done(h,ranked);
+  if(RESANIM){ const {from,to}=RESANIM; RESANIM=null; const t0=performance.now(); clearInterval(RESIV); const iv=RESIV=setInterval(()=>{ const e=document.getElementById('rbigR'); const k=Math.min(1,(performance.now()-t0)/900); if(!e||k>=1){ if(e) e.textContent=fmt(to); clearInterval(iv); return; } e.textContent=fmt(Math.round(from+(to-from)*(1-Math.pow(1-k,3)))); },30); }
+  if(ranked){ const j=await vcall('/vb/status'); if(j&&j.ok){ ON.me=j.me||ON.me; ON.online=j.online; ON.waiting=j.waiting; } }
 }
 // ---------- 버튼 ----------
 document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-on]');
+  if(t){ const a=t.dataset.on;
+    if(a==='close') onlClose(); else if(a==='login') dcLogin(); else if(a==='retry'){ ON.state='boot'; ON.notice=''; renderOnl(); refreshStatus(); }
+    else if(a==='tab'){ ON.tab=t.dataset.tab; if(ON.tab==='play') renderOnl(); else loadTab(ON.tab); }
+    else if(a==='rank') joinQueue(false); else if(a==='cancel') cancelSearch(); else if(a==='create') friendly('create'); else if(a==='join') friendly('join');
+    return; }
+  if(e.target.closest('#goOnline')){ ac(); onlOpen(); return; }
+  if(e.target.closest('#waitCancel')){ netLeave(); return; }
+  if(e.target.closest('#waitBack')){ show('ovWait',false); WAITMODE=''; return; }
+  if(e.target.closest('#nbClaim')){ if(NETM){ NETM.claim(); $('nbClaim').textContent='요청 중…'; setTimeout(()=>{ const b=$('nbClaim'); if(NETM&&NETM.claimMsg) b.textContent=NETM.claimMsg==='too_soon'?'상대가 아직 연결돼 있어요':'기권승 요청 다시'; },1500); } return; }
+  if(e.target.closest('#onMenu')){ finishNet(); onlOpen(); return; }
+  if(e.target.closest('#onAgain')){ finishNet(); onlOpen(); joinQueue(); return; }
+});
+document.addEventListener('input',e=>{ if(e.target.id==='codeIn'){ const v=e.target.value.replace(/[^a-zA-Z]/g,'').toUpperCase().slice(0,4); if(v!==e.target.value) e.target.value=v; ON.code=v; } });
+document.addEventListener('keydown',e=>{ if(e.target.id==='codeIn'&&e.key==='Enter'){ friendly('join'); } });
+window.addEventListener('pagehide',()=>{ try{ const u=dcUser(); if(!u) return;
+  if(NETM&&!NETM.finished&&MODE==='net') NL.beaconLeave(API,u.token,NETM.room);
+  if(ON.searching) navigator.sendBeacon(API+'/vb/queue',new Blob([JSON.stringify({token:u.token,action:'leave',mode:'rank'})],{type:'text/plain;charset=UTF-8'})); }catch(e){} });
+try{ const ao=activeRead(); const old=ao&&ao.room;
+  if(old&&ao.tab&&ao.tab!==TABID&&Date.now()-(+ao.t||0)<15000){ /* 다른 탭이 지금 이 판을 하는 중 — 건드리지 않는다 */ }
+  else if(old){ localStorage.removeItem(ACTIVE_KEY); ON.notice='지난번 온라인 대전이 끝나기 전에 창이 닫혔어요. 이어서 할 수는 없어서 기권으로 처리돼요.'; const u=dcUser(); if(u) NL.beaconLeave(API,u.token,old); } }catch(e){}
+// ---------- 버튼 ----------
+document.addEventListener('click',e=>{
+  if(MODE==='net'&&e.target.closest('#menuBtn')){ netMenu(); return; }
   const b=e.target.closest('[data-start]'); if(b){ ac(); start(b.dataset.start,b.dataset.level); return; }
   if(e.target.closest('#again')){ start(P2?'2p':'cpu',LEVEL); return; }
   if(e.target.closest('#toMenu')||e.target.closest('#toMenu2')||e.target.closest('#menuBtn')){ toMenu(); return; }
@@ -226,6 +527,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#sndBtn')){ MUTED=!MUTED; ls.set('brjvolley_mute',MUTED?'1':'0'); $('sndBtn').textContent=MUTED?'🔇':'🔊'; if(!MUTED){ ac(); snd('serve'); } return; }
 });
 $('sndBtn').textContent=MUTED?'🔇':'🔊'; $('rec').textContent=recText();
+window.__vbnet={get inject(){return INJECT;},set inject(f){INJECT=f;},get match(){return NETM;},get status(){return NETM?NETM.status:null;},get hashes(){return NETM?NETM.hashes:[];},get cd(){return CD;},get on(){return ON;},get side(){return MYSIDE;},sabotage(){ if(NETM){ const s=NETM.G.s; s.ball.x+=1; s.server=1-s.server; s.rally+=3; } },openOnline:onlOpen,tier:TI};
 window.__vb={get game(){return G;},get mode(){return MODE;},start,toMenu,setPause,get paused(){return paused;},get muted(){return MUTED;},keys,touch,get fxCount(){return parts.length+texts.length;}};
 requestAnimationFrame(frame);
 })();
