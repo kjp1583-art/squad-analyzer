@@ -259,6 +259,11 @@ function draw(){
 // ================= 🌐 온라인 대전 =================
 // 서버는 입력만 중계하고, 두 브라우저가 같은 시드·같은 입력으로 엔진을 똑같이 돌린다(brjvolley_net.js 의 락스텝).
 const NL=window.BrjVolleyNet, API=NL.API, TI=NL.tierInfo, DISCORD_CLIENT_ID='1520763174675022028', ACTIVE_KEY='brjvb_active';
+// 진행 중인 판 표시 — 탭끼리 공유되는 localStorage 라서 값에 탭 id·갱신 시각을 넣는다(다른 탭이 갱신 중인 판은 건드리지 않는다)
+const TABID=Math.random().toString(36).slice(2,10); let ACTIVE_IV=null;
+function activeRead(){ try{ const raw=localStorage.getItem(ACTIVE_KEY); if(!raw) return null; try{ const o=JSON.parse(raw); if(o&&typeof o==='object'&&o.room) return o; }catch(e){} return {room:String(raw),tab:'',t:0}; }catch(e){ return null; } }
+function activeSet(room){ clearInterval(ACTIVE_IV); const w=()=>{ try{ localStorage.setItem(ACTIVE_KEY,JSON.stringify({room,tab:TABID,t:Date.now()})); }catch(e){} }; w(); ACTIVE_IV=setInterval(w,2000); }
+function activeClear(){ clearInterval(ACTIVE_IV); ACTIVE_IV=null; try{ const o=activeRead(); if(o&&o.tab===TABID) localStorage.removeItem(ACTIVE_KEY); }catch(e){} }
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
 function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페이지뿐 → 메인이 받아 로그인 처리 후 이 페이지로 되돌려 준다
@@ -334,7 +339,7 @@ function recTab(){
   h+=`<div class="oc"><h3>최근 ${hist.length||''}판</h3>`;
   if(!hist.length) h+=`<p>아직 기록이 없어요. 랭크 대전을 한 판 해 보세요!</p>`;
   else{ h+=`<table class="tbl"><tr><th>상대</th><th class="num">점수</th><th class="num">결과</th><th class="num">레이팅</th></tr>`;
-    for(const x of hist){ const win=!!x.win; h+=`<tr><td class="nmc">${esc(x.opp||'?')}${x.ranked===false?' <span class="dim">· 친선</span>':''}<br><span class="dim" style="font-size:11px">${ago(x.t)}${x.opp_rating!=null&&x.ranked!==false?' · '+fmt(x.opp_rating):''}</span></td><td class="num">${nz(x.ps)} : ${nz(x.os)}</td><td class="num ${win?'win':'lose'}">${win?'승':'패'}</td><td class="num">${x.ranked===false?'<span class="dim">-</span>':`<span class="${nz(x.delta)>0?'win':nz(x.delta)<0?'lose':'dim'}">${sgn(nz(x.delta))}</span>`}</td></tr>`; }
+    for(const x of hist){ const win=!!x.win; h+=`<tr><td class="nmc">${esc(x.opp||'?')}${x.ranked===false?' <span class="dim">· 친선</span>':''}<br><span class="dim" style="font-size:11px">${ago(x.t)}${x.opp_rating!=null&&x.ranked!==false?' · '+fmt(x.opp_rating):''}</span></td><td class="num">${x.ff?'<span class="dim">기권</span>':`${nz(x.ps)} : ${nz(x.os)}`}${x.capped?' <span class="dim" style="font-size:11px">한도</span>':''}</td><td class="num ${win?'win':'lose'}">${win?'승':'패'}</td><td class="num">${x.ranked===false?'<span class="dim">-</span>':`<span class="${nz(x.delta)>0?'win':nz(x.delta)<0?'lose':'dim'}">${sgn(nz(x.delta))}</span>`}</td></tr>`; }
     h+=`</table>`; }
   h+=`</div>`;
   let bo=R.by_opp, rows=[]; const nmOf={}; for(const x of (R.hist||[])) if(x.opp_uid) nmOf[x.opp_uid]=x.opp;
@@ -364,11 +369,11 @@ async function loadTab(t){
 }
 // ---------- 매칭 ----------
 const QMSG={in_queue:'랭크 대기 중이에요. 먼저 취소해 주세요.',busy:'요청이 너무 잦아요. 잠깐 뒤에 다시 해 주세요.',not_member:'클랜원만 랭크 대전을 할 수 있어요.',auth:'로그인이 만료됐어요.',bad:'요청이 올바르지 않아요.'};
+const INROOMMSG='다른 창에서 대전 중이에요. 그 창에서 끝내거나 닫은 뒤(20초쯤) 다시 눌러 주세요.';
 async function joinQueue(retry){
   if(ON.searching||ON.busy) return; ON.busy=true; ON.notice=''; renderOnl();
   const j=await vcall('/vb/queue',{action:'join',mode:'rank'}); ON.busy=false;
-  if(j&&j.code==='in_room'&&j.room&&!NETM&&!retry){ await vcall('/vb/leave',{room:j.room}); ON.busy=false; return joinQueue(true); }   // 창을 닫아 버려 남은 옛 방은 정리하고 다시
-  if(!j||!j.ok){ ON.notice=(j&&QMSG[j.code])||(j&&j.code==='in_room'?'이미 다른 대전 중이에요.':'매칭을 시작하지 못했어요. 잠시 뒤에 다시 해 주세요.'); renderOnl(); return; }
+  if(!j||!j.ok){ ON.notice=(j&&QMSG[j.code])||(j&&j.code==='in_room'?INROOMMSG:'매칭을 시작하지 못했어요. 잠시 뒤에 다시 해 주세요.'); renderOnl(); return; }
   ON.searching=true; ON.qStart=Date.now(); clearInterval(ON.qTimer); ON.qTimer=setInterval(pollQueue,2000); onQueue(j); renderOnl();
 }
 function onQueue(j){
@@ -384,7 +389,7 @@ async function friendly(action){
   if(action==='join'&&!/^[A-Z]{4}$/.test(code)){ ON.notice='방 코드는 영문 4글자예요.'; renderOnl(); return; }
   ON.busy=true; ON.notice=''; renderOnl();
   const j=await vcall('/vb/room',action==='join'?{action:'join',code}:{action:'create'}); ON.busy=false;
-  if(j&&j.code==='in_room'&&j.room&&!NETM&&!friendly.retry){ friendly.retry=1; await vcall('/vb/leave',{room:j.room}); ON.busy=false; const r=await friendly(action); friendly.retry=0; return r; }
+  if(j&&j.code==='in_room'){ ON.notice=INROOMMSG; renderOnl(); return; }
   if(!j||!j.ok){ ON.notice=j&&j.code==='not_found'?'그 코드의 방을 찾을 수 없어요.':j&&j.code==='closed'?'그 방은 이미 닫혔거나 가득 찼어요.':(j&&QMSG[j.code])||'방을 열지 못했어요. 잠시 뒤에 다시 해 주세요.'; renderOnl(); return; }
   enterMatch({room:j.room,side:j.side,seed:j.seed,opp:j.opp||null,target:j.target||15,ranked:false,code:j.code||code,host:action!=='join'});
 }
@@ -401,7 +406,7 @@ function enterMatch(o){
   NETM=new NL.Match({token:u.token,room:o.room,side:MYSIDE,seed:o.seed,target:o.target||15,ranked:!!o.ranked,onEnd:onNetEnd,onLocalOver:()=>{}});
   NETM.meta={ranked:!!o.ranked,code:o.code||'',host:!!o.host}; G=NETM.G; MODE='net'; paused=false; parts=[]; texts=[]; trail=[]; banner=null; shake=0; flash=0; acc=0;
   CD={phase:'wait',end:0}; show('ovMenu',false); show('ovOver',false); show('ovPause',false); show('ovOn',false); hud(); updScore(); NBTXT='';
-  try{ localStorage.setItem(ACTIVE_KEY,o.room); }catch(e){}
+  activeSet(o.room);
   showWait(o.host&&!opp?'host':'conn'); NETM.start(); ac();
 }
 function showWait(mode){
@@ -414,7 +419,7 @@ function netMenu(){ if(NETM&&!NETM.finished) showWait('confirm'); else { finishN
 function netLeave(){   // 나가기(기권) — 서버에 알리고 온라인 메뉴로
   const m=NETM; if(m&&!m.finished) m.leave(); finishNet(); onlOpen(); ON.notice=m&&m.meta&&m.meta.ranked&&!m.finished?'기권으로 나갔어요. 랭크 대전은 패배로 기록돼요.':''; renderOnl();
 }
-function finishNet(){ if(NETM){ NETM.stop(); } NETM=null; MODE='menu'; G=null; CD={phase:'none',end:0}; try{ localStorage.removeItem(ACTIVE_KEY); }catch(e){} clearInterval(RESIV); $('app').classList.remove('net'); ['ovWait','ovOn','ovOver'].forEach(i=>show(i,false)); $('n0').textContent='나'; $('n1').textContent='CPU'; $('s0').textContent='0'; $('s1').textContent='0'; }
+function finishNet(){ if(NETM){ NETM.stop(); } NETM=null; MODE='menu'; G=null; CD={phase:'none',end:0}; activeClear(); clearInterval(RESIV); $('app').classList.remove('net'); ['ovWait','ovOn','ovOver'].forEach(i=>show(i,false)); $('n0').textContent='나'; $('n1').textContent='CPU'; $('s0').textContent='0'; $('s1').textContent='0'; }
 function netBarText(){
   const m=NETM; if(!m) return; const st=m.status; let t, cls='ok';
   if(m.finished) t='대전이 끝났어요';
@@ -448,7 +453,7 @@ function netAfterStep(){ handleEv(); const s=G.s; ballAng+=s.ball.spin*0.4+s.bal
 function resultWaiting(){ $('onBody').innerHTML=`<h2>${NETM&&G&&G.s.winner===MYSIDE?'🏆 승리!':'💥 패배…'}</h2><div class="rbig">${G.s.score[MYSIDE]} : ${G.s.score[1-MYSIDE]}</div><div class="search"><span class="spin"></span><span>결과를 확인하는 중…</span></div>`; $('onBtns').innerHTML=''; show('ovOn',true); }
 const VOIDMSG={desync:'두 화면의 진행이 서로 어긋나서 이 판은 무효예요. 기록과 레이팅은 그대로예요.',timeout:'연결이 끊겨서 이 판은 무효 처리됐어요. 기록과 레이팅은 그대로예요.'};
 async function onNetEnd(info,m){
-  try{ localStorage.removeItem(ACTIVE_KEY); }catch(e){}
+  activeClear();
   const s=m.G.s, side=m.side, ranked=m.meta.ranked, over=s.phase==='over';
   const btn=(id,label,cls)=>`<button class="btn ${cls||''}" id="${id}">${label}</button>`;
   const done=(body,again)=>{ $('onBody').innerHTML=body; $('onBtns').innerHTML=(again?btn('onAgain','한 판 더 (재매칭)','gold'):'')+btn('onMenu','온라인 메뉴','alt'); show('ovWait',false); show('ovOn',true); };
@@ -496,7 +501,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#goOnline')){ ac(); onlOpen(); return; }
   if(e.target.closest('#waitCancel')){ netLeave(); return; }
   if(e.target.closest('#waitBack')){ show('ovWait',false); WAITMODE=''; return; }
-  if(e.target.closest('#nbClaim')){ if(NETM){ NETM.claim(); $('nbClaim').textContent='요청 중…'; setTimeout(()=>{ const b=$('nbClaim'); if(NETM&&NETM.claimMsg) b.textContent=NETM.claimMsg==='too_soon'?'아직 8초가 안 됐어요':'기권승 요청 다시'; },1500); } return; }
+  if(e.target.closest('#nbClaim')){ if(NETM){ NETM.claim(); $('nbClaim').textContent='요청 중…'; setTimeout(()=>{ const b=$('nbClaim'); if(NETM&&NETM.claimMsg) b.textContent=NETM.claimMsg==='too_soon'?'상대가 아직 연결돼 있어요':'기권승 요청 다시'; },1500); } return; }
   if(e.target.closest('#onMenu')){ finishNet(); onlOpen(); return; }
   if(e.target.closest('#onAgain')){ finishNet(); onlOpen(); joinQueue(); return; }
 });
@@ -505,7 +510,9 @@ document.addEventListener('keydown',e=>{ if(e.target.id==='codeIn'&&e.key==='Ent
 window.addEventListener('pagehide',()=>{ try{ const u=dcUser(); if(!u) return;
   if(NETM&&!NETM.finished&&MODE==='net') NL.beaconLeave(API,u.token,NETM.room);
   if(ON.searching) navigator.sendBeacon(API+'/vb/queue',new Blob([JSON.stringify({token:u.token,action:'leave',mode:'rank'})],{type:'text/plain;charset=UTF-8'})); }catch(e){} });
-try{ const old=localStorage.getItem(ACTIVE_KEY); if(old){ localStorage.removeItem(ACTIVE_KEY); ON.notice='지난번 온라인 대전이 끝나기 전에 창이 닫혔어요. 이어서 할 수는 없어서 기권으로 처리돼요.'; const u=dcUser(); if(u) NL.beaconLeave(API,u.token,old); } }catch(e){}
+try{ const ao=activeRead(); const old=ao&&ao.room;
+  if(old&&ao.tab&&ao.tab!==TABID&&Date.now()-(+ao.t||0)<15000){ /* 다른 탭이 지금 이 판을 하는 중 — 건드리지 않는다 */ }
+  else if(old){ localStorage.removeItem(ACTIVE_KEY); ON.notice='지난번 온라인 대전이 끝나기 전에 창이 닫혔어요. 이어서 할 수는 없어서 기권으로 처리돼요.'; const u=dcUser(); if(u) NL.beaconLeave(API,u.token,old); } }catch(e){}
 // ---------- 버튼 ----------
 document.addEventListener('click',e=>{
   if(MODE==='net'&&e.target.closest('#menuBtn')){ netMenu(); return; }

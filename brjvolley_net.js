@@ -40,10 +40,11 @@
   var BYLEN = TIERS.slice().sort(function (a, b) { return b.n.length - a.n.length; });   // '치킨왕' 이 '치킨'·'닭' 보다 먼저 맞게
   var ROMAN = { I: 1, II: 2, III: 3, '1': 1, '2': 2, '3': 3 };
   function stepOf(v) { if (v == null) return 0; if (typeof v === 'number') return v >= 1 && v <= 3 ? v | 0 : 0; var t = String(v).trim().toUpperCase(); return ROMAN[t] || 0; }
+  var OPEN_STEP = 100;   // 서버 BRV_OPEN_STEP — 치킨왕 안의 I·II·III 폭
   function tierByRating(r) {
     r = Number(r); if (!isFinite(r)) return { idx: -1, step: 0 };
     var idx = 0; for (var i = 0; i < TIERS.length; i++) if (r >= TIERS[i].min) idx = i;
-    var step = 0; if (idx < TIERS.length - 1) { var lo = TIERS[idx].min, hi = TIERS[idx + 1].min; step = Math.min(3, 1 + Math.floor((r - lo) / ((hi - lo) / 3))); }
+    var lo = TIERS[idx].min, hi = idx < TIERS.length - 1 ? TIERS[idx + 1].min : lo + 3 * OPEN_STEP; var step = Math.min(3, 1 + Math.floor((r - lo) / ((hi - lo) / 3)));
     return { idx: idx, step: step };
   }
   // o: {rating, tier, tier_name, tier_step, placed} → {idx, step, e, n, c, step_s, key(비교용 숫자), placing}
@@ -60,9 +61,8 @@
     if (idx < 0 && o.rating != null) { var t = tierByRating(o.rating); idx = t.idx; if (!step) step = t.step; }
     var placing = o.placed != null && Number(o.placed) < 5;
     if (idx < 0) return { idx: -1, step: 0, e: '❔', n: '배치 중', c: '#7c8aa8', step_s: '', key: -1, placing: true };
-    if (idx === TIERS.length - 1) step = 0;
     var T = TIERS[idx];
-    return { idx: idx, step: step, e: o.tier_icon || T.e, n: T.n, c: T.c, step_s: step ? ['', 'I', 'II', 'III'][step] : '', key: idx * 3 + (step || 0), placing: placing };
+    return { idx: idx, step: step, e: o.tier_icon || T.e, n: T.n, c: T.c, step_s: step ? ['', 'I', 'II', 'III'][step] : '', key: idx * 3 + Math.max(0, (step || 1) - 1), placing: placing };
   }
 
   // ---------- 서버 호출 ----------
