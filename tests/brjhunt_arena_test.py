@@ -53,9 +53,9 @@ async def main():
             res[ratio]['tp'] = sum(r[5] for r in rows)
         for r, d in res.items():
             print('   power/rec=%s  평균 %.0f  (p10 %.0f · p90 %.0f · 최소 %.0f · 최대 %.0f)  구성별 %s  맵별 %s' % (r, d['avg'], d['p10'], d['p90'], d['min'], d['max'], {k: round(v) for k, v in d['byset'].items()}, {k: round(v) for k, v in d['bymap'].items()}))
-        check('power/rec = 0.5 → 분당 처치 평균 45~85 (목표 ≈ 50 — 엔진은 낮은 쪽에서 목표보다 후하다)', 45 <= res[0.5]['avg'] <= 85, round(res[0.5]['avg']))
-        check('power/rec = 1 → 분당 처치 평균 85~115 (목표 ≈ 100)', 85 <= res[1]['avg'] <= 115, round(res[1]['avg']))
-        check('power/rec = 2 → 분당 처치 평균 105~160 (목표 ≈ 140)', 105 <= res[2]['avg'] <= 160, round(res[2]['avg']))
+        check('power/rec = 0.5 → 분당 처치 평균 42~62 (목표 ≈ 50)', 42 <= res[0.5]['avg'] <= 62, round(res[0.5]['avg']))
+        check('power/rec = 1 → 분당 처치 평균 88~112 (목표 ≈ 100)', 88 <= res[1]['avg'] <= 112, round(res[1]['avg']))
+        check('power/rec = 2 → 분당 처치 평균 115~145 (목표 ≈ 140 — 엔진 위쪽 한계 ≈ 128)', 115 <= res[2]['avg'] <= 145, round(res[2]['avg']))
         check('전투력이 오를수록 처치가 는다(단조) — 0.5 < 1 < 2 (각 단계 +15% 이상)', res[1]['avg'] > res[0.5]['avg'] * 1.15 and res[2]['avg'] > res[1]['avg'] * 1.1, [round(res[r]['avg']) for r in (0.5, 1, 2)])
         check('power/rec = 1 에서 스킬 구성·맵·시드에 따른 흔들림이 평균의 ±45% 안 (p10~p90)', res[1]['p10'] >= res[1]['avg'] * 0.55 and res[1]['p90'] <= res[1]['avg'] * 1.45, (round(res[1]['p10']), round(res[1]['p90'])))
         check('AUTO 가 막혀 순간이동(복구)한 횟수 0', all(res[r]['tp'] == 0 for r in res))
@@ -68,7 +68,7 @@ async def main():
                     v.append(await pg.evaluate('''([km,reg,seed])=>{const st=mkState(1,['slash','spin','bomb','fire'],{region:reg,scale:true}); delete st.rec_power; st.combat.power=0; st.kpm_model=km; const a=mkArena({seed,noManifest:true}); a.setState(st); a.sim(15,1/60); const k0=a.stats().kills; a.sim(90,1/60); const k=(a.stats().kills-k0)/90*60; a.destroy(); return k}''', [km, reg, seed]))
             kk[km] = sum(v) / len(v)
         print('   kpm_model 만 줬을 때 평균: %s' % {k: round(x) for k, x in kk.items()})
-        check('power/rec 없이 kpm_model(50·100·140)만 줘도 같은 속도 꼴 (각각 ≈ 0.5·1·2 배 상당)', kk[50] < kk[100] < kk[140] and 85 <= kk[100] <= 118 and 40 <= kk[50] <= 88, {k: round(x) for k, x in kk.items()})
+        check('power/rec 없이 kpm_model(50·100·140)만 줘도 같은 속도 꼴 (각각 ≈ 0.5·1·2 배 상당)', kk[50] < kk[100] < kk[140] and 88 <= kk[100] <= 115 and 40 <= kk[50] <= 64, {k: round(x) for k, x in kk.items()})
         print('   (a) 걸린 시간 %.0fs' % (time.time() - t0))
 
         # ---------- (b) 지형·물리 ----------
@@ -238,6 +238,15 @@ async def main():
         check('Tab/G 로 AUTO 토글', a1 is False and a2 is True, (a1, a2))
         await pg.keyboard.press('p'); await pg.wait_for_timeout(60); pz = await pg.evaluate('()=>K.stats().paused'); await pg.keyboard.press('p')
         check('P 로 일시정지/해제', pz is True and not await pg.evaluate('()=>K.stats().paused'))
+        # 한글 입력 상태: key 는 'ㅋ'·'ㅁ'·'ㅎ'·'ㅔ' 처럼 오고 code 는 물리 위치(KeyZ 등)로 온다
+        hk = await pg.evaluate('''()=>{const fire=(key,code)=>window.dispatchEvent(new KeyboardEvent('keydown',{key,code,cancelable:true,bubbles:true}));
+          const up=(key,code)=>window.dispatchEvent(new KeyboardEvent('keyup',{key,code,bubbles:true}));
+          const o={}; K.setAuto(false); const a0=K.getAuto(); fire('ㅎ','KeyG'); o.autoOn=K.getAuto()===true&&a0===false; fire('ㅎ','KeyG'); o.autoOff=K.getAuto()===false;
+          fire('ㅔ','KeyP'); o.paused=K.stats().paused===true; fire('ㅔ','KeyP'); o.resumed=K.stats().paused===false;
+          K.debug.clearMobs(); const k0=K.stats().casts||0; fire('ㅋ','KeyZ'); o.atk=K.stats().keys?JSON.stringify(K.stats().keys):''; up('ㅋ','KeyZ'); fire('ㅁ','KeyA'); up('ㅁ','KeyA'); return o}''')
+        check('한글 입력 상태에서도 G(AUTO)·P(일시정지)가 먹는다', hk['autoOn'] and hk['autoOff'] and hk['paused'] and hk['resumed'], hk)
+        ev2 = await pg.evaluate('''()=>{const e=new KeyboardEvent('keydown',{key:'ㅋ',code:'KeyZ',cancelable:true}); window.dispatchEvent(e); const r=e.defaultPrevented; window.dispatchEvent(new KeyboardEvent('keyup',{key:'ㅋ',code:'KeyZ'})); return r}''')
+        check('한글 상태 Z(공격)·A(스킬1) 키를 엔진이 받는다(기본 동작 막음)', ev2 is True, ev2)
         await pg.evaluate('()=>{const i=document.createElement("input");i.id="tx";document.body.appendChild(i);i.focus()}')
         xs = await pg.evaluate('()=>K.stats().x'); await pg.keyboard.down('ArrowRight'); await pg.wait_for_timeout(300); await pg.keyboard.up('ArrowRight')
         check('입력창에 글 쓰는 중에는 키를 가로채지 않는다', abs(await pg.evaluate('()=>K.stats().x') - xs) < 8)

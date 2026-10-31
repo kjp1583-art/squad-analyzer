@@ -39,6 +39,18 @@
   const BASIC_HPS = 5.6;          // 기본 공격 초당 타수 (콤보 0.15·0.15·0.22초의 평균)
   const AGGRO = 270, CHASE_K = 2.3;   // 몹이 병아리를 알아채는 거리 · 쫓아올 때 걸음 배율
   const SPAWN_GAP = 0.3;          // 몹 보충 간격(초)
+  // [보정 표 — 고정값] 엔진의 AUTO 처치율은 몹 체력 비율에 완만하게만 반응한다(걸어 다니는 시간이 있어 분당 약 128마리에서 막힘). 헤드리스로 잰 응답
+  // (비율 → 분당 처치) 의 역함수로 「서버 모델이 말하는 분당 처치」가 나오는 비율을 고른다. 런타임 되먹임이 아니라 상수 표다.
+  const CAL_RESP = [[0, 0], [0.1, 35.8], [0.25, 56.8], [0.5, 79.2], [1, 103.4], [2, 128.2]];
+  const CAL_KPM_MAX = 126;        // 엔진이 낼 수 있는 분당 처치의 위쪽 한계(이 위는 서버 모델이 더 후해도 못 따라간다 — 보고에서 서버가 자르는 쪽이 아니라 모자라는 쪽)
+  function calRatio(r) {
+    const T = Math.min(CAL_KPM_MAX, 100 * r);
+    for (let i = 1; i < CAL_RESP.length; i++) {
+      const a = CAL_RESP[i - 1], b = CAL_RESP[i];
+      if (T <= b[1]) return a[0] + (b[0] - a[0]) * (T - a[1]) / (b[1] - a[1]);
+    }
+    return CAL_RESP[CAL_RESP.length - 1][0];
+  }
   const CAL_TTK = 0.27;           // [보정 상수 하나] 전투력 = 권장 전투력일 때 몹 한 마리를 잡는 데 드는 이론상 시간(초). 시험으로 맞춤.
   const DPS_PER_HP = 0.55;        // rec_power·power 가 없을 때만 쓰는 대체: 이론 초당 피해 ÷ 몹 체력 = 1 이 되는 기준
   const K_DEF_PER_STAGE = 8, K_DEF_BASE = 12;   // 방어 감소 = def/(def + K), K = 12 + 8·스테이지
@@ -393,9 +405,10 @@
     function setPaused(b) { E.paused = !!b; if (!b) { E.last = typeof performance !== 'undefined' ? performance.now() : 0; } }
     let keyDown = null, keyUp = null;
     const KMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'jump', ArrowDown: 'down', ' ': 'jump', Alt: 'jump', Control: 'attack', z: 'attack', Z: 'attack', 1: 's1', 2: 's2', 3: 's3', 4: 's4', a: 's1', s: 's2', d: 's3', f: 's4', A: 's1', S: 's2', D: 's3', F: 's4', Tab: 'auto', g: 'auto', G: 'auto', p: 'pause', P: 'pause' };
+    const KLETTER = { KeyZ: 'attack', KeyA: 's1', KeyS: 's2', KeyD: 's3', KeyF: 's4', KeyG: 'auto', KeyP: 'pause' };   // 한글 입력 상태(e.key 가 'ㅋ' 등)에서도 물리 키 위치로 읽는다
     const KCODE = { AltLeft: 'jump', AltRight: 'jump', ControlLeft: 'attack', ControlRight: 'attack', Space: 'jump' };
     function typing(e) { const t = e.target; return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable); }
-    function keyOf(e) { return KCODE[e.code] || KMAP[e.key]; }
+    function keyOf(e) { return KCODE[e.code] || KMAP[e.key] || KLETTER[e.code]; }
     if (hasDoc && opts.keys !== false) {
       keyDown = e => {
         if (!E.running || !E.vis || E.destroyed || E.keysOff || typing(e) || e.metaKey) return;
@@ -438,6 +451,7 @@
       // 비율: ① 서버의 power ÷ rec_power ② 없으면 kpm_model ÷ 100(서버 모델이 kpm = 100·power/rec 라서) ③ 둘 다 없으면 이론 피해 ÷ 몹 체력
       D.ratio = (power > 0 && rec > 0) ? power / rec : (st.kpmGiven > 0 ? st.kpmGiven / 100 : D.dpsNom / Math.max(1, MON.hp * DPS_PER_HP));
       D.ratio = clamp(D.ratio, 0.05, 40);
+      if ((power > 0 && rec > 0) || st.kpmGiven > 0) D.ratio = Math.max(0.03, calRatio(D.ratio));
       D.mobHp = Math.max(1, D.dpsNom * (opts.cal || CAL_TTK) / D.ratio);
       D.passive = skills.passive || null;
       const rg = String(st.region || '').toLowerCase(); let ri = -1;
@@ -1649,7 +1663,7 @@
     return inst;
   }
 
-  const BrjArena = { create, genMap, version: 1, consts: { LH, GY, GRAV, JUMP_V, RUN_V, PW, PH, CAL_TTK, REACH, MAX_MOBS } };
+  const BrjArena = { create, genMap, version: 1, consts: { calRatio, LH, GY, GRAV, JUMP_V, RUN_V, PW, PH, CAL_TTK, REACH, MAX_MOBS } };
   root.BrjArena = BrjArena;
   if (typeof module !== 'undefined' && module.exports) module.exports = BrjArena;
 })(typeof window !== 'undefined' ? window : globalThis);
