@@ -379,7 +379,7 @@
       if (name === 'pause') { setPaused(!E.paused); return; }
       if (name === 'up') name = 'jump';
       if (!KEYS[name]) return;
-      if (!Hh[name]) ED[name] = true;
+      if (!Hh[name]) ED[name] = (name.charAt(0) === 's' && name.length === 2) ? 0.16 : true;   // 스킬 키는 쿨다운이 거의 끝난 순간에 눌러도 먹히게 0.16초 동안 기억한다
       Hh[name] = true; humanTouch(name);
     }
     function release(name) { if (name === 'up') name = 'jump'; if (KEYS[name]) Hh[name] = false; }
@@ -398,7 +398,7 @@
     function keyOf(e) { return KCODE[e.code] || KMAP[e.key]; }
     if (hasDoc && opts.keys !== false) {
       keyDown = e => {
-        if (!E.running || !E.vis || E.destroyed || typing(e) || e.metaKey) return;
+        if (!E.running || !E.vis || E.destroyed || E.keysOff || typing(e) || e.metaKey) return;
         const n = keyOf(e); if (!n) return;
         if (n === 'auto' || n === 'pause') { if (!e.repeat) press(n); e.preventDefault(); return; }
         if (n === 'jump' && e.key === 'ArrowUp' && e.shiftKey) return;
@@ -728,7 +728,7 @@
       if (Ct.jump) doJump(Ct);
       else if (!Ct.jumpHeld && p.vy < -200 && !p.on) p.vy *= 0.55;   // 일찍 떼면 낮게 뛴다
       // 기본 공격 · 스킬
-      for (let i = 0; i < 4; i++) if (Ct.s[i]) { if (trySkill(i)) break; }
+      for (let i = 0; i < 4; i++) if (Ct.s[i]) { if (trySkill(i)) { ED['s' + (i + 1)] = false; break; } }
       if (!p.cast) {
         if (Ct.attack && p.atkT <= 0) startSwing();
       }
@@ -1110,7 +1110,7 @@
       }
       AI.wasAuto = false;
       const j = ED.jump, jh = Hh.jump;
-      return { left: Hh.left, right: Hh.right, jump: j, jumpHeld: jh, down: Hh.down, attack: Hh.attack, s: [ED.s1, ED.s2, ED.s3, ED.s4] };
+      return { left: Hh.left, right: Hh.right, jump: j, jumpHeld: jh, down: Hh.down, attack: Hh.attack, s: [!!ED.s1, !!ED.s2, !!ED.s3, !!ED.s4] };
     }
     function updateFx(h) {
       for (let i = fxs.length - 1; i >= 0; i--) { const f = fxs[i]; f.t += h; if (f.t >= f.life) fxs.splice(i, 1); }
@@ -1148,7 +1148,7 @@
       if (E.manualT > 0) { if (Hh.left || Hh.right || Hh.jump || Hh.attack || Hh.s1 || Hh.s2 || Hh.s3 || Hh.s4) E.manualT = MANUAL_HOLD; else E.manualT -= h; }
       const Ct = control(h);
       updatePlayer(h, Ct);
-      for (const k in ED) ED[k] = false;
+      for (const k in ED) ED[k] = (typeof ED[k] === 'number' && ED[k] > h) ? ED[k] - h : false;
       if (boss) updateBoss(h); else updateSpawn(h);
       updateMobs(h); updateShots(h); updateFx(h);
       // 카메라
@@ -1610,7 +1610,7 @@
       E.inited = true;
       if (s.boss && !boss && !st.boss) startChallenge(s.boss);
       else if (s.boss && boss) { st.boss = s.boss; }
-      else if (!s.boss && boss && boss.state === 'intro') { boss.state = 'leave'; boss.t = 0; }
+      else if (!s.boss && boss && !boss.res && (boss.state === 'intro' || boss.state === 'fight')) { boss.state = 'leave'; boss.t = 0; }   // 판정을 못 받았으면(서버 오류) 연출만 접는다
     }
     function statsNow() {
       const win = Math.min(60, Math.max(10, E.t)); let n = 0;
@@ -1637,7 +1637,7 @@
       tick(dt) { advance(dt); draw(); E.frames++; },
       sim(sec, dt) { dt = dt || 1 / 30; for (let t = 0; t < sec - 1e-9; t += dt) advance(dt); },
       stats: statsNow, input, setAuto, getAuto: () => E.autoWanted, isAutoActive: autoOn,
-      startChallenge, bossResult, setHidden(b) { b = !!b; if (b && !E.hidden) flushReport(); E.hidden = b; }, setPaused, setHud(b) { opts.hud = b; },
+      startChallenge, bossResult, setHidden(b) { b = !!b; if (b && !E.hidden) flushReport(); E.hidden = b; }, setPaused, setHud(b) { opts.hud = b; }, setKeys(b) { E.keysOff = !b; if (!b) blurAll(); },
       flush: flushReport, setTimeScale(v) { E.timeScale = v; },
       debug: {
         map: () => map, mobs: () => mobs, P, E, AI, D, skills, slotCd, spawnMob, shots: () => shots,

@@ -7,7 +7,13 @@ from playwright.async_api import async_playwright
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else None
 API = 'https://hth3thmujs.apps.bot-hosting.cloud'
-URL = 'file://' + os.path.join(ROOT, 'brjhunt.html')
+# 그림 목록(manifest.json)을 fetch 하는 엔진이 file:// 에서는 막히므로, 저장소를 로컬 http 로 서빙해서 실제 배포(GitHub Pages)와 같은 조건으로 연다.
+import threading, functools, http.server
+class _Quiet(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *a): pass
+_httpd = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(_Quiet, directory=ROOT)); threading.Thread(target=_httpd.serve_forever, daemon=True).start()
+LOCAL = 'http://127.0.0.1:%d' % _httpd.server_address[1]
+URL = LOCAL + '/brjhunt.html'
 FAILS = []
 def check(n, c, x=''):
     print(('PASS ' if c else 'FAIL ') + n + (' ' + str(x) if x and not c else ''))
@@ -21,6 +27,10 @@ SKILLS = [  # id, 이름, 이모지, 종류, 필요 각성, 최대 %, 쿨, 색 (
     ('thunder', '번개 닭', '⚡', 'active', 2, 8.0, 5.0, '#fff176'), ('fire', '불닭 파이어', '🔥', 'active', 2, 8.0, 5.0, '#ff5722'),
     ('egg', '황금 알 투척', '🥚', 'active', 3, 9.0, 7.0, '#ffca28'), ('shield', '맛동산 방패', '🛡', 'passive', 3, 8.0, 0.0, '#a1887f'),
     ('shrimp', '흐접새우 소환', '🦐', 'active', 4, 10.0, 9.0, '#f48fb1'), ('storm', '논란 폭풍', '🌪', 'active', 5, 14.0, 12.0, '#ba68c8')]
+CBT = {'slash': (8, 0.25, 'arc', 150, 1, 'knock'), 'peck': (6, 0.40, 'arc', 110, 5, ''), 'spin': (16, 0.50, 'self', 170, 3, 'knock'), 'bomb': (22, 0.60, 'aoe', 240, 1, 'stun:0.8'),
+       'thunder': (20, 0.50, 'aoe', 280, 2, 'stun:0.6'), 'fire': (20, 0.50, 'proj', 380, 4, 'burn'), 'egg': (26, 0.50, 'proj', 520, 3, 'knock'), 'shield': (0, 0.0, 'self', 0, 0, ''),
+       'shrimp': (34, 0.70, 'self', 400, 6, ''), 'storm': (50, 1.00, 'aoe', 700, 8, 'stun:1.2')}
+PEAK = {'slash': 150, 'peck': 31, 'spin': 80, 'bomb': 350, 'thunder': 220, 'fire': 90, 'egg': 140, 'shield': 0, 'shrimp': 100, 'storm': 140}
 AWK = {1: (6, 400, 3, 3), 2: (12, 2000, 6, 6), 3: (18, 9000, 10, 10), 4: (24, 40000, 15, 15), 5: (30, 150000, 22, 22)}
 def make_skill(sk, stage=9, gold=123456, stone=30, feast=40):
     """sk = {'aw':0,'lv':{id:lv},'a':[id|None x4],'p':id|None} → 뷰 skill"""
@@ -30,7 +40,10 @@ def make_skill(sk, stage=9, gold=123456, stone=30, feast=40):
         rows.append({'id': i, 'name': nm, 'emoji': em, 'kind': kind, 'need_awaken': need, 'unlocked': lv > 0, 'lv': lv, 'max': 10,
                      'cost': {'gold': 150 * (lv or 1), 'stone': 2 + lv // 3} if 0 < lv < 10 else {'gold': 0, 'stone': 0}, 'can': 0 < lv < 10 and gold >= 150 * lv,
                      'desc': nm + ' 설명', 'power_pct': round(peak * (0.3 + 0.7 * (lv - 1) / 9), 3) if lv else 0.0, 'next_power_pct': round(peak * (0.3 + 0.7 * lv / 9), 3) if lv else 0.0,
-                     'peak_pct': peak, 'cd_s': cd, 'fx_color': col, 'equipped': bool(eqd), 'slot': (sk['a'].index(i) if i in sk['a'] else 0) if eqd else None})
+                     'peak_pct': PEAK[i], 'cd_s': cd, 'fx_color': col, 'equipped': bool(eqd), 'slot': (sk['a'].index(i) if i in sk['a'] else 0) if eqd else None,
+                     'key': (sk['a'].index(i) + 1) if (i in sk['a']) else 0, 'mp': CBT[i][0], 'cd': cd, 'cast': CBT[i][1], 'shape': CBT[i][2], 'range': CBT[i][3], 'hits': CBT[i][4], 'cc': CBT[i][5],
+                     'mult': round(PEAK[i] * (0.4 + 0.6 * (lv - 1) / 9), 3) if lv else 0.0, 'next_mult': round(PEAK[i] * (0.4 + 0.6 * lv / 9), 3) if lv else 0.0, 'total_pct': 0.0,
+                     'def_pct': 11.3 if (kind == 'passive' and lv) else 0.0, 'hp_pct': 3.8 if (kind == 'passive' and lv) else 0.0})
     why = ''
     if nx:
         if stage < nx[0]: why = '스테이지 %d 이상이 필요해요' % nx[0]
@@ -40,9 +53,17 @@ def make_skill(sk, stage=9, gold=123456, stone=30, feast=40):
     return {'awaken': {'lv': aw, 'max': 5, 'next': ({'need_stage': nx[0], 'gold': nx[1], 'stone': nx[2], 'feast': nx[3], 'can': why == '', 'why': why} if nx else None),
                        'unlocks': [s[0] for s in SKILLS if s[4] == aw + 1], 'table': []},
             'slots': {'active': 4, 'passive': 1}, 'equipped': {'active': list(sk['a']), 'passive': sk['p']}, 'list': rows,
-            'mult': round(1 + sum(r['power_pct'] for r in rows if r['equipped']) / 100, 4), 'mult_cap': 1.6, 'note': '각성은 확정이에요.'}
+            'mult': round(1 + sum(r['power_pct'] for r in rows if r['equipped']) / 100, 4), 'mult_cap': 2.2, 'mp': 134, 'mpregen': 12.1, 'keys': ['1', '2', '3', '4'], 'note': '각성은 확정이에요.'}
 def new_sk(): return {'aw': 0, 'lv': {'slash': 1, 'peck': 1}, 'a': ['slash', 'peck', None, None], 'p': None}
 
+STAT_LIST = [{'key': k, 'name': n, 'emoji': e, 'lv': 3, 'max': 50, 'base': b, 'per': pr, 'value': b + 3 * pr, 'unit': u, 'cap': cp, 'cost': 500, 'can': True, 'text': tx, 'final': b + 3 * pr + 5}
+             for (k, n, e, b, pr, u, cp, tx) in (('atk', '공격력', '⚔', 40, 8, '', None, '몬스터에게 주는 피해'), ('hp', '체력', '❤', 400, 80, '', None, '쓰러지기 전에 버티는 양'), ('def', '방어력', '🛡', 10, 3, '', None, '몬스터에게 받는 피해를 줄여요'),
+                                                  ('crit', '크리티컬 확률', '🎯', 5, 1.0, '%', 70, '치명타가 터질 확률'), ('critdmg', '크리티컬 피해', '💥', 150, 5, '%', 400, '치명타가 터졌을 때 피해 배율'), ('acc', '명중', '👁', 100, 4, '', None, '몬스터의 회피를 뚫는 힘'))]
+GEAR_LIST = [{'key': 'weapon', 'name': '무기', 'emoji': '🗡', 'lv': 3, 'max': 10, 'pity': 1, 'gives': [{'stat': 'atk', 'pct': 3.0}, {'stat': 'crit', 'add': 0.5}], 'total': [{'stat': 'atk', 'pct': 9.0}, {'stat': 'crit', 'add': 1.5}], 'next': 4, 'rate_pct': 90, 'cost': 2, 'pity_need': 0, 'guaranteed': False, 'can': True},
+             {'key': 'armor', 'name': '방어구', 'emoji': '🛡', 'lv': 2, 'max': 10, 'pity': 1, 'gives': [{'stat': 'hp', 'pct': 3.0}, {'stat': 'def', 'pct': 2.5}], 'total': [{'stat': 'hp', 'pct': 6.0}, {'stat': 'def', 'pct': 5.0}], 'next': 3, 'rate_pct': 90, 'cost': 2, 'pity_need': 0, 'guaranteed': False, 'can': True},
+             {'key': 'acc', 'name': '장신구', 'emoji': '📿', 'lv': 0, 'max': 10, 'pity': 0, 'gives': [{'stat': 'critdmg', 'add': 4.0}, {'stat': 'acc', 'pct': 2.0}], 'total': [], 'next': 1, 'rate_pct': 100, 'cost': 1, 'pity_need': 0, 'guaranteed': False, 'can': True}]
+COMBAT = {'atk': 155, 'hp': 1448, 'def': 37, 'crit': 10.8, 'critdmg': 187.0, 'acc': 140, 'mp': 134, 'mpregen': 12.1, 'power': 700, 'ehp': 1757, 'hit': 61.9, 'def_cut': 17.6, 'skill_mult': 1.214, 'stage': 9,
+          'mods': {'lv': 7, 'lv_pct': 14.0, 'party_pct': 9.38, 'prestige_pct': 5.0, 'skill_def_pct': 11.33, 'skill_hp_pct': 3.78}}
 def make_view():
     rates = {'노말': 50.0, '레어': 30.0, '에픽': 14.0, '유니크': 5.0, '레전드': 1.0}
     cards = [
@@ -57,14 +78,18 @@ def make_view():
         'summon': {'tickets': 12, 'pulls': 25, 'slv': 2, 'slv_max': 8, 'slv_next_at': 60, 'rates': rates,
                    'rate_table': [{'lv': i + 1, 'at': a, 'rates': rates} for i, a in enumerate([0, 20, 60, 130, 250, 450, 750, 1200])],
                    'pity': {'에픽': {'now': 12, 'max': 50, 'left': 38}, '유니크': {'now': 12, 'max': 150, 'left': 138}, '레전드': {'now': 12, 'max': 400, 'left': 388}},
-                   'cost': {'1': 1, '10': 10}, 'cards': cards, 'own_n': 4, 'party': ['c1'], 'party_max': 3, 'mult': 1.15, 'mult_cap': 2.0,
+                   'cost': {'1': 1, '10': 10}, 'cards': cards, 'own_n': 4, 'party': ['c1'], 'party_max': 3, 'mult': 1.15, 'stat_pct': 15.0, 'bonus_what': '공격력·체력', 'mult_cap': 2.0,
                    'grade_bonus': {'노말': 1.0, '레어': 2.5, '에픽': 5.0, '유니크': 9.0, '레전드': 15.0}, 'lv_bonus_pct': 15, 'shard_cum': [0, 1, 3],
                    'pool': {'n': 40, 'by_grade': {'노말': 20, '레어': 10, '에픽': 6, '유니크': 3, '레전드': 1}, 'at': 1, 'ready': True}},
-        'growth': {'mult': 1.3, 'gold': 123456, 'stone': 30, 'feast': 40,
-                   'axes': [{'key': k, 'name': n, 'emoji': e, 'lv': 3, 'max': 50, 'cost': 500, 'can': True, 'bonus_pct': 7.5, 'per_pct': 2.5, 'text': '시간당 골드가 레벨당 +2.5%'} for k, n, e in (('atk', '사냥력', '⚔'), ('hp', '체력', '❤'), ('luck', '행운', '🍀'))],
-                   'slots': [{'key': k, 'name': n, 'emoji': e, 'lv': 2, 'max': 10, 'pity': 1, 'bonus_pct': 6.0, 'per_pct': 3.0, 'next': 3, 'rate_pct': 90, 'cost': 2, 'pity_need': 0, 'guaranteed': False, 'can': True} for k, n, e in (('weapon', '무기', '🗡'), ('armor', '방어구', '🛡'), ('acc', '장신구', '📿'))],
+        'growth': {'gold': 123456, 'stone': 30, 'feast': 40, 'axes': STAT_LIST,
+                   'slots': GEAR_LIST,
                    'quick': {'used': 1, 'max': 3, 'left': 2, 'next_cost': 8, 'costs': [5, 8, 12], 'hours': 1, 'gain': 1500, 'reset': '매일 0시(KST)', 'can': True, 'feast': 40},
                    'enhance_table': [{'to': t, 'rate_pct': p, 'cost': c, 'pity_need': th} for t, (p, c, th) in {1: (100, 1, 0), 5: (65, 3, 3), 10: (5, 10, 12)}.items()], 'note': '실패해도 장비는 안 깨져요.'},
+        'stats': {'list': STAT_LIST, 'gear': GEAR_LIST, 'combat': copy.deepcopy(COMBAT), 'note': '골드를 올리는 스탯은 없어요. 스탯은 전부 싸움에 쓰이고, 더 세지면 더 빨리·더 높은 필드에서 잡아 골드가 늘어요.'},
+        'combat': copy.deepcopy(COMBAT),
+        'field': {'stage': 9, 'region': '홍대 먹자골목', 'mon': {'name': '맵고추 군단' + EVIL, 'stage': 9, 'hp': 447, 'atk': 60, 'def': 43, 'eva': 86, 'gold': 0.0227}, 'rec_power': 400, 'next_rec': 430, 'power': 700, 'kpm': 110.0, 'kpm_model': 110.0,
+                  'gold_per_hour': 1500, 'gold_per_kill': 0.0227, 'gold_per_100': 2.27, 'def_k': 172.0, 'next_mon': {'name': '맵고추 군단', 'stage': 10, 'hp': 514, 'atk': 68, 'def': 46, 'eva': 92, 'gold': 0.0243}},
+        'hunt': {'secs_max': 40, 'gap_ratio': 0.6, 'over': 1.4, 'slack': 3, 'report_every': 30},
         'dungeon': {'power': 5599, 'key': {'n': 3, 'max': 10, 'next_in': 5000, 'per_day': 3}, 'res': {'gold': 123456, 'feast': 40, 'ticket': 12, 'stone': 30},
                     'gate': {'stage': 0, 'tries': 1, 'bosses': [
                         {'stage': 10, 'img': 'ddokkyu', 'name': '또뀨', 'hp': 534, 'feast': 15, 'ticket': 2, 'cleared': False},
@@ -83,10 +108,10 @@ def make_view():
           'reward': {'boards': ['stage'], 'feast': [10, 6, 3], 'min_gold': 1, 'rule': '지난주 입상 보상 규칙'},
           'prev': {'wk': 4, 'range': '10/19~10/25', 'boards': {'stage': [{'rank': 1, 'name': EVIL, 'value': 9, 'me': False}, {'rank': 2, 'name': '테스터', 'value': 7, 'me': True}]}, 'mine': [{'board': 'stage', 'rank': 2, 'feast': 6}], 'claimed': False, 'claimable': True, 'reward': [10, 6, 3]}},
         'prestige': {'can': False, 'min_stage': 30, 'stage': 9, 'gain': 0, 'n': 1, 'points': 7,
-                     'ups': [{'key': 'gold', 'name': '🪙 황금 손', 'effect': '시간당 골드 +5%', 'lv': 1, 'max': 10, 'cost': 5, 'afford': True},
+                     'ups': [{'key': 'gold', 'name': '💪 강건함', 'effect': '공격력·체력·방어력 +5%', 'lv': 1, 'max': 10, 'cost': 5, 'afford': True},
                              {'key': 'cap', 'name': '🏔 한계 돌파', 'effect': '스테이지 상한 +5', 'lv': 0, 'max': 4, 'cost': 8, 'afford': False},
                              {'key': 'start', 'name': '🚀 출발선', 'effect': '환생 뒤 시작 스테이지 +2', 'lv': 5, 'max': 5, 'cost': None, 'afford': False}],
-                     'gold_mult': 1.05, 'stage_cap': 30, 'start_stage': 1, 'pt_rule': '기본 5점 + 스테이지 30 넘은 칸마다 2점', 'warn': '환생하면 스테이지와 골드가 처음으로 돌아갑니다.',
+                     'stat_mult': 1.05, 'stat_pct': 5.0, 'stage_cap': 30, 'start_stage': 1, 'pt_rule': '기본 5점 + 스테이지 30 넘은 칸마다 2점', 'warn': '환생하면 스테이지와 골드가 처음으로 돌아갑니다.',
                      'season': {'no': 1, 'days_left': 20, 'length_days': 28, 'prestiges': 1, 'best_stage': 12, 'history': [{'season': 0, 'best': 11, 'n': 2}]},
                      'chest': {'stock': 4, 'today': 1, 'daily_cap': 5, 'store_max': 30, 'feast': 3, 'open_max': 10,
                                'table': [{'pct': 45.0, 'name': '알맹이 없음(특식만)', 'ticket': 0, 'stone': 0}, {'pct': 35.0, 'name': '🔩 강화석 2개', 'ticket': 0, 'stone': 2}]}},
@@ -141,6 +166,9 @@ class Server:
             self.view['rank']['prev']['claimable'] = False; self.view['rank']['prev']['claimed'] = True
             return 200, {'ok': True, 'got': {'feast': 6}, 'view': copy.deepcopy(self.view)}
         if path == '/brj/rank': return 200, {'ok': True, 'season': 1, 'days_left': 20, 'total': 2, 'me': 2, 'rows': [{'rank': 1, 'name': EVIL, 'prestiges': 3, 'best_stage': 40, 'me': False}, {'rank': 2, 'name': '테스터', 'prestiges': 1, 'best_stage': 12, 'me': True}]}
+        if path == '/brj/hunt':
+            k = body.get('kills', 0); self.hunted = getattr(self, 'hunted', 0) + k
+            return 200, {'ok': True, 'got': k, 'accepted': k, 'cap': 999, 'exact': k * 0.0227, 'view': v}
         if path == '/brj/collect': return 200, {'ok': True, 'got': 6000, 'view': v}
         if path == '/brj/push': return 200, {'ok': True, 'result': 'boss', 'cost': 0, 'view': v}
         if path == '/brj/summon':
@@ -162,8 +190,8 @@ class Server:
         if path == '/brj/chest': return 200, {'ok': True, 'opened': 1, 'got': {'feast': 3, 'ticket': 0, 'stone': 2}, 'names': ['x'], 'view': v}
         return 404, {'ok': False, 'code': 'not_found'}
 
-async def new_page(b, srv, w=390, h=800, login=True, scheme='dark', mode=None):
-    ctx = await b.new_context(viewport={'width': w, 'height': h}, color_scheme=scheme)
+async def new_page(b, srv, w=390, h=800, login=True, scheme='dark', mode=None, touch=False):
+    ctx = await b.new_context(viewport={'width': w, 'height': h}, color_scheme=scheme, has_touch=touch, is_mobile=touch)
     cors = {'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST,OPTIONS'}
     async def route(r):
         req = r.request; u = req.url
@@ -178,7 +206,7 @@ async def new_page(b, srv, w=390, h=800, login=True, scheme='dark', mode=None):
             if md == 'auth': await r.fulfill(status=401, headers=cors, content_type='application/json', body=json.dumps({'ok': False, 'code': 'auth'})); return
             body = json.loads(req.post_data or '{}'); st, obj = srv.handle(urlpath(u), body)
             await r.fulfill(status=st, headers=cors, content_type='application/json', body=json.dumps(obj)); return
-        if u.startswith('file://'): await r.continue_(); return
+        if u.startswith('file://') or u.startswith(LOCAL): await r.continue_(); return
         await r.abort()
     await ctx.route('**/*', route)
     if login: await ctx.add_init_script("localStorage.setItem('sgg_dc'," + json.dumps(TOKEN) + ")")
@@ -226,8 +254,8 @@ async def main():
                 check('상단 HUD: 레벨·스테이지 뱃지·지역', 'Lv.7' in await pg.inner_text('#lvb') and await pg.inner_text('#stbn') == '9' and '홍대' in await pg.inner_text('#preg'))
                 check('HUD 이름은 글자 그대로(HTML 로 안 읽힘)', await pg.evaluate("document.querySelectorAll('img[src=x]').length") == 0 and '<img' in await pg.inner_text('#pname'))
             t = await pg.inner_text('#main')
-            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '10처치당 2.27' in t.replace('\n',' ') and '도전 던전' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
-            check(f'{scheme} 사냥터: 내전 부스트·배율(스킬 포함) 표시', '내전 부스트 2시간' in t and '동료 파티' in t and '스킬 ×' in t)
+            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '100처치당 2.27' in t.replace('\n',' ') and '도전 던전' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
+            check(f'{scheme} 사냥터: 내전 부스트·전투 보너스(골드 배율 아님) 표시', '내전 부스트 2시간' in t and '동료 · 공격·체력' in t and '스킬 피해 ×' in t and '골드를 곱해 주는 배율은 없어요' in t and '시간당 골드 ×' not in t)
             check(f'{scheme} 사냥터: 서버 문자열이 HTML 로 안 읽힘', await pg.locator('img[src=x]').count() == 0 and await pg.evaluate('window.__xss')is None)
             check(f'{scheme} 사냥터: 가로 스크롤 없음', await noscroll(pg))
             if SHOTS: await pg.screenshot(path=f'{SHOTS}/ui_hunt_{scheme}.png', full_page=False)
@@ -256,8 +284,9 @@ async def main():
                 r = await press(pg, '[data-do=party]', srv, '/brj/party'); check('편성 저장 → party [c1,c3,c4]', r and r[0]['party'] == ['c1', 'c3', 'c4'], r)
                 # 성장
                 await tab(pg, 'grow'); t = await pg.text_content('#main')   # 접힌 확률표도 읽는다
-                check('성장: 축 3·장비 3·확률표', await pg.locator('[data-do=upgrade]').count() == 3 and await pg.locator('[data-do=enhance]').count() == 3 and '성공률' in t and '65%' in t)
-                check('성장: 가로 스크롤 없음', await noscroll(pg))
+                check('스탯: 스탯 6종·장비 3·확률표', await pg.locator('[data-do=upgrade]').count() == 6 and await pg.locator('[data-do=enhance]').count() == 3 and '성공률' in t and '65%' in t)
+                check('스탯: 전투 시트(전투력·공격·체력·방어·크리·명중·MP)·장비가 올려 주는 스탯', all(x in t for x in ('전투력 700', '공격력', '실질 체력', '크리티컬 확률', '명중', 'MP', '공격력 +3%', '크리티컬 확률 +0.5%', '체력 +3%')) and '골드 +' not in t and '시간당 골드' not in t, t[:200])
+                check('스탯: 가로 스크롤 없음', await noscroll(pg))
                 r = await press(pg, '[data-do=upgrade][data-axis=hp]', srv, '/brj/upgrade'); check('성장 → axis=hp', r and r[0]['axis'] == 'hp')
                 r = await press(pg, '[data-do=enhance][data-slot=armor]', srv, '/brj/enhance'); check('강화 → slot=armor', r and r[0]['slot'] == 'armor'); check('강화 실패 문구(안 깨짐)', '그대로' in await msg(pg))
                 # 모험 (스테이지 10 = 보스 관문에 막힌 상태)
@@ -276,7 +305,7 @@ async def main():
                 check('오늘 할 일 → /brj/daily', len(await press(pg, '[data-do=daily]', srv, '/brj/daily')) == 1 and '못 끝낸' in await msg(pg))
                 # 환생
                 await tab(pg, 'pres'); await pg.wait_for_timeout(300); t = await pg.inner_text('#main')
-                check('환생: 영구 보너스·시즌·상자 확률표·순위표', '황금 손' in t and '시즌 1' in t and '알맹이 없음' in t and '45%' in t and await pg.locator('table').count() >= 2)
+                check('환생: 영구 보너스·시즌·상자 확률표·순위표', '강건함' in t and '공격력·체력·방어력 +5%' in t and '시즌 1' in t and '알맹이 없음' in t and '45%' in t and await pg.locator('table').count() >= 2)
                 check('환생: 순위표 요청(top=20)', last(srv, '/brj/rank') and last(srv, '/brj/rank')[0]['top'] == 20 and '← 나' in t)
                 check('환생: XSS 없음·가로 스크롤 없음', await pg.locator('#main img[src=x]').count() == 0 and await noscroll(pg) and await pg.evaluate('window.__xss') is None)
                 check('환생 불가(스테이지 부족)면 버튼 꺼짐', await pg.locator('[data-do=prestigeask]').is_disabled())
@@ -390,8 +419,8 @@ async def main():
             if u.startswith(API):
                 body = json.loads(r.request.post_data or '{}'); st_, obj = srv.handle(urlpath(u), body)
                 await r.fulfill(status=st_, headers={'access-control-allow-origin': '*', 'access-control-allow-headers': '*'}, content_type='application/json', body=json.dumps(obj)); return
-            if 'brjhunt_audio.js' in u or 'brjhunt_field.js' in u: await r.abort(); return
-            if u.startswith('file://'): await r.continue_(); return
+            if 'brjhunt_audio.js' in u or 'brjhunt_arena.js' in u: await r.abort(); return
+            if u.startswith('file://') or u.startswith(LOCAL): await r.continue_(); return
             await r.abort()
         await ctx.route('**/*', route2); await ctx.add_init_script("localStorage.setItem('sgg_dc'," + json.dumps(TOKEN) + ")")
         pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e))); await pg.goto(URL); await pg.wait_for_timeout(500)
@@ -400,7 +429,7 @@ async def main():
         check('폴백: 소리 시트도 오류 없이 열림', await pg.locator('#sndBg.show').count() == 1 and not errs, errs); await ctx.close()
         # ---- 전투력 ↔ 필드 ----
         srv = Server(); ctx, pg, errs = await new_page(b, srv); t = await pg.inner_text('#main')
-        check('사냥터: 내 전투력·권장 전투력·분당 처치·도전 던전 안내', '내 전투력' in t and '700' in t and '권장 400' in t and '분당 110' in t and '도전할 수 있어요' in t, t[:300])
+        check('사냥터: 내 전투력·권장 전투력·분당 처치·도전 던전 안내', '내 전투력' in t and '700' in t and '권장 400' in t and '분당 약 110' in t and '도전할 수 있어요' in t, t[:300])
         srv.view['power_ok'] = False; srv.view['power'] = 380; await pg.click('#rfBtn'); await pg.wait_for_timeout(300)
         check('전투력이 모자라면 도전 버튼에 몬스터·내 전투력이 보인다', '몬스터' in await pg.inner_text('#dock') and '더 강해지면 이겨요' in await pg.inner_text('#main'))
         srv.override['/brj/push'] = lambda body: (200, {'ok': True, 'result': 'lose', 'cost': 0, 'power': 380, 'hp': 430, 'view': copy.deepcopy(srv.view)})
