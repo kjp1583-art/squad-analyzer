@@ -467,8 +467,12 @@ async function onNetEnd(info,m){
   let win=null; if(info.forfeit==='opp') win=true; else if(info.forfeit==='me') win=false; else if(r&&typeof r.win==='boolean') win=r.win; else if(over) win=s.winner===side; else if(r&&nz(r.delta)) win=nz(r.delta)>0;
   snd(win?'win':'lose');
   const title=info.forfeit==='opp'?'🏆 기권승!':info.forfeit==='me'?'🏳 기권패':win===true?'🏆 승리!':win===false?'💥 패배…':'대전 종료';
-  const sub=info.forfeit==='opp'?'상대가 나가서 이긴 걸로 해요.':info.forfeit==='me'?'연결이 끊긴 채로 오래 있어서 기권 처리됐어요.':'';
+  const why=String((info.r&&info.r.forfeit_why)||(r&&r.forfeit_why)||'');      // 서버가 준 기권 사유: silent(오래 조용) · leave(나감) · claim(기권승 요청)
+  const SUBS={opp:{leave:'상대가 나가서 이긴 걸로 해요.',silent:'상대 화면이 오래 멈춰 있어서(연결이 끊겼거나 다른 탭·창으로 넘어간 경우) 이긴 걸로 해요.',claim:'상대가 오래 응답이 없어서 기권승으로 처리했어요.',_:'상대가 기권해서 이긴 걸로 해요.'},
+              me:{leave:'나가서 기권패로 처리됐어요.',silent:'내 화면이 오래 멈춰 있어서(연결이 끊겼거나 다른 탭·창으로 넘어간 경우) 기권 처리됐어요. 대전 중에는 이 탭을 계속 열어 두세요.',claim:'내 화면이 오래 응답이 없어서 상대가 기권승을 요청했어요.',_:'기권 처리됐어요.'}};
+  const sub=info.forfeit?(SUBS[info.forfeit]||{})[why]||(SUBS[info.forfeit]||{})._||'':'';
   let h=`<h2>${title}</h2>`; if(sub) h+=`<p>${sub}</p>`;
+  if(info.forfeit&&r&&nz(r.ps)+nz(r.os)>0&&!over) h+=`<p class="rec">그때까지 점수 ${nz(r.ps)} : ${nz(r.os)}</p>`;
   if(over) h+=`<div class="rbig">${s.score[side]} : ${s.score[1-side]}</div>`;
   if(!ranked) h+=`<p>🤝 친선 대전이라 레이팅과 전적은 그대로예요.</p>`;
   else if(r&&r.rating!=null){
