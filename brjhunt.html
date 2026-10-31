@@ -24,7 +24,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="icon" href="data:,">
 <title>브장신 키우기 — 사냥터</title>
-<meta name="description" content="브장신 키우기 웹 사냥터 — 넓은 필드에서 병아리가 알아서 사냥하고, 각성하며 새 스킬을 배우고, 동료와 보스·던전에 도전해요. SQUAD.GG">
+<meta name="description" content="브장신 키우기 웹 사냥터 — 발판을 점프로 오르내리며 병아리를 직접 조작하거나 AUTO 로 맡기고, 전투 스탯을 키우고, 스킬·동료·보스·던전에 도전해요. SQUAD.GG">
 <meta name="theme-color" content="#232a5e">
 <style>
 :root{
@@ -86,7 +86,10 @@ button{font:inherit;color:inherit}
   .sk{width:40px;height:40px} .sk.pas{width:36px;height:36px} .hot{gap:4px} .push{min-width:84px;font-size:14px}
   #sheet{padding:8px 8px 14px} .card{padding:10px}
 }
-@media (max-height:700px){ #fieldBox{height:clamp(150px,28dvh,300px)} #hudL .hpill.sec{display:none} .big{font-size:26px} }
+@media (max-height:700px){ #fieldBox{height:clamp(150px,28dvh,300px)} #hudL .hpill.sec{display:none} .big{font-size:26px} .tp{width:50px;height:50px} .tp.big{width:58px;height:58px} .tp.sm{width:44px;height:44px} #touch{padding:5px 12px} }
+@media (max-width:999px){ #hudL .hpill.sec{display:none} }
+@media (max-width:359px){ .tp{width:46px;height:46px;font-size:19px} .tp.big{width:56px;height:56px;font-size:24px} .tp.sm{width:44px;height:44px;font-size:15px} .tp small{font-size:8.5px} #touch{padding:6px 8px} #touch .tl,#touch .tr{gap:6px} .fbtn{min-width:34px;padding:0 6px} }
+body.inboss #hudL{top:auto;bottom:8px} body.inboss #hudL .hpill{display:none} body.inboss #combo{top:auto;bottom:8px}
 body:not(.st-ok) #res{display:none}
 body:not(.st-ok) .stb{display:none}
 body:not(.st-ok) .prof .pn small{display:none}
@@ -99,10 +102,40 @@ body:not(.st-ok) .prof .pn small{display:none}
 #fcv{display:block;width:100%;height:100%;touch-action:pan-y}
 #fieldNote{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#fff;font-weight:800;text-align:center;padding:20px;background:linear-gradient(#26306a,#141a40)}
 #hudL{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;pointer-events:none;z-index:2}
+/* 3차 개편: 체력·마나 바 · AUTO · 콤보 · 손조작 패드 */
+#hudL .bars{display:flex;flex-direction:column;gap:3px;width:132px;margin-bottom:1px}
+.bar2{position:relative;height:14px;border-radius:5px;background:rgba(8,6,20,.72);border:1.5px solid rgba(255,255,255,.28);overflow:hidden}
+.bar2 i{position:absolute;left:0;top:0;bottom:0;width:100%;transform-origin:left center;transform:scaleX(1);transition:transform .12s linear}
+.bar2.hp i{background:linear-gradient(180deg,#ff8a9c,#e0345a)} .bar2.mp i{background:linear-gradient(180deg,#8fc1ff,#2f6fe0)}
+.bar2.low i{background:linear-gradient(180deg,#ff5a5a,#b01030)}
+.bar2 span{position:absolute;inset:0;display:flex;align-items:center;padding-left:5px;font-size:9.5px;font-weight:900;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;font-variant-numeric:tabular-nums}
+#hudR{position:absolute;right:8px;top:8px;display:flex;gap:5px;z-index:5}
+.fbtn{min-width:38px;height:32px;padding:0 9px;border-radius:10px;border:2px solid rgba(255,255,255,.32);background:rgba(8,6,20,.66);color:#fff;font-weight:900;font-size:12.5px;cursor:pointer;line-height:1;white-space:nowrap}
+.fbtn:active{transform:scale(.94)}
+.fbtn.on{background:linear-gradient(180deg,#46d98a,#168a52);border-color:#fff}
+.fbtn.wait{background:linear-gradient(180deg,#ffc34d,#c47f0a);border-color:#fff}
+.fbtn.tog.on{background:linear-gradient(180deg,#78a4ff,#2c52c4)}
+#combo{position:absolute;right:12px;top:46px;font-weight:900;font-size:22px;color:#fff;text-shadow:0 2px 0 #000,0 0 12px rgba(255,210,60,.85);pointer-events:none;opacity:0;transition:opacity .25s;z-index:3;font-variant-numeric:tabular-nums}
+#combo.on{opacity:1} #combo.pop{animation:cpop .18s}
+@keyframes cpop{50%{transform:scale(1.28)}}
+#keyHelp{position:absolute;left:8px;right:8px;bottom:8px;display:none;z-index:6;background:rgba(8,6,20,.9);border:2px solid var(--gold);border-radius:14px;padding:10px 12px;color:#fff;font-size:12.5px;line-height:1.55}
+#keyHelp.show{display:block} #keyHelp b{color:var(--gold)} #keyHelp kbd{display:inline-block;min-width:22px;text-align:center;padding:0 5px;border-radius:5px;border:1.5px solid rgba(255,255,255,.5);background:rgba(255,255,255,.12);font:inherit;font-weight:900;font-size:11.5px}
+#touch{display:none;flex:none;justify-content:space-between;align-items:center;padding:7px 12px calc(7px);background:linear-gradient(180deg,var(--panel2),var(--panel));border-top:2px solid var(--edge);position:relative;z-index:4}
+body.touch #touch{display:flex} .mini #touch,.mini #hudR .fbtn.tog,.mini #combo{display:none !important}
+body.touch #dock{margin-top:0;border-radius:0}
+#touch .tl,#touch .tr{display:flex;gap:10px;align-items:center}
+.tp{pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;width:58px;height:58px;border-radius:50%;border:2px solid var(--line);background:linear-gradient(180deg,var(--card2),var(--card));box-shadow:0 3px 0 var(--edge);color:var(--txt);font-size:22px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0;position:relative;overflow:hidden;line-height:1}
+.tp.on{background:linear-gradient(180deg,#ffe27a,#f0a41a);color:var(--ink);transform:translateY(2px);box-shadow:0 1px 0 var(--edge)}
+.tp.big{width:68px;height:68px;font-size:28px;border-color:var(--gold-d)} .tp.sm{width:50px;height:50px;font-size:17px}
+.tp small{position:absolute;left:0;right:0;bottom:2px;font-size:9.5px;opacity:.9;font-weight:800}
+.keyhint{font-size:11.5px;color:var(--sub);text-align:center;margin:-2px 0 6px;line-height:1.4} .keyhint b{color:var(--gold)}
+body.touch .keyhint{display:none}
+.sk .kb{position:absolute;left:3px;top:0;z-index:2;font-size:11px;font-weight:900;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000}
+.sk.nomp img{filter:grayscale(.7) brightness(.65)}
 .hpill{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;background:rgba(6,8,22,.62);border:1.5px solid rgba(255,255,255,.22);border-radius:999px;padding:2px 10px 2px 8px;font-size:12px;font-weight:900;color:#fff;backdrop-filter:blur(3px);font-variant-numeric:tabular-nums}
 .hpill em{font-style:normal;color:var(--gold);font-size:14px}
 .hpill small{font-size:10.5px;opacity:.8;font-weight:800}
-.mini #hudL .hpill.sec,.mini #hudL .coll{display:none}
+.mini #hudL .hpill.sec,.mini #hudL .coll,.mini #hudL .bars .mp{display:none}
 .hpill.coll{pointer-events:auto;cursor:pointer;border-color:var(--gold);background:linear-gradient(180deg,#ffd75e,#f09a12);color:var(--ink);padding:3px 11px 3px 8px;font-size:13px;text-shadow:none;box-shadow:0 2px 0 #8a5a00}
 .hpill.coll img{width:18px;height:18px}.hpill.coll:active{transform:scale(.94)}.hpill.coll.pulse{animation:collpulse 1.2s ease-in-out infinite}.hpill.coll.dis{filter:grayscale(.8);opacity:.6;animation:none}
 @keyframes collpulse{0%,100%{box-shadow:0 2px 0 #8a5a00,0 0 0 rgba(255,204,61,0)}50%{box-shadow:0 2px 0 #8a5a00,0 0 14px 3px var(--glow)}}
@@ -309,11 +342,11 @@ button.cd:active{transform:scale(.97)}
   #res{grid-area:res;justify-content:center;gap:10px;padding:7px 22px} .chip,#chip_gold,#chip_key{flex:0 1 190px;font-size:14.5px;padding:3px 12px 3px 5px;gap:6px} .chip img{width:26px;height:26px}
   #stage{grid-area:stage;display:flex;flex-direction:column;min-height:0;min-width:0;border-right:2px solid var(--edge);background:#0c1028}
   #fieldBox,.mini #fieldBox{flex:1 1 auto;height:auto;min-height:0;border-bottom:0;transition:none}
-  #dock,.mini #dock,.nodock #dock{display:block;margin-top:0;border-radius:0;border-width:2px 0 0;padding:12px 22px 14px;flex:none}
+  #dock,.mini #dock,.nodock #dock{display:block;margin-top:0;border-radius:0;border-width:2px 0 0;padding:12px 22px 18px;flex:none}
   .dockrow{justify-content:center;gap:16px} .hot{flex:0 1 auto;gap:10px} .sk{width:64px;height:64px;border-radius:16px} .sk.pas{width:56px;height:56px} .sk .lv{min-width:20px;height:20px;font-size:13px;line-height:17px}
   .push{min-width:170px;min-height:64px;font-size:18px;padding:8px 16px} .push small{font-size:12px}
   .pbar{margin:0 0 10px} 
-  #hudL{left:16px;top:14px;gap:6px} .hpill{font-size:14px;padding:3px 13px 3px 10px} .hpill em{font-size:17px} .mini #hudL .hpill.sec,.mini #hudL .coll{display:inline-flex}
+  #hudL{left:16px;top:14px;gap:6px} #hudL .bars{width:190px} .bar2{height:18px} .bar2 span{font-size:12px} .hpill{font-size:14px;padding:3px 13px 3px 10px} .hpill em{font-size:17px} .mini #hudL .hpill.sec,.mini #hudL .coll{display:inline-flex} #hudR{right:16px;top:14px;gap:8px} .fbtn{height:38px;min-width:46px;font-size:14px} #combo{font-size:30px;right:20px;top:62px} #keyHelp{font-size:14px;left:16px;right:16px;bottom:16px} #touch{padding:10px 22px} .tp{width:64px;height:64px} .tp.big{width:78px;height:78px}
   #bossTag{font-size:54px}
   #nav{grid-area:nav;border-top:0;border-bottom:2px solid var(--line);box-shadow:0 3px 12px rgba(0,0,0,.25);padding-bottom:0}
   #nav button{min-height:62px;font-size:12px;white-space:nowrap;padding:4px 2px 5px} #nav button img,#nav button .tabem{width:30px;height:30px;font-size:22px} #nav button.on img,#nav button.on .tabem{transform:scale(1.12)} #nav button.on::before{top:auto;bottom:-2px;border-radius:4px 4px 0 0}
@@ -338,12 +371,19 @@ button.cd:active{transform:scale(.97)}
     <button class="tbtn" id="rfBtn" title="새로고침" aria-label="새로고침">↻</button>
   </header>
   <div id="res" role="group" aria-label="내 재화"></div>
-  <section id="stage" aria-label="자동 사냥 필드">
+  <section id="stage" aria-label="사냥 필드">
     <div id="fieldBox">
-      <canvas id="fcv" role="img" aria-label="병아리가 넓은 필드에서 자동으로 사냥하는 구경 화면"></canvas>
+      <canvas id="fcv" role="img" aria-label="병아리가 발판을 오르내리며 몬스터를 사냥하는 화면. 키보드나 화면 버튼으로 직접 조작하거나 AUTO 로 맡길 수 있어요."></canvas>
       <div id="fieldNote">사냥 화면을 불러오지 못했어요.<br>아래 메뉴는 그대로 쓸 수 있어요.</div>
-      <div id="hudL"><span class="hpill" aria-live="off"><em id="hKpm">0</em> 분당 처치</span><span class="hpill sec">처치 <b id="hKills">0</b></span><span class="hpill sec" id="hPer" title="처치 한 번에 쌓이는 골드(표시용 어림)"></span><button class="hpill coll dis" id="hColl" data-do="collect" aria-label="쌓인 사냥 골드 수령하기"></button></div>
+      <div id="hudL"><div class="bars"><div class="bar2 hp" id="hpBar"><i id="hpFill"></i><span id="hpTxt">HP</span></div><div class="bar2 mp" id="mpBar"><i id="mpFill"></i><span id="mpTxt">MP</span></div></div><span class="hpill" aria-live="off"><em id="hKpm">0</em> 분당 처치</span><span class="hpill sec">처치 <b id="hKills">0</b></span><span class="hpill sec" id="hPer" title="처치 한 번에 몬스터가 떨어뜨리는 골드"></span><span class="hpill sec" id="hGot" title="이번에 직접 사냥해서 서버에 보고한 골드"></span><button class="hpill coll dis" id="hColl" data-do="collect" aria-label="쌓인 사냥 골드 수령하기"></button></div>
+      <div id="hudR"><button class="fbtn on" id="autoBtn" aria-pressed="true" title="자동 사냥 켜기/끄기 (Tab)">AUTO</button><button class="fbtn tog" id="padBtn" aria-pressed="false" title="화면 조작 버튼 보이기/숨기기">🎮</button><button class="fbtn tog" id="keyBtn" aria-expanded="false" aria-controls="keyHelp" title="조작법">?</button></div>
+      <div id="combo" aria-hidden="true"></div>
+      <div id="keyHelp" role="note"><b>🎮 조작법</b><br><kbd>←</kbd><kbd>→</kbd> 이동 · <kbd>Alt</kbd> 또는 <kbd>Space</kbd> 또는 <kbd>↑</kbd> 점프(오래 누를수록 높이, 공중에서 한 번 더 = 2단 점프) · <kbd>↓</kbd>+점프 아래 발판으로 내려가기<br><kbd>Ctrl</kbd> 또는 <kbd>Z</kbd> 기본 공격(연타 3콤보) · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> (또는 <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd>) 스킬 · <kbd>Tab</kbd> / <kbd>G</kbd> AUTO · <kbd>P</kbd> 일시정지<br>키를 누르면 바로 <b>수동</b>이 되고, 3초 동안 아무것도 안 하면 AUTO 로 돌아가요. 직접 잘 하면 AUTO 보다 더 많이 벌 수 있어요.</div>
       <div id="bossTag" aria-hidden="true"></div>
+    </div>
+    <div id="touch" aria-label="화면 조작 버튼">
+      <div class="tl"><button class="tp" data-k="left" aria-label="왼쪽으로 이동">◀</button><button class="tp" data-k="right" aria-label="오른쪽으로 이동">▶</button></div>
+      <div class="tr"><button class="tp sm" data-k="drop" aria-label="아래 발판으로 내려가기">⤓<small>내려가기</small></button><button class="tp" data-k="jump" aria-label="점프">⤒<small>점프</small></button><button class="tp big" data-k="attack" aria-label="기본 공격">⚔</button></div>
     </div>
     <div id="dock"></div>
   </section>
@@ -362,21 +402,23 @@ button.cd:active{transform:scale(.97)}
 </div></div>
 <div id="awk" role="alertdialog" aria-label="각성 성공" tabindex="-1"></div>
 
-<script src="brjhunt_audio.js?v=1"></script>
-<script src="brjhunt_field.js?v=3"></script>
+<script src="brjhunt_audio.js?v=2"></script>
+<script src="brjhunt_arena.js?v=1"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
 // 로그인·서버 주소는 survivors.html 과 같은 방식(디스코드 토큰은 메인 사이트와 같은 localStorage 칸 sgg_dc).
 // 서버가 주는 문자열은 전부 esc 를 거쳐 innerHTML 에 넣는다. 숫자는 N() 으로 한 번 걸러 쓴다.
-// 골드·보상·스킬 효과 수치는 서버가 정답이고, 화면 속 필드 전투(brjhunt_field.js)와 소리(brjhunt_audio.js)는 연출이다.
+// 골드·보상·스탯·스킬 수치와 보스 승패는 서버가 정답이다. 필드(brjhunt_arena.js)는 서버 스탯으로 전투를 보여 주고 잡은 마리 수만 /brj/hunt 로 보고한다. 소리는 brjhunt_audio.js.
 const P6_API='https://hth3thmujs.apps.bot-hosting.cloud';
 const DISCORD_CLIENT_ID='1520763174675022028';
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const N=v=>{v=Number(v);return Number.isFinite(v)?v:0;};
 const fmt=v=>Math.floor(N(v)).toLocaleString('ko-KR');
 const fmtC=v=>{v=Math.floor(N(v)); if(v>=1e8) return (v/1e8).toFixed(1)+'억'; if(v>=1e5) return (v/1e4).toFixed(1)+'만'; return v.toLocaleString('ko-KR');};   // 칩이 좁아서 10만 넘으면 줄여 쓴다(정확한 값은 칩에 마우스/길게 누르기 title)
-const perKill=(rate)=>{ const g=N(rate)/(kpmNow()*60); if(g>=1) return '+'+fmtG(g)+' <small>/처치</small>'; if(g*10>=1) return '+'+fmtG(g*10)+' <small>/10처치</small>'; return '+'+fmtG(g*100)+' <small>/100처치</small>'; };   // 1 미만의 소수 골드는 단위를 올려 보여 준다
-const perKillTxt=(rate)=>{ const g=N(rate)/(kpmNow()*60), u=g>=1?1:g*10>=1?10:100; return (u===1?'처치당':u+'처치당')+' '+I('gold')+'<b>'+fmtG(g*u)+'</b>'; };
+const goldPerKill=()=>{ const f=V&&V.field; const g=f&&(N(f.gold_per_kill)||(f.mon&&N(f.mon.gold))); return g>0?g:N(V&&V.rate)/(kpmNow()*60); };   // 몬스터 1마리가 떨어뜨리는 골드(소수). 옛 서버면 시간당 골드로 어림
+const perKill=()=>{ const g=goldPerKill(); if(g>=1) return '+'+fmtG(g)+' <small>/처치</small>'; if(g*10>=1) return '+'+fmtG(g*10)+' <small>/10처치</small>'; return '+'+fmtG(g*100)+' <small>/100처치</small>'; };   // 1 미만의 소수 골드는 단위를 올려 보여 준다
+const perKillTxt=()=>{ const g=goldPerKill(), u=g>=1?1:g*10>=1?10:100; return (u===1?'처치당':u+'처치당')+' '+I('gold')+'<b>'+fmtG(g*u)+'</b>'; };
+const goldUnitTxt=g=>{ const u=g>=1?1:g*10>=1?10:100; return I('gold')+'<b>'+fmtG(g*u)+'</b> <span class="mut">/'+(u===1?'처치':u+'처치')+'</span>'; };
 const fmtG=v=>{v=N(v); return v>=100?fmt(v):v>=10?v.toFixed(1):v.toFixed(2);};    // 처치당 골드(소수 가능)
 const $=id=>document.getElementById(id);
 const GR_KO={normal:'노말',rare:'레어',epic:'에픽',unique:'유니크',legend:'레전드'};
@@ -387,7 +429,7 @@ const SK_IDS=['slash','peck','spin','bomb','thunder','fire','egg','shield','shri
 const skIcon=id=>SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:'';
 const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
-const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','성장'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
+const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
 const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
 let V_KPM=100;                      // 서버가 내 전투력÷필드 권장 전투력으로 계산한 분당 처치 기대치. 처치당 골드 = 시간당 골드 ÷ (분당 처치×60)
 const kpmNow=()=>Math.max(1,N(V&&V.kpm)||V_KPM);
@@ -483,70 +525,186 @@ async function act(path,body,onOk){
 function say(t,k){ MSG={t,k:k||'info'}; if(k==='bad') snd('error'); }
 function toast(t){ const b=$('toastBox'); const d=document.createElement('div'); d.className='toast'; d.textContent=t; b.appendChild(d); setTimeout(()=>d.remove(),2400); }
 
-// ---------- 필드 (BrjField) ----------
-let FIELD=null, FIELD_FAIL=false, BOSS=null, KILLS=0, GVIEW=0, CAST={}, BOSS_T=0;
+// ---------- 필드 (BrjArena: 발판 사냥터) ----------
+// 엔진이 서버가 준 스탯으로 전투를 계산해 보여 주고, 실제로 잡은 마리 수를 30초마다 /brj/hunt 로 알린다. 골드·승패는 서버가 정한다.
+let FIELD=null, FIELD_FAIL=false, BOSS=null, KILLS=0, BOSS_T=0, GOT=0, CHAIN={n:0,t:0}, LASTCOMBO=0;
+const HQ={k:0,s:0,busy:false,last:0,min:0,rej:0,fail:'',note:''};   // 보내지 못한 마리 수·초(서버가 「아직」이라 한 것만 쌓아 둔다)
 function skList(){ const s=V&&V.skill; return s&&Array.isArray(s.list)?s.list:[]; }
 function skById(id){ return skList().find(x=>x&&x.id===id)||null; }
+function equippedActives(){
+  const s=V&&V.skill, eq=(s&&s.equipped)||{}, act=Array.isArray(eq.active)?eq.active:[];
+  return [0,1,2,3].map(i=>{ const k=act[i]?skById(act[i]):null; return (k&&k.unlocked&&k.kind==='active')?k:null; });
+}
+const nn=v=>v==null?undefined:N(v);
 function fieldSkills(){
   const s=V&&V.skill;
-  if(!s||typeof s!=='object') return {active:[{id:'slash',lv:1,cd_s:2},{id:'peck',lv:1,cd_s:1.5},null,null],passive:null};   // 옛 서버: 기본 스킬만
-  const eq=s.equipped||{}, act=Array.isArray(eq.active)?eq.active:[];
-  const mk=id=>{ const k=skById(id); return (k&&k.unlocked&&k.kind==='active')?{id:k.id,lv:N(k.lv),cd_s:N(k.cd_s)||3,power_pct:0,fx_color:String(k.fx_color||'')}:null; };   // 화면 피해량은 연출 값이라 power_pct(=시간당 골드 %)는 넘기지 않는다
-  const p=eq.passive?skById(eq.passive):null;
-  return {active:[0,1,2,3].map(i=>mk(act[i])),passive:(p&&p.unlocked&&p.kind==='passive')?p.id:null};
+  if(!s||typeof s!=='object') return {active:[{id:'slash',lv:1},{id:'peck',lv:1},null,null],passive:null};   // 옛 서버: 기본 스킬만(수치는 엔진 기본값)
+  const p=(s.equipped&&s.equipped.passive)?skById(s.equipped.passive):null;
+  return {active:equippedActives().map((k,i)=>k?{id:k.id,key:i+1,mp:nn(k.mp),cd:nn(k.cd!=null?k.cd:k.cd_s),cast:nn(k.cast),shape:k.shape?String(k.shape):undefined,range:nn(k.range),hits:nn(k.hits),mult:nn(k.mult),lv:N(k.lv),fx_color:String(k.fx_color||'')}:null),
+          passive:(p&&p.unlocked&&p.kind==='passive')?p.id:null};
 }
 function fieldState(){
-  const v=V||{}, sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,3):[], cards=Array.isArray(sm.cards)?sm.cards:[];
-  return {stage:N(v.stage)||1,region:String(v.region||''),power:Math.max(5,N(v.power)||N(R(v.dungeon,'power',0))),rec:N(v.rec),rate:N(v.rate),kpm:kpmNow(),
+  const v=V||{}, f=v.field||{}, cb=(v.stats&&v.stats.combat)||v.combat||null, sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,3):[], cards=Array.isArray(sm.cards)?sm.cards:[];
+  const o={stage:N(v.stage)||1,region:String(v.region||''),rec_power:N(f.rec_power)||N(v.rec),kpm_model:N(f.kpm_model)||kpmNow(),
     party:ids.map(id=>cards.find(c=>c&&c.id===id)).filter(Boolean).map(c=>({id:String(c.id),n:String(c.n||'?'),gr:grKey(c.gr)})),
     skills:fieldSkills(),boss:BOSS};
+  if(cb) o.combat={atk:nn(cb.atk),hp:nn(cb.hp),def:nn(cb.def),crit:nn(cb.crit),critdmg:nn(cb.critdmg),acc:nn(cb.acc),mp:nn(cb.mp),mpregen:nn(cb.mpregen),power:nn(cb.power)};
+  if(f.mon&&typeof f.mon==='object') o.mon={name:String(f.mon.name||'몬스터'),hp:nn(f.mon.hp),atk:nn(f.mon.atk),def:nn(f.mon.def),eva:nn(f.mon.eva),gold:nn(f.mon.gold)};
+  return o;
 }
-function pushField(){ if(FIELD&&V){ try{ FIELD.setState(fieldState()); }catch(e){ console.warn(e); } } }
+function pushField(){ document.body.classList.toggle('inboss',!!BOSS); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(TAB==='hunt'&&STATE==='ok'); }catch(e){ console.warn(e); } } }
 function showTag(txt,cls){ const t=$('bossTag'); t.textContent=txt; t.className=''; void t.offsetWidth; t.className='go '+(cls||''); }
+const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){} return null; };
 function initField(){
   if(FIELD||FIELD_FAIL) return;
-  if(!window.BrjField){ FIELD_FAIL=true; $('fieldNote').style.display='flex'; return; }
+  if(!window.BrjArena){ FIELD_FAIL=true; $('fieldNote').style.display='flex'; return; }
   try{
     const cv=$('fcv'); cv.style.height='100%';
-    FIELD=BrjField.create(cv,{base:''});
-    FIELD.on('kill',e=>{ KILLS=N(e.n); GVIEW=N(e.gold_view); snd('kill',{vol:.5},90); });
-    FIELD.on('hit',e=>{ if(e&&e.crit) snd('crit',{vol:.55},140); else snd('hit',{vol:.3},120); });
-    FIELD.on('coin',()=>snd('coin',{vol:.45},140));
-    FIELD.on('skill',e=>{ const id=e&&e.id; if(!id) return; CAST[id]=performance.now(); snd('skill_'+id,{},160); flashSlot(id); });
+    FIELD=BrjArena.create(cv,{base:'',hud:false,seed:1+(N(V&&V.lv)|0)});
+    FIELD.setAuto(LS('brjhunt_auto')!=='0');
+    FIELD.on('kill',e=>{ KILLS=N(e.n); });
+    FIELD.on('mobdie',e=>snd(e&&e.el?'mon_die_elite':'mon_die',{vol:.55}));
+    FIELD.on('swing',e=>snd('swing'+(1+(N(e&&e.n)|0)%3),{vol:.5}));
+    FIELD.on('hit',e=>{ if(e&&e.crit) snd('crit',{vol:.6}); else if(e&&e.skill) snd('hit_heavy',{vol:.5}); else snd('hit',{vol:.45}); });
+    FIELD.on('coin',()=>{ const t=performance.now(); CHAIN.n=(t-CHAIN.t<650)?Math.min(CHAIN.n+1,10):0; CHAIN.t=t; snd('coin',{vol:.4,rate:1+0.04*CHAIN.n}); });
+    FIELD.on('jump',e=>snd(N(e&&e.n)>=2?'jump2':'jump',{vol:.5}));
+    FIELD.on('land',e=>snd(e&&e.hard?'land_hard':'land',{vol:.5}));
+    FIELD.on('step',()=>snd('step',{vol:.5}));
+    FIELD.on('hurt',e=>{ let big=false; try{ big=N(e&&e.dmg)>FIELD.stats().hpMax*0.2; }catch(x){} snd(big?'hurt_heavy':'hurt',{vol:.7}); });
+    FIELD.on('die',()=>snd('die')); FIELD.on('revive',()=>snd('revive'));
     FIELD.on('levelup',()=>snd('levelup'));
+    FIELD.on('auto',e=>{ snd(e&&e.on?'auto_on':'auto_off'); LS('brjhunt_auto',e&&e.on?'1':'0'); updAuto(); });
+    FIELD.on('skill',e=>{ const id=e&&e.id; if(!id) return; flashSlot(id); });
+    FIELD.on('cast',e=>{ const id=e&&e.id; if(!id||!SK_IDS.includes(id)) return;
+      if(e.stage==='pre') snd('skill_'+id+'_charge',{vol:.6});
+      else if(e.stage==='fire'){ snd('skill_'+id,{vol:.8}); setTimeout(()=>snd('skill_'+id+'_tail',{vol:.55}),260); } });
     FIELD.on('boss',e=>{
       const ph=e&&e.phase;
-      if(ph==='in'){ snd('boss_in'); syncBgm(); }   // 입장 이름표·레터박스는 필드 엔진이 화면 안에서 그린다
-      else if(ph==='slam'){ snd('crit',{vol:.7},200); }
-      else if(ph==='rage'){ snd('boss_in',{vol:.55},600); }
-      else if(ph==='win'){ snd('boss_win'); showTag('🏆 VICTORY','win'); endBoss(); }
-      else if(ph==='lose'){ snd('boss_lose'); showTag('💥 DEFEAT','lose'); endBoss(); }
+      if(ph==='in'){ snd('boss_in'); syncBgm(); }   // 입장 이름표·레터박스는 엔진이 화면 안에서 그린다
+      else if(ph==='slam'){ snd('boss_slam'); }
+      else if(ph==='rage'){ snd('boss_rage'); }
+      else if(ph==='win'){ snd('boss_die'); setTimeout(()=>snd('boss_win'),1100); showTag('🏆 VICTORY','win'); }
+      else if(ph==='lose'){ snd('boss_lose'); showTag('💥 DEFEAT','lose'); }
+      else if(ph==='end'){ clearTimeout(BOSS_T); BOSS=null; pushField(); syncBgm(); render(); }
     });
+    FIELD.on('report',e=>{ HQ.k+=N(e&&e.kills); HQ.s+=N(e&&e.secs); if(HQ.s>600){ HQ.k=Math.floor(HQ.k*600/HQ.s); HQ.s=600; } sendHunt(); });
     try{ let to=0; const ro=new ResizeObserver(()=>{ clearTimeout(to); to=setTimeout(()=>{ try{ FIELD&&FIELD.resize(); }catch(e){} },140); }); ro.observe($('fieldBox')); }catch(e){}
     pushField();
   }catch(e){ console.warn(e); FIELD=null; FIELD_FAIL=true; $('fieldNote').style.display='flex'; }
 }
-function endBoss(){ clearTimeout(BOSS_T); BOSS_T=setTimeout(()=>{ BOSS=null; pushField(); syncBgm(); render(); },3200); }
+// 도전 던전·보스가 끝나면 엔진이 'end' 를 알린다. 엔진이 없거나 못 받았을 때를 위한 안전장치만 따로 둔다.
+function endBoss(ms){ clearTimeout(BOSS_T); BOSS_T=setTimeout(()=>{ if(!BOSS) return; BOSS=null; pushField(); syncBgm(); render(); },ms||3200); }
 function flashSlot(id){ document.querySelectorAll('#dock .sk[data-sid="'+id+'"]').forEach(el=>{ el.classList.add('cast'); setTimeout(()=>el.classList.remove('cast'),260); }); }
-// 핫바 쿨다운 링 — 시전 이벤트 시각으로 어림한다(서버 값이 아니다)
-function updRings(){
-  const now=performance.now();
-  document.querySelectorAll('#dock .sk[data-sid]').forEach(el=>{
-    const id=el.dataset.sid, cd=N(el.dataset.cd)*1000, t=CAST[id];
-    const rem=(t&&cd>0)?Math.max(0,1-(now-t)/cd):0;
-    el.firstElementChild&&el.querySelector('.ring')&&el.querySelector('.ring').style.setProperty('--cd',(rem*360).toFixed(0)+'deg');
-  });
+
+// ---------- 사냥 보고: 실제로 잡은 마리 수를 서버에 알린다(직접 한 만큼 골드) ----------
+// 서버가 「아직」(too_soon·too_fast)이라 하면 쌓아 두고 다음 주기에 보낸다. 네트워크 오류는 서버가 처리했는지 모르므로 같은 걸 다시 보내지 않고 버린다(조용한 재시도 없음).
+const HUNT_MSG={stage:'스테이지가 바뀌어서 이번 보고는 버렸어요.',bad:'사냥 보고가 올바르지 않아 버렸어요.'};
+async function sendHunt(keepalive){
+  if(HQ.busy||STATE!=='ok'||!V) return;
+  const now=Date.now(); if(HQ.s<1||now<HQ.min) return;
+  const secs=Math.min(40,Math.floor(HQ.s)), kills=HQ.s>secs?Math.floor(HQ.k*secs/HQ.s):Math.floor(HQ.k);
+  const stage=N(V.stage); HQ.busy=true;
+  let j=null;
+  try{
+    const u=dcUser(); if(!u){ HQ.busy=false; return; }
+    const r=await fetch(P6_API+'/brj/hunt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:u.token,kills,secs,stage}),keepalive:!!keepalive});
+    try{ j=await r.json(); }catch(e){ j=null; }
+    if(r.status===401&&j) j.code='auth';
+  }catch(e){ j=null; }
+  HQ.busy=false;
+  if(!j||typeof j!=='object'){ dropHunt(secs,kills); HQ.fail='net'; huntNote('사냥 보고를 보내지 못했어요 — 이번 30초는 골드가 안 쌓여요'); return; }
+  if(j.ok){
+    HQ.k=Math.max(0,HQ.k-kills); HQ.s=Math.max(0,HQ.s-secs); HQ.rej=0; HQ.fail=''; HQ.min=Date.now()+secs*700;
+    const got=N(j.got); GOT+=got; if(takeView(j)) softRefresh();
+    if(got>0){ bump($('chip_gold')); }
+    return;
+  }
+  if(j.code==='too_soon'||j.code==='too_fast'){ HQ.rej++; if(HQ.rej>4){ dropHunt(secs,kills); HQ.rej=0; } HQ.min=Date.now()+8000; if(j.view&&takeView(j)) softRefresh(); return; }   // 아직 — 쌓아 두고 다음에
+  dropHunt(secs,kills);
+  if(j.code==='auth'){ STATE='out'; render(); return; }
+  if(j.view&&takeView(j)) softRefresh();
+  if(HUNT_MSG[j.code]) huntNote(HUNT_MSG[j.code]); else huntNote('사냥 보고가 받아들여지지 않았어요');
+}
+function dropHunt(secs,kills){ HQ.s=Math.max(0,HQ.s-secs); HQ.k=Math.max(0,HQ.k-kills); }
+let _hn=0; function huntNote(t){ HQ.note=t; if(Date.now()-_hn>60000){ _hn=Date.now(); toast(t); } }
+// 화면 전체를 다시 그리지 않고 숫자만 새로 고친다(누르는 중인 버튼·열어 둔 접이식 글이 사라지지 않게)
+function softRefresh(){ try{ updateChips(); setHtml($('dock'),dockHtml()); pushField(); tick(); document.querySelectorAll('[data-gold]').forEach(el=>{ el.textContent=fmt(resVals().gold); }); updHud(); }catch(e){ console.warn(e); } }
+let CHAL_LOCK=false;
+async function preChal(){ if(CHAL_LOCK) return false; CHAL_LOCK=true; try{ await flushHunt(); }finally{ CHAL_LOCK=false; } return !(BUSY||BOSS); }
+async function flushHunt(){ try{ if(FIELD) FIELD.flush(); }catch(e){} HQ.min=0; await sendHunt(); }   // 스테이지가 바뀌는 도전 전에 지금까지 한 사냥을 먼저 보고한다
+setInterval(()=>{ if(HQ.s>=1&&!HQ.busy) sendHunt(); },8000);
+addEventListener('pagehide',()=>{ try{ if(FIELD) FIELD.flush(); }catch(e){} HQ.min=0; sendHunt(true); });
+
+// ---------- 화면 위 표시(체력·마나·AUTO·콤보·쿨다운) ----------
+function updAuto(){
+  const b=$('autoBtn'); if(!b||!FIELD) return; let s=null; try{ s=FIELD.stats(); }catch(e){} if(!s) return;
+  const on=s.auto, wait=s.autoWanted&&!s.auto;
+  b.textContent=on?'AUTO':wait?'수동':'수동'; b.classList.toggle('on',on); b.classList.toggle('wait',wait); b.setAttribute('aria-pressed',String(!!s.autoWanted));
+  b.title=on?'자동 사냥 중 (Tab 으로 끄기)':wait?'직접 조작 중 — 3초 동안 입력이 없으면 자동 사냥으로 돌아가요':'자동 사냥이 꺼져 있어요 (Tab 으로 켜기)';
 }
 function updHud(){
   if(!FIELD||!V) return;
-  try{ const s=FIELD.stats(); $('hKpm').textContent=Math.round(s.kpm); }catch(e){}
-  $('hKills').textContent=fmt(KILLS);
-  $('hPer').innerHTML=I('gold')+perKill(V.rate);
+  let s=null; try{ s=FIELD.stats(); }catch(e){} if(!s) return;
+  $('hKpm').textContent=Math.round(s.kpm); $('hKills').textContent=fmt(KILLS);
+  const hr=Math.max(0,Math.min(1,s.hp/Math.max(1,s.hpMax))), mr=Math.max(0,Math.min(1,s.mp/Math.max(1,s.mpMax)));
+  $('hpFill').style.transform='scaleX('+hr.toFixed(3)+')'; $('mpFill').style.transform='scaleX('+mr.toFixed(3)+')'; $('hpBar').classList.toggle('low',hr<0.3);
+  $('hpTxt').textContent='HP '+fmtC(s.hp)+' / '+fmtC(s.hpMax); $('mpTxt').textContent='MP '+Math.floor(s.mp)+' / '+Math.floor(s.mpMax);
+  $('hPer').innerHTML=I('gold')+perKill();
+  $('hGot').innerHTML=GOT>0?'직접 사냥 '+I('gold')+'<b>+'+fmt(GOT)+'</b>':'';
+  $('hGot').style.display=GOT>0?'':'none';
   try{ const pn=pendNow(), hc=$('hColl'); hc.innerHTML=I('gold')+fmtC(pn)+' 수령'; hc.classList.toggle('dis',pn<1); hc.classList.toggle('pulse',pn>=1&&!BUSY); const cg=$('chip_gold'); cg&&cg.classList.toggle('ready',pn>=1); }catch(e){}
+  // 콤보
+  const cb=$('combo'); if(s.combo>=3){ cb.textContent=s.combo+' HIT'; cb.classList.add('on'); if(s.combo!==LASTCOMBO){ cb.classList.remove('pop'); void cb.offsetWidth; cb.classList.add('pop'); } } else cb.classList.remove('on');
+  if(s.combo>=5&&s.combo!==LASTCOMBO&&s.combo%5===0&&s.combo>LASTCOMBO) snd('combo_up',{rate:1+0.05*Math.min(8,s.combo/5)});
+  LASTCOMBO=s.combo;
+  // 전투 강도 → 음악 층
+  try{ if(window.BrjAudio&&BrjAudio.setIntensity) BrjAudio.setIntensity(BOSS?1:Math.min(1,0.45+s.combo/40+Math.min(0.2,s.mobs*0.02))); }catch(e){}
+  updAuto();
+  // 쿨다운 링 · MP 부족 표시(엔진 값)
+  const acts=equippedActives();
+  document.querySelectorAll('#dock .sk[data-slot]').forEach(el=>{
+    const i=N(el.dataset.slot), k=acts[i]; if(!k) return;
+    const cd=Math.max(0.2,N(k.cd!=null?k.cd:k.cd_s)||3), rem=Math.max(0,Math.min(1,N(s.cd&&s.cd[i])/cd));
+    const ring=el.querySelector('.ring'); if(ring) ring.style.setProperty('--cd',(rem*360).toFixed(0)+'deg');
+    el.classList.toggle('nomp',N(s.mp)<N(k.mp));
+  });
 }
 // 시험용 관찰 창(화면 동작에는 쓰이지 않는다)
-window.__bt={get party(){return V?fieldState().party.length:0;},get t(){try{return FIELD.stats().t;}catch(e){return 0;}},get kills(){return KILLS;},get boss(){try{return FIELD.stats().boss;}catch(e){return null;}},get stats(){try{return FIELD.stats();}catch(e){return null;}},get field(){return FIELD;},get bgm(){return CURBGM;}};
-setInterval(updRings,140); setInterval(updHud,500);
+window.__bt={get party(){return V?fieldState().party.length:0;},get t(){try{return FIELD.stats().t;}catch(e){return 0;}},get kills(){return KILLS;},get boss(){try{return FIELD.stats().boss;}catch(e){return null;}},get stats(){try{return FIELD.stats();}catch(e){return null;}},get field(){return FIELD;},get bgm(){return CURBGM;},get hq(){return HQ;},get got(){return GOT;},sendHunt};
+setInterval(updHud,150);
+
+// ---------- 손조작: 화면 버튼(터치) ----------
+const PADS=new Map();
+function padPress(k){
+  if(!FIELD) return;
+  if(k==='drop'){ FIELD.input.press('down'); FIELD.input.press('jump'); setTimeout(()=>{ FIELD.input.release('jump'); FIELD.input.release('down'); },140); return; }
+  if(/^s[1-4]$/.test(k)){ const i=N(k.slice(1))-1, kk=equippedActives()[i], s=FIELD.stats(); if(!kk||N(s.mp)<N(kk.mp)||N(s.cd&&s.cd[i])>0) snd('no_mp',{},250); }
+  FIELD.input.press(k);
+}
+function padRelease(k){ if(FIELD&&k!=='drop') FIELD.input.release(k); }
+function bindPads(){
+  const root=$('touch');
+  root.addEventListener('pointerdown',e=>{
+    const b=e.target.closest('.tp[data-k]'); if(!b) return; e.preventDefault();
+    try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){}
+    try{ b.setPointerCapture(e.pointerId); }catch(x){}
+    PADS.set(e.pointerId,b); b.classList.add('on'); padPress(b.dataset.k);
+  });
+  const up=e=>{ const b=PADS.get(e.pointerId); if(!b) return; PADS.delete(e.pointerId); b.classList.remove('on'); padRelease(b.dataset.k); };
+  ['pointerup','pointercancel','lostpointercapture'].forEach(n=>root.addEventListener(n,up));
+  root.addEventListener('contextmenu',e=>e.preventDefault());
+  addEventListener('blur',()=>{ PADS.forEach((b,id)=>{ b.classList.remove('on'); padRelease(b.dataset.k); }); PADS.clear(); });
+}
+function setPad(on,save){
+  document.body.classList.toggle('touch',!!on); const b=$('padBtn'); b.classList.toggle('on',!!on); b.setAttribute('aria-pressed',String(!!on));
+  if(save) LS('brjhunt_pad',on?'1':'0');
+}
+(function initPad(){
+  let coarse=false; try{ coarse=!!(matchMedia('(pointer: coarse)').matches||navigator.maxTouchPoints>0&&!matchMedia('(hover: hover)').matches); }catch(e){}
+  const pref=LS('brjhunt_pad'); setPad(pref==='1'||(pref!=='0'&&coarse),false); bindPads();
+})();
+// 스페이스로 눌린 버튼이 같이 눌리는 일을 막는다(점프 키가 스페이스라서)
+addEventListener('keyup',e=>{ if(e.key===' '&&TAB==='hunt'&&e.target&&e.target.tagName==='BUTTON'&&FIELD) e.preventDefault(); },true);
 
 // ---------- 값 보조 ----------
 function R(o,k,d){ return (o&&typeof o==='object'&&o[k]!=null)?o[k]:d; }
@@ -602,10 +760,11 @@ function renderTop(){
 function dockHtml(){
   const v=V, gate=gateInfo(), bg=bossGate(), cap=N(v.max_stage)||30, st=N(v.stage), nextOk=st<cap;
   const s=v.skill, eq=(s&&s.equipped)||{}, act=Array.isArray(eq.active)?eq.active:[];
-  const slotBtn=(id,pas)=>{
+  const slotBtn=(id,pas,i)=>{
     const k=id?skById(id):null;
     if(!k||!k.unlocked) return `<button class="sk${pas?' pas':''} empty" data-tab="skill" aria-label="${pas?'패시브':'액티브'} 스킬 칸이 비어 있어요. 스킬 탭으로 가기">+</button>`;
-    return `<button class="sk${pas?' pas':''}" data-sid="${esc(k.id)}" data-cd="${N(k.cd_s)}" data-tab="skill" aria-label="${esc(k.name)} 레벨 ${fmt(k.lv)}. 스킬 탭으로 가기"><img src="${skIcon(k.id)}" alt="" onerror="this.style.display='none'"><span class="ring"></span><span class="lv">${fmt(k.lv)}</span></button>`;
+    if(pas) return `<button class="sk pas" data-sid="${esc(k.id)}" data-tab="skill" aria-label="${esc(k.name)} 레벨 ${fmt(k.lv)}. 항상 켜져 있는 패시브. 스킬 탭으로 가기"><img src="${skIcon(k.id)}" alt="" onerror="this.style.display='none'"><span class="lv">${fmt(k.lv)}</span></button>`;
+    return `<button class="sk" data-cast="${i}" data-slot="${i}" data-sid="${esc(k.id)}" aria-label="${esc(k.name)} 레벨 ${fmt(k.lv)}. 누르면 사용해요 (단축키 ${i+1}, MP ${fmt(k.mp)}, 쿨다운 ${N(k.cd)}초)"><img src="${skIcon(k.id)}" alt="" onerror="this.style.display='none'"><span class="ring"></span><span class="kb">${i+1}</span><span class="lv">${fmt(k.lv)}</span></button>`;
   };
   let big;
   if(BOSS) big=`<button class="btn red push" disabled data-do="chal">⚔ 보스전<small>진행 중…</small></button>`;
@@ -615,7 +774,8 @@ function dockHtml(){
     big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="chal" aria-label="스테이지 ${fmt(st+1)} 도전 던전. 몬스터 체력 ${fmt(v.chal_hp)}, 내 전투력 ${fmt(v.power)}">⚔ 도전 던전<small>${can?'이길 수 있어요':'몬스터 '+fmtC(v.chal_hp)+' · 내 '+fmtC(v.power)}</small></button>`; }
   const pct=Math.max(2,Math.min(100,st/cap*100));
   return `<div class="pbar" role="progressbar" aria-label="스테이지 진행" aria-valuemin="0" aria-valuemax="${cap}" aria-valuenow="${st}"><i style="width:${pct}%"></i><span>STAGE ${fmt(st)} / ${fmt(cap)}</span></div>
-  <div class="dockrow"><div class="hot">${slotBtn(eq.passive,true)}<span class="hsep" aria-hidden="true"></span>${[0,1,2,3].map(i=>slotBtn(act[i],false)).join('')}</div>${big}</div>`;
+  <div class="dockrow"><div class="hot">${slotBtn(eq.passive,true,0)}<span class="hsep" aria-hidden="true"></span>${[0,1,2,3].map(i=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
+  <div class="keyhint"><b>← →</b> 이동 · <b>Alt</b> 점프 · <b>Ctrl</b> 공격 · <b>1~4</b> 스킬 · <b>Tab</b> AUTO · 자세히는 필드 위 <b>?</b></div>`;
 }
 function navHtml(){
   const dn=V&&V.dungeon; const todo=dn&&dn.daily&&!dn.daily.claimed&&dn.daily.all;
@@ -635,7 +795,7 @@ function render(){
   document.body.classList.toggle('mini',ok&&TAB!=='hunt');
   $('stage').style.display=ok?'':'none';
   syncBgm();
-  if(!ok&&FIELD){ try{ FIELD.stop(); }catch(e){} }
+  if(!ok&&FIELD){ try{ FIELD.stop(); FIELD.setKeys(false); }catch(e){} }
   if(STATE==='boot'){ main.innerHTML='<div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div>'; nav.innerHTML=''; nav._h=null; return; }
   if(STATE==='out'){
     main.innerHTML=`<div class="empty card"><div class="big">🔐</div><h2 style="justify-content:center">디스코드로 로그인해 주세요</h2><p class="sub">로그인하면 내 사냥터와 동료를 볼 수 있어요.<br>비밀번호는 묻지 않아요. 디스코드 확인 버튼만 누르면 돼요.</p><div class="btns"><button class="btn" id="loginBtn">디스코드 로그인</button></div></div>`;
@@ -675,40 +835,52 @@ function pendNow(){
   const hrs=Math.min(cap,N(V.hours)+dt);
   return Math.floor(N(V.rate)*(hrs+N(V.boost)));
 }
-function multPills(){
-  const out=[];
-  const gm=N(R(V.growth,'mult',1)), sm=N(R(V.summon,'mult',1)), pm=N(R(V.prestige,'gold_mult',1)), km=N(R(V.skill,'mult',1));
-  if(gm>1.0001) out.push(`📈 성장 ×${gm.toFixed(2)}`); if(sm>1.0001) out.push(`👥 동료 파티 ×${sm.toFixed(2)}`); if(km>1.0001) out.push(`⚡ 스킬 ×${km.toFixed(2)}`); if(pm>1.0001) out.push(`🌟 환생 ×${pm.toFixed(2)}`);
+function modPills(){
+  const c=R(R(V.stats,'combat',null),'mods',null)||{}, out=[];
+  if(N(c.lv_pct)>0) out.push(`🐥 브장신 Lv.${fmt(c.lv)} · 전 스탯 +${N(c.lv_pct)}%`);
+  if(N(c.party_pct)>0) out.push(`👥 동료 · 공격·체력 +${N(c.party_pct)}%`);
+  if(N(c.prestige_pct)>0) out.push(`💪 환생 · 공격·체력·방어 +${N(c.prestige_pct)}%`);
+  const sm=N(R(V.skill,'mult',1)); if(sm>1.0001) out.push(`⚡ 스킬 피해 ×${sm.toFixed(2)}`);
   return out;
 }
+function monLine(m){ if(!m) return ''; return `체력 ${fmt(m.hp)} · 공격 ${fmt(m.atk)} · 방어 ${fmt(m.def)} · 회피 ${fmt(m.eva)}`; }
 function tabHunt(){
-  const v=V, gate=gateInfo(), full=N(v.hours)>=N(v.cap_h)-0.01;
-  const cap=N(v.max_stage)||30, st=N(v.stage);
-  const mult=multPills();
+  const v=V, full=N(v.hours)>=N(v.cap_h)-0.01, gate=gateInfo();
+  const cap=N(v.max_stage)||30, st=N(v.stage), f=v.field||null, mon=f&&f.mon, nmon=f&&f.next_mon;
+  const mods=modPills();
   const hpct=Math.max(2,Math.min(100,N(v.hours)/Math.max(1,N(v.cap_h))*100));
   return `
   <div class="card">
     <div class="hunthero"><div style="min-width:0"><div class="sub">쌓인 사냥 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
       <button class="btn gold" data-do="collect" style="min-width:118px;font-size:17px;padding:10px 12px" aria-label="쌓인 사냥 골드 수령하기">수령</button></div>
-    <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> · ${perKillTxt(v.rate)} <span class="mut">(분당 약 ${fmt(Math.round(kpmNow()))}마리 기준)</span></div>
-    <div class="sub" style="margin-top:4px">⚔ 내 전투력 <b>${fmt(v.power)}</b> · 이 필드 권장 ${fmt(v.rec)} → 분당 <b>${fmt(Math.round(kpmNow()))}</b>마리 · 다음 도전 던전 몬스터 <b class="${v.power_ok?'green':'red'}">${fmt(v.chal_hp)}</b> ${v.power_ok?'✔ 도전할 수 있어요':'· 더 강해지면 이겨요'}</div>
+    <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> = 분당 약 <b>${fmt(Math.round(kpmNow()))}</b>마리 × 몬스터 1마리 드랍 (${perKillTxt()})</div>
+    <div class="sub" style="margin-top:4px">⚔ 내 전투력 <b>${fmt(v.power)}</b> · 이 필드 권장 ${fmt(v.rec)} · 다음 도전 던전 기준 <b class="${v.power_ok?'green':'red'}">${fmt(v.chal_hp)}</b> ${v.power_ok?'✔ 도전할 수 있어요':'· 더 강해지면 이겨요'}</div>
     <div class="bar g" style="margin-top:8px" role="progressbar" aria-label="쌓인 시간" aria-valuemin="0" aria-valuemax="${fmt(v.cap_h)}" aria-valuenow="${N(v.hours).toFixed(1)}"><i style="width:${hpct}%"></i></div>
     <div class="sub" style="margin-top:3px">${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
     ${N(v.boost)>0?`<div class="sub green">⚔ 내전 부스트 ${fmt(v.boost)}시간치가 더해져요 (내전 1판 = 사냥 1시간)</div>`:`<div class="mut">내전을 1판 뛸 때마다 사냥 1시간치가 더 쌓여요 (최대 ${fmt(v.boost_max)}시간)</div>`}
-    ${mult.length?`<div class="mults">${mult.map(m=>`<span class="pill gold">${esc(m)}</span>`).join('')}</div><div class="mut" style="margin-top:4px">시간당 골드 배율이에요.</div>`:''}
-    <div class="mut" style="margin-top:6px">화면에 보이는 값은 약간의 어림이고, 받을 때 서버가 정확히 계산해 줘요. 화면 속 사냥은 이 골드를 눈으로 보여 주는 구경거리예요.</div>
+    ${mods.length?`<div class="mults">${mods.map(m=>`<span class="pill gold">${esc(m)}</span>`).join('')}</div><div class="mut" style="margin-top:4px">전투 스탯에 더해지는 보너스예요. 골드를 곱해 주는 배율은 없어요.</div>`:''}
+    <div class="mut" style="margin-top:6px"><b>직접 잡은 만큼 골드가 돼요.</b> 필드에서 잡은 마리 수는 30초마다 서버에 보고되고(창을 닫거나 숨겨도 그때까지 한 것은 보내요), 그만큼 몬스터 드랍 골드가 쌓여요. AUTO 로 두면 위의 분당 처치와 비슷하게 벌고, 직접 잘 하면 최대 40% 더 벌 수 있어요. 앱을 꺼 두면 서버가 같은 계산으로 쌓아 줘요.${HQ.note&&HQ.fail?` <span class="red">(${esc(HQ.note)})</span>`:''}</div>
   </div>
+  ${f&&mon?`<div class="card">
+    <h2>📍 ${esc(f.region||v.region)} <span class="pill">스테이지 ${fmt(st)}</span></h2>
+    <div class="kv"><span>몬스터</span><b>${esc(mon.name)}</b></div>
+    <div class="mut">${monLine(mon)}</div>
+    <div class="kv"><span>한 마리가 떨어뜨리는 골드</span><b>${perKillTxt()}</b></div>
+    ${nmon?`<div class="kv"><span>다음 스테이지 ${esc(nmon.name)}</span><b>${goldUnitTxt(N(nmon.gold))}</b></div>`:''}
+    <div class="mut" style="margin-top:6px">높은 필드일수록 몬스터가 세지고, 한 마리가 떨어뜨리는 골드도 늘어요. 스탯이 세질수록 더 빨리 잡아서 같은 시간에 더 벌어요.</div>
+  </div>`:''}
   <div class="card">
     <h2>⚔ 도전 던전 <span class="pill">스테이지 ${fmt(st+1)}</span></h2>
-    <div class="sub">다음 스테이지로 가려면 <b>도전 던전</b>을 클리어해야 해요. 골드는 들지 않아요. 내 전투력이 몬스터 체력 이상이면 이겨요. 져도 잃는 건 없어요.</div>
-    <div class="kv"><span>몬스터 체력</span><b>${fmt(v.chal_hp)}</b></div>
+    <div class="sub">다음 스테이지로 가려면 <b>도전 던전</b>을 클리어해야 해요. 골드는 들지 않아요. 내 전투력이 기준 이상이면 이겨요. 져도 잃는 건 없어요.</div>
+    <div class="kv"><span>이길 수 있는 전투력</span><b>${fmt(v.chal_hp)}</b></div>
     <div class="kv"><span>내 전투력</span><b class="${v.power_ok?'green':'red'}">${fmt(v.power)} ${v.power_ok?'✔ 이길 수 있어요':`(${fmt(Math.max(0,N(v.chal_hp)-N(v.power)))} 더 필요)`}</b></div>
     <div class="kv"><span>클리어하면 시간당 골드</span><b>${I('gold')}${fmt(v.next_rate)} <span class="mut">(기본값 기준)</span></b></div>
     ${gate?`<div class="msg info" style="margin:8px 0 0">🛡 스테이지 ${fmt(gate.stage)} 은 보스 관문이에요. <b>${esc(gate.name)}</b> 을(를) 이겨야 넘어갈 수 있어요. 졌다고 손해는 없어요.</div>`:''}
     <div class="mut" style="margin-top:6px">도전 버튼은 필드 아래쪽에 있어요. 스테이지 ${fmt(st)} / ${fmt(cap)}${cap>30?' (환생으로 넓힌 상한)':''}</div>
   </div>
   ${quickCard()}
-  <details class="card"><summary>📖 이렇게 즐겨요</summary><div class="sub">① 접속하면 쌓인 골드를 <b>수령</b> ② 골드는 <b>성장</b>에 써서 전투력을 키워요. 다음 스테이지는 골드가 아니라 <b>도전 던전</b>을 깨서 넘어가요 ③ <b>각성</b>하면 새 <b>스킬</b>을 배우고, 스킬을 강화하면 시간당 골드가 더 늘어요 ④ 소환권으로 <b>동료</b>를 모아 파티를 짜요 ⑤ 열쇠로 <b>던전</b>, 관문에서는 <b>보스</b>에 도전해요. 앱을 꺼 두어도 골드는 쌓여요(최대 ${fmt(v.cap_h)}시간).</div></details>`;
+  <details class="card"><summary>🎮 조작법</summary><div class="sub"><b>키보드</b> — <b>← →</b> 이동 · <b>Alt / Space / ↑</b> 점프(오래 누를수록 높이, 공중에서 한 번 더 누르면 2단 점프) · <b>↓ + 점프</b> 아래 발판으로 · <b>Ctrl / Z</b> 기본 공격(3콤보) · <b>1 2 3 4</b>(또는 A S D F) 스킬 · <b>Tab / G</b> AUTO 켜고 끄기 · <b>P</b> 일시정지<br><b>휴대폰</b> — 필드 위 🎮 버튼으로 화면 조작 버튼을 켜고 꺼요. 왼쪽 ◀ ▶ 이동, 오른쪽 ⚔ 공격 · ⤒ 점프 · ⤓ 내려가기 · 숫자 칸이 스킬이에요.<br>키를 누르면 바로 <b>수동</b>이 되고, 3초 동안 가만히 있으면 AUTO 로 돌아가요. 스킬은 MP 가 있어야 쓰고(MP 는 시간이 지나면 차요), 쓴 뒤에는 쿨다운이 있어요. 쓰러지면 잠시 뒤 시작 지점에서 되살아나지만 그동안은 못 잡아요.</div></details>
+  <details class="card"><summary>📖 이렇게 즐겨요</summary><div class="sub">① 접속하면 쌓인 골드를 <b>수령</b> ② 필드에서 직접 사냥하거나 AUTO 로 맡겨요 ③ 골드는 <b>스탯</b>(공격력·체력·방어력·크리티컬·명중)에 써서 더 세져요. 다음 스테이지는 골드가 아니라 <b>도전 던전</b>을 깨서 넘어가요 ④ <b>각성</b>하면 새 <b>스킬</b>을 배워요 ⑤ 소환권으로 <b>동료</b>를 모아 파티를 짜요 ⑥ 열쇠로 <b>던전</b>, 관문에서는 <b>보스</b>에 도전해요. 골드는 스탯이 아니라 <b>몬스터가 떨어뜨리는 것</b>이에요 — 더 높은 필드에서 더 많이 잡을수록 늘어요. 앱을 꺼 두어도 골드는 쌓여요(최대 ${fmt(v.cap_h)}시간).</div></details>`;
 }
 function quickCard(){
   const q=R(V.growth,'quick',null); if(!q) return '';
@@ -722,6 +894,15 @@ function selSlot(){
   const s=V&&V.skill, act=(s&&s.equipped&&Array.isArray(s.equipped.active))?s.equipped.active:[];
   if(SEL_SLOT!=null&&SEL_SLOT>=0&&SEL_SLOT<4) return SEL_SLOT;
   const e=[0,1,2,3].find(i=>!act[i]); return e==null?0:e;
+}
+const SHAPE_KO={arc:'부채꼴 근접',proj:'날아가는 탄',aoe:'범위 폭발',self:'내 주변',dash:'돌진'};
+function ccTxt(c){ c=String(c||''); if(c==='knock') return '밀쳐냄'; if(c==='burn') return '화상'; if(c.indexOf('stun')===0) return '기절 '+esc(c.split(':')[1]||'')+'초'; return ''; }
+function skStat(k,lock,act_,lv,max){
+  const hits=N(k.hits)||1;
+  if(lock) return `각성 ${fmt(k.need_awaken)}단계에서 배워요`+(act_?` · 최대 피해 ${fmt(N(k.peak_pct))}%${hits>1?' × '+fmt(hits)+'타':''}`:'');
+  if(!act_) return `Lv.<b>${lv}</b>/${max} · 방어력 <b>+${N(k.def_pct).toFixed(1)}%</b> · 체력 <b>+${N(k.hp_pct).toFixed(1)}%</b> <span class="mut">(항상 켜짐)</span>`;
+  const cc=ccTxt(k.cc);
+  return `Lv.<b>${lv}</b>/${max} · 피해 <b>${fmt(Math.round(N(k.mult)))}%</b>${hits>1?` × ${fmt(hits)}타`:''}${lv<max?` → ${fmt(Math.round(N(k.next_mult)))}%`:''}<br>쿨 ${N(k.cd)}초 · MP ${fmt(k.mp)} · ${esc(SHAPE_KO[k.shape]||'')} · 사거리 ${fmt(k.range)}${cc?' · '+cc:''}${N(k.key)>0?` · 단축키 <b>${fmt(k.key)}</b>`:''}${N(k.power_pct)>0?`<br>전투력에 <b>+${N(k.power_pct).toFixed(1)}%</b>`:''}`;
 }
 function tabSkill(){
   const s=V.skill;
@@ -755,7 +936,7 @@ function tabSkill(){
       <div class="top"><img class="sic" src="${skIcon(k.id)}" alt="" onerror="this.style.visibility='hidden'"><div style="min-width:0"><div class="nm">${esc(k.name)}</div><span class="pill">${act_?'액티브':'패시브'}</span>${lock?` <span class="lkb">🔒 각성 ${fmt(k.need_awaken)}</span>`:(eqd?' <span class="lkb on">장착중</span>':'')}</div></div>
       <div class="ds">${esc(k.desc)}</div>
       <div class="lvbar" role="img" aria-label="레벨 ${lv} / ${max}">${bars}</div>
-      <div class="st">${lock?`각성 ${fmt(k.need_awaken)}단계에서 배워요 · 최대 골드 +${N(k.peak_pct)}%`:`Lv.<b>${lv}</b>/${max} · 골드 +<b>${N(k.power_pct).toFixed(1)}%</b>${lv<max?` → +${N(k.next_power_pct).toFixed(1)}%`:''}${act_?` · 쿨 ${N(k.cd_s)}초`:''}`}</div>
+      <div class="st">${skStat(k,lock,act_,lv,max)}</div>
       ${lock?'':`<div class="btns">${up}${eqb}</div>`}
     </div>`;
   };
@@ -764,13 +945,14 @@ function tabSkill(){
     <div class="pips" role="img" aria-label="각성 ${lvA}단계, 최대 ${mx}단계">${gems}</div>
     ${awaken}
   </div>
-  <div class="card"><h2>🎯 장착 스킬 <span class="pill gold">시간당 골드 ×${N(s.mult).toFixed(2)}</span></h2>
-    <div class="sub">액티브 4칸은 쿨다운마다 알아서 터져요. 칸을 눌러 고르고, 아래 카드에서 <b>장착</b>을 누르면 그 칸에 들어가요. 패시브는 칸이 하나예요. (최대 ×${N(s.mult_cap).toFixed(1)})</div>
+  <div class="card"><h2>🎯 장착 스킬 <span class="pill gold">스킬 피해 ×${N(s.mult).toFixed(2)}</span></h2>
+    <div class="sub">액티브 4칸은 필드에서 <b>단축키 1~4</b>(또는 화면 버튼)로 직접 쓰고, AUTO 일 때는 같은 규칙(MP·쿨다운)으로 알아서 써요. 칸을 눌러 고르고, 아래 카드에서 <b>장착</b>을 누르면 그 칸에 들어가요. 패시브는 칸이 하나예요. (스킬 피해 최대 ×${N(s.mult_cap).toFixed(1)})</div>
+    ${N(s.mp)>0?`<div class="mut" style="margin-top:4px">MP 최대 ${fmt(s.mp)} · 초당 ${N(s.mpregen).toFixed(1)} 회복 — 스킬은 MP 가 모자라면 못 써요.</div>`:''}
     <div class="eqrow">${[0,1,2,3].map(i=>slotTile(act[i],i,false)).join('')}${slotTile(eq.passive,0,true)}</div>
   </div>
   <div class="card"><h2>📚 스킬 도감 <span class="pill">${fmt(list.filter(k=>k.unlocked).length)} / ${fmt(list.length)}</span></h2>
     <div class="skg">${list.map(card).join('')}</div>
-    <div class="mut" style="margin-top:8px">${esc(s.note||'')} 스킬 효과는 서버가 계산하고, 필드의 번쩍임은 그걸 눈으로 보여 주는 연출이에요.</div>
+    <div class="mut" style="margin-top:8px">${esc(s.note||'')} 피해 계수·쿨다운·MP·사거리는 서버 수치를 필드 전투에 그대로 써요.</div>
   </div>`;
 }
 
@@ -800,11 +982,11 @@ function tabCrew(){
     ${SUMRES?sumResHtml(SUMRES):''}
   </div>
   <div class="card">
-    <h2>👥 파티 편성 <span class="pill">시간당 골드 ×${N(s.mult||1).toFixed(2)}</span></h2>
-    <div class="sub">동료를 최대 ${fmt(s.party_max)}명 골라 파티에 넣으면 시간당 골드가 늘어요 (최대 ×${N(s.mult_cap).toFixed(1)}). 아래 카드를 눌러 넣고 빼세요.</div>
+    <h2>👥 파티 편성 <span class="pill">공격력·체력 +${N(s.stat_pct!=null?s.stat_pct:(N(s.mult||1)-1)*100).toFixed(1)}%</span></h2>
+    <div class="sub">동료를 최대 ${fmt(s.party_max)}명 골라 파티에 넣으면 <b>공격력과 체력</b>이 늘어요 (최대 ×${N(s.mult_cap).toFixed(1)}). 필드에서 함께 싸우는 모습도 보여요. 아래 카드를 눌러 넣고 빼세요.</div>
     <div class="party">${slots.join('')}</div>
     <div class="btns"><button class="btn ${pend?'':'alt'}" data-do="party" ${pend?'':'disabled'}>${pend?'편성 저장':'저장됨'}</button>${pend?'<button class="btn alt" data-do="partyreset">되돌리기</button>':''}</div>
-    <details><summary>등급별 보너스 보기</summary><div class="sub">동료 1명이 주는 시간당 골드 보너스(동료 Lv.1): ${Object.entries(s.grade_bonus||{}).map(([k,p])=>`${esc(k)} +${N(p)}%`).join(' · ')}. 동료 레벨이 1 오를 때마다 그 보너스가 ${fmt(s.lv_bonus_pct)}%씩 커져요.</div></details>
+    <details><summary>등급별 보너스 보기</summary><div class="sub">동료 1명이 주는 공격력·체력 보너스(동료 Lv.1): ${Object.entries(s.grade_bonus||{}).map(([k,p])=>`${esc(k)} +${N(p)}%`).join(' · ')}. 동료 레벨이 1 오를 때마다 그 보너스가 ${fmt(s.lv_bonus_pct)}%씩 커져요.</div></details>
   </div>
   <div class="card">
     <h2>🃏 내 동료 <span class="pill">${fmt(s.own_n)}명</span></h2>
@@ -816,24 +998,48 @@ function cardHtml(c,sel){
   const f=(Array.isArray(c.f)?c.f:[]).slice(0,2).map(x=>esc(x)).join('<br>');
   return `<button class="cd gr-${g}${sel?' sel':''}${c.gone?' gone':''}" data-card="${esc(c.id)}" aria-pressed="${sel?'true':'false'}">
     <div class="gr t-${g}">${esc(GR_KO[g])} · Lv.${fmt(c.lv)}</div><div class="nm">${esc(c.n)}${sel?' ✅':''}</div>
-    <div class="ft">+${N(c.bonus).toFixed(1)}% 골드${c.next_sh?` · 조각 ${fmt(c.sh)}/${fmt(c.next_sh)}`:' · 최고 레벨'}</div><div class="ft">${f}</div></button>`;
+    <div class="ft">+${N(c.bonus).toFixed(1)}% 공격·체력${c.next_sh?` · 조각 ${fmt(c.sh)}/${fmt(c.next_sh)}`:' · 최고 레벨'}</div><div class="ft">${f}</div></button>`;
 }
 function sumResHtml(res){
   return `<h3>🎉 소환 결과</h3><div class="sumres">${res.map((x,i)=>{const g=grKey(x.gr);return `<div class="cd gr-${g}${['epic','unique','legend'].includes(g)?' rare':''}" style="--i:${i}"><div class="gr t-${g}">${esc(GR_KO[g])}${x.new?'<span class="new">NEW</span>':''}</div><div class="nm">${esc(x.n)}</div><div class="ft">${x.new?'새 동료!':`동료 Lv.${fmt(x.lv)} · 조각 ${fmt(x.sh)}`}</div></div>`;}).join('')}</div>`;
 }
 
-// ----- 성장·강화 -----
+// ----- 전투 스탯·장비 강화 -----
+const STAT_KO={atk:'공격력',hp:'체력',def:'방어력',crit:'크리티컬 확률',critdmg:'크리티컬 피해',acc:'명중'};
+function givesTxt(arr){
+  return (Array.isArray(arr)?arr:[]).map(g=>{
+    const nm=STAT_KO[g.stat]||String(g.stat||''); if(!nm) return '';
+    if(g.pct!=null) return `${esc(nm)} +${N(g.pct)}%`;
+    if(g.add!=null) return `${esc(nm)} +${N(g.add)}${g.stat==='crit'||g.stat==='critdmg'?'%':''}`;
+    return '';
+  }).filter(Boolean).join(' · ');
+}
+function statFmt(a,key){ const v=N(key!=null?a[key]:a.value); return a.unit==='%'?v.toFixed(1)+'%':fmt(v); }
 function tabGrow(){
-  const g=V.growth||{}; const axes=Array.isArray(g.axes)?g.axes:[], slots=Array.isArray(g.slots)?g.slots:[], tbl=Array.isArray(g.enhance_table)?g.enhance_table:[];
+  const S=V.stats; const g=V.growth||{};
+  if(!S||!Array.isArray(S.list)) return `<div class="card empty"><div class="big">📊</div><div class="sub">전투 스탯 정보를 아직 받지 못했어요. 서버가 업데이트되는 중일 수 있어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
+  const cb=S.combat||{}, md=cb.mods||{}, gold=resVals().gold;
+  const slots=Array.isArray(S.gear)?S.gear:(Array.isArray(g.slots)?g.slots:[]), tbl=Array.isArray(g.enhance_table)?g.enhance_table:[];
+  const kv=(n,v,x)=>`<div class="kv"><span>${n}</span><b>${v}${x?` <span class="mut">${x}</span>`:''}</b></div>`;
   return `
-  <div class="card"><h2>📈 성장 <span class="pill">시간당 골드 ×${N(g.mult||1).toFixed(2)}</span></h2>
-    <div class="sub">골드를 써서 키워요. 올릴수록 시간당 골드가 늘어요. 내 골드 ${I('gold')}${fmt(g.gold)}</div>
-    ${axes.map(a=>`<div class="boss" style="padding:10px 0"><div class="ic">${esc(a.emoji)}</div><div class="tx"><b>${esc(a.name)}</b> <span class="pill">Lv.${fmt(a.lv)}/${fmt(a.max)}</span><div class="mut">${esc(a.text)} · 지금 +${N(a.bonus_pct)}%</div></div>
-      <button class="btn ${a.can?'':'alt'}" data-do="upgrade" data-axis="${esc(a.key)}" ${N(a.lv)>=N(a.max)?'disabled':''}>${N(a.lv)>=N(a.max)?'최고':`${I('gold')}${fmt(a.cost)}`}</button></div>`).join('')}
+  <div class="card"><h2>📊 내 전투 스탯 <span class="pill gold">전투력 ${fmt(cb.power)}</span></h2>
+    <div class="sub">지금 필드에서 실제로 싸우는 값이에요(성장·장비·동료·환생·스킬·브장신 Lv 를 모두 합친 최종값).</div>
+    ${kv('⚔ 공격력',fmt(cb.atk))}${kv('❤ 체력',fmt(cb.hp),`실질 체력 ${fmt(cb.ehp)}`)}${kv('🛡 방어력',fmt(cb.def),`피해 ${N(cb.def_cut).toFixed(1)}% 줄여요`)}
+    ${kv('🎯 크리티컬 확률',N(cb.crit).toFixed(1)+'%')}${kv('💥 크리티컬 피해',N(cb.critdmg).toFixed(0)+'%')}${kv('👁 명중',fmt(cb.acc),`지금 필드 몬스터에게 ${N(cb.hit).toFixed(0)}% 적중`)}
+    ${kv('🔷 MP',fmt(cb.mp),`초당 ${N(cb.mpregen).toFixed(1)} 회복`)}
+    <div class="mut" style="margin-top:6px">${[N(md.lv_pct)>0?`브장신 Lv.${fmt(md.lv)} 전 스탯 +${N(md.lv_pct)}%`:'',N(md.party_pct)>0?`동료 공격·체력 +${N(md.party_pct)}%`:'',N(md.prestige_pct)>0?`환생 공격·체력·방어 +${N(md.prestige_pct)}%`:'',N(md.skill_def_pct)>0?`패시브 방어 +${N(md.skill_def_pct)}%`:'',N(md.skill_hp_pct)>0?`패시브 체력 +${N(md.skill_hp_pct)}%`:''].filter(Boolean).map(esc).join(' · ')||'보너스가 아직 없어요'}</div>
+  </div>
+  <div class="card"><h2>📈 스탯 키우기</h2>
+    <div class="sub">🪙 골드로 스탯을 키워요. 골드를 더 벌게 해 주는 스탯은 없어요 — <b>싸움이 세져서 더 빨리·더 높은 필드에서 잡는 것</b>이 곧 골드예요. 내 골드 ${I('gold')}<span data-gold>${fmt(gold)}</span></div>
+    ${S.list.map(a=>`<div class="boss" style="padding:10px 0"><div class="ic">${esc(a.emoji)}</div><div class="tx"><b>${esc(a.name)}</b> <span class="pill">Lv.${fmt(a.lv)}/${fmt(a.max)}</span><div class="mut">${esc(a.text)}</div>
+      <div class="mut">지금 <b>${statFmt(a,'final')}</b> <span class="mut">(기본 ${statFmt(a,'base')} + 레벨당 ${a.unit==='%'?N(a.per)+'%':fmt(a.per)})</span>${N(a.cap)?` · 한도 ${fmt(a.cap)}${a.unit}`:''}</div></div>
+      <button class="btn ${a.can?'':'alt'}" data-do="upgrade" data-axis="${esc(a.key)}" aria-label="${esc(a.name)} 올리기${N(a.lv)>=N(a.max)?', 최고 레벨':', 골드 '+fmt(a.cost)}" ${N(a.lv)>=N(a.max)?'disabled':''}>${N(a.lv)>=N(a.max)?'최고':`${I('gold')}${fmt(a.cost)}`}</button></div>`).join('')}
+    <div class="mut">${esc(S.note||'')}</div>
   </div>
   <div class="card"><h2>🛠 장비 강화</h2>
-    <div class="sub">🔩 강화석으로 사냥 장비를 +10 까지 키워요. <b>실패해도 장비는 안 깨지고 안 내려가요.</b> 실패하면 강화 포인트가 쌓이고, 정해진 횟수만큼 쌓이면 다음 시도는 반드시 성공해요. 내 강화석 ${I('stone')}${fmt(g.stone)}</div>
-    ${slots.map(s=>`<div class="boss" style="padding:10px 0"><div class="ic">${esc(s.emoji)}</div><div class="tx"><b>${esc(s.name)}</b> <span class="pill">+${fmt(s.lv)}</span><div class="mut">지금 골드 +${N(s.bonus_pct)}% (강화 1당 +${N(s.per_pct)}%)</div>
+    <div class="sub">🔩 강화석으로 사냥 장비를 +10 까지 키워요. 장비마다 올려 주는 스탯이 달라요. <b>실패해도 장비는 안 깨지고 안 내려가요.</b> 실패하면 강화 포인트가 쌓이고, 정해진 횟수만큼 쌓이면 다음 시도는 반드시 성공해요. 내 강화석 ${I('stone')}${fmt(g.stone!=null?g.stone:resVals().stone)}</div>
+    ${slots.map(s=>`<div class="boss" style="padding:10px 0"><div class="ic">${esc(s.emoji)}</div><div class="tx"><b>${esc(s.name)}</b> <span class="pill">+${fmt(s.lv)}</span>
+      <div class="mut">강화 1마다 ${givesTxt(s.gives)||'—'}</div><div class="mut">지금 합계 <b>${givesTxt(s.total)||'아직 없어요'}</b></div>
       ${N(s.lv)<N(s.max)?`<div class="mut">다음 +${fmt(s.next)}: 성공 ${N(s.rate_pct)}% · ${I('stone')}${fmt(s.cost)}${N(s.pity_need)?` · 포인트 ${fmt(s.pity)}/${fmt(s.pity_need)}${s.guaranteed?' <b class="green">(다음은 확정 성공!)</b>':''}`:' · 100% 성공'}</div>`:''}</div>
       <button class="btn ${s.can?'':'alt'}" data-do="enhance" data-slot="${esc(s.key)}" ${N(s.lv)>=N(s.max)?'disabled':''}>${N(s.lv)>=N(s.max)?'최고':`강화 🔩${fmt(s.cost)}`}</button></div>`).join('')}
     <details><summary>📊 강화 확률표 보기</summary><div class="tw"><table><thead><tr><th>강화</th><th>성공률</th><th>강화석</th><th>확정 성공까지</th></tr></thead><tbody>
@@ -902,7 +1108,7 @@ function tabPres(){
       `<div class="btns"><button class="btn ${p.can?'gold':'alt'}" data-do="prestigeask" ${p.can?'':'disabled'}>🌟 환생하기</button></div>`}
   </div>
   <div class="card"><h2>🛒 영구 보너스</h2>
-    <div class="sub">환생 포인트로 사요. 환생해도 사라지지 않아요. 현재 효과: 시간당 골드 ×${N(p.gold_mult).toFixed(2)} · 스테이지 상한 ${fmt(p.stage_cap)} · 환생 뒤 시작 스테이지 ${fmt(p.start_stage)}</div>
+    <div class="sub">환생 포인트로 사요. 환생해도 사라지지 않아요. 현재 효과: 공격력·체력·방어력 +${N(p.stat_pct!=null?p.stat_pct:(N(p.gold_mult||1)-1)*100).toFixed(1)}% · 스테이지 상한 ${fmt(p.stage_cap)} · 환생 뒤 시작 스테이지 ${fmt(p.start_stage)}</div>
     ${ups.map(u=>`<div class="boss" style="padding:10px 0"><div class="tx"><b>${esc(u.name)}</b> <span class="pill">Lv.${fmt(u.lv)}/${fmt(u.max)}</span><div class="mut">${esc(u.effect)}</div></div>
       <button class="btn ${u.afford?'':'alt'}" data-do="prestigebuy" data-key="${esc(u.key)}" ${u.cost==null?'disabled':''}>${u.cost==null?'최고':`⭐ ${fmt(u.cost)}`}</button></div>`).join('')}
   </div>
@@ -980,7 +1186,7 @@ function showAwaken(lv,ids){
 }
 function closeAwaken(){ $('awk').classList.remove('show'); }
 $('awk').addEventListener('click',closeAwaken);
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeAwaken(); closeSnd(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeAwaken(); closeSnd(); const h=$('keyHelp'); if(h.classList.contains('show')){ h.classList.remove('show'); $('keyBtn').setAttribute('aria-expanded','false'); } } });
 
 // ---------- 소리 설정 시트 ----------
 function openSnd(){ syncSnd(); $('sndBg').classList.add('show'); setTimeout(()=>{ try{ $('vM').focus(); }catch(e){} },30); }
@@ -1001,6 +1207,15 @@ try{ if(window.BrjAudio&&BrjAudio.onChange) BrjAudio.onChange(syncSnd); }catch(e
 syncSnd();
 
 // ---------- 동작 ----------
+let LASTPD=-1e9;
+document.addEventListener('pointerdown',e=>{ const b=e.target.closest&&e.target.closest('#dock .sk[data-cast]'); if(!b) return; LASTPD=performance.now(); castFromDock(N(b.dataset.cast)); });
+function castFromDock(i){
+  if(!FIELD) return; try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){}
+  padPress('s'+(i+1)); setTimeout(()=>FIELD&&FIELD.input.release('s'+(i+1)),90);
+}
+$('autoBtn').onclick=()=>{ try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(e){} if(!FIELD) return; let on=false; try{ on=FIELD.stats().auto; }catch(e){} FIELD.setAuto(!on); updAuto(); };
+$('padBtn').onclick=()=>{ snd('click'); setPad(!document.body.classList.contains('touch'),true); try{ FIELD&&FIELD.resize(); }catch(e){} };
+$('keyBtn').onclick=()=>{ const h=$('keyHelp'), on=!h.classList.contains('show'); h.classList.toggle('show',on); $('keyBtn').setAttribute('aria-expanded',String(on)); snd(on?'ui_open':'ui_close'); };
 const PUSH_MSG={max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
 const AWK_MSG={stage:'스테이지가 모자라 아직 각성할 수 없어요.',gold:'🪙 골드가 모자라요.',stone:'🔩 강화석이 모자라요.',feast:'🍖 특식이 모자라요.',max:'이미 마지막 각성까지 마쳤어요.'};
 const DO={
@@ -1009,13 +1224,14 @@ const DO={
     if(g>0){ snd('coin'); setTimeout(()=>snd('coin',{rate:1.2}),110); flyCoins(rc,Math.min(10,3+Math.floor(Math.log10(g+1)*1.5))); } }); },
   chal:async()=>{   // 도전 던전 — 보스전과 같은 필드 연출. 승패는 서버(/brj/push)가 정한다
     if(BUSY||BOSS) return; if(bossGate()){ return DO.boss(); }
+    if(!(await preChal())) return;
     const st0=N(V.stage), keys=['ddokkyu','shinlim','taewoong','yongjo'];
     if(TAB!=='hunt'){ TAB='hunt'; TAB_FLAG=true; }
     BOSS={img:keys[(st0)%keys.length],name:`스테이지 ${st0+1} 수문장`,hp:N(V.chal_hp)||1000}; MSG=null; syncBgm(); render();
     let res=null;
     await act('/brj/push',{},j=>{
       res=j.result==='ok'?'win':j.result==='lose'?'lose':null;
-      if(res&&FIELD){ try{ FIELD.bossResult(res); }catch(e){} }
+      if(res&&FIELD){ try{ FIELD.bossResult(res); }catch(e){} endBoss(40000); }
       if(j.result==='ok'){ say(`⚔ 도전 던전 클리어! 스테이지 ${fmt(st0)} → ${fmt(st0+1)}`,'ok'); }
       else if(j.result==='lose') say(`💥 도전 던전 실패 — 내 전투력 ${fmt(j.power)} / 몬스터 ${fmt(j.hp)}. 성장·동료·스킬로 더 강해져서 다시 도전해요. 잃은 건 없어요.`,'bad');
       else say((PUSH_MSG[j.result]||(()=>'도전하지 못했어요.'))(j),'bad'); });
@@ -1031,7 +1247,7 @@ const DO={
     if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
   upgrade:el=>act('/brj/upgrade',{axis:el.dataset.axis},j=>{
-    say({ok:'📈 성장했어요!',gold:`🪙 골드가 모자라요. ${fmt(j.cost)} 필요해요.`,max:'이미 최고 레벨이에요.'}[j.result]||'처리하지 못했어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
+    say({ok:'📈 스탯이 올랐어요!',gold:`🪙 골드가 모자라요. ${fmt(j.cost)} 필요해요.`,max:'이미 최고 레벨이에요.'}[j.result]||'처리하지 못했어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   enhance:el=>act('/brj/enhance',{slot:el.dataset.slot},j=>{
     const m={success:['✨ 강화 성공!','ok'],pity:['✨ 강화 포인트가 가득 차서 성공했어요!','ok'],fail:['💨 이번엔 실패했어요. 장비는 그대로예요. 강화 포인트가 쌓였어요.','info'],stone:[`🔩 강화석이 모자라요. ${fmt(j.cost)}개 필요해요.`,'bad'],max:['이미 최고 강화예요.','bad']}[j.result]||['처리하지 못했어요.','bad']; say(m[0],m[1]);
     snd(j.result==='success'||j.result==='pity'?'enhance_ok':j.result==='fail'?'enhance_fail':'error'); }),
@@ -1048,12 +1264,13 @@ const DO={
   slotsel:el=>{ SEL_SLOT=Number(el.dataset.i); render(); },
   boss:async()=>{
     if(BUSY||BOSS) return; const gb=bossGate(); if(!gb) return;
+    if(!(await preChal())) return;
     if(TAB!=='hunt'){ TAB='hunt'; TAB_FLAG=true; }
     BOSS={img:imgKey(gb.img),name:String(gb.name||'보스'),hp:N(gb.hp)||1000}; MSG=null; syncBgm(); render();
     let res=null;
     await act('/brj/boss',{},j=>{
       res=(j.result==='win'||j.result==='lose')?j.result:null;
-      if(res&&FIELD){ try{ FIELD.bossResult(res); }catch(e){} }
+      if(res&&FIELD){ try{ FIELD.bossResult(res); }catch(e){} endBoss(40000); }
       if(j.result==='win') say(`🏆 보스를 쓰러뜨렸어요! 🍖 +${fmt(j.feast)} · 🎟 +${fmt(j.ticket)}. 이제 돌파할 수 있어요.`,'ok');
       else if(j.result==='lose') say(`💥 졌어요. 내 전투력 ${fmt(j.power)} / 보스 체력 ${fmt(j.hp)}. 더 키워서 다시 도전해요. 잃은 건 없어요.`,'bad');
       else say('지금 도전할 보스가 없어요.','info'); });
@@ -1093,6 +1310,7 @@ const DO={
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-tab],[data-do],[data-card],#loginBtn,#retryBtn,summary,.btn'); if(!t) return;
   try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){}
+  if(t.dataset.cast!=null){ if(performance.now()-LASTPD>600) castFromDock(N(t.dataset.cast)); return; }
   if(t.id==='loginBtn'){ snd('click'); dcLogin(); return; }
   if(t.id==='retryBtn'){ snd('click'); STATE='boot'; render(); load(); return; }
   if(t.dataset.tab){ if(TAB!==t.dataset.tab){ snd('tab'); TAB=t.dataset.tab; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); } return; }
