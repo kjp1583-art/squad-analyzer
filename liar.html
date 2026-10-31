@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<!-- 🔐 자동 로그인 — brjhunt.html 과 같은 방식. 한 번 로그인한 적이 있고 토큰이 하루 안에 끝나면 디스코드를 조용히 한 번 다녀온다 -->
+<script>
+(function(){ try{
+  var ls=localStorage, ss=sessionStorage; ls.setItem('sgg_dc_probe','1'); ls.removeItem('sgg_dc_probe'); ss.setItem('sgg_dc_probe','1'); ss.removeItem('sgg_dc_probe');
+  var J=function(k){ try{ return JSON.parse(ls.getItem(k)||'null'); }catch(e){ return null; } };
+  var dc=J('sgg_dc'), auto=J('sgg_dc_auto'), now=Date.now();
+  if(ls.getItem('sgg_dc_auto')===null&&dc&&dc.id){ auto={id:String(dc.id),name:String(dc.name||''),avatar:String(dc.avatar||'')}; ls.setItem('sgg_dc_auto',JSON.stringify(auto)); }
+  if(ls.getItem('sgg_dc_try')!==null){ ls.setItem('sgg_dc_auto','0'); ls.removeItem('sgg_dc_try'); return; }
+  if(!(auto&&auto.id)) return;
+  if(dc&&dc.token&&dc.exp>now+24*3600*1000) return;
+  if(window.top!==window.self||document.prerendering||navigator.onLine===false) return;
+  if(location.protocol==='file:') return;
+  var a=new Uint8Array(16); crypto.getRandomValues(a); var st=Array.prototype.map.call(a,function(x){return (x<16?'0':'')+x.toString(16);}).join('');
+  ls.setItem('sgg_dc_try',String(now)); ss.setItem('sgg_oauth_state',st); ss.setItem('sgg_oauth_return','게임:liar');
+  location.replace('https://discord.com/api/oauth2/authorize?response_type=token&client_id=1520763174675022028'
+    +'&redirect_uri='+encodeURIComponent(location.origin+new URL('./',location.href).pathname)
+    +'&scope=identify&state='+encodeURIComponent(st)+'&prompt=none');
+}catch(e){} })();
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="data:,">
+<title>라이어 게임 — SQUAD.GG</title>
+<meta name="description" content="제시어를 아는 시민 사이에 숨은 라이어를 찾아라. 클랜원끼리 실시간으로 즐기는 라이어 게임. SQUAD.GG">
+<meta name="theme-color" content="#232a5e">
+<style>
+:root{
+  --bg:#0c0f1d; --bg2:#141936; --panel:#1b2146; --panel2:#262e5e; --line:#3b4688; --edge:#070a16;
+  --txt:#f3f5ff; --sub:#c0c8ee; --mut:#98a2d0;
+  --gold:#ffcc3d; --green:#4be08f; --green-bg:#0f3324; --red:#ff6b82; --red-bg:#42182a; --blue:#78a4ff; --warn:#ffb54a;
+  --b1:#5f8bff; --b2:#3359d8; --bt:#fff; --ink:#1b1405; --hd1:#323d86; --hd2:#1d2456;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#dfe6fb; --bg2:#eaefff; --panel:#ffffff; --panel2:#f1f4ff; --line:#aebbe8; --edge:#8f9ccf;
+    --txt:#1b2142; --sub:#3d4776; --mut:#5a6590;
+    --gold:#9a6500; --green:#12834f; --green-bg:#d8f6e6; --red:#c01f43; --red-bg:#fde0e7; --blue:#2850cf; --warn:#9a5a00;
+    --b1:#5b7cf5; --b2:#3d58cf; --hd1:#5b7cf5; --hd2:#3d58cf;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#dfe6fb; --bg2:#eaefff; --panel:#ffffff; --panel2:#f1f4ff; --line:#aebbe8; --edge:#8f9ccf;
+  --txt:#1b2142; --sub:#3d4776; --mut:#5a6590;
+  --gold:#9a6500; --green:#12834f; --green-bg:#d8f6e6; --red:#c01f43; --red-bg:#fde0e7; --blue:#2850cf; --warn:#9a5a00;
+  --b1:#5b7cf5; --b2:#3d58cf; --hd1:#5b7cf5; --hd2:#3d58cf;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;min-height:100%}
+body{background:radial-gradient(120% 70% at 50% 0,var(--bg2),var(--bg));background-color:var(--bg);color:var(--txt);font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45;overflow-x:hidden}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+[hidden]{display:none!important}
+a{color:var(--blue)}
+#bar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 14px 8px;background:linear-gradient(180deg,var(--hd1),var(--hd2));color:#fff;border-bottom:2px solid var(--edge)}
+#bar h1{font-size:16px;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bar .code{font-weight:900;letter-spacing:2px;background:rgba(255,255,255,.16);border-radius:10px;padding:2px 8px;font-size:14px}
+.ib{flex:none;min-width:38px;height:38px;border-radius:12px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;font-weight:900;cursor:pointer;padding:0 10px}
+.ib:active{transform:scale(.94)}
+#conn{background:var(--red-bg);color:var(--red);border-bottom:2px solid var(--red);padding:6px 14px;font-weight:700;font-size:14px;text-align:center}
+.wrap{max-width:1100px;margin:0 auto;padding:12px 14px calc(24px + env(safe-area-inset-bottom))}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:12px 14px;margin:0 0 12px;box-shadow:0 3px 0 var(--edge)}
+.card h2,.card h3{margin:0 0 8px;font-size:16px}
+.mut{color:var(--mut);font-size:13px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 16px;border-radius:14px;border:2px solid var(--b2);background:linear-gradient(180deg,var(--b1),var(--b2));color:var(--bt);font-weight:900;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(.4)}
+.btn.sub{background:var(--panel2);border-color:var(--line);color:var(--txt)}
+.btn.gold{background:linear-gradient(180deg,#ffd75e,#f09a12);border-color:#8a5a00;color:var(--ink)}
+.btn.red{background:linear-gradient(180deg,#ff7f93,#d02548);border-color:#8e1630;color:#fff}
+.btn.sm{min-height:34px;padding:4px 10px;font-size:13px;border-radius:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grow{flex:1;min-width:0}
+input[type=text],select{min-height:44px;border-radius:12px;border:2px solid var(--line);background:var(--panel2);padding:6px 12px;width:100%;min-width:0}
+input[disabled],select[disabled]{opacity:.55}
+label.f{display:block;font-size:13px;color:var(--sub);font-weight:700;margin:6px 0 2px}
+.chk{display:flex;gap:8px;align-items:center;min-height:36px}
+.chk input{width:20px;height:20px}
+/* 로비 */
+.rooms{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.room{display:flex;gap:10px;align-items:center;background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:8px 10px}
+.room b{display:block}
+.pill{display:inline-block;font-size:12px;font-weight:800;border-radius:999px;padding:1px 8px;background:var(--panel2);border:1px solid var(--line);color:var(--sub)}
+.pill.g{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.pill.r{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.pill.y{color:var(--warn);border-color:var(--warn)}
+.cols2{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:900px){.cols2{grid-template-columns:1fr 1fr}}
+/* 방 */
+#phase{margin:0 0 12px}
+#phase .head{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#phase .ph{font-weight:900;font-size:18px}
+#tnum{font-weight:900;font-size:22px;font-variant-numeric:tabular-nums}
+#tnum.low{color:var(--red)}
+.tbar{height:12px;border-radius:8px;background:var(--panel2);border:2px solid var(--line);overflow:hidden;margin-top:6px}
+.tbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--gold));transform-origin:left}
+#room .cols{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:900px){#room .cols{grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);align-items:start}#chat{position:sticky;top:64px}}
+#rcard .rc{border-radius:18px;padding:16px;text-align:center;border:3px solid var(--line);background:var(--panel);box-shadow:0 3px 0 var(--edge);margin-bottom:12px;animation:pop .5s ease-out}
+#rcard .rc.liar{border-color:var(--red);background:var(--red-bg)}
+#rcard .rc.cit{border-color:var(--green);background:var(--green-bg)}
+#rcard .rc small{display:block;color:var(--sub);font-weight:700}
+#rcard .rc .big{display:block;font-size:30px;font-weight:900;margin:2px 0;word-break:keep-all;overflow-wrap:anywhere}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+.pl{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.pc{display:flex;gap:8px;align-items:center;background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:6px 8px;min-width:0;text-align:left}
+.pc.turn{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,204,61,.35)}
+.pc.me{border-color:var(--blue)}
+.pc.off{opacity:.6}
+.pc .nm{min-width:0;flex:1;line-height:1.2}
+.pc .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc .nm small{display:block;color:var(--mut);font-size:12px}
+.av{flex:none;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#fff6c4,#ffd54a 65%,#e89a1c);border:2px solid #fff;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover;display:block;filter:hue-rotate(var(--h,0deg))}
+button.pc{cursor:pointer;width:100%}
+button.pc.sel{border-color:var(--green);background:var(--green-bg)}
+button.pc[disabled]{cursor:not-allowed;opacity:.5}
+.hints{display:flex;flex-direction:column;gap:6px}
+.hint{display:flex;gap:8px;align-items:flex-start}
+.hint .bub{background:var(--panel2);border:2px solid var(--line);border-radius:4px 14px 14px 14px;padding:6px 10px;min-width:0;overflow-wrap:anywhere}
+.hint .bub b{font-size:12px;color:var(--sub);display:block}
+.hint.me .bub{border-color:var(--blue)}
+.rnd{font-size:12px;font-weight:800;color:var(--mut);margin:6px 0 0}
+#chat .cb{display:flex;flex-direction:column;height:min(46vh,420px);min-height:220px}
+@media(min-width:900px){#chat .cb{height:calc(100vh - 150px)}}
+#msgs{flex:1;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:4px;padding:2px;margin-bottom:8px}
+.m{max-width:92%;overflow-wrap:anywhere;background:var(--panel2);border-radius:12px;padding:4px 10px;align-self:flex-start;font-size:14px}
+.m b{font-size:12px;color:var(--sub);margin-right:6px}
+.m.me{align-self:flex-end;background:var(--b2);color:#fff}
+.m.me b{color:#dbe4ff}
+.m.sys{align-self:center;background:none;color:var(--mut);font-size:13px;text-align:center}
+form.inl{display:flex;gap:8px}
+.bars .br{display:flex;align-items:center;gap:8px;margin:4px 0}
+.bars .br span.n{width:96px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.bars .br .t{flex:1;height:16px;border-radius:8px;background:var(--panel2);overflow:hidden}
+.bars .br .t i{display:block;height:100%;background:var(--b1);min-width:2px;transform-origin:left;animation:grow .8s ease-out}
+.bars .br.liar .t i{background:var(--red)}
+@keyframes grow{from{transform:scaleX(0)}}
+.banner{text-align:center;border-radius:16px;padding:14px;font-size:22px;font-weight:900;border:3px solid var(--line);margin-bottom:12px}
+.banner.cit{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.banner.liar{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.reveal{text-align:center;margin:8px 0}
+.reveal .who{display:inline-block;font-size:28px;font-weight:900;color:var(--red);animation:rev 1.6s ease-out both}
+@keyframes rev{0%{opacity:0;transform:scale(.3) rotate(-8deg);filter:blur(8px)}55%{opacity:0;filter:blur(8px)}80%{opacity:1;transform:scale(1.25)}100%{opacity:1;transform:none;filter:none}}
+.pts{width:100%;border-collapse:collapse}
+.pts td,.pts th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}
+.pts td.num,.pts th.num{text-align:right;font-variant-numeric:tabular-nums}
+.log{max-height:260px;overflow:auto;font-size:14px;padding-left:18px;margin:0}
+.log li{overflow-wrap:anywhere}
+details summary{cursor:pointer;font-weight:800;min-height:32px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px 16px;z-index:50;max-width:90vw;box-shadow:0 4px 0 var(--edge);font-weight:700}
+.toast.bad{border-color:var(--red);color:var(--red)}
+.note{background:var(--panel2);border-left:4px solid var(--gold);border-radius:8px;padding:6px 10px;margin:8px 0;font-size:14px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-delay:0s!important}}
+</style>
+</head>
+<body>
+<header id="bar">
+  <h1 id="ttl">🕵 라이어 게임</h1>
+  <span class="code" id="rcode" hidden></span>
+  <button class="ib" data-a="mute" id="muteBtn" aria-label="효과음 켜기/끄기" aria-pressed="false">🔊</button>
+  <button class="ib" data-a="leave" id="leaveBtn" hidden aria-label="방 나가기">나가기</button>
+</header>
+<div id="conn" role="status" hidden>⚠ 서버와 연결이 끊겼어요. 다시 연결하는 중…</div>
+
+<main id="scrLogin" class="wrap" hidden></main>
+
+<main id="scrLobby" class="wrap" hidden>
+  <div class="card" id="lbHead"></div>
+  <div class="cols2">
+    <section class="card">
+      <h2>🚪 방 만들기</h2>
+      <label class="f" for="cName">방 이름 (비우면 내 이름)</label>
+      <input type="text" id="cName" maxlength="20" autocomplete="off">
+      <div class="row">
+        <div class="grow"><label class="f" for="cMax">최대 인원</label>
+          <select id="cMax"><option>4</option><option>5</option><option>6</option><option selected>8</option><option>10</option></select></div>
+        <div class="grow"><label class="f" for="cMode">방식</label>
+          <select id="cMode"><option value="normal">일반 (라이어는 제시어를 몰라요)</option><option value="fool">바보 라이어 (다른 단어를 받아요)</option></select></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="cPub" checked> 공개 방 (로비 목록에 보여요)</label>
+      <button class="btn gold" data-a="create" id="createBtn">방 만들기</button>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+      <h2>🔑 코드로 입장</h2>
+      <form class="inl" id="joinForm">
+        <input type="text" id="jCode" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="영문 4자리" aria-label="방 코드">
+        <button class="btn" type="submit">입장</button>
+      </form>
+    </section>
+    <section class="card">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">🏠 공개 방</h2><button class="btn sm sub" data-a="refresh">새로고침</button></div>
+      <div id="roomList" class="rooms" style="margin-top:8px"></div>
+    </section>
+  </div>
+</main>
+
+<main id="room" class="wrap" hidden>
+  <section class="card" id="phase">
+    <div class="head"><span class="ph" id="phName"></span><span class="mut" id="phSub"></span><span id="tnum" aria-live="off"></span></div>
+    <div class="tbar" aria-hidden="true"><i id="tfill"></i></div>
+  </section>
+  <div class="cols">
+    <section id="stage">
+      <div id="rcard"></div>
+      <div class="card" id="bPlayersC"><div id="bPlayers" class="pl"></div></div>
+      <div id="bOpts"></div>
+      <div id="bMain"></div>
+      <form class="card inl" id="hintForm" hidden>
+        <input type="text" id="hintIn" maxlength="100" autocomplete="off" placeholder="제시어를 직접 말하지 말고 한 문장으로" aria-label="내 힌트">
+        <button class="btn gold" type="submit" id="hintBtn">힌트 보내기</button>
+      </form>
+      <form class="card inl" id="guessForm" hidden>
+        <input type="text" id="guessIn" maxlength="40" autocomplete="off" placeholder="제시어를 추측해 보세요" aria-label="제시어 추측">
+        <button class="btn red" type="submit" id="guessBtn">추측!</button>
+      </form>
+    </section>
+    <aside id="chat">
+      <div class="card"><h3>💬 채팅</h3>
+        <div class="cb">
+          <div id="msgs" role="log" aria-live="polite" tabindex="0" aria-label="채팅 기록"></div>
+          <form class="inl" id="chatForm">
+            <input type="text" id="chatIn" maxlength="120" autocomplete="off" aria-label="채팅 입력" placeholder="메시지">
+            <button class="btn" type="submit" id="chatBtn">전송</button>
+          </form>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+<div id="toast" class="toast" hidden role="alert"></div>
+
+<script>
+// ---------- 라이어 게임 ----------
+// 서버(봇)가 시계와 정답을 쥔다. 이 화면은 약 1초마다 /lg/state 를 물어 그림만 그린다.
+// 서버가 주는 문자열은 전부 esc() 를 거쳐 innerHTML 에 넣거나 textContent 로만 쓴다.
+const P6_API='https://hth3thmujs.apps.bot-hosting.cloud';
+const API=(function(){ try{ const q=new URLSearchParams(location.search).get('api');
+  if(q&&/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(q)&&(location.protocol==='file:'||/^(localhost|127\.0\.0\.1)$/.test(location.hostname))) return q; }catch(e){} return P6_API; })();   // 시험용 주소는 내 컴퓨터에서 열었을 때만(토큰이 남의 서버로 가지 않게)
+const DISCORD_CLIENT_ID='1520763174675022028';
+const POLL_MS=1000, POLL_HIDDEN_MS=3000, LOBBY_MS=4000, FAIL_SHOW=3, CHAT_GAP_MS=1200;
+const esc=v=>String(v==null?'':v).replace(/[&<>"'`]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+const N=v=>{v=Number(v);return Number.isFinite(v)?v:0;};
+const $=id=>document.getElementById(id);
+const ls={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+const CAT_FALLBACK=['음식','동물','장소','직업','스포츠','영화/드라마','교통','과일','학교','집안 물건','롤 챔피언','롤 아이템/포지션','게임','브장신 키우기','클랜 용어','한국 지명'];
+const PH_KO={lobby:'대기실',reveal:'역할 공개',hints:'설명 라운드',discuss:'자유 토론',vote:'투표',revote:'재투표',guess:'마지막 기회',result:'결과',over:'방 종료'};
+const CODE_MSG={
+  auth:'로그인이 끝났어요. 디스코드로 다시 로그인해 주세요.',
+  busy:'요청이 너무 몰려서 잠깐 막혔어요. 잠시 뒤에 다시 해 주세요.',
+  too_fast:'너무 빨라요. 조금만 천천히 보내 주세요.',
+  bad:'보낼 수 없는 값이에요. 다시 확인해 주세요.',
+  not_found:'그런 방이 없어요. 코드를 다시 확인해 주세요.',
+  full:'방이 꽉 찼어요.', started:'이미 게임이 시작된 방이에요.', not_host:'방장만 할 수 있어요.',
+  closed:'이미 끝난 방이에요.', kicked:'이 방에서 강퇴당했어요.', locked:'지금은 이 행동을 할 수 없어요.', net:'서버에 연결하지 못했어요. 인터넷을 확인해 주세요.',
+  http:'서버 응답을 읽지 못했어요. 잠시 뒤에 다시 해 보세요.', error:'서버에서 문제가 생겼어요. 잠시 뒤에 다시 해 보세요.',
+  upstream:'디스코드 확인이 잠깐 늦어지고 있어요. 조금 뒤에 다시 해 보세요.', in_room:'이미 다른 방에 들어가 있어요.', few:'인원이 부족해요(최소 3명).'
+};
+let ME=null, CODE='', V=null, MSGS=[], LASTMSG=0, OFF=0, FAIL=0, SCR='', PH_KEY='', PH_TOTAL=1, MYVOTE='', LOBBY=null, BUSY=false, CAT_LIST=null;
+let pollTimer=0, polling=false, again=false, lastChatAt=0, lastTurnKey='', titleTimer=0, ROOM_GEN=0;
+
+function dcUser(){try{const o=JSON.parse(ls.get('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
+function dcLogin(){
+  const st=Math.random().toString(36).slice(2)+'.'+Math.floor(performance.now());
+  let none=false; try{const a=JSON.parse(ls.get('sgg_dc_auto')||'null');none=!!(a&&a.id);}catch(e){}
+  try{sessionStorage.setItem('sgg_oauth_state',st);sessionStorage.setItem('sgg_oauth_return','게임:liar');
+      if(none)ls.set('sgg_dc_try',String(Date.now()));}catch(e){}
+  const main=location.origin+new URL('./',location.href).pathname;
+  location.href='https://discord.com/api/oauth2/authorize?response_type=token&client_id='+encodeURIComponent(DISCORD_CLIENT_ID)
+    +'&redirect_uri='+encodeURIComponent(main)+'&scope=identify&state='+encodeURIComponent(st)+(none?'&prompt=none':'');
+}
+
+// ---------- 소리(합성) ----------
+let AC=null, MUTED=ls.get('lg_mute')==='1';
+function ac(){ try{ if(!AC){ const C=window.AudioContext||window.webkitAudioContext; if(C) AC=new C(); } if(AC&&AC.state==='suspended') AC.resume(); }catch(e){} return AC; }
+function tone(f,t0,d,type,vol){ const c=ac(); if(!c) return; try{ const o=c.createOscillator(), g=c.createGain(); o.type=type||'sine'; o.frequency.value=f;
+  const s=c.currentTime+t0; g.gain.setValueAtTime(0.0001,s); g.gain.exponentialRampToValueAtTime(vol||0.12,s+0.02); g.gain.exponentialRampToValueAtTime(0.0001,s+d);
+  o.connect(g); g.connect(c.destination); o.start(s); o.stop(s+d+0.05); }catch(e){} }
+const SFX={
+  ding(){ tone(880,0,.5,'sine',.14); tone(1320,.08,.6,'sine',.09); },
+  turn(){ tone(660,0,.14,'triangle',.13); tone(990,.15,.22,'triangle',.13); },
+  tick(){ tone(1200,0,.05,'square',.04); },
+  voteEnd(){ tone(440,0,.18,'sawtooth',.07); tone(330,.18,.3,'sawtooth',.07); },
+  win(){ [523,659,784,1047].forEach((f,i)=>tone(f,i*.12,.3,'triangle',.13)); tone(1047,.5,.7,'sine',.12); },
+  lose(){ [440,370,311,247].forEach((f,i)=>tone(f,i*.18,.35,'sawtooth',.07)); },
+  msg(){ tone(760,0,.06,'sine',.05); }
+};
+function snd(n){ if(MUTED) return; try{ SFX[n]&&SFX[n](); }catch(e){} }
+function paintMute(){ const b=$('muteBtn'); b.textContent=MUTED?'🔇':'🔊'; b.setAttribute('aria-pressed',MUTED?'true':'false'); b.setAttribute('aria-label',MUTED?'효과음 켜기(지금 꺼짐)':'효과음 끄기(지금 켜짐)'); }
+
+// ---------- 서버 부르기 ----------
+async function call(path,body){
+  const u=dcUser(); if(!u) return {ok:false,code:'auth',local:true};
+  let r,j=null; const ac2=typeof AbortController==='function'?new AbortController():null, to=setTimeout(()=>{ try{ac2&&ac2.abort();}catch(e){} },12000);
+  try{
+    r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body||{},{token:u.token})),signal:ac2?ac2.signal:undefined});
+    try{j=await r.json();}catch(e){}
+  }catch(e){return {ok:false,code:'net'};}finally{ clearTimeout(to); }
+  if(!j||typeof j!=='object') return {ok:false,code:'http'};
+  if(r.status===401) {j.ok=false;j.code='auth';}
+  if(r.status===404&&!j.code) {j.ok=false;j.code='http';}
+  return j;
+}
+const NETERR=['net','http','error','upstream'];
+function msgOf(j){ return CODE_MSG[(j&&j.code)||'']||'요청을 처리하지 못했어요.'; }
+let toastT=0;
+function toast(t,bad){ const el=$('toast'); el.textContent=t; el.className='toast'+(bad?' bad':''); el.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>{el.hidden=true;},3200); }
+
+// ---------- 화면 전환 ----------
+function show(which){
+  SCR=which;
+  $('scrLogin').hidden=which!=='login'; $('scrLobby').hidden=which!=='lobby'; $('room').hidden=which!=='room';
+  $('leaveBtn').hidden=which!=='room'; $('rcode').hidden=which!=='room';
+  if(which!=='room') setTitle('');
+}
+function showLogin(msg){
+  show('login');
+  $('scrLogin').innerHTML='<div class="card" style="text-align:center"><h2>🕵 라이어 게임</h2><p>제시어를 아는 시민들 사이에 숨은 <b>라이어</b>를 찾아내요.<br>클랜원과 실시간으로 즐기려면 디스코드 로그인이 필요해요.</p>'
+    +(msg?'<p class="note">'+esc(msg)+'</p>':'')+'<button class="btn gold" data-a="login">디스코드로 로그인</button></div>';
+}
+function setTitle(prefix){ document.title=(prefix?prefix+' ':'')+'라이어 게임 — SQUAD.GG'; }
+
+// ---------- 방 들어가기/나가기 ----------
+function enterRoom(code){
+  CODE=String(code).toUpperCase(); V=null; MSGS=[]; LASTMSG=0; MYVOTE=''; PH_KEY=''; lastTurnKey=''; ROOM_GEN++;
+  ls.set('lg_room',CODE); try{ history.replaceState(null,'','#'+CODE); }catch(e){}
+  $('msgs').innerHTML=''; for(const k of ['bPlayers','bOpts','bMain','rcard']) { const el=$(k); el._k=null; el.innerHTML=''; }
+  $('rcode').textContent=CODE; show('room'); renderRoom(); wake();
+}
+function exitToLobby(msg){
+  CODE=''; V=null; ls.del('lg_room'); try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  show('lobby'); if(msg) toast(msg); wake();
+}
+async function joinCode(code){
+  code=String(code||'').trim().toUpperCase();
+  if(!/^[A-Z]{4}$/.test(code)){ toast('방 코드는 영문 4자리예요.',true); return; }
+  if(BUSY) return; BUSY=true;
+  try{ const j=await call('/lg/join',{code}); if(j.ok) enterRoom(code); else if(j.code==='in_room'&&/^[A-Za-z]{4}$/.test(String(j.room||''))){ toast('이미 들어가 있는 방으로 돌아가요.'); enterRoom(j.room); } else { if(j.code==='auth'){ showLogin(CODE_MSG.auth); return; } toast(msgOf(j),true); } }
+  finally{ BUSY=false; }
+}
+async function act(path,body,onOk){   // 버튼 한 번 = 요청 한 번
+  if(BUSY) return false; BUSY=true; document.body.style.cursor='progress';
+  try{
+    const j=await call(path,body);
+    if(j.ok){ if(onOk) onOk(j); wake(); return true; }
+    if(j.code==='auth'){ showLogin(CODE_MSG.auth); return false; }
+    if(['not_found','closed'].includes(j.code)&&CODE){ exitToLobby(msgOf(j)); return false; }
+    toast(msgOf(j),true); return false;
+  } finally { BUSY=false; document.body.style.cursor=''; }
+}
+
+// ---------- 폴링 ----------
+function wake(){ clearTimeout(pollTimer); if(polling){ again=true; return; } loop(); }
+async function loop(){
+  if(polling) return; polling=true;
+  try{
+    do{ again=false;
+      if(!dcUser()){ showLogin(); break; }
+      if(SCR==='room'&&CODE) await pollRoom(); else if(SCR==='lobby') await pollLobby(); else break;
+    } while(again);
+  } catch(e){ FAIL++; }
+  polling=false; paintConn();
+  if(SCR==='room'||SCR==='lobby'){
+    let d=document.hidden?POLL_HIDDEN_MS:(SCR==='room'?POLL_MS:LOBBY_MS);
+    if(FAIL>0) d=Math.min(8000,1000*Math.pow(2,Math.min(FAIL-1,3)));   // 끊기면 점점 천천히(최대 8초) 다시 시도
+    pollTimer=setTimeout(loop,d);
+  }
+}
+function paintConn(){ $('conn').hidden=!(FAIL>=FAIL_SHOW); }
+async function pollLobby(){
+  const j=await call('/lg/lobby',{});
+  if(j.ok){ FAIL=0; LOBBY=j; if(j.categories&&Array.isArray(j.categories)&&j.categories.length) CAT_LIST=j.categories.map(c=>String(c&&typeof c==='object'?c.name:c)).filter(Boolean).slice(0,60);
+    const r=j.my_room||(j.me&&j.me.room); if(typeof r==='string'&&/^[A-Za-z]{4}$/.test(r)&&SCR==='lobby'&&!CODE){ enterRoom(r); return; }
+    renderLobby(); }
+  else if(j.code==='auth'){ showLogin(CODE_MSG.auth); }
+  else { FAIL++; }
+}
+async function pollRoom(){
+  const gen=ROOM_GEN, code=CODE;
+  const body={code}; if(V&&V.code===code){ body.since=V.v; body.since_msg=LASTMSG; }
+  const t0=performance.now();
+  const j=await call('/lg/state',body);
+  if(gen!==ROOM_GEN) return;   // 응답을 기다리는 사이 방을 나갔다
+  if(j.ok){
+    FAIL=0; if(typeof j.now==='number'){ OFF=j.now-(Date.now()/1000)+((performance.now()-t0)/2000); }
+    if(j.same) return;
+    applyView(j);
+  } else if(j.code==='auth'){ showLogin(CODE_MSG.auth); }
+  else if(['not_found','closed'].includes(j.code)){ exitToLobby(j.code==='closed'?'방이 닫혔어요.':'방을 찾을 수 없어요.'); }
+  else FAIL++;
+}
+const nowS=()=>Date.now()/1000+OFF;
+
+// ---------- 새 상태 반영 ----------
+function applyView(j){
+  const prev=V; ME=String(j.me||ME||'');
+  if(Array.isArray(j.msgs)){ for(const m of j.msgs){ const id=N(m&&m.id); if(id>LASTMSG){ LASTMSG=id; MSGS.push(m); addMsg(m, !!prev); } } if(MSGS.length>400) MSGS=MSGS.slice(-300); }
+  V=j;
+  if(Array.isArray(j.players)&&ME&&!j.players.some(p=>String(p.uid)===ME)&&j.state!=='over'){ exitToLobby('방에서 나갔어요.'); return; }
+  if(j.opts&&Array.isArray(j.opts.categories)&&j.opts.categories.length) CAT_LIST=j.opts.categories.map(String).slice(0,60);
+  // 단계가 바뀌면 소리·진동·타이머 기준
+  if(j.state==='vote'||j.state==='revote'){ const m=j.my||{}; MYVOTE=(m.voted&&typeof m.vote==='string')?m.vote:''; myAbst=!!(m.voted&&!m.vote); }
+  const key=j.state+'|'+N(j.round)+'|'+String(j.turn||'')+'|'+N(j.deadline);
+  if(key!==PH_KEY){ PH_KEY=key; PH_TOTAL=Math.max(1,N(j.deadline)-nowS()); }
+  if(!prev||prev.state!==j.state){
+    if(prev){
+      if(j.state==='reveal') snd('ding');
+      else if(j.state==='vote'||j.state==='revote') snd('voteEnd');
+      else if(j.state==='result'){ const r=j.result||{}; const iL=(r.liar_uids||[]).map(String).includes(ME); snd((r.winner==='liar')===iL?'win':'lose'); }
+      else if(j.state==='discuss') snd('msg');
+    } else if(j.state==='reveal') snd('ding');
+  }
+  const tk=j.state==='hints'&&String(j.turn||'')===ME?('h'+N(j.round)+':'+j.turn):(j.state==='guess'&&canGuess()?'g':'');
+  if(tk&&tk!==lastTurnKey){ snd('turn'); try{ if(navigator.vibrate&&(!navigator.userActivation||navigator.userActivation.hasBeenActive)) navigator.vibrate([120,60,120]); }catch(e){} /* 화면을 한 번도 안 눌렀으면 브라우저가 막고 오류를 남긴다 */ blinkTitle(); }
+  lastTurnKey=tk;
+  renderRoom();
+}
+function blinkTitle(){ clearInterval(titleTimer); if(!document.hidden) return; let on=false; titleTimer=setInterval(()=>{ if(!document.hidden||!lastTurnKey){ clearInterval(titleTimer); setTitle(''); return; } on=!on; setTitle(on?'🔔 내 차례!':''); },900); }
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ clearInterval(titleTimer); setTitle(''); wake(); } });
+function canGuess(){ return !!V&&V.state==='guess'&&(String(V.turn||'')===ME||(V.turn==null&&V.my&&V.my.role==='liar')); }
+
+// ---------- 그리기 도우미 ----------
+function hue(uid){ let h=0; const s=String(uid); for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h%360; }
+function av(uid){ return '<span class="av" style="--h:'+hue(uid)+'deg"><img src="img/brjhunt/chick_idle.webp" alt="" width="40" height="40"></span>'; }
+function nameOf(uid){ uid=String(uid); const p=V&&Array.isArray(V.players)?V.players.find(x=>String(x.uid)===uid):null; if(p&&p.name) return String(p.name); const m=MSGS.find(x=>String(x.uid)===uid&&x.name); return m?String(m.name):'(나간 사람)'; }
+function setHTML(el,html){ if(el._k!==html){ el._k=html; el.innerHTML=html; } }
+function isFool(m){ return /fool|바보/i.test(String(m||'')); }
+function modeKo(m){ return isFool(m)?'바보 라이어':'일반'; }
+const iAmHost=()=>!!V&&String(V.host||'')===ME;
+
+// ---------- 로비 ----------
+function renderLobby(){
+  const L=LOBBY||{}, st=(L.me&&L.me.stats)||null;
+  let h='<div class="row" style="justify-content:space-between"><div><h2 style="margin:0">🕵 라이어 게임</h2><div class="mut">시민은 같은 제시어, 라이어는 제시어를 몰라요. 라이어를 찾아내세요!</div></div><span class="pill g" aria-label="지금 접속한 사람 수">접속 '+N(L.online)+'명</span></div>';
+  if(st){ const lg=N(st.liar_games), lw=N(st.liar_wins);
+    h+='<div class="row mut" style="margin-top:8px"><span>내 전적</span><span class="pill">'+N(st.games)+'판</span><span class="pill">라이어 '+lw+'/'+lg+'승</span><span class="pill">시민 '+N(st.citizen_wins)+'승</span><span class="pill">점수 '+N(st.points)+'</span></div>'; }
+  setHTML($('lbHead'),h);
+  const rooms=Array.isArray(L.rooms)?L.rooms:[];
+  let r='';
+  if(!rooms.length) r='<div class="mut">열려 있는 공개 방이 없어요. 먼저 방을 만들어 보세요!</div>';
+  for(const x of rooms.slice(0,60)){
+    const code=String(x.code||'').toUpperCase(); if(!/^[A-Z]{4}$/.test(code)) continue;
+    const full=N(x.players)>=N(x.max), started=String(x.state||'lobby')!=='lobby';
+    r+='<div class="room"><div class="grow"><b>'+esc(x.name||code)+'</b><span class="mut">방장 '+esc(x.host)+' · '+N(x.players)+'/'+N(x.max)+'명 · '+esc(modeKo(x.mode))+'</span></div>'
+      +(started?'<span class="pill y">진행 중</span>':full?'<span class="pill r">꽉 참</span>':'<button class="btn sm" data-a="joinroom" data-code="'+esc(code)+'">입장</button>')+'</div>';
+  }
+  setHTML($('roomList'),r);
+}
+
+// ---------- 방 ----------
+function playerCard(p,extra){
+  const uid=String(p.uid), turn=V&&String(V.turn||'')===uid&&(V.state==='hints'||V.state==='guess');
+  const tags=[]; if(p.host) tags.push('👑 방장'); if(uid===ME) tags.push('나'); if(p.away) tags.push('자리비움'); else if(p.online===false) tags.push('오프라인');
+  if(V.state==='hints'&&p.hinted) tags.push('✔ 설명함'); if((V.state==='vote'||V.state==='revote')&&p.voted) tags.push('✔ 투표함');
+  if(turn) tags.push('✏ 지금 차례');
+  return '<div class="pc'+(turn?' turn':'')+(uid===ME?' me':'')+((p.away||p.online===false)?' off':'')+'">'+av(uid)+'<span class="nm"><b>'+esc(p.name)+'</b><small>'+esc(tags.join(' · '))+(tags.length?' · ':'')+N(p.score)+'점</small></span>'
+    +(extra||'')+'</div>';
+}
+function hintsHtml(){
+  const hs=Array.isArray(V.hints)?V.hints:[]; if(!hs.length) return '<div class="mut">아직 힌트가 없어요.</div>';
+  let h='<div class="hints">', lastR=null;
+  for(const x of hs){ if(x.round!==lastR){ lastR=x.round; h+='<div class="rnd">'+N(x.round)+'바퀴</div>'; }
+    h+='<div class="hint'+(String(x.uid)===ME?' me':'')+'">'+av(x.uid)+'<div class="bub"><b>'+esc(x.name||nameOf(x.uid))+'</b>'+(x.pass&&!x.text?'<i>(패스)</i>':esc(x.text))+'</div></div>'; }
+  return h+'</div>';
+}
+function renderRoom(){
+  if(!V){ setHTML($('bMain'),'<div class="card mut">방에 들어가는 중…</div>'); return; }
+  const st=V.state, my=V.my||{}, players=Array.isArray(V.players)?V.players:[];
+  $('phName').textContent=PH_KO[st]||st;
+  $('phSub').textContent=(st==='hints'?N(V.round)+'/'+N(V.rounds)+'바퀴':'');
+  // 역할 카드
+  let rc='';
+  if(['reveal','hints','discuss','vote','revote','guess'].includes(st)&&my.role){
+    if(my.role==='liar') rc='<div class="rc liar"><small>당신의 역할</small><span class="big">🕵 라이어</span><small>카테고리: <b>'+esc(my.category)+'</b></small><small>제시어를 몰라요. 들키지 않게 눈치껏 말하고, 제시어를 알아내세요!</small></div>';
+    else rc='<div class="rc cit"><small>제시어 · 카테고리 '+esc(my.category)+'</small><span class="big">'+esc(my.word)+'</span><small>라이어에게 새지 않게, 직접 말하지 말고 설명하세요.</small></div>';
+  }
+  setHTML($('rcard'),rc);
+  // 참가자
+  let pl='';
+  for(const p of players){
+    if((st==='vote'||st==='revote')) continue;
+    const kick=st==='lobby'&&iAmHost()&&String(p.uid)!==ME?'<button class="btn sm sub" data-a="kick" data-uid="'+esc(p.uid)+'" aria-label="'+esc(p.name)+' 강퇴">강퇴</button>':'';
+    pl+=playerCard(p,kick);
+  }
+  $('bPlayersC').hidden=(st==='vote'||st==='revote'||st==='result'||st==='over');
+  setHTML($('bPlayers'),pl);
+  renderOpts();
+  // 본문
+  let m='';
+  if(st==='lobby'){
+    const n=players.length;
+    m+='<div class="card"><h3>👥 '+n+'명 대기 중 <span class="mut">(3~'+N(V.opts&&V.opts.max||10)+'명)</span></h3><div class="row"><span class="pill">방 코드 <b>'+esc(CODE)+'</b></span>'
+      +'<button class="btn sm sub" data-a="copycode">코드 복사</button><button class="btn sm sub" data-a="copylink">링크 복사</button></div>';
+    if(iAmHost()) m+='<p><button class="btn gold" data-a="start"'+(n<3?' disabled':'')+'>▶ 게임 시작</button>'+(n<3?' <span class="mut">3명 이상 모이면 시작할 수 있어요</span>':'')+'</p><button class="btn sm sub" data-a="end">방 닫기</button>';
+    else m+='<p class="mut">방장이 시작하기를 기다리고 있어요…</p>';
+    m+='</div>';
+  } else if(st==='reveal'){
+    m+='<div class="card"><h3>🔎 역할을 확인하세요</h3><p class="mut">곧 설명이 시작돼요. 첫 순서부터 한 사람씩 한 문장으로 힌트를 말합니다.</p></div>';
+  } else if(st==='hints'){
+    const tn=V.turn?nameOf(V.turn):'';
+    m+='<div class="card"><h3>✏ 힌트 타임라인</h3>'+(tn?'<div class="note">지금 차례: <b>'+esc(tn)+'</b>'+(String(V.turn)===ME?' — 바로 당신이에요!':'')+'</div>':'')+hintsHtml()+'<p class="mut">제시어를 직접 말하면 안 돼요. 채팅은 토론 시간에 열려요.</p></div>';
+  } else if(st==='discuss'){
+    m+='<div class="card"><h3>🗣 자유 토론</h3><p class="mut">채팅으로 의심스러운 사람을 찾아보세요.</p>'+hintsHtml()+'</div>';
+  } else if(st==='vote'||st==='revote'){
+    const done=players.filter(p=>p.voted).length;
+    m+='<div class="card"><h3>🗳 '+(st==='revote'?'동률! 다시 투표해요':'라이어라고 생각하는 사람에게 투표')+'</h3><p class="mut">투표 완료 '+done+'/'+players.length+'명 · 마감 전까지 바꿀 수 있어요.</p><div class="pl">';
+    const cands=Array.isArray(V.cands)&&V.cands.length?V.cands.map(String):null;
+    if(cands) m=m.replace('</p><div class="pl">','</p><div class="note">동률 후보: '+esc(cands.map(nameOf).join(', '))+'</div><div class="pl">');
+    for(const p of players){ const uid=String(p.uid), self=uid===ME||(cands&&!cands.includes(uid)), sel=MYVOTE===uid;
+      m+='<button class="pc'+(sel?' sel':'')+'" data-a="vote" data-uid="'+esc(uid)+'"'+(self?' disabled':'')+' aria-pressed="'+(sel?'true':'false')+'">'+av(uid)+'<span class="nm"><b>'+esc(p.name)+'</b><small>'+(sel?'✔ 내 선택':uid===ME?'나':self?'후보 아님':p.voted?'투표함':'고민 중')+'</small></span></button>'; }
+    m+='</div><p><button class="btn sub" data-a="vote" data-uid=""'+(MYVOTE===''&&myAbst?' aria-pressed="true"':' aria-pressed="false"')+'>'+(myAbst?'✔ ':'')+'기권</button></p></div>';
+  } else if(st==='guess'){
+    m+='<div class="card"><h3>🎯 마지막 기회</h3>'+(V.accused?'<p>지목된 사람: <b>'+esc(nameOf(V.accused))+'</b></p>':'')
+      +(canGuess()?'<p>라이어로 지목됐어요! 제한 시간 안에 제시어를 맞히면 역전해요.</p>':'<p class="mut">라이어가 제시어를 추측하는 중이에요…</p>')+'</div>';
+  } else if(st==='result'||st==='over'){
+    m+=resultHtml(players);
+  }
+  setHTML($('bMain'),m);
+  // 입력창
+  const hf=$('hintForm'), gf=$('guessForm');
+  const myHint=st==='hints'&&String(V.turn||'')===ME, myGuess=canGuess();
+  if(hf.hidden===myHint){ hf.hidden=!myHint; if(myHint) setTimeout(()=>{ try{ $('hintIn').focus({preventScroll:true}); }catch(e){} },50); }
+  gf.hidden=!myGuess; if(myGuess&&!gf._f){ gf._f=1; setTimeout(()=>{ try{ $('guessIn').focus({preventScroll:true}); }catch(e){} },50); } if(!myGuess) gf._f=0;
+  const chatOK=['lobby','discuss','result','over'].includes(st);
+  $('chatIn').disabled=!chatOK; $('chatBtn').disabled=!chatOK;
+  $('chatIn').placeholder=chatOK?'메시지 (120자)':st==='hints'?'설명 중에는 자기 차례에 힌트만 보낼 수 있어요':'지금은 채팅이 잠겨 있어요';
+  tick();
+}
+let myAbst=false;
+function renderOpts(){
+  const st=V.state, o=V.opts||{}, host=iAmHost();
+  if(st!=='lobby'){ setHTML($('bOpts'),''); return; }
+  const cats=(CAT_LIST&&CAT_LIST.length?CAT_LIST:CAT_FALLBACK);
+  const dis=host?'':' disabled';
+  const sel=(k,list,cur)=>'<select data-opt="'+k+'" id="o_'+k+'"'+dis+'>'+list.map(([v,t])=>'<option value="'+esc(v)+'"'+(String(cur)===String(v)?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select>';
+  const n=(Array.isArray(V.players)?V.players.length:0);
+  const liarsList=[['1','1명']]; if(n>=8||N(o.liars)===2) liarsList.push(['2','2명 (8명 이상)']);
+  const h='<div class="card"><h3>⚙ 방 설정 '+(host?'':'<span class="mut">(방장만 바꿀 수 있어요)</span>')+'</h3><div class="cols2" style="gap:4px 12px">'
+   +'<div><label class="f" for="o_mode">방식</label>'+sel('mode',[['normal','일반 — 라이어는 제시어를 몰라요'],['fool','바보 라이어 — 다른 단어를 받아요']],isFool(o.mode)?'fool':'normal')+'</div>'
+   +'<div><label class="f" for="o_category">카테고리</label>'+sel('category',[['','랜덤']].concat(cats.map(c=>[c,c])),(o.category&&o.category!=='random')?o.category:'')+'</div>'
+   +'<div><label class="f" for="o_rounds">설명 바퀴 수</label>'+sel('rounds',[['1','1바퀴'],['2','2바퀴'],['3','3바퀴']],N(o.rounds)||2)+'</div>'
+   +'<div><label class="f" for="o_discuss_s">자유 토론 시간</label>'+sel('discuss_s',[30,60,90,120,150,180].map(s=>[String(s),s+'초']),N(o.discuss_s)||90)+'</div>'
+   +'<div><label class="f" for="o_liars">라이어 수</label>'+sel('liars',liarsList,N(o.liars)||1)+'</div>'
+   +'</div></div>';
+  setHTML($('bOpts'),h);
+}
+function resultHtml(players){
+  const r=V.result; if(V.state==='over'&&!r){ return '<div class="card"><h3>방이 끝났어요</h3>'+scoreTable(players,{})+(iAmHost()?'':'')+'<p><button class="btn" data-a="leave">로비로</button></p></div>'; }
+  if(!r) return '<div class="card mut">결과를 불러오는 중…</div>';
+  const liars=(Array.isArray(r.liar_uids)?r.liar_uids:[]).map(String);
+  const iLiar=liars.includes(ME), winLiar=r.winner==='liar';
+  let h='<div class="banner '+(winLiar?'liar':'cit')+'">'+(winLiar?'🕵 라이어 승리!':'🎉 시민 승리!')+(((winLiar)===iLiar)?' <small style="display:block;font-size:14px">당신도 이겼어요</small>':' <small style="display:block;font-size:14px">아쉽게 졌어요</small>')+'</div>';
+  h+='<div class="card reveal"><div class="mut">라이어는…</div><div class="who">'+liars.map(u=>esc(nameOf(u))).join(' · ')+'</div></div>';
+  h+='<div class="card"><h3>제시어</h3><p style="font-size:22px;font-weight:900;margin:0">'+esc(r.word)+' <span class="pill">'+esc(r.category)+'</span></p>'
+    +(r.fool_word?'<p class="mut">바보 라이어가 받은 단어: <b>'+esc(r.fool_word)+'</b></p>':'')
+    +(r.accused?'<p>최다 득표: <b>'+esc(nameOf(r.accused))+'</b> '+(r.caught?'<span class="pill g">라이어 적발!</span>':'<span class="pill r">시민이었어요</span>')+'</p>':'<p><span class="pill y">동률 — 지목 실패</span></p>')
+    +(r.liar_guess!=null&&r.liar_guess!==''?'<p>라이어의 추측: <b>'+esc(r.liar_guess)+'</b> '+(r.liar_guess_ok?'<span class="pill r">정답!</span>':'<span class="pill g">오답</span>')+'</p>':'')+'</div>';
+  // 득표
+  const tally=tallyOf(r); const max=Math.max(1,...Object.values(tally));
+  let bars='<div class="bars">';
+  Object.entries(tally).sort((a,b)=>b[1]-a[1]).forEach(([u,c])=>{ bars+='<div class="br'+(liars.includes(u)?' liar':'')+'"><span class="n">'+esc(nameOf(u))+(liars.includes(u)?' 🕵':'')+'</span><span class="t"><i style="width:'+Math.round(100*c/max)+'%"></i></span><b>'+c+'표</b></div>'; });
+  if(!Object.keys(tally).length) bars+='<div class="mut">득표가 없었어요.</div>';
+  bars+='</div>';
+  const vv=r.votes&&typeof r.votes==='object'?Object.entries(r.votes):[];
+  h+='<div class="card"><h3>🗳 득표</h3>'+bars+(vv.length?'<details><summary>누가 누구에게 투표했나</summary><ul class="log">'+vv.map(([a,b])=>'<li>'+esc(nameOf(a))+' → '+(b?esc(nameOf(b)):'기권')+'</li>').join('')+'</ul></details>':'')+'</div>';
+  h+='<div class="card"><h3>🏆 점수</h3>'+scoreTable(players,r.points||{})+'</div>';
+  const log=Array.isArray(r.log)?r.log:[];
+  if(log.length) h+='<div class="card"><details><summary>📜 이번 판 전체 기록 ('+log.length+')</summary><ol class="log">'+log.map(logLine).join('')+'</ol></details></div>';
+  h+='<div class="card row">'+(V.state==='over'?'':(iAmHost()?'<button class="btn gold" data-a="next">▶ 다음 판</button><button class="btn sub" data-a="end">방 닫기</button>':'<span class="mut">방장이 다음 판을 시작하기를 기다려요…</span>'))+'<button class="btn sub" data-a="leave">방 나가기</button></div>';
+  return h;
+}
+function tallyOf(r){
+  const t={}; const src=r.tally;
+  if(src&&typeof src==='object'&&!Array.isArray(src)){ for(const [k,v] of Object.entries(src)) if(N(v)>0) t[String(k)]=N(v); }
+  else if(Array.isArray(src)){ for(const x of src) if(x&&x.uid!=null&&N(x.n!=null?x.n:x.count)>0) t[String(x.uid)]=N(x.n!=null?x.n:x.count); }
+  else if(r.votes&&typeof r.votes==='object'){ for(const v of Object.values(r.votes)) if(v) t[String(v)]=(t[String(v)]||0)+1; }
+  return t;
+}
+function logLine(x){
+  if(x==null) return '';
+  if(typeof x==='object'){ const nm=x.name||(x.uid!=null?nameOf(x.uid):''); return '<li>'+(nm?'<b>'+esc(nm)+'</b> ':'')+esc(x.text!=null?x.text:(x.msg!=null?x.msg:''))+'</li>'; }
+  return '<li>'+esc(x)+'</li>';
+}
+function scoreTable(players,points){
+  const rows=players.slice().sort((a,b)=>N(b.score)-N(a.score));
+  let h='<table class="pts"><thead><tr><th>이름</th><th class="num">이번 판</th><th class="num">누적</th></tr></thead><tbody>';
+  for(const p of rows){ const d=N(points[p.uid]); h+='<tr><td>'+esc(p.name)+(String(p.uid)===ME?' (나)':'')+'</td><td class="num">'+(d?'+'+d:'0')+'</td><td class="num"><b>'+N(p.score)+'</b></td></tr>'; }
+  return h+'</tbody></table>';
+}
+
+// ---------- 채팅(DOM 으로 만들어 textContent 만 쓴다) ----------
+function addMsg(m,sound){
+  const box=$('msgs'); const near=box.scrollHeight-box.scrollTop-box.clientHeight<60;
+  const d=document.createElement('div'); const mine=!m.sys&&String(m.uid||'')===ME;
+  d.className='m'+(m.sys?' sys':'')+(mine?' me':'');
+  if(!m.sys&&m.name){ const b=document.createElement('b'); b.textContent=String(m.name); d.appendChild(b); }
+  d.appendChild(document.createTextNode(String(m.text==null?'':m.text)));
+  box.appendChild(d); while(box.children.length>300) box.removeChild(box.firstChild);
+  if(near||mine) box.scrollTop=box.scrollHeight;
+  if(sound&&!mine&&!m.sys) snd('msg');
+}
+
+// ---------- 카운트다운(서버 시각 보정) ----------
+function tick(){
+  if(SCR!=='room'||!V) return;
+  const dl=N(V.deadline), tn=$('tnum'), tf=$('tfill');
+  if(!dl){ tn.textContent=''; tf.style.transform='scaleX(1)'; return; }
+  const left=Math.max(0,dl-nowS());
+  const secs=Math.ceil(left); tn.textContent=secs+'초'; tn.className=left<=5?'low':'';
+  tf.style.transform='scaleX('+Math.max(0,Math.min(1,left/PH_TOTAL))+')';
+  const mine=(V.state==='hints'&&String(V.turn||'')===ME)||canGuess()||((V.state==='vote'||V.state==='revote')&&!MYVOTE&&!myAbst);
+  const k=Math.ceil(left);
+  if(mine&&k<=5&&k>0&&tick._k!==V.state+k){ tick._k=V.state+k; snd('tick'); }
+}
+setInterval(tick,250);
+
+// ---------- 클릭·입력 ----------
+function copyText(t,ok){ const done=()=>toast(ok); try{ navigator.clipboard.writeText(t).then(done,()=>{ fallbackCopy(t); done(); }); }catch(e){ fallbackCopy(t); done(); } }
+function fallbackCopy(t){ try{ const a=document.createElement('textarea'); a.value=t; a.style.position='fixed'; a.style.opacity='0'; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }catch(e){} }
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]'); if(!b||b.disabled) return;
+  ac();   // 첫 눌림에서 소리 장치를 연다
+  const a=b.dataset.a;
+  if(a==='login') dcLogin();
+  else if(a==='mute'){ MUTED=!MUTED; ls.set('lg_mute',MUTED?'1':'0'); paintMute(); if(!MUTED) snd('ding'); }
+  else if(a==='refresh') wake();
+  else if(a==='create') doCreate();
+  else if(a==='joinroom') joinCode(b.dataset.code);
+  else if(a==='leave'){ const c=CODE; if(c) { call('/lg/leave',{code:c}); } exitToLobby(''); }
+  else if(a==='start') act('/lg/start',{code:CODE});
+  else if(a==='next') act('/lg/next',{code:CODE});
+  else if(a==='end'){ if(confirm('방을 닫을까요?')) act('/lg/end',{code:CODE},()=>{}); }
+  else if(a==='kick') act('/lg/kick',{code:CODE,uid:b.dataset.uid});
+  else if(a==='copycode') copyText(CODE,'방 코드를 복사했어요.');
+  else if(a==='copylink') copyText(location.origin+location.pathname+'#'+CODE,'초대 링크를 복사했어요.');
+  else if(a==='vote') doVote(b.dataset.uid||null);
+});
+async function doCreate(){
+  if(BUSY) return; BUSY=true; $('createBtn').disabled=true;
+  try{
+    const max=N($('cMax').value)||8, name=$('cName').value.trim();
+    const body={max,public:$('cPub').checked,opts:{mode:$('cMode').value,rounds:2,discuss_s:90,liars:1,category:''}}; if(name) body.name=name;
+    const j=await call('/lg/create',body);
+    if(!j.ok){ if(j.code==='auth') showLogin(CODE_MSG.auth); else if(j.code==='in_room'&&/^[A-Za-z]{4}$/.test(String(j.room||''))){ toast('이미 들어가 있는 방으로 돌아가요.'); enterRoom(j.room); } else toast(msgOf(j),true); return; }
+    const code=String(j.code||'').toUpperCase(); if(!/^[A-Z]{4}$/.test(code)){ toast('방 코드를 받지 못했어요.',true); return; }
+    await call('/lg/join',{code});   // 방장이 이미 들어가 있으면 서버가 그냥 넘긴다
+    enterRoom(code);
+  } finally { BUSY=false; $('createBtn').disabled=false; }
+}
+async function doVote(target){
+  if(!V||!['vote','revote'].includes(V.state)) return;
+  const prev=MYVOTE, prevA=myAbst; MYVOTE=target||''; myAbst=!target; renderRoom();
+  const ok=await act('/lg/vote',{code:CODE,target:target||null});
+  if(!ok){ MYVOTE=prev; myAbst=prevA; renderRoom(); }
+}
+document.addEventListener('change',e=>{
+  const s=e.target.closest('[data-opt]'); if(!s||!iAmHost()||!V||V.state!=='lobby') return;
+  const o={}; document.querySelectorAll('#bOpts [data-opt]').forEach(el=>{ const k=el.dataset.opt, v=el.value; o[k]=(k==='rounds'||k==='discuss_s'||k==='liars')?N(v):v; });
+  act('/lg/opts',{code:CODE,opts:o});
+});
+function bindForm(formId,inId,btnId,fn){
+  const f=$(formId), inp=$(inId), btn=$(btnId); let busy=false;
+  f.addEventListener('submit',async e=>{ e.preventDefault(); ac();
+    const t=inp.value.replace(/[\u0000-\u001f\u007f]/g,' ').trim(); if(!t||busy||inp.disabled) return;
+    busy=true; inp.disabled=true; btn.disabled=true;   // 보내는 동안 잠금(중복 전송 방지)
+    try{ const ok=await fn(t); if(ok) inp.value=''; }
+    finally{ busy=false; inp.disabled=false; btn.disabled=false; renderRoom(); try{ inp.focus({preventScroll:true}); }catch(e){} }
+  });
+}
+bindForm('hintForm','hintIn','hintBtn',t=>act('/lg/hint',{code:CODE,text:t}));
+bindForm('guessForm','guessIn','guessBtn',t=>act('/lg/guess',{code:CODE,text:t}));
+bindForm('chatForm','chatIn','chatBtn',async t=>{
+  const w=CHAT_GAP_MS-(Date.now()-lastChatAt); if(w>0) await new Promise(r=>setTimeout(r,w));
+  const ok=await act('/lg/chat',{code:CODE,text:t}); if(ok) lastChatAt=Date.now(); return ok; });
+$('joinForm').addEventListener('submit',e=>{ e.preventDefault(); joinCode($('jCode').value); });
+window.addEventListener('hashchange',()=>{ const m=/^#([A-Za-z]{4})$/.exec(location.hash); if(m&&dcUser()&&SCR==='lobby') joinCode(m[1]); });
+
+// ---------- 시작 ----------
+(function boot(){
+  paintMute();
+  ME=(dcUser()||{}).id?String(dcUser().id):'';
+  if(!dcUser()){ showLogin(); return; }
+  const m=/^#([A-Za-z]{4})$/.exec(location.hash); const saved=ls.get('lg_room');
+  show('lobby'); renderLobby();
+  if(m) joinCode(m[1]).then(()=>{ if(!CODE) wake(); });
+  else if(saved&&/^[A-Z]{4}$/.test(saved)) enterRoom(saved);
+  else wake();
+})();
+</script>
+</body>
+</html>
