@@ -40,7 +40,7 @@ def setroom(code, state, **kw):
     return post('/__set', {'code': code, 'views': views})
 
 async def mkctx(br, uid, w=1100, h=800):
-    ctx = await br.new_context(viewport={'width': w, 'height': h})
+    ctx = await br.new_context(viewport={'width': w, 'height': h}, reduced_motion='reduce')
     await ctx.add_init_script(f"try{{localStorage.setItem('sgg_dc',JSON.stringify({{id:'{uid}',name:'{uid}',token:'tok-{uid}',exp:Date.now()+86400000}}));localStorage.setItem('lg_mute','1');}}catch(e){{}}")
     pg = await ctx.new_page(); errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)))
