@@ -167,6 +167,13 @@ async def main():
         check('결과: 시민 승리·라이어 이름·득표 막대·점수표·전체 기록', '시민 승리' in t and await a.locator('.bars .br').count() == 2 and await a.locator('.pts tbody tr').count() == 5 and await a.locator('.log li').count() >= 4 and '3표' in t)
         check('결과: 서버 문자열 이스케이프(XSS 없음)', await a.evaluate('window.__xss') is None and await a.locator('#bMain img').count() == 0 and '<img' in t)
         check('결과: 방장은 다음 판 버튼, 라이어(참가자)는 없음', await a.locator('[data-a=next]').count() == 1 and await d.locator('[data-a=next]').count() == 0)
+        # 결과 화면에서 라이어가 나가도(참가자·채팅에 없음) 서버가 준 result.names 로 이름이 보여야 한다
+        res2 = dict(res, names={u: NAMES[u] for u in U})
+        left = [p for p in players() if p['uid'] not in ('d4',)]
+        setroom('GAME', 'result', result=res2, deadline=0, players=left); await a.wait_for_timeout(1500)
+        t2 = await text(a, '#bMain')
+        check('결과: 나간 라이어도 이름이 보임("(나간 사람)" 아님)', '라이어님' in t2 and '(나간 사람)' not in t2, t2[:200])
+        setroom('GAME', 'result', result=res, deadline=0); await a.wait_for_timeout(1200)
         await a.click('[data-a=next]'); await a.wait_for_timeout(200)
         check('다음 판: /lg/next', any(x['path'] == '/lg/next' for x in getlog()['log']))
         await a.click('#leaveBtn'); await a.wait_for_timeout(500)
