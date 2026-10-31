@@ -1,0 +1,17 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>brjhunt_arena harness</title>
+<style>body{margin:0;background:#14171f}#w{width:560px}canvas{display:block;width:100%}</style></head>
+<body><div id="w"><canvas id="cv"></canvas></div>
+<script src="../brjhunt_arena.js"></script>
+<script>
+// 시험 전용 틀: BrjArena 를 만들어 window.mkArena(opts) 로 내준다(brjhunt_arena_test.py 가 쓴다)
+window.mkArena=function(o){ const cv=document.getElementById('cv'); return BrjArena.create(cv,Object.assign({base:'../',manual:true},o||{})); };
+// 서버가 줄 모양을 흉내 낸 상태(시험·캡처용)
+window.mkState=function(ratio,ids,extra){
+  ratio=ratio||1; const SC=(extra&&extra.scale)?1:0;
+  const act=(ids||[]).map(i=>i?{id:i}:null); while(act.length<4)act.push(null);
+  return Object.assign({stage:9,region:'홍대 먹자골목',
+    combat:{atk:64*(SC?ratio:1),hp:1500*(SC?Math.sqrt(ratio):1),def:40*(SC?Math.sqrt(ratio):1),crit:15,critdmg:180,acc:140,mp:100,mpregen:5,power:1000*ratio},rec_power:1000,
+    mon:{name:'맵고추 군단',hp:900,atk:60,def:30,eva:90,gold:0.25},kpm_model:100,
+    skills:{active:act,passive:'shield'},party:[{id:'a',n:'귤',gr:'legend'},{id:'b',n:'맛',gr:'epic'}]},extra||{});
+};
+</script></body></html>
