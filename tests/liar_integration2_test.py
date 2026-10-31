@@ -21,7 +21,7 @@ def peek(code):
     return j['rooms'][code]
 N = ['가나', '다라', '마바', '사아', '자차', '카타', '파하', '거너']
 async def mk(br, name):
-    ctx = await br.new_context(viewport={'width': 1100, 'height': 800})
+    ctx = await br.new_context(viewport={'width': 1100, 'height': 800}, reduced_motion='reduce')
     await ctx.add_init_script(f"try{{localStorage.setItem('sgg_dc',JSON.stringify({{id:'u_{name}',name:'{name}',token:'tok_{name}',exp:Date.now()+6*86400000}}));localStorage.setItem('lg_mute','1');}}catch(e){{}}")
     pg = await ctx.new_page(); pg._errs = []
     pg.on('pageerror', lambda e: pg._errs.append(str(e)))
