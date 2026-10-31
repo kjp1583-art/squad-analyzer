@@ -5,6 +5,7 @@
  * const g = BrjVolley.create({seed:1, level:'normal'|'easy'|'hard'|null, target:15, p2cpu:true});
  * g.step(in1, in2)   in = {l,r,u,d,hit}  (hit 는 누른 순간 한 번만 먹는다 — 엔진이 가장자리를 본다)
  * g.s                상태: {ball:{x,y,vx,vy,spin}, p:[{x,y,vy,side,pose,...},{...}], score:[a,b], phase, server, winner, t, ev:[...]}
+ * g.hash()           상태 해시(정수 32비트) · g.dump() 정수 배열 — 온라인 락스텝이 어긋남을 잡는 데 쓴다. 시뮬레이션 경로에는 Math.random·Date·삼각함수가 없다(CPU AI 는 예외, 온라인에서는 안 쓴다)
  * g.cpuInput(i[,level])  i 번 선수(0|1)의 CPU 입력(level 로 난이도를 따로 줄 수 있다)
  * 이벤트(g.s.ev, 매 step 마다 비워짐): 'hit' 'spike' 'dig' 'wall' 'net' 'bounce' 'point'{side} 'serve' 'win'{side}
  */
@@ -14,6 +15,9 @@
   var BR = 16, PR = 22, PCY = 24, SUB = 3;                       // 공 반지름 · 선수 머리 원 반지름 · 발에서 원 중심까지
   var G_BALL = 0.24, G_P = 0.5, JUMP = 9.4, SPEED = 3.7, VMAX = 9.2, SPIKE_V = 9.0, DIG_V = 8.2;   // 원작 느낌: 공이 천천히 떠 있다 떨어진다(1프레임 = 1/60초)
   var POINT_T = 75, READY_T = 45;
+  // 때리기 각도 표 [cos, sin] — 지상 −60° · 강타 위 −34° · 앞 12° · 아래 40° · 아래+앞 50° · 아래+뒤 32°. (옛 Math.cos/sin 값을 그대로 옮긴 것: 동작은 같다)
+  var SPK = { g: [0.5000000000000001, -0.8660254037844386], u: [0.8290375725550416, -0.5591929034707469], f: [0.9781476007338057, 0.20791169081775931], d: [0.766044443118978, 0.6427876096865393], df: [0.6427876096865394, 0.766044443118978], bk: [0.848048096156426, 0.5299192642332049] };
+  var PHASE = { ready: 1, rally: 2, point: 3, over: 4 };
   var LV = { easy: { delay: 16, err: 44, spd: 0.72, jump: 0.55, spike: 0.35 }, normal: { delay: 8, err: 24, spd: 0.88, jump: 0.8, spike: 0.6 }, hard: { delay: 3, err: 9, spd: 1.0, jump: 1.0, spike: 0.9 } };
 
   function rng(seed) { var a = (seed >>> 0) || 1; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -54,11 +58,11 @@
       var b = s.ball, cx = p.x, cy = p.y - PCY, dx = b.x - cx, dy = b.y - cy, d = Math.sqrt(dx * dx + dy * dy), R = PR + BR;
       var wantHit = inp.hit && !p.prevHit && p.hitLock === 0; p.prevHit = !!inp.hit;
       if (!(wantHit && d < R + 12 && b.cool === 0)) return;
-      var fwd = p.side ? -1 : 1, air = p.y < GROUND - 6, ang;      // 앞쪽 기준 각도(위가 −)
-      if (air) { ang = inp.d ? 40 : inp.u ? -34 : 12; if (inp.d && (p.side ? inp.l : inp.r)) ang = 50; else if (inp.d && (p.side ? inp.r : inp.l)) ang = 32; }
-      else ang = -60;
-      var a = ang * Math.PI / 180, v = air ? SPIKE_V : DIG_V;
-      b.vx = Math.cos(a) * v * fwd; b.vy = Math.sin(a) * v;
+      var fwd = p.side ? -1 : 1, air = p.y < GROUND - 6, k;        // 앞쪽 기준 각도(위가 −) — 삼각함수 대신 상수 표(엔진마다 결과가 다를 수 있어서)
+      if (air) { k = inp.d ? 'd' : inp.u ? 'u' : 'f'; if (inp.d && (p.side ? inp.l : inp.r)) k = 'df'; else if (inp.d && (p.side ? inp.r : inp.l)) k = 'bk'; }
+      else k = 'g';
+      var v = air ? SPIKE_V : DIG_V, cs = SPK[k];
+      b.vx = cs[0] * v * fwd; b.vy = cs[1] * v;
       if (!air && !(inp.l || inp.r)) b.vx *= 0.8;
       b.spin = fwd * 0.3; b.cool = 8; p.hitLock = 16; p.pose = 'hit'; p.poseT = 12; s.lastHit = idx; s.rally++; s.shake = air ? 6 : 2;
       var sd = d > 0.01 ? d : 1, push = R - sd; if (push > 0) { b.x += dx / sd * push; b.y += dy / sd * push; }
@@ -168,6 +172,15 @@
       if (a.tx - p.x > 6) out.r = true; else if (a.tx - p.x < -6) out.l = true;
       return out;
     };
+    // ---------- 상태 해시(온라인 어긋남 감지) ----------
+    // 시뮬레이션 값을 정수로 바꿔(×1024 반올림) 섞는다. 온라인에서는 두 브라우저가 같은 프레임에서 같은 값을 내야 한다.
+    g.dump = function () {
+      var b = s.ball, q = function (v) { return Math.round(v * 1024) | 0; }, a = [q(b.x), q(b.y), q(b.vx), q(b.vy), q(b.spin), b.cool | 0];
+      for (var i = 0; i < 2; i++) { var p = s.p[i]; a.push(q(p.x), q(p.y), q(p.vy), q(p.vx), p.hitLock | 0, p.poseT | 0, p.face | 0, p.prevHit ? 1 : 0); }
+      a.push(s.score[0], s.score[1], PHASE[s.phase] | 0, s.timer | 0, s.server | 0, s.t | 0, s.rally | 0, s.lastHit | 0, s.winner | 0);
+      return a;
+    };
+    g.hash = function () { var a = g.dump(), h = 0x811c9dc5; for (var i = 0; i < a.length; i++) h = Math.imul(h ^ (a[i] | 0), 16777619) >>> 0; return h; };
     g.serveBall = function () { };
     serveSetup();
     return g;
