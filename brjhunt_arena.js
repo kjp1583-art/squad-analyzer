@@ -254,7 +254,7 @@
       kills: 0, killLog: [], combo: 0, comboT: 0, comboMax: 0, comboPunch: 0, uid: 1, deaths: 0, runAcc: 0, repKills: 0, spawnT: 0.1, levelT: 0,
       manualT: 0, autoWanted: true, cin: 0, inited: false, lastPoseHash: 0, drawT: 0
     };
-    const st = { stage: 1, region: '', rec: 0, kpm: 100, party: [], boss: null };
+    const st = { stage: 1, region: '', rec: 0, kpm: 100, kpmGiven: 0, party: [], boss: null };
     let C = { atk: 40, hp: 400, def: 10, crit: 5, critdmg: 150, acc: 100, mp: 100, mpregen: 4, power: 0 };
     let MON = { name: '몬스터', hp: 900, atk: 60, def: 30, eva: 90, gold: 0.25 };
     const D = { reg: 0, ratio: 1, dpsNom: 1, mobHp: 100, kdef: 80, passive: null };
@@ -435,7 +435,8 @@
       D.kdef = K_DEF_BASE + K_DEF_PER_STAGE * Math.max(1, st.stage);
       D.dpsNom = nominalDps();
       const power = N(C.power), rec = N(st.rec);
-      D.ratio = (power > 0 && rec > 0) ? power / rec : D.dpsNom / Math.max(1, MON.hp * DPS_PER_HP);
+      // 비율: ① 서버의 power ÷ rec_power ② 없으면 kpm_model ÷ 100(서버 모델이 kpm = 100·power/rec 라서) ③ 둘 다 없으면 이론 피해 ÷ 몹 체력
+      D.ratio = (power > 0 && rec > 0) ? power / rec : (st.kpmGiven > 0 ? st.kpmGiven / 100 : D.dpsNom / Math.max(1, MON.hp * DPS_PER_HP));
       D.ratio = clamp(D.ratio, 0.05, 40);
       D.mobHp = Math.max(1, D.dpsNom * (opts.cal || CAL_TTK) / D.ratio);
       D.passive = skills.passive || null;
@@ -1246,14 +1247,14 @@
         if (p.kind !== 'plat') continue;
         const x = p.x0 - cam, w = p.x1 - p.x0; if (x > VW + 4 || x + w < -4) continue;
         if (ps) { const fw = ps.m.w || ps.im.width / ps.n, fh = ps.m.h || ps.im.height, hh = 16, tw = fw * hh / fh; ctx.save(); ctx.beginPath(); ctx.rect(x, p.y - 4, w, hh + 2); ctx.clip(); for (let tx = x; tx < x + w; tx += tw) ctx.drawImage(ps.im, 0, 0, fw, fh, tx, p.y - 4, tw + 0.5, hh); ctx.restore(); continue; }
-        ctx.fillStyle = 'rgba(0,0,0,.20)'; ctx.fillRect(x + 2, p.y + 10, w - 4, 5);
-        const g = ctx.createLinearGradient(0, p.y, 0, p.y + 11); g.addColorStop(0, 'hsl(' + ((h + 85) % 360) + ',40%,52%)'); g.addColorStop(0.28, 'hsl(' + ((h + 20) % 360) + ',34%,46%)'); g.addColorStop(1, 'hsl(' + h + ',30%,28%)');
-        ctx.fillStyle = g; ctx.fillRect(x, p.y, w, 11);
-        ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x, p.y, w, 1.6);
-        ctx.fillStyle = 'rgba(0,0,0,.28)'; for (let tx = x + 22; tx < x + w - 6; tx += 24) ctx.fillRect(tx, p.y + 3, 1.2, 8);
-        ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x, p.y + 10, w, 1.2);
+        ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(x + 3, p.y + 12, w - 6, 5);
+        ctx.fillStyle = 'rgba(14,8,26,.78)'; ctx.fillRect(x - 1.5, p.y - 1.5, w + 3, 15);
+        const g = ctx.createLinearGradient(0, p.y, 0, p.y + 12); g.addColorStop(0, 'hsl(' + ((h + 85) % 360) + ',48%,66%)'); g.addColorStop(0.22, 'hsl(' + ((h + 85) % 360) + ',40%,52%)'); g.addColorStop(0.3, 'hsl(' + ((h + 20) % 360) + ',34%,44%)'); g.addColorStop(1, 'hsl(' + h + ',30%,26%)');
+        ctx.fillStyle = g; ctx.fillRect(x, p.y, w, 12);
+        ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(x, p.y, w, 1.8);
+        ctx.fillStyle = 'rgba(0,0,0,.3)'; for (let tx = x + 22; tx < x + w - 6; tx += 24) ctx.fillRect(tx, p.y + 4, 1.2, 8);
         // 끝 마감
-        ctx.fillStyle = 'hsl(' + h + ',30%,22%)'; ctx.fillRect(x - 1, p.y, 2, 11); ctx.fillRect(x + w - 1, p.y, 2, 11);
+        ctx.fillStyle = 'hsl(' + h + ',30%,20%)'; ctx.fillRect(x - 1, p.y, 2.5, 12); ctx.fillRect(x + w - 1.5, p.y, 2.5, 12);
       }
     }
 
@@ -1397,7 +1398,7 @@
               const t0 = head - dir * k * 0.17, t1 = head - dir * (k + 1) * 0.17;
               if ((t0 - a0) * dir < 0) break;
               c.globalAlpha = (1 - k / segs) * (1 - q * q) * 0.95; c.strokeStyle = k < 2 ? '#ffffff' : (f.idx === 2 ? '#ffd27a' : '#ffe9a0'); c.lineWidth = (f.idx === 2 ? 14 : 10) * (1 - k / segs) + 1.5;
-              c.beginPath(); c.arc(8, 4, R, t1, t0, dir < 0); c.stroke();
+              c.beginPath(); c.arc(16, -2, R, t1, t0, dir < 0); c.stroke();
             }
             break; }
           case 'arc': {
@@ -1593,7 +1594,7 @@
     function setState(s) {
       s = s || {};
       const prevStage = st.stage;
-      st.stage = N(s.stage) || 1; st.region = String(s.region || ''); st.rec = N(s.rec_power != null ? s.rec_power : s.rec); st.kpm = N(s.kpm_model != null ? s.kpm_model : s.kpm) || 100;
+      st.stage = N(s.stage) || 1; st.region = String(s.region || ''); st.rec = N(s.rec_power != null ? s.rec_power : s.rec); st.kpmGiven = N(s.kpm_model != null ? s.kpm_model : s.kpm); st.kpm = st.kpmGiven || 100;
       st.party = Array.isArray(s.party) ? s.party : [];
       const c = s.combat || {};
       C = { atk: Math.max(1, N(c.atk) || 40), hp: Math.max(1, N(c.hp) || 400), def: Math.max(0, N(c.def) || 0), crit: clamp(N(c.crit != null ? c.crit : 5), 0, 100), critdmg: Math.max(100, N(c.critdmg != null ? c.critdmg : 150)), acc: Math.max(1, N(c.acc) || 100), mp: Math.max(1, N(c.mp) || 100), mpregen: N(c.mpregen != null ? c.mpregen : 4), power: N(c.power) };

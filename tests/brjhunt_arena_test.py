@@ -59,6 +59,16 @@ async def main():
         check('전투력이 오를수록 처치가 는다(단조) — 0.5 < 1 < 2 (각 단계 +15% 이상)', res[1]['avg'] > res[0.5]['avg'] * 1.15 and res[2]['avg'] > res[1]['avg'] * 1.1, [round(res[r]['avg']) for r in (0.5, 1, 2)])
         check('power/rec = 1 에서 스킬 구성·맵·시드에 따른 흔들림이 평균의 ±45% 안 (p10~p90)', res[1]['p10'] >= res[1]['avg'] * 0.55 and res[1]['p90'] <= res[1]['avg'] * 1.45, (round(res[1]['p10']), round(res[1]['p90'])))
         check('AUTO 가 막혀 순간이동(복구)한 횟수 0', all(res[r]['tp'] == 0 for r in res))
+        # power/rec 가 없이 kpm_model 만 와도(서버 모델 kpm = 100·power/rec) 같은 속도
+        kk = {}
+        for km in (50, 100, 140):
+            v = []
+            for ri, reg in enumerate(REGS):
+                for seed in (1, 2):
+                    v.append(await pg.evaluate('''([km,reg,seed])=>{const st=mkState(1,['slash','spin','bomb','fire'],{region:reg,scale:true}); delete st.rec_power; st.combat.power=0; st.kpm_model=km; const a=mkArena({seed,noManifest:true}); a.setState(st); a.sim(15,1/60); const k0=a.stats().kills; a.sim(90,1/60); const k=(a.stats().kills-k0)/90*60; a.destroy(); return k}''', [km, reg, seed]))
+            kk[km] = sum(v) / len(v)
+        print('   kpm_model 만 줬을 때 평균: %s' % {k: round(x) for k, x in kk.items()})
+        check('power/rec 없이 kpm_model(50·100·140)만 줘도 같은 속도 꼴 (각각 ≈ 0.5·1·2 배 상당)', kk[50] < kk[100] < kk[140] and 85 <= kk[100] <= 118 and 40 <= kk[50] <= 88, {k: round(x) for k, x in kk.items()})
         print('   (a) 걸린 시간 %.0fs' % (time.time() - t0))
 
         # ---------- (b) 지형·물리 ----------
@@ -408,6 +418,13 @@ async def main():
           const cv=document.getElementById('cv'); const a=BrjArena.create(cv,{seed:1,manual:true,base:'../nonexistent/',noManifest:false}); a.setState(mkState(1,['slash','thunder','fire','storm'])); a.sim(5,1/60);
           for(let i=0;i<120;i++)a.tick(1/60); const c=cv.getContext('2d'); const d=c.getImageData(0,0,cv.width,cv.height).data; let nz=0; for(let i=3;i<d.length;i+=4*97) if(d[i]>0)nz++; const k=a.stats().kills; a.destroy(); return {nz,k};}''')
         check('그림 파일이 하나도 없어도(폴백) 그려지고 사냥이 된다', FB['nz'] > 500 and FB['k'] >= 0, FB)
+        LW = await pg.evaluate('''()=>{
+          const out={}; const w=document.getElementById('w'); const cv=document.getElementById('cv');
+          const a=mkArena({seed:2,noManifest:true}); a.setState(mkState(1.2,['slash','spin','bomb','storm']));
+          a.debug.E.low=true; a.debug.E.cssW=0; for(let i=0;i<300;i++)a.tick(1/60); out.low=a.stats().low; out.k=a.stats().kills;
+          for(const wd of [320,390,800,1200]){ w.style.width=wd+'px'; cv.style.height='auto'; a.resize(); for(let i=0;i<20;i++)a.tick(1/60); out['vw'+wd]=a.stats().VW; out['cw'+wd]=cv.width; }
+          w.style.width='560px'; a.destroy(); return out;}''')
+        check('저사양(low) 모드와 화면 크기 변경(320~1200px)에서도 그려지고 가로 논리 폭이 비율대로 바뀐다', LW['low'] and LW['k'] > 3 and LW['vw320'] > 300 and LW['vw1200'] >= LW['vw320'] - 1 and LW['cw1200'] > LW['cw320'], {k: (round(v) if isinstance(v, float) else v) for k, v in LW.items()})
         # 프레임 시트(manifest) 가 있을 때: 합성 시트(마젠타 몸)로 확인 — fetch 는 file:// 로 못 하므로 임시 http 서버로 연다
         import http.server, socketserver, threading, functools
         fx = os.path.join(ROOT, 'tests', '_arena_v2_fixture'); os.makedirs(os.path.join(fx, 'img', 'brjhunt', 'v2'), exist_ok=True)
