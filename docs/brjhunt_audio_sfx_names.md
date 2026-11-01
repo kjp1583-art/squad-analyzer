@@ -50,6 +50,12 @@
 | 보스 격노 | `boss_rage` |  |
 | 보스 처치 연출(슬로모션) | `boss_die` | 이어서 `boss_win` |
 | 보스전 승리 / 패배 | `boss_win` / `boss_lose` |  |
+| 스킬 이름이 화면에 뜨는 순간(짧은 보이스) | `call_<스킬id>` | 스킬 10종 각각(높이·모음이 다름) — 엔진 `callout` 이벤트 |
+| 던전 문이 열림 / 닫힘(열쇠 없음) | `door_open` / `door_shut` |  |
+| 던전 웨이브 시작 | `wave_horn` |  |
+| 보상 상자가 열림 | `chest_open` | 이어서 아이템마다 `reward_pop` |
+| 소탕(빠른 감기) | `ff_whoosh` |  |
+| 클랜 보스 총 피해 | `total_hit` |  |
 
 ## BGM
 
@@ -152,3 +158,20 @@
 | `skill_storm_charge` | 0.90 | 1 | 0.200 | 1 |
 | `skill_storm` | 2.40 | 1 | 0.300 | 3 |
 | `skill_storm_tail` | 2.40 | 1 | 0.300 | 1 |
+| `call_slash` | 0.66 | 1 | 0.100 | 3 |
+| `call_peck` | 0.62 | 1 | 0.100 | 3 |
+| `call_spin` | 0.74 | 1 | 0.100 | 3 |
+| `call_bomb` | 0.76 | 1 | 0.100 | 3 |
+| `call_thunder` | 0.70 | 1 | 0.100 | 3 |
+| `call_fire` | 0.76 | 1 | 0.100 | 3 |
+| `call_egg` | 0.70 | 1 | 0.100 | 3 |
+| `call_shield` | 0.72 | 1 | 0.100 | 3 |
+| `call_shrimp` | 0.70 | 1 | 0.100 | 3 |
+| `call_storm` | 0.86 | 1 | 0.100 | 3 |
+| `door_open` | 2.00 | 1 | 0.300 | 1 |
+| `door_shut` | 1.50 | 2 | 0.300 | 1 |
+| `wave_horn` | 1.60 | 1 | 0.400 | 1 |
+| `chest_open` | 2.40 | 2 | 0.400 | 1 |
+| `reward_pop` | 0.90 | 1 | 0.050 | 3 |
+| `ff_whoosh` | 1.40 | 1 | 0.300 | 1 |
+| `total_hit` | 2.20 | 2 | 0.500 | 1 |

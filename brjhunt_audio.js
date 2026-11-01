@@ -745,6 +745,62 @@
     h.noise(0.3, { type: 'lowpass', f: 300, f2: 60, dur: 1.5, vol: 0.25, a: 0.3 });
   }, 1);
 
+  /* -- 스킬 이름 콜아웃 보이스(합성): 스킬 이름이 화면에 뜨는 순간 짧게 외치는 소리. 스킬마다 높이·모음·기울기가 달라 소리만으로도 구분된다 -- */
+  // [높이 Hz, 끝 높이 배수, 모음(0 아 · 1 이 · 2 오 · 3 우 · 4 에), 길이]
+  var CALLS = { slash: [330, 1.25, 1, 0.16], peck: [440, 1.1, 1, 0.12], spin: [300, 1.5, 2, 0.24], bomb: [190, 0.75, 3, 0.26], thunder: [380, 1.35, 4, 0.2],
+                fire: [250, 1.3, 0, 0.26], egg: [320, 0.85, 2, 0.2], shield: [230, 1.1, 3, 0.22], shrimp: [410, 1.4, 1, 0.2], storm: [170, 1.6, 0, 0.36] };
+  var VOWEL = [[900, 1400], [320, 2300], [500, 900], [330, 800], [560, 1900]];   // 모음별 포먼트(1·2)
+  Object.keys(CALLS).forEach(function (id) {
+    var c = CALLS[id], vw = VOWEL[c[2]], big = id === 'bomb' || id === 'thunder' || id === 'storm';
+    def('call_' + id, c[3] + 0.5, 1, 0.1, 0.03, 0.12, function (h) {
+      h.noise(0, { type: 'bandpass', f: 2200, q: 0.8, dur: 0.05, vol: 0.12, a: 0.004 });   // 숨소리
+      h.tone(0.004, { type: 'sawtooth', f: c[0], f2: c[0] * c[1], sw: 0.8, dur: c[3], vol: 0.3, lp: vw[1], a: 0.012, dec: c[3] * 0.8, sus: 0.5, vib: { rate: 28, depth: 14, delay: 0.04 } });
+      h.tone(0.004, { type: 'sawtooth', f: c[0] * 2.01, f2: c[0] * c[1] * 2.01, sw: 0.8, dur: c[3], vol: 0.12, lp: vw[0] * 1.3, a: 0.012, dec: c[3] * 0.8, sus: 0.4 });
+      h.tone(0.004, { f: vw[0] * 0.5, dur: c[3] * 0.7, vol: 0.07, a: 0.01 });
+      if (big) thump(h, 0.01, 110, 50, 0.16, 0.35);
+      crack(h, 0.004, 0.1, 0.02, 3800);
+    }, 3);
+  });
+  /* -- 인스턴스(열쇠 던전·클랜 보스) -- */
+  def('door_open', 2.0, 1, 0.3, 0.02, 0.3, function (h) {
+    h.noise(0, { type: 'lowpass', f: 700, f2: 180, q: 0.7, dur: 1.1, vol: 0.5, a: 0.2 });   // 돌문이 갈리는 소리
+    h.tone(0, { type: 'sawtooth', f: 62, f2: 46, dur: 1.0, vol: 0.28, lp: 260, a: 0.1 });
+    thump(h, 1.05, 88, 38, 0.32, 0.7);
+    sparkle(h, 0.75, 6, 1700, 1.2, 0.4, 0.08, 0.4);
+    bell(h, 1.0, 880, 0.7, 0.14, 2.7, 1.5);
+  }, 1);
+  def('door_shut', 1.5, 2, 0.3, 0.02, 0.25, function (h) {
+    thump(h, 0, 82, 32, 0.45, 1.0); crack(h, 0, 0.6, 0.06, 1800);
+    for (var i = 0; i < 8; i++) h.noise(0.12 + i * 0.045 + rnd() * 0.02, { type: 'highpass', f: 4500, dur: 0.03, vol: 0.14 });   // 쇠사슬
+    h.tone(0.5, { type: 'square', f: 180, f2: 120, dur: 0.18, vol: 0.12, lp: 900, a: 0.01 });
+  }, 1);
+  def('wave_horn', 1.6, 1, 0.4, 0.02, 0.3, function (h) {
+    h.tone(0, { type: 'sawtooth', f: 196, f2: 233, sw: 0.5, dur: 0.7, vol: 0.2, lp: 1300, a: 0.05, dec: 0.5, sus: 0.7, vib: { rate: 5.5, depth: 12, delay: 0.2 } });
+    h.tone(0, { type: 'sawtooth', f: 294, f2: 349, sw: 0.5, dur: 0.7, vol: 0.14, lp: 1500, a: 0.05, dec: 0.5, sus: 0.7, det: 6 });
+    thump(h, 0, 100, 50, 0.2, 0.45); bell(h, 0.55, 1175, 0.6, 0.1, 2.9, 1.2);
+  }, 1);
+  def('chest_open', 2.4, 2, 0.4, 0.02, 0.4, function (h) {
+    h.tone(0, { type: 'sawtooth', f: 130, f2: 250, dur: 0.38, vol: 0.14, lp: 800, a: 0.05, vib: { rate: 14, depth: 25 } });   // 삐걱
+    crack(h, 0.38, 0.55, 0.05, 2800); thump(h, 0.38, 140, 60, 0.2, 0.6);
+    sparkle(h, 0.4, 12, 1900, 1.4, 0.8, 0.1, 0.5);
+    [784, 988, 1319, 1568].forEach(function (f, i) { bell(h, 0.42 + i * 0.07, f, 1.1, 0.14, 2.7, 1.8); });
+    whoosh(h, 0.36, 0.5, 600, 6000, 0.25, 0.8);
+  }, 1);
+  def('reward_pop', 0.9, 1, 0.05, 0.04, 0.2, function (h, v) {
+    var f = pick(v, [1760, 1976, 2093]);
+    h.tone(0, { f: 520, f2: 940, dur: 0.07, vol: 0.2, a: 0.002 }); bell(h, 0.01, f, 0.35, 0.2, 3.01, 1.0); sparkle(h, 0.04, 3, f * 1.2, 0.8, 0.12, 0.08, 0.2);
+  });
+  def('ff_whoosh', 1.4, 1, 0.3, 0.02, 0.2, function (h) {
+    whoosh(h, 0, 0.9, 260, 5200, 0.55, 0.8);
+    h.tone(0, { type: 'sawtooth', f: 120, f2: 520, dur: 0.8, vol: 0.12, lp: 1600, a: 0.3 });
+    for (var i = 0; i < 6; i++) bell(h, 0.1 + i * 0.12, 1200 + i * 220, 0.18, 0.06, 3.01, 0.8);
+  }, 1);
+  def('total_hit', 2.2, 2, 0.5, 0.02, 0.35, function (h) {
+    thump(h, 0, 105, 36, 0.55, 1.0); crack(h, 0, 0.65, 0.06, 2300);
+    h.noise(0, { type: 'lowpass', f: 2600, f2: 160, q: 0.7, dur: 0.6, vol: 0.45, a: 0.003 });
+    [523, 659, 784, 1047].forEach(function (f, i) { bell(h, 0.08 + i * 0.05, f, 1.2, 0.12, 2.8, 1.4); });
+  }, 1);
+
   var CAP = [10, 16, 24];
   function skillSfx(id, phase) {
     var n = 'skill_' + id + (phase === 'charge' ? '_charge' : phase === 'tail' ? '_tail' : '');
