@@ -224,6 +224,10 @@ def last(srv, path): return [b for p, b in srv.hits if p == path]
 async def press(pg, sel, srv, path, n=None):
     c0 = len(last(srv, path)); await pg.click(sel); await pg.wait_for_timeout(250)
     return last(srv, path)[c0:]
+async def finish_inst(pg, timeout=90000):
+    """열쇠 던전·클랜 보스 연출은 실시간이면 30초 가까이 걸린다 — 엔진 시간을 빠르게 돌리고 끝날 때까지 기다린다."""
+    await pg.evaluate("window.__bt.field&&window.__bt.field.setTimeScale(12)")
+    await pg.wait_for_function("window.__bt.inst===null", timeout=timeout); await pg.wait_for_timeout(300)
 async def msg(pg): return (await pg.inner_text('.msg')) if await pg.locator('.msg').count() else ''
 
 async def main():
@@ -299,9 +303,13 @@ async def main():
                 if SHOTS: await pg.screenshot(path=f'{SHOTS}/ui_adv_dark.png', full_page=False)
                 check('보스 도전 → /brj/boss (사냥터 필드로 이동해 연출)', len(await press(pg, '#main [data-do=boss]', srv, '/brj/boss')) == 1 and '쓰러뜨렸' in await msg(pg) and await pg.locator('#nav [data-tab=hunt].on').count() == 1)
                 await pg.wait_for_function("window.__bt.boss===null", timeout=25000); await pg.wait_for_timeout(3600); await tab(pg, 'adv')
-                check('던전 → /brj/dungeon', len(await press(pg, '#main [data-do=dungeon]', srv, '/brj/dungeon')) == 1 and '5단계' in await msg(pg))
+                await pg.evaluate("window.__bt.field.setTimeScale(12)")
+                r = await press(pg, '#main [data-do=dungeon]', srv, '/brj/dungeon'); check('던전 → /brj/dungeon (진짜 전투 장면으로 연출)', len(r) == 1 and await pg.locator('#nav [data-tab=hunt].on').count() == 1)
+                await finish_inst(pg); check('던전 연출이 끝나면 결과 문구', '5단계' in await msg(pg)); await tab(pg, 'adv')
                 r = await press(pg, '[data-do=clanatk]', srv, '/brj/clanboss'); check('클랜 공격 → action=attack', r and r[0]['action'] == 'attack')
+                await finish_inst(pg); await tab(pg, 'adv')
                 r = await press(pg, '[data-do=clanclaim]', srv, '/brj/clanboss'); check('클랜 보상 → action=claim', r and r[0]['action'] == 'claim')
+                await finish_inst(pg); await tab(pg, 'adv')
                 check('오늘 할 일 → /brj/daily', len(await press(pg, '[data-do=daily]', srv, '/brj/daily')) == 1 and '못 끝낸' in await msg(pg))
                 # 환생
                 await tab(pg, 'pres'); await pg.wait_for_timeout(300); t = await pg.inner_text('#main')

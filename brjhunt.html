@@ -160,7 +160,14 @@ body.touch .keyhint{display:none}
 .sk.empty{border-style:dashed;color:var(--mut);font-size:20px;font-weight:900;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.18)}
 .sk.pas{width:40px;height:40px;border-radius:50%;border-color:var(--g-rare);margin-right:2px}
 .sk.pas.empty{border-color:var(--line)}
-.sk.cast{box-shadow:0 0 0 3px var(--gold),0 0 14px 2px var(--glow);transform:scale(1.08)}
+.sk.cast{box-shadow:0 0 0 3px var(--c,var(--gold)),0 0 20px 5px var(--c,var(--glow));transform:scale(1.14);z-index:2}
+.sk.cast::before{content:'';position:absolute;inset:0;background:#fff;opacity:.75;animation:skflash .28s ease-out forwards;z-index:2;pointer-events:none}
+@keyframes skflash{to{opacity:0}}
+.sk.using{box-shadow:0 0 0 3px var(--c,var(--gold)),0 0 16px 3px var(--c,var(--glow))}
+.sk.using::after{content:'사용 중';position:absolute;left:0;right:0;bottom:0;background:rgba(5,6,20,.84);color:var(--c,#fff);font-size:9.5px;font-weight:900;text-align:center;line-height:14px;z-index:3;text-shadow:0 1px 1px #000}
+#skipBtn{position:absolute;left:0;right:0;margin:0 auto;width:max-content;bottom:8px;z-index:6;display:none;min-height:36px;font-size:13px}
+body.ininst #nav,body.ininst #sheet{pointer-events:none;opacity:.5;filter:grayscale(.35)}
+body.ininst #dock .push{pointer-events:none;opacity:.55}
 .hsep{flex:none;width:2px;height:30px;background:var(--line);border-radius:2px;opacity:.7}
 .push{flex:none;min-width:104px;padding:6px 10px;min-height:46px;line-height:1.15;font-size:15px}
 .push small{display:block;font-size:11.5px;font-weight:800;opacity:.9}
@@ -380,6 +387,7 @@ button.cd:active{transform:scale(.97)}
       <div id="combo" aria-hidden="true"></div>
       <div id="keyHelp" role="note"><b>🎮 조작법</b><br><kbd>←</kbd><kbd>→</kbd> 이동 · <kbd>Alt</kbd> 또는 <kbd>Space</kbd> 또는 <kbd>↑</kbd> 점프(오래 누를수록 높이, 공중에서 한 번 더 = 2단 점프) · <kbd>↓</kbd>+점프 아래 발판으로 내려가기<br><kbd>Ctrl</kbd> 또는 <kbd>Z</kbd> 기본 공격(연타 3콤보) · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> (또는 <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd>) 스킬 · <kbd>Tab</kbd> / <kbd>G</kbd> AUTO · <kbd>P</kbd> 일시정지<br>키를 누르면 바로 <b>수동</b>이 되고, 3초 동안 아무것도 안 하면 AUTO 로 돌아가요. 직접 잘 하면 AUTO 보다 더 많이 벌 수 있어요.</div>
       <div id="bossTag" aria-hidden="true"></div>
+      <button class="fbtn" id="skipBtn" aria-label="연출 건너뛰기" title="연출을 건너뛰어요 (결과는 그대로)">건너뛰기 ⏭</button>
     </div>
     <div id="touch" aria-label="화면 조작 버튼">
       <div class="tl"><button class="tp" data-k="left" aria-label="왼쪽으로 이동">◀</button><button class="tp" data-k="right" aria-label="오른쪽으로 이동">▶</button></div>
@@ -402,8 +410,8 @@ button.cd:active{transform:scale(.97)}
 </div></div>
 <div id="awk" role="alertdialog" aria-label="각성 성공" tabindex="-1"></div>
 
-<script src="brjhunt_audio.js?v=2"></script>
-<script src="brjhunt_arena.js?v=1"></script>
+<script src="brjhunt_audio.js?v=3"></script>
+<script src="brjhunt_arena.js?v=2"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
 // 로그인·서버 주소는 survivors.html 과 같은 방식(디스코드 토큰은 메인 사이트와 같은 localStorage 칸 sgg_dc).
@@ -468,7 +476,7 @@ function regIdx(){
 function syncBgm(){
   try{
     if(!window.BrjAudio) return;
-    const t=(STATE==='ok'&&V)?(BOSS?'boss':'field'+(regIdx()+1)):'menu';
+    const t=(STATE==='ok'&&V)?((BOSS||INSTBOSS)?'boss':'field'+(regIdx()+1)):'menu';
     if(t!==CURBGM){ CURBGM=t; BrjAudio.bgm(t); }
   }catch(e){}
 }
@@ -527,6 +535,7 @@ function toast(t){ const b=$('toastBox'); const d=document.createElement('div');
 
 // ---------- 필드 (BrjArena: 발판 사냥터) ----------
 // 엔진이 서버가 준 스탯으로 전투를 계산해 보여 주고, 실제로 잡은 마리 수를 30초마다 /brj/hunt 로 알린다. 골드·승패는 서버가 정한다.
+let INSTANCE=null, INSTBOSS=false;   // 인스턴스 연출(열쇠 던전·클랜 보스·보상) 진행 중인 것
 let FIELD=null, FIELD_FAIL=false, BOSS=null, KILLS=0, BOSS_T=0, GOT=0, CHAIN={n:0,t:0}, LASTCOMBO=0;
 const HQ={k:0,s:0,busy:false,last:0,min:0,rej:0,fail:'',note:''};   // 보내지 못한 마리 수·초(서버가 「아직」이라 한 것만 쌓아 둔다)
 function skList(){ const s=V&&V.skill; return s&&Array.isArray(s.list)?s.list:[]; }
@@ -552,7 +561,7 @@ function fieldState(){
   if(f.mon&&typeof f.mon==='object') o.mon={name:String(f.mon.name||'몬스터'),hp:nn(f.mon.hp),atk:nn(f.mon.atk),def:nn(f.mon.def),eva:nn(f.mon.eva),gold:nn(f.mon.gold)};
   return o;
 }
-function pushField(){ document.body.classList.toggle('inboss',!!BOSS); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(TAB==='hunt'&&STATE==='ok'); }catch(e){ console.warn(e); } } }
+function pushField(){ document.body.classList.toggle('inboss',!!(BOSS||INSTANCE)); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(TAB==='hunt'&&STATE==='ok'); }catch(e){ console.warn(e); } } }
 function showTag(txt,cls){ const t=$('bossTag'); t.textContent=txt; t.className=''; void t.offsetWidth; t.className='go '+(cls||''); }
 const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){} return null; };
 function initField(){
@@ -574,10 +583,16 @@ function initField(){
     FIELD.on('die',()=>snd('die')); FIELD.on('revive',()=>snd('revive'));
     FIELD.on('levelup',()=>snd('levelup'));
     FIELD.on('auto',e=>{ snd(e&&e.on?'auto_on':'auto_off'); LS('brjhunt_auto',e&&e.on?'1':'0'); updAuto(); });
-    FIELD.on('skill',e=>{ const id=e&&e.id; if(!id) return; flashSlot(id); });
+    FIELD.on('skill',e=>{ const id=e&&e.id; if(!id) return; flashSlot(id,e); });
+    FIELD.on('skillend',e=>{ const id=e&&e.id; if(id) setTimeout(()=>unUsing(id),180); });
+    FIELD.on('callout',e=>{ const id=e&&e.id; if(id&&SK_IDS.includes(id)) snd('call_'+id,{vol:.55}); });   // 이름이 뜨는 순간 짧은 보이스
     FIELD.on('cast',e=>{ const id=e&&e.id; if(!id||!SK_IDS.includes(id)) return;
       if(e.stage==='pre') snd('skill_'+id+'_charge',{vol:.6});
-      else if(e.stage==='fire'){ snd('skill_'+id,{vol:.8}); setTimeout(()=>snd('skill_'+id+'_tail',{vol:.55}),260); } });
+      else if(e.stage==='fire'){ snd('skill_'+id,{vol:.8}); setTimeout(()=>snd('skill_'+id+'_tail',{vol:.55}),260); }
+      else if(e.stage==='hit') snd('hit_heavy',{vol:.38,rate:1.08},70);
+      else if(e.stage==='shot') snd('hit',{vol:.32,rate:1.3},50); });
+    FIELD.on('instance',onInstance);
+    FIELD.on('reward',onInstReward);
     FIELD.on('boss',e=>{
       const ph=e&&e.phase;
       if(ph==='in'){ snd('boss_in'); syncBgm(); }   // 입장 이름표·레터박스는 엔진이 화면 안에서 그린다
@@ -594,7 +609,10 @@ function initField(){
 }
 // 도전 던전·보스가 끝나면 엔진이 'end' 를 알린다. 엔진이 없거나 못 받았을 때를 위한 안전장치만 따로 둔다.
 function endBoss(ms){ clearTimeout(BOSS_T); BOSS_T=setTimeout(()=>{ if(!BOSS) return; BOSS=null; pushField(); syncBgm(); render(); },ms||3200); }
-function flashSlot(id){ document.querySelectorAll('#dock .sk[data-sid="'+id+'"]').forEach(el=>{ el.classList.add('cast'); setTimeout(()=>el.classList.remove('cast'),260); }); }
+function flashSlot(id,e){   // 시전 순간: 핫바 칸이 스킬 색으로 번쩍 + 「사용 중」 표시(끝나면 꺼진다)
+  document.querySelectorAll('#dock .sk[data-sid="'+id+'"]').forEach(el=>{ if(e&&/^#[0-9a-f]{3,8}$/i.test(e.col||'')) el.style.setProperty('--c',e.col); el.classList.remove('cast'); void el.offsetWidth; el.classList.add('cast','using'); setTimeout(()=>el.classList.remove('cast'),280); clearTimeout(el._u); el._u=setTimeout(()=>el.classList.remove('using'),Math.max(450,(N(e&&e.dur)+0.45)*1000)); });
+}
+function unUsing(id){ document.querySelectorAll('#dock .sk[data-sid="'+id+'"]').forEach(el=>{ clearTimeout(el._u); el._u=setTimeout(()=>el.classList.remove('using'),120); }); }
 
 // ---------- 사냥 보고: 실제로 잡은 마리 수를 서버에 알린다(직접 한 만큼 골드) ----------
 // 서버가 「아직」(too_soon·too_fast)이라 하면 쌓아 두고 다음 주기에 보낸다. 네트워크 오류는 서버가 처리했는지 모르므로 같은 걸 다시 보내지 않고 버린다(조용한 재시도 없음).
@@ -670,7 +688,7 @@ function updHud(){
   });
 }
 // 시험용 관찰 창(화면 동작에는 쓰이지 않는다)
-window.__bt={get party(){return V?fieldState().party.length:0;},get t(){try{return FIELD.stats().t;}catch(e){return 0;}},get kills(){return KILLS;},get boss(){try{return FIELD.stats().boss;}catch(e){return null;}},get stats(){try{return FIELD.stats();}catch(e){return null;}},get field(){return FIELD;},get bgm(){return CURBGM;},get hq(){return HQ;},get got(){return GOT;},sendHunt};
+window.__bt={get party(){return V?fieldState().party.length:0;},get t(){try{return FIELD.stats().t;}catch(e){return 0;}},get kills(){return KILLS;},get boss(){try{return FIELD.stats().boss;}catch(e){return null;}},get stats(){try{return FIELD.stats();}catch(e){return null;}},get field(){return FIELD;},get bgm(){return CURBGM;},get hq(){return HQ;},get inst(){return INSTANCE?INSTANCE.kind:null;},get got(){return GOT;},sendHunt};
 setInterval(updHud,150);
 
 // ---------- 손조작: 화면 버튼(터치) ----------
@@ -722,11 +740,13 @@ function rollNum(el,to,f){
   el._raf=requestAnimationFrame(step);
 }
 function bump(el){ if(!el||REDUCE) return; el.classList.add('bump'); setTimeout(()=>el.classList.remove('bump'),220); }
-function flyCoins(rect,n){
-  const to=$('chip_gold'); if(!rect||!to||REDUCE) return;
+function flyCoins(rect,n){ flyIcons(rect,n,'gold'); }
+function flyIcons(rect,n,kind){   // 얻은 재화 아이콘이 위쪽 재화 칩으로 날아간다
+  kind=['gold','feast','ticket','stone','key'].includes(kind)?kind:'gold';
+  const to=$('chip_'+kind); if(!rect||!to||REDUCE) return;
   const b=to.getBoundingClientRect(), L=$('fly');
   for(let i=0;i<n;i++){
-    const im=document.createElement('img'); im.src='img/brjhunt/ui/cur_gold.webp'; im.alt='';
+    const im=document.createElement('img'); im.src='img/brjhunt/ui/cur_'+kind+'.webp'; im.alt='';
     const sx=rect.left+rect.width/2+(Math.random()-0.5)*70-13, sy=rect.top+rect.height/2+(Math.random()-0.5)*16-13;
     im.style.left=sx+'px'; im.style.top=sy+'px'; L.appendChild(im);
     requestAnimationFrame(()=>requestAnimationFrame(()=>{ im.style.transitionDelay=(i*60)+'ms'; im.style.transform='translate('+(b.left+14-sx)+'px,'+(b.top+b.height/2-13-sy)+'px) scale(.55)'; im.style.opacity='.25'; }));
@@ -767,7 +787,7 @@ function dockHtml(){
     return `<button class="sk" data-cast="${i}" data-slot="${i}" data-sid="${esc(k.id)}" aria-label="${esc(k.name)} 레벨 ${fmt(k.lv)}. 누르면 사용해요 (단축키 ${i+1}, MP ${fmt(k.mp)}, 쿨다운 ${N(k.cd)}초)"><img src="${skIcon(k.id)}" alt="" onerror="this.style.display='none'"><span class="ring"></span><span class="kb">${i+1}</span><span class="lv">${fmt(k.lv)}</span></button>`;
   };
   let big;
-  if(BOSS) big=`<button class="btn red push" disabled data-do="chal">⚔ 보스전<small>진행 중…</small></button>`;
+  if(BOSS||INSTANCE) big=`<button class="btn red push" disabled data-do="chal">⚔ ${INSTANCE?'던전·보스 연출':'보스전'}<small>진행 중…</small></button>`;
   else if(bg) big=`<button class="btn red push ready" data-do="boss">🛡 보스 도전<small>${esc(bg.name)}</small></button>`;
   else if(!nextOk) big=`<button class="btn alt push" disabled data-do="chal">구역의 끝<small>환생으로 확장</small></button>`;
   else{ const can=v.power_ok!==false;
@@ -1218,6 +1238,96 @@ $('padBtn').onclick=()=>{ snd('click'); setPad(!document.body.classList.contains
 $('keyBtn').onclick=()=>{ const h=$('keyHelp'), on=!h.classList.contains('show'); h.classList.toggle('show',on); $('keyBtn').setAttribute('aria-expanded',String(on)); snd(on?'ui_open':'ui_close'); };
 const PUSH_MSG={max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
 const AWK_MSG={stage:'스테이지가 모자라 아직 각성할 수 없어요.',gold:'🪙 골드가 모자라요.',stone:'🔩 강화석이 모자라요.',feast:'🍖 특식이 모자라요.',max:'이미 마지막 각성까지 마쳤어요.'};
+// ---------- 인스턴스 전투: 열쇠 던전 · 클랜 보스 · 보상 상자를 진짜 전투 장면으로 ----------
+// 누르면 서버(결과·보상·피해를 정한다)를 부르고, 엔진(BrjArena.startInstance)이 그 결과에 맞춰 연출 시간표를 짠다. 연출이 끝나면 서버가 준 화면 값(view)을 반영한다.
+// 연출 중에는 다른 버튼이 잠기고 「건너뛰기」로 바로 결과를 볼 수 있다. 서버가 늦으면 입장 연출로 기다리고, 응답이 실패하면 연출만 접는다.
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function instLock(on){ document.body.classList.toggle('ininst',!!on); const b=$('skipBtn'); if(b) b.style.display=on?'block':'none'; pushField(); }
+function onInstance(e){
+  const ph=e&&e.phase; if(!ph) return;
+  if(ph==='in'){ if(!(INSTANCE&&INSTANCE.predict==='nokey')&&e.kind==='dungeon') snd('door_open',{vol:.8}); else if(e.kind==='clanboss') snd('boss_warn',{vol:.7}); }
+  else if(ph==='wave') snd('wave_horn',{vol:.7});
+  else if(ph==='wavedone') snd('combo_up',{vol:.7});
+  else if(ph==='boss'){ INSTBOSS=true; syncBgm(); }
+  else if(ph==='locked') snd('door_shut',{vol:.9});
+  else if(ph==='ff') snd('ff_whoosh',{vol:.8});
+  else if(ph==='chestland') snd('land_hard',{vol:.8});
+  else if(ph==='chest') snd('chest_open',{vol:.9});
+  else if(ph==='total'){ snd('total_hit',{vol:.9}); }
+  else if(ph==='end'){ INSTBOSS=false; syncBgm(); if(INSTANCE&&INSTANCE.resolveEnd) INSTANCE.resolveEnd(e); }
+}
+function onInstReward(e){
+  try{
+    const k=String(e&&e.kind||''); if(!['gold','stone','ticket','feast'].includes(k)) return;
+    const cv=$('fcv').getBoundingClientRect(), x=cv.left+N(e.fx)*cv.width, y=cv.top+N(e.fy)*cv.height;
+    flyIcons({left:x-14,top:y-14,width:28,height:28},k==='gold'?6:Math.min(5,1+Math.floor(Math.log10(N(e.n)+1)*2)),k);
+    snd(k==='gold'?'coin_big':'reward_pop',{vol:.8});
+  }catch(x){}
+}
+$('skipBtn').onclick=()=>{ snd('click'); try{ if(FIELD) FIELD.skipInstance(); }catch(e){} };
+// sp: {kind, early(결과 전에 입장 연출부터), path, body, predict, start(j|null)→엔진에 줄 값, toResult(j)→엔진 결과 또는 null(연출 없음), after(j,played)→결과 문구, legacy()→엔진이 없을 때 옛 방식}
+async function runInstance(sp){
+  if(BUSY||BOSS||INSTANCE) return;
+  if(!FIELD||FIELD_FAIL||typeof FIELD.startInstance!=='function') return sp.legacy&&sp.legacy();
+  if(!(await preChal())) return;
+  if(BUSY||BOSS||INSTANCE) return;
+  BUSY=true; document.body.classList.add('busy');
+  let endP=null, started=false, j=null, fail='';
+  INSTANCE={kind:sp.kind,predict:sp.predict||'',view:null,resolveEnd:null};
+  endP=new Promise(r=>{ INSTANCE.resolveEnd=r; });
+  try{
+    if(TAB!=='hunt'){ TAB='hunt'; TAB_FLAG=true; } MSG=null; syncBgm(); render(); instLock(true);
+    if(sp.early) started=!!FIELD.startInstance(Object.assign({},sp.start(null),{kind:sp.kind,predict:sp.predict||'',result:null}));
+    j=await call(sp.path,sp.body);
+    if(TRANSPORT.includes(j.code)&&!j.view){ fail=(j.code==='net'||j.code==='http')?'net':'tr'; }
+    if(fail){
+      if(started){ try{ FIELD.abortInstance(); }catch(e){} }
+      if(fail==='net'){ say('응답이 늦어서 실제 처리 결과를 다시 확인하고 있어요…','info'); render(); await load(); if(STATE==='ok'&&V) say('서버 응답이 늦었어요. 화면을 서버의 실제 상태로 새로 고쳤어요. 처리됐는지 수치를 확인해 주세요.','info'); }
+      else { const t=failText(j); if(t) say(t,'bad'); }
+    } else {
+      INSTANCE.view=j.view||null;
+      const res=sp.toResult(j);
+      if(res){
+        if(!started) started=!!FIELD.startInstance(Object.assign({},sp.start(j),{kind:sp.kind,predict:sp.predict||'',result:res}));
+        else FIELD.instanceResult(res);
+      } else if(started){ try{ FIELD.abortInstance(); }catch(e){} }
+      if(started){
+        const guard=sleep(150000).then(()=>{ try{ FIELD.skipInstance(); }catch(e){} return endP; });
+        await Promise.race([endP,guard]);
+      }
+      if(INSTANCE.view) takeView({view:INSTANCE.view});
+      try{ sp.after(j,started); }catch(e){ console.warn(e); }
+    }
+  }catch(e){ console.warn(e); try{ if(FIELD) FIELD.abortInstance(); }catch(x){} }
+  finally{
+    INSTANCE=null; INSTBOSS=false; BUSY=false; document.body.classList.remove('busy'); instLock(false); syncBgm(); render();
+  }
+}
+const DUN_KEYS=['ddokkyu','shinlim','taewoong','yongjo'];
+function dunBoss(lvl){ const k=DUN_KEYS[lvl%DUN_KEYS.length], b=((V.dungeon&&V.dungeon.gate&&V.dungeon.gate.bosses)||[]).find(x=>x&&x.img===k); return {img:k,name:b?String(b.name):'던전 수문장'}; }
+function dungeonGot(x){ const g=x||{}; return [N(g.stone)?`🔩 ${fmt(g.stone)}`:'',N(g.gold)?`🪙 ${fmt(g.gold)}`:'',N(g.ticket)?`🎟 ${fmt(g.ticket)}`:''].filter(Boolean).join(' · ')||'없음'; }
+function dungeonSay(j){
+  if(j.result==='win'){ say(`🗝 ${fmt(j.level)}단계 클리어! 보상 ${dungeonGot(j.got)}`,'ok'); }
+  else if(j.result==='sweep'){ say(`🧹 소탕 완료! 보상 ${dungeonGot(j.got)}`,'ok'); }
+  else if(j.result==='lose') say(`💥 ${fmt(j.level)}단계에서 졌어요 (내 ${fmt(j.power)} / 몬스터 ${fmt(j.hp)}${N(j.hp)>N(j.power)?` · 전투력이 ${fmt(N(j.hp)-N(j.power))} 모자라요`:''}). 열쇠는 그대로예요.`,'bad');
+  else if(j.result==='nokey') say('🔑 열쇠가 없어요. 시간이 지나면 충전돼요.','bad');
+  else say('처리하지 못했어요.','bad');
+}
+function clanRankNotes(cl,hpNow){
+  const mine=N(cl.mine), top=Array.isArray(cl.top)?cl.top:[], out=[];
+  if(top.length&&(top.length<5||mine>=Math.min(...top.map(t=>N(t.d))))) out.push(`내 기여 순위: ${1+top.filter(t=>N(t.d)>mine).length}위`);
+  else out.push(`이번 주 내 누적 피해 ${fmt(mine)}`);
+  if(N(hpNow)>0) out.push(`클랜 보스 체력의 ${(mine/N(hpNow)*100).toFixed(1)}%`);
+  return out;
+}
+function dungeonLegacy(){ return act('/brj/dungeon',{},j=>{ dungeonSay(j); if(j.result==='win') snd('levelup'); else if(j.result==='sweep') snd('coin'); }); }
+function clanAtkLegacy(){ return act('/brj/clanboss',{action:'attack'},j=>{ clanAtkSay(j); if(j.result==='ok') snd('crit'); }); }
+function clanAtkSay(j,dmgText){
+  if(j.result==='ok') say(`🐲 클랜 보스에게 ${fmt(j.dmg)} 피해를 줬어요!`,'ok');
+  else if(j.result==='limit') say('오늘 공격은 모두 썼어요. 내일 또 와요.','bad'); else if(j.result==='dead') say('이번 주 보스는 이미 쓰러졌어요. 월요일에 새 보스가 와요.','bad'); else if(j.result==='capped') say('이번 주 내가 줄 수 있는 피해를 다 채웠어요. 나머지는 다른 클랜원 몫이에요.','bad'); else say('처리하지 못했어요.','bad');
+}
+function clanClaimSay(j){ if(j.result==='ok') say(`🍖 클랜 보스 보상 +${fmt(j.feast)} 받았어요!`,'ok'); else say('받을 보상이 없어요. 보스가 쓰러졌는지, 내가 이번 주 3번 이상 공격하고 체력의 2% 이상 피해를 줬는지 확인해 보세요.','bad'); }
+function clanClaimLegacy(){ return act('/brj/clanboss',{action:'claim'},j=>{ clanClaimSay(j); if(j.result==='ok') snd('coin'); }); }
 const DO={
   collect:()=>{ const b=document.querySelector('#main [data-do=collect]'); const rc=b?b.getBoundingClientRect():null; return act('/brj/collect',{},j=>{
     const g=N(j.got); say(g>0?`🪙 +${fmt(g)} 골드를 받았어요!`:'아직 쌓인 게 없어요. 조금 있다 다시 오세요.',g>0?'ok':'info');
@@ -1276,17 +1386,34 @@ const DO={
       else say('지금 도전할 보스가 없어요.','info'); });
     if(!res){ clearTimeout(BOSS_T); BOSS=null; pushField(); syncBgm(); render(); }   // 판정을 못 받았으면 보스 연출을 접는다
     else if(!FIELD) endBoss(); },
-  dungeon:()=>act('/brj/dungeon',{},j=>{
-    const gt=x=>{const g=x||{};return [N(g.stone)?`🔩 ${fmt(g.stone)}`:'',N(g.gold)?`🪙 ${fmt(g.gold)}`:'',N(g.ticket)?`🎟 ${fmt(g.ticket)}`:''].filter(Boolean).join(' · ')||'없음';};
-    if(j.result==='win'){ say(`🗝 ${fmt(j.level)}단계 클리어! 보상 ${gt(j.got)}`,'ok'); snd('levelup'); }
-    else if(j.result==='sweep'){ say(`🧹 소탕 완료! 보상 ${gt(j.got)}`,'ok'); snd('coin'); }
-    else if(j.result==='lose') say(`💥 ${fmt(j.level)}단계에서 졌어요 (내 ${fmt(j.power)} / 몬스터 ${fmt(j.hp)}). 열쇠는 그대로예요.`,'bad');
-    else if(j.result==='nokey') say('🔑 열쇠가 없어요. 시간이 지나면 충전돼요.','bad');
-    else say('처리하지 못했어요.','bad'); }),
-  clanatk:()=>act('/brj/clanboss',{action:'attack'},j=>{
-    if(j.result==='ok'){ say(`🐲 클랜 보스에게 ${fmt(j.dmg)} 피해를 줬어요!`,'ok'); snd('crit'); } else if(j.result==='limit') say('오늘 공격은 모두 썼어요. 내일 또 와요.','bad'); else if(j.result==='dead') say('이번 주 보스는 이미 쓰러졌어요. 월요일에 새 보스가 와요.','bad'); else if(j.result==='capped') say('이번 주 내가 줄 수 있는 피해를 다 채웠어요. 나머지는 다른 클랜원 몫이에요.','bad'); else say('처리하지 못했어요.','bad'); }),
-  clanclaim:()=>act('/brj/clanboss',{action:'claim'},j=>{
-    if(j.result==='ok'){ say(`🍖 클랜 보스 보상 +${fmt(j.feast)} 받았어요!`,'ok'); snd('coin'); } else say('받을 보상이 없어요. 보스가 쓰러졌는지, 내가 이번 주 3번 이상 공격하고 체력의 2% 이상 피해를 줬는지 확인해 보세요.','bad'); }),
+  dungeon:()=>{
+    if(BUSY||BOSS||INSTANCE) return;
+    const du=(V.dungeon&&V.dungeon.dungeon)||{}, lvl=du.sweep?Math.max(1,N(du.cleared)):N(du.cleared)+1, bs=dunBoss(lvl);
+    return runInstance({kind:'dungeon',early:true,path:'/brj/dungeon',body:{},predict:resVals().key<1?'nokey':'',
+      start:()=>({level:lvl,img:bs.img,name:bs.name}),
+      toResult:j=>['win','lose','sweep','nokey'].includes(j.result)?{result:j.result,level:N(j.level)||lvl,got:j.got||{},power:N(j.power),hp:N(j.hp)}:null,
+      after:(j,played)=>{ dungeonSay(j); if(!played){ if(j.result==='win') snd('levelup'); else if(j.result==='sweep') snd('coin'); } },
+      legacy:dungeonLegacy}); },
+  clanatk:()=>{
+    if(BUSY||BOSS||INSTANCE) return;
+    const cl0=(V.dungeon&&V.dungeon.clan)||{}, before=N(cl0.dmg_total), hp0=N(cl0.hp);
+    return runInstance({kind:'clanboss',early:false,path:'/brj/clanboss',body:{action:'attack'},
+      start:()=>({level:1,img:imgKey(cl0.boss),name:String(cl0.name||'클랜 보스')}),
+      toResult:j=>{
+        if(j.result!=='ok') return null;
+        const cl=(j.view&&j.view.dungeon&&j.view.dungeon.clan)||{}, dmg=Math.max(0,Math.floor(N(j.dmg))), hp=N(cl.hp)||hp0, after=cl.dmg_total!=null?N(cl.dmg_total):before+dmg;
+        return {result:'ok',dmg,hp:Math.max(1,hp),before,after:Math.max(before,after),dead:!!cl.dead&&!cl0.dead,notes:clanRankNotes(cl,hp)};
+      },
+      after:(j,played)=>{ clanAtkSay(j); if(!played&&j.result==='ok') snd('crit'); },
+      legacy:clanAtkLegacy}); },
+  clanclaim:()=>{
+    if(BUSY||BOSS||INSTANCE) return;
+    const cl0=(V.dungeon&&V.dungeon.clan)||{};
+    return runInstance({kind:'clanclaim',early:false,path:'/brj/clanboss',body:{action:'claim'},
+      start:()=>({level:1,img:imgKey(cl0.boss),name:String(cl0.name||'클랜 보스')}),
+      toResult:j=>j.result==='ok'?{result:'ok',got:{feast:N(j.feast)}}:null,
+      after:(j,played)=>{ clanClaimSay(j); if(!played&&j.result==='ok') snd('coin'); },
+      legacy:clanClaimLegacy}); },
   daily:()=>act('/brj/daily',{},j=>{
     if(j.result==='ok'){ const c=j.chest||{}; const nm=({stone:'🔩 강화석',ticket:'🎟 소환권',gold:'🪙 골드'})[c.kind]||''; say(`🎁 오늘 할 일 완료! 🍖 +${fmt(j.feast)}${nm?` · 상자: ${nm}${N(c.n)?' '+fmt(c.n)+'개':''}`:''}`,'ok'); snd('levelup'); }
     else if(j.result==='claimed') say('오늘 보상은 이미 받았어요.','info'); else say('아직 못 끝낸 일이 있어요. 위 목록을 확인해 보세요.','bad'); }),
@@ -1313,6 +1440,7 @@ document.addEventListener('click',e=>{
   if(t.dataset.cast!=null){ if(performance.now()-LASTPD>600) castFromDock(N(t.dataset.cast)); return; }
   if(t.id==='loginBtn'){ snd('click'); dcLogin(); return; }
   if(t.id==='retryBtn'){ snd('click'); STATE='boot'; render(); load(); return; }
+  if(INSTANCE&&(t.dataset.tab||t.dataset.card!=null)) return;
   if(t.dataset.tab){ if(TAB!==t.dataset.tab){ snd('tab'); TAB=t.dataset.tab; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); } return; }
   if(t.dataset.card!=null){   // 파티 편성(저장 전까지는 이 화면에서만 바뀐다)
     snd('click');
@@ -1320,6 +1448,7 @@ document.addEventListener('click',e=>{
     if(i>=0) p.splice(i,1); else if(p.length<mx) p.push(id); else { toast(`파티는 최대 ${mx}명이에요`); snd('error'); return; }
     PARTY_DIRTY=true; MSG=null; render(); return;
   }
+  if(INSTANCE&&(t.dataset.do||t.dataset.tab||t.dataset.card!=null)) return;   // 연출 중에는 다른 버튼이 안 눌린다
   snd('click');
   const d=t.dataset.do; if(d&&DO[d]){ if(t.disabled) return; if(d!=='slotsel') MSG=null; DO[d](t); }
 });

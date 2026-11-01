@@ -157,7 +157,8 @@ def main():
         new_names = (['swing1', 'swing2', 'swing3', 'swing_big', 'hit_heavy', 'mon_hurt', 'mon_die', 'mon_die_elite', 'elite_spawn', 'coin_big', 'coin_drop', 'pickup',
                       'jump', 'jump2', 'land', 'land_hard', 'step', 'drop_down', 'hurt', 'hurt_heavy', 'shield_block', 'die', 'revive', 'combo_up',
                       'ui_open', 'ui_close', 'auto_on', 'auto_off', 'equip', 'no_mp', 'skill_ready', 'boss_warn', 'boss_rage', 'boss_slam', 'boss_die']
-                     + ['skill_%s_%s' % (s, ph) for s in SK for ph in ('charge', 'tail')])
+                     + ['skill_%s_%s' % (s, ph) for s in SK for ph in ('charge', 'tail')]
+                     + ['call_' + s for s in SK] + ['door_open', 'door_shut', 'wave_horn', 'chest_open', 'reward_pop', 'ff_whoosh', 'total_hit'])
         need_bgm = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'boss', 'menu']
         check('예전 효과음 26종 이름이 그대로 살아 있다', set(old_names) <= set(names), set(old_names) - set(names))
         check('새 효과음 이름 전부(%d종)' % len(new_names), set(new_names) <= set(names), set(new_names) - set(names))

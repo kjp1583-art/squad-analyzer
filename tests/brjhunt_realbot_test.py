@@ -131,6 +131,25 @@ async def main():
         seen = await pg.evaluate('window.__seen'); won = res.get('result') in ('ok', 'win')
         check('실제 판정(' + str(res.get('result')) + ')대로 연출이 갈림', ('dying' in seen) == won and (('smash' in seen) == (not won)) and seen[-1] is None, (res.get('result'), seen))
         await clean(pg, '도전 뒤')
+        # ---- 열쇠 던전 · 클랜 보스 연출(4차 개편): 실제 응답 모양으로 연출이 서버 값대로 도는지 ----
+        finish_inst = _g['finish_inst']
+        await pg.evaluate("window.__bt.field.setTimeScale(12); window.__sum=0; window.__rew=[]; window.__bt.field.on('ihit',e=>{__sum+=e.dmg;}); window.__bt.field.on('reward',e=>__rew.push(e.kind+':'+e.n)); 0")
+        await tab(pg, 'adv'); BRJ['1']['idle']['key'] = {'n': 3, 't': time.time()}
+        await pg.click('#rfBtn'); await pg.wait_for_timeout(400); await tab(pg, 'adv')
+        n0 = len([1 for pa, c, o in srv.answers if pa == '/brj/dungeon'])
+        await pg.click('#main [data-do=dungeon]'); await finish_inst(pg)
+        ans = [o for pa, c, o in srv.answers if pa == '/brj/dungeon']
+        check('실제 던전 응답(' + str(ans[-1].get('result')) + ')으로 연출이 끝까지 돈다', len(ans) == n0 + 1 and ans[-1].get('result') in ('win', 'lose', 'sweep', 'nokey'), ans[-1].get('result'))
+        if ans[-1].get('result') == 'win':
+            got = ans[-1]['got']; rew = sorted(await pg.evaluate('window.__rew'))
+            check('실제 던전 보상(강화석·골드·소환권)과 상자 아이콘 이벤트가 같다', rew == sorted(k + ':' + str(int(v)) for k, v in got.items() if v), (rew, got))
+        await clean(pg, '던전 연출 뒤')
+        await tab(pg, 'adv'); await pg.evaluate('window.__sum=0')
+        await pg.click('[data-do=clanatk]'); await pg.wait_for_timeout(400)
+        ca = [o for pa, c, o in srv.answers if pa == '/brj/clanboss'][-1]
+        await finish_inst(pg); sm = await pg.evaluate('window.__sum')
+        check('실제 클랜 보스 응답(' + str(ca.get('result')) + ') — ok 면 화면 타격 합 = 서버 dmg(' + str(ca.get('dmg')) + ')', (ca.get('result') != 'ok') or sm == ca['dmg'], (sm, ca.get('dmg')))
+        await clean(pg, '클랜 보스 연출 뒤')
         check('콘솔 오류 없음', not errs, errs)
         if SHOTS: await pg.screenshot(path=f'{SHOTS}/realbot_1280.png')
         await ctx.close()
