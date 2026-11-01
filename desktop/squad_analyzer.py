@@ -2693,10 +2693,24 @@ def _clan_pu(pu, nm, idx):
     k2 = tnorm(nm or "")
     return (idx.get("nm2pu") or {}).get(k2, "") if k2 else ""
 
-def _clan_line(pu, idx, limit=4, min_g=3):
-    """puuid → '- 이름(주포지션) [내전 N판]: 챔프 N판 X% · …' 한 줄. 표본 없으면 빈 문자열."""
+def _clan_line(pu, idx, limit=4, min_g=3, ep=""):
+    """puuid → '- 이름(주포지션) [내전 N판]: 챔프 N판 X% · …' 한 줄. 표본 없으면 빈 문자열.
+
+    ep(이번 판 포지션)을 주면 — 2026-11-01 사장님 제보(고스트밴픽왕이 정글 Donk 를 「미드 로크 21판」이라 말함):
+    상대 줄에 주포지션 「(미드)」 와 전 포지션 합친 챔프폭을 그대로 실었더니, 이번 판 미드인 허거덩의 로크 21판이
+    주포지션이 미드인 Donk 의 것으로 읽혔다(허거덩의 주포지션은 원딜이라 줄이 갈라졌다).
+    ep 가 있으면 주포지션 표기를 빼고 「[이번 판 포지션:ep]」 만 쓰며, 챔프폭은 **그 포지션에서 쓴 판수만** 싣는다."""
     e = (idx.get("by_pu") or {}).get(str(pu or "").strip().lower())
     if not e: return ""
+    if ep and ep != "선택안함":
+        nm = str(e["name"]).split("#")[0].strip() or "클랜원"
+        _cp = e.get("chpos") or {}
+        rows = sorted(([c, d.get(ep, 0)] for c, d in _cp.items() if d.get(ep, 0) >= 2), key=lambda x: -x[1])[:limit]
+        _tv = tier_of(e.get("name") or "")
+        head = f"- {nm}[이번 판 포지션:{ep}]{f'[{_tv}티어]' if _tv not in (None, '') else ''}"
+        if not rows:
+            return head + f": ※ {ep} 전적 없음(2판 미만) — 이 사람의 주력 챔프는 이번 판 {ep}에서 쓴 적이 없어 저격 근거로 쓰지 마라"
+        return head + f" [{ep} 내전]: " + " · ".join(f"{c} {n}판" for c, n in rows) + f" (전부 {nm} 본인이 {ep}에서 쓴 판수)"
     ch = sorted(([c, g, w] for c, (g, w) in e["champs"].items() if g >= min_g), key=lambda x: -x[1])[:limit]
     if not ch: return ""
     mp = max(e["pos"].items(), key=lambda x: x[1])[0] if e["pos"] else ""
@@ -3135,6 +3149,8 @@ _DRAFT_BAN_RULES = (
     "  → 이 페이즈에 단순 OP 밴은 낭비다. 구도를 읽어라.\n"
     "보조 근거: 클랜 내전 승률이 비정상적으로 높은 챔프(표본 4판 이상만 신뢰).\n\n"
     "【★내전 특화 — 밴의 절반은 '사람'을 밴하는 것이다】\n"
+    "- ★★선수 이름·포지션·판수·승률은 **그 줄에 적힌 한 사람의 것**만 인용하라. 다른 선수의 챔프폭을 섞거나, [이번 판 포지션] 대신\n"
+    "  주포지션(괄호 표기)·추측으로 말하지 마라. 이번 판 포지션과 그 포지션 판수가 같은 줄에 없으면 그 선수 근거로 쓰지 마라.\n"
     "- [상대 팀원들의 내전 챔프폭]이 주어지면 그것이 1페이즈 밴의 최우선 근거다. 판수 많고 승률 높은\n"
     "  '그 사람의 밥줄 챔프'를 자르면 상대는 숙련 없는 2번째 카드를 꺼내야 한다.\n"
     "- 단, 판수가 적은 고승률(3판 100% 등)은 우연이니 밴 근거로 쓰지 마라. 판수 5판 이상을 우선하라.\n"
@@ -4168,6 +4184,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                     ally_desc.append(_pick_desc(c, _pu, _pos(p)))
                 if _pu: ally_pus.append(_pu)
         enemy_pools = []
+        _ep_by_pu = {}           # 상대 puuid → 이번 판 포지션 (상대 내전 챔프폭 줄에 주포지션 대신 이 값을 쓴다)
         _enemy_unassigned = []   # 💡 [v83.32] 포지션 미확정 상대 픽 — 맞라이너 후보 계산 재료
         for p in s_json.get("theirTeam", []) or []:
             c = _kor(p.get("championId")); ep = _pos(p)
@@ -4177,6 +4194,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                 enemy_desc.append(_pick_desc(c, _pu, ep))
                 if not ep or ep == "선택안함": _enemy_unassigned.append((c, _pu))
             if _pu: enemy_pus.append(_pu)
+            if _pu and ep and ep != "선택안함": _ep_by_pu[str(_pu).strip().lower()] = ep
             # ★ 내 라인 상대(같은 포지션의 상대 챔프) — 픽 추천에서 상성 판단의 핵심
             if ep and my_pos != "선택안함" and ep == my_pos:
                 if c: lane_enemy = f"{c} ({ep})"
@@ -4209,6 +4227,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                     if not _pu or _pu.startswith(("bot_", "temp")): continue
                     _ep5 = POSITION_TRANSLATE_KOR.get(str(_p5.get("chosen_pos_icon") or "").upper(), "")
                     enemy_pus.append(_pu)
+                    if _ep5 and _ep5 != "선택안함": _ep_by_pu[_pu] = _ep5
                     if _ep5 and my_pos != "선택안함" and _ep5 == my_pos and not lane_enemy_pu:
                         lane_enemy_pu = _pu
                     if mode == "ban":
@@ -4279,7 +4298,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                     _e = (_idx.get("by_pu") or {}).get(_pu) or {}
                     syn_lines.append(f"- {str(_e.get('name','')).split('#')[0] or '동료'}와 함께: {_s}")
             for _pu in enemy_pus:
-                _l = _clan_line(_pu, _idx)
+                _l = _clan_line(_pu, _idx, ep=_ep_by_pu.get(str(_pu).strip().lower(), ""))
                 if _l: clan_enemy.append(_l)
             if lane_enemy_pu:
                 _h = _pair_txt(my_pu, lane_enemy_pu, _idx, "h2h", 5)   # 맞대결: 5판↑만
