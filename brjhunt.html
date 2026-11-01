@@ -976,6 +976,12 @@ function tabCrew(){
     <h3>천장 — 이만큼 안 나오면 확정이에요</h3>
     ${Object.entries(pity).map(([k,p])=>`<div class="kv"><span>${esc(k)} 이상 확정</span><b>${fmt(R(p,'now',0))} / ${fmt(R(p,'max',0))}번째 <span class="mut">(${fmt(R(p,'left',0))}번 남음)</span></b></div>`).join('')}
     <div class="btns"><button class="btn" data-do="summon" data-n="1">1회 소환 (🎟 1)</button><button class="btn gold" data-do="summon" data-n="10">10회 소환 (🎟 10)</button></div>
+    ${(()=>{ const pp=s.pts; if(!pp||typeof pp!=='object') return ''; const pr=pp.price||{}, bal=N(pp.balance), left=N(pp.daily_left);
+      const can=n=>bal>=N(pr[n])&&left>=n;
+      return `<h3>🪙 포인트로 소환 <span class="pill">내 포인트 ${fmt(bal)}P</span></h3>
+      <div class="sub">소환권이 없어도 클랜 포인트(내전 1판 = 1P)로 똑같이 뽑을 수 있어요. 확률·천장·소환 레벨은 소환권과 같아요. 오늘 남은 횟수 <b>${fmt(left)}</b> / ${fmt(pp.daily_max)}회.</div>
+      <div class="btns"><button class="btn ${can(1)?'':'alt'}" data-do="summonpts" data-n="1" ${can(1)?'':'disabled'}>1회 (${fmt(pr[1])}P)</button><button class="btn ${can(10)?'gold':'alt'}" data-do="summonpts" data-n="10" ${can(10)?'':'disabled'}>10회 (${fmt(pr[10])}P)</button></div>
+      ${bal<N(pr[1])?'<div class="mut">포인트가 모자라요. 내전을 뛰면 1판에 1P가 쌓여요.</div>':''}`; })()}
     <details><summary>📊 소환 레벨별 확률표 보기</summary><div class="tw"><table><thead><tr><th>소환 Lv</th><th>필요 누적</th>${Object.keys((rt[0]||{}).rates||{}).map(k=>`<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>
       ${rt.map(x=>`<tr${N(x.lv)===N(s.slv)?' style="font-weight:900;color:var(--gold)"':''}><td>Lv.${fmt(x.lv)}</td><td>${fmt(x.at)}회</td>${Object.values(x.rates||{}).map(p=>`<td>${N(p)}%</td>`).join('')}</tr>`).join('')}
     </tbody></table></div><div class="mut" style="margin-top:4px">같은 동료가 또 나오면 조각이 되어 동료 레벨이 올라가요. 현재 풀: ${Object.entries(pool.by_grade||{}).map(([k,n])=>`${esc(k)} ${fmt(n)}명`).join(' · ')}</div></details>
@@ -1243,6 +1249,10 @@ const DO={
     if(j.ok&&Array.isArray(j.results)){ SUMRES=j.results; const nw=j.results.filter(x=>x.new).length; say(`🎟 ${fmt(j.results.length)}회 소환 완료!${nw?` 새 동료 ${fmt(nw)}명!`:''}`,'ok');
       snd(j.results.some(x=>['epic','unique','legend'].includes(x.gr))?'summon_rare':'summon'); }
     else{ SUMRES=null; say({bad_n:'소환 횟수가 올바르지 않아요.',no_ticket:'🎟 소환권이 모자라요.',no_pool:'동료 명단을 준비하고 있어요. 조금 뒤에 다시 해 보세요.'}[j.code]||'소환하지 못했어요.','bad'); } }); },
+  summonpts:el=>{ const n=Number(el.dataset.n); act('/brj/summon',{n,pay:'points'},j=>{
+    if(j.ok&&Array.isArray(j.results)){ SUMRES=j.results; const nw=j.results.filter(x=>x.new).length; say(`🪙 포인트로 ${fmt(j.results.length)}회 소환 완료!${nw?` 새 동료 ${fmt(nw)}명!`:''}`,'ok');
+      snd(j.results.some(x=>['epic','unique','legend'].includes(x.gr))?'summon_rare':'summon'); }
+    else{ SUMRES=null; say({bad_n:'소환 횟수가 올바르지 않아요.',pts_short:'🪙 포인트가 모자라요. 내전을 뛰면 1판에 1P가 쌓여요.',pts_neg:'🪙 포인트가 마이너스라서 쓸 수 없어요.',pts_daily:'오늘 포인트 소환 횟수를 모두 썼어요. 내일 또 해요.',pts_save:'포인트 저장이 잠깐 안 돼서 결제하지 않았어요. 포인트는 그대로예요. 잠시 뒤에 다시 해 보세요.',busy:'처리 중이에요. 잠깐 뒤에 다시 눌러 주세요.',no_pool:'동료 명단을 준비하고 있어요. 조금 뒤에 다시 해 보세요.'}[j.code]||'소환하지 못했어요.','bad'); } }); },
   party:()=>act('/brj/party',{party:curParty().slice()},j=>{
     if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },

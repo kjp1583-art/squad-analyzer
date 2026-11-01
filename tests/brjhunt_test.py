@@ -75,7 +75,7 @@ def make_view():
     return {
         'stage': 9, 'max_stage': 30, 'region': '홍대 먹자골목' + EVIL, 'rate': 1500, 'pending': 9000, 'hours': 4.0, 'boost': 2, 'gold': 123456, 'total': 999999,
         'power': 700, 'rec': 400, 'next_rec': 430, 'kpm': 110.0, 'power_ok': True, 'chal_hp': 430, 'kpm_next': 102.0, 'cost': 6000, 'next_rate': 1770, 'cap_h': 12, 'boost_max': 6, 'lv': 7, 'name': '테스터' + EVIL,
-        'summon': {'tickets': 12, 'pulls': 25, 'slv': 2, 'slv_max': 8, 'slv_next_at': 60, 'rates': rates,
+        'summon': {'pts': {'balance': 120, 'price': {'1': 5, '10': 45}, 'daily_max': 60, 'daily_used': 3, 'daily_left': 57}, 'tickets': 12, 'pulls': 25, 'slv': 2, 'slv_max': 8, 'slv_next_at': 60, 'rates': rates,
                    'rate_table': [{'lv': i + 1, 'at': a, 'rates': rates} for i, a in enumerate([0, 20, 60, 130, 250, 450, 750, 1200])],
                    'pity': {'에픽': {'now': 12, 'max': 50, 'left': 38}, '유니크': {'now': 12, 'max': 150, 'left': 138}, '레전드': {'now': 12, 'max': 400, 'left': 388}},
                    'cost': {'1': 1, '10': 10}, 'cards': cards, 'own_n': 4, 'party': ['c1'], 'party_max': 3, 'mult': 1.15, 'stat_pct': 15.0, 'bonus_what': '공격력·체력', 'mult_cap': 2.0,
@@ -436,6 +436,25 @@ async def main():
         await pg.click('[data-do=chal]'); await pg.wait_for_timeout(500)
         check('도전 던전에서 지면 실패 문구(전투력·몬스터 체력·잃은 것 없음)', '도전 던전 실패' in await msg(pg) and '380' in await msg(pg) and '430' in await msg(pg) and '잃은 건 없어요' in await msg(pg), await msg(pg))
         await ctx.close()
+        # ---- 포인트로 동료 소환 ----
+        srv = Server(); ctx, pg, errs = await new_page(b, srv); await tab(pg, 'crew')
+        t = await pg.inner_text('#main')
+        check('동료 탭: 포인트 소환 정보(내 포인트·오늘 남은 횟수·가격)', '내 포인트 120P' in t and '57' in t and '1회 (5P)' in t and '10회 (45P)' in t, t[:200])
+        r = await press(pg, '[data-do=summonpts][data-n="10"]', srv, '/brj/summon')
+        check('포인트 10회 → {n:10, pay:points}', r and r[-1]['n'] == 10 and r[-1]['pay'] == 'points', r)
+        check('포인트 소환 완료 문구', '포인트로 10회 소환' in await msg(pg), await msg(pg))
+        r = await press(pg, '[data-do=summon][data-n="1"]', srv, '/brj/summon'); check('소환권 버튼은 pay 없이(기본 소환권)', r and 'pay' not in r[-1], r)
+        srv.override['/brj/summon'] = lambda body: (200, {'ok': False, 'code': 'pts_short', 'results': [], 'view': make_view()})
+        await pg.click('[data-do=summonpts][data-n="1"]'); await pg.wait_for_timeout(250); check('포인트 부족 거절 문구', '포인트가 모자라요' in await msg(pg), await msg(pg))
+        srv.override['/brj/summon'] = lambda body: (200, {'ok': False, 'code': 'pts_daily', 'results': [], 'view': make_view()})
+        await pg.click('[data-do=summonpts][data-n="1"]'); await pg.wait_for_timeout(250); check('일일 상한 문구', '횟수를 모두 썼어요' in await msg(pg), await msg(pg))
+        await ctx.close()
+        srv = Server(); srv.view['summon']['pts'] = {'balance': 2, 'price': {'1': 5, '10': 45}, 'daily_max': 60, 'daily_used': 0, 'daily_left': 60}
+        ctx, pg, errs = await new_page(b, srv); await tab(pg, 'crew')
+        check('포인트가 모자라면 포인트 소환 버튼이 꺼짐 + 안내', await pg.locator('[data-do=summonpts]').first.is_disabled() and '포인트가 모자라요' in await pg.inner_text('#main'))
+        await ctx.close()
+        srv = Server(); srv.view['summon'].pop('pts'); ctx, pg, errs = await new_page(b, srv); await tab(pg, 'crew')
+        check('옛 서버(포인트 소환 정보 없음)면 포인트 칸이 없고 화면은 정상', await pg.locator('[data-do=summonpts]').count() == 0 and await pg.locator('[data-do=summon]').count() == 2 and not errs, errs); await ctx.close()
         # ---- 랭킹 탭 ----
         srv = Server(); ctx, pg, errs = await new_page(b, srv); await tab(pg, 'rank'); await pg.wait_for_timeout(300)
         t = await pg.inner_text('#main')
