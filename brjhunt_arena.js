@@ -1819,22 +1819,22 @@
       const o = { flip: p.face < 0 };
       let sx = 1, sy = 1, rot = 0, yy = p.y, fr = 0, dx = 0;
       const sq = p.sq;   // 양수 = 착지 찌그러짐, 음수 = 점프 늘어남
-      if (sq > 0) { sx = 1 + sq * 0.5; sy = 1 - sq * 0.42; } else if (sq < 0) { sx = 1 + sq * 0.2; sy = 1 - sq * 0.28; }
-      if (pose === 'run') { const ph = E.t * 17; yy -= Math.abs(Math.sin(ph)) * 3.4; rot = p.face * 0.16; sy *= 1 - Math.abs(Math.sin(ph)) * 0.07; sx *= 1 + Math.abs(Math.sin(ph + 1.5)) * 0.04; }
-      else if (pose === 'idle') { const b = Math.sin(E.t * 3); sy *= 1 + b * 0.018; sx *= 1 - b * 0.012; }
-      else if (pose === 'jump') { sy *= 1.1; sx *= 0.93; rot = p.face * -0.05; }
-      else if (pose === 'fall') { sy *= 0.96; sx *= 1.04; rot = p.face * 0.08; }
+      if (sq > 0) { sx = 1 + sq * 0.14; sy = 1 - sq * 0.12; } else if (sq < 0) { sx = 1 + sq * 0.06; sy = 1 - sq * 0.08; }   // 체구가 출렁이지 않게 약하게(촐싹 방지)
+      if (pose === 'run') { const ph = E.t * 11; yy -= Math.abs(Math.sin(ph)) * 1.6; rot = p.face * 0.07; }
+      else if (pose === 'idle') { const b = Math.sin(E.t * 2); sy *= 1 + b * 0.008; sx *= 1 - b * 0.005; }
+      else if (pose === 'jump') { sy *= 1.03; sx *= 0.98; rot = p.face * -0.05; }
+      else if (pose === 'fall') { sy *= 0.99; sx *= 1.01; rot = p.face * 0.08; }
       else if (pose.length === 4 && pose.charAt(0) === 'a') {
         const q = clamp(1 - p.atkT / p.atkDur, 0, 1), W = ATK_W[p.atkIdx] || ATK_W[0], S = ATK_S[p.atkIdx] || ATK_S[0];
         let P0;
         if (q < 0.38) { const t = q / 0.38; P0 = { sx: lerp(1, W.sx, t), sy: lerp(1, W.sy, t), rot: lerp(0, W.rot, t), dx: lerp(0, W.dx, t), dy: 0 }; }
         else { const t = (q - 0.38) / 0.62, e = Math.min(1, t * 2.4), st = t > 0.55 ? (t - 0.55) / 0.45 : 0; P0 = { sx: lerp(lerp(W.sx, S.sx, e), 1, st), sy: lerp(lerp(W.sy, S.sy, e), 1, st), rot: lerp(lerp(W.rot, S.rot, e), 0, st), dx: lerp(lerp(W.dx, S.dx, e), 0, st), dy: lerp(S.dy * e, 0, st) }; }
-        sx *= P0.sx; sy *= P0.sy; rot += p.face * P0.rot; dx += p.face * P0.dx; yy -= P0.dy; fr = Math.floor(q * 3);
+        sx *= 1 + (P0.sx - 1) * 0.4; sy *= 1 + (P0.sy - 1) * 0.4; rot += p.face * P0.rot; dx += p.face * P0.dx; yy -= P0.dy; fr = Math.floor(q * 3);
       } else if (pose === 'cast') {
-        const cp = castPose(p); sy *= 1 + Math.sin(E.t * 32) * 0.02;
+        const cp = castPose(p);
         if (cp) { sx *= cp.sx * (cp.spin ? 0.25 + 0.75 * Math.abs(Math.cos(cp.spin)) : 1); sy *= cp.sy; rot += cp.rot; dx += cp.dx; yy -= cp.dy; }
       }
-      else if (pose === 'hurt') { rot = -p.face * 0.32; sx *= 1.12; sy *= 0.88; }
+      else if (pose === 'hurt') { rot = -p.face * 0.24; sx *= 1.04; sy *= 0.96; }
       else if (pose === 'die') { rot = -1.4 * p.face; yy = p.y; o.a = 0.92; }
       if (p.djT > 0 && !p.dead && pose !== 'cast') rot += p.face * (1 - p.djT / 0.32) * 6.283;   // 2단 점프: 한 바퀴 빙글
       if (p.inv > 0 && !p.dead && ((E.t * 22) | 0) % 2 === 0 && pose !== 'cast') o.a = 0.45;
