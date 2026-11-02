@@ -437,7 +437,7 @@ const SK_IDS=['slash','peck','spin','bomb','thunder','fire','egg','shield','shri
 const skIcon=id=>SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:'';
 const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
-const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
+const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
 const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
 let V_KPM=100;                      // 서버가 내 전투력÷필드 권장 전투력으로 계산한 분당 처치 기대치. 처치당 골드 = 시간당 골드 ÷ (분당 처치×60)
 const kpmNow=()=>Math.max(1,N(V&&V.kpm)||V_KPM);
@@ -832,7 +832,7 @@ function render(){
   renderTop(); updateChips();
   setHtml($('dock'),dockHtml());
   setHtml(nav,navHtml());
-  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
+  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
   const keep=sheet.scrollTop;
   main.innerHTML=msgHtml()+fn();
   if(TAB_FLAG){ TAB_FLAG=false; main.classList.remove('up'); void main.offsetWidth; main.classList.add('up'); sheet.scrollTop=0; } else sheet.scrollTop=keep;
@@ -878,6 +878,7 @@ function tabHunt(){
     <div class="bar g" style="margin-top:8px" role="progressbar" aria-label="쌓인 시간" aria-valuemin="0" aria-valuemax="${fmt(v.cap_h)}" aria-valuenow="${N(v.hours).toFixed(1)}"><i style="width:${hpct}%"></i></div>
     <div class="sub" style="margin-top:3px">${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
     ${N(v.boost)>0?`<div class="sub green">⚔ 내전 부스트 ${fmt(v.boost)}시간치가 더해져요 (내전 1판 = 사냥 1시간)</div>`:`<div class="mut">내전을 1판 뛸 때마다 사냥 1시간치가 더 쌓여요 (최대 ${fmt(v.boost_max)}시간)</div>`}
+    ${eliteBar()}
     ${mods.length?`<div class="mults">${mods.map(m=>`<span class="pill gold">${esc(m)}</span>`).join('')}</div><div class="mut" style="margin-top:4px">전투 스탯에 더해지는 보너스예요. 골드를 곱해 주는 배율은 없어요.</div>`:''}
     <div class="mut" style="margin-top:6px"><b>직접 잡은 만큼 골드가 돼요.</b> 필드에서 잡은 마리 수는 30초마다 서버에 보고되고(창을 닫거나 숨겨도 그때까지 한 것은 보내요), 그만큼 몬스터 드랍 골드가 쌓여요. AUTO 로 두면 위의 분당 처치와 비슷하게 벌고, 직접 잘 하면 최대 40% 더 벌 수 있어요. 앱을 꺼 두면 서버가 같은 계산으로 쌓아 줘요.${HQ.note&&HQ.fail?` <span class="red">(${esc(HQ.note)})</span>`:''}</div>
   </div>
@@ -1075,6 +1076,61 @@ function tabGrow(){
   ${quickCard()}`;
 }
 
+
+// ----- 장비: 엘리트 소환 게이지 · 필드 드랍 장비 -----
+const LOOT_STAT={atk:['⚔','공격력',''],hp:['❤','체력',''],def:['🛡','방어력',''],crit:['🎯','크리 확률','%'],critdmg:['💥','크리 피해','%'],acc:['👁','명중','']};
+const RAR_COL=['#9aa3ad','#4aa8ff','#b36bff','#ffb020','#ff4d6d'];
+function lootStat(s,v){ const a=LOOT_STAT[s]||['',s,'']; return `${a[0]} ${a[1]} +${a[2]==='%'?N(v).toFixed(1)+'%':fmt(Math.round(N(v)))}`; }
+function eliteBar(){
+  const L=V.loot; if(!L||!L.gauge) return '';
+  const g=L.gauge, pct=Math.min(100,N(g.g)/Math.max(1,N(g.per)*N(g.max))*100), ch=N(g.charges);
+  return `<div class="sub" style="margin-top:8px">👹 엘리트 소환 게이지 <b>${fmt(ch)}</b>/${fmt(g.max)}칸 ${ch>0?`<button class="btn gold" data-do="elite" style="padding:3px 10px;font-size:12px;margin-left:6px">소환</button>`:''}</div>
+    <div class="bar g" style="margin-top:4px" role="progressbar" aria-label="엘리트 소환 게이지" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${Math.max(2,pct)}%;background:linear-gradient(90deg,#b36bff,#ff4d6d)"></i></div>
+    <div class="mut" style="margin-top:2px">필드에서 직접 사냥하면 차요(한 칸 = ${fmt(g.per)}마리). 엘리트를 잡으면 장비가 나와요.${g.full?' <b class="red">가득 찼어요!</b>':''}</div>`;
+}
+function itemHtml(it,mode){
+  const col=RAR_COL[Math.max(0,Math.min(4,N(it.rar)))];
+  const subs=(Array.isArray(it.subs)?it.subs:[]).map(x=>`<div class="mut">└ ${esc(lootStat(x[0],x[1]))} <span class="mut">(품질 ${fmt(x[2])}%)</span></div>`).join('');
+  const m=it.main||['',0];
+  const d=N(it.diff);
+  const dtxt=it.on?'<span class="pill green">장착 중</span>':(mode==='inv'?(d>0?`<span class="pill green">▲ ${d.toFixed(1)}</span>`:d<0?`<span class="pill" style="color:#ff7a7a">▼ ${Math.abs(d).toFixed(1)}</span>`:''):'');
+  return `<div class="boss" style="padding:10px 0;border-left:4px solid ${col};padding-left:8px"><div class="ic">${esc(it.emoji)}</div><div class="tx"><b style="color:${col}">${esc(it.rar_name)}</b> <b>${esc(it.name)}</b> <span class="pill">Lv.${fmt(it.ilv)}</span> ${dtxt}${it.lock?' 🔒':''}
+    <div>${esc(lootStat(m[0],m[1]))}</div>${subs||'<div class="mut">└ 하위옵션 없음</div>'}
+    <div class="mut">점수 ${N(it.score).toFixed(1)}${mode==='inv'&&!it.on?` · 분해 시 ${I('gold')}${fmt(it.scrap_gold)}${N(it.scrap_stone)?` ${I('stone')}${fmt(it.scrap_stone)}`:''}`:''}</div></div>
+    <div class="btns" style="flex-direction:column;gap:4px">${it.on?`<button class="btn alt" data-do="lootunequip" data-slot="${esc(it.slot)}">해제</button>`:`<button class="btn ${d>0?'gold':'alt'}" data-do="lootequip" data-id="${esc(it.id)}">장착</button>`}
+    ${mode==='inv'?`<button class="btn alt" data-do="lootlock" data-id="${esc(it.id)}" aria-label="잠금 전환">${it.lock?'🔓':'🔒'}</button>`:''}</div></div>`;
+}
+function tabGear(){
+  const L=V.loot; if(!L||!Array.isArray(L.slots)) return `<div class="card empty"><div class="big">🎒</div><div class="sub">장비 정보를 아직 받지 못했어요. 서버가 업데이트되는 중일 수 있어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
+  const g=L.gauge||{}, inv=Array.isArray(L.inv)?L.inv:[];
+  const bonus=Object.keys(L.bonus||{}).map(k=>lootStat(k,L.bonus[k])).join(' · ');
+  const rates=(Array.isArray(L.rates)?L.rates:[]).map((x,i)=>`<tr><td style="color:${RAR_COL[i]}"><b>${esc(x.name)}</b></td><td>${N(x.pct)}%</td><td>${fmt(x.subs)}개</td></tr>`).join('');
+  return `
+  <div class="card"><h2>👹 엘리트 소환 <span class="pill gold">${fmt(g.charges)}/${fmt(g.max)}칸</span></h2>
+    <div class="sub">필드에서 <b>직접 사냥</b>하면 게이지가 차요. 한 칸이 차면 엘리트 몬스터를 소환해서 쓰러뜨릴 수 있고, 이기면 <b>지금 필드 레벨(Lv.${fmt(L.ilv)})</b>에 맞는 장비가 나와요. 게이지는 ${fmt(g.max)}칸까지만 모여요 — 하루 한 번 들어와서 몰아서 써도 다 쓸 수 있는 양이에요.</div>
+    ${eliteBar()}
+    <div class="kv"><span>엘리트 전투력</span><b>${fmt(g.elite_power)}</b></div><div class="kv"><span>내 전투력</span><b class="${N(g.my_power)>=N(g.elite_power)?'green':'red'}">${fmt(g.my_power)}</b></div>
+    <div class="mut">져도 게이지는 그대로예요. 전투력이 모자라면 스탯을 키워서 다시 도전해요.</div>
+    <div class="btns" style="margin-top:8px"><button class="btn ${N(g.charges)>0?'gold':'alt'}" data-do="elite">👹 엘리트 소환</button></div>
+  </div>
+  <div class="card"><h2>🧥 장착 중인 장비</h2>
+    <div class="sub">${bonus?esc(bonus):'아직 낀 장비가 없어요. 엘리트를 잡아 장비를 얻어 보세요.'}</div>
+    ${L.slots.map(s=>s.item?itemHtml(s.item,'eq'):`<div class="boss" style="padding:10px 0"><div class="ic">${esc(s.emoji)}</div><div class="tx"><b>${esc(s.name)}</b> <span class="mut">비어 있음 · 주옵션 ${esc((LOOT_STAT[s.main]||[])[1]||'')}</span></div></div>`).join('')}
+  </div>
+  <div class="card"><h2>🎒 가방 <span class="pill">${fmt(inv.length)}/${fmt(L.cap)}</span></h2>
+    <div class="sub">장비 위의 ▲▼ 는 같은 칸에 낀 장비와 비교한 점수 차이예요. 🔒 로 잠그면 분해에서 빠져요. 가방이 가득 차면 낮은 장비는 자동으로 분해돼요.</div>
+    <div class="btns" style="margin:6px 0"><button class="btn alt" data-do="lootscrap" data-rar="0">일반 분해</button><button class="btn alt" data-do="lootscrap" data-rar="1">레어 이하 분해</button></div>
+    ${inv.filter(x=>!x.on).map(x=>itemHtml(x,'inv')).join('')||'<div class="mut">가방이 비었어요.</div>'}
+    <details><summary>📊 등급 확률</summary><div class="tw"><table><thead><tr><th>등급</th><th>확률</th><th>하위옵션</th></tr></thead><tbody>${rates}</tbody></table></div>
+      <div class="mut">에픽 미만이 ${fmt(L.pity_at)}번 이어지면 다음엔 에픽 이상이 나와요(지금 ${fmt(L.pity)}번째). 하위옵션의 종류와 품질(50~100%)은 무작위예요.</div></details>
+  </div>`;
+}
+function eliteSay(j){
+  if(j.result==='win'){ const it=j.item||{}; say(`${it.emoji||'🎁'} ${esc(it.rar_name||'')} ${esc(it.name||'장비')} 획득!${j.auto?' (가방이 가득 차서 자동 분해됐어요)':''}`,'ok'); }
+  else if(j.result==='lose') say(`💥 엘리트에게 졌어요 (내 ${fmt(j.power)} / 엘리트 ${fmt(j.hp)}). 게이지는 그대로예요.`,'bad');
+  else if(j.result==='nogauge') say('게이지가 아직 안 찼어요. 필드에서 더 사냥해 보세요.','bad');
+  else say('처리하지 못했어요.','bad');
+}
 // ----- 모험: 보스·던전·클랜 보스·오늘 할 일 -----
 function bossImg(k){ const kk=imgKey(k); return kk?`<img src="img/brjang/boss/${kk}/front.png" alt="" loading="lazy" onerror="this.outerHTML='<div class=ph>🐲</div>'">`:'<div class="ph">🐲</div>'; }
 function tabAdv(){
@@ -1366,6 +1422,18 @@ const DO={
   party:()=>act('/brj/party',{party:curParty().slice()},j=>{
     if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
+  elite:()=>{
+    if(BUSY||BOSS||INSTANCE) return;
+    const bs=dunBoss(N(V.stage));
+    return runInstance({kind:'dungeon',early:true,path:'/brj/elite',body:{},predict:'',
+      start:()=>({level:Math.max(1,N(V.stage)),img:bs.img,name:'엘리트 '+bs.name}),
+      toResult:j=>(j.result==='win'||j.result==='lose')?{result:j.result,level:Math.max(1,N(j.stage)||N(V.stage)),got:{},power:N(j.power),hp:N(j.hp)}:null,
+      after:(j,played)=>{ eliteSay(j); if(j.result==='win'){ snd(N((j.item||{}).rar)>=3?'levelup':'reward_pop'); } },
+      legacy:()=>act('/brj/elite',{},j=>{ eliteSay(j); if(j.result==='win') snd('reward_pop'); })}); },
+  lootequip:el=>act('/brj/loot_equip',{id:el.dataset.id},j=>{ say(j.result==='ok'?'🧥 장착했어요!':'그 장비를 찾을 수 없어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
+  lootunequip:el=>act('/brj/loot_unequip',{slot:el.dataset.slot},j=>{ say('장비를 벗었어요.','info'); }),
+  lootlock:el=>act('/brj/loot_lock',{id:el.dataset.id},j=>{ say(j.lock?'🔒 잠갔어요. 분해에서 빠져요.':'🔓 잠금을 풀었어요.','info'); }),
+  lootscrap:el=>act('/brj/loot_scrap',{max_rar:N(el.dataset.rar)},j=>{ say(N(j.n)>0?`♻ ${fmt(j.n)}개를 분해해서 ${I('gold')}${fmt(j.gold)}${N(j.stone)?` ${I('stone')}${fmt(j.stone)}`:''} 받았어요.`:'분해할 장비가 없어요(장착·잠금은 빠져요).',N(j.n)>0?'ok':'info'); if(N(j.n)>0) snd('coin'); }),
   upgrade:el=>act('/brj/upgrade',{axis:el.dataset.axis},j=>{
     say({ok:'📈 스탯이 올랐어요!',gold:`🪙 골드가 모자라요. ${fmt(j.cost)} 필요해요.`,max:'이미 최고 레벨이에요.'}[j.result]||'처리하지 못했어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   enhance:el=>act('/brj/enhance',{slot:el.dataset.slot},j=>{
