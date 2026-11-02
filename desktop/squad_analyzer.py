@@ -7268,12 +7268,13 @@ def _lobby_intro_text(extra=""):
 _WEEKLY_URL = "https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/data/weekly_review.json"
 _WEEKLY = {"d": None, "at": 0.0}
 LOBBY_FUN_MAX = 70
+import re as _re_lf
+_LOBBY_FUN_BAN = _re_lf.compile(r"브장신|브키|브장|레이드|사료|가챠|장터|엘리트")   # 브장신 키우기 관련 말 — 대기실 랜덤 한 줄에서 뺀다
 LOBBY_TIPS = [
     "💡 웹 squad_gg 에서 내 전적·티어·전투력을 볼 수 있어요",
     "💡 디스코드 #squad_gg 에서 오늘의 밴픽퀴즈에 참여해 보세요",
     "💡 웹의 이상형월드컵 탭에서 전투력이 비슷한 클랜원끼리 골라 볼 수 있어요",
     "💡 웹 흐접새우 서바이벌에서 내 기록을 순위표에 올려 보세요",
-    "💡 웹 브키도감에서 브장신 키우기 아이템을 한눈에 볼 수 있어요",
     "💡 매주 월요일 아침 웹 주간스쿼드에 지난주 클랜 소식이 올라와요",
     "💡 분석기가 밴픽 때 클랜 내전 통계로 픽 추천을 해 줘요",
     "💡 내전이 끝나면 결과 리포트가 자동으로 기록돼요",
@@ -7311,8 +7312,6 @@ def _lobby_fun_week_lines(d):
         if sr.get("bans"): out.append(f"🚫 지난주 협곡 단골 밴: {sr['bans'][0][0]} ({sr['bans'][0][1]}번)")
         al = st.get("aram") or {}
         if al.get("top"): n, g, w = al["top"][0][:3]; out.append(f"❄️ 지난주 칼바람 출석왕: {n} ({g}판)")
-        rd = st.get("raid") or {}
-        if rd.get("n"): out.append(f"🍗 지난주 레이드 공격 {int(rd['n'])}회 · {int(rd.get('w', 0))}승")
     except Exception: pass
     for f in (d or {}).get("facts") or []:
         f = str(f)
@@ -7360,6 +7359,7 @@ def _lobby_fun_line(names=None, rnd=None):
     try:
         d = _weekly_data()
         pools = [("소식", _lobby_fun_week_lines(d)), ("기록", _lobby_fun_clan_lines()), ("팁", list(LOBBY_TIPS)), ("맞춤", _lobby_fun_member_lines(d, names))]
+        pools = [(k, [x for x in v if not _LOBBY_FUN_BAN.search(str(x))]) for k, v in pools]   # 🚫 브장신 키우기 얘기는 로비에 안 올린다(2026-11-02 사장님 지시)
         pools = [p for p in pools if p[1]]
         if not pools: return ""
         return str(rnd.choice(rnd.choice(pools)[1]))[:LOBBY_FUN_MAX + 6]
