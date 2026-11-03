@@ -367,7 +367,9 @@ window.SGG_DC_BOOT=(function(){
   .tier.t0{background:linear-gradient(135deg,#a55eea,#fd79a8);color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.15) inset}
   /* 🎖 [2026-07-31] 내부티어 '티어표' — 실제 클랜 티어표를 그대로 옮긴 형식(서부/동부, 0·I·II·III × 上中下) */
   .tb-league{margin:14px 0 6px}
-  .tb-lhead{display:flex;align-items:baseline;gap:10px;margin:0 0 7px;font-size:15px}
+  .tb-lhead{display:flex;align-items:baseline;gap:10px;margin:0 0 7px;font-size:15px;cursor:pointer;list-style:none}
+  .tb-lhead::-webkit-details-marker{display:none}
+  .tb-fold-hint{margin-left:auto;font-size:11.5px}
   .tb-lhead .muted{font-size:12.5px}
   .tb-board{display:flex;gap:10px;align-items:flex-start;overflow-x:auto;padding-bottom:4px}
   .tb-group{flex:var(--n) 1 0;min-width:calc(var(--n) * 96px);border:1px solid var(--line);
@@ -916,6 +918,11 @@ window.SGG_DC_BOOT=(function(){
   .np-art p{margin:0;font-size:13.5px;line-height:1.7;color:var(--ink);text-align:justify}
   .np-art .np-kicker{font-size:10.5px;padding:0 6px;margin-bottom:6px}
   .np-side{display:grid;gap:14px;align-content:start;min-width:0}
+  details.np-fold>summary.np-fold-sum{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  details.np-fold>summary.np-fold-sum::-webkit-details-marker{display:none}
+  details.np-fold>summary h3{margin:0 0 8px;flex:1}
+  .np-fold-hint{font-size:12px;color:var(--ink3)}
+  details.np-fold:not([open])>summary h3{margin-bottom:0}
   .np-box{border-top:3px solid var(--rule);border-bottom:1px solid var(--soft);padding:8px 2px 10px;min-width:0}
   .np-box h3{margin:0 0 8px;font-size:13px;font-weight:900;letter-spacing:1.5px;color:var(--ink);text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline}
   .np-box h3 .cnt{font-weight:600;font-size:11.5px;color:var(--ink3);letter-spacing:0}
@@ -5978,8 +5985,29 @@ function _npPatchInner(W){
   return `<div class="np-sec"><h3 class="np-serif">🛠 이번 주 패치노트 <span class="cnt">이번 주 맛장유가 고친 것 ${L.length}건</span></h3>`+
     grp.map(g=>`<div style="margin-top:6px"><div style="font-size:12px;font-weight:900;margin-bottom:4px">${g[0]} <span style="color:var(--ink3);font-weight:600">${g[1].length}</span></div><ul style="margin:0;padding:0">${g[1].slice(0,8).map(item).join("")}</ul>${g[1].length>8?`<details><summary style="font-size:12px;cursor:pointer;color:var(--ink2)">나머지 ${g[1].length-8}건 더 보기</summary><ul style="margin:6px 0 0;padding:0">${g[1].slice(8).map(item).join("")}</ul></details>`:""}</div>`).join("")+`</div>`;
 }
+/* ✂️ [2026-11-03 P-37] 주간스쿼드 폰 접기 — 지면의 구성·글은 그대로 두고, 폰(≤760px)에서만 보조 상자·섹션을 제목 줄로 접는다(누르면 펼침).
+   날씨·다음 주 예고·1면·기사·칼럼은 펼친 채. PC 는 건드리지 않는다. */
+function _npFoldPhone(){
+  try{
+    if(!(window.matchMedia&&matchMedia("(max-width:760px)").matches)) return;
+    const root=document.querySelector(".np"); if(!root) return;
+    const keepOpen=h=>/날씨|예고|숙제/.test(h);
+    const fold=(el,hd)=>{
+      if(!el||!hd||el.dataset.npFold||el.closest("details")) return; el.dataset.npFold="1";
+      const d=document.createElement("details"); d.className=el.className+" np-fold"; if(keepOpen(hd.textContent||"")) d.open=true;
+      const sm=document.createElement("summary"); sm.className="np-fold-sum"; sm.appendChild(hd);
+      const hint=document.createElement("span"); hint.className="np-fold-hint"; hint.textContent="▾"; sm.appendChild(hint);
+      d.appendChild(sm); while(el.firstChild) d.appendChild(el.firstChild);
+      el.parentNode.replaceChild(d,el);
+    };
+    root.querySelectorAll(".np-side > .np-box").forEach(b=>fold(b,b.querySelector(":scope > h3")));
+    root.querySelectorAll(".np-sec").forEach(b=>fold(b,b.querySelector(":scope > h3")));
+    root.querySelectorAll(".np-brj").forEach(b=>fold(b,b.querySelector(":scope > h3")));
+  }catch(e){ console.warn("np fold",e); }
+}
 function _npAfterRender(W){
-  try{ const el=document.getElementById("npPatch"); if(el){ if(NP_PATCH_ALL!==null) el.innerHTML=_npPatchInner(W); else _npLoadPatchAll().then(()=>{ const e2=document.getElementById("npPatch"); if(e2) e2.innerHTML=_npPatchInner(W); }); } }catch(e){}
+  _npFoldPhone();
+  try{ const el=document.getElementById("npPatch"); if(el){ if(NP_PATCH_ALL!==null){ el.innerHTML=_npPatchInner(W); _npFoldPhone(); } else _npLoadPatchAll().then(()=>{ const e2=document.getElementById("npPatch"); if(e2){ e2.innerHTML=_npPatchInner(W); _npFoldPhone(); } }); } }catch(e){}
   try{ const to=_npTo((W.week||{}).to); if(to&&document.getElementById("cmtList_news")) loadComments("뉴스:"+to,"_news"); if(to) _npRxLoad(to); }catch(e){}
   try{ if(BRJ_MARKET===null&&typeof loadBrjMarket==="function"&&document.getElementById("npMarket")) loadBrjMarket().then(r=>{ BRJ_MARKET=r; const el=document.getElementById("npMarket"); if(el) el.innerHTML=_npMarketInner(); }); }catch(e){}
 }
@@ -8028,7 +8056,7 @@ function pcardGo(n){ closePlayerCard(); go('player', n); }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&PCARD) closePlayerCard(); });
 /* 📱 [2026-10-11 A-28] 내부티어 평가 카드 하나가 폰(360px)에서 10화면이었다 — 티어표 아래 「재미 지수」 여섯 카드(억울·항노화·뒷심·CS강박·몇 판째·세대)를 한 줄 머리글로 접고 펴게 했다.
    [2026-10-11 사장님 「펼치자」] 처음엔 접혀 있었는데 재미 지수가 안 보인다고 해서 기본값을 펼침으로 되돌렸다. 접는 단추는 그대로 — 접어 두면 다시 그려져도(각 카드의 전체 보기 버튼) 접힌 채 유지한다. */
-let TFUN_OPEN=true;
+let TFUN_OPEN=!(window.matchMedia&&matchMedia("(max-width:760px)").matches);   // ✂️ [P-37] 폰에서는 재미 지수 7가지를 접어 둔다(PC 는 예전처럼 펼침)
 function tierFunHtml(){
   const parts=[["😤 억울지수",grudgeHtml()],["🧬 항노화지수",antiAgingHtml()],["🔥 뒷심지수",gritHtml()],["🐢 CS강박지수",csObsHtml()],["🌙 몇 판째에 강한가",nightHtml()],["🍶 세대대결",generationHtml()]].filter(x=>x[1]);
   if(!parts.length) return '';
@@ -8065,16 +8093,17 @@ function renderTiers(){
 
 
 
-  const boards = LEAGUES.map(L=>{
+  const _tbPhone = !!(window.matchMedia && matchMedia("(max-width:760px)").matches);   // ✂️ [2026-11-03 P-37] 폰에서는 첫 리그만 펼치고 나머지는 제목 줄로 접어 둔다(PC 는 그대로 모두 펼침)
+  const boards = LEAGUES.map((L,li)=>{
     const total = L.groups.reduce((n,g)=>n+g.cols.reduce((m,c)=>m+((byTier[c]||[]).length),0),0);
     const cols  = L.groups.map(g=>`<div class="tb-group ${g.cls}" style="--n:${g.cols.length}">
         <div class="tb-ghead">${esc(g.label)}</div>
         <div class="tb-cols">${g.cols.map(c=>cell(c,g.cls)).join("")}</div>
       </div>`).join("");
-    return `<div class="tb-league">
-      <div class="tb-lhead"><b>${esc(L.name)}</b><span class="muted">${esc(L.sub)} · ${total}명</span></div>
+    return `<details class="tb-league"${(!_tbPhone||li===0)?' open':''}>
+      <summary class="tb-lhead"><b>${esc(L.name)}</b><span class="muted">${esc(L.sub)} · ${total}명</span><span class="muted tb-fold-hint">▾ 펼치기·접기</span></summary>
       <div class="tb-board">${cols}</div>
-    </div>`;
+    </details>`;
   }).join("");
 
   view().innerHTML=`${navTabsHtml('tiers')}
@@ -9049,6 +9078,10 @@ function myeolScrimHtml(){
   return `<div style="margin:4px 0 8px">${rows}</div><div>${recent}</div>
     <div class="muted" style="font-size:11.5px;margin-top:8px">※ '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 스크림으로 집계합니다(용병 1명까지 허용). 팀장·팀원이 일반 내전에 흩어져 낀 판은 팀 전적이 아니에요.</div>`;
 }
+// ✂️ [2026-11-03 P-36] 멸망전 탭 폰 24화면 → 접기: 카드마다 제목 줄만 보이고 누르면 펼친다(첫 카드 4강만 펼침). 내용·데이터는 그대로.
+function _myFold(title,sub,body,open){
+  return `<details class="myfold card" style="margin-top:10px"${open?' open':''}><summary><h2 style="display:inline">${title} <span class="muted" style="font-size:12.5px;font-weight:400">${sub}</span></h2><span class="myfold-hint muted">▾ 펼치기·접기</span></summary>${body}</details>`;
+}
 function renderMyeol(){
   const M0=computeMyeol();
   if(!M0){ view().innerHTML=`${navTabsHtml('myeol')}<div class="empty">데이터 로딩 후 이용할 수 있어요.</div>`; return; }
@@ -9119,19 +9152,23 @@ function renderMyeol(){
   @media(max-width:760px){.myeol-grid{grid-template-columns:1fr}}
   .myeol-grid.one{grid-template-columns:minmax(0,560px);justify-content:center}
   .myeol-grid .card{min-width:0}
+  details.myfold>summary{cursor:pointer;list-style:none;display:block;padding:2px 0}
+  details.myfold>summary::-webkit-details-marker{display:none}
+  details.myfold>summary .myfold-hint{display:block;font-size:11.5px;margin-top:2px}
+  details.myfold[open]>summary{margin-bottom:8px}
   .myeol-t{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
   .myeol-t th{color:#79839a;font-size:10.5px;font-weight:600;padding:3px 2px;border-bottom:1px solid rgba(120,130,160,.25);line-height:1.15}
   .myeol-t td{padding:3px 2px;text-align:center;border-bottom:1px solid rgba(120,130,160,.08);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
   ${priceSec}
   ${MYEOL_SHOW_PRICES?"":`<h2 style="margin:6px 0 4px">⚔️ 제9회 멸망전</h2><div class="muted" style="font-size:13px;margin-bottom:4px">경매가 끝나 적정가 표는 내렸어요 — 아래는 확정 12팀의 파워랭킹입니다.</div>`}
-  <div class="card" style="margin-top:10px"><h2>🏆 4강 토너먼트 <span class="muted" style="font-size:12.5px;font-weight:400">— 우승 수직낙하하는중 · 결승 리버스 스윕 3-2 RAYB · 스코어 자동 집계</span></h2>${myeolBracketHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>✨ 제9회 재미난 기록 <span class="muted" style="font-size:12.5px;font-weight:400">— 본선 전 경기에서 뽑은 기록들 · 동률은 전원 표기</span></h2>${myeolFunHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>🏟️ 본선 조별리그 <span class="muted" style="font-size:12.5px;font-weight:400">— 8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동</span></h2>${myeolGroupHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>⚔ 스크림 전적 <span class="muted" style="font-size:12.5px;font-weight:400">— 본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만</span></h2>${myeolScrimHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>🧑‍🤝‍🧑 팀별 선수 명단 <span class="muted" style="font-size:12.5px;font-weight:400">— 12팀 · 우승팀부터 · 포지션순</span></h2>${myeolRosterHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>🏆 팀 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 종이 전력(전투력 5인 합) + 실전 보정(스크림·본선) · 경기가 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)</span></h2>${myeolTeamRankHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>💑 봇듀오 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 원딜+서폿 전투력 2인 합 · 라인업은 스크림 실측 우선(없으면 주포지션) · 바텀 유동 팀은 경우의수 병기</span></h2>${myeolBotDuoHtml()}</div>
-  <div class="card" style="margin-top:10px"><h2>🌀 미드·정글 파워랭킹 <span class="muted" style="font-size:12.5px;font-weight:400">— 미드+정글 전투력 2인 합 · 라인업은 스크림 실측 최다 조합 · 갈린 팀은 경우의수 병기</span></h2>${myeolMidJglHtml()}</div>`;
+  ${_myFold(`🏆 4강 토너먼트`,`— 우승 수직낙하하는중 · 결승 리버스 스윕 3-2 RAYB · 스코어 자동 집계`,myeolBracketHtml(),true)}
+  ${_myFold(`✨ 제9회 재미난 기록`,`— 본선 전 경기에서 뽑은 기록들 · 동률은 전원 표기`,myeolFunHtml(),false)}
+  ${_myFold(`🏟️ 본선 조별리그`,`— 8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동`,myeolGroupHtml(),false)}
+  ${_myFold(`⚔ 스크림 전적`,`— 본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만`,myeolScrimHtml(),false)}
+  ${_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,`— 12팀 · 우승팀부터 · 포지션순`,myeolRosterHtml(),false)}
+  ${_myFold(`🏆 팀 파워랭킹`,`— 종이 전력(전투력 5인 합) + 실전 보정(스크림·본선) · 경기가 쌓일 때마다 자동 갱신 · 기대승률 대비 초과 성과를 전투력으로 환산(수축 K=8)`,myeolTeamRankHtml(),false)}
+  ${_myFold(`💑 봇듀오 파워랭킹`,`— 원딜+서폿 전투력 2인 합 · 라인업은 스크림 실측 우선(없으면 주포지션) · 바텀 유동 팀은 경우의수 병기`,myeolBotDuoHtml(),false)}
+  ${_myFold(`🌀 미드·정글 파워랭킹`,`— 미드+정글 전투력 2인 합 · 라인업은 스크림 실측 최다 조합 · 갈린 팀은 경우의수 병기`,myeolMidJglHtml(),false)}`;
 }
 
 function renderMitoLog(){
@@ -12007,7 +12044,19 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   const start=()=>{ mark(); try{ new MutationObserver(sched).observe(document.body,{childList:true,subtree:true}); }catch(e){} };
   if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
 })();
-const BUILD_ID="202611021500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+/* ⬆ [2026-11-03 P-36·37] 폰에서 긴 화면(주간스쿼드·내부티어·멸망전 …)을 한참 내렸을 때 나오는 「맨 위로」 — PC 에서는 숨김 */
+(function(){
+  try{
+    if(!window.matchMedia) return;
+    const b=document.createElement("button"); b.id="toTopBtn"; b.type="button"; b.textContent="↑ 맨 위로"; b.setAttribute("aria-label","맨 위로 올라가기");
+    b.style.cssText="display:none;position:fixed;right:12px;bottom:18px;z-index:40;padding:8px 12px;border-radius:999px;border:1px solid var(--line,#3a4256);background:var(--bg2,#1b2030);color:var(--txt,#e8ecf5);font-size:13px;font-weight:800;box-shadow:0 2px 10px rgba(0,0,0,.35);cursor:pointer";
+    b.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
+    document.body.appendChild(b);
+    const mq=matchMedia("(max-width:760px)"); let t=0;
+    addEventListener("scroll",()=>{ if(t) return; t=setTimeout(()=>{ t=0; b.style.display=(mq.matches&&window.scrollY>1400)?"block":"none"; },120); },{passive:true});
+  }catch(e){}
+})();
+const BUILD_ID="202611031100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
