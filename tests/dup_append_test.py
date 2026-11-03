@@ -79,4 +79,10 @@ check("이름 순서만 다른 사본 → 정리", run(sh, "#9", NAMES[::-1], rb
 logs = []; sh = Sheet(OTHER); ra = sh.append_rows(block("#9")); rb = sh.append_rows(block("#9"))
 run(sh, "#9", NAMES, rb, log=lambda m: logs.append(m))
 check("삭제 로그에 게임ID·줄 수", any("[중복정리] ##9" in m and "10줄 삭제" in m for m in logs), logs)
+# 🧹 [A-43 2026-11-04] LCU 백필 경로도 같은 사후 정리를 건다 — 2026-11-03 #8444351937·#8444436344(롤아웃 날 동시 재시작) 20행 중복의 원인 경로
+bf = SRC[SRC.index("def _lcu_backfill_once("):SRC.index("def _lcu_backfill_loop(")]
+i_app = bf.index("_bf_resp = ws.append_rows(rows)")
+check("백필: append 응답을 받아 사후 정리 호출", "_dup_cleanup_after_append(ws, gi, _bf_nm" in bf[i_app:] and bf.index("_dup_cleanup_after_append(ws, gi") > i_app)
+check("백필: 정리에서 내 블록이 지워지면 회수 건수에 안 센다", "if _bf_dc == 'deleted'" in bf and bf.index("if _bf_dc == 'deleted'") < bf.index("done_n += 1", i_app))
+
 print("\n실패 %d건" % len(FAILS)); sys.exit(1 if FAILS else 0)

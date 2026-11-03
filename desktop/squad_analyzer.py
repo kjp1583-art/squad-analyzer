@@ -5044,13 +5044,29 @@ def _lcu_backfill_once():
                                    verify=False, timeout=5).json().get("puuid") or "")
         except Exception:
             _me = ""
-        time.sleep(3 + (abs(hash(_me + gid)) % 20))
+        time.sleep(3 + (abs(hash(_me + gid)) % 20) + random.uniform(0, 3))   # [A-43] 같은 시각 재시작한 분석기끼리 시차가 겹치지 않게 랜덤 가산
         try:
             gi = hd.index("게임ID") + 1 if "게임ID" in hd else 1
             if ("#" + gid) in {str(x).strip() for x in ws.col_values(gi)}:
                 _LCU_BF_DONE.add(gid); continue
-            ws.append_rows(rows)      # gspread 기본 RAW — 문자열 그대로(KDA 날짜 오염 재발 방지)
-            _LCU_BF_DONE.add(gid); done_n += 1
+            _bf_resp = ws.append_rows(rows)      # gspread 기본 RAW — 문자열 그대로(KDA 날짜 오염 재발 방지)
+            _LCU_BF_DONE.add(gid)
+            # 🧹 [2026-11-04 A-43] 동시 회수 경합 사후 정리 — 위 재확인과 append 사이엔 잠금이 없어, 같은 시각에 이 루프를 돌던 분석기 둘이
+            #    둘 다 「없음」을 보고 각자 10줄을 쓰면 한 판이 20줄이 된다(#8444351937·#8444436344, 롤아웃으로 여러 대가 동시에 재시작한 날).
+            #    실시간 기록 경로와 같은 사후 정리(앞선 완전한 블록이 있으면 내 블록만 삭제)를 여기에도 건다.
+            _bf_dc = 'none'
+            try:
+                _bf_nm = hd.index("소환사명") + 1 if "소환사명" in hd else 0
+                if _bf_nm:
+                    _bf_dc = _dup_cleanup_after_append(ws, gi, _bf_nm, "#" + gid, [r[_bf_nm - 1] for r in rows], _bf_resp)
+                else:
+                    print(f"[lcu백필] #{gid} 중복정리 보류 — 소환사명 열 없음", flush=True)
+            except Exception as _e_bfdc:
+                print(f"[lcu백필] #{gid} 중복정리 예외 {type(_e_bfdc).__name__}: {_e_bfdc}", flush=True)
+            if _bf_dc == 'deleted':
+                print(f"[lcu백필] #{gid} {tab} 동시 회수 감지 — 내 블록 {len(rows)}행은 지우고 앞선 사본을 남김", flush=True)
+                continue
+            done_n += 1
             print(f"[lcu백필] #{gid} {tab} {len(rows)}행 회수 (클랜원 {hit}명 · {dt})", flush=True)
         except Exception as e:
             print(f"[lcu백필] #{gid} 기입 실패: {e}", flush=True)
