@@ -858,7 +858,8 @@ function pendNow(){
 function modPills(){
   const c=R(R(V.stats,'combat',null),'mods',null)||{}, out=[];
   if(N(c.lv_pct)>0) out.push(`🐥 브장신 Lv.${fmt(c.lv)} · 전 스탯 +${N(c.lv_pct)}%`);
-  if(N(c.party_pct)>0) out.push(`👥 동료 · 공격·체력 +${N(c.party_pct)}%`);
+  if(N(c.party_pct)>0) out.push(`👥 동료 장착 · 공격·체력 +${N(c.party_pct)}%`);
+  if(N(c.own_def_pct)>0) out.push(`🎒 동료 보유 · 방어·명중 +${N(c.own_def_pct)}% · 크리 +${N(c.own_crit_add)}%p`);
   if(N(c.prestige_pct)>0) out.push(`💪 환생 · 공격·체력·방어 +${N(c.prestige_pct)}%`);
   const sm=N(R(V.skill,'mult',1)); if(sm>1.0001) out.push(`⚡ 스킬 피해 ×${sm.toFixed(2)}`);
   return out;
@@ -1009,11 +1010,16 @@ function tabCrew(){
     ${SUMRES?sumResHtml(SUMRES):''}
   </div>
   <div class="card">
-    <h2>👥 파티 편성 <span class="pill">공격력·체력 +${N(s.stat_pct!=null?s.stat_pct:(N(s.mult||1)-1)*100).toFixed(1)}%</span></h2>
-    <div class="sub">동료를 최대 ${fmt(s.party_max)}명 골라 파티에 넣으면 <b>공격력과 체력</b>이 늘어요 (최대 ×${N(s.mult_cap).toFixed(1)}). 필드에서 함께 싸우는 모습도 보여요. 아래 카드를 눌러 넣고 빼세요.</div>
+    <h2>👥 파티 편성 · 장착효과 <span class="pill">공격력·체력 +${N(s.stat_pct!=null?s.stat_pct:(N(s.mult||1)-1)*100).toFixed(1)}%</span></h2>
+    <div class="sub"><b>장착효과</b> — 동료를 최대 ${fmt(s.party_max)}명 골라 파티에 넣으면 <b>공격력과 체력</b>이 늘어요 (최대 ×${N(s.mult_cap).toFixed(1)}). 필드에서 함께 싸우는 모습도 보여요. 아래 카드를 눌러 넣고 빼세요.</div>
     <div class="party">${slots.join('')}</div>
     <div class="btns"><button class="btn ${pend?'':'alt'}" data-do="party" ${pend?'':'disabled'}>${pend?'편성 저장':'저장됨'}</button>${pend?'<button class="btn alt" data-do="partyreset">되돌리기</button>':''}</div>
     <details><summary>등급별 보너스 보기</summary><div class="sub">동료 1명이 주는 공격력·체력 보너스(동료 Lv.1): ${Object.entries(s.grade_bonus||{}).map(([k,p])=>`${esc(k)} +${N(p)}%`).join(' · ')}. 동료 레벨이 1 오를 때마다 그 보너스가 ${fmt(s.lv_bonus_pct)}%씩 커져요.</div></details>
+  </div>
+  <div class="card">
+    <h2>🎒 보유효과 <span class="pill green">방어력·명중 +${N(R(s.own,'def_pct',0)).toFixed(1)}%</span> <span class="pill">크리티컬 확률 +${N(R(s.own,'crit_add',0)).toFixed(2)}%p</span></h2>
+    <div class="sub"><b>보유효과</b> — 파티에 넣지 않아도 <b>가지고만 있으면</b> 모든 동료가 <b>방어력·명중·크리티컬 확률</b>을 올려 줘요. 장착효과(공격력·체력)와 따로 더해져요. 동료를 많이, 높은 등급으로, 높은 레벨로 모을수록 커져요. 지금 ${fmt(R(s.own,'n',0))}명 보유 (방어력·명중 최대 +${N(R(s.own,'cap',50))}%, 크리티컬 확률 최대 +${N(R(s.own,'crit_cap',5))}%p).</div>
+    <details><summary>등급별 보유효과 보기</summary><div class="sub">동료 1명이 주는 방어력·명중 보너스(동료 Lv.1): ${Object.entries(R(s.own,'grade_own',{})||{}).map(([k,p])=>`${esc(k)} +${N(p)}%`).join(' · ')}. 크리티컬 확률은 그 합의 10분의 1만큼(%p) 올라가요. 동료 레벨이 오르면 보유효과도 같이 커져요.</div></details>
   </div>
   <div class="card">
     <h2>🃏 내 동료 <span class="pill">${fmt(s.own_n)}명</span></h2>
@@ -1025,7 +1031,7 @@ function cardHtml(c,sel){
   const f=(Array.isArray(c.f)?c.f:[]).slice(0,2).map(x=>esc(x)).join('<br>');
   return `<button class="cd gr-${g}${sel?' sel':''}${c.gone?' gone':''}" data-card="${esc(c.id)}" aria-pressed="${sel?'true':'false'}">
     <div class="gr t-${g}">${esc(GR_KO[g])} · Lv.${fmt(c.lv)}</div><div class="nm">${esc(c.n)}${sel?' ✅':''}</div>
-    <div class="ft">+${N(c.bonus).toFixed(1)}% 공격·체력${c.next_sh?` · 조각 ${fmt(c.sh)}/${fmt(c.next_sh)}`:' · 최고 레벨'}</div><div class="ft">${f}</div></button>`;
+    <div class="ft">🛡 장착 +${N(c.bonus).toFixed(1)}% 공격·체력</div><div class="ft">🎒 보유 +${N(c.own_pct).toFixed(2)}% 방어·명중</div><div class="ft">${c.next_sh?`조각 ${fmt(c.sh)}/${fmt(c.next_sh)}`:'최고 레벨'}</div><div class="ft">${f}</div></button>`;
 }
 function sumResHtml(res){
   return `<h3>🎉 소환 결과</h3><div class="sumres">${res.map((x,i)=>{const g=grKey(x.gr);return `<div class="cd gr-${g}${['epic','unique','legend'].includes(g)?' rare':''}" style="--i:${i}"><div class="gr t-${g}">${esc(GR_KO[g])}${x.new?'<span class="new">NEW</span>':''}</div><div class="nm">${esc(x.n)}</div><div class="ft">${x.new?'새 동료!':`동료 Lv.${fmt(x.lv)} · 조각 ${fmt(x.sh)}`}</div></div>`;}).join('')}</div>`;
@@ -1054,7 +1060,7 @@ function tabGrow(){
     ${kv('⚔ 공격력',fmt(cb.atk))}${kv('❤ 체력',fmt(cb.hp),`실질 체력 ${fmt(cb.ehp)}`)}${kv('🛡 방어력',fmt(cb.def),`피해 ${N(cb.def_cut).toFixed(1)}% 줄여요`)}
     ${kv('🎯 크리티컬 확률',N(cb.crit).toFixed(1)+'%')}${kv('💥 크리티컬 피해',N(cb.critdmg).toFixed(0)+'%')}${kv('👁 명중',fmt(cb.acc),`지금 필드 몬스터에게 ${N(cb.hit).toFixed(0)}% 적중`)}
     ${kv('🔷 MP',fmt(cb.mp),`초당 ${N(cb.mpregen).toFixed(1)} 회복`)}
-    <div class="mut" style="margin-top:6px">${[N(md.lv_pct)>0?`브장신 Lv.${fmt(md.lv)} 전 스탯 +${N(md.lv_pct)}%`:'',N(md.party_pct)>0?`동료 공격·체력 +${N(md.party_pct)}%`:'',N(md.prestige_pct)>0?`환생 공격·체력·방어 +${N(md.prestige_pct)}%`:'',N(md.skill_def_pct)>0?`패시브 방어 +${N(md.skill_def_pct)}%`:'',N(md.skill_hp_pct)>0?`패시브 체력 +${N(md.skill_hp_pct)}%`:''].filter(Boolean).map(esc).join(' · ')||'보너스가 아직 없어요'}</div>
+    <div class="mut" style="margin-top:6px">${[N(md.lv_pct)>0?`브장신 Lv.${fmt(md.lv)} 전 스탯 +${N(md.lv_pct)}%`:'',N(md.party_pct)>0?`동료 장착 공격·체력 +${N(md.party_pct)}%`:'',N(md.own_def_pct)>0?`동료 보유 방어·명중 +${N(md.own_def_pct)}% · 크리 +${N(md.own_crit_add)}%p`:'',N(md.prestige_pct)>0?`환생 공격·체력·방어 +${N(md.prestige_pct)}%`:'',N(md.skill_def_pct)>0?`패시브 방어 +${N(md.skill_def_pct)}%`:'',N(md.skill_hp_pct)>0?`패시브 체력 +${N(md.skill_hp_pct)}%`:''].filter(Boolean).map(esc).join(' · ')||'보너스가 아직 없어요'}</div>
   </div>
   <div class="card"><h2>📈 스탯 키우기</h2>
     <div class="sub">🪙 골드로 스탯을 키워요. 골드를 더 벌게 해 주는 스탯은 없어요 — <b>싸움이 세져서 더 빨리·더 높은 필드에서 잡는 것</b>이 곧 골드예요. 내 골드 ${I('gold')}<span data-gold>${fmt(gold)}</span></div>
