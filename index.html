@@ -8553,9 +8553,9 @@ function computeMyeol(){
     const ab=5+(sv-SLO)/(SHI-SLO)*(PR[PR.length-1]-5);
     const hi=PF_HI[pos];
     const f=(hi==null||q==null)?1.0:PF_LO[pos]+(hi-PF_LO[pos])*(q/100);
-    return Math.min(700,Math.max(wrFloor(wr,mg),Math.max(5,Math.round((rel+ab)/2*f/5)*5)));
+    return {raw:Math.max(5,(rel+ab)/2*f),floor:wrFloor(wr,mg)};   // 🔝 [2026-11-06] 여기서는 700 으로 자르지 않는다 — 아래에서 최강자 = 700 기준으로 전체를 같은 비율로 줄인다
   };
-  for(const c of C){ c.q=pct(sk,c.skill); c.fair=toPrice(c.q,c.pos,c.skill,c.wr,c.mg); }
+  for(const c of C){ c.q=pct(sk,c.skill); const tp=toPrice(c.q,c.pos,c.skill,c.wr,c.mg); c.raw=tp.raw; c.floor=tp.floor; }
   const pts=MYEOL_FLAT.map(f=>f[3]).sort((a,b)=>a-b);
   const A=[...C];
   for(const [tier,grade,nm,pt] of MYEOL_FLAT){
@@ -8568,7 +8568,7 @@ function computeMyeol(){
       const top=[...cnt.entries()].sort((a,b)=>b[1]-a[1])[0]; if(top)pos=top[0]; }
     if(pos==="?"){ const d=posDecl(nm); if(d&&d.main&&["탑","정글","미드","원딜","서폿"].includes(d.main))pos=d.main; }
     const q=(1-bis(pts,pt)/pts.length)*100;
-    A.push({nm,tier,grade,pt,pos,cn,mg,g:mg,est:true,fair:toPrice(q,pos)});
+    const tp=toPrice(q,pos); A.push({nm,tier,grade,pt,pos,cn,mg,g:mg,est:true,raw:tp.raw,floor:tp.floor});
   }
   const act=[],gone=[];
   for(const c of A){
@@ -8576,6 +8576,13 @@ function computeMyeol(){
     const last=lastOf(c.cn?PLAYERS_ALL.get(c.cn):null);
     if(last&&last>=cut)act.push(c); else gone.push(c.nm);
   }
+  // 🔝 [2026-11-06 사장님 「최강자 1~2명만 700점이고 나머지는 차차 내려가야지, 700 넘는 애들을 다 700으로 자르면 이상하다」]
+  //    700 으로 자르지 않고, 지금 매물 중 가장 센 사람(원점수 최대)을 700 기준점으로 삼아 전체를 같은 비율로 줄인다(5P 단위). 승률 하한(wrFloor)은 줄인 값 위에 적용.
+  const _capK2=new Set(MYEOL10_CAPTAINS.map(_myNk)), _entK2=new Set(MYEOL10_ENTRANTS.map(_myNk));   // 명단이 공지되면: 팀장(매물 아님)은 기준에서 빼고, 참가자가 있으면 그 안에서 최강자를 700 으로
+  const _pool=act.filter(c=>!_capK2.has(_myNk(c.nm))&&(!_entK2.size||_entK2.has(_myNk(c.nm))));
+  const maxRaw=(_pool.length?_pool:act).reduce((m,c)=>Math.max(m,c.raw),0)||1;
+  const sc=700/maxRaw;
+  for(const c of A){ c.fair=Math.min(700,Math.max(c.floor,Math.max(5,Math.round(c.raw*sc/5)*5))); }
   const best=new Map();
   for(const c of act){const k=_myNk(c.nm); const b=best.get(k); if(!b||c.fair>b.fair)best.set(k,c);}
   const bb=new Map();
@@ -12064,7 +12071,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
     addEventListener("scroll",()=>{ if(t) return; t=setTimeout(()=>{ t=0; b.style.display=(mq.matches&&window.scrollY>1400)?"block":"none"; },120); },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611061400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611061600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
