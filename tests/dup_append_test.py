@@ -5,7 +5,8 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 SRC = open(os.path.join(ROOT, 'desktop', 'squad_analyzer.py'), encoding='utf-8').read()
 a = SRC.index("def _dup_block_start(")
 b = SRC.index("def _noban_sheet_push(")
-ns = {"re": re, "time": time}
+import random, threading
+ns = {"re": re, "time": time, "random": random, "threading": threading}
 exec(SRC[a:b], ns)
 cl = ns['_dup_cleanup_after_append']
 FAILS = []
@@ -84,5 +85,30 @@ bf = SRC[SRC.index("def _lcu_backfill_once("):SRC.index("def _lcu_backfill_loop(
 i_app = bf.index("_bf_resp = ws.append_rows(rows)")
 check("백필: append 응답을 받아 사후 정리 호출", "_dup_cleanup_after_append(ws, gi, _bf_nm" in bf[i_app:] and bf.index("_dup_cleanup_after_append(ws, gi") > i_app)
 check("백필: 정리에서 내 블록이 지워지면 회수 건수에 안 센다", "if _bf_dc == 'deleted'" in bf and bf.index("if _bf_dc == 'deleted'") < bf.index("done_n += 1", i_app))
+
+# 🩹 [A-43 재발 2026-11-07] 429 로 읽기가 여러 번 실패해도 끈질기게 다시 읽어 정리한다 + 보류(held)면 나중에 한 번 더
+class FlakySheet(Sheet):
+    def __init__(self, rows, fails): super().__init__(rows); self.fails = fails; self.reads = 0
+    def col_values(self, c):
+        self.reads += 1
+        if self.fails > 0: self.fails -= 1; raise RuntimeError("429")
+        return super().col_values(c)
+sh = FlakySheet(OTHER, 0); ra = sh.append_rows(block("#9")); rb = sh.append_rows(block("#9")); sh.fails = 3; sh.reads = 0
+check("읽기가 3번 429 로 실패해도 4번째에 읽고 내 블록(뒤쪽 사본)을 지운다", run(sh, "#9", NAMES, rb) == 'deleted' and len(sh.rows) == len(OTHER) + 10, sh.reads)
+sh = FlakySheet(OTHER, 0); ra = sh.append_rows(block("#9")); rb = sh.append_rows(block("#9")); sh.fails = 99
+check("끝내 못 읽으면 지우지 않고 held(중복 보존 > 무기록)", run(sh, "#9", NAMES, rb) == 'held' and len(sh.rows) == len(OTHER) + 20)
+# 나중에 한 번 더: held 일 때만 스레드를 만들고, 쿼터가 풀린 뒤 지운다
+cl_later = ns['_dup_cleanup_later']
+check("정상(none)·삭제(deleted) 결과는 재시도 스레드를 안 만든다", cl_later(sh, 1, 2, "#9", NAMES, rb, 'none') is None and cl_later(sh, 1, 2, "#9", NAMES, rb, 'deleted') is None)
+sh = FlakySheet(OTHER, 0); ra = sh.append_rows(block("#9")); rb = sh.append_rows(block("#9")); sh.fails = 99
+first = run(sh, "#9", NAMES, rb); sh.fails = 0
+t = cl_later(sh, 1, 2, "#9", NAMES, rb, first, delays=(0.0,), sleep=lambda *_: None, log=nolog); t.join(5)
+check("held 였다가 나중에 쿼터가 풀리면 재시도가 지운다", first == 'held' and len(sh.rows) == len(OTHER) + 10, len(sh.rows))
+# 재시도 시점에 행이 밀려 있으면(다른 정리가 위쪽 행을 지움) 엉뚱한 행을 지우지 않는다
+sh = FlakySheet(OTHER, 0); ra = sh.append_rows(block("#9")); rb = sh.append_rows(block("#9")); sh.fails = 99
+first = run(sh, "#9", NAMES, rb); sh.fails = 0; del sh.rows[0:3]   # 위쪽 3행이 사라져 행 번호가 밀림
+before = [list(x) for x in sh.rows]
+t = cl_later(sh, 1, 2, "#9", NAMES, rb, first, delays=(0.0,), sleep=lambda *_: None, log=nolog); t.join(5)
+check("행이 밀렸으면 지우지 않는다", sh.rows == before)
 
 print("\n실패 %d건" % len(FAILS)); sys.exit(1 if FAILS else 0)

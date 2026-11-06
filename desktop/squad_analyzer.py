@@ -5063,6 +5063,9 @@ def _lcu_backfill_once():
                     print(f"[lcu백필] #{gid} 중복정리 보류 — 소환사명 열 없음", flush=True)
             except Exception as _e_bfdc:
                 print(f"[lcu백필] #{gid} 중복정리 예외 {type(_e_bfdc).__name__}: {_e_bfdc}", flush=True)
+            try:
+                if _bf_nm: _dup_cleanup_later(ws, gi, _bf_nm, "#" + gid, [r[_bf_nm - 1] for r in rows], _bf_resp, _bf_dc)
+            except Exception: pass
             if _bf_dc == 'deleted':
                 print(f"[lcu백필] #{gid} {tab} 동시 회수 감지 — 내 블록 {len(rows)}행은 지우고 앞선 사본을 남김", flush=True)
                 continue
@@ -7839,12 +7842,15 @@ def _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, appen
         def _cell(col, i):   # i = 1-기반 행
             return str(col[i - 1]).strip() if 0 < i <= len(col) else ""
         g = nm = None
-        for _t in range(2):
-            sleep(1.0 if _t == 0 else 1.5)   # 시트 반영 지연 대기
+        # 🩹 [2026-11-07 A-43 재발] 읽기 재시도를 2회 → 5회(1·2·4·8·15초 + 지터)로. 게임 시작·종료 직후엔 여러 분석기가 같은 서비스 계정으로 시트를 읽어
+        #   429(분당 쿼터)가 몰리는데, 읽기가 두 번 실패하면 정리를 접고 중복이 남았다(참가자 분석기 전원이 최신 83.62 였는데도 20행이 남은 #8447600212).
+        _delays = (1.0, 2.0, 4.0, 8.0, 15.0)
+        for _t, _d in enumerate(_delays):
+            sleep(_d + (random.uniform(0, 0.8) if _t else 0))   # 시트 반영 지연 대기 + 분석기끼리 시차
             try:
                 g, nm = _read(); break
             except Exception as e:
-                log(f"{tag} 읽기 실패({type(e).__name__}) — {'재시도' if _t == 0 else '정리 생략'}")
+                log(f"{tag} 읽기 실패({type(e).__name__}) — {'재시도' if _t < len(_delays) - 1 else '정리 생략'}")
         if g is None:
             return 'held'
         pos = [i + 1 for i, v in enumerate(g) if str(v).strip() == str(game_id)]
@@ -7873,6 +7879,24 @@ def _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, appen
     except Exception as e:
         log(f"{tag} 실패 {type(e).__name__}: {e} — 삭제 안 함")
         return 'held'
+
+
+def _dup_cleanup_later(sheet, gid_col, name_col, game_id, my_names, append_resp, first_result, delays=(60.0, 180.0), sleep=None, log=print):
+    """🩹 [A-43 재발] 첫 사후 정리가 'held'(읽기 실패·행 불일치 보류)로 끝났으면, 쿼터가 가라앉은 뒤 한 번 더 시도한다(별도 스레드). 'none'·'deleted' 면 아무것도 안 한다.
+    같은 판단 규칙(내 블록만 · 삭제 직전 재확인)을 그대로 쓰므로 늦게 돌아도 행이 밀렸으면 지우지 않고 로그만 남긴다. 돌려주는 값 = 시작한 스레드(시험용) 또는 None."""
+    if first_result != 'held': return None
+    sleep = sleep or time.sleep
+    def _run():
+        for d in delays:
+            try:
+                sleep(d + random.uniform(0, 5))
+                res = _dup_cleanup_after_append(sheet, gid_col, name_col, game_id, my_names, append_resp, sleep=sleep, log=log)
+            except Exception as e:
+                log(f"[중복정리] #{game_id} 재시도 예외 {type(e).__name__}: {e}"); return
+            if res != 'held': return
+        log(f"[중복정리] #{game_id} 재시도 끝 — 여전히 보류(중복이 남았을 수 있음 · dedupe-games 로 정리)")
+    t = threading.Thread(target=_run, daemon=True, name=f"dup-cleanup-{game_id}")
+    t.start(); return t
 
 
 def _noban_sheet_push(game_id, date_str):
@@ -9312,6 +9336,8 @@ def lcu_core_backend_loop():
                                                         print(f"[중복정리] #{game_id_str} 보류 — 소환사명 열 없음", flush=True); _dc = 'held'
                                                 except Exception as _e_dc:
                                                     print(f"[중복정리] 예외 {type(_e_dc).__name__}: {_e_dc}", flush=True); _dc = 'held'
+                                                try: _dup_cleanup_later(sheet_target, gid_idx + 1, _nmc + 1, game_id_str, [r[_nmc] for r in rows_to_append], _append_resp, _dc)
+                                                except Exception: pass
                                                 if _dc == 'deleted':
                                                     _appended_ok = False            # 내 블록은 지워졌다 → 시작알림·결과웹훅·행 인덱스는 앞선 사본 주인 몫
                                                     _record_confirmed = True        # 시트엔 앞선 사본이 있으므로 기록은 확정
