@@ -1086,7 +1086,7 @@ function eliteBar(){
   const g=L.gauge, pct=Math.min(100,N(g.g)/Math.max(1,N(g.per)*N(g.max))*100), ch=N(g.charges);
   return `<div class="sub" style="margin-top:8px">👹 엘리트 소환 게이지 <b>${fmt(ch)}</b>/${fmt(g.max)}칸 ${ch>0?`<button class="btn gold" data-do="elite" style="padding:3px 10px;font-size:12px;margin-left:6px">소환</button>`:''}</div>
     <div class="bar g" style="margin-top:4px" role="progressbar" aria-label="엘리트 소환 게이지" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${Math.max(2,pct)}%;background:linear-gradient(90deg,#b36bff,#ff4d6d)"></i></div>
-    <div class="mut" style="margin-top:2px">필드에서 직접 사냥하면 차요(한 칸 = ${fmt(g.per)}마리). 엘리트를 잡으면 장비가 나와요.${g.full?' <b class="red">가득 찼어요!</b>':''}</div>`;
+    <div class="mut" style="margin-top:2px">필드에서 사냥하면 차요(한 칸 = ${fmt(g.per)}마리). 접속하지 않아도 사냥 속도만큼 차요. 엘리트를 잡으면 장비가 나와요.${g.full?' <b class="red">가득 찼어요!</b>':''}</div>`;
 }
 function itemHtml(it,mode){
   const col=RAR_COL[Math.max(0,Math.min(4,N(it.rar)))];
@@ -1107,7 +1107,7 @@ function tabGear(){
   const rates=(Array.isArray(L.rates)?L.rates:[]).map((x,i)=>`<tr><td style="color:${RAR_COL[i]}"><b>${esc(x.name)}</b></td><td>${N(x.pct)}%</td><td>${fmt(x.subs)}개</td></tr>`).join('');
   return `
   <div class="card"><h2>👹 엘리트 소환 <span class="pill gold">${fmt(g.charges)}/${fmt(g.max)}칸</span></h2>
-    <div class="sub">필드에서 <b>직접 사냥</b>하면 게이지가 차요. 한 칸이 차면 엘리트 몬스터를 소환해서 쓰러뜨릴 수 있고, 이기면 <b>지금 필드 레벨(Lv.${fmt(L.ilv)})</b>에 맞는 장비가 나와요. 게이지는 ${fmt(g.max)}칸까지만 모여요 — 하루 한 번 들어와서 몰아서 써도 다 쓸 수 있는 양이에요.</div>
+    <div class="sub">필드에서 사냥하면 게이지가 차요. <b>접속하지 않아도</b> 내 사냥 속도만큼 계속 차요. 한 칸이 차면 엘리트 몬스터를 소환해서 쓰러뜨릴 수 있고, 이기면 <b>지금 필드 레벨(Lv.${fmt(L.ilv)})</b>에 맞는 장비가 나와요. 게이지는 ${fmt(g.max)}칸까지만 모여요 — 하루 한 번 들어와서 몰아서 써도 다 쓸 수 있는 양이에요.</div>
     ${eliteBar()}
     <div class="kv"><span>엘리트 전투력</span><b>${fmt(g.elite_power)}</b></div><div class="kv"><span>내 전투력</span><b class="${N(g.my_power)>=N(g.elite_power)?'green':'red'}">${fmt(g.my_power)}</b></div>
     <div class="mut">져도 게이지는 그대로예요. 전투력이 모자라면 스탯을 키워서 다시 도전해요.</div>
