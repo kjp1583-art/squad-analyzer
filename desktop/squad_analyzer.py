@@ -5049,6 +5049,9 @@ def _lcu_backfill_once():
             gi = hd.index("게임ID") + 1 if "게임ID" in hd else 1
             if ("#" + gid) in {str(x).strip() for x in ws.col_values(gi)}:
                 _LCU_BF_DONE.add(gid); continue
+            _cl, _why = _claim_game(global_spreadsheet, str(getattr(ws, "title", tab)), "#" + gid, _claim_who(_me))      # 🔒 [A-43 세 번째] 쓰기 전 선점
+            if _cl is not True:
+                print(f"[lcu백필] #{gid} 선점 {'못 함' if _cl is False else '확인 실패'}({_why}) — 이번엔 건너뜀(다음 주기에 다시 확인)", flush=True); continue
             _bf_resp = ws.append_rows(rows)      # gspread 기본 RAW — 문자열 그대로(KDA 날짜 오염 재발 방지)
             _LCU_BF_DONE.add(gid)
             # 🧹 [2026-11-04 A-43] 동시 회수 경합 사후 정리 — 위 재확인과 append 사이엔 잠금이 없어, 같은 시각에 이 루프를 돌던 분석기 둘이
@@ -7899,6 +7902,59 @@ def _dup_cleanup_later(sheet, gid_col, name_col, game_id, my_names, append_resp,
     t.start(); return t
 
 
+# ===== 🔒 [2026-11-08 A-43 세 번째] 쓰기 전 「선점(claim)」 — 읽고-지우기 사후 정리가 못 막는 동시 기록을 쓰기 전에 막는다 =====
+#   사후 정리(읽고 지우기)는 429 로 읽기가 막히면 영영 못 돈다. 그래서 순서를 뒤집는다: 판 기록 전에 GAME_CLAIM 탭에 「내가 쓴다」는 줄을 먼저 붙이고(append 는
+#   시트가 한 줄씩 순서대로 처리한다 = 줄 번호가 곧 선착순), 다시 읽어 그 판의 **첫 줄이 내 것일 때만** 10줄을 쓴다. 두 대가 동시에 붙여도 첫 줄은 하나라서 승자는 정확히 한 명.
+#   승자가 쓰다 죽는 경우를 위해 선점은 CLAIM_TTL(150초)이 지나면 무효 — 다음 순번 키(…|1)로 다른 분석기가 다시 선점해 쓴다. 확인 자체가 실패하면 None(호출부가 잠깐 보류하다 우회).
+CLAIM_TAB = "GAME_CLAIM"
+CLAIM_TTL = 150.0
+CLAIM_MAX_ATTEMPT = 4
+_claim_logged = set()      # 같은 판에 대해 로그를 한 번만
+_claim_skip = {}           # 판 → 이 시각까지는 선점을 다시 시도하지 않는다(졌거나 확인 실패 직후)
+
+def _claim_ws(ss):
+    try: return ss.worksheet(CLAIM_TAB)
+    except Exception:
+        try:
+            ws = ss.add_worksheet(title=CLAIM_TAB, rows="1000", cols="3")
+            try: ws.update(values=[["키", "누가", "시각"]], range_name="A1")
+            except Exception: pass
+            return ws
+        except Exception:
+            return ss.worksheet(CLAIM_TAB)      # 동시에 다른 분석기가 먼저 만들었으면 그걸 쓴다
+
+def _claim_game(ss, tab_name, game_id, who, now=None, ws=None):
+    """(결과, 이유). 결과: True = 내가 쓴다 · False = 남이 쓰는 중/썼다 · None = 확인 실패(시트 읽기·쓰기 오류 등)."""
+    now = time.time() if now is None else float(now)
+    try:
+        ws = ws or _claim_ws(ss)
+        rows = ws.get_all_values()
+        for k in range(CLAIM_MAX_ATTEMPT):
+            key = f"{tab_name}|{game_id}|{k}"
+            hits = [r for r in rows if r and str(r[0]).strip() == key]
+            if hits:
+                first = hits[0]; mine = len(first) > 1 and str(first[1]) == who
+                try: t = float(first[2]) if len(first) > 2 else 0.0
+                except Exception: t = 0.0
+                if now - t < CLAIM_TTL:       # 아직 유효한 선점 — 내 것이면 계속, 남의 것이면 양보
+                    return (True, "재진입(내 선점)") if mine else (False, f"선점됨({str(first[1])[:8] if len(first) > 1 else '?'})")
+                # 시간이 지난(못 쓴) 선점 — 다음 순번 키를 보고, 아무도 이어받지 않았으면 내 것은 그대로 쓴다
+                nxt = f"{tab_name}|{game_id}|{k + 1}"
+                if mine and not any(r and str(r[0]).strip() == nxt for r in rows): return True, "재진입(내 선점·만료 전 이어받은 사람 없음)"
+                continue                       # 다음 순번 키로
+            ws.append_rows([[key, who, str(int(now))]], value_input_option="RAW")
+            rows = ws.get_all_values()
+            hits = [r for r in rows if r and str(r[0]).strip() == key]
+            if hits and len(hits[0]) > 1 and str(hits[0][1]) == who: return True, "선점"
+            return False, "경합에서 짐"
+        return False, "시도 한도"
+    except Exception as e:
+        return None, f"{type(e).__name__}"
+
+def _claim_who(puuid=""):
+    """선점 줄에 적는 「누가」 — 내 PUUID 앞부분 + 프로세스 번호(같은 사람이 분석기를 두 번 켜도 구분)."""
+    return f"{(str(puuid or 'x').strip().lower())[:12]}:{os.getpid()}"
+
 def _noban_sheet_push(game_id, date_str):
     """🚫 감지된 노밴 선언을 NOBAN 탭에 적재(웹 노밴률·게임 상세 표시용). 기록 append 승자만 호출(중복 방지).
        1회 시도 원칙(쿼터 보호 — v81.72 교훈), 실패는 무해(디코 리포트에는 어차피 남음)."""
@@ -9300,6 +9356,23 @@ def lcu_core_backend_loop():
                                     if rows_to_append and not has_bot and _roster_complete and (_my_rank < 4 or _waited > 35):
                                         _appended_ok = False
                                         _append_resp = None
+                                        if _dedup_ok and _claim_skip.get(game_id_str, 0) > time.time():
+                                            _dedup_ok = False          # 방금 선점에서 졌거나 확인에 실패했다 — 폴링마다 시트를 다시 읽지 않게 잠깐 쉰다
+                                        elif _dedup_ok:   # 🔒 [A-43 세 번째] 쓰기 전 선점 — 첫 줄이 내 것일 때만 쓴다(읽고 지우기보다 먼저 막는다)
+                                            try:
+                                                _cl, _why = _claim_game(global_spreadsheet, str(getattr(sheet_target, "title", "")), game_id_str, _claim_who(global_my_puuid))
+                                            except Exception as _e_cl:
+                                                _cl, _why = None, type(_e_cl).__name__
+                                            if _cl is False:
+                                                _dedup_ok = False; _claim_skip[game_id_str] = time.time() + 20
+                                                if game_id_str not in _claim_logged: _claim_logged.add(game_id_str); print(f"[선점] #{game_id_str} — {_why} → 이번 판 기록은 다른 분석기가 한다", flush=True)
+                                            elif _cl is None:
+                                                if _waited > 120: print(f"[선점] #{game_id_str} 확인 실패({_why}) {int(_waited)}초째 — 기록이 안 남지 않게 선점 없이 진행(중복은 사후 정리가 잡는다)", flush=True)
+                                                else:
+                                                    _dedup_ok = False; _claim_skip[game_id_str] = time.time() + 6
+                                                    if (game_id_str, 'f') not in _claim_logged: _claim_logged.add((game_id_str, 'f')); print(f"[선점] #{game_id_str} 확인 실패({_why}) — 잠깐 보류하고 다시 시도", flush=True)
+                                            else:
+                                                if game_id_str not in _claim_logged: _claim_logged.add(game_id_str); print(f"[선점] #{game_id_str} — {_why} → 내가 기록한다", flush=True)
                                         if _my_rank >= 4 and _waited > 35:   # [2026-10-04 ③] 에스컬레이션 동시 진입 창 축소 — 순번별 시차+랜덤
                                             time.sleep(min(_my_rank, 10) * 1.2 + random.uniform(0, 0.8))
                                         try: col_a_now = sheet_target.col_values(gid_idx + 1)   # 🔒 중복방지: append 직전 최신 게임ID열 재확인
