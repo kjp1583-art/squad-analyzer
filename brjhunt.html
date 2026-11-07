@@ -362,6 +362,50 @@ button.cd:active{transform:scale(.97)}
   .tw table{font-size:13.5px}
 }
 @media (min-width:1500px) and (min-height:700px){ #app{grid-template-columns:minmax(0,1fr) 640px} #sheet{font-size:15.5px} #nav button{flex-direction:row;justify-content:center;gap:6px;min-height:60px;font-size:13px} #nav button img,#nav button .tabem{width:28px;height:28px} }
+
+/* ================= 🎮 인게임 UI (2026-11-07 사장님 「우측에 별개 탭으로 분리된 UI 를 전부 인게임 화면 속 그래픽 UI 로」) =================
+   필드가 화면 전체를 쓰고, 스킬·동료·스탯·장비·모험·환생·랭킹·수령은 필드 위의 아이콘 메뉴로 열리는 게임 창이다(필드는 창 뒤에서 계속 돈다). */
+#app{max-width:none;width:100%;display:flex;flex-direction:column;box-shadow:none}
+#stage{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:#0c1028;border:0;overflow:visible}
+#fieldBox,.mini #fieldBox{flex:1 1 auto;height:auto;min-height:0;border-bottom:0;transition:none}
+#nav{position:absolute;z-index:30;right:8px;top:54px;flex:none;background:none;border:0;box-shadow:none;padding:0;pointer-events:none}
+#nav .in{display:flex;flex-direction:column;gap:6px}
+#nav button{pointer-events:auto;flex:none;width:52px;min-height:0;height:58px;border-radius:14px;border:2px solid rgba(255,255,255,.38);background:linear-gradient(180deg,rgba(58,72,160,.94),rgba(22,28,78,.94));box-shadow:0 3px 0 var(--edge),0 0 10px rgba(0,0,0,.35);color:#fff;font-size:10.5px;padding:3px 0 2px;justify-content:center;gap:1px;transition:transform .1s,border-color .15s,box-shadow .15s}
+#nav button:active{transform:scale(.93)}
+#nav button img,#nav button .tabem{width:30px;height:30px;font-size:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+#nav button.on{border-color:var(--gold);box-shadow:0 3px 0 var(--gold-d),0 0 14px var(--glow);color:var(--gold)}
+#nav button.on img,#nav button.on .tabem{transform:none;filter:drop-shadow(0 0 6px var(--glow))}
+#nav button.on::before{display:none}
+#nav .dot{top:-4px;right:-4px}
+#combo{right:76px}
+#wbg{position:absolute;inset:0;background:rgba(4,6,18,.58);z-index:38;display:none;backdrop-filter:blur(1.5px)}
+body.wopen #wbg{display:block}
+#sheet{position:absolute;z-index:40;left:50%;top:calc(50% + 14px);transform:translate(-50%,-50%);width:min(calc(100% - 16px),640px);max-height:calc(100% - 96px);display:none;flex-direction:column;padding:0;overflow:hidden;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:3px solid var(--gold);border-radius:18px;box-shadow:0 0 0 3px var(--edge),0 12px 44px rgba(0,0,0,.65),0 0 26px var(--glow);margin:0}
+body.wopen #sheet{display:flex;animation:winpop .18s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes winpop{from{opacity:0;transform:translate(-50%,-47%) scale(.94)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#wtitle{flex:none;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;background:linear-gradient(180deg,#ffd75e,#e8960f);color:var(--ink);border-bottom:3px solid var(--gold-d);box-shadow:inset 0 2px 0 rgba(255,255,255,.55)}
+#wtitle #wicon img{width:28px;height:28px;object-fit:contain;display:block} #wtitle #wicon .tabem{font-size:22px;line-height:1}
+#wtitle b{flex:1;min-width:0;font-size:17px;font-weight:900;letter-spacing:.5px;text-shadow:0 1px 0 rgba(255,255,255,.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#wclose{flex:none;width:36px;height:36px;border-radius:11px;border:2px solid #fff;background:linear-gradient(180deg,#ff7a6b,#d12a3a);color:#fff;font-size:17px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #7d1220;padding:0;line-height:1}
+#wclose:active{transform:translateY(2px);box-shadow:0 1px 0 #7d1220}
+#main{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overscroll-behavior:contain;overscroll-behavior:contain;padding:10px 10px 16px;background:linear-gradient(180deg,var(--bg2),var(--bg))}
+body.ininst #nav,body.ininst #sheet{pointer-events:none}
+/* 로그인·오류 같은 화면(필드가 없는 상태)에서는 창이 아니라 가운데 한 장 */
+body:not(.st-ok) #sheet{display:flex;position:relative;left:auto;top:auto;transform:none;width:100%;max-width:560px;max-height:none;margin:auto;border:0;border-radius:0;box-shadow:none;background:none;animation:none;flex:1}
+body:not(.st-ok) #wtitle,body:not(.st-ok) #wbg{display:none}
+body:not(.st-ok) #main{background:none}
+@media (min-width:1000px) and (min-height:540px){
+  #app{display:flex;grid-template-columns:none}
+  #nav{top:68px;right:16px} #nav .in{gap:6px} #nav button{width:60px;height:62px;font-size:11.5px;border-radius:15px} #nav button img,#nav button .tabem{width:32px;height:32px;font-size:24px}
+  #combo{right:92px}
+  #sheet{width:min(calc(100% - 140px),720px);font-size:15px;top:calc(50% + 20px)}
+  #wtitle b{font-size:19px}
+}
+body.wopen #nav{display:none}   /* 폰: 창이 열려 있는 동안은 메뉴 줄을 숨기고 ✕ / Esc / 바깥 눌러서 닫는다 */
+@media (min-width:1000px) and (min-height:540px){ body.wopen #nav{display:block;z-index:42} }   /* PC: 창을 연 채로 다른 아이콘을 눌러 바로 바꾼다 */
+@media (max-height:640px){ #nav button{height:48px;width:46px;font-size:9.5px} #nav button img,#nav button .tabem{width:24px;height:24px;font-size:18px} #nav .in{gap:4px} }
+@media (max-width:359px){ #nav button{width:44px;height:46px} }
 </style>
 </head>
 <body>
@@ -394,9 +438,13 @@ button.cd:active{transform:scale(.97)}
       <div class="tr"><button class="tp sm" data-k="drop" aria-label="아래 발판으로 내려가기">⤓<small>내려가기</small></button><button class="tp" data-k="jump" aria-label="점프">⤒<small>점프</small></button><button class="tp big" data-k="attack" aria-label="기본 공격">⚔</button></div>
     </div>
     <div id="dock"></div>
+    <nav id="nav" aria-label="게임 메뉴"><div class="in" role="tablist"></div></nav>
   </section>
-  <div id="sheet"><div id="main"><div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div></div></div>
-  <nav id="nav" aria-label="메뉴"><div class="in" role="tablist"></div></nav>
+  <div id="wbg" aria-hidden="true"></div>
+  <div id="sheet" role="dialog" aria-label="게임 창">
+    <div id="wtitle"><span id="wicon" aria-hidden="true"></span><b id="wname">메뉴</b><button type="button" id="wclose" aria-label="창 닫기 (Esc)" title="닫기 (Esc)">✕</button></div>
+    <div id="main"><div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div></div>
+  </div>
 </div>
 <div id="toastBox" aria-live="polite"></div>
 <div id="fly" aria-hidden="true"></div>
@@ -437,13 +485,15 @@ const SK_IDS=['slash','peck','spin','bomb','thunder','fire','egg','shield','shri
 const skIcon=id=>SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:'';
 const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
-const TABS=[['hunt','hunt','사냥터'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
+const TAB_EM={gear:'🎒',rank:'🏆'};
+const TABS=[['hunt','hunt','수령'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
 const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
 let V_KPM=100;                      // 서버가 내 전투력÷필드 권장 전투력으로 계산한 분당 처치 기대치. 처치당 골드 = 시간당 골드 ÷ (분당 처치×60)
 const kpmNow=()=>Math.max(1,N(V&&V.kpm)||V_KPM);
 
 let V=null;              // 서버가 준 전체 화면 값(view)
-let TAB='hunt', MSG=null, STATE='boot';   // STATE: boot · out(로그아웃) · nobrj · err · ok
+let TAB='hunt', MSG=null, STATE='boot';
+let WOPEN=false;      // 🎮 게임 창(스킬·동료·스탯·장비·모험·환생·랭킹·수령)이 열려 있나 — TAB 은 어느 창인지. 창이 닫혀 있으면 필드를 직접 조작한다   // STATE: boot · out(로그아웃) · nobrj · err · ok
 let ERR='', BUSY=false, FETCHED=0, PARTY=null, PARTY_DIRTY=false, SUMRES=null, RANK=null, RANK_AT=0, SEL_PRES=false, SEL_SLOT=null, TAB_FLAG=false, RK={board:'stage',period:null,data:null,at:0,busy:false};
 
 function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
@@ -561,7 +611,7 @@ function fieldState(){
   if(f.mon&&typeof f.mon==='object') o.mon={name:String(f.mon.name||'몬스터'),hp:nn(f.mon.hp),atk:nn(f.mon.atk),def:nn(f.mon.def),eva:nn(f.mon.eva),gold:nn(f.mon.gold)};
   return o;
 }
-function pushField(){ document.body.classList.toggle('inboss',!!(BOSS||INSTANCE)); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(TAB==='hunt'&&STATE==='ok'); }catch(e){ console.warn(e); } } }
+function pushField(){ document.body.classList.toggle('inboss',!!(BOSS||INSTANCE)); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(!WOPEN&&STATE==='ok'); }catch(e){ console.warn(e); } } }
 function showTag(txt,cls){ const t=$('bossTag'); t.textContent=txt; t.className=''; void t.offsetWidth; t.className='go '+(cls||''); }
 const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){} return null; };
 function initField(){
@@ -722,7 +772,7 @@ function setPad(on,save){
   const pref=LS('brjhunt_pad'); setPad(pref==='1'||(pref!=='0'&&coarse),false); bindPads();
 })();
 // 스페이스로 눌린 버튼이 같이 눌리는 일을 막는다(점프 키가 스페이스라서)
-addEventListener('keyup',e=>{ if(e.key===' '&&TAB==='hunt'&&e.target&&e.target.tagName==='BUTTON'&&FIELD) e.preventDefault(); },true);
+addEventListener('keyup',e=>{ if(e.key===' '&&!WOPEN&&e.target&&e.target.tagName==='BUTTON'&&FIELD) e.preventDefault(); },true);
 
 // ---------- 값 보조 ----------
 function R(o,k,d){ return (o&&typeof o==='object'&&o[k]!=null)?o[k]:d; }
@@ -804,7 +854,7 @@ function navHtml(){
   const aw=V&&V.skill&&V.skill.awaken&&V.skill.awaken.next&&V.skill.awaken.next.can;
   const rkc=V&&V.rank&&V.rank.prev&&V.rank.prev.claimable;
   const dots={adv:todo||clan,pres:chest,skill:aw,rank:rkc};
-  return TABS.map(([k,ic,n])=>`<button role="tab" aria-selected="${TAB===k}" data-tab="${k}" class="${TAB===k?'on':''}">${ic?`<img src="img/brjhunt/ui/tab_${ic}.webp" alt="" onerror="this.style.display='none'">`:'<span class="tabem" aria-hidden="true">🏆</span>'}${n}${dots[k]?'<span class="dot" title="할 수 있는 일이 있어요"></span>':''}</button>`).join('');
+  return TABS.map(([k,ic,n])=>`<button role="tab" aria-selected="${WOPEN&&TAB===k}" aria-label="${n} 창 열기" data-tab="${k}" class="${WOPEN&&TAB===k?'on':''}">${ic?`<img src="img/brjhunt/ui/tab_${ic}.webp" alt="" onerror="this.style.display='none'">`:`<span class="tabem" aria-hidden="true">${TAB_EM[k]||'🏆'}</span>`}${n}${dots[k]?'<span class="dot" title="할 수 있는 일이 있어요"></span>':''}</button>`).join('');
 }
 function msgHtml(){ if(!MSG) return ''; return `<div class="msg ${esc(MSG.k)}" role="status">${MSG.t}</div>`; }   // MSG.t 는 이 파일이 만든 문장(서버 문자열은 만들 때 esc 한다)
 
@@ -812,7 +862,7 @@ function render(){
   const main=$('main'), nav=$('nav').firstElementChild, sheet=$('sheet');
   const ok=STATE==='ok'&&!!V;
   document.body.classList.toggle('st-ok',ok);
-  document.body.classList.toggle('mini',ok&&TAB!=='hunt');
+  document.body.classList.toggle('wopen',ok&&WOPEN);
   $('stage').style.display=ok?'':'none';
   syncBgm();
   if(!ok&&FIELD){ try{ FIELD.stop(); FIELD.setKeys(false); }catch(e){} }
@@ -833,9 +883,10 @@ function render(){
   setHtml($('dock'),dockHtml());
   setHtml(nav,navHtml());
   const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
-  const keep=sheet.scrollTop;
+  const keep=main.scrollTop;
   main.innerHTML=msgHtml()+fn();
-  if(TAB_FLAG){ TAB_FLAG=false; main.classList.remove('up'); void main.offsetWidth; main.classList.add('up'); sheet.scrollTop=0; } else sheet.scrollTop=keep;
+  { const tb=TABS.find(x=>x[0]===TAB)||TABS[0]; $('wname').textContent=tb[2]; $('wicon').innerHTML=tb[1]?`<img src="img/brjhunt/ui/tab_${tb[1]}.webp" alt="" onerror="this.style.display='none'">`:'<span class="tabem" aria-hidden="true">🏆</span>'; }
+  if(TAB_FLAG){ TAB_FLAG=false; main.classList.remove('up'); void main.offsetWidth; main.classList.add('up'); main.scrollTop=0; } else main.scrollTop=keep;
   initField();
   if(FIELD){ pushField(); try{ FIELD.start(); }catch(e){} }
   tick();
@@ -1332,6 +1383,10 @@ function onInstReward(e){
     snd(k==='gold'?'coin_big':'reward_pop',{vol:.8});
   }catch(x){}
 }
+function closeWin(){ if(!WOPEN) return; WOPEN=false; MSG=null; render(); }
+$('wclose').onclick=()=>{ snd('click'); closeWin(); };
+$('wbg').onclick=()=>{ if(!INSTANCE) closeWin(); };
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&WOPEN&&!INSTANCE&&!document.querySelector('.sbg.show')){ e.preventDefault(); closeWin(); } });
 $('skipBtn').onclick=()=>{ snd('click'); try{ if(FIELD) FIELD.skipInstance(); }catch(e){} };
 // sp: {kind, early(결과 전에 입장 연출부터), path, body, predict, start(j|null)→엔진에 줄 값, toResult(j)→엔진 결과 또는 null(연출 없음), after(j,played)→결과 문구, legacy()→엔진이 없을 때 옛 방식}
 async function runInstance(sp){
@@ -1344,7 +1399,7 @@ async function runInstance(sp){
   INSTANCE={kind:sp.kind,predict:sp.predict||'',view:null,resolveEnd:null};
   endP=new Promise(r=>{ INSTANCE.resolveEnd=r; });
   try{
-    if(TAB!=='hunt'){ TAB='hunt'; TAB_FLAG=true; } MSG=null; syncBgm(); render(); instLock(true);
+    if(WOPEN){ WOPEN=false; TAB_FLAG=true; } MSG=null; syncBgm(); render(); instLock(true);
     if(sp.early) started=!!FIELD.startInstance(Object.assign({},sp.start(null),{kind:sp.kind,predict:sp.predict||'',result:null}));
     j=await call(sp.path,sp.body);
     if(TRANSPORT.includes(j.code)&&!j.view){ fail=(j.code==='net'||j.code==='http')?'net':'tr'; }
@@ -1404,7 +1459,7 @@ const DO={
     if(BUSY||BOSS) return; if(bossGate()){ return DO.boss(); }
     if(!(await preChal())) return;
     const st0=N(V.stage), keys=['ddokkyu','shinlim','taewoong','yongjo'];
-    if(TAB!=='hunt'){ TAB='hunt'; TAB_FLAG=true; }
+    if(WOPEN){ WOPEN=false; TAB_FLAG=true; }
     BOSS={img:keys[(st0)%keys.length],name:`스테이지 ${st0+1} 수문장`,hp:N(V.chal_hp)||1000}; MSG=null; syncBgm(); render();
     let res=null;
     await act('/brj/push',{},j=>{
@@ -1459,7 +1514,7 @@ const DO={
   boss:async()=>{
     if(BUSY||BOSS) return; const gb=bossGate(); if(!gb) return;
     if(!(await preChal())) return;
-    if(TAB!=='hunt'){ TAB='hunt'; TAB_FLAG=true; }
+    if(WOPEN){ WOPEN=false; TAB_FLAG=true; }
     BOSS={img:imgKey(gb.img),name:String(gb.name||'보스'),hp:N(gb.hp)||1000}; MSG=null; syncBgm(); render();
     let res=null;
     await act('/brj/boss',{},j=>{
@@ -1525,7 +1580,8 @@ document.addEventListener('click',e=>{
   if(t.id==='loginBtn'){ snd('click'); dcLogin(); return; }
   if(t.id==='retryBtn'){ snd('click'); STATE='boot'; render(); load(); return; }
   if(INSTANCE&&(t.dataset.tab||t.dataset.card!=null)) return;
-  if(t.dataset.tab){ if(TAB!==t.dataset.tab){ snd('tab'); TAB=t.dataset.tab; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); } return; }
+  if(t.dataset.tab){ const k=t.dataset.tab; if(WOPEN&&TAB===k){ snd('tab'); closeWin(); return; }   // 같은 아이콘을 다시 누르면 창 닫기
+    snd('tab'); TAB=k; WOPEN=true; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); return; }
   if(t.dataset.card!=null){   // 파티 편성(저장 전까지는 이 화면에서만 바뀐다)
     snd('click');
     const id=t.dataset.card, p=curParty(), i=p.indexOf(id), mx=N(R(V.summon,'party_max',3))||3;
