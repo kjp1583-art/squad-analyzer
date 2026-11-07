@@ -954,7 +954,11 @@ window.SGG_DC_BOOT=(function(){
   #ttSheet .tt-b{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;max-height:40vh;overflow:auto}
   #ttSheet .tt-x{display:block;margin:10px 0 0 auto;min-height:40px;padding:6px 18px;border-radius:10px;border:1px solid var(--line,#34405a);background:transparent;color:inherit;font:inherit;cursor:pointer}
   .np-rx{flex:none;display:inline-flex;gap:4px;margin-left:auto;align-self:center}
-  .np-rxb{font:inherit;font-size:12px;line-height:1;padding:3px 7px;border:1px solid var(--soft);border-radius:999px;background:transparent;color:var(--ink2);cursor:pointer;min-height:26px}
+  .np-rxb{font:inherit;font-size:14px;line-height:1;padding:5px 11px;border:1px solid var(--ink3,var(--soft));border-radius:999px;background:rgba(255,255,255,.05);color:var(--ink);cursor:pointer;min-height:34px}   /* ✂️ [P-39 2026-11-07] 눈에 띄게 — 크게 · 테두리 진하게 */
+  .np-rxb.zero{opacity:.62}
+  .np-rxb:hover{border-color:var(--acc)}
+  .np-rxhint{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0;padding:8px 10px;border:1px dashed var(--acc);border-radius:10px;font-size:13px;line-height:1.5;color:var(--ink2);background:rgba(255,255,255,.04)}
+  .np-rxhint button{margin-left:auto;font:inherit;font-size:12px;padding:3px 9px;border:1px solid var(--soft);border-radius:999px;background:transparent;color:var(--ink2);cursor:pointer}
   .np-rxb b{font-weight:800;margin-left:2px}
   .np-person .np-rx{margin:4px 0 0}
   .np-rxb.on{border-color:var(--acc);color:var(--acc);background:rgba(255,255,255,.06)}
@@ -5802,10 +5806,22 @@ const _NP_RX={to:"",n:new Map(),mine:new Set()};   // n: "키|이모지" → 사
 const _NP_RX_OK=/^(알림|인물)\d{1,2}$/;
 function _npRxBar(to,key,kinds){
   if(!to||!kinds||!kinds.length||!_NP_RX_OK.test(key)) return "";
-  return `<span class="np-rx">${kinds.map(k=>`<button type="button" class="np-rxb" data-rx="${escAttr(key+"|"+k)}" aria-label="${k} 반응" onclick="_npReact('${key}','${k}')">${k} <b>0</b></button>`).join("")}</span>`;
+  return `<span class="np-rx">${kinds.map(k=>`<button type="button" class="np-rxb zero" data-rx="${escAttr(key+"|"+k)}" aria-label="${k} 반응 보내기" title="눌러서 ${k} 반응 보내기" onclick="_npReact('${key}','${k}')">${k} <b>0</b></button>`).join("")}</span>`;
 }
 function _npRxPaint(){
-  document.querySelectorAll(".np-rxb").forEach(b=>{ const id=b.dataset.rx; b.querySelector("b").textContent=String(_NP_RX.n.get(id)||0); b.classList.toggle("on",_NP_RX.mine.has(id)); });
+  document.querySelectorAll(".np-rxb").forEach(b=>{ const id=b.dataset.rx, n=_NP_RX.n.get(id)||0; b.querySelector("b").textContent=String(n); b.classList.toggle("on",_NP_RX.mine.has(id)); b.classList.toggle("zero",n===0&&!_NP_RX.mine.has(id)); });
+}
+/* ✂️ [P-39 2026-11-07] 처음 한 번만 「👏 눌러서 박수를 보내 보세요」 한 줄 안내(닫기 가능) + 로그인 안 했으면 로그인 안내 */
+function _npRxHint(){
+  try{
+    try{ if(localStorage.getItem("np_rx_hint")==="1") return; }catch(e){}
+    const first=document.querySelector(".np-rx"); if(!first||document.getElementById("npRxHint")) return;
+    const blk=document.querySelector(".np .np-body")||first.closest(".np-notice,.np-person")||first.parentElement; if(!blk||!blk.parentNode) return;   // 지면 본문 바로 위(폰에서 접힌 칸 안에 숨지 않게)
+    const d=document.createElement("div"); d.id="npRxHint"; d.className="np-rxhint";
+    d.innerHTML=`<span>👏 <b>눌러서 이 소식에 박수를 보내 보세요</b> — 알림·인물 칸마다 반응 버튼이 있어요.${dcValid()?"":" 디스코드로 로그인하면 누를 수 있어요."}</span><button type="button">닫기</button>`;
+    d.querySelector("button").onclick=()=>{ try{ localStorage.setItem("np_rx_hint","1"); }catch(e){} d.remove(); };
+    blk.parentNode.insertBefore(d,blk);
+  }catch(e){}
 }
 function _npRxLoad(to){
   _NP_RX.to=to; _NP_RX.n=new Map(); _NP_RX.mine=new Set();
@@ -5817,8 +5833,8 @@ function _npRxLoad(to){
       const m=/^(👏|🫡)\|((?:알림|인물)\d{1,2})$/.exec(String(c&&c.c||"").trim()); if(!m) continue;
       const id=m[2]+"|"+m[1], who=String(c.a||"")+"@"+id; if(seen.has(who)) continue; seen.add(who);
       _NP_RX.n.set(id,(_NP_RX.n.get(id)||0)+1); if(me&&c.a===me) _NP_RX.mine.add(id); }
-    _npRxPaint(); };
-  s.onerror=()=>cleanup();
+    _npRxPaint(); _npRxHint(); };
+  s.onerror=()=>{ cleanup(); _npRxHint(); };
   s.src=COMMENT_API+"?target="+encodeURIComponent("뉴스반응:"+to)+"&callback="+cb+"&_="+Date.now();
   document.body.appendChild(s);
 }
@@ -12071,7 +12087,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
     addEventListener("scroll",()=>{ if(t) return; t=setTimeout(()=>{ t=0; b.style.display=(mq.matches&&window.scrollY>1400)?"block":"none"; },120); },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611062000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611071400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
