@@ -459,7 +459,7 @@ body.wopen #nav{display:none}   /* 폰: 창이 열려 있는 동안은 메뉴 �
       <canvas id="fcv" role="img" aria-label="병아리가 발판을 오르내리며 몬스터를 사냥하는 화면. 키보드나 화면 버튼으로 직접 조작하거나 AUTO 로 맡길 수 있어요."></canvas>
       <div id="fieldNote">사냥 화면을 불러오지 못했어요.<br>아래 메뉴는 그대로 쓸 수 있어요.</div>
       <div id="hudL"><div class="bars"><div class="bar2 hp" id="hpBar"><i id="hpFill"></i><span id="hpTxt">HP</span></div><div class="bar2 mp" id="mpBar"><i id="mpFill"></i><span id="mpTxt">MP</span></div></div><span class="hpill" aria-live="off"><em id="hKpm">0</em> 분당 처치</span><span class="hpill sec">처치 <b id="hKills">0</b></span><span class="hpill sec" id="hPer" title="처치 한 번에 몬스터가 떨어뜨리는 골드"></span><span class="hpill sec" id="hGot" title="이번에 직접 사냥해서 서버에 보고한 골드"></span><button class="hpill coll dis" id="hColl" data-do="collect" aria-label="쌓인 사냥 골드 수령하기"></button></div>
-      <div id="hudR"><button class="fbtn" id="eliteBtn" data-do="elite" style="display:none" title="엘리트 소환 — 지금 필드에 대형 몬스터를 불러요" aria-label="엘리트 소환">👹<b id="eliteN">0</b></button><button class="fbtn on" id="autoBtn" aria-pressed="true" title="자동 사냥 켜기/끄기 (Tab)">AUTO</button><button class="fbtn tog" id="padBtn" aria-pressed="false" title="화면 조작 버튼 보이기/숨기기">🎮</button><button class="fbtn tog" id="keyBtn" aria-expanded="false" aria-controls="keyHelp" title="조작법">?</button></div>
+      <div id="hudR"><button class="fbtn tog" id="eliteAuto" aria-pressed="false" style="display:none" title="엘리트 자동 소환 — 게이지가 다 닳을 때까지 쓰러뜨리면 바로 다음 엘리트를 소환해요" aria-label="엘리트 자동 소환 켜기/끄기">🔁</button><button class="fbtn" id="eliteBtn" data-do="elite" style="display:none" title="엘리트 소환 — 지금 필드에 대형 몬스터를 불러요" aria-label="엘리트 소환">👹<b id="eliteN">0</b></button><button class="fbtn on" id="autoBtn" aria-pressed="true" title="자동 사냥 켜기/끄기 (Tab)">AUTO</button><button class="fbtn tog" id="padBtn" aria-pressed="false" title="화면 조작 버튼 보이기/숨기기">🎮</button><button class="fbtn tog" id="keyBtn" aria-expanded="false" aria-controls="keyHelp" title="조작법">?</button></div>
       <div id="combo" aria-hidden="true"></div>
       <div id="keyHelp" role="note"><b>🎮 조작법</b><br><kbd>←</kbd><kbd>→</kbd> 이동 · <kbd>Alt</kbd> 또는 <kbd>Space</kbd> 또는 <kbd>↑</kbd> 점프(오래 누를수록 높이, 공중에서 한 번 더 = 2단 점프) · <kbd>↓</kbd>+점프 아래 발판으로 내려가기<br><kbd>Ctrl</kbd> 또는 <kbd>Z</kbd> 기본 공격(연타 3콤보) · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> (또는 <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd>) 스킬 · <kbd>Tab</kbd> / <kbd>G</kbd> AUTO · <kbd>P</kbd> 일시정지<br>키를 누르면 바로 <b>수동</b>이 되고, 3초 동안 아무것도 안 하면 AUTO 로 돌아가요. 직접 잘 하면 AUTO 보다 더 많이 벌 수 있어요.</div>
       <div id="bossTag" aria-hidden="true"></div>
@@ -646,7 +646,7 @@ function fieldState(){
 }
 function updEliteBtn(){ const b=$('eliteBtn'); if(!b) return; const L=V&&V.loot, ch=L&&L.gauge?N(L.gauge.charges):0, act=!!(L&&L.elite); b.style.display=(STATE==='ok'&&(ch>0||act))?'':'none'; $('eliteN').textContent=act?'!':String(ch); b.classList.toggle('pulse',ch>0&&!act); b.title=act?'엘리트가 필드에 있어요':'엘리트 소환 — 지금 필드에 대형 몬스터를 불러요'; }
 function pushField(){ document.body.classList.toggle('inboss',!!(BOSS||INSTANCE)); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(!WOPEN&&STATE==='ok'); syncElite(); }catch(e){ console.warn(e); } }
-  updEliteBtn(); }
+  updEliteBtn(); updEliteAuto(); }
 function showTag(txt,cls){ const t=$('bossTag'); t.textContent=txt; t.className=''; void t.offsetWidth; t.className='go '+(cls||''); }
 const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){} return null; };
 function initField(){
@@ -1224,6 +1224,31 @@ function eliteSay(j){
   else say('처리하지 못했어요.','bad');
 }
 // ---- 👹 필드 엘리트: 소환(서버가 게이지를 쓰고 id 를 준다) → 필드의 대형 몬스터 → 처치 보고 → 확률 드랍 + 등급별 연출 ----
+// 🔁 엘리트 자동 소환 (2026-11-09 사장님 「자동소환 버튼 — 게이지가 다 소모될 때까지 반복 소환」): 켜 두면 엘리트를 쓰러뜨리거나 놓친 뒤 잠깐(드랍 연출 감상) 있다가 게이지가 남았으면 바로 다음 엘리트를 소환한다
+let ELITE_AUTO=(LS('brjhunt_elauto')==='1'), ELITE_AUTO_T=0, ELITE_AUTO_BUSY=false;
+async function doElite(auto){   // 👹 지금 사냥 중인 필드에 대형 몬스터를 소환 — 수동은 창을 닫고 필드에서 싸운다 · 자동은 창이 열려 있어도 그대로 소환
+  if(BUSY||BOSS||INSTANCE) return false;
+  if(!auto&&WOPEN){ WOPEN=false; TAB_FLAG=true; }
+  let el=null;
+  await act('/brj/elite',{},j=>{
+    if(j.result==='ok'||j.result==='active'){ el=j.elite; if(j.result==='ok'){ say(auto?'🔁 엘리트 자동 소환!':'👹 엘리트가 나타났어요! 쓰러뜨리면 장비가 나올 수 있어요.','ok'); snd('boss_warn',{vol:.7}); } else if(!auto) say('이미 엘리트가 필드에 있어요.','info'); }
+    else if(!auto||j.result!=='nogauge') eliteSay(j); });
+  if(el){ spawnElite(el,true); return true; }
+  return false;
+}
+function eliteCharges(){ const L=V&&V.loot; return L&&L.gauge?N(L.gauge.charges):0; }
+function updEliteAuto(){ const b=$('eliteAuto'); if(!b) return; const L=V&&V.loot; b.style.display=(STATE==='ok'&&L&&L.gauge)?'':'none'; b.setAttribute('aria-pressed',ELITE_AUTO?'true':'false'); b.classList.toggle('on',ELITE_AUTO); b.textContent=ELITE_AUTO?'🔁 ON':'🔁'; b.title=ELITE_AUTO?'엘리트 자동 소환 켜짐 — 눌러서 끄기':'엘리트 자동 소환 — 게이지가 다 닳을 때까지 쓰러뜨리면 바로 다음 엘리트를 소환해요'; }
+async function eliteAutoTick(){
+  if(!ELITE_AUTO||ELITE_AUTO_BUSY||STATE!=='ok'||!V||!FIELD) return;
+  if(BUSY||BOSS||INSTANCE||ELITE_REP||ELITE||(V.loot&&V.loot.elite)) return;
+  if(performance.now()<ELITE_AUTO_T) return;
+  if(eliteCharges()<1){ ELITE_AUTO=false; LS('brjhunt_elauto','0'); updEliteAuto(); toast('🔁 엘리트 자동 소환 끝 — 게이지를 다 썼어요.'); return; }
+  try{ if(FIELD.stats&&N(FIELD.stats().hp)<=0) return; }catch(e){}
+  ELITE_AUTO_BUSY=true;
+  try{ const ok=await doElite(true); ELITE_AUTO_T=performance.now()+(ok?2500:5000); }
+  finally{ ELITE_AUTO_BUSY=false; }
+}
+setInterval(()=>{ try{ eliteAutoTick(); }catch(e){} },1500);
 let ELITE=null;        // {id, at} 지금 필드에 세워 둔 엘리트
 let ELITE_TRY=0;
 function spawnElite(e,force){
@@ -1249,14 +1274,14 @@ async function reportEliteKill(e){
       if(j.result==='early'){ await sleep(Math.max(500,N(j.wait)*1000)); continue; }
       res=j; break;
     }
-  }finally{ ELITE_REP=false; ELITE=null; }
+  }finally{ ELITE_REP=false; ELITE=null; ELITE_AUTO_T=Math.max(ELITE_AUTO_T,performance.now()+3200); }
   if(!res){ toast('엘리트 처치 결과를 아직 못 받았어요. 새로고침(↻)을 눌러 보세요.'); return; }
   takeView(res);
   if(res.result==='drop'){ const it=res.item||{}; try{ FIELD.dropFx({rar:N(it.rar),emoji:it.emoji,x:N(e&&e.x)||undefined,y:N(e&&e.y)||undefined}); }catch(x){} dropCard(it,res.auto); snd(N(it.rar)>=4?'levelup':N(it.rar)>=2?'reward_pop':'coin_big',{vol:.9}); if(N(it.rar)>=3) setTimeout(()=>snd('total_hit',{vol:.7}),180); if(N(it.rar)>=4) setTimeout(()=>snd('levelup',{vol:.8}),500); }
   else if(res.result==='nodrop'){ eliteSay(res); toast(`👹 처치! 이번엔 장비가 안 나왔어요 (+${fmt(res.gold)} 골드)`); snd('coin'); }
   render();
 }
-function onEliteExpire(){ ELITE=null; toast('👹 엘리트가 도망쳤어요… 게이지 한 칸은 돌려받아요.'); setTimeout(()=>{ if(STATE==='ok') load(); },400); }
+function onEliteExpire(){ ELITE=null; ELITE_AUTO_T=Math.max(ELITE_AUTO_T,performance.now()+2500); toast('👹 엘리트가 도망쳤어요… 게이지 한 칸은 돌려받아요.'); setTimeout(()=>{ if(STATE==='ok') load(); },400); }
 // ✨ 득템 카드 — 등급이 높을수록 빛줄기·테두리·반짝이가 화려해진다(에픽 이상은 화면 가운데 크게)
 function dropCard(it,auto){
   const rar=Math.max(0,Math.min(4,N(it.rar))), box=$('dropFx'); if(!box) return;
@@ -1430,6 +1455,7 @@ function castFromDock(i){
   if(!FIELD) return; try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){}
   padPress('s'+(i+1)); setTimeout(()=>FIELD&&FIELD.input.release('s'+(i+1)),90);
 }
+$('eliteAuto').onclick=()=>{ snd('click'); ELITE_AUTO=!ELITE_AUTO; LS('brjhunt_elauto',ELITE_AUTO?'1':'0'); updEliteAuto(); toast(ELITE_AUTO?'🔁 엘리트 자동 소환 켜짐 — 게이지가 다 닳을 때까지 이어서 소환해요':'🔁 엘리트 자동 소환 꺼짐'); if(ELITE_AUTO){ ELITE_AUTO_T=0; eliteAutoTick(); } };
 $('autoBtn').onclick=()=>{ try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(e){} if(!FIELD) return; let on=false; try{ on=FIELD.stats().auto; }catch(e){} FIELD.setAuto(!on); updAuto(); };
 $('padBtn').onclick=()=>{ snd('click'); setPad(!document.body.classList.contains('touch'),true); try{ FIELD&&FIELD.resize(); }catch(e){} };
 $('keyBtn').onclick=()=>{ const h=$('keyHelp'), on=!h.classList.contains('show'); h.classList.toggle('show',on); $('keyBtn').setAttribute('aria-expanded',String(on)); snd(on?'ui_open':'ui_close'); };
@@ -1561,14 +1587,7 @@ const DO={
   party:()=>act('/brj/party',{party:curParty().slice()},j=>{
     if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
-  elite:async()=>{   // 👹 지금 사냥 중인 필드에 대형 몬스터를 소환 — 창은 닫고 필드에서 싸운다
-    if(BUSY||BOSS||INSTANCE) return;
-    if(WOPEN){ WOPEN=false; TAB_FLAG=true; }
-    let el=null;
-    await act('/brj/elite',{},j=>{
-      if(j.result==='ok'||j.result==='active'){ el=j.elite; if(j.result==='ok'){ say('👹 엘리트가 나타났어요! 쓰러뜨리면 장비가 나올 수 있어요.','ok'); snd('boss_warn',{vol:.7}); } else say('이미 엘리트가 필드에 있어요.','info'); }
-      else eliteSay(j); });
-    if(el) spawnElite(el,true); },
+  elite:()=>doElite(false),
   lootequip:el=>act('/brj/loot_equip',{id:el.dataset.id},j=>{ say(j.result==='ok'?'🧥 장착했어요!':'그 장비를 찾을 수 없어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   lootunequip:el=>act('/brj/loot_unequip',{slot:el.dataset.slot},j=>{ say('장비를 벗었어요.','info'); }),
   lootlock:el=>act('/brj/loot_lock',{id:el.dataset.id},j=>{ say(j.lock?'🔒 잠갔어요. 분해에서 빠져요.':'🔓 잠금을 풀었어요.','info'); }),
