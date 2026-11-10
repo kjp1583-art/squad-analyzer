@@ -456,7 +456,7 @@
     function normSkill(s) {
       if (!s || !s.id || !SKD[s.id]) return null;
       const d = SKD[s.id], o = { id: s.id };
-      o.key = s.key; o.shape = ['arc', 'proj', 'aoe', 'self', 'dash'].indexOf(s.shape) >= 0 ? s.shape : d.shape;
+      o.key = s.key; o.shape = d.shape === 'dash' ? 'dash' : (['arc', 'proj', 'aoe', 'self', 'dash'].indexOf(s.shape) >= 0 ? s.shape : d.shape);   // 돌격(흐접새우)은 서버가 'self' 로 보내도 돌격 — 안 그러면 방어막만 켜져 소환이 먹통처럼 보인다
       o.mp = Math.max(0, s.mp != null ? N(s.mp) : d.mp); o.cd = Math.max(0.2, s.cd != null ? N(s.cd) : d.cd); o.cast = clamp(s.cast != null ? N(s.cast) : d.cast, 0.05, 1.5);
       o.range = clamp(s.range != null ? N(s.range) : d.range, 30, 420); o.hits = clamp(Math.round(s.hits != null ? N(s.hits) : d.hits) || 1, 1, 12);
       o.mult = Math.max(5, s.mult != null ? N(s.mult) : d.mult); o.lv = N(s.lv) || 1; o.col = SKV[s.id] ? SKV[s.id].col : (/^#[0-9a-f]{3,8}$/i.test(s.fx_color || '') ? s.fx_color : d.col); o.both = !!d.both || !!s.both; o.pierce = !!d.pierce || !!s.pierce;
