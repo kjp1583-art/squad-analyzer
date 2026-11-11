@@ -37,6 +37,21 @@ async def after(pg):
     ok(S['pageHas'] and S['before'], 'D 지면에 들어가고 브장신 코너보다 위에 있다')
     ok(S['bigN'] == 250 * 2 or S['bigN'] >= 250, 'C 300명을 줘도 250명까지 (%s)' % S['bigN'])
     await pg.evaluate("()=>{const W={placeholder:false,week:{from:'2026-10-12',to:'2026-10-18',label:'x'},headline:'h',grade:{letter:'B',reason:'r'},summary:'s',events:[{emoji:'🏟',section:'협곡',title:'t',body:'b',photo:{kind:'none',key:''}}],notices:[],students:[],awards:[],homework:[],closing:'c',brj:[],issue:5,stats:{},facts:[],roster:Array.from({length:120},(_,i)=>({n:'사람'+i,g:1+i%9,w:i%3,t:i%4?'':'심야 3판'}))};document.body.insertAdjacentHTML('beforeend','<div id=rstest style=\"width:340px\">'+_npRoster(W)+'</div>');document.querySelector('#rstest details').open=true;}")
+    # P-43: 로그인한 사람의 줄이 맨 위 ⭐ 로 · 이름 검색 · 로그인 안 했으면 그대로
+    P43 = await pg.evaluate("""()=>{
+      const base={placeholder:false,week:{from:'2026-10-12',to:'2026-10-18',label:'x'},headline:'h',grade:{letter:'B',reason:'r'},summary:'s',events:[],notices:[],students:[],awards:[],homework:[],closing:'c',brj:[],issue:5,stats:{},facts:[]};
+      const roster=[];for(let i=0;i<20;i++)roster.push({n:'사람'+i,g:3,w:1,t:''});
+      const W=Object.assign({},base,{roster});
+      const saved=DISCORD_USER; const out={};
+      DISCORD_USER=null; let d=document.createElement('div'); d.innerHTML=_npRoster(W); out.anonMe=d.querySelectorAll('.np-me').length; out.hasQ=!!d.querySelector('.np-roster-q'); out.anonFirst=d.querySelector('.np-roster-grid>div').textContent.trim().slice(0,3);
+      DISCORD_USER={id:'1',name:'사람7',token:'t',exp:Date.now()+1e7}; d=document.createElement('div'); d.innerHTML=_npRoster(W); document.body.appendChild(d);
+      const f=d.querySelector('.np-roster-grid>div'); out.meFirst=f.classList.contains('np-me')&&f.textContent.includes('사람7')&&f.textContent.includes('⭐'); out.meCount=d.querySelectorAll('.np-me').length; out.total=d.querySelectorAll('.np-roster-grid>div').length;
+      const q=d.querySelector('.np-roster-q'); q.value='사람1'; _npRosterFind(q); out.vis=[...d.querySelectorAll('.np-roster-grid>div')].filter(x=>x.style.display!=='none').length;
+      q.value='없는이름zz'; _npRosterFind(q); out.none=d.querySelector('.np-roster-none').style.display!=='none';
+      d.remove(); DISCORD_USER=saved; return out; }""")
+    ok(P43['anonMe'] == 0 and P43['hasQ'] and P43['anonFirst'] == '사람0', 'P-43 로그인 안 하면 강조 없음 · 순서 그대로 · 검색칸 있음 %s' % P43)
+    ok(P43['meFirst'] and P43['meCount'] == 1 and P43['total'] == 20, 'P-43 로그인하면 내 줄이 맨 위 ⭐ 한 번만(중복 없음)')
+    ok(P43['vis'] == 11 and P43['none'], 'P-43 검색 「사람1」→ 사람1·사람10~19 = 11줄 · 없는 이름은 안내 문구')
     ov = await pg.evaluate("()=>{const e=document.getElementById('rstest');return {sw:e.scrollWidth,cw:e.clientWidth,doc:document.documentElement.scrollWidth,win:innerWidth}}")
     ok(ov['sw'] <= ov['cw'] + 1, 'E 폰 폭 340 에서 펼쳐도 가로로 안 넘친다 %s' % ov)
 async def main():
