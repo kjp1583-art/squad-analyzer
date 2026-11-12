@@ -202,6 +202,14 @@ body.ininst #dock .push{pointer-events:none;opacity:.55}
 .bar{height:12px;background:rgba(0,0,0,.35);border-radius:999px;overflow:hidden;border:2px solid var(--edge)}
 .bar i{display:block;height:100%;background:linear-gradient(180deg,#8bb2ff,#3d6cf0);border-radius:999px;box-shadow:inset 0 2px 0 rgba(255,255,255,.35);transition:width .5s}
 .bar.g i{background:linear-gradient(180deg,#ffe27a,#f0a41a)}
+.cosgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:8px}
+.cos{border:2px solid var(--line);border-radius:12px;padding:8px;text-align:center;background:var(--panel2)}
+.cos.on{border-color:var(--gold,#ffb020);box-shadow:0 0 0 2px rgba(255,176,32,.25)}
+.cos .cimg{height:110px;display:flex;align-items:center;justify-content:center}
+.cos .cimg img{max-width:100%;max-height:110px;object-fit:contain}
+.cos .cnm{font-weight:800;font-size:13px;margin:4px 0 2px}
+.cos .cds{font-size:11.5px;color:var(--sub,#8a93a6);min-height:30px;margin-bottom:6px}
+.cos .btn{width:100%}
 .kv{display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-size:14px;border-bottom:1px dashed var(--line)}
 .kv:last-child{border-bottom:0}
 .msg{border-radius:14px;padding:10px 12px;margin:0 0 10px;font-size:14px;font-weight:800;border:2px solid var(--line);background:var(--card2);animation:msgin .3s both}
@@ -518,8 +526,8 @@ const SK_IDS=['slash','peck','spin','bomb','thunder','fire','egg','shield','shri
 const skIcon=id=>SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:'';
 const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
-const TAB_EM={gear:'🎒',rank:'🏆'};
-const TABS=[['hunt','hunt','수령'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
+const TAB_EM={gear:'🎒',cos:'👗',rank:'🏆'};
+const TABS=[['hunt','hunt','수령'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['cos','','꾸미기'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
 const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
 let V_KPM=100;                      // 서버가 내 전투력÷필드 권장 전투력으로 계산한 분당 처치 기대치. 처치당 골드 = 시간당 골드 ÷ (분당 처치×60)
 const kpmNow=()=>Math.max(1,N(V&&V.kpm)||V_KPM);
@@ -645,7 +653,12 @@ function fieldState(){
   return o;
 }
 function updEliteBtn(){ const b=$('eliteBtn'); if(!b) return; const L=V&&V.loot, ch=L&&L.gauge?N(L.gauge.charges):0, act=!!(L&&L.elite); b.style.display=(STATE==='ok'&&(ch>0||act))?'':'none'; $('eliteN').textContent=act?'!':String(ch); b.classList.toggle('pulse',ch>0&&!act); b.title=act?'엘리트가 필드에 있어요':'엘리트 소환 — 지금 필드에 대형 몬스터를 불러요'; }
-function pushField(){ document.body.classList.toggle('inboss',!!(BOSS||INSTANCE)); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(!WOPEN&&STATE==='ok'); syncElite(); }catch(e){ console.warn(e); } }
+function applySkin(){   // 👗 입고 있는 꾸미기 스킨을 사냥터 병아리와 왼쪽 위 얼굴에 반영
+  const C=V&&V.cos, k=C&&Array.isArray(C.skins)?C.skins.find(x=>x.on):null, img=k&&/^img\/brjang\/skins\/[a-z_]+\/front\.png$/.test(String(k.img||''))?k.img:null;
+  try{ if(FIELD&&FIELD.setSkin) FIELD.setSkin(img); }catch(e){}
+  const av=$('avImg'); if(av){ const want=img||'img/brjang/parts/body_chick/front.png'; if(av.getAttribute('src')!==want){ av.style.display=''; av.src=want; } }
+}
+function pushField(){ document.body.classList.toggle('inboss',!!(BOSS||INSTANCE)); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(!WOPEN&&STATE==='ok'); syncElite(); applySkin(); }catch(e){ console.warn(e); } }
   updEliteBtn(); updEliteAuto(); }
 function showTag(txt,cls){ const t=$('bossTag'); t.textContent=txt; t.className=''; void t.offsetWidth; t.className='go '+(cls||''); }
 const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){} return null; };
@@ -918,10 +931,10 @@ function render(){
   renderTop(); updateChips();
   setHtml($('dock'),dockHtml());
   setHtml(nav,navHtml());
-  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
+  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,cos:tabCos,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
   const keep=main.scrollTop;
   main.innerHTML=msgHtml()+fn();
-  { const tb=TABS.find(x=>x[0]===TAB)||TABS[0]; $('wname').textContent=tb[2]; $('wicon').innerHTML=tb[1]?`<img src="img/brjhunt/ui/tab_${tb[1]}.webp" alt="" onerror="this.style.display='none'">`:'<span class="tabem" aria-hidden="true">🏆</span>'; }
+  { const tb=TABS.find(x=>x[0]===TAB)||TABS[0]; $('wname').textContent=tb[2]; $('wicon').innerHTML=tb[1]?`<img src="img/brjhunt/ui/tab_${tb[1]}.webp" alt="" onerror="this.style.display='none'">`:'<span class="tabem" aria-hidden="true">'+(TAB_EM[tb[0]]||'🏆')+'</span>'; }
   if(TAB_FLAG){ TAB_FLAG=false; main.classList.remove('up'); void main.offsetWidth; main.classList.add('up'); main.scrollTop=0; } else main.scrollTop=keep;
   initField();
   if(FIELD){ pushField(); try{ FIELD.start(); }catch(e){} }
@@ -1192,6 +1205,19 @@ function itemHtml(it,mode){
     <div class="mut">점수 ${N(it.score).toFixed(1)}${mode==='inv'&&!it.on?` · 분해 시 ${I('gold')}${fmt(it.scrap_gold)}${N(it.scrap_stone)?` ${I('stone')}${fmt(it.scrap_stone)}`:''}`:''}</div></div>
     <div class="btns" style="flex-direction:column;gap:4px">${it.on?`<button class="btn alt" data-do="lootunequip" data-slot="${esc(it.slot)}">해제</button>`:`<button class="btn ${d>0?'gold':'alt'}" data-do="lootequip" data-id="${esc(it.id)}">장착</button>`}
     ${mode==='inv'?`<button class="btn alt" data-do="lootlock" data-id="${esc(it.id)}" aria-label="잠금 전환">${it.lock?'🔓':'🔒'}</button>`:''}</div></div>`;
+}
+function tabCos(){
+  const C=V.cos; if(!C||!Array.isArray(C.skins)) return `<div class="card empty"><div class="big">👗</div><div class="sub">꾸미기 정보를 아직 받지 못했어요. 서버가 업데이트되는 중일 수 있어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
+  const bal=N(C.md), pr=N(C.price)||1, on=String(C.on||'');
+  return `<div class="card"><h2>👗 꾸미기 <span class="pill gold">🍘 맛동산 ${fmt(bal)}개</span></h2>
+    <div class="sub">스킨을 사면 사냥터의 병아리가 그 모습으로 바뀌어요. 능력치는 그대로고 겉모습만 달라져요. 스킨 하나에 <b>🍘 맛동산 ${fmt(pr)}개</b>(1천원)예요.${C.ok?'':'<br><b class="red">지금은 맛동산 장부를 읽는 중이라 살 수 없어요. 잠시 뒤 새로고침해 주세요.</b>'}</div>
+    ${on?`<div class="btns" style="margin:6px 0"><button class="btn alt" data-do="cosequip" data-key="">원래 모습으로 돌아가기</button></div>`:''}
+    <div class="cosgrid">${C.skins.map(k=>{ const key=esc(k.key), img=/^img\/brjang\/skins\/[a-z_]+\/front\.png$/.test(String(k.img||''))?esc(k.img):'';
+      const btn=k.owned?(k.on?`<button class="btn alt" disabled>입는 중 ✔</button>`:`<button class="btn gold" data-do="cosequip" data-key="${key}">입기</button>`)
+        :`<button class="btn ${bal>=pr&&C.ok?'gold':'alt'}" data-do="cosbuy" data-key="${key}" data-name="${esc(k.name)}">🍘 ${fmt(pr)}개로 사기</button>`;
+      return `<div class="cos ${k.on?'on':''}"><div class="cimg">${img?`<img src="${img}" alt="${esc(k.name)}" loading="lazy" onerror="this.style.display='none'">`:''}</div><div class="cnm">${esc(k.emoji)} ${esc(k.name)}</div><div class="cds">${esc(k.rar)} · ${esc(k.desc)}</div>${btn}</div>`; }).join('')}</div>
+    ${bal<pr?`<div class="mut" style="margin-top:8px">맛동산이 모자라요. 맛동산은 후원 답례로 받는 화폐예요(1천원당 1개). 디스코드 <b>/후원</b> 안내를 봐 주세요.</div>`:''}
+  </div>`;
 }
 function tabGear(){
   const L=V.loot; if(!L||!Array.isArray(L.slots)) return `<div class="card empty"><div class="big">🎒</div><div class="sub">장비 정보를 아직 받지 못했어요. 서버가 업데이트되는 중일 수 있어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
@@ -1588,6 +1614,9 @@ const DO={
     if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
   elite:()=>doElite(false),
+  cosbuy:el=>{ const nm=el.dataset.name||'이 스킨'; if(!confirm(`🍘 맛동산 ${fmt(N((V.cos||{}).price)||1)}개로 「${nm}」을(를) 살까요?`)) return;
+    act('/brj/cos_buy',{key:el.dataset.key},j=>{ const m={ok:()=>[`👗 「${nm}」을(를) 샀어요! 바로 입었어요.`,'ok'],owned:()=>['이미 가지고 있어요.','info'],short:()=>['🍘 맛동산이 모자라요.','bad'],busy:()=>['지금 장부가 바빠요. 잠시 뒤 다시 해 주세요.','bad'],save_fail:()=>['저장이 잠깐 안 돼서 맛동산을 쓰지 않았어요. 다시 해 주세요.','bad']}[j.result]||(()=>['처리하지 못했어요.','bad']); const t=m(); say(t[0],t[1]); if(j.result==='ok') snd('enhance_ok'); }); },
+  cosequip:el=>act('/brj/cos_equip',{key:el.dataset.key||''},j=>{ say(j.result==='ok'?(el.dataset.key?'👗 갈아입었어요!':'원래 모습으로 돌아왔어요.'):(j.result==='not_owned'?'아직 없는 스킨이에요.':'처리하지 못했어요.'),j.result==='ok'?'ok':'bad'); }),
   lootequip:el=>act('/brj/loot_equip',{id:el.dataset.id},j=>{ say(j.result==='ok'?'🧥 장착했어요!':'그 장비를 찾을 수 없어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   lootunequip:el=>act('/brj/loot_unequip',{slot:el.dataset.slot},j=>{ say('장비를 벗었어요.','info'); }),
   lootlock:el=>act('/brj/loot_lock',{id:el.dataset.id},j=>{ say(j.lock?'🔒 잠갔어요. 분해에서 빠져요.':'🔓 잠금을 풀었어요.','info'); }),

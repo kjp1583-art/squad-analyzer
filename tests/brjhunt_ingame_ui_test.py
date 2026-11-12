@@ -31,7 +31,7 @@ async def run(vp, tag, port):
         await pg.add_init_script("localStorage.setItem('sgg_dc',JSON.stringify({id:'1',name:'유저1',avatar:'',token:'t1',exp:Date.now()+86400000}));localStorage.setItem('sgg_dc_auto','0');")
         await pg.goto(f'http://127.0.0.1:{port}/brjhunt.html'); await pg.wait_for_timeout(2500)
         g = await pg.evaluate("()=>{const f=document.getElementById('fieldBox').getBoundingClientRect(),a=document.getElementById('app').getBoundingClientRect(),s=getComputedStyle(document.getElementById('sheet')).display;return {fh:f.height,ah:a.height,fw:f.width,aw:a.width,sheet:s,nav:document.querySelectorAll('#nav button').length,wopen:document.body.classList.contains('wopen')};}")
-        ok(g['nav'] == 8 and g['sheet'] == 'none' and not g['wopen'], f'{tag}: 처음엔 창이 닫혀 있고 아이콘 메뉴 8개')
+        ok(g['nav'] == 9 and g['sheet'] == 'none' and not g['wopen'], f'{tag}: 처음엔 창이 닫혀 있고 아이콘 메뉴 9개(꾸미기 포함)')
         ok(g['fw'] >= g['aw'] - 2 and g['fh'] > g['ah'] * 0.55, f'{tag}: 필드가 화면 가로 전체·세로 절반 넘게 사용 ({int(g["fw"])}x{int(g["fh"])} / {int(g["aw"])}x{int(g["ah"])})')
         for k in TABS:
             if vp[0] < 700: await pg.keyboard.press('Escape'); await pg.wait_for_timeout(150)

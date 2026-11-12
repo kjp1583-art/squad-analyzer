@@ -1904,6 +1904,7 @@
       const px = x + dx;
       const sh = chickSheetFor(pose);
       const paint = (oo) => {
+        if (E.skinPath) { const si = ld(E.skinPath); if (si) { spr(si, px, yy + 2, CHICK_H, oo); return; } }   // 👗 꾸미기 스킨(정지 그림) — 불러오는 동안은 기본 병아리
         if (sh) {
           const fps = sh.m.fps || 10; let f;
           if (pose === 'idle' || pose === 'run') f = Math.floor(E.t * fps); else if (pose === 'hurt') f = 0; else if (pose === 'die') f = Math.min(sh.n - 1, Math.floor(p.deadT < REVIVE_T ? (REVIVE_T - p.deadT) * 4 : 0)); else if (pose === 'cast') f = Math.min(sh.n - 1, Math.floor((p.cast ? p.cast.t / p.cast.dur : 1) * sh.n)); else f = Math.min(sh.n - 1, fr);
@@ -2363,6 +2364,7 @@
       tick(dt) { advance(dt); draw(); E.frames++; },
       sim(sec, dt) { dt = dt || 1 / 30; for (let t = 0; t < sec - 1e-9; t += dt) advance(dt); },
       stats: statsNow, input, setAuto, getAuto: () => E.autoWanted, isAutoActive: autoOn,
+      setSkin(p) { E.skinPath = (typeof p === 'string' && /^img\/brjang\/skins\/[a-z_]+\/front\.png$/.test(p)) ? p : null; },
       summonElite, dropFx, hasElite: () => !!(E.elite && E.elite.st !== 'dying'), clearElite() { if (E.elite) { E.elite.st = 'dying'; E.elite.t = 0; E.elite = null; } },
       startChallenge, bossResult, startInstance, instanceResult, skipInstance, abortInstance, setHidden(b) { b = !!b; if (b && !E.hidden) flushReport(); E.hidden = b; }, setPaused, setHud(b) { opts.hud = b; }, setKeys(b) { E.keysOff = !b; if (!b) blurAll(); },
       flush: flushReport, setTimeScale(v) { E.timeScale = v; },
