@@ -23,7 +23,7 @@ JS = r"""()=>{
   return {h0,h2,sum:(el.querySelector('summary')||{}).textContent||'',rows:el.querySelectorAll('.np-roster-grid>div').length,
     links:el.querySelectorAll('.clickname').length,hasImg:!!el.querySelector('img'),hasB:!!el.querySelector('.rt b'),text:el.textContent,
     open:el.querySelector('details').hasAttribute('open'),bigN:(hb.match(/np-roster-grid>/g)||[]).length+((new DOMParser().parseFromString(hb,'text/html')).querySelectorAll('.np-roster-grid>div').length),
-    pageHas:page.includes('np-roster'),before:page.indexOf('np-roster')>=0&&page.indexOf('np-roster')<page.indexOf('np-brj"')};
+    pageHas:page.includes('np-roster'),brjGone:!page.includes('np-brj"'),before:page.indexOf('np-roster')>=0&&page.indexOf('np-roster')<page.indexOf('np-brj"')};
 }"""
 async def after(pg):
     S = await pg.evaluate(JS)
@@ -34,7 +34,7 @@ async def after(pg):
     ok(S['links'] >= 1, 'A 이름은 프로필 링크(clickname) — 풀리는 이름만 (%d)' % S['links'])
     ok(not S['hasImg'] and not S['hasB'], 'C 이름·한 줄의 HTML 은 escape')
     ok('승초과' not in S['text'] and '판영' not in S['text'], 'C 승>판·판 0 은 걸러낸다')
-    ok(S['pageHas'] and S['before'], 'D 지면에 들어가고 브장신 코너보다 위에 있다')
+    ok(S['pageHas'] and S['brjGone'], 'D 지면에 들어가고 디스코드 브장신 코너는 없다(2026-11-12 제거)')
     ok(S['bigN'] == 250 * 2 or S['bigN'] >= 250, 'C 300명을 줘도 250명까지 (%s)' % S['bigN'])
     await pg.evaluate("()=>{const W={placeholder:false,week:{from:'2026-10-12',to:'2026-10-18',label:'x'},headline:'h',grade:{letter:'B',reason:'r'},summary:'s',events:[{emoji:'🏟',section:'협곡',title:'t',body:'b',photo:{kind:'none',key:''}}],notices:[],students:[],awards:[],homework:[],closing:'c',brj:[],issue:5,stats:{},facts:[],roster:Array.from({length:120},(_,i)=>({n:'사람'+i,g:1+i%9,w:i%3,t:i%4?'':'심야 3판'}))};document.body.insertAdjacentHTML('beforeend','<div id=rstest style=\"width:340px\">'+_npRoster(W)+'</div>');document.querySelector('#rstest details').open=true;}")
     # P-43: 로그인한 사람의 줄이 맨 위 ⭐ 로 · 이름 검색 · 로그인 안 했으면 그대로
