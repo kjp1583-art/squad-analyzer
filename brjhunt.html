@@ -236,6 +236,9 @@ button.cd:active{transform:scale(.97)}
 .t-normal{color:var(--g-normal)} .t-rare{color:var(--g-rare)} .t-epic{color:var(--g-epic)} .t-unique{color:var(--g-unique)} .t-legend{color:var(--g-legend)}
 .new{background:var(--red);color:#fff;border-radius:6px;font-size:10px;padding:1px 5px;margin-left:4px}
 .party{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.party .slot{flex:1 1 58px;font-size:11.5px;padding:5px 3px}
+.synrow{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px}.synrow:last-child{border-bottom:0}.synrow .pill{flex:none}
+.syntbl td{padding:2px 6px 2px 0;font-size:11.5px;color:var(--sub);vertical-align:top}
 .sdb{display:flex;justify-content:center;line-height:0}.sdb .sd{display:block}
 .cd .sdb{float:right;margin:-2px -2px 2px 4px}
 .crewsk{font-size:12px;color:var(--sub);margin-top:3px;line-height:1.35}.crewsk b{color:var(--ink,inherit)}
@@ -531,8 +534,8 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
 <div id="awk" role="alertdialog" aria-label="각성 성공" tabindex="-1"></div>
 
 <script src="brjhunt_audio.js?v=3"></script>
-<script src="brjhunt_sd.js?v=1"></script>
-<script src="brjhunt_arena.js?v=5"></script>
+<script src="brjhunt_sd.js?v=2"></script>
+<script src="brjhunt_arena.js?v=6"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
 // 로그인·서버 주소는 survivors.html 과 같은 방식(디스코드 토큰은 메인 사이트와 같은 localStorage 칸 sgg_dc).
@@ -677,7 +680,7 @@ function fieldSkills(){
           passive:(p&&p.unlocked&&p.kind==='passive')?p.id:null};
 }
 function fieldState(){
-  const v=V||{}, f=v.field||{}, cb=(v.stats&&v.stats.combat)||v.combat||null, sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,3):[], cards=Array.isArray(sm.cards)?sm.cards:[];
+  const v=V||{}, f=v.field||{}, cb=(v.stats&&v.stats.combat)||v.combat||null, sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,5):[], cards=Array.isArray(sm.cards)?sm.cards:[];
   const o={stage:N(v.stage)||1,region:String(v.region||''),rec_power:N(f.rec_power)||N(v.rec),kpm_model:N(f.kpm_model)||kpmNow(),
     party:ids.map(id=>cards.find(c=>c&&c.id===id)).filter(Boolean).map(c=>{const k=c.sk||{},a=k.act||{},p=k.pas||{}; return {id:String(c.id),n:String(c.n||'?'),gr:grKey(c.gr),fam:String(k.fam||''),act:k.fam?{kind:String(a.kind||''),nm:String(a.nm||''),mult:nn(a.mult),hits:nn(a.hits),cd:nn(a.cd),pct:nn(a.pct),dur:nn(a.dur)}:undefined,pas:k.fam?{axis:String(p.axis||''),nm:String(p.nm||''),pct:nn(p.pct)}:undefined};}),
     skills:fieldSkills(),boss:BOSS};
@@ -1125,7 +1128,7 @@ function curParty(){ if(PARTY===null){ PARTY=(Array.isArray(R(V.summon,'party',[
 function tabCrew(){
   const s=V.summon||{}; const cards=Array.isArray(s.cards)?s.cards:[]; const pool=s.pool||{};
   const party=curParty(); const byId={}; cards.forEach(c=>byId[String(c.id)]=c);
-  const slots=[]; for(let i=0;i<N(s.party_max||3);i++){ const c=byId[party[i]]; slots.push(c?`<div class="slot gr-${grKey(c.gr)}" style="border-style:solid">${sdPic(c,40)}${esc(c.n)}<br><span class="mut">+${N(c.bonus).toFixed(1)}%</span></div>`:`<div class="slot mut">빈 자리</div>`); }
+  const slots=[]; for(let i=0;i<N(s.party_max||5);i++){ const c=byId[party[i]]; slots.push(c?`<div class="slot gr-${grKey(c.gr)}" style="border-style:solid">${sdPic(c,40)}${esc(c.n)}<br><span class="mut">+${N(c.bonus).toFixed(1)}%</span></div>`:`<div class="slot mut">빈 자리</div>`); }
   const pend=PARTY_DIRTY;
   const nextAt=s.slv_next_at;
   const rt=Array.isArray(s.rate_table)?s.rate_table:[];
@@ -1153,10 +1156,11 @@ function tabCrew(){
   </div>
   <div class="card">
     <h2>👥 파티 편성 · 장착효과 <span class="pill">공격력·체력 +${N(s.stat_pct!=null?s.stat_pct:(N(s.mult||1)-1)*100).toFixed(1)}%</span></h2>
-    <div class="sub"><b>장착효과</b> — 동료를 최대 ${fmt(s.party_max)}명 골라 파티에 넣으면 <b>공격력과 체력</b>이 늘어요 (최대 ×${N(s.mult_cap).toFixed(1)}). 파티 동료는 필드에서 병아리 곁을 따라다니며 <b>같이 싸우고</b>, 동료마다 <b>고유 액티브(⚡)</b>를 쓰고 <b>고유 패시브(🔰)</b>로 병아리를 도와요. 아래 카드를 눌러 넣고 빼세요.</div>
+    <div class="sub"><b>장착효과</b> — 동료를 최대 ${fmt(s.party_max)}명(탑·정글·미드·원딜·서폿) 골라 파티에 넣으면 <b>공격력과 체력</b>이 늘어요 (최대 ×${N(s.mult_cap).toFixed(1)}). 파티 동료는 필드에서 병아리 곁을 따라다니며 <b>같이 싸우고</b>, 동료마다 <b>고유 액티브(⚡)</b>를 쓰고 <b>고유 패시브(🔰)</b>로 병아리를 도와요. 아래 카드를 눌러 넣고 빼세요.</div>
     <div class="party">${slots.join('')}</div>
     <div class="btns"><button class="btn ${pend?'':'alt'}" data-do="party" ${pend?'':'disabled'}>${pend?'편성 저장':'저장됨'}</button>${pend?'<button class="btn alt" data-do="partyreset">되돌리기</button>':''}</div>
-    ${party.length?`<h3>⚡ 파티 고유 스킬 — 필드에서 같이 싸워요</h3>${party.map(id=>byId[id]).filter(Boolean).map(c=>{const k=c.sk;return k?`<div class="crewrow">${sdPic(c,44)}<div class="tx"><b>${esc(c.n)}</b> <span class="pill">${esc(k.em||'')} ${esc(k.fam_ko||'')}</span><div class="crewsk">⚡ <b>${esc(k.act.nm)}</b> (${N(k.act.cd)}초마다) — ${esc(k.act.desc)}<br>🔰 <b>${esc(k.pas.nm)}</b> — ${esc(k.pas.desc)}</div></div></div>`:'';}).join('')}<div class="sub">패시브 합계(전투력에 반영): ${['atk','def','hp','crit'].map(a=>[a,N(R(s.pas,a,0))]).filter(x=>x[1]>0).map(x=>`${({atk:'공격력',def:'방어력',hp:'체력',crit:'크리티컬 확률'})[x[0]]} +${x[1].toFixed(2)}${x[0]==='crit'?'%p':'%'}`).join(' · ')||'없음'}</div>`:''}
+    ${party.length?`<h3>⚡ 파티 고유 스킬 — 필드에서 같이 싸워요</h3>${party.map(id=>byId[id]).filter(Boolean).map(c=>{const k=c.sk;return k?`<div class="crewrow">${sdPic(c,44)}<div class="tx"><b>${esc(c.n)}</b> <span class="pill">${esc(k.em||'')} ${esc(k.pos||'')} · ${esc(k.fam_ko||'')}</span><div class="crewsk">⚡ <b>${esc(k.act.nm)}</b> (${N(k.act.cd)}초마다) — ${esc(k.act.desc)}<br>🔰 <b>${esc(k.pas.nm)}</b> — ${esc(k.pas.desc)}</div></div></div>`:'';}).join('')}<div class="sub">패시브 합계(전투력에 반영): ${axesTxt(s.pas)}</div>`:''}
+    <h3>🔗 시너지 세트 효과</h3>${synHtml(s)}
     <details><summary>등급별 보너스 보기</summary><div class="sub">동료 1명이 주는 공격력·체력 보너스(동료 Lv.1): ${Object.entries(s.grade_bonus||{}).map(([k,p])=>`${esc(k)} +${N(p)}%`).join(' · ')}. 동료 레벨이 1 오를 때마다 그 보너스가 ${fmt(s.lv_bonus_pct)}%씩 커져요.</div></details>
   </div>
   <div class="card">
@@ -1169,6 +1173,13 @@ function tabCrew(){
     ${cards.length?`<div class="grid">${cards.map(c=>cardHtml(c,party.includes(String(c.id)))).join('')}</div>`:'<div class="sub">아직 동료가 없어요. 소환권으로 클랜원 카드를 뽑아 보세요! 소환권은 보스·던전·내전 상자·오늘 할 일에서 얻어요.</div>'}
   </div>`;
 }
+const AX_KO={atk:'공격력',def:'방어력',hp:'체력',crit:'크리티컬 확률',critdmg:'크리티컬 피해'};
+function axesTxt(o){ const t=['atk','def','hp','crit','critdmg'].map(a=>[a,N(R(o,a,0))]).filter(x=>x[1]>0).map(x=>`${AX_KO[x[0]]} +${x[1].toFixed(1)}${x[0]==='crit'?'%p':'%'}`).join(' · '); return t||'없음'; }
+function synHtml(s){ const syn=s.syn||{}, act=Array.isArray(syn.active)?syn.active:[], tbl=Array.isArray(s.syn_table)?s.syn_table:[];
+  const on=act.length?act.map(a=>`<div class="synrow"><span class="pill green">발동</span><div><b>${esc(a.nm)}</b> <span class="mut">${esc(a.what||'')}</span><br>${axesTxt(a.bonus)}</div></div>`).join(''):'<div class="sub">지금 발동 중인 시너지가 없어요. 같은 포지션·같은 등급 동료를 모으거나, 탑·정글·미드·원딜·서폿을 한 명씩 넣어 보세요.</div>';
+  const sum=act.length?`<div class="sub">시너지 합계(전투력에 반영): ${axesTxt(syn.bonus)}</div>`:'';
+  const tb=tbl.length?`<details><summary>시너지 목록 보기</summary><table class="syntbl">${tbl.map(a=>`<tr><td><b>${esc(a.nm)}</b></td><td>${esc(a.what||'')}</td><td>${axesTxt(a.bonus)}</td></tr>`).join('')}</table></details>`:'';
+  return on+sum+tb; }
 function sdPic(c,px){ // 동료 SD 그림(brjhunt_sd.js 한 곳의 그림 — 카드·파티 칸·필드가 같은 그림). 파일이 없으면 이모지.
   const k=c&&c.sk; try{ if(window.BrjSD&&k&&k.fam) return `<div class="sdb">${BrjSD.svg(k.fam,grKey(c.gr),px)}</div>`; }catch(e){} return k&&k.em?`<div class="sdb" style="font-size:${Math.round(px*.7)}px;line-height:1.1">${esc(k.em)}</div>`:''; }
 function cardHtml(c,sel){
@@ -1176,7 +1187,7 @@ function cardHtml(c,sel){
   const f=(Array.isArray(c.f)?c.f:[]).slice(0,2).map(x=>esc(x)).join('<br>');
   const k=c.sk||null;
   return `<button class="cd gr-${g}${sel?' sel':''}${c.gone?' gone':''}" data-card="${esc(c.id)}" aria-pressed="${sel?'true':'false'}">
-    ${sdPic(c,44)}<div class="gr t-${g}">${esc(GR_KO[g])} · Lv.${fmt(c.lv)}${k?` · ${esc(k.em||'')}${esc(k.fam_ko||'')}`:''}</div><div class="nm">${esc(c.n)}${sel?' ✅':''}</div>
+    ${sdPic(c,44)}<div class="gr t-${g}">${esc(GR_KO[g])} · Lv.${fmt(c.lv)}${k?` · ${esc(k.pos||'')} ${esc(k.fam_ko||'')}`:''}</div><div class="nm">${esc(c.n)}${sel?' ✅':''}</div>
     ${k?`<div class="crewsk">⚡ <b>${esc(k.act.nm)}</b> — ${esc(k.act.desc)}<br>🔰 <b>${esc(k.pas.nm)}</b> — ${esc(k.pas.desc)}</div>`:''}
     <div class="ft">🛡 장착 +${N(c.bonus).toFixed(1)}% 공격·체력</div><div class="ft">🎒 보유 +${N(c.own_pct).toFixed(2)}% 방어·명중</div><div class="ft">${c.next_sh?`조각 ${fmt(c.sh)}/${fmt(c.next_sh)}`:'최고 레벨'}</div><div class="ft">${f}</div></button>`;
 }
@@ -1757,7 +1768,7 @@ document.addEventListener('click',e=>{
     snd('tab'); TAB=k; WOPEN=true; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); return; }
   if(t.dataset.card!=null){   // 파티 편성(저장 전까지는 이 화면에서만 바뀐다)
     snd('click');
-    const id=t.dataset.card, p=curParty(), i=p.indexOf(id), mx=N(R(V.summon,'party_max',3))||3;
+    const id=t.dataset.card, p=curParty(), i=p.indexOf(id), mx=N(R(V.summon,'party_max',5))||5;
     if(i>=0) p.splice(i,1); else if(p.length<mx) p.push(id); else { toast(`파티는 최대 ${mx}명이에요`); snd('error'); return; }
     PARTY_DIRTY=true; MSG=null; render(); return;
   }

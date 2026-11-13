@@ -74,16 +74,15 @@
   const HUE = [205, 28, 345, 262, 140, 190];
   // 🐥 동료(SD) — 병아리 곁에서 같이 싸운다. 숫자는 가정값(서버 표 BRS_FAMS 와 같은 계열 키). 처치 속도는 mobHp 보정(derive)으로 서버 kpm 모델에 맞춘다.
   const ALLY_BASIC = { normal: 34, rare: 42, epic: 52, unique: 66, legend: 86 };   // 동료 기본 공격 = 병아리 공격력의 이 %
-  const ALLY_BASIC_CD = 1.25, ALLY_UPTIME = 1.1, ALLY_REACH = 190;
-  const ALLY_FAM = {   // 서버가 계열/액티브를 안 줬을 때의 기본값 + 계열 색·도달 방식(melee=앞에 서서 · ranged=뒤에서)
-    blade: { col: '#ffd86a', melee: true,  act: { kind: 'strike', nm: '연속 베기', mult: 90,  hits: 3, cd: 6.0 },  axis: 'atk' },
-    bow:   { col: '#7ddc8a', melee: false, act: { kind: 'volley', nm: '화살 비',   mult: 70,  hits: 4, cd: 7.0 },  axis: 'crit' },
-    mage:  { col: '#b99cff', melee: false, act: { kind: 'burst',  nm: '마력 폭발', mult: 150, hits: 2, cd: 8.0 },  axis: 'atk' },
-    tank:  { col: '#8fb4ff', melee: true,  act: { kind: 'guard',  nm: '방패 벽',   mult: 0, hits: 0, cd: 12.0, pct: 30, dur: 4 }, axis: 'def' },
-    heal:  { col: '#ff9fc2', melee: false, act: { kind: 'heal',   nm: '응급 처치', mult: 0, hits: 0, cd: 11.0, pct: 8 },          axis: 'hp' },
-    lucky: { col: '#ffd23c', melee: false, act: { kind: 'coin',   nm: '황금 동전', mult: 260, hits: 1, cd: 7.5 },  axis: 'crit' }
+  const ALLY_UPTIME = 1.25, ALLY_REACH = 190, ALLY_MAX = 5;
+  const ALLY_FAM = {   // 직업군(포지션) — 서버가 계열/액티브를 안 줬을 때의 기본값 + 색·자리·기본 공격 빠르기(bcd 초)·배율(bm)
+    tank:  { col: '#8fb4ff', melee: true,  bcd: 1.5,  bm: 0.8, axis: 'def',     act: { kind: 'guard',   nm: '방패 도발', mult: 40,  hits: 1, cd: 12.0, pct: 30, dur: 4 } },   // 탑: 탱커 — 방패·도발
+    blade: { col: '#ffd86a', melee: true,  bcd: 1.0,  bm: 1.0, axis: 'atk',     act: { kind: 'strike',  nm: '급습',     mult: 90,  hits: 3, cd: 6.0 } },                       // 정글: 기동·처치·급습
+    mage:  { col: '#b99cff', melee: false, bcd: 1.6,  bm: 1.0, axis: 'critdmg', act: { kind: 'burst',   nm: '마력 폭발', mult: 150, hits: 2, cd: 8.0 } },                       // 미드: 광역 마법
+    bow:   { col: '#7ddc8a', melee: false, bcd: 0.8,  bm: 0.9, axis: 'crit',    act: { kind: 'barrage', nm: '집중 사격', mult: 55,  hits: 5, cd: 6.5 } },                       // 원딜: 지속 단일 딜
+    heal:  { col: '#ff9fc2', melee: false, bcd: 1.4,  bm: 0.7, axis: 'hp',      act: { kind: 'heal',    nm: '응급 처치', mult: 0, hits: 0, cd: 11.0, pct: 8, gpct: 15, dur: 3 } }   // 서폿: 회복·보호막
   };
-  const AXIS_ICON = { atk: '⚔', crit: '🎯', def: '🛡', hp: '❤' };
+  const AXIS_ICON = { atk: '⚔', crit: '🎯', critdmg: '💥', def: '🛡', hp: '❤' };
   const GR_COL = { normal: '#98a2b8', rare: '#4aa3ff', epic: '#b678ff', unique: '#ffa23a', legend: '#ff5c7a' };
   const SKILL_IDS = ['slash', 'peck', 'spin', 'bomb', 'thunder', 'fire', 'egg', 'shield', 'shrimp', 'storm', 'ice', 'gale', 'meteor', 'phoenix', 'rage', 'blink', 'pull', 'ward'];
   const SKD = {   // 서버가 안 준 칸을 채우는 기본값
@@ -492,17 +491,17 @@
     }
     function allyProf(p) {
       const fam = ALLY_FAM[p && p.fam] ? p.fam : 'blade', f = ALLY_FAM[fam], a = (p && p.act && ALLY_KINDS.indexOf(p.act.kind) >= 0) ? p.act : f.act;
-      return { fam, col: f.col, melee: f.melee, axis: (p && p.pas && AXIS_ICON[p.pas.axis]) ? p.pas.axis : f.axis,
-        act: { kind: a.kind, nm: String(a.nm || f.act.nm).slice(0, 14), mult: clamp(N(a.mult), 0, 2000), hits: clamp(Math.round(N(a.hits)), 0, 8), cd: clamp(N(a.cd) || f.act.cd, 2, 60), pct: clamp(N(a.pct), 0, 80), dur: clamp(N(a.dur) || 4, 1, 10) },
+      return { fam, col: f.col, melee: f.melee, bcd: f.bcd, bm: f.bm, axis: (p && p.pas && AXIS_ICON[p.pas.axis]) ? p.pas.axis : f.axis,
+        act: { kind: a.kind, nm: String(a.nm || f.act.nm).slice(0, 14), mult: clamp(N(a.mult), 0, 2000), hits: clamp(Math.round(N(a.hits)), 0, 8), cd: clamp(N(a.cd) || f.act.cd, 2, 60), pct: clamp(N(a.pct), 0, 80), gpct: clamp(N(a.gpct), 0, 80), dur: clamp(N(a.dur) || 4, 1, 10) },
         pasNm: String((p && p.pas && p.pas.nm) || '').slice(0, 14), pasPct: N(p && p.pas && p.pas.pct) };
     }
-    const ALLY_KINDS = ['strike', 'volley', 'burst', 'guard', 'heal', 'coin'];
+    const ALLY_KINDS = ['strike', 'barrage', 'burst', 'guard', 'heal'];
     function allyDpsNom() {   // 동료들이 평균적으로 보태는 초당 피해(몹 체력 보정에만 쓴다 — 적중·크리 무시한 확정 피해, 가동률 ALLY_UPTIME)
       let sum = 0;
-      for (const p of (st.party || []).slice(0, 3)) {
+      for (const p of (st.party || []).slice(0, ALLY_MAX)) {
         if (!p) continue; const pr = allyProf(p), bm = ALLY_BASIC[p.gr] || ALLY_BASIC.normal;
-        let d = C.atk * bm / 100 / ALLY_BASIC_CD;
-        const k = pr.act.kind; if (k === 'strike' || k === 'volley' || k === 'coin') d += C.atk * pr.act.mult / 100 * pr.act.hits / pr.act.cd; else if (k === 'burst') d += C.atk * pr.act.mult / 100 * pr.act.hits * 1.5 / pr.act.cd;
+        let d = C.atk * bm * pr.bm / 100 / pr.bcd;
+        const k = pr.act.kind; if (k === 'strike' || k === 'barrage') d += C.atk * pr.act.mult / 100 * pr.act.hits / pr.act.cd; else if (k === 'burst') d += C.atk * pr.act.mult / 100 * pr.act.hits * 1.5 / pr.act.cd; else if (k === 'guard') d += C.atk * pr.act.mult / 100 * 2 / pr.act.cd;
         sum += d;
       }
       return sum * ALLY_UPTIME;
@@ -2316,7 +2315,7 @@
     }
     const allies = [], allyFx = [];
     function syncParty() {
-      const ids = (st.party || []).slice(0, 3), key = ids.map(p => p ? [p.id, p.fam, p.act && p.act.nm, p.pas && p.pas.pct].join(':') : '').join(',');
+      const ids = (st.party || []).slice(0, ALLY_MAX), key = ids.map(p => p ? [p.id, p.fam, p.act && p.act.nm, p.pas && p.pas.pct].join(':') : '').join(',');
       if (key === E.pkey) return; E.pkey = key; allies.length = 0; allyFx.length = 0;
       ids.forEach((p, i) => {
         if (!p) return; const pr = allyProf(p);
@@ -2342,14 +2341,23 @@
       say(ac.nm, a.x, a.y - 30, 'a', 11, pr.col, '#1c1230');
       ring(a.x, a.y - 10, pr.col, 30, 0.35);
       const k = ac.kind;
-      if (k === 'guard') { P.guardT = ac.dur; P.guardPct = ac.pct / 100; ring(P.x, P.y - 14, pr.col, 52, 0.6); ring(P.x, P.y - 14, '#ffffff', 36, 0.45); say('방패! -' + Math.round(ac.pct) + '%', P.x, P.y - PH - 14, 'a', 12, pr.col, '#1c1230'); return; }
-      if (k === 'heal') { const hv = Math.max(1, Math.round(P.hpMax * ac.pct / 100)); P.hp = Math.min(P.hpMax, P.hp + hv); say('+' + fmtNum(hv), P.x, P.y - PH - 8, 'a', 15, '#6bf0a0', '#0b3a22'); ring(P.x, P.y - 14, '#6bf0a0', 50, 0.6); poof(P.x, P.y - 22, '#b8ffd0', 8, 70, 40); return; }
+      if (k === 'guard') {   // 탑: 방패 + 도발 — 병아리를 지키고 주변 몬스터를 한 대씩 때려 시선을 끈다
+        P.guardT = Math.max(P.guardT, ac.dur); P.guardPct = Math.max(P.guardPct, ac.pct / 100);
+        ring(P.x, P.y - 14, pr.col, 52, 0.6); ring(P.x, P.y - 14, '#ffffff', 36, 0.45); say('방패! -' + Math.round(ac.pct) + '%', P.x, P.y - PH - 14, 'a', 12, pr.col, '#1c1230');
+        ring(a.x, a.y - 10, '#ffffff', 80, 0.45);
+        for (const m of allyTargets(a, 4)) { if (Math.abs(m.x - a.x) < 130) { hitMob(m, ac.mult, { sure: true, ally: true, fromX: a.x, col: pr.col, kb: 70 }); } }
+        return;
+      }
+      if (k === 'heal') {   // 서폿: 회복 + 보호막(받는 피해 감소)
+        if (P.hp < P.hpMax) { const hv = Math.max(1, Math.round(P.hpMax * ac.pct / 100)); P.hp = Math.min(P.hpMax, P.hp + hv); say('+' + fmtNum(hv), P.x, P.y - PH - 8, 'a', 15, '#6bf0a0', '#0b3a22'); poof(P.x, P.y - 22, '#b8ffd0', 8, 70, 40); }
+        P.guardT = Math.max(P.guardT, ac.dur); P.guardPct = Math.max(P.guardPct, (ac.gpct || 15) / 100); ring(P.x, P.y - 14, '#6bf0a0', 50, 0.6); ring(P.x, P.y - 14, '#ffffff', 34, 0.4);
+        return;
+      }
       const ts = allyTargets(a, 6); if (!ts.length) return;
       const t0 = ts[0], pc = ac.mult;
       if (k === 'strike') { a.dash = 0.5; a.tx = t0.x + (a.x < t0.x ? -16 : 16); for (let h = 0; h < ac.hits; h++) a.q.push({ t: 0.18 + h * 0.14, f: () => { if (liveMob(t0)) { allyBeam(a, t0, '#ffffff', 0.1); sparks(t0.x, t0.y - 14, a.x < t0.x ? 1 : -1, '#fff6c0', 5, 170); allyHit(a, t0, pc, pr.col); } } }); }
-      else if (k === 'volley') { for (let h = 0; h < ac.hits; h++) a.q.push({ t: 0.1 + h * 0.1, f: () => { const tt = allyTargets(a, 6); const m = tt[h % Math.max(1, tt.length)]; if (m) { allyBeam(a, m, pr.col, 0.16); allyHit(a, m, pc, pr.col); } } }); }
+      else if (k === 'barrage') { for (let h = 0; h < ac.hits; h++) a.q.push({ t: 0.08 + h * 0.09, f: () => { let m = t0; if (!liveMob(m)) { const tt = allyTargets(a, 1); m = tt[0]; } if (m) { allyBeam(a, m, pr.col, 0.14); allyHit(a, m, pc, pr.col); } } }); }
       else if (k === 'burst') { ring(t0.x, t0.y - 10, pr.col, 70, 0.5); for (let h = 0; h < ac.hits; h++) a.q.push({ t: 0.3 + h * 0.25, f: () => { ring(t0.x, t0.y - 10, pr.col, 60 + h * 14, 0.35); poof(t0.x, t0.y - 14, pr.col, 10, 150); for (const m of mobsInBox(t0.x - 70, t0.x + 70, t0.y - 70, t0.y + 20, 8)) if (!m.boss) allyHit(a, m, pc, pr.col); } }); }
-      else if (k === 'coin') { a.q.push({ t: 0.2, f: () => { if (liveMob(t0)) { allyBeam(a, t0, '#ffd23c', 0.2); for (let c = 0; c < 6; c++) newPart('coin', t0.x, t0.y - 16, (rnd() - 0.5) * 160, -170 - rnd() * 90, 6, 4.2, '#ffd23c').b = t0.y; allyHit(a, t0, pc, '#ffd23c'); } } }); }
     }
     function updateAllies(h) {
       for (const a of allies) {
@@ -2357,7 +2365,7 @@
         a.flash = Math.max(0, a.flash - h); a.cd -= h; a.acd -= h; a.pulse -= h; a.dash = Math.max(0, a.dash - h);
         for (let i = a.q.length - 1; i >= 0; i--) { const e = a.q[i]; e.t -= h; if (e.t <= 0) { a.q.splice(i, 1); try { e.f(); } catch (x) { } } }
         // 자리 잡기: 근접 계열은 병아리 앞쪽(적 쪽), 원거리는 뒤쪽
-        const side = pr.melee ? 1 : -1, tx = a.dash > 0 ? a.tx : P.x + P.face * side * (22 + a.i * 20), ty = P.y;
+        const side = pr.melee ? 1 : -1, tx = a.dash > 0 ? a.tx : P.x + P.face * side * (20 + Math.floor(a.i / 2) * 22 + (a.i % 2) * 6), ty = P.y;
         const sp = a.dash > 0 ? 0.35 : Math.min(1, 0.07 * 60 * h + 0.02);
         a.x += (tx - a.x) * sp; a.y += (ty - a.y) * Math.min(1, 0.12 + (a.dash > 0 ? 0.3 : 0));
         if (P.dead || boss && boss.state === 'intro') continue;
@@ -2367,15 +2375,15 @@
         if (a.acd <= 0) {
           const k = pr.act.kind;
           if (k === 'guard') { if (allyTargets(a, 1).length || P.hp < P.hpMax * 0.9 || boss) allyCast(a); else a.acd = 0.5; }
-          else if (k === 'heal') { if (P.hp < P.hpMax * 0.85) allyCast(a); else a.acd = 0.6; }
+          else if (k === 'heal') { if (P.hp < P.hpMax * 0.85 || (allyTargets(a, 1).length && P.guardT <= 0.2) || (boss && P.guardT <= 0.2)) allyCast(a); else a.acd = 0.6; }
           else { const t = allyTargets(a, 1); if (t.length) allyCast(a, t[0]); else a.acd = 0.4; }
         }
         // 기본 공격
         if (a.cd <= 0) {
           const t = allyTargets(a, 1);
           if (t.length) {
-            a.cd = ALLY_BASIC_CD * (0.9 + rnd() * 0.2); a.hop = 1; allyBeam(a, t[0], pr.col, 0.12);
-            allyHit(a, t[0], ALLY_BASIC[a.gr] || ALLY_BASIC.normal, pr.col);
+            a.cd = pr.bcd * (0.9 + rnd() * 0.2); a.hop = 1; allyBeam(a, t[0], pr.col, 0.12);
+            allyHit(a, t[0], (ALLY_BASIC[a.gr] || ALLY_BASIC.normal) * pr.bm, pr.col);
           } else a.cd = 0.3;
         }
       }

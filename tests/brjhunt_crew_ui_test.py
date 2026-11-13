@@ -32,13 +32,14 @@ async def run(vp, tag, port, shot=None):
         m = await pg.evaluate("""()=>{const w=document.getElementById('main');const cards=[...w.querySelectorAll('button.cd')];
           return {cards:cards.length, sd:cards.filter(c=>c.querySelector('svg.sd')).length, act:cards.filter(c=>/⚡/.test(c.textContent)).length, pas:cards.filter(c=>/🔰/.test(c.textContent)).length,
                   slots:[...w.querySelectorAll('.slot')].filter(s=>s.querySelector('svg.sd')).length, rows:w.querySelectorAll('.crewrow').length,
-                  overflow:w.scrollWidth>w.clientWidth+2, txt:w.textContent.includes('파티 고유 스킬')&&w.textContent.includes('패시브 합계')}}""")
+                  overflow:w.scrollWidth>w.clientWidth+2, txt:w.textContent.includes('파티 고유 스킬')&&w.textContent.includes('패시브 합계'), syn:w.querySelectorAll('.synrow').length, synTbl:!!w.querySelector('.syntbl'), pos:cards.filter(c=>/탑|정글|미드|원딜|서폿/.test(c.textContent)).length}}""")
         ok(m['cards'] >= 4 and m['sd'] == m['cards'], f'{tag}: 동료 카드마다 SD 그림 ({m["sd"]}/{m["cards"]})')
         ok(m['act'] == m['cards'] and m['pas'] == m['cards'], f'{tag}: 카드마다 고유 액티브(⚡)·패시브(🔰) 설명')
-        ok(m['slots'] == 3 and m['rows'] == 3 and m['txt'], f'{tag}: 파티 칸 3개에 SD 그림 · 파티 고유 스킬 목록 3줄 · 패시브 합계')
+        ok(m['slots'] == 5 and m['rows'] == 5 and m['txt'] and m['syn'] >= 3 and m['synTbl'], f'{tag}: 파티 칸 5개에 SD 그림 · 파티 고유 스킬 목록 5줄 · 패시브 합계 · 발동 중인 시너지 · 시너지 목록')
+        ok(m['pos'] == m['cards'], f'{tag}: 카드마다 포지션(직업군) 표시 ({m["pos"]}/{m["cards"]})')
         ok(not m['overflow'], f'{tag}: 가로로 넘치지 않음')
         f = await pg.evaluate("()=>{const s=window.__bt?window.__bt.party:-1;return s}")
-        ok(f == 3, f'{tag}: 필드 파티 동료 3명 ({f})')
+        ok(f == 5, f'{tag}: 필드 파티 동료 5명 ({f})')
         if shot: await pg.screenshot(path=shot)
         ok(not errs, f'{tag}: 페이지 오류 0 {errs[:2]}')
         await b.close()
