@@ -739,6 +739,39 @@ window.SGG_DC_BOOT=(function(){
     .card{padding:13px}
     .card h2{font-size:15px}
   }
+  /* 📱 [2026-11-14 P-19] 폰 첫 화면 머리 다이어트 — 헤더 얇게 · 필터 한 줄 · 탭 두 줄→한 줄 · 스크롤 내리면 헤더 숨김. PC(>720px)는 그대로 */
+  .hdpills{display:contents}
+  .fltrow,.tabswrap{display:block}
+  @media(max-width:720px){
+    .hd{flex-wrap:wrap;gap:6px 8px;padding:8px 12px}
+    .logo{order:1;margin-right:0;font-size:18px}
+    .searchwrap{order:2;flex:1 1 0;min-width:0}
+    .search input{padding:8px 10px;font-size:15px}
+    .hdpills{display:flex;order:3;flex:1 1 100%;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .hdpills::-webkit-scrollbar{display:none}
+    .hdpills .coachlink,.hdpills .dl{order:0;flex:0 0 auto;padding:4px 11px;font-size:12.5px;border-radius:999px;margin:0}
+    .hdpills .dl span.t{display:inline}.hdpills .dlver{display:none}
+    header{transition:transform .22s ease}
+    header.p19-hide{transform:translateY(-102%)}
+    #megaboard{margin:6px 0 0;padding:1.5px}
+    #megaboard .mega-in{padding:4px 10px;gap:7px;min-height:0}
+    #megaboard .mega-horn{font-size:16px}#megaboard .mega-msg{font-size:13px}#megaboard .mega-tap{font-size:11px}
+    .fltrow{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;margin-top:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .fltrow::-webkit-scrollbar{display:none}
+    .fltrow .catbar,.fltrow .patchbar{margin:0;overflow:visible;flex:0 0 auto}
+    .fltrow .patchbar.hidden{display:none}
+    body.p19-nofilter .fltrow{display:none}
+    .catbar .cat{padding:5px 11px;font-size:13px}
+    .pchip{padding:4px 9px;font-size:12.5px}
+    .tabswrap{position:relative;display:flex;flex-wrap:nowrap;overflow-x:auto;margin:6px 0 4px;border-bottom:1px solid var(--line);scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .tabswrap::-webkit-scrollbar{display:none}
+    .tabswrap .tabs,.tabswrap .tabs.tabs2{display:contents}
+    .tabswrap .tab{padding:8px 11px;font-size:14px;order:20}
+    .tabswrap .tab[data-k=home]{order:0}.tabswrap .tab[data-k=log]{order:1}.tabswrap .tab[data-k=tiers]{order:2}.tabswrap .tab[data-k=mastery]{order:3}.tabswrap .tab[data-k=champ]{order:4}
+    .tabswrap .tab.don{margin-left:2px}
+    .p19-hint{position:sticky;right:0;flex:0 0 22px;margin-left:-22px;order:99;align-self:stretch;display:flex;align-items:center;justify-content:flex-end;padding-right:3px;color:var(--sub);font-size:15px;font-weight:800;pointer-events:none;background:linear-gradient(90deg,transparent,var(--bg,#0e1117) 70%)}
+    .tabswrap.p19-end .p19-hint{display:none}
+  }
   /* 내전 기록부 */
   .logrow{display:flex;gap:12px;align-items:center;padding:9px 6px;border-top:1px solid var(--line);cursor:pointer;font-size:14.5px}
   .logrow:first-child{border-top:0}
@@ -1543,9 +1576,11 @@ window.SGG_DC_BOOT=(function(){
       </form>
       <div class="suggest hidden" id="suggest"></div>
     </div>
+    <div class="hdpills" id="hdpills">
     <a class="coachlink" href="#games" onclick="go('games');return false" title="스쿼드 미니게임 — 흐접새우 서바이벌 · 스콰드 생존게임을 한곳에서 골라서 플레이" style="color:#ff9a8a;border-color:#4a2420;background:#1e0f0d"><span class="t">🎮 미니게임</span></a>
     <a class="coachlink" href="coach.html" title="고스트밴픽왕 — 내 밴·픽 차례에 AI가 추천해주는 구독 서비스"><span class="t">고스트밴픽왕</span></a>
     <a class="dl" href="https://kjp1583-art.github.io/squad-analyzer/analyzer.html" title="스쿼드해체분석기 — 기능 소개와 다운로드">🖥 <span class="t">스쿼드해체분석기</span> <span class="dlver" id="dlver"></span></a>
+    </div>
   </div>
 </header>
 
@@ -1567,8 +1602,10 @@ window.SGG_DC_BOOT=(function(){
   </div>
 
   <div id="megaboard" class="hidden"></div>   <!-- 📢 고성능확성기 — 포인트로 1일간 메시지 게시(2026-08-06 사장님 지시) -->
+  <div class="fltrow" id="fltrow">
   <div class="catbar" id="catbar"></div>
   <div class="patchbar hidden" id="patchbar"></div>
+  </div>
   <div class="patchnote hidden" id="patchnote"></div>
   <div id="view"></div>
   <div id="pcard"></div>   <!-- 🪟 플레이어 카드 팝업(화면 전환과 무관하게 이 자리에 그린다) -->
@@ -7131,10 +7168,10 @@ function renderDonate(){
 }
 
 function navTabsHtml(active){
-  const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" onclick="go('${key}')">${label}</div>`;
+  const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" data-k="${key}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('scrim','스크림')}${tab('brjang','브키도감')}${tab('ideal','💘 이상형월드컵')}${tab('games','🎮 미니게임')}<div class="tab don ${active==='donate'?'on':''}" onclick="go('donate')">💝 후원</div></div>`;
+  return `<div class="tabswrap" id="tabswrap"><div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('scrim','스크림')}${tab('brjang','브키도감')}${tab('ideal','💘 이상형월드컵')}${tab('games','🎮 미니게임')}<div class="tab don ${active==='donate'?'on':''}" data-k="donate" onclick="go('donate')">💝 후원</div></div></div>`;
 }
 
 /* ============== 화면: 💘 이상형월드컵 (2026-10-18 사장님 지시) ==============
@@ -12100,10 +12137,38 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
     b.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
     document.body.appendChild(b);
     const mq=matchMedia("(max-width:760px)"); let t=0;
-    addEventListener("scroll",()=>{ if(t) return; t=setTimeout(()=>{ t=0; b.style.display=(mq.matches&&window.scrollY>1400)?"block":"none"; },120); },{passive:true});
+    addEventListener("scroll",()=>{ if(t) return; t=setTimeout(()=>{ t=0; b.style.display=(mq.matches&&window.scrollY>400)?"block":"none"; },120); },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611140300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+/* 📱 [2026-11-14 P-19] 폰 머리 다이어트 동작 — ① 지금 탭이 보이게 자동 스크롤 + 「›」 힌트 ② 필터를 안 쓰는 탭에선 필터 줄 숨김 ③ 아래로 내리면 헤더 숨김·올리면 나타남 */
+(function(){
+  try{
+    if(!window.matchMedia) return;
+    const mq=matchMedia("(max-width:720px)");
+    const NOFLT=new Set(["scrim","market","cal","brjang","ideal","games","donate","army","report"]);
+    let t=0;
+    const endMark=w=>w.classList.toggle("p19-end",w.scrollLeft+w.clientWidth>=w.scrollWidth-4);
+    const sync=()=>{ t=0;
+      const w=document.getElementById("tabswrap");
+      const on=w&&w.querySelector(".tab.on");
+      document.body.classList.toggle("p19-nofilter",!!(on&&NOFLT.has(on.getAttribute("data-k"))));
+      if(!w) return;
+      if(!w.querySelector(".p19-hint")){ const h=document.createElement("span"); h.className="p19-hint"; h.setAttribute("aria-hidden","true"); h.textContent="›"; w.appendChild(h); w.addEventListener("scroll",()=>endMark(w),{passive:true}); }
+      if(mq.matches&&on&&w.dataset.p19k!==on.getAttribute("data-k")){ w.dataset.p19k=on.getAttribute("data-k");
+        w.scrollLeft=Math.max(0,on.offsetLeft-(w.clientWidth-on.offsetWidth)/2); }
+      endMark(w);
+    };
+    const sched=()=>{ if(!t) t=setTimeout(sync,80); };
+    const start=()=>{ sync(); try{ new MutationObserver(sched).observe(document.getElementById("view")||document.body,{childList:true}); }catch(e){} };
+    if(document.readyState!=="loading") start(); else document.addEventListener("DOMContentLoaded",start);
+    let lastY=0; const hdr=()=>document.querySelector("header");
+    addEventListener("scroll",()=>{ const h=hdr(); if(!h) return; const y=scrollY;
+      if(!mq.matches||y<80||(document.activeElement&&document.activeElement.id==="q")){ h.classList.remove("p19-hide"); lastY=y; return; }
+      if(y>lastY+6) h.classList.add("p19-hide"); else if(y<lastY-6) h.classList.remove("p19-hide");
+      lastY=y; },{passive:true});
+  }catch(e){}
+})();
+const BUILD_ID="202611141200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
