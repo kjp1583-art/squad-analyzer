@@ -207,6 +207,9 @@ body.ininst #dock .push{pointer-events:none;opacity:.55}
 .cos.on{border-color:var(--gold,#ffb020);box-shadow:0 0 0 2px rgba(255,176,32,.25)}
 .cos .cimg{height:110px;display:flex;align-items:center;justify-content:center}
 .cos .cimg img{max-width:100%;max-height:110px;object-fit:contain}
+.cos .cem{font-size:54px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
+.cos{border-color:var(--rc,var(--line))}
+.cos .cimg{height:80px}
 .cos .cnm{font-weight:800;font-size:13px;margin:4px 0 2px}
 .cos .cds{font-size:11.5px;color:var(--sub,#8a93a6);min-height:30px;margin-bottom:6px}
 .cos .btn{width:100%}
@@ -693,7 +696,7 @@ function fieldState(){
 function updEliteBtn(){ const b=$('eliteBtn'); if(!b) return; const L=V&&V.loot, ch=L&&L.gauge?N(L.gauge.charges):0, act=!!(L&&L.elite); b.style.display=(STATE==='ok'&&(ch>0||act))?'':'none'; $('eliteN').textContent=act?'!':String(ch); b.classList.toggle('pulse',ch>0&&!act); b.title=act?'엘리트가 필드에 있어요':'엘리트 소환 — 지금 필드에 대형 몬스터를 불러요'; }
 function applySkin(){   // 👗 입고 있는 꾸미기 스킨을 사냥터 병아리와 왼쪽 위 얼굴에 반영
   const C=V&&V.cos, k=C&&Array.isArray(C.skins)?C.skins.find(x=>x.on):null, img=k&&/^img\/brjang\/skins\/[a-z_]+\/front\.png$/.test(String(k.img||''))?k.img:null;
-  try{ if(FIELD&&FIELD.setSkin) FIELD.setSkin(img); }catch(e){}
+  try{ if(FIELD&&FIELD.setSkin) FIELD.setSkin(img); if(FIELD&&FIELD.setParts) FIELD.setParts(img?{}:(C&&C.worn)||{}); }catch(e){}
   const av=$('avImg'); if(av){ const want=img||'img/brjang/parts/body_chick/front.png'; if(av.getAttribute('src')!==want){ av.style.display=''; av.src=want; } }
 }
 function pushField(){ document.body.classList.toggle('inboss',!!(BOSS||INSTANCE)); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(!WOPEN&&STATE==='ok'); syncElite(); applySkin(); }catch(e){ console.warn(e); } }
@@ -1281,15 +1284,21 @@ function itemHtml(it,mode){
     ${mode==='inv'?`<button class="btn alt" data-do="lootlock" data-id="${esc(it.id)}" aria-label="잠금 전환">${it.lock?'🔓':'🔒'}</button>`:''}</div></div>`;
 }
 function tabCos(){
-  const C=V.cos; if(!C||!Array.isArray(C.skins)) return `<div class="card empty"><div class="big">👗</div><div class="sub">꾸미기 정보를 아직 받지 못했어요. 서버가 업데이트되는 중일 수 있어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
-  const bal=N(C.md), pr=N(C.price)||1, on=String(C.on||'');
+  const C=V.cos; if(!C||!Array.isArray(C.parts)) return `<div class="card empty"><div class="big">👗</div><div class="sub">꾸미기 정보를 아직 받지 못했어요. 서버가 업데이트되는 중일 수 있어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
+  const bal=N(C.md), pr=N(C.price)||1, worn=C.worn||{}, g=N(C.own_gold_pct);
+  const RC={'일반':'#9aa3ad','레어':'#4aa8ff','에픽':'#b36bff','전설':'#ffb020'};
+  const slotName=Object.fromEntries((C.slots||[]).map(x=>[x.key,x.name]));
+  const card=k=>{ const key=esc(k.key), col=RC[k.rar]||'#9aa3ad';
+    const btn=k.owned?(k.on?`<button class="btn alt" data-do="cosequip" data-slot="${esc(k.slot)}" data-key="">벗기</button>`:`<button class="btn gold" data-do="cosequip" data-key="${key}">입기</button>`)
+      :`<button class="btn ${bal>=pr&&C.ok?'gold':'alt'}" data-do="cosbuy" data-key="${key}" data-name="${esc(k.name)}">🍘 ${fmt(pr)}개로 사기</button>`;
+    return `<div class="cos ${k.on?'on':''}" style="--rc:${col}"><div class="cimg"><span class="cem">${esc(k.emoji)}</span></div><div class="cnm">${esc(k.name)}</div><div class="cds"><b style="color:${col}">${esc(k.rar)}</b> · ${esc(k.desc)}<br><b class="green">보유 효과: 골드 +${g}%</b></div>${btn}</div>`; };
+  const bySlot=(C.slots||[]).map(sl=>{ const L=C.parts.filter(p=>p.slot===sl.key); return L.length?`<h3 class="skcat">${esc(sl.name)} <span class="mut">${fmt(L.filter(p=>p.owned).length)}/${fmt(L.length)}</span></h3><div class="cosgrid">${L.map(card).join('')}</div>`:''; }).join('');
+  const skins=Array.isArray(C.skins)?C.skins:[];
+  const skHtml=skins.length?`<h3 class="skcat">🌟 통짜 스킨 <span class="mut">(예전에 얻은 것 · 더는 팔지 않아요)</span></h3><div class="cosgrid">${skins.map(k=>`<div class="cos ${k.on?'on':''}"><div class="cimg"><img src="${esc(k.img)}" alt="${esc(k.name)}" loading="lazy"></div><div class="cnm">${esc(k.emoji)} ${esc(k.name)}</div><div class="cds">입으면 파츠는 가려져요 · 정지 그림이라 움직임은 단순해요</div>${k.on?`<button class="btn alt" data-do="cosequip" data-skin="">벗기</button>`:`<button class="btn gold" data-do="cosequip" data-skin="${esc(k.key)}">입기</button>`}</div>`).join('')}</div>`:'';
+  const nOwn=C.parts.filter(p=>p.owned).length+skins.length;
   return `<div class="card"><h2>👗 꾸미기 <span class="pill gold">🍘 맛동산 ${fmt(bal)}개</span></h2>
-    <div class="sub">스킨을 사면 사냥터의 병아리가 그 모습으로 바뀌어요. 능력치는 그대로고 겉모습만 달라져요. 스킨 하나에 <b>🍘 맛동산 ${fmt(pr)}개</b>(1천원)예요.${C.ok?'':'<br><b class="red">지금은 맛동산 장부를 읽는 중이라 살 수 없어요. 잠시 뒤 새로고침해 주세요.</b>'}</div>
-    ${on?`<div class="btns" style="margin:6px 0"><button class="btn alt" data-do="cosequip" data-key="">원래 모습으로 돌아가기</button></div>`:''}
-    <div class="cosgrid">${C.skins.map(k=>{ const key=esc(k.key), img=/^img\/brjang\/skins\/[a-z_]+\/front\.png$/.test(String(k.img||''))?esc(k.img):'';
-      const btn=k.owned?(k.on?`<button class="btn alt" disabled>입는 중 ✔</button>`:`<button class="btn gold" data-do="cosequip" data-key="${key}">입기</button>`)
-        :`<button class="btn ${bal>=pr&&C.ok?'gold':'alt'}" data-do="cosbuy" data-key="${key}" data-name="${esc(k.name)}">🍘 ${fmt(pr)}개로 사기</button>`;
-      return `<div class="cos ${k.on?'on':''}"><div class="cimg">${img?`<img src="${img}" alt="${esc(k.name)}" loading="lazy" onerror="this.style.display='none'">`:''}</div><div class="cnm">${esc(k.emoji)} ${esc(k.name)}</div><div class="cds">${esc(k.rar)} · ${esc(k.desc)}</div>${btn}</div>`; }).join('')}</div>
+    <div class="sub">움직이는 병아리에 <b>머리·얼굴·목·등</b> 파츠를 겹쳐 입어요(칸마다 하나씩). 하나에 <b>🍘 맛동산 ${fmt(pr)}개</b>(1천원)고, 가지고만 있어도 <b>획득 골드가 하나당 +${g}%</b> 늘어요(지금 ${fmt(nOwn)}개 · +${(nOwn*g).toFixed(1)}%).${C.ok?'':'<br><b class="red">지금은 맛동산 장부를 읽는 중이라 살 수 없어요. 잠시 뒤 새로고침해 주세요.</b>'}</div>
+    ${bySlot}${skHtml}
     ${bal<pr?`<div class="mut" style="margin-top:8px">맛동산이 모자라요. 맛동산은 후원 답례로 받는 화폐예요(1천원당 1개). 디스코드 <b>/후원</b> 안내를 봐 주세요.</div>`:''}
   </div>`;
 }
@@ -1688,9 +1697,10 @@ const DO={
     if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
   elite:()=>doElite(false),
-  cosbuy:el=>{ const nm=el.dataset.name||'이 스킨'; if(!confirm(`🍘 맛동산 ${fmt(N((V.cos||{}).price)||1)}개로 「${nm}」을(를) 살까요?`)) return;
+  cosbuy:el=>{ const nm=el.dataset.name||'이 파츠'; if(!confirm(`🍘 맛동산 ${fmt(N((V.cos||{}).price)||1)}개로 「${nm}」을(를) 살까요?`)) return;
     act('/brj/cos_buy',{key:el.dataset.key},j=>{ const m={ok:()=>[`👗 「${nm}」을(를) 샀어요! 바로 입었어요.`,'ok'],owned:()=>['이미 가지고 있어요.','info'],short:()=>['🍘 맛동산이 모자라요.','bad'],busy:()=>['지금 장부가 바빠요. 잠시 뒤 다시 해 주세요.','bad'],save_fail:()=>['저장이 잠깐 안 돼서 맛동산을 쓰지 않았어요. 다시 해 주세요.','bad']}[j.result]||(()=>['처리하지 못했어요.','bad']); const t=m(); say(t[0],t[1]); if(j.result==='ok') snd('enhance_ok'); }); },
-  cosequip:el=>act('/brj/cos_equip',{key:el.dataset.key||''},j=>{ say(j.result==='ok'?(el.dataset.key?'👗 갈아입었어요!':'원래 모습으로 돌아왔어요.'):(j.result==='not_owned'?'아직 없는 스킨이에요.':'처리하지 못했어요.'),j.result==='ok'?'ok':'bad'); }),
+  cosequip:el=>{ const body=el.dataset.skin!==undefined?{skin:el.dataset.skin}:(el.dataset.key?{key:el.dataset.key}:{slot:el.dataset.slot});
+    act('/brj/cos_equip',body,j=>{ say(j.result==='ok'?(el.dataset.key||el.dataset.skin?'👗 갈아입었어요!':'벗었어요.'):(j.result==='not_owned'?'아직 없는 꾸미기예요.':'처리하지 못했어요.'),j.result==='ok'?'ok':'bad'); }); },
   lootequip:el=>act('/brj/loot_equip',{id:el.dataset.id},j=>{ say(j.result==='ok'?'🧥 장착했어요!':'그 장비를 찾을 수 없어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   lootunequip:el=>act('/brj/loot_unequip',{slot:el.dataset.slot},j=>{ say('장비를 벗었어요.','info'); }),
   lootlock:el=>act('/brj/loot_lock',{id:el.dataset.id},j=>{ say(j.lock?'🔒 잠갔어요. 분해에서 빠져요.':'🔓 잠금을 풀었어요.','info'); }),

@@ -54,9 +54,9 @@ async def main():
         for r, d in res.items():
             print('   power/rec=%s  평균 %.0f  (p10 %.0f · p90 %.0f · 최소 %.0f · 최대 %.0f)  구성별 %s  맵별 %s' % (r, d['avg'], d['p10'], d['p90'], d['min'], d['max'], {k: round(v) for k, v in d['byset'].items()}, {k: round(v) for k, v in d['bymap'].items()}))
         check('power/rec = 0.5 → 분당 처치 평균 42~62 (목표 ≈ 50)', 42 <= res[0.5]['avg'] <= 62, round(res[0.5]['avg']))
-        check('power/rec = 1 → 분당 처치 평균 82~112 (웨이브 리젠 뒤 ≈ 90~100)', 82 <= res[1]['avg'] <= 112, round(res[1]['avg']))
-        check('power/rec = 2 → 분당 처치 평균 80~115 (웨이브 리젠 뒤 엔진 위쪽 한계 ≈ 100)', 80 <= res[2]['avg'] <= 115, round(res[2]['avg']))
-        check('전투력이 오를수록 처치가 는다(단조) — 0.5 < 1 < 2 (각 단계 +15% 이상)', res[1]['avg'] > res[0.5]['avg'] * 1.15 and res[2]['avg'] > res[1]['avg'] * 0.95, [round(res[r]['avg']) for r in (0.5, 1, 2)])
+        check('power/rec = 1 → 분당 처치 평균 88~112 (목표 ≈ 100)', 88 <= res[1]['avg'] <= 112, round(res[1]['avg']))
+        check('power/rec = 2 → 분당 처치 평균 115~145 (목표 ≈ 140 — 엔진 위쪽 한계 ≈ 128)', 115 <= res[2]['avg'] <= 145, round(res[2]['avg']))
+        check('전투력이 오를수록 처치가 는다(단조) — 0.5 < 1 < 2 (각 단계 +15% 이상)', res[1]['avg'] > res[0.5]['avg'] * 1.15 and res[2]['avg'] > res[1]['avg'] * 1.1, [round(res[r]['avg']) for r in (0.5, 1, 2)])
         check('power/rec = 1 에서 스킬 구성·맵·시드에 따른 흔들림이 평균의 ±45% 안 (p10~p90)', res[1]['p10'] >= res[1]['avg'] * 0.55 and res[1]['p90'] <= res[1]['avg'] * 1.45, (round(res[1]['p10']), round(res[1]['p90'])))
         check('AUTO 가 막혀 순간이동(복구)한 횟수 0', all(res[r]['tp'] == 0 for r in res))
         # power/rec 가 없이 kpm_model 만 와도(서버 모델 kpm = 100·power/rec) 같은 속도
@@ -68,7 +68,7 @@ async def main():
                     v.append(await pg.evaluate('''([km,reg,seed])=>{const st=mkState(1,['slash','spin','bomb','fire'],{region:reg,scale:true}); delete st.rec_power; st.combat.power=0; st.kpm_model=km; const a=mkArena({seed,noManifest:true}); a.setState(st); a.sim(15,1/60); const k0=a.stats().kills; a.sim(90,1/60); const k=(a.stats().kills-k0)/90*60; a.destroy(); return k}''', [km, reg, seed]))
             kk[km] = sum(v) / len(v)
         print('   kpm_model 만 줬을 때 평균: %s' % {k: round(x) for k, x in kk.items()})
-        check('power/rec 없이 kpm_model(50·100·140)만 줘도 같은 속도 꼴 (각각 ≈ 0.5·1·2 배 상당)', kk[50] < kk[100] and kk[140] >= kk[100] * 0.95 and 82 <= kk[100] <= 115 and 40 <= kk[50] <= 64, {k: round(x) for k, x in kk.items()})
+        check('power/rec 없이 kpm_model(50·100·140)만 줘도 같은 속도 꼴 (각각 ≈ 0.5·1·2 배 상당)', kk[50] < kk[100] < kk[140] and 88 <= kk[100] <= 115 and 40 <= kk[50] <= 64, {k: round(x) for k, x in kk.items()})
         print('   (a) 걸린 시간 %.0fs' % (time.time() - t0))
 
         # ---------- (b) 지형·물리 ----------

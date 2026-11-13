@@ -53,8 +53,8 @@
   const SPAWN_GAP = 0.15;         // 몹 보충 간격(초)
   // [보정 표 — 고정값] 엔진의 AUTO 처치율은 몹 체력 비율에 완만하게만 반응한다(걸어 다니는 시간이 있어 분당 약 128마리에서 막힘). 헤드리스로 잰 응답
   // (비율 → 분당 처치) 의 역함수로 「서버 모델이 말하는 분당 처치」가 나오는 비율을 고른다. 런타임 되먹임이 아니라 상수 표다.
-  const CAL_RESP = [[0, 0], [0.1, 39], [0.25, 52], [0.5, 67], [0.85, 90], [1.3, 97], [2, 99]];   // 2026-11-13 웨이브 리젠 뒤 헤드리스로 다시 잰 응답(비율 → 분당 처치). 웨이브 방식은 이동·대기 때문에 위쪽 한계가 낮다   // 2026-11-13 웨이브 리젠 뒤 다시 잰 응답(비율 → 분당 처치) — 웨이브 방식은 이동·대기 때문에 위쪽 한계가 낮다
-  const CAL_KPM_MAX = 98;        // 엔진이 낼 수 있는 분당 처치의 위쪽 한계(이 위는 서버 모델이 더 후해도 못 따라간다 — 보고에서 서버가 자르는 쪽이 아니라 모자라는 쪽)
+  const CAL_RESP = [[0, 0], [0.1, 34], [0.2, 51], [0.3, 61], [0.5, 81], [0.85, 94], [1, 105], [1.3, 119], [2, 130]];   // 2026-11-13 웨이브 리젠 + 넓어진 스킬 범위 뒤 헤드리스로 다시 잰 응답(비율 → 분당 처치)   // 2026-11-13 웨이브 리젠 뒤 헤드리스로 다시 잰 응답(비율 → 분당 처치). 웨이브 방식은 이동·대기 때문에 위쪽 한계가 낮다   // 2026-11-13 웨이브 리젠 뒤 다시 잰 응답(비율 → 분당 처치) — 웨이브 방식은 이동·대기 때문에 위쪽 한계가 낮다
+  const CAL_KPM_MAX = 126;        // 엔진이 낼 수 있는 분당 처치의 위쪽 한계(이 위는 서버 모델이 더 후해도 못 따라간다 — 보고에서 서버가 자르는 쪽이 아니라 모자라는 쪽)
   function calRatio(r) {
     const T = Math.min(CAL_KPM_MAX, 100 * r);
     for (let i = 1; i < CAL_RESP.length; i++) {
@@ -76,23 +76,23 @@
   const GR_COL = { normal: '#98a2b8', rare: '#4aa3ff', epic: '#b678ff', unique: '#ffa23a', legend: '#ff5c7a' };
   const SKILL_IDS = ['slash', 'peck', 'spin', 'bomb', 'thunder', 'fire', 'egg', 'shield', 'shrimp', 'storm', 'ice', 'gale', 'meteor', 'phoenix', 'rage', 'blink', 'pull', 'ward'];
   const SKD = {   // 서버가 안 준 칸을 채우는 기본값
-    slash: { shape: 'arc', mp: 8, cd: 2.2, cast: 0.28, range: 96, hits: 1, mult: 160, col: '#ffffff' },
-    peck: { shape: 'proj', mp: 6, cd: 2.0, cast: 0.22, range: 260, hits: 3, mult: 70, col: '#ffe27a' },
-    spin: { shape: 'arc', mp: 14, cd: 3.6, cast: 0.45, range: 80, hits: 3, mult: 80, col: '#8fe3ff', both: true },
-    bomb: { shape: 'aoe', mp: 16, cd: 5, cast: 0.3, range: 210, hits: 1, mult: 230, col: '#ff9a3c' },
-    thunder: { shape: 'aoe', mp: 20, cd: 5, cast: 0.32, range: 240, hits: 2, mult: 130, col: '#fff27a' },
-    fire: { shape: 'proj', mp: 18, cd: 4.6, cast: 0.34, range: 300, hits: 1, mult: 220, col: '#ff6a2c', pierce: true },
-    egg: { shape: 'aoe', mp: 22, cd: 6, cast: 0.36, range: 230, hits: 1, mult: 280, col: '#ffd23c' },
+    slash: { shape: 'arc', mp: 8, cd: 2.2, cast: 0.28, range: 270, hits: 1, mult: 160, col: '#ffffff' },
+    peck: { shape: 'proj', mp: 6, cd: 2.0, cast: 0.22, range: 420, hits: 3, mult: 70, col: '#ffe27a' },
+    spin: { shape: 'arc', mp: 14, cd: 3.6, cast: 0.45, range: 300, hits: 3, mult: 80, col: '#8fe3ff', both: true },
+    bomb: { shape: 'aoe', mp: 16, cd: 5, cast: 0.3, range: 430, hits: 1, mult: 230, col: '#ff9a3c' },
+    thunder: { shape: 'aoe', mp: 20, cd: 5, cast: 0.32, range: 480, hits: 2, mult: 130, col: '#fff27a' },
+    fire: { shape: 'proj', mp: 18, cd: 4.6, cast: 0.34, range: 620, hits: 1, mult: 220, col: '#ff6a2c', pierce: true },
+    egg: { shape: 'aoe', mp: 22, cd: 6, cast: 0.36, range: 420, hits: 1, mult: 280, col: '#ffd23c' },
     shield: { shape: 'self', mp: 0, cd: 0, cast: 0, range: 0, hits: 1, mult: 60, col: '#6fd6ff', passive: true },
-    shrimp: { shape: 'dash', mp: 28, cd: 8, cast: 0.3, range: 220, hits: 2, mult: 200, col: '#ff8aa0' },
-    storm: { shape: 'aoe', mp: 40, cd: 14, cast: 0.6, range: 300, hits: 5, mult: 120, col: '#c78bff', both: true },
-    ice: { shape: 'aoe', mp: 24, cd: 6, cast: 0.45, range: 260, hits: 2, mult: 120, col: '#7fd8ff', both: true },
-    gale: { shape: 'proj', mp: 28, cd: 7, cast: 0.4, range: 560, hits: 4, mult: 75, col: '#8affc1', pierce: true },
-    meteor: { shape: 'aoe', mp: 46, cd: 14, cast: 0.9, range: 520, hits: 6, mult: 170, col: '#ff9248', both: true },
-    phoenix: { shape: 'aoe', mp: 70, cd: 24, cast: 1.2, range: 900, hits: 10, mult: 150, col: '#ff5a3c', both: true },
+    shrimp: { shape: 'dash', mp: 28, cd: 8, cast: 0.3, range: 420, hits: 2, mult: 200, col: '#ff8aa0' },
+    storm: { shape: 'aoe', mp: 40, cd: 14, cast: 0.6, range: 620, hits: 5, mult: 120, col: '#c78bff', both: true },
+    ice: { shape: 'aoe', mp: 24, cd: 6, cast: 0.45, range: 470, hits: 2, mult: 120, col: '#7fd8ff', both: true },
+    gale: { shape: 'proj', mp: 28, cd: 7, cast: 0.4, range: 1000, hits: 4, mult: 75, col: '#8affc1', pierce: true },
+    meteor: { shape: 'aoe', mp: 46, cd: 14, cast: 0.9, range: 900, hits: 6, mult: 170, col: '#ff9248', both: true },
+    phoenix: { shape: 'aoe', mp: 70, cd: 24, cast: 1.2, range: 1500, hits: 10, mult: 150, col: '#ff5a3c', both: true },
     rage: { shape: 'buff', mp: 30, cd: 20, cast: 0.35, range: 0, hits: 0, mult: 35, col: '#ff6b6b' },
-    blink: { shape: 'blink', mp: 14, cd: 6, cast: 0.15, range: 280, hits: 0, mult: 0, col: '#d9a8ff' },
-    pull: { shape: 'pull', mp: 22, cd: 9, cast: 0.45, range: 340, hits: 2, mult: 60, col: '#7fa8ff' },
+    blink: { shape: 'blink', mp: 14, cd: 6, cast: 0.15, range: 420, hits: 0, mult: 0, col: '#d9a8ff' },
+    pull: { shape: 'pull', mp: 22, cd: 9, cast: 0.45, range: 600, hits: 2, mult: 60, col: '#7fa8ff' },
     ward: { shape: 'self', mp: 26, cd: 15, cast: 0.4, range: 0, hits: 0, mult: 100, col: '#ffe9a8' }
   };
 
@@ -336,10 +336,12 @@
     }
     const art = n => ld('img/brjhunt/' + n + '.webp');
     const fxImg = id => ld('img/brjhunt/fx/fx_' + id + '.webp');
+    let ANCH = null;  // img/brjhunt/v2/chick_anchors.json — 병아리 시트 칸마다 머리 위치(꾸미기 파츠가 따라붙는다)
     let MAN = null;   // img/brjhunt/v2/manifest.json — 없으면 null (절차 애니메이션으로 대체)
     if (!opts.noManifest && typeof fetch !== 'undefined') {
       try {
         fetch(base + 'img/brjhunt/v2/manifest.json').then(r => r.ok ? r.json() : null).then(j => { if (j && typeof j === 'object') MAN = j.sheets && typeof j.sheets === 'object' ? j.sheets : j; }).catch(() => { });
+        fetch(base + 'img/brjhunt/v2/chick_anchors.json').then(r => r.ok ? r.json() : null).then(j => { if (j && typeof j === 'object') ANCH = j; }).catch(() => { });
       } catch (e) { }
     }
     // 시트: manifest[name] = {file, frames, w, h, fps, anchor:[x,y], scale?} — 한 줄 가로 시트. 이름 후보를 차례로 찾는다.
@@ -348,7 +350,7 @@
       for (let i = 0; i < arguments.length; i++) {
         const m = MAN[arguments[i]]; if (!m || !m.file) continue;
         const im = ld('img/brjhunt/v2/' + m.file); if (!im) continue;
-        return { im, m, n: Math.max(1, m.frames | 0 || 1) };
+        return { im, m, n: Math.max(1, m.frames | 0 || 1), name: arguments[i] };
       }
       return null;
     }
@@ -357,8 +359,29 @@
       const ax = m.anchor ? m.anchor[0] : fw / 2, ay = m.anchor ? m.anchor[1] : fh * 0.97;
       ctx.save(); ctx.translate(x, y); if (o.rot) ctx.rotate(o.rot); if (o.a != null) ctx.globalAlpha = o.a;
       ctx.scale((o.sx || 1) * (o.flip ? -1 : 1), o.sy || 1);
+      const pa = (E.parts && E.parts.length && ANCH && sh.name && ANCH[sh.name]) ? ANCH[sh.name][fr % sh.n] : null;
+      const pg = pa ? { x: (pa.cx - ax) * s, y: (pa.cy - ay) * s, R: pa.r * s, ex: (pa.ex - ax) * s, ey: (pa.ey - ay) * s } : null;
+      if (pg) { pg.d = (pa.ex - pa.cx) / pa.r > 0.12 ? 1 : (pa.ex - pa.cx) / pa.r < -0.12 ? -1 : 0; drawChickParts(pg, true); }   // 몸 뒤(망토·날개)
       ctx.drawImage(sh.im, (fr % sh.n) * fw, 0, fw, fh, -ax * s, -ay * s, fw * s, fh * s);
+      if (pg) drawChickParts(pg, false);                                                                                          // 몸 앞(목·얼굴·머리)
       ctx.restore();
+    }
+    // 👗 [2026-11-13 사장님 「꾸미기를 기본 브장신 일러스트에 의상·악세사리·헤어 파츠로」] 움직이는 병아리 시트의 머리 위치(ANCH)에 코드로 그린 파츠를 얹는다 — 달리기·공격·점프 모두 같이 움직인다
+    const PART_SLOTS = { back: 0, neck: 1, face: 2, head: 3 };
+    const PARTS = {   // 키 -> 슬롯 · 그리기(c, 머리중심 x·y, 반지름 R, 눈중심 ex·ey, 보는 방향 d(-1·0·1), 시간 t)
+      cape: { slot: 'back', fn(c, x, y, R, ex, ey, d, t) { const sh = -(d || 0) * 0.5 * R, w = Math.sin(t * 6) * 0.12 * R; c.fillStyle = '#c8203a'; c.strokeStyle = '#6a0e1e'; c.lineWidth = R * 0.07; c.beginPath(); c.moveTo(x + sh - 0.5 * R, y + 0.8 * R); c.lineTo(x + sh + 0.5 * R, y + 0.8 * R); c.lineTo(x + sh + 0.8 * R + w, y + 1.85 * R); c.quadraticCurveTo(x + sh, y + 2.0 * R + w, x + sh - 0.8 * R + w, y + 1.85 * R); c.closePath(); c.fill(); c.stroke(); } },
+      wings: { slot: 'back', fn(c, x, y, R, ex, ey, d, t) { const fl = Math.sin(t * 7) * 0.2; for (const sd of [-1, 1]) { c.save(); c.translate(x + sd * 0.95 * R, y + 0.85 * R); c.rotate(sd * (0.6 + fl)); c.fillStyle = '#fff'; c.strokeStyle = '#bcc8ff'; c.lineWidth = R * 0.06; c.beginPath(); c.ellipse(0, -0.35 * R, 0.24 * R, 0.62 * R, 0, 0, 6.3); c.fill(); c.stroke(); c.restore(); } } },
+      scarf: { slot: 'neck', fn(c, x, y, R, ex, ey, d, t) { const f = d || 1; c.fillStyle = '#e83a4a'; c.strokeStyle = '#7a1020'; c.lineWidth = R * 0.06; c.beginPath(); c.ellipse(x, y + 0.76 * R, 0.6 * R, 0.14 * R, 0, 0, 6.3); c.fill(); c.stroke(); c.fillStyle = '#ffd7a0'; c.fillRect(x - 0.35 * R, y + 0.71 * R, 0.11 * R, 0.11 * R); c.fillRect(x + 0.05 * R, y + 0.72 * R, 0.11 * R, 0.1 * R); const sw = Math.sin(t * 5) * 0.08 * R; c.fillStyle = '#e83a4a'; c.beginPath(); c.moveTo(x - f * 0.4 * R, y + 0.82 * R); c.lineTo(x - f * (0.8 * R + sw), y + 1.25 * R); c.lineTo(x - f * (0.55 * R + sw), y + 1.3 * R); c.lineTo(x - f * 0.25 * R, y + 0.88 * R); c.closePath(); c.fill(); c.stroke(); } },
+      bowtie: { slot: 'neck', fn(c, x, y, R) { const yy = y + 0.84 * R; c.fillStyle = '#c01040'; c.strokeStyle = '#5a0820'; c.lineWidth = R * 0.05; for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x, yy); c.lineTo(x + sd * 0.5 * R, yy - 0.22 * R); c.lineTo(x + sd * 0.5 * R, yy + 0.22 * R); c.closePath(); c.fill(); c.stroke(); } c.beginPath(); c.arc(x, yy, 0.1 * R, 0, 6.3); c.fill(); } },
+      sunglasses: { slot: 'face', fn(c, x, y, R, ex, ey) { c.fillStyle = '#10121a'; c.strokeStyle = '#000'; c.lineWidth = R * 0.05; for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(ex + sd * 0.34 * R, ey, 0.3 * R, 0.21 * R, 0, 0, 6.3); c.fill(); c.stroke(); } c.beginPath(); c.moveTo(ex - 0.06 * R, ey); c.lineTo(ex + 0.06 * R, ey); c.stroke(); c.fillStyle = 'rgba(255,255,255,.5)'; c.beginPath(); c.ellipse(ex - 0.42 * R, ey - 0.08 * R, 0.09 * R, 0.05 * R, -0.4, 0, 6.3); c.fill(); } },
+      crown: { slot: 'head', fn(c, x, y, R) { c.fillStyle = '#ffd23c'; c.strokeStyle = '#8a5a00'; c.lineWidth = R * 0.06; c.beginPath(); c.moveTo(x - 0.55 * R, y - 0.72 * R); c.lineTo(x - 0.6 * R, y - 1.3 * R); c.lineTo(x - 0.28 * R, y - 1.0 * R); c.lineTo(x, y - 1.42 * R); c.lineTo(x + 0.28 * R, y - 1.0 * R); c.lineTo(x + 0.6 * R, y - 1.3 * R); c.lineTo(x + 0.55 * R, y - 0.72 * R); c.closePath(); c.fill(); c.stroke(); c.fillStyle = '#ff4a5a'; c.beginPath(); c.arc(x, y - 0.92 * R, 0.1 * R, 0, 6.3); c.fill(); } },
+      bow: { slot: 'head', fn(c, x, y, R) { const bx = x + 0.55 * R, by = y - 0.82 * R; c.fillStyle = '#ff7ab0'; c.strokeStyle = '#a02a62'; c.lineWidth = R * 0.05; for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(bx, by); c.lineTo(bx + sd * 0.55 * R, by - 0.3 * R); c.lineTo(bx + sd * 0.55 * R, by + 0.3 * R); c.closePath(); c.fill(); c.stroke(); } c.beginPath(); c.arc(bx, by, 0.12 * R, 0, 6.3); c.fill(); c.stroke(); } },
+      wizard: { slot: 'head', fn(c, x, y, R, ex, ey, d, t) { const f = d || 1; c.fillStyle = '#6a3fc8'; c.strokeStyle = '#2a1060'; c.lineWidth = R * 0.06; c.beginPath(); c.moveTo(x - 0.62 * R, y - 0.8 * R); c.quadraticCurveTo(x - 0.2 * R, y - 1.6 * R, x + f * 0.5 * R + Math.sin(t * 3) * 0.05 * R, y - 2.15 * R); c.quadraticCurveTo(x + 0.35 * R, y - 1.5 * R, x + 0.62 * R, y - 0.8 * R); c.closePath(); c.fill(); c.stroke(); c.fillStyle = '#4a2a98'; c.beginPath(); c.ellipse(x, y - 0.8 * R, 0.98 * R, 0.2 * R, 0, 0, 6.3); c.fill(); c.stroke(); c.fillStyle = '#ffe27a'; c.beginPath(); c.arc(x - 0.1 * R, y - 1.35 * R, 0.1 * R, 0, 6.3); c.fill(); c.beginPath(); c.arc(x + 0.2 * R, y - 1.65 * R, 0.07 * R, 0, 6.3); c.fill(); } },
+      mohawk: { slot: 'head', fn(c, x, y, R, ex, ey, d, t) { c.fillStyle = '#ff3a4a'; c.strokeStyle = '#7a0a18'; c.lineWidth = R * 0.05; for (let i = -2; i <= 2; i++) { const bx = x + i * 0.22 * R, by = y - 0.95 * R + Math.abs(i) * 0.1 * R, sw = Math.sin(t * 4 + i) * 0.03 * R; c.beginPath(); c.moveTo(bx - 0.12 * R, by + 0.05 * R); c.lineTo(bx + i * 0.06 * R + sw, by - (0.6 - Math.abs(i) * 0.1) * R); c.lineTo(bx + 0.12 * R, by + 0.05 * R); c.closePath(); c.fill(); c.stroke(); } } },
+      headphones: { slot: 'head', fn(c, x, y, R) { c.strokeStyle = '#2a2d3a'; c.lineWidth = R * 0.14; c.lineCap = 'round'; c.beginPath(); c.arc(x, y, R * 1.02, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); c.fillStyle = '#ff5a8a'; c.strokeStyle = '#7a1a40'; c.lineWidth = R * 0.05; for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(x + sd * 1.0 * R, y + 0.02 * R, 0.22 * R, 0.34 * R, 0, 0, 6.3); c.fill(); c.stroke(); } } }
+    };
+    function drawChickParts(g, back) {
+      for (const it of E.parts) { const pd = PARTS[it.key]; if (!pd || (pd.slot === 'back') !== back) continue; try { pd.fn(ctx, g.x, g.y, g.R, g.ex, g.ey, g.d, E.t); } catch (e) { if (!E.partErr) { E.partErr = String(e); console.warn('parts', e); } } }
     }
     function spr(im, x, fy, h, o) {
       o = o || {};
@@ -473,9 +496,9 @@
     function normSkill(s) {
       if (!s || !s.id || !SKD[s.id]) return null;
       const d = SKD[s.id], o = { id: s.id };
-      o.buff = N(s.buff_pct); o.key = s.key; o.shape = d.shape === 'dash' ? 'dash' : (['arc', 'proj', 'aoe', 'self', 'dash', 'buff', 'blink', 'pull'].indexOf(s.shape) >= 0 ? s.shape : d.shape);   // 돌격(흐접새우)은 서버가 'self' 로 보내도 돌격 — 안 그러면 방어막만 켜져 소환이 먹통처럼 보인다
+      o.buff = N(s.buff_pct); o.key = s.key; o.shape = (d.shape === 'dash' || (s.shape === 'self' && d.shape !== 'self')) ? d.shape : (['arc', 'proj', 'aoe', 'self', 'dash', 'buff', 'blink', 'pull'].indexOf(s.shape) >= 0 ? s.shape : d.shape);   // 돌격(흐접새우)은 서버가 'self' 로 보내도 돌격 — 안 그러면 방어막만 켜져 소환이 먹통처럼 보인다
       o.mp = Math.max(0, s.mp != null ? N(s.mp) : d.mp); o.cd = Math.max(0.2, s.cd != null ? N(s.cd) : d.cd); o.cast = clamp(s.cast != null ? N(s.cast) : d.cast, 0.05, 1.5);
-      o.range = clamp(s.range != null ? N(s.range) : d.range, 30, 420); o.hits = clamp(Math.round(s.hits != null ? N(s.hits) : d.hits) || 1, 1, 12);
+      o.range = clamp(s.range != null ? N(s.range) : d.range, 30, 1500); o.hits = clamp(Math.round(s.hits != null ? N(s.hits) : d.hits) || 1, 1, 12);
       o.mult = Math.max(5, s.mult != null ? N(s.mult) : d.mult); o.lv = N(s.lv) || 1; o.col = SKV[s.id] ? SKV[s.id].col : (/^#[0-9a-f]{3,8}$/i.test(s.fx_color || '') ? s.fx_color : d.col); o.both = !!d.both || !!s.both; o.pierce = !!d.pierce || !!s.pierce;
       return o;
     }
@@ -693,9 +716,9 @@
       fxs.push({ k: 'swing', x: P.x, y: P.y - 18, face: P.face, idx: P.atkIdx, t: 0, life: 0.2, col: '#ffffff' });
       emit('swing', { n: P.atkIdx });
     }
-    function frontBox(range, both) {
+    function frontBox(range, both, tall) {   // tall: 스킬은 위아래로 넓게(핵앤슬래시처럼 쓸어버리는 느낌 — 2026-11-13)
       const f = P.face;
-      return [both ? P.x - range : (f > 0 ? P.x - 6 : P.x - range), both ? P.x + range : (f > 0 ? P.x + range : P.x + 6), P.y - 48, P.y + 6];
+      return [both ? P.x - range : (f > 0 ? P.x - 6 : P.x - range), both ? P.x + range : (f > 0 ? P.x + range : P.x + 6), P.y - (tall ? 120 : 48), P.y + (tall ? 36 : 6)];
     }
     function strike() {
       const bx = frontBox(REACH + (P.atkIdx === 2 ? 8 : 0), false), idx = P.atkIdx;
@@ -799,13 +822,13 @@
           fxPush({ k: 'glint', x: P.x + f * s.range * 0.5, y: P.y - 22, t: 0, life: 0.26, col }, s.id);
           P.vx += f * 140;
         }
-        for (let k = 0; k < s.hits; k++) later(k * 0.09, () => { const b = frontBox(s.range, s.both); for (const m of mobsInBox(b[0], b[1], b[2], b[3], 6)) dmg(m); });
+        for (let k = 0; k < s.hits; k++) later(k * 0.09, () => { const b = frontBox(s.range, s.both, true); for (const m of mobsInBox(b[0], b[1], b[2], b[3], 6)) dmg(m); });
       } else if (s.shape === 'proj') {
         if (s.id === 'fire') { sf('sk_fire', P.x + f * s.range * 0.5, P.y - 18, s.range * 1.15, { life: 0.5, flip: f < 0 }); fxPush({ k: 'flash', x: P.x + f * 12, y: P.y - 18, t: 0, life: 0.2, col }, s.id); P.vx -= f * 40; }
         for (let k = 0; k < s.hits; k++) later(k * 0.09, () => {
           if (P.dead) return;
           const sy = P.y - 16 - (k % 2) * 4;
-          shots.push({ from: 'p', x: P.x + f * 10, y: sy, vx: f * (s.pierce ? 340 : 440), t: 0, range: s.range, mult: s.mult, col, id: s.id, pierce: s.pierce ? 4 : 1, hit: [], sk: s });
+          shots.push({ from: 'p', x: P.x + f * 10, y: sy, vx: f * (s.pierce ? 340 : 440), t: 0, range: s.range, mult: s.mult, col, id: s.id, pierce: s.pierce ? 10 : 3, hit: [], sk: s });
           if (s.id === 'peck') { sf('sk_peck', P.x + f * 16, sy, 46, { life: 0.22 }); P.vx += f * 16; shk(0.8); }
           emit('cast', { id: s.id, stage: 'shot' });
         });
@@ -843,14 +866,14 @@
             ring(cx, cy, col, r * (1.2 + k * 0.1), 0.5); flashS(0.18 + (k === s.hits - 1 ? 0.2 : 0), '#e6c8ff');
             if (!E.low) for (let d = 0; d < 6; d++) { const a = rnd() * 6.28, rr = r * (0.4 + rnd() * 0.8); newPart('spark', cx + Math.cos(a) * rr, cy - 10 + Math.sin(a) * rr * 0.4, Math.cos(a) * 60, -80 - rnd() * 120, 0.35, 10, '#e0b8ff'); }
           }
-          if (s.id === 'ice') { ring(cx, cy, col, r * 0.9, 0.5); if (!E.low) for (let d = 0; d < 8; d++) newPart('spark', cx + (rnd() - 0.5) * r, cy - 10 - rnd() * 30, (rnd() - 0.5) * 60, -40 - rnd() * 60, 0.6, 9, '#c8f4ff'); for (const m of mobs) if (liveMob(m) && !m.boss && Math.abs(m.x - cx) <= r && Math.abs(m.y - cy) < 60) m.frz = 2.2; }
+          if (s.id === 'ice') { ring(cx, cy, col, r * 0.9, 0.5); if (!E.low) for (let d = 0; d < 8; d++) newPart('spark', cx + (rnd() - 0.5) * r, cy - 10 - rnd() * 30, (rnd() - 0.5) * 60, -40 - rnd() * 60, 0.6, 9, '#c8f4ff'); for (const m of mobs) if (liveMob(m) && !m.boss && Math.abs(m.x - cx) <= r && Math.abs(m.y - cy) < 140) m.frz = 2.2; }
           if (s.id === 'meteor' && !E.low) for (let d = 0; d < 7; d++) newPart('flame', cx + (rnd() - 0.5) * r * 0.6, cy - 70 - rnd() * 40, (rnd() - 0.5) * 80, 120 + rnd() * 140, 0.5, 14, '#ff8a3a');
           if (s.id === 'phoenix') { ring(cx, cy, col, r * 0.5 * (1 + k * 0.1), 0.6); flashS(0.2, '#ffd0a0'); }
-          for (const m of mobs) if (liveMob(m) && Math.abs(m.x - cx) <= r && Math.abs(m.y - cy) < 60) dmg(m, s.id === 'storm' ? { kb: k === s.hits - 1 ? 170 : -55, fromX: cx } : { kb: 60, fromX: cx });
+          for (const m of mobs) if (liveMob(m) && Math.abs(m.x - cx) <= r && Math.abs(m.y - cy) < 140) dmg(m, s.id === 'storm' ? { kb: k === s.hits - 1 ? 170 : -55, fromX: cx } : { kb: 60, fromX: cx });
           emit('cast', { id: s.id, stage: 'hit' });
         });
       } else if (s.shape === 'dash') {
-        const dist = Math.min(s.range * 0.8, 260), dur = 0.2;
+        const dist = Math.min(s.range * 0.8, 520), dur = 0.22;
         P.dash = { t: 0, dur, vx: f * dist / dur, s, hit: [], x0: P.x }; P.inv = Math.max(P.inv, dur + 0.1);
         fxPush({ k: 'dash', id: s.id, x: P.x, y: P.y, face: f, t: 0, life: dur + 0.2, col, r: dist }, s.id);
         sf('sk_shrimp', P.x + f * 22, P.y - 16, 96, { life: 0.28, flip: f < 0 });
@@ -860,7 +883,7 @@
         for (let d = 0; d < (E.low ? 5 : 12); d++) newPart('emo', P.x + (rnd() - 0.5) * 40, P.y - 20 - rnd() * 24, (rnd() - 0.5) * 60, -50 - rnd() * 60, 0.8, 13, '💢');
         say('공격력 UP!', P.x, P.y - PH - 14, 'h', 16, '#ff9a9a');
       } else if (s.shape === 'blink') {
-        const dist = Math.min(s.range, 340), tx = P.x + f * dist;
+        const dist = Math.min(s.range, 520), tx = P.x + f * dist;
         const lo = P.on ? P.plat.x0 + 10 : 12, hi = P.on ? P.plat.x1 - 10 : map.W - 12;
         for (let k = 0; k < 6; k++) { const g = newPart('ghost', P.x + f * k * dist / 6, P.y, 0, 0, 0.3 + k * 0.03, 0, col); if (g) g.a = f; }
         P.x = clamp(tx, lo, hi); P.inv = Math.max(P.inv, 0.7);
@@ -1141,7 +1164,7 @@
         } else if (!dead && s.from === 'p') {
           for (const m of mobs) {
             if (!liveMob(m) || s.hit.indexOf(m) >= 0) continue;
-            if (Math.abs(m.x - s.x) < 10 * m.sc + 5 && s.y > m.y - 24 * m.sc - 4 && s.y < m.y + 6) {
+            if (Math.abs(m.x - s.x) < 10 * m.sc + (s.sk ? 22 : 5) && s.y > m.y - 24 * m.sc - (s.sk ? 70 : 4) && s.y < m.y + (s.sk ? 40 : 6)) {
               s.hit.push(m); hitMob(m, s.mult, { skill: s.id, col: s.col, kb: 70, fromX: s.x - Math.sign(s.vx) * 20 });
               if (s.hit.length >= s.pierce) { dead = true; poof(s.x, s.y, s.col, 6, 100); ring(s.x, s.y, s.col, 24, 0.25); break; }
             }
@@ -1253,10 +1276,10 @@
     function skillWanted(s) {
       if (boss && boss.state !== 'fight') return false;
       switch (s.shape) {
-        case 'arc': { const b = frontBox(s.range, s.both); return mobsInBox(b[0], b[1], b[2], b[3], 6).length >= (s.hits > 1 ? 1 : 1); }
-        case 'proj': { for (const m of mobs) { if (!liveMob(m)) continue; const dx = (m.x - P.x) * P.face; if (dx > 0 && dx < s.range * 0.8 && m.y > P.y - 44 && m.y - 24 * m.sc < P.y) return true; } return false; }
-        case 'aoe': { if (s.both) { let n = 0; for (const m of mobs) if (liveMob(m) && Math.abs(m.x - P.x) < s.range * 0.5 && Math.abs(m.y - P.y) < 60) n++; return n >= 1; } return !!nearestMob(s.range * 0.8, 40, true); }
-        case 'dash': { if (!P.on) return false; const dist = Math.min(s.range * 0.8, 260); const room = P.face > 0 ? P.plat.x1 - P.x : P.x - P.plat.x0; if (room < dist * 0.7) return false; for (const m of mobs) { if (!liveMob(m)) continue; const dx = (m.x - P.x) * P.face; if (dx > 20 && dx < dist && Math.abs(m.y - P.y) < 30) return true; } return false; }
+        case 'arc': { const b = frontBox(s.range, s.both, true); return mobsInBox(b[0], b[1], b[2], b[3], 6).length >= (s.hits > 1 ? 1 : 1); }
+        case 'proj': { for (const m of mobs) { if (!liveMob(m)) continue; const dx = (m.x - P.x) * P.face; if (dx > 0 && dx < s.range * 0.8 && m.y > P.y - 110 && m.y - 24 * m.sc < P.y + 36) return true; } return false; }
+        case 'aoe': { if (s.both) { let n = 0; for (const m of mobs) if (liveMob(m) && Math.abs(m.x - P.x) < s.range * 0.5 && Math.abs(m.y - P.y) < 130) n++; return n >= 1; } return !!nearestMob(s.range * 0.8, 40, true); }
+        case 'dash': { if (!P.on) return false; const dist = Math.min(s.range * 0.8, 520); const room = P.face > 0 ? P.plat.x1 - P.x : P.x - P.plat.x0; if (room < dist * 0.7) return false; for (const m of mobs) { if (!liveMob(m)) continue; const dx = (m.x - P.x) * P.face; if (dx > 20 && dx < dist && Math.abs(m.y - P.y) < 30) return true; } return false; }
         case 'self': return P.hp < P.hpMax * 0.5;
         case 'buff': { if (E.rageT > 0) return false; let n = 0; for (const m of mobs) if (liveMob(m) && Math.abs(m.x - P.x) < 320 && Math.abs(m.y - P.y) < 80) n++; return n >= 3; }
         case 'pull': { let n = 0; for (const m of mobs) if (liveMob(m) && !m.boss && Math.abs(m.x - P.x) < s.range && Math.abs(m.y - P.y) < 70) n++; return n >= 4; }
@@ -2505,6 +2528,10 @@
         if (kind === 'mp') { const v = Math.round(P.mpMax * pct); P.mp = Math.min(P.mpMax, P.mp + v); say('+' + fmtNum(v) + ' MP', P.x, P.y - PH - 8, 'h', 15, '#7fb8ff'); ring(P.x, P.y - 18, '#6fa8ff', 46, 0.45); for (let d = 0; d < (E.low ? 4 : 9); d++) newPart('spark', P.x + (rnd() - 0.5) * 26, P.y - 8 - rnd() * 30, (rnd() - 0.5) * 40, -60 - rnd() * 50, 0.6, 7, '#9cc8ff'); }
         else { const v = Math.round(P.hpMax * pct); P.hp = Math.min(P.hpMax, P.hp + v); say('+' + fmtNum(v), P.x, P.y - PH - 8, 'h', 16, '#7dff9a'); ring(P.x, P.y - 18, '#6fe89a', 46, 0.45); for (let d = 0; d < (E.low ? 4 : 9); d++) newPart('spark', P.x + (rnd() - 0.5) * 26, P.y - 8 - rnd() * 30, (rnd() - 0.5) * 40, -60 - rnd() * 50, 0.6, 7, '#9dffbe'); }
       },
+      setParts(o) {   // {head:'crown', face:'sunglasses', neck:'scarf', back:'cape'} — 슬롯마다 하나
+        const out = []; if (o && typeof o === 'object') for (const sl of ['back', 'neck', 'face', 'head']) { const k = o[sl]; if (typeof k === 'string' && PARTS[k] && PARTS[k].slot === sl) out.push({ slot: sl, key: k }); }
+        E.parts = out;
+      },
       setSkin(p) { { const m = (typeof p === 'string') ? /^img\/brjang\/skins\/([a-z_]+)\/front\.png$/.exec(p) : null; E.skinPath = m ? p : null; E.skinKey = m ? m[1] : ''; } },
       summonElite, dropFx, hasElite: () => !!(E.elite && E.elite.st !== 'dying'), clearElite() { if (E.elite) { E.elite.st = 'dying'; E.elite.t = 0; E.elite = null; } },
       startChallenge, bossResult, startInstance, instanceResult, skipInstance, abortInstance, setHidden(b) { b = !!b; if (b && !E.hidden) flushReport(); E.hidden = b; }, setPaused, setHud(b) { opts.hud = b; }, setKeys(b) { E.keysOff = !b; if (!b) blurAll(); },
@@ -2512,7 +2539,7 @@
       debug: {
         map: () => map, mobs: () => mobs, P, E, AI, D, skills, slotCd, spawnMob, shots: () => shots,
         setPos(x, y) { P.x = x; if (y != null) P.y = y; P.vx = P.vy = 0; const pl = platBelow(map, x, P.y); if (Math.abs(pl.y - P.y) < 1) { P.on = true; P.plat = pl; P.lastPlat = pl.id; } },
-        manifest: () => MAN, clearMobs() { mobs.length = 0; E.spawnT = 1e9; }, spawnPause(b) { E.spawnT = b ? 1e9 : 0; },
+        manifest: () => MAN, anch: () => ANCH, clearMobs() { mobs.length = 0; E.spawnT = 1e9; }, spawnPause(b) { E.spawnT = b ? 1e9 : 0; },
         callouts: () => callouts.slice(), castLog: () => E.castLog, ins: () => INS, fxs: () => fxs, parts: () => parts, texts: () => texts, setLow(b) { E.low = !!b; E.cssW = 0; },
         genMap, setMap, lastReport: null, hurt: (d) => hurtPlayer(d, P.x + 20), killPlayer: () => { P.hp = 0; die(); }, keys: () => Object.assign({}, Hh)
       }
