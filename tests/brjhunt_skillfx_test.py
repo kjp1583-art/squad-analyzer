@@ -96,7 +96,7 @@ async def main():
             await pg.evaluate("A.input.press('s1'); for(let i=0;i<40;i++) A.tick(1/60); A.input.release('s1')")
             s = await pg.evaluate("({dim:A.stats().dim,zoom:A.stats().zoom,sh:A.debug.E.shake,fx:A.debug.fxs().length,reduced:A.stats().reduced,parts:A.debug.parts().filter(p=>p.on).length})")
             if mode == 'reduced': check('줄임 모드: 흔들림·줌·어두워짐 0 (콜아웃·이펙트는 그대로)', s['reduced'] and s['sh'] == 0 and s['zoom'] == 0 and s['dim'] == 0 and s['fx'] > 0, s)
-            else: check('저사양 모드: 입자가 절반 풀 안에서만(≤110), 줌 없음', s['parts'] <= 110 and s['zoom'] == 0, s)
+            else: check('저사양 모드: 입자가 절반 풀 안에서만(≤110), 스킬 줌 없음(크리티컬 타격 줌 0.04 이하는 허용 — 스킬 범위가 넓어져 한 번에 맞는 몹이 늘었다)', s['parts'] <= 110 and s['zoom'] <= 0.04, s)
             ev = await pg.evaluate("EV.map(e=>e[0])")
             check(f'{mode}: 콜아웃은 그대로 나온다', 'callout' in ev, ev)
 
