@@ -67,7 +67,7 @@ async def main():
         srv = RealServer(); ctx, pg, errs = await new_page(b, srv, w=1280, h=800); await pg.wait_for_timeout(1500)
         v = [o for pa, c, o in srv.answers if pa == '/brj/idle'][0]['view']
         check('실제 응답에 새 구역이 있음(stats·field·combat·hunt)', all(k in v for k in ('stats', 'field', 'combat', 'hunt')) and len(v['stats']['list']) == 6, sorted(v.keys()))
-        for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres', 'rank'):
+        for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'inf', 'rank'):
             await tab(pg, k); await pg.wait_for_timeout(250); await clean(pg, f'실제 응답 · {k} 탭')
         await tab(pg, 'hunt')
         st = await pg.evaluate('window.__bt.stats')
@@ -155,7 +155,7 @@ async def main():
         await ctx.close()
         # 390px 폰 + 터치
         srv = RealServer(); ctx, pg, errs = await new_page(b, srv, w=390, h=800, touch=True); await pg.wait_for_timeout(2000)
-        for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres', 'rank'):
+        for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'inf', 'rank'):
             await tab(pg, k); await pg.wait_for_timeout(200); check(f'실제 응답 390px {k}: 가로 스크롤 없음', await noscroll(pg)); await clean(pg, f'390px {k}')
             if SHOTS: await pg.screenshot(path=f'{SHOTS}/realbot_390_{k}.png')
         check('실제 응답 390px: 오류 없음', not errs, errs); await ctx.close()

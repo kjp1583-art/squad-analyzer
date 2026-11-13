@@ -107,14 +107,12 @@ def make_view():
           'hidden': False, 'week': 5, 'season': 2, 'reset_in': {'week': 90000, 'season': 900000},
           'reward': {'boards': ['stage'], 'feast': [10, 6, 3], 'min_gold': 1, 'rule': '지난주 입상 보상 규칙'},
           'prev': {'wk': 4, 'range': '10/19~10/25', 'boards': {'stage': [{'rank': 1, 'name': EVIL, 'value': 9, 'me': False}, {'rank': 2, 'name': '테스터', 'value': 7, 'me': True}]}, 'mine': [{'board': 'stage', 'rank': 2, 'feast': 6}], 'claimed': False, 'claimable': True, 'reward': [10, 6, 3]}},
-        'prestige': {'can': False, 'min_stage': 30, 'stage': 9, 'gain': 0, 'n': 1, 'points': 7,
-                     'ups': [{'key': 'gold', 'name': '💪 강건함', 'effect': '공격력·체력·방어력 +5%', 'lv': 1, 'max': 10, 'cost': 5, 'afford': True},
-                             {'key': 'cap', 'name': '🏔 한계 돌파', 'effect': '스테이지 상한 +5', 'lv': 0, 'max': 4, 'cost': 8, 'afford': False},
-                             {'key': 'start', 'name': '🚀 출발선', 'effect': '환생 뒤 시작 스테이지 +2', 'lv': 5, 'max': 5, 'cost': None, 'afford': False}],
-                     'stat_mult': 1.05, 'stat_pct': 5.0, 'stage_cap': 30, 'start_stage': 1, 'pt_rule': '기본 5점 + 스테이지 30 넘은 칸마다 2점', 'warn': '환생하면 스테이지와 골드가 처음으로 돌아갑니다.',
-                     'season': {'no': 1, 'days_left': 20, 'length_days': 28, 'prestiges': 1, 'best_stage': 12, 'history': [{'season': 0, 'best': 11, 'n': 2}]},
-                     'chest': {'stock': 4, 'today': 1, 'daily_cap': 5, 'store_max': 30, 'feast': 3, 'open_max': 10,
-                               'table': [{'pct': 45.0, 'name': '알맹이 없음(특식만)', 'ticket': 0, 'stone': 0}, {'pct': 35.0, 'name': '🔩 강화석 2개', 'ticket': 0, 'stone': 2}]}},
+        'inf': {'best': 12, 'stage': 9, 'ms': {'every': 10, 'claimed': 0, 'pending': 1, 'next_at': 20, 'pct_each': 0.5, 'pct': 0.0, 'pct_max': 300.0, 'reward': {'feast': 5, 'stone': 3, 'ticket_every': 5}},
+                'train': {'unlocked': False, 'unlock_stage': 30, 'lv': 3, 'max': 300, 'mult_each': 1.06, 'pct_each': 6.0, 'mult': 1.191, 'cost': 70000, 'afford': False, 'buy_max': 50},
+                'legacy': {'pct': 5.0, 'had': True}, 'stat_mult': 1.05, 'stat_pct': 5.0,
+                'season': {'no': 1, 'days_left': 20, 'length_days': 28, 'best_stage': 12, 'history': [{'season': 0, 'best': 11, 'n': 2}]},
+                'chest': {'stock': 4, 'today': 1, 'daily_cap': 5, 'store_max': 30, 'feast': 3, 'open_max': 10,
+                          'table': [{'pct': 45.0, 'name': '알맹이 없음(특식만)', 'ticket': 0, 'stone': 0}, {'pct': 35.0, 'name': '🔩 강화석 2개', 'ticket': 0, 'stone': 2}]}},
     }
 
 class Server:
@@ -158,14 +156,14 @@ class Server:
         if path == '/brj/idle': return 200, {'ok': True, 'view': v}
         if path == '/brj/ranks':
             return 200, {'ok': True, 'board': body.get('board'), 'period': body.get('period'), 'coerced': False, 'label': '표 이름', 'total': 3,
-                         'rows': [{'rank': 1, 'name': EVIL, 'value': 20, 'me': False, 'tag': '환생 2회'}, {'rank': 2, 'name': '테스터', 'value': 12, 'me': True, 'tag': ''}, {'rank': 3, 'name': '비공개', 'value': 5, 'me': False, 'tag': ''}],
+                         'rows': [{'rank': 1, 'name': EVIL, 'value': 20, 'me': False, 'tag': ''}, {'rank': 2, 'name': '테스터', 'value': 12, 'me': True, 'tag': ''}, {'rank': 3, 'name': '비공개', 'value': 5, 'me': False, 'tag': ''}],
                          'me': {'rank': 2, 'value': 12, 'of': 3, 'hidden': self.view['rank']['hidden']}, 'around': [], 'reset_in': 100, 'prev': None}
         if path == '/brj/rank_hide':
             self.view['rank']['hidden'] = bool(body.get('hide')); return 200, {'ok': True, 'hidden': self.view['rank']['hidden'], 'view': copy.deepcopy(self.view)}
         if path == '/brj/rank_claim':
             self.view['rank']['prev']['claimable'] = False; self.view['rank']['prev']['claimed'] = True
             return 200, {'ok': True, 'got': {'feast': 6}, 'view': copy.deepcopy(self.view)}
-        if path == '/brj/rank': return 200, {'ok': True, 'season': 1, 'days_left': 20, 'total': 2, 'me': 2, 'rows': [{'rank': 1, 'name': EVIL, 'prestiges': 3, 'best_stage': 40, 'me': False}, {'rank': 2, 'name': '테스터', 'prestiges': 1, 'best_stage': 12, 'me': True}]}
+        if path == '/brj/rank': return 200, {'ok': True, 'season': 1, 'days_left': 20, 'total': 2, 'me': 2, 'rows': [{'rank': 1, 'name': EVIL, 'ms': 3, 'best_stage': 40, 'me': False}, {'rank': 2, 'name': '테스터', 'ms': 1, 'best_stage': 12, 'me': True}]}
         if path == '/brj/hunt':
             k = body.get('kills', 0); self.hunted = getattr(self, 'hunted', 0) + k
             return 200, {'ok': True, 'got': k, 'accepted': k, 'cap': 999, 'exact': k * 0.0227, 'view': v}
@@ -183,10 +181,10 @@ class Server:
         if path == '/brj/dungeon': return 200, {'ok': True, 'result': 'win', 'level': 5, 'got': {'stone': 2, 'gold': 3000, 'ticket': 1}, 'view': v}
         if path == '/brj/clanboss': return 200, {'ok': True, 'result': 'ok', 'dmg': 12345, 'feast': 20, 'view': v}
         if path == '/brj/daily': return 200, {'ok': True, 'result': 'todo', 'view': v}
-        if path == '/brj/prestige':
-            if body.get('confirm') is True: return 200, {'ok': True, 'gain': 5, 'view': v}
-            return 200, {'ok': False, 'code': 'confirm', 'gain': 5, 'view': v}
-        if path == '/brj/prestige_buy': return 200, {'ok': True, 'key': body.get('key'), 'view': v}
+        if path == '/brj/inf_claim': return 200, {'ok': True, 'n': 1, 'got': {'feast': 5, 'stone': 3, 'ticket': 0}, 'view': v}
+        if path == '/brj/inf_train':
+            if not v['inf']['train']['unlocked']: return 200, {'ok': False, 'code': 'locked', 'need': 30, 'view': v}
+            return 200, {'ok': True, 'bought': body.get('n') or 1, 'spent': 1, 'lv': 4, 'view': v}
         if path == '/brj/chest': return 200, {'ok': True, 'opened': 1, 'got': {'feast': 3, 'ticket': 0, 'stone': 2}, 'names': ['x'], 'view': v}
         return 404, {'ok': False, 'code': 'not_found'}
 
@@ -258,7 +256,7 @@ async def main():
                 check('상단 HUD: 레벨·스테이지 뱃지·지역', 'Lv.7' in await pg.inner_text('#lvb') and await pg.inner_text('#stbn') == '9' and '홍대' in await pg.inner_text('#preg'))
                 check('HUD 이름은 글자 그대로(HTML 로 안 읽힘)', await pg.evaluate("document.querySelectorAll('img[src=x]').length") == 0 and '<img' in await pg.inner_text('#pname'))
             t = await pg.inner_text('#main')
-            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '100처치당 2.27' in t.replace('\n',' ') and '도전 던전' in t and 'STAGE 9 / 30' in await pg.inner_text('#dock'), t[:120])
+            check(f'{scheme} 사냥터: 시간당·처치당 골드·돌파 안내', '1,500' in t and '100처치당 2.27' in t.replace('\n',' ') and '도전 던전' in t and 'STAGE 9' in await pg.inner_text('#dock'), t[:120])
             check(f'{scheme} 사냥터: 내전 부스트·전투 보너스(골드 배율 아님) 표시', '내전 부스트 2시간' in t and '동료 · 공격·체력' in t and '스킬 피해 ×' in t and '골드를 곱해 주는 배율은 없어요' in t and '시간당 골드 ×' not in t)
             check(f'{scheme} 사냥터: 서버 문자열이 HTML 로 안 읽힘', await pg.locator('img[src=x]').count() == 0 and await pg.evaluate('window.__xss')is None)
             check(f'{scheme} 사냥터: 가로 스크롤 없음', await noscroll(pg))
@@ -311,25 +309,20 @@ async def main():
                 r = await press(pg, '[data-do=clanclaim]', srv, '/brj/clanboss'); check('클랜 보상 → action=claim', r and r[0]['action'] == 'claim')
                 await finish_inst(pg); await tab(pg, 'adv')
                 check('오늘 할 일 → /brj/daily', len(await press(pg, '[data-do=daily]', srv, '/brj/daily')) == 1 and '못 끝낸' in await msg(pg))
-                # 환생
-                await tab(pg, 'pres'); await pg.wait_for_timeout(300); t = await pg.inner_text('#main')
-                check('환생: 영구 보너스·시즌·상자 확률표·순위표', '강건함' in t and '공격력·체력·방어력 +5%' in t and '시즌 1' in t and '알맹이 없음' in t and '45%' in t and await pg.locator('table').count() >= 2)
-                check('환생: 순위표 요청(top=20)', last(srv, '/brj/rank') and last(srv, '/brj/rank')[0]['top'] == 20 and '← 나' in t)
-                check('환생: XSS 없음·가로 스크롤 없음', await pg.locator('#main img[src=x]').count() == 0 and await noscroll(pg) and await pg.evaluate('window.__xss') is None)
-                check('환생 불가(스테이지 부족)면 버튼 꺼짐', await pg.locator('[data-do=prestigeask]').is_disabled())
-                check('최고 레벨 보너스 버튼 꺼짐', await pg.locator('[data-do=prestigebuy][data-key=start]').is_disabled())
-                r = await press(pg, '[data-do=prestigebuy][data-key=gold]', srv, '/brj/prestige_buy'); check('보너스 구매 → key=gold', r and r[0]['key'] == 'gold')
+                # 무한 성장
+                await tab(pg, 'inf'); await pg.wait_for_timeout(300); t = await pg.inner_text('#main')
+                check('무한: 이정표·단련·시즌·상자 확률표·순위표', '이정표' in t and '무한 단련' in t and '시즌 1' in t and '알맹이 없음' in t and '45%' in t and '+5.0%' in t and await pg.locator('table').count() >= 2)
+                check('무한: 환생 UI 는 없다', '환생하기' not in t and await pg.locator('[data-do=prestigeask]').count() == 0 and await pg.locator('[data-do=prestige]').count() == 0)
+                check('무한: 순위표 요청(top=20)', last(srv, '/brj/rank') and last(srv, '/brj/rank')[0]['top'] == 20 and '← 나' in t)
+                check('무한: XSS 없음·가로 스크롤 없음', await pg.locator('#main img[src=x]').count() == 0 and await noscroll(pg) and await pg.evaluate('window.__xss') is None)
+                check('단련 잠김(스테이지 30 전)이면 버튼 꺼짐', await pg.locator('[data-do=infbuy]').first.is_disabled())
+                r = await press(pg, '[data-do=infclaim]', srv, '/brj/inf_claim'); check('이정표 받기 → /brj/inf_claim', r is not None and len(r) == 1)
+                srv.view['inf']['train'].update({'unlocked': True, 'afford': True}); srv.view['inf']['best'] = 30; srv.view['stage'] = 30
+                await pg.click('#rfBtn'); await pg.wait_for_timeout(300)
+                r = await press(pg, '[data-do=infbuy][data-n="10"]', srv, '/brj/inf_train'); check('단련 10레벨 → n=10', r and r[0]['n'] == 10, r)
                 r = await press(pg, '[data-do=chest][data-n="1"]', srv, '/brj/chest'); check('상자 열기 → n=1', r and r[0]['n'] == 1)
                 r = await press(pg, '[data-do=chest][data-n="4"]', srv, '/brj/chest'); check('상자 한꺼번에 → n=4', r and r[0]['n'] == 4, r)
                 n0 = len(last(srv, '/brj/rank')); await pg.click('[data-do=rank]'); await pg.wait_for_timeout(250); check('순위표 새로고침', len(last(srv, '/brj/rank')) == n0 + 1)
-                # 환생 가능 상태: 확인 단계 두 번
-                srv.view['prestige'].update({'can': True, 'stage': 30, 'gain': 5}); srv.view['stage'] = 30
-                await pg.click('#rfBtn'); await pg.wait_for_timeout(300)
-                n0 = len(last(srv, '/brj/prestige')); await pg.click('[data-do=prestigeask]'); await pg.wait_for_timeout(100)
-                check('환생은 한 번 눌러서는 서버로 안 감(확인 단계)', len(last(srv, '/brj/prestige')) == n0 and '정말 환생' in await pg.inner_text('#main'))
-                await pg.click('[data-do=prestigecancel]'); await pg.wait_for_timeout(100)
-                check('아니요 → 확인 창 닫힘', '정말 환생' not in await pg.inner_text('#main'))
-                await pg.click('[data-do=prestigeask]'); r = await press(pg, '[data-do=prestige]', srv, '/brj/prestige'); check('네, 환생 → confirm:true', r and r[0]['confirm'] is True)
                 # 이중 클릭 방지
                 await tab(pg, 'hunt'); c0 = len(last(srv, '/brj/collect'))
                 await pg.evaluate("document.querySelector('[data-do=collect]').click();document.querySelector('[data-do=collect]').click()"); await pg.wait_for_timeout(300)
@@ -495,13 +488,13 @@ async def main():
         await ctx.close()
         # ---- 데스크톱 폭 ----
         srv = Server(); ctx, pg, errs = await new_page(b, srv, w=1100, h=800)
-        for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres', 'rank'):
+        for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'inf', 'rank'):
             await tab(pg, k); check(f'1100px {k}: 가로 스크롤 없음', await noscroll(pg))
         check('1100px: 오류 없음', not errs, errs); await ctx.close()
         # ---- 탭별 390px 그림 ----
         if SHOTS:
             srv = Server(); ctx, pg, errs = await new_page(b, srv, scheme='light')
-            for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'pres', 'rank'):
+            for k in ('hunt', 'skill', 'crew', 'grow', 'adv', 'inf', 'rank'):
                 await tab(pg, k); await pg.wait_for_timeout(250); await pg.screenshot(path=f'{SHOTS}/ui_{k}_light.png', full_page=False)
             await ctx.close()
         await b.close()

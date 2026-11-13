@@ -375,7 +375,7 @@ button.cd:active{transform:scale(.97)}
 @media (min-width:1500px) and (min-height:700px){ #app{grid-template-columns:minmax(0,1fr) 640px} #sheet{font-size:15.5px} #nav button{flex-direction:row;justify-content:center;gap:6px;min-height:60px;font-size:13px} #nav button img,#nav button .tabem{width:28px;height:28px} }
 
 /* ================= 🎮 인게임 UI (2026-11-07 사장님 「우측에 별개 탭으로 분리된 UI 를 전부 인게임 화면 속 그래픽 UI 로」) =================
-   필드가 화면 전체를 쓰고, 스킬·동료·스탯·장비·모험·환생·랭킹·수령은 필드 위의 아이콘 메뉴로 열리는 게임 창이다(필드는 창 뒤에서 계속 돈다). */
+   필드가 화면 전체를 쓰고, 스킬·동료·스탯·장비·모험·무한·랭킹·수령은 필드 위의 아이콘 메뉴로 열리는 게임 창이다(필드는 창 뒤에서 계속 돈다). */
 #app{max-width:none;width:100%;display:flex;flex-direction:column;box-shadow:none}
 #stage{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:#0c1028;border:0;overflow:visible}
 #fieldBox,.mini #fieldBox{flex:1 1 auto;height:auto;min-height:0;border-bottom:0;transition:none}
@@ -550,7 +550,7 @@ const P6_API='https://hth3thmujs.apps.bot-hosting.cloud';
 const DISCORD_CLIENT_ID='1520763174675022028';
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const N=v=>{v=Number(v);return Number.isFinite(v)?v:0;};
-const fmt=v=>Math.floor(N(v)).toLocaleString('ko-KR');
+const fmt=v=>{v=Math.floor(N(v)); return v>=1e15?v.toExponential(2).replace('e+','e'):v.toLocaleString('ko-KR');};   // 1e15 넘는 수는 지수 표기(깊은 스테이지의 전투력)
 const fmtC=v=>{v=Math.floor(N(v)); if(v>=1e8) return (v/1e8).toFixed(1)+'억'; if(v>=1e5) return (v/1e4).toFixed(1)+'만'; return v.toLocaleString('ko-KR');};   // 칩이 좁아서 10만 넘으면 줄여 쓴다(정확한 값은 칩에 마우스/길게 누르기 title)
 const goldPerKill=()=>{ const f=V&&V.field; const g=f&&(N(f.gold_per_kill)||(f.mon&&N(f.mon.gold))); return g>0?g:N(V&&V.rate)/(kpmNow()*60); };   // 몬스터 1마리가 떨어뜨리는 골드(소수). 옛 서버면 시간당 골드로 어림
 const perKill=()=>{ const g=goldPerKill(); if(g>=1) return '+'+fmtG(g)+' <small>/처치</small>'; if(g*10>=1) return '+'+fmtG(g*10)+' <small>/10처치</small>'; return '+'+fmtG(g*100)+' <small>/100처치</small>'; };   // 1 미만의 소수 골드는 단위를 올려 보여 준다
@@ -568,15 +568,15 @@ const skIcon=id=>{ if(SK_NEW[id]){ const [e,c]=SK_NEW[id]; return 'data:image/sv
 const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
 const TAB_EM={gear:'🎒',cos:'👗',rank:'🏆'};
-const TABS=[['hunt','hunt','수령'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['cos','','꾸미기'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
+const TABS=[['hunt','hunt','수령'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['cos','','꾸미기'],['adv','adv','모험'],['inf','prestige','무한'],['rank','','랭킹']];
 const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
 let V_KPM=100;                      // 서버가 내 전투력÷필드 권장 전투력으로 계산한 분당 처치 기대치. 처치당 골드 = 시간당 골드 ÷ (분당 처치×60)
 const kpmNow=()=>Math.max(1,N(V&&V.kpm)||V_KPM);
 
 let V=null;              // 서버가 준 전체 화면 값(view)
 let TAB='hunt', MSG=null, STATE='boot';
-let WOPEN=false;      // 🎮 게임 창(스킬·동료·스탯·장비·모험·환생·랭킹·수령)이 열려 있나 — TAB 은 어느 창인지. 창이 닫혀 있으면 필드를 직접 조작한다   // STATE: boot · out(로그아웃) · nobrj · err · ok
-let ERR='', BUSY=false, FETCHED=0, PARTY=null, PARTY_DIRTY=false, SUMRES=null, RANK=null, RANK_AT=0, SEL_PRES=false, SEL_SLOT=null, TAB_FLAG=false, RK={board:'stage',period:null,data:null,at:0,busy:false};
+let WOPEN=false;      // 🎮 게임 창(스킬·동료·스탯·장비·모험·무한·랭킹·수령)이 열려 있나 — TAB 은 어느 창인지. 창이 닫혀 있으면 필드를 직접 조작한다   // STATE: boot · out(로그아웃) · nobrj · err · ok
+let ERR='', BUSY=false, FETCHED=0, PARTY=null, PARTY_DIRTY=false, SUMRES=null, RANK=null, RANK_AT=0, SEL_SLOT=null, TAB_FLAG=false, RK={board:'stage',period:null,data:null,at:0,busy:false};
 
 function dcUser(){try{const o=JSON.parse(localStorage.getItem('sgg_dc')||'null');if(o&&o.id&&o.token&&o.exp>Date.now())return o;}catch(e){}return null;}
 function dcLogin(){   // 디스코드에 등록된 복귀 주소는 메인 페이지뿐 → 메인이 받아 로그인 처리 후 이 페이지로 되돌려 준다
@@ -954,11 +954,11 @@ function dockHtml(){
   let big;
   if(BOSS||INSTANCE) big=`<button class="btn red push" disabled data-do="chal">⚔ ${INSTANCE?'던전·보스 연출':'보스전'}<small>진행 중…</small></button>`;
   else if(bg) big=`<button class="btn red push ready" data-do="boss">🛡 보스 도전<small>${esc(bg.name)}</small></button>`;
-  else if(!nextOk) big=`<button class="btn alt push" disabled data-do="chal">구역의 끝<small>환생으로 확장</small></button>`;
+  else if(!nextOk) big=`<button class="btn alt push" disabled data-do="chal">스테이지 울타리<small>여기까지 왔어요!</small></button>`;
   else{ const can=v.power_ok!==false;
     big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="chal" aria-label="스테이지 ${fmt(st+1)} 도전 던전. 몬스터 체력 ${fmt(v.chal_hp)}, 내 전투력 ${fmt(v.power)}">⚔ 도전 던전<small>${can?'이길 수 있어요':'몬스터 '+fmtC(v.chal_hp)+' · 내 '+fmtC(v.power)}</small></button>`; }
-  const pct=Math.max(2,Math.min(100,st/cap*100));
-  return `<div class="pbar" role="progressbar" aria-label="스테이지 진행" aria-valuemin="0" aria-valuemax="${cap}" aria-valuenow="${st}"><i style="width:${pct}%"></i><span>STAGE ${fmt(st)} / ${fmt(cap)}</span></div>
+  const pct=Math.max(10,((Math.max(1,st)-1)%10+1)*10);      // 끝이 없으니 「다음 보스 관문(10의 배수)까지」 진행
+  return `<div class="pbar" role="progressbar" aria-label="스테이지 진행" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${Math.round(pct/10)}"><i style="width:${pct}%"></i><span>STAGE ${fmt(st)} · 다음 보스 ${fmt(Math.ceil(Math.max(1,st)/10)*10)}</span></div>
   <div class="dockrow">${potHtml()}<div class="hot">${slotBtn(eq.passive,true,0)}<span class="hsep" aria-hidden="true"></span>${Array.from({length:openSlots()},(_,i)=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
   <div class="keyhint"><b>← →</b> 이동 · <b>Alt</b> 점프 · <b>Ctrl</b> 공격 · <b>1~8</b> 스킬 · <b>Tab</b> AUTO · 자세히는 필드 위 <b>?</b></div>`;
 }
@@ -968,10 +968,10 @@ try{ new ResizeObserver(()=>syncDockH()).observe($('dock')); }catch(e){}
 function navHtml(){
   const dn=V&&V.dungeon; const todo=dn&&dn.daily&&!dn.daily.claimed&&dn.daily.all;
   const clan=dn&&dn.clan&&dn.clan.claimable;
-  const chest=V&&V.prestige&&V.prestige.chest&&N(V.prestige.chest.stock)>0;
+  const chest=V&&V.inf&&((V.inf.chest&&N(V.inf.chest.stock)>0)||(V.inf.ms&&N(V.inf.ms.pending)>0));
   const aw=V&&V.skill&&V.skill.awaken&&V.skill.awaken.next&&V.skill.awaken.next.can;
   const rkc=V&&V.rank&&V.rank.prev&&V.rank.prev.claimable;
-  const dots={adv:todo||clan,pres:chest,skill:aw,rank:rkc};
+  const dots={adv:todo||clan,inf:chest,skill:aw,rank:rkc};
   return TABS.map(([k,ic,n])=>`<button role="tab" aria-selected="${WOPEN&&TAB===k}" aria-label="${n} 창 열기" data-tab="${k}" class="${WOPEN&&TAB===k?'on':''}">${ic?`<img src="img/brjhunt/ui/tab_${ic}.webp" alt="" onerror="this.style.display='none'">`:`<span class="tabem" aria-hidden="true">${TAB_EM[k]||'🏆'}</span>`}${n}${dots[k]?'<span class="dot" title="할 수 있는 일이 있어요"></span>':''}</button>`).join('');
 }
 function msgHtml(){ if(!MSG) return ''; return `<div class="msg ${esc(MSG.k)}" role="status">${MSG.t}</div>`; }   // MSG.t 는 이 파일이 만든 문장(서버 문자열은 만들 때 esc 한다)
@@ -1000,7 +1000,7 @@ function render(){
   renderTop(); updateChips();
   setHtml($('dock'),dockHtml());
   setHtml(nav,navHtml());
-  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,cos:tabCos,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
+  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,cos:tabCos,adv:tabAdv,inf:tabInf,rank:tabRank}[TAB]||tabHunt;
   const keep=main.scrollTop;
   main.innerHTML=msgHtml()+fn();
   { const tb=TABS.find(x=>x[0]===TAB)||TABS[0]; $('wname').textContent=tb[2]; $('wicon').innerHTML=tb[1]?`<img src="img/brjhunt/ui/tab_${tb[1]}.webp" alt="" onerror="this.style.display='none'">`:'<span class="tabem" aria-hidden="true">'+(TAB_EM[tb[0]]||'🏆')+'</span>'; }
@@ -1029,7 +1029,7 @@ function modPills(){
   if(N(c.lv_pct)>0) out.push(`🐥 브장신 Lv.${fmt(c.lv)} · 전 스탯 +${N(c.lv_pct)}%`);
   if(N(c.party_pct)>0) out.push(`👥 동료 장착 · 공격·체력 +${N(c.party_pct)}%`);
   if(N(c.own_def_pct)>0) out.push(`🎒 동료 보유 · 방어·명중 +${N(c.own_def_pct)}% · 크리 +${N(c.own_crit_add)}%p`);
-  if(N(c.prestige_pct)>0) out.push(`💪 환생 · 공격·체력·방어 +${N(c.prestige_pct)}%`);
+  if(N(c.prestige_pct)>0) out.push(`♾ 영구 보너스(이정표·단련·옛 환생) · 공격·체력 +${N(c.prestige_pct)}%`);
   const sm=N(R(V.skill,'mult',1)); if(sm>1.0001) out.push(`⚡ 스킬 피해 ×${sm.toFixed(2)}`);
   return out;
 }
@@ -1070,7 +1070,7 @@ function tabHunt(){
     <div class="kv"><span>내 전투력</span><b class="${v.power_ok?'green':'red'}">${fmt(v.power)} ${v.power_ok?'✔ 이길 수 있어요':`(${fmt(Math.max(0,N(v.chal_hp)-N(v.power)))} 더 필요)`}</b></div>
     <div class="kv"><span>클리어하면 시간당 골드</span><b>${I('gold')}${fmt(v.next_rate)} <span class="mut">(기본값 기준)</span></b></div>
     ${gate?`<div class="msg info" style="margin:8px 0 0">🛡 스테이지 ${fmt(gate.stage)} 은 보스 관문이에요. <b>${esc(gate.name)}</b> 을(를) 이겨야 넘어갈 수 있어요. 졌다고 손해는 없어요.</div>`:''}
-    <div class="mut" style="margin-top:6px">도전 버튼은 필드 아래쪽에 있어요. 스테이지 ${fmt(st)} / ${fmt(cap)}${cap>30?' (환생으로 넓힌 상한)':''}</div>
+    <div class="mut" style="margin-top:6px">도전 버튼은 필드 아래쪽에 있어요. 스테이지 ${fmt(st)} (끝없이 올라가요)</div>
   </div>
   ${quickCard()}
   <details class="card"><summary>🎮 조작법</summary><div class="sub"><b>키보드</b> — <b>← →</b> 이동 · <b>Alt / Space / ↑</b> 점프(오래 누를수록 높이, 공중에서 한 번 더 누르면 2단 점프) · <b>↓ + 점프</b> 아래 발판으로 · <b>Ctrl / Z</b> 기본 공격(3콤보) · <b>1 2 3 4</b>(또는 A S D F) 스킬 · <b>Tab / G</b> AUTO 켜고 끄기 · <b>P</b> 일시정지<br><b>휴대폰</b> — 필드 위 🎮 버튼으로 화면 조작 버튼을 켜고 꺼요. 왼쪽 ◀ ▶ 이동, 오른쪽 ⚔ 공격 · ⤒ 점프 · ⤓ 내려가기 · 숫자 칸이 스킬이에요.<br>키를 누르면 바로 <b>수동</b>이 되고, 3초 동안 가만히 있으면 AUTO 로 돌아가요. 스킬은 MP 가 있어야 쓰고(MP 는 시간이 지나면 차요), 쓴 뒤에는 쿨다운이 있어요. 쓰러지면 잠시 뒤 시작 지점에서 되살아나지만 그동안은 못 잡아요.</div></details>
@@ -1116,7 +1116,7 @@ function tabSkill(){
     ${un.length?`<div class="unl"><span class="sub">각성하면 배워요</span>${un.map(x=>`<img src="${skIcon(x.id)}" alt="${esc(x.k.name)}" title="${esc(x.k.name)}">`).join('')}</div>`:''}
     <div class="btns"><button class="btn ${nx.can?'gold':'alt'}" data-do="awaken" ${nx.can?'':'disabled'} style="font-size:17px">✨ ${lvA+1}단계 각성하기</button></div>
     ${nx.can?'':`<div class="mut" style="margin-top:6px">${esc(nx.why)}</div>`}
-    <div class="mut" style="margin-top:4px">각성은 <b>실패 없이 확정</b>이에요. 되돌릴 수 없고, 환생해도 유지돼요.</div>`;
+    <div class="mut" style="margin-top:4px">각성은 <b>실패 없이 확정</b>이에요. 되돌릴 수 없어요.</div>`;
   } else awaken=`<div class="msg ok" style="margin:0">🎉 모든 각성을 마쳤어요! 이제 스킬을 키우는 일만 남았어요.</div>`;
   const slotTile=(id,i,pas)=>{
     const k=id?skById(id):null, on=k&&k.unlocked;
@@ -1233,11 +1233,11 @@ function tabGrow(){
   const kv=(n,v,x)=>`<div class="kv"><span>${n}</span><b>${v}${x?` <span class="mut">${x}</span>`:''}</b></div>`;
   return `
   <div class="card"><h2>📊 내 전투 스탯 <span class="pill gold">전투력 ${fmt(cb.power)}</span></h2>
-    <div class="sub">지금 필드에서 실제로 싸우는 값이에요(성장·장비·동료·환생·스킬·브장신 Lv 를 모두 합친 최종값).</div>
+    <div class="sub">지금 필드에서 실제로 싸우는 값이에요(성장·장비·동료·영구 보너스·스킬·브장신 Lv 를 모두 합친 최종값).</div>
     ${kv('⚔ 공격력',fmt(cb.atk))}${kv('❤ 체력',fmt(cb.hp),`실질 체력 ${fmt(cb.ehp)}`)}${kv('🛡 방어력',fmt(cb.def),`피해 ${N(cb.def_cut).toFixed(1)}% 줄여요`)}
     ${kv('🎯 크리티컬 확률',N(cb.crit).toFixed(1)+'%')}${kv('💥 크리티컬 피해',N(cb.critdmg).toFixed(0)+'%')}${kv('👁 명중',fmt(cb.acc),`지금 필드 몬스터에게 ${N(cb.hit).toFixed(0)}% 적중`)}
     ${kv('🔷 MP',fmt(cb.mp),`초당 ${N(cb.mpregen).toFixed(1)} 회복`)}
-    <div class="mut" style="margin-top:6px">${[N(md.lv_pct)>0?`브장신 Lv.${fmt(md.lv)} 전 스탯 +${N(md.lv_pct)}%`:'',N(md.party_pct)>0?`동료 장착 공격·체력 +${N(md.party_pct)}%`:'',N(md.own_def_pct)>0?`동료 보유 방어·명중 +${N(md.own_def_pct)}% · 크리 +${N(md.own_crit_add)}%p`:'',N(md.prestige_pct)>0?`환생 공격·체력·방어 +${N(md.prestige_pct)}%`:'',N(md.skill_def_pct)>0?`패시브 방어 +${N(md.skill_def_pct)}%`:'',N(md.skill_hp_pct)>0?`패시브 체력 +${N(md.skill_hp_pct)}%`:''].filter(Boolean).map(esc).join(' · ')||'보너스가 아직 없어요'}</div>
+    <div class="mut" style="margin-top:6px">${[N(md.lv_pct)>0?`브장신 Lv.${fmt(md.lv)} 전 스탯 +${N(md.lv_pct)}%`:'',N(md.party_pct)>0?`동료 장착 공격·체력 +${N(md.party_pct)}%`:'',N(md.own_def_pct)>0?`동료 보유 방어·명중 +${N(md.own_def_pct)}% · 크리 +${N(md.own_crit_add)}%p`:'',N(md.prestige_pct)>0?`영구 보너스(이정표·단련·옛 환생) 공격·체력 +${N(md.prestige_pct)}%`:'',N(md.skill_def_pct)>0?`패시브 방어 +${N(md.skill_def_pct)}%`:'',N(md.skill_hp_pct)>0?`패시브 체력 +${N(md.skill_hp_pct)}%`:''].filter(Boolean).map(esc).join(' · ')||'보너스가 아직 없어요'}</div>
   </div>
   <div class="card"><h2>📈 스탯 키우기</h2>
     <div class="sub">🪙 골드로 스탯을 키워요. 골드를 더 벌게 해 주는 스탯은 없어요 — <b>싸움이 세져서 더 빨리·더 높은 필드에서 잡는 것</b>이 곧 골드예요. 내 골드 ${I('gold')}<span data-gold>${fmt(gold)}</span></div>
@@ -1411,7 +1411,7 @@ function tabAdv(){
   return `
   <div class="card"><h2>💪 내 사냥 전투력 <span class="pill">${fmt(d.power)}</span></h2><div class="sub">보스와 던전, 클랜 보스는 이 전투력으로 싸워요. 성장·장비·파티가 좋아지면 오르고, 졌다고 잃는 건 없어요.</div></div>
   <div class="card"><h2>🛡 보스 관문</h2>
-    <div class="sub">스테이지 10·20·30 에서는 보스를 이겨야 돌파할 수 있어요. 전투력이 보스 체력 이상이면 이겨요. 한 번 이기면 그 보스는 끝이에요. 보상은 처음 이길 때 한 번만 받아요.</div>
+    <div class="sub">스테이지 10·20·30 … 10의 배수마다 보스를 이겨야 돌파할 수 있어요. 전투력이 보스 체력 이상이면 이겨요. 한 번 이기면 그 보스는 끝이에요. 보상은 처음 이길 때 한 번만 받아요.</div>
     ${bosses.map(b=>{const now=gateNow===N(b.stage)&&!b.cleared; const win=N(d.power)>=N(b.hp);
       return `<div class="boss">${bossImg(b.img)}<div class="tx"><b>${esc(b.name)}</b> <span class="pill">스테이지 ${fmt(b.stage)}</span>${b.cleared?' <span class="pill green">클리어</span>':''}<div class="mut">체력 ${fmt(b.hp)} · 보상 ${I('feast')}${fmt(b.feast)} + ${I('ticket')}${fmt(b.ticket)}</div>
       ${!b.cleared&&now?`<div class="mut ${win?'green':'red'}">${win?'지금 전투력으로 이길 수 있어요!':`전투력이 ${fmt(N(b.hp)-N(d.power))} 모자라요`}</div>`:''}</div>
@@ -1442,26 +1442,31 @@ function tabAdv(){
   </div>`;
 }
 
-// ----- 환생·순위·내전 상자 -----
-function tabPres(){
-  const p=V.prestige||{}; const ups=Array.isArray(p.ups)?p.ups:[]; const ss=p.season||{}; const ch=p.chest||{};
+// ----- 무한 성장·순위·내전 상자 (2026-11-13 환생 삭제) -----
+function tabInf(){
+  const p=V.inf||{}; const ms=p.ms||{}, tr=p.train||{}, lg=p.legacy||{}, ss=p.season||{}, ch=p.chest||{};
   const hist=Array.isArray(ss.history)?ss.history:[];
   const rows=RANK&&Array.isArray(RANK.rows)?RANK.rows:null;
+  const buy=n=>`<button class="btn ${tr.afford?'gold':'alt'}" data-do="infbuy" data-n="${n}" ${tr.unlocked&&tr.cost!=null?'':'disabled'}>${n===1?'1레벨':`${n}레벨`}</button>`;
   return `
-  <div class="card"><h2>🌟 환생 <span class="pill">${fmt(p.n)}번 함</span></h2>
-    <div class="sub">스테이지 ${fmt(p.min_stage)} 까지 오면 환생할 수 있어요. 스테이지와 골드는 처음으로 돌아가지만, 환생 포인트로 <b>영구 보너스</b>를 사요.</div>
-    <div class="sub" style="margin-top:4px">${esc(p.warn)}</div>
-    <div class="kv"><span>내 환생 포인트</span><b>⭐ ${fmt(p.points)}</b></div>
-    <div class="kv"><span>지금 환생하면</span><b>${p.can?`⭐ +${fmt(p.gain)}`:`스테이지 ${fmt(p.min_stage)} 부터 가능 (지금 ${fmt(p.stage)})`}</b></div>
-    <div class="mut">${esc(p.pt_rule)}</div>
-    ${SEL_PRES&&p.can?`<div class="msg bad" style="margin-top:8px">정말 환생할까요? 되돌릴 수 없어요. 스테이지 ${fmt(p.stage)} 와 쌓인 골드가 사라지고 ⭐ ${fmt(p.gain)} 을 받아요.</div>
-      <div class="btns"><button class="btn red" data-do="prestige">네, 환생할래요</button><button class="btn alt" data-do="prestigecancel">아니요</button></div>`:
-      `<div class="btns"><button class="btn ${p.can?'gold':'alt'}" data-do="prestigeask" ${p.can?'':'disabled'}>🌟 환생하기</button></div>`}
+  <div class="card"><h2>♾ 끝없는 성장 <span class="pill">최고 스테이지 ${fmt(p.best)}</span></h2>
+    <div class="sub">스테이지에는 끝이 없어요. 환생은 사라졌고, 대신 <b>이정표</b>와 <b>무한 단련</b>으로 계속 강해져요. 스테이지와 골드는 처음으로 돌아가지 않아요.</div>
+    <div class="kv"><span>영구 보너스</span><b>공격력·체력 +${N(p.stat_pct).toFixed(1)}%</b></div>
+    ${lg.had?`<div class="mut">🎁 예전 환생으로 모은 영구 보너스(+${N(lg.pct).toFixed(1)}%)와 남은 포인트는 이 보너스로 옮겨졌어요. 손해는 없어요.</div>`:''}
   </div>
-  <div class="card"><h2>🛒 영구 보너스</h2>
-    <div class="sub">환생 포인트로 사요. 환생해도 사라지지 않아요. 현재 효과: 공격력·체력·방어력 +${N(p.stat_pct!=null?p.stat_pct:(N(p.gold_mult||1)-1)*100).toFixed(1)}% · 스테이지 상한 ${fmt(p.stage_cap)} · 환생 뒤 시작 스테이지 ${fmt(p.start_stage)}</div>
-    ${ups.map(u=>`<div class="boss" style="padding:10px 0"><div class="tx"><b>${esc(u.name)}</b> <span class="pill">Lv.${fmt(u.lv)}/${fmt(u.max)}</span><div class="mut">${esc(u.effect)}</div></div>
-      <button class="btn ${u.afford?'':'alt'}" data-do="prestigebuy" data-key="${esc(u.key)}" ${u.cost==null?'disabled':''}>${u.cost==null?'최고':`⭐ ${fmt(u.cost)}`}</button></div>`).join('')}
+  <div class="card"><h2>🏅 이정표 <span class="pill">${fmt(ms.claimed)}개 받음</span></h2>
+    <div class="sub">최고 스테이지가 ${fmt(ms.every)}칸 오를 때마다 이정표가 하나 생겨요. 받으면 ${I('feast')}${fmt(R(ms.reward,'feast',0))} · ${I('stone')}${fmt(R(ms.reward,'stone',0))} (${fmt(R(ms.reward,'ticket_every',5))}개마다 ${I('ticket')}1장)과 <b>영구 공격력·체력 +${N(ms.pct_each)}%</b>를 한꺼번에 받아요.</div>
+    <div class="kv"><span>받을 수 있는 이정표</span><b>${fmt(ms.pending)}개</b></div>
+    <div class="kv"><span>다음 이정표</span><b>스테이지 ${fmt(ms.next_at)}</b></div>
+    <div class="kv"><span>이정표로 얻은 보너스</span><b>+${N(ms.pct).toFixed(1)}%</b></div>
+    <div class="btns"><button class="btn ${N(ms.pending)>0?'gold':'alt'}" data-do="infclaim" ${N(ms.pending)>0?'':'disabled'}>🏅 이정표 받기${N(ms.pending)>0?` (${fmt(ms.pending)}개)`:''}</button></div>
+  </div>
+  <div class="card"><h2>🔥 무한 단련 <span class="pill">Lv.${fmt(tr.lv)}${tr.max?` / ${fmt(tr.max)}`:''}</span></h2>
+    <div class="sub">${tr.unlocked?`골드로 레벨을 올려요. 레벨 하나마다 <b>공격력·체력 +${N(tr.pct_each)}%</b>(곱하기)가 쌓이고 끝이 없어요. 레벨이 오를수록 비용도 올라요.`:`스테이지 ${fmt(tr.unlock_stage)} 에 닿으면 열려요 (지금 최고 ${fmt(p.best)}). 그때까지는 스탯·장비·동료로 강해져요.`}</div>
+    <div class="kv"><span>지금 단련 효과</span><b>×${N(tr.mult).toFixed(3)}</b></div>
+    <div class="kv"><span>다음 1레벨 비용</span><b>${tr.cost==null?'최고 레벨':`${I('gold')}${fmt(tr.cost)}`}</b></div>
+    <div class="btns">${buy(1)}${buy(10)}${buy(Math.max(1,N(tr.buy_max)||50))}</div>
+    <div class="mut">골드가 모자라면 살 수 있는 만큼만 사요. 1번에 최대 ${fmt(tr.buy_max)}레벨.</div>
   </div>
   <div class="card"><h2>🎁 내전 상자 <span class="pill">보관 ${fmt(ch.stock)}개</span></h2>
     <div class="sub">내전을 1판 뛸 때마다 상자가 1개 생겨요 (하루 ${fmt(ch.daily_cap)}개까지 · 오늘 ${fmt(ch.today)}개 받음 · 최대 ${fmt(ch.store_max)}개 보관). 열면 ${I('feast')}${fmt(ch.feast)} 개는 꼭 나오고, 아래 중 하나가 더 나와요.</div>
@@ -1469,11 +1474,11 @@ function tabPres(){
     <div class="btns"><button class="btn ${N(ch.stock)>0?'gold':'alt'}" data-do="chest" data-n="1" ${N(ch.stock)>0?'':'disabled'}>1개 열기</button><button class="btn ${N(ch.stock)>1?'':'alt'}" data-do="chest" data-n="${Math.max(1,Math.min(N(ch.open_max)||10,N(ch.stock)))}" ${N(ch.stock)>1?'':'disabled'}>한꺼번에 열기 (${Math.max(1,Math.min(N(ch.open_max)||10,N(ch.stock)))}개)</button></div>
   </div>
   <div class="card"><h2>🏆 시즌 ${fmt(ss.no)} <span class="pill">${fmt(ss.days_left)}일 남음</span></h2>
-    <div class="sub">시즌은 ${fmt(ss.length_days)}일(4주)마다 새로 시작해요. 순위는 환생을 많이 한 순서, 같으면 최고 스테이지가 높은 순서예요.</div>
-    <div class="kv"><span>이번 시즌 내 환생</span><b>${fmt(ss.prestiges)}번</b></div><div class="kv"><span>이번 시즌 내 최고 스테이지</span><b>${fmt(ss.best_stage)}</b></div>
-    ${hist.length?`<details><summary>지난 시즌 기록</summary>${hist.map(h=>`<div class="kv"><span>시즌 ${fmt(R(h,'season',0))}</span><b>환생 ${fmt(R(h,'n',0))}번 · 최고 스테이지 ${fmt(R(h,'best',0))}</b></div>`).join('')}</details>`:''}
+    <div class="sub">시즌은 ${fmt(ss.length_days)}일(4주)마다 새로 시작해요. 순위는 이번 시즌 최고 스테이지가 높은 순서예요.</div>
+    <div class="kv"><span>이번 시즌 내 최고 스테이지</span><b>${fmt(ss.best_stage)}</b></div>
+    ${hist.length?`<details><summary>지난 시즌 기록</summary>${hist.map(h=>`<div class="kv"><span>시즌 ${fmt(R(h,'season',0))}</span><b>최고 스테이지 ${fmt(R(h,'best',0))}</b></div>`).join('')}</details>`:''}
     <h3>순위표</h3>
-    ${rows===null?'<div class="sub">순위표를 불러오는 중…</div>':rows.length?`<div class="tw"><table><thead><tr><th>순위</th><th>이름</th><th>환생</th><th>최고 스테이지</th></tr></thead><tbody>${rows.map(x=>`<tr${x.me?' style="font-weight:900;color:var(--gold)"':''}><td>${fmt(x.rank)}</td><td style="text-align:left;white-space:normal;overflow-wrap:anywhere">${esc(x.name)}${x.me?' ← 나':''}</td><td>${fmt(x.prestiges)}</td><td>${fmt(x.best_stage)}</td></tr>`).join('')}</tbody></table></div>
+    ${rows===null?'<div class="sub">순위표를 불러오는 중…</div>':rows.length?`<div class="tw"><table><thead><tr><th>순위</th><th>이름</th><th>이정표</th><th>최고 스테이지</th></tr></thead><tbody>${rows.map(x=>`<tr${x.me?' style="font-weight:900;color:var(--gold)"':''}><td>${fmt(x.rank)}</td><td style="text-align:left;white-space:normal;overflow-wrap:anywhere">${esc(x.name)}${x.me?' ← 나':''}</td><td>${fmt(x.ms)}</td><td>${fmt(x.best_stage)}</td></tr>`).join('')}</tbody></table></div>
       <div class="mut">${RANK.me?`내 순위 ${fmt(RANK.me)}위 / ${fmt(RANK.total)}명`:`아직 순위에 없어요 (${fmt(RANK.total)}명 참여)`}</div>`:'<div class="sub">아직 이번 시즌 기록이 없어요.</div>'}
     <div class="btns"><button class="btn alt" data-do="rank">순위표 새로고침</button></div>
   </div>`;
@@ -1568,7 +1573,7 @@ $('eliteAuto').onclick=()=>{ snd('click'); ELITE_AUTO=!ELITE_AUTO; LS('brjhunt_e
 $('autoBtn').onclick=()=>{ try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(e){} if(!FIELD) return; let on=false; try{ on=FIELD.stats().auto; }catch(e){} FIELD.setAuto(!on); updAuto(); };
 $('padBtn').onclick=()=>{ snd('click'); setPad(!document.body.classList.contains('touch'),true); try{ FIELD&&FIELD.resize(); }catch(e){} };
 $('keyBtn').onclick=()=>{ const h=$('keyHelp'), on=!h.classList.contains('show'); h.classList.toggle('show',on); $('keyBtn').setAttribute('aria-expanded',String(on)); snd(on?'ui_open':'ui_close'); };
-const PUSH_MSG={max:()=>'이 구역의 끝까지 왔어요. 환생하면 더 올라갈 수 있어요.',boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
+const PUSH_MSG={max:()=>'스테이지 울타리까지 왔어요. 대단해요!',boss:()=>'🛡 보스를 먼저 이겨야 해요. 필드 아래의 「보스 도전」을 눌러 보세요.'};
 const AWK_MSG={stage:'스테이지가 모자라 아직 각성할 수 없어요.',gold:'🪙 골드가 모자라요.',stone:'🔩 강화석이 모자라요.',feast:'🍖 특식이 모자라요.',max:'이미 마지막 각성까지 마쳤어요.'};
 // ---------- 인스턴스 전투: 열쇠 던전 · 클랜 보스 · 보상 상자를 진짜 전투 장면으로 ----------
 // 누르면 서버(결과·보상·피해를 정한다)를 부르고, 엔진(BrjArena.startInstance)이 그 결과에 맞춰 연출 시간표를 짠다. 연출이 끝나면 서버가 준 화면 값(view)을 반영한다.
@@ -1766,12 +1771,12 @@ const DO={
   daily:()=>act('/brj/daily',{},j=>{
     if(j.result==='ok'){ const c=j.chest||{}; const nm=({stone:'🔩 강화석',ticket:'🎟 소환권',gold:'🪙 골드'})[c.kind]||''; say(`🎁 오늘 할 일 완료! 🍖 +${fmt(j.feast)}${nm?` · 상자: ${nm}${N(c.n)?' '+fmt(c.n)+'개':''}`:''}`,'ok'); snd('levelup'); }
     else if(j.result==='claimed') say('오늘 보상은 이미 받았어요.','info'); else say('아직 못 끝낸 일이 있어요. 위 목록을 확인해 보세요.','bad'); }),
-  prestigeask:()=>{ SEL_PRES=true; render(); },
-  prestigecancel:()=>{ SEL_PRES=false; render(); },
-  prestige:()=>{ SEL_PRES=false; act('/brj/prestige',{confirm:true},j=>{
-    if(j.ok){ say(`🌟 환생했어요! ⭐ +${fmt(j.gain)}. 영구 보너스를 사 보세요.`,'ok'); snd('awaken'); } else say(j.code==='stage'?`스테이지 ${fmt(j.need)} 부터 환생할 수 있어요.`:'환생하지 못했어요.','bad'); }); },
-  prestigebuy:el=>act('/brj/prestige_buy',{key:el.dataset.key},j=>{
-    if(j.ok){ say('🛒 영구 보너스를 샀어요!','ok'); snd('enhance_ok'); } else say({max:'이미 최고 레벨이에요.',points:`⭐ 포인트가 모자라요. ${fmt(j.cost)} 필요해요.`,bad_input:'올바르지 않은 요청이에요.'}[j.code]||'처리하지 못했어요.','bad'); }),
+  infclaim:()=>act('/brj/inf_claim',{},j=>{
+    if(j.ok){ const g=j.got||{}; say(`🏅 이정표 ${fmt(j.n)}개 달성! 🍖 +${fmt(g.feast)} · 🔩 +${fmt(g.stone)}${N(g.ticket)?` · 🎟 +${fmt(g.ticket)}`:''} · 영구 보너스가 올랐어요.`,'ok'); snd('levelup'); }
+    else say(j.code==='none'?'받을 이정표가 아직 없어요.':'받지 못했어요.','bad'); }),
+  infbuy:el=>act('/brj/inf_train',{n:Number(el.dataset.n)||1},j=>{
+    if(j.ok){ say(`🔥 무한 단련 +${fmt(j.bought)}레벨! (Lv.${fmt(j.lv)})`,'ok'); snd('enhance_ok'); }
+    else say({locked:`스테이지 ${fmt(j.need)} 에 닿으면 열려요.`,gold:`골드가 모자라요. ${fmt(j.cost)} 필요해요.`,max:'이미 최고 레벨이에요.'}[j.code]||'처리하지 못했어요.','bad'); }),
   chest:el=>act('/brj/chest',{n:Number(el.dataset.n)||1},j=>{
     if(j.ok){ const g=j.got||{}; say(`🎁 상자 ${fmt(j.opened)}개를 열었어요! 🍖 +${fmt(g.feast)}${N(g.ticket)?` · 🎟 +${fmt(g.ticket)}`:''}${N(g.stone)?` · 🔩 +${fmt(g.stone)}`:''}`,'ok'); snd('summon'); }
     else say(j.code==='empty'?'열 상자가 없어요. 내전을 뛰면 생겨요.':'처리하지 못했어요.','bad'); }),
@@ -1791,7 +1796,7 @@ document.addEventListener('click',e=>{
   if(t.id==='retryBtn'){ snd('click'); STATE='boot'; render(); load(); return; }
   if(INSTANCE&&(t.dataset.tab||t.dataset.card!=null)) return;
   if(t.dataset.tab){ const k=t.dataset.tab; if(WOPEN&&TAB===k){ snd('tab'); closeWin(); return; }   // 같은 아이콘을 다시 누르면 창 닫기
-    snd('tab'); TAB=k; WOPEN=true; TAB_FLAG=true; MSG=null; render(); if(TAB==='pres'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); return; }
+    snd('tab'); TAB=k; WOPEN=true; TAB_FLAG=true; MSG=null; render(); if(TAB==='inf'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); return; }
   if(t.dataset.card!=null){   // 파티 편성(저장 전까지는 이 화면에서만 바뀐다)
     snd('click');
     const id=t.dataset.card, p=curParty(), i=p.indexOf(id), mx=N(R(V.summon,'party_max',3))||3;
