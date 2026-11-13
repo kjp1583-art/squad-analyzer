@@ -25,7 +25,7 @@ def relic_view(st):
             'abi': {'unlock': 2, 'max': 3, 'lines': [line('atk', '공격력', 5.0, 1), line('gold', '골드 획득', 3.0, 0)], 'lock': [False, False], 'pend': [line('hp', '체력', 7.0, 2), line('gold', '골드 획득', 3.0, 0)] if st['pend'] else None,
                     'cost': 5, 'base': 5, 'rolls': 1, 'unlock_cost': {'2': 40, '3': 120}, 'grades': [{'name': '레어', 'p': 55.0, 'mult': .35}], 'stats': [{'key': 'atk', 'name': '공격력', 'max': 10.0, 'unit': '%'}]},
             'unique': {'slots': 2, 'on': st['uq_on'], 'star_max': 5, 'star_pct': 15, 'elite_p': 0.2, 'list': uq},
-            'dun': [{'key': 'relic', 'name': '유물 발굴지', 'emoji': '⛏', 'cur': 'coin', 'cur_name': '유물 주화', 'used': st['dun'], 'max': 3, 'tiers': [{'name': n, 'need': nd, 'ok': nd < 1000, 'reward': r} for n, nd, r in (('쉬움', 100, 6), ('보통', 500, 12), ('어려움', 99999, 24))]}],
+            'dun': [{'key': 'relic', 'name': '유물 발굴지', 'emoji': '⛏', 'cur': 'coin', 'cur_name': '유물 주화', 'used': st['dun'], 'max': 1, 'tiers': [{'name': n, 'need': nd, 'ok': nd < 1000, 'reward': r} for n, nd, r in (('쉬움', 100, 6), ('보통', 500, 12), ('어려움', 99999, 24))]}],
             'shop': [{'key': 'box1', 'name': '유물상자 1개', 'emoji': '🎁', 'cur': 'coin', 'price': 20, 'desc': '열면 유물', 'day_left': None, 'week_left': None, 'sold_out': False}],
             'news': [], 'fx': {'cd': 20.0}, 'bonus': {'pct': {'atk': 8.7}, 'add': {}}}
 async def run(b, port, vp, tag):

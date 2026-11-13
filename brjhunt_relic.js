@@ -49,7 +49,7 @@ function injectCss(){
 const cur=k=>ART.cur[k]||'';
 function head(v){
   return `<div class="card"><h2>${ART.tab} 유물 <span class="pill gold">${cur('coin')} ${fm(v.coin)}</span> <span class="pill">${cur('crystal')} ${fm(v.crystal)}</span> <span class="pill">${cur('dust')} ${fm(v.dust)}</span></h2>
-  <div class="sub">유물·어빌리티·고유 장비는 일반 장비와 <b>따로</b> 더해져요. 🏺 주화는 <b>유물 발굴지</b>에서, 🔮 수정은 <b>수정굴</b>에서 하루 3번씩 얻어요.</div>
+  <div class="sub">유물·어빌리티·고유 장비는 일반 장비와 <b>따로</b> 더해져요. 🏺 주화는 <b>유물 발굴지</b>에서, 🔮 수정은 <b>수정굴</b>에서 <b>하루 1번씩</b> 깨고 얻어요(보상도 넉넉해요).</div>
   <div class="rl-sub" role="tablist">${SUBS.map(([k,n])=>`<button role="tab" aria-selected="${ST.sub===k}" class="${ST.sub===k?'on':''}" data-do="rlsub" data-sub="${k}">${n}</button>`).join('')}</div></div>`;
 }
 function bonusLine(v){
@@ -99,7 +99,7 @@ function subRelic(v){
     return `<button class="btn gold" data-do="rlmerge" data-slot="${esc_(sl)}" data-rar="${esc_(rr)}">합성: ${esc_(sn)} ${esc_((v.rarities[num(rr)]||{}).name)} ${cnt[k]}개 → 한 등급 위</button>`; }).join('');
   return `<div class="card"><h2>착용 중인 유물</h2>${bonusLine(v)}<div class="rl-slots">${slots}</div>
     <div class="btns"><button class="btn gold" data-do="rlbox" data-n="1">${cur('coin')}${fm(v.box.cost)} 유물상자 열기</button><button class="btn alt" data-do="rlscrapall">희귀 일괄 분해</button></div>
-    <div class="mut" style="margin-top:4px">천장: 전설 이상 ${num(v.box.pity)}/${num(v.box.pity_max)} · 고유 ${num(v.box.upity)}/${num(v.box.upity_max)} (고유 확률 ${num(v.box.unique_p)}%) · 등급 확률 ${v.rarities.map(r=>esc_(r.name)+' '+num(r.p)+'%').join(' · ')}</div></div>
+    <div class="mut" style="margin-top:4px">천장: 전설 이상 ${num(v.box.pity)}/${num(v.box.pity_max)} · 신화 ${num(v.box.mpity)}/${num(v.box.mpity_max)} · 고유 ${num(v.box.upity)}/${num(v.box.upity_max)} (고유 확률 ${num(v.box.unique_p)}%) · 등급 확률 ${v.rarities.map(r=>esc_(r.name)+' '+num(r.p)+'%').join(' · ')}</div></div>
     ${resHtml()}${det}
     <div class="card"><h2>보관함 <span class="pill">${v.relics.length}/${num(v.cap)}</span></h2>
     ${mergeBtns?`<div class="btns" style="margin-bottom:6px">${mergeBtns}</div>`:''}
@@ -175,7 +175,7 @@ const DO_={
   rlbuy:el=>{ const nm=el.dataset.name||'이 상품'; if(!confirm(`「${nm}」을(를) 살까요?`)) return;
     B('/brj/rl_shop',{key:el.dataset.key},j=>{ if(j.result==='ok'){ const gt=j.got||{}; ST.res=(gt.relics&&gt.relics.length)||(gt.unique&&gt.unique.length)||gt.dust?gt:null; say(`🛒 「${nm}」을(를) 샀어요!`,'ok'); snd('summon'); } else say(MSG[j.result]||'사지 못했어요.','bad'); }); },
   rldun:el=>B('/brj/rl_dungeon',{dun:el.dataset.dun,tier:Number(el.dataset.tier)},j=>{
-    if(j.result==='win'){ const k=Object.keys(j.got||{})[0]; say(`⛏ 클리어! ${cur(k)} +${fm((j.got||{})[k])}`,'ok'); snd('levelup'); }
+    if(j.result==='win'){ const k=Object.keys(j.got||{}).find(x=>x!=='dust'); say(`⛏ 클리어! ${cur(k)} +${fm((j.got||{})[k])}${num((j.got||{}).dust)?` · ${cur('dust')} +${fm(j.got.dust)}`:''}`,'ok'); snd('levelup'); }
     else if(j.result==='lose') say(`💥 전투력이 모자라요 (내 ${fm(j.power)} / 필요 ${fm(j.need)}). 입장 횟수는 그대로예요.`,'bad');
     else say(MSG[j.result]||'입장하지 못했어요.','bad'); }),
   rlroll:()=>{ const v=RV(); if(!v) return; B('/brj/rl_abi',{act:'roll',lock:(ST.lock||[]).map(Boolean)},j=>{ if(j.result==='ok'){ snd('summon'); say(j.view&&j.view.relic&&j.view.relic.abi&&j.view.relic.abi.pend?'🔮 새 결과가 나왔어요. 비교해서 정하세요.':'🔮 어빌리티가 정해졌어요!','ok'); } else say(j.result==='short'?`🔮 수정이 모자라요${j.cost?` (${fm(j.cost)} 필요)`:''}.`:(MSG[j.result]||'굴리지 못했어요.'),'bad'); }); },
