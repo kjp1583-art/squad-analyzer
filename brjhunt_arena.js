@@ -2500,6 +2500,11 @@
       tick(dt) { advance(dt); draw(); E.frames++; },
       sim(sec, dt) { dt = dt || 1 / 30; for (let t = 0; t < sec - 1e-9; t += dt) advance(dt); },
       stats: statsNow, input, setAuto, getAuto: () => E.autoWanted, isAutoActive: autoOn,
+      potion(kind, pct) {   // 🧪 물약 — 서버가 허락한 뒤에만 부른다
+        pct = clamp(N(pct), 0, 1); if (P.dead || !pct) return;
+        if (kind === 'mp') { const v = Math.round(P.mpMax * pct); P.mp = Math.min(P.mpMax, P.mp + v); say('+' + fmtNum(v) + ' MP', P.x, P.y - PH - 8, 'h', 15, '#7fb8ff'); ring(P.x, P.y - 18, '#6fa8ff', 46, 0.45); for (let d = 0; d < (E.low ? 4 : 9); d++) newPart('spark', P.x + (rnd() - 0.5) * 26, P.y - 8 - rnd() * 30, (rnd() - 0.5) * 40, -60 - rnd() * 50, 0.6, 7, '#9cc8ff'); }
+        else { const v = Math.round(P.hpMax * pct); P.hp = Math.min(P.hpMax, P.hp + v); say('+' + fmtNum(v), P.x, P.y - PH - 8, 'h', 16, '#7dff9a'); ring(P.x, P.y - 18, '#6fe89a', 46, 0.45); for (let d = 0; d < (E.low ? 4 : 9); d++) newPart('spark', P.x + (rnd() - 0.5) * 26, P.y - 8 - rnd() * 30, (rnd() - 0.5) * 40, -60 - rnd() * 50, 0.6, 7, '#9dffbe'); }
+      },
       setSkin(p) { { const m = (typeof p === 'string') ? /^img\/brjang\/skins\/([a-z_]+)\/front\.png$/.exec(p) : null; E.skinPath = m ? p : null; E.skinKey = m ? m[1] : ''; } },
       summonElite, dropFx, hasElite: () => !!(E.elite && E.elite.st !== 'dying'), clearElite() { if (E.elite) { E.elite.st = 'dying'; E.elite.t = 0; E.elite = null; } },
       startChallenge, bossResult, startInstance, instanceResult, skipInstance, abortInstance, setHidden(b) { b = !!b; if (b && !E.hidden) flushReport(); E.hidden = b; }, setPaused, setHud(b) { opts.hud = b; }, setKeys(b) { E.keysOff = !b; if (!b) blurAll(); },

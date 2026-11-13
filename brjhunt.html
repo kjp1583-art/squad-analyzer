@@ -473,6 +473,16 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
 @media (max-width:700px){ #nav .in{gap:4px} #nav button{width:46px;height:50px;font-size:9.5px} #nav button img,#nav button .tabem{width:24px;height:24px;font-size:18px} #dock .sk{width:50px;height:50px} #dock .push{min-width:112px;min-height:50px;font-size:14px} #dock .dockrow{gap:8px} }
 .skcat{margin:12px 0 6px;font-size:15px;font-weight:900}
 .eqs.lockslot{opacity:.45;border-style:dashed}
+.pots{display:flex;gap:6px;align-items:center;margin-right:2px}
+.pot{position:relative;width:46px;height:50px;border-radius:14px;border:2px solid rgba(255,255,255,.5);background:linear-gradient(180deg,rgba(40,90,70,.92),rgba(12,30,28,.94));color:#fff;cursor:pointer;pointer-events:auto;padding:0;overflow:hidden;box-shadow:0 3px 0 rgba(0,0,0,.5)}
+.pot[data-pot=mp]{background:linear-gradient(180deg,rgba(40,70,140,.92),rgba(12,18,48,.94))}
+.pot .pe{font-size:22px;line-height:46px;display:block}
+.pot .pn{position:absolute;right:3px;bottom:2px;min-width:16px;padding:0 3px;border-radius:8px;background:rgba(0,0,0,.65);font-size:11px;font-weight:900;line-height:15px}
+.pot .pk{position:absolute;left:3px;top:1px;font-size:9px;font-weight:900;opacity:.8}
+.pot .ring{position:absolute;inset:0;background:conic-gradient(rgba(5,7,20,.72) var(--cd,0deg),transparent 0);pointer-events:none}
+.pot.cool{filter:saturate(.6)}
+.potshop{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+@media (max-width:520px){ #dock .dockrow{flex-wrap:wrap;justify-content:center;row-gap:6px} #dock .hot{order:1;flex:1 1 100%;justify-content:center} #dock .pots{order:2} #dock .push{order:3;flex:1 1 auto;min-width:0} #dock .sk{width:40px;height:40px} #dock .sk.pas{width:34px;height:34px} .pot{width:42px;height:44px} .pot .pe{line-height:40px;font-size:20px} }
 </style>
 </head>
 <body>
@@ -904,6 +914,31 @@ function renderTop(){
   $('lvb').textContent='Lv.'+fmt(v.lv||1); $('pname').textContent=String(v.name||'브장신 키우기'); $('preg').textContent='📍 '+String(v.region||'필드 사냥');
   $('stbn').textContent=fmt(v.stage||1);
 }
+function potHtml(){
+  const P=V&&V.potion; if(!P||!P.kinds) return '';
+  return `<div class="pots">${['hp','mp'].map(k=>{ const x=P.kinds[k]; if(!x) return ''; return `<button class="pot" data-pot="${k}" aria-label="${esc(x.name)} ${fmt(x.n)}개. ${esc(x.desc)} (단축키 ${k==='hp'?'H':'J'})"><span class="pe">${esc(x.emoji)}</span><span class="pn">${fmt(x.n)}</span><span class="pk">${k==='hp'?'H':'J'}</span><span class="ring"></span></button>`; }).join('')}</div>`;
+}
+const POT_CD={hp:0,mp:0}; let POT_BUSY=false;
+function potSync(){ const P=V&&V.potion; if(!P||!P.kinds) return; for(const k of ['hp','mp']){ const x=P.kinds[k]; if(x&&N(x.cd_left)>0) POT_CD[k]=Math.max(POT_CD[k],Date.now()+N(x.cd_left)*1000); } }
+async function usePotion(kind){
+  if(POT_BUSY||!V||INSTANCE||STATE!=='ok') return; const P=V.potion, x=P&&P.kinds&&P.kinds[kind];
+  if(!x) return; if(N(x.n)<=0){ toast(`${x.name}이 없어요. 수령 창에서 살 수 있어요`); return; }
+  if(POT_CD[kind]>Date.now()) return;
+  POT_BUSY=true;
+  try{ const j=await call('/brj/potion_use',{kind}); if(j&&j.view) takeView(j);
+    if(j&&j.result==='ok'){ POT_CD[kind]=Date.now()+N(P.cd)*1000; try{ FIELD&&FIELD.potion(kind,j.pct); }catch(e){} snd('enhance_ok',{vol:.5}); }
+    else if(j&&j.result==='cooldown'){ POT_CD[kind]=Date.now()+N(j.wait)*1000; }
+    else if(j&&j.result==='none') toast(`${x.name}이 없어요`);
+    potSync(); softRefresh();
+  }catch(e){ console.warn(e); } finally{ POT_BUSY=false; }
+}
+document.addEventListener('pointerdown',e=>{ const b=e.target.closest&&e.target.closest('#dock [data-pot]'); if(b){ e.preventDefault(); try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){} usePotion(b.dataset.pot); } });
+document.addEventListener('keydown',e=>{ if(e.ctrlKey||e.altKey||e.metaKey||WOPEN) return; const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return; if(e.code==='KeyH') usePotion('hp'); else if(e.code==='KeyJ') usePotion('mp'); });
+setInterval(()=>{   // 쿨타임 링 + AUTO 일 때 자동 사용(체력 35% 미만 · 마나 20% 미만)
+  const now=Date.now();
+  document.querySelectorAll('#dock .pot').forEach(el=>{ const k=el.dataset.pot, rem=Math.max(0,POT_CD[k]-now)/Math.max(1,N(V&&V.potion&&V.potion.cd)*1000||10000); el.style.setProperty('--cd',(Math.min(1,rem)*360).toFixed(0)+'deg'); el.classList.toggle('cool',rem>0); });
+  try{ if(FIELD&&STATE==='ok'&&!INSTANCE&&!POT_BUSY){ const s=FIELD.stats(); if(s&&s.auto){ if(N(s.hp)>0&&N(s.hp)<N(s.hpMax)*0.35) usePotion('hp'); else if(N(s.mpMax)>0&&N(s.mp)<N(s.mpMax)*0.2) usePotion('mp'); } } }catch(e){}
+},400);
 function openSlots(){ const s=V&&V.skill; const n=s&&s.slots?N(s.slots.active):4; return Math.max(1,Math.min(8,n||4)); }
 function dockHtml(){
   const v=V, gate=gateInfo(), bg=bossGate(), cap=N(v.max_stage)||30, st=N(v.stage), nextOk=st<cap;
@@ -922,7 +957,7 @@ function dockHtml(){
     big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="chal" aria-label="스테이지 ${fmt(st+1)} 도전 던전. 몬스터 체력 ${fmt(v.chal_hp)}, 내 전투력 ${fmt(v.power)}">⚔ 도전 던전<small>${can?'이길 수 있어요':'몬스터 '+fmtC(v.chal_hp)+' · 내 '+fmtC(v.power)}</small></button>`; }
   const pct=Math.max(2,Math.min(100,st/cap*100));
   return `<div class="pbar" role="progressbar" aria-label="스테이지 진행" aria-valuemin="0" aria-valuemax="${cap}" aria-valuenow="${st}"><i style="width:${pct}%"></i><span>STAGE ${fmt(st)} / ${fmt(cap)}</span></div>
-  <div class="dockrow"><div class="hot">${slotBtn(eq.passive,true,0)}<span class="hsep" aria-hidden="true"></span>${Array.from({length:openSlots()},(_,i)=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
+  <div class="dockrow">${potHtml()}<div class="hot">${slotBtn(eq.passive,true,0)}<span class="hsep" aria-hidden="true"></span>${Array.from({length:openSlots()},(_,i)=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
   <div class="keyhint"><b>← →</b> 이동 · <b>Alt</b> 점프 · <b>Ctrl</b> 공격 · <b>1~8</b> 스킬 · <b>Tab</b> AUTO · 자세히는 필드 위 <b>?</b></div>`;
 }
 
@@ -1003,8 +1038,13 @@ function tabHunt(){
   const mods=modPills();
   const hpct=Math.max(2,Math.min(100,N(v.hours)/Math.max(1,N(v.cap_h))*100));
   const uq=v.uq&&N(v.uq.max)?`<div class="msg ok" style="margin:0 0 8px">🪙 유니크 칭호 <b>${fmt(N(v.uq.n))}/${fmt(N(v.uq.max))}개</b> 보유 → 골드 획득 <b>+${fmt(N(v.uq.pct))}%</b> <span class="mut">(1개당 +${fmt(N(v.uq.per))}% · 최대 ${fmt(N(v.uq.max))}개 · 디스코드 경험치도 같은 규칙)</span></div>`:'';
+  const pt=v.potion&&v.potion.kinds?`<div class="card"><h2>🧪 물약 상점 <span class="pill">쿨타임 ${fmt(N(v.potion.cd))}초</span></h2>
+    <div class="sub">필드에서 <b>H</b>(회복) · <b>J</b>(마나) 키나 왼쪽 아래 물약 버튼으로 써요. AUTO 일 때는 체력 35% 미만 · 마나 20% 미만에서 알아서 써요. 한 개 <b>${I('gold')}${fmtC(N(v.potion.price))}</b>.</div>
+    ${['hp','mp'].map(k=>{ const x=v.potion.kinds[k]; return `<div class="boss" style="padding:8px 0"><div class="ic">${esc(x.emoji)}</div><div class="tx"><b>${esc(x.name)}</b> <span class="mut">보유 ${fmt(N(x.n))}/${fmt(N(v.potion.max))} · ${esc(x.desc)}</span><div class="btns" style="margin-top:4px"><button class="btn sm gold" data-do="potbuy" data-kind="${k}" data-n="1">1개 사기</button><button class="btn sm gold" data-do="potbuy" data-kind="${k}" data-n="10">10개 사기</button></div></div></div>`; }).join('')}
+  </div>`:'';
   return `
   ${uq}
+  ${pt}
   <div class="card">
     <div class="hunthero"><div style="min-width:0"><div class="sub">쌓인 사냥 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
       <button class="btn gold" data-do="collect" style="min-width:118px;font-size:17px;padding:10px 12px" aria-label="쌓인 사냥 골드 수령하기">수령</button></div>
@@ -1653,6 +1693,7 @@ const DO={
     if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
   elite:()=>doElite(false),
+  potbuy:el=>act('/brj/potion_buy',{kind:el.dataset.kind,n:Number(el.dataset.n)||1},j=>{ const m={ok:'🧪 물약을 샀어요!',gold:'🪙 골드가 모자라요.',full:'물약은 99개까지만 가질 수 있어요.'}; say(m[j.result]||'처리하지 못했어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   cosbuy:el=>{ const nm=el.dataset.name||'이 스킨'; if(!confirm(`🍘 맛동산 ${fmt(N((V.cos||{}).price)||1)}개로 「${nm}」을(를) 살까요?`)) return;
     act('/brj/cos_buy',{key:el.dataset.key},j=>{ const m={ok:()=>[`👗 「${nm}」을(를) 샀어요! 바로 입었어요.`,'ok'],owned:()=>['이미 가지고 있어요.','info'],short:()=>['🍘 맛동산이 모자라요.','bad'],busy:()=>['지금 장부가 바빠요. 잠시 뒤 다시 해 주세요.','bad'],save_fail:()=>['저장이 잠깐 안 돼서 맛동산을 쓰지 않았어요. 다시 해 주세요.','bad']}[j.result]||(()=>['처리하지 못했어요.','bad']); const t=m(); say(t[0],t[1]); if(j.result==='ok') snd('enhance_ok'); }); },
   cosequip:el=>act('/brj/cos_equip',{key:el.dataset.key||''},j=>{ say(j.result==='ok'?(el.dataset.key?'👗 갈아입었어요!':'원래 모습으로 돌아왔어요.'):(j.result==='not_owned'?'아직 없는 스킨이에요.':'처리하지 못했어요.'),j.result==='ok'?'ok':'bad'); }),
