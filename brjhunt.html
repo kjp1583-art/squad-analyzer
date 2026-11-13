@@ -528,6 +528,7 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
 
 <script src="brjhunt_audio.js?v=3"></script>
 <script src="brjhunt_arena.js?v=4"></script>
+<script src="brjhunt_relic.js?v=1"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
 // 로그인·서버 주소는 survivors.html 과 같은 방식(디스코드 토큰은 메인 사이트와 같은 localStorage 칸 sgg_dc).
@@ -554,8 +555,8 @@ const SK_NEW={ice:['🧊','#3aa6d8'],gale:['🍃','#3cc88a'],meteor:['☄','#e87
 const skIcon=id=>{ if(SK_NEW[id]){ const [e,c]=SK_NEW[id]; return 'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="#101535"/></linearGradient></defs><rect width="64" height="64" rx="12" fill="url(#g)"/><text x="32" y="45" font-size="36" text-anchor="middle">${e}</text></svg>`); } return SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:''; };
 const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
-const TAB_EM={gear:'🎒',cos:'👗',rank:'🏆'};
-const TABS=[['hunt','hunt','수령'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['cos','','꾸미기'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
+const TAB_EM={gear:'🎒',relic:'🏺',cos:'👗',rank:'🏆'};
+const TABS=[['hunt','hunt','수령'],['skill','skill','스킬'],['crew','party','동료'],['grow','grow','스탯'],['gear','','장비'],['relic','','유물'],['cos','','꾸미기'],['adv','adv','모험'],['pres','prestige','환생'],['rank','','랭킹']];
 const REDUCE=(()=>{try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}})();
 let V_KPM=100;                      // 서버가 내 전투력÷필드 권장 전투력으로 계산한 분당 처치 기대치. 처치당 골드 = 시간당 골드 ÷ (분당 처치×60)
 const kpmNow=()=>Math.max(1,N(V&&V.kpm)||V_KPM);
@@ -664,11 +665,12 @@ function equippedActives(){
   return [0,1,2,3,4,5,6,7].map(i=>{ const k=act[i]?skById(act[i]):null; return (k&&k.unlocked&&k.kind==='active')?k:null; });
 }
 const nn=v=>v==null?undefined:N(v);
+function cdRel(c){ if(c==null) return c; let p=0; try{ p=Math.max(0,Math.min(30,N((window.BrjRelic&&BrjRelic.fx().cd)||0))); }catch(e){} return p>0?Math.max(0.2,c*(1-p/100)):c; }   // 🏺 고유 장비 「스킬 쿨다운 감소」(최대 30%)
 function fieldSkills(){
   const s=V&&V.skill;
   if(!s||typeof s!=='object') return {active:[{id:'slash',lv:1},{id:'peck',lv:1},null,null],passive:null};   // 옛 서버: 기본 스킬만(수치는 엔진 기본값)
   const p=(s.equipped&&s.equipped.passive)?skById(s.equipped.passive):null;
-  return {active:equippedActives().map((k,i)=>k?{id:k.id,key:i+1,mp:nn(k.mp),cd:nn(k.cd!=null?k.cd:k.cd_s),cast:nn(k.cast),shape:k.shape?String(k.shape):undefined,buff_pct:nn(k.buff_pct),range:nn(k.range),hits:nn(k.hits),mult:nn(k.mult),lv:N(k.lv),fx_color:String(k.fx_color||'')}:null),
+  return {active:equippedActives().map((k,i)=>k?{id:k.id,key:i+1,mp:nn(k.mp),cd:cdRel(nn(k.cd!=null?k.cd:k.cd_s)),cast:nn(k.cast),shape:k.shape?String(k.shape):undefined,buff_pct:nn(k.buff_pct),range:nn(k.range),hits:nn(k.hits),mult:nn(k.mult),lv:N(k.lv),fx_color:String(k.fx_color||'')}:null),
           passive:(p&&p.unlocked&&p.kind==='passive')?p.id:null};
 }
 function fieldState(){
@@ -963,7 +965,7 @@ function render(){
   renderTop(); updateChips();
   setHtml($('dock'),dockHtml());
   setHtml(nav,navHtml());
-  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,cos:tabCos,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
+  const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,relic:()=>window.BrjRelic?BrjRelic.tab():'',cos:tabCos,adv:tabAdv,pres:tabPres,rank:tabRank}[TAB]||tabHunt;
   const keep=main.scrollTop;
   main.innerHTML=msgHtml()+fn();
   { const tb=TABS.find(x=>x[0]===TAB)||TABS[0]; $('wname').textContent=tb[2]; $('wicon').innerHTML=tb[1]?`<img src="img/brjhunt/ui/tab_${tb[1]}.webp" alt="" onerror="this.style.display='none'">`:'<span class="tabem" aria-hidden="true">'+(TAB_EM[tb[0]]||'🏆')+'</span>'; }
@@ -1736,6 +1738,7 @@ const DO={
   rkclaim:()=>act('/brj/rank_claim',{},j=>{ if(j.ok){ say(`🎉 특식 +${fmt((j.got||{}).feast)} 을 받았어요!`,'ok'); snd('summon'); } else say({claimed:'이미 받았어요.',none:'받을 보상이 없어요.',no_prev:'아직 확정된 지난주가 없어요.'}[j.code]||'받지 못했어요.','bad'); }),
 };
 
+if(window.BrjRelic) Object.assign(DO,BrjRelic.DO);   // 🏺 유물 창 버튼들(brjhunt_relic.js)
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-tab],[data-do],[data-card],#loginBtn,#retryBtn,summary,.btn'); if(!t) return;
   try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){}
