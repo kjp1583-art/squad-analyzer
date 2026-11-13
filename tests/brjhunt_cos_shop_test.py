@@ -49,6 +49,8 @@ async def run(b, port, vp, tag):
     ok(st['buys'] == 1 and st['md'] == 1, f'{tag} 사면 맛동산 1개 차감(서버 {st})')
     ok(await pg.evaluate("()=>document.querySelector('.cos.on .cnm')&&document.querySelector('.cos.on .cnm').textContent.includes('별 수호자')"), f'{tag} 산 스킨이 바로 입는 중으로')
     ok(await pg.evaluate("()=>FIELD.debug.E.skinPath==='img/brjang/skins/sg/front.png'"), f'{tag} 사냥터 병아리에 스킨 반영')
+    await pg.wait_for_timeout(1500)
+    ok(await pg.evaluate("()=>FIELD.debug.E.skinKey==='sg'&&FIELD.debug.E.skFxN>0"), f'{tag} 스킨을 입으면 스킨별 움직임·효과(skFxN) 가 돈다')
     ok('skins/sg/front.png' in (await pg.evaluate("()=>document.getElementById('avImg').getAttribute('src')")), f'{tag} 왼쪽 위 얼굴도 반영')
     await pg.evaluate("()=>document.querySelector('[data-do=cosbuy][data-key=pp]').click()"); await pg.wait_for_timeout(700)
     ok(st['md'] == 0 and 'pp' in st['own'], f'{tag} 두 번째 구매 → 맛동산 0')

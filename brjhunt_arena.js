@@ -1761,8 +1761,64 @@
       }
       return null;
     }
+    // 🏟 [2026-11-13 사장님 「보스전 배경이 너무 밋밋」] 필드 보스 방 배경 — 핏빛 달 · 별 · 구름 · 멀리 콜로세움 실루엣 · 횃불 기둥과 깃발 · 떠오르는 불씨(전부 코드로 그린 시차 배경)
+    function bossSkyCanvas(VW) {
+      const key = Math.round(VW) + 'x' + LH + 'x' + GY;
+      if (E.bossSky && E.bossSkyKey === key) return E.bossSky;
+      if (typeof document === 'undefined') return null;
+      const cv = document.createElement('canvas'); cv.width = Math.max(2, Math.round(VW)); cv.height = LH; const c = cv.getContext('2d'); if (!c) return null;
+      const g = c.createLinearGradient(0, 0, 0, GY); g.addColorStop(0, '#0a0620'); g.addColorStop(0.45, '#2a0c33'); g.addColorStop(0.8, '#7a1634'); g.addColorStop(1, '#d4542e');
+      c.fillStyle = g; c.fillRect(0, 0, cv.width, LH);
+      for (let i = 0; i < 90; i++) { const x = hash(i * 7 + 1) * cv.width, y = hash(i * 13 + 5) * GY * 0.6, r = 0.5 + hash(i * 3 + 9) * 1.3; c.globalAlpha = 0.25 + hash(i + 40) * 0.6; c.fillStyle = '#ffe9f0'; c.beginPath(); c.arc(x, y, r, 0, 6.3); c.fill(); }
+      c.globalAlpha = 1;
+      const mx = cv.width * 0.74, my = GY * 0.3, mr = Math.min(86, GY * 0.2);
+      let gg = c.createRadialGradient(mx, my, mr * 0.6, mx, my, mr * 3.4); gg.addColorStop(0, 'rgba(255,90,80,.55)'); gg.addColorStop(1, 'rgba(255,60,60,0)'); c.fillStyle = gg; c.fillRect(mx - mr * 3.4, my - mr * 3.4, mr * 6.8, mr * 6.8);
+      gg = c.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr); gg.addColorStop(0, '#ffd6c0'); gg.addColorStop(0.55, '#ff6a52'); gg.addColorStop(1, '#b8203a'); c.fillStyle = gg; c.beginPath(); c.arc(mx, my, mr, 0, 6.3); c.fill();
+      c.globalAlpha = 0.18; c.fillStyle = '#5a0f2a'; for (const [dx, dy, r] of [[-0.3, -0.2, 0.2], [0.25, 0.1, 0.28], [-0.1, 0.4, 0.15], [0.35, -0.35, 0.12]]) { c.beginPath(); c.arc(mx + dx * mr, my + dy * mr, r * mr, 0, 6.3); c.fill(); }
+      c.globalAlpha = 1; E.bossSky = cv; E.bossSkyKey = key; return cv;
+    }
+    function drawBossRoomBg(VW) {
+      const c = ctx, cam = E.cam, t = E.t, low = E.low;
+      const sky = bossSkyCanvas(VW);
+      if (sky) c.drawImage(sky, 0, 0, VW, LH); else { const g = c.createLinearGradient(0, 0, 0, GY); g.addColorStop(0, '#0a0620'); g.addColorStop(1, '#a8402e'); c.fillStyle = g; c.fillRect(0, 0, VW, LH); }
+      // 흐르는 먹구름 두 줄
+      for (let band = 0; band < 2; band++) {
+        const sp = band ? 260 : 180, y0 = GY * (band ? 0.46 : 0.26), off = cam * (0.04 + band * 0.05) + t * (band ? 9 : 5);
+        c.fillStyle = band ? 'rgba(40,10,40,.55)' : 'rgba(24,8,40,.5)';
+        for (let k = Math.floor(off / sp) - 1; k * sp - off < VW + sp; k++) { const x = k * sp - off, w = sp * (0.8 + hash(k * 5 + band * 17) * 0.6), h = 16 + hash(k * 3 + band) * 22; c.beginPath(); c.ellipse(x + w / 2, y0 + hash(k + 70) * 20, w / 2, h, 0, 0, 6.3); c.fill(); }
+      }
+      // 멀리 콜로세움 실루엣(아치 줄)
+      { const off = cam * 0.22, sp = 360, base = GY, top = GY - 150; c.fillStyle = '#240a24';
+        for (let k = Math.floor(off / sp) - 1; k * sp - off < VW + sp; k++) {
+          const x = k * sp - off, tall = hash(k * 11 + 3) > 0.55;
+          c.fillRect(x, top - (tall ? 40 : 0), sp + 1, base - top + (tall ? 40 : 0));
+          c.fillStyle = '#12051a';
+          for (let a = 0; a < 3; a++) { const ax = x + 30 + a * 110; c.beginPath(); c.moveTo(ax, base); c.lineTo(ax, top + 70); c.arc(ax + 36, top + 70, 36, Math.PI, 0); c.lineTo(ax + 72, base); c.closePath(); c.fill(); }
+          c.fillStyle = '#240a24';
+          if (tall) { c.fillRect(x + sp * 0.5 - 22, top - 90, 44, 52); c.beginPath(); c.moveTo(x + sp * 0.5 - 28, top - 90); c.lineTo(x + sp * 0.5, top - 128); c.lineTo(x + sp * 0.5 + 28, top - 90); c.closePath(); c.fill(); }
+        } }
+      // 지평선 붉은 안개
+      { const hg = c.createLinearGradient(0, GY - 90, 0, GY); hg.addColorStop(0, 'rgba(255,90,60,0)'); hg.addColorStop(1, 'rgba(255,110,70,.38)'); c.fillStyle = hg; c.fillRect(0, GY - 90, VW, 90); }
+      // 가까운 기둥 + 횃불 + 깃발
+      { const off = cam * 0.55, sp = 330;
+        for (let k = Math.floor(off / sp) - 1; k * sp - off < VW + 80; k++) {
+          const x = k * sp - off + 120, fl = 0.78 + 0.22 * Math.sin(t * 9 + k * 2.3) + 0.06 * Math.sin(t * 23 + k);
+          c.fillStyle = '#2b0f26'; c.fillRect(x - 17, 30, 34, GY - 30); c.fillStyle = '#3d1735'; c.fillRect(x - 17, 30, 7, GY - 30); c.fillStyle = '#1a0818'; c.fillRect(x - 22, 24, 44, 12); c.fillRect(x - 22, GY - 12, 44, 12);
+          const sw = Math.sin(t * 2 + k) * 5;   // 붉은 깃발(살랑)
+          c.fillStyle = '#8c1531'; c.beginPath(); c.moveTo(x + 30, 44); c.lineTo(x + 78 + sw, 44); c.lineTo(x + 78 + sw * 1.4, 128); c.lineTo(x + 54 + sw * 0.7, 108); c.lineTo(x + 30, 128); c.closePath(); c.fill();
+          c.fillStyle = '#ffd23c'; c.beginPath(); c.arc(x + 54 + sw * 0.6, 76, 9, 0, 6.3); c.fill(); c.fillStyle = '#8c1531'; c.beginPath(); c.arc(x + 54 + sw * 0.6, 76, 4.5, 0, 6.3); c.fill();
+          c.save(); c.globalCompositeOperation = 'lighter'; const gg = c.createRadialGradient(x, 96, 2, x, 96, (low ? 70 : 110) * fl); gg.addColorStop(0, 'rgba(255,170,80,.85)'); gg.addColorStop(0.4, 'rgba(255,90,50,.32)'); gg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gg; c.fillRect(x - 120, -20, 240, 240); c.restore();
+          c.fillStyle = '#3a2a1a'; c.fillRect(x - 4, 100, 8, 22); c.fillStyle = '#ffe08a'; c.beginPath(); c.ellipse(x, 93, 5.5 * fl, 11 * fl, 0, 0, 6.3); c.fill(); c.fillStyle = '#ff7a3a'; c.beginPath(); c.ellipse(x, 97, 8 * fl, 13 * fl, 0, 0, 6.3); c.globalAlpha = 0.6; c.fill(); c.globalAlpha = 1;
+        } }
+      // 떠오르는 불씨
+      if (!low) { c.save(); c.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 26; i++) { const sp = 18 + hash(i * 3) * 30, life = (t * sp / 110 + hash(i * 7)) % 1, x = ((hash(i * 11) * (VW + 200) - cam * (0.3 + hash(i) * 0.4) - t * 14) % (VW + 200) + VW + 200) % (VW + 200) - 100, y = GY - life * (GY + 20), r = 1 + hash(i * 5) * 2;
+          c.globalAlpha = Math.sin(life * 3.14) * 0.85; c.fillStyle = hash(i * 17) > 0.5 ? '#ffb15a' : '#ff6a4a'; c.beginPath(); c.arc(x + Math.sin(t * 2 + i) * 8, y, r, 0, 6.3); c.fill(); }
+        c.restore(); }
+    }
     function drawBg(VW) {
       if (map.theme) { drawThemeBg(VW); return; }
+      if (map.room) { drawBossRoomBg(VW); return; }
       const cam = E.cam, h = HUE[D.reg < 0 ? 0 : D.reg];
       const room = map.room;
       const g = ctx.createLinearGradient(0, 0, 0, GY); g.addColorStop(0, room ? '#1a0e1e' : 'hsl(' + h + ',55%,66%)'); g.addColorStop(1, room ? '#3a1630' : 'hsl(' + ((h + 20) % 360) + ',65%,86%)');
@@ -1900,6 +1956,29 @@
       else if (pose === 'die') { rot = -1.4 * p.face; yy = p.y; o.a = 0.92; }
       if (p.djT > 0 && !p.dead && pose !== 'cast') rot += p.face * (1 - p.djT / 0.32) * 6.283;   // 2단 점프: 한 바퀴 빙글
       if (p.inv > 0 && !p.dead && ((E.t * 22) | 0) % 2 === 0 && pose !== 'cast') o.a = 0.45;
+      // 👗 [2026-11-13 사장님 「꾸미기를 입으면 가만히 서서 공격」] 꾸미기 스킨은 정지 그림이라 자세별 움직임을 코드로 입힌다(숨쉬기·달릴 때 통통·점프 늘어남·공격 돌진·시전 부풀림·피격 흔들림) + 스킨마다 다른 효과
+      if (E.skinPath && !p.dead) {
+        const t = E.t, f = p.face, atk = pose.length === 4 && pose.charAt(0) === 'a';
+        if (pose === 'idle') { const b = Math.sin(t * 2.6); yy -= (b + 1) * 1.6; sy *= 1 + b * 0.03; sx *= 1 - b * 0.02; rot += Math.sin(t * 1.3) * 0.025; }
+        else if (pose === 'run') { const ph = t * 12; yy -= Math.abs(Math.sin(ph)) * 5.5; rot += f * 0.13 + Math.sin(ph) * 0.05; sy *= 1 + Math.sin(ph * 2) * 0.045; sx *= 1 - Math.sin(ph * 2) * 0.03; }
+        else if (pose === 'jump') { sy *= 1.1; sx *= 0.93; rot += f * -0.1; }
+        else if (pose === 'fall') { sy *= 0.94; sx *= 1.07; rot += f * 0.14; }
+        else if (atk) { sx = 1 + (sx - 1) * 2.6; sy = 1 + (sy - 1) * 2.6; rot = rot * 2.4; dx *= 2.8; }
+        else if (pose === 'cast') { sx = 1 + (sx - 1) * 2.2; sy = 1 + (sy - 1) * 2.2; rot *= 1.8; yy -= 2 + Math.sin(t * 20) * 1.5; }
+        else if (pose === 'hurt') { rot += Math.sin(t * 60) * 0.1; dx += Math.sin(t * 70) * 3; }
+        const key = E.skinKey || '', rate = (atk ? 26 : pose === 'run' ? 14 : 8), n = Math.floor(t * rate);
+        if (n !== E.skFxN) {
+          E.skFxN = n; const cx = x + dx, cy = yy - 24, r2 = () => (rnd() - 0.5) * 2, up = (atk ? 70 : 38);
+          if (key === 'sg') { const sp = rnd() < 0.5; newPart(sp ? 'spark' : 'emo', cx + r2() * 22, cy + r2() * 26, r2() * 20, -up * 0.6 - rnd() * 20, 0.8, sp ? 7 : 12, sp ? '#ffe27a' : (rnd() < 0.5 ? '⭐' : '✨')); }
+          else if (key === 'pp') { newPart('emo', cx + r2() * 20, cy + 18 + rnd() * 6, r2() * 18, -up - rnd() * 24, 0.9, 10 + rnd() * 5, rnd() < 0.7 ? '🫧' : '💦'); }
+          else if (key === 'tf') { newPart('emo', cx + r2() * 26, cy + r2() * 20, r2() * 40, -up * 0.5 - rnd() * 16, 0.8, 12, ['🃏', '♦️', '♠️', '♥️'][(rnd() * 4) | 0]); }
+          else if (key === 'boss_sr') { newPart('spark', cx + r2() * 24, cy + 20 + rnd() * 8, r2() * 14, -up * 0.5, 0.9, 9, rnd() < 0.5 ? '#9b5cff' : '#2a1040'); if (rnd() < 0.18) newPart('emo', cx + r2() * 30, cy - 6, r2() * 12, 22, 0.8, 12, '🕸'); }
+          else if (key === 'boss_ddo') { const sp = rnd() < 0.6; newPart(sp ? 'spark' : 'emo', cx + r2() * 22, cy + 10 + rnd() * 14, r2() * 22, -up - rnd() * 24, 0.7, sp ? 8 : 12, sp ? '#ff7a3a' : '🔥'); if (rnd() < 0.08) newPart('emo', cx, cy - 22, r2() * 10, -30, 0.9, 13, '☠'); }
+          else if (key === 'boss_yj') { const sp = rnd() < 0.5; newPart(sp ? 'spark' : 'emo', cx - f * 16 + r2() * 12, cy + r2() * 16, -f * (30 + rnd() * 30), -up * 0.4 - rnd() * 14, 0.7, sp ? 8 : 12, sp ? '#ffb040' : '🔥'); }
+          else if (key === 'boss_tw') { newPart('emo', cx + r2() * 26, cy + r2() * 18, r2() * 16, -up * 0.6 - rnd() * 16, 0.9, 11, rnd() < 0.5 ? '💔' : '🖤'); }
+          else { newPart('spark', cx + r2() * 20, cy + r2() * 20, r2() * 20, -up * 0.5, 0.7, 8, '#ffe8a0'); }
+        }
+      }
       o.sx = sx; o.sy = sy; o.rot = rot;
       const px = x + dx;
       const sh = chickSheetFor(pose);
@@ -2364,7 +2443,7 @@
       tick(dt) { advance(dt); draw(); E.frames++; },
       sim(sec, dt) { dt = dt || 1 / 30; for (let t = 0; t < sec - 1e-9; t += dt) advance(dt); },
       stats: statsNow, input, setAuto, getAuto: () => E.autoWanted, isAutoActive: autoOn,
-      setSkin(p) { E.skinPath = (typeof p === 'string' && /^img\/brjang\/skins\/[a-z_]+\/front\.png$/.test(p)) ? p : null; },
+      setSkin(p) { { const m = (typeof p === 'string') ? /^img\/brjang\/skins\/([a-z_]+)\/front\.png$/.exec(p) : null; E.skinPath = m ? p : null; E.skinKey = m ? m[1] : ''; } },
       summonElite, dropFx, hasElite: () => !!(E.elite && E.elite.st !== 'dying'), clearElite() { if (E.elite) { E.elite.st = 'dying'; E.elite.t = 0; E.elite = null; } },
       startChallenge, bossResult, startInstance, instanceResult, skipInstance, abortInstance, setHidden(b) { b = !!b; if (b && !E.hidden) flushReport(); E.hidden = b; }, setPaused, setHud(b) { opts.hud = b; }, setKeys(b) { E.keysOff = !b; if (!b) blurAll(); },
       flush: flushReport, setTimeScale(v) { E.timeScale = v; },

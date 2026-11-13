@@ -446,6 +446,31 @@ body.wopen #nav{display:none}   /* 폰: 창이 열려 있는 동안은 메뉴 �
 #dropFx .spk i{position:absolute;top:100%;width:9px;height:9px;border-radius:50%;opacity:0;box-shadow:0 0 10px currentColor;animation:dsp 2.4s ease-out infinite}
 @keyframes dsp{0%{transform:translateY(0) scale(.4);opacity:0}15%{opacity:1}100%{transform:translateY(-110vh) scale(1.2);opacity:0}}
 @media (prefers-reduced-motion: reduce){ #dropFx .rays,#dropFx .spk,#eliteBtn.pulse{animation:none !important} #dropFx .dcard{animation:none !important} }
+
+/* ================= 🎮 인게임 HUD 2차 (2026-11-13 사장님 「하단 스킬·우측 메뉴를 인게임 안으로 · 빈자리는 게임 화면으로」) =================
+   스킬 바는 필드 맨 아래에 겹쳐 얹힌 유리판 HUD, 메뉴는 필드 오른쪽의 두 줄 아이콘 판. 필드(캔버스)는 HUD 높이만 빼고 화면 전체를 쓴다. */
+#stage{position:relative;overflow:hidden}
+#fieldBox{--dockh:96px;position:absolute;inset:0;flex:none;background:linear-gradient(180deg,#241a2e,#0d0a16)}
+#fcv{height:calc(100% - var(--dockh,96px)) !important}
+#dock{position:absolute;left:0;right:0;bottom:0;margin:0;z-index:6;border:0;border-radius:0;box-shadow:none;padding:16px 14px 8px;
+  background:linear-gradient(0deg,rgba(8,6,20,.9) 0%,rgba(8,6,20,.62) 62%,rgba(8,6,20,0) 100%);pointer-events:none}
+#dock .pbar,#dock .dockrow{pointer-events:none} #dock button,#dock .sk{pointer-events:auto}
+#dock .pbar{height:14px;margin:0 auto 7px;max-width:720px;background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.35)}
+#dock .keyhint{display:none}
+#dock .dockrow{justify-content:center;gap:14px;max-width:900px;margin:0 auto}
+#dock .hot{flex:0 1 auto;justify-content:center;gap:8px}
+#dock .sk{width:58px;height:58px;border-radius:16px;border:2px solid rgba(255,255,255,.55);background:linear-gradient(180deg,rgba(54,66,150,.9),rgba(16,20,60,.92));box-shadow:0 3px 0 rgba(0,0,0,.55),0 0 12px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.12)}
+#dock .sk.pas{width:48px;height:48px}
+#dock .sk.empty{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.3);color:#cfd6ff}
+#dock .push{min-width:150px;min-height:58px}
+#touch{position:absolute;left:0;right:0;bottom:calc(var(--dockh,96px) - 6px);z-index:5;background:none;border:0;padding:0 12px;pointer-events:none}
+.tp{pointer-events:auto}
+#nav{right:10px;top:50px}
+#nav button{flex-direction:column !important;justify-content:center;width:56px;height:60px;min-height:0;font-size:11px;gap:1px}
+@media (max-width:420px){ #dock{padding:14px 8px 6px} #dock .hot{gap:5px} #dock .sk{width:42px;height:42px;border-radius:12px} #dock .sk.pas{width:36px;height:36px} #dock .push{min-width:92px;min-height:44px;font-size:13px;padding:6px 8px} #dock .push small{font-size:10px} #dock .dockrow{gap:6px} #dock .hsep{display:none} }
+body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8px)}
+#nav .in{display:grid;grid-auto-flow:column;grid-template-rows:repeat(5,auto);gap:6px}
+@media (max-width:700px){ #nav .in{gap:4px} #nav button{width:46px;height:50px;font-size:9.5px} #nav button img,#nav button .tabem{width:24px;height:24px;font-size:18px} #dock .sk{width:50px;height:50px} #dock .push{min-width:112px;min-height:50px;font-size:14px} #dock .dockrow{gap:8px} }
 </style>
 </head>
 <body>
@@ -896,6 +921,9 @@ function dockHtml(){
   <div class="dockrow"><div class="hot">${slotBtn(eq.passive,true,0)}<span class="hsep" aria-hidden="true"></span>${[0,1,2,3].map(i=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
   <div class="keyhint"><b>← →</b> 이동 · <b>Alt</b> 점프 · <b>Ctrl</b> 공격 · <b>1~4</b> 스킬 · <b>Tab</b> AUTO · 자세히는 필드 위 <b>?</b></div>`;
 }
+
+function syncDockH(){ try{ const d=$('dock'), fb=$('fieldBox'); if(!d||!fb) return; const h=Math.max(0,Math.round(d.getBoundingClientRect().height)); if(h&&fb.style.getPropertyValue('--dockh')!==h+'px'){ fb.style.setProperty('--dockh',h+'px'); } }catch(e){} }
+try{ new ResizeObserver(()=>syncDockH()).observe($('dock')); }catch(e){}
 function navHtml(){
   const dn=V&&V.dungeon; const todo=dn&&dn.daily&&!dn.daily.claimed&&dn.daily.all;
   const clan=dn&&dn.clan&&dn.clan.claimable;
