@@ -43,17 +43,18 @@
   const PW = 7, PH = 30;          // 병아리 판정 상자: 반폭 · 키 (그림보다 작게 — 접촉 판정이 후하지 않도록)
   const CHICK_H = 50;             // 병아리 그림 높이
   const REACH = 66;               // 기본 공격 사거리
-  const MAX_MOBS = 22;
+  const MAX_MOBS = 36;
   const MOB_BAND = [140, 420];    // 새 몹이 나오는 병아리와의 가로 거리(다른 발판)
   const PACK_P = 0.8;            // 가까운 곳 새 몹이 무리로 나올 확률
+  const WAVE_SIZE = 28, WAVE_LOW = 9, WAVE_MAXGAP = 9, WAVE_DELAY = [0.7, 1.1];   // 🌊 [2026-11-13 사장님 「1마리 잡으면 앞에 또 생기는 게 반복돼 기동성이 무의미 · 딜레이를 두고 한 번에 많이」] 몹이 거의 사라지면 잠깐 쉬었다가 맵 곳곳에 한꺼번에 나온다
   const SPAWN_NEAR = 0.7;         // 새 몹 중 병아리가 서 있는 발판에서 나오는 비율
   const BASIC_HPS = 5.6;          // 기본 공격 초당 타수 (콤보 0.15·0.15·0.22초의 평균)
   const AGGRO = 270, CHASE_K = 2.3;   // 몹이 병아리를 알아채는 거리 · 쫓아올 때 걸음 배율
   const SPAWN_GAP = 0.15;         // 몹 보충 간격(초)
   // [보정 표 — 고정값] 엔진의 AUTO 처치율은 몹 체력 비율에 완만하게만 반응한다(걸어 다니는 시간이 있어 분당 약 128마리에서 막힘). 헤드리스로 잰 응답
   // (비율 → 분당 처치) 의 역함수로 「서버 모델이 말하는 분당 처치」가 나오는 비율을 고른다. 런타임 되먹임이 아니라 상수 표다.
-  const CAL_RESP = [[0, 0], [0.1, 35.8], [0.25, 56.8], [0.5, 79.2], [1, 103.4], [2, 128.2]];
-  const CAL_KPM_MAX = 126;        // 엔진이 낼 수 있는 분당 처치의 위쪽 한계(이 위는 서버 모델이 더 후해도 못 따라간다 — 보고에서 서버가 자르는 쪽이 아니라 모자라는 쪽)
+  const CAL_RESP = [[0, 0], [0.1, 39], [0.25, 52], [0.5, 67], [0.85, 90], [1.3, 97], [2, 99]];   // 2026-11-13 웨이브 리젠 뒤 헤드리스로 다시 잰 응답(비율 → 분당 처치). 웨이브 방식은 이동·대기 때문에 위쪽 한계가 낮다   // 2026-11-13 웨이브 리젠 뒤 다시 잰 응답(비율 → 분당 처치) — 웨이브 방식은 이동·대기 때문에 위쪽 한계가 낮다
+  const CAL_KPM_MAX = 98;        // 엔진이 낼 수 있는 분당 처치의 위쪽 한계(이 위는 서버 모델이 더 후해도 못 따라간다 — 보고에서 서버가 자르는 쪽이 아니라 모자라는 쪽)
   function calRatio(r) {
     const T = Math.min(CAL_KPM_MAX, 100 * r);
     for (let i = 1; i < CAL_RESP.length; i++) {
@@ -62,7 +63,7 @@
     }
     return CAL_RESP[CAL_RESP.length - 1][0];
   }
-  const CAL_TTK = 0.40;           // [보정 상수 하나] 전투력 = 권장 전투력일 때 몹 한 마리를 잡는 데 드는 이론상 시간(초). 시험으로 맞춤.
+  const CAL_TTK = 0.27;           // [보정 상수 하나] 전투력 = 권장 전투력일 때 몹 한 마리를 잡는 데 드는 이론상 시간(초). 시험으로 맞춤.
   const DPS_PER_HP = 0.55;        // rec_power·power 가 없을 때만 쓰는 대체: 이론 초당 피해 ÷ 몹 체력 = 1 이 되는 기준
   const K_DEF_PER_STAGE = 8, K_DEF_BASE = 12;   // 방어 감소 = def/(def + K), K = 12 + 8·스테이지
   const CONTACT_K = 0.55;         // 접촉 피해 계수
@@ -582,7 +583,7 @@
         emit('elitedie', { id: m.eid, x: m.x, y: m.y, name: m.name });
         return;
       }
-      E.kills++; if (!boss && !INS) E.repKills++;
+      E.kills++; E.lastKillT = E.t; if (!boss && !INS) E.repKills++;
       E.killLog.push(E.t); if (E.killLog.length > 900) E.killLog.shift();
       const nc = m.el ? 6 : (E.low ? 1 : 2);
       for (let i = 0; i < nc; i++) newPart('coin', m.x, m.y - 14 * m.sc, (rnd() - 0.5) * 120, -150 - rnd() * 90, 6, 4.2, '#ffd23c').b = m.y;
@@ -958,20 +959,21 @@
       let plat = forcePlat || null, x = forceX;
       if (!plat) {
         for (let tr = 0; tr < 14 && !plat; tr++) {
-          const near = rnd() < SPAWN_NEAR;   // 일부는 지금 서 있는 발판 위에서 나온다(몰려오는 맛), 나머지는 다른 층·먼 곳
+          const near = o.wave ? rnd() < 0.85 : rnd() < SPAWN_NEAR;   // 일부는 지금 서 있는 발판 위에서 나온다(몰려오는 맛), 나머지는 다른 층·먼 곳
           const dir = rnd() < 0.5 ? -1 : 1;
           let tx, cands;
           if (near) {
             const cp = map.plats[P.on ? P.plat.id : P.lastPlat], hp = cp.kind === 'block' ? map.plats[0] : cp;
             const lo = Math.max(hp.x0 + 14, P.x - 150), hi = Math.min(hp.x1 - 14, P.x + 150);
             // 병아리에게서 55 이상 떨어진, 같은 발판 위의 자리(한쪽이 막혔으면 반대쪽)
-            const sides = []; if (P.x + 55 <= hi) sides.push([Math.max(lo, P.x + 55), hi]); if (P.x - 55 >= lo) sides.push([lo, Math.min(hi, P.x - 55)]);
+            const gap = o.wave ? 110 : 55, sides = []; if (P.x + gap <= hi) sides.push([Math.max(lo, P.x + gap), hi]); if (P.x - gap >= lo) sides.push([lo, Math.min(hi, P.x - gap)]);
             if (!sides.length) continue;
             const sd = sides[(rnd() * sides.length) | 0]; tx = sd[0] + rnd() * (sd[1] - sd[0]); cands = [hp];
             if (hp.kind === 'floor' && blockBetween(P.x, tx)) continue;   // 바로 앞에 블록이 가로막은 곳엔 안 나온다
           } else {
-            const dist = MOB_BAND[0] + rnd() * (MOB_BAND[1] - MOB_BAND[0]);
-            tx = P.x + dir * dist; if (tx < 40 || tx > map.W - 40) tx = P.x - dir * dist; if (tx < 40 || tx > map.W - 40) continue;
+            if (o.wave) { tx = P.x + (rnd() < 0.5 ? -1 : 1) * (120 + rnd() * 380); if (tx < 50 || tx > map.W - 50) continue; }   // 웨이브는 병아리 좌우 넓은 구간에 흩어져 나온다(앞에 딱 붙지 않게)
+            else { const dist = MOB_BAND[0] + rnd() * (MOB_BAND[1] - MOB_BAND[0]);
+            tx = P.x + dir * dist; if (tx < 40 || tx > map.W - 40) tx = P.x - dir * dist; if (tx < 40 || tx > map.W - 40) continue; }
             cands = map.spawnPlats.filter(q => tx >= q.x0 + 14 && tx <= q.x1 - 14);
           }
           if (!cands.length) continue;
@@ -997,7 +999,7 @@
       if (fly) { m.y = m.baseY; m.lo = Math.max(30, x - 120); m.hi = Math.min(map.W - 30, x + 120); }
       mobs.push(m);
       poof(m.x, m.y - 12 * m.sc, 'rgba(255,255,255,.9)', 3, 40);
-      if (!o.noPack && !forceX && !el && plat === (map.plats[P.on ? P.plat.id : P.lastPlat] || plat) && rnd() < PACK_P && aliveCount() < MAX_MOBS) {
+      if (!o.noPack && !forceX && !el && (o.wave ? rnd() < 0.45 : plat === (map.plats[P.on ? P.plat.id : P.lastPlat] || plat) && rnd() < PACK_P) && aliveCount() < MAX_MOBS) {
         // 무리: 같은 발판에서 바로 옆에 한두 마리 더
         const n = 2 + (rnd() < 0.6 ? 1 : 0);
         for (let i = 1; i <= n; i++) { const px = x + (rnd() < 0.5 ? -1 : 1) * (13 + rnd() * 7) * i; if (px > pk[0] + 4 && px < pk[1] - 4) { const q = spawnMob(px, plat, { noPack: true, el: false, fly: false, shoot: false }); if (q) { q.sp = m.sp; q.dir = m.dir; } } }
@@ -1054,10 +1056,20 @@
     }
     function updateSpawn(h) {
       if (E.elite && E.t - E.elite.t0 > E.elite.ttl) expireElite();
-      E.spawnT -= h; if (E.spawnT > 0) return;
-      E.spawnT = SPAWN_GAP * (0.8 + rnd() * 0.4);
+      if (E.spawnT > 1e8) return;                                   // 시험·연출이 리젠을 멈춘 동안
       const cap = E.low ? Math.min(MAX_MOBS, 9) : MAX_MOBS;
-      if (aliveCount() < cap) spawnMob();
+      if (E.waveQ > 0) {                                           // 웨이브 진행 중 — 짧은 간격으로 쏟아져 나온다
+        E.spawnT -= h; if (E.spawnT > 0) return;
+        E.spawnT = 0.04; E.waveQ--;
+        if (aliveCount() < cap) spawnMob(undefined, undefined, { wave: true });
+        return;
+      }
+      const alive = aliveCount();
+      if (alive <= WAVE_LOW || (E.t - (E.waveAt || 0) > WAVE_MAXGAP && alive < cap - 6) || (E.t - (E.lastKillT || 0) > 3 && E.t - (E.waveAt || 0) > 4 && alive < cap - 8)) {   // 거의 다 잡았다(또는 너무 오래 안 나왔다) → 잠깐 쉬었다가 한꺼번에
+        if (E.waveWait == null || E.waveWait < 0) E.waveWait = (WAVE_DELAY[0] + rnd() * (WAVE_DELAY[1] - WAVE_DELAY[0])) * clamp(1 / Math.sqrt(Math.max(0.3, D.ratio || 1)), 0.4, 1.5);   // 전투력이 세면 웨이브 사이 쉬는 시간이 짧다
+        E.waveWait -= h;
+        if (E.waveWait <= 0) { E.waveQ = Math.max(1, Math.min(WAVE_SIZE, cap - alive)); E.waveWait = -1; E.spawnT = 0; E.waveAt = E.t; }
+      } else E.waveWait = -1;
     }
     function updateMobs(h) {
       const pbx0 = P.x - PW, pbx1 = P.x + PW, pby0 = P.y - PH, pby1 = P.y;
@@ -1370,7 +1382,7 @@
       if (boss && boss.inst) { insBossDone(boss.res); return; }
       boss = null; st.boss = null; E.cin = 0; E.tint = 0; E.slow = 0;
       map = hunt; mobs = []; shots = []; fxs.length = 0; later_.length = 0;
-      resetPlayerPos(map.spawnX); P.hp = P.hpMax; P.hurtT = 0; P.inv = 1.2; E.cam = 0; E.spawnT = 0.4;
+      resetPlayerPos(map.spawnX); P.hp = P.hpMax; P.hurtT = 0; P.inv = 1.2; E.cam = 0; E.spawnT = 0.4; E.waveQ = 0; E.waveWait = 0.5;
       emit('boss', { phase: 'end' });
     }
 
@@ -1428,7 +1440,7 @@
       map = hunt; mobs = []; shots = []; fxs.length = 0; later_.length = 0; callouts.length = 0;
       for (let i = 0; i < PMAX; i++) parts[i].on = false;
       if (hunt.reg !== D.reg) { INS = null; setMap(genMap(D.reg, opts.seed != null ? opts.seed | 0 : 1)); INS = I; }
-      resetPlayerPos(map.spawnX); P.hp = P.hpMax; P.mp = P.mpMax; P.hurtT = 0; P.inv = 1.2; P.dead = false; E.cam = 0; E.spawnT = 0.4; E.combo = 0; E.comboT = 0;
+      resetPlayerPos(map.spawnX); P.hp = P.hpMax; P.mp = P.mpMax; P.hurtT = 0; P.inv = 1.2; P.dead = false; E.cam = 0; E.spawnT = 0.4; E.waveQ = 0; E.waveWait = 0.5; E.combo = 0; E.comboT = 0;
       const kind = I.kind, res = I.res; INS = null;
       emit('instance', Object.assign({ phase: 'end', kind, res, total: I.total, dmg: I.dmg }, info || {}));
     }
