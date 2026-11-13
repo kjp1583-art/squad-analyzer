@@ -471,6 +471,8 @@ body.wopen #nav{display:none}   /* 폰: 창이 열려 있는 동안은 메뉴 �
 body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8px)}
 #nav .in{display:grid;grid-auto-flow:column;grid-template-rows:repeat(5,auto);gap:6px}
 @media (max-width:700px){ #nav .in{gap:4px} #nav button{width:46px;height:50px;font-size:9.5px} #nav button img,#nav button .tabem{width:24px;height:24px;font-size:18px} #dock .sk{width:50px;height:50px} #dock .push{min-width:112px;min-height:50px;font-size:14px} #dock .dockrow{gap:8px} }
+.skcat{margin:12px 0 6px;font-size:15px;font-weight:900}
+.eqs.lockslot{opacity:.45;border-style:dashed}
 </style>
 </head>
 <body>
@@ -547,8 +549,9 @@ const GR_KO={normal:'노말',rare:'레어',epic:'에픽',unique:'유니크',lege
 const GR_KEYS=['normal','rare','epic','unique','legend'];
 const grKey=g=>GR_KEYS.includes(g)?g:'normal';     // 서버 값이 이상해도 클래스 이름으로 못 새어 나가게
 const imgKey=k=>/^[a-z0-9_]{1,30}$/.test(String(k||''))?String(k):'';
-const SK_IDS=['slash','peck','spin','bomb','thunder','fire','egg','shield','shrimp','storm'];
-const skIcon=id=>SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:'';
+const SK_IDS=['slash','peck','spin','bomb','thunder','fire','egg','shield','shrimp','storm','ice','gale','meteor','phoenix','rage','blink','pull','ward'];
+const SK_NEW={ice:['🧊','#3aa6d8'],gale:['🍃','#3cc88a'],meteor:['☄','#e8742a'],phoenix:['🔥','#e8452c'],rage:['💢','#d64a4a'],blink:['✨','#9b62d8'],pull:['🧲','#4a78d8'],ward:['🪶','#d8b24a']};   // 그림이 없는 새 스킬은 이모지 아이콘(코드로 그린 SVG)
+const skIcon=id=>{ if(SK_NEW[id]){ const [e,c]=SK_NEW[id]; return 'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="#101535"/></linearGradient></defs><rect width="64" height="64" rx="12" fill="url(#g)"/><text x="32" y="45" font-size="36" text-anchor="middle">${e}</text></svg>`); } return SK_IDS.includes(id)?`img/brjhunt/ui/skill_${id}.webp`:''; };
 const CUR_KO={gold:'골드',feast:'특식',ticket:'소환권',stone:'강화석',key:'던전 열쇠'};
 const I=k=>`<img class="ci" src="img/brjhunt/ui/cur_${k}.webp" alt="${CUR_KO[k]||''}" width="20" height="20">`;   // 재화 아이콘
 const TAB_EM={gear:'🎒',cos:'👗',rank:'🏆'};
@@ -658,14 +661,14 @@ function skList(){ const s=V&&V.skill; return s&&Array.isArray(s.list)?s.list:[]
 function skById(id){ return skList().find(x=>x&&x.id===id)||null; }
 function equippedActives(){
   const s=V&&V.skill, eq=(s&&s.equipped)||{}, act=Array.isArray(eq.active)?eq.active:[];
-  return [0,1,2,3].map(i=>{ const k=act[i]?skById(act[i]):null; return (k&&k.unlocked&&k.kind==='active')?k:null; });
+  return [0,1,2,3,4,5,6,7].map(i=>{ const k=act[i]?skById(act[i]):null; return (k&&k.unlocked&&k.kind==='active')?k:null; });
 }
 const nn=v=>v==null?undefined:N(v);
 function fieldSkills(){
   const s=V&&V.skill;
   if(!s||typeof s!=='object') return {active:[{id:'slash',lv:1},{id:'peck',lv:1},null,null],passive:null};   // 옛 서버: 기본 스킬만(수치는 엔진 기본값)
   const p=(s.equipped&&s.equipped.passive)?skById(s.equipped.passive):null;
-  return {active:equippedActives().map((k,i)=>k?{id:k.id,key:i+1,mp:nn(k.mp),cd:nn(k.cd!=null?k.cd:k.cd_s),cast:nn(k.cast),shape:k.shape?String(k.shape):undefined,range:nn(k.range),hits:nn(k.hits),mult:nn(k.mult),lv:N(k.lv),fx_color:String(k.fx_color||'')}:null),
+  return {active:equippedActives().map((k,i)=>k?{id:k.id,key:i+1,mp:nn(k.mp),cd:nn(k.cd!=null?k.cd:k.cd_s),cast:nn(k.cast),shape:k.shape?String(k.shape):undefined,buff_pct:nn(k.buff_pct),range:nn(k.range),hits:nn(k.hits),mult:nn(k.mult),lv:N(k.lv),fx_color:String(k.fx_color||'')}:null),
           passive:(p&&p.unlocked&&p.kind==='passive')?p.id:null};
 }
 function fieldState(){
@@ -820,7 +823,7 @@ const PADS=new Map();
 function padPress(k){
   if(!FIELD) return;
   if(k==='drop'){ FIELD.input.press('down'); FIELD.input.press('jump'); setTimeout(()=>{ FIELD.input.release('jump'); FIELD.input.release('down'); },140); return; }
-  if(/^s[1-4]$/.test(k)){ const i=N(k.slice(1))-1, kk=equippedActives()[i], s=FIELD.stats(); if(!kk||N(s.mp)<N(kk.mp)||N(s.cd&&s.cd[i])>0) snd('no_mp',{},250); }
+  if(/^s[1-8]$/.test(k)){ const i=N(k.slice(1))-1, kk=equippedActives()[i], s=FIELD.stats(); if(!kk||N(s.mp)<N(kk.mp)||N(s.cd&&s.cd[i])>0) snd('no_mp',{},250); }
   FIELD.input.press(k);
 }
 function padRelease(k){ if(FIELD&&k!=='drop') FIELD.input.release(k); }
@@ -901,6 +904,7 @@ function renderTop(){
   $('lvb').textContent='Lv.'+fmt(v.lv||1); $('pname').textContent=String(v.name||'브장신 키우기'); $('preg').textContent='📍 '+String(v.region||'필드 사냥');
   $('stbn').textContent=fmt(v.stage||1);
 }
+function openSlots(){ const s=V&&V.skill; const n=s&&s.slots?N(s.slots.active):4; return Math.max(1,Math.min(8,n||4)); }
 function dockHtml(){
   const v=V, gate=gateInfo(), bg=bossGate(), cap=N(v.max_stage)||30, st=N(v.stage), nextOk=st<cap;
   const s=v.skill, eq=(s&&s.equipped)||{}, act=Array.isArray(eq.active)?eq.active:[];
@@ -918,8 +922,8 @@ function dockHtml(){
     big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="chal" aria-label="스테이지 ${fmt(st+1)} 도전 던전. 몬스터 체력 ${fmt(v.chal_hp)}, 내 전투력 ${fmt(v.power)}">⚔ 도전 던전<small>${can?'이길 수 있어요':'몬스터 '+fmtC(v.chal_hp)+' · 내 '+fmtC(v.power)}</small></button>`; }
   const pct=Math.max(2,Math.min(100,st/cap*100));
   return `<div class="pbar" role="progressbar" aria-label="스테이지 진행" aria-valuemin="0" aria-valuemax="${cap}" aria-valuenow="${st}"><i style="width:${pct}%"></i><span>STAGE ${fmt(st)} / ${fmt(cap)}</span></div>
-  <div class="dockrow"><div class="hot">${slotBtn(eq.passive,true,0)}<span class="hsep" aria-hidden="true"></span>${[0,1,2,3].map(i=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
-  <div class="keyhint"><b>← →</b> 이동 · <b>Alt</b> 점프 · <b>Ctrl</b> 공격 · <b>1~4</b> 스킬 · <b>Tab</b> AUTO · 자세히는 필드 위 <b>?</b></div>`;
+  <div class="dockrow"><div class="hot">${slotBtn(eq.passive,true,0)}<span class="hsep" aria-hidden="true"></span>${Array.from({length:openSlots()},(_,i)=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
+  <div class="keyhint"><b>← →</b> 이동 · <b>Alt</b> 점프 · <b>Ctrl</b> 공격 · <b>1~8</b> 스킬 · <b>Tab</b> AUTO · 자세히는 필드 위 <b>?</b></div>`;
 }
 
 function syncDockH(){ try{ const d=$('dock'), fb=$('fieldBox'); if(!d||!fb) return; const h=Math.max(0,Math.round(d.getBoundingClientRect().height)); if(h&&fb.style.getPropertyValue('--dockh')!==h+'px'){ fb.style.setProperty('--dockh',h+'px'); } }catch(e){} }
@@ -1042,16 +1046,20 @@ function quickCard(){
 // ----- 스킬 · 각성 -----
 function selSlot(){
   const s=V&&V.skill, act=(s&&s.equipped&&Array.isArray(s.equipped.active))?s.equipped.active:[];
-  if(SEL_SLOT!=null&&SEL_SLOT>=0&&SEL_SLOT<4) return SEL_SLOT;
-  const e=[0,1,2,3].find(i=>!act[i]); return e==null?0:e;
+  const n=openSlots(); if(SEL_SLOT!=null&&SEL_SLOT>=0&&SEL_SLOT<n) return SEL_SLOT;
+  const e=Array.from({length:n},(_,i)=>i).find(i=>!act[i]); return e==null?0:e;
 }
-const SHAPE_KO={arc:'부채꼴 근접',proj:'날아가는 탄',aoe:'범위 폭발',self:'내 주변',dash:'돌진'};
+const SHAPE_KO={arc:'부채꼴 근접',proj:'날아가는 탄',aoe:'범위 폭발',self:'내 주변',dash:'돌진',buff:'자기 강화',blink:'순간이동',pull:'끌어당김'};
 function ccTxt(c){ c=String(c||''); if(c==='knock') return '밀쳐냄'; if(c==='burn') return '화상'; if(c.indexOf('stun')===0) return '기절 '+esc(c.split(':')[1]||'')+'초'; return ''; }
 function skStat(k,lock,act_,lv,max){
   const hits=N(k.hits)||1;
   if(lock) return `각성 ${fmt(k.need_awaken)}단계에서 배워요`+(act_?` · 최대 피해 ${fmt(N(k.peak_pct))}%${hits>1?' × '+fmt(hits)+'타':''}`:'');
   if(!act_) return `Lv.<b>${lv}</b>/${max} · 방어력 <b>+${N(k.def_pct).toFixed(1)}%</b> · 체력 <b>+${N(k.hp_pct).toFixed(1)}%</b> <span class="mut">(항상 켜짐)</span>`;
   const cc=ccTxt(k.cc);
+  if(k.id==='rage') return `Lv.<b>${lv}</b>/${max} · 8초 동안 공격력 <b>+${N(k.buff_pct).toFixed(1)}%</b><br>쿨 ${N(k.cd)}초 · MP ${fmt(k.mp)} · 자기 강화`;
+  if(k.shape==='blink') return `Lv.<b>${lv}</b>/${max} · 바라보는 쪽으로 최대 ${fmt(k.range)}만큼 순간이동 · 잠깐 무적<br>쿨 ${N(k.cd)}초 · MP ${fmt(k.mp)}`;
+  if(k.id==='ward') return `Lv.<b>${lv}</b>/${max} · 체력 회복 + 3초 보호막<br>쿨 ${N(k.cd)}초 · MP ${fmt(k.mp)}`;
+  if(k.id==='ice') return `Lv.<b>${lv}</b>/${max} · 피해 <b>${fmt(Math.round(N(k.mult)))}%</b> × ${fmt(hits)}타 + <b>빙결</b> 2초 (못 움직여요)<br>쿨 ${N(k.cd)}초 · MP ${fmt(k.mp)} · 사거리 ${fmt(k.range)}`;
   return `Lv.<b>${lv}</b>/${max} · 피해 <b>${fmt(Math.round(N(k.mult)))}%</b>${hits>1?` × ${fmt(hits)}타`:''}${lv<max?` → ${fmt(Math.round(N(k.next_mult)))}%`:''}<br>쿨 ${N(k.cd)}초 · MP ${fmt(k.mp)} · ${esc(SHAPE_KO[k.shape]||'')} · 사거리 ${fmt(k.range)}${cc?' · '+cc:''}${N(k.key)>0?` · 단축키 <b>${fmt(k.key)}</b>`:''}${N(k.power_pct)>0?`<br>전투력에 <b>+${N(k.power_pct).toFixed(1)}%</b>`:''}`;
 }
 function tabSkill(){
@@ -1096,12 +1104,13 @@ function tabSkill(){
     ${awaken}
   </div>
   <div class="card"><h2>🎯 장착 스킬 <span class="pill gold">스킬 피해 ×${N(s.mult).toFixed(2)}</span></h2>
-    <div class="sub">액티브 4칸은 필드에서 <b>단축키 1~4</b>(또는 화면 버튼)로 직접 쓰고, AUTO 일 때는 같은 규칙(MP·쿨다운)으로 알아서 써요. 칸을 눌러 고르고, 아래 카드에서 <b>장착</b>을 누르면 그 칸에 들어가요. 패시브는 칸이 하나예요. (스킬 피해 최대 ×${N(s.mult_cap).toFixed(1)})</div>
+    <div class="sub">액티브 칸은 필드에서 <b>단축키 1~8</b>(또는 화면 버튼)로 직접 쓰고, AUTO 일 때는 같은 규칙(MP·쿨다운)으로 알아서 써요. 칸을 눌러 고르고, 아래 카드에서 <b>장착</b>을 누르면 그 칸에 들어가요. 패시브는 칸이 하나예요. (스킬 피해 최대 ×${N(s.mult_cap).toFixed(1)})</div>
     ${N(s.mp)>0?`<div class="mut" style="margin-top:4px">MP 최대 ${fmt(s.mp)} · 초당 ${N(s.mpregen).toFixed(1)} 회복 — 스킬은 MP 가 모자라면 못 써요.</div>`:''}
-    <div class="eqrow">${[0,1,2,3].map(i=>slotTile(act[i],i,false)).join('')}${slotTile(eq.passive,0,true)}</div>
+    <div class="eqrow">${Array.from({length:openSlots()},(_,i)=>slotTile(act[i],i,false)).join('')}${Array.from({length:Math.max(0,(N((s.slots||{}).max)||8)-openSlots())},()=>`<div class="eqs lockslot" aria-label="아직 안 열린 칸"><span class="ph">🔒</span><span>각성</span></div>`).join('')}${slotTile(eq.passive,0,true)}</div>
+    <div class="mut" style="margin-top:6px">칸은 <b>각성할 때마다 1칸씩</b> 열려요 (지금 ${fmt(openSlots())}칸 / 최대 ${fmt(N((s.slots||{}).max)||8)}칸).</div>
   </div>
   <div class="card"><h2>📚 스킬 도감 <span class="pill">${fmt(list.filter(k=>k.unlocked).length)} / ${fmt(list.length)}</span></h2>
-    <div class="skg">${list.map(card).join('')}</div>
+    ${['main','buff','aoe','util'].map(cat=>{ const L=list.filter(k=>(k.cat||'main')===cat); const nm={main:'⚔ 메인 공격',buff:'💪 버프',aoe:'💥 광역',util:'🧰 유틸 (빙결·끌어당김·순간이동 …)'}[cat]; return L.length?`<h3 class="skcat">${nm} <span class="mut">${fmt(L.filter(k=>k.unlocked).length)}/${fmt(L.length)}</span></h3><div class="skg">${L.map(card).join('')}</div>`:''; }).join('')}
     <div class="mut" style="margin-top:8px">${esc(s.note||'')} 피해 계수·쿨다운·MP·사거리는 서버 수치를 필드 전투에 그대로 써요.</div>
   </div>`;
 }

@@ -43,13 +43,13 @@
   const PW = 7, PH = 30;          // 병아리 판정 상자: 반폭 · 키 (그림보다 작게 — 접촉 판정이 후하지 않도록)
   const CHICK_H = 50;             // 병아리 그림 높이
   const REACH = 66;               // 기본 공격 사거리
-  const MAX_MOBS = 14;
+  const MAX_MOBS = 22;
   const MOB_BAND = [140, 420];    // 새 몹이 나오는 병아리와의 가로 거리(다른 발판)
   const PACK_P = 0.8;            // 가까운 곳 새 몹이 무리로 나올 확률
   const SPAWN_NEAR = 0.7;         // 새 몹 중 병아리가 서 있는 발판에서 나오는 비율
   const BASIC_HPS = 5.6;          // 기본 공격 초당 타수 (콤보 0.15·0.15·0.22초의 평균)
   const AGGRO = 270, CHASE_K = 2.3;   // 몹이 병아리를 알아채는 거리 · 쫓아올 때 걸음 배율
-  const SPAWN_GAP = 0.3;          // 몹 보충 간격(초)
+  const SPAWN_GAP = 0.15;         // 몹 보충 간격(초)
   // [보정 표 — 고정값] 엔진의 AUTO 처치율은 몹 체력 비율에 완만하게만 반응한다(걸어 다니는 시간이 있어 분당 약 128마리에서 막힘). 헤드리스로 잰 응답
   // (비율 → 분당 처치) 의 역함수로 「서버 모델이 말하는 분당 처치」가 나오는 비율을 고른다. 런타임 되먹임이 아니라 상수 표다.
   const CAL_RESP = [[0, 0], [0.1, 35.8], [0.25, 56.8], [0.5, 79.2], [1, 103.4], [2, 128.2]];
@@ -62,7 +62,7 @@
     }
     return CAL_RESP[CAL_RESP.length - 1][0];
   }
-  const CAL_TTK = 0.27;           // [보정 상수 하나] 전투력 = 권장 전투력일 때 몹 한 마리를 잡는 데 드는 이론상 시간(초). 시험으로 맞춤.
+  const CAL_TTK = 0.40;           // [보정 상수 하나] 전투력 = 권장 전투력일 때 몹 한 마리를 잡는 데 드는 이론상 시간(초). 시험으로 맞춤.
   const DPS_PER_HP = 0.55;        // rec_power·power 가 없을 때만 쓰는 대체: 이론 초당 피해 ÷ 몹 체력 = 1 이 되는 기준
   const K_DEF_PER_STAGE = 8, K_DEF_BASE = 12;   // 방어 감소 = def/(def + K), K = 12 + 8·스테이지
   const CONTACT_K = 0.55;         // 접촉 피해 계수
@@ -73,7 +73,7 @@
   const REG_KEY = ['합정', 'bhc', '홍대', '상수', '망원', '한강'];
   const HUE = [205, 28, 345, 262, 140, 190];
   const GR_COL = { normal: '#98a2b8', rare: '#4aa3ff', epic: '#b678ff', unique: '#ffa23a', legend: '#ff5c7a' };
-  const SKILL_IDS = ['slash', 'peck', 'spin', 'bomb', 'thunder', 'fire', 'egg', 'shield', 'shrimp', 'storm'];
+  const SKILL_IDS = ['slash', 'peck', 'spin', 'bomb', 'thunder', 'fire', 'egg', 'shield', 'shrimp', 'storm', 'ice', 'gale', 'meteor', 'phoenix', 'rage', 'blink', 'pull', 'ward'];
   const SKD = {   // 서버가 안 준 칸을 채우는 기본값
     slash: { shape: 'arc', mp: 8, cd: 2.2, cast: 0.28, range: 96, hits: 1, mult: 160, col: '#ffffff' },
     peck: { shape: 'proj', mp: 6, cd: 2.0, cast: 0.22, range: 260, hits: 3, mult: 70, col: '#ffe27a' },
@@ -84,7 +84,15 @@
     egg: { shape: 'aoe', mp: 22, cd: 6, cast: 0.36, range: 230, hits: 1, mult: 280, col: '#ffd23c' },
     shield: { shape: 'self', mp: 0, cd: 0, cast: 0, range: 0, hits: 1, mult: 60, col: '#6fd6ff', passive: true },
     shrimp: { shape: 'dash', mp: 28, cd: 8, cast: 0.3, range: 220, hits: 2, mult: 200, col: '#ff8aa0' },
-    storm: { shape: 'aoe', mp: 40, cd: 14, cast: 0.6, range: 300, hits: 5, mult: 120, col: '#c78bff', both: true }
+    storm: { shape: 'aoe', mp: 40, cd: 14, cast: 0.6, range: 300, hits: 5, mult: 120, col: '#c78bff', both: true },
+    ice: { shape: 'aoe', mp: 24, cd: 6, cast: 0.45, range: 260, hits: 2, mult: 120, col: '#7fd8ff', both: true },
+    gale: { shape: 'proj', mp: 28, cd: 7, cast: 0.4, range: 560, hits: 4, mult: 75, col: '#8affc1', pierce: true },
+    meteor: { shape: 'aoe', mp: 46, cd: 14, cast: 0.9, range: 520, hits: 6, mult: 170, col: '#ff9248', both: true },
+    phoenix: { shape: 'aoe', mp: 70, cd: 24, cast: 1.2, range: 900, hits: 10, mult: 150, col: '#ff5a3c', both: true },
+    rage: { shape: 'buff', mp: 30, cd: 20, cast: 0.35, range: 0, hits: 0, mult: 35, col: '#ff6b6b' },
+    blink: { shape: 'blink', mp: 14, cd: 6, cast: 0.15, range: 280, hits: 0, mult: 0, col: '#d9a8ff' },
+    pull: { shape: 'pull', mp: 22, cd: 9, cast: 0.45, range: 340, hits: 2, mult: 60, col: '#7fa8ff' },
+    ward: { shape: 'self', mp: 26, cd: 15, cast: 0.4, range: 0, hits: 0, mult: 100, col: '#ffe9a8' }
   };
 
   // 스킬마다 화면만 보고 알 수 있게 — 이름 콜아웃 · 색 · 크기(1 가볍게 ~ 4 화면 전체) · 시전 자세 · 맞은 몬스터 모습 · 화면 연출. 고치는 곳은 여기 한 곳.
@@ -98,6 +106,14 @@
     egg:     { call: '황금알!',      col: '#ffc01f', dark: '#6b3a00', size: 2, pose: 'throw',  hit: 'gold',  hsh: '',          zoom: 0.05,  shake: 5,   stop: 0.05,  ic: '🥚' },
     shield:  { call: '방패!',        col: '#5fa8ff', dark: '#0b2d6b', size: 2, pose: 'guard',  hit: 'push',  hsh: '',          zoom: 0.03,  shake: 3,   stop: 0.03,  ic: '🛡' },
     shrimp:  { call: '새우 돌격!',   col: '#ff8fb0', dark: '#6b1233', size: 2, pose: 'charge', hit: 'push',  hsh: 'sk_shrimp', zoom: 0.05,  shake: 4.5, stop: 0.04,  ic: '🦐' },
+    ice:     { call: '서리 폭풍!',   col: '#9fe8ff', dark: '#0a3a52', size: 2, pose: 'raise',  hit: 'push',  hsh: '',          zoom: 0.05,  shake: 3,   stop: 0.04,  ic: '🧊' },
+    gale:    { call: '칼날 돌풍!',   col: '#9affc8', dark: '#0a4a2c', size: 2, pose: 'breath', hit: 'cut',   hsh: '',          zoom: 0.04,  shake: 3.5, stop: 0.03,  ic: '🍃' },
+    meteor:  { call: '닭강정 운석!', col: '#ffa254', dark: '#5a2200', size: 3, pose: 'sky',    hit: 'burn',  hsh: '',          zoom: 0.09,  shake: 12,  stop: 0.09,  ic: '☄', dim: 0.6, dimCol: '14,4,2' },
+    phoenix: { call: '불사조 강림!', col: '#ff6a44', dark: '#5a0e00', size: 4, pose: 'storm',  hit: 'burn',  hsh: '',          zoom: 0.12,  shake: 14,  stop: 0.11,  ic: '🔥', dim: 0.66, dimCol: '18,2,0', lines: true },
+    rage:    { call: '분노의 울음!', col: '#ff7b7b', dark: '#5a0a0a', size: 2, pose: 'raise',  hit: 'push',  hsh: '',          zoom: 0.04,  shake: 4,   stop: 0.03,  ic: '💢' },
+    blink:   { call: '순간이동!',    col: '#e0b8ff', dark: '#3a1060', size: 1, pose: 'lunge',  hit: 'push',  hsh: '',          zoom: 0.01,  shake: 0,   stop: 0,     ic: '✨' },
+    pull:    { call: '끌어당기기!',  col: '#8fb4ff', dark: '#0f2a6b', size: 2, pose: 'raise',  hit: 'push',  hsh: '',          zoom: 0.05,  shake: 4,   stop: 0.04,  ic: '🧲' },
+    ward:    { call: '깃털 방벽!',   col: '#fff0b8', dark: '#6b5a00', size: 2, pose: 'guard',  hit: 'push',  hsh: '',          zoom: 0.03,  shake: 2,   stop: 0.03,  ic: '🪶' },
     storm:   { call: '논란 폭풍!',   col: '#c07bff', dark: '#2c0a5c', size: 4, pose: 'storm',  hit: 'shock', hsh: '',          zoom: 0.11,  shake: 12,  stop: 0.1,   ic: '🌪', dim: 0.6, dimCol: '16,4,34', lines: true }
   };
   const SZ_R = [0, 22, 32, 46, 64];   // 시전 전조 마법진 반지름(크기별)
@@ -299,7 +315,7 @@
     let MON = { name: '몬스터', hp: 900, atk: 60, def: 30, eva: 90, gold: 0.25 };
     const D = { reg: 0, ratio: 1, dpsNom: 1, mobHp: 100, kdef: 80, passive: null };
     const skills = [null, null, null, null];     // 정규화된 스킬 4칸
-    const slotCd = [0, 0, 0, 0];
+    const slotCd = [0, 0, 0, 0, 0, 0, 0, 0];
     let map = genMap(0, opts.seed != null ? opts.seed | 0 : 1);
     let hunt = map;                              // 사냥 지형(보스 방에 들어갔다 나올 때 되돌릴 곳)
     let mobs = [], shots = [], boss = null;
@@ -412,7 +428,7 @@
     }
 
     // ---------- 입력 ----------
-    const KEYS = { left: 1, right: 1, up: 1, down: 1, jump: 1, attack: 1, s1: 1, s2: 1, s3: 1, s4: 1 };
+    const KEYS = { left: 1, right: 1, up: 1, down: 1, jump: 1, attack: 1, s1: 1, s2: 1, s3: 1, s4: 1, s5: 1, s6: 1, s7: 1, s8: 1 };
     const Hh = {}, ED = {};    // 누르고 있는 것 · 이번 갱신에 새로 눌린 것
     for (const k in KEYS) { Hh[k] = false; ED[k] = false; }
     function press(name) {
@@ -433,8 +449,8 @@
     function autoOn() { return E.autoWanted && E.manualT <= 0 && !E.paused; }
     function setPaused(b) { E.paused = !!b; if (!b) { E.last = typeof performance !== 'undefined' ? performance.now() : 0; } }
     let keyDown = null, keyUp = null;
-    const KMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'jump', ArrowDown: 'down', ' ': 'jump', Alt: 'jump', Control: 'attack', z: 'attack', Z: 'attack', 1: 's1', 2: 's2', 3: 's3', 4: 's4', a: 's1', s: 's2', d: 's3', f: 's4', A: 's1', S: 's2', D: 's3', F: 's4', Tab: 'auto', g: 'auto', G: 'auto', p: 'pause', P: 'pause' };
-    const KLETTER = { KeyZ: 'attack', KeyA: 's1', KeyS: 's2', KeyD: 's3', KeyF: 's4', KeyG: 'auto', KeyP: 'pause' };   // 한글 입력 상태(e.key 가 'ㅋ' 등)에서도 물리 키 위치로 읽는다
+    const KMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'jump', ArrowDown: 'down', ' ': 'jump', Alt: 'jump', Control: 'attack', z: 'attack', Z: 'attack', 1: 's1', 2: 's2', 3: 's3', 4: 's4', 5: 's5', 6: 's6', 7: 's7', 8: 's8', q: 's5', w: 's6', e: 's7', r: 's8', Q: 's5', W: 's6', E: 's7', R: 's8', a: 's1', s: 's2', d: 's3', f: 's4', A: 's1', S: 's2', D: 's3', F: 's4', Tab: 'auto', g: 'auto', G: 'auto', p: 'pause', P: 'pause' };
+    const KLETTER = { KeyZ: 'attack', KeyA: 's1', KeyS: 's2', KeyD: 's3', KeyF: 's4', KeyQ: 's5', KeyW: 's6', KeyE: 's7', KeyR: 's8', KeyG: 'auto', KeyP: 'pause' };   // 한글 입력 상태(e.key 가 'ㅋ' 등)에서도 물리 키 위치로 읽는다
     const KCODE = { AltLeft: 'jump', AltRight: 'jump', ControlLeft: 'attack', ControlRight: 'attack', Space: 'jump' };
     function typing(e) { const t = e.target; return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable); }
     function keyOf(e) { return KCODE[e.code] || KMAP[e.key] || KLETTER[e.code]; }
@@ -456,7 +472,7 @@
     function normSkill(s) {
       if (!s || !s.id || !SKD[s.id]) return null;
       const d = SKD[s.id], o = { id: s.id };
-      o.key = s.key; o.shape = d.shape === 'dash' ? 'dash' : (['arc', 'proj', 'aoe', 'self', 'dash'].indexOf(s.shape) >= 0 ? s.shape : d.shape);   // 돌격(흐접새우)은 서버가 'self' 로 보내도 돌격 — 안 그러면 방어막만 켜져 소환이 먹통처럼 보인다
+      o.buff = N(s.buff_pct); o.key = s.key; o.shape = d.shape === 'dash' ? 'dash' : (['arc', 'proj', 'aoe', 'self', 'dash', 'buff', 'blink', 'pull'].indexOf(s.shape) >= 0 ? s.shape : d.shape);   // 돌격(흐접새우)은 서버가 'self' 로 보내도 돌격 — 안 그러면 방어막만 켜져 소환이 먹통처럼 보인다
       o.mp = Math.max(0, s.mp != null ? N(s.mp) : d.mp); o.cd = Math.max(0.2, s.cd != null ? N(s.cd) : d.cd); o.cast = clamp(s.cast != null ? N(s.cast) : d.cast, 0.05, 1.5);
       o.range = clamp(s.range != null ? N(s.range) : d.range, 30, 420); o.hits = clamp(Math.round(s.hits != null ? N(s.hits) : d.hits) || 1, 1, 12);
       o.mult = Math.max(5, s.mult != null ? N(s.mult) : d.mult); o.lv = N(s.lv) || 1; o.col = SKV[s.id] ? SKV[s.id].col : (/^#[0-9a-f]{3,8}$/i.test(s.fx_color || '') ? s.fx_color : d.col); o.both = !!d.both || !!s.both; o.pierce = !!d.pierce || !!s.pierce;
@@ -522,7 +538,7 @@
       const pHit = clamp(C.acc / (C.acc + MON.eva), 0.25, 0.99);
       if (!o.sure && rnd() > pHit) { if (!texts.some(t => t.on && t.kind === 'm' && t.t < 0.2 && Math.abs(t.x - m.x) < 40)) say('MISS', m.x, m.y - 30 * m.sc, 'm', 10, '#b9c0d4'); emit('miss'); return false; }
       const crit = rnd() * 100 < clamp(C.crit, 0, 100);
-      let d = C.atk * mult / 100 * (0.93 + rnd() * 0.14);
+      let d = C.atk * mult / 100 * (0.93 + rnd() * 0.14) * (E.rageT > 0 ? E.rageMul : 1);
       if (crit) d *= C.critdmg / 100;
       d = Math.max(1, Math.round(d));
       m.hp -= d; m.hit = 0.16; m.sqz = 1;
@@ -826,6 +842,9 @@
             ring(cx, cy, col, r * (1.2 + k * 0.1), 0.5); flashS(0.18 + (k === s.hits - 1 ? 0.2 : 0), '#e6c8ff');
             if (!E.low) for (let d = 0; d < 6; d++) { const a = rnd() * 6.28, rr = r * (0.4 + rnd() * 0.8); newPart('spark', cx + Math.cos(a) * rr, cy - 10 + Math.sin(a) * rr * 0.4, Math.cos(a) * 60, -80 - rnd() * 120, 0.35, 10, '#e0b8ff'); }
           }
+          if (s.id === 'ice') { ring(cx, cy, col, r * 0.9, 0.5); if (!E.low) for (let d = 0; d < 8; d++) newPart('spark', cx + (rnd() - 0.5) * r, cy - 10 - rnd() * 30, (rnd() - 0.5) * 60, -40 - rnd() * 60, 0.6, 9, '#c8f4ff'); for (const m of mobs) if (liveMob(m) && !m.boss && Math.abs(m.x - cx) <= r && Math.abs(m.y - cy) < 60) m.frz = 2.2; }
+          if (s.id === 'meteor' && !E.low) for (let d = 0; d < 7; d++) newPart('flame', cx + (rnd() - 0.5) * r * 0.6, cy - 70 - rnd() * 40, (rnd() - 0.5) * 80, 120 + rnd() * 140, 0.5, 14, '#ff8a3a');
+          if (s.id === 'phoenix') { ring(cx, cy, col, r * 0.5 * (1 + k * 0.1), 0.6); flashS(0.2, '#ffd0a0'); }
           for (const m of mobs) if (liveMob(m) && Math.abs(m.x - cx) <= r && Math.abs(m.y - cy) < 60) dmg(m, s.id === 'storm' ? { kb: k === s.hits - 1 ? 170 : -55, fromX: cx } : { kb: 60, fromX: cx });
           emit('cast', { id: s.id, stage: 'hit' });
         });
@@ -834,6 +853,25 @@
         P.dash = { t: 0, dur, vx: f * dist / dur, s, hit: [], x0: P.x }; P.inv = Math.max(P.inv, dur + 0.1);
         fxPush({ k: 'dash', id: s.id, x: P.x, y: P.y, face: f, t: 0, life: dur + 0.2, col, r: dist }, s.id);
         sf('sk_shrimp', P.x + f * 22, P.y - 16, 96, { life: 0.28, flip: f < 0 });
+      } else if (s.shape === 'buff') {
+        E.rageT = 8; E.rageMul = 1 + clamp((s.buff || s.mult || 35), 5, 200) / 100;
+        ring(P.x, P.y - 20, col, 70, 0.5); ring(P.x, P.y - 20, '#fff0c0', 40, 0.35); flashS(0.18, '#ffb0b0');
+        for (let d = 0; d < (E.low ? 5 : 12); d++) newPart('emo', P.x + (rnd() - 0.5) * 40, P.y - 20 - rnd() * 24, (rnd() - 0.5) * 60, -50 - rnd() * 60, 0.8, 13, '💢');
+        say('공격력 UP!', P.x, P.y - PH - 14, 'h', 16, '#ff9a9a');
+      } else if (s.shape === 'blink') {
+        const dist = Math.min(s.range, 340), tx = P.x + f * dist;
+        const lo = P.on ? P.plat.x0 + 10 : 12, hi = P.on ? P.plat.x1 - 10 : map.W - 12;
+        for (let k = 0; k < 6; k++) { const g = newPart('ghost', P.x + f * k * dist / 6, P.y, 0, 0, 0.3 + k * 0.03, 0, col); if (g) g.a = f; }
+        P.x = clamp(tx, lo, hi); P.inv = Math.max(P.inv, 0.7);
+        ring(P.x, P.y - 18, col, 60, 0.4); for (let d = 0; d < (E.low ? 4 : 10); d++) newPart('spark', P.x + (rnd() - 0.5) * 30, P.y - 10 - rnd() * 30, (rnd() - 0.5) * 120, -60 - rnd() * 80, 0.5, 8, col);
+      } else if (s.shape === 'pull') {
+        ring(P.x, P.y - 20, col, s.range * 0.6, 0.5); ring(P.x, P.y - 20, '#fff', s.range * 0.3, 0.35);
+        for (let k = 0; k < s.hits; k++) later(0.12 + k * 0.14, () => {
+          for (const m of mobs) if (liveMob(m) && !m.boss && Math.abs(m.x - P.x) <= s.range && Math.abs(m.y - P.y) < 70) {
+            m.kb += (P.x > m.x ? 1 : -1) * (m.big ? 120 : 330);
+            hitMob(m, s.mult, { skill: s.id, col, kb: 0, fromX: m.x - (P.x > m.x ? 1 : -1) * 10 });
+          }
+        });
       } else if (s.shape === 'self') {
         const heal = Math.round(P.hpMax * clamp(s.mult / 100 * 0.12, 0.05, 0.5));
         P.hp = Math.min(P.hpMax, P.hp + heal); P.shieldT = 3;
@@ -850,8 +888,9 @@
       const p = P;
       p.inv = Math.max(0, p.inv - h); p.shieldT = Math.max(0, p.shieldT - h); p.hpFlash = Math.max(0, p.hpFlash - h * 3); p.castFlash = Math.max(0, p.castFlash - h * 4);
       p.afterT = Math.max(0, p.afterT - h); p.dropT = Math.max(0, p.dropT - h); p.sq *= Math.exp(-h * 11); p.djT = Math.max(0, p.djT - h);
+      if (E.rageT > 0) E.rageT = Math.max(0, E.rageT - h);
       E.usingT = Math.max(0, E.usingT - h); if (E.usingT <= 0) E.usingId = null;
-      for (let i = 0; i < 4; i++) slotCd[i] = Math.max(0, slotCd[i] - h);
+      for (let i = 0; i < 8; i++) slotCd[i] = Math.max(0, slotCd[i] - h);
       if (p.dead) {
         p.deadT -= h; p.vx *= Math.exp(-h * 4); moveBody(p, h);
         if (p.deadT <= 0) revive();
@@ -893,7 +932,7 @@
       if (Ct.jump) doJump(Ct);
       else if (!Ct.jumpHeld && p.vy < -200 && !p.on) p.vy *= 0.55;   // 일찍 떼면 낮게 뛴다
       // 기본 공격 · 스킬
-      for (let i = 0; i < 4; i++) if (Ct.s[i]) { if (trySkill(i)) { ED['s' + (i + 1)] = false; break; } }
+      for (let i = 0; i < 8; i++) if (Ct.s[i]) { if (trySkill(i)) { ED['s' + (i + 1)] = false; break; } }
       if (!p.cast) {
         if (Ct.attack && p.atkT <= 0) startSwing();
       }
@@ -1039,6 +1078,7 @@
         if (m.st === 'spawn') { m.t += h; if (m.t >= 0.35) { m.st = 'patrol'; m.t = 0; } continue; }
         // 넉백
         if (Math.abs(m.kb) > 1) { m.x += m.kb * h; m.kb *= Math.exp(-h * 7); } else m.kb = 0;
+        if (m.frz > 0) { m.frz -= h; if (!E.low && rnd() < 0.2) newPart('spark', m.x + (rnd() - 0.5) * 14, m.y - rnd() * 24, 0, -20, 0.4, 6, '#c8f4ff'); continue; }   // 🧊 얼면 못 움직이고 못 때린다
         const dx = P.x - m.x, adx = Math.abs(dx);
         if (m.fly) {
           m.ph += h * 3;
@@ -1175,7 +1215,7 @@
       if (inFront) { a.attack = true; a.waitT = 0; }
       else { const bb = frontBox(REACH - 6, true); behind = mobsInBox(bb[0], bb[1], bb[2], bb[3], 1)[0] || null; if (behind) { if (behind.x > P.x) a.right = true; else a.left = true; } }
       // 스킬
-      if (!P.cast) for (let i = 0; i < 4; i++) { const s = skills[i]; if (s && !s.passive && slotCd[i] <= 0 && P.mp >= s.mp && skillWanted(s)) { a.s[i] = true; break; } }
+      if (!P.cast) for (let i = 0; i < 8; i++) { const s = skills[i]; if (s && !s.passive && slotCd[i] <= 0 && P.mp >= s.mp && skillWanted(s)) { a.s[i] = true; break; } }
       if (!inFront && !behind) {
         if (!t) { a.idleT += h; if (a.idleT > 1) walkTo(map.W / 2, 60); }
         else {
@@ -1206,6 +1246,9 @@
         case 'aoe': { if (s.both) { let n = 0; for (const m of mobs) if (liveMob(m) && Math.abs(m.x - P.x) < s.range * 0.5 && Math.abs(m.y - P.y) < 60) n++; return n >= 1; } return !!nearestMob(s.range * 0.8, 40, true); }
         case 'dash': { if (!P.on) return false; const dist = Math.min(s.range * 0.8, 260); const room = P.face > 0 ? P.plat.x1 - P.x : P.x - P.plat.x0; if (room < dist * 0.7) return false; for (const m of mobs) { if (!liveMob(m)) continue; const dx = (m.x - P.x) * P.face; if (dx > 20 && dx < dist && Math.abs(m.y - P.y) < 30) return true; } return false; }
         case 'self': return P.hp < P.hpMax * 0.5;
+        case 'buff': { if (E.rageT > 0) return false; let n = 0; for (const m of mobs) if (liveMob(m) && Math.abs(m.x - P.x) < 320 && Math.abs(m.y - P.y) < 80) n++; return n >= 3; }
+        case 'pull': { let n = 0; for (const m of mobs) if (liveMob(m) && !m.boss && Math.abs(m.x - P.x) < s.range && Math.abs(m.y - P.y) < 70) n++; return n >= 4; }
+        case 'blink': return false;
       }
       return false;
     }
@@ -1217,7 +1260,7 @@
       if (mobsInBox(fb[0], fb[1], fb[2], fb[3], 1).length) a.attack = true;
       else walkTo(bm.x, 44);
       if (bm.x > P.x && P.face < 0 && adx < 90) a.right = true; else if (bm.x < P.x && P.face > 0 && adx < 90) a.left = true;
-      if (!P.cast) for (let i = 0; i < 4; i++) { const s = skills[i]; if (s && !s.passive && slotCd[i] <= 0 && P.mp >= s.mp && adx < Math.max(90, s.range * 0.7) && s.shape !== 'self') { a.s[i] = true; break; } }
+      if (!P.cast) for (let i = 0; i < 8; i++) { const s = skills[i]; if (s && !s.passive && slotCd[i] <= 0 && P.mp >= s.mp && adx < Math.max(90, s.range * 0.7) && s.shape !== 'self' && s.shape !== 'blink') { a.s[i] = true; break; } }
       // 공격 예고: 맞아야 하는 판이 아니면 내려치는 순간에 점프로 피한다
       if (B.atk && !B.atk.done && !B.atk.hit && P.on && B.atk.t > B.atk.dur - 0.32) aiJump();
     }
@@ -1674,7 +1717,7 @@
       }
       AI.wasAuto = false;
       const j = ED.jump, jh = Hh.jump;
-      return { left: Hh.left, right: Hh.right, jump: j, jumpHeld: jh, down: Hh.down, attack: Hh.attack, s: [!!ED.s1, !!ED.s2, !!ED.s3, !!ED.s4] };
+      return { left: Hh.left, right: Hh.right, jump: j, jumpHeld: jh, down: Hh.down, attack: Hh.attack, s: [!!ED.s1, !!ED.s2, !!ED.s3, !!ED.s4, !!ED.s5, !!ED.s6, !!ED.s7, !!ED.s8] };
     }
     function updateFx(h) {
       for (let i = fxs.length - 1; i >= 0; i--) { const f = fxs[i]; f.t += h; if (f.t >= f.life) fxs.splice(i, 1); }
@@ -1715,7 +1758,7 @@
       E.t += h; addRun(h);
       if (E.hitstop > 0) { E.hitstop -= h; if (!E.reduced) { updateFx(h * 0.35); return; } }
       // 수동 → 자동 복귀 타이머
-      if (E.manualT > 0) { if (Hh.left || Hh.right || Hh.jump || Hh.attack || Hh.s1 || Hh.s2 || Hh.s3 || Hh.s4) E.manualT = MANUAL_HOLD; else E.manualT -= h; }
+      if (E.manualT > 0) { if (Hh.left || Hh.right || Hh.jump || Hh.attack || Hh.s1 || Hh.s2 || Hh.s3 || Hh.s4 || Hh.s5 || Hh.s6 || Hh.s7 || Hh.s8) E.manualT = MANUAL_HOLD; else E.manualT -= h; }
       const Ct = control(h);
       updatePlayer(h, Ct);
       for (const k in ED) ED[k] = (typeof ED[k] === 'number' && ED[k] > h) ? ED[k] - h : false;
@@ -1918,6 +1961,8 @@
       else if (p.atkT > 0) pose = 'atk' + p.atkIdx; else if (!p.on) pose = p.vy < 0 ? 'jump' : 'fall'; else if (p.run > 30) pose = 'run';
       // 그림자(발판 위)
       if (!p.dead) { const sy = (p.on ? p.y : (platBelow(map, p.x, p.y).y)); shadow(x, sy, 15 * clamp(1 - (sy - p.y) / -120, 0.5, 1), 0.3 * clamp(1 + (p.y - sy) / 160, 0.3, 1)); }
+      // 분노 오라
+      if (E.rageT > 0 && !p.dead) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const rg = ctx.createRadialGradient(x, p.y - 22, 4, x, p.y - 22, 40); rg.addColorStop(0, 'rgba(255,120,100,.55)'); rg.addColorStop(1, 'rgba(255,60,60,0)'); ctx.fillStyle = rg; ctx.fillRect(x - 40, p.y - 62, 80, 80); ctx.restore(); if (!E.low && ((E.t * 8) | 0) !== E.rageN) { E.rageN = (E.t * 8) | 0; newPart('spark', x + E.cam + (rnd() - 0.5) * 26, p.y - 10 - rnd() * 30, 0, -50, 0.5, 7, '#ff8a7a'); } }
       // 보호막 오라
       if ((D.passive === 'shield' || p.shieldT > 0) && !p.dead) {
         const r = 26 + Math.sin(E.t * 4) * 1.5, col = '#6fd6ff';
@@ -2275,7 +2320,7 @@
       }
       // 스킬 칸
       let sx = 8;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 8; i++) {
         const s = skills[i], x0 = sx + i * 31, y0 = LH - 36;
         c.fillStyle = 'rgba(8,6,20,.7)'; c.fillRect(x0, y0, 28, 28);
         if (s) {
@@ -2327,7 +2372,7 @@
     function preloadSheets() {   // 그림 목록(manifest)이 오면 쓸 스킬 시트를 미리 읽어 둔다(첫 시전부터 큰 그림으로 나오게)
       if (!MAN || E.preSheets) return; E.preSheets = true;
       for (const n of ['fxImpact', 'fxCrit', 'fxDust']) sheet(n);
-      for (let i = 0; i < 4; i++) { const k = skills[i]; if (k) { sheet('sk_' + k.id); } }
+      for (let i = 0; i < 8; i++) { const k = skills[i]; if (k) { sheet('sk_' + k.id); } }
       for (const id of SKILL_IDS) if (E.castLog[id]) sheet('sk_' + id);
     }
     function draw() {
@@ -2340,7 +2385,7 @@
       if (sh > 0.05) c.translate((rnd() - 0.5) * sh * 2, (rnd() - 0.5) * sh * 1.4);
       drawBg(VW); drawTerrain(VW); drawInsBack(VW); drawBossGround();
       if (E.dim > 0.01) { c.fillStyle = 'rgba(' + E.dimCol + ',' + E.dim.toFixed(3) + ')'; c.fillRect(-80, -50, VW + 160, LH + 100); }   // 큰 스킬: 배경이 어두워져 스킬 빛이 산다
-      for (let i = 0; i < mobs.length; i++) { const m = mobs[i]; if (!m.boss) drawMob(m); }
+      for (let i = 0; i < mobs.length; i++) { const m = mobs[i]; if (!m.boss) { drawMob(m); if (m.frz > 0 && m.st !== 'dying') { const fx = m.x - E.cam; ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#9fe8ff'; ctx.beginPath(); ctx.ellipse(fx, m.y - 12 * m.sc, 15 * m.sc, 18 * m.sc, 0, 0, 6.3); ctx.fill(); ctx.globalAlpha = 0.9; ctx.strokeStyle = '#e8fbff'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore(); } } }
       if (boss) drawBossBody();
       drawAllies(0.016);
       drawChick();
@@ -2405,7 +2450,7 @@
       const m = s.mon || {};
       MON = { name: String(m.name || '몬스터'), hp: Math.max(1, N(m.hp) || 900), atk: Math.max(0, N(m.atk != null ? m.atk : 60)), def: N(m.def), eva: Math.max(0, N(m.eva != null ? m.eva : 90)), gold: N(m.gold) };
       const sk = s.skills || {}, act = Array.isArray(sk.active) ? sk.active : [];
-      for (let i = 0; i < 4; i++) { const n = normSkill(act[i]), o = skills[i]; if (n && (!o || o.id !== n.id)) slotCd[i] = 0.3; skills[i] = n; }
+      for (let i = 0; i < 8; i++) { const n = normSkill(act[i]), o = skills[i]; if (n && (!o || o.id !== n.id)) slotCd[i] = 0.3; skills[i] = n; }
       skills.passive = sk.passive && SKD[sk.passive] ? sk.passive : null;
       derive(); applyCombat(); syncParty(); E.preSheets = false;
       // 이미 나와 있는 몹에 새 체력 비율을 적용(처치 속도가 상태 변경에 맞게)
