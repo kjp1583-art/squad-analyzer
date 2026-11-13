@@ -493,6 +493,12 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
 .pot.cool{filter:saturate(.6)}
 .potshop{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 @media (max-width:520px){ #dock .dockrow{flex-wrap:wrap;justify-content:center;row-gap:6px} #dock .hot{order:1;flex:1 1 100%;justify-content:center} #dock .pots{order:2} #dock .push{order:3;flex:1 1 auto;min-width:0} #dock .sk{width:40px;height:40px} #dock .sk.pas{width:34px;height:34px} .pot{width:42px;height:44px} .pot .pe{line-height:40px;font-size:20px} }
+#whelp{flex:none;width:34px;height:34px;border-radius:50%;border:2px solid rgba(60,40,0,.55);background:rgba(255,255,255,.85);color:#7a4a00;font-size:19px;font-weight:900;line-height:1;cursor:pointer;padding:0;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+#whelp[aria-pressed=true]{background:#3a2a8a;color:#fff;border-color:#fff}
+.hlp{display:none !important}
+#helpPanel{position:absolute;left:0;right:0;top:48px;bottom:0;z-index:5;overflow:auto;padding:14px 16px 24px;background:linear-gradient(180deg,var(--panel2),var(--panel));font-size:14px;line-height:1.6}
+#helpPanel h3{margin:0 0 10px;font-size:17px}
+#helpPanel p{margin:0 0 10px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.14)}
 </style>
 </head>
 <body>
@@ -529,7 +535,7 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
   </section>
   <div id="wbg" aria-hidden="true"></div>
   <div id="sheet" role="dialog" aria-label="게임 창">
-    <div id="wtitle"><span id="wicon" aria-hidden="true"></span><b id="wname">메뉴</b><button type="button" id="wclose" aria-label="창 닫기 (Esc)" title="닫기 (Esc)">✕</button></div>
+    <div id="wtitle"><span id="wicon" aria-hidden="true"></span><b id="wname">메뉴</b><button type="button" id="whelp" aria-label="이 창 설명 보기" aria-pressed="false" title="이 창 설명 보기">?</button><button type="button" id="wclose" aria-label="창 닫기 (Esc)" title="닫기 (Esc)">✕</button></div>
     <div id="main"><div class="empty"><div class="big">🐥</div><div class="sub">불러오는 중…</div></div></div>
   </div>
 </div>
@@ -1013,6 +1019,7 @@ function render(){
   const fn={hunt:tabHunt,skill:tabSkill,crew:tabCrew,grow:tabGrow,gear:tabGear,relic:()=>window.BrjRelic?BrjRelic.tab():'',cos:tabCos,adv:tabAdv,inf:tabInf,rank:tabRank}[TAB]||tabHunt;
   const keep=main.scrollTop;
   main.innerHTML=msgHtml()+fn();
+  tidyHelp(main);
   { const tb=TABS.find(x=>x[0]===TAB)||TABS[0]; $('wname').textContent=tb[2]; $('wicon').innerHTML=tb[1]?`<img src="img/brjhunt/ui/tab_${tb[1]}.webp" alt="" onerror="this.style.display='none'">`:'<span class="tabem" aria-hidden="true">'+(TAB_EM[tb[0]]||'🏆')+'</span>'; }
   if(TAB_FLAG){ TAB_FLAG=false; main.classList.remove('up'); void main.offsetWidth; main.classList.add('up'); main.scrollTop=0; } else main.scrollTop=keep;
   initField();
@@ -1624,8 +1631,32 @@ function onInstReward(e){
     snd(k==='gold'?'coin_big':'reward_pop',{vol:.8});
   }catch(x){}
 }
-function closeWin(){ if(!WOPEN) return; WOPEN=false; MSG=null; render(); }
+// 📖 [2026-11-13 사장님 「메뉴마다 글이 너무 많아 난잡 — ? 버튼에 설명을 넣고 기본 화면은 간결하게」] 길게 풀어 쓴 설명 문단은 화면에서 접어 두고, 창 제목의 ? 버튼으로 한꺼번에 본다.
+let HELP_OPEN=false;
+function tidyHelp(main){
+  const items=[];
+  main.querySelectorAll('.sub,.mut,.note,.keyhint').forEach(el=>{
+    if(el.closest('.empty,.msg,.req,.eqrow,.skg,.cosgrid,.lvbar')) return;
+    if(el.querySelector('.red,.green,button,input,select')) return;       // 상태·경고·버튼이 섞인 줄은 그대로 둔다
+    const t=(el.textContent||'').replace(/\s+/g,' ').trim(); if(t.length<26) return;
+    if(!el.classList.contains('hlp')){ el.classList.add('hlp'); items.push(el.innerHTML); }
+  });
+  main._help=items;
+  const b=$('whelp'); if(b){ b.style.display=items.length?'':'none'; }
+  renderHelp(main);
+}
+function renderHelp(main){
+  main=main||$('main'); const b=$('whelp'); let p=$('helpPanel');
+  const items=main._help||[];
+  if(!HELP_OPEN||!items.length){ if(p) p.remove(); if(b) b.setAttribute('aria-pressed','false'); document.body.classList.remove('helpon'); return; }
+  if(!p){ p=document.createElement('div'); p.id='helpPanel'; p.setAttribute('role','note'); $('sheet').appendChild(p); }
+  const tb=TABS.find(x=>x[0]===TAB)||TABS[0];
+  p.innerHTML=`<h3>❓ ${esc(tb[2])} 창 설명</h3>${items.map(h=>`<p>${h}</p>`).join('')}`;
+  b.setAttribute('aria-pressed','true'); document.body.classList.add('helpon');
+}
+function closeWin(){ if(!WOPEN) return; WOPEN=false; HELP_OPEN=false; MSG=null; render(); }
 $('wclose').onclick=()=>{ snd('click'); closeWin(); };
+$('whelp').onclick=()=>{ snd('click'); HELP_OPEN=!HELP_OPEN; renderHelp(); };
 $('wbg').onclick=()=>{ if(!INSTANCE) closeWin(); };
 addEventListener('keydown',e=>{ if(e.key==='Escape'&&WOPEN&&!INSTANCE&&!document.querySelector('.sbg.show')){ e.preventDefault(); closeWin(); } });
 $('skipBtn').onclick=()=>{ snd('click'); try{ if(FIELD) FIELD.skipInstance(); }catch(e){} };
@@ -1820,7 +1851,7 @@ document.addEventListener('click',e=>{
   if(t.id==='retryBtn'){ snd('click'); STATE='boot'; render(); load(); return; }
   if(INSTANCE&&(t.dataset.tab||t.dataset.card!=null)) return;
   if(t.dataset.tab){ const k=t.dataset.tab; if(WOPEN&&TAB===k){ snd('tab'); closeWin(); return; }   // 같은 아이콘을 다시 누르면 창 닫기
-    snd('tab'); TAB=k; WOPEN=true; TAB_FLAG=true; MSG=null; render(); if(TAB==='inf'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); return; }
+    snd('tab'); TAB=k; WOPEN=true; HELP_OPEN=false; TAB_FLAG=true; MSG=null; render(); if(TAB==='inf'&&(!RANK||Date.now()-RANK_AT>60000)) loadRank(); if(TAB==='rank') loadRankBoard(false); return; }
   if(t.dataset.card!=null){   // 파티 편성(저장 전까지는 이 화면에서만 바뀐다)
     snd('click');
     const id=t.dataset.card, p=curParty(), i=p.indexOf(id), mx=N(R(V.summon,'party_max',5))||5;
