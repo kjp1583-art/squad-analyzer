@@ -201,9 +201,9 @@ async def main():
           const a=mkArena({seed:2,noManifest:true}); a.setState(mkState(1,['slash','peck',null,null])); const d=a.debug, P=d.P; d.clearMobs();
           out.autoDefault=a.getAuto()&&a.isAutoActive();
           a.sim(2,dt); // AUTO 는 몹이 없으면 가만히
-          a.input.press('right'); out.manualNow=!a.isAutoActive(); const x0=P.x; a.sim(1,dt); out.moved=P.x-x0; a.input.release('right');
-          out.holdAuto=!a.isAutoActive(); a.sim(2.5,dt); out.stillManual=!a.isAutoActive(); a.sim(1.5,dt); out.backAuto=a.isAutoActive();
-          a.input.press('jump'); a.input.release('jump'); out.jumpManual=!a.isAutoActive(); a.sim(0.3,dt); out.jumpY=P.on?0:1;
+          a.input.press('right'); out.manualNow=a.isAutoActive(); const x0=P.x; a.sim(1,dt); out.moved=P.x-x0; a.input.release('right');
+          out.holdAuto=a.isAutoActive(); a.sim(2.5,dt); out.stillManual=a.isAutoActive(); a.sim(1.5,dt); out.backAuto=a.isAutoActive();
+          a.input.press('jump'); a.input.release('jump'); out.jumpManual=a.isAutoActive(); a.sim(0.3,dt); out.jumpY=P.on?0:1;
           a.setAuto(false); a.sim(5,dt); out.offStays=!a.isAutoActive(); a.setAuto(true); out.onAgain=a.isAutoActive();
           // 공격 키: 앞의 몹을 때린다
           a.setAuto(false); d.setPos(300,304); P.face=1; const mob=d.spawnMob(340,d.map().plats[0],{noPack:true,el:false,fly:false,shoot:false}); mob.st='patrol'; mob.sp=0; mob.pause=99; mob.lo=mob.hi=340; mob.hp=mob.max=1;
@@ -216,9 +216,9 @@ async def main():
           b.input.press('pause'); out.paused=b.stats().paused; const t0=b.stats().t; b.sim(1,dt); out.pauseFrozen=b.stats().t===t0; b.input.press('pause'); b.sim(0.2,dt); out.resumed=b.stats().t>t0;
           return out;}''')
         check('기본값은 AUTO 켜짐', D['autoDefault'])
-        check('이동 키를 누르면 즉시 수동으로 넘어가 움직인다', D['manualNow'] and D['moved'] > 100, round(D['moved']))
-        check('입력이 끊겨도 3초는 수동 유지, 그 뒤 AUTO 복귀', D['holdAuto'] and D['stillManual'] and D['backAuto'])
-        check('점프 키도 수동 전환 + 실제로 뜬다', D['jumpManual'] and D['jumpY'] == 1)
+        check('이동 키를 눌러도 AUTO 는 꺼지지 않고(2026-11-13) 누르는 동안 내 방향으로 움직인다', D['manualNow'] and D['moved'] > 100, round(D['moved']))
+        check('입력을 떼도 AUTO 가 계속 켜져 있다(직접 해제하기 전까지)', D['holdAuto'] and D['stillManual'] and D['backAuto'])
+        check('점프 키를 눌러도 AUTO 유지 + 실제로 뜬다', D['jumpManual'] and D['jumpY'] == 1)
         check('AUTO 버튼으로 끄면 계속 수동, 다시 켜면 AUTO', D['offStays'] and D['onAgain'])
         check('공격 키로 앞의 몹을 때려 잡는다', D['attackHits'] >= 1 and D['killed'] >= 1, (D['attackHits'], D['killed']))
         check('가상 입력 이름 up/s1/auto/pause 동작', D['upJump'] and D['s1Cast'] and D['autoBtn'] and D['autoBtn2'] and D['paused'] and D['pauseFrozen'] and D['resumed'])
@@ -228,8 +228,8 @@ async def main():
         await pg.wait_for_timeout(300)
         x0 = await pg.evaluate('()=>K.stats().x')
         await pg.keyboard.down('ArrowRight'); await pg.wait_for_timeout(500); await pg.keyboard.up('ArrowRight')
-        x1 = await pg.evaluate('()=>K.stats().x'); manual = await pg.evaluate('()=>!K.isAutoActive()')
-        check('키보드 → 로 이동(수동 전환)', x1 - x0 > 40 and manual, round(x1 - x0))
+        x1 = await pg.evaluate('()=>K.stats().x'); manual = await pg.evaluate('()=>K.isAutoActive()')
+        check('키보드 → 로 이동(AUTO 유지)', x1 - x0 > 40 and manual, round(x1 - x0))
         await pg.evaluate('()=>K.debug.setPos(200,304)')
         await pg.keyboard.down('Alt'); await pg.wait_for_timeout(120); minY = await pg.evaluate('()=>K.stats().y'); await pg.keyboard.up('Alt')
         check('키보드 Alt 로 점프', minY < 300, round(minY))

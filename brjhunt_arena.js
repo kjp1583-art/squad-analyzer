@@ -481,7 +481,7 @@
     }
     const input = { press, release, held: n => !!Hh[n] };
     function setAuto(b) { E.autoWanted = !!b; E.manualT = 0; if (b) { for (const k in KEYS) { Hh[k] = false; } } emit('auto', { on: !!b }); }
-    function autoOn() { return E.autoWanted && E.manualT <= 0 && !E.paused; }
+    function autoOn() { return E.autoWanted && !E.paused; }   // 🤖 [2026-11-13 사장님 「툭 건드리기만 해도 수동으로 바뀐다 → 내가 직접 해제하기 전엔 계속 AUTO」] 키·화면 조작은 AUTO 를 끄지 않는다(조작은 자동 위에 덧입혀진다)
     function setPaused(b) { E.paused = !!b; if (!b) { E.last = typeof performance !== 'undefined' ? performance.now() : 0; } }
     let keyDown = null, keyUp = null;
     const KMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'jump', ArrowDown: 'down', ' ': 'jump', Alt: 'jump', Control: 'attack', z: 'attack', Z: 'attack', 1: 's1', 2: 's2', 3: 's3', 4: 's4', 5: 's5', 6: 's6', 7: 's7', 8: 's8', q: 's5', w: 's6', e: 's7', r: 's8', Q: 's5', W: 's6', E: 's7', R: 's8', a: 's1', s: 's2', d: 's3', f: 's4', A: 's1', S: 's2', D: 's3', F: 's4', Tab: 'auto', g: 'auto', G: 'auto', p: 'pause', P: 'pause' };
@@ -1210,7 +1210,7 @@
     // =====================================================================
     //  AUTO — 같은 규칙(쿨·MP·점프 거리)으로 발판을 오가며 사냥한다
     // =====================================================================
-    const AI = { left: false, right: false, jump: false, jumpHeld: false, down: false, attack: false, s: [false, false, false, false], tgt: null, rethink: 0, hop: null, holdJ: 0, waitT: 0, stuckT: 0, lastX: 0, cd: 0, goalPlat: -1, idleT: 0, teleports: 0, wasAuto: true };
+    const AI = { left: false, right: false, jump: false, jumpHeld: false, down: false, attack: false, s: [false, false, false, false, false, false, false, false], tgt: null, rethink: 0, hop: null, holdJ: 0, waitT: 0, stuckT: 0, lastX: 0, cd: 0, goalPlat: -1, idleT: 0, teleports: 0, wasAuto: true };
     function mobGoal(m) { return m.fly ? platBelow(map, m.x, m.y).id : m.plat.id; }
     function curPlat() { return P.on ? P.plat.id : P.lastPlat; }
     function pickTarget() {
@@ -1383,6 +1383,14 @@
       }
       if (a.t >= a.dur + 0.5) { B.atk = null; B.atkT = (2.3 - B.phase * 0.5) * (0.85 + rnd() * 0.3); }
     }
+    // 👹 [2026-11-13 사장님 「보스몬스터가 가만히 서 있기만 한다」] 전투 중 보스가 병아리 쪽으로 다가오고 물러서며 좌우로 움직인다(격노·폭주일수록 빨라진다). 몸통 충돌은 mob 위치(bm.x)를 그대로 쓰므로 맞는 자리도 같이 움직인다.
+    function bossWalk(B, dt) {
+      const bm = B.m; if (!bm || E.reduced) { if (B) B.vx = 0; return; }
+      const ph = 1 + 0.3 * (B.phase || 0), side = bm.x >= P.x ? 1 : -1;
+      const want = clamp(P.x + side * (200 + Math.sin(E.t * 0.8) * 90), 150, map.W - 150);
+      const sp = 90 * ph, step = clamp(want - bm.x, -sp * dt, sp * dt);
+      bm.x += step; B.vx = step / Math.max(dt, 1e-3); bm.face = P.x >= bm.x ? 1 : -1;
+    }
     function updateBoss(dt) {
       const B = boss; if (!B) return;
       B.t += dt; B.hit = Math.max(0, B.hit - dt);
@@ -1398,6 +1406,7 @@
         if (B.t >= BF_INTRO) { B.state = 'fight'; B.t = 0; B.ft = 0; E.tint = 0; }
       } else if (B.state === 'fight') {
         B.ft += dt;
+        bossWalk(B, dt);
         if (B.clan) { clanTick(B, dt); return; }
         const want = bossWant(B) * B.hpMax;
         B.hp += (want - B.hp) * Math.min(1, dt * 5);
@@ -1779,7 +1788,12 @@
       if (INS && INS.noCtl && !boss) { AI.wasAuto = false; return NOCTL; }
       if (autoOn()) {
         if (!AI.wasAuto) { AI.hop = null; AI.tgt = null; AI.rethink = 0; AI.stuckT = 0; }
-        AI.wasAuto = true; aiThink(h); return AI;
+        AI.wasAuto = true; aiThink(h);
+        if (Hh.left || Hh.right) { AI.left = !!Hh.left; AI.right = !!Hh.right; }    // 직접 누르고 있는 동안은 이동만 내 손이 우선
+        if (ED.jump) AI.jump = true; if (Hh.jump) AI.jumpHeld = true;
+        if (Hh.down) AI.down = true; if (Hh.attack) AI.attack = true;
+        for (let i = 0; i < 8; i++) if (ED['s' + (i + 1)]) AI.s[i] = true;
+        return AI;
       }
       AI.wasAuto = false;
       const j = ED.jump, jh = Hh.jump;
@@ -2155,13 +2169,20 @@
       let im = B.img ? ld('img/brjang/boss/' + B.img + '/front.png') : null; if (!im) im = emo('🐲', 110);
       let a = 1, rot = 0, x = bm.x - cam, y = bm.y + 4 - (B.z || 0), sy = 1;
       if (B.state === 'fight' && B.phase) y += Math.sin(E.t * 24) * 1.2 * B.phase;
+      if (B.state === 'fight') {   // 걷는 통통거림 · 공격 예고 때 웅크렸다 뛰어오름 · 숨쉬기
+        const mv = Math.abs(B.vx || 0) > 8 ? 1 : 0, f = bm.face || -1;
+        if (mv) { y -= Math.abs(Math.sin(E.t * 7)) * 9; sy *= 1 + Math.sin(E.t * 14) * 0.035; rot += f * Math.sin(E.t * 7) * 0.05; }
+        else sy *= 1 + Math.sin(E.t * 4) * 0.03;
+        if (B.atk && !B.atk.done && B.atk.dur > 0) { const q = clamp(B.atk.t / B.atk.dur, 0, 1); sy *= 1 - 0.1 * Math.min(1, q * 1.3); rot += -f * 0.12 * q; if (q > 0.85) y -= 16 * (q - 0.85) / 0.15; }
+        if (bm.hit > 0) x -= f * 5;
+      }
       if (B.state === 'dying') { const q = Math.min(1, B.t / 1.6); a = 1 - q; rot = q * 0.9; y += q * 18; }
       if (B.state === 'leave') a = 1 - Math.min(1, B.t / 0.8);
       if (B.state === 'smash' && B.t < 0.5) x -= Math.sin(Math.min(1, B.t / 0.35) * Math.PI) * 60;
       if (B.state === 'intro' && B.t < 0.9) a = Math.min(1, B.t / 0.3); else sy = 1 + Math.sin(E.t * 4) * 0.015;
       const px = B.px || 128;
       shadow(bm.x - cam, bm.y, 50 * px / 128, 0.3);
-      const o = { a, rot, sy, flip: false }; if (bm.hit > 0 && ((E.t * 40) | 0) % 2 === 0) o.a = a * 0.6;
+      const o = { a, rot, sy, flip: (B.state === 'fight' && bm.face > 0) }; if (bm.hit > 0 && ((E.t * 40) | 0) % 2 === 0) o.a = a * 0.6;
       spr(im, x, y, px, o);
     }
     function drawBossGround() {
