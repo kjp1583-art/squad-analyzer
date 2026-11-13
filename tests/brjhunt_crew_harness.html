@@ -1,0 +1,21 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>brjhunt crew harness</title>
+<style>body{margin:0;background:#14171f}#w{width:560px}canvas{display:block;width:100%}</style></head>
+<body><div id="w"><canvas id="cv"></canvas></div>
+<script src="../brjhunt_sd.js"></script>
+<script src="../brjhunt_arena.js"></script>
+<script>
+// 동료 시험 전용 틀 — 서버가 줄 동료 모양(brjhunt.html fieldState)을 흉내 낸다
+window.mkArena=function(o){ const cv=document.getElementById('cv'); return BrjArena.create(cv,Object.assign({base:'../',manual:true},o||{})); };
+const ACT={tank:{kind:'guard',nm:'방패 도발',mult:40,hits:1,cd:12,pct:40,dur:4},blade:{kind:'strike',nm:'급습',mult:90,hits:3,cd:6},mage:{kind:'burst',nm:'마력 폭발',mult:150,hits:2,cd:8},
+  bow:{kind:'barrage',nm:'집중 사격',mult:55,hits:5,cd:6.5},heal:{kind:'heal',nm:'응급 처치',mult:0,hits:0,cd:11,pct:15,gpct:25,dur:3}};
+const AX={tank:'def',blade:'atk',mage:'critdmg',bow:'crit',heal:'hp'};
+window.mkAlly=function(fam,gr){ return {id:fam+gr,n:'동료'+fam,gr,fam,act:Object.assign({},ACT[fam]),pas:{axis:AX[fam],nm:'패시브',pct:3}}; };
+window.mkState=function(ratio,ids,extra){
+  ratio=ratio||1; const SC=(extra&&extra.scale)?1:0;
+  const act=(ids||[]).map(i=>i?{id:i}:null); while(act.length<4)act.push(null);
+  return Object.assign({stage:9,region:'홍대 먹자골목',
+    combat:{atk:64*(SC?ratio:1),hp:1500*(SC?Math.sqrt(ratio):1),def:40*(SC?Math.sqrt(ratio):1),crit:15,critdmg:180,acc:140,mp:100,mpregen:5,power:1000*ratio},rec_power:1000,
+    mon:{name:'맵고추 군단',hp:900,atk:60,def:30,eva:90,gold:0.25},kpm_model:100,
+    skills:{active:act,passive:'shield'},party:[]},extra||{});
+};
+</script></body></html>
