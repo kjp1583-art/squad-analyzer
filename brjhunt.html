@@ -1002,7 +1002,9 @@ function tabHunt(){
   const cap=N(v.max_stage)||30, st=N(v.stage), f=v.field||null, mon=f&&f.mon, nmon=f&&f.next_mon;
   const mods=modPills();
   const hpct=Math.max(2,Math.min(100,N(v.hours)/Math.max(1,N(v.cap_h))*100));
+  const uq=v.uq&&N(v.uq.max)?`<div class="msg ok" style="margin:0 0 8px">🪙 유니크 칭호 <b>${fmt(N(v.uq.n))}/${fmt(N(v.uq.max))}개</b> 보유 → 골드 획득 <b>+${fmt(N(v.uq.pct))}%</b> <span class="mut">(1개당 +${fmt(N(v.uq.per))}% · 최대 ${fmt(N(v.uq.max))}개 · 디스코드 경험치도 같은 규칙)</span></div>`:'';
   return `
+  ${uq}
   <div class="card">
     <div class="hunthero"><div style="min-width:0"><div class="sub">쌓인 사냥 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
       <button class="btn gold" data-do="collect" style="min-width:118px;font-size:17px;padding:10px 12px" aria-label="쌓인 사냥 골드 수령하기">수령</button></div>
