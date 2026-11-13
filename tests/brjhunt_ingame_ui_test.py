@@ -11,7 +11,7 @@ except Exception:
     print('SKIP playwright 없음'); sys.exit(0)
 if not CHROME: print('SKIP 크롬 없음'); sys.exit(0)
 VIEW = open(os.path.join(HERE, 'fixtures', 'brj_view.json'), encoding='utf-8').read()
-TABS = ['hunt', 'skill', 'crew', 'grow', 'gear', 'adv', 'pres', 'rank']
+TABS = ['hunt', 'skill', 'crew', 'grow', 'gear', 'adv', 'inf', 'rank']
 fails = []
 def ok(c, m):
     print(('  ok   ' if c else '  FAIL ') + m)
