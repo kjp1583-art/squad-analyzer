@@ -63,11 +63,9 @@ async def run(b, port, vp, tag):
     ok('head' not in st['worn'] and await pg.evaluate("()=>FIELD.debug.E.parts.map(x=>x.key).join()") == 'cape', f'{tag} 머리 파츠만 벗기')
     # 🎴 스킨에서 잘라 낸 이미지 파츠 8종 — 입히면 E.parts 에 실리고 그림 파일이 실제로 로드돼 그려진다(한 장씩 입혀 본다)
     for k, sl in [('sg_tiara', 'head'), ('sg_dress', 'body'), ('pp_shades', 'face'), ('pp_flower', 'head'), ('pp_aloha', 'body'), ('pp_ring', 'back'), ('tf_hat', 'head'), ('tf_coat', 'body')]:
-        await pg.evaluate("(k)=>{FIELD.setParts({[(FIELD.debug.E.parts||[]).length?'zz':'zz']:null});}", k)
-        await pg.evaluate("([k,sl])=>FIELD.setParts({[sl]:k})", [k, sl]); await pg.wait_for_timeout(900)
-        got = await pg.evaluate("(k)=>FIELD.debug.E.parts.map(x=>x.key).join()", k)
+        got = await pg.evaluate("([k,sl])=>{FIELD.setParts({[sl]:k}); return FIELD.debug.E.parts.map(x=>x.key).join();}", [k, sl])   # 한 번에 넣고 읽는다(서버 뷰가 다시 들어와 덮는 것과 경주하지 않게)
         loaded = await pg.evaluate("(k)=>{const i=new Image();return new Promise(r=>{i.onload=()=>r(i.naturalWidth);i.onerror=()=>r(0);i.src='img/brjhunt/parts/'+k+'.webp'})}", k)
-        ok(got == k and loaded > 20, f'{tag} 이미지 파츠 {k} 입힘·그림 파일 로드({loaded}px)')
+        ok(got == k and loaded > 20, f'{tag} 이미지 파츠 {k} 입힘·그림 파일 로드({loaded}px) got={got}')
     ov = await pg.evaluate("()=>({sw:document.documentElement.scrollWidth,w:innerWidth})")
     ok(ov['sw'] <= ov['w'] + 1, f'{tag} 가로 넘침 없음 {ov}')
     ok(not errs, f'{tag} 페이지 오류 0 {errs[:2]}'); await pg.close()

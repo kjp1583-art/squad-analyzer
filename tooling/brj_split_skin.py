@@ -21,6 +21,13 @@ def head_of(im):   # chick_head_anchors.py 와 같은 방식: 노랑 마스크�
     r = best[0] / 2.0
     return best[2], top + r, r
 CX, CY, R = head_of(base)
+def body_of(c, cx, cy, r):   # chick_head_anchors.py 의 몸통 기준점과 같은 방식(머리 아래 띠의 노랑 무게중심)
+    a_ = c[..., 3] > 128
+    yel = a_ & (c[..., 0] > 225) & (c[..., 1] > 190) & (c[..., 2] > 100) & (c[..., 2] < 215)
+    ys, xs = np.mgrid[0:c.shape[0], 0:c.shape[1]]
+    band = yel & (ys > cy + 1.0 * r) & (ys < cy + 1.9 * r) & (abs(xs - cx) < 1.0 * r)
+    return (float(xs[band].mean()), float(ys[band].mean())) if band.sum() >= 20 else (cx, cy + 1.25 * r)
+BX, BY = body_of(base, CX, CY, R)
 
 # 파츠: 키 -> (스킨, 슬롯, 이름, 이모지, 등급, 설명, [포함 상자 (x0,y0,x1,y1)…], [뺄 상자…])   좌표 = 1024 원본
 FACE = (255, 330, 770, 600)     # 눈·부리·볼 — 어느 파츠도 여기는 안 가져온다(움직이는 병아리 얼굴)
@@ -64,10 +71,12 @@ def main():
         sc = 256 / max(im.size) if max(im.size) > 256 else 1.0
         if sc < 1: im = im.resize((max(1, round(im.width * sc)), max(1, round(im.height * sc))), Image.LANCZOS)
         im.save(os.path.join(OUT, key + '.webp'), quality=88, method=6)
-        man[key] = {'slot': slot, 'ox': round((x0 - CX) / R, 4), 'oy': round((y0 - CY) / R, 4), 'w': round((x1 - x0) / R, 4), 'h': round((y1 - y0) / R, 4), 'file': key + '.webp'}
+        rel = 'body' if slot in ('body', 'back') else 'head'     # 몸통·등 파츠는 몸통 기준점을 따라간다(머리 기준이면 달리기·공격에서 어긋난다)
+        ax_, ay_ = (BX, BY) if rel == 'body' else (CX, CY)
+        man[key] = {'slot': slot, 'rel': rel, 'ox': round((x0 - ax_) / R, 4), 'oy': round((y0 - ay_) / R, 4), 'w': round((x1 - x0) / R, 4), 'h': round((y1 - y0) / R, 4), 'file': key + '.webp'}
         tiles.append((key, Image.fromarray(rgba).crop((x0, y0, x1, y1)).resize((200, int(200 * (y1 - y0) / (x1 - x0))) if (x1 - x0) >= (y1 - y0) else (int(200 * (x1 - x0) / (y1 - y0)), 200))))
         print(key, slot, man[key], os.path.getsize(os.path.join(OUT, key + '.webp')))
-    json.dump({'_head': {'cx': round(CX, 1), 'cy': round(CY, 1), 'r': round(R, 1)}, **man}, open(os.path.join(OUT, 'parts.json'), 'w'), ensure_ascii=False, indent=1)
+    json.dump({'_head': {'cx': round(CX, 1), 'cy': round(CY, 1), 'r': round(R, 1), 'bx': round(BX, 1), 'by': round(BY, 1)}, **man}, open(os.path.join(OUT, 'parts.json'), 'w'), ensure_ascii=False, indent=1)
     if '--sheet' in sys.argv:
         W = Image.new('RGBA', (220 * 4, 230 * 2), (60, 70, 90, 255))
         for i, (k, t) in enumerate(tiles): W.alpha_composite(t, (220 * (i % 4) + 10, 230 * (i // 4) + 10))

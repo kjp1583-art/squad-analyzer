@@ -380,7 +380,7 @@
     if (!opts.noManifest && typeof fetch !== 'undefined') {
       try {
         fetch(base + 'img/brjhunt/v2/manifest.json').then(r => r.ok ? r.json() : null).then(j => { if (j && typeof j === 'object') MAN = j.sheets && typeof j.sheets === 'object' ? j.sheets : j; }).catch(() => { });
-        fetch(base + 'img/brjhunt/v2/chick_anchors.json').then(r => r.ok ? r.json() : null).then(j => { if (j && typeof j === 'object') ANCH = j; }).catch(() => { });
+        fetch(base + 'img/brjhunt/v2/chick_anchors.json?v=2').then(r => r.ok ? r.json() : null).then(j => { if (j && typeof j === 'object') ANCH = j; }).catch(() => { });
       } catch (e) { }
     }
     // 시트: manifest[name] = {file, frames, w, h, fps, anchor:[x,y], scale?} — 한 줄 가로 시트. 이름 후보를 차례로 찾는다.
@@ -399,7 +399,7 @@
       ctx.save(); ctx.translate(x, y); if (o.rot) ctx.rotate(o.rot); if (o.a != null) ctx.globalAlpha = o.a;
       ctx.scale((o.sx || 1) * (o.flip ? -1 : 1), o.sy || 1);
       const pa = (E.parts && E.parts.length && ANCH && sh.name && ANCH[sh.name]) ? ANCH[sh.name][fr % sh.n] : null;
-      const pg = pa ? { x: (pa.cx - ax) * s, y: (pa.cy - ay) * s, R: pa.r * s, ex: (pa.ex - ax) * s, ey: (pa.ey - ay) * s } : null;
+      const pg = pa ? { x: (pa.cx - ax) * s, y: (pa.cy - ay) * s, R: pa.r * s, ex: (pa.ex - ax) * s, ey: (pa.ey - ay) * s, bx: ((pa.bx != null ? pa.bx : pa.cx) - ax) * s, by: ((pa.by != null ? pa.by : pa.cy + 1.25 * pa.r) - ay) * s } : null;   // bx·by = 몸통 기준점(몸통·등 이미지 파츠가 따라간다)
       if (pg) { pg.d = (pa.ex - pa.cx) / pa.r > 0.12 ? 1 : (pa.ex - pa.cx) / pa.r < -0.12 ? -1 : 0; drawChickParts(pg, true); }   // 몸 뒤(망토·날개)
       ctx.drawImage(sh.im, (fr % sh.n) * fw, 0, fw, fh, -ax * s, -ay * s, fw * s, fh * s);
       if (pg) drawChickParts(pg, false);                                                                                          // 몸 앞(목·얼굴·머리)
@@ -423,10 +423,10 @@
     let IMGP = null;
     if (!opts.noManifest && typeof fetch !== 'undefined') {
       try {
-        fetch(base + 'img/brjhunt/parts/parts.json').then(r => r.ok ? r.json() : null).then(j => {
+        fetch(base + 'img/brjhunt/parts/parts.json?v=2').then(r => r.ok ? r.json() : null).then(j => {
           if (!j || typeof j !== 'object') return; IMGP = j;
           for (const k in j) { const m = j[k]; if (k[0] === '_' || !m || !m.file || PARTS[k] || !(m.slot in PART_SLOTS || m.slot === 'body')) continue;
-            PARTS[k] = { slot: m.slot, fn(c, x, y, R) { const im = ld('img/brjhunt/parts/' + m.file); if (im) c.drawImage(im, x + m.ox * R, y + m.oy * R, m.w * R, m.h * R); } }; }
+            PARTS[k] = { slot: m.slot, fn(c, x, y, R, ex, ey, d, t, g) { const im = ld('img/brjhunt/parts/' + m.file); if (!im) return; const bd = m.rel === 'body' && g, X = bd ? g.bx : x, Y = bd ? g.by : y; c.drawImage(im, X + m.ox * R, Y + m.oy * R, m.w * R, m.h * R); } }; }
           if (E.partsWant) E.setPartsNow(E.partsWant);
         }).catch(() => { });
       } catch (e) { }
@@ -436,7 +436,7 @@
       E.parts = out;
     };
     function drawChickParts(g, back) {
-      for (const it of E.parts) { const pd = PARTS[it.key]; if (!pd || (pd.slot === 'back') !== back) continue; try { pd.fn(ctx, g.x, g.y, g.R, g.ex, g.ey, g.d, E.t); } catch (e) { if (!E.partErr) { E.partErr = String(e); console.warn('parts', e); } } }
+      for (const it of E.parts) { const pd = PARTS[it.key]; if (!pd || (pd.slot === 'back') !== back) continue; try { pd.fn(ctx, g.x, g.y, g.R, g.ex, g.ey, g.d, E.t, g); } catch (e) { if (!E.partErr) { E.partErr = String(e); console.warn('parts', e); } } }
     }
     function spr(im, x, fy, h, o) {
       o = o || {};
