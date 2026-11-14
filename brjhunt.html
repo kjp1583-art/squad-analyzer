@@ -1314,7 +1314,7 @@ function itemHtml(it,mode){
     <div>${esc(lootStat(m[0],m[1]))}</div>${subs||'<div class="mut">└ 하위옵션 없음</div>'}
     <div class="mut">점수 ${N(it.score).toFixed(1)}${mode==='inv'&&!it.on?` · 분해 시 ${I('gold')}${fmt(it.scrap_gold)}${N(it.scrap_stone)?` ${I('stone')}${fmt(it.scrap_stone)}`:''}`:''}</div></div>
     <div class="btns" style="flex-direction:column;gap:4px">${it.on?`<button class="btn alt" data-do="lootunequip" data-slot="${esc(it.slot)}">해제</button>`:`<button class="btn ${d>0?'gold':'alt'}" data-do="lootequip" data-id="${esc(it.id)}">장착</button>`}
-    ${mode==='inv'?`<button class="btn alt" data-do="lootlock" data-id="${esc(it.id)}" aria-label="잠금 전환">${it.lock?'🔓':'🔒'}</button>`:''}</div></div>`;
+    ${mode==='inv'?`<button class="btn alt" data-do="lootlock" data-id="${esc(it.id)}" aria-label="${it.lock?'잠금 풀기':'잠그기'}">${it.lock?'🔓':'🔒'}</button>${it.lock?'':`<button class="btn alt" data-do="lootscrap" data-id="${esc(it.id)}" aria-label="이 장비 분해">♻ 분해</button>`}`:''}</div></div>`;
 }
 function tabCos(){
   const C=V.cos; if(!C||!Array.isArray(C.parts)) return `<div class="card empty"><div class="big">👗</div><div class="sub">꾸미기 정보를 아직 받지 못했어요. 서버가 업데이트되는 중일 수 있어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
@@ -1339,6 +1339,7 @@ function tabGear(){
   const L=V.loot; if(!L||!Array.isArray(L.slots)) return `<div class="card empty"><div class="big">🎒</div><div class="sub">장비 정보를 아직 받지 못했어요. 서버가 업데이트되는 중일 수 있어요. 위쪽 새로고침(↻)을 눌러 보세요.</div></div>`;
   const g=L.gauge||{}, inv=Array.isArray(L.inv)?L.inv:[];
   const bonus=Object.keys(L.bonus||{}).map(k=>lootStat(k,L.bonus[k])).join(' · ');
+  const worse=inv.filter(x=>!x.on&&!x.lock&&N(x.diff)<0);
   const rates=(Array.isArray(L.rates)?L.rates:[]).map((x,i)=>`<tr><td style="color:${RAR_COL[i]}"><b>${esc(x.name)}</b></td><td>${N(x.pct)}%</td><td>${fmt(x.subs)}개</td></tr>`).join('');
   return `
   <div class="card"><h2>👹 엘리트 소환 <span class="pill gold">${fmt(g.charges)}/${fmt(g.max)}칸</span></h2>
@@ -1352,8 +1353,9 @@ function tabGear(){
     ${L.slots.map(s=>s.item?itemHtml(s.item,'eq'):`<div class="boss" style="padding:10px 0"><div class="ic">${esc(s.emoji)}</div><div class="tx"><b>${esc(s.name)}</b> <span class="mut">비어 있음 · 주옵션 ${esc((LOOT_STAT[s.main]||[])[1]||'')}</span></div></div>`).join('')}
   </div>
   <div class="card"><h2>🎒 가방 <span class="pill">${fmt(inv.length)}/${fmt(L.cap)}</span></h2>
-    <div class="sub">장비 위의 ▲▼ 는 같은 칸에 낀 장비와 비교한 점수 차이예요. 🔒 로 잠그면 분해에서 빠져요. 가방이 가득 차면 낮은 장비는 자동으로 분해돼요.</div>
-    <div class="btns" style="margin:6px 0"><button class="btn alt" data-do="lootscrap" data-rar="0">일반 분해</button><button class="btn alt" data-do="lootscrap" data-rar="1">레어 이하 분해</button></div>
+    <div class="sub">장비 위의 ▲▼ 는 같은 칸에 낀 장비와 비교한 점수 차이예요. 🔒 를 누르면 잠겨서 분해에서 빠져요(잠긴 건 🔓 로 표시). 가방이 가득 차면 낮은 장비는 자동으로 분해돼요.</div>
+    <div class="btns" style="margin:6px 0"><button class="btn alt" data-do="lootscrap" data-rar="0">일반 분해</button><button class="btn alt" data-do="lootscrap" data-rar="1">레어 이하 분해</button><button class="btn ${worse.length?'gold':'alt'}" data-do="lootscrap" data-mode="worse" ${worse.length?'':'disabled'}>▼ 장착보다 낮은 것 분해 (${fmt(worse.length)}개)</button></div>
+    <div class="mut" style="margin-bottom:6px">「▼ 장착보다 낮은 것」은 같은 칸에 낀 장비보다 점수가 낮은 아이템을 <b>등급과 상관없이</b> 분해해요(잠금·장착 중은 빠져요). 낀 장비가 없는 칸의 아이템은 그대로 둬요.</div>
     ${inv.filter(x=>!x.on).map(x=>itemHtml(x,'inv')).join('')||'<div class="mut">가방이 비었어요.</div>'}
     <details><summary>📊 등급 확률</summary><div class="tw"><table><thead><tr><th>등급</th><th>확률</th><th>하위옵션</th></tr></thead><tbody>${rates}</tbody></table></div>
       <div class="mut">에픽 미만이 ${fmt(L.pity_at)}번 이어지면 다음엔 에픽 이상이 나와요(지금 ${fmt(L.pity)}번째). 하위옵션의 종류와 품질(50~100%)은 무작위예요.</div></details>
@@ -1766,7 +1768,16 @@ const DO={
   lootequip:el=>act('/brj/loot_equip',{id:el.dataset.id},j=>{ say(j.result==='ok'?'🧥 장착했어요!':'그 장비를 찾을 수 없어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   lootunequip:el=>act('/brj/loot_unequip',{slot:el.dataset.slot},j=>{ say('장비를 벗었어요.','info'); }),
   lootlock:el=>act('/brj/loot_lock',{id:el.dataset.id},j=>{ say(j.lock?'🔒 잠갔어요. 분해에서 빠져요.':'🔓 잠금을 풀었어요.','info'); }),
-  lootscrap:el=>act('/brj/loot_scrap',{max_rar:N(el.dataset.rar)},j=>{ say(N(j.n)>0?`♻ ${fmt(j.n)}개를 분해해서 ${I('gold')}${fmt(j.gold)}${N(j.stone)?` ${I('stone')}${fmt(j.stone)}`:''} 받았어요.`:'분해할 장비가 없어요(장착·잠금은 빠져요).',N(j.n)>0?'ok':'info'); if(N(j.n)>0) snd('coin'); }),
+  lootscrap:el=>{   // 일반/레어 이하(max_rar) · 장착보다 낮은 것(mode=worse) · 한 개(ids) — 유니크 이상이 섞이면 확인 창
+    const L=(V&&V.loot)||{}, inv=(Array.isArray(L.inv)?L.inv:[]).filter(x=>!x.on&&!x.lock), body={};
+    let hit;
+    if(el.dataset.mode==='worse'){ body.mode='worse'; if(el.dataset.rar!=null&&el.dataset.rar!=='') body.max_rar=N(el.dataset.rar); hit=inv.filter(x=>N(x.diff)<0&&(body.max_rar==null||N(x.rar)<=body.max_rar)); }
+    else if(el.dataset.id){ body.ids=[el.dataset.id]; hit=inv.filter(x=>x.id===el.dataset.id); }
+    else { body.max_rar=N(el.dataset.rar); hit=inv.filter(x=>N(x.rar)<=body.max_rar); }
+    const hi=hit.filter(x=>N(x.rar)>=3);
+    if(hi.length&&!confirm(`유니크 이상 ${hi.length}개를 포함해 ${hit.length}개를 분해해요. 되돌릴 수 없어요. 계속할까요?`)) return;
+    act('/brj/loot_scrap',body,j=>{ say(N(j.n)>0?`♻ ${fmt(j.n)}개를 분해해서 ${I('gold')}${fmt(j.gold)}${N(j.stone)?` ${I('stone')}${fmt(j.stone)}`:''} 받았어요.`:'분해할 장비가 없어요(장착·잠금은 빠져요).',N(j.n)>0?'ok':'info'); if(N(j.n)>0) snd('coin'); });
+  },
   upgrade:el=>act('/brj/upgrade',{axis:el.dataset.axis},j=>{
     say({ok:'📈 스탯이 올랐어요!',gold:`🪙 골드가 모자라요. ${fmt(j.cost)} 필요해요.`,max:'이미 최고 레벨이에요.'}[j.result]||'처리하지 못했어요.',j.result==='ok'?'ok':'bad'); if(j.result==='ok') snd('enhance_ok'); }),
   enhance:el=>act('/brj/enhance',{slot:el.dataset.slot},j=>{

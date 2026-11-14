@@ -761,6 +761,63 @@
       crack(h, 0.004, 0.1, 0.02, 3800);
     }, 3);
   });
+  /* -- 🎼 [2026-11-14 사장님 「게임 퀄리티 — 소리」] 뒤에 추가된 스킬 8종(얼음·돌풍·유성·불사조·분노·점멸·끌어당김·수호) 효과음 · 동료 필살기(컷씬) · 동료 공격 · 물약 -- */
+  function sweepTone(h, at, f, f2, dur, vol, type, lp) { h.tone(at, { type: type || 'sine', f: f, f2: f2, sw: 0.7, dur: dur, vol: vol, a: 0.01, lp: lp }); }
+  function sparkle(h, at, n, base, step, vol) { for (var i = 0; i < n; i++) bell(h, at + i * 0.055, base * Math.pow(step, i), 0.3, vol, 3.1, 1.6); }
+  // 얼음
+  def('skill_ice_charge', 0.5, 1, 0.1, 0.03, 0.2, function (h) { sweepTone(h, 0, 1400, 3000, 0.34, 0.1, 'triangle'); sparkle(h, 0.04, 4, 2400, 1.12, 0.06); }, 1);
+  def('skill_ice', 0.9, 1, 0.12, 0.04, 0.3, function (h) {
+    crack(h, 0, 0.7, 0.04, 3600); h.noise(0, { type: 'highpass', f: 5200, dur: 0.3, vol: 0.28, a: 0.003 }); thump(h, 0, 120, 55, 0.14, 0.45);
+    sparkle(h, 0.02, 6, 1760, 1.09, 0.1); }, 1);
+  def('skill_ice_tail', 0.8, 1, 0.12, 0.04, 0.35, function (h) { sparkle(h, 0, 5, 3000, 0.93, 0.05); h.noise(0, { type: 'highpass', f: 6500, dur: 0.4, vol: 0.08, a: 0.1 }); }, 1);
+  // 돌풍
+  def('skill_gale_charge', 0.5, 1, 0.1, 0.03, 0.08, function (h) { whoosh(h, 0, 0.4, 400, 1800, 0.5, 0.8); }, 1);
+  def('skill_gale', 1.0, 1, 0.12, 0.04, 0.12, function (h) { whoosh(h, 0, 0.6, 600, 2600, 0.75, 0.7); whoosh(h, 0.06, 0.55, 2400, 500, 0.45, 1.0); thump(h, 0, 90, 50, 0.2, 0.3); }, 1);
+  def('skill_gale_tail', 0.7, 1, 0.12, 0.04, 0.1, function (h) { whoosh(h, 0, 0.5, 1800, 300, 0.3, 0.8); }, 1);
+  // 유성
+  def('skill_meteor_charge', 0.9, 1, 0.15, 0.03, 0.2, function (h) { sweepTone(h, 0, 90, 380, 0.7, 0.2, 'sawtooth', 600); whoosh(h, 0.1, 0.6, 300, 1800, 0.4, 0.8); }, 1);
+  def('skill_meteor', 1.4, 2, 0.2, 0.03, 0.3, function (h) {
+    sweepTone(h, 0, 2600, 220, 0.4, 0.14, 'sine'); thump(h, 0.38, 110, 32, 0.5, 1.0); crack(h, 0.38, 0.9, 0.07, 1800);
+    h.noise(0.38, { type: 'lowpass', f: 2600, f2: 120, q: 0.7, dur: 0.7, vol: 0.55, a: 0.003 }); bell(h, 0.4, 330, 0.8, 0.12, 2.3, 2); }, 1);
+  def('skill_meteor_tail', 1.0, 1, 0.2, 0.03, 0.3, function (h) { h.noise(0, { type: 'lowpass', f: 900, f2: 120, q: 0.6, dur: 0.8, vol: 0.3, a: 0.05 }); thump(h, 0.12, 70, 40, 0.3, 0.3); }, 1);
+  // 불사조
+  def('skill_phoenix_charge', 0.8, 1, 0.15, 0.03, 0.2, function (h) { sweepTone(h, 0, 300, 900, 0.6, 0.12, 'triangle'); sparkle(h, 0.1, 4, 880, 1.2, 0.08); }, 1);
+  def('skill_phoenix', 1.3, 2, 0.2, 0.03, 0.3, function (h) {
+    whoosh(h, 0, 0.7, 500, 2800, 0.7, 0.8); h.noise(0.05, { type: 'lowpass', f: 3000, f2: 400, q: 0.7, dur: 0.6, vol: 0.4, a: 0.05 });
+    [523, 659, 784, 1047, 1319].forEach(function (f, i) { bell(h, 0.1 + i * 0.07, f, 0.9, 0.12, 2.8, 1.4); }); }, 1);
+  def('skill_phoenix_tail', 1.0, 1, 0.2, 0.03, 0.4, function (h) { sparkle(h, 0, 7, 1320, 0.94, 0.06); }, 1);
+  // 분노
+  def('skill_rage_charge', 0.5, 1, 0.1, 0.03, 0.1, function (h) { thump(h, 0, 90, 55, 0.12, 0.5); thump(h, 0.16, 100, 55, 0.12, 0.55); }, 1);
+  def('skill_rage', 0.9, 1, 0.15, 0.03, 0.15, function (h) {
+    sweepTone(h, 0, 110, 320, 0.5, 0.28, 'sawtooth', 900); thump(h, 0, 80, 40, 0.3, 0.7); h.noise(0, { type: 'bandpass', f: 900, f2: 300, q: 1.2, dur: 0.4, vol: 0.3, a: 0.02 }); }, 1);
+  // 점멸
+  def('skill_blink', 0.5, 1, 0.08, 0.05, 0.1, function (h) { sweepTone(h, 0, 2200, 500, 0.09, 0.2, 'sine'); sweepTone(h, 0.08, 500, 2600, 0.1, 0.18, 'sine'); whoosh(h, 0, 0.14, 3000, 900, 0.3, 1.5); }, 1);
+  // 끌어당김
+  def('skill_pull_charge', 0.6, 1, 0.1, 0.03, 0.1, function (h) { whoosh(h, 0, 0.45, 2800, 300, 0.45, 1.1); }, 1);
+  def('skill_pull', 0.9, 1, 0.12, 0.03, 0.15, function (h) { whoosh(h, 0, 0.5, 3000, 200, 0.7, 1.3); sweepTone(h, 0, 700, 90, 0.5, 0.2, 'sawtooth', 500); thump(h, 0.42, 100, 45, 0.2, 0.6); }, 1);
+  // 수호
+  def('skill_ward', 0.9, 1, 0.15, 0.03, 0.35, function (h) { [523, 784, 1047].forEach(function (f, i) { bell(h, i * 0.06, f, 1.0, 0.1, 2.0, 0.8); }); h.tone(0, { f: 130, dur: 0.5, vol: 0.14, a: 0.05 }); }, 1);
+
+  /* -- 💥 동료 필살기 컷씬(ult_in) + 효과 10종 · 동료 공격 · 물약 -- */
+  def('ult_in', 1.9, 2, 1.0, 0.0, 0.25, function (h) {
+    whoosh(h, 0, 0.3, 300, 3800, 0.6, 0.8); sweepTone(h, 0, 160, 760, 0.3, 0.2, 'sawtooth', 1400);
+    thump(h, 0.3, 90, 36, 0.4, 0.9); crack(h, 0.3, 0.8, 0.06, 2400); h.noise(0.3, { type: 'lowpass', f: 3000, f2: 200, q: 0.7, dur: 0.5, vol: 0.4, a: 0.003 });
+    bell(h, 0.32, 880, 1.1, 0.16, 2.7, 2); bell(h, 0.32, 1320, 1.1, 0.1, 2.7, 2);
+    sparkle(h, 0.6, 8, 1100, 1.07, 0.07); }, 1);
+  def('ult_nova', 1.3, 2, 0.3, 0.03, 0.3, function (h) { thump(h, 0, 100, 30, 0.6, 1.0); crack(h, 0, 0.9, 0.08, 2000); h.noise(0, { type: 'lowpass', f: 3200, f2: 150, q: 0.7, dur: 0.9, vol: 0.55, a: 0.003 }); sparkle(h, 0.1, 5, 880, 1.12, 0.08); }, 1);
+  def('ult_rain', 1.2, 1, 0.3, 0.03, 0.2, function (h) { for (var i = 0; i < 9; i++) { whoosh(h, i * 0.07, 0.1, 3200 - i * 150, 900, 0.22, 1.5); thump(h, i * 0.07 + 0.08, 160, 70, 0.05, 0.18); } }, 1);
+  def('ult_slash', 1.0, 2, 0.3, 0.03, 0.15, function (h) { for (var i = 0; i < 4; i++) { whoosh(h, i * 0.1, 0.12, 4200, 900, 0.5, 1.4); crack(h, i * 0.1 + 0.05, 0.5, 0.03, 3200); } thump(h, 0.4, 100, 45, 0.25, 0.6); bell(h, 0.42, 1568, 0.7, 0.1, 3.1, 1.6); }, 1);
+  def('ult_bind', 1.2, 1, 0.3, 0.03, 0.35, function (h) { crack(h, 0, 0.6, 0.04, 3600); h.noise(0, { type: 'highpass', f: 5000, dur: 0.4, vol: 0.25, a: 0.003 }); sparkle(h, 0.02, 7, 1600, 1.1, 0.09); thump(h, 0, 80, 40, 0.2, 0.5); }, 1);
+  def('ult_drain', 1.2, 1, 0.3, 0.03, 0.25, function (h) { sweepTone(h, 0, 300, 90, 0.5, 0.25, 'sawtooth', 700); whoosh(h, 0.05, 0.5, 2000, 400, 0.5, 1.0); sweepTone(h, 0.5, 400, 1000, 0.4, 0.16, 'triangle'); sparkle(h, 0.6, 4, 988, 1.19, 0.07); }, 1);
+  def('ult_rally', 1.4, 1, 0.3, 0.03, 0.35, function (h) { [392, 523, 659, 784, 1047].forEach(function (f, i) { bell(h, i * 0.08, f, 1.1, 0.12, 2.0, 0.9); h.tone(i * 0.08, { type: 'triangle', f: f / 2, dur: 0.5, vol: 0.1, a: 0.02 }); }); thump(h, 0, 90, 45, 0.3, 0.5); }, 1);
+  def('ult_meteor', 1.5, 2, 0.3, 0.03, 0.3, function (h) { for (var i = 0; i < 3; i++) { sweepTone(h, 0.45 + i * 0.32 - 0.3, 2400, 200, 0.28, 0.1, 'sine'); thump(h, 0.45 + i * 0.32, 100, 32, 0.4, 0.8); h.noise(0.45 + i * 0.32, { type: 'lowpass', f: 2400, f2: 140, q: 0.7, dur: 0.5, vol: 0.4, a: 0.003 }); } }, 1);
+  def('ult_gather', 1.3, 2, 0.3, 0.03, 0.3, function (h) { whoosh(h, 0, 0.62, 3000, 200, 0.7, 1.2); sweepTone(h, 0, 800, 70, 0.62, 0.2, 'sawtooth', 600); thump(h, 0.65, 90, 30, 0.5, 1.0); crack(h, 0.65, 0.8, 0.06, 1800); sparkle(h, 0.7, 5, 784, 1.12, 0.07); }, 1);
+  def('ult_chain', 1.1, 1, 0.3, 0.03, 0.2, function (h) { for (var i = 0; i < 8; i++) { h.noise(i * 0.09, { type: 'bandpass', f: 3200 + (i % 3) * 600, q: 3, dur: 0.07, vol: 0.28, a: 0.002 }); h.tone(i * 0.09, { type: 'square', f: 900 + i * 90, f2: 300, dur: 0.07, vol: 0.1, a: 0.002 }); crack(h, i * 0.09, 0.3, 0.02, 3800); } }, 1);
+  def('ult_execute', 1.0, 2, 0.3, 0.03, 0.2, function (h) { thump(h, 0.1, 80, 30, 0.4, 0.9); whoosh(h, 0, 0.12, 3800, 600, 0.5, 1.5); crack(h, 0.12, 1.0, 0.07, 1600); bell(h, 0.14, 440, 1.0, 0.14, 2.3, 2.2); h.noise(0.12, { type: 'lowpass', f: 1800, f2: 120, q: 0.7, dur: 0.5, vol: 0.45, a: 0.003 }); }, 1);
+  def('ally_cast', 0.45, 0, 0.14, 0.05, 0.15, function (h, v) { var f = pick(v, [880, 988, 784]); h.tone(0, { type: 'triangle', f: f, f2: f * 1.5, dur: 0.12, vol: 0.12, a: 0.004 }); bell(h, 0.04, f * 2, 0.25, 0.06, 3.1, 1.3); }, 3);
+  def('ally_hit', 0.2, 0, 0.09, 0.08, 0.08, function (h, v) { crack(h, 0, 0.22, 0.02, pick(v, [3000, 3400, 2700])); h.tone(0, { f: pick(v, [700, 620, 800]), f2: 300, dur: 0.05, vol: 0.08 }); }, 3);
+  def('potion', 0.6, 0, 0.2, 0.04, 0.2, function (h) { sweepTone(h, 0, 520, 260, 0.1, 0.18, 'sine'); sweepTone(h, 0.11, 560, 280, 0.1, 0.16, 'sine'); sweepTone(h, 0.22, 600, 300, 0.1, 0.14, 'sine'); sparkle(h, 0.3, 3, 1320, 1.19, 0.06); }, 1);
+
   /* -- 인스턴스(열쇠 던전·클랜 보스) -- */
   def('door_open', 2.0, 1, 0.3, 0.02, 0.3, function (h) {
     h.noise(0, { type: 'lowpass', f: 700, f2: 180, q: 0.7, dur: 1.1, vol: 0.5, a: 0.2 });   // 돌문이 갈리는 소리
