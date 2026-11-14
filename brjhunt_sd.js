@@ -9,7 +9,8 @@
  */
 (function (root) {
   'use strict';
-  const FILES = {};   // 예: { blade: 'img/brjhunt/crew/blade.webp' } — 비워 두면 아래 코드 그림을 쓴다
+  const FILES = {};   // 예: { blade: 'img/brjhunt/crew/blade.webp', blade_legend: '…' } — 「계열_등급」 키가 있으면 그것을, 없으면 「계열」 키를, 둘 다 없으면 아래 코드 그림을 쓴다
+  const fileOf = (fam, gr) => FILES[fam + '_' + gr] || FILES[fam] || '';
   // 등급 팔레트: ring 테두리색 · tint 몸 색조(섞는 비율 mix) · glow 오라 · spark 반짝이 수 · extra 장식(star 가슴 별 / crown 왕관+날개)
   const GRP = {
     normal: { ring: '#98a2b8', ringW: 3,   tint: '#9aa3b5', mix: 0.28, glow: 0,    spark: 0, extra: '' },
@@ -38,7 +39,7 @@
   // 64×64 SVG 한 장: 큰 머리 + 작은 몸(2등신), 등급마다 몸 색조·테두리·오라·반짝이·장식이 다르다
   function svg(fam, gr, px) {
     fam = famOf(fam); gr = grOf(gr); const f = FAMS[fam], P = GRP[gr], col = P.ring, sz = Math.max(16, Math.min(256, px | 0 || 48));
-    if (FILES[fam]) return '<img class="sd" src="' + esc(FILES[fam]) + '" width="' + sz + '" height="' + sz + '" alt="" style="border-radius:50%;border:2px solid ' + col + '">';
+    if (fileOf(fam, gr)) return '<img class="sd" src="' + esc(fileOf(fam, gr)) + '" width="' + sz + '" height="' + sz + '" alt="" style="border-radius:50%;border:2px solid ' + col + '">';
     const body = mixHex(f.body, P.tint, P.mix), gid = 'sdg-' + gr;
     let o = '<svg class="sd" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="' + sz + '" height="' + sz + '" aria-hidden="true">';
     if (P.glow) o += '<defs><radialGradient id="' + gid + '"><stop offset="55%" stop-color="' + col + '" stop-opacity="' + (0.55 * P.glow).toFixed(2) + '"/><stop offset="100%" stop-color="' + col + '" stop-opacity="0"/></radialGradient></defs><circle cx="32" cy="34" r="31" fill="url(#' + gid + ')"/>';
@@ -67,7 +68,7 @@
       if (typeof Image === 'undefined') return null;
       c = cache[key] = { im: new Image(), ok: false };
       c.im.onload = function () { c.ok = true; }; c.im.onerror = function () { c.ok = false; };
-      c.im.src = FILES[fam] ? FILES[fam] : 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg(fam, gr, 64).replace('class="sd" ', ''));
+      c.im.src = fileOf(fam, gr) ? fileOf(fam, gr) : 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg(fam, gr, 64).replace('class="sd" ', ''));
     }
     return c.ok ? c.im : null;
   }
