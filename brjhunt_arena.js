@@ -316,7 +316,7 @@
 
     const E = {
       t: 0, frames: 0, running: false, raf: 0, last: 0, destroyed: false, vis: true, hidden: false, paused: false, acc: 0, timeScale: opts.timeScale || 1,
-      cut: null, cutGap: 8, cutOn: true, cssW: 0, cssH: 0, dpr: 1, VW: 560, scale: 1, low: false, dtAvg: 0.016, lowN: 0, cam: 0, shake: 0, flash: 0, flashCol: '#fff', zoom: 0, hitstop: 0, slow: 0, tint: 0, tintCol: '#ff3050',
+      ring: 0, cut: null, cutGap: 8, cutOn: true, cssW: 0, cssH: 0, dpr: 1, VW: 560, scale: 1, low: false, dtAvg: 0.016, lowN: 0, cam: 0, shake: 0, flash: 0, flashCol: '#fff', zoom: 0, hitstop: 0, slow: 0, tint: 0, tintCol: '#ff3050',
       kills: 0, killLog: [], combo: 0, comboT: 0, comboMax: 0, comboPunch: 0, uid: 1, deaths: 0, runAcc: 0, repKills: 0, spawnT: 0.1, levelT: 0,
       manualT: 0, autoWanted: true, cin: 0, inited: false, lastPoseHash: 0, drawT: 0,
       dim: 0, dimGoal: 0, dimHold: 0, dimCol: '0,0,0', lines: 0, linesCol: '#fff', zax: 0, zay: 0, bigUntil: 0, reduced: false, castLog: {}, usingId: null, usingT: 0
@@ -335,6 +335,34 @@
 
     // ---------- 그림(있으면 쓰고 없으면 절차 그림) ----------
     const cache = {};
+    // 🌌 [2026-11-14 사장님 「스테이지가 30까지밖에 없는데 무한히 성장해야 하니 더 방대하게」] 30스테이지(6지역)가 한 바퀴 — 바퀴가 돌 때마다 같은 6지역이 다른 색 세계로 다시 나온다
+    //   (황혼 → 네온 → 설원 → 심연 → 황금 → 혈월 → 다시 황혼 …). 배경·바닥·발판·몬스터 그림을 바퀴 테마의 색조·채도·밝기로 한 번 칠해 두고 쓴다(캔버스 필터가 없는 브라우저에서도 같게 화소 계산).
+    const RING_THEMES = [null, { nm: '황혼', hue: 22, sat: 1.12, bri: 0.94 }, { nm: '네온', hue: 205, sat: 1.4, bri: 1.0 }, { nm: '설원', hue: 165, sat: 0.55, bri: 1.14 },
+      { nm: '심연', hue: 245, sat: 1.1, bri: 0.72 }, { nm: '황금', hue: 48, sat: 1.3, bri: 1.06 }, { nm: '혈월', hue: 330, sat: 1.3, bri: 0.8 }];
+    const ringTheme = r => r > 0 ? RING_THEMES[((r - 1) % 6) + 1] : null;
+    const WORLD_ART = /img\/brjhunt\/(?:v2\/)?(?:bg|far|near|ground|block|plat|floor|m)\d/;
+    const ringCache = {};
+    function ringImg(src, im) {
+      const th = ringTheme(E.ring); if (!th || !WORLD_ART.test(src) || typeof document === 'undefined') return im;
+      const key = src + '|' + (((E.ring - 1) % 6) + 1); let c = ringCache[key]; if (c) return c;
+      try {
+        const w = im.width, h = im.height; if (!w || !h) return im;
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const x = cv.getContext('2d'); x.drawImage(im, 0, 0);
+        const id = x.getImageData(0, 0, w, h), d = id.data, rad = th.hue * Math.PI / 180, cs = Math.cos(rad), sn = Math.sin(rad);
+        // 색조 회전 행렬(휘도 보존) × 채도 × 밝기
+        const m = [0.213 + cs * 0.787 - sn * 0.213, 0.715 - cs * 0.715 - sn * 0.715, 0.072 - cs * 0.072 + sn * 0.928,
+          0.213 - cs * 0.213 + sn * 0.143, 0.715 + cs * 0.285 + sn * 0.140, 0.072 - cs * 0.072 - sn * 0.283,
+          0.213 - cs * 0.213 - sn * 0.787, 0.715 - cs * 0.715 + sn * 0.715, 0.072 + cs * 0.928 + sn * 0.072];
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] === 0) continue;
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          let R = m[0] * r + m[1] * g + m[2] * b, G = m[3] * r + m[4] * g + m[5] * b, B = m[6] * r + m[7] * g + m[8] * b;
+          const L = 0.299 * R + 0.587 * G + 0.114 * B; R = L + (R - L) * th.sat; G = L + (G - L) * th.sat; B = L + (B - L) * th.sat;
+          d[i] = R * th.bri < 0 ? 0 : R * th.bri > 255 ? 255 : R * th.bri; d[i + 1] = G * th.bri < 0 ? 0 : G * th.bri > 255 ? 255 : G * th.bri; d[i + 2] = B * th.bri < 0 ? 0 : B * th.bri > 255 ? 255 : B * th.bri;
+        }
+        x.putImageData(id, 0, 0); c = ringCache[key] = cv; return cv;
+      } catch (e) { ringCache[key] = im; return im; }
+    }
     function ld(src) {
       let c = cache[src];
       if (!c) {
@@ -343,7 +371,7 @@
         c.im.onload = () => { c.ok = true; }; c.im.onerror = () => { c.ok = false; c.bad = true; };
         c.im.src = base + src;
       }
-      return c.ok ? c.im : null;
+      return c.ok ? (E.ring > 0 ? ringImg(src, c.im) : c.im) : null;
     }
     const art = n => ld('img/brjhunt/' + n + '.webp');
     const fxImg = id => ld('img/brjhunt/fx/fx_' + id + '.webp');
@@ -588,7 +616,8 @@
       if (ri < 0) ri = Math.floor((Math.max(1, st.stage) - 1) / 5) % 6;
       const changed = ri !== D.reg;
       D.reg = ri;
-      if (changed && !boss && !INS) { setMap(genMap(ri, opts.seed != null ? opts.seed | 0 : 1)); }
+      E.ring = Math.floor((Math.max(1, st.stage) - 1) / 30);   // 🌌 30스테이지마다 한 바퀴(서버 _brj_zone 과 같다)
+      if (changed && !boss && !INS) { setMap(genMap(ri, (opts.seed != null ? opts.seed | 0 : 1) + E.ring * 17)); }
       art('chick_idle'); art('m' + (D.reg + 1) + '_idle'); art('bg' + (D.reg + 1));
     }
     function setMap(m) {
@@ -2829,6 +2858,7 @@
       setParts(o) {   // {head:'crown', face:'sunglasses', neck:'scarf', back:'cape', body:'tf_coat'} — 슬롯마다 하나
         E.partsWant = o; E.setPartsNow(o);
       },
+      ringInfo() { const t = ringTheme(E.ring); return { ring: E.ring, theme: t ? t.nm : '' }; },
       setCutscene(b) { E.cutOn = !!b; if (!b) E.cut = null; try { if (st.party) derive(); } catch (e) { } },
       skipCut() { if (E.cut) E.cut.t = Math.max(E.cut.t, E.cut.dur - 0.01); },
       debugUlt(i) { const a = allies[i | 0]; if (a && a.pr.ult) startCut(a); return !!(a && a.pr.ult); },
