@@ -1470,9 +1470,9 @@ function tabAdv(){
     <div style="margin-top:8px"><div class="bar"><i style="width:${Math.max(1,Math.min(100,N(cl.dmg_total)/Math.max(1,N(cl.hp))*100))}%"></i></div>
       <div class="sub">${fmt(cl.dmg_total)} / ${fmt(cl.hp)} (${fmt(cl.players)}명 참여)${cl.dead?' <b class="green">처치 완료!</b>':''}</div></div>
     <div class="kv"><span>내가 준 피해</span><b>${fmt(cl.mine)}</b></div>
-    <div class="kv"><span>오늘 남은 공격</span><b>${fmt(cl.left)} / ${fmt(cl.daily_max)}</b></div>
+    <div class="kv"><span>오늘 남은 공격</span><b>${fmt(cl.left)} / ${fmt(cl.daily_max)}</b></div>${N(cl.left)<=0?'<div class="mut red">오늘 공격을 모두 썼어요 — 내일 0시(KST)에 다시 충전돼요.</div>':''}
     ${Array.isArray(cl.top)&&cl.top.length?`<h3>이번 주 피해 순위</h3>${cl.top.map((t,i)=>`<div class="kv"><span>${i+1}. ${esc(t.n)}</span><b>${fmt(t.d)}</b></div>`).join('')}`:''}
-    <div class="btns"><button class="btn ${N(cl.left)>0?'':'alt'}" data-do="clanatk" ${N(cl.left)>0?'':'disabled'}>⚔ 공격하기</button><button class="btn ${cl.claimable?'gold':'alt'}" data-do="clanclaim" ${cl.claimable?'':'disabled'}>🍖 보상 받기 (+${fmt(cl.feast)})</button></div>
+    <div class="btns"><button class="btn ${N(cl.left)>0?'':'alt'}" data-do="clanatk">⚔ 공격하기</button><button class="btn ${cl.claimable?'gold':'alt'}" data-do="clanclaim" ${cl.claimable?'':'disabled'}>🍖 보상 받기 (+${fmt(cl.feast)})</button></div>
     <div class="mut">보스를 처치하면 ${I('feast')}${fmt(cl.feast)} 를 받아요. 받으려면 <b>이번 주 ${fmt(cl.min_atk)}번 이상 공격</b>하고 보스 체력의 <b>${fmt(cl.min_share_pct)}% 이상</b> 피해를 줘야 해요. 한 사람이 줄 수 있는 피해는 체력의 ${fmt(Math.round(N(cl.cap)/Math.max(1,N(cl.hp))*100))}% 까지라 <b>모두 같이</b> 잡아야 해요. 보스 체력은 ${fmt(cl.active)}명의 활동 인원과 전투력에 맞춰져요. 내 이번 주 공격 ${fmt(cl.my_atk)}번.</div>
   </div>
   <div class="card"><h2>📋 오늘 할 일</h2>
@@ -1873,6 +1873,8 @@ const DO={
   clanatk:()=>{
     if(BUSY||BOSS||INSTANCE) return;
     const cl0=(V.dungeon&&V.dungeon.clan)||{}, before=N(cl0.dmg_total), hp0=N(cl0.hp);
+    if(N(cl0.left)<=0){ say('오늘 공격은 모두 썼어요. 내일 0시(KST)에 다시 공격할 수 있어요.','bad'); render(); return; }
+    if(cl0.dead){ say('이번 주 보스는 이미 쓰러졌어요. 월요일에 새 보스가 와요.','bad'); render(); return; }
     return runInstance({kind:'clanboss',early:false,path:'/brj/clanboss',body:{action:'attack'},
       start:()=>({level:1,img:imgKey(cl0.boss),name:String(cl0.name||'클랜 보스')}),
       toResult:j=>{
