@@ -365,8 +365,8 @@ async def main():
         r = await press(pg, '[data-do=skilleq][data-id=bomb]', srv, '/brj/skill'); check('장착 → {action:equip, id:bomb, slot:3(정수)}', r and r[-1]['action'] == 'equip' and r[-1]['id'] == 'bomb' and r[-1]['slot'] == 3 and isinstance(r[-1]['slot'], int), r)
         check('장착 문구', '장착' in await msg(pg))
         srv.sk['aw'] = 3; srv.sk['lv'].update({'thunder': 1, 'fire': 1, 'egg': 1, 'shield': 1}); await pg.click('#rfBtn'); await pg.wait_for_timeout(300)
-        r = await press(pg, '[data-do=skilleq][data-id=shield]', srv, '/brj/skill'); check('패시브 장착 → slot 없이 {action:equip, id:shield}', r and r[-1]['id'] == 'shield' and 'slot' not in r[-1], r)
-        check('패시브 칸이 채워지고 핫바 패시브 아이콘', await pg.locator('#dock .sk.pas[data-sid=shield]').count() == 1)
+        check('패시브는 장착 버튼 없이 「항상 켜짐」 표시(칸을 안 차지한다)', await pg.locator('[data-do=skilleq][data-id=shield]').count() == 0 and '항상 켜짐' in await pg.locator('#sk_shield').inner_text())
+        check('핫바(독)에는 패시브 칸이 없다', await pg.locator('#dock .sk.pas').count() == 0)
         check('스킬 탭 가로 스크롤·XSS·오류 없음', await noscroll(pg) and await pg.locator('img[src=x]').count() == 0 and not errs, errs)
         if SHOTS: await pg.screenshot(path=f'{SHOTS}/ui_skill_dark.png')
         # 서버가 거절하는 경우

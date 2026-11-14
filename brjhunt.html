@@ -975,7 +975,7 @@ function dockHtml(){
     big=`<button class="btn ${can?'gold ready':'alt'} push" data-do="chal" aria-label="스테이지 ${fmt(st+1)} 도전 던전. 몬스터 체력 ${fmt(v.chal_hp)}, 내 전투력 ${fmt(v.power)}">⚔ 도전 던전<small>${can?'이길 수 있어요':'몬스터 '+fmtC(v.chal_hp)+' · 내 '+fmtC(v.power)}</small></button>`; }
   const pct=Math.max(10,((Math.max(1,st)-1)%10+1)*10);      // 끝이 없으니 「다음 보스 관문(10의 배수)까지」 진행
   return `<div class="pbar" role="progressbar" aria-label="스테이지 진행" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${Math.round(pct/10)}"><i style="width:${pct}%"></i><span>STAGE ${fmt(st)} · 다음 보스 ${fmt(Math.ceil(Math.max(1,st)/10)*10)}</span></div>
-  <div class="dockrow">${potHtml()}<div class="hot">${slotBtn(eq.passive,true,0)}<span class="hsep" aria-hidden="true"></span>${Array.from({length:openSlots()},(_,i)=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
+  <div class="dockrow">${potHtml()}<div class="hot">${Array.from({length:openSlots()},(_,i)=>slotBtn(act[i],false,i)).join('')}</div>${big}</div>
   <div class="keyhint"><b>← →</b> 이동 · <b>Alt</b> 점프 · <b>Ctrl</b> 공격 · <b>1~8</b> 스킬 · <b>Tab</b> AUTO · 자세히는 필드 위 <b>?</b></div>`;
 }
 
@@ -1146,9 +1146,9 @@ function tabSkill(){
     const bars=Array.from({length:max},(_,i)=>`<i class="${i<lv?'on':''}"></i>`).join('');
     const c=k.cost||{};
     const up=lock?'':(lv>=max?`<button class="btn sm alt" disabled>최고 레벨</button>`:`<button class="btn sm ${k.can?'gold':'alt'}" data-do="skillup" data-id="${esc(k.id)}" aria-label="${esc(k.name)} 강화, 골드 ${fmt(c.gold)}, 강화석 ${fmt(c.stone)}">강화<br>${I('gold')}${fmtC(c.gold)} ${I('stone')}${fmt(c.stone)}</button>`);
-    const eqb=lock?'':(eqd?`<button class="btn sm alt" data-do="skillun" data-id="${esc(k.id)}">해제</button>`:`<button class="btn sm green" data-do="skilleq" data-id="${esc(k.id)}" aria-label="${esc(k.name)} 장착${act_?', '+(cur+1)+'번 칸':''}">장착${act_?`<br><small>${cur+1}번 칸</small>`:''}</button>`);
+    const eqb=lock?'':(!act_?`<span class="lkb on">항상 켜짐</span>`:eqd?`<button class="btn sm alt" data-do="skillun" data-id="${esc(k.id)}">해제</button>`:`<button class="btn sm green" data-do="skilleq" data-id="${esc(k.id)}" aria-label="${esc(k.name)} 장착${act_?', '+(cur+1)+'번 칸':''}">장착${act_?`<br><small>${cur+1}번 칸</small>`:''}</button>`);
     return `<div class="skc${eqd?' eqd':''}${lock?' lock':''}" id="sk_${esc(k.id)}">
-      <div class="top"><img class="sic" src="${skIcon(k.id)}" alt="" onerror="this.style.visibility='hidden'"><div style="min-width:0"><div class="nm">${esc(k.name)}</div><span class="pill">${act_?'액티브':'패시브'}</span>${lock?` <span class="lkb">🔒 각성 ${fmt(k.need_awaken)}</span>`:(eqd?' <span class="lkb on">장착중</span>':'')}</div></div>
+      <div class="top"><img class="sic" src="${skIcon(k.id)}" alt="" onerror="this.style.visibility='hidden'"><div style="min-width:0"><div class="nm">${esc(k.name)}</div><span class="pill">${act_?'액티브':'패시브'}</span>${lock?` <span class="lkb">🔒 각성 ${fmt(k.need_awaken)}</span>`:(!act_?' <span class="lkb on">항상 켜짐</span>':eqd?' <span class="lkb on">장착중</span>':'')}</div></div>
       <div class="ds">${esc(k.desc)}</div>
       <div class="lvbar" role="img" aria-label="레벨 ${lv} / ${max}">${bars}</div>
       <div class="st">${skStat(k,lock,act_,lv,max)}</div>
@@ -1161,7 +1161,7 @@ function tabSkill(){
     ${awaken}
   </div>
   <div class="card"><h2>🎯 장착 스킬 <span class="pill gold">스킬 피해 ×${N(s.mult).toFixed(2)}</span></h2>
-    <div class="sub">액티브 칸은 필드에서 <b>단축키 1~8</b>(또는 화면 버튼)로 직접 쓰고, AUTO 일 때는 같은 규칙(MP·쿨다운)으로 알아서 써요. 칸을 눌러 고르고, 아래 카드에서 <b>장착</b>을 누르면 그 칸에 들어가요. 패시브는 칸이 하나예요. (스킬 피해 최대 ×${N(s.mult_cap).toFixed(1)})</div>
+    <div class="sub">액티브 칸은 필드에서 <b>단축키 1~8</b>(또는 화면 버튼)로 직접 쓰고, AUTO 일 때는 같은 규칙(MP·쿨다운)으로 알아서 써요. 칸을 눌러 고르고, 아래 카드에서 <b>장착</b>을 누르면 그 칸에 들어가요. 패시브는 <b>칸을 차지하지 않고</b> 배우면 바로 항상 켜져요. (스킬 피해 최대 ×${N(s.mult_cap).toFixed(1)})</div>
     ${N(s.mp)>0?`<div class="mut" style="margin-top:4px">MP 최대 ${fmt(s.mp)} · 초당 ${N(s.mpregen).toFixed(1)} 회복 — 스킬은 MP 가 모자라면 못 써요.</div>`:''}
     <div class="eqrow">${Array.from({length:openSlots()},(_,i)=>slotTile(act[i],i,false)).join('')}${Array.from({length:Math.max(0,(N((s.slots||{}).max)||8)-openSlots())},()=>`<div class="eqs lockslot" aria-label="아직 안 열린 칸"><span class="ph">🔒</span><span>각성</span></div>`).join('')}${slotTile(eq.passive,0,true)}</div>
     <div class="mut" style="margin-top:6px">칸은 <b>각성할 때마다 1칸씩</b> 열려요 (지금 ${fmt(openSlots())}칸 / 최대 ${fmt(N((s.slots||{}).max)||8)}칸).</div>
