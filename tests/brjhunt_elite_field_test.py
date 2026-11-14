@@ -34,9 +34,11 @@ async def main():
         def ok(c,m):
             print(('  ok   ' if c else '  FAIL ')+m)
             if not c: fails.append(m)
-        vis=await pg.evaluate("()=>getComputedStyle(document.getElementById('eliteBtn')).display"); ok(vis!='none','게이지가 찬 상태면 HUD 에 👹 소환 버튼이 보인다')
-        await pg.evaluate("()=>document.getElementById('eliteBtn').click()"); await pg.wait_for_timeout(1500)
-        ok(await pg.evaluate("()=>FIELD.hasElite()") and '/brj/elite' in calls,'버튼을 누르면 서버가 게이지를 쓰고 필드에 엘리트(대형 몬스터)가 선다')
+        ok(await pg.evaluate("()=>!document.querySelector('[data-do=elite]')"), '수동 소환 버튼이 없다(2026-11-14 자동 소환으로 변경)')
+        for i in range(30):
+            await pg.wait_for_timeout(500)
+            if await pg.evaluate("()=>FIELD.hasElite()"): break
+        ok(await pg.evaluate("()=>FIELD.hasElite()") and '/brj/elite' in calls,'게이지가 차 있으면 알아서 서버가 게이지를 쓰고 필드에 엘리트(대형 몬스터)가 선다')
         ok(await pg.evaluate("()=>{const m=FIELD.debug.mobs().find(x=>x.big);return !!m&&m.sc>2&&m.max>FIELD.debug.D.mobHp*10;}"),'엘리트는 크고(×2 이상) 체력이 일반 몬스터의 10배 이상')
         # 엘리트 체력을 1로 → 자동 사냥이 처치
         await pg.evaluate("()=>{const m=FIELD.debug.mobs().find(x=>x.big); if(m){m.hp=1; FIELD.debug.setPos(m.x-30,m.y);} return !!m;}")

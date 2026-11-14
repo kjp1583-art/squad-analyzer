@@ -426,9 +426,9 @@ body.wopen #nav{display:none}   /* 폰: 창이 열려 있는 동안은 메뉴 �
 @media (max-width:359px){ #nav button{width:44px;height:46px} }
 
 /* ---- 👹 엘리트 소환 버튼 · ✨ 득템 연출 카드(2026-11-07) ---- */
-#eliteBtn{width:auto;min-width:50px;padding:0 10px;border-color:#ff8aa0;background:linear-gradient(180deg,#7a1f3c,#3a0e24);color:#fff;font-weight:900}
-#eliteBtn b{margin-left:4px;color:var(--gold)}
-#eliteBtn.pulse{animation:elpulse 1.1s ease-in-out infinite;box-shadow:0 0 14px rgba(255,90,130,.8)}
+#eliteHud{width:auto;min-width:50px;padding:0 10px;border-color:#ff8aa0;background:linear-gradient(180deg,#7a1f3c,#3a0e24);color:#fff;font-weight:900}
+#eliteHud b{margin-left:4px;color:var(--gold)}
+#eliteHud.pulse{animation:elpulse 1.1s ease-in-out infinite;box-shadow:0 0 14px rgba(255,90,130,.8)}
 @keyframes elpulse{50%{transform:scale(1.1);box-shadow:0 0 22px rgba(255,120,150,1)}}
 #dropFx{position:fixed;inset:0;z-index:70;pointer-events:none;display:none;align-items:center;justify-content:center;overflow:hidden}
 #dropFx.show{display:flex}
@@ -455,7 +455,7 @@ body.wopen #nav{display:none}   /* 폰: 창이 열려 있는 동안은 메뉴 �
 #dropFx .spk{position:absolute;inset:0;pointer-events:none}
 #dropFx .spk i{position:absolute;top:100%;width:9px;height:9px;border-radius:50%;opacity:0;box-shadow:0 0 10px currentColor;animation:dsp 2.4s ease-out infinite}
 @keyframes dsp{0%{transform:translateY(0) scale(.4);opacity:0}15%{opacity:1}100%{transform:translateY(-110vh) scale(1.2);opacity:0}}
-@media (prefers-reduced-motion: reduce){ #dropFx .rays,#dropFx .spk,#eliteBtn.pulse{animation:none !important} #dropFx .dcard{animation:none !important} }
+@media (prefers-reduced-motion: reduce){ #dropFx .rays,#dropFx .spk,#eliteHud.pulse{animation:none !important} #dropFx .dcard{animation:none !important} }
 
 /* ================= 🎮 인게임 HUD 2차 (2026-11-13 사장님 「하단 스킬·우측 메뉴를 인게임 안으로 · 빈자리는 게임 화면으로」) =================
    스킬 바는 필드 맨 아래에 겹쳐 얹힌 유리판 HUD, 메뉴는 필드 오른쪽의 두 줄 아이콘 판. 필드(캔버스)는 HUD 높이만 빼고 화면 전체를 쓴다. */
@@ -520,7 +520,7 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
       <canvas id="fcv" role="img" aria-label="병아리가 발판을 오르내리며 몬스터를 사냥하는 화면. 키보드나 화면 버튼으로 직접 조작하거나 AUTO 로 맡길 수 있어요."></canvas>
       <div id="fieldNote">사냥 화면을 불러오지 못했어요.<br>아래 메뉴는 그대로 쓸 수 있어요.</div>
       <div id="hudL"><div class="bars"><div class="bar2 hp" id="hpBar"><i id="hpFill"></i><span id="hpTxt">HP</span></div><div class="bar2 mp" id="mpBar"><i id="mpFill"></i><span id="mpTxt">MP</span></div></div><span class="hpill" aria-live="off"><em id="hKpm">0</em> 분당 처치</span><span class="hpill sec">처치 <b id="hKills">0</b></span><span class="hpill sec" id="hPer" title="처치 한 번에 몬스터가 떨어뜨리는 골드"></span><span class="hpill sec" id="hGot" title="이번에 직접 사냥해서 서버에 보고한 골드"></span><button class="hpill coll dis" id="hColl" data-do="collect" aria-label="쌓인 사냥 골드 수령하기"></button></div>
-      <div id="hudR"><button class="fbtn tog" id="eliteAuto" aria-pressed="false" style="display:none" title="엘리트 자동 소환 — 게이지가 다 닳을 때까지 쓰러뜨리면 바로 다음 엘리트를 소환해요" aria-label="엘리트 자동 소환 켜기/끄기">🔁</button><button class="fbtn" id="eliteBtn" data-do="elite" style="display:none" title="엘리트 소환 — 지금 필드에 대형 몬스터를 불러요" aria-label="엘리트 소환">👹<b id="eliteN">0</b></button><button class="fbtn on" id="autoBtn" aria-pressed="true" title="자동 사냥 켜기/끄기 (Tab)">AUTO</button><button class="fbtn tog" id="padBtn" aria-pressed="false" title="화면 조작 버튼 보이기/숨기기">🎮</button><button class="fbtn tog" id="keyBtn" aria-expanded="false" aria-controls="keyHelp" title="조작법">?</button></div>
+      <div id="hudR"><span id="eliteHud" class="fbtn" style="display:none;cursor:default" aria-live="polite" title="엘리트 자동 소환 — 게이지가 한 칸 차 있으면 알아서 소환돼요">👹<b id="eliteN">0</b></span><button class="fbtn on" id="autoBtn" aria-pressed="true" title="자동 사냥 켜기/끄기 (Tab)">AUTO</button><button class="fbtn tog" id="padBtn" aria-pressed="false" title="화면 조작 버튼 보이기/숨기기">🎮</button><button class="fbtn tog" id="keyBtn" aria-expanded="false" aria-controls="keyHelp" title="조작법">?</button></div>
       <div id="combo" aria-hidden="true"></div>
       <div id="keyHelp" role="note"><b>🎮 조작법</b><br><kbd>←</kbd><kbd>→</kbd> 이동 · <kbd>Alt</kbd> 또는 <kbd>Space</kbd> 또는 <kbd>↑</kbd> 점프(오래 누를수록 높이, 공중에서 한 번 더 = 2단 점프) · <kbd>↓</kbd>+점프 아래 발판으로 내려가기<br><kbd>Ctrl</kbd> 또는 <kbd>Z</kbd> 기본 공격(연타 3콤보) · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> (또는 <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd>) 스킬 · <kbd>Tab</kbd> / <kbd>G</kbd> AUTO · <kbd>P</kbd> 일시정지<br>키를 누르면 바로 <b>수동</b>이 되고, 3초 동안 아무것도 안 하면 AUTO 로 돌아가요. 직접 잘 하면 AUTO 보다 더 많이 벌 수 있어요.</div>
       <div id="bossTag" aria-hidden="true"></div>
@@ -709,7 +709,7 @@ function fieldState(){
   if(f.mon&&typeof f.mon==='object') o.mon={name:String(f.mon.name||'몬스터'),hp:nn(f.mon.hp),atk:nn(f.mon.atk),def:nn(f.mon.def),eva:nn(f.mon.eva),gold:nn(f.mon.gold)};
   return o;
 }
-function updEliteBtn(){ const b=$('eliteBtn'); if(!b) return; const L=V&&V.loot, ch=L&&L.gauge?N(L.gauge.charges):0, act=!!(L&&L.elite); b.style.display=(STATE==='ok'&&(ch>0||act))?'':'none'; $('eliteN').textContent=act?'!':String(ch); b.classList.toggle('pulse',ch>0&&!act); b.title=act?'엘리트가 필드에 있어요':'엘리트 소환 — 지금 필드에 대형 몬스터를 불러요'; }
+function updEliteBtn(){ const b=$('eliteHud'); if(!b) return; const L=V&&V.loot, ch=L&&L.gauge?N(L.gauge.charges):0, act=!!(L&&L.elite); b.style.display=(STATE==='ok'&&(ch>0||act))?'':'none'; $('eliteN').textContent=act?'!':fmt(ch); b.classList.toggle('pulse',false); b.title=act?'엘리트가 필드에 있어요':`엘리트 자동 소환 대기 ${fmt(ch)}번 — 한 마리를 쓰러뜨리면 바로 다음이 나와요`; }
 function applySkin(){   // 👗 입고 있는 꾸미기 스킨을 사냥터 병아리와 왼쪽 위 얼굴에 반영
   const C=V&&V.cos, k=C&&Array.isArray(C.skins)?C.skins.find(x=>x.on):null, img=k&&/^img\/brjang\/skins\/[a-z_]+\/front\.png$/.test(String(k.img||''))?k.img:null;
   applyCut(); try{ if(FIELD&&FIELD.setSkin) FIELD.setSkin(img); if(FIELD&&FIELD.setParts) FIELD.setParts(img?{}:(C&&C.worn)||{}); }catch(e){}
@@ -1302,7 +1302,7 @@ function lootStat(s,v){ const a=LOOT_STAT[s]||['',s,'']; return `${a[0]} ${a[1]}
 function eliteBar(){
   const L=V.loot; if(!L||!L.gauge) return '';
   const g=L.gauge, pct=Math.min(100,N(g.g)/Math.max(1,N(g.per)*N(g.max))*100), ch=N(g.charges);
-  return `<div class="sub" style="margin-top:8px">👹 엘리트 소환 게이지 <b>${fmt(ch)}</b>/${fmt(g.max)}칸 ${ch>0?`<button class="btn gold" data-do="elite" style="padding:3px 10px;font-size:12px;margin-left:6px">소환</button>`:''}</div>
+  return `<div class="sub" style="margin-top:8px">👹 엘리트 소환 게이지 <b>${fmt(ch)}</b>/${fmt(g.max)}칸 <span class="mut" style="margin-left:6px">🔁 자동 소환</span></div>
     <div class="bar g" style="margin-top:4px" role="progressbar" aria-label="엘리트 소환 게이지" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${Math.max(2,pct)}%;background:linear-gradient(90deg,#b36bff,#ff4d6d)"></i></div>
     <div class="mut" style="margin-top:2px">필드에서 사냥하면 차요(한 칸 = ${fmt(g.per)}마리). 접속하지 않아도 사냥 속도만큼 차요. 지금 필드에 대형 몬스터가 소환돼요. 쓰러뜨리면 ${Math.round(N(g.drop_p)*100)}% 확률로 장비가 나와요.${g.full?' <b class="red">가득 찼어요!</b>':''}</div>`;
 }
@@ -1345,10 +1345,9 @@ function tabGear(){
   const rates=(Array.isArray(L.rates)?L.rates:[]).map((x,i)=>`<tr><td style="color:${RAR_COL[i]}"><b>${esc(x.name)}</b></td><td>${N(x.pct)}%</td><td>${fmt(x.subs)}개</td></tr>`).join('');
   return `
   <div class="card"><h2>👹 엘리트 소환 <span class="pill gold">${fmt(g.charges)}/${fmt(g.max)}칸</span></h2>
-    <div class="sub">필드에서 사냥하면 게이지가 차요. <b>접속하지 않아도</b> 내 사냥 속도만큼 계속 차요. 한 칸이 차면 <b>지금 사냥 중인 필드에 대형 몬스터가 소환돼요</b>. 쓰러뜨리면 <b>${Math.round(N(g.drop_p)*100)}% 확률</b>로 <b>지금 필드 레벨(Lv.${fmt(L.ilv)})</b>에 맞는 장비가 떨어져요(연속 ${fmt(g.pity)}번 안 나오면 다음은 확정). 좋은 장비일수록 화려한 연출과 함께 떨어져요. 게이지는 ${fmt(g.max)}칸까지만 모여요 — 하루 한 번 들어와서 몰아서 써도 다 쓸 수 있는 양이에요.</div>
+    <div class="sub">필드에서 사냥하면 게이지가 차요. <b>접속하지 않아도</b> 내 사냥 속도만큼 계속 차요. 한 칸이 차 있으면 <b>알아서 지금 사냥 중인 필드에 대형 몬스터가 자동으로 소환돼요</b>(소환 버튼은 없어요). 접속하지 않은 동안에는 <b>최대 ${fmt(N(g.offline_h)||24)}시간치</b> 사냥한 만큼 소환 횟수를 쌓아 둬요. 쓰러뜨리면 <b>${Math.round(N(g.drop_p)*100)}% 확률</b>로 <b>지금 필드 레벨(Lv.${fmt(L.ilv)})</b>에 맞는 장비가 떨어져요(연속 ${fmt(g.pity)}번 안 나오면 다음은 확정). 좋은 장비일수록 화려한 연출과 함께 떨어져요. 게이지는 ${fmt(g.max)}칸까지만 모여요 — 하루 한 번 들어와서 몰아서 써도 다 쓸 수 있는 양이에요.</div>
     ${eliteBar()}
     <div class="mut">소환한 엘리트는 ${L.elite?fmt(L.elite.ttl):180}초 안에 잡아야 해요. 놓치면 도망치고 게이지 한 칸은 돌려받아요. 필드를 새로고침해도 소환한 엘리트는 그대로 남아 있어요.</div>
-    <div class="btns" style="margin-top:8px"><button class="btn ${N(g.charges)>0?'gold':'alt'}" data-do="elite">👹 엘리트 소환</button></div>
   </div>
   <div class="card"><h2>🧥 장착 중인 장비</h2>
     <div class="sub">${bonus?esc(bonus):'아직 낀 장비가 없어요. 엘리트를 잡아 장비를 얻어 보세요.'}</div>
@@ -1371,7 +1370,7 @@ function eliteSay(j){
 }
 // ---- 👹 필드 엘리트: 소환(서버가 게이지를 쓰고 id 를 준다) → 필드의 대형 몬스터 → 처치 보고 → 확률 드랍 + 등급별 연출 ----
 // 🔁 엘리트 자동 소환 (2026-11-09 사장님 「자동소환 버튼 — 게이지가 다 소모될 때까지 반복 소환」): 켜 두면 엘리트를 쓰러뜨리거나 놓친 뒤 잠깐(드랍 연출 감상) 있다가 게이지가 남았으면 바로 다음 엘리트를 소환한다
-let ELITE_AUTO=(LS('brjhunt_elauto')==='1'), ELITE_AUTO_T=0, ELITE_AUTO_BUSY=false;
+let ELITE_AUTO=true, ELITE_AUTO_T=0, ELITE_AUTO_BUSY=false;   // 🔁 [2026-11-14 사장님 「엘리트 소환 버튼 없애고 그냥 자동 소환」] 항상 켜짐 — 게이지가 한 칸 차 있고 필드가 한가하면 바로 소환(수동 버튼 없음)
 async function doElite(auto){   // 👹 지금 사냥 중인 필드에 대형 몬스터를 소환 — 수동은 창을 닫고 필드에서 싸운다 · 자동은 창이 열려 있어도 그대로 소환
   if(BUSY||BOSS||INSTANCE) return false;
   if(!auto&&WOPEN){ WOPEN=false; TAB_FLAG=true; }
@@ -1383,12 +1382,12 @@ async function doElite(auto){   // 👹 지금 사냥 중인 필드에 대형 �
   return false;
 }
 function eliteCharges(){ const L=V&&V.loot; return L&&L.gauge?N(L.gauge.charges):0; }
-function updEliteAuto(){ const b=$('eliteAuto'); if(!b) return; const L=V&&V.loot; b.style.display=(STATE==='ok'&&L&&L.gauge)?'':'none'; b.setAttribute('aria-pressed',ELITE_AUTO?'true':'false'); b.classList.toggle('on',ELITE_AUTO); b.textContent=ELITE_AUTO?'🔁 ON':'🔁'; b.title=ELITE_AUTO?'엘리트 자동 소환 켜짐 — 눌러서 끄기':'엘리트 자동 소환 — 게이지가 다 닳을 때까지 쓰러뜨리면 바로 다음 엘리트를 소환해요'; }
+function updEliteAuto(){}   // (토글 버튼은 없어졌다 — 자동 소환은 항상 켜짐)
 async function eliteAutoTick(){
   if(!ELITE_AUTO||ELITE_AUTO_BUSY||STATE!=='ok'||!V||!FIELD) return;
   if(BUSY||BOSS||INSTANCE||ELITE_REP||ELITE||(V.loot&&V.loot.elite)) return;
   if(performance.now()<ELITE_AUTO_T) return;
-  if(eliteCharges()<1){ ELITE_AUTO=false; LS('brjhunt_elauto','0'); updEliteAuto(); toast('🔁 엘리트 자동 소환 끝 — 게이지를 다 썼어요.'); return; }
+  if(eliteCharges()<1||document.hidden) return;   // 게이지가 없거나 화면이 숨겨져 있으면 쉰다(숨은 탭에서 소환하면 못 잡고 도망친다)
   try{ if(FIELD.stats&&N(FIELD.stats().hp)<=0) return; }catch(e){}
   ELITE_AUTO_BUSY=true;
   try{ const ok=await doElite(true); ELITE_AUTO_T=performance.now()+(ok?2500:5000); }
@@ -1606,7 +1605,7 @@ function castFromDock(i){
   if(!FIELD) return; try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(x){}
   padPress('s'+(i+1)); setTimeout(()=>FIELD&&FIELD.input.release('s'+(i+1)),90);
 }
-$('eliteAuto').onclick=()=>{ snd('click'); ELITE_AUTO=!ELITE_AUTO; LS('brjhunt_elauto',ELITE_AUTO?'1':'0'); updEliteAuto(); toast(ELITE_AUTO?'🔁 엘리트 자동 소환 켜짐 — 게이지가 다 닳을 때까지 이어서 소환해요':'🔁 엘리트 자동 소환 꺼짐'); if(ELITE_AUTO){ ELITE_AUTO_T=0; eliteAutoTick(); } };
+
 $('autoBtn').onclick=()=>{ try{ if(window.BrjAudio) BrjAudio.unlock(); }catch(e){} if(!FIELD) return; let on=false; try{ on=FIELD.stats().auto; }catch(e){} FIELD.setAuto(!on); updAuto(); };
 $('padBtn').onclick=()=>{ snd('click'); setPad(!document.body.classList.contains('touch'),true); try{ FIELD&&FIELD.resize(); }catch(e){} };
 $('keyBtn').onclick=()=>{ const h=$('keyHelp'), on=!h.classList.contains('show'); h.classList.toggle('show',on); $('keyBtn').setAttribute('aria-expanded',String(on)); snd(on?'ui_open':'ui_close'); };
@@ -1762,7 +1761,6 @@ const DO={
   party:()=>act('/brj/party',{party:curParty().slice()},j=>{
     if(j.ok){ PARTY_DIRTY=false; PARTY=null; say('👥 파티를 저장했어요!','ok'); snd('levelup',{vol:.6}); } else say({bad_party:'파티 구성이 올바르지 않아요.',not_owned:'가지고 있지 않은 동료가 들어 있어요.'}[j.code]||'저장하지 못했어요.','bad'); }),
   partyreset:()=>{ PARTY=null; PARTY_DIRTY=false; render(); },
-  elite:()=>doElite(false),
   cosbuy:el=>{ const nm=el.dataset.name||'이 파츠'; if(!confirm(`🍘 맛동산 ${fmt(N((V.cos||{}).price)||1)}개로 「${nm}」을(를) 살까요?`)) return;
     act('/brj/cos_buy',{key:el.dataset.key},j=>{ const m={ok:()=>[`👗 「${nm}」을(를) 샀어요! 바로 입었어요.`,'ok'],owned:()=>['이미 가지고 있어요.','info'],short:()=>['🍘 맛동산이 모자라요.','bad'],busy:()=>['지금 장부가 바빠요. 잠시 뒤 다시 해 주세요.','bad'],save_fail:()=>['저장이 잠깐 안 돼서 맛동산을 쓰지 않았어요. 다시 해 주세요.','bad']}[j.result]||(()=>['처리하지 못했어요.','bad']); const t=m(); say(t[0],t[1]); if(j.result==='ok') snd('enhance_ok'); }); },
   cosequip:el=>{ const body=el.dataset.skin!==undefined?{skin:el.dataset.skin}:(el.dataset.key?{key:el.dataset.key}:{slot:el.dataset.slot});

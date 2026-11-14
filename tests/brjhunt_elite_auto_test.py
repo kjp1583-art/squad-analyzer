@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""🔁 엘리트 자동 소환 시험 — 자동 버튼을 켜면 게이지가 다 닳을 때까지(3칸) 엘리트를 쓰러뜨릴 때마다 다음 엘리트가 자동으로 소환되고, 다 쓰면 스스로 꺼진다.
+"""🔁 엘리트 자동 소환 시험(2026-11-14: 수동 소환 버튼·자동 토글은 없어졌다 — 자동 소환은 항상 켜짐) — 게이지가 한 칸 이상이면 게이지가 다 닳을 때까지(3칸) 엘리트를 쓰러뜨릴 때마다 다음 엘리트가 자동으로 소환되고, 다 쓰면 스스로 꺼진다.
 서버는 stateful 가짜 API(게이지 3칸). 사용: python3.13 tests/brjhunt_elite_auto_test.py  (playwright 없으면 SKIP)"""
 import asyncio, json, os, socket, subprocess, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.join(HERE, '..')
@@ -40,9 +40,8 @@ async def main(port):
         await pg.route(lambda u: not (u.startswith('http://127.0.0.1') or u.startswith('data:')) and 'hth3thmujs' not in u, lambda r: r.abort())
         await pg.add_init_script("localStorage.setItem('sgg_dc',JSON.stringify({id:'1',name:'유저1',avatar:'',token:'t1',exp:Date.now()+86400000}));localStorage.setItem('sgg_dc_auto','0');")
         await pg.goto(f'http://127.0.0.1:{port}/brjhunt.html'); await pg.wait_for_timeout(2500)
-        ok(await pg.evaluate("()=>getComputedStyle(document.getElementById('eliteAuto')).display!=='none'"), '게이지가 있으면 HUD 에 🔁 자동 버튼이 보인다')
-        await pg.evaluate("()=>document.getElementById('eliteAuto').click()"); await pg.wait_for_timeout(300)
-        ok(await pg.evaluate("()=>document.getElementById('eliteAuto').getAttribute('aria-pressed')==='true'"), '누르면 켜진다(aria-pressed)')
+        ok(await pg.evaluate("()=>!document.getElementById('eliteAuto')&&!document.querySelector('[data-do=elite]')"), '수동 소환 버튼·자동 토글 버튼이 없다')
+        ok(await pg.evaluate("()=>ELITE_AUTO===true"), '자동 소환은 항상 켜짐')
         for n in range(1, 4):
             for _ in range(60):
                 await pg.wait_for_timeout(500)
@@ -54,12 +53,14 @@ async def main(port):
                 await pg.wait_for_timeout(500)
                 if st['kills'] >= n: break
             ok(st['kills'] == n, f'{n}번째 엘리트 처치 보고')
+        await pg.wait_for_timeout(6000)
+        ok(st['summons'] == 3, f'게이지가 다 닳으면 더 소환하지 않는다(총 {st["summons"]}회)')
+        ok(await pg.evaluate("()=>ELITE_AUTO===true"), '게이지를 다 써도 자동 소환은 켜진 채(다음에 게이지가 차면 또 소환)')
+        st['charges'] = 1; await pg.evaluate("()=>{ELITE_AUTO_T=0}")
         for _ in range(40):
             await pg.wait_for_timeout(500)
-            if not await pg.evaluate("()=>ELITE_AUTO"): break
-        await pg.wait_for_timeout(1500)
-        ok(st['summons'] == 3, f'게이지가 다 닳으면 더 소환하지 않는다(총 {st["summons"]}회)')
-        ok(not await pg.evaluate("()=>ELITE_AUTO"), '게이지를 다 쓰면 자동 소환이 스스로 꺼진다')
+            if st['summons'] >= 4: break
+        ok(st['summons'] == 4, f'게이지가 다시 차면(1칸) 알아서 또 소환한다(총 {st["summons"]}회)')
         ok(not errs, f'페이지 오류 0 {errs[:2]}'); await b.close()
 s = socket.socket(); s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]; s.close()
 srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1'], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
