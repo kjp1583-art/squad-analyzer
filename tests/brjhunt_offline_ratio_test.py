@@ -29,7 +29,7 @@ async def main(port):
         await pg.add_init_script("localStorage.setItem('sgg_dc',JSON.stringify({id:'1',name:'유저1',avatar:'',token:'t1',exp:Date.now()+86400000}));localStorage.setItem('sgg_dc_auto','0');")
         await pg.goto(f'http://127.0.0.1:{port}/brjhunt.html'); await pg.wait_for_timeout(2500)
         r = await pg.evaluate("()=>{V.hours=4;V.rate=100;V.boost=1;V.cap_h=12;V.off_ratio=0.5;FETCHED=Date.now();LAST_OK=0;const a=pendNow();FETCHED=Date.now()-2*3600e3;const off2=pendNow();LAST_OK=Date.now();const on2=pendNow();LAST_OK=0;V.off_ratio=1;FETCHED=Date.now();const full=pendNow();return {a,off2,on2,full};}")
-        ok(r['a'] == 300, f'오프라인 4시간 × 50% + 부스트 1시간 = 100×(2+1) = 300 (실제 {r["a"]})')
+        ok(r['a'] == 300, f'오프라인 4시간 × 50%(시험용 값) + 부스트 1시간 = 300 (실제 {r["a"]})')
         ok(r['off2'] == 400, f'오프라인이면 흐른 2시간도 더해진다: 100×((4+2)×0.5+1) = 400 (실제 {r["off2"]})')
         ok(r['on2'] == 300, f'직접 사냥 중(온라인)이면 시간이 흘러도 안 늘어난다 = 300 (실제 {r["on2"]})')
         ok(r['full'] == 500, f'비율 1.0(옛 서버)이면 예전과 같다: 100×(4+1) = 500 (실제 {r["full"]})')
