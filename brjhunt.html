@@ -554,7 +554,7 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
 
 <script src="brjhunt_audio.js?v=3"></script>
 <script src="brjhunt_sd.js?v=2"></script>
-<script src="brjhunt_arena.js?v=8"></script>
+<script src="brjhunt_arena.js?v=9"></script>
 <script src="brjhunt_relic.js?v=1"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
@@ -703,7 +703,7 @@ function fieldSkills(){
 function fieldState(){
   const v=V||{}, f=v.field||{}, cb=(v.stats&&v.stats.combat)||v.combat||null, sm=v.summon||{}, ids=Array.isArray(sm.party)?sm.party.slice(0,5):[], cards=Array.isArray(sm.cards)?sm.cards:[];
   const o={stage:N(v.stage)||1,region:String(v.region||''),rec_power:N(f.rec_power)||N(v.rec),kpm_model:N(f.kpm_model)||kpmNow(),
-    party:ids.map(id=>cards.find(c=>c&&c.id===id)).filter(Boolean).map(c=>{const k=c.sk||{},a=k.act||{},p=k.pas||{}; return {id:String(c.id),n:String(c.n||'?'),gr:grKey(c.gr),fam:String(k.fam||''),act:k.fam?{kind:String(a.kind||''),nm:String(a.nm||''),mult:nn(a.mult),hits:nn(a.hits),cd:nn(a.cd),pct:nn(a.pct),dur:nn(a.dur)}:undefined,pas:k.fam?{axis:String(p.axis||''),nm:String(p.nm||''),pct:nn(p.pct)}:undefined};}),
+    party:ids.map(id=>cards.find(c=>c&&c.id===id)).filter(Boolean).map(c=>{const k=c.sk||{},a=k.act||{},p=k.pas||{}; return {id:String(c.id),n:String(c.n||'?'),gr:grKey(c.gr),fam:String(k.fam||''),act:k.fam?{kind:String(a.kind||''),nm:String(a.nm||''),mult:nn(a.mult),hits:nn(a.hits),cd:nn(a.cd),pct:nn(a.pct),dur:nn(a.dur)}:undefined,pas:k.fam?{axis:String(p.axis||''),nm:String(p.nm||''),pct:nn(p.pct)}:undefined,ult:k.ult&&typeof k.ult==='object'?k.ult:undefined};}),
     skills:fieldSkills(),boss:BOSS};
   if(cb) o.combat={atk:nn(cb.atk),hp:nn(cb.hp),def:nn(cb.def),crit:nn(cb.crit),critdmg:nn(cb.critdmg),acc:nn(cb.acc),mp:nn(cb.mp),mpregen:nn(cb.mpregen),power:nn(cb.power)};
   if(f.mon&&typeof f.mon==='object') o.mon={name:String(f.mon.name||'몬스터'),hp:nn(f.mon.hp),atk:nn(f.mon.atk),def:nn(f.mon.def),eva:nn(f.mon.eva),gold:nn(f.mon.gold)};
@@ -712,7 +712,7 @@ function fieldState(){
 function updEliteBtn(){ const b=$('eliteBtn'); if(!b) return; const L=V&&V.loot, ch=L&&L.gauge?N(L.gauge.charges):0, act=!!(L&&L.elite); b.style.display=(STATE==='ok'&&(ch>0||act))?'':'none'; $('eliteN').textContent=act?'!':String(ch); b.classList.toggle('pulse',ch>0&&!act); b.title=act?'엘리트가 필드에 있어요':'엘리트 소환 — 지금 필드에 대형 몬스터를 불러요'; }
 function applySkin(){   // 👗 입고 있는 꾸미기 스킨을 사냥터 병아리와 왼쪽 위 얼굴에 반영
   const C=V&&V.cos, k=C&&Array.isArray(C.skins)?C.skins.find(x=>x.on):null, img=k&&/^img\/brjang\/skins\/[a-z_]+\/front\.png$/.test(String(k.img||''))?k.img:null;
-  try{ if(FIELD&&FIELD.setSkin) FIELD.setSkin(img); if(FIELD&&FIELD.setParts) FIELD.setParts(img?{}:(C&&C.worn)||{}); }catch(e){}
+  applyCut(); try{ if(FIELD&&FIELD.setSkin) FIELD.setSkin(img); if(FIELD&&FIELD.setParts) FIELD.setParts(img?{}:(C&&C.worn)||{}); }catch(e){}
   const av=$('avImg'); if(av){ const want=img||'img/brjang/parts/body_chick/front.png'; if(av.getAttribute('src')!==want){ av.style.display=''; av.src=want; } }
 }
 function pushField(){ document.body.classList.toggle('inboss',!!(BOSS||INSTANCE)); if(FIELD&&V){ try{ FIELD.setState(fieldState()); FIELD.setKeys(!WOPEN&&STATE==='ok'); syncElite(); applySkin(); }catch(e){ console.warn(e); } }
@@ -957,6 +957,8 @@ setInterval(()=>{   // 쿨타임 링 + AUTO 일 때 자동 사용(체력 35% 미
   document.querySelectorAll('#dock .pot').forEach(el=>{ const k=el.dataset.pot, rem=Math.max(0,POT_CD[k]-now)/Math.max(1,N(V&&V.potion&&V.potion.cd)*1000||10000); el.style.setProperty('--cd',(Math.min(1,rem)*360).toFixed(0)+'deg'); el.classList.toggle('cool',rem>0); });
   try{ if(FIELD&&STATE==='ok'&&!INSTANCE&&!POT_BUSY){ const s=FIELD.stats(); if(s&&s.auto){ if(N(s.hp)>0&&N(s.hp)<N(s.hpMax)*0.35) usePotion('hp'); else if(N(s.mpMax)>0&&N(s.mp)<N(s.mpMax)*0.2) usePotion('mp'); } } }catch(e){}
 },400);
+function cutOn(){ try{ return localStorage.getItem('brj_cut')!=='0'; }catch(e){ return true; } }   // 💥 동료 필살기 컷씬 연출(기본 켜짐)
+function applyCut(){ try{ if(FIELD&&FIELD.setCutscene) FIELD.setCutscene(cutOn()); }catch(e){} }
 function openSlots(){ const s=V&&V.skill; const n=s&&s.slots?N(s.slots.active):4; return Math.max(1,Math.min(8,n||4)); }
 function dockHtml(){
   const v=V, gate=gateInfo(), bg=bossGate(), cap=N(v.max_stage)||30, st=N(v.stage), nextOk=st<cap;
@@ -1208,7 +1210,8 @@ function tabCrew(){
     <div class="sub"><b>장착효과</b> — 동료를 최대 ${fmt(s.party_max)}명(탑·정글·미드·원딜·서폿) 골라 파티에 넣으면 <b>공격력과 체력</b>이 늘어요 (최대 ×${N(s.mult_cap).toFixed(1)}). 파티 동료는 필드에서 병아리 곁을 따라다니며 <b>같이 싸우고</b>, 동료마다 <b>고유 액티브(⚡)</b>를 쓰고 <b>고유 패시브(🔰)</b>로 병아리를 도와요. 아래 카드를 눌러 넣고 빼세요.</div>
     <div class="party">${slots.join('')}</div>
     <div class="btns"><button class="btn ${pend?'':'alt'}" data-do="party" ${pend?'':'disabled'}>${pend?'편성 저장':'저장됨'}</button>${pend?'<button class="btn alt" data-do="partyreset">되돌리기</button>':''}</div>
-    ${party.length?`<h3>⚡ 파티 고유 스킬 — 필드에서 같이 싸워요</h3>${party.map(id=>byId[id]).filter(Boolean).map(c=>{const k=c.sk;return k?`<div class="crewrow">${sdPic(c,44)}<div class="tx"><b>${esc(c.n)}</b> <span class="pill">${esc(k.em||'')} ${esc(k.pos||'')} · ${esc(k.fam_ko||'')}</span><div class="crewsk">⚡ <b>${esc(k.act.nm)}</b> (${N(k.act.cd)}초마다) — ${esc(k.act.desc)}<br>🔰 <b>${esc(k.pas.nm)}</b> — ${esc(k.pas.desc)}</div></div></div>`:'';}).join('')}<div class="sub">패시브 합계(전투력에 반영): ${axesTxt(s.pas)}</div>`:''}
+    ${party.length?`<h3>⚡ 파티 고유 스킬 — 필드에서 같이 싸워요</h3>${party.map(id=>byId[id]).filter(Boolean).map(c=>{const k=c.sk;return k?`<div class="crewrow">${sdPic(c,44)}<div class="tx"><b>${esc(c.n)}</b> <span class="pill">${esc(k.em||'')} ${esc(k.pos||'')} · ${esc(k.fam_ko||'')}</span><div class="crewsk">⚡ <b>${esc(k.act.nm)}</b> (${N(k.act.cd)}초마다) — ${esc(k.act.desc)}<br>🔰 <b>${esc(k.pas.nm)}</b> — ${esc(k.pas.desc)}${k.ult?`<br>💥 <b>${esc(k.ult.em||'')} ${esc(k.ult.nm)}</b> (${N(k.ult.cd)}초마다 · 컷씬) — “${esc(k.ult.quote)}” ${esc(k.ult.desc)}`:''}</div></div></div>`:'';}).join('')}
+    <div class="mut" style="margin:4px 0">필살기는 사냥터에서 몬스터가 모여 있을 때 컷씬과 함께 터져요(보스전·던전에서는 쓰지 않아요). <button class="btn sm alt" data-do="cutsw">컷씬 연출 ${cutOn()?'끄기':'켜기'}</button></div><div class="sub">패시브 합계(전투력에 반영): ${axesTxt(s.pas)}</div>`:''}
     <h3>🔗 시너지 세트 효과</h3>${synHtml(s)}
     <details><summary>등급별 보너스 보기</summary><div class="sub">동료 1명이 주는 공격력·체력 보너스(동료 Lv.1): ${Object.entries(s.grade_bonus||{}).map(([k,p])=>`${esc(k)} +${N(p)}%`).join(' · ')}. 동료 레벨이 1 오를 때마다 그 보너스가 ${fmt(s.lv_bonus_pct)}%씩 커져요.</div></details>
   </div>
@@ -1237,7 +1240,7 @@ function cardHtml(c,sel){
   const k=c.sk||null;
   return `<button class="cd gr-${g}${sel?' sel':''}${c.gone?' gone':''}" data-card="${esc(c.id)}" aria-pressed="${sel?'true':'false'}">
     ${sdPic(c,44)}<div class="gr t-${g}">${esc(GR_KO[g])} · Lv.${fmt(c.lv)}${k?` · ${esc(k.pos||'')} ${esc(k.fam_ko||'')}`:''}</div><div class="nm">${esc(c.n)}${sel?' ✅':''}</div>
-    ${k?`<div class="crewsk">⚡ <b>${esc(k.act.nm)}</b> — ${esc(k.act.desc)}<br>🔰 <b>${esc(k.pas.nm)}</b> — ${esc(k.pas.desc)}</div>`:''}
+    ${k?`<div class="crewsk">⚡ <b>${esc(k.act.nm)}</b> — ${esc(k.act.desc)}<br>🔰 <b>${esc(k.pas.nm)}</b> — ${esc(k.pas.desc)}${k.ult?`<br>💥 <b>${esc(k.ult.em||'')} ${esc(k.ult.nm)}</b> — “${esc(k.ult.quote)}”`:''}</div>`:''}
     <div class="ft">🛡 장착 +${N(c.bonus).toFixed(1)}% 공격·체력</div><div class="ft">🎒 보유 +${N(c.own_pct).toFixed(2)}% 방어·명중</div><div class="ft">${c.next_sh?`조각 ${fmt(c.sh)}/${fmt(c.next_sh)}`:'최고 레벨'}</div><div class="ft">${f}</div></button>`;
 }
 function sumResHtml(res){
@@ -1780,6 +1783,7 @@ const DO={
     act('/brj/skill',body,j=>{ if(j.result==='ok'){ say(`🎯 ${esc(k.name||'스킬')} 장착!`,'ok'); snd('levelup',{vol:.5}); } else say(j.result==='locked'?'아직 배우지 못한 스킬이에요.':'장착하지 못했어요.','bad'); }); },
   skillun:el=>{ const id=el.dataset.id, k=skById(id)||{}; act('/brj/skill',{action:'unequip',id},j=>{ say(j.result==='ok'?`${esc(k.name||'스킬')} 을(를) 뺐어요.`:'원래 끼워져 있지 않았어요.',j.result==='ok'?'info':'bad'); }); },
   slotsel:el=>{ SEL_SLOT=Number(el.dataset.i); render(); },
+  cutsw:()=>{ try{ localStorage.setItem('brj_cut', cutOn()?'0':'1'); }catch(e){} applyCut(); render(); },
   boss:async()=>{
     if(BUSY||BOSS) return; const gb=bossGate(); if(!gb) return;
     if(!(await preChal())) return;
