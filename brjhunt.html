@@ -1618,7 +1618,7 @@ const AWK_MSG={stage:'스테이지가 모자라 아직 각성할 수 없어요.'
 // 누르면 서버(결과·보상·피해를 정한다)를 부르고, 엔진(BrjArena.startInstance)이 그 결과에 맞춰 연출 시간표를 짠다. 연출이 끝나면 서버가 준 화면 값(view)을 반영한다.
 // 연출 중에는 다른 버튼이 잠기고 「건너뛰기」로 바로 결과를 볼 수 있다. 서버가 늦으면 입장 연출로 기다리고, 응답이 실패하면 연출만 접는다.
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function instLock(on){ document.body.classList.toggle('ininst',!!on); const b=$('skipBtn'); if(b) b.style.display=on?'block':'none'; pushField(); }
+function instLock(on){ document.body.classList.toggle('ininst',!!on); const b=$('skipBtn'); if(b) b.style.display=(on&&!(INSTANCE&&INSTANCE.noskip))?'block':'none'; pushField(); }   // 🚫 [2026-11-14 사장님 「용조련사도 스킵 삭제」] 용조련사 · 목걸이 던전은 건너뛰기 버튼이 없다
 function onInstance(e){
   const ph=e&&e.phase; if(!ph) return;
   if(ph==='in'){ if(!(INSTANCE&&INSTANCE.predict==='nokey')&&e.kind==='dungeon') snd('door_open',{vol:.8}); else if(e.kind==='clanboss') snd('boss_warn',{vol:.7}); }
@@ -1668,8 +1668,9 @@ $('wclose').onclick=()=>{ snd('click'); closeWin(); };
 $('whelp').onclick=()=>{ snd('click'); HELP_OPEN=!HELP_OPEN; renderHelp(); };
 $('wbg').onclick=()=>{ if(!INSTANCE) closeWin(); };
 addEventListener('keydown',e=>{ if(e.key==='Escape'&&WOPEN&&!INSTANCE&&!document.querySelector('.sbg.show')){ e.preventDefault(); closeWin(); } });
-$('skipBtn').onclick=()=>{ snd('click'); try{ if(FIELD) FIELD.skipInstance(); }catch(e){} };
+$('skipBtn').onclick=()=>{ if(INSTANCE&&INSTANCE.noskip) return; snd('click'); try{ if(FIELD) FIELD.skipInstance(); }catch(e){} };
 // sp: {kind, early(결과 전에 입장 연출부터), path, body, predict, start(j|null)→엔진에 줄 값, toResult(j)→엔진 결과 또는 null(연출 없음), after(j,played)→결과 문구, legacy()→엔진이 없을 때 옛 방식}
+const NOSKIP_IMG=new Set(['yongjo']);   // 건너뛰기를 없앤 보스 그림 키(용조련사)
 async function runInstance(sp){
   if(BUSY||BOSS||INSTANCE) return;
   if(!FIELD||FIELD_FAIL||typeof FIELD.startInstance!=='function') return sp.legacy&&sp.legacy();
@@ -1677,11 +1678,12 @@ async function runInstance(sp){
   if(BUSY||BOSS||INSTANCE) return;
   BUSY=true; document.body.classList.add('busy');
   let endP=null, started=false, j=null, fail='';
-  INSTANCE={kind:sp.kind,predict:sp.predict||'',view:null,resolveEnd:null};
+  let _noskip=!!sp.noskip; try{ if(!_noskip&&sp.start&&NOSKIP_IMG.has(String((sp.start(null)||{}).img||''))) _noskip=true; }catch(e){}
+  INSTANCE={kind:sp.kind,predict:sp.predict||'',view:null,resolveEnd:null,noskip:_noskip};
   endP=new Promise(r=>{ INSTANCE.resolveEnd=r; });
   try{
     if(WOPEN){ WOPEN=false; TAB_FLAG=true; } MSG=null; syncBgm(); render(); instLock(true);
-    if(sp.early) started=!!FIELD.startInstance(Object.assign({},sp.start(null),{kind:sp.kind,predict:sp.predict||'',result:null}));
+    if(sp.early) started=!!FIELD.startInstance(Object.assign({},sp.start(null),{kind:sp.kind,predict:sp.predict||'',result:null,noSkip:_noskip}));
     j=await call(sp.path,sp.body);
     if(TRANSPORT.includes(j.code)&&!j.view){ fail=(j.code==='net'||j.code==='http')?'net':'tr'; }
     if(fail){
@@ -1692,11 +1694,11 @@ async function runInstance(sp){
       INSTANCE.view=j.view||null;
       const res=sp.toResult(j);
       if(res){
-        if(!started) started=!!FIELD.startInstance(Object.assign({},sp.start(j),{kind:sp.kind,predict:sp.predict||'',result:res}));
+        if(!started) started=!!FIELD.startInstance(Object.assign({},sp.start(j),{kind:sp.kind,predict:sp.predict||'',result:res,noSkip:_noskip}));
         else FIELD.instanceResult(res);
       } else if(started){ try{ FIELD.abortInstance(); }catch(e){} }
       if(started){
-        const guard=sleep(150000).then(()=>{ try{ FIELD.skipInstance(); }catch(e){} return endP; });
+        const guard=sleep(_noskip?240000:150000).then(()=>{ try{ FIELD.skipInstance(true); }catch(e){} return endP; });   // (먹통 방지용 안전장치 — 건너뛰기 불가 던전도 이때는 접는다)
         await Promise.race([endP,guard]);
       }
       if(INSTANCE.view) takeView({view:INSTANCE.view});

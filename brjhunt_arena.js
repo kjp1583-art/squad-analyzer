@@ -1533,7 +1533,7 @@
       map = genDungeonRoom(1000, kind === 'dungeon' ? 'dungeon' : 'arena');
       resetPlayerPos(kind === 'dungeon' ? 118 : 30); P.hp = P.hpMax; P.mp = P.mpMax; P.inv = 0; P.dead = false; P.face = 1; P.hurtT = 0; E.cam = 0; E.combo = 0; E.comboT = 0;
       const W = o.waves ? clamp(Math.floor(N(o.waves)), 2, 6) : clamp(3 + Math.floor((lvl - 1) / 8), 3, 5);
-      INS = { kind, level: lvl, name: String(o.name || ''), img: key, waves: W, wave: 0, phase: 'intro', pt: 0, t: 0, res: '', result: null, predict: String(o.predict || ''), noCtl: true, safe: true,
+      INS = { noSkip: !!o.noSkip, kind, level: lvl, name: String(o.name || ''), img: key, waves: W, wave: 0, phase: 'intro', pt: 0, t: 0, res: '', result: null, predict: String(o.predict || ''), noCtl: true, safe: true,
         queue: 0, spawnT: 0, waveT: 0, crush: false, doorOpen: 0, shake: 0, locked: 0, done: false, spawnFail: 0, eliteDone: false, kills: 0,
         dmg: 0, K: 0, rem: 0, left: 0, total: 0, hits: 0, before: 0, after: 0, hpMax: 1, dead: false, notes: [], totalT: 0, flushT: 0, r0: 1, items: [], chest: null, ffN: 0, ffT: 0, tick: 0 };
       if (key) ld('img/brjang/boss/' + key + '/front.png');
@@ -1568,8 +1568,9 @@
       const kind = I.kind, res = I.res; INS = null;
       emit('instance', Object.assign({ phase: 'end', kind, res, total: I.total, dmg: I.dmg }, info || {}));
     }
-    function skipInstance() {
+    function skipInstance(force) {
       const I = INS; if (!I || I.done) return;
+      if (I.noSkip && !force) return;   // 🚫 건너뛰기 불가 인스턴스(용조련사 · 목걸이 던전) — 먹통 방지 안전장치(force)만 접는다
       if (I.kind === 'clanboss') { I.total = I.dmg; I.rem = 0; I.left = 0; }
       insFinish({ skipped: true });
     }
