@@ -554,7 +554,7 @@
         if (!p) continue; const pr = allyProf(p), bm = ALLY_BASIC[p.gr] || ALLY_BASIC.normal;
         let d = C.atk * bm * pr.bm / 100 / pr.bcd;
         const k = pr.act.kind; if (k === 'strike' || k === 'barrage') d += C.atk * pr.act.mult / 100 * pr.act.hits / pr.act.cd; else if (k === 'burst') d += C.atk * pr.act.mult / 100 * pr.act.hits * 1.5 / pr.act.cd; else if (k === 'guard') d += C.atk * pr.act.mult / 100 * 2 / pr.act.cd;
-        if (pr.ult) d += C.atk * pr.ult.mult / 100 * pr.ult.hits * ULT_TARGETS / pr.ult.cd;
+        // (필살기 몫은 몹 체력 보정에 넣지 않는다 — 컷씬 동안 시간이 멈추고 몬스터가 흩어져 있으면 덜 맞아서, 넣으면 분당 처치가 25% 줄었다 · 2026-11-14 실측)
         sum += d;
       }
       return sum * ALLY_UPTIME;
@@ -580,6 +580,8 @@
       if ((power > 0 && rec > 0) || st.kpmGiven > 0) D.ratio = Math.max(0.03, calRatio(D.ratio));
       D.allyDps = allyDpsNom();
       D.mobHp = Math.max(1, (D.dpsNom + D.allyDps) * (opts.cal || CAL_TTK) / D.ratio);
+      // 🎬 컷씬이 켜져 있으면 필살기 컷씬 동안 사냥 시간이 멈춘다 — 그만큼 분당 처치가 줄지 않게 몬스터 체력을 그 몫만큼 덜어 준다(실측: 5인 레전드 파티 −11%) · 컷씬을 끄면 필살기도 안 써서 이 보정도 없다
+      if (E.cutOn && opts.ultComp !== false) { let r = 0; for (const p of (st.party || []).slice(0, ALLY_MAX)) { const u = p && normUlt(p.ult); if (u) r += 1 / u.cd; } const fr = Math.min(1 / 14.9, r) * 1.9; D.mobHp = Math.max(1, D.mobHp * (1 - 0.8 * fr)); }
       D.passive = skills.passive || null;
       const rg = String(st.region || '').toLowerCase(); let ri = -1;
       for (let i = 0; i < 6; i++) if (rg.indexOf(REG_KEY[i]) >= 0) { ri = i; break; }
@@ -1416,7 +1418,8 @@
     function bossWalk(B, dt) {
       const bm = B.m; if (!bm || E.reduced) { if (B) B.vx = 0; return; }
       const ph = 1 + 0.3 * (B.phase || 0), side = bm.x >= P.x ? 1 : -1;
-      const want = clamp(P.x + side * (200 + Math.sin(E.t * 0.8) * 90), 150, map.W - 150);
+      // 🐲 [2026-11-14 사장님 「클랜보스 용조련사가 공격이 안 되는 문제」] 보스가 병아리에게서 200px 쯤 뒤로 물러나 있으면 병아리가 쫓아가느라 한참 공격을 못 했다(벽에 몰린 뒤에야 타격) — 이제 근접 사거리 안(≈72±24px)에서 병아리 주위를 맴돈다
+      const want = clamp(P.x + side * (72 + Math.sin(E.t * 0.8) * 24), 150, map.W - 150);
       const sp = 90 * ph, step = clamp(want - bm.x, -sp * dt, sp * dt);
       bm.x += step; B.vx = step / Math.max(dt, 1e-3); bm.face = P.x >= bm.x ? 1 : -1;
     }
@@ -2425,6 +2428,7 @@
     function allyCast(a, tg) {
       const pr = a.pr, ac = pr.act, bm = ALLY_BASIC[a.gr] || ALLY_BASIC.normal;
       a.acd = ac.cd * (0.95 + rnd() * 0.1); a.flash = 0.5; a.casts = (a.casts || 0) + 1;
+      emit('allycast', { kind: ac.kind });
       say(ac.nm, a.x, a.y - 30, 'a', 11, pr.col, '#1c1230');
       ring(a.x, a.y - 10, pr.col, 30, 0.35);
       const k = ac.kind;
@@ -2451,18 +2455,35 @@
     const inView = m => liveMob(m) && !m.boss && m.x > E.cam - 30 && m.x < E.cam + E.VW + 30 && Math.abs(m.y - P.y) < 110;
     function ultTargets() { const out = []; for (let i = 0; i < mobs.length; i++) if (inView(mobs[i])) out.push(mobs[i]); return out; }
     function startCut(a) {
-      const u = a.pr.ult; a.ucd = u.cd; E.cutGap = 13;
+      const u = a.pr.ult; a.ucd = u.cd; E.cutGap = boss ? 4 : 13;
       E.cut = { a, u, t: 0, dur: E.reduced ? 0.9 : 1.9 };
       for (const k in Hh) Hh[k] = false;
       emit('ult', { nm: u.nm, who: a.nm || '' });
     }
     function ultHit(a, m, mult, col, kb) { if (!liveMob(m)) return false; const d = hitMob(m, mult, { sure: true, ally: true, fromX: a.x, col, kb: kb != null ? kb : 50 }); if (d) a.kills++; return d; }
     function beam(x0, y0, x1, y1, col, life) { if (allyFx.length < 40) allyFx.push({ x0, y0, x1, y1, t: 0, life: life || 0.18, col }); }
+    // 🐲 보스에게 쏘는 필살기 — 보스 HP 는 서버가 정한 결과 곡선을 따르므로 여기선 연출과 피해 숫자만(hitMob 이 숫자·불꽃을 띄운다)
+    function bossUlt(a, u) {
+      const B = boss, bm = B && B.m; if (!bm) return; const col = u.col, k = u.kind, lowv = E.low ? 0.5 : 1; B.hit = 0.4;
+      const bx = bm.x, by = bm.y - 60, dmg = mult => { if (boss && boss.m === bm) hitMob(bm, mult, { sure: true, ally: true, fromX: a.x, col, kb: 0 }); };
+      const bump = (n, pw) => { ring(bx, by, col, pw, 0.5); ring(bx, by, '#fff', pw * 0.55, 0.35); poof(bx, by, col, Math.round(n * lowv), 200, 60); shk(8); };
+      if (k === 'rain') { for (let i = 0; i < u.hits * 3; i++) later(0.05 + i * 0.07, () => { beam(bx + (rnd() - 0.5) * 90, by - 200, bx + (rnd() - 0.5) * 70, by + rnd() * 60, col, 0.2); ring(bx + (rnd() - 0.5) * 70, by + rnd() * 50, col, 26, 0.25); dmg(u.mult * 0.55); }); }
+      else if (k === 'slash') { for (let h = 0; h < u.hits; h++) later(0.06 + h * 0.12, () => { beam(bx - 130, by - 50 + h * 22, bx + 130, by + 50 - h * 16, h % 2 ? '#fff' : col, 0.22); sparks(bx, by + h * 6, h % 2 ? 1 : -1, col, Math.round(10 * lowv), 300); shk(5); dmg(u.mult); }); }
+      else if (k === 'chain') { for (let i = 0; i < u.hits + 3; i++) later(0.06 + i * 0.1, () => { beam(P.x, P.y - 22, bx + (rnd() - 0.5) * 60, by + (rnd() - 0.5) * 80, i % 2 ? '#fff' : col, 0.16); ring(bx + (rnd() - 0.5) * 50, by, col, 30, 0.25); dmg(u.mult); }); }
+      else if (k === 'meteor') { for (let j = 0; j < 3; j++) later(0.4 + j * 0.34, () => { beam(bx + 40 + j * 20, by - 260, bx + (j - 1) * 40, by + 20, col, 0.24); bump(14, 120); dmg(u.mult); }); }
+      else if (k === 'bind') { say('속박!', bx, by - 90, 'c', 22, '#c8f4ff'); ring(bx, by, '#c8f4ff', 140, 0.7); bump(8, 110); dmg(u.mult * 0.6); for (let t = 1; t <= 3; t++) later(0.8 * t, () => { sparks(bx, by, 1, '#c8f4ff', 6, 140); dmg(u.mult * 0.4); }); }
+      else if (k === 'drain') { for (let h = 0; h < u.hits; h++) later(0.08 + h * 0.16, () => { beam(bx, by, P.x, P.y - 18, col, 0.2); shk(3); dmg(u.mult); }); later(0.1 + u.hits * 0.16, () => { const hv = Math.round(P.hpMax * 0.1); P.hp = Math.min(P.hpMax, Math.max(P.hp, P.hp + hv)); say('+' + fmtNum(hv), P.x, P.y - PH - 8, 'a', 16, '#6bf0a0', '#0b3a22'); ring(P.x, P.y - 14, '#6bf0a0', 70, 0.6); }); }
+      else if (k === 'execute') { beam(bx, by - 260, bx, by + 30, '#ffffff', 0.4); say('결정타!', bx, by - 100, 'c', 26, col); later(0.3, () => { bump(26, 170); dmg(u.mult * 2); }); }
+      else { for (let h = 0; h < u.hits + (k === 'gather' ? 1 : 0); h++) later(0.1 + h * 0.22, () => { bump(10, 90 + h * 40); dmg(u.mult * (k === 'gather' ? 1.2 : 1)); }); }   // nova · gather
+    }
     function fireUlt(a, u) {
       const col = u.col, k = u.kind, face = P.face || 1, lowv = E.low ? 0.5 : 1;
       const mobsNow = () => ultTargets();
+      emit('ultfire', { kind: k, nm: u.nm });
+      if (boss && !(boss.state === 'fight' && !boss.clan)) return;   // 컷씬 도중 보스전이 끝났으면 효과 없음
       say(u.nm + '!', P.x, P.y - PH - 26, 'a', 15, col, '#1c1230'); a.flash = 0.8;
       flashS(0.28, col); shk(7);
+      if (boss && k !== 'rally') { bossUlt(a, u); return; }
       if (k === 'nova') {
         ring(P.x, P.y - 14, col, 150, 0.6); ring(P.x, P.y - 14, '#ffffff', 90, 0.45); poof(P.x, P.y - 14, col, Math.round(22 * lowv), 260, 60);
         for (let h = 0; h < u.hits; h++) later(0.1 + h * 0.22, () => { ring(P.x, P.y - 12, col, 200 + h * 60, 0.5); shk(5); for (const m of mobsNow()) { ultHit(a, m, u.mult, col, 90); poof(m.x, m.y - 12, col, 3, 90); } });
@@ -2573,7 +2594,11 @@
           else { const t = allyTargets(a, 1); if (t.length) allyCast(a, t[0]); else a.acd = 0.4; }
         }
         // 필살기: 충전이 끝나면(쿨 ult.cd 초) 사냥터에서 몹이 3마리 이상 모여 있을 때 컷씬과 함께 발동 — 보스·던전에선 안 쓴다
-        if (pr.ult && E.cutOn) { a.ucd -= h; if (a.ucd <= 0) { if (!E.cut && E.cutGap <= 0 && !boss && !INS && !P.dead && ultTargets().length >= 3) startCut(a); else a.ucd = 1.2; } }
+        if (pr.ult && E.cutOn) {
+          if (boss) {   // 🐲 보스전(클랜 보스 제외): 한 판에 최대 2번, 싸움이 시작된 뒤 1.2초·그다음 4초 간격으로 — 보스에게 큰 한 방(HP 곡선은 그대로, 연출·피해 숫자만)
+            if (boss.state === 'fight' && !boss.clan && !E.cut && (boss.ultN || 0) < 2 && boss.ft > 1.2 + (boss.ultN || 0) * 4.2 && boss.ft < BF_FIGHT - 2.2 && !P.dead) { boss.ultN = (boss.ultN || 0) + 1; startCut(a); }
+          } else { a.ucd -= h; if (a.ucd <= 0) { if (!E.cut && E.cutGap <= 0 && !INS && !P.dead && ultTargets().length >= 3) startCut(a); else a.ucd = 1.2; } }
+        }
         // 기본 공격
         if (a.cd <= 0) {
           const t = allyTargets(a, 1);
@@ -2804,7 +2829,7 @@
       setParts(o) {   // {head:'crown', face:'sunglasses', neck:'scarf', back:'cape', body:'tf_coat'} — 슬롯마다 하나
         E.partsWant = o; E.setPartsNow(o);
       },
-      setCutscene(b) { E.cutOn = !!b; if (!b) E.cut = null; },
+      setCutscene(b) { E.cutOn = !!b; if (!b) E.cut = null; try { if (st.party) derive(); } catch (e) { } },
       skipCut() { if (E.cut) E.cut.t = Math.max(E.cut.t, E.cut.dur - 0.01); },
       debugUlt(i) { const a = allies[i | 0]; if (a && a.pr.ult) startCut(a); return !!(a && a.pr.ult); },
       setSkin(p) { { const m = (typeof p === 'string') ? /^img\/brjang\/skins\/([a-z_]+)\/front\.png$/.exec(p) : null; E.skinPath = m ? p : null; E.skinKey = m ? m[1] : ''; } },

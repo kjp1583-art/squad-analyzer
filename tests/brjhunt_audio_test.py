@@ -158,6 +158,7 @@ def main():
                       'jump', 'jump2', 'land', 'land_hard', 'step', 'drop_down', 'hurt', 'hurt_heavy', 'shield_block', 'die', 'revive', 'combo_up',
                       'ui_open', 'ui_close', 'auto_on', 'auto_off', 'equip', 'no_mp', 'skill_ready', 'boss_warn', 'boss_rage', 'boss_slam', 'boss_die']
                      + ['skill_%s_%s' % (s, ph) for s in SK for ph in ('charge', 'tail')]
+                     + ['skill_ice_charge', 'skill_ice', 'skill_ice_tail', 'skill_gale_charge', 'skill_gale', 'skill_gale_tail', 'skill_meteor_charge', 'skill_meteor', 'skill_meteor_tail', 'skill_phoenix_charge', 'skill_phoenix', 'skill_phoenix_tail', 'skill_rage_charge', 'skill_rage', 'skill_blink', 'skill_pull_charge', 'skill_pull', 'skill_ward', 'ult_in', 'ult_nova', 'ult_rain', 'ult_slash', 'ult_bind', 'ult_drain', 'ult_rally', 'ult_meteor', 'ult_gather', 'ult_chain', 'ult_execute', 'ally_cast', 'ally_hit', 'potion']   # 2026-11-14 추가: 스킬 8종·동료 필살기·동료 공격·물약
                      + ['call_' + s for s in SK] + ['door_open', 'door_shut', 'wave_horn', 'chest_open', 'reward_pop', 'ff_whoosh', 'total_hit'])
         need_bgm = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6', 'boss', 'menu']
         check('예전 효과음 26종 이름이 그대로 살아 있다', set(old_names) <= set(names), set(old_names) - set(names))

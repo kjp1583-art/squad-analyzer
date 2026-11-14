@@ -4672,6 +4672,11 @@ function ingest(text){
 let DUPLICATES=0;
 let LATEST_PATCH="";            // 데이터에서 감지한 최신 패치 (정규화 후, 예: "16.13")
 let ALL_PATCHES=[];             // 감지된 모든 패치 (최신순)
+/* 📈 [P-47 · 2026-11-14] 새 패치 첫 며칠은 표본이 너무 적어(1일 차 5~16판 · 3일 차 28~62판) 챔피언 티어가 텅 비어 보인다.
+   챔피언 티어 탭이 「최신 패치」 기본일 때, 이번 패치 판수가 NEWPATCH_MIN 미만이면 직전 패치를 자동으로 합친다(칩을 직접 누르면 그 패치만).
+   PATCH_EXTRA = 합치는 직전 패치(없으면 ""), PATCH_EXTRA_N = 이번 패치 판수. NEWPATCH_MIN 을 0 으로 두면 끈다.  */
+let NEWPATCH_MIN=100;
+let PATCH_EXTRA="", PATCH_EXTRA_N=0;
 let ALL_YEARS=[];               // 감지된 모든 년도 (최신순, 예: ["2026","2025"])
 let PATCH_SEL=null;             // 선택 필터: null=자동(기본: 「최근 30일」 · 챔피언 티어 탭만 최신 패치) / "R30"=최근 30일 / "ALL"=전체 / 패치("16.13") / 년도("Y2025")
 // 📅 [2026-10-11 사장님 "P20 진행시켜줘"] 기본 보기를 '최신 패치'에서 '최근 30일'로. 패치가 바뀐 첫 주엔 최신 패치 판이 몇 판 안 돼
@@ -4862,6 +4867,11 @@ function build(){
   if(PATCH_SEL==null) PATCH_SEL=(META_VIEW&&LATEST_PATCH)?LATEST_PATCH:"R30";
   if(PATCH_SEL==="R30"&&!R30.to) PATCH_SEL="ALL";   // 날짜가 하나도 없으면 걸러 낼 기준이 없다
   if(PATCH_SEL!=="ALL" && PATCH_SEL!=="R30" && !selYear(PATCH_SEL) && !pset.has(PATCH_SEL)) PATCH_SEL=LATEST_PATCH;
+  PATCH_EXTRA=""; PATCH_EXTRA_N=0;
+  if(NEWPATCH_MIN>0 && META_VIEW && !PATCH_USER && LATEST_PATCH && PATCH_SEL===LATEST_PATCH && ALL_PATCHES.length>1){
+    const _gs=new Set(); for(const r of RAW){ const g_=r["게임ID"]; if(g_&&!_DUP_DROP.has(g_)&&(r["패치버전"]||"")===LATEST_PATCH) _gs.add(g_); }
+    if(_gs.size<NEWPATCH_MIN){ PATCH_EXTRA=ALL_PATCHES[1]; PATCH_EXTRA_N=_gs.size; }
+  }
   const seen=new Set(); // 게임 내 동일 참가자 중복 기록 제거용
   for(const r of RAW){
     const gid=r["게임ID"]; if(!gid||_DUP_DROP.has(gid))continue;
@@ -4871,7 +4881,7 @@ function build(){
     }else if(PATCH_SEL!=="ALL"){
       const _ysel=selYear(PATCH_SEL);
       if(_ysel){ if(yearOf(r["날짜"])!==_ysel) continue; }
-      else if(LATEST_PATCH && (r["패치버전"]||"")!==PATCH_SEL) continue;
+      else if(LATEST_PATCH && (r["패치버전"]||"")!==PATCH_SEL && !(PATCH_EXTRA && (r["패치버전"]||"")===PATCH_EXTRA)) continue;
     }
     // [2026-07-29] 한 게임에 같은 사람은 한 번뿐 — 키에서 챔피언·포지션·진영을 뺐다.
     //   두 인스턴스가 같은 판을 각각 기록하면서 포지션 판정만 달라지면(원딜↔서폿) 둘 다 살아남아
@@ -5163,6 +5173,7 @@ function renderChampTier(){
   view().innerHTML=`${navTabsHtml('champ')}
     <div class="card">
       <h2>🏆 클랜 챔피언 티어 <span class="muted" style="font-size:13.5px">(${CHTIER_MIN_TIER}판 이상만 티어 부여 · ${esc(catLabel(CURRENT_CAT))}${CHTIER_POS!=='ALL'?' · <b style="color:#ffd24a">'+esc(CHTIER_POS)+' 한정</b>':''})</span></h2>
+      ${PATCH_EXTRA?`<div class="np-merge" style="margin:6px 0 10px;padding:8px 11px;border-radius:9px;background:rgba(91,141,239,.1);border:1px solid rgba(91,141,239,.35);font-size:13px;line-height:1.55">🆕 새 패치(<b>${esc(LATEST_PATCH)}</b>)가 나온 지 얼마 안 돼 이번 패치는 <b>${PATCH_EXTRA_N}판</b>뿐이에요. 표본이 너무 적어 <b>직전 패치(${esc(PATCH_EXTRA)})를 합쳐</b> 보여 줘요. 패치가 바뀌며 달라진 챔프는 위 패치 버튼으로 이번 패치만 볼 수 있어요. (${NEWPATCH_MIN}판이 넘으면 자동으로 이번 패치만 봐요)</div>`:''}
       ${hofPosBar(CHTIER_POS,"setChTierPos", CHTIER_POS==='ALL'?"":"라인별 = 그 라인에서 사용된 판만 집계(밴 제외)")}
       <table class="ranktbl champtier"><thead><tr>
         <th class="num">#</th><th>티어</th><th>챔피언</th><th class="num">클랜점수</th><th>승률</th><th class="num">픽</th><th class="num">AI점수</th>
@@ -11577,7 +11588,7 @@ function renderPatchNote(){
 function switchPatch(sel,auto){
   PATCH_AUTO=!!auto;
   if(!auto) PATCH_USER=true;                       // 직접 고른 범위 — 탭을 옮겨도 유지
-  if(sel===PATCH_SEL){ renderPatchbar(); return; }
+  if(sel===PATCH_SEL&&!(PATCH_EXTRA&&!auto)){ renderPatchbar(); return; }   // (P-47) 직전 패치를 합쳐 보는 중이면, 같은 패치 칩을 눌러도 「이번 패치만」으로 바뀐다
   PATCH_SEL=sel;
   build(); renderPatchbar();
   SORT={key:null,dir:-1};
@@ -12168,7 +12179,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611141200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611141800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

@@ -552,9 +552,9 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
 </div></div>
 <div id="awk" role="alertdialog" aria-label="각성 성공" tabindex="-1"></div>
 
-<script src="brjhunt_audio.js?v=3"></script>
+<script src="brjhunt_audio.js?v=4"></script>
 <script src="brjhunt_sd.js?v=2"></script>
-<script src="brjhunt_arena.js?v=9"></script>
+<script src="brjhunt_arena.js?v=11"></script>
 <script src="brjhunt_relic.js?v=1"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
@@ -747,6 +747,8 @@ function initField(){
       else if(e.stage==='fire'){ snd('skill_'+id,{vol:.8}); setTimeout(()=>snd('skill_'+id+'_tail',{vol:.55}),260); }
       else if(e.stage==='hit') snd('hit_heavy',{vol:.38,rate:1.08},70);
       else if(e.stage==='shot') snd('hit',{vol:.32,rate:1.3},50); });
+    FIELD.on('ult',()=>snd('ult_in',{vol:.75})); FIELD.on('ultfire',e=>snd('ult_'+String((e&&e.kind)||''),{vol:.8}));   // 💥 동료 필살기: 컷씬 등장음 → 효과음
+    FIELD.on('allycast',()=>snd('ally_cast',{vol:.4},120)); FIELD.on('allyhit',()=>snd('ally_hit',{vol:.3},90));
     FIELD.on('instance',onInstance);
     FIELD.on('reward',onInstReward);
     FIELD.on('boss',e=>{
@@ -945,7 +947,7 @@ async function usePotion(kind){
   if(POT_CD[kind]>Date.now()) return;
   POT_BUSY=true;
   try{ const j=await call('/brj/potion_use',{kind}); if(j&&j.view) takeView(j);
-    if(j&&j.result==='ok'){ POT_CD[kind]=Date.now()+N(P.cd)*1000; try{ FIELD&&FIELD.potion(kind,j.pct); }catch(e){} snd('enhance_ok',{vol:.5}); }
+    if(j&&j.result==='ok'){ POT_CD[kind]=Date.now()+N(P.cd)*1000; try{ FIELD&&FIELD.potion(kind,j.pct); }catch(e){} snd('potion',{vol:.6}); }
     else if(j&&j.result==='cooldown'){ POT_CD[kind]=Date.now()+N(j.wait)*1000; }
     potSync(); softRefresh();
   }catch(e){ console.warn(e); } finally{ POT_BUSY=false; }

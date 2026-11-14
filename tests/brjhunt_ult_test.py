@@ -50,6 +50,19 @@ async def main(port):
         ok(await pg.evaluate("!FIELD.debug.E.cut"), '컷씬 간격(13초) 안에는 새 컷씬이 안 뜬다')
         # 알 수 없는 값은 안전한 기본(정규화)
         ok(await pg.evaluate("FIELD.debug.ultNow('zzz','qqq')") is False, '모르는 효과 종류(kind)는 필살기 없음으로 처리 — 에러 없이 건너뜀')
+        # 🐲 보스전: 싸움이 시작되면 한 판에 최대 2번 컷씬 + 보스에게 연출 · 보스전은 끝까지 정상 진행(결과 곡선은 그대로)
+        for kind in KINDS:
+            await pg.evaluate("()=>{FIELD.debug.clearMobs()}")
+            await pg.evaluate("(k)=>{FIELD.startChallenge({img:'taewoong',name:'테스트 보스',hp:1000,res:'win'}); window.__cuts=0; window.__ev=[]; (window.__offs||[]).forEach(f=>f()); window.__offs=[FIELD.on('ult',()=>window.__cuts++), FIELD.on('boss',e=>window.__ev.push(e.phase))]; const a=FIELD.debug.allies()[0]; a.pr.ult={nm:'시험',kind:k,quote:'보스에게',desc:'',col:'#ffd23c',cut:'zoom',cd:30,mult:200,hits:3,em:''}; for(const x of FIELD.debug.allies()) if(x!==a) x.pr.ult=null;}", kind)
+            await pg.evaluate("()=>{FIELD.debug.E.cutGap=0}")
+            for _ in range(60):
+                await pg.wait_for_timeout(500)
+                if await pg.evaluate("window.__ev.includes('win')"): break
+            cuts = await pg.evaluate("window.__cuts"); done = await pg.evaluate("window.__ev.includes('win')")
+            ok(1 <= cuts <= 2 and done, f'보스전 {kind}: 컷씬 {cuts}번(1~2) · 보스전 정상 종료(win={done})')
+            for _ in range(30):
+                if not await pg.evaluate("!!FIELD.stats().boss"): break
+                await pg.wait_for_timeout(500)
         ok(not errs, f'페이지 오류 0 {errs[:3]}')
         await b.close()
 s = socket.socket(); s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]; s.close()
