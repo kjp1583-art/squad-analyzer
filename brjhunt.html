@@ -1299,7 +1299,7 @@ function tabGrow(){
 
 
 // ----- 장비: 엘리트 소환 게이지 · 필드 드랍 장비 -----
-const LOOT_STAT={atk:['⚔','공격력',''],hp:['❤','체력',''],def:['🛡','방어력',''],crit:['🎯','크리 확률','%'],critdmg:['💥','크리 피해','%'],acc:['👁','명중','']};
+const LOOT_STAT={atk:['⚔','공격력',''],hp:['❤','체력',''],def:['🛡','방어력',''],crit:['🎯','크리 확률','%'],critdmg:['💥','크리 피해','%'],acc:['👁','명중',''],gold:['🪙','골드 획득','%'],elite:['👹','엘리트 충전','%']};
 const RAR_COL=['#9aa3ad','#4aa8ff','#b36bff','#ffb020','#ff4d6d'];
 function lootStat(s,v){ const a=LOOT_STAT[s]||['',s,'']; return `${a[0]} ${a[1]} +${a[2]==='%'?N(v).toFixed(1)+'%':fmt(Math.round(N(v)))}`; }
 function eliteBar(){
@@ -1464,6 +1464,7 @@ function tabAdv(){
     <div class="btns"><button class="btn ${N(kn.n)>0?'':'alt'}" data-do="dungeon">${du.sweep?'🧹 소탕하기':'🗝 던전 도전'}</button></div>
     <div class="mut" style="margin-top:6px">클리어 보상: 🔩 강화석 ${fmt(dr.stone_base)}개(10단계마다 +${fmt(dr.stone_per10)}) · 🪙 사냥 ${fmt(dr.gold_hours)}시간치 · ${fmt(dr.ticket_every)}단계마다 🎟 1장<br>소탕 보상: ${I('stone')}${fmt(sr.stone)}개 · 🪙 사냥 ${fmt(sr.gold_hours)}시간치 · ${fmt(sr.ticket_every_n)}번에 🎟 1장</div>
   </div>
+  ${neckCard()}
   <div class="card"><h2>🐲 이번 주 클랜 보스</h2>
     <div class="row2"><div class="bimg">${bossImg(cl.boss)}</div><div style="min-width:0"><b>${esc(cl.name)}</b><div class="mut">클랜 모두가 하나의 체력을 같이 깎아요 · 월요일 0시(KST)에 새 보스 · ${fmt(cl.days_left)}일 남음</div></div></div>
     <div style="margin-top:8px"><div class="bar"><i style="width:${Math.max(1,Math.min(100,N(cl.dmg_total)/Math.max(1,N(cl.hp))*100))}%"></i></div>
@@ -1671,6 +1672,39 @@ addEventListener('keydown',e=>{ if(e.key==='Escape'&&WOPEN&&!INSTANCE&&!document
 $('skipBtn').onclick=()=>{ if(INSTANCE&&INSTANCE.noskip) return; snd('click'); try{ if(FIELD) FIELD.skipInstance(); }catch(e){} };
 // sp: {kind, early(결과 전에 입장 연출부터), path, body, predict, start(j|null)→엔진에 줄 값, toResult(j)→엔진 결과 또는 null(연출 없음), after(j,played)→결과 문구, legacy()→엔진이 없을 때 옛 방식}
 const NOSKIP_IMG=new Set(['yongjo']);   // 건너뛰기를 없앤 보스 그림 키(용조련사)
+
+// ----- 📿 목걸이 던전 (2026-11-14) — 건너뛰기 없음 · 여기서만 목걸이가 나온다 -----
+let NECK_PICK=-1;
+function neckCard(){
+  const nk=V&&V.loot&&V.loot.neck; if(!nk||!Array.isArray(nk.tiers)) return '';
+  const best=nk.tiers.reduce((a,t)=>t.ok?t.i:a,0), pick=(NECK_PICK>=0&&NECK_PICK<nk.tiers.length)?NECK_PICK:best, t=nk.tiers[pick]||nk.tiers[0], run=nk.run;
+  const mm=Math.floor(N(nk.next_in)/60);
+  return `<div class="card"><h2>📿 목걸이 던전 <span class="pill">건너뛰기 없음</span></h2>
+    <div class="kv"><span>목걸이 열쇠</span><b>${I('key')}${fmt(nk.keys)} / ${fmt(nk.max)}</b></div>
+    <div class="mut">${fmt(Math.round(N(nk.every)/60))}분마다 1개 충전${N(nk.keys)>=N(nk.max)?' (가득 참)':` · 다음까지 약 ${fmt(mm)}분`}. 여기서만 <b>목걸이</b>가 나와요 — 주옵션과 하위옵션이 <b>랜덤</b>이라 좋은 걸 노리고 반복해요. 전투를 끝까지 봐야 결과가 나와요.</div>
+    <div class="btns" style="flex-wrap:wrap">${nk.tiers.map(x=>`<button class="btn ${x.i===pick?'gold':'alt'}" data-do="neckpick" data-i="${x.i}" ${x.ok?'':'style="opacity:.55"'}>${esc(x.name)}${x.ok?'':' 🔒'}</button>`).join('')}</div>
+    <div class="kv"><span>${esc(t.name)} — 권장 전투력</span><b class="${t.ok?'green':'red'}">${fmt(t.need)}${t.ok?'':` (내 ${fmt(nk.power)})`}</b></div>
+    <div class="kv"><span>목걸이 확률</span><b>${fmt(t.p)}% · 연속 ${fmt(nk.pity.max)}번째엔 확정 (지금 ${fmt(nk.pity.now)}연속 꽝)</b></div>
+    <div class="mut">등급: ${t.rates.filter(x=>N(x.pct)>0).map(x=>`${esc(x.name)} ${x.pct}%`).join(' · ')}</div>
+    <div class="btns"><button class="btn ${(N(nk.keys)>0&&t.ok)||run?'':'alt'}" data-do="neck">${run?'▶ 이어서 하기':'📿 도전'}</button></div>
+    <div class="mut" style="margin-top:6px">못 얻어도 위로로 🪙 골드와 🔩 강화석을 줘요. 지금까지 ${fmt(nk.runs)}번 돌아 ${fmt(nk.got)}개 얻었어요.</div>
+  </div>`;
+}
+async function neckSettle(id){
+  let res=null;
+  for(let k=0;k<6;k++){
+    const j=await call('/brj/neck_end',{id});
+    if(TRANSPORT.includes(j.code)&&!j.view){ await sleep(1500); continue; }
+    if(j.result==='early'){ await sleep(Math.max(500,N(j.wait)*1000)); continue; }
+    res=j; break;
+  }
+  if(!res){ say('결과를 아직 못 받았어요. 새로고침(↻)을 눌러 다시 들어오면 이어서 볼 수 있어요.','info'); return; }
+  takeView(res);
+  if(res.result==='drop'){ const it=res.item||{}; dropCard(it,res.auto); snd(N(it.rar)>=4?'levelup':N(it.rar)>=2?'reward_pop':'coin_big',{vol:.9}); say(`📿 ${esc(it.name||'목걸이')} 획득! (+${fmt(res.gold)} 골드 · 🔩 +${fmt(res.stone)})`,'ok'); }
+  else if(res.result==='nodrop'){ say(`이번엔 목걸이가 안 나왔어요… 🪙 +${fmt(res.gold)} · 🔩 +${fmt(res.stone)} (꽝이 쌓이면 확정으로 나와요)`,'info'); snd('coin'); }
+  else if(res.result==='expired') say('시간이 너무 지나 이번 판은 사라졌어요.','bad');
+  else say('이미 끝난 판이에요.','info');
+}
 async function runInstance(sp){
   if(BUSY||BOSS||INSTANCE) return;
   if(!FIELD||FIELD_FAIL||typeof FIELD.startInstance!=='function') return sp.legacy&&sp.legacy();
@@ -1702,7 +1736,7 @@ async function runInstance(sp){
         await Promise.race([endP,guard]);
       }
       if(INSTANCE.view) takeView({view:INSTANCE.view});
-      try{ sp.after(j,started); }catch(e){ console.warn(e); }
+      try{ await sp.after(j,started); }catch(e){ console.warn(e); }
     }
   }catch(e){ console.warn(e); try{ if(FIELD) FIELD.abortInstance(); }catch(x){} }
   finally{
@@ -1822,6 +1856,20 @@ const DO={
       toResult:j=>['win','lose','sweep','nokey'].includes(j.result)?{result:j.result,level:N(j.level)||lvl,got:j.got||{},power:N(j.power),hp:N(j.hp)}:null,
       after:(j,played)=>{ dungeonSay(j); if(!played){ if(j.result==='win') snd('levelup'); else if(j.result==='sweep') snd('coin'); } },
       legacy:dungeonLegacy}); },
+  neckpick:(el)=>{ const i=parseInt(el&&el.dataset?el.dataset.i:'-1',10); if(i>=0){ NECK_PICK=i; render(); } },
+  neck:()=>{
+    if(BUSY||BOSS||INSTANCE) return;
+    const nk=(V.loot&&V.loot.neck)||{}, tiers=nk.tiers||[], run=nk.run, ti=run?N(run.tier):((NECK_PICK>=0&&NECK_PICK<tiers.length)?NECK_PICK:tiers.reduce((a,t)=>t.ok?t.i:a,0)), tr=tiers[ti]||{name:'목걸이',img:'yongjo'};
+    let rid='';
+    return runInstance({kind:'dungeon',early:false,noskip:true,path:'/brj/neck',body:{tier:ti},
+      start:()=>({level:ti+1,img:String(tr.img||'yongjo'),name:'📿 목걸이 던전 · '+String(tr.name||'')}),
+      toResult:j=>{ if((j.result==='ok'||j.result==='active')&&j.run){ rid=String(j.run.id||''); return {result:'win',level:ti+1,got:{},power:N(nk.power),hp:1}; } return null; },
+      after:async(j,played)=>{
+        if(j.result==='nokey') say('목걸이 열쇠가 없어요. 시간이 지나면 충전돼요.','bad');
+        else if(j.result==='lose') say(`전투력이 모자라요. 내 ${fmt(j.power)} / 필요 ${fmt(j.need)} — 열쇠는 안 썼어요.`,'bad');
+        else if(rid) await neckSettle(rid);
+        else say('입장하지 못했어요. 새로고침(↻) 후 다시 해 보세요.','bad'); },
+      legacy:()=>say('전투 화면을 불러오지 못했어요. 새로고침(↻) 후 다시 해 주세요.','bad')}); },
   clanatk:()=>{
     if(BUSY||BOSS||INSTANCE) return;
     const cl0=(V.dungeon&&V.dungeon.clan)||{}, before=N(cl0.dmg_total), hp0=N(cl0.hp);
