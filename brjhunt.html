@@ -554,7 +554,7 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
 
 <script src="brjhunt_audio.js?v=3"></script>
 <script src="brjhunt_sd.js?v=2"></script>
-<script src="brjhunt_arena.js?v=7"></script>
+<script src="brjhunt_arena.js?v=8"></script>
 <script src="brjhunt_relic.js?v=1"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
@@ -1321,13 +1321,13 @@ function tabCos(){
   const card=k=>{ const key=esc(k.key), col=RC[k.rar]||'#9aa3ad';
     const btn=k.owned?(k.on?`<button class="btn alt" data-do="cosequip" data-slot="${esc(k.slot)}" data-key="">벗기</button>`:`<button class="btn gold" data-do="cosequip" data-key="${key}">입기</button>`)
       :`<button class="btn ${bal>=pr&&C.ok?'gold':'alt'}" data-do="cosbuy" data-key="${key}" data-name="${esc(k.name)}">🍘 ${fmt(pr)}개로 사기</button>`;
-    return `<div class="cos ${k.on?'on':''}" style="--rc:${col}"><div class="cimg"><span class="cem">${esc(k.emoji)}</span></div><div class="cnm">${esc(k.name)}</div><div class="cds"><b style="color:${col}">${esc(k.rar)}</b> · ${esc(k.desc)}<br><b class="green">보유 효과: 골드 +${g}%</b></div>${btn}</div>`; };
+    return `<div class="cos ${k.on?'on':''}" style="--rc:${col}"><div class="cimg">${/^img\/brjhunt\/parts\/[a-z_]+\.webp$/.test(String(k.img||''))?`<img src="${esc(k.img)}" alt="${esc(k.name)}" loading="lazy">`:`<span class="cem">${esc(k.emoji)}</span>`}</div><div class="cnm">${esc(k.name)}</div><div class="cds"><b style="color:${col}">${esc(k.rar)}</b> · ${esc(k.desc)}<br><b class="green">보유 효과: 골드 +${g}%</b></div>${btn}</div>`; };
   const bySlot=(C.slots||[]).map(sl=>{ const L=C.parts.filter(p=>p.slot===sl.key); return L.length?`<h3 class="skcat">${esc(sl.name)} <span class="mut">${fmt(L.filter(p=>p.owned).length)}/${fmt(L.length)}</span></h3><div class="cosgrid">${L.map(card).join('')}</div>`:''; }).join('');
   const skins=Array.isArray(C.skins)?C.skins:[];
   const skHtml=skins.length?`<h3 class="skcat">🌟 통짜 스킨 <span class="mut">(예전에 얻은 것 · 더는 팔지 않아요)</span></h3><div class="cosgrid">${skins.map(k=>`<div class="cos ${k.on?'on':''}"><div class="cimg"><img src="${esc(k.img)}" alt="${esc(k.name)}" loading="lazy"></div><div class="cnm">${esc(k.emoji)} ${esc(k.name)}</div><div class="cds">입으면 파츠는 가려져요 · 정지 그림이라 움직임은 단순해요</div>${k.on?`<button class="btn alt" data-do="cosequip" data-skin="">벗기</button>`:`<button class="btn gold" data-do="cosequip" data-skin="${esc(k.key)}">입기</button>`}</div>`).join('')}</div>`:'';
   const nOwn=C.parts.filter(p=>p.owned).length+skins.length;
   return `<div class="card"><h2>👗 꾸미기 <span class="pill gold">🍘 맛동산 ${fmt(bal)}개</span></h2>
-    <div class="sub">움직이는 병아리에 <b>머리·얼굴·목·등</b> 파츠를 겹쳐 입어요(칸마다 하나씩). 하나에 <b>🍘 맛동산 ${fmt(pr)}개</b>(1천원)고, 가지고만 있어도 <b>획득 골드가 하나당 +${g}%</b> 늘어요(지금 ${fmt(nOwn)}개 · +${(nOwn*g).toFixed(1)}%).${C.ok?'':'<br><b class="red">지금은 맛동산 장부를 읽는 중이라 살 수 없어요. 잠시 뒤 새로고침해 주세요.</b>'}</div>
+    <div class="sub">움직이는 병아리에 <b>머리·얼굴·목·몸·등</b> 파츠를 겹쳐 입어요(칸마다 하나씩). 하나에 <b>🍘 맛동산 ${fmt(pr)}개</b>(1천원)고, 가지고만 있어도 <b>획득 골드가 하나당 +${g}%</b> 늘어요(지금 ${fmt(nOwn)}개 · +${(nOwn*g).toFixed(1)}%).${C.ok?'':'<br><b class="red">지금은 맛동산 장부를 읽는 중이라 살 수 없어요. 잠시 뒤 새로고침해 주세요.</b>'}</div>
     ${bySlot}${skHtml}
     ${bal<pr?`<div class="mut" style="margin-top:8px">맛동산이 모자라요. 맛동산은 후원 답례로 받는 화폐예요(1천원당 1개). 디스코드 <b>/후원</b> 안내를 봐 주세요.</div>`:''}
   </div>`;

@@ -16,7 +16,7 @@ def ok(c, m):
     if not c: fails.append(m)
 async def run(b, port, vp, tag):
     st = {'md': 2, 'own': [], 'worn': {}, 'buys': 0}
-    SLOT = {'crown': 'head', 'bow': 'head', 'wizard': 'head', 'mohawk': 'head', 'headphones': 'head', 'sunglasses': 'face', 'scarf': 'neck', 'bowtie': 'neck', 'cape': 'back', 'wings': 'back'}
+    SLOT = {'crown': 'head', 'bow': 'head', 'wizard': 'head', 'mohawk': 'head', 'headphones': 'head', 'sunglasses': 'face', 'scarf': 'neck', 'bowtie': 'neck', 'cape': 'back', 'wings': 'back', 'sg_tiara': 'head', 'sg_dress': 'body', 'pp_shades': 'face', 'pp_flower': 'head', 'pp_aloha': 'body', 'pp_ring': 'back', 'tf_hat': 'head', 'tf_coat': 'body'}
     def view():
         v = json.loads(json.dumps(VIEW)); C = v['view']['cos']; C['md'] = st['md']; C['worn'] = dict(st['worn'])
         for p in C['parts']: p['owned'] = p['key'] in st['own']; p['on'] = st['worn'].get(p['slot']) == p['key']
@@ -46,7 +46,7 @@ async def run(b, port, vp, tag):
     await pg.add_init_script("localStorage.setItem('sgg_dc',JSON.stringify({id:'1',name:'유저1',avatar:'',token:'t1',exp:Date.now()+86400000}));localStorage.setItem('sgg_dc_auto','0');")
     await pg.goto(f'http://127.0.0.1:{port}/brjhunt.html'); await pg.wait_for_timeout(2500)
     await pg.evaluate("()=>document.querySelector('[data-tab=cos]').click()"); await pg.wait_for_timeout(500)
-    ok(await pg.evaluate("()=>document.querySelectorAll('.cos').length") == 10, f'{tag} 꾸미기 창에 파츠 10종')
+    ok(await pg.evaluate("()=>document.querySelectorAll('.cos').length") == 18, f'{tag} 꾸미기 창에 파츠 18종(코드 10 + 스킨에서 잘라낸 이미지 8)')
     ok('맛동산 2개' in await pg.evaluate("()=>document.getElementById('main').textContent"), f'{tag} 내 맛동산 잔액 표시')
     ok('보유 효과' in await pg.evaluate("()=>document.getElementById('main').textContent"), f'{tag} 파츠마다 보유 효과(골드) 안내')
     await pg.evaluate("()=>document.querySelector('[data-do=cosbuy][data-key=crown]').click()"); await pg.wait_for_timeout(700)
@@ -61,6 +61,13 @@ async def run(b, port, vp, tag):
     ok(await pg.evaluate("()=>FIELD.debug.E.skinPath===null"), f'{tag} 통짜 스킨은 안 쓴다(파츠는 기본 병아리 위에)')
     await pg.evaluate("()=>document.querySelector('[data-do=cosequip][data-slot=head]').click()"); await pg.wait_for_timeout(600)
     ok('head' not in st['worn'] and await pg.evaluate("()=>FIELD.debug.E.parts.map(x=>x.key).join()") == 'cape', f'{tag} 머리 파츠만 벗기')
+    # 🎴 스킨에서 잘라 낸 이미지 파츠 8종 — 입히면 E.parts 에 실리고 그림 파일이 실제로 로드돼 그려진다(한 장씩 입혀 본다)
+    for k, sl in [('sg_tiara', 'head'), ('sg_dress', 'body'), ('pp_shades', 'face'), ('pp_flower', 'head'), ('pp_aloha', 'body'), ('pp_ring', 'back'), ('tf_hat', 'head'), ('tf_coat', 'body')]:
+        await pg.evaluate("(k)=>{FIELD.setParts({[(FIELD.debug.E.parts||[]).length?'zz':'zz']:null});}", k)
+        await pg.evaluate("([k,sl])=>FIELD.setParts({[sl]:k})", [k, sl]); await pg.wait_for_timeout(900)
+        got = await pg.evaluate("(k)=>FIELD.debug.E.parts.map(x=>x.key).join()", k)
+        loaded = await pg.evaluate("(k)=>{const i=new Image();return new Promise(r=>{i.onload=()=>r(i.naturalWidth);i.onerror=()=>r(0);i.src='img/brjhunt/parts/'+k+'.webp'})}", k)
+        ok(got == k and loaded > 20, f'{tag} 이미지 파츠 {k} 입힘·그림 파일 로드({loaded}px)')
     ov = await pg.evaluate("()=>({sw:document.documentElement.scrollWidth,w:innerWidth})")
     ok(ov['sw'] <= ov['w'] + 1, f'{tag} 가로 넘침 없음 {ov}')
     ok(not errs, f'{tag} 페이지 오류 0 {errs[:2]}'); await pg.close()

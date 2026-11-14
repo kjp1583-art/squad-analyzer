@@ -378,7 +378,7 @@
       ctx.restore();
     }
     // 👗 [2026-11-13 사장님 「꾸미기를 기본 브장신 일러스트에 의상·악세사리·헤어 파츠로」] 움직이는 병아리 시트의 머리 위치(ANCH)에 코드로 그린 파츠를 얹는다 — 달리기·공격·점프 모두 같이 움직인다
-    const PART_SLOTS = { back: 0, neck: 1, face: 2, head: 3 };
+    const PART_SLOTS = { back: 0, body: 0.5, neck: 1, face: 2, head: 3 };
     const PARTS = {   // 키 -> 슬롯 · 그리기(c, 머리중심 x·y, 반지름 R, 눈중심 ex·ey, 보는 방향 d(-1·0·1), 시간 t)
       cape: { slot: 'back', fn(c, x, y, R, ex, ey, d, t) { const sh = -(d || 0) * 0.5 * R, w = Math.sin(t * 6) * 0.12 * R; c.fillStyle = '#c8203a'; c.strokeStyle = '#6a0e1e'; c.lineWidth = R * 0.07; c.beginPath(); c.moveTo(x + sh - 0.5 * R, y + 0.8 * R); c.lineTo(x + sh + 0.5 * R, y + 0.8 * R); c.lineTo(x + sh + 0.8 * R + w, y + 1.85 * R); c.quadraticCurveTo(x + sh, y + 2.0 * R + w, x + sh - 0.8 * R + w, y + 1.85 * R); c.closePath(); c.fill(); c.stroke(); } },
       wings: { slot: 'back', fn(c, x, y, R, ex, ey, d, t) { const fl = Math.sin(t * 7) * 0.2; for (const sd of [-1, 1]) { c.save(); c.translate(x + sd * 0.95 * R, y + 0.85 * R); c.rotate(sd * (0.6 + fl)); c.fillStyle = '#fff'; c.strokeStyle = '#bcc8ff'; c.lineWidth = R * 0.06; c.beginPath(); c.ellipse(0, -0.35 * R, 0.24 * R, 0.62 * R, 0, 0, 6.3); c.fill(); c.stroke(); c.restore(); } } },
@@ -390,6 +390,22 @@
       wizard: { slot: 'head', fn(c, x, y, R, ex, ey, d, t) { const f = d || 1; c.fillStyle = '#6a3fc8'; c.strokeStyle = '#2a1060'; c.lineWidth = R * 0.06; c.beginPath(); c.moveTo(x - 0.62 * R, y - 0.8 * R); c.quadraticCurveTo(x - 0.2 * R, y - 1.6 * R, x + f * 0.5 * R + Math.sin(t * 3) * 0.05 * R, y - 2.15 * R); c.quadraticCurveTo(x + 0.35 * R, y - 1.5 * R, x + 0.62 * R, y - 0.8 * R); c.closePath(); c.fill(); c.stroke(); c.fillStyle = '#4a2a98'; c.beginPath(); c.ellipse(x, y - 0.8 * R, 0.98 * R, 0.2 * R, 0, 0, 6.3); c.fill(); c.stroke(); c.fillStyle = '#ffe27a'; c.beginPath(); c.arc(x - 0.1 * R, y - 1.35 * R, 0.1 * R, 0, 6.3); c.fill(); c.beginPath(); c.arc(x + 0.2 * R, y - 1.65 * R, 0.07 * R, 0, 6.3); c.fill(); } },
       mohawk: { slot: 'head', fn(c, x, y, R, ex, ey, d, t) { c.fillStyle = '#ff3a4a'; c.strokeStyle = '#7a0a18'; c.lineWidth = R * 0.05; for (let i = -2; i <= 2; i++) { const bx = x + i * 0.22 * R, by = y - 0.95 * R + Math.abs(i) * 0.1 * R, sw = Math.sin(t * 4 + i) * 0.03 * R; c.beginPath(); c.moveTo(bx - 0.12 * R, by + 0.05 * R); c.lineTo(bx + i * 0.06 * R + sw, by - (0.6 - Math.abs(i) * 0.1) * R); c.lineTo(bx + 0.12 * R, by + 0.05 * R); c.closePath(); c.fill(); c.stroke(); } } },
       headphones: { slot: 'head', fn(c, x, y, R) { c.strokeStyle = '#2a2d3a'; c.lineWidth = R * 0.14; c.lineCap = 'round'; c.beginPath(); c.arc(x, y, R * 1.02, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); c.fillStyle = '#ff5a8a'; c.strokeStyle = '#7a1a40'; c.lineWidth = R * 0.05; for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(x + sd * 1.0 * R, y + 0.02 * R, 0.22 * R, 0.34 * R, 0, 0, 6.3); c.fill(); c.stroke(); } } }
+    };
+    // 🎴 [2026-11-14 사장님 「별수호자·수영장파티·트위스티드 스킨을 파츠로 쪼개 꾸미기로 재출시」] 통짜 스킨 그림에서 잘라 낸 이미지 파츠 — parts.json 의 머리 기준 좌표(ox·oy·w·h 는 머리 반지름 R 단위)로 얹는다
+    let IMGP = null;
+    if (!opts.noManifest && typeof fetch !== 'undefined') {
+      try {
+        fetch(base + 'img/brjhunt/parts/parts.json').then(r => r.ok ? r.json() : null).then(j => {
+          if (!j || typeof j !== 'object') return; IMGP = j;
+          for (const k in j) { const m = j[k]; if (k[0] === '_' || !m || !m.file || PARTS[k] || !(m.slot in PART_SLOTS || m.slot === 'body')) continue;
+            PARTS[k] = { slot: m.slot, fn(c, x, y, R) { const im = ld('img/brjhunt/parts/' + m.file); if (im) c.drawImage(im, x + m.ox * R, y + m.oy * R, m.w * R, m.h * R); } }; }
+          if (E.partsWant) E.setPartsNow(E.partsWant);
+        }).catch(() => { });
+      } catch (e) { }
+    }
+    E.setPartsNow = function (o) {
+      const out = []; if (o && typeof o === 'object') for (const sl of ['back', 'body', 'neck', 'face', 'head']) { const k = o[sl]; if (typeof k === 'string' && PARTS[k] && PARTS[k].slot === sl) out.push({ slot: sl, key: k }); }
+      E.parts = out;
     };
     function drawChickParts(g, back) {
       for (const it of E.parts) { const pd = PARTS[it.key]; if (!pd || (pd.slot === 'back') !== back) continue; try { pd.fn(ctx, g.x, g.y, g.R, g.ex, g.ey, g.d, E.t); } catch (e) { if (!E.partErr) { E.partErr = String(e); console.warn('parts', e); } } }
@@ -2661,9 +2677,8 @@
         if (kind === 'mp') { const v = Math.round(P.mpMax * pct); P.mp = Math.min(P.mpMax, P.mp + v); say('+' + fmtNum(v) + ' MP', P.x, P.y - PH - 8, 'h', 15, '#7fb8ff'); ring(P.x, P.y - 18, '#6fa8ff', 46, 0.45); for (let d = 0; d < (E.low ? 4 : 9); d++) newPart('spark', P.x + (rnd() - 0.5) * 26, P.y - 8 - rnd() * 30, (rnd() - 0.5) * 40, -60 - rnd() * 50, 0.6, 7, '#9cc8ff'); }
         else { const v = Math.round(P.hpMax * pct); P.hp = Math.min(P.hpMax, P.hp + v); say('+' + fmtNum(v), P.x, P.y - PH - 8, 'h', 16, '#7dff9a'); ring(P.x, P.y - 18, '#6fe89a', 46, 0.45); for (let d = 0; d < (E.low ? 4 : 9); d++) newPart('spark', P.x + (rnd() - 0.5) * 26, P.y - 8 - rnd() * 30, (rnd() - 0.5) * 40, -60 - rnd() * 50, 0.6, 7, '#9dffbe'); }
       },
-      setParts(o) {   // {head:'crown', face:'sunglasses', neck:'scarf', back:'cape'} — 슬롯마다 하나
-        const out = []; if (o && typeof o === 'object') for (const sl of ['back', 'neck', 'face', 'head']) { const k = o[sl]; if (typeof k === 'string' && PARTS[k] && PARTS[k].slot === sl) out.push({ slot: sl, key: k }); }
-        E.parts = out;
+      setParts(o) {   // {head:'crown', face:'sunglasses', neck:'scarf', back:'cape', body:'tf_coat'} — 슬롯마다 하나
+        E.partsWant = o; E.setPartsNow(o);
       },
       setSkin(p) { { const m = (typeof p === 'string') ? /^img\/brjang\/skins\/([a-z_]+)\/front\.png$/.exec(p) : null; E.skinPath = m ? p : null; E.skinKey = m ? m[1] : ''; } },
       summonElite, dropFx, hasElite: () => !!(E.elite && E.elite.st !== 'dying'), clearElite() { if (E.elite) { E.elite.st = 'dying'; E.elite.t = 0; E.elite = null; } },
