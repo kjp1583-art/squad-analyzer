@@ -684,7 +684,9 @@ function toast(t){ const b=$('toastBox'); const d=document.createElement('div');
 // 엔진이 서버가 준 스탯으로 전투를 계산해 보여 주고, 실제로 잡은 마리 수를 30초마다 /brj/hunt 로 알린다. 골드·승패는 서버가 정한다.
 let INSTANCE=null, INSTBOSS=false;   // 인스턴스 연출(열쇠 던전·클랜 보스·보상) 진행 중인 것
 let FIELD=null, FIELD_FAIL=false, BOSS=null, KILLS=0, BOSS_T=0, GOT=0, CHAIN={n:0,t:0}, LASTCOMBO=0;
-const HQ={k:0,s:0,busy:false,last:0,min:0,rej:0,fail:'',note:''};   // 보내지 못한 마리 수·초(서버가 「아직」이라 한 것만 쌓아 둔다)
+const HQ={k:0,s:0,busy:false,last:0,min:0,rej:0,fail:'',note:''};
+let LAST_OK=0;   // 마지막으로 사냥 보고가 받아들여진 시각 — 이 뒤 90초 안이면 「온라인(직접 사냥 중)」
+function isOnline(){ return !document.hidden&&Date.now()-LAST_OK<90000; }   // 보내지 못한 마리 수·초(서버가 「아직」이라 한 것만 쌓아 둔다)
 function skList(){ const s=V&&V.skill; return s&&Array.isArray(s.list)?s.list:[]; }
 function skById(id){ return skList().find(x=>x&&x.id===id)||null; }
 function equippedActives(){
@@ -790,6 +792,7 @@ async function sendHunt(keepalive){
   HQ.busy=false;
   if(!j||typeof j!=='object'){ dropHunt(secs,kills); HQ.fail='net'; huntNote('사냥 보고를 보내지 못했어요 — 이번 30초는 골드가 안 쌓여요'); return; }
   if(j.ok){
+    LAST_OK=Date.now();
     HQ.k=Math.max(0,HQ.k-kills); HQ.s=Math.max(0,HQ.s-secs); HQ.rej=0; HQ.fail=''; HQ.min=Date.now()+secs*700;
     const got=N(j.got); GOT+=got; if(takeView(j)) softRefresh();
     if(got>0){ bump($('chip_gold')); }
@@ -1040,10 +1043,10 @@ function bossGate(){   // 지금 막힌 보스 관문(모험 탭의 「도전」
   const g=R(V.dungeon,'gate',{}); const bs=Array.isArray(g.bosses)?g.bosses:[];
   return bs.find(b=>N(g.stage)>0&&N(b.stage)===N(g.stage)&&!b.cleared)||null;
 }
-function pendNow(){
-  const cap=N(V.cap_h)||12, dt=(Date.now()-FETCHED)/3600000;
+function pendNow(){   // 🪙 [2026-11-14 사장님 「온라인일 땐 직접 획득, 오프라인일 땐 일정 부분만 수령」] 수령 칸 = 오프라인 동안 쌓인 몫(비율 적용) + 내전 부스트. 직접 사냥 중엔 시간이 흘러도 안 늘어난다(그 시간은 사냥 보고가 직접 골드로 쳐 준다)
+  const cap=N(V.cap_h)||12, dt=isOnline()?0:(Date.now()-FETCHED)/3600000, ratio=V.off_ratio!=null?N(V.off_ratio):1;
   const hrs=Math.min(cap,N(V.hours)+dt);
-  return Math.floor(N(V.rate)*(hrs+N(V.boost)));
+  return Math.floor(N(V.rate)*(hrs*ratio+N(V.boost)));
 }
 function modPills(){
   const c=R(R(V.stats,'combat',null),'mods',null)||{}, out=[];
@@ -1065,16 +1068,16 @@ function tabHunt(){
   return `
   ${uq}
   <div class="card">
-    <div class="hunthero"><div style="min-width:0"><div class="sub">쌓인 사냥 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
+    <div class="hunthero"><div style="min-width:0"><div class="sub">오프라인 동안 쌓인 골드</div><div class="big gold">${I('gold')}<span id="pend">${fmt(pendNow())}</span></div></div>
       <button class="btn gold" data-do="collect" style="min-width:118px;font-size:17px;padding:10px 12px" aria-label="쌓인 사냥 골드 수령하기">수령</button></div>
     <div class="sub" style="margin-top:6px">시간당 ${I('gold')}<b>${fmt(v.rate)}</b> = 분당 약 <b>${fmt(Math.round(kpmNow()))}</b>마리 × 몬스터 1마리 드랍 (${perKillTxt()})</div>
     <div class="sub" style="margin-top:4px">⚔ 내 전투력 <b>${fmt(v.power)}</b> · 이 필드 권장 ${fmt(v.rec)} · 다음 도전 던전 기준 <b class="${v.power_ok?'green':'red'}">${fmt(v.chal_hp)}</b> ${v.power_ok?'✔ 도전할 수 있어요':'· 더 강해지면 이겨요'}</div>
     <div class="bar g" style="margin-top:8px" role="progressbar" aria-label="쌓인 시간" aria-valuemin="0" aria-valuemax="${fmt(v.cap_h)}" aria-valuenow="${N(v.hours).toFixed(1)}"><i style="width:${hpct}%"></i></div>
-    <div class="sub" style="margin-top:3px">${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`지금 ${N(v.hours).toFixed(1)}시간 쌓임 (최대 ${fmt(v.cap_h)}시간)`}</div>
+    <div class="sub" style="margin-top:3px">${full?'<b class="red">가득 찼어요! 받아야 더 쌓여요</b>':`오프라인 ${N(v.hours).toFixed(1)}시간 쌓임 · 직접 사냥 수입의 <b>${Math.round((v.off_ratio!=null?N(v.off_ratio):1)*100)}%</b>만 쌓여요 (최대 ${fmt(v.cap_h)}시간)`}</div>
     ${N(v.boost)>0?`<div class="sub green">⚔ 내전 부스트 ${fmt(v.boost)}시간치가 더해져요 (내전 1판 = 사냥 1시간)</div>`:`<div class="mut">내전을 1판 뛸 때마다 사냥 1시간치가 더 쌓여요 (최대 ${fmt(v.boost_max)}시간)</div>`}
     ${eliteBar()}
     ${mods.length?`<div class="mults">${mods.map(m=>`<span class="pill gold">${esc(m)}</span>`).join('')}</div><div class="mut" style="margin-top:4px">전투 스탯에 더해지는 보너스예요. 골드를 곱해 주는 배율은 없어요.</div>`:''}
-    <div class="mut" style="margin-top:6px"><b>직접 잡은 만큼 골드가 돼요.</b> 필드에서 잡은 마리 수는 30초마다 서버에 보고되고(창을 닫거나 숨겨도 그때까지 한 것은 보내요), 그만큼 몬스터 드랍 골드가 쌓여요. AUTO 로 두면 위의 분당 처치와 비슷하게 벌고, 직접 잘 하면 최대 40% 더 벌 수 있어요. 앱을 꺼 두면 서버가 같은 계산으로 쌓아 줘요.${HQ.note&&HQ.fail?` <span class="red">(${esc(HQ.note)})</span>`:''}</div>
+    <div class="mut" style="margin-top:6px"><b>접속해서 직접 사냥하는 동안은 골드가 바로 들어오고, 이 수령 칸에는 쌓이지 않아요.</b> 접속하지 않은(오프라인) 시간만 위 비율로 쌓여서 수령으로 받아요. <b>직접 잡은 만큼 골드가 돼요.</b> 필드에서 잡은 마리 수는 30초마다 서버에 보고되고(창을 닫거나 숨겨도 그때까지 한 것은 보내요), 그만큼 몬스터 드랍 골드가 쌓여요. AUTO 로 두면 위의 분당 처치와 비슷하게 벌고, 직접 잘 하면 최대 40% 더 벌 수 있어요. 앱을 꺼 두면 서버가 같은 계산으로 쌓아 줘요.${HQ.note&&HQ.fail?` <span class="red">(${esc(HQ.note)})</span>`:''}</div>
   </div>
   ${f&&mon?`<div class="card">
     <h2>📍 ${esc(f.region||v.region)} <span class="pill">스테이지 ${fmt(st)}</span></h2>
