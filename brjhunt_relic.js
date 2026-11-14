@@ -11,7 +11,7 @@ const ART={   // 키 → 이모지(또는 나중에 <img> 경로로 바꿀 자�
 };
 const RAR_C=['#8fa3b8','#b36cff','#ff9d2e','#ff4f6b'], ABI_C=['#8fa3b8','#b36cff','#ffb02e','#43d17a'];
 const ST={sub:'relic',sel:null,res:null,lock:null,mergeSlot:'crown'};
-const SUBS=[['relic','🏺 유물'],['abi','🔮 어빌리티'],['uq','🌟 고유'],['dun','⛏ 던전'],['shop','🛒 상점']];
+const SUBS=[['relic','🏺 유물'],['abi','🔮 어빌리티'],['uq','🌟 고유'],['shop','🛒 상점']];
 const g=n=>window[n];
 const esc_=s=>(typeof esc==='function')?esc(s):String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>{ const x=Number(v); return Number.isFinite(x)?x:0; };
@@ -174,10 +174,18 @@ const DO_={
   rlbox:()=>B('/brj/rl_shop',{key:'box1'},j=>{ if(j.result==='ok'){ ST.res=j.got||null; snd('summon'); say('🎁 유물상자를 열었어요!','ok'); } else say(MSG[j.result]||'열지 못했어요.','bad'); }),
   rlbuy:el=>{ const nm=el.dataset.name||'이 상품'; if(!confirm(`「${nm}」을(를) 살까요?`)) return;
     B('/brj/rl_shop',{key:el.dataset.key},j=>{ if(j.result==='ok'){ const gt=j.got||{}; ST.res=(gt.relics&&gt.relics.length)||(gt.unique&&gt.unique.length)||gt.dust?gt:null; say(`🛒 「${nm}」을(를) 샀어요!`,'ok'); snd('summon'); } else say(MSG[j.result]||'사지 못했어요.','bad'); }); },
-  rldun:el=>B('/brj/rl_dungeon',{dun:el.dataset.dun,tier:Number(el.dataset.tier)},j=>{
-    if(j.result==='win'){ const k=Object.keys(j.got||{}).find(x=>x!=='dust'); say(`⛏ 클리어! ${cur(k)} +${fm((j.got||{})[k])}${num((j.got||{}).dust)?` · ${cur('dust')} +${fm(j.got.dust)}`:''}`,'ok'); snd('levelup'); }
-    else if(j.result==='lose') say(`💥 전투력이 모자라요 (내 ${fm(j.power)} / 필요 ${fm(j.need)}). 입장 횟수는 그대로예요.`,'bad');
-    else say(MSG[j.result]||'입장하지 못했어요.','bad'); }),
+  rldun:el=>{   // ⛏ 건너뛰기 없는 전투 연출(2026-11-14 사장님 「유물던전도 모험쪽으로 · 스킵 안 되게」)
+    if(typeof runInstance!=='function'){ say('전투 화면을 불러오지 못했어요. 새로고침(↻) 후 다시 해 주세요.','bad'); render(); return; }
+    const key=el.dataset.dun, tier=Number(el.dataset.tier), v=RV()||{}, d=(v.dun||[]).find(x=>x.key===key)||{}, t=(d.tiers||[])[tier]||{};
+    const fin=j=>{
+      if(j.result==='win'){ const k=Object.keys(j.got||{}).find(x=>x!=='dust'); say(`⛏ 클리어! ${cur(k)} +${fm((j.got||{})[k])}${num((j.got||{}).dust)?` · ${cur('dust')} +${fm(j.got.dust)}`:''}`,'ok'); snd('levelup'); }
+      else if(j.result==='lose') say(`💥 전투력이 모자라요 (내 ${fm(j.power)} / 필요 ${fm(j.need)}). 입장 횟수는 그대로예요.`,'bad');
+      else say(MSG[j.result]||'입장하지 못했어요.','bad'); };
+    return runInstance({kind:'dungeon',early:false,noskip:true,path:'/brj/rl_dungeon',body:{dun:key,tier},
+      start:()=>({level:tier+1,img:'shinlim',name:String(d.name||'유물 던전'),label:`${d.emoji||'⛏'} ${d.name||'유물 던전'} · ${t.name||''}`}),
+      toResult:j=>j.result==='win'?{result:'win',level:tier+1,got:{},power:num(j.power),hp:1}:null,
+      after:(j)=>fin(j),
+      legacy:()=>say('전투 화면을 불러오지 못했어요. 새로고침(↻) 후 다시 해 주세요.','bad')}); },
   rlroll:()=>{ const v=RV(); if(!v) return; B('/brj/rl_abi',{act:'roll',lock:(ST.lock||[]).map(Boolean)},j=>{ if(j.result==='ok'){ snd('summon'); say(j.view&&j.view.relic&&j.view.relic.abi&&j.view.relic.abi.pend?'🔮 새 결과가 나왔어요. 비교해서 정하세요.':'🔮 어빌리티가 정해졌어요!','ok'); } else say(j.result==='short'?`🔮 수정이 모자라요${j.cost?` (${fm(j.cost)} 필요)`:''}.`:(MSG[j.result]||'굴리지 못했어요.'),'bad'); }); },
   rlapply:()=>B('/brj/rl_abi',{act:'apply'},j=>sayR(j,'🔮 새 결과로 바꿨어요!')),
   rlkeep:()=>B('/brj/rl_abi',{act:'keep'},j=>sayR(j,'지금 걸 유지했어요.')),
@@ -193,5 +201,6 @@ document.addEventListener('change',e=>{   // 어빌리티 줄 잠금 체크(서�
   ST.lock=nx; if(typeof render==='function') render();
 });
 function fx(){ const v=RV(); return v&&v.fx?v.fx:{}; }
-window.BrjRelic={tab,DO:DO_,fx,ART,_st:ST};
+function dunCard(){ const v=RV(); if(!v||!Array.isArray(v.dun)||!v.dun.length) return ''; return subDun(v); }   // 🏺 일일 던전은 모험 탭에 둔다(2026-11-14)
+window.BrjRelic={tab,DO:DO_,fx,ART,dunCard,_st:ST};
 })();

@@ -671,8 +671,8 @@
       sparks(m.x - dirx * 4, hy, dirx, crit ? '#ffe9a0' : (o.col || '#ffffff'), crit ? 10 : 5, crit ? 240 : 170);
       newPart('flash', m.x, hy, 0, 0, 0.12, crit ? 26 : 16, crit ? '#fff2b0' : (o.col || '#ffffff'));
       if (o.ally) { /* 동료의 타격은 화면 흔들림·정지·콤보를 만들지 않는다(병아리 조작감 보존) */ }
-      else if (crit) { newPart('star', m.x, hy - 4, 0, -20, 0.38, 22, '#ffd23c'); E.zoom = Math.max(E.zoom, 0.04); E.shake = Math.max(E.shake, 3.2); E.hitstop = Math.max(E.hitstop, 0.05); }
-      else if (o.skill) { E.shake = Math.max(E.shake, 1.8); E.hitstop = Math.max(E.hitstop, 0.025); }
+      else if (crit) { newPart('star', m.x, hy - 4, 0, -20, 0.38, 22, '#ffd23c'); E.zoom = Math.max(E.zoom, 0.04); E.shake = Math.max(E.shake, 3.2); if (aliveCount() <= 3) E.hitstop = Math.max(E.hitstop, 0.05); }
+      else if (o.skill) { E.shake = Math.max(E.shake, 1.8); }   // 스킬(다단히트) 타격은 정지 없음
       else E.shake = Math.max(E.shake, 0.8);
       if (!o.ally) { E.combo++; E.comboT = 2.0; E.comboPunch = 1; if (E.combo > E.comboMax) E.comboMax = E.combo; emit('hit', { crit, dmg: d, skill: o.skill || null }); }
       else emit('allyhit', { dmg: d });
@@ -702,7 +702,7 @@
       for (let i = 0; i < nc; i++) newPart('coin', m.x, m.y - 14 * m.sc, (rnd() - 0.5) * 120, -150 - rnd() * 90, 6, 4.2, '#ffd23c').b = m.y;
       poof(m.x, m.y - 14 * m.sc, m.el ? '#ffd23c' : '#fff6c0', m.el ? 12 : 6, 100);
       ring(m.x, m.y - 12, m.el ? '#ffd23c' : '#fff6c0', m.el ? 54 : 34, 0.35);
-      E.hitstop = Math.max(E.hitstop, m.el ? 0.08 : 0.04); E.shake = Math.max(E.shake, m.el ? 4 : 1.6);
+      if (m.el) E.hitstop = Math.max(E.hitstop, 0.08); E.shake = Math.max(E.shake, m.el ? 4 : 1.6);
       emit('kill', { n: E.kills, gold: N(MON.gold) * (1) });
       emit('mobdie', { el: !!m.el, x: m.x });
     }
@@ -938,7 +938,7 @@
         if (s.id === 'bomb' && !quiet) dimTo(v.dim, v.dimCol, 0.5);
         for (let k = 0; k < s.hits; k++) later(0.16 + k * 0.11, () => {
           fxPush({ k: 'aoe', id: s.id, x: cx, y: cy, t: 0, life: 0.5, col, r, big }, s.id);
-          shk(v.shake * (k === s.hits - 1 ? 0.9 : 0.5)); hs(v.stop * 0.7);
+          shk(v.shake * (k === s.hits - 1 ? 0.9 : 0.5)); if (k === s.hits - 1 && aliveCount() <= 3) hs(v.stop * 0.7);
           if (s.id === 'bomb') {
             sf('sk_bomb', cx, cy - 26, r * 4.4, { life: 0.62, fr0: 1 });
             fxPush({ k: 'crack', x: cx, y: cy, w: r * 2.2, t: 0, life: 1.3, col }, s.id);
@@ -1533,7 +1533,7 @@
       map = genDungeonRoom(1000, kind === 'dungeon' ? 'dungeon' : 'arena');
       resetPlayerPos(kind === 'dungeon' ? 118 : 30); P.hp = P.hpMax; P.mp = P.mpMax; P.inv = 0; P.dead = false; P.face = 1; P.hurtT = 0; E.cam = 0; E.combo = 0; E.comboT = 0;
       const W = o.waves ? clamp(Math.floor(N(o.waves)), 2, 6) : clamp(3 + Math.floor((lvl - 1) / 8), 3, 5);
-      INS = { noSkip: !!o.noSkip, kind, level: lvl, name: String(o.name || ''), img: key, waves: W, wave: 0, phase: 'intro', pt: 0, t: 0, res: '', result: null, predict: String(o.predict || ''), noCtl: true, safe: true,
+      INS = { noSkip: !!o.noSkip, kind, level: lvl, label: String(o.label || ''), name: String(o.name || ''), img: key, waves: W, wave: 0, phase: 'intro', pt: 0, t: 0, res: '', result: null, predict: String(o.predict || ''), noCtl: true, safe: true,
         queue: 0, spawnT: 0, waveT: 0, crush: false, doorOpen: 0, shake: 0, locked: 0, done: false, spawnFail: 0, eliteDone: false, kills: 0,
         dmg: 0, K: 0, rem: 0, left: 0, total: 0, hits: 0, before: 0, after: 0, hpMax: 1, dead: false, notes: [], totalT: 0, flushT: 0, r0: 1, items: [], chest: null, ffN: 0, ffT: 0, tick: 0 };
       if (key) ld('img/brjang/boss/' + key + '/front.png');
@@ -1811,7 +1811,7 @@
       c.restore();
     }
     function drawInsHud(VW) {
-      const I = INS; if (!I) return; const c = ctx, ph = I.phase, kindName = I.kind === 'dungeon' ? '🗝 열쇠 던전 ' + I.level + '단계' : I.kind === 'clanboss' ? '🐲 클랜 보스' : '🍖 클랜 보스 보상';
+      const I = INS; if (!I) return; const c = ctx, ph = I.phase, kindName = I.kind === 'dungeon' ? (I.label || '🗝 열쇠 던전 ' + I.level + '단계') : I.kind === 'clanboss' ? '🐲 클랜 보스' : '🍖 클랜 보스 보상';
       let top = kindName;
       if (ph === 'wave' || ph === 'gap') top += ' · WAVE ' + Math.max(1, I.wave) + '/' + I.waves + (ph === 'wave' ? ' · 남은 ' + (aliveCount() + I.queue) : '');
       else if (ph === 'boss') top += I.kind === 'dungeon' ? ' · 수문장' : ' · 누적 피해 ' + I.total.toLocaleString('ko-KR');
@@ -1821,7 +1821,7 @@
       if (ph === 'hold') insPill(c, VW, '결과를 확인하고 있어요…', 28);
       if (ph === 'intro') {
         const q = clamp((I.pt - 0.1) / 1.7, 0, 1);
-        if (I.kind === 'dungeon') insBanner(c, VW, (I.res || I.predict) === 'nokey' ? '던전 입장!' : '던전 입장!', '열쇠 던전 ' + I.level + '단계', '#ffe27a', '#4a2e08', q, LH * 0.42);
+        if (I.kind === 'dungeon') insBanner(c, VW, (I.res || I.predict) === 'nokey' ? '던전 입장!' : '던전 입장!', (I.label || '열쇠 던전 ' + I.level + '단계'), '#ffe27a', '#4a2e08', q, LH * 0.42);
         else if (I.kind === 'clanboss') insBanner(c, VW, '클랜 보스 습격!', I.name || '이번 주 클랜 보스', '#ff8aa0', '#5a0a1e', q, LH * 0.42);
         else insBanner(c, VW, '보상 받기!', '클랜 보스를 함께 쓰러뜨렸어요', '#ffe27a', '#4a2e08', q, LH * 0.42);
       } else if (ph === 'wave' && I.pt < 1.1) insBanner(c, VW, 'WAVE ' + I.wave + '/' + I.waves, I.wave >= I.waves - 1 ? '곧 수문장이 나타나요!' : '몬스터가 몰려와요!', '#9be7ff', '#0a2f52', clamp(I.pt / 1.1, 0, 1), LH * 0.5);

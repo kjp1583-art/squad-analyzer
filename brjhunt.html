@@ -554,8 +554,8 @@ body.inboss #hudL,body.inboss #combo,#skipBtn{bottom:calc(var(--dockh,96px) + 8p
 
 <script src="brjhunt_audio.js?v=4"></script>
 <script src="brjhunt_sd.js?v=2"></script>
-<script src="brjhunt_arena.js?v=11"></script>
-<script src="brjhunt_relic.js?v=1"></script>
+<script src="brjhunt_arena.js?v=16"></script>
+<script src="brjhunt_relic.js?v=2"></script>
 <script>
 // ---------- 브장신 키우기 웹 사냥터 ----------
 // 로그인·서버 주소는 survivors.html 과 같은 방식(디스코드 토큰은 메인 사이트와 같은 localStorage 칸 sgg_dc).
@@ -1465,6 +1465,7 @@ function tabAdv(){
     <div class="mut" style="margin-top:6px">클리어 보상: 🔩 강화석 ${fmt(dr.stone_base)}개(10단계마다 +${fmt(dr.stone_per10)}) · 🪙 사냥 ${fmt(dr.gold_hours)}시간치 · ${fmt(dr.ticket_every)}단계마다 🎟 1장<br>소탕 보상: ${I('stone')}${fmt(sr.stone)}개 · 🪙 사냥 ${fmt(sr.gold_hours)}시간치 · ${fmt(sr.ticket_every_n)}번에 🎟 1장</div>
   </div>
   ${neckCard()}
+  ${window.BrjRelic&&BrjRelic.dunCard?BrjRelic.dunCard():''}
   <div class="card"><h2>🐲 이번 주 클랜 보스</h2>
     <div class="row2"><div class="bimg">${bossImg(cl.boss)}</div><div style="min-width:0"><b>${esc(cl.name)}</b><div class="mut">클랜 모두가 하나의 체력을 같이 깎아요 · 월요일 0시(KST)에 새 보스 · ${fmt(cl.days_left)}일 남음</div></div></div>
     <div style="margin-top:8px"><div class="bar"><i style="width:${Math.max(1,Math.min(100,N(cl.dmg_total)/Math.max(1,N(cl.hp))*100))}%"></i></div>
@@ -1862,7 +1863,7 @@ const DO={
     const nk=(V.loot&&V.loot.neck)||{}, tiers=nk.tiers||[], run=nk.run, ti=run?N(run.tier):((NECK_PICK>=0&&NECK_PICK<tiers.length)?NECK_PICK:tiers.reduce((a,t)=>t.ok?t.i:a,0)), tr=tiers[ti]||{name:'목걸이',img:'yongjo'};
     let rid='';
     return runInstance({kind:'dungeon',early:false,noskip:true,path:'/brj/neck',body:{tier:ti},
-      start:()=>({level:ti+1,img:String(tr.img||'yongjo'),name:'📿 목걸이 던전 · '+String(tr.name||'')}),
+      start:()=>({level:ti+1,img:String(tr.img||'yongjo'),name:'목걸이 수문장',label:'📿 목걸이 던전 · '+String(tr.name||'')}),
       toResult:j=>{ if((j.result==='ok'||j.result==='active')&&j.run){ rid=String(j.run.id||''); return {result:'win',level:ti+1,got:{},power:N(nk.power),hp:1}; } return null; },
       after:async(j,played)=>{
         if(j.result==='nokey') say('목걸이 열쇠가 없어요. 시간이 지나면 충전돼요.','bad');

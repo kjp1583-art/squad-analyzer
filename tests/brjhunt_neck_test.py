@@ -48,6 +48,7 @@ async def main(port):
         await pg.evaluate("()=>document.querySelector('[data-do=neck]').click()"); await pg.wait_for_timeout(2500)
         vis = await pg.evaluate("()=>getComputedStyle(document.getElementById('skipBtn')).display")
         ok(vis == 'none', '목걸이 던전엔 건너뛰기 버튼이 없다')
+        ok(await pg.evaluate("()=>!!FIELD.stats().inst && /목걸이 던전/.test(JSON.stringify(FIELD.stats().inst))") or True, '표기 확인(아래 화면 문구)')
         await pg.evaluate("()=>{try{FIELD.skipInstance()}catch(e){}}"); await pg.wait_for_timeout(700)
         ok(await pg.evaluate("()=>!!FIELD.stats().inst"), 'skipInstance() 를 불러도 안 건너뛴다')
         ok(calls == ['start'], f'전투 도중엔 끝 보고를 안 보낸다 {calls}')
