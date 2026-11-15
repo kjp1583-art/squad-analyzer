@@ -1913,6 +1913,18 @@ async function loadDeparted(){
 }
 // 👥 [2026-08-27 사장님 지시] 탈퇴 확정자는 명예의전당 '현재 랭킹'(망령·승률왕·기록실·견제압력·미토 다승·승부예측)에서 제외.
 //    커리어(대회 우승 역사)·멸망전 우승 뱃지는 역사 기록이라 유지. 닉변자는 과거 닉(별칭)까지 대조.
+/* 🦉 [P-48 · 2026-11-15] 새벽반 — 최근 2개월 시각이 적힌 판 10판↑ 중 새벽(0~4시 시작)이 절반 이상인 사람. 생활 패턴 칭찬(승패 무관) · 탈퇴자 제외 · 본계↔부계는 canonOfName 으로 한 사람. 기준값은 한 곳. */
+const NIGHTOWL_MIN=10, NIGHTOWL_SHARE=0.5, NIGHTOWL_DAYS=62, NIGHTOWL_H=5;
+function nightOwlOf(name){
+  try{
+    if(!name||isDeparted(name)) return null;
+    const cn=canonOfName(name); const parts=(typeof PLAYERS_ALL!=='undefined'&&PLAYERS_ALL.get(cn))||PLAYERS.get(cn); if(!parts||!parts.length) return null;
+    const cut=Date.now()-NIGHTOWL_DAYS*86400000; let n=0, k=0;
+    for(const r of parts){ const ds=String(r["날짜"]||""); if(ds.length<16) continue; const d=_rdt(ds); if(!d||d.getTime()<cut) continue; n++; if(d.getHours()<NIGHTOWL_H) k++; }
+    return (n>=NIGHTOWL_MIN&&k/n>=NIGHTOWL_SHARE)?{n,k,pct:Math.round(k/n*100)}:null;
+  }catch(e){ return null; }
+}
+function nightOwlChip(name){ const o=nightOwlOf(name); return o?` <span class="owlchip" title="최근 2개월 ${o.n}판 중 ${o.k}판(${o.pct}%)을 새벽 0~5시에 시작했어요" style="background:#26234a;color:#c9b8ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">🦉 새벽반</span>`:''; }
 function isDeparted(name){
   if(!DEPARTED_SET.size||!name) return false;
   if(DEPARTED_SET.has(tnorm(name))) return true;
@@ -5837,12 +5849,13 @@ function _npRoster(W){   // 📋 [2026-10-21 P-27] 이번 주 출석부 — 협�
   let meKey=null; try{ if(dcValid()){ meKey=_wkrvKey(DISCORD_USER.name)||null; } }catch(e){}
   const meTn=(dcValid()&&DISCORD_USER)?tnorm(DISCORD_USER.name):"";
   const isMe=x=>{ try{ const k=_wkrvKey(String(x.n)); return !!((meKey&&k&&k===meKey)||(meTn&&tnorm(String(x.n))===meTn)); }catch(e){ return false; } };
-  const line=(x,mine)=>`<div class="${mine?"np-me":""}" data-q="${escAttr(tnorm(String(x.n)))}">${mine?"⭐ ":""}${_npName(String(x.n))} <span class="rs">${N(x.g)}판 ${N(x.w)}승</span>${x.t?` <span class="rt">· ${esc(String(x.t).slice(0,30))}</span>`:""}</div>`;
+  const line=(x,mine)=>`<div class="${mine?"np-me":""}" data-q="${escAttr(tnorm(String(x.n)))}">${mine?"⭐ ":""}${_npName(String(x.n))}${x.o?' <span title="이번 주 판의 절반 이상을 새벽(0~5시)에 시작했어요">🦉</span>':''} <span class="rs">${N(x.g)}판 ${N(x.w)}승</span>${x.t?` <span class="rt">· ${esc(String(x.t).slice(0,30))}</span>`:""}</div>`;
   const mineRow=rows.find(isMe);
   const items=(mineRow?line(mineRow,true):"")+rows.filter(x=>x!==mineRow).map(x=>line(x,false)).join("");
+  const owls=rows.filter(x=>x.o);
   const search=rows.length>12?`<input type="search" class="np-roster-q" placeholder="🔎 이름으로 찾기" aria-label="출석부 이름 검색" oninput="_npRosterFind(this)" autocomplete="off">`:"";
   return `<details class="np-roster"><summary>📋 이번 주 출석부 (${rows.length}명) <span style="font-weight:400;font-size:12px;color:var(--ink3)">— 누르면 펼쳐져요</span></summary>
-    <div class="sub">협곡 내전에 뛴 분 전원이에요 · 이름을 누르면 프로필로 가요${mineRow?"":(dcValid()?"":" · 디스코드 로그인하면 내 줄이 맨 위에 떠요")}</div>${search}<div class="np-roster-grid">${items}</div><div class="np-roster-none" style="display:none">그 이름은 출석부에 없어요</div></details>`;
+    ${owls.length?`<div class="sub" style="color:#c9b8ff">🦉 이번 주 새벽반 ${owls.length}명 — ${owls.slice(0,12).map(x=>esc(String(x.n))).join(" · ")}${owls.length>12?" 외":""}</div>`:""}<div class="sub">협곡 내전에 뛴 분 전원이에요 · 이름을 누르면 프로필로 가요${mineRow?"":(dcValid()?"":" · 디스코드 로그인하면 내 줄이 맨 위에 떠요")}</div>${search}<div class="np-roster-grid">${items}</div><div class="np-roster-none" style="display:none">그 이름은 출석부에 없어요</div></details>`;
 }
 function _npRosterFind(inp){
   const q=tnorm(inp.value||""), box=inp.closest(".np-roster"); if(!box) return;
@@ -11068,7 +11081,7 @@ function renderPlayer(name){
       <div class="prof${_emb?' profemb':''}">
         <div class="profmain" style="flex:1">
           ${(()=>{const _pi=profIconHtml(name); return _pi?`<div class="pidrow">${_pi}<div class="pidtxt">`:"";})()}
-          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${nightOwlChip(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${profIconOf(name)?`</div></div>`:""}
           ${_ph?'':ctaHtml+statBox+nightHtml}
@@ -12179,7 +12192,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611142120";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611151000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
