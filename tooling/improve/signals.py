@@ -13,7 +13,7 @@
 
 출력: 사람이 읽는 요약 여러 줄 + 마지막 한 줄 `SIGNALS_JSON {...}`(기계용). 네트워크 실패는 그 항목만 '확인 불가'로 둔다.
 """
-import argparse, csv, datetime, hashlib, io, json, re, sys, time, urllib.parse, urllib.request
+import argparse, csv, datetime, hashlib, io, json, re, shutil, subprocess, sys, time, urllib.parse, urllib.request
 from collections import Counter, defaultdict
 
 SHEET_ID = "10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU"
@@ -133,7 +133,12 @@ def sheet_checks(now):
                     pc = Counter(x[ci["PUUID"]].strip().lower() for x in rs if x[ci["PUUID"]].strip())
                     d = sum(c - 1 for c in pc.values() if c > 1)
                     if d: dup.append((gid, d))
-                    if len(rs) != 10 and not all(v == "무효" for v in res_vals): odd.append((gid, len(rs)))
+                    # 칼바람은 4:4(8명)·3:3 판도 정상 — 양 팀 인원이 같고 6명 이상이면 이상으로 보지 않는다(협곡은 10명 고정)
+                    ok_size = len(rs) == 10
+                    if name == "KIWI_KIWI" and "진영" in ci and len(rs) >= 6:
+                        tc = Counter(x[ci["진영"]] for x in rs)
+                        ok_size = ok_size or (len(tc) == 2 and len(set(tc.values())) == 1)
+                    if not ok_size and not all(v == "무효" for v in res_vals): odd.append((gid, len(rs)))
             r.update(ok=True, games=len(g), games_7d=n7, stuck_results_14d=stuck, kda_date_coerced_30d=coerced30,
                      kda_date_coerced_all=coerced_all, dup_rows_7d=dup, non10_games_7d=odd)
         except Exception as e:
@@ -160,6 +165,41 @@ def versions(now, version_file):
     return r
 
 
+def actions_check(now):
+    """[A-37] 워크플로별 '마지막 성공 시각' 점검. 주 1회짜리 워크플로가 몇 주째 실패해도 '최근 24시간 실패'만 보면 안 보인다(A-36 사고).
+    `gh api` 가 있을 때만 돈다(없으면 건너뜀). 워크플로마다 따로 최근 실행 8개를 본다(잦은 워크플로가 주 1회짜리를 100개 창 밖으로 밀어내지 못하게).
+    대상: 최근 8회 안에 스케줄(cron) 실행이 있는 워크플로만(수동·일회성 제외). 표시 기준: 마지막 완료 실행이 실패 · 또는 최근 8개에 성공이 없음 · 또는 마지막 성공이 8일 이상 전."""
+    if not shutil.which("gh"): return {"ok": False, "error": "gh 없음"}
+    def gh(path, jq):
+        r = subprocess.run(["gh", "api", path, "--jq", jq], capture_output=True, text=True, timeout=60)
+        return r.stdout.splitlines() if r.returncode == 0 else None
+    out = {"ok": True, "repos": {}, "flag": []}
+    nowu = datetime.datetime.now(datetime.timezone.utc)
+    for repo in ("kjp1583-art/squad-analyzer", "kjp1583-art/squad-naejeon-bot"):
+        try:
+            wfs = gh(f"repos/{repo}/actions/workflows?per_page=100", '.workflows[]|select(.state=="active")|[.id,.name]|@tsv')
+            if wfs is None: out["repos"][repo] = {"error": "workflows 조회 실패"}; continue
+            res = {}
+            for line in wfs:
+                wid, nm = line.split("\t", 1)
+                rows = gh(f"repos/{repo}/actions/workflows/{wid}/runs?per_page=8", '.workflow_runs[]|[.created_at,.conclusion//"",.event]|@tsv')
+                if rows is None: res[nm] = {"error": "runs 조회 실패"}; continue
+                allr = [r.split("\t") for r in rows]
+                if not any(len(r) > 2 and r[2] == "schedule" for r in allr): continue   # 수동·일회성 워크플로는 점검 대상 아님
+                done = [r for r in allr if r[1] in ("success", "failure")]
+                last = done[0] if done else None
+                ok = next((r[0] for r in done if r[1] == "success"), None)
+                ok_age = (nowu - datetime.datetime.fromisoformat(ok.replace("Z", "+00:00"))).total_seconds() / 86400 if ok else None
+                res[nm] = {"last": last, "ok_age_d": round(ok_age, 1) if ok_age is not None else None}
+                if not done: continue   # 아직 한 번도 안 돈 워크플로는 표시 안 함
+                if last[1] == "failure" or ok_age is None or ok_age >= 8:
+                    out["flag"].append(f"{repo.split('/')[1]}:{nm} (마지막={last[1]} · 마지막 성공 {'%.1f일 전' % ok_age if ok_age is not None else '최근 8회 안에 없음'})")
+            out["repos"][repo] = res
+        except Exception as e:
+            out["repos"][repo] = {"error": str(e)[:120]}
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", type=float, default=time.time() - 86400, help="이 epoch 이후 오류만(기본 24시간)")
@@ -168,7 +208,7 @@ def main():
     a = ap.parse_args()
     now = datetime.datetime.now(KST)
     out = {"at": now.strftime("%Y-%m-%d %H:%M KST"), "since": int(a.since),
-           "bot": bot_health(a.since, a.bot_src), "sheet": sheet_checks(now), "versions": versions(now, a.version_file)}
+           "bot": bot_health(a.since, a.bot_src), "sheet": sheet_checks(now), "versions": versions(now, a.version_file), "actions": actions_check(now)}
 
     b = out["bot"]
     print(f"== 신호 {out['at']} (since {datetime.datetime.fromtimestamp(a.since, KST):%m-%d %H:%M})")
@@ -190,6 +230,10 @@ def main():
     v = out["versions"]
     if v.get("ok"): print(f"분석기: 최신 {v['latest']} · 최근3일 실행 {v['active_3d']}대 · 뒤처짐 {v['behind']}대 · {v['dist'][:5]}")
     else: print(f"분석기 버전: 확인 불가 — {v.get('error')}")
+    ac = out["actions"]
+    if not ac.get("ok"): print(f"워크플로 점검: 건너뜀 — {ac.get('error')}")
+    elif ac["flag"]: print("⚠ 워크플로 주의(마지막 실행 실패 또는 성공 8일↑ 전): " + " · ".join(ac["flag"]))
+    else: print(f"워크플로 점검: 이상 없음(저장소 2곳 · 워크플로 {sum(len(r) for r in ac['repos'].values() if 'error' not in r)}개 마지막 실행 모두 성공 · 성공 8일 이내)")
     print("SIGNALS_JSON " + json.dumps(out, ensure_ascii=False, default=str))
 
 
