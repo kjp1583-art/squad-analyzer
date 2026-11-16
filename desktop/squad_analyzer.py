@@ -3702,6 +3702,44 @@ def _rrect(cv, x1, y1, x2, y2, r, **kw):
 
 _DRAFT_LINE_RE = re.compile(r"^\s*(\d+)\s*[.)]\s*(.+?)\s*(?:[—–]|(?<=\s)-)\s*(.*)$")
 
+
+# 🖼 [2026-11-16 사장님 지시 「고스트밴픽왕 팝업창에 챔피언 이름 대신 초상화로」] 추천 카드의 챔피언 이름 자리를 초상화로 그린다.
+#   초상화 bytes 는 스펠 오버레이와 같은 캐시(_SPELL_IMG_RAW)·같은 내려받기(_spell_prefetch_img)를 쓴다. 아직 못 받았거나 못 받으면 예전처럼 이름 글자로 폴백.
+_DRAFT_PORT_SZ = 46
+_DRAFT_PORT_TK = {}          # 챔프 한글명 → PhotoImage (GUI 스레드에서만 생성)
+_DRAFT_PORT_FETCHING = set()
+
+def _draft_champ_key(name):
+    """카드에 적힌 이름('아리', '*리 신*', '아리 (미드)') → 초상화 조회용 챔프 한글명."""
+    t = re.sub(r"[*_`]", "", str(name or "")).strip()
+    t = re.split(r"\s*[(\[（]", t, 1)[0].strip()
+    return t
+
+def _draft_portrait(kor):
+    """초상화 PhotoImage 또는 None(없으면 이름 글자 폴백). 못 받았으면 백그라운드로 받아 두고 받으면 카드를 다시 그리게 한다. GUI 스레드 전용."""
+    kor = _draft_champ_key(kor)
+    if not kor or not PILLOW_INSTALLED: return None
+    if kor in _DRAFT_PORT_TK: return _DRAFT_PORT_TK[kor]
+    raw = _SPELL_IMG_RAW.get(kor)
+    if raw:
+        try:
+            _im = Image.open(BytesIO(raw)).convert("RGBA").resize((_DRAFT_PORT_SZ, _DRAFT_PORT_SZ), Image.Resampling.LANCZOS)
+            _DRAFT_PORT_TK[kor] = ImageTk.PhotoImage(_im)
+        except Exception:
+            _DRAFT_PORT_TK[kor] = None
+        return _DRAFT_PORT_TK[kor]
+    if kor in _SPELL_IMG_RAW or kor in _DRAFT_PORT_FETCHING:      # 받기 실패 기록(None)이거나 이미 받는 중
+        return None
+    _DRAFT_PORT_FETCHING.add(kor)
+    def _bg():
+        try: _spell_prefetch_img(kor)
+        finally:
+            _DRAFT_PORT_FETCHING.discard(kor)
+            if _SPELL_IMG_RAW.get(kor): _DRAFT_OVL["shown"] = ""      # 받았다 → 다음 GUI 틱이 카드를 다시 그린다(새 추천 깜빡임 아님)
+    try: threading.Thread(target=_bg, daemon=True).start()
+    except Exception: _DRAFT_PORT_FETCHING.discard(kor)
+    return None
+
 def _draft_build_card(root):
     """카드 창을 만든다. 내용은 _render() 가 채운다."""
     C = _OVC
@@ -3813,8 +3851,14 @@ def _draft_build_card(root):
             tk.Label(f, text=a, bg=_DRAFT_OVL["accent"], fg="#12141a", width=2,
                      font=UF(10, "bold")).pack(side="left", pady=1)
             tx = tk.Frame(f, bg=C["card"]); tx.pack(side="left", fill="x", expand=True, padx=(9, 0))
-            tk.Label(tx, text=b[0], bg=C["card"], fg=C["text"], anchor="w",
-                     font=UF(14, "bold")).pack(anchor="w")
+            _pimg = None
+            try: _pimg = _draft_portrait(b[0])
+            except Exception: _pimg = None
+            if _pimg is not None:      # 🖼 이름 대신 초상화(이름은 글자로 남기지 않는다)
+                _pl = tk.Label(tx, image=_pimg, bg=C["card"], bd=0); _pl.image = _pimg; _pl.pack(anchor="w")
+            else:                      # 폴백 — 못 받았거나 Pillow 없음: 예전처럼 이름 글자
+                tk.Label(tx, text=b[0], bg=C["card"], fg=C["text"], anchor="w",
+                         font=UF(14, "bold")).pack(anchor="w")
             if b[1]:
                 tk.Label(tx, text=b[1], bg=C["card"], fg=C["sub"], anchor="w", justify="left",
                          wraplength=DRAFT_OVL_WRAP - 40, font=UF(10)).pack(anchor="w")
