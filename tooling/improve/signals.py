@@ -113,12 +113,13 @@ def sheet_checks(now):
             H, rows = tab(name)
             ci = {h: i for i, h in enumerate(H)}
             need = ["게임ID", "날짜", "PUUID", "결과", "KDA"]
+            has_eval = "매치평가" in ci
             if any(n not in ci for n in need):
                 r["error"] = f"열 없음: {[n for n in need if n not in ci]}"; res[name] = r; continue
             g = defaultdict(list)
             for row in rows:
                 if len(row) > max(ci.values()): g[row[ci["게임ID"]]].append(row)
-            stuck, coerced30, coerced_all, dup, odd, n7 = [], 0, 0, [], [], 0
+            stuck, coerced30, coerced_all, dup, odd, n7, contra = [], 0, 0, [], [], 0, []
             for gid, rs in g.items():
                 t = when(rs[0][ci["날짜"]])
                 age_h = (now - t).total_seconds() / 3600 if t else None
@@ -133,6 +134,10 @@ def sheet_checks(now):
                     pc = Counter(x[ci["PUUID"]].strip().lower() for x in rs if x[ci["PUUID"]].strip())
                     d = sum(c - 1 for c in pc.values() if c > 1)
                     if d: dup.append((gid, d))
+                    # [A-45] 진영·결과 뒤바뀜 탐지(11/20 #8464934822 사고): 협곡에서 MVP 는 승리 팀 · ACE 는 패배 팀 몫인데 반대면 결과가 거꾸로 적힌 판
+                    if has_eval and name == "CLASSIC_NORMAL":
+                        ev = [(x[ci["매치평가"]].strip().upper(), x[ci["결과"]].strip()) for x in rs]
+                        if any(e == "MVP" and v == "패배" for e, v in ev) or any(e == "ACE" and v == "승리" for e, v in ev): contra.append(gid)
                     # 칼바람은 4:4(8명)·3:3 판도 정상 — 양 팀 인원이 같고 6명 이상이면 이상으로 보지 않는다(협곡은 10명 고정)
                     ok_size = len(rs) == 10
                     if name == "KIWI_KIWI" and "진영" in ci and len(rs) >= 6:
@@ -140,7 +145,7 @@ def sheet_checks(now):
                         ok_size = ok_size or (len(tc) == 2 and len(set(tc.values())) == 1)
                     if not ok_size and not all(v == "무효" for v in res_vals): odd.append((gid, len(rs)))
             r.update(ok=True, games=len(g), games_7d=n7, stuck_results_14d=stuck, kda_date_coerced_30d=coerced30,
-                     kda_date_coerced_all=coerced_all, dup_rows_7d=dup, non10_games_7d=odd)
+                     kda_date_coerced_all=coerced_all, dup_rows_7d=dup, non10_games_7d=odd, eval_contradiction_7d=contra)
         except Exception as e:
             r["error"] = f"{type(e).__name__}: {e}"[:200]
         res[name] = r
@@ -226,7 +231,8 @@ def main():
         if not r.get("ok"): print(f"시트 {name}: 확인 불가 — {r.get('error')}"); continue
         print(f"시트 {name}: 최근7일 {r['games_7d']}판 · 결과대기 고착 {len(r['stuck_results_14d'])} · "
               f"KDA 날짜오염 30일 {r['kda_date_coerced_30d']}(전체 {r['kda_date_coerced_all']}) · "
-              f"중복행 {len(r['dup_rows_7d'])}판 · 10명아닌판 {len(r['non10_games_7d'])}")
+              f"중복행 {len(r['dup_rows_7d'])}판 · 10명아닌판 {len(r['non10_games_7d'])}"
+              + (f" · ⚠ MVP/ACE-결과 모순 {len(r['eval_contradiction_7d'])}판 {r['eval_contradiction_7d'][:3]}" if r.get('eval_contradiction_7d') else ""))
     v = out["versions"]
     if v.get("ok"): print(f"분석기: 최신 {v['latest']} · 최근3일 실행 {v['active_3d']}대 · 뒤처짐 {v['behind']}대 · {v['dist'][:5]}")
     else: print(f"분석기 버전: 확인 불가 — {v.get('error')}")
