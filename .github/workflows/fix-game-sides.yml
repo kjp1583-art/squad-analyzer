@@ -1,0 +1,40 @@
+name: Fix game sides
+
+# 한 판의 승패·진영이 뒤바뀌어 적힌 기록을 바로잡는다(tooling/fix_game_sides.py). 기본은 미리보기.
+on:
+  workflow_dispatch:
+    inputs:
+      gid:
+        description: '게임ID (예 #8464934822)'
+        required: true
+      winner_name:
+        description: '이긴 팀 사람 소환사명 일부 (예 프 싱)'
+        required: true
+      swap_sides:
+        description: '진영(블루↔레드)도 뒤집기'
+        type: boolean
+        default: false
+      apply:
+        description: '실제로 시트 수정 (체크 안 하면 미리보기만)'
+        type: boolean
+        default: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet gspread oauth2client
+      - name: Run
+        env:
+          CREDENTIALS_JSON_B64: ${{ secrets.CREDENTIALS_JSON_B64 }}
+          GID: ${{ inputs.gid }}
+          WINNER_NAME: ${{ inputs.winner_name }}
+          SWAP_SIDES: ${{ inputs.swap_sides && '1' || '0' }}
+          APPLY: ${{ inputs.apply && '1' || '0' }}
+        run: |
+          python tooling/fix_game_sides.py
+          rm -f creds.json

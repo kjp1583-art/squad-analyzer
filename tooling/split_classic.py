@@ -41,7 +41,18 @@ def _is_classic(rows, idx):
     for r in rows:
         if idx.get("아이템") is not None and idx["아이템"] < len(r) and CLASSIC_ITEM.search(str(r[idx["아이템"]])):
             return "아이템 체계(77만번대)"
-    pos = Counter(str(r[idx["포지션"]]).strip() for r in rows if idx["포지션"] < len(r))
+    # 같은 사람이 두 번 적힌 판(멀티 인스턴스 동시 기록 잔재)을 그대로 세면 「한 포지션 6명」이 쉽게 나온다 — 사람 단위(PUUID, 없으면 이름)로 한 번씩만 센다.
+    #   (2026-11-20 #8464934822: 협곡 일반 판 10명이 20행으로 적혀 정글이 6명으로 잡혀 롤 클래식으로 잘못 옮겨졌다)
+    seen, uniq = set(), []
+    for r in rows:
+        k = ""
+        for col in ("PUUID", "소환사명"):
+            if idx.get(col) is not None and idx[col] < len(r) and str(r[idx[col]]).strip():
+                k = col + ":" + str(r[idx[col]]).strip().lower(); break
+        if k and k in seen: continue
+        if k: seen.add(k)
+        uniq.append(r)
+    pos = Counter(str(r[idx["포지션"]]).strip() for r in uniq if idx["포지션"] < len(r))
     pos.pop("", None); pos.pop("선택안함", None)
     if pos and max(pos.values()) >= 6:         # 한 포지션에 6명 이상 = 포지션 정보 없는 모드
         return "포지션 쏠림"

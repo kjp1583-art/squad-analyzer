@@ -5148,6 +5148,7 @@ def backfill_pending_results():
         c_kda, c_eval = _ci("KDA"), _ci("매치평가")
         c_item, c_rune1, c_rune2 = _ci("아이템"), _ci("주룬"), _ci("보조룬")   # 🛒 [v81.70] 백필에도 소급
         c_spell = _ci("스펠")   # 🔮 [v81.73] 스펠 소급
+        c_puuid = _ci("PUUID")   # 🔄 [2026-11-20] 진영 라벨 뒤바뀜 감지용
         if c_gid < 0 or c_res < 0 or c_side < 0: continue
         # ① '결과 대기' + '#숫자' 게임ID 수집(CUSTOM_ 폴백ID는 리엇 역추적 불가 → 제외)
         #   🏅 [v82.48 사장님 지시] 여기에 '결과는 있는데 매치평가가 「평가 없음」인 게임'도 포함 —
@@ -5302,6 +5303,14 @@ def backfill_pending_results():
                 # ② 쓰기 직전 서비스계정 재독(행번호 정확성 — gviz 스캔 뒤 행 추가/수동편집 대비)
                 live = ws.get_all_values()
                 cells = []
+                _sw_bf = False       # 🔄 시트 진영 라벨이 리엇 실제 팀과 반대로 적힌 판이면 승패·진영을 실제 쪽으로(#8464934822)
+                try:
+                    if c_puuid >= 0:
+                        _sw_bf = _sides_swapped([(lr[c_side], lr[c_puuid]) for lr in live[1:]
+                                                 if len(lr) > max(c_gid, c_side, c_puuid) and str(lr[c_gid]).strip() == gid],
+                                                _eog_puuid_team(info))
+                        if _sw_bf: print(f"[backfill] 🔄 {gid} 시트 진영이 실제 팀과 반대 — 승패·진영을 실제 팀 기준으로 기입", flush=True)
+                except Exception: _sw_bf = False
                 for r_i, lr in enumerate(live[1:], start=2):
                     if len(lr) <= max(c_gid, c_res, c_side): continue
                     if str(lr[c_gid]).strip() != gid: continue
@@ -5312,6 +5321,9 @@ def backfill_pending_results():
                     side = str(lr[c_side]).strip()
                     tid = 100 if side == "블루팀" else (200 if side == "레드팀" else None)
                     if tid is None: continue
+                    if _sw_bf:                                            # 🔄 라벨 뒤바뀐 판 — 실제 팀으로 되돌리고 진영 칸도 바로잡는다
+                        tid = 300 - tid; side = "블루팀" if tid == 100 else "레드팀"
+                        cells.append(gspread.Cell(row=r_i, col=c_side + 1, value=side))
                     if not _eval_only:
                         cells.append(gspread.Cell(row=r_i, col=c_res + 1, value="승리" if win_by_team.get(tid) else "패배"))
                     if c_kda >= 0 and len(lr) > c_kda and str(lr[c_kda]).strip() == "기록 대기":
@@ -9778,6 +9790,15 @@ def lcu_core_backend_loop():
                             
                             target_gid = f"#{active_recording_id}"
                             cells_to_update = []
+                            _sw_live = False       # 🔄 시트 진영 라벨이 리엇 실제 팀과 뒤바뀐 판이면 승패·진영을 실제 쪽으로 맞춘다
+                            try:
+                                if gid_c != -1 and puuid_c != -1 and team_c != -1:
+                                    _pt_live = _eog_puuid_team(match_data)
+                                    _sw_rows = [(_r[team_c], _r[puuid_c]) for _r in sheet_data_check[1:]
+                                                if len(_r) > max(gid_c, puuid_c, team_c) and _r[gid_c] == target_gid]
+                                    _sw_live = _sides_swapped(_sw_rows, _pt_live)
+                                    if _sw_live: print(f"[진영뒤바뀜] {target_gid} 시트 진영이 실제 팀과 반대 — 승패·진영을 실제 팀 기준으로 기입", flush=True)
+                            except Exception: _sw_live = False
                             _xt_fill = {}   # 🏅 [2026-09-25] 게임 간 타이틀용 — 방금 정한 이 판 결과·포지션(시트 사본엔 아직 '결과 대기')
 
                             # [모의테스트 HIGH — 잔여 중복 감지] 같은 게임ID + 같은 PUUID가 2회↑면 멀티인스턴스 동시 append 잔재(중복행).
@@ -9809,6 +9830,9 @@ def lcu_core_backend_loop():
                                         row_team_str = r[team_c] if team_c != -1 and len(r) > team_c else ""
                                         row_champ_str = r[champ_c].replace(" ", "") if champ_c != -1 and len(r) > champ_c else ""
                                         t_id_num = 100 if row_team_str == "블루팀" else (200 if row_team_str == "레드팀" else 0)
+                                        if _sw_live and t_id_num:            # 🔄 라벨이 뒤바뀐 판 — 실제 팀 번호로 되돌리고 진영 칸도 바로잡는다
+                                            t_id_num = 300 - t_id_num
+                                            if team_c != -1: cells_to_update.append(gspread.Cell(row=row_num, col=team_c+1, value=("블루팀" if t_id_num == 100 else "레드팀")))
                                         
                                         res_str = "승리" if t_id_num == win_id else "패배"
                                         if res_c != -1: cells_to_update.append(gspread.Cell(row=row_num, col=res_c+1, value=res_str))
@@ -9979,6 +10003,54 @@ def lcu_core_backend_loop():
         except Exception: pass
         time.sleep(1.0)
 # =========================================================================================
+
+
+# 🔄 [2026-11-20 사장님 제보 「인게임은 승리했는데 결과가 반대」 · #8464934822] 시트 「진영」이 리엇 실제 팀과 뒤바뀐 판의 승패 뒤집힘 방지.
+#   로스터(블루/레드 라벨)는 로비·챗선택 단계에서 정해 적는다. 이 라벨이 실제 teamId 와 반대로 적히면 승패를 「라벨 → 승리팀」으로 맞추던
+#   마감이 판 전체를 거꾸로 적었다(매치평가는 이름으로 계산돼 ACE 가 진짜 패배팀에 붙어 승패와 모순).
+#   → 마감 때 PUUID 로 「실제 teamId」를 알 수 있는 행이 3명↑이고 전부 라벨과 반대면 이 판은 라벨이 뒤바뀐 것으로 보고 승패·진영을 실제 쪽으로 맞춘다.
+#   일부만 틀리거나(섞임) 근거가 부족하면 건드리지 않는다(애매하면 예전 동작).
+def _side_tid(label):
+    return 100 if str(label).strip() == "블루팀" else (200 if str(label).strip() == "레드팀" else 0)
+
+def _eog_puuid_team(match_data):
+    """게임 종료 데이터(LCU eog / Match-V5 info) → {puuid(소문자): teamId}. 모르면 빈 dict."""
+    out = {}
+    try:
+        md = match_data if isinstance(match_data, dict) else {}
+        parts = list(md.get("participants") or [])
+        idents = {}
+        for pi in (md.get("participantIdentities") or []):
+            if isinstance(pi, dict):
+                pl = pi.get("player") or {}
+                if isinstance(pl, dict) and pl.get("puuid"): idents[pi.get("participantId")] = str(pl.get("puuid")).strip().lower()
+        for t in (md.get("teams") or []):
+            if not isinstance(t, dict): continue
+            for pl in (t.get("players") or []):
+                if isinstance(pl, dict):
+                    q = str(pl.get("puuid") or "").strip().lower()
+                    try: tid = int(t.get("teamId"))
+                    except Exception: tid = 0
+                    if q and tid in (100, 200): out[q] = tid
+        for p in parts:
+            if not isinstance(p, dict): continue
+            q = idents.get(p.get("participantId")) or str(p.get("puuid") or "").strip().lower()
+            try: tid = int(p.get("teamId"))
+            except Exception: tid = 0
+            if q and tid in (100, 200): out[q] = tid
+    except Exception:
+        return {}
+    return out
+
+def _sides_swapped(rows, puuid_team):
+    """rows: [(시트 진영 라벨, PUUID)] — 진짜 팀과 비교해 라벨이 통째로 뒤바뀐 판이면 True."""
+    ok = bad = 0
+    for lab, pu in rows:
+        t = _side_tid(lab); r = (puuid_team or {}).get(str(pu or "").strip().lower())
+        if not t or not r: continue
+        if t == r: ok += 1
+        else: bad += 1
+    return bad >= 3 and ok == 0
 
 def parse_endgame_achievements(match_data, pos_map, champ_map, blue_players, red_players, is_aram=False):
     achievements = []
