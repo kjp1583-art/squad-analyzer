@@ -18,8 +18,10 @@ srv.listen(0,'127.0.0.1',async()=>{ const port=srv.address().port;
   await pg.route(u=>{ const s=u.toString(); return !(s.startsWith('http://127.0.0.1')||s.startsWith('data:'))&&!s.includes('auc-gg'); },r=>r.abort());
   await pg.goto(`http://127.0.0.1:${port}/index.html`); await pg.waitForTimeout(2000);
   const r=await pg.evaluate(async()=>{
+    const preE=myeolEditions().map(e=>e.no+':'+e.kind).join(), preV=myeolViewsFor(myeolEditions()[0]).map(v=>v[0]).join();
     await aucEnsure(true);
     const c=aucMyeolCfg();
+    const postE=myeolEditions().map(e=>e.no+':'+e.kind+(e.latest?'*':'')).join(), postV=myeolViewsFor(myeolEditions()[0]).map(v=>v[0]).join(), v9=myeolViewsFor(myeolEditions()[1]).map(v=>v[0]).join();
     // 가짜 시트: 경매가 끝난(12/01 19:00 KST) 뒤 가탑·가정글·가미드·가원딜·팀장가 vs 나… 한 판 — 가팀 승
     const mk=(gid,day,names,side,res)=>names.map((n,i)=>({"게임ID":gid,"날짜":day,"소환사명":n+"#kr1","진영":side,"결과":res,"포지션":["탑","정글","미드","원딜","서폿"][i],"챔피언":"아리","KDA":"3/2/5","점수":"20"}));
     const A=["가탑","가정글","가미드","가원딜","팀장가"], B=["나탑","나정글","나미드","나원딜","팀장나"];
@@ -37,11 +39,14 @@ srv.listen(0,'127.0.0.1',async()=>{ const port=srv.address().port;
     GAMES_ALL=new Map([["#1",{rows}],["#2",{rows:rows2}]]); _MYEOL_MEMO={seq:-1};
     const duo2=aucDuoList(c,'bot');
     const html2=myeolBotDuoHtml(c), mjHtml=myeolMidJglHtml(c), scr=myeolScrimHtml(c);
-    return {duo:{g1,n1,d1,mjd,real:duo2.filter(d=>d.t==='팀장가'),html2:html2.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,300),mj:mjHtml.includes('팀장가')||mjHtml.includes('가정글'),scr:scr.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,200)}, label:c.label, teams:c.teams.length, from:String(c.from), s:S&&S.list.length, rank:html.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,260), rosterHas:['팀장가','가탑','나정글','450'].map(x=>ros.includes(x)), rosterMain:/본선 <b/.test(ros), p9:myeolRosterHtml().includes('수직낙하하는중')};
+    return {eds:{preE,preV,postE,postV,v9}, duo:{g1,n1,d1,mjd,real:duo2.filter(d=>d.t==='팀장가'),html2:html2.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,300),mj:mjHtml.includes('팀장가')||mjHtml.includes('가정글'),scr:scr.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,200)}, label:c.label, teams:c.teams.length, from:String(c.from), s:S&&S.list.length, rank:html.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,260), rosterHas:['팀장가','가탑','나정글','450'].map(x=>ros.includes(x)), rosterMain:/본선 <b/.test(ros), p9:myeolRosterHtml().includes('수직낙하하는중')};
   });
   console.log(JSON.stringify(r,null,1));
   ok(r.label==='제10회 멸망전'&&r.teams===3,'새 멸망전이 「제10회 멸망전」·3팀으로 자동 설정');
 
+  ok(r.eds.preE==='10:upcoming,9:builtin'&&r.eds.preV==='auction,price','경매 전: 상위 탭 「제10회(예정)·제9회」 — 하위 탭은 경매결과·적정가뿐');
+  ok(r.eds.postE==='10:auc*,9:builtin'&&r.eds.postV==='auction,rank,scrim,price','경매 결과가 올라오면: 제10회가 최신이 되고 경매결과·파워랭킹·스크림·적정가 탭이 생긴다');
+  ok(r.eds.v9==='auction,rank,scrim,main','제9회 하위 탭: 경매결과·파워랭킹·스크림·본선(적정가는 최신 회차만)');
   const D=r.duo;
   ok(D.g1.length===1&&D.g1[0].ad==='가원딜'&&D.g1[0].sup==='팀장가'&&D.g1[0].note==='경매 포지션 기준','팀 가: 선수 4명의 포지션으로 팀장=서폿을 추리고 봇듀오 확정');
   ok(D.n1.length===1&&D.n1[0].sup==='팀장나','팀 나: 같은 방식으로 확정');

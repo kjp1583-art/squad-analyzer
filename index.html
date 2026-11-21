@@ -9232,11 +9232,12 @@ function _aucCacheSave(){
   try{ localStorage.setItem(AUCGG_LS,JSON.stringify({t:AUCGG.t,list:AUCGG.list,det:[...AUCGG.det.values()].map(d=>({id:d.id,name:d.name,mode:d.mode,finishedAt:d.finishedAt,
     teams:d.teams.map(t=>({captain:t.cap,name:t.name,players:t.m.map(p=>({nickname:p.n,position:Object.keys(AUCGG_POS).find(k=>AUCGG_POS[k]===p.pos)||p.pos,tier:p.tier,price:p.price,pick:p.pick}))}))}))})); }catch(e){}
 }
-let _aucBusy=false, _aucCacheTried=false;
+let _aucBusy=false, _aucCacheTried=false, _aucLastTry=0;
 async function aucEnsure(force){
   if(!_aucCacheTried){ _aucCacheTried=true; _aucCacheLoad(); }
   if(_aucBusy) return; if(!force&&AUCGG.state==="ok"&&Date.now()-AUCGG.t<AUCGG_TTL) return;
-  _aucBusy=true; if(AUCGG.state!=="ok") AUCGG.state="loading";
+  if(!force&&Date.now()-_aucLastTry<60000) return;   // 실패해도 1분 안에는 다시 안 시도(화면을 다시 그릴 때마다 무한 재시도 방지)
+  _aucLastTry=Date.now(); _aucBusy=true; if(AUCGG.state!=="ok") AUCGG.state="loading";
   const before=aucExtraPrices().length;
   try{
     const list=aucParseList(await _aucFetch("/tournaments")); if(!list) throw new Error("목록 형식 오류");
@@ -9246,18 +9247,16 @@ async function aucEnsure(force){
     AUCGG.list=list; AUCGG.t=Date.now(); AUCGG.state="ok"; AUCGG.err=""; _aucCacheSave();
   }catch(e){ AUCGG.err=String((e&&e.message)||e); if(!AUCGG.list.length) AUCGG.state="fail"; }
   finally{ _aucBusy=false; }
-  try{ const host=document.getElementById("aucgg-host"); if(host){ if(aucExtraPrices().length!==before) renderMyeol(); else host.innerHTML=aucCardBody(); } }catch(e){}
+  try{ if(document.getElementById("aucgg-host")||document.querySelector(".mx-ed")) renderMyeol(); }catch(e){}   // 회차·탭이 데이터에 따라 생기므로 통째로 다시 그린다
 }
 function aucMyeolAuctions(){   // 제9회를 뺀 멸망전 경매(내장 값에 없는 새 대회) — 적정가 분포에 더한다
   return [...AUCGG.det.values()].filter(d=>/AUCTION/i.test(d.mode)&&/멸망전/.test(d.name)&&!/(제\s*9\s*회|9\s*회)/.test(d.name));
 }
 function aucExtraPrices(){ return aucMyeolAuctions().flatMap(d=>d.teams.flatMap(t=>t.m.map(p=>p.price))).filter(v=>Number.isFinite(v)); }
-function aucCardBody(){
-  const ds=[...AUCGG.det.values()].filter(d=>/AUCTION/i.test(d.mode)).sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt)));
-  if(!ds.length) return `<div class="muted" style="font-size:13px">${AUCGG.state==="loading"?"AUC.GG 에서 경매 결과를 불러오는 중이에요…":AUCGG.state==="fail"?"AUC.GG 에 연결하지 못했어요 — 잠시 뒤 다시 열어 보세요.":"아직 가져온 경매 결과가 없어요."}</div>`;
-  const kst=s=>{ const d=new Date(s); if(isNaN(d)) return ""; const k=new Date(d.getTime()+9*3600000); return k.getUTCFullYear()+"."+String(k.getUTCMonth()+1).padStart(2,"0")+"."+String(k.getUTCDate()).padStart(2,"0"); };
+const _aucKst=s=>{ const d=new Date(s); if(isNaN(d)) return ""; const k=new Date(d.getTime()+9*3600000); return k.getUTCFullYear()+"."+String(k.getUTCMonth()+1).padStart(2,"0")+"."+String(k.getUTCDate()).padStart(2,"0"); };
+function aucBoardHtml(d,open){   // 🔨 한 대회의 팀별 세로 5인 보드
+  const kst=_aucKst, i=open?0:1;
   const POSC={"탑":"탑","정글":"정","미드":"미","원딜":"원","서폿":"서"};
-  return ds.map((d,i)=>{
     const all=d.teams.flatMap(t=>t.m.map(p=>({...p,cap:t.cap}))).filter(p=>p.price!=null);
     const top=all.slice().sort((a,b)=>b.price-a.price).slice(0,5);
     const spent=all.reduce((a,p)=>a+p.price,0), maxP=top.length?top[0].price:null;
@@ -9269,11 +9268,15 @@ function aucCardBody(){
     return `<details class="ab-t"${i===0?' open':''}><summary><span class="ab-tn">${esc(d.name)}</span><span class="ab-ts">${esc(kst(d.finishedAt))} · ${d.teams.length}팀 · 낙찰 ${all.length}건 · 총 ${_aucN(spent)}P</span><svg class="mx-chev" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
       <div class="ab-top"><span class="ab-tl">최고 낙찰가</span>${top.map((p,k)=>`<span class="ab-tp"><em>${k+1}</em>${esc(p.n)}<b>${_aucN(p.price)}</b></span>`).join("")||"-"}</div>
       <div class="ab-grid">${cols}</div></details>`;
-  }).join("")+`<div class="mx-foot">데이터 출처: <a href="https://auc-gg.up.railway.app/?tab=auction-analysis" target="_blank" rel="noopener">AUC.GG</a> 공개 API · 자동 갱신(1시간) · 제9회 이후 새 <b>멸망전</b> 경매는 적정가 분포에 자동으로 더해져요(미니토너먼트는 표시만).</div>`;
 }
-function aucMyeolCfg(){   // 🔨 가장 최근에 끝난 새 멸망전(제9회 이후) → 명단·파워랭킹 화면 설정. 없으면 null(화면에 안 나온다)
+function aucCardBody(){   // 모든 경매 대회(최신순) — 첫 번째만 펼침
+  const ds=[...AUCGG.det.values()].filter(d=>/AUCTION/i.test(d.mode)).sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt)));
+  if(!ds.length) return `<div class="muted" style="font-size:13px">${AUCGG.state==="loading"?"AUC.GG 에서 경매 결과를 불러오는 중이에요…":AUCGG.state==="fail"?"AUC.GG 에 연결하지 못했어요 — 잠시 뒤 다시 열어 보세요.":"아직 가져온 경매 결과가 없어요."}</div>`;
+  return ds.map((d,i)=>aucBoardHtml(d,i===0)).join("")+`<div class="mx-foot">데이터 출처: <a href="https://auc-gg.up.railway.app/?tab=auction-analysis" target="_blank" rel="noopener">AUC.GG</a> 공개 API · 자동 갱신(1시간) · 제9회 이후 새 <b>멸망전</b> 경매는 적정가 분포에 자동으로 더해져요(미니토너먼트는 표시만).</div>`;
+}
+function aucMyeolCfg(det){   // 🔨 AUC.GG 멸망전 대회(det 없으면 가장 최근에 끝난 제9회 이후 대회) → 명단·파워랭킹 화면 설정. 없으면 null
   const ds=aucMyeolAuctions().filter(d=>d.teams.length>=2&&d.teams.some(t=>t.cap&&t.m.length)).sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt))||b.id-a.id);
-  const d=ds[0]; if(!d) return null;
+  const d=det||ds[0]; if(!d) return null;
   const teams=d.teams.filter(t=>t.cap&&t.m.length).map(t=>({cap:t.cap,m:t.m.map(p=>[p.n,p.price==null?0:p.price]),pos:t.m.map(p=>p.pos)}));
   const fa=new Date(d.finishedAt); let from=null;
   if(!isNaN(fa)){ const k=new Date(fa.getTime()+9*3600000); from=new Date(k.getUTCFullYear(),k.getUTCMonth(),k.getUTCDate(),k.getUTCHours(),k.getUTCMinutes()); }
@@ -9315,8 +9318,37 @@ function _myFold(title,sub,body,open){   // 🎨 [2026-11-21] 멸망전 탭 통�
   const ic=m?m[1]:"", tt=m?m[2]:title, sb=String(sub||"").replace(/^[\s—–-]+/,"");
   return `<details class="mx-fold"${open?' open':''}><summary><span class="mx-ic">${ic||"•"}</span><span class="mx-tt"><b>${tt}</b>${sb?`<small>${sb}</small>`:""}</span><svg class="mx-chev" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="mx-body">${body}</div></details>`;
 }
-let MYEOL_VIEW=(()=>{ try{ return sessionStorage.getItem("myeol_view")||"price"; }catch(e){ return "price"; } })();
-function setMyeolView(v){ MYEOL_VIEW=v; try{ sessionStorage.setItem("myeol_view",v); }catch(e){} renderMyeol(); window.scrollTo(0,0); }
+/* 🗂 [2026-11-22 사장님 「멸망전탭: 상위탭 회차선택(기본 최신) > 경매결과(기본)/파워랭킹/스크림/본선/적정가」]
+   회차 = 내장 제9회 + AUC.GG 의 새 멸망전(제10회~) + (아직 경매 전인) 진행 예정 회차. 최신 회차가 기본, 회차를 바꾸면 하위 탭은 경매결과로 돌아간다. */
+const MYEOL_UPCOMING_NO=10;   // 경매 전인 회차 — 이 회차의 경매 결과가 AUC.GG 에 올라오면 자동으로 「예정」이 「제N회」 기록으로 바뀐다
+let MYEOL_ED=null, MYEOL_VIEW="auction";
+function aucNoOf(d){ const m=String((d&&d.name)||"").match(/제\s*(\d+)\s*회/); return m?+m[1]:null; }
+function myeolEditions(){
+  const eds=[{no:9,kind:"builtin"}];
+  for(const d of aucMyeolAuctions().sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt)))){ const no=aucNoOf(d); if(no&&!eds.some(e=>e.no===no)) eds.push({no,kind:"auc",det:d}); }
+  if(MYEOL_SHOW_PRICES&&!eds.some(e=>e.no>=MYEOL_UPCOMING_NO)) eds.push({no:MYEOL_UPCOMING_NO,kind:"upcoming"});
+  eds.sort((a,b)=>b.no-a.no); eds.forEach((e,i)=>{ e.label="제"+e.no+"회"; e.latest=i===0; }); return eds;
+}
+function myeolViewsFor(ed){
+  const v=[["auction","경매결과"]];
+  if(ed.kind!=="upcoming"){ v.push(["rank","파워랭킹"],["scrim","스크림"]); if(ed.kind==="builtin") v.push(["main","본선"]); }
+  if(ed.latest&&MYEOL_SHOW_PRICES) v.push(["price","적정가"]);
+  return v;
+}
+function setMyeolEd(no){ MYEOL_ED=no; MYEOL_VIEW="auction"; renderMyeol(); window.scrollTo(0,0); }
+function setMyeolView(v){ MYEOL_VIEW=v; renderMyeol(); window.scrollTo(0,0); }
+function myeolEditionBoard(ed){   // 경매결과 탭 — 그 회차의 팀별 세로 5인 보드(+ 기타 경매 대회 접이식)
+  const det=ed.kind==="auc"?ed.det:(ed.no===9?[...AUCGG.det.values()].find(d=>/AUCTION/i.test(d.mode)&&aucNoOf(d)===9&&/멸망전/.test(d.name)):null);
+  let main="";
+  if(ed.kind==="upcoming") main=`<div class="mx-empty"><b>${ed.label} 멸망전 경매는 아직이에요</b><p>경매가 끝나 AUC.GG 에 결과가 올라오면 이 탭에 팀별 낙찰 결과가 <u>자동으로</u> 채워지고, 파워랭킹·스크림 탭도 함께 생겨요.</p>${MYEOL_SHOW_PRICES?`<button class="pchip on" onclick="setMyeolView('price')">AI 추정 적정가 보기 →</button>`:""}</div>`;
+  else if(det) main=aucBoardHtml(det,true);
+  else if(ed.no===9){   // 제9회는 AUC.GG 에 연결이 안 돼도 내장 기록으로 같은 보드를 그린다
+    main=aucBoardHtml({id:22,name:"제 9회 멸망전",finishedAt:"2026-08-22T12:08:58.000Z",mode:"AUCTION",teams:MYEOL_TEAMS9.map(t=>({cap:t.cap,m:t.m.map(([n,pr])=>({n,pos:"",tier:"",price:pr}))}))},true); }
+  const others=[...AUCGG.det.values()].filter(d=>/AUCTION/i.test(d.mode)&&!(/멸망전/.test(d.name)&&aucNoOf(d))).sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt)));
+  const more=others.length?_myFold(`🎲 기타 경매 대회`,`미니토너먼트 등 ${others.length}건 · 적정가 계산에는 넣지 않아요`,others.map((d,i)=>aucBoardHtml(d,i===0)).join(""),false):"";
+  const st=AUCGG.state==="loading"&&!det?`<div class="muted" style="font-size:12.5px;margin:0 0 10px">AUC.GG 에서 최신 경매 결과를 불러오는 중이에요…</div>`:(AUCGG.state==="fail"&&ed.kind!=="builtin"&&!det?`<div class="muted" style="font-size:12.5px;margin:0 0 10px">AUC.GG 에 연결하지 못했어요 — 잠시 뒤 다시 열어 보세요.</div>`:"");
+  return `<div id="aucgg-host">${st}${main}${more}<div class="mx-foot">데이터 출처: <a href="https://auc-gg.up.railway.app/?tab=auction-analysis" target="_blank" rel="noopener">AUC.GG</a> 공개 API · 자동 갱신(1시간)</div></div>`;
+}
 function renderMyeol(){
   const M0=computeMyeol();
   if(!M0){ view().innerHTML=`${navTabsHtml('myeol')}<div class="empty">데이터 로딩 후 이용할 수 있어요.</div>`; return; }
@@ -9383,30 +9415,35 @@ function renderMyeol(){
   ${unk.length?_myFold(`👤 포지션 미등록`,`${unk.length}명 · 실측 포지션이 없는 분`,`<div class="mx-chips">${unk.map(c=>`<span style="display:inline-block;margin:3px 10px 3px 0;font-size:13px"><b style="color:${MYEOL_TCOL[c.tier]}">${tg(c)}</b> ${esc(c.nm)} <b style="color:${pb(c.fair)}">${c.fair}P</b></span>`).join("")}</div>`,false):''}
   ${_myFold(`🎯 검증 — 내부티어 등급별 실측 평균가`,`등급이 내려갈수록 값도 순서대로 내려가야 정상이에요`,`<div style="margin:0 0 10px">${lad}</div><div style="font-size:12.5px;line-height:1.6;color:var(--sub)">등급이 내려갈수록 값도 순서대로 내려가면 이 계산이 클랜 내부티어와 같은 방향을 본다는 뜻이에요.<br>산식: AI점수·짊어진무게·MVP/ACE율·솔랭피크·승률·KDA·분당딜·킬관여·시야·분당CS·솔로킬·챔프폭·역적률·억울지수를 <b>같은 포지션끼리</b> 백분위 비교하고 판수가 적으면 평균 쪽으로 보정 → <b>상대가</b>(제6·7·8회 실제 낙찰가 148건 분포 매핑)와 <b>절대가</b>(같은 점수 = 같은 값인 고정 척도)를 <b>반반 평균</b> → <b>포지션 가중</b>(상위 매물: 정글 웃돈·탑/서폿 할인, 하위 매물: 탑·서폿 우대 — 대회 시세표 기준) → <b>상한 700P·승률 하한</b>(5~10P는 승률까지 바닥일 때만). 그 포지션 <b>12판 이상</b>만 실측이고, 미만은 내부티어 순위로만 추정합니다. 사람을 평가하는 순위표가 아니라 경매 참고용 기계 추정치입니다.</div>`,false)}
 `;
-  // 🎨 [2026-11-21 사장님 「멸망전탭 너무 조잡 — 프로답게 깔끔하게」] 구역을 탭으로 나누고(적정가 · 경매 결과 · 제N회 · 제9회 기록) 카드·글자 위계를 하나로 통일.
-  const _cfg10=aucMyeolCfg();
-  const _views=[["price","적정가"],["auction","경매 결과"],..._cfg10?[["t10",_cfg10.label]]:[],["t9","제9회 기록"]].filter(v=>v[0]!=="price"||MYEOL_SHOW_PRICES);
-  const _vcur=_views.some(v=>v[0]===MYEOL_VIEW)?MYEOL_VIEW:_views[0][0];
-  const _sec=(h,sub)=>`<div class="mx-sh"><h2>${h}</h2>${sub?`<p>${sub}</p>`:""}</div>`;
-  const mxHead=`<div class="mx-hero"><div class="mx-eyebrow">SQUAD · 멸망전</div><h1>${_vcur==="t9"?"제9회 멸망전":_vcur==="t10"&&_cfg10?esc(_cfg10.label):_vcur==="auction"?"경매 낙찰 결과":"제10회 멸망전"}</h1>
-    <p>${_vcur==="price"?`클랜 내전 기록으로 계산한 <b>AI 참고 적정가</b> · 데이터 기준 ${esc(M.maxD)}`:_vcur==="auction"?"AUC.GG 에서 끝난 경매 대회의 팀·낙찰가를 자동으로 가져와요":_vcur==="t10"?"AUC.GG 경매 결과로 자동 생성 · 팀 대 팀 판이 쌓이면 승패도 자동 반영":"확정 12팀 · 본선 · 우승 기록"}</p></div>`;
+  // 🎨 상위 탭 = 회차(기본 최신) · 하위 탭 = 경매결과(기본) / 파워랭킹 / 스크림 / 본선 / 적정가. 카드·글자 위계는 .mx-* 한 벌로 통일.
+  aucEnsure();
+  const _eds=myeolEditions(); const _ed=_eds.find(e=>e.no===MYEOL_ED)||_eds[0];
+  const _cfg=(_ed.kind==="auc")?aucMyeolCfg(_ed.det):null;
+  const _views=myeolViewsFor(_ed); const _vcur=_views.some(v=>v[0]===MYEOL_VIEW)?MYEOL_VIEW:_views[0][0];
+  const mxEd=`<nav class="mx-ed" role="tablist" aria-label="회차 선택">${_eds.map(e=>`<button role="tab" aria-selected="${e.no===_ed.no}" class="${e.no===_ed.no?'on':''}" onclick="setMyeolEd(${e.no})">${e.label}${e.kind==="upcoming"?'<i>예정</i>':e.latest?'<i class="new">최신</i>':''}</button>`).join("")}</nav>`;
+  const _desc={auction:"팀별 낙찰 결과 · AUC.GG 에서 자동으로 가져와요",rank:"종이 전력 + 스크림 실전 보정 · 경기가 쌓이면 자동 갱신",scrim:"팀 대 팀으로 붙은 연습 경기 기록",main:"4강 · 우승 · 조별리그 · 재미난 기록",
+    price:`클랜 내전 기록으로 계산한 AI 참고 적정가 · 데이터 기준 ${esc(M.maxD)}`};
+  const mxHead=`<div class="mx-hero"><div class="mx-eyebrow">SQUAD · 멸망전</div><h1>${esc(_ed.label)} 멸망전</h1><p>${_desc[_vcur]||""}</p></div>`;
   const mxSeg=`<nav class="mx-seg" role="tablist">${_views.map(v=>`<button role="tab" aria-selected="${v[0]===_vcur}" class="${v[0]===_vcur?'on':''}" onclick="setMyeolView('${v[0]}')">${esc(v[1])}</button>`).join("")}</nav>`;
+  const _is9=_ed.kind==="builtin";
   let secView="";
   if(_vcur==="price") secView=priceSec;
-  else if(_vcur==="auction") secView=`<section>${aucCardHtml()}</section>`;
-  else if(_vcur==="t10"&&_cfg10) secView=_myFold(`🏆 팀 파워랭킹`,`종이 전력(전투력 5인 합) + 실전 보정 · 자동 갱신`,myeolTeamRankHtml(_cfg10),true)
-      +_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolBotDuoHtml(_cfg10),false)
-      +_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolMidJglHtml(_cfg10),false)
-      +_myFold(`⚔ 스크림 전적`,`경매 뒤 팀 대 팀으로 붙은 판만`,myeolScrimHtml(_cfg10),false)
-      +_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,`${_cfg10.teams.length}팀 · 포지션순`,myeolRosterHtml(_cfg10),false);
-  else secView=`${_myFold(`🏆 4강 토너먼트`,`우승 수직낙하하는중 · 결승 리버스 스윕 3-2 RAYB · 스코어 자동 집계`,myeolBracketHtml(),true)}
-  ${_myFold(`✨ 재미난 기록`,`본선 전 경기에서 뽑은 기록들 · 동률은 전원 표기`,myeolFunHtml(),false)}
+  else if(_vcur==="auction") secView=myeolEditionBoard(_ed);
+  else if(_vcur==="rank") secView=_is9
+      ?_myFold(`🏆 팀 파워랭킹`,`종이 전력 + 실전 보정(스크림·본선) · 기대승률 대비 초과 성과를 전투력으로 환산`,myeolTeamRankHtml(),true)
+        +_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선`,myeolBotDuoHtml(),false)
+        +_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 최다 조합`,myeolMidJglHtml(),false)
+        +_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,`12팀 · 우승팀부터 · 포지션순`,myeolRosterHtml(),false)
+      :(_cfg?_myFold(`🏆 팀 파워랭킹`,`종이 전력(전투력 5인 합) + 실전 보정 · 자동 갱신`,myeolTeamRankHtml(_cfg),true)
+        +_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolBotDuoHtml(_cfg),false)
+        +_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolMidJglHtml(_cfg),false)
+        +_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,`${_cfg.teams.length}팀 · 포지션순`,myeolRosterHtml(_cfg),false):"");
+  else if(_vcur==="scrim") secView=_is9
+      ?_myFold(`⚔ 스크림 전적`,`본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만`,myeolScrimHtml(),true)
+      :(_cfg?_myFold(`⚔ 스크림 전적`,`경매 뒤 팀 대 팀으로 붙은 판만`,myeolScrimHtml(_cfg),true):"");
+  else if(_vcur==="main") secView=`${_myFold(`🏆 4강 토너먼트`,`우승 수직낙하하는중 · 결승 리버스 스윕 3-2 RAYB · 스코어 자동 집계`,myeolBracketHtml(),true)}
   ${_myFold(`🏟️ 본선 조별리그`,`8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동`,myeolGroupHtml(),false)}
-  ${_myFold(`⚔ 스크림 전적`,`본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만`,myeolScrimHtml(),false)}
-  ${_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,`12팀 · 우승팀부터 · 포지션순`,myeolRosterHtml(),false)}
-  ${_myFold(`🏆 팀 파워랭킹`,`종이 전력 + 실전 보정(스크림·본선) · 기대승률 대비 초과 성과를 전투력으로 환산`,myeolTeamRankHtml(),false)}
-  ${_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선`,myeolBotDuoHtml(),false)}
-  ${_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 최다 조합`,myeolMidJglHtml(),false)}`;
+  ${_myFold(`✨ 재미난 기록`,`본선 전 경기에서 뽑은 기록들 · 동률은 전원 표기`,myeolFunHtml(),false)}`;
   view().innerHTML=`${navTabsHtml('myeol')}
   <style>/* 🩹 [8/18] 1080px 컨테이너 기준 2열 — 5열 강행 시 표 최소폭이 그리드를 밀어내 좌우 광고 밑으로 뚫고 나갔다 */
   .myeol-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
@@ -9497,6 +9534,18 @@ function renderMyeol(){
   .ab-pr{flex:0 0 auto;font-size:13px;font-weight:800;color:var(--gold)}
   .ab-ul li.cap .ab-pr{font-size:11px;color:var(--accent);font-weight:700}
   @media(max-width:560px){.ab-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 8px 12px}.ab-th{padding:8px 9px}.ab-ul li{padding:6px 9px;gap:6px}.ab-t>summary{padding:12px 14px}.ab-top{padding:0 14px 10px}}
+  /* ── 상위 탭: 회차 선택 ── */
+  .mx-ed{display:flex;gap:8px;margin:2px 0 14px;overflow-x:auto;scrollbar-width:none}
+  .mx-ed::-webkit-scrollbar{display:none}
+  .mx-ed button{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--sub);font:inherit;font-size:15px;font-weight:800;letter-spacing:-.01em;padding:9px 18px;border-radius:12px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+  .mx-ed button:hover{color:var(--txt)}
+  .mx-ed button.on{color:var(--txt);background:linear-gradient(180deg,rgba(224,164,55,.14),rgba(224,164,55,.04));border-color:rgba(224,164,55,.55)}
+  .mx-ed button i{font-style:normal;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);color:var(--mut)}
+  .mx-ed button i.new{background:var(--gold);border-color:var(--gold);color:#1a1204}
+  .mx-ed button.on i:not(.new){color:var(--gold);border-color:rgba(224,164,55,.5)}
+  .mx-empty{border:1px dashed var(--line);border-radius:14px;padding:28px 20px;text-align:center;background:var(--bg2)}
+  .mx-empty b{display:block;font-size:16px;font-weight:800;margin-bottom:6px}
+  .mx-empty p{margin:0 0 14px;font-size:13px;line-height:1.6;color:var(--sub)} .mx-empty u{text-decoration:none;color:var(--gold);font-weight:700}
   /* ── 공용 소제목·각주 ── */
   .mx-sec-t{font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--mut);margin:18px 0 8px;text-transform:uppercase}
   .mx-sec-t:first-child{margin-top:2px}
@@ -9574,6 +9623,7 @@ function renderMyeol(){
   @media(max-width:560px){.rk-mem.duo .plus{display:none}}
   @media(max-width:560px){.ch-teams,.bk-semis{grid-template-columns:1fr}.rk-row{padding:11px 12px;gap:10px}.rk-score{font-size:18px;min-width:44px}.ch-title{font-size:23px}}
   @media(max-width:760px){.mx-hero h1{font-size:23px}.mx-fold>summary{padding:12px 14px}.mx-body{padding:12px 14px 14px}.mx-seg button{padding:8px 12px;font-size:13px}}</style>
+  ${mxEd}
   ${mxHead}
   ${mxSeg}
   ${secView}`;
@@ -12492,7 +12542,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611220200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611220300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
