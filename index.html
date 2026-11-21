@@ -8692,13 +8692,13 @@ function computeMyeol(){
   MYEOL_FAIR={list:act,ladder,cut,maxD,excluded:[...new Set(gone)].sort()};
   return MYEOL_FAIR;
 }
-function myeolFairOf(name){
+function myeolFairOf(name,wantPos){
   const M=computeMyeol(); if(!M)return null;
   const cn=canonOfName(name)||name; const k=_myNk(cn);
   const es=M.list.filter(c=>c.cn===cn||_myNk(c.nm)===k);
   if(!es.length)return null;
   const mp=mainPosOf(cn);
-  const e=es.find(c=>c.pos===mp)||es.slice().sort((a,b)=>b.fair-a.fair)[0];
+  const e=(wantPos&&es.find(c=>c.pos===wantPos))||es.find(c=>c.pos===mp)||es.slice().sort((a,b)=>b.fair-a.fair)[0];
   return {fair:e.fair,pos:e.pos,est:e.est,bee:!!e.bee,multi:es.length};
 }
 // 🏆 [2026-08-22] 제9회 멸망전 확정 팀 — 경매 낙찰 결과(팀장, [팀원, 낙찰가]). 표기는 시트·별칭과 매칭되는 형태.
@@ -9254,6 +9254,38 @@ function aucMyeolAuctions(){   // 제9회를 뺀 멸망전 경매(내장 값에 
 }
 function aucExtraPrices(){ return aucMyeolAuctions().flatMap(d=>d.teams.flatMap(t=>t.m.map(p=>p.price))).filter(v=>Number.isFinite(v)); }
 const _aucKst=s=>{ const d=new Date(s); if(isNaN(d)) return ""; const k=new Date(d.getTime()+9*3600000); return k.getUTCFullYear()+"."+String(k.getUTCMonth()+1).padStart(2,"0")+"."+String(k.getUTCDate()).padStart(2,"0"); };
+/* 🧮 [2026-11-22 사장님 「auc.gg 는 낙찰가가 싼지 비싼지 평가하는데 우리 지표로도 평가해보자」]
+   기준 = 우리 내전 기록으로 계산한 적정가(myeolFairOf · 경매 포지션 우선). 낙찰가 ÷ 적정가 비율로 가른다.
+   작은 금액은 비율이 널뛰므로 차이가 30P 미만이면 「적정」. 적정가를 못 구한 사람(기록 부족·미매칭)은 평가하지 않는다. */
+function aucVerdict(price,fair){
+  if(price==null||fair==null||!fair) return null;
+  const diff=price-fair, r=price/fair;
+  if(Math.abs(diff)<30) return {k:"fair",t:"적정",diff,r};
+  if(r<=0.6) return {k:"steal",t:"꿀매물",diff,r};
+  if(r<0.85) return {k:"good",t:"가성비",diff,r};
+  if(r<=1.2) return {k:"fair",t:"적정",diff,r};
+  if(r<=1.7) return {k:"pricey",t:"비쌈",diff,r};
+  return {k:"over",t:"흑우",diff,r};
+}
+function aucEval(d){   // 한 대회의 선수별 평가 + 팀별 합계
+  const out=new Map();   // 선수 객체 → {fair,v}
+  const teams=d.teams.map(t=>{
+    let sp=0,fr=0,n=0;
+    for(const p of t.m){
+      if(p.price==null) continue;
+      let f=null; try{ const m=myeolFairOf(p.n,p.pos); if(m) f=m.fair; }catch(e){}
+      const v=f!=null?aucVerdict(p.price,f):null;
+      out.set(p,{fair:f,v});
+      if(f!=null){ sp+=p.price; fr+=f; n++; }
+    }
+    return {cap:t.cap,spent:sp,fair:fr,n,gap:fr-sp};
+  });
+  const rated=[...out.entries()].filter(([p,e])=>e.v);
+  const steal=rated.slice().sort((a,b)=>(b[1].fair-b[0].price)-(a[1].fair-a[0].price))[0]||null;
+  const over=rated.slice().sort((a,b)=>(b[0].price-b[1].fair)-(a[0].price-a[1].fair))[0]||null;
+  const bestT=teams.filter(t=>t.n>=3).sort((a,b)=>b.gap-a.gap)[0]||null;
+  return {out,teams,steal,over,bestT,rated:rated.length};
+}
 function aucBoardHtml(d,open){   // 🔨 한 대회의 팀별 세로 5인 보드
   const kst=_aucKst, i=open?0:1;
   const POSC={"탑":"탑","정글":"정","미드":"미","원딜":"원","서폿":"서"};
@@ -9261,12 +9293,14 @@ function aucBoardHtml(d,open){   // 🔨 한 대회의 팀별 세로 5인 보드
     const top=all.slice().sort((a,b)=>b.price-a.price).slice(0,5);
     const spent=all.reduce((a,p)=>a+p.price,0), maxP=top.length?top[0].price:null;
     // 🔨 [2026-11-22 사장님 「auc.gg 처럼 팀별로 세로 5인씩 쭉」] 팀마다 한 칸 — 팀장 1명 + 낙찰 선수 4명을 세로로(낙찰가 높은 순)
+    const EV=aucEval(d);
     const cols=d.teams.map(t=>{
       const ms=t.m.slice().sort((a,b)=>(b.price||0)-(a.price||0)), tsum=ms.reduce((a,p)=>a+(p.price||0),0);
-      const row=(nm,pos,tier,price,isCap,hot)=>`<li class="${isCap?'cap':''}${hot?' hot':''}"><i class="ab-pos" title="${esc(pos||'')}">${isCap?'장':esc(POSC[pos]||(pos||'·').slice(0,1))}</i><span class="ab-nm" title="${esc(nm)}${tier?' · '+esc(tier):''}">${esc(nm)}${tier?`<small>${esc(tier)}</small>`:''}</span><b class="ab-pr">${isCap?'팀장':(price==null?'':_aucN(price))}</b></li>`;
-      return `<div class="ab-team"><div class="ab-th"><b>${esc(t.cap)}</b><span>${_aucN(tsum)}P</span></div><ul class="ab-ul">${row(t.cap,"","",null,true,false)}${ms.map(p=>row(p.n,p.pos,p.tier,p.price,false,maxP!=null&&p.price===maxP)).join("")}</ul></div>`; }).join("");
+      const row=(nm,pos,tier,price,isCap,hot,ev)=>`<li class="${isCap?'cap':''}${hot?' hot':''}"><i class="ab-pos" title="${esc(pos||'')}">${isCap?'장':esc(POSC[pos]||(pos||'·').slice(0,1))}</i><span class="ab-nm" title="${esc(nm)}${tier?' · '+esc(tier):''}">${esc(nm)}${tier?`<small>${esc(tier)}</small>`:''}</span><b class="ab-pr">${isCap?'팀장':(price==null?'':_aucN(price))}${(!isCap&&ev&&ev.v)?`<small class="ab-fp">/${_aucN(ev.fair)}</small>`:''}</b>${(!isCap&&ev&&ev.v)?`<i class="ab-v v-${ev.v.k}" title="우리 적정가 ${_aucN(ev.fair)}P · 낙찰 ${_aucN(price)}P (${ev.v.diff>0?'+':''}${_aucN(ev.v.diff)}P)">${ev.v.t}</i>`:''}</li>`;
+      return `<div class="ab-team"><div class="ab-th"><b>${esc(t.cap)}</b><span>${_aucN(tsum)}P${(()=>{const te=EV.teams.find(x=>x.cap===t.cap); return (te&&te.n>=3)?`<em class="ab-gap ${te.gap>=0?'up':'dn'}" title="우리 적정가 합 ${_aucN(te.fair)}P − 실제 ${_aucN(te.spent)}P">${te.gap>=0?'+':''}${_aucN(te.gap)}</em>`:'';})()}</span></div><ul class="ab-ul">${row(t.cap,"","",null,true,false)}${ms.map(p=>row(p.n,p.pos,p.tier,p.price,false,maxP!=null&&p.price===maxP,EV.out.get(p))).join("")}</ul></div>`; }).join("");
     return `<details class="ab-t"${i===0?' open':''}><summary><span class="ab-tn">${esc(d.name)}</span><span class="ab-ts">${esc(kst(d.finishedAt))} · ${d.teams.length}팀 · 낙찰 ${all.length}건 · 총 ${_aucN(spent)}P</span><svg class="mx-chev" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
       <div class="ab-top"><span class="ab-tl">최고 낙찰가</span>${top.map((p,k)=>`<span class="ab-tp"><em>${k+1}</em>${esc(p.n)}<b>${_aucN(p.price)}</b></span>`).join("")||"-"}</div>
+      ${EV.rated?`<div class="ab-eval"><span class="ab-tl">우리 지표 평가</span>${EV.bestT?`<span class="ab-tp">가성비 팀 <b class="g">${esc(EV.bestT.cap)}</b> ${EV.bestT.gap>=0?'+':''}${_aucN(EV.bestT.gap)}P</span>`:''}${EV.steal&&EV.steal[1].fair-EV.steal[0].price>=30?`<span class="ab-tp">최고 가성비 <b class="g">${esc(EV.steal[0].n)}</b> ${_aucN(EV.steal[0].price)}P · 적정 ${_aucN(EV.steal[1].fair)}</span>`:''}${EV.over&&EV.over[0].price-EV.over[1].fair>=30?`<span class="ab-tp">최대 오버페이 <b class="r">${esc(EV.over[0].n)}</b> ${_aucN(EV.over[0].price)}P · 적정 ${_aucN(EV.over[1].fair)}</span>`:''}<span class="ab-note">낙찰가 ÷ 우리 적정가 · 평가 ${EV.rated}명 · 적정가는 지금까지의 내전 기록 기준</span></div>`:''}
       <div class="ab-grid">${cols}</div></details>`;
 }
 function aucCardBody(){   // 모든 경매 대회(최신순) — 첫 번째만 펼침
@@ -9532,6 +9566,18 @@ function renderMyeol(){
   .ab-nm{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;line-height:1.25}
   .ab-nm small{font-size:10.5px;font-weight:500;color:var(--mut)}
   .ab-pr{flex:0 0 auto;font-size:13px;font-weight:800;color:var(--gold)}
+  .ab-fp{font-size:10px;font-weight:500;color:var(--mut);margin-left:1px}
+  .ab-pr{text-align:right}
+  .ab-v{flex:0 0 auto;font-style:normal;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--mut)}
+  .ab-v.v-steal{color:#4ade80;border-color:#4ade80;background:rgba(74,222,128,.12)}
+  .ab-v.v-good{color:#34d3b0;border-color:rgba(52,211,176,.6)}
+  .ab-v.v-pricey{color:#fb923c;border-color:rgba(251,146,60,.6)}
+  .ab-v.v-over{color:#f87171;border-color:#f87171;background:rgba(248,113,113,.12)}
+  .ab-gap{font-style:normal;font-weight:800;margin-left:6px;font-size:11px}
+  .ab-gap.up{color:#4ade80}.ab-gap.dn{color:#f87171}
+  .ab-eval{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 16px 12px}
+  .ab-eval .g{color:#4ade80}.ab-eval .r{color:#f87171}
+  .ab-note{font-size:11px;color:var(--mut)}
   .ab-ul li.cap .ab-pr{font-size:11px;color:var(--accent);font-weight:700}
   @media(max-width:560px){.ab-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 8px 12px}.ab-th{padding:8px 9px}.ab-ul li{padding:6px 9px;gap:6px}.ab-t>summary{padding:12px 14px}.ab-top{padding:0 14px 10px}}
   /* ── 상위 탭: 회차 선택 ── */
@@ -12542,7 +12588,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611220300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611221000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
