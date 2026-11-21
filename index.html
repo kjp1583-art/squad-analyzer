@@ -9256,17 +9256,20 @@ function aucCardBody(){
   const ds=[...AUCGG.det.values()].filter(d=>/AUCTION/i.test(d.mode)).sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt)));
   if(!ds.length) return `<div class="muted" style="font-size:13px">${AUCGG.state==="loading"?"AUC.GG 에서 경매 결과를 불러오는 중이에요…":AUCGG.state==="fail"?"AUC.GG 에 연결하지 못했어요 — 잠시 뒤 다시 열어 보세요.":"아직 가져온 경매 결과가 없어요."}</div>`;
   const kst=s=>{ const d=new Date(s); if(isNaN(d)) return ""; const k=new Date(d.getTime()+9*3600000); return k.getUTCFullYear()+"."+String(k.getUTCMonth()+1).padStart(2,"0")+"."+String(k.getUTCDate()).padStart(2,"0"); };
+  const POSC={"탑":"탑","정글":"정","미드":"미","원딜":"원","서폿":"서"};
   return ds.map((d,i)=>{
     const all=d.teams.flatMap(t=>t.m.map(p=>({...p,cap:t.cap}))).filter(p=>p.price!=null);
     const top=all.slice().sort((a,b)=>b.price-a.price).slice(0,5);
-    const spent=all.reduce((a,p)=>a+p.price,0);
-    const teams=d.teams.map(t=>{
-      const ms=t.m.slice().sort((a,b)=>(b.price||0)-(a.price||0));
-      return `<div style="padding:6px 0;border-top:1px solid rgba(120,130,160,.18)"><b>👑 ${esc(t.cap)}</b> <span class="muted" style="font-size:12px">팀 지출 ${_aucN(ms.reduce((a,p)=>a+(p.price||0),0))}</span>
-        <div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:3px;font-size:13px">${ms.map(p=>`<span>${esc(p.n)} <span class="muted" style="font-size:11.5px">${esc(p.pos)}${p.tier?' · '+esc(p.tier):''}</span> <b style="color:var(--gold)">${p.price==null?'':_aucN(p.price)}</b></span>`).join("")}</div></div>`; }).join("");
-    return `<details${i===0?' open':''} style="margin-top:6px"><summary style="cursor:pointer;font-weight:800">${esc(d.name)} <span class="muted" style="font-size:12px;font-weight:400">${esc(kst(d.finishedAt))} · ${d.teams.length}팀 · 낙찰 ${all.length}건 · 총 ${_aucN(spent)}P</span></summary>
-      <div class="muted" style="font-size:12.5px;margin:4px 0">💰 최고 낙찰가: ${top.map(p=>`${esc(p.n)} <b style="color:var(--gold)">${_aucN(p.price)}</b>`).join(" · ")||"-"}</div>${teams}</details>`;
-  }).join("")+`<div class="muted" style="font-size:11.5px;margin-top:8px">데이터 출처: <a href="https://auc-gg.up.railway.app/?tab=auction-analysis" target="_blank" rel="noopener">AUC.GG</a> 공개 API · 자동 갱신(1시간) · 제9회 이후 새 <b>멸망전</b> 경매는 적정가 분포에 자동으로 더해져요(미니토너먼트는 표시만).</div>`;
+    const spent=all.reduce((a,p)=>a+p.price,0), maxP=top.length?top[0].price:null;
+    // 🔨 [2026-11-22 사장님 「auc.gg 처럼 팀별로 세로 5인씩 쭉」] 팀마다 한 칸 — 팀장 1명 + 낙찰 선수 4명을 세로로(낙찰가 높은 순)
+    const cols=d.teams.map(t=>{
+      const ms=t.m.slice().sort((a,b)=>(b.price||0)-(a.price||0)), tsum=ms.reduce((a,p)=>a+(p.price||0),0);
+      const row=(nm,pos,tier,price,isCap,hot)=>`<li class="${isCap?'cap':''}${hot?' hot':''}"><i class="ab-pos" title="${esc(pos||'')}">${isCap?'장':esc(POSC[pos]||(pos||'·').slice(0,1))}</i><span class="ab-nm" title="${esc(nm)}${tier?' · '+esc(tier):''}">${esc(nm)}${tier?`<small>${esc(tier)}</small>`:''}</span><b class="ab-pr">${isCap?'팀장':(price==null?'':_aucN(price))}</b></li>`;
+      return `<div class="ab-team"><div class="ab-th"><b>${esc(t.cap)}</b><span>${_aucN(tsum)}P</span></div><ul class="ab-ul">${row(t.cap,"","",null,true,false)}${ms.map(p=>row(p.n,p.pos,p.tier,p.price,false,maxP!=null&&p.price===maxP)).join("")}</ul></div>`; }).join("");
+    return `<details class="ab-t"${i===0?' open':''}><summary><span class="ab-tn">${esc(d.name)}</span><span class="ab-ts">${esc(kst(d.finishedAt))} · ${d.teams.length}팀 · 낙찰 ${all.length}건 · 총 ${_aucN(spent)}P</span><svg class="mx-chev" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+      <div class="ab-top"><span class="ab-tl">최고 낙찰가</span>${top.map((p,k)=>`<span class="ab-tp"><em>${k+1}</em>${esc(p.n)}<b>${_aucN(p.price)}</b></span>`).join("")||"-"}</div>
+      <div class="ab-grid">${cols}</div></details>`;
+  }).join("")+`<div class="mx-foot">데이터 출처: <a href="https://auc-gg.up.railway.app/?tab=auction-analysis" target="_blank" rel="noopener">AUC.GG</a> 공개 API · 자동 갱신(1시간) · 제9회 이후 새 <b>멸망전</b> 경매는 적정가 분포에 자동으로 더해져요(미니토너먼트는 표시만).</div>`;
 }
 function aucMyeolCfg(){   // 🔨 가장 최근에 끝난 새 멸망전(제9회 이후) → 명단·파워랭킹 화면 설정. 없으면 null(화면에 안 나온다)
   const ds=aucMyeolAuctions().filter(d=>d.teams.length>=2&&d.teams.some(t=>t.cap&&t.m.length)).sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt))||b.id-a.id);
@@ -9390,7 +9393,7 @@ function renderMyeol(){
   const mxSeg=`<nav class="mx-seg" role="tablist">${_views.map(v=>`<button role="tab" aria-selected="${v[0]===_vcur}" class="${v[0]===_vcur?'on':''}" onclick="setMyeolView('${v[0]}')">${esc(v[1])}</button>`).join("")}</nav>`;
   let secView="";
   if(_vcur==="price") secView=priceSec;
-  else if(_vcur==="auction") secView=`<section class="mx-panel">${aucCardHtml()}</section>`;
+  else if(_vcur==="auction") secView=`<section>${aucCardHtml()}</section>`;
   else if(_vcur==="t10"&&_cfg10) secView=_myFold(`🏆 팀 파워랭킹`,`종이 전력(전투력 5인 합) + 실전 보정 · 자동 갱신`,myeolTeamRankHtml(_cfg10),true)
       +_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolBotDuoHtml(_cfg10),false)
       +_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolMidJglHtml(_cfg10),false)
@@ -9466,6 +9469,34 @@ function renderMyeol(){
   .myeol-t td{padding:6px 2px;border-bottom:1px solid rgba(120,130,160,.1)}
   .myeol-t tbody tr:last-child td{border-bottom:0}
   .myeol-t tbody tr:hover{background:rgba(255,255,255,.025)}
+  /* ── 경매 결과: 팀별 세로 5인 보드(auc.gg 식) ── */
+  .ab-t{border:1px solid var(--line);border-radius:14px;background:var(--bg2);margin:0 0 12px;overflow:hidden}
+  .ab-t>summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;cursor:pointer;list-style:none}
+  .ab-t>summary::-webkit-details-marker{display:none}
+  .ab-tn{font-size:16px;font-weight:800;letter-spacing:-.01em;color:var(--txt)}
+  .ab-ts{flex:1;min-width:0;font-size:12px;color:var(--mut)}
+  .ab-t[open]>summary .mx-chev{transform:rotate(180deg)} .ab-t>summary .mx-chev{color:var(--mut);transition:transform .2s}
+  .ab-top{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 16px 12px}
+  .ab-tl{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--gold);margin-right:2px}
+  .ab-tp{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+  .ab-tp em{font-style:normal;font-size:10.5px;font-weight:900;color:var(--mut)} .ab-tp b{color:var(--gold);font-weight:800}
+  .ab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:10px;padding:0 12px 14px}
+  .ab-team{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}
+  .ab-th{display:flex;justify-content:space-between;align-items:baseline;gap:6px;padding:9px 11px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+  .ab-th b{font-size:13.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ab-th span{font-size:11px;font-weight:700;color:var(--gold);white-space:nowrap}
+  .ab-ul{list-style:none;margin:0;padding:4px 0}
+  .ab-ul li{display:flex;align-items:center;gap:8px;padding:6px 11px;font-size:13px}
+  .ab-ul li+li{border-top:1px solid rgba(120,130,160,.1)}
+  .ab-ul li.cap{background:rgba(91,140,255,.07)}
+  .ab-ul li.hot .ab-pr{color:#ffd479;text-shadow:0 0 10px rgba(255,212,121,.35)}
+  .ab-pos{flex:0 0 20px;height:20px;border-radius:6px;display:grid;place-items:center;font-style:normal;font-size:10.5px;font-weight:800;color:var(--sub);background:var(--bg2);border:1px solid var(--line)}
+  .ab-ul li.cap .ab-pos{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .ab-nm{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;line-height:1.25}
+  .ab-nm small{font-size:10.5px;font-weight:500;color:var(--mut)}
+  .ab-pr{flex:0 0 auto;font-size:13px;font-weight:800;color:var(--gold)}
+  .ab-ul li.cap .ab-pr{font-size:11px;color:var(--accent);font-weight:700}
+  @media(max-width:560px){.ab-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 8px 12px}.ab-th{padding:8px 9px}.ab-ul li{padding:6px 9px;gap:6px}.ab-t>summary{padding:12px 14px}.ab-top{padding:0 14px 10px}}
   /* ── 공용 소제목·각주 ── */
   .mx-sec-t{font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--mut);margin:18px 0 8px;text-transform:uppercase}
   .mx-sec-t:first-child{margin-top:2px}
@@ -12461,7 +12492,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611220100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611220200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
