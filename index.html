@@ -9054,21 +9054,41 @@ function myeolGroupHtml(){
     +`<div style="margin-top:4px"><b style="font-size:13px">최근 본선 경기</b></div><div>${recent}</div>
     <div class="muted" style="font-size:11.5px;margin-top:8px">※ 8/29 개막 이후 '양 팀 모두 같은 멸망전 팀 4인 이상'인 판을 본선으로 자동 집계 · 셀은 가로줄 팀 기준 승－패 · 시트 갱신 시 자동 반영</div>`;
 }
+/* 🏆 [2026-11-22 사장님 「스크림 탭에 성적표를 LCK 순위표 느낌으로」] 팀 순위표 — 순위 · 팀 · 승패 · 승률 · 최근 5경기 · 연속 · 순위변동.
+   순위 = 승률 → 승수 → 이름. 순위변동 = 가장 최근 경기일의 판을 빼고 다시 센 순위와 비교(그날 처음 나온 팀은 NEW). 한 판이 한 경기라 「득실차」 대신 승률을 쓴다. */
+function _scrimStandings(list){
+  const ord=list.slice().sort((a,b)=>(a.day-b.day)||(Number(a.gid)-Number(b.gid))||0);
+  const calc=arr=>{ const m=new Map();
+    for(const g of arr){ for(const [t,w] of [[g.win,1],[g.lose,0]]){ let e=m.get(t); if(!e)m.set(t,e={t,w:0,l:0,seq:[]}); w?e.w++:e.l++; e.seq.push(w); } }
+    const r=[...m.values()]; for(const e of r) e.wr=(e.w+e.l)?e.w/(e.w+e.l):0;
+    r.sort((a,b)=>(b.wr-a.wr)||(b.w-a.w)||String(a.t).localeCompare(String(b.t),"ko")); r.forEach((e,i)=>e.rk=i+1); return r; };
+  const now=calc(ord); if(!ord.length) return now;
+  const last=ord[ord.length-1].day, prevArr=ord.filter(g=>g.day.getTime()!==last.getTime());
+  const prev=new Map(calc(prevArr).map(e=>[e.t,e.rk]));
+  for(const e of now){ const p=prev.get(e.t); e.chg=(prevArr.length&&p!=null)?p-e.rk:(prevArr.length?null:0); e.isNew=prevArr.length>0&&p==null;
+    let n=0,w=e.seq[e.seq.length-1]; for(let i=e.seq.length-1;i>=0&&e.seq[i]===w;i--) n++; e.streak=n?(w?n+"W":n+"L"):"-"; e.sw=w; }
+  return now;
+}
+function _scrimStandingsHtml(list){
+  const S=_scrimStandings(list);
+  const body=S.map(e=>{
+    const chg=e.isNew?`<span class="st-chg new">NEW</span>`:(e.chg>0?`<span class="st-chg up">▲ ${e.chg}</span>`:(e.chg<0?`<span class="st-chg dn">▼ ${-e.chg}</span>`:`<span class="st-chg">–</span>`));
+    const dots=e.seq.slice(-5).map(w=>`<i class="st-d ${w?'w':'l'}" title="${w?'승':'패'}"></i>`).join("");
+    return `<div class="st-r${e.rk===1?' top':''}"><b class="st-rk">${e.rk}</b><span class="st-tm">${esc(e.t)}</span><span class="st-wl"><em class="w">${e.w}</em>-<em class="l">${e.l}</em></span><span class="st-wr">${Math.round(e.wr*100)}%</span><span class="st-rc">${dots}</span><span class="st-sk ${e.sw?'w':'l'}">${e.streak}</span>${chg}</div>`; }).join("");
+  return `<div class="st-t"><div class="st-h"><span>순위</span><span class="st-tm">팀</span><span class="st-wl">승-패</span><span class="st-wr">승률</span><span class="st-rc">최근 5경기</span><span class="st-sk">연속</span><span class="st-chg">변동</span></div>${body}</div>`;
+}
 function myeolScrimHtml(cfg){   // cfg 없으면 제9회 — 있으면 AUC.GG 로 자동 만든 대회(경매 이후 팀 대 팀 판 전부)
   const S=cfg?_myeolScrimsFor(cfg):_myeolScrims();
   if(!S) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
   // 본선 개막 후에는 스크림(개막 전) 판만 이 카드에 남긴다 — 본선은 위 조별리그 카드가 담당
   const list=cfg?S.list:S.list.filter(m=>m.day<MYEOL_MAIN_START);
   if(!list.length) return `<div class="muted">아직 스크림(양 팀 모두 같은 멸망전 팀 4인 이상) 기록이 없어요 — 팀장끼리 일반 내전에 낀 판은 세지 않습니다.</div>`;
-  const rec=new Map();
-  for(const m of list){ for(const [t,w] of [[m.win,1],[m.lose,0]]){ let e=rec.get(t); if(!e)rec.set(t,e={w:0,l:0}); w?e.w++:e.l++; } }
-  const rank=[...rec.entries()].sort((a,b)=>(b[1].w-b[1].l)-(a[1].w-a[1].l)||b[1].w-a[1].w);
-  const rows=`<div class="sc-chips">`+rank.map(([t,e])=>`<span class="sc-chip"><b>${esc(t)}</b><span><em class="w">${e.w}승</em><em class="l">${e.l}패</em></span></span>`).join("")+`</div>`;
+  const rows=_scrimStandingsHtml(list);
   const recent=list.sort((a,b)=>b.day-a.day).slice(0,10).map(m=>`<div class="rpr">
       <span class="rpr-d">${m.day.getMonth()+1}/${m.day.getDate()}</span>
       <span class="rpr-t"><b style="color:var(--win)">${esc(m.win)}</b> 승 <span class="muted">vs</span> ${esc(m.lose)}</span>
       <span class="rpr-g clickname" onclick="go('game','${escAttr(m.gid)}')">보기 ›</span></div>`).join("");
-  return `${rows}<div class="sc-list">${recent}</div>
+  return `${rows}<div class="sc-sub">최근 경기</div><div class="sc-list">${recent}</div>
     <div class="mx-foot">※ '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 스크림으로 집계합니다(용병 1명까지 허용). 팀장·팀원이 일반 내전에 흩어져 낀 판은 팀 전적이 아니에요.</div>`;
 }
 // ✂️ [2026-11-03 P-36] 멸망전 탭 폰 24화면 → 접기: 카드마다 제목 줄만 보이고 누르면 펼친다(첫 카드 4강만 펼침). 내용·데이터는 그대로.
@@ -9441,6 +9461,21 @@ function renderMyeol(){
   .ab-nm{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;line-height:1.25}
   .ab-nm small{font-size:10.5px;font-weight:500;color:var(--mut)}
   .ab-pr{flex:0 0 auto;font-size:13px;font-weight:800;color:var(--gold)}
+  .st-t{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card);margin-bottom:12px}
+  .st-h,.st-r{display:grid;grid-template-columns:40px minmax(0,1fr) 64px 48px 84px 40px 52px;align-items:center;gap:6px;padding:9px 12px;font-size:13px}
+  .st-h{font-size:11px;font-weight:700;color:var(--mut);background:rgba(255,255,255,.03);border-bottom:1px solid var(--line);text-align:center}
+  .st-r{text-align:center;border-top:1px solid rgba(120,130,160,.12)} .st-r:nth-child(2){border-top:0}
+  .st-r.top{background:linear-gradient(90deg,rgba(91,140,255,.16),transparent 70%);box-shadow:inset 3px 0 0 var(--accent)}
+  .st-rk{font-size:17px;font-weight:900} .st-r.top .st-rk{color:var(--accent)}
+  .st-tm{text-align:left!important;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .st-wl em,.st-wl{font-style:normal;font-weight:800} .st-wl em.w{color:var(--win)} .st-wl em.l{color:var(--lose,#f87171)}
+  .st-wr{color:var(--sub);font-weight:700}
+  .st-rc{display:inline-flex;gap:3px;justify-content:center}
+  .st-d{width:8px;height:8px;border-radius:50%;background:var(--line)} .st-d.w{background:var(--win)} .st-d.l{background:var(--lose,#f87171);opacity:.75}
+  .st-sk{font-weight:800;font-size:12px} .st-sk.w{color:var(--win)} .st-sk.l{color:var(--lose,#f87171)}
+  .st-chg{font-size:11.5px;font-weight:800;color:var(--mut)} .st-chg.up{color:#4ade80} .st-chg.dn{color:#f87171} .st-chg.new{color:var(--accent)}
+  .sc-sub{font-size:12px;font-weight:800;color:var(--mut);margin:4px 2px 6px}
+  @media(max-width:560px){.st-h,.st-r{grid-template-columns:28px minmax(0,1fr) 54px 40px 62px 32px 42px;gap:4px;padding:8px 8px;font-size:12px}.st-d{width:6px;height:6px}.st-rc{gap:2px}.st-rk{font-size:15px}}
   .ab-fp{font-size:10px;font-weight:500;color:var(--mut);margin-left:1px}
   .ab-pr{text-align:right}
   .ab-v{flex:0 0 auto;font-style:normal;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--mut)}
@@ -12375,7 +12410,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611221300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611221400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
