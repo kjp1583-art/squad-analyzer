@@ -8860,7 +8860,7 @@ function myeolTeamRankHtml(cfg){   // cfg 없으면 제9회(내장) — 있으�
   teams.sort((a,b)=>(b.total??-99)-(a.total??-99));
   const smax=Math.max(...teams.map(t=>t.total??0)), smin=Math.min(...teams.map(t=>t.total??99));
   const nmLink=n=>`<span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[n]||n))}')">${esc(n)}</span>`;
-  return `<div class="rk">`+teams.map((t,i)=>{
+  return `<div class="rkl">`+teams.map((t,i)=>{
     const w=t.total==null?0:(smax>smin?(t.total-smin)/(smax-smin)*100:50);
     return `<div class="rk-row${i<3?' top':''}">
       <div class="rk-no">${i+1}</div>
@@ -8913,11 +8913,12 @@ const MYEOL_MIDJGL=[
  {t:"MARU",ad:"지 르",sup:"용조련사",note:"실측 2판"},
  {t:"태 희",ad:"태 희",sup:"손톱깎이",note:"실측 2판"},
 ];
-function myeolMidJglHtml(){ return _myeolDuoRankHtml(MYEOL_MIDJGL,"🔮","🌳"); }
-function myeolBotDuoHtml(){ return _myeolDuoRankHtml(MYEOL_BOTDUOS,"🏹","🛡"); }
+function myeolMidJglHtml(cfg){ return _myeolDuoRankHtml(cfg?aucDuoList(cfg,"mj"):MYEOL_MIDJGL,"🔮","🌳"); }
+function myeolBotDuoHtml(cfg){ return _myeolDuoRankHtml(cfg?aucDuoList(cfg,"bot"):MYEOL_BOTDUOS,"🏹","🛡"); }
 function _myeolDuoRankHtml(DUOS,icA,icB){
   const pOf=_myeolPOf();
   if(!pOf) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
+  if(!DUOS||!DUOS.length) return `<div class="muted">라인업을 알 수 있는 팀이 아직 없어요 — 경매 결과에 포지션이 있어야 자동으로 만들어져요.</div>`;
   const multi=new Map(); for(const d of DUOS) multi.set(d.t,(multi.get(d.t)||0)+1);
   const list=DUOS.map(d=>{
     const pa=pOf(d.ad), ps=pOf(d.sup);
@@ -8925,7 +8926,7 @@ function _myeolDuoRankHtml(DUOS,icA,icB){
   }).sort((a,b)=>(b.sum??-1)-(a.sum??-1));
   const smax=Math.max(...list.map(x=>x.sum??0)), smin=Math.min(...list.map(x=>x.sum??99));
   const nm=n=>`<span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[n]||n))}')">${esc(n)}</span>`;
-  return `<div class="rk">`+list.map((d,i)=>{
+  return `<div class="rkl">`+list.map((d,i)=>{
     const w=d.sum==null?0:(smax>smin?(d.sum-smin)/(smax-smin)*100:50);
     const multiTag=multi.get(d.t)>1?`<span class="rk-tag">경우의수</span>`:"";
     return `<div class="rk-row${i<3?' top':''}">
@@ -9178,11 +9179,11 @@ function myeolGroupHtml(){
     +`<div style="margin-top:4px"><b style="font-size:13px">최근 본선 경기</b></div><div>${recent}</div>
     <div class="muted" style="font-size:11.5px;margin-top:8px">※ 8/29 개막 이후 '양 팀 모두 같은 멸망전 팀 4인 이상'인 판을 본선으로 자동 집계 · 셀은 가로줄 팀 기준 승－패 · 시트 갱신 시 자동 반영</div>`;
 }
-function myeolScrimHtml(){
-  const S=_myeolScrims();
+function myeolScrimHtml(cfg){   // cfg 없으면 제9회 — 있으면 AUC.GG 로 자동 만든 대회(경매 이후 팀 대 팀 판 전부)
+  const S=cfg?_myeolScrimsFor(cfg):_myeolScrims();
   if(!S) return `<div class="muted">데이터 로딩 후 표시됩니다.</div>`;
   // 본선 개막 후에는 스크림(개막 전) 판만 이 카드에 남긴다 — 본선은 위 조별리그 카드가 담당
-  const list=S.list.filter(m=>m.day<MYEOL_MAIN_START);
+  const list=cfg?S.list:S.list.filter(m=>m.day<MYEOL_MAIN_START);
   if(!list.length) return `<div class="muted">아직 스크림(양 팀 모두 같은 멸망전 팀 4인 이상) 기록이 없어요 — 팀장끼리 일반 내전에 낀 판은 세지 않습니다.</div>`;
   const rec=new Map();
   for(const m of list){ for(const [t,w] of [[m.win,1],[m.lose,0]]){ let e=rec.get(t); if(!e)rec.set(t,e={w:0,l:0}); w?e.w++:e.l++; } }
@@ -9270,11 +9271,40 @@ function aucCardBody(){
 function aucMyeolCfg(){   // 🔨 가장 최근에 끝난 새 멸망전(제9회 이후) → 명단·파워랭킹 화면 설정. 없으면 null(화면에 안 나온다)
   const ds=aucMyeolAuctions().filter(d=>d.teams.length>=2&&d.teams.some(t=>t.cap&&t.m.length)).sort((a,b)=>String(b.finishedAt).localeCompare(String(a.finishedAt))||b.id-a.id);
   const d=ds[0]; if(!d) return null;
-  const teams=d.teams.filter(t=>t.cap&&t.m.length).map(t=>({cap:t.cap,m:t.m.map(p=>[p.n,p.price==null?0:p.price])}));
+  const teams=d.teams.filter(t=>t.cap&&t.m.length).map(t=>({cap:t.cap,m:t.m.map(p=>[p.n,p.price==null?0:p.price]),pos:t.m.map(p=>p.pos)}));
   const fa=new Date(d.finishedAt); let from=null;
   if(!isNaN(fa)){ const k=new Date(fa.getTime()+9*3600000); from=new Date(k.getUTCFullYear(),k.getUTCMonth(),k.getUTCDate(),k.getUTCHours(),k.getUTCMinutes()); }
   const no=(d.name.match(/제\s*(\d+)\s*회/)||[])[1];
   return {id:d.id,name:d.name,label:no?`제${no}회 멸망전`:d.name,teams,from:from||new Date(2026,0,1)};
+}
+/* ⚔️ [2026-11-21] 제10회~ 봇듀오·미드정글 라인업 자동 생성 — AUC.GG 의 포지션(선수 4명)에서 팀장 자리를 추리고,
+   경매 뒤 팀 대 팀 판이 있으면 그 판의 실제 포지션으로 덮어쓴다(「실측 N판」). 팀장 자리가 하나로 안 좁혀지면 경우의수로 나눈다. */
+function aucScrimLineups(cfg){
+  const src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES; const S=_myeolScrimsFor(cfg); if(!src||!S) return new Map();
+  const key=n=>_myNk(canonOfName(MYEOL_NAMEFIX[n]||n)); const teamOf=new Map(), nick=new Map();
+  for(const t of cfg.teams){ teamOf.set(key(t.cap),t.cap); nick.set(key(t.cap),t.cap); for(const [n] of t.m){ teamOf.set(key(n),t.cap); nick.set(key(n),n); } }
+  const acc=new Map();   // cap -> {n, roles: Map(role -> Map(nick->count))}
+  for(const m of S.list){ const g=src.get(m.gid); if(!g) continue;
+    for(const cap of [m.win,m.lose]){ let e=acc.get(cap); if(!e) acc.set(cap,e={n:0,roles:new Map()}); e.n++;
+      for(const r of g.rows||[]){ const k=_myNk(canonOfName(canonOfRow(r))); if(teamOf.get(k)!==cap) continue; const ps=r["포지션"]; if(!ps||ps==="선택안함") continue;
+        let rm=e.roles.get(ps); if(!rm) e.roles.set(ps,rm=new Map()); const nk=nick.get(k); rm.set(nk,(rm.get(nk)||0)+1); } } }
+  return acc;
+}
+function aucDuoList(cfg,kind){
+  const [rA,rB]=kind==="bot"?["원딜","서폿"]:["미드","정글"], POS5=["탑","정글","미드","원딜","서폿"], out=[], real=aucScrimLineups(cfg);
+  const top=(e,role)=>{ const rm=e&&e.roles.get(role); if(!rm) return null; return [...rm.entries()].sort((a,b)=>b[1]-a[1])[0][0]; };
+  for(const t of cfg.teams){
+    const e=real.get(t.cap), ra=top(e,rA), rb=top(e,rB);
+    if(e&&e.n>=2&&ra&&rb&&ra!==rb){ out.push({t:t.cap,ad:ra,sup:rb,note:`실측 ${e.n}판`}); continue; }
+    const roles=new Map(POS5.map(p=>[p,[]]));
+    t.m.forEach(([n],i)=>{ const ps=t.pos&&t.pos[i]; if(roles.has(ps)) roles.get(ps).push(n); });
+    const miss=POS5.filter(p=>!roles.get(p).length);
+    const capAt=miss.length?miss:POS5;   // 팀장 자리 후보 — 비어 있는 포지션(하나면 확정)
+    const seen=new Set(); let k=0;
+    for(const cr of capAt){ const R=new Map([...roles].map(([p,v])=>[p,v.slice()])); R.get(cr).push(t.cap);
+      for(const a of R.get(rA)) for(const b of R.get(rB)){ if(a===b) continue; const id=a+"|"+b; if(seen.has(id)||k>=6) continue; seen.add(id); k++; out.push({t:t.cap,ad:a,sup:b,note:capAt.length>1?"팀장 자리 미확정":"경매 포지션 기준"}); } }
+  }
+  return out;
 }
 function aucCardHtml(){ aucEnsure(); return `<div id="aucgg-host">${aucCardBody()}</div>`; }
 function _myFold(title,sub,body,open){   // 🎨 [2026-11-21] 멸망전 탭 통일 섹션 — 제목 / 한 줄 설명 / 화살표. 앞쪽 이모지는 작은 아이콘 칩으로 뗀다
@@ -9361,8 +9391,11 @@ function renderMyeol(){
   let secView="";
   if(_vcur==="price") secView=priceSec;
   else if(_vcur==="auction") secView=`<section class="mx-panel">${aucCardHtml()}</section>`;
-  else if(_vcur==="t10"&&_cfg10) secView=_myFold(`🏆 ${esc(_cfg10.label)} 팀 파워랭킹`,`종이 전력(전투력 5인 합) + 실전 보정 · 자동 갱신`,myeolTeamRankHtml(_cfg10),true)
-      +_myFold(`🧑‍🤝‍🧑 ${esc(_cfg10.label)} 팀별 선수 명단`,`${_cfg10.teams.length}팀 · 포지션순`,myeolRosterHtml(_cfg10),false);
+  else if(_vcur==="t10"&&_cfg10) secView=_myFold(`🏆 팀 파워랭킹`,`종이 전력(전투력 5인 합) + 실전 보정 · 자동 갱신`,myeolTeamRankHtml(_cfg10),true)
+      +_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolBotDuoHtml(_cfg10),false)
+      +_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolMidJglHtml(_cfg10),false)
+      +_myFold(`⚔ 스크림 전적`,`경매 뒤 팀 대 팀으로 붙은 판만`,myeolScrimHtml(_cfg10),false)
+      +_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,`${_cfg10.teams.length}팀 · 포지션순`,myeolRosterHtml(_cfg10),false);
   else secView=`${_myFold(`🏆 4강 토너먼트`,`우승 수직낙하하는중 · 결승 리버스 스윕 3-2 RAYB · 스코어 자동 집계`,myeolBracketHtml(),true)}
   ${_myFold(`✨ 재미난 기록`,`본선 전 경기에서 뽑은 기록들 · 동률은 전원 표기`,myeolFunHtml(),false)}
   ${_myFold(`🏟️ 본선 조별리그`,`8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동`,myeolGroupHtml(),false)}
@@ -9438,7 +9471,7 @@ function renderMyeol(){
   .mx-sec-t:first-child{margin-top:2px}
   .mx-foot{font-size:11.5px;line-height:1.6;color:var(--mut);margin-top:12px}
   /* ── 순위 목록(.rk) — 팀 파워랭킹·봇듀오·미드정글 공통 ── */
-  .rk{display:flex;flex-direction:column;gap:8px}
+  .rkl{display:flex;flex-direction:column;gap:8px}
   .rk-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
   .rk-row.top{background:linear-gradient(180deg,rgba(224,164,55,.07),rgba(224,164,55,0) 80%),var(--bg2);border-color:rgba(224,164,55,.28)}
   .rk-no{flex:0 0 28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:900;color:var(--sub);background:var(--card);border:1px solid var(--line)}
@@ -12428,7 +12461,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611220010";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611220100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
