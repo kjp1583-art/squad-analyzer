@@ -10943,7 +10943,7 @@ def create_graphic_ui():
         except Exception as e: messagebox.showerror("평가 오류", f"데이터를 갱신 중입니다. 잠시 후 다시 시도해주세요.\n(에러: {str(e)})")
     _HTile("🎖", "내부티어", open_tier_window, theme.PURPLE)
 
-    _HTile("🧪", "모의밴픽", lambda: webbrowser.open("https://www.fullbanpick.com/"), theme.WARN)
+    _HTile("🧪", "모의밴픽", lambda: webbrowser.open("https://auc-gg.up.railway.app/?tab=draft-tool"), theme.WARN)
     _HTile("🌐", "SQUAD.GG", lambda: webbrowser.open("https://kjp1583-art.github.io/squad-analyzer/"), theme.ACCENT)
     _HTile("🔨", "AUC.GG", lambda: webbrowser.open("https://auc-gg.up.railway.app/"), theme.GOLD)
 
