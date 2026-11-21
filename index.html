@@ -8858,22 +8858,20 @@ function myeolTeamRankHtml(cfg){   // cfg 없으면 제9회(내장) — 있으�
   }
   teams.sort((a,b)=>(b.total??-99)-(a.total??-99));
   const smax=Math.max(...teams.map(t=>t.total??0)), smin=Math.min(...teams.map(t=>t.total??99));
-  return teams.map((t,i)=>{
-    const med=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}위`;
+  const nmLink=n=>`<span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[n]||n))}')">${esc(n)}</span>`;
+  return `<div class="rk">`+teams.map((t,i)=>{
     const w=t.total==null?0:(smax>smin?(t.total-smin)/(smax-smin)*100:50);
-    return `<div style="padding:9px 2px;border-top:1px solid var(--line)">
-      <div style="display:flex;align-items:center;gap:9px">
-        <b style="min-width:34px;color:var(--sub)">${med}</b>
-        <b style="flex:1;font-size:15px">${esc(t.cap)}</b>
-        <span style="font-size:12px">${t.sw+t.sl?`<b style="color:var(--win)">${t.sw}승</b> <b style="color:var(--lose)">${t.sl}패</b>`:`<span class="muted">스크림 전</span>`}</span>
-        <span class="muted" style="font-size:11.5px" title="종이 전력(5인 전투력 합)과 스크림 실전 보정">종이 ${t.sum==null?'-':t.sum.toFixed(1)} ${t.adj>=0?'+':'−'}${Math.abs(t.adj).toFixed(1)}</span>
-        <span class="muted" style="font-size:12px">지출 ${t.spent}P</span>
-        <b style="color:var(--gold);font-size:15px" title="종이 전력 + 스크림 실전 보정 — 전투력차 1 = 예상승률 4%p">⚔ ${t.total==null?'-':t.total.toFixed(1)}</b></div>
-      <div style="height:5px;background:var(--bg2);border-radius:3px;margin:6px 0 7px;overflow:hidden"><div style="height:100%;width:${w.toFixed(0)}%;background:linear-gradient(90deg,#7aa2ff,var(--gold));border-radius:3px"></div></div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px">
-        ${t.rows.map(r=>`<span><span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[r.n]||r.n))}')">${esc(r.n)}</span> <b style="color:#9fd0ff">⚔${r.pw==null?'-':r.pw.toFixed(1)}</b><span class="muted"> ${r.p==null?'팀장':(r.p?r.p+'P':'유찰')}</span></span>`).join("")}
-      </div></div>`;
-  }).join("");
+    return `<div class="rk-row${i<3?' top':''}">
+      <div class="rk-no">${i+1}</div>
+      <div class="rk-main">
+        <div class="rk-head"><b class="rk-name">${esc(t.cap)}</b>
+          <span class="rk-rec">${t.sw+t.sl?`<b class="w">${t.sw}승</b> <b class="l">${t.sl}패</b>`:`<em>스크림 전</em>`}</span></div>
+        <div class="rk-bar" title="종이 전력 + 스크림 실전 보정 — 전투력차 1 = 예상승률 4%p"><i style="width:${w.toFixed(0)}%"></i></div>
+        <div class="rk-meta"><span title="종이 전력(5인 전투력 합)과 스크림 실전 보정">종이 ${t.sum==null?'-':t.sum.toFixed(1)} <u>${t.adj>=0?'+':'−'}${Math.abs(t.adj).toFixed(1)}</u></span><span>지출 ${t.spent}P</span></div>
+        <div class="rk-mem">${t.rows.map((r,k)=>`<span class="${k===0?'cap':''}">${nmLink(r.n)}<b>${r.pw==null?'-':r.pw.toFixed(1)}</b></span>`).join("")}</div>
+      </div>
+      <div class="rk-score">${t.total==null?'-':t.total.toFixed(1)}</div></div>`;
+  }).join("")+`</div>`;
 }
 // 💑 [2026-08-24 사장님 지시] 팀별 봇듀오(원딜+서폿) 파워랭킹. 라인업은 8/23 스크림 실측 우선, 없으면 주포지션.
 //    바텀이 유동적인 팀(사장님 지정: SIAH K·택스·MARU + 실측 불가 태희)은 경우의수를 각각 랭킹에 올린다.
@@ -8926,19 +8924,18 @@ function _myeolDuoRankHtml(DUOS,icA,icB){
   }).sort((a,b)=>(b.sum??-1)-(a.sum??-1));
   const smax=Math.max(...list.map(x=>x.sum??0)), smin=Math.min(...list.map(x=>x.sum??99));
   const nm=n=>`<span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[n]||n))}')">${esc(n)}</span>`;
-  return list.map((d,i)=>{
-    const med=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}위`;
+  return `<div class="rk">`+list.map((d,i)=>{
     const w=d.sum==null?0:(smax>smin?(d.sum-smin)/(smax-smin)*100:50);
-    const cs=multi.get(d.t)>1?`<span style="color:#ffc861;font-size:10.5px;margin-left:4px">경우의수</span>`:"";
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid var(--line);font-size:13px">
-      <b style="min-width:34px;color:var(--sub)">${med}</b>
-      <b style="min-width:96px">${esc(d.t)}</b>${cs}
-      <span style="flex:1">${icA} ${nm(d.ad)} <b style="color:#9fd0ff">⚔${d.pa==null?'-':d.pa.toFixed(1)}</b>
-        <span class="muted">+</span> ${icB} ${nm(d.sup)} <b style="color:#9fd0ff">⚔${d.ps==null?'-':d.ps.toFixed(1)}</b>
-        ${d.note?`<span class="muted" style="font-size:10.5px;margin-left:5px">${esc(d.note)}</span>`:""}</span>
-      <div style="width:70px;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${w.toFixed(0)}%;background:linear-gradient(90deg,#7aa2ff,var(--gold))"></div></div>
-      <b style="color:var(--gold);min-width:48px;text-align:right">⚔ ${d.sum==null?'-':d.sum.toFixed(1)}</b></div>`;
-  }).join("");
+    const multiTag=multi.get(d.t)>1?`<span class="rk-tag">경우의수</span>`:"";
+    return `<div class="rk-row${i<3?' top':''}">
+      <div class="rk-no">${i+1}</div>
+      <div class="rk-main">
+        <div class="rk-head"><b class="rk-name">${esc(d.t)}</b>${multiTag}${d.note?`<span class="rk-note">${esc(d.note)}</span>`:""}</div>
+        <div class="rk-bar"><i style="width:${w.toFixed(0)}%"></i></div>
+        <div class="rk-mem duo"><span><em>${icA}</em>${nm(d.ad)}<b>${d.pa==null?'-':d.pa.toFixed(1)}</b></span><span class="plus">+</span><span><em>${icB}</em>${nm(d.sup)}<b>${d.ps==null?'-':d.ps.toFixed(1)}</b></span></div>
+      </div>
+      <div class="rk-score">${d.sum==null?'-':d.sum.toFixed(1)}</div></div>`;
+  }).join("")+`</div>`;
 }
 // ⚔ [2026-08-24 사장님 지시] 스크림 전적 — '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 팀 대 팀으로 인정.
 //    팀장이 일반 내전에 낀 판을 스크림으로 오인하지 않기 위한 기준(8/24 QnA 오답의 원인).
@@ -9046,40 +9043,45 @@ function myeolBracketHtml(){
   if(semis.length===2){ const l0=lead(semis[0]), l1=lead(semis[1]);
     if(l0&&l1) fin=ser.get(pk(l0,l1))||null; }
   const roster=cap=>{ const t=MYEOL_TEAMS9.find(x=>x.cap===cap); return t?t.m.map(([n])=>n):[]; };
+  const C0=typeof MYEOL9_CHAMP!=="undefined"?MYEOL9_CHAMP:null;
+  const fin2=(C0&&!fin)?{teams:[C0.cap,C0.runner],w:new Map([[C0.cap,+(String(C0.score).split("-")[0])||0],[C0.runner,+(String(C0.score).split("-")[1])||0]]),n:0,known:true}:fin;   // 결승은 확정 기록(MYEOL9_CHAMP)으로 채운다
+  const finalists=new Set(C0?[C0.cap,C0.runner]:[]);
   const team=(cap,w,hot)=>cap
-    ?`<div class="bk-box${hot?' win':''}" style="min-width:120px"><div class="bk-top">${esc(cap)}</div><div class="bk-mem" style="font-size:14px;font-weight:900;text-align:center">${w==null?'':w+'승'}</div></div>`
-    :`<div class="bk-box" style="min-width:120px;opacity:.55"><div class="bk-top">미정</div><div class="bk-mem" style="text-align:center">?</div></div>`;
-  const matchBox=(q,label)=>{
-    if(!q) return `<div style="text-align:center"><div class="muted" style="font-size:11px;margin-bottom:4px">${label}</div><div style="display:flex;align-items:center;justify-content:center">${team(null)}<b style="padding:0 6px;color:var(--sub)">VS</b>${team(null)}</div></div>`;
-    const [a,b]=q.teams, wa=q.w.get(a)||0, wb=q.w.get(b)||0;
-    return `<div style="text-align:center"><div class="muted" style="font-size:11px;margin-bottom:4px">${label}${q.pending?' <span style="color:#ffcf7a">(예정)</span>':q.n?` · ${q.n}세트`:''}</div>
-      <div style="display:flex;align-items:center;justify-content:center">${team(a,q.pending?null:wa,wa>wb)}<b style="padding:0 6px;color:var(--sub)">VS</b>${team(b,q.pending?null:wb,wb>wa)}</div></div>`;
+    ?`<div class="bk-t${hot?' win':''}"><span class="bk-nm">${esc(cap)}</span><b class="bk-sc">${w==null?(hot?'승':''):w}</b></div>`
+    :`<div class="bk-t tbd"><span class="bk-nm">미정</span><b class="bk-sc">?</b></div>`;
+  const matchBox=(q,label,isFinal)=>{
+    if(!q) return `<div class="bk-m"><div class="bk-lb">${label}</div><div class="bk-vs">${team(null)}<i>VS</i>${team(null)}</div></div>`;
+    const [a,b]=q.teams; let wa=q.w.get(a)||0, wb=q.w.get(b)||0, ha=wa>wb, hb=wb>wa;
+    let na=wa, nb=wb;
+    if(q.pending||(!q.n&&!q.known)){ na=nb=null; if(finalists.size&&!q.known){ ha=finalists.has(a)&&!finalists.has(b); hb=finalists.has(b)&&!finalists.has(a); } }   // 아직 세트 기록이 없어도 결승 진출팀이 이긴 쪽
+    const done=ha||hb;
+    return `<div class="bk-m${isFinal?' fin':''}"><div class="bk-lb">${label}${(q.pending&&!done)?' <span class="soon">예정</span>':q.n?` · ${q.n}세트`:''}</div>
+      <div class="bk-vs">${team(a,na,ha)}<i>VS</i>${team(b,nb,hb)}</div></div>`;
   };
-  const names=MYEOL_FINAL4.map(cap=>`<div style="flex:1;min-width:150px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)">
-      <div style="font-weight:900;margin-bottom:4px;color:#ffd479">👑 ${esc(cap)}</div>
-      <div class="muted" style="font-size:12px;line-height:1.7">${roster(cap).map(esc).join(" · ")}</div></div>`).join("");
+  const names=MYEOL_FINAL4.map(cap=>`<div class="ch-team${finalists.has(cap)?' fin':''}">
+      <div class="ch-tn">${esc(cap)}${C0&&cap===C0.cap?'<span class="ch-badge">우승</span>':C0&&cap===C0.runner?'<span class="ch-badge sil">준우승</span>':''}</div>
+      <div class="ch-tm">${roster(cap).map(esc).join(" · ")}</div></div>`).join("");
   // 🏆 우승 배너 — 결과 확정 기록(MYEOL9_CHAMP). 선수명은 현역이면 프로필 링크.
   //    ⚠️ 로스터는 태그 없는 경매용 닉이라 canonOfName으로는 못 찾는다 — playerKeyOf(태그 무관 매칭)로 해석(거래소와 동일 수법).
-  const champBanner=(()=>{ const C=typeof MYEOL9_CHAMP!=="undefined"?MYEOL9_CHAMP:null; if(!C) return "";
+  const champBanner=(()=>{ const C=C0; if(!C) return "";
     const link=n=>{ const key=playerKeyOf(n); return (key&&PLAYERS.has(key))
-      ?`<span class="clickname" onclick="go('player','${escAttr(key)}')" style="font-weight:800">${esc(n)}</span>`:esc(n); };
-    const mem=[C.cap,...roster(C.cap)].map(n=>n===C.mvp.name?`<span style="white-space:nowrap">🏅 ${link(n)}</span>`:link(n)).join(" · ");
-    return `<div style="margin-bottom:14px;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,205,90,.55);background:linear-gradient(135deg,rgba(255,205,90,.14),rgba(255,150,60,.05))">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px">
-        <div style="font-size:19px;font-weight:900;color:#ffd75e">🏆 제9회 멸망전 우승 — ${esc(C.cap)}</div>
-        <div class="muted" style="font-size:12.5px">결승 <b style="color:var(--win)">${esc(C.score)}</b> ${esc(C.runner)} · ${esc(C.date)}</div></div>
-      <div style="margin-top:7px;font-size:13.5px;line-height:1.8">${mem}</div>
-      <div style="margin-top:9px;padding:8px 11px;border-radius:10px;background:rgba(255,215,80,.10);border:1px solid rgba(255,215,80,.3)">
-        <b style="color:#ffd75e">🏅 파이널 MVP — ${link(C.mvp.name)}</b>
-        <span class="muted" style="font-size:12.5px"> · ${esc(C.mvp.line)}</span></div>
-      <div class="muted" style="font-size:12px;margin-top:8px">1·2세트를 내주고 벼랑 끝에서 시작한 결승 — 내리 3연승 리버스 스윕으로 트로피를 들어올렸습니다 🔥</div>
+      ?`<span class="clickname" onclick="go('player','${escAttr(key)}')">${esc(n)}</span>`:esc(n); };
+    const mem=[C.cap,...roster(C.cap)].map(n=>`<span${n===C.mvp.name?' class="mvp"':''}>${link(n)}</span>`).join("");
+    return `<div class="ch-hero">
+      <div class="ch-eyebrow">제9회 멸망전 · CHAMPION</div>
+      <div class="ch-title">${esc(C.cap)}</div>
+      <div class="ch-sub">결승 <b>${esc(C.score)}</b> ${esc(C.runner)} · ${esc(C.date)}</div>
+      <div class="ch-mem">${mem}</div>
+      <div class="ch-mvp"><b>파이널 MVP · ${link(C.mvp.name)}</b><span>${esc(C.mvp.line)}</span></div>
+      <p class="ch-story">1·2세트를 내주고 벼랑 끝에서 시작한 결승 — 내리 3연승 리버스 스윕으로 트로피를 들어올렸습니다.</p>
     </div>`; })();
-  return `${champBanner}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${names}</div>
-    <div style="display:grid;gap:14px;justify-items:center">
-      ${matchBox(fin,"🏆 결승")}
-      <div style="display:flex;gap:26px;flex-wrap:wrap;justify-content:center">${matchBox(semis[0],"4강 1경기")}${matchBox(semis[1],"4강 2경기")}</div>
+  return `${champBanner}<div class="mx-sec-t">4강 진출 4팀</div><div class="ch-teams">${names}</div>
+    <div class="mx-sec-t">대진</div>
+    <div class="bk-wrap">
+      ${matchBox(fin2,"결승",true)}
+      <div class="bk-semis">${matchBox(semis[0],"4강 1경기")}${matchBox(semis[1],"4강 2경기")}</div>
     </div>
-    <div class="muted" style="font-size:11.5px;margin-top:10px">※ 4강·결승 대진과 스코어는 4팀끼리 붙는 경기가 기록되는 대로 자동으로 채워집니다 · 진출 결정전: RAYB 2-0 CARTER · 태웅 2-1 언니들 · 택스 2-1 SIAH K · 수직 2-1 태희</div>`;
+    <div class="mx-foot">※ 결승은 확정 기록입니다. 4강은 4팀끼리 붙은 경기가 시트에 기록되는 대로 자동 집계하며, 세트 기록이 없는 경기는 결승 진출 여부로 승자를 표시합니다 · 진출 결정전: RAYB 2-0 CARTER · 태웅 2-1 언니들 · 택스 2-1 SIAH K · 수직 2-1 태희</div>`;
 }
 function myeolFunHtml(){ return _myeolMemo("funHtml", _myeolFunHtmlCalc); }
 function _myeolFunHtmlCalc(){
@@ -9184,13 +9186,13 @@ function myeolScrimHtml(){
   const rec=new Map();
   for(const m of list){ for(const [t,w] of [[m.win,1],[m.lose,0]]){ let e=rec.get(t); if(!e)rec.set(t,e={w:0,l:0}); w?e.w++:e.l++; } }
   const rank=[...rec.entries()].sort((a,b)=>(b[1].w-b[1].l)-(a[1].w-a[1].l)||b[1].w-a[1].w);
-  const rows=rank.map(([t,e])=>`<span style="margin:2px 12px 2px 0;display:inline-block"><b>${esc(t)}</b> <b style="color:var(--win)">${e.w}승</b> <b style="color:var(--lose)">${e.l}패</b></span>`).join("");
+  const rows=`<div class="sc-chips">`+rank.map(([t,e])=>`<span class="sc-chip"><b>${esc(t)}</b><span><em class="w">${e.w}승</em><em class="l">${e.l}패</em></span></span>`).join("")+`</div>`;
   const recent=list.sort((a,b)=>b.day-a.day).slice(0,10).map(m=>`<div class="rpr">
       <span class="rpr-d">${m.day.getMonth()+1}/${m.day.getDate()}</span>
       <span class="rpr-t"><b style="color:var(--win)">${esc(m.win)}</b> 승 <span class="muted">vs</span> ${esc(m.lose)}</span>
       <span class="rpr-g clickname" onclick="go('game','${escAttr(m.gid)}')">보기 ›</span></div>`).join("");
-  return `<div style="margin:4px 0 8px">${rows}</div><div>${recent}</div>
-    <div class="muted" style="font-size:11.5px;margin-top:8px">※ '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 스크림으로 집계합니다(용병 1명까지 허용). 팀장·팀원이 일반 내전에 흩어져 낀 판은 팀 전적이 아니에요.</div>`;
+  return `${rows}<div class="sc-list">${recent}</div>
+    <div class="mx-foot">※ '양 팀 모두 같은 멸망전 팀 소속 4인 이상'인 판만 스크림으로 집계합니다(용병 1명까지 허용). 팀장·팀원이 일반 내전에 흩어져 낀 판은 팀 전적이 아니에요.</div>`;
 }
 // ✂️ [2026-11-03 P-36] 멸망전 탭 폰 24화면 → 접기: 카드마다 제목 줄만 보이고 누르면 펼친다(첫 카드 4강만 펼침). 내용·데이터는 그대로.
 /* 🔨 [2026-11-21 사장님 지시 「AUC.GG 경매 결과를 우리 사이트에서 자동으로 빼오게」] AUC.GG(클랜원이 만든 경매 사이트) 공개 API 연동.
@@ -9430,6 +9432,82 @@ function renderMyeol(){
   .myeol-t td{padding:6px 2px;border-bottom:1px solid rgba(120,130,160,.1)}
   .myeol-t tbody tr:last-child td{border-bottom:0}
   .myeol-t tbody tr:hover{background:rgba(255,255,255,.025)}
+  /* ── 공용 소제목·각주 ── */
+  .mx-sec-t{font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--mut);margin:18px 0 8px;text-transform:uppercase}
+  .mx-sec-t:first-child{margin-top:2px}
+  .mx-foot{font-size:11.5px;line-height:1.6;color:var(--mut);margin-top:12px}
+  /* ── 순위 목록(.rk) — 팀 파워랭킹·봇듀오·미드정글 공통 ── */
+  .rk{display:flex;flex-direction:column;gap:8px}
+  .rk-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+  .rk-row.top{background:linear-gradient(180deg,rgba(224,164,55,.07),rgba(224,164,55,0) 80%),var(--bg2);border-color:rgba(224,164,55,.28)}
+  .rk-no{flex:0 0 28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:900;color:var(--sub);background:var(--card);border:1px solid var(--line)}
+  .rk-row.top .rk-no{color:#1a1204;background:linear-gradient(135deg,#f5d47a,#e0a437);border:0}
+  .rk-main{flex:1;min-width:0}
+  .rk-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .rk-name{font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--txt)}
+  .rk-rec{font-size:12px;color:var(--mut)} .rk-rec b{font-weight:800} .rk-rec .w{color:var(--win)} .rk-rec .l{color:var(--lose)} .rk-rec em{font-style:normal}
+  .rk-tag{font-size:10.5px;font-weight:700;color:#ffc861;background:rgba(255,200,97,.1);border:1px solid rgba(255,200,97,.3);border-radius:999px;padding:1px 8px}
+  .rk-note{font-size:11px;color:var(--mut)}
+  .rk-bar{height:4px;border-radius:3px;background:var(--card);margin:8px 0 6px;overflow:hidden}
+  .rk-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#5b8cff,#e0a437)}
+  .rk-meta{display:flex;gap:14px;font-size:11.5px;color:var(--mut)} .rk-meta u{text-decoration:none;color:var(--sub);font-weight:700}
+  .rk-mem{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:8px}
+  .rk-mem>span{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px 8px}
+  .rk-mem>span.cap{border-color:rgba(91,140,255,.45)}
+  .rk-mem b{font-size:11.5px;font-weight:800;color:#9fd0ff}
+  .rk-mem.duo{align-items:center}
+  .rk-mem.duo .plus{background:none;border:0;color:var(--mut);padding:0}
+  .rk-mem.duo em{font-style:normal;font-size:13px}
+  .rk-score{flex:0 0 auto;font-size:20px;font-weight:900;letter-spacing:-.02em;color:var(--gold);min-width:52px;text-align:right}
+  /* ── 우승 배너·4강 ── */
+  .ch-hero{border:1px solid rgba(224,164,55,.4);border-radius:14px;padding:18px 18px 16px;background:radial-gradient(120% 140% at 0% 0%,rgba(224,164,55,.16),rgba(224,164,55,0) 60%),var(--bg2);margin-bottom:6px}
+  .ch-eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--gold)}
+  .ch-title{font-size:26px;font-weight:900;letter-spacing:-.02em;margin:4px 0 2px;color:var(--txt)}
+  .ch-sub{font-size:13px;color:var(--sub)} .ch-sub b{color:var(--gold);font-weight:800}
+  .ch-mem{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+  .ch-mem>span{font-size:13px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+  .ch-mem>span.mvp{border-color:rgba(224,164,55,.6);background:rgba(224,164,55,.1)}
+  .ch-mem>span.mvp::before{content:"MVP ";font-size:10px;font-weight:900;color:var(--gold);margin-right:2px}
+  .ch-mem .clickname{font-weight:700}
+  .ch-mvp{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line);padding-top:10px;font-size:13px}
+  .ch-mvp b{color:var(--gold);font-weight:800} .ch-mvp span{color:var(--sub);font-size:12px;line-height:1.5}
+  .ch-story{margin:10px 0 0;font-size:12px;line-height:1.55;color:var(--mut)}
+  .ch-teams{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .ch-team{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg2)}
+  .ch-team.fin{border-color:rgba(224,164,55,.35)}
+  .ch-tn{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800;margin-bottom:4px}
+  .ch-badge{font-size:10px;font-weight:800;color:#1a1204;background:var(--gold);border-radius:999px;padding:1px 7px} .ch-badge.sil{background:#aeb6c8}
+  .ch-tm{font-size:12px;line-height:1.6;color:var(--mut)}
+  .bk-wrap{display:grid;gap:10px;justify-items:stretch}
+  .bk-semis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .bk-m{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg2)}
+  .bk-m.fin{border-color:rgba(224,164,55,.4)}
+  .bk-lb{font-size:11px;font-weight:700;color:var(--mut);margin-bottom:8px;letter-spacing:.02em} .bk-lb .soon{color:#ffcf7a}
+  .bk-vs{display:flex;flex-direction:column;gap:4px;position:relative}
+  .bk-vs>i{display:none}
+  .bk-t{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--card);font-size:13.5px}
+  .bk-t.win{border-color:rgba(91,140,255,.55);background:rgba(91,140,255,.1)} .bk-t.win .bk-nm{font-weight:800}
+  .bk-t.tbd{opacity:.5}
+  .bk-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bk-sc{font-size:15px;font-weight:900;color:var(--sub)} .bk-t.win .bk-sc{color:#9fd0ff}
+  .bk-m.fin .bk-t.win{border-color:rgba(224,164,55,.6);background:rgba(224,164,55,.1)} .bk-m.fin .bk-t.win .bk-sc{color:var(--gold)}
+  /* ── 스크림 요약 칩·목록 ── */
+  .sc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+  .sc-chip{display:inline-flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12.5px}
+  .sc-chip b{font-weight:800} .sc-chip em{font-style:normal;font-weight:800;margin-left:6px} .sc-chip em.w{color:var(--win)} .sc-chip em.l{color:var(--lose)}
+  .sc-list .rpr{border-bottom:1px solid var(--line)} .sc-list .rpr:last-child{border-bottom:0}
+  /* ── 팀별 선수 명단(.mr-*) 중립 팔레트로 ── */
+  .mr-card{border:1px solid var(--line);background:var(--bg2);border-radius:14px}
+  .mr-capline .clickname{color:var(--txt);font-size:16px}
+  .mr-capchip{color:var(--accent);background:rgba(91,140,255,.12);border-color:rgba(91,140,255,.4)}
+  .mr-rank{color:#1a1204;background:var(--gold);border:0}
+  .mr-sub{background:var(--card);border-radius:10px}
+  .mr-tbl th{background:var(--card);color:var(--mut);font-size:11px;letter-spacing:.02em;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .mr-c{background:var(--accent);color:#fff}
+  .mr-cap{color:var(--mut)}
+  @media(max-width:560px){.mr-tbl td,.mr-tbl th{padding-left:3px;padding-right:3px}.mr-wr{width:auto}.mr-bar{width:52px}.mr-pct small{display:none}.mr-pos{width:auto;padding-left:6px!important}.mr-sc{width:auto}}
+  @media(max-width:560px){.rk-mem.duo .plus{display:none}}
+  @media(max-width:560px){.ch-teams,.bk-semis{grid-template-columns:1fr}.rk-row{padding:11px 12px;gap:10px}.rk-score{font-size:18px;min-width:44px}.ch-title{font-size:23px}}
   @media(max-width:760px){.mx-hero h1{font-size:23px}.mx-fold>summary{padding:12px 14px}.mx-body{padding:12px 14px 14px}.mx-seg button{padding:8px 12px;font-size:13px}}</style>
   ${mxHead}
   ${mxSeg}
@@ -12349,7 +12427,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611212200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611212330";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
