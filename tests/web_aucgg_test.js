@@ -7,8 +7,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 function make(fetchImpl){
   const ls={}; const localStorage={getItem:k=>ls[k]??null,setItem:(k,v)=>{ls[k]=v;}};
   const doc={getElementById:()=>null};
-  const f=new Function('fetch','localStorage','document','esc','AbortController','renderMyeol','LS', src.slice(a,b)+';return {AUCGG:()=>AUCGG,aucEnsure,aucParseList,aucParseDetail,aucNick,aucMyeolAuctions,aucExtraPrices,aucCardBody,ls:()=>LS};');
-  return f(fetchImpl,localStorage,doc,esc,AbortController,()=>{},ls);
+  const f=new Function('fetch','localStorage','document','esc','AbortController','renderMyeol','LS','teamEmblem','myeolFairOf', src.slice(a,b)+';return {AUCGG:()=>AUCGG,aucEnsure,aucParseList,aucParseDetail,aucNick,aucMyeolAuctions,aucExtraPrices,aucCardBody,ls:()=>LS};');
+  return f(fetchImpl,localStorage,doc,esc,AbortController,()=>{},ls,()=>'',()=>null);
 }
 const mk=(extra={})=>async url=>{ if(extra.fail) throw new Error('net'); const u=String(url);
   if(u.endsWith('/tournaments')) return {ok:true,json:async()=>extra.list||LIST};

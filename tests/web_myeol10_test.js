@@ -58,7 +58,7 @@ srv.listen(0,'127.0.0.1',async()=>{ const port=srv.address().port;
   ok(/팀장가/.test(D.scr)&&/승/.test(D.scr),'스크림 전적 목록에 팀과 승이 나온다');
   ok(r.s===1,'경매가 끝난 뒤의 팀 대 팀 판 1개를 스크림 승패로 읽는다');
   ok(/지출 1,?\d*P?/.test(r.rank)||/지출/.test(r.rank),'파워랭킹에 지출이 나온다');
-  ok(r.rank.indexOf('팀장가')>=0&&r.rank.indexOf('1승')>=0,'파워랭킹에 팀과 스크림 1승이 나온다');
+  ok(r.rank.indexOf('팀장가')>=0&&/1 - 0/.test(r.rank),'파워랭킹에 팀과 스크림 1승이 나온다');
   ok(r.rosterHas.every(Boolean),'명단에 팀장·선수·낙찰가가 나온다');
   ok(!r.rosterMain,'제10회 명단엔 제9회식 「본선」 칸이 없다');
   ok(r.p9===true,'제9회(내장) 명단 화면은 그대로 그려진다');
