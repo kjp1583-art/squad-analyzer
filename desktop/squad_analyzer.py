@@ -1111,6 +1111,14 @@ def _make_updater_bat(pid, app_dir, new_root, exe_name, stage):
 _UPDATE_EXIT_REQUESTED = False   # 🔄 업데이터가 교체 준비 완료 → GUI가 '업데이트 중' 안내 후 종료하도록 신호
 _OUTDATED = False   # 🛑 [v81.65 원격 킬스위치] 신버전 감지 시 True → 모든 웹훅 발송 즉시 중단(구버전 마비).
                     #    자동 업데이트 성공 시 재시작으로 해소, 다운로드 실패해도 발송 중단은 유지(10분 주기 재시도).
+_VER_POLL = [0.0]          # 🧯 [2026-11-21 인게임 렉 완화] 패치 버전 조회 마지막 시각 — 거의 안 바뀌므로 5분에 한 번만
+_LIVE_POLL = [0.0, ""]     # 🧯 인게임 playerlist(2999)·세션 조회 — [마지막 조회 시각, 마지막으로 본 게임ID]. 기록이 끝난 판은 15초에 한 번만
+def _live_poll_skip(active_id, last_gid, recorded, last_t, now, gap=15.0):
+    """🧯 인게임 playerlist·세션 조회를 이번 반복에서 건너뛸까? 기록이 끝난 판(기록 확정됐거나 이미 기록한 게임ID)만 gap 초에 한 번으로 줄이고,
+       기록 전·처음 본 판은 매초 조회한다(기록 시작이 늦어지지 않게)."""
+    done = bool(active_id) or bool(last_gid and last_gid in recorded)
+    return bool(done and (now - last_t) < gap)
+
 _LIVE_GAME = [False]   # 🛡️ [v81.67] 폴링 루프가 매 주기 갱신 — 게임(챔슬렉~종료)·기록 중 여부.
 _LIVE_SINCE = [0.0]    # 🕒 [2026-09-18] 라이브 상태가 시작된 시각 — 걸린 상태(4시간↑) 판정용
 _LIVE_STUCK_LOGGED = [False]
@@ -5124,6 +5132,8 @@ def _lcu_backfill_once():
 def _lcu_backfill_loop():
     time.sleep(90)                    # 시작 직후 LCU·시트 연결 안정 대기 후 1회차
     while True:
+        if _LIVE_GAME[0]:                 # 🧯 [2026-11-21 인게임 렉 완화] 게임·챔프선택 중엔 시트 열 전체 읽기를 미룬다
+            time.sleep(60); continue
         try: _lcu_backfill_once()
         except Exception as e: print(f"[lcu백필] 오류: {e}", flush=True)
         time.sleep(1200)
@@ -5505,6 +5515,8 @@ def backfill_result_engine():
     """시작 3분 후 + 15분마다 '결과 대기' 백필(키/시트 없으면 no-op) — 실질 호스트 1대만 가동, 쓰기 멱등이라 중복 무해."""
     time.sleep(180)
     while True:
+        if _LIVE_GAME[0]:                 # 🧯 [2026-11-21 인게임 렉 완화] 게임·챔프선택 중엔 시트 전체 읽기·집계를 미룬다
+            time.sleep(60); continue
         try:
             if load_riot_key() and global_spreadsheet: backfill_pending_results()
         except Exception as _e:
@@ -8397,7 +8409,8 @@ def lcu_core_backend_loop():
                 last_hof_refresh = time.time()
                 threading.Thread(target=update_hof_stats, args=(True,), daemon=True).start()
             # 📊 [v81.96] 사전집계 재계산 — 호스트만(load_bot_token), 20분 주기, 데몬(폴링 지연 없음)
-            if global_spreadsheet is not None and time.time() - _STAT_LAST_REBUILD[0] > 1200 and load_bot_token():
+            if (global_spreadsheet is not None and time.time() - _STAT_LAST_REBUILD[0] > 1200 and load_bot_token()
+                    and not _LIVE_GAME[0]):      # 🧯 게임·챔프선택 중엔 미룬다(다음 주기에 자연 실행)
                 _STAT_LAST_REBUILD[0] = time.time()
                 threading.Thread(target=rebuild_stat_aggregate, daemon=True).start()
             if not port:
@@ -8413,8 +8426,11 @@ def lcu_core_backend_loop():
 
             # 🔥 [V80.9] 롤 LCU 내부 통신망에서 오피셜 현재 패치 버전 강제 추출
             try:
-                ver_res = requests.get(str(base_url) + "/lol-patch/v1/game-version", headers=headers, verify=False, timeout=2)
-                if ver_res.status_code == 200:
+                ver_res = None
+                if time.time() - _VER_POLL[0] >= 300:       # 🧯 5분에 한 번 — 매초 물으면 게임 내내 불필요한 요청이 쌓인다
+                    _VER_POLL[0] = time.time()
+                    ver_res = requests.get(str(base_url) + "/lol-patch/v1/game-version", headers=headers, verify=False, timeout=2)
+                if ver_res is not None and ver_res.status_code == 200:
                     local_ver = ver_res.json()
                     if local_ver and "." in local_ver:
                         parts = str(local_ver).replace('"', '').split(".")
@@ -9032,8 +9048,12 @@ def lcu_core_backend_loop():
                     elif not is_valid_game:
                         if "오프라인" not in gui_data["status"]: gui_data["status"] = "👀 매칭 게임 (기록 생략됨)"
 
-            if current_phase == "InProgress" and is_valid_game and sheet_target:
+            # 🧯 [2026-11-21 인게임 렉 완화] 이미 기록이 끝난 판은 게임 내내 매초 playerlist(게임 프로세스 응답)·세션을 또 묻지 않는다 — 15초에 한 번.
+            #    기록 전(active_recording_id 없음·처음 본 판)에는 예전처럼 매초 조회해 기록 시작이 늦어지지 않는다.
+            _live_skip = _live_poll_skip(active_recording_id, _LIVE_POLL[1], recorded_game_ids, _LIVE_POLL[0], time.time())
+            if current_phase == "InProgress" and is_valid_game and sheet_target and not _live_skip:
                 try:
+                    _LIVE_POLL[0] = time.time()
                     live_res = requests.get("https://127.0.0.1:2999/liveclientdata/playerlist", verify=False, timeout=1)
                     if live_res.status_code == 200:
                         lr_json = live_res.json()
@@ -9058,6 +9078,7 @@ def lcu_core_backend_loop():
                                     # 커스텀게임은 gameId=0 → 게임카운터(game_seq) 붙여 같은 멤버 연속게임도 고유 ID 보장(#2 기록버그)
                                     fetched_game_id = (f"CUSTOM_{hashed_id}_{game_seq}" if fingerprint else f"CUSTOM_MATCH_{game_seq}")
 
+                            if fetched_game_id: _LIVE_POLL[1] = fetched_game_id
                             if fetched_game_id and fetched_game_id not in recorded_game_ids:
                                 
                                 human_puuids = []
