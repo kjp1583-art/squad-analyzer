@@ -9188,6 +9188,30 @@ function embPaint(){
   const b=el.querySelector(".emx-body"); if(b) b.scrollTop=keep;
 }
 
+/* 🏟️ [2026-11-22 사장님 「제10회 조편성은 이렇게 됐어」] 제10회 본선 조편성 — A조 하오·허거덩·택스·앙앵모르딱 / B조 우거·지르·SIAH K·수직낙하하는중 / C조 카무사리·해원·프싱·뀨잉언진(조별 풀리그).
+   팀 이름은 AUC.GG 팀장 표기. MYEOL10_MAIN_START(본선 개막 시각)를 채우면 그 뒤의 같은 조 팀끼리 붙은 판이 승패표에 자동으로 들어간다(채우기 전엔 스크림으로만 센다). */
+const MYEOL10_GROUPS=[{g:"A조",caps:["하 오","허거덩","택 스","앙앵모르딱"]},{g:"B조",caps:["우 거","지 르","SIAH K","수직낙하하는중"]},{g:"C조",caps:["카무사리","해 원","프 싱","뀨잉언진"]}];
+const MYEOL10_GROUPS_BY={10:MYEOL10_GROUPS};
+const MYEOL10_MAIN_START=null;   // 본선 개막 시각 new Date(y,m-1,d,h) — 날짜가 정해지면 채운다
+function myeolGroups10Html(cfg){
+  const GR=MYEOL10_GROUPS_BY[(cfg.name.match(/제\s*(\d+)\s*회/)||[])[1]]; if(!GR) return "";
+  const capOf=new Map(cfg.teams.map(t=>[_embNk(t.cap),t.cap]));   // 조 표기 → AUC 팀장 표기(스크림 목록의 팀 이름)
+  const S=_myeolScrimsFor(cfg); const list=(S&&MYEOL10_MAIN_START)?S.list.filter(m=>m.day>=MYEOL10_MAIN_START):[];
+  const cards=GR.map(G=>{
+    const names=G.caps.map(c=>capOf.get(_embNk(c))||c), nks=names.map(_embNk);
+    const ms=list.filter(m=>nks.includes(_embNk(m.win))&&nks.includes(_embNk(m.lose)));
+    const res=(a,b)=>{ const w=ms.filter(m=>_embNk(m.win)===a&&_embNk(m.lose)===b).length, l=ms.filter(m=>_embNk(m.win)===b&&_embNk(m.lose)===a).length; return w||l?{w,l}:null; };
+    const rec=nks.map(k=>({k,w:ms.filter(m=>_embNk(m.win)===k).length,l:ms.filter(m=>_embNk(m.lose)===k).length}));
+    const order=rec.map((r,i)=>({...r,i})).sort((x,y)=>(y.w-x.w)||(x.l-y.l)||(x.i-y.i)); const rk=new Map(order.map((r,n)=>[r.k,n+1]));
+    const short=n=>n.length>5?n.slice(0,4)+"…":n;
+    const head=`<tr><th></th>${names.map(n=>`<th>${esc(short(n))}</th>`).join("")}<th>승-패</th><th>순위</th></tr>`;
+    const rows=names.map((n,i)=>`<tr><th class="gt-tm">${teamEmblem(n,20,10)}<span>${esc(n)}</span></th>${names.map((m,j)=>{
+      if(i===j) return `<td class="gt-x"></td>`; const r=res(nks[i],nks[j]);
+      return `<td>${r?(r.w>r.l?`<b class="w">승</b>`:(r.l>r.w?`<b class="l">패</b>`:`<b>${r.w}-${r.l}</b>`)):`<span class="muted">·</span>`}</td>`; }).join("")}<td><b>${rec[i].w}</b>-${rec[i].l}</td><td class="gt-rk">${ms.length?rk.get(nks[i]):"-"}</td></tr>`).join("");
+    return `<div class="gt-card"><div class="gt-h">${esc(G.g)}</div><div class="gt-scroll"><table class="gt-t">${head}${rows}</table></div></div>`;
+  }).join("");
+  return `<div class="gt-grid">${cards}</div><div class="mx-foot">${MYEOL10_MAIN_START?"조별 풀리그(조 안에서 한 번씩) 결과가 자동으로 채워져요.":"본선 개막 전이에요 — 개막하면 같은 조 팀끼리 붙은 판이 여기에 자동으로 들어와요."}</div>`;
+}
 /* 🏆 [2026-11-22 사장님 「스크림 탭에 성적표를 LCK 순위표 느낌으로」] 팀 순위표 — 순위 · 팀 · 승패 · 승률 · 최근 5경기 · 연속 · 순위변동.
    순위 = 승률 → 승수 → 이름. 순위변동 = 가장 최근 경기일의 판을 빼고 다시 센 순위와 비교(그날 처음 나온 팀은 NEW). 한 판이 한 경기라 「득실차」 대신 승률을 쓴다. */
 function _scrimStandings(list){
@@ -9394,7 +9418,7 @@ function myeolEditions(){
 }
 function myeolViewsFor(ed){
   const v=[["auction","경매결과"]];
-  if(ed.kind!=="upcoming"){ v.push(["rank","파워랭킹"],["scrim","스크림"]); if(ed.kind==="builtin") v.push(["main","본선"]); }
+  if(ed.kind!=="upcoming"){ v.push(["rank","파워랭킹"],["scrim","스크림"]); if(ed.kind==="builtin"||MYEOL10_GROUPS_BY[ed.no]) v.push(["main","본선"]); }
   if(ed.latest&&MYEOL_SHOW_PRICES) v.push(["price","적정가"]);
   return v;
 }
@@ -9505,6 +9529,7 @@ function renderMyeol(){
   else if(_vcur==="scrim") secView=_is9
       ?_myFold(`⚔ 스크림 전적`,`본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만`,myeolScrimHtml(),true)
       :(_cfg?_myFold(`⚔ 스크림 전적`,`경매 뒤 팀 대 팀으로 붙은 판만`,myeolScrimHtml(_cfg),true):"");
+  else if(_vcur==="main"&&!_is9) secView=_cfg?_myFold(`🏟️ 본선 조편성`,`A·B·C조 풀리그 · 팀 대 팀 승패는 경기가 끝나는 대로 자동으로 채워져요`,myeolGroups10Html(_cfg),true):"";
   else if(_vcur==="main") secView=`${_myFold(`🏆 4강 토너먼트`,`우승 수직낙하하는중 · 결승 리버스 스윕 3-2 RAYB · 스코어 자동 집계`,myeolBracketHtml(),true)}
   ${_myFold(`🏟️ 본선 조별리그`,`8/29 개막 · A·B·C조 풀리그 승패 · 시트 갱신 시 자동`,myeolGroupHtml(),false)}
   ${_myFold(`✨ 재미난 기록`,`본선 전 경기에서 뽑은 기록들 · 동률은 전원 표기`,myeolFunHtml(),false)}`;
@@ -9644,6 +9669,14 @@ function renderMyeol(){
   .emx-save{padding:9px 18px;border-radius:9px;border:0;background:var(--accent);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer} .emx-save:disabled{opacity:.6}
   .emx-bar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:12.5px;color:var(--sub)}
   .emx-bar button{padding:7px 12px;border-radius:9px;border:0;background:var(--accent);color:#fff;font-weight:800;font-size:12.5px;cursor:pointer}
+  .gt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px}
+  .gt-card{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+  .gt-h{padding:9px 14px;font-weight:900;font-size:13.5px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--accent)}
+  .gt-scroll{overflow-x:auto} .gt-t{border-collapse:collapse;width:100%;font-size:12.5px}
+  .gt-t th,.gt-t td{padding:8px 6px;text-align:center;border-top:1px solid rgba(120,130,160,.12);white-space:nowrap}
+  .gt-t tr:first-child th{border-top:0;font-size:11px;color:var(--mut);font-weight:700}
+  .gt-tm{display:flex;align-items:center;gap:6px;text-align:left!important;font-weight:800;padding-left:10px!important}
+  .gt-x{background:rgba(255,255,255,.06)} .gt-t b.w{color:var(--win)} .gt-t b.l{color:var(--lose)} .gt-rk{font-weight:900;color:var(--accent)}
   .ab-fp{font-size:10px;font-weight:500;color:var(--mut);margin-left:1px}
   .ab-pr{text-align:right}
   .ab-v{flex:0 0 auto;font-style:normal;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--mut)}
@@ -12578,7 +12611,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611221800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611221900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
