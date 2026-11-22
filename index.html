@@ -1932,6 +1932,10 @@ function isDeparted(name){
   if(al) for(const a of al) if(DEPARTED_SET.has(tnorm(a))) return true;
   return false;
 }
+/* 🚪 [2026-11-22 사장님 「탈퇴한 사람이 검색하면 나오는 건 1번(프로필에 클랜 탈퇴 표시)으로」] 디스코드 서버에서 나간 사람(DEPARTED 탭) 프로필에 「클랜 탈퇴」 표시.
+   기록은 그대로 두고(지난 판·우승 역사 보존), 순위·평균에서는 이미 빠져 있다는 걸 알려 현역으로 오해하지 않게 한다. */
+function departedChip(name){ return isDeparted(name)?` <span class="depchip" title="디스코드 서버에서 나간 것으로 확인돼 순위·평균에서는 제외돼요">🚪 클랜 탈퇴</span>`:""; }
+function departedNote(name){ return isDeparted(name)?`<div class="depnote">이 클랜원은 디스코드 서버를 나갔어요. 지난 기록은 그대로 보여 드리지만 순위·평균·타이틀에서는 제외돼요.</div>`:""; }
 function tierGroupCls(t){return !t?"":t[0]==="0"?"t0":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
 function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:"";}
 
@@ -9677,6 +9681,8 @@ function renderMyeol(){
   .gt-t tr:first-child th{border-top:0;font-size:11px;color:var(--mut);font-weight:700}
   .gt-tm{display:flex;align-items:center;gap:6px;text-align:left!important;font-weight:800;padding-left:10px!important}
   .gt-x{background:rgba(255,255,255,.06)} .gt-t b.w{color:var(--win)} .gt-t b.l{color:var(--lose)} .gt-rk{font-weight:900;color:var(--accent)}
+  .depchip{display:inline-block;vertical-align:middle;background:#3a2a2e;color:#ffb3bd;border:1px solid #6b3a44;font-size:12px;font-weight:800;padding:3px 9px;border-radius:9px;white-space:nowrap}
+  .depnote{margin:6px 0 2px;font-size:12.5px;color:var(--mut)}
   .ab-fp{font-size:10px;font-weight:500;color:var(--mut);margin-left:1px}
   .ab-pr{text-align:right}
   .ab-v{flex:0 0 auto;font-style:normal;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--mut)}
@@ -11500,7 +11506,7 @@ function renderPlayer(name){
       <div class="prof${_emb?' profemb':''}">
         <div class="profmain" style="flex:1">
           ${(()=>{const _pi=profIconHtml(name); return _pi?`<div class="pidrow">${_pi}<div class="pidtxt">`:"";})()}
-          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${nightOwlChip(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${departedChip(name)}${nightOwlChip(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>${departedNote(name)}
           ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${profIconOf(name)?`</div></div>`:""}
           ${_ph?'':ctaHtml+statBox+nightHtml}
@@ -12611,7 +12617,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611221900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611222000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
