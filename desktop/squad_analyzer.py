@@ -3808,6 +3808,19 @@ def _draft_prefetch_all(txt):
                 threading.Thread(target=_one, daemon=True).start()
     except Exception: pass
 
+_CIRCLED = {c: str(i + 1) for i, c in enumerate("①②③④⑤⑥⑦⑧⑨⑩")}
+
+def _draft_norm_line(t):
+    """모델이 줄 앞에 붙이는 장식을 걷어 내 '1. 챔프 — 이유' 꼴로 맞춘다 — '**1. 레넥톤 — …**'(줄 전체 굵게) · '- 1. …' · '🚫 1. …' · '① 레넥톤' · '1위 레넥톤' · 전각 숫자.
+       🐛 [2026-11-22 사장님 「픽 추천엔 초상화가 나오는데 밴 추천은 안 나온다」] 밴 답변은 줄이 굵게/기호로 감싸여 오는 일이 있어 번호 줄로 못 읽고 글자 한 줄로 떨어졌다."""
+    x = str(t or "").strip()
+    x = re.sub(r"^[\s*_`>#\-•·▪▶▷■□●○◆◇★☆🚫🧠🔥✅❌⚠️]+", "", x)         # 앞 장식
+    if x and x[0] in _CIRCLED: x = _CIRCLED[x[0]] + ". " + x[1:].lstrip()
+    x = re.sub(r"^([0-9０-９]+)\s*위\s*[:：.)\-]?\s*", lambda m: m.group(1).translate(str.maketrans("０１２３４５６７８９", "0123456789")) + ". ", x)
+    x = x.translate(str.maketrans("０１２３４５６７８９．）", "0123456789.)"))
+    x = re.sub(r"[*_`]+\s*$", "", x)                                          # 줄 끝에 남은 굵게 표시
+    return x.strip()
+
 def _draft_loose_row(t):
     """_DRAFT_LINE_RE 가 못 읽는 모양('1. 아리: 이유' · '1. 아리' · '1) 아리 (미드)')도 앞이 실제 챔프 이름이면 추천 줄로 읽는다 → (순위, (이름, 이유)) 또는 None."""
     try:
@@ -3974,6 +3987,8 @@ def _draft_build_card(root):
             for ch in rows.winfo_children(): ch.destroy()
             for ln in [x for x in summ.split("\n") if x.strip()]:
                 t = ln.strip()
+                _tn = _draft_norm_line(t)
+                if _tn and re.match(r"^\d+\s*[.)]", _tn): t = _tn      # 번호 줄이면 장식을 걷은 모양으로 읽는다(다른 줄은 원문 그대로)
                 m = _DRAFT_LINE_RE.match(t)
                 if m: _row(rows, "num", m.group(1), (m.group(2).replace("*", "").strip(), m.group(3).strip()))
                 elif _draft_loose_row(t): _row(rows, "num", *_draft_loose_row(t))
@@ -4064,7 +4079,7 @@ def _parse_rec_champs(txt):
     out = []
     try:
         for line in str(txt or "").split("\n"):
-            m = re.match(r"\s*(\d+)\s*[.)]\s*(.+)", line.strip())
+            m = re.match(r"\s*(\d+)\s*[.)]\s*(.+)", _draft_norm_line(line))
             if not m: continue
             nm = re.split(r"[—–\-:]", m.group(2), 1)[0]
             nm = nm.replace("*", "").replace("`", "").strip()

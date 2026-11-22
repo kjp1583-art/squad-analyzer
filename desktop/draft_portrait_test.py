@@ -2,10 +2,10 @@
 확인: 이름 정리 · 초상화 없으면 None(이름 글자 폴백) · 받는 중 중복 요청 안 함 · 받기 실패 후 재시도 폭주 없음 · Pillow 없으면 None."""
 import ast, os, re, sys, threading, time
 src = open(os.path.join(os.path.dirname(__file__), "squad_analyzer.py"), encoding="utf-8").read()
-tree = ast.parse(src); want = {"_draft_champ_key", "_draft_portrait", "_draft_loose_row", "_draft_prefetch_all"}; nodes = []
+tree = ast.parse(src); want = {"_draft_champ_key", "_draft_portrait", "_draft_loose_row", "_draft_prefetch_all", "_draft_norm_line"}; nodes = []
 for n in tree.body:
     if isinstance(n, ast.FunctionDef) and n.name in want: nodes.append(n)
-    if isinstance(n, ast.Assign) and any(getattr(t, "id", "") in ("_DRAFT_PORT_SZ", "_DRAFT_PORT_TK", "_DRAFT_PORT_FETCHING", "_DRAFT_PORT_FAIL", "_DRAFT_PORT_RETRY_SEC", "_DRAFT_PORT_MAX_TRY") for t in n.targets): nodes.append(n)
+    if isinstance(n, ast.Assign) and any(getattr(t, "id", "") in ("_DRAFT_PORT_SZ", "_DRAFT_PORT_TK", "_DRAFT_PORT_FETCHING", "_DRAFT_PORT_FAIL", "_DRAFT_PORT_RETRY_SEC", "_DRAFT_PORT_MAX_TRY", "_CIRCLED") for t in n.targets): nodes.append(n)
 calls = []
 def _fetch(k): calls.append(k); time.sleep(0.05); return ns["_NEXT"].get(k)   # 못 받은 경우 None
 def _parse_rec_champs(t): return [re.split(r"[—–\-:]", re.match(r"\s*\d+\s*[.)]\s*(.+)", l.strip()).group(1), 1)[0].strip() for l in t.split("\n") if re.match(r"\s*\d+\s*[.)]\s*(.+)", l.strip())]
@@ -43,4 +43,10 @@ ok(L("4. 존재하지않는챔프 — 이유") is None and L("→ 아리") is No
 ns["_DRAFT_PORT_FAIL"].clear(); ns["_SPELL_IMG_RAW"].clear(); ns["_NEXT"]["리신"] = b"X"; calls.clear()
 ns["_draft_prefetch_all"]("1. 리신 — 이유\n2. 아리 — 이유"); time.sleep(0.3)
 ok(sorted(calls) == ["리신", "아리"] and ns["_SPELL_IMG_RAW"].get("리신") == b"X", "추천이 나오면 챔프들을 미리 받아 둔다")
+N = ns["_draft_norm_line"]
+ok(N("**1. 레넥톤 — 43판**") == "1. 레넥톤 — 43판", "밴 답변: 줄 전체가 굵게 와도 번호 줄로 읽는다")
+ok(N("- 2. 파이크 — 밴압") == "2. 파이크 — 밴압" and N("🚫 3. 세라핀 — 6표") == "3. 세라핀 — 6표", "밴 답변: 글머리·이모지가 앞에 붙어도")
+ok(N("① 레넥톤 — 이유") == "1. 레넥톤 — 이유" and N("2위 파이크: 이유") == "2. 파이크: 이유", "동그라미 숫자·'N위' 표기도")
+ok(N("→ 우리 미드 제라스 선픽").startswith("→") and not re.match(r"^\d+\s*[.)]", N("→ 우리 미드 제라스 선픽")), "픽 방향(→) 줄은 번호 줄로 바뀌지 않는다")
+ok(L(N("**3. 리신 — 이유**"))[1][0] == "리 신" or L(N("**3. 리신 — 이유**"))[1][0] == "리신", "정규화한 줄이 추천 줄로 읽힌다")
 print("ALL PASS")
