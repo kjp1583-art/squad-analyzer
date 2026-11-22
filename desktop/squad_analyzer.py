@@ -3723,11 +3723,41 @@ def _draft_champ_key(name):
     t = re.split(r"\s*[(\[（]", t, 1)[0].strip()
     return t
 
+_DRAFT_PORT_FAIL = {}        # 챔프 한글명 → [실패 횟수, 마지막 실패 시각] — 한 번 못 받았다고 영영 글자로 두지 않는다
+_DRAFT_PORT_RETRY_SEC = 20   # 실패 뒤 이만큼 지나면 다시 받아 본다
+_DRAFT_PORT_MAX_TRY = 6      # 판 하나(밴픽 몇 분) 안에 충분히 다시 시도하되 무한 반복은 안 한다
+
+def _draft_fetch_icon(kor):
+    """초상화 bytes — ① 롤 클라이언트 로컬 에셋(인터넷 불필요·밴픽 중에도 빠름) ② Community Dragon ③ Data Dragon. 못 받으면 None.
+       🐛 [2026-11-22 사장님 「비공개 선택에선 되는데 내전에서 99% 쓰는 토너먼트 드래프트에선 초상화가 안 나온다」] 예전엔 인터넷 두 주소를 3초씩만 두드리고
+          한 번 실패하면 그 챔프는 프로그램을 끌 때까지 이름 글자로 고정이었다. 토너먼트 드래프트는 밴만 5~10개를 한꺼번에 띄우고 클라이언트가 가장 바쁜 때라
+          3초 안에 못 받는 일이 잦았다 — 로컬 에셋을 먼저 쓰고, 실패는 시간이 지나면 다시 시도한다."""
+    cid = _champ_id_of(kor)
+    if cid:
+        try:
+            _port, _pw = get_lcu_credentials()
+            if _port and _pw:
+                _tok = base64.b64encode(("riot:" + str(_pw)).encode("utf-8")).decode("utf-8")
+                r = requests.get(f"https://127.0.0.1:{_port}/lol-game-data/assets/v1/champion-icons/{cid}.png",
+                                 headers={"Authorization": "Basic " + _tok}, verify=False, timeout=2)
+                if r.status_code == 200 and r.content[:4] == b"\x89PNG": return r.content
+        except Exception: pass
+    urls = []
+    if cid: urls.append(f"https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/{cid}.png")
+    _eng = get_champ_eng_name(kor)
+    if _eng: urls.append(f"https://ddragon.leagueoflegends.com/cdn/{DDRAGON_VERSION}/img/champion/{_eng}.png")
+    for u in urls:
+        try:
+            r = requests.get(u, timeout=6)
+            if r.status_code == 200 and r.content: return r.content
+        except Exception: pass
+    return None
+
 def _draft_portrait(kor):
     """초상화 PhotoImage 또는 None(없으면 이름 글자 폴백). 못 받았으면 백그라운드로 받아 두고 받으면 카드를 다시 그리게 한다. GUI 스레드 전용."""
     kor = _draft_champ_key(kor)
     if not kor or not PILLOW_INSTALLED: return None
-    if kor in _DRAFT_PORT_TK: return _DRAFT_PORT_TK[kor]
+    if kor in _DRAFT_PORT_TK and _DRAFT_PORT_TK[kor] is not None: return _DRAFT_PORT_TK[kor]
     raw = _SPELL_IMG_RAW.get(kor)
     if raw:
         try:
@@ -3735,18 +3765,59 @@ def _draft_portrait(kor):
             _DRAFT_PORT_TK[kor] = ImageTk.PhotoImage(_im)
         except Exception:
             _DRAFT_PORT_TK[kor] = None
+            _SPELL_IMG_RAW.pop(kor, None)
         return _DRAFT_PORT_TK[kor]
-    if kor in _SPELL_IMG_RAW or kor in _DRAFT_PORT_FETCHING:      # 받기 실패 기록(None)이거나 이미 받는 중
-        return None
+    if kor in _DRAFT_PORT_FETCHING: return None                    # 이미 받는 중
+    _f = _DRAFT_PORT_FAIL.get(kor)
+    if _f and (_f[0] >= _DRAFT_PORT_MAX_TRY or time.time() - _f[1] < _DRAFT_PORT_RETRY_SEC): return None   # 실패 직후엔 쉰다(다시 그릴 때마다 두드리지 않게)
+    _SPELL_IMG_RAW.pop(kor, None)                                  # 예전 실패 기록(None)이 있으면 지우고 다시
     _DRAFT_PORT_FETCHING.add(kor)
     def _bg():
-        try: _spell_prefetch_img(kor)
+        try:
+            _b = _draft_fetch_icon(kor)
+            if _b: _SPELL_IMG_RAW[kor] = _b; _DRAFT_PORT_FAIL.pop(kor, None)
+            else:
+                _n = (_DRAFT_PORT_FAIL.get(kor) or [0, 0])[0] + 1
+                _DRAFT_PORT_FAIL[kor] = [_n, time.time()]
+                print(f"[draft] 초상화 받기 실패({_n}회) — {kor} · 이름 글자로 표시", flush=True)
+        except Exception: pass
         finally:
             _DRAFT_PORT_FETCHING.discard(kor)
             if _SPELL_IMG_RAW.get(kor): _DRAFT_OVL["shown"] = ""      # 받았다 → 다음 GUI 틱이 카드를 다시 그린다(새 추천 깜빡임 아님)
+            elif (_DRAFT_PORT_FAIL.get(kor) or [0])[0] < _DRAFT_PORT_MAX_TRY:
+                try: threading.Timer(_DRAFT_PORT_RETRY_SEC + 1, lambda: _DRAFT_OVL.__setitem__("shown", "")).start()   # 쉬었다가 다시 그려 재시도
+                except Exception: pass
     try: threading.Thread(target=_bg, daemon=True).start()
     except Exception: _DRAFT_PORT_FETCHING.discard(kor)
     return None
+
+def _draft_prefetch_all(txt):
+    """추천 텍스트의 챔프 초상화를 카드가 뜨기 전에 미리 받는다(백그라운드) — 첫 그림에 바로 초상화가 나오게."""
+    try:
+        for _n in _parse_rec_champs(_split_reason(txt)[0]):
+            _k = _draft_champ_key(_n)
+            if _k and _k not in _SPELL_IMG_RAW and _k not in _DRAFT_PORT_FETCHING and not _DRAFT_PORT_FAIL.get(_k):
+                _DRAFT_PORT_FETCHING.add(_k)
+                def _one(k=_k):
+                    try:
+                        b = _draft_fetch_icon(k)
+                        if b: _SPELL_IMG_RAW[k] = b
+                        else: _DRAFT_PORT_FAIL[k] = [1, time.time()]
+                    except Exception: pass
+                    finally: _DRAFT_PORT_FETCHING.discard(k)
+                threading.Thread(target=_one, daemon=True).start()
+    except Exception: pass
+
+def _draft_loose_row(t):
+    """_DRAFT_LINE_RE 가 못 읽는 모양('1. 아리: 이유' · '1. 아리' · '1) 아리 (미드)')도 앞이 실제 챔프 이름이면 추천 줄로 읽는다 → (순위, (이름, 이유)) 또는 None."""
+    try:
+        m = re.match(r"^\s*(\d+)\s*[.)]\s*([^—–:：\-\n]{1,16}?)\s*(?:[—–:：\-]\s*(.*))?$", str(t or ""))
+        if not m: return None
+        nm = m.group(2).replace("*", "").replace("`", "").strip()
+        k = _draft_champ_key(nm)
+        if not k or not (_champ_id_of(k) or get_champ_eng_name(k)): return None
+        return (m.group(1), (nm, (m.group(3) or "").strip()))
+    except Exception: return None
 
 def _draft_build_card(root):
     """카드 창을 만든다. 내용은 _render() 가 채운다."""
@@ -3905,6 +3976,7 @@ def _draft_build_card(root):
                 t = ln.strip()
                 m = _DRAFT_LINE_RE.match(t)
                 if m: _row(rows, "num", m.group(1), (m.group(2).replace("*", "").strip(), m.group(3).strip()))
+                elif _draft_loose_row(t): _row(rows, "num", *_draft_loose_row(t))
                 elif t.startswith("→"): _row(rows, "dir", t.lstrip("→ ").strip())
                 elif t.startswith("⚠"): _row(rows, "warn", t)
                 elif t.startswith(("🆚", "🎯")): _row(rows, "ctx", t)
@@ -4537,6 +4609,9 @@ def _draft_coach_tick(s_json, headers, base_url):
                 #    만료·한도·토큰공유(⏳🔐/구독)는 재시도해도 소용없으니 제외한다.
                 _transient = (not txt) or str(txt).lstrip().startswith(
                     ("⚠️ 고스트밴픽왕: 잠시 후", "⚠️ 고스트밴픽왕: 서버 연결", "⚠️ 고스트밴픽왕: 응답이 늦어"))
+                try:
+                    if txt and not _transient and not str(txt).lstrip().startswith(("⚠️", "⏳", "🔐", "✅")): _draft_prefetch_all(txt)
+                except Exception: pass
                 with gui_lock:
                     if txt and not _transient:
                         _hdr = (f"🚫 {ban_phase}페이즈 밴 추천" if mode == "ban" else "🧠 AI 픽 추천")
