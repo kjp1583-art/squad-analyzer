@@ -8472,7 +8472,11 @@ function computeMyeol(){
     if(cn){ let p=PEAK_INFO[tnorm(cn)];
       if(!p){const al=CANON_TO_ALIASES.get(cn); if(al)for(const a of al){if(PEAK_INFO[tnorm(a)]){p=PEAK_INFO[tnorm(a)];break;}}}
       if(p&&p.score!=null)pk=p.score; }
+    // 📌 [2026-11-22 사장님 「멸망전 적정가를 해당 유저가 전적 통산 가장 많이 플레이한 포지션에만 배정」] 여러 라인을 뛰어도 통산 판수가 가장 많은 포지션 한 칸에만 올린다
+    //    (판수가 같으면 표에서 먼저 나온 쪽). 그 포지션이 표본(MING·MINAI) 미달이면 다른 라인으로 대신하지 않고 아래 「기록 부족 · 티어 기준 추정」으로 간다.
+    let topPs=null; for(const ps in P){ if(topPs==null||P[ps].g>P[topPs].g) topPs=ps; }
     for(const ps in P){
+      if(ps!==topPs) continue;
       const e=P[ps]; if(e.g<MING||e.aiN<MINAI)continue;
       covered.add(_myNk(nm));
       let pool=0; for(const v of e.ch.values()) if(v>=3)pool++;
@@ -9490,7 +9494,7 @@ function renderMyeol(){
   const priceSec = !MYEOL_SHOW_PRICES ? '' : `
   <div class="mx-stat"><span>실측 <b>${nReal}</b>칸</span><span>티어 추정 <b>${M.list.length-nReal}</b>칸</span><span>${(MYEOL_ONLY_ENT&&_entK.size)?`참가확정 <b>${_entK.size}</b>인(팀장 ${_capK.size}인 제외)`:`클랜 전체${_capK.size?'(팀장 제외)':''}`}</span></div>
   <details class="mx-note"><summary>이 가격은 어떻게 읽나요?</summary><div>클랜 내전(협곡) 기록을 종합한 <b>참고용 가격</b>이에요. 시트가 갱신되면 자동 반영되고(데이터 기준 ${esc(M.maxD)}) 실제 낙찰가와 다를 수 있어요.<br>
-  포지션마다 따로 계산해서 여러 라인을 뛰는 분은 여러 칸에 나와요(파란 숫자 = 등장 칸 수). <span class="honeybee"></span> = 내부티어보다 적정가가 높은 <b>저평가 매물</b>이에요. 제10회 참가 명단이 공지되면 그 명단으로 좁혀 보여 드려요.</div></details>
+  적정가는 그 사람이 <b>전적 통산 가장 많이 플레이한 포지션 한 칸</b>에만 올라가요(여러 라인을 뛰어도 한 칸). <span class="honeybee"></span> = 내부티어보다 적정가가 높은 <b>저평가 매물</b>이에요. 제10회 참가 명단이 공지되면 그 명단으로 좁혀 보여 드려요.</div></details>
   ${_entK.size?`  <div style="display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap">
     <span class="pchip${(MYEOL_ONLY_ENT&&_entK.size)?' on':''}" style="cursor:pointer;padding:4px 12px;font-size:12.5px" onclick="setMyeolEnt(true)">참가확정 ${_entK.size}인</span>
     <span class="pchip${(MYEOL_ONLY_ENT&&_entK.size)?'':' on'}" style="cursor:pointer;padding:4px 12px;font-size:12.5px" onclick="setMyeolEnt(false)">클랜 전체</span>
@@ -12617,7 +12621,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611222000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611222100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
