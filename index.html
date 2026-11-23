@@ -1384,9 +1384,10 @@ window.SGG_DC_BOOT=(function(){
   .kzp-fx i:nth-child(9){left:77%;animation-delay:1.9s;animation-duration:4.8s}.kzp-fx i:nth-child(10){left:86%;animation-delay:.4s;animation-duration:3.3s}.kzp-fx i:nth-child(11){left:93%;animation-delay:2.4s}.kzp-fx i:nth-child(12){left:97%;animation-delay:1.1s;animation-duration:4s}
   .kz-prof .kizuki-emblem.up svg{animation:kzpem-u 2.6s ease-in-out infinite} .kz-prof .kizuki-emblem.low svg{animation:kzpem-l 2.6s ease-in-out infinite}
   .kz-prof.kz-up .pname{text-shadow:0 0 18px rgba(255,150,60,.55)} .kz-prof.kz-low .pname{text-shadow:0 0 18px rgba(150,190,255,.55)}
-  .kzp-flash{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:14px;opacity:0;animation:kzpcflash .9s ease-out .15s both}
-  .kz-up .kzp-flash{background:linear-gradient(110deg,transparent 35%,rgba(255,200,120,.85) 50%,transparent 65%)} .kz-low .kzp-flash{background:linear-gradient(110deg,transparent 35%,rgba(200,225,255,.85) 50%,transparent 65%)}
+  .kzp-flash{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:14px;opacity:0;background-size:300% 100%;background-repeat:no-repeat;animation:kzpflash2 .9s ease-out .15s both}   /* 위치 이동(transform) 대신 배경만 움직여 카드 밖으로 안 삐져나간다 */
+  .kz-up .kzp-flash{background-image:linear-gradient(110deg,transparent 40%,rgba(255,200,120,.85) 50%,transparent 60%)} .kz-low .kzp-flash{background-image:linear-gradient(110deg,transparent 40%,rgba(200,225,255,.85) 50%,transparent 60%)}
   @keyframes kzprays{to{transform:rotate(360deg)}}
+  @keyframes kzpflash2{0%{opacity:.95;background-position:100% 0}100%{opacity:0;background-position:0% 0}}
   @keyframes kzpemb2{0%{opacity:0;transform:translateY(0) scale(1)}15%{opacity:1}100%{opacity:0;transform:translateY(-280px) scale(.4)}}
   @keyframes kzpem-u{0%,100%{filter:drop-shadow(0 0 8px rgba(224,65,63,.55))}50%{filter:drop-shadow(0 0 24px rgba(255,150,60,.95))}}
   @keyframes kzpem-l{0%,100%{filter:drop-shadow(0 0 8px rgba(154,107,255,.55))}50%{filter:drop-shadow(0 0 24px rgba(150,190,255,.95))}}
@@ -13499,7 +13500,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611226400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611226500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
