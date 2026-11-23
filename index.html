@@ -1557,6 +1557,34 @@ window.SGG_DC_BOOT=(function(){
   .hv2 .showall{min-height:46px;display:flex;align-items:center;justify-content:center;border-color:var(--accent);color:var(--accent);font-weight:800;border-radius:10px;background:transparent}
   @media (max-width:720px){.hv2 .card h2,.hv2 .kzhd h2,.hv2 .hsec-k{font-size:17px}.cta{width:100%}}
 
+
+  /* 🎛 [2026-11-23 사장님 「상단 필터·탭 정돈 — 프로답게」] 필터 카드 · 분할 버튼 · 탭 두 단 */
+  .fltrow{display:flex;flex-direction:column;gap:0;margin:14px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+  .fltrow .catbar{margin:0;gap:10px;align-items:center;flex-wrap:wrap}
+  .catbar .cat-seg{display:inline-flex;gap:2px;padding:3px;background:var(--bg2);border:1px solid var(--line);border-radius:11px}
+  .catbar .cat-seg .cat{padding:7px 18px;border-radius:8px;border:0;background:transparent;color:var(--sub);font-size:14px;font-weight:700}
+  .catbar .cat-seg .cat:hover{color:var(--txt)} .catbar .cat-seg .cat.on{background:var(--accent);color:#fff}
+  .catbar .cat-tools{margin-left:auto;display:flex;gap:2px;flex-wrap:wrap}
+  .catbar .cat.hof{padding:6px 11px;border:0;border-radius:8px;background:transparent;color:var(--mut);font-size:13px;font-weight:600}
+  .catbar .cat.hof:hover{background:var(--bg2);color:var(--gold);border:0}
+  .fltrow .patchbar{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line);gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .fltrow .patchbar::-webkit-scrollbar{display:none}
+  .fltrow .patchbar.hidden{display:none}
+  .pb-label{font-size:12.5px;font-weight:700;color:var(--mut);letter-spacing:.02em}
+  .pchip{flex:0 0 auto;padding:5px 11px;border-radius:8px;background:transparent;border:1px solid transparent;font-size:13px;font-weight:700;color:var(--sub)}
+  .pchip:hover{background:var(--bg2);color:var(--txt)}
+  .pchip.on{background:var(--card2);border-color:var(--accent);color:var(--txt)}
+  .pb-sep{flex:0 0 auto;height:14px;margin:0 6px}
+  .patchnote{margin:6px 4px 0;font-size:12px}
+  .tabs{gap:2px;margin:16px 0 8px}
+  .tab{padding:10px 11px;font-size:14px;font-weight:700}
+  .tab.on{border-bottom-width:3px}
+  .tabs.tabs2{margin:0 0 12px;border-bottom:0;gap:6px;padding:2px 0}
+  .tabs2 .tab{padding:6px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:13px;font-weight:600}
+  .tabs2 .tab:hover{color:var(--txt);border-color:var(--mut)}
+  .tabs2 .tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tabs2 .tab.don{margin-left:auto;color:#ff9fbe;background:#1d1016;border-color:#4a2233}
+  .tabs2 .tab.don.on,.tabs2 .tab.don:hover{color:#ffc3d6;background:#26141c;border-color:#6b3049}
 </style>
 </head>
 <body>
@@ -7120,7 +7148,7 @@ function navTabsHtml(active){
   const tab=(key,label)=>`<div class="tab ${active===key?'on':''}" data-k="${key}" onclick="go('${key}')">${label}</div>`;
   // (2026-08-05) 내전모집 탭 삭제 — 릴레이 연결로 메인 첫 화면 카드에서 신청까지 전부 되므로 중복
   // [2026-08-06 사장님 지시] 탭이 길어져 세로로 접히던 문제 — 아이콘 전부 제거, 한 줄 고정(넘치면 가로 스크롤)
-  return `<div class="tabswrap" id="tabswrap"><div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('scrim','스크림')}${tab('ideal','💘 이상형월드컵')}${tab('games','🎮 미니게임')}<div class="tab don ${active==='donate'?'on':''}" data-k="donate" onclick="go('donate')">💝 후원</div></div></div>`;
+  return `<div class="tabswrap" id="tabswrap"><div class="tabs">${tab('home','내전')}${(MITO_CODES.size||MITO_CODE_PREFIXES.length)?tab('mito','미토'):''}${tab('myeol','멸망전')}${tab('log','내전기록')}${IS_ADMIN?tab('counts','내전 횟수 🔒'):''}${tab('champ','챔피언 티어')}${tab('mastery','장인랭킹')}${tab('tiers','내부티어')}${tab('ach','업적 도감')}${tab('army','전역일')}${tab('market','거래소')}${tab('duo','듀오시너지')}${tab('report','리포트')}${tab('cal','클랜일정')}</div><div class="tabs tabs2">${tab('rival','인간상성')}${tab('scrim','스크림')}${tab('ideal','이상형월드컵')}${tab('games','미니게임')}<div class="tab don ${active==='donate'?'on':''}" data-k="donate" onclick="go('donate')">♥ 후원</div></div></div>`;
 }
 
 /* ============== 화면: 💘 이상형월드컵 (2026-10-18 사장님 지시) ==============
@@ -11983,14 +12011,16 @@ function renderAds(){
 /* ============== 카테고리 (협곡 / 칼바람) ============== */
 function renderCatbar(){
   const bar=$("#catbar"); if(!bar)return;
-  bar.innerHTML=CATEGORIES.map(c=>
-    `<button class="cat ${c.key===CURRENT_CAT?'on':''}" onclick="switchCat('${c.key}')">${esc(c.label)}</button>`
-  ).join("")
-  +`<span class="cat-sep"></span>`
+  // 🎛 [2026-11-23 사장님 「상단 필터·탭이 난잡 — 프로답게 정리」] 왼쪽 = 보기 종류(협곡·칼바람·클래식) 분할 버튼 · 오른쪽 = 도구 링크(전당·성향유형·새로고침)
+  bar.innerHTML=`<div class="cat-seg" role="tablist" aria-label="보기 종류">`+CATEGORIES.map(c=>
+    `<button class="cat ${c.key===CURRENT_CAT?'on':''}" role="tab" aria-selected="${c.key===CURRENT_CAT}" onclick="switchCat('${c.key}')">${esc(c.label)}</button>`
+  ).join("")+`</div>`
+  +`<div class="cat-tools">`
   +`<button class="cat hof" onclick="go('hof','rift')">명예의 전당</button>`
   +`<button class="cat hof" onclick="go('hof','aram')">증내의 전당</button>`
   +`<button class="cat hof" onclick="go('gpti')">성향유형</button>`
-  +`<button class="cat hof" id="btnReload" onclick="reloadData()" title="시트를 다시 읽어 새 전적을 반영합니다 (페이지 새로고침 없이)">새로고침</button>`;
+  +`<button class="cat hof" id="btnReload" onclick="reloadData()" title="시트를 다시 읽어 새 전적을 반영합니다 (페이지 새로고침 없이)">↻ 새로고침</button>`
+  +`</div>`;
 }
 // 🔄 [2026-08-02] 시트 재조회 — 새 내전 기록이 올라왔을 때 F5 없이 즉시 반영.
 //   시트 응답은 구글이 no-store로 주므로 브라우저 캐시는 애초에 없다(2026-08-02 실측). 여기서 비우는 건
@@ -12688,7 +12718,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611222700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611222800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
