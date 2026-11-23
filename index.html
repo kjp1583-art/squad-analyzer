@@ -9665,7 +9665,8 @@ function renderMyeol(){
   .ab-tl{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--gold);margin-right:2px}
   .ab-tp{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
   .ab-tp em{font-style:normal;font-size:10.5px;font-weight:900;color:var(--mut)} .ab-tp b{color:var(--gold);font-weight:800}
-  .ab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:10px;padding:0 12px 14px}
+  /* 한 줄 최대 4팀(좁으면 3팀·2팀으로) — 한 줄 5팀이면 이름·티어 글자가 잘렸다(2026-11-23) */
+  .ab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(max(220px,calc((100% - 30px)/4)),1fr));gap:10px;padding:0 12px 14px}
   .ab-team{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}
   .ab-th{display:flex;justify-content:space-between;align-items:baseline;gap:6px;padding:9px 11px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
   .ab-th b{font-size:13.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -12683,7 +12684,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611222500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611222600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
