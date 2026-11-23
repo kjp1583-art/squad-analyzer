@@ -1620,6 +1620,16 @@ window.SGG_DC_BOOT=(function(){
   .vs-sum .mid{text-align:center;font-size:12.5px;color:var(--sub)} .vs-sum .mid b{display:block;font-size:22px;color:var(--txt);font-variant-numeric:tabular-nums}
   .vs-more{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:4px 2px 8px;font-size:12.5px;color:var(--sub)}
   @media(max-width:560px){.vs-score{font-size:42px}.vs-score i{font-size:26px}.vs-team .vs-nm{font-size:15px}.vs-sum{grid-template-columns:1fr}.vs-sum .sd.r{justify-content:flex-start;text-align:left}}
+  /* 📺 홈 「클랜 영상」 카드 */
+  .yt-ch{margin-left:auto;font-size:11.5px;font-weight:800;color:var(--sub);text-decoration:none} .yt-ch:hover{color:var(--accent)}
+  .yt-thumb{position:relative;display:block;aspect-ratio:16/9;margin-top:10px;border-radius:12px;overflow:hidden;background:#000;border:1px solid var(--line);cursor:pointer}
+  .yt-thumb img,.yt-thumb iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0}
+  .yt-thumb:hover img{filter:brightness(1.08)}
+  .yt-play{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.45))}
+  .yt-play i{width:56px;height:38px;border-radius:12px;background:rgba(235,40,60,.92);box-shadow:0 4px 14px rgba(0,0,0,.5);position:relative}
+  .yt-play i::after{content:"";position:absolute;left:23px;top:11px;border-left:16px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent}
+  .yt-ttl{margin-top:9px;font-size:14px;font-weight:800;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .yt-meta{margin-top:3px;font-size:12px;color:var(--mut)}
   .pos-ic{display:block;width:20px;height:20px;object-fit:contain}
   .tp-pos:has(.pos-ic){width:26px;height:26px;border-radius:8px} .ab-pos:has(.pos-ic){flex:0 0 26px;height:26px;border-radius:8px}   /* 아이콘은 16px 에서는 탑·원딜이 헷갈려 20px 로 */
   .tp-h2{margin:22px 2px 10px;font-size:18px}
@@ -6538,7 +6548,7 @@ function kizukiBoard(){
   };
   // [2026-08-07 사장님 지시] 동부가 빠진 오른쪽 자리에 '다가오는 일정' 패널
   // [2026-08-12 사장님 지시] 일정 아래로 남던 빈 공간에 🏪 거래소 현재 매물을 붙인다.
-  marketHomeLoad();
+  marketHomeLoad(); ytHomeLoad();
   const evPane=`<div class="kzleague">
     <div style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
       <div class="kzhd"><h2>📅 클랜일정</h2><span class="kanji">日程</span></div>
@@ -6548,6 +6558,7 @@ function kizukiBoard(){
       <div class="cta-row"><button class="cta" type="button">일정 전체 →</button></div>
     </div>
     ${marketPaneHtml()}
+    ${ytHomeHtml()}
   </div>`;
   return `<div class="card kzboard two">${leagues.map(pane).join("")}${evPane}</div>`;
 }
@@ -6935,6 +6946,35 @@ function marketHomeLoad(force){
     if(el){ const w=document.createElement('div'); w.innerHTML=marketPaneHtml(); el.replaceWith(w.firstElementChild); }
   });
 }
+/* 📺 [2026-11-23 사장님 「클랜 유튜브(@league_squad) 최신 영상을 빈 공간에 썸네일로」] 홈 우측 「클랜 영상」 카드.
+   영상 목록은 GitHub Actions(youtube-latest.yml)가 시간마다 RSS 를 받아 ai-eval-data 브랜치의 youtube_latest.json 에 둔다(브라우저는 유튜브 RSS 를 CORS 로 못 읽는다).
+   파일을 못 읽으면 아래 내장 값(작성 시점의 최신 영상)으로 그린다. 썸네일을 누르면 그 자리에서 재생. */
+const YT_CHANNEL="https://www.youtube.com/@league_squad";
+let YT_HOME={videos:[{id:"XNJNjI1SGyY",title:"스쿼드 제 8회 멸망전 경매 | 다시보기",published:"2026-11-11T22:48:26+00:00"}]}, YT_HOME_AT=0, YT_HOME_BUSY=false;
+function ytHomeLoad(){
+  if(YT_HOME_BUSY||(YT_HOME_AT&&Date.now()-YT_HOME_AT<30*60000)) return;
+  YT_HOME_BUSY=true;
+  fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/ai-eval-data/youtube_latest.json",{cache:"no-cache"})
+    .then(r=>r.ok?r.json():null).then(d=>{ if(d&&Array.isArray(d.videos)){ const v=d.videos.filter(x=>x&&/^[\w-]{11}$/.test(String(x.id||""))); if(v.length) YT_HOME={videos:v}; } }).catch(()=>{})
+    .then(()=>{ YT_HOME_AT=Date.now(); YT_HOME_BUSY=false; const el=document.getElementById("ytHomePane"); if(el){ const w=document.createElement("div"); w.innerHTML=ytHomeHtml(); el.replaceWith(w.firstElementChild); } });
+}
+function ytHomeHtml(){
+  const v=(YT_HOME.videos||[])[0]; if(!v||!/^[\w-]{11}$/.test(String(v.id||""))) return "";
+  const d=new Date(v.published), ds=isNaN(d)?"":`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
+  return `<div id="ytHomePane" style="margin-top:18px">
+    <div class="kzhd"><h2>▶ 클랜 영상</h2><span class="kanji">映像</span><a class="yt-ch" href="${YT_CHANNEL}" target="_blank" rel="noopener">채널 ↗</a></div>
+    <div class="kzsub">스쿼드 클랜 유튜브의 최신 영상 · 눌러서 바로 재생</div>
+    <div class="kzrule"></div>
+    <div class="yt-thumb" data-v="${v.id}" role="button" tabindex="0" onclick="ytPlay(this)" onkeydown="if(event.key==='Enter')ytPlay(this)" title="재생">
+      <img src="https://i.ytimg.com/vi/${v.id}/hqdefault.jpg" alt="${escAttr(v.title||"")}" loading="lazy">
+      <span class="yt-play"><i></i></span>
+    </div>
+    <div class="yt-ttl">${esc(v.title||"")}</div>
+    <div class="yt-meta">SQuad Clan${ds?" · "+ds:""}</div>
+  </div>`;
+}
+function ytPlay(el){ const id=el&&el.dataset&&el.dataset.v; if(!id||!/^[\w-]{11}$/.test(id)) return;
+  el.outerHTML=`<div class="yt-thumb yt-on"><iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="클랜 영상" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`; }
 function marketPaneHtml(){
   const d=MKT_HOME, ts=(d&&d.titles)||[];
   const now=Date.now()/1000;
@@ -13261,7 +13301,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611225300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611225400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

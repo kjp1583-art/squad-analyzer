@@ -1,0 +1,36 @@
+name: YouTube latest
+
+# 📺 클랜 유튜브(@league_squad) 최신 영상 목록을 ai-eval-data 브랜치에 youtube_latest.json 으로 커밋한다.
+# 웹 홈의 「클랜 영상」 카드가 이 파일(raw)을 읽는다(브라우저는 유튜브 RSS 를 CORS 로 못 읽는다).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+      - uses: actions/checkout@v4
+        with:
+          ref: ai-eval-data
+          path: data
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch
+        run: python src/tooling/youtube_latest.py data/youtube_latest.json
+      - name: Commit
+        working-directory: data
+        run: |
+          [ -f youtube_latest.json ] || { echo "파일 없음 — 스킵"; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add youtube_latest.json
+          git diff --cached --quiet || { git commit -m "data: youtube latest"; git push origin ai-eval-data; }
