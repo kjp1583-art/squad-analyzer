@@ -46,8 +46,8 @@ srv.listen(0,'127.0.0.1',async()=>{ const port=srv.address().port;
   ok(r.label==='제10회 멸망전'&&r.teams===3,'새 멸망전이 「제10회 멸망전」·3팀으로 자동 설정');
 
   ok(r.eds.preE==='10:upcoming,9:builtin'&&r.eds.preV==='auction,price','경매 전: 상위 탭 「제10회(예정)·제9회」 — 하위 탭은 경매결과·적정가뿐');
-  ok(r.eds.postE==='10:auc*,9:builtin'&&r.eds.postV==='auction,rank,scrim,main,price','경매 결과가 올라오면: 제10회가 최신이 되고 경매결과·파워랭킹·스크림·적정가 탭이 생긴다');
-  ok(r.eds.v9==='auction,rank,scrim,main','제9회 하위 탭: 경매결과·파워랭킹·스크림·본선(적정가는 최신 회차만)');
+  ok(r.eds.postE==='10:auc*,9:builtin'&&r.eds.postV==='auction,rank,scrim,bp,main,price','경매 결과가 올라오면: 제10회가 최신이 되고 경매결과·파워랭킹·스크림·적정가 탭이 생긴다');
+  ok(r.eds.v9==='auction,rank,scrim,bp,main','제9회 하위 탭: 경매결과·파워랭킹·스크림·본선(적정가는 최신 회차만)');
   const D=r.duo;
   ok(D.g1.length===1&&D.g1[0].ad==='가원딜'&&D.g1[0].sup==='팀장가'&&D.g1[0].note==='경매 포지션 기준','팀 가: 선수 4명의 포지션으로 팀장=서폿을 추리고 봇듀오 확정');
   ok(D.n1.length===1&&D.n1[0].sup==='팀장나','팀 나: 같은 방식으로 확정');
