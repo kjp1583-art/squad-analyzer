@@ -9136,7 +9136,7 @@ function _myeolDuoRankHtml(DUOS,icA,icB){
   }).sort((a,b)=>(b.sum??-1)-(a.sum??-1));
   const smax=Math.max(...list.map(x=>x.sum??0)), smin=Math.min(...list.map(x=>x.sum??99));
   const nm=n=>`<span class="clickname" onclick="go('player','${escAttr(canonOfName(MYEOL_NAMEFIX[n]||n))}')">${esc(n)}</span>`;
-  return `<div class="rkl">`+list.map((d,i)=>{
+  return `<div class="rkl" style="--rn:${Math.ceil(list.length/2)}">`+list.map((d,i)=>{
     const w=d.sum==null?0:(smax>smin?(d.sum-smin)/(smax-smin)*100:50);
     const multiTag=multi.get(d.t)>1?`<span class="rk-tag">경우의수</span>`:"";
     return `<div class="rk-row${i<3?' top':''}">
@@ -10312,7 +10312,10 @@ function renderMyeol(){
   .bp-t .bp-ic{width:22px;height:22px;vertical-align:middle}
   .mx-foot{font-size:11.5px;line-height:1.6;color:var(--mut);margin-top:12px}
   /* ── 순위 목록(.rk) — 팀 파워랭킹·봇듀오·미드정글 공통 ── */
-  .rkl{display:flex;flex-direction:column;gap:8px}
+  /* 📰 [2026-11-23 사장님 「한 줄에 하나씩이라 여백이 많다 — 1 6 / 2 7 … 두 개씩」] 순위는 두 줄로 나눠 왼쪽 위에서 아래로 1~N/2, 오른쪽 N/2+1~N (넓은 화면만) */
+  .rkl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(var(--rn,1),auto);grid-auto-flow:column;gap:8px 10px}
+  .rkl .rk-row{padding:10px 12px;gap:10px} .rkl .rk-score{font-size:18px;min-width:44px}
+  @media(max-width:820px){.rkl{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-flow:row}}
   .rk-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
   .rk-row.top{background:linear-gradient(180deg,rgba(224,164,55,.07),rgba(224,164,55,0) 80%),var(--bg2);border-color:rgba(224,164,55,.28)}
   .rk-no{flex:0 0 28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:900;color:var(--sub);background:var(--card);border:1px solid var(--line)}
@@ -13224,7 +13227,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611224400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611224500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
