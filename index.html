@@ -1620,6 +1620,8 @@ window.SGG_DC_BOOT=(function(){
   .vs-sum .mid{text-align:center;font-size:12.5px;color:var(--sub)} .vs-sum .mid b{display:block;font-size:22px;color:var(--txt);font-variant-numeric:tabular-nums}
   .vs-more{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:4px 2px 8px;font-size:12.5px;color:var(--sub)}
   @media(max-width:560px){.vs-score{font-size:42px}.vs-score i{font-size:26px}.vs-team .vs-nm{font-size:15px}.vs-sum{grid-template-columns:1fr}.vs-sum .sd.r{justify-content:flex-start;text-align:left}}
+  .pos-ic{display:block;width:20px;height:20px;object-fit:contain}
+  .tp-pos:has(.pos-ic){width:26px;height:26px;border-radius:8px} .ab-pos:has(.pos-ic){flex:0 0 26px;height:26px;border-radius:8px}   /* 아이콘은 16px 에서는 탑·원딜이 헷갈려 20px 로 */
   .tp-h2{margin:22px 2px 10px;font-size:18px}
   .tp-players{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
   .tp-pc{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
@@ -9595,7 +9597,7 @@ function _tpPlayerCard(name,isCap,price,pos,stat,fairInfo){
   const row=(k,val)=>`<div class="tp-r"><span>${k}</span><b>${val}</b></div>`;
   return `<div class="tp-pc${isCap?' cap':''}" onclick="go('player','${escAttr(cn)}')">
     <div class="tp-ph-wrap">${ico}${top?`<span class="tp-chmp" title="${escAttr(top[0])} ${top[1]}판">${champImg(top[0],"sm")}</span>`:""}</div>
-    <div class="tp-pn"><i class="tp-pos" title="${escAttr(pos||"")}">${esc(({"탑":"탑","정글":"정","미드":"미","원딜":"원","서폿":"서"})[pos]||(pos?String(pos).slice(0,1):"·"))}</i><b>${esc(shortName(cn))}</b>${isCap?'<em class="tp-capb">팀장</em>':""}</div>
+    <div class="tp-pn"><i class="tp-pos" title="${escAttr(pos||"")}">${posIcon(pos,20)}</i><b>${esc(shortName(cn))}</b>${isCap?'<em class="tp-capb">팀장</em>':""}</div>
     <div class="tp-pt">${_tpTierChip(cn)}${price!=null&&!isCap?`<span class="tp-price">${_aucN(price)}P</span>`:""}${v?`<i class="ab-v v-${v.k}" title="우리 적정가 ${_aucN(f.fair)}P">${v.t}</i>`:""}</div>
     ${row("이 대회 KDA",kd==null?"—":kd.toFixed(2))}${row("이 대회 승률",stat&&stat.g?Math.round(stat.w/stat.g*100)+"%":"—")}${row("이 대회 판수",stat?stat.g:0)}${row("통산 승률",tg?Math.round(tw/tg*100)+"% · "+tg+"판":"—")}
   </div>`;
@@ -9740,6 +9742,10 @@ function renderVs(arg,keep){
     </div>
     <div class="vs-tabs">${sets}</div>${sumHtml}${detail}</div>`;
 }
+/* 🧭 [2026-11-23 사장님 「포지션 표기를 글자(미 서 원) 말고 분석기에 있는 포지션 이미지로」] 분석기 desktop/ 의 라인 아이콘(TOP·JUNGLE·MIDDLE·BOTTOM·UTILITY)을 48px 로 줄여 img/pos/ 에 둔다. 모르는 포지션은 글자로. */
+const POS_ICON={"탑":"top","정글":"jgl","미드":"mid","원딜":"bot","서폿":"sup"};
+function posIcon(pos,px){ const k=POS_ICON[pos]; const t=escAttr(pos||""); const n=px||20;
+  return k?`<img class="pos-ic" src="img/pos/${k}.webp" alt="${t}" title="${t}" width="${n}" height="${n}" loading="lazy">`:esc(pos?String(pos).slice(0,1):"·"); }
 function teamLinkP(n){ const cn=canonOfName(n)||n; return `<span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>`; }
 /* 🏆 [2026-11-22 사장님 「스크림 탭에 성적표를 LCK 순위표 느낌으로」] 팀 순위표 — 순위 · 팀 · 승패 · 승률 · 최근 5경기 · 연속 · 순위변동.
    순위 = 승률 → 승수 → 이름. 순위변동 = 가장 최근 경기일의 판을 빼고 다시 센 순위와 비교(그날 처음 나온 팀은 NEW). 한 판이 한 경기라 「득실차」 대신 승률을 쓴다. */
@@ -9897,7 +9903,7 @@ function aucBoardHtml(d,open){   // 🔨 한 대회의 팀별 세로 5인 보드
     const EV=aucEval(d);
     const cols=d.teams.map(t=>{
       const ms=t.m.slice().sort((a,b)=>(b.price||0)-(a.price||0)), tsum=ms.reduce((a,p)=>a+(p.price||0),0);
-      const row=(nm,pos,tier,price,isCap,hot,ev)=>`<li class="${isCap?'cap':''}${hot?' hot':''}"><i class="ab-pos" title="${esc(pos||'')}">${isCap?'장':esc(POSC[pos]||(pos||'·').slice(0,1))}</i><span class="ab-nm" title="${esc(nm)}${tier?' · '+esc(tier):''}">${esc(nm)}${tier?`<small>${esc(tier)}</small>`:''}</span><b class="ab-pr">${isCap?'팀장':(price==null?'':_aucN(price))}${(!isCap&&ev&&ev.v)?`<small class="ab-fp">/${_aucN(ev.fair)}</small>`:''}</b>${(!isCap&&ev&&ev.v)?`<i class="ab-v v-${ev.v.k}" title="우리 적정가 ${_aucN(ev.fair)}P · 낙찰 ${_aucN(price)}P (${ev.v.diff>0?'+':''}${_aucN(ev.v.diff)}P)">${ev.v.t}</i>`:''}</li>`;
+      const row=(nm,pos,tier,price,isCap,hot,ev)=>`<li class="${isCap?'cap':''}${hot?' hot':''}"><i class="ab-pos" title="${esc(pos||'')}">${isCap?'장':posIcon(pos,20)}</i><span class="ab-nm" title="${esc(nm)}${tier?' · '+esc(tier):''}">${esc(nm)}${tier?`<small>${esc(tier)}</small>`:''}</span><b class="ab-pr">${isCap?'팀장':(price==null?'':_aucN(price))}${(!isCap&&ev&&ev.v)?`<small class="ab-fp">/${_aucN(ev.fair)}</small>`:''}</b>${(!isCap&&ev&&ev.v)?`<i class="ab-v v-${ev.v.k}" title="우리 적정가 ${_aucN(ev.fair)}P · 낙찰 ${_aucN(price)}P (${ev.v.diff>0?'+':''}${_aucN(ev.v.diff)}P)">${ev.v.t}</i>`:''}</li>`;
       return `<div class="ab-team"><div class="ab-th"><b>${teamEmblem(t.cap,22,aucNoOf(d)||9)}<span class="ab-tn2">${teamLink(t.cap,aucNoOf(d))}</span></b><span>${_aucN(tsum)}P${(()=>{const te=EV.teams.find(x=>x.cap===t.cap); return (te&&te.n>=3)?`<em class="ab-gap ${te.gap>=0?'up':'dn'}" title="우리 적정가 합 ${_aucN(te.fair)}P − 실제 ${_aucN(te.spent)}P">${te.gap>=0?'+':''}${_aucN(te.gap)}</em>`:'';})()}</span></div><ul class="ab-ul">${row(t.cap,"","",null,true,false)}${ms.map(p=>row(p.n,p.pos,p.tier,p.price,false,maxP!=null&&p.price===maxP,EV.out.get(p))).join("")}</ul></div>`; }).join("");
     return `<details class="ab-t"${i===0?' open':''}><summary><span class="ab-tn">${esc(d.name)}</span><span class="ab-ts">${esc(kst(d.finishedAt))} · ${d.teams.length}팀 · 낙찰 ${all.length}건 · 총 ${_aucN(spent)}P</span><svg class="mx-chev" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
       <div class="ab-top"><span class="ab-tl">최고 낙찰가</span>${top.map((p,k)=>`<span class="ab-tp"><em>${k+1}</em>${esc(p.n)}<b>${_aucN(p.price)}</b></span>`).join("")||"-"}</div>
@@ -13248,7 +13254,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611225100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611225200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
