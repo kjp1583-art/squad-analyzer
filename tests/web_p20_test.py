@@ -92,12 +92,12 @@ def expect(last):
 
 
 # ---------------------------------------------------------------- 브라우저에서 돌리는 식
-STATE = r"""()=>({sel:PATCH_SEL,label:patchScopeLabel(),user:(typeof PATCH_USER!=='undefined'?PATCH_USER:null),meta:(typeof META_VIEW!=='undefined'?META_VIEW:null),games:GAMES.size,players:PLAYERS.size,playersAll:PLAYERS_ALL.size,
-  r30:(typeof R30!=='undefined'?[R30.from,R30.to]:null),latest:LATEST_PATCH,on:[...document.querySelectorAll('#patchbar .pchip.on')].map(e=>e.textContent.trim()),
-  chips:[...document.querySelectorAll('#patchbar .pchip')].map(e=>e.textContent.trim()),note:(document.querySelector('#patchnote')||{}).textContent||'',
-  noteHidden:document.querySelector('#patchnote')?document.querySelector('#patchnote').classList.contains('hidden'):null})"""
+STATE = r"""()=>{const _nm=t=>t.replace(/ 패치$/,"").replace(/^전체 기간$/,"전체").replace(/년$/,"");return ({sel:PATCH_SEL,label:patchScopeLabel(),user:(typeof PATCH_USER!=='undefined'?PATCH_USER:null),meta:(typeof META_VIEW!=='undefined'?META_VIEW:null),games:GAMES.size,players:PLAYERS.size,playersAll:PLAYERS_ALL.size,
+  r30:(typeof R30!=='undefined'?[R30.from,R30.to]:null),latest:LATEST_PATCH,on:[...document.querySelectorAll('#patchbar #pbSel option')].filter(e=>e.selected).map(e=>_nm(e.textContent.trim())),
+  chips:[...document.querySelectorAll('#patchbar #pbSel option')].map(e=>_nm(e.textContent.trim())),note:(document.querySelector('#patchnote')||{}).textContent||'',
+  noteHidden:document.querySelector('#patchnote')?document.querySelector('#patchnote').classList.contains('hidden'):null});}"""
 GO = r"""async([route,arg])=>{go(route,arg);await new Promise(r=>setTimeout(r,700));}"""
-CLICK = r"""async(txt)=>{const b=[...document.querySelectorAll('#patchbar .pchip')].find(e=>e.textContent.trim()===txt);if(!b)return false;b.click();await new Promise(r=>setTimeout(r,700));return true;}"""
+CLICK = r"""async(txt)=>{const _nm=t=>t.replace(/ 패치$/,"").replace(/^전체 기간$/,"전체").replace(/년$/,"");const o=[...document.querySelectorAll('#patchbar #pbSel option')].find(e=>_nm(e.textContent.trim())===txt);if(!o)return false;const sel=o.parentNode.closest('select');sel.value=o.value;sel.dispatchEvent(new Event('change'));await new Promise(r=>setTimeout(r,700));return true;}"""
 OVERFLOW = r"""(route)=>{const de=document.documentElement;return {route,sw:de.scrollWidth,cw:de.clientWidth};}"""
 HASHES = r"""async(items)=>{
   const H=s=>{let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(16)+':'+s.length};
@@ -232,7 +232,7 @@ async def run_synth(src, tmp):
     print('[S] 합성 시트 A: 판 %d · 30일창 %s~%s %d판 · 16.20 %d판' % (len(E['games']), E['from'], last, len(E['in30']), len(E['latest'])))
     s0 = o['s0']
     ok(s0['sel'] == 'R30' and s0['label'] == '최근 30일', 'S1a 기본 범위는 「최근 30일」이다 (sel=%s · 라벨=%s)' % (s0['sel'], s0['label']))
-    ok(s0['chips'][:2] == ['최근 30일', '16.20'] and s0['on'] == ['최근 30일'], 'S1b 패치 줄 맨 앞이 [최근 30일] 칩이고 켜져 있다 (%s · 켜짐 %s)' % (s0['chips'][:3], s0['on']))
+    ok(s0['chips'][0] == '최근 30일' and '16.20' in s0['chips'] and s0['on'] == ['최근 30일'], 'S1b 기간 드롭다운 맨 앞이 [최근 30일]이고 선택돼 있다(패치도 들어 있다) (%s · 켜짐 %s)' % (s0['chips'][:3], s0['on']))
     ok(s0['r30'] == [E['from'].isoformat(), last.isoformat()], 'S1c 30일창 = 마지막 기록일 포함 30일 (%s)' % s0['r30'])
     ok(s0['games'] == len(E['in30']), 'S1d 기본 화면 판수가 다시 센 값과 같다: %d == %d (30일째 날 판은 들어가고 31일째 날 판은 빠진다)' % (s0['games'], len(E['in30'])))
     ok('9/12~10/11' in s0['note'] and not s0['noteHidden'], 'S1e 칩 줄 밑에 기간 안내가 있다 (%s)' % s0['note'])

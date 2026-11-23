@@ -16,6 +16,7 @@ def ok(c, m):
     if not c: fails.append(m)
 async def scene(pg):
     out = {}
+    await pg.evaluate("()=>{const b=document.querySelector('.secnav .sec[data-g=lounge]');if(b)b.click()}"); await pg.wait_for_timeout(500)   # 🗂 미니게임 탭은 「라운지」 구역에 있다(2026-11-23 메뉴 구역 개편)
     out['tabs'] = await pg.evaluate("()=>[...document.querySelectorAll('.tabs .tab')].map(t=>t.textContent.trim())")
     out['head'] = await pg.evaluate("()=>[...document.querySelectorAll('a.coachlink')].map(a=>a.textContent.trim())")
     await pg.evaluate("()=>{document.addEventListener('click',e=>{const a=e.target.closest('a.mg-play');if(a)e.preventDefault();},true)}")   # 시험 중엔 페이지 이동 막기

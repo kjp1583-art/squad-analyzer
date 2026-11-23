@@ -155,6 +155,7 @@ async def scenarios(pg, bot, label=''):
     bot.voters = {'전투력·미드': 7, '전투력·서폿': 2}
     # ---------------- ① 탭 · 폰 가로 넘침
     await pg.evaluate(LOGOUT)
+    await pg.evaluate("()=>{const b=document.querySelector('.secnav .sec[data-g=lounge]');if(b)b.click()}"); await pg.wait_for_timeout(500)   # 🗂 이상형월드컵 탭은 「라운지」 구역
     S['tab'] = await pg.evaluate("()=>[...document.querySelectorAll('.tabs .tab')].some(t=>t.textContent.includes('이상형월드컵'))")
     await open_ideal(pg)
     S['hash'] = await pg.evaluate("location.hash")
