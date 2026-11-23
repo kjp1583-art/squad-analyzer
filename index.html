@@ -1673,6 +1673,20 @@ window.SGG_DC_BOOT=(function(){
   .fltrow .patchbar::-webkit-scrollbar{display:none}
   .fltrow .patchbar.hidden{display:none}
   .pb-label{font-size:12.5px;font-weight:700;color:var(--mut);letter-spacing:.02em}
+  /* 📱 [2026-11-23 사장님 「협곡·칼바람 고르는 칸이 여전히 이상해」] 폰 필터 카드: 가운데 정렬로 밀려 있던 줄들을 풀고 — 협곡|칼바람 꽉 찬 분할 버튼 · 도구 3개 한 줄 · 기간은 라벨+선택 한 줄 */
+  @media(max-width:720px){
+    .fltrow{align-items:stretch;overflow:visible;gap:0;padding:10px}
+    .fltrow .catbar{display:flex;flex:none;width:100%;flex-direction:column;align-items:stretch;gap:8px;flex-wrap:nowrap}
+    .fltrow .cat-seg{display:flex;width:100%}
+    .fltrow .cat-seg .cat{flex:1;padding:8px 0;display:flex;justify-content:center;align-items:center;text-align:center;font-size:14.5px}
+    .fltrow .cat-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0;width:100%}
+    .fltrow .cat-tools .cat{padding:7px 4px;display:flex;justify-content:center;align-items:center;text-align:center;white-space:nowrap;font-size:12.5px;background:var(--bg2);border-radius:8px}
+    .fltrow .patchbar{display:flex;flex-direction:row;align-items:center;gap:10px;width:100%;flex:none;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line);flex-wrap:nowrap;overflow:visible}
+    .fltrow .patchbar .pb-label{flex:0 0 auto}
+    .fltrow .patchbar .pb-sel{flex:1;min-width:0;width:auto}
+    .fltrow .patchbar .pb-sel select{width:100%}
+  }
+
   .pchip{flex:0 0 auto;padding:5px 11px;border-radius:8px;background:transparent;border:1px solid transparent;font-size:13px;font-weight:700;color:var(--sub)}
   .pchip:hover{background:var(--bg2);color:var(--txt)}
   .pchip.on{background:var(--card2);border-color:var(--accent);color:var(--txt)}
@@ -13455,7 +13469,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611226200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611226300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
