@@ -1155,6 +1155,13 @@ window.SGG_DC_BOOT=(function(){
   .prof.profemb{padding-top:210px}   /* 십이귀월 엠블럼(세로로 큼) 있을 때만 여백 확대 */
   .prof .pname{font-size:22px;font-weight:800;text-shadow:0 2px 6px rgba(0,0,0,.85)}
   .prof .ptag{color:var(--mut);font-size:14.5px}
+  .pchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 0}
+  .pchips>*{display:inline-flex!important;align-items:center;gap:4px;box-sizing:border-box;height:24px;margin:0!important;padding:0 10px!important;border-radius:8px!important;font-size:12px!important;font-weight:800!important;line-height:1!important;white-space:nowrap!important;vertical-align:baseline!important}
+  .pchips>.tier{padding:0 9px!important}
+  .pchips .pc-pos,.pc-pos{background:#20304a;color:#8fd0ff;border:1px solid rgba(143,208,255,.25)}
+  .pc-tt{max-height:54px;overflow:hidden} .pc-tt.open{max-height:none}
+  .pc-more{margin:6px 0 0;padding:3px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--sub);font-size:12px;font-weight:700;cursor:pointer} .pc-more:hover{color:var(--txt)}
+
   /* 🖼 [P-5] 롤 프로필 아이콘 + 레벨 뱃지(op.gg 식) */
   .pidrow{display:flex;align-items:flex-start;gap:12px;min-width:0}
   .pidrow>.pidtxt{flex:1;min-width:0}
@@ -1948,6 +1955,21 @@ function isDeparted(name){
    기록은 그대로 두고(지난 판·우승 역사 보존), 순위·평균에서는 이미 빠져 있다는 걸 알려 현역으로 오해하지 않게 한다. */
 function departedChip(name){ return isDeparted(name)?` <span class="depchip" title="디스코드 서버에서 나간 것으로 확인돼 순위·평균에서는 제외돼요">🚪 클랜 탈퇴</span>`:""; }
 function departedNote(name){ return isDeparted(name)?`<div class="depnote">이 클랜원은 디스코드 서버를 나갔어요. 지난 기록은 그대로 보여 드리지만 순위·평균·타이틀에서는 제외돼요.</div>`:""; }
+/* 🎛 [2026-11-23 사장님 「프로필 이름 밑 칩들이 난잡 — 어떤 유저라도 어떤 정보가 나열돼도 획일적으로 깔끔하게」]
+   머리 칸 = ① 이름 한 줄 ② 상태 칩(티어·평가·포지션·새벽반·탈퇴) ③ 칭호 칩(많으면 두 줄까지만 · 「더보기」) ④ 최고 기록.
+   칩마다 제각각이던 글자 크기·높이·둥글기·여백은 .pchips 안에서 한 벌로 맞춘다(색·내용은 칩 고유 그대로). 칩 생성 함수는 건드리지 않는다. */
+function _pchipsFit(){
+  const el=document.getElementById("pcTitles"), bt=document.getElementById("pcMore"); if(!el||!bt) return;
+  el.classList.remove("open"); bt.hidden=true;
+  if(el.scrollHeight<=el.clientHeight+1) return;
+  const lim=el.getBoundingClientRect().top+el.clientHeight; let hid=0;
+  for(const c of el.children) if(c.getBoundingClientRect().top>=lim-1) hid++;
+  bt.dataset.n=String(hid||1); bt.textContent="＋"+(hid||1)+" 더보기"; bt.hidden=false;
+}
+function pchipsToggle(){
+  const el=document.getElementById("pcTitles"), bt=document.getElementById("pcMore"); if(!el||!bt) return;
+  const open=el.classList.toggle("open"); bt.textContent=open?"접기":"＋"+(bt.dataset.n||"")+" 더보기";
+}
 function tierGroupCls(t){return !t?"":t[0]==="0"?"t0":t[0]==="1"?"t1":t[0]==="2"?"t2":"t3";}
 function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tierGroupCls(t)}">${t}</span>`:"";}
 
@@ -11539,8 +11561,10 @@ function renderPlayer(name){
       <div class="prof${_emb?' profemb':''}">
         <div class="profmain" style="flex:1">
           ${(()=>{const _pi=profIconHtml(name); return _pi?`<div class="pidrow">${_pi}<div class="pidtxt">`:"";})()}
-          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span>${_titleChip}${tierBadge(name)}${departedChip(name)}${nightOwlChip(name)}${asmtChip}${posDeclLabel(name)?' <span style="background:#20304a;color:#8fd0ff;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;vertical-align:middle;white-space:nowrap">'+esc(posDeclLabel(name))+'</span>':''}</div>${departedNote(name)}
-          ${(()=>{const pk=peakLabel(name);return pk?`<div style="margin:5px 0 2px"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
+          <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span></div>${departedNote(name)}
+          ${(()=>{ const _st=(tierBadge(name)+departedChip(name)+nightOwlChip(name)+asmtChip+(posDeclLabel(name)?'<span class="pc-pos">'+esc(posDeclLabel(name))+'</span>':'')).trim(); return _st?`<div class="pchips pc-st">${_st}</div>`:''; })()}
+          ${(()=>{ const _tt=String(_titleChip||'').trim(); return _tt?`<div class="pchips pc-tt" id="pcTitles">${_tt}</div><button type="button" class="pc-more" id="pcMore" hidden onclick="pchipsToggle()"></button>`:''; })()}
+          ${(()=>{const pk=peakLabel(name);return pk?`<div class="pchips pc-pk"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${profIconOf(name)?`</div></div>`:""}
           ${_ph?'':ctaHtml+statBox+nightHtml}
         </div>
@@ -11591,6 +11615,7 @@ function renderPlayer(name){
       </div>
     </div>
     </div>`;
+  try{ _pchipsFit(); }catch(e){}
   loadComments(name);
 }
 
@@ -12658,7 +12683,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611222400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611222500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
