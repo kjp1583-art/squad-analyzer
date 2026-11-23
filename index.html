@@ -1181,6 +1181,9 @@ window.SGG_DC_BOOT=(function(){
   .lucol{display:flex;flex-direction:column;gap:4px;min-width:0}
   .lu{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sub);white-space:nowrap;overflow:hidden}
   .lu .nm{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .lu .nmw{display:flex;flex-direction:column;min-width:0;flex:1}
+  .lu .dg{display:block;height:3px;border-radius:2px;margin-top:1px;opacity:.9} .lu .dg.b{background:var(--win)} .lu .dg.r{background:var(--lose)}
+  .lu.self .dg{height:4px}
   .lu .ev{flex:none;font-size:12.5px;line-height:1}
   .lu.self{color:var(--txt);font-weight:700}
   .lu .champ{width:18px;height:18px;border-radius:4px}
@@ -11609,6 +11612,11 @@ function matchCard(r,selfName){
   const side=r["진영"];
   let lineups="";
   if(g){
+    // 📊 [2026-11-23 사장님 「lol.ps 전적처럼 10인의 딜량을 이름 밑 게이지로」] 그 판 10명 중 최대 딜량 대비 길이 · 블루=파랑 / 레드=빨강. 딜량 칸이 빈 판(옛 기록)은 게이지 없음.
+    const _dv=p=>{ const v=parseFloat(String(p["딜량"]==null?"":p["딜량"]).replace(/,/g,"")); return isNaN(v)?null:v; };
+    const _maxD=(g.rows||[]).reduce((m,p)=>{ const v=_dv(p); return v!=null&&v>m?v:m; },0);
+    const gauge=p=>{ const v=_dv(p); if(v==null||!_maxD) return ""; const w=Math.max(3,Math.round(v/_maxD*100));
+      return `<i class="dg ${p["진영"]==="레드팀"?'r':'b'}" style="width:${w}%" title="가한 피해량 ${Math.round(v).toLocaleString()}"></i>`; };
     // 블루팀=왼쪽 컬럼, 레드팀=오른쪽 컬럼. 각 팀 탑→정글→미드→원딜→서폿 순.
     const order=teamOrder(g).slice(0,2);
     lineups=`<div class="lineups">`+order.map(s=>
@@ -11617,7 +11625,7 @@ function matchCard(r,selfName){
         const ev=p["매치평가"]==="MVP"?`<span class="ev" title="MVP">👑</span>`
                 :p["매치평가"]==="ACE"?`<span class="ev" title="ACE">⭐</span>`
                 :p["매치평가"]==="역적"?`<span class="ev" title="역적">💀</span>`:"";
-        return `<div class="lu ${me?'self':''}">${champImg(p["챔피언"],"")}<span class="nm">${esc(shortName(canonOfRow(p)))}</span>${ev}</div>`;
+        return `<div class="lu ${me?'self':''}">${champImg(p["챔피언"],"")}<span class="nmw"><span class="nm">${esc(shortName(canonOfRow(p)))}</span>${gauge(p)}</span>${ev}</div>`;
       }).join("")+`</div>`
     ).join("")+`</div>`;
   }
@@ -12630,7 +12638,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611222200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611222300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
