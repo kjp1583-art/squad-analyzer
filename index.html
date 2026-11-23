@@ -504,10 +504,12 @@ window.SGG_DC_BOOT=(function(){
   .kzc.low::before{background:conic-gradient(from 0deg,#0c1224 0 55%,#4f7bff 72%,#d9e6ff 82%,#4f7bff 90%,#0c1224 100%)}
   .kzc.up{box-shadow:0 0 26px rgba(255,70,40,.28),0 0 60px rgba(180,20,20,.18)}
   .kzc.low{box-shadow:0 0 26px rgba(90,130,255,.26),0 0 60px rgba(40,70,160,.18)}
-  .kzc-in{position:relative;flex:1;border-radius:14px;overflow:hidden;background:#09060a}
-  .kzc.low .kzc-in{background:#070a12}
-  .kzc-s{position:absolute;inset:0;padding:26px 14px 34px;display:flex;flex-direction:column;opacity:0;visibility:hidden;transform:translateX(26px) scale(1.04);transition:opacity .55s ease,transform .7s cubic-bezier(.2,.8,.2,1),visibility 0s .7s}
-  .kzc-s.on{opacity:1;visibility:visible;transform:none;transition:opacity .55s ease,transform .7s cubic-bezier(.2,.8,.2,1),visibility 0s}
+  .kzc-in{position:relative;flex:1;border-radius:14px;overflow:hidden;background:radial-gradient(120% 90% at 50% 25%,#4d1412,#170708 62%,#09060a)}   /* 그림이 늦게 와도 새까맣지 않게 바탕에 색을 깐다 */
+  .kzc.low .kzc-in{background:radial-gradient(120% 90% at 50% 25%,#16296b,#0a1030 62%,#070a12)}
+  .kzc-s{position:absolute;inset:0;padding:26px 14px 34px;display:flex;flex-direction:column;opacity:0;visibility:hidden;backface-visibility:hidden;transform-origin:50% 50%}
+  .kzc-s.on{opacity:1;visibility:visible;animation:kzcflipin .85s cubic-bezier(.2,.9,.25,1.05) both}
+  .kzc-s.out{visibility:visible;opacity:1;animation:kzcflipout .38s cubic-bezier(.55,0,.8,.4) both}
+  .kzc-in{perspective:1000px}
   .kzc-bg{position:absolute;inset:0;z-index:-1;background-size:cover;background-position:center 18%;opacity:.62;animation:kzckb 9s ease-in-out infinite alternate;
     -webkit-mask-image:linear-gradient(180deg,#000 30%,rgba(0,0,0,.35) 100%);mask-image:linear-gradient(180deg,#000 30%,rgba(0,0,0,.35) 100%)}
   .kzc.up .kzc-in::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(120% 60% at 50% 110%,rgba(255,80,30,.38),transparent 70%)}
@@ -526,8 +528,8 @@ window.SGG_DC_BOOT=(function(){
   .kzc-st{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px}
   .kzc-st div{background:rgba(0,0,0,.52);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:5px 6px;text-align:center}
   .kzc-st em{display:block;font-style:normal;font-size:10.5px;color:#b8b2a6} .kzc-st b{font-size:15px;font-weight:900;color:#fff}
-  .kzc-s.on .kzc-name,.kzc-s.on .kzc-st,.kzc-s.on .kzc-solo{animation:kzcrise .7s cubic-bezier(.2,.9,.3,1) both}
-  .kzc-s.on .kzc-st{animation-delay:.08s} .kzc-s.on .kzc-solo{animation-delay:.04s}
+  .kzc-s.on .kzc-name,.kzc-s.on .kzc-st,.kzc-s.on .kzc-solo{animation:kzcrise .6s cubic-bezier(.2,.9,.3,1) both;animation-delay:.38s}
+  .kzc-s.on .kzc-st{animation-delay:.46s} .kzc-s.on .kzc-solo{animation-delay:.42s}
   .kzc-dots{position:absolute;left:0;right:0;bottom:9px;display:flex;justify-content:center;gap:6px;z-index:3}
   .kzc-dots i{width:18px;height:4px;border-radius:3px;background:rgba(255,255,255,.22);cursor:pointer;transition:background .3s,width .3s}
   .kzc.up .kzc-dots i.on{background:#ffb347;width:28px} .kzc.low .kzc-dots i.on{background:#9fb8ff;width:28px}
@@ -541,6 +543,8 @@ window.SGG_DC_BOOT=(function(){
   .kzc-rib{position:absolute;left:12px;top:-1px;z-index:4;padding:2px 10px 3px;font-size:11px;font-weight:900;letter-spacing:2px;border-radius:0 0 8px 8px;color:#1a0c04}
   .kzc.up .kzc-rib{background:linear-gradient(180deg,#ffd36a,#e0a437)} .kzc.low .kzc-rib{background:linear-gradient(180deg,#e4ecff,#9fb4e8)}
   @keyframes kzcspin{to{transform:rotate(360deg)}}
+  @keyframes kzcflipin{0%,38%{opacity:0;transform:rotateY(-95deg) scale(.96)}39%{opacity:1}100%{opacity:1;transform:rotateY(0) scale(1)}}
+  @keyframes kzcflipout{0%{opacity:1;transform:rotateY(0)}100%{opacity:0;transform:rotateY(95deg) scale(.96)}}
   @keyframes kzckb{from{transform:scale(1.02) translate(0,0)}to{transform:scale(1.14) translate(-2%,-2%)}}
   @keyframes kzcrise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
   @keyframes kzcslash{0%{opacity:.95;transform:translateX(-120%)}100%{opacity:0;transform:translateX(120%)}}
@@ -6535,10 +6539,13 @@ function kzFitSolo(){
 let _kzFitT=0;
 window.addEventListener("resize",()=>{ clearTimeout(_kzFitT); _kzFitT=setTimeout(kzFitSolo,150); });
 /* 🩸 십이귀월 스포트라이트 — 상현·하현 각 6인을 카드 한 장에 돌려 보여준다(4.2초마다 · 하현은 반 박자 늦게 · 마우스를 올리면 멈춤 · 점을 누르면 그 사람) */
+const KZ_LIST_SHOW=false;   // 🙈 [2026-11-23 사장님 「하단 12인 명단은 일단 임시로 제거」] 스포트라이트 카드 아래 12인 목록 — true 로 되돌리면 다시 보인다
 let KZC_T=null;
 function kzcGo(c,i){
   const ss=c.querySelectorAll(".kzc-s"); if(!ss.length) return; i=((i%ss.length)+ss.length)%ss.length;
-  ss.forEach((s,k)=>s.classList.toggle("on",k===i)); c.querySelectorAll(".kzc-dots i").forEach((d,k)=>d.classList.toggle("on",k===i));
+  ss.forEach((s,k)=>{ const was=s.classList.contains("on"); if(k===i){ s.classList.remove("out"); s.classList.add("on"); }
+    else if(was){ s.classList.remove("on"); s.classList.add("out"); setTimeout(()=>s.classList.remove("out"),420); } else s.classList.remove("out"); });
+  c.querySelectorAll(".kzc-dots i").forEach((d,k)=>d.classList.toggle("on",k===i));
   c.dataset.i=i; c.dataset.next=Date.now()+4200; c.classList.remove("fl"); void c.offsetWidth; c.classList.add("fl");
 }
 function kzcTick(){
@@ -6550,6 +6557,7 @@ function kzcTick(){
 function kzcStart(){ if(!KZC_T) KZC_T=setInterval(kzcTick,400); }
 function kzcCardHtml(up,members,KN){   // members: [{n,title,a,d,sp}] 순위순(공석 제외)
   if(!members.length) return "";
+  setTimeout(()=>{ for(const m of members){ if(m.sp){ try{ const im=new Image(); im.src=m.sp; }catch(e){} } } },0);   // 6장을 미리 받아 둬서 넘어갈 때 그림이 늦게 뜨지 않게
   const slides=members.map((m,k)=>{
     const a=m.a||{}, d=m.d||{}, short=d.soloTxt?String(d.soloTxt).replace(/ \d+LP$/,""):"";
     const solo=d.solo!=null?(d.soloTxt||"언랭"):"";
@@ -6623,9 +6631,9 @@ function kizukiBoard(){
       <div class="kzsub">${scope} · <span class="kzsub-m">파워랭킹 </span>상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift")?"통산 10판 이상(90일 내 기록)":"최근 30일 5판 이상만"} 편성 · 실시간 변동</span></div>
       <div class="kzrule"></div>
       ${kzcWrap(pre)}
-      <div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
+      ${KZ_LIST_SHOW?`<div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
       <div class="kzlist">${[1,2,3,4,5,6].map(i=>row(`${pre}상현 ${i}`,true,i)).join("")}${
-        [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>
+        [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>`:""}
       ${(!lg&&KISATSU.length)?`<div class="kz-corps">
         <div class="kz-corps-hd">⚔ 귀살대 <span class="kanji" style="font-size:12px">鬼殺隊</span>
           <span class="kz-corps-sub">상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들 (10판 이상)</span></div>
