@@ -213,6 +213,9 @@ window.SGG_DC_BOOT=(function(){
   .rg-more{color:var(--accent);font-size:13.5px;text-align:right}
   .rg-sep{height:1px;background:var(--line);margin:14px 0}
   /* 🛒 아이템 빌드·룬 (전적카드/게임상세) */
+  .match .mev{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;min-width:0}
+  .match .mev .badge{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}
+  .evslot{display:inline-flex;align-items:center;justify-content:center;min-width:46px}
   .match .me.me2{flex-direction:column;align-items:flex-start;gap:6px}
   .mtop{display:flex;align-items:center;gap:8px;min-width:0}
   .mrs{display:grid;grid-template-columns:repeat(2,24px);grid-auto-rows:24px;gap:3px;flex:none}
@@ -1181,7 +1184,7 @@ window.SGG_DC_BOOT=(function(){
   .dot.w{background:var(--win)} .dot.l{background:var(--lose)}
 
   /* match cards */
-  .match{display:grid;grid-template-columns:80px minmax(120px,1fr) minmax(0,300px);gap:14px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;align-items:center}
+  .match{position:relative;display:grid;grid-template-columns:80px 62px minmax(120px,1fr) minmax(0,300px);gap:14px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;align-items:center}
   .match .me .info b{white-space:nowrap}
   .match .me{min-width:0}
   .match.w{border-left-color:var(--win);background:linear-gradient(90deg,var(--blue-bg),var(--card) 40%)}
@@ -1203,7 +1206,7 @@ window.SGG_DC_BOOT=(function(){
   .lu .ev{flex:none;font-size:12.5px;line-height:1}
   .lu.self{color:var(--txt);font-weight:700}
   .lu .champ{width:18px;height:18px;border-radius:4px}
-  @media(max-width:680px){.match{grid-template-columns:70px 1fr}.lineups{display:none}}
+  @media(max-width:680px){.match{grid-template-columns:70px 1fr}.lineups{display:none}.match .mev{position:absolute;top:8px;right:10px;flex-direction:row;justify-content:flex-end;max-width:60%}}
 
   /* game detail teams */
   /* 전적 상세: 두 팀 좌우 2열(넓은 화면 여백↓·시인성↑), 좁으면 세로 */
@@ -10710,7 +10713,7 @@ function renderChampLog(champ){
       <span class="muted" style="font-size:12.5px">${esc(e.r["포지션"]&&e.r["포지션"]!=="선택안함"?e.r["포지션"]:'')}</span>
       <span style="font-size:13px;color:${o?kdaColor(kdaRatio(o)):'var(--sub)'}">${esc(kda)}${o?` <span class="muted">(${kdaRatioStr(o)})</span>`:''}</span>
       ${aiScoreChip(e.r)}
-      ${ev==="MVP"?'<span class="badge b-mvp">MVP</span>':ev==="ACE"?'<span class="badge b-ace">ACE</span>':ev==="역적"?'<span class="badge b-bad">역적</span>':''}
+      <span class="evslot">${ev==="MVP"?'<span class="badge b-mvp">MVP</span>':ev==="ACE"?'<span class="badge b-ace">ACE</span>':ev==="역적"?'<span class="badge b-bad">역적</span>':''}</span>
       <span class="cp-ic" style="margin-left:auto">${runeIcons(e.r)}${spellIcons(e.r)}${itemIcons(e.r)}</span>
     </div>`;});
   // 🧾 [P-23] 사용된 게임도 20개씩 — 리 신 같은 인기 챔피언은 폰에서 69화면이었다(전적 목록 pmListHtml 과 같은 더보기 방식)
@@ -11683,13 +11686,14 @@ function matchCard(r,selfName){
       <div class="res ${cls}">${esc(label)}</div>
       <div class="meta">${esc(r["날짜"]||'')}<br>${esc(r["패치버전"]||'')}</div>
     </div>
+    <div class="mev">${evalBadge}${nbHtml}</div>   <!-- 📐 [2026-11-23] MVP·ACE·신기록 뱃지는 늘 같은 자리(전용 칸)에 — 있고 없고에 따라 본문 줄맞춤·카드 높이가 달라지지 않게 -->
     <div class="me me2">
       <div class="mtop">
         ${champImg(r["챔피언"],"lg")}
         ${spellRuneGrid(r)}
         <div class="info">
           <b>${esc(r["챔피언"]||'?')}</b>
-          <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span> ${evalBadge}${nbHtml}
+          <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span>
           ${kdaChip(r)?`<div style="margin-top:2px">${kdaChip(r)}</div>`:''}
         </div>
       </div>
@@ -12684,7 +12688,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611222600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611222700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
