@@ -1679,6 +1679,11 @@ window.SGG_DC_BOOT=(function(){
   .mr2-op{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;font-weight:700;font-size:13px} .mr2-on{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mr2-op .champ{width:30px;height:30px;border-radius:8px}
   @media(max-width:820px){.mr2-head{display:none}.mr2{grid-template-columns:62px 1fr auto;row-gap:4px}.mr2-bl{grid-column:1/-1;order:5}.mr2-op{order:4}.mr2-op .mr2-on{display:none}}
+  .nt-lead.pic{background-size:cover;background-position:center 18%;border-color:rgba(255,255,255,.12)}
+  .nt-lead.pic .nt-lead-t{color:#d6dcea} .nt-lead.pic .nt-lmeta{color:#cfd6e6;text-shadow:0 1px 4px rgba(0,0,0,.7)} .nt-lead.pic .nt-hl{text-shadow:0 2px 10px rgba(0,0,0,.7)}
+  .nt-credit{position:absolute;right:14px;bottom:8px;font-size:10.5px;color:rgba(255,255,255,.55)}
+  .nt-th.pic{background-size:cover;background-position:center 22%;position:relative;overflow:hidden}
+  .nt-th.pic .nt-ei{position:absolute;right:2px;bottom:1px;font-style:normal;font-size:17px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))}
 </style>
 </head>
 <body>
@@ -5086,6 +5091,7 @@ async function loadDDragon(){
     for(const k in sp.data){const s=sp.data[k]; const o={img:s.image.full,name:s.name}; SPELLMAP[s.id]=o; SPELLMAP[String(s.key)]=o;}
   }catch(e){}
   })()]);
+  try{ if(typeof _wkrvPaint==='function') _wkrvPaint(); }catch(e){}   // 🖼 챔피언 사진 목록이 늦게 와도 홈 주간스쿼드 1면 사진이 곧 채워진다
 }
 let PERKMAP={}, ITEMNAME={}, SPELLMAP={}, ITEMFINAL=new Set();
 const CHAMP_EN={}, CHAMP_CANON={};
@@ -6000,27 +6006,35 @@ function newsTeaserHtml(){   // 홈 1면 미리보기(자동매칭 자리)
   const lead=top&&top.body?top.body:(W.summary||"");
   /* 📰 [2026-11-23 사장님 「메인의 주간스쿼드도 뉴스 포털처럼 이런저런 세부내용을 살짝씩 보여 주고, 누르고 싶어지게」]
      왼쪽 = 1면 큰 카드(제목 + 기사 앞부분 + 「이어 읽기」) · 오른쪽 = 기사·이주의 인물·알림·숙제를 한 줄씩 맛보기. 눌러서 지면으로 간다. */
+  // 🖼 사진 — 기사 photo(champion/player)·이주의 인물의 그 주 주챔을 라이엇 스플래시로. 없으면 이모지 칸(지면 _npPhoto 와 같은 규칙)
+  const _spl=spec=>{ try{ if(!spec) return null; let ch="";
+      if(spec.kind==="champion") ch=spec.key; else if(spec.kind==="player"||spec.player){ const k=_wkrvKey(spec.key||spec.player); ch=k?_npMainChamp(k,wk):""; }
+      const u=_npSplash(ch); return u?{u,ch}:null; }catch(e){ return null; } };
   const cut=(t,n)=>{ t=String(t||"").replace(/[*`]/g,"").replace(/\s+/g," ").trim(); return t.length>n?t.slice(0,n).replace(/[\s,.·]+\S*$/,"")+"…":t; };
   const KIND={"축하":"🎉","부고":"🕯","구인":"📣","속보":"⚡","광고":"📢","정정":"✏️"};
   const items=[]; const ev=mainEv.slice(1), aw=W.awards||[], nt=W.notices||[], hw=W.homework||[], st=W.students||[];
-  const push=(tag,ic,t,sub,tone)=>{ if(t) items.push({tag,ic,t:cut(t,46),sub:cut(sub,58),tone}); };
-  if(ev[0]) push(ev[0].section||"기사",ev[0].emoji||"📰",ev[0].title,ev[0].body,"a");
-  if(aw[0]) push("이주의 인물","🏅",`${aw[0].title} — ${aw[0].name}`,aw[0].why,"b");
+  const push=(tag,ic,t,sub,tone,spec)=>{ if(t) items.push({tag,ic,t:cut(t,46),sub:cut(sub,58),tone,pic:_spl(spec)}); };
+  if(ev[0]) push(ev[0].section||"기사",ev[0].emoji||"📰",ev[0].title,ev[0].body,"a",ev[0].photo);
+  if(aw[0]) push("이주의 인물","🏅",`${aw[0].title} — ${aw[0].name}`,aw[0].why,"b",{kind:"player",key:aw[0].name});
   if(nt[0]) push(nt[0].kind||"알림",KIND[nt[0].kind]||"📌",String(nt[0].text||"").replace(/^[^—]{1,6}—\s*/,""),"","c");
-  if(ev[1]) push(ev[1].section||"기사",ev[1].emoji||"📰",ev[1].title,ev[1].body,"a");
+  if(ev[1]) push(ev[1].section||"기사",ev[1].emoji||"📰",ev[1].title,ev[1].body,"a",ev[1].photo);
   if(hw[0]) push("이번 주 숙제","📝",hw[0],"","d");
-  if(aw[1]) push("이주의 인물","🏅",`${aw[1].title} — ${aw[1].name}`,aw[1].why,"b");
-  else if(st[0]) push("이번 주 인물",st[0].emoji||"🎓",st[0].name,st[0].line,"b");
-  const side=items.slice(0,5).map(it=>`<div class="nt-it" role="link" tabindex="0"><span class="nt-th tone-${it.tone}">${esc(it.ic)}</span><span class="nt-tx"><em>${esc(it.tag)}</em><b>${esc(it.t)}</b>${it.sub?`<small>${esc(it.sub)}</small>`:""}</span></div>`).join("");
+  if(aw[1]) push("이주의 인물","🏅",`${aw[1].title} — ${aw[1].name}`,aw[1].why,"b",{kind:"player",key:aw[1].name});
+  else if(st[0]) push("이번 주 인물",st[0].emoji||"🎓",st[0].name,st[0].line,"b",{kind:"player",key:st[0].name});
+  const side=items.slice(0,5).map(it=>`<div class="nt-it" role="link" tabindex="0"><span class="nt-th tone-${it.tone}${it.pic?' pic':''}"${it.pic?` style="background-image:url('${escAttr(it.pic.u)}')"`:""}>${it.pic?`<i class="nt-ei">${esc(it.ic)}</i>`:esc(it.ic)}</span><span class="nt-tx"><em>${esc(it.tag)}</em><b>${esc(it.t)}</b>${it.sub?`<small>${esc(it.sub)}</small>`:""}</span></div>`).join("");
   const cnt=[`기사 ${mainEv.length}`,nt.length?`알림 ${nt.length}`:"",`인물 ${st.length}`,aw.length?`이주의 인물 ${aw.length}`:""].filter(Boolean).join(" · ");
+  // 1면 사진 — 1면 기사 사진 → 사진 있는 다음 기사 → 이번 주 가장 많이 나온 챔피언 → 이주의 인물 주챔
+  let leadPic=_spl(top&&top.photo); if(!leadPic) for(const e of mainEv){ leadPic=_spl(e.photo); if(leadPic) break; }
+  if(!leadPic){ const pk=((W.stats||{}).sr||{}).picks; if(pk&&pk[0]) leadPic=_spl({kind:"champion",key:pk[0][0]}); }
+  if(!leadPic&&aw[0]) leadPic=_spl({kind:"player",key:aw[0].name});
   const gen=String(W.generated_at||"").replace(/^\d{4}-(\d{2})-(\d{2}) (\d{2}:\d{2}).*$/,(m,mo,d,t)=>`${+mo}.${+d} ${t} 발행`);
   return `<div class="hsec-k">📰 이번 주 클랜 한눈에 <span>${esc(_npIssueNo(W))}</span></div><div class="nt" onclick="go('news')" title="지면 펼치기">
-    <div class="nt-lead" role="link" tabindex="0">
-      <span class="nt-wm">${esc((top&&top.emoji)||"📰")}</span>
+    <div class="nt-lead${leadPic?' pic':''}" role="link" tabindex="0"${leadPic?` style="background-image:linear-gradient(180deg,rgba(8,12,24,.15) 0%,rgba(8,12,24,.55) 48%,rgba(8,12,24,.94) 100%),url('${escAttr(leadPic.u)}')"`:""}>
+      ${leadPic?"":`<span class="nt-wm">${esc((top&&top.emoji)||"📰")}</span>`}
       <div class="nt-lmeta"><span class="nt-brand np-serif">주간스쿼드</span><span>${esc(wk.label||"")}${gen?` · ${esc(gen)}`:""}</span>${G.letter?`<span class="nt-wx" title="이번 주 클랜 날씨 = 등급">${wt.ic} ${esc(wt.t)} <b>${esc(G.letter)}</b></span>`:""}</div>
       <span class="nt-chip">1면${top&&top.section?` · ${esc(top.section)}`:""}</span>
       <div class="nt-hl np-serif">${esc(W.headline||"")}</div>
-      <p class="nt-lead-t">${mdLite(cut(lead,150))} <span class="nt-more">이어 읽기 ›</span></p>
+      <p class="nt-lead-t">${mdLite(cut(lead,150))} <span class="nt-more">이어 읽기 ›</span></p>${leadPic?`<span class="nt-credit">사진 · ${esc(leadPic.ch)} · 라이엇 게임즈</span>`:""}
     </div>
     <div class="nt-side">${side}
       <button type="button" class="nt-open" onclick="event.stopPropagation();go('news')">지면 전체 보기 <small>${esc(cnt)} · 💬 독자 댓글</small> <i>›</i></button></div>
@@ -13039,7 +13053,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611223300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611223500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
