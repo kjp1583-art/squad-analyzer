@@ -483,13 +483,13 @@ window.SGG_DC_BOOT=(function(){
   /* 서부는 왼쪽, 동부는 오른쪽 — 폭이 좁아져도 이 배치는 깨지 않는다.
      대신 리그 안쪽(상현|하현 2열)을 한 줄로 펴서 위아래로 잇는다. */
   .kzhd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
-  .kzhd h2{margin:0;font-size:19px;letter-spacing:.5px;
-    background:linear-gradient(180deg,#fff4cf,#f0c15e 45%,#a8761f);-webkit-background-clip:text;background-clip:text;color:transparent;
-    text-shadow:0 2px 10px rgba(224,160,60,.18)}
-  .kzhd .kanji{font-size:13px;font-weight:800;color:#a8814a;letter-spacing:3px}
-  .kzsub{font-size:12px;color:#7b6a55;margin-bottom:11px}
-  .kzrule{height:2px;margin:0 0 12px;border-radius:2px;
-    background:linear-gradient(90deg,transparent,rgba(230,182,84,.75),transparent)}
+  /* 🪧 [2026-11-23 사장님 「텍스트 표현이 일관성이 없다 — 간결하고 일관된 디자인으로」] 홈 섹션 제목 = 이모지 + 흰색 굵은 제목 + 작은 회색 부제(한 줄). 금색 글자·한자·장식선은 뺐다 */
+  .kzhd{align-items:baseline}
+  .kzhd h2{margin:0;font-size:18px;font-weight:800;letter-spacing:0;color:var(--txt)}
+  .kzhd .kanji{font-size:12.5px;font-weight:600;color:var(--sub);letter-spacing:0}
+  .kzsub{font-size:12.5px;color:var(--mut);margin-bottom:10px}
+  .kzrule{display:none}
+  h2 .hs{font-size:12.5px;font-weight:600;color:var(--sub);margin-left:8px}
   /* [2026-08-03 사장님 지시] 상현·하현을 한 덩어리 2열(좌 상현6 · 우 하현6)로 접어 세로 부피를 절반으로 */
   .kzlegend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;font-weight:900;letter-spacing:2px;margin-bottom:8px}
   .kzlegend .up{color:#ff8a6b}
@@ -868,10 +868,8 @@ window.SGG_DC_BOOT=(function(){
   .cols{grid-template-columns:320px 1fr}
   @media(max-width:820px){.cols{grid-template-columns:1fr}}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
-  .card h2{margin:0 0 12px;font-size:16px;
-    background:linear-gradient(100deg,#f5e6bd 0%,#e9b95a 48%,#c9964a 100%);
-    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
-    letter-spacing:.2px}
+  .card h2{margin:0 0 12px;font-size:16px;color:var(--txt);letter-spacing:0}   /* 🪧 [2026-11-23] 카드 제목은 금색 그라데이션 대신 한 가지 흰색 굵은 글씨로 통일 */
+  h2 .muted{font-size:12.5px!important;font-weight:600!important;margin-left:8px}
   /* [2026-08-07 사장님 지시] 카드 헤더 샴페인 골드 — 부제·괄호 등 안쪽 보조 텍스트는 원래 색 유지 */
   .card h2 .muted,.card h2 span{-webkit-text-fill-color:var(--sub);color:var(--sub);background:none}
   .card h2 b,.card h2 .clickname{-webkit-text-fill-color:var(--txt);color:var(--txt);background:none}
@@ -6637,8 +6635,8 @@ function kizukiBoard(){
               :(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT==="rift")
                 ?'상현=<span class="kzsub-m">내부티어 </span>0·1티어 · 하현=2·3티어 <span class="kzsub-m">각 상위 6인</span>':"전체";
     return `<div class="kzleague">
-      <div class="kzhd"><h2>🩸 ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT==="rift")?"이번 달 클랜 최강 12인":"클랜 최강 12인"}</h2><span class="kanji">${nm} · 十二鬼月</span></div>
-      <div class="kzsub">${scope} · <span class="kzsub-m">파워랭킹 </span>상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift")?"통산 10판 이상(90일 내 기록)":"최근 30일 5판 이상만"} 편성 · 실시간 변동</span></div>
+      <div class="kzhd"><h2>🩸 ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT==="rift")?"이번 달 최강 12인":"최강 12인"}</h2><span class="kanji">${nm}</span></div>
+      <div class="kzsub" title="파워랭킹 상위 12인 — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift")?"통산 10판 이상(90일 내 기록)":"최근 30일 5판 이상만"} 편성 · 실시간 변동">${scope==="전체"?"전체 상위 12인":scope}</div>
       <div class="kzrule"></div>
       ${kzcWrap(pre)}
       ${KZ_LIST_SHOW?`<div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
@@ -6657,9 +6655,7 @@ function kizukiBoard(){
   ytHomeLoad(); setTimeout(kzcStart,0);
   const evPane=`<div class="kzleague">
     <div style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
-      <div class="kzhd"><h2>📅 클랜일정</h2><span class="kanji">日程</span></div>
-      <div class="kzsub">디스코드 이벤트 탭과 자동 동기화 · <span class="kzsub-m">클릭하면 </span>달력으로</div>
-      <div class="kzrule"></div>
+      <div class="kzhd"><h2>📅 클랜일정</h2><span class="kanji">디스코드 이벤트 연동</span></div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${eventsListHtml(5)||'<div class="muted" style="font-size:12.5px">예정된 일정이 없어요</div>'}</div>
       <div class="cta-row"><button class="cta" type="button">일정 전체 →</button></div>
     </div>
@@ -6719,7 +6715,7 @@ function patchShiftCardHtml(){
   const sec=(title,arr,line)=>arr.length?`<div class="hc-sec"><div class="hc-h">${title}</div>${arr.map(x=>`<div class="hc-row">${champImg(x.ch,"sm")}<span class="hc-n">${esc(x.ch)}</span><span class="hc-v">${line(x)}</span></div>`).join("")}</div>`:"";
   const pr=x=>`픽률 <b>${f1(x.prB)}% → ${f1(x.prA)}%</b> <span class="hc-s">(${x.nB}판 → ${x.nA}판)</span>`;
   const wr=x=>`<span class="hc-s">픽률 ${f1(x.prB)}→${f1(x.prA)}% ·</span> 승률 <b style="color:${x.dWr>0?'var(--win)':'var(--lose)'}">${x.wrB}% → ${x.wrA}% (${x.dWr>0?'+':''}${x.dWr}%p)</b> <span class="hc-s">(${x.nB}판 → ${x.nA}판)</span>`;
-  return `<details class="card hc-card"><summary>📈 이번 패치, 우리 내전은 이렇게 바뀌었다 <span class="muted">패치 ${esc(D.prev)} → ${esc(D.cur)}</span></summary>
+  return `<details class="card hc-card"><summary>📈 이번 패치 변화 <span class="muted">패치 ${esc(D.prev)} → ${esc(D.cur)}</span></summary>
     ${sec("🔺 픽률 급상승",D.rise,pr)}${sec("🔻 픽률 급하락",D.fall,pr)}${sec("🎯 승률 변동",D.wr,wr)}
     <div class="hc-note">두 패치 모두 8판 이상 나온 챔피언 ${D.pool}종만 비교했어요 · 패치 ${esc(D.prev)} ${D.gB}판 · 패치 ${esc(D.cur)} ${D.gA}판 기준. 판수가 적어 승률은 크게 흔들릴 수 있으니 참고만 해 주세요(픽률 변화를 먼저 봐 주세요).</div></details>`;
 }
@@ -6808,14 +6804,14 @@ function renderHome(){
     ${(()=>{ try{ return regularsCardHtml()+patchShiftCardHtml(); }catch(e){ console.warn("home cards",e); return ""; } })()}
     <div class="home3">
       <div class="card">
-        <h2>👥 클랜원 전적표 <span class="muted" style="font-size:13px">(머리글을 눌러 정렬)</span></h2>
+        <h2>👥 클랜원 전적표 <span class="hs">머리글을 눌러 정렬</span></h2>
         <table class="ranktbl"><thead><tr>
           ${pth("소환사","name")}${pth("내전 활약","score")}${pth("게임수","games")}${pth("승률","wr")}${pth("MVP","mvp")}${pth("ACE","ace")}${pth("역적","bad")}
         </tr></thead><tbody>${playerRows}</tbody></table>
         ${pAll?'':`<div class="showall" onclick="homeShowAll('p')">▼ 전체 보기 (${playersOrdered.length}명)</div>`}
       </div>
       <div class="card">
-        <h2>📊 챔피언별 승률·픽률 <span class="muted" style="font-size:13px">(머리글을 눌러 정렬)</span></h2>
+        <h2>📊 챔피언별 승률·픽률 <span class="hs">머리글을 눌러 정렬</span></h2>
         <table class="champtbl"><thead><tr>
           ${th("챔피언","champ")}${th("픽","picks")}${th("승률","wr")}${th("밴픽률","pr")}${th("노밴률","nb")}
         </tr></thead><tbody>${champRows}</tbody></table>
@@ -7067,9 +7063,7 @@ function ytHomeHtml(){
   const v=(YT_HOME.videos||[])[0]; if(!v||!/^[\w-]{11}$/.test(String(v.id||""))) return "";
   const d=new Date(v.published), ds=isNaN(d)?"":`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
   return `<div id="ytHomePane" style="margin-top:18px">
-    <div class="kzhd"><h2>▶ 클랜 영상</h2><span class="kanji">映像</span><a class="yt-ch" href="${YT_CHANNEL}" target="_blank" rel="noopener">채널 ↗</a></div>
-    <div class="kzsub">스쿼드 클랜 유튜브의 최신 영상 · 눌러서 바로 재생</div>
-    <div class="kzrule"></div>
+    <div class="kzhd"><h2>▶ 클랜 영상</h2><span class="kanji">유튜브 최신</span><a class="yt-ch" href="${YT_CHANNEL}" target="_blank" rel="noopener">채널 ↗</a></div>
     <div class="yt-thumb" data-v="${v.id}" role="button" tabindex="0" onclick="ytPlay(this)" onkeydown="if(event.key==='Enter')ytPlay(this)" title="재생">
       <img src="https://i.ytimg.com/vi/${v.id}/hqdefault.jpg" alt="${escAttr(v.title||"")}" loading="lazy">
       <span class="yt-play"><i></i></span>
@@ -13411,7 +13405,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611225800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611226000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
