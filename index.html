@@ -213,8 +213,10 @@ window.SGG_DC_BOOT=(function(){
   .rg-more{color:var(--accent);font-size:13.5px;text-align:right}
   .rg-sep{height:1px;background:var(--line);margin:14px 0}
   /* 🛒 아이템 빌드·룬 (전적카드/게임상세) */
-  .match .mev{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;min-width:0}
-  .match .mev .badge{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}
+  /* 🏷 [2026-11-23 사장님 「MVP 하나 표시하자고 초상화 옆에 자리를 차지하는 게 보기 안 좋다 — 그 위치에 딱지를 붙이는 식으로」] MVP·ACE·역적은 별도 칸 없이 챔피언 초상화 왼쪽 위 모서리에 딱지로 얹는다 */
+  .match .mtop{position:relative}
+  .match .mev{position:absolute;left:-7px;top:-9px;z-index:3;pointer-events:none;line-height:1}
+  .match .mev .badge{margin:0;padding:2px 6px;font-size:11px;font-weight:900;letter-spacing:.3px;transform:rotate(-8deg);box-shadow:0 2px 6px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.22);white-space:nowrap;display:inline-block}
   .evslot{display:inline-flex;align-items:center;justify-content:center;min-width:46px}
   .match .me.me2{flex-direction:column;align-items:flex-start;gap:6px}
   .mtop{display:flex;align-items:center;gap:8px;min-width:0}
@@ -1184,7 +1186,7 @@ window.SGG_DC_BOOT=(function(){
   .dot.w{background:var(--win)} .dot.l{background:var(--lose)}
 
   /* match cards */
-  .match{position:relative;display:grid;grid-template-columns:80px 62px minmax(250px,1fr) minmax(190px,300px);gap:14px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;align-items:center}
+  .match{position:relative;display:grid;grid-template-columns:80px minmax(250px,1fr) minmax(190px,300px);gap:14px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;align-items:center}
   .match .me .info b{white-space:nowrap}
   .match .me{min-width:0}
   .match.w{border-left-color:var(--win);background:linear-gradient(90deg,var(--blue-bg),var(--card) 40%)}
@@ -1206,7 +1208,7 @@ window.SGG_DC_BOOT=(function(){
   .lu .ev{flex:none;font-size:12.5px;line-height:1}
   .lu.self{color:var(--txt);font-weight:700}
   .lu .champ{width:18px;height:18px;border-radius:4px}
-  @media(max-width:760px){.match{grid-template-columns:70px 1fr}.lineups{display:none}.match .mev{position:absolute;top:8px;right:10px;flex-direction:row;justify-content:flex-end;max-width:60%}}
+  @media(max-width:760px){.match{grid-template-columns:70px 1fr}.lineups{display:none}}
 
   /* game detail teams */
   /* 전적 상세: 두 팀 좌우 2열(넓은 화면 여백↓·시인성↑), 좁으면 세로 */
@@ -1592,6 +1594,32 @@ window.SGG_DC_BOOT=(function(){
   .tp-chips{display:flex;gap:6px;flex-wrap:wrap} .tp-chip{padding:4px 11px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--sub)}
   .tp-edit{margin-left:auto;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
   .tp-edit:hover{border-color:var(--accent)}
+
+  /* ⚔️ 매치업 페이지(#vs/<회차>/<게임ID>) — OP.GG 경기 페이지처럼: 큰 팀 엠블럼 + 시리즈 스코어 + 세트별 탭 */
+  .vs-hero{padding:22px 18px 16px;text-align:center;background:radial-gradient(120% 140% at 50% 0%,rgba(91,140,255,.16),transparent 60%),var(--card)}
+  .vs-meta{font-size:12.5px;color:var(--sub);font-weight:700;letter-spacing:.2px}
+  .vs-board{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px;margin:14px 0 8px}
+  .vs-team{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;cursor:pointer}
+  .vs-team .vs-nm{font-size:19px;font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vs-team.lose{opacity:.55} .vs-team.win .vs-nm{color:var(--win)}
+  .vs-win{font-size:11px;font-weight:900;color:#fff;background:var(--win);border-radius:999px;padding:2px 9px}
+  .vs-score{display:flex;align-items:center;gap:12px;font-size:56px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+  .vs-score i{font-style:normal;color:var(--sub);font-size:34px;font-weight:700}
+  .vs-score b.lose{color:var(--sub);opacity:.6}
+  .vs-dots{display:flex;justify-content:center;gap:6px;margin-top:6px}
+  .vs-dots span{width:9px;height:9px;border-radius:50%;background:var(--line)} .vs-dots span.a{background:var(--accent)} .vs-dots span.b{background:#ff7a8a}
+  .vs-tabs{display:flex;gap:8px;margin:14px 0 10px;overflow-x:auto;padding-bottom:2px}
+  .vs-tab{flex:1 1 0;min-width:84px;padding:10px 8px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--txt);cursor:pointer;text-align:center;font-size:14px;font-weight:800}
+  .vs-tab small{display:block;font-size:11.5px;font-weight:700;color:var(--sub);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vs-tab.on{border-color:var(--accent);background:rgba(91,140,255,.14)}
+  .vs-sum{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;padding:12px 14px;margin-bottom:8px}
+  .vs-sum .sd{display:flex;align-items:center;gap:8px;min-width:0;font-weight:800} .vs-sum .sd.r{justify-content:flex-end;text-align:right}
+  .vs-sum .sd em{font-style:normal;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:6px}
+  .vs-sum .sd em.bl{background:var(--blue-bg);color:#9cc0ff} .vs-sum .sd em.rd{background:var(--red-bg);color:#ff9aa8}
+  .vs-sum .sd.w .nm{color:var(--win)}
+  .vs-sum .mid{text-align:center;font-size:12.5px;color:var(--sub)} .vs-sum .mid b{display:block;font-size:22px;color:var(--txt);font-variant-numeric:tabular-nums}
+  .vs-more{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:4px 2px 8px;font-size:12.5px;color:var(--sub)}
+  @media(max-width:560px){.vs-score{font-size:42px}.vs-score i{font-size:26px}.vs-team .vs-nm{font-size:15px}.vs-sum{grid-template-columns:1fr}.vs-sum .sd.r{justify-content:flex-start;text-align:left}}
   .tp-h2{margin:22px 2px 10px;font-size:18px}
   .tp-players{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
   .tp-pc{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
@@ -5350,6 +5378,7 @@ function _routeHashSet(k,v,tab){
 function _subHashSet(k,t){ try{ history.replaceState(history.state,"",location.pathname+location.search+"#"+k+"/"+t); }catch(e){} }
 function _subHashOf(h){
   const t=/^#team\/(\d+)\/(.+)$/.exec(h||""); if(t){ let cap; try{ cap=decodeURIComponent(t[2]); }catch(e){ return null; } return {route:"team",tab:t[1]+"|"+cap}; }   // 🛡 #team/<회차>/<팀장>
+  const v=/^#vs\/(\d+)\/(.+)$/.exec(h||""); if(v){ let gid; try{ gid=decodeURIComponent(v[2]); }catch(e){ return null; } return {route:"vs",tab:v[1]+"|"+gid}; }   // ⚔️ #vs/<회차>/<게임ID>
   const m=/^#(ach|mst)\/([a-z]+)$/.exec(h||""); return m?{route:m[1]==="ach"?"ach":"mastery",tab:m[2]}:null; }
 function _subRemember(k,t){ try{ localStorage.setItem("sgg_sub_"+k,t); }catch(e){} }
 function _subRecall(k){ try{ return localStorage.getItem("sgg_sub_"+k)||""; }catch(e){ return ""; } }
@@ -5459,6 +5488,7 @@ function go(route,arg){
   if(route==='ideal'){ if(!GAMES.size){renderEmpty();return;} navPush(route,arg); renderIdeal();   // 💘 이상형월드컵 — 공유 주소 #ideal
     try{ history.replaceState(history.state,"",location.pathname+location.search+"#ideal"); }catch(e){} window.scrollTo(0,0); return; }
   if(route==='games'){navPush(route,arg);renderGames();try{ history.replaceState(history.state,"",location.pathname+location.search+"#games"); }catch(e){} window.scrollTo(0,0); return;}   // 🎮 스쿼드 미니게임 포털 — 내전 데이터와 무관(#games)
+  if(route==='vs'){ navPush(route,arg); renderVs(arg); const _v=/^(\d+)\|(.+)$/.exec(String(arg||"")); try{ if(_v) history.replaceState(history.state,"",location.pathname+location.search+"#vs/"+_v[1]+"/"+encodeURIComponent(_v[2])); }catch(e){} window.scrollTo(0,0); return; }   // ⚔️ 매치업(시리즈) 페이지
   if(route==='team'){ navPush(route,arg); renderTeam(arg); const _m=/^(\d+)\|(.+)$/.exec(String(arg||"")); try{ if(_m) history.replaceState(history.state,"",location.pathname+location.search+"#team/"+_m[1]+"/"+encodeURIComponent(_m[2])); }catch(e){} window.scrollTo(0,0); return; }   // 🛡 멸망전 팀 페이지
   if(route==='scrim'){navPush(route,arg);renderScrim();return;}   // 🤝 외부 스크림 상대전적 — 자체 탭(SCRIM_EXT·SCRIM_NOTICE_RAW) 로드
   if(route==='hof'){navPush(route,arg);renderHOF(arg);return;}   // 전당은 자체 데이터 로드 (현재 카테고리와 무관)
@@ -9353,7 +9383,7 @@ function myeolGroupHtml(){
   const recent=main.slice().sort((a,b)=>b.day-a.day).slice(0,12).map(m=>`<div class="rpr">
       <span class="rpr-d">${m.day.getMonth()+1}/${m.day.getDate()}</span>
       <span class="rpr-t"><b style="color:var(--win)">${esc(m.win)}</b> 승 <span class="muted">vs</span> ${esc(m.lose)}</span>
-      <span class="rpr-g clickname" onclick="go('game','${escAttr(m.gid)}')">보기 ›</span></div>`).join("");
+      <span class="rpr-g clickname" onclick="go('vs','${_ed}|${escAttr(m.gid)}')">보기 ›</span></div>`).join("");
   return h
     +(cross.length?`<div class="muted" style="font-size:12px;margin:2px 0 8px">🔀 조 편성 밖 경기 ${cross.length}판(플레이오프·순위전 등)은 아래 경기 목록에서 확인하세요.</div>`:"")
     +`<div style="margin-top:4px"><b style="font-size:13px">최근 본선 경기</b></div><div>${recent}</div>
@@ -9620,7 +9650,7 @@ function renderTeam(arg){
   const fmtD=d=>`${String(d.getFullYear()).slice(2)}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
   const mainStart=(ed===9)?MYEOL_MAIN_START:(ed===10?MYEOL10_MAIN_START:null);
   const gHtml=A.games.length?A.games.map(g=>{ const stage=(mainStart&&g.day>=mainStart)?"본선":"스크림"; const my=teamEmblem(T.cap,22,ed), op=teamEmblem(g.opp,22,ed);
-    return `<div class="tp-m ${g.won?'w':'l'}" onclick="go('game','${escAttr(g.gid)}')"><span class="tp-md">${fmtD(g.day)}</span><span class="tp-ms">${stage}</span>
+    return `<div class="tp-m ${g.won?'w':'l'}" onclick="go('vs','${ed}|${escAttr(g.gid)}')"><span class="tp-md">${fmtD(g.day)}</span><span class="tp-ms">${stage}</span>
       <span class="tp-mt r">${esc(T.cap)} ${my}</span><span class="tp-sc"><b class="${g.won?'w':''}">${g.won?1:0}</b><b class="${g.won?'':'w'}">${g.won?0:1}</b></span><span class="tp-mt">${op} ${teamLink(g.opp,ed)}</span><i class="tp-ar">›</i></div>`; }).join(""):`<div class="muted" style="padding:14px">아직 팀 대 팀 경기 기록이 없어요.</div>`;
   const D=TR?`${TR.sum==null?"-":TR.sum.toFixed(1)} ${TR.adj>=0?"+":"−"}${Math.abs(TR.adj).toFixed(1)}`:"-";
   const info=(k,v)=>v?`<div class="tp-ln"><span>${k}</span><b>${v}</b></div>`:"";
@@ -9645,6 +9675,71 @@ function renderTeam(arg){
         ${histHtml?`<div class="tp-hh">역대 기록</div>${histHtml}`:""}
       </div></div>
     </div></div>`;
+}
+
+/* ⚔️ [2026-11-23 사장님 「OP.GG 매치 페이지처럼 — 상단에 스코어와 팀 엠블럼을 크게, 세트별로 정리」] 매치업(시리즈) 페이지.
+   시리즈 = 같은 두 팀이 같은 단계(스크림/본선)에서 4시간 안에 이어서 붙은 판 묶음. 스크림 목록·팀 페이지의 한 판을 누르면 그 판이 속한 시리즈가 열린다.
+   주소 #vs/<회차>/<게임ID> — 게임ID 는 시리즈 안의 아무 판이어도 된다. 시험: tests/web_vs_test.py */
+let VS_CUR=null, VS_SET=0;
+function _vsSeriesOf(ed){
+  const E=_teamEd(ed); if(!E) return null;
+  const S=E.cfg?_myeolScrimsFor(E.cfg):_myeolScrims(); if(!S) return null;
+  const ms=(ed===9)?MYEOL_MAIN_START:(ed===10?MYEOL10_MAIN_START:null);
+  const asc=S.list.slice().sort((a,b)=>a.day-b.day||String(a.gid).localeCompare(String(b.gid)));
+  const open=new Map(), out=[];
+  for(const m of asc){
+    const key=[_myNk(m.win),_myNk(m.lose)].sort().join("|"), stage=(ms&&m.day>=ms)?"본선":"스크림";
+    let s=open.get(key);
+    if(!s||m.day-s.last>4*3600e3||s.stage!==stage){ s={key,stage,teams:[m.win,m.lose],games:[],last:m.day}; open.set(key,s); out.push(s); }
+    s.games.push(m); s.last=m.day;
+  }
+  for(const s of out){
+    const n0=_myNk(s.teams[0]); s.w0=s.games.filter(m=>_myNk(m.win)===n0).length; s.w1=s.games.length-s.w0;
+    if(s.w1>s.w0){ s.teams.reverse(); const t=s.w0; s.w0=s.w1; s.w1=t; }   // 이긴 팀이 왼쪽(동률이면 첫 판 승자)
+  }
+  return {E,out};
+}
+function setVsSet(i){ VS_SET=i; renderVs(VS_CUR,true); }
+function renderVs(arg,keep){
+  VS_CUR=arg; const P=String(arg||"").match(/^(\d+)\|(.+)$/);
+  const head=`${navTabsHtml('myeol')}<div class="backrow"><button class="backbtn" onclick="goBack()">← 뒤로</button></div>`;
+  if(!P){ view().innerHTML=head+`<div class="empty">매치업 주소를 읽지 못했어요.</div>`; return; }
+  const ed=+P[1], gid=P[2]; aucEnsure();
+  const R=_vsSeriesOf(ed);
+  if(!R){ view().innerHTML=head+`<div class="card vs-wait"><div class="muted">${AUCGG.state==="fail"?"AUC.GG 에서 경매 결과를 받지 못했어요. 잠시 뒤 다시 열어 주세요.":"경매 결과를 불러오는 중이에요…"}</div></div>`; return; }
+  const sr=R.out.find(s=>s.games.some(m=>String(m.gid)===gid));
+  if(!sr){ view().innerHTML=head+`<div class="card vs-wait"><div class="muted">이 판이 속한 매치업을 찾지 못했어요. <span class="clickname" onclick="go('game','${escAttr(gid)}')">게임 단독 보기 ›</span></div></div>`; return; }
+  if(!keep) VS_SET=Math.max(0,sr.games.findIndex(m=>String(m.gid)===gid));
+  const i=Math.min(VS_SET,sr.games.length-1), [A,B]=sr.teams, an=_myNk(A);
+  const fmt=d=>`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  const gm=m=>{ const g=GAMES.get(m.gid)||((typeof GAMES_ALL!=="undefined"&&GAMES_ALL)?GAMES_ALL.get(m.gid):null)||null;
+    if(g&&(!g.teams||!g.bans)){ g.teams={}; g.bans={};   // 칼바람 등 다른 보기의 판은 진영별 묶음이 없을 수 있다 — 같은 방식으로 만들어 둔다
+      for(const r of g.rows||[]){ const sd=r["진영"]||"기타"; (g.teams[sd]=g.teams[sd]||[]).push(r); if(validBan(r["밴"])) (g.bans[sd]=g.bans[sd]||[]).push(r["밴"]); }
+      for(const sd in g.teams) g.teams[sd].sort((x,y)=>(POS_ORDER[x["포지션"]]??9)-(POS_ORDER[y["포지션"]]??9)); }
+    return g; };
+  const done=sr.w0!==sr.w1;
+  const tm=(n,win,wins)=>`<div class="vs-team ${done?(win?'win':'lose'):''}" onclick="go('team','${ed}|${escAttr(n)}')">${teamEmblem(n,96,ed)}<div class="vs-nm">${esc(n)}</div>${done&&win?`<span class="vs-win">승리</span>`:""}</div>`;
+  const sets=sr.games.map((m,k)=>{ const w=_myNk(m.win)===an;
+    return `<button type="button" class="vs-tab${k===i?' on':''}" onclick="setVsSet(${k})">${k+1}세트<small>${esc(m.win)} 승</small></button>`; }).join("");
+  // 선택한 세트 요약 — 진영·킬·시간
+  const m=sr.games[i], g=gm(m); let sumHtml="", detail=`<div class="muted" style="padding:10px">이 판의 상세 기록을 못 찾았어요.</div>`;
+  if(g){
+    const kills=sd=>(g.teams[sd]||[]).reduce((a,r)=>{ const o=parseKDA(r["KDA"]||""); return a+(o?o.k:0); },0);
+    const dur=(()=>{ for(const r of g.rows||[]){ const mt=parseMetrics(r); if(mt&&mt.m) return Math.round(mt.m); } return null; })();
+    const winSide=(g.rows||[]).some(r=>r["진영"]==="블루팀"&&r["결과"]==="승리")?"블루팀":"레드팀";
+    const nameOf=sd=>sd===winSide?m.win:m.lose;
+    const sd=(side,right)=>{ const n=nameOf(side), w=side===winSide; return `<div class="sd ${right?'r':''} ${w?'w':''}">${right?"":teamEmblem(n,34,ed)}<span class="nm" style="min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(n)}</span><em class="${side==="블루팀"?'bl':'rd'}">${side==="블루팀"?"블루":"레드"}</em>${right?teamEmblem(n,34,ed):""}</div>`; };
+    sumHtml=`<div class="card vs-sum">${sd("블루팀",false)}<div class="mid"><b>${kills("블루팀")} : ${kills("레드팀")}</b>${dur?dur+"분 · ":""}킬</div>${sd("레드팀",true)}</div>
+      <div class="vs-more"><span>${i+1}세트 · ${fmt(m.day)} · 패치 ${esc(g.patch||"-")}</span><span class="clickname" onclick="go('game','${escAttr(m.gid)}')">게임 단독 보기 ›</span></div>`;
+    detail=gameDetailHtml(g);
+  }
+  const dots=sr.games.map(x=>`<span class="${_myNk(x.win)===an?'a':'b'}"></span>`).join("");
+  view().innerHTML=head+`<div class="vs-root">
+    <div class="card vs-hero">
+      <div class="vs-meta">${esc(R.E.label)} · ${sr.stage} · ${fmt(sr.games[0].day)}${sr.games.length>1?" ~ "+fmt(sr.games[sr.games.length-1].day).split(" ")[1]:""}</div>
+      <div class="vs-board">${tm(A,done&&sr.w0>sr.w1)}<div><div class="vs-score"><b class="${done&&sr.w0<sr.w1?'lose':''}">${sr.w0}</b><i>:</i><b class="${done&&sr.w1<sr.w0?'lose':''}">${sr.w1}</b></div><div class="vs-dots">${dots}</div></div>${tm(B,done&&sr.w1>sr.w0)}</div>
+    </div>
+    <div class="vs-tabs">${sets}</div>${sumHtml}${detail}</div>`;
 }
 function teamLinkP(n){ const cn=canonOfName(n)||n; return `<span class="clickname" onclick="go('player','${escAttr(cn)}')">${esc(shortName(cn))}</span>`; }
 /* 🏆 [2026-11-22 사장님 「스크림 탭에 성적표를 LCK 순위표 느낌으로」] 팀 순위표 — 순위 · 팀 · 승패 · 승률 · 최근 5경기 · 연속 · 순위변동.
@@ -9747,7 +9842,7 @@ async function aucEnsure(force){
     AUCGG.list=list; AUCGG.t=Date.now(); AUCGG.state="ok"; AUCGG.err=""; _aucCacheSave(); MYEOL_FAIR=null;   // 새 경매 결과가 오면 적정가(참가 60인 기준)를 다시 계산
   }catch(e){ AUCGG.err=String((e&&e.message)||e); if(!AUCGG.list.length) AUCGG.state="fail"; }
   finally{ _aucBusy=false; }
-  try{ if(document.querySelector(".tp-root")&&TEAM_CUR) renderTeam(TEAM_CUR); else if(document.getElementById("aucgg-host")||document.querySelector(".mx-ed")) renderMyeol(); }catch(e){}   // 회차·탭이 데이터에 따라 생기므로 통째로 다시 그린다
+  try{ if(document.querySelector(".vs-root,.vs-wait")&&VS_CUR) renderVs(VS_CUR,true); else if(document.querySelector(".tp-root")&&TEAM_CUR) renderTeam(TEAM_CUR); else if(document.getElementById("aucgg-host")||document.querySelector(".mx-ed")) renderMyeol(); }catch(e){}   // 회차·탭이 데이터에 따라 생기므로 통째로 다시 그린다
 }
 function aucMyeolAuctions(){   // 제9회를 뺀 멸망전 경매(내장 값에 없는 새 대회) — 적정가 분포에 더한다
   return [...AUCGG.det.values()].filter(d=>/AUCTION/i.test(d.mode)&&/멸망전/.test(d.name)&&!/(제\s*9\s*회|9\s*회)/.test(d.name));
@@ -12130,15 +12225,16 @@ function matchCard(r,selfName){
       <div class="res ${cls}">${esc(label)}</div>
       <div class="meta">${esc(r["날짜"]||'')}<br>${esc(r["패치버전"]||'')}</div>
     </div>
-    <div class="mev">${evalBadge}${nbHtml}</div>   <!-- 📐 [2026-11-23] MVP·ACE·신기록 뱃지는 늘 같은 자리(전용 칸)에 — 있고 없고에 따라 본문 줄맞춤·카드 높이가 달라지지 않게 -->
     <div class="me me2">
       <div class="mtop">
+        ${evalBadge?`<div class="mev">${evalBadge}</div>`:""}   <!-- 🏷 MVP·ACE·역적 딱지 — 초상화 모서리에 얹음(자리를 안 차지) -->
         ${champImg(r["챔피언"],"lg")}
         ${spellRuneGrid(r)}
         <div class="info">
           <b>${esc(r["챔피언"]||'?')}</b>
           <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span>
           ${kdaChip(r)?`<div style="margin-top:2px">${kdaChip(r)}</div>`:''}
+          ${nbHtml?`<div style="margin-top:3px">${nbHtml}</div>`:''}
         </div>
       </div>
       ${itemIcons(r)?`<div class="mit">${itemIcons(r)}</div>`:''}
@@ -13128,7 +13224,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611224300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611224400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
