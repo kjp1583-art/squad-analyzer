@@ -1684,6 +1684,22 @@ window.SGG_DC_BOOT=(function(){
   .nt-credit{position:absolute;right:14px;bottom:8px;font-size:10.5px;color:rgba(255,255,255,.55)}
   .nt-th.pic{background-size:cover;background-position:center 22%;position:relative;overflow:hidden}
   .nt-th.pic .nt-ei{position:absolute;right:2px;bottom:1px;font-style:normal;font-size:17px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))}
+  /* 📐 [2026-11-23 사장님 「노란 칠한 빈 공간 낭비 — 활용」] PC: 필터 카드를 한 줄로 — [보기 종류] [기간 ▾ + 안내 한 줄] ········ [도구 링크] */
+  @media(min-width:721px){
+    .fltrow{flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:9px 12px}
+    .fltrow .catbar{display:contents}
+    .fltrow .cat-seg{order:1}
+    .fltrow .patchbar{order:2;flex:1 1 320px;min-width:0;margin:0;padding:0;border-top:0;flex-wrap:nowrap}
+    .fltrow .cat-tools{order:3;margin-left:0}
+    .pb-note{flex:1;min-width:0;margin-left:6px;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #patchnote{display:none!important}
+  }
+  @media(max-width:720px){ .pb-note{display:none} }
+  @media(min-width:721px){   /* 구역 버튼과 탭을 한 줄에 */
+    .tabswrap{display:flex;align-items:center;gap:14px;margin:14px 0 10px}
+    .tabswrap .secnav{margin:0;flex:none}
+    .tabswrap .tabs{flex:1;min-width:0;margin:0}
+  }
 </style>
 </head>
 <body>
@@ -12441,7 +12457,7 @@ function renderPatchbar(){
   html+=opt("R30","최근 30일")+opt("ALL","전체 기간");
   if(ALL_PATCHES.length) html+=`<optgroup label="패치">${ALL_PATCHES.map(pv=>opt(pv,pv+" 패치")).join("")}</optgroup>`;
   if(ALL_YEARS.length) html+=`<optgroup label="년도">${ALL_YEARS.map(yy=>opt("Y"+yy,yy+"년")).join("")}</optgroup>`;
-  html+=`</select>`;
+  html+=`</select><span class="pb-note" id="pbNote"></span>`;
   bar.innerHTML=html;
   renderPatchNote();
 }
@@ -12458,6 +12474,7 @@ function renderPatchNote(){
     t=`🏆 챔피언 티어는 메타를 보는 화면이라 기본이 최신 패치(${LATEST_PATCH})예요 · 다른 탭은 최근 30일`;
   }
   n.textContent=t; n.classList.toggle("hidden",!t);
+  const pn=document.getElementById("pbNote"); if(pn){ pn.textContent=t.replace(/^📅\s*/,""); pn.title=t; }   // 🖼 PC: 안내를 같은 줄 옆에 한 줄로(아래 #patchnote 는 PC 에서 숨김)
 }
 function switchPatch(sel,auto){
   PATCH_AUTO=!!auto;
@@ -13053,7 +13070,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611223500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611223700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
