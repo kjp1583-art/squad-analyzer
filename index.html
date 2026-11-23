@@ -496,6 +496,56 @@ window.SGG_DC_BOOT=(function(){
   .kzlegend .low{color:#9fb4e8}
   /* 좌 상현6 · 우 하현6 — 좁은 화면에서도 1열로 풀지 않는다. 1열로 풀면 24행이 세로로 쌓여
      모바일에서 화면을 통째로 먹는다(2026-08-03 사장님 제보). 대신 칸 내용을 줄인다. */
+  /* 🩸 [2026-11-23 사장님 「상현 카드 한 장·하현 카드 한 장이 각각 빙글빙글 돌면서 6인을 쭉 보여주게, 연출은 강력하게」] 십이귀월 스포트라이트 카드 */
+  .kzc-wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:2px 0 14px}
+  .kzc{position:relative;border-radius:16px;padding:2px;overflow:hidden;isolation:isolate;cursor:pointer;min-height:290px;display:flex}
+  .kzc::before{content:"";position:absolute;inset:-70%;z-index:-2;animation:kzcspin 5s linear infinite}
+  .kzc.up::before{background:conic-gradient(from 0deg,#3a0b0b 0 55%,#ff3b2f 72%,#ffd36a 82%,#ff3b2f 90%,#3a0b0b 100%)}
+  .kzc.low::before{background:conic-gradient(from 0deg,#0c1224 0 55%,#4f7bff 72%,#d9e6ff 82%,#4f7bff 90%,#0c1224 100%)}
+  .kzc.up{box-shadow:0 0 26px rgba(255,70,40,.28),0 0 60px rgba(180,20,20,.18)}
+  .kzc.low{box-shadow:0 0 26px rgba(90,130,255,.26),0 0 60px rgba(40,70,160,.18)}
+  .kzc-in{position:relative;flex:1;border-radius:14px;overflow:hidden;background:#09060a}
+  .kzc.low .kzc-in{background:#070a12}
+  .kzc-s{position:absolute;inset:0;padding:26px 14px 34px;display:flex;flex-direction:column;opacity:0;visibility:hidden;transform:translateX(26px) scale(1.04);transition:opacity .55s ease,transform .7s cubic-bezier(.2,.8,.2,1),visibility 0s .7s}
+  .kzc-s.on{opacity:1;visibility:visible;transform:none;transition:opacity .55s ease,transform .7s cubic-bezier(.2,.8,.2,1),visibility 0s}
+  .kzc-bg{position:absolute;inset:0;z-index:-1;background-size:cover;background-position:center 18%;opacity:.62;animation:kzckb 9s ease-in-out infinite alternate;
+    -webkit-mask-image:linear-gradient(180deg,#000 30%,rgba(0,0,0,.35) 100%);mask-image:linear-gradient(180deg,#000 30%,rgba(0,0,0,.35) 100%)}
+  .kzc.up .kzc-in::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(120% 60% at 50% 110%,rgba(255,80,30,.38),transparent 70%)}
+  .kzc.low .kzc-in::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(120% 60% at 50% 110%,rgba(80,120,255,.34),transparent 70%)}
+  .kzc-kj{position:absolute;right:-6px;top:-10px;font-size:150px;font-weight:900;line-height:1;opacity:.13;pointer-events:none;font-family:serif;z-index:-1}
+  .kzc.up .kzc-kj{color:#ff8a5a} .kzc.low .kzc-kj{color:#9fb8ff}
+  .kzc-top{display:flex;align-items:center;gap:8px}
+  .kzc-seal{width:46px;height:46px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;font-weight:900;border:2px solid;box-shadow:0 0 16px rgba(0,0,0,.6)}
+  .kzc.up .kzc-seal{background:radial-gradient(circle at 50% 38%,#ff5a46,#a01418 62%,#2a0305);border-color:#e6b654;color:#fff4cf}
+  .kzc.low .kzc-seal{background:radial-gradient(circle at 50% 38%,#7f8db5,#2b3450 62%,#0b0e16);border-color:#aab6cc;color:#eaf0fb}
+  .kzc-seal .r{font-size:10px;letter-spacing:.5px;opacity:.9} .kzc-seal .n{font-size:19px;margin-top:1px}
+  .kzc-tier{margin-left:auto;font-size:12.5px;font-weight:900;padding:3px 9px;border-radius:8px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.22);color:#fff}
+  .kzc-name{margin-top:auto;font-size:25px;font-weight:900;letter-spacing:-.02em;line-height:1.1;text-shadow:0 2px 10px rgba(0,0,0,.95);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kzc.up .kzc-name{color:#ffe3a0} .kzc.low .kzc-name{color:#e6eeff}
+  .kzc-solo{margin-top:3px;font-size:12.5px;font-weight:700;color:#d8d0c0;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+  .kzc-st{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px}
+  .kzc-st div{background:rgba(0,0,0,.52);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:5px 6px;text-align:center}
+  .kzc-st em{display:block;font-style:normal;font-size:10.5px;color:#b8b2a6} .kzc-st b{font-size:15px;font-weight:900;color:#fff}
+  .kzc-s.on .kzc-name,.kzc-s.on .kzc-st,.kzc-s.on .kzc-solo{animation:kzcrise .7s cubic-bezier(.2,.9,.3,1) both}
+  .kzc-s.on .kzc-st{animation-delay:.08s} .kzc-s.on .kzc-solo{animation-delay:.04s}
+  .kzc-dots{position:absolute;left:0;right:0;bottom:9px;display:flex;justify-content:center;gap:6px;z-index:3}
+  .kzc-dots i{width:18px;height:4px;border-radius:3px;background:rgba(255,255,255,.22);cursor:pointer;transition:background .3s,width .3s}
+  .kzc.up .kzc-dots i.on{background:#ffb347;width:28px} .kzc.low .kzc-dots i.on{background:#9fb8ff;width:28px}
+  .kzc-fx{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.85) 50%,transparent 65%);transform:translateX(-120%)}
+  .kzc.fl .kzc-fx{animation:kzcslash .75s ease-out}
+  .kzc-em{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+  .kzc-em i{position:absolute;bottom:-8px;width:4px;height:4px;border-radius:50%;opacity:0;animation:kzcemb 4s linear infinite}
+  .kzc.up .kzc-em i{background:#ff9a3c;box-shadow:0 0 8px 2px rgba(255,120,40,.8)} .kzc.low .kzc-em i{background:#cfe0ff;box-shadow:0 0 8px 2px rgba(140,180,255,.8)}
+  .kzc-em i:nth-child(1){left:8%;animation-delay:0s}.kzc-em i:nth-child(2){left:22%;animation-delay:1.3s;animation-duration:3.4s}.kzc-em i:nth-child(3){left:38%;animation-delay:.6s}
+  .kzc-em i:nth-child(4){left:54%;animation-delay:2.2s;animation-duration:3.6s}.kzc-em i:nth-child(5){left:68%;animation-delay:.3s}.kzc-em i:nth-child(6){left:82%;animation-delay:1.7s;animation-duration:4.4s}.kzc-em i:nth-child(7){left:93%;animation-delay:2.8s}
+  .kzc-rib{position:absolute;left:12px;top:-1px;z-index:4;padding:2px 10px 3px;font-size:11px;font-weight:900;letter-spacing:2px;border-radius:0 0 8px 8px;color:#1a0c04}
+  .kzc.up .kzc-rib{background:linear-gradient(180deg,#ffd36a,#e0a437)} .kzc.low .kzc-rib{background:linear-gradient(180deg,#e4ecff,#9fb4e8)}
+  @keyframes kzcspin{to{transform:rotate(360deg)}}
+  @keyframes kzckb{from{transform:scale(1.02) translate(0,0)}to{transform:scale(1.14) translate(-2%,-2%)}}
+  @keyframes kzcrise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes kzcslash{0%{opacity:.95;transform:translateX(-120%)}100%{opacity:0;transform:translateX(120%)}}
+  @keyframes kzcemb{0%{opacity:0;transform:translateY(0) scale(1)}15%{opacity:1}100%{opacity:0;transform:translateY(-260px) scale(.4)}}
+  @media (prefers-reduced-motion:reduce){.kzc::before,.kzc-bg,.kzc-em i,.kzc.fl .kzc-fx{animation:none!important}.kzc-s{transition:opacity .3s!important;transform:none!important}}
   .kzlist{display:grid;gap:5px;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,auto);grid-auto-flow:column}
   @media(max-width:900px){
     .kzlist{grid-template-columns:1fr;grid-template-rows:none;grid-auto-flow:row}
@@ -6484,6 +6534,37 @@ function kzFitSolo(){
 }
 let _kzFitT=0;
 window.addEventListener("resize",()=>{ clearTimeout(_kzFitT); _kzFitT=setTimeout(kzFitSolo,150); });
+/* 🩸 십이귀월 스포트라이트 — 상현·하현 각 6인을 카드 한 장에 돌려 보여준다(4.2초마다 · 하현은 반 박자 늦게 · 마우스를 올리면 멈춤 · 점을 누르면 그 사람) */
+let KZC_T=null;
+function kzcGo(c,i){
+  const ss=c.querySelectorAll(".kzc-s"); if(!ss.length) return; i=((i%ss.length)+ss.length)%ss.length;
+  ss.forEach((s,k)=>s.classList.toggle("on",k===i)); c.querySelectorAll(".kzc-dots i").forEach((d,k)=>d.classList.toggle("on",k===i));
+  c.dataset.i=i; c.dataset.next=Date.now()+4200; c.classList.remove("fl"); void c.offsetWidth; c.classList.add("fl");
+}
+function kzcTick(){
+  const cs=document.querySelectorAll(".kzc");
+  if(!cs.length){ clearInterval(KZC_T); KZC_T=null; return; }
+  if(document.hidden) return; const now=Date.now();
+  cs.forEach(c=>{ if(c.matches(":hover")) { c.dataset.next=now+4200; return; } if(now>=(+c.dataset.next||0)) kzcGo(c,(+c.dataset.i||0)+1); });
+}
+function kzcStart(){ if(!KZC_T) KZC_T=setInterval(kzcTick,400); }
+function kzcCardHtml(up,members,KN){   // members: [{n,title,a,d,sp}] 순위순(공석 제외)
+  if(!members.length) return "";
+  const slides=members.map((m,k)=>{
+    const a=m.a||{}, d=m.d||{}, short=d.soloTxt?String(d.soloTxt).replace(/ \d+LP$/,""):"";
+    const solo=d.solo!=null?(d.soloTxt||"언랭"):"";
+    const st=[["내전 승률",d.wr!=null?d.wr+"%":"–"],["판수",a.games?a.games+"판":"–"],["MVP율",d.mvp!=null?d.mvp+"%":"–"]];
+    return `<div class="kzc-s${k===0?" on":""}" onclick="openPlayerCard(${JSON.stringify(m.n).replace(/"/g,"&quot;")})" title="${escAttr(m.n+" — "+m.title)}">
+      ${m.sp?`<div class="kzc-bg" style="background-image:url('${escAttr(m.sp)}')"></div>`:""}<div class="kzc-kj">${KN[m.no]||m.no}</div>
+      <div class="kzc-top"><span class="kzc-seal"><span class="r">${up?"上弦":"下弦"}</span><span class="n">${KN[m.no]||m.no}</span></span>${a.tier?`<span class="kzc-tier">${esc(a.tier)}</span>`:""}</div>
+      <div class="kzc-name">${esc(shortName(m.n))}</div>
+      <div class="kzc-solo">${solo?"🏅 솔랭 "+esc(solo):"&nbsp;"}</div>
+      <div class="kzc-st">${st.map(([k,v])=>`<div><em>${k}</em><b>${esc(v)}</b></div>`).join("")}</div></div>`;
+  }).join("");
+  const dots=members.map((m,k)=>`<i class="${k===0?"on":""}" onclick="event.stopPropagation();kzcGo(this.closest('.kzc'),${k})"></i>`).join("");
+  return `<div class="kzc ${up?"up":"low"}" data-i="0" data-next="${Date.now()+(up?4200:6300)}"><span class="kzc-rib">${up?"上弦":"下弦"}</span>
+    <div class="kzc-in">${slides}<div class="kzc-em"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="kzc-fx"></div><div class="kzc-dots">${dots}</div></div></div>`;
+}
 function kizukiBoard(){
   const KN={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
   const seen=new Map();   // "서부 상현 1" → 이름
@@ -6523,6 +6604,12 @@ function kizukiBoard(){
       ${a.tier?`<span class="kz-tier">${esc(a.tier)}</span>`:''}
     </div>`;
   };
+  const kzcWrap=pre=>{   // 상현 카드 · 하현 카드 (각 6인 순환)
+    const mem=up=>[1,2,3,4,5,6].map(no=>{ const title=`${pre}${up?"상현":"하현"} ${no}`, nm=seen.get(title); if(!nm) return null;
+      const a=ASSESSMENTS.get(nm)||{}; return {n:nm,no,title,a,d:a.detail||{},sp:(typeof mainSplashOf==="function")?mainSplashOf(nm):""}; }).filter(Boolean);
+    const u=kzcCardHtml(true,mem(true),KN), l=kzcCardHtml(false,mem(false),KN);
+    return (u||l)?`<div class="kzc-wrap">${u}${l}</div>`:"";
+  };
   const pane=lg=>{
     const pre=lg?lg+" ":"";
     const nm=lg?`${lg} 십이귀월`:"십이귀월";
@@ -6535,6 +6622,7 @@ function kizukiBoard(){
       <div class="kzhd"><h2>🩸 ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT==="rift")?"이번 달 클랜 최강 12인":"클랜 최강 12인"}</h2><span class="kanji">${nm} · 十二鬼月</span></div>
       <div class="kzsub">${scope} · <span class="kzsub-m">파워랭킹 </span>상위 12인<span class="kzsub-x"> — 솔랭·AI점수·승률·MVP·역적을 합친 실력 점수 순 · ${(typeof CURRENT_CAT!=="undefined"&&CURRENT_CAT!=="rift")?"통산 10판 이상(90일 내 기록)":"최근 30일 5판 이상만"} 편성 · 실시간 변동</span></div>
       <div class="kzrule"></div>
+      ${kzcWrap(pre)}
       <div class="kzlegend"><span class="up">🗡 상현 ( 上弦 )</span><span class="low">🌙 하현 ( 下弦 )</span></div>
       <div class="kzlist">${[1,2,3,4,5,6].map(i=>row(`${pre}상현 ${i}`,true,i)).join("")}${
         [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>
@@ -6548,7 +6636,7 @@ function kizukiBoard(){
   };
   // [2026-08-07 사장님 지시] 동부가 빠진 오른쪽 자리에 '다가오는 일정' 패널
   // [2026-08-12 사장님 지시] 일정 아래로 남던 빈 공간에 🏪 거래소 현재 매물을 붙인다.
-  ytHomeLoad();
+  ytHomeLoad(); setTimeout(kzcStart,0);
   const evPane=`<div class="kzleague">
     <div style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
       <div class="kzhd"><h2>📅 클랜일정</h2><span class="kanji">日程</span></div>
@@ -13300,7 +13388,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611225500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611225700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
