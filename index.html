@@ -213,6 +213,15 @@ window.SGG_DC_BOOT=(function(){
   .rg-more{color:var(--accent);font-size:13.5px;text-align:right}
   .rg-sep{height:1px;background:var(--line);margin:14px 0}
   /* 🛒 아이템 빌드·룬 (전적카드/게임상세) */
+  .match .me.me2{flex-direction:column;align-items:flex-start;gap:6px}
+  .mtop{display:flex;align-items:center;gap:8px;min-width:0}
+  .mrs{display:grid;grid-template-columns:repeat(2,24px);grid-auto-rows:24px;gap:3px;flex:none}
+  .mrs .sp{width:24px;height:24px;border-radius:5px;border:1px solid var(--line)}
+  .mrs .rn{width:24px;height:24px;border-radius:50%;background:#0d1320;padding:1px;box-sizing:border-box} .mrs .rn.sub{width:20px;height:20px;margin:2px;padding:0}
+  .mrs .rn-empty{width:24px;height:24px}
+  .mit{display:flex;gap:3px;flex-wrap:nowrap}
+  .mit .itm{width:26px;height:26px;border-radius:5px;background:#0d1320;border:1px solid var(--line)}
+  @media(max-width:680px){.mit{flex-wrap:wrap}}
   .bl{display:flex;align-items:center;gap:2px;margin-top:4px;flex-wrap:wrap}
   .bl .itm{width:20px;height:20px;border-radius:4px;background:#0d1320;border:1px solid var(--line)}
   .bl .rn{width:20px;height:20px}
@@ -4948,11 +4957,19 @@ function runeIcons(r){   // '주룬'("키스톤id|트리id") + '보조룬'("트�
   const img=(p,c)=>p?`<img class="rn ${c}" src="https://ddragon.leagueoflegends.com/cdn/img/${p.icon}" title="${escAttr(p.name)}" loading="lazy" onerror="this.remove()">`:"";
   return img(ks,"ks")+img(st,"sub");
 }
-function spellIcons(r){   // 🔮 '스펠' 열("키|키" 또는 "4|14") → 소환사 스펠 아이콘 2개
+function _spellImgs(r){   // 스펠 아이콘 조각(배열 · 못 찾은 칸은 빈 문자열)
   const parts=String(r["스펠"]||"").split("|").map(x=>x.trim()).filter(Boolean);
-  if(!parts.length)return "";
-  const out=parts.map(k=>{const s=SPELLMAP[k]; return s?`<img class="sp" src="https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/spell/${s.img}" title="${escAttr(s.name)}" loading="lazy" onerror="this.remove()">`:"";}).join("");
-  return out;
+  return parts.map(k=>{const s=SPELLMAP[k]; return s?`<img class="sp" src="https://ddragon.leagueoflegends.com/cdn/${DDVER}/img/spell/${s.img}" title="${escAttr(s.name)}" loading="lazy" onerror="this.remove()">`:"";});
+}
+function spellIcons(r){   // 🔮 '스펠' 열("키|키" 또는 "4|14") → 소환사 스펠 아이콘 2개
+  return _spellImgs(r).join("");
+}
+/* 🧩 [2026-11-23 사장님 「lol.ps 처럼 스펠과 핵심룬은 챔피언 초상화 옆에, 아이템은 한 줄로」] 전적 카드용 2×2 칸 — [스펠1][핵심룬] / [스펠2][보조룬 트리]. 없는 칸은 비워 둔다. */
+function spellRuneGrid(r){
+  const sp=_spellImgs(r), ks=PERKMAP[String(r["주룬"]||"").split("|")[0]], st=PERKMAP[String(r["보조룬"]||"").trim()];
+  if(!sp.some(Boolean)&&!ks&&!st) return "";
+  const img=(p,c)=>p?`<img class="rn ${c}" src="https://ddragon.leagueoflegends.com/cdn/img/${p.icon}" title="${escAttr(p.name)}" loading="lazy" onerror="this.remove()">`:`<span class="rn-empty"></span>`;
+  return `<div class="mrs">${sp[0]||'<span class="rn-empty"></span>'}${img(ks,"ks")}${sp[1]||'<span class="rn-empty"></span>'}${img(st,"sub")}</div>`;
 }
 function buildLine(r){   // 스펠+룬+아이템 한 줄(있을 때만)
   const sw=spellIcons(r), rw=runeIcons(r), iw=itemIcons(r);
@@ -11640,14 +11657,17 @@ function matchCard(r,selfName){
       <div class="res ${cls}">${esc(label)}</div>
       <div class="meta">${esc(r["날짜"]||'')}<br>${esc(r["패치버전"]||'')}</div>
     </div>
-    <div class="me">
-      ${champImg(r["챔피언"],"lg")}
-      <div class="info">
-        <b>${esc(r["챔피언"]||'?')}</b>
-        <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span> ${evalBadge}${nbHtml}
-        ${kdaChip(r)?`<div style="margin-top:2px">${kdaChip(r)}</div>`:''}
-        ${buildLine(r)}
+    <div class="me me2">
+      <div class="mtop">
+        ${champImg(r["챔피언"],"lg")}
+        ${spellRuneGrid(r)}
+        <div class="info">
+          <b>${esc(r["챔피언"]||'?')}</b>
+          <span class="muted">${posLabel(r["포지션"])?esc(posLabel(r["포지션"]))+' · ':''}${esc(side||'')}</span> ${evalBadge}${nbHtml}
+          ${kdaChip(r)?`<div style="margin-top:2px">${kdaChip(r)}</div>`:''}
+        </div>
       </div>
+      ${itemIcons(r)?`<div class="mit">${itemIcons(r)}</div>`:''}
     </div>
     ${lineups}
   </div>`;
@@ -12638,7 +12658,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611222300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611222400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
