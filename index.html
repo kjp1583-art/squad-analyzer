@@ -9078,11 +9078,10 @@ function myeolTeamRankHtml(cfg){   // cfg 없으면 제9회(내장) — 있으�
   const rowsArr=teams.map((t,i)=>{
     const d=paperRank.get(t.cap)-(i+1), chg=!hasScr?`<span class="st-chg">–</span>`:(d>0?`<span class="st-chg up">▲ ${d}</span>`:(d<0?`<span class="st-chg dn">▼ ${-d}</span>`:`<span class="st-chg">–</span>`));
     const adj=t.sum==null?'–':`<span class="${t.adj>=0?'up':'dn'}">${t.adj>=0?'+':'−'}${Math.abs(t.adj).toFixed(1)}</span>`;
-    return `<details class="st-x${i<3?' top':''}${i===0?' one':''}"><summary class="st-r pw"><b class="st-rk">${i+1}</b><span class="st-tm">${teamEmblem(t.cap,26)}<span>${teamLink(t.cap,_edOfCfg(cfg))}</span></span><span class="pw-sc">${t.total==null?'-':t.total.toFixed(1)}</span><span class="pw-adj" title="스크림 실전 보정(종이 전력 ${t.sum==null?'-':t.sum.toFixed(1)} 기준)">${adj}</span><span class="st-wl">${t.sw+t.sl?`<em class="w">${t.sw}</em>-<em class="l">${t.sl}</em>`:'<span class="muted">전</span>'}</span><span class="pw-sp">${t.spent}P</span>${chg}</summary>
-      <div class="rk-mem">${t.rows.map((r,k)=>`<span class="${k===0?'cap':''}">${nmLink(r.n)}<b>${r.pw==null?'-':r.pw.toFixed(1)}</b></span>`).join("")}</div></details>`;
+    return `<div class="st-x${i<3?' top':''}${i===0?' one':''}"><div class="st-r pw st-click" role="link" tabindex="0" title="누르면 이 팀 페이지로 가요" onclick="go('team','${_edOfCfg(cfg)}|${escAttr(t.cap)}')"><b class="st-rk">${i+1}</b><span class="st-tm">${teamEmblem(t.cap,26)}<span>${teamLink(t.cap,_edOfCfg(cfg))}</span></span><span class="pw-sc">${t.total==null?'-':t.total.toFixed(1)}</span><span class="pw-adj" title="스크림 실전 보정(종이 전력 ${t.sum==null?'-':t.sum.toFixed(1)} 기준)">${adj}</span><span class="st-wl">${t.sw+t.sl?`<em class="w">${t.sw}</em>-<em class="l">${t.sl}</em>`:'<span class="muted">전</span>'}</span><span class="pw-sp">${t.spent}P</span>${chg}</div></div>`;
   });
   return _st2(`<div class="st-h pw"><span>순위</span><span class="st-tm">팀</span><span class="pw-sc" title="종이 전력 + 스크림 실전 보정">전투력</span><span class="pw-adj" title="스크림 실전 보정">보정</span><span class="st-wl">스크림</span><span class="pw-sp">지출</span><span class="st-chg" title="스크림 보정으로 종이 전력 순위에서 오른/내린 칸">변동</span></div>`,rowsArr)+`
-    <div class="mx-foot">※ 전투력 = 팀 5인 1인분 합(내부티어+통산승률) + 스크림 실전 보정(기대보다 이기면 +). 변동 = 보정 전 순위와의 차이. 팀을 누르면 팀원별 전투력이 펼쳐져요.</div>`;
+    <div class="mx-foot">※ 전투력 = 팀 5인 1인분 합(내부티어+통산승률) + 스크림 실전 보정(기대보다 이기면 +). 변동 = 보정 전 순위와의 차이. 팀을 누르면 그 팀의 페이지로 이동해요.</div>`;
 }
 // 💑 [2026-08-24 사장님 지시] 팀별 봇듀오(원딜+서폿) 파워랭킹. 라인업은 8/23 스크림 실측 우선, 없으면 주포지션.
 //    바텀이 유동적인 팀(사장님 지정: SIAH K·택스·MARU + 실측 불가 태희)은 경우의수를 각각 랭킹에 올린다.
@@ -13249,7 +13248,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611224800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611224900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
