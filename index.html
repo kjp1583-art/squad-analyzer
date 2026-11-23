@@ -9893,6 +9893,13 @@ function aucEval(d){   // 한 대회의 선수별 평가 + 팀별 합계
   const bestT=teams.filter(t=>t.n>=3).sort((a,b)=>b.gap-a.gap)[0]||null;
   return {out,teams,steal,over,bestT,rated:rated.length};
 }
+/* 🧭 팀장 포지션 — 낙찰 선수 4명이 안 채운 자리 하나가 팀장 자리(정확히 하나 비었을 때). 아니면 우리 기록의 주 포지션. 못 구하면 빈 칸(글자 「장」은 쓰지 않는다) */
+function _capPos(t,ed){
+  const ALL=["탑","정글","미드","원딜","서폿"], have=new Set((t.m||[]).map(p=>p.pos)), miss=ALL.filter(p=>!have.has(p));
+  if(miss.length===1) return miss[0];
+  try{ const f=myeolFairOf(t.cap,undefined,ed); if(f&&f.pos&&ALL.includes(f.pos)) return f.pos; }catch(e){}
+  return "";
+}
 function aucBoardHtml(d,open){   // 🔨 한 대회의 팀별 세로 5인 보드
   const kst=_aucKst, i=open?0:1;
   const POSC={"탑":"탑","정글":"정","미드":"미","원딜":"원","서폿":"서"};
@@ -9903,8 +9910,8 @@ function aucBoardHtml(d,open){   // 🔨 한 대회의 팀별 세로 5인 보드
     const EV=aucEval(d);
     const cols=d.teams.map(t=>{
       const ms=t.m.slice().sort((a,b)=>(b.price||0)-(a.price||0)), tsum=ms.reduce((a,p)=>a+(p.price||0),0);
-      const row=(nm,pos,tier,price,isCap,hot,ev)=>`<li class="${isCap?'cap':''}${hot?' hot':''}"><i class="ab-pos" title="${esc(pos||'')}">${isCap?'장':posIcon(pos,20)}</i><span class="ab-nm" title="${esc(nm)}${tier?' · '+esc(tier):''}">${esc(nm)}${tier?`<small>${esc(tier)}</small>`:''}</span><b class="ab-pr">${isCap?'팀장':(price==null?'':_aucN(price))}${(!isCap&&ev&&ev.v)?`<small class="ab-fp">/${_aucN(ev.fair)}</small>`:''}</b>${(!isCap&&ev&&ev.v)?`<i class="ab-v v-${ev.v.k}" title="우리 적정가 ${_aucN(ev.fair)}P · 낙찰 ${_aucN(price)}P (${ev.v.diff>0?'+':''}${_aucN(ev.v.diff)}P)">${ev.v.t}</i>`:''}</li>`;
-      return `<div class="ab-team"><div class="ab-th"><b>${teamEmblem(t.cap,22,aucNoOf(d)||9)}<span class="ab-tn2">${teamLink(t.cap,aucNoOf(d))}</span></b><span>${_aucN(tsum)}P${(()=>{const te=EV.teams.find(x=>x.cap===t.cap); return (te&&te.n>=3)?`<em class="ab-gap ${te.gap>=0?'up':'dn'}" title="우리 적정가 합 ${_aucN(te.fair)}P − 실제 ${_aucN(te.spent)}P">${te.gap>=0?'+':''}${_aucN(te.gap)}</em>`:'';})()}</span></div><ul class="ab-ul">${row(t.cap,"","",null,true,false)}${ms.map(p=>row(p.n,p.pos,p.tier,p.price,false,maxP!=null&&p.price===maxP,EV.out.get(p))).join("")}</ul></div>`; }).join("");
+      const row=(nm,pos,tier,price,isCap,hot,ev)=>`<li class="${isCap?'cap':''}${hot?' hot':''}"><i class="ab-pos" title="${esc(pos||'')}">${posIcon(pos,20)}</i><span class="ab-nm" title="${esc(nm)}${tier?' · '+esc(tier):''}">${esc(nm)}${tier?`<small>${esc(tier)}</small>`:''}</span><b class="ab-pr">${isCap?'팀장':(price==null?'':_aucN(price))}${(!isCap&&ev&&ev.v)?`<small class="ab-fp">/${_aucN(ev.fair)}</small>`:''}</b>${(!isCap&&ev&&ev.v)?`<i class="ab-v v-${ev.v.k}" title="우리 적정가 ${_aucN(ev.fair)}P · 낙찰 ${_aucN(price)}P (${ev.v.diff>0?'+':''}${_aucN(ev.v.diff)}P)">${ev.v.t}</i>`:''}</li>`;
+      return `<div class="ab-team"><div class="ab-th"><b>${teamEmblem(t.cap,22,aucNoOf(d)||9)}<span class="ab-tn2">${teamLink(t.cap,aucNoOf(d))}</span></b><span>${_aucN(tsum)}P${(()=>{const te=EV.teams.find(x=>x.cap===t.cap); return (te&&te.n>=3)?`<em class="ab-gap ${te.gap>=0?'up':'dn'}" title="우리 적정가 합 ${_aucN(te.fair)}P − 실제 ${_aucN(te.spent)}P">${te.gap>=0?'+':''}${_aucN(te.gap)}</em>`:'';})()}</span></div><ul class="ab-ul">${row(t.cap,_capPos(t,aucNoOf(d)||9),"",null,true,false)}${ms.map(p=>row(p.n,p.pos,p.tier,p.price,false,maxP!=null&&p.price===maxP,EV.out.get(p))).join("")}</ul></div>`; }).join("");
     return `<details class="ab-t"${i===0?' open':''}><summary><span class="ab-tn">${esc(d.name)}</span><span class="ab-ts">${esc(kst(d.finishedAt))} · ${d.teams.length}팀 · 낙찰 ${all.length}건 · 총 ${_aucN(spent)}P</span><svg class="mx-chev" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
       <div class="ab-top"><span class="ab-tl">최고 낙찰가</span>${top.map((p,k)=>`<span class="ab-tp"><em>${k+1}</em>${esc(p.n)}<b>${_aucN(p.price)}</b></span>`).join("")||"-"}</div>
       ${EV.rated?`<div class="ab-eval"><span class="ab-tl">우리 지표 평가</span>${EV.bestT?`<span class="ab-tp">가성비 팀 <b class="g">${esc(EV.bestT.cap)}</b> ${EV.bestT.gap>=0?'+':''}${_aucN(EV.bestT.gap)}P</span>`:''}${EV.steal&&EV.steal[1].fair-EV.steal[0].price>=30?`<span class="ab-tp">최고 가성비 <b class="g">${esc(EV.steal[0].n)}</b> ${_aucN(EV.steal[0].price)}P · 적정 ${_aucN(EV.steal[1].fair)}</span>`:''}${EV.over&&EV.over[0].price-EV.over[1].fair>=30?`<span class="ab-tp">최대 오버페이 <b class="r">${esc(EV.over[0].n)}</b> ${_aucN(EV.over[0].price)}P · 적정 ${_aucN(EV.over[1].fair)}</span>`:''}<span class="ab-note">낙찰가 ÷ 우리 적정가 · 평가 ${EV.rated}명 · 적정가는 지금까지의 내전 기록 기준</span></div>`:''}
@@ -13254,7 +13261,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611225200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611225300";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
