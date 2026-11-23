@@ -1646,6 +1646,29 @@ window.SGG_DC_BOOT=(function(){
   .st-click{cursor:pointer} .st-click:hover{background:rgba(255,255,255,.04)} .st-click.sel{background:rgba(91,140,255,.16);box-shadow:inset 3px 0 0 var(--accent)}
   .rpr-r{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;font-size:12px;font-weight:800;margin-right:6px;background:var(--bg2)} .rpr-r.w{color:var(--win)} .rpr-r.l{color:var(--lose)}
   .rpr-reset{margin-left:8px;padding:2px 9px;border-radius:7px;border:1px solid var(--line);background:var(--bg2);color:var(--sub);font-size:11.5px;font-weight:700;cursor:pointer}
+
+  /* 📰 홈 주간스쿼드 — 뉴스 포털식 미리보기 */
+  .nt{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px;cursor:pointer;margin-top:2px}
+  .nt-lead{position:relative;overflow:hidden;border-radius:14px;min-height:310px;padding:18px 20px 20px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;border:1px solid var(--line);background:linear-gradient(160deg,rgba(91,140,255,.28),rgba(14,20,36,.0) 55%),linear-gradient(180deg,#1a2238,#0e1322)}
+  .nt-lead:hover{border-color:var(--accent)}
+  .nt-wm{position:absolute;right:14px;top:6px;font-size:120px;opacity:.14;line-height:1;pointer-events:none}
+  .nt-lmeta{position:absolute;top:14px;left:20px;right:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--sub)}
+  .nt-brand{font-size:16px;font-weight:800;color:var(--txt)} .nt-wx{margin-left:auto;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.08)} .nt-wx b{margin-left:3px}
+  .nt-chip{align-self:flex-start;padding:3px 10px;border-radius:999px;background:var(--accent);color:#fff;font-size:11.5px;font-weight:800}
+  .nt-hl{font-size:26px;line-height:1.28;font-weight:800;text-wrap:balance}
+  .nt-lead-t{margin:0;color:var(--sub);font-size:14px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .nt-more{color:var(--accent);font-weight:800;white-space:nowrap}
+  .nt-side{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .nt-it{display:grid;grid-template-columns:62px minmax(0,1fr);gap:12px;align-items:center;padding:9px 8px;border-radius:12px}
+  .nt-it:hover{background:rgba(255,255,255,.05)}
+  .nt-th{width:62px;height:62px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--bg2);border:1px solid var(--line)}
+  .nt-th.tone-a{background:linear-gradient(135deg,#25314f,#1a2238)} .nt-th.tone-b{background:linear-gradient(135deg,#4a3a14,#2a2210)} .nt-th.tone-c{background:linear-gradient(135deg,#3a2230,#241420)} .nt-th.tone-d{background:linear-gradient(135deg,#17382c,#10241d)}
+  .nt-tx{display:flex;flex-direction:column;gap:2px;min-width:0} .nt-tx em{font-style:normal;font-size:11px;font-weight:800;color:var(--mut)}
+  .nt-tx b{font-size:14.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .nt-tx small{font-size:12px;color:var(--mut);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .nt-open{margin-top:6px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-size:13.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;text-align:left}
+  .nt-open{white-space:nowrap} .nt-open small{color:var(--mut);font-weight:600;margin-left:auto;overflow:hidden;text-overflow:ellipsis;min-width:0} .nt-open i{font-style:normal;color:var(--accent);font-size:18px} .nt-open:hover{border-color:var(--accent)}
+  @media(max-width:760px){.nt{grid-template-columns:1fr}.nt-lead{min-height:240px}.nt-hl{font-size:22px}.nt-wm{font-size:90px}.nt-open small{display:none}}
 </style>
 </head>
 <body>
@@ -5965,11 +5988,33 @@ function newsTeaserHtml(){   // 홈 1면 미리보기(자동매칭 자리)
   const mainEv=(W.events||[]).filter(e=>!_npIsBrjEv(e));
   const top=mainEv[0]||null;
   const lead=top&&top.body?top.body:(W.summary||"");
-  const cnt=[`기사 ${mainEv.length}`,(W.notices||[]).length?`알림 ${W.notices.length}`:"",`인물 ${(W.students||[]).length}`,(W.awards||[]).length?`이주의 인물 ${W.awards.length}`:""].filter(Boolean).join(" · ");
-  return `<div class="hsec-k">📰 이번 주 클랜 한눈에 <span>${esc(_npIssueNo(W))}</span></div><div class="np-tease" onclick="go('news')" title="지면 펼치기">
-    <div class="np-tmast"><span class="np-tname np-serif">주간스쿼드</span>${meta}</div>
-    <div class="np-tbody"><div style="min-width:0"><span class="np-kicker" style="margin-bottom:6px">1면${top&&top.section?` · ${esc(top.section)}`:""}</span><div class="np-thl np-serif">${esc(W.headline||"")}</div><div class="np-tlead">${mdLite(lead)}</div></div>${top?_npPhoto(top,W,120):""}</div>
-    <div class="np-tfoot"><span>${esc(cnt)} · 💬 독자 댓글</span><span class="np-tweather" title="이번 주 클랜 날씨 = 등급"><span>${wt.ic} ${esc(wt.t)}</span>${G.letter?`<span class="l">${esc(G.letter)}</span>`:""}</span><button class="np-topen" onclick="event.stopPropagation();go('news')">📰 지면 펼치기</button></div></div>`;
+  /* 📰 [2026-11-23 사장님 「메인의 주간스쿼드도 뉴스 포털처럼 이런저런 세부내용을 살짝씩 보여 주고, 누르고 싶어지게」]
+     왼쪽 = 1면 큰 카드(제목 + 기사 앞부분 + 「이어 읽기」) · 오른쪽 = 기사·이주의 인물·알림·숙제를 한 줄씩 맛보기. 눌러서 지면으로 간다. */
+  const cut=(t,n)=>{ t=String(t||"").replace(/[*`]/g,"").replace(/\s+/g," ").trim(); return t.length>n?t.slice(0,n).replace(/[\s,.·]+\S*$/,"")+"…":t; };
+  const KIND={"축하":"🎉","부고":"🕯","구인":"📣","속보":"⚡","광고":"📢","정정":"✏️"};
+  const items=[]; const ev=mainEv.slice(1), aw=W.awards||[], nt=W.notices||[], hw=W.homework||[], st=W.students||[];
+  const push=(tag,ic,t,sub,tone)=>{ if(t) items.push({tag,ic,t:cut(t,46),sub:cut(sub,58),tone}); };
+  if(ev[0]) push(ev[0].section||"기사",ev[0].emoji||"📰",ev[0].title,ev[0].body,"a");
+  if(aw[0]) push("이주의 인물","🏅",`${aw[0].title} — ${aw[0].name}`,aw[0].why,"b");
+  if(nt[0]) push(nt[0].kind||"알림",KIND[nt[0].kind]||"📌",String(nt[0].text||"").replace(/^[^—]{1,6}—\s*/,""),"","c");
+  if(ev[1]) push(ev[1].section||"기사",ev[1].emoji||"📰",ev[1].title,ev[1].body,"a");
+  if(hw[0]) push("이번 주 숙제","📝",hw[0],"","d");
+  if(aw[1]) push("이주의 인물","🏅",`${aw[1].title} — ${aw[1].name}`,aw[1].why,"b");
+  else if(st[0]) push("이번 주 인물",st[0].emoji||"🎓",st[0].name,st[0].line,"b");
+  const side=items.slice(0,5).map(it=>`<div class="nt-it" role="link" tabindex="0"><span class="nt-th tone-${it.tone}">${esc(it.ic)}</span><span class="nt-tx"><em>${esc(it.tag)}</em><b>${esc(it.t)}</b>${it.sub?`<small>${esc(it.sub)}</small>`:""}</span></div>`).join("");
+  const cnt=[`기사 ${mainEv.length}`,nt.length?`알림 ${nt.length}`:"",`인물 ${st.length}`,aw.length?`이주의 인물 ${aw.length}`:""].filter(Boolean).join(" · ");
+  const gen=String(W.generated_at||"").replace(/^\d{4}-(\d{2})-(\d{2}) (\d{2}:\d{2}).*$/,(m,mo,d,t)=>`${+mo}.${+d} ${t} 발행`);
+  return `<div class="hsec-k">📰 이번 주 클랜 한눈에 <span>${esc(_npIssueNo(W))}</span></div><div class="nt" onclick="go('news')" title="지면 펼치기">
+    <div class="nt-lead" role="link" tabindex="0">
+      <span class="nt-wm">${esc((top&&top.emoji)||"📰")}</span>
+      <div class="nt-lmeta"><span class="nt-brand np-serif">주간스쿼드</span><span>${esc(wk.label||"")}${gen?` · ${esc(gen)}`:""}</span>${G.letter?`<span class="nt-wx" title="이번 주 클랜 날씨 = 등급">${wt.ic} ${esc(wt.t)} <b>${esc(G.letter)}</b></span>`:""}</div>
+      <span class="nt-chip">1면${top&&top.section?` · ${esc(top.section)}`:""}</span>
+      <div class="nt-hl np-serif">${esc(W.headline||"")}</div>
+      <p class="nt-lead-t">${mdLite(cut(lead,150))} <span class="nt-more">이어 읽기 ›</span></p>
+    </div>
+    <div class="nt-side">${side}
+      <button type="button" class="nt-open" onclick="event.stopPropagation();go('news')">지면 전체 보기 <small>${esc(cnt)} · 💬 독자 댓글</small> <i>›</i></button></div>
+  </div>`;
 }
 function loadNewsIssue(to){   // 지난 호 — data/weekly_archive/{to}.json (없으면 false)
   if(NEWS_ARCHIVE[to]!==undefined) return Promise.resolve(NEWS_ARCHIVE[to]);
@@ -12949,7 +12994,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611223100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611223200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
