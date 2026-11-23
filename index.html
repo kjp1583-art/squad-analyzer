@@ -9960,6 +9960,8 @@ const MYEOL_UPCOMING_NO=10;   // 경매 전인 회차 — 이 회차의 경매 �
 /* 🚫 [2026-11-23 사장님 「멸망전탭에 멸망전 챔피언 밴픽률 탭을 따로 신설하고, 스크림과 본선 밴픽률 분리」]
    멸망전 팀 대 팀 판(스크림 목록과 같은 판정)에서 챔피언별 픽·밴·승률을 센다. 스크림 = 본선 개막 전 · 본선 = 개막 후(제10회~는 개막 시각이 정해지기 전까지 전부 스크림).
    한 판에서 같은 챔피언은 한 번만 센다(양 팀이 같이 밴해도 1). 밴픽률 = (픽 판 수 + 밴 판 수) ÷ 판 수 — 클랜 챔피언 표와 같은 정의. */
+let MYEOL_RK="team";   // 파워랭킹 하위 탭 — team|bot|mj|roster
+function setMyeolRk(v){ MYEOL_RK=v; renderMyeol(); }
 let MYEOL_BP="scrim";
 function setMyeolBp(v){ MYEOL_BP=(v==="main")?"main":"scrim"; renderMyeol(); }
 function myeolBpStats(cfg,which){
@@ -10108,15 +10110,19 @@ function renderMyeol(){
   let secView="";
   if(_vcur==="price") secView=priceSec;
   else if(_vcur==="auction") secView=myeolEditionBoard(_ed);
-  else if(_vcur==="rank") secView=_is9
-      ?`<div class="mx-duo2">${_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선`,myeolBotDuoHtml(),false)
-        }${_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 최다 조합`,myeolMidJglHtml(),false)}</div>`   // 🔝 [2026-11-23 사장님 「듀오 파워랭킹이 팀 파워랭킹 밑에 깔려 있는지도 모르겠다」] 듀오 둘은 맨 위에 나란히
-        +_myFold(`🏆 팀 파워랭킹`,`종이 전력 + 실전 보정(스크림·본선) · 기대승률 대비 초과 성과를 전투력으로 환산`,myeolTeamRankHtml(),true)
-        +_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,`12팀 · 우승팀부터 · 포지션순`,myeolRosterHtml(),false)
-      :(_cfg?`<div class="mx-duo2">${_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolBotDuoHtml(_cfg),false)
-        }${_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 우선(없으면 경매 포지션)`,myeolMidJglHtml(_cfg),false)}</div>`
-        +_myFold(`🏆 팀 파워랭킹`,`종이 전력(전투력 5인 합) + 실전 보정 · 자동 갱신`,myeolTeamRankHtml(_cfg),true)
-        +_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,`${_cfg.teams.length}팀 · 포지션순`,myeolRosterHtml(_cfg),false):"");
+  else if(_vcur==="rank"){   // 🗂 [2026-11-23 사장님 「봇듀오·미드정글·선수명단을 상단 탭으로, 누르면 팀 파워랭킹 자리가 그 내용으로 바뀌게」] 파워랭킹 안의 하위 탭
+    const _rkTabs=[["team","🏆 팀 파워랭킹"],["bot","💑 봇듀오"],["mj","🌀 미드·정글"],["roster","🧑‍🤝‍🧑 선수 명단"]];
+    if(!_rkTabs.some(t=>t[0]===MYEOL_RK)) MYEOL_RK="team";
+    const _c=_is9?undefined:_cfg;
+    let _body="";
+    if(!_is9&&!_cfg) _body="";
+    else if(MYEOL_RK==="team") _body=_is9?_myFold(`🏆 팀 파워랭킹`,`종이 전력 + 실전 보정(스크림·본선) · 기대승률 대비 초과 성과를 전투력으로 환산`,myeolTeamRankHtml(),true)
+      :_myFold(`🏆 팀 파워랭킹`,`종이 전력(전투력 5인 합) + 실전 보정 · 자동 갱신`,myeolTeamRankHtml(_c),true);
+    else if(MYEOL_RK==="bot") _body=_myFold(`💑 봇듀오 파워랭킹`,`원딜+서폿 전투력 2인 합 · 스크림 실측 우선${_is9?"":"(없으면 경매 포지션)"}`,myeolBotDuoHtml(_c),true);
+    else if(MYEOL_RK==="mj") _body=_myFold(`🌀 미드·정글 파워랭킹`,`미드+정글 전투력 2인 합 · 스크림 실측 ${_is9?"최다 조합":"우선(없으면 경매 포지션)"}`,myeolMidJglHtml(_c),true);
+    else _body=_myFold(`🧑‍🤝‍🧑 팀별 선수 명단`,_is9?`12팀 · 우승팀부터 · 포지션순`:`${_cfg?_cfg.teams.length:0}팀 · 포지션순`,myeolRosterHtml(_c),true);
+    secView=`<div class="st-ptabs rk-sub">${_rkTabs.map(t=>`<button type="button" class="pchip ${MYEOL_RK===t[0]?'on':''}" onclick="setMyeolRk('${t[0]}')">${t[1]}</button>`).join("")}</div>`+_body;
+  }
   else if(_vcur==="scrim") secView=_is9
       ?_myFold(`⚔ 스크림 전적`,`본선 개막 전 연습 경기 · 팀 대 팀으로 붙은 판만`,myeolScrimHtml(),true)
       :(_cfg?_myFold(`⚔ 스크림 전적`,`경매 뒤 팀 대 팀으로 붙은 판만`,myeolScrimHtml(_cfg),true):"");
@@ -10235,6 +10241,7 @@ function renderMyeol(){
   .rk-name{display:inline-flex;align-items:center;gap:7px}
   .st-h.pw,.st-r.pw{grid-template-columns:40px minmax(0,1fr) 58px 50px 56px 62px 52px}
   summary.st-r{list-style:none;cursor:pointer} summary.st-r::-webkit-details-marker{display:none}
+  .rk-sub{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
   .mx-duo2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px;align-items:start}
   .mx-duo2 .rkl{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-flow:row}
   @media(max-width:900px){.mx-duo2{grid-template-columns:minmax(0,1fr)}}
@@ -13242,7 +13249,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611224700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611224800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
