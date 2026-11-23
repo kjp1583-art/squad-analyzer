@@ -579,7 +579,29 @@ window.SGG_DC_BOOT=(function(){
   .kzlist{display:grid;gap:5px;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,auto);grid-auto-flow:column}
   @media(max-width:900px){
     .kzlist{grid-template-columns:1fr;grid-template-rows:none;grid-auto-flow:row}
-    .kzrow.up + .kzrow.low{margin-top:9px}   /* 상현 6명과 하현 6명 사이 숨 고르기 */
+    /* 📱 [2026-11-23 사장님 「모바일로 보면 난잡 — 이쁘게 정리」] 폰: 십이귀월판을 한 줄로 쌓고(일정·영상은 아래로), 상현·하현 카드는 나란히 작게, 귀살대 머리글은 줄바꿈 */
+  @media(max-width:720px){
+    .kzboard.two{grid-template-columns:minmax(0,1fr)}
+    .kzboard.two .kzleague+.kzleague{border-left:0;border-top:1px solid rgba(200,160,80,.22)}
+    .kzleague{padding:14px 12px 16px}
+    .kzhd{flex-wrap:wrap;gap:4px 8px} .kzhd h2{font-size:17px;white-space:nowrap} .kzhd .kanji{font-size:12px;letter-spacing:0}
+    .kzsub{font-size:11.5px;margin-bottom:10px}
+    .kzc-wrap{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+    .kzc{min-height:236px;border-radius:14px}
+    .kzc-s{padding:24px 9px 26px}
+    .kzc-seal{width:38px;height:38px} .kzc-seal .n{font-size:16px} .kzc-seal .r{font-size:9px}
+    .kzc-tier{font-size:11.5px;padding:2px 7px}
+    .kzc-name{font-size:19px}
+    .kzc-solo{font-size:11px;line-height:1.3}
+    .kzc-st{gap:4px;margin-top:7px} .kzc-st div{padding:4px 1px} .kzc-st em{font-size:9.5px;white-space:nowrap} .kzc-st b{font-size:12.5px;white-space:nowrap}
+    .kzc-kj{font-size:92px;right:-4px}
+    .kzc-rib{font-size:10px;padding:2px 8px 3px}
+    .kz-corps{padding:10px}
+    .kz-corps-hd{flex-wrap:wrap;gap:2px 7px} .kz-corps-sub{flex-basis:100%}
+    .kz-corps-chip{font-size:12px}
+    .yt-ch{font-size:11px;white-space:nowrap}
+  }
+  .kzrow.up + .kzrow.low{margin-top:9px}   /* 상현 6명과 하현 6명 사이 숨 고르기 */
   }
   .kzrow{position:relative;overflow:hidden;isolation:isolate;display:flex;align-items:center;gap:9px;
     padding:6px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;
@@ -6595,7 +6617,7 @@ function kzcCardHtml(up,members,KN){   // members: [{n,title,a,d,sp}] 순위순(
   const slides=members.map((m,k)=>{
     const a=m.a||{}, d=m.d||{}, short=d.soloTxt?String(d.soloTxt).replace(/ \d+LP$/,""):"";
     const solo=d.solo!=null?(d.soloTxt||"언랭"):"";
-    const st=[["내전 승률",d.wr!=null?d.wr+"%":"–"],["판수",a.games?a.games+"판":"–"],["MVP율",d.mvp!=null?d.mvp+"%":"–"]];
+    const st=[["승률",d.wr!=null?d.wr+"%":"–"],["판수",a.games?a.games+"판":"–"],["MVP율",d.mvp!=null?d.mvp+"%":"–"]];
     return `<div class="kzc-s${k===0?" on":""}" onclick="openPlayerCard(${JSON.stringify(m.n).replace(/"/g,"&quot;")})" title="${escAttr(m.n+" — "+m.title)}">
       ${m.sp?`<div class="kzc-bg" style="background-image:url('${escAttr(m.sp)}')"></div>`:""}<div class="kzc-kj">${KN[m.no]||m.no}</div>
       <div class="kzc-top"><span class="kzc-seal"><span class="r">${up?"上弦":"下弦"}</span><span class="n">${KN[m.no]||m.no}</span></span>${a.tier?`<span class="kzc-tier">${esc(a.tier)}</span>`:""}</div>
@@ -13433,7 +13455,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611226100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611226200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
