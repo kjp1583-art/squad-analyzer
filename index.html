@@ -1764,7 +1764,7 @@ window.SGG_DC_BOOT=(function(){
     </div>
   </div>
 
-  <div id="megaboard" class="hidden"></div>   <!-- 📢 고성능확성기 — 포인트로 1일간 메시지 게시(2026-08-06 사장님 지시) -->
+  <!-- 📢 상단 공지(megaboard) — 2026-11-23 사장님 지시로 삭제 -->
   <div class="fltrow" id="fltrow">
   <div class="catbar" id="catbar"></div>
   <div class="patchbar hidden" id="patchbar"></div>
@@ -1801,8 +1801,7 @@ const SHEET_ID = "10j2QBdXiyL0_UGKLMDcndieXD7jeMGxVHqH3nj6gJnU";
 const CATEGORIES = [
   {key:"rift", label:"협곡",  icon:"🗺️", gid:"1926038351"},
   {key:"aram", label:"칼바람", icon:"❄️", gid:"1282932443"},
-  // [2026-07-30 사장님 지시] 롤 클래식은 아이템·챔피언 체계가 달라 협곡 지표에 섞으면 안 된다 → 별도 탭.
-  {key:"classic", label:"클래식", icon:"🏛️", gid:"840541878"},
+  // 🗑 [2026-11-23 사장님 「롤 클래식은 서비스 종료 예정이라 클래식 탭 삭제」] 클래식 탭(gid 840541878)을 목록에서 뺐다 — 시트 탭 자체와 옛 기록은 건드리지 않는다.
 ];
 let CURRENT_CAT = "rift";
 const CAT_CACHE = {};          // key -> RAW (재방문 시 즉시 표시)
@@ -4524,7 +4523,7 @@ function renderGPTI(){
       <div class="gpti-dexhead"><span class="gpti-dextype">${x.t}</span><div><b class="gpti-dexnick">${esc(nick)}</b> <span class="muted" style="font-size:12.5px">${x.members.length}명</span><div class="gpti-desc">${esc(desc)}</div></div></div>
       ${champ}${names}${proRow}</div>`;
   };
-  view().innerHTML=`
+  view().innerHTML=`${navTabsHtml('gpti')}
     <div class="hof-head">
       <h1 class="hof-title">🧬 성향유형 도감</h1>
       <div class="hof-filter"><button class="ghost" style="background:var(--bg2);color:var(--sub);border:1px solid var(--line);padding:7px 12px;border-radius:8px" onclick="goBack()">← 뒤로</button></div>
@@ -5395,7 +5394,7 @@ function _parseRouteHash(h){   // → {k,cat,arg} | {k,bad:true}(잘린 링크) 
   if(m[1]==="p"){ const t=/^(.*)\/(sum|log|champ|ana|cmt)$/.exec(raw); if(t){ raw=t[1]; tab=t[2]; } }   // 📱 #p/닉/탭 — 닉 안의 "/" 는 %2F 로 오니 마지막 /탭 만 떼어 낸다. 탭이 없는 옛 링크는 그대로
   let arg; try{ arg=decodeURIComponent(raw).trim(); }catch(e){ return {k:m[1],bad:true,raw}; }
   if(!arg) return {k:m[1],bad:true,raw:""};
-  return {k:m[1],cat:m[2]||"rift",arg,tab};
+  return {k:m[1],cat:(m[2]&&m[2]!=="classic")?m[2]:"rift",arg,tab};   // 옛 클래식 공유 링크(#p/classic/…)는 협곡으로 연다
 }
 // final=최신 데이터 도착 뒤 — 그때만 '못 찾음' 판정. 열었으면 true
 function _openRoute(r,final){
@@ -9873,7 +9872,7 @@ function myeolBpStats(cfg,which){
     const picked=new Map(), banned=new Set();
     for(const r of (g.rows||[])){
       const c=r["챔피언"]; if(c) picked.set(c,r["결과"]==="승리");
-      const b=r["밴"]; if(validBan(b)) banned.add(b);
+      const b=r["밴"]; if(validBan(b)&&b!=="밴 없음"&&b!=="밴 안함") banned.add(b);   // 「밴 없음」은 챔피언이 아니다
     }
     for(const [c,win] of picked){ if(!M.has(c)) M.set(c,blank(c)); const e=M.get(c); e.pk++; if(win) e.w++; }
     for(const c of banned){ if(!M.has(c)) M.set(c,blank(c)); M.get(c).bn++; }
@@ -13129,7 +13128,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611224000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611224200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

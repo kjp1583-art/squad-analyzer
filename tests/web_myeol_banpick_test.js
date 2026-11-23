@@ -15,19 +15,20 @@ srv.listen(0,'127.0.0.1',async()=>{ const port=srv.address().port;
     // 스크림 2판(8/25·8/26) + 본선 1판(9/1) — 양 팀 같은 챔피언 밴("뽀삐")은 한 판에 1번만 센다
     const g=[["#s1","2026-08-25 20:00","승리"],["#s2","2026-08-26 20:00","패배"],["#m1","2026-09-01 20:00","승리"]];
     const m=new Map();
-    for(const [id,d,res] of g){ const o=res==="승리"?"패배":"승리"; m.set(id,{rows:[...mk(id,d,A,"블루팀",res,C1,"뽀삐"),...mk(id,d,B,"레드팀",o,C2,"뽀삐")]}); }
+    for(const [id,d,res] of g){ const o=res==="승리"?"패배":"승리"; m.set(id,{rows:[...mk(id,d,A,"블루팀",res,C1,"뽀삐"),...mk(id,d,B,"레드팀",o,C2,id==="#m1"?"밴 없음":"뽀삐")]}); }
     GAMES_ALL=m; _MYEOL_MEMO={seq:-1};
     const S=myeolBpStats(null,"scrim"), M=myeolBpStats(null,"main");
     const row=(D,c)=>D.rows.find(x=>x.c===c)||{};
     computeMyeol=()=>({list:[],ladder:[],maxD:"2026-11-23"}); MYEOL_ED=9; MYEOL_VIEW="bp"; MYEOL_BP="scrim"; renderMyeol();
     const t1=document.getElementById('view')?document.getElementById('view').innerText:document.body.innerText;
     const h1=document.body.innerHTML; setMyeolBp("main"); const t2=document.body.innerText;
-    return {sn:S&&S.n, mn:M&&M.n, popS:row(S,"뽀삐"), popM:row(M,"뽀삐"), artS:row(S,"아트록스"), jaxS:row(S,"제이스"), views:myeolViewsFor({kind:"builtin"}).map(v=>v[0]).join(),
+    return {noBan:M.rows.some(x=>x.c==="밴 없음")||S.rows.some(x=>x.c==="밴 없음"), sn:S&&S.n, mn:M&&M.n, popS:row(S,"뽀삐"), popM:row(M,"뽀삐"), artS:row(S,"아트록스"), jaxS:row(S,"제이스"), views:myeolViewsFor({kind:"builtin"}).map(v=>v[0]).join(),
       t1:t1.replace(/\s+/g,' '), t2:t2.replace(/\s+/g,' '), xss:window.__xss===undefined, imgInj:!!document.querySelector('img[src=x]')};
   });
   console.log(JSON.stringify({sn:r.sn,mn:r.mn,popS:r.popS,popM:r.popM,artS:r.artS},null,0));
   ok(r.sn===2&&r.mn===1,'스크림 2판 · 본선 1판으로 갈라진다');
   ok(r.popS.bn===2&&r.popS.pk===0&&r.popM.bn===1,'양 팀이 같이 밴한 뽀삐도 한 판에 1번만(스크림 2 · 본선 1)');
+  ok(!r.noBan,'「밴 없음」은 챔피언으로 안 센다');
   ok(r.artS.pk===2&&r.jaxS.pk===2,'픽은 판 수만큼');
   ok(/밴픽률/.test(r.views.replace('bp','밴픽률'))&&/bp/.test(r.views),'하위 탭에 밴픽률(bp)이 있다');
   ok(/Most Picks/.test(r.t1)&&/Most Banned/.test(r.t1)&&/스크림 2판/.test(r.t1)&&/뽀삐/.test(r.t1),'스크림 화면: Most Picks · Most Banned · 2판');
