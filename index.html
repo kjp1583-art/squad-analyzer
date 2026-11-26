@@ -157,6 +157,9 @@ window.SGG_DC_BOOT=(function(){
   .hof-postab.on{background:var(--gold);color:#1a1a1a;border-color:var(--gold)}
   .hof-grid{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-top:10px}
   @media(max-width:760px){.hof-grid{grid-template-columns:1fr}}
+  /* 🗂 [2026-11-26 P1-5] 접기/더 보기 단추 — 그리드 한 줄을 다 쓰고 가운데 선다 */
+  .hof-morebtn{grid-column:1/-1;justify-self:center;min-height:40px;margin:2px auto 0;background:var(--card2);color:var(--sub);border:1px solid var(--line);border-radius:10px;padding:9px 18px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  .hof-morebtn:hover{color:var(--txt);border-color:var(--accent)}
   .hof-row{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line)}
   .hof-row:last-child{border-bottom:none}
   .hof-medal{width:26px;text-align:center;flex:none;font-size:16px}
@@ -5542,7 +5545,7 @@ window.addEventListener("popstate",e=>{
 let _ROUTE_CUR="";   // 우리가 replaceState 로 쓴 해시 — 뒤로/앞으로 때 hashchange 가 같은 화면을 또 열며 패치 필터를 '전체'로 바꾸던 것 방지
 function _routeHashClear(){
   _ROUTE_CUR="";
-  const h=location.hash||""; if(!/^#(p|g|c|news|brj|ach|mst|ideal)(\/|$)/.test(h)) return;
+  const h=location.hash||""; if(!/^#(p|g|c|news|brj|ach|mst|ideal|hof)(\/|$)/.test(h)) return;
   try{ history.replaceState(history.state,"",location.pathname+location.search); }catch(e){}
 }
 function _routeHashSet(k,v,tab){
@@ -5555,7 +5558,7 @@ function _subHashSet(k,t){ try{ history.replaceState(history.state,"",location.p
 function _subHashOf(h){
   const t=/^#team\/(\d+)\/(.+)$/.exec(h||""); if(t){ let cap; try{ cap=decodeURIComponent(t[2]); }catch(e){ return null; } return {route:"team",tab:t[1]+"|"+cap}; }   // 🛡 #team/<회차>/<팀장>
   const v=/^#vs\/(\d+)\/(.+)$/.exec(h||""); if(v){ let gid; try{ gid=decodeURIComponent(v[2]); }catch(e){ return null; } return {route:"vs",tab:v[1]+"|"+gid}; }   // ⚔️ #vs/<회차>/<게임ID>
-  const m=/^#(ach|mst)\/([a-z]+)$/.exec(h||""); return m?{route:m[1]==="ach"?"ach":"mastery",tab:m[2]}:null; }
+  const m=/^#(ach|mst|hof)\/([a-z]+)$/.exec(h||""); return m?{route:m[1]==="ach"?"ach":m[1]==="mst"?"mastery":"hof",tab:m[2]}:null; }
 function _subRemember(k,t){ try{ localStorage.setItem("sgg_sub_"+k,t); }catch(e){} }
 function _subRecall(k){ try{ return localStorage.getItem("sgg_sub_"+k)||""; }catch(e){ return ""; } }
 function subTabsHtml(tabs,cur,route){ return `<div class="brjtabs" role="tablist">${tabs.map(([k,lb])=>`<button class="segbtn ${k===cur?'on':''}" role="tab" aria-selected="${k===cur}" onclick="go('${route}','${k}')">${lb}</button>`).join("")}</div>`; }
@@ -12951,7 +12954,10 @@ function switchPatch(sel,auto){
 /* ============== 명예의 전당(협곡) / 증내의 전당(칼바람) ============== */
 const POS_TO_KEY={"탑":"TOP","탑솔":"TOP","정글":"JUNGLE","정굴":"JUNGLE","미드":"MIDDLE","원딜":"BOTTOM","바텀":"BOTTOM","서폿":"UTILITY","서포터":"UTILITY"};
 const POS_KEY_KOR={ALL:"통합",TOP:"탑",JUNGLE:"정글",MIDDLE:"미드",BOTTOM:"원딜",UTILITY:"서폿"};
-let HOF={cat:"rift",pos:"ALL",patch:"전체 (ALL)"};
+let HOF={cat:"rift",pos:"ALL",patch:"전체 (ALL)",tab:"career"};
+/* 🗂 [2026-11-26 P1-5 사장님 「한 페이지에 카드 38장이 다 펼쳐져 13,015px」] 전당 화면을 6묶음 하위 탭으로 나눈다.
+   보기만 나누고 값·계산은 하나도 바꾸지 않는다(A등급). 주소는 #hof/<탭>. 협곡 전당만 커리어·견제압력 탭이 있다. */
+const HOF_SUB=[["career","🏅 커리어·우승"],["pressure","🎯 견제·미토·망령"],["rank","👑 기본 랭킹"],["record","⚔ 기록실"],["detail","📊 상세지표"],["predict","🎲 승부예측"]];
 
 // 카테고리 RAW 확보 (현재 보기와 무관하게 전당 집계용으로 캐시/로드)
 async function getCatRaw(catKey){
@@ -13276,7 +13282,7 @@ function recordRoomHtml(name){
   }).join("");
   return `<div class="card sect" style="margin-top:14px"><h2>🏅 내 기록실 ${chip}</h2><div class="muted" style="font-size:12px;margin:-2px 0 8px">통산 기준 · 패치 필터와 상관없어요 · 칸을 누르면 그 경기로 가요</div><div class="rr-grid">${cells}</div></div>`;
 }
-function hofRecordsHtml(rl, patchSel){
+function hofRecordsHtml(rl, patchSel){   // 🏅 기록실 — 한 판 최고·누적·평균 (2026-11-26 P1-5 로 상세지표와 분리)
   rl=rl.filter(e=>!isDeparted(e.name));   // 👥 탈퇴 확정자 랭킹 제외
   // [2026-07-21 사장님 지시] 기록실도 패치버전 필터 적용 — 특정 버전 선택 시 표본이 적어 판수 기준 완화
   const isAll=!patchSel||patchSel==="전체 (ALL)";
@@ -13300,44 +13306,72 @@ function hofRecordsHtml(rl, patchSel){
     : rl.filter(x=>x[fN]>=minN).map(x=>[x[fS]/x[fN], fv(x[fS]/x[fN])+" "+sub(`(${x[fN]}판)`), x.name]);
   return `<h2 style="margin:26px 0 10px">🏅 기록실 <span class="muted" style="font-size:13.5px;font-weight:400">${isAll?"전체 기간":"패치 "+esc(patchSel)+" 한정"}${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
     + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준") + `<div class="hof-grid">`
-    + card("⚔ 한 판 최다킬 TOP 10", rl.filter(x=>x.mxK[0]>0).map(x=>[x.mxK[0],`${x.mxK[0]}킬 ${ctx(x.mxK)}`,x.name]))
-    + card("💀 한 판 최다데스 TOP 10", rl.filter(x=>x.mxD[0]>0).map(x=>[x.mxD[0],`${x.mxD[0]}데스 ${ctx(x.mxD)}`,x.name]))
-    + card("🤝 한 판 최다어시 TOP 10", rl.filter(x=>x.mxA[0]>0).map(x=>[x.mxA[0],`${x.mxA[0]}어시 ${ctx(x.mxA)}`,x.name]))
-    + card("💥 한 판 최대 딜량 TOP 10", rl.filter(x=>x.mxDmg[0]>0).map(x=>[x.mxDmg[0],`${fmt(x.mxDmg[0])} ${ctx(x.mxDmg)}`,x.name]))
-    + card("🧠 한 판 최고 AI점수 TOP 10", rl.filter(x=>x.mxSc[0]>0).map(x=>[x.mxSc[0],`${x.mxSc[0].toFixed(1)}점 ${ctx(x.mxSc)}`,x.name]))
-    + card("⚔ 누적 킬왕 TOP 10", rl.filter(x=>x.tk>0).map(x=>[x.tk,`총 ${fmt(x.tk)}킬 ${sub(`(${x.g}판)`)}`,x.name]))
-    + card("💀 누적 데스왕 TOP 10", rl.filter(x=>x.td>0).map(x=>[x.td,`총 ${fmt(x.td)}데스 ${sub(`(${x.g}판)`)}`,x.name]))
-    + card("🤝 누적 어시왕 TOP 10", rl.filter(x=>x.ta>0).map(x=>[x.ta,`총 ${fmt(x.ta)}어시 ${sub(`(${x.g}판)`)}`,x.name]))
-    + card(`💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>`, lineRank(G10,"dmgSum","dmgN","dmgSum","dmgN",v=>`평균 ${fmt(v)}`))
-    + card(`📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>`, rl.filter(x=>x.g>=G10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
-    + card(`🧠 평균 AI점수 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>`, lineRank(G10,"scSum","scN","scSum","scN",v=>`${v.toFixed(1)}점`))
-    + (rl.some(x=>x.metN>0) ? (
-      `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
-      + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준")
-      + `<div class="hof-grid">`
-      + card("⚡ 분당 데미지(DPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"dpm","dpmN","dpmSum","dpmN",v=>`분당 ${fmt(v)}`))
-      + card("💰 분당 골드(GPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"gpm","gpmN","gpmSum","gpmN",v=>`분당 ${fmt(v)}G`))
-      + card("🌾 분당 CS TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"cspm","cspmN","cspmSum","cspmN",v=>`분당 ${v.toFixed(1)}개`))
-      + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.kpN>=G5).map(x=>[x.kpSum/x.kpN,`${Math.round(x.kpSum/x.kpN)}% ${sub(`(${x.kpN}판)`)}`,x.name]))
-      + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.vsN>=G5).map(x=>[x.vsSum/x.vsN,`${(x.vsSum/x.vsN).toFixed(1)}점 ${sub(`(${x.vsN}판)`)}`,x.name]))
-      + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.cwN}판)`)}`,x.name]))
-      + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.skN}판 · 판당 ${(x.skSum/Math.max(1,x.skN)).toFixed(2)})`)}`,x.name]))
-      + card("🗡 솔킬률 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>판당 솔로킬</span>", rl.filter(x=>x.skN>=G5&&x.skSum>0).map(x=>[x.skSum/x.skN,`판당 ${(x.skSum/x.skN).toFixed(2)} ${sub(`(${x.skSum}회 / ${x.skN}판)`)}`,x.name]))
-      + card("🛡 분당 받은 피해 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>탱킹</span>", rl.filter(x=>x.dtpmN>=G5).map(x=>[x.dtpmSum/x.dtpmN,`분당 ${fmt(x.dtpmSum/x.dtpmN)} ${sub(`(${x.dtpmN}판)`)}`,x.name]))
-      + card("🛡 한 판 최다 받은 피해 TOP 10", rl.filter(x=>x.mxDt[0]>0).map(x=>[x.mxDt[0],`${fmt(x.mxDt[0])} ${ctx(x.mxDt)}`,x.name]))
+    + hofFold([
+      card("⚔ 한 판 최다킬 TOP 10", rl.filter(x=>x.mxK[0]>0).map(x=>[x.mxK[0],`${x.mxK[0]}킬 ${ctx(x.mxK)}`,x.name])),
+      card("💀 한 판 최다데스 TOP 10", rl.filter(x=>x.mxD[0]>0).map(x=>[x.mxD[0],`${x.mxD[0]}데스 ${ctx(x.mxD)}`,x.name])),
+      card("🤝 한 판 최다어시 TOP 10", rl.filter(x=>x.mxA[0]>0).map(x=>[x.mxA[0],`${x.mxA[0]}어시 ${ctx(x.mxA)}`,x.name])),
+      card("💥 한 판 최대 딜량 TOP 10", rl.filter(x=>x.mxDmg[0]>0).map(x=>[x.mxDmg[0],`${fmt(x.mxDmg[0])} ${ctx(x.mxDmg)}`,x.name])),
+      card("🧠 한 판 최고 AI점수 TOP 10", rl.filter(x=>x.mxSc[0]>0).map(x=>[x.mxSc[0],`${x.mxSc[0].toFixed(1)}점 ${ctx(x.mxSc)}`,x.name])),
+      card("⚔ 누적 킬왕 TOP 10", rl.filter(x=>x.tk>0).map(x=>[x.tk,`총 ${fmt(x.tk)}킬 ${sub(`(${x.g}판)`)}`,x.name])),
+      card("💀 누적 데스왕 TOP 10", rl.filter(x=>x.td>0).map(x=>[x.td,`총 ${fmt(x.td)}데스 ${sub(`(${x.g}판)`)}`,x.name])),
+      card("🤝 누적 어시왕 TOP 10", rl.filter(x=>x.ta>0).map(x=>[x.ta,`총 ${fmt(x.ta)}어시 ${sub(`(${x.g}판)`)}`,x.name])),
+      card(`💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>`, lineRank(G10,"dmgSum","dmgN","dmgSum","dmgN",v=>`평균 ${fmt(v)}`)),
+      card(`📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>`, rl.filter(x=>x.g>=G10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name])),
+      card(`🧠 평균 AI점수 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>`, lineRank(G10,"scSum","scN","scSum","scN",v=>`${v.toFixed(1)}점`)),
+    ], HOF_FOLD, "기록")
+    + `</div>`;
+}
+
+function hofDetailHtml(rl, patchSel){   // 📊 상세지표 — 2026-11-26 P1-5 로 따로 한 탭(값·계산은 그대로)
+  rl=rl.filter(e=>!isDeparted(e.name));   // 👥 탈퇴 확정자 랭킹 제외
+  // [2026-07-21 사장님 지시] 기록실도 패치버전 필터 적용 — 특정 버전 선택 시 표본이 적어 판수 기준 완화
+  const isAll=!patchSel||patchSel==="전체 (ALL)";
+  const G10=isAll?10:5, G5=isAll?5:3;   // 누적/평균 카드 최소 판수
+  const medal=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":`<span class="hof-rank">${i+1}</span>`;
+  const fmt=v=>Math.round(v).toLocaleString();
+  const sub=t=>`<span class="muted" style="font-weight:400">${t}</span>`;
+  const ctx=x=>sub(`(${esc(x[1]||'-')} · ${esc(x[2]||'-')})`);
+  const card=(t,entries)=>{
+    const top=entries.sort((a,b)=>b[0]-a[0]).slice(0,10);
+    const body=top.length?top.map((e,i)=>`<div class="hof-row"><span class="hof-medal">${medal(i)}</span><span class="clickname" onclick="go('player','${escAttr(e[2])}')">${esc(shortName(e[2]))}</span>${tierBadge(e[2])}<span class="hof-metric">${e[1]}</span></div>`).join(""):`<div class="muted" style="padding:16px 4px">기록 데이터가 부족합니다.</div>`;
+    return `<div class="card"><h2>${t}</h2>${body}</div>`;
+  };
+  // 🧭 [2026-07-25 사장님 지시] 라인 종속 지표(CS·딜·골드·AI점수) — '전체' 뷰는 (선수×포지션) 엔트리로 랭킹.
+  //   주 포지션 합산이 아니라 포지션별 분리라, 한 사람이 탑·미드 각각으로 동시 랭크 가능(1~5위 독식도 가능).
+  //   포지션 필터가 걸리면 rows가 이미 그 포지션으로 걸러졌으니 그냥 통산(=그 포지션) 값을 쓴다.
+  const AV = HOF_REC_POS==="ALL";
+  const lineRank=(minN,pS,pN,fS,fN,fv)=> AV
+    ? rl.flatMap(x=>Object.entries(x.pp||{}).filter(([_,v])=>v[pN]>=minN)
+        .map(([pos,v])=>[v[pS]/v[pN], fv(v[pS]/v[pN])+" "+sub(`(${v[pN]}판·${esc(pos)})`), x.name]))
+    : rl.filter(x=>x[fN]>=minN).map(x=>[x[fS]/x[fN], fv(x[fS]/x[fN])+" "+sub(`(${x[fN]}판)`), x.name]);
+  if(!rl.some(x=>x.metN>0)) return "";   // 지표 기록기가 없는 옛 시트면 탭을 비워 둔다(시오류 없이)
+  return `<h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
+    + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준")
+    + `<div class="hof-grid">`
+    + hofFold([
+      card("⚡ 분당 데미지(DPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"dpm","dpmN","dpmSum","dpmN",v=>`분당 ${fmt(v)}`)),
+      card("💰 분당 골드(GPM) TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"gpm","gpmN","gpmSum","gpmN",v=>`분당 ${fmt(v)}G`)),
+      card("🌾 분당 CS TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>포지션별</span>", lineRank(G5,"cspm","cspmN","cspmSum","cspmN",v=>`분당 ${v.toFixed(1)}개`)),
+      card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.kpN>=G5).map(x=>[x.kpSum/x.kpN,`${Math.round(x.kpSum/x.kpN)}% ${sub(`(${x.kpN}판)`)}`,x.name])),
+      card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.vsN>=G5).map(x=>[x.vsSum/x.vsN,`${(x.vsSum/x.vsN).toFixed(1)}점 ${sub(`(${x.vsN}판)`)}`,x.name])),
+      card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.cwN}판)`)}`,x.name])),
+      card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.skN}판 · 판당 ${(x.skSum/Math.max(1,x.skN)).toFixed(2)})`)}`,x.name])),
+      card("🗡 솔킬률 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>판당 솔로킬</span>", rl.filter(x=>x.skN>=G5&&x.skSum>0).map(x=>[x.skSum/x.skN,`판당 ${(x.skSum/x.skN).toFixed(2)} ${sub(`(${x.skSum}회 / ${x.skN}판)`)}`,x.name])),
+      card("🛡 분당 받은 피해 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>탱킹</span>", rl.filter(x=>x.dtpmN>=G5).map(x=>[x.dtpmSum/x.dtpmN,`분당 ${fmt(x.dtpmSum/x.dtpmN)} ${sub(`(${x.dtpmN}판)`)}`,x.name])),
+      card("🛡 한 판 최다 받은 피해 TOP 10", rl.filter(x=>x.mxDt[0]>0).map(x=>[x.mxDt[0],`${fmt(x.mxDt[0])} ${ctx(x.mxDt)}`,x.name])),
       // 🐉 [2026-07-24 사장님 지시] 뭉뚱그린 '오브젝트'를 용/바론/포탑으로 3분할 — 성격이 서로 다름
-      + card("🐉 평균 드래곤 관여 TOP 10", rl.filter(x=>x.drN>=G5&&x.drSum>0).map(x=>[x.drSum/x.drN,`판당 ${(x.drSum/x.drN).toFixed(2)}마리 ${sub(`(총 ${x.drSum}·${x.drN}판)`)}`,x.name]))
-      + card("🟣 평균 바론 관여 TOP 10", rl.filter(x=>x.brN>=G5&&x.brSum>0).map(x=>[x.brSum/x.brN,`판당 ${(x.brSum/x.brN).toFixed(2)}마리 ${sub(`(총 ${x.brSum}·${x.brN}판)`)}`,x.name]))
-      + card("🏰 평균 포탑 철거 TOP 10", rl.filter(x=>x.turN>=G5&&x.turSum>0).map(x=>[x.turSum/x.turN,`판당 ${(x.turSum/x.turN).toFixed(2)}개 ${sub(`(총 ${x.turSum}·${x.turN}판)`)}`,x.name]))
+      card("🐉 평균 드래곤 관여 TOP 10", rl.filter(x=>x.drN>=G5&&x.drSum>0).map(x=>[x.drSum/x.drN,`판당 ${(x.drSum/x.drN).toFixed(2)}마리 ${sub(`(총 ${x.drSum}·${x.drN}판)`)}`,x.name])),
+      card("🟣 평균 바론 관여 TOP 10", rl.filter(x=>x.brN>=G5&&x.brSum>0).map(x=>[x.brSum/x.brN,`판당 ${(x.brSum/x.brN).toFixed(2)}마리 ${sub(`(총 ${x.brSum}·${x.brN}판)`)}`,x.name])),
+      card("🏰 평균 포탑 철거 TOP 10", rl.filter(x=>x.turN>=G5&&x.turSum>0).map(x=>[x.turSum/x.turN,`판당 ${(x.turSum/x.turN).toFixed(2)}개 ${sub(`(총 ${x.turSum}·${x.turN}판)`)}`,x.name])),
       // 💚 서포팅·시야 평균 + 🔥 캐리·생존 비율
-      + card("💚 평균 힐+실드 TOP 10", rl.filter(x=>x.hsN>=G5&&x.hsSum>0).map(x=>[x.hsSum/x.hsN,`판당 ${fmt(x.hsSum/x.hsN)} ${sub(`(${x.hsN}판)`)}`,x.name]))
-      + card("👁 평균 와드 설치 TOP 10", rl.filter(x=>x.wpN>=G5&&x.wpSum>0).map(x=>[x.wpSum/x.wpN,`판당 ${(x.wpSum/x.wpN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wpSum)}·${x.wpN}판)`)}`,x.name]))
-      + card("🧹 평균 와드 제거 TOP 10", rl.filter(x=>x.wkN>=G5&&x.wkSum>0).map(x=>[x.wkSum/x.wkN,`판당 ${(x.wkSum/x.wkN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wkSum)}·${x.wkN}판)`)}`,x.name]))
-      + card("🤝 평균 어시스트 TOP 10", rl.filter(x=>x.kdaN>=G5).map(x=>[x.ta/x.kdaN,`판당 ${(x.ta/x.kdaN).toFixed(1)}개 ${sub(`(총 ${fmt(x.ta)}·${x.kdaN}판)`)}`,x.name]))
-      + card("🛡 무데스 경기 비율 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>한 번도 안 죽은 판</span>", rl.filter(x=>x.kdaN>=G10&&x.ndN>0).map(x=>[x.ndN/x.kdaN,`${(x.ndN/x.kdaN*100).toFixed(1)}% ${sub(`(${x.ndN}판 / ${x.kdaN}판)`)}`,x.name]))
-      + card("🔥 두 자릿수 킬 비율 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10킬 이상 판</span>", rl.filter(x=>x.kdaN>=G10&&x.dkN>0).map(x=>[x.dkN/x.kdaN,`${(x.dkN/x.kdaN*100).toFixed(1)}% ${sub(`(${x.dkN}판 / ${x.kdaN}판)`)}`,x.name]))
-      + card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.dpmN>=G5&&x.gpmN>0&&x.gpmSum>0).map(x=>[(x.dpmSum/x.dpmN)/(x.gpmSum/x.gpmN),`골드당 ${((x.dpmSum/x.dpmN)/(x.gpmSum/x.gpmN)).toFixed(2)}딜 ${sub(`(${x.dpmN}판)`)}`,x.name]))
-    ) : "")
+      card("💚 평균 힐+실드 TOP 10", rl.filter(x=>x.hsN>=G5&&x.hsSum>0).map(x=>[x.hsSum/x.hsN,`판당 ${fmt(x.hsSum/x.hsN)} ${sub(`(${x.hsN}판)`)}`,x.name])),
+      card("👁 평균 와드 설치 TOP 10", rl.filter(x=>x.wpN>=G5&&x.wpSum>0).map(x=>[x.wpSum/x.wpN,`판당 ${(x.wpSum/x.wpN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wpSum)}·${x.wpN}판)`)}`,x.name])),
+      card("🧹 평균 와드 제거 TOP 10", rl.filter(x=>x.wkN>=G5&&x.wkSum>0).map(x=>[x.wkSum/x.wkN,`판당 ${(x.wkSum/x.wkN).toFixed(1)}개 ${sub(`(총 ${fmt(x.wkSum)}·${x.wkN}판)`)}`,x.name])),
+      card("🤝 평균 어시스트 TOP 10", rl.filter(x=>x.kdaN>=G5).map(x=>[x.ta/x.kdaN,`판당 ${(x.ta/x.kdaN).toFixed(1)}개 ${sub(`(총 ${fmt(x.ta)}·${x.kdaN}판)`)}`,x.name])),
+      card("🛡 무데스 경기 비율 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>한 번도 안 죽은 판</span>", rl.filter(x=>x.kdaN>=G10&&x.ndN>0).map(x=>[x.ndN/x.kdaN,`${(x.ndN/x.kdaN*100).toFixed(1)}% ${sub(`(${x.ndN}판 / ${x.kdaN}판)`)}`,x.name])),
+      card("🔥 두 자릿수 킬 비율 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>10킬 이상 판</span>", rl.filter(x=>x.kdaN>=G10&&x.dkN>0).map(x=>[x.dkN/x.kdaN,`${(x.dkN/x.kdaN*100).toFixed(1)}% ${sub(`(${x.dkN}판 / ${x.kdaN}판)`)}`,x.name])),
+      card("💪 골드 효율(딜/골드) TOP 10", rl.filter(x=>x.dpmN>=G5&&x.gpmN>0&&x.gpmSum>0).map(x=>[(x.dpmSum/x.dpmN)/(x.gpmSum/x.gpmN),`골드당 ${((x.dpmSum/x.dpmN)/(x.gpmSum/x.gpmN)).toFixed(2)}딜 ${sub(`(${x.dpmN}판)`)}`,x.name])),
+    ], HOF_FOLD, "지표")
     + `</div>`;
 }
 
@@ -13350,19 +13384,43 @@ function hofPosBar(cur, fn, hint){
     + (hint?`<span class="muted" style="font-size:11.5px;margin-left:4px">${hint}</span>`:"")
     + `</div>`;
 }
-function setHofRecPos(p){ HOF_REC_POS=p; const el=document.getElementById("hofRecBox");
-  if(el) el.outerHTML=hofRecordsBoxHtml(); }
+/* 🗂 [2026-11-26 P1-5] 카드가 많은 탭은 처음 limit 장만 펼치고 나머지는 '더 보기'로 접는다.
+   카드 문자열 머리(<div class="card">)만 hidden 으로 바꿔 그리드 칸을 먹지 않게 한다(높이만 줄고 모양·값은 그대로). */
+const HOF_FOLD=6;
+function hofFold(cards, limit, label){
+  const n=Math.max(0,limit|0);
+  if(cards.length<=n) return cards.join("");
+  const rest=cards.length-n;
+  return cards.slice(0,n).join("")
+    + `<button type="button" class="hof-morebtn" data-more="▾ ${label} ${rest}개 더 보기" aria-expanded="false" onclick="hofMore(this)">▾ ${label} ${rest}개 더 보기</button>`
+    + cards.slice(n).map(c=>c.replace('<div class="card">','<div class="card hof-extra" hidden>')).join("");
+}
+function hofMore(btn){
+  const box=btn&&btn.parentNode; if(!box) return;
+  const rest=[...box.querySelectorAll(".hof-extra")]; if(!rest.length) return;
+  const open=!!rest[0].hidden;   // 지금 접혀 있으면 이번에 편다
+  rest.forEach(el=>{ el.hidden=!open; });
+  btn.setAttribute("aria-expanded",open?"true":"false");
+  btn.textContent = open ? "▴ 접기" : (btn.getAttribute("data-more")||"더 보기");
+}
+function setHofRecPos(p){ HOF_REC_POS=p;   // 포지션 필터 — 지금 열린 기록실·상세지표 박스만 제자리에서 다시 그린다
+  for(const [id,part] of [["hofRecBox","record"],["hofDetailBox","detail"]]){
+    const el=document.getElementById(id); if(el) el.outerHTML=hofRecordsBoxHtml(part);
+  }
+}
 function setBpPos(p){ BP_POS=p; const el=document.getElementById("bpHofBox");
   if(el) el.outerHTML=banPressureHofHtml(); }
-function hofRecordsBoxHtml(){   // 기록실+상세지표 (포지션 필터 반영, 제자리 갱신 단위)
+function hofRecordsBoxHtml(part){   // 기록실(part="record") · 상세지표(part="detail") — 포지션 필터 반영, 제자리 갱신 단위
   const raw=_HOF_CACHE.raw||[];
   let rows = HOF.patch==="전체 (ALL)" ? raw : raw.filter(r=>normPatch(r["패치버전"])===HOF.patch);
   if(HOF_REC_POS!=="ALL") rows = rows.filter(r=>r["포지션"]===HOF_REC_POS);
-  return `<div id="hofRecBox">` + hofRecordsHtml(computeHofRecords(rows), HOF.patch) + `</div>`;
+  const rl=computeHofRecords(rows);
+  if(part==="detail"){ const h=hofDetailHtml(rl, HOF.patch); return `<div id="hofDetailBox">`+(h||hofNoneHtml("상세지표"))+`</div>`; }
+  return `<div id="hofRecBox">` + hofRecordsHtml(rl, HOF.patch) + `</div>`;
 }
 
 let _HOF_CACHE={raw:null,data:null,patches:null,isRift:true};
-function hofMainBoxHtml(){   // 🎖️ 망령/승률왕/MVP/역적 4카드 + 포지션 탭 (제자리 갱신 단위)
+function hofMainBoxHtml(part){   // 🎖️ 망령 · 승률왕·MVP·역적 — part: "ghost"(망령) · "rank"(승률·MVP·역적) · 없으면 전부
   const {data, isRift} = _HOF_CACHE;
   const pos=isRift?HOF.pos:"ALL";
   let minWr=pos==="ALL"?10:5, minEval=pos==="ALL"?5:3;
@@ -13402,23 +13460,27 @@ function hofMainBoxHtml(){   // 🎖️ 망령/승률왕/MVP/역적 4카드 + �
   const posTabs=isRift?`<div class="hof-postabs">`+
     [["ALL","통합"],["TOP","탑"],["JUNGLE","정글"],["MIDDLE","미드"],["BOTTOM","원딜"],["UTILITY","서폿"]]
     .map(p=>`<button class="hof-postab ${HOF.pos===p[0]?"on":""}" onclick="hofPos('${p[0]}')">${p[1]}</button>`).join("")+`</div>`:"";
-  return `<div id="hofMainBox">${posTabs}<div class="hof-grid">`
-    + card("🎖️ 망령 TOP 10 <span class='muted' style='font-size:13.5px;font-weight:400'>판수</span>",mostGames,"total")
-    + card("📈 승률왕 TOP 10",highestWr,"wr")
-    + card("👑 MVP 획득률 TOP 10",highestMvp,"mvp")
-    + card("💀 역적 지목률 TOP 10",highestTroll,"troll")
-    + `</div></div>`;
+  const ghostCard=card("🎖️ 망령 TOP 10 <span class='muted' style='font-size:13.5px;font-weight:400'>판수</span>",mostGames,"total");
+  const rankCards=[card("📈 승률왕 TOP 10",highestWr,"wr"), card("👑 MVP 획득률 TOP 10",highestMvp,"mvp"), card("💀 역적 지목률 TOP 10",highestTroll,"troll")];
+  // 🗂 [2026-11-26 P1-5] 탭 ②는 망령, 탭 ③은 승률·MVP·역적 — 포지션 탭은 보이는 박스에만 붙는다
+  if(part==="ghost") return `<div id="hofGhostBox">${posTabs}<div class="hof-grid">${ghostCard}</div></div>`;
+  if(part==="rank") return `<div id="hofMainBox">${posTabs}<div class="hof-grid">${rankCards.join("")}</div></div>`;
+  return `<div id="hofMainBox">${posTabs}<div class="hof-grid">${ghostCard}${rankCards.join("")}</div></div>`;
 }
 
 async function renderHOF(catArg){
   if(catArg==="rift"||catArg==="aram"){HOF.cat=catArg;HOF.pos="ALL";HOF.patch="전체 (ALL)";}
+  else if(HOF_SUB.some(t=>t[0]===catArg)) HOF.tab=catArg;   // 🗂 #hof/<탭> · 하위 탭만 바뀐 경우
   window.scrollTo(0,0);
   const isRift=HOF.cat==="rift";
+  // 🗂 [2026-11-26 P1-5] 전당 화면에도 상단 탭을 되살리고, 카드 38장을 6묶음으로 나눈다(값·계산 불변).
+  const subs=HOF_SUB.filter(t=>isRift||(t[0]!=="career"&&t[0]!=="pressure"));
+  if(!subs.some(t=>t[0]===HOF.tab)) HOF.tab=subs[0][0];
   const headTitle=isRift?"🏆 명예의 전당":(HOF.cat==="classic"?"🏛️ 클래식의 전당":"❄️ 증내의 전당");
-  view().innerHTML=`<div class="empty">${headTitle} 데이터를 불러오는 중…</div>`;
+  view().innerHTML=`${navTabsHtml("hof")}<div class="empty">${headTitle} 데이터를 불러오는 중…</div>`;
   let raw;
   try{ raw=await getCatRaw(HOF.cat); }
-  catch(e){ view().innerHTML=`<div class="empty">데이터를 불러오지 못했습니다.<br><span class="muted">${esc(e.message||'')}</span></div>`; return; }
+  catch(e){ view().innerHTML=`${navTabsHtml("hof")}<div class="empty">데이터를 불러오지 못했습니다.<br><span class="muted">${esc(e.message||'')}</span></div>`; return; }
   const {data,patches}=computeHOF(raw);
   if(!patches.includes(HOF.patch))HOF.patch="전체 (ALL)";
   _HOF_CACHE={raw, data, patches, isRift};   // 🔁 포지션 버튼 제자리 갱신용(전체 재렌더 없이 해당 박스만 교체)
@@ -13434,19 +13496,34 @@ async function renderHOF(catArg){
       </div>
     </div>
     ${DEPARTED_SET.size?`<div class="muted" style="font-size:12px;margin:-4px 0 10px">👥 탈퇴 확정 인원은 랭킹 지표에서 제외됩니다 · 대회 우승 역사(커리어)는 기록으로 보존</div>`:""}
-    ${isRift?careerHofHtml():""}
-    ${isRift?banPressureHofHtml():""}
-    ${isRift?mitoHofHtml():""}
-    ${hofMainBoxHtml()}
-    ${hofRecordsBoxHtml()}
-    <div id="predTitleCard"></div>
-    <div id="lckPredCard"></div>`;
-  renderPredictionTitles();   // 🎲 승부예측 명예의전당 — 메인에서 이곳(전당)으로 이동(2026-07-16 사장님 지시)
-  renderLckPredHof();         // 👑 LCK 승부예측의 신 — 그 아래(2026-08-05 사장님 지시)
+    ${subTabsHtml(subs,HOF.tab,"hof")}
+    <div id="hofSubBox">${hofSubBoxHtml()}</div>`;
+  if(HOF.tab==="predict"){   // 🎲 승부예측 명예의전당 — 자기 탭에서만 그린다
+    renderPredictionTitles();
+    renderLckPredHof();
+  }
+  _subHashSet("hof",HOF.tab);   // 🔗 #hof/<탭> — 새로고침·공유해도 그 탭으로 열린다
 }
+/* 🗂 [2026-11-26 P1-5] 하위 탭 내용 — 탭 하나의 부분만 그린다(값·계산·필터는 전과 같다) */
+function hofSubBoxHtml(){
+  const isRift=_HOF_CACHE.isRift;
+  if(HOF.tab==="career") return (isRift?careerHofHtml():"")||hofNoneHtml("커리어·우승");
+  if(HOF.tab==="pressure"){
+    if(!isRift) return hofNoneHtml("견제압력·미토·망령");
+    return (banPressureHofHtml()+mitoHofHtml()+hofMainBoxHtml("ghost"))||hofNoneHtml("견제압력·미토·망령");
+  }
+  if(HOF.tab==="rank") return hofMainBoxHtml("rank");
+  if(HOF.tab==="record") return hofRecordsBoxHtml("record");
+  if(HOF.tab==="detail") return hofRecordsBoxHtml("detail")||hofNoneHtml("상세지표");
+  if(HOF.tab==="predict") return `<div id="predTitleCard"></div><div id="lckPredCard"></div>`;
+  return "";
+}
+function hofNoneHtml(what){ return `<div class="empty" style="padding:30px 10px">${what} 기록이 아직 없어요.</div>`; }
 function hofPos(p){   // [2026-07-21] 전체 재렌더 금지 — 해당 박스만 교체해 스크롤 위치 유지
-  HOF.pos=p; const el=document.getElementById("hofMainBox");
-  if(el) el.outerHTML=hofMainBoxHtml(); else renderHOF();
+  HOF.pos=p;
+  const a=document.getElementById("hofGhostBox"); if(a) a.outerHTML=hofMainBoxHtml("ghost");
+  const b=document.getElementById("hofMainBox");  if(b) b.outerHTML=hofMainBoxHtml("rank");
+  if(!a&&!b) renderHOF();
 }
 function hofPatch(p){HOF.patch=p;renderHOF();}
 
@@ -13553,7 +13630,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611266700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611266800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

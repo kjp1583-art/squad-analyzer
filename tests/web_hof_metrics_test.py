@@ -67,6 +67,9 @@ JS_A = r"""(()=>{
 
 JS_B = r"""(async()=>{
   go('hof','rift');
+  // 🗂 [2026-11-26 P1-5] 상세지표는 자기 하위 탭에 있다 — 탭이 그려지면 그 탭으로 옮긴다.
+  for(let i=0;i<40;i++){ await new Promise(r=>setTimeout(r,250)); if(document.querySelector('.brjtabs .segbtn')) break; }
+  go('hof','detail');
   for(let i=0;i<80;i++){ await new Promise(r=>setTimeout(r,400)); if([...document.querySelectorAll('.hof-grid .card h2')].some(h=>/DPM/.test(h.textContent))) break; }
   const out={};
   for(const h of document.querySelectorAll('.hof-grid .card h2')){
