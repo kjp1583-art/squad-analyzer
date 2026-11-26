@@ -1790,6 +1790,25 @@ window.SGG_DC_BOOT=(function(){
   .yt-play i::after{content:"";position:absolute;left:23px;top:11px;border-left:16px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent}
   .yt-ttl{margin-top:9px;font-size:14px;font-weight:800;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .yt-meta{margin-top:3px;font-size:12px;color:var(--mut)}
+  /* 🎬 #영상신청 최신 클립 + 클랜원 댓글 (2026-11-27) */
+  .yt-seg{margin:10px 0 0;gap:6px}
+  .yt-seg .segbtn{padding:6px 11px;font-size:12.5px}
+  .cl-cmt{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .cl-cmt-hd{font-size:13px;font-weight:800;margin-bottom:8px}
+  .cl-cmt-hd b{color:var(--gold)}
+  .cl-cmt-list{max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding-right:2px}
+  .cl-row{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+  .cl-row-hd{display:flex;gap:7px;align-items:baseline;font-size:12px;color:var(--sub)}
+  .cl-row-hd b{font-size:12.5px;color:var(--txt)}
+  .cl-row-tx{margin-top:2px;font-size:13px;line-height:1.45;word-break:break-word;white-space:pre-wrap}
+  .cl-empty{font-size:12.5px;color:var(--mut);padding:8px 0}
+  .cl-form{display:flex;gap:6px;margin-top:9px}
+  .cl-in{min-width:0;flex:1 1 0;padding:8px 9px;border-radius:9px;border:1px solid var(--line);background:var(--bg2);color:var(--txt);font-size:13px}
+  .cl-nick{flex:0 0 84px}
+  .cl-in:focus{outline:none;border-color:var(--accent)}
+  .cl-send{flex:0 0 auto;padding:8px 13px;border-radius:9px;border:1px solid var(--accent);background:var(--accent);color:#12161f;font-size:13px;font-weight:800;cursor:pointer}
+  .cl-send:hover{filter:brightness(1.06)}
+  .cl-note{min-height:15px;margin-top:6px;font-size:12px;color:var(--mut)}
   .pos-ic{display:block;width:20px;height:20px;object-fit:contain}
   .tp-pos:has(.pos-ic){width:26px;height:26px;border-radius:8px} .ab-pos:has(.pos-ic){flex:0 0 26px;height:26px;border-radius:8px}   /* 아이콘은 16px 에서는 탑·원딜이 헷갈려 20px 로 */
   .tp-h2{margin:22px 2px 10px;font-size:18px}
@@ -7444,25 +7463,150 @@ let WEB_EVENTS=[];
    파일을 못 읽으면 아래 내장 값(작성 시점의 최신 영상)으로 그린다. 썸네일을 누르면 그 자리에서 재생. */
 const YT_CHANNEL="https://www.youtube.com/@league_squad";
 let YT_HOME={videos:[{id:"XNJNjI1SGyY",title:"스쿼드 제 8회 멸망전 경매 | 다시보기",published:"2026-11-11T22:48:26+00:00"}]}, YT_HOME_AT=0, YT_HOME_BUSY=false;
+/* 🎬 [2026-11-27 사장님 「클랜 영상에 #영상신청 최신 영상 + 클랜원 댓글」] 봇 서버(/clip/latest)가 디스코드 #영상신청 의
+   최신 직접 영상과 그 댓글을 준다 — 같은 카드에 두 탭(🎬 #영상신청 · ▶ 유튜브 최신)으로 나눠 담는다.
+   봇이 응답하지 않거나 JSON 이 아니면(배포 전 등) 조용히 '유튜브 최신' 만 남긴다 — 카드가 깨지지 않게. */
+const CLIP_API="https://hth3thmujs.apps.bot-hosting.cloud/clip";
+let CLIP_HOME={clip:null,comments:[],at:0,busy:false,err:false,note:""}, CLIP_TAB=null, CLIP_SENDING=false;
 function ytHomeLoad(){
-  if(YT_HOME_BUSY||(YT_HOME_AT&&Date.now()-YT_HOME_AT<30*60000)) return;
-  YT_HOME_BUSY=true;
-  fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/ai-eval-data/youtube_latest.json",{cache:"no-cache"})
-    .then(r=>r.ok?r.json():null).then(d=>{ if(d&&Array.isArray(d.videos)){ const v=d.videos.filter(x=>x&&/^[\w-]{11}$/.test(String(x.id||""))); if(v.length) YT_HOME={videos:v}; } }).catch(()=>{})
-    .then(()=>{ YT_HOME_AT=Date.now(); YT_HOME_BUSY=false; const el=document.getElementById("ytHomePane"); if(el){ const w=document.createElement("div"); w.innerHTML=ytHomeHtml(); el.replaceWith(w.firstElementChild); } });
+  if(!YT_HOME_BUSY&&!(YT_HOME_AT&&Date.now()-YT_HOME_AT<30*60000)){
+    YT_HOME_BUSY=true;
+    fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/ai-eval-data/youtube_latest.json",{cache:"no-cache"})
+      .then(r=>r.ok?r.json():null).then(d=>{ if(d&&Array.isArray(d.videos)){ const v=d.videos.filter(x=>x&&/^[\w-]{11}$/.test(String(x.id||""))); if(v.length) YT_HOME={videos:v}; } }).catch(()=>{})
+      .then(()=>{ YT_HOME_AT=Date.now(); YT_HOME_BUSY=false; ytHomePaint(); });
+  }
+  clipLoad(false);
+}
+function clipLoad(force){
+  if(CLIP_HOME.busy) return;
+  if(!force&&CLIP_HOME.at&&Date.now()-CLIP_HOME.at<2*60000) return;   // 2분 캐시 — 댓글 등록 뒤엔 force 로 바로 다시 읽는다
+  CLIP_HOME.busy=true;
+  fetch(CLIP_API+"/latest",{cache:"no-cache"})
+    .then(r=>r.ok?r.json():Promise.reject(0))
+    .then(d=>{ if(!d||typeof d!=="object") throw 0; CLIP_HOME.clip=clipNorm(d.clip); CLIP_HOME.comments=clipCmts(d.comments); CLIP_HOME.err=false; })
+    .catch(()=>{ CLIP_HOME.err=!CLIP_HOME.clip; })
+    .then(()=>{ CLIP_HOME.at=Date.now(); CLIP_HOME.busy=false; ytHomePaint(); });
+}
+function clipNorm(c){
+  if(!c||typeof c!=="object") return null;
+  const id=String(c.id||"").trim(), url=String(c.url||"").trim();
+  if(!/^\d{1,32}$/.test(id)||!/^https:\/\/[^\s"'<>]{4,}$/i.test(url)) return null;   // https URL 만 — 그 밖은 영상으로 안 띄운다
+  return {id:id,url:url,author:String(c.author||"").slice(0,40),caption:String(c.caption||"").slice(0,160),
+          filename:String(c.filename||"").slice(0,120),created_at:String(c.created_at||"")};
+}
+function clipCmts(a){
+  return (Array.isArray(a)?a:[]).filter(c=>c&&typeof c==="object")
+    .map(c=>({author:String(c.author||"").slice(0,40),text:String(c.text||"").slice(0,300),ts:+c.ts||0}))
+    .filter(c=>c.text).slice(-100);   // 내용 없는 줄은 버린다
+}
+function clipDate(iso){
+  const d=new Date(iso); if(isNaN(d)) return "";
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
+}
+function clipWhen(ts){
+  if(!ts) return "";
+  const d=new Date(ts*1000); if(isNaN(d)) return "";
+  const p=n=>String(n).padStart(2,"0");
+  return `${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function ytHomePaint(){
+  const el=document.getElementById("ytHomePane"); if(!el) return;
+  const n0=document.getElementById("clNick"), t0=document.getElementById("clText");
+  const nick=n0?n0.value:null, txt=t0?t0.value:null;   // 새로 그려도 치던 글은 살린다
+  const w=document.createElement("div"); w.innerHTML=ytHomeHtml(); if(!w.firstElementChild) return;
+  el.replaceWith(w.firstElementChild);
+  if(nick){ const n=document.getElementById("clNick"); if(n&&!n.value) n.value=nick; }
+  if(txt){ const t=document.getElementById("clText"); if(t&&!t.value) t.value=txt; }
 }
 function ytHomeHtml(){
-  const v=(YT_HOME.videos||[])[0]; if(!v||!/^[\w-]{11}$/.test(String(v.id||""))) return "";
-  const d=new Date(v.published), ds=isNaN(d)?"":`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
+  const v=(YT_HOME.videos||[])[0];
+  const hasYt=!!(v&&/^[\w-]{11}$/.test(String(v.id||"")));
+  const clip=CLIP_HOME.clip;
+  if(!hasYt&&!clip) return "";
+  const tab=(CLIP_TAB==="clip"||CLIP_TAB==="yt")?CLIP_TAB:(clip?"clip":"yt");   // 최신 클립이 있으면 그쪽이 기본
   return `<div id="ytHomePane" style="margin-top:18px">
-    <div class="kzhd"><h2>▶ 클랜 영상</h2><span class="kanji">유튜브 최신</span><a class="yt-ch" href="${YT_CHANNEL}" target="_blank" rel="noopener">채널 ↗</a></div>
-    <div class="yt-thumb" data-v="${v.id}" role="button" tabindex="0" onclick="ytPlay(this)" onkeydown="if(event.key==='Enter')ytPlay(this)" title="재생">
+    <div class="kzhd"><h2>▶ 클랜 영상</h2><span class="kanji">클랜원 영상</span><a class="yt-ch" href="${YT_CHANNEL}" target="_blank" rel="noopener">채널 ↗</a></div>
+    <div class="seg yt-seg" role="tablist" aria-label="클랜 영상 전환">
+      <button type="button" role="tab" data-cltab="clip" class="segbtn${tab==="clip"?" on":""}" aria-selected="${tab==="clip"}" onclick="clipSetTab('clip')">🎬 #영상신청</button>
+      <button type="button" role="tab" data-cltab="yt" class="segbtn${tab==="yt"?" on":""}" aria-selected="${tab==="yt"}" onclick="clipSetTab('yt')">▶ 유튜브 최신</button>
+    </div>
+    <div id="clPanelClip" style="display:${tab==="clip"?"":"none"}">${clip?clipBodyHtml(clip):clipEmptyHtml()}</div>
+    <div id="clPanelYt" style="display:${tab==="yt"?"":"none"}">${hasYt?ytBodyHtml(v,clipDate(v.published)):""}</div>
+  </div>`;
+}
+function ytBodyHtml(v,ds){
+  return `<div class="yt-thumb" data-v="${v.id}" role="button" tabindex="0" onclick="ytPlay(this)" onkeydown="if(event.key==='Enter')ytPlay(this)" title="재생">
       <img src="https://i.ytimg.com/vi/${v.id}/hqdefault.jpg" alt="${escAttr(v.title||"")}" loading="lazy">
       <span class="yt-play"><i></i></span>
     </div>
     <div class="yt-ttl">${esc(v.title||"")}</div>
-    <div class="yt-meta">SQuad Clan${ds?" · "+ds:""}</div>
+    <div class="yt-meta">SQuad Clan${ds?" · "+ds:""}</div>`;
+}
+function clipBodyHtml(clip){
+  const ds=clipDate(clip.created_at);
+  return `<video controls playsinline preload="metadata" style="width:100%;max-height:260px;border-radius:10px;background:#000;margin-top:10px;display:block" src="${escAttr(clip.url)}"></video>
+    <div class="yt-ttl">${esc(clip.caption||"#영상신청 최신 영상")}</div>
+    <div class="yt-meta">${esc(clip.author||"클랜원")}${ds?" · "+ds:""}</div>
+    ${clipCmtsHtml()}`;
+}
+function clipEmptyHtml(){
+  const msg=CLIP_HOME.err?"#영상신청 영상 정보를 불러오지 못했어요 — 잠시 뒤 새로고침해 주세요":"아직 #영상신청 에 올라온 영상이 없어요";
+  return `<div class="cl-empty" style="margin-top:12px;padding:16px 12px;text-align:center">${msg}</div>`;
+}
+function clipCmtsHtml(){
+  const n=(CLIP_HOME.comments||[]).length;
+  return `<div class="cl-cmt">
+    <div class="cl-cmt-hd">💬 클랜원 댓글 (<b id="clCmtCnt">${n}</b>)</div>
+    <div class="cl-cmt-list" id="clCmtList">${clipCmtRows()}</div>
+    <div class="cl-form">
+      <input id="clNick" class="cl-in cl-nick" maxlength="20" placeholder="닉네임" autocomplete="nickname" value="${escAttr(clipNick())}" onkeydown="if(event.key==='Enter'){event.preventDefault();clipCommentSend();}">
+      <input id="clText" class="cl-in" maxlength="200" placeholder="한 줄 댓글 (200자까지)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();clipCommentSend();}">
+      <button type="button" class="cl-send" onclick="clipCommentSend()">등록</button>
+    </div>
+    <div class="cl-note" id="clNote">${esc(CLIP_HOME.note||"")}</div>
   </div>`;
+}
+function clipCmtRows(){
+  const cs=CLIP_HOME.comments||[];
+  if(!cs.length) return `<div class="cl-empty">아직 댓글이 없어요 — 첫 댓글을 남겨 보세요</div>`;
+  return cs.slice().reverse().map(c=>`<div class="cl-row"><div class="cl-row-hd"><b>${esc(c.author||"익명")}</b><span>${esc(clipWhen(c.ts))}</span></div><div class="cl-row-tx">${esc(c.text||"")}</div></div>`).join("");
+}
+function clipNick(){ try{ return String(localStorage.getItem("sq_clip_nick")||"").slice(0,20); }catch(e){ return ""; } }
+function clipNote(msg){ CLIP_HOME.note=msg||""; const el=document.getElementById("clNote"); if(el) el.textContent=CLIP_HOME.note; }
+function clipSetTab(t){
+  CLIP_TAB=(t==="clip")?"clip":"yt";
+  const pane=document.getElementById("ytHomePane"); if(!pane) return;
+  pane.querySelectorAll("[data-cltab]").forEach(b=>{ const on=b.getAttribute("data-cltab")===CLIP_TAB; b.classList.toggle("on",on); b.setAttribute("aria-selected",on?"true":"false"); });
+  const cp=document.getElementById("clPanelClip"), yp=document.getElementById("clPanelYt");
+  if(cp) cp.style.display=(CLIP_TAB==="clip")?"":"none";
+  if(yp) yp.style.display=(CLIP_TAB==="yt")?"":"none";
+}
+function clipCommentSend(){
+  const clip=CLIP_HOME.clip; if(!clip){ clipNote("영상을 불러오면 댓글을 남길 수 있어요"); return false; }
+  if(CLIP_SENDING) return false;
+  const nEl=document.getElementById("clNick"), tEl=document.getElementById("clText");
+  const author=String((nEl&&nEl.value)||"").replace(/\s+/g," ").trim().slice(0,20);
+  const text=String((tEl&&tEl.value)||"").replace(/\s+/g," ").trim().slice(0,200);
+  if(!author){ clipNote("닉네임을 적어 주세요"); if(nEl) nEl.focus(); return false; }
+  if(!text){ clipNote("댓글을 적어 주세요"); if(tEl) tEl.focus(); return false; }
+  CLIP_SENDING=true; clipNote("등록 중…");
+  try{ localStorage.setItem("sq_clip_nick",author); }catch(e){}
+  fetch(CLIP_API+"/comment",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({clip_id:clip.id,author:author,text:text})})
+    .then(r=>r.json().catch(()=>null).then(j=>({status:r.status,ok:r.ok,j:j||{}})))
+    .then(res=>{
+      CLIP_SENDING=false;
+      if(res.ok&&res.j.ok!==false&&Array.isArray(res.j.comments)){
+        CLIP_HOME.comments=clipCmts(res.j.comments); clipNote("");
+        if(tEl) tEl.value="";
+        const list=document.getElementById("clCmtList"); if(list) list.innerHTML=clipCmtRows();
+        const cnt=document.getElementById("clCmtCnt"); if(cnt) cnt.textContent=String(CLIP_HOME.comments.length);
+      } else if(res.status===429||res.j.code==="cooldown") clipNote("너무 빨라요 — 3~5초 뒤에 다시 등록해 주세요");
+      else if(res.status===400||res.j.code==="bad") clipNote("닉네임(20자)·댓글(200자) 안으로 적어 주세요");
+      else clipNote("등록하지 못했어요 — 잠시 뒤 다시 시도해 주세요");
+    })
+    .catch(()=>{ CLIP_SENDING=false; clipNote("서버에 연결하지 못했어요 — 잠시 뒤 다시 시도해 주세요"); });
+  return false;
 }
 function ytPlay(el){ const id=el&&el.dataset&&el.dataset.v; if(!id||!/^[\w-]{11}$/.test(id)) return;
   el.outerHTML=`<div class="yt-thumb yt-on"><iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="클랜 영상" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`; }
@@ -13662,7 +13806,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611270116";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611270136";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
