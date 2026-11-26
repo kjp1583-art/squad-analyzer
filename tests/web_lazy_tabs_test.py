@@ -44,13 +44,15 @@ def src_checks(src_text):
     bad = [f for f in LAZY if f + "()" in boot]
     ok(not bad, "A1 부팅에 화면 전용 탭 로더가 없다 (남아 있으면: %s)" % (", ".join(bad) or "없음"))
     for need, lbl in (("player:ID_TABS", "프로필"), ('gpti:["lckgpti","mbti"]', "성향유형"),
-                      ('mito:["mitogames"]', "미토"), ('game:["mitogames"]', "게임 상세"), ('news:["brjang"]', "주간스쿼드")):
+                      ('mito:["mitogames"]', "미토"), ('game:["mitogames"]', "게임 상세")):
         ok(need in src_text.replace(" ", ""), "A2 화면별 지연 목록에 %s 가 있다" % lbl)
     ok('if(t==="predict")return["predictions","lckpred"]' in src_text.replace(" ", ""),
        "A3 명예의 전당 '승부예측' 탭은 PREDICTIONS·LCK_PRED 를 먼저 받는다")
     ok("function sheetTab(" in src_text and "function routeTabNeeds(" in src_text,
        "A4 sheetTab·routeTabNeeds 가 있다")
     ok("prefetchProfileTabs" in src_text, "A5 프로필 탭 미리 받기(홈이 그려진 뒤)가 있다")
+    ok("function _npFillBrjang(" in src_text and "news:[\"brjang\"]" not in src_text.replace(" ", ""),
+       "A6 주간스쿼드는 지면을 먼저 그리고 브장신 그림만 나중에 채운다(대기 화면으로 막지 않는다)")
     return fails
 
 
