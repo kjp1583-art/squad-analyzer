@@ -1792,6 +1792,18 @@ window.SGG_DC_BOOT=(function(){
   .yt-play i::after{content:"";position:absolute;left:23px;top:11px;border-left:16px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent}
   .yt-ttl{margin-top:9px;font-size:14px;font-weight:800;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .yt-meta{margin-top:3px;font-size:12px;color:var(--mut)}
+  /* 🎬 [2026-11-27 사장님 「모바일로 영상시청 테스트해보니까 영상이 중간에 멈춘 상태로 보이는데 사운드는 진행되는 현상」]
+     클립 재생 상자 — 크기는 넣는 순간 CSS 로 정해진다. <video> 는 비율 상자 안에서만 늘어나므로 메타데이터가
+     늦게 와도(또는 다시 와도) 상자 크기가 바뀌지 않는다. 안드로이드 크롬은 재생 중에 상자가 다시 잡히면
+     영상 표면이 굳어 화면만 멈추는 일이 있어, 크기 변화 자체를 없애 둔다. */
+  .cl-player{position:relative;width:100%;aspect-ratio:16/9;max-height:260px;margin-top:10px;background:#000;border-radius:10px;overflow:hidden}
+  .cl-player>video{display:block;width:100%;height:100%;background:#000;object-fit:contain}
+  .cl-fix{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:7px;padding:7px 9px;border:1px solid rgba(232,64,87,.45);border-radius:9px;background:rgba(232,64,87,.08);font-size:12px;color:#ffb3bd}
+  .cl-fix[hidden]{display:none}
+  .cl-fix.bad{border-color:rgba(232,64,87,.7)}
+  .cl-fix button,.cl-fix a{margin-left:auto;padding:4px 9px;border-radius:7px;border:1px solid rgba(255,179,189,.4);background:rgba(255,255,255,.06);color:#ffd7dc;font-size:11.5px;font-weight:800;text-decoration:none;cursor:pointer}
+  .cl-fix button+a{margin-left:0}
+  .cl-fix button:hover,.cl-fix a:hover{border-color:#ffb3bd;color:#fff}
   /* 🎬 #영상신청 최신 클립 + 클랜원 댓글 (2026-11-27) */
   .yt-seg{margin:10px 0 0;gap:6px}
   .yt-seg .segbtn{padding:6px 11px;font-size:12.5px}
@@ -7605,6 +7617,7 @@ function ytHomeLoad(){
       .then(()=>{ YT_HOME_AT=Date.now(); YT_HOME_BUSY=false; ytHomePaint(); });
   }
   clipLoad(false);
+  setTimeout(clipWatchStart,600);   // 홈을 그릴 때 이미 붙어 있던 재생기(2분 캐시)에도 멈춤 감시를 건다 — 이미 걸렸으면 그냥 지나간다
 }
 function clipLoad(force){
   if(CLIP_HOME.busy) return;
@@ -7642,10 +7655,21 @@ function ytHomePaint(){
   const el=document.getElementById("ytHomePane"); if(!el) return;
   const n0=document.getElementById("clNick"), t0=document.getElementById("clText");
   const nick=n0?n0.value:null, txt=t0?t0.value:null;   // 새로 그려도 치던 글은 살린다
+  /* 🎬 [2026-11-27] 같은 클립이면 판을 통째로 다시 그리지 않는다 — <video> 가 DOM 에서 떨어졌다 다시 붙으면
+     모바일에서 재생이 끊기고 표면이 굳는다. 이때는 댓글·제목만 갈아끼운다(새 클립이 올라왔을 때만 새로 그린다). */
+  const v0=document.getElementById("clVideo");
+  if(v0&&CLIP_HOME.clip&&v0.getAttribute("data-cid")===CLIP_HOME.clip.id){ clipCmtPaint(); return; }
   const w=document.createElement("div"); w.innerHTML=ytHomeHtml(); if(!w.firstElementChild) return;
   el.replaceWith(w.firstElementChild);
   if(nick){ const n=document.getElementById("clNick"); if(n&&!n.value) n.value=nick; }
   if(txt){ const t=document.getElementById("clText"); if(t&&!t.value) t.value=txt; }
+  clipWatchStart();
+}
+function clipCmtPaint(){   // 재생 중인 판을 건드리지 않고 댓글·제목만 새로 그린다
+  const list=document.getElementById("clCmtList"); if(list) list.innerHTML=clipCmtRows();
+  const cnt=document.getElementById("clCmtCnt"); if(cnt) cnt.textContent=String((CLIP_HOME.comments||[]).length);
+  const ttl=document.getElementById("clTtl");
+  if(ttl&&CLIP_HOME.clip) ttl.textContent=CLIP_HOME.clip.caption||"#영상신청 최신 영상";
 }
 function ytHomeHtml(){
   const v=(YT_HOME.videos||[])[0];
@@ -7672,11 +7696,72 @@ function ytBodyHtml(v,ds){
     <div class="yt-meta">SQuad Clan${ds?" · "+ds:""}</div>`;
 }
 function clipBodyHtml(clip){
-  const ds=clipDate(clip.created_at);
-  return `<video controls playsinline preload="metadata" style="width:100%;max-height:260px;border-radius:10px;background:#000;margin-top:10px;display:block" src="${escAttr(clip.url)}"></video>
-    <div class="yt-ttl">${esc(clip.caption||"#영상신청 최신 영상")}</div>
+  const ds=clipDate(clip.created_at), u=escAttr(clip.url), fn=escAttr(clip.filename||"clip.mp4");
+  return `<div class="cl-player" id="clPlayer"><video id="clVideo" data-cid="${escAttr(clip.id)}" controls playsinline webkit-playsinline x5-playsinline preload="metadata" src="${u}"></video></div>
+    <div class="cl-fix" id="clFix" hidden><span id="clFixTx">화면이 멈췄어요</span><button type="button" onclick="clipRelink(null,true)">다시 연결</button><a href="${u}" target="_blank" rel="noopener" download="${fn}">원본 내려받기</a></div>
+    <div class="yt-ttl" id="clTtl">${esc(clip.caption||"#영상신청 최신 영상")}</div>
     <div class="yt-meta">${esc(clip.author||"클랜원")}${ds?" · "+ds:""}</div>
     ${clipCmtsHtml()}`;
+}
+/* 🎬 [2026-11-27 사장님 「모바일로 영상시청 테스트해보니까 영상이 중간에 멈춘 상태로 보이는데 사운드는 진행되는 현상」]
+   실측: 그 클립은 H.264 Main@3.1 · 720p30 · AAC 이고(moov 는 파일 끝), 처음부터 끝까지 디코딩해도 오류가 0건이라
+   코덱·손상 문제는 아니다. 다만 그 파일은 33.2초부터 끝(36.2초)까지 같은 프레임이 얼어붙어 있고 오디오는 33.15초에
+   끝난다 — 원본 인코딩 쪽 문제라 웹에서는 고칠 수 없다(봇에서 그 꼬리를 잘라야 한다).
+   그와 별개로 폰에서 '화면만 굳고 소리는 계속'이 나는 것은 안드로이드 크롬의 <video> 영상 표면이 굳을 때의
+   대표 증상이다(앱 전환했다 돌아오면 살아나는 그 증상). 웹에서 할 수 있는 일은 표면을 새로 만드는 것뿐이라,
+   재생 위치는 흐르는데 '그려진 프레임 수'가 안 늘면 그 상태로 보고 한 번 자동으로 다시 붙인다(load → 보던
+   자리로 되돌려 재생). 두 번 그래도 멈추면 자동 재시도는 그만두고 「다시 연결」·「원본 내려받기」만 남긴다. */
+function clipFrames(v){
+  try{
+    if(v.getVideoPlaybackQuality){ const q=v.getVideoPlaybackQuality(); return q?(q.totalVideoFrames||0):0; }
+    return v.webkitDecodedFrameCount||0;
+  }catch(e){ return 0; }
+}
+function clipFix(tx,bad){
+  const box=document.getElementById("clFix"), t=document.getElementById("clFixTx");
+  if(!box) return;
+  if(t) t.textContent=tx;
+  box.hidden=false; box.classList.toggle("bad",!!bad);
+}
+function clipFixHide(){ const box=document.getElementById("clFix"); if(box) box.hidden=true; }
+function clipRelink(at,manual){
+  const v=document.getElementById("clVideo"); if(!v) return;
+  const pos=(typeof at==="number"&&isFinite(at))?at:((v.currentTime||0)>0.2?(v.currentTime||0):0);
+  if(manual) v._clRetry=0;
+  v._clWant=(!v.paused||!!v._clWant)?1:0;   // 보던 중이었으면 다시 붙인 뒤 이어서 재생한다
+  v._clAt=pos;
+  try{ v.load(); }catch(e){}                // 표면을 새로 만든다 — 멈춘 화면을 살리는 웹 쪽 유일한 수단
+}
+function clipWatchStart(){
+  const v=document.getElementById("clVideo"); if(!v||v._clWatch) return;
+  v._clWatch=1; v._clRetry=0; v._clAt=null; v._clWant=0; v._clStuck=0; v._clSeen=0;
+  v._clLastT=v.currentTime||0; v._clLastF=clipFrames(v);
+  v.addEventListener("loadedmetadata",()=>{
+    if(v._clAt==null) return;
+    const dur=isFinite(v.duration)?v.duration:0;
+    const to=Math.max(0,dur?Math.min(v._clAt,dur-0.3):v._clAt);
+    try{ v.currentTime=to; }catch(e){}
+    v._clAt=null;
+    if(v._clWant){ v._clWant=0; const p=v.play(); if(p&&p.catch) p.catch(()=>{}); }
+  });
+  v.addEventListener("playing",()=>{ v._clLastT=v.currentTime||0; v._clLastF=clipFrames(v); v._clStuck=0; clipFixHide(); });
+  v.addEventListener("error",()=>{ clipFix("영상을 재생하지 못했어요 — 원본을 내려받아 보세요",true); });
+  const tick=()=>{
+    if(!v.isConnected){ clearInterval(v._clT); v._clT=null; return; }
+    const f=clipFrames(v); if(f>0) v._clSeen=1;
+    if(v.paused||v.ended||document.hidden||v.seeking||v.readyState<2){ v._clLastT=v.currentTime||0; v._clLastF=f; v._clStuck=0; return; }
+    const moved=(v.currentTime||0)-v._clLastT, drew=f-v._clLastF;
+    v._clLastT=v.currentTime||0; v._clLastF=f;
+    if(!v._clSeen) return;                                  // 프레임 수를 못 세는 브라우저면 판단하지 않는다
+    v._clStuck=(moved>0.35&&drew<=0)?v._clStuck+1:0;
+    if(v._clStuck<2) return;
+    v._clStuck=0;
+    if(v._clRetry>=2){ clipFix("화면이 계속 멈춰요 — 원본을 내려받아 재생해 보세요",true); clearInterval(v._clT); v._clT=null; return; }
+    v._clRetry++;
+    clipFix("화면이 멈춰 다시 붙이는 중…",false);
+    clipRelink(v.currentTime,false);
+  };
+  v._clT=setInterval(tick,1000);
 }
 function clipEmptyHtml(){
   const msg=CLIP_HOME.err?"#영상신청 영상 정보를 불러오지 못했어요 — 잠시 뒤 새로고침해 주세요":"아직 #영상신청 에 올라온 영상이 없어요";
@@ -7705,6 +7790,7 @@ function clipNote(msg){ CLIP_HOME.note=msg||""; const el=document.getElementById
 function clipSetTab(t){
   CLIP_TAB=(t==="clip")?"clip":"yt";
   const pane=document.getElementById("ytHomePane"); if(!pane) return;
+  if(CLIP_TAB!=="clip"){ const v=document.getElementById("clVideo"); if(v&&!v.paused) v.pause(); }   // 숨긴 채로 소리만 흐르지 않게
   pane.querySelectorAll("[data-cltab]").forEach(b=>{ const on=b.getAttribute("data-cltab")===CLIP_TAB; b.classList.toggle("on",on); b.setAttribute("aria-selected",on?"true":"false"); });
   const cp=document.getElementById("clPanelClip"), yp=document.getElementById("clPanelYt");
   if(cp) cp.style.display=(CLIP_TAB==="clip")?"":"none";
@@ -14000,7 +14086,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611270748";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611270845";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
