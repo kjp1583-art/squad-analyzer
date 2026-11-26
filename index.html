@@ -2224,6 +2224,25 @@ window.SGG_DC_BOOT=(function(){
   @media(max-width:560px){.rk-mem.duo .plus{display:none}}
   @media(max-width:560px){.ch-teams,.bk-semis{grid-template-columns:1fr}.rk-row{padding:11px 12px;gap:10px}.rk-score{font-size:18px;min-width:44px}.ch-title{font-size:23px}}
   @media(max-width:760px){.mx-hero h1{font-size:23px}.mx-fold>summary{padding:12px 14px}.mx-body{padding:12px 14px 14px}.mx-seg button{padding:8px 12px;font-size:13px}}
+  /* ── 🤖 AI선생 주간평 (개인 전적 · 분석 탭) — [2026-11-27] 구획 카드 · 승리조건/패배패턴 행 · 액션 번호목록 ── */
+  .aie{display:flex;flex-direction:column;gap:8px}
+  .aie-sec{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg2);min-width:0}
+  .aie-h{display:flex;align-items:center;gap:6px;margin:0 0 6px;font-size:var(--fs-xs);font-weight:800;letter-spacing:.02em;color:var(--sub)}
+  .aie-h .aie-k{color:#bcd0ff}
+  .aie-p{margin:0 0 6px;font-size:var(--fs-sm);line-height:1.7;color:var(--txt);word-break:keep-all;overflow-wrap:anywhere}
+  .aie-p:last-child{margin-bottom:0}
+  .aie-row{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px dashed var(--line);font-size:var(--fs-sm);line-height:1.7;min-width:0}
+  .aie-row:first-of-type{border-top:0;padding-top:2px}
+  .aie-rowt{flex:none;margin-top:1px;font-size:var(--fs-2xs);font-weight:800;color:var(--sub);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:2px 7px;white-space:nowrap}
+  .aie-rowc{min-width:0;word-break:keep-all;overflow-wrap:anywhere}
+  .aie-row.w .aie-rowt{color:#8fe3b0;border-color:rgba(120,220,160,.45);background:rgba(120,220,160,.10)}
+  .aie-row.l .aie-rowt{color:#ffa3b1;border-color:rgba(232,64,87,.5);background:rgba(232,64,87,.12)}
+  .aie-row.d .aie-rowt{color:#bcd0ff;border-color:rgba(91,140,255,.45);background:rgba(91,140,255,.12)}
+  .aie-acts{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .aie-acts li{display:flex;gap:8px;align-items:flex-start;font-size:var(--fs-sm);line-height:1.65;background:rgba(91,140,255,.08);border:1px solid rgba(91,140,255,.25);border-radius:8px;padding:7px 10px;min-width:0}
+  .aie-acts li>span:last-child{min-width:0;word-break:keep-all;overflow-wrap:anywhere}
+  .aie-n{flex:none;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  @media(max-width:480px){.aie-sec{padding:9px 10px}.aie-row{gap:7px}.aie-rowt{padding:2px 6px}}
 </style>
 </head>
 <body>
@@ -4737,18 +4756,75 @@ function loadAiEval(){
   });
 }
 function aiEvalOf(name){ return aliasLookup(AI_EVAL, name); }   // 🔁 닉변·부계 추적
-// 🤖 주간평 본문 렌더 — 【…】 항목마다 줄바꿈 + 라벨 이름 정규화.
-//    시트 원문은 【전체】/【지난주】/【이번주】로 저장돼 있어(84명분) 재생성 없이 표시 단계에서 바꾼다.
-const AIEVAL_LABEL = {"전체":"전체기간", "지난주":"지난주 평가", "이번주":"개선안"};
+/* 🤖 주간평 본문 렌더 — 시트에 저장된 **한 줄 텍스트를 그대로** 읽어 화면에서만 구조를 만든다.
+   계약(2026-11-27 개편 후에도 같다): 【전체】/【지난주】/【이번주】 세 구획, 순서 고정, 줄바꿈 없음.
+   - 새 포맷(2026-11-27 STYLE.md): 【지난주】의 `▸승리 조건:` / `▸패배 패턴:` 줄과 【이번주】의 `① ②` 액션을
+     라벨 칩·번호 목록으로 그려 승패 패턴과 액션 2개가 한눈에 들어오게 한다.
+   - 옛 포맷(문단 한 덩어리, 84명분+)은 문장 단위로 2문장씩 끊어 문단으로 그린다 — 새로 생성하지 않아도 읽힌다. */
+const AIEVAL_LABEL = {"전체":"전체기간", "지난주":"지난주 평가", "이번주":"다음 주 액션"};
+const AIEVAL_ICON = {"전체":"🧬", "지난주":"📊", "이번주":"🎯"};
+const AIEVAL_TONE = [[/승리|이긴/, "w"], [/패배|진 판|지는/, "l"], [/전주|변화|추세/, "d"]];
+const AIEVAL_CIRCLED = "①②③④⑤⑥⑦⑧⑨";
+function _aieSentences(t){   // 마침표·물음표·느낌표 뒤 공백에서만 자른다("11.16~11.22" 같은 날짜는 안 쪼갠다)
+  const s=String(t||""), out=[]; const re=/([.!?])\s+/g; let last=0, m;
+  while((m=re.exec(s))){ const piece=s.slice(last, m.index+1).trim(); if(piece) out.push(piece); last=re.lastIndex; }
+  const tail=s.slice(last).trim(); if(tail) out.push(tail);
+  return out;
+}
+function _aiePlainHtml(t){   // 옛 포맷 문단 — 2문장씩 끊어 줄 길이를 줄인다(1~2문장이면 그대로)
+  const sents=_aieSentences(t);
+  if(sents.length<3) return `<p class="aie-p">${esc(String(t||"").trim())}</p>`;
+  const paras=[]; for(let i=0;i<sents.length;i+=2) paras.push(sents.slice(i,i+2).join(" "));
+  return paras.map(p=>`<p class="aie-p">${esc(p)}</p>`).join("");
+}
+function _aiePatHtml(part){   // `▸승리 조건: …` 한 줄 → 라벨 칩 + 본문
+  const t=String(part||"").trim(); if(!t) return "";
+  const m=/^([^:：]{1,14})[:：]\s*([\s\S]+)$/.exec(t);
+  const tag=m?m[1].trim():"", rest=m?m[2].trim():t;
+  let cls=""; for(const [re,c] of AIEVAL_TONE){ if(re.test(tag||rest)){ cls=" "+c; break; } }
+  return `<div class="aie-row${cls}">`+(tag?`<b class="aie-rowt">${esc(tag)}</b>`:"")+`<span class="aie-rowc">${esc(rest)}</span></div>`;
+}
+function _aieActs(b){   // `① … ② …` → {lead, items}. 동그라미 숫자가 2개 미만이고 다른 번호 표기도 없으면 null
+  const idx=[]; for(let i=0;i<b.length;i++){ if(AIEVAL_CIRCLED.indexOf(b[i])>=0 && (i===0 || /[\s.·]/.test(b[i-1]))) idx.push(i); }
+  if(idx.length>=2){
+    const items=idx.map((p,i)=>b.slice(p+1, i+1<idx.length?idx[i+1]:b.length).trim()).filter(Boolean);
+    if(items.length>=2) return {lead:b.slice(0,idx[0]).trim(), items};
+  }
+  // `1) … 2) …` 도 받아 준다(새 규칙은 ① ② 지만 손으로 쓴 글이 섞여도 읽히게)
+  const re=/(?:^|[\s.·])([1-9])[).]\s+/g, at=[]; let m;
+  while((m=re.exec(b))) at.push({i:m.index+m[0].indexOf(m[1]), n:+m[1]});
+  if(at.length<2 || at[0].n!==1 || at[1].n!==2) return null;
+  const items=at.map((p,k)=>b.slice(p.i, k+1<at.length?at[k+1].i:b.length).replace(/^[1-9][).]\s*/,"").trim()).filter(Boolean);
+  return items.length>=2 ? {lead:b.slice(0,at[0].i).trim(), items} : null;
+}
+function _aieSecBody(b){
+  const t=String(b||"").trim(); if(!t) return "";
+  const acts=_aieActs(t);
+  if(acts) return (acts.lead?`<p class="aie-p">${esc(acts.lead)}</p>`:"")
+    + `<ol class="aie-acts">`+acts.items.map((x,i)=>`<li><span class="aie-n">${i+1}</span><span>${esc(x)}</span></li>`).join("")+`</ol>`;
+  if(t.indexOf("▸")>=0){
+    const seg=t.split("▸"), lead=seg.shift().trim();
+    return (lead?`<p class="aie-p">${esc(lead)}</p>`:"")+seg.map(_aiePatHtml).join("");
+  }
+  return _aiePlainHtml(t);
+}
 function aiEvalBodyHtml(text){
-  const secs = String(text||"").split(/(?=【)/).map(s=>s.trim()).filter(Boolean);
-  if(secs.length < 2) return esc(text||"");
-  return secs.map(s=>{
-    const m = /^【([^】]+)】\s*([\s\S]*)$/.exec(s);
-    if(!m) return `<div style="margin-bottom:10px">${esc(s)}</div>`;
-    const lab = AIEVAL_LABEL[m[1]] || m[1];
-    return `<div style="margin-bottom:10px"><b style="color:#bcd0ff">【${esc(lab)}】</b> ${esc(m[2])}</div>`;
-  }).join("");
+  const raw=String(text||"").trim(); if(!raw) return "";
+  const secs=raw.split(/(?=【)/).map(s=>s.trim()).filter(Boolean);
+  const head=(secs.length && secs[0].charAt(0)!=="【") ? secs.shift() : "";   // 구획 앞 잡문(있으면 문단으로)
+  const rest=secs.filter(s=>s.charAt(0)==="【");
+  if(!rest.length) return `<div class="aie"><p class="aie-p">${esc(raw)}</p></div>`;
+  const out=[];
+  if(head) out.push(`<p class="aie-p">${esc(head)}</p>`);
+  for(const s of secs){
+    const m=/^【([^】]+)】\s*([\s\S]*)$/.exec(s);
+    if(!m){ out.push(`<p class="aie-p">${esc(s)}</p>`); continue; }
+    const key=m[1].trim(), lab=AIEVAL_LABEL[key]||key, ico=AIEVAL_ICON[key]||"";
+    out.push(`<section class="aie-sec" data-aie="${escAttr(key)}">`
+      +`<div class="aie-h">${ico?`<span aria-hidden="true">${ico}</span>`:""}<span class="aie-k">${esc(lab)}</span></div>`
+      + _aieSecBody(m[2]) + `</section>`);
+  }
+  return `<div class="aie">${out.join("")}</div>`;
 }
 
 // 🎭 LINK_ACCOUNT 탭(본계, 부계) 로드 → 부계 전적을 본계로 통합 (2026-07-10). 탭 없거나 실패 시 빈 맵(무해).
@@ -13924,7 +14000,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611270227";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611270748";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
