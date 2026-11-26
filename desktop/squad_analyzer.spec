@@ -13,6 +13,8 @@ datas += [('voice/*.wav', 'voice')]   # 🔊 스펠 타이머 음성(포지션×
 import glob as _g
 if _g.glob('voice_dub/*.wav'):                    # 🔊 성우 더빙판 — 파일이 들어오면 자동 동봉
     datas += [('voice_dub/*.wav', 'voice_dub')]   # icon.ico: 트레이/창 아이콘이 런타임에 resource_path로 읽음
+if _g.glob('voice_pickle/*.wav'):                 # 🎙 피클 보이스팩 — 파일이 들어오면 자동 동봉
+    datas += [('voice_pickle/*.wav', 'voice_pickle')]
 binaries = []
 hiddenimports = []
 
