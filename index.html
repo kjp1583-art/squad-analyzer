@@ -13486,7 +13486,7 @@ async function renderHOF(catArg){
   _HOF_CACHE={raw, data, patches, isRift};   // 🔁 포지션 버튼 제자리 갱신용(전체 재렌더 없이 해당 박스만 교체)
   const patchOpts=patches.map(p=>`<option ${p===HOF.patch?"selected":""}>${esc(p)}</option>`).join("");
 
-  view().innerHTML=`
+  view().innerHTML=`${navTabsHtml("hof")}
     <div class="hof-head">
       <h1 class="hof-title">${headTitle} <span class="muted" style="font-size:15px">(${esc(catLabel(HOF.cat))})</span></h1>
       <div class="hof-filter">
@@ -13630,7 +13630,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611266800";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611266900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
