@@ -1851,6 +1851,8 @@ window.SGG_DC_BOOT=(function(){
   /* 🧭 구역 버튼 호버 드롭다운 */
   .tabswrap{position:relative;z-index:60}   /* 드롭다운이 아래 카드들 위로 뜨게 */
   .secnav .sec-wrap{position:relative;display:flex}
+  /* 🏷 [2026-11-27 사장님 「대회 탭에 진행중 딱지」] 대회 버튼 우상단에 살짝 얹히는 작은 알약 — 누르는 것은 통과시킨다 */
+  .secnav .sec-live{position:absolute;top:-7px;right:-8px;pointer-events:none;z-index:2;padding:1px 6px;border-radius:999px;font-size:9.5px;font-weight:800;line-height:1.4;letter-spacing:.2px;color:#fff;white-space:nowrap;background:linear-gradient(135deg,#ff5f6d,#e0a437);box-shadow:0 2px 6px rgba(255,95,109,.45),0 0 0 1px rgba(10,14,24,.55)}
   .sec-dd{display:none;position:absolute;left:0;top:100%;z-index:70;min-width:290px;padding-top:8px}
   .sec-ddp{background:#0c1220;border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 18px 40px rgba(0,0,0,.55)}
   .sec-dd .dd-i{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-radius:10px;cursor:pointer;text-decoration:none;color:var(--txt)}
@@ -7451,6 +7453,7 @@ async function loadPerks(){
     WEB_HOLIDAYS={};(d.holidays||[]).forEach(h=>{WEB_HOLIDAYS[h.d]=h.n;});   // 🇰🇷 법정공휴일 {YYYY-MM-DD:이름}
     PERKS_AT=Date.now();
   }catch(e){}
+  try{ syncLiveBadge(); }catch(_){}   // 🏷 이벤트 미러가 갱신되면 '진행중' 딱지도 같이 맞춘다
   renderMega();
 }
 let WEB_HOLIDAYS={},PERKS_AT=0;
@@ -7933,6 +7936,34 @@ function renderDonate(){
     </div>`;
 }
 
+/* 🏷 [2026-11-27 사장님 「대회 탭에 진행중 딱지」] 상단 '대회' 구역 버튼 우상단에 작은 '진행중' 딱지를 얹는다.
+   두 스위치 중 하나라도 켜져 있으면 뜨고, 둘 다 끄면 저절로 사라진다.
+     ① TOURNAMENT_LIVE — 지금 대회 기간이라는 걸 손으로 아는 동안 true (제10회 멸망전 진행 중)
+     ② 디스코드 이벤트 미러(WEB_EVENTS)에 지금 ±24시간 안으로 멸망전·미토·결승·본선·예선 일정이 있으면 true
+   대회가 끝나면 ①만 false 로 바꾸면, 다음 대회 일정이 잡히기 전까지 딱지가 뜨지 않는다. */
+const TOURNAMENT_LIVE=true;
+const LIVE_EVENT_RE=/(멸망전|미토|결승|본선|예선)/;
+const LIVE_WINDOW_MS=24*3600*1000;
+function isTournamentLive(){
+  if(TOURNAMENT_LIVE) return true;
+  const now=Date.now();
+  try{
+    return (WEB_EVENTS||[]).some(e=>{
+      const t=(+e.start||0)*1000; if(!t||Math.abs(t-now)>LIVE_WINDOW_MS) return false;
+      return LIVE_EVENT_RE.test(String(e.name||"")+" "+String(e.desc||""));
+    });
+  }catch(_){ return false; }
+}
+function liveBadgeHtml(){ return `<span class="sec-live" title="지금 대회가 진행 중이에요 — 멸망전 · 클랜일정에서 확인">진행중</span>`; }
+/* 이벤트 미러를 새로 읽었을 때(클랜일정 2분 갱신 등) 탭을 통째로 다시 그리지 않고 딱지만 맞춘다 */
+function syncLiveBadge(){
+  const btn=document.querySelector('.tabswrap .secnav .sec[data-g="event"]');
+  const wrap=btn&&btn.parentNode; if(!wrap) return;
+  const on=isTournamentLive(), el=wrap.querySelector(".sec-live");
+  if(on&&!el) wrap.insertAdjacentHTML("beforeend",liveBadgeHtml());
+  else if(!on&&el) el.remove();
+}
+
 /* 🗂 [2026-11-23 사장님 「전역일·거래소·성향유형·이상형월드컵처럼 인게임과 동떨어진 건 한곳에, 내전 관련은 한곳에, 멸망전·미토·클랜일정 같은 대회는 한곳에」]
    메뉴 = 큰 구역 3개(내전 · 대회 · 라운지) + 선택한 구역의 탭. 구역을 누르면 그 구역 첫 탭으로 간다. 모르는 화면(선수·게임 상세 등)은 내전 구역으로 본다. */
 function navGroups(){
@@ -7949,7 +7980,7 @@ const NAV_DESC={home:"한눈에 보는 내전 · 방금 끝난 판",log:"판별 
 function navTabsHtml(active){
   const G=navGroups(); const cur=G.find(g=>g.tabs.some(t=>t[0]===active))||G[0];
   const dd=g=>`<div class="sec-dd" role="menu"><div class="sec-ddp">${g.tabs.map(([k,lb])=>`<a role="menuitem" tabindex="0" class="dd-i${k===active?' on':''}" onclick="event.stopPropagation();go('${k}')" onkeydown="if(event.key==='Enter')go('${k}')"><b>${lb}</b>${NAV_DESC[k]?`<small>${NAV_DESC[k]}</small>`:""}</a>`).join("")}</div></div>`;
-  const sec=`<div class="secnav" role="tablist" aria-label="메뉴 구역">${G.map(g=>`<span class="sec-wrap"><button type="button" role="tab" aria-selected="${g===cur}" class="sec ${g===cur?'on':''}" data-g="${g.k}" onclick="go('${g.tabs[0][0]}')">${g.label}</button>${dd(g)}</span>`).join("")}</div>`;
+  const sec=`<div class="secnav" role="tablist" aria-label="메뉴 구역">${G.map(g=>`<span class="sec-wrap"><button type="button" role="tab" aria-selected="${g===cur}" class="sec ${g===cur?'on':''}" data-g="${g.k}" onclick="go('${g.tabs[0][0]}')">${g.label}</button>${g.k==="event"&&isTournamentLive()?liveBadgeHtml():""}${dd(g)}</span>`).join("")}</div>`;
   /* ♿ [2026-11-26 P1-6] 탭을 <div onclick> 에서 <button role="tab" aria-selected> 로 — Tab 으로 탭 줄에 닿고 Enter/Space 로 열린다. */
   const tabs=cur.tabs.map(([k,lb])=>`<button type="button" role="tab" aria-selected="${active===k}" class="tab ${active===k?'on':''}${k==='donate'?' don':''}" data-k="${k}" onclick="go('${k}')">${lb}</button>`).join("");
   return `<div class="tabswrap" id="tabswrap">${sec}<div class="tabs" role="tablist" aria-label="${cur.label} 탭" onkeydown="navTabsKey(event)">${tabs}</div></div>`;
@@ -13806,7 +13837,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611270136";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611270153";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
