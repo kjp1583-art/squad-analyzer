@@ -210,6 +210,86 @@ def apply_ttk_theme(root=None, font=None):
     return st
 
 
+# ── 7. Windows DWM 다크 타이틀바 ───────────────────────────────────────
+# 창 상단의 흰 제목 표시줄(비클라이언트 영역)을 앱 배경과 같은 다크 톤으로 맞춘다.
+# 네이티브 캡션을 그대로 쓰므로 에어로 스냅·리사이즈 프레임·작업표시줄 아이콘은 손대지 않는다.
+# 비-Windows(테스트·Linux 빌드)에서는 조용히 통과한다 — 어떤 경우에도 앱 실행을 막지 않는다.
+DWMWA_USE_IMMERSIVE_DARK_MODE = 20        # Windows 10 20H1+ / 11
+DWMWA_USE_IMMERSIVE_DARK_MODE_OLD = 19    # Windows 10 1809~1909 폴백
+DWMWA_CAPTION_COLOR = 35                  # Windows 11 22000+ — 캡션 배경
+DWMWA_TEXT_COLOR = 36                     # Windows 11 22000+ — 캡션 글자
+
+
+def hex_to_colorref(hex_color):
+    """'#RRGGBB' → Win32 COLORREF 0x00BBGGRR. DWM 색 인자는 이 바이트 순서(RGB 역순)다.
+       #0f1117 → 0x0017110f, #eef1f7 → 0x00f7f1ee."""
+    h = str(hex_color).strip().lstrip("#")
+    if len(h) != 6:
+        raise ValueError("hex_color must be #RRGGBB: " + str(hex_color))
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return (b << 16) | (g << 8) | r
+
+
+def apply_dark_titlebar(win, bg_hex=None, text_hex=None):
+    """창 상단 제목 표시줄을 다크로 (Windows 10 1809+ / Windows 11).
+       bg_hex = 캡션 배경(= 앱 배경), text_hex = 캡션 글자색. 둘 다 생략하면 BG/TEXT 토큰.
+       Windows 11 에서는 캡션/글자 색까지 앱 팔레트에 맞춘다(구형 빌드는 다크 모드만).
+       성공 여부를 bool 로 돌려주되, 실패해도 예외를 올리지 않는다(앱은 그대로 뜬다)."""
+    bg_hex = bg_hex or BG
+    text_hex = text_hex or TEXT
+    try:
+        import ctypes
+        dwm = ctypes.windll.dwmapi
+        user32 = ctypes.windll.user32
+    except Exception:
+        return False   # 비-Windows: 조용히 통과
+
+    try:
+        win.update_idletasks()
+    except Exception:
+        pass
+    try:
+        # Tk 의 winfo_id() 는 자식 HWND — DWM 은 최상위(프레임) HWND 를 요구한다.
+        hwnd = int(user32.GetParent(win.winfo_id()) or win.winfo_id())
+    except Exception:
+        return False
+    if not hwnd:
+        return False
+
+    try:
+        caption = hex_to_colorref(bg_hex)
+    except Exception:
+        caption = hex_to_colorref(BG)
+    try:
+        text = hex_to_colorref(text_hex)
+    except Exception:
+        text = hex_to_colorref(TEXT)
+
+    def _set(attr, value):
+        try:
+            val = ctypes.c_int(int(value))
+            hr = dwm.DwmSetWindowAttribute(ctypes.c_void_p(hwnd), ctypes.c_uint(int(attr)),
+                                           ctypes.byref(val), ctypes.sizeof(val))
+            # S_OK(0) 만 성공 — 구형 Windows 는 '모르는 속성'에 예외 대신 에러 코드를 돌려준다
+            # (그래서 20 이 실패하면 19 로 내려가 다크 모드를 걸어야 한다).
+            return hr in (0, None)
+        except Exception:
+            return False
+
+    def _apply():
+        if not _set(DWMWA_USE_IMMERSIVE_DARK_MODE, 1):
+            _set(DWMWA_USE_IMMERSIVE_DARK_MODE_OLD, 1)   # 1809~1909
+        _set(DWMWA_CAPTION_COLOR, caption)               # Win11 22000+ (실패해도 다크 모드만으로 OK)
+        _set(DWMWA_TEXT_COLOR, text)
+
+    _apply()
+    try:   # 창이 처음 그려질 때 한 번 더 — 매핑 전 호출은 일부 빌드에서 무시된다.
+        win.bind("<Map>", lambda _e: _apply(), add="+")
+    except Exception:
+        pass
+    return True
+
+
 # ── 버튼 팩토리 ───────────────────────────────────────────────────────
 # 모든 버튼에 일관된 색/hover/geometry 부여. kind: neutral/primary/danger/gold/success/warn/info/purple/win
 _BTN_KIND = {
