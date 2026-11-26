@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
-"""🎬 클랜영상(#영상신청) 재생기 시험 — `python3.13 tests/web_clip_player_test.py`
-2026-11-27 사장님 「모바일로 영상시청 테스트해보니까 영상이 중간에 멈춘 상태로 보이는데 사운드는 진행되는 현상」
+"""🎬 클랜영상(#영상신청) 팝업 재생기 시험 — `python3.13 tests/web_clip_player_test.py`
+2026-11-27 사장님 「유저아이디를 누르면 뜨는 그 전적카드 팝업 형식으로 영상을 띄워 달라」
+   (앞선 요청) 「모바일로 영상시청 테스트해보니까 영상이 중간에 멈춘 상태로 보이는데 사운드는 진행되는 현상」
 
-  A 영상 상자는 넣는 순간 CSS 로 정해진다 — 메타데이터가 와도 크기가 안 바뀐다(재생 중 크기 변화 = 안드로이드 화면 굳음 원인)
-    · <video> 에 playsinline 과 webkit-playsinline 이 같이 있다 · 부모(.cl-player)가 16:9 상자다
-  B 같은 클립으로 다시 그려도 재생기는 그대로다(엘리먼트 교체 없음) — 댓글만 새로 그린다
-  C 새 클립이 올라오면 그때만 새로 그린다
-  D 탭을 옮기면 숨은 채로 소리만 흐르지 않는다(일시정지)
-  E 화면만 멈추면(재생 위치는 흐르는데 그려진 프레임 수가 그대로) 한 번 자동으로 다시 붙이고,
+  A 홈 카드는 미리보기만 — 홈에 <video> 가 없다(제목·업로더·날짜·댓글 수·재생 아이콘·16:9 그림칸)
+  B 카드를 누르면 팝업(#clipModal)이 열리고 그 안에서 재생된다
+    · <video> 에 playsinline·webkit-playsinline · 부모(.cl-player)가 16:9 고정 상자
+    · 메타데이터가 와도 상자 크기가 안 바뀐다(재생 중 크기 변화 = 안드로이드 화면 굳음 원인)
+  C 팝업이 떠 있는 동안 카드를 다시 그려도 재생기는 그대로다(엘리먼트 교체 없음) — 댓글 수만 새로 그린다
+  D 팝업에 띄운 클립이 아닌 새 클립이 오면 팝업은 닫힌다(제목·댓글이 어긋나지 않게)
+  E 탭을 옮기면 팝업이 닫히고 일시정지된다(숨은 채로 소리만 흐르지 않게)
+  F 화면만 멈추면(재생 위치는 흐르는데 그려진 프레임 수가 그대로) 한 번 자동으로 다시 붙이고,
     두 번 그래도 멈추면 자동 재시도를 그만두고 「원본 내려받기」 안내만 남긴다
-  F 콘솔 오류 0 · 가로 넘침 0
+  G 닫기 — ✕ · 바깥(배경) 누르기 · Esc 셋 다 일시정지 + src 정리 + 본문 스크롤 복구
+  H 폰(360)과 PC(1280) 모두 팝업이 화면 밖으로 넘치지 않고 재생기가 16:9 다
+  I 콘솔 오류 0 · 가로 넘침 0
+  J ▶ 유튜브 최신 카드도 같은 팝업으로 열리고(iframe 은 팝업 안에서만) 닫으면 함께 사라진다
 
   실제 봇 서버·디스코드 CDN 은 부르지 않는다(외부 요청은 전부 막고, 주소만 진짜 모양으로 쓴다).
 """
@@ -39,40 +45,68 @@ SETUP = r"""(f)=>{
   return true;
 }"""
 
-# A: 상자 크기·속성
+# A: 홈 카드는 미리보기만
 A_JS = r"""()=>{
-  const v=document.getElementById('clVideo'), p=document.getElementById('clPlayer');
-  const r=p.getBoundingClientRect(), cs=getComputedStyle(v), rv=v.getBoundingClientRect();
-  const box0={w:Math.round(r.width),h:Math.round(r.height)};
+  const card=document.getElementById('clCard'), th=card?card.querySelector('.cl-card-th'):null;
+  const r=th?th.getBoundingClientRect():{width:0,height:0};
+  return {card:!!card, videos:document.querySelectorAll('video').length,
+    cid:card&&card.getAttribute('data-cid'), role:card&&card.getAttribute('role'),
+    play:!!(card&&card.querySelector('.cl-card-play')), tag:!!(card&&card.querySelector('.cl-card-tag')),
+    ttl:(card&&card.querySelector('.yt-ttl')||{}).textContent||'',
+    meta:(card&&card.querySelector('.yt-meta')||{}).textContent||'',
+    ar:th?getComputedStyle(th).aspectRatio:null, ratio:r.width?(+(r.width/r.height).toFixed(3)):0,
+    tab:card&&card.getAttribute('tabindex')};
+}"""
+
+# B: 카드 클릭 → 팝업에서 재생
+B_JS = r"""()=>{
+  const card=document.getElementById('clCard'); card.click();
+  const back=document.querySelector('#clipModal .clm-back'), modal=document.querySelector('#clipModal .clm-card');
+  const v=document.getElementById('clVideo'), p=document.querySelector('#clipModal .cl-player');
+  if(!v||!p) return {open:!!back, video:false};
+  const cs=getComputedStyle(v), rv=v.getBoundingClientRect();
+  const box0={w:Math.round(p.getBoundingClientRect().width),h:Math.round(p.getBoundingClientRect().height)};
   try{ Object.defineProperty(v,'videoWidth',{get:()=>1280}); Object.defineProperty(v,'videoHeight',{get:()=>720}); }catch(e){}
   v.dispatchEvent(new Event('loadedmetadata'));
   const r2=p.getBoundingClientRect();
-  return {box0, box1:{w:Math.round(r2.width),h:Math.round(r2.height)},
+  return {open:!!back&&!!modal, video:true, dialog:modal&&modal.getAttribute('role'),
+    box0, box1:{w:Math.round(r2.width),h:Math.round(r2.height)},
     ar:getComputedStyle(p).aspectRatio, inline:v.getAttribute('playsinline'), wk:v.getAttribute('webkit-playsinline'),
-    preload:v.getAttribute('preload'), vmax:cs.maxHeight, vw:Math.round(rv.width), vh:Math.round(rv.height), cvw:cs.width, cvh:cs.height, ratio:+(r.width/r.height).toFixed(3)};
+    preload:v.getAttribute('preload'), vmax:cs.maxHeight,
+    vw:Math.round(rv.width), vh:Math.round(rv.height), ratio:+(r2.width/r2.height).toFixed(3),
+    overflow:document.body.style.overflow, src:!!v.getAttribute('src'),
+    x:!!document.querySelector('#clipModal .clm-x'), fix:!!document.getElementById('clFix'),
+    cmt:!!document.getElementById('clCmtList')};
 }"""
 
-# B: 같은 클립 재그리기
-B_JS = r"""()=>{const v0=document.getElementById('clVideo');
+# C: 같은 클립으로 카드를 다시 그려도 팝업 재생기는 그대로
+C_JS = r"""()=>{const v0=document.getElementById('clVideo'), c0=document.getElementById('clCard');
   CLIP_HOME.comments=[{author:'테스터',text:'안녕',ts:1795735464}]; ytHomePaint();
-  return {same:v0===document.getElementById('clVideo'), cnt:document.getElementById('clCmtCnt').textContent,
+  return {sameVideo:v0===document.getElementById('clVideo'), newCard:c0!==document.getElementById('clCard'),
+          cnt:document.getElementById('clCmtCnt').textContent, cardCnt:document.getElementById('clCardCmt').textContent,
           rows:document.querySelectorAll('#clCmtList .cl-row').length};}"""
 
-# C: 다른 클립
-C_JS = r"""(f)=>{const v0=document.getElementById('clVideo');
+# D: 다른 클립이 오면 팝업은 닫힌다
+D_JS = r"""(f)=>{window.__paused=0;
+  const v=document.getElementById('clVideo');
+  if(v) v.pause=()=>{window.__paused=1;};
   CLIP_HOME.clip=clipNorm(Object.assign({},f,{id:'1575175253603254999'})); ytHomePaint();
-  const v1=document.getElementById('clVideo');
-  return {same:v0===v1, cid:v1&&v1.getAttribute('data-cid')};}"""
+  const card=document.getElementById('clCard');
+  return {id:card&&card.getAttribute('data-cid'), modalGone:!document.getElementById('clVideo'),
+          cleared:document.getElementById('clipModal').innerHTML==='', paused:window.__paused};}"""
 
-# D: 탭 전환 = 일시정지
-D_JS = r"""()=>{const v=document.getElementById('clVideo'); window.__paused=0;
-  Object.defineProperty(v,'paused',{get:()=>false,configurable:true});
-  v.pause=()=>{window.__paused=1;};
+# E: 탭 전환 = 팝업 닫힘 + 일시정지
+E_JS = r"""()=>{window.__paused=0;
+  const v=document.getElementById('clVideo'); if(v){ Object.defineProperty(v,'paused',{get:()=>false,configurable:true}); v.pause=()=>{window.__paused=1;}; }
   clipSetTab('yt');
-  return {paused:window.__paused, clipHidden:document.getElementById('clPanelClip').style.display==='none'};}"""
+  return {paused:window.__paused, modalGone:!document.getElementById('clVideo'),
+          clipHidden:document.getElementById('clPanelClip').style.display==='none'};}"""
 
-# E: 화면 멈춤 감지 → 자동 재붙임, 두 번이면 포기
-E_JS = r"""()=>{const v=document.getElementById('clVideo');
+# F: 화면 멈춤 감지 → 자동 재붙임, 두 번이면 포기
+F_JS = r"""()=>{
+  CLIP_HOME.clip=clipNorm(clipNorm.__f||{}); }"""
+F_ARM = r"""(f)=>{CLIP_HOME.clip=clipNorm(f); CLIP_HOME.comments=[]; ytHomePaint(); clipOpen();
+  const v=document.getElementById('clVideo');
   v._clRetry=0; v._clStuck=0; v._clSeen=0;
   const t0=performance.now();
   let frames=1000; window.__loads=0;
@@ -85,8 +119,49 @@ E_JS = r"""()=>{const v=document.getElementById('clVideo');
   v.load=()=>{window.__loads++;};   // 표면 새로 만들기 = load() : 세기만 한다
   return true;}"""
 
-E_READ = r"""()=>({loads:window.__loads||0, hidden:document.getElementById('clFix').hidden,
+F_READ = r"""()=>({loads:window.__loads||0, hidden:document.getElementById('clFix').hidden,
   tx:(document.getElementById('clFixTx')||{}).textContent||'', bad:document.getElementById('clFix').classList.contains('bad')})"""
+
+# G: 닫기 세 가지 — ✕ · 배경 · Esc
+G_JS = r"""(how)=>{
+  const before=document.getElementById('clVideo');
+  window.__paused=0; window.__focused=null;
+  if(before){ before.pause=()=>{window.__paused=1;}; }
+  if(how==='x') document.querySelector('#clipModal .clm-x').click();
+  else if(how==='back') document.querySelector('#clipModal .clm-back').click();
+  else document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  return {paused:window.__paused, hasSrc:before?before.hasAttribute('src'):null,
+    emptied:document.getElementById('clipModal').innerHTML==='', overflow:document.body.style.overflow,
+    open:CLIP_MODAL.open, cardFocus:document.activeElement&&document.activeElement.id};}"""
+
+# H: 팝업이 화면 안에 들어오는지
+H_JS = r"""()=>{
+  if(!document.getElementById('clVideo')) clipOpen();
+  const b=document.querySelector('#clipModal .clm-back').getBoundingClientRect();
+  const c=document.querySelector('#clipModal .clm-card').getBoundingClientRect();
+  const p=document.querySelector('#clipModal .cl-player').getBoundingClientRect();
+  const vw=window.innerWidth, vh=window.innerHeight;
+  return {vw, vh, left:Math.round(c.left), right:Math.round(c.right), top:Math.round(c.top), bottom:Math.round(c.bottom),
+    cw:Math.round(c.width), ch:Math.round(c.height), okBox:c.left>=-1&&c.top>=-1&&c.right<=vw+1&&c.bottom<=vh+1,
+    ratio:+(p.width/p.height).toFixed(3), back:c.width<=vw&&c.height<=vh};
+}"""
+
+
+# J: 유튜브 탭 카드도 같은 팝업으로 (iframe 은 팝업 안에서만)
+J_JS = r"""()=>{
+  clipSetTab('yt');
+  const card=document.getElementById('ytCard'); if(!card) return {card:false};
+  card.click();
+  const ifr=document.querySelector('#clipModal .clm-yt iframe');
+  const p=document.querySelector('#clipModal .cl-player').getBoundingClientRect();
+  const o={card:true, iframe:!!ifr, src:ifr?ifr.getAttribute('src'):'', ratio:+(p.width/p.height).toFixed(3),
+    overflow:document.body.style.overflow, dialog:!!document.querySelector('#clipModal .clm-card[role="dialog"]')};
+  clipCloseModal();
+  o.after=document.getElementById('clipModal').innerHTML==='';
+  o.inlineYt=document.querySelectorAll('#ytHomePane iframe').length;   // 홈 카드 자리에는 iframe 이 없다
+  clipSetTab('clip');
+  return o;
+}"""
 
 
 def serve():
@@ -108,7 +183,7 @@ async def main():
     srv, port = serve()
     base = "http://127.0.0.1:%d" % port
     async with async_playwright() as pw:
-        br = await pw.chromium.launch(executable_path=CHROME) if CHROME else await pw.chromium.launch()
+        br = await pw.chromium.launch(executable_path=CHROME, args=["--no-sandbox"]) if CHROME else await pw.chromium.launch(args=["--no-sandbox"])
         ctx = await br.new_context(viewport={"width": 360, "height": 800}, is_mobile=True, has_touch=True,
                                    user_agent="Mozilla/5.0 (Linux; Android 14; SM-S921N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131 Mobile Safari/537.36")
         pg = await ctx.new_page()
@@ -126,44 +201,86 @@ async def main():
         await pg.wait_for_timeout(1200)
         errs.clear(); msgs.clear()          # 부팅 중 막아 버린 외부 요청 소음은 세지 않는다
 
-        ok(await pg.evaluate("()=>typeof clipBodyHtml==='function'&&typeof ytHomePaint==='function'"), "부팅: 클립 재생 코드가 올라와 있다")
+        ok(await pg.evaluate("()=>typeof clipBodyHtml==='function'&&typeof clipOpen==='function'&&typeof ytHomePaint==='function'"),
+           "부팅: 클립 카드·팝업 코드가 올라와 있다")
         await pg.evaluate(SETUP, FIX)
         await pg.wait_for_timeout(200)
 
         a = await pg.evaluate(A_JS)
-        ok(a["box0"] == a["box1"], "A 메타데이터가 와도 상자 크기가 그대로 %s → %s" % (a["box0"], a["box1"]))
-        ok(1.75 < a["ratio"] < 1.81, "A 상자가 16:9 비율이다 %s (%s)" % (a["ratio"], a["ar"]))
-        ok(a["inline"] == "" and a["wk"] == "", "A playsinline·webkit-playsinline 둘 다 있다 (%r, %r)" % (a["inline"], a["wk"]))
-        ok(a["preload"] == "metadata", "A preload=metadata")
-        ok(a["vmax"] == "none" and abs(a["vw"] - a["box0"]["w"]) <= 1 and abs(a["vh"] - a["box0"]["h"]) <= 1,
-           "A <video> 가 상자를 그대로 채운다(max-height 는 상자에만) %s %s %s" % (a["vmax"], (a["vw"], a["vh"]), (a["cvw"], a["cvh"])))
+        ok(a["card"] and a["videos"] == 0, "A 홈 카드는 미리보기만 — <video> %d개 %s" % (a["videos"], a["cid"]))
+        ok(a["cid"] == FIX["id"] and a["role"] == "button" and a["tab"] == "0", "A 카드가 버튼 역할·키보드 접근 %s %r" % (a["cid"], a["tab"]))
+        ok(a["play"], "A 재생 아이콘 오버레이")
+        ok("알리스타" in a["ttl"] and "맛동산장인 유미/94" in a["meta"] and "댓글" not in a["meta"] and "0" in a["meta"],
+           "A 제목·업로더·날짜·댓글 수 %r / %r" % (a["ttl"], a["meta"]))
+        ok(1.75 < a["ratio"] < 1.81, "A 그림칸이 16:9 %s (%s)" % (a["ratio"], a["ar"]))
 
         b = await pg.evaluate(B_JS)
-        ok(b["same"], "B 같은 클립 재그리기 = 재생기 그대로")
-        ok(b["cnt"] == "1" and b["rows"] == 1, "B 댓글만 새로 그려진다 %s" % b)
+        ok(b["open"] and b["video"] and b["dialog"] == "dialog", "B 카드를 누르면 팝업이 열린다 %s" % (b.get("open"),))
+        ok(b["box0"] == b["box1"], "B 메타데이터가 와도 상자 크기가 그대로 %s → %s" % (b.get("box0"), b.get("box1")))
+        ok(1.75 < b["ratio"] < 1.81, "B 팝업 재생기가 16:9 %s (%s)" % (b["ratio"], b["ar"]))
+        ok(b["inline"] == "" and b["wk"] == "", "B playsinline·webkit-playsinline 둘 다 있다 (%r, %r)" % (b["inline"], b["wk"]))
+        ok(b["preload"] == "metadata", "B preload=metadata")
+        ok(b["vmax"] == "none" and abs(b["vw"] - b["box0"]["w"]) <= 1 and abs(b["vh"] - b["box0"]["h"]) <= 1,
+           "B <video> 가 상자를 그대로 채운다(max-height 는 상자에만) %s %s" % (b["vmax"], (b["vw"], b["vh"])))
+        ok(b["overflow"] == "hidden" and b["src"], "B 뒤 배경 스크롤 잠금 · src 걸림")
+        ok(b["x"] and b["fix"] and b["cmt"], "B 닫기 버튼·다시 연결/내려받기·댓글이 팝업 안에 있다")
 
-        c = await pg.evaluate(C_JS, FIX)
-        ok(not c["same"] and c["cid"] == "1575175253603254999", "C 새 클립이면 새로 그린다 %s" % c)
+        c = await pg.evaluate(C_JS)
+        ok(c["sameVideo"], "C 팝업이 떠 있는 동안 카드를 다시 그려도 재생기는 그대로")
+        ok(c["newCard"] and c["cnt"] == "1" and c["cardCnt"] == "1" and c["rows"] == 1,
+           "C 카드·댓글만 새로 그려진다 %s" % c)
 
-        d = await pg.evaluate(D_JS)
-        ok(d["paused"] == 1 and d["clipHidden"], "D 탭을 옮기면 일시정지하고 패널이 숨는다 %s" % d)
+        d = await pg.evaluate(D_JS, FIX)
+        ok(d["id"] == "1575175253603254999" and d["modalGone"] and d["cleared"] and d["paused"] == 1,
+           "D 새 클립이 오면 카드가 바뀌고 팝업은 닫힌다(일시정지) %s" % d)
+
+        await pg.evaluate("()=>{CLIP_HOME.clip=clipNorm(%s); CLIP_HOME.comments=[]; ytHomePaint();}" %
+                          __import__("json").dumps(FIX))
+        await pg.evaluate("()=>clipOpen()")
+        e = await pg.evaluate(E_JS)
+        ok(e["paused"] == 1 and e["modalGone"] and e["clipHidden"], "E 탭을 옮기면 팝업이 닫히고 일시정지 %s" % e)
         await pg.evaluate("()=>clipSetTab('clip')")
 
-        await pg.evaluate(E_JS)
+        await pg.evaluate(F_ARM, FIX)
         await pg.wait_for_timeout(4200)
-        e1 = await pg.evaluate(E_READ)
-        ok(e1["loads"] == 1 and not e1["hidden"], "E 화면 멈춤 감지 → 자동으로 한 번 다시 붙인다 %s" % e1)
-        ok("다시" in e1["tx"], "E 안내 문구가 보인다 %r" % e1["tx"])
+        f1 = await pg.evaluate(F_READ)
+        ok(f1["loads"] == 1 and not f1["hidden"], "F 화면 멈춤 감지 → 자동으로 한 번 다시 붙인다 %s" % f1)
+        ok("다시" in f1["tx"], "F 안내 문구가 보인다 %r" % f1["tx"])
         await pg.wait_for_timeout(5000)
-        e2 = await pg.evaluate(E_READ)
-        ok(e2["loads"] == 2, "E 두 번째까지는 자동 재시도 %s" % e2)
-        ok(e2["bad"] and "내려받" in e2["tx"], "E 두 번 멈추면 자동 재시도를 멈추고 원본 내려받기를 안내 %r" % e2["tx"])
+        f2 = await pg.evaluate(F_READ)
+        ok(f2["loads"] == 2, "F 두 번째까지는 자동 재시도 %s" % f2)
+        ok(f2["bad"] and "내려받" in f2["tx"], "F 두 번 멈추면 자동 재시도를 멈추고 원본 내려받기를 안내 %r" % f2["tx"])
+
+        for how in ("x", "back", "esc"):
+            if not await pg.evaluate("()=>!!document.getElementById('clVideo')"):
+                await pg.evaluate("()=>clipOpen()")
+            g = await pg.evaluate(G_JS, how)
+            ok(g["paused"] == 1 and g["hasSrc"] is False and g["emptied"] and g["overflow"] == "" and not g["open"],
+               "G %s 로 닫기 — 일시정지·src 정리·스크롤 복구 %s" % (how, g))
+
+        h = await pg.evaluate(H_JS)
+        ok(h["okBox"] and 1.75 < h["ratio"] < 1.82, "H 폰(360) 팝업이 화면 안 · 재생기 16:9 %s" % h)
+        await pg.evaluate("()=>clipCloseModal()")
+        await pg.set_viewport_size({"width": 1280, "height": 800})
+        await pg.wait_for_timeout(250)
+        h2 = await pg.evaluate(H_JS)
+        ok(h2["okBox"] and 1.75 < h2["ratio"] < 1.82, "H PC(1280) 팝업이 화면 안 · 재생기 16:9 %s" % h2)
+        ok(560 < h2["cw"] <= 800, "H PC 팝업 폭이 읽기 좋은 범위 %d" % h2["cw"])
+        await pg.evaluate("()=>clipCloseModal()")
+        await pg.set_viewport_size({"width": 360, "height": 800})
+        await pg.wait_for_timeout(200)
+
+        j = await pg.evaluate(J_JS)
+        ok(j.get("card") and j.get("iframe") and "/embed/" in j.get("src", "") and 1.75 < j.get("ratio", 0) < 1.82,
+           "J 유튜브 카드도 같은 팝업에서 재생 %s" % j)
+        ok(j.get("dialog") and j.get("overflow") == "hidden" and j.get("after") and j.get("inlineYt") == 0,
+           "J 팝업 닫으면 iframe 도 사라진다 %s" % j)
 
         ov = await pg.evaluate("()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth})")
-        ok(ov["sw"] <= ov["cw"] + 1, "F 가로 넘침 0 %s" % ov)
-        ok(not errs, "F 콘솔 오류 0 %s" % (errs[:2],))
+        ok(ov["sw"] <= ov["cw"] + 1, "I 가로 넘침 0 %s" % ov)
+        ok(not errs, "I 콘솔 오류 0 %s" % (errs[:2],))
         netonly = [m for m in msgs if "Failed to load resource" not in m]
-        ok(not netonly, "F 콘솔 error 0 %s" % (netonly[:2],))
+        ok(not netonly, "I 콘솔 error 0 %s" % (netonly[:2],))
 
         await ctx.close(); await br.close()
     srv.shutdown()
