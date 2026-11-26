@@ -7284,6 +7284,8 @@ def ui_scale_apply(scale):
 
 _POSVIEW_BTN = [None]   # 설정 저장 시 버튼 문구·색을 즉시 맞추기 위한 참조
 _SYNERGY_SYNC = [None]  # 🧩 우측 시너지 3칸 표시/숨김을 설정 창에서 즉시 적용하기 위한 콜백
+# 🕹 [v83.71] 포지션별 ↔ 전체라인 토글 앞머리 글리프 — 두 모드를 오간다는 걸 글자만으로도 알린다.
+TOGGLE_GLYPH = "⇄"
 
 def _posview_default():
     try: return bool(APP_CONFIG.get("pos_view_default", True))
@@ -7303,7 +7305,9 @@ def _fatal_ban_text(p, s, pos_view):
        [v83.4 사장님 지시] 전체 기준만 보여주면 정글·서폿을 오가는 사람에게
        '지금 이 자리에서 얼마나 아픈가'를 못 알려준다. 모스트/고승률픽이 이미 포지션을 따라가므로
        같은 줄에서 약점만 전체 기준으로 남아 있으면 오히려 어긋나 보인다.
-       그 포지션 표본이 얇으면(FB_POS_MIN_GAMES 미만) 억지로 만들지 않고 전체 기준으로 돌아간다."""
+       그 포지션 표본이 얇으면(FB_POS_MIN_GAMES 미만) 억지로 만들지 않고 전체 기준으로 돌아간다.
+       ⏸ [v83.71] 사장님 지시로 대기실 슬롯에서는 이 줄을 당분간 내렸다(4줄 레이아웃 정리).
+          계산·데이터(fatal_bans)는 그대로 두었고, 다시 붙일 때 이 함수만 호출하면 된다."""
     if pos_view:
         pkor = POSITION_TRANSLATE_KOR.get(str(p.get("chosen_pos_icon", "NONE")), "선택안함")
         fbp = (s.get("fatal_bans_by_pos") or {}).get(pkor) or []
@@ -12075,25 +12079,50 @@ def create_graphic_ui():
     class _TextNavBtn:
         """lol.ps 스타일 텍스트 메뉴 버튼 — 아이콘 없는 한 줄, 활성은 하단 2px 밑줄.
            config(text=, bg=) 계약 유지: _posview_btn_sync·설정 창이 그대로 호출한다.
-           bg 가 BG_RAISED(중립)면 꺼짐, 그 밖의 액센트 색(SUCCESS 등)이면 켜짐 → 밑줄이 그 색으로 산다."""
+           bg 가 BG_RAISED(중립)면 꺼짐, 그 밖의 액센트 색(SUCCESS 등)이면 켜짐 → 밑줄이 그 색으로 산다.
+           toggle=True 면 '알약' 모양(⇄ + 1px 테두리 + 상태 채움)으로 그려, 다른 메뉴와 달리
+           누를 때마다 두 모드가 바뀌는 스위치라는 걸 한눈에 알 수 있게 한다(v83.71)."""
         PAD_X = 10   # 좌우 여백(px) — lol.ps 스타일 10~12px, 1280 에서는 _nav_fit 이 6→4 로 줄여 한 줄 유지
-        def __init__(self, label, cmd, accent=None):
+        def __init__(self, label, cmd, accent=None, toggle=False):
             self.accent = accent or theme.GOLD
             self._active = False
             self._hovering = False
-            self.f = tk.Frame(nav_bar, bg=theme.BG_BAR, cursor="hand2")
-            self.f.pack(side="left", padx=(0, 2), pady=2)
-            self.tx = tk.Label(self.f, text=label, bg=theme.BG_BAR, fg=theme.TEXT_SUB,
-                               font=UF(11), padx=self.PAD_X, pady=3, cursor="hand2")
-            self.tx.pack(side="top")
-            self.bar = tk.Frame(self.f, bg=theme.BG_BAR, height=2)   # 활성 밑줄(2px)
-            self.bar.pack(side="bottom", fill="x")
+            self.label = str(label)      # 원래 이름 — config() 가 화면 문구를 바꿔도 보존(정렬·테스트용)
+            self.toggle = bool(toggle)
+            if self.toggle:
+                # 🕹 토글 알약: 테두리 있는 배지형 버튼 + 켜짐/꺼짐 채움색 (일반 메뉴와 확실히 구분)
+                self.f = tk.Frame(nav_bar, bg=theme.BG_RAISED, cursor="hand2", bd=0,
+                                  highlightthickness=1, highlightbackground=theme.LINE_STRONG)
+                self.f.pack(side="left", padx=(8, 2), pady=1)
+                self.tx = tk.Label(self.f, text=TOGGLE_GLYPH + " " + self.label, bg=theme.BG_RAISED,
+                                   fg=theme.TEXT_SUB, font=UF(11, "bold"), padx=8, pady=2, cursor="hand2")
+                self.tx.pack(side="top")
+                self.bar = None          # 알약은 밑줄 대신 테두리·채움으로 상태를 보여준다
+            else:
+                self.f = tk.Frame(nav_bar, bg=theme.BG_BAR, cursor="hand2")
+                self.f.pack(side="left", padx=(0, 2), pady=2)
+                self.tx = tk.Label(self.f, text=self.label, bg=theme.BG_BAR, fg=theme.TEXT_SUB,
+                                   font=UF(11), padx=self.PAD_X, pady=3, cursor="hand2")
+                self.tx.pack(side="top")
+                self.bar = tk.Frame(self.f, bg=theme.BG_BAR, height=2)   # 활성 밑줄(2px)
+                self.bar.pack(side="bottom", fill="x")
             self.cmd = cmd
             for wgt in (self.f, self.tx):
                 wgt.bind("<Button-1>", self._hit)
                 wgt.bind("<Enter>", lambda e: self._hover(True))
                 wgt.bind("<Leave>", lambda e: self._hover(False))
         def _paint(self):
+            if self.toggle:
+                # 켜짐 = 액센트(SUCCESS) 채움 + 어두운 글자 / 꺼짐 = 중립 채움 + 회색 테두리
+                on = self._active
+                bg = self.accent if on else theme.BG_RAISED
+                fg = theme.TEXT_ON if on else (theme.TEXT if self._hovering else theme.TEXT_SUB)
+                bd = self.accent if on else (theme.TEXT_MUT if self._hovering else theme.LINE_STRONG)
+                try:
+                    self.f.configure(bg=bg, highlightbackground=bd, highlightcolor=bd)
+                    self.tx.configure(bg=bg, fg=fg)
+                except Exception: pass
+                return
             bg = theme.BG_RAISED if self._hovering else theme.BG_BAR
             fg = theme.TEXT if (self._hovering or self._active) else theme.TEXT_SUB
             for wgt in (self.f, self.tx):
@@ -12113,12 +12142,13 @@ def create_graphic_ui():
         def config(self, text=None, bg=None, **_kw):
             if text:                                   # '모스트: 현재포지션' → 라벨엔 뒷부분만('포지션별')
                 _t = str(text).split(":")[-1].strip() or str(text)
-                self.tx.config(text={"현재포지션": "포지션별"}.get(_t, _t))
+                _t = {"현재포지션": "포지션별"}.get(_t, _t)
+                self.tx.config(text=((TOGGLE_GLYPH + " ") if self.toggle else "") + _t)
             if bg is not None:
                 _b = str(bg).lower()
                 self._active = _b not in (theme.BG_BAR.lower(), theme.BG_RAISED.lower())
                 if self._active:
-                    self.accent = bg     # 켜짐 색(SUCCESS)을 밑줄 색으로 그대로 쓴다
+                    self.accent = bg     # 켜짐 색(SUCCESS)을 밑줄·알약 채움색으로 그대로 쓴다
             self._paint()
         configure = config
 
@@ -12136,6 +12166,9 @@ def create_graphic_ui():
         threading.Thread(target=_work, daemon=True).start()
 
     _TextNavBtn("팀초대", _do_voice_invite)   # [2026-08-18 사장님 지시] '음성초대' → 디코 명령어와 같은 이름으로
+    # 👑 [v83.71 사장님 지시] '팀뽑선정'을 팀초대 바로 옆(맨 왼쪽 묶음)으로 — 로비에서 먼저 쓰는 순서대로.
+    #    _do_team_menu 정의는 아래에 있다. 버튼 클릭 시점에 이름이 바인딩되므로 람다로 넘긴다.
+    _TextNavBtn("팀뽑선정", lambda: _do_team_menu())
 
     # 👥 접속자 버튼 제거(2026-07-05 사장님 지시). 접속기록 자체는 백그라운드로 계속 시트에 기록됨.
     # ❄ 증내의 전당 버튼 삭제(2026-07-16) → 명예의 전당 창 내부 '칼바람' 탭으로 통합
@@ -12162,8 +12195,10 @@ def create_graphic_ui():
         _posview_btn_sync(_on)
     # [v82.37] 초기 문구·색은 설정값(pos_view_default)을 따른다 — 하드코딩하면 화면과 실동작이 어긋남
     _pv0 = _posview_default()
+    # 🕹 [v83.71 사장님 지시] '포지션별/전체라인'은 다른 메뉴와 같은 글자가 아니라 **토글 알약**으로 —
+    #    누를 때마다 두 모드가 바뀌는 스위치라는 걸 보자마자 알 수 있게(toggle=True).
     btn_posview = _TextNavBtn(("포지션별" if _pv0 else "전체라인"), _toggle_pos_view,
-                              accent=(theme.SUCCESS if _pv0 else theme.TILE_OFF))
+                              accent=(theme.SUCCESS if _pv0 else theme.TILE_OFF), toggle=True)
     btn_posview.config(bg=(theme.SUCCESS if _pv0 else theme.BG_RAISED))   # 켜짐 = 골드 대신 SUCCESS 밑줄
     _POSVIEW_BTN[0] = btn_posview   # 설정 창에서 즉시 갱신할 수 있도록 참조 보관
 
@@ -12382,7 +12417,7 @@ def create_graphic_ui():
         _big("🎯", "포지션 추천", "수동으로 짠 팀도 OK — 현재 블루/레드 명단 그대로 라인 추천",
              _do_pos_recommend, theme.GOLD)
         theme.make_button(w, "닫기", "neutral", command=w.destroy).pack(pady=(8, 14))
-    _TextNavBtn("팀뽑선정", _do_team_menu)
+    # 👑 '팀뽑선정' 메뉴 버튼은 위(팀초대 옆)에서 이미 만들었다 — 여기는 정의만 남긴다.
 
     # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 정의(내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지).
     # 🛠 2026-11-27 메뉴에서는 뺐다 — open_tieradmin_window 정의는 보존(다른 곳·테스트 참조 가능).
@@ -12522,29 +12557,48 @@ def create_graphic_ui():
     # [v82.13 시안] 우측 열 = 시너지 3칸만 세로 균등 분할(광고·개발텍스트는 헤더로 복귀)
 
     # 🎨 [디자인 리뉴얼] 우측 패널 = BG_CARD 카드 + 헤어라인, 내용은 한 단 낮은 입력 우물(BG_INPUT)
+    # 🧹 [v83.71 사장님 지시] 세 패널의 회색 세로 스크롤바가 늘 보여 지저분했다 → 스크롤바 위젯은 숨기고
+    #    (ScrolledText.vbar.pack_forget) 마우스 휠 스크롤은 Tk Text 기본 바인딩 그대로 살려 둔다.
+    def _hide_vbar(box):
+        """ScrolledText 의 세로 스크롤바를 보이지 않게 — 휠(<MouseWheel>)·키 스크롤은 그대로 동작한다."""
+        try: box.vbar.pack_forget()
+        except Exception: pass
+        return box
     pos_card = tk.Frame(right_panel, **theme.hairline(theme.BG_CARD))
     pos_card.pack(fill="both", expand=True, pady=(0, 6))
     tk.Label(pos_card, text="🔥 고승률 시너지", bg=theme.BG_RAISED, fg=theme.SUCCESS, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
-    pos_box = scrolledtext.ScrolledText(pos_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.SUCCESS, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8)
+    pos_box = _hide_vbar(scrolledtext.ScrolledText(pos_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.SUCCESS, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8))
     pos_box.pack(fill="both", expand=True)
     pos_box.configure(state="disabled")
 
     neg_card = tk.Frame(right_panel, **theme.hairline(theme.BG_CARD))
     neg_card.pack(fill="both", expand=True, pady=(0, 6))
     tk.Label(neg_card, text="⚠ 역시너지 경보", bg=theme.BG_RAISED, fg=theme.WARN, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
-    neg_box = scrolledtext.ScrolledText(neg_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.WARN, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8)
+    neg_box = _hide_vbar(scrolledtext.ScrolledText(neg_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.WARN, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8))
     neg_box.pack(fill="both", expand=True)
     neg_box.configure(state="disabled")
 
     nemesis_card = tk.Frame(right_panel, **theme.hairline(theme.BG_CARD))
     nemesis_card.pack(fill="both", expand=True)
     tk.Label(nemesis_card, text="⚔ 적팀 인간상성", bg=theme.BG_RAISED, fg=theme.TEAM_RED_FG, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
-    nemesis_box = scrolledtext.ScrolledText(nemesis_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.TEAM_RED_FG, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8)
+    nemesis_box = _hide_vbar(scrolledtext.ScrolledText(nemesis_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.TEAM_RED_FG, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8))
     nemesis_box.pack(fill="both", expand=True)
     nemesis_box.configure(state="disabled")
 
     b_head = tk.Frame(blue_card, bg=theme.TEAM_BLUE_BG)
     b_head.pack(fill="x")
+    # 🖥 [v83.71 사장님 제보] 제목 줄을 먼저 expand 로 붙이면 뒤에 pack 한 버튼이 남는 공간을 못 받아
+    #    '멀티서치'가 '티서치'로 잘렸다 — 버튼을 먼저 오른쪽에 고정한 뒤 제목 프레임을 채운다.
+    def do_blue_multi():
+        with gui_lock:
+            open_multisearch(gui_data.get("blue", []))
+    def do_red_multi():
+        with gui_lock:
+            open_multisearch(gui_data.get("red", []))
+
+    btn_b_multi = theme.make_button(b_head, "멀티서치", "win", font=UF(9, "bold"), padx=theme.SP_2, command=do_blue_multi)
+    btn_b_multi.pack(side="right", padx=10, pady=5)
+
     b_title_frame = tk.Frame(b_head, bg=theme.TEAM_BLUE_BG)
     b_title_frame.pack(side="left", fill="x", expand=True)
 
@@ -12553,19 +12607,13 @@ def create_graphic_ui():
 
     blue_ban_frame = tk.Frame(b_title_frame, bg=theme.TEAM_BLUE_BG)
     blue_ban_frame.pack(side="left", padx=5)
-    
-    def do_blue_multi():
-        with gui_lock:
-            open_multisearch(gui_data.get("blue", []))
-    def do_red_multi():
-        with gui_lock:
-            open_multisearch(gui_data.get("red", []))
-            
-    btn_b_multi = theme.make_button(b_head, "멀티서치", "win", font=UF(9, "bold"), padx=theme.SP_2, command=do_blue_multi)
-    btn_b_multi.pack(side="right", padx=10, pady=5)
 
     r_head = tk.Frame(red_card, bg=theme.TEAM_RED_BG)
     r_head.pack(fill="x")
+    # 같은 이유로 레드팀도 버튼을 먼저 오른쪽에 고정하고 제목 프레임을 나중에 채운다(v83.71).
+    btn_r_multi = theme.make_button(r_head, "멀티서치", "danger", font=UF(9, "bold"), padx=theme.SP_2, command=do_red_multi)
+    btn_r_multi.pack(side="right", padx=10, pady=5)
+
     r_title_frame = tk.Frame(r_head, bg=theme.TEAM_RED_BG)
     r_title_frame.pack(side="left", fill="x", expand=True)
 
@@ -12574,8 +12622,6 @@ def create_graphic_ui():
 
     red_ban_frame = tk.Frame(r_title_frame, bg=theme.TEAM_RED_BG)
     red_ban_frame.pack(side="left", padx=5)
-    btn_r_multi = theme.make_button(r_head, "멀티서치", "danger", font=UF(9, "bold"), padx=theme.SP_2, command=do_red_multi)
-    btn_r_multi.pack(side="right", padx=10, pady=5)
 
     blue_slots = []
     red_slots = []
@@ -12618,19 +12664,24 @@ def create_graphic_ui():
         btr.pack(side="left", padx=(2, 0))
         bem = tk.Label(bz, bg=theme.TEAM_BLUE_SOFT)   # 🎨 [v81.93] '내 꾸미기' 엠블럼(내 칸에만)
         bem.pack(side="right", padx=(0, 6))
-        bc_frame_1 = tk.Frame(binner, bg=theme.TEAM_BLUE_SOFT)
-        bc_frame_1.pack(fill="x", padx=12, pady=0)
-        bsub_1 = tk.Label(bc_frame_1, text="정찰 대기 중...", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
-        bsub_1.pack(side="left")
-        bc_frame_2 = tk.Frame(binner, bg=theme.TEAM_BLUE_SOFT)
-        bc_frame_2.pack(fill="x", padx=12, pady=0)
-        bsub_2 = tk.Label(bc_frame_2, text="", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
-        bsub_2.pack(side="left")
-        bc_frame_3 = tk.Frame(binner, bg=theme.TEAM_BLUE_SOFT)
-        bc_frame_3.pack(fill="x", padx=12, pady=0)
-        bsub_3 = tk.Label(bc_frame_3, text="", bg=theme.TEAM_BLUE_SOFT, fg=theme.LOSE, font=FONT_SLOT_STAT, anchor="w")
-        bsub_3.pack(side="left")
-        blue_slots.append((btn, bsub_1, bti, bpi, bcb, bc_frame_1, b_opgg, bc_frame_2, bsub_2, bc_frame_3, bsub_3, btr, bf, bem))   # [12]=칸 프레임 · [13]=🎨꾸미기 엠블럼
+        # 🧱 [v83.71 사장님 지시] 슬롯 카드 = 4줄 고정: ①아이디(위 bz) ②전적 ③모스트 ④고승률픽
+        #    예전에는 전적과 모스트를 한 줄에 붙여 두어 아이디가 길거나 창이 좁으면
+        #    모스트 초상화가 오른쪽에서 잘렸다 → 줄을 나눠 각 줄이 자기 폭을 온전히 쓰게 한다.
+        bc_row_jeok = tk.Frame(binner, bg=theme.TEAM_BLUE_SOFT)
+        bc_row_jeok.pack(fill="x", padx=12, pady=0)
+        bsub_jeok = tk.Label(bc_row_jeok, text="정찰 대기 중...", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
+        bsub_jeok.pack(side="left")
+        bc_row_most = tk.Frame(binner, bg=theme.TEAM_BLUE_SOFT)
+        bc_row_most.pack(fill="x", padx=12, pady=0)
+        bsub_most = tk.Label(bc_row_most, text="", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
+        bsub_most.pack(side="left")
+        bc_row_op = tk.Frame(binner, bg=theme.TEAM_BLUE_SOFT)
+        bc_row_op.pack(fill="x", padx=12, pady=0)
+        bsub_op = tk.Label(bc_row_op, text="", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
+        bsub_op.pack(side="left")
+        # [0]=닉네임 [1]=전적라벨 [2]=티어아이콘 [3]=포지션아이콘 [4]=복사 [5]=전적줄 [6]=op.gg
+        # [7]=모스트줄 [8]=모스트라벨 [9]=고승률픽줄 [10]=고승률픽라벨 [11]=내부티어 [12]=칸 프레임 [13]=🎨엠블럼
+        blue_slots.append((btn, bsub_jeok, bti, bpi, bcb, bc_row_jeok, b_opgg, bc_row_most, bsub_most, bc_row_op, bsub_op, btr, bf, bem))
 
         rf = tk.Frame(r_slots_wrap, highlightbackground=theme.LINE, highlightthickness=1,
                       bd=0, relief="flat", bg=theme.TEAM_RED_SOFT)
@@ -12656,19 +12707,20 @@ def create_graphic_ui():
         rtr.pack(side="left", padx=(2, 0))
         rem = tk.Label(rz, bg=theme.TEAM_RED_SOFT)   # 🎨 [v81.93] '내 꾸미기' 엠블럼(내 칸에만)
         rem.pack(side="right", padx=(0, 6))
-        rc_frame_1 = tk.Frame(rinner, bg=theme.TEAM_RED_SOFT)
-        rc_frame_1.pack(fill="x", padx=12, pady=0)
-        rsub_1 = tk.Label(rc_frame_1, text="정찰 대기 중...", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
-        rsub_1.pack(side="left")
-        rc_frame_2 = tk.Frame(rinner, bg=theme.TEAM_RED_SOFT)
-        rc_frame_2.pack(fill="x", padx=12, pady=0)
-        rsub_2 = tk.Label(rc_frame_2, text="", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
-        rsub_2.pack(side="left")
-        rc_frame_3 = tk.Frame(rinner, bg=theme.TEAM_RED_SOFT)
-        rc_frame_3.pack(fill="x", padx=12, pady=0)
-        rsub_3 = tk.Label(rc_frame_3, text="", bg=theme.TEAM_RED_SOFT, fg=theme.LOSE, font=FONT_SLOT_STAT, anchor="w")
-        rsub_3.pack(side="left")
-        red_slots.append((rtn, rsub_1, rti, rpi, rcb, rc_frame_1, r_opgg, rc_frame_2, rsub_2, rc_frame_3, rsub_3, rtr, rf, rem))   # [12]=칸 프레임 · [13]=🎨꾸미기 엠블럼
+        # 🧱 [v83.71] 레드팀도 같은 4줄 구조: ②전적 ③모스트 ④고승률픽
+        rc_row_jeok = tk.Frame(rinner, bg=theme.TEAM_RED_SOFT)
+        rc_row_jeok.pack(fill="x", padx=12, pady=0)
+        rsub_jeok = tk.Label(rc_row_jeok, text="정찰 대기 중...", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
+        rsub_jeok.pack(side="left")
+        rc_row_most = tk.Frame(rinner, bg=theme.TEAM_RED_SOFT)
+        rc_row_most.pack(fill="x", padx=12, pady=0)
+        rsub_most = tk.Label(rc_row_most, text="", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
+        rsub_most.pack(side="left")
+        rc_row_op = tk.Frame(rinner, bg=theme.TEAM_RED_SOFT)
+        rc_row_op.pack(fill="x", padx=12, pady=0)
+        rsub_op = tk.Label(rc_row_op, text="", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=FONT_SLOT_STAT, anchor="w")
+        rsub_op.pack(side="left")
+        red_slots.append((rtn, rsub_jeok, rti, rpi, rcb, rc_row_jeok, r_opgg, rc_row_most, rsub_most, rc_row_op, rsub_op, rtr, rf, rem))   # [12]=칸 프레임 · [13]=🎨꾸미기 엠블럼
 
     # 🔥 [2026-08-01 사장님 지시] 연승/연패 텍스트는 이름 옆에서 빼고, **5연승 이상**만
     #    닉네임이 불타는 효과로 대신한다. 텍스트가 아니라 색이 일렁이는 방식.
@@ -12939,41 +12991,35 @@ def create_graphic_ui():
                     name_str = _pre + name_str + _suf + _bdg
                     blue_slots[i][0].config(text=name_str + lp_str)
                     _most_disp, _op_disp, _pos_tag = _display_champ_lists(p, s, local_pos_view)
-                    blue_slots[i][1].config(text=" 전적: " + str(s.get('summary', '')) + " | 모스트" + _pos_tag + ": ")
-                    for widget in blue_slots[i][5].winfo_children():
-                        if widget != blue_slots[i][1]: widget.destroy()
+                    # 🧱 [v83.71] 줄 분리 — 전적은 자기 줄만, 모스트·고승률픽도 각자 한 줄씩.
+                    #    한 줄에 붙여 두면 모스트 초상화가 오른쪽에서 잘렸다. (밴 당할 시 승률 하락 줄은 슬롯에서 뺐다)
+                    blue_slots[i][1].config(text=" 전적: " + str(s.get('summary', '')))
+                    blue_slots[i][8].config(text=" 모스트" + _pos_tag + ": ")
+                    for widget in blue_slots[i][7].winfo_children():
+                        if widget != blue_slots[i][8]: widget.destroy()
                     
                     for champ_info in _most_disp[:5]:   # [시인성] 모스트5·초상화만(판수 텍스트 제거)
                         img = load_champion_image(champ_info["name"])
                         if img:
-                            lbl = tk.Label(blue_slots[i][5], image=img, bg=theme.TEAM_BLUE_SOFT)
+                            lbl = tk.Label(blue_slots[i][7], image=img, bg=theme.TEAM_BLUE_SOFT)
                             lbl.image = img; lbl.pack(side="left", padx=2)
                         else:
-                            tk.Label(blue_slots[i][5], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
+                            tk.Label(blue_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
 
-                    blue_slots[i][8].config(text=" 고승률픽" + _pos_tag + ": ")
-                    for widget in blue_slots[i][7].winfo_children():
-                        if widget != blue_slots[i][8]: widget.destroy()
+                    blue_slots[i][10].config(text=" 고승률픽" + _pos_tag + ": ")
+                    for widget in blue_slots[i][9].winfo_children():
+                        if widget != blue_slots[i][10]: widget.destroy()
                     
                     op_list = _op_disp
-                    if not op_list: tk.Label(blue_slots[i][7], text="없음", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
+                    if not op_list: tk.Label(blue_slots[i][9], text="없음", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
                     else:
                         for champ_info in op_list[:5]:   # [시인성] 고승률픽 초상화만(승률·판수 텍스트 제거)
                             img = load_champion_image(champ_info["name"])
                             if img:
-                                lbl = tk.Label(blue_slots[i][7], image=img, bg=theme.TEAM_BLUE_SOFT)
+                                lbl = tk.Label(blue_slots[i][9], image=img, bg=theme.TEAM_BLUE_SOFT)
                                 lbl.image = img; lbl.pack(side="left", padx=2)
                             else:
-                                tk.Label(blue_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
-                    # [시인성] 진영승률 표기 제거
-
-                    text_fb = _fatal_ban_text(p, s, local_pos_view)
-                    if text_fb:
-                        blue_slots[i][10].config(text=text_fb, fg=theme.LOSE)
-                        blue_slots[i][9].pack(fill="x", padx=12, pady=0)   # [v82.11] 경고 있을 때만 줄 표시(빈 줄이 세로공간 잠식 → 서폿칸 잘림)
-                    else:
-                        blue_slots[i][10].config(text="", fg=theme.TEXT_MUT)
-                        blue_slots[i][9].pack_forget()
+                                tk.Label(blue_slots[i][9], text=str(champ_info["name"]) + " ", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
 
                     ti = tier_images.get(p.get("tier_icon", "UNRANKED"))
                     ci = position_images.get(p.get("chosen_pos_icon", "NONE"))
@@ -12994,12 +13040,12 @@ def create_graphic_ui():
                     blue_slots[i][0].config(text="대기 중...", fg=theme.TEXT_MUT)
                     blue_slots[i][1].config(text="소환사를 정찰하고 있습니다.")
                     blue_slots[i][8].config(text="")
-                    blue_slots[i][10].config(text=""); blue_slots[i][9].pack_forget()
+                    blue_slots[i][10].config(text="")
                     
-                    for widget in blue_slots[i][5].winfo_children():
-                        if widget != blue_slots[i][1]: widget.destroy()
                     for widget in blue_slots[i][7].winfo_children():
                         if widget != blue_slots[i][8]: widget.destroy()
+                    for widget in blue_slots[i][9].winfo_children():
+                        if widget != blue_slots[i][10]: widget.destroy()
                         
                     blue_slots[i][2].config(image='')
                     blue_slots[i][3].config(image='')
@@ -13019,41 +13065,34 @@ def create_graphic_ui():
                     name_str = _pre + name_str + _suf + _bdg
                     red_slots[i][0].config(text=name_str + lp_str)
                     _most_disp, _op_disp, _pos_tag = _display_champ_lists(p, s, local_pos_view)
-                    red_slots[i][1].config(text=" 전적: " + str(s.get('summary', '')) + " | 모스트" + _pos_tag + ": ")
-                    for widget in red_slots[i][5].winfo_children():
-                        if widget != red_slots[i][1]: widget.destroy()
+                    # 🧱 [v83.71] 블루팀과 같은 4줄 — 전적 / 모스트 / 고승률픽
+                    red_slots[i][1].config(text=" 전적: " + str(s.get('summary', '')))
+                    red_slots[i][8].config(text=" 모스트" + _pos_tag + ": ")
+                    for widget in red_slots[i][7].winfo_children():
+                        if widget != red_slots[i][8]: widget.destroy()
                         
                     for champ_info in _most_disp[:5]:   # [시인성] 모스트5·초상화만(판수 텍스트 제거)
                         img = load_champion_image(champ_info["name"])
                         if img:
-                            lbl = tk.Label(red_slots[i][5], image=img, bg=theme.TEAM_RED_SOFT)
+                            lbl = tk.Label(red_slots[i][7], image=img, bg=theme.TEAM_RED_SOFT)
                             lbl.image = img; lbl.pack(side="left", padx=2)
                         else:
-                            tk.Label(red_slots[i][5], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
+                            tk.Label(red_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
 
-                    red_slots[i][8].config(text=" 고승률픽" + _pos_tag + ": ")
-                    for widget in red_slots[i][7].winfo_children():
-                        if widget != red_slots[i][8]: widget.destroy()
+                    red_slots[i][10].config(text=" 고승률픽" + _pos_tag + ": ")
+                    for widget in red_slots[i][9].winfo_children():
+                        if widget != red_slots[i][10]: widget.destroy()
                     
                     op_list = _op_disp
-                    if not op_list: tk.Label(red_slots[i][7], text="없음", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
+                    if not op_list: tk.Label(red_slots[i][9], text="없음", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
                     else:
                         for champ_info in op_list[:5]:   # [시인성] 고승률픽 초상화만(승률·판수 텍스트 제거)
                             img = load_champion_image(champ_info["name"])
                             if img:
-                                lbl = tk.Label(red_slots[i][7], image=img, bg=theme.TEAM_RED_SOFT)
+                                lbl = tk.Label(red_slots[i][9], image=img, bg=theme.TEAM_RED_SOFT)
                                 lbl.image = img; lbl.pack(side="left", padx=2)
                             else:
-                                tk.Label(red_slots[i][7], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
-                    # [시인성] 진영승률 표기 제거
-
-                    text_fb = _fatal_ban_text(p, s, local_pos_view)
-                    if text_fb:
-                        red_slots[i][10].config(text=text_fb, fg=theme.LOSE)
-                        red_slots[i][9].pack(fill="x", padx=12, pady=0)   # [v82.11] 경고 있을 때만 줄 표시
-                    else:
-                        red_slots[i][10].config(text="", fg=theme.TEXT_MUT)
-                        red_slots[i][9].pack_forget()
+                                tk.Label(red_slots[i][9], text=str(champ_info["name"]) + " ", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=2)
 
                     ti = tier_images.get(p.get("tier_icon", "UNRANKED"))
                     ci = position_images.get(p.get("chosen_pos_icon", "NONE"))
@@ -13074,12 +13113,12 @@ def create_graphic_ui():
                     red_slots[i][0].config(text="대기 중...", fg=theme.TEXT_MUT)
                     red_slots[i][1].config(text="소환사를 정찰하고 있습니다.")
                     red_slots[i][8].config(text="")
-                    red_slots[i][10].config(text=""); red_slots[i][9].pack_forget()
+                    red_slots[i][10].config(text="")
                     
-                    for widget in red_slots[i][5].winfo_children():
-                        if widget != red_slots[i][1]: widget.destroy()
                     for widget in red_slots[i][7].winfo_children():
                         if widget != red_slots[i][8]: widget.destroy()
+                    for widget in red_slots[i][9].winfo_children():
+                        if widget != red_slots[i][10]: widget.destroy()
                         
                     red_slots[i][2].config(image='')
                     red_slots[i][3].config(image='')
