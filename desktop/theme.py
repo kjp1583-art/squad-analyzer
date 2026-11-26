@@ -15,12 +15,12 @@ BG_BAR      = "#171a23"   # 헤더/상단 바 = surface-1 (웹 --bg2)
 BG_INPUT    = "#171a23"   # 입력 필드/리스트박스/우물 = surface-1
 BG_CARD     = "#1b1f2b"   # 카드/패널/모달 바디 = surface-2 (웹 --card)
 BG_RAISED   = "#212636"   # 올라온/활성 표면·중립 버튼 = surface-3 (웹 --card2)
-SCRIM       = "#000000"   # 모달 백드롭 전용(순수 검정은 여기서만)
+SCRIM       = "#000000"   # 모달 백드롭·그림자 전용(순수 검정은 여기서만)
 
 # ── 2.2 Ink hierarchy (텍스트 4단계) ──────────────────────────────────
 TEXT        = "#e7eaf3"   # 기본 텍스트 (웹 --txt)
 TEXT_SUB    = "#9aa3b8"   # 보조 텍스트/라벨 (웹 --sub)
-TEXT_MUT    = "#717a91"   # 흐린 텍스트/메타 (웹 --mut)
+TEXT_MUT    = "#7d869c"   # 흐린 텍스트/메타 (웹 --mut). 2026-11-27 웹과 동기화 — BG_CARD 위 4.51:1(AA)
 TEXT_ON     = "#0e1017"   # 골드/밝은 채움 위의 텍스트
 
 # ── 2.3 Borders (헤어라인 — 깊이 담당) ────────────────────────────────
@@ -50,12 +50,29 @@ WARN        = "#e8930c"   # 경고/대기/주의 (웹 --warn)
 INFO        = "#39c7d6"   # 정보/ACE/보조 하이라이트 (웹 --cyan)
 PURPLE      = "#8a5cd6"   # 서폿 롤/신화 티어 (웹 --purple)
 
+SUCCESS_SOFT = "#7ee1a8"  # 밝은 성공 텍스트(어두운 배경 위 'UP!'·초대 계열) — SUCCESS 의 밝은 잉크
+
 # 롤 색 (탑/정글/미드/원딜/서폿) — 웹 POS_COLOR와 동일
 POS_TOP     = "#c9482f"
 POS_JG      = "#2f9d57"
 POS_MID     = "#3a73e8"   # == WIN
 POS_ADC     = "#d9a13a"
 POS_SUP     = "#8a5cd6"   # == PURPLE
+
+# ── 2.5 헤더 타일 액센트 (상단 13칸 아이콘 색 — 하드코딩 승격) ────────
+TILE_GUIDE    = TEAM_BLUE_FG  # 📖 사용안내
+TILE_INVITE   = SUCCESS_SOFT  # 🎮 팀초대
+TILE_SETTINGS = TEXT          # ⚙ 설정
+TILE_LOG      = TEXT_SUB      # 🗒 로그
+TILE_DONATE   = "#ff8fb1"     # 💝 후원하기(하트 핑크 — 타일 아이콘 전용)
+TILE_OFF      = "#6b7789"     # 토글 꺼짐(모스트: 전체라인) — 켜짐은 SUCCESS
+
+# 기술용 색(시각 팔레트 아님)
+CHROMA_KEY  = "#010203"   # 초상화/카드 오버레이의 '투명' 키 컬러 — 화면에 그려지지 않는다
+
+# 연승 불꽃 애니메이션 팔레트(5연승 이상 닉네임) — 시각 토큰이 아니라 효과 시퀀스
+BURN_COLORS = ("#FFE08A", "#FFC44A", "#FF9E33", "#FF7A29", "#FF5A1F",
+               "#FF7A29", "#FF9E33", "#FFC44A")
 
 # ── 딕셔너리 접근용(선택) ─────────────────────────────────────────────
 COLORS = {
@@ -66,7 +83,10 @@ COLORS = {
     "ACCENT": ACCENT, "ACCENT_H": ACCENT_H,
     "WIN": WIN, "TEAM_BLUE": TEAM_BLUE, "TEAM_BLUE_BG": TEAM_BLUE_BG, "TEAM_BLUE_FG": TEAM_BLUE_FG, "TEAM_BLUE_SOFT": TEAM_BLUE_SOFT,
     "LOSE": LOSE, "TEAM_RED": TEAM_RED, "TEAM_RED_BG": TEAM_RED_BG, "TEAM_RED_FG": TEAM_RED_FG, "TEAM_RED_SOFT": TEAM_RED_SOFT,
-    "GOLD": GOLD, "SUCCESS": SUCCESS, "WARN": WARN, "INFO": INFO, "PURPLE": PURPLE,
+    "GOLD": GOLD, "SUCCESS": SUCCESS, "SUCCESS_SOFT": SUCCESS_SOFT, "WARN": WARN, "INFO": INFO, "PURPLE": PURPLE,
+    "TILE_GUIDE": TILE_GUIDE, "TILE_INVITE": TILE_INVITE, "TILE_SETTINGS": TILE_SETTINGS,
+    "TILE_LOG": TILE_LOG, "TILE_DONATE": TILE_DONATE, "TILE_OFF": TILE_OFF,
+    "CHROMA_KEY": CHROMA_KEY,
 }
 
 # ── 3. Typography (Malgun Gothic 스케일) ──────────────────────────────
@@ -86,7 +106,111 @@ SPACING = {"XS": 4, "S": 8, "M": 12, "L": 16, "XL": 24, "XXL": 32}
 SP_1, SP_2, SP_3, SP_4, SP_6, SP_8 = 4, 8, 12, 16, 24, 32
 
 
-# ── 버튼 팩토리(다음 패스용, 선택) ────────────────────────────────────
+# ── 5. 공통 위젯 옵션 (헤어라인 카드/입력) ─────────────────────────────
+def hairline(bg=None, focus=ACCENT, thickness=1, **kw):
+    """E1 카드·입력 공통 옵션 — 1px 헤어라인 + bd 0.  tk.Frame(p, **theme.hairline(theme.BG_CARD))
+       focus 색은 Entry/Text 가 포커스를 받을 때의 보더색(highlightcolor)."""
+    opts = {"bd": 0, "relief": "flat", "highlightthickness": thickness,
+            "highlightbackground": LINE, "highlightcolor": focus}
+    if bg is not None:
+        opts["bg"] = bg
+    opts.update(kw)
+    return opts
+
+
+# ── 6. ttk 다크 테마 (Windows 기본 밝은 회색 위젯 혼입 방지) ──────────
+def apply_ttk_theme(root=None, font=None):
+    """ttk 위젯(TCombobox/Vertical·Horizontal.TScrollbar/TCheckbutton/TNotebook/Treeview)을
+       다크 토큰으로 통일한다. clam 기반 — 색 지정이 전 플랫폼에서 먹는 테마를 우선 쓰고,
+       없으면 현재 테마에 그대로 색만 입힌다. 어떤 이유로든 실패해도 앱 실행을 막지 않는다(조용히 폴백).
+       font: 앱의 이름 있는 폰트(UF(...))를 넘기면 체크박스 글자도 창 크기 배율을 따라간다."""
+    try:
+        from tkinter import ttk
+    except Exception:
+        return None
+    try:
+        st = ttk.Style(root)
+    except Exception:
+        return None
+    try:
+        if "clam" in st.theme_names():
+            st.theme_use("clam")
+    except Exception:
+        pass
+
+    def _c(style, **kw):
+        try: st.configure(style, **kw)
+        except Exception: pass
+
+    def _m(style, **kw):
+        try: st.map(style, **kw)
+        except Exception: pass
+
+    # 기본 컨테이너 — ttk 프레임/라벨이 밝은 회색으로 남지 않게
+    _c("TFrame", background=BG)
+    _c("TLabel", background=BG, foreground=TEXT)
+    _c("TLabelframe", background=BG, bordercolor=LINE, lightcolor=BG, darkcolor=BG)
+    _c("TLabelframe.Label", background=BG, foreground=TEXT_SUB)
+
+    # 체크박스(설정 창)
+    _c("TCheckbutton", background=BG, foreground=TEXT, focuscolor=BG,
+       bordercolor=LINE, lightcolor=BG, darkcolor=BG,
+       indicatorbackground=BG_INPUT, indicatorforeground=TEXT_ON, indicatorrelief="flat",
+       **(({"font": font}) if font is not None else {}))
+    _m("TCheckbutton",
+       background=[("active", BG)],
+       foreground=[("disabled", TEXT_MUT)],
+       indicatorbackground=[("selected", ACCENT), ("active", BG_RAISED)])
+
+    # 콤보박스(티어·패치 필터·창 크기 프리셋)
+    _c("TCombobox", fieldbackground=BG_INPUT, background=BG_RAISED, foreground=TEXT,
+       arrowcolor=TEXT_SUB, bordercolor=LINE, lightcolor=LINE, darkcolor=LINE,
+       selectbackground=BG_INPUT, selectforeground=TEXT, padding=SP_1)
+    _m("TCombobox",
+       fieldbackground=[("readonly", BG_INPUT), ("disabled", BG_BAR)],
+       foreground=[("readonly", TEXT), ("disabled", TEXT_MUT)],
+       background=[("active", BG_RAISED), ("readonly", BG_RAISED)],
+       arrowcolor=[("active", TEXT), ("disabled", TEXT_MUT)])
+
+    # 스크롤바(세로/가로 공통)
+    for _sb in ("Vertical.TScrollbar", "Horizontal.TScrollbar"):
+        _c(_sb, background=BG_RAISED, troughcolor=BG_INPUT, bordercolor=LINE,
+           arrowcolor=TEXT_SUB, lightcolor=BG_RAISED, darkcolor=BG_RAISED,
+           relief="flat", gripcount=0, arrowsize=SP_3)
+        _m(_sb, background=[("active", LINE_STRONG), ("pressed", LINE_STRONG)],
+           arrowcolor=[("active", TEXT)])
+
+    # 노트북 탭
+    _c("TNotebook", background=BG, bordercolor=LINE, lightcolor=BG, darkcolor=BG,
+       tabmargins=(0, SP_1, 0, 0))
+    _c("TNotebook.Tab", background=BG_CARD, foreground=TEXT_SUB, bordercolor=LINE,
+       lightcolor=BG_CARD, darkcolor=BG_CARD, padding=(SP_3, SP_1))
+    _m("TNotebook.Tab", background=[("selected", BG_RAISED)],
+       foreground=[("selected", TEXT)], expand=[("selected", (0, 0, 0, 0))])
+
+    # 트리뷰(표)
+    _c("Treeview", background=BG_CARD, fieldbackground=BG_CARD, foreground=TEXT,
+       bordercolor=LINE, lightcolor=BG_CARD, darkcolor=BG_CARD, borderwidth=0, rowheight=22)
+    _c("Treeview.Heading", background=BG_RAISED, foreground=TEXT_SUB,
+       bordercolor=LINE, relief="flat")
+    _m("Treeview", background=[("selected", BG_RAISED)], foreground=[("selected", TEXT)])
+    _m("Treeview.Heading", background=[("active", BG_RAISED)], foreground=[("active", TEXT)])
+
+    # 콤보 드롭다운 목록은 ttk 가 아니라 tk.Listbox 로 뜬다 → 옵션DB로 색을 준다
+    if root is not None:
+        try:
+            for pat, val in (("*TCombobox*Listbox.background", BG_INPUT),
+                             ("*TCombobox*Listbox.foreground", TEXT),
+                             ("*TCombobox*Listbox.selectBackground", ACCENT),
+                             ("*TCombobox*Listbox.selectForeground", TEXT_ON),
+                             ("*TCombobox*Listbox.borderWidth", 0)):
+                root.option_add(pat, val)
+        except Exception:
+            pass
+    return st
+
+
+# ── 버튼 팩토리 ───────────────────────────────────────────────────────
 # 모든 버튼에 일관된 색/hover/geometry 부여. kind: neutral/primary/danger/gold/success/warn/info/purple/win
 _BTN_KIND = {
     "neutral": (BG_RAISED, TEXT_SUB, BG_CARD),
