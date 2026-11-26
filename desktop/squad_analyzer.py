@@ -2471,18 +2471,305 @@ _DRAFT_SEEN = set()                 # 같은 밴픽 상황 중복 호출 방지(
 _DRAFT_BUSY = [False]
 _DRAFT_POOL_CACHE = {}              # {내이름: [(챔프, 판수, 승)]} — 밴픽당 1회 계산
 
+# ===== 🧬 [2026-11-27 사장님 지시] 고스트밴픽왕 성능향상 ①②③ — 사람 단위(LINK)·최근성·포지션 확률·사전 스코어링 =====
+#   "고스트밴픽왕 성능향상안 1~5번 전체를 단계별로 테스트 포함해서 구현하고 머지해 줘."
+#   ⚠️ 이 블록은 **추천 엔진의 자료 집계·점수 계산**만 맡는다 — 로비·포지션 감지(lol_lobby_scout / LCU 파싱)는
+#      손대지 않는다. 시트에서 읽은 사실을 어떻게 '한 사람'으로 묶고 어떤 숫자로 바꾸는지가 여기 전부다.
+_ROLES5 = ("탑", "정글", "미드", "원딜", "서폿")
+
+# ── ① 최근성 가중치 ────────────────────────────────────────────────────────────
+#   [2026-11-27] 90일 단순 컷오프는 '3개월 전 20판 vs 어제 3판'을 구분하지 못했다(주간감사 지적: 옛날 잡픽이
+#   후보로 올라와 밴 적중률을 떨어뜨림). 1판 = 1.0 을 기준으로 최근일수록 큰 값을 주고 합을 '최근성 가중 판수'로 쓴다.
+_REC_W = ((14, 3.0), (30, 2.0), (90, 1.25))
+_REC_OLD_W = 0.35
+
+
+def _sheet_date(s):
+    """시트 '날짜' 셀 → 에폭 초. '2026-11-01' · '2026-11-01 21:33' · '2026. 11. 1.' · '2026/11/01' 모두. 실패 시 None."""
+    t = str(s or "").strip()
+    if not t:
+        return None
+    m = re.match(r"^(\d{4})[-./]\s*(\d{1,2})[-./]\s*(\d{1,2})", t)
+    if m:
+        y, mo, d = m.group(1), m.group(2), m.group(3)
+    else:
+        m = re.match(r"^(\d{1,2})[-./](\d{1,2})[-./](\d{4})", t)   # 11/01/2026
+        if not m:
+            return None
+        y, mo, d = m.group(3), m.group(1), m.group(2)
+    try:
+        return time.mktime((int(y), int(mo), int(d), 12, 0, 0, 0, 0, -1))
+    except Exception:
+        return None
+
+
+def _recency_w(days_ago):
+    """며칠 전 판인가 → 가중치(1판=1.0 기준). 최근일수록 크다."""
+    try:
+        d = float(days_ago)
+    except Exception:
+        return _REC_OLD_W
+    if d < 0:
+        d = 0.0
+    for _lim, _w in _REC_W:
+        if d <= _lim:
+            return _w
+    return _REC_OLD_W
+
+
+def _recency_score(dates, now=None):
+    """[(날짜문자열 or '', 판수)] → (가중합, 최근90일 판수, 최근14일 판수). 날짜를 못 읽는 행은 옛 판(0.35)."""
+    now = time.time() if now is None else now
+    wsum = 0.0
+    n90 = 0
+    n14 = 0
+    for ds, n in (dates or ()):
+        try:
+            n = int(n)
+        except Exception:
+            continue
+        e = _sheet_date(ds) if ds else None
+        if e is None:
+            wsum += _REC_OLD_W * n
+            continue
+        d = max(0.0, (now - e) / 86400.0)
+        wsum += _recency_w(d) * n
+        if d <= 90:
+            n90 += n
+        if d <= 14:
+            n14 += n
+    return wsum, n90, n14
+
+
+# ── ② 사람 단위(LINK_ACCOUNT) 통합 ───────────────────────────────────────────
+#   CLAUDE.md 규약: LINK_ACCOUNT 는 **연결 요소 전체**가 한 사람(본계↔부계·닉변 사슬). 한 단계만 푸는
+#   코드를 새로 만들지 않고 기존 `_dep_link_groups`(연결 요소)를 그대로 쓴다.
+def _person_alias_map(nm_by_pu, grp_by_nm):
+    """{puuid: 소환사명} + LINK 그룹({tnorm닉: {tnorm닉…}}) → ({puuid: 사람키}, {사람키: {puuid}}, {사람키: {tnorm닉}}).
+       사람키 = 그 사람 PUUID 중 사전순 최소(없으면 'n:닉') — 같은 시트에서 늘 같은 값이 나온다.
+       닉이 같고 PUUID 가 다른 행(계정 이전)은 **전체 닉(태그 포함)이 같을 때만** 잇는다 — 태그만 다른 동명이인을
+       합치면 남의 챔프폭이 섞인다(합치면 밴 후보가 통째로 틀어진다)."""
+    parent = {}
+
+    def _find(x):
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def _union(a, b):
+        if a and b:
+            parent[_find(a)] = _find(b)
+
+    tn2full = {}
+    for pu, nm in (nm_by_pu or {}).items():
+        pu = str(pu or "").strip().lower()
+        if not pu:
+            continue
+        f = str(nm or "").strip().lower()
+        if f:
+            _union("u:" + pu, "n:" + f)
+            tn2full.setdefault(tnorm(nm), []).append("n:" + f)
+        else:
+            parent.setdefault("u:" + pu, "u:" + pu)
+    for _tn, members in (grp_by_nm or {}).items():
+        for _tn2 in list(members or ()) + [_tn]:
+            a_keys = tn2full.get(_tn2, [])
+            if not a_keys:
+                continue
+            for _a in a_keys:
+                for _b in tn2full.get(_tn, []) or a_keys:
+                    _union(_a, _b)
+    comp = {}
+    for k in list(parent):
+        comp.setdefault(_find(k), []).append(k)
+    pu2, grp, names = {}, {}, {}
+    for _root, keys in comp.items():
+        pus = sorted(k[2:] for k in keys if k.startswith("u:"))
+        _full = sorted({k[2:] for k in keys if k.startswith("n:") and len(k) > 2})
+        nms = sorted({tnorm(x) for x in _full})   # 그룹 닉은 tnorm 표기 — _my_champ_pool 이 그 표기로 찾는다
+        if not pus and not nms:
+            continue
+        gid = pus[0] if pus else "n:" + nms[0]
+        for p in pus:
+            pu2[p] = gid
+        grp[gid] = set(pus)
+        names[gid] = set(nms)
+    return pu2, grp, names
+
+
+def _idx_pu(idx, pu):
+    """LCU 가 준 puuid(부계·옛 계정) → 인덱스의 사람키. 별칭맵이 없으면(옛 인덱스·시험) 받은 값 그대로."""
+    k = str(pu or "").strip().lower()
+    if not k:
+        return ""
+    return ((idx or {}).get("pu2grp") or {}).get(k, k)
+
+
+def _idx_ent(idx, pu):
+    """puuid → 그 사람(그룹) 인덱스 항목. 못 찾으면 {}."""
+    by = (idx or {}).get("by_pu") or {}
+    k = _idx_pu(idx, pu)
+    e = by.get(k)
+    if e:
+        return e
+    raw = str(pu or "").strip().lower()
+    return by.get(raw) or {} if raw != k else {}
+
+
+def _clan_members(idx, pu):
+    """puuid → (사람키, 그 사람의 puuid 집합). 인덱스에 없으면 (puuid, {puuid})."""
+    k = _idx_pu(idx, pu)
+    if not k:
+        return "", set()
+    return k, set(((idx or {}).get("grp") or {}).get(k) or {k})
+
+
+# ── ③ 미확정 포지션 확률 추론 ─────────────────────────────────────────────────
+def _pos_prob(open_pos, dists, iters=8):
+    """포지션 미확정 상대들의 pos 판수 분포 + 남은 빈자리 → {사람키: {자리: 확률}}.
+       '한 자리는 한 사람' 제약을 행·열 정규화 반복(축소판 Sinkhorn)으로 반영한다.
+       전적이 0인 자리도 완만한 사전확률로 남겨 둔다(배제가 아니라 감점)."""
+    ops = [p for p in (open_pos or []) if p in _ROLES5]
+    rows = [(k, d or {}) for k, d in (dists or [])]
+    if not ops or not rows:
+        return {}
+    S = []
+    for _k, d in rows:
+        tot = sum(float(d.get(p, 0) or 0) for p in ops) or 1.0
+        S.append([float(d.get(p, 0) or 0) / tot + 0.15 / len(ops) for p in ops])
+    for _ in range(max(1, int(iters))):
+        for i in range(len(S)):                       # 행: 이 사람은 자리 하나를 갖는다
+            s = sum(S[i]) or 1.0
+            S[i] = [v / s for v in S[i]]
+        for j in range(len(ops)):                     # 열: 그 자리는 한 명만 차지한다
+            c = sum(S[i][j] for i in range(len(S))) or 1.0
+            if c <= 1.0:
+                continue
+            for i in range(len(S)):
+                S[i][j] = S[i][j] / c
+    out = {}
+    _few = len(rows) <= len(ops)      # 사람 수 ≤ 자리 수 → 각 사람은 자리 하나를 갖는다(행 정규화)
+    for i, (k, _d) in enumerate(rows):
+        if _few:
+            s = sum(S[i]) or 1.0
+            pr = {ops[j]: S[i][j] / s for j in range(len(ops))}
+        else:
+            pr = {ops[j]: S[i][j] for j in range(len(ops))}   # 자리가 남지 않는 사람은 합이 1 미만
+        out[k] = dict(sorted(((p, round(v, 3)) for p, v in pr.items() if v > 0.02), key=lambda x: -x[1]))
+    return out
+
+
+def _pos_label(probs, top=3):
+    """{자리: 확률} → '미드 62%·탑 21%' (확률 높은 순)."""
+    it = sorted((probs or {}).items(), key=lambda x: -x[1])[:top]
+    return "·".join(f"{p} {round(v * 100)}%" for p, v in it if v > 0)
+
+
+# ── ④ 밴 후보 사전 스코어링 (등장확률 × 위협도) ───────────────────────────────
+_BAN_LIMIT = 10
+
+
+def _ban_candidates(pool_rows, ally_champs=(), dead=(), limit=_BAN_LIMIT,
+                    quiz=None, bp=None, threat=None, weak=None):
+    """밴 후보 사전 랭킹 — 파이썬에서 정량 계산해 모델에는 'Top N + 수치 근거'만 넘긴다.
+
+    pool_rows: [{'pu','name','champ','p_show'(0~1),'g','w','pos'}] — 상대 전원의 후보 행(그룹·최근성·포지션 확률 반영).
+    quiz: {챔프: 표수} · bp: {챔프: +%p(견제압력)} · threat: {챔프: 0~1}(프로 밴 위협도·내전 수축승률) · weak: {챔프: 0~1}
+
+    등장확률 = 1 - Π(1-p_show) — 여러 상대가 같은 챔프를 쓰면 '누군가는 꺼낸다'로 합산.
+    위협도   = 1 + 수축승률편차 + 숙련(판수) + 견제압력 + 퀴즈 + 외부 위협(프로·내전) + 우리 팀 취약도.
+    점수     = 등장확률 × 위협도. 아군 챔프·이미 밴·픽된 챔프(dead)는 처음부터 후보가 아니다.
+    """
+    def _n(c):
+        return tnorm(c)
+
+    q = {_n(c): v for c, v in (quiz or {}).items() if v}
+    bpm = {_n(c): v for c, v in (bp or {}).items() if v}
+    th = {_n(c): v for c, v in (threat or {}).items() if v is not None}
+    wk = {_n(c): v for c, v in (weak or {}).items() if v}
+    deadn = {_n(c) for c in (dead or ())} | {_n(c) for c, _p in (ally_champs or ())}
+    agg = {}
+    for r in pool_rows or ():
+        ch = str((r or {}).get("champ") or "").strip()
+        if not ch or _n(ch) in deadn:
+            continue
+        try:
+            p = max(0.0, min(0.98, float((r or {}).get("p_show") or 0)))
+        except Exception:
+            p = 0.0
+        if p <= 0:
+            continue
+        try:
+            g = int((r or {}).get("g") or 0)
+            w = int((r or {}).get("w") or 0)
+        except Exception:
+            g, w = 0, 0
+        wr = (w + 2.5) / (g + 5.0)                       # 수축 승률 — '4판 100%' 같은 우연을 깎는다
+        t = 1.0
+        t += max(-0.25, min(0.45, (wr - 0.5) * 1.6))
+        t += min(0.30, 0.30 * (g / 40.0))
+        t += min(0.40, (bpm.get(_n(ch)) or 0) / 100.0 * 0.8)
+        t += min(0.25, (q.get(_n(ch)) or 0) / 10.0 * 0.25)
+        if _n(ch) in th:
+            t += max(-0.15, min(0.30, (th[_n(ch)] - 0.5) * 0.6))
+        t += min(0.25, (wk.get(_n(ch)) or 0) * 0.25)
+        e = agg.get(ch)
+        if e is None:
+            agg[ch] = {"champ": ch, "p": [p], "threat": t, "g": g, "w": w,
+                       "players": [(r or {}).get("name") or ""]}
+        else:
+            e["p"].append(p)
+            e["players"].append((r or {}).get("name") or "")
+            if t > e["threat"]:
+                e["threat"] = t
+            e["g"] += g
+            e["w"] += w
+    out = []
+    for ch, e in agg.items():
+        miss = 1.0
+        for p in e["p"]:
+            miss *= (1.0 - p)
+        p_any = 1.0 - miss
+        out.append({"champ": ch, "p_show": round(p_any, 3), "p_player": round(max(e["p"]), 3),
+                    "threat": round(e["threat"], 2), "score": round(p_any * e["threat"], 3),
+                    "g": e["g"], "w": e["w"], "wr": round(e["w"] / e["g"] * 100) if e["g"] else 0,
+                    "players": [x for x in e["players"] if x]})
+    out.sort(key=lambda x: (-x["score"], -x["p_show"], -x["g"], x["champ"]))
+    return out[:limit]
+
+
+def _ban_board_lines(cands, quiz=None, bp=None, limit=_BAN_LIMIT):
+    """_ban_candidates 결과 → 모델에 넘길 줄. 순서·수치가 곧 '왜 이 밴인가'의 근거다."""
+    lines = []
+    for i, c in enumerate((cands or [])[:limit], 1):
+        bits = [f"등장 {c['p_show'] * 100:.0f}% × 위협 {c['threat']:.2f} = {c['score']:.2f}"]
+        if c.get("g"):
+            bits.append(f"{c['g']}판 {c['wr']}%")
+        _bpv = (bp or {}).get(c["champ"])
+        if _bpv:
+            bits.append(f"견제 +{int(_bpv)}%p")
+        _qv = (quiz or {}).get(c["champ"])
+        if _qv:
+            bits.append(f"퀴즈 {_qv}표")
+        who = (c.get("players") or [""])[0]
+        lines.append(f"{i}. {c['champ']}" + (f" ← {who}" if who else "") + " — " + " · ".join(bits))
+    return lines
+
 # ===== 🧠 [v82.29 사장님 지시] 내전 특화 컨텍스트 — "일반 LoL 지식"이 모르는 클랜 고유 데이터 =====
 #   설계 근거(2026-07-21 실측): 협곡 485게임 기준 (플레이어,챔프) 5판↑ 230쌍 = 챔프폭 신호는 쓸 만함.
 #   반면 (챔프A vs 챔프B) 라인 매치업은 3판↑이 199종뿐 = 학습 불가 → 상성 판단은 LLM 지식에 맡기고
 #   우리는 '누가 뭘 잘하나 / 누가 누구를 이겨왔나'만 사실로 제공하는 역할 분담.
 #   ⚠️ 시트는 1회만 스캔해 인덱스로 캐시(10분) — 10명 각각 스캔하면 밴픽 30초 안에 못 끝냄.
-_CLAN_IDX = {"ts": 0.0, "by_pu": {}, "h2h": {}, "syn": {}, "nm2pu": {}}
+_CLAN_IDX = {"ts": 0.0, "by_pu": {}, "h2h": {}, "syn": {}, "nm2pu": {},
+              "pu2grp": {}, "grp": {}, "grp_names": {}}   # 🧬 사람 단위(LINK) 별칭맵 — _person_alias_map
 
 def _clan_index(force=False):
     """내전 전적 1회 스캔 → {puuid: 챔프폭·주포지션}, 맞대결(h2h), 동료(syn) 인덱스. gviz 캐시라 할당량 0."""
     now = time.time()
     if not force and _CLAN_IDX["ts"] and (now - _CLAN_IDX["ts"]) < 600: return _CLAN_IDX
     by_pu, h2h, syn = {}, {}, {}
+    pu2grp, grp, grp_names, _grp_by_nm = {}, {}, {}, {}   # 🧬 사람 단위(LINK) 별칭맵
     mu1, mu2, mu3 = {}, {}, {}   # ⚔️ [v82.35] 라인 매치업: (내챔,상대챔) / (선수,내챔,상대챔) / (선수,상대챔)
     _lo_recs = []                # 📊 [v82.40] 저티어 오프롤 성과픽용 원자료 (pu, 포지션, 챔프, 승) — 협곡만·시간순
     _bp_ban, _bp_side = {}, {}   # [v82.32] 견제압력용: {gid:{진영:set(밴)}}, {gid:{puuid:진영}} — 협곡만
@@ -2515,6 +2802,25 @@ def _clan_index(force=False):
                 except Exception: return -1
             _latest_patch = max(_pset, key=_pnum) if _pset else ""
             if min(c_g, c_pu, c_ch, c_rs) < 0: continue
+            # 🧬 [2026-11-27] 사람 단위 통합 1단계 — (puuid, 닉)만 먼저 훑어 LINK_ACCOUNT **연결 요소**로 사람키를 만든다.
+            #   본계↔부계·닉변 사슬 전체가 한 사람이어야 챔프폭·견제압력·맞대결이 '사람' 기준이 된다.
+            _nm_by_pu = {}
+            for _r1 in rows[1:]:
+                if len(_r1) <= max(c_pu, c_nm): continue
+                _pu1 = str(_r1[c_pu]).strip().lower()
+                _nm1 = str(_r1[c_nm]).strip() if c_nm >= 0 else ""
+                if _pu1 and _nm1: _nm_by_pu[_pu1] = _nm1   # 같은 puuid 행의 최신 닉
+            try:
+                _link_rows = []
+                try:
+                    _ltab = global_spreadsheet.worksheet("LINK_ACCOUNT")
+                    _lrows = get_sheet_data_cached(_ltab) or []
+                    _link_rows = _lrows[1:]
+                except Exception: pass
+                _grp_by_nm = _dep_link_groups(global_alt_map, _link_rows)
+            except Exception:
+                _grp_by_nm = {}
+            pu2grp, grp, grp_names = _person_alias_map(_nm_by_pu, _grp_by_nm)
             per_game = {}
             for r in rows[1:]:
                 if len(r) <= max(c_g, c_pu, c_ch, c_rs): continue
@@ -2522,15 +2828,19 @@ def _clan_index(force=False):
                 if res not in ("승리", "패배"): continue
                 pu = str(r[c_pu]).strip().lower()
                 if not pu: continue
+                _pk = pu2grp.get(pu, pu)   # 🧬 부계·옛 계정 → 같은 사람 키 (LINK 연결 요소)
                 gid = str(r[c_g]).strip()
-                if gid in per_game and pu in per_game[gid]: continue   # 중복행 방어
+                if gid in per_game and _pk in per_game[gid]: continue   # 중복행 방어(같은 사람이 한 판에 두 행이면 1회만)
                 ch = str(r[c_ch]).strip()
                 nm = str(r[c_nm]).strip() if 0 <= c_nm < len(r) else ""
                 ps = str(r[c_ps]).strip() if 0 <= c_ps < len(r) else ""
                 tm = str(r[c_tm]).strip() if 0 <= c_tm < len(r) else ""
-                e = by_pu.setdefault(pu, {"name": nm, "champs": {}, "pos": {}, "g": 0, "w": 0})
+                e = by_pu.setdefault(_pk, {"name": nm, "champs": {}, "pos": {}, "g": 0, "w": 0})
                 # 🎭 [2026-08-10] 익명화 백필 행(소환사명=챔피언명·태그 없음)은 대표닉 갱신에서 제외
                 if nm and "#" in nm and nm.replace(" ", "") != ch.replace(" ", ""): e["name"] = nm
+                if nm:
+                    _nmg0 = e.setdefault("nmg", {})
+                    _nmg0[nm] = _nmg0.get(nm, 0) + 1   # 🧬 그룹 대표닉 = 가장 많이 뛴 닉
                 e["g"] += 1; e["w"] += (res == "승리")
                 # 🕸 [v82.86] 웹 육각형과 동일한 6축 원자료(포지션별) — 캐리·성장·시야·생존·교전·챔프폭
                 _pv = str(r[c_pt] or "").strip().lstrip("vV") if 0 <= c_pt < len(r) else ""
@@ -2566,14 +2876,25 @@ def _clan_index(force=False):
                             _ai2 = float(str(r[c_sc]).replace(",", ""))
                             _pa2 = e.setdefault("pos_ai", {}).setdefault(ps, [0.0, 0]); _pa2[0] += _ai2; _pa2[1] += 1
                         except Exception: pass
-                per_game.setdefault(gid, {})[pu] = (tm, res, ch, ps)   # [v82.35] 매치업용 챔프·포지션 동반
+                per_game.setdefault(gid, {})[_pk] = (tm, res, ch, ps)   # [v82.35] 매치업용 챔프·포지션 동반
                 if _tab == "CLASSIC_NORMAL":
-                    _lo_recs.append((pu, ps, ch, res == "승리"))   # 📊 저티어 오프롤 통계용
+                    _lo_recs.append((_pk, ps, ch, res == "승리"))   # 📊 저티어 오프롤 통계용
                 if _tab == "CLASSIC_NORMAL":   # [v82.32] 견제압력 원자료(협곡만 — 칼바람은 밴 없음)
-                    _bp_side.setdefault(gid, {})[pu] = tm
+                    _bp_side.setdefault(gid, {})[_pk] = tm
                     _b = str(r[c_bn]).strip() if 0 <= c_bn < len(r) else ""
                     if _b and _b not in ("밴 없음", "밴 안함", "기록 대기", "결과 대기", "평가 대기", "알수없음"):
                         _bp_ban.setdefault(gid, {}).setdefault(tm, set()).add(_b)
+            # 🧬 [2026-11-27] 그룹 대표닉 — 그룹에서 가장 많이 뛴 닉, 내부티어가 있는 닉을 우선(솔랭 사슬과 같은 규약).
+            for _pk1, _e1 in by_pu.items():
+                _nmg = _e1.pop("nmg", None) or {}
+                if not _nmg: continue
+                _cand1 = sorted(_nmg.items(), key=lambda x: (-x[1], x[0]))
+                _best = None
+                for _nm1, _n1 in _cand1:
+                    try: _tv1 = tier_of(_nm1)
+                    except Exception: _tv1 = None
+                    if _tv1 not in (None, ""): _best = _nm1; break
+                _e1["name"] = _best or _cand1[0][0]
             for gid, mem in per_game.items():
                 items = list(mem.items())
                 # ⚖️ [v82.35] 그 판의 '팀 평균 내부티어차' — 매치업 승률의 최대 교란요인(실측 1티어당 ±15%p).
@@ -2610,9 +2931,11 @@ def _clan_index(force=False):
     # 이름(태그·공백 무시) → puuid 폴백맵: 토너먼트 드래프트 등에서 상대 puuid가 빈 경우 대비
     nm2pu = {}
     try:
+        for _gid0, _names0 in (grp_names or {}).items():   # 🧬 부계·옛 닉으로 불러도 같은 사람으로 찾는다
+            for _tn0 in _names0: nm2pu[_tn0] = _gid0
         for _pu, _e in by_pu.items():
             _k = tnorm(_e.get("name") or "")
-            if _k and (_k not in nm2pu or _e["g"] > by_pu[nm2pu[_k]]["g"]): nm2pu[_k] = _pu
+            if _k and (_k not in nm2pu or _e["g"] > by_pu[nm2pu[_k]]["g"]): nm2pu.setdefault(_k, _pu)
     except Exception: pass
     # 🎯 [v82.32] 견제 압력 — 웹(computeBanPressure)과 동일 산식. {puuid: [{champ,targeted,z}...]}
     bp = {}
@@ -2691,6 +3014,7 @@ def _clan_index(force=False):
         return _CLAN_IDX
     _CLAN_IDX.update({"ts": now, "by_pu": by_pu, "h2h": h2h, "syn": syn, "nm2pu": nm2pu, "bp": bp,
                       "mu1": mu1, "mu2": mu2, "mu3": mu3, "safe": safe,
+                      "pu2grp": pu2grp, "grp": grp, "grp_names": grp_names,   # 🧬 사람 단위 별칭맵
                       "loff_good_txt": loff_good_txt, "loff_bad_txt": loff_bad_txt})
     return _CLAN_IDX
 
@@ -2701,30 +3025,46 @@ def _clan_pu(pu, nm, idx):
     k2 = tnorm(nm or "")
     return (idx.get("nm2pu") or {}).get(k2, "") if k2 else ""
 
-def _clan_line(pu, idx, limit=4, min_g=3, ep=""):
+def _clan_line(pu, idx, limit=4, min_g=3, ep="", champs=True):
     """puuid → '- 이름(주포지션) [내전 N판]: 챔프 N판 X% · …' 한 줄. 표본 없으면 빈 문자열.
 
     ep(이번 판 포지션)을 주면 — 2026-11-01 사장님 제보(고스트밴픽왕이 정글 Donk 를 「미드 로크 21판」이라 말함):
     상대 줄에 주포지션 「(미드)」 와 전 포지션 합친 챔프폭을 그대로 실었더니, 이번 판 미드인 허거덩의 로크 21판이
     주포지션이 미드인 Donk 의 것으로 읽혔다(허거덩의 주포지션은 원딜이라 줄이 갈라졌다).
-    ep 가 있으면 주포지션 표기를 빼고 「[이번 판 포지션:ep]」 만 쓰며, 챔프폭은 **그 포지션에서 쓴 판수만** 싣는다."""
-    e = (idx.get("by_pu") or {}).get(str(pu or "").strip().lower())
+    ep 가 있으면 주포지션 표기를 빼고 「[이번 판 포지션:ep]」 만 쓰며, 챔프폭은 **그 포지션에서 쓴 판수만** 싣는다.
+
+    champs=False — 밴 모드용. 상대 챔프폭은 `_enemy_ban_pool` 이 점유율·포지션까지 붙여 따로 싣으므로
+    같은 목록을 두 번 넣으면 모델이 '중복 주입'으로 읽는다(2026-11-27 지시 1️⃣). 여기선 '누가 어느 자리인가'만 남긴다.
+    """
+    _k = str(pu or "").strip().lower()
+    _k = ((idx.get("pu2grp") or {}).get(_k, _k))   # 🧬 부계·옛 계정 → 사람키(별칭맵 없으면 그대로)
+    e = (idx.get("by_pu") or {}).get(_k) or {}
     if not e: return ""
+    nm = str(e.get("name") or "클랜원").split("#")[0].strip() or "클랜원"
+    _tv = tier_of(e.get("name") or "")
+    _wr = round(e["w"] / e["g"] * 100) if e.get("g") else 0
+    _mp = max(e["pos"].items(), key=lambda x: x[1])[0] if e.get("pos") else ""
+    if not champs:
+        _bits = [f"- {nm}" + (f"[{_tv}티어]" if _tv not in (None, "") else "")]
+        _bits.append(f"[내전 {e.get('g', 0)}판 {_wr}%]")
+        if ep and ep != "선택안함":
+            _bits.append(f"[이번 판 포지션:{ep}]")
+        elif _mp:
+            _bits.append(f"(주:{_mp})")
+        if e.get("pos"):
+            _bits.append("포지션 " + " ".join(f"{p}{n}" for p, n in
+                                              sorted(e["pos"].items(), key=lambda x: -x[1])[:3]))
+        return " ".join(_bits)
     if ep and ep != "선택안함":
-        nm = str(e["name"]).split("#")[0].strip() or "클랜원"
         _cp = e.get("chpos") or {}
         rows = sorted(([c, d.get(ep, 0)] for c, d in _cp.items() if d.get(ep, 0) >= 2), key=lambda x: -x[1])[:limit]
-        _tv = tier_of(e.get("name") or "")
         head = f"- {nm}[이번 판 포지션:{ep}]{f'[{_tv}티어]' if _tv not in (None, '') else ''}"
         if not rows:
             return head + f": ※ {ep} 전적 없음(2판 미만) — 이 사람의 주력 챔프는 이번 판 {ep}에서 쓴 적이 없어 저격 근거로 쓰지 마라"
         return head + f" [{ep} 내전]: " + " · ".join(f"{c} {n}판" for c, n in rows) + f" (전부 {nm} 본인이 {ep}에서 쓴 판수)"
     ch = sorted(([c, g, w] for c, (g, w) in e["champs"].items() if g >= min_g), key=lambda x: -x[1])[:limit]
     if not ch: return ""
-    mp = max(e["pos"].items(), key=lambda x: x[1])[0] if e["pos"] else ""
-    nm = str(e["name"]).split("#")[0].strip() or "클랜원"
-    _tv = tier_of(e.get("name") or "")   # [v82.40] 내부티어 — P3·P4 판단용
-    return (f"- {nm}{f'({mp})' if mp else ''}{f'[{_tv}티어]' if _tv not in (None, '') else ''} [내전 {e['g']}판 {round(e['w']/e['g']*100) if e['g'] else 0}%]: "
+    return (f"- {nm}{f'({_mp})' if _mp else ''}{f'[{_tv}티어]' if _tv not in (None, '') else ''} [내전 {e['g']}판 {_wr}%]: "
             + " · ".join(f"{c} {g}판 {round(w/g*100) if g else 0}%" for c, g, w in ch))
 
 def _safe_pick_txt(my_pu, my_pool, idx, opp_champs, my_pos=""):
@@ -2735,9 +3075,9 @@ def _safe_pick_txt(my_pu, my_pool, idx, opp_champs, my_pos=""):
        반환 (일반문구, 이상대문구). 표본 없으면 빈 문자열."""
     safe = idx.get("safe") or {}
     mu2 = idx.get("mu2") or {}
-    pu = str(my_pu or "").strip().lower()
+    pu = _idx_pu(idx, my_pu)
     if not pu: return "", ""
-    _chpos = ((idx.get("by_pu") or {}).get(pu) or {}).get("chpos") or {}
+    _chpos = (_idx_ent(idx, pu) or {}).get("chpos") or {}
     def _postag(_c):
         _d = _chpos.get(_c) or {}
         if not _d: return ""
@@ -2748,7 +3088,8 @@ def _safe_pick_txt(my_pu, my_pool, idx, opp_champs, my_pos=""):
         return _tag
     gen, opp = [], []
     _oc_set = set(x for x in (opp_champs or []) if x)
-    for _c, _g, _w in (my_pool or [])[:14]:
+    for _row in (my_pool or [])[:14]:
+        _c = _row[0]; _g = _row[1]; _w = _row[2]   # 🧬 [2026-11-27] 최근성 가중치 열이 붙어도 읽히게(4열 이상 허용)
         e = safe.get((pu, _c))
         if e and e[0] >= 8 and e[2] >= 3:
             _n, _wn, _kinds, _bad = e
@@ -2769,7 +3110,7 @@ def _mu_lookup(pu, my_champ, opp_champ, idx, min_n=4):
        ⚠️ 실측상 ①은 1.9%에서만 잡히고 ①②③ 합쳐도 약 39% → 없으면 조용히 생략(억지로 만들지 않음).
        반환 (근거라벨, 판수, 승수) 또는 (None,0,0)."""
     if not my_champ or not opp_champ: return None, 0, 0, 0.0
-    pu = str(pu or "").strip().lower()
+    pu = _idx_pu(idx, pu)
     for lab, key, src in (("이 선수 이 챔프", (pu, my_champ, opp_champ), "mu2"),
                           ("이 선수",         (pu, opp_champ),            "mu3"),
                           ("클랜 전체",       (my_champ, opp_champ),      "mu1")):
@@ -2795,7 +3136,7 @@ def _mu_txt(pu, my_champ, opp_champ, idx, min_n=4):
 
 def _pair_txt(my_pu, other_pu, idx, kind, min_g):
     """맞대결(h2h)/동료(syn) 전적 문구. 표본 min_g 미만이면 빈 문자열(노이즈 차단)."""
-    a, b = str(my_pu or "").strip().lower(), str(other_pu or "").strip().lower()
+    a, b = _idx_pu(idx, my_pu), _idx_pu(idx, other_pu)
     if not a or not b or a == b: return ""
     k = (a, b) if a < b else (b, a)
     d = (idx.get(kind) or {}).get(k)
@@ -2803,126 +3144,214 @@ def _pair_txt(my_pu, other_pu, idx, kind, min_g):
     my_w = d[1] if k[0] == a else d[0] - d[1]
     return f"{d[0]}판 {my_w}승 {d[0]-my_w}패 ({round(my_w/d[0]*100)}%)"
 
+_POOLROWS_CACHE = {"ts": {}, "data": {}}   # {(사람키|포지션): (ts, rows)} — 한 밴픽에서 상대 5명 × 2회 호출을 1회로
+
+
+def _pool_rows(puuid, pos="", limit=0):
+    """그 사람(**LINK 그룹 전체**)의 협곡 챔프 기록 → [{champ,g,w,wscore,n90,n14,last,posg}] 최근성 가중 내림차순.
+
+    pos 를 주면 그 포지션에서 쓴 행만. posg = {포지션: [판수, 승수]}.
+    [2026-11-27] 밴·픽이 같은 집계를 쓰도록 한 곳에 모았다 — 예전엔 `_pool_by_puuid` 안에만 있었고 90일 컷오프뿐이었다.
+    """
+    key = str(puuid or "").strip().lower()
+    if not key or not global_spreadsheet: return []
+    pos = "" if str(pos or "").strip() in ("", "선택안함") else str(pos).strip()
+    _ck = key + "|" + pos
+    _now0 = time.time()
+    _hit = _POOLROWS_CACHE["data"].get(_ck)
+    if _hit is not None and _now0 - _POOLROWS_CACHE["ts"].get(_ck, 0) < 300:
+        rows0 = [dict(x) for x in _hit]
+        return rows0[:limit] if limit else rows0
+    try: _idx = _clan_index()
+    except Exception: _idx = {}
+    _gid, members = _clan_members(_idx, key)
+    members = members or {key}
+    try:
+        tab = global_spreadsheet.worksheet("CLASSIC_NORMAL")
+        rows = get_sheet_data_cached(tab)
+    except Exception:
+        return []
+    if not rows or len(rows) < 2: return []
+    h = rows[0]
+    ci = lambda n: h.index(n) if n in h else -1
+    c_pu, c_ch, c_rs = ci("PUUID"), ci("챔피언"), ci("결과")
+    c_ps, c_dt = ci("포지션"), ci("날짜")
+    if min(c_pu, c_ch) < 0: return []
+    now = time.time()
+    agg = {}
+    for r in rows[1:]:
+        if len(r) <= max(c_pu, c_ch): continue
+        if str(r[c_pu]).strip().lower() not in members: continue
+        ps = str(r[c_ps]).strip() if 0 <= c_ps < len(r) else ""
+        if pos and ps != pos: continue
+        ch = str(r[c_ch]).strip()
+        if not ch: continue
+        win = 1 if (0 <= c_rs < len(r) and str(r[c_rs]).strip() == "승리") else 0
+        ds = str(r[c_dt]).strip() if 0 <= c_dt < len(r) else ""
+        e = agg.get(ch)
+        if e is None:
+            e = agg[ch] = {"champ": ch, "g": 0, "w": 0, "wscore": 0.0, "n90": 0, "n14": 0, "last": "", "posg": {}}
+        e["g"] += 1; e["w"] += win
+        w1, n90, n14 = _recency_score([(ds, 1)], now)
+        e["wscore"] += w1; e["n90"] += n90; e["n14"] += n14
+        if ds > e["last"]: e["last"] = ds
+        if ps and ps != "선택안함":
+            _p = e["posg"].setdefault(ps, [0, 0]); _p[0] += 1; _p[1] += win
+    out = sorted(agg.values(), key=lambda x: (-x["wscore"], -x["g"], x["champ"]))
+    _POOLROWS_CACHE["ts"][_ck] = _now0
+    _POOLROWS_CACHE["data"][_ck] = [dict(x) for x in out]
+    if len(_POOLROWS_CACHE["data"]) > 400:
+        _POOLROWS_CACHE["ts"].clear(); _POOLROWS_CACHE["data"].clear()
+    return out[:limit] if limit else out
+
+
 def _pool_by_puuid(puuid, limit=6, pos=""):
-    """[v81.77] PUUID로 그 사람의 챔피언별 (판수, 승) 상위 N — 밴 추천의 '상대 장인' 판단용.
+    """[v81.77] PUUID(사람)로 그 사람의 챔피언별 (판수, 승) 상위 N — 밴 추천의 '상대 장인' 판단용.
 
     pos 를 주면 **그 포지션에서 실제로 쓴 전적만** 집계한다.
     [2026-08-03 사장님 제보] 정글 브라이어 원챔장인이 탑에 갔는데 브라이어 밴을 추천하던 문제.
       포지션 병기(v82.45)와 프롬프트 규칙(★장인 저격 밴은 포지션이 맞을 때만)만으로는 안 막혔다 —
       후보 목록 자체에서 빼야 한다. 쉬바나/녹턴 건과 같은 처방(데이터 레이어에서 차단).
+    [2026-11-27 지시 2️⃣] ① LINK 그룹 전체를 한 사람으로 ② 정렬을 판수 → **최근성 가중 판수**로.
+      90일 단순 컷오프만으로는 '3개월 전 20판'이 '어제 3판'을 이겼다 — 최근 핫픽이 위로 오게 한다.
+    반환 원소 = [챔프, 총판, 승, 닉, 최근90일판, 점유%(최근성가중), 가중판수, 최근14일판]
     """
     key = str(puuid or "").strip().lower()
-    if not key or not global_spreadsheet: return []
-    want = str(pos or "").strip()
-    agg = {}
-    # 🎯 [2026-08-11 주간감사 반영] 밴 추천 위협 적중률 12%의 주범 = '옛날에 몇 판 한 잡픽'이
-    #    후보로 올라오는 것(뽀삐 20회·로크 19회 헛방). 최근 사용 여부와 점유율을 같이 재서
-    #    호출부가 '이번 판에 진짜 나올 픽'만 고를 수 있게 한다.
-    _RECENT_DAYS = 90
-    _cut = time.strftime("%Y-%m-%d", time.localtime(time.time() - _RECENT_DAYS * 86400))
-    rec = {}      # 챔프 -> 최근 판수
-    tot_all = 0   # (그 포지션) 총 판수
-    tot_rec = 0   # (그 포지션) 최근 총 판수
-    try:
-        # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람은 챔프 선택 성격이 달라 장인 판단을 왜곡한다.
-        for _tab in ("CLASSIC_NORMAL",):
-            try: tab = global_spreadsheet.worksheet(_tab)
-            except Exception: continue
-            rows = get_sheet_data_cached(tab)
-            if not rows: continue
-            h = rows[0]
-            ci = lambda n: h.index(n) if n in h else -1
-            c_pu, c_ch, c_rs, c_nm = ci("PUUID"), ci("챔피언"), ci("결과"), ci("소환사명")
-            c_ps = ci("포지션")
-            if min(c_pu, c_ch) < 0: continue
-            if want and c_ps < 0: continue        # 포지션 열이 없으면 필터를 흉내내지 않는다
-            for r in rows[1:]:
-                if len(r) <= max(c_pu, c_ch): continue
-                if str(r[c_pu]).strip().lower() != key: continue
-                ch = str(r[c_ch]).strip()
-                if not ch: continue
-                if want:
-                    _ps = str(r[c_ps]).strip() if len(r) > c_ps else ""
-                    if _ps != want: continue
-                g, w, nm = agg.get(ch, (0, 0, ""))
-                nm = nm or (str(r[c_nm]).strip() if c_nm >= 0 and len(r) > c_nm else "")
-                agg[ch] = (g + 1, w + (1 if (c_rs >= 0 and len(r) > c_rs and str(r[c_rs]).strip() == "승리") else 0), nm)
-                tot_all += 1
-                _c_dt = ci("날짜")
-                if 0 <= _c_dt < len(r) and str(r[_c_dt]).strip()[:10] >= _cut:
-                    rec[ch] = rec.get(ch, 0) + 1; tot_rec += 1
-    except Exception: pass
-    # 정렬: 최근 판수 우선 → 총 판수. 반환 원소 = [챔프, 총판, 승, 닉, 최근판, 점유율%(최근 없으면 통산 기준)]
-    def _share(c, g):
-        base = tot_rec if tot_rec >= 5 else tot_all
-        num = rec.get(c, 0) if tot_rec >= 5 else g
-        return round(num / base * 100) if base else 0
-    out = sorted(([c, g, w, nm, rec.get(c, 0), _share(c, g)] for c, (g, w, nm) in agg.items()),
-                 key=lambda x: (-x[4], -x[1]))[:limit]
-    return out
+    if not key: return []
+    rows = _pool_rows(key, pos=pos)
+    if not rows: return []
+    try: _idx = _clan_index()
+    except Exception: _idx = {}
+    nm = str((_idx_ent(_idx, key) or {}).get("name") or "").split("#")[0].strip()
+    tot = sum(r["wscore"] for r in rows) or 0.0
+    out = [[r["champ"], r["g"], r["w"], nm, r["n90"],
+            round(r["wscore"] / tot * 100) if tot else 0, round(r["wscore"], 2), r["n14"]] for r in rows]
+    out.sort(key=lambda x: (-x[6], -x[1]))
+    return out[:limit]
 
 
-def _enemy_ban_pool(pu, ep, cidx, limit=6):
+def _enemy_rows(pu, ep="", probs=None, limit=12):
+    """상대 1명의 '이번 판에 실제로 나올 수 있는' 픽 후보를 **구조화해서** 돌려준다.
+
+    ep     : 이번 판 포지션(확정) → 그 자리 전적만.
+    probs  : 포지션 미확정일 때 {자리: 확률} → 등장확률 = Σ(자리확률 × 그 자리에서 이 챔프 점유율).
+    반환 (사람이름, [{'champ','g','w','share','p_show','recent','posg','pos'}]) — 표본 없으면 (이름, []).
+    """
+    key = str(pu or "").strip().lower()
+    if not key: return "", []
+    rows = _pool_rows(key, limit=0)
+    if not rows: return "", []
+    try: _idx = _clan_index()
+    except Exception: _idx = {}
+    nm = str((_idx_ent(_idx, key) or {}).get("name") or "").split("#")[0].strip() or "상대"
+    ep = "" if str(ep or "").strip() in ("", "선택안함") else str(ep).strip()
+    probs = {p: float(v) for p, v in (probs or {}).items() if v and float(v) > 0}
+    out = []
+    if ep:
+        tot = sum(r["posg"].get(ep, [0, 0])[0] for r in rows) or 0
+        if not tot: return nm, []
+        for r in rows:
+            g, w = r["posg"].get(ep, [0, 0])
+            if not g: continue
+            out.append({"champ": r["champ"], "g": g, "w": w, "share": g / tot * 100, "p_show": g / tot,
+                        "recent": r["n90"], "posg": {ep: [g, w]}, "pos": ep})
+    elif probs:
+        totp = {}
+        for r in rows:
+            for p, gw in (r["posg"] or {}).items(): totp[p] = totp.get(p, 0) + gw[0]
+        for r in rows:
+            ps = 0.0
+            for p, pr in probs.items():
+                t = totp.get(p, 0)
+                if t: ps += pr * (r["posg"].get(p, [0, 0])[0] / t)
+            if ps <= 0.002: continue
+            out.append({"champ": r["champ"], "g": r["g"], "w": r["w"], "share": ps * 100, "p_show": ps,
+                        "recent": r["n90"], "posg": r["posg"], "pos": ""})
+    else:
+        tot = sum(r["wscore"] for r in rows) or 0.0
+        for r in rows:
+            out.append({"champ": r["champ"], "g": r["g"], "w": r["w"],
+                        "share": (r["wscore"] / tot * 100) if tot else 0,
+                        "p_show": (r["wscore"] / tot) if tot else 0,
+                        "recent": r["n90"], "posg": r["posg"], "pos": ""})
+    out.sort(key=lambda x: (-x["p_show"], -x["g"]))
+    return nm, out[:limit]
+
+
+def _enemy_ban_pool(pu, ep, cidx, limit=6, probs=None):
     """밴 모드에서 상대 1명의 '이번 판에 실제로 나올 수 있는' 챔프폭 블록 → (머리말, [챔프표기…]).
 
     이번 판 포지션(ep)을 알면 그 자리 전적만 싣는다. 그 자리 전적이 아예 없으면 챔프를 싣지 않고
     '저격 밴 가치 없음'을 명시한다 — 다른 자리 주력은 이번 판에 나올 수 없으므로 후보가 아니다.
+    [2026-11-27 지시 2️⃣] 포지션 미확정이면 `probs`(포지션 확률 추론)로 등장확률을 가중한다.
     """
-    pu = str(pu or "").strip().lower()
-    if not pu: return None
-    _e = ((cidx or {}).get("by_pu") or {}).get(pu) or {}
-    _cp = _e.get("chpos") or {}
-    full = _pool_by_puuid(pu, limit=limit) or []
-    nm = str(_e.get("name") or (full[0][3] if full and len(full[0]) > 3 else "") or "상대").split("#")[0].strip() or "상대"
-    hdr = nm + (f" [이번 판 포지션: {ep}]" if ep else "")
+    key = str(pu or "").strip().lower()
+    if not key: return None
+    nm, rows = _enemy_rows(key, ep=ep, probs=probs, limit=max(limit, 6))
+    if not rows:
+        if not nm: return None
+        lst = _pool_rows(key, limit=3)
+        off = ", ".join(f"{r['champ']}({r['g']}판)" for r in lst)
+        if ep:
+            return (f"{nm} [이번 판 포지션: {ep}]",
+                    [f"※ {ep} 전적 0판 — 이 사람 저격 밴은 값이 없다"
+                     + (f" (다른 자리 주력 {off} 은 이번 판에 못 씀)" if off else " (내전 전적 자체가 없음)")])
+        return None
+    _lab = _pos_label(probs) if (probs and not ep) else ""
+    hdr = nm + (f" [이번 판 포지션: {ep}]" if ep else (f" [예상 포지션: {_lab}]" if _lab else ""))
 
-    def _live(rows):
+    def _live(rows_):
         """🎯 [2026-08-11 주간감사 실측 반영] '이번 판에 나올 픽'만 남긴다.
            과거 밴 로그 202건을 그 자리 점유율로 나눠 재보니 —
              점유 0%(그 자리 전적 없음) 64건 → 적중 0 / 1~9% 48건 → 적중 2(4%) / 10%↑ 90건 → 적중 27(30%).
            즉 점유 10% 미만 추천의 96%가 그 판에 등장조차 안 했다. 임계 10%가 최적점이었다
            (후보 55% 감축, 실제 적중은 29건 중 27건 유지, 정밀도 14%→30%).
-           15%로 올리면 적중의 3분의 1을 잃어 과했다."""
-        keep = [t for t in rows if len(t) < 6 or (t[5] >= 10 and t[1] >= 2)]
-        return keep or rows[:2]      # 전부 걸러지면 최소한 주력 2개는 남긴다
+           15%로 올리면 적중의 3분의 1을 잃어 과했다.
+           [2026-11-27] 점유는 이제 '등장확률'(최근성 가중·포지션 확률 반영)이다 — 10% 기준은 그대로 둔다."""
+        keep = [t for t in rows_ if (t.get("p_show") or 0) >= 0.10 and (t.get("g") or 0) >= 2]
+        return keep or rows_[:2]      # 전부 걸러지면 최소한 주력 2개는 남긴다
 
-    def _fmt(rows, with_pos):
+    def _fmt(rows_, with_pos):
         out = []
-        for t in rows:
-            c3, g3, w3 = t[0], t[1], t[2]
-            s = f"{c3}({g3}판 {round(w3 / g3 * 100) if g3 else 0}%"
-            if len(t) > 5:
-                s += f"·최근90일 {t[4]}판·점유 {t[5]}%"
+        for t in rows_:
+            g3, w3 = t["g"], t["w"]
+            s = f"{t['champ']}({g3}판 {round(w3 / g3 * 100) if g3 else 0}%"
+            s += f"·최근90일 {t['recent']}판·점유 {round(t['share'])}%"
             if with_pos:
-                _d = _cp.get(c3) or {}
-                _mp = max(_d.items(), key=lambda x: x[1])[0] if _d else ""
-                if _mp: s += f"·{_mp}전적"
+                _d = t.get("posg") or {}
+                if _d:
+                    _mp = max(_d.items(), key=lambda x: x[1][0])[0]
+                    s += f"·{_mp}전적"
             out.append(s + ")")
         return out
 
-    if not ep:
-        return (hdr, _fmt(_live(full), True)) if full else None
-    lst = _pool_by_puuid(pu, limit=limit, pos=ep) or []
-    if lst:
-        return (hdr, _fmt(_live(lst), False))   # 전부 그 포지션 전적이라 병기가 불필요
-    off = ", ".join(_fmt(full[:3], True))
-    return (hdr, [f"※ {ep} 전적 0판 — 이 사람 저격 밴은 값이 없다"
-                  + (f" (다른 자리 주력 {off} 은 이번 판에 못 씀)" if off else " (내전 전적 자체가 없음)")])
+    return hdr, _fmt(_live(rows), not ep)
 
 def _my_champ_pool(my_name, limit=12, pos=""):
-    """시트 전적에서 '내' 챔피언별 (판수, 승) 상위 N개. 라이브 중 서비스계정 호출 없이 gviz 캐시만 사용.
+    """시트 전적에서 '내' 챔피언별 상위 N개. 라이브 중 서비스계정 호출 없이 gviz 캐시만 사용.
+
        [2026-09-09 사장님 제보 '정글 갔는데 서폿 챔프를 추천'] pos 를 주면 [챔프, 판수, 승, 그 포지션 판수]
        4열로 돌려주고, 그 포지션 전적이 있는 챔프를 먼저(그 포지션 판수순) 싼다 — 전적이 한 라인에 몰린
-       사람이 다른 라인을 갔을 때 챔프풀 전체가 그 라인으로 읽히는 것을 데이터에서부터 막는다."""
+       사람이 다른 라인을 갔을 때 챔프풀 전체가 그 라인으로 읽히는 것을 데이터에서부터 막는다.
+       [2026-11-27 지시 4️⃣] ① 부계·옛 닉으로 남은 내 기록도 LINK 그룹으로 합산 ② 정렬은 **최근성 가중**
+        — '요즘 쓰는 픽'이 위로 온다(30~60일 가중). pos 없이 부를 때 4번째 열 = 가중판수.
+    """
     key = tnorm(my_name or "")
     if not key: return []
     pos = str(pos or "")
     if pos == "선택안함": pos = ""
     ck = key + ("|" + pos if pos else "")
     if ck in _DRAFT_POOL_CACHE: return _DRAFT_POOL_CACHE[ck]
-    agg = {}; posg = {}
+    agg = {}; posg = {}; wsc = {}
     try:
         if not global_spreadsheet: return []
+        try: _idx = _clan_index()
+        except Exception: _idx = {}
+        _ns = {key}   # 🧬 나와 같은 사람(LINK 그룹)의 닉 전부
+        _gid = ((_idx or {}).get("nm2pu") or {}).get(key) or ""
+        if _gid:
+            _ns |= set(((_idx or {}).get("grp_names") or {}).get(_gid) or set())
+        now = time.time()
         # [2026-07-30 사장님 지시] AI 코치는 협곡만 — 칼바람 숙련을 협곡 챔프폭으로 세면 안 된다.
         for _tab_name in ("CLASSIC_NORMAL",):
             try: tab = global_spreadsheet.worksheet(_tab_name)
@@ -2932,23 +3361,29 @@ def _my_champ_pool(my_name, limit=12, pos=""):
             h = rows[0]
             ci = lambda n: h.index(n) if n in h else -1
             c_nm, c_ch, c_rs, c_ps = ci("소환사명"), ci("챔피언"), ci("결과"), ci("포지션")
+            c_dt = ci("날짜")
             if min(c_nm, c_ch) < 0: continue
             for r in rows[1:]:
                 if len(r) <= max(c_nm, c_ch, c_rs): continue
-                if tnorm(r[c_nm]) != key: continue
+                if tnorm(r[c_nm]) not in _ns: continue
                 ch = str(r[c_ch]).strip()
                 if not ch: continue
                 g, w = agg.get(ch, (0, 0))
                 agg[ch] = (g + 1, w + (1 if (c_rs >= 0 and str(r[c_rs]).strip() == "승리") else 0))
+                _w1, _n90, _n14 = _recency_score([(str(r[c_dt]).strip() if 0 <= c_dt < len(r) else "", 1)], now)
+                wsc[ch] = wsc.get(ch, 0.0) + _w1
                 if pos and c_ps >= 0 and c_ps < len(r) and str(r[c_ps]).strip() == pos:
                     posg[ch] = posg.get(ch, 0) + 1
     except Exception: pass
     if not pos:
-        out = sorted(([c, g, w] for c, (g, w) in agg.items()), key=lambda x: -x[1])[:limit]
+        out = sorted(([c, g, w, round(wsc.get(c, 0.0), 2)] for c, (g, w) in agg.items()),
+                     key=lambda x: (-x[3], -x[1]))[:limit]
     else:
-        # 그 포지션 전적 있는 챔프 전부(포지션 판수순) + 나머지 상위(총판수순)로 limit 채움
-        _in = sorted(([c, g, w, posg[c]] for c, (g, w) in agg.items() if posg.get(c)), key=lambda x: (-x[3], -x[1]))
-        _out = sorted(([c, g, w, 0] for c, (g, w) in agg.items() if not posg.get(c)), key=lambda x: -x[1])
+        # 그 포지션 전적 있는 챔프 전부(포지션 판수순) + 나머지 상위(최근성 가중순)로 limit 채움
+        _in = sorted(([c, g, w, posg[c]] for c, (g, w) in agg.items() if posg.get(c)),
+                     key=lambda x: (-x[3], -wsc.get(x[0], 0.0)))
+        _out = sorted(([c, g, w, 0] for c, (g, w) in agg.items() if not posg.get(c)),
+                      key=lambda x: (-wsc.get(x[0], 0.0), -x[1]))
         out = _in[:limit] + _out[:max(0, limit - len(_in[:limit])) + 4]
     _DRAFT_POOL_CACHE[ck] = out
     return out
@@ -3271,6 +3706,16 @@ def _draft_advise(ctx, my_pool):
                    + "\n※ +N%p = 그 선수가 있을 때 상대팀이 이 챔프를 밴하는 비율이 평소보다 N%p 높다는 뜻.\n"
                      "   클랜원들이 수십 판을 겪고 내린 집단 판단이라, 단순 승률·판수보다 신뢰도가 높다.\n"
                      "   여기 오른 챔프는 밴 우선순위 상단에 두고, 그 근거를 이유에 밝혀라.")
+    # 🎯 [2026-11-27 지시 1️⃣] 사전 스코어링 보드 — 등장확률×위협도를 파이썬이 이미 계산했다. 모델은 이유만 붙인다.
+    _board = ctx.get("ban_board") or []
+    _board_blk = ""
+    if is_ban and _board:
+        _board_blk = ("\n\n[🎯 사전 스코어링 — 등장확률×위협도 상위(파이썬 계산). **이 순서가 곧 답이다**]\n"
+                      + "\n".join(_board)
+                      + "\n※ 등장 = 이번 판에 그 챔프가 나올 확률(최근성 가중 점유율 · 미확정 포지션 확률 반영)."
+                      "\n   위협 = 승률(수축)·숙련(판수)·견제압력·퀴즈·우리 팀이 약했던 정도를 합친 값."
+                      "\n★여기 없는 챔프를 새로 만들지 말고, 순서를 임의로 바꾸지 마라. 데이터와 정면으로 어긋날 때만"
+                      "\n  5번째 줄까지 바꿔 쓸 수 있고, 그때도 이유를 한 단어로 밝혀라.")
     # 🚫 [v82.41] 노밴 선언 — 로비 채팅에서 감지된 '밴 금지 약속' 챔피언
     _nb = ctx.get("noban") or []
     _nb_blk = ""
@@ -3419,6 +3864,7 @@ def _draft_advise(ctx, my_pool):
             + (f"\n[내가 다뤄본 챔피언(내전 기록)]\n{pool_txt}\n" + _safe_blk + "\n" if _bphase == 2 and not ctx.get('already_picked') else "")
             + f"\n[상대 팀 선수들이 잘 다루는 챔피언(클랜 내전 전적)]\n{opp_txt}"
             + _nb_blk
+            + _board_blk    # 🎯 [2026-11-27] 사전 스코어링(등장확률×위협도) — 밴 답의 뼈대
             + _bp_blk
             + _wk_blk
             + clan_blk_ban   # [v82.44] 밴 모드엔 아군 챔프폭 미주입(아군 픽 밴 추천 사고 방지)
@@ -4273,7 +4719,7 @@ def _draft_coach_tick(s_json, headers, base_url):
         #   '누구의 픽인지'로 추론하게 만든다. 포지션이 확정 안 됐으면 확정된 척하지 않는다.
         def _pick_desc(champ, pu, confirmed_pos=""):
             if not champ: return ""
-            _e = ((_cidx or {}).get("by_pu") or {}).get(str(pu or "").strip().lower()) if pu else None
+            _e = _idx_ent(_cidx, pu) if pu else None   # 🧬 부계·옛 계정 puuid → 같은 사람 항목
             _bits = []
             if confirmed_pos: _bits.append(f"포지션 확정:{confirmed_pos}")
             if _e:
@@ -4323,6 +4769,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                     ally_desc.append(_pick_desc(c, _pu, _pos(p)))
                 if _pu: ally_pus.append(_pu)
         enemy_pools = []
+        _pending_pool = []       # 🧬 [2026-11-27] 밴 모드 — 포지션 확률 추론 뒤에 챔프폭을 만든다(미리 만들면 미확정 자리를 못 쓴다)
         _ep_by_pu = {}           # 상대 puuid → 이번 판 포지션 (상대 내전 챔프폭 줄에 주포지션 대신 이 값을 쓴다)
         _enemy_unassigned = []   # 💡 [v83.32] 포지션 미확정 상대 픽 — 맞라이너 후보 계산 재료
         for p in s_json.get("theirTeam", []) or []:
@@ -4343,12 +4790,8 @@ def _draft_coach_tick(s_json, headers, base_url):
             #    프롬프트 규칙만으로는 안 막힌다 — 데이터에서 아예 빼야 한다.
             if mode == "ban" and c:
                 continue
-            if mode == "ban":   # 밴 모드: 상대 선수별 '장인 챔프'(시트 전적, gviz 캐시라 할당량 0)
-                try:
-                    # [v82.45] 챔프별 '실제 플레이 포지션' 병기 → [v82.73] 이번 판 포지션 전적만 싣기.
-                    _blk = _enemy_ban_pool(_pu, ep, _cidx) if _pu else None
-                    if _blk: enemy_pools.append(_blk)
-                except Exception: pass
+            if mode == "ban":   # 밴 모드: 상대 선수별 '장인 챔프' — 포지션 확률 추론 뒤에 만든다(아래)
+                if _pu: _pending_pool.append((_pu, ep))
         # 🛟 [v82.47 사장님 지시] 토너먼트 드래프트: 챔프선택 세션 theirTeam이 익명(퍼uid 없음)이라
         #    상대 명단이 통째로 비어 "상대 전적 없음" 티어리스트 밴만 나가던 문제 — UI가 동결해 둔
         #    로비 로스터(gui_data blue/red: 퍼uid + 이번 판 포지션)로 폴백. RayB 정글인데 서폿 밴 추천
@@ -4370,15 +4813,49 @@ def _draft_coach_tick(s_json, headers, base_url):
                     if _ep5 and my_pos != "선택안함" and _ep5 == my_pos and not lane_enemy_pu:
                         lane_enemy_pu = _pu
                     if mode == "ban":
-                        try:
-                            _blk = _enemy_ban_pool(_pu, _ep5, _cidx)
-                            if _blk: enemy_pools.append(_blk)
-                        except Exception: pass
+                        _pending_pool.append((_pu, _ep5))
                 if enemy_pus:
                     print(f"[ghost] 세션 상대정보 없음 → 동결 로비 로스터 폴백({len(enemy_pus)}명)", flush=True)
                 else:
                     print(f"[ghost] 상대 판별 실패 — 로비 로스터도 비었음(blue {len(_fb_b)} / red {len(_fb_r)}, 내 puuid 매칭 실패)", flush=True)
             except Exception: pass
+        # 🧬 [2026-11-27 지시 2️⃣] 미확정 포지션 확률 추론 — 이미 채워진 자리(_e_filled)를 뺀 빈자리(_e_open)와
+        #   미확정 상대들의 pos 판수 분포를 맞춰 '누가 어느 자리일 확률'을 계산한다. 그 확률을 챔프폭·밴 스코어링에
+        #   넣으면, 아직 자리가 안 정해진 판에서도 '이번 판에 나올 픽'만 후보로 남는다(예전엔 5명 전부의 전 챔프폭이
+        #   같은 무게로 올라와 이미 찬 자리의 챔프가 밴 후보가 됐다).
+        _e_filled = sorted({str(_p) for _ct, _p in enemy if _p and _p in _ROLES5}, key=_ROLES5.index)
+        _e_open = [r for r in _ROLES5 if r not in _e_filled]
+        _ep_probs = {}
+        try:
+            _unk, _seen8 = [], set()
+            for _pu8, _ep8 in _pending_pool:
+                _k8 = str(_pu8 or "").strip().lower()
+                if not _k8 or _k8 in _seen8: continue
+                if str(_ep8 or "").strip() not in ("", "선택안함"): continue   # 이미 자리가 정해진 상대는 뺀다
+                _seen8.add(_k8)
+                _e8 = _idx_ent(_cidx, _k8)
+                _unk.append((_k8, dict((_e8 or {}).get("pos") or {})))
+            _ep_probs = _pos_prob(_e_open, _unk)
+            if _ep_probs:
+                print(f"[draft] 포지션 확률 추론 — 빈자리 {','.join(_e_open)} / "
+                      + " · ".join(f"{((_idx_ent(_cidx, k) or {}).get('name') or k).split('#')[0]}:{_pos_label(v, 2)}"
+                                   for k, v in _ep_probs.items()), flush=True)
+        except Exception as _pe:
+            print(f"[draft] 포지션 확률 추론 실패(무시): {_pe}", flush=True)
+        _score_rows = []      # 🎯 밴 사전 스코어링 재료(상대 전원의 후보 행)
+        for _pu8, _ep8 in _pending_pool:
+            try:
+                _k8 = str(_pu8 or "").strip().lower()
+                _ep8c = "" if str(_ep8 or "").strip() in ("", "선택안함") else str(_ep8).strip()
+                _pr8 = _ep_probs.get(_k8) if not _ep8c else None
+                _blk = _enemy_ban_pool(_pu8, _ep8c, _cidx, probs=_pr8)
+                if _blk: enemy_pools.append(_blk)
+                _nm8, _rows8 = _enemy_rows(_pu8, _ep8c, probs=_pr8)
+                for _r8 in (_rows8 or []):
+                    _r8 = dict(_r8); _r8["pu"] = _k8; _r8["name"] = _nm8
+                    _score_rows.append(_r8)
+            except Exception as _pe2:
+                print(f"[draft] 상대 챔프폭 계산 실패(무시): {_pe2}", flush=True)
         # 💡 [v83.32 사장님 지시] 맞라이너 미확정이면 '후보'를 계산해 후보별 분기 추천 재료로 넘긴다.
         #   상대가 룰루·뽀삐·모르가나를 골라둔 상태면 셋 다 내 라인으로 올 수 있다 — 하나로 단정하는
         #   순간 그 판의 추천이 통째로 무의미해진다는 제보. 단정을 프롬프트가 아니라 데이터에서부터 막는다.
@@ -4401,7 +4878,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                 _scored9 = []
                 for _c9, _pu9 in _enemy_unassigned:
                     _why9 = []
-                    _e9 = ((_cidx or {}).get("by_pu") or {}).get(str(_pu9 or "").strip().lower()) if _pu9 else None
+                    _e9 = _idx_ent(_cidx, _pu9) if _pu9 else None   # 🧬 사람 단위(부계 포함)
                     _mp9 = max(_e9["pos"].items(), key=lambda x: x[1])[0] if (_e9 and _e9.get("pos")) else ""
                     if _mp9 == my_pos: _why9.append(f"픽한 사람의 주포지션이 {my_pos}")
                     _k9 = _ldg_key(_c9)
@@ -4418,37 +4895,43 @@ def _draft_coach_tick(s_json, headers, base_url):
         clan_ally, clan_enemy, h2h_txt, syn_lines = [], [], "", []
         bp_lines = []   # [v82.32] 견제 압력 — 클랜이 실제로 밴해온 '진짜 무서운 픽'
         mu_lines, weak_lines = [], []   # ⚔️ [v82.35] 라인 매치업 실적 / 우리 팀이 취약한 상대 픽
+        _bp_v, _weak_ch = {}, {}        # 🎯 [2026-11-27] 사전 스코어링 재료(견제압력 %p · 우리 팀 취약도)
         try:
             _idx = _cidx or _clan_index()
             if mode == "ban":
                 _bpm = _idx.get("bp") or {}
                 for _pu in enemy_pus:
-                    _bl = _bpm.get(_pu)
+                    _bl = _bpm.get(_idx_pu(_idx, _pu))   # 🧬 견제압력도 사람 단위 키로 저장된다
                     if not _bl: continue
-                    _e2 = (_idx.get("by_pu") or {}).get(_pu) or {}
+                    _e2 = _idx_ent(_idx, _pu)
                     _nm2 = str(_e2.get("name", "")).split("#")[0] or "상대"
                     bp_lines.append(f"- {_nm2}: " + " · ".join(
                         f"{x['champ']} +{x['targeted']}%p(z{x['z']})" for x in _bl[:3]))
+                    for _x2 in _bl[:3]:
+                        _bp_v[_x2["champ"]] = max(_bp_v.get(_x2["champ"], 0), int(_x2.get("targeted") or 0))
             for _pu in ally_pus:
                 _l = _clan_line(_pu, _idx)
                 if _l: clan_ally.append(_l)
                 _s = _pair_txt(my_pu, _pu, _idx, "syn", 10)     # 동료: 10판↑만(랜덤 배정이라 노이즈 큼)
                 if _s:
-                    _e = (_idx.get("by_pu") or {}).get(_pu) or {}
+                    _e = _idx_ent(_idx, _pu)
                     syn_lines.append(f"- {str(_e.get('name','')).split('#')[0] or '동료'}와 함께: {_s}")
             for _pu in enemy_pus:
-                _l = _clan_line(_pu, _idx, ep=_ep_by_pu.get(str(_pu).strip().lower(), ""))
+                # 🧬 [2026-11-27 지시 1️⃣] 밴 모드는 챔프 목록을 싣지 않는다 — 아래 [상대 팀 선수들이 잘 다루는 챔피언]과
+                #   같은 목록을 두 번 넣으면 모델이 중복으로 읽고 근거가 흐려진다(밴 모드만 champs=False).
+                _l = _clan_line(_pu, _idx, ep=_ep_by_pu.get(str(_pu).strip().lower(), ""), champs=(mode != "ban"))
                 if _l: clan_enemy.append(_l)
             if lane_enemy_pu:
                 _h = _pair_txt(my_pu, lane_enemy_pu, _idx, "h2h", 5)   # 맞대결: 5판↑만
                 if _h:
-                    _e = (_idx.get("by_pu") or {}).get(lane_enemy_pu) or {}
+                    _e = _idx_ent(_idx, lane_enemy_pu)
                     h2h_txt = f"{str(_e.get('name','')).split('#')[0] or '상대'} 상대 통산 {_h}"
             # ⚔️ [v82.35] 픽 차례 — 내 챔프폭 각각이 '이 라인 상대 챔프'에게 어땠는지
             if mode != "ban":
                 _lc = (lane_enemy or "").split(" (")[0].strip()
                 if _lc:
-                    for _c, _g, _w in (_my_champ_pool(MY_RIOT_NAME[0]) or [])[:12]:
+                    for _row_m in (_my_champ_pool(MY_RIOT_NAME[0]) or [])[:12]:
+                        _c = _row_m[0]   # 🧬 최근성 가중치 열이 붙어도 읽히게(3·4열 모두 허용)
                         _t = _mu_txt(my_pu, _c, _lc, _idx)
                         if _t: mu_lines.append(f"- {_c}(으)로 {_lc} 상대: {_t}")
                     mu_lines.sort()
@@ -4457,7 +4940,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                 _mu1 = _idx.get("mu1") or {}; _mu2 = _idx.get("mu2") or {}
                 _seen_w = set()
                 for _pu_a, (_ca, _pa) in zip(ally_pus, ally) if len(ally_pus) == len(ally) else []:
-                    _e3 = (_idx.get("by_pu") or {}).get(_pu_a) or {}
+                    _e3 = _idx_ent(_idx, _pu_a)
                     _nm3 = str(_e3.get("name", "")).split("#")[0] or "팀원"
                     _cand = {}
                     for _k4, _v4 in _mu2.items():
@@ -4472,6 +4955,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                         _wr = round(_w / _n * 100)
                         if _wr <= 40 and (_nm3, _oc) not in _seen_w:
                             _seen_w.add((_nm3, _oc))
+                            _weak_ch[_oc] = max(_weak_ch.get(_oc, 0.0), 1.0 - _w / max(1, _n))   # 🎯 밴 가치 가중
                             _ex = ""
                             if abs(_td) >= 0.3:
                                 _ex = f" · 그 판들 팀 전력 {abs(_td):.1f}티어 " + ("불리(승률이 낮은 이유가 이쪽일 수 있음)" if _td > 0 else "유리")
@@ -4483,7 +4967,7 @@ def _draft_coach_tick(s_json, headers, base_url):
             _idx2 = _cidx or _clan_index()
             _opp_champs = set(c for c, _p in enemy)
             for _pu in enemy_pus:
-                _e = (_idx2.get("by_pu") or {}).get(_pu) or {}
+                _e = _idx_ent(_idx2, _pu)
                 for _ch, _cw in sorted((_e.get("champs") or {}).items(), key=lambda x: -x[1][0])[:2]:
                     if _cw[0] >= 3: _opp_champs.add(_ch)
             safe_gen, safe_opp = _safe_pick_txt(my_pu, _my_champ_pool(MY_RIOT_NAME[0]), _idx2, _opp_champs, my_pos)
@@ -4496,9 +4980,7 @@ def _draft_coach_tick(s_json, headers, base_url):
                     if c and c not in bans: bans.append(c)
         # 🎯 [2026-07-30 사장님 지적] 상대 서폿이 이미 확정인데 서폿 챔프를 밴 추천하던 오류.
         #    이미 채워진 자리의 챔프는 나올 수 없으니 밴 후보에서 빠져야 한다.
-        _ROLES5 = ["탑", "정글", "미드", "원딜", "서폿"]
-        _e_filled = sorted({str(_p) for _c, _p in enemy if _p and _p in _ROLES5}, key=_ROLES5.index)
-        _e_open = [r for r in _ROLES5 if r not in _e_filled]
+        #    (_e_filled·_e_open 은 위에서 포지션 확률 추론 때 이미 계산했다 — 여기서 다시 만들지 않는다)
         # 🎯 [2026-08-02] 토너먼트 드래프트(상대 익명 → 로비 로스터 폴백)에서는 '누가 픽했는지'를 못 맞춘다.
         #    대신 이미 채워진 자리의 사람은 어차피 끝났으므로, 그 포지션표가 붙은 챔프폭을 통째로 뺀다.
         if mode == "ban" and _e_filled:
@@ -4518,19 +5000,42 @@ def _draft_coach_tick(s_json, headers, base_url):
                            for _h7, _cs7 in enemy_pools]
         # 🔨 [2026-08-07 사장님 지시] 밴픽 퀴즈 표(클랜 집단 학습) — 이번 판 상대에게 찍힌 밴 표를 근거로 첨부
         quiz_lines = []
+        _quiz_v = {}
         if mode == "ban":
             try:
                 _qm = _quiz_pref_map()
                 _enames = {str(_n9).split('[')[0].strip() for _n9, _cs9 in (enemy_pools or [])}
                 for _pu9 in enemy_pus:
-                    _e9 = ((_cidx or {}).get("by_pu") or {}).get(_pu9) or {}
+                    _e9 = _idx_ent(_cidx, _pu9)
                     if _e9.get("name"): _enames.add(str(_e9["name"]).split('#')[0].strip())
                 for _nm9 in sorted(_enames):
                     for _c9, _v9, _h9, _r9, _w9 in _qm.get(tnorm(_nm9), [])[:3]:
+                        if _v9 > 0: _quiz_v[_c9] = _quiz_v.get(_c9, 0) + int(_v9)   # 🎯 스코어링용 표 합계
                         if _c9 in _dead_ch or _v9 <= 0: continue
                         quiz_lines.append(f"{_nm9} ← {_c9} {_v9}표" + (f"·적중{_h9}" if _h9 else "")
                                           + (f"·최근30일 {_r9}표" if _r9 else "") + (f' — "{_w9}"' if _w9 else ""))
             except Exception: pass
+        # 🎯 [2026-11-27 지시 1️⃣] 밴 후보 **사전 스코어링** — 등장확률(최근성·포지션 확률) × 위협도(승률·숙련·견제압력·
+        #   퀴즈·우리 팀 취약매치업)를 파이썬에서 계산해 Top 8~10 + 핵심 수치를 넘긴다. 모델은 이 순서를 뒤집지 않고
+        #   이유만 붙인다 — '왜 이 순서인가'가 프롬프트 문장이 아니라 숫자로 남는다(백테스트도 같은 함수로 잰다).
+        ban_board, ban_score = [], []
+        if mode == "ban" and _score_rows:
+            try:
+                _th_v = {}
+                try:
+                    _cm = {_clanstat_nc(_x.get("name")): _x for _x in ((_clanstat_meta() or {}).get("champions") or [])}
+                    for _c in {r["champ"] for r in _score_rows}:
+                        _x = _cm.get(_clanstat_nc(_c))
+                        if _x and int(_x.get("n") or 0) >= 20: _th_v[_c] = float(_x.get("wr") or 0.5)
+                except Exception: pass
+                ban_score = _ban_candidates(_score_rows, ally_champs=[c for c, _p in ally], dead=_dead_ch,
+                                            limit=_BAN_LIMIT, quiz=_quiz_v, bp=_bp_v, threat=_th_v, weak=_weak_ch)
+                ban_board = _ban_board_lines(ban_score, quiz=_quiz_v, bp=_bp_v)
+                if ban_board: print("[draft] 사전 스코어링 Top — " + " / ".join(
+                    f"{c['champ']} {c['p_show']*100:.0f}%×{c['threat']:.2f}" for c in ban_score[:5]), flush=True)
+            except Exception as _bse:
+                print(f"[draft] 사전 스코어링 실패(무시): {_bse}", flush=True)
+
         ctx = {"mode": mode, "pos": my_pos, "ally": ally, "enemy": enemy, "bans": bans,
                "enemy_filled_pos": _e_filled, "enemy_open_pos": _e_open,
                "enemy_names": [_n for _n, _cs in (enemy_pools or [])],   # 🗳️ 퀴즈 표 조회용
@@ -4546,6 +5051,8 @@ def _draft_coach_tick(s_json, headers, base_url):
                "loff_good": ((_cidx or {}).get("loff_good_txt") or ""),   # 📊 저티어 오프롤 성과/함정픽(실측)
                "loff_bad": ((_cidx or {}).get("loff_bad_txt") or ""),
                "quiz": quiz_lines,   # 🔨 밴픽퀴즈 표(클랜 집단 학습, 밴 모드만)
+               "ban_board": ban_board, "ban_score": ban_score,   # 🎯 [2026-11-27] 사전 스코어링 Top N + 수치
+               "ep_probs": _ep_probs,   # 🧬 포지션 미확정 상대의 예상 포지션 확률
                "noban": list(_NOBAN.get("decls") or []),   # 🚫 이 판 노밴 선언(로비 채팅 감지)
                "pos_known": bool(my_pos and my_pos != "선택안함")}
         # 밴은 페이즈당 1회만(팀 밴 통째 추천) / 픽은 판 상태 바뀌면 갱신
@@ -8290,7 +8797,7 @@ def _noban_reset():
 
 def _nb_played(who):
     try:
-        return {c for c, _g, _w in (_my_champ_pool(who) or [])}
+        return {r[0] for r in (_my_champ_pool(who) or [])}   # 🧬 최근성 가중치 열이 붙어도 읽히게
     except Exception:
         return set()
 
