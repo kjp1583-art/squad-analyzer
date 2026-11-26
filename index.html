@@ -2581,6 +2581,12 @@ async function loadDeparted(){
     const rows=gvizRowsAll(await loadTabJsonp("DEPARTED"));
     DEPARTED_SET=new Set(rows.map(r=>tnorm(r["닉네임"]||"")).filter(Boolean));
     if(DEPARTED_SET.size){ MYEOL_FAIR=null; ASSESSMENTS=new Map(); TIER_AVG={}; DATA_SEQ++; }   // 캐시 재계산 유도
+    // 🚪 [2026-11-27 사장님] 탈퇴 명단이 화면보다 늦게 도착해도 옛 판정이 그대로 남지 않게 —
+    //   지금 내부티어 화면을 보고 있으면 평가를 다시 계산해 그 자리에서 다시 그린다(위에서 ASSESSMENTS 를 비웠으므로).
+    //   부팅 첫 로드 때는 아직 PLAYERS_ALL 이 비어 있어 이 가지를 타지 않는다(그 뒤 build()→renderTiers 가 최신 판을 쓴다).
+    if(DEPARTED_SET.size&&(history.state&&history.state.route)==='tiers'&&PLAYERS_ALL.size){
+      try{ computeAssessments(); renderTiers(); }catch(e){/* 화면이 아직 없으면 다음 진입에서 반영 */}
+    }
   }catch(e){/* 탭이 아직 없으면 조용히 통과 */}
 }
 // 👥 [2026-08-27 사장님 지시] 탈퇴 확정자는 명예의전당 '현재 랭킹'(망령·승률왕·기록실·견제압력·미토 다승·승부예측)에서 제외.
@@ -8458,8 +8464,11 @@ let GRUDGE_OPEN = false;
 function toggleGrudge(){ GRUDGE_OPEN=!GRUDGE_OPEN; const y=window.scrollY; renderTiers(); window.scrollTo(0,y); }
 function grudgeHtml(){
   if(!GRUDGE.length) return '';
-  const N = GRUDGE_OPEN ? GRUDGE.length : 5;
-  const rows = GRUDGE.slice(0,N).map((g,i)=>{
+  // 👥 [2026-11-27 사장님] 탈퇴자는 내부티어 화면에서 통째로 뺀다 — 억울지수 보드도 예외가 아니다(등수도 남은 인원으로 매긴다).
+  const all=GRUDGE.filter(g=>!isDeparted(g.name));
+  if(!all.length) return '';
+  const N = GRUDGE_OPEN ? all.length : 5;
+  const rows = all.slice(0,N).map((g,i)=>{
     const pos = g.score>=0;   // 양수 = 억울함이 사실(빨강), 음수 = 오히려 저평가(파랑)
     const w = Math.min(100, Math.abs(g.score)*3);
     return `<div class="rrow" style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;flex-wrap:wrap">
@@ -8482,7 +8491,7 @@ function grudgeHtml(){
       <span style="opacity:.75">승패(팀 결과)를 안 쓰는 이유는 5:5라 한 라인 몫이 1/5로 희석돼서. 맞라인 25대결 이상인 사람만.</span>
     </div>
     ${rows}
-    ${GRUDGE.length>5?`<div style="text-align:center;margin-top:8px"><button class="btn" style="font-size:12px;padding:3px 12px" onclick="toggleGrudge()">${GRUDGE_OPEN?'접기':`전체 ${GRUDGE.length}명 보기`}</button></div>`:''}
+    ${all.length>5?`<div style="text-align:center;margin-top:8px"><button class="btn" style="font-size:12px;padding:3px 12px" onclick="toggleGrudge()">${GRUDGE_OPEN?'접기':`전체 ${all.length}명 보기`}</button></div>`:''}
   </div>`;
 }
 /* 🧬 [2026-09-11 사장님 지시] 항노화지수 — 디코닉 '롤닉/생년' 규칙으로 봇이 모은 생년(data/ages.json, 하루 1회)과
@@ -9004,10 +9013,14 @@ function tierFunHtml(){
 function renderTiers(){
   const r1=v=>v!=null?Math.round(v):'—';
   const byTier={};
-  for(const [name,a] of ASSESSMENTS){ (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
+  // 👥 [2026-11-27 사장님] 클랜 탈퇴자(DEPARTED)는 내부티어 화면에서 통째로 뺀다 — 칸 목록·명수·요약 카운트 모두.
+  //   ASSESSMENTS 자체는 전원분을 담고 있으므로(카드·프로필용) 그리는 자리에서 거른다. isDeparted = 현재닉·과거닉·별칭.
+  let cDep=0;   // 🚪 탈퇴자라서 표에서 뺀 인원(안내 문구용) — 예전에는 칸에 그대로 서 있었다
+  for(const [name,a] of ASSESSMENTS){ if(isDeparted(name)){ cDep++; continue; } (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
   let cU=0,cOk=0,cOv=0,cNa=0;
   let cUr=0;
-  for(const [,a] of ASSESSMENTS){ if(String(a.label||'').startsWith('긴급픽스요망'))cUr++; else if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
+  for(const [name,a] of ASSESSMENTS){ if(isDeparted(name)) continue;
+    if(String(a.label||'').startsWith('긴급픽스요망'))cUr++; else if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
 
   // 한 칸(등급 열) — 그 티어에 속한 사람들을 평가 순(고평가→저평가→적절)으로 세운다.
   const OL={'긴급픽스요망↑저평가':-1,'긴급픽스요망↓고평가':-1,'고평가':0,'저평가':1,'적절':2,'표본부족':3};
@@ -9046,6 +9059,7 @@ function renderTiers(){
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0;flex:1">🎖 내부티어 평가 <span class="muted" style="font-size:var(--fs-sm)">(${esc(catLabel(CURRENT_CAT))} · 전체 기간 · 클랜 전체 성적 기준 — 상단 패치 필터와 무관)</span></h2>
         <a href="tier_note.html" target="_blank" rel="noopener" class="pchip on" style="text-decoration:none;font-size:13px;white-space:nowrap" title="2026-09-11 내부티어 조정을 성적 데이터로 검토한 보고서">📝 내부티어 분석노트</a></div>
+      ${cDep?`<div class="muted" style="font-size:12px;margin:-2px 0 8px">🚪 클랜 탈퇴자 ${cDep}명은 이 표에서 빠져 있어요 — 지난 전적과 카드는 그대로 볼 수 있습니다</div>`:""}
       <div style="font-size:13px;margin:2px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span><span class="assess a-urgent">🚨 긴급픽스요망</span> <span class="muted">추정과 2티어 이상 차이 — ↑저평가(승격 시급)·↓고평가(강등 시급) 방향 병기 · ${cUr}명</span></span>
         <span><span class="assess a-under">저평가</span> <span class="muted">클랜 전체 성적이 현 티어보다 <b>위</b>(승격 후보) · ${cU}명</span></span>
@@ -13837,7 +13851,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611270153";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611270208";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
