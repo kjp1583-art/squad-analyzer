@@ -10,6 +10,7 @@ import itertools
 import gspread
 import threading
 import subprocess
+import tempfile
 import winreg
 import webbrowser
 import re
@@ -221,7 +222,8 @@ def load_config():
     #   설정에서 직접 끈 사람은 config.json 에 false 가 남아 그대로 유지된다.
     default_cfg = {"windows_startup": True, "lol_auto_show": True, "minimize_to_tray": False,
                    "pos_view_default": True,   # [v82.37] 대기실 모스트 표시 기본값(True=현재포지션)
-                   "show_synergy": True}       # 🧩 우측 시너지 3칸(고승률·역시너지·천적) 표시
+                   "show_synergy": True,       # 🧩 우측 시너지 3칸(고승률·역시너지·천적) 표시
+                   "ingame_tts_briefing": True}   # 🎙 [2026-11-27] 인게임 AI 브리핑(판당 1회 음성, 기본 켬)
     # [v82.30] lol_auto_show 기본값을 설정 UI(True)와 일치시킴
     try:
         if os.path.exists(CONFIG_FILE):
@@ -8991,6 +8993,497 @@ def connect_sheet():
     global_spreadsheet = None
     return False
 
+# ===== 🎙 [2026-11-27 사장님 지시] 인게임 뉴럴 TTS 브리핑 =====
+#   인게임(InProgress)에 들어가면 판당 **딱 1회**, 데몬 스레드에서 4가지를 묶어 10~15초 한국어 브리핑을
+#   뉴럴 TTS(edge-tts)로 만들고 Windows 내장 MCI(winmm.mciSendStringW)로 그대로 재생한다.
+#     ① 예상 승률(게임 시작 화면과 같은 산식 50+전력차×4, 15~85)
+#     ② 최근 3연승↑/3연패↓ 핵심 인원(길이에 맞춰 1~2명)
+#     ③ 상대 라인 꼬임(클랜 시트 주포지션 ↔ 이번 판 실제 포지션)
+#     ④ 우리 팀 최근 흐름 + 조합(_comp_report) 기반 플레이 방향성(로컬 Claude 키가 있으면 1문장, 없으면 규칙 기반)
+#   ⚠️ 사용자 PC 에 ffmpeg 가 없다 — mp3→wav 변환 없이 MCI 로 mp3 를 직접 재생한다.
+#   ⚠️ 이 블록은 LCU 폴링 루프에서 불리지만 **절대 블로킹하지 않는다**(스레드만 띄운다).
+#      edge-tts 미설치·네트워크 실패·비Windows 는 크래시 없이 로그만 남기고 끝난다.
+INGAME_BRIEF_MAX_GAMETIME = 120     # 이 인게임 시각(초)을 넘으면 브리핑하지 않는다
+INGAME_BRIEF_MAX_CHARS = 110       # 음성 길이 상한 — 한국어 뉴럴 TTS 실측 약 7자/초 → 110자 ≒ 15초(max_chars)
+INGAME_BRIEF_MIN_CHAMPS = 6        # 로딩 중 챔프가 덜 찬 상태로 읽지 않는다(10명 중 이만큼 차면 시작)
+INGAME_TTS_VOICE = "ko-KR-SunHiNeural"
+INGAME_TTS_RATE = "+10%"
+INGAME_TTS_PITCH = "+6Hz"
+_BRIEFED_GAMES = set()             # 브리핑을 이미 처리한 gameId(같은 판 두 번 읽기 방지)
+_BRIEF_GUARD = threading.Lock()
+_BRIEF_STATE = {"pending": False, "last_try": 0.0}   # pending=작업 스레드 진행 중, last_try=마지막 시도 시각
+_BRIEF_TAG = [0]                   # MCI alias 충돌 방지용 증가 번호
+_BRIEF_ENG2KOR = {}                # 라이브 영문 챔프명 → 한글명 메모
+_BRIEF_POS_KO = {"TOP": "탑", "JUNGLE": "정글", "MIDDLE": "미드", "BOTTOM": "원딜", "UTILITY": "서폿"}
+_BRIEF_SIDE_KO = {"blue": "블루 팀", "red": "레드 팀"}
+
+def _brief_base_name(p):
+    """음성으로 읽을 이름 — 태그(#KR1)를 떼고 앞뒤 공백만 정리한다."""
+    return str((p or {}).get("name") or "").split("#")[0].strip()
+
+def _brief_sv(s):
+    """슬롯 stats 의 연승값(+n연승 / -n연패 / 0)."""
+    try: return int((s or {}).get("streak_val") or 0)
+    except Exception: return 0
+
+def _brief_pos_norm(v):
+    """포지션 표기 통일 — 라이브(TOP…)는 한글로, 시트의 한글 표기는 그대로."""
+    v = str(v or "").strip()
+    if not v: return ""
+    return _BRIEF_POS_KO.get(v.upper(), v)
+
+def _brief_live_pos(lp):
+    """인게임 playerlist 한 명의 실제 포지션 — position 우선, 비면 강타(정글)로 추정."""
+    pos = str((lp or {}).get("position") or "").upper()
+    if pos in _BRIEF_POS_KO: return pos
+    try:
+        sp = (lp or {}).get("summonerSpells") or {}
+        raw = " ".join(str(((sp.get(k) or {}).get("rawDisplayName") or ""))
+                       for k in ("summonerSpellOne", "summonerSpellTwo"))
+        if "SummonerSmite" in raw: return "JUNGLE"
+    except Exception: pass
+    return ""
+
+def _brief_main_pos(p, cidx, min_games=5):
+    """클랜 시트 기준 주포지션(최다 라인, 표본 min_games 판 이상) — 없으면 빈 문자열.
+       puuid 우선, 부계·닉변으로 못 찾으면 이름 폴백(nm2pu)으로 같은 사람을 찾는다."""
+    try:
+        cidx = cidx or {}
+        bk = cidx.get("by_pu") or {}
+        pu = str((p or {}).get("puuid") or "").strip().lower()
+        e = bk.get(pu) if pu else None
+        if not e:
+            k = (cidx.get("nm2pu") or {}).get(tnorm((p or {}).get("name") or ""))
+            e = bk.get(k) if k else None
+        if not e: return ""
+        pos = e.get("pos") or {}
+        tot = sum(int(v or 0) for v in pos.values())
+        if not pos or tot < int(min_games or 0): return ""
+        return str(max(pos.items(), key=lambda kv: kv[1])[0])
+    except Exception:
+        return ""
+
+def _brief_match_live(lp, entries):
+    """라이브 playerlist 항목 → LCU 로스터 (player, stats) 짝. puuid 우선, 없으면 이름(tnorm)."""
+    try:
+        pu = str((lp or {}).get("puuid") or "").strip().lower()
+        if pu:
+            for p, s in entries or []:
+                if str((p or {}).get("puuid") or "").strip().lower() == pu: return p, s
+        keys = {tnorm((lp or {}).get(k) or "") for k in ("riotIdGameName", "summonerName", "riotId")}
+        keys.discard("")
+        if keys:
+            for p, s in entries or []:
+                if tnorm((p or {}).get("name") or "") in keys: return p, s
+    except Exception: pass
+    return None
+
+def _brief_champ_kor(eng):
+    """라이브 영문 챔피언명 → 한글명(_champ_tags/_comp_report 가 한글 키를 쓴다)."""
+    e = re.sub(r"[^a-z0-9]", "", str(eng or "").lower())
+    if not e: return ""
+    if e in _BRIEF_ENG2KOR: return _BRIEF_ENG2KOR[e]
+    kor = ""
+    try:
+        for k, v in CHAMP_KOR_TO_ENG.items():
+            if re.sub(r"[^a-z0-9]", "", str(v or "").lower()) == e: kor = k; break
+        if not kor:
+            for _cid, d in global_champ_map.items():
+                if re.sub(r"[^a-z0-9]", "", str((d or {}).get("eng") or "").lower()) == e:
+                    kor = str((d or {}).get("kor") or ""); break
+    except Exception:
+        kor = ""
+    if kor: _BRIEF_ENG2KOR[e] = kor
+    return kor
+
+def _brief_direction_lines(rep):
+    """_comp_report 결과 → 플레이 방향성 1~2문장(규칙 기반 · AI 코멘트가 없을 때의 폴백)."""
+    rep = rep or {}
+    out = []
+    for g in (rep.get("gaps") or []):
+        g = str(g)
+        if "앞라인" in g: out.append("앞라인이 없으니 받아치는 싸움을 하세요.")
+        elif "AP 딜" in g: out.append("AP가 없으니 초반에 굴리세요.")
+        elif "AD 딜" in g: out.append("AD가 없으니 초반 교전으로 푸세요.")
+        elif "하드CC" in g: out.append("하드CC가 없으니 먼저 물지 마세요.")
+        elif "이니시" in g: out.append("이니시·포킹이 없으니 시야와 스플릿으로 푸세요.")
+        if len(out) >= 2: break
+    if not out:
+        for t in (rep.get("threats") or []):
+            t = str(t)
+            if "스케일링" in t: out.append("상대 스케일링이 좋으니 초반에 굴리세요."); break
+            if "포킹" in t: out.append("상대 포킹이 강하니 사이드에 혼자 서지 마세요."); break
+            if "이니시" in t: out.append("상대 이니시가 강하니 앞라인 뒤에서 붙으세요."); break
+            if "암살" in t: out.append("상대 암살자를 조심해 혼자 다니지 마세요."); break
+            if "앞라인" in t: out.append("상대 앞라인이 두꺼우니 포킹과 스플릿으로 푸세요."); break
+    if not out:
+        out.append("조합은 무난하니 시야와 오브젝트에 집중하세요.")
+    return out[:2]
+
+def _brief_trim(sentences, max_chars=None):
+    """음성 길이 상한 — 뒤 문장부터 덜어낸다(핵심인 예상 승률·연승이 앞에 오게 만든다)."""
+    cap = int(max_chars or INGAME_BRIEF_MAX_CHARS)
+    out = []
+    for s in sentences or []:
+        s = re.sub(r"\s+", " ", str(s or "")).strip()
+        if not s: continue
+        if out and len(" ".join(out)) + 1 + len(s) > cap: break
+        out.append(s)
+    return out
+
+def _build_ingame_briefing(ctx):
+    """브리핑 문장 목록(음성·OS 무관 — 테스트 대상).
+       ctx = {"my_side": "blue"|"red"|"", "blue": [(player, stats)…], "red": [(player, stats)…],
+              "live": [liveclientdata/playerlist 항목…], "blue_wr": int(블루 예상 승률),
+              "champs": {"blue": [한글 챔프…], "red": […]}, "cidx": _clan_index() 결과,
+              "ai_comment": "한 문장"(선택 — 있으면 규칙 기반 방향성 대신 쓴다)}
+       순서: 예상 승률 → 연승/연패 → 상대 라인 꼬임 → 우리 팀 흐름 → 플레이 방향성."""
+    ctx = ctx or {}
+    blue = list(ctx.get("blue") or [])
+    red = list(ctx.get("red") or [])
+    my_side = str(ctx.get("my_side") or "")
+    if my_side == "blue": ally, enemy = blue, red
+    elif my_side == "red": ally, enemy = red, blue
+    else: ally, enemy = [], []
+    groups = ([(my_side, ally), ({"blue": "red", "red": "blue"}.get(my_side, ""), enemy)]
+              if my_side in ("blue", "red") else [("blue", blue), ("red", red)])
+    out = []
+
+    # ① 예상 승률 — 게임 시작 화면과 같은 산식(50 + 전력차×4, 15~85)
+    try: bw = max(15, min(85, int(ctx.get("blue_wr", 50))))
+    except Exception: bw = 50
+    rw = 100 - bw
+    if my_side == "red": mine = rw
+    elif my_side == "blue": mine = bw
+    else: mine = None
+    if mine is None:
+        out.append(f"예상 승률은 블루 {bw}퍼센트, 레드 {rw}퍼센트입니다.")
+    elif mine >= 60:
+        out.append(f"우리 팀 예상 승률 {mine}퍼센트로 우리가 유리합니다.")
+    elif mine <= 40:
+        out.append(f"우리 팀 예상 승률 {mine}퍼센트로 상대가 앞섭니다.")
+    else:
+        out.append(f"우리 팀 예상 승률 {mine}퍼센트입니다.")
+
+    # ② 연승·연패 — 상대 연승(경계) → 우리 연패 → 우리 연승 → 상대 연패 순
+    ally_side = my_side
+    enemy_side = {"blue": "red", "red": "blue"}.get(my_side, "")
+    hot = []
+    for side, entries in groups:
+        for p, s in entries or []:
+            sv = _brief_sv(s)
+            if abs(sv) < 3: continue
+            nm = _brief_base_name(p)
+            if not nm: continue
+            hot.append((side, 1 if sv > 0 else -1, abs(sv), nm))
+    def _rank(item):
+        side, sign, n, _nm = item
+        if side == enemy_side and sign > 0: return (0, -n)
+        if side == ally_side and sign < 0: return (1, -n)
+        if side == ally_side: return (2, -n)
+        return (3, -n)
+    hot.sort(key=_rank)
+
+    # ③ 상대 라인 꼬임 — 시트 주포지션(표본 5판↑)과 이번 판 실제 포지션 대조(가장 눈에 띄는 1명).
+    #    연승 문장과 음성 길이를 다투므로 먼저 찾아 두고, 있으면 연승은 1명만 읽는다.
+    twist_lines = []
+    if enemy_side and ctx.get("live"):
+        cidx = ctx.get("cidx") or {}
+        for lp in (ctx.get("live") or []):
+            t = str((lp or {}).get("team") or "").upper()
+            side = "blue" if t == "ORDER" else ("red" if t == "CHAOS" else "")
+            if side != enemy_side: continue
+            hit = _brief_match_live(lp, enemy)
+            if not hit: continue
+            p = hit[0]
+            actual = _brief_pos_norm(_brief_live_pos(lp))
+            main = _brief_pos_norm(_brief_main_pos(p, cidx))
+            nm = _brief_base_name(p)
+            if not (actual and main and nm) or actual == main: continue
+            twist_lines.append(f"상대 {actual} {nm}님은 주라인 {main}, 라인 꼬임입니다.")
+            break
+
+    # ② 연승·연패 — 3연승↑/3연패↓ 중 핵심만(라인 꼬임을 읽었으면 1명)
+    said_ally = False
+    for side, sign, n, nm in hot[:1 if twist_lines else 2]:
+        if side == enemy_side:
+            out.append(f"상대 {nm}님이 {n}연승, 조심하세요." if sign > 0
+                       else f"상대 {nm}님은 {n}연패로 흔들립니다.")
+        elif side == ally_side:
+            said_ally = True
+            out.append(f"우리 팀 {nm}님이 {n}연승, 흐름이 좋습니다." if sign > 0
+                       else f"우리 팀 {nm}님이 {n}연패 중입니다.")
+        else:   # 내 진영을 모를 때 — 팀 이름으로만 말한다
+            lbl = _BRIEF_SIDE_KO.get(side, "")
+            out.append(f"{lbl} {nm}님이 {n}연승입니다." if sign > 0 else f"{lbl} {nm}님은 {n}연패입니다.")
+    out.extend(twist_lines)
+
+    # ④ 우리 팀 최근 흐름 — 연승/연패 인원 + 통산 승률
+    if ally:
+        svs = [_brief_sv(s) for _p, s in ally]
+        ups = sum(1 for v in svs if v >= 2)
+        downs = sum(1 for v in svs if v <= -2)
+        wrs = []
+        for _p, s in ally:
+            try:
+                if int((s or {}).get("games") or 0) >= 5 and (s or {}).get("overall_wr") is not None:
+                    wrs.append(float(s.get("overall_wr")))
+            except Exception: pass
+        if said_ally:
+            pass                  # 아군 연승/연패는 위에서 이미 한 줄 읽었다
+        elif wrs:
+            out.append(f"우리 팀 평균 승률 {int(round(sum(wrs) / len(wrs) * 100))}퍼센트입니다.")
+        elif ups >= 2 and downs == 0:
+            out.append("우리 팀 최근 흐름이 좋습니다.")
+        elif downs >= 2:
+            out.append("우리 팀 연패가 많으니 무리한 교전을 피하세요.")
+
+    # ⑤ 플레이 방향성 — 로컬 Claude 1문장이 있으면 그것, 없으면 조합 분석 규칙.
+    #    짧아도 가장 쓸모 있는 문장이라 길이 상한에서 잘리지 않게 먼저 확정하고 앞 문장을 덜어낸다.
+    direction = []
+    comment = re.sub(r"\s+", " ", str(ctx.get("ai_comment") or "")).strip()
+    if comment:
+        direction = [comment]
+    elif my_side in ("blue", "red"):
+        champs = ctx.get("champs") or {}
+        a_ch = list(champs.get(my_side) or [])
+        e_ch = list(champs.get(enemy_side) or [])
+        if a_ch:
+            try: rep = _comp_report(a_ch, e_ch)
+            except Exception: rep = {}
+            direction = _brief_direction_lines(rep)[:1]
+    if direction:
+        out = _brief_trim(out, max(20, INGAME_BRIEF_MAX_CHARS - len(direction[0]) - 1))
+    return [str(x).strip() for x in (out + direction) if str(x or "").strip()]
+
+def _brief_game_key(game_id, blue, red, game_seq=0):
+    """이 판의 브리핑 키 — gameId 우선, 커스텀게임(gameId=0)은 로스터+게임카운터 해시."""
+    gid = str(game_id or "").strip()
+    if gid and gid not in ("0", "None"): return "id:" + gid
+    ids = sorted(str((p or {}).get("puuid") or "").strip().lower()
+                 for p in (list(blue or []) + list(red or [])) if (p or {}).get("puuid"))
+    if not ids: return ""
+    return "roster:" + hashlib.md5(("|".join(ids) + f"#{int(game_seq or 0)}").encode()).hexdigest()[:12]
+
+def _brief_claim(key):
+    """이 판을 브리핑할 권한을 딱 한 번만 얻는다(게임당 1회 · 중복 방지)."""
+    if not key: return False
+    with _BRIEF_GUARD:
+        if key in _BRIEFED_GAMES: return False
+        _BRIEFED_GAMES.add(key)
+        if len(_BRIEFED_GAMES) > 200:      # 하루 종일 켜 둬도 메모리가 늘지 않게
+            _BRIEFED_GAMES.clear(); _BRIEFED_GAMES.add(key)
+        return True
+
+def _brief_live_json(path):
+    """라이엇 로컬 API(2999) 한 번 읽기 — 실패는 None(조용히)."""
+    try:
+        r = requests.get("https://127.0.0.1:2999/liveclientdata/" + path, verify=False, timeout=1.5)
+        return r.json() if r.status_code == 200 else None
+    except Exception:
+        return None
+
+def _brief_my_side(live):
+    """내 진영 — activeplayer 이름을 playerlist 의 ORDER(블루)/CHAOS(레드)와 맞춘다. 모르면 빈 문자열."""
+    try:
+        k = tnorm(str(_brief_live_json("activeplayername") or ""))
+        if k:
+            for lp in live or []:
+                for cand in ((lp or {}).get("riotIdGameName"), (lp or {}).get("summonerName"), (lp or {}).get("riotId")):
+                    if cand and tnorm(cand) == k:
+                        t = str((lp or {}).get("team") or "").upper()
+                        if t == "ORDER": return "blue"
+                        if t == "CHAOS": return "red"
+        k2 = tnorm(MY_RIOT_NAME[0])
+        if k2:
+            with gui_lock:
+                for side in ("blue", "red"):
+                    for p, _s in (gui_data.get(side) or []):
+                        if tnorm((p or {}).get("name") or "") == k2: return side
+    except Exception: pass
+    return ""
+
+def _brief_prompt_facts(ctx):
+    """AI 1문장용 짧은 사실 묶음(프롬프트가 길면 3초 안에 못 끝난다)."""
+    ctx = ctx or {}
+    my = str(ctx.get("my_side") or "")
+    champs = ctx.get("champs") or {}
+    enemy = {"blue": "red", "red": "blue"}.get(my, "")
+    lines = []
+    try:
+        if my: lines.append(f"우리 팀 챔프: {', '.join(champs.get(my) or []) or '미상'}")
+        if enemy: lines.append(f"상대 챔프: {', '.join(champs.get(enemy) or []) or '미상'}")
+        if my:
+            rep = _comp_report(list(champs.get(my) or []), list(champs.get(enemy) or []))
+            if rep.get("gaps"): lines.append("우리 결핍: " + " / ".join(rep["gaps"]))
+            if rep.get("threats"): lines.append("상대 위협: " + " / ".join(rep["threats"]))
+        entries = list(ctx.get(my) or []) if my else []
+        hot = [f"{_brief_base_name(p)} {_brief_sv(s)}연승" for p, s in entries if _brief_sv(s) >= 3]
+        cold = [f"{_brief_base_name(p)} {-_brief_sv(s)}연패" for p, s in entries if _brief_sv(s) <= -3]
+        if hot: lines.append("우리 팀 연승: " + ", ".join(hot[:2]))
+        if cold: lines.append("우리 팀 연패: " + ", ".join(cold[:2]))
+    except Exception: pass
+    return "\n".join(lines)[:900] or "내전 시작"
+
+def _brief_ai_comment(ctx):
+    """로컬 Claude 키가 있으면 플레이 방향 1문장을 3초 안에 받아 온다 — 없거나 실패하면 빈 문자열(규칙 기반 폴백)."""
+    try: key = load_claude_key()
+    except Exception: key = None
+    if not key: return ""
+    try:
+        import anthropic
+    except Exception:
+        return ""
+    try:
+        cl = anthropic.Anthropic(api_key=key, timeout=3.0, max_retries=0)
+        r = cl.messages.create(
+            model=DRAFT_MODEL, max_tokens=100,
+            system=("너는 리그 오브 레전드 내전 코치다. 주어진 사실만 근거로 이번 판 플레이 방향을 "
+                    "한국어 한 문장(40자 이내)으로 말한다. 인사·설명·따옴표·목록 없이 문장만."),
+            messages=[{"role": "user", "content": _brief_prompt_facts(ctx)}])
+        t = "".join(str(getattr(b, "text", "") or "") for b in (getattr(r, "content", None) or [])).strip()
+        t = re.sub(r"^[\s\"'“”‘’\-•·]+|[\s\"'“”‘’]+$", "", t.split("\n")[0]).strip()
+        return t[:90]
+    except Exception as e:
+        print(f"[brief] AI 코멘트 생략({type(e).__name__}) — 규칙 기반 방향성으로 대체", flush=True)
+        return ""
+
+def _brief_mci_play(path):
+    """Windows 내장 MCI 로 mp3 직접 재생(ffmpeg 불필요). 재생이 끝날 때까지 이 스레드에서 기다린다."""
+    try:
+        winmm = ctypes.windll.winmm
+        winmm.mciSendStringW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint, ctypes.c_void_p]
+        winmm.mciSendStringW.restype = ctypes.c_uint
+        with _BRIEF_GUARD:
+            _BRIEF_TAG[0] += 1
+            alias = f"ib{os.getpid() % 10000}_{_BRIEF_TAG[0] % 1000}"
+        def cmd(text):
+            return winmm.mciSendStringW(text, None, 0, None)
+        err = cmd(f'open "{path}" type mpegvideo alias {alias}')
+        if err:   # mpegvideo 별칭이 없는 구성 — 확장자로 열기
+            err = cmd(f'open "{path}" alias {alias}')
+        if err:
+            print(f"[brief] MCI open 실패(code {err}) — 음성 생략", flush=True)
+            return False
+        try:
+            cmd(f"play {alias} wait")
+        finally:
+            cmd(f"close {alias}")
+        return True
+    except Exception as e:
+        print(f"[brief] MCI 재생 실패(무시): {type(e).__name__} {e}", flush=True)
+        return False
+
+def _speak_neural_tts(text):
+    """edge-tts 로 mp3 생성 → MCI 로 재생 → 임시파일 삭제. 실패는 조용히 False(크래시·루프 정지 금지)."""
+    txt = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not txt: return False
+    if os.name != "nt":
+        print("[brief] Windows 가 아니어서 음성 재생 생략", flush=True)
+        return False
+    tmp = None
+    try:
+        try:
+            import asyncio
+            import edge_tts
+        except Exception as e:
+            print(f"[brief] edge-tts 없음 — 음성 생략({type(e).__name__}) — pip install edge-tts", flush=True)
+            return False
+        fd, tmp = tempfile.mkstemp(prefix="ingame_brief_", suffix=".mp3")
+        os.close(fd)
+        async def _gen():
+            com = edge_tts.Communicate(txt, INGAME_TTS_VOICE, rate=INGAME_TTS_RATE, pitch=INGAME_TTS_PITCH)
+            await com.save(tmp)
+        asyncio.run(_gen())
+        if not os.path.exists(tmp) or os.path.getsize(tmp) < 1024:
+            print("[brief] TTS 파일이 비었습니다 — 음성 생략", flush=True)
+            return False
+        return _brief_mci_play(tmp)
+    except Exception as e:
+        print(f"[brief] TTS 실패(무시): {type(e).__name__} {str(e)[:160]}", flush=True)
+        return False
+    finally:
+        try:
+            if tmp and os.path.exists(tmp): os.remove(tmp)
+        except Exception: pass
+
+def _ingame_briefing_worker(key, blue, red):
+    """브리핑 생성·재생(데몬 스레드). 라이브 클라이언트가 아직이면 스스로 물러나 다음 폴링에서 재시도한다."""
+    try:
+        if not bool(APP_CONFIG.get("ingame_tts_briefing", True)): return
+        live = _brief_live_json("playerlist")
+        if not isinstance(live, list) or not live:
+            print("[brief] 인게임 플레이어 목록 없음 — 다음 폴링에서 재시도", flush=True)
+            return
+        # 로딩 중엔 챔프가 덜 차 있다 — 다 찰 때까지 미룬다(판당 1회라 이때 읽어야 제대로 읽는다)
+        with_champ = sum(1 for lp in live if _brief_champ_kor((lp or {}).get("championName") or ""))
+        if with_champ < min(INGAME_BRIEF_MIN_CHAMPS, len(live)):
+            return
+        gs = _brief_live_json("gamestats") or {}
+        try: gt = float(gs.get("gameTime"))
+        except Exception: gt = None
+        if gt is not None and gt > INGAME_BRIEF_MAX_GAMETIME:
+            _brief_claim(key)          # 이미 한참 지난 판 — 브리핑하지 않고 재시도만 멈춘다
+            print(f"[brief] 인게임 {int(gt)}초 — 시간이 지나 생략", flush=True)
+            return
+        if not _brief_claim(key): return
+        my_side = _brief_my_side(live)
+        with gui_lock:
+            gui_blue = list(gui_data.get("blue") or [])
+            gui_red = list(gui_data.get("red") or [])
+            try: blue_wr = int(gui_data.get("blue_win_rate") or 50)
+            except Exception: blue_wr = 50
+        if not gui_blue and not gui_red:      # 밴픽 화면을 못 본 경우(늦게 켬) — 로스터만으로
+            gui_blue = [(p, {}) for p in (blue or [])]
+            gui_red = [(p, {}) for p in (red or [])]
+        champs = {"blue": [], "red": []}
+        for lp in live:
+            side = "blue" if str((lp or {}).get("team") or "").upper() == "ORDER" else "red"
+            ch = _brief_champ_kor((lp or {}).get("championName") or "")
+            if ch: champs[side].append(ch)
+        try: cidx = _clan_index()
+        except Exception: cidx = None
+        ctx = {"my_side": my_side, "blue": gui_blue, "red": gui_red, "live": live,
+               "blue_wr": blue_wr, "champs": champs, "cidx": cidx, "ai_comment": ""}
+        try: ctx["ai_comment"] = _brief_ai_comment(ctx)
+        except Exception: ctx["ai_comment"] = ""
+        lines = _brief_trim(_build_ingame_briefing(ctx))
+        if not lines:
+            print("[brief] 브리핑 내용이 없어 생략", flush=True)
+            return
+        text = " ".join(lines)
+        print(f"[brief] {key} ({'-' if gt is None else int(gt)}s / {my_side or '진영미상'}) → {text}", flush=True)
+        _speak_neural_tts(text)
+    except Exception as e:
+        print(f"[brief] worker 예외(무시): {type(e).__name__} {e}", flush=True)
+    finally:
+        try:
+            with _BRIEF_GUARD: _BRIEF_STATE["pending"] = False
+        except Exception: pass
+
+def _ingame_briefing_tick(game_id=None, blue=None, red=None, game_seq=0):
+    """LCU 폴링 루프가 인게임 중 호출 — 여기서는 스레드만 띄우고 절대 기다리지 않는다.
+       반환값은 로그·테스트용: off/설정꺼짐 · none/키없음 · done/이미함 · busy/진행중 · throttled/방금시도 · started."""
+    try:
+        if not bool(APP_CONFIG.get("ingame_tts_briefing", True)): return "off"
+        key = _brief_game_key(game_id, blue, red, game_seq)
+        if not key: return "none"
+        with _BRIEF_GUARD:
+            if key in _BRIEFED_GAMES: return "done"
+            if _BRIEF_STATE["pending"]: return "busy"
+            now = time.time()
+            if now - float(_BRIEF_STATE.get("last_try") or 0) < 5.0: return "throttled"
+            _BRIEF_STATE["last_try"] = now
+            _BRIEF_STATE["pending"] = True
+        threading.Thread(target=_ingame_briefing_worker, args=(key, list(blue or []), list(red or [])), daemon=True).start()
+        return "started"
+    except Exception as e:
+        try:
+            with _BRIEF_GUARD: _BRIEF_STATE["pending"] = False
+        except Exception: pass
+        print(f"[brief] tick 예외(무시): {type(e).__name__} {e}", flush=True)
+        return "error"
+
 def lcu_core_backend_loop():
     global gui_data, global_captured_bans, global_user_ban_map, frozen_user_bans, global_spreadsheet, frozen_bans_str, global_ingame_names, global_puuid_fallback_map, PATCH_VERSION_SHORT, has_logged_execution, global_discord_id, global_pick_order_map, frozen_pick_order, global_lock_champ_map, frozen_lock_champ
     # 시작 동시부하 분산: 여러 클랜원이 동시에 켜도 인스턴스별 0~24초 지터로 시트 API 버스트 완화(429 방지)
@@ -9251,12 +9744,14 @@ def lcu_core_backend_loop():
             map_id = 11
             is_custom_game_flag = False
             top_map_raw, gd_map_raw, gd_qmap_raw = None, None, None   # 고스트밴픽왕용 맵 원값(없으면 None) — map_id 의 기본값 11 과 구분
+            session_game_id = None            # 🎙 [2026-11-27] 브리핑 gameId(판당 1회 키)
 
             try:
                 gf_res = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=3)
                 if gf_res.status_code == 200:
                     gf_json = gf_res.json() or {}
                     gd = gf_json.get('gameData') or {}
+                    session_game_id = gd.get('gameId')
                     
                     try:
                         top_map_raw = (gf_json.get('map') or {}).get('id')   # LCU 스키마상 지도는 세션 최상위 map
@@ -9637,6 +10132,10 @@ def lcu_core_backend_loop():
                     if p.get('puuid'): global_pos_map[p['puuid'].strip().lower()] = p['chosen_pos_icon']
 
             lobby_fingerprint = "".join([str(p['puuid']) for p in temp_blue + temp_red])
+            # 🎙 [2026-11-27] 인게임 AI 브리핑 — 판당 1회, 데몬 스레드만 띄워 폴링을 막지 않는다(자체 5초 스로틀).
+            if current_phase == "InProgress" and is_valid_game and (temp_blue or temp_red):
+                try: _ingame_briefing_tick(session_game_id, temp_blue, temp_red, game_seq)
+                except Exception: pass
             target_sheet_name = "KIWI_KIWI" if is_aram_session else "CLASSIC_NORMAL"
             # 🧭 [2026-07-30] 롤 클래식 같은 새 모드를 협곡과 구분하려면 그 모드의 식별값을 알아야 한다.
             #    지금은 칼바람만 판정하고 나머지를 협곡으로 보내므로, 새 모드가 협곡 탭에 섞인다.
@@ -13256,6 +13755,7 @@ class ClanSettingsWindow(tk.Toplevel):
         self.var_posview = tk.BooleanVar(value=APP_CONFIG.get("pos_view_default", True))   # [v82.37]
         self.var_syn = tk.BooleanVar(value=APP_CONFIG.get("show_synergy", True))   # 🧩 우측 시너지 3칸
         self.var_lb = tk.BooleanVar(value=APP_CONFIG.get("lobby_balance", True))   # ⚖️ [P-12] 대기실 전력차 한 줄
+        self.var_itt = tk.BooleanVar(value=APP_CONFIG.get("ingame_tts_briefing", True))   # 🎙 인게임 AI 브리핑
         self.var_lf = tk.BooleanVar(value=APP_CONFIG.get("lobby_fun", True))   # 🎲 [2026-10-19] 안내 뒤에 클랜 정보 한 줄 랜덤
         self.var_li = tk.BooleanVar(value=APP_CONFIG.get("lobby_intro", True))   # 💬 [2026-10-17 사장님 지시] 로비 채팅 안내 멘트(스쿼드해체분석기 사용중) 켜기/끄기
         
@@ -13350,6 +13850,15 @@ class ClanSettingsWindow(tk.Toplevel):
         tk.Label(txt_lf, text="로비 안내 채팅 끝에 지난주 클랜 소식·클랜 기록·사용법 팁·방에 있는 클랜원 한마디 중 하나를 무작위로 덧붙입니다. 끄면 안내 문장만 나갑니다.",
                  bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
 
+        # 🎙 [2026-11-27] 인게임 AI 브리핑 — 게임 시작 시 예상 승률·연승·라인꼬임을 음성으로(판당 1회)
+        opt_itt = tk.Frame(body_frame, bg=theme.BG); opt_itt.pack(fill="x", pady=10)
+        ttk.Checkbutton(opt_itt, variable=self.var_itt, style="TCheckbutton").pack(side="right", padx=(8, 6))
+        txt_itt = tk.Frame(opt_itt, bg=theme.BG); txt_itt.pack(side="left", fill="both", expand=True)
+        tk.Label(txt_itt, text="🎙 인게임 AI 브리핑 (게임 시작 시 예상 승률·연승·라인꼬임 음성 안내)", bg=theme.BG, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+        tk.Label(txt_itt, text="내전이 시작되면 판마다 딱 한 번, 예상 승률·최근 연승/연패·상대 라인 꼬임·플레이 방향을 10~15초 음성으로 읽어 줍니다. "
+                             "음성은 뉴럴 TTS(인터넷 필요)이고, 인터넷·음성 구성요소가 없으면 조용히 넘어갑니다. (저장 즉시 적용)",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10), wraplength=430, justify="left").pack(anchor="w", pady=4)
+
         # 🖥 [v82.17] 창 크기 프리셋 — 선택 즉시(저장 시) 적용, 재시작 후에도 유지
         opt_f4 = tk.Frame(body_frame, bg=theme.BG); opt_f4.pack(fill="x", pady=10)
         _cur_key = APP_CONFIG.get("win_preset", "auto")
@@ -13391,6 +13900,7 @@ class ClanSettingsWindow(tk.Toplevel):
         APP_CONFIG["show_synergy"] = bool(self.var_syn.get())   # 🧩 우측 시너지 3칸
         APP_CONFIG["lobby_balance"] = bool(self.var_lb.get())   # ⚖️ [P-12] 대기실 전력차 한 줄
         APP_CONFIG["lobby_fun"] = bool(self.var_lf.get())   # 🎲 로비 안내 뒤 클랜 정보 한 줄
+        APP_CONFIG["ingame_tts_briefing"] = bool(self.var_itt.get())   # 🎙 인게임 AI 브리핑(루프가 매번 읽는다)
         APP_CONFIG["lobby_intro"] = bool(self.var_li.get())   # 💬 로비 안내 채팅 — 저장 즉시 반영(루프가 매번 이 값을 읽는다)
         try:
             if _SYNERGY_SYNC[0]: _SYNERGY_SYNC[0](APP_CONFIG["show_synergy"])   # 재시작 없이 즉시 반영
@@ -13466,8 +13976,10 @@ class GuideWindow(tk.Toplevel):
                       "전투력차 1 이내 짝만 추천하고 그 안에서 주포지션이 같은 짝을 우선, 비슷한 짝이 없으면 "
                       "포지션을 보지 않고 전투력이 가장 가까운 두 명을 고릅니다. 결과를 로비 채팅에 바로 알릴 수 있습니다."),
         ("🎯 모스트 표시 전환", "모스트를 '현재 선택한 포지션' 기준으로 볼지 '전체 라인' 기준으로 볼지 바꿉니다."),
+        ("🎙 인게임 AI 브리핑", "내전이 시작되면 판마다 한 번, 예상 승률·최근 연승/연패·상대 라인 꼬임·우리 조합 플레이 방향을 "
+                            "10~15초 음성으로 읽어 줍니다. 설정에서 끌 수 있고, 인터넷이 없으면 조용히 넘어갑니다."),
         ("⚙ 설정", "부팅 시 자동 실행(숨김) · 롤 켜질 때 자동 팝업 · 트레이 최소화 · 시너지 3칸 표시 · "
-                  "창 크기 · 고스트밴픽왕 구독 토큰. 바꾼 뒤 반드시 [설정 및 저장]을 눌러야 적용됩니다."),
+                  "인게임 AI 브리핑 · 창 크기 · 고스트밴픽왕 구독 토큰. 바꾼 뒤 반드시 [설정 및 저장]을 눌러야 적용됩니다."),
         ("알아두면 좋은 것", None),
         ("🧠 고스트밴픽왕", "밴·픽 차례에 AI 추천을 받는 구독 기능입니다. 구독 안 해도 나머지는 전부 무료입니다."),
         ("🩹 누락된 판", "아무도 분석기를 안 켠 판은 기록이 비어 있습니다. 디스코드 누락경기 채널에 "
