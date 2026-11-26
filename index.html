@@ -72,7 +72,10 @@ window.SGG_DC_BOOT=(function(){
 <meta property="og:image:width" content="128" />
 <meta property="og:image:height" content="128" />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;900&display=swap">   <!-- 📰 주간스쿼드 마스트헤드·헤드라인 명조(없으면 시스템 명조) -->
+<!-- 📰 주간스쿼드 마스트헤드·헤드라인 명조(없으면 시스템 명조로 폴백) — [2026-11-26 P1-7] 이 폰트 하나가 <head> 에서 첫 렌더를 막고 있었다.
+     media="print" 로 처음엔 '안 쓰는 시트'로 두고, 다 받으면 media 를 all 로 바꿔 적용한다(비차단). 자바스크립트가 막힌 환경은 <noscript> 폴백. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;900&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;900&display=swap"></noscript>
 <style>
   :root{
     --bg:#11131a; --bg2:#171a23; --card:#1b1f2b; --card2:#212636;
@@ -5661,6 +5664,9 @@ function go(route,arg){
   if(route==='counts'&&!IS_ADMIN)route='home';   // 비관리자 counts는 화면·스택 모두 홈으로(불일치 방지)
   if(route!=='news') _routeHashClear();   // 🔗 p/g/c/news 공유 해시는 맨 앞에서 한 번에 정리(guide·scrim 조기 return 보다 먼저)
   if(GAMES.size) syncDefaultScope(route,arg);  // 📅 일찍 return 하는 화면(성향유형·리포트·전당 …)도 범위·안내가 티어 탭 것으로 남지 않게 맨 앞에서
+  const _wait=++TAB_WAIT;   // 🚀 [P1-4] 이 화면이 아직 마지막으로 연 화면인지 가르는 세대 번호
+  if(!_ROUTE_REENTER&&(GAMES.size||route==="hof"||route==="news")){ const _need=routeTabNeeds(route,arg);   // 데이터가 아직 없으면 기다릴 것도 없다 — 지금처럼 바로 '못 불러옴' 안내
+    if(_need&&_need.length&&!_need.every(_tabReady)){ _tabWaitAndReopen(route,arg,_need,_wait); return; } }   // 그 화면 전용 시트 탭이 아직 — '불러오는 중'으로 기다렸다 다시 그린다
   if(route==='guide'||route==='brjang'){ location.replace('brjhunt.html'); return; }   // 🗑 [2026-11-22 사장님 「웹 브키도감 탭 삭제 — 게임 리메이크로 쓸모없어짐」] 옛 브키도감·가이드북 주소는 새 게임으로 보낸다
   if(route==='news'){navPush(route,arg);renderNews(arg);try{ history.replaceState(history.state,"",location.pathname+location.search+"#news"+(arg?"/"+encodeURIComponent(String(arg)):"")); }catch(e){} return;}   // 📰 주간스쿼드 — 자체 JSON(데이터 로딩 전에도 열림) · 공유 링크 #news[/종료일]
 
@@ -8578,6 +8584,13 @@ function openPlayerCard(n){
   const el=document.getElementById("pcard"); if(!el) return;
   el.innerHTML=playerCardHtml(n);
   document.body.style.overflow="hidden";        // 뒤 배경 스크롤 잠금
+  // 🚀 [P1-4] 카드에 들어가는 칭호·커리어·미토·고스트 탭이 아직이면 카드는 바로 띄우고, 도착한 뒤 카드만 다시 채운다.
+  //    (전에는 부팅에서 다 받아 둔 터라 늘 있었지만, 이제는 그 화면에 처음 들어갈 때 받는다 — 빈 카드를 보여 주지 않는다.)
+  const _miss=ID_TABS.filter(k=>!_tabReady(k));
+  if(_miss.length) Promise.all(_miss.map(k=>sheetTab(k))).then(()=>{
+    if(PCARD!==n||!el.isConnected) return;   // 그새 닫혔거나 다른 사람을 열었다
+    try{ el.innerHTML=playerCardHtml(n); }catch(e){}
+  });
 }
 function closePlayerCard(e){
   if(e&&e.stopPropagation) e.stopPropagation();
@@ -12902,6 +12915,83 @@ async function loadCategory(key, preP, keep){
     setStatus(`${cat.label} 불러오기 실패: ${e.message}`,"err"); loadbar(100); renderEmpty();
   }
 }
+/* ============== 🚀 [2026-11-26 P1-4] 시트 탭 지연 로딩 ==============
+   전에는 부팅 때 시트 탭 25개를 전부 병렬로 받았다. 홈을 그리는 데 쓰지도 않는 탭(TITLES·MYEOL·BRJANG·MBTI·LCK_PRED…)이
+   가장 큰 협곡 시트(12MB)와 구글 동시연결(브라우저 6개)을 나눠 쓰느라 첫 화면이 3~7초 밀렸다.
+   이제 홈이 실제로 쓰는 탭만 즉시 받고, 나머지는 그 화면에 처음 들어갈 때 받는다.
+   · sheetTab(key)   : 그 탭을 받아 둔 상태로 만든다(이미 받았으면 즉시, 받는 중이면 같은 Promise 를 기다린다).
+   · routeTabNeeds() : 그 화면이 제대로 그려지려면 먼저 있어야 하는 탭 목록(없으면 null).
+   · go() 는 필요한 탭이 아직이면 기존 '불러오는 중' 자리로 기다렸다가 같은 화면을 다시 그린다 — 빈 화면·오류가 나지 않는다.
+   값·계산·화면은 하나도 바뀌지 않는다. 받는 '때'만 그 화면에 맞춘다. */
+const TAB_DONE={}, TAB_P={};
+const LATE_TABS={
+  titles:     ()=>loadTitles().then(v=>{ TITLES=v; }),
+  careers:    ()=>loadCareers().then(v=>{ CAREERS=v; }),
+  aieval:     ()=>loadAiEval().then(v=>{ AI_EVAL=v; }),
+  mbti:       ()=>loadMbti().then(v=>{ MBTI_MAP=v; }),
+  myeol:      ()=>loadMyeol().then(v=>{ MYEOL=v; }),
+  tierhist:   ()=>loadTierHistory(),
+  ghosts:     ()=>loadGhosts().then(v=>{ GHOSTS=v; }),
+  predictions:()=>loadPredictions().then(v=>{ PREDICTIONS=v; computePredTitles(); }),
+  grudge:     ()=>loadGrudge().then(v=>{ GRUDGE=v; }),
+  mitowins:   ()=>loadMitoWins().then(v=>{ MITO_WINS=v; }),
+  mitogames:  ()=>loadMitoGames().then(v=>{ MITO_CODE_BY_GAME=v; }),
+  lckgpti:    ()=>loadLckGpti().then(v=>{ LCK_GPTI=v; }),
+  lckpred:    ()=>loadLckPred(),
+  brjang:     ()=>loadBrjang().then(v=>{ BRJANG=v; }),
+};
+function sheetTab(key){
+  if(TAB_DONE[key]) return Promise.resolve();
+  if(TAB_P[key]) return TAB_P[key];
+  const run=LATE_TABS[key]; if(!run) return Promise.resolve();
+  const p=Promise.resolve().then(run).catch(e=>{ try{ console.warn("[탭 지연 로드] "+key, (e&&e.message)||e); }catch(_){} })
+    .then(()=>{ TAB_DONE[key]=true; delete TAB_P[key]; });
+  TAB_P[key]=p;
+  return p;
+}
+const _tabReady=k=>!!TAB_DONE[k];
+/* 인물 카드·프로필이 함께 쓰는 탭 — 카드 팝업은 바로 뜨고, 이 탭이 도착하면 카드만 다시 채운다(openPlayerCard). */
+const ID_TABS=["titles","careers","aieval","mbti","myeol","tierhist","ghosts","mitowins","grudge"];
+/* 화면별로 '먼저 있어야 하는' 탭. 여기 없는 화면은 지연 탭과 무관하게 바로 그린다(홈·내전기록·멸망전·클랜일정…). */
+const ROUTE_TABS={ player:ID_TABS, gpti:["lckgpti","mbti"], mito:["mitogames"], game:["mitogames"], news:["brjang"] };
+function _hofNeeds(arg){
+  const rift=(arg==="aram"||arg==="classic")?false:true;
+  const t=HOF_SUB.some(x=>x[0]===arg)?arg:(!arg?(HOF.tab||"career"):(rift?"career":"rank"));
+  if(t==="career") return ["careers"];
+  if(t==="pressure") return ["mitowins"];
+  if(t==="predict") return ["predictions","lckpred"];
+  return null;   // 기본 랭킹·기록실·상세지표는 지연 탭을 쓰지 않는다
+}
+function routeTabNeeds(route,arg){
+  if(route==="hof") return _hofNeeds(arg);
+  return ROUTE_TABS[route]||null;
+}
+/* 그 화면 자리를 '불러오는 중'으로 두고, 탭이 다 오면 같은 화면을 다시 그린다. 주소·뒤로가기 기록은 한 번만 쌓인다(navPush 는 재진입 때). */
+let TAB_WAIT=0;
+const NAV_ROUTES=new Set(["home","log","counts","champ","mastery","tiers","ach","duo","report","rival","scrim","myeol","mito","cal","games","army","market","gpti","ideal","donate"]);
+function _tabWaitAndReopen(route,arg,need,token){
+  const head=route==="hof"?navTabsHtml("hof"):((route==="news"||NAV_ROUTES.has(route))?navTabsHtml(route==="news"?"home":route):"");
+  try{ view().innerHTML=head+'<div class="empty">불러오는 중…</div>'; }catch(e){}
+  try{ setStatus("불러오는 중…"); }catch(e){}
+  window.scrollTo(0,0);
+  Promise.all(need.map(k=>sheetTab(k))).then(()=>{
+    if(token!==TAB_WAIT) return;   // 그새 다른 화면으로 옮겼다 — 이 화면은 열지 않는다
+    _ROUTE_REENTER=true;
+    try{ go(route,arg); }catch(e){ try{ renderEmpty(); }catch(_){} }
+    finally{ _ROUTE_REENTER=false; }
+  });
+}
+let _ROUTE_REENTER=false;
+/* 홈이 그려진 뒤, 프로필이 쓰는 탭을 한가할 때 미리 받아 둔다(첫 화면은 이미 끝났으니 경쟁하지 않는다).
+   데이터 절약 모드·2G 회선에서는 홈만 보고 떠나는 사람을 위해 받지 않는다. */
+function prefetchProfileTabs(){
+  try{
+    const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+    if(c&&(c.saveData||/^(slow-)?2g$/.test(String(c.effectiveType||"")))) return;
+  }catch(e){}
+  ID_TABS.forEach(k=>sheetTab(k));
+}
+
 /* 패치 버전 필터 (버전별 버튼 + 전체). 새 버전이 감지되면 버튼 자동 신설 */
 function renderPatchbar(){
   const bar=$("#patchbar"); if(!bar)return;
@@ -13630,7 +13720,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611266900";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611267000";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -13691,15 +13781,16 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   mainP.catch(()=>{});               // 미처리 거부 경고 방지 — 실제 처리는 loadCategory 의 try/catch
   const cacheP = rawCacheGet(_gid0); // 💾 지난 방문 스냅샷(있으면 먼저 그린다)
   const ddP = loadDDragon();         // 아이콘 전용(build 는 안 씀) — 부팅을 막지 않고 병렬 진행
-  { const [,,_cur,_peak,_pos,_pred,_alt,_car,_aie,_th,_gp,_mito,_mbti,_gh,_tt,_my,_nb,_gr,_mg,_mc,_lck,_lp,_pk,_bj]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadPredictions(),loadLinkAccount(),loadCareers(),loadAiEval(),loadTierHistory(),loadGptiStats(),loadMitoWins(),loadMbti(),loadGhosts(),loadTitles(),loadMyeol(),loadNoban(),loadGrudge(),loadMitoGames(),loadMitoCodes(),loadLckGpti(),loadLckPred(),loadPerks(),loadBrjang(),loadAges()]);   // 병렬 로드(내부티어·탈퇴자도 합류 — 예전엔 앞에서 직렬로 기다렸다)
-    BRJANG=_bj;      // 🍗 브장신 키우기(BRJANG 탭)
-    LCK_GPTI=_lck;   // 🏆 LCK 프로 GPTI(주 1회 갱신) — 못 받아도 화면은 그대로 뜬다
-    MITO_WINS=_mito; MBTI_MAP=_mbti; GHOSTS=_gh; TITLES=_tt; MYEOL=_my; NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt; GRUDGE=_gr; MITO_CODE_BY_GAME=_mg; MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre;   // 🏟 미토 전적 — 게임별 코드 + '미토 코드' 등록부
+  // 🚀 [2026-11-26 P1-4] 부팅에 받는 탭 = 홈이 실제로 쓰는 것만(내부티어·탈퇴자·LINK_ACCOUNT·솔랭·피크·선언포지션·GPTI·상점효과·나이).
+  //    나머지(칭호·커리어·AI평·MBTI·멸망전·고스트·예측·억울·미토·LCK·브장신)는 그 화면에 들어갈 때 sheetTab() 이 받는다.
+  //    → 구글 동시연결 6개를 25개 탭이 나눠 쓰던 줄서기가 사라져 큰 시트가 먼저 끝난다.
+  { const [,,_cur,_peak,_pos,_alt,_gp,,,_nb,_mc]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadLinkAccount(),loadGptiStats(),loadPerks(),loadAges(),loadNoban(),loadMitoCodes()]);
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
-    ALT_TO_MAIN = _alt; CAREERS = _car; AI_EVAL = _aie;   // 🎭 부계→본계 통합 맵 — 솔랭 블렌드(그룹 피크)보다 먼저
+    ALT_TO_MAIN = _alt;   // 🎭 부계→본계 통합 맵 — 솔랭 블렌드(그룹 피크)보다 먼저
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 자기 피크 없으면 LINK 그룹 최고 피크
-    POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표 표시용
-    PREDICTIONS = _pred; computePredTitles(); renderPredictionTitles(); }   // 🎲 승부예측 명예의 전당(PREDICTIONS 탭)   // 🎭 부계→본계 통합 맵 · 🏅 커리어 · 🤖 AI 주간평
+    POSITIONS = _pos;   // ★ 선언 포지션(디스코드 역할) — 프로필·내부티어표·십이귀월 명단
+    NOBAN_BY_GAME=_nb.byGame; NOBAN_CNT=_nb.cnt;   // 🚫 홈 챔피언표 '노밴률' 열이 부팅 화면에 바로 쓰인다
+    MITO_CODES=_mc.exact; MITO_CODE_PREFIXES=_mc.pre; }   // 🏟 상단 '미토' 탭 노출 여부(navGroups)가 이 값을 본다
   // [v81.31 보류] PREV_SEASONS = await loadPrevSeasons(); — 직전시즌 블렌드 기능 잠정 중단(사유는 tierMetricsOf 주석 참고)
   // ⬇ 다운로드 버튼 버전 자동 표시 — 분석기 자동업데이트와 동일 소스(version.txt). 실패 시 버전만 생략(버튼은 releases/latest라 항상 최신 zip)
   fetch("https://raw.githubusercontent.com/kjp1583-art/squad-analyzer/refs/heads/main/version.txt",{cache:"no-store"})
@@ -13721,6 +13812,9 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   await ddP;                         // 아이콘 맵 — 위 로더들과 함께 흘렀으니 여기선 대개 이미 끝나 있다
   const _same = (CURRENT_CAT===_bootCat);   // 부팅 중 카테고리를 바꿨으면 미리 받은 협곡 응답을 쓰면 안 된다
   await loadCategory(CURRENT_CAT, _same?mainP:null, _painted&&_same);   // 기본=협곡, 미리 받아둔 응답으로 즉시 진행
+  // 🚀 [P1-4] 첫 화면이 그려진 뒤에야 프로필용 탭(칭호·커리어·AI평·MBTI·멸망전·티어이력·고스트·미토·억울)을 한가한 틈에 미리 받아 둔다.
+  //    홈 첫 화면은 이미 끝났으니 대역폭을 다투지 않고, 프로필을 누르면 대개 이미 와 있다(보통 방문 1.5초 뒤).
+  try{ const _pf=()=>setTimeout(prefetchProfileTabs,200); if(window.requestIdleCallback) requestIdleCallback(_pf,{timeout:3000}); else setTimeout(prefetchProfileTabs,1500); }catch(e){}
   // 📖 주소에 ?title= 이 붙어 있으면(공유 링크) 그 가이드를 연다 — 데이터 로딩이 끝난 뒤라 go('home') 에 덮이지 않는다
   try{ const _gt=new URLSearchParams(location.search).get('title'); if(_gt) go('guide',_gt); }catch(e){}
   try{ _openBootRoute(true); }catch(e){}   // 🔗 #p/#g/#c 공유 링크 — 최신 데이터가 온 뒤라 '못 찾음' 판정이 정확하다
