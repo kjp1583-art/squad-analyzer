@@ -3094,9 +3094,9 @@ function pickCardHtml(name){
   const pos=(PROF_POS&&L.rows.some(r=>r.p===PROF_POS))?PROF_POS:L.main.p;
   const chips=L.rows.map(r=>`<span class="chip" onclick="selProfPos('${r.p}')" style="cursor:pointer;font-size:12px;padding:3px 9px;border-radius:10px;margin:0 5px 5px 0;display:inline-block;${r.p===pos?'background:rgba(127,168,255,.22);color:#7fa8ff;font-weight:700':'background:var(--bg2);color:var(--sub)'}">${r.p} ${r.g}</span>`).join('');
   const D=pickDataOf(name,pos);
-  const cell=e=>`<span class="champcell" style="cursor:pointer;display:inline-flex;margin:0 10px 6px 0" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(e.c)}')">${champImg(e.c,"sm")}<span>${esc(e.c)} · ${e.g}판 ${e.w}승 <span style="color:${e.w/e.g>=.5?'var(--win)':'var(--lose)'}">${Math.round(e.w/e.g*100)}%</span></span></span>`;
+  const cell=e=>`<span class="champcell" style="cursor:pointer;display:inline-flex;margin:0 10px 6px 0" title="🧾 ${escAttr(e.c)} 상세 통계" aria-label="${escAttr(e.c)} 상세" onclick="go('champlog','${escAttr(e.c)}')">${champImg(e.c,"sm",true)}<span>${esc(e.c)} · ${e.g}판 ${e.w}승 <span style="color:${e.w/e.g>=.5?'var(--win)':'var(--lose)'}">${Math.round(e.w/e.g*100)}%</span></span></span>`;
   const T=tryPicksOf(name,pos);
-  const tcell=e=>`<span class="champcell" style="cursor:pointer;display:inline-flex;margin:0 10px 6px 0" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(e.c)}')">${champImg(e.c,"sm")}<span>${esc(e.c)} <span class="muted">(${e.n}명 · ${e.g}판 <span style="color:var(--win)">${Math.round(e.w/e.g*100)}%</span>)</span></span></span>`;
+  const tcell=e=>`<span class="champcell" style="cursor:pointer;display:inline-flex;margin:0 10px 6px 0" title="🧾 ${escAttr(e.c)} 상세 통계" aria-label="${escAttr(e.c)} 상세" onclick="go('champlog','${escAttr(e.c)}')">${champImg(e.c,"sm",true)}<span>${esc(e.c)} <span class="muted">(${e.n}명 · ${e.g}판 <span style="color:var(--win)">${Math.round(e.w/e.g*100)}%</span>)</span></span></span>`;
   const tryHtml=T.list.length?`<div style="font-size:12.5px;font-weight:800;margin:8px 0 5px">🆕 해볼 만한 챔프</div><div>${T.list.map(tcell).join('')}</div>
       <div class="muted" style="font-size:11.5px;margin-bottom:6px">${T.src==='nb'?`나와 챔프폭이 비슷한 ${pos} 클랜원들이 잘 이긴 챔프예요 (내가 3판 미만)`:`최근 60일 클랜 ${pos}에서 검증된 픽이에요 (4명↑ · 20판↑)`}</div>`:'';
   let body;
@@ -4661,7 +4661,7 @@ function gptiCardHtml(name){
   };
   const champs=(GPTI_CHAMPS[g.type]||[]);
   const champHtml=champs.length?`<div class="gpti-champs"><div class="gpti-sub">🏆 이 유형이 즐겨하는 챔피언</div><div class="gpti-champrow">${
-    champs.map(c=>`<div class="gpti-champ" onclick="go('mastery','${escAttr(c.champ)}')" title="${esc(c.champ)} · ${c.n}판 ${Math.round(c.w/c.n*100)}%">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div>`).join("")
+    champs.map(c=>`<div class="gpti-champ" onclick="go('mastery','${escAttr(c.champ)}')" title="${esc(c.champ)} · ${c.n}판 ${Math.round(c.w/c.n*100)}%">${champImg(c.champ,"sm",true)}<span>${esc(c.champ)}</span></div>`).join("")
   }</div></div>`:"";
   const mm=gptiMatchmaking(name);
   const chip=c=>`<span class="clickname gpti-chip" onclick="go('player','${escAttr(c)}')">${esc(shortName(c))}</span>`;
@@ -4707,7 +4707,7 @@ function renderGPTI(){
   const chip=c=>`<span class="clickname gpti-chip" onclick="go('player','${escAttr(c)}')">${esc(shortName(c))}${tierBadge(c)}</span>`;
   const card=x=>{
     const nick=_GPTI_TYPE_NICK[x.t]||"", desc=_GPTI_DESC[x.t]||"";
-    const champ=x.champs.length?`<div class="gpti-champrow" style="margin:8px 0 4px">${x.champs.map(c=>`<div class="gpti-champ" onclick="go('mastery','${escAttr(c.champ)}')" title="${esc(c.champ)}">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div>`).join("")}</div>`:"";
+    const champ=x.champs.length?`<div class="gpti-champrow" style="margin:8px 0 4px">${x.champs.map(c=>`<div class="gpti-champ" onclick="go('mastery','${escAttr(c.champ)}')" title="${esc(c.champ)}">${champImg(c.champ,"sm",true)}<span>${esc(c.champ)}</span></div>`).join("")}</div>`:"";
     const names=x.members.length?`<div class="gpti-mmnames">${x.members.map(chip).join("")}</div>`:`<div class="muted" style="font-size:12.5px;padding:4px 0">아직 해당 유형의 클랜원이 없어요</div>`;
     // 🏆 같은 칸의 LCK 프로 — 유형별 카드 아래에 한 줄로 붙인다(같은 성향의 프로가 누구인지).
     const pros=lckByType(x.t);
@@ -5341,13 +5341,15 @@ function buildLine(r){   // 스펠+룬+아이템 한 줄(있을 때만)
   const segs=[sw,rw,iw].filter(Boolean);
   return `<div class="bl">${segs.join(sep)}</div>`;
 }
-function champImg(name,cls){
+function champImg(name,cls,deco){
   cls=cls||"";
   const key=CHAMPMAP[name]?name:(name||"").replace(/\s/g,"");
   const src=CHAMPMAP[key], fb=CHAMPFB[key];
-  if(src)return `<img class="champ ${cls}" src="${src}" alt="${esc(name)}" title="${esc(name)}" loading="lazy"`
+  // 🖼 deco=true — 옆에 챔피언 이름 글이 따로 있는 셀. 아이콘은 장식이라 alt·title 을 비워 이름이 두 번 읽히지 않게 한다.
+  const nm=deco?"":` alt="${esc(name)}" title="${esc(name)}"`;
+  if(src)return `<img class="champ ${cls}" src="${src}"${nm?nm:' alt=""'} loading="lazy"`
     + (fb?` data-fb="${escAttr(fb)}" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}"`:``) + `>`;
-  return `<span class="champ ${cls}" title="${esc(name)}">${esc((name||"?").slice(0,2))}</span>`;
+  return `<span class="champ ${cls}"${deco?"":` title="${esc(name)}"`}>${esc((name||"?").slice(0,2))}</span>`;
 }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
@@ -5426,7 +5428,7 @@ function renderChampTier(){
     return `<tr>
       <td class="num">${i+1}</td>
       <td>${tierBadgeNum(c.tier)}</td>
-      <td><div class="champcell" style="cursor:pointer" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(c.champ)}')">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
+      <td><div class="champcell" style="cursor:pointer" title="🧾 ${escAttr(c.champ)} 상세 통계" aria-label="${escAttr(c.champ)} 상세" onclick="go('champlog','${escAttr(c.champ)}')">${champImg(c.champ,"sm",true)}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
       <td class="num"><b>${c.clanScore.toFixed(1)}</b></td>
       <td>${decided?wrBar(c.wr):'<span class="muted">-</span>'}</td>
       <td class="num">${c.picks}</td>
@@ -5437,7 +5439,7 @@ function renderChampTier(){
     return `<tr style="opacity:.55">
       <td class="num">-</td>
       <td><span class="muted" style="font-size:11px">표본↓</span></td>
-      <td><div class="champcell" style="cursor:pointer" title="🧾 챔피언 상세 통계 보기" onclick="go('champlog','${escAttr(c.champ)}')">${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span></div></td>
+      <td><div class="champcell" style="cursor:pointer" title="🧾 ${escAttr(c.champ)} 상세 통계" aria-label="${escAttr(c.champ)} 상세" onclick="go('champlog','${escAttr(c.champ)}')">${champImg(c.champ,"sm",true)}<span>${esc(c.champ)}</span></div></td>
       <td class="num"><span class="muted">-</span></td>
       <td>${decided?wrBar(c.wr):'<span class="muted">-</span>'}</td>
       <td class="num">${c.picks}</td>
@@ -6868,7 +6870,7 @@ function renderHome(){
     const t=c.wins+c.losses,wr=pct(c.wins,t);
     const pr=totalGames?Math.round((c.picks+c.bans)/totalGames*100):0;
     return `<tr>
-      <td><div class="champcell" style="cursor:pointer" onclick="go('champlog','${escAttr(c.champ)}')" title="클릭 시 이 챔피언 전적 보기">${tierBadgeNum(c.tier)}${champImg(c.champ,"sm")}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
+      <td><div class="champcell" style="cursor:pointer" onclick="go('champlog','${escAttr(c.champ)}')" title="🧾 ${escAttr(c.champ)} 상세 통계" aria-label="${escAttr(c.champ)} 상세">${tierBadgeNum(c.tier)}${champImg(c.champ,"sm",true)}<span>${esc(c.champ)}</span>${champMarks(c)}</div></td>
       <td class="num">${c.picks}</td>
       <td class="num" style="color:${t?(wr>=50?'var(--win)':'var(--lose)'):'var(--mut)'}">${t?wr+'%':'-'}</td>
       <td class="num" title="픽 ${c.picks} + 밴 ${c.bans} / ${totalGames}게임">${pr}%</td>
@@ -11415,7 +11417,7 @@ function renderDuo(){
   const MIN=5;   // [2026-08-12 사장님 지시] 3판은 우연이 너무 많이 섞인다
   const ranked=rows.filter(e=>e.g>=MIN).sort((a,b)=>(b.syn-a.syn)||(b.g-a.g));
   const nmBtn=n=>`<span class="clickname" onclick="openPlayerCard(${JSON.stringify(n).replace(/"/g,'&quot;')})">${esc(shortName(n))}</span>`;
-  const chBtn=n=>`<span class="champcell" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="go('champlog','${escAttr(n)}')" title="클릭 시 이 챔피언 전적 보기">${champImg(n,"sm")}<span>${esc(n)}</span></span>`;
+  const chBtn=n=>`<span class="champcell" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="go('champlog','${escAttr(n)}')" title="🧾 ${escAttr(n)} 상세 통계" aria-label="${escAttr(n)} 상세">${champImg(n,"sm",true)}<span>${esc(n)}</span></span>`;
   const cell=n=>isC?chBtn(n):nmBtn(n);
   const medal=i=>i===0?'💘':i===1?'💞':i===2?'💕':`${i+1}`;
   const tr=(e,i)=>`<tr${i===0?' style="background:rgba(224,164,55,.06)"':''}>
@@ -11515,7 +11517,7 @@ function renderChampLog(champ){
       else if(pos&&(x["포지션"]||"")===pos){ const o=vs.get(x["챔피언"])||{n:0,w:0}; o.n++; if(win) o.w++; vs.set(x["챔피언"],o); } } }
   const list=(m,minN)=>[...m.entries()].filter(([_,o])=>o.n>=minN).map(([k,o])=>({k,...o,wr:o.w/o.n}));
   const vsL=list(vs,2), synL=list(syn,2);
-  const champRows=(arr,top)=>arr.slice(0,top).map(o=>`<div class="cp-row" onclick="go('champlog','${escAttr(o.k)}')" style="cursor:pointer">${champImg(o.k,"sm")}<span class="cp-l" style="min-width:0;flex:1">${esc(o.k)}</span><span class="cp-n">${o.n}판</span><b class="cp-wr" style="color:${o.wr>=.5?'var(--win)':'var(--lose)'}">${Math.round(o.wr*100)}%</b></div>`).join("")||'<div class="muted" style="font-size:13px">2판 이상 기록 없음</div>';
+  const champRows=(arr,top)=>arr.slice(0,top).map(o=>`<div class="cp-row" onclick="go('champlog','${escAttr(o.k)}')" style="cursor:pointer" aria-label="${escAttr(o.k)} 상세">${champImg(o.k,"sm",true)}<span class="cp-l" style="min-width:0;flex:1">${esc(o.k)}</span><span class="cp-n">${o.n}판</span><b class="cp-wr" style="color:${o.wr>=.5?'var(--win)':'var(--lose)'}">${Math.round(o.wr*100)}%</b></div>`).join("")||'<div class="muted" style="font-size:13px">2판 이상 기록 없음</div>';
   const hard=champRows(vsL.slice().sort((a,b)=>a.wr-b.wr||b.n-a.n),6), easy=champRows(vsL.slice().sort((a,b)=>b.wr-a.wr||b.n-a.n),6);
   const synG=champRows(synL.slice().sort((a,b)=>b.wr-a.wr||b.n-a.n),6), synB=champRows(synL.slice().sort((a,b)=>a.wr-b.wr||b.n-a.n),6);
   // 사용 기록
@@ -13287,9 +13289,9 @@ function hofRecordsHtml(rl, patchSel){
     + card("⚔ 누적 킬왕 TOP 10", rl.filter(x=>x.tk>0).map(x=>[x.tk,`총 ${fmt(x.tk)}킬 ${sub(`(${x.g}판)`)}`,x.name]))
     + card("💀 누적 데스왕 TOP 10", rl.filter(x=>x.td>0).map(x=>[x.td,`총 ${fmt(x.td)}데스 ${sub(`(${x.g}판)`)}`,x.name]))
     + card("🤝 누적 어시왕 TOP 10", rl.filter(x=>x.ta>0).map(x=>[x.ta,`총 ${fmt(x.ta)}어시 ${sub(`(${x.g}판)`)}`,x.name]))
-    + card("💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>", lineRank(G10,"dmgSum","dmgN","dmgSum","dmgN",v=>`평균 ${fmt(v)}`))
-    + card("📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>", rl.filter(x=>x.g>=G10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
-    + card("🧠 평균 AI점수 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>", lineRank(G10,"scSum","scN","scSum","scN",v=>`${v.toFixed(1)}점`))
+    + card(`💥 평균 딜량 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>`, lineRank(G10,"dmgSum","dmgN","dmgSum","dmgN",v=>`평균 ${fmt(v)}`))
+    + card(`📈 KDA 평점 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑</span>`, rl.filter(x=>x.g>=G10&&(x.tk+x.td+x.ta)>0).map(x=>[(x.tk+x.ta)/Math.max(1,x.td),`${((x.tk+x.ta)/Math.max(1,x.td)).toFixed(2)} ${sub(`(${x.tk}/${x.td}/${x.ta})`)}`,x.name]))
+    + card(`🧠 평균 AI점수 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>${G10}판↑ · 포지션별</span>`, lineRank(G10,"scSum","scN","scSum","scN",v=>`${v.toFixed(1)}점`))
     + (rl.some(x=>x.metN>0) ? (
       `</div><h2 style="margin:26px 0 10px">📊 상세지표 랭킹 <span class="muted" style="font-size:13.5px;font-weight:400">지표 기록 게임 기준 · ${G5}판↑${HOF_REC_POS!=="ALL"?" · "+esc(HOF_REC_POS):""}</span></h2>`
       + hofPosBar(HOF_REC_POS,"setHofRecPos","포지션 = 그 판에서 맡은 라인 기준")
@@ -13300,8 +13302,8 @@ function hofRecordsHtml(rl, patchSel){
       + card("🤝 평균 킬관여율 TOP 10", rl.filter(x=>x.kpN>=G5).map(x=>[x.kpSum/x.kpN,`${Math.round(x.kpSum/x.kpN)}% ${sub(`(${x.kpN}판)`)}`,x.name]))
       + card("👁 평균 시야점수 TOP 10", rl.filter(x=>x.vsN>=G5).map(x=>[x.vsSum/x.vsN,`${(x.vsSum/x.vsN).toFixed(1)}점 ${sub(`(${x.vsN}판)`)}`,x.name]))
       + card("🔮 제어와드왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.cwSum>0).map(x=>[x.cwSum,`총 ${fmt(x.cwSum)}개 ${sub(`(${x.cwN}판)`)}`,x.name]))
-      + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.skN}판 · 솔킬률 ${Math.round(x.skSum/Math.max(1,x.skN)*100)}%)`)}`,x.name]))
-      + card("🗡 솔킬률 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>판당 솔로킬</span>", rl.filter(x=>x.skN>=G5&&x.skSum>0).map(x=>[x.skSum/x.skN,`${Math.round(x.skSum/x.skN*100)}% ${sub(`(${x.skSum}회 / ${x.skN}판)`)}`,x.name]))
+      + card("🗡 솔로킬왕 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>누적</span>", rl.filter(x=>x.skSum>0).map(x=>[x.skSum,`총 ${fmt(x.skSum)}회 ${sub(`(${x.skN}판 · 판당 ${(x.skSum/Math.max(1,x.skN)).toFixed(2)})`)}`,x.name]))
+      + card("🗡 솔킬률 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>판당 솔로킬</span>", rl.filter(x=>x.skN>=G5&&x.skSum>0).map(x=>[x.skSum/x.skN,`판당 ${(x.skSum/x.skN).toFixed(2)} ${sub(`(${x.skSum}회 / ${x.skN}판)`)}`,x.name]))
       + card("🛡 분당 받은 피해 TOP 10 <span class='muted' style='font-size:13px;font-weight:400'>탱킹</span>", rl.filter(x=>x.dtpmN>=G5).map(x=>[x.dtpmSum/x.dtpmN,`분당 ${fmt(x.dtpmSum/x.dtpmN)} ${sub(`(${x.dtpmN}판)`)}`,x.name]))
       + card("🛡 한 판 최다 받은 피해 TOP 10", rl.filter(x=>x.mxDt[0]>0).map(x=>[x.mxDt[0],`${fmt(x.mxDt[0])} ${ctx(x.mxDt)}`,x.name]))
       // 🐉 [2026-07-24 사장님 지시] 뭉뚱그린 '오브젝트'를 용/바론/포탑으로 3분할 — 성격이 서로 다름
@@ -13504,7 +13506,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611266500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611266600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
