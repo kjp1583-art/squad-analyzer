@@ -26,7 +26,7 @@ import ctypes
 import theme  # [디자인 토큰] 웹 :root와 동일 팔레트 (DESIGN.md)
 
 try:
-    from PIL import Image, ImageTk
+    from PIL import Image, ImageTk, ImageOps
     PILLOW_INSTALLED = True
 except ImportError:
     PILLOW_INSTALLED = False
@@ -260,6 +260,9 @@ T1_FRAME_PAD = (13, 2, 4)    # 슬롯 안쪽 여백(좌우, 상, 하) — 프레
 WIN_PRESETS = {"compact": (1280, 950), "standard": (1420, 1045), "wide": (1560, 1150)}
 WIN_PRESET_CHOICES = [("auto", "자동 (화면 맞춤)"), ("compact", "컴팩트 1280×950"), ("standard", "표준 1420×1045"),
                       ("wide", "와이드 1560×1150"), ("max", "최대화 (전체 화면)")]
+# 📰 [2026-11-27] 헤더 슬림화(136→116)에 맞춘 스폰서 배너 크기 — 헤더 높이 - 8(위아래 pady 4씩).
+#    광고 원본 비율은 ImageOps.fit 으로 가운데 크롭해 유지한다(찌그러뜨리지 않음).
+AD_BANNER_W, AD_BANNER_H = 345, 108
 
 # 🔥 [V80.9] 패치 버전 동기화 최적화
 CS_REFRESH_SEC = 8      # 🧭 밴픽 진입 후 이 시간 동안은 로비를 더 읽어 포지션을 정정(관전→플레이어 이동 대응)
@@ -11692,7 +11695,9 @@ def ad_banner_engine():
                                 img_res = requests.get(img_url, headers=headers, timeout=5)
                                 if img_res.status_code == 200:
                                     pil_img = Image.open(BytesIO(img_res.content)).convert('RGBA')
-                                    pil_img = pil_img.resize((345, 120), Image.Resampling.LANCZOS)
+                                    # 📐 헤더가 슬림해져도 배너가 눌리지 않게 — 비율 유지 가운데 크롭.
+                                    pil_img = ImageOps.fit(pil_img, (AD_BANNER_W, AD_BANNER_H),
+                                                           method=Image.Resampling.LANCZOS)
                                     new_ads.append({"img_obj": pil_img, "link": click_url})
                             except Exception: pass
 
@@ -11719,6 +11724,7 @@ class TierAdminWindow(tk.Toplevel):
         self._all = []; self._view = []
         self._build()
         self._refresh()
+        theme.apply_dark_titlebar(self)   # 상단 흰 제목표시줄 → 다크 캡션
 
     def _build(self):
         top = tk.Frame(self, bg=theme.BG_BAR); top.pack(fill="x")
@@ -11873,6 +11879,9 @@ def create_graphic_ui():
             with gui_lock: gui_data["is_hidden"] = False
     root.bind("<Unmap>", _on_root_unmap)
     root.bind("<Map>", _on_root_map)
+    # 🪟 [2026-11-27] 상단 흰 제목표시줄 → 앱 배경색 DWM 다크 캡션(네이티브 스냅·리사이즈·작업표시줄 아이콘 유지).
+    #    <Map> 재적용 바인딩을 쓰므로 위 표시상태 바인딩 뒤에 건다(먼저 걸면 덮어쓴다).
+    theme.apply_dark_titlebar(root, bg_hex=BG_MAIN)
 
     def stealth_monitor():
         was_running = False
@@ -12011,16 +12020,16 @@ def create_graphic_ui():
     FONT_SLOT_NUM = UF(theme.FONTS["NUM"][1], family=theme.FONTS["NUM"][0])
     FONT_SYNERGY = UF(11)
 
-    # 🎨 [디자인 리뉴얼] 헤더 슬림화 158 → 136px. 13칸 타일을 74×74 정사각형에서 74×58(안쪽 72×56)로
-    #    낮춰 두 줄(7+6)이 여유 있게 들어가게 하고, 회수한 세로 공간은 본문(팀 슬롯)에 넘긴다.
-    #    광고 배너는 345×120 으로 내려받으므로 ad_frame 높이(헤더-8)도 그대로 담긴다.
-    HEADER_H = 136
+    # 🎨 [2026-11-27 텍스트 메뉴 개편] 헤더 = lol.ps 스타일 '텍스트 전용' 한 줄 메뉴 + 상태/광고.
+    #    아이콘 타일 13칸(2줄, 136px)을 걷어내고 8개 텍스트 메뉴만 남겼다 → 136 → 116px.
+    #    회수한 세로 공간은 본문(팀 슬롯)에 넘기고, 광고 배너는 높이에 맞춰 잘라 담는다.
+    HEADER_H = 116
     header = tk.Frame(root, bg=theme.BG_BAR, height=HEADER_H)
     header.pack(fill="x", side="top", pady=(5, 5))
     header.pack_propagate(False) 
     
     # [v82.13 시안 반영] 광고 = 헤더 우측 상단 코너(꽉 차게), 개발·기획/상태/10밴 = 헤더(광고 왼쪽)
-    ad_frame = tk.Frame(header, bg=theme.BG_BAR, width=345, height=HEADER_H - 8, cursor="hand2")
+    ad_frame = tk.Frame(header, bg=theme.BG_BAR, width=AD_BANNER_W, height=HEADER_H - 8, cursor="hand2")
     ad_frame.pack_propagate(False)
     ad_frame.pack(side="right", padx=(6, 8), pady=4)
     ad_lbl = tk.Label(ad_frame, text="✨ 스폰서 배너 로딩 중... ✨", bg=theme.BG_BAR, fg=theme.WARN, font=UF(10, "bold"))
@@ -12032,91 +12041,92 @@ def create_graphic_ui():
     ad_lbl.bind("<Button-1>", on_ad_click)
 
     mid_header = tk.Frame(header, bg=theme.BG_BAR)
-    mid_header.pack(side="right", padx=20, pady=10)
+    mid_header.pack(side="right", padx=12, pady=4)
 
-    tk.Label(mid_header, text="개발 및 기획 : 맛동산장인 유미#Teana", bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=FONT_CREDIT).pack(anchor="e", pady=3)
+    # 크레딧 줄은 좁은 창(1280 컴팩트)에서 접힌다 — 메뉴 8칸이 잘리거나 2줄로 깨지는 것보다 낫다.
+    credit_row = tk.Frame(mid_header, bg=theme.BG_BAR)
+    credit_row.pack(anchor="e", pady=1)
+    tk.Label(credit_row, text="개발 및 기획 : 맛동산장인 유미#Teana", bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=FONT_CREDIT).pack(anchor="e")
 
     status_var = tk.StringVar(value="📡 LCU 시스템 탐색 중...")
     bans_var = tk.StringVar(value="🚫 10밴 현황: 대기 중")
-    tk.Label(mid_header, textvariable=status_var, bg=theme.BG_BAR, fg=theme.SUCCESS, font=FONT_STATUS).pack(anchor="e", pady=3)
+    status_lbl = tk.Label(mid_header, textvariable=status_var, bg=theme.BG_BAR, fg=theme.SUCCESS, font=FONT_STATUS)
+    status_lbl.pack(anchor="e", pady=1)
     # 🚫 [v81.77 사장님 지시] 10밴 현황 = 텍스트 나열 → 챔피언 초상화 아이콘. 라벨(제목)+아이콘 줄로 분리.
     bans_row = tk.Frame(mid_header, bg=theme.BG_BAR)
-    bans_row.pack(anchor="e", pady=3)
+    bans_row.pack(anchor="e", pady=1)
     tk.Label(bans_row, textvariable=bans_var, bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=FONT_BANS).pack(side="left", padx=(0, 6))
     bans_icon_frame = tk.Frame(bans_row, bg=theme.BG_BAR)
     bans_icon_frame.pack(side="left")
     # ⚖️ [P-12] 대기실 전력차 한 줄(10명 찼을 때만 보임 · 설정 'lobby_balance' 로 끔)
     balance_var = tk.StringVar(value="")
-    tk.Label(mid_header, textvariable=balance_var, bg=theme.BG_BAR, fg=theme.GOLD, font=FONT_BANS, justify="right").pack(anchor="e", pady=1)
+    tk.Label(mid_header, textvariable=balance_var, bg=theme.BG_BAR, fg=theme.GOLD, font=FONT_BANS, justify="right").pack(anchor="e")
     _LB_STATE = {"fp": None}
 
     left_header = tk.Frame(header, bg=theme.BG_BAR)
-    left_header.pack(side="left", fill="both", expand=True, padx=15, pady=5)
+    left_header.pack(side="left", fill="both", expand=True, padx=12)
 
-    text_frame = tk.Frame(left_header, bg=theme.BG_BAR)
-    text_frame.pack(side="left", padx=5)
-    
-    # 🧲 [2026-08-16 사장님 지시] ☰ 서랍 폐기 — 타일 아이콘 모양은 그대로, 정렬만 상단 가로 한 줄.
-    #    로고·제목·☰ 이 있던 자리를 비우고, 서랍 안에 있던 타일(윗줄 색 바·아이콘·라벨)을
-    #    그 모습 그대로 헤더에 옆으로 늘어놓는다. 서랍 부속(Toplevel·알파·바깥클릭 닫기)은 제거.
-    C_TILE, C_TILE_H = theme.BG_CARD, theme.BG_RAISED
-    TILE_W, TILE_H = 72, 56   # 안쪽 크기 — 1px 헤어라인이 붙어 바깥 74×58 (가로 74 유지 → 7칸 546px 그대로)
-    # [2026-08-16 사장님 재지시] 한 줄 13개는 해상도가 낮으면 우측(쿠팡 배너·상태줄)에 짤렸다 →
-    #   7+6 두 줄. [2026-11-27 디자인 리뉴얼] 칸은 슬림하게(74×58), 아이콘 18pt·라벨 11pt 로 계층 정리.
-    btn_row1 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row1.pack(anchor="w", pady=(2, 1))
-    btn_row2 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row2.pack(anchor="w", pady=(1, 2))
-    _tile_n = [0]
+    # 🧲 [2026-11-27] 상단 메뉴 = lol.ps 스타일 텍스트 전용 가로 1줄(아이콘 없음).
+    #    hover = 글자 밝아짐(TEXT) + 미세 배경(BG_RAISED), 선택 상태 = 하단 2px 액센트 밑줄.
+    #    폭은 글자 길이에 맞춰 자동 — 1280(컴팩트)에서도 8칸이 한 줄에 다 들어간다(_nav_fit 보정).
+    nav_bar = tk.Frame(left_header, bg=theme.BG_BAR)
+    nav_bar.pack(expand=True, anchor="w")
 
-    class _HTile:
-        """서랍의 _Tile 을 헤더용으로 — 시각은 동일, 배치만 가로 두 줄(앞 7개 윗줄, 나머지 아랫줄).
-           config(text=, bg=) 를 받아 _posview_btn_sync 호환.
-           [디자인 리뉴얼] 1px 헤어라인 + hover 시 보더(LINE_STRONG)·배경(BG_RAISED) 강조."""
-        def __init__(self, icon, label, cmd, accent):
-            _row = btn_row1 if _tile_n[0] < 7 else btn_row2
-            _tile_n[0] += 1
-            # [사장님 지시] 칸 크기 고정 — 라벨 길이에 따라 폭이 들쭉날쭉하지 않게 못박는다(이제 세로만 슬림).
-            self.f = tk.Frame(_row, bg=C_TILE, cursor="hand2", width=TILE_W, height=TILE_H,
-                              highlightbackground=theme.LINE, highlightthickness=1, bd=0, relief="flat")
-            self.f.pack_propagate(False)
-            self.f.pack(side="left", padx=2, pady=1)   # 7칸 한 줄 546px — 최소 프리셋(compact 1280)에서도 안 짤린다
-            self.bar = tk.Frame(self.f, bg=accent, height=2); self.bar.pack(fill="x")
-            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=UF(18, family="Segoe UI Emoji"))
-            self.ic.pack(pady=(3, 0))
-            # 라벨은 무조건 한 줄(4자 이내) — 11pt 로 낮춰 72px 안에 SQUAD.GG 까지 들어간다
-            self.tx = tk.Label(self.f, text=label, bg=C_TILE, fg=theme.TEXT, font=UF(11))
-            self.tx.pack(pady=(0, 3))
-            self._base = C_TILE       # hover 를 벗어났을 때 돌아갈 배경(config(bg=) 로 바뀐다)
+    class _TextNavBtn:
+        """lol.ps 스타일 텍스트 메뉴 버튼 — 아이콘 없는 한 줄, 활성은 하단 2px 밑줄.
+           config(text=, bg=) 계약 유지: _posview_btn_sync·설정 창이 그대로 호출한다.
+           bg 가 BG_RAISED(중립)면 꺼짐, 그 밖의 액센트 색(SUCCESS 등)이면 켜짐 → 밑줄이 그 색으로 산다."""
+        PAD_X = 10   # 좌우 여백(px) — lol.ps 스타일 10~12px, 1280 에서는 _nav_fit 이 6→4 로 줄여 한 줄 유지
+        def __init__(self, label, cmd, accent=None):
+            self.accent = accent or theme.GOLD
+            self._active = False
+            self._hovering = False
+            self.f = tk.Frame(nav_bar, bg=theme.BG_BAR, cursor="hand2")
+            self.f.pack(side="left", padx=(0, 2), pady=2)
+            self.tx = tk.Label(self.f, text=label, bg=theme.BG_BAR, fg=theme.TEXT_SUB,
+                               font=UF(11), padx=self.PAD_X, pady=3, cursor="hand2")
+            self.tx.pack(side="top")
+            self.bar = tk.Frame(self.f, bg=theme.BG_BAR, height=2)   # 활성 밑줄(2px)
+            self.bar.pack(side="bottom", fill="x")
             self.cmd = cmd
-            for wgt in (self.f, self.ic, self.tx):
+            for wgt in (self.f, self.tx):
                 wgt.bind("<Button-1>", self._hit)
                 wgt.bind("<Enter>", lambda e: self._hover(True))
                 wgt.bind("<Leave>", lambda e: self._hover(False))
-        def _paint(self, bg, line):
-            for wgt in (self.f, self.ic, self.tx):
+        def _paint(self):
+            bg = theme.BG_RAISED if self._hovering else theme.BG_BAR
+            fg = theme.TEXT if (self._hovering or self._active) else theme.TEXT_SUB
+            for wgt in (self.f, self.tx):
                 try: wgt.configure(bg=bg)
                 except Exception: pass
-            try: self.f.configure(highlightbackground=line)
+            try:
+                self.tx.configure(fg=fg)
+                self.bar.configure(bg=(self.accent if self._active else bg))
             except Exception: pass
         def _hover(self, on):
-            """hover = 표면 승급(BG_RAISED) + 보더 강조(LINE_STRONG) — 그림자 없이 깊이를 주는 규칙."""
-            self._paint(*((C_TILE_H, theme.LINE_STRONG) if on else (self._base, theme.LINE)))
-        def _bg(self, col):
-            self._base = col
-            self._paint(col, theme.LINE)
+            """hover = 글자 TEXT + 미세 배경 BG_RAISED (그림자 없이 깊이를 주는 규칙)."""
+            self._hovering = bool(on)
+            self._paint()
         def _hit(self, _e=None):
             try: self.cmd()
             except Exception as ex: print(f"[menu] {ex}", flush=True)
         def config(self, text=None, bg=None, **_kw):
-            if text:                                   # '모스트: 현재포지션' → 라벨엔 뒷부분만, 4자로 축약
+            if text:                                   # '모스트: 현재포지션' → 라벨엔 뒷부분만('포지션별')
                 _t = str(text).split(":")[-1].strip() or str(text)
                 self.tx.config(text={"현재포지션": "포지션별"}.get(_t, _t))
-            if bg:
-                self._base = bg
-                self.bar.config(bg=bg); self.ic.config(fg=bg)
+            if bg is not None:
+                _b = str(bg).lower()
+                self._active = _b not in (theme.BG_BAR.lower(), theme.BG_RAISED.lower())
+                if self._active:
+                    self.accent = bg     # 켜짐 색(SUCCESS)을 밑줄 색으로 그대로 쓴다
+            self._paint()
         configure = config
-        def pack(self, *_a, **_kw): pass
 
-    _HTile("📖", "사용안내", lambda: GuideWindow(root), theme.TILE_GUIDE)
+    # 📖 사용안내 · 🏆 명예전당 · 🎖 내부티어 · 🛠 티어관리 · 🗒 로그 = 메뉴에서 제외(2026-11-27).
+    #    ⚠️ GuideWindow/ClanRankingWindow/TierAssessmentWindow/TierAdminWindow 클래스와
+    #       open_hof_window/open_tier_window/open_tieradmin_window/_open_log 정의는 지우지 않는다
+    #       — 다른 곳·테스트가 참조할 수 있다. (내부티어는 웹/봇에서 계속 쓰이고,
+    #          명예전당·사용안내는 필요해지면 다시 메뉴에 붙일 수 있게 남긴다.)
 
     # 🎮 [2026-08-13] 음성방 초대 — 디스코드 /팀초대와 같은 일을 분석기에서 바로. 로비 호스트가 누른다.
     def _do_voice_invite():
@@ -12125,7 +12135,7 @@ def create_graphic_ui():
             root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("팀초대", msg))
         threading.Thread(target=_work, daemon=True).start()
 
-    _HTile("🎮", "팀초대", _do_voice_invite, theme.TILE_INVITE)   # [2026-08-18 사장님 지시] '음성초대' → 디코 명령어와 같은 이름으로
+    _TextNavBtn("팀초대", _do_voice_invite)   # [2026-08-18 사장님 지시] '음성초대' → 디코 명령어와 같은 이름으로
 
     # 👥 접속자 버튼 제거(2026-07-05 사장님 지시). 접속기록 자체는 백그라운드로 계속 시트에 기록됨.
     # ❄ 증내의 전당 버튼 삭제(2026-07-16) → 명예의 전당 창 내부 '칼바람' 탭으로 통합
@@ -12133,16 +12143,16 @@ def create_graphic_ui():
         try: ClanRankingWindow(root, mode=mode_type)
         except Exception as e: messagebox.showerror("전당 오류", f"데이터를 갱신 중입니다. 잠시 후 다시 시도해주세요.\n(에러: {str(e)})")
 
-    _HTile("🏆", "명예전당", lambda: open_hof_window("CLASSIC"), theme.LOSE)
+    # 🏆 명예전당(open_hof_window)은 메뉴에서 뺐다 — 함수 정의는 보존.
 
     def open_tier_window():
         try: TierAssessmentWindow(root)
         except Exception as e: messagebox.showerror("평가 오류", f"데이터를 갱신 중입니다. 잠시 후 다시 시도해주세요.\n(에러: {str(e)})")
-    _HTile("🎖", "내부티어", open_tier_window, theme.PURPLE)
+    # 🎖 내부티어(open_tier_window)는 메뉴에서 뺐다 — 함수 정의는 보존.
 
-    _HTile("🧪", "모의밴픽", lambda: webbrowser.open("https://auc-gg.up.railway.app/?tab=draft-tool"), theme.WARN)
-    _HTile("🌐", "SQUAD.GG", lambda: webbrowser.open("https://kjp1583-art.github.io/squad-analyzer/"), theme.ACCENT)
-    _HTile("🔨", "AUC.GG", lambda: webbrowser.open("https://auc-gg.up.railway.app/"), theme.GOLD)
+    _TextNavBtn("모의밴픽", lambda: webbrowser.open("https://auc-gg.up.railway.app/?tab=draft-tool"))
+    _TextNavBtn("SQUAD.GG", lambda: webbrowser.open("https://kjp1583-art.github.io/squad-analyzer/"))
+    _TextNavBtn("AUC.GG", lambda: webbrowser.open("https://auc-gg.up.railway.app/"))
 
     # 🎯 [2026-07-08] 대기실 모스트 표시 토글: 전체 라인 ↔ 현재 선택 포지션(모스트3 + 그 포지션 고승률픽)
     def _toggle_pos_view():
@@ -12152,11 +12162,12 @@ def create_graphic_ui():
         _posview_btn_sync(_on)
     # [v82.37] 초기 문구·색은 설정값(pos_view_default)을 따른다 — 하드코딩하면 화면과 실동작이 어긋남
     _pv0 = _posview_default()
-    btn_posview = _HTile("🎯", ("포지션별" if _pv0 else "전체라인"), _toggle_pos_view,
-                         (theme.SUCCESS if _pv0 else theme.TILE_OFF))
+    btn_posview = _TextNavBtn(("포지션별" if _pv0 else "전체라인"), _toggle_pos_view,
+                              accent=(theme.SUCCESS if _pv0 else theme.TILE_OFF))
+    btn_posview.config(bg=(theme.SUCCESS if _pv0 else theme.BG_RAISED))   # 켜짐 = 골드 대신 SUCCESS 밑줄
     _POSVIEW_BTN[0] = btn_posview   # 설정 창에서 즉시 갱신할 수 있도록 참조 보관
 
-    _HTile("⚙", "설정", lambda: ClanSettingsWindow(root), theme.TILE_SETTINGS)
+    _TextNavBtn("설정", lambda: ClanSettingsWindow(root))
 
     def _open_log():
         try:
@@ -12165,7 +12176,7 @@ def create_graphic_ui():
             os.startfile(LOG_PATH)
         except Exception as e:
             messagebox.showerror("로그", f"열지 못했습니다: {e}\n\n경로: {LOG_PATH}")
-    _HTile("🗒", "로그", _open_log, theme.TILE_LOG)
+    # 🗒 로그(_open_log)는 메뉴에서 뺐다 — 함수 정의는 보존.
 
     # 👑 [2026-08-06 사장님 지시] 팀장뽑기 — 방 인원 중 전력이 가장 비슷한 2인 자동 선정(직전 판 팀장 회피)
     def _do_pick_captains(extra_exclude=None):
@@ -12371,15 +12382,15 @@ def create_graphic_ui():
         _big("🎯", "포지션 추천", "수동으로 짠 팀도 OK — 현재 블루/레드 명단 그대로 라인 추천",
              _do_pos_recommend, theme.GOLD)
         theme.make_button(w, "닫기", "neutral", command=w.destroy).pack(pady=(8, 14))
-    _HTile("👑", "팀뽑선정", _do_team_menu, theme.GOLD)
+    _TextNavBtn("팀뽑선정", _do_team_menu)
 
-    # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 노출 (내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지)
+    # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 정의(내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지).
+    # 🛠 2026-11-27 메뉴에서는 뺐다 — open_tieradmin_window 정의는 보존(다른 곳·테스트 참조 가능).
     if load_bot_token():
         def open_tieradmin_window():
             try: TierAdminWindow(root)
             except Exception as e:
                 messagebox.showerror("티어관리 오류", f"티어 관리 창을 여는 중 오류가 발생했습니다.\n(에러: {str(e)})")
-        _HTile("🛠", "티어관리", open_tieradmin_window, theme.PURPLE)
 
     # 💝 [2026-08-12 사장님 지시] 후원 — 계좌·예금주를 띄우고 한 번에 복사할 수 있게
     def _open_donate():
@@ -12420,19 +12431,53 @@ def create_graphic_ui():
         theme.make_button(bar, "계좌번호 복사", "gold", command=lambda: _copy(False)).pack(side="left")
         theme.make_button(bar, "전체 복사", "neutral", command=lambda: _copy(True)).pack(side="left", padx=6)
         theme.make_button(bar, "닫기", "neutral", command=w.destroy).pack(side="right")
-    _HTile("💝", "후원하기", _open_donate, theme.TILE_DONATE)
+    _TextNavBtn("후원하기", _open_donate)
 
     # 🔠 [2026-08-13 사장님 제보] 창 크기에 맞춰 글자 크기도 같이 바꾼다.
     #   해상도만 줄고 글자는 그대로여서 작게 쓰면 읽을 수가 없었다.
     #   ⚠️ <Configure> 는 창을 끄는 동안 초당 수십 번 온다 — 그때마다 폰트를 다시 계산하면
     #      화면이 덜덜 떨린다. 마지막 이벤트로부터 140ms 뒤에 한 번만 적용한다(디바운스).
     _ui_job = [None]
+    # 📐 [2026-11-27] 텍스트 메뉴 8칸이 1280(컴팩트)에서도 한 줄에 다 들어가게 폭을 지킨다.
+    #    자리가 모자라면 개발·기획 크레딧 줄만 접는다 — 메뉴가 잘리거나 2줄로 깨지는 것보다 낫다.
+    NAV_CREDIT_MIN_W = 1340
+    def _nav_fit():
+        try:
+            w = root.winfo_width()
+            if w < 400: return                     # 최소화·초기화 중엔 무시
+            show = w >= NAV_CREDIT_MIN_W
+            if show and not credit_row.winfo_ismapped():
+                credit_row.pack(anchor="e", pady=1, before=status_lbl)
+            elif not show and credit_row.winfo_ismapped():
+                credit_row.pack_forget()
+            # 그래도 메뉴가 넘치면 좌우 여백(10 → 6 → 4px) → 마지막엔 글자 한 단계(11 → 10pt)만 줄인다.
+            try:
+                avail = left_header.winfo_width()
+                if avail > 60:
+                    for _pad in (6, 4):
+                        if nav_bar.winfo_reqwidth() <= avail: break
+                        for _fr in nav_bar.winfo_children():
+                            for _w in _fr.winfo_children():
+                                if isinstance(_w, tk.Label):
+                                    try: _w.configure(padx=_pad)
+                                    except Exception: pass
+                        nav_bar.update_idletasks()
+                    if nav_bar.winfo_reqwidth() > avail:
+                        for _fr in nav_bar.winfo_children():
+                            for _w in _fr.winfo_children():
+                                if isinstance(_w, tk.Label):
+                                    try: _w.configure(font=UF(10))
+                                    except Exception: pass
+                        nav_bar.update_idletasks()
+            except Exception: pass
+        except Exception: pass
     def _ui_do():
         _ui_job[0] = None
         try:
             w, h = root.winfo_width(), root.winfo_height()
             if w < 200 or h < 200: return          # 최소화·초기화 중엔 무시
             ui_scale_apply(min(w / UI_BASE_W, h / UI_BASE_H))
+            _nav_fit()
         except Exception: pass
     def _ui_rescale(_e=None):
         if _ui_job[0]:
@@ -12441,6 +12486,7 @@ def create_graphic_ui():
         _ui_job[0] = root.after(140, _ui_do)
     root.bind("<Configure>", lambda e: (_ui_rescale() if e.widget is root else None), add="+")
     root.after(500, _ui_do)                        # 시작 크기(프리셋·저장된 크기)에도 즉시 반영
+    root.after(120, _nav_fit)                      # 첫 배치 직후 메뉴 폭 보정(첫 0.5초 잘림 방지)
 
     # [v82.12] 하단 가로 3칸 → 레드팀 우측 세로 패널로 이동(사장님 지시). 광고·개발텍스트도 이 열로.
     body = tk.Frame(root, bg=BG_MAIN)
@@ -13165,6 +13211,7 @@ class ClanRankingWindow(tk.Toplevel):
         self.current_ver = "전체 (ALL)"
         
         self.create_widgets()
+        theme.apply_dark_titlebar(self)
 
     def create_widgets(self):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=60)
@@ -13522,6 +13569,7 @@ class TierAssessmentWindow(tk.Toplevel):
         self.configure(bg=theme.BG)
         self.attributes("-topmost", True)
         self.create_widgets()
+        theme.apply_dark_titlebar(self)
 
     def create_widgets(self):
         top = tk.Frame(self, bg=theme.BG_BAR, height=58)
@@ -13637,6 +13685,7 @@ class PatchNoteWindow(tk.Toplevel):
         self.configure(bg=theme.BG)
         self.attributes("-topmost", True)
         self.create_widgets()
+        theme.apply_dark_titlebar(self)
 
     def create_widgets(self):
         tk.Label(self, text="📜 스쿼드해체분석기 버전별 업데이트 기록", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold"), pady=theme.SP_3).pack(fill="x")
@@ -13712,6 +13761,7 @@ class ClanSettingsWindow(tk.Toplevel):
         self.attributes("-topmost", True)
         self.resizable(False, False)
         self.create_widgets()
+        theme.apply_dark_titlebar(self)   # 상단 흰 제목표시줄 → 다크 캡션
 
     def create_widgets(self):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=55)
@@ -13954,6 +14004,7 @@ class GuideWindow(tk.Toplevel):
         self.configure(bg=theme.BG)
         self.attributes("-topmost", True)
         self.create_widgets()
+        theme.apply_dark_titlebar(self)
 
     GUIDE = [
         ("자동으로 도는 것", None),
@@ -14018,6 +14069,7 @@ class OnlineUsersWindow(tk.Toplevel):
         self.configure(bg=theme.BG)
         self.attributes("-topmost", True)
         self.create_widgets()
+        theme.apply_dark_titlebar(self)
 
     def create_widgets(self):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=50)
