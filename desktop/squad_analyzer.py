@@ -1834,11 +1834,11 @@ def _spell_overlay_tick(root):
             w.overrideredirect(True); w.attributes("-topmost", True)
             try: w.attributes("-alpha", 0.85)
             except Exception: pass
-            w.configure(bg="#10131c")
-            frame = tk.Frame(w, bg="#10131c", padx=7, pady=5); frame.pack()
+            w.configure(bg=theme.BG)
+            frame = tk.Frame(w, padx=7, pady=5, **theme.hairline(theme.BG)); frame.pack()
             rows = {}
             for _pk, _kor in _SPELL_OVL_ORDER:
-                r = tk.Label(frame, text=f"{_kor}  —", bg="#10131c", fg="#5a6377", anchor="w")
+                r = tk.Label(frame, text=f"{_kor}  —", bg=theme.BG, fg=theme.TEXT_MUT, anchor="w")
                 r.pack(fill="x", pady=1); rows[_pk] = r
             def _apply_scale(sc):
                 # ⚠️ 이미지가 붙은 Label 은 width 단위가 '글자 수'가 아니라 '픽셀'로 바뀐다(v83.20 아이콘 기둥 버그).
@@ -1908,7 +1908,7 @@ def _spell_overlay_tick(root):
         for _pk, _kor in _SPELL_OVL_ORDER:
             t = _SPELL_OVL.get(_pk); lb = rows[_pk]
             if not t:
-                lb.config(text=f"{_kor}  —", fg="#5a6377", image=U["blank"]); continue
+                lb.config(text=f"{_kor}  —", fg=theme.TEXT_MUT, image=U["blank"]); continue
             left = int(t["until"] - _now)
             name = str(t.get("label") or "")[:6]
             # 🖼 챔프 초상화 — 프리페치된 bytes 로 GUI 스레드에서만 PhotoImage 생성(이름 텍스트 대체)
@@ -1922,15 +1922,15 @@ def _spell_overlay_tick(root):
             lb.config(image=(_img if _img is not None else U["blank"]))
             if left > 0:
                 lb.config(text=f"{_kor}{_shown} {left // 60}:{left % 60:02d}",
-                          fg=("#ff8181" if left <= 30 else "#ffd479"))
+                          fg=(theme.LOSE if left <= 30 else theme.GOLD))
             elif left > -12:                                    # 만료 직후 12초 'UP!' 강조
                 if not t.get("said_up"):
                     t["said_up"] = True
                     _spell_say(_kor, "flashon")                  # 🔊 "탑 플 온!"
-                lb.config(text=f"{_kor}{_shown} UP!", fg="#7ee1a8")
+                lb.config(text=f"{_kor}{_shown} UP!", fg=theme.SUCCESS_SOFT)
             else:
                 _SPELL_OVL.pop(_pk, None)
-                lb.config(text=f"{_kor}  —", fg="#5a6377", image=U["blank"])
+                lb.config(text=f"{_kor}  —", fg=theme.TEXT_MUT, image=U["blank"])
     except Exception:
         pass
     finally:
@@ -4133,8 +4133,8 @@ def _dock_overlay(w):
 DONATE_BANK, DONATE_ACCT, DONATE_NAME = "토스뱅크", "1000-2535-5662", "박상준"
 # 🔆 오버레이 시인성 — 테두리 두께·색, 글자 줄바꿈 폭
 DRAFT_OVL_BORDER = 3
-DRAFT_OVL_EDGE = "#f5d47a"       # 평소 테두리(금색)
-DRAFT_OVL_FLASH = "#ff5a5a"      # 새 추천이 뜰 때 깜빡이는 색
+DRAFT_OVL_EDGE = theme.GOLD       # 평소 테두리(금색)
+DRAFT_OVL_FLASH = theme.LOSE      # 새 추천이 뜰 때 깜빡이는 색
 DRAFT_OVL_WRAP = 520             # 380 → 520 (글자도 11 → 14pt)
 
 _REASON_SEP = "=====근거====="   # [v82.40] AI 출력의 요약/근거 구분자 — 기본은 요약만 표시, 버튼으로 근거 펼침
@@ -4195,10 +4195,10 @@ def _draft_overlay_sync(root):
 
 
 # 🎨 카드 팔레트 — 다크 글래스 + 모드별 강조색
-_OVC = {"magic": "#010203",        # 투명 처리용(둥근 모서리 바깥)
-        "card": "#0e1016", "surface": "#171b23", "line": "#252b36",
-        "text": "#eef2f8", "sub": "#8d9aae", "dim": "#6b7789",
-        "ban": "#ff5f6d", "pick": "#5aa2ff", "gold": "#f5d47a", "warn": "#ffb347"}
+_OVC = {"magic": theme.CHROMA_KEY,        # 투명 처리용(둥근 모서리 바깥)
+        "card": theme.BG, "surface": theme.BG_INPUT, "line": theme.LINE,
+        "text": theme.TEXT, "sub": theme.TEXT_SUB, "dim": theme.TEXT_MUT,
+        "ban": theme.LOSE, "pick": theme.ACCENT, "gold": theme.GOLD, "warn": theme.WARN}
 
 def _rrect(cv, x1, y1, x2, y2, r, **kw):
     """캔버스 둥근 사각형 — Tk 에 기본 도형이 없어 직접 그린다."""
@@ -4352,7 +4352,7 @@ def _draft_build_card(root):
 
     # ── 헤더 ──
     hd = tk.Frame(body, bg=C["card"]); hd.pack(fill="x", padx=16, pady=(13, 0))
-    badge = tk.Label(hd, text=" 밴 ", bg=C["ban"], fg="#12141a",
+    badge = tk.Label(hd, text=" 밴 ", bg=C["ban"], fg=theme.BG,
                      font=UF(10, "bold"), padx=7, pady=2)
     badge.pack(side="left")
     title_lb = tk.Label(hd, text="고스트밴픽왕", bg=C["card"], fg=C["text"],
@@ -4385,7 +4385,7 @@ def _draft_build_card(root):
         _cur = str(_DRAFT_OVL.get("pos") or "")
         _man = (_COACH_POS.get("pos") and _COACH_POS.get("gid") == str(_DRAFT_OVL.get("gid") or ""))
         for _pn, _cl in pos_chips.items():
-            if _pn == _cur: _cl.config(bg=_DRAFT_OVL.get("accent") or C["gold"], fg="#12141a")
+            if _pn == _cur: _cl.config(bg=_DRAFT_OVL.get("accent") or C["gold"], fg=theme.BG)
             else: _cl.config(bg=C["surface"], fg=C["sub"])
         pos_hint.config(text=("직접 지정" if _man else ("자동 인식" if _cur and _cur != "선택안함" else "← 눌러서 지정")))
 
@@ -4438,7 +4438,7 @@ def _draft_build_card(root):
         """추천 한 줄 — kind: num(순위) / ctx(대치·윈컨) / dir(픽 방향) / warn(경고) / plain"""
         f = tk.Frame(parent, bg=C["card"]); f.pack(fill="x", pady=2)
         if kind == "num":
-            tk.Label(f, text=a, bg=_DRAFT_OVL["accent"], fg="#12141a", width=2,
+            tk.Label(f, text=a, bg=_DRAFT_OVL["accent"], fg=theme.BG, width=2,
                      font=UF(10, "bold")).pack(side="left", pady=1)
             tx = tk.Frame(f, bg=C["card"]); tx.pack(side="left", fill="x", expand=True, padx=(9, 0))
             _pimg = None
@@ -4520,7 +4520,7 @@ def _draft_build_card(root):
         cv.configure(width=W, height=H)
         cv.coords(win_id, 10, 8)
         cv.delete("bgart")
-        _rrect(cv, 4, 4, W - 4, H - 4, 16, fill="#05070b", outline="", tags="bgart")      # 그림자
+        _rrect(cv, 4, 4, W - 4, H - 4, 16, fill=theme.SCRIM, outline="", tags="bgart")      # 그림자
         _rrect(cv, 2, 2, W - 6, H - 6, 16, fill=C["card"],
                outline=_DRAFT_OVL.get("ring") or _DRAFT_OVL.get("accent") or C["gold"],
                width=2, tags="bgart")
@@ -4550,7 +4550,7 @@ def _draft_flash(w, n=6):
     def _step(i):
         try:
             if not w.winfo_exists(): return
-            _DRAFT_OVL["ring"] = "#ffffff" if i % 2 == 0 else None
+            _DRAFT_OVL["ring"] = theme.TEXT if i % 2 == 0 else None
             fit = _DRAFT_OVL.get("_fit")
             if fit: fit()
             if i < n: w.after(130, _step, i + 1)
@@ -11224,35 +11224,34 @@ class TierAdminWindow(tk.Toplevel):
     def _build(self):
         top = tk.Frame(self, bg=theme.BG_BAR); top.pack(fill="x")
         tk.Label(top, text="🎖 내부티어 관리", bg=theme.BG_BAR, fg=theme.GOLD,
-                 font=UF(15, "bold")).pack(side="left", padx=18, pady=12)
+                 font=UF(15, "bold")).pack(side="left", padx=theme.SP_4, pady=theme.SP_3)
 
-        form = tk.Frame(self, bg=theme.BG); form.pack(fill="x", padx=18, pady=(14, 4))
-        tk.Label(form, text="닉네임", bg=theme.BG, fg=theme.TEXT, font=UF(11)).grid(row=0, column=0, sticky="w", pady=4)
+        form = tk.Frame(self, bg=theme.BG); form.pack(fill="x", padx=theme.SP_4, pady=(theme.SP_3, theme.SP_1))
+        tk.Label(form, text="닉네임", bg=theme.BG, fg=theme.TEXT, font=UF(11)).grid(row=0, column=0, sticky="w", pady=theme.SP_1)
         self.name_var = tk.StringVar()
         tk.Entry(form, textvariable=self.name_var, bg=theme.BG_INPUT, fg=theme.TEXT, insertbackground=theme.TEXT,
-                 bd=0, font=UF(12)).grid(row=0, column=1, padx=8, pady=4, sticky="we")
+                 font=UF(12), **theme.hairline()).grid(row=0, column=1, padx=theme.SP_2, pady=theme.SP_1, sticky="we")
         tk.Label(form, text="티어", bg=theme.BG, fg=theme.TEXT, font=UF(11)).grid(row=1, column=0, sticky="w", pady=4)
         self.tier_var = tk.StringVar(value="1上")   # 신규 부여 기본값(0티어 오지정 방지). 목록 클릭 시 자동 대체
         ttk.Combobox(form, textvariable=self.tier_var, values=TIER_ORDER_LIST, state="readonly",
-                     width=10, font=UF(12)).grid(row=1, column=1, padx=8, pady=4, sticky="w")
+                     width=10, font=UF(12)).grid(row=1, column=1, padx=theme.SP_2, pady=theme.SP_1, sticky="w")
         form.columnconfigure(1, weight=1)
 
-        btns = tk.Frame(self, bg=theme.BG); btns.pack(fill="x", padx=18, pady=4)
-        tk.Button(btns, text="💾 부여 / 변경 저장", bg=theme.SUCCESS, fg=theme.TEXT, bd=0, padx=12, pady=6,
-                  font=UF(11, "bold"), cursor="hand2", command=self._save).pack(side="left")
-        tk.Button(btns, text="🗑 선택 삭제", bg=theme.LOSE, fg=theme.TEXT, bd=0, padx=12, pady=6,
-                  font=UF(11, "bold"), cursor="hand2", command=self._delete).pack(side="left", padx=8)
+        btns = tk.Frame(self, bg=theme.BG); btns.pack(fill="x", padx=theme.SP_4, pady=theme.SP_1)
+        theme.make_button(btns, "💾 부여 / 변경 저장", "success", pady=theme.SP_1, command=self._save).pack(side="left")
+        theme.make_button(btns, "🗑 선택 삭제", "danger", pady=theme.SP_1, command=self._delete).pack(side="left", padx=theme.SP_2)
         tk.Label(self, text="이름 입력 후 티어 선택 → 저장 (있으면 변경·없으면 추가). 아래 목록 클릭 시 폼 자동입력. 웹·앱 자동 반영.",
-                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9), wraplength=520, justify="left").pack(fill="x", padx=18, pady=(2, 8))
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9), wraplength=520, justify="left").pack(fill="x", padx=theme.SP_4, pady=(theme.SP_1, theme.SP_2))
 
-        lf = tk.Frame(self, bg=theme.BG); lf.pack(fill="both", expand=True, padx=18, pady=(0, 14))
+        lf = tk.Frame(self, bg=theme.BG); lf.pack(fill="both", expand=True, padx=theme.SP_4, pady=(0, theme.SP_3))
         tk.Label(lf, text="🔎 검색", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9)).pack(anchor="w")
         self.search_var = tk.StringVar()
         tk.Entry(lf, textvariable=self.search_var, bg=theme.BG_INPUT, fg=theme.TEXT, insertbackground=theme.TEXT,
-                 bd=0, font=UF(11)).pack(fill="x", pady=(0, 6))
+                 font=UF(11), **theme.hairline()).pack(fill="x", pady=(0, theme.SP_2))
         self.search_var.trace_add("write", lambda *a: self._render_list())
-        self.listbox = tk.Listbox(lf, bg=theme.BG_INPUT, fg=theme.TEXT, bd=0, highlightthickness=0,
-                                  font=UF(11), selectbackground=theme.BG_RAISED, activestyle="none")
+        self.listbox = tk.Listbox(lf, bg=theme.BG_INPUT, fg=theme.TEXT, font=UF(11),
+                                  selectbackground=theme.BG_RAISED, selectforeground=theme.TEXT,
+                                  activestyle="none", **theme.hairline())
         self.listbox.pack(fill="both", expand=True)
         self.listbox.bind("<<ListboxSelect>>", self._on_select)
 
@@ -11354,6 +11353,9 @@ def create_graphic_ui():
 
     BG_MAIN = theme.BG
     root.configure(bg=BG_MAIN)
+    # 🎨 [디자인 리뉴얼] ttk 위젯(콤보·스크롤바·체크·탭·트리)을 다크 토큰으로 통일 —
+    #    이걸 빼면 Windows 기본 밝은 회색 위젯이 다크 화면에 섞여 보인다. 실패해도 앱은 그대로 뜬다.
+    theme.apply_ttk_theme(root)
 
     try: root.iconbitmap(resource_path("icon.ico"))
     except Exception: pass
@@ -11504,14 +11506,22 @@ def create_graphic_ui():
     FONT_LF_TITLE = UF(12, "bold")
     FONT_SLOT_NAME = UF(13, "bold")
     FONT_SLOT_STAT = UF(11)
+    # 🔢 숫자 자리 맞춤 — 티어·전투력·승률 같은 수치 라벨은 Consolas(고정폭)로.
+    #    theme.FONTS["NUM"] 의 family/size 를 그대로 쓰되 UF() 를 거쳐 '이름 있는 폰트'로 만든다
+    #    — 그래야 창 크기에 따라 글자가 같이 줄고 커지는 기존 동작(ui_scale_apply)이 유지된다.
+    FONT_SLOT_NUM = UF(theme.FONTS["NUM"][1], family=theme.FONTS["NUM"][0])
     FONT_SYNERGY = UF(11)
 
-    header = tk.Frame(root, bg=theme.BG_BAR, height=158)
+    # 🎨 [디자인 리뉴얼] 헤더 슬림화 158 → 136px. 13칸 타일을 74×74 정사각형에서 74×58(안쪽 72×56)로
+    #    낮춰 두 줄(7+6)이 여유 있게 들어가게 하고, 회수한 세로 공간은 본문(팀 슬롯)에 넘긴다.
+    #    광고 배너는 345×120 으로 내려받으므로 ad_frame 높이(헤더-8)도 그대로 담긴다.
+    HEADER_H = 136
+    header = tk.Frame(root, bg=theme.BG_BAR, height=HEADER_H)
     header.pack(fill="x", side="top", pady=(5, 5))
     header.pack_propagate(False) 
     
     # [v82.13 시안 반영] 광고 = 헤더 우측 상단 코너(꽉 차게), 개발·기획/상태/10밴 = 헤더(광고 왼쪽)
-    ad_frame = tk.Frame(header, bg=theme.BG_BAR, width=345, height=150, cursor="hand2")
+    ad_frame = tk.Frame(header, bg=theme.BG_BAR, width=345, height=HEADER_H - 8, cursor="hand2")
     ad_frame.pack_propagate(False)
     ad_frame.pack(side="right", padx=(6, 8), pady=4)
     ad_lbl = tk.Label(ad_frame, text="✨ 스폰서 배너 로딩 중... ✨", bg=theme.BG_BAR, fg=theme.WARN, font=UF(10, "bold"))
@@ -11523,7 +11533,7 @@ def create_graphic_ui():
     ad_lbl.bind("<Button-1>", on_ad_click)
 
     mid_header = tk.Frame(header, bg=theme.BG_BAR)
-    mid_header.pack(side="right", padx=20, pady=15)
+    mid_header.pack(side="right", padx=20, pady=10)
 
     tk.Label(mid_header, text="개발 및 기획 : 맛동산장인 유미#Teana", bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=FONT_CREDIT).pack(anchor="e", pady=3)
 
@@ -11538,7 +11548,7 @@ def create_graphic_ui():
     bans_icon_frame.pack(side="left")
     # ⚖️ [P-12] 대기실 전력차 한 줄(10명 찼을 때만 보임 · 설정 'lobby_balance' 로 끔)
     balance_var = tk.StringVar(value="")
-    tk.Label(mid_header, textvariable=balance_var, bg=theme.BG_BAR, fg="#f5d47a", font=FONT_BANS, justify="right").pack(anchor="e", pady=1)
+    tk.Label(mid_header, textvariable=balance_var, bg=theme.BG_BAR, fg=theme.GOLD, font=FONT_BANS, justify="right").pack(anchor="e", pady=1)
     _LB_STATE = {"fp": None}
 
     left_header = tk.Frame(header, bg=theme.BG_BAR)
@@ -11550,38 +11560,50 @@ def create_graphic_ui():
     # 🧲 [2026-08-16 사장님 지시] ☰ 서랍 폐기 — 타일 아이콘 모양은 그대로, 정렬만 상단 가로 한 줄.
     #    로고·제목·☰ 이 있던 자리를 비우고, 서랍 안에 있던 타일(윗줄 색 바·아이콘·라벨)을
     #    그 모습 그대로 헤더에 옆으로 늘어놓는다. 서랍 부속(Toplevel·알파·바깥클릭 닫기)은 제거.
-    C_TILE, C_TILE_H = "#1a1f2b", "#28303f"
+    C_TILE, C_TILE_H = theme.BG_CARD, theme.BG_RAISED
+    TILE_W, TILE_H = 72, 56   # 안쪽 크기 — 1px 헤어라인이 붙어 바깥 74×58 (가로 74 유지 → 7칸 546px 그대로)
     # [2026-08-16 사장님 재지시] 한 줄 13개는 해상도가 낮으면 우측(쿠팡 배너·상태줄)에 짤렸다 →
-    #   7+6 두 줄. 아이콘·글자는 1.5배(15→22 / 8→12) 키우되 네모칸(74px)은 그대로.
+    #   7+6 두 줄. [2026-11-27 디자인 리뉴얼] 칸은 슬림하게(74×58), 아이콘 18pt·라벨 11pt 로 계층 정리.
     btn_row1 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row1.pack(anchor="w", pady=(2, 1))
     btn_row2 = tk.Frame(text_frame, bg=theme.BG_BAR); btn_row2.pack(anchor="w", pady=(1, 2))
     _tile_n = [0]
 
     class _HTile:
         """서랍의 _Tile 을 헤더용으로 — 시각은 동일, 배치만 가로 두 줄(앞 7개 윗줄, 나머지 아랫줄).
-           config(text=, bg=) 를 받아 _posview_btn_sync 호환."""
+           config(text=, bg=) 를 받아 _posview_btn_sync 호환.
+           [디자인 리뉴얼] 1px 헤어라인 + hover 시 보더(LINE_STRONG)·배경(BG_RAISED) 강조."""
         def __init__(self, icon, label, cmd, accent):
             _row = btn_row1 if _tile_n[0] < 7 else btn_row2
             _tile_n[0] += 1
-            # [사장님 지시] 정사각형 고정 — 라벨 길이에 따라 폭이 들쭉날쭉하지 않게 크기를 못박는다.
-            self.f = tk.Frame(_row, bg=C_TILE, cursor="hand2", width=74, height=74)
+            # [사장님 지시] 칸 크기 고정 — 라벨 길이에 따라 폭이 들쭉날쭉하지 않게 못박는다(이제 세로만 슬림).
+            self.f = tk.Frame(_row, bg=C_TILE, cursor="hand2", width=TILE_W, height=TILE_H,
+                              highlightbackground=theme.LINE, highlightthickness=1, bd=0, relief="flat")
             self.f.pack_propagate(False)
             self.f.pack(side="left", padx=2, pady=1)   # 7칸 한 줄 546px — 최소 프리셋(compact 1280)에서도 안 짤린다
             self.bar = tk.Frame(self.f, bg=accent, height=2); self.bar.pack(fill="x")
-            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=UF(22, family="Segoe UI Emoji"))
-            self.ic.pack(pady=(2, 0))
-            # 글자 1.5배(12pt)에서 두 줄이 되면 74px 칸을 세로로 넘겨 짤린다 → 라벨은 무조건 한 줄(4자 이내)
-            self.tx = tk.Label(self.f, text=label, bg=C_TILE, fg="#cdd6e3", font=UF(12))
-            self.tx.pack(pady=(0, 2))
+            self.ic = tk.Label(self.f, text=icon, bg=C_TILE, fg=accent, font=UF(18, family="Segoe UI Emoji"))
+            self.ic.pack(pady=(3, 0))
+            # 라벨은 무조건 한 줄(4자 이내) — 11pt 로 낮춰 72px 안에 SQUAD.GG 까지 들어간다
+            self.tx = tk.Label(self.f, text=label, bg=C_TILE, fg=theme.TEXT, font=UF(11))
+            self.tx.pack(pady=(0, 3))
+            self._base = C_TILE       # hover 를 벗어났을 때 돌아갈 배경(config(bg=) 로 바뀐다)
             self.cmd = cmd
             for wgt in (self.f, self.ic, self.tx):
                 wgt.bind("<Button-1>", self._hit)
-                wgt.bind("<Enter>", lambda e: self._bg(C_TILE_H))
-                wgt.bind("<Leave>", lambda e: self._bg(C_TILE))
-        def _bg(self, col):
+                wgt.bind("<Enter>", lambda e: self._hover(True))
+                wgt.bind("<Leave>", lambda e: self._hover(False))
+        def _paint(self, bg, line):
             for wgt in (self.f, self.ic, self.tx):
-                try: wgt.configure(bg=col)
+                try: wgt.configure(bg=bg)
                 except Exception: pass
+            try: self.f.configure(highlightbackground=line)
+            except Exception: pass
+        def _hover(self, on):
+            """hover = 표면 승급(BG_RAISED) + 보더 강조(LINE_STRONG) — 그림자 없이 깊이를 주는 규칙."""
+            self._paint(*((C_TILE_H, theme.LINE_STRONG) if on else (self._base, theme.LINE)))
+        def _bg(self, col):
+            self._base = col
+            self._paint(col, theme.LINE)
         def _hit(self, _e=None):
             try: self.cmd()
             except Exception as ex: print(f"[menu] {ex}", flush=True)
@@ -11590,11 +11612,12 @@ def create_graphic_ui():
                 _t = str(text).split(":")[-1].strip() or str(text)
                 self.tx.config(text={"현재포지션": "포지션별"}.get(_t, _t))
             if bg:
+                self._base = bg
                 self.bar.config(bg=bg); self.ic.config(fg=bg)
         configure = config
         def pack(self, *_a, **_kw): pass
 
-    _HTile("📖", "사용안내", lambda: GuideWindow(root), "#9db8ff")
+    _HTile("📖", "사용안내", lambda: GuideWindow(root), theme.TILE_GUIDE)
 
     # 🎮 [2026-08-13] 음성방 초대 — 디스코드 /팀초대와 같은 일을 분석기에서 바로. 로비 호스트가 누른다.
     def _do_voice_invite():
@@ -11603,7 +11626,7 @@ def create_graphic_ui():
             root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("팀초대", msg))
         threading.Thread(target=_work, daemon=True).start()
 
-    _HTile("🎮", "팀초대", _do_voice_invite, "#7ee1a8")   # [2026-08-18 사장님 지시] '음성초대' → 디코 명령어와 같은 이름으로
+    _HTile("🎮", "팀초대", _do_voice_invite, theme.TILE_INVITE)   # [2026-08-18 사장님 지시] '음성초대' → 디코 명령어와 같은 이름으로
 
     # 👥 접속자 버튼 제거(2026-07-05 사장님 지시). 접속기록 자체는 백그라운드로 계속 시트에 기록됨.
     # ❄ 증내의 전당 버튼 삭제(2026-07-16) → 명예의 전당 창 내부 '칼바람' 탭으로 통합
@@ -11631,10 +11654,10 @@ def create_graphic_ui():
     # [v82.37] 초기 문구·색은 설정값(pos_view_default)을 따른다 — 하드코딩하면 화면과 실동작이 어긋남
     _pv0 = _posview_default()
     btn_posview = _HTile("🎯", ("포지션별" if _pv0 else "전체라인"), _toggle_pos_view,
-                         (theme.SUCCESS if _pv0 else "#6b7789"))
+                         (theme.SUCCESS if _pv0 else theme.TILE_OFF))
     _POSVIEW_BTN[0] = btn_posview   # 설정 창에서 즉시 갱신할 수 있도록 참조 보관
 
-    _HTile("⚙", "설정", lambda: ClanSettingsWindow(root), "#cdd6e3")
+    _HTile("⚙", "설정", lambda: ClanSettingsWindow(root), theme.TILE_SETTINGS)
 
     def _open_log():
         try:
@@ -11643,7 +11666,7 @@ def create_graphic_ui():
             os.startfile(LOG_PATH)
         except Exception as e:
             messagebox.showerror("로그", f"열지 못했습니다: {e}\n\n경로: {LOG_PATH}")
-    _HTile("🗒", "로그", _open_log, "#8d9aae")
+    _HTile("🗒", "로그", _open_log, theme.TILE_LOG)
 
     # 👑 [2026-08-06 사장님 지시] 팀장뽑기 — 방 인원 중 전력이 가장 비슷한 2인 자동 선정(직전 판 팀장 회피)
     def _do_pick_captains(extra_exclude=None):
@@ -11659,19 +11682,19 @@ def create_graphic_ui():
                     messagebox.showinfo("팀장뽑기", why); return
                 _captain_recent_save([a['tn'], b['tn']])
                 w = tk.Toplevel(root); w.title("팀장뽑기")
-                w.attributes("-topmost", True); w.configure(bg="#12141a")
-                tk.Label(w, text="👑 이번 판 팀장", bg="#12141a", fg="#f5d47a",
+                w.attributes("-topmost", True); w.configure(bg=theme.BG)
+                tk.Label(w, text="👑 이번 판 팀장", bg=theme.BG, fg=theme.GOLD,
                          font=UF(13, "bold")).pack(padx=18, pady=(14, 4))
                 def _one(c):
                     t = c['nm'].split('#')[0].strip() + (f"  [{c['tier']}티어]" if c['tier'] else "") \
                         + (f"  주:{c['pos']}" if c['pos'] else "")
-                    tk.Label(w, text=t, bg="#12141a", fg="#e8eaf0",
+                    tk.Label(w, text=t, bg=theme.BG, fg=theme.TEXT,
                              font=UF(12, "bold")).pack(padx=18, pady=2)
                 _one(a)
-                tk.Label(w, text="VS", bg="#12141a", fg="#8a93a6", font=UF(10)).pack()
+                tk.Label(w, text="VS", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(10)).pack()
                 _one(b)
-                tk.Label(w, text=why, bg="#12141a", fg="#8a93a6", font=UF(9)).pack(padx=18, pady=(6, 2))
-                bs = tk.Frame(w, bg="#12141a"); bs.pack(pady=(6, 12))
+                tk.Label(w, text=why, bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9)).pack(padx=18, pady=(6, 2))
+                bs = tk.Frame(w, bg=theme.BG); bs.pack(pady=(6, 12))
                 def _announce():
                     def w2():
                         try:
@@ -11684,13 +11707,11 @@ def create_graphic_ui():
                                 hd, "https://127.0.0.1:" + str(port))
                         except Exception: pass
                     threading.Thread(target=w2, daemon=True).start()
-                tk.Button(bs, text="📢 로비에 알리기", command=_announce, bg="#1e2436", fg="#9db8ff",
-                          relief="flat", padx=10).pack(side="left", padx=4)
-                tk.Button(bs, text="🔁 다시 뽑기", bg="#232838", fg="#cfd6e4", relief="flat", padx=10,
+                theme.make_button(bs, "📢 로비에 알리기", "primary", command=_announce).pack(side="left", padx=4)
+                theme.make_button(bs, "🔁 다시 뽑기", "neutral",
                           command=lambda: (w.destroy(), _do_pick_captains(set(extra_exclude or []) | {a['tn'], b['tn']}))
                           ).pack(side="left", padx=4)
-                tk.Button(bs, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
-                          relief="flat", padx=10).pack(side="left", padx=4)
+                theme.make_button(bs, "닫기", "neutral", command=w.destroy).pack(side="left", padx=4)
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
 
@@ -11709,30 +11730,30 @@ def create_graphic_ui():
                     messagebox.showinfo("5:5 팀짜기", why); return
                 _TEAM_SPLIT_LAST[0] = key
                 w = tk.Toplevel(root); w.title("5:5 팀짜기")
-                w.attributes("-topmost", True); w.configure(bg="#12141a")
-                tk.Label(w, text="⚖ 자동 팀 배분", bg="#12141a", fg="#f5d47a",
+                w.attributes("-topmost", True); w.configure(bg=theme.BG)
+                tk.Label(w, text="⚖ 자동 팀 배분", bg=theme.BG, fg=theme.GOLD,
                          font=UF(13, "bold")).pack(padx=18, pady=(14, 6))
-                cols = tk.Frame(w, bg="#12141a"); cols.pack(padx=18)
+                cols = tk.Frame(w, bg=theme.BG); cols.pack(padx=18)
                 def _team_col(team, title, col, fg):
-                    f = tk.Frame(cols, bg="#12141a"); f.grid(row=0, column=col, padx=10, sticky="n")
+                    f = tk.Frame(cols, bg=theme.BG); f.grid(row=0, column=col, padx=10, sticky="n")
                     tk.Label(f, text=f"{title}  (전투력 {sum(c['pw'] for c in team):.1f})",
-                             bg="#12141a", fg=fg, font=UF(11, "bold")).pack(anchor="w", pady=(0, 3))
+                             bg=theme.BG, fg=fg, font=UF(11, "bold")).pack(anchor="w", pady=(0, 3))
                     _PO = {"탑": 0, "정글": 1, "미드": 2, "원딜": 3, "서폿": 4}
                     _rec_all = all(c.get('rec') for c in team)
                     _order = (lambda x: _PO.get(x.get('rec'), 9)) if _rec_all else (lambda x: -x['pw'])
                     for c in sorted(team, key=_order):
                         t = c['nm'].split('#')[0].strip()                             + (f"  [{c['tier']}]" if c['tier'] else "")                             + (f"  {c['pos']}" if c['pos'] else "")                             + f"  ⚔{c['pw']:.1f}"
-                        tk.Label(f, text=t, bg="#12141a", fg="#e8eaf0", font=UF(10)).pack(anchor="w")
+                        tk.Label(f, text=t, bg=theme.BG, fg=theme.TEXT, font=UF(10)).pack(anchor="w")
                         if c.get('rec'):   # 🎯 추천 라인 — 실측 성적·선언 포지션·맞상대 전적 종합
                             tk.Label(f, text=f"   ↳ 추천 {c['rec']}" + (" (주포 그대로)" if c['rec'] == c.get('pos') else ""),
-                                     bg="#12141a", fg="#f0c987", font=UF(9)).pack(anchor="w", padx=(8, 0))
-                _team_col(A, "🟦 A팀", 0, "#7ea7ff")
-                _team_col(B, "🟥 B팀", 1, "#ff8a8a")
-                tk.Label(w, text=why, bg="#12141a", fg="#8a93a6", font=UF(9)).pack(padx=18, pady=(8, 2))
+                                     bg=theme.BG, fg=theme.GOLD, font=UF(9)).pack(anchor="w", padx=(8, 0))
+                _team_col(A, "🟦 A팀", 0, theme.TEAM_BLUE_FG)
+                _team_col(B, "🟥 B팀", 1, theme.LOSE)
+                tk.Label(w, text=why, bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9)).pack(padx=18, pady=(8, 2))
                 if any(c.get('rec') for c in A + B):
                     tk.Label(w, text="↳ 추천 = 그 라인 실측 승률·선언 포지션·맞상대 전적 종합 (참고용 — 팀에서 조율해도 됩니다)",
-                             bg="#12141a", fg="#6f7787", font=UF(8)).pack(padx=18, pady=(0, 2))
-                bs = tk.Frame(w, bg="#12141a"); bs.pack(pady=(4, 12))
+                             bg=theme.BG, fg=theme.TEXT_MUT, font=UF(8)).pack(padx=18, pady=(0, 2))
+                bs = tk.Frame(w, bg=theme.BG); bs.pack(pady=(4, 12))
                 def _announce():
                     def w2():
                         try:
@@ -11748,12 +11769,10 @@ def create_graphic_ui():
                                 hd, "https://127.0.0.1:" + str(port))
                         except Exception: pass
                     threading.Thread(target=w2, daemon=True).start()
-                tk.Button(bs, text="📢 로비에 알리기", command=_announce, bg="#1e2436", fg="#9db8ff",
-                          relief="flat", padx=10).pack(side="left", padx=4)
-                tk.Button(bs, text="🔁 다시 뽑기", bg="#232838", fg="#cfd6e4", relief="flat", padx=10,
+                theme.make_button(bs, "📢 로비에 알리기", "primary", command=_announce).pack(side="left", padx=4)
+                theme.make_button(bs, "🔁 다시 뽑기", "neutral",
                           command=lambda: (w.destroy(), _do_team_split())).pack(side="left", padx=4)
-                tk.Button(bs, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
-                          relief="flat", padx=10).pack(side="left", padx=4)
+                theme.make_button(bs, "닫기", "neutral", command=w.destroy).pack(side="left", padx=4)
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
     # 👑⚖ [2026-08-16 사장님 재지시] 팀장뽑기와 5:5팀짜기를 한 버튼으로 — 누르면 무엇을 뽑을지 고른다
@@ -11784,24 +11803,24 @@ def create_graphic_ui():
             _pos_recommend(A, B, cidx)
             def show():
                 w = tk.Toplevel(root); w.title("포지션 추천")
-                w.attributes("-topmost", True); w.configure(bg="#12141a")
-                tk.Label(w, text="🎯 포지션 추천 — 현재 로비 명단 기준", bg="#12141a", fg="#f5d47a",
+                w.attributes("-topmost", True); w.configure(bg=theme.BG)
+                tk.Label(w, text="🎯 포지션 추천 — 현재 로비 명단 기준", bg=theme.BG, fg=theme.GOLD,
                          font=UF(13, "bold")).pack(padx=18, pady=(14, 6))
-                cols = tk.Frame(w, bg="#12141a"); cols.pack(padx=18)
+                cols = tk.Frame(w, bg=theme.BG); cols.pack(padx=18)
                 _PO = {"탑": 0, "정글": 1, "미드": 2, "원딜": 3, "서폿": 4}
                 def _col(team, title, col, fg):
-                    f = tk.Frame(cols, bg="#12141a"); f.grid(row=0, column=col, padx=10, sticky="n")
-                    tk.Label(f, text=title, bg="#12141a", fg=fg, font=UF(11, "bold")).pack(anchor="w", pady=(0, 3))
+                    f = tk.Frame(cols, bg=theme.BG); f.grid(row=0, column=col, padx=10, sticky="n")
+                    tk.Label(f, text=title, bg=theme.BG, fg=fg, font=UF(11, "bold")).pack(anchor="w", pady=(0, 3))
                     for c in sorted(team, key=lambda x: _PO.get(x.get('rec'), 9)):
                         rec = c.get('rec') or "?"
                         tk.Label(f, text=f"{rec}  ←  " + c['nm'].split('#')[0].strip()
                                  + (f"  [{c['tier']}]" if c['tier'] else ""),
-                                 bg="#12141a", fg="#e8eaf0", font=UF(10)).pack(anchor="w")
-                _col(A, "🟦 블루팀", 0, "#7ea7ff")
-                _col(B, "🟥 레드팀", 1, "#ff8a8a")
+                                 bg=theme.BG, fg=theme.TEXT, font=UF(10)).pack(anchor="w")
+                _col(A, "🟦 블루팀", 0, theme.TEAM_BLUE_FG)
+                _col(B, "🟥 레드팀", 1, theme.LOSE)
                 tk.Label(w, text="그 라인 실측 승률 · 선언 주/부포지션 · 맞상대 전적 종합 (참고용 — 팀에서 조율해도 됩니다)",
-                         bg="#12141a", fg="#8a93a6", font=UF(9)).pack(padx=18, pady=(8, 2))
-                bs = tk.Frame(w, bg="#12141a"); bs.pack(pady=(4, 12))
+                         bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9)).pack(padx=18, pady=(8, 2))
+                bs = tk.Frame(w, bg=theme.BG); bs.pack(pady=(4, 12))
                 def _announce():
                     def w2():
                         try:
@@ -11817,45 +11836,42 @@ def create_graphic_ui():
                                 hd, "https://127.0.0.1:" + str(port))
                         except Exception: pass
                     threading.Thread(target=w2, daemon=True).start()
-                tk.Button(bs, text="📢 로비에 알리기", command=_announce, bg="#1e2436", fg="#9db8ff",
-                          relief="flat", padx=10).pack(side="left", padx=4)
-                tk.Button(bs, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
-                          relief="flat", padx=10).pack(side="left", padx=4)
+                theme.make_button(bs, "📢 로비에 알리기", "primary", command=_announce).pack(side="left", padx=4)
+                theme.make_button(bs, "닫기", "neutral", command=w.destroy).pack(side="left", padx=4)
             root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
 
     def _do_team_menu():
         w = tk.Toplevel(root); w.title("팀뽑선정")
-        w.attributes("-topmost", True); w.configure(bg="#12141a"); w.resizable(False, False)
+        w.attributes("-topmost", True); w.configure(bg=theme.BG); w.resizable(False, False)
         try:
             w.update_idletasks()
             w.geometry("+%d+%d" % (root.winfo_rootx() + root.winfo_width() // 2 - 170,
                                    root.winfo_rooty() + 150))
         except Exception: pass
-        tk.Label(w, text="무엇을 뽑을까요?", bg="#12141a", fg="#f5d47a",
+        tk.Label(w, text="무엇을 뽑을까요?", bg=theme.BG, fg=theme.GOLD,
                  font=UF(13, "bold")).pack(padx=24, pady=(16, 10))
         def _pick(fn):
             w.destroy(); fn()
         def _big(icon, title, sub, fn, accent):
-            f = tk.Frame(w, bg="#1a1f2b", cursor="hand2")
+            f = tk.Frame(w, cursor="hand2", **theme.hairline(theme.BG_CARD))
             f.pack(fill="x", padx=18, pady=5, ipady=4)
             tk.Frame(f, bg=accent, width=3).pack(side="left", fill="y")
-            tk.Label(f, text=icon, bg="#1a1f2b", fg=accent,
+            tk.Label(f, text=icon, bg=theme.BG_CARD, fg=accent,
                      font=UF(18, family="Segoe UI Emoji")).pack(side="left", padx=(12, 8))
-            tf2 = tk.Frame(f, bg="#1a1f2b"); tf2.pack(side="left", pady=6)
-            tk.Label(tf2, text=title, bg="#1a1f2b", fg="#e8eaf0", font=UF(12, "bold")).pack(anchor="w")
-            tk.Label(tf2, text=sub, bg="#1a1f2b", fg="#8a93a6", font=UF(9)).pack(anchor="w")
+            tf2 = tk.Frame(f, bg=theme.BG_CARD); tf2.pack(side="left", pady=6)
+            tk.Label(tf2, text=title, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(12, "bold")).pack(anchor="w")
+            tk.Label(tf2, text=sub, bg=theme.BG_CARD, fg=theme.TEXT_SUB, font=UF(9)).pack(anchor="w")
             for wgt in (f, tf2, *f.winfo_children(), *tf2.winfo_children()):
                 try: wgt.bind("<Button-1>", lambda e, fn=fn: _pick(fn))
                 except Exception: pass
         _big("👑", "팀장 2인 뽑기", "전투력차 1 이내에서 가장 비슷한 두 명을 팀장으로 (직전 판 팀장 회피)",
              _do_pick_captains, theme.GOLD)
         _big("⚖", "5:5 명단 짜기", "방 전원을 전투력·주포지션 균형으로 두 팀으로 나눔",
-             _do_team_split, "#7ec8e3")
+             _do_team_split, theme.INFO)
         _big("🎯", "포지션 추천", "수동으로 짠 팀도 OK — 현재 블루/레드 명단 그대로 라인 추천",
-             _do_pos_recommend, "#f0c987")
-        tk.Button(w, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
-                  relief="flat", padx=12, cursor="hand2").pack(pady=(8, 14))
+             _do_pos_recommend, theme.GOLD)
+        theme.make_button(w, "닫기", "neutral", command=w.destroy).pack(pady=(8, 14))
     _HTile("👑", "팀뽑선정", _do_team_menu, theme.GOLD)
 
     # 🎖 티어관리 — token.txt 보유한 호스트 PC에서만 노출 (내전 큐 버튼은 삭제됨 2026-07-02, 백엔드/데이터는 유지)
@@ -11872,26 +11888,26 @@ def create_graphic_ui():
         _acct = APP_CONFIG.get("donate_acct") or DONATE_ACCT
         _name = APP_CONFIG.get("donate_name") or DONATE_NAME
         w = tk.Toplevel(root); w.title("후원")
-        w.configure(bg="#0e1016"); w.attributes("-topmost", True); w.resizable(False, False)
+        w.configure(bg=theme.BG); w.attributes("-topmost", True); w.resizable(False, False)
         try:   # 본체 가운데에 띄운다(모니터 구석에 뜨면 못 찾는다)
             w.update_idletasks()
             w.geometry("+%d+%d" % (root.winfo_rootx() + root.winfo_width() // 2 - 190,
                                    root.winfo_rooty() + 160))
         except Exception: pass
-        tk.Frame(w, bg="#f5d47a", height=3).pack(fill="x")
-        tk.Label(w, text="💝  후원하기", bg="#0e1016", fg="#f5d47a",
+        tk.Frame(w, bg=theme.GOLD, height=3).pack(fill="x")
+        tk.Label(w, text="💝  후원하기", bg=theme.BG, fg=theme.GOLD,
                  font=UF(15, "bold")).pack(anchor="w", padx=22, pady=(16, 2))
         tk.Label(w, text="분석기·squad.gg·디스코드 봇은 클랜원 한 명이 사비로 굴리고 있어요.\n"
                          "AI 비용·서버비에 그대로 들어갑니다. 부담 갖지 마세요 🙏",
-                 bg="#0e1016", fg="#8d9aae", font=UF(9), justify="left").pack(anchor="w", padx=22)
-        box = tk.Frame(w, bg="#171b23"); box.pack(fill="x", padx=22, pady=(14, 6))
-        tk.Label(box, text=_bank, bg="#171b23", fg="#8d9aae",
+                 bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9), justify="left").pack(anchor="w", padx=22)
+        box = tk.Frame(w, **theme.hairline(theme.BG_INPUT)); box.pack(fill="x", padx=22, pady=(14, 6))
+        tk.Label(box, text=_bank, bg=theme.BG_INPUT, fg=theme.TEXT_SUB,
                  font=UF(10)).pack(anchor="w", padx=14, pady=(11, 0))
-        tk.Label(box, text=_acct, bg="#171b23", fg="#eef2f8",
+        tk.Label(box, text=_acct, bg=theme.BG_INPUT, fg=theme.TEXT,
                  font=UF(19, "bold")).pack(anchor="w", padx=14)
-        tk.Label(box, text=f"예금주  {_name}", bg="#171b23", fg="#cdd6e3",
+        tk.Label(box, text=f"예금주  {_name}", bg=theme.BG_INPUT, fg=theme.TEXT,
                  font=UF(10)).pack(anchor="w", padx=14, pady=(1, 12))
-        _msg = tk.Label(w, text="", bg="#0e1016", fg="#5ad48a", font=UF(9))
+        _msg = tk.Label(w, text="", bg=theme.BG, fg=theme.SUCCESS, font=UF(9))
         _msg.pack(anchor="w", padx=22)
         def _copy(full=False):
             try:
@@ -11900,18 +11916,12 @@ def create_graphic_ui():
                 w.update()          # 창이 닫혀도 클립보드가 남게(Tk 는 소유 창이 사라지면 내용도 사라진다)
                 _msg.config(text=("✅ 은행·계좌·예금주를 복사했어요" if full else "✅ 계좌번호를 복사했어요"))
             except Exception as e:
-                _msg.config(text=f"복사 실패: {e}", fg="#ff8a8a")
-        bar = tk.Frame(w, bg="#0e1016"); bar.pack(fill="x", padx=22, pady=(8, 18))
-        tk.Button(bar, text="계좌번호 복사", command=lambda: _copy(False), bg="#f5d47a", fg="#1b1b1b",
-                  relief="flat", font=UF(10, "bold"), padx=14, pady=5,
-                  cursor="hand2").pack(side="left")
-        tk.Button(bar, text="전체 복사", command=lambda: _copy(True), bg="#1e2436", fg="#9db8ff",
-                  relief="flat", font=UF(10), padx=12, pady=5,
-                  cursor="hand2").pack(side="left", padx=6)
-        tk.Button(bar, text="닫기", command=w.destroy, bg="#232838", fg="#cfd6e4",
-                  relief="flat", font=UF(10), padx=12, pady=5,
-                  cursor="hand2").pack(side="right")
-    _HTile("💝", "후원하기", _open_donate, "#ff8fb1")
+                _msg.config(text=f"복사 실패: {e}", fg=theme.LOSE)
+        bar = tk.Frame(w, bg=theme.BG); bar.pack(fill="x", padx=22, pady=(8, 18))
+        theme.make_button(bar, "계좌번호 복사", "gold", command=lambda: _copy(False)).pack(side="left")
+        theme.make_button(bar, "전체 복사", "neutral", command=lambda: _copy(True)).pack(side="left", padx=6)
+        theme.make_button(bar, "닫기", "neutral", command=w.destroy).pack(side="right")
+    _HTile("💝", "후원하기", _open_donate, theme.TILE_DONATE)
 
     # 🔠 [2026-08-13 사장님 제보] 창 크기에 맞춰 글자 크기도 같이 바꾼다.
     #   해상도만 줄고 글자는 그대로여서 작게 쓰면 읽을 수가 없었다.
@@ -11942,8 +11952,9 @@ def create_graphic_ui():
     body.columnconfigure(2, weight=1, uniform="cols3")
     body.rowconfigure(0, weight=1)
 
-    blue_card = tk.Frame(body, bg=theme.BG_CARD)
-    red_card = tk.Frame(body, bg=theme.BG_CARD)
+    # 🎨 [디자인 리뉴얼] 팀 카드 = surface-2(BG_CARD) + 1px 헤어라인 (위쪽 팀 헤더 워시와 함께 깊이를 만든다)
+    blue_card = tk.Frame(body, **theme.hairline(theme.BG_CARD))
+    red_card = tk.Frame(body, **theme.hairline(theme.BG_CARD))
     blue_card.grid(row=0, column=0, sticky="nsew", padx=6, pady=5)
     red_card.grid(row=0, column=1, sticky="nsew", padx=6, pady=5)
 
@@ -11965,23 +11976,24 @@ def create_graphic_ui():
     _synergy_sync()                      # 저장된 설정대로 시작(끈 채로 재시작해도 유지)
     # [v82.13 시안] 우측 열 = 시너지 3칸만 세로 균등 분할(광고·개발텍스트는 헤더로 복귀)
 
-    pos_card = tk.Frame(right_panel, bg=theme.BG_BAR)
+    # 🎨 [디자인 리뉴얼] 우측 패널 = BG_CARD 카드 + 헤어라인, 내용은 한 단 낮은 입력 우물(BG_INPUT)
+    pos_card = tk.Frame(right_panel, **theme.hairline(theme.BG_CARD))
     pos_card.pack(fill="both", expand=True, pady=(0, 6))
-    tk.Label(pos_card, text="🔥 고승률 시너지", bg=theme.BG_CARD, fg=theme.SUCCESS, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
+    tk.Label(pos_card, text="🔥 고승률 시너지", bg=theme.BG_RAISED, fg=theme.SUCCESS, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
     pos_box = scrolledtext.ScrolledText(pos_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.SUCCESS, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8)
     pos_box.pack(fill="both", expand=True)
     pos_box.configure(state="disabled")
 
-    neg_card = tk.Frame(right_panel, bg=theme.BG_BAR)
+    neg_card = tk.Frame(right_panel, **theme.hairline(theme.BG_CARD))
     neg_card.pack(fill="both", expand=True, pady=(0, 6))
-    tk.Label(neg_card, text="⚠ 역시너지 경보", bg=theme.BG_CARD, fg=theme.WARN, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
+    tk.Label(neg_card, text="⚠ 역시너지 경보", bg=theme.BG_RAISED, fg=theme.WARN, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
     neg_box = scrolledtext.ScrolledText(neg_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.WARN, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8)
     neg_box.pack(fill="both", expand=True)
     neg_box.configure(state="disabled")
 
-    nemesis_card = tk.Frame(right_panel, bg=theme.BG_BAR)
+    nemesis_card = tk.Frame(right_panel, **theme.hairline(theme.BG_CARD))
     nemesis_card.pack(fill="both", expand=True)
-    tk.Label(nemesis_card, text="⚔ 적팀 인간상성", bg=theme.BG_CARD, fg=theme.TEAM_RED_FG, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
+    tk.Label(nemesis_card, text="⚔ 적팀 인간상성", bg=theme.BG_RAISED, fg=theme.TEAM_RED_FG, font=FONT_LF_TITLE, anchor="w", padx=10, pady=4).pack(fill="x")
     nemesis_box = scrolledtext.ScrolledText(nemesis_card, height=3, width=22, bg=theme.BG_INPUT, fg=theme.TEAM_RED_FG, font=FONT_SYNERGY, bd=0, highlightthickness=0, padx=8, pady=8)
     nemesis_box.pack(fill="both", expand=True)
     nemesis_box.configure(state="disabled")
@@ -12004,7 +12016,7 @@ def create_graphic_ui():
         with gui_lock:
             open_multisearch(gui_data.get("red", []))
             
-    btn_b_multi = tk.Button(b_head, text="멀티서치", font=UF(9, "bold"), bg=theme.WIN, fg="white", bd=0, cursor="hand2", command=do_blue_multi)
+    btn_b_multi = theme.make_button(b_head, "멀티서치", "win", font=UF(9, "bold"), padx=theme.SP_2, command=do_blue_multi)
     btn_b_multi.pack(side="right", padx=10, pady=5)
 
     r_head = tk.Frame(red_card, bg=theme.TEAM_RED_BG)
@@ -12017,7 +12029,7 @@ def create_graphic_ui():
 
     red_ban_frame = tk.Frame(r_title_frame, bg=theme.TEAM_RED_BG)
     red_ban_frame.pack(side="left", padx=5)
-    btn_r_multi = tk.Button(r_head, text="멀티서치", font=UF(9, "bold"), bg=theme.LOSE, fg="white", bd=0, cursor="hand2", command=do_red_multi)
+    btn_r_multi = theme.make_button(r_head, "멀티서치", "danger", font=UF(9, "bold"), padx=theme.SP_2, command=do_red_multi)
     btn_r_multi.pack(side="right", padx=10, pady=5)
 
     blue_slots = []
@@ -12035,12 +12047,15 @@ def create_graphic_ui():
         r_slots_wrap.rowconfigure(_i, weight=1, uniform="rslot")
 
     for i in range(5):
-        bf = tk.Frame(b_slots_wrap, bg=theme.TEAM_BLUE_SOFT)
+        # 🎨 [디자인 리뉴얼] 슬롯 카드 = 1px 헤어라인 + 왼쪽 3px 팀 컬러 액센트 비
+        bf = tk.Frame(b_slots_wrap, highlightbackground=theme.LINE, highlightthickness=1,
+                      bd=0, relief="flat", bg=theme.TEAM_BLUE_SOFT)
         bf.grid(row=i, column=0, sticky="nsew", padx=12, pady=1)
         bf.pack_propagate(False)   # 내부(pack) 내용이 커져도 칸이 안 늘어남 — 항상 균등 분할 크기 고정
+        tk.Frame(bf, bg=theme.TEAM_BLUE, width=3).pack(side="left", fill="y")   # 팀 컬러 액센트(블루)
         # [v82.9] 내용은 안쪽 컨테이너에 담고 바깥 여백(T1_FRAME_PAD)을 확보 — 프레임(베젤·하단 로고)이 여백에 보임
         binner = tk.Frame(bf, bg=theme.TEAM_BLUE_SOFT)
-        binner.pack(fill="both", expand=True, padx=T1_FRAME_PAD[0], pady=(T1_FRAME_PAD[1], T1_FRAME_PAD[2]))
+        binner.pack(side="left", fill="both", expand=True, padx=T1_FRAME_PAD[0], pady=(T1_FRAME_PAD[1], T1_FRAME_PAD[2]))
         bz = tk.Frame(binner, bg=theme.TEAM_BLUE_SOFT)
         bz.pack(fill="x", padx=10, pady=1)
         bti = tk.Label(bz, bg=theme.TEAM_BLUE_SOFT)
@@ -12054,7 +12069,7 @@ def create_graphic_ui():
         tk.Label(bz, text="➡", bg=theme.TEAM_BLUE_SOFT, fg=theme.TEXT_MUT).pack(side="left", padx=4)
         bpi = tk.Label(bz, bg=theme.TEAM_BLUE_SOFT)
         bpi.pack(side="left", padx=4)
-        btr = tk.Label(bz, text="", bg=theme.TEAM_BLUE_SOFT, fg=theme.GOLD, font=UF(11, "bold"))
+        btr = tk.Label(bz, text="", bg=theme.TEAM_BLUE_SOFT, fg=theme.GOLD, font=FONT_SLOT_NUM, anchor="w")
         btr.pack(side="left", padx=(2, 0))
         bem = tk.Label(bz, bg=theme.TEAM_BLUE_SOFT)   # 🎨 [v81.93] '내 꾸미기' 엠블럼(내 칸에만)
         bem.pack(side="right", padx=(0, 6))
@@ -12072,11 +12087,13 @@ def create_graphic_ui():
         bsub_3.pack(side="left")
         blue_slots.append((btn, bsub_1, bti, bpi, bcb, bc_frame_1, b_opgg, bc_frame_2, bsub_2, bc_frame_3, bsub_3, btr, bf, bem))   # [12]=칸 프레임 · [13]=🎨꾸미기 엠블럼
 
-        rf = tk.Frame(r_slots_wrap, bg=theme.TEAM_RED_SOFT)
+        rf = tk.Frame(r_slots_wrap, highlightbackground=theme.LINE, highlightthickness=1,
+                      bd=0, relief="flat", bg=theme.TEAM_RED_SOFT)
         rf.grid(row=i, column=0, sticky="nsew", padx=12, pady=1)
         rf.pack_propagate(False)   # [v82.19] 균등 분할 크기 고정
+        tk.Frame(rf, bg=theme.TEAM_RED, width=3).pack(side="left", fill="y")   # 팀 컬러 액센트(레드)
         rinner = tk.Frame(rf, bg=theme.TEAM_RED_SOFT)   # [v82.9] 프레임 여백용 안쪽 컨테이너
-        rinner.pack(fill="both", expand=True, padx=T1_FRAME_PAD[0], pady=(T1_FRAME_PAD[1], T1_FRAME_PAD[2]))
+        rinner.pack(side="left", fill="both", expand=True, padx=T1_FRAME_PAD[0], pady=(T1_FRAME_PAD[1], T1_FRAME_PAD[2]))
         rz = tk.Frame(rinner, bg=theme.TEAM_RED_SOFT)
         rz.pack(fill="x", padx=10, pady=1)
         rti = tk.Label(rz, bg=theme.TEAM_RED_SOFT)
@@ -12090,7 +12107,7 @@ def create_graphic_ui():
         tk.Label(rz, text="➡", bg=theme.TEAM_RED_SOFT, fg=theme.TEXT_MUT).pack(side="left", padx=4)
         rpi = tk.Label(rz, bg=theme.TEAM_RED_SOFT)
         rpi.pack(side="left", padx=4)
-        rtr = tk.Label(rz, text="", bg=theme.TEAM_RED_SOFT, fg=theme.GOLD, font=UF(11, "bold"))
+        rtr = tk.Label(rz, text="", bg=theme.TEAM_RED_SOFT, fg=theme.GOLD, font=FONT_SLOT_NUM, anchor="w")
         rtr.pack(side="left", padx=(2, 0))
         rem = tk.Label(rz, bg=theme.TEAM_RED_SOFT)   # 🎨 [v81.93] '내 꾸미기' 엠블럼(내 칸에만)
         rem.pack(side="right", padx=(0, 6))
@@ -12111,7 +12128,7 @@ def create_graphic_ui():
     # 🔥 [2026-08-01 사장님 지시] 연승/연패 텍스트는 이름 옆에서 빼고, **5연승 이상**만
     #    닉네임이 불타는 효과로 대신한다. 텍스트가 아니라 색이 일렁이는 방식.
     BURN_MIN_STREAK = 5
-    BURN_COLORS = ("#FFE08A", "#FFC44A", "#FF9E33", "#FF7A29", "#FF5A1F", "#FF7A29", "#FF9E33", "#FFC44A")
+    BURN_COLORS = theme.BURN_COLORS   # 연승 불꽃 팔레트는 theme.py 에서 관리(값 동일)
     _BURN_LABELS = set()          # 지금 불타는 중인 이름 라벨들(티커가 여기만 다시 칠한다)
 
     def _apply_burn(slot, sv):
@@ -12156,19 +12173,19 @@ def create_graphic_ui():
             w, txt = _REPORT_WIN.get("w"), _REPORT_WIN.get("txt")
             if not (w is not None and w.winfo_exists()):
                 w = tk.Toplevel(root); w.title("🏆 매치 결과 리포트 및 타이틀 획득!")
-                w.configure(bg="#12141a")
+                w.configure(bg=theme.BG)
                 try: w.iconbitmap(resource_path("icon.ico"))
                 except Exception: pass
-                bar = tk.Frame(w, bg="#12141a"); bar.pack(side="bottom", fill="x")
-                tk.Button(bar, text="확인", command=w.destroy, bg="#232838", fg="#cfd6e4",
-                          relief="flat", padx=18, cursor="hand2").pack(pady=(4, 12))
-                box = tk.Frame(w, bg="#12141a"); box.pack(side="top", fill="both", expand=True, padx=16, pady=(14, 4))
-                sb = tk.Scrollbar(box); sb.pack(side="right", fill="y")
+                bar = tk.Frame(w, bg=theme.BG); bar.pack(side="bottom", fill="x")
+                theme.make_button(bar, "확인", "neutral", padx=18, command=w.destroy).pack(pady=(theme.SP_1, theme.SP_3))
+                box = tk.Frame(w, bg=theme.BG); box.pack(side="top", fill="both", expand=True, padx=theme.SP_4, pady=(theme.SP_3, theme.SP_1))
+                # 🎨 기본 tk.Scrollbar 는 Windows 회색 → ttk 다크 스크롤바로 교체
+                sb = ttk.Scrollbar(box, orient="vertical", style="Vertical.TScrollbar"); sb.pack(side="right", fill="y")
                 if _REPORT_WIN.get("font") is None:   # 전용 폰트 — UF() 공용 폰트는 본체 창 배율을 따라 작은 화면에서 6~7pt로 줄어든다
                     try: _REPORT_WIN["font"] = tkfont.Font(family="Malgun Gothic", size=10)
                     except Exception: _REPORT_WIN["font"] = UF(10)
-                txt = tk.Text(box, wrap="word", width=58, bg="#12141a", fg="#e8eaf0", relief="flat",
-                              font=_REPORT_WIN["font"], yscrollcommand=sb.set, highlightthickness=0, bd=0)
+                txt = tk.Text(box, wrap="word", width=58, fg=theme.TEXT,
+                              font=_REPORT_WIN["font"], yscrollcommand=sb.set, **theme.hairline(theme.BG, focus=theme.LINE))
                 txt.pack(side="left", fill="both", expand=True)
                 sb.config(command=txt.yview)
                 w.bind("<Return>", lambda e: w.destroy()); w.bind("<Escape>", lambda e: w.destroy())
@@ -12328,7 +12345,9 @@ def create_graphic_ui():
                                    highlightthickness=int(cell.get("thick", 2) or 2), bg=bg)
                         nm_lbl.config(fg=cell.get("fg") or base_fg, bg=bg)
                     else:
-                        frm.config(highlightthickness=0, bg=soft_bg)
+                        # 🎨 꾸미기 해제 시 '기본값'은 테마 헤어라인 — 예전엔 0 으로 지워 칸 경계가 사라졌다
+                        frm.config(highlightthickness=1, highlightbackground=theme.LINE,
+                                   highlightcolor=theme.LINE_STRONG, bg=soft_bg)
                         nm_lbl.config(fg=base_fg, bg=soft_bg)   # 테마 해제 시 기본색 복원(잔상 방지)
                 except Exception:
                     pass
@@ -12653,13 +12672,13 @@ class ClanRankingWindow(tk.Toplevel):
         top_bar.pack(fill="x", side="top")
         
         self.title_lbl = tk.Label(top_bar, text=self.title_text, bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold"))
-        self.title_lbl.pack(side="left", padx=20, pady=15)
+        self.title_lbl.pack(side="left", padx=theme.SP_4, pady=theme.SP_3)
 
         btn_frame = tk.Frame(top_bar, bg=theme.BG_BAR)
-        btn_frame.pack(side="right", padx=20, pady=15)
+        btn_frame.pack(side="right", padx=theme.SP_4, pady=theme.SP_3)
 
-        self.btn_refresh = tk.Button(btn_frame, text="데이터 갱신", font=UF(10, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=12, pady=4, cursor="hand2", command=self.refresh_action)
-        self.btn_refresh.pack(side="right", padx=5)
+        self.btn_refresh = theme.make_button(btn_frame, "데이터 갱신", "neutral", command=self.refresh_action)
+        self.btn_refresh.pack(side="right", padx=theme.SP_1)
 
         tk.Label(btn_frame, text="메타(패치) 필터:", bg=theme.BG_BAR, fg=theme.TEXT, font=UF(10)).pack(side="left", padx=5)
 
@@ -12673,12 +12692,14 @@ class ClanRankingWindow(tk.Toplevel):
         self.cat_frame.pack(fill="x", padx=20, pady=(8, 0))
         self.cat_btns = {}
         for c_key, c_kor in [("CLASSIC", "협곡"), ("ARAM", "칼바람")]:
-            cb = tk.Button(self.cat_frame, text=c_kor, font=UF(11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=22, pady=5, cursor="hand2", command=lambda k=c_key: self.switch_mode(k))
-            cb.pack(side="left", padx=(0, 6))
+            cb = theme.make_button(self.cat_frame, c_kor, "neutral", padx=22, pady=5, command=lambda k=c_key: self.switch_mode(k))
+            cb.config(bg=theme.BG_CARD, fg=theme.TEXT_SUB, activebackground=theme.BG_RAISED)
+            cb.pack(side="left", padx=(0, theme.SP_1))
             self.cat_btns[c_key] = cb
         # 🏅 [v82.22] 기록실 토글 — 킬/데스/어시/딜량/AI점수 단일게임·누적 랭킹
         self.records_mode = False
-        self.btn_records = tk.Button(self.cat_frame, text="🏅 기록실", font=UF(11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=22, pady=5, cursor="hand2", command=self.toggle_records)
+        self.btn_records = theme.make_button(self.cat_frame, "🏅 기록실", "neutral", padx=22, pady=5, command=self.toggle_records)
+        self.btn_records.config(bg=theme.BG_CARD, fg=theme.TEXT_SUB, activebackground=theme.BG_RAISED)
         self.btn_records.pack(side="left", padx=(18, 0))
 
         # 포지션 필터(협곡 전용) — 항상 생성하고 모드에 따라 pack/pack_forget
@@ -12686,13 +12707,14 @@ class ClanRankingWindow(tk.Toplevel):
         self.pos_btns = {}
         pos_list = [("ALL", "통합"), ("TOP", "탑"), ("JUNGLE", "정글"), ("MIDDLE", "미드"), ("BOTTOM", "원딜"), ("UTILITY", "서폿")]
         for p_key, p_kor in pos_list:
-            btn = tk.Button(self.pos_frame, text=p_kor, font=UF(11, "bold"), bg=theme.BG_CARD, fg=theme.TEXT_SUB, bd=0, padx=15, pady=4, cursor="hand2", command=lambda k=p_key: self.switch_pos(k))
-            btn.pack(side="left", padx=5)
+            btn = theme.make_button(self.pos_frame, p_kor, "neutral", padx=15, pady=theme.SP_1, command=lambda k=p_key: self.switch_pos(k))
+            btn.config(bg=theme.BG_CARD, fg=theme.TEXT_SUB, activebackground=theme.BG_RAISED)
+            btn.pack(side="left", padx=theme.SP_1)
             self.pos_btns[p_key] = btn
         self._apply_mode_ui()
 
         self.grid_frame = tk.Frame(self, bg=theme.BG)
-        self.grid_frame.pack(fill="both", expand=True, padx=20, pady=(5, 20))
+        self.grid_frame.pack(fill="both", expand=True, padx=theme.SP_4, pady=(theme.SP_1, theme.SP_4))
         self.grid_frame.columnconfigure(0, weight=1, uniform="rank_card")
         self.grid_frame.columnconfigure(1, weight=1, uniform="rank_card")
         self.grid_frame.rowconfigure(0, weight=1)
@@ -12707,7 +12729,7 @@ class ClanRankingWindow(tk.Toplevel):
 
         bot_bar = tk.Frame(self, bg=theme.BG, height=50)
         bot_bar.pack(fill="x", side="bottom")
-        tk.Button(bot_bar, text="닫기", font=UF(11, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2", command=self.destroy).pack(pady=10)
+        theme.make_button(bot_bar, "닫기", "neutral", width=20, pady=theme.SP_1, command=self.destroy).pack(pady=theme.SP_2)
 
     def _apply_mode_ui(self):
         # 카테고리 버튼 하이라이트 + 포지션 필터(협곡·종합랭킹에서만 노출)
@@ -12715,7 +12737,7 @@ class ClanRankingWindow(tk.Toplevel):
             if k == self.mode: b.config(bg=theme.ACCENT, fg=theme.TEXT)
             else: b.config(bg=theme.BG_CARD, fg=theme.TEXT_SUB)
         _rec = getattr(self, "records_mode", False)
-        try: self.btn_records.config(bg=(theme.GOLD if _rec else theme.BG_CARD), fg=("#1b1b1b" if _rec else theme.TEXT_SUB))
+        try: self.btn_records.config(bg=(theme.GOLD if _rec else theme.BG_CARD), fg=(theme.TEXT_ON if _rec else theme.TEXT_SUB))
         except Exception: pass
         if self.mode == "CLASSIC" and not _rec:
             self.pos_frame.pack(fill="x", padx=20, pady=5, after=self.cat_frame)
@@ -12880,10 +12902,10 @@ class ClanRankingWindow(tk.Toplevel):
               for x in rl if x.get("met_n", 0) >= 5 and x.get("gpm_sum", 0) > 0]),
         ]
         for idx, (title, color, entries) in enumerate(cards):
-            card = tk.Frame(inner, bg=theme.BG_BAR)
-            card.grid(row=idx // 2, column=idx % 2, sticky="nsew", padx=8, pady=8)
-            tk.Label(card, text=f"{title} TOP 10", bg=theme.BG_CARD, fg=color, font=UF(12, "bold"), anchor="w", padx=12, pady=6).pack(fill="x")
-            box = tk.Text(card, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(10), bd=0, highlightthickness=0, padx=12, pady=10, height=11)
+            card = tk.Frame(inner, **theme.hairline(theme.BG_CARD))
+            card.grid(row=idx // 2, column=idx % 2, sticky="nsew", padx=theme.SP_2, pady=theme.SP_2)
+            tk.Label(card, text=f"{title} TOP 10", bg=theme.BG_RAISED, fg=color, font=UF(12, "bold"), anchor="w", padx=theme.SP_3, pady=theme.SP_1).pack(fill="x")
+            box = tk.Text(card, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(10), bd=0, highlightthickness=0, padx=theme.SP_3, pady=theme.SP_3, height=11)
             top = sorted(entries, key=lambda x: -x[0])[:10]
             if not top:
                 box.insert(tk.END, "\n 💤 기록 데이터가 부족합니다.")
@@ -12948,15 +12970,15 @@ class ClanRankingWindow(tk.Toplevel):
             highest_troll = sorted([x for x in data_list if x['eval_total'] >= min_games_eval and x['troll'] > 0], key=lambda x: (x['troll']/x['eval_total'], x['troll']), reverse=True)[:10]
 
             def draw_card(row, col, title, lst, stat_type):
-                card = tk.Frame(self.grid_frame, bg=theme.BG_BAR, bd=0); card.grid(row=row, column=col, sticky="nsew", padx=8, pady=8)
-                header_bg = theme.BG_CARD if stat_type in ["total", "wr"] else theme.BG_CARD if stat_type == "troll" else theme.BG_CARD
+                card = tk.Frame(self.grid_frame, **theme.hairline(theme.BG_CARD)); card.grid(row=row, column=col, sticky="nsew", padx=theme.SP_2, pady=theme.SP_2)
+                header_bg = theme.BG_RAISED
                 header_fg = theme.GOLD if stat_type in ["total", "wr"] else theme.TEAM_RED_FG if stat_type == "troll" else theme.GOLD
                 
                 if self.mode == "ARAM" and stat_type in ["total", "wr"]: header_fg = theme.TEAM_BLUE_FG
                 
                 lbl_f = tk.Frame(card, bg=header_bg, height=35); lbl_f.pack(fill="x")
-                tk.Label(lbl_f, text=title, bg=header_bg, fg=header_fg, font=UF(12, "bold")).pack(anchor="w", padx=12, pady=6)
-                box = tk.Text(card, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(10), bd=0, highlightthickness=0, padx=12, pady=12); box.pack(fill="both", expand=True)
+                tk.Label(lbl_f, text=title, bg=header_bg, fg=header_fg, font=UF(12, "bold")).pack(anchor="w", padx=theme.SP_3, pady=theme.SP_1)
+                box = tk.Text(card, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(10), bd=0, highlightthickness=0, padx=theme.SP_3, pady=theme.SP_3); box.pack(fill="both", expand=True)
                 
                 if not lst:
                     box.insert(tk.END, f"\n 💤 기준({min_games_wr if stat_type == 'wr' else min_games_eval}판)을 충족하는 유저 데이터가 부족합니다.")
@@ -13005,14 +13027,14 @@ class TierAssessmentWindow(tk.Toplevel):
     def create_widgets(self):
         top = tk.Frame(self, bg=theme.BG_BAR, height=58)
         top.pack(fill="x", side="top")
-        tk.Label(top, text="🎖 내부티어 평가", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold")).pack(side="left", padx=20, pady=14)
-        self.btn_refresh = tk.Button(top, text="데이터 갱신", font=UF(10, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, padx=12, pady=4, cursor="hand2", command=self.refresh_action)
-        self.btn_refresh.pack(side="right", padx=20, pady=14)
+        tk.Label(top, text="🎖 내부티어 평가", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold")).pack(side="left", padx=theme.SP_4, pady=theme.SP_3)
+        self.btn_refresh = theme.make_button(top, "데이터 갱신", "neutral", command=self.refresh_action)
+        self.btn_refresh.pack(side="right", padx=theme.SP_4, pady=theme.SP_3)
         tk.Label(top, text="기준: 협곡 전체 · 같은 내부티어 평균 대비 (승률×1 + MVP율×0.5 − 역적율×0.5, ±7)   ·   ℹ MVP율 = (MVP + ACE×0.5) / 평가판 — 진팀 ACE도 MVP의 절반으로 합산됩니다",
-                 bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=UF(9)).pack(side="right", padx=8)
+                 bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=UF(9)).pack(side="right", padx=theme.SP_2)
 
         body = tk.Frame(self, bg=theme.BG)
-        body.pack(fill="both", expand=True, padx=16, pady=10)
+        body.pack(fill="both", expand=True, padx=theme.SP_4, pady=theme.SP_2)
         self.canvas = tk.Canvas(body, bg=theme.BG, highlightthickness=0)
         sb = ttk.Scrollbar(body, orient="vertical", command=self.canvas.yview)
         self.inner = tk.Frame(self.canvas, bg=theme.BG)
@@ -13030,7 +13052,7 @@ class TierAssessmentWindow(tk.Toplevel):
 
         bot = tk.Frame(self, bg=theme.BG, height=46)
         bot.pack(fill="x", side="bottom")
-        tk.Button(bot, text="닫기", font=UF(11, "bold"), bg=theme.BG_RAISED, fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2", command=self._close).pack(pady=8)
+        theme.make_button(bot, "닫기", "neutral", width=20, pady=theme.SP_1, command=self._close).pack(pady=theme.SP_2)
 
     def _close(self):
         try: self.canvas.unbind_all("<MouseWheel>")
@@ -13065,9 +13087,9 @@ class TierAssessmentWindow(tk.Toplevel):
                 members = by_tier.get(t, [])
                 if not members: continue
                 avg = tier_avg.get(t, {})
-                hdr = tk.Frame(self.inner, bg=theme.BG_BAR)
-                hdr.pack(fill="x", pady=(10, 2))
-                tk.Label(hdr, text=f"  [{t}]", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(13, "bold")).pack(side="left", padx=(6, 0), pady=5)
+                hdr = tk.Frame(self.inner, bg=theme.BG_RAISED)
+                hdr.pack(fill="x", pady=(theme.SP_3, 2))
+                tk.Label(hdr, text=f"  [{t}]", bg=theme.BG_RAISED, fg=theme.GOLD, font=UF(13, "bold")).pack(side="left", padx=(6, 0), pady=5)
                 if avg.get("wr") is not None:
                     avg_txt = f"동티어 평균 — 승률 {round(avg['wr'])}%"
                     if avg.get("mvp") is not None: avg_txt += f" · MVP율 {round(avg['mvp'])}%"
@@ -13075,11 +13097,11 @@ class TierAssessmentWindow(tk.Toplevel):
                     avg_txt += f"  ·  표본 {avg.get('n', 0)}명"
                 else:
                     avg_txt = "동티어 표본 부족"
-                tk.Label(hdr, text=avg_txt, bg=theme.BG_BAR, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=8, pady=5)
+                tk.Label(hdr, text=avg_txt, bg=theme.BG_RAISED, fg=theme.TEXT_SUB, font=UF(10)).pack(side="left", padx=8, pady=5)
 
                 members.sort(key=lambda x: (order_label.get(x["label"], 9), x.get("implPct", 999)))
                 for a in members:
-                    row = tk.Frame(self.inner, bg=theme.BG_CARD)
+                    row = tk.Frame(self.inner, **theme.hairline(theme.BG_CARD))
                     row.pack(fill="x", pady=1, padx=2)
                     nm = str(a["name"]).split("#")[0]
                     tk.Label(row, text=nm, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(11, "bold"), width=16, anchor="w").pack(side="left", padx=(10, 4), pady=5)
@@ -13118,9 +13140,10 @@ class PatchNoteWindow(tk.Toplevel):
         self.create_widgets()
 
     def create_widgets(self):
-        tk.Label(self, text="📜 스쿼드해체분석기 버전별 업데이트 기록", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold"), pady=15).pack(fill="x")
-        txt = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(11), padx=15, pady=15, bd=0)
-        txt.pack(fill="both", expand=True, padx=20, pady=10)
+        tk.Label(self, text="📜 스쿼드해체분석기 버전별 업데이트 기록", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(16, "bold"), pady=theme.SP_3).pack(fill="x")
+        txt = scrolledtext.ScrolledText(self, fg=theme.TEXT, font=UF(11), padx=theme.SP_3, pady=theme.SP_3,
+                                        **theme.hairline(theme.BG_CARD, focus=theme.LINE))
+        txt.pack(fill="both", expand=True, padx=theme.SP_4, pady=theme.SP_2)
         
         notes = [
             "[V81.97] 작업표시줄 제목에 버전 표기 복원",
@@ -13194,7 +13217,7 @@ class ClanSettingsWindow(tk.Toplevel):
     def create_widgets(self):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=55)
         top_bar.pack(fill="x", side="top")
-        tk.Label(top_bar, text="⚙ 환경 설정 (SETTINGS)", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(14, "bold")).pack(side="left", padx=20, pady=12)
+        tk.Label(top_bar, text="⚙ 환경 설정 (SETTINGS)", bg=theme.BG_BAR, fg=theme.GOLD, font=UF(14, "bold")).pack(side="left", padx=theme.SP_4, pady=theme.SP_3)
 
         # 🐞 [2026-08-12 사장님 제보 '체크를 꺼도 다시 켜져 있다'] 원인은 저장이 아니라 배치였다.
         #   Tk packer 는 순서대로 요청 크기를 나눠 준다. 본문(body_frame)이 먼저 packed 되고 옵션이
@@ -13204,9 +13227,8 @@ class ClanSettingsWindow(tk.Toplevel):
         #   ② 본문을 스크롤 가능하게 만들어, 앞으로 옵션이 더 늘어도 같은 사고가 안 나게 한다.
         bot_bar = tk.Frame(self, bg=theme.BG, height=56); bot_bar.pack(fill="x", side="bottom")
         bot_bar.pack_propagate(False)
-        tk.Button(bot_bar, text="설정 및 저장", font=UF(11, "bold"), bg=theme.TEAM_RED_BG,
-                  fg=theme.TEXT, bd=0, width=20, pady=6, cursor="hand2",
-                  command=self.apply_settings).pack(pady=11)
+        theme.make_button(bot_bar, "설정 및 저장", "primary", width=20, pady=theme.SP_1,
+                          command=self.apply_settings).pack(pady=theme.SP_3)
         # 🖥 [2026-09-28 사장님 지시] 만든 사람 표시 — "시스템은 알아도 누가 만든 건지 모르는 경우가 많다"
         _cred = tk.Label(self, text=f"만든 사람: 클랜원 맛동산장인 유미  ·  전적·다운로드 {SITE_SHORT}", bg=theme.BG, fg=theme.TEXT_SUB,
                          font=UF(9), cursor="hand2")
@@ -13223,10 +13245,10 @@ class ClanSettingsWindow(tk.Toplevel):
         body_frame.bind("<Configure>", lambda e: _cv.configure(scrollregion=_cv.bbox("all")))
         _cv.bind("<Configure>", lambda e: _cv.itemconfigure(_bw, width=e.width))
         self.bind("<MouseWheel>", lambda e: _cv.yview_scroll(int(-e.delta / 120), "units"))
-        body_frame.configure(padx=25, pady=20)
+        body_frame.configure(padx=theme.SP_6, pady=theme.SP_4)
         
-        style = ttk.Style()
-        style.configure("TCheckbutton", background=theme.BG, foreground=theme.TEXT, font=UF(10))
+        # 🎨 ttk 위젯(체크박스·콤보)을 다크 테마로 — 스타일 함수는 theme.py 한 곳에 있다
+        theme.apply_ttk_theme(self, font=UF(10))
         
         self.var_startup = tk.BooleanVar(value=APP_CONFIG.get("windows_startup", True))
         self.var_lol_auto = tk.BooleanVar(value=APP_CONFIG.get("lol_auto_show", True))
@@ -13248,7 +13270,7 @@ class ClanSettingsWindow(tk.Toplevel):
         _same = (_reg == startup_cmdline())
         tk.Label(txt_f1,
                  text=("✅ 현재 등록됨" if _same else (f"⚠️ 등록값이 지금 실행 파일과 다릅니다 — {_reg}" if _reg else "⛔ 현재 등록 안 됨")),
-                 bg=theme.BG, fg=("#5ad48a" if _same else ("#ffb347" if _reg else "#ff8a8a")),
+                 bg=theme.BG, fg=(theme.SUCCESS if _same else (theme.WARN if _reg else theme.LOSE)),
                  font=UF(9), wraplength=430, justify="left").pack(anchor="w")
 
         opt_f2 = tk.Frame(body_frame, bg=theme.BG); opt_f2.pack(fill="x", pady=10)
@@ -13456,10 +13478,10 @@ class GuideWindow(tk.Toplevel):
 
     def create_widgets(self):
         tk.Label(self, text="📖 스쿼드해체분석기 사용 안내", bg=theme.BG_BAR, fg=theme.GOLD,
-                 font=UF(16, "bold"), pady=15).pack(fill="x")
-        txt = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT,
-                                        font=UF(11), padx=22, pady=18, bd=0,
-                                        highlightthickness=0, wrap="word", spacing3=4)
+                 font=UF(16, "bold"), pady=theme.SP_3).pack(fill="x")
+        txt = scrolledtext.ScrolledText(self, fg=theme.TEXT, font=UF(11),
+                                        padx=theme.SP_6, pady=theme.SP_4, wrap="word", spacing3=theme.SP_1,
+                                        **theme.hairline(theme.BG_CARD, focus=theme.LINE))
         txt.pack(fill="both", expand=True)
         txt.tag_configure("sec", foreground=theme.GOLD, font=UF(11, "bold"),
                           spacing1=14, spacing3=6)
@@ -13488,9 +13510,10 @@ class OnlineUsersWindow(tk.Toplevel):
     def create_widgets(self):
         top_bar = tk.Frame(self, bg=theme.BG_BAR, height=50)
         top_bar.pack(fill="x", side="top")
-        tk.Label(top_bar, text="👥 실시간 접속자 현황", bg=theme.BG_BAR, fg=theme.SUCCESS, font=UF(14, "bold")).pack(side="left", padx=20, pady=10)
-        self.list_box = scrolledtext.ScrolledText(self, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(11), bd=0, highlightthickness=0, padx=15, pady=15)
-        self.list_box.pack(fill="both", expand=True, padx=20, pady=20)
+        tk.Label(top_bar, text="👥 실시간 접속자 현황", bg=theme.BG_BAR, fg=theme.SUCCESS, font=UF(14, "bold")).pack(side="left", padx=theme.SP_4, pady=theme.SP_2)
+        self.list_box = scrolledtext.ScrolledText(self, fg=theme.TEXT, font=UF(11), padx=theme.SP_3, pady=theme.SP_3,
+                                                  **theme.hairline(theme.BG_CARD, focus=theme.LINE))
+        self.list_box.pack(fill="both", expand=True, padx=theme.SP_4, pady=theme.SP_4)
         self.list_box.insert(tk.END, "📡 통신 중... 데이터를 불러옵니다.")
         self.list_box.configure(state="disabled")
         threading.Thread(target=self.fetch_users, daemon=True).start()
