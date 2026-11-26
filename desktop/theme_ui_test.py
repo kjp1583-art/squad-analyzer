@@ -26,7 +26,8 @@ SRC_PATH = os.path.join(HERE, "squad_analyzer.py")
 HEX6 = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 # 헤더 텍스트 메뉴 8칸 — 아이콘 없이 글자만, 이 순서·이 이름이 사용자가 보는 메뉴다(계약).
-NAV_LABELS = ["팀초대", "모의밴픽", "SQUAD.GG", "AUC.GG", "포지션별", "설정", "팀뽑선정", "후원하기"]
+#   [v83.71] '팀초대·팀뽑선정'을 맨 왼쪽 두 칸으로(로비에서 먼저 쓰는 순서).
+NAV_LABELS = ["팀초대", "팀뽑선정", "모의밴픽", "SQUAD.GG", "AUC.GG", "포지션별", "설정", "후원하기"]
 # 2026-11-27 개편으로 메뉴에서 뺑 5개 — UI 버튼만 사라지고 기능 정의는 남아야 한다.
 REMOVED_LABELS = ["사용안내", "명예전당", "내부티어", "티어관리", "로그"]
 
@@ -794,6 +795,127 @@ class AnalyzerUiContract(unittest.TestCase):
                 if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
                 and n.func.attr == "Scrollbar" and isinstance(n.func.value, ast.Name) and n.func.value.id == "tk"]
         self.assertEqual(left, [], f"tk.Scrollbar 남음: {left}")
+
+
+class LobbyLayoutV8371(unittest.TestCase):
+    """v83.71 사장님 지시 4건의 회귀 테스트 — 슬롯 4줄 · 메뉴 순서 · 토글 알약 · 스크롤바 숨김.
+       (tkinter 가 없는 환경이라 위젯을 만들지 않고 AST 로 구조를 본다.)"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = open(SRC_PATH, encoding="utf-8").read()
+        cls.tree = ast.parse(cls.src)
+        cls.ui = next(n for n in ast.walk(cls.tree)
+                      if isinstance(n, ast.FunctionDef) and n.name == "create_graphic_ui")
+        cls.assigns = {}
+        for n in ast.walk(cls.ui):
+            if isinstance(n, ast.Assign):
+                for t in n.targets:
+                    if isinstance(t, ast.Name):
+                        cls.assigns[t.id] = n.value
+
+    # ── helpers ──
+    def calls(self, pred):
+        return [c for c in ast.walk(self.ui) if isinstance(c, ast.Call) and pred(c)]
+
+    def slot_tuple(self, var):
+        got = self.calls(lambda c: isinstance(c.func, ast.Attribute) and c.func.attr == "append"
+                         and isinstance(c.func.value, ast.Name) and c.func.value.id == var)
+        self.assertEqual(len(got), 1, var)
+        self.assertIsInstance(got[0].args[0], ast.Tuple)
+        return [e.id for e in got[0].args[0].elts if isinstance(e, ast.Name)]
+
+    def test_slot_rows_are_four_separate_lines(self):
+        """①아이디 ② 전적 ③모스트 ④고승률픽 — 세 줄이 각자 프레임을 가진다(모스트 잘림 방지)."""
+        for var in ("blue_slots", "red_slots"):
+            names = self.slot_tuple(var)
+            self.assertEqual(len(names), 14, var)
+            rows = [names[5], names[7], names[9]]              # 전적줄 · 모스트줄 · 고승률픽줄
+            self.assertEqual(len(set(rows)), 3, f"{var}: 세 줄이 같은 프레임이면 다시 한 줄로 붙는다")
+            for lbl_i, row_i in ((1, 5), (8, 7), (10, 9)):      # 라벨은 자기 줄 안에 있다
+                call = self.assigns.get(names[lbl_i])
+                self.assertIsInstance(call, ast.Call, names[lbl_i])
+                self.assertEqual(getattr(call.func, "attr", ""), "Label", names[lbl_i])
+                self.assertIsInstance(call.args[0], ast.Name, names[lbl_i])
+                self.assertEqual(call.args[0].id, names[row_i],
+                                 f"{var}: {names[lbl_i]} 는 {names[row_i]} 줄에 있어야 한다")
+            # 세로 순서 = 전적 → 모스트 → 고승률픽 (pack(fill=x) 는 만든 순서대로 위에서 아래로 쌓인다)
+            y = [self.assigns[r].lineno for r in rows]
+            self.assertLess(y[0], y[1], f"{var}: 모스트 줄은 전적 줄 아래")
+            self.assertLess(y[1], y[2], f"{var}: 고승률픽 줄은 모스트 줄 아래")
+            for r in rows:
+                self.assertEqual(getattr(self.assigns[r].func, "attr", ""), "Frame", r)
+
+    def test_jeok_line_has_no_most_text(self):
+        """전적 줄에 모스트를 다시 붙이면 모스트 아이콘이 우측에서 잘린다."""
+        mixed = [n.value for n in ast.walk(self.ui)
+                 if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                 and "전적" in n.value and "모스트" in n.value]
+        self.assertEqual(mixed, [], "전적 한 줄에 모스트를 같이 쓰면 안 된다")
+        labels = [n.value for n in ast.walk(self.ui) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+        self.assertIn(" 전적: ", labels)
+        self.assertIn(" 모스트", labels, "모스트는 자기 줄 라벨")
+        self.assertIn(" 고승률픽", labels, "고승률픽도 자기 줄 라벨")
+
+    def test_fatal_ban_line_removed_from_slots(self):
+        """'밴 당할 시 승률 하락' 줄은 슬롯에서 내렸다 — 함수·데이터는 재사용을 위해 보존."""
+        uses = [c.lineno for c in ast.walk(self.tree) if isinstance(c, ast.Call)
+                and isinstance(c.func, ast.Name) and c.func.id == "_fatal_ban_text"]
+        self.assertEqual(uses, [], f"슬롯에서 _fatal_ban_text 호출이 남음: {uses}")
+        self.assertTrue(any(isinstance(n, ast.FunctionDef) and n.name == "_fatal_ban_text"
+                            for n in ast.walk(self.tree)), "함수 정의는 보존(다시 붙일 때 사용)")
+        self.assertNotIn("밴 당할 시 승률", ast.unparse(self.ui))
+
+    def test_multisearch_button_packed_before_title(self):
+        """멀티서치 버튼을 먼저 오른쪽에 고정해야 '티서치'로 잘리지 않는다."""
+        def pack_call(name):
+            got = self.calls(lambda c: isinstance(c.func, ast.Attribute) and c.func.attr == "pack"
+                             and isinstance(c.func.value, ast.Name) and c.func.value.id == name)
+            self.assertEqual(len(got), 1, name)
+            return got[0]
+        for btn, title in (("btn_b_multi", "b_title_frame"), ("btn_r_multi", "r_title_frame")):
+            b = pack_call(btn)
+            side = next((k.value.value for k in b.keywords if k.arg == "side"), None)
+            self.assertEqual(side, "right", f"{btn} 는 오른쪽 고정")
+            self.assertLess(b.lineno, pack_call(title).lineno,
+                            f"{btn} 를 {title} 보다 먼저 pack 해야 남는 폭을 확보한다")
+
+    def test_position_menu_is_a_toggle_pill(self):
+        """포지션별/전체라인 = 일반 메뉴와 구분되는 토글 알약(⇄ + 테두리 + 상태 채움)."""
+        call = self.assigns.get("btn_posview")
+        self.assertIsInstance(call, ast.Call)
+        self.assertEqual(getattr(call.func, "id", ""), "_TextNavBtn")
+        kws = {k.arg: k.value for k in call.keywords}
+        self.assertIsInstance(kws.get("toggle"), ast.Constant)
+        self.assertTrue(kws["toggle"].value, "toggle=True 로 알약 스타일")
+
+        nav = next(n for n in ast.walk(self.tree) if isinstance(n, ast.ClassDef) and n.name == "_TextNavBtn")
+        nav_src = ast.unparse(nav)
+        self.assertIn("TOGGLE_GLYPH", nav_src, "⇄ 글리프로 두 모드를 오간다는 걸 표시")
+        self.assertIn("highlightthickness=1", nav_src, "알약 테두리")
+        self.assertIn("theme.LINE_STRONG", nav_src)
+        self.assertIn("theme.TEXT_ON", nav_src, "켜짐 = 액센트 채움 위 어두운 글자")
+        self.assertIn("self.toggle", nav_src, "config(text=, bg=) 계약이 알약에도 먹어야 한다")
+        init = next(n for n in nav.body if isinstance(n, ast.FunctionDef) and n.name == "__init__")
+        self.assertIn("toggle", [a.arg for a in init.args.args], "기존 8개 메뉴 호출은 그대로 동작(기본값 False)")
+
+    def test_right_panel_scrollbars_hidden(self):
+        """우측 3칸(고승률 시너지·역시너지·인간상성)의 세로 스크롤바를 숨긴다 — 휠 스크롤은 유지."""
+        helper = next((n for n in ast.walk(self.ui)
+                       if isinstance(n, ast.FunctionDef) and n.name == "_hide_vbar"), None)
+        self.assertIsNotNone(helper, "_hide_vbar 헬퍼 필요")
+        helper_src = ast.unparse(helper)
+        self.assertIn("vbar", helper_src)
+        self.assertIn("pack_forget", helper_src)
+        wrapped = self.calls(lambda c: isinstance(c.func, ast.Name) and c.func.id == "_hide_vbar")
+        self.assertEqual(len(wrapped), 3, "시너지·역시너지·인간상성 3칸 모두")
+        for c in wrapped:
+            self.assertEqual(getattr(c.args[0].func, "attr", ""), "ScrolledText", "ScrolledText 를 감싼다")
+        # 스크롤바만 숨기고 휠·키 스크롤은 막지 않는다(Text 기본 바인딩 유지) — 내용도 그대로 넣는다.
+        self.assertNotIn("unbind\", \"<MouseWheel>", self.src)
+        self.assertIn("pos_box = _hide_vbar(", ast.unparse(self.ui))
+        self.assertIn("pos_box.insert", ast.unparse(self.ui), "내용 삽입은 그대로")
+        self.assertIn("nemesis_box.insert", ast.unparse(self.ui), "내용 삽입은 그대로")
 
 
 if __name__ == "__main__":
