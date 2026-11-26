@@ -86,6 +86,9 @@ window.SGG_DC_BOOT=(function(){
     font-family:"Pretendard","Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5}
   a{color:inherit;text-decoration:none}
   button{font-family:inherit;cursor:pointer}
+  /* ♿ [2026-11-26 P1-6] 키보드 포커스 표시 — 이 사이트 CSS 에는 :focus-visible 규칙이 하나도 없어서
+     Tab 으로 다닐 때 지금 어디에 있는지 보이지 않았다(WCAG 2.4.7). 마우스로 누를 때는 뜨지 않고 키보드로만 뜬다. */
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
 
   /* Header */
@@ -97,6 +100,8 @@ window.SGG_DC_BOOT=(function(){
   .logomark{width:34px;height:34px;flex:none;filter:drop-shadow(0 0 6px rgba(124,58,237,.45))}
   .searchwrap{flex:1;min-width:240px;position:relative}
   .search{display:flex;width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  /* ♿ [2026-11-26 P1-6] 검색창은 outline:none 이라 키보드 포커스가 전혀 안 보였다 — 칸 전체에 테두리를 준다 */
+  .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,140,255,.22)}
   .search input{flex:1;background:transparent;border:0;color:var(--txt);padding:11px 14px;font-size:16px;outline:none}
   .search button{background:var(--accent);border:0;color:#fff;padding:0 18px;font-weight:700}
   .suggest{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--card2);border:1px solid var(--line);border-radius:10px;overflow:hidden auto;max-height:360px;z-index:40;box-shadow:0 12px 32px rgba(0,0,0,.45)}
@@ -802,7 +807,8 @@ window.SGG_DC_BOOT=(function(){
   /* Tabs */
   .tabs{display:flex;gap:2px;margin:18px 0 8px;border-bottom:1px solid var(--line);flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
   /* 탭 13개가 1080px 안에 한 줄로 들어가게 좌우 여백만 소폭 축소(2026-08-19 — 끝 탭이 잘려 안 보이던 문제) */
-  .tab{padding:10px 11px;color:var(--sub);font-weight:600;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+  /* ♿ [2026-11-26 P1-6] 탭을 div → <button role="tab"> 로 바꿨다. 브라우저 기본 버튼 모양을 지워 지금 모양 그대로 둔다. */
+  .tab{font:inherit;background:transparent;border:0;border-bottom:2px solid transparent;-webkit-appearance:none;appearance:none;padding:10px 11px;color:var(--sub);font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto}
   .tab:hover{color:var(--txt)}
   .tab.on{color:var(--txt);border-bottom-color:var(--accent)}
   /* 🥊 [2026-09-03 사장님 지시] 탭 둘째 줄 — 인간상성. 첫 줄 바로 아래에 붙여 한 덩어리로 보이게 */
@@ -826,7 +832,8 @@ window.SGG_DC_BOOT=(function(){
   .bic-d{color:var(--sub);font-size:12.5px;line-height:1.8;overflow-wrap:anywhere}
   .bic-d p{margin:6px 0}
   @media (max-width:420px){.big{grid-template-columns:1fr}.bic code{white-space:normal}}
-  .brjtabs .segbtn{flex:0 0 auto;white-space:nowrap}
+  .tabs .tab:focus-visible{outline-offset:-3px}   /* ♿ 탭 줄은 가로 스크롤 상자라 바깥 링이 잘린다 — 안쪽으로 */
+  .brjtabs .segbtn:focus-visible{outline-offset:-3px}   /* ♿ 하위 탭(둥근 칩)도 같은 이유로 안쪽 링 */
   /* 💘 듀오 시너지 — 봇듀오 / 미드·정글 전환 토글 (2026-08-12) */
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .segbtn{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;
@@ -7575,8 +7582,20 @@ function navTabsHtml(active){
   const G=navGroups(); const cur=G.find(g=>g.tabs.some(t=>t[0]===active))||G[0];
   const dd=g=>`<div class="sec-dd" role="menu"><div class="sec-ddp">${g.tabs.map(([k,lb])=>`<a role="menuitem" tabindex="0" class="dd-i${k===active?' on':''}" onclick="event.stopPropagation();go('${k}')" onkeydown="if(event.key==='Enter')go('${k}')"><b>${lb}</b>${NAV_DESC[k]?`<small>${NAV_DESC[k]}</small>`:""}</a>`).join("")}</div></div>`;
   const sec=`<div class="secnav" role="tablist" aria-label="메뉴 구역">${G.map(g=>`<span class="sec-wrap"><button type="button" role="tab" aria-selected="${g===cur}" class="sec ${g===cur?'on':''}" data-g="${g.k}" onclick="go('${g.tabs[0][0]}')">${g.label}</button>${dd(g)}</span>`).join("")}</div>`;
-  const tabs=cur.tabs.map(([k,lb])=>`<div class="tab ${active===k?'on':''}${k==='donate'?' don':''}" data-k="${k}" onclick="go('${k}')">${lb}</div>`).join("");
-  return `<div class="tabswrap" id="tabswrap">${sec}<div class="tabs">${tabs}</div></div>`;
+  /* ♿ [2026-11-26 P1-6] 탭을 <div onclick> 에서 <button role="tab" aria-selected> 로 — Tab 으로 탭 줄에 닿고 Enter/Space 로 열린다. */
+  const tabs=cur.tabs.map(([k,lb])=>`<button type="button" role="tab" aria-selected="${active===k}" class="tab ${active===k?'on':''}${k==='donate'?' don':''}" data-k="${k}" onclick="go('${k}')">${lb}</button>`).join("");
+  return `<div class="tabswrap" id="tabswrap">${sec}<div class="tabs" role="tablist" aria-label="${cur.label} 탭" onkeydown="navTabsKey(event)">${tabs}</div></div>`;
+}
+/* ♿ [2026-11-26 P1-6] 탭 줄에서 ←/→(Home/End) 로 탭 사이를 옴긴다 — 누르면 그 화면으로 가고, 새로 그린 탭에 포커스를 돌려준다. */
+function navTabsKey(e){
+  const k=e.key; if(k!=="ArrowRight"&&k!=="ArrowLeft"&&k!=="Home"&&k!=="End") return;
+  const wrap=e.currentTarget; if(!wrap||!wrap.querySelectorAll) return;
+  const list=[...wrap.querySelectorAll(".tab[data-k]")]; let i=list.indexOf(document.activeElement);
+  if(i<0||!list.length) return;
+  i = k==="Home"?0 : k==="End"?list.length-1 : (i+(k==="ArrowRight"?1:-1)+list.length)%list.length;
+  const el=list[i], key=el&&el.getAttribute("data-k"); if(!key) return;
+  e.preventDefault(); go(key);
+  (window.requestAnimationFrame||((f)=>setTimeout(f,16)))(()=>{ const n=document.querySelector('.tabs .tab.on[data-k="'+key+'"]'); if(n&&n.focus){ try{ n.focus({preventScroll:true}); }catch(_){ try{ n.focus(); }catch(__){} } } });
 }
 
 /* ============== 화면: 💘 이상형월드컵 (2026-10-18 사장님 지시) ==============
@@ -13431,6 +13450,34 @@ function hofPos(p){   // [2026-07-21] 전체 재렌더 금지 — 해당 박스�
 }
 function hofPatch(p){HOF.patch=p;renderHOF();}
 
+/* ♿ [2026-11-26 P1-6] 클릭만 되던 div·span 을 키보드·스크린리더로도 닿게 한다.
+   화면마다 onclick 이 달린 div/span 이 수십 개인데(프로필 한 화면 71개) button 이 아니라 Tab 으로 닿지 않았다.
+   마크업을 전부 button 으로 바꾸면 카드·행 레이아웃이 깨지기 쉬워, 그릴 때마다 tabindex·role 만 채우고
+   Enter/Space 는 한 곳에서 받아 click() 으로 넘긴다(치수·색·배치 그대로, 화면 낭독기는 '버튼'으로 읽는다). */
+(function(){
+  function fill(){
+    let list; try{ list=document.querySelectorAll("[onclick]"); }catch(e){ return; }
+    for(const el of list){
+      if(!el||!el.getAttribute) continue;
+      if(el.hasAttribute("tabindex")||(el.matches&&el.matches("button,a[href],input,select,textarea,[contenteditable]"))) continue;
+      const oc=(el.getAttribute("onclick")||"").trim();
+      if(/^event\.stopPropagation\(\);?$/.test(oc)) continue;   // 전파만 막는 껍데기 칸
+      el.setAttribute("tabindex","0");
+      if(!el.hasAttribute("role")) el.setAttribute("role","button");
+    }
+  }
+  let q=false; const soon=()=>{ if(q) return; q=true; (window.requestAnimationFrame||((f)=>setTimeout(f,16)))(()=>{ q=false; fill(); }); };
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",soon); else soon();
+  try{ new MutationObserver(soon).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+  document.addEventListener("keydown",(e)=>{
+    if(e.key!=="Enter"&&e.key!==" "&&e.key!=="Spacebar") return;
+    const t=e.target; if(!t||typeof t.getAttribute!=="function") return;
+    if(t.matches&&t.matches("button,a[href],input,select,textarea")) return;   // 진짜 버튼·링크는 브라우저가 처리
+    if(t.getAttribute("role")!=="button"||!t.hasAttribute("onclick")) return;
+    e.preventDefault(); t.click();
+  });
+})();
+
 /* ============== 부팅 ============== */
 // 🔄 새 배포 자동 감지 — GitHub Pages CDN이 index.html을 최대 10분 캐시 + 오래 켜둔 탭은 갱신 없음 →
 //    10분마다·탭 복귀 시 서버의 index.html을 no-store로 받아 BUILD_ID 비교, 다르면 배너로 새로고침 유도.
@@ -13506,7 +13553,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611266600";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611266700";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
