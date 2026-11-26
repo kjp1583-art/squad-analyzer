@@ -1888,7 +1888,7 @@ window.SGG_DC_BOOT=(function(){
   .nt-chip{align-self:flex-start;padding:3px 10px;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--fs-xs);font-weight:800}
   .nt-hl{font-size:22px;line-height:1.25;font-weight:800;text-wrap:balance}
   .nt-lead-t{margin:0;color:var(--sub);font-size:14px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .nt-more{color:var(--accent);font-weight:800;white-space:nowrap}
+  .nt-more{color:var(--accent);font-weight:800;white-space:nowrap;align-self:flex-start}   /* 📰 [2026-11-27] 기사 본문이 200~260자로 길어져도 '이어 읽기'가 2줄 클램프에 함께 잘리지 않게 본문 밖으로 뺐다 */
   .nt-side{display:flex;flex-direction:column;gap:2px;min-width:0}
   .nt-it{display:grid;grid-template-columns:50px minmax(0,1fr);gap:10px;align-items:center;padding:5px 6px;border-radius:10px}
   .nt-it:hover{background:rgba(255,255,255,.05)}
@@ -6576,7 +6576,7 @@ function newsTeaserHtml(){   // 홈 1면 미리보기(자동매칭 자리)
       <div class="nt-lmeta"><span class="nt-brand np-serif">주간스쿼드</span><span>${esc(wk.label||"")}${gen?` · ${esc(gen)}`:""}</span>${G.letter?`<span class="nt-wx" title="이번 주 클랜 날씨 = 등급">${wt.ic} ${esc(wt.t)} <b>${esc(G.letter)}</b></span>`:""}</div>
       <span class="nt-chip">1면${top&&top.section?` · ${esc(top.section)}`:""}</span>
       <div class="nt-hl np-serif">${esc(W.headline||"")}</div>
-      <p class="nt-lead-t">${mdLite(cut(lead,150))} <span class="nt-more">이어 읽기 ›</span></p>${leadPic?`<span class="nt-credit">사진 · ${esc(leadPic.ch)} · 라이엇 게임즈</span>`:""}
+      <p class="nt-lead-t">${mdLite(cut(lead,150))}</p>${top&&top.body?`<span class="nt-more">이어 읽기 ›</span>`:""}${leadPic?`<span class="nt-credit">사진 · ${esc(leadPic.ch)} · 라이엇 게임즈</span>`:""}
     </div>
     <div class="nt-side">${side}
       <button type="button" class="nt-open" onclick="event.stopPropagation();go('news')">지면 전체 보기 <small>${esc(cnt)} · 💬 독자 댓글</small> <i>›</i></button></div>
@@ -13851,7 +13851,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611270208";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611270216";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
