@@ -26,6 +26,17 @@ for pkg in ('gspread', 'google.auth', 'google.oauth2', 'certifi', 'pystray', 'an
     binaries += b
     hiddenimports += h
 
+# 🎙 [2026-11-27] 인게임 뉴럴 TTS(edge-tts) — 함수 안에서 지연 import 라도 번들에서 빠지면
+#    음성만 조용히 생략된다(크래시는 없음). aiohttp 등 의존 패키지까지 통째로 넣어 둔다.
+try:
+    for pkg in ('edge_tts', 'aiohttp', 'tabulate'):
+        d, b, h = collect_all(pkg)
+        datas += d
+        binaries += b
+        hiddenimports += h
+except Exception:
+    hiddenimports += ['edge_tts']
+
 # httplib2 는 cacerts 데이터파일을 포함(없으면 TLS 깨짐)
 datas += collect_data_files('httplib2')
 
