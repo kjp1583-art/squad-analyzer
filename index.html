@@ -5928,6 +5928,7 @@ window.addEventListener("hashchange",async()=>{
    전에는 loadCategory 끝의 go('home') 이 딥링크를 덮어써서, #news 로 들어오면 홈이 먼저 뜨고 몇 초 뒤에야 지면이 나왔다.
    BOOT_LANDING 은 첫 데이터 로딩 한 번에만 쓴다(그 뒤 카테고리를 바꿔도 딥링크로 되돌아가지 않는다). */
 let BOOT_LANDING=true;
+const _bootRoutePending=()=>!!(BOOT_LANDING&&(ROUTE_BOOT_HASH||NEWS_BOOT_HASH||GAMES_BOOT_HASH||IDEAL_BOOT_HASH||SUB_BOOT_HASH||BRJ_BOOT_HASH));   // 딥링크로 열 화면이 아직 남아 있다
 function _bootLanding(){
   if(!BOOT_LANDING||ROUTE_BOOT_HASH) return false;   // #p/#g/#c — _openBootRoute 가 따로 처리
   if(NEWS_BOOT_HASH){ go('news',NEWS_BOOT_HASH.arg); return true; }
@@ -12809,7 +12810,7 @@ async function loadCategory(key, preP, keep){
   CURRENT_CAT=key; PATCH_SEL=null; PATCH_USER=false; PATCH_AUTO=false; renderCatbar();
   SORT={key:null,dir:-1};
   $("#q").value=""; hideSuggest();
-  if(!keep){ renderLoading(); setStatus("불러오는 중…"); }
+  if(!keep){ if(!_bootRoutePending()){ renderLoading(); setStatus("불러오는 중…"); } }   // 📰 딥링크로 이미 그 화면을 보여 주고 있으면 전역 로딩 화면으로 덮지 않는다
   loadbar(30);
   try{
     if(CAT_CACHE[key]){ RAW=CAT_CACHE[key]; build(); }
@@ -13661,7 +13662,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611267100";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611267200";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
