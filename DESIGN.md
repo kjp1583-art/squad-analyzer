@@ -39,9 +39,10 @@ Name by depth, not by color. Never use pure `#000000` as canvas — reserve blac
 |---|---|---|---|---|
 | ink (primary) | `--txt` | `TEXT` | `#e7eaf3` | player names, headings, numbers |
 | ink-muted (secondary) | `--sub` | `TEXT_SUB` | `#9aa3b8` | labels, table `th`, sub-rows |
-| ink-subtle (tertiary) | `--mut` | `TEXT_MUT` | `#717a91` | timestamps, hints, meta |
+| ink-subtle (tertiary) | `--mut` | `TEXT_MUT` | `#7d869c` | timestamps, hints, meta |
 | ink-on-accent | `--on-accent` | `TEXT_ON` | `#0e1017` | text on gold/blue solid fills |
 
+> **2026-11-26 대비 상향**: 웹 `--mut` 를 `#717a91`(=`--card` 위 3.83:1, AA 미달) → `#7d869c`(4.51:1, AA 충족)로 올렸다. 차트 SVG 축 라벨의 같은 hex 4곳도 함께 바꿨다. 데스크톱 `TEXT_MUT` 는 아직 `#717a91` 이다 — 분석기 로직을 건드리지 않는 다음 배포 때 이 값으로 맞춘다.
 > Collapse the desktop's **ten+ greys** (`#a0a8b5`, `#8a93a0`, `#9aa3b8`, `#bdc3c7`, `#7f8c8d`, `#e6e9ee`, `#dfe4ee`, `#a9b3c2`, `#c2a9a9`) → `--sub` or `--mut`. `#ffffff` fg → `--txt` (`#e7eaf3`) except on solid accent fills, which use `--on-accent`.
 
 ### 2.3 Borders (헤어라인 보더 — depth carrier)
@@ -113,7 +114,7 @@ Result: **retire ~25 stray hexes**, converge on ~18 roles shared with web.
 | xl | `--fs-xl` | `FS_XL` | 22 / 16pt | 800 | logo, profile name |
 | 2xl | `--fs-2xl` | `FS_2XL` | 24 / 20pt | 800 | stat numbers, main title |
 
-> **Kill the half-pixel steps** (11.5/12.5/13.5/14.5). Map each component's old size to the nearest token. Desktop: define `FONTS` dict once (`TITLE=(Malgun Gothic,20,'bold')`, `H1=(…,16,'bold')`, `H2=(…,13,'bold')`, `BODY=(…,11)`, `SMALL=(…,10)`, `NUM=('Consolas',11)`) and stop re-inlining tuples in modals (modal headers currently drift 14/15/16 → all become `H1`).
+> **Kill the half-pixel steps** (11.5/12.5/13.5/14.5). **2026-11-26 웹 반영**: `index.html` `:root` 에 `--fs-2xs:11 --fs-xs:12 --fs-sm:13 --fs-base:15 --fs-md:16 --fs-lg:18 --fs-xl:22 --fs-2xl:24` 를 정의하고, 반픽셀 492곳(10.5→2xs·11.5→xs·12.5·13.5→sm·14.5·15.5→base)과 11px 미만 15곳(10→2xs)을 토큰으로 치환했다(값 매핑: DESIGN §3 '가장 가까운 토큰'). Map each component's old size to the nearest token. Desktop: define `FONTS` dict once (`TITLE=(Malgun Gothic,20,'bold')`, `H1=(…,16,'bold')`, `H2=(…,13,'bold')`, `BODY=(…,11)`, `SMALL=(…,10)`, `NUM=('Consolas',11)`) and stop re-inlining tuples in modals (modal headers currently drift 14/15/16 → all become `H1`).
 
 ---
 
