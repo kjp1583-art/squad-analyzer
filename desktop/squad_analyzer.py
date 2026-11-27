@@ -5560,16 +5560,41 @@ def _fetch_summoner_profile(base, puuid, headers):
         return None
     return None
 
+def _riot_get(url, headers, timeout=8):
+    """Riot API GET — 429 는 Retry-After(기본 3초, 2~10초로 자름)만큼 기다려 최대 2회,
+       타임아웃·연결실패·5xx 는 1회만 짧게 재시도한다.
+       🔁 [v83.77 사장님 제보 '천쇄참월 솔랭이 언랭'] 예전엔 429 한 번에 바로 None 이 돼 그 사람 행이
+          시트에서 통째로 빠졌다. 404(없는 롤닉) 등 확정 응답은 재시도 없이 그대로 돌려주고,
+          끝내 실패하면 None(호출부가 '조회 실패'로 판단)."""
+    _n429 = _ntmp = 0
+    while True:
+        try:
+            r = requests.get(url, headers=headers, timeout=timeout)
+        except Exception:
+            if _ntmp >= 1: return None
+            _ntmp += 1
+            time.sleep(1.0); continue
+        if r.status_code == 429 and _n429 < 2:
+            _n429 += 1
+            try: _ra = float(r.headers.get("Retry-After", 3))
+            except Exception: _ra = 3.0
+            time.sleep(min(max(_ra, 2.0), 10.0)); continue
+        if 500 <= r.status_code < 600 and _ntmp < 1:
+            _ntmp += 1
+            time.sleep(1.5); continue
+        return r
+
 def fetch_solo_rank_by_riotid(riot_id, key, region="kr", routing="asia"):
-    """롤닉#태그 → account-v1로 진짜 PUUID 해석 → 솔랭. (시트 PUUID는 LCU형식이라 직접 못 씀)"""
+    """롤닉#태그 → account-v1로 진짜 PUUID 해석 → 솔랭. (시트 PUUID는 LCU형식이라 직접 못 씀)
+       실패(429·타임아웃·키 만료 등)는 None, 정상 200 응답에 솔랭 전적이 없을 때만 UNRANKED."""
     try:
         if "#" not in str(riot_id): return None
         import urllib.parse
         gn, tl = str(riot_id).rsplit("#", 1)
         h = {"X-Riot-Token": key}
-        ar = requests.get(f"https://{routing}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/"
-                          f"{urllib.parse.quote(gn.strip())}/{urllib.parse.quote(tl.strip())}", headers=h, timeout=8)
-        if ar.status_code != 200: return None
+        ar = _riot_get(f"https://{routing}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/"
+                       f"{urllib.parse.quote(gn.strip())}/{urllib.parse.quote(tl.strip())}", h, timeout=8)
+        if ar is None or ar.status_code != 200: return None
         puuid = ar.json().get("puuid")
         if not puuid: return None
         b = f"https://{region}.api.riotgames.com"
@@ -5577,11 +5602,11 @@ def fetch_solo_rank_by_riotid(riot_id, key, region="kr", routing="asia"):
         prof = {}
         sj = _fetch_summoner_profile(b, puuid, h)
         if sj: prof = {"icon": sj.get("profileIconId"), "level": sj.get("summonerLevel")}
-        r = requests.get(f"{b}/lol/league/v4/entries/by-puuid/{puuid}", headers=h, timeout=8)
-        if r.status_code != 200:   # 폴백: summoner-v4 → by-summoner
+        r = _riot_get(f"{b}/lol/league/v4/entries/by-puuid/{puuid}", h, timeout=8)
+        if r is None or r.status_code != 200:   # 폴백: summoner-v4 → by-summoner
             if not sj or not sj.get("id"): return None
-            r = requests.get(f"{b}/lol/league/v4/entries/by-summoner/{sj.get('id')}", headers=h, timeout=8)
-            if r.status_code != 200: return None
+            r = _riot_get(f"{b}/lol/league/v4/entries/by-summoner/{sj.get('id')}", h, timeout=8)
+            if r is None or r.status_code != 200: return None
         for e in r.json():
             if e.get("queueType") == "RANKED_SOLO_5x5":
                 t, rk, lp = e.get("tier"), e.get("rank"), e.get("leaguePoints", 0)
@@ -5641,6 +5666,30 @@ def update_solo_ranks():
         for _sub, _main in (global_alt_map or {}).items():
             _g = _grp.setdefault(tnorm(_main), {tnorm(_main)}); _g.add(tnorm(_sub)); _grp[tnorm(_sub)] = _g
     except Exception: pass
+    # 🛡️ [v83.77 사장님 제보 '천쇄참월#天鎖斬月1 이 언랭'] — 시트를 지우기 전에 기존 SOLO_RANK 스냅샷을 먼저 떠 둔다.
+    #    예전엔 이걸 루프가 끝난 뒤(=조회 다 실패한 뒤)에 읽어서, 429·타임아웃으로 None 이 된 사람은
+    #    out 에 아무 행도 못 들어가고 clear+update 로 시트에서 통째로 사라졌다(카드엔 '언랭').
+    #    이제 그런 사람은 이 스냅샷의 유효한(점수 있는) 이전 행을 그대로 살린다.
+    try:
+        try: ws = global_spreadsheet.worksheet("SOLO_RANK")
+        except Exception: ws = global_spreadsheet.add_worksheet(title="SOLO_RANK", rows="400", cols="9")
+    except Exception as _we:
+        print(f"[solo] SOLO_RANK 접근 실패: {type(_we).__name__}", flush=True)
+        return
+    try:
+        _prev_rows = get_sheet_data_cached(ws, force=True) or []
+        _prev_n = max(0, len([r for r in _prev_rows[1:] if r and str(r[0]).strip() and len(r) > 5 and str(r[5]).strip()]))
+    except Exception:
+        _prev_rows, _prev_n = [], 0
+    _prev_keep = {}     # tnorm(닉) -> 이전 행(9열로 맞춤). 점수 없는 행(진짜 언랭)은 보존 대상 아님
+    try:
+        for _r in _prev_rows[1:]:
+            if not _r or len(_r) <= 5 or not str(_r[0]).strip() or not str(_r[5]).strip(): continue
+            _row9 = [str(c) if c is not None else "" for c in list(_r)[:9]]
+            _row9 += [""] * (9 - len(_row9))
+            _prev_keep[tnorm(_r[0])] = _row9
+    except Exception: _prev_keep = {}
+    _kept = []
     _renamed = []
     for _pk, s in gstats.items():
         nm = s.get("name", "")
@@ -5660,33 +5709,35 @@ def update_solo_ranks():
             rk = fetch_solo_rank_by_riotid(rid, key)
             if rk: break
             time.sleep(1.3)
-        if rk and len(_cands) > 1 and tnorm(rid) != tnorm(nm): _renamed.append(f"{nm}→{rid}")
-        _ic = rk.get("icon") if rk else None
-        _lv = rk.get("level") if rk else None
+        if rk is None:
+            # 🔁 조회 실패(429·타임아웃·키 만료·네트워크) — 이전 유효 행이 있으면 그대로 보존한다.
+            #    (실제 200 UNRANKED 응답은 rk 가 dict 로 오므로 여기로 오지 않는다.)
+            _pr = _prev_keep.get(tnorm(nm))
+            if _pr:
+                out.append(list(_pr)); _kept.append(nm)
+            time.sleep(1.3)
+            continue
+        if len(_cands) > 1 and tnorm(rid) != tnorm(nm): _renamed.append(f"{nm}→{rid}")
+        _ic = rk.get("icon")
+        _lv = rk.get("level")
         if rk and rk.get("score") is not None:
             out.append([nm, f"{rk['tier']} {rk.get('rank','')}".strip(), rk.get("lp",0),
                         rk.get("wins",0), rk.get("losses",0), rk["score"],
                         time.strftime("%Y-%m-%d %H:%M"),
                         "" if _ic is None else _ic, "" if _lv is None else _lv])
-        elif rk and _ic is not None:
+        else:
             # 🖼 [P-5] 언랭도 아이콘·레벨은 남긴다 — 점수 칸이 비어 있어 솔랭 소비처(웹·분석기·툴링)는 모두 이 행을 건너뛴다
-            out.append([nm, "UNRANKED", "", "", "", "", time.strftime("%Y-%m-%d %H:%M"), _ic, "" if _lv is None else _lv])
+            #    [v83.77] 실제 UNRANKED 응답이면 아이콘을 못 받았어도 행은 남긴다(이전 티어를 살리면 거짓이 된다).
+            out.append([nm, "UNRANKED", "", "", "", "", time.strftime("%Y-%m-%d %H:%M"), "" if _ic is None else _ic, "" if _lv is None else _lv])
         time.sleep(1.3)   # rate limit
     # 🛡️ [v82.48 사장님 제보 — 시트 전멸 사고 방지] 예전엔 조회 결과와 무관하게 clear+덮어쓰기라,
     #    Riot API 키 만료·네트워크 실패로 전건 조회가 실패하면 SOLO_RANK가 헤더만 남고 통째로 비워졌다.
     #    ① 수집 0건이면 아예 쓰지 않음 ② 기존 대비 절반 미만으로 급감해도 보류(부분 실패 보호).
     try:
-        try: ws = global_spreadsheet.worksheet("SOLO_RANK")
-        except Exception: ws = global_spreadsheet.add_worksheet(title="SOLO_RANK", rows="400", cols="9")
         _new_n = len([r for r in out[1:] if str(r[5]).strip() != ""])   # 솔랭 점수 있는 행만(언랭 아이콘 행 제외)
         if _new_n <= 0:
             print("[solo] 수집 0건 — 기존 SOLO_RANK 보존(덮어쓰기 취소). Riot API 키 만료 여부 확인 필요", flush=True)
             return
-        try:
-            _prev_rows = get_sheet_data_cached(ws, force=True) or []
-            _prev_n = max(0, len([r for r in _prev_rows[1:] if r and str(r[0]).strip() and len(r) > 5 and str(r[5]).strip()]))
-        except Exception:
-            _prev_rows, _prev_n = [], 0
         _carry_profile_icons(out, _prev_rows)   # 🖼 [P-5] 이번에 못 받은 아이콘·레벨은 이전 값 유지
         if _prev_n >= 10 and _new_n < _prev_n * 0.5:
             print(f"[solo] 수집 급감({_prev_n}→{_new_n}) — 부분 실패로 보고 덮어쓰기 보류", flush=True)
@@ -5698,7 +5749,9 @@ def update_solo_ranks():
             print(f"[solo] SOLO_RANK 격자 확장 실패: {type(_ge).__name__}", flush=True)
         ws.clear(); ws.update(out)
         invalidate_sheet_cache("SOLO_RANK")
-        print(f"[solo] SOLO_RANK 갱신 {_new_n}명" + (f" · 최근 롤닉으로 조회 {len(_renamed)}명: {', '.join(_renamed[:8])}" if _renamed else ""), flush=True)
+        print(f"[solo] SOLO_RANK 갱신 {_new_n}명"
+              + (f" · 조회 실패로 이전 값 유지 {len(_kept)}명: {', '.join(_kept[:8])}" if _kept else "")
+              + (f" · 최근 롤닉으로 조회 {len(_renamed)}명: {', '.join(_renamed[:8])}" if _renamed else ""), flush=True)
     except Exception as _se:
         print(f"[solo] SOLO_RANK 기록 실패: {type(_se).__name__}", flush=True)
 
