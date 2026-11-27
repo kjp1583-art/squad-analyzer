@@ -650,9 +650,16 @@ class SquadAnalyzerWiringTest(unittest.TestCase):
         self.assertIn("lolps_build.feed(", self.src)
         self.assertIn("my_pick_from_session(", self.src)
         # 픽 스왑 감지를 위해 챔프선택 세션을 읽는 블록 안에서 불러야 한다
-        i = self.src.index("lolps_build.feed(")
+        i = self.src.index("lolps_build.feed(_lb_cid")
         window = self.src[i - 4000:i + 500]
         self.assertIn("/lol-champ-select/v1/session", window)
+
+    def test_card_hidden_when_leaving_champ_select(self):
+        # 닷지·게임 시작으로 밴픽 세션이 404 가 되면 ChampSelect 블록이 안 돌아 feed 가 안 불린다.
+        #   그래서 페이즈 이탈 분기에서도 카드를 비운다(안 비우면 로비·인게임에 낡은 카드가 남는다).
+        i = self.src.index('if current_phase == "ChampSelect":\n                if _cs_since[0] == 0.0')
+        window = self.src[i:i + 700]
+        self.assertIn("lolps_build.feed(0", window)
 
     def test_gui_tick_hooked(self):
         self.assertIn("def _lolps_build_sync(root)", self.src)
