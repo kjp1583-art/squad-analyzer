@@ -314,6 +314,130 @@ def test_spectators():
     check("확정 명단 밖(관전자) 채팅은 진행에 영향 없음", eng.phase == "rps" and not eng.rps_round)
 
 
+def test_spectator_slots_merged():
+    """2026-11-28 제보다 — members 에 빠진 관전 슬롯 인원·이름 빈 멤버가 목록에서 사라지지 않는지."""
+    nine = [member(n) for n in TEN[:9]]
+
+    # ① members 에 아예 없고 customSpectators 에만 있는 사람 → 관전자로 포함
+    rows = ld.classify_members(lobby(nine, spec=[{"puuid": "pu_관전1", "summonerId": 111,
+                                                   "gameName": "관전1#KR1"}]))
+    names = [r["name"] for r in rows]
+    check("members 에 없고 관전 슬롯에만 있어도 목록에 포함", "관전1" in names and len(rows) == 10, names)
+    check("그 사람은 spectator=True (태그 #KR1 은 떼고 표시)",
+          [r["name"] for r in rows if r["spectator"]] == ["관전1"])
+    check("9명 팀 + 1명 관전 → 전원 체크하면 시작 가능(10명)",
+          ld.selection_ready(len(rows), len(names)) is True and len(ld.default_selection(rows)) == 9)
+
+    # ② members 의 gameName/summonerName 이 비고 displayName 만 있는 경우
+    mem = nine + [{"puuid": "pu_관전2", "gameName": "", "summonerName": "", "displayName": "관전2"}]
+    rows = ld.classify_members(lobby(mem, spec=[{"puuid": "pu_관전2"}]))
+    check("gameName 비고 displayName 만 있어도 누락 없이 인식",
+          [r["name"] for r in rows if r["spectator"]] == ["관전2"], [r["name"] for r in rows])
+
+    # ③ members 쪽에는 이름이 아예 없고 customSpectators 에만 이름이 있는 경우 — 같은 사람을 한 줄로
+    mem = nine + [{"puuid": "pu_관전3", "summonerId": 333}]
+    rows = ld.classify_members(lobby(mem, spec=[{"puuid": "pu_관전3", "gameName": "관전3"}]))
+    names = [r["name"] for r in rows]
+    check("members 에는 이름이 없고 관전 슬롯에만 이름 → 관전 슬롯 이름으로 인식",
+          "관전3" in names and names.count("관전3") == 1, names)
+    check("이름 없는 빈 줄이 따로 생기지 않음", len(rows) == 10 and "" not in names, names)
+    check("그 사람은 관전자로 표시", [r["name"] for r in rows if r["spectator"]] == ["관전3"])
+
+    # ④ 같은 사람이 members·팀 슬롯·관전 슬롯에 같이 있어도 한 줄로 합치고 참가자로
+    mem = nine + [member("관전4")]
+    rows = ld.classify_members(lobby(mem,
+                                     spec=[{"puuid": "pu_관전4", "gameName": "관전4"}],
+                                     team100=[{"puuid": "pu_관전4", "gameName": "관전4"}]))
+    names = [r["name"] for r in rows]
+    check("members·팀·관전 슬롯 중복 → 한 줄로 합침", len(rows) == 10 and names.count("관전4") == 1, names)
+    check("팀 슬롯에 앉아 있으면 참가자(spectator=False) 유지",
+          not [r for r in rows if r.get("spectator")], [r for r in rows if r.get("spectator")])
+
+    # ⑤ 팀 슬롯에만 있고 members 에 없는 사람도 빠지지 않는다
+    rows = ld.classify_members(lobby(nine, team100=[{"puuid": "pu_팀원9", "gameName": "팀원9"}]))
+    check("팀 슬롯에만 있는 사람도 참가자로 포함",
+          "팀원9" in [r["name"] for r in rows] and not [r for r in rows if r.get("spectator")],
+          [r["name"] for r in rows])
+
+    # ⑥ 문자열 슬롯(puuid 문자열만 오는 형태)도 관전자로 잡는다
+    rows = ld.classify_members(lobby(nine + [member("관전5")], spec=["pu_관전5"]))
+    check("문자열 관전 슬롯(puuid)도 관전자로 표시",
+          [r["name"] for r in rows if r["spectator"]] == ["관전5"], rows)
+
+    # ⑦ 9명 팀 + 관전 2명 = 11명 방 → 관전 1명만 체크하면 10명 확정
+    rows = ld.classify_members(lobby(nine,
+                                     spec=[{"puuid": "pu_관전1", "gameName": "관전1"},
+                                           {"puuid": "pu_관전2", "gameName": "관전2"}],
+                                     team100=[{"puuid": "pu_관전1"}]))
+    base = ld.default_selection(rows)                       # 팀 슬롯에 있는 관전1 만 참가자
+    check("11명 방(팀 9 + 관전 2) — 전원이 rows 에 있고 참가 후보 10명",
+          len(rows) == 11 and len(base) == 10, (len(rows), base))
+    check("11명 방에서 관전자 1명만 빼면 시작 가능", ld.selection_ready(len(rows), len(base)) is True)
+
+    # ⑧ 빈 슬롯(실제 로비는 빈 자리를 summonerId 0 / 빈 puuid 로 줄 수 있다)은 사람으로 세지 않는다
+    empty = {"summonerId": 0, "puuid": "", "displayName": "", "gameName": ""}
+    rows = ld.classify_members({"members": nine,
+                               "gameConfig": {"customTeam100": [dict(empty), dict(empty)],
+                                              "customTeam200": [dict(empty)],
+                                              "customSpectators": [dict(empty), dict(empty)]}})
+    check("빈 슬롯(summonerId 0·빈 puuid)은 사람으로 세지 않음",
+          len(rows) == 9 and not [r for r in rows if r.get("spectator")], [r["name"] for r in rows])
+
+
+def test_probe_names_via_lcu():
+    """이름 없이 puuid/summonerId 만 온 사람을 probe_lobby 가 LCU 조회·채팅으로 채우는지."""
+    nine = [member(n) for n in TEN[:9]]
+
+    class FakeLcu:
+        def __init__(self, lobby_obj, summoners=None, parts=None):
+            self.lobby_obj = lobby_obj
+            self.summoners = summoners or {}
+            self.parts = parts or {}
+            self.cid = ""
+            self.asked = []
+        def connect(self):
+            return True
+        def lobby(self):
+            return self.lobby_obj
+        def get(self, path):
+            self.asked.append(path)
+            return self.summoners.get(path)
+        def chat_id(self):
+            self.cid = "cid"
+            return self.cid
+        def participants(self):
+            return self.parts
+
+    # ① 소환사 조회(puuid) 로 이름을 얻는다
+    lob = lobby(nine + [{"puuid": "pu_관전1"}], spec=[{"puuid": "pu_관전1"}])
+    fake = FakeLcu(lob, summoners={"/lol-summoner/v2/summoners/puuid/pu_관전1":
+                                   {"gameName": "관전1#KR1", "displayName": "관전1"}})
+    info = ld.probe_lobby(fake)
+    names = [r["name"] for r in info["rows"]]
+    check("probe: puuid 만 있는 관전자도 목록에 들어간다", info["ok"] and len(info["rows"]) == 10, info)
+    check("probe: 소환사 조회로 이름을 채운다", "관전1" in names, names)
+    check("probe: 그 사람은 관전자 표시", [r["name"] for r in info["rows"] if r["spectator"]] == ["관전1"])
+    check("probe: 참가 후보는 9명(관전자 제외)", info["candidates"] == TEN[:9], info["candidates"])
+
+    # ② puuid 조회가 없으면 summonerId 조회로
+    lob = lobby(nine + [{"summonerId": 222}], spec=[{"summonerId": 222}])
+    fake = FakeLcu(lob, summoners={"/lol-summoner/v1/summoners/222": {"gameName": "관전2"}})
+    info = ld.probe_lobby(fake)
+    check("probe: summonerId 조회로 이름 보충", "관전2" in [r["name"] for r in info["rows"]], info["rows"])
+
+    # ③ 소환사 조회가 실패하면 로비 채팅 참가자 명단으로
+    lob = lobby(nine + [{"summonerId": 333}], spec=[{"summonerId": 333}])
+    fake = FakeLcu(lob, parts={"333": "관전3"})
+    info = ld.probe_lobby(fake)
+    check("probe: 채팅 참가자 명단으로 이름 보충", "관전3" in [r["name"] for r in info["rows"]], info["rows"])
+
+    # ④ 끝내 못 채워도 줄은 남긴다(인원이 모자라 보이지 않게)
+    lob = lobby(nine + [{"summonerId": 444}], spec=[{"summonerId": 444}])
+    info = ld.probe_lobby(FakeLcu(lob))
+    names = [r["name"] for r in info["rows"]]
+    check("probe: 이름을 못 얻어도 목록에서 빼지 않는다", len(info["rows"]) == 10 and any("이름 미확인" in n for n in names), names)
+
+
 def test_engine_twelve_confirmed():
     """12명 방에서 관전 2명을 뺀 10명으로 돌린 전체 흐름."""
     eng = ld.DraftEngine(TEN, now=Clock())
@@ -450,6 +574,8 @@ def main():
     test_ignored_and_errors()
     test_timeout()
     test_spectators()
+    test_spectator_slots_merged()
+    test_probe_names_via_lcu()
     test_engine_twelve_confirmed()
     test_recommendations()
     test_lcu_shapes()
