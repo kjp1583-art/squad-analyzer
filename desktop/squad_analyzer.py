@@ -37,6 +37,15 @@ try:
 except ImportError:
     PILLOW_INSTALLED = False
 
+# 🎨 [v83.75] 슬롯 카드·게이지·뱃지 렌더러(2배 해상도 안티앨리어싱). tkinter 를 import 하지 않는 순수 Pillow 모듈 —
+#   창 없이(테스트·CI) 그려 볼 수 있고, 여기서는 ImageTk.PhotoImage 로만 바꿔 쓴다.
+try:
+    import card_render as CARD
+    CARD_UI = bool(PILLOW_INSTALLED)
+except Exception:
+    CARD = None
+    CARD_UI = False
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # =========================================================================
@@ -159,6 +168,109 @@ global_sheet_cache = {}
 global_cache_time = {}
 CACHE_TTL = 240   # [429완화] 60→240초: 시트 읽기 빈도↓ (분당 할당량 60회 공유 압박 완화)
 
+# 🪶 [v83.75 경량화] 원본 행 캐시가 '영구 보관'이었다 — TTL 은 재조회 간격만 봤고, 한 번 읽은 탭의
+#   전체 행(협곡 27,376행·약 47MB)이 프로그램이 꺼질 때까지 메모리에 남았다. 탭이 25개라 실제로는
+#   수만~수십만 행이 상주했다(클랜원들이 '분석기가 무겁다'고 느끼는 주된 몫).
+#   ① 저장 전 _slim_rows: 같은 값 문자열 객체를 공유(intern)해 RSS 를 크게 줄인다 — 행 구조·호출부 계약은 그대로.
+#   ② 예산/유휴 정리: 오래 안 읽힌 탭의 원본 행은 내린다(다음 읽기 때 gviz 재조회 — 서비스계정 읽기 할당량 0).
+#   ③ 이미 만든 요약 인덱스(_CLAN_IDX)는 그대로 두고, 정작 무거운 '원본 행'만 정리한다.
+SHEET_CACHE_SLIM = True          # 저장 시 문자열 공유(경량화) — 끄면 수정 전 동작
+SHEET_CACHE_BUDGET_ROWS = 60000  # 캐시가 들고 있는 총 행수 상한(넘으면 오래된 탭부터 내린다)
+SHEET_CACHE_IDLE_SEC = 900       # 이 시간 동안 재조회가 없던 탭 원본행은 메모리에서 내린다(CACHE_TTL 240보다 훨씬 길게)
+# 협곡 탭은 코치·시너지·전적·리포트가 모두 읽는 공용 원본이다 — 예산이 빡빡해도 이 탭은 마지막에 내린다.
+SHEET_CACHE_HOT = ("CLASSIC_NORMAL",)
+_SHEET_CACHE_LAST = {}           # title -> 마지막으로 캐시를 읽거나 쓴 시각(유휴 정리 기준)
+_SHEET_CACHE_HITS = {}           # title -> 캐시 적중 횟수(자주 읽히는 탭일수록 나중에 내린다)
+
+
+def _slim_rows(rows, col_limit=4096):
+    """🪶 [v83.75] 캐시 저장 전 행 경량화 — 같은 값 문자열 객체를 한 개로 공유한다(in-place).
+
+    시트 행은 대부분 반복값이다(포지션 5종·결과 2종·날짜·챔피언·소환사명·PUUID…). 파이썬은
+    CSV 를 읽을 때 셀마다 새 str 객체를 만들므로 같은 글자도 수십만 개가 따로 존재한다.
+    열 단위로 '이미 만든 그 문자열'을 재사용하면 값은 100% 동일하고 메모리만 줄어든다.
+
+    · 반환/저장 구조는 list[list[str]] 그대로다 — rows[i][j]·len(rows)·복사·수정 전부 종전과 같다.
+    · 유니크 값이 많은 열(게임ID 등)은 풀링을 포기한다(공유 이득 없이 dict 만 커지는 역효과 방지).
+    """
+    if not SHEET_CACHE_SLIM or not rows:
+        return rows
+    try:
+        nc = 0
+        for r in rows:
+            n = len(r)
+            if n > nc: nc = n
+        pools = [dict() for _ in range(nc)]
+        dead = [False] * nc
+        for r in rows:
+            for j, v in enumerate(r):
+                if type(v) is not str or dead[j]:
+                    continue
+                p = pools[j]
+                got = p.get(v)
+                if got is not None:
+                    r[j] = got
+                elif len(p) < col_limit:
+                    p[v] = v
+                else:
+                    dead[j] = True      # 이 열은 유니크가 너무 많다 — 지금까지 모은 풀도 버린다
+                    pools[j] = {}
+    except Exception:
+        return rows                      # 경량화 실패는 기능 문제가 아니다 — 원본 그대로 쓴다
+    return rows
+
+
+def _sheet_cache_release(title):
+    """제목 하나의 원본 행을 캐시에서 내린다(다음 읽기 = gviz 재조회). 반환: 내렸으면 True."""
+    with sheet_cache_lock:
+        had = global_sheet_cache.pop(title, None) is not None
+        global_cache_time.pop(title, None)
+        _SHEET_CACHE_LAST.pop(title, None)
+        _SHEET_CACHE_HITS.pop(title, None)
+    return had
+
+
+def _sheet_cache_trim(keep=None, budget=None, idle=None, now=None):
+    """🪶 캐시 정리 — (1) 유휴 탭 원본행 제거 (2) 총 행수가 예산을 넘으면 가장 오래 안 쓴 탭부터 제거.
+       반환: 내린 탭 목록(테스트·로그용).  keep=방금 저장한 탭은 (1)(2) 어느 쪽도 건드리지 않는다.
+       락은 '무엇을 내릴지' 고르는 동안만 잡고, 실제 제거는 그 목록으로 짧게 한다(다른 스레드 읽기 방해 금지)."""
+    now = time.time() if now is None else now
+    budget = SHEET_CACHE_BUDGET_ROWS if budget is None else budget
+    idle = SHEET_CACHE_IDLE_SEC if idle is None else idle
+    drop = []
+    with sheet_cache_lock:
+        if idle and idle > 0:
+            for t in list(global_sheet_cache.keys()):
+                if t == keep: continue
+                if now - _SHEET_CACHE_LAST.get(t, global_cache_time.get(t, 0) or 0) >= idle:
+                    drop.append(t)
+        if budget and budget > 0:
+            total = sum(len(v or ()) for k, v in global_sheet_cache.items() if k not in drop)
+            if total > budget:
+                # 오래 안 쓴 순서로 내리되, 방금 저장한 탭(keep)과 뜨거운 탭(협곡)은 마지막까지 남긴다
+                order = sorted((k for k in global_sheet_cache if k not in drop and k != keep),
+                               key=lambda k: (k in SHEET_CACHE_HOT, _SHEET_CACHE_HITS.get(k, 0),
+                                              _SHEET_CACHE_LAST.get(k, 0)))
+                for t in order:
+                    if total <= budget: break
+                    total -= len(global_sheet_cache.get(t) or ())
+                    drop.append(t)
+        for t in drop:
+            global_sheet_cache.pop(t, None)
+            global_cache_time.pop(t, None)
+            _SHEET_CACHE_LAST.pop(t, None)
+            _SHEET_CACHE_HITS.pop(t, None)
+    if drop:
+        print(f"[cache] 원본 행 정리 {len(drop)}탭: {', '.join(drop[:6])}" + (" …" if len(drop) > 6 else ""), flush=True)
+    return drop
+
+
+def _sheet_cache_stats():
+    """캐시 현황(행수·탭수) — 로그·테스트용."""
+    with sheet_cache_lock:
+        return {"tabs": len(global_sheet_cache),
+                "rows": sum(len(v or ()) for v in global_sheet_cache.values())}
+
 def _gviz_rows_by_gid(gid, timeout=8):
     """공개 gviz CSV(gid+headers=1)로 시트 전체(헤더 포함)를 get_all_values()와 동일 구조·동일 행순서로 반환. 실패 None.
        [V81.47 사장님 지시: 시트 API 폭주 근본차단] gviz는 서비스계정 '읽기' 할당량(분당 60회 공유)과 무관 →
@@ -196,6 +308,8 @@ def get_sheet_data_cached(sheet_obj, force=False, prefer_service=False):
     with sheet_cache_lock:
         cached = global_sheet_cache.get(title)
         if not force and cached is not None and (now - global_cache_time.get(title, 0) <= CACHE_TTL):
+            _SHEET_CACHE_LAST[title] = now      # 🪶 유휴 정리 기준 = '마지막으로 실제로 쓴' 시각
+            _SHEET_CACHE_HITS[title] = _SHEET_CACHE_HITS.get(title, 0) + 1
             return cached
         prev_len = len(cached) if cached else 0
     # 2) 실제 fetch는 락 밖에서(gviz 8s+폴백 동안 타 스레드 블록 방지)
@@ -208,16 +322,26 @@ def get_sheet_data_cached(sheet_obj, force=False, prefer_service=False):
             result = g
     if result is None:
         result = _svc_get_all_values(sheet_obj)
+    if result is not None:
+        result = _slim_rows(result)     # 🪶 [v83.75] 저장 전 문자열 공유 — 행 구조는 그대로
     # 3) 저장(락 짧게)
     with sheet_cache_lock:
         if result is not None:
             global_sheet_cache[title] = result
             global_cache_time[title] = now
-            return result
-        # 서비스까지 실패: prefer_service(행번호 정확성 필요)면 stale 대신 []→호출부 재시도 유도(엉뚱한 행 쓰기 방지)
-        if prefer_service:
-            return []
-        return global_sheet_cache.get(title, [])
+            _SHEET_CACHE_LAST[title] = now
+            _SHEET_CACHE_HITS.setdefault(title, 0)
+        else:
+            # 서비스까지 실패: prefer_service(행번호 정확성 필요)면 stale 대신 []→호출부 재시도 유도(엉뚱한 행 쓰기 방지)
+            if prefer_service:
+                return []
+            return global_sheet_cache.get(title, [])
+    if result is not None:
+        # 🪶 [v83.75] 새로 담았으면 예산·유휴 기준으로 정리(방금 담은 탭은 보호) — 무한 상주 방지
+        try: _sheet_cache_trim(keep=title)
+        except Exception: pass
+        return result
+    return global_sheet_cache.get(title, [])
 
 def invalidate_sheet_cache(title):
     with sheet_cache_lock:
@@ -261,6 +385,9 @@ T1_EMBLEM_FILES = {
     "ns": "nongsim.png", "dn": "DN.png", "bnk": "BNK.png", "brion": "brion.png",
 }
 T1_FRAME_PAD = (13, 2, 4)    # 슬롯 안쪽 여백(좌우, 상, 하) — 프레임 폐기로 하단 로고 밴드 여백 불필요(세로 공간 회수)
+# ⚔ [v83.75] 팀 전투력 게이지 스케일 상한 — 1인분 전력은 0~12(내부티어 점수 0~11 + 수축승률 0~10 의 평균),
+#    5인 합은 이론상 60 이다. 게이지는 '60 만점에 어디준인가'를 보여준다.
+CARD_POWER_MAX = 60.0
 
 # 🖥 [v82.17] 창 크기 프리셋(설정에서 선택, config.json `win_preset` 저장). auto=화면 맞춤(기존 동작), max=최대화.
 WIN_PRESETS = {"compact": (1280, 950), "standard": (1420, 1045), "wide": (1560, 1150)}
@@ -2013,7 +2140,19 @@ TIER_NICK = {
 }
 TIER_ORDER_LIST = ["0","1上","1中","1下","2上","2中","2下","3上","3中","3下"]  # "0"=0티어(최상위, 上/中/下 없음)
 def tnorm(s):
-    return "".join(str(s or "").split("#")[0].lower().split())
+    memo = getattr(tnorm, "_memo", None)      # 함수 자기 사본 — 이 함수만 떼어 쓰는 테스트·백테스트에서도 동작
+    if memo is None:
+        memo = tnorm._memo = {}
+    try:
+        return memo[s]
+    except (KeyError, TypeError):
+        pass
+    v = "".join(str(s or "").split("#")[0].lower().split())
+    try:
+        if len(memo) >= 8192: memo.clear()   # 무한 증가 방지
+        memo[s] = v
+    except TypeError: pass
+    return v
 TIER_OF = {}
 for _t, _names in TIER_DATA.items():
     for _nm in _names: TIER_OF[tnorm(_nm)] = _t
@@ -2503,22 +2642,40 @@ _REC_OLD_W = 0.35
 
 
 def _sheet_date(s):
-    """시트 '날짜' 셀 → 에폭 초. '2026-11-01' · '2026-11-01 21:33' · '2026. 11. 1.' · '2026/11/01' 모두. 실패 시 None."""
+    """시트 '날짜' 셀 → 에폭 초. '2026-11-01' · '2026-11-01 21:33' · '2026. 11. 1.' · '2026/11/01' 모두. 실패 시 None.
+       🪶 [v83.75] 같은 날짜 문자열을 행마다 다시 파싱하지 않도록 메모(문자열→에폭은 고정값이라 안전).
+       메모는 함수 자기 속성(_sheet_date._memo) — 이 함수만 떼어 쓰는 테스트·백테스트에서도 그대로 동작한다."""
     t = str(s or "").strip()
     if not t:
         return None
+    memo = getattr(_sheet_date, "_memo", None)
+    if memo is None:
+        memo = _sheet_date._memo = {}
+    try:
+        return memo[t]
+    except (KeyError, TypeError):
+        t = t if isinstance(t, str) else str(t)
+    v = None
     m = re.match(r"^(\d{4})[-./]\s*(\d{1,2})[-./]\s*(\d{1,2})", t)
     if m:
         y, mo, d = m.group(1), m.group(2), m.group(3)
     else:
         m = re.match(r"^(\d{1,2})[-./](\d{1,2})[-./](\d{4})", t)   # 11/01/2026
         if not m:
-            return None
-        y, mo, d = m.group(3), m.group(1), m.group(2)
+            y = mo = d = None
+        else:
+            y, mo, d = m.group(3), m.group(1), m.group(2)
+    if y is not None:
+        try:
+            v = time.mktime((int(y), int(mo), int(d), 12, 0, 0, 0, 0, -1))
+        except Exception:
+            v = None
     try:
-        return time.mktime((int(y), int(mo), int(d), 12, 0, 0, 0, 0, -1))
-    except Exception:
-        return None
+        if len(memo) >= 8192: memo.clear()
+        memo[t] = v
+    except (TypeError, KeyError):
+        pass
+    return v
 
 
 def _recency_w(days_ago):
@@ -2557,6 +2714,16 @@ def _recency_score(dates, now=None):
         if d <= 14:
             n14 += n
     return wsum, n90, n14
+
+
+def _recency_w_cell(ds, now=None):
+    """'날짜' 셀 하나 → 1판 최근성 가중치(행마다 _recency_score 를 만드는 것과 같은 값).
+       🪶 [v83.75] _clan_index 안에서 27,000행마다 불린다 — 리스트·튜플 생성 없이 바로 계산한다."""
+    e = _sheet_date(ds) if ds else None
+    if e is None:
+        return _REC_OLD_W
+    now = time.time() if now is None else now
+    return _recency_w(max(0.0, (now - e) / 86400.0))
 
 
 # ── ② 사람 단위(LINK_ACCOUNT) 통합 ───────────────────────────────────────────
@@ -2938,26 +3105,26 @@ def _clan_index(force=False):
             c_sc = ci("점수")   # 🎯 [2026-08-18] 포지션 추천용 — 포지션별 AI 평균 재료
             c_pt = ci("패치버전")
             # 🕸 [검증 지적] 웹 육각형 비교군은 '최신 패치' 화면 기준 — rad 집계도 최신 패치 행만
+            #   🪶 [v83.75] 패치 수집을 아래 'puuid·닉 수집' 1회전에 합쳤다(전에는 27,000행을 한 번 더 돌았다).
             _pset = set()
-            for _r0 in rows[1:]:
-                if 0 <= c_pt < len(_r0):
-                    _pv0 = str(_r0[c_pt] or "").strip().lstrip("vV")
-                    if _pv0: _pset.add(_pv0)
             def _pnum(pp):
                 try:
                     aa = pp.split(".")
                     return int(aa[0]) * 1000 + int(aa[1])
                 except Exception: return -1
-            _latest_patch = max(_pset, key=_pnum) if _pset else ""
             if min(c_g, c_pu, c_ch, c_rs) < 0: continue
             # 🧬 [2026-11-27] 사람 단위 통합 1단계 — (puuid, 닉)만 먼저 훑어 LINK_ACCOUNT **연결 요소**로 사람키를 만든다.
             #   본계↔부계·닉변 사슬 전체가 한 사람이어야 챔프폭·견제압력·맞대결이 '사람' 기준이 된다.
             _nm_by_pu = {}
             for _r1 in rows[1:]:
+                if 0 <= c_pt < len(_r1):
+                    _pv0 = str(_r1[c_pt] or "").strip().lstrip("vV")
+                    if _pv0: _pset.add(_pv0)
                 if len(_r1) <= max(c_pu, c_nm): continue
                 _pu1 = str(_r1[c_pu]).strip().lower()
                 _nm1 = str(_r1[c_nm]).strip() if c_nm >= 0 else ""
                 if _pu1 and _nm1: _nm_by_pu[_pu1] = _nm1   # 같은 puuid 행의 최신 닉
+            _latest_patch = max(_pset, key=_pnum) if _pset else ""
             try:
                 _link_rows = []
                 try:
@@ -2970,6 +3137,7 @@ def _clan_index(force=False):
                 _grp_by_nm = {}
             pu2grp, grp, grp_names = _person_alias_map(_nm_by_pu, _grp_by_nm)
             per_game = {}
+            _NOW_TS = time.time()   # 🪶 행마다 time.time() 을 부르지 않는다(최근성 가중 기준 시각)
             for r in rows[1:]:
                 if len(r) <= max(c_g, c_pu, c_ch, c_rs): continue
                 res = str(r[c_rs]).strip()
@@ -3020,7 +3188,7 @@ def _clan_index(force=False):
                     e["pos"][ps] = e["pos"].get(ps, 0) + 1
                     # 🧬 [2026-11-27] 최근성 가중 포지션 판수 — 1년 전 다른 라인 기록이 지금 라인을 이기면 안 된다
                     try:
-                        _wt1 = _recency_score([(str(r[c_dt]).strip() if 0 <= c_dt < len(r) else "", 1)])[0]
+                        _wt1 = _recency_w_cell(str(r[c_dt]).strip() if 0 <= c_dt < len(r) else "", _NOW_TS)
                     except Exception:
                         _wt1 = 1.0
                     _pr1 = e.setdefault("posr", {}); _pr1[ps] = _pr1.get(ps, 0.0) + _wt1
@@ -3092,25 +3260,43 @@ def _clan_index(force=False):
             if _k and (_k not in nm2pu or _e["g"] > by_pu[nm2pu[_k]]["g"]): nm2pu.setdefault(_k, _pu)
     except Exception: pass
     # 🎯 [v82.32] 견제 압력 — 웹(computeBanPressure)과 동일 산식. {puuid: [{champ,targeted,z}...]}
+    #   🪶 [v83.75] 산식은 그대로, 루프만 뒤집었다. 예전에는 선수 155명 × 주챔프 6개 × 판 2,700 을 돌며
+    #   매번 `any(_c in s for s in 밴들.values())` 로 진영 밴 목록을 다시 풀었다 → _clan_index 시간의 절반 이상.
+    #   같은 숫자를 '게임·챔프 중심'으로 한 번 집계(상대별 밴 횟수·밴된 게임 집합)해 두고 꺼내 쓴다.
     bp = {}
     try:
         _gs = [g for g in _bp_ban if len(_bp_side.get(g, {})) >= 8]
         if _gs:
+            _games_of, _banned_games, _tgt = {}, {}, {}
+            for _g in _gs:
+                _side = _bp_side.get(_g) or {}
+                for _p in _side:
+                    _games_of.setdefault(_p, []).append(_g)
+                _bans_d = _bp_ban.get(_g) or {}
+                _flat = set()
+                for _sd, _bs in _bans_d.items():
+                    if not _bs: continue
+                    _flat |= _bs
+                    for _p, _ps2 in _side.items():
+                        if _ps2 == _sd: continue          # 같은 진영은 상대가 아니다
+                        for _c in _bs:
+                            _k2 = (_p, _c); _tgt[_k2] = _tgt.get(_k2, 0) + 1
+                for _c in _flat:
+                    _banned_games.setdefault(_c, set()).add(_g)
             for _pu, _e in by_pu.items():
-                _mains = sorted(((c, g) for c, (g, w) in _e["champs"].items() if g >= 4), key=lambda x: -x[1])[:6]
+                _mains = sorted(((_c, g) for _c, (g, w) in _e["champs"].items() if g >= 4), key=lambda x: -x[1])[:6]
                 if not _mains: continue
-                _pres = [g for g in _gs if _pu in _bp_side.get(g, {})]
-                _abs = [g for g in _gs if _pu not in _bp_side.get(g, {})]
-                if len(_pres) < 8 or len(_abs) < 20: continue
+                _pres = _games_of.get(_pu) or []
+                _n_pres = len(_pres)
+                _n_abs = len(_gs) - _n_pres
+                if _n_pres < 8 or _n_abs < 20: continue
+                _pres_set = set(_pres)
                 _out = []
                 for _c, _n in _mains:
-                    _ino = 0
-                    for _g in _pres:
-                        _opp = "레드팀" if _bp_side[_g].get(_pu) == "블루팀" else "블루팀"
-                        if _c in _bp_ban[_g].get(_opp, set()): _ino += 1
-                    _outo = sum(0.5 for _g in _abs if any(_c in s for s in _bp_ban[_g].values()))
-                    _a, _b = _ino / len(_pres), _outo / len(_abs)
-                    _se = math.sqrt(max(_a * (1 - _a), 1e-6) / len(_pres) + max(_b * (1 - _b), 1e-6) / len(_abs))
+                    _ino = _tgt.get((_pu, _c), 0)          # 상대가 그 챔프를 밴한 판(내가 있던 판 중)
+                    _outo = 0.5 * len(_banned_games.get(_c, set()) - _pres_set)   # 내가 없던 판에서 밴된 수
+                    _a, _b = _ino / _n_pres, _outo / _n_abs
+                    _se = math.sqrt(max(_a * (1 - _a), 1e-6) / _n_pres + max(_b * (1 - _b), 1e-6) / _n_abs)
                     _z = (_a - _b) / _se if _se > 0 else 0.0
                     if _z > 1.5 and _a > _b:
                         _out.append({"champ": _c, "targeted": int(round((_a - _b) * 100)), "z": round(_z, 1)})
@@ -3301,6 +3487,31 @@ def _pair_txt(my_pu, other_pu, idx, kind, min_g):
     return f"{d[0]}판 {my_w}승 {d[0]-my_w}패 ({round(my_w/d[0]*100)}%)"
 
 _POOLROWS_CACHE = {"ts": {}, "data": {}}   # {(사람키|포지션): (ts, rows)} — 한 밴픽에서 상대 5명 × 2회 호출을 1회로
+_BU_PU_CACHE = {}   # (시트제목, 캐시시각, PUUID열) → {puuid: [그 사람 행…]} — 27,000행 재스캔 방지
+
+
+def _rows_by_puuid(title, rows, c_pu):
+    """시트 행을 PUUID 별로 한 번 묶어 둔다 — `_pool_rows` 가 사람마다 27,000행을 다시 훑던 것을 줄인다.
+
+    ⚠️ 시트 캐시가 갈리면(제목·캐시시각이 바뀌면) 그 키는 다시 쓰지 않는다 — 인덱스는 행 객체를 '참조'만 하므로
+       원본이 교체되면 저절로 같이 버려진다(복사본을 들고 있지 않다).
+    """
+    try:
+        key = (str(title), round(float(global_cache_time.get(title, 0)), 3), int(c_pu))
+    except Exception:
+        return None
+    hit = _BU_PU_CACHE.get(key)
+    if hit is not None:
+        return hit
+    m = {}
+    for r in rows[1:]:
+        if len(r) <= c_pu: continue
+        _pu = str(r[c_pu]).strip().lower()
+        if _pu:
+            m.setdefault(_pu, []).append(r)
+    if len(_BU_PU_CACHE) > 4: _BU_PU_CACHE.clear()      # 시트가 자주 갈려도 메모리가 늘지 않게
+    _BU_PU_CACHE[key] = m
+    return m
 
 
 def _pool_rows(puuid, pos="", limit=0):
@@ -3335,9 +3546,18 @@ def _pool_rows(puuid, pos="", limit=0):
     if min(c_pu, c_ch) < 0: return []
     now = time.time()
     agg = {}
-    for r in rows[1:]:
+    # 🪶 [v83.75] 사람 단위로 묶은 행만 돌린다 — 예전엔 사람(키) 마다 27,000행을 통째로 훑었다(밴픽 1회 = 최대 10회).
+    _by = _rows_by_puuid("CLASSIC_NORMAL", rows, c_pu)
+    if _by is not None:
+        cand = []
+        for _m in members:
+            cand.extend(_by.get(str(_m).strip().lower(), ()))
+        _scan, _filter = cand, False
+    else:
+        _scan, _filter = rows[1:], True
+    for r in _scan:
         if len(r) <= max(c_pu, c_ch): continue
-        if str(r[c_pu]).strip().lower() not in members: continue
+        if _filter and str(r[c_pu]).strip().lower() not in members: continue
         ps = str(r[c_ps]).strip() if 0 <= c_ps < len(r) else ""
         if pos and ps != pos: continue
         ch = str(r[c_ch]).strip()
@@ -8321,6 +8541,18 @@ def _captain_power(p, s):
        (종전의 솔랭+연승+티어 재가중 대신 공용 기준 하나로 통일 — 2026-08-18 사장님 지시)"""
     return _unified_power_one((p or {}).get('name') or '', s or {})
 
+
+def _team_power_sum(team_entries):
+    """⚔ [v83.75] 팀 전투력 합 — 헤더 게이지용. 개인 전력(_captain_power)을 그대로 더한다(새 산식 없음).
+       화면 표시용일 뿐이라 예상 승률·배분 로직에는 쓰지 않는다."""
+    tot = 0.0
+    for p, s in (team_entries or ()):
+        try:
+            tot += _captain_power(p, s if isinstance(s, dict) else {})
+        except Exception:
+            pass
+    return tot
+
 def _captain_main_pos(p, cidx):
     """주포지션 — 클랜 시트 전적의 최다 포지션 우선, 없으면 로비에서 고른 포지션."""
     try:
@@ -12110,6 +12342,194 @@ def create_graphic_ui():
     for tier in TIERS:
         tier_images[tier] = robust_load_image(str(tier) + ".png", 32)
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # 🎨 [v83.75 Pillow 그래픽 카드] 슬롯 카드 배경 · 예상승률/전투력 게이지 · 포지션/티어 뱃지
+    #    Tkinter 에는 둥근 모서리·그라데이션·알파가 없다(DESIGN.md). 그 요소만 Pillow 이미지로 얹고,
+    #    글자·버튼·클릭 동작은 지금까지처럼 Tk 위젯이 그대로 맡는다 — 기능 변경 0.
+    #    ⚠️ 이미지는 (종류·크기·색·값) 키로 캐시하고, 위젯 크기가 실제로 바뀔 때만 다시 그린다.
+    #       카드 배경은 '칸 크기'가 정해진 뒤에만 그릴 수 있어서 <Configure> 에서 한 번(디바운스) 그린다.
+    # ══════════════════════════════════════════════════════════════════════════
+    _CARD_PH = {}     # 슬롯 카드 배경 PhotoImage
+    _GAUGE_PH = {}    # 예상승률/전투력 게이지 PhotoImage
+    _BADGE_PH = {}    # 포지션·티어 뱃지 PhotoImage
+    _BAND_PH = {}     # 팀 헤더 밴드 PhotoImage
+    _RAW_PIL = {}     # 원본 PNG(PIL) — 뱃지에 합성할 아이콘(축소본을 늘리면 뭉개진다)
+
+    def _pil_raw(file_name):
+        """번들 PNG 를 원본 해상도로 읽어 캐시(뱃지 합성용). 없으면 None."""
+        if not PILLOW_INSTALLED or not file_name: return None
+        if file_name in _RAW_PIL: return _RAW_PIL[file_name]
+        im = None
+        try:
+            im = Image.open(resource_path(file_name)).convert("RGBA")
+        except Exception:
+            im = None
+        _RAW_PIL[file_name] = im
+        return im
+
+    def _card_photo(team, w, h, corner, fill):
+        """슬롯 카드 배경 한 장 — 같은 (팀·크기·색)이면 같은 PhotoImage 를 돌려준다(10칸이 공유)."""
+        if not CARD_UI: return None
+        key = (str(team), int(w), int(h), str(corner), str(fill))
+        ph = _CARD_PH.get(key)
+        if ph is not None: return ph
+        try:
+            img = CARD.slot_card(w, h, team=team, bg=corner, fill=fill)
+            ph = ImageTk.PhotoImage(img)
+        except Exception:
+            return None
+        if len(_CARD_PH) > 8: _CARD_PH.clear()      # 창 크기를 여러 번 바꿔도 메모리가 늘지 않게
+        _CARD_PH[key] = ph
+        return ph
+
+    def _card_bg(parent, team, fill, corner=None):
+        """슬롯 칸 맨 뒤에 깔리는 카드 이미지 라벨. 칸 크기가 정해지면 그 크기로 그린다.
+           (place → pack 으로 붙는 자식들의 레이아웃을 건드리지 않고 뒤에만 깔린다)
+           corner = 카드 모서리 색 = 슬롯을 담는 패널 색(BG_CARD). 칸 자체의 bg 와는 무관하다 —
+           꾸미기로 칸 배경이 바뀌어도 둥근 모서리가 배경과 이어지게 하려고 고정값을 쓴다."""
+        if not CARD_UI: return None
+        corner = str(corner or theme.BG_CARD)
+        try:
+            lbl = tk.Label(parent, bd=0, highlightthickness=0, bg=corner)
+            lbl.place(x=0, y=0, relwidth=1, relheight=1)
+            parent._card_lbl = lbl
+            parent._card_state = None
+
+            def _draw():
+                try:
+                    parent._card_job = None
+                    w, h = parent.winfo_width(), parent.winfo_height()
+                    if w < 8 or h < 8: return
+                    if (w, h) == parent._card_state: return
+                    ph = _card_photo(team, w, h, corner, fill)
+                    if ph is None: return
+                    parent._card_state = (w, h)
+                    lbl.config(image=ph, bg=corner); lbl.image = ph
+                except Exception: pass
+
+            def _defer(_e=None):
+                try:      # 크기 변경 드래그 중 수십 번 그리지 않도록 60ms 디바운스
+                    if getattr(parent, "_card_job", None) is not None:
+                        parent.after_cancel(parent._card_job)
+                except Exception: pass
+                try: parent._card_job = parent.after(60, _draw)
+                except Exception: pass
+
+            parent.bind("<Configure>", _defer, add="+")
+            _draw()
+            return lbl
+        except Exception:
+            return None
+
+    def _gauge_photo(kind, key_vals, w, h, bg):
+        """게이지 PhotoImage — kind='wr'(예상승률) / 'pw'(전투력)."""
+        if not CARD_UI: return None
+        key = (kind, int(w), int(h), str(bg), key_vals)
+        ph = _GAUGE_PH.get(key)
+        if ph is not None: return ph
+        try:
+            if kind == "wr":
+                img = CARD.winrate_gauge(w, h, key_vals, bg=bg)
+            else:
+                img = CARD.power_gauge(w, h, key_vals, vmax=CARD_POWER_MAX, bg=bg, label="전투력")
+            ph = ImageTk.PhotoImage(img)
+        except Exception:
+            return None
+        if len(_GAUGE_PH) > 48: _GAUGE_PH.clear()
+        _GAUGE_PH[key] = ph
+        return ph
+
+    def _set_winrate_gauge(lbl, team, pct, show=True):
+        """헤더의 예상 승률 게이지 갱신 — 값이 그대로면 아무 일도 안 한다(1초 주기 리드로우 방지)."""
+        if not CARD_UI or lbl is None: return
+        try:
+            bg = theme.TEAM_BLUE_BG if team == "blue" else theme.TEAM_RED_BG
+            if not show:
+                if getattr(lbl, "_ph", None) is not None:
+                    lbl.config(image=""); lbl._ph = None
+                lbl._ph_key = None      # 다시 보일 때 같은 값이라도 새로 그리게
+                return
+            v = int(round(float(pct)))
+            if getattr(lbl, "_ph_key", None) == v: return
+            ph = _gauge_photo("wr", v, 152, 22, bg)
+            if ph is None: return
+            lbl.config(image=ph, bg=bg); lbl.image = ph
+            lbl._ph, lbl._ph_key = ph, v
+        except Exception: pass
+
+    def _set_power_gauge(lbl, team, total, show=True):
+        """헤더의 팀 전투력 게이지 — 팀 합계(0~CARD_POWER_MAX)를 바로 보여준다."""
+        if not CARD_UI or lbl is None: return
+        try:
+            bg = theme.TEAM_BLUE_BG if team == "blue" else theme.TEAM_RED_BG
+            if not show:
+                if getattr(lbl, "_ph", None) is not None:
+                    lbl.config(image=""); lbl._ph = None
+                lbl._ph_key = None
+                return
+            v = round(float(total), 1)
+            if getattr(lbl, "_ph_key", None) == v: return
+            ph = _gauge_photo("pw", v, 132, 22, bg)
+            if ph is None: return
+            lbl.config(image=ph, bg=bg); lbl.image = ph
+            lbl._ph, lbl._ph_key = ph, v
+        except Exception: pass
+
+    def _badge_photo(key, ring, fill, bg, icon_file=None, size=34):
+        """포지션·티어 뱃지 PhotoImage(링 + 아이콘). 같은 (종류·색·배경)이면 공유."""
+        if not CARD_UI: return None
+        k = (str(key), int(size), str(ring), str(fill), str(bg))
+        ph = _BADGE_PH.get(k)
+        if ph is not None: return ph
+        try:
+            icon = _pil_raw(icon_file) if icon_file else None
+            if icon_file and icon is None: return None      # 아이콘 파일이 없으면 맨 아이콘으로 폴백(호출부)
+            img = CARD.badge(size, ring=ring, fill=fill, bg=bg, icon=icon, kind=str(key))
+            ph = ImageTk.PhotoImage(img)
+        except Exception:
+            return None
+        if len(_BADGE_PH) > 64: _BADGE_PH.clear()
+        _BADGE_PH[k] = ph
+        return ph
+
+    def _team_band(parent, team):
+        """팀 헤더 배경의 은은한 팀 컬러 그라데이션 — 제목·게이지·밴 아이콘 뒤에 깔린다."""
+        if not CARD_UI: return None
+        bg = theme.TEAM_BLUE_BG if team == "blue" else theme.TEAM_RED_BG
+        try:
+            lbl = tk.Label(parent, bd=0, highlightthickness=0, bg=bg)
+            lbl.place(x=0, y=0, relwidth=1, relheight=1)
+            parent._band_state = None
+
+            def _draw():
+                try:
+                    parent._band_job = None
+                    w, h = parent.winfo_width(), parent.winfo_height()
+                    if w < 8 or h < 4 or parent._band_state == (w, h): return
+                    key = (str(team), w, h, bg)
+                    ph = _BAND_PH.get(key)
+                    if ph is None:
+                        ph = ImageTk.PhotoImage(CARD.team_band(w, h, team=team, bg=bg))
+                        if len(_BAND_PH) > 8: _BAND_PH.clear()
+                        _BAND_PH[key] = ph
+                    parent._band_state = (w, h)
+                    lbl.config(image=ph, bg=bg); lbl.image = ph
+                except Exception: pass
+
+            def _defer(_e=None):
+                try:
+                    if getattr(parent, "_band_job", None) is not None:
+                        parent.after_cancel(parent._band_job)
+                except Exception: pass
+                try: parent._band_job = parent.after(60, _draw)
+                except Exception: pass
+
+            parent.bind("<Configure>", _defer, add="+")
+            _draw()
+            return lbl
+        except Exception:
+            return None
+
     FONT_TITLE = UF(20, "bold")
     FONT_CREDIT = UF(11)
     FONT_STATUS = UF(12, "bold")
@@ -12686,6 +13106,7 @@ def create_graphic_ui():
 
     b_head = tk.Frame(blue_card, bg=theme.TEAM_BLUE_BG)
     b_head.pack(fill="x")
+    _team_band(b_head, "blue")          # 🎨 [v83.75] 헤더 배경 팀 컬러 그라데이션(가장 먼저 깔아야 뒤에 깔린다)
     # 🖥 [v83.71 사장님 제보] 제목 줄을 먼저 expand 로 붙이면 뒤에 pack 한 버튼이 남는 공간을 못 받아
     #    '멀티서치'가 '티서치'로 잘렸다 — 버튼을 먼저 오른쪽에 고정한 뒤 제목 프레임을 채운다.
     def do_blue_multi():
@@ -12704,11 +13125,18 @@ def create_graphic_ui():
     blue_title_lbl = tk.Label(b_title_frame, text="🟦 BLUE TEAM", bg=theme.TEAM_BLUE_BG, fg=theme.TEAM_BLUE_FG, font=FONT_LF_TITLE, anchor="w", padx=12, pady=6)
     blue_title_lbl.pack(side="left")
 
+    # ⚖ [v83.75] 예상 승률/팀 전투력 게이지 — 숫자 문장 대신 눈에 보이는 바로(값은 이미지 안에 새긴다)
+    blue_wr_gauge = tk.Label(b_title_frame, bg=theme.TEAM_BLUE_BG, bd=0, highlightthickness=0)
+    blue_wr_gauge.pack(side="left", padx=(4, 4))
+    blue_pw_gauge = tk.Label(b_title_frame, bg=theme.TEAM_BLUE_BG, bd=0, highlightthickness=0)
+    blue_pw_gauge.pack(side="left", padx=(0, 4))
+
     blue_ban_frame = tk.Frame(b_title_frame, bg=theme.TEAM_BLUE_BG)
     blue_ban_frame.pack(side="left", padx=5)
 
     r_head = tk.Frame(red_card, bg=theme.TEAM_RED_BG)
     r_head.pack(fill="x")
+    _team_band(r_head, "red")           # 🎨 [v83.75] 레드팀 헤더도 같은 그라데이션
     # 같은 이유로 레드팀도 버튼을 먼저 오른쪽에 고정하고 제목 프레임을 나중에 채운다(v83.71).
     btn_r_multi = theme.make_button(r_head, "멀티서치", "danger", font=UF(9, "bold"), padx=theme.SP_2, command=do_red_multi)
     btn_r_multi.pack(side="right", padx=10, pady=5)
@@ -12718,6 +13146,12 @@ def create_graphic_ui():
 
     red_title_lbl = tk.Label(r_title_frame, text="🟥 RED TEAM", bg=theme.TEAM_RED_BG, fg=theme.TEAM_RED_FG, font=FONT_LF_TITLE, anchor="w", padx=12, pady=6)
     red_title_lbl.pack(side="left")
+
+    # ⚖ [v83.75] 레드팀 게이지 — 블루와 같은 구성
+    red_wr_gauge = tk.Label(r_title_frame, bg=theme.TEAM_RED_BG, bd=0, highlightthickness=0)
+    red_wr_gauge.pack(side="left", padx=(4, 4))
+    red_pw_gauge = tk.Label(r_title_frame, bg=theme.TEAM_RED_BG, bd=0, highlightthickness=0)
+    red_pw_gauge.pack(side="left", padx=(0, 4))
 
     red_ban_frame = tk.Frame(r_title_frame, bg=theme.TEAM_RED_BG)
     red_ban_frame.pack(side="left", padx=5)
@@ -12742,6 +13176,8 @@ def create_graphic_ui():
                       bd=0, relief="flat", bg=theme.TEAM_BLUE_SOFT)
         bf.grid(row=i, column=0, sticky="nsew", padx=12, pady=1)
         bf.pack_propagate(False)   # 내부(pack) 내용이 커져도 칸이 안 늘어남 — 항상 균등 분할 크기 고정
+        # 🎨 [v83.75] 카드 바탕 이미지(둥근 모서리·팀 컬러 글로우) — 가장 먼저 place 해 뒤에 깔린다
+        _card_bg(bf, "blue", theme.TEAM_BLUE_SOFT)
         tk.Frame(bf, bg=theme.TEAM_BLUE, width=3).pack(side="left", fill="y")   # 팀 컬러 액센트(블루)
         # [v82.9] 내용은 안쪽 컨테이너에 담고 바깥 여백(T1_FRAME_PAD)을 확보 — 프레임(베젤·하단 로고)이 여백에 보임
         binner = tk.Frame(bf, bg=theme.TEAM_BLUE_SOFT)
@@ -12786,6 +13222,7 @@ def create_graphic_ui():
                       bd=0, relief="flat", bg=theme.TEAM_RED_SOFT)
         rf.grid(row=i, column=0, sticky="nsew", padx=12, pady=1)
         rf.pack_propagate(False)   # [v82.19] 균등 분할 크기 고정
+        _card_bg(rf, "red", theme.TEAM_RED_SOFT)   # 🎨 [v83.75] 레드 카드 바탕
         tk.Frame(rf, bg=theme.TEAM_RED, width=3).pack(side="left", fill="y")   # 팀 컬러 액센트(레드)
         rinner = tk.Frame(rf, bg=theme.TEAM_RED_SOFT)   # [v82.9] 프레임 여백용 안쪽 컨테이너
         rinner.pack(side="left", fill="both", expand=True, padx=T1_FRAME_PAD[0], pady=(T1_FRAME_PAD[1], T1_FRAME_PAD[2]))
@@ -12975,7 +13412,11 @@ def create_graphic_ui():
                     _LB_STATE["fp"] = None
                     if balance_var.get(): balance_var.set("")
             except Exception: pass
-            blue_title_lbl.config(text=f"🟦 BLUE TEAM (예상 승률: {local_b_wr}%) | 밴 추천: ")
+            blue_title_lbl.config(text="🟦 BLUE TEAM  | 밴 추천: " if CARD_UI else f"🟦 BLUE TEAM (예상 승률: {local_b_wr}%) | 밴 추천: ")
+            if CARD_UI:   # ⚖ 예상 승률·팀 전투력 게이지(10명이 찼을 때만 의미가 있다)
+                _show_g = len(local_blue) == 5 and len(local_red) == 5
+                _set_winrate_gauge(blue_wr_gauge, "blue", local_b_wr, _show_g)
+                _set_power_gauge(blue_pw_gauge, "blue", _team_power_sum(local_blue), _show_g)
             # 🚫 [v81.76] 추천 밴 10개 → 5개씩 2줄(grid). 가로 한 줄로 늘어지지 않게.
             for widget in blue_ban_frame.winfo_children(): widget.destroy()
             if not local_b_advice:
@@ -12991,7 +13432,11 @@ def create_graphic_ui():
                     else:
                         tk.Label(blue_ban_frame, text=champ_name, bg=theme.TEAM_BLUE_BG, fg=theme.TEAM_BLUE_FG, font=UF(10, "bold")).grid(row=_r, column=_c, padx=2, pady=1)
 
-            red_title_lbl.config(text=f"🟥 RED TEAM (예상 승률: {local_r_wr}%) | 밴 추천: ")
+            red_title_lbl.config(text="🟥 RED TEAM  | 밴 추천: " if CARD_UI else f"🟥 RED TEAM (예상 승률: {local_r_wr}%) | 밴 추천: ")
+            if CARD_UI:
+                _show_g = len(local_blue) == 5 and len(local_red) == 5
+                _set_winrate_gauge(red_wr_gauge, "red", local_r_wr, _show_g)
+                _set_power_gauge(red_pw_gauge, "red", _team_power_sum(local_red), _show_g)
             for widget in red_ban_frame.winfo_children(): widget.destroy()
             if not local_r_advice:
                 tk.Label(red_ban_frame, text="자유 밴", bg=theme.TEAM_RED_BG, fg=theme.TEAM_RED_FG, font=UF(11, "bold")).grid(row=0, column=0, sticky="w")
@@ -13122,8 +13567,15 @@ def create_graphic_ui():
 
                     ti = tier_images.get(p.get("tier_icon", "UNRANKED"))
                     ci = position_images.get(p.get("chosen_pos_icon", "NONE"))
-                    blue_slots[i][2].config(image=ti if ti else ''); blue_slots[i][2].image = ti
-                    blue_slots[i][3].config(image=ci if ci else ''); blue_slots[i][3].image = ci
+                    # 🎨 [v83.75] 아이콘을 원형 뱃지(팀 틴트 원판 + 포지션/티어 색 링)로 감아 단다
+                    _tk1 = str(p.get("tier_icon") or "UNRANKED")
+                    _pk1 = str(p.get("chosen_pos_icon") or "NONE")
+                    _tb1 = _badge_photo("T-" + _tk1, theme.TIER_RING.get(_tk1, theme.LINE_STRONG),
+                                        theme.TEAM_BLUE_SOFT, theme.TEAM_BLUE_SOFT, _tk1 + ".png", 34)
+                    _pb1 = _badge_photo("P-" + _pk1, theme.POS_RING.get(_pk1, theme.LINE_STRONG),
+                                        theme.TEAM_BLUE_SOFT, theme.TEAM_BLUE_SOFT, _pk1 + ".png", 28)
+                    blue_slots[i][2].config(image=_tb1 or (ti if ti else '')); blue_slots[i][2].image = _tb1 or ti
+                    blue_slots[i][3].config(image=_pb1 or (ci if ci else '')); blue_slots[i][3].image = _pb1 or ci
                     _ct = tier_of(name_str)
                     # ⚔ [2026-08-22 사장님 지시] 내부티어 우측에 전투력 상시 표기 — 예상승률·웹과 같은 공용 1인분
                     try: _pw = "⚔%.1f" % _unified_power_one(name_str, s if isinstance(s, dict) else {})
@@ -13195,8 +13647,15 @@ def create_graphic_ui():
 
                     ti = tier_images.get(p.get("tier_icon", "UNRANKED"))
                     ci = position_images.get(p.get("chosen_pos_icon", "NONE"))
-                    red_slots[i][2].config(image=ti if ti else ''); red_slots[i][2].image = ti
-                    red_slots[i][3].config(image=ci if ci else ''); red_slots[i][3].image = ci
+                    # 🎨 [v83.75] 레드팀도 같은 뱃지(배경만 레드 틴트)
+                    _tk2 = str(p.get("tier_icon") or "UNRANKED")
+                    _pk2 = str(p.get("chosen_pos_icon") or "NONE")
+                    _tb2 = _badge_photo("T-" + _tk2, theme.TIER_RING.get(_tk2, theme.LINE_STRONG),
+                                        theme.TEAM_RED_SOFT, theme.TEAM_RED_SOFT, _tk2 + ".png", 34)
+                    _pb2 = _badge_photo("P-" + _pk2, theme.POS_RING.get(_pk2, theme.LINE_STRONG),
+                                        theme.TEAM_RED_SOFT, theme.TEAM_RED_SOFT, _pk2 + ".png", 28)
+                    red_slots[i][2].config(image=_tb2 or (ti if ti else '')); red_slots[i][2].image = _tb2 or ti
+                    red_slots[i][3].config(image=_pb2 or (ci if ci else '')); red_slots[i][3].image = _pb2 or ci
                     _ct = tier_of(name_str)
                     # ⚔ [2026-08-22 사장님 지시] 내부티어 우측에 전투력 상시 표기 — 예상승률·웹과 같은 공용 1인분
                     try: _pw = "⚔%.1f" % _unified_power_one(name_str, s if isinstance(s, dict) else {})

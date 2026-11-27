@@ -59,6 +59,18 @@ POS_MID     = "#3a73e8"   # == WIN
 POS_ADC     = "#d9a13a"
 POS_SUP     = "#8a5cd6"   # == PURPLE
 
+# ── 포지션·티어 뱃지 링 (v83.75 Pillow 뱃지) ──────────────────────────
+# 슬롯의 포지션·티어 아이콘을 원형 뱃지로 감을 때의 테두리 색. 포지션은 위 POS_* 와 동일,
+# 티어는 아이콘 색(은/금/초록/청록/보라/파랑…)을 링 색으로 승격했다 — 한 화면에서 티어가 눈에 들어오게.
+POS_RING = {"TOP": POS_TOP, "JUNGLE": POS_JG, "MIDDLE": POS_MID,
+            "BOTTOM": POS_ADC, "UTILITY": POS_SUP, "NONE": LINE_STRONG}
+TIER_RING = {
+    "IRON": "#7d869c", "BRONZE": "#a9713f", "SILVER": "#aeb6c4", "GOLD": "#e0a437",
+    "PLATINUM": "#39c7d6", "EMERALD": "#2bb177", "DIAMOND": "#5b8cff",
+    "MASTER": "#8a5cd6", "GRANDMASTER": "#e84057", "CHALLENGER": "#f0c860",
+    "UNRANKED": "#4a5266",
+}
+
 # ── 2.5 헤더 타일 액센트 (상단 13칸 아이콘 색 — 하드코딩 승격) ────────
 TILE_GUIDE    = TEAM_BLUE_FG  # 📖 사용안내
 TILE_INVITE   = SUCCESS_SOFT  # 🎮 팀초대
