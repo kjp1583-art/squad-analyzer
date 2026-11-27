@@ -47,7 +47,7 @@ EVAL_NUMS = r"""() => {
       barH: sb ? +sb.getBoundingClientRect().height.toFixed(1) : null,
     };
   });
-  const chips = [...document.querySelectorAll('.kz-corps-wr, .kzc-st b')].slice(0, 6);
+  const chips = [...document.querySelectorAll('.ksd-wr, .kzc-st b')].slice(0, 6);
   const kzcBar = document.querySelector('.kzc-st .nbar');
   return {
     cellFonts: cells.map(cs => cs.map(e => num(e))),
