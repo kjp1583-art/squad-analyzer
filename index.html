@@ -330,8 +330,13 @@ window.SGG_DC_BOOT=(function(){
   .kizuki-emblem{position:absolute;top:10px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:2}
   .kizuki-emblem svg{filter:drop-shadow(0 0 10px rgba(224,65,63,.55))}
   .kizuki-emblem.low svg{filter:drop-shadow(0 0 10px rgba(154,107,255,.55))}
+  .kizuki-emblem.kis svg{filter:drop-shadow(0 0 10px rgba(40,200,160,.6))}   /* ⚔ [2026-11-27] 귀살대 — 청록 */
   .kz-cap{font-size:11px;font-weight:800;margin-top:2px;letter-spacing:.3px;color:#ffb3b0}
   .kizuki-emblem.low .kz-cap{color:#d3bcff}
+  .kizuki-emblem.kis .kz-cap{color:#9df3dd}
+  /* ⚔ 귀살대 칩 — 상현/하현 배지와 나란히 쓰는 작은 표식 */
+  .kisatsu-chip{display:inline-block;background:rgba(30,120,100,.32);color:#8cf7dc;border:1px solid rgba(96,235,190,.55);
+    font-size:var(--fs-xs);font-weight:800;padding:2px 8px;border-radius:8px;white-space:nowrap}
   /* ⚠ 이 폭은 .prof 의 padding-top 을 0 으로 되돌리는 폭(760px)과 반드시 같아야 한다.
      둘이 어긋나면 그 사이 폭에서 엠블럼이 이름·지표 위에 그대로 얹힌다(2026-08-03 사장님 제보). */
   @media(max-width:760px){.kizuki-emblem{position:static;transform:none;margin:2px 0 10px;display:block}
@@ -476,28 +481,38 @@ window.SGG_DC_BOOT=(function(){
   .tbm-card.kz-up{border-color:rgba(230,182,84,.75);animation:tbm-pop .2s cubic-bezier(.2,1.2,.4,1) both,kzpcU 2.8s ease-in-out .3s infinite}
   .tbm-card.kz-low{border-color:rgba(159,184,255,.7);animation:tbm-pop .2s cubic-bezier(.2,1.2,.4,1) both,kzpcL 2.8s ease-in-out .3s infinite}
   .tbm-card.kz-up .tbm-banner{opacity:.62} .tbm-card.kz-low .tbm-banner{opacity:.58}
+  /* ⚔ [2026-11-27 사장님 「귀살대도 상현하헌처럼 전적카드에 이펙트 추가해줘」] 귀살대 카드 — 성록(일륜도)이 숨 쉬는 테두리 · 물빛 입자 · 鬼殺隊 워터마크 · 번쩍이는 빛줄기 */
+  .tbm-card.kz-kis{border-color:rgba(96,235,190,.72);animation:tbm-pop .2s cubic-bezier(.2,1.2,.4,1) both,kzpcK 2.8s ease-in-out .3s infinite}
+  .tbm-card.kz-kis .tbm-banner{opacity:.60}
+  .kz-kis .tbm-fx{background:radial-gradient(90% 130% at 18% 0%,rgba(40,220,170,.32),transparent 68%),radial-gradient(70% 100% at 100% 0%,rgba(230,190,90,.16),transparent 70%)}
+  .kz-kis .tbm-kj{color:#5df0c6}
+  .kz-kis .tbm-fx i{background:#8cf7dc;box-shadow:0 0 9px 2px rgba(70,240,200,.85)}
+  .tbm-card.kz-kis .tbm-nm b{text-shadow:0 0 16px rgba(90,240,200,.62),0 2px 4px rgba(0,0,0,.7)}
+  .tbm-card.kz-kis .tbm-sub>*:first-child{box-shadow:0 0 14px rgba(90,240,200,.5);animation:kzpcbadge 2.4s ease-in-out infinite}
+  .kz-kis .tbm-flash{background:linear-gradient(110deg,transparent 35%,rgba(200,255,240,.9) 50%,transparent 65%)}
+  @keyframes kzpcK{0%,100%{box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(70,220,180,.28),0 0 26px rgba(40,210,170,.26)}50%{box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(150,250,220,.6),0 0 54px rgba(50,230,190,.5)}}
   .tbm-fx{position:absolute;left:0;right:0;top:0;height:250px;z-index:0;pointer-events:none;overflow:hidden;border-radius:16px 16px 0 0}
   .kz-up .tbm-fx{background:radial-gradient(90% 130% at 18% 0%,rgba(255,80,40,.34),transparent 68%),radial-gradient(70% 100% at 100% 0%,rgba(230,160,60,.20),transparent 70%)}
   .kz-low .tbm-fx{background:radial-gradient(90% 130% at 18% 0%,rgba(80,120,255,.32),transparent 68%),radial-gradient(70% 100% at 100% 0%,rgba(190,215,255,.18),transparent 70%)}
   .tbm-kj{position:absolute;left:10px;top:44px;font-size:128px;font-weight:900;line-height:1;opacity:.10;font-family:serif;white-space:nowrap}
-  .kz-up .tbm-kj{color:#ff8a5a} .kz-low .tbm-kj{color:#9fb8ff}
+  .kz-up .tbm-kj{color:#ff8a5a} .kz-low .tbm-kj{color:#9fb8ff} .kz-kis .tbm-kj{color:#5df0c6}
   .tbm-fx::after{content:"";position:absolute;top:0;bottom:0;width:38%;left:-45%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.28),transparent);animation:kzpcsheen 5.5s ease-in-out 1.1s infinite}
   .tbm-fx i{position:absolute;bottom:-6px;width:4px;height:4px;border-radius:50%;opacity:0;animation:kzpcemb 3.8s linear infinite}
-  .kz-up .tbm-fx i{background:#ff9a3c;box-shadow:0 0 9px 2px rgba(255,120,40,.85)} .kz-low .tbm-fx i{background:#d6e6ff;box-shadow:0 0 9px 2px rgba(140,180,255,.85)}
+  .kz-up .tbm-fx i{background:#ff9a3c;box-shadow:0 0 9px 2px rgba(255,120,40,.85)} .kz-low .tbm-fx i{background:#d6e6ff;box-shadow:0 0 9px 2px rgba(140,180,255,.85)} .kz-kis .tbm-fx i{background:#8cf7dc;box-shadow:0 0 9px 2px rgba(70,240,200,.85)}
   .tbm-fx i:nth-child(1){left:6%}.tbm-fx i:nth-child(2){left:17%;animation-delay:1.1s;animation-duration:3.2s}.tbm-fx i:nth-child(3){left:29%;animation-delay:.5s}.tbm-fx i:nth-child(4){left:41%;animation-delay:2s;animation-duration:4.2s}
   .tbm-fx i:nth-child(5){left:53%;animation-delay:.2s;animation-duration:3.4s}.tbm-fx i:nth-child(6){left:64%;animation-delay:1.6s}.tbm-fx i:nth-child(7){left:76%;animation-delay:2.6s;animation-duration:3.6s}.tbm-fx i:nth-child(8){left:88%;animation-delay:.9s}.tbm-fx i:nth-child(9){left:95%;animation-delay:1.9s;animation-duration:4.4s}
   .tbm-card.kz-up .tbm-nm b{text-shadow:0 0 16px rgba(255,150,60,.65),0 2px 4px rgba(0,0,0,.7)} .tbm-card.kz-low .tbm-nm b{text-shadow:0 0 16px rgba(150,190,255,.65),0 2px 4px rgba(0,0,0,.7)}
   .tbm-card.kz-up .tbm-sub .badge,.tbm-card.kz-up .tbm-sub>*:first-child{box-shadow:0 0 14px rgba(255,120,50,.55);animation:kzpcbadge 2.4s ease-in-out infinite}
   .tbm-card.kz-low .tbm-sub>*:first-child{box-shadow:0 0 14px rgba(120,160,255,.55);animation:kzpcbadge 2.4s ease-in-out infinite}
   .tbm-flash{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:16px;opacity:0;animation:kzpcflash .8s ease-out .12s both}
-  .kz-up .tbm-flash{background:linear-gradient(110deg,transparent 35%,rgba(255,200,120,.9) 50%,transparent 65%)} .kz-low .tbm-flash{background:linear-gradient(110deg,transparent 35%,rgba(200,225,255,.9) 50%,transparent 65%)}
+  .kz-up .tbm-flash{background:linear-gradient(110deg,transparent 35%,rgba(255,200,120,.9) 50%,transparent 65%)} .kz-low .tbm-flash{background:linear-gradient(110deg,transparent 35%,rgba(200,225,255,.9) 50%,transparent 65%)} .kz-kis .tbm-flash{background:linear-gradient(110deg,transparent 35%,rgba(200,255,240,.9) 50%,transparent 65%)}
   @keyframes kzpcU{0%,100%{box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,120,60,.30),0 0 26px rgba(255,70,40,.28)}50%{box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,170,80,.6),0 0 54px rgba(255,90,40,.55)}}
   @keyframes kzpcL{0%,100%{box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(120,160,255,.30),0 0 26px rgba(80,120,255,.26)}50%{box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(190,215,255,.6),0 0 54px rgba(100,140,255,.5)}}
   @keyframes kzpcsheen{0%,55%{left:-45%}100%{left:120%}}
   @keyframes kzpcemb{0%{opacity:0;transform:translateY(0) scale(1)}15%{opacity:1}100%{opacity:0;transform:translateY(-230px) scale(.4)}}
   @keyframes kzpcbadge{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
   @keyframes kzpcflash{0%{opacity:.95;transform:translateX(-110%)}100%{opacity:0;transform:translateX(110%)}}
-  @media(prefers-reduced-motion:reduce){.tbm-card.kz-up,.tbm-card.kz-low,.tbm-fx i,.tbm-fx::after,.tbm-flash,.tbm-card .tbm-sub>*:first-child{animation:none!important}}
+  @media(prefers-reduced-motion:reduce){.tbm-card.kz-up,.tbm-card.kz-low,.tbm-card.kz-kis,.tbm-fx i,.tbm-fx::after,.tbm-flash,.tbm-card .tbm-sub>*:first-child{animation:none!important}}
   @keyframes tbm-fade{from{opacity:0}to{opacity:1}}
   @keyframes tbm-pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
   @media(prefers-reduced-motion:reduce){.tbm-back,.tbm-card,.clm-back,.clm-card{animation:none}}
@@ -603,11 +618,14 @@ window.SGG_DC_BOOT=(function(){
   .ksd-s{grid-area:1/1;position:relative;min-height:240px;opacity:0;visibility:hidden;backface-visibility:hidden;transform-origin:50% 50%}
   .ksd-s.on{opacity:1;visibility:visible;animation:ksdflipin .85s cubic-bezier(.2,.9,.25,1.05) both}
   .ksd-s.out{visibility:visible;opacity:1;animation:ksdflipout .4s cubic-bezier(.55,0,.8,.4) both}
-  .ksd-bg{position:absolute;inset:0;background-size:cover;background-repeat:no-repeat;opacity:.9}
-  .ksd-bg.l{clip-path:polygon(0 0,55% 0,45% 100%,0 100%);background-position:14% 24%;
-    -webkit-mask-image:linear-gradient(90deg,#000 0 42%,rgba(0,0,0,.45) 76%,transparent 100%);mask-image:linear-gradient(90deg,#000 0 42%,rgba(0,0,0,.45) 76%,transparent 100%)}
-  .ksd-bg.r{clip-path:polygon(56% 0,100% 0,100% 100%,46% 100%);background-position:86% 24%;
-    -webkit-mask-image:linear-gradient(270deg,#000 0 42%,rgba(0,0,0,.45) 76%,transparent 100%);mask-image:linear-gradient(270deg,#000 0 42%,rgba(0,0,0,.45) 76%,transparent 100%)}
+  /* 🖼 [2026-11-27 사장님 「지천명씨 일러스트는 아예 누군지 보이지도 않아버려」] Data Dragon 기본 스플래시는 챔피언이 오른쪽에 치우쳐 있어
+     왼쪽 반에서 얼굴이 잘렸다 → 챔피언을 가운데로 잘라 둔 centered/ 원화를 반쪽마다 ＼따로 깔고,
+     대각선으로 겹쳐 이음매는 물러나게(마스크) 녹여 두 반쪽이 한 장처럼 이어진다. */
+  .ksd-bg{position:absolute;top:0;bottom:0;width:58%;height:100%;object-fit:cover;object-position:50% 26%;opacity:.92;display:block}
+  .ksd-bg.l{left:0;clip-path:polygon(0 0,100% 0,86% 100%,0 100%);
+    -webkit-mask-image:linear-gradient(90deg,#000 0 68%,rgba(0,0,0,.8) 90%,rgba(0,0,0,.35) 100%);mask-image:linear-gradient(90deg,#000 0 68%,rgba(0,0,0,.8) 90%,rgba(0,0,0,.35) 100%)}
+  .ksd-bg.r{right:0;clip-path:polygon(14% 0,100% 0,100% 100%,0 100%);
+    -webkit-mask-image:linear-gradient(270deg,#000 0 68%,rgba(0,0,0,.8) 90%,rgba(0,0,0,.35) 100%);mask-image:linear-gradient(270deg,#000 0 68%,rgba(0,0,0,.8) 90%,rgba(0,0,0,.35) 100%)}
   .ksd-seam{position:absolute;top:-14%;bottom:-14%;left:50%;width:2px;transform:translateX(-50%) skewX(-9deg);z-index:2;pointer-events:none;
     background:linear-gradient(180deg,transparent,rgba(255,226,160,.4) 22%,rgba(255,255,255,.8) 50%,rgba(255,226,160,.4) 78%,transparent)}
   .ksd-s::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
@@ -677,6 +695,9 @@ window.SGG_DC_BOOT=(function(){
     .ksd-nm{font-size:17px;line-height:1.1}
     .ksd-mt{gap:4px;margin-top:3px} .ksd-wr{font-size:16px} .ksd-rec,.ksd-hot{font-size:10px}
     .ksd-dots{bottom:8px} .ksd-dots i{width:14px} .ksd-dots i.on{width:22px}
+    /* 📱 [2026-11-27] 폰에서 반쪽 폭이 120px 안짝 — 승률·전적이 한 줄을 다 먹어 🔥폼이 어느 반만 다음 줄로 떨어졌다.
+       좁은 폭에선 두 반 모두 🔥폼을 아랫줄로 내려 모양을 맞춘다. */
+    @media(max-width:420px){ .ksd-hot{flex-basis:100%;margin-top:1px} }
     .kz-corps{padding:10px}
     .kz-corps-hd{flex-wrap:wrap;gap:2px 7px} .kz-corps-sub{flex-basis:100%} .kz-corps-t{white-space:nowrap;flex-shrink:0}
     .yt-ch{font-size:11px;white-space:nowrap}
@@ -1447,30 +1468,40 @@ window.SGG_DC_BOOT=(function(){
   .card.hasbanner>*:not(.pbanner):not(.kizuki-emblem):not(.kzp-fx):not(.kzp-flash){position:relative;z-index:1}
   .card.kz-prof.kz-up{border-color:rgba(230,182,84,.75);animation:kzpcU 2.8s ease-in-out infinite}
   .card.kz-prof.kz-low{border-color:rgba(159,184,255,.7);animation:kzpcL 2.8s ease-in-out infinite}
+  .card.kz-prof.kz-kis{border-color:rgba(96,235,190,.75);animation:kzpcK 2.8s ease-in-out infinite}   /* ⚔ [2026-11-27] 귀살대 개인 전적 페이지 */
+  /* #view>*{animation:fade-up} 이 아이디 선택자라 테마 맥동이 져 버렸다(상현·하현도 같은 상태였다) — 아이디를 붙여 테마가 이기게 한다 */
+  #view>.card.kz-prof.kz-up{animation:kzpcU 2.8s ease-in-out infinite}
+  #view>.card.kz-prof.kz-low{animation:kzpcL 2.8s ease-in-out infinite}
+  #view>.card.kz-prof.kz-kis{animation:kzpcK 2.8s ease-in-out infinite}
   .kzp-fx{position:absolute;left:0;right:0;top:0;height:300px;z-index:1;overflow:hidden;pointer-events:none;border-radius:14px 14px 0 0}
   .kz-up .kzp-fx{background:radial-gradient(70% 100% at 50% 0%,rgba(255,80,40,.40),transparent 72%),radial-gradient(60% 80% at 0% 100%,rgba(230,160,60,.14),transparent 70%)}
   .kz-low .kzp-fx{background:radial-gradient(70% 100% at 50% 0%,rgba(80,120,255,.38),transparent 72%),radial-gradient(60% 80% at 0% 100%,rgba(190,215,255,.14),transparent 70%)}
+  .kz-kis .kzp-fx{background:radial-gradient(70% 100% at 50% 0%,rgba(40,220,170,.38),transparent 72%),radial-gradient(60% 80% at 0% 100%,rgba(230,190,90,.12),transparent 70%)}
   .kzp-rays{position:absolute;left:50%;top:-250px;width:680px;height:680px;margin-left:-340px;animation:kzprays 46s linear infinite;
     -webkit-mask-image:radial-gradient(circle,#000 0,rgba(0,0,0,.5) 35%,transparent 66%);mask-image:radial-gradient(circle,#000 0,rgba(0,0,0,.5) 35%,transparent 66%)}
   .kz-up .kzp-rays{background:repeating-conic-gradient(from 0deg,rgba(255,170,80,.22) 0 5deg,transparent 5deg 16deg)}
   .kz-low .kzp-rays{background:repeating-conic-gradient(from 0deg,rgba(160,200,255,.22) 0 5deg,transparent 5deg 16deg)}
+  .kz-kis .kzp-rays{background:repeating-conic-gradient(from 0deg,rgba(120,240,210,.20) 0 5deg,transparent 5deg 16deg)}
   .kzp-kj{position:absolute;left:16px;top:34px;font-size:140px;font-weight:900;line-height:1;opacity:.09;font-family:serif;white-space:nowrap}
-  .kz-up .kzp-kj{color:#ff8a5a} .kz-low .kzp-kj{color:#9fb8ff}
+  .kz-up .kzp-kj{color:#ff8a5a} .kz-low .kzp-kj{color:#9fb8ff} .kz-kis .kzp-kj{color:#5df0c6}
   .kzp-fx::after{content:"";position:absolute;top:0;bottom:0;width:30%;left:-40%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.22),transparent);animation:kzpcsheen 6s ease-in-out 1.4s infinite}
   .kzp-fx i{position:absolute;bottom:-6px;width:4px;height:4px;border-radius:50%;opacity:0;animation:kzpemb2 4.2s linear infinite}
-  .kz-up .kzp-fx i{background:#ff9a3c;box-shadow:0 0 9px 2px rgba(255,120,40,.85)} .kz-low .kzp-fx i{background:#d6e6ff;box-shadow:0 0 9px 2px rgba(140,180,255,.85)}
+  .kz-up .kzp-fx i{background:#ff9a3c;box-shadow:0 0 9px 2px rgba(255,120,40,.85)} .kz-low .kzp-fx i{background:#d6e6ff;box-shadow:0 0 9px 2px rgba(140,180,255,.85)} .kz-kis .kzp-fx i{background:#8cf7dc;box-shadow:0 0 9px 2px rgba(70,240,200,.85)}
   .kzp-fx i:nth-child(1){left:4%}.kzp-fx i:nth-child(2){left:12%;animation-delay:1.2s;animation-duration:3.4s}.kzp-fx i:nth-child(3){left:21%;animation-delay:.5s}.kzp-fx i:nth-child(4){left:31%;animation-delay:2.1s;animation-duration:4.6s}
   .kzp-fx i:nth-child(5){left:41%;animation-delay:.2s;animation-duration:3.6s}.kzp-fx i:nth-child(6){left:50%;animation-delay:1.7s}.kzp-fx i:nth-child(7){left:59%;animation-delay:2.7s;animation-duration:3.8s}.kzp-fx i:nth-child(8){left:68%;animation-delay:.9s}
   .kzp-fx i:nth-child(9){left:77%;animation-delay:1.9s;animation-duration:4.8s}.kzp-fx i:nth-child(10){left:86%;animation-delay:.4s;animation-duration:3.3s}.kzp-fx i:nth-child(11){left:93%;animation-delay:2.4s}.kzp-fx i:nth-child(12){left:97%;animation-delay:1.1s;animation-duration:4s}
   .kz-prof .kizuki-emblem.up svg{animation:kzpem-u 2.6s ease-in-out infinite} .kz-prof .kizuki-emblem.low svg{animation:kzpem-l 2.6s ease-in-out infinite}
+  .kz-prof .kizuki-emblem.kis svg{animation:kzpem-k 2.6s ease-in-out infinite}
   .kz-prof.kz-up .pname{text-shadow:0 0 18px rgba(255,150,60,.55)} .kz-prof.kz-low .pname{text-shadow:0 0 18px rgba(150,190,255,.55)}
+  .kz-prof.kz-kis .pname{text-shadow:0 0 18px rgba(90,240,200,.55)}
   .kzp-flash{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:14px;opacity:0;background-size:300% 100%;background-repeat:no-repeat;animation:kzpflash2 .9s ease-out .15s both}   /* 위치 이동(transform) 대신 배경만 움직여 카드 밖으로 안 삐져나간다 */
-  .kz-up .kzp-flash{background-image:linear-gradient(110deg,transparent 40%,rgba(255,200,120,.85) 50%,transparent 60%)} .kz-low .kzp-flash{background-image:linear-gradient(110deg,transparent 40%,rgba(200,225,255,.85) 50%,transparent 60%)}
+  .kz-up .kzp-flash{background-image:linear-gradient(110deg,transparent 40%,rgba(255,200,120,.85) 50%,transparent 60%)} .kz-low .kzp-flash{background-image:linear-gradient(110deg,transparent 40%,rgba(200,225,255,.85) 50%,transparent 60%)} .kz-kis .kzp-flash{background-image:linear-gradient(110deg,transparent 40%,rgba(200,255,240,.85) 50%,transparent 60%)}
   @keyframes kzprays{to{transform:rotate(360deg)}}
   @keyframes kzpflash2{0%{opacity:.95;background-position:100% 0}100%{opacity:0;background-position:0% 0}}
   @keyframes kzpemb2{0%{opacity:0;transform:translateY(0) scale(1)}15%{opacity:1}100%{opacity:0;transform:translateY(-280px) scale(.4)}}
   @keyframes kzpem-u{0%,100%{filter:drop-shadow(0 0 8px rgba(224,65,63,.55))}50%{filter:drop-shadow(0 0 24px rgba(255,150,60,.95))}}
   @keyframes kzpem-l{0%,100%{filter:drop-shadow(0 0 8px rgba(154,107,255,.55))}50%{filter:drop-shadow(0 0 24px rgba(150,190,255,.95))}}
+  @keyframes kzpem-k{0%,100%{filter:drop-shadow(0 0 8px rgba(40,200,160,.55))}50%{filter:drop-shadow(0 0 24px rgba(110,250,215,.95))}}
   @media(max-width:760px){.kzp-fx{height:240px}.kzp-kj{font-size:100px;top:20px}.kzp-rays{width:520px;height:520px;margin-left:-260px;top:-200px}}
   @media(prefers-reduced-motion:reduce){.card.kz-prof,.kzp-rays,.kzp-fx i,.kzp-fx::after,.kzp-flash,.kz-prof .kizuki-emblem svg{animation:none!important}}
   /* [2026-07-31] 어둡게 덮는 그라데이션 대신 '페이드' — 이미지 자체의 투명도가 아래로 갈수록 빠진다.
@@ -3331,6 +3362,55 @@ function kizukiEmblem(name){
     <div class="kz-cap">🩸 십이귀월 · ${esc(a.title)}</div>
   </div>`;
 }
+/* ⚔ [2026-11-27 사장님 「귀살대도 상현하헌처럼 전적카드에 이펙트 추가해줘」]
+   귀살대 = 이번 달 십이귀월(상현)을 가장 잘 잡는 6인(KISATSU). '사람' 단위로 맞춘다(닉변·부계 포함) —
+   상현/하현이 이미면 테마는 기존 십이귀월이 우선하고, 귀살대는 그다음 순위로 쓴다. */
+function kisatsuRankOf(name){
+  try{
+    if(typeof KISATSU==="undefined"||!KISATSU.length||!name) return 0;
+    const pk=personKeyOf(name);
+    for(let i=0;i<KISATSU.length;i++){ if(KISATSU[i]&&personKeyOf(KISATSU[i].name)===pk) return i+1; }
+  }catch(e){}
+  return 0;
+}
+/* 귀살대 칩 — 상현/하현 배지 옆에 나란히(병기) 붙는 작은 표식 */
+function kisatsuChip(name){
+  const n=kisatsuRankOf(name); if(!n) return "";
+  return `<span class="kisatsu-chip" title="이번 달 상현 상대를 가장 잘 이기는 6인 · 최근 90일 기준">⚔ 귀살대 ${n}위</span>`;
+}
+/* 귀살대 엠블럼 — 십이귀월 엠블럼과 같은 금테 틀에 청록 보석 + 엇갈린 일륜도 + 鬼 / 순위 */
+function kisatsuEmblem(name){
+  const n=kisatsuRankOf(name); if(!n) return "";
+  const numk=KIZUKI_NUM[n]||n;
+  const uid="ks"+n+"_"+Math.floor(Math.random()*1e5);
+  const g=`gold${uid}`, ink=`ink${uid}`, orb=`orb${uid}`;
+  const KF="font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+  const kanji=(txt,x,y,size)=>`
+    <text x="${x}" y="${y+1.4}" text-anchor="middle" font-size="${size}" font-weight="900" fill="#02110c" style="${KF}">${txt}</text>
+    <text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="900" fill="url(#${ink})" paint-order="stroke" stroke="#0b3a2e" stroke-width="1.4" stroke-linejoin="round" style="${KF}">${txt}</text>
+    <text x="${x-0.6}" y="${y-1}" text-anchor="middle" font-size="${size}" font-weight="900" fill="#eafff8" opacity=".3" style="${KF}">${txt}</text>`;
+  return `<div class="kizuki-emblem kis" title="귀살대 · ${n}위 — 상현이 낀 상대를 가장 잘 이기는 사냥꾼">
+    <svg viewBox="0 0 140 128" width="132" height="121" aria-hidden="true">
+      <defs>
+        <radialGradient id="${orb}" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#4ff0c4"/><stop offset="58%" stop-color="#0e7f66"/><stop offset="100%" stop-color="#03130f"/></radialGradient>
+        <linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="45%" stop-color="#e6b654"/><stop offset="100%" stop-color="#8a5e1c"/></linearGradient>
+        <linearGradient id="${ink}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2fffb"/><stop offset="40%" stop-color="#9ff0da"/><stop offset="72%" stop-color="#43c3a4"/><stop offset="100%" stop-color="#106b57"/></linearGradient>
+      </defs>
+      <path d="M28 94 L110 32 L117 39 Z" fill="url(#${g})" opacity=".5"/>
+      <path d="M112 94 L30 32 L23 39 Z" fill="url(#${g})" opacity=".3"/>
+      <path d="M14 64 Q70 16 126 64 Q70 112 14 64 Z" fill="#03120e" stroke="url(#${g})" stroke-width="4"/>
+      <path d="M14 64 Q70 16 126 64 Q70 112 14 64 Z" fill="none" stroke="#0b3a2e" stroke-width="1" opacity=".7"/>
+      <path d="M14 64 l7 -5 0 10 Z M126 64 l-7 -5 0 10 Z" fill="url(#${g})" stroke="#5c3d10" stroke-width="1"/>
+      <circle cx="70" cy="64" r="30" fill="url(#${orb})"/>
+      <circle cx="70" cy="64" r="30" fill="none" stroke="url(#${g})" stroke-width="2.4"/>
+      <circle cx="70" cy="64" r="30" fill="none" stroke="#03130f" stroke-width="1" opacity=".5"/>
+      <circle cx="70" cy="61" r="20" fill="#ffffff" opacity=".10"/>
+      ${kanji("鬼",70,60,17)}
+      ${kanji(numk,70,89,34)}
+    </svg>
+    <div class="kz-cap">⚔ 귀살대 · ${n}위</div>
+  </div>`;
+}
 // 🎂 판수 사다리(높은 순) — 고인물(100판) 위로. 이름은 사장님이 바꾸셔도 된다
 const G_LADDER=[
   {n:1000,k:'g1000',i:'🌌',name:'천 판',sub:'전설 그 너머'},
@@ -4433,6 +4513,14 @@ function skinSplash(base,sid){
 function skinSplashPatch(bad,base){
   try{
     document.querySelectorAll("[data-skinbg]").forEach(el=>{
+      // 🖼 [2026-11-27] 귀살대 반쪽 배경은 <img>(centered 원화) — 주소가 같은 식으로 되돌린다
+      if(el.tagName==="IMG"){
+        if(bad && (el.dataset.fb||"")!==bad) return;
+        el.dataset.fb=base;
+        el.setAttribute("src",base);
+        el.removeAttribute("data-skinbg");
+        return;
+      }
       if((el.style.backgroundImage||"").indexOf(bad)<0) return;
       el.style.backgroundImage="url('"+base+"')";
       el.removeAttribute("data-skinbg");
@@ -7479,15 +7567,21 @@ function ksdHalfHtml(e,rank,side){
         <div class="ksd-mt"><b class="ksd-wr">${wr}%</b><span class="ksd-rec">${rec}</span>${hot!=null?`<em class="ksd-hot">🔥 ${hot}%</em>`:""}</div>
       </div></div>`;
 }
+/* 🖼 [2026-11-27] 귀살대 반쪽 배경용 — 챔피언이 가운데에 잘려 있는 Data Dragon centered 원화 주소.
+   기본 splash 는 챔피언이 오른쪽에 치우쳐 있어 반쪽 구도에 넣으면 얼굴이 잘린다. centered 가 없으면 '' → img onerror 가 원본으로 되돌린다. */
+function ksdSplashOf(name){
+  const s=(typeof mainSplashOf==="function")?mainSplashOf(name):"";
+  return s?s.replace("/img/champion/splash/","/img/champion/centered/"):"";
+}
 function ksdSplashHtml(list){
   if(!list||!list.length) return "";
   const groups=[]; for(let i=0;i<list.length;i+=2) groups.push(list.slice(i,i+2));
-  setTimeout(()=>{ for(const e of list){ const sp=mainSplashOf(e.name); if(!sp) continue; try{ const im=new Image(); im.src=sp; }catch(_){} } },0);   // 넘어갈 때 그림이 늦지 않게 미리 받아 둔다
+  setTimeout(()=>{ for(const e of list){ const sp=mainSplashOf(e.name); if(!sp) continue; try{ const im=new Image(); im.src=ksdSplashOf(e.name); const im2=new Image(); im2.src=sp; }catch(_){} } },0);   // 넘어갈 때 그림이 늦지 않게 미리 받아 둔다(centered + 원본 폴백)
+  const bgImg=(name,side)=>{ const sp=mainSplashOf(name)||""; if(!sp) return "";
+    return `<img class="ksd-bg ${side}" alt="" loading="lazy" data-skinbg="1" src="${escAttr(ksdSplashOf(name))}" data-fb="${escAttr(sp)}" onerror="this.onerror=null;this.src=this.dataset.fb">`; };
   const slides=groups.map((grp,g)=>{
-    const spL=grp[0]?mainSplashOf(grp[0].name):"", spR=grp[1]?mainSplashOf(grp[1].name):"";
     return `<div class="ksd-s${g===0?" on":""}">
-      ${spL?`<div class="ksd-bg l" data-skinbg="1" style="background-image:url('${escAttr(spL)}')"></div>`:""}
-      ${spR?`<div class="ksd-bg r" data-skinbg="1" style="background-image:url('${escAttr(spR)}')"></div>`:""}
+      ${grp[0]?bgImg(grp[0].name,"l"):""}${grp[1]?bgImg(grp[1].name,"r"):""}
       <div class="ksd-seam" aria-hidden="true"></div>
       ${ksdHalfHtml(grp[0],g*2+1,"l")}${ksdHalfHtml(grp[1],g*2+2,"r")}
       <div class="ksd-em" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -9640,8 +9734,10 @@ function playerCardHtml(name){
         `${mf.pos!=='?'?mf.pos+' 기준':'포지션 미등록'}${mf.est?' · 기록 부족(티어 추정)':''}${mf.multi>1?` · ${mf.multi}개 라인 산정`:''}`,
         mf.bee?'cmp-good':''); }
     const nameJs=JSON.stringify(a.name).replace(/"/g,'&quot;');
-    const kzK=/상현/.test(a.title||"")?"up":(/하현/.test(a.title||"")?"low":""), kzN=parseInt(String(a.title||"").replace(/[^0-9]/g,""))||0;
-    const kzFx=kzK?`<div class="tbm-fx"><span class="tbm-kj">${kzK==="up"?"上弦":"下弦"}${({1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"})[kzN]||""}</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="tbm-flash"></div>`:"";
+    const kzK=/상현/.test(a.title||"")?"up":(/하현/.test(a.title||"")?"low":(kisatsuRankOf(a.name)?"kis":""));
+    const kzN=parseInt(String(a.title||"").replace(/[^0-9]/g,""))||kisatsuRankOf(a.name)||0;
+    const kzKj=kzK==="kis"?"鬼殺隊":(kzK==="up"?"上弦":"下弦")+(({1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"})[kzN]||"");
+    const kzFx=kzK?`<div class="tbm-fx"><span class="tbm-kj">${kzKj}</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="tbm-flash"></div>`:"";
     return `<div class="tbm-back" onclick="closePlayerCard(event)">
       <div class="tbm-card${kzK?" kz-"+kzK:""}" onclick="event.stopPropagation()">
         ${kzFx}${splash?`<div class="tbm-banner" style="background-image:url('${splash}')"></div>`:''}
@@ -9654,7 +9750,7 @@ function playerCardHtml(name){
             ${hasEval?`<span class="assess ${a.cls}">${a.urgent?"🚨 ":""}${a.label}</span>`:''}
           </div>
           <div class="tbm-sub">
-            ${titleBadge(a.title)}
+            ${titleBadge(a.title)}${kisatsuChip(a.name)}
             ${posDeclLabel(a.name)?`<span style="background:#20304a;color:#8fd0ff;font-size:var(--fs-xs);font-weight:700;padding:2px 8px;border-radius:8px">${esc(posDeclLabel(a.name))}</span>`:''}
             ${a.implPct!=null?`<b style="color:#ffd24a;font-size:13px">🎯 클랜 상위 ${a.implPct}%</b>`:''}
           </div>
@@ -13264,9 +13360,10 @@ function renderPlayer(name){
       <div class="muted" style="font-size:var(--fs-sm)">아직 내부티어가 부여되지 않았어요.</div>
     </div>`;
 
-  const _emb=kizukiEmblem(name);
-  const _kzT=(ASSESSMENTS.get(name)||{}).title||"", _kzK=_emb?(/상현/.test(_kzT)?"up":(/하현/.test(_kzT)?"low":"")):"";
-  const _kzFx=_kzK?`<div class="kzp-fx"><div class="kzp-rays"></div><span class="kzp-kj">${_kzK==="up"?"上弦":"下弦"}</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="kzp-flash"></div>`:"";
+  const _emb=kizukiEmblem(name)||kisatsuEmblem(name);
+  const _kzT=(ASSESSMENTS.get(name)||{}).title||"";
+  const _kzK=_emb?(/상현/.test(_kzT)?"up":(/하현/.test(_kzT)?"low":(kisatsuRankOf(name)?"kis":""))):"";
+  const _kzFx=_kzK?`<div class="kzp-fx"><div class="kzp-rays"></div><span class="kzp-kj">${_kzK==="up"?"上弦":(_kzK==="low"?"下弦":"鬼殺隊")}</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="kzp-flash"></div>`:"";
   // 📱 [P-23] 폰: 머리 카드는 이름·뱃지만 남기고, 승률 링·지표 칸·플레이스타일·밤 카드는 탭 줄 밑 「요약」 카드로 옮긴다(같은 조각을 PC 는 머리 카드에, 폰은 요약에).
   const _ph=profPhone();
   const ctaHtml=`<button class="st-cta" onclick="go('style','${escAttr(name)}')"><span class="st-cta-i">📊</span><span><b>플레이스타일 자세히보기</b><small>통산 세부 지표 25종 · 포지션 등급 · 챔피언 풀 · 진영·시간대 패턴</small></span><span class="st-cta-a">→</span></button>`;
@@ -13293,7 +13390,7 @@ function renderPlayer(name){
         <div class="profmain" style="flex:1">
           ${(()=>{const _pi=profIconHtml(name); return _pi?`<div class="pidrow">${_pi}<div class="pidtxt">`:"";})()}
           <div class="pname"><button id="favbtn" class="favbtn${isFav(name)?' on':''}" title="${isFav(name)?'즐겨찾기 해제':'즐겨찾기 추가'}" onclick="toggleFav(${JSON.stringify(name).replace(/"/g,'&quot;')})">${isFav(name)?'★':'☆'}</button>${esc(shortName(name))} <span class="ptag">${esc(tagOf(name))}</span></div>${departedNote(name)}
-          ${(()=>{ const _st=(tierBadge(name)+departedChip(name)+nightOwlChip(name)+asmtChip+(posDeclLabel(name)?'<span class="pc-pos">'+esc(posDeclLabel(name))+'</span>':'')).trim(); return _st?`<div class="pchips pc-st">${_st}</div>`:''; })()}
+          ${(()=>{ const _st=(tierBadge(name)+departedChip(name)+nightOwlChip(name)+asmtChip+kisatsuChip(name)+(posDeclLabel(name)?'<span class="pc-pos">'+esc(posDeclLabel(name))+'</span>':'')).trim(); return _st?`<div class="pchips pc-st">${_st}</div>`:''; })()}
           ${(()=>{ const _tt=String(_titleChip||'').trim(); return _tt?`<div class="pchips pc-tt" id="pcTitles">${_tt}</div><button type="button" class="pc-more" id="pcMore" hidden onclick="pchipsToggle()"></button>`:''; })()}
           ${(()=>{const pk=peakLabel(name);return pk?`<div class="pchips pc-pk"><span class="peakbadge pk-${pk.cls}" title="최근 3시즌 솔로랭크 최고 기록 (fow.lol)">🏆 3시즌 최고 <b>${esc(pk.txt)}</b>${pk.season?` <span style="opacity:.6;font-weight:600">${esc(pk.season)}</span>`:''}</span></div>`:'';})()}
           ${profIconOf(name)?`</div></div>`:""}
@@ -14615,7 +14712,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611271147";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611271148";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
