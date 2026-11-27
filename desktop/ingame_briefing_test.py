@@ -13,6 +13,8 @@ TTS 실재생(edge-tts·MCI)은 이 시험에서 하지 않는다 — 여기서�
   ⑤ 길이 상한(10~15초) 안으로 줄이되 방향성 문장은 남긴다
   ⑥ gameId당 1회(_brief_claim·tick 'done') · 설정 OFF면 아무 일도 안 함
   ⑦ 인게임 120초를 넘긴 판은 읽지 않음 · 라이브 응답이 없으면 다음 폴링 재시도
+  ⑧ 한국어 클라이언트(championName='아리'·'리 신'·'미스 포츈')에서도 진짜로 브리핑이 나온다
+     — 예전엔 한글 이름이 전부 ''로 버려져 챔프 미탑재로 판단 → 브리핑이 아예 실행되지 않았다
 
     python desktop/ingame_briefing_test.py
 """
@@ -119,6 +121,34 @@ def load(ns):
         assert node is not None, f"{name} 를 squad_analyzer.py 에서 찾지 못했습니다"
         mod = ast.Module(body=[node], type_ignores=[])
         exec(compile(ast.fix_missing_locations(mod), SRC, "exec"), ns)
+    return ns
+
+
+# 한국어 클라이언트(liveclientdata) championName — ddragon ko_KR 표기 그대로.
+# CHAMP_KOR_TO_ENG 은 앱에서 정식 표기('리 신')와 공백 제거 키('리신')를 둘 다 넣고,
+# global_champ_map 은 정식 표기를 kor 로 갖는다(아래는 그 구조를 그대로 옮긴 시험용 사본).
+KOR_TO_ENG_FIXTURE = {
+    "아리": "Ahri", "리 신": "LeeSin", "리신": "LeeSin",
+    "미스 포츈": "MissFortune", "미스포츈": "MissFortune",
+    "카이사": "Kaisa", "진": "Jhin", "가렌": "Garen",
+    "누누와 윌럼프": "Nunu", "누누와윌럼프": "Nunu",
+    "자르반 4세": "JarvanIV", "자르반4세": "JarvanIV",
+}
+NUMERIC_FIXTURE = {
+    1: {"kor": "아리", "eng": "Ahri"}, 64: {"kor": "리 신", "eng": "LeeSin"},
+    21: {"kor": "미스 포츈", "eng": "MissFortune"}, 145: {"kor": "카이사", "eng": "Kaisa"},
+    222: {"kor": "진", "eng": "Jhin"}, 86: {"kor": "가렌", "eng": "Garen"},
+    20: {"kor": "누누와 윌럼프", "eng": "Nunu"},
+}
+
+
+def real_champ_ns(**kw):
+    """가짜 _brief_champ_kor 대신 squad_analyzer.py 의 진짜 함수를 넣은 환경."""
+    ns = make_ns(**kw)
+    ns["CHAMP_KOR_TO_ENG"] = dict(KOR_TO_ENG_FIXTURE)
+    ns["global_champ_map"] = {k: dict(v) for k, v in NUMERIC_FIXTURE.items()}
+    ns["_BRIEF_ENG2KOR"] = {}
+    load_one(ns, "_brief_champ_kor")
     return ns
 
 
@@ -413,6 +443,124 @@ class BriefingTest(unittest.TestCase):
         self.assertIn("mciSendStringW", src)
         self.assertIn('type mpegvideo alias', src)
         self.assertNotIn("ffmpeg", src.split("def _speak_neural_tts")[1].split("def _ingame_briefing_worker")[0])
+
+
+# ── ⑧ 한국어 클라이언트 실전 시나리오 ─────────────────────────────────
+class KoreanChampTest(unittest.TestCase):
+    """한국어 롤 클라이언트는 championName 을 한글로 준다 — 그 이름이 버려지면 브리핑이 통째로 멈춘다."""
+
+    def kor(self, name):
+        return real_champ_ns()["_brief_champ_kor"](name)
+
+    def test_live_korean_names_recognized(self):
+        # 2026-11-27 버그: 이 세 이름이 전부 '' 였다 → with_champ=0 → 브리핑 미실행
+        for name, want in (("아리", "아리"), ("리 신", "리 신"), ("미스 포츈", "미스 포츈"),
+                           ("카이사", "카이사"), ("자르반 4세", "자르반 4세")):
+            with self.subTest(name=name):
+                self.assertEqual(self.kor(name), want)
+                self.assertTrue(self.kor(name))          # 빈 문자열이면 안 된다
+
+    def test_korean_matches_english_official_spelling(self):
+        for eng, kor in (("Ahri", "아리"), ("LeeSin", "리 신"), ("MissFortune", "미스 포츈"),
+                         ("Kai'Sa", "카이사"), ("Nunu", "누누와 윌럼프")):
+            with self.subTest(eng=eng):
+                self.assertEqual(self.kor(kor), self.kor(eng))
+
+    def test_korean_without_space_gets_official_spelling(self):
+        self.assertEqual(self.kor("리신"), "리 신")
+        self.assertEqual(self.kor("미스포츈"), "미스 포츈")
+        self.assertEqual(self.kor("누누와윌럼프"), "누누와 윌럼프")
+        self.assertEqual(self.kor("자르반4세"), "자르반 4세")
+
+    def test_double_space_and_padding_normalized(self):
+        self.assertEqual(self.kor("  리   신 "), "리 신")
+
+    def test_unlisted_korean_returned_as_is(self):
+        # ddragon 표에 없는 신챔·표기 차이도 버리지 않는다(브리핑이 로딩으로 오인해 멈추지 않게)
+        self.assertEqual(self.kor("신규챔피언"), "신규챔피언")
+        self.assertEqual(self.kor("  신규 챔피언 "), "신규 챔피언")
+
+    def test_english_still_works(self):
+        self.assertEqual(self.kor("Ahri"), "아리")
+        self.assertEqual(self.kor("LeeSin"), "리 신")
+        self.assertEqual(self.kor("Kai'Sa"), "카이사")
+        self.assertEqual(self.kor("Miss Fortune"), "미스 포츈")
+
+    def test_english_cache_filled(self):
+        ns = real_champ_ns()
+        ns["_brief_champ_kor"]("Ahri")
+        self.assertEqual(ns["_BRIEF_ENG2KOR"].get("ahri"), "아리")
+
+    def test_empty_and_symbol_only(self):
+        for v in ("", None, "   ", "???"):
+            with self.subTest(v=v):
+                self.assertEqual(self.kor(v), "")
+
+    def test_unknown_english_still_empty(self):
+        self.assertEqual(self.kor("SomeNewChamp"), "")
+
+    # ── 실전: 한국어 playerlist 로 워커가 실제로 말하는지 ────────────────
+    def _korean_live(self):
+        our = ["아리", "리 신", "가렌", "진", "미스 포츈"]
+        enemy = ["카이사", "누누와 윌럼프", "자르반 4세", "가렌", "진"]
+        live = [{"riotIdGameName": "우리", "team": "ORDER", "position": "MIDDLE",
+                 "championName": ch} for ch in our]
+        for i, ch in enumerate(enemy):
+            live.append({"riotIdGameName": f"상대{i}", "team": "CHAOS",
+                         "position": "BOTTOM", "championName": ch})
+        return live
+
+    def test_worker_speaks_on_korean_client(self):
+        seen = {}
+        def _comp(ally, enemy):
+            seen["ally"], seen["enemy"] = list(ally), list(enemy)
+            return {"gaps": ["앞라인(탱커) 없음"], "threats": []}
+        spoken = []
+        live = self._korean_live()
+        ns = real_champ_ns(live_json=lambda p: live if p == "playerlist" else {"gameTime": 5},
+                           speak_recorder=lambda t: spoken.append(t))
+        ns["_comp_report"] = _comp
+        load(ns)
+        ns["gui_data"]["blue"] = [(P("우리#KR1", "a1"), S(5, 20, 0.6))]
+        ns["gui_data"]["red"] = [(P("상대#KR1", "b1"), S(4, 20, 0.6))]
+        ns["gui_data"]["blue_win_rate"] = 58
+        ns["_ingame_briefing_worker"]("id:81", [], [])
+        self.assertEqual(len(spoken), 1, f"한국어 클라이언트에서 브리핑이 나오지 않음: {spoken}")
+        self.assertIn("예상 승률", spoken[0])
+        # 한글 챔프가 조합 분석까지 전달돼야 방향성 문장이 나온다
+        self.assertEqual(seen.get("ally"), ["아리", "리 신", "가렌", "진", "미스 포츈"])
+        self.assertIn("누누와 윌럼프", seen.get("enemy") or [])
+        self.assertIn("앞라인이 없으니", spoken[0])
+
+    def test_worker_waits_when_korean_unknown_champs_missing(self):
+        # 챔프가 아직 안 뜨는 로딩 상태(championName='')는 계속 미룬다
+        spoken = []
+        live = [{"riotIdGameName": f"p{i}", "team": "ORDER" if i < 5 else "CHAOS",
+                 "championName": ("아리" if i == 0 else "")} for i in range(10)]
+        ns = real_champ_ns(live_json=lambda p: live if p == "playerlist" else {"gameTime": 1},
+                           speak_recorder=lambda t: spoken.append(t))
+        load(ns)
+        ns["_ingame_briefing_worker"]("id:82", [], [])
+        self.assertEqual(spoken, [])
+        self.assertNotIn("id:82", ns["_BRIEFED_GAMES"])
+
+    def test_champ_wait_logged_once(self):
+        prints = []
+        live = [{"riotIdGameName": f"p{i}", "team": "ORDER" if i < 5 else "CHAOS",
+                 "championName": ("아리" if i == 0 else "")} for i in range(10)]
+        ns = real_champ_ns(live_json=lambda p: live if p == "playerlist" else {"gameTime": 1})
+        load(ns)
+        ns["print"] = lambda *a, **k: prints.append(" ".join(str(x) for x in a))
+        ns["_ingame_briefing_worker"]("id:83", [], [])
+        ns["_ingame_briefing_worker"]("id:83", [], [])      # 같은 상태 — 다시 안 찍는다
+        wait = [p for p in prints if "챔프" in p]
+        self.assertEqual(len(wait), 1, prints)
+        self.assertIn("1/10명", wait[0])
+        # 인원이 바뀌면 한 줄 더(원인 추적용)
+        live[1]["championName"] = "리 신"
+        ns["_ingame_briefing_worker"]("id:83", [], [])
+        self.assertEqual(len([p for p in prints if "챔프" in p]), 2)
+        self.assertIn("2/10명", prints[-1])
 
 
 if __name__ == "__main__":

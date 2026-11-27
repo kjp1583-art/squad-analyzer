@@ -10005,8 +10005,26 @@ def _brief_match_live(lp, entries):
     return None
 
 def _brief_champ_kor(eng):
-    """라이브 영문 챔피언명 → 한글명(_champ_tags/_comp_report 가 한글 키를 쓴다)."""
-    e = re.sub(r"[^a-z0-9]", "", str(eng or "").lower())
+    """라이브 챔피언명 → 한글명(_champ_tags/_comp_report 가 한글 키를 쓴다).
+       [2026-11-27 제보·수정] 한국어 클라이언트의 championName 은 '아리'·'리 신'·'미스 포츈'처럼
+       처음부터 한글로 온다. 예전엔 영숫자만 남겨 비교해서 한글 이름이 전부 '' 가 됐고, 그 탓에
+       인게임 브리핑이 '챔프가 아직 덜 찼다'고 판단해 매 틱 조용히 건너뛰었다(브리핑이 아예 안 나옴)."""
+    raw = re.sub(r"\s+", " ", str(eng or "")).strip()
+    if not raw: return ""
+    raw_nospace = re.sub(r"\s+", "", raw)
+    # ① 한글 이름 — 공백을 무시하고 정식 표기('리 신')로 맞춘다. 표에 없는 한글이면 받은 이름 그대로.
+    if re.search(r"[가-힣]", raw_nospace):
+        try:
+            for _cid, d in global_champ_map.items():
+                kor = str((d or {}).get("kor") or "")
+                if kor and re.sub(r"\s+", "", kor) == raw_nospace: return kor
+            for k in CHAMP_KOR_TO_ENG:
+                if re.sub(r"\s+", "", str(k or "")) == raw_nospace: return str(k)
+        except Exception:
+            pass
+        return raw
+    # ② 영문 이름 — 기존 경로 그대로(영숫자만 남겨 비교, 'Kai'Sa'→'kaisa')
+    e = re.sub(r"[^a-z0-9]", "", raw.lower())
     if not e: return ""
     if e in _BRIEF_ENG2KOR: return _BRIEF_ENG2KOR[e]
     kor = ""
@@ -10309,6 +10327,13 @@ def _speak_neural_tts(text):
         return False
     tmp = None
     try:
+        # 🧯 PyInstaller(frozen) 환경에서 CA 번들이 없으면 edge-tts(aiohttp) TLS 가 실패해 음성만 조용히 막힌다.
+        #    SSL_CERT_FILE 이 비어 있을 때만 certifi 기본 번들로 보정한다(설정을 덮어쓰지 않음).
+        try:
+            if not os.environ.get("SSL_CERT_FILE"):
+                import certifi
+                os.environ["SSL_CERT_FILE"] = certifi.where()
+        except Exception: pass
         try:
             import asyncio
             import edge_tts
@@ -10343,7 +10368,15 @@ def _ingame_briefing_worker(key, blue, red):
             return
         # 로딩 중엔 챔프가 덜 차 있다 — 다 찰 때까지 미룬다(판당 1회라 이때 읽어야 제대로 읽는다)
         with_champ = sum(1 for lp in live if _brief_champ_kor((lp or {}).get("championName") or ""))
-        if with_champ < min(INGAME_BRIEF_MIN_CHAMPS, len(live)):
+        need_champ = min(INGAME_BRIEF_MIN_CHAMPS, len(live))
+        if with_champ < need_champ:
+            # 왜 시작 못 했는지 1회만 남긴다(매 틱 스팸 금지) — 같은 판에서 인원이 바뀔 때 다시 한 줄
+            try:
+                if _BRIEF_STATE.get("champ_wait") != (key, with_champ):
+                    _BRIEF_STATE["champ_wait"] = (key, with_champ)
+                    _names = [str((lp or {}).get("championName") or "") for lp in live[:3]]
+                    print(f"[brief] 챔프 {with_champ}/{len(live)}명만 인식(필요 {need_champ}) — 다음 폴링에서 재시도 · 예: {_names}", flush=True)
+            except Exception: pass
             return
         gs = _brief_live_json("gamestats") or {}
         try: gt = float(gs.get("gameTime"))
