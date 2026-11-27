@@ -591,6 +591,66 @@ window.SGG_DC_BOOT=(function(){
   @keyframes kzcslash{0%{opacity:.95;transform:translateX(-120%)}100%{opacity:0;transform:translateX(120%)}}
   @keyframes kzcemb{0%{opacity:0;transform:translateY(0) scale(1)}15%{opacity:1}100%{opacity:0;transform:translateY(-260px) scale(.4)}}
   @media (prefers-reduced-motion:reduce){.kzc::before,.kzc-bg,.kzc-em i,.kzc.fl .kzc-fx{animation:none!important}.kzc-s{transition:opacity .3s!important;transform:none!important}}
+  /* ⚔ [2026-11-27 사장님 「가로형 스플래쉬로 하되, 양옆으로 2명이 그려져있는 형태지만 한장으로 쳐서 한장이 빙글빙글 돌아서 3그룹이 번갈아도는걸로」]
+     귀살대 듀얼 스플래시 — 6인을 (1·2)(3·4)(5·6) 세 그룹으로 묶어, 한 장의 가로 카드가 돌면서 세 그룹을 번갈아 보여준다.
+     왼쪽 반 = 홀수 순위, 오른쪽 반 = 짝수 순위. 각 반에 그 사람 모스트 챔피언 스플래시가 대각선으로 갈라져 깔리고 가운데가 이어진다. */
+  .ksd{position:relative;border-radius:16px;padding:2px;overflow:hidden;isolation:isolate;min-width:0;
+    box-shadow:0 0 22px rgba(245,240,225,.10),0 0 58px rgba(150,30,24,.16)}
+  .ksd::before{content:"";position:absolute;inset:-70%;z-index:-2;animation:kzcspin 6s linear infinite;
+    background:conic-gradient(from 0deg,#0e0e11 0 55%,#f4f4ef 70%,#e2b94f 80%,#f4f4ef 90%,#0e0e11 100%)}
+  .ksd-in{position:relative;display:grid;border-radius:14px;overflow:hidden;perspective:1200px;
+    background:radial-gradient(120% 140% at 50% 0%,#251a13,#101013 62%,#08080a)}
+  .ksd-s{grid-area:1/1;position:relative;min-height:240px;opacity:0;visibility:hidden;backface-visibility:hidden;transform-origin:50% 50%}
+  .ksd-s.on{opacity:1;visibility:visible;animation:ksdflipin .85s cubic-bezier(.2,.9,.25,1.05) both}
+  .ksd-s.out{visibility:visible;opacity:1;animation:ksdflipout .4s cubic-bezier(.55,0,.8,.4) both}
+  .ksd-bg{position:absolute;inset:0;background-size:cover;background-repeat:no-repeat;opacity:.9}
+  .ksd-bg.l{clip-path:polygon(0 0,55% 0,45% 100%,0 100%);background-position:14% 24%;
+    -webkit-mask-image:linear-gradient(90deg,#000 0 42%,rgba(0,0,0,.45) 76%,transparent 100%);mask-image:linear-gradient(90deg,#000 0 42%,rgba(0,0,0,.45) 76%,transparent 100%)}
+  .ksd-bg.r{clip-path:polygon(56% 0,100% 0,100% 100%,46% 100%);background-position:86% 24%;
+    -webkit-mask-image:linear-gradient(270deg,#000 0 42%,rgba(0,0,0,.45) 76%,transparent 100%);mask-image:linear-gradient(270deg,#000 0 42%,rgba(0,0,0,.45) 76%,transparent 100%)}
+  .ksd-seam{position:absolute;top:-14%;bottom:-14%;left:50%;width:2px;transform:translateX(-50%) skewX(-9deg);z-index:2;pointer-events:none;
+    background:linear-gradient(180deg,transparent,rgba(255,226,160,.4) 22%,rgba(255,255,255,.8) 50%,rgba(255,226,160,.4) 78%,transparent)}
+  .ksd-s::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(6,6,8,.06) 0 28%,rgba(6,6,8,.5) 62%,rgba(6,6,8,.93) 100%)}
+  .ksd-half{position:absolute;top:0;bottom:0;z-index:3;display:flex;flex-direction:column;justify-content:space-between;
+    padding:14px 18px 30px;min-width:0;cursor:pointer;border-radius:10px}
+  .ksd-half.l{left:0;right:53%;align-items:flex-start;text-align:left}
+  .ksd-half.r{left:53%;right:0;align-items:flex-end;text-align:right}
+  .ksd-half:focus-visible{outline:2px solid #ffd36a;outline-offset:-3px}
+  .ksd-top{display:flex;align-items:center;gap:6px;min-width:0}
+  .ksd-no{display:inline-flex;align-items:baseline;gap:1px;padding:2px 9px 3px;border-radius:9px;
+    background:linear-gradient(180deg,#ffe6a8,#c99a2e);color:#1a1206;font-weight:900;font-variant-numeric:tabular-nums;
+    border:1px solid rgba(255,246,214,.8);box-shadow:0 3px 12px rgba(0,0,0,.55)}
+  .ksd-no b{font-size:16px;line-height:1} .ksd-no em{font-style:normal;font-size:10px;font-weight:800;opacity:.78}
+  .ksd-bot{min-width:0;max-width:100%}
+  .ksd-nm{font-size:25px;font-weight:900;line-height:1.12;color:#fff;letter-spacing:-.02em;overflow-wrap:anywhere;max-width:100%;
+    text-shadow:0 2px 10px rgba(0,0,0,.95),0 0 26px rgba(0,0,0,.72)}
+  .ksd-mt{display:flex;align-items:baseline;gap:7px;margin-top:4px;flex-wrap:wrap;max-width:100%}
+  .ksd-half.r .ksd-mt{justify-content:flex-end}
+  .ksd-wr{font-size:19px;font-weight:900;line-height:1.1;color:#ffd36a;text-shadow:0 1px 8px rgba(0,0,0,.95)}
+  .ksd-rec{font-size:11.5px;font-weight:700;color:rgba(255,255,255,.74);white-space:nowrap}
+  .ksd-hot{font-size:11.5px;font-weight:800;color:#ffb26b;white-space:nowrap}
+  .ksd-half.empty{cursor:default}
+  .ksd-empty{font-size:12px;color:rgba(255,255,255,.42)}
+  .ksd-em{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+  .ksd-em i{position:absolute;bottom:-8px;width:4px;height:4px;border-radius:50%;opacity:0;animation:kzcemb 4.4s linear infinite;
+    background:#ffce7a;box-shadow:0 0 9px 2px rgba(255,170,70,.75)}
+  .ksd-em i:nth-child(1){left:9%;animation-delay:.2s}.ksd-em i:nth-child(2){left:24%;animation-delay:1.5s;animation-duration:3.8s}
+  .ksd-em i:nth-child(3){left:41%;animation-delay:.8s}.ksd-em i:nth-child(4){left:57%;animation-delay:2.4s;animation-duration:4s}
+  .ksd-em i:nth-child(5){left:72%;animation-delay:.5s}.ksd-em i:nth-child(6){left:88%;animation-delay:1.9s;animation-duration:4.8s}
+  .ksd-fx{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;transform:translateX(-120%);
+    background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.8) 50%,transparent 65%)}
+  .ksd.fl .ksd-fx{animation:kzcslash .8s ease-out}
+  .ksd-dots{position:absolute;left:0;right:0;bottom:9px;display:flex;justify-content:center;gap:6px;z-index:5}
+  .ksd-dots i{width:18px;height:4px;border-radius:3px;background:rgba(255,255,255,.24);cursor:pointer;transition:background .3s,width .3s}
+  .ksd-dots i.on{background:#ffd36a;width:28px}
+  @keyframes ksdflipin{0%,38%{opacity:0;transform:rotateY(-92deg) scale(.97)}39%{opacity:1}100%{opacity:1;transform:rotateY(0) scale(1)}}
+  @keyframes ksdflipout{0%{opacity:1;transform:rotateY(0)}100%{opacity:0;transform:rotateY(92deg) scale(.97)}}
+  @media (prefers-reduced-motion:reduce){
+    .ksd::before,.ksd-bg,.ksd-em i,.ksd.fl .ksd-fx{animation:none!important}
+    .ksd-s.on,.ksd-s.out{animation:none!important;transform:none!important}
+    .ksd-fx{display:none}
+  }
   .kzlist{display:grid;gap:5px;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,auto);grid-auto-flow:column}
   @media(max-width:900px){
     .kzlist{grid-template-columns:1fr;grid-template-rows:none;grid-auto-flow:row}
@@ -611,9 +671,14 @@ window.SGG_DC_BOOT=(function(){
     .kzc-st{gap:4px;margin-top:7px} .kzc-st div{padding:4px 1px} .kzc-st em{font-size:9.5px;white-space:nowrap} .kzc-st b{font-size:var(--fs-sm);white-space:nowrap}
     .kzc-kj{font-size:92px;right:-4px}
     .kzc-rib{font-size:var(--fs-2xs);padding:2px 8px 3px}
+    .ksd-s{min-height:226px}
+    .ksd-half{padding:10px 11px 26px} .ksd-half.l{right:52%} .ksd-half.r{left:52%}
+    .ksd-no{padding:1px 7px 2px;border-radius:8px} .ksd-no b{font-size:13px} .ksd-no em{font-size:9px}
+    .ksd-nm{font-size:17px;line-height:1.1}
+    .ksd-mt{gap:4px;margin-top:3px} .ksd-wr{font-size:16px} .ksd-rec,.ksd-hot{font-size:10px}
+    .ksd-dots{bottom:8px} .ksd-dots i{width:14px} .ksd-dots i.on{width:22px}
     .kz-corps{padding:10px}
     .kz-corps-hd{flex-wrap:wrap;gap:2px 7px} .kz-corps-sub{flex-basis:100%} .kz-corps-t{white-space:nowrap;flex-shrink:0}
-    .kz-corps-chip{font-size:12px}
     .yt-ch{font-size:11px;white-space:nowrap}
   }
   .kzrow.up + .kzrow.low{margin-top:9px}   /* 상현 6명과 하현 6명 사이 숨 고르기 */
@@ -991,14 +1056,7 @@ window.SGG_DC_BOOT=(function(){
   .kz-corps-t{white-space:nowrap;flex:0 0 auto}
   .kz-corps-hd .kanji{color:rgba(255,255,255,.55);white-space:nowrap;flex:0 0 auto}
   .kz-corps-sub{font-size:var(--fs-xs);font-weight:400;color:rgba(255,255,255,.5);letter-spacing:0;flex:1 1 220px;min-width:0}
-  .kz-corps-list{display:flex;gap:6px;flex-wrap:wrap}
-  .kz-corps-chip{font-size:var(--fs-sm);font-weight:700;color:#f4f4f2;background:#101013;
-    border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:3px 9px;cursor:pointer;white-space:nowrap}
-  .kz-corps-chip:hover{border-color:#fff;background:#1a1a1f}
-  .kz-corps-chip b{color:#fff;margin-right:2px;background:rgba(255,255,255,.14);border-radius:4px;padding:0 4px}
-  .kz-corps-wr{color:#fff;font-weight:900;font-size:var(--fs-xs)}
-  .kz-corps-rec{color:rgba(255,255,255,.58);font-weight:700;font-size:var(--fs-2xs);letter-spacing:0;white-space:nowrap}
-  .kz-corps-hot{color:#ffb26b;font-weight:800;font-size:var(--fs-2xs);letter-spacing:0;white-space:nowrap;margin-left:3px}
+  /* 🗑 [2026-11-27] 예전 칩 목록(.kz-corps-chip)은 듀얼 스플래시(.ksd)로 바뀌며 쓰지 않는다 */
   .cal-hol{font-size:9.5px;font-weight:700;color:#ff8a9a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cal-ev{font-size:var(--fs-2xs);font-weight:700;padding:1.5px 4px;border-radius:5px;margin-top:2px;
     background:linear-gradient(90deg,rgba(74,126,240,.28),rgba(138,92,214,.28));border:1px solid rgba(122,140,255,.4);
@@ -1729,14 +1787,14 @@ window.SGG_DC_BOOT=(function(){
 
   /* 2️⃣ 숫자 시각화 — 표의 숫자 칸은 자리수 고정폭(tabular-nums)으로 세로 줄을 맞추고,
      승률·내전 활약에는 3px 미니 게이지를 붙여 한눈에 읽히게. 색은 칸 글자색(currentColor)을 그대로 쓴다. */
-  table td.num,table th.num,.kz-corps-wr,.kz-corps-rec,.kz-tier,.kz-games,.kzc-st b,.kzc-solo,.stat .n,.hc-v,.hc-chip i{font-variant-numeric:tabular-nums}
+  table td.num,table th.num,.kz-tier,.kz-games,.kzc-st b,.kzc-solo,.ksd-wr,.stat .n,.hc-v,.hc-chip i{font-variant-numeric:tabular-nums}
   .nbar{display:block;height:3px;width:100%;max-width:54px;margin:4px auto 0;border-radius:2px;background:rgba(255,255,255,.09);overflow:hidden}
   .nbar>i{display:block;height:100%;border-radius:2px;background:currentColor;opacity:.9;transition:width .5s cubic-bezier(.3,1,.4,1)}
   .nbar.kz{max-width:none;margin:5px 2px 0;background:rgba(255,255,255,.22)}
 
   /* 4️⃣ 호버·눌림 — 눌리는 것들(순위 행·칩·표 행·버튼·접이식 머리글)은 같은 리듬으로 반응한다 */
-  .kzrow,.kzc-s,.kz-corps-chip,.showall,.cta,.hc-card>summary,.ranktbl tbody tr,.champtbl tbody tr{transition:background .15s ease,border-color .15s ease,color .15s ease,transform .12s ease}
-  .kzrow:active,.kz-corps-chip:active,.showall:active,.cta:active,.hc-card>summary:active{transform:scale(.995)}
+  .kzrow,.kzc-s,.ksd-half,.showall,.cta,.hc-card>summary,.ranktbl tbody tr,.champtbl tbody tr{transition:background .15s ease,border-color .15s ease,color .15s ease,transform .12s ease}
+  .kzrow:active,.showall:active,.cta:active,.hc-card>summary:active{transform:scale(.995)}
   .cta:active,.showall:active{transform:scale(.985)}
   .ranktbl tbody tr:active,.champtbl tbody tr:active{background:rgba(255,255,255,.07)}
 
@@ -7277,6 +7335,73 @@ function kzcCardHtml(up,members,KN){   // members: [{n,title,a,d,sp}] 순위순(
   return `<div class="kzc ${up?"up":"low"}" data-i="0" data-next="${Date.now()+(up?4200:6300)}"><span class="kzc-rib">${up?"上弦":"下弦"}</span>
     <div class="kzc-in">${slides}<div class="kzc-em"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="kzc-fx"></div><div class="kzc-dots">${dots}</div></div></div>`;
 }
+/* ⚔ [2026-11-27 사장님 「가로형 스플래쉬로 하되, 양옆으로 2명이 그려져있는 형태지만 한장으로 쳐서 한장이 빙글빙글 돌아서 3그룹이 번갈아도는걸로」]
+   귀살대 듀얼 스플래시 — KISATSU 6인을 두 명씩 묶어 한 장의 가로 카드에서 돌린다.
+   · 왼쪽 반 = 홀수 순위(1/3/5), 오른쪽 반 = 짝수 순위(2/4/6) — 각 반을 누르면 그 사람 전적 카드
+   · 점 3개로 자동 순환·클릭 전환, 마우스를 올리면 멈춤, 기기 '동작 줄이기'면 자동 순환을 아예 켜지 않는다
+   · 6명 미만이면 마지막 그룹은 한 명만 그린다(빈 반은 '다음 달에 만나요') */
+let KSD_T=null;
+const KSD_MS=5200;
+const _KSD_RM=(typeof matchMedia==="function")?matchMedia("(prefers-reduced-motion: reduce)"):null;
+function ksdGo(c,i){
+  const ss=c.querySelectorAll(".ksd-s"); if(!ss.length) return; i=((i%ss.length)+ss.length)%ss.length;
+  ss.forEach((s,k)=>{ const was=s.classList.contains("on"); if(k===i){ s.classList.remove("out"); s.classList.add("on"); }
+    else if(was){ s.classList.remove("on"); s.classList.add("out"); setTimeout(()=>s.classList.remove("out"),460); } else s.classList.remove("out"); });
+  c.querySelectorAll(".ksd-dots i").forEach((d,k)=>d.classList.toggle("on",k===i));
+  c.dataset.i=i; c.dataset.next=Date.now()+KSD_MS; c.classList.remove("fl"); void c.offsetWidth; c.classList.add("fl");
+}
+function ksdTick(){
+  const cs=document.querySelectorAll(".ksd");
+  if(!cs.length){ clearInterval(KSD_T); KSD_T=null; return; }
+  if(document.hidden||(_KSD_RM&&_KSD_RM.matches)) return;   // 숨긴 탭·동작 줄이기에선 자동 순환하지 않는다
+  const now=Date.now();
+  cs.forEach(c=>{ if(c.matches(":hover")){ c.dataset.next=now+KSD_MS; return; } if(now>=(+c.dataset.next||0)) ksdGo(c,(+c.dataset.i||0)+1); });
+}
+function ksdStart(){ ksdFit(); if(_KSD_RM&&_KSD_RM.matches) return; if(!KSD_T) KSD_T=setInterval(ksdTick,500); }
+/* 🔎 긴 소환사명이 두 줄을 넘지 않게 글자를 줄인다 — 반쪽 높이가 정해져 있어 넘치면 배지와 붙는다(실제 긴 닉 대비) */
+function ksdFit(){
+  for(const el of document.querySelectorAll('.ksd-nm')){
+    if(!el.dataset.base) el.dataset.base=getComputedStyle(el).fontSize||'17px';
+    let fs=parseFloat(el.dataset.base)||17;
+    el.style.fontSize=fs+'px';
+    let guard=0;
+    while(el.scrollHeight>(parseFloat(getComputedStyle(el).lineHeight)||fs*1.15)*2+1 && fs>11 && guard++<14){ fs-=1; el.style.fontSize=fs+'px'; }
+  }
+}
+let _ksdFitT=0;
+window.addEventListener("resize",()=>{ clearTimeout(_ksdFitT); _ksdFitT=setTimeout(ksdFit,180); });
+function ksdHalfHtml(e,rank,side){
+  if(!e) return `<div class="ksd-half ${side} empty"><span class="ksd-empty">다음 달에 만나요</span></div>`;
+  const open=`openPlayerCard(${JSON.stringify(e.name).replace(/"/g,'&quot;')})`;
+  const wr=Math.round(e.wr), rec=`${e.w}승${e.g-e.w}패`;
+  const hot=(e.f30g>=KISATSU_FORM_MIN&&e.f30g>0)?Math.round(e.f30w/e.f30g*100):null;
+  const tip=`귀살대 ${rank}위 ${shortName(e.name)} — 최근 ${KISATSU_DAYS}일 상현 상대 ${e.g}판 ${rec} · 승률 ${wr}%`
+    +(hot!=null?` · 최근 ${KISATSU_FORM_DAYS}일 ${e.f30g}판 ${e.f30w}승 ${hot}%`:"")+" — 눌러서 전적 보기";
+  return `<div class="ksd-half ${side}" role="button" tabindex="0" aria-label="${escAttr(tip)}" title="${escAttr(tip)}"
+      onclick="event.stopPropagation();${open}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}">
+      <div class="ksd-top"><span class="ksd-no"><b>${rank}</b><em>위</em></span></div>
+      <div class="ksd-bot">
+        <div class="ksd-nm">${esc(shortName(e.name))}</div>
+        <div class="ksd-mt"><b class="ksd-wr">${wr}%</b><span class="ksd-rec">${rec}</span>${hot!=null?`<em class="ksd-hot">🔥 ${hot}%</em>`:""}</div>
+      </div></div>`;
+}
+function ksdSplashHtml(list){
+  if(!list||!list.length) return "";
+  const groups=[]; for(let i=0;i<list.length;i+=2) groups.push(list.slice(i,i+2));
+  setTimeout(()=>{ for(const e of list){ const sp=mainSplashOf(e.name); if(!sp) continue; try{ const im=new Image(); im.src=sp; }catch(_){} } },0);   // 넘어갈 때 그림이 늦지 않게 미리 받아 둔다
+  const slides=groups.map((grp,g)=>{
+    const spL=grp[0]?mainSplashOf(grp[0].name):"", spR=grp[1]?mainSplashOf(grp[1].name):"";
+    return `<div class="ksd-s${g===0?" on":""}">
+      ${spL?`<div class="ksd-bg l" style="background-image:url('${escAttr(spL)}')"></div>`:""}
+      ${spR?`<div class="ksd-bg r" style="background-image:url('${escAttr(spR)}')"></div>`:""}
+      <div class="ksd-seam" aria-hidden="true"></div>
+      ${ksdHalfHtml(grp[0],g*2+1,"l")}${ksdHalfHtml(grp[1],g*2+2,"r")}
+      <div class="ksd-em" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>`;
+  }).join("");
+  const dots=groups.length>1?`<div class="ksd-dots">${groups.map((_,k)=>`<i class="${k===0?"on":""}" role="button" tabindex="0" aria-label="${k+1}번째 그룹 ${k*2+1}·${k*2+2}위" onclick="event.stopPropagation();ksdGo(this.closest('.ksd'),${k})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ksdGo(this.closest('.ksd'),${k})}"></i>`).join("")}</div>`:"";
+  return `<div class="ksd" data-i="0" data-next="${Date.now()+KSD_MS}"><div class="ksd-in">${slides}<div class="ksd-fx"></div>${dots}</div></div>`;
+}
 function kizukiBoard(){
   const KN={1:"壱",2:"弐",3:"参",4:"肆",5:"伍",6:"陸"};
   const seen=new Map();   // "서부 상현 1" → 이름
@@ -7341,14 +7466,14 @@ function kizukiBoard(){
       ${(!lg&&KISATSU.length)?`<div class="kz-corps">
         <div class="kz-corps-hd"><span class="kz-corps-t">⚔ 귀살대</span> <span class="kanji" style="font-size:12px">鬼殺隊</span>
           <span class="kz-corps-sub">상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들</span></div>
-        <div class="kz-corps-list">${KISATSU.map((e,i)=>`<span class="kz-corps-chip" title="최근 ${KISATSU_DAYS}일 상현 상대 ${e.g}판 ${e.w}승${e.g-e.w}패 · 승률 ${Math.round(e.wr)}%${e.f30g?` · 최근 ${KISATSU_FORM_DAYS}일 ${e.f30g}판 ${e.f30w}승 ${Math.round(e.f30w/e.f30g*100)}%`:""}" onclick="event.stopPropagation();openPlayerCard(${JSON.stringify(e.name).replace(/"/g,'&quot;')})"><b>${i+1}</b> ${esc(shortName(e.name))} <span class="kz-corps-wr">${Math.round(e.wr)}%</span><span class="kz-corps-rec"> · ${e.w}승${e.g-e.w}패</span>${(e.f30g>=KISATSU_FORM_MIN)?`<span class="kz-corps-hot" title="최근 ${KISATSU_FORM_DAYS}일 ${e.f30g}판 ${e.f30w}승(${Math.round(e.f30w/e.f30g*100)}%) — 같은 승률이면 이 폼이 위로">🔥 ${Math.round(e.f30w/e.f30g*100)}%</span>`:""}</span>`).join("")}</div>
+        ${ksdSplashHtml(KISATSU)}
       </div>`:''}
       <div class="cta-row"><button class="cta" type="button" onclick="go('tiers')">내부티어 전체 보기 →</button></div>
     </div>`;
   };
   // [2026-08-07 사장님 지시] 동부가 빠진 오른쪽 자리에 '다가오는 일정' 패널
   // [2026-08-12 사장님 지시] 일정 아래로 남던 빈 공간에 🏪 거래소 현재 매물을 붙인다.
-  ytHomeLoad(); setTimeout(kzcStart,0);
+  ytHomeLoad(); setTimeout(kzcStart,0); setTimeout(ksdStart,0);
   const evPane=`<div class="kzleague">
     <div style="cursor:pointer" onclick="go('cal')" title="클릭하면 클랜일정 달력으로">
       <div class="kzhd"><h2>📅 클랜일정</h2><span class="kanji">디스코드 이벤트 연동</span></div>
@@ -14349,7 +14474,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       for(const [x,y] of pts){
         for(const e of (document.elementsFromPoint(x,y)||[])){
           if(e===b||b.contains(e)) continue;
-          if(e.closest&&e.closest("table td,table th,.kz-corps-chip,.kzc-st,.kzrow,.showall,.cta")) return true; }
+          if(e.closest&&e.closest("table td,table th,.ksd,.kzc-st,.kzrow,.showall,.cta")) return true; }
       }
       return false;
     };
@@ -14396,7 +14521,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611271032";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611271118";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

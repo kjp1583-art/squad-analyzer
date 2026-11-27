@@ -5,7 +5,7 @@
   A 제목(⚔ 귀살대)과 한자(鬼殺隊)가 한 줄 — 360·390·768·1280 폭 모두에서 글자가 줄로 꺾이지 않는다
   B 제목·한자·설명이 카드 밖으로 넘치지 않고, 화면에 가로 스크롤이 생기지 않는다
   C 설명은 「상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들」 한 문장만 — 90일·폼·탈퇴 설명은 화면에서 빠진다
-  D 그 설명은 칩 툴팁에 그대로 남아 있다(정보는 지우지 않고 접었다)
+  D 그 설명은 슬라이드 툴팁에 그대로 남아 있다(정보는 지우지 않고 접었다)
   E 필터링·정렬 로직은 그대로 — 6칸 · 최근 승률 내림차순 · 페이지 오류 0
 
   python3 tests/web_kisatsu_header_test.py
@@ -32,7 +32,7 @@ MEASURE_JS = r"""(()=>{
     sameLine:(()=>{const a=rects(t)[0],b=rects(k)[0];return a&&b?Math.abs(a.y-b.y)<=3:null})(),
     subTxt:sub?sub.textContent.replace(/\s+/g,' ').trim():'', subRects:rects(sub), subLines:(()=>{const rs=rects(sub);return new Set(rs.map(r=>r.y)).size})(),
     over:ov, sw:document.documentElement.scrollWidth, cw:document.documentElement.clientWidth,
-    chipTips:[...document.querySelectorAll('.kz-corps-chip')].map(e=>e.getAttribute('title')||''),
+    chipTips:[...document.querySelectorAll('.ksd-half')].map(e=>e.getAttribute('title')||''),
     n:(typeof KISATSU!=='undefined')?KISATSU.length:-1, wrs:(typeof KISATSU!=='undefined')?KISATSU.map(x=>Math.round(x.wr*1000)/1000):[]};
 })()"""
 
@@ -69,7 +69,7 @@ async def main():
         ok(m['subTxt'] == SUB_WANT, 'C 설명은 한 문장 %r' % m['subTxt'])
         ok(all(t not in m['subTxt'] for t in ('90일', '15판', '폼', '탈퇴', '🔥')), 'C 90일·폼·탈퇴 설명은 화면에서 빠졌다')
         ok(m['chipTips'] and all('최근 90일' in t for t in m['chipTips']) and any('최근 30일' in t for t in m['chipTips']),
-           'D 칩 툴팁에는 최근 90일·30일 기준이 남아 있다 %r' % (m['chipTips'][:1],))
+           'D 반쪽 툴팁에는 최근 90일·30일 기준이 남아 있다 %r' % (m['chipTips'][:1],))
         ok(m['n'] == 6 and m['wrs'] == sorted(m['wrs'], reverse=True), 'E 6칸 · 승률 내림차순 %s' % m['wrs'])
         ok(not log['pageerror'] and not log['console'], 'E 페이지 오류·콘솔 0 %s %s' % (log['pageerror'][:1], log['console'][:1]))
 

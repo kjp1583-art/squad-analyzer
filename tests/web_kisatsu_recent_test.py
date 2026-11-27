@@ -6,7 +6,7 @@
   B 순서 = 최근 90일 승률 내림차순 — 화면에 보이는 %와 순서가 어긋나지 않는다
   C 같은 승률이면 최근 30일 폼이 위, 최근 판이 없으면 아래 (🔥 = 최근 30일 폼)
   D 15판↑ 인원이 6명 미만이면 10판↑ fallback 으로 빈 칸을 채운다
-  E 칩 = 승률 + 전적(`78% · 14승4패`) + 🔥폼 · KISATSU 원소에 w·g·wr · 부제에 기준 문구
+  E 반쪽 카드 = 승률 + 전적(`78%` `14승4패`) + 🔥폼 · KISATSU 원소에 w·g·wr · 부제에 기준 문구
   F 홈 화면에 그대로 그려진다 · 페이지 오류 0
 
   python3 tests/web_kisatsu_recent_test.py
@@ -91,12 +91,12 @@ def build_xlsx(path, cast):
 KS_JS = """(()=>{
   const k=KISATSU.map(x=>({name:x.name,g:x.g,w:x.w,wr:+x.wr.toFixed(1),f30g:x.f30g,f30w:x.f30w,
     ok:typeof x.w==='number'&&typeof x.g==='number'&&typeof x.wr==='number'&&Math.abs(x.w/x.g*100-x.wr)<1e-9}));
-  const chips=[...document.querySelectorAll('.kz-corps-chip')].map(e=>e.textContent.replace(/\\s+/g,' ').trim());
-  const hotMark=document.querySelectorAll('.kz-corps-hot').length;
+  const halves=[...document.querySelectorAll('.ksd-half:not(.empty)')].map(e=>e.textContent.replace(/\\s+/g,' ').trim());
+  const hotMark=document.querySelectorAll('.ksd-hot').length;
   const sub=(document.querySelector('.kz-corps-sub')||{}).textContent||'';
   const names=k.map(x=>x.name);
   const idxOf=n=>names.findIndex(v=>String(v).indexOf(n)===0);
-  return {n:k.length, k, chips, sub, hotMark,
+  return {n:k.length, k, halves, sub, hotMark,
     hasHot:idxOf('동률A'), hasCold:idxOf('동률B'), hasGhost:idxOf('고인물'), hasShort:idxOf('표본10'), hasGone:idxOf('탈퇴자'),
     wrs:k.map(x=>x.wr), desc:k.every((x,i)=>i===0||k[i-1].wr>=x.wr),
     dup:(()=>{const c={};names.forEach(n=>{const p=personKeyOf(n);c[p]=(c[p]||0)+1});return Object.values(c).filter(v=>v>1).length})(),
@@ -135,9 +135,9 @@ async def main():
     ok(all(x['f30g'] == 0 for x in A['k'] if x['name'].startswith('동률B')), 'C 동률B 는 최근 30일 판이 0판으로 집계된다')
     ok(A['dup'] == 0 and A['overlap'] == 0, 'A 같은 사람이 두 번 없고 상현(사람)과 겹치지 않는다')
     ok(all(x['ok'] for x in A['k']), 'E KISATSU 원소에 w·g·wr 이 서로 맞게 들어 있다')
-    ok(len(A['chips']) == 6 and all(re.search(r'\d+%', c) and re.search(r'·\s*\d+승\d+패', c) for c in A['chips']),
-       'E 칩에 승률과 전적이 같이 나온다 %s' % A['chips'][:2])
-    ok(A['hotMark'] >= 1 and '🔥' in A['chips'][0], 'E 최근 폼이 있는 칩에는 🔥 최근 30일 승률이 붙는다 %s' % A['chips'][0])
+    ok(len(A['halves']) == 6 and all(re.search(r'\d+%', c) and re.search(r'\d+승\d+패', c) for c in A['halves']),
+       'E 반쪽마다 승률과 전적이 같이 나온다 %s' % A['halves'][:2])
+    ok(A['hotMark'] >= 1 and '🔥' in A['halves'][0], 'E 최근 폼이 있는 반쪽에는 🔥 최근 30일 승률이 붙는다 %s' % A['halves'][0])
     # 🧹 [2026-11-27 사장님 「최근90일에 관한 내용부터 그 뒷내용 디테일까지는 안보여도될거같으니 내용지워주고 간결화」]
     ok(A['sub'].strip() == '상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들',
        'E 부제는 한 문장만 남는다(판수·폼·탈퇴 설명은 칩 툴팁으로) %r' % A['sub'].strip())
