@@ -9801,6 +9801,11 @@ def lcu_core_backend_loop():
                 if _cs_since[0] == 0.0: _cs_since[0] = time.time()
             else:
                 _cs_since[0] = 0.0
+                # 🛡️ [2026-11-27] 밴픽을 벗어나면(닷지·게임 시작·로비) 빌드 카드를 바로 내린다.
+                #    밴픽 세션 조회가 404 가 되면 feed 가 안 불리므로 여기서 확실히 비운다.
+                try:
+                    if lolps_build is not None: lolps_build.feed(0, "", current_phase)
+                except Exception: pass
             _cs_fresh = _cs_since[0] > 0 and (time.time() - _cs_since[0]) < CS_REFRESH_SEC
             try: noban_tick(headers, base_url, current_phase)   # 🚫 노밴 선언 감지(로비 채팅, 2초 간격)
             except Exception: pass
