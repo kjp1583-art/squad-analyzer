@@ -1710,6 +1710,92 @@ window.SGG_DC_BOOT=(function(){
   .hv2 .showall{min-height:46px;display:flex;align-items:center;justify-content:center;border-color:var(--accent);color:var(--accent);font-weight:800;border-radius:10px;background:transparent}
   @media (max-width:720px){.hv2 .card h2,.hv2 .kzhd h2,.hv2 .hsec-k{font-size:17px}.cta{width:100%}}
 
+  /* ══════════ ✨ [2026-11-27 사장님 「웹 디자인 퀄리티 상승 1~4번」] ══════════
+     평평한 1px 테두리 상자만 늘어놓던 화면을 표면 톤으로 층을 지어 정리한다. */
+
+  /* 1️⃣ 카드 위계 — 핵심 섹션(.card.core: 전적표·챔피언·방금 끝난 내전 …)은 한 단 올리고(윗면 은은한 하이라이트 +
+     또렷한 테두리), 보조 아코디언(details.hc-card: 이번 패치 변화·오늘 밤 단골 예보)은 한 단 내려(어두운 표면 + 약한 테두리)
+     시선이 위에서 아래로 자연스럽게 흐르게. 클랜일정·클랜 영상이 든 kzboard 는 그 자체로 최상단 톤을 유지한다. */
+  .card.core{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,0) 72px),var(--card);
+    border-color:rgba(255,255,255,.10);border-top-color:rgba(255,255,255,.19);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 14px 30px -26px rgba(0,0,0,.95)}
+  .card.core:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 16px 34px -22px rgba(0,0,0,.95)}
+  .card.core>h2{font-size:17px}
+  .kzboard{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 58px),linear-gradient(180deg,#0d0a0e,#120b10 55%,#0b0a0d)}
+  details.hc-card{background:var(--bg2);border-color:rgba(255,255,255,.055);box-shadow:none}
+  details.hc-card>summary{color:var(--sub);font-size:14px;font-weight:800;padding:11px 16px}
+  details.hc-card[open]{border-color:rgba(255,255,255,.09)}
+  details.hc-card[open]>summary{color:var(--txt)}
+
+  /* 2️⃣ 숫자 시각화 — 표의 숫자 칸은 자리수 고정폭(tabular-nums)으로 세로 줄을 맞추고,
+     승률·내전 활약에는 3px 미니 게이지를 붙여 한눈에 읽히게. 색은 칸 글자색(currentColor)을 그대로 쓴다. */
+  table td.num,table th.num,.kz-corps-wr,.kz-corps-rec,.kz-tier,.kz-games,.kzc-st b,.kzc-solo,.stat .n,.hc-v,.hc-chip i{font-variant-numeric:tabular-nums}
+  .nbar{display:block;height:3px;width:100%;max-width:54px;margin:4px auto 0;border-radius:2px;background:rgba(255,255,255,.09);overflow:hidden}
+  .nbar>i{display:block;height:100%;border-radius:2px;background:currentColor;opacity:.9;transition:width .5s cubic-bezier(.3,1,.4,1)}
+  .nbar.kz{max-width:none;margin:5px 2px 0;background:rgba(255,255,255,.22)}
+
+  /* 4️⃣ 호버·눌림 — 눌리는 것들(순위 행·칩·표 행·버튼·접이식 머리글)은 같은 리듬으로 반응한다 */
+  .kzrow,.kzc-s,.kz-corps-chip,.showall,.cta,.hc-card>summary,.ranktbl tbody tr,.champtbl tbody tr{transition:background .15s ease,border-color .15s ease,color .15s ease,transform .12s ease}
+  .kzrow:active,.kz-corps-chip:active,.showall:active,.cta:active,.hc-card>summary:active{transform:scale(.995)}
+  .cta:active,.showall:active{transform:scale(.985)}
+  .ranktbl tbody tr:active,.champtbl tbody tr:active{background:rgba(255,255,255,.07)}
+
+  /* 3️⃣ 폰 「맨 위로」 — 글자 알약(약 90×34)이 전적표 오른쪽 숫자를 덮었다. 38px 반투명 원형 아이콘으로 줄이고,
+     버튼 자리 아래에 표·칩 같은 숫자가 깔리면 스스로 비켜 준다(아래 스크립트가 .dodge 를 토글). */
+  #toTopBtn{display:none;position:fixed;right:12px;bottom:16px;z-index:40;width:38px;height:38px;padding:0;border-radius:50%;
+    border:1px solid rgba(255,255,255,.16);background:rgba(27,32,48,.8);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    color:var(--txt);font-size:15px;font-weight:800;line-height:1;
+    box-shadow:0 4px 14px rgba(0,0,0,.42);opacity:0;transform:translateY(6px);cursor:pointer;touch-action:manipulation;
+    transition:opacity .18s ease,transform .12s ease,background .15s ease}
+  #toTopBtn.on{display:block;opacity:1;transform:none;line-height:36px;text-align:center}
+  #toTopBtn.on.dodge{opacity:0;transform:translateY(6px);pointer-events:none}
+  #toTopBtn:hover{background:rgba(33,40,60,.92)}
+  #toTopBtn:active{transform:scale(.94)}
+
+  /* 4️⃣ 첫 시트 로딩 스켈레톤 — 빈 화면 대신 홈 뼈대를 은은한 shimmer 로 */
+  .skl{display:flex;flex-direction:column;gap:14px;margin-top:14px}
+  .skl-row{display:grid;grid-template-columns:1.55fr 1fr;gap:14px}
+  .skl-grid{display:grid;grid-template-columns:1.05fr .95fr .8fr;gap:14px}
+  .skl-card{border:1px solid rgba(255,255,255,.055);border-radius:14px;background:var(--card);padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .skl-hero{border:1px solid rgba(255,255,255,.075);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;
+    background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 70%),var(--card)}
+  .skl-l,.skl-b{display:block;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.11) 37%,rgba(255,255,255,.05) 63%);
+    background-size:400% 100%;animation:skl-shine 1.4s ease-in-out infinite}
+  .skl-l{height:11px}.skl-l.w30{width:30%}.skl-l.w40{width:40%}.skl-l.w45{width:45%}.skl-l.w55{width:55%}.skl-l.w70{width:70%}
+  .skl-b{height:104px;border-radius:10px;margin-top:auto}.skl-line{height:10px;width:100%}
+  .skl-cap{text-align:center;color:var(--mut);font-size:var(--fs-sm);padding:2px 0 24px}
+  @keyframes skl-shine{0%{background-position:100% 0}100%{background-position:-100% 0}}
+  /* 데스크톱 3단(전적표·챔피언·최근 내전)에서 전적표 7열이 카드 밖으로 넘쳐 마지막 열(역적)이 잘렸다
+     → ①이 폭에서만 셀 여백 2px·13px ②표 머리글 12px ③전적표 칸에 폭을 조금 더(1.05fr→1.12fr)
+     측정: 전적표 최소폭 359 < 카드 378, 챔피언표 316 ≤ 316 — 두 표 모두 상자 안에 다 들어온다. */
+  @media (min-width:961px){
+    .home3{grid-template-columns:minmax(0,1.12fr) minmax(0,0.95fr) minmax(0,0.73fr)}
+    .home3 .ranktbl th,.home3 .ranktbl td{padding:7px 2px;font-size:13px}
+    .home3 .ranktbl th,.home3 .champtbl th{font-size:12px}
+  }
+  @media (max-width:820px){.skl-grid{grid-template-columns:1fr 1fr}}
+  @media (max-width:720px){.skl-row,.skl-grid{grid-template-columns:1fr}.skl-b{height:76px}}
+  @media (prefers-reduced-motion:reduce){#toTopBtn{transition:none}.card:hover{transform:none}}
+
+  /* 3️⃣ 폰 폭 — 전적표 7열이 카드 밖으로 넘쳐(412px 에서 425 > 350) 마지막 열이 잘리던 것:
+     490px 이하에서만 셀 여백·글자를 한 단 조여 상자 안에 다 들어오게(측정: 412px 425→350, 카드 350). */
+  @media (max-width:490px){
+    .ranktbl th,.ranktbl td,.champtbl th,.champtbl td{padding:6px 2px;font-size:12.5px}
+    .ranktbl th,.champtbl th{font-size:11px}
+    .ranktbl td:first-child{max-width:120px}
+  }
+  /* 360px — 카드 여백·타이포까지 한 단 더 조인다(가장 좁은 화면) */
+  @media (max-width:400px){
+    .hv2 .card{padding:11px}
+    .hv2 .card h2,.hv2 .kzhd h2{font-size:16px}
+    .ranktbl td,.champtbl td{font-size:12px}
+    .ranktbl th,.champtbl th{font-size:11px}
+    .ranktbl td:first-child{max-width:104px;font-size:12px}
+    .ranktbl .champ{width:22px;height:22px}
+    .nbar{max-width:44px;margin-top:3px}
+    .hv2 .kzleague{padding:14px 12px 16px}
+  }
+
 
   /* 🎛 [2026-11-23 사장님 「상단 필터·탭 정돈 — 프로답게」] 필터 카드 · 분할 버튼 · 탭 두 단 */
   .fltrow{display:flex;flex-direction:column;gap:0;margin:14px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
@@ -6319,8 +6405,16 @@ function onKey(e){
 }
 
 /* ============== 화면: 로딩 / 비어있음 ============== */
+/* 🦴 [2026-11-27 디자인 4번] 첫 시트 로딩 — 글자 한 줄("불러오는 중…") 대신 홈과 같은 뼈대를 은은하게 깔아
+   기다리는 동안에도 화면이 덜 비어 보이게. 숫자·글자는 넣지 않는다(아직 모르는 값을 지어내지 않도록). */
 function renderLoading(){
-  view().innerHTML=`<div class="empty">전적 데이터를 불러오는 중…</div>`;
+  const line='<span class="skl-l skl-line"></span>';
+  view().innerHTML=`<div class="skl" aria-busy="true" role="status" aria-label="전적 데이터를 불러오는 중">
+    <div class="skl-hero"><span class="skl-l w40"></span><span class="skl-l w70"></span><span class="skl-l w55"></span></div>
+    <div class="skl-row"><div class="skl-card"><span class="skl-l w45"></span><span class="skl-b"></span></div>
+      <div class="skl-card"><span class="skl-l w30"></span><span class="skl-b"></span></div></div>
+    <div class="skl-grid">${[0,1,2].map(()=>`<div class="skl-card"><span class="skl-l w45"></span>${line}${line}${line}${line}</div>`).join("")}</div>
+    <div class="skl-cap">전적 데이터를 불러오는 중…</div></div>`;
 }
 function renderEmpty(){
   view().innerHTML=`<div class="empty">
@@ -7171,13 +7265,13 @@ function kzcCardHtml(up,members,KN){   // members: [{n,title,a,d,sp}] 순위순(
   const slides=members.map((m,k)=>{
     const a=m.a||{}, d=m.d||{}, short=d.soloTxt?String(d.soloTxt).replace(/ \d+LP$/,""):"";
     const solo=d.solo!=null?(d.soloTxt||"언랭"):"";
-    const st=[["승률",d.wr!=null?d.wr+"%":"–"],["판수",a.games?a.games+"판":"–"],["MVP율",d.mvp!=null?d.mvp+"%":"–"]];
+    const st=[["승률",d.wr!=null?d.wr+"%":"–",d.wr!=null?nBar(d.wr,100,"kz"):""],["판수",a.games?a.games+"판":"–",""],["MVP율",d.mvp!=null?d.mvp+"%":"–",""]];
     return `<div class="kzc-s${k===0?" on":""}" onclick="openPlayerCard(${JSON.stringify(m.n).replace(/"/g,"&quot;")})" title="${escAttr(m.n+" — "+m.title)}">
       ${m.sp?`<div class="kzc-bg" style="background-image:url('${escAttr(m.sp)}')"></div>`:""}<div class="kzc-kj">${KN[m.no]||m.no}</div>
       <div class="kzc-top"><span class="kzc-seal"><span class="r">${up?"上弦":"下弦"}</span><span class="n">${KN[m.no]||m.no}</span></span>${a.tier?`<span class="kzc-tier">${esc(a.tier)}</span>`:""}</div>
       <div class="kzc-name">${esc(shortName(m.n))}</div>
       <div class="kzc-solo">${solo?"🏅 솔랭 "+esc(solo):"&nbsp;"}</div>
-      <div class="kzc-st">${st.map(([k,v])=>`<div><em>${k}</em><b>${esc(v)}</b></div>`).join("")}</div></div>`;
+      <div class="kzc-st">${st.map(([k,v,bar])=>`<div><em>${k}</em><b>${esc(v)}</b>${bar||""}</div>`).join("")}</div></div>`;
   }).join("");
   const dots=members.map((m,k)=>`<i class="${k===0?"on":""}" onclick="event.stopPropagation();kzcGo(this.closest('.kzc'),${k})"></i>`).join("");
   return `<div class="kzc ${up?"up":"low"}" data-i="0" data-next="${Date.now()+(up?4200:6300)}"><span class="kzc-rib">${up?"上弦":"下弦"}</span>
@@ -7388,9 +7482,9 @@ function renderHome(){
   const pShow=pAll?playersOrdered:playersOrdered.slice(0,15);
   const playerRows=pShow.map(p=>`<tr${isPinned(p.name)?' style="background:rgba(245,212,122,.06)"':''}>
       <td>${miniIcon(p.name)}<span class="clickname" onclick="openPlayerCard(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">${isPinned(p.name)?'📌 ':''}${roleBadge(p.name)}${nameFx(p.name)}</span>${tierBadge(p.name)}</td>
-      <td class="num" title="내전 활약 점수 — 솔랭을 빼고 내전 기록(승률·KDA·킬관여·MVP·역적 등)만으로 매긴 점수. 클랜 평균 50" style="color:${p.score==null?'var(--mut)':p.score>=65?'var(--gold)':p.score<=35?'var(--lose)':'var(--txt)'};font-weight:${p.score!=null&&p.score>=65?'700':'400'}">${p.score!=null?p.score+'<span class="muted" style="font-size:var(--fs-2xs)">/100</span>':'<span class="muted">-</span>'}</td>
+      <td class="num" title="내전 활약 점수 — 솔랭을 빼고 내전 기록(승률·KDA·킬관여·MVP·역적 등)만으로 매긴 점수. 클랜 평균 50" style="color:${p.score==null?'var(--mut)':p.score>=65?'var(--gold)':p.score<=35?'var(--lose)':'var(--txt)'};font-weight:${p.score!=null&&p.score>=65?'700':'400'}">${p.score!=null?p.score+'<span class="muted" style="font-size:var(--fs-2xs)">/100</span>'+nBar(p.score,100):'<span class="muted">-</span>'}</td>
       <td class="num">${p.games}</td>
-      <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%</td>
+      <td class="num" style="color:${p.wr>=50?'var(--win)':'var(--lose)'}">${p.wr}%${nBar(p.wr,100)}</td>
       <td class="num" style="color:var(--gold)">${p.mvp||""}</td>
       <td class="num" style="color:#ff9d5c">${p.ace||""}</td>
       <td class="num" style="color:var(--lose)">${p.bad||""}</td>
@@ -7404,21 +7498,21 @@ function renderHome(){
     ${kizukiBoard()}
     ${(()=>{ try{ return regularsCardHtml()+patchShiftCardHtml(); }catch(e){ console.warn("home cards",e); return ""; } })()}
     <div class="home3">
-      <div class="card">
+      <div class="card core">
         <h2>👥 클랜원 전적표 <span class="hs">머리글을 눌러 정렬</span></h2>
         <table class="ranktbl"><thead><tr>
           ${pth("소환사","name")}${pth("내전 활약","score")}${pth("게임수","games")}${pth("승률","wr")}${pth("MVP","mvp")}${pth("ACE","ace")}${pth("역적","bad")}
         </tr></thead><tbody>${playerRows}</tbody></table>
         ${pAll?'':`<div class="showall" onclick="homeShowAll('p')">▼ 전체 보기 (${playersOrdered.length}명)</div>`}
       </div>
-      <div class="card">
+      <div class="card core">
         <h2>📊 챔피언별 승률·픽률 <span class="hs">머리글을 눌러 정렬</span></h2>
         <table class="champtbl"><thead><tr>
           ${th("챔피언","champ")}${th("픽","picks")}${th("승률","wr")}${th("밴픽률","pr")}${th("노밴률","nb")}
         </tr></thead><tbody>${champRows}</tbody></table>
         ${(HOME_ALL.c||champs.length<=15)?'':`<div class="showall" onclick="homeShowAll('c')">▼ 전체 보기 (${champs.length}개)</div>`}
       </div>
-      <div class="card">
+      <div class="card core">
         <h2>🕒 방금 끝난 내전</h2>
         ${recentGamesHtml(2)}
         <div class="cta-row"><button class="cta" type="button" onclick="go('log')">내전기록 보기 →</button></div>
@@ -7590,6 +7684,12 @@ function sortPlayer(key){
 function wrBar(wr){
   return `<div class="wr"><span style="min-width:34px;color:${wr>=50?'var(--win)':'var(--lose)'}">${wr}%</span>
     <span class="wrbar"><i style="width:${wr}%"></i></span></div>`;
+}
+/* 📊 [2026-11-27 디자인 2번] 숫자 칸 미니 게이지 — 0~max 를 3px 막대로. 값은 옆에 그대로 있으므로 보조(aria-hidden).
+   색은 감싼 칸의 글자색(currentColor)을 그대로 쓴다 — 승률 초록/빨강, 활약 금색/회색이 저절로 맞는다. */
+function nBar(v,max,cls){
+  const n=Math.max(0,Math.min(100,Math.round((+v||0)/(max||100)*100)));
+  return `<span class="nbar${cls?' '+cls:''}" aria-hidden="true"><i style="width:${n}%"></i></span>`;
 }
 function shortName(n){return n.split("#")[0];}
 function tagOf(n){const p=n.split("#");return p[1]?"#"+p[1]:"";}
@@ -14234,16 +14334,33 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
   const start=()=>{ mark(); try{ new MutationObserver(sched).observe(document.body,{childList:true,subtree:true}); }catch(e){} };
   if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
 })();
-/* ⬆ [2026-11-03 P-36·37] 폰에서 긴 화면(주간스쿼드·내부티어·멸망전 …)을 한참 내렸을 때 나오는 「맨 위로」 — PC 에서는 숨김 */
+/* ⬆ [2026-11-03 P-36·37] 폰에서 긴 화면(주간스쿼드·내부티어·멸망전 …)을 한참 내렸을 때 나오는 「맨 위로」 — PC 에서는 숨김
+   [2026-11-27 디자인 3번] 글자 알약이 전적표 오른쪽 숫자를 덮었다 → 38px 반투명 원형 아이콘 + 표·칩 위에 오면 스스로 비켜 준다 */
 (function(){
   try{
     if(!window.matchMedia) return;
-    const b=document.createElement("button"); b.id="toTopBtn"; b.type="button"; b.textContent="↑ 맨 위로"; b.setAttribute("aria-label","맨 위로 올라가기");
-    b.style.cssText="display:none;position:fixed;right:12px;bottom:18px;z-index:40;padding:8px 12px;border-radius:999px;border:1px solid var(--line,#3a4256);background:var(--bg2,#1b2030);color:var(--txt,#e8ecf5);font-size:13px;font-weight:800;box-shadow:0 2px 10px rgba(0,0,0,.35);cursor:pointer";
+    const b=document.createElement("button"); b.id="toTopBtn"; b.type="button"; b.innerHTML='<span aria-hidden="true">↑</span>'; b.setAttribute("aria-label","맨 위로 올라가기"); b.title="맨 위로";
     b.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
     document.body.appendChild(b);
     const mq=matchMedia("(max-width:760px)"); let t=0;
-    addEventListener("scroll",()=>{ if(t) return; t=setTimeout(()=>{ t=0; b.style.display=(mq.matches&&window.scrollY>400)?"block":"none"; },120); },{passive:true});
+    const coversData=()=>{   // 버튼 자리(가운데 + 모서리 안쪽 4점)에 읽어야 할 숫자·버튼이 깔려 있으면 비켜 준다
+      const r=b.getBoundingClientRect(); if(!r.width) return false;
+      const pts=[[r.left+r.width/2,r.top+r.height/2],[r.left+5,r.top+5],[r.right-5,r.top+5],[r.left+5,r.bottom-5],[r.right-5,r.bottom-5]];
+      for(const [x,y] of pts){
+        for(const e of (document.elementsFromPoint(x,y)||[])){
+          if(e===b||b.contains(e)) continue;
+          if(e.closest&&e.closest("table td,table th,.kz-corps-chip,.kzc-st,.kzrow,.showall,.cta")) return true; }
+      }
+      return false;
+    };
+    const sync=()=>{ t=0;
+      const on=mq.matches&&window.scrollY>400;
+      b.classList.toggle("on",on);
+      b.classList.toggle("dodge",on&&coversData());
+    };
+    addEventListener("scroll",()=>{ if(!t) t=setTimeout(sync,120); },{passive:true});
+    addEventListener("resize",()=>{ if(!t) t=setTimeout(sync,120); },{passive:true});
+    sync();
   }catch(e){}
 })();
 /* 📱 [2026-11-14 P-19] 폰 머리 다이어트 동작 — ① 지금 탭이 보이게 자동 스크롤 + 「›」 힌트 ② 필터를 안 쓰는 탭에선 필터 줄 숨김 ③ 아래로 내리면 헤더 숨김·올리면 나타남 */
@@ -14279,7 +14396,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611270930";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611271032";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
