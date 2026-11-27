@@ -944,6 +944,7 @@ def stop_attendance():
 # 같은 조 나머지 9명을 LCU(/lol-lobby/v2/lobby/invitations)로 실제 초대. (요청자 아니면 조용히 무시)
 INVITE_BRIDGE_URL = "https://hth3thmujs.apps.bot-hosting.cloud/invites"   # 봇 공개엔드포인트(노드 이전 시 변경)
 VOICE_BRIDGE_URL = "https://hth3thmujs.apps.bot-hosting.cloud/voice"      # 봇: 요청자가 들어가 있는 음성방 인원
+CALLED_BRIDGE_URL = "https://hth3thmujs.apps.bot-hosting.cloud/called"    # 봇: #인원호출에서 방금 부른 사람들의 롤닉
 _processed_invites = {}   # invite_id -> 처리시각(180s 보관, 봇 TTL 120s보다 길게 → 재발동 방지)
 
 def _inv_norm(s):
@@ -1073,6 +1074,49 @@ def _invite_voice_members():
     print(f"[voice-invite] {ch} {len(sids)}명 초대 → HTTP {r.status_code}", flush=True)
     return True, (f"🎮 '{ch}' 음성방 {len(sids)}명에게 초대를 보냈어요!"
                   + (f"\n(계정을 못 찾은 {miss}명은 빠졌어요 — 그 분들은 /연동 이 필요해요)" if miss else ""))
+
+def _invite_called_members():
+    """📣 [2026-11-27 사장님 지시] '호출자초대' — #인원호출에서 방금 부른 사람들을 지금 로비로 바로 초대.
+       봇 /called 가 '최근 90분 호출자(열외 제외)'의 롤닉#태그를 돌려준다. 초대 실행부는 팀초대와 동일한
+       LCU 경로(/lol-lobby/v2/lobby/invitations)를 그대로 쓴다. 반환: (성공여부, 사용자에게 보여줄 메시지)"""
+    L = _inv_lcu_creds()
+    if not L:
+        return False, "League 클라이언트를 찾지 못했어요.\n롤을 켜고 로그인한 뒤 다시 눌러주세요."
+    base, h = L
+    me = _inv_current_riot_id(base, h)
+    if not me:
+        return False, "현재 소환사를 읽지 못했어요.\n롤 클라이언트가 완전히 켜졌는지 확인해주세요."
+    try:
+        j = requests.get(CALLED_BRIDGE_URL, timeout=8).json() or {}
+    except Exception as e:
+        return False, f"봇 조회에 실패했어요: {e}"
+    called = [x for x in (j.get("called") or []) if isinstance(x, dict)]
+    ids = [str(x.get("riot") or "").strip() for x in called]
+    invitees = [r for r in dict.fromkeys(ids) if r and _inv_norm(r) != _inv_norm(me)]
+    if not invitees:
+        return False, ("지금 부를 사람이 없어요.\n"
+                       "#인원호출 에서 먼저 📣 호출을 한 뒤 눌러주세요.\n(호출 후 90분이 지난 사람은 빠집니다)")
+    sids, miss = [], []
+    for rid in invitees:
+        sid = _inv_resolve_summoner_id(base, h, rid)
+        print(f"[called-invite] {rid} -> summonerId={sid}", flush=True)
+        if sid: sids.append(sid)
+        else: miss.append(rid)
+    if not sids:
+        return False, (f"호출자 {len(invitees)}명 중 롤 계정을 찾지 못했어요.\n"
+                       f"(미연동·미발견: {', '.join(miss[:5])}{' 외' if len(miss) > 5 else ''})")
+    try:
+        r = requests.post(base + "/lol-lobby/v2/lobby/invitations", headers=h,
+                          data=json.dumps([{"toSummonerId": x} for x in sids]), verify=False, timeout=6)
+    except Exception as e:
+        return False, f"초대 전송에 실패했어요: {e}"
+    if r.status_code >= 300:
+        return False, (f"롤이 초대를 거부했어요 (HTTP {r.status_code}).\n"
+                       "사용자 지정 게임 로비를 먼저 만들어 두셨는지 확인해주세요.")
+    print(f"[called-invite] 호출자 {len(sids)}명 초대 → HTTP {r.status_code}", flush=True)
+    return True, (f"📣 호출자 {len(sids)}명에게 로비 초대를 보냈어요!"
+                  + (f"\n(계정을 못 찾은 {len(miss)}명: {', '.join(miss[:5])}{' 외' if len(miss) > 5 else ''})" if miss else ""))
+
 
 def ping_called_at_gamestart(game_id):
     """게임 시작 시 호출자(승격된 대기자)를 웹훅으로 @멘션. 게임당 1회. (호스트만)"""
@@ -9251,7 +9295,77 @@ def _noban_sheet_push(game_id, date_str):
 
 _NOBAN = {"decls": [], "trig": False, "conv": None, "seen": set(), "names": {}, "last": 0.0, "r1": False, "r2": False}
 # 🔚 막판자 조사(같은 로비 채팅 의식) — 진행자 "막판(조사)" → 카운트다운(3/2/1) 중 '.'(오타 ',' 포함) 타이핑 = 막판 선언
-_MAKPAN = {"decls": [], "trig": False}
+#    [2026-11-27] ① 개시는 명시적 표현만('막판'이 든 잡담 오발동 방지) ② 취소/안함/한판더 = 그 사람만 번복
+#                 ③ 새 로비(cid 변경)·조사 종료 뒤엔 상태 초기화 ④ 게임 진입 순간 봇에 알림(_makpan_notify_start)
+_MAKPAN = {"decls": [], "trig": False, "sent": 0}
+_MKP_OPEN_EXACT = ("막판", "막판!", "막판.", "막판?", "막판조사", "막판조사!", "막판조사.", "막판시작")
+_MKP_WITHDRAW_WORDS = ("취소", "안함", "안 함", "더함", "한판더", "한판 더", "빼줘", "뺄게", "막판아님")
+
+
+def _makpan_open(nb):
+    """조사 개시 표현인가 — 띄어쓰기 제거본(nb) 기준. '막판각'·'막판이네' 같은 잡담은 열지 않는다."""
+    if nb in _MKP_OPEN_EXACT: return True
+    if nb.startswith("막판("): return True          # '막판(조사)' 표기
+    return "막판조사" in nb
+
+
+def _makpan_withdraw(nb):
+    """번복(이번 판 안 함·한 판 더) — 선언한 본인만 목록에서 뺀다."""
+    return any(w.replace(" ", "") in nb for w in _MKP_WITHDRAW_WORDS)
+
+
+def _makpan_scan(body, nb, who):
+    """로비 채팅 한 줄 반영. 반환 ''(무관) | open | declare | dup | withdraw | withdraw_miss | end.
+       호출부는 반환값이 비어있지 않으면 그 줄을 노밴 선언으로 더 보지 않는다(기존 continue 와 동일)."""
+    if _makpan_open(nb):
+        _MAKPAN["trig"] = True; _MAKPAN["decls"] = []
+        return "open"
+    if not _MAKPAN["trig"]: return ""
+    if _makpan_withdraw(nb):
+        if who and who in _MAKPAN["decls"]:
+            _MAKPAN["decls"].remove(who); return "withdraw"
+        return "withdraw_miss"
+    if re.fullmatch(r"[.,·]+", nb):                   # '.' 선언(오타 ',' 포함)
+        if who and who not in _MAKPAN["decls"]:
+            _MAKPAN["decls"].append(who); return "declare"
+        return "dup"
+    if re.fullmatch(r"\d+명", nb):                    # 'N명' 집계 → 조사 종료
+        _MAKPAN["trig"] = False
+        return "end"
+    return ""
+
+
+def _makpan_payload(now=None):
+    """게임 시작 시점의 막판 선언 → 봇(DATA) 마커. 선언이 없으면 ''.
+       h 는 '이름들 + 20분 버킷' → 여러 분석기 인스턴스가 동시에 쏴도 같은 값(봇이 1회만 표시), 다음 판은 다른 값."""
+    names = [str(x).strip() for x in (_MAKPAN.get("decls") or []) if str(x).strip()]
+    if not names: return ""
+    bucket = int(float(now or time.time()) // 1200)
+    h = hashlib.md5(("|".join(sorted(names)) + "|" + str(bucket)).encode()).hexdigest()[:12]
+    return ("🔚 [막판알림] h=" + h + " n=" + str(len(names)) + chr(10) + "막판: " + ", ".join(names))
+
+
+def _makpan_notify_start():
+    """🎬 인게임 진입 순간 봇에 막판 알림 — 봇이 #인원호출에 요약+[대기자 호출] 버튼을 띄운다.
+       게임당 1회(20분 버킷) · 분석기당 1회. 실패는 무해(다음 판에 다시)."""
+    try:
+        p = _makpan_payload()
+        if not p: return
+        bucket = int(time.time() // 1200)
+        if _MAKPAN.get("sent") == bucket: return
+        _MAKPAN["sent"] = bucket
+        url = DATA_WEBHOOK_URL if (DATA_WEBHOOK_URL and not str(DATA_WEBHOOK_URL).startswith("여기에")) else RESULT_WEBHOOK_URL
+        if not url or str(url).startswith("여기에") or _OUTDATED: return
+        def _send():
+            for _ in range(2):
+                try:
+                    if requests.post(url, json={"content": p}, timeout=5).status_code < 400: return
+                except Exception: pass
+                time.sleep(2)
+        threading.Thread(target=_send, daemon=True).start()
+        print(f"[makpan] 게임 시작 알림 — {len(_MAKPAN['decls'])}명: {', '.join(_MAKPAN['decls'])}", flush=True)
+    except Exception as e:
+        print(f"[makpan] 시작 알림 실패(무시): {e}", flush=True)
 
 # 📋 [2026-08-19 사장님 지시] 수동 내전기록 백업 릴레이 — 팀뽑 의식은 로비 채팅에 "블루 …"/"레드 …" 줄을
 #    갱신해 가며 진행되고, 마지막 5:5 완성본을 사람이 기록 채널에 복붙해 왔다. 그 완성본(양쪽 5명 전원
@@ -9406,7 +9520,7 @@ def _rr_try_send(headers=None, base_url=None, cid=None):
 
 def _noban_reset():
     _NOBAN.update({"decls": [], "trig": False, "conv": None, "seen": set(), "names": {}, "r1": False, "r2": False})
-    _MAKPAN.update({"decls": [], "trig": False})
+    _MAKPAN.update({"decls": [], "trig": False, "sent": 0})
     _rr_reset()
 
 def _nb_played(who):
@@ -9493,19 +9607,13 @@ def noban_tick(headers, base_url, phase):
             if _NOBAN["r1"] and _NOBAN["r2"] and not _NOBAN["trig"]:
                 _NOBAN["trig"] = True; _NOBAN["decls"] = []
                 print("[noban] 양팀 준비(1ㅇ·2ㅇ) 감지 — 노밴 카운트 모드 진입", flush=True)
-            if "막판" in nb:                                      # 🔚 막판(조사) 개시 — 재선언 시 리셋
-                _MAKPAN["trig"] = True; _MAKPAN["decls"] = []
+            _mkp = _makpan_scan(body, nb, who)                    # 🔚 막판 조사 — 명시적 개시·선언·번복만
+            if _mkp:
+                if _mkp == "open": print(f"[makpan] 조사 시작 — '{body}'", flush=True)
+                elif _mkp == "declare": print(f"[makpan] 막판 선언 — {who} <- '{body}'", flush=True)
+                elif _mkp == "withdraw": print(f"[makpan] 번복 — {who} 제외 <- '{body}'", flush=True)
+                elif _mkp == "end": print(f"[makpan] 조사 종료 — {len(_MAKPAN['decls'])}명: {', '.join(_MAKPAN['decls'])}", flush=True)
                 continue
-            if _MAKPAN["trig"]:
-                if re.fullmatch(r"[.,·]+", nb):                   # '.' 선언(오타 ',' 포함)
-                    if who and who not in _MAKPAN["decls"]:
-                        _MAKPAN["decls"].append(who)
-                        print(f"[makpan] 막판 선언 — {who} <- '{body}'", flush=True)
-                    continue
-                if re.fullmatch(r"\d+명", nb):                # 'N명' 집계 → 조사 종료
-                    _MAKPAN["trig"] = False
-                    print(f"[makpan] 조사 종료 — {len(_MAKPAN['decls'])}명: {', '.join(_MAKPAN['decls'])}", flush=True)
-                    continue
             if not _NOBAN["trig"]: continue
             if re.fullmatch(r"[\d\s]+", body): continue           # 3333/2222 준비 신호·카운트다운
             champ = resolve_champ_decl(body, champs, _nb_played(who))   # who는 동률 해소에만 사용(기록 안 함)
@@ -10284,6 +10392,8 @@ def lcu_core_backend_loop():
             _in_prog_now = (current_phase in _INGAME_PHASES)
             if _in_prog_now and not was_in_prog:
                 game_seq += 1
+                try: _makpan_notify_start()          # 🔚 [2026-11-27] 막판 선언을 게임 시작 순간 봇에 알림(중복 방지)
+                except Exception as _mpe: print(f"[makpan] 알림 예외(무시): {_mpe}", flush=True)
                 # 🧠 [v82.42 사장님 지시] 게임 진입 순간 코치 팝업 즉시 숨김 — 항상-위 창이 전체화면(독점) 모드를
                 #    깨서 순간 렉/깜빡임을 유발할 수 있음(90초 자동소멸을 기다리지 않음)
                 try:
@@ -12934,6 +13044,15 @@ def create_graphic_ui():
         threading.Thread(target=_work, daemon=True).start()
 
     _TextNavBtn("팀초대", _do_voice_invite)   # [2026-08-18 사장님 지시] '음성초대' → 디코 명령어와 같은 이름으로
+
+    # 📣 [2026-11-27 사장님 지시] '호출자초대' — #인원호출에서 방금 부른 사람들을 지금 로비로 바로 초대
+    def _do_called_invite():
+        def _work():
+            ok, msg = _invite_called_members()
+            root.after(0, lambda: (messagebox.showinfo if ok else messagebox.showwarning)("호출자초대", msg))
+        threading.Thread(target=_work, daemon=True).start()
+
+    _TextNavBtn("호출자초대", _do_called_invite)
     # 👑 [v83.71 사장님 지시] '팀뽑선정'을 팀초대 바로 옆(맨 왼쪽 묶음)으로 — 로비에서 먼저 쓰는 순서대로.
     #    _do_team_menu 정의는 아래에 있다. 버튼 클릭 시점에 이름이 바인딩되므로 람다로 넘긴다.
     _TextNavBtn("팀뽑선정", lambda: _do_team_menu())
