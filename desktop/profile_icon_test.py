@@ -3,7 +3,7 @@
 import ast, os, types, unittest
 
 SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "squad_analyzer.py")
-NAMES = {"_fetch_summoner_profile", "fetch_solo_rank_by_riotid", "_carry_profile_icons"}
+NAMES = {"_riot_get", "_fetch_summoner_profile", "fetch_solo_rank_by_riotid", "_carry_profile_icons"}
 
 
 class Resp:
