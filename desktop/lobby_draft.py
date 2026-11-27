@@ -705,17 +705,48 @@ def _creds_from_lockfile(path):
              "Content-Type": "application/json"})
 
 
+# 멤버 dict 에서 닉네임이 들어오는 자리들 — LCU 응답마다 어느 칸에 들어오는지가 다르다.
+NAME_FIELDS = ("gameName", "summonerName", "displayName", "summonerInternalName")
+
+
+def _slot_name(d):
+    """로비 인원/슬롯 dict → 닉네임(태그 제외). gameName 이 비어 있어도 displayName·summonerName 을 본다."""
+    if not isinstance(d, dict):
+        return ""
+    for k in NAME_FIELDS:
+        v = d.get(k)
+        if v:
+            nm = str(v).split("#")[0].strip()
+            if nm:
+                return nm
+    return ""
+
+
+def _id_str(v):
+    """puuid/summonerId 를 문자열로 — 빈 슬롯이 0/None 으로 오는 것을 빈 값으로 본다."""
+    t = str(v if v is not None else "").strip()
+    return "" if t.lower() in ("", "0", "none", "null") else t
+
+
+def _slot_id_keys(s):
+    """dict 하나에서 puuid·summonerId·게임닉 키를 뽑는다(소문자)."""
+    keys = set()
+    for k in ("puuid", "summonerId"):
+        v = _id_str(s.get(k))
+        if v:
+            keys.add(v.lower())
+    nm = _slot_name(s)
+    if nm:
+        keys.add(name_key(nm))
+    return keys
+
+
 def _spec_keys(game_config):
     """gameConfig.customSpectators → 관전자 식별 키 집합(puuid·summonerId·게임닉)."""
     keys = set()
     for s in (game_config.get("customSpectators") or []):
         if isinstance(s, dict):
-            for k in ("puuid", "summonerId"):
-                if s.get(k):
-                    keys.add(str(s[k]).lower())
-            nm = s.get("gameName") or s.get("summonerName")
-            if nm:
-                keys.add(name_key(nm))
+            keys |= _slot_id_keys(s)
         elif s:
             keys.add(str(s).lower())
     return keys
@@ -727,48 +758,166 @@ def _team_keys(game_config):
     for slot in ("customTeam100", "customTeam200"):
         for s in (game_config.get(slot) or []):
             if isinstance(s, dict):
-                if s.get("puuid"):
-                    keys.add(str(s["puuid"]).lower())
-                nm = s.get("gameName") or s.get("summonerName")
-                if nm:
-                    keys.add(name_key(nm))
+                keys |= _slot_id_keys(s)
             elif s:
                 keys.add(str(s).lower())
     return keys
 
 
+def _slot_entries(game_config):
+    """gameConfig 의 팀·관전 슬롯 → [(dict, 'team'|'spec')] — members 에 빠져 있어도 살리기 위한 목록.
+
+    문자열로만 오는 슬롯은 puuid 와 닉네임을 구분할 수 없어 raw 로 넘긴다(양쪽 키로 맞춰 본다).
+    """
+    out = []
+    for slot, place in (("customTeam100", "team"), ("customTeam200", "team"),
+                        ("customSpectators", "spec")):
+        for s in (game_config.get(slot) or []):
+            if isinstance(s, dict):
+                out.append((s, place))
+            elif s:
+                tok = str(s).strip()
+                if tok:
+                    out.append(({"_raw": tok}, place))
+    return out
+
+
 def classify_members(lobby):
-    """로비 응답 → [{'name','key','spectator'}] — 관전 슬롯(customSpectators)·isSpectator·role 을 모두 본다.
+    """로비 응답 → [{'name','key','spectator','puuid','summonerId'}] — members + 팀·관전 슬롯을 모두 합친다.
 
     11~12명 방에서 '누가 관전자인지'를 미리 표시해 주는 것이 목적이라, 확실한 신호가 없으면
     참가자로 둔다(관전자를 참가자로 잘못 볼지언정, 참가자를 관전자로 몰지 않는다 — 호스트가 창에서 고친다).
+
+    2026-11-28 사장님 제보(관전자 슬롯 인원이 목록에 안 떠서 시작 불가):
+      실제 `/lol-lobby/v2/lobby` 는 관전 슬롯(`customSpectators`) 인원을 members 에 넣지 않거나,
+      gameName 이 비고 puuid/summonerId·displayName 만 넣어 준다. 그래서 members 만 돌면 그 사람이
+      통째로 빠져 인원이 모자라고 관전자 체크도 할 수 없었다 → 멤버·팀·관전 슬롯을 puuid·summonerId·
+      닉네임 기준으로 하나로 합친다. 이름이 아직 비면 probe_lobby 가 LCU 소환사 조회로 채운다.
     """
     lobby = lobby or {}
     gc = lobby.get("gameConfig") or {}
     spec, team = _spec_keys(gc), _team_keys(gc)
-    out = []
+    rows, index = [], {}          # index: 'pu:…' / 'sid:…' / 'n:…' → row (같은 사람을 한 줄로 합치기)
+
+    def _keys(pu, sid, key, raw):
+        ks = []
+        for k in (("pu:" + pu) if pu else "", ("sid:" + sid) if sid else "",
+                  ("n:" + key) if key else "", ("pu:" + raw) if raw else "",
+                  ("n:" + raw) if raw else ""):
+            if k and k not in ks:
+                ks.append(k)
+        return ks
+
+    def _merge(pu="", sid="", name="", raw="", spec_hint=False, team_hint=False):
+        push = str(pu or "").lower()
+        sid = str(sid or "").lower()
+        raw = str(raw or "").strip().lower()
+        name = str(name or "").strip()
+        key = name_key(name) if name else ""
+        row = None
+        for k in _keys(push, sid, key, raw):
+            if k in index:
+                row = index[k]
+                break
+        if row is None:
+            row = {"name": "", "key": "", "spectator": False, "puuid": "", "summonerId": "",
+                   "raw": "", "_spec": False, "_team": False}
+            rows.append(row)
+        if name and not row["name"]:
+            row["name"], row["key"] = name, key          # 한쪽에만 이름이 있으면 그 이름을 살린다
+        if push and not row["puuid"]:
+            row["puuid"] = push
+        if sid and not row["summonerId"]:
+            row["summonerId"] = sid
+        if raw and not row["raw"]:
+            row["raw"] = raw
+        row["_spec"] = row["_spec"] or bool(spec_hint)
+        row["_team"] = row["_team"] or bool(team_hint)
+        for k in _keys(row["puuid"], row["summonerId"], row["key"], row["raw"]):
+            index[k] = row
+        return row
+
     for m in (lobby.get("members") or []):
         if not isinstance(m, dict):
             continue
-        nm = str(m.get("gameName") or m.get("summonerName") or "").split("#")[0].strip()
-        if not nm:
-            continue
-        pu = str(m.get("puuid") or "").lower()
-        sid = str(m.get("summonerId") or "").lower()
-        key = name_key(nm)
+        pu = _id_str(m.get("puuid"))
+        sid = _id_str(m.get("summonerId"))
+        nm = _slot_name(m)
+        key = name_key(nm) if nm else ""
         spec_flag = (str(m.get("isSpectator", "")).lower() == "true"
                      or str(m.get("role", "")).upper() == "SPECTATOR"
                      or str(m.get("teamId", "")).strip() == "-1"
-                     or (pu and pu in spec) or (sid and sid in spec) or key in spec)
-        if (pu and pu in team) or key in team:
-            spec_flag = False                      # 팀 슬롯에 앉아 있으면 참가자
-        out.append({"name": nm, "key": key, "spectator": bool(spec_flag)})
+                     or (pu and pu.lower() in spec) or (sid and sid.lower() in spec)
+                     or (key and key in spec))
+        in_team = bool((pu and pu.lower() in team) or (sid and sid.lower() in team)
+                       or (key and key in team))
+        _merge(pu=pu, sid=sid, name=nm, spec_hint=bool(spec_flag and not in_team), team_hint=in_team)
+
+    for rec, place in _slot_entries(gc):
+        pu = _id_str(rec.get("puuid"))
+        sid = _id_str(rec.get("summonerId"))
+        nm = _slot_name(rec)
+        if not (pu or sid or nm):
+            tok = str(rec.get("_raw") or "").strip()
+            if not tok:
+                continue
+            low = tok.lower()
+            if ("pu:" + low) in index or ("sid:" + low) in index:
+                pu = tok
+            elif ("n:" + name_key(tok)) in index or len(low) < 24:
+                nm = tok                       # 닉네임으로 본다
+            else:
+                pu = tok                       # puuid 모양(36자 UUID)으로 본다
+        _merge(pu=pu, sid=sid, name=nm,
+               spec_hint=(place == "spec"), team_hint=(place == "team"))
+
+    out = []
+    for r in rows:
+        if r["_team"]:
+            r["spectator"] = False             # 팀 슬롯에 앉아 있으면 참가자
+        else:
+            r["spectator"] = bool(r["_spec"])
+        out.append({"name": r["name"], "key": r["key"], "spectator": r["spectator"],
+                    "puuid": r["puuid"], "summonerId": r["summonerId"]})
     return out
 
 
 def default_selection(rows):
-    """선택 창의 기본값 — 관전 슬롯으로 보이는 사람만 빼 둔 참가자 이름들."""
-    return [r["name"] for r in (rows or []) if not r.get("spectator")]
+    """선택 창의 기본값 — 관전 슬롯으로 보이는 사람만 빼 둔 참가자 이름들(이름 미확인 행은 뺀다)."""
+    return [r["name"] for r in (rows or [])
+            if not r.get("spectator") and str(r.get("name") or "").strip()]
+
+
+def _resolve_names(client, rows):
+    """이름이 빈 행(puuid/summonerId 만 온 사람)을 LCU 소환사 조회·로비 채팅으로 채운다."""
+    blank = [r for r in rows if not str(r.get("name") or "").strip()]
+    if not blank:
+        return rows
+    parts = {}
+    try:
+        if not getattr(client, "cid", ""):
+            client.chat_id()
+        parts = client.participants() or {}
+    except Exception:
+        parts = {}
+    for r in blank:
+        pu, sid = _id_str(r.get("puuid")), _id_str(r.get("summonerId"))
+        nm = ""
+        for path in ((f"/lol-summoner/v2/summoners/puuid/{pu}" if pu else ""),
+                     (f"/lol-summoner/v1/summoners/{sid}" if sid else "")):
+            if not path:
+                continue
+            try:
+                nm = _slot_name(client.get(path) or {})
+            except Exception:
+                nm = ""
+            if nm:
+                break
+        if not nm and sid:
+            nm = _slot_name({"gameName": parts.get(sid) or parts.get(sid.lower()) or ""})
+        if nm:
+            r["name"], r["key"] = nm, name_key(nm)
+    return rows
 
 
 def probe_lobby(client=None):
@@ -782,7 +931,13 @@ def probe_lobby(client=None):
         if not lobby:
             return {"ok": False, "rows": [], "candidates": [],
                     "error": "로비 정보를 읽지 못했어요 — 커스텀 게임 방에 들어가 있는지 확인해 주세요."}
-        rows = classify_members(lobby)
+        rows = _resolve_names(c, classify_members(lobby))
+        for r in rows:                                    # 끝내 이름을 못 얻어도 목록에서 빼지 않는다
+            if not str(r.get("name") or "").strip():
+                tail = str(r.get("summonerId") or r.get("puuid") or "")[:6]
+                r["name"] = "이름 미확인" + (f"({tail})" if tail else "")
+                r["key"] = ""
+                r["unknown"] = True
         if not rows:
             return {"ok": False, "rows": [], "candidates": [], "error": "로비 인원을 읽지 못했어요."}
         return {"ok": True, "error": "", "rows": rows, "candidates": default_selection(rows)}
