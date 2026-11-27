@@ -2925,9 +2925,26 @@ function tierBadge(name){const t=tierOf(name);return t?`<span class="tier ${tier
 let TIER_AVG={}, TIER_EVAL_GIDS=new Set(), ASSESSMENTS=new Map();
 let GAMES_ALL=new Map(), PLAYERS_ALL=new Map();   // 내부티어 전용: 패치 필터 무관 전체 데이터(2026-07-17 — 버전별로 나누지 않음)
 const TIER_MIN_GAMES=10, TIER_MIN_EVAL=5;
+// 🧭 [2026-11-27 사장님 승인] 경계선 자리 밀림 판정 컷 — 재배치 등급 차이(|di|)만으로 고/저평가를 붙이지 않는다.
+//   현재 티어 평균 power 와의 거리가 BORDER 미만이면 '적절'(반 티어 안에서 두 칸 밀린 경우),
+//   긴급픽스는 2티어(4등급) 이상 어긋나면서 power 차이도 URGENT 이상일 때만.
+const TIER_POW_BORDER=0.25, TIER_POW_URGENT=0.45;
+// 🧭 [2026-11-27 사장님 승인] 재배치 등급 차이(di) + 티어 평균 power 와의 거리(pdev) 로 단일 라벨을 정한다.
+//   di > 0 = 추정이 더 높은 티어(실력이 티어보다 위) = 저평가 / di < 0 = 과대배치 = 고평가.
+//   |di| >= 2 라도 pdev 가 작으면(0.25 미만) 단순 경계선 자리 밀림으로 보고 '적절' 유지.
+//   긴급픽스는 2티어(4등급) 이상 + pdev 0.45 이상인 진짜 미스매치만.
+function tierAssessLabel(di, pdev){
+  const border = Math.abs(di)>=2 && pdev!=null && pdev<TIER_POW_BORDER;
+  const urgent = Math.abs(di)>=4 && (pdev==null || pdev>=TIER_POW_URGENT);
+  if(urgent) return {label:di>0?"긴급픽스요망↑저평가":"긴급픽스요망↓고평가", cls:"a-urgent", urgent:true, border:false};
+  if(border || Math.abs(di)<2) return {label:"적절", cls:"a-ok", urgent:false, border};
+  return {label:di>0?"저평가":"고평가", cls:di>0?"a-under":"a-over", urgent:false, border:false};
+}
 const SHRINK_WR=10, SHRINK_AI=10, SHRINK_EVAL=5, ASSESS_Z=0.85, SHRINK_SOLOWR=20;
-// 솔랭(객관 외부 실력) 최대, AI점수(내부 퍼포먼스) 다음. 솔랭 데이터 없으면 자동 재정규화.
-const W_SOLO=0.35, W_AI=0.20, W_WR=0.15, W_SOLOWR=0.10, W_MVP=0.10, W_TROLL=0.10;  // 역적 드물어진 만큼 역적율 가중 0.05→0.10(MVP 동급)
+// 💠 [2026-11-27 사장님 승인] 솔랭 편중 완화 — 솔랭 축 합계 45%→30%(솔랭 25%·솔랭승률 5%), 내전 지표 70%로.
+//   내전 승률이 낮은데 솔랭 점수만으로 '저평가(승격 후보)'가 되던 왜곡을 줄인다.
+//   솔랭 데이터 없으면 자동 재정규화(합계로 나눈다).
+const W_SOLO=0.25, W_AI=0.25, W_WR=0.20, W_SOLOWR=0.05, W_MVP=0.15, W_TROLL=0.10;  // 역적율은 0.10 유지(MVP 동급)
 const _amean=xs=>{xs=xs.filter(x=>x!=null);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;};
 const _astd=(xs,mu)=>{xs=xs.filter(x=>x!=null);if(xs.length<2||mu==null)return null;return Math.sqrt(xs.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(xs.length-1));};
 function evalGameSet(){
@@ -3038,7 +3055,10 @@ function computeAssessments(){
     const wsum=terms.reduce((a,b)=>a+b[0],0)||1;
     const composite=terms.reduce((a,b)=>a+b[0]*b[1],0)/wsum;
     let label="적절",cls="a-ok";
-    if(composite>=ASSESS_Z){label="저평가";cls="a-under";}
+    // 😴 [2026-11-27 사장님 승인] 90일 무기록(휴면)은 재배치 대상이 아니다 — 초기값 '적절'로 단정하지 않고 '휴면'으로 남긴다.
+    //   (아래 _powerAll 재배치는 elig=활동 중 인원만 돌기 때문에, 이 표시가 없으면 성적과 무관하게 '적절'로 굳었다)
+    if(!x.act){ label="휴면"; cls="a-na"; }
+    else if(composite>=ASSESS_Z){label="저평가";cls="a-under";}
     else if(composite<=-ASSESS_Z){label="고평가";cls="a-over";}
     const avg=TIER_AVG[t]||{};
     const r1=v=>v!=null?Math.round(v):null, r2=v=>v!=null?Math.round(v*10)/10:null;
@@ -3177,6 +3197,10 @@ function computeAssessments(){
     return {name:x.name, t:x.t, power:tm.reduce((a,b)=>a+b[0]*b[1],0)/ws};
   });
   _powerAll.sort((a,b)=> (b.power-a.power) || (a.name<b.name?-1:a.name>b.name?1:0));
+  // 🧭 [2026-11-27] 티어별 평균 power — 경계선 밀림(±2등급)인데 실력 차이는 작은 경우를 가려낸다
+  const _tierPowMu={};
+  { const _acc={}; for(const p of _powerAll){ (_acc[p.t]||(_acc[p.t]=[])).push(p.power); }
+    for(const t in _acc) _tierPowMu[t]=_acc[t].reduce((a,b)=>a+b,0)/_acc[t].length; }
   const _TORD=['0','1上','1中','1下','2上','2中','2下','3上','3中','3下'];
   const _torder=[..._TORD.filter(t=>byTier[t]), ...Object.keys(byTier).filter(t=>!_TORD.includes(t))];
   const _slots=[]; for(const t of _torder){ for(let i=0;i<byTier[t].length;i++)_slots.push(t); }   // 실제 티어 분포 = 슬롯(길이 = elig 인원)
@@ -3194,9 +3218,15 @@ function computeAssessments(){
     // ★ 평가 로직 = 클랜 전체 기준 재배치로 재정의(단일 라벨). ±1등급(≈0.5티어) 이내는 적절, 2등급↑ 벌어질 때만 저/고평가.
     // [2026-08-07 사장님 지시] 4등급(≈2티어) 이상 어긋나면 단순 저/고평가를 넘어 '긴급픽스요망'
     //   — 방향(저평가=승격 시급 ↑ / 고평가=강등 시급 ↓)까지 라벨에 병기해 구분한다.
-    a.urgent=Math.abs(di)>=4;
-    a.label=a.urgent?(di>0?"긴급픽스요망↑저평가":"긴급픽스요망↓고평가"):di>=2?"저평가":di<=-2?"고평가":"적절";
-    a.cls  =a.urgent?"a-urgent":di>=2?"a-under":di<=-2?"a-over":"a-ok";
+    // 🧭 [2026-11-27 사장님 승인] 자리 밀림만으로 고/저평가가 갈리던 오탐 방지 —
+    //   등급 차이(|di|)에 더해 '현재 티어 평균 power 와의 거리'를 본다. 작으면(0.25 미만) 단순 경계선 밀림 = 적절.
+    const _tmu=_tierPowMu[a.tier];
+    const _pdev=(_tmu==null)?null:Math.abs(p.power-_tmu);
+    a.powerDev=_pdev!=null?Math.round(_pdev*100)/100:null;   // 카드·디버그용
+    const _r=tierAssessLabel(di,_pdev);
+    a.urgent=!!_r.urgent;
+    a.label=_r.label;
+    a.cls=_r.cls;
   });
 
   /* 🔥 [2026-07-31 사장님 지시] 내전 활약 점수 — '클랜 상위 %'와 축을 분리한다.
@@ -9868,13 +9898,13 @@ function renderTiers(){
   //   ASSESSMENTS 자체는 전원분을 담고 있으므로(카드·프로필용) 그리는 자리에서 거른다. isDeparted = 현재닉·과거닉·별칭.
   let cDep=0;   // 🚪 탈퇴자라서 표에서 뺀 인원(안내 문구용) — 예전에는 칸에 그대로 서 있었다
   for(const [name,a] of ASSESSMENTS){ if(isDeparted(name)){ cDep++; continue; } (byTier[a.tier]||(byTier[a.tier]=[])).push(Object.assign({name},a)); }
-  let cU=0,cOk=0,cOv=0,cNa=0;
+  let cU=0,cOk=0,cOv=0,cNa=0,cDorm=0;
   let cUr=0;
   for(const [name,a] of ASSESSMENTS){ if(isDeparted(name)) continue;
-    if(String(a.label||'').startsWith('긴급픽스요망'))cUr++; else if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else cNa++; }
+    if(String(a.label||'').startsWith('긴급픽스요망'))cUr++; else if(a.label==='저평가')cU++; else if(a.label==='적절')cOk++; else if(a.label==='고평가')cOv++; else if(a.label==='휴면')cDorm++; else cNa++; }
 
   // 한 칸(등급 열) — 그 티어에 속한 사람들을 평가 순(고평가→저평가→적절)으로 세운다.
-  const OL={'긴급픽스요망↑저평가':-1,'긴급픽스요망↓고평가':-1,'고평가':0,'저평가':1,'적절':2,'표본부족':3};
+  const OL={'긴급픽스요망↑저평가':-1,'긴급픽스요망↓고평가':-1,'고평가':0,'저평가':1,'적절':2,'표본부족':3,'휴면':3};
   const cell=(t,cls)=>{
     const arr=(byTier[t]||[]).slice().sort((a,b)=>(OL[a.label]-OL[b.label])||((a.implPct||999)-(b.implPct||999)));
     const names=arr.map(a=>{
@@ -9917,15 +9947,17 @@ function renderTiers(){
         <span><span class="assess a-ok">적절</span> <span class="muted">티어와 비슷(±0.5티어) · ${cOk}명</span></span>
         <span><span class="assess a-over">고평가</span> <span class="muted">티어보다 아래 · ${cOv}명</span></span>
         <span class="muted">표본부족 ${cNa}명</span>
+        <span class="muted">😴 휴면 <b>${cDorm}명</b> <span style="opacity:.8">(최근 90일 무기록 — 평가 보류)</span></span>
       </div>
       ${boards}
       <div style="font-size:13px;margin:14px 0 6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span class="sanghyun">🗡 상현</span><span class="haha">🌙 하현</span><span class="muted">= 솔로랭크·AI·내전성적 종합 파워랭킹 (십이귀월 — <b style="color:#ffd24a">서부(0·1티어) 12인 + 동부(2·3티어) 12인 = 총 24인</b>, 리그별 상현 1~6·하현 7~12, 솔랭 보유+10판↑+최근 30일 5판↑ 대상)</span></div>
       ${tierFunHtml()}
       <div class="muted" style="font-size:12px;margin-top:14px;line-height:1.6">
-        ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. <b style="color:#ffd24a">🎯 클랜 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
+        ※ 평가 방식: <b>클랜원 전체</b>를 종합 실력(🏅솔랭·AI·승률·솔랭승률·MVP율·역적율을 베이지안 보정 후 전체평균 z점수 가중합)으로 <b>한 줄로 세운 뒤</b>, 실제 내부티어 분포와 <b>같은 칸 수</b>에 성적순으로 재배치합니다. 재배치된 <b>추정 티어</b>가 현재 티어보다 <b style="color:#5b8cff">2등급↑ 위면 저평가(승격 후보)</b>, <b style="color:#e84057">2등급↑ 아래면 고평가</b>, <b>±1등급(약 0.5티어) 이내면 적절</b>. 다만 2등급 이상 벌어져도 <b>현재 티어 평균 실력(power)과의 차이가 작으면(0.25 미만)</b> 단순 자리 밀림으로 보고 적절로 둡니다. <b style="color:#ffd24a">긴급픽스요망</b>은 2티어(4등급) 이상 어긋나면서 실력 차이도 확실한(0.45 이상) 경우만. <b style="color:#ffd24a">🎯 클랜 상위 X%</b> = 클랜 전체에서의 종합 실력 순위. 평가엔 10판 이상 필요.<br>
         <span style="opacity:.75">· 각 지표 뒤 <b>(동티어)</b>는 <b>같은 내부티어</b> 동료들의 평균(참고용) — 판정 자체는 위의 클랜 전체 기준입니다.</span><br>
         <span style="color:#39c7d6">ℹ MVP율 = (MVP + <b>ACE</b>×0.5) / 평가판</span> — 진 팀에서 제일 잘한 <b style="color:#39c7d6">ACE</b>도 MVP의 절반 비중으로 긍정 반영됩니다.<br>
-        <span style="opacity:.75">· 🏅솔랭 = 카드에는 <b>현시즌 실제 티어</b>(예: 다이아 2 30LP)로 보여 주고, 평가 계산에는 <b>(최근 3시즌 최고티어 + 현시즌 티어) ÷ 2</b> 수준을 씁니다(칸에 마우스를 올리면 어느 티어 수준인지 나와요) — 과거 시즌은 op.gg 기준(시즌 종료 시점 티어).</span>
+        <span style="opacity:.75">· 🏅솔랭 = 카드에는 <b>현시즌 실제 티어</b>(예: 다이아 2 30LP)로 보여 주고, 평가 계산에는 <b>현시즌 점수와 최근 3시즌 최고 점수의 평균</b>을 씁니다(최고 기록이 없으면 연결된 계정의 최고 기록, 그것도 없으면 시트에 남은 최근 시즌 점수) — 과거 시즌은 op.gg 기준(시즌 종료 시점 티어).</span><br>
+        <span style="opacity:.75">· 😴 <b>휴면</b> = 최근 90일 내전 기록이 없어 평가를 보류한 인원(티어 자리는 그대로 두고, 동티어 평균에서도 제외).</span>
       </div>
     </div>`;
 }
@@ -14759,7 +14791,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611271500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611271833";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
