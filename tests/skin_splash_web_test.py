@@ -154,6 +154,15 @@ def main():
     good = os.path.join(tmp, "good.xlsx")
     build_xlsx(good, "good")
 
+    # 0) 정적 가드 — 탭이 없을 때 gviz 가 첫 시트(CLASSIC_NORMAL 12MB)를 통째로 돌려주므로
+    #    반드시 헤더 한 줄(range=A1:E1)로 먼저 물어봐야 한다.
+    src = open(os.path.join(HERE_UP, "index.html"), encoding="utf-8").read()
+    f = re.search(r"async function loadLastSkin\(\)\{(.*?)\n\}", src, re.S)
+    ok(f is not None, "loadLastSkin 이 있다")
+    body = f.group(1) if f else ""
+    ok('_lastSkinGviz("A1:E1")' in body, "먼저 헤더 한 줄만 물어본다(range=A1:E1)")
+    ok(body.index('_lastSkinGviz("A1:E1")') < body.index('_lastSkinGviz("")'), "헤더가 맞을 때만 통째로 받는다")
+
     res = asyncio.run(run(good, (EVAL_MAP, EVAL_FALLBACK, EVAL_CARD, EVAL_ERRORS)))
     m, fb, card, errs = res["evals"]
     log = res["meta"]["log"]

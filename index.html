@@ -4371,37 +4371,46 @@ let LAST_SKINS=new Map();                 // "puuid|챔피언" · "닉네임|챔
 const SKIN_URL_SEEN=new Set(), SKIN_URL_BAD=new Set();
 const _skN=s=>String(s==null?"":s).replace(/\s/g,"").toLowerCase();
 const skinKey=(a,b)=>_skN(a)+"|"+_skN(b);
-function loadLastSkin(){
+function _lastSkinGviz(range){
+  /* LAST_SKIN 한 조각을 JSONP(gviz)로 받는다. 탭이 없으면 gviz 가 '첫 번째 시트'로 폴백하므로
+     반드시 range 로 작게 물어본다(전체를 물으면 CLASSIC_NORMAL 12MB 를 통째로 받는다 — 2026-11-27 실측). */
   return new Promise((resolve)=>{
     const cb="__lskCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
     let done=false;
     const s=document.createElement("script");
     const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
-    window[cb]=(resp)=>{ done=true; cleanup();
-      const out=new Map();
-      try{
-        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim().toLowerCase());
-        const pi=cols.indexOf("puuid"), ci=cols.indexOf("champion"), si=cols.indexOf("skin_id"), ni=cols.indexOf("name");
-        // ⚠️ LAST_SKIN 탭이 없으면 gviz 가 '첫 번째 시트'로 폴백한다 → 헤더가 다르면 즉시 포기(엉뚱한 숫자로 그림을 깨지 않게)
-        if(pi<0||ci<0||si<0){ resolve(out); return; }
-        for(const row of (resp.table.rows||[])){
-          const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
-          const pu=String(g(pi)||"").trim().toLowerCase();
-          const ch=String(g(ci)||"").replace(/\s/g,"").trim();
-          const sk=parseInt(String(g(si)).replace(/[^0-9]/g,""),10);
-          if(!pu||!ch||!isFinite(sk)||sk<0) continue;
-          out.set(skinKey(pu,ch),sk);
-          const nm=String(g(ni)||"").trim();
-          if(nm&&!out.has(skinKey(nm,ch))) out.set(skinKey(nm,ch),sk);   // puuid 없는 옛 행·이름만 있는 표 대비
-        }
-      }catch(e){}
-      resolve(out);
-    };
-    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
-    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=LAST_SKIN&headers=1&tqx=out:json;responseHandler:${cb}`;
+    window[cb]=(resp)=>{ done=true; cleanup(); resolve(resp||null); };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(null);} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=LAST_SKIN&headers=1`
+      +(range?`&range=${encodeURIComponent(range)}`:"")+`&tqx=out:json;responseHandler:${cb}`;
     document.body.appendChild(s);
-    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },8000);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(null);} },8000);
   });
+}
+async function loadLastSkin(){
+  const out=new Map();
+  try{
+    // ① 헤더 한 줄만 물어 탭이 진짜 있는지 본다(없으면 388B — 첫 시트 폴백의 큰 표를 안 받는다)
+    const head=await _lastSkinGviz("A1:E1");
+    const hc=((head&&head.table&&head.table.cols)||[]).map(c=>(c.label||"").trim().toLowerCase());
+    if(hc.indexOf("puuid")<0||hc.indexOf("champion")<0||hc.indexOf("skin_id")<0) return out;
+    // ② 진짜 있으면 통째로(사람·챔피언별 한 줄씩이라 작다)
+    const resp=await _lastSkinGviz("");
+    const cols=((resp&&resp.table&&resp.table.cols)||[]).map(c=>(c.label||"").trim().toLowerCase());
+    const pi=cols.indexOf("puuid"), ci=cols.indexOf("champion"), si=cols.indexOf("skin_id"), ni=cols.indexOf("name");
+    if(pi<0||ci<0||si<0) return out;
+    for(const row of ((resp.table&&resp.table.rows)||[])){
+      const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+      const pu=String(g(pi)||"").trim().toLowerCase();
+      const ch=String(g(ci)||"").replace(/\s/g,"").trim();
+      const sk=parseInt(String(g(si)).replace(/[^0-9]/g,""),10);
+      if(!pu||!ch||!isFinite(sk)||sk<0) continue;
+      out.set(skinKey(pu,ch),sk);
+      const nm=String(g(ni)||"").trim();
+      if(nm&&!out.has(skinKey(nm,ch))) out.set(skinKey(nm,ch),sk);   // puuid 없는 옛 행·이름만 있는 표 대비
+    }
+  }catch(e){}
+  return out;
 }
 /* 그 사람의 그 챔피언 마지막 스킨 → 스플래시 주소(…/splash/Ahri_3.jpg). 없으면 기본(_0.jpg) 그대로.
    그림이 실제로 없는 스킨번호(구 아트 폐기 등)면 Image 로드 실패로 알아채 _0.jpg 로 즉시 되돌린다. */
@@ -14606,7 +14615,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611271137";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611271147";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
