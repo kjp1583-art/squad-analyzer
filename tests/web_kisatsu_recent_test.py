@@ -138,7 +138,9 @@ async def main():
     ok(len(A['chips']) == 6 and all(re.search(r'\d+%', c) and re.search(r'·\s*\d+승\d+패', c) for c in A['chips']),
        'E 칩에 승률과 전적이 같이 나온다 %s' % A['chips'][:2])
     ok(A['hotMark'] >= 1 and '🔥' in A['chips'][0], 'E 최근 폼이 있는 칩에는 🔥 최근 30일 승률이 붙는다 %s' % A['chips'][0])
-    ok('90일' in A['sub'] and '15판' in A['sub'] and '탈퇴' in A['sub'] and '🔥' in A['sub'], 'E 부제에 기준(90일·15판↑·폼·탈퇴 제외)이 적혀 있다')
+    # 🧹 [2026-11-27 사장님 「최근90일에 관한 내용부터 그 뒷내용 디테일까지는 안보여도될거같으니 내용지워주고 간결화」]
+    ok(A['sub'].strip() == '상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들',
+       'E 부제는 한 문장만 남는다(판수·폼·탈퇴 설명은 칩 툴팁으로) %r' % A['sub'].strip())
     ok(A['lastDay'] == '2026-11-26' and A['cd90'] == '2026-08-28' and A['cd30'] == '2026-10-27',
        '기준일 = 데이터 마지막 기록일(11/26) · 90일 08/28 · 30일 10/27')
 
@@ -151,4 +153,5 @@ async def main():
     print('\n전부 통과' if not fails else '\n실패 %d건' % len(fails))
     sys.exit(1 if fails else 0)
 
-asyncio.run(main())
+if __name__ == '__main__':   # 헤더 시험(web_kisatsu_header_test)이 build_xlsx·CAST_A 를 가져다 쓴다
+    asyncio.run(main())
