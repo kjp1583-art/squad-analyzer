@@ -5895,6 +5895,189 @@ _bf_404_counts = {}      # gid -> 404 횟수. [적대적리뷰 반영] 장기게
                          # 그 게임 백필이 세션 내내 무력화 → 6주기(약 90분) 유예 후에만 영구 스킵.
 
 
+# ═══════ 🎭 [2026-11-27 사장님 「상현·하현·귀살대 카드에 스킨 일러스트로」] 마지막 사용 스킨 — LAST_SKIN 탭 ═══════
+#   인게임 playerlist 의 skinID 만 챙겨 (puuid, 챔피언)별 '마지막으로 쓴 스킨'을 별도 탭에 가볍게 남긴다.
+#   · CLASSIC_NORMAL(게임 기록)은 한 칸도 건드리지 않는다 — 웹이 이 탭만 따로 읽어 스플래시를 고른다.
+#   · 수집은 이미 매초 받고 있는 playerlist 응답에서 값만 꺼낸다(추가 요청 0).
+#   · 기록은 게임 기록 확정(finalize) 때 그 판 10명분만 upsert. 실패해도 본 기록은 절대 깨지 않는다.
+#   · 1인당 '챔피언 수'만큼 행이 늘 뿐이라 데이터량이 극소 — 그래도 탭이 커지면 오래된 행부터 정리한다.
+LAST_SKIN_TAB = "LAST_SKIN"
+LAST_SKIN_HEADERS = ["puuid", "name", "champion", "skin_id", "updated_at"]
+LAST_SKIN_MAX_ROWS = 2500      # 이보다 커지면 정리 시작(웹이 탭을 통째로 읽는다 — 가볍게 유지)
+LAST_SKIN_KEEP_ROWS = 1500     # 정리 뒤 남길 최근 행 수
+LIVE_SKIN_MAX_AGE = 7 * 24 * 3600.0   # 이보다 오래된 수집값은 쓰지 않는다(지난 판 잔재 방지)
+_LIVE_SKINS = {}               # puuid → {"name": str, "skin_id": int, "at": epoch}
+_LAST_SKIN_GIDS = set()        # 이 실행에서 이미 스킨을 남긴 게임ID(재시도 루프 중복 쓰기 방지)
+
+
+def _skin_int(v):
+    """skinID 후보 → int. 0(기본 스킨)도 유효한 값이다 — 음수·비숫자만 버린다."""
+    try:
+        if v is None or isinstance(v, bool): return None
+        n = int(str(v).strip())
+        return n if n >= 0 else None
+    except Exception:
+        return None
+
+
+def collect_live_skins(players, out=None):
+    """playerlist(리스트) → {puuid: {name, skin_id, at}}. 네트워크·시트를 건드리지 않는 순수 수집.
+       puuid 가 없거나 skinID 가 숫자가 아니면 그 항목만 건너뛴다(봇·관전자 등)."""
+    tgt = _LIVE_SKINS if out is None else out
+    now = time.time()
+    for p in players or []:
+        if not isinstance(p, dict): continue
+        pu = str(p.get("puuid") or "").strip().lower()
+        if not pu: continue
+        sid = _skin_int(p.get("skinID"))
+        if sid is None: continue
+        nm = str(p.get("riotIdGameName") or p.get("summonerName") or "").strip()
+        tgt[pu] = {"name": nm, "skin_id": sid, "at": now}
+    return tgt
+
+
+def last_skin_entries_for_game(rows, headers, game_id, skins=None, now=None):
+    """게임 기록 사본(rows·headers)에서 그 판 참가자의 (puuid, 챔피언)을 뽑아 skinID 를 붙인다.
+       챔피언 이름은 시트에 적힌 값(한글)을 그대로 쓴다 — 라이브 playerlist 는 니코 변신 등으로 어긋날 수 있다.
+       반환: [{"puuid", "name", "champion", "skin_id"}] (없으면 빈 리스트)"""
+    if not rows or not headers or not game_id: return []
+    src = _LIVE_SKINS if skins is None else skins
+    if not src: return []
+    now = time.time() if now is None else now
+    try:
+        i_gid = headers.index("게임ID"); i_pu = headers.index("PUUID")
+        i_ch = headers.index("챔피언"); i_nm = headers.index("소환사명") if "소환사명" in headers else -1
+    except ValueError:
+        return []
+    out, seen = [], set()
+    for r in rows[1:]:
+        if len(r) <= max(i_gid, i_pu, i_ch): continue
+        if str(r[i_gid]).strip() != str(game_id).strip(): continue
+        pu = str(r[i_pu]).strip().lower()
+        ch = str(r[i_ch]).replace(" ", "").strip()
+        if not pu or not ch or (pu, ch) in seen: continue
+        s = src.get(pu)
+        if not s: continue
+        if now - float(s.get("at") or 0) > LIVE_SKIN_MAX_AGE: continue
+        sid = _skin_int(s.get("skin_id"))
+        if sid is None: continue
+        seen.add((pu, ch))
+        out.append({"puuid": pu, "name": str(s.get("name") or (r[i_nm] if i_nm >= 0 else "")),
+                    "champion": ch, "skin_id": sid})
+    return out
+
+
+def last_skin_ws():
+    """LAST_SKIN 탭 — 없으면 헤더와 함께 만든다. 만들 수 없으면 None(조용히 포기)."""
+    if global_spreadsheet is None: return None
+    try:
+        return global_spreadsheet.worksheet(LAST_SKIN_TAB)
+    except Exception:
+        pass
+    try:
+        ws = global_spreadsheet.add_worksheet(title=LAST_SKIN_TAB, rows=400, cols=len(LAST_SKIN_HEADERS))
+        ws.append_row(LAST_SKIN_HEADERS)
+        print("[LAST_SKIN] 탭 신설 — 헤더 " + ",".join(LAST_SKIN_HEADERS), flush=True)
+        return ws
+    except Exception as e:
+        print(f"[LAST_SKIN] 탭 생성 실패: {type(e).__name__}", flush=True)
+        return None
+
+
+def _last_skin_prune(ws, rows):
+    """탭이 커지면 오래된 행부터 지운다. 지우기 실패는 무시(다음 판에 다시 시도)."""
+    n = len(rows)
+    if n > LAST_SKIN_MAX_ROWS:
+        body = [(i, str(r[4]) if len(r) > 4 else "") for i, r in enumerate(rows[1:], start=2)]
+        body.sort(key=lambda x: x[1])            # updated_at 오래된 순
+        drop = sorted([i for i, _ in body[:max(0, n - LAST_SKIN_KEEP_ROWS)]], reverse=True)
+        for i in drop:
+            try: ws.delete_rows(i)
+            except Exception: return
+        print(f"[LAST_SKIN] 오래된 행 {len(drop)}개 정리 → {n - len(drop)}행", flush=True)
+
+
+def upsert_last_skins(entries, ws=None):
+    """(puuid, 챔피언) 기준 upsert — 같은 조합은 최신 skinID·시각으로 덮어쓰고, 새 조합만 append.
+       반환: {"updated": n, "added": n, "skipped": n} (테스트·로그용). 실패는 조용히 0으로."""
+    res = {"updated": 0, "added": 0, "skipped": 0}
+    ents = [e for e in (entries or []) if isinstance(e, dict)]
+    if not ents: return res
+    try:
+        ws = ws or last_skin_ws()
+        if ws is None: res["skipped"] = len(ents); return res
+        rows = ws.get_all_values()
+        if rows and [str(x).strip().lower() for x in rows[0][:3]] != LAST_SKIN_HEADERS[:3]:
+            # 헤더가 다르다 = 엉뚱한 탭(gviz 첫 시트 폴백 같은 사고) → 손대지 않는다
+            res["skipped"] = len(ents); return res
+        if not rows:
+            ws.append_row(LAST_SKIN_HEADERS); rows = [list(LAST_SKIN_HEADERS)]
+        idx = {}
+        for r_i, r in enumerate(rows[1:], start=2):
+            if len(r) < 3: continue
+            pu = str(r[0]).strip().lower(); ch = str(r[2]).replace(" ", "").strip()
+            if pu and ch: idx[(pu, ch)] = r_i
+        now_s = time.strftime("%Y-%m-%d %H:%M")
+        cells, new = [], []
+        for e in ents:
+            pu = str(e.get("puuid") or "").strip().lower()
+            ch = str(e.get("champion") or "").replace(" ", "").strip()
+            sid = _skin_int(e.get("skin_id"))
+            nm = str(e.get("name") or "").strip()
+            if not pu or not ch or sid is None: res["skipped"] += 1; continue
+            r_i = idx.get((pu, ch))
+            if (pu, ch) in idx and not r_i:
+                res["skipped"] += 1; continue          # 이번 판에서 이미 append 한 조합
+            if r_i:
+                old = rows[r_i - 1] if len(rows) >= r_i else []
+                row_cells = []
+                if _skin_int(old[3] if len(old) > 3 else "") != sid:
+                    row_cells.append(gspread.Cell(row=r_i, col=4, value=sid))
+                if nm and (len(old) < 2 or str(old[1]) != nm):
+                    row_cells.append(gspread.Cell(row=r_i, col=2, value=nm))
+                if row_cells:
+                    row_cells.append(gspread.Cell(row=r_i, col=5, value=now_s))
+                    cells.extend(row_cells); res["updated"] += 1
+            else:
+                new.append([pu, nm, ch, sid, now_s]); res["added"] += 1
+                idx[(pu, ch)] = 0            # 같은 판에 중복 항목이 와도 한 번만 append
+        if cells: ws.update_cells(cells)
+        if new:
+            try:
+                need = len(rows) + len(new)
+                if need > ws.row_count: ws.add_rows(need - ws.row_count)
+            except Exception: pass
+            ws.append_rows(new, value_input_option="RAW")
+        if cells or new: _last_skin_prune(ws, rows + new)
+    except Exception as e:
+        print(f"[LAST_SKIN] 기록 실패(무시): {type(e).__name__}", flush=True)
+        res["skipped"] = len(ents)
+    return res
+
+
+def record_last_skins(rows, headers, game_id, skins=None, claim=True):
+    """finalize 지점에서 부르는 한 줄짜리 진입점 — 그 판 스킨만 남기고, 오래된 수집값은 버린다.
+       claim=False: 부르는 쪽이 이미 '이 게임은 처리 중'이라고 표시했다(스레드로 넘길 때)."""
+    try:
+        if not game_id: return {"updated": 0, "added": 0, "skipped": 0}
+        if claim:
+            if game_id in _LAST_SKIN_GIDS: return {"updated": 0, "added": 0, "skipped": 0}
+            _LAST_SKIN_GIDS.add(game_id)
+        ents = last_skin_entries_for_game(rows, headers, game_id, skins=skins)
+        if not ents: return {"updated": 0, "added": 0, "skipped": 0}
+        res = upsert_last_skins(ents)
+        if len(_LAST_SKIN_GIDS) > 200: _LAST_SKIN_GIDS.clear(); _LAST_SKIN_GIDS.add(game_id)
+        try:      # 이 판 참가자의 수집값은 이제 필요 없다 — 오래된 것만 정리(다음 판이 다시 채운다)
+            _cut = time.time() - LIVE_SKIN_MAX_AGE
+            for _k in [k for k, v in _LIVE_SKINS.items() if (v.get("at") or 0) < _cut]:
+                _LIVE_SKINS.pop(_k, None)
+        except Exception: pass
+        return res
+    except Exception as e:
+        print(f"[LAST_SKIN] {game_id} 기록 건너뜀: {type(e).__name__}", flush=True)
+        return {"updated": 0, "added": 0, "skipped": 0}
+
+
 # ═══════ 🕰️ [2026-08-18 사장님 지시 · v83.16] LCU 전적 백필 — 분석기 없이 치른 커스텀 판 자동 회수 ═══════
 #   deeplol엔 커스텀 칼바람이 안 나오고, Riot 매치목록 API(by-puuid)도 커스텀을 아예 돌려주지 않는다
 #   (2026-08-18 실측 — 커스텀은 게임ID 직접 조회만 가능). 유일한 원천은 참가자 롤 클라이언트의 전적(LCU).
@@ -10549,6 +10732,9 @@ def lcu_core_backend_loop():
                     if live_res.status_code == 200:
                         lr_json = live_res.json()
                         if isinstance(lr_json, list):
+                            # 🎭 [2026-11-27] 마지막 사용 스킨 — 이미 받은 playerlist 에서 skinID 만 쓰긴다(추가 요청 0, 기록과 무관).
+                            try: collect_live_skins(lr_json)
+                            except Exception: pass
                             fetched_game_id = None
                             try:
                                 session_res = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=2)
@@ -11463,6 +11649,16 @@ def lcu_core_backend_loop():
                                     else:
                                         print(f"[finalize] ⚠️ {_finalize_gid} 결과기입 최종포기(8회 초과) → 결과대기 잔존", flush=True)
 
+                            # 🎭 [2026-11-27 사장님 「스킨 일러스트로」] 마지막 사용 스킨 — 별도 탭(LAST_SKIN)에만 남긴다.
+                            #   본 기록 쓰기와 분리해 스레드로 — 시트 왕복이 길어져도 결과 기입·리포트를 막지 않고,
+                            #   실패는 그 안에서 흡수한다(게임 기록은 한 칸도 건드리지 않는다).
+                            try:
+                                if _finalize_gid not in _LAST_SKIN_GIDS:
+                                    _LAST_SKIN_GIDS.add(_finalize_gid)
+                                    threading.Thread(target=record_last_skins,
+                                                     args=(list(sheet_data_check), headers_ch, _finalize_gid),
+                                                     kwargs={"claim": False}, daemon=True).start()
+                            except Exception: pass
                             # [2026-07-07 리포트 유실 수정 / 2026-07-08 발송게이트 이동] _final_ok(시트 마감 성공) 게이트는 v81.56에서 제거됨
                             #   (마감이 429로 실패해도 리포트는 나가도록). 그런데 발송이 'if cells_to_update:' 안에 있어, 비주체가 finalize
                             #   경쟁을 먼저 이겨 전 행을 마감해버리면(비주체는 12s+ 핸디캡이라 드묾) 주체의 다음 루프에서 모든 행이 이미 마감돼
