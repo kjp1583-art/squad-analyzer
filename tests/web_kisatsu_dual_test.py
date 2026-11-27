@@ -37,7 +37,7 @@ DUMP = r"""(()=>{
         return {side, empty:h.classList.contains('empty'), role:h.getAttribute('role'), no:txt(h.querySelector('.ksd-no')),
           nm:txt(h.querySelector('.ksd-nm')), wr:txt(h.querySelector('.ksd-wr')), rec:txt(h.querySelector('.ksd-rec')),
           hot:txt(h.querySelector('.ksd-hot')), title:h.getAttribute('title')||'',
-          bg:bg?(bg.style.backgroundImage||''):'', box:rect(h)};
+          bg:bg?(bg.getAttribute('src')||''):'', box:rect(h)};
       })
     };
   });
@@ -83,16 +83,22 @@ async def run(cast, vp, label, interact=False):
             if interact:
                 # C 배경 — 스플래시 표를 채운 뒤 다시 그려서 실제 DOM 배경을 확인한다(실제 사이트에선 ddragon 이 채운다)
                 o['splash'] = await pg.evaluate("""(chs)=>{
-                  for(const ch of chs) SPLASHMAP[ch]='https://ddragon.test/cdn/splash/'+encodeURIComponent(ch)+'_0.jpg';
+                  for(const ch of chs){ SPLASHMAP[ch]='https://ddragon.test/cdn/img/champion/splash/'+encodeURIComponent(ch)+'_0.jpg'; }
                   go('home');
                   return null;}""", CHAMPS)
                 await pg.wait_for_timeout(900)
                 await pg.evaluate("()=>{const c=document.querySelector('.ksd'); if(c) c.dataset.next=Date.now()+600000}")
                 o['splash'] = await pg.evaluate("""(()=>{
                   const c=document.querySelector('.ksd'); if(!c) return null;
-                  const want={}; for(const e of KISATSU) want[e.name]=mainSplashOf(e.name);
-                  const got=[...c.querySelectorAll('.ksd-bg')].map(e=>e.style.backgroundImage.replace(/^url\\(["']?/,'').replace(/["']?\\)$/,''));
-                  return {want:Object.values(want), got, okAll:Object.values(want).every(u=>!u||got.indexOf(u)>=0)};})()""")
+                  const want=KISATSU.map(e=>ksdSplashOf(e.name)), plain=KISATSU.map(e=>mainSplashOf(e.name));
+                  const imgs=[...c.querySelectorAll('img.ksd-bg')];
+                  const got=imgs.map(e=>e.getAttribute('src')||'');
+                  const fb=imgs.map(e=>e.getAttribute('data-fb')||'');
+                  return {want, plain, got, fb, n:imgs.length,
+                    wantCentered:want.length>0&&want.every(u=>u.indexOf('/img/champion/centered/')>=0),
+                    fbOk:fb.every(u=>/\/img\/champion\/splash\//.test(u)),
+                    fbIsPlain:fb.every((u,i)=>u===plain[i]),
+                    fbUsed:got.every((u,i)=>u===fb[i])};})()""")
                 # D 점 클릭 → 3번째 그룹
                 await pg.click('.ksd-dots i:nth-child(3)')
                 await pg.wait_for_timeout(1300)
@@ -143,8 +149,10 @@ async def main():
     ok(not log['pageerror'] and not log['console'], 'G 페이지 오류·콘솔 0 %s %s' % (log['pageerror'][:1], log['console'][:1]))
 
     sp = o['splash']
-    ok(sp and sp['okAll'] and len(sp['got']) >= 4 and all(u for u in sp['want']),
-       'C 두 반 모두 mainSplashOf 스플래시가 배경으로 깔린다 want=%s got=%s' % (sp and sp['want'][:2], sp and sp['got'][:2]))
+    ok(sp and sp['n'] == 6 and sp['wantCentered'] and all(sp['want']),
+       'C 배경 주소 = 챔피언이 가운데인 centered 원화(반쪽마다 한 장) %s' % (sp and sp['want'][:2],))
+    ok(sp and sp['fbOk'] and sp['fbIsPlain'] and sp['fbUsed'],
+       'C centered 가 없으면 원본 스플래시로 되돌아간다(시험 환경은 ddragon 이 막혀 폴백이 실제로 동작) fb=%s' % (sp and sp['fb'][:2],))
 
     ad = o['afterDot']
     ok(ad['i'] == '2' and ad['slides'][2]['on'] and ad['dots'] == [False, False, True],
