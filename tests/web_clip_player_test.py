@@ -16,6 +16,12 @@
   H 폰(360)과 PC(1280) 모두 팝업이 화면 밖으로 넘치지 않고 재생기가 16:9 다
   I 콘솔 오류 0 · 가로 넘침 0
   J ▶ 유튜브 최신 카드도 같은 팝업으로 열리고(iframe 은 팝업 안에서만) 닫으면 함께 사라진다
+  K 🖼 [2026-11-27 사장님 「썸네일이 없는데」] #영상신청 카드 그림칸에 영상의 실제 장면이 썸네일로 깔린다
+    · 그림은 <video> 없이(화면 밖 video → <canvas> → JPEG data URL) 만들어 카드에 <img> 로 들어간다
+    · object-fit:cover 로 16:9 칸을 채우고, 그라데이션·재생 아이콘은 그 위에 남는다
+    · 한 번 뜬 그림은 카드를 다시 그려도(탭·2분 갱신) 다시 받지 않고, 클립이 바뀌면 새로 만든다
+    · 영상을 못 받으면(오프라인·CORS·차단) 지금의 어두운 배경이 폴백으로 남고, 그 클립은 다시 시도하지 않는다
+    · ▶ 유튜브 카드는 유튜브 썸네일(i.ytimg)을 그대로 쓴다
 
   실제 봇 서버·디스코드 CDN 은 부르지 않는다(외부 요청은 전부 막고, 주소만 진짜 모양으로 쓴다).
 """
@@ -162,6 +168,72 @@ J_JS = r"""()=>{
   clipSetTab('clip');
   return o;
 }"""
+# K: 🖼 썸네일 — 그림칸 구조
+K1_JS = r"""()=>{
+  const card=document.getElementById('clCard'), th=card?card.querySelector('.cl-card-th'):null;
+  return {hasTh:!!th, id:th&&th.id, videos:document.querySelectorAll('#ytHomePane video').length,
+    globVideos:document.querySelectorAll('video').length,
+    play:!!(th&&th.querySelector('.cl-card-play')), gl:!!(th&&th.querySelector('.cl-card-gl'))};
+}"""
+
+# K: 🖼 화면 밖 video 대신 그림을 떠낸다 — clipThumbShot(1280x720 캔버스 스텁)
+K2_JS = r"""()=>new Promise(res=>{
+  const c=document.createElement('canvas'); c.width=1280; c.height=720;
+  const g=c.getContext('2d'); g.fillStyle='#1b3f6b'; g.fillRect(0,0,1280,720);
+  g.fillStyle='#e0b040'; g.fillRect(600,250,80,220);
+  Object.defineProperty(c,'videoWidth',{value:1280}); Object.defineProperty(c,'videoHeight',{value:720});
+  const r=clipThumbShot(c);
+  if(!r) return res({ok:false});
+  const i=new Image();
+  i.onload=()=>res({ok:true, head:r.url.slice(0,22), len:r.url.length, lv:Math.round(r.lv), w:i.naturalWidth, h:i.naturalHeight});
+  i.onerror=()=>res({ok:false, why:'decode'});
+  i.src=r.url;
+  window.__k2url=r.url;
+})"""
+
+# K: 🖼 그림칸에 끼우기 — 맨 아래 깔리고(재생 아이콘 위), 두 번 해도 한 장
+K3_JS = r"""()=>{
+  if(!window.__k2url) return {ok:false};
+  clipThumbPaint(window.__k2url); clipThumbPaint(window.__k2url);
+  const th=document.getElementById('clCardTh'), imgs=th.querySelectorAll('img'), img=imgs[0];
+  const cs=getComputedStyle(img), play=th.querySelector('.cl-card-play');
+  return {ok:true, n:imgs.length, first:th.firstElementChild===img, cls:img.className, fit:cs.objectFit,
+    abs:cs.position, z:cs.zIndex, playZ:getComputedStyle(play).zIndex, isThumb:th.classList.contains('is-thumb'),
+    cover:(()=>{const r=th.getBoundingClientRect(); return +(r.width/r.height).toFixed(3);})()};
+}"""
+
+# K: 🖼 카드를 다시 그려도 그림은 그대로(다시 안 받는다) / 클립이 바뀌면 그림을 비운다
+K4_JS = r"""(f)=>{
+  CLIP_THUMB.id=f.id; CLIP_THUMB.src=window.__k2url; CLIP_HOME.clip=clipNorm(f); CLIP_HOME.comments=[];
+  ytHomePaint();
+  const th=document.getElementById('clCardTh'), same=!!(th&&th.querySelector('img'));
+  CLIP_HOME.clip=clipNorm(Object.assign({},f,{id:'1575175253603254777'})); ytHomePaint();
+  const th2=document.getElementById('clCardTh');
+  const other=!!(th2&&th2.querySelector('img'));
+  CLIP_HOME.clip=clipNorm(f); ytHomePaint();
+  return {same:same, other:other};
+}"""
+
+# K: 🖼 영상을 못 받으면 어두운 배경 폴백 + 그 클립은 재시도 안 함 (외부 요청은 전부 막혀 있다)
+K5_JS = r"""(f)=>{
+  delete CLIP_THUMB.miss[f.id]; CLIP_THUMB.id=''; CLIP_THUMB.src=''; CLIP_THUMB.busy=0;
+  CLIP_HOME.clip=clipNorm(f); ytHomePaint();
+  const started=clipThumbStart();
+  const again=clipThumbStart();   // 두 번째는 같은 클립이라 새로 시작하지 않는다
+  return {started:started, again:again, videos:document.querySelectorAll('video').length};
+}"""
+
+K5_READ = r"""(f)=>({miss:!!CLIP_THUMB.miss[f.id], busy:CLIP_THUMB.busy, id:CLIP_THUMB.id,
+  imgs:document.querySelectorAll('#clCardTh img').length, videosInDom:document.querySelectorAll('video').length,
+  retry:clipThumbStart()})"""
+
+# K: 🖼 ▶ 유튜브 카드는 유튜브 썸네일 그대로
+K6_JS = r"""()=>{
+  clipSetTab('yt'); const card=document.getElementById('ytCard');
+  const img=card&&card.querySelector('img');
+  const o={card:!!card, img:!!img, src:img?img.getAttribute('src'):'', fit:img?getComputedStyle(img).objectFit:null};
+  clipSetTab('clip'); return o;
+}"""
 
 
 def serve():
@@ -213,6 +285,43 @@ async def main():
         ok("알리스타" in a["ttl"] and "맛동산장인 유미/94" in a["meta"] and "댓글" not in a["meta"] and "0" in a["meta"],
            "A 제목·업로더·날짜·댓글 수 %r / %r" % (a["ttl"], a["meta"]))
         ok(1.75 < a["ratio"] < 1.81, "A 그림칸이 16:9 %s (%s)" % (a["ratio"], a["ar"]))
+
+        # 🖼 K — 썸네일
+        k1 = await pg.evaluate(K1_JS)
+        ok(k1["hasTh"] and k1["id"] == "clCardTh" and k1["play"] and k1["gl"],
+           "K 카드 그림칸(#clCardTh)에 그라데이션·재생 아이콘이 있다 %s" % k1)
+        ok(k1["globVideos"] == 0, "K 썸네일을 위해 홈에 <video> 를 붙이지 않는다 %d" % k1["globVideos"])
+
+        k2 = await pg.evaluate(K2_JS)
+        ok(k2.get("ok") and k2["head"].startswith("data:image/jpeg") and k2["len"] > 2000,
+           "K 영상 한 장면을 캔버스로 떠내 JPEG data URL 로 만든다 %s" % {k: v for k, v in k2.items() if k != "head"})
+        ok(k2.get("w") == 720 and k2.get("h") == 405 and 0 < k2.get("lv", 0) < 255,
+           "K 썸네일 720px 폭 16:9 · 밝기 %s (%sx%s)" % (k2.get("lv"), k2.get("w"), k2.get("h")))
+
+        k3 = await pg.evaluate(K3_JS)
+        ok(k3["ok"] and k3["n"] == 1 and k3["first"], "K 그림은 그림칸 맨 아래에 한 장만 %s" % k3)
+        ok(k3["fit"] == "cover" and k3["abs"] == "absolute" and k3["playZ"] == "1",
+           "K object-fit:cover 로 채우고 재생 아이콘이 그 위 %s/%s/%s" % (k3["fit"], k3["abs"], k3["playZ"]))
+        ok(abs(k3["cover"] - 16 / 9) < 0.02 and k3["isThumb"], "K 그림칸 비율 16:9 유지 %s" % k3["cover"])
+
+        k4 = await pg.evaluate(K4_JS, FIX)
+        ok(k4["same"], "K 카드를 다시 그려도 떠 둔 그림을 그대로 쓴다 %s" % k4)
+        ok(not k4["other"], "K 클립이 바뀌면 예전 클립 그림은 남지 않는다 %s" % k4)
+
+        k6 = await pg.evaluate(K6_JS)
+        ok(k6["img"] and "i.ytimg.com/vi/" in k6["src"] and k6["fit"] == "cover",
+           "K ▶ 유튜브 카드는 유튜브 썸네일 %r" % k6["src"])
+
+        k5 = await pg.evaluate(K5_JS, FIX)
+        ok(k5["started"] and not k5["again"] and k5["videos"] == 0,
+           "K 영상을 받아 보되(두 번째는 시작 안 함) 화면에 붙이지 않는다 %s" % k5)
+        await pg.wait_for_timeout(2500)
+        k5r = await pg.evaluate(K5_READ, FIX)
+        ok(k5r["miss"] and k5r["busy"] == 0 and k5r["id"] == "",
+           "K 실패한 클립은 포기로 적고(2분 갱신 때 재시도 안 함) %s" % k5r)
+        ok(k5r["imgs"] == 0 and k5r["videosInDom"] == 0 and not k5r["retry"],
+           "K 폴백은 지금의 어두운 배경 그대로 %s" % k5r)
+        await pg.evaluate("()=>{CLIP_THUMB.miss={}; CLIP_THUMB.id=''; CLIP_THUMB.src=''; CLIP_THUMB.busy=0; ytHomePaint();}")
 
         b = await pg.evaluate(B_JS)
         ok(b["open"] and b["video"] and b["dialog"] == "dialog", "B 카드를 누르면 팝업이 열린다 %s" % (b.get("open"),))
