@@ -10691,6 +10691,13 @@ function _myeolScrimsFor(c){   // 🔨 [2026-11-21] AUC.GG 에서 자동으로 �
   const S=_myeolMemo("scrims:"+c.id,()=>_myeolScrimsCalc(c.teams,c.from));
   return S?{list:S.list.slice(),rec:S.rec}:null;
 }
+/* 🩹 [2026-11-27 사장님 「그 두 판도 멸망전 스크림 순위에 반영」] 스크림 기준(양 팀 모두 같은 멸망전 팀 4인↑)에 못 미치지만 실제 팀 대 팀 연습이었던 판 —
+   한쪽에 대회 참가자가 3명 + 대회 밖 대타 2명이라 자동 판정에서 빠진다. 사람이 확인한 판만 여기에 올린다(b = 블루팀 쪽 멸망전 팀장, r = 레드팀 쪽).
+   두 팀장이 그 회차 팀에 모두 있을 때만 쓰고, 자동 판정이 이미 통과한 판은 건드리지 않는다. */
+const MYEOL_SCRIM_FORCE={
+  "#8474399763":{b:"뀨잉언진",r:"하 오",note:"뀨잉언진 5 vs 하 오 팀 3(본명계·김치찌개보이·배고배고)+대타 2"},
+  "#8474498775":{b:"하 오",r:"뀨잉언진",note:"하 오 팀 3+대타 2 vs 뀨잉언진 5"}
+};
 function _myeolScrimsCalc(TEAMS,FROM){
   // 스크림 경기 추출(공용) — 8/22 경매 이후 · 양팀 4인+ · 리메이크 제외. 파워랭킹 보정과 전적 표가 같이 쓴다.
   //   (TEAMS·FROM 을 주면 그 대회 기준 — 안 주면 제9회)
@@ -10714,7 +10721,8 @@ function _myeolScrimsCalc(TEAMS,FROM){
       for(const r of ms){ const t=teamOf.get(_myNk(canonOfName(canonOfRow(r)))); if(t)c.set(t,(c.get(t)||0)+1); }
       let best=null,bn=0; for(const [t,n] of c) if(n>bn){best=t;bn=n;}
       return bn>=4?best:null; };
-    const bt=teamMaj(side["블루팀"]), rt=teamMaj(side["레드팀"]);
+    let bt=teamMaj(side["블루팀"]), rt=teamMaj(side["레드팀"]);
+    { const F=MYEOL_SCRIM_FORCE[gid]; if((!bt||!rt)&&F){ const caps=new Set(TEAMS.map(t=>t.cap)); if(caps.has(F.b)&&caps.has(F.r)){ bt=F.b; rt=F.r; } } }   // 🩹 확인된 예외 판
     if(!bt||!rt||bt===rt)continue;
     const res=ms=>{ const v=new Set(ms.map(r=>r["결과"])); return v.size===1?[...v][0]:null; };
     const rb=res(side["블루팀"]);
@@ -14751,7 +14759,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611271400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611271500";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

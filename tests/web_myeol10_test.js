@@ -3,9 +3,9 @@
 const {chromium}=require('playwright'); const fs=require('fs'), http=require('http'), path=require('path');
 const ROOT=path.join(__dirname,'..');
 let fails=0; const ok=(c,m)=>{ console.log((c?'  ok   ':'  FAIL ')+m); if(!c) fails++; };
-const LIST={tournaments:[{id:30,name:'제 10회 멸망전',mode:'AUCTION',createdAt:'2026-11-25T00:00:00.000Z',finishedAt:'2026-12-01T10:00:00.000Z',teamCount:2,champion:null}]};
+const LIST={tournaments:[{id:30,name:'제 10회 멸망전',mode:'AUCTION',createdAt:'2026-11-20T00:00:00.000Z',finishedAt:'2026-11-25T10:00:00.000Z',teamCount:2,champion:null}]};
 const mkp=(n,pos,price)=>({nickname:n,position:pos,tier:'마스터',price,pick:null});
-const D30={id:30,name:'제 10회 멸망전',mode:'AUCTION',finishedAt:'2026-12-01T10:00:00.000Z',stages:[],teams:[
+const D30={id:30,name:'제 10회 멸망전',mode:'AUCTION',finishedAt:'2026-11-25T10:00:00.000Z',stages:[],teams:[
  {id:1,name:'가팀',captain:'팀장가#kr1',players:[mkp('가탑','TOP',300),mkp('가정글','JGL',450),mkp('가미드','MID',120),mkp('가원딜','BOT',0)]},
  {id:2,name:'나팀',captain:'팀장나',players:[mkp('나탑','TOP',200),mkp('나정글','JGL',100),mkp('나미드','MID',500),mkp('나원딜','BOT',50)]},
  {id:3,name:'다팀',captain:'팀장다',players:[mkp('다1','TOP',10),mkp('다2','MID',20),mkp('다미드','MID',30),mkp('다원딜','BOT',40)]}]};
@@ -22,10 +22,10 @@ srv.listen(0,'127.0.0.1',async()=>{ const port=srv.address().port;
     await aucEnsure(true);
     const c=aucMyeolCfg();
     const postE=myeolEditions().map(e=>e.no+':'+e.kind+(e.latest?'*':'')).join(), postV=myeolViewsFor(myeolEditions()[0]).map(v=>v[0]).join(), v9=myeolViewsFor(myeolEditions()[1]).map(v=>v[0]).join();
-    // 가짜 시트: 경매가 끝난(12/01 19:00 KST) 뒤 가탑·가정글·가미드·가원딜·팀장가 vs 나… 한 판 — 가팀 승
+    // 가짜 시트: 경매가 끝난(11/25 19:00 KST) 뒤 · 본선 개막(11/28 19:00) 전 가탑·가정글·가미드·가원딜·팀장가 vs 나… 한 판 — 가팀 승
     const mk=(gid,day,names,side,res)=>names.map((n,i)=>({"게임ID":gid,"날짜":day,"소환사명":n+"#kr1","진영":side,"결과":res,"포지션":["탑","정글","미드","원딜","서폿"][i],"챔피언":"아리","KDA":"3/2/5","점수":"20"}));
     const A=["가탑","가정글","가미드","가원딜","팀장가"], B=["나탑","나정글","나미드","나원딜","팀장나"];
-    const rows=[...mk("#1","2026-12-02 20:00",A,"블루팀","승리"),...mk("#1","2026-12-02 20:00",B,"레드팀","패배")];
+    const rows=[...mk("#1","2026-11-26 20:00",A,"블루팀","승리"),...mk("#1","2026-11-26 20:00",B,"레드팀","패배")];
     GAMES_ALL=new Map([["#1",{rows}]]);
     _MYEOL_MEMO={seq:-1}; tierOf=n=>'2中';   // 시험용 — 전원 같은 티어(종이 전력이 있는 상태)
     const html=myeolTeamRankHtml(c), ros=myeolRosterHtml(c);
@@ -35,7 +35,7 @@ srv.listen(0,'127.0.0.1',async()=>{ const port=srv.address().port;
     const duo1=aucDuoList(c,'bot'), mj1=aucDuoList(c,'mj');
     const g1=duo1.filter(d=>d.t==='팀장가'), n1=duo1.filter(d=>d.t==='팀장나'), d1=duo1.filter(d=>d.t==='팀장다'), mjd=mj1.filter(d=>d.t==='팀장다');
     // 두 번째 같은 라인업 판을 더해 「실측」으로 덮이는지
-    const rows2=[...mk("#2","2026-12-03 20:00",A,"블루팀","승리"),...mk("#2","2026-12-03 20:00",B,"레드팀","패배")];
+    const rows2=[...mk("#2","2026-11-27 20:00",A,"블루팀","승리"),...mk("#2","2026-11-27 20:00",B,"레드팀","패배")];
     GAMES_ALL=new Map([["#1",{rows}],["#2",{rows:rows2}]]); _MYEOL_MEMO={seq:-1};
     const duo2=aucDuoList(c,'bot');
     const html2=myeolBotDuoHtml(c), mjHtml=myeolMidJglHtml(c), scr=myeolScrimHtml(c);
