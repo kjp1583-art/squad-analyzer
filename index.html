@@ -4364,6 +4364,72 @@ function loadGhosts(){
   });
 }
 function isGhost(name){ return !!aliasLookup(GHOSTS, name); }   // 🔁 닉변·부계 추적
+/* 🎭 [2026-11-27 사장님 「상현·하현·귀살대 카드를 스킨 일러스트로」] 마지막 사용 스킨(LAST_SKIN 탭).
+   분석기가 게임 기록 확정 때 별도 탭에만 적는다 — CLASSIC_NORMAL 은 그대로. 웹은 이 탭만 따로 읽어
+   (사람·챔피언)별 skinID 를 스플래시 주소에 끼워 넣는다. 탭이 없거나 비었으면 조용히 기본 스킨(_0.jpg). */
+let LAST_SKINS=new Map();                 // "puuid|챔피언" · "닉네임|챔피언" → skinID
+const SKIN_URL_SEEN=new Set(), SKIN_URL_BAD=new Set();
+const _skN=s=>String(s==null?"":s).replace(/\s/g,"").toLowerCase();
+const skinKey=(a,b)=>_skN(a)+"|"+_skN(b);
+function loadLastSkin(){
+  return new Promise((resolve)=>{
+    const cb="__lskCb_"+Math.floor(performance.now())+"_"+Math.floor(Math.random()*1e6);
+    let done=false;
+    const s=document.createElement("script");
+    const cleanup=()=>{try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s);};
+    window[cb]=(resp)=>{ done=true; cleanup();
+      const out=new Map();
+      try{
+        const cols=(resp.table.cols||[]).map(c=>(c.label||"").trim().toLowerCase());
+        const pi=cols.indexOf("puuid"), ci=cols.indexOf("champion"), si=cols.indexOf("skin_id"), ni=cols.indexOf("name");
+        // ⚠️ LAST_SKIN 탭이 없으면 gviz 가 '첫 번째 시트'로 폴백한다 → 헤더가 다르면 즉시 포기(엉뚱한 숫자로 그림을 깨지 않게)
+        if(pi<0||ci<0||si<0){ resolve(out); return; }
+        for(const row of (resp.table.rows||[])){
+          const c=row.c||[]; const g=i=>(i<0||c[i]==null)?"":(c[i].f!=null?c[i].f:String(c[i].v));
+          const pu=String(g(pi)||"").trim().toLowerCase();
+          const ch=String(g(ci)||"").replace(/\s/g,"").trim();
+          const sk=parseInt(String(g(si)).replace(/[^0-9]/g,""),10);
+          if(!pu||!ch||!isFinite(sk)||sk<0) continue;
+          out.set(skinKey(pu,ch),sk);
+          const nm=String(g(ni)||"").trim();
+          if(nm&&!out.has(skinKey(nm,ch))) out.set(skinKey(nm,ch),sk);   // puuid 없는 옛 행·이름만 있는 표 대비
+        }
+      }catch(e){}
+      resolve(out);
+    };
+    s.onerror=()=>{ if(!done){cleanup(); resolve(new Map());} };
+    s.src=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=LAST_SKIN&headers=1&tqx=out:json;responseHandler:${cb}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){cleanup(); resolve(new Map());} },8000);
+  });
+}
+/* 그 사람의 그 챔피언 마지막 스킨 → 스플래시 주소(…/splash/Ahri_3.jpg). 없으면 기본(_0.jpg) 그대로.
+   그림이 실제로 없는 스킨번호(구 아트 폐기 등)면 Image 로드 실패로 알아채 _0.jpg 로 즉시 되돌린다. */
+function skinSplashUrl(base,sid){
+  const m=/^(.*_)0\.jpg$/.exec(base||"");
+  if(!m||!(sid>0)) return base||"";
+  return m[1]+sid+".jpg";
+}
+function skinSplash(base,sid){
+  const u=skinSplashUrl(base,sid);
+  if(!u||u===base) return base||"";
+  if(SKIN_URL_BAD.has(u)) return base;
+  if(!SKIN_URL_SEEN.has(u)){
+    SKIN_URL_SEEN.add(u);
+    try{ const im=new Image(); im.onerror=()=>{ SKIN_URL_BAD.add(u); skinSplashPatch(u,base); }; im.src=u; }catch(e){}
+  }
+  return u;
+}
+/* 이미 그려 둔 카드의 배경도 기본 일러스트로 되돌린다(카드가 다시 그려지길 기다리지 않는다). */
+function skinSplashPatch(bad,base){
+  try{
+    document.querySelectorAll("[data-skinbg]").forEach(el=>{
+      if((el.style.backgroundImage||"").indexOf(bad)<0) return;
+      el.style.backgroundImage="url('"+base+"')";
+      el.removeAttribute("data-skinbg");
+    });
+  }catch(e){}
+}
 // 🏷️ 웹 프로필 칭호(TITLES 탭 — 봇 /상점 구매·장착 시 갱신) → 프로필 뱃지줄 표시
 let TITLES=new Map();
 function loadTitles(){
@@ -6498,8 +6564,27 @@ function mainSplashOf(name){
     let best=null,bn=0;
     for(const [c,n] of cc) if(n>bn){best=c;bn=n;}
     if(!best) return "";
-    return SPLASHMAP[best]||SPLASHMAP[String(best).replace(/\s/g,"")]||"";
+    const base=SPLASHMAP[best]||SPLASHMAP[String(best).replace(/\s/g,"")]||"";
+    if(!base) return "";
+    // 🎭 [2026-11-27] 그 사람이 그 챔피언으로 마지막에 쓴 스킨 일러스트 — 없으면 기본(_0.jpg) 그대로
+    return skinSplash(base, lastSkinOf(parts,best));
   }catch(e){ return ""; }
+}
+/* 그 챔피언으로 마지막에 뚫은 판의 주인(puuid) 스킨 — 없으면 이름→스킨표 폴백, 그것도 없으면 0(기본). */
+function lastSkinOf(parts,champ){
+  try{
+    if(!LAST_SKINS||!LAST_SKINS.size||!parts||!parts.length) return 0;
+    const ch=String(champ||"");
+    let pu="",nm="";
+    for(const r of parts){
+      if(_skN(r["챔피언"])!==_skN(ch)) continue;
+      if(r["PUUID"]) pu=String(r["PUUID"]).trim().toLowerCase();
+      if(r["소환사명"]) nm=String(r["소환사명"]).trim();
+    }
+    let v=pu?LAST_SKINS.get(skinKey(pu,ch)):null;
+    if(v==null&&nm) v=LAST_SKINS.get(skinKey(nm,ch));
+    return (v==null||!(v>=0))?0:v;
+  }catch(e){ return 0; }
 }
 /* 🩸 [2026-08-03 사장님 지시] 홈 상단 — 서부(좌)·동부(우) 십이귀월 명단.
    순위·편성 기준은 새로 만들지 않았다. 이미 돌고 있는 파워랭킹(ASSESSMENTS[].title)을 그대로 읽는다:
@@ -7325,7 +7410,7 @@ function kzcCardHtml(up,members,KN){   // members: [{n,title,a,d,sp}] 순위순(
     const solo=d.solo!=null?(d.soloTxt||"언랭"):"";
     const st=[["승률",d.wr!=null?d.wr+"%":"–",d.wr!=null?nBar(d.wr,100,"kz"):""],["판수",a.games?a.games+"판":"–",""],["MVP율",d.mvp!=null?d.mvp+"%":"–",""]];
     return `<div class="kzc-s${k===0?" on":""}" onclick="openPlayerCard(${JSON.stringify(m.n).replace(/"/g,"&quot;")})" title="${escAttr(m.n+" — "+m.title)}">
-      ${m.sp?`<div class="kzc-bg" style="background-image:url('${escAttr(m.sp)}')"></div>`:""}<div class="kzc-kj">${KN[m.no]||m.no}</div>
+      ${m.sp?`<div class="kzc-bg" data-skinbg="1" style="background-image:url('${escAttr(m.sp)}')"></div>`:""}<div class="kzc-kj">${KN[m.no]||m.no}</div>
       <div class="kzc-top"><span class="kzc-seal"><span class="r">${up?"上弦":"下弦"}</span><span class="n">${KN[m.no]||m.no}</span></span>${a.tier?`<span class="kzc-tier">${esc(a.tier)}</span>`:""}</div>
       <div class="kzc-name">${esc(shortName(m.n))}</div>
       <div class="kzc-solo">${solo?"🏅 솔랭 "+esc(solo):"&nbsp;"}</div>
@@ -7392,8 +7477,8 @@ function ksdSplashHtml(list){
   const slides=groups.map((grp,g)=>{
     const spL=grp[0]?mainSplashOf(grp[0].name):"", spR=grp[1]?mainSplashOf(grp[1].name):"";
     return `<div class="ksd-s${g===0?" on":""}">
-      ${spL?`<div class="ksd-bg l" style="background-image:url('${escAttr(spL)}')"></div>`:""}
-      ${spR?`<div class="ksd-bg r" style="background-image:url('${escAttr(spR)}')"></div>`:""}
+      ${spL?`<div class="ksd-bg l" data-skinbg="1" style="background-image:url('${escAttr(spL)}')"></div>`:""}
+      ${spR?`<div class="ksd-bg r" data-skinbg="1" style="background-image:url('${escAttr(spR)}')"></div>`:""}
       <div class="ksd-seam" aria-hidden="true"></div>
       ${ksdHalfHtml(grp[0],g*2+1,"l")}${ksdHalfHtml(grp[1],g*2+2,"r")}
       <div class="ksd-em" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -7416,7 +7501,7 @@ function kizukiBoard(){
     if(!nm) return `<div class="kzrow ${rankUp?'up':'low'} empty">${seal}<div class="kz-body"><div class="kz-name" style="color:var(--mut)">공석</div><div class="kz-sub">아직 자리를 채운 사람이 없다</div></div></div>`;
     const a=ASSESSMENTS.get(nm)||{}, d=a.detail||{};
     const sp=(typeof mainSplashOf==='function')?mainSplashOf(nm):"";
-    const bg=sp?`<div class="kz-bg" style="background-image:url('${escAttr(sp)}')"></div>`:'';
+    const bg=sp?`<div class="kz-bg" data-skinbg="1" style="background-image:url('${escAttr(sp)}')"></div>`:'';
     // 모바일에서 칸이 좁아지면 뒤쪽 조각부터 CSS로 감춘다(솔랭 → 판수 순).
     // 구분점 ' · ' 은 반드시 감춰질 조각 '안'에 넣는다 — 밖에 두면 조각만 사라지고 점이 남는다.
     const bits=[];
@@ -14521,7 +14606,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611271131";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611271137";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -14583,10 +14668,11 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   mainP.catch(()=>{});               // 미처리 거부 경고 방지 — 실제 처리는 loadCategory 의 try/catch
   const cacheP = rawCacheGet(_gid0); // 💾 지난 방문 스냅샷(있으면 먼저 그린다)
   const ddP = loadDDragon();         // 아이콘 전용(build 는 안 씀) — 부팅을 막지 않고 병렬 진행
-  // 🚀 [2026-11-26 P1-4] 부팅에 받는 탭 = 홈이 실제로 쓰는 것만(내부티어·탈퇴자·LINK_ACCOUNT·솔랭·피크·선언포지션·GPTI·상점효과·나이).
+  // 🚀 [2026-11-26 P1-4] 부팅에 받는 탭 = 홈이 실제로 쓰는 것만(내부티어·탈퇴자·LINK_ACCOUNT·솔랭·피크·선언포지션·GPTI·상점효과·나이·LAST_SKIN).
   //    나머지(칭호·커리어·AI평·MBTI·멸망전·고스트·예측·억울·미토·LCK·브장신)는 그 화면에 들어갈 때 sheetTab() 이 받는다.
   //    → 구글 동시연결 6개를 25개 탭이 나눠 쓰던 줄서기가 사라져 큰 시트가 먼저 끝난다.
-  { const [,,_cur,_peak,_pos,_alt,_gp,,,_nb,_mc]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadLinkAccount(),loadGptiStats(),loadPerks(),loadAges(),loadNoban(),loadMitoCodes()]);
+  { const [,,_cur,_peak,_pos,_alt,_gp,,,_nb,_mc,_lsk]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadLinkAccount(),loadGptiStats(),loadPerks(),loadAges(),loadNoban(),loadMitoCodes(),loadLastSkin()]);
+    LAST_SKINS=_lsk;   // 🎭 [2026-11-27] 마지막 사용 스킨 — 홈 상현·하현·귀살대 카드 스플래시가 바로 이 맵을 본다(없으면 빈 맵)
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     ALT_TO_MAIN = _alt;   // 🎭 부계→본계 통합 맵 — 솔랭 블렌드(그룹 피크)보다 먼저
     SOLO_RANKS = blendSoloRanks(_cur,_peak);   // ★ 솔랭점수 = (최근3시즌 최고 + 현시즌)/2 — 자기 피크 없으면 LINK 그룹 최고 피크
