@@ -2608,6 +2608,13 @@ function railStoreHtml(s){
 }
 const POS_ORDER = {"탑":0,"탑솔":0,"top":0,"정글":1,"정굴":1,"jungle":1,"미드":2,"mid":2,"원딜":3,"바텀":3,"adc":3,"서폿":4,"서포터":4,"support":4};
 const POS_LIST = ["탑","정글","미드","원딜","서폿"];
+/* 🥊 [2026-11-27] 그 판의 포지션을 5개 라인 중 하나로 — 별칭(탑솔·바텀·서포터…)은 같은 라인으로 묶고,
+   '선택안함'·'?'·빈 값은 ''(라인 없음). 귀살대 '맞라이너' 판정이 이 값을 쓴다. */
+function laneOfPos(p){
+  const s=String(p||"").trim(); if(!s) return "";
+  const k=Object.prototype.hasOwnProperty.call(POS_ORDER,s)?s:s.toLowerCase();
+  return Object.prototype.hasOwnProperty.call(POS_ORDER,k)?POS_LIST[POS_ORDER[k]]:"";
+}
 // 칼바람은 포지션이 "선택안함" → 표시에서 숨김
 // [2026-07-30] 클래식은 라이엇이 포지션을 내려주지 않아 전부 '탑'으로 채워진다 → 숨김(오해 방지)
 function posLabel(p){
@@ -2639,14 +2646,30 @@ function personKeyOf(name){
 let _PERSON_GRP=null,_PERSON_GRP_N=-1;
 function _personGrp(){ if(_PERSON_GRP&&_PERSON_GRP_N===ALT_TO_MAIN.size) return _PERSON_GRP; _PERSON_GRP_N=ALT_TO_MAIN.size; return _PERSON_GRP=linkComponents([...ALT_TO_MAIN].map(([sub,main])=>[main,sub])); }
 const TIER_OF = {};
-let KISATSU=[];   // ⚔ 귀살대 — 십이귀월 다음 순번 상위 6인(협곡 전용, 파워랭킹 계산 때 갱신)
-/* 🩸 [2026-11-27 사장님 「귀살대가 무의미해졌다」] 기준값 한 곳 — 화면 부제·칩 툴팁도 이 값을 읽는다(같은 숫자를 두 군데 적지 않는다).
-   최근 90일 창은 '데이터의 마지막 기록일' 기준(_cutBehind)이라 수집이 며칠 멈춰도 명단이 통째로 비지 않는다. */
+let KISATSU=[];   // ⚔ 귀살대 — 상현(6인)을 맞라이너로 만났을 때 가장 잘 이기는 6인(협곡 전용, 파워랭킹 계산 때 갱신)
+/* 🩸 [2026-11-27 사장님 「귀살대가 무의미해졌다」·「2로가자」] 기준값 한 곳 — 화면 부제·칩 툴팁도 이 값을 읽는다(같은 숫자를 두 군데 적지 않는다).
+   · 기준 = '그 판의 상현'(data/sanghyun_history.json 날짜별 스냅샷 · 첫 날짜 이전 판은 지금 상현)과 같은 포지션(맞라이너)에서 만난 판만
+   · 최근 90일 창은 '데이터의 마지막 기록일' 기준(_cutBehind)이라 수집이 며칠 멈춰도 명단이 통째로 비지 않는다. */
 const KISATSU_SLOTS=6;        // 칸 수
-const KISATSU_PREF_GAMES=15;  // 우선 표본 — 최근 90일 상현 상대 15판↑ (고인물 박제 방지)
-const KISATSU_MIN_GAMES=10;   // 15판↑ 인원이 6명 미만일 때의 fallback 하한
+const KISATSU_PREF_GAMES=5;   // 우선 표본 — 최근 90일 상현 맞라이너 5판↑
+const KISATSU_MIN_GAMES=3;    // 5판↑ 인원이 6명 미만일 때의 fallback 하한
 const KISATSU_FORM_MIN=5;     // 🔥 최근 30일 폼을 보여 줄 최소 판수 — 2~4판짜리 폼으로 순서가 흔들리지 않게
 const KISATSU_DAYS=90, KISATSU_FORM_DAYS=30;
+/* 📜 [2026-11-27 사장님 「2로가자」] 상현 이력 — '그 날짜에 상현이던 6인'을 남겨 두고, 귀살대는 그 판 날짜의 상현과
+   같은 포지션(맞라이너)으로 만난 판만 센다. 그래야 상현이 바뀌어도 지난 맞라이너 승패가 영구히 남는다.
+   파일 = data/sanghyun_history.json : [{"date":"2026-11-27","members":["닉#태그",…]}, …] (날짜 오름차순 권장)
+   · 없거나 깨져도 빈 배열 — 그때는 지금 상현 기준(예전과 같은 동작)으로 조용히 넘어간다. */
+let SANGHYUN_HISTORY=[];
+async function loadSanghyunHistory(){
+  try{
+    const r=await fetch(`data/sanghyun_history.json?cb=${BUILD_ID}`,{cache:"no-store"}); if(!r.ok) return;
+    const j=await r.json();
+    const arr=Array.isArray(j)?j:(Array.isArray(j&&j.history)?j.history:[]);
+    SANGHYUN_HISTORY=arr.filter(e=>e&&typeof e.date==="string"&&Array.isArray(e.members)&&e.members.length)
+      .map(e=>({date:String(e.date).slice(0,10),members:e.members.map(String)}))
+      .sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  }catch(e){/* 파일이 아직 없으면 조용히 통과 — 지금 상현 기준으로 동작 */}
+}
 for(const t in TIER_DATA)for(const nm of TIER_DATA[t])TIER_OF[tnorm(nm)]=t;
 // 닉네임 변경 목록 반영 (구닉이 표에 있던 사람의 현재 닉 → 같은 티어)
 const TIER_NICK = {
@@ -3069,17 +3092,24 @@ function computeAssessments(){
     const east=_powered.filter(p=>{const a=ASSESSMENTS.get(p.name); return a&&_leagueOf(a.tier)==="동부";});
     west.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="상현 "+(i+1); });
     east.slice(0,6).forEach((p,i)=>{ const a=ASSESSMENTS.get(p.name); if(a) a.title="하현 "+(i+1); });
-    // ⚔ [2026-08-07 사장님 지시·정정] 귀살대 — 십이귀월(상현+하현 12인)이 낀 상대 팀을 만났을 때
-    //   승률이 가장 높은 비(非)귀월 인원 = 귀월을 실제로 사냥하는 사람들
-    // 🩸 [2026-11-27 사장님 「탈퇴자·몇 달 전 10판만 뛰고 접은 사람이 1~6위에 박제된다」] 개편 3가지 —
-    //   ① 탈퇴자(isDeparted·사람 단위) 제외 + 최근 90일 안에 뛴 현역만: 90일 밖 판은 후보·전적 어디에도 세지 않는다
-    //   ② 고인물 박제 방지: 최근 90일 상현 상대 15판↑ 만 후보(그 인원이 6명 미만이면 10판↑ fallback) · 순서는 최근 90일 승률,
+    // ⚔ [2026-08-07 사장님 지시·정정] 귀살대 — 상현(0·1티어 상위 6인)과 '같은 포지션(맞라이너)'으로 만난 판에서
+    //   승률이 가장 높은 비(非)상현 인원 = 상현을 라인에서 실제로 사냥하는 사람들
+    // 🩸 [2026-11-27 사장님 「귀살대가 무의미해졌다」·「2로가자」] 개편 —
+    //   ① 기준 = '그 판의 상현' — data/sanghyun_history.json 날짜별 스냅샷(date ≤ 그 판 날짜 중 가장 최근)으로 판정,
+    //      첫 스냅샷보다 이전 판은 지금 상현으로 폴백. 상현이 바뀌어도 지난 맞라이너 승패가 영구 보존된다
+    //   ② 맞라이너만 — 상현이 그 판에 선 라인(탑·정글·미드·원딜·서폿)과 내 라인이 같을 때만 센다(포지션 미기록 판 제외)
+    //   ③ 탈퇴자(isDeparted·사람 단위) 제외 + 최근 90일 안에 뛴 현역만: 90일 밖 판은 후보·전적 어디에도 세지 않는다
+    //   ④ 표본: 최근 90일 상현 맞라이너 5판↑ 만 후보(그 인원이 6명 미만이면 3판↑ fallback) · 순서는 최근 90일 승률,
     //      같은 승률이면 최근 30일 폼 → 판수
-    //   ③ 칩에 승률뿐 아니라 전적(예: 78% · 14승4패)과 최근 폼(🔥 88%)도 — 원소에 w·g·wr·f30g·f30w 를 담는다
+    //   ⑤ 칩에 승률뿐 아니라 전적(예: 78% · 14승4패)과 최근 폼(🔥 88%)도 — 원소에 w·g·wr·f30g·f30w 를 담는다
     KISATSU=(()=>{
-      // [2026-08-07 사장님 지시·재정정] 기준 = '상현'(0·1티어 상위 6)이 낀 상대만 — 하현 상대는 제외
-      const tk=new Set(west.slice(0,6).map(p=>tnorm(p.name)));
-      const tkP=new Set(west.slice(0,6).map(p=>personKeyOf(p.name)));   // 👤 사람 단위(닉변·부계 포함)
+      // [2026-08-07 사장님 지시·재정정] 기준 = '상현'(0·1티어 상위 6)만 — 하현 상대는 제외
+      const nowTk=new Set(west.slice(0,6).map(p=>tnorm(p.name)));
+      const nowTkP=new Set(west.slice(0,6).map(p=>personKeyOf(p.name)));   // 👤 사람 단위(닉변·부계 포함)
+      // 📜 날짜별 상현 이력 — 이름·사람 키 세트를 미리 만들고, 판마다 '그 판 날짜에 상현이던 6인'을 고른다
+      const hist=(Array.isArray(SANGHYUN_HISTORY)?SANGHYUN_HISTORY:[]).map(e=>({d:e.date,
+        tk:new Set(e.members.map(n=>tnorm(n))), tkP:new Set(e.members.map(n=>personKeyOf(n)))}));
+      const setOf=day=>{ let s=null; for(const e of hist){ if(e.d<=day) s=e; else break; } return s; };   // 없으면 null = 지금 상현
       const vs=new Map();
       // ⚠️ 십이귀월 명단과 같은 '통산 전체' 기준 — 패치 필터가 낀 GAMES를 쓰면 명단이 널뛴다(2026-08-07 사장님 제보)
       const _src=(typeof GAMES_ALL!=="undefined"&&GAMES_ALL.size)?GAMES_ALL:GAMES;
@@ -3092,16 +3122,25 @@ function computeAssessments(){
         const sides={};
         for(const r of rs){
           const res=r["결과"]; if(res!=="승리"&&res!=="패배") continue;
-          (sides[r["진영"]]=sides[r["진영"]]||[]).push([r["소환사명"],res]);
+          (sides[r["진영"]]=sides[r["진영"]]||[]).push([r["소환사명"],res,laneOfPos(r["포지션"])]);
         }
         const keys=Object.keys(sides); if(keys.length!==2) continue;
-        const has=k=>sides[k].some(([n])=>tk.has(tnorm(n))||tkP.has(personKeyOf(n)));
+        const sn=setOf(day);   // 그 날짜에 상현이던 6인(없으면 지금 상현)
         for(const [a,b] of [[keys[0],keys[1]],[keys[1],keys[0]]]){
-          if(!has(b)) continue;
+          // 그 판 상현이 실제로 선 라인 — 포지션이 유효한 탑/정글/미드/원딜/서폿일 때만 맞라이너가 성립한다
+          const hunt=new Set();
+          for(const [n,,ln] of sides[b]){
+            if(!ln) continue;
+            const pk=personKeyOf(n);
+            if(nowTk.has(tnorm(n))||nowTkP.has(pk)||(sn&&(sn.tk.has(tnorm(n))||sn.tkP.has(pk)))) hunt.add(ln);
+          }
+          if(!hunt.size) continue;   // 상현이 없거나 상현의 포지션 기록이 없으면(칼바람·미기록) 이 판은 맞라이너 판이 아니다
           const seenP=new Set();   // 한 판에 같은 사람의 두 닉이 같이 낀 일은 없지만, 안전하게 한 번만
-          for(const [n,res] of sides[a]){
-            if(tk.has(tnorm(n))) continue;
-            const pk=personKeyOf(n); if(tkP.has(pk)||seenP.has(pk)) continue; seenP.add(pk);   // 👤 상현과 같은 사람이면 귀살대 후보 아님
+          for(const [n,res,ln] of sides[a]){
+            if(!ln||!hunt.has(ln)) continue;          // 내가 상현과 같은 라인(맞라이너)일 때만 센다
+            if(nowTk.has(tnorm(n))) continue;
+            const pk=personKeyOf(n);
+            if(nowTkP.has(pk)||(sn&&sn.tkP.has(pk))||seenP.has(pk)) continue; seenP.add(pk);   // 👤 상현과 같은 사람이면 귀살대 후보 아님
             const v=vs.get(pk)||{g:0,w:0,f30g:0,f30w:0,names:new Map()};
             v.g++; if(res==="승리")v.w++;
             if(form){ v.f30g++; if(res==="승리")v.f30w++; }
@@ -3117,7 +3156,7 @@ function computeAssessments(){
         return {name,g:v.g,w:v.w,wr,f30g:v.f30g,f30w:v.f30w,form,names:v.names};
       }).filter(x=>![...x.names.keys()].some(n=>isDeparted(n)));   // 👥 탈퇴자 제외(현재닉·과거닉·별칭)
       const hi=all.filter(x=>x.g>=KISATSU_PREF_GAMES);
-      const pool=hi.length>=KISATSU_SLOTS?hi:all.filter(x=>x.g>=KISATSU_MIN_GAMES);   // 15판↑이 모자라면 10판↑로 빈 칸 방지
+      const pool=hi.length>=KISATSU_SLOTS?hi:all.filter(x=>x.g>=KISATSU_MIN_GAMES);   // 5판↑이 모자라면 3판↑로 빈 칸 방지
       // 순서 = 90일 승률 → 같은 승률이면 최근 30일 폼 → 판수 (화면에 보이는 %와 순서가 어긋나지 않게)
       return pool.sort((a,b)=>(b.wr-a.wr)||((b.form==null?-1:b.form)-(a.form==null?-1:a.form))||(b.g-a.g))
         .slice(0,KISATSU_SLOTS).map(({name,g,w,wr,f30g,f30w,form})=>({name,g,w,wr,f30g,f30w,form}));
@@ -3361,7 +3400,7 @@ function kizukiEmblem(name){
   </div>`;
 }
 /* ⚔ [2026-11-27 사장님 「귀살대도 상현하헌처럼 전적카드에 이펙트 추가해줘」]
-   귀살대 = 이번 달 십이귀월(상현)을 가장 잘 잡는 6인(KISATSU). '사람' 단위로 맞춘다(닉변·부계 포함) —
+   귀살대 = 그 날짜의 십이귀월(상현)을 맞라이너로 가장 잘 잡는 6인(KISATSU). '사람' 단위로 맞춘다(닉변·부계 포함) —
    상현/하현이 이미면 테마는 기존 십이귀월이 우선하고, 귀살대는 그다음 순위로 쓴다. */
 function kisatsuRankOf(name){
   try{
@@ -3374,7 +3413,7 @@ function kisatsuRankOf(name){
 /* 귀살대 칩 — 상현/하현 배지 옆에 나란히(병기) 붙는 작은 표식 */
 function kisatsuChip(name){
   const n=kisatsuRankOf(name); if(!n) return "";
-  return `<span class="kisatsu-chip" title="이번 달 상현 상대를 가장 잘 이기는 6인 · 최근 90일 기준">⚔ 귀살대 ${n}위</span>`;
+  return `<span class="kisatsu-chip" title="이번 달 상현을 맞라이너로 만나 가장 잘 이기는 6인 · 최근 90일 기준">⚔ 귀살대 ${n}위</span>`;
 }
 /* 귀살대 엠블럼 — 십이귀월 엠블럼과 같은 금테 틀에 청록 보석 + 엇갈린 일륜도 + 鬼 / 순위 */
 function kisatsuEmblem(name){
@@ -3387,7 +3426,7 @@ function kisatsuEmblem(name){
     <text x="${x}" y="${y+1.4}" text-anchor="middle" font-size="${size}" font-weight="900" fill="#02110c" style="${KF}">${txt}</text>
     <text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="900" fill="url(#${ink})" paint-order="stroke" stroke="#0b3a2e" stroke-width="1.4" stroke-linejoin="round" style="${KF}">${txt}</text>
     <text x="${x-0.6}" y="${y-1}" text-anchor="middle" font-size="${size}" font-weight="900" fill="#eafff8" opacity=".3" style="${KF}">${txt}</text>`;
-  return `<div class="kizuki-emblem kis" title="귀살대 · ${n}위 — 상현이 낀 상대를 가장 잘 이기는 사냥꾼">
+  return `<div class="kizuki-emblem kis" title="귀살대 · ${n}위 — 상현을 맞라이너로 만났을 때 가장 잘 이기는 사냥꾼">
     <svg viewBox="0 0 140 128" width="132" height="121" aria-hidden="true">
       <defs>
         <radialGradient id="${orb}" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#4ff0c4"/><stop offset="58%" stop-color="#0e7f66"/><stop offset="100%" stop-color="#03130f"/></radialGradient>
@@ -7555,7 +7594,7 @@ function ksdHalfHtml(e,rank,side){
   const open=`openPlayerCard(${JSON.stringify(e.name).replace(/"/g,'&quot;')})`;
   const wr=Math.round(e.wr), rec=`${e.w}승${e.g-e.w}패`;
   const hot=(e.f30g>=KISATSU_FORM_MIN&&e.f30g>0)?Math.round(e.f30w/e.f30g*100):null;
-  const tip=`귀살대 ${rank}위 ${shortName(e.name)} — 최근 ${KISATSU_DAYS}일 상현 상대 ${e.g}판 ${rec} · 승률 ${wr}%`
+  const tip=`귀살대 ${rank}위 ${shortName(e.name)} — 최근 ${KISATSU_DAYS}일 상현 맞라이너 ${e.g}판 ${rec} · 승률 ${wr}%`
     +(hot!=null?` · 최근 ${KISATSU_FORM_DAYS}일 ${e.f30g}판 ${e.f30w}승 ${hot}%`:"")+" — 눌러서 전적 보기";
   return `<div class="ksd-half ${side}" role="button" tabindex="0" aria-label="${escAttr(tip)}" title="${escAttr(tip)}"
       onclick="event.stopPropagation();${open}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}">
@@ -7651,7 +7690,7 @@ function kizukiBoard(){
         [1,2,3,4,5,6].map(i=>row(`${pre}하현 ${i}`,false,i)).join("")}</div>`:""}
       ${(!lg&&KISATSU.length)?`<div class="kz-corps">
         <div class="kz-corps-hd"><span class="kz-corps-t">⚔ 귀살대</span> <span class="kanji" style="font-size:12px">鬼殺隊</span>
-          <span class="kz-corps-sub">상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들</span></div>
+          <span class="kz-corps-sub">상현을 맞라이너로 만났을 때 가장 잘 이기는 사냥꾼들</span></div>
         ${ksdSplashHtml(KISATSU)}
       </div>`:''}
       <div class="cta-row"><button class="cta" type="button" onclick="go('tiers')">내부티어 전체 보기 →</button></div>
@@ -14712,7 +14751,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611271335";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611271400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
@@ -14777,7 +14816,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkNe
   // 🚀 [2026-11-26 P1-4] 부팅에 받는 탭 = 홈이 실제로 쓰는 것만(내부티어·탈퇴자·LINK_ACCOUNT·솔랭·피크·선언포지션·GPTI·상점효과·나이·LAST_SKIN).
   //    나머지(칭호·커리어·AI평·MBTI·멸망전·고스트·예측·억울·미토·LCK·브장신)는 그 화면에 들어갈 때 sheetTab() 이 받는다.
   //    → 구글 동시연결 6개를 25개 탭이 나눠 쓰던 줄서기가 사라져 큰 시트가 먼저 끝난다.
-  { const [,,_cur,_peak,_pos,_alt,_gp,,,_nb,_mc,_lsk]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadLinkAccount(),loadGptiStats(),loadPerks(),loadAges(),loadNoban(),loadMitoCodes(),loadLastSkin()]);
+  { const [,,_cur,_peak,_pos,_alt,_gp,,,_nb,_mc,_lsk]=await Promise.all([loadClanTiers(),loadDeparted(),loadSoloRanks(),loadPeakSeasons(),loadPositions(),loadLinkAccount(),loadGptiStats(),loadPerks(),loadAges(),loadNoban(),loadMitoCodes(),loadLastSkin(),loadSanghyunHistory()]);
     LAST_SKINS=_lsk;   // 🎭 [2026-11-27] 마지막 사용 스킨 — 홈 상현·하현·귀살대 카드 스플래시가 바로 이 맵을 본다(없으면 빈 맵)
     GPTI_ROWS=_gp;   // 🧬 GPTI 리치스탯(GPTI_STATS 탭) — 있으면 4축, 없으면 KDA 2축
     ALT_TO_MAIN = _alt;   // 🎭 부계→본계 통합 맵 — 솔랭 블렌드(그룹 피크)보다 먼저

@@ -4,7 +4,7 @@
 
   A 제목(⚔ 귀살대)과 한자(鬼殺隊)가 한 줄 — 360·390·768·1280 폭 모두에서 글자가 줄로 꺾이지 않는다
   B 제목·한자·설명이 카드 밖으로 넘치지 않고, 화면에 가로 스크롤이 생기지 않는다
-  C 설명은 「상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들」 한 문장만 — 90일·폼·탈퇴 설명은 화면에서 빠진다
+  C 설명은 「상현을 맞라이너로 만났을 때 가장 잘 이기는 사냥꾼들」 한 문장만 — 90일·폼·탈퇴 설명은 화면에서 빠진다
   D 그 설명은 슬라이드 툴팁에 그대로 남아 있다(정보는 지우지 않고 접었다)
   E 필터링·정렬 로직은 그대로 — 6칸 · 최근 승률 내림차순 · 페이지 오류 0
 
@@ -16,7 +16,7 @@ sys.path.insert(0, HERE); sys.path.insert(0, os.path.join(HERE, 'web_replay'))
 import replay as R
 from web_kisatsu_recent_test import build_xlsx, CAST_A
 
-SUB_WANT = '상현이 낀 상대를 만나면 가장 잘 이기는 사냥꾼들'
+SUB_WANT = '상현을 맞라이너로 만났을 때 가장 잘 이기는 사냥꾼들'
 
 MEASURE_JS = r"""(()=>{
   const t=document.querySelector('.kz-corps-t'), k=document.querySelector('.kz-corps-hd .kanji');

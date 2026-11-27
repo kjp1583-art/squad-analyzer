@@ -141,7 +141,7 @@ async def main():
     hot = [h['hot'] for s in b['slides'] for h in s['halves']]
     want_hot = ['🔥 %d%%' % int(k['f30w'] / k['f30g'] * 100 + 0.5) if k['f30g'] >= 5 else '' for k in ks]
     ok(hot == want_hot and any(hot), 'B 🔥 최근 30일 폼이 5판 이상인 사람에게만 붙는다 %s' % hot)
-    ok(all('최근 90일' in t and '상현 상대' in t for t in b['halfTitles']), 'B 반쪽 툴팁에 90일 기준이 남아 있다 %r' % b['halfTitles'][:1])
+    ok(all('최근 90일' in t and '상현 맞라이너' in t for t in b['halfTitles']), 'B 반쪽 툴팁에 90일·맞라이너 기준이 남아 있다 %r' % b['halfTitles'][:1])
     ok(not any(t['clip'] for t in b['tight']), 'F 360 글자 잘림 없음 %s' % [t for t in b['tight'] if t['clip']])
     ok(b['out'] == 0 and b['esc'] == 0 and b['collide'] == 0,
        'F 360 반쪽·글자가 카드 밖으로 안 나가고 위/아래 덩어리가 안 겹친다 (out %d esc %d collide %d)' % (b['out'], b['esc'], b['collide']))
