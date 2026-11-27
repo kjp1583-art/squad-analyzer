@@ -8792,6 +8792,269 @@ def send_lcu_chat_announcement(message, headers, base_url):
                         break
     except Exception: pass
 
+# ===== 🎲 내전진행 (2026-11-27 사장님 지시) =====
+#   가위바위보 팀장 선정 → 선/후 → 진영 → 1-2-2-2-1 지명을 로비 채팅으로 자동 진행한다.
+#   로직은 desktop/lobby_draft.py(DraftEngine·DraftRunner)에 있고 여기서는 창만 그린다.
+#   · 방에 11~12명이 있는 경우가 있다 → 관전 슬롯(customSpectators)을 먼저 '관전자'로 표시해 두고,
+#     참가자가 정확히 10명이 아니면 호스트가 관전자를 체크/해제하는 선택 창으로 10명을 확정한 뒤 시작한다.
+#   · 매 차례 로비 채팅에 남은 후보를 추천 사유와 함께 띄운다 — '1.맛동산장인유미 ★[빈 포지션 원딜 · 전투력 1위]'.
+#     재료는 _draft_stats(클랜 인덱스의 전투력·주포지션·티어·승률)뿐 — 데이터 없는 외부인은 추천하지 않는다.
+_DRAFT_PHASE_TEXT = {"starting": "⏳ 로비 확인 중", "running": "▶ 진행 중", "rps": "✊ 가위바위보",
+                     "side": "➡️ 선/후 선택", "color": "🚩 진영 선택", "draft": "📋 지명 진행",
+                     "done": "🏁 종료", "aborted": "⛔ 중단", "error": "⚠️ 오류", "idle": "대기"}
+
+
+def _draft_phase_text(phase):
+    return _DRAFT_PHASE_TEXT.get(str(phase), str(phase))
+
+
+def _start_lobby_draft(root):
+    """'내전진행' 버튼 — 이미 돌고 있으면 상태 창만, 아니면 로비를 읽어 바로/관전자 선택 창으로 시작."""
+    try:
+        import lobby_draft as ld
+    except Exception as e:
+        messagebox.showerror("내전진행", f"내전진행 모듈을 불러오지 못했습니다.\n({e})")
+        return
+    cur = ld.current_runner()
+    if cur is not None and cur.alive():
+        open_lobby_draft_window(root, cur)        # 재클릭 = 현재 상태 확인(중단·참가자 다시 고르기)
+        return
+
+    def _work():
+        info = ld.probe_lobby()
+        root.after(0, lambda: _after(info))
+
+    def _after(info):
+        if not info.get("ok"):
+            messagebox.showwarning("내전진행", info.get("error") or "로비를 읽지 못했어요.")
+            return
+        rows = info.get("rows") or []
+        cand = [x["name"] for x in rows if not x.get("spectator")]
+        if len(cand) == ld.TARGET_PLAYERS:
+            _lobby_draft_launch(root, cand)       # 관전 슬롯을 뺀 이미 10명 → 선택 창 없이 바로
+            return
+        _lobby_draft_pick(root, rows)             # 11~12명 · 관전 슬롯 표시가 있으면 호스트가 고른다
+    threading.Thread(target=_work, daemon=True).start()
+
+
+def _lobby_draft_launch(root, names):
+    """확정된 참가자로 엔진을 돌린다 — 페이즈별 추천 데이터는 스레드 안에서 만든다."""
+    try:
+        import lobby_draft as ld
+        runner = ld.start_runner(names=names, stats_factory=_draft_stats)
+    except Exception as e:
+        messagebox.showerror("내전진행", f"시작하지 못했습니다.\n({e})")
+        return
+    open_lobby_draft_window(root, runner)
+
+
+def _draft_stats(names):
+    """내전진행 페이즈별 추천용 — 이름별 전투력·주포지션·티어·내전 승률.
+
+    이미 분석기가 들고 있는 클랜 인덱스(_clan_index)만 쓴다(시트 재조회 없음).
+    클랜 데이터가 없는 외부인은 넣지 않는다 — 추천은 늘 '있는 데이터 기준'으로만 한다.
+    """
+    out = {}
+    try:
+        cidx = _clan_index() or {}
+    except Exception:
+        cidx = {}
+    best = {}
+    for e in ((cidx.get("by_pu") or {}).values()):
+        k = tnorm(e.get("name") or "")
+        if not k:
+            continue
+        if int(e.get("g") or 0) >= int((best.get(k) or {}).get("g") or 0):
+            best[k] = e
+    for nm in (names or []):
+        e = best.get(tnorm(nm)) or {}
+        g, w = int(e.get("g") or 0), int(e.get("w") or 0)
+        tier = tier_of(nm) or ""
+        try:
+            pos = max((e.get("pos") or {}).items(), key=lambda x: x[1])[0] if e.get("pos") else ""
+        except Exception:
+            pos = ""
+        if not (g or tier or pos):
+            continue                       # 클랜 밖·기록 없는 이름 → 추천 후보에서 뺀다
+        try:
+            pw = float(_unified_power_one(nm, {"games": g, "overall_wr": (w / g if g else 0.5)}))
+        except Exception:
+            pw = 0.0
+        out[nm] = {"power": round(pw, 2), "pos": pos, "tier": tier, "games": g,
+                   "wr": (w / g if g else 0.0)}
+    return out
+
+
+def _lobby_draft_pick(root, rows):
+    """관전자 선택 창 — 체크된 사람이 참가자. 참가 10명이 맞아야 [시작]이 켜진다."""
+    try:
+        import lobby_draft as ld
+    except Exception as e:
+        messagebox.showerror("내전진행", f"내전진행 모듈을 불러오지 못했습니다.\n({e})")
+        return
+    win = tk.Toplevel(root)
+    win.title("내전진행 · 참가자 선택")
+    win.attributes("-topmost", True)
+    win.configure(bg=theme.BG)
+    win.resizable(False, False)
+    tk.Label(win, text="🎲 내전진행 — 관전자를 체크하세요", bg=theme.BG, fg=theme.GOLD,
+             font=UF(13, "bold")).pack(padx=20, pady=(16, 2))
+    tk.Label(win, text=f"방에 {len(rows)}명 있어요. 체크된 사람이 이번 내전 참가자입니다.",
+             bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9)).pack(padx=20, pady=(0, 10))
+    box = tk.Frame(win, bg=theme.BG_CARD, highlightthickness=1, highlightbackground=theme.LINE_STRONG)
+    box.pack(padx=18, fill="x")
+    rows_v = []
+    for r in rows:
+        v = tk.BooleanVar(value=not r.get("spectator"))
+        rows_v.append((r, v))
+        line = tk.Frame(box, bg=theme.BG_CARD)
+        line.pack(fill="x", padx=10, pady=1)
+        tk.Checkbutton(line, text=r["name"], variable=v, bg=theme.BG_CARD, fg=theme.TEXT,
+                       selectcolor=theme.BG_RAISED, activebackground=theme.BG_CARD,
+                       activeforeground=theme.TEXT, font=UF(10), anchor="w", bd=0,
+                       highlightthickness=0, cursor="hand2",
+                       command=lambda: _refresh()).pack(side="left")
+        if r.get("spectator"):
+            tk.Label(line, text="관전 슬롯", bg=theme.BG_CARD, fg=theme.TEXT_MUT,
+                     font=UF(8)).pack(side="right", padx=4)
+    hint = tk.Label(win, text="", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9))
+    hint.pack(padx=20, pady=(10, 2))
+    bar = tk.Frame(win, bg=theme.BG)
+    bar.pack(pady=(2, 14))
+    btn_start = theme.make_button(bar, "시작", "primary", command=lambda: _go())
+    btn_start.pack(side="left", padx=4)
+
+    def _sel():
+        return [r["name"] for r, v in rows_v if v.get()]
+
+    def _refresh():
+        names = _sel()
+        hint.config(text=ld.selection_hint(len(rows), len(names)))
+        try:
+            btn_start.configure(state="normal" if ld.selection_ready(len(rows), len(names)) else "disabled")
+        except Exception: pass
+
+    def _go():
+        names = _sel()
+        if not ld.selection_ready(len(rows), len(names)):
+            hint.config(text=ld.selection_hint(len(rows), len(names)))
+            return
+        win.destroy()
+        _lobby_draft_launch(root, names)
+
+    theme.make_button(bar, "취소", "neutral", command=win.destroy).pack(side="left", padx=4)
+    _refresh()
+
+
+def open_lobby_draft_window(root, runner=None):
+    """진행 상황 창 — 지금 단계·명단·로보 채팅 기록, 중단·참가자 다시 고르기·다시 시작."""
+    try:
+        import lobby_draft as ld
+    except Exception as e:
+        messagebox.showerror("내전진행", f"내전진행 모듈을 불러오지 못했습니다.\n({e})")
+        return
+    run = runner or ld.current_runner()
+    if run is None:
+        messagebox.showinfo("내전진행", "진행 중인 내전이 없습니다.")
+        return
+    win = tk.Toplevel(root)
+    win.title("내전진행")
+    win.attributes("-topmost", True)
+    win.configure(bg=theme.BG)
+    tk.Label(win, text="🎲 내전진행", bg=theme.BG, fg=theme.GOLD,
+             font=UF(13, "bold")).pack(padx=18, pady=(14, 2))
+    head = tk.Label(win, text="", bg=theme.BG, fg=theme.TEXT, font=UF(11, "bold"))
+    head.pack(padx=18)
+    sub = tk.Label(win, text="", bg=theme.BG, fg=theme.TEXT_SUB, font=UF(9), wraplength=440, justify="left")
+    sub.pack(padx=18, pady=(3, 8))
+    body = tk.Text(win, height=15, width=56, bg=theme.BG_CARD, fg=theme.TEXT, font=UF(9),
+                   relief="flat", bd=0, wrap="word", padx=8, pady=6)
+    body.pack(padx=18, fill="both", expand=True)
+    body.configure(state="disabled")
+    bar = tk.Frame(win, bg=theme.BG)
+    bar.pack(pady=(8, 14))
+    seen = {"n": -1}
+    btn_stop = theme.make_button(bar, "⛔ 중단", "danger", command=lambda: _stop())
+    btn_stop.pack(side="left", padx=4)
+    btn_pick = theme.make_button(bar, "👥 참가자 고르기", "neutral", command=lambda: _repick())
+    btn_pick.pack(side="left", padx=4)
+    btn_again = theme.make_button(bar, "🔁 다시 시작", "neutral", command=lambda: _restart())
+    btn_again.pack(side="left", padx=4)
+    theme.make_button(bar, "닫기", "neutral", command=win.destroy).pack(side="left", padx=4)
+
+    def _stop():
+        try:
+            run.abort("사용자가 중단")
+        except Exception: pass
+
+    def _after_dead(fn):
+        """중단한 스레드가 끝난 뒤에 다음 단계로 — 진행이 겹치지 않게."""
+        _stop()
+
+        def _wait(t=0):
+            if not win.winfo_exists():
+                return
+            if run.alive() and t < 40:
+                win.after(100, lambda: _wait(t + 1))
+                return
+            fn()
+        win.after(150, _wait)
+
+    def _repick():
+        def _go():
+            win.destroy()
+
+            def _probe():
+                info = ld.probe_lobby()
+                root.after(0, lambda: _after(info))
+
+            def _after(info):
+                if not info.get("ok"):
+                    messagebox.showwarning("내전진행", info.get("error") or "로비를 읽지 못했어요.")
+                    return
+                _lobby_draft_pick(root, info.get("rows") or [])
+
+            threading.Thread(target=_probe, daemon=True).start()
+        _after_dead(_go)
+
+    def _restart():
+        _after_dead(lambda: (win.destroy(), _start_lobby_draft(root)))
+
+    def _draw():
+        if not win.winfo_exists():
+            return
+        st = run.status()
+        head.config(text=_draft_phase_text(st.get("phase"))
+                         + (f"  ·  {st.get('headline')}" if st.get("headline") else ""))
+        teams = st.get("teams") or {}
+        b, rd = teams.get("블루") or [], teams.get("레드") or []
+        err = st.get("error") or ""
+        if err:
+            head.config(fg=theme.LOSE)
+            sub.config(text=err, fg=theme.LOSE)
+        else:
+            head.config(fg=theme.TEXT)
+            sub.config(fg=theme.TEXT_SUB,
+                       text=(f"🔵 {', '.join(b) if b else '—'}\n🔴 {', '.join(rd) if rd else '—'}")
+                       + ("\n잔여: " + ", ".join(st.get("remaining") or []) if st.get("remaining") else ""))
+        lines = st.get("lines") or []
+        if len(lines) != seen["n"]:
+            seen["n"] = len(lines)
+            body.configure(state="normal")
+            body.delete("1.0", "end")
+            body.insert("end", "\n".join(lines[-40:]))
+            body.see("end")
+            body.configure(state="disabled")
+        alive = bool(st.get("alive"))
+        try:
+            btn_stop.configure(state="normal" if alive else "disabled")
+            btn_pick.configure(state="normal")      # 진행 중이어도 "중단하고 참가자 다시 고르기"로 동작(_after_dead)
+            btn_again.configure(state="normal")      # 진행 중이어도 "중단하고 다시 시작"
+        except Exception: pass
+        win.after(800, _draw)
+
+    _draw()
+
 # ===== 👑 팀장뽑기 (2026-08-06 사장님 지시) =====
 #   내전 방 인원 중 전력이 가장 비슷한 2명을 팀장으로 자동 선정해 팀원뽑기를 시킨다.
 #   · 직전 판 팀장은 후보에서 제외(두 판 연속 방지가 관건) — 후보가 모자라면 제외 대신 큰 감점으로 완화
@@ -12950,7 +13213,7 @@ def create_graphic_ui():
 
     # 🧲 [2026-11-27] 상단 메뉴 = lol.ps 스타일 텍스트 전용 가로 1줄(아이콘 없음).
     #    hover = 글자 밝아짐(TEXT) + 미세 배경(BG_RAISED), 선택 상태 = 하단 2px 액센트 밑줄.
-    #    폭은 글자 길이에 맞춰 자동 — 1280(컴팩트)에서도 8칸이 한 줄에 다 들어간다(_nav_fit 보정).
+    #    폭은 글자 길이에 맞춰 자동 — 1280(컴팩트)에서도 10칸이 한 줄에 다 들어간다(_nav_fit 보정).
     nav_bar = tk.Frame(left_header, bg=theme.BG_BAR)
     nav_bar.pack(expand=True, anchor="w")
 
@@ -13053,6 +13316,9 @@ def create_graphic_ui():
         threading.Thread(target=_work, daemon=True).start()
 
     _TextNavBtn("호출자초대", _do_called_invite)
+    # 🎲 [2026-11-27 사장님 지시] '내전진행' — 가위바위보 팀장 선정부터 1-2-2-2-1 지명 종료까지 자동 진행.
+    #    방에 11~12명이면 관전자 선택 창을 거쳐 참가 10명을 확정한 뒤 시작한다(모듈: lobby_draft).
+    _TextNavBtn("내전진행", lambda: _start_lobby_draft(root))
     # 👑 [v83.71 사장님 지시] '팀뽑선정'을 팀초대 바로 옆(맨 왼쪽 묶음)으로 — 로비에서 먼저 쓰는 순서대로.
     #    _do_team_menu 정의는 아래에 있다. 버튼 클릭 시점에 이름이 바인딩되므로 람다로 넘긴다.
     _TextNavBtn("팀뽑선정", lambda: _do_team_menu())
@@ -13360,9 +13626,10 @@ def create_graphic_ui():
     #   ⚠️ <Configure> 는 창을 끄는 동안 초당 수십 번 온다 — 그때마다 폰트를 다시 계산하면
     #      화면이 덜덜 떨린다. 마지막 이벤트로부터 140ms 뒤에 한 번만 적용한다(디바운스).
     _ui_job = [None]
-    # 📐 [2026-11-27] 텍스트 메뉴 8칸이 1280(컴팩트)에서도 한 줄에 다 들어가게 폭을 지킨다.
+    # 📐 [2026-11-27] 텍스트 메뉴가 1280(컴팩트)에서도 한 줄에 다 들어가게 폭을 지킨다.
     #    자리가 모자라면 개발·기획 크레딧 줄만 접는다 — 메뉴가 잘리거나 2줄로 깨지는 것보다 낫다.
-    NAV_CREDIT_MIN_W = 1340
+    #    (내전진행·호출자초대가 붙은 10칸 기준 — 8칸 때 1340 이면 두 칸(=약 130px)만큼 더 필요하다)
+    NAV_CREDIT_MIN_W = 1470
     def _nav_fit():
         try:
             w = root.winfo_width()
@@ -14989,8 +15256,11 @@ class GuideWindow(tk.Toplevel):
         ("🚫 노밴 선언 감지", "로비 채팅의 '○○ 노밴' 약속을 읽어 기록하고, 1페이즈 밴 추천에서 제외합니다."),
         ("🔄 자동 업데이트", "새 버전이 나오면 켜져 있는 동안 알아서 받아 교체하고 다시 켭니다."),
         ("직접 누르는 것", None),
-        ("🔘 상단 버튼", "화면 위쪽 두 줄 — 사용 안내·음성방 초대·명예의전당·내부티어·모의밴픽·"
-                      "SQUAD.GG·AUC.GG / 모스트 전환·설정·로그·팀뽑선정·후원이 바로 눌립니다."),
+        ("🔘 상단 버튼", "화면 위쪽 한 줄 — 팀초대·호출자초대·내전진행·팀뽑선정·모의밴픽·"
+                      "SQUAD.GG·AUC.GG / 포지션별 전환·설정·후원이 바로 눌립니다."),
+        ("🎲 내전진행", "가위바위보 팀장 선정 → 선/후 → 진영 → 1-2-2-2-1 지명까지 로비 채팅으로 자동 진행합니다. "
+                     "방에 11~12명이면 관전자를 체크해 참가 10명을 확정하고, 매 차례 남은 후보 중 "
+                     "전투력·팀의 빈 포지션 기준 추천을 ★로 표시합니다."),
         ("👑 팀뽑선정", "방에 있는 사람 중 전투력이 가장 비슷한 2인을 팀장으로 뽑습니다(직전 판 팀장은 회피). "
                       "전투력차 1 이내 짝만 추천하고 그 안에서 주포지션이 같은 짝을 우선, 비슷한 짝이 없으면 "
                       "포지션을 보지 않고 전투력이 가장 가까운 두 명을 고릅니다. 결과를 로비 채팅에 바로 알릴 수 있습니다."),
