@@ -1827,7 +1827,13 @@ window.SGG_DC_BOOT=(function(){
   .cl-card:hover{border-color:var(--accent)}
   .cl-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .cl-card-th{position:relative;display:grid;place-items:center;aspect-ratio:16/9;background:radial-gradient(circle at 50% 42%,#202b45,#0a0e16 78%);overflow:hidden}
+  .cl-card-th.is-thumb{background:#0a0e16}
   .cl-card-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.94}
+  /* 🖼 [2026-11-27 사장님 「썸네일이 없는데」] #영상신청 카드도 실제 영상의 한 장면을 깐다.
+     <video> 는 화면에 붙이지 않고(디코더만 잠깐 빌려 한 프레임을 캔버스로 떠낸다) 그림만 남긴 뒤 놓아 준다. */
+  .cl-th-in{animation:cl-th-in .35s ease both}
+  @keyframes cl-th-in{from{opacity:0}to{opacity:.94}}
+  @media (prefers-reduced-motion:reduce){.cl-th-in{animation:none}}
   .cl-card-gl{position:absolute;inset:0;background:linear-gradient(135deg,rgba(91,140,255,.18),transparent 62%)}
   .cl-card-play{position:relative;z-index:1;width:52px;height:52px;border-radius:50%;background:rgba(235,40,60,.94);box-shadow:0 6px 18px rgba(0,0,0,.55)}
   .cl-card-play::after{content:"";position:absolute;left:20px;top:15px;border-left:16px solid #fff;border-top:11px solid transparent;border-bottom:11px solid transparent}
@@ -7692,6 +7698,8 @@ function ytHomePaint(){
      팝업 밖(홈 카드)만 새로 그리고, 팝업 안 재생기·댓글은 그대로 두고 제목·댓글 수만 맞춘다(재생이 끊기지 않게). */
   const w=document.createElement("div"); w.innerHTML=ytHomeHtml(); if(!w.firstElementChild) return;
   el.replaceWith(w.firstElementChild);
+  if(CLIP_THUMB.io){ try{ CLIP_THUMB.io.disconnect(); }catch(e){} CLIP_THUMB.io=null; }   // 다시 그린 카드 기준으로 감시를 새로 건다
+  clipThumbWatch();
   if(nick){ const n=document.getElementById("clNick"); if(n&&!n.value) n.value=nick; }
   if(txt){ const t=document.getElementById("clText"); if(t&&!t.value) t.value=txt; }
   if(CLIP_MODAL.open){
@@ -7707,12 +7715,15 @@ function clipCmtPaint(){   // 재생 중인 재생기를 건드리지 않고 댓
   const ttl=document.getElementById("clTtl");
   if(ttl&&CLIP_HOME.clip) ttl.textContent=CLIP_HOME.clip.caption||"#영상신청 최신 영상";
 }
+function clipTabNow(){   // 지금 화면에 보이는 탭 — 한 번도 안 골랐으면(CLIP_TAB=null) 최신 클립이 있으면 클립, 없으면 유튜브
+  return (CLIP_TAB==="clip"||CLIP_TAB==="yt")?CLIP_TAB:(CLIP_HOME.clip?"clip":"yt");
+}
 function ytHomeHtml(){
   const v=(YT_HOME.videos||[])[0];
   const hasYt=!!(v&&/^[\w-]{11}$/.test(String(v.id||"")));
   const clip=CLIP_HOME.clip;
   if(!hasYt&&!clip) return "";
-  const tab=(CLIP_TAB==="clip"||CLIP_TAB==="yt")?CLIP_TAB:(clip?"clip":"yt");   // 최신 클립이 있으면 그쪽이 기본
+  const tab=clipTabNow();
   return `<div id="ytHomePane" style="margin-top:18px">
     <div class="kzhd"><h2>▶ 클랜 영상</h2><span class="kanji">클랜원 영상</span><a class="yt-ch" href="${YT_CHANNEL}" target="_blank" rel="noopener">채널 ↗</a></div>
     <div class="seg yt-seg" role="tablist" aria-label="클랜 영상 전환">
@@ -7739,13 +7750,81 @@ function clipBodyHtml(clip){
   return `<div class="cl-card" id="clCard" data-cid="${escAttr(clip.id)}" role="button" tabindex="0"
       onclick="clipOpen()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();clipOpen();}"
       aria-label="클랜 영상 재생 — ${escAttr(clip.caption||"#영상신청 최신 영상")}">
-    <div class="cl-card-th"><span class="cl-card-gl"></span><span class="cl-card-play"></span></div>
+    <div class="cl-card-th" id="clCardTh"><span class="cl-card-gl"></span><span class="cl-card-play"></span></div>
     <div class="cl-card-bd">
       <div class="yt-ttl">${esc(clip.caption||"#영상신청 최신 영상")}</div>
       <div class="yt-meta">${esc(clip.author||"클랜원")}${ds?" · "+ds:""} · 💬 <b id="clCardCmt">${n}</b></div>
       <div class="cl-card-ct">눌러서 재생 →</div>
     </div>
   </div>`;
+}
+/* 🖼 [2026-11-27 사장님 「썸네일이 없는데」] #영상신청 카드 그림칸에 그 영상의 실제 장면을 깐다.
+   안드로이드 크롬은 <video preload="metadata"> 만으로는 첫 프레임을 그리지 않는 때가 있어(실측: loadedmetadata 뒤
+   currentTime=1 로 한 번 seek 해야 프레임이 나온다), 화면에 붙이지 않은 video 로 그 프레임을 <canvas> 에 떠서
+   JPEG 하나(720px 폭, ~50KB)만 카드에 끼운다 — 재생기가 홈에 남지 않고(이전 PR #105 그대로), 디코더도 바로 놓아 준다.
+   디스코드 CDN 은 어느 오리진이든 CORS 를 열어 주므로 캔버스로 떠낼 수 있고, 막히거나 늦으면 지금의 어두운 배경이 그대로 남는다. */
+const CLIP_THUMB={id:"",src:"",busy:0,miss:{},io:null};   // 한 번 뜬 그림은 탭 전환·2분 갱신에도 다시 받지 않는다
+function clipThumbEl(){ return document.getElementById("clCardTh"); }
+function clipThumbPaint(src){                        // 그림칸 맨 아래(그라데이션·재생 아이콘 밑)에 썸네일을 깐다
+  const th=clipThumbEl(); if(!th||!src) return false;
+  const old=th.querySelector("img"); if(old) return !!old.getAttribute("src");
+  const img=document.createElement("img");
+  img.className="cl-card-img cl-th-in"; img.alt=""; img.decoding="async"; img.src=src;
+  th.insertBefore(img,th.firstChild);
+  th.classList.add("is-thumb");
+  return true;
+}
+function clipThumbShot(v){                           // 영상의 한 장면 → {url, lv} (실패하면 null)
+  try{
+    const w=v.videoWidth||0, h=v.videoHeight||0; if(!w||!h) return null;
+    const sc=Math.min(1,720/w), c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(w*sc)); c.height=Math.max(1,Math.round(h*sc));
+    const g=c.getContext("2d"); g.drawImage(v,0,0,c.width,c.height);
+    const d=g.getImageData(0,0,c.width,c.height).data;
+    let sum=0, n=0; for(let i=0;i<d.length;i+=4*61){ sum+=(d[i]+d[i+1]+d[i+2])/3; n++; }
+    return {url:c.toDataURL("image/jpeg",0.74), lv:n?sum/n:0};
+  }catch(e){ return null; }                          // CORS 로 캔버스가 오염되면 null — 어두운 배경 폴백
+}
+function clipThumbGrab(clip){                        // 화면에 안 붙인 video 로 한 프레임만 떠고 곧장 놓아 준다
+  const id=clip.id; let fin=false, tries=0, tm=0, v=null;
+  const end=(src)=>{                                  // src 없으면 = 이 클립은 이번 방문 동안 포기(2분마다 재시도 안 함)
+    if(fin) return; fin=true; clearTimeout(tm);
+    try{ if(v){ v.removeAttribute("src"); v.load(); } }catch(e){}
+    v=null; CLIP_THUMB.busy=0;
+    if(src&&CLIP_HOME.clip&&CLIP_HOME.clip.id===id){ CLIP_THUMB.id=id; CLIP_THUMB.src=src; clipThumbPaint(src); }
+    else if(!src) CLIP_THUMB.miss[id]=1;
+  };
+  try{ v=document.createElement("video"); }catch(e){ return end(null); }
+  v.muted=true; v.playsInline=true; v.setAttribute("playsinline",""); v.setAttribute("webkit-playsinline","");
+  v.preload="metadata"; v.setAttribute("crossorigin","anonymous");   // 캔버스로 뜨려면 CORS 허용이 필요하다
+  const seek=(t)=>{ try{ v.currentTime=t; }catch(e){ end(null); } };
+  v.addEventListener("error",()=>end(null));
+  v.addEventListener("loadedmetadata",()=>{ const d=+v.duration||0; seek(d>4?1:Math.max(.05,d/2)); });   // 1초 지점(짧은 영상은 중간)
+  v.addEventListener("seeked",()=>{
+    const r=clipThumbShot(v); if(!r){ return end(null); }
+    if(r.lv<12&&!tries){ tries=1; const d=+v.duration||0; if(d>8) return seek(d*0.15); }   // 페이드인으로 새까만 첫 장면이면 한 번만 더
+    end(r.url);
+  });
+  tm=setTimeout(()=>end(null),15000);
+  v.src=clip.url;
+}
+function clipThumbStart(){                           // 지금 보이는 카드에만 — 숨은 탭·화면 밖에서는 받지 않는다
+  const clip=CLIP_HOME.clip, th=clipThumbEl();
+  if(!clip||!th||clipTabNow()!=="clip") return false;
+  if(CLIP_THUMB.src&&CLIP_THUMB.id===clip.id) return clipThumbPaint(CLIP_THUMB.src);
+  if(CLIP_THUMB.busy===clip.id||CLIP_THUMB.miss[clip.id]) return false;
+  CLIP_THUMB.busy=clip.id; clipThumbGrab(clip); return true;
+}
+function clipThumbWatch(){                           // 카드가 화면에 가까워질 때 한 번만 시작한다(모바일 데이터 아껴 쓰기)
+  const th=clipThumbEl(); if(!th) return false;
+  const clip=CLIP_HOME.clip;
+  if(clip&&CLIP_THUMB.src&&CLIP_THUMB.id===clip.id) return clipThumbPaint(CLIP_THUMB.src);   // 떠 둔 그림은 공짜 — 바로 깐다
+  if(!("IntersectionObserver" in window)) return clipThumbStart();
+  if(CLIP_THUMB.io){ try{ CLIP_THUMB.io.disconnect(); }catch(e){} CLIP_THUMB.io=null; }
+  const io=new IntersectionObserver(es=>{
+    for(const en of es) if(en.isIntersecting){ io.disconnect(); CLIP_THUMB.io=null; clipThumbStart(); return; }
+  },{rootMargin:"300px 0px"});
+  io.observe(th); CLIP_THUMB.io=io; return true;
 }
 let CLIP_MODAL={open:false,id:null};
 function clipModalHost(){
@@ -7911,6 +7990,7 @@ function clipSetTab(t){
   const cp=document.getElementById("clPanelClip"), yp=document.getElementById("clPanelYt");
   if(cp) cp.style.display=(CLIP_TAB==="clip")?"":"none";
   if(yp) yp.style.display=(CLIP_TAB==="yt")?"":"none";
+  if(CLIP_TAB==="clip") clipThumbWatch();   // 🖼 숨은 동안 미뤄 둔 썸네일을 이제 받는다
 }
 function clipCommentSend(){
   const clip=CLIP_HOME.clip; if(!clip){ clipNote("영상을 불러오면 댓글을 남길 수 있어요"); return false; }
@@ -14199,7 +14279,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611270920";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611270930";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
