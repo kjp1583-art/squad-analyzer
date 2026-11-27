@@ -53,6 +53,7 @@ hiddenimports += [
     'pyasn1', 'pyasn1_modules', 'rsa',
     'PIL.Image', 'PIL.ImageTk', 'PIL.ImageDraw',   # 🌱 뉴비 새싹 아이콘(함수 안 import — 명시)
     'theme', 'lolps_build',   # 🛡️ 같은 폴더 모듈 — PyInstaller 가 놓치면 빌드는 되지만 그 기능만 죽는다
+    'lobby_draft',    # 🎲 [v83.79] 내전진행(팀뽑 자동화) — 함수 안 지연 import 라 명시하지 않으면 빠질 수 있다
     'PIL.ImageFont',   # 🎨 v83.75 카드 렌더러의 글자(게이지 숫자) — 없으면 숫자가 기본 폰트로 떨어진다
     'card_render',     # 🎨 v83.75 Pillow 카드·게이지·뱃지 렌더러(별도 모듈 — 같은 폴더)
 ]
