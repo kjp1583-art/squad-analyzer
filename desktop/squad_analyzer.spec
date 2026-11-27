@@ -52,6 +52,7 @@ hiddenimports += [
     'oauth2client._helpers',
     'pyasn1', 'pyasn1_modules', 'rsa',
     'PIL.Image', 'PIL.ImageTk', 'PIL.ImageDraw',   # 🌱 뉴비 새싹 아이콘(함수 안 import — 명시)
+    'theme', 'lolps_build',   # 🛡️ 같은 폴더 모듈 — PyInstaller 가 놓치면 빌드는 되지만 그 기능만 죽는다
 ]
 
 hiddenimports = sorted(set(hiddenimports))

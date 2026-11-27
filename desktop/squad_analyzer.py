@@ -24,6 +24,12 @@ from oauth2client.service_account import ServiceAccountCredentials
 from io import BytesIO
 import ctypes
 import theme  # [디자인 토큰] 웹 :root와 동일 팔레트 (DESIGN.md)
+# 🛡️ [2026-11-27 사장님 지시] 밴픽창 내 챔피언 lol.ps 빌드 카드(아이템·룬·스펠).
+#   모듈이 없거나 로드에 실패해도 분석기 본체는 그대로 뜬다(카드만 안 나온다).
+try:
+    import lolps_build
+except Exception:
+    lolps_build = None
 
 try:
     from PIL import Image, ImageTk, ImageOps
@@ -4057,6 +4063,31 @@ _DRAFT_OVL = {"win": None, "lbl": None, "shown": "", "expanded": False, "btn_mor
 # 🧭 [2026-09-09 사장님 제보] 이 판 내 포지션 수동 지정 — {"gid": 게임식별자, "pos": "정글"}. 카드의 포지션 칩으로 설정.
 _COACH_POS = {"gid": "", "pos": ""}
 _COACH_POS_LIST = ("탑", "정글", "미드", "원딜", "서폿")
+_LOLPS_POS_GID = [""]     # 🛡️ 마지막으로 본 밴픽 세션 식별자 — 수동 포지션을 판 단위로 유지
+
+
+def _coach_manual_pos(s_json=None):
+    """사람이 포지션 칩으로 직접 찍은 **이번 밴픽**의 포지션('미드' 등). 없으면 ''.
+
+    라인 자동 인식이 비는 내전에서도 빌드 카드가 엉망인 주 라인을 보여주지 않게, 수동 지정을 먼저 쓴다.
+    단, 지난 판에 찍은 포지션이 다음 판까지 따라오지 않게 세션(gameId)이 바뀌면 버린다.
+    """
+    try:
+        gid = str((s_json or {}).get("gameId") or "") or f"t{int(time.time() // 600)}"
+    except Exception:
+        gid = ""
+    try:
+        if gid and _LOLPS_POS_GID[0] != gid:
+            _LOLPS_POS_GID[0] = gid
+            _COACH_POS["pos"] = ""
+            _COACH_POS["gid"] = ""
+    except Exception:
+        pass
+    try:
+        return str(_COACH_POS.get("pos") or "")
+    except Exception:
+        return ""
+
 
 def _coach_set_pos(pos):
     """카드 포지션 칩 클릭 → 이 판의 내 포지션 확정. 픽 서명(포지션 포함)을 풀어 다음 폴링에서 재추천."""
@@ -4548,6 +4579,55 @@ def _draft_build_card(root):
             w.geometry("+%d+%d" % _ovl_clamp(w, int(_sv[0]), int(_sv[1])))
             _DRAFT_OVL["manual"] = True
     except Exception: pass
+
+
+# 🛡️ [2026-11-27 사장님 지시] 밴픽창 내 챔피언 lol.ps 빌드 카드 — GUI 1초 틱
+#   고스트밴픽왕 카드와 다른 점: API 키·구독과 무관하게, 밴픽 중이면 항상 내 챔피언 빌드를 보여준다.
+#   자리도 클라 **왼쪽**을 기본으로 잡아 고스트밴픽왕 카드(오른쪽)와 겹치지 않는다.
+_LOLPS_BOOT = [False]
+
+
+def _lolps_champ_name(cid):
+    """숫자 챔피언 ID → 한글명(이미 받아 둔 champ_map 재사용, 네트워크 없음)."""
+    try:
+        _i = int(cid)
+    except Exception:
+        return ""
+    for _m in (champ_map, GLOBAL_NUMERIC_CHAMP_MAP):
+        try:
+            _v = _m.get(_i)
+        except Exception:
+            _v = None
+        if isinstance(_v, dict):
+            return str(_v.get("kor") or "")
+        if isinstance(_v, str):
+            return _v
+    return ""
+
+
+def _lolps_dock_rect():
+    """카드 기본 자리용 롤 클라 사각형 (x, y, w, h). 못 찾으면 None."""
+    try:
+        r = _lol_client_rect()
+        if not r:
+            return None
+        return (r[0], r[1], r[2] - r[0], r[3] - r[1])
+    except Exception:
+        return None
+
+
+def _lolps_build_sync(root):
+    """GUI 스레드 1초 틱 — 준비된 빌드 카드가 있으면 올린다(없으면 내린다)."""
+    if lolps_build is None:
+        return
+    if not _LOLPS_BOOT[0]:
+        _LOLPS_BOOT[0] = True
+        try:
+            lolps_build.configure(DDRAGON_VERSION, _lolps_champ_name, cache_dir=CONFIG_DIR)
+            lolps_build.tracker.pos_store = APP_CONFIG      # 손으로 옮긴 자리를 config.json 에 기억
+            lolps_build.set_dock_provider(_lolps_dock_rect)
+        except Exception: pass
+    lolps_build.sync(root)
 
 
 def _draft_flash(w, n=6):
@@ -9812,6 +9892,20 @@ def lcu_core_backend_loop():
                                     if _lc > 0: global_lock_champ_map[p_puuid.strip().lower()] = _lc
                                 except Exception: pass
 
+                    # 🛡️ [2026-11-27 사장님 지시] 밴픽창 내 챔피언 lol.ps 빌드 카드.
+                    #   내 칸(localPlayerCellId)의 **지금** championId 를 매번 넘긴다 — 첫 픽에서 멈추지 않고
+                    #   픽 스왑으로 챔피언이 바뀌면 그 자리에서 새 챔피언 빌드로 갈아탄다(내부에서 비블로킹).
+                    #   칼바람은 라인이 없어 '주 라인' 데이터가 오해를 만들므로 켜지 않는다.
+                    try:
+                        if lolps_build is not None:
+                            if is_aram_session:
+                                lolps_build.feed(0, "", "Lobby")
+                            else:
+                                _lb_cell, _lb_cid, _lb_pos = lolps_build.my_pick_from_session(
+                                    s_json, global_my_puuid, _coach_manual_pos(s_json))
+                                lolps_build.feed(_lb_cid, _lb_pos, current_phase)
+                    except Exception: pass
+
                     # 🛟 [v82.2 긴급] 토너먼트 드래프트 커스텀(큐 3130 '토너먼트 교차 선택' 등)은 챔프선택 동안
                     #    gameData.teamOne/teamTwo가 빈 배열 → 슬롯 0명(유저 인식 안 됨). 챔프선택 세션의
                     #    myTeam/theirTeam(퍼uid·summonerId 보유)으로 로스터 폴백. team 필드 1=블루, 2=레드.
@@ -13142,6 +13236,9 @@ def create_graphic_ui():
             
             # 🧠 [v81.74] 고스트밴픽왕 오버레이 — 추천이 생기면 항상-위 작은 창으로 띄움(롤 클라 위에 보이게)
             try: _draft_overlay_sync(root)
+            except Exception: pass
+            # 🛡️ [2026-11-27] 내 챔피언 lol.ps 빌드 카드 — 픽이 바뀌면(스왑 포함) 새 카드로 갈아탄다
+            try: _lolps_build_sync(root)
             except Exception: pass
 
         except Exception: pass
