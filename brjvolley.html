@@ -105,7 +105,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow
   <div id="hint">키보드: ←→ 이동 · ↑ 점프 · Space 때리기(공중=강타) · ↓ 같이 누르면 내려찍기 · P 일시정지</div>
 </div>
 <script src="brjvolley.js?v=3"></script>
-<script src="brjvolley_net.js?v=1"></script>
+<script src="brjvolley_net.js?v=2"></script>
 <script>
 (function(){
 'use strict';
@@ -428,8 +428,11 @@ function netBarText(){
   else if(st.fails>=2){ t=`서버 응답 없음 (${st.fails}회)`; cls='bad'; }
   else if(st.stalled>400){ t=`연결 대기… ${(st.stalled/1000).toFixed(1)}초`; cls=st.stalled>3000?'bad':'warn'; }
   else if(m.localOver) t='결과 확인 중…';
+  else if(st.p2p==='on') t='P2P 직결';
+  else if(st.p2p==='try'){ t='P2P 연결 중 · 서버 중계'; cls='warn'; }
+  else if(st.p2p==='lost'){ t='서버 중계로 전환'; cls='warn'; }
   else t='연결 좋음';
-  const p=st.rtt?` · 지연 ${st.rtt}ms`:'', html=`<span class="${cls}">${esc(t)}</span><span>${p}</span>`;
+  const p=st.p2p==='on'?(st.p2pRtt?` · 지연 ${st.p2pRtt}ms`:' · 지연 측정 중'):(st.rtt?` · 지연 ${st.rtt}ms`:''), html=`<span class="${cls}">${esc(t)}</span><span>${p}</span>`;
   if(html!==NBTXT){ NBTXT=html; $('nbState').innerHTML=`<span class="${cls}">${esc(t)}</span>`; $('nbPing').textContent=p; }
   const cc=!m.finished&&st.canClaim&&!m.localOver; const b=$('nbClaim'); if(b.hidden===cc) b.hidden=!cc;
 }
