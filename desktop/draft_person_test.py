@@ -19,8 +19,9 @@ FUNCS = ("tnorm", "_sheet_date", "_recency_w", "_recency_score", "_person_alias_
          "_idx_pu", "_idx_ent", "_clan_members", "_pos_prob", "_pos_label",
          "_ban_candidates", "_ban_board_lines",
          "_dep_link_groups", "_clan_index", "_clan_line", "_pool_rows", "_pool_by_puuid", "_my_champ_pool",
+         "_rows_by_puuid",   # 🪶 v83.75 사람별 행 묶음(_pool_rows 가 쓴다 — 이 함수가 빠지면 NameError)
          "_enemy_rows", "_enemy_ban_pool", "_pool_p_show")
-CONSTS = ("_ROLES5", "_REC_W", "_REC_OLD_W", "_BAN_LIMIT", "_POOLROWS_CACHE")
+CONSTS = ("_ROLES5", "_REC_W", "_REC_OLD_W", "_BAN_LIMIT", "_POOLROWS_CACHE", "_BU_PU_CACHE")
 
 
 def load_env():
