@@ -335,11 +335,13 @@ def power_gauge(w, h, value, vmax=12.0, fill="#e0a437", bg="#1b1f2b", track="#23
 
 
 # ── 뱃지(포지션·티어) ────────────────────────────────────────────────────────
-def badge(size, ring, fill, bg, icon=None, icon_ratio=0.72, ss=3, kind=""):
+def badge(size, ring, fill, bg, icon=None, icon_ratio=0.64, ss=3, kind=""):
     """포지션·티어 뱃지 — 팀 틴트 원판 + 링(포지션/티어 색) + 가운데 아이콘.
 
     icon : PIL RGBA 아이콘(있으면 가운데 합성). 없으면 링만 있는 원판.
     kind : 캐시 키 구분자(예: 'JUNGLE'·'DIAMOND') — 같은 크기·색이라도 아이콘이 다르면 다른 항목.
+    ⚠️ 아이콘은 **원 안으로 잘라** 넣는다 — 정사각 아이콘의 모서리는 반지름과 같아서 그냥 붙이면
+       링을 파고들어 뱃지가 네모처럼 보인다(136×136 아이콘 실측).
     """
     size = int(max(8, size))
     key = ("badge", CARD_VERSION, size, ring, fill, bg, icon_ratio, ss, kind, id(icon) if icon is not None else 0)
@@ -359,7 +361,12 @@ def badge(size, ring, fill, bg, icon=None, icon_ratio=0.72, ss=3, kind=""):
             if ic.mode != "RGBA":
                 ic = ic.convert("RGBA")
             ic.thumbnail((isz, isz), Image.Resampling.LANCZOS)
-            img.alpha_composite(ic, ((S - ic.width) // 2, (S - ic.height) // 2))
+            layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+            layer.alpha_composite(ic, ((S - ic.width) // 2, (S - ic.height) // 2))
+            clip = Image.new("L", (S, S), 0)          # 원 밖은 지운다(링 안쪽만)
+            ImageDraw.Draw(clip).ellipse((pad + ss, pad + ss, S - 1 - pad - ss, S - 1 - pad - ss), fill=255)
+            layer.putalpha(Image.composite(layer.getchannel("A"), Image.new("L", (S, S), 0), clip))
+            img.alpha_composite(layer)
         d.ellipse((pad, pad, S - 1 - pad, S - 1 - pad), outline=hex_rgb(ring), width=max(2, ss))
         return img.resize((size, size), Image.Resampling.LANCZOS)
 
