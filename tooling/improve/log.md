@@ -1,5 +1,7 @@
 # 🔁 개선 루프 회차 기록 (맨 위가 최신)
 
+- 🔧 2026-11-28 (A-46 · 스해분 프로젝트 세션) 봇 `CallPanelView._p_list` Unknown interaction 3건 — 원인 = `_ca_snapshot`(채널 520건 조회)을 **응답보다 먼저** 기다림(캐시 미스 시 3초 초과). `_p_list`·`CallAssistView._btn_list`·`_btn_call`·`_ca_panel_call` 을 defer 먼저로 바꾸고, 같은 패턴 훑어 사채 수락·거절(알림·메시지 수정보다 응답 먼저)·진행판 종료 확인(삭제보다 응답 먼저)도 고침. 정적 시험 `tests/view_defer_first_test.py`(봇). 주간스쿼드 `body` 상한은 이미 300자(`WEEKLY_BODY_MAX`, #84)라 변경 없음 — CLAUDE.md 의 「200자」 문구를 정정.
+
 ## 2026-11-28 07:50 KST · epoch 1795819714 — 56회차
 - 신호: 봇 가동 165분 · **새 오류 3건**(같은 위치 `_p_list` — CallPanelView 버튼 Unknown interaction 10062, A-44 와 같은 종류 → A-46 으로 스해분 세션 전달) · 분석기 최신 83.82(83.81 9대 · 83.67 9대 외 — 며칠 새 83.71→83.82 로 빠르게 올라 롤아웃 중) · CLASSIC 7일 149판 · KIWI 0판(칼바람 질문은 사장님 답 대기) · 중복·고착·결과 모순 0 · 워크플로 11개 이상 없음
 - 📝 CLAUDE.md 11/27 주간스쿼드 프롬프트 개편 절 확인 → 「봇 `_weekly_clean` body 상한 200자」가 남아 있을 수 있어 같은 전달에 확인 요청(월요일 09:00 발행 전)
