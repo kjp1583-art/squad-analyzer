@@ -1,0 +1,466 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""🎲 내전진행(팀뽑 자동화) 단위 테스트 — `python3 tests/lobby_draft_test.py`
+
+롤 클라이언트 없이 돈다. DraftEngine 은 순수 로직이라 가짜 로비(이름 목록 + now 함수)만 주면
+전체 흐름을 끝까지 돌릴 수 있다. LCU 층은 응답 dict 를 직접 넣어 확인한다.
+
+검사: 가위바위보 승패·무승부 재대결·표기(묵/찌/빠/이모지), 선/후, 블루/레드, 1-2-2-2-1 순서,
+      남은 1명 선 팀 자동 배정, 번호 파싱, 줄임말(맛장유→맛동산장인유미)·모호한 줄임말 재요청,
+      비차례 발언·이미 뽑힌 인원·로비 밖 인원 무시, 시간 초과 재안내/중단,
+      관전 슬롯(customSpectators) 판별과 참가 10명 확정 규칙(11~12명 방).
+"""
+import os
+import py_compile
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+MOD = os.path.join(ROOT, "desktop", "lobby_draft.py")
+sys.path.insert(0, os.path.join(ROOT, "desktop"))
+
+import lobby_draft as ld   # noqa: E402  (desktop 경로를 먼저 넣고 불러온다)
+
+FAILS = []
+
+
+def check(name, cond, info=""):
+    ok = bool(cond)
+    if not ok:
+        FAILS.append(name)
+    print(("PASS " if ok else "FAIL ") + name + (f"  — {info}" if (info and not ok) else ""), flush=True)
+
+
+def spoken(eng):
+    return "\n".join(eng.sent)
+
+
+TEN = ["맛동산장인유미", "김철수", "이영희", "박민수", "최지훈",
+      "정수빈", "한예린", "오도현", "서하늘", "강보람"]
+
+
+# ─────────────────────── 1. 문구 해석 ───────────────────────
+def test_parsing():
+    check("가위/바위/보 그대로 인식", (ld.parse_rps("가위"), ld.parse_rps("바위"), ld.parse_rps("보")) == ("가위", "바위", "보"))
+    check("묵=바위 · 찌=가위 · 빠=보", (ld.parse_rps("묵"), ld.parse_rps("찌"), ld.parse_rps("빠")) == ("바위", "가위", "보"))
+    check("이모지·느낌표·공백 허용", ld.parse_rps(" ✌️ ") == "가위" and ld.parse_rps("바위!!") == "바위")
+    check("'가위바위보!' 카운트 문장은 손이 아님",
+          ld.parse_rps("3.. 2.. 1.. 가위바위보!") is None and ld.parse_rps("가위바위보") is None)
+    check("두 손을 같이 쓴 줄은 무시", ld.parse_rps("가위 바위") is None and ld.parse_rps("가위/보") is None)
+    check("잡담은 손이 아님", ld.parse_rps("가는중") is None and ld.parse_rps("ㅋㅋ") is None)
+
+    check("가위>보 · 바위>가위 · 보>바위",
+          (ld.rps_result("가위", "보"), ld.rps_result("바위", "가위"), ld.rps_result("보", "바위")) == (1, 1, 1))
+    check("역방향은 -1 · 같은 손은 0",
+          (ld.rps_result("보", "가위"), ld.rps_result("가위", "가위")) == (-1, 0))
+
+    check("선/후 표기들", (ld.parse_side("선"), ld.parse_side("선픽"), ld.parse_side("후"), ld.parse_side("후픽"))
+          == ("선", "선", "후", "후"))
+    check("'선/후' 처럼 둘 다 쓴 질문 문장은 선택이 아님", ld.parse_side("선/후") is None)
+    check("블루/레드 표기들", (ld.parse_color("블루"), ld.parse_color("블"), ld.parse_color("1팀"),
+                          ld.parse_color("레드"), ld.parse_color("레"), ld.parse_color("2팀"))
+          == ("블루", "블루", "블루", "레드", "레드", "레드"))
+    check("'블루/레드' 안내문은 선택이 아님", ld.parse_color("블루/레드") is None)
+
+    check("번호 표기 3·3번·#3·03", [ld.as_number(x) for x in ("3", "3번", "#3", "03", " 3. ")] == [3, 3, 3, 3, 3])
+    check("번호가 아닌 것", (ld.as_number("삼"), ld.as_number("3번째아님"), ld.as_number("김철수")) == (None, None, None))
+
+    check("줄임말 글자순서: 맛장유 → 맛동산장인유미",
+          ld.match_names("맛장유", ["맛동산장인유미", "김철수"]) == ("seq", [0]))
+    check("접두 일치가 부분 일치보다 우선", ld.match_names("김", ["김철수", "박김"])[0] == "prefix")
+    check("정확 일치가 최우선", ld.match_names("김철수", ["김철수", "김철수2"]) == ("exact", [0]))
+
+
+# ─────────────────────── 2. 엔진 도우미 ───────────────────────
+class Clock:
+    def __init__(self):
+        self.t = 1000.0
+
+    def __call__(self):
+        return self.t
+
+    def tick(self, dt):
+        self.t += dt
+
+
+def test_engine_basics():
+    check("8명 뽑기 순서 = 선1·후2·선2·후2 (7회) + 남은 1명",
+          ld.draft_order(8) == ["S", "H", "H", "S", "S", "H", "H"], ld.draft_order(8))
+    check("2명이면 뽑기 1회 + 남은 사람 없음", ld.draft_order(2) == ["S"], ld.draft_order(2))
+    check("순서가 4칸 주기로 반복", ld.draft_order(12) == ["S", "H", "H", "S", "S", "H", "H", "S", "S", "H", "H"])
+
+    rows = [{"name": "A", "key": "a", "spectator": False}, {"name": "B", "key": "b", "spectator": True}]
+    check("선택 기본값 = 관전 슬롯 제외", ld.default_selection(rows) == ["A"])
+    check("10명 이상이면 정확히 10명이어야 시작", (ld.selection_ready(12, 10), ld.selection_ready(12, 11),
+                                              ld.selection_ready(12, 9)) == (True, False, False))
+    check("10명 미만이면 모인 전원으로 시작", (ld.selection_ready(8, 8), ld.selection_ready(8, 7)) == (True, False))
+    check("안내 문구: 12명 중 10명", "시작할 수 있어요" in ld.selection_hint(12, 10))
+    check("안내 문구: 12명 중 11명 → 한 명 더 체크", "관전자로 체크" in ld.selection_hint(12, 11))
+
+    eng = ld.DraftEngine(TEN, now=Clock())
+    eng.start()
+    check("시작하자마자 가위바위보 카운트가 나감",
+          "가위바위보" in eng.sent[0] and "3.. 2.. 1.." in eng.sent[0])
+
+    eng.feed("김철수", "가위")
+    check("한 명만 냈을 때는 아직 팀장 확정 전", eng.phase == "rps" and not eng.winner)
+    eng.feed("박민수", "보")
+    check("두 번째가 내면 승패 판정(가위>보)",
+          eng.winner == "김철수" and eng.phase == "side", (eng.winner, eng.phase))
+    check("팀장 확정 공지에 두 이름이 다 들어감",
+          "김철수" in spoken(eng) and "박민수" in spoken(eng))
+    eng.feed("김철수", "후")
+    check("승자가 '후' → 진영 선택권은 패자에게", eng.seon == "박민수" and eng.hu == "김철수")
+    eng.feed("박민수", "레드")
+    check("진영 확정 — 선 팀장이 레드", eng.seon_color == "레드" and eng.teams["레드"][:1] == ["박민수"])
+    check("팀장 둘은 번호 명단에서 빠짐",
+          len(eng.roster) == 8 and "김철수" not in [n for _i, n in eng.roster]
+          and "박민수" not in [n for _i, n in eng.roster])
+    check("번호 1~8 이 로비 순서대로", [n for n, _nm in eng.roster] == list(range(1, 9)))
+    check("번호 명단을 로비에 공지", "1.맛동산장인유미" in spoken(eng))
+
+
+# ─────────────────────── 3. 전체 흐름 ───────────────────────
+def play_to_draft(eng):
+    eng.start()
+    eng.feed(TEN[1], "바위")
+    eng.feed(TEN[2], "가위")          # 바위 승 → TEN[1] 팀장 승
+    eng.feed(TEN[1], "선")            # 승자가 선
+    eng.feed(TEN[1], "블루")          # 선이 블루
+
+
+def test_full_flow():
+    eng = ld.DraftEngine(TEN, now=Clock())
+    play_to_draft(eng)
+    check("드래프트 시작 — 블루 팀장이 선", eng.phase == "draft" and eng.seon == TEN[1] and eng.seon_color == "블루")
+    check("첫 차례는 선 팀장", eng._current_captain() == TEN[1] and eng._current_side() == "S")
+
+    # 후 팀장(레드)의 차례가 아닐 때 말해도 무시
+    eng.feed(TEN[2], "5")
+    check("차례가 아닌 사람의 지목은 무시", len(eng.teams["레드"]) == 1 and eng.turn == 0)
+
+    eng.feed(TEN[1], "1")             # 선 1명
+    check("선 팀장 1명 지목", len(eng.teams["블루"]) == 2 and eng.turn == 1)
+    eng.feed(TEN[1], "2")             # 연속 차례가 아니므로 무시
+    check("연속 차례가 아니면 같은 사람이 또 못 뽑음", len(eng.teams["블루"]) == 2)
+
+    eng.feed(TEN[2], "2, 3")          # 후 2명
+    check("후 팀장 2명 지목", [n for n in eng.teams["레드"]] == [TEN[2], TEN[3], TEN[4]],
+          eng.teams["레드"])
+    eng.feed(TEN[1], "4 5")           # 선 2명
+    check("선 팀장 2명 지목", [n for n in eng.teams["블루"]] == [TEN[1], TEN[0], TEN[5], TEN[6]],
+          eng.teams["블루"])
+    eng.feed(TEN[2], "6")
+    eng.feed(TEN[2], "7")
+    check("후 팀장 마지막 2명", [n for n in eng.teams["레드"]] == [TEN[2], TEN[3], TEN[4], TEN[7], TEN[8]],
+          eng.teams["레드"])
+    check("남은 1명은 선 팀으로 자동 배정하고 종료",
+          eng.phase == "done" and TEN[9] in eng.teams["블루"] and len(eng.teams["블루"]) == 5)
+    check("최종 5:5 명단을 로비에 확정 공지",
+          "🏁 팀뽑 종료!" in spoken(eng) and "🔵 블루 (5명)" in spoken(eng) and "🔴 레드 (5명)" in spoken(eng))
+    check("종료 뒤 채팅에는 반응하지 않음",
+          (eng.feed(TEN[1], "8"), eng.phase) == (None, "done"))
+
+
+def test_tie_and_redeal():
+    clk = Clock()
+    eng = ld.DraftEngine(TEN, now=clk)
+    eng.start()
+    eng.feed(TEN[1], "가위")
+    eng.feed(TEN[2], "찌")            # 찌 = 가위 → 무승부
+    check("무승부면 자동 재대결 카운트", "무승부" in spoken(eng) and eng.phase == "rps" and eng.tie_pair == [TEN[1], TEN[2]])
+    eng.feed(TEN[3], "보")
+    check("재대결에는 두 팀장의 손만 반영", eng.phase == "rps" and len(eng.rps_round) == 0)
+    eng.feed(TEN[1], "보")
+    eng.feed(TEN[2], "가위")          # 가위 > 보 → TEN[2] 승
+    check("재대결 판정", eng.winner == TEN[2] and eng.phase == "side")
+
+
+def test_abbreviation_and_ambiguity():
+    names = ["맛동산장인유미", "맛동산장인유미2", "김철수", "이영희", "박민수", "최지훈", "정수빈", "한예린", "오도현", "서하늘"]
+    eng = ld.DraftEngine(names, now=Clock())
+    eng.start()
+    eng.feed(names[8], "바위")
+    eng.feed(names[9], "가위")
+    eng.feed(names[8], "선")
+    eng.feed(names[8], "블루")
+    draft_cap = names[8]
+    body = "\n".join(ld.split_tokens("1"))
+    check("드래프트 준비 완료", eng.phase == "draft" and len(eng.roster) == 8, (eng.phase, len(eng.roster)))
+
+    eng.feed(draft_cap, "맛")
+    check("'맛'은 두 명과 겹침 → 확정하지 않고 후보 번호를 알려 줌",
+          "후보가 2명" in spoken(eng) and len(eng.teams["블루"]) == 1)
+    check("모호할 때는 차례가 넘어가지 않음", eng.turn == 0)
+    eng.feed(draft_cap, "맛장유")
+    check("'맛장유'도 두 명과 겹쳐 재요청", "후보가 2명" in spoken(eng) and len(eng.teams["블루"]) == 1)
+    eng.feed(draft_cap, "1번")
+    check("번호로 다시 고르면 확정", len(eng.teams["블루"]) == 2)
+
+    # 한 명만 남는 줄임말은 바로 확정
+    eng2 = ld.DraftEngine(TEN, now=Clock())
+    play_to_draft(eng2)
+    eng2.feed(eng2.seon, "맛장유")
+    check("유일한 줄임말은 바로 확정", "맛동산장인유미" in eng2.teams["블루"], eng2.teams["블루"])
+
+    eng3 = ld.DraftEngine(TEN, now=Clock())
+    play_to_draft(eng3)
+    eng3.feed(eng3.seon, "철수")
+    check("이름 일부(부분일치)로도 확정", "김철수" in eng3.teams["블루"], eng3.teams["블루"])
+
+
+def test_ignored_and_errors():
+    eng = ld.DraftEngine(TEN, now=Clock())
+    play_to_draft(eng)
+    eng.feed("로비밖사람", "1")
+    check("로비 인원이 아니면 무시", len(eng.teams["블루"]) == 1)
+    eng.feed(TEN[1], "1")
+    eng.feed(TEN[2], "99")
+    check("번호 범위 밖은 안내만, 차례 유지", eng.turn == 1 and "1~8번" in spoken(eng),
+          (eng.turn, eng.sent[-1]))
+    eng.feed(TEN[2], "zzzz")
+    check("알아들을 수 없는 잡담은 조용히 무시", eng.turn == 1)
+    eng.feed(TEN[2], "1")
+    check("이미 뽑힌 번호는 안내만, 차례 유지", eng.turn == 1 and "이미 뽑혔" in spoken(eng))
+
+    eng.feed(TEN[2], "2")
+    eng.feed(TEN[2], "3 4")
+    check("연속 1차례일 때는 2명을 한꺼번에 받지 않음", len(eng.teams["레드"]) == 3 and "이번엔 1명까지" in spoken(eng),
+          (eng.teams["레드"], eng.sent[-1]))
+
+
+def test_timeout():
+    clk = Clock()
+    eng = ld.DraftEngine(TEN, now=clk)
+    eng.start()
+    clk.tick(ld.DraftEngine.RPS_WAIT + 1)
+    eng.tick()
+    check("가위바위보 응답이 없으면 다시 카운트", "3.. 2.. 1.." in eng.sent[-1] and eng.phase == "rps")
+    eng.feed(TEN[1], "바위")
+    for _ in range(4):
+        clk.tick(ld.DraftEngine.RPS_WAIT + 1)
+        eng.tick()
+    check("재시도 후에도 안 모이면 중단하고 알림", eng.phase == "aborted" and "중단" in eng.sent[-1], eng.phase)
+
+    clk2 = Clock()
+    eng2 = ld.DraftEngine(TEN, now=clk2)
+    play_to_draft(eng2)
+    clk2.tick(ld.DraftEngine.PICK_WAIT + 1)
+    eng2.tick()
+    check("지목이 없으면 추천과 함께 다시 안내(⏳)", eng2.sent[-1].startswith("⏳") and "차례" in eng2.sent[-1]
+          and eng2.phase == "draft", eng2.sent[-1])
+    for _ in range(ld.DraftEngine.PICK_TRIES + 1):
+        clk2.tick(ld.DraftEngine.PICK_WAIT + 1)
+        eng2.tick()
+    check("계속 지목이 없으면 채팅 도배 대신 중단", eng2.phase == "aborted", eng2.phase)
+
+    clk3 = Clock()
+    eng3 = ld.DraftEngine(TEN, now=clk3)
+    eng3.start()
+    eng3.feed(TEN[1], "바위")
+    eng3.feed(TEN[2], "가위")
+    for _ in range(ld.DraftEngine.ASK_TRIES + 1):
+        clk3.tick(ld.DraftEngine.ASK_WAIT + 1)
+        eng3.tick()
+    check("선/후 응답이 계속 없으면 중단", eng3.phase == "aborted", eng3.phase)
+
+
+# ─────────────────────── 4. 관전자 (11~12명 방) ───────────────────────
+def lobby(members, spec=None, team100=None):
+    return {"members": members,
+            "gameConfig": {"isCustom": True,
+                           "customTeam100": team100 or [],
+                           "customTeam200": [],
+                           "customSpectators": spec or []}}
+
+
+def member(name, puuid=None, **kw):
+    m = {"gameName": name, "puuid": puuid or ("pu_" + name)}
+    m.update(kw)
+    return m
+
+
+def test_spectators():
+    twelve = [member(n) for n in TEN] + [member("관전1"), member("관전2")]
+    rows = ld.classify_members(lobby(twelve, spec=[{"puuid": "pu_관전1", "gameName": "관전1"},
+                                                   {"puuid": "pu_관전2"}]))
+    check("12명 방 — 관전 슬롯 2명을 관전자로 표시",
+          [r["name"] for r in rows if r["spectator"]] == ["관전1", "관전2"])
+    check("관전 슬롯을 제외하면 참가 후보 10명", len(ld.default_selection(rows)) == 10)
+
+    rows2 = ld.classify_members(lobby([member(n) for n in TEN] + [member("관전1", isSpectator=True)]))
+    check("isSpectator=true 도 관전자", [r["name"] for r in rows2 if r["spectator"]] == ["관전1"])
+
+    rows3 = ld.classify_members(lobby([member(n) for n in TEN] + [member("관전1", role="SPECTATOR")]))
+    check("role=SPECTATOR 도 관전자", [r["name"] for r in rows3 if r["spectator"]] == ["관전1"])
+
+    rows4 = ld.classify_members(lobby([member(n) for n in TEN] + [member("관전1")],
+                                      spec=["pu_관전1"], team100=[{"puuid": "pu_관전1"}]))
+    check("팀 슬롯에 앉아 있으면 관전자 표시를 풀어 참가자로", not [r for r in rows4 if r["spectator"]])
+
+    rows5 = ld.classify_members(lobby([member(n) for n in TEN]))
+    check("10명 방은 관전자 없음 → 바로 시작 가능", ld.default_selection(rows5) == TEN)
+
+    # 12명 방에서 호스트가 2번/3번을 관전자로 체크하면 참가 10명
+    rows6 = ld.classify_members(lobby([member(n) for n in TEN] + [member("관전1"), member("관전2")]))
+    picked = [r["name"] for r in rows6 if r["name"] not in ("김철수", "이영희")]
+    check("표시가 없어도 호스트가 체크해 10명을 만들 수 있음", ld.selection_ready(len(rows6), len(picked)) is True)
+
+    # 엔진은 확정된 10명만 안다 — 관전자 채팅은 무시
+    eng = ld.DraftEngine(TEN, now=Clock())
+    eng.start()
+    eng.feed("관전1", "바위")
+    eng.feed("관전2", "가위")
+    check("확정 명단 밖(관전자) 채팅은 진행에 영향 없음", eng.phase == "rps" and not eng.rps_round)
+
+
+def test_engine_twelve_confirmed():
+    """12명 방에서 관전 2명을 뺀 10명으로 돌린 전체 흐름."""
+    eng = ld.DraftEngine(TEN, now=Clock())
+    play_to_draft(eng)
+    check("확정 10명으로 시작하면 번호는 8개", len(eng.roster) == 8)
+    order = ["1", "2 3", "4 5", "6", "7"]
+    caps = [eng._current_captain()]
+    for tok in order:
+        cap = eng._current_captain()
+        eng.feed(cap, tok)
+    check("관전자 2명이 빠진 10명도 5:5로 끝남",
+          eng.phase == "done" and len(eng.teams["블루"]) == 5 and len(eng.teams["레드"]) == 5,
+          (eng.phase, eng.teams))
+
+
+# ─────────────────────── 4-1. 페이즈별 추천 ───────────────────────
+STATS = {
+    "맛동산장인유미": {"power": 3.2, "pos": "원딜", "tier": "T1", "games": 40, "wr": 0.55},
+    "김철수": {"power": 3.0, "pos": "탑", "tier": "T2", "games": 30, "wr": 0.50},
+    "이영희": {"power": 2.9, "pos": "정글", "tier": "T2", "games": 25, "wr": 0.52},
+    "박민수": {"power": 3.1, "pos": "정글", "tier": "T1", "games": 28, "wr": 0.54},
+    "최지훈": {"power": 2.6, "pos": "서폿", "tier": "T3", "games": 20, "wr": 0.48},
+    "정수빈": {"power": 2.7, "pos": "원딜", "tier": "T3", "games": 18, "wr": 0.47},
+    "한예린": {"power": 2.8, "pos": "미드", "tier": "T2", "games": 22, "wr": 0.51},
+    "오도현": {"power": 2.5, "pos": "탑", "tier": "T3", "games": 15, "wr": 0.44},
+    # 서하늘 — 클랜 기록 없음(추천 대상 아님)
+}
+
+
+def test_recommendations():
+    cand = [(1, "맛동산장인유미"), (2, "서하늘")]
+    rec = ld.recommend_picks(cand, STATS, filled_positions=["탑"])
+    check("추천은 데이터 있는 후보 중에서만", [n for n, _w in rec] == [1] and len(rec) == 1, rec)
+    check("추천 사유 = 빈 포지션 + 전투력 순위", rec[0][1] == "빈 포지션 원딜 · 전투력 1위", rec[0][1])
+
+    flip = ld.recommend_picks([(1, "이영희"), (2, "최지훈")], STATS, filled_positions=["탑", "서폿"], limit=1)
+    check("전투력이 낮아도 팀의 빈 포지션을 체우면 위로", flip[0][0] == 1 and "빈 포지션 정글" in flip[0][1], flip)
+    nofill = ld.recommend_picks([(1, "이영희"), (2, "최지훈")], STATS, filled_positions=["탑", "서폿", "정글"], limit=1)
+    check("빈 포지션이 없으면 전투력 순서로", nofill[0][0] == 1 and nofill[0][1] == "전투력 1위", nofill)
+    check("데이터가 하나도 없으면 추천하지 않음", ld.recommend_picks([(1, "서하늘")], STATS, []) == [])
+    check("2명 뽑는 차례는 1~2순위까지", len(ld.recommend_picks([(i + 1, n) for i, n in enumerate(TEN)], STATS, [], limit=2)) == 2)
+
+    # 엔진: 차례마다 추천이 바뀌는지 — 포지션이 차면 그 포지션 추천이 사라진다
+    eng = ld.DraftEngine(TEN, now=Clock(), stats=STATS)
+    play_to_draft(eng)                       # 블루 팀장 = 김철수(탑)
+    turn1 = eng.sent[-1]
+    check("첫 차례 안내에 ★추천이 붙음", "★[" in turn1, turn1)
+    check("첫 추천 — 원딜 1순위(맛동산장인유미)", "1.맛동산장인유미 ★[빈 포지션 원딜 · 전투력 1위]" in turn1, turn1)
+    check("데이터 없는 후보에는 ★가 붙지 않음", "8.서하늘 ★" not in turn1)
+
+    eng.feed(eng._current_captain(), "1")    # 블루 → 맛동산(원딜)
+    red_turn = eng.sent[-1]
+    check("후 팀장 차례 — 정글은 이미 있으니 보너스 없는 박민수는 추천 제외",
+          "2.박민수 ★" not in red_turn, red_turn)
+    check("후 팀장 추천은 빈 포지션 기준(미드·원딜)",
+          "5.한예린 ★[빈 포지션 미드" in red_turn and "4.정수빈 ★[빈 포지션 원딜" in red_turn, red_turn)
+
+    eng.feed(eng._current_captain(), "3 4")  # 레드 → 박민수·최지훈
+    blue_turn = eng.sent[-1]
+    check("블루 다음 차례 — 남은 인원·빈 포지션에 맞춰 추천이 바뀜",
+          "2.박민수 ★[빈 포지션 정글 · 전투력 1위]" in blue_turn, blue_turn)
+
+
+# ─────────────────────── 5. LCU 응답·실행기 구조 ───────────────────────
+def test_lcu_shapes():
+    class FakeClient:
+        def __init__(self, lobby_obj, msgs):
+            self.lobby_obj = lobby_obj
+            self.msgs = msgs
+            self.sent = []
+            self.cid = "cid"
+        def connect(self):
+            return True
+        def lobby(self):
+            return self.lobby_obj
+        def me(self):
+            return {"id": "me", "gameName": "맛동산장인유미"}
+        def chat_id(self):
+            return self.cid
+        def messages(self):
+            return list(self.msgs)
+        def participants(self):
+            return {"id1": "김철수", "id2": "이박민수".replace("이", "")}
+        def send(self, text):
+            self.sent.append(text)
+            return True
+
+    lob = lobby([member(n) for n in TEN] + [member("관전1", isSpectator=True)])
+    fake = FakeClient(lob, [
+        {"id": "m0", "type": "chat", "fromId": "id1", "body": "지난 이야기"},
+        {"id": "m1", "type": "chat", "fromId": "id2", "body": "바위"},
+    ])
+    runner = ld.DraftRunner(client=fake, interval=0.01, names=TEN)
+    runner.start()
+    for _ in range(200):
+        if not runner.alive():
+            break
+        import time as _t
+        _t.sleep(0.01)
+    st = runner.status()
+    check("실행기: 확정 명단으로 시작하고 엔진이 돌았다", st["members"] == TEN and st["phase"] in ("rps", "side", "done"))
+    check("실행기: 시작 전 대화(히스토리)는 먹이지 않음", st["phase"] == "rps")
+    check("실행기: 로비에 카운트를 보냈다", any("가위바위보" in s for s in fake.sent))
+    check("실행기: 상태 조회에 단계·명단·기록이 있다",
+          set(("phase", "lines", "teams", "remaining", "error")) - set(st) == set())
+
+    runner.abort("테스트 종료")
+    for _ in range(100):
+        if not runner.alive():
+            break
+        import time as _t
+        _t.sleep(0.01)
+    check("실행기: 중단하면 스레드가 멈춘다", not runner.alive())
+
+
+def test_compile():
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    for path in (MOD, os.path.join(ROOT, "desktop", "squad_analyzer.py"),
+                 os.path.join(ROOT, "desktop", "theme_ui_test.py")):
+        try:
+            py_compile.compile(path, doraise=True, cfile=os.path.join(tmp, os.path.basename(path) + "c"))
+            check("py_compile " + os.path.basename(path), True)
+        except Exception as e:
+            check("py_compile " + os.path.basename(path), False, e)
+
+
+def main():
+    test_parsing()
+    test_engine_basics()
+    test_full_flow()
+    test_tie_and_redeal()
+    test_abbreviation_and_ambiguity()
+    test_ignored_and_errors()
+    test_timeout()
+    test_spectators()
+    test_engine_twelve_confirmed()
+    test_recommendations()
+    test_lcu_shapes()
+    test_compile()
+    print()
+    if FAILS:
+        print(f"❌ 실패 {len(FAILS)}건: " + ", ".join(FAILS))
+        return 1
+    print("✅ 전부 통과")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

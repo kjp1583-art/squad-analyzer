@@ -25,9 +25,11 @@ SRC_PATH = os.path.join(HERE, "squad_analyzer.py")
 
 HEX6 = re.compile(r"^#[0-9a-fA-F]{6}$")
 
-# 헤더 텍스트 메뉴 8칸 — 아이콘 없이 글자만, 이 순서·이 이름이 사용자가 보는 메뉴다(계약).
+# 헤더 텍스트 메뉴 10칸 — 아이콘 없이 글자만, 이 순서·이 이름이 사용자가 보는 메뉴다(계약).
 #   [v83.71] '팀초대·팀뽑선정'을 맨 왼쪽 두 칸으로(로비에서 먼저 쓰는 순서).
-NAV_LABELS = ["팀초대", "팀뽑선정", "모의밴픽", "SQUAD.GG", "AUC.GG", "포지션별", "설정", "후원하기"]
+#   [v83.78] '호출자초대', [v83.79] '내전진행' 이 로비 묶음에 붙었다.
+NAV_LABELS = ["팀초대", "호출자초대", "내전진행", "팀뽑선정", "모의밴픽",
+              "SQUAD.GG", "AUC.GG", "포지션별", "설정", "후원하기"]
 # 2026-11-27 개편으로 메뉴에서 뺑 5개 — UI 버튼만 사라지고 기능 정의는 남아야 한다.
 REMOVED_LABELS = ["사용안내", "명예전당", "내부티어", "티어관리", "로그"]
 
@@ -538,9 +540,9 @@ class AnalyzerUiContract(unittest.TestCase):
         return [c for c in self.calls_in(ui)
                 if isinstance(c.func, ast.Name) and c.func.id == "_TextNavBtn"]
 
-    def test_eight_text_menu_buttons_in_one_row(self):
+    def test_text_menu_buttons_in_one_row(self):
         navs = self.nav_calls()
-        self.assertEqual(len(navs), 8, "상단 메뉴는 텍스트 8칸(한 줄) 계약")
+        self.assertEqual(len(navs), len(NAV_LABELS), "상단 메뉴는 텍스트 한 줄 계약")
         labels = []
         for c in navs:
             lab = c.args[0]
