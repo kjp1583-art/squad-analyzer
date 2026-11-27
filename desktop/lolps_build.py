@@ -1037,8 +1037,33 @@ def _gradient(w, h, top, bottom):
     return img.resize((w, h))
 
 
+# =========================================================================
+# 7-b) 카드 치수 — [v83.80 사장님 제보 '카드가 너무 작아서 글자·아이콘이 안 보인다']
+#      전에는 폭 372px · 글자 8.5~9.5px · 아이템 아이콘 26px 이었고, 2배 캔버스에 아이콘을 S배 하지 않고
+#      붙여 마지막 축소에서 절반(13px)로 쪼그라들었다. 아래 값은 모두 **최종 출력 픽셀** 이고,
+#      render_card 가 scale(S) 을 곱해 고해상도로 그린 뒤 1/S 로 줄여 그 크기 그대로 남긴다.
+# =========================================================================
+CARD_W = 520                 # 카드 폭(최종 px)
+CARD_COLLAPSED_H = 88        # 접힌 카드 높이
+CARD_PAD = 18                # 안쪽 여백
+CARD_CLOSE_X = CARD_W - 18   # 닫기(✕)·접기(▾) 버튼 중심 x — BuildOverlay 클릭 판정과 같은 자리
+
+ICON_CHAMP = 52              # 챔피언 초상화
+ICON_ITEM = 36               # 아이템
+ICON_TREE = 26               # 주/보조 룬 트리
+ICON_KEYSTONE = 36           # 핵심 룬
+ICON_RUNE = 26               # 일반 룬
+ICON_SHARD = 22              # 스탯 파편
+ICON_SPELL = 34              # 소환사 주문
+ICON_COLLAPSED = 30          # 접힌 카드 아이콘
+
+
 def _paste_icon(card, icons, url, size, xy, radius=None):
-    """아이콘을 둥근 모서리로 붙인다. 없으면 빈 사각형만 남긴다(자리는 지킨다)."""
+    """아이콘을 둥근 모서리로 붙인다. 없으면 빈 사각형만 남긴다(자리는 지킨다).
+
+    [v83.80] size 는 '이 캔버스에서의 실제 픽셀'. render_card 는 최종 크기의 S배로 그린 뒤 마지막에
+    S로 나누므로, 부르는 쪽이 size*S 를 넘겨야 최종 카드에서 의도한 크기로 선명하게 남는다.
+    """
     x, y = xy
     img = icons.get(url, size) if icons is not None else None
     if img is None:
@@ -1072,8 +1097,8 @@ def render_card(payload, statics=None, icons=None, champion_name="", champion_ic
         raise ValueError("payload 없음")
     statics = statics or StaticData()
     S = max(1, int(scale))
-    W = 372
-    pad = 14
+    W = CARD_W
+    pad = CARD_PAD
     collapsed = bool(collapsed)
 
     # ── 이름표 ──
@@ -1082,60 +1107,65 @@ def render_card(payload, statics=None, icons=None, champion_name="", champion_ic
     lane_txt = payload.lane_label or ""
     sub_txt = " ".join(x for x in (lane_txt, f"패치 {payload.patch}" if payload.patch else "") if x)
 
-    body = Image.new("RGB", (W * S, (100 if collapsed else 460) * S), C_BG)
+    body = Image.new("RGB", (W * S, (130 if collapsed else 760) * S), C_BG)
     try:                       # 은은한 세로 그라데이션(카드 배경 전용) — 토큰 두 색 사이
         body.paste(_gradient(W * S, body.size[1], C_CARD, C_BG), (0, 0))
     except Exception:
         body.paste(Image.new("RGB", body.size, C_CARD), (0, 0))
     draw = ImageDraw.Draw(body)
-    f_name = _font(15.5 * S, True)
-    f_sub = _font(9.5 * S)
-    f_stat = _font(11 * S, True)
-    f_label = _font(9 * S, True)
-    f_item = _font(9.5 * S)
-    f_rune = _font(11 * S, True)
-    f_badge = _font(9.5 * S, True)
+    # [v83.80] 폰트는 '최종 px × S' — 축소 후 아래 크기 그대로 보인다.
+    f_name = _font(21.5 * S, True)      # 챔피언명
+    f_sub = _font(13 * S)               # 부제·패치·항목 이름
+    f_stat = _font(14.5 * S, True)      # 승률(굵게)
+    f_stat2 = _font(14.5 * S)           # 픽률·밴률·표본
+    f_label = _font(12.5 * S, True)     # 섹션 라벨
+    f_item = _font(13.5 * S)            # 아이템·스펠 이름
+    f_item_s = _font(12 * S)            # 이름이 두 줄로 접힐 때
+    f_rune = _font(15 * S, True)        # 핵심 룬 이름
+    f_badge = _font(11.5 * S, True)     # 티어 배지
+    f_foot = _font(11.5 * S)            # 푸터
 
     y = pad
     # ── 헤더 ──
-    icon_sz = 40
-    _paste_icon(body, icons, "", icon_sz, (pad * S, y * S))       # 자리(로컬 초상화가 있으면 아래에서 덮어씀)
+    icon_sz = ICON_CHAMP
+    ipx = icon_sz * S
+    _paste_icon(body, icons, "", ipx, (pad * S, y * S))      # 자리(로컬 초상화가 있으면 아래에서 덮어씀)
     if champion_icon is not None:
         try:
-            cimg = champion_icon if champion_icon.size == (icon_sz, icon_sz) else champion_icon.resize((icon_sz, icon_sz), Image.LANCZOS)
-            mask = Image.new("L", (icon_sz, icon_sz), 0)
-            ImageDraw.Draw(mask).rounded_rectangle((0, 0, icon_sz - 1, icon_sz - 1), radius=9, fill=255)
+            cimg = champion_icon if champion_icon.size == (ipx, ipx) else champion_icon.resize((ipx, ipx), Image.LANCZOS)
+            mask = Image.new("L", (ipx, ipx), 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0, 0, ipx - 1, ipx - 1), radius=12 * S, fill=255)
             body.paste(cimg.convert("RGBA"), (pad * S, y * S), mask)
         except Exception:
             pass
-    tx = pad + icon_sz + 10
-    draw.text((tx * S, (y + 1) * S), _fit(draw, champ_title, f_name, (W - tx - pad - 58) * S), font=f_name, fill=C_TEXT)
-    draw.text((tx * S, (y + 22) * S), _fit(draw, sub_txt, f_sub, (W - tx - pad - 58) * S), font=f_sub, fill=C_SUB)
+    tx = pad + icon_sz + 12
+    draw.text((tx * S, (y + 2) * S), _fit(draw, champ_title, f_name, (W - tx - pad - 96) * S), font=f_name, fill=C_TEXT)
+    draw.text((tx * S, (y + 32) * S), _fit(draw, sub_txt, f_sub, (W - tx - pad - 96) * S), font=f_sub, fill=C_SUB)
 
     # 티어 배지(오른쪽 위)
     tier_txt = f"{payload.tier}티어" if 1 <= payload.tier <= 5 else ("표본 부족" if payload.sample < 200 else "—")
     bw, _bh = _text_w(draw, tier_txt, f_badge)
-    bw = max(bw + 14 * S, 30 * S)
-    bx2 = (W - pad - 20) * S          # 우상단 ✕ 자리를 비워 둔다
+    bw = max(bw + 18 * S, 40 * S)
+    bx2 = (W - pad - 32) * S          # 우상단 ✕ 자리를 비워 둔다
     bx1 = bx2 - bw
-    _rr(draw, (bx1, (y + 2) * S, bx2, (y + 18) * S), 4 * S,
+    _rr(draw, (bx1, (y + 3) * S, bx2, (y + 27) * S), 5 * S,
         fill=(C_GOLD if 1 <= payload.tier <= 5 else C_RAISED))
-    draw.text(((bx1 + bx2) / 2, (y + 10) * S), tier_txt, font=f_badge,
+    draw.text(((bx1 + bx2) / 2, (y + 15) * S), tier_txt, font=f_badge,
               fill=(C_ON if 1 <= payload.tier <= 5 else C_MUT), anchor="mm")
     if payload.ranking:
         rank = f"{payload.ranking}위"
-        draw.text((bx2, (y + 23) * S), rank, font=f_sub, fill=C_MUT, anchor="ra")
+        draw.text((bx2, (y + 32) * S), rank, font=f_sub, fill=C_MUT, anchor="ra")
     # 닫기(✕) / 접기(▾) — 창 쪽 클릭 판정 영역과 같은 자리. 글자 대신 선으로 그린다(폰트에 글리프 없음 대비)
-    cx, cy = (W - 15) * S, (y + 9) * S
+    cx, cy = CARD_CLOSE_X * S, (y + 11) * S
     lw = max(1, S)
-    draw.line([(cx - 5 * S, cy - 5 * S), (cx + 5 * S, cy + 5 * S)], fill=C_MUT, width=lw)
-    draw.line([(cx - 5 * S, cy + 5 * S), (cx + 5 * S, cy - 5 * S)], fill=C_MUT, width=lw)
-    ty = (y + 28) * S
+    draw.line([(cx - 6 * S, cy - 6 * S), (cx + 6 * S, cy + 6 * S)], fill=C_MUT, width=lw)
+    draw.line([(cx - 6 * S, cy + 6 * S), (cx + 6 * S, cy - 6 * S)], fill=C_MUT, width=lw)
+    ty = (y + 34) * S
     if collapsed:
-        draw.polygon([(cx - 5 * S, ty + 3 * S), (cx + 5 * S, ty + 3 * S), (cx, ty - 3 * S)], fill=C_MUT)
+        draw.polygon([(cx - 6 * S, ty + 3 * S), (cx + 6 * S, ty + 3 * S), (cx, ty - 4 * S)], fill=C_MUT)
     else:
-        draw.polygon([(cx - 5 * S, ty - 3 * S), (cx + 5 * S, ty - 3 * S), (cx, ty + 3 * S)], fill=C_MUT)
-    y += 48
+        draw.polygon([(cx - 6 * S, ty - 3 * S), (cx + 6 * S, ty - 3 * S), (cx, ty + 4 * S)], fill=C_MUT)
+    y += icon_sz + 14
 
     # ── 승률/픽률 줄 ──
     wr_color = C_SUCCESS if payload.win_rate >= 50 else C_LOSE
@@ -1146,36 +1176,37 @@ def render_card(payload, statics=None, icons=None, champion_name="", champion_ic
         parts.append((f"{payload.sample:,}판", C_MUT, False))
     px = pad * S
     for txt, color, bold in parts:
-        fnt = _font(10.5 * S, bold)
+        fnt = f_stat if bold else f_stat2
         draw.text((px, y * S), txt, font=fnt, fill=color)
-        px += _text_w(draw, txt, fnt)[0] + 12 * S
+        px += _text_w(draw, txt, fnt)[0] + 16 * S
     if payload.auto_lane and lane_txt:
         draw.text(((W - pad) * S, y * S), f"{lane_txt} 기준", font=f_sub, fill=C_MUT, anchor="ra")
-    y += 22
+    y += 28
     draw.line([(pad * S, y * S), ((W - pad) * S, y * S)], fill=C_LINE, width=max(1, S // 2))
-    y += 10
+    y += 12
 
     def section(title):
         nonlocal y
         draw.text((pad * S, y * S), title, font=f_label, fill=C_MUT)
-        y += 16
+        y += 24
 
     def item_row(label, ids, limit=3):
         nonlocal y
-        draw.text((pad * S, (y + 8) * S), label, font=f_sub, fill=C_SUB)
-        x = (pad + 34) * S
-        colw = ((W - pad) - (pad + 34)) / float(max(1, limit))
-        isz = 26
+        isz = ICON_ITEM
+        ipx = isz * S
+        draw.text((pad * S, (y + 11) * S), label, font=f_sub, fill=C_SUB)
+        x = (pad + 44) * S
+        colw = ((W - pad) - (pad + 44)) / float(max(1, limit))
         for idx, iid in enumerate(list(ids)[:limit]):
             info = statics.item(iid)
             col_x = x + idx * colw * S
-            _paste_icon(body, icons, info.url, isz, (col_x, y * S))
-            lines = _wrap_lines(draw, info.name, f_item, _font(8.5 * S), (colw - isz - 8) * S)
-            ly = y + (isz - 13 * len(lines)) / 2 + 1
+            _paste_icon(body, icons, info.url, ipx, (col_x, y * S))
+            lines = _wrap_lines(draw, info.name, f_item, f_item_s, (colw - isz - 10) * S)
+            ly = y + (isz - 17 * len(lines)) / 2 + 1
             for text, fnt in lines:
-                draw.text((col_x + (isz + 6) * S, ly * S), text, font=fnt, fill=C_TEXT)
-                ly += 12
-        y += isz + 8
+                draw.text((col_x + (isz + 8) * S, ly * S), text, font=fnt, fill=C_TEXT)
+                ly += 17
+        y += isz + 10
 
     # ── 아이템 ──
     section("아이템")
@@ -1187,16 +1218,18 @@ def render_card(payload, statics=None, icons=None, champion_name="", champion_ic
         item_row("3코어", prim.third)
     shoes = prim.shoes
     if shoes:
-        draw.text((pad * S, (y + 8) * S), "신발", font=f_sub, fill=C_SUB)
+        isz = ICON_ITEM
+        draw.text((pad * S, (y + 11) * S), "신발", font=f_sub, fill=C_SUB)
         info = statics.item(shoes)
-        _paste_icon(body, icons, info.url, 26, ((pad + 34) * S, y * S))
-        draw.text(((pad + 34 + 32) * S, (y + 7) * S), _fit(draw, info.name, f_item, (W - pad - pad - 66) * S),
+        _paste_icon(body, icons, info.url, isz * S, ((pad + 44) * S, y * S))
+        draw.text(((pad + 44 + isz + 8) * S, (y + 10) * S),
+                  _fit(draw, info.name, f_item, (W - pad - (pad + 44 + isz + 8)) * S),
                   font=f_item, fill=C_TEXT)
-        y += 32
+        y += isz + 10
 
-    y += 4
+    y += 6
     draw.line([(pad * S, y * S), ((W - pad) * S, y * S)], fill=C_LINE, width=max(1, S // 2))
-    y += 10
+    y += 12
 
     # ── 룬 ──
     runes = prim.runes
@@ -1205,74 +1238,79 @@ def render_card(payload, statics=None, icons=None, champion_name="", champion_ic
         main_tree = statics.tree(runes.main_tree)
         sub_tree = statics.tree(runes.sub_tree)
         key = statics.rune(runes.keystone)
-        # 주 룬: 트리 이름 · 각인 크게 · 나머지 작게
-        draw.text((pad * S, (y + 6) * S), "주", font=f_sub, fill=C_SUB)
-        _paste_icon(body, icons, main_tree.url, 20, ((pad + 22) * S, (y + 2) * S))
-        tname = _fit(draw, main_tree.name, f_sub, 44 * S)
-        draw.text(((pad + 46) * S, (y + 6) * S), tname, font=f_sub, fill=C_SUB)
-        x = (pad + 46 + 48) * S
-        _paste_icon(body, icons, key.url, 26, (x, y * S))
-        kname = _fit(draw, key.name, f_rune, (W - pad - (pad + 46 + 48) - 30 - 3 * 18 - 6) * S)
-        draw.text((x + 30 * S, (y + 7) * S), kname, font=f_rune, fill=C_TEXT)
-        kx = x + 30 * S + _text_w(draw, kname, f_rune)[0] + 8 * S
+        # 주 룬: 트리 이름 · 핵심 룬 크게 · 나머지 작게
+        draw.text((pad * S, (y + 8) * S), "주", font=f_sub, fill=C_SUB)
+        _paste_icon(body, icons, main_tree.url, ICON_TREE * S, ((pad + 30) * S, (y + 2) * S))
+        tname = _fit(draw, main_tree.name, f_sub, 64 * S)
+        draw.text(((pad + 62) * S, (y + 8) * S), tname, font=f_sub, fill=C_SUB)
+        x = (pad + 132) * S
+        _paste_icon(body, icons, key.url, ICON_KEYSTONE * S, (x, y * S))
+        kx0 = x + (ICON_KEYSTONE + 8) * S
+        kname = _fit(draw, key.name, f_rune,
+                     ((W - pad) - 3 * (ICON_RUNE + 6) - 12) * S - kx0)
+        draw.text((kx0, (y + 10) * S), kname, font=f_rune, fill=C_TEXT)
+        kx = kx0 + _text_w(draw, kname, f_rune)[0] + 12 * S
         for rid in runes.main_runes[1:4]:
             info = statics.rune(rid)
-            _paste_icon(body, icons, info.url, 18, (kx, (y + 4) * S), radius=9)
-            kx += 20 * S
-        y += 30
+            _paste_icon(body, icons, info.url, ICON_RUNE * S, (kx, (y + 5) * S), radius=ICON_RUNE * S // 2)
+            kx += (ICON_RUNE + 6) * S
+        y += ICON_KEYSTONE + 10
         # 보조 룬 + 스탯 파편
-        draw.text((pad * S, (y + 4) * S), "보조", font=f_sub, fill=C_SUB)
-        _paste_icon(body, icons, sub_tree.url, 18, ((pad + 22) * S, y * S))
-        sname = _fit(draw, sub_tree.name, f_sub, 44 * S)
-        draw.text(((pad + 44) * S, (y + 4) * S), sname, font=f_sub, fill=C_SUB)
-        sx = (pad + 44 + 48) * S
+        draw.text((pad * S, (y + 7) * S), "보조", font=f_sub, fill=C_SUB)
+        _paste_icon(body, icons, sub_tree.url, ICON_TREE * S, ((pad + 30) * S, y * S))
+        sname = _fit(draw, sub_tree.name, f_sub, 64 * S)
+        draw.text(((pad + 62) * S, (y + 7) * S), sname, font=f_sub, fill=C_SUB)
+        sx = (pad + 132) * S
         for rid in runes.sub_runes[:2]:
             info = statics.rune(rid)
-            _paste_icon(body, icons, info.url, 18, (sx, y * S), radius=9)
-            sx += 20 * S
+            _paste_icon(body, icons, info.url, ICON_RUNE * S, (sx, y * S), radius=ICON_RUNE * S // 2)
+            sx += (ICON_RUNE + 6) * S
         # 스탯 파편은 오른쪽 끝에
-        shard_x = (W - pad) * S - len(runes.stat_perks[:3]) * 18 * S
+        shard_n = len(runes.stat_perks[:3])
+        shard_x = (W - pad) * S - shard_n * (ICON_SHARD + 6) * S
         for sid in runes.stat_perks[:3]:
             info = statics.shard(sid)
-            _paste_icon(body, icons, info.url, 16, (shard_x, (y + 1) * S), radius=8)
-            shard_x += 18 * S
-        y += 24
+            _paste_icon(body, icons, info.url, ICON_SHARD * S, (shard_x, (y + 2) * S), radius=ICON_SHARD * S // 2)
+            shard_x += (ICON_SHARD + 6) * S
+        y += ICON_RUNE + 10
     else:
         draw.text((pad * S, y * S), "룬 데이터 없음(표본 부족)", font=f_sub, fill=C_MUT)
-        y += 20
+        y += 24
 
+    y += 6
     draw.line([(pad * S, y * S), ((W - pad) * S, y * S)], fill=C_LINE, width=max(1, S // 2))
-    y += 10
+    y += 12
 
     # ── 스펠 ──
     section("스펠")
     spx = pad * S
     for sid in (prim.spells or ())[:2]:
         info = statics.spell(sid)
-        ok = _paste_icon(body, icons, info.url, 24, (spx, y * S))
-        draw.text((spx + 28 * S, (y + 6) * S), _fit(draw, info.name, f_item, 52 * S), font=f_item, fill=C_TEXT)
-        spx += 28 * S + _text_w(draw, info.name, f_item)[0] + 14 * S
+        _paste_icon(body, icons, info.url, ICON_SPELL * S, (spx, y * S))
+        draw.text((spx + (ICON_SPELL + 8) * S, (y + 10) * S),
+                  _fit(draw, info.name, f_item, 70 * S), font=f_item, fill=C_TEXT)
+        spx += (ICON_SPELL + 8) * S + _text_w(draw, info.name, f_item)[0] + 18 * S
     alt = [v for v in payload.variants[1:3] if tuple(v.spells) != tuple(prim.spells)]
     if alt:
         alt_sp = " + ".join(statics.spell(s).name for s in alt[0].spells if statics.spell(s).name)
-        draw.text(((W - pad) * S, (y + 6) * S), _fit(draw, f"대안 {alt_sp}", f_sub, 120 * S),
+        draw.text(((W - pad) * S, (y + 10) * S), _fit(draw, f"대안 {alt_sp}", f_sub, 180 * S),
                   font=f_sub, fill=C_MUT, anchor="ra")
-    y += 26
+    y += ICON_SPELL + 6
 
     # ── 푸터 ──
-    y += 6
+    y += 8
     when = payload.fetched_at or (now or time.time())
     try:
         mins = int(max(0, (now or time.time()) - when) // 60)
     except Exception:
         mins = 0
     foot = "lol.ps · 골드+" if not payload.patch else f"lol.ps · 패치 {payload.patch} · 갱신 {mins}분 전"
-    draw.text((pad * S, y * S), foot, font=_font(8.5 * S), fill=C_MUT)
+    draw.text((pad * S, y * S), foot, font=f_foot, fill=C_MUT)
     draw.text(((W - pad) * S, y * S), "클릭=접기 · 드래그=이동 · 더블클릭=위치 초기화",
-              font=_font(8.5 * S), fill=C_MUT, anchor="ra")
-    y += 14
+              font=f_foot, fill=C_MUT, anchor="ra")
+    y += 18
 
-    H = int(round(y + pad - 4))
+    H = int(round(y + pad - 6))
     card = body.crop((0, 0, W * S, H * S)).convert("RGBA")
     # 액자: 둥근 모서리 + 헤어라인. 바깥은 CHROMA_KEY(창의 투명 키)
     out = Image.new("RGBA", (W * S, H * S), C_CHROMA + "ff")
@@ -1291,94 +1329,100 @@ def render_card(payload, statics=None, icons=None, champion_name="", champion_ic
 
 
 def render_collapsed(payload, statics=None, icons=None, champion_name="", champion_icon=None, now=None):
-    """접힌 모드 — 한 줄 요약(초상화·코어·룬·스펠·승률)."""
+    """접힌 모드 — 한 줄 요약(초상화·코어·룬·스펠·승률). [v83.80] 520 x 88."""
     if not PIL_OK:
         raise RuntimeError("Pillow 없음")
     if payload is None:
         raise ValueError("payload 없음")
     statics = statics or StaticData()
-    W, H = 372, 64
+    W, H = CARD_W, CARD_COLLAPSED_H
     card = Image.new("RGB", (W, H), C_CARD)
     draw = ImageDraw.Draw(card)
     prim = payload.primary
-    x = 12
+    ic = ICON_COLLAPSED
+    iy = (H - ic) // 2
+    x = 14
     if champion_icon is not None:
         try:
-            img = champion_icon.resize((30, 30), Image.LANCZOS).convert("RGBA")
-            mask = Image.new("L", (30, 30), 0)
-            ImageDraw.Draw(mask).rounded_rectangle((0, 0, 29, 29), radius=7, fill=255)
-            card.paste(img, (x, 17), mask)
+            img = champion_icon.resize((ic, ic), Image.LANCZOS).convert("RGBA")
+            mask = Image.new("L", (ic, ic), 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0, 0, ic - 1, ic - 1), radius=8, fill=255)
+            card.paste(img, (x, iy), mask)
         except Exception:
             pass
     else:
-        _rr(draw, (x, 17, x + 30, 47), 7, fill=C_INPUT, outline=C_LINE)
-    x += 38
+        _rr(draw, (x, iy, x + ic, iy + ic), 8, fill=C_INPUT, outline=C_LINE)
+    x += ic + 10
     name = str(champion_name or "").strip() or f"챔피언 {payload.champion_id}"
-    draw.text((x, 8), _fit(draw, name, _font(12.5, True), 96), font=_font(12.5, True), fill=C_TEXT)
-    draw.text((x, 26), _fit(draw, f"{payload.lane_label} · {payload.win_rate:.1f}% · {payload.sample:,}판",
-                            _font(9), 108), font=_font(9), fill=C_SUB)
-    x = 170
+    draw.text((x, 22), _fit(draw, name, _font(15.5, True), 132), font=_font(15.5, True), fill=C_TEXT)
+    sub = f"{payload.lane_label} · {payload.win_rate:.1f}% · {payload.sample:,}판"
+    draw.text((x, 46), _fit(draw, sub, _font(11), 140), font=_font(11), fill=C_SUB)
+    x = 196
     core = list(prim.combo or (prim.first[:1] + prim.second[:1] + prim.third[:1]))
     for iid in core[:4]:
         info = statics.item(iid)
-        _paste_icon(card, icons, info.url, 22, (x, 20))
-        x += 25
+        _paste_icon(card, icons, info.url, ic, (x, iy))
+        x += ic + 6
     x += 4
     key = statics.rune(prim.runes.keystone)
     if prim.runes.keystone:
-        _paste_icon(card, icons, key.url, 22, (x, 20), radius=11)
-        x += 25
+        _paste_icon(card, icons, key.url, ic, (x, iy), radius=ic // 2)
+        x += ic + 6
     for sid in (prim.spells or ())[:2]:
         info = statics.spell(sid)
-        _paste_icon(card, icons, info.url, 22, (x, 20))
-        x += 25
-    # 접힌 카드에도 닫기(✕)·펴기(▴) 자리를 보여 준다
+        _paste_icon(card, icons, info.url, ic, (x, iy))
+        x += ic + 6
+    # 접힌 카드에도 닫기(✕)·펴기(▴) 자리를 보여 준다 — BuildOverlay 클릭 판정과 같은 자리
     dd = ImageDraw.Draw(card)
-    bx, by = W - 13, 22
-    dd.line([(bx - 4, by - 4), (bx + 4, by + 4)], fill=C_MUT, width=1)
-    dd.line([(bx - 4, by + 4), (bx + 4, by - 4)], fill=C_MUT, width=1)
-    cy2 = 42
-    dd.polygon([(bx - 5, cy2 + 3), (bx + 5, cy2 + 3), (bx, cy2 - 3)], fill=C_MUT)
+    bx, by = CARD_CLOSE_X, 28
+    dd.line([(bx - 5, by - 5), (bx + 5, by + 5)], fill=C_MUT, width=1)
+    dd.line([(bx - 5, by + 5), (bx + 5, by - 5)], fill=C_MUT, width=1)
+    cy2 = 60
+    dd.polygon([(bx - 6, cy2 + 3), (bx + 6, cy2 + 3), (bx, cy2 - 4)], fill=C_MUT)
     out = Image.new("RGBA", (W, H), C_CHROMA + "ff")
     mask = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((1, 1, W - 1, H - 1), radius=11, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle((1, 1, W - 1, H - 1), radius=12, fill=255)
     out.paste(card, (0, 0), mask)
-    ImageDraw.Draw(out).rounded_rectangle((1, 1, W - 1, H - 1), radius=11, outline=C_LINE2, width=1)
+    ImageDraw.Draw(out).rounded_rectangle((1, 1, W - 1, H - 1), radius=12, outline=C_LINE2, width=1)
     return out
 
 
-def icon_requests_for(payload, statics, collapsed=False):
-    """prefetch 할 (url,size) 목록 — 카드에 실제로 그려질 아이콘 전체."""
+def icon_requests_for(payload, statics, collapsed=False, scale=2):
+    """prefetch 할 (url,size) 목록 — 카드에 실제로 그려질 아이콘 전체.
+
+    [v83.80] render_card 는 최종 크기의 S배로 그리므로 요청도 S배로 한다 — 안 맞추면 캐시에 없어
+    아이콘이 빈 사각형으로 남는다.
+    """
+    S = max(1, int(scale))
     out = []
     prim = payload.primary
     if not collapsed:
         for iid in list(prim.first[:3]) + list(prim.second[:3]) + list(prim.third[:3]) + [prim.shoes]:
             if iid:
-                out.append((statics.item(iid).url, 26))
+                out.append((statics.item(iid).url, ICON_ITEM * S))
         if prim.runes.has_page:
-            out.append((statics.tree(prim.runes.main_tree).url, 20))
-            out.append((statics.tree(prim.runes.sub_tree).url, 18))
-            out.append((statics.rune(prim.runes.keystone).url, 26))
+            out.append((statics.tree(prim.runes.main_tree).url, ICON_TREE * S))
+            out.append((statics.tree(prim.runes.sub_tree).url, ICON_TREE * S))
+            out.append((statics.rune(prim.runes.keystone).url, ICON_KEYSTONE * S))
             for rid in list(prim.runes.main_runes[1:4]) + list(prim.runes.sub_runes[:2]):
-                out.append((statics.rune(rid).url, 18))
+                out.append((statics.rune(rid).url, ICON_RUNE * S))
             for sid in prim.runes.stat_perks[:3]:
-                out.append((statics.shard(sid).url, 16))
+                out.append((statics.shard(sid).url, ICON_SHARD * S))
         for sid in (prim.spells or ())[:2]:
-            out.append((statics.spell(sid).url, 24))
+            out.append((statics.spell(sid).url, ICON_SPELL * S))
     else:
         for iid in list(prim.combo or ())[:4]:
-            out.append((statics.item(iid).url, 22))
+            out.append((statics.item(iid).url, ICON_COLLAPSED))
         if prim.runes.keystone:
-            out.append((statics.rune(prim.runes.keystone).url, 22))
+            out.append((statics.rune(prim.runes.keystone).url, ICON_COLLAPSED))
         for sid in (prim.spells or ())[:2]:
-            out.append((statics.spell(sid).url, 22))
+            out.append((statics.spell(sid).url, ICON_COLLAPSED))
     return out
 
 
 # =========================================================================
 # 8) 항상-위 카드 창(Tk) — 달라진 그림만 갈아끼운다
 # =========================================================================
-CARD_W = 372
 
 
 class BuildOverlay:
@@ -1442,10 +1486,12 @@ class BuildOverlay:
         self._drag = {"x": event.x_root, "y": event.y_root}
         self._moved = False
         w = self._size[0] or CARD_W
-        if x >= w - 26 and y <= 26:
+        # [v83.80] 카드가 커진 만큼(폭 520) 버튼도 커졌다 — 그림의 ✕(중심 y=29)/▾(중심 y=52,
+        #   펼친 접힘판은 y=60)를 넉넉히 덮는 판정. 오른쪽 36px 띠 안에서 위=닫기, 아래=접기.
+        if x >= w - 36 and y <= 44:
             self.hide(dismiss=True)
             return
-        if x >= w - 26 and 26 < y <= 42:
+        if x >= w - 36 and 44 < y <= 76:
             self.set_collapsed(not self.collapsed)
             return
         self._pressed = True
@@ -1778,7 +1824,7 @@ class BuildTracker:
                 try:
                     champion_icon = self.images.load(
                         "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/%d.png"
-                        % int(payload.champion_id), 40)
+                        % int(payload.champion_id), ICON_CHAMP * 2)   # [v83.80] 2배 캔버스에 52px → 선명하게
                 except Exception:
                     champion_icon = None
                 if collapsed:
