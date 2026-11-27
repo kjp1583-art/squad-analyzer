@@ -19,6 +19,22 @@ from PIL import Image, ImageDraw  # noqa: E402
 import card_render as CR  # noqa: E402
 import theme  # noqa: E402
 
+DESKTOP = os.path.join(ROOT, "desktop")
+_ICON = {}
+
+
+def icon(name):
+    """번들 아이콘(desktop/{TIER,TOP,…}.png)을 원본 해상도로 — 뱃지에 실제로 합성되는 그림."""
+    if name in _ICON:
+        return _ICON[name]
+    im = None
+    try:
+        im = Image.open(os.path.join(DESKTOP, name + ".png")).convert("RGBA")
+    except Exception:
+        im = None
+    _ICON[name] = im
+    return im
+
 OUT_DEFAULT = os.path.join(os.path.dirname(ROOT), "downloads", "analyzer_pillow_card_preview.png")
 
 TIER_RING = {"IRON": "#7d869c", "BRONZE": "#a9713f", "SILVER": "#aeb6c4", "GOLD": "#e0a437",
@@ -45,7 +61,7 @@ SAMPLE = {
 
 def _badge(kind, tier, bg):
     return CR.badge(34, TIER_RING.get(tier, TIER_RING["UNRANKED"]), CR.mix(bg, "#ffffff", 0.06), bg,
-                    kind=kind)
+                    icon=icon(tier), kind=kind)
 
 
 def draw_slot(sheet, x, y, w, h, team, row, bg, scale=1.0):
@@ -56,11 +72,11 @@ def draw_slot(sheet, x, y, w, h, team, row, bg, scale=1.0):
     sheet.paste(card, (x, y), card)
     d = ImageDraw.Draw(sheet)
     name, jeok, most, op, tier, pos, pw = row
-    # 좌측 액센트(3px Tk 프레임과 같은 자리) 위에 뱃지 두 개
+    # 좌측 액센트(3px Tk 프레임과 같은 자리) 위에 뱃지 두 개 — 실제 번들 아이콘(티어.png·포지션.png)을 합성
     bx = x + 14
-    for kind, col in (("TIER-" + tier, TIER_RING.get(tier, TIER_RING["UNRANKED"])),
-                      ("POS-" + pos, POS_RING.get(pos, POS_RING["NONE"]))):
-        b = CR.badge(34, col, CR.mix(fill, "#ffffff", 0.06), fill, kind=kind)
+    for kind, col, ic in (("TIER-" + tier, TIER_RING.get(tier, TIER_RING["UNRANKED"]), tier),
+                          ("POS-" + pos, POS_RING.get(pos, POS_RING["NONE"]), pos)):
+        b = CR.badge(34, col, CR.mix(fill, "#ffffff", 0.06), fill, icon=icon(ic), kind=kind)
         sheet.paste(b, (bx, y + (h - 34) // 2), b)
         bx += 39
     tx = bx + 6
@@ -113,7 +129,8 @@ def main(out_path=None):
     d.text((24, y), "뱃지", font=CR.font(12), fill=theme.TEXT_SUB)
     x = 24
     for pos in ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"):
-        b = _badge("POS-" + pos, "UNRANKED", theme.BG_CARD)
+        b = CR.badge(34, POS_RING[pos], CR.mix(theme.BG_CARD, "#ffffff", 0.06), theme.BG_CARD,
+                     icon=icon(pos), kind="POS-" + pos)
         sheet.paste(b, (x, y + 20), b)
         d.text((x + 17, y + 58), POS_KOR[pos], font=CR.font(9), fill=theme.TEXT_MUT, anchor="ma")
         x += 46
@@ -121,7 +138,8 @@ def main(out_path=None):
     d.text((x, y), "티어", font=CR.font(12), fill=theme.TEXT_SUB)
     for tier in ("IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD", "DIAMOND", "MASTER",
                  "GRANDMASTER", "CHALLENGER"):
-        b = _badge("TIER-" + tier, tier, theme.BG_CARD)
+        b = CR.badge(34, TIER_RING[tier], CR.mix(theme.BG_CARD, "#ffffff", 0.06), theme.BG_CARD,
+                     icon=icon(tier), kind="TIER-" + tier)
         sheet.paste(b, (x, y + 20), b)
         d.text((x + 17, y + 58), tier[:6], font=CR.font(8), fill=theme.TEXT_MUT, anchor="ma")
         x += 46
