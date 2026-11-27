@@ -69,7 +69,7 @@ class Fake:
     def _mk_room(self, p, ranked, code=None):
         self.n += 1; rid = 'r%d' % self.n
         room = dict(id=rid, seed=self.rng.randint(1, 2**31 - 1), p=list(p), ranked=ranked, state='wait' if len(p) < 2 or True else 'play', inputs=[[], []], last_seen=[0, 0], created=self.now(),
-                    hashes=[{}, {}], reports={}, result=None, forfeit=None, void=None, code=code, ready=[False, False], done_for={})
+                    hashes=[{}, {}], reports={}, result=None, forfeit=None, void=None, code=code, ready=[False, False], done_for={}, sig=[[], []], sign=[0, 0])
         self.rooms[rid] = room
         for u in p: self.user_room[u] = rid
         return room
@@ -183,6 +183,12 @@ class Fake:
         frm, ins, ack = b.get('from'), b.get('inputs'), b.get('ack')
         if not (isinstance(frm, int) and frm >= 0 and isinstance(ins, list) and len(ins) <= 120 and isinstance(ack, int) and ack >= 0): return {'ok': False, 'code': 'bad'}
         if any((not isinstance(v, int)) or v < 0 or v > 31 for v in ins): return {'ok': False, 'code': 'bad'}
+        sig = b.get('sig'); sig_n = b.get('sig_n', 0)
+        if isinstance(sig, list):                                  # WebRTC 직결 신호 중계(방 안에서만)
+            for m in sig[:8]:
+                if not isinstance(m, dict) or not isinstance(m.get('d'), str): continue
+                room['sig'][i].append(dict(n=room['sign'][i], t=str(m.get('t')), d=m['d'])); room['sign'][i] += 1
+            del room['sig'][i][:-40]
         room['last_seen'][i] = self.now(); room['ready'][i] = True
         self._timeouts(room)
         if room['state'] == 'wait' and len(room['p']) == 2 and all(room['ready']): room['state'] = 'play'
@@ -199,6 +205,10 @@ class Fake:
         if room['state'] == 'play' and not room.get('start_at'): room['start_at'] = self.now() + 3.0
         resp = dict(ok=True, state=room['state'], opp=room['inputs'][o][ack:ack + 120] if room['state'] == 'play' else [], opp_next=len(room['inputs'][o]), got=len(room['inputs'][i]),
                     start_in=round(max(0.0, room.get('start_at', 0) - self.now()), 2) if room['state'] == 'play' else 0)
+        try: cur = int(sig_n)
+        except Exception: cur = 0
+        om = [m for m in room['sig'][o] if m['n'] >= cur][:20]
+        resp['sig'] = om; resp['sig_next'] = (om[-1]['n'] + 1) if om else cur
         if self.peer_in_sync and len(room['p']) == 2: resp['peer'] = self._opp_info(room['p'][o])
         if room['state'] == 'void': resp['void'] = room['void']
         if room['state'] == 'done':
