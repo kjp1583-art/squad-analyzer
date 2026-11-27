@@ -374,8 +374,9 @@ class RenderTest(unittest.TestCase):
 
     def test_render_card_size(self):
         img = L.render_card(self.payload, self.statics, self.images, "아리")
-        self.assertEqual(img.size[0], 372)
-        self.assertGreaterEqual(img.size[1], 320)
+        # [v83.80] 카드 확대 — 폭 372 → 520, 글자·아이콘도 최종 픽셀 기준으로 키웠다
+        self.assertEqual(img.size[0], 520)
+        self.assertGreaterEqual(img.size[1], 500)
         self.assertEqual(img.mode, "RGBA")
         # 빈 카드가 아니다 — 글자/배경 픽셀이 여러 색으로 존재
         colors = img.convert("RGB").getcolors(maxcolors=200000)
@@ -383,13 +384,34 @@ class RenderTest(unittest.TestCase):
 
     def test_render_collapsed(self):
         img = L.render_collapsed(self.payload, self.statics, self.images, "아리")
-        self.assertEqual(img.size, (372, 64))
+        self.assertEqual(img.size, (520, 88))
+
+    def test_render_scale_keeps_output_size(self):
+        """scale=1 과 scale=2 는 같은 최종 크기 — 2배는 선명도만 올린다."""
+        one = L.render_card(self.payload, self.statics, self.images, "아리", scale=1)
+        two = L.render_card(self.payload, self.statics, self.images, "아리", scale=2)
+        self.assertEqual(one.size, two.size)
+
+    def test_icon_sizes_are_final_pixels(self):
+        """[v83.80] 아이콘 요청은 render_card 가 그리는 크기(최종 px × scale)와 같아야 캐시에 걸린다.
+
+        전에는 26 을 요청해 놓고 2배 캔버스에 그대로 붙여, 축소 후 13px 로 쪼그라들었다.
+        """
+        self.assertEqual(
+            (L.ICON_ITEM, L.ICON_CHAMP, L.ICON_SPELL, L.ICON_RUNE, L.ICON_KEYSTONE,
+             L.ICON_TREE, L.ICON_SHARD, L.ICON_COLLAPSED),
+            (36, 52, 34, 26, 36, 26, 22, 30))
+        reqs = L.icon_requests_for(self.payload, self.statics)
+        self.assertIn((self.statics.item(3118).url, L.ICON_ITEM * 2), reqs)
+        self.assertIn((self.statics.spell(4).url, L.ICON_SPELL * 2), reqs)
+        reqs1 = L.icon_requests_for(self.payload, self.statics, scale=1)
+        self.assertIn((self.statics.item(3118).url, L.ICON_ITEM), reqs1)
 
     def test_render_without_static_names(self):
         """정적 데이터를 못 받아도(이름 폴백·아이콘 없음) 카드가 그려져야 한다."""
         blank = L.StaticData(version="", cache_dir="/tmp/lolps-test")
         img = L.render_card(self.payload, blank, self.images, "")
-        self.assertEqual(img.size[0], 372)
+        self.assertEqual(img.size[0], 520)
 
     def test_render_needs_payload(self):
         with self.assertRaises(ValueError):
@@ -399,9 +421,9 @@ class RenderTest(unittest.TestCase):
         """아이템 이름은 칸 폭을 넘지 않는다(넘치면 두 줄/말줄임으로 잘라 그린다)."""
         from PIL import ImageDraw, Image
         draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
-        f1, f2 = L._font(9.5), L._font(8.5)
+        f1, f2 = L._font(13.5), L._font(12)
         for name in ("마법공학 로켓 벨트", "라바돈의 죽음모자", "존야의 모래시계", "아주아주아주긴아이템이름입니다"):
-            max_w = 70
+            max_w = 100
             lines = L._wrap_lines(draw, name, f1, f2, max_w)
             self.assertTrue(lines)
             self.assertLessEqual(len(lines), 2)
@@ -495,7 +517,7 @@ class FakeWindow:
         return getattr(self, "_y", 100)
 
     def winfo_width(self):
-        return 372
+        return 520
 
     def winfo_height(self):
         return 400
@@ -571,8 +593,8 @@ class TkOverlayTest(unittest.TestCase):
         self.assertEqual(ov.win.options.get("title"), "챔피언 빌드 (lol.ps)")
         self.assertTrue(ov.win.options.get("overrideredirect"))
         self.assertIn(("-topmost", True), [tuple(a) for a in ov.win.attributes_calls])
-        self.assertEqual(ov.label.options.get("width"), 372)
-        self.assertIn("372", ov.win.geometry_value)
+        self.assertEqual(ov.label.options.get("width"), 520)
+        self.assertIn("520", ov.win.geometry_value)
         self.assertEqual(ov.key, "103:2:1")
         self.assertGreater(len(ov.label.binds), 2)     # 드래그·더블클릭 바인딩
 
@@ -585,7 +607,7 @@ class TkOverlayTest(unittest.TestCase):
         small = L.render_collapsed(L.parse_payload(load_fixture("lolps_ahri_mid_data.json.gz")),
                                    fake_statics(), NoNetImages(), "아리")
         ov.show(small, "k1", collapsed=True)
-        self.assertIn("372x64", ov.win.geometry_value)
+        self.assertIn("520x88", ov.win.geometry_value)
         x_first = first.split("+")[1]
         x_now = ov.win.geometry_value.split("+")[1]
         self.assertEqual(x_first, x_now)
@@ -620,7 +642,7 @@ class TkOverlayTest(unittest.TestCase):
         img = L.render_collapsed(L.parse_payload(load_fixture("lolps_ahri_mid_data.json.gz")),
                                  fake_statics(), NoNetImages(), "아리")
         ov.show(img, "k")
-        self.assertIn("+622+190", ov.win.geometry_value)     # 1000-372-6, 100+90
+        self.assertIn("+474+190", ov.win.geometry_value)     # 1000-520-6, 100+90
         ov2, _ = self._overlay()
         ov2.dock_fn = lambda: (200, 100, 900, 800)          # 화면 왼쪽이라 바깥에 자리 없음 → 안쪽
         ov2.show(img, "k2")
