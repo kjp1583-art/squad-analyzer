@@ -24,6 +24,11 @@
       · 매 차례 남은 후보 줄에 '★[빈 포지션 정글 · 전투력 1위]' 처럼 추천 사유를 붙인다
         (전투력 = 내부티어 + 내전 승률, 이미 분석기가 들고 있는 클랜 인덱스만 사용. 데이터 없는 사람은 추천 없음)
   ⑤ 최종 🔵 블루 / 🔴 레드 명단 확정 공지
+
+[2026-11-29 제보] "가위바위보 채팅쳐도 인식을 못하네?" — 내전진행을 누른 호스트 본인의 채팅을
+  발신자 이름만 보고 전부 버리던 버그. 지금은 봇이 실제로 보낸 안내문(에코)만 걸러 내고,
+  호스트가 직접 친 'ㅉㅉㅉㅉ' · '선' · '블루' · '3' 은 그대로 엔진에 먹인다.
+  LCU 채팅 발신자도 fromId/fromPid/fromSummonerId/fromSummonerName + '@' 접미사까지 대조한다.
 """
 import hashlib
 import os
@@ -1003,6 +1008,40 @@ def probe_lobby(client=None):
         return {"ok": False, "rows": [], "candidates": [], "error": f"{type(e).__name__}: {e}"}
 
 
+# ─────────────────── 채팅 참가자 → 닉네임 (발신자 식별) ───────────────────
+#   LCU /lol-chat/v1/conversations/{cid}/participants 는 버전마다 키가 다르다 —
+#   id · pid · puuid · summonerId 가 섞여 오고, 메시지의 fromId 도 같은 값이 아닐 때가 있다.
+#   그래서『어떤 식별자로 와도 닉네임을 찾을 수 있게』 전부 같은 이름에 매핑해 둔다.
+_CHAT_ID_KEYS = ("id", "pid", "puuid", "summonerId", "summonerPid", "accountId", "currentAccountId")
+
+
+def chat_participant_names(ps):
+    """채팅 참가자 목록 → {식별자: 닉네임}. 식별자는 '@region.pvp.net' 앞부분까지 같이 넣는다."""
+    out = {}
+    for p in ps if isinstance(ps, list) else []:
+        if not isinstance(p, dict):
+            continue
+        lol = p.get("lol") if isinstance(p.get("lol"), dict) else {}
+        name = ""
+        for src in (p, lol):
+            name = str(src.get("gameName") or src.get("name") or src.get("displayName") or "").strip()
+            if name:
+                break
+        if not name:
+            continue
+        for key in _CHAT_ID_KEYS:
+            v = p.get(key)
+            if v is None or v == "" or v == 0:
+                continue
+            sid = str(v).strip()
+            if not sid:
+                continue
+            for alias in (sid, sid.split("@")[0].strip()):
+                if alias:
+                    out.setdefault(alias, name)
+    return out
+
+
 class LcuClient:
     """롤 클라이언트(LCU) 로비·채팅 — 분석기 본체가 쓰는 경로와 같은 것만 쓴다."""
 
@@ -1088,15 +1127,15 @@ class LcuClient:
         return ms if isinstance(ms, list) else None
 
     def participants(self):
-        """fromId(summonerId) → 게임닉."""
-        out = {}
+        """LCU 채팅 참가자 → {식별자: 게임닉}.
+
+        [2026-11-29] id 하나만 저장해 두면 fromPid/fromSummonerId/puuid 로 오는 메시지의 발신자를
+        못 찾아 who='' 가 되고 조용히 버려졌다. 식별자 전부를 같은 닉네임에 매핑한다.
+        """
         if not self.cid:
-            return out
+            return {}
         ps = self.get("/lol-chat/v1/conversations/" + self.cid + "/participants") or []
-        for p in ps:
-            if isinstance(p, dict) and p.get("id"):
-                out[str(p["id"])] = str(p.get("gameName") or p.get("name") or "")
-        return out
+        return chat_participant_names(ps)
 
     def send(self, text):
         if not self.cid and not self.chat_id():
@@ -1110,6 +1149,8 @@ class DraftRunner:
     """실제 로비에서 엔진을 돌린다 — 1.2초마다 로비 채팅을 훑어 엔진에 먹이고, 끝나면 스스로 멈춘다."""
 
     INTERVAL = 1.2
+    BOT_ECHO_TTL = 10.0     # 봇이 보낸 안내문이 채팅 목록에 되돌아오는 시간 — 이 안의 같은 문구만 재입력으로 본다
+    BOT_ECHO_KEEP = 60      # 기억해 둘 최근 봇 발송 문구 수
 
     def __init__(self, client=None, interval=None, engine_factory=None, names=None,
                  stats=None, stats_factory=None):
@@ -1129,6 +1170,9 @@ class DraftRunner:
         self._tick_no = 0
         self._primed = False
         self._me = ""
+        self._my_id = ""
+        self._bot_sent = []      # [(monotonic, 정규화 문구)] — 봇이 보낸 안내문(에코만 걸러 낼 때 쓴다)
+        self._dbg_once = set()   # 같은 디버그 경고를 반복해서 찍지 않는다
         self._names = []
         self.started_at = time.time()
 
@@ -1189,7 +1233,9 @@ class DraftRunner:
                 self.phase = "error"
                 return
             self._names = names
-            self._me = (c.me() or {}).get("gameName") or ""
+            mine = c.me() or {}
+            self._me = str(mine.get("gameName") or "")
+            self._my_id = str(mine.get("id") or getattr(c, "my_id", "") or "")
             if not self.stats and self.stats_factory:
                 try:
                     self.stats = self.stats_factory(names) or {}
@@ -1217,50 +1263,155 @@ class DraftRunner:
             self._stop.set()
 
     def _chat_send(self, text):
+        """엔진이 시키는 말을 로비에 보낸다 — 보낸 문구는 기억해 두었다가 에코만 걸러 낸다."""
         try:
-            if not self.client.send(text):
-                print(f"[lobby-draft] 채팅 발송 실패: {text[:40]}", flush=True)
+            ok = self.client.send(text)
+            self._remember_bot_text(text)
+            if not ok:
+                print(f"[lobby-draft] 채팅 발송 실패: {str(text)[:40]}", flush=True)
         except Exception as e:
+            self._remember_bot_text(text)         # 나갔는지 몰라도 기억해 둔다 — 사용자가 같은 말을 치면 그때 지워진다
             print(f"[lobby-draft] 채팅 발송 예외: {type(e).__name__}", flush=True)
+
+    # ── 봇이 보낸 안내문 기억 (호스트 본인 채팅과 구분) ──
+    @staticmethod
+    def _echo_key(text):
+        return " ".join(str(text or "").split())     # 공백만 정리 — 롤이 본문을 살짝 다듬어도 같은 줄로 본다
+
+    def _remember_bot_text(self, text):
+        key = self._echo_key(text)
+        if not key:
+            return
+        now = time.monotonic()
+        self._bot_sent.append((now, key))
+        if len(self._bot_sent) > self.BOT_ECHO_KEEP:
+            del self._bot_sent[:-self.BOT_ECHO_KEEP]
+        self._expire_bot_text(now)
+
+    def _expire_bot_text(self, now=None):
+        now = time.monotonic() if now is None else now
+        ttl = float(self.BOT_ECHO_TTL)
+        self._bot_sent[:] = [(t, k) for t, k in self._bot_sent if now - t <= ttl]
+
+    def _take_bot_echo(self, body):
+        """내가 보낸 그 문구가 되돌아온 줄인가 — 맞으면 한 번 쓰고 지운다.
+
+        한 번만 쓰는 이유: 봇이 '3' 을 보낸 뒤 사용자가 직접 '3' 을 쳐도 그건 먹여야 한다.
+        """
+        self._expire_bot_text()
+        key = self._echo_key(body)
+        if not key:
+            return False
+        for i, (_t, sent) in enumerate(self._bot_sent):
+            if sent == key:
+                del self._bot_sent[i]
+                return True
+        return False
+
+    def _debug_once(self, key, msg):
+        """같은 경고는 한 번만 — 1.2초 폴링에서 로그가 쌓이지 않게."""
+        if key in self._dbg_once:
+            return
+        self._dbg_once.add(key)
+        print(f"[lobby-draft] {msg}", flush=True)
+
+    # ── 채팅 한 줄의 발신자 ──
+    _SENDER_KEYS = ("fromId", "fromPid", "fromSummonerId", "fromSummonerPid",
+                    "fromAccountId", "fromCurrentAccountId")
+
+    def _sender(self, m, ids):
+        """LCU 메시지 → 닉네임. fromId → fromPid → fromSummonerId → fromSummonerName 순."""
+        for key in self._SENDER_KEYS:
+            raw = m.get(key)
+            if raw is None or raw == "" or raw == 0:
+                continue
+            sid = str(raw).strip()
+            if not sid:
+                continue
+            for alias in (sid, sid.split("@")[0].strip()):
+                nm = ids.get(alias)
+                if nm:
+                    return str(nm).strip()
+        nm = str(m.get("fromSummonerName") or m.get("fromName") or "").strip()
+        return nm.split("#")[0].strip()          # '박민수#KR1' → '박민수' (이름 비교는 어차피 태그를 뗀다)
+
+    def _from_me(self, m):
+        """내 소환사 ID 와 같은 줄인가 — 닉네임을 못 읽어도 내 채팅임을 알아본다."""
+        my = str(self._my_id or "").strip()
+        if not my:
+            return False
+        for key in self._SENDER_KEYS:
+            raw = m.get(key)
+            if raw is None or raw == "" or raw == 0:
+                continue
+            if str(raw).strip().split("@")[0].strip() == my:
+                return True
+        return False
 
     def _pump(self):
         c = self.client
         if not c.cid:
             c.chat_id()
+        if not c.cid:
+            self._debug_once("no-cid", "로비 채팅방 ID를 못 찾았습니다 — 채팅을 읽지 못해 진행이 안 됩니다")
+            return
         msgs = c.messages()
         if msgs is None:
+            self._debug_once("no-msgs", "로비 채팅 목록 응답이 비었습니다(/messages)")
             return
         self._tick_no += 1
         if not self._ids or self._tick_no % 5 == 1:   # 참가자 id→닉은 5회마다 갱신(이름 변경 대비)
             try:
-                self._ids = c.participants()
-            except Exception:
-                pass
-        ids = self._ids
+                self._ids = c.participants() or {}
+            except Exception as e:
+                self._debug_once("parts-" + type(e).__name__,
+                                 f"채팅 참가자 명단 조회 실패({type(e).__name__}) — fromSummonerName 으로 대체합니다")
+        ids = self._ids or {}
+        me_key = name_key(self._me)
         cur = set()
         for m in msgs:
             if not isinstance(m, dict):
                 continue
             mid = str(m.get("id") or "")
             if not mid:
-                mid = hashlib.md5((str(m.get("timestamp")) + "|" + str(m.get("fromId")) + "|"
+                mid = hashlib.md5((str(m.get("timestamp")) + "|"
+                                   + str(m.get("fromId") or m.get("fromPid") or "") + "|"
                                    + str(m.get("body"))).encode()).hexdigest()
             cur.add(mid)
             if mid in self._seen:
                 continue
             self._seen.add(mid)
-            if not self._primed:
-                continue                          # 시작 전에 쌓여 있던 대화는 먹이지 않는다
+            body = str(m.get("body") or "").strip()
             if str(m.get("type") or "chat") not in ("chat", ""):
                 continue
-            fid = str(m.get("fromId") or "")
-            who = (ids.get(fid)
-                   or str(m.get("fromSummonerName") or "").split("#")[0]).strip()
-            body = str(m.get("body") or "").strip()
-            if not who or not body:
+            if not self._primed:
+                # 시작 전에 쌓여 있던 대화는 먹이지 않는다 — 다만 그 안에 섞인 '내 안내문 에코'는
+                # 지워 둔다(안 지우면 나중에 호스트가 친 같은 문구를 봇 안내문으로 오해한다).
+                if body:
+                    self._take_bot_echo(body)
                 continue
-            if name_key(who) == name_key(self._me):
-                continue                          # 내가 보낸 안내문은 다시 먹지 않는다
+            if not body:
+                continue
+            who = self._sender(m, ids)
+            mine = bool(me_key) and name_key(who) == me_key
+            if not mine:
+                mine = self._from_me(m)
+            if mine:
+                # [2026-11-29] 내가(호스트가) 보낸 줄 — 봇 안내문이 되돌아온 것만 건너뛰고,
+                # 직접 친 'ㅉㅉㅉㅉ' · '선' · '블루' · '3' 은 그대로 엔진에 먹인다.
+                if self._take_bot_echo(body):
+                    continue
+                who = who or self._me
+                if not who:
+                    self._debug_once("self-no-name",
+                                     "내 닉네임을 읽지 못해 내 채팅을 로스터에 맞추지 못했습니다")
+                    continue
+            elif not who:
+                self._debug_once("who-" + str(m.get("fromId") or m.get("fromPid") or "?"),
+                                 "채팅 발신자를 명단에서 찾지 못했습니다 (fromId="
+                                 + str(m.get("fromId") or "-") + ", fromPid="
+                                 + str(m.get("fromPid") or "-") + ")")
+                continue
             self.engine.feed(who, body)
         if not self._primed:
             self._primed = True
