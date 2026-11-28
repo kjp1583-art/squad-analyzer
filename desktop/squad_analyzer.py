@@ -2231,12 +2231,14 @@ def _unified_power_one(name, s_data):
     return (_unified_tier_score(tier_of(name or '')) + shrunk * 10) / 2
 
 # ===== 내부티어 SSOT (CLAN_TIERS 시트) =====
-def load_clan_tiers():
-    """CLAN_TIERS 시트에서 {tnorm(닉네임): 티어} 읽어 TIER_OF 재구성. 실패/빈 시트면 하드코딩 유지."""
+def load_clan_tiers(rows=None):
+    """CLAN_TIERS 시트에서 {tnorm(닉네임): 티어} 읽어 TIER_OF 재구성. 실패/빈 시트면 하드코딩 유지.
+       rows 를 주면 이미 당겨온 행을 그대로 쓴다([v83.86] connect_sheet 의 gviz 병렬 프리로드 결과)."""
     try:
-        if not global_spreadsheet: return
-        ws = global_spreadsheet.worksheet("CLAN_TIERS")
-        rows = ws.get_all_values()
+        if rows is None:
+            if not global_spreadsheet: return
+            ws = global_spreadsheet.worksheet("CLAN_TIERS")
+            rows = ws.get_all_values()
         if not rows or len(rows) < 2: return
         h = rows[0]
         ni = h.index("닉네임") if "닉네임" in h else 0
@@ -2252,11 +2254,13 @@ def load_clan_tiers():
 
 # ===== 선언 포지션(디스코드 역할 탑(주)/정글(부)… → CLAN_POSITIONS 시트, sync_positions.py가 매일 갱신) =====
 POSITION_OF = {}   # tnorm(닉네임) -> (주포지션, 부포지션문자열)  예: ("탑", "정글/미드") / 부포 "ALL"=전포지션
-def load_clan_positions():
-    """CLAN_POSITIONS 시트에서 선언 주/부 포지션 로드(내부티어표 표시용)."""
+def load_clan_positions(rows=None):
+    """CLAN_POSITIONS 시트에서 선언 주/부 포지션 로드(내부티어표 표시용).
+       rows 를 주면 이미 당겨온 행을 그대로 쓴다([v83.86] connect_sheet 의 gviz 병렬 프리로드 결과)."""
     try:
-        if not global_spreadsheet: return
-        rows = global_spreadsheet.worksheet("CLAN_POSITIONS").get_all_values()
+        if rows is None:
+            if not global_spreadsheet: return
+            rows = global_spreadsheet.worksheet("CLAN_POSITIONS").get_all_values()
         if not rows or len(rows) < 2: return
         h = rows[0]
         ni = h.index("닉네임") if "닉네임" in h else 0
@@ -7466,6 +7470,23 @@ def update_hof_stats(force=False):
     if not global_spreadsheet: return
     try:
         all_ws = global_spreadsheet.worksheets()
+        # 🚀 [v83.86] 협곡(2.7만행)·칼바람 두 탭을 **병렬**로 프리로드 — 전에는 루프에서 한 탭씩 gviz 직렬 다운로드라
+        #    걸린 시간이 '합'이었다. gviz 읽기는 할당량 0이라 동시에 일어도 무해하고, 아래 루프의
+        #    get_sheet_data_cached 는 방금 받은 캐시(240s) 히트로 즉시 지나간다(이중 다운로드 없음).
+        _prefetched = {}
+        try:
+            _hots = [w for w in all_ws if getattr(w, "title", "") in ("CLASSIC_NORMAL", "KIWI_KIWI")]
+            if len(_hots) > 1:
+                _t0 = time.time()
+                _ths = [threading.Thread(target=get_sheet_data_cached, args=(w,), kwargs={"force": force}, daemon=True)
+                        for w in _hots]
+                for _t in _ths: _t.start()
+                _dl = time.time() + 90
+                for _t in _ths: _t.join(max(0.5, _dl - time.time()))
+                # 실제로 새로 받았을 때만 '프리로드됨'으로 친다 — 실패해서 옛 캐시인 탭은 루프에서 force 로 다시 당긴다.
+                for _w in _hots:
+                    if global_cache_time.get(_w.title, 0) >= _t0: _prefetched[_w.title] = True
+        except Exception: pass
         c_g_data, a_g_data = {"전체 (ALL)": {}}, {"전체 (ALL)": {}}
         def _hof_parse_met(s):
             """📊 '지표' 팩("g8566|cs26|m25.9|kp82|...") → {키: float}. 실패 시 {}."""
@@ -7485,7 +7506,7 @@ def update_hof_stats(force=False):
             if title not in ["CLASSIC_NORMAL", "KIWI_KIWI"]: continue
             is_classic = (title == "CLASSIC_NORMAL")
             
-            rows = get_sheet_data_cached(ws, force=force)
+            rows = get_sheet_data_cached(ws, force=(force and title not in _prefetched))
             if len(rows) <= 1: continue
             
             headers = rows[0]
@@ -9890,11 +9911,72 @@ def noban_tick(headers, base_url, phase):
 # =========================================================================
 # 🚫 V80.9 백엔드 루프
 # =========================================================================
+def _apply_link_account_rows(rows):
+    """LINK_ACCOUNT{본계, 부계} → global_alt_map(부계 닉 → 본계 닉). 예전 connect_sheet() 안의 파싱과 동일 규칙."""
+    try:
+        for r in list(rows or [])[1:]:
+            if len(r) >= 2 and str(r[0]).strip() and str(r[1]).strip():
+                global_alt_map[str(r[1]).strip().split('#')[0].lower()] = str(r[0]).strip()
+    except Exception: pass
+
+def _tab_gids(ss, names):
+    """open_by_key 가 이미 받아둔 스프레드시트 메타데이터에서 {탭이름: gid(sheetId)} — 추가 API 호출 0.
+       ⚠️ gviz 를 '탭 이름'으로 부르면 이름이 틀리거나 없을 때 첫 시트(협곡)를 조용히 돌려준다 — gid 로만 부른다.
+          (gspread.worksheet()는 그 자체가 탭 메타데이터 GET(request 1회)이라 직렬로 부르면 시작이 또 느려진다.)"""
+    out = {}
+    try:
+        for s in ((getattr(ss, "_properties", None) or {}).get("sheets") or []):
+            p = (s or {}).get("properties") or {}
+            t = str(p.get("title") or "")
+            if t in names and p.get("sheetId") is not None: out[t] = p.get("sheetId")
+    except Exception:
+        out = {}
+    if not out:      # 메타데이터가 비어 있는 경우(구버전 gspread 등)만 목록 1회 질의
+        try:
+            for w in ss.worksheets():
+                if getattr(w, "title", "") in names: out[w.title] = getattr(w, "id", None)
+        except Exception: pass
+    return out
+
+def _tab_rows(gid, name):
+    """탭 전체 행 — 공개 gviz(gid 고정·읽기 할당량 0) 우선, 실패 시 서비스계정 폴백(get_all_values). 둘 다 실패하면 None."""
+    rows = None
+    if name and gid is not None:
+        try: rows = _gviz_rows_by_gid(gid, timeout=10)
+        except Exception: rows = None
+    if rows is None and name:      # 폴백은 이때만 — 서비스계정 읽기(공유 분당 할당량)를 아끼다
+        try: rows = global_spreadsheet.worksheet(name).get_all_values()
+        except Exception: rows = None
+    return rows
+
+def _preload_clan_tabs():
+    """[v83.86] open_by_key 직후 부가 탭 3종(LINK_ACCOUNT·CLAN_TIERS·CLAN_POSITIONS)을 **병렬**로 당긴다.
+       전에는 서비스계정으로 한 탭씩 직렬 읽기라 connect_sheet() 완료(=LCU 폴링 시작)가 그만큼 늦어졌다.
+       읽기는 전부 공개 gviz(할당량 0) 우선, 실패한 탭만 서비스계정 폴백 → 429 상황에서도 안전하고,
+       한 탭이 실패해도 그 탭의 기존 값(하드코딩 티어·이전 포지션)을 지우지 않는다."""
+    if not global_spreadsheet: return
+    names = ("LINK_ACCOUNT", "CLAN_TIERS", "CLAN_POSITIONS")
+    gids = _tab_gids(global_spreadsheet, names)
+    if not gids: return
+    got = {}
+    def _one(_n, _gid):
+        try: got[_n] = _tab_rows(_gid, _n)
+        except Exception: got[_n] = None
+    _ths = [threading.Thread(target=_one, args=(n, g), daemon=True) for n, g in gids.items()]
+    for _t in _ths: _t.start()
+    _deadline = time.time() + 20          # gviz 10s + 폴백 여유 — 최악에도 여기서 오래 붙잡히지 않는다
+    for _t in _ths: _t.join(max(0.1, _deadline - time.time()))
+    _apply_link_account_rows(got.get("LINK_ACCOUNT"))
+    if got.get("CLAN_TIERS"): load_clan_tiers(rows=got["CLAN_TIERS"])             # 내부티어 SSOT(하드코딩 폴백)
+    if got.get("CLAN_POSITIONS"): load_clan_positions(rows=got["CLAN_POSITIONS"])  # 선언 포지션
+
 def connect_sheet():
     """구글 시트 연결. 성공 시 global_spreadsheet 설정 후 True, 실패(429 등) 시 None 후 False.
        시작 시 한 번 실패해도 루프에서 주기적으로 재시도 → 영구 오프라인 방지.
        [v81.62] 함수 내 3회 재시도(4~10s 지터) — open_by_key가 실제 메타데이터 읽기(공유 분당 quota 소모)라
-       동시시작 버스트·순간 네트워크 블립 1회로 곧장 '시트 연결 실패' 배너가 뜨던 간헐 문제 흡수(백엔드 스레드라 GUI 무영향)."""
+       동시시작 버스트·순간 네트워크 블립 1회로 곧장 '시트 연결 실패' 배너가 뜨던 간헐 문제 흡수(백엔드 스레드라 GUI 무영향).
+       [v83.86] 이 함수는 이제 백그라운드 워커(_sheet_connect_worker)에서만 불린다 — LCU 폴링 루프를 막지 않는다.
+                내부 부가 탭 3종은 gviz 병렬(_preload_clan_tabs)로 당겨 직렬 대기 시간을 없앴다."""
     global global_spreadsheet
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
@@ -9903,21 +9985,68 @@ def connect_sheet():
             creds = ServiceAccountCredentials.from_json_keyfile_name(resource_path('credentials.json.json'), scope)
             client = gspread.authorize(creds)
             global_spreadsheet = client.open_by_key(DOCUMENT_ID)
-            try:
-                link_sheet = global_spreadsheet.worksheet("LINK_ACCOUNT")
-                for r in link_sheet.get_all_values()[1:]:
-                    if len(r) >= 2 and r[0].strip() and r[1].strip():
-                        global_alt_map[r[1].strip().split('#')[0].lower()] = r[0].strip()
-            except Exception: pass
-            try: load_clan_tiers()   # 내부티어 SSOT: CLAN_TIERS 시트에서 로드(하드코딩 폴백)
-            except Exception: pass
-            try: load_clan_positions()   # 선언 포지션(디스코드 역할 → CLAN_POSITIONS 시트) 로드
-            except Exception: pass
+            _preload_clan_tabs()
             return True
         except Exception:
             if _ctry < 2: time.sleep(4 + random.uniform(0, 6))
     global_spreadsheet = None
     return False
+
+# ===== 🔌 [v83.86] 시트 연결은 LCU 폴링을 막지 않는다 =====
+#   예전엔 lcu_core_backend_loop 이 시작하자마자 pid%25(0~24초) 지터로 멈춘 뒤 connect_sheet() 를 동기로 기다렸다.
+#   그동안 LCU 탐색·상태 갱신이 통째로 밀려 첫 화면이 20~30초 멈춘 것처럼 보였다.
+#   지금은 루프가 0초에 LCU 폴링을 시작하고, 시트 연결(+호스트 HOF 프리로드)은 이 워커가 동시에 진행한다.
+#   동시 실행 방지(running)와 실패 백오프(12s 특례 → 90·180·360·720·900s cap + 인스턴스 지터)는 기존 정책 그대로.
+_SHEET_CONN = {"running": False, "attempts": 0, "fail": 0, "next_try": 0.0, "last_ok_ts": 0.0}
+_SHEET_CONN_LOCK = threading.Lock()
+
+def _sheet_connect_worker(reason="reconnect"):
+    """실제 시트 연결 1회 — 성공하면 즉시(지터 없이) 호스트 HOF 프리로드까지 시작하고, 실패하면 다음 시도 시각만 잡는다.
+       LCU 폴링 스레드가 부르지 않는다(항상 별도 데몬 스레드)."""
+    ok = False
+    try:
+        ok = bool(connect_sheet())
+    except Exception as e:
+        print(f"[sheet] 연결 예외(무시): {type(e).__name__} {e}", flush=True)
+    with _SHEET_CONN_LOCK:
+        _SHEET_CONN["running"] = False
+        if ok:
+            _SHEET_CONN["fail"] = 0
+            _SHEET_CONN["last_ok_ts"] = time.time()
+            _SHEET_CONN["next_try"] = 0.0
+        else:
+            _f = min(int(_SHEET_CONN["fail"]) + 1, 5)
+            _SHEET_CONN["fail"] = _f
+            # [v81.62] 첫 실패만 12초 특례 → 이후 90·180·360·720·900s. (+ 인스턴스별 지터: 같이 재시도하는 악순환 차단)
+            _SHEET_CONN["next_try"] = time.time() + (12 if _f <= 1 else min(45 * (2 ** _f), 900)) + (os.getpid() % 30)
+            _fail_now = _f
+    if ok:
+        if reason == "reconnect":
+            try:
+                with gui_lock: gui_data["status"] = "✅ 시트 재연결됨"
+            except Exception: pass
+        # 🚀 연결 '완료 즉시' 프리로드 — 지터·직렬 대기 없이 바로.
+        try:
+            if load_bot_token():   # [429완화] HOF 전체읽기(큰 시트)는 호스트만 — 일반 멤버는 전당/티어 창 열 때 지연 로드
+                threading.Thread(target=update_hof_stats, daemon=True).start()
+        except Exception: pass
+    else:
+        print(f"[sheet] 연결 실패 {_fail_now}회 — 다음 시도까지 백오프", flush=True)
+        if reason == "start":
+            try:
+                with gui_lock:
+                    gui_data["status"] = "⚠ 시트 연결 실패 (오프라인 모드 · 자동 재시도 중)"
+            except Exception: pass
+
+def _kick_sheet_connect(reason="reconnect", force=False):
+    """시트 연결 시도를 백그라운드로 던진다 — 호출자는 절대 기다리지 않는다. 이미 진행 중이거나 백오프 대기 중이면 False."""
+    with _SHEET_CONN_LOCK:
+        if _SHEET_CONN["running"]: return False
+        if (not force) and time.time() < float(_SHEET_CONN["next_try"] or 0.0): return False
+        _SHEET_CONN["running"] = True
+        _SHEET_CONN["attempts"] = int(_SHEET_CONN["attempts"]) + 1
+    threading.Thread(target=_sheet_connect_worker, args=(reason,), daemon=True).start()
+    return True
 
 # ===== 🎙 [2026-11-27 사장님 지시] 인게임 뉴럴 TTS 브리핑 =====
 #   인게임(InProgress)에 들어가면 판당 **딱 1회**, 데몬 스레드에서 4가지를 묶어 10~15초 한국어 브리핑을
@@ -10531,16 +10660,12 @@ def _ingame_briefing_tick(game_id=None, blue=None, red=None, game_seq=0, phase="
 
 def lcu_core_backend_loop():
     global gui_data, global_captured_bans, global_user_ban_map, frozen_user_bans, global_spreadsheet, frozen_bans_str, global_ingame_names, global_puuid_fallback_map, PATCH_VERSION_SHORT, has_logged_execution, global_discord_id, global_pick_order_map, frozen_pick_order, global_lock_champ_map, frozen_lock_champ
-    # 시작 동시부하 분산: 여러 클랜원이 동시에 켜도 인스턴스별 0~24초 지터로 시트 API 버스트 완화(429 방지)
-    try: time.sleep(os.getpid() % 25)
+    # 🚀 [v83.86] 여기서 아무것도 기다리지 않는다.
+    #   예전: pid%25(0~24초) 지터로 멈춘 뒤 connect_sheet() 를 동기 대기 → LCU 탐색·상태 갱신 시작이 최대 30초 밀렸다.
+    #   지금: LCU 폴링이 0초에 바로 시작하고, 시트 연결(+호스트 HOF 프리로드)은 백그라운드 워커가 동시에 진행한다.
+    #   여러 명이 동시에 켤 때의 시트 API 버스트는 connect_sheet 자체의 재시도 지터 + 실패 백오프(+인스턴스 지터)가 흡수한다.
+    try: _kick_sheet_connect("start", force=True)
     except Exception: pass
-    # 시트 연결 (실패해도 아래 while 루프에서 자동 재연결)
-    if connect_sheet():
-        if load_bot_token():   # [429완화] HOF 전체읽기(큰 시트)는 호스트만 시작 프리로드 — 일반 멤버는 전당/티어 창 열 때 지연 로드(시작 읽기 버스트↓)
-            threading.Thread(target=update_hof_stats, daemon=True).start()
-    else:
-        with gui_lock:
-            gui_data["status"] = "⚠ 시트 연결 실패 (오프라인 모드 · 자동 재시도 중)"
 
     champ_map = {}
     last_lobby_fingerprint, last_chat_game_id = "", ""
@@ -10563,8 +10688,6 @@ def lcu_core_backend_loop():
     _fin_write_retry = 0                 # [2026-07-07] finalize 'update_cells 쓰기' 전용 재시도 카운터(가시성 대기와 예산 분리)
     eog_block_cache = None               # 🔥 [V81.24] 종료화면 진입 즉시 캡처한 '이 게임'의 전광판(전원) = {gid, data}
     EOG_MIN_ROSTER = 6                   #    완전 로스터로 인정하는 최소 인원
-    last_sheet_reconnect = time.time()   # 🔁 시트 자동 재연결 throttle
-    reconnect_fail = 0                    # [429완화] 재접속 지수 백오프 카운터 (악순환 차단)
     last_hof_refresh = time.time()        # 🩸 십이귀월 자동감지용 주기 HOF 갱신(호스트만)
     
     last_ping_time = 0
@@ -10581,19 +10704,10 @@ def lcu_core_backend_loop():
         try:
             port, password = get_lcu_credentials()
             if port and not champ_map: champ_map = build_translation_map(port, password)
-            # 🔁 시트 연결 자동복구: 429로 실패 시 지수 백오프(45s→90→180→360→720→900cap)로 재시도 → 다같이 하염없이 재시도하는 악순환 차단
-            # [v81.62] 첫 재연결만 12초 특례(+지터) — 순간 블립 후 '실패' 배너가 최소 45초+ 고착되던 체감 문제 단축(두 번째 실패부터 기존 백오프).
+            # 🔁 [v83.86] 시트 자동복구 — 시도는 백그라운드 워커가 한다(여기서 connect_sheet() 를 기다리지 않는다 → LCU 폴링 안 멈춤).
+            #    429 악순환 차단 정책(첫 실패 12초 특례 → 90·180·360·720·900s 백오프 + 인스턴스 지터)은 _sheet_connect_worker 그대로.
             if global_spreadsheet is None:
-                _rc_delay = (12 if reconnect_fail == 0 else min(45 * (2 ** reconnect_fail), 900)) + (os.getpid() % 30)
-                if time.time() - last_sheet_reconnect > _rc_delay:
-                    last_sheet_reconnect = time.time()
-                    if connect_sheet():
-                        reconnect_fail = 0
-                        with gui_lock: gui_data["status"] = "✅ 시트 재연결됨"
-                        if load_bot_token():   # HOF 프리로드는 호스트만(일반 멤버는 창 열 때 지연 로드)
-                            threading.Thread(target=update_hof_stats, daemon=True).start()
-                    else:
-                        reconnect_fail = min(reconnect_fail + 1, 5)
+                _kick_sheet_connect("reconnect")
             # 🩸 십이귀월: 호스트에서 15분마다 HOF 재갱신 → (십이귀월 디스코드 발송은 2026-10-11 폐지 — 웹으로만 본다)
             # [v82.42 사장님 지시] 인게임 중엔 무거운 집계(시트 전체 파싱) 유예 — 저사양 PC 프레임 드랍 방지(게임 끝나면 다음 주기에 자연 실행)
             if (global_spreadsheet is not None and time.time() - last_hof_refresh > 900 and load_bot_token()
