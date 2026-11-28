@@ -14,7 +14,7 @@
 
   python3 tests/web_myeol10_stage_test.py
 """
-import asyncio, datetime as dt, json, os, sys, tempfile
+import asyncio, datetime as dt, json, os, re, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, 'web_replay'))
@@ -80,7 +80,7 @@ JS = r"""(()=>{
     phase:{a:ph(myeol10Phase(+D('2026-11-27T02:00:00+09:00'))), b:ph(myeol10Phase(+D('2026-11-28T19:30:00+09:00'))), c:ph(myeol10Phase(+D('2026-11-29T18:40:00+09:00')))},
     nowNext:(myeol10Phase().next||{}).k||null, hi:hiM?hiM[1]:null,
     sch:{len:sch.length,
-      has:[['예선',/예선/],['4강',/4강/],['결승',/결승/],['11/28(토) 19:00',/11\/28\(토\) 19:00/],['11/29(일) 16:00',/11\/29\(일\) 16:00/],
+      has:[['예선',/예선/],['8강',/8강/],['4강',/4강/],['결승',/결승/],['11/28(토) 19:00',/11\/28\(토\) 19:00/],['11/28(토) 예선 직후',/11\/28\(토\) 예선 직후/],['11/29(일) 16:00',/11\/29\(일\) 16:00/],
            ['11/29(일) 19:00',/11\/29\(일\) 19:00/],['집중 연습',/집중 연습 11\/22~27/],['규칙',/60명 12팀 · 예외 참가 4명\(참가비 2배·상금 클랜 기부\)/]].filter(x=>x[1].test(sch)).map(x=>x[0])}};
 })()"""
 
@@ -142,13 +142,14 @@ async def main():
     grp = o.get('grp') or {}
     ok(grp.get('cards') == 3, 'C 조별 표 3칸 (%s)' % grp.get('cards'))
     ok('개막 전' not in (grp.get('text') or ''), 'C 본선 판이 있으면 「개막 전」 문구가 아니다')
-    ok('1-1' in (grp.get('text') or '') or '1 - 1' in (grp.get('text') or ''), 'C A조 표에 본선 2판(1승1패)이 들어간다')
+    ok('1-1' not in (grp.get('text') or '') and re.search(r'1\s*-\s*0', grp.get('text') or ''),
+       'C A조 표에 본선 첫 판만 들어간다(1승0패) — 같은 두 팀 재경기는 세지 않는다 %s' % (grp.get('text') or '')[:120])
     ph = o.get('phase') or {}
     ok(ph.get('a') == {'cur': None, 'next': '예선'}, 'E 11/27 새벽: 다음은 예선 (%s)' % ph.get('a'))
-    ok(ph.get('b') == {'cur': '예선', 'next': '4강'}, 'E 11/28 19:30: 예선 진행 · 다음 4강 (%s)' % ph.get('b'))
+    ok(ph.get('b') == {'cur': '예선', 'next': '8강'}, 'E 11/28 19:30: 예선 진행 · 다음 8강 (%s)' % ph.get('b'))
     ok(ph.get('c') == {'cur': '4강', 'next': '결승'}, 'E 11/29 18:40: 4강 진행 · 다음 결승 (%s)' % ph.get('c'))
     have = (o.get('sch') or {}).get('has') or []
-    ok(len(have) == 8, 'E 배너에 일정 3개 · 집중 연습 · 규칙 한 줄이 다 있다 %s' % have)
+    ok(len(have) == 10, 'E 배너에 일정 4개(예선·8강·4강·결승) · 집중 연습 · 규칙 한 줄이 다 있다 %s' % have)
     ok(o.get('hi') == o.get('nowNext'), 'E 지금 다음 단계를 강조한다 (%s / %s)' % (o.get('hi'), o.get('nowNext')))
     r = o.get('render') or {}
     ok(r.get('sch10') == 1 and '예선' in (r.get('schTxt') or ''), 'F 제10회 화면에 일정 배너가 보인다 (%s)' % r.get('sch10'))
