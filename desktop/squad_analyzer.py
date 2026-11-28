@@ -10358,14 +10358,74 @@ def _speak_neural_tts(text):
             if tmp and os.path.exists(tmp): os.remove(tmp)
         except Exception: pass
 
-def _ingame_briefing_worker(key, blue, red):
-    """브리핑 생성·재생(데몬 스레드). 라이브 클라이언트가 아직이면 스스로 물러나 다음 폴링에서 재시도한다."""
+def _brief_champ_by_id(cid):
+    """LCU 확정 championId → 한글 챔프명(공백 유지 표기 우선 · 없으면 숫자맵). 모르면 ''."""
+    try:
+        cid = int(cid or 0)
+    except Exception:
+        return ""
+    if cid <= 0: return ""
+    try:
+        kor = str((global_champ_map.get(cid) or {}).get("kor") or "")
+        if kor: return kor
+    except Exception: pass
+    try: return str(GLOBAL_NUMERIC_CHAMP_MAP.get(cid) or "")
+    except Exception: return ""
+
+def _brief_pseudo_live(blue, red, lock_champs=None):
+    """로딩창(GameStart)엔 2999 라이브 API 가 아직 응답하지 않는다 — LCU 로스터·확정 픽으로
+       liveclientdata/playerlist 와 같은 모양을 만들어 브리핑 로직을 그대로 태운다.
+       포지션은 밴픽에서 확정된 chosen_pos_icon(없으면 'NONE'→빈 값=라인 꼬임 판정 생략)."""
+    lock = lock_champs or {}
+    out = []
+    for side_key, entries in (("blue", blue), ("red", red)):
+        for p in entries or []:
+            if not isinstance(p, dict): continue
+            pos = str(p.get("chosen_pos_icon") or "").upper()
+            pu = str(p.get("puuid") or "").strip().lower()
+            try: kor = _brief_champ_by_id(lock.get(pu))
+            except Exception: kor = ""
+            out.append({"summonerName": _brief_base_name(p), "riotIdGameName": _brief_base_name(p),
+                        "puuid": p.get("puuid") or "",
+                        "team": "ORDER" if side_key == "blue" else "CHAOS",
+                        "position": pos if pos in _BRIEF_POS_KO else "",
+                        "championName": kor})
+    return out
+
+def _ingame_briefing_worker(key, blue, red, phase="", my_puuid="", lock_champs=None):
+    """브리핑 생성·재생(데몬 스레드).
+       [v83.83] 로딩창(GameStart)에서 부른다 — 2999 라이브 API 가 없어도 LCU 로스터·확정 픽만으로 말한다.
+       자료가 정말 없을 때만 스스로 물러나 다음 폴링에서 재시도한다."""
     try:
         if not bool(APP_CONFIG.get("ingame_tts_briefing", True)): return
+        roster = [(p, "blue") for p in (blue or [])] + [(p, "red") for p in (red or [])]
+        lock = {}
+        for _k, _v in (lock_champs or {}).items():
+            try: _cid = int(_v or 0)
+            except Exception: _cid = 0
+            if _cid > 0: lock[str(_k or "").strip().lower()] = _cid
         live = _brief_live_json("playerlist")
-        if not isinstance(live, list) or not live:
+        live = list(live) if isinstance(live, list) else []
+        if not live:
+            # 🎙 [v83.83] 로딩창은 라이브 API 가 없다 — LCU 로스터로 조립해 로딩 중에 읽는다.
+            live = _brief_pseudo_live(blue, red, lock)
+            if live:
+                print(f"[brief] 라이브 API 없음({phase or '?'}) — LCU 로스터 {len(live)}명으로 브리핑 조립", flush=True)
+        if not live:
             print("[brief] 인게임 플레이어 목록 없음 — 다음 폴링에서 재시도", flush=True)
             return
+        # 🎭 라이브에 챔프가 비어 있으면 LCU 확정 픽으로 채운다(변신·늦게 켠 판 보정)
+        if lock:
+            for lp in live:
+                if not isinstance(lp, dict): continue
+                if _brief_champ_kor(lp.get("championName") or ""): continue
+                pu = str(lp.get("puuid") or "").strip().lower()
+                if not pu:
+                    hit = _brief_match_live(lp, roster)
+                    pu = str((hit[0] or {}).get("puuid") or "").strip().lower() if hit else ""
+                if not pu: continue
+                kor = _brief_champ_by_id(lock.get(pu))
+                if kor: lp["championName"] = kor
         # 로딩 중엔 챔프가 덜 차 있다 — 다 찰 때까지 미룬다(판당 1회라 이때 읽어야 제대로 읽는다)
         with_champ = sum(1 for lp in live if _brief_champ_kor((lp or {}).get("championName") or ""))
         need_champ = min(INGAME_BRIEF_MIN_CHAMPS, len(live))
@@ -10387,6 +10447,11 @@ def _ingame_briefing_worker(key, blue, red):
             return
         if not _brief_claim(key): return
         my_side = _brief_my_side(live)
+        if not my_side and my_puuid:      # 🎙 로딩창엔 activeplayer 도 없다 — LCU 내 PUUID 로 진영을 찾는다
+            _mp = str(my_puuid or "").strip().lower()
+            for _side, _entries in (("blue", blue), ("red", red)):
+                if any(str((p or {}).get("puuid") or "").strip().lower() == _mp for p in (_entries or [])):
+                    my_side = _side; break
         with gui_lock:
             gui_blue = list(gui_data.get("blue") or [])
             gui_red = list(gui_data.get("red") or [])
@@ -10420,8 +10485,9 @@ def _ingame_briefing_worker(key, blue, red):
             with _BRIEF_GUARD: _BRIEF_STATE["pending"] = False
         except Exception: pass
 
-def _ingame_briefing_tick(game_id=None, blue=None, red=None, game_seq=0):
+def _ingame_briefing_tick(game_id=None, blue=None, red=None, game_seq=0, phase="", my_puuid="", lock_champs=None):
     """LCU 폴링 루프가 인게임 중 호출 — 여기서는 스레드만 띄우고 절대 기다리지 않는다.
+       [v83.83] GameStart(로딩창)에서도 부른다 — 로딩 중에 말해야 게임 시작 뒤에 늦게 들리지 않는다.
        반환값은 로그·테스트용: off/설정꺼짐 · none/키없음 · done/이미함 · busy/진행중 · throttled/방금시도 · started."""
     try:
         if not bool(APP_CONFIG.get("ingame_tts_briefing", True)): return "off"
@@ -10434,7 +10500,9 @@ def _ingame_briefing_tick(game_id=None, blue=None, red=None, game_seq=0):
             if now - float(_BRIEF_STATE.get("last_try") or 0) < 5.0: return "throttled"
             _BRIEF_STATE["last_try"] = now
             _BRIEF_STATE["pending"] = True
-        threading.Thread(target=_ingame_briefing_worker, args=(key, list(blue or []), list(red or [])), daemon=True).start()
+        threading.Thread(target=_ingame_briefing_worker,
+                         args=(key, list(blue or []), list(red or []), phase, my_puuid, dict(lock_champs or {})),
+                         daemon=True).start()
         return "started"
     except Exception as e:
         try:
@@ -10711,6 +10779,7 @@ def lcu_core_backend_loop():
             is_custom_game_flag = False
             top_map_raw, gd_map_raw, gd_qmap_raw = None, None, None   # 고스트밴픽왕용 맵 원값(없으면 None) — map_id 의 기본값 11 과 구분
             session_game_id = None            # 🎙 [2026-11-27] 브리핑 gameId(판당 1회 키)
+            gf_json = {}                      # 🎙 [v83.83] 로딩창 브리핑 — 아래에서 읽은 gameflow 세션(확정 픽 소스)
 
             try:
                 gf_res = requests.get(str(base_url) + "/lol-gameflow/v1/session", headers=headers, verify=False, timeout=3)
@@ -11112,9 +11181,24 @@ def lcu_core_backend_loop():
                     if p.get('puuid'): global_pos_map[p['puuid'].strip().lower()] = p['chosen_pos_icon']
 
             lobby_fingerprint = "".join([str(p['puuid']) for p in temp_blue + temp_red])
-            # 🎙 [2026-11-27] 인게임 AI 브리핑 — 판당 1회, 데몬 스레드만 띄워 폴링을 막지 않는다(자체 5초 스로틀).
-            if current_phase == "InProgress" and is_valid_game and (temp_blue or temp_red):
-                try: _ingame_briefing_tick(session_game_id, temp_blue, temp_red, game_seq)
+            # 🎙 [v83.83] 인게임 AI 브리핑 — 판당 1회, 데몬 스레드만 띄워 폴링을 막지 않는다(자체 5초 스로틀).
+            #   로딩창(GameStart)에서도 부른다: 2999 라이브 API 는 로딩이 끝나야 응답하므로, GameStart 때는
+            #   LCU 로스터·확정 픽(playerChampionSelections·lock_champs)만으로 브리핑을 만들어 로딩 중에 읽는다.
+            #   같은 판의 키(game_seq 동일)라 GameStart 에서 처리되면 InProgress 에서는 중복 재생되지 않는다.
+            if current_phase in ("GameStart", "InProgress") and is_valid_game and (temp_blue or temp_red):
+                try:
+                    _brief_lock = dict(frozen_lock_champ or {})
+                    try: _brief_lock.update(global_lock_champ_map or {})
+                    except Exception: pass
+                    try:
+                        for _sel in ((gf_json.get("gameData") or {}).get("playerChampionSelections") or []):
+                            _spu = str((_sel or {}).get("puuid") or "").strip().lower()
+                            try: _scid = int((_sel or {}).get("championId") or 0)
+                            except Exception: _scid = 0
+                            if _spu and _scid > 0: _brief_lock[_spu] = _scid
+                    except Exception: pass
+                    _ingame_briefing_tick(session_game_id, temp_blue, temp_red, game_seq,
+                                          phase=current_phase, my_puuid=global_my_puuid, lock_champs=_brief_lock)
                 except Exception: pass
             target_sheet_name = "KIWI_KIWI" if is_aram_session else "CLASSIC_NORMAL"
             # 🧭 [2026-07-30] 롤 클래식 같은 새 모드를 협곡과 구분하려면 그 모드의 식별값을 알아야 한다.
