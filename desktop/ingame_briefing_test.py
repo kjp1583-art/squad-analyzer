@@ -39,6 +39,7 @@ BRIEF_FUNCS = (
     "_brief_base_name", "_brief_sv", "_brief_pos_norm", "_brief_live_pos", "_brief_main_pos",
     "_brief_match_live", "_brief_direction_lines", "_brief_trim", "_build_ingame_briefing",
     "_brief_game_key", "_brief_claim", "_ingame_briefing_tick", "_ingame_briefing_worker",
+    "_brief_champ_by_id", "_brief_pseudo_live",
 )   # _brief_champ_kor·_speak_neural_tts 는 가짜로 바꿔 끼운다(load_one 으로 따로 뺀다)
 
 
@@ -102,6 +103,7 @@ def make_ns(comp_report=None, config=None, live_json=None, threading_mod=None,
         "_brief_champ_kor": champ_kor or (lambda eng: str(eng or "")),
         "CHAMP_KOR_TO_ENG": {},
         "global_champ_map": {},
+        "GLOBAL_NUMERIC_CHAMP_MAP": {},
         "print": lambda *a, **k: None,
     }
     return ns
@@ -432,8 +434,11 @@ class BriefingTest(unittest.TestCase):
     # ── 소스 연결 확인 ─────────────────────────────────────────────
     def test_trigger_wired_in_polling_loop(self):
         src = SRC_TEXT
-        self.assertIn("_ingame_briefing_tick(session_game_id, temp_blue, temp_red, game_seq)", src)
-        self.assertIn('current_phase == "InProgress" and is_valid_game and (temp_blue or temp_red)', src)
+        # [v83.83] 로딩창(GameStart)에서도 브리핑을 띄운다 — 2999 라이브 API 는 로딩이 끝나야 응답한다
+        self.assertIn('current_phase in ("GameStart", "InProgress") and is_valid_game and (temp_blue or temp_red)', src)
+        self.assertIn("_ingame_briefing_tick(session_game_id, temp_blue, temp_red, game_seq,", src)
+        self.assertIn("phase=current_phase, my_puuid=global_my_puuid, lock_champs=_brief_lock", src)
+        self.assertIn('playerChampionSelections', src)      # 늦게 켜도 확정 픽을 LCU 세션에서 채운다
         # 설정 키 기본값·저장
         self.assertIn('"ingame_tts_briefing": True', src)
         self.assertIn('APP_CONFIG["ingame_tts_briefing"] = bool(self.var_itt.get())', src)
@@ -561,6 +566,149 @@ class KoreanChampTest(unittest.TestCase):
         ns["_ingame_briefing_worker"]("id:83", [], [])
         self.assertEqual(len([p for p in prints if "챔프" in p]), 2)
         self.assertIn("2/10명", prints[-1])
+
+
+# ── ⑨ 로딩창(GameStart) 즉시 브리핑 ──────────────────────────────────
+class GameStartBriefingTest(unittest.TestCase):
+    """[v83.83] 밴픽이 끝나고 로딩창에 들어가면 2999 라이브 API 는 아직 응답하지 않는다.
+    그래도 LCU 로스터·확정 픽만으로 브리핑을 만들어 '로딩 중'에 읽어야지, 게임이 시작된 뒤에 나오면 못 알아듣는다."""
+
+    POS5 = ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY")
+    # puuid → 확정 championId (LCU lock_champs / gameData.playerChampionSelections)
+    LOCK = {"a1": 1, "a2": 64, "a3": 86, "a4": 222, "a5": 21,
+            "b1": 145, "b2": 20, "b3": 222, "b4": 1, "b5": 86}
+
+    def blue(self):
+        return [P(f"블루{i}#KR1", f"a{i + 1}", self.POS5[i]) for i in range(5)]
+
+    def red(self):
+        return [P(f"레드{i}#KR1", f"b{i + 1}", self.POS5[i]) for i in range(5)]
+
+    def _ns(self, live_json=None, my_side="", cidx=None):
+        spoken, seen = [], {}
+        def _comp(a, e):
+            seen["a"], seen["e"] = list(a), list(e)
+            return {"gaps": ["앞라인(탱커) 없음"], "threats": []}
+        ns = real_champ_ns(live_json=live_json or (lambda p: None),
+                           speak_recorder=lambda t: spoken.append(t), my_side=my_side)
+        ns["_comp_report"] = _comp
+        ns["_clan_index"] = lambda force=False: (cidx or {})
+        load(ns)
+        ns["gui_data"]["blue"] = [(self.blue()[0], S(4))]
+        ns["gui_data"]["red"] = [(self.red()[0], S(5))]
+        ns["gui_data"]["blue_win_rate"] = 58
+        return ns, spoken, seen
+
+    # 로딩창: 라이브 API 자체가 없다(None)
+    def test_speaks_at_gamestart_without_live_api(self):
+        ns, spoken, seen = self._ns()
+        ns["_ingame_briefing_worker"]("roster:x", self.blue(), self.red(),
+                                      phase="GameStart", my_puuid="a1", lock_champs=self.LOCK)
+        self.assertEqual(len(spoken), 1, f"로딩창에서 브리핑이 나오지 않음: {spoken}")
+        self.assertIn("예상 승률", spoken[0])
+        self.assertIn("58", spoken[0])                      # my_puuid 로 우리 진영(블루)을 찾아 58%
+        self.assertIn("상대 레드0님이 5연승", spoken[0])       # 로스터 연승은 밴픽 캐시로 이미 알고 있다
+        self.assertIn("앞라인이 없으니", spoken[0])           # 확정 픽 → 조합 분석까지 로딩창에서
+        self.assertEqual(seen["a"], ["아리", "리 신", "가렌", "진", "미스 포츈"])
+        self.assertEqual(seen["e"], ["카이사", "누누와 윌럼프", "진", "아리", "가렌"])
+        self.assertIn("roster:x", ns["_BRIEFED_GAMES"])
+
+    def test_side_from_my_puuid_red(self):
+        ns, spoken, _seen = self._ns()
+        ns["_ingame_briefing_worker"]("id:9", self.blue(), self.red(),
+                                      phase="GameStart", my_puuid="b1", lock_champs=self.LOCK)
+        self.assertIn("42", spoken[0])                      # 레드 입장 = 100-58
+        self.assertNotIn("블루 58", spoken[0])
+
+    def test_without_my_puuid_says_both_sides(self):
+        ns, spoken, _seen = self._ns()
+        ns["_ingame_briefing_worker"]("id:10", self.blue(), self.red(),
+                                      phase="GameStart", my_puuid="", lock_champs=self.LOCK)
+        self.assertIn("블루 58퍼센트", spoken[0])
+        self.assertIn("레드 42퍼센트", spoken[0])
+
+    # 로딩창에서 라이브가 '던졌다 비어 던' 상태(엔트리는 있는데 챔프가 빈 경우) — LCU 확정 픽으로 보강
+    def test_fills_champs_from_lcu_when_live_champs_empty(self):
+        live = [{"puuid": p, "riotIdGameName": p, "team": "ORDER" if p.startswith("a") else "CHAOS",
+                 "position": "", "championName": ""} for p in self.LOCK]
+        ns, spoken, seen = self._ns(live_json=lambda path: live if path == "playerlist" else None,
+                                    my_side="blue")
+        ns["_ingame_briefing_worker"]("id:11", self.blue(), self.red(),
+                                      phase="GameStart", my_puuid="a1", lock_champs=self.LOCK)
+        self.assertEqual(len(spoken), 1, f"라이브 챔프가 비었을 때 멈춤: {spoken}")
+        self.assertEqual(seen["a"], ["아리", "리 신", "가렌", "진", "미스 포츈"])
+
+    # 자료가 정말 없으면(라이브도 확정 픽도 없음) 예전처럼 다음 폴링으로 미룬다
+    def test_waits_when_no_live_and_no_champs(self):
+        ns, spoken, _seen = self._ns()
+        ns["_ingame_briefing_worker"]("id:12", self.blue(), self.red(),
+                                      phase="GameStart", my_puuid="a1", lock_champs={})
+        self.assertEqual(spoken, [])
+        self.assertNotIn("id:12", ns["_BRIEFED_GAMES"])
+        self.assertFalse(ns["_BRIEF_STATE"]["pending"])
+
+    # 로스터도 없고 라이브도 없으면 아무것도 안 한다(빈 브리핑 금지)
+    def test_no_roster_no_speech(self):
+        ns, spoken, _seen = self._ns()
+        ns["_ingame_briefing_worker"]("id:13", [], [], phase="GameStart", my_puuid="a1", lock_champs=self.LOCK)
+        self.assertEqual(spoken, [])
+        self.assertNotIn("id:13", ns["_BRIEFED_GAMES"])
+
+    # 밴픽 확정 포지션으로 상대 라인 꼬임까지 로딩창에서 잡는다
+    def test_lane_twist_at_gamestart(self):
+        cidx = {"by_pu": {"b1": {"name": "레드0#KR1", "pos": {"MIDDLE": 9}}}, "nm2pu": {}}
+        ns, spoken, _seen = self._ns(cidx=cidx)
+        ns["_ingame_briefing_worker"]("id:14", self.blue(), self.red(),
+                                      phase="GameStart", my_puuid="a1", lock_champs=self.LOCK)
+        self.assertIn("상대 탑 레드0님은 주라인 미드, 라인 꼬임입니다.", spoken[0])
+
+    def test_pseudo_live_shape(self):
+        ns = load(real_champ_ns())
+        ns["GLOBAL_NUMERIC_CHAMP_MAP"] = {}
+        blue = [P("우리탑#KR1", "a1", "TOP"), P("우리봇#KR1", "a2", "NONE")]
+        red = [P("상대#KR1", "b1", "MIDDLE")]
+        ps = ns["_brief_pseudo_live"](blue, red, {"a2": 222})
+        self.assertEqual([x["team"] for x in ps], ["ORDER", "ORDER", "CHAOS"])
+        self.assertEqual(ps[0]["position"], "TOP")
+        self.assertEqual(ps[1]["position"], "")            # NONE → 라인 꼬임 판정 생략
+        self.assertEqual(ps[1]["championName"], "진")      # 확정 픽 → 한글 챔프명
+        self.assertEqual(ps[0]["championName"], "")        # 픽 정보 없음
+        self.assertEqual(ps[2]["riotIdGameName"], "상대")  # 태그(#KR1)는 떼고 이름만
+
+    def test_champ_by_id(self):
+        ns = load(real_champ_ns())
+        self.assertEqual(ns["_brief_champ_by_id"](64), "리 신")
+        self.assertEqual(ns["_brief_champ_by_id"]("145"), "카이사")
+        self.assertEqual(ns["_brief_champ_by_id"](0), "")
+        self.assertEqual(ns["_brief_champ_by_id"](99999), "")
+        self.assertEqual(ns["_brief_champ_by_id"](None), "")
+
+    # GameStart 에서 처리된 판은 InProgress 로 넘어가도 두 번 읽지 않는다
+    def test_no_duplicate_when_phase_moves_to_inprogress(self):
+        th = FakeThreading()
+        ns, spoken, _seen = self._ns()
+        ns["threading"] = th
+        blue, red = self.blue(), self.red()
+        st = ns["_ingame_briefing_tick"](0, blue, red, 3, phase="GameStart", my_puuid="a1", lock_champs=dict(self.LOCK))
+        self.assertEqual(st, "started")
+        self.assertEqual(len(th.started), 1)
+        th.started[0].target(*th.started[0].args)          # 스레드는 가짜 — 워커를 직접 돈다
+        self.assertEqual(len(spoken), 1)
+        st2 = ns["_ingame_briefing_tick"](0, blue, red, 3, phase="InProgress", my_puuid="a1", lock_champs=dict(self.LOCK))
+        self.assertEqual(st2, "done")
+        self.assertEqual(len(th.started), 1)
+        self.assertEqual(len(spoken), 1)
+
+    def test_tick_passes_phase_puuid_lock_to_worker(self):
+        th = FakeThreading()
+        ns, _spoken, _seen = self._ns()
+        ns["threading"] = th
+        ns["_ingame_briefing_tick"](0, self.blue(), self.red(), 7, phase="GameStart",
+                                    my_puuid="a1", lock_champs={"a1": 1})
+        _t = th.started[0]
+        self.assertEqual(_t.args[3], "GameStart")
+        self.assertEqual(_t.args[4], "a1")
+        self.assertEqual(_t.args[5], {"a1": 1})
 
 
 if __name__ == "__main__":
