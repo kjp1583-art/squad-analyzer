@@ -7,6 +7,7 @@ import requests
 import urllib3
 import urllib.parse
 import itertools
+import concurrent.futures   # 🚀 [v83.87] 로비 인원·집계 탭 병렬 조회
 import gspread
 import threading
 import subprocess
@@ -1300,6 +1301,234 @@ def _live_poll_skip(active_id, last_gid, recorded, last_t, now, gap=15.0):
        기록 전·처음 본 판은 매초 조회한다(기록 시작이 늦어지지 않게)."""
     done = bool(active_id) or bool(last_gid and last_gid in recorded)
     return bool(done and (now - last_t) < gap)
+
+# ===== 🚀 [v83.87] 로비 인원 체크 — LCU 병렬 조회 + 소환사·랭크 TTL 캐시 =====
+#   제보(2026-11-29): "사람 차있는 방에서 분석기 키면 인원체크하는데 한참걸리네"
+#   원인: parse_team 이 10명의 이름·랭크를 **한 명씩 직렬**로 물었고(최대 20~30회 TLS 연결),
+#         방에 차 있는 동안 매 폴링(1.2초)마다 똑같은 10명을 처음부터 다시 물었다.
+#   해결: ① 스레드풀로 2라운드 병렬 조회 ② puuid·summonerId 기준 TTL 캐시(닉 10분·솔랭 5분)
+#         ③ 스레드별 requests.Session(한 스레드가 여러 번 물을 때 TLS 핸드셰이크를 되풀이하지 않게)
+#   ⚠️ 로비·포지션 판정 규칙(폴백 포지션·정렬·봇 표시)은 건드리지 않는다 — 속도만 바꾼다.
+_LCU_TTL_NAME = 600.0        # 닉네임 10분 — 방에 앉아 있는 동안 이름은 그대로다
+_LCU_TTL_RANK = 300.0        # 솔랭 티어·LP 5분 — 랭겜 한 판으로 바뀐 걸 로비에서 늦게라도 반영
+_LCU_CACHE_MAX = 600         # 캐시 상한(장시간 켜 둔 PC 메모리 보호 · 넘으면 오래된 절반 정리)
+_LCU_CACHE = {}
+_LCU_CACHE_LOCK = threading.Lock()
+_LCU_TL = threading.local()  # 스레드별 세션(ThreadPoolExecutor 작업 스레드가 재사용)
+_LCU_POS_FALLBACK = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+
+
+def _lcu_session(base_url):
+    """스레드별 requests.Session — 같은 스레드가 여러 LCU 엔드포인트를 이어 물을 때 연결(TLS)을 다시 맺지 않는다.
+       LCU 포트·비번은 클라 재시작마다 바뀌므로 base_url 이 달라지면 세션을 새로 만든다."""
+    try:
+        if getattr(_LCU_TL, "base", None) == base_url and getattr(_LCU_TL, "sess", None) is not None:
+            return _LCU_TL.sess
+        _LCU_TL.sess, _LCU_TL.base = requests.Session(), base_url
+        return _LCU_TL.sess
+    except Exception:
+        return None
+
+
+def _lcu_get(base_url, path, headers, timeout=2):
+    """LCU GET 한 번 — 세션 재사용, 예외면 다음 호출에서 세션을 새로 만든다(죽은 연결 방어)."""
+    url = str(base_url) + str(path)
+    s = _lcu_session(base_url)
+    try:
+        if s is not None:
+            return s.get(url, headers=headers, verify=False, timeout=timeout)
+        return requests.get(url, headers=headers, verify=False, timeout=timeout)
+    except Exception:
+        try: _LCU_TL.sess = None
+        except Exception: pass
+        raise
+
+
+def _lcu_get_many(base_url, headers, paths, timeout=2):
+    """여러 LCU path 를 **병렬**로 GET → {path: json}. 200 이 아니거나 실패한 path 는 결과에 없다."""
+    out = {}
+    if not paths: return out
+    paths = list(dict.fromkeys(str(p) for p in paths))    # 같은 사람이 두 번 들어와도 요청은 한 번
+    lock = threading.Lock()
+    def _one(path):
+        try:
+            r = _lcu_get(base_url, path, headers, timeout)
+            if r is not None and getattr(r, "status_code", 0) == 200:
+                j = r.json()
+                if isinstance(j, dict):
+                    with lock: out[path] = j
+        except Exception:
+            pass
+    if len(paths) == 1:
+        _one(paths[0]); return out
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(paths))) as _ex:
+            list(_ex.map(_one, paths))
+    except Exception:
+        for _p in paths:                       # 풀을 못 만들면 직렬로라도 채운다(결과는 같다)
+            if _p not in out: _one(_p)
+    return out
+
+
+def _lcu_cache_get(key):
+    """TTL 캐시 조회 — 없거나 만료면 None. 만료 시각은 저장할 때(_lcu_cache_put 의 ttl) 정해진다."""
+    if not key: return None
+    with _LCU_CACHE_LOCK:
+        e = _LCU_CACHE.get(key)
+    if not e: return None
+    if e[1] and time.time() > e[1]: return None
+    return e[2]
+
+
+def _lcu_cache_put(key, val, ttl):
+    """TTL 캐시 저장 — 상한을 넘으면 오래된 절반을 버린다."""
+    if not key: return
+    now = time.time()
+    with _LCU_CACHE_LOCK:
+        _LCU_CACHE[key] = (now, (now + ttl) if ttl else 0.0, val)
+        if len(_LCU_CACHE) > _LCU_CACHE_MAX:
+            for _k, _ in sorted(_LCU_CACHE.items(), key=lambda kv: kv[1][0])[: len(_LCU_CACHE) // 2]:
+                _LCU_CACHE.pop(_k, None)
+
+
+def _lcu_riot_id(data):
+    """소환사 응답 → '게임이름#태그'(태그 없으면 게임이름만) — 예전 parse_team 과 같은 문자열 규칙."""
+    data = data or {}
+    g_name = str(data.get('gameName', ''))
+    tag = str(data.get('tagLine', ''))
+    return f"{g_name}#{tag}" if tag else g_name
+
+
+def _lcu_rank_of(data):
+    """ranked-stats 응답 → (솔로 티어, LP). 솔로 큐가 없으면 ('UNRANKED', 0) — 예전 규칙 그대로."""
+    tier, lp = "UNRANKED", 0
+    for q in (data or {}).get('queues') or []:
+        if isinstance(q, dict) and q.get('queueType') == 'RANKED_SOLO_5x5':
+            tier = str(q.get('tier', 'UNRANKED')).upper(); lp = q.get('leaguePoints', 0); break
+    return tier, lp
+
+
+def _parse_team(raw_list, base_url, headers, champ_map=None):
+    """로비 raw 로스터(gameflow session myTeam/theirTeam) → 화면 표시용 인원 목록.
+       [v83.87] 이름·랭크 LCU 조회를 2라운드 병렬 + TTL 캐시로 바꿨다(위 블록 설명).
+       반환 항목·폴백 포지션·정렬 규칙은 예전 parse_team 과 동일하다."""
+    parsed = []
+    if not raw_list or not isinstance(raw_list, list): return parsed
+    fallback_pos = _LCU_POS_FALLBACK
+    champ_map = champ_map or {}
+
+    ents = []
+    for idx, p in enumerate(raw_list):
+        if not isinstance(p, dict): continue
+        s_name, g_name = p.get('summonerName', ''), p.get('gameName', '')
+        puuid = p.get('puuid', '')
+        ents.append({"idx": idx, "p": p, "s_id": p.get('summonerId', 0),
+                     "name": s_name if s_name else g_name if g_name else "",
+                     "puuid": puuid, "bot": str(puuid).startswith("BOT_"),
+                     "rank": None, "sid": None})
+
+    # ── 1라운드: summonerId→이름(닉 없는 사람) + 솔랭(이미 puuid 를 아는 사람) 을 한꺼번에 ──
+    sid_jobs, rank_jobs = [], []                 # [(path, ent)] — 같은 path 여럿이어도 _lcu_get_many 가 한 번만 묻는다
+    for e in ents:
+        if e["bot"]: continue
+        uid = str(e["puuid"] or "")
+        if e["s_id"] and not e["name"]:
+            e["sid"] = _lcu_cache_get("name:sid:%s" % e["s_id"])
+            if e["sid"] is None: sid_jobs.append(("/lol-summoner/v1/summoners/" + str(e["s_id"]), e))
+        if uid and not uid.startswith(("BOT_", "TEMP")):
+            e["rank"] = _lcu_cache_get("rank:%s" % uid.lower())
+            if e["rank"] is None: rank_jobs.append(("/lol-ranked/v1/ranked-stats/" + uid, e))
+    if sid_jobs or rank_jobs:
+        got = _lcu_get_many(base_url, headers, [p for p, _e in sid_jobs] + [p for p, _e in rank_jobs])
+        for path, e in sid_jobs:
+            data = got.get(path)
+            if not data: continue                       # 실패는 캐시하지 않는다(다음 폴링에 다시 시도)
+            e["sid"] = {"name": _lcu_riot_id(data), "puuid": data.get("puuid", "")}
+            if e["sid"]["name"]:
+                _lcu_cache_put("name:sid:%s" % e["s_id"], e["sid"], _LCU_TTL_NAME)
+        for path, e in rank_jobs:
+            data = got.get(path)
+            if not data: continue
+            e["rank"] = dict(zip(("tier", "lp"), _lcu_rank_of(data)))
+            _lcu_cache_put("rank:%s" % str(e["puuid"]).lower(), e["rank"], _LCU_TTL_RANK)
+    for e in ents:
+        if e["bot"] or not e["sid"]: continue
+        if e["sid"].get("name"): e["name"] = e["sid"]["name"]
+        if not e["puuid"]: e["puuid"] = e["sid"].get("puuid", "") or e["puuid"]      # 🛟 [v82.2]
+
+    # ── 2라운드: 그래도 이름이 없는 사람(puuid 로) + 1라운드에서 puuid 가 새로 생긴 사람의 랭크 ──
+    name_jobs, rank2_jobs = [], []
+    for e in ents:
+        if e["bot"]: continue
+        uid = str(e["puuid"] or "")
+        if not uid or uid.startswith(("BOT_", "TEMP")): continue
+        if not e["name"]:
+            hit = _lcu_cache_get("name:puuid:%s" % uid.lower())
+            if hit is not None: e["name"] = hit.get("name") or ""
+            else: name_jobs.append(("/lol-summoner/v2/summoners/puuid/" + uid, e))
+        if e["rank"] is None:
+            e["rank"] = _lcu_cache_get("rank:%s" % uid.lower())
+            if e["rank"] is None: rank2_jobs.append(("/lol-ranked/v1/ranked-stats/" + uid, e))
+    if name_jobs or rank2_jobs:
+        got2 = _lcu_get_many(base_url, headers, [p for p, _e in name_jobs] + [p for p, _e in rank2_jobs])
+        for path, e in name_jobs:
+            data = got2.get(path)
+            if not data: continue
+            nm = _lcu_riot_id(data)
+            if nm:
+                e["name"] = nm
+                _lcu_cache_put("name:puuid:%s" % str(e["puuid"]).lower(), {"name": nm}, _LCU_TTL_NAME)
+        for path, e in rank2_jobs:
+            data = got2.get(path)
+            if not data: continue
+            e["rank"] = dict(zip(("tier", "lp"), _lcu_rank_of(data)))
+            _lcu_cache_put("rank:%s" % str(e["puuid"]).lower(), e["rank"], _LCU_TTL_RANK)
+
+    # ── 조립: 봇 표시·이름 폴백·포지션 폴백·정렬 — 예전 규칙 그대로 ──
+    for e in ents:
+        p, idx = e["p"], e["idx"]
+        name, puuid = e["name"], e["puuid"]
+        if e["bot"]:
+            bot_champ_id = p.get('botChampionId', 0)
+            bot_kor_name = champ_map.get(bot_champ_id, {}).get('kor', '') if champ_map else ''
+            if not bot_kor_name: bot_kor_name = GLOBAL_NUMERIC_CHAMP_MAP.get(bot_champ_id, '봇')
+            name = f"🤖 {bot_kor_name} 봇"
+            puuid = f"BOT_{bot_champ_id}"
+        else:
+            if not name: name = "알 수 없는 유저"
+            if not puuid: puuid = f"TEMP_ID_{e['s_id']}_{name}"
+
+        raw_pos = str(p.get('assignedPosition', '')).upper()
+        if not raw_pos or raw_pos in ['NONE', 'UNSELECTED', '']: raw_pos = str(p.get('firstPositionPreference', '')).upper()
+        if not raw_pos or raw_pos in ['NONE', 'UNSELECTED', '']: raw_pos = str(p.get('position', '')).upper()
+        if not raw_pos or raw_pos in ['NONE', 'UNSELECTED', '']: raw_pos = str(p.get('role', '')).upper()
+        if raw_pos not in fallback_pos:
+            raw_pos = fallback_pos[idx] if idx < 5 else "NONE"
+
+        _rk = e.get("rank") or {}
+        parsed.append({'name': name, 'puuid': puuid, 'chosen_pos_icon': raw_pos,
+                       'tier_icon': _rk.get("tier", "UNRANKED"), 'lp': _rk.get("lp", 0),
+                       'original_idx': idx})
+
+    pw = {"TOP": 0, "JUNGLE": 1, "MIDDLE": 2, "BOTTOM": 3, "UTILITY": 4, "NONE": 5}
+    parsed.sort(key=lambda x: (pw.get(x['chosen_pos_icon'], 5), x.get('original_idx', 99)))
+    return parsed
+
+
+_CRUNCH_RETRY_SEC = 4.0      # 전적 계산 실패(429 등) 뒤 재시도 간격 — 매 폴링(1.2초)마다 전체 읽기로 물리치지 않게
+
+
+def _lobby_stat_decision(lobby_fp, last_fp, need_crunch, sheet_target, retry_at, now):
+    """이번 폴링에서 로비 전적을 (다시) 계산할지 판단.
+       [v83.87] 예전 버그: 시트 연결 전(sheet_target None)에도 fingerprint 를 찍어 버려서, 백그라운드 연결이 끝나도
+       다시 계산하지 않아 로비 10명 전적이 빈 채로 굳었다(v83.86 에서 시트 연결을 백그라운드로 뺀 뒤 생긴 구멍).
+       반환: 'calc' 계산한다 / 'no-sheet' 시트가 아직 없다(이번엔 못 채움 — fingerprint 를 찍지 않아 연결 즉시 재계산)
+             / 'retry-later' 직전 실패 직후(잠시 뒤 재시도) / 'skip' 이번엔 할 일 없음"""
+    if not need_crunch: return "skip"
+    if lobby_fp == last_fp: return "skip"
+    if not sheet_target: return "no-sheet"
+    if now < (retry_at or 0): return "retry-later"
+    return "calc"
 
 _LIVE_GAME = [False]   # 🛡️ [v81.67] 폴링 루프가 매 주기 갱신 — 게임(챔슬렉~종료)·기록 중 여부.
 _LIVE_SINCE = [0.0]    # 🕒 [2026-09-18] 라이브 상태가 시작된 시각 — 걸린 상태(4시간↑) 판정용
@@ -8040,9 +8269,30 @@ def _crunch_from_aggregate(blue_players, red_players):
         try: return int(float(str(x).replace(",", "").strip() or 0))
         except Exception: return 0
     # ── 집계 로드 ──
+    #   🚀 [v83.87] 집계 탭 6종을 **병렬**로 받는다 — 예전엔 한 탭씩 gviz 직렬 다운로드라
+    #     10명이 찬 방에서 분석기를 처음 켤 때 이 6번의 왕복이 그대로 '인원체크 지연'으로 보였다.
+    #     파싱 순서·표본 판정(20명/50픽)·없는 탭 허용(STAT_BAN_POS)은 전과 똑같다.
+    _TABS = ("STAT_PLAYER", "STAT_CHAMP", "STAT_SYNERGY", "STAT_NEMESIS", "STAT_BAN", "STAT_BAN_POS")
+    _tab_rows, _tab_err = {}, {}
+
+    def _load_tab(_n):
+        try: _tab_rows[_n] = _gviz_tab_csv(_n)
+        except Exception as _e: _tab_err[_n] = _e
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(_TABS)) as _ex:
+            list(_ex.map(_load_tab, _TABS))
+    except Exception:
+        for _n in _TABS:
+            if _n not in _tab_rows and _n not in _tab_err: _load_tab(_n)
+
+    def _tab(_n):
+        if _n in _tab_err: raise _tab_err[_n]      # 필수 탭 실패는 전처럼 예외 → 호출부가 원본 경로 폴백
+        return _tab_rows.get(_n) or []
+
     P = {}                      # 키 -> {name,g,w,bg,bw,rg,rw,stk}
     name_to_key = {}
-    rows = _gviz_tab_csv("STAT_PLAYER")
+    rows = _tab("STAT_PLAYER")
     h = {c: i for i, c in enumerate(rows[0])} if rows else {}
     for r in rows[1:]:
         k = str(r[h["키"]]).strip().lower()
@@ -8055,7 +8305,7 @@ def _crunch_from_aggregate(blue_players, red_players):
         if mn: name_to_key[mn] = k
     if len(P) < 20: raise RuntimeError("STAT_PLAYER 표본 부족")
     C = {}                      # 키 -> {champ: {"n":판수,"w":승, "pos":{한글포지션:(n,w)}}}
-    rows = _gviz_tab_csv("STAT_CHAMP")
+    rows = _tab("STAT_CHAMP")
     h = {c: i for i, c in enumerate(rows[0])} if rows else {}
     for r in rows[1:]:
         k = str(r[h["키"]]).strip().lower(); c = str(r[h["챔피언"]]).strip()
@@ -8067,22 +8317,22 @@ def _crunch_from_aggregate(blue_players, red_players):
             pn, pw_ = e["pos"].get(pos, (0, 0)); e["pos"][pos] = (pn + n, pw_ + w)
     if sum(len(v) for v in C.values()) < 50: raise RuntimeError("STAT_CHAMP 표본 부족")
     SYN, NEM, BAN = {}, {}, {}
-    rows = _gviz_tab_csv("STAT_SYNERGY")
+    rows = _tab("STAT_SYNERGY")
     h = {c: i for i, c in enumerate(rows[0])} if rows else {}
     for r in rows[1:]:
         SYN[(str(r[h["키A"]]).strip().lower(), str(r[h["키B"]]).strip().lower(), str(r[h["진영"]]).strip())] = (_i(r[h["판수"]]), _i(r[h["같은팀승"]]))
-    rows = _gviz_tab_csv("STAT_NEMESIS")
+    rows = _tab("STAT_NEMESIS")
     h = {c: i for i, c in enumerate(rows[0])} if rows else {}
     for r in rows[1:]:
         NEM[(str(r[h["키A"]]).strip().lower(), str(r[h["키B"]]).strip().lower())] = (_i(r[h["판수"]]), _i(r[h["A측승"]]))
-    rows = _gviz_tab_csv("STAT_BAN")
+    rows = _tab("STAT_BAN")
     h = {c: i for i, c in enumerate(rows[0])} if rows else {}
     for r in rows[1:]:
         BAN[(str(r[h["키"]]).strip().lower(), str(r[h["챔피언"]]).strip())] = (_i(r[h["밴판수"]]), _i(r[h["밴판승"]]))
     # 🎯 [v83.4] 포지션별 약점 — 호스트가 아직 옛 버전이면 이 탭이 없다. 없으면 조용히 전체 기준만 쓴다.
     BANP = {}
     try:
-        rows = _gviz_tab_csv("STAT_BAN_POS")
+        rows = _tab("STAT_BAN_POS")
         h = {c: i for i, c in enumerate(rows[0])} if rows else {}
         if {"키", "챔피언", "포지션", "밴판수", "밴판승"} <= set(h):
             for r in rows[1:]:
@@ -9970,6 +10220,43 @@ def _preload_clan_tabs():
     if got.get("CLAN_TIERS"): load_clan_tiers(rows=got["CLAN_TIERS"])             # 내부티어 SSOT(하드코딩 폴백)
     if got.get("CLAN_POSITIONS"): load_clan_positions(rows=got["CLAN_POSITIONS"])  # 선언 포지션
 
+# ===== 🗂 [v83.87] 워크시트 객체 재사용 — 매 폴링 worksheet() 메타데이터 GET 제거 =====
+#   예전: 대기실에서 1.2초마다 global_spreadsheet.worksheet("CLASSIC_NORMAL") → 시트 메타데이터 GET(할당량 소모).
+#   지금: (스프레드시트 객체, 탭이름) 기준으로 워크시트 객체를 들고 있다 그대로 쓴다.
+#         재연결로 global_spreadsheet 이 새 객체가 되면 자동 무효(객체 동일성 비교) — 옛 객체를 붙들지 않는다.
+_WS_TTL = 600.0              # 10분 — 탭이 지워졌다 다시 만들어지는 드문 경우까지 스스로 회복
+_WS_CACHE = {}
+_WS_CACHE_LOCK = threading.Lock()
+
+
+def _ws_cache_put(spreadsheet, tab_name, ws):
+    if spreadsheet is None or ws is None: return
+    try:
+        with _WS_CACHE_LOCK:
+            if len(_WS_CACHE) > 50: _WS_CACHE.clear()
+            _WS_CACHE[(id(spreadsheet), str(tab_name))] = (spreadsheet, time.time(), ws)
+    except Exception: pass
+
+
+def get_worksheet_cached(spreadsheet, tab_name):
+    """워크시트 객체 재사용 — 없으면 worksheet() 1회, 실패하면 None(호출부가 기존 폴백을 그대로 탄다)."""
+    if spreadsheet is None: return None
+    key = (id(spreadsheet), str(tab_name))
+    now = time.time()
+    try:
+        with _WS_CACHE_LOCK:
+            hit = _WS_CACHE.get(key)
+        if hit and hit[0] is spreadsheet and now - hit[1] < _WS_TTL:
+            return hit[2]
+    except Exception: pass
+    try:
+        ws = spreadsheet.worksheet(tab_name)
+    except Exception:
+        return None
+    _ws_cache_put(spreadsheet, tab_name, ws)
+    return ws
+
+
 def connect_sheet():
     """구글 시트 연결. 성공 시 global_spreadsheet 설정 후 True, 실패(429 등) 시 None 후 False.
        시작 시 한 번 실패해도 루프에서 주기적으로 재시도 → 영구 오프라인 방지.
@@ -10681,6 +10968,7 @@ def lcu_core_backend_loop():
     last_known_phase = "None"            # [V81.48] gameflow-phase 폴링 실패 시 직전 phase 유지(헛플립→game_seq 드리프트 방지)
     _roster_wait_since = {}              # [V81.48] 게임ID별 '완전 로스터 대기 시작 시각'(파편 append 방지 게이트용)
     _cs_since = [0.0]                    # 🧭 [2026-07-29] 밴픽 진입 시각 — 진입 직후 몇 초는 로비를 더 읽어 포지션 정정
+    _crunch_retry_at = [0.0]             # 🚀 [v83.87] 로비 전적 계산 실패 뒤 재시도 시각(4초) — 429 악순환 방지
     active_recording_id = None
     active_recording_sheet_name = None   # 🔥 기록 시작 시점의 시트(KIWI/CLASSIC) 고정 — finalize가 엉뚱한 시트에 쓰는 것 방지
     eog_retry_count = 0
@@ -11192,75 +11480,8 @@ def lcu_core_backend_loop():
                 if global_lock_champ_map: frozen_lock_champ = global_lock_champ_map.copy()   # 🎭 [v82.30]
 
             def parse_team(raw_list):
-                parsed = []
-                if not raw_list or not isinstance(raw_list, list): return parsed
-                fallback_pos = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
-                
-                for idx, p in enumerate(raw_list):
-                    try: 
-                        if not isinstance(p, dict): continue
-                        
-                        s_name, g_name = p.get('summonerName', ''), p.get('gameName', '')
-                        name = s_name if s_name else g_name if g_name else ""
-                        puuid, s_id = p.get('puuid', ''), p.get('summonerId', 0)
-                        
-                        if str(puuid).startswith("BOT_"):
-                            bot_champ_id = p.get('botChampionId', 0)
-                            bot_kor_name = champ_map.get(bot_champ_id, {}).get('kor', '') if champ_map else ''
-                            if not bot_kor_name: bot_kor_name = GLOBAL_NUMERIC_CHAMP_MAP.get(bot_champ_id, '봇')
-                            name = f"🤖 {bot_kor_name} 봇"
-                            puuid = f"BOT_{bot_champ_id}"
-                        else:
-                            if s_id and not name:
-                                try:
-                                    su_res = requests.get(str(base_url) + "/lol-summoner/v1/summoners/" + str(s_id), headers=headers, verify=False, timeout=2)
-                                    if su_res.status_code == 200:
-                                        data = su_res.json()
-                                        g_name = str(data.get('gameName', ''))
-                                        tag = str(data.get('tagLine', ''))
-                                        name = f"{g_name}#{tag}" if tag else g_name
-                                        if not puuid: puuid = data.get('puuid', '')
-                                except Exception: pass
-                            # 🛟 [v82.2] 토너먼트 드래프트 상대팀은 summonerId 익명화(0) → PUUID로 이름 해석
-                            if not name and puuid and not str(puuid).startswith(("BOT_", "TEMP")):
-                                try:
-                                    su2_res = requests.get(str(base_url) + "/lol-summoner/v2/summoners/puuid/" + str(puuid), headers=headers, verify=False, timeout=2)
-                                    if su2_res.status_code == 200:
-                                        data2 = su2_res.json()
-                                        g_name2 = str(data2.get('gameName', ''))
-                                        tag2 = str(data2.get('tagLine', ''))
-                                        name = f"{g_name2}#{tag2}" if tag2 else g_name2
-                                except Exception: pass
-                            if not name: name = "알 수 없는 유저"
-                            if not puuid: puuid = f"TEMP_ID_{s_id}_{name}"
-                        
-                        raw_pos = str(p.get('assignedPosition', '')).upper()
-                        if not raw_pos or raw_pos in ['NONE', 'UNSELECTED', '']: raw_pos = str(p.get('firstPositionPreference', '')).upper()
-                        if not raw_pos or raw_pos in ['NONE', 'UNSELECTED', '']: raw_pos = str(p.get('position', '')).upper()
-                        if not raw_pos or raw_pos in ['NONE', 'UNSELECTED', '']: raw_pos = str(p.get('role', '')).upper()
-                        
-                        if raw_pos not in fallback_pos:
-                            raw_pos = fallback_pos[idx] if idx < 5 else "NONE"
-                            
-                        chosen_pos_icon_key = raw_pos
-                        rank_tier, rank_lp = "UNRANKED", 0
-
-                        try:
-                            if puuid and not puuid.startswith("TEMP"):
-                                rank_res = requests.get(str(base_url) + "/lol-ranked/v1/ranked-stats/" + str(puuid), headers=headers, verify=False, timeout=2)
-                                if rank_res.status_code == 200:
-                                    r_json = rank_res.json() or {}
-                                    for q in r_json.get('queues') or []:
-                                        if isinstance(q, dict) and q.get('queueType') == 'RANKED_SOLO_5x5':
-                                            rank_tier = str(q.get('tier', 'UNRANKED')).upper(); rank_lp = q.get('leaguePoints', 0); break
-                        except Exception: pass
-                                
-                        parsed.append({'name': name, 'puuid': puuid, 'chosen_pos_icon': chosen_pos_icon_key, 'tier_icon': rank_tier, 'lp': rank_lp, 'original_idx': idx})
-                    except Exception: pass
-                    
-                pw = {"TOP": 0, "JUNGLE": 1, "MIDDLE": 2, "BOTTOM": 3, "UTILITY": 4, "NONE": 5}
-                parsed.sort(key=lambda x: (pw.get(x['chosen_pos_icon'], 5), x.get('original_idx', 99))) 
-                return parsed
+                # 🚀 [v83.87] 실제 조회는 모듈 함수 _parse_team 이 한다(병렬 2라운드 + TTL 캐시) — 루프는 인자만 묶어 준다.
+                return _parse_team(raw_list, base_url, headers, champ_map)
 
             FREEZE_PHASES = ["ChampSelect", "GameStart", "InProgress", "PreEndOfGame", "EndOfGame", "Reconnect", "WaitingForStats"]
             is_frozen = current_phase in FREEZE_PHASES or (current_phase == "None" and (global_cached_blue or global_cached_red))
@@ -11343,22 +11564,28 @@ def lcu_core_backend_loop():
                       f"custom={is_custom_game_flag} aram={is_aram_session} → {target_sheet_name}", flush=True)
 
             if is_valid_game and global_spreadsheet:
-                try: sheet_target = global_spreadsheet.worksheet(target_sheet_name)
-                except Exception:
+                # 🗂 [v83.87] 매 폴링 worksheet()(시트 메타데이터 GET) 대신 캐시된 워크시트 객체를 그대로 쓴다
+                sheet_target = get_worksheet_cached(global_spreadsheet, target_sheet_name)
+                if sheet_target is None:
                     try:
                         sheet_target = global_spreadsheet.add_worksheet(title=target_sheet_name, rows="2000", cols="12")
                         sheet_target.append_row(["게임ID", "날짜", "소환사명", "PUUID", "진영", "포지션", "챔피언", "밴", "결과", "KDA", "매치평가", "패치버전", "점수", "딜량"])
-                    except Exception: sheet_target = global_spreadsheet.get_worksheet(0)
+                        _ws_cache_put(global_spreadsheet, target_sheet_name, sheet_target)
+                    except Exception:
+                        try: sheet_target = global_spreadsheet.get_worksheet(0)
+                        except Exception: sheet_target = None
             else: sheet_target = None
 
-            if (lobby_fingerprint != last_lobby_fingerprint) and need_stat_crunch:
-                if sheet_target: 
-                    cached_stats, cached_pos, cached_neg, cached_nem = crunch_sheet_statistics(temp_blue, temp_red, sheet_target)
-                else: 
-                    cached_stats, cached_pos, cached_neg, cached_nem = {}, [], [], []
-                    
+            # 📌 [v83.87] 전적 계산이 실제로 '화면에 들어갔을 때만' last_lobby_fingerprint 를 찍는다.
+            #    예전엔 시트 연결 전(sheet_target None)에도 찍혀서, 백그라운드 연결이 끝나도 다시 계산하지 않아
+            #    로비 인원 전적이 빈 채로 굳었다(v83.86 에서 시트 연결을 백그라운드로 뺀 뒤 생긴 구멍).
+            _stat_dec = _lobby_stat_decision(lobby_fingerprint, last_lobby_fingerprint, need_stat_crunch,
+                                             sheet_target, _crunch_retry_at[0], time.time())
+            if _stat_dec == "calc":
+                cached_stats, cached_pos, cached_neg, cached_nem = crunch_sheet_statistics(temp_blue, temp_red, sheet_target)
                 if not cached_stats and len(temp_blue + temp_red) > 0:
-                    pass 
+                    # 집계·원본 읽기가 모두 실패(429 등) — fingerprint 를 남기지 않고 4초 뒤 다시 시도한다.
+                    _crunch_retry_at[0] = time.time() + _CRUNCH_RETRY_SEC
                 else:
                     final_blue = []
                     for p in temp_blue:
@@ -11381,8 +11608,7 @@ def lcu_core_backend_loop():
                         gui_data["pos_synergy"] = "\n".join(cached_pos) if cached_pos else " - 특이사항 없음 (안정적)"
                         gui_data["neg_synergy"] = "\n".join(cached_neg) if cached_neg else " - 특이사항 없음 (평온)"
                         gui_data["nemesis_synergy"] = "\n".join(cached_nem) if cached_nem else " - 상성 매칭 없음 (평온)"
-                        
-                last_lobby_fingerprint = lobby_fingerprint
+                    last_lobby_fingerprint = lobby_fingerprint
 
             with gui_lock:
                 if current_phase == "Lobby":
