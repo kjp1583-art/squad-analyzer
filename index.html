@@ -11101,6 +11101,10 @@ function embPaint(){
    팀 이름은 AUC.GG 팀장 표기. MYEOL10_MAIN_START(본선 개막 시각)를 채우면 그 뒤의 같은 조 팀끼리 붙은 판이 승패표에 자동으로 들어간다(채우기 전엔 스크림으로만 센다). */
 const MYEOL10_GROUPS=[{g:"A조",caps:["하 오","허거덩","택 스","앙앵모르딱"]},{g:"B조",caps:["우 거","지 르","SIAH K","수직낙하하는중"]},{g:"C조",caps:["카무사리","해 원","프 싱","뀨잉언진"]}];
 const MYEOL10_GROUPS_BY={10:MYEOL10_GROUPS};
+/* 🏳️ [2026-11-28 사장님 「프싱vs뀨잉언진 프싱팀이 몰수패당했으니까 패배처리」] 본선 몰수 경기 — 판 기록(시트)이 없으니 손으로 올린다.
+   win/lose 는 조편성 표기(MYEOL10_GROUPS). 조별 승패표·팀 페이지 경기 일정·전적에 「몰수」로 들어간다(밴픽·개인 전적에는 판이 없으니 안 들어간다). */
+const MYEOL_FORFEITS={10:[{win:"뀨잉언진",lose:"프 싱",at:"2026-11-28T19:00:00+09:00"}]};
+function _myeolForfeits(ed){ return (MYEOL_FORFEITS[ed]||[]).map(f=>({day:new Date(f.at),gid:"ff:"+f.win+"|"+f.lose,win:f.win,lose:f.lose,ff:true})); }
 /* 🗓️ [2026-11-27 사장님 「#🎀대회공지🎀(11/10~11/21) 일정·규칙 반영」] 제10회 공식 일정 — 예선 11/28(토) 19:00 · 4강 11/29(일) 16:00 · 결승 11/29(일) 19:00.
    본선(예선) 개막 = 11/28 19:00 KST. 이 시각 **전** 판 = 스크림, **이후** 판 = 본선으로 자동 집계된다
    (조별 표 · 팀 페이지 단계 · 밴픽률 스크림/본선 분리 · 시리즈 묶음이 모두 `_myeolMainCut` 한 값을 본다). 제9회·다른 회차 로직은 그대로. */
@@ -11134,18 +11138,19 @@ function myeolGroups10Html(cfg){
   const S=_myeolScrimsFor(cfg); const cut=_myeolMainCut(10); const list=(S&&cut)?S.list.filter(m=>m.day>=cut):[];
   const cards=GR.map(G=>{
     const names=G.caps.map(c=>capOf.get(_embNk(c))||c), nks=names.map(_embNk);
-    const ms=list.filter(m=>nks.includes(_embNk(m.win))&&nks.includes(_embNk(m.lose)));
-    const res=(a,b)=>{ const w=ms.filter(m=>_embNk(m.win)===a&&_embNk(m.lose)===b).length, l=ms.filter(m=>_embNk(m.win)===b&&_embNk(m.lose)===a).length; return w||l?{w,l}:null; };
+    const ms=list.concat(_myeolForfeits(10)).filter(m=>nks.includes(_embNk(m.win))&&nks.includes(_embNk(m.lose)));
+    const res=(a,b)=>{ const w=ms.filter(m=>_embNk(m.win)===a&&_embNk(m.lose)===b).length, l=ms.filter(m=>_embNk(m.win)===b&&_embNk(m.lose)===a).length, ff=ms.some(m=>m.ff&&[a,b].includes(_embNk(m.win))&&[a,b].includes(_embNk(m.lose))); return w||l?{w,l,ff}:null; };
     const rec=nks.map(k=>({k,w:ms.filter(m=>_embNk(m.win)===k).length,l:ms.filter(m=>_embNk(m.lose)===k).length}));
     const order=rec.map((r,i)=>({...r,i})).sort((x,y)=>(y.w-x.w)||(x.l-y.l)||(x.i-y.i)); const rk=new Map(order.map((r,n)=>[r.k,n+1]));
     const short=n=>n.length>5?n.slice(0,4)+"…":n;
     const head=`<tr><th></th>${names.map(n=>`<th>${esc(short(n))}</th>`).join("")}<th>승-패</th><th>순위</th></tr>`;
     const rows=names.map((n,i)=>`<tr><th class="gt-tm">${teamEmblem(n,20,10)}<span>${teamLink(n,10)}</span></th>${names.map((m,j)=>{
       if(i===j) return `<td class="gt-x"></td>`; const r=res(nks[i],nks[j]);
-      return `<td>${r?(r.w>r.l?`<b class="w">승</b>`:(r.l>r.w?`<b class="l">패</b>`:`<b>${r.w}-${r.l}</b>`)):`<span class="muted">·</span>`}</td>`; }).join("")}<td><b>${rec[i].w}</b>-${rec[i].l}</td><td class="gt-rk">${ms.length?rk.get(nks[i]):"-"}</td></tr>`).join("");
+      const ffT=r&&r.ff?`<small class="muted" title="몰수 경기"> 몰수</small>`:"";
+      return `<td>${r?(r.w>r.l?`<b class="w">승</b>${ffT}`:(r.l>r.w?`<b class="l">패</b>${ffT}`:`<b>${r.w}-${r.l}</b>`)):`<span class="muted">·</span>`}</td>`; }).join("")}<td><b>${rec[i].w}</b>-${rec[i].l}</td><td class="gt-rk">${ms.length?rk.get(nks[i]):"-"}</td></tr>`).join("");
     return `<div class="gt-card"><div class="gt-h">${esc(G.g)}</div><div class="gt-scroll"><table class="gt-t">${head}${rows}</table></div></div>`;
   }).join("");
-  return `<div class="gt-grid">${cards}</div><div class="mx-foot">${list.length?"조별 풀리그(조 안에서 한 번씩) 결과가 자동으로 채워져요.":`${esc(MYEOL10_SCHED[0].when)} 예선 개막 전이에요 — 개막하면 같은 조 팀끼리 붙은 판이 여기에 자동으로 들어와요.`}</div>`;
+  return `<div class="gt-grid">${cards}</div><div class="mx-foot">${(list.length||_myeolForfeits(10).length)?"조별 풀리그(조 안에서 한 번씩) 결과가 자동으로 채워져요.":`${esc(MYEOL10_SCHED[0].when)} 예선 개막 전이에요 — 개막하면 같은 조 팀끼리 붙은 판이 여기에 자동으로 들어와요.`}</div>`;
 }
 /* 🛡 [2026-11-23 사장님 「각 팀당 팀 페이지 — 선수·경기 일정·팀 정보, 넣을 만하면 다」] 멸망전 팀 페이지(#team/<회차>/<팀장>).
    선수 카드(포지션·티어·낙찰가와 평가·전투력·이 대회 전적·통산) · 경기 일정(스크림/본선) · 팀 정보(순위·지출·적정가 대비·라인업·조·역대 기록) · 엠블럼 꾸미기.
@@ -11214,7 +11219,7 @@ function renderTeam(arg){
   if(!T){ view().innerHTML=head+`<div class="card tp-root"><div class="muted">${esc(E.label)}에 「${esc(cap)}」 팀이 없어요.</div></div>`; return; }
   const TC=_myeolTeamsCalc(E.cfg);
   if(!TC){ view().innerHTML=head+`<div class="card tp-root"><div class="muted">데이터 로딩 후 표시됩니다.</div></div>`; return; }
-  const S=E.cfg?_myeolScrimsFor(E.cfg):_myeolScrims(); const list=S?S.list.slice().sort((a,b)=>b.day-a.day||String(b.gid).localeCompare(String(a.gid))):[];
+  const S=E.cfg?_myeolScrimsFor(E.cfg):_myeolScrims(); const list=S?S.list.concat(_myeolForfeits(ed)).sort((a,b)=>b.day-a.day||String(b.gid).localeCompare(String(a.gid))):[];
   const A=teamStatsIn(E,T.cap,list)||{st:new Map(),games:[],nk:n=>_myNk(n)};
   const TR=TC.find(x=>_myNk(x.cap)===_myNk(T.cap)), rank=TC.findIndex(x=>_myNk(x.cap)===_myNk(T.cap))+1;
   const nk=A.nk, W=A.games.filter(g=>g.won).length, L=A.games.length-W;
@@ -11250,7 +11255,7 @@ function renderTeam(arg){
   // 경기 일정
   const fmtD=d=>`${String(d.getFullYear()).slice(2)}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
   const gHtml=A.games.length?A.games.map(g=>{ const stage=_myeolStage(ed,g.day); const my=teamEmblem(T.cap,22,ed), op=teamEmblem(g.opp,22,ed);
-    return `<div class="tp-m ${g.won?'w':'l'}" onclick="go('vs','${ed}|${escAttr(g.gid)}')"><span class="tp-md">${fmtD(g.day)}</span><span class="tp-ms">${stage}</span>
+    return `<div class="tp-m ${g.won?'w':'l'}"${g.ff?` title="몰수 경기 — ${escAttr(g.lose)} 팀 몰수패"`:` onclick="go('vs','${ed}|${escAttr(g.gid)}')"`}><span class="tp-md">${fmtD(g.day)}</span><span class="tp-ms">${stage}${g.ff?" · 몰수":""}</span>
       <span class="tp-mt r">${esc(T.cap)} ${my}</span><span class="tp-sc"><b class="${g.won?'w':''}">${g.won?1:0}</b><b class="${g.won?'':'w'}">${g.won?0:1}</b></span><span class="tp-mt">${op} ${teamLink(g.opp,ed)}</span><i class="tp-ar">›</i></div>`; }).join(""):`<div class="muted" style="padding:14px">아직 팀 대 팀 경기 기록이 없어요.</div>`;
   const D=TR?`${TR.sum==null?"-":TR.sum.toFixed(1)} ${TR.adj>=0?"+":"−"}${Math.abs(TR.adj).toFixed(1)}`:"-";
   const info=(k,v)=>v?`<div class="tp-ln"><span>${k}</span><b>${v}</b></div>`:"";
@@ -14791,7 +14796,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611271833";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611281945";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;

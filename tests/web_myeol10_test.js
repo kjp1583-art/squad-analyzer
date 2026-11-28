@@ -58,7 +58,7 @@ srv.listen(0,'127.0.0.1',async()=>{ const port=srv.address().port;
   ok(/팀장가/.test(D.html2)&&/가원딜/.test(D.html2),'봇듀오 화면에 이름이 나온다');
   ok(D.mj===true,'미드·정글 화면도 그려진다');
   ok(/팀장가/.test(D.scr)&&/승/.test(D.scr),'스크림 전적 목록에 팀과 승이 나온다');
-  ok(r.grpN===3&&/A조/.test(r.grp)&&/B조/.test(r.grp)&&/C조/.test(r.grp)&&/개막 전/.test(r.grp),'제10회 본선 조편성이 A·B·C조 3칸으로 그려진다(개막 전)');
+  ok(r.grpN===3&&/A조/.test(r.grp)&&/B조/.test(r.grp)&&/C조/.test(r.grp)&&/개막 전|자동으로 채워져요/.test(r.grp),'제10회 본선 조편성이 A·B·C조 3칸으로 그려진다');
   ok(/팀장가 스크림 기록/.test(r.scrSel)&&/2경기 2승 0패/.test(r.scrSel)&&/전체 보기/.test(r.scrSel),'스크림 순위표에서 팀을 고르면 그 팀 경기만 나온다(2경기 2승 0패 · 전체 보기 버튼)');
   ok(r.s===1,'경매가 끝난 뒤의 팀 대 팀 판 1개를 스크림 승패로 읽는다');
   ok(/지출 1,?\d*P?/.test(r.rank)||/지출/.test(r.rank),'파워랭킹에 지출이 나온다');
