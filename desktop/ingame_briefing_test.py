@@ -36,7 +36,7 @@ TREE = ast.parse(SRC_TEXT)
 _DEFS = {n.name: n for n in TREE.body if isinstance(n, ast.FunctionDef)}
 
 BRIEF_FUNCS = (
-    "_brief_base_name", "_brief_sv", "_brief_pos_norm", "_brief_live_pos", "_brief_main_pos",
+    "_brief_base_name", "_brief_sv", "_brief_pos_norm", "_brief_ira", "_brief_live_pos", "_brief_main_pos",
     "_brief_match_live", "_brief_direction_lines", "_brief_trim", "_build_ingame_briefing",
     "_brief_game_key", "_brief_claim", "_ingame_briefing_tick", "_ingame_briefing_worker",
     "_brief_champ_by_id", "_brief_pseudo_live",
@@ -87,7 +87,7 @@ def make_ns(comp_report=None, config=None, live_json=None, threading_mod=None,
         "_BRIEF_GUARD": threading.Lock(),
         "_BRIEF_STATE": {"pending": False, "last_try": 0.0},
         "_BRIEF_TAG": [0],
-        "INGAME_BRIEF_MAX_CHARS": 110,
+        "INGAME_BRIEF_MAX_CHARS": 100,
         "INGAME_BRIEF_MAX_GAMETIME": 120,
         "INGAME_BRIEF_MIN_CHAMPS": 6,
         "APP_CONFIG": dict(config if config is not None else {"ingame_tts_briefing": True}),
@@ -167,7 +167,7 @@ class BriefingTest(unittest.TestCase):
     def test_win_rate_blue_side(self):
         ns = load(make_ns())
         out = ns["_build_ingame_briefing"]({"my_side": "blue", "blue_wr": 54})
-        self.assertIn("우리 팀 예상 승률 54퍼센트입니다.", out[0])
+        self.assertIn("우리 팀 예상 승률 54퍼센트, 팽팽한 판이에요.", out[0])
 
     def test_win_rate_red_side_flips(self):
         ns = load(make_ns())
@@ -179,7 +179,7 @@ class BriefingTest(unittest.TestCase):
     def test_win_rate_favoured_and_behind(self):
         ns = load(make_ns())
         self.assertIn("유리", ns["_build_ingame_briefing"]({"my_side": "blue", "blue_wr": 72})[0])
-        self.assertIn("상대가 앞섭니다", ns["_build_ingame_briefing"]({"my_side": "blue", "blue_wr": 30})[0])
+        self.assertIn("상대가 좀 앞서요", ns["_build_ingame_briefing"]({"my_side": "blue", "blue_wr": 30})[0])
 
     def test_win_rate_clamped(self):
         ns = load(make_ns())
@@ -199,8 +199,8 @@ class BriefingTest(unittest.TestCase):
                "blue": [(P("아군원딜#KR1", "a1"), S(4)), (P("아군서폿#KR1", "a2"), S(0))],
                "red": [(P("상대정글#KR1", "b1"), S(6)), (P("상대탑#KR1", "b2"), S(-3))]}
         text = " ".join(ns["_build_ingame_briefing"](ctx))
-        self.assertIn("상대 상대정글님이 6연승", text)
-        self.assertIn("우리 팀 아군원딜님이 4연승", text)
+        self.assertIn("상대 상대정글님 6연승", text)
+        self.assertIn("우리 팀 아군원딜님 4연승", text)
         self.assertLess(text.index("상대정글"), text.index("아군원딜"))   # 상대 연승이 먼저
         self.assertNotIn("상대탑", text)                                # 3명째는 10~15초 때문에 생략
 
@@ -216,7 +216,7 @@ class BriefingTest(unittest.TestCase):
         ns = load(make_ns())
         ctx = {"my_side": "blue", "blue_wr": 50,
                "blue": [(P("연패중#KR1", "a1"), S(-5))], "red": []}
-        self.assertIn("우리 팀 연패중님이 5연패 중입니다", " ".join(ns["_build_ingame_briefing"](ctx)))
+        self.assertIn("우리 팀 연패중님은 5연패 중이라", " ".join(ns["_build_ingame_briefing"](ctx)))
 
     # ── ③ 상대 라인 꼬임 ──────────────────────────────────────────
     def _cidx(self, pos_counts):
@@ -230,7 +230,7 @@ class BriefingTest(unittest.TestCase):
                          "position": "BOTTOM", "championName": "Jinx"}],
                "cidx": self._cidx({"TOP": 8, "MIDDLE": 2})}
         text = " ".join(ns["_build_ingame_briefing"](ctx))
-        self.assertIn("상대 원딜 상대원딜님은 주라인 탑, 라인 꼬임입니다.", text)
+        self.assertIn("상대 원딜 상대원딜님, 주라인이 탑이라 라인이 꼬였어요.", text)
 
     def test_line_twist_needs_five_games(self):
         ns = load(make_ns())
@@ -258,7 +258,7 @@ class BriefingTest(unittest.TestCase):
                                             "summonerSpellTwo": {"rawDisplayName": "SummonerFlash"}}}],
                "cidx": {"by_pu": {"b1": {"pos": {"TOP": 7}}}, "nm2pu": {}}}
         # 주라인 탑인데 이번 판은 강타(정글) → 꼬임
-        self.assertIn("상대 정글 상대정글님은 주라인 탑", " ".join(ns["_build_ingame_briefing"](ctx)))
+        self.assertIn("상대 정글 상대정글님, 주라인이 탑이라", " ".join(ns["_build_ingame_briefing"](ctx)))
 
     def test_twist_only_for_enemy_side(self):
         ns = load(make_ns())
@@ -272,18 +272,18 @@ class BriefingTest(unittest.TestCase):
     def test_direction_from_comp_gap(self):
         ns = load(make_ns(comp_report=lambda a, e: {"gaps": ["앞라인(탱커) 없음"], "threats": []}))
         ctx = {"my_side": "blue", "blue_wr": 50, "champs": {"blue": ["진"], "red": ["가렌"]}}
-        self.assertIn("앞라인이 없으니 받아치는 싸움을 하세요.",
+        self.assertIn("앞라인이 없으니까, 받아치는 싸움을 하세요.",
                       ns["_build_ingame_briefing"](ctx)[-1])
 
     def test_direction_from_threat_when_no_gap(self):
         ns = load(make_ns(comp_report=lambda a, e: {"gaps": [], "threats": ["스케일링 2+ — …"]}))
         ctx = {"my_side": "blue", "blue_wr": 50, "champs": {"blue": ["진"], "red": ["가렌"]}}
-        self.assertIn("상대 스케일링이 좋으니 초반에 굴리세요.", ns["_build_ingame_briefing"](ctx)[-1])
+        self.assertIn("상대 스케일링이 좋으니까, 초반에 굴리세요.", ns["_build_ingame_briefing"](ctx)[-1])
 
     def test_direction_neutral_when_comp_unknown(self):
         ns = load(make_ns(comp_report=lambda a, e: {"gaps": [], "threats": []}))
         ctx = {"my_side": "blue", "blue_wr": 50, "champs": {"blue": ["진"], "red": ["가렌"]}}
-        self.assertIn("조합은 무난하니", ns["_build_ingame_briefing"](ctx)[-1])
+        self.assertIn("조합은 무난하니까", ns["_build_ingame_briefing"](ctx)[-1])
 
     def test_ai_comment_replaces_rule_direction(self):
         ns = load(make_ns(comp_report=lambda a, e: {"gaps": ["앞라인(탱커) 없음"], "threats": []}))
@@ -291,7 +291,7 @@ class BriefingTest(unittest.TestCase):
                "ai_comment": "초반 2레벨 갱으로 탑을 풀어주세요."}
         out = ns["_build_ingame_briefing"](ctx)
         self.assertEqual(out[-1], "초반 2레벨 갱으로 탑을 풀어주세요.")
-        self.assertNotIn("앞라인이 없으니", " ".join(out))
+        self.assertNotIn("앞라인이 없으니까", " ".join(out))
 
     # ── ⑤ 길이 상한 ────────────────────────────────────────────────
     def test_length_capped_but_direction_kept(self):
@@ -417,8 +417,8 @@ class BriefingTest(unittest.TestCase):
         ns["os"] = types.SimpleNamespace(name="nt", path=os.path, remove=os.remove, getpid=os.getpid)
         ns["tempfile"] = __import__("tempfile")
         ns["INGAME_TTS_VOICE"] = "ko-KR-SunHiNeural"
-        ns["INGAME_TTS_RATE"] = "+10%"
-        ns["INGAME_TTS_PITCH"] = "+6Hz"
+        ns["INGAME_TTS_RATE"] = "-8%"
+        ns["INGAME_TTS_PITCH"] = "+1Hz"
         saved = sys.modules.get("edge_tts")
         sys.modules["edge_tts"] = None          # 'import edge_tts' → ImportError (미설치 재현)
         try:
@@ -430,6 +430,53 @@ class BriefingTest(unittest.TestCase):
     def test_speak_empty_text_noop(self):
         ns = load_one(load(make_ns()), "_speak_neural_tts")
         self.assertFalse(ns["_speak_neural_tts"](""))
+
+    # ── ⑩ 전화 톤·말속도 (v83.85) ────────────────────────────────
+    def test_tts_slower_calmer_constants(self):
+        # 2026-11-29 사장님 피드백 "전화하는 톤으로, 말속도가 너무 빨라" — 값이 되돌아가지 않게 고정한다
+        self.assertIn('INGAME_TTS_VOICE = "ko-KR-SunHiNeural"', SRC_TEXT)
+        self.assertIn('INGAME_TTS_RATE = "-8%"', SRC_TEXT)
+        self.assertIn('INGAME_TTS_PITCH = "+1Hz"', SRC_TEXT)
+        m = re.search(r"^INGAME_BRIEF_MAX_CHARS = (\d+)", SRC_TEXT, re.M)
+        self.assertIsNotNone(m)
+        cap = int(m.group(1))
+        self.assertGreaterEqual(cap, 95)     # 느려진 만큼 길이도 조여야 한다
+        self.assertLessEqual(cap, 105)
+
+    def test_briefing_reads_in_phone_haeyo_style(self):
+        # 안내문체(~입니다/~합니다/~합니다체)는 하나도 남지 않아야 한다 — 전화로 귀띔하듯 해요체만
+        ns = load(make_ns())
+        cases = [
+            {"my_side": "blue", "blue_wr": 72},
+            {"my_side": "blue", "blue_wr": 54},
+            {"my_side": "red", "blue_wr": 30},
+            {"my_side": "", "blue_wr": 44},
+            {"my_side": "blue", "blue_wr": 50,
+             "blue": [(P("아군원딜#KR1", "a1"), S(4)), (P("아군탑#KR1", "a2"), S(-3))],
+             "red": [(P("상대정글#KR1", "b1"), S(6)), (P("상대서폿#KR1", "b2"), S(-4))]},
+        ]
+        for ctx in cases:
+            with self.subTest(ctx=ctx):
+                text = " ".join(ns["_build_ingame_briefing"](ctx))
+                self.assertTrue(text)
+                for stiff in ("입니다", "합니다", "습니다", "하십시오"):
+                    self.assertNotIn(stiff, text)
+
+    def test_phone_tone_phrasing_examples(self):
+        # 사장님이 요청한 예문 그대로(쉼표 호흡까지)
+        ns = load(make_ns())
+        self.assertEqual(ns["_build_ingame_briefing"]({"my_side": "blue", "blue_wr": 72})[0],
+                         "우리 팀 예상 승률 72퍼센트, 우리 쪽이 좀 유리해요.")
+        self.assertEqual(ns["_build_ingame_briefing"]({"my_side": "blue", "blue_wr": 38})[0],
+                         "우리 팀 예상 승률 38퍼센트, 상대가 좀 앞서요.")
+        self.assertEqual(ns["_build_ingame_briefing"]({"my_side": "blue", "blue_wr": 50})[0],
+                         "우리 팀 예상 승률 50퍼센트, 팽팽한 판이에요.")
+        self.assertEqual(ns["_build_ingame_briefing"]({"my_side": "", "blue_wr": 52})[0],
+                         "예상 승률은 블루 52퍼센트, 레드 48퍼센트예요.")
+
+    def test_ai_comment_prompt_asks_for_phone_tone(self):
+        self.assertIn("전화 통화로 팀원에게 귀띔하듯", SRC_TEXT)
+        self.assertIn("쉼표를 넣어 천천히 말하기 좋게", SRC_TEXT)
 
     # ── 소스 연결 확인 ─────────────────────────────────────────────
     def test_trigger_wired_in_polling_loop(self):
@@ -535,7 +582,7 @@ class KoreanChampTest(unittest.TestCase):
         # 한글 챔프가 조합 분석까지 전달돼야 방향성 문장이 나온다
         self.assertEqual(seen.get("ally"), ["아리", "리 신", "가렌", "진", "미스 포츈"])
         self.assertIn("누누와 윌럼프", seen.get("enemy") or [])
-        self.assertIn("앞라인이 없으니", spoken[0])
+        self.assertIn("앞라인이 없으니까", spoken[0])
 
     def test_worker_waits_when_korean_unknown_champs_missing(self):
         # 챔프가 아직 안 뜨는 로딩 상태(championName='')는 계속 미룬다
@@ -607,8 +654,8 @@ class GameStartBriefingTest(unittest.TestCase):
         self.assertEqual(len(spoken), 1, f"로딩창에서 브리핑이 나오지 않음: {spoken}")
         self.assertIn("예상 승률", spoken[0])
         self.assertIn("58", spoken[0])                      # my_puuid 로 우리 진영(블루)을 찾아 58%
-        self.assertIn("상대 레드0님이 5연승", spoken[0])       # 로스터 연승은 밴픽 캐시로 이미 알고 있다
-        self.assertIn("앞라인이 없으니", spoken[0])           # 확정 픽 → 조합 분석까지 로딩창에서
+        self.assertIn("상대 레드0님 5연승", spoken[0])       # 로스터 연승은 밴픽 캐시로 이미 알고 있다
+        self.assertIn("앞라인이 없으니까", spoken[0])           # 확정 픽 → 조합 분석까지 로딩창에서
         self.assertEqual(seen["a"], ["아리", "리 신", "가렌", "진", "미스 포츈"])
         self.assertEqual(seen["e"], ["카이사", "누누와 윌럼프", "진", "아리", "가렌"])
         self.assertIn("roster:x", ns["_BRIEFED_GAMES"])
@@ -660,7 +707,7 @@ class GameStartBriefingTest(unittest.TestCase):
         ns, spoken, _seen = self._ns(cidx=cidx)
         ns["_ingame_briefing_worker"]("id:14", self.blue(), self.red(),
                                       phase="GameStart", my_puuid="a1", lock_champs=self.LOCK)
-        self.assertIn("상대 탑 레드0님은 주라인 미드, 라인 꼬임입니다.", spoken[0])
+        self.assertIn("상대 탑 레드0님, 주라인이 미드라 라인이 꼬였어요.", spoken[0])
 
     def test_pseudo_live_shape(self):
         ns = load(real_champ_ns())

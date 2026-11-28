@@ -9930,11 +9930,14 @@ def connect_sheet():
 #   ⚠️ 이 블록은 LCU 폴링 루프에서 불리지만 **절대 블로킹하지 않는다**(스레드만 띄운다).
 #      edge-tts 미설치·네트워크 실패·비Windows 는 크래시 없이 로그만 남기고 끝난다.
 INGAME_BRIEF_MAX_GAMETIME = 120     # 이 인게임 시각(초)을 넘으면 브리핑하지 않는다
-INGAME_BRIEF_MAX_CHARS = 110       # 음성 길이 상한 — 한국어 뉴럴 TTS 실측 약 7자/초 → 110자 ≒ 15초(max_chars)
+INGAME_BRIEF_MAX_CHARS = 100       # 음성 길이 상한 — [v83.85] 속도를 -8%로 늦춘 만큼 줄였다(느린 TTS 약 6자/초 → 100자 ≒ 16초)
 INGAME_BRIEF_MIN_CHAMPS = 6        # 로딩 중 챔프가 덜 찬 상태로 읽지 않는다(10명 중 이만큼 차면 시작)
 INGAME_TTS_VOICE = "ko-KR-SunHiNeural"
-INGAME_TTS_RATE = "+10%"
-INGAME_TTS_PITCH = "+6Hz"
+# 🎙 [2026-11-29 사장님 피드백] "전화하는 톤으로 더빙해야 할 것 같고, 말속도가 지금은 너무 빨라"
+#    한국어 뉴럴 음성은 SunHiNeural 1종뿐이라 전화용 보이스 엔진은 못 넣는다 — 대신 속도를 낮추고
+#    음높이를 눌러 '전화로 귀띔하듯' 들리게 맞췄다. (+10%/+6Hz → -8%/+1Hz)
+INGAME_TTS_RATE = "-8%"
+INGAME_TTS_PITCH = "+1Hz"
 _BRIEFED_GAMES = set()             # 브리핑을 이미 처리한 gameId(같은 판 두 번 읽기 방지)
 _BRIEF_GUARD = threading.Lock()
 _BRIEF_STATE = {"pending": False, "last_try": 0.0}   # pending=작업 스레드 진행 중, last_try=마지막 시도 시각
@@ -9957,6 +9960,12 @@ def _brief_pos_norm(v):
     v = str(v or "").strip()
     if not v: return ""
     return _BRIEF_POS_KO.get(v.upper(), v)
+
+def _brief_ira(word):
+    """포지션 단어 뒤 '이라/라' — 받침이 있으면 '이라'(탑·정글·원딜·서폿), 없으면 '라'(미드)."""
+    c = str(word or "").strip()[-1:]
+    if "가" <= c <= "힣" and (ord(c) - 0xAC00) % 28: return "이라"
+    return "라"
 
 def _brief_live_pos(lp):
     """인게임 playerlist 한 명의 실제 포지션 — position 우선, 비면 강타(정글)로 추정."""
@@ -10041,27 +10050,28 @@ def _brief_champ_kor(eng):
     return kor
 
 def _brief_direction_lines(rep):
-    """_comp_report 결과 → 플레이 방향성 1~2문장(규칙 기반 · AI 코멘트가 없을 때의 폴백)."""
+    """_comp_report 결과 → 플레이 방향성 1~2문장(규칙 기반 · AI 코멘트가 없을 때의 폴백).
+       [v83.85] 안내문이 아니라 전화로 귀띔하듯 — 해요체 + 쉼표 호흡으로 말한다."""
     rep = rep or {}
     out = []
     for g in (rep.get("gaps") or []):
         g = str(g)
-        if "앞라인" in g: out.append("앞라인이 없으니 받아치는 싸움을 하세요.")
-        elif "AP 딜" in g: out.append("AP가 없으니 초반에 굴리세요.")
-        elif "AD 딜" in g: out.append("AD가 없으니 초반 교전으로 푸세요.")
-        elif "하드CC" in g: out.append("하드CC가 없으니 먼저 물지 마세요.")
-        elif "이니시" in g: out.append("이니시·포킹이 없으니 시야와 스플릿으로 푸세요.")
+        if "앞라인" in g: out.append("앞라인이 없으니까, 받아치는 싸움을 하세요.")
+        elif "AP 딜" in g: out.append("AP가 없으니까, 초반부터 굴리세요.")
+        elif "AD 딜" in g: out.append("AD가 없으니까, 초반 교전으로 풀어가세요.")
+        elif "하드CC" in g: out.append("하드CC가 없으니까, 먼저 물지는 마세요.")
+        elif "이니시" in g: out.append("이니시나 포킹이 없으니까, 시야 싸움과 스플릿으로 풀어가세요.")
         if len(out) >= 2: break
     if not out:
         for t in (rep.get("threats") or []):
             t = str(t)
-            if "스케일링" in t: out.append("상대 스케일링이 좋으니 초반에 굴리세요."); break
-            if "포킹" in t: out.append("상대 포킹이 강하니 사이드에 혼자 서지 마세요."); break
-            if "이니시" in t: out.append("상대 이니시가 강하니 앞라인 뒤에서 붙으세요."); break
-            if "암살" in t: out.append("상대 암살자를 조심해 혼자 다니지 마세요."); break
-            if "앞라인" in t: out.append("상대 앞라인이 두꺼우니 포킹과 스플릿으로 푸세요."); break
+            if "스케일링" in t: out.append("상대 스케일링이 좋으니까, 초반에 굴리세요."); break
+            if "포킹" in t: out.append("상대 포킹이 강하니까, 사이드에 혼자 서지는 마세요."); break
+            if "이니시" in t: out.append("상대 이니시가 강하니까, 앞라인 뒤에서 붙으세요."); break
+            if "암살" in t: out.append("상대 암살자를 조심해서, 혼자 다니지는 마세요."); break
+            if "앞라인" in t: out.append("상대 앞라인이 두꺼우니까, 포킹과 스플릿으로 풀어가세요."); break
     if not out:
-        out.append("조합은 무난하니 시야와 오브젝트에 집중하세요.")
+        out.append("조합은 무난하니까, 시야랑 오브젝트에 집중하세요.")
     return out[:2]
 
 def _brief_trim(sentences, max_chars=None):
@@ -10101,13 +10111,13 @@ def _build_ingame_briefing(ctx):
     elif my_side == "blue": mine = bw
     else: mine = None
     if mine is None:
-        out.append(f"예상 승률은 블루 {bw}퍼센트, 레드 {rw}퍼센트입니다.")
+        out.append(f"예상 승률은 블루 {bw}퍼센트, 레드 {rw}퍼센트예요.")
     elif mine >= 60:
-        out.append(f"우리 팀 예상 승률 {mine}퍼센트로 우리가 유리합니다.")
+        out.append(f"우리 팀 예상 승률 {mine}퍼센트, 우리 쪽이 좀 유리해요.")
     elif mine <= 40:
-        out.append(f"우리 팀 예상 승률 {mine}퍼센트로 상대가 앞섭니다.")
+        out.append(f"우리 팀 예상 승률 {mine}퍼센트, 상대가 좀 앞서요.")
     else:
-        out.append(f"우리 팀 예상 승률 {mine}퍼센트입니다.")
+        out.append(f"우리 팀 예상 승률 {mine}퍼센트, 팽팽한 판이에요.")
 
     # ② 연승·연패 — 상대 연승(경계) → 우리 연패 → 우리 연승 → 상대 연패 순
     ally_side = my_side
@@ -10144,22 +10154,22 @@ def _build_ingame_briefing(ctx):
             main = _brief_pos_norm(_brief_main_pos(p, cidx))
             nm = _brief_base_name(p)
             if not (actual and main and nm) or actual == main: continue
-            twist_lines.append(f"상대 {actual} {nm}님은 주라인 {main}, 라인 꼬임입니다.")
+            twist_lines.append(f"상대 {actual} {nm}님, 주라인이 {main}{_brief_ira(main)} 라인이 꼬였어요.")
             break
 
     # ② 연승·연패 — 3연승↑/3연패↓ 중 핵심만(라인 꼬임을 읽었으면 1명)
     said_ally = False
     for side, sign, n, nm in hot[:1 if twist_lines else 2]:
         if side == enemy_side:
-            out.append(f"상대 {nm}님이 {n}연승, 조심하세요." if sign > 0
-                       else f"상대 {nm}님은 {n}연패로 흔들립니다.")
+            out.append(f"상대 {nm}님 {n}연승 중이라 조심하셔야 해요." if sign > 0
+                       else f"상대 {nm}님은 {n}연패 중이라 좀 흔들리고 있어요.")
         elif side == ally_side:
             said_ally = True
-            out.append(f"우리 팀 {nm}님이 {n}연승, 흐름이 좋습니다." if sign > 0
-                       else f"우리 팀 {nm}님이 {n}연패 중입니다.")
+            out.append(f"우리 팀 {nm}님 {n}연승 중이라 흐름 좋아요." if sign > 0
+                       else f"우리 팀 {nm}님은 {n}연패 중이라, 초반만 잘 넘기면 돼요.")
         else:   # 내 진영을 모를 때 — 팀 이름으로만 말한다
             lbl = _BRIEF_SIDE_KO.get(side, "")
-            out.append(f"{lbl} {nm}님이 {n}연승입니다." if sign > 0 else f"{lbl} {nm}님은 {n}연패입니다.")
+            out.append(f"{lbl} {nm}님 {n}연승 중이에요." if sign > 0 else f"{lbl} {nm}님은 {n}연패 중이에요.")
     out.extend(twist_lines)
 
     # ④ 우리 팀 최근 흐름 — 연승/연패 인원 + 통산 승률
@@ -10176,11 +10186,11 @@ def _build_ingame_briefing(ctx):
         if said_ally:
             pass                  # 아군 연승/연패는 위에서 이미 한 줄 읽었다
         elif wrs:
-            out.append(f"우리 팀 평균 승률 {int(round(sum(wrs) / len(wrs) * 100))}퍼센트입니다.")
+            out.append(f"우리 팀 평균 승률 {int(round(sum(wrs) / len(wrs) * 100))}퍼센트예요.")
         elif ups >= 2 and downs == 0:
-            out.append("우리 팀 최근 흐름이 좋습니다.")
+            out.append("우리 팀 최근 흐름, 괜찮아요.")
         elif downs >= 2:
-            out.append("우리 팀 연패가 많으니 무리한 교전을 피하세요.")
+            out.append("우리 팀 연패가 많으니까, 무리한 교전은 피하세요.")
 
     # ⑤ 플레이 방향성 — 로컬 Claude 1문장이 있으면 그것, 없으면 조합 분석 규칙.
     #    짧아도 가장 쓸모 있는 문장이라 길이 상한에서 잘리지 않게 먼저 확정하고 앞 문장을 덜어낸다.
@@ -10197,7 +10207,13 @@ def _build_ingame_briefing(ctx):
             except Exception: rep = {}
             direction = _brief_direction_lines(rep)[:1]
     if direction:
-        out = _brief_trim(out, max(20, INGAME_BRIEF_MAX_CHARS - len(direction[0]) - 1))
+        cap_body = max(20, INGAME_BRIEF_MAX_CHARS - len(direction[0]) - 1)
+        # 🎙 [v83.85] 전화 톤으로 문장이 길어졌다 — 상한에 걸리면 연승 한 줄보다 '라인 꼬임'을 먼저 살린다
+        #    (라인 꼬임이 있어 연승은 이미 1명만 읽게 줄여 둔 상태다)
+        if twist_lines and len(" ".join(out)) > cap_body:
+            rest = [s for s in out if s not in twist_lines]
+            out = rest[:1] + twist_lines + rest[1:]
+        out = _brief_trim(out, cap_body)
     return [str(x).strip() for x in (out + direction) if str(x or "").strip()]
 
 def _brief_game_key(game_id, blue, red, game_seq=0):
@@ -10283,7 +10299,9 @@ def _brief_ai_comment(ctx):
         r = cl.messages.create(
             model=DRAFT_MODEL, max_tokens=100,
             system=("너는 리그 오브 레전드 내전 코치다. 주어진 사실만 근거로 이번 판 플레이 방향을 "
-                    "한국어 한 문장(40자 이내)으로 말한다. 인사·설명·따옴표·목록 없이 문장만."),
+                    "한국어 한 문장(40자 이내)으로 말한다. 인게임 브리핑 음성으로 그대로 읽히니까, "
+                    "전화 통화로 팀원에게 귀띔하듯 부드러운 해요체로 쓰고, 쉼표를 넣어 천천히 말하기 좋게 한다. "
+                    "인사·설명·따옴표·목록 없이 문장만."),
             messages=[{"role": "user", "content": _brief_prompt_facts(ctx)}])
         t = "".join(str(getattr(b, "text", "") or "") for b in (getattr(r, "content", None) or [])).strip()
         t = re.sub(r"^[\s\"'“”‘’\-•·]+|[\s\"'“”‘’]+$", "", t.split("\n")[0]).strip()
