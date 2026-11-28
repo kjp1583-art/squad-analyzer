@@ -5,7 +5,8 @@
 롤 클라이언트 없이 돈다. DraftEngine 은 순수 로직이라 가짜 로비(이름 목록 + now 함수)만 주면
 전체 흐름을 끝까지 돌릴 수 있다. LCU 층은 응답 dict 를 직접 넣어 확인한다.
 
-검사: 가위바위보 승패·무승부 재대결·표기(묵/찌/빠/이모지), 선/후, 블루/레드, 1-2-2-2-1 순서,
+검사: 가위바위보 승패·무승부 재대결·표기(묵/찌/빠/이모지)·초성 반복(ㅉㅉㅉㅉ/ㅁㅁㅁㅁ/ㅂㅂㅂㅂ/ㅃㅃㅃㅃ),
+      카운트다운 '3' · '2' · '1' · '가위바위보!' 순차 전송, 선/후, 블루/레드, 1-2-2-2-1 순서,
       남은 1명 선 팀 자동 배정, 번호 파싱, 줄임말(맛장유→맛동산장인유미)·모호한 줄임말 재요청,
       비차례 발언·이미 뽑힌 인원·로비 밖 인원 무시, 시간 초과 재안내/중단,
       관전 슬롯(customSpectators) 판별과 참가 10명 확정 규칙(11~12명 방).
@@ -48,6 +49,18 @@ def test_parsing():
           ld.parse_rps("3.. 2.. 1.. 가위바위보!") is None and ld.parse_rps("가위바위보") is None)
     check("두 손을 같이 쓴 줄은 무시", ld.parse_rps("가위 바위") is None and ld.parse_rps("가위/보") is None)
     check("잡담은 손이 아님", ld.parse_rps("가는중") is None and ld.parse_rps("ㅋㅋ") is None)
+
+    # [2026-11-29 사장님 제보 "ㅉㅉㅉㅉ, ㅁㅁㅁㅁ 해도 인식을 못하네?"] 초성·반복 입력
+    check("초성 반복: ㅉ=가위 · ㅁ=바위 · ㅂ/ㅃ=보",
+          [ld.parse_rps(x) for x in ("ㅉ", "ㅉㅉ", "ㅉㅉㅉㅉ", "ㅁ", "ㅁㅁㅁㅁ", "ㅂㅂㅂㅂ", "ㅃㅃㅃㅃ")]
+          == ["가위", "가위", "가위", "바위", "바위", "보", "보"])
+    check("같은 손 반복: 찌찌찌 · 묵묵묵 · 빠빠빠 · 가위가위 · 바위바위 · 보보보",
+          [ld.parse_rps(x) for x in ("찌찌찌", "묵묵묵", "빠빠빠", "가위가위", "바위바위", "보보보")]
+          == ["가위", "바위", "보", "가위", "바위", "보"])
+    check("반복 표기도 공백·느낌표 허용", ld.parse_rps(" ㅉㅉㅉ ") == "가위" and ld.parse_rps("묵묵묵!") == "바위")
+    check("서로 다른 손이 섞이면 거름(찌묵 · ㅉㅁ · ㅁㅂ · 가위바위보)",
+          all(ld.parse_rps(x) is None for x in ("찌묵", "ㅉㅁ", "ㅁㅂ", "보가위", "가위바위보")))
+    check("카운트 숫자는 손이 아님", all(ld.parse_rps(x) is None for x in ("3", "2", "1", "가위바위보!")))
 
     check("가위>보 · 바위>가위 · 보>바위",
           (ld.rps_result("가위", "보"), ld.rps_result("바위", "가위"), ld.rps_result("보", "바위")) == (1, 1, 1))
@@ -99,8 +112,8 @@ def test_engine_basics():
 
     eng = ld.DraftEngine(TEN, now=Clock())
     eng.start()
-    check("시작하자마자 가위바위보 카운트가 나감",
-          "가위바위보" in eng.sent[0] and "3.. 2.. 1.." in eng.sent[0])
+    check("시작하자마자 가위바위보 안내가 나감",
+          "가위바위보" in eng.sent[0] and "(먼저 내는 2명이 팀장)" in eng.sent[0], eng.sent[:2])
 
     eng.feed("김철수", "가위")
     check("한 명만 냈을 때는 아직 팀장 확정 전", eng.phase == "rps" and not eng.winner)
@@ -229,13 +242,61 @@ def test_ignored_and_errors():
           (eng.teams["레드"], eng.sent[-1]))
 
 
+def test_countdown_lines():
+    """[2026-11-29 사장님 지시] 카운트다운을 '3' '2' '1' '가위바위보!' 로 각각 따로, 1초 간격으로 보낸다."""
+    clk = Clock()
+    eng = ld.DraftEngine(TEN, now=clk)
+    eng.start()
+    check("안내문 다음에 '3' 이 바로 따로 나감(한 줄에 몰아 보내지 않음)",
+          eng.sent[:2] == ["🎲 팀장 가위바위보! (먼저 내는 2명이 팀장)", "3"], eng.sent[:3])
+    check("'2'·'1'·'가위바위보!' 는 큐에 대기(전송 함수가 한 번도 막히지 않음)", len(eng.sent) == 2, eng.sent)
+    got = ["3"]
+    for _ in range(3):
+        clk.tick(ld.DraftEngine.COUNTDOWN_GAP)
+        eng.tick()
+        got.append(eng.sent[-1])
+    check("'3' → '2' → '1' → '가위바위보!' 순서로 한 줄씩", got == ["3", "2", "1", "가위바위보!"], got)
+    check("카운트가 끝나도 가위바위보 단계 유지", eng.phase == "rps")
+    check("응답 대기(deadline)는 카운트가 끝난 시점부터 셈",
+          abs(eng.deadline - (clk.t + ld.DraftEngine.RPS_WAIT)) < 0.01, (eng.deadline, clk.t))
+    check("카운트 중에도 사람 손은 그대로 받음",
+          (eng.feed(TEN[1], "묵묵묵"), eng.rps_round) == (None, [(TEN[1], "바위")]), eng.rps_round)
+
+    # 판정이 나면 남은 카운트 줄은 보내지 않는다(판정 뒤 로비에 '1' · '가위바위보!' 가 튀지 않게)
+    clk2 = Clock()
+    eng2 = ld.DraftEngine(TEN, now=clk2)
+    eng2.start()
+    eng2.feed(TEN[1], "ㅁㅁㅁㅁ")
+    eng2.feed(TEN[2], "ㅉㅉㅉㅉ")
+    check("초성 반복으로도 판정 — ㅁ(바위) > ㅉ(가위)", eng2.winner == TEN[1] and eng2.phase == "side",
+          (eng2.winner, eng2.phase))
+    n_before = len(eng2.sent)
+    for _ in range(4):
+        clk2.tick(ld.DraftEngine.COUNTDOWN_GAP)
+        eng2.tick()
+    check("판정 뒤 남은 카운트 줄은 보내지 않음", len(eng2.sent) == n_before, eng2.sent[n_before:])
+
+    # 재대결·응답 없음 재시도도 같은 방식으로 한 줄씩
+    clk3 = Clock()
+    eng3 = ld.DraftEngine(TEN, now=clk3)
+    eng3.start()
+    eng3.feed(TEN[1], "ㅁㅁㅁㅁ")
+    eng3.feed(TEN[2], "ㅁ")
+    check("무승부 안내는 따로 나가고 카운트는 '3' 부터 다시",
+          "무승부" in eng3.sent[-2] and eng3.sent[-1] == "3", eng3.sent[-2:])
+    clk3.tick(ld.DraftEngine.COUNTDOWN_GAP)
+    eng3.tick()
+    check("무승부 재대결 카운트도 한 줄씩", eng3.sent[-1] == "2", eng3.sent[-1])
+
+
 def test_timeout():
     clk = Clock()
     eng = ld.DraftEngine(TEN, now=clk)
     eng.start()
-    clk.tick(ld.DraftEngine.RPS_WAIT + 1)
+    clk.tick(ld.DraftEngine.COUNTDOWN_GAP * (len(ld.DraftEngine.COUNTDOWN) - 1) + ld.DraftEngine.RPS_WAIT + 1)
     eng.tick()
-    check("가위바위보 응답이 없으면 다시 카운트", "3.. 2.. 1.." in eng.sent[-1] and eng.phase == "rps")
+    check("가위바위보 응답이 없으면 다시 카운트", "다시 카운트" in eng.sent[-2] and eng.sent[-1] == "3"
+          and eng.phase == "rps", eng.sent[-2:])
     eng.feed(TEN[1], "바위")
     for _ in range(4):
         clk.tick(ld.DraftEngine.RPS_WAIT + 1)
@@ -568,6 +629,7 @@ def test_compile():
 def main():
     test_parsing()
     test_engine_basics()
+    test_countdown_lines()
     test_full_flow()
     test_tie_and_redeal()
     test_abbreviation_and_ambiguity()

@@ -15,7 +15,9 @@
 진행 순서
   ⓪ (2026-11-27 추가 지시) 방에 11~12명이 있는 경우가 있다 — 관전 슬롯(customSpectators)을 먼저 관전자로
      표시하고, 참가자가 정확히 10명이 아니면 호스트가 관전자를 체크/해제하는 선택 창으로 10명을 확정한다.
-  ① 로비 채팅에 '3.. 2.. 1.. 가위바위보!' → 먼저 낸 2명이 팀장 (무승부면 그 둘만 재대결)
+  ① 로비 채팅에 '3' '2' '1' '가위바위보!' 를 한 줄씩 → 먼저 낸 2명이 팀장 (무승부면 그 둘만 재대결)
+     [2026-11-29 사장님 지시] "카운트다운이 3 엔터 2 엔터 1 엔터 이렇게해야할거같고" — 한 줄에 몰아 보내지 않고
+     약 1초 간격으로 나눠 보낸다(tick 이 큐에서 꺼내 보내므로 폴링 스레드는 멈추지 않는다).
   ② 승자가 '선'/'후' 선택 → 선 팀장이 '블루'/'레드' 선택(진영 선택권)
   ③ 팀장 둘을 뺀 나머지에게 1..N 번호를 붙여 공지
   ④ 선1 → 후2 → 선2 → 후2 … 남은 1명은 선 팀 자동 배정 (사장님 규칙 그대로)
@@ -69,15 +71,48 @@ RPS_HANDS = ("가위", "바위", "보")
 RPS_BEATS = {"가위": "보", "바위": "가위", "보": "바위"}      # key 가 value 를 이긴다
 _RPS_TOKENS = {
     "가위": "가위", "찌": "가위", "✌": "가위", "scissors": "가위", "sci": "가위",
+    "ㅉ": "가위",                                              # ㅉㅉㅉㅉ = 찌찌찌찌 = 가위
     "바위": "바위", "묵": "바위", "주먹": "바위", "✊": "바위", "rock": "바위",
+    "ㅁ": "바위",                                              # ㅁㅁㅁㅁ = 묵묵묵묵 = 바위
     "보": "보", "빠": "보", "보자기": "보", "손바닥": "보", "✋": "보", "paper": "보",
+    "ㅂ": "보", "ㅃ": "보",                                    # ㅂㅂㅂ · ㅃㅃㅃㅃ = 빠빠빠 = 보
 }
+# 긴 표기부터 맞춰 본다('보자기' 를 '보'+'자기' 로 쪼개지 않게).
+_RPS_UNITS = sorted(_RPS_TOKENS.items(), key=lambda kv: (-len(kv[0]), kv[0]))
+
+
+def _rps_repeat(tok):
+    """같은 손을 이어 친 한 덩어리 → 손. 'ㅉㅉㅉㅉ' · '찌찌찌' · '보보보' · '가위가위' 를 읽는다.
+
+    서로 다른 손이 섞인 덩어리('가위바위보' · '찌묵' · 'ㅉㅁ')는 어느 손인지 알 수 없어 None.
+    """
+    hand, pos, n = "", 0, 0
+    while pos < len(tok):
+        for unit, h in _RPS_UNITS:
+            if tok.startswith(unit, pos):
+                if hand and h != hand:
+                    return None
+                hand, pos, n = h, pos + len(unit), n + 1
+                break
+        else:
+            return None                                  # 손 표기가 아닌 글자가 섞임
+    return hand if n else None
 
 
 def parse_rps(body):
-    """'가위'/'바위'/'보' 한 손만 인정 — '가위바위보!' 같은 카운트 문장은 손이 아니다."""
-    tok = _single(body)
-    return _RPS_TOKENS.get(tok) if tok else None
+    """'가위'/'바위'/'보' 한 손만 인정 — '가위바위보!' 같은 카운트 문장은 손이 아니다.
+
+    2026-11-29 사장님 제보 "ㅉㅉㅉㅉ, ㅁㅁㅁㅁ 해도 인식을 못하네?" —
+    초성(ㅉ=찌=가위, ㅁ=묵=바위, ㅂ/ㅃ=빠=보)과 같은 손의 반복 입력도 한 손으로 읽는다.
+    다른 손이 섞이면(예: '찌묵', 'ㅉㅁ') 종전처럼 거른다.
+    """
+    hands = set()
+    for tok in split_tokens(body):
+        h = _rps_repeat(tok)
+        if not h:
+            return None
+        hands.add(h)
+    return hands.pop() if len(hands) == 1 else None
 
 
 def rps_result(a, b):
@@ -295,12 +330,14 @@ def draft_order(n_players):
 class DraftEngine:
     """로비 채팅 한 줄씩을 먹여 팀뽑을 진행하는 상태 기계. 네트워크·Tk 를 모른다."""
 
-    RPS_WAIT = 25.0        # 카운트 후 2명이 낼 때까지 기다리는 시간
+    RPS_WAIT = 25.0        # 카운트가 끝난('가위바위보!') 뒤 2명이 낼 때까지 기다리는 시간
     RPS_TRIES = 3          # 다시 카운트하는 최대 횟수
     ASK_WAIT = 60.0        # 선/후 · 진영 선택 대기
     ASK_TRIES = 4          # 같은 질문을 다시 하는 최대 횟수
     PICK_WAIT = 75.0       # 한 차례 지목 대기
     PICK_TRIES = 5         # 같은 차례를 다시 안내하는 최대 횟수(넘으면 중단)
+    COUNTDOWN = ("3", "2", "1", "가위바위보!")   # 한 줄씩 따로 — "3 엔터 2 엔터 1 엔터"(사장님 지시)
+    COUNTDOWN_GAP = 1.0    # 줄 사이 간격(초) — 롤 채팅에 한꺼번에 몰리지 않게
 
     def __init__(self, names, send=None, now=None, stats=None):
         self.names = [str(n).strip() for n in (names or []) if str(n or "").strip()]
@@ -333,6 +370,7 @@ class DraftEngine:
         self.pick_tries = 0
         self.deadline = 0.0
         self._noticed = set()
+        self._pending = []      # [(보낼 시각, 문구)] — 카운트다운을 한 줄씩 순서대로 보내는 큐
 
     # ── 바깥으로 말하기 ──
     def says(self, text):
@@ -361,18 +399,37 @@ class DraftEngine:
         self.tries = 0
         self.rps_round = []
         self.tie_pair = []
-        self._countdown("🎲 팀장 가위바위보! 3.. 2.. 1.. 가위바위보! (먼저 내는 2명이 팀장)")
+        self._countdown("🎲 팀장 가위바위보! (먼저 내는 2명이 팀장)")
         return self
 
-    def _countdown(self, text):
+    def _flush_pending(self):
+        """때가 된 대기 문구를 보낸다 — tick 마다 불러, 기다리는 동안에도 스레드가 막지 않는다."""
+        now = self.now()
+        while self._pending and now >= self._pending[0][0]:
+            _due, text = self._pending.pop(0)
+            self.says(text)
+
+    def _countdown(self, header):
+        """안내 한 줄을 보내고 '3' '2' '1' '가위바위보!' 를 각각 따로, 1초 간격으로 큐에 넣는다.
+
+        [2026-11-29 사장님 지시] "내전진행 눌러서 카운트다운이 3 엔터 2 엔터 1 엔터 이렇게해야할거같고" —
+        한 줄에 '3.. 2.. 1.. 가위바위보!' 를 몰아 보내면 사람들이 낄 틈이 없다. 실제 전송은 tick 이 하므로
+        1.2초 폴링 루프가 멈추지 않고, 응답 대기(deadline)는 '가위바위보!' 가 나간 뒤부터 센다.
+        """
         self.tries += 1
-        self.deadline = self.now() + self.RPS_WAIT
-        self.says(text)
+        self._pending = []
+        self.says(header)
+        base = self.now()
+        for i, text in enumerate(self.COUNTDOWN):
+            self._pending.append((base + i * self.COUNTDOWN_GAP, text))
+        self.deadline = base + (len(self.COUNTDOWN) - 1) * self.COUNTDOWN_GAP + self.RPS_WAIT
+        self._flush_pending()                          # '3' 은 바로 (나머지는 tick 이 시각 맞춰)
 
     def abort(self, reason="중단"):
         self.reason = str(reason)
         if self.phase not in ("done", "aborted"):
             self.phase = "aborted"
+            self._pending = []
             self.says("⛔ 내전진행 중단 — " + str(reason))
 
     # ── 채팅 한 줄 ──
@@ -416,12 +473,13 @@ class DraftEngine:
             self.tie_pair = [na, nb]
             self.rps_round = []
             self.tries = 0
-            self._countdown(f"🤝 무승부! {na} · {nb} 한 번 더 — 3.. 2.. 1.. 가위바위보!")
+            self._countdown(f"🤝 무승부! {na} · {nb} 한 번 더")
             return
         win, lose = (na, nb) if res > 0 else (nb, na)
         self.captains = [win, lose]
         self.winner, self.loser = win, lose
         self.tie_pair = []
+        self._pending = []                               # 판정됐으면 남은 카운트 줄은 보내지 않는다
         self.says(f"👑 팀장 확정 — {win}(승) · {lose}  ({ha} vs {hb})")
         self.phase = "side"
         self.ask_tries = 0
@@ -588,6 +646,7 @@ class DraftEngine:
 
     # ── 시간 초과 ──
     def tick(self):
+        self._flush_pending()
         if self.phase in ("idle", "done", "aborted"):
             return
         if self.now() < self.deadline:
@@ -598,9 +657,8 @@ class DraftEngine:
                 return
             got = [n for n, _h in self.rps_round]
             left = 2 - len(got)
-            self._countdown(("⏳ 아직 " + str(left) + "명! " + "·".join(got)
-                             + " 기다릴게요 — 3.. 2.. 1.. 가위바위보!") if got
-                            else "⏳ 아직 2명! 3.. 2.. 1.. 가위바위보!")
+            self._countdown((f"⏳ 아직 {left}명! {' · '.join(got)} — 다시 카운트합니다") if got
+                            else "⏳ 아직 2명! — 다시 카운트합니다")
         elif self.phase in ("side", "color"):
             self.ask_tries += 1
             if self.ask_tries > self.ASK_TRIES:
