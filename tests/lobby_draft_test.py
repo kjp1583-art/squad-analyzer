@@ -14,6 +14,7 @@
 import os
 import py_compile
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -614,6 +615,192 @@ def test_lcu_shapes():
     check("실행기: 중단하면 스레드가 멈춘다", not runner.alive())
 
 
+# ──────────── 6. 호스트 본인 채팅 · LCU 발신자 식별 (2026-11-29 제보) ────────────
+#   "가위바위보 채팅쳐도 인식을 못하네?" — 내전진행을 누른 본인 채팅이 전부 버려지던 버그.
+ME = TEN[0]          # 맛동산장인유미 — 분석기를 켜고 '내전진행'을 누른 호스트
+
+
+class EchoLcu:
+    """로비 채팅을 닮은 LCU 클라이언트 — 보낸 말이 곧바로 채팅 목록에 되돌아온다(실제 롤과 같다)."""
+
+    def __init__(self, me, my_id, parts, echo=True):
+        self._me = me
+        self.my_id = my_id
+        self.parts = parts
+        self.echo = echo
+        self.msgs = []
+        self.sent = []
+        self.cid = "cid"
+
+    def connect(self):
+        return True
+
+    def me(self):
+        return {"id": self.my_id, "gameName": self._me}
+
+    def chat_id(self):
+        return self.cid
+
+    def messages(self):
+        return list(self.msgs)
+
+    def participants(self):
+        return ld.chat_participant_names(self.parts) if isinstance(self.parts, list) else dict(self.parts)
+
+    def send(self, text):
+        self.sent.append(text)
+        if self.echo:                    # 내가 보낸 안내문이 내 이름으로 채팅 목록에 다시 나온다
+            self.msgs.append({"id": f"bot{len(self.msgs)}", "type": "chat", "body": text,
+                              "fromId": self.my_id, "fromPid": "pid-1@kr.pvp.net",
+                              "fromSummonerName": self._me})
+        return True
+
+    def say(self, from_id, body, name=None, **ids):
+        m = {"id": f"m{len(self.msgs)}", "type": "chat", "body": body}
+        if from_id:
+            m["fromId"] = from_id
+        if name:
+            m["fromSummonerName"] = name
+        m.update(ids)
+        self.msgs.append(m)
+        return m
+
+
+def manual_runner(client, names, clk=None):
+    """스레드 없이 _pump 를 직접 돌리는 실행기 — _run 이 하던 초기화만 옮겨 온다."""
+    r = ld.DraftRunner(client=client, interval=0.01, names=names)
+    mine = client.me()
+    r._me, r._my_id = str(mine.get("gameName") or ""), str(mine.get("id") or "")
+    r.engine = ld.DraftEngine(names, send=r._chat_send, now=clk or Clock())
+    r.engine.start()
+    r._pump()                            # 첫 폴링 = 시작 전 대화 프라임
+    return r
+
+
+def record_feed(runner):
+    """엔진에 실제로 들어간 (발신자, 본문) 을 모은다."""
+    fed = []
+    orig = runner.engine.feed
+
+    def rec(who, body):
+        fed.append((who, body))
+        orig(who, body)
+
+    runner.engine.feed = rec
+    return fed
+
+
+def test_host_own_chat():
+    parts = {f"id{i + 1}": n for i, n in enumerate(TEN)}
+    c = EchoLcu(ME, "id1", parts)
+    r = manual_runner(c, TEN)
+    fed = record_feed(r)
+
+    check("봇 안내문 에코(시작 전 히스토리)는 엔진에 먹이지 않음", fed == [], fed)
+    check("봇이 보낸 문구는 에코를 받으면 기억에서 지운다", r._bot_sent == [], r._bot_sent)
+
+    c.say("id1", "ㅉㅉㅉㅉ")                     # 호스트 본인이 직접 친 가위
+    r._pump()
+    check("호스트 본인 채팅이 엔진에 들어간다", (ME, "ㅉㅉㅉㅉ") in fed, fed)
+    check("한 명만 냈으면 아직 팀장 확정 전", r.engine.phase == "rps" and not r.engine.captains)
+
+    c.say("id2", "ㅂㅂㅂㅂ")                     # 김철수의 보 — 호스트 가위가 이긴다
+    r._pump()
+    check("호스트가 낸 가위도 인식돼 판정이 끝난다",
+          r.engine.captains == [ME, TEN[1]] and r.engine.phase == "side",
+          (r.engine.captains, r.engine.phase))
+
+    c.say("id1", "선")                          # 호스트(승자)가 선
+    r._pump()
+    check("호스트가 친 '선' 인식", r.engine.phase == "color" and r.engine.seon == ME,
+          (r.engine.phase, r.engine.seon))
+
+    c.say("id1", "블루")                         # 호스트가 진영
+    r._pump()
+    check("호스트가 친 '블루' 인식 → 지명 시작",
+          r.engine.phase == "draft" and r.engine.seon_color == "블루" and len(r.engine.roster) == 8,
+          (r.engine.phase, r.engine.seon_color))
+
+    # 지명 차례 — 호스트가 팀장이면 본인이 친 번호도 들어가야 한다
+    cap = r.engine._current_captain()
+    who_id = "id1" if cap == ME else [k for k, v in parts.items() if v == cap][0]
+    c.say(who_id, "3")
+    r._pump()
+    check("지명 차례에 본인이 친 '3' 도 인식", 3 in r.engine.taken, (cap, r.engine.taken))
+
+
+def test_participant_ids():
+    ps = [
+        {"id": "111", "pid": "pid-1@kr.pvp.net", "puuid": "pu-1-uuid", "summonerId": 111,
+         "gameName": "맛동산장인유미", "gameTag": "KR1"},
+        {"pid": "pid-2@kr.pvp.net", "puuid": "pu-2", "summonerId": 222, "gameName": "김철수"},
+        {"id": "333", "name": "이영희"},
+        {"lol": {"gameName": "박민수"}, "puuid": "pu-4"},
+        {"id": "", "gameName": ""},
+    ]
+    m = ld.chat_participant_names(ps)
+    check("id·pid·puuid·summonerId·'@' 앞까지 전부 한 닉네임으로 매핑",
+          all(m.get(k) == "맛동산장인유미"
+              for k in ("111", "pid-1", "pid-1@kr.pvp.net", "pu-1-uuid")), m)
+    check("gameTag 가 있어도 닉네임은 gameName", m.get("pid-2") == "김철수" and m.get("pu-2") == "김철수", m)
+    check("id 없이 name 만 있는 참가자도 매핑", m.get("333") == "이영희", m)
+    check("lol 안에만 gameName 이 있어도 매핑", m.get("pu-4") == "박민수", m)
+    check("이름 없는 참가자는 매핑하지 않음", "" not in m and len(m) >= 9, m)
+
+    c = ld.LcuClient()
+    c.cid = "cid"
+    c.get = lambda path: ps               # LCU 응답을 그대로 준다
+    got = ld.LcuClient.participants(c)
+    check("LcuClient.participants 도 식별자 전부를 매핑",
+          got.get("pu-1-uuid") == "맛동산장인유미" and got.get("pid-2@kr.pvp.net") == "김철수", got)
+
+
+def test_pump_sender_ids():
+    """fromPid('@' 접미사)·puuid·fromSummonerName 만 있는 LCU 메시지도 발신자를 찾는지."""
+    raw = [{"id": "id1", "pid": "pid-1@kr.pvp.net", "summonerId": 111, "gameName": ME},
+           {"pid": "pid-2@kr.pvp.net", "summonerId": 222, "gameName": TEN[1]},
+           {"puuid": "pu-3", "summonerId": 333, "gameName": TEN[2]}]
+    c = EchoLcu(ME, "id1", raw, echo=False)
+    r = manual_runner(c, TEN)
+    fed = record_feed(r)
+
+    c.say(None, "바위", fromPid="pid-2@kr.pvp.net")          # fromId 없음 · '@' 접미사
+    c.say(None, "가위", fromPid="pu-3")                       # fromPid 가 puuid 모양으로
+    c.say(None, "보", name=TEN[3] + "#KR1")                  # 식별자 없이 fromSummonerName 만
+    r._pump()
+    check("fromPid('@' 포함) 로 발신자 식별", (TEN[1], "바위") in fed, fed)
+    check("fromPid 가 puuid 모양이어도 발신자 식별", (TEN[2], "가위") in fed, fed)
+    check("fromSummonerName 만 와도 발신자 식별(#태그 무시)", (TEN[3], "보") in fed, fed)
+
+    # 명단에 없고 이름도 없는 줄은 버린다(디버그 로그는 한 번만)
+    c.say(None, "ㅋㅋ", fromPid="pid-외부인@kr.pvp.net")
+    r._pump()
+    check("발신자를 못 찾는 줄은 건너뛰고 로그를 한 번만 남김",
+          not [x for x in fed if x[1] == "ㅋㅋ"] and any(k.startswith("who-") for k in r._dbg_once), r._dbg_once)
+
+
+def test_host_self_by_summoner_id():
+    """참가자 명단에 내가 없고 fromSummonerName 도 비어 있어도 내 소환사 ID 로 내 채팅을 알아본다."""
+    c = EchoLcu(ME, "111", {"id2": TEN[1]}, echo=False)
+    r = manual_runner(c, TEN)
+    fed = record_feed(r)
+    c.say(None, "ㅉㅉㅉㅉ", fromSummonerId=111)
+    r._pump()
+    check("내 소환사 ID 만으로 내 채팅 인식", (ME, "ㅉㅉㅉㅉ") in fed, fed)
+
+
+def test_bot_echo_filter():
+    r = ld.DraftRunner(client=EchoLcu(ME, "id1", {}), names=TEN)
+    r._me = ME
+    r._remember_bot_text("3")
+    r._remember_bot_text("3")
+    check("봇이 같은 문구를 두 번 보내면 두 번까지 에코로 봄",
+          (r._take_bot_echo(" 3 "), r._take_bot_echo("3"), r._take_bot_echo("3")) == (True, True, False))
+    r._bot_sent[:] = [(time.monotonic() - 999.0, "2")]
+    check("만료된 봇 문구는 에코로 보지 않음 — 호스트가 직접 친 같은 말은 먹인다",
+          r._take_bot_echo("2") is False)
+
+
 def test_compile():
     import tempfile
     tmp = tempfile.mkdtemp()
@@ -641,6 +828,11 @@ def main():
     test_engine_twelve_confirmed()
     test_recommendations()
     test_lcu_shapes()
+    test_host_own_chat()
+    test_participant_ids()
+    test_pump_sender_ids()
+    test_host_self_by_summoner_id()
+    test_bot_echo_filter()
     test_compile()
     print()
     if FAILS:
