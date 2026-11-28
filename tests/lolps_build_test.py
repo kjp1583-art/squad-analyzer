@@ -446,7 +446,76 @@ class RenderTest(unittest.TestCase):
         self.assertTrue(any("/img/item/3118.png" in u for u, _ in collapsed))
 
 
-# ── 5) Tk 카드 창(가짜 tkinter) ─────────────────────────────────────────
+# ── 4-2) 챔피언 이름표 ────────────────────────────────────────────────
+class ChampionNameTest(unittest.TestCase):
+    """[v83.89 사장님 제보] 파이크(555) 카드가 '챔피언 555' 로 뜨던 문제.
+
+    name_lookup(분석기의 _lolps_champ_name)이 빈 값을 줘도 lol.ps 응답의 한글명으로 채운다.
+    """
+
+    def setUp(self):
+        self.payload = L.parse_payload(load_fixture("lolps_pyke_supp_data.json.gz"))
+
+    def test_parse_reads_korean_name_from_lolps(self):
+        self.assertEqual(self.payload.champion_id, 555)
+        self.assertEqual(self.payload.lane_label, "서폿")
+        self.assertEqual(self.payload.champion_name, "파이크")
+        self.assertEqual(L.champion_name_of({}, 555), "")
+        self.assertEqual(L.champion_name_of(None, 555), "")
+        self.assertEqual(L.champion_name_of({"555": {"nameKr": "파이크"}}, 0), "")
+
+    def test_other_fixture_also_gets_name(self):
+        ahri = L.parse_payload(load_fixture("lolps_ahri_mid_data.json.gz"))
+        self.assertEqual(ahri.champion_name, "아리")
+
+    def test_card_name_falls_back_to_lolps_name(self):
+        self.assertEqual(L.card_name(self.payload, ""), "파이크")
+        self.assertEqual(L.card_name(self.payload, "   "), "파이크")
+        self.assertEqual(L.card_name(self.payload, "파이크(서폿)"), "파이크(서폿)")   # 넘어온 이름이 우선
+        bare = L.BuildPayload(champion_id=555)
+        self.assertEqual(L.card_name(bare, ""), "챔피언 555")      # 이름 출처가 아예 없을 때만 ID
+
+    def test_render_without_name_uses_lolps_name(self):
+        img = L.render_card(self.payload, fake_statics(), NoNetImages(), "")
+        self.assertEqual(img.size[0], 520)
+        img2 = L.render_collapsed(self.payload, fake_statics(), NoNetImages(), "")
+        self.assertEqual(img2.size, (520, 88))
+
+    def test_tracker_rechecks_name_before_render(self):
+        """피드 때 이름이 비었어도(맵 미탑재) 렌더 직전에 다시 조회해 채운다."""
+        tr = L.BuildTracker()
+        calls = []
+
+        def lookup(cid):
+            calls.append(cid)
+            return "" if len(calls) == 1 else "파이크"
+
+        tr.configure(champion_name_lookup=lookup)
+        tr.statics = fake_statics()
+        tr.images = NoNetImages()
+        tr._ensure_render_thread = lambda: None
+        tr.store._data[(555, 4)] = (self.payload, __import__("time").time())
+        tr.feed(555, "UTILITY")
+        self.assertEqual(tr.target_name, "")             # 첫 조회는 비었다(원래 사고 재현)
+        tr.request_render()
+        _sig, _rev, payload, name, _collapsed = tr._render_q.get_nowait()
+        self.assertEqual(payload.champion_id, 555)
+        self.assertEqual(name, "파이크")                    # 렌더 전에 다시 확인해 채운다
+
+    def test_tracker_keeps_lookup_name_when_present(self):
+        tr = L.BuildTracker()
+        tr.configure(champion_name_lookup=lambda cid: "파이크")
+        tr.statics = fake_statics()
+        tr.images = NoNetImages()
+        tr._ensure_render_thread = lambda: None
+        tr.store._data[(555, 4)] = (self.payload, __import__("time").time())
+        tr.feed(555, "UTILITY")
+        self.assertEqual(tr.target_name, "파이크")
+        tr.request_render()
+        self.assertEqual(tr._render_q.get_nowait()[3], "파이크")
+
+
+# ── 5) Tk 카드 창(가짜 tkinter) ─────────────────────────────────────────────
 class FakeLabel:
     def __init__(self, master=None, **kw):
         self.master = master

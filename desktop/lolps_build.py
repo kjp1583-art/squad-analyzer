@@ -261,6 +261,7 @@ class BuildPayload:
     variants: tuple = ()
     fetched_at: float = 0.0
     auto_lane: bool = False     # 포지션 미정 → 주 라인 데이터
+    champion_name: str = ""     # [v83.89] lol.ps 공용 레이아웃 championNames 의 한글명(예: '파이크')
 
     @property
     def primary(self):
@@ -269,6 +270,40 @@ class BuildPayload:
     @property
     def lane_label(self):
         return lane_name(self.lane)
+
+
+def champion_name_of(names, champion_id):
+    """lol.ps 공용 레이아웃의 championNames → 한글명. 키는 **문자열 ID** 다('555').
+
+    예: {'555': {'nameKr': '파이크', 'nameUs': 'Pyke', 'nameCn': ...}, ...}
+    없으면 "" — 모르는 값을 지어내지 않는다.
+    """
+    if not isinstance(names, dict):
+        return ""
+    cid = _int(champion_id, 0)
+    if cid <= 0:
+        return ""
+    entry = names.get(str(cid))
+    if entry is None:
+        entry = names.get(cid)
+    if isinstance(entry, dict):
+        return str(entry.get("nameKr") or entry.get("nameUs") or "").strip()
+    if isinstance(entry, str):
+        return entry.strip()
+    return ""
+
+
+def card_name(payload, champion_name=""):
+    """카드 이름표 — 부르는 쪽이 준 이름(ddragon) → lol.ps 가 준 한글명 → '챔피언 {ID}'.
+
+    [v83.89 사장님 제보] ddragon 맵이 비어 이름이 안 넘어와도 카드에 '챔피언 555' 가
+    남지 않게, lol.ps 응답에 들어 있던 한글명을 쓴다.
+    """
+    for cand in (champion_name, getattr(payload, "champion_name", "")):
+        txt = str(cand or "").strip()
+        if txt:
+            return txt
+    return f"챔피언 {getattr(payload, 'champion_id', 0)}"
 
 
 def parse_payload(payload):
@@ -285,6 +320,7 @@ def parse_payload(payload):
     versions = None
     page_data = None
     page_refs = None
+    champion_names = None      # 공용 레이아웃 노드의 championNames — 챔피언 한글명 폴백(이름표 사고 방지)
     for node in nodes:
         data, refs = _node_root_refs(node)
         if data is None or refs is None:
@@ -294,6 +330,13 @@ def parse_payload(payload):
                 got = devalue_resolve(data, refs["versionInfo"])
                 if isinstance(got, list):
                     versions = got
+            except Exception:
+                pass
+        if champion_names is None and "championNames" in refs:
+            try:
+                got = devalue_resolve(data, refs["championNames"])
+                if isinstance(got, dict):
+                    champion_names = got
             except Exception:
                 pass
         if page_refs is None and "champSummary" in refs:
@@ -374,6 +417,7 @@ def parse_payload(payload):
         ranking=_int(first_row.get("ranking"), 0),
         variants=tuple(variants),
         fetched_at=time.time(),
+        champion_name=champion_name_of(champion_names, champion_id),
     )
 
 
@@ -1103,7 +1147,7 @@ def render_card(payload, statics=None, icons=None, champion_name="", champion_ic
 
     # ── 이름표 ──
     prim = payload.primary
-    champ_title = str(champion_name or "").strip() or f"챔피언 {payload.champion_id}"
+    champ_title = card_name(payload, champion_name)
     lane_txt = payload.lane_label or ""
     sub_txt = " ".join(x for x in (lane_txt, f"패치 {payload.patch}" if payload.patch else "") if x)
 
@@ -1353,7 +1397,7 @@ def render_collapsed(payload, statics=None, icons=None, champion_name="", champi
     else:
         _rr(draw, (x, iy, x + ic, iy + ic), 8, fill=C_INPUT, outline=C_LINE)
     x += ic + 10
-    name = str(champion_name or "").strip() or f"챔피언 {payload.champion_id}"
+    name = card_name(payload, champion_name)
     draw.text((x, 22), _fit(draw, name, _font(15.5, True), 132), font=_font(15.5, True), fill=C_TEXT)
     sub = f"{payload.lane_label} · {payload.win_rate:.1f}% · {payload.sample:,}판"
     draw.text((x, 46), _fit(draw, sub, _font(11), 140), font=_font(11), fill=C_SUB)
@@ -1794,6 +1838,8 @@ class BuildTracker:
         payload, _status = self.store.peek(cid, lane)
         if payload is None:
             return
+        if not str(name or "").strip():      # [v83.89] 피드 때 이름이 비었어도 렌더 전에 한 번 더 본다
+            name = self._champion_name(cid)
         collapsed = bool(self.overlay.collapsed) if self.overlay else False
         sig = (rev, collapsed,
                self.statics.ready if self.statics else False,
@@ -1821,6 +1867,8 @@ class BuildTracker:
                 return
             try:
                 champion_icon = None
+                if not str(name or "").strip():     # [v83.89] 이름 조회를 렌더 직전에 한 번 더(늦게 차는 맵 대비)
+                    name = self._champion_name(payload.champion_id)
                 try:
                     champion_icon = self.images.load(
                         "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/%d.png"

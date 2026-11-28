@@ -5085,21 +5085,33 @@ _LOLPS_BOOT = [False]
 
 
 def _lolps_champ_name(cid):
-    """숫자 챔피언 ID → 한글명(이미 받아 둔 champ_map 재사용, 네트워크 없음)."""
+    """숫자 챔피언 ID → 한글명(이미 받아 둔 Data Dragon 맵 재사용, 네트워크 없음).
+
+    ⚠️ [v83.89 사장님 제보] `champ_map` 은 LCU 폴링 루프(lcu_core_backend_loop)의 지역 변수라
+    모듈 전역에는 없다. 여기서 그 이름을 읽으면 NameError 로 이 함수가 통째로 죽고, 카드는
+    이름 없이 '챔피언 555' 로 그려졌다(파이크). 전역 맵(global_champ_map·GLOBAL_NUMERIC_CHAMP_MAP)
+    만 안전하게 조회하고, 둘 다 비어 있으면 빈 문자열을 준다(카드 쪽이 lol.ps 이름으로 폴백).
+    """
     try:
         _i = int(cid)
     except Exception:
         return ""
-    for _m in (champ_map, GLOBAL_NUMERIC_CHAMP_MAP):
-        try:
-            _v = _m.get(_i)
-        except Exception:
-            _v = None
-        if isinstance(_v, dict):
-            return str(_v.get("kor") or "")
-        if isinstance(_v, str):
-            return _v
-    return ""
+    if _i <= 0:
+        return ""
+    try:
+        _e = global_champ_map.get(_i)
+    except Exception:
+        _e = None
+    if isinstance(_e, dict):
+        _kor = str(_e.get("kor") or "").strip()
+        if _kor:
+            return _kor
+    elif isinstance(_e, str) and _e.strip():
+        return _e.strip()
+    try:
+        return str(GLOBAL_NUMERIC_CHAMP_MAP.get(_i) or "").strip()
+    except Exception:
+        return ""
 
 
 def _lolps_dock_rect():
