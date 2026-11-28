@@ -11285,8 +11285,8 @@ function myeol10BracketHtml(cfg, nowMs){
     const winA=!!(ser&&ser.win&&_embNk(ser.win)===_embNk(a)), winB=!!(ser&&ser.win&&_embNk(ser.win)===_embNk(b));
     const tk=ser&&ser.win?"done":(now>=+new Date(AT[stage])?"live":"soon");
     const dots=ser?`<span class="m10-sets" aria-label="세트 결과">${ser.sets.map((x,i)=>`<i class="${x.a?"w":"l"}" title="${i+1}세트 ${esc(x.a?a:b)} 승"></i>`).join("")}</span>`:"";
-    return `<div class="m10-m${big?" fin":""}${tk==="soon"?" pre":""}">
-      <div class="m10-m-lb"><span>${esc(label)}</span>${tag(tk,tk==="soon"?WHEN[stage]:null)}${dots}</div>
+    return `<div class="m10-m${big?" fin":""}${tk==="soon"?" pre":""}"${tk==="soon"?` title="${esc(WHEN[stage])}"`:""}>
+      <div class="m10-m-lb"><span>${esc(label)}</span>${tag(tk)}${dots}</div>
       ${tRow(a,ser?ser.wa:null,winA,tbd0&&tbd0[0])}${tRow(b,ser?ser.wb:null,winB,tbd0&&tbd0[1])}
     </div>`;
   };
@@ -14974,7 +14974,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611290400";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611290410";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
