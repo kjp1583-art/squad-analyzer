@@ -11138,7 +11138,12 @@ function myeolGroups10Html(cfg){
   const S=_myeolScrimsFor(cfg); const cut=_myeolMainCut(10); const list=(S&&cut)?S.list.filter(m=>m.day>=cut):[];
   const cards=GR.map(G=>{
     const names=G.caps.map(c=>capOf.get(_embNk(c))||c), nks=names.map(_embNk);
-    const ms=list.concat(_myeolForfeits(10)).filter(m=>nks.includes(_embNk(m.win))&&nks.includes(_embNk(m.lose)));
+    // 🎯 [2026-11-29 사장님 「택스, 하오 승패가 2-2로 되있는 문제」] 조별 풀리그는 조 안에서 한 번씩(단판) — 같은 두 팀이 본선 개막 뒤 여러 판 붙었으면
+    //    **첫 판만** 공식 경기로 센다(그 뒤 판은 연습·재경기라 승패표에 섞이면 2-2·3-0 처럼 보인다). 몰수 기록이 있는 두 팀은 몰수가 우선.
+    const pk=m=>[_embNk(m.win),_embNk(m.lose)].sort().join("|"), seen=new Set();
+    const ms=_myeolForfeits(10).concat(list.slice().sort((x,y)=>x.day-y.day||String(x.gid).localeCompare(String(y.gid))))
+      .filter(m=>nks.includes(_embNk(m.win))&&nks.includes(_embNk(m.lose)))
+      .filter(m=>{ const k=pk(m); if(seen.has(k)) return false; seen.add(k); return true; });
     const res=(a,b)=>{ const w=ms.filter(m=>_embNk(m.win)===a&&_embNk(m.lose)===b).length, l=ms.filter(m=>_embNk(m.win)===b&&_embNk(m.lose)===a).length, ff=ms.some(m=>m.ff&&[a,b].includes(_embNk(m.win))&&[a,b].includes(_embNk(m.lose))); return w||l?{w,l,ff}:null; };
     const rec=nks.map(k=>({k,w:ms.filter(m=>_embNk(m.win)===k).length,l:ms.filter(m=>_embNk(m.lose)===k).length}));
     const order=rec.map((r,i)=>({...r,i})).sort((x,y)=>(y.w-x.w)||(x.l-y.l)||(x.i-y.i)); const rk=new Map(order.map((r,n)=>[r.k,n+1]));
@@ -14796,7 +14801,7 @@ function hofPatch(p){HOF.patch=p;renderHOF();}
       lastY=y; },{passive:true});
   }catch(e){}
 })();
-const BUILD_ID="202611281945";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
+const BUILD_ID="202611290345";   // 배포 스크립트가 커밋 시점 타임스탬프로 치환
 let _newBuildNotified=false, _buildEtag=null, _lastBuildChk=0;
 async function checkNewBuild(){
   if(location.protocol!=="https:"||_newBuildNotified||BUILD_ID==="__BUILD_"+"ID__") return;
